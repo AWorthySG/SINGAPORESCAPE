@@ -59,5 +59,12 @@ function frame() {
 }
 requestAnimationFrame(frame);
 
+// Title / splash screen dismissal.
+const splash = document.getElementById('splash');
+const splashEnter = document.getElementById('splash-enter');
+function hideSplash() { splash && splash.classList.add('hidden'); }
+splashEnter && splashEnter.addEventListener('click', hideSplash);
+splash && splash.addEventListener('click', (e) => { if (e.target === splash) hideSplash(); });
+
 // Expose for debugging in the console.
 window.SS = { game, ui, renderer };

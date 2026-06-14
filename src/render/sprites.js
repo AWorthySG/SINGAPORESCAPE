@@ -203,6 +203,7 @@ export function drawObjectSprite(ctx, obj, cx, cy, time = 0) {
     case 'furnace': return furnace(ctx, cx, cy, time);
     case 'anvil': return anvil(ctx, cx, cy);
     case 'bank': return bank(ctx, cx, cy);
+    case 'shrine': return shrine(ctx, cx, cy, time);
     case 'scenery': return scenery(ctx, obj.objId, cx, cy, time);
     default: return;
   }
@@ -349,6 +350,36 @@ function bank(ctx, cx, cy) {
   ctx.fillText('BANK', cx, cy - 11); ctx.textBaseline = 'alphabetic';
   // posts
   ctx.fillStyle = '#6b4524'; rr(ctx, cx - 12, cy - 16, 3, 16, 1); ctx.fill(); rr(ctx, cx + 9, cy - 16, 3, 16, 1); ctx.fill();
+}
+
+// The "A Worthy" logo as a town monument: a blue archway with a plus, on a stone plinth.
+function shrine(ctx, cx, cy, time) {
+  drawShadow(ctx, cx, cy + 13, 16, 5);
+  const blue = '#2b5c91', dark = '#21466e';
+  // soft worthy-blue aura
+  glow(ctx, cx, cy - 6, 26, 'rgba(70,130,200,0.20)');
+  // stone plinth
+  ctx.fillStyle = '#8a8378'; rr(ctx, cx - 13, cy + 6, 26, 9, 2); ctx.fill(); line(ctx, 'rgba(40,36,30,0.5)', 1.5);
+  ctx.fillStyle = '#9a948a'; rr(ctx, cx - 10, cy + 3, 20, 4, 2); ctx.fill();
+  // archway (logo mark)
+  const arch = () => {
+    ctx.beginPath();
+    ctx.moveTo(cx - 9, cy + 4); ctx.lineTo(cx - 9, cy - 8);
+    ctx.quadraticCurveTo(cx - 9, cy - 21, cx, cy - 21);
+    ctx.quadraticCurveTo(cx + 9, cy - 21, cx + 9, cy - 8);
+    ctx.lineTo(cx + 9, cy + 4);
+  };
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = dark; ctx.lineWidth = 9; arch(); ctx.stroke();
+  ctx.strokeStyle = blue; ctx.lineWidth = 6; arch(); ctx.stroke();
+  ctx.lineCap = 'butt';
+  // plus inside the arch
+  ctx.fillStyle = blue;
+  rr(ctx, cx - 5, cy - 13, 10, 3, 1); ctx.fill();
+  rr(ctx, cx - 1.5, cy - 17, 3, 11, 1); ctx.fill();
+  // glint
+  ctx.fillStyle = 'rgba(255,255,255,0.45)';
+  circle(ctx, cx - 6, cy - 14, 1); ctx.fill();
 }
 
 function scenery(ctx, objId, cx, cy, time) {

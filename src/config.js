@@ -14,3 +14,5 @@ export const AGGRO_FORGET_TILES = 12;
 
 export const SAVE_KEY = 'singaporescape:save:v1';
 export const AUTOSAVE_TICKS = 50;  // autosave every ~30s
+
+export const XP_RATE = 3;          // global experience multiplier for snappier progression

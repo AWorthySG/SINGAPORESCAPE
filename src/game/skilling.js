@@ -1,5 +1,8 @@
 import { getItem } from '../data/items.js';
 import { clamp, weightedPick } from '../core/utils.js';
+import { TILE } from '../config.js';
+
+const objCenter = (obj) => ({ x: obj.x * TILE + TILE / 2, y: obj.y * TILE + TILE / 2 - 6 });
 
 // Cooking definitions: raw item -> result, level, xp, and the level at which it
 // stops burning. Range cooking is more forgiving than a fire.
@@ -31,6 +34,7 @@ export function resolveWoodcut(game, action) {
   if (Math.random() < gatherChance(def.lowChance, def.highChance, game.skills.level('woodcutting'))) {
     game.inventory.add(def.gives, 1);
     game.skills.addXp('woodcutting', def.xp);
+    const wc = objCenter(obj); game.spawnPoof(wc.x, wc.y, '#caa15a');
     game.msg(`You get some ${getItem(def.gives).name.toLowerCase()}.`);
     if (Math.random() < def.depleteChance) {
       obj.depleted = true;
@@ -54,6 +58,7 @@ export function resolveMine(game, action) {
   if (Math.random() < gatherChance(def.lowChance, def.highChance, game.skills.level('mining'))) {
     game.inventory.add(def.gives, 1);
     game.skills.addXp('mining', def.xp);
+    const mc = objCenter(obj); game.spawnPoof(mc.x, mc.y, def.ore || '#cfcfcf');
     game.msg(`You manage to mine some ${getItem(def.gives).name.toLowerCase()}.`);
     obj.depleted = true;
     obj.respawnTimer = def.respawn;
@@ -75,6 +80,7 @@ export function resolveFish(game, action) {
   if (Math.random() < gatherChance(pick.lowChance, pick.highChance, lvl)) {
     game.inventory.add(pick.id, 1);
     game.skills.addXp('fishing', pick.xp);
+    const fc = objCenter(obj); game.spawnPoof(fc.x, fc.y, '#bfe3ff');
     game.msg(`You catch a ${getItem(pick.id).name.replace(/^Raw /, '').toLowerCase()}.`);
   }
   return true; // fishing spots never deplete

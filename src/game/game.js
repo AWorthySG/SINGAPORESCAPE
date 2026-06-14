@@ -3,7 +3,7 @@ import { buildWorld } from '../data/world.js';
 import { getItem } from '../data/items.js';
 import { chebyshev, randInt, weightedPick, capitalize } from '../core/utils.js';
 import {
-  TICK_MS, RESPAWN_TICKS, AUTOSAVE_TICKS,
+  TILE, TICK_MS, RESPAWN_TICKS, AUTOSAVE_TICKS,
 } from '../config.js';
 
 import { World } from './world.js';
@@ -51,7 +51,11 @@ export class Game {
     this.running = false;
     this.runEnergy = 100;
     this.effects = [];
+    this.particles = [];
     this.hover = null;
+
+    // Celebratory sparkle on level up.
+    this.bus.on('levelup', () => this.spawnSparkle(this.player, '#ffe24a', 12));
 
     this.tickAcc = 0;
     this.tickCount = 0;
@@ -78,11 +82,17 @@ export class Game {
 
   newGame() {
     for (const id of STARTER_TOOLS) this.inventory.add(id, 1);
-    this.inventory.add('coins', 25);
-    this.inventory.add('kaya_toast', 3);
+    this.inventory.add('coins', 150);
+    this.inventory.add('kaya_toast', 5);
+    this.inventory.add('chicken_rice', 3);
+    // Start combat-ready so the early game isn't punishing.
+    this.equipment.set('weapon', 'bronze_scimitar');
+    this.equipment.set('shield', 'wooden_shield');
+    this.equipment.set('body', 'leather_body');
+    this.player.hp = this.skills.hitpoints;
     this.starterGiven = true;
     this.msg(`Welcome to ${this.world.townName}, an island of adventure!`, 'system');
-    this.msg('Talk to the Kampong Guide for help. Click the world to explore.', 'system');
+    this.msg('You are equipped and ready. Talk to the Kampong Guide for tips.', 'system');
   }
 
   giveStarter() {
@@ -142,7 +152,46 @@ export class Game {
     for (const e of this.effects) e.life -= dt;
     this.effects = this.effects.filter((e) => e.life > 0);
 
+    for (const p of this.particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += p.g * dt; p.life -= dt; }
+    if (this.particles.length) this.particles = this.particles.filter((p) => p.life > 0);
+
     this.updateHover();
+  }
+
+  // ---------------- Particles ----------------
+  _pushParticle(p) { this.particles.push(p); if (this.particles.length > 300) this.particles.shift(); }
+
+  spawnHitSparks(entity, color) {
+    const c = entity.renderCenter();
+    for (let i = 0; i < 7; i++) {
+      const a = Math.random() * Math.PI * 2, s = 0.04 + Math.random() * 0.08;
+      this._pushParticle({ x: c.x, y: c.y - 6, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 0.03, g: 0.0004, life: 380, maxLife: 380, size: 2 + Math.random() * 1.5, color, add: true });
+    }
+  }
+
+  spawnSparkle(entity, color, n = 8) {
+    const c = entity.renderCenter ? entity.renderCenter() : entity;
+    for (let i = 0; i < n; i++) {
+      this._pushParticle({ x: c.x + (Math.random() - 0.5) * 18, y: c.y + (Math.random() - 0.5) * 8, vx: (Math.random() - 0.5) * 0.02, vy: -0.03 - Math.random() * 0.03, g: 0, life: 700, maxLife: 700, size: 2 + Math.random() * 2, color, add: true });
+    }
+  }
+
+  spawnPoof(wx, wy, color) {
+    for (let i = 0; i < 5; i++) {
+      const a = Math.random() * Math.PI * 2, s = 0.02 + Math.random() * 0.05;
+      this._pushParticle({ x: wx, y: wy, vx: Math.cos(a) * s, vy: -0.02 - Math.random() * 0.03, g: 0.0002, life: 450, maxLife: 450, size: 2 + Math.random() * 2, color, add: false });
+    }
+  }
+
+  _spawnEmbers() {
+    for (const o of this.world.objects) {
+      if (o.def.type !== 'fire' && o.def.type !== 'furnace') continue;
+      if (Math.random() < 0.45) {
+        const wx = o.x * TILE + TILE / 2 + (Math.random() - 0.5) * 8;
+        const wy = o.y * TILE + TILE / 2 - 6;
+        this._pushParticle({ x: wx, y: wy, vx: (Math.random() - 0.5) * 0.01, vy: -0.03 - Math.random() * 0.02, g: -0.00002, life: 620, maxLife: 620, size: 1.4 + Math.random() * 1.4, color: '#ffae3a', add: true });
+      }
+    }
   }
 
   // ---------------- Game tick (600ms) ----------------
@@ -156,6 +205,7 @@ export class Game {
     }
     for (const n of this.npcs) n.tick(this);
     this.world.tick();
+    this._spawnEmbers();
 
     if (this.player.alive && ++this.regenCounter >= 100) {
       this.regenCounter = 0;
@@ -210,6 +260,12 @@ export class Game {
       case 'cookmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openCookMenu(a.obj));
       case 'smeltmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openSmeltMenu(a.obj));
       case 'smithmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openSmithMenu(a.obj));
+      case 'pray': return this._tickArrival(a, a.obj, true, () => {
+        this.player.hp = this.skills.hitpoints;
+        this.bus.emit('hp');
+        this.spawnSparkle(this.player, '#9adcff', 16);
+        this.msg('You kneel at the Worthy Monument. Your wounds are healed.', 'system');
+      });
       case 'openbank': return this._tickArrival(a, a.target, true, () => this.ui?.openBank());
       case 'openshop': return this._tickArrival(a, a.target, true, () => this.ui?.openShop(a.shop));
       case 'talk': return this._tickArrival(a, a.target, true, () => this.ui?.openDialogue(a.npc));
@@ -271,7 +327,7 @@ export class Game {
     const dmg = rollAttack(atkRoll, defRoll, max);
     npc.takeDamage(dmg);
     this.addHitsplat(npc, dmg);
-    if (dmg > 0) for (const x of combatXp(this.player.style, dmg)) this.skills.addXp(x.skill, x.xp);
+    if (dmg > 0) { this.spawnHitSparks(npc, '#fff2b0'); for (const x of combatXp(this.player.style, dmg)) this.skills.addXp(x.skill, x.xp); }
     this.player.attackCooldown = this.equipment.weaponSpeed();
     if (!npc.target) npc.target = this.player; // provoke retaliation
     if (npc.hp <= 0) { this.killNpc(npc); this.player.clearAction(); }
@@ -284,6 +340,7 @@ export class Game {
     const dmg = rollAttack(atkRoll, defRoll, max);
     p.takeDamage(dmg);
     this.addHitsplat(p, dmg);
+    if (dmg > 0) this.spawnHitSparks(p, '#ff8a8a');
     this.bus.emit('hp');
     if (p.autoRetaliate && (!p.action || p.action.type !== 'attack')) this.attackNpc(npc);
     if (p.hp <= 0) this.playerDeath();
@@ -387,6 +444,7 @@ export class Game {
       case 'furnace': return this.beginAction({ type: 'smeltmenu', obj, target: tgt }, tgt, true);
       case 'anvil': return this.beginAction({ type: 'smithmenu', obj, target: tgt }, tgt, true);
       case 'bank': return this.beginAction({ type: 'openbank', target: tgt }, tgt, true);
+      case 'shrine': return this.beginAction({ type: 'pray', obj }, tgt, true);
       default: return this.walkTo(tgt);
     }
   }

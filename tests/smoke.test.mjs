@@ -9,6 +9,7 @@ import { EventBus } from '../src/core/events.js';
 import { findPath } from '../src/engine/pathfinding.js';
 import { hitChance, maxHit, attackRoll, combatXp } from '../src/game/combat.js';
 import { gatherChance } from '../src/game/skilling.js';
+import { XP_RATE } from '../src/config.js';
 
 test('OSRS xp table matches known values', () => {
   assert.equal(xpForLevel(1), 0);
@@ -53,15 +54,27 @@ test('inventory respects capacity for non-stackables', () => {
   assert.equal(inv.canAdd('coins', 5), 0); // no slot for a new stack
 });
 
-test('skills start correctly and level up via xp', () => {
+test('skills start at the buffed baseline and level up via xp', () => {
   const skills = new Skills(new EventBus());
-  assert.equal(skills.hitpoints, 10);
-  assert.equal(skills.attack, 1);
-  assert.equal(skills.combatLevel(), 3);
+  assert.equal(skills.hitpoints, 15);
+  assert.equal(skills.attack, 5);
+  assert.equal(skills.strength, 5);
+  assert.equal(skills.defence, 5);
+  assert.equal(skills.combatLevel(), 8);
 
-  const gained = skills.addXp('attack', 1000);
-  assert.ok(gained > 0);
-  assert.ok(skills.attack > 1);
+  const baseline = xpForLevel(5);
+  skills.addXp('attack', 100);
+  assert.equal(skills.xp.attack, baseline + 100 * XP_RATE); // XP rate is applied
+  assert.ok(skills.attack > 5);
+});
+
+test('loading a weak save floors stats to the baseline', () => {
+  const skills = new Skills(new EventBus());
+  skills.load({ attack: 0, strength: 0, defence: 0, hitpoints: 0, woodcutting: 5000 });
+  assert.equal(skills.attack, 5);
+  assert.equal(skills.strength, 5);
+  assert.equal(skills.hitpoints, 15);
+  assert.ok(skills.level('woodcutting') > 1); // existing progress preserved
 });
 
 test('combat formulas produce valid ranges', () => {

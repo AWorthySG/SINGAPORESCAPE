@@ -92,6 +92,12 @@ export const OBJECTS = {
     examine: 'Deposit your items here for safe keeping.',
   },
 
+  // ---------------- Worthy Monument (the A Worthy logo) ----------------
+  shrine: {
+    name: 'Worthy Monument', type: 'shrine', verb: 'Pray at', emoji: '✝️', blocking: true,
+    examine: 'A monument raised to those who proved worthy. Praying here mends your wounds.',
+  },
+
   // ---------------- Scenery (blocking decor) ----------------
   wall: { name: 'Wall', type: 'scenery', emoji: '🧱', blocking: true, examine: 'A stone wall.' },
   fence: { name: 'Fence', type: 'scenery', emoji: '🪵', blocking: true, examine: 'A wooden fence.' },

@@ -1,5 +1,6 @@
 import { SKILL_IDS, startLevel } from '../data/skills.js';
 import { levelForXp, xpForLevel, MAX_XP } from '../data/xp.js';
+import { XP_RATE } from '../config.js';
 
 // Tracks XP per skill and derives levels. Emits 'xp' and 'levelup' on the bus.
 export class Skills {
@@ -14,6 +15,7 @@ export class Skills {
   /** Add experience; fires events; returns number of levels gained. */
   addXp(id, amount) {
     if (!(id in this.xp) || amount <= 0) return 0;
+    amount *= XP_RATE;
     const before = this.level(id);
     this.xp[id] = Math.min(MAX_XP, this.xp[id] + amount);
     const after = this.level(id);
@@ -51,6 +53,12 @@ export class Skills {
     if (!data) return;
     for (const id of SKILL_IDS) {
       if (typeof data[id] === 'number') this.xp[id] = data[id];
+    }
+    // Floor every skill up to its starting baseline so older / weak saves
+    // automatically receive the buffed starting stats.
+    for (const id of SKILL_IDS) {
+      const floor = xpForLevel(startLevel(id));
+      if ((this.xp[id] || 0) < floor) this.xp[id] = floor;
     }
   }
 }
