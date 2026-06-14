@@ -32,6 +32,20 @@ npx serve .
 Your character **auto-saves to the browser** (localStorage) every ~30 seconds
 and on key actions, so you can close the tab and pick up where you left off.
 
+## Deploy (live)
+
+It's a static site, so any static host works. This repo ships a GitHub Actions
+workflow (`.github/workflows/deploy.yml`) that runs the tests and publishes to
+**GitHub Pages** on every push to `main`:
+
+1. Merge changes into `main`.
+2. In **Settings → Pages**, set **Source: GitHub Actions** (one-time).
+3. The site goes live at `https://<owner>.github.io/SINGAPORESCAPE/`.
+
+One-command alternatives: `npx vercel`, drag the folder onto
+[netlify drop](https://app.netlify.com/drop), or Cloudflare Pages (framework
+"None", output dir `/`).
+
 ---
 
 ## Controls
