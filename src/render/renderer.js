@@ -1,16 +1,23 @@
 import { TILE } from '../config.js';
 import { TERRAIN } from '../data/world.js';
 import { getItem } from '../data/items.js';
+import { drawShadow, drawCreature, drawPlayer, drawObjectSprite, drawGroundItem } from './sprites.js';
 
-const TERRAIN_COLORS = {
-  [TERRAIN.GRASS]: '#4a7a32',
-  [TERRAIN.DARKGRASS]: '#3f6c2b',
-  [TERRAIN.PATH]: '#9c8456',
-  [TERRAIN.WATER]: '#2f6f9e',
-  [TERRAIN.SAND]: '#c8b27a',
-  [TERRAIN.STONE]: '#8a8378',
-  [TERRAIN.WOOD]: '#7a5a36',
+// Base terrain colours (RGB). Water is drawn procedurally.
+const TERRAIN_RGB = {
+  [TERRAIN.GRASS]: [74, 122, 50],
+  [TERRAIN.DARKGRASS]: [62, 106, 42],
+  [TERRAIN.PATH]: [156, 132, 86],
+  [TERRAIN.SAND]: [200, 178, 122],
+  [TERRAIN.STONE]: [140, 132, 120],
+  [TERRAIN.WOOD]: [122, 90, 54],
 };
+
+function hash(x, y) {
+  let h = (x * 374761393 + y * 668265263) | 0;
+  h = (h ^ (h >> 13)) * 1274126177;
+  return ((h ^ (h >> 16)) >>> 0) / 4294967296;
+}
 
 export class Renderer {
   constructor(game, canvas, ctx) {
@@ -26,10 +33,9 @@ export class Renderer {
     const vw = cam.viewW, vh = cam.viewH;
 
     ctx.clearRect(0, 0, vw, vh);
-    ctx.fillStyle = '#1a2a18';
+    ctx.fillStyle = '#16241a';
     ctx.fillRect(0, 0, vw, vh);
 
-    // Visible tile bounds (with margin).
     const x0 = Math.max(0, Math.floor(ox / TILE) - 1);
     const y0 = Math.max(0, Math.floor(oy / TILE) - 1);
     const x1 = Math.min(game.world.width - 1, Math.ceil((ox + vw) / TILE) + 1);
@@ -38,286 +44,202 @@ export class Renderer {
     this._drawTerrain(x0, y0, x1, y1, ox, oy, timeMs);
     this._drawGroundDecals(ox, oy);
 
-    // Depth-sorted drawables: objects, ground items, NPCs, player.
+    // Depth-sorted drawables.
     const drawables = [];
     for (const o of game.world.objects) {
       if (o.x < x0 - 1 || o.x > x1 + 1 || o.y < y0 - 1 || o.y > y1 + 1) continue;
-      drawables.push({ sortY: o.y, z: 1, draw: () => this._drawObject(o, ox, oy, timeMs) });
+      const cx = o.x * TILE + TILE / 2 - ox, cy = o.y * TILE + TILE / 2 - oy;
+      drawables.push({ sortY: o.y + 0.4, z: 1, draw: () => drawObjectSprite(ctx, o, cx, cy, timeMs) });
     }
     for (const g of game.world.groundItems) {
       if (g.x < x0 || g.x > x1 || g.y < y0 || g.y > y1) continue;
-      drawables.push({ sortY: g.y - 0.3, z: 0, draw: () => this._drawGroundItem(g, ox, oy) });
+      const cx = g.x * TILE + TILE / 2 - ox, cy = g.y * TILE + TILE * 0.62 - oy;
+      drawables.push({ sortY: g.y - 0.3, z: 0, draw: () => drawGroundItem(ctx, getItem(g.id).icon, cx, cy) });
     }
     for (const n of game.npcs) {
       if (!n.alive) continue;
       const c = n.renderCenter();
-      drawables.push({ sortY: c.y / TILE, z: 2, draw: () => this._drawNpc(n, ox, oy) });
+      const cx = c.x - ox, cy = c.y - oy;
+      drawables.push({ sortY: c.y / TILE, z: 2, draw: () => {
+        drawShadow(ctx, cx, cy + 12, 10, 4.5);
+        drawCreature(ctx, n.npcId, cx, cy - 2, { time: timeMs, facing: n.facing, moving: n.isMoving });
+      } });
     }
-    {
+    if (game.player.alive) {
       const c = game.player.renderCenter();
-      if (game.player.alive) drawables.push({ sortY: c.y / TILE, z: 2, draw: () => this._drawPlayer(ox, oy) });
+      const cx = c.x - ox, cy = c.y - oy;
+      drawables.push({ sortY: c.y / TILE, z: 2, draw: () => {
+        drawShadow(ctx, cx, cy + 13, 10, 4.5);
+        drawPlayer(ctx, cx, cy - 2, {
+          time: timeMs, facing: game.player.facing, moving: game.player.isMoving,
+          hasBody: !!game.equipment.get('body'), hasWeapon: !!game.equipment.get('weapon'),
+        });
+      } });
     }
     drawables.sort((a, b) => (a.sortY - b.sortY) || (a.z - b.z));
     for (const d of drawables) d.draw();
 
+    this._drawVignette(vw, vh);
     this._drawOverheads(ox, oy);
   }
 
   // ---------------- Terrain ----------------
   _drawTerrain(x0, y0, x1, y1, ox, oy, timeMs) {
     const { ctx, game } = this;
+    const w = game.world;
     for (let y = y0; y <= y1; y++) {
       for (let x = x0; x <= x1; x++) {
-        const t = game.world.terrainAt(x, y);
+        const t = w.terrainAt(x, y);
         const sx = Math.round(x * TILE - ox), sy = Math.round(y * TILE - oy);
-        if (t === TERRAIN.WATER) {
-          const shimmer = Math.sin((x + y) * 0.8 + timeMs * 0.0016) * 10;
-          ctx.fillStyle = `rgb(${40}, ${105 + shimmer}, ${158 + shimmer})`;
-        } else {
-          ctx.fillStyle = TERRAIN_COLORS[t] || '#4a7a32';
-        }
+        if (t === TERRAIN.WATER) { this._water(ctx, w, x, y, sx, sy, timeMs); continue; }
+        const base = TERRAIN_RGB[t] || TERRAIN_RGB[TERRAIN.GRASS];
+        const h = hash(x, y);
+        const j = (h - 0.5) * 14;
+        ctx.fillStyle = `rgb(${clamp8(base[0] + j)},${clamp8(base[1] + j)},${clamp8(base[2] + j)})`;
         ctx.fillRect(sx, sy, TILE + 1, TILE + 1);
+        this._tileDetail(ctx, t, x, y, sx, sy, h);
+        this._tileEdges(ctx, w, t, x, y, sx, sy);
       }
     }
-    // Faint grid for that tiled feel.
-    ctx.strokeStyle = 'rgba(0,0,0,0.06)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    for (let y = y0; y <= y1 + 1; y++) {
-      const sy = Math.round(y * TILE - oy) + 0.5;
-      ctx.moveTo(Math.round(x0 * TILE - ox), sy);
-      ctx.lineTo(Math.round((x1 + 1) * TILE - ox), sy);
+  }
+
+  _tileDetail(ctx, t, x, y, sx, sy, h) {
+    if (t === TERRAIN.GRASS || t === TERRAIN.DARKGRASS) {
+      ctx.fillStyle = 'rgba(40,80,30,0.35)';
+      for (let i = 0; i < 3; i++) {
+        const hx = hash(x * 7 + i, y * 13 - i), hy = hash(x * 3 - i, y * 11 + i);
+        const px = sx + hx * (TILE - 6) + 3, py = sy + hy * (TILE - 6) + 3;
+        ctx.fillRect(px, py - 3, 1.4, 3);
+        ctx.fillRect(px + 1.6, py - 4, 1.4, 4);
+      }
+      if (h > 0.92) { ctx.fillStyle = '#d23b6e'; ctx.beginPath(); ctx.arc(sx + 8 + h * 12, sy + 10, 1.4, 0, 6.3); ctx.fill(); }
+    } else if (t === TERRAIN.PATH || t === TERRAIN.SAND) {
+      ctx.fillStyle = t === TERRAIN.PATH ? 'rgba(120,98,58,0.5)' : 'rgba(160,140,90,0.5)';
+      for (let i = 0; i < 4; i++) {
+        const px = sx + hash(x * 5 + i, y) * TILE, py = sy + hash(x, y * 5 + i) * TILE;
+        ctx.fillRect(px, py, 2, 2);
+      }
+    } else if (t === TERRAIN.STONE) {
+      ctx.strokeStyle = 'rgba(60,56,48,0.25)'; ctx.lineWidth = 1;
+      ctx.strokeRect(sx + 0.5, sy + 0.5, TILE, TILE);
+      ctx.fillStyle = 'rgba(255,255,255,0.05)'; ctx.fillRect(sx + 2, sy + 2, TILE - 4, 2);
+    } else if (t === TERRAIN.WOOD) {
+      ctx.strokeStyle = 'rgba(60,40,20,0.4)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(sx, sy + TILE / 2); ctx.lineTo(sx + TILE, sy + TILE / 2); ctx.stroke();
     }
-    for (let x = x0; x <= x1 + 1; x++) {
-      const sx = Math.round(x * TILE - ox) + 0.5;
-      ctx.moveTo(sx, Math.round(y0 * TILE - oy));
-      ctx.lineTo(sx, Math.round((y1 + 1) * TILE - oy));
+  }
+
+  // Crisp the edge of paths/stone against grass.
+  _tileEdges(ctx, w, t, x, y, sx, sy) {
+    if (t !== TERRAIN.PATH && t !== TERRAIN.STONE) return;
+    ctx.fillStyle = 'rgba(40,35,22,0.18)';
+    const grassy = (tt) => tt === TERRAIN.GRASS || tt === TERRAIN.DARKGRASS;
+    if (grassy(w.terrainAt(x, y - 1))) ctx.fillRect(sx, sy, TILE + 1, 2);
+    if (grassy(w.terrainAt(x, y + 1))) ctx.fillRect(sx, sy + TILE - 1, TILE + 1, 2);
+    if (grassy(w.terrainAt(x - 1, y))) ctx.fillRect(sx, sy, 2, TILE + 1);
+    if (grassy(w.terrainAt(x + 1, y))) ctx.fillRect(sx + TILE - 1, sy, 2, TILE + 1);
+  }
+
+  _water(ctx, w, x, y, sx, sy, timeMs) {
+    const wave = Math.sin((x + y) * 0.7 + timeMs * 0.0016) * 8 + Math.sin((x - y) * 0.5 + timeMs * 0.0011) * 6;
+    ctx.fillStyle = `rgb(${36 + wave * 0.4|0},${104 + wave|0},${156 + wave|0})`;
+    ctx.fillRect(sx, sy, TILE + 1, TILE + 1);
+    // moving highlights
+    const hl = (Math.sin((x * 1.3 + y * 0.7) + timeMs * 0.002) + 1) / 2;
+    if (hl > 0.6) {
+      ctx.fillStyle = 'rgba(255,255,255,0.12)';
+      const yy = sy + ((timeMs * 0.02 + x * 9) % TILE);
+      ctx.fillRect(sx + 4, yy, TILE - 8, 1.5);
     }
-    ctx.stroke();
+    // foam on shore edges
+    const land = (tt) => tt !== TERRAIN.WATER;
+    ctx.fillStyle = 'rgba(220,240,255,0.5)';
+    if (land(w.terrainAt(x, y - 1))) ctx.fillRect(sx, sy, TILE + 1, 2);
+    if (land(w.terrainAt(x, y + 1))) ctx.fillRect(sx, sy + TILE - 1, TILE + 1, 2);
+    if (land(w.terrainAt(x - 1, y))) ctx.fillRect(sx, sy, 2, TILE + 1);
+    if (land(w.terrainAt(x + 1, y))) ctx.fillRect(sx + TILE - 1, sy, 2, TILE + 1);
   }
 
   _drawGroundDecals(ox, oy) {
     const { ctx, game } = this;
-    // Hover tile highlight.
     if (game.input && game.input.inside) {
       const tile = game.camera.screenToTile(game.input.mx, game.input.my);
       if (game.world.inBounds(tile.x, tile.y)) {
         const sx = tile.x * TILE - ox, sy = tile.y * TILE - oy;
-        ctx.strokeStyle = 'rgba(255, 235, 130, 0.85)';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(sx + 1, sy + 1, TILE - 2, TILE - 2);
+        ctx.fillStyle = 'rgba(255,240,150,0.12)';
+        ctx.fillRect(sx + 1, sy + 1, TILE - 2, TILE - 2);
+        ctx.strokeStyle = 'rgba(255,235,130,0.9)'; ctx.lineWidth = 2;
+        ctx.strokeRect(sx + 1.5, sy + 1.5, TILE - 3, TILE - 3);
       }
     }
-    // Movement destination marker.
     const p = game.player;
     if (p.moving || p.path.length) {
       const dest = p.path.length ? p.path[p.path.length - 1] : { x: p.tx, y: p.ty };
       const cx = dest.x * TILE + TILE / 2 - ox, cy = dest.y * TILE + TILE / 2 - oy;
-      ctx.strokeStyle = '#ffe66a';
-      ctx.lineWidth = 2;
+      const pulse = 4 + Math.sin(performance.now() * 0.012) * 1.5;
+      ctx.strokeStyle = '#ffe66a'; ctx.lineWidth = 2.5;
       ctx.beginPath();
-      ctx.moveTo(cx - 5, cy - 5); ctx.lineTo(cx + 5, cy + 5);
-      ctx.moveTo(cx + 5, cy - 5); ctx.lineTo(cx - 5, cy + 5);
+      ctx.moveTo(cx - pulse, cy - pulse); ctx.lineTo(cx + pulse, cy + pulse);
+      ctx.moveTo(cx + pulse, cy - pulse); ctx.lineTo(cx - pulse, cy + pulse);
       ctx.stroke();
     }
   }
 
-  // ---------------- Objects ----------------
-  _drawObject(o, ox, oy, timeMs) {
-    const cx = o.x * TILE + TILE / 2 - ox;
-    const cy = o.y * TILE + TILE / 2 - oy;
-    const t = o.def.type;
-    if (t === 'tree') return this._drawTree(o, cx, cy);
-    if (t === 'rock') return this._drawRock(o, cx, cy);
-    if (t === 'fishing') return this._drawFishing(cx, cy, timeMs);
-    if (t === 'fire') return this._drawFire(cx, cy, timeMs);
-    // Generic emoji-based objects (range, furnace, anvil, bank, scenery).
-    this._emoji(o.def.emoji, cx, cy, TILE * 0.95);
-  }
-
-  _drawTree(o, cx, cy) {
+  _drawVignette(vw, vh) {
     const { ctx } = this;
-    this._shadow(cx, cy + 8, 14, 6);
-    if (o.depleted) {
-      ctx.fillStyle = '#6b4a2a';
-      ctx.fillRect(cx - 5, cy + 2, 10, 10);
-      ctx.fillStyle = '#503418';
-      ctx.fillRect(cx - 5, cy + 2, 10, 3);
-      return;
-    }
-    // trunk
-    ctx.fillStyle = '#6b4a2a';
-    ctx.fillRect(cx - 4, cy, 8, 14);
-    // canopy
-    const r = o.objId === 'willow' ? 16 : o.objId === 'oak' ? 18 : 15;
-    const green = o.objId === 'willow' ? '#5a8a3a' : '#2f6f2f';
-    ctx.fillStyle = green;
-    ctx.beginPath();
-    ctx.arc(cx, cy - 6, r, 0, Math.PI * 2);
-    ctx.arc(cx - r * 0.6, cy - 2, r * 0.7, 0, Math.PI * 2);
-    ctx.arc(cx + r * 0.6, cy - 2, r * 0.7, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.10)';
-    ctx.beginPath();
-    ctx.arc(cx - 4, cy - 10, r * 0.5, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  _drawRock(o, cx, cy) {
-    const { ctx } = this;
-    this._shadow(cx, cy + 8, 13, 5);
-    ctx.fillStyle = o.depleted ? '#5c5c5c' : '#7d7d7d';
-    ctx.beginPath();
-    ctx.moveTo(cx - 12, cy + 8);
-    ctx.lineTo(cx - 8, cy - 8);
-    ctx.lineTo(cx + 4, cy - 11);
-    ctx.lineTo(cx + 12, cy + 2);
-    ctx.lineTo(cx + 8, cy + 9);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.12)';
-    ctx.beginPath();
-    ctx.moveTo(cx - 8, cy - 8); ctx.lineTo(cx + 4, cy - 11); ctx.lineTo(cx - 2, cy - 2);
-    ctx.closePath(); ctx.fill();
-    if (!o.depleted && o.def.ore) {
-      ctx.fillStyle = o.def.ore;
-      for (const [dx, dy] of [[-4, 0], [3, 3], [0, -4], [6, -2]]) {
-        ctx.beginPath(); ctx.arc(cx + dx, cy + dy, 2, 0, Math.PI * 2); ctx.fill();
-      }
-    }
-  }
-
-  _drawFishing(cx, cy, timeMs) {
-    const { ctx } = this;
-    const phase = timeMs * 0.004;
-    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
-    ctx.lineWidth = 1.5;
-    for (let i = 0; i < 3; i++) {
-      const r = 4 + ((phase + i * 0.9) % 2.4) * 6;
-      ctx.globalAlpha = 0.5 - ((phase + i * 0.9) % 2.4) / 5;
-      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
-    }
-    ctx.globalAlpha = 1;
-    this._emoji('🐟', cx + 4, cy - 2, 14);
-  }
-
-  _drawFire(cx, cy, timeMs) {
-    const { ctx } = this;
-    const flick = 1 + Math.sin(timeMs * 0.02) * 0.12;
-    ctx.fillStyle = '#3a2a16';
-    ctx.fillRect(cx - 8, cy + 8, 16, 4);
-    this._emoji('🔥', cx, cy, TILE * 0.85 * flick);
-  }
-
-  _drawGroundItem(g, ox, oy) {
-    const cx = g.x * TILE + TILE / 2 - ox;
-    const cy = g.y * TILE + TILE * 0.7 - oy;
-    this._emoji(getItem(g.id).icon, cx, cy, 18);
-  }
-
-  // ---------------- Characters ----------------
-  _drawNpc(n, ox, oy) {
-    const c = n.renderCenter();
-    const cx = c.x - ox, cy = c.y - oy;
-    this._shadow(cx, cy + 11, 11, 5);
-    this._emoji(n.def.emoji, cx, cy - 2, TILE * 0.85);
-  }
-
-  _drawPlayer(ox, oy) {
-    const { ctx, game } = this;
-    const c = game.player.renderCenter();
-    const cx = c.x - ox, cy = c.y - oy;
-    this._shadow(cx, cy + 12, 11, 5);
-    // Body
-    const hasBody = !!game.equipment.get('body');
-    ctx.fillStyle = hasBody ? '#9aa3ad' : '#7a4a8a';
-    ctx.beginPath();
-    ctx.roundRect ? ctx.roundRect(cx - 7, cy - 2, 14, 16, 4) : ctx.rect(cx - 7, cy - 2, 14, 16);
-    ctx.fill();
-    // Head
-    ctx.fillStyle = '#e8b98a';
-    ctx.beginPath(); ctx.arc(cx, cy - 9, 7, 0, Math.PI * 2); ctx.fill();
-    // Hair
-    ctx.fillStyle = '#3a2a18';
-    ctx.beginPath(); ctx.arc(cx, cy - 11, 7, Math.PI, Math.PI * 2); ctx.fill();
-    // Weapon
-    const w = game.equipment.get('weapon');
-    if (w) {
-      ctx.strokeStyle = '#dcdcdc';
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(cx + 9, cy + 12); ctx.lineTo(cx + 13, cy - 8); ctx.stroke();
-    }
+    const g = ctx.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * 0.35, vw / 2, vh / 2, Math.max(vw, vh) * 0.72);
+    g.addColorStop(0, 'rgba(0,0,0,0)');
+    g.addColorStop(1, 'rgba(8,14,10,0.34)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, vw, vh);
   }
 
   // ---------------- Overhead UI (bars, hitsplats, name) ----------------
   _drawOverheads(ox, oy) {
     const { ctx, game } = this;
-    // NPC health bars while in combat.
     for (const n of game.npcs) {
       if (!n.alive || n.combatLatch <= 0) continue;
       const c = n.renderCenter();
-      this._healthBar(c.x - ox, c.y - oy - 24, n.hp / n.maxHp);
+      this._healthBar(c.x - ox, c.y - oy - 26, n.hp / n.maxHp);
     }
-    // Player name + (combat) bar.
     if (game.player.alive) {
       const c = game.player.renderCenter();
       const px = c.x - ox, py = c.y - oy;
-      if (game.player.target) this._healthBar(px, py - 26, game.player.hp / game.skills.hitpoints);
-      ctx.font = '11px Trebuchet MS';
+      if (game.player.target) this._healthBar(px, py - 30, game.player.hp / game.skills.hitpoints);
+      ctx.font = 'bold 11px "Trebuchet MS",sans-serif';
       ctx.textAlign = 'center';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.lineWidth = 3;
+      ctx.strokeText(game.player.name, px, py - 32);
       ctx.fillStyle = '#ffe66a';
-      ctx.strokeStyle = '#000';
-      ctx.lineWidth = 3;
-      ctx.strokeText(game.player.name, px, py - 28);
-      ctx.fillText(game.player.name, px, py - 28);
+      ctx.fillText(game.player.name, px, py - 32);
     }
-    // Hitsplats.
     for (const e of game.effects) {
       if (e.type !== 'hitsplat') continue;
       const c = e.entity.renderCenter ? e.entity.renderCenter() : { x: e.entity.x * TILE, y: e.entity.y * TILE };
-      const px = c.x - ox, py = c.y - oy - 4 - (1100 - e.life) * 0.012;
+      const px = c.x - ox, py = c.y - oy - 6 - (1100 - e.life) * 0.012;
       const hit = e.dmg > 0;
-      ctx.fillStyle = hit ? '#c81e1e' : '#3a6fd0';
-      ctx.beginPath();
-      ctx.arc(px, py, 10, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#fff';
-      ctx.font = 'bold 12px Trebuchet MS';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
+      const a = Math.min(1, e.life / 350);
+      ctx.globalAlpha = a;
+      ctx.fillStyle = hit ? '#c81e1e' : '#39557d';
+      ctx.beginPath(); ctx.arc(px, py, 10, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.beginPath(); ctx.arc(px, py - 3, 9, Math.PI, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 12px "Trebuchet MS",sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(String(e.dmg), px, py + 1);
-      ctx.textBaseline = 'alphabetic';
+      ctx.textBaseline = 'alphabetic'; ctx.globalAlpha = 1;
     }
   }
 
   _healthBar(cx, cy, frac) {
     const { ctx } = this;
-    const w = 28, h = 4;
+    const w = 30, h = 5;
     frac = Math.max(0, Math.min(1, frac));
-    ctx.fillStyle = '#c81e1e';
-    ctx.fillRect(cx - w / 2, cy, w, h);
-    ctx.fillStyle = '#00b000';
-    ctx.fillRect(cx - w / 2, cy, w * frac, h);
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(cx - w / 2, cy, w, h);
-  }
-
-  // ---------------- Primitives ----------------
-  _emoji(ch, cx, cy, size) {
-    const { ctx } = this;
-    ctx.font = `${Math.round(size)}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(ch, cx, cy);
-    ctx.textBaseline = 'alphabetic';
-  }
-
-  _shadow(cx, cy, rx, ry) {
-    const { ctx } = this;
-    ctx.fillStyle = 'rgba(0,0,0,0.22)';
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(cx - w / 2 - 1, cy - 1, w + 2, h + 2);
+    ctx.fillStyle = '#b81818'; ctx.fillRect(cx - w / 2, cy, w, h);
+    ctx.fillStyle = '#2fd24a'; ctx.fillRect(cx - w / 2, cy, w * frac, h);
+    ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.fillRect(cx - w / 2, cy, w * frac, 1.5);
   }
 }
+
+function clamp8(v) { return v < 0 ? 0 : v > 255 ? 255 : v | 0; }
