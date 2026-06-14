@@ -1,0 +1,46 @@
+// Branching NPC dialogue. Each tree is a map of nodes.
+// A node: { speaker, text, options: [{ label, next?, action? }] }.
+// `next` jumps to another node id; omitting it (or 'end') closes the dialogue.
+// `action` strings are handled by the game (e.g. 'giveStarter').
+
+export const DIALOGUES = {
+  guide: {
+    start: {
+      speaker: 'Kampong Guide',
+      text: 'Eh, welcome to SingaporeScape, lah! New around here? I can help you get started.',
+      options: [
+        { label: 'Where am I?', next: 'where' },
+        { label: 'Can you give me some starter gear?', next: 'gear' },
+        { label: 'How do I play?', next: 'help' },
+        { label: 'Goodbye.', next: 'end' },
+      ],
+    },
+    where: {
+      speaker: 'Kampong Guide',
+      text: 'This is Kampong Glam, our cosy little town. Trees and rocks to the north, fishing by the water to the west, and monsters out east if you fancy a fight.',
+      options: [{ label: 'Thanks!', next: 'start' }],
+    },
+    gear: {
+      speaker: 'Kampong Guide',
+      text: 'Of course! Here, take a bronze axe, a pickaxe, a fishing net, a tinderbox, and a dagger to defend yourself. Now you can train every skill!',
+      options: [{ label: 'Terima kasih!', next: 'start', action: 'giveStarter' }],
+    },
+    help: {
+      speaker: 'Kampong Guide',
+      text: 'Left-click to walk and to do the main action. Right-click for more options. Click a tree to chop, a rock to mine, the water to fish, and monsters to fight. Bank your loot at the bank booth!',
+      options: [{ label: 'Got it.', next: 'start' }],
+    },
+  },
+
+  villager: {
+    start: {
+      speaker: 'Villager',
+      text: 'Wah, the weather damn hot today. Good day for training Firemaking, right? Haha.',
+      options: [{ label: 'Haha, see you.', next: 'end' }],
+    },
+  },
+};
+
+export function getDialogue(id) {
+  return DIALOGUES[id] || null;
+}
