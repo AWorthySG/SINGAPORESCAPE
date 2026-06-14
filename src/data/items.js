@@ -172,6 +172,12 @@ const RAW = {
     equip: { slot: 'body', req: { defence: 40 }, bonuses: { defence: 48 } } },
   treant_shield: { name: 'Treant shield', icon: '🛡️', value: 75000, examine: 'Living bark that turns aside blows.',
     equip: { slot: 'shield', req: { defence: 45 }, bonuses: { defence: 50 } } },
+
+  // ---- Gems (rare drops) ----
+  sapphire: { name: 'Sapphire', icon: '💎', value: 250, examine: 'A precious blue gem.' },
+  emerald: { name: 'Emerald', icon: '💎', value: 500, examine: 'A precious green gem.' },
+  ruby: { name: 'Ruby', icon: '💎', value: 1200, examine: 'A precious red gem.' },
+  diamond: { name: 'Diamond', icon: '💎', value: 3000, examine: 'A precious, sparkling gem.' },
 };
 
 // ---- Generated tiered equipment (weapons + armour, bronze -> rune) ----

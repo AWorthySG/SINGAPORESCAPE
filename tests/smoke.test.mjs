@@ -11,8 +11,9 @@ import { hitChance, maxHit, attackRoll, combatXp } from '../src/game/combat.js';
 import { gatherChance } from '../src/game/skilling.js';
 import { XP_RATE } from '../src/config.js';
 import { NPCS, MONSTER_IDS, BOSS_IDS, getNpc } from '../src/data/npcs.js';
-import { itemIconSVG, hasIcon } from '../src/render/icons.js';
+import { itemIconSVG, hasIcon, skillIconSVG } from '../src/render/icons.js';
 import { ITEMS } from '../src/data/items.js';
+import { SKILLS } from '../src/data/skills.js';
 
 test('OSRS xp table matches known values', () => {
   assert.equal(xpForLevel(1), 0);
@@ -94,11 +95,11 @@ test('loading a weak save floors stats to the baseline', () => {
   assert.ok(skills.level('woodcutting') > 1); // existing progress preserved
 });
 
-test('bestiary has 169 monsters and 25 bosses, all well-formed', () => {
-  assert.equal(MONSTER_IDS.length, 169);
+test('bestiary has 220 monsters and 25 bosses, all well-formed', () => {
+  assert.equal(MONSTER_IDS.length, 220);
   assert.equal(BOSS_IDS.length, 25);
   const ids = new Set([...MONSTER_IDS, ...BOSS_IDS]);
-  assert.equal(ids.size, 194); // all ids unique
+  assert.equal(ids.size, 245); // all ids unique
   for (const id of MONSTER_IDS) {
     const n = getNpc(id);
     assert.ok(n.attackable && n.sprite && n.color && n.level >= 1, `mob ${id} well-formed`);
@@ -107,8 +108,20 @@ test('bestiary has 169 monsters and 25 bosses, all well-formed', () => {
   for (const id of BOSS_IDS) {
     const b = getNpc(id);
     assert.ok(b.boss && b.scale > 1 && b.maxHp > 100, `boss ${id} well-formed`);
+    assert.ok(b.mechanic, `boss ${id} has a mechanic`);
   }
   assert.ok(NPCS.chicken && NPCS.chicken.level === 1); // iconic ids preserved
+});
+
+test('new skills (Prayer, Thieving, Agility) exist with icons; gems have icons', () => {
+  const ids = SKILLS.map((s) => s.id);
+  for (const s of ['prayer', 'thieving', 'agility']) {
+    assert.ok(ids.includes(s), `skill ${s} present`);
+    assert.ok(skillIconSVG(s, 20).includes('<svg'));
+  }
+  for (const g of ['sapphire', 'emerald', 'ruby', 'diamond']) {
+    assert.ok(hasIcon(g), `gem ${g} has icon`);
+  }
 });
 
 test('every equippable item has its own custom icon', () => {

@@ -10,6 +10,9 @@ export const SKILLS = [
   { id: 'cooking', name: 'Cooking', icon: '🍳', color: '#9c5b1f' },
   { id: 'firemaking', name: 'Firemaking', icon: '🔥', color: '#d4761f' },
   { id: 'woodcutting', name: 'Woodcutting', icon: '🪓', color: '#5a8a3a' },
+  { id: 'prayer', name: 'Prayer', icon: '🙏', color: '#d9c45a', combat: true },
+  { id: 'thieving', name: 'Thieving', icon: '🤏', color: '#7a4a8a' },
+  { id: 'agility', name: 'Agility', icon: '🏃', color: '#3a8a9a' },
 ];
 
 export const SKILL_IDS = SKILLS.map((s) => s.id);

@@ -214,6 +214,12 @@
   S.smithing = `<rect x="6" y="6" width="3" height="9" rx="1" fill="${C.wood}" stroke="${OL}" stroke-width="1" transform="rotate(-30 7 10)"/>
     <rect x="3" y="3.5" width="8" height="4" rx="1.2" fill="${C.iron}" stroke="${OL}" stroke-width="1" transform="rotate(-30 7 5)"/>
     <path d="M5 15 L19 15 L18 18 L6 18 Z M9 13 L15 13 L15 15 L9 15 Z" fill="${C.stoneDk}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/>`;
+  S.prayer = `<circle cx="12" cy="12" r="5.5" fill="${C.gold}" stroke="${OL}" stroke-width="1.1"/>
+    <path d="M12 2.5 L12 5 M12 19 L12 21.5 M2.5 12 L5 12 M19 12 L21.5 12 M5 5 L6.6 6.6 M17.4 17.4 L19 19 M5 19 L6.6 17.4 M17.4 6.6 L19 5" stroke="${C.goldHi}" stroke-width="1.5" stroke-linecap="round"/>`;
+  S.thieving = `<path d="M7 9 C7 5 17 5 17 9 L19 18 C19 20 5 20 5 18 Z" fill="${C.wood}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/>
+    <path d="M8 9 C8 6 16 6 16 9" fill="none" stroke="${OL}" stroke-width="1.1"/><circle cx="12" cy="14" r="3" fill="${C.gold}" stroke="${OL}" stroke-width=".8"/>`;
+  S.agility = `<path d="M8 4 L12 4 L12 13 L18 13 C19 13 19 18 18 18 L8 18 Z" fill="${C.jade}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/>
+    <path d="M2 8 L6 8 M2 12 L5 12 M2 16 L4 16" stroke="${C.jadeHi}" stroke-width="1.4" stroke-linecap="round"/>`;
 
   // ============================ TAB ICONS =============================
   const T = {};
@@ -306,6 +312,11 @@
   I.leviathan_trident = `<rect x="11" y="10" width="2" height="11" rx="1" fill="${C.wood}" stroke="${OL}" stroke-width="1"/><path d="M6 3 L6 9 M12 2 L12 9 M18 3 L18 9" stroke="${rune}" stroke-width="2.2" stroke-linecap="round"/><path d="M5 9 L19 9 L18 11 L6 11 Z" fill="${rune}" stroke="${OL}" stroke-width="1"/>`;
   I.hydra_leather = plate('#3f7a4a', '#5fa06a');
   I.treant_shield = shield('#5a7a3a', '#7aa04a');
+  const gemIcon = (col, hi) => `<path d="M6 9 L9 5 L15 5 L18 9 L12 20 Z" fill="${col}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M9 5 L12 9 L15 5 M6 9 L18 9 M12 9 L12 20" stroke="${OL}" stroke-width=".7" opacity=".4" fill="none"/><path d="M9 5 L12 9 L6 9 Z" fill="${hi}" opacity=".6"/>`;
+  I.sapphire = gemIcon('#3a6ad8', '#8aa6f0');
+  I.emerald = gemIcon('#2fa05a', '#7fe0a0');
+  I.ruby = gemIcon('#c83b4a', '#f08a96');
+  I.diamond = gemIcon('#bfe6ee', '#ffffff');
 
   function svg(inner, size, cls) {
     return `<svg class="${cls || ''}" width="${size}" height="${size}" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="display:block">${inner}</svg>`;

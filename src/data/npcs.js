@@ -65,6 +65,14 @@ const BASES = [
   ['Carnivorous plant', 'plant', '#3c8a3f', 22, 'Bukit Timah', true],
   ['Komodo dragon', 'reptile', '#8a7a4a', 38, 'Sentosa Beach', true],
   ['Tarantula', 'spider', '#6a4a3a', 30, 'Bukit Timah', true],
+  ['Stray dog', 'hound', '#8a6a4a', 7, 'Bukit Timah', true],
+  ['Civet', 'beast', '#6a5a3a', 11, 'Bukit Timah', false],
+  ['Hornbill', 'fowl', '#2a2a2a', 13, 'Bukit Timah', true],
+  ['Box jellyfish', 'jellyfish', '#c8a0e0', 17, 'Sentosa Beach', true],
+  ['Praying mantis', 'mantis', '#6aa03a', 19, 'Bukit Timah', true],
+  ['Sea turtle', 'turtle', '#3a7a5a', 16, 'Sentosa Beach', false],
+  ['Vampire bat', 'bat', '#5a2a3a', 21, 'Bukit Timah', true],
+  ['Wild dog', 'hound', '#7a5a3a', 25, 'MacRitchie Reservoir', true],
 ];
 
 const RANKS = [
@@ -77,7 +85,7 @@ const RANKS = [
   { p: 'Ancient', m: 3.8, agg: true },
 ];
 
-const TARGET_MONSTERS = 169;
+const TARGET_MONSTERS = 220;
 const MONSTER_IDS = [];
 const _mobs = {};
 {
@@ -166,6 +174,24 @@ const BOSS_DEFS = {
     [{ id: 'rune_platebody', weight: 20 }, { id: 'rune_scimitar', weight: 18 }, { id: 'runite_ore', min: 3, max: 7, weight: 30 }, { id: 'leviathan_trident', weight: 5 }]),
 };
 const BOSS_IDS = Object.keys(BOSS_DEFS);
+
+// Give every boss a special mechanic (cycled) + a special-attack cadence.
+const MECHANICS = ['slam', 'heal', 'summon', 'enrage', 'frenzy'];
+BOSS_IDS.forEach((id, i) => { BOSS_DEFS[id].mechanic = MECHANICS[i % MECHANICS.length]; BOSS_DEFS[id].specialEvery = 9; });
+
+// Shared rare drop table — a small chance on any kill, larger for bosses.
+export const RARE_DROP_TABLE = [
+  { id: 'coins', min: 500, max: 5000, weight: 40 },
+  { id: 'sapphire', weight: 24 },
+  { id: 'emerald', weight: 18 },
+  { id: 'ruby', weight: 10 },
+  { id: 'diamond', weight: 5 },
+  { id: 'runite_ore', min: 1, max: 3, weight: 14 },
+  { id: 'amulet_of_glory', weight: 6 },
+  { id: 'rune_scimitar', weight: 5 },
+  { id: 'rune_platebody', weight: 3 },
+  { id: 'merlion_blade', weight: 1 },
+];
 
 // ---------------- Townsfolk ----------------
 const TOWNSFOLK = {

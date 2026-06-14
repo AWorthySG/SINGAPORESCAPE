@@ -256,9 +256,46 @@ function humanoid(ctx, col) {
   ctx.strokeStyle = '#cfd6dd'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(10, 10); ctx.lineTo(13, -6); ctx.stroke();
 }
 
+function hound(ctx, col) {
+  ctx.strokeStyle = shade(col, -0.1); ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(-9, 3); ctx.quadraticCurveTo(-15, -2, -12, -7); ctx.stroke(); ctx.lineCap = 'butt';
+  ctx.fillStyle = shade(col, -0.2); rr(ctx, -7, 6, 3.5, 7, 1); ctx.fill(); rr(ctx, 3, 6, 3.5, 7, 1); ctx.fill();
+  ellipse(ctx, -1, 2, 11, 6.5); fill(ctx, col); line(ctx);
+  circle(ctx, 9, -2, 5.5); fill(ctx, col); line(ctx);
+  path(ctx, () => { ctx.moveTo(6, -7); ctx.lineTo(5, -12); ctx.lineTo(9, -7); }); fill(ctx, shade(col, -0.2));
+  path(ctx, () => { ctx.moveTo(13, -1); ctx.lineTo(16, 1); ctx.lineTo(13, 3); }); fill(ctx, shade(col, 0.2));
+  circle(ctx, 10, -3, 1); fill(ctx, '#1a140d');
+}
+function jellyfish(ctx, col) {
+  ctx.globalAlpha = 0.85;
+  path(ctx, () => { ctx.moveTo(-9, 2); ctx.quadraticCurveTo(-9, -10, 0, -10); ctx.quadraticCurveTo(9, -10, 9, 2); ctx.quadraticCurveTo(4, 5, 0, 2); ctx.quadraticCurveTo(-4, 5, -9, 2); }); fill(ctx, col); line(ctx);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = shade(col, 0.3); ellipse(ctx, -3, -5, 2.5, 3.5); ctx.fill();
+  ctx.strokeStyle = col; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+  for (const x of [-6, -2, 2, 6]) { ctx.beginPath(); ctx.moveTo(x, 2); ctx.quadraticCurveTo(x + 2, 8, x - 1, 13); ctx.stroke(); }
+  ctx.lineCap = 'butt';
+}
+function mantis(ctx, col) {
+  ctx.fillStyle = shade(col, -0.2); rr(ctx, -4, 6, 3, 7, 1); ctx.fill(); rr(ctx, 1, 6, 3, 7, 1); ctx.fill();
+  ellipse(ctx, -2, 1, 6, 8); fill(ctx, col); line(ctx);
+  ctx.strokeStyle = shade(col, -0.1); ctx.lineWidth = 2; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(3, -2); ctx.lineTo(9, -6); ctx.lineTo(7, -10); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(3, 1); ctx.lineTo(10, -2); ctx.lineTo(9, -6); ctx.stroke(); ctx.lineCap = 'butt';
+  circle(ctx, 2, -9, 3.6); fill(ctx, col); line(ctx);
+  circle(ctx, 0.6, -10, 1); fill(ctx, '#1a140d'); circle(ctx, 3.4, -10, 1); fill(ctx, '#1a140d');
+}
+function turtle(ctx, col) {
+  ctx.fillStyle = shade(col, -0.25); rr(ctx, -9, 6, 3, 4, 1); ctx.fill(); rr(ctx, 6, 6, 3, 4, 1); ctx.fill();
+  circle(ctx, 11, 1, 4); fill(ctx, shade(col, 0.25)); line(ctx);
+  circle(ctx, 12, 0, 0.9); fill(ctx, '#1a140d');
+  ellipse(ctx, 0, 2, 12, 8); fill(ctx, col); line(ctx);
+  ctx.strokeStyle = shade(col, -0.3); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-8, 2); ctx.lineTo(8, 2); ctx.moveTo(0, -5); ctx.lineTo(0, 9); ctx.stroke();
+  ctx.fillStyle = shade(col, 0.2); ellipse(ctx, -3, -1, 3, 2.5); ctx.fill();
+}
+
 const ARCH = {
   beast, rodent, primate, reptile, serpent, crab, fowl, greenman, spider, slime,
   ghost, demon, golem, undead, insect, scorpion, bat, seacreature, plant, drake, wisp, humanoid,
+  hound, jellyfish, mantis, turtle,
 };
 
 function chicken(ctx) {
@@ -416,6 +453,7 @@ export function drawObjectSprite(ctx, obj, cx, cy, time = 0) {
     case 'bank': return bank(ctx, cx, cy);
     case 'shrine': return shrine(ctx, cx, cy, time);
     case 'rest': return hyco(ctx, cx, cy);
+    case 'agility': return agilityCourse(ctx, cx, cy);
     case 'scenery': return scenery(ctx, obj.objId, cx, cy, time);
     default: return;
   }
@@ -621,6 +659,16 @@ function hyco(ctx, cx, cy) {
   ctx.fillStyle = '#f5a623'; circle(ctx, cx + 9, cy - 13, 2.1); ctx.fill();
   // EDUCATION bar
   ctx.fillStyle = 'rgba(238,243,247,0.8)'; rr(ctx, cx - 11, cy + 1, 22, 2, 1); ctx.fill();
+}
+
+// Agility course: two posts with a row of climbing ropes.
+function agilityCourse(ctx, cx, cy) {
+  drawShadow(ctx, cx, cy + 12, 14, 5);
+  ctx.fillStyle = '#7a5530'; rr(ctx, cx - 13, cy - 14, 3, 26, 1); ctx.fill(); rr(ctx, cx + 10, cy - 14, 3, 26, 1); ctx.fill();
+  ctx.strokeStyle = '#9a734a'; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(cx - 12, cy - 12); ctx.lineTo(cx + 12, cy - 12); ctx.stroke();
+  ctx.strokeStyle = '#caa46a'; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+  for (let i = 0; i < 5; i++) { const x = cx - 9 + i * 4.6; ctx.beginPath(); ctx.moveTo(x, cy - 12); ctx.lineTo(x, cy - 3); ctx.stroke(); }
+  ctx.lineCap = 'butt';
 }
 
 function scenery(ctx, objId, cx, cy, time) {
