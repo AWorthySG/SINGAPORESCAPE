@@ -13,7 +13,7 @@
 
 const RAW = {
   // ---- Currency ----
-  coins: { name: 'Coins', icon: '🪙', value: 1, stackable: true, examine: 'Lovely money!' },
+  coins: { name: 'Coins', icon: '🪙', value: 1, stackable: true, maxStack: Infinity, examine: 'Lovely money!' },
 
   // ---- Tools ----
   bronze_axe: { name: 'Bronze axe', icon: '🪓', value: 16, tool: 'axe',

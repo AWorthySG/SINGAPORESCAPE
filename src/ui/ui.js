@@ -435,7 +435,7 @@ export class UI {
       this.game.inventory.slots.forEach((s, i) => {
         if (!s) return;
         invGrid.appendChild(this._cell(s.id, s.qty, {
-          onClick: () => this.game.deposit(s.id, getItem(s.id).stackable ? s.qty : 1),
+          onClick: () => this.game.deposit(s.id, s.qty),
           onRight: (ev) => this.showContextMenu(ev.clientX, ev.clientY, [
             { label: 'Deposit 1', fn: () => this.game.deposit(s.id, 1) },
             { label: 'Deposit 5', fn: () => this.game.deposit(s.id, 5) },

@@ -1,8 +1,10 @@
 import { getItem } from '../data/items.js';
 
 export const INV_SIZE = 28;
+export const STACK_LIMIT = 100; // max quantity of one item per inventory slot
 
-// A 28-slot inventory. Slots hold { id, qty } or null. Stackable items merge.
+// A 28-slot inventory. Every item stacks up to STACK_LIMIT per slot; items with
+// an explicit `maxStack` (e.g. coins = Infinity) override that limit.
 export class Inventory {
   constructor(bus, size = INV_SIZE) {
     this.bus = bus;
@@ -11,6 +13,9 @@ export class Inventory {
   }
 
   _changed() { this.bus?.emit('inventory'); }
+
+  /** Per-slot stack cap for an item. */
+  maxStackOf(id) { return getItem(id).maxStack ?? STACK_LIMIT; }
 
   firstEmpty() {
     return this.slots.findIndex((s) => s === null);
@@ -28,38 +33,36 @@ export class Inventory {
 
   has(id, qty = 1) { return this.count(id) >= qty; }
 
-  /** How many of `id` could be added right now. */
+  /** How many of `id` could be added right now (top-up of partial stacks + empty slots). */
   canAdd(id, qty) {
-    const stackable = !!getItem(id).stackable;
-    if (stackable) {
-      const existing = this.slots.some((s) => s && s.id === id);
-      return existing || this.freeSlots() > 0 ? qty : 0;
+    const max = this.maxStackOf(id);
+    let space = 0;
+    for (const s of this.slots) {
+      if (s && s.id === id) space += Math.max(0, max - s.qty);
+      else if (s === null) space += max;
+      if (space >= qty) return qty;
     }
-    return Math.min(qty, this.freeSlots());
+    return Math.min(qty, space);
   }
 
-  /** Add up to `qty`; returns the amount actually added. */
+  /** Add up to `qty`; tops up partial stacks first, then fills empty slots. Returns amount added. */
   add(id, qty = 1) {
-    const item = getItem(id);
-    let added = 0;
-    if (item.stackable) {
-      let slot = this.slots.find((s) => s && s.id === id);
-      if (!slot) {
-        const i = this.firstEmpty();
-        if (i === -1) return 0;
-        slot = { id, qty: 0 };
-        this.slots[i] = slot;
-      }
-      slot.qty += qty;
-      added = qty;
-    } else {
-      for (let n = 0; n < qty; n++) {
-        const i = this.firstEmpty();
-        if (i === -1) break;
-        this.slots[i] = { id, qty: 1 };
-        added++;
+    const max = this.maxStackOf(id);
+    let remaining = qty;
+    for (let i = 0; i < this.size && remaining > 0; i++) {
+      const s = this.slots[i];
+      if (s && s.id === id && s.qty < max) {
+        const put = Math.min(max - s.qty, remaining);
+        s.qty += put; remaining -= put;
       }
     }
+    for (let i = 0; i < this.size && remaining > 0; i++) {
+      if (this.slots[i] === null) {
+        const put = Math.min(max, remaining);
+        this.slots[i] = { id, qty: put }; remaining -= put;
+      }
+    }
+    const added = qty - remaining;
     if (added > 0) this._changed();
     return added;
   }

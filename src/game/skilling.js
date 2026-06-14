@@ -29,7 +29,7 @@ export function resolveWoodcut(game, action) {
     game.msg(`You need a Woodcutting level of ${def.level} to chop this.`); return false;
   }
   if (!game.hasTool('axe')) { game.msg('You need an axe to chop this tree.'); return false; }
-  if (game.inventory.isFull()) { game.msg('Your inventory is too full to hold any more logs.'); return false; }
+  if (game.inventory.canAdd(def.gives, 1) <= 0) { game.msg('Your inventory is too full to hold any more logs.'); return false; }
 
   if (Math.random() < gatherChance(def.lowChance, def.highChance, game.skills.level('woodcutting'))) {
     game.inventory.add(def.gives, 1);
@@ -53,7 +53,7 @@ export function resolveMine(game, action) {
     game.msg(`You need a Mining level of ${def.level} to mine this rock.`); return false;
   }
   if (!game.hasTool('pickaxe')) { game.msg('You need a pickaxe to mine this rock.'); return false; }
-  if (game.inventory.isFull()) { game.msg('Your inventory is too full to hold any more ore.'); return false; }
+  if (game.inventory.canAdd(def.gives, 1) <= 0) { game.msg('Your inventory is too full to hold any more ore.'); return false; }
 
   if (Math.random() < gatherChance(def.lowChance, def.highChance, game.skills.level('mining'))) {
     game.inventory.add(def.gives, 1);
@@ -71,11 +71,13 @@ export function resolveFish(game, action) {
   const { obj } = action;
   const def = obj.def;
   if (!game.hasTool('net')) { game.msg('You need a small fishing net to fish here.'); return false; }
-  if (game.inventory.isFull()) { game.msg('Your inventory is too full to hold any more fish.'); return false; }
 
   const lvl = game.skills.level('fishing');
   const eligible = def.catches.filter((c) => lvl >= c.level);
   if (!eligible.length) { game.msg('You need a higher Fishing level to catch anything here.'); return false; }
+  if (!eligible.some((c) => game.inventory.canAdd(c.id, 1) > 0)) {
+    game.msg('Your inventory is too full to hold any more fish.'); return false;
+  }
   const pick = weightedPick(eligible);
   if (Math.random() < gatherChance(pick.lowChance, pick.highChance, lvl)) {
     game.inventory.add(pick.id, 1);
