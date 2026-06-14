@@ -24,6 +24,7 @@ import {
 } from './skilling.js';
 import { saveGame, loadGame, hasSave } from './save.js';
 import { getShop } from '../data/shops.js';
+import { RARE_DROP_TABLE } from '../data/npcs.js';
 
 const STARTER_TOOLS = ['bronze_axe', 'bronze_pickaxe', 'small_net', 'tinderbox', 'hammer', 'bronze_dagger'];
 
@@ -55,6 +56,8 @@ export class Game {
     this.hover = null;
     this.currentZoneName = null;
     this.wildLevel = 0;
+    this.playerStun = 0;
+    this.hasTemps = false;
 
     // Celebratory sparkle on level up.
     this.bus.on('levelup', () => this.spawnSparkle(this.player, '#ffe24a', 12));
@@ -204,7 +207,8 @@ export class Game {
       if (--this.player.respawnTimer <= 0) this.respawnPlayer();
     } else {
       if (this.player.attackCooldown > 0) this.player.attackCooldown--;
-      this.resolvePlayerAction();
+      if (this.playerStun > 0) this.playerStun--;
+      else this.resolvePlayerAction();
     }
     // Only tick NPCs near the player (the bestiary is large).
     const px = this.player.x, py = this.player.y;
@@ -212,6 +216,7 @@ export class Game {
       if (Math.abs(n.x - px) > 46 || Math.abs(n.y - py) > 46) continue;
       n.tick(this);
     }
+    if (this.hasTemps) this.npcs = this.npcs.filter((n) => !(n.temporary && !n.alive));
     if (this.player.alive) this.updateRegion();
     this.world.tick();
     this._spawnEmbers();
@@ -233,7 +238,7 @@ export class Game {
       if (this.runEnergy === 0) this.running = false;
       changed = true;
     } else if (this.runEnergy < 100) {
-      this.runEnergy = Math.min(100, this.runEnergy + 0.7);
+      this.runEnergy = Math.min(100, this.runEnergy + 0.7 + this.skills.agility * 0.01);
       changed = true;
     }
     if (changed) this.bus.emit('run');
@@ -282,6 +287,8 @@ export class Game {
         this.spawnSparkle(this.player, '#f5a623', 16);
         this.msg('You rest at the Hyco Education obelisk. Health and run energy restored.', 'system');
       });
+      case 'thieve': return this._tickArrival(a, a.target, true, () => this.pickpocket(a.npc));
+      case 'agility': return this._tickContinuous(a, a.obj, () => this.resolveAgility(a.obj));
       case 'openbank': return this._tickArrival(a, a.target, true, () => this.ui?.openBank());
       case 'openshop': return this._tickArrival(a, a.target, true, () => this.ui?.openShop(a.shop));
       case 'talk': return this._tickArrival(a, a.target, true, () => this.ui?.openDialogue(a.npc));
@@ -406,6 +413,112 @@ export class Game {
         this.world.addGroundItem(pick.id, q, npc.x, npc.y);
       }
     }
+    // Rare drop table — small base chance, much higher for bosses & high levels.
+    const rareChance = Math.min(0.22, (def.level || 1) / 1200 + (def.boss ? 0.18 : 0.01));
+    if (Math.random() < rareChance) {
+      const pick = weightedPick(RARE_DROP_TABLE);
+      const q = pick.min ? randInt(pick.min, pick.max) : 1;
+      this.world.addGroundItem(pick.id, q, npc.x, npc.y);
+      const nm = getItem(pick.id).name;
+      this.msg(`A rare drop! ${q > 1 ? q + ' x ' : ''}${nm}.`, 'level');
+      if (getItem(pick.id).value >= 5000) this.banner(`<span class="big">Rare drop!</span>${nm}`);
+    }
+  }
+
+  // ---------------- New skills: Prayer, Thieving, Agility ----------------
+  buryBones(index) {
+    const s = this.inventory.slotAt(index);
+    if (!s || s.id !== 'bones') { this.msg('You can only bury bones.'); return; }
+    this.inventory.removeAt(index, 1);
+    this.skills.addXp('prayer', 4.5);
+    this.spawnSparkle(this.player, '#ffe89a', 6);
+    this.msg('You bury the bones.', 'system');
+  }
+
+  startPickpocket(npc) {
+    if (!npc.def.role) { this.msg("You can't pickpocket that."); return; }
+    this.beginAction({ type: 'thieve', npc, target: { x: npc.x, y: npc.y } }, { x: npc.x, y: npc.y }, true);
+  }
+
+  pickpocket(npc) {
+    if (!npc || !npc.def.role) return;
+    const lvl = this.skills.level('thieving');
+    if (Math.random() < Math.min(0.92, 0.45 + lvl * 0.006)) {
+      const coins = randInt(3, 12) + Math.floor(lvl * 1.5);
+      this.inventory.add('coins', coins);
+      this.skills.addXp('thieving', 8 + lvl);
+      this.spawnSparkle(this.player, '#ffe24a', 6);
+      this.msg(`You pick the ${npc.name}'s pocket and steal ${coins} coins.`, 'system');
+    } else {
+      const dmg = randInt(1, 2);
+      this.player.takeDamage(dmg); this.addHitsplat(this.player, dmg); this.bus.emit('hp');
+      this.playerStun = 3;
+      this.msg(`You fail to pick the ${npc.name}'s pocket and are stunned!`, 'combat');
+      if (this.player.hp <= 0) this.playerDeath();
+    }
+  }
+
+  resolveAgility(obj) {
+    this.skills.addXp('agility', obj.def.xp || 18);
+    this.runEnergy = Math.min(100, this.runEnergy + 8);
+    this.bus.emit('run');
+    this.spawnPoof(obj.x * TILE + TILE / 2, obj.y * TILE + TILE / 2 - 6, '#8fd6ff');
+    return true; // keep training until the player moves
+  }
+
+  // ---------------- Boss mechanics ----------------
+  spawnNpc(npcId, x, y, { temporary = false, wander = 3 } = {}) {
+    const n = new NPC(npcId, x, y, wander);
+    n.temporary = temporary;
+    if (temporary) this.hasTemps = true;
+    this.npcs.push(n);
+    return n;
+  }
+
+  bossSpecial(npc) {
+    const p = this.player;
+    if (!p.alive) return;
+    switch (npc.def.mechanic) {
+      case 'slam': {
+        const { atkRoll, defRoll, max } = npcAttackVsPlayer(npc.def, this.skills, this.equipment, p.style);
+        const dmg = Math.min(p.hp, Math.round(rollAttack(atkRoll, defRoll, max) * 1.6) + 2);
+        p.takeDamage(dmg); this.addHitsplat(p, dmg); this.spawnHitSparks(p, '#ff5a3a'); this.bus.emit('hp');
+        this.msg(`${npc.name} unleashes a crushing slam!`, 'combat');
+        if (p.hp <= 0) this.playerDeath();
+        break;
+      }
+      case 'heal': {
+        npc.hp = Math.min(npc.maxHp, npc.hp + Math.round(npc.maxHp * 0.1)); npc.combatLatch = 12;
+        this.spawnSparkle(npc, '#5fe08a', 12);
+        this.msg(`${npc.name} channels power and heals!`, 'combat');
+        break;
+      }
+      case 'summon': {
+        const adds = this.npcs.filter((n) => n.temporary && n.alive).length;
+        if (adds < 4) {
+          for (let i = 0; i < 2; i++) {
+            const ox = npc.x + (i ? 1 : -1), oy = npc.y + 1;
+            if (!this.world.isBlocked(ox, oy)) this.spawnNpc('imp', ox, oy, { temporary: true });
+          }
+          this.msg(`${npc.name} summons minions!`, 'combat');
+        }
+        break;
+      }
+      case 'enrage': {
+        if (!npc.enraged && npc.hp < npc.maxHp * 0.4) {
+          npc.enraged = true;
+          npc.def = { ...npc.def, attackSpeed: Math.max(2, (npc.def.attackSpeed || 5) - 1) };
+          this.spawnSparkle(npc, '#ff5a3a', 14);
+          this.msg(`${npc.name} flies into a rage!`, 'combat');
+        }
+        break;
+      }
+      case 'frenzy':
+        this.resolveNpcAttack(npc);
+        this.msg(`${npc.name} strikes in a frenzy!`, 'combat');
+        break;
+      default: break;
+    }
   }
 
   playerDeath() {
@@ -486,6 +599,7 @@ export class Game {
       case 'bank': return this.beginAction({ type: 'openbank', target: tgt }, tgt, true);
       case 'shrine': return this.beginAction({ type: 'pray', obj }, tgt, true);
       case 'rest': return this.beginAction({ type: 'rest', obj }, tgt, true);
+      case 'agility': return this.beginAction({ type: 'agility', obj }, tgt, true);
       default: return this.walkTo(tgt);
     }
   }
@@ -665,6 +779,7 @@ export class Game {
       if (npc.def.role === 'shop') options.push({ label: 'Trade with', target: npc.name, fn: () => this.defaultNpcAction(npc) });
       if (npc.def.role === 'bank') options.push({ label: 'Bank', target: npc.name, fn: () => this.defaultNpcAction(npc) });
       if (npc.def.role === 'dialogue') options.push({ label: 'Talk to', target: npc.name, fn: () => this.defaultNpcAction(npc) });
+      if (npc.def.role) options.push({ label: 'Pickpocket', target: npc.name, fn: () => this.startPickpocket(npc) });
       options.push({ label: 'Examine', target: npc.name, fn: () => this.msg(npc.def.examine, 'system') });
     }
     for (const g of this.world.groundItemsAt(tile.x, tile.y)) {

@@ -46,6 +46,7 @@ test('player can chop logs from a tree', () => {
   const game = new Game();
   game.start();
   game.player.autoRetaliate = false; // isolate from random wandering aggro
+  game.player.hp = 9999;             // can't be killed mid-chop by a wanderer
 
   const tree = game.world.objects
     .find((o) => o.def.type === 'tree' && !o.depleted && o.def.level <= game.skills.level('woodcutting'));

@@ -215,6 +215,7 @@ export class UI {
     if (item.heal) this.game.eatItem(i);
     else if (item.equip) this.game.equipItem(i);
     else if (item.tags?.includes('log')) this.game.lightLogs(i);
+    else if (s.id === 'bones') this.game.buryBones(i);
     else this.game.msg(item.examine, 'system');
   }
 
@@ -226,6 +227,7 @@ export class UI {
     if (item.heal) opts.push({ label: 'Eat', target: item.name, fn: () => this.game.eatItem(i) });
     if (item.equip) opts.push({ label: item.equip.slot === 'weapon' ? 'Wield' : 'Wear', target: item.name, fn: () => this.game.equipItem(i) });
     if (item.tags?.includes('log')) opts.push({ label: 'Light', target: item.name, fn: () => this.game.lightLogs(i) });
+    if (s.id === 'bones') opts.push({ label: 'Bury', target: item.name, fn: () => this.game.buryBones(i) });
     opts.push({ label: 'Drop', target: item.name, fn: () => this.game.dropItem(i) });
     opts.push({ label: 'Examine', target: item.name, fn: () => this.game.msg(item.examine, 'system') });
     this.showContextMenu(e.clientX, e.clientY, opts);

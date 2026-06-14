@@ -137,6 +137,12 @@ export const OBJECTS = {
     examine: 'A monument to learning, presented by Hyco Education. Rest here to recover health and run energy.',
   },
 
+  // ---------------- Agility course ----------------
+  agility_course: {
+    name: 'Agility course', label: 'Agility', type: 'agility', verb: 'Train at', emoji: '🏃', blocking: true,
+    skill: 'agility', xp: 18, examine: 'Clamber across to train your Agility.',
+  },
+
   // ---------------- Scenery (blocking decor) ----------------
   wall: { name: 'Wall', type: 'scenery', emoji: '🧱', blocking: true, examine: 'A stone wall.' },
   ruin: { name: 'Ruins', type: 'scenery', emoji: '🏚️', blocking: true, examine: 'Crumbling ruins from a forgotten age.' },

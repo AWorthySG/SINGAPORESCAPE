@@ -26,6 +26,9 @@ export class NPC extends Character {
     this.repathCooldown = 0;
     this.lastTargetTile = null;
     this.combatLatch = 0;         // ticks left showing in-combat HP bar
+    this.specialCooldown = this.def.specialEvery || 9; // boss special cadence
+    this.enraged = false;
+    this.temporary = false;       // summoned adds are removed on death
   }
 
   get attackable() { return !!this.def.attackable && this.alive; }
@@ -50,6 +53,7 @@ export class NPC extends Character {
     if (this.attackCooldown > 0) this.attackCooldown--;
     if (this.repathCooldown > 0) this.repathCooldown--;
     if (this.combatLatch > 0) this.combatLatch--;
+    if (this.specialCooldown > 0) this.specialCooldown--;
 
     if (this.def.attackable) {
       this._combatAI(game);
@@ -82,6 +86,10 @@ export class NPC extends Character {
       const t = this.target;
       if (this.isAdjacentTo(t)) {
         this.stop();
+        if (this.def.boss && this.specialCooldown <= 0) {
+          game.bossSpecial(this);
+          this.specialCooldown = this.def.specialEvery || 9;
+        }
         if (this.attackCooldown <= 0) {
           game.resolveNpcAttack(this);
           this.attackCooldown = this.def.attackSpeed || 4;
@@ -138,5 +146,8 @@ export class NPC extends Character {
     this.moving = false;
     this.attackCooldown = 0;
     this.combatLatch = 0;
+    this.def = getNpc(this.npcId); // restore any enrage-mutated stats
+    this.enraged = false;
+    this.specialCooldown = this.def.specialEvery || 9;
   }
 }

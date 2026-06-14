@@ -32,9 +32,11 @@ export class Skills {
   get strength() { return this.level('strength'); }
   get defence() { return this.level('defence'); }
   get hitpoints() { return this.level('hitpoints'); }
+  get prayer() { return this.level('prayer'); }
+  get agility() { return this.level('agility'); }
 
   combatLevel() {
-    const base = 0.25 * (this.defence + this.hitpoints);
+    const base = 0.25 * (this.defence + this.hitpoints + Math.floor(this.prayer / 2));
     const melee = 0.325 * (this.attack + this.strength);
     return Math.floor(base + melee);
   }
