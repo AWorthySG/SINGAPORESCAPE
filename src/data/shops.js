@@ -26,8 +26,11 @@ export const SHOPS = {
     buysAnything: false,
     stock: [
       { id: 'kaya_toast', qty: 50 },
+      { id: 'satay', qty: 40 },
       { id: 'roti_prata', qty: 30 },
       { id: 'chicken_rice', qty: 20 },
+      { id: 'laksa', qty: 15 },
+      { id: 'nasi_lemak', qty: 10 },
     ],
   },
 };

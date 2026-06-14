@@ -232,6 +232,49 @@
   T.settings = `<path d="M12 3 L13.6 3 L14.2 5.6 L16 6.4 L18.2 5 L19.4 6.2 L18 8.4 L18.8 10.2 L21.4 10.8 L21.4 13.2 L18.8 13.8 L18 15.6 L19.4 17.8 L18.2 19 L16 17.6 L14.2 18.4 L13.6 21 L11.4 21 L10.8 18.4 L9 17.6 L6.8 19 L5.6 17.8 L7 15.6 L6.2 13.8 L3.6 13.2 L3.6 10.8 L6.2 10.2 L7 8.4 L5.6 6.2 L6.8 5 L9 6.4 L10.8 5.6 Z" fill="${C.stone}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/>
     <circle cx="12" cy="12" r="3.2" fill="${C.stoneDk}" stroke="${OL}" stroke-width="1"/>`;
 
+  // ---- Expanded content (higher tiers, food, boss uniques) ----
+  const mith = '#5b6bd6', mithHi = '#8a96e8';
+  const adam = '#3fa06a', adamHi = '#6fd49a';
+  const rune = '#46b3c4', runeHi = '#7fe0ee';
+  I.maple_logs = logIcon('#6e8a3a', '#92b05a');
+  I.mithril_ore = oreIcon(mith);
+  I.adamantite_ore = oreIcon(adam);
+  I.runite_ore = oreIcon(rune);
+  I.steel_bar = barIcon(C.steel, C.steelHi);
+  I.mithril_bar = barIcon(mith, mithHi);
+  I.adamant_bar = barIcon(adam, adamHi);
+  I.rune_bar = barIcon(rune, runeHi);
+  I.raw_lobster = rawFish('#d8693a', '#f0a07a');
+  I.lobster = cookedFish('#e05a2a');
+  I.raw_swordfish = rawFish('#6a8ab0', '#a8c6e0');
+  I.swordfish = cookedFish('#8a9ab0');
+  I.laksa = `<path d="M3.5 11 C3.5 17 20.5 17 20.5 11 Z" fill="#d8552e" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/>
+    <ellipse cx="12" cy="11" rx="8.5" ry="2.6" fill="#e8804a" stroke="${OL}" stroke-width="1"/>
+    <path d="M7 10 C10 9 14 9 17 10" stroke="#f4d9a0" stroke-width="1.4" fill="none"/><circle cx="14" cy="10.4" r="1" fill="#a01f1f"/>`;
+  I.satay = `<rect x="3" y="14" width="17" height="1.6" rx="1" fill="${C.wood}" transform="rotate(-18 12 14)"/>
+    <g fill="${C.meat}" stroke="${OL}" stroke-width="1"><rect x="8" y="5.5" width="4.2" height="3.4" rx="1.4"/><rect x="9.6" y="9" width="4.2" height="3.4" rx="1.4"/><rect x="11.2" y="12.5" width="4.2" height="3.4" rx="1.4"/></g>`;
+  I.nasi_lemak = `<path d="M3 13 C3 17 21 17 21 13 Z" fill="${C.cream}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/>
+    <path d="M8 6 C6 11 18 11 16 6 C15 9 9 9 8 6Z" fill="#f7f4ea" stroke="${OL}" stroke-width="1"/>
+    <circle cx="8" cy="12" r="1.3" fill="#c0392b"/><circle cx="16.5" cy="12" r="1.3" fill="${C.leaf}"/><rect x="10.6" y="10.6" width="3" height="2.4" rx="1" fill="${C.meat}"/>`;
+  I.mithril_scimitar = scim(mith, mithHi);
+  I.adamant_scimitar = scim(adam, adamHi);
+  I.rune_scimitar = scim(rune, runeHi);
+  I.steel_full_helm = helm(C.steel, C.steelHi);
+  I.steel_platebody = plate(C.steel, C.steelHi);
+  I.steel_kiteshield = shield(C.steel, C.steelHi);
+  I.mithril_full_helm = helm(mith, mithHi);
+  I.mithril_platebody = plate(mith, mithHi);
+  I.rune_full_helm = helm(rune, runeHi);
+  I.rune_platebody = plate(rune, runeHi);
+  I.rune_kiteshield = shield(rune, runeHi);
+  I.merlion_blade = scim('#e6f3f7', '#ffffff');
+  I.merlion_amulet = `<path d="M7 5 C7 9 17 9 17 5" fill="none" stroke="${C.gold}" stroke-width="1.6"/>
+    <circle cx="12" cy="15" r="5" fill="${rune}" stroke="${OL}" stroke-width="1.1"/><circle cx="10.4" cy="13.4" r="1.6" fill="${runeHi}"/>`;
+  I.warlord_cape = `<path d="M8 4 L16 4 L19 20 L12 17 L5 20 Z" fill="#6a1f1f" stroke="${OL}" stroke-width="1.2" stroke-linejoin="round"/>
+    <path d="M8 4 C10 7 14 7 16 4" fill="none" stroke="${C.goldDk}" stroke-width="1.4"/><path d="M12 6 L12 16" stroke="#8a2a2a" stroke-width="1"/>`;
+  I.boar_tusk = `<path d="M7 5 C7 9 17 9 17 5" fill="none" stroke="${C.gold}" stroke-width="1.6"/>
+    <path d="M12 10 C9 12 9 18 12 20 C12 16 13 13 14 11 C13.5 10 12.5 10 12 10 Z" fill="${C.cream}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/>`;
+
   function svg(inner, size, cls) {
     return `<svg class="${cls || ''}" width="${size}" height="${size}" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="display:block">${inner}</svg>`;
   }

@@ -64,15 +64,26 @@ One-command alternatives: `npx vercel`, drag the folder onto
 
 ---
 
+## World & bestiary
+
+A connected overworld of Singapore-themed zones — **Kampong Glam** (town),
+**Bukit Timah** (forest + mine), **MacRitchie Reservoir** (fishing),
+**Chinatown** (market), **Sentosa Beach**, and **The Wilderness** (a lawless,
+no-safe-healing PvP-style danger zone). The current region shows top-centre.
+A **169-monster bestiary** (archetype creatures scaled across the zones) plus
+**15 unique bosses** (e.g. The Boar King, The Merlion, the Wilderness Warlord)
+with their own loot. Gathering nodes are labelled so you can tell an oak from a
+willow, or a net spot from a cage spot, at a glance.
+
 ## What you can do
 
 - **Combat** — Attack/Strength/Defence/Hitpoints with OSRS-style accuracy and
   max-hit formulas, three attack styles (Accurate/Aggressive/Defensive), auto
   retaliate, hitsplats, overhead health bars, aggressive monsters, loot drops,
   death & respawn.
-- **Woodcutting** — chop trees, oaks and willows for logs.
-- **Mining** — mine copper, tin, iron and coal (rocks deplete and respawn).
-- **Fishing** — net anchovies, sardines and trout from fishing spots.
+- **Woodcutting** — chop trees, oaks, willows and rain trees for logs.
+- **Mining** — copper, tin, iron, coal, mithril, adamantite & runite (labelled).
+- **Fishing** — net spots (anchovy/sardine/trout) and cage spots (lobster/swordfish).
 - **Firemaking** — light logs with a tinderbox; walk west to lay a line of fires.
 - **Cooking** — cook raw fish on a fire or range (burn chance drops with level).
 - **Smithing** — smelt ore into bars at the furnace, then hammer bars into

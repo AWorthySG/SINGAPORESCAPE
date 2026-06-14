@@ -53,6 +53,8 @@ export class Game {
     this.effects = [];
     this.particles = [];
     this.hover = null;
+    this.currentZoneName = null;
+    this.wildLevel = 0;
 
     // Celebratory sparkle on level up.
     this.bus.on('levelup', () => this.spawnSparkle(this.player, '#ffe24a', 12));
@@ -78,6 +80,7 @@ export class Game {
     this.bus.emit('skills');
     this.bus.emit('hp');
     this.bus.emit('run');
+    this.updateRegion();
   }
 
   newGame() {
@@ -203,7 +206,13 @@ export class Game {
       if (this.player.attackCooldown > 0) this.player.attackCooldown--;
       this.resolvePlayerAction();
     }
-    for (const n of this.npcs) n.tick(this);
+    // Only tick NPCs near the player (the bestiary is large).
+    const px = this.player.x, py = this.player.y;
+    for (const n of this.npcs) {
+      if (Math.abs(n.x - px) > 46 || Math.abs(n.y - py) > 46) continue;
+      n.tick(this);
+    }
+    if (this.player.alive) this.updateRegion();
     this.world.tick();
     this._spawnEmbers();
 
@@ -347,10 +356,34 @@ export class Game {
   }
 
   killNpc(npc) {
-    this.msg(`You have defeated the ${npc.name}.`, 'combat');
+    if (npc.def.boss) {
+      this.msg(`You have slain ${npc.name}!`, 'combat');
+      this.banner(`<span class="big">${npc.name} defeated!</span>The spoils are yours.`);
+    } else {
+      this.msg(`You have defeated the ${npc.name}.`, 'combat');
+    }
     this.rollDrops(npc);
     npc.die();
     if (this.player.target === npc) this.player.target = null;
+  }
+
+  // ---------------- Region / Wilderness ----------------
+  updateRegion() {
+    const z = this.world.zoneAt(this.player.x, this.player.y);
+    const name = z ? z.name : 'Singapore';
+    const wild = !!(z && z.wilderness);
+    const lvl = wild ? Math.max(1, Math.floor((this.player.x - 94) / 3) + 1) : 0;
+    if (name !== this.currentZoneName) {
+      this.currentZoneName = name;
+      if (wild) {
+        this.banner('<span class="big">&#9888; The Wilderness</span>Lawless and deadly &mdash; no safe healing. Beware bosses!');
+        this.msg('You enter the Wilderness. Fight or flee!', 'combat');
+      } else {
+        this.msg(`You enter ${name}.`, 'system');
+      }
+    }
+    this.wildLevel = lvl;
+    this.ui?.setRegion?.(name, lvl);
   }
 
   rollDrops(npc) {
