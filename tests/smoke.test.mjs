@@ -33,25 +33,39 @@ test('level progress and xp-to-next are sane', () => {
   assert.equal(xpToNext(13034431), 0);
 });
 
-test('inventory stacks stackables and fills slots otherwise', () => {
+test('items stack to 100 per slot; coins are uncapped', () => {
   const inv = new Inventory(new EventBus());
-  assert.equal(inv.add('coins', 100), 100);
-  assert.equal(inv.add('coins', 50), 50);
-  assert.equal(inv.count('coins'), 150);
-  assert.equal(inv.freeSlots(), 27); // coins use one slot
+  // Coins are exempt from the cap -> a single slot.
+  assert.equal(inv.add('coins', 5000), 5000);
+  assert.equal(inv.count('coins'), 5000);
+  assert.equal(inv.freeSlots(), 27);
 
-  assert.equal(inv.add('logs', 5), 5);
-  assert.equal(inv.freeSlots(), 22);
-  assert.equal(inv.remove('logs', 3), 3);
-  assert.equal(inv.count('logs'), 2);
+  // 250 logs span 3 slots (100 + 100 + 50).
+  assert.equal(inv.add('logs', 250), 250);
+  assert.equal(inv.count('logs'), 250);
+  assert.equal(inv.freeSlots(), 24); // 1 coins + 3 logs used
+  assert.equal(inv.remove('logs', 120), 120);
+  assert.equal(inv.count('logs'), 130);
 });
 
-test('inventory respects capacity for non-stackables', () => {
+test('per-slot cap fills the whole bag and blocks overflow', () => {
   const inv = new Inventory(new EventBus());
-  assert.equal(inv.add('bones', 100), 28); // only 28 slots
+  // 28 slots x 100 = 2800 capacity for a capped item.
+  assert.equal(inv.add('bones', 5000), 2800);
   assert.ok(inv.isFull());
   assert.equal(inv.canAdd('bones', 5), 0);
-  assert.equal(inv.canAdd('coins', 5), 0); // no slot for a new stack
+  assert.equal(inv.canAdd('coins', 5), 0); // no empty slot for a new item
+});
+
+test('a partial stack can still be topped up when all slots are used', () => {
+  const inv = new Inventory(new EventBus());
+  assert.equal(inv.add('bones', 2700), 2700); // 27 full slots
+  assert.equal(inv.add('logs', 50), 50);      // 28th slot, partial
+  assert.ok(inv.isFull());                     // no empty slots
+  assert.equal(inv.canAdd('logs', 80), 50);    // can still top the 50 -> 100
+  assert.equal(inv.add('logs', 80), 50);
+  assert.equal(inv.count('logs'), 100);
+  assert.equal(inv.canAdd('logs', 1), 0);      // now genuinely full
 });
 
 test('skills start at the buffed baseline and level up via xp', () => {

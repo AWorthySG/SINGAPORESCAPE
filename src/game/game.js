@@ -498,7 +498,7 @@ export class Game {
   unequip(slot) {
     const id = this.equipment.get(slot);
     if (!id) return;
-    if (this.inventory.isFull()) { this.msg("You don't have enough inventory space."); return; }
+    if (this.inventory.canAdd(id, 1) <= 0) { this.msg("You don't have enough inventory space."); return; }
     this.equipment.clearSlot(slot);
     this.inventory.add(id, 1);
     this.msg(`You remove the ${getItem(id).name.toLowerCase()}.`);
@@ -569,11 +569,8 @@ export class Game {
   }
 
   withdraw(itemId, qty) {
-    const inBank = this.bank.count(itemId);
-    let amount = Math.min(qty, inBank);
-    const stackable = !!getItem(itemId).stackable;
-    if (!stackable) amount = Math.min(amount, this.inventory.freeSlots());
-    else if (this.inventory.canAdd(itemId, amount) <= 0) amount = 0;
+    const want = Math.min(qty, this.bank.count(itemId));
+    const amount = this.inventory.canAdd(itemId, want);
     if (amount <= 0) { this.msg('Your inventory is full.'); return; }
     this.bank.withdraw(itemId, amount);
     this.inventory.add(itemId, amount);
