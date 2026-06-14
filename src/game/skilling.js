@@ -1,0 +1,175 @@
+import { getItem } from '../data/items.js';
+import { clamp, weightedPick } from '../core/utils.js';
+
+// Cooking definitions: raw item -> result, level, xp, and the level at which it
+// stops burning. Range cooking is more forgiving than a fire.
+export const COOKING = {
+  raw_anchovy: { result: 'anchovy', level: 1, xp: 30, burnStop: 34 },
+  raw_sardine: { result: 'sardine', level: 1, xp: 40, burnStop: 38 },
+  raw_trout: { result: 'trout', level: 15, xp: 70, burnStop: 50 },
+  raw_chicken: { result: 'cooked_chicken', level: 1, xp: 30, burnStop: 33 },
+};
+
+/** Interpolate gather success between level 1 (low) and level 99 (high). */
+export function gatherChance(low, high, level) {
+  const t = clamp((level - 1) / 98, 0, 1);
+  return clamp(low + (high - low) * t, 0.05, 0.99);
+}
+
+// All resolvers return true to keep the action going next tick, false to stop.
+
+export function resolveWoodcut(game, action) {
+  const { obj } = action;
+  const def = obj.def;
+  if (obj.depleted || game.world.objectAt(obj.x, obj.y) !== obj) return false;
+  if (game.skills.level('woodcutting') < def.level) {
+    game.msg(`You need a Woodcutting level of ${def.level} to chop this.`); return false;
+  }
+  if (!game.hasTool('axe')) { game.msg('You need an axe to chop this tree.'); return false; }
+  if (game.inventory.isFull()) { game.msg('Your inventory is too full to hold any more logs.'); return false; }
+
+  if (Math.random() < gatherChance(def.lowChance, def.highChance, game.skills.level('woodcutting'))) {
+    game.inventory.add(def.gives, 1);
+    game.skills.addXp('woodcutting', def.xp);
+    game.msg(`You get some ${getItem(def.gives).name.toLowerCase()}.`);
+    if (Math.random() < def.depleteChance) {
+      obj.depleted = true;
+      obj.respawnTimer = def.respawn;
+      return false; // tree felled
+    }
+  }
+  return true;
+}
+
+export function resolveMine(game, action) {
+  const { obj } = action;
+  const def = obj.def;
+  if (obj.depleted || game.world.objectAt(obj.x, obj.y) !== obj) return false;
+  if (game.skills.level('mining') < def.level) {
+    game.msg(`You need a Mining level of ${def.level} to mine this rock.`); return false;
+  }
+  if (!game.hasTool('pickaxe')) { game.msg('You need a pickaxe to mine this rock.'); return false; }
+  if (game.inventory.isFull()) { game.msg('Your inventory is too full to hold any more ore.'); return false; }
+
+  if (Math.random() < gatherChance(def.lowChance, def.highChance, game.skills.level('mining'))) {
+    game.inventory.add(def.gives, 1);
+    game.skills.addXp('mining', def.xp);
+    game.msg(`You manage to mine some ${getItem(def.gives).name.toLowerCase()}.`);
+    obj.depleted = true;
+    obj.respawnTimer = def.respawn;
+    return false; // rock depletes; player must find another
+  }
+  return true;
+}
+
+export function resolveFish(game, action) {
+  const { obj } = action;
+  const def = obj.def;
+  if (!game.hasTool('net')) { game.msg('You need a small fishing net to fish here.'); return false; }
+  if (game.inventory.isFull()) { game.msg('Your inventory is too full to hold any more fish.'); return false; }
+
+  const lvl = game.skills.level('fishing');
+  const eligible = def.catches.filter((c) => lvl >= c.level);
+  if (!eligible.length) { game.msg('You need a higher Fishing level to catch anything here.'); return false; }
+  const pick = weightedPick(eligible);
+  if (Math.random() < gatherChance(pick.lowChance, pick.highChance, lvl)) {
+    game.inventory.add(pick.id, 1);
+    game.skills.addXp('fishing', pick.xp);
+    game.msg(`You catch a ${getItem(pick.id).name.replace(/^Raw /, '').toLowerCase()}.`);
+  }
+  return true; // fishing spots never deplete
+}
+
+export function resolveCook(game, action) {
+  const cook = COOKING[action.rawId];
+  if (!cook) return false;
+  if (!game.inventory.has(action.rawId)) return false; // ran out
+  if (game.skills.level('cooking') < cook.level) {
+    game.msg(`You need a Cooking level of ${cook.level} to cook that.`); return false;
+  }
+  game.inventory.remove(action.rawId, 1);
+  const lvl = game.skills.level('cooking');
+  const onRange = action.obj?.def.type === 'range';
+  const effLevel = lvl + (onRange ? 5 : 0);
+  let burnChance = 0;
+  if (effLevel < cook.burnStop) {
+    burnChance = clamp(0.55 * (cook.burnStop - effLevel) / Math.max(1, cook.burnStop - cook.level), 0, 0.9);
+  }
+  if (Math.random() < burnChance) {
+    game.inventory.add('burnt_fish', 1);
+    game.msg(`Oops! You accidentally burn the ${getItem(action.rawId).name.replace(/^Raw /, '').toLowerCase()}.`);
+  } else {
+    game.inventory.add(cook.result, 1);
+    game.skills.addXp('cooking', cook.xp);
+    game.msg(`You cook the ${getItem(cook.result).name.toLowerCase()}.`);
+  }
+  return game.inventory.has(action.rawId);
+}
+
+export function resolveSmelt(game, action) {
+  const r = action.recipe;
+  for (const inp of r.inputs) {
+    if (!game.inventory.has(inp.id, inp.qty)) { game.msg('You have run out of materials.'); return false; }
+  }
+  if (game.skills.level('smithing') < r.level) {
+    game.msg(`You need a Smithing level of ${r.level} to smelt this.`); return false;
+  }
+  for (const inp of r.inputs) game.inventory.remove(inp.id, inp.qty);
+  if (r.successChance && Math.random() > r.successChance) {
+    game.msg('The ore is too impure and you fail to refine it.');
+  } else {
+    game.inventory.add(r.result, 1);
+    game.skills.addXp('smithing', r.xp);
+    game.msg(`You smelt a ${getItem(r.result).name.toLowerCase()}.`);
+  }
+  return r.inputs.every((inp) => game.inventory.has(inp.id, inp.qty));
+}
+
+export function resolveSmith(game, action) {
+  const r = action.recipe;
+  if (!game.hasTool('hammer')) { game.msg('You need a hammer to work the metal.'); return false; }
+  if (!game.inventory.has(r.bar, r.barCount)) { game.msg(`You need ${r.barCount} ${getItem(r.bar).name.toLowerCase()}s.`); return false; }
+  if (game.skills.level('smithing') < r.level) {
+    game.msg(`You need a Smithing level of ${r.level} to make this.`); return false;
+  }
+  game.inventory.remove(r.bar, r.barCount);
+  game.inventory.add(r.result, 1);
+  game.skills.addXp('smithing', r.xp);
+  game.msg(`You hammer the metal into a ${getItem(r.result).name.toLowerCase()}.`);
+  return game.inventory.has(r.bar, r.barCount);
+}
+
+export function resolveFiremake(game, action) {
+  // Wait until the player is standing on the target tile.
+  const p = game.player;
+  if (p.isMoving || p.x !== action.tile.x || p.y !== action.tile.y) return true;
+
+  if (!game.hasTool('tinderbox')) { game.msg('You need a tinderbox to light a fire.'); return false; }
+  if (!game.inventory.has(action.logId)) return false;
+  const logDef = getItem(action.logId);
+  if (game.skills.level('firemaking') < (logDef.firemaking || 1)) {
+    game.msg(`You need a Firemaking level of ${logDef.firemaking} to burn these logs.`); return false;
+  }
+  if (game.world.objectAt(p.x, p.y)) {
+    game.msg('You can\'t light a fire here.'); return false;
+  }
+
+  game.inventory.remove(action.logId, 1);
+  game.world.lightFire(p.x, p.y);
+  game.skills.addXp('firemaking', logDef.fmXp || 40);
+  game.msg('The fire catches and the logs begin to burn.');
+
+  // Try to step to an adjacent free tile (west preferred) and keep going.
+  if (game.inventory.has(action.logId)) {
+    const candidates = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+    for (const [dx, dy] of candidates) {
+      const nx = p.x + dx, ny = p.y + dy;
+      if (!game.world.isBlocked(nx, ny) && !game.world.objectAt(nx, ny)) {
+        p.setPath([{ x: nx, y: ny }], game.running);
+        action.tile = { x: nx, y: ny };
+        return true;
+      }
+    }
+  }
+  return false;
+}

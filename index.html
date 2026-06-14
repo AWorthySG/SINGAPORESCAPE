@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>SingaporeScape</title>
+  <link rel="stylesheet" href="styles/main.css" />
+</head>
+<body>
+  <div id="game-root">
+    <!-- World rendering -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Top-left action / hover text, RuneScape style -->
+    <div id="hover-text"></div>
+
+    <!-- Floating XP drops -->
+    <div id="xp-drops"></div>
+
+    <!-- Minimap (top-right) -->
+    <div id="minimap-panel">
+      <canvas id="minimap-canvas" width="160" height="160"></canvas>
+      <div id="minimap-compass">N</div>
+      <div id="hp-orb" class="orb" title="Hitpoints"><span id="hp-orb-value">10</span></div>
+      <div id="run-orb" class="orb" title="Run energy">RUN</div>
+    </div>
+
+    <!-- Chat box (bottom-left) -->
+    <div id="chatbox">
+      <div id="chat-log"></div>
+      <div id="chat-tabs">
+        <span class="chat-tab active" data-filter="all">All</span>
+        <span class="chat-tab" data-filter="game">Game</span>
+        <span class="chat-tab" data-filter="combat">Combat</span>
+      </div>
+    </div>
+
+    <!-- Side panel with tabs (bottom-right) -->
+    <div id="sidepanel">
+      <div id="panel-body">
+        <section class="panel-view" data-view="inventory">
+          <div id="inventory-grid"></div>
+        </section>
+        <section class="panel-view hidden" data-view="equipment">
+          <div id="equipment-layout"></div>
+          <div id="equipment-bonuses"></div>
+        </section>
+        <section class="panel-view hidden" data-view="skills">
+          <div id="skills-grid"></div>
+          <div id="skills-total"></div>
+        </section>
+        <section class="panel-view hidden" data-view="combat">
+          <div id="combat-panel"></div>
+        </section>
+        <section class="panel-view hidden" data-view="settings">
+          <div id="settings-panel"></div>
+        </section>
+      </div>
+      <div id="panel-tabs">
+        <button class="tab-btn active" data-view="inventory" title="Inventory">🎒</button>
+        <button class="tab-btn" data-view="equipment" title="Worn Equipment">🛡️</button>
+        <button class="tab-btn" data-view="skills" title="Skills">📊</button>
+        <button class="tab-btn" data-view="combat" title="Combat Options">⚔️</button>
+        <button class="tab-btn" data-view="settings" title="Settings">⚙️</button>
+      </div>
+    </div>
+
+    <!-- Right-click context menu -->
+    <div id="context-menu" class="hidden"></div>
+
+    <!-- Tooltip -->
+    <div id="tooltip" class="hidden"></div>
+
+    <!-- Modal interface (bank, shop, dialogue) -->
+    <div id="modal-overlay" class="hidden">
+      <div id="modal-window">
+        <div id="modal-title"></div>
+        <button id="modal-close" title="Close">✕</button>
+        <div id="modal-body"></div>
+      </div>
+    </div>
+
+    <!-- Level-up / important banner -->
+    <div id="banner" class="hidden"></div>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+{
+  "name": "singaporescape",
+  "version": "0.1.0",
+  "description": "An original, self-contained RuneScape-like browser game with a Singapore theme. Zero dependencies.",
+  "type": "module",
+  "scripts": {
+    "start": "node serve.mjs",
+    "serve": "node serve.mjs",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "keywords": [
+    "game",
+    "rpg",
+    "mmorpg",
+    "runescape",
+    "canvas",
+    "singapore"
+  ],
+  "license": "MIT",
+  "private": true
+}
