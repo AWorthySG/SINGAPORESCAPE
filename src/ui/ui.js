@@ -11,6 +11,7 @@ import { EQUIP_SLOTS } from '../game/equipment.js';
 import { TILE } from '../config.js';
 import { TERRAIN } from '../data/world.js';
 import { clearSave } from '../game/save.js';
+import { itemIconSVG, skillIconSVG, tabIconSVG } from '../render/icons.js';
 
 const EQUIP_LAYOUT = [
   null, 'head', null,
@@ -59,6 +60,13 @@ export class UI {
     };
     this.minimapCtx = this.el.minimap.getContext('2d');
 
+    // Swap the placeholder emoji tab glyphs for hand-drawn vector icons.
+    document.querySelectorAll('#panel-tabs .tab-btn').forEach((b) => {
+      b.innerHTML = tabIconSVG(b.dataset.view, 24);
+    });
+    this.el.panelHead = document.getElementById('panel-head');
+    this._setPanelTitle('inventory');
+
     this._bindTabs();
     this._bindChatTabs();
     this._buildCombatPanel();
@@ -93,6 +101,12 @@ export class UI {
   }
 
   // ---------------- Tabs ----------------
+  _setPanelTitle(view) {
+    if (!this.el.panelHead) return;
+    const titles = { inventory: 'Inventory', equipment: 'Worn Equipment', skills: 'Skills', combat: 'Combat', settings: 'Settings' };
+    this.el.panelHead.textContent = titles[view] || '';
+  }
+
   _bindTabs() {
     const tabs = document.querySelectorAll('#panel-tabs .tab-btn');
     const views = document.querySelectorAll('#panel-body .panel-view');
@@ -100,6 +114,7 @@ export class UI {
       btn.addEventListener('click', () => {
         tabs.forEach((b) => b.classList.toggle('active', b === btn));
         const view = btn.dataset.view;
+        this._setPanelTitle(view);
         views.forEach((v) => v.classList.toggle('hidden', v.dataset.view !== view));
       });
     });
@@ -164,7 +179,7 @@ export class UI {
       cell.className = 'inv-slot' + (s ? ' filled' : '');
       if (s) {
         const item = getItem(s.id);
-        cell.innerHTML = `<span class="icon">${item.icon}</span>`;
+        cell.innerHTML = `<span class="icon">${itemIconSVG(s.id, 32)}</span>`;
         if (item.stackable || s.qty > 1) {
           const lbl = stackLabel(s.qty);
           const q = document.createElement('span');
@@ -216,7 +231,7 @@ export class UI {
       if (id) {
         const item = getItem(id);
         cell.className = 'equip-slot filled';
-        cell.textContent = item.icon;
+        cell.innerHTML = itemIconSVG(id, 32);
         cell.addEventListener('click', () => this.game.unequip(slot));
         cell.addEventListener('mouseenter', (e) => this.showTooltip(e, `<b>${item.name}</b><br><span style="opacity:.8">Click to remove</span>`));
         cell.addEventListener('mousemove', (e) => this.moveTooltip(e));
@@ -246,7 +261,7 @@ export class UI {
       const cell = document.createElement('div');
       cell.className = 'skill-cell';
       cell.innerHTML =
-        `<span class="skill-icon">${sk.icon}</span>` +
+        `<span class="skill-icon">${skillIconSVG(sk.id, 20)}</span>` +
         `<span class="skill-lvl"><span class="cur">${lvl}</span></span>` +
         `<div class="xp-bar" style="width:${Math.round(levelProgress(xp) * 100)}%"></div>`;
       const toNext = xpToNext(xp);
@@ -331,7 +346,7 @@ export class UI {
     const sk = SKILLS.find((s) => s.id === skill);
     const div = document.createElement('div');
     div.className = 'xp-drop';
-    div.innerHTML = `<span>${sk?.icon || ''}</span><span>+${Math.round(amount)}</span>`;
+    div.innerHTML = `<span class="xp-ic">${skillIconSVG(skill, 16)}</span><span>+${Math.round(amount)}</span>`;
     this.el.xpDrops.appendChild(div);
     setTimeout(() => div.remove(), 2300);
   }
@@ -542,7 +557,7 @@ export class UI {
         row.className = 'dialogue-option';
         row.style.opacity = can ? '1' : '0.5';
         const needs = r.inputs.map((inp) => `${inp.qty} ${getItem(inp.id).name}`).join(' + ');
-        row.innerHTML = `${getItem(r.result).icon} <b>${getItem(r.result).name}</b> <span style="opacity:.75">(lvl ${r.level} &mdash; ${needs})</span>`;
+        row.innerHTML = `<span class="row-ic">${itemIconSVG(r.result, 22)}</span> <b>${getItem(r.result).name}</b> <span style="opacity:.75">(lvl ${r.level} &mdash; ${needs})</span>`;
         row.addEventListener('click', () => { this.game.startSmelt(r, obj); this.closeModal(); });
         list.appendChild(row);
       }
@@ -562,7 +577,7 @@ export class UI {
         const row = document.createElement('div');
         row.className = 'dialogue-option';
         row.style.opacity = can ? '1' : '0.5';
-        row.innerHTML = `${getItem(r.result).icon} <b>${getItem(r.result).name}</b> <span style="opacity:.75">(lvl ${r.level} &mdash; ${r.barCount} ${getItem(r.bar).name})</span>`;
+        row.innerHTML = `<span class="row-ic">${itemIconSVG(r.result, 22)}</span> <b>${getItem(r.result).name}</b> <span style="opacity:.75">(lvl ${r.level} &mdash; ${r.barCount} ${getItem(r.bar).name})</span>`;
         row.addEventListener('click', () => { this.game.startSmith(r, obj); this.closeModal(); });
         list.appendChild(row);
       }
@@ -608,7 +623,7 @@ export class UI {
     const item = getItem(id);
     const cell = document.createElement('div');
     cell.className = 'item-cell';
-    cell.innerHTML = `<span>${item.icon}</span>`;
+    cell.innerHTML = `<span>${itemIconSVG(id, 30)}</span>`;
     if (item.stackable || qty > 1) {
       const lbl = stackLabel(qty);
       const q = document.createElement('span'); q.className = 'qty'; q.textContent = lbl.text;

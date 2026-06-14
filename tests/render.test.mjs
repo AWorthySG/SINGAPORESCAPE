@@ -83,6 +83,7 @@ test('player and ground-item sprites draw in all states', () => {
   assert.doesNotThrow(() => {
     drawPlayer(ctx, 80, 80, { time: 0, facing: { dx: 1, dy: 0 }, moving: false, hasBody: false, hasWeapon: false });
     drawPlayer(ctx, 80, 80, { time: 300, facing: { dx: -1, dy: 0 }, moving: true, hasBody: true, hasWeapon: true });
-    drawGroundItem(ctx, '🪵', 80, 80);
+    drawGroundItem(ctx, 'logs', 80, 80);   // id-keyed icon (headless: rasteriser returns null -> fallback)
+    drawGroundItem(ctx, 'unknown_item', 80, 80);
   });
 });
