@@ -28,7 +28,7 @@ export class Equipment {
   }
 
   bonuses() {
-    const total = { attack: 0, strength: 0, defence: 0 };
+    const total = { attack: 0, strength: 0, defence: 0, ranged: 0, magic: 0, magicStr: 0 };
     for (const slot of EQUIP_SLOTS) {
       const id = this.slots[slot];
       if (!id) continue;
@@ -37,8 +37,17 @@ export class Equipment {
       total.attack += b.attack || 0;
       total.strength += b.strength || 0;
       total.defence += b.defence || 0;
+      total.ranged += b.ranged || 0;
+      total.magic += b.magic || 0;
+      total.magicStr += b.magicStr || 0;
     }
     return total;
+  }
+
+  /** Combat style implied by the wielded weapon: 'melee' | 'ranged' | 'magic'. */
+  combatType() {
+    const id = this.slots.weapon;
+    return (id && getItem(id).equip?.combatType) || 'melee';
   }
 
   weaponSpeed() {

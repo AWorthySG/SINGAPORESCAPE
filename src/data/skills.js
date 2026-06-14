@@ -5,6 +5,8 @@ export const SKILLS = [
   { id: 'mining', name: 'Mining', icon: '⛏️', color: '#6f7a8a' },
   { id: 'strength', name: 'Strength', icon: '💪', color: '#1f7a3a', combat: true, startLevel: 5 },
   { id: 'defence', name: 'Defence', icon: '🛡️', color: '#2f6fdb', combat: true, startLevel: 5 },
+  { id: 'ranged', name: 'Ranged', icon: '🏹', color: '#5a8a3a', combat: true },
+  { id: 'magic', name: 'Magic', icon: '✨', color: '#5b6bd6', combat: true },
   { id: 'smithing', name: 'Smithing', icon: '🔨', color: '#8a6f4a' },
   { id: 'fishing', name: 'Fishing', icon: '🎣', color: '#3a8aa0' },
   { id: 'cooking', name: 'Cooking', icon: '🍳', color: '#9c5b1f' },

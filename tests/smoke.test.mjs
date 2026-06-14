@@ -14,6 +14,7 @@ import { NPCS, MONSTER_IDS, BOSS_IDS, getNpc } from '../src/data/npcs.js';
 import { itemIconSVG, hasIcon, skillIconSVG } from '../src/render/icons.js';
 import { ITEMS } from '../src/data/items.js';
 import { SKILLS } from '../src/data/skills.js';
+import { SPELLS } from '../src/data/magic.js';
 
 test('OSRS xp table matches known values', () => {
   assert.equal(xpForLevel(1), 0);
@@ -122,6 +123,15 @@ test('new skills (Prayer, Thieving, Agility) exist with icons; gems have icons',
   for (const g of ['sapphire', 'emerald', 'ruby', 'diamond']) {
     assert.ok(hasIcon(g), `gem ${g} has icon`);
   }
+});
+
+test('Ranged & Magic skills + the spellbook exist', () => {
+  const ids = SKILLS.map((s) => s.id);
+  assert.ok(ids.includes('ranged') && ids.includes('magic'));
+  assert.ok(skillIconSVG('ranged', 20).includes('<svg') && skillIconSVG('magic', 20).includes('<svg'));
+  assert.ok(SPELLS.length >= 6);
+  for (const sp of SPELLS) assert.ok(sp.maxHit > 0 && sp.runes && sp.level >= 1, `spell ${sp.id} well-formed`);
+  for (const w of ['shortbow', 'yew_shortbow', 'staff', 'mystic_staff']) assert.ok(hasIcon(w), `weapon ${w} icon`);
 });
 
 test('every equippable item has its own custom icon', () => {

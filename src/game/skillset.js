@@ -34,11 +34,15 @@ export class Skills {
   get hitpoints() { return this.level('hitpoints'); }
   get prayer() { return this.level('prayer'); }
   get agility() { return this.level('agility'); }
+  get ranged() { return this.level('ranged'); }
+  get magic() { return this.level('magic'); }
 
   combatLevel() {
     const base = 0.25 * (this.defence + this.hitpoints + Math.floor(this.prayer / 2));
     const melee = 0.325 * (this.attack + this.strength);
-    return Math.floor(base + melee);
+    const range = 0.325 * Math.floor(this.ranged * 1.5);
+    const mage = 0.325 * Math.floor(this.magic * 1.5);
+    return Math.floor(base + Math.max(melee, range, mage));
   }
 
   totalLevel() {

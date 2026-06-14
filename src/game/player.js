@@ -15,7 +15,9 @@ export class Player extends Character {
     this.attackCooldown = 0;   // ticks until next swing
     this.action = null;        // pending interaction (resolved on arrival / each tick)
 
-    this.style = 'accurate';   // combat style id
+    this.style = 'accurate';   // melee combat style id
+    this.rangedStyle = 'accurate'; // ranged style id
+    this.spell = 'wind_strike';    // selected combat spell
     this.autoRetaliate = true;
     this.respawnTimer = 0;
   }

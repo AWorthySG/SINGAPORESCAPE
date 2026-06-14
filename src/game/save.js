@@ -23,6 +23,8 @@ export function snapshot(game) {
       y: game.player.y,
       hp: game.player.hp,
       style: game.player.style,
+      rangedStyle: game.player.rangedStyle,
+      spell: game.player.spell,
       autoRetaliate: game.player.autoRetaliate,
       name: game.player.name,
     },
@@ -30,6 +32,7 @@ export function snapshot(game) {
     inventory: game.inventory.serialize(),
     equipment: game.equipment.serialize(),
     bank: game.bank.serialize(),
+    quests: game.quests,
     settings: { running: game.running },
   };
 }
@@ -70,8 +73,11 @@ export function loadGame(game) {
     : game.skills.hitpoints;
   if (game.player.hp <= 0) game.player.hp = game.skills.hitpoints;
   game.player.style = p.style || 'accurate';
+  game.player.rangedStyle = p.rangedStyle || 'accurate';
+  game.player.spell = p.spell || 'wind_strike';
   game.player.autoRetaliate = p.autoRetaliate !== false;
   if (p.name) game.player.name = p.name;
+  if (data.quests) game.quests = { ...game.quests, ...data.quests };
   game.running = data.settings?.running ?? game.running;
   return true;
 }
