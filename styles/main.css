@@ -435,6 +435,11 @@ html, body {
 #region-label.wild { color: #ff6a52; text-shadow: 0 2px 0 #000, 0 0 12px rgba(255,60,40,0.6); }
 #region-label .wild-lvl { font-size: 13px; opacity: 0.9; }
 
+/* ---------- Spellbook (magic combat tab) ---------- */
+#combat-panel .style-row.spells { flex-wrap: wrap; max-height: 178px; overflow-y: auto; gap: 4px; }
+#combat-panel .style-row.spells .style-btn { flex: 1 1 47%; padding: 5px 4px; font-size: 11px; }
+#combat-panel .style-btn.spell .style-skill { font-size: 9px; }
+
 /* ---------- Splash co-brand (Hyco Education) ---------- */
 .splash-cobrand {
   display: flex; flex-direction: column; align-items: center; gap: 6px;

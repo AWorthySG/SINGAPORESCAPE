@@ -160,6 +160,7 @@ export function buildWorld() {
   placeObj('bank_booth', 88, 48); placeObj('bank_booth', 89, 48);
   placeNpc('shopkeeper', 78, 50);
   placeNpc('hawker', 84, 60);
+  placeNpc('mage', 88, 52);
   placeObj('range', 82, 58);
   placeObj('hyco_obelisk', 83, 52); // Hyco Education landmark
   placeNpc('villager', 80, 56, 4); placeNpc('villager', 86, 54, 4);

@@ -6,7 +6,8 @@ import { SKILLS } from '../data/skills.js';
 import { getDialogue } from '../data/dialogue.js';
 import { levelProgress, xpToNext } from '../data/xp.js';
 import { stackLabel, capitalize, formatNumber } from '../core/utils.js';
-import { STYLE_ORDER, STYLES } from '../game/combat.js';
+import { STYLE_ORDER, STYLES, RANGED_STYLE_ORDER, RANGED_STYLES } from '../game/combat.js';
+import { SPELLS } from '../data/magic.js';
 import { EQUIP_SLOTS } from '../game/equipment.js';
 import { TILE } from '../config.js';
 import { TERRAIN } from '../data/world.js';
@@ -293,25 +294,47 @@ export class UI {
     this.el.combat.innerHTML = `<div class="style-row"></div><div class="cb-level"></div>
       <label class="auto-retal"><input type="checkbox" id="auto-retal-cb"> Auto retaliate</label>`;
     this._styleRow = this.el.combat.querySelector('.style-row');
-    for (const styleId of STYLE_ORDER) {
-      const st = STYLES[styleId];
-      const btn = document.createElement('div');
-      btn.className = 'style-btn';
-      btn.dataset.style = styleId;
-      btn.innerHTML = `${st.name}<span class="style-skill">${capitalize(st.skill)} XP</span>`;
-      btn.addEventListener('click', () => { this.game.player.style = styleId; this.renderCombatPanel(); });
-      this._styleRow.appendChild(btn);
-    }
     const cb = this.el.combat.querySelector('#auto-retal-cb');
     cb.addEventListener('change', () => { this.game.player.autoRetaliate = cb.checked; });
   }
 
+  // Combat panel adapts to the wielded weapon: melee styles, ranged styles, or spellbook.
   renderCombatPanel() {
     if (!this._styleRow) return;
-    [...this._styleRow.children].forEach((b) => b.classList.toggle('active', b.dataset.style === this.game.player.style));
-    this.el.combat.querySelector('.cb-level').textContent = `Combat level: ${this.game.skills.combatLevel()}`;
+    const mode = this.game.combatMode();
+    const p = this.game.player;
+    const row = this._styleRow;
+    row.innerHTML = '';
+    row.classList.toggle('spells', mode === 'magic');
+    if (mode === 'magic') {
+      for (const sp of SPELLS) {
+        const known = this.game.skills.magic >= sp.level;
+        const btn = document.createElement('div');
+        btn.className = 'style-btn spell' + (p.spell === sp.id ? ' active' : '');
+        const cost = Object.entries(sp.runes).map(([id, q]) => `${q}${id.replace('_rune', '').slice(0, 3)}`).join(' ');
+        btn.innerHTML = `${sp.name}<span class="style-skill">L${sp.level} · max ${sp.maxHit} · ${escapeHtml(cost)}</span>`;
+        btn.style.opacity = known ? (this.game._hasRunes(sp) ? '1' : '0.65') : '0.35';
+        if (known) btn.addEventListener('click', () => { p.spell = sp.id; this.renderCombatPanel(); });
+        row.appendChild(btn);
+      }
+    } else {
+      const order = mode === 'ranged' ? RANGED_STYLE_ORDER : STYLE_ORDER;
+      const map = mode === 'ranged' ? RANGED_STYLES : STYLES;
+      const cur = mode === 'ranged' ? p.rangedStyle : p.style;
+      for (const id of order) {
+        const st = map[id];
+        const btn = document.createElement('div');
+        btn.className = 'style-btn' + (cur === id ? ' active' : '');
+        const xpLabel = mode === 'ranged' ? (id === 'longrange' ? 'Ranged + Defence' : 'Ranged XP') : `${capitalize(st.skill)} XP`;
+        btn.innerHTML = `${st.name}<span class="style-skill">${xpLabel}</span>`;
+        btn.addEventListener('click', () => { if (mode === 'ranged') p.rangedStyle = id; else p.style = id; this.renderCombatPanel(); });
+        row.appendChild(btn);
+      }
+    }
+    const modeLabel = mode === 'ranged' ? 'Ranged' : mode === 'magic' ? 'Magic' : 'Melee';
+    this.el.combat.querySelector('.cb-level').innerHTML = `Combat level: ${this.game.skills.combatLevel()} <span style="opacity:.7">&middot; ${modeLabel}</span>`;
     const cb = this.el.combat.querySelector('#auto-retal-cb');
-    if (cb) cb.checked = this.game.player.autoRetaliate;
+    if (cb) cb.checked = p.autoRetaliate;
   }
 
   // ---------------- Settings ----------------

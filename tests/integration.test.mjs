@@ -113,6 +113,56 @@ test('praying at the Worthy Monument heals to full', () => {
   assert.equal(game.player.hp, game.skills.hitpoints, 'fully healed after praying');
 });
 
+test('ranged combat consumes arrows and trains ranged', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.player.autoRetaliate = false; game.player.hp = 9999;
+  game.equipment.set('weapon', 'shortbow');
+  game.inventory.add('bronze_arrow', 100);
+  assert.equal(game.combatMode(), 'ranged');
+
+  const chicken = game.npcs.find((n) => n.npcId === 'chicken');
+  game.player.x = game.player.tx = chicken.x + 3; game.player.y = game.player.ty = chicken.y;
+  game.attackNpc(chicken);
+  step(game, 40);
+  assert.ok(game.inventory.count('bronze_arrow') < 100, 'arrows were used');
+});
+
+test('magic combat consumes runes and trains magic', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.player.autoRetaliate = false; game.player.hp = 9999;
+  game.equipment.set('weapon', 'staff');
+  game.player.spell = 'wind_strike';
+  game.inventory.add('air_rune', 50); game.inventory.add('mind_rune', 50);
+  assert.equal(game.combatMode(), 'magic');
+
+  const chicken = game.npcs.find((n) => n.npcId === 'chicken');
+  game.player.x = game.player.tx = chicken.x + 3; game.player.y = game.player.ty = chicken.y;
+  game.attackNpc(chicken);
+  step(game, 40);
+  assert.ok(game.inventory.count('air_rune') < 50, 'runes were used');
+  assert.ok(game.skills.xp.magic > 0, 'magic xp gained');
+});
+
+test('the bone quest can be started and completed', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.handleDialogueAction('questStart');
+  assert.equal(game.quests.bone_collector, 'active');
+  game.inventory.add('bones', 12);
+  game.handleDialogueAction('questTurnIn');
+  assert.equal(game.quests.bone_collector, 'done');
+  assert.equal(game.inventory.count('bones'), 2); // 10 consumed
+  assert.ok(game.inventory.has('amulet_of_strength'));
+});
+
 test('eating food heals the player', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();

@@ -17,7 +17,9 @@ import { Camera } from '../engine/camera.js';
 import { findPath } from '../engine/pathfinding.js';
 import {
   playerAttackVsNpc, npcAttackVsPlayer, rollAttack, combatXp,
+  playerRangedVsNpc, combatXpRanged, playerMagicVsNpc, RANGED_STYLES,
 } from './combat.js';
+import { getSpell } from '../data/magic.js';
 import {
   resolveWoodcut, resolveMine, resolveFish, resolveCook,
   resolveSmelt, resolveSmith, resolveFiremake,
@@ -58,6 +60,7 @@ export class Game {
     this.wildLevel = 0;
     this.playerStun = 0;
     this.hasTemps = false;
+    this.quests = { bone_collector: 'notStarted' };
 
     // Celebratory sparkle on level up.
     this.bus.on('levelup', () => this.spawnSparkle(this.player, '#ffe24a', 12));
@@ -329,7 +332,8 @@ export class Game {
     const p = this.player;
     const npc = a.npc;
     if (!npc || !npc.alive) { p.clearAction(); return; }
-    if (chebyshev(p.x, p.y, npc.x, npc.y) > 1) {
+    const range = this.attackRange();
+    if (chebyshev(p.x, p.y, npc.x, npc.y) > range) {
       // Approach / chase a moving target.
       if (!a.lastNpcTile || a.lastNpcTile.x !== npc.x || a.lastNpcTile.y !== npc.y || !p.isMoving) {
         const path = findPath(this.pathCfg(), this.playerTile(), { x: npc.x, y: npc.y },
@@ -345,15 +349,64 @@ export class Game {
   }
 
   // ---------------- Combat resolution ----------------
+  combatMode() { return this.equipment.combatType(); }
+  attackRange() { const m = this.combatMode(); return m === 'ranged' ? 7 : m === 'magic' ? 8 : 1; }
+
   doPlayerAttack(npc) {
+    const mode = this.combatMode();
+    if (mode === 'ranged') return this._rangedAttack(npc);
+    if (mode === 'magic') return this._magicAttack(npc);
     const { atkRoll, defRoll, max } = playerAttackVsNpc(this.skills, this.equipment, this.player.style, npc.def);
     const dmg = rollAttack(atkRoll, defRoll, max);
-    npc.takeDamage(dmg);
-    this.addHitsplat(npc, dmg);
+    this._applyPlayerHit(npc, dmg);
     if (dmg > 0) { this.spawnHitSparks(npc, '#fff2b0'); for (const x of combatXp(this.player.style, dmg)) this.skills.addXp(x.skill, x.xp); }
     this.player.attackCooldown = this.equipment.weaponSpeed();
+    this._postAttack(npc);
+  }
+
+  _applyPlayerHit(npc, dmg) { npc.takeDamage(dmg); this.addHitsplat(npc, dmg); }
+  _postAttack(npc) {
     if (!npc.target) npc.target = this.player; // provoke retaliation
     if (npc.hp <= 0) { this.killNpc(npc); this.player.clearAction(); }
+  }
+
+  _rangedAttack(npc) {
+    const arrowIdx = this.inventory.slots.findIndex((s) => s && getItem(s.id).tags?.includes('ammo'));
+    if (arrowIdx === -1) { this.msg('You have no arrows left.'); this.player.clearAction(); return; }
+    const arrowStr = getItem(this.inventory.slotAt(arrowIdx).id).arrowStr || 0;
+    const style = this.player.rangedStyle;
+    const { atkRoll, defRoll, max } = playerRangedVsNpc(this.skills, this.equipment, style, npc.def, arrowStr);
+    const dmg = rollAttack(atkRoll, defRoll, max);
+    this.inventory.removeAt(arrowIdx, 1);
+    this._projectile(npc, '#d9c45a');
+    this._applyPlayerHit(npc, dmg);
+    if (dmg > 0) { this.spawnHitSparks(npc, '#cfe0a0'); for (const x of combatXpRanged(style, dmg)) this.skills.addXp(x.skill, x.xp); }
+    this.player.attackCooldown = Math.max(2, this.equipment.weaponSpeed() + (RANGED_STYLES[style]?.speedMod || 0));
+    this._postAttack(npc);
+  }
+
+  _magicAttack(npc) {
+    const spell = getSpell(this.player.spell);
+    if (this.skills.magic < spell.level) { this.msg(`You need Magic level ${spell.level} to cast ${spell.name}.`); this.player.clearAction(); return; }
+    if (!this._hasRunes(spell)) { this.msg(`You don't have the runes to cast ${spell.name}.`); this.player.clearAction(); return; }
+    this._consumeRunes(spell);
+    const { atkRoll, defRoll, max } = playerMagicVsNpc(this.skills, this.equipment, spell, npc.def);
+    const dmg = rollAttack(atkRoll, defRoll, max);
+    this._projectile(npc, spell.tint);
+    this._applyPlayerHit(npc, dmg);
+    this.skills.addXp('magic', spell.xp);
+    if (dmg > 0) { this.spawnHitSparks(npc, spell.tint); this.skills.addXp('magic', dmg * 2); this.skills.addXp('hitpoints', dmg * 1.33); }
+    this.player.attackCooldown = this.equipment.weaponSpeed();
+    this._postAttack(npc);
+  }
+
+  _hasRunes(spell) { return Object.entries(spell.runes).every(([id, q]) => this.inventory.count(id) >= q); }
+  _consumeRunes(spell) { for (const [id, q] of Object.entries(spell.runes)) this.inventory.remove(id, q); }
+
+  _projectile(npc, color) {
+    const from = this.player.renderCenter();
+    const to = npc.renderCenter();
+    this.effects.push({ type: 'projectile', x: from.x, y: from.y - 8, ex: to.x, ey: to.y - 8, color, life: 240, maxLife: 240 });
   }
 
   resolveNpcAttack(npc) {
@@ -685,6 +738,26 @@ export class Game {
 
   handleDialogueAction(action) {
     if (action === 'giveStarter') this.giveStarter();
+    else if (action === 'questStart') {
+      if (this.quests.bone_collector === 'notStarted') {
+        this.quests.bone_collector = 'active';
+        this.msg('Quest started — A Bag of Bones: bring 10 bones to the Kampong Guide.', 'level');
+      }
+    } else if (action === 'questTurnIn') this.turnInBoneQuest();
+  }
+
+  turnInBoneQuest() {
+    const q = this.quests.bone_collector;
+    if (q === 'done') { this.msg('Thanks again, adventurer!', 'system'); return; }
+    if (q !== 'active') { this.msg('Ask me about work first.', 'system'); return; }
+    if (this.inventory.count('bones') < 10) { this.msg('Come back when you have 10 bones.', 'system'); return; }
+    this.inventory.remove('bones', 10);
+    this.inventory.add('coins', 1000);
+    this.inventory.add('amulet_of_strength', 1);
+    this.skills.addXp('prayer', 500);
+    this.quests.bone_collector = 'done';
+    this.msg('Quest complete — A Bag of Bones! 1000 coins, Prayer XP and an amulet of strength.', 'level');
+    this.banner('<span class="big">Quest complete!</span>A Bag of Bones');
   }
 
   // ---------------- Shop trading ----------------

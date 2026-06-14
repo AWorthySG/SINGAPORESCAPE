@@ -318,6 +318,22 @@
   I.ruby = gemIcon('#c83b4a', '#f08a96');
   I.diamond = gemIcon('#bfe6ee', '#ffffff');
 
+  // ---- Ranged & Magic gear ----
+  const bowIcon = (col) => `<path d="M7 3 C16 6 16 18 7 21" fill="none" stroke="${col}" stroke-width="2.4" stroke-linecap="round"/><path d="M7 3 L7 21" stroke="#e8e0c8" stroke-width="1"/><path d="M8 12 L19 12" stroke="${C.cream}" stroke-width="1.1"/><path d="M16 9 L20 12 L16 15" fill="none" stroke="${C.iron}" stroke-width="1.3" stroke-linejoin="round"/>`;
+  const arrowIcon = (col) => `<path d="M4 20 L18 6" stroke="${C.wood}" stroke-width="1.8"/><path d="M16 3 L20 4 L19 8 L15 7 Z" fill="${col}" stroke="${OL}" stroke-width="1"/><path d="M3 21 L7 17 M3 21 L7 20 M3 21 L4 17" stroke="${C.cream}" stroke-width="1.1"/>`;
+  const staffIcon = (rod, orb) => `<rect x="11" y="4" width="2.4" height="17" rx="1.1" fill="${rod}" stroke="${OL}" stroke-width="1" transform="rotate(8 12 12)"/><circle cx="14" cy="5" r="4" fill="${orb}" stroke="${OL}" stroke-width="1"/><circle cx="12.6" cy="3.8" r="1.3" fill="#fff" opacity=".7"/>`;
+  const runeIcon = (col) => `<path d="M6 8 L12 4 L18 8 L18 16 L12 20 L6 16 Z" fill="${col}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M12 7 L12 17 M9 10 L15 14 M15 10 L9 14" stroke="#fff" stroke-width="1" opacity=".7"/>`;
+  const hatIcon = (col) => `<path d="M12 2 L17 17 L7 17 Z" fill="${col}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><rect x="5" y="16.4" width="14" height="3.4" rx="1.4" fill="${col}" stroke="${OL}" stroke-width="1"/><circle cx="12" cy="6" r="1.2" fill="#ffe24a"/>`;
+  I.shortbow = bowIcon('#7a5530'); I.oak_shortbow = bowIcon('#8a5e33'); I.willow_shortbow = bowIcon('#6e6a3a'); I.maple_shortbow = bowIcon('#6e8a3a'); I.yew_shortbow = bowIcon('#3f5a2a');
+  I.bronze_arrow = arrowIcon(C.bronze); I.iron_arrow = arrowIcon(C.iron); I.steel_arrow = arrowIcon(C.steel); I.mithril_arrow = arrowIcon(mith);
+  I.staff = staffIcon(C.wood, '#cfd6dd'); I.magic_staff = staffIcon('#3a3a55', '#8a96e8'); I.mystic_staff = staffIcon('#2a2a44', mith);
+  I.air_rune = runeIcon('#bfe8d0'); I.water_rune = runeIcon('#6fb6e0'); I.earth_rune = runeIcon('#8a6a3a'); I.fire_rune = runeIcon('#ef7a23'); I.mind_rune = runeIcon('#caa15a'); I.chaos_rune = runeIcon('#7a3a8a'); I.death_rune = runeIcon('#3a3a44');
+  I.coif = helm('#7a5530', '#9a734a'); I.leather_chaps = legs('#7a5530', '#9a734a'); I.studded_body = plate('#6a4a2a', '#8a6a3a');
+  I.wizard_hat = hatIcon('#2f3a8a'); I.wizard_robe_top = plate('#2f3a8a', '#4a5ad0'); I.wizard_robe_bottom = legs('#2f3a8a', '#4a5ad0');
+  I.mystic_hat = hatIcon('#2a2a5a'); I.mystic_top = plate('#3a3a7a', '#6a6ad0'); I.mystic_bottom = legs('#3a3a7a', '#6a6ad0');
+  S.ranged = bowIcon('#5a8a3a');
+  S.magic = `<path d="M12 2 L14 9 L21 11 L14 13 L12 20 L10 13 L3 11 L10 9 Z" fill="#8a96e8" stroke="${OL}" stroke-width="1" stroke-linejoin="round"/>`;
+
   function svg(inner, size, cls) {
     return `<svg class="${cls || ''}" width="${size}" height="${size}" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="display:block">${inner}</svg>`;
   }

@@ -85,7 +85,23 @@ export class Renderer {
 
     this._drawVignette(vw, vh);
     this._drawParticles(ox, oy);
+    this._drawProjectiles(ox, oy);
     this._drawOverheads(ox, oy);
+  }
+
+  _drawProjectiles(ox, oy) {
+    const { ctx, game } = this;
+    for (const e of game.effects) {
+      if (e.type !== 'projectile') continue;
+      const t = 1 - e.life / e.maxLife;
+      const x = e.x + (e.ex - e.x) * t - ox;
+      const y = e.y + (e.ey - e.y) * t - oy;
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = e.color;
+      ctx.beginPath(); ctx.arc(x, y, 3.6, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+    }
   }
 
   _drawParticles(ox, oy) {

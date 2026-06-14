@@ -199,6 +199,7 @@ const TOWNSFOLK = {
   shopkeeper: { name: 'Shopkeeper', level: 0, attackable: false, role: 'shop', wander: 0, examine: 'He owns the general store.', shop: 'general' },
   banker: { name: 'Banker', level: 0, attackable: false, role: 'bank', wander: 0, examine: 'He can look after my valuables.' },
   hawker: { name: 'Hawker Auntie', level: 0, attackable: false, role: 'shop', wander: 0, examine: 'She sells delicious local food.', shop: 'hawker' },
+  mage: { name: 'Mystic Merchant', level: 0, attackable: false, role: 'shop', wander: 0, examine: 'She trades in staves and runes.', shop: 'magic' },
   villager: { name: 'Villager', level: 0, attackable: false, role: 'dialogue', wander: 5, examine: 'A local resident.', dialogue: 'villager' },
 };
 

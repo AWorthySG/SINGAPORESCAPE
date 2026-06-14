@@ -12,7 +12,17 @@ export const DIALOGUES = {
         { label: 'Where am I?', next: 'where' },
         { label: 'Can you give me some starter gear?', next: 'gear' },
         { label: 'How do I play?', next: 'help' },
+        { label: 'Do you have any work for me?', next: 'quest' },
+        { label: "I've collected the bones.", next: 'start', action: 'questTurnIn' },
         { label: 'Goodbye.', next: 'end' },
+      ],
+    },
+    quest: {
+      speaker: 'Kampong Guide',
+      text: 'Aiyah, the graveyard spirits are restless. Bring me 10 bones from the monsters out there and I\'ll reward you well, can?',
+      options: [
+        { label: "I'll get the bones.", next: 'start', action: 'questStart' },
+        { label: 'Maybe later.', next: 'start' },
       ],
     },
     where: {

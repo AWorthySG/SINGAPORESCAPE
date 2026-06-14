@@ -67,3 +67,38 @@ export function combatXp(styleId, damage) {
     { skill: 'hitpoints', xp: damage * 1.33 },
   ];
 }
+
+// ----- Ranged -----
+export const RANGED_STYLES = {
+  accurate: { name: 'Accurate', atk: 3, speedMod: 0 },
+  rapid: { name: 'Rapid', atk: 0, speedMod: -1 },
+  longrange: { name: 'Longrange', atk: 0, speedMod: 0, longrange: true },
+};
+export const RANGED_STYLE_ORDER = ['accurate', 'rapid', 'longrange'];
+
+export function playerRangedVsNpc(skills, equip, styleId, npc, arrowStr) {
+  const st = RANGED_STYLES[styleId] || RANGED_STYLES.accurate;
+  const b = equip.bonuses();
+  return {
+    atkRoll: attackRoll(skills.ranged, st.atk, b.ranged),
+    defRoll: defenceRoll(npc.defence, 0, 0),
+    max: maxHit(skills.ranged, 0, arrowStr),
+  };
+}
+
+export function combatXpRanged(styleId, damage) {
+  if (styleId === 'longrange') {
+    return [{ skill: 'ranged', xp: damage * 2 }, { skill: 'defence', xp: damage * 2 }, { skill: 'hitpoints', xp: damage * 1.33 }];
+  }
+  return [{ skill: 'ranged', xp: damage * 4 }, { skill: 'hitpoints', xp: damage * 1.33 }];
+}
+
+// ----- Magic -----
+export function playerMagicVsNpc(skills, equip, spell, npc) {
+  const b = equip.bonuses();
+  return {
+    atkRoll: (skills.magic + 8) * (b.magic + 64),
+    defRoll: (npc.defence + 8) * 64,
+    max: spell.maxHit + (b.magicStr || 0),
+  };
+}
