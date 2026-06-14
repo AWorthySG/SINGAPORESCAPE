@@ -148,7 +148,70 @@ const RAW = {
     equip: { slot: 'cape', req: { defence: 40 }, bonuses: { attack: 4, strength: 6, defence: 9 } } },
   boar_tusk: { name: 'Boar tusk', icon: '🦷', value: 8000, examine: 'A huge tusk from the Boar King.',
     equip: { slot: 'amulet', req: {}, bonuses: { strength: 8, defence: 2 } } },
+
+  // ---- Accessories (amulets / rings / capes) ----
+  amulet_of_strength: { name: 'Amulet of strength', icon: '📿', value: 2000, examine: 'Boosts raw power.',
+    equip: { slot: 'amulet', req: {}, bonuses: { strength: 10 } } },
+  amulet_of_glory: { name: 'Amulet of glory', icon: '📿', value: 8000, examine: 'A glorious amulet.',
+    equip: { slot: 'amulet', req: {}, bonuses: { attack: 10, strength: 8, defence: 8 } } },
+  ring_of_kampong: { name: 'Ring of Kampong', icon: '💍', value: 3000, examine: 'A lucky local ring.',
+    equip: { slot: 'ring', req: {}, bonuses: { attack: 4, strength: 4, defence: 4 } } },
+  ring_of_might: { name: 'Ring of might', icon: '💍', value: 5000, examine: 'It pulses with strength.',
+    equip: { slot: 'ring', req: {}, bonuses: { strength: 8 } } },
+  fire_cape: { name: 'Fire cape', icon: '🧣', value: 60000, examine: 'Singed, but glorious.',
+    equip: { slot: 'cape', req: { defence: 40 }, bonuses: { attack: 6, strength: 8, defence: 8 } } },
+
+  // ---- New boss uniques ----
+  tiger_fang: { name: 'Tiger fang', icon: '🗡️', value: 90000, examine: 'A fang from the Night Safari Tiger.',
+    equip: { slot: 'weapon', req: { attack: 45 }, bonuses: { attack: 52, strength: 56, speed: 4 } } },
+  leviathan_trident: { name: 'Leviathan trident', icon: '🔱', value: 150000, examine: 'Dredged from the deep.',
+    equip: { slot: 'weapon', req: { attack: 55 }, bonuses: { attack: 70, strength: 56, speed: 5 } } },
+  garuda_wings: { name: 'Garuda wings', icon: '🪽', value: 120000, examine: 'Wings of the great Garuda.',
+    equip: { slot: 'cape', req: { defence: 45 }, bonuses: { attack: 6, strength: 6, defence: 10 } } },
+  hydra_leather: { name: 'Hydra leather body', icon: '🦺', value: 70000, examine: 'Tough, scaly hide.',
+    equip: { slot: 'body', req: { defence: 40 }, bonuses: { defence: 48 } } },
+  treant_shield: { name: 'Treant shield', icon: '🛡️', value: 75000, examine: 'Living bark that turns aside blows.',
+    equip: { slot: 'shield', req: { defence: 45 }, bonuses: { defence: 50 } } },
 };
+
+// ---- Generated tiered equipment (weapons + armour, bronze -> rune) ----
+// Existing hand-authored ids are preserved (the loop skips anything already defined).
+const _METALS = [
+  { k: 'bronze', n: 'Bronze', ra: 1, rd: 1, m: 1.0, v: 1 },
+  { k: 'iron', n: 'Iron', ra: 1, rd: 1, m: 1.5, v: 2.4 },
+  { k: 'steel', n: 'Steel', ra: 5, rd: 5, m: 2.3, v: 6 },
+  { k: 'mithril', n: 'Mithril', ra: 20, rd: 20, m: 3.5, v: 14 },
+  { k: 'adamant', n: 'Adamant', ra: 30, rd: 30, m: 4.7, v: 34 },
+  { k: 'rune', n: 'Rune', ra: 40, rd: 40, m: 7.2, v: 120 },
+];
+const _WEAPONS = [
+  ['dagger', 'dagger', 4, 3, 4, 10], ['sword', 'sword', 5, 5, 5, 26], ['scimitar', 'scimitar', 7, 6, 4, 32],
+  ['mace', 'mace', 6, 7, 5, 30], ['longsword', 'longsword', 9, 8, 5, 40], ['battleaxe', 'battleaxe', 10, 11, 6, 52],
+  ['warhammer', 'warhammer', 8, 12, 6, 54], ['2h_sword', '2h sword', 14, 15, 7, 80],
+];
+const _ARMOURS = [
+  ['med_helm', 'med helm', 'head', 4, 0, 18], ['full_helm', 'full helm', 'head', 6, 0, 44],
+  ['chainbody', 'chainbody', 'body', 8, 0, 64], ['platebody', 'platebody', 'body', 12, 0, 100],
+  ['platelegs', 'platelegs', 'legs', 10, 0, 64], ['sq_shield', 'sq shield', 'shield', 6, 0, 48],
+  ['kiteshield', 'kiteshield', 'shield', 9, 0, 84], ['gauntlets', 'gauntlets', 'hands', 3, 1, 30],
+  ['boots', 'boots', 'feet', 3, 0, 28],
+];
+for (const M of _METALS) {
+  for (const [t, label, att, str, spd, v] of _WEAPONS) {
+    const id = `${M.k}_${t}`;
+    if (RAW[id]) continue;
+    RAW[id] = { name: `${M.n} ${label}`, icon: '⚔️', value: Math.round(v * M.v), examine: `A ${M.n.toLowerCase()} ${label}.`,
+      equip: { slot: 'weapon', req: { attack: M.ra }, bonuses: { attack: Math.round(att * M.m), strength: Math.round(str * M.m), speed: spd } } };
+  }
+  for (const [t, label, slot, def, att, v] of _ARMOURS) {
+    const id = `${M.k}_${t}`;
+    if (RAW[id]) continue;
+    const bonuses = { defence: Math.round(def * M.m) };
+    if (att) bonuses.attack = att;
+    RAW[id] = { name: `${M.n} ${label}`, icon: '🛡️', value: Math.round(v * M.v), examine: `${M.n} ${label}.`,
+      equip: { slot, req: { defence: M.rd }, bonuses } };
+  }
+}
 
 // Freeze each definition and attach its id for convenience.
 export const ITEMS = Object.fromEntries(

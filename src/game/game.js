@@ -273,7 +273,14 @@ export class Game {
         this.player.hp = this.skills.hitpoints;
         this.bus.emit('hp');
         this.spawnSparkle(this.player, '#9adcff', 16);
-        this.msg('You kneel at the Worthy Monument. Your wounds are healed.', 'system');
+        this.msg('You kneel at the A-Worthy Monument. Your wounds are healed.', 'system');
+      });
+      case 'rest': return this._tickArrival(a, a.obj, true, () => {
+        this.player.hp = this.skills.hitpoints;
+        this.runEnergy = 100;
+        this.bus.emit('hp'); this.bus.emit('run');
+        this.spawnSparkle(this.player, '#f5a623', 16);
+        this.msg('You rest at the Hyco Education obelisk. Health and run energy restored.', 'system');
       });
       case 'openbank': return this._tickArrival(a, a.target, true, () => this.ui?.openBank());
       case 'openshop': return this._tickArrival(a, a.target, true, () => this.ui?.openShop(a.shop));
@@ -478,6 +485,7 @@ export class Game {
       case 'anvil': return this.beginAction({ type: 'smithmenu', obj, target: tgt }, tgt, true);
       case 'bank': return this.beginAction({ type: 'openbank', target: tgt }, tgt, true);
       case 'shrine': return this.beginAction({ type: 'pray', obj }, tgt, true);
+      case 'rest': return this.beginAction({ type: 'rest', obj }, tgt, true);
       default: return this.walkTo(tgt);
     }
   }

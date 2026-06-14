@@ -35,3 +35,23 @@ export const SMITH = [
   { result: 'rune_kiteshield', bar: 'rune_bar', barCount: 3, level: 94, xp: 225 },
   { result: 'rune_platebody', bar: 'rune_bar', barCount: 5, level: 99, xp: 375 },
 ];
+
+// ---- Generated recipes for the full tiered gear set (skips existing results) ----
+const _SMETALS = [
+  { k: 'bronze', base: 1, xp: 12.5 }, { k: 'iron', base: 15, xp: 25 }, { k: 'steel', base: 30, xp: 37.5 },
+  { k: 'mithril', base: 50, xp: 50 }, { k: 'adamant', base: 70, xp: 62.5 }, { k: 'rune', base: 85, xp: 75 },
+];
+const _PIECES = [
+  ['dagger', 1, 0], ['med_helm', 1, 1], ['gauntlets', 1, 1], ['boots', 1, 2], ['sword', 1, 2], ['mace', 1, 3],
+  ['scimitar', 2, 4], ['sq_shield', 2, 5], ['longsword', 2, 6], ['full_helm', 2, 7], ['warhammer', 3, 8],
+  ['kiteshield', 3, 9], ['battleaxe', 3, 10], ['chainbody', 3, 11], ['platelegs', 3, 12], ['2h_sword', 3, 13], ['platebody', 5, 14],
+];
+const _existing = new Set(SMITH.map((r) => r.result));
+for (const M of _SMETALS) {
+  for (const [t, barCount, off] of _PIECES) {
+    const result = `${M.k}_${t}`;
+    if (_existing.has(result)) continue;
+    SMITH.push({ result, bar: `${M.k}_bar`, barCount, level: Math.min(99, M.base + off), xp: +(barCount * M.xp).toFixed(1) });
+    _existing.add(result);
+  }
+}

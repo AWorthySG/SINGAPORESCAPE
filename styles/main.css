@@ -434,3 +434,10 @@ html, body {
 }
 #region-label.wild { color: #ff6a52; text-shadow: 0 2px 0 #000, 0 0 12px rgba(255,60,40,0.6); }
 #region-label .wild-lvl { font-size: 13px; opacity: 0.9; }
+
+/* ---------- Splash co-brand (Hyco Education) ---------- */
+.splash-cobrand {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  margin: 4px 0 20px; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; opacity: 0.75;
+}
+.splash-cobrand img { height: 46px; border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,0.45); }
