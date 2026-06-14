@@ -324,3 +324,112 @@ html, body {
   :root { --panel-w: 200px; }
   #panel-body { height: 260px; }
 }
+
+/* =====================================================================
+   Visual polish layer — richer panels, depth, smooth interactions
+   ===================================================================== */
+
+/* Panels: layered wood/parchment feel with depth */
+#minimap-panel, #chatbox, #sidepanel {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.06), rgba(0,0,0,0.10)),
+    linear-gradient(180deg, #4a3f2e, #352c1f);
+  border: 2px solid #1a150d;
+  border-radius: 10px;
+  box-shadow:
+    inset 0 0 0 1px rgba(120,100,70,0.5),
+    inset 0 2px 0 rgba(255,235,180,0.10),
+    0 6px 18px rgba(0,0,0,0.45);
+}
+
+/* Tabs */
+#panel-tabs { border-top: 2px solid #1a150d; border-radius: 0 0 8px 8px; overflow: hidden; }
+.tab-btn {
+  background: linear-gradient(180deg, #5a4d39, #41382a);
+  transition: filter .12s ease, background .12s ease;
+}
+.tab-btn:hover { filter: brightness(1.2); }
+.tab-btn.active {
+  background: linear-gradient(180deg, #9a4e25, #7a3b1d);
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(255,180,90,0.4);
+}
+
+/* Inventory / equipment / shop slots: inset wells with hover lift */
+.inv-slot, .equip-slot, .item-cell {
+  background: radial-gradient(120% 120% at 50% 0%, rgba(255,255,255,0.06), rgba(0,0,0,0.28));
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(120,100,70,0.25);
+  transition: transform .08s ease, background .1s ease, box-shadow .1s ease;
+}
+.inv-slot.filled:hover, .equip-slot.filled:hover, .item-cell:hover {
+  background: radial-gradient(120% 120% at 50% 0%, rgba(255,235,170,0.18), rgba(0,0,0,0.22));
+  box-shadow: inset 0 0 0 1px rgba(255,200,110,0.6), 0 2px 6px rgba(0,0,0,0.4);
+  transform: translateY(-1px);
+}
+.inv-slot .icon, .item-cell span:first-child { filter: drop-shadow(0 1px 1px rgba(0,0,0,0.5)); }
+
+/* Skills */
+.skill-cell {
+  background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.28));
+  box-shadow: inset 0 0 0 1px rgba(120,100,70,0.25);
+  transition: background .1s ease;
+}
+.skill-cell:hover { background: linear-gradient(180deg, rgba(255,235,170,0.12), rgba(0,0,0,0.2)); }
+.skill-cell .xp-bar { box-shadow: 0 0 4px rgba(255,176,0,0.7); }
+#skills-total { background: linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.35)); text-shadow: 0 1px 2px #000; }
+
+/* Orbs: glassy spheres */
+.orb {
+  background: radial-gradient(circle at 35% 28%, rgba(255,255,255,0.35), rgba(0,0,0,0.15) 45%, #120d07 100%);
+  border: 2px solid #2a2417;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5), inset 0 0 6px rgba(0,0,0,0.6);
+}
+#run-orb { transition: background .15s ease, box-shadow .15s ease; }
+#run-orb.active { box-shadow: 0 0 10px rgba(120,210,60,0.7), inset 0 0 6px rgba(0,0,0,0.5); }
+
+/* Minimap recessed look */
+#minimap-canvas { box-shadow: inset 0 0 10px rgba(0,0,0,0.6), 0 0 0 2px #1a150d; }
+#minimap-compass { box-shadow: 0 1px 3px rgba(0,0,0,0.6); }
+
+/* Chat parchment */
+#chat-log {
+  background:
+    repeating-linear-gradient(0deg, rgba(0,0,0,0.015) 0 2px, transparent 2px 4px),
+    linear-gradient(180deg, #d6c79f, #c4b288);
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.25);
+}
+
+/* Buttons */
+#settings-panel button, .style-btn {
+  background: linear-gradient(180deg, #5a4d39, #41382a);
+  transition: filter .12s ease, transform .06s ease;
+}
+#settings-panel button:hover, .style-btn:hover { filter: brightness(1.18); }
+#settings-panel button:active { transform: translateY(1px); }
+.style-btn.active { background: linear-gradient(180deg, #9a4e25, #7a3b1d); box-shadow: inset 0 0 0 1px rgba(255,180,90,0.5); }
+
+/* Hover action text — give it a subtle plate */
+#hover-text {
+  background: linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0));
+  padding: 2px 8px 6px; border-radius: 6px;
+  letter-spacing: 0.2px;
+}
+
+/* Context menu */
+#context-menu { border-radius: 8px; overflow: hidden; box-shadow: 0 8px 22px rgba(0,0,0,0.7); }
+#context-menu .ctx-item { transition: background .08s ease; }
+
+/* Modal */
+#modal-window {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.12)),
+    linear-gradient(180deg, #4a3f2e, #352c1f);
+}
+#modal-title { letter-spacing: 1px; text-transform: uppercase; font-size: 16px; }
+.dialogue-option, .item-cell { transition: background .1s ease, transform .08s ease; }
+
+/* Banner pop with glow */
+#banner { box-shadow: 0 8px 26px rgba(0,0,0,0.6), 0 0 24px rgba(255,176,0,0.25); }
+#banner .big { text-shadow: 0 0 12px rgba(255,176,0,0.6); }
+
+/* Crisper emoji item icons everywhere */
+.inv-slot .icon { font-size: 23px; }
