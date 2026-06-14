@@ -77,7 +77,12 @@ export function loadGame(game) {
   game.player.spell = p.spell || 'wind_strike';
   game.player.autoRetaliate = p.autoRetaliate !== false;
   if (p.name) game.player.name = p.name;
-  if (data.quests) game.quests = { ...game.quests, ...data.quests };
+  if (data.quests && typeof data.quests === 'object') {
+    for (const k of Object.keys(game.quests)) {
+      const v = data.quests[k];
+      if (v && typeof v === 'object') game.quests[k] = { ...game.quests[k], ...v };
+    }
+  }
   game.running = data.settings?.running ?? game.running;
   return true;
 }

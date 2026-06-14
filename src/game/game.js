@@ -20,6 +20,7 @@ import {
   playerRangedVsNpc, combatXpRanged, playerMagicVsNpc, RANGED_STYLES,
 } from './combat.js';
 import { getSpell } from '../data/magic.js';
+import { PRAYERS, PRAYER_BY_ID, PRAYER_GROUPS } from '../data/prayers.js';
 import {
   resolveWoodcut, resolveMine, resolveFish, resolveCook,
   resolveSmelt, resolveSmith, resolveFiremake,
@@ -60,7 +61,12 @@ export class Game {
     this.wildLevel = 0;
     this.playerStun = 0;
     this.hasTemps = false;
-    this.quests = { bone_collector: 'notStarted' };
+    this.prayerPoints = 0;
+    this.activePrayers = new Set();
+    this.quests = {
+      bone_collector: { state: 'notStarted' },
+      pest_control: { state: 'notStarted', kills: 0 },
+    };
 
     // Celebratory sparkle on level up.
     this.bus.on('levelup', () => this.spawnSparkle(this.player, '#ffe24a', 12));
@@ -86,6 +92,8 @@ export class Game {
     this.bus.emit('skills');
     this.bus.emit('hp');
     this.bus.emit('run');
+    this.prayerPoints = this.skills.prayer;
+    this.bus.emit('prayer');
     this.updateRegion();
   }
 
@@ -229,6 +237,7 @@ export class Game {
       if (this.player.hp < this.skills.hitpoints) { this.player.hp++; this.bus.emit('hp'); }
     }
     this.updateRunEnergy();
+    this.drainPrayer();
 
     if (++this.autosaveCounter >= AUTOSAVE_TICKS) { this.autosaveCounter = 0; saveGame(this); }
     this.bus.emit('tick', this.tickCount);
@@ -251,6 +260,46 @@ export class Game {
     if (!this.running && this.runEnergy <= 0) return;
     this.running = !this.running;
     this.bus.emit('run');
+  }
+
+  // ---------------- Prayers ----------------
+  maxPrayer() { return this.skills.prayer; }
+
+  drainPrayer() {
+    if (!this.activePrayers.size || this.prayerPoints <= 0) return;
+    let drain = 0;
+    for (const id of this.activePrayers) drain += PRAYER_BY_ID[id].drain;
+    this.prayerPoints = Math.max(0, this.prayerPoints - drain * 0.15);
+    if (this.prayerPoints <= 0) { this.activePrayers.clear(); this.msg('You have run out of prayer points.', 'system'); }
+    this.bus.emit('prayer');
+  }
+
+  togglePrayer(id) {
+    const p = PRAYER_BY_ID[id];
+    if (!p) return;
+    if (this.activePrayers.has(id)) { this.activePrayers.delete(id); this.bus.emit('prayer'); return; }
+    if (this.skills.prayer < p.level) { this.msg(`You need Prayer level ${p.level} for ${p.name}.`); return; }
+    if (this.prayerPoints <= 0) { this.msg('You have no prayer points. Restore at the A-Worthy Monument.'); return; }
+    for (const ids of Object.values(PRAYER_GROUPS)) {
+      if (ids.includes(id)) for (const other of ids) this.activePrayers.delete(other);
+    }
+    this.activePrayers.add(id);
+    this.spawnSparkle(this.player, '#ffe89a', 6);
+    this.bus.emit('prayer');
+  }
+
+  prayerMult() {
+    const m = { att: 1, str: 1, def: 1, ranged: 1, magic: 1 };
+    for (const id of this.activePrayers) {
+      const p = PRAYER_BY_ID[id];
+      for (const k of ['att', 'str', 'def', 'ranged', 'magic']) if (p[k]) m[k] += p[k];
+    }
+    return m;
+  }
+
+  protectFactor() {
+    for (const id of this.activePrayers) { const p = PRAYER_BY_ID[id]; if (p.protect) return p.protect; }
+    return 0;
   }
 
   // ---------------- Player action resolution ----------------
@@ -279,9 +328,10 @@ export class Game {
       case 'smithmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openSmithMenu(a.obj));
       case 'pray': return this._tickArrival(a, a.obj, true, () => {
         this.player.hp = this.skills.hitpoints;
-        this.bus.emit('hp');
+        this.prayerPoints = this.skills.prayer;
+        this.bus.emit('hp'); this.bus.emit('prayer');
         this.spawnSparkle(this.player, '#9adcff', 16);
-        this.msg('You kneel at the A-Worthy Monument. Your wounds are healed.', 'system');
+        this.msg('You kneel at the A-Worthy Monument. Your health and prayer are restored.', 'system');
       });
       case 'rest': return this._tickArrival(a, a.obj, true, () => {
         this.player.hp = this.skills.hitpoints;
@@ -357,7 +407,8 @@ export class Game {
     if (mode === 'ranged') return this._rangedAttack(npc);
     if (mode === 'magic') return this._magicAttack(npc);
     const { atkRoll, defRoll, max } = playerAttackVsNpc(this.skills, this.equipment, this.player.style, npc.def);
-    const dmg = rollAttack(atkRoll, defRoll, max);
+    const pm = this.prayerMult();
+    const dmg = rollAttack(atkRoll * pm.att, defRoll, Math.round(max * pm.str));
     this._applyPlayerHit(npc, dmg);
     if (dmg > 0) { this.spawnHitSparks(npc, '#fff2b0'); for (const x of combatXp(this.player.style, dmg)) this.skills.addXp(x.skill, x.xp); }
     this.player.attackCooldown = this.equipment.weaponSpeed();
@@ -376,7 +427,8 @@ export class Game {
     const arrowStr = getItem(this.inventory.slotAt(arrowIdx).id).arrowStr || 0;
     const style = this.player.rangedStyle;
     const { atkRoll, defRoll, max } = playerRangedVsNpc(this.skills, this.equipment, style, npc.def, arrowStr);
-    const dmg = rollAttack(atkRoll, defRoll, max);
+    const pr = this.prayerMult().ranged;
+    const dmg = rollAttack(atkRoll * pr, defRoll, Math.round(max * pr));
     this.inventory.removeAt(arrowIdx, 1);
     this._projectile(npc, '#d9c45a');
     this._applyPlayerHit(npc, dmg);
@@ -391,7 +443,7 @@ export class Game {
     if (!this._hasRunes(spell)) { this.msg(`You don't have the runes to cast ${spell.name}.`); this.player.clearAction(); return; }
     this._consumeRunes(spell);
     const { atkRoll, defRoll, max } = playerMagicVsNpc(this.skills, this.equipment, spell, npc.def);
-    const dmg = rollAttack(atkRoll, defRoll, max);
+    const dmg = rollAttack(atkRoll * this.prayerMult().magic, defRoll, max);
     this._projectile(npc, spell.tint);
     this._applyPlayerHit(npc, dmg);
     this.skills.addXp('magic', spell.xp);
@@ -413,7 +465,9 @@ export class Game {
     const p = this.player;
     if (!p.alive) return;
     const { atkRoll, defRoll, max } = npcAttackVsPlayer(npc.def, this.skills, this.equipment, p.style);
-    const dmg = rollAttack(atkRoll, defRoll, max);
+    let dmg = rollAttack(atkRoll, defRoll * this.prayerMult().def, max);
+    const prot = this.protectFactor();
+    if (prot) dmg = Math.floor(dmg * (1 - prot));
     p.takeDamage(dmg);
     this.addHitsplat(p, dmg);
     if (dmg > 0) this.spawnHitSparks(p, '#ff8a8a');
@@ -432,6 +486,18 @@ export class Game {
     this.rollDrops(npc);
     npc.die();
     if (this.player.target === npc) this.player.target = null;
+    const pc = this.quests.pest_control;
+    if (pc.state === 'active' && npc.npcId === 'rat') {
+      pc.kills++;
+      if (pc.kills >= 8) {
+        pc.state = 'done';
+        this.inventory.add('coins', 600);
+        this.skills.addXp('attack', 300);
+        this.msg('Quest complete — Pest Control! 600 coins and Attack XP.', 'level');
+        this.banner('<span class="big">Quest complete!</span>Pest Control');
+      } else this.msg(`Pest Control: ${pc.kills}/8 giant rats slain.`, 'system');
+      this.bus.emit('quest');
+    }
   }
 
   // ---------------- Region / Wilderness ----------------
@@ -739,23 +805,26 @@ export class Game {
   handleDialogueAction(action) {
     if (action === 'giveStarter') this.giveStarter();
     else if (action === 'questStart') {
-      if (this.quests.bone_collector === 'notStarted') {
-        this.quests.bone_collector = 'active';
-        this.msg('Quest started — A Bag of Bones: bring 10 bones to the Kampong Guide.', 'level');
-      }
+      const q = this.quests.bone_collector;
+      if (q.state === 'notStarted') { q.state = 'active'; this.msg('Quest started — A Bag of Bones: bring 10 bones to the Kampong Guide.', 'level'); }
     } else if (action === 'questTurnIn') this.turnInBoneQuest();
+    else if (action === 'pestStart') {
+      const q = this.quests.pest_control;
+      if (q.state === 'notStarted') { q.state = 'active'; q.kills = 0; this.msg('Quest started — Pest Control: slay 8 giant rats.', 'level'); }
+    }
+    this.bus.emit('quest');
   }
 
   turnInBoneQuest() {
     const q = this.quests.bone_collector;
-    if (q === 'done') { this.msg('Thanks again, adventurer!', 'system'); return; }
-    if (q !== 'active') { this.msg('Ask me about work first.', 'system'); return; }
+    if (q.state === 'done') { this.msg('Thanks again, adventurer!', 'system'); return; }
+    if (q.state !== 'active') { this.msg('Ask me about work first.', 'system'); return; }
     if (this.inventory.count('bones') < 10) { this.msg('Come back when you have 10 bones.', 'system'); return; }
     this.inventory.remove('bones', 10);
     this.inventory.add('coins', 1000);
     this.inventory.add('amulet_of_strength', 1);
     this.skills.addXp('prayer', 500);
-    this.quests.bone_collector = 'done';
+    q.state = 'done';
     this.msg('Quest complete — A Bag of Bones! 1000 coins, Prayer XP and an amulet of strength.', 'level');
     this.banner('<span class="big">Quest complete!</span>A Bag of Bones');
   }

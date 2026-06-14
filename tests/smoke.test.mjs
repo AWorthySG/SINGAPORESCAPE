@@ -15,6 +15,7 @@ import { itemIconSVG, hasIcon, skillIconSVG } from '../src/render/icons.js';
 import { ITEMS } from '../src/data/items.js';
 import { SKILLS } from '../src/data/skills.js';
 import { SPELLS } from '../src/data/magic.js';
+import { PRAYERS } from '../src/data/prayers.js';
 
 test('OSRS xp table matches known values', () => {
   assert.equal(xpForLevel(1), 0);
@@ -132,6 +133,14 @@ test('Ranged & Magic skills + the spellbook exist', () => {
   assert.ok(SPELLS.length >= 6);
   for (const sp of SPELLS) assert.ok(sp.maxHit > 0 && sp.runes && sp.level >= 1, `spell ${sp.id} well-formed`);
   for (const w of ['shortbow', 'yew_shortbow', 'staff', 'mystic_staff']) assert.ok(hasIcon(w), `weapon ${w} icon`);
+});
+
+test('prayers are defined and well-formed', () => {
+  assert.ok(PRAYERS.length >= 12);
+  for (const p of PRAYERS) {
+    assert.ok(p.level >= 1 && p.drain >= 1, `prayer ${p.id} well-formed`);
+    assert.ok(p.protect || p.att || p.str || p.def || p.ranged || p.magic, `prayer ${p.id} has an effect`);
+  }
 });
 
 test('every equippable item has its own custom icon', () => {
