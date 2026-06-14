@@ -5,12 +5,12 @@ import { drawShadow, drawCreature, drawPlayer, drawObjectSprite, drawGroundItem 
 
 // Base terrain colours (RGB). Water is drawn procedurally.
 const TERRAIN_RGB = {
-  [TERRAIN.GRASS]: [74, 122, 50],
-  [TERRAIN.DARKGRASS]: [62, 106, 42],
-  [TERRAIN.PATH]: [156, 132, 86],
-  [TERRAIN.SAND]: [200, 178, 122],
-  [TERRAIN.STONE]: [140, 132, 120],
-  [TERRAIN.WOOD]: [122, 90, 54],
+  [TERRAIN.GRASS]: [88, 140, 58],
+  [TERRAIN.DARKGRASS]: [74, 124, 50],
+  [TERRAIN.PATH]: [168, 142, 94],
+  [TERRAIN.SAND]: [208, 186, 130],
+  [TERRAIN.STONE]: [148, 140, 128],
+  [TERRAIN.WOOD]: [128, 94, 56],
 };
 
 function hash(x, y) {
@@ -54,7 +54,7 @@ export class Renderer {
     for (const g of game.world.groundItems) {
       if (g.x < x0 || g.x > x1 || g.y < y0 || g.y > y1) continue;
       const cx = g.x * TILE + TILE / 2 - ox, cy = g.y * TILE + TILE * 0.62 - oy;
-      drawables.push({ sortY: g.y - 0.3, z: 0, draw: () => drawGroundItem(ctx, getItem(g.id).icon, cx, cy) });
+      drawables.push({ sortY: g.y - 0.3, z: 0, draw: () => drawGroundItem(ctx, g.id, cx, cy) });
     }
     for (const n of game.npcs) {
       if (!n.alive) continue;
@@ -111,7 +111,7 @@ export class Renderer {
         if (t === TERRAIN.WATER) { this._water(ctx, w, x, y, sx, sy, timeMs); continue; }
         const base = TERRAIN_RGB[t] || TERRAIN_RGB[TERRAIN.GRASS];
         const h = hash(x, y);
-        const j = (h - 0.5) * 14;
+        const j = (h - 0.5) * 10;
         ctx.fillStyle = `rgb(${clamp8(base[0] + j)},${clamp8(base[1] + j)},${clamp8(base[2] + j)})`;
         ctx.fillRect(sx, sy, TILE + 1, TILE + 1);
         this._tileDetail(ctx, t, x, y, sx, sy, h);
@@ -204,9 +204,17 @@ export class Renderer {
 
   _drawVignette(vw, vh) {
     const { ctx } = this;
-    const g = ctx.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * 0.35, vw / 2, vh / 2, Math.max(vw, vh) * 0.72);
+    // warm ambient sunlight washing in from the upper-left (golden-hour feel)
+    const warm = ctx.createLinearGradient(0, 0, vw * 0.55, vh);
+    warm.addColorStop(0, 'rgba(255,214,140,0.11)');
+    warm.addColorStop(0.45, 'rgba(255,198,118,0.035)');
+    warm.addColorStop(1, 'rgba(30,52,72,0.06)');
+    ctx.fillStyle = warm;
+    ctx.fillRect(0, 0, vw, vh);
+    // soft edge vignette
+    const g = ctx.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * 0.36, vw / 2, vh / 2, Math.max(vw, vh) * 0.74);
     g.addColorStop(0, 'rgba(0,0,0,0)');
-    g.addColorStop(1, 'rgba(8,14,10,0.34)');
+    g.addColorStop(1, 'rgba(16,24,16,0.30)');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, vw, vh);
   }

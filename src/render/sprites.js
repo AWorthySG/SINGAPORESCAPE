@@ -1,6 +1,7 @@
 // Vector sprite library — cohesive hand-drawn art for creatures and world objects,
 // replacing the old emoji rendering. Everything is drawn relative to a centre
 // point (cx, cy) with the entity's "feet" near cy + 13.
+import { itemIconImage } from './icons.js';
 
 const OUTLINE = 'rgba(26,18,12,0.55)';
 
@@ -27,7 +28,11 @@ function staged(ctx, cx, cy, opts, draw) {
 
 // ---------------- Ground shadow ----------------
 export function drawShadow(ctx, cx, cy, rx = 11, ry = 5) {
-  ctx.fillStyle = 'rgba(0,0,0,0.20)';
+  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rx);
+  g.addColorStop(0, 'rgba(0,0,0,0.26)');
+  g.addColorStop(0.65, 'rgba(0,0,0,0.15)');
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g;
   ellipse(ctx, cx, cy, rx, ry);
   ctx.fill();
 }
@@ -445,11 +450,15 @@ function scenery(ctx, objId, cx, cy, time) {
 }
 
 // ================= GROUND ITEMS =================
-export function drawGroundItem(ctx, icon, cx, cy) {
-  // soft pickup disc + emoji icon (matches inventory's item language)
-  glow(ctx, cx, cy, 11, 'rgba(255,240,180,0.18)');
-  ctx.fillStyle = 'rgba(255,255,255,0.12)'; ellipse(ctx, cx, cy + 6, 8, 3); ctx.fill();
-  ctx.font = '17px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",serif';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(icon, cx, cy); ctx.textBaseline = 'alphabetic';
+export function drawGroundItem(ctx, id, cx, cy) {
+  // soft pickup disc + hand-drawn vector icon (matches the inventory art)
+  glow(ctx, cx, cy, 12, 'rgba(255,225,140,0.22)');
+  ctx.fillStyle = 'rgba(0,0,0,0.18)'; ellipse(ctx, cx, cy + 7, 9, 3.2); ctx.fill();
+  const img = itemIconImage(id);
+  if (img && img.complete && img.naturalWidth) {
+    const s = 22;
+    ctx.drawImage(img, cx - s / 2, cy - s / 2 - 1, s, s);
+  } else {
+    ctx.fillStyle = 'rgba(255,235,170,0.6)'; circle(ctx, cx, cy, 5); ctx.fill();
+  }
 }
