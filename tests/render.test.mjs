@@ -45,6 +45,10 @@ test('renderer.render runs without throwing (with combat/effects state)', () => 
   game.player.path = [{ x: game.player.x + 2, y: game.player.y }];
   game.addHitsplat(game.player, 4);
   game.addHitsplat(npc, 0);
+  // Particles (sparks/sparkles/poofs) exercise the additive-blend draw path.
+  game.spawnHitSparks(npc, '#fff2b0');
+  game.spawnSparkle(game.player, '#ffe24a', 8);
+  game.spawnPoof(game.player.x * 32, game.player.y * 32, '#caa15a');
 
   assert.doesNotThrow(() => { renderer.render(0); renderer.render(1234.5); });
 });

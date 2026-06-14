@@ -27,7 +27,10 @@ test('game boots with a populated world', () => {
   game.start();
 
   assert.ok(game.player.alive);
-  assert.equal(game.player.hp, 10);
+  assert.equal(game.player.hp, 15);
+  assert.ok(game.skills.attack >= 5 && game.skills.defence >= 5, 'buffed starting combat stats');
+  assert.equal(game.equipment.get('weapon'), 'bronze_scimitar', 'starts equipped');
+  assert.ok(game.world.objects.some((o) => o.def.type === 'shrine'), 'town has the Worthy Monument');
   assert.ok(game.npcs.length > 10, 'should spawn many NPCs');
   assert.ok(game.npcs.some((n) => n.attackable), 'should have monsters');
   assert.ok(game.world.objects.some((o) => o.def.type === 'tree'));
@@ -92,6 +95,19 @@ test('save and load round-trips skills and inventory', () => {
   assert.ok(loadGame(g2));
   assert.equal(g2.skills.level('woodcutting'), wcLevel);
   assert.equal(g2.inventory.count('coal'), coal);
+});
+
+test('praying at the Worthy Monument heals to full', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  const shrine = game.world.objects.find((o) => o.def.type === 'shrine');
+  assert.ok(shrine, 'monument exists');
+  game.player.hp = 3;
+  game.beginAction({ type: 'pray', obj: shrine }, { x: shrine.x, y: shrine.y }, true);
+  step(game, 60);
+  assert.equal(game.player.hp, game.skills.hitpoints, 'fully healed after praying');
 });
 
 test('eating food heals the player', () => {

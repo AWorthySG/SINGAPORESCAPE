@@ -110,6 +110,7 @@ export function buildWorld() {
   placeObj('bank_booth', 32, 28); placeObj('bank_booth', 33, 28); placeObj('bank_booth', 34, 28);
   placeNpc('banker', 33, 27);
   placeObj('sign', 37, 25);
+  placeObj('shrine', 40, 29); // the Worthy Monument, centre of town
   placeObj('furnace', 31, 36);
   placeObj('anvil', 33, 37);
   placeObj('range', 42, 36);

@@ -80,7 +80,24 @@ export class Renderer {
     for (const d of drawables) d.draw();
 
     this._drawVignette(vw, vh);
+    this._drawParticles(ox, oy);
     this._drawOverheads(ox, oy);
+  }
+
+  _drawParticles(ox, oy) {
+    const { ctx, game } = this;
+    if (!game.particles || !game.particles.length) return;
+    for (const p of game.particles) {
+      const a = Math.max(0, Math.min(1, p.life / p.maxLife));
+      ctx.globalAlpha = a;
+      if (p.add) ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x - ox, p.y - oy, p.size, 0, Math.PI * 2);
+      ctx.fill();
+      if (p.add) ctx.globalCompositeOperation = 'source-over';
+    }
+    ctx.globalAlpha = 1;
   }
 
   // ---------------- Terrain ----------------
