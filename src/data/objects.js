@@ -131,6 +131,12 @@ export const OBJECTS = {
     examine: 'A grand monument raised to those who proved worthy. Praying here mends your wounds.',
   },
 
+  // ---------------- Hyco Education Obelisk (the hyco logo) ----------------
+  hyco_obelisk: {
+    name: 'Hyco Education Obelisk', type: 'rest', verb: 'Rest at', emoji: '🔵', blocking: true,
+    examine: 'A monument to learning, presented by Hyco Education. Rest here to recover health and run energy.',
+  },
+
   // ---------------- Scenery (blocking decor) ----------------
   wall: { name: 'Wall', type: 'scenery', emoji: '🧱', blocking: true, examine: 'A stone wall.' },
   ruin: { name: 'Ruins', type: 'scenery', emoji: '🏚️', blocking: true, examine: 'Crumbling ruins from a forgotten age.' },

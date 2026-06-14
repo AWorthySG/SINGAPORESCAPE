@@ -415,6 +415,7 @@ export function drawObjectSprite(ctx, obj, cx, cy, time = 0) {
     case 'anvil': return anvil(ctx, cx, cy);
     case 'bank': return bank(ctx, cx, cy);
     case 'shrine': return shrine(ctx, cx, cy, time);
+    case 'rest': return hyco(ctx, cx, cy);
     case 'scenery': return scenery(ctx, obj.objId, cx, cy, time);
     default: return;
   }
@@ -599,6 +600,27 @@ function shrineBody(ctx, cx, cy, time) {
   // glint
   ctx.fillStyle = 'rgba(255,255,255,0.45)';
   circle(ctx, cx - 6, cy - 14, 1); ctx.fill();
+}
+
+// Hyco Education obelisk — a navy standee with the silver ring + orange dot mark.
+function hyco(ctx, cx, cy) {
+  drawShadow(ctx, cx, cy + 14, 14, 5);
+  glow(ctx, cx, cy - 6, 24, 'rgba(245,166,35,0.16)');
+  ctx.fillStyle = '#3a3530'; rr(ctx, cx - 2.5, cy + 4, 5, 11, 1); ctx.fill();
+  ctx.fillStyle = '#15273c'; rr(ctx, cx - 15, cy - 22, 30, 28, 4); ctx.fill(); line(ctx, OUTLINE, 1.5);
+  ctx.fillStyle = 'rgba(255,255,255,0.06)'; rr(ctx, cx - 15, cy - 22, 30, 6, 4); ctx.fill();
+  // "hy" suggestion
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cx - 10, cy - 4); ctx.lineTo(cx - 10, cy - 14);
+  ctx.moveTo(cx - 10, cy - 9); ctx.quadraticCurveTo(cx - 7, cy - 11, cx - 6, cy - 4);
+  ctx.stroke();
+  // ring "o" + orange dot
+  ctx.strokeStyle = '#dfe6ec'; ctx.lineWidth = 3.2; circle(ctx, cx + 4, cy - 8, 6); ctx.stroke();
+  ctx.lineCap = 'butt';
+  ctx.fillStyle = '#f5a623'; circle(ctx, cx + 9, cy - 13, 2.1); ctx.fill();
+  // EDUCATION bar
+  ctx.fillStyle = 'rgba(238,243,247,0.8)'; rr(ctx, cx - 11, cy + 1, 22, 2, 1); ctx.fill();
 }
 
 function scenery(ctx, objId, cx, cy, time) {

@@ -275,6 +275,38 @@
   I.boar_tusk = `<path d="M7 5 C7 9 17 9 17 5" fill="none" stroke="${C.gold}" stroke-width="1.6"/>
     <path d="M12 10 C9 12 9 18 12 20 C12 16 13 13 14 11 C13.5 10 12.5 10 12 10 Z" fill="${C.cream}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/>`;
 
+  // ---- builders for generated equipment tiers ----
+  const legs = (col, hi) => `<path d="M7 4 L17 4 L17 8 L13 20 L11 20 L12 10 L11 20 L9 20 L7 8 Z" fill="${col}" stroke="${OL}" stroke-width="1.2" stroke-linejoin="round"/><rect x="7" y="4" width="10" height="2.4" rx="1" fill="${hi}" opacity=".6"/>`;
+  const mace = (col, hi) => `<rect x="10.8" y="9" width="2.4" height="12" rx="1.1" fill="${C.wood}" stroke="${OL}" stroke-width="1"/><circle cx="12" cy="6" r="4.6" fill="${col}" stroke="${OL}" stroke-width="1.1"/><g fill="${col}" stroke="${OL}" stroke-width=".8"><rect x="11" y="0.4" width="2" height="3"/><rect x="11" y="8.6" width="2" height="3"/><rect x="6.4" y="5" width="3" height="2"/><rect x="14.6" y="5" width="3" height="2"/></g><circle cx="10.6" cy="4.6" r="1.2" fill="${hi}"/>`;
+  const longsword = (col, hi) => `<rect x="10.8" y="14" width="2.4" height="6" rx="1" fill="${C.wood}" stroke="${OL}" stroke-width="1"/><rect x="7.5" y="13" width="9" height="2" rx="1" fill="${C.goldDk}" stroke="${OL}" stroke-width="1"/><path d="M12 2 L14 13 L10 13 Z" fill="${col}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M12 3 L12.7 12 L12 12 Z" fill="${hi}"/>`;
+  const battleaxe = (col, hi) => `<rect x="11" y="4" width="2.4" height="17" rx="1.1" fill="${C.wood}" stroke="${OL}" stroke-width="1"/><path d="M11 5 C5 5 4 9 5 13 C8 11 11 11 11 11 Z" fill="${col}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M13.4 5 C19 5 20 9 19 13 C16 11 13.4 11 13.4 11 Z" fill="${col}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M6 7 C8 6 10 6 11 7" stroke="${hi}" stroke-width="1" fill="none"/>`;
+  const warhammer = (col, hi) => `<rect x="10.8" y="7" width="2.4" height="14" rx="1.1" fill="${C.wood}" stroke="${OL}" stroke-width="1"/><rect x="6" y="3" width="12" height="6.5" rx="1.6" fill="${col}" stroke="${OL}" stroke-width="1.1"/><rect x="7" y="4" width="10" height="1.8" rx="1" fill="${hi}"/>`;
+  const twohander = (col, hi) => `<rect x="10.6" y="15" width="2.8" height="6" rx="1.2" fill="${C.wood}" stroke="${OL}" stroke-width="1"/><rect x="6" y="13.6" width="12" height="2.2" rx="1" fill="${C.goldDk}" stroke="${OL}" stroke-width="1"/><path d="M12 1 L15 13 L9 13 Z" fill="${col}" stroke="${OL}" stroke-width="1.2" stroke-linejoin="round"/><path d="M12 2.5 L13 12 L12 12 Z" fill="${hi}"/>`;
+  const gloves = (col, hi) => `<path d="M7 8 L7 4 L9 4 L9 7 L10 7 L10 3 L12 3 L12 7 L13 7 L13 4 L15 4 L15 9 C15 13 13 15 11 15 C9 15 7 13 7 10 Z" fill="${col}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><rect x="7" y="14" width="8" height="4" rx="1.4" fill="${hi}" stroke="${OL}" stroke-width="1"/>`;
+  const boots = (col, hi) => `<path d="M8 4 L12 4 L12 13 L18 13 C19 13 19 18 18 18 L8 18 Z" fill="${col}" stroke="${OL}" stroke-width="1.2" stroke-linejoin="round"/><rect x="8" y="16" width="11" height="2.6" rx="1" fill="${hi}" opacity=".6"/>`;
+  const ringIcon = (col, hi) => `<circle cx="12" cy="14" r="6" fill="none" stroke="${col}" stroke-width="2.6"/><path d="M12 8 L15 4 L9 4 Z" fill="${hi}" stroke="${OL}" stroke-width="1"/>`;
+  const capeIcon = (col, hi) => `<path d="M8 4 L16 4 L19 20 L12 17 L5 20 Z" fill="${col}" stroke="${OL}" stroke-width="1.2" stroke-linejoin="round"/><path d="M8 4 C10 7 14 7 16 4" fill="none" stroke="${hi}" stroke-width="1.4"/>`;
+
+  const METAL_PAL = { bronze: [C.bronze, C.bronzeHi], iron: [C.iron, C.ironHi], steel: [C.steel, C.steelHi], mithril: [mith, mithHi], adamant: [adam, adamHi], rune: [rune, runeHi] };
+  const WBUILD = { dagger: blade, sword: blade, scimitar: scim, mace, longsword, battleaxe, warhammer, '2h_sword': twohander };
+  const ABUILD = { med_helm: helm, full_helm: helm, chainbody: plate, platebody: plate, platelegs: legs, sq_shield: shield, kiteshield: shield, gauntlets: gloves, boots };
+  for (const m of Object.keys(METAL_PAL)) {
+    const [c, hi] = METAL_PAL[m];
+    for (const t of Object.keys(WBUILD)) { const id = `${m}_${t}`; if (!I[id]) I[id] = WBUILD[t](c, hi); }
+    for (const t of Object.keys(ABUILD)) { const id = `${m}_${t}`; if (!I[id]) I[id] = ABUILD[t](c, hi); }
+  }
+  // accessories & new boss uniques
+  I.amulet_of_strength = I.amulet_of_power;
+  I.amulet_of_glory = I.amulet_of_power;
+  I.ring_of_kampong = ringIcon(C.gold, C.goldHi);
+  I.ring_of_might = ringIcon('#c0432a', '#e08a5a');
+  I.fire_cape = capeIcon('#d8552e', '#f5a623');
+  I.garuda_wings = capeIcon('#caa15a', '#f0d99a');
+  I.tiger_fang = scim('#e8a23a', '#ffd773');
+  I.leviathan_trident = `<rect x="11" y="10" width="2" height="11" rx="1" fill="${C.wood}" stroke="${OL}" stroke-width="1"/><path d="M6 3 L6 9 M12 2 L12 9 M18 3 L18 9" stroke="${rune}" stroke-width="2.2" stroke-linecap="round"/><path d="M5 9 L19 9 L18 11 L6 11 Z" fill="${rune}" stroke="${OL}" stroke-width="1"/>`;
+  I.hydra_leather = plate('#3f7a4a', '#5fa06a');
+  I.treant_shield = shield('#5a7a3a', '#7aa04a');
+
   function svg(inner, size, cls) {
     return `<svg class="${cls || ''}" width="${size}" height="${size}" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="display:block">${inner}</svg>`;
   }

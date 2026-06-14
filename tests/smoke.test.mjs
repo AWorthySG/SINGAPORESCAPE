@@ -11,7 +11,8 @@ import { hitChance, maxHit, attackRoll, combatXp } from '../src/game/combat.js';
 import { gatherChance } from '../src/game/skilling.js';
 import { XP_RATE } from '../src/config.js';
 import { NPCS, MONSTER_IDS, BOSS_IDS, getNpc } from '../src/data/npcs.js';
-import { itemIconSVG } from '../src/render/icons.js';
+import { itemIconSVG, hasIcon } from '../src/render/icons.js';
+import { ITEMS } from '../src/data/items.js';
 
 test('OSRS xp table matches known values', () => {
   assert.equal(xpForLevel(1), 0);
@@ -93,11 +94,11 @@ test('loading a weak save floors stats to the baseline', () => {
   assert.ok(skills.level('woodcutting') > 1); // existing progress preserved
 });
 
-test('bestiary has 169 monsters and 15 bosses, all well-formed', () => {
+test('bestiary has 169 monsters and 25 bosses, all well-formed', () => {
   assert.equal(MONSTER_IDS.length, 169);
-  assert.equal(BOSS_IDS.length, 15);
+  assert.equal(BOSS_IDS.length, 25);
   const ids = new Set([...MONSTER_IDS, ...BOSS_IDS]);
-  assert.equal(ids.size, 184); // all ids unique
+  assert.equal(ids.size, 194); // all ids unique
   for (const id of MONSTER_IDS) {
     const n = getNpc(id);
     assert.ok(n.attackable && n.sprite && n.color && n.level >= 1, `mob ${id} well-formed`);
@@ -110,10 +111,19 @@ test('bestiary has 169 monsters and 15 bosses, all well-formed', () => {
   assert.ok(NPCS.chicken && NPCS.chicken.level === 1); // iconic ids preserved
 });
 
-test('every NPC sprite + the iconic original mobs render to valid SVG ids', () => {
-  // itemIconSVG always returns markup (falls back to coins) — sanity-check it works.
-  assert.ok(itemIconSVG('rune_scimitar', 24).includes('<svg'));
+test('every equippable item has its own custom icon', () => {
+  const missing = Object.keys(ITEMS).filter((id) => ITEMS[id].equip && !hasIcon(id));
+  assert.deepEqual(missing, [], `items missing icons: ${missing.join(', ')}`);
+  assert.ok(itemIconSVG('rune_2h_sword', 24).includes('<svg'));
   assert.ok(itemIconSVG('merlion_blade', 24).includes('<svg'));
+});
+
+test('the tiered equipment generator produced a large gear set', () => {
+  const weapons = Object.keys(ITEMS).filter((id) => ITEMS[id].equip?.slot === 'weapon');
+  const armour = Object.keys(ITEMS).filter((id) => ITEMS[id].equip && ITEMS[id].equip.slot !== 'weapon');
+  assert.ok(weapons.length >= 45, `weapons: ${weapons.length}`);
+  assert.ok(armour.length >= 50, `armour pieces: ${armour.length}`);
+  assert.ok(ITEMS.rune_2h_sword && ITEMS.bronze_gauntlets && ITEMS.mithril_boots);
 });
 
 test('combat formulas produce valid ranges', () => {
