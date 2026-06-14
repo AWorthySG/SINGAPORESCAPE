@@ -26,6 +26,7 @@
       <canvas id="minimap-canvas" width="160" height="160"></canvas>
       <div id="minimap-compass">N</div>
       <div id="hp-orb" class="orb" title="Hitpoints"><span id="hp-orb-value">10</span></div>
+      <div id="prayer-orb" class="orb" title="Prayer points"><span id="prayer-orb-value">1</span></div>
       <div id="run-orb" class="orb" title="Run energy">RUN</div>
     </div>
 
@@ -57,6 +58,12 @@
         <section class="panel-view hidden" data-view="combat">
           <div id="combat-panel"></div>
         </section>
+        <section class="panel-view hidden" data-view="prayer">
+          <div id="prayer-panel"></div>
+        </section>
+        <section class="panel-view hidden" data-view="quests">
+          <div id="quest-panel"></div>
+        </section>
         <section class="panel-view hidden" data-view="settings">
           <div id="settings-panel"></div>
         </section>
@@ -66,6 +73,8 @@
         <button class="tab-btn" data-view="equipment" title="Worn Equipment"></button>
         <button class="tab-btn" data-view="skills" title="Skills"></button>
         <button class="tab-btn" data-view="combat" title="Combat Options"></button>
+        <button class="tab-btn" data-view="prayer" title="Prayers"></button>
+        <button class="tab-btn" data-view="quests" title="Quest Journal"></button>
         <button class="tab-btn" data-view="settings" title="Settings"></button>
       </div>
     </div>

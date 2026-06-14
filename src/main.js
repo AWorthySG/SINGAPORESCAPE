@@ -22,7 +22,7 @@ game.start();
 input.onLeftClick((x, y) => game.onLeftClick(x, y));
 input.onRightClick((x, y) => game.onRightClick(x, y));
 input.onKey((e) => {
-  const map = { '1': 'inventory', '2': 'equipment', '3': 'skills', '4': 'combat', '5': 'settings' };
+  const map = { '1': 'inventory', '2': 'equipment', '3': 'skills', '4': 'combat', '5': 'prayer', '6': 'quests', '7': 'settings' };
   if (map[e.key]) {
     document.querySelector(`#panel-tabs .tab-btn[data-view="${map[e.key]}"]`)?.click();
   } else if (e.key === 'r' || e.key === 'R') {

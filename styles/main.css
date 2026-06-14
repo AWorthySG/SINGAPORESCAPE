@@ -435,6 +435,31 @@ html, body {
 #region-label.wild { color: #ff6a52; text-shadow: 0 2px 0 #000, 0 0 12px rgba(255,60,40,0.6); }
 #region-label .wild-lvl { font-size: 13px; opacity: 0.9; }
 
+/* ---------- Orbs (stacked on the minimap) ---------- */
+#hp-orb { bottom: -4px; left: -12px; }
+#prayer-orb { bottom: 32px; left: -16px; color: #ffd24a; }
+#run-orb { bottom: 68px; left: -12px; }
+#prayer-orb.active { box-shadow: 0 0 10px rgba(255,210,74,0.8), inset 0 0 6px rgba(0,0,0,0.5); }
+
+/* ---------- Prayer panel ---------- */
+#prayer-panel .prayer-pts { text-align: center; font-weight: bold; color: var(--rs-gold); margin-bottom: 6px; }
+.prayer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.prayer-cell {
+  background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.28));
+  border-radius: 4px; padding: 5px 6px; cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(120,100,70,0.25); transition: box-shadow .1s ease;
+}
+.prayer-cell b { display: block; font-size: 11px; }
+.prayer-cell span { opacity: 0.72; font-size: 9.5px; }
+.prayer-cell.active { box-shadow: inset 0 0 0 2px var(--rs-gold), 0 0 8px rgba(255,176,0,0.4); }
+.prayer-cell.locked { opacity: 0.38; cursor: not-allowed; }
+
+/* ---------- Quest journal ---------- */
+#quest-panel .quest-head { text-align: center; font-weight: bold; color: var(--rs-gold); margin-bottom: 8px; }
+.quest-row { background: rgba(0,0,0,0.2); border-radius: 4px; padding: 6px 8px; margin-bottom: 6px; font-size: 12px; }
+.quest-row .q-desc { display: block; opacity: 0.72; font-size: 11px; margin-top: 2px; }
+.q-done { float: right; color: #6fff8f; } .q-active { float: right; color: #ffd24a; } .q-todo { float: right; opacity: 0.6; }
+
 /* ---------- Spellbook (magic combat tab) ---------- */
 #combat-panel .style-row.spells { flex-wrap: wrap; max-height: 178px; overflow-y: auto; gap: 4px; }
 #combat-panel .style-row.spells .style-btn { flex: 1 1 47%; padding: 5px 4px; font-size: 11px; }

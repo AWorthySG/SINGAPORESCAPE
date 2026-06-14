@@ -8,6 +8,7 @@ import { levelProgress, xpToNext } from '../data/xp.js';
 import { stackLabel, capitalize, formatNumber } from '../core/utils.js';
 import { STYLE_ORDER, STYLES, RANGED_STYLE_ORDER, RANGED_STYLES } from '../game/combat.js';
 import { SPELLS } from '../data/magic.js';
+import { PRAYERS } from '../data/prayers.js';
 import { EQUIP_SLOTS } from '../game/equipment.js';
 import { TILE } from '../config.js';
 import { TERRAIN } from '../data/world.js';
@@ -47,6 +48,8 @@ export class UI {
       skillsGrid: id('skills-grid'),
       skillsTotal: id('skills-total'),
       combat: id('combat-panel'),
+      prayerPanel: id('prayer-panel'),
+      questPanel: id('quest-panel'),
       settings: id('settings-panel'),
       contextMenu: id('context-menu'),
       tooltip: id('tooltip'),
@@ -57,6 +60,8 @@ export class UI {
       banner: id('banner'),
       hpOrb: id('hp-orb'),
       hpOrbVal: id('hp-orb-value'),
+      prayerOrb: id('prayer-orb'),
+      prayerOrbVal: id('prayer-orb-value'),
       runOrb: id('run-orb'),
       minimap: id('minimap-canvas'),
     };
@@ -72,6 +77,7 @@ export class UI {
     this._bindTabs();
     this._bindChatTabs();
     this._buildCombatPanel();
+    this._buildPrayerPanel();
     this._buildSettingsPanel();
 
     this.el.runOrb.addEventListener('click', () => this.game.toggleRun());
@@ -92,20 +98,26 @@ export class UI {
     this.bus.on('chat', (p) => this.addChat(p.text, p.cls));
     this.bus.on('hp', () => this.renderHp());
     this.bus.on('run', () => this.renderRun());
+    this.bus.on('prayer', () => { this.renderPrayer(); this.renderPrayerPanel(); });
+    this.bus.on('skills', () => this.renderPrayerPanel());
+    this.bus.on('quest', () => this.renderQuestPanel());
     this.bus.on('bank', () => this._refreshModalIfOpen(['bank']));
 
     this.renderInventory();
     this.renderEquipment();
     this.renderSkills();
     this.renderCombatPanel();
+    this.renderPrayerPanel();
+    this.renderQuestPanel();
     this.renderHp();
     this.renderRun();
+    this.renderPrayer();
   }
 
   // ---------------- Tabs ----------------
   _setPanelTitle(view) {
     if (!this.el.panelHead) return;
-    const titles = { inventory: 'Inventory', equipment: 'Worn Equipment', skills: 'Skills', combat: 'Combat', settings: 'Settings' };
+    const titles = { inventory: 'Inventory', equipment: 'Worn Equipment', skills: 'Skills', combat: 'Combat', prayer: 'Prayers', quests: 'Quest Journal', settings: 'Settings' };
     this.el.panelHead.textContent = titles[view] || '';
   }
 
@@ -375,6 +387,60 @@ export class UI {
   renderRun() {
     this.el.runOrb.textContent = `${Math.round(this.game.runEnergy)}%`;
     this.el.runOrb.classList.toggle('active', this.game.running);
+  }
+
+  // ---------------- Prayer ----------------
+  renderPrayer() {
+    if (this.el.prayerOrbVal) this.el.prayerOrbVal.textContent = Math.ceil(this.game.prayerPoints);
+    if (this.el.prayerOrb) {
+      const max = this.game.maxPrayer();
+      const frac = max ? this.game.prayerPoints / max : 0;
+      this.el.prayerOrb.style.color = `hsl(48, 90%, ${Math.round(45 + frac * 25)}%)`;
+      this.el.prayerOrb.classList.toggle('active', this.game.activePrayers.size > 0);
+    }
+  }
+
+  _buildPrayerPanel() {
+    this.el.prayerPanel.innerHTML = '<div class="prayer-pts"></div><div class="prayer-grid"></div>';
+    this._prayerGrid = this.el.prayerPanel.querySelector('.prayer-grid');
+    const labels = { att: 'Att', str: 'Str', def: 'Def', ranged: 'Rng', magic: 'Mag' };
+    for (const pr of PRAYERS) {
+      const cell = document.createElement('div');
+      cell.className = 'prayer-cell';
+      cell.dataset.prayer = pr.id;
+      const effect = pr.protect
+        ? `-${Math.round(pr.protect * 100)}% melee dmg`
+        : Object.keys(labels).filter((k) => pr[k]).map((k) => `+${Math.round(pr[k] * 100)}% ${labels[k]}`).join(' ');
+      cell.innerHTML = `<b>${pr.name}</b><span>Lvl ${pr.level} · ${effect}</span>`;
+      cell.addEventListener('click', () => this.game.togglePrayer(pr.id));
+      this._prayerGrid.appendChild(cell);
+    }
+  }
+
+  renderPrayerPanel() {
+    if (!this._prayerGrid) return;
+    const lvl = this.game.skills.prayer;
+    this.el.prayerPanel.querySelector('.prayer-pts').textContent =
+      `Prayer points: ${Math.ceil(this.game.prayerPoints)} / ${this.game.maxPrayer()}`;
+    for (const cell of this._prayerGrid.children) {
+      const pr = PRAYERS.find((p) => p.id === cell.dataset.prayer);
+      cell.classList.toggle('active', this.game.activePrayers.has(pr.id));
+      cell.classList.toggle('locked', lvl < pr.level);
+    }
+  }
+
+  // ---------------- Quest journal ----------------
+  renderQuestPanel() {
+    const q = this.game.quests;
+    const status = (s) => s === 'done' ? '<span class="q-done">Complete</span>'
+      : s === 'active' ? '<span class="q-active">In progress</span>'
+        : '<span class="q-todo">Not started</span>';
+    const pc = q.pest_control;
+    const done = [q.bone_collector.state, pc.state].filter((s) => s === 'done').length;
+    this.el.questPanel.innerHTML =
+      `<div class="quest-head">Quests complete: ${done} / 2</div>` +
+      `<div class="quest-row"><b>A Bag of Bones</b>${status(q.bone_collector.state)}<span class="q-desc">Bring 10 bones to the Kampong Guide.</span></div>` +
+      `<div class="quest-row"><b>Pest Control</b>${status(pc.state)}<span class="q-desc">Slay 8 giant rats${pc.state === 'active' ? ` (${pc.kills}/8)` : ''}.</span></div>`;
   }
 
   // ---------------- XP drops / level up ----------------

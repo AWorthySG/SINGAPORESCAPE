@@ -14,6 +14,7 @@ export const DIALOGUES = {
         { label: 'How do I play?', next: 'help' },
         { label: 'Do you have any work for me?', next: 'quest' },
         { label: "I've collected the bones.", next: 'start', action: 'questTurnIn' },
+        { label: 'Any pest control work?', next: 'pest' },
         { label: 'Goodbye.', next: 'end' },
       ],
     },
@@ -23,6 +24,14 @@ export const DIALOGUES = {
       options: [
         { label: "I'll get the bones.", next: 'start', action: 'questStart' },
         { label: 'Maybe later.', next: 'start' },
+      ],
+    },
+    pest: {
+      speaker: 'Kampong Guide',
+      text: 'The giant rats are everywhere! Slay 8 of them for me and there\'s coin in it for you.',
+      options: [
+        { label: "I'll handle the rats.", next: 'start', action: 'pestStart' },
+        { label: 'Not now.', next: 'start' },
       ],
     },
     where: {
