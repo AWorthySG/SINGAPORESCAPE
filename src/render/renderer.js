@@ -60,9 +60,13 @@ export class Renderer {
       if (!n.alive) continue;
       const c = n.renderCenter();
       const cx = c.x - ox, cy = c.y - oy;
+      const sc = n.def.scale || 1;
       drawables.push({ sortY: c.y / TILE, z: 2, draw: () => {
-        drawShadow(ctx, cx, cy + 12, 10, 4.5);
-        drawCreature(ctx, n.npcId, cx, cy - 2, { time: timeMs, facing: n.facing, moving: n.isMoving });
+        drawShadow(ctx, cx, cy + 12 * sc, 10 * sc, 4.5 * sc);
+        drawCreature(ctx, n.npcId, cx, cy - 2, {
+          time: timeMs, facing: n.facing, moving: n.isMoving,
+          scale: sc, sprite: n.def.sprite, color: n.def.color, boss: n.def.boss,
+        });
       } });
     }
     if (game.player.alive) {
@@ -220,12 +224,45 @@ export class Renderer {
   }
 
   // ---------------- Overhead UI (bars, hitsplats, name) ----------------
+  _drawNodeLabels(ox, oy) {
+    const { ctx, game } = this;
+    const vw = game.camera.viewW, vh = game.camera.viewH;
+    ctx.font = '10px "Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    for (const o of game.world.objects) {
+      const t = o.def.type;
+      if (t !== 'tree' && t !== 'rock' && t !== 'fishing') continue;
+      if (o.depleted || !o.def.label) continue;
+      const cx = o.x * TILE + TILE / 2 - ox;
+      const cy = o.y * TILE + TILE / 2 - oy;
+      if (cx < -30 || cx > vw + 30 || cy < -20 || cy > vh + 20) continue;
+      const yy = cy - (t === 'tree' ? 30 : t === 'rock' ? 18 : 16);
+      const label = o.def.label;
+      const wpx = ctx.measureText(label).width + 8;
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(cx - wpx / 2, yy - 10, wpx, 13, 4); ctx.fill(); }
+      else ctx.fillRect(cx - wpx / 2, yy - 10, wpx, 13);
+      ctx.fillStyle = t === 'tree' ? '#9be08a' : t === 'fishing' ? '#8fd6ff' : (o.def.ore || '#dfe4ea');
+      ctx.fillText(label, cx, yy);
+    }
+  }
+
   _drawOverheads(ox, oy) {
     const { ctx, game } = this;
+    this._drawNodeLabels(ox, oy);
     for (const n of game.npcs) {
-      if (!n.alive || n.combatLatch <= 0) continue;
+      if (!n.alive) continue;
+      const boss = n.def.boss;
+      if (!boss && n.combatLatch <= 0) continue;
       const c = n.renderCenter();
-      this._healthBar(c.x - ox, c.y - oy - 26, n.hp / n.maxHp);
+      const sc = n.def.scale || 1;
+      const yo = -(20 * sc) - 6;
+      this._healthBar(c.x - ox, c.y - oy + yo, n.hp / n.maxHp, boss);
+      if (boss) {
+        const px = c.x - ox, py = c.y - oy + yo - 6;
+        ctx.font = 'bold 11px "Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+        ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.lineWidth = 3; ctx.strokeText(n.name, px, py);
+        ctx.fillStyle = '#ff7a5a'; ctx.fillText(n.name, px, py);
+      }
     }
     if (game.player.alive) {
       const c = game.player.renderCenter();
@@ -256,9 +293,9 @@ export class Renderer {
     }
   }
 
-  _healthBar(cx, cy, frac) {
+  _healthBar(cx, cy, frac, boss) {
     const { ctx } = this;
-    const w = 30, h = 5;
+    const w = boss ? 60 : 30, h = boss ? 6 : 5;
     frac = Math.max(0, Math.min(1, frac));
     ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(cx - w / 2 - 1, cy - 1, w + 2, h + 2);
     ctx.fillStyle = '#b81818'; ctx.fillRect(cx - w / 2, cy, w, h);

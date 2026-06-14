@@ -57,11 +57,12 @@ test('every creature sprite draws (both facings, moving + idle)', () => {
   const ctx = makeCtx();
   assert.doesNotThrow(() => {
     for (const id of Object.keys(NPCS)) {
+      const d = NPCS[id];
       drawShadow(ctx, 100, 100);
-      drawCreature(ctx, id, 100, 100, { time: 500, facing: { dx: -1, dy: 0 }, moving: true });
-      drawCreature(ctx, id, 100, 100, { time: 0, facing: { dx: 1, dy: 0 }, moving: false });
+      drawCreature(ctx, id, 100, 100, { time: 500, facing: { dx: -1, dy: 0 }, moving: true, sprite: d.sprite, color: d.color, scale: d.scale, boss: d.boss });
+      drawCreature(ctx, id, 100, 100, { time: 0, facing: { dx: 1, dy: 0 }, moving: false, sprite: d.sprite, color: d.color, scale: d.scale, boss: d.boss });
     }
-    drawCreature(ctx, 'unknown_id', 100, 100, {}); // fallback path
+    drawCreature(ctx, 'unknown_id', 100, 100, {}); // townsfolk fallback path
   });
 });
 

@@ -89,6 +89,65 @@ const RAW = {
   egg: { name: 'Egg', icon: '🥚', value: 4, examine: 'A nice fresh egg.' },
   amulet_of_power: { name: 'Amulet of power', icon: '📿', value: 1000, examine: 'A powerful amulet.',
     equip: { slot: 'amulet', req: {}, bonuses: { attack: 6, strength: 6, defence: 6 } } },
+
+  // ---- Higher woodcutting ----
+  maple_logs: { name: 'Rain-tree logs', icon: '🪵', value: 36, tags: ['log'], firemaking: 45, fmXp: 135, examine: 'Logs from a mighty rain tree.' },
+
+  // ---- Higher ores & bars ----
+  mithril_ore: { name: 'Mithril ore', icon: '🔷', value: 162, examine: 'This needs refining.' },
+  adamantite_ore: { name: 'Adamantite ore', icon: '🟢', value: 400, examine: 'This needs refining.' },
+  runite_ore: { name: 'Runite ore', icon: '🔵', value: 1600, examine: 'This needs refining.' },
+  steel_bar: { name: 'Steel bar', icon: '⬜', value: 200, examine: 'A bar of steel.' },
+  mithril_bar: { name: 'Mithril bar', icon: '🟦', value: 324, examine: 'A bar of mithril.' },
+  adamant_bar: { name: 'Adamant bar', icon: '🟩', value: 800, examine: 'A bar of adamantite.' },
+  rune_bar: { name: 'Runite bar', icon: '🟦', value: 3200, examine: 'A bar of runite.' },
+
+  // ---- Higher fishing / cooking ----
+  raw_lobster: { name: 'Raw lobster', icon: '🦞', value: 70, tags: ['raw'], examine: 'I should cook this first.' },
+  lobster: { name: 'Lobster', icon: '🦞', value: 120, heal: 12, examine: 'A tasty cooked lobster.' },
+  raw_swordfish: { name: 'Raw swordfish', icon: '🐟', value: 100, tags: ['raw'], examine: 'I should cook this first.' },
+  swordfish: { name: 'Swordfish', icon: '🐟', value: 180, heal: 14, examine: 'A hearty cooked swordfish.' },
+
+  // ---- More hawker fare ----
+  laksa: { name: 'Laksa', icon: '🍜', value: 60, heal: 11, examine: 'Spicy coconut noodle soup. Power up!' },
+  satay: { name: 'Satay', icon: '🍢', value: 25, heal: 7, examine: 'Grilled skewers with peanut sauce.' },
+  nasi_lemak: { name: 'Nasi lemak', icon: '🍱', value: 90, heal: 16, examine: 'Coconut rice with all the sides. Very filling.' },
+
+  // ---- Weapons (higher tiers) ----
+  mithril_scimitar: { name: 'Mithril scimitar', icon: '⚔️', value: 1300, examine: 'A vicious, curved sword.',
+    equip: { slot: 'weapon', req: { attack: 20 }, bonuses: { attack: 21, strength: 20, speed: 4 } } },
+  adamant_scimitar: { name: 'Adamant scimitar', icon: '⚔️', value: 3200, examine: 'A vicious, curved sword.',
+    equip: { slot: 'weapon', req: { attack: 30 }, bonuses: { attack: 29, strength: 28, speed: 4 } } },
+  rune_scimitar: { name: 'Rune scimitar', icon: '⚔️', value: 25600, examine: 'A vicious, curved sword.',
+    equip: { slot: 'weapon', req: { attack: 40 }, bonuses: { attack: 45, strength: 44, speed: 4 } } },
+
+  // ---- Armour (steel / mithril / rune) ----
+  steel_full_helm: { name: 'Steel full helm', icon: '⛑️', value: 350, examine: 'A full helmet.',
+    equip: { slot: 'head', req: { defence: 5 }, bonuses: { defence: 12 } } },
+  steel_platebody: { name: 'Steel platebody', icon: '🦺', value: 1200, examine: 'Provides excellent protection.',
+    equip: { slot: 'body', req: { defence: 5 }, bonuses: { defence: 26 } } },
+  steel_kiteshield: { name: 'Steel kiteshield', icon: '🛡️', value: 640, examine: 'A medium, kite-shaped shield.',
+    equip: { slot: 'shield', req: { defence: 5 }, bonuses: { defence: 18 } } },
+  mithril_platebody: { name: 'Mithril platebody', icon: '🦺', value: 3900, examine: 'Provides excellent protection.',
+    equip: { slot: 'body', req: { defence: 20 }, bonuses: { defence: 34 } } },
+  mithril_full_helm: { name: 'Mithril full helm', icon: '⛑️', value: 1100, examine: 'A full helmet.',
+    equip: { slot: 'head', req: { defence: 20 }, bonuses: { defence: 16 } } },
+  rune_platebody: { name: 'Rune platebody', icon: '🦺', value: 39000, examine: 'Provides superb protection.',
+    equip: { slot: 'body', req: { defence: 40 }, bonuses: { defence: 60 } } },
+  rune_full_helm: { name: 'Rune full helm', icon: '⛑️', value: 11000, examine: 'A full helmet.',
+    equip: { slot: 'head', req: { defence: 40 }, bonuses: { defence: 30 } } },
+  rune_kiteshield: { name: 'Rune kiteshield', icon: '🛡️', value: 21000, examine: 'A large, kite-shaped shield.',
+    equip: { slot: 'shield', req: { defence: 40 }, bonuses: { defence: 42 } } },
+
+  // ---- Boss-only uniques ----
+  merlion_blade: { name: 'Merlion blade', icon: '🗡️', value: 120000, examine: 'A legendary blade blessed by the sea.',
+    equip: { slot: 'weapon', req: { attack: 50 }, bonuses: { attack: 60, strength: 58, speed: 3 } } },
+  merlion_amulet: { name: 'Merlion amulet', icon: '📿', value: 50000, examine: 'It hums with the tide.',
+    equip: { slot: 'amulet', req: {}, bonuses: { attack: 10, strength: 10, defence: 8 } } },
+  warlord_cape: { name: "Warlord's cape", icon: '🧣', value: 80000, examine: 'Torn from a fallen wilderness lord.',
+    equip: { slot: 'cape', req: { defence: 40 }, bonuses: { attack: 4, strength: 6, defence: 9 } } },
+  boar_tusk: { name: 'Boar tusk', icon: '🦷', value: 8000, examine: 'A huge tusk from the Boar King.',
+    equip: { slot: 'amulet', req: {}, bonuses: { strength: 8, defence: 2 } } },
 };
 
 // Freeze each definition and attach its id for convenience.

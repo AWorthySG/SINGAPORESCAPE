@@ -48,7 +48,7 @@ test('player can path to a tree and chop logs', () => {
 
   // Pick reachable trees nearest the spawn.
   const trees = game.world.objects
-    .filter((o) => o.def.type === 'tree' && !o.depleted)
+    .filter((o) => o.def.type === 'tree' && !o.depleted && o.def.level <= game.skills.level('woodcutting'))
     .sort((a, b) => (Math.abs(a.x - game.player.x) + Math.abs(a.y - game.player.y))
       - (Math.abs(b.x - game.player.x) + Math.abs(b.y - game.player.y)));
 

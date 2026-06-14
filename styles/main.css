@@ -423,3 +423,14 @@ html, body {
 .splash-controls { margin-top: 20px; font-size: 12px; opacity: 0.6; }
 @keyframes splashIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes splashFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+
+/* ---------- Region / zone label ---------- */
+#region-label {
+  position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+  z-index: 24; pointer-events: none;
+  font-size: 17px; font-weight: 800; letter-spacing: 1px;
+  color: var(--rs-gold); text-shadow: 0 2px 0 #000, 0 0 10px rgba(0,0,0,0.6);
+  padding: 2px 14px;
+}
+#region-label.wild { color: #ff6a52; text-shadow: 0 2px 0 #000, 0 0 12px rgba(255,60,40,0.6); }
+#region-label .wild-lvl { font-size: 13px; opacity: 0.9; }

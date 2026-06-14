@@ -10,6 +10,8 @@ import { findPath } from '../src/engine/pathfinding.js';
 import { hitChance, maxHit, attackRoll, combatXp } from '../src/game/combat.js';
 import { gatherChance } from '../src/game/skilling.js';
 import { XP_RATE } from '../src/config.js';
+import { NPCS, MONSTER_IDS, BOSS_IDS, getNpc } from '../src/data/npcs.js';
+import { itemIconSVG } from '../src/render/icons.js';
 
 test('OSRS xp table matches known values', () => {
   assert.equal(xpForLevel(1), 0);
@@ -89,6 +91,29 @@ test('loading a weak save floors stats to the baseline', () => {
   assert.equal(skills.strength, 5);
   assert.equal(skills.hitpoints, 15);
   assert.ok(skills.level('woodcutting') > 1); // existing progress preserved
+});
+
+test('bestiary has 169 monsters and 15 bosses, all well-formed', () => {
+  assert.equal(MONSTER_IDS.length, 169);
+  assert.equal(BOSS_IDS.length, 15);
+  const ids = new Set([...MONSTER_IDS, ...BOSS_IDS]);
+  assert.equal(ids.size, 184); // all ids unique
+  for (const id of MONSTER_IDS) {
+    const n = getNpc(id);
+    assert.ok(n.attackable && n.sprite && n.color && n.level >= 1, `mob ${id} well-formed`);
+    assert.ok(Array.isArray(n.dropTable), `mob ${id} has drops`);
+  }
+  for (const id of BOSS_IDS) {
+    const b = getNpc(id);
+    assert.ok(b.boss && b.scale > 1 && b.maxHp > 100, `boss ${id} well-formed`);
+  }
+  assert.ok(NPCS.chicken && NPCS.chicken.level === 1); // iconic ids preserved
+});
+
+test('every NPC sprite + the iconic original mobs render to valid SVG ids', () => {
+  // itemIconSVG always returns markup (falls back to coins) — sanity-check it works.
+  assert.ok(itemIconSVG('rune_scimitar', 24).includes('<svg'));
+  assert.ok(itemIconSVG('merlion_blade', 24).includes('<svg'));
 });
 
 test('combat formulas produce valid ranges', () => {

@@ -37,6 +37,7 @@ export class UI {
     const id = (x) => document.getElementById(x);
     this.el = {
       hover: id('hover-text'),
+      region: id('region-label'),
       xpDrops: id('xp-drops'),
       chatLog: id('chat-log'),
       inventory: id('inventory-grid'),
@@ -128,6 +129,16 @@ export class UI {
         this._applyChatFilter();
       });
     });
+  }
+
+  // ---------------- Region label ----------------
+  setRegion(name, wildLevel = 0) {
+    if (!this.el.region) return;
+    const wild = wildLevel > 0;
+    this.el.region.innerHTML = wild
+      ? `${escapeHtml(name)} <span class="wild-lvl">Lvl ${wildLevel}</span>`
+      : escapeHtml(name);
+    this.el.region.classList.toggle('wild', wild);
   }
 
   // ---------------- Hover text ----------------

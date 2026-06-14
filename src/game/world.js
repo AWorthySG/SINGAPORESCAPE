@@ -18,6 +18,7 @@ export class World {
     this.spawnPoint = data.spawnPoint;
     this.respawnPoint = data.respawnPoint;
     this.npcSpawns = data.npcSpawns;
+    this.zones = data.zones || [];
 
     this.objects = [];
     this.objectByTile = new Map();
@@ -35,6 +36,14 @@ export class World {
   idx(x, y) { return y * this.width + x; }
   inBounds(x, y) { return x >= 0 && x < this.width && y >= 0 && y < this.height; }
   terrainAt(x, y) { return this.inBounds(x, y) ? this.terrain[this.idx(x, y)] : TERRAIN.WATER; }
+
+  /** Region/zone descriptor for a tile (first matching rect wins). */
+  zoneAt(x, y) {
+    for (const z of this.zones) {
+      if (x >= z.x0 && x <= z.x1 && y >= z.y0 && y <= z.y1) return z;
+    }
+    return null;
+  }
 
   addObject(objId, x, y, extra = {}) {
     const def = getObject(objId);
