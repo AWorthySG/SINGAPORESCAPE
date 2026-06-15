@@ -73,6 +73,9 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
     shopkeeper: { top: '#7a3b1d', skin: '#e0aa78', hair: '#272015', apron: '#cdbfa0' },
     hawker: { top: '#b23b2e', skin: '#e8b98a', hair: '#2a2018', hat: '#f0ead8', apron: '#f0ead8' },
     guide: { top: '#3d6b3a', skin: '#e6b886', hair: '#cfc4b0', hat: '#6b4a2a' },
+    mage: { top: '#3a2f7a', skin: '#e6c0a0', hair: '#cfcfdf', hat: '#2a2060' },
+    fletcher: { top: '#3f5a2a', skin: '#e0aa78', hair: '#3a2a18', hat: '#5a4020' },
+    slayer_master: { top: '#3a2a2a', skin: '#caa078', hair: '#161616', apron: '#5a2a2a' },
     villager: { top: '#6a5aa0', skin: '#e8b98a', hair: '#4a3320' },
   };
   const p = TOWN[npcId] || TOWN.villager;
@@ -424,23 +427,28 @@ function guard(ctx) {
 }
 
 function human(ctx, p) {
-  // legs
+  // legs + shoes
   ctx.fillStyle = '#3a3326'; rr(ctx, -5, 6, 4, 8, 2); ctx.fill(); rr(ctx, 1, 6, 4, 8, 2); ctx.fill();
-  // torso
+  ctx.fillStyle = '#231a10'; rr(ctx, -5.4, 12, 5, 2.6, 1.2); ctx.fill(); rr(ctx, 0.6, 12, 5, 2.6, 1.2); ctx.fill();
+  // torso with edge shading
   rr(ctx, -7, -5, 14, 13, 4); fill(ctx, p.top); line(ctx);
+  ctx.fillStyle = shade(p.top, 0.18); rr(ctx, -7, -5, 3.5, 13, 4); ctx.fill();  // lit edge
+  ctx.fillStyle = shade(p.top, -0.22); rr(ctx, 4.5, -5, 2.5, 13, 3); ctx.fill(); // shaded edge
   // apron
-  if (p.apron) { ctx.fillStyle = p.apron; rr(ctx, -5, -2, 10, 10, 2); ctx.fill(); }
+  if (p.apron) { ctx.fillStyle = p.apron; rr(ctx, -5, -2, 10, 10, 2); ctx.fill(); ctx.fillStyle = shade(p.apron, -0.12); rr(ctx, -5, 6, 10, 2, 1); ctx.fill(); }
   // arms
   ctx.fillStyle = p.top; rr(ctx, -10, -3, 4, 9, 2); ctx.fill(); rr(ctx, 6, -3, 4, 9, 2); ctx.fill();
   ctx.fillStyle = p.skin; circle(ctx, -8, 6, 2); ctx.fill(); circle(ctx, 8, 6, 2); ctx.fill();
   // head
   circle(ctx, 0, -11, 6.5); fill(ctx, p.skin); line(ctx);
+  ctx.fillStyle = 'rgba(255,255,255,0.22)'; circle(ctx, -2.3, -12.4, 1.9); ctx.fill(); // cheek light
   // hair
   if (p.hair) { ctx.fillStyle = p.hair; path(ctx, () => { ctx.arc(0, -12, 6.6, Math.PI, Math.PI * 2); }); ctx.fill(); }
   // hat
-  if (p.hat) { ctx.fillStyle = p.hat; rr(ctx, -7, -16, 14, 4, 2); ctx.fill(); rr(ctx, -4, -21, 8, 6, 2); ctx.fill(); }
-  // eyes
+  if (p.hat) { ctx.fillStyle = p.hat; rr(ctx, -7, -16, 14, 4, 2); ctx.fill(); rr(ctx, -4, -21, 8, 6, 2); ctx.fill(); ctx.fillStyle = shade(p.hat, 0.2); rr(ctx, -7, -16, 14, 1.4, 1); ctx.fill(); }
+  // eyes with catchlight
   circle(ctx, -2.2, -11, 0.9); fill(ctx, '#1a140d'); circle(ctx, 2.2, -11, 0.9); fill(ctx, '#1a140d');
+  ctx.fillStyle = 'rgba(255,255,255,0.8)'; circle(ctx, -2, -11.3, 0.3); ctx.fill(); circle(ctx, 2.4, -11.3, 0.3); ctx.fill();
 }
 
 // ================= PLAYER =================
