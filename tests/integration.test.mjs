@@ -199,6 +199,48 @@ test('pest control quest tracks rat kills to completion', () => {
   assert.equal(game.quests.pest_control.state, 'done');
 });
 
+test('achievements unlock from kills and persist through save/load', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  assert.ok(!game.achievements.has('first_blood'));
+
+  const chicken = game.npcs.find((n) => n.npcId === 'chicken');
+  game.killNpc(chicken);
+  assert.equal(game.totalKills, 1);
+  assert.ok(game.achievements.has('first_blood'), 'First Blood unlocks on first kill');
+
+  assert.ok(saveGame(game));
+  const g2 = new Game();
+  assert.ok(loadGame(g2));
+  assert.ok(g2.achievements.has('first_blood'), 'achievements survive a reload');
+  assert.equal(g2.totalKills, 1, 'kill count survives a reload');
+});
+
+test('wealth achievements unlock once enough coins are held', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.inventory.add('coins', 1000);
+  game.checkAchievements();
+  assert.ok(game.achievements.has('pocket_money'), 'Pocket Money unlocks at 1,000 coins');
+});
+
+test('deposit all moves the whole inventory into the bank', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.inventory.add('logs', 50);
+  const logsBefore = game.inventory.count('logs');
+  assert.ok(logsBefore > 0);
+  game.depositAll();
+  assert.equal(game.inventory.count('logs'), 0, 'inventory cleared of logs');
+  assert.equal(game.bank.count('logs'), logsBefore, 'logs now in the bank');
+});
+
 test('eating food heals the player', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();

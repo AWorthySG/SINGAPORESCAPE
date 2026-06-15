@@ -9,6 +9,7 @@ import { stackLabel, capitalize, formatNumber } from '../core/utils.js';
 import { STYLE_ORDER, STYLES, RANGED_STYLE_ORDER, RANGED_STYLES } from '../game/combat.js';
 import { SPELLS } from '../data/magic.js';
 import { PRAYERS } from '../data/prayers.js';
+import { ACHIEVEMENTS } from '../data/achievements.js';
 import { EQUIP_SLOTS } from '../game/equipment.js';
 import { TILE } from '../config.js';
 import { TERRAIN } from '../data/world.js';
@@ -50,6 +51,7 @@ export class UI {
       combat: id('combat-panel'),
       prayerPanel: id('prayer-panel'),
       questPanel: id('quest-panel'),
+      achievementPanel: id('achievement-panel'),
       settings: id('settings-panel'),
       contextMenu: id('context-menu'),
       tooltip: id('tooltip'),
@@ -101,6 +103,7 @@ export class UI {
     this.bus.on('prayer', () => { this.renderPrayer(); this.renderPrayerPanel(); });
     this.bus.on('skills', () => this.renderPrayerPanel());
     this.bus.on('quest', () => this.renderQuestPanel());
+    this.bus.on('achievement', () => this.renderAchievementPanel());
     this.bus.on('bank', () => this._refreshModalIfOpen(['bank']));
 
     this.renderInventory();
@@ -109,6 +112,7 @@ export class UI {
     this.renderCombatPanel();
     this.renderPrayerPanel();
     this.renderQuestPanel();
+    this.renderAchievementPanel();
     this.renderHp();
     this.renderRun();
     this.renderPrayer();
@@ -117,7 +121,7 @@ export class UI {
   // ---------------- Tabs ----------------
   _setPanelTitle(view) {
     if (!this.el.panelHead) return;
-    const titles = { inventory: 'Inventory', equipment: 'Worn Equipment', skills: 'Skills', combat: 'Combat', prayer: 'Prayers', quests: 'Quest Journal', settings: 'Settings' };
+    const titles = { inventory: 'Inventory', equipment: 'Worn Equipment', skills: 'Skills', combat: 'Combat', prayer: 'Prayers', quests: 'Quest Journal', achievements: 'Achievements', settings: 'Settings' };
     this.el.panelHead.textContent = titles[view] || '';
   }
 
@@ -443,6 +447,30 @@ export class UI {
       `<div class="quest-row"><b>Pest Control</b>${status(pc.state)}<span class="q-desc">Slay 8 giant rats${pc.state === 'active' ? ` (${pc.kills}/8)` : ''}.</span></div>`;
   }
 
+  // ---------------- Achievements / collection log ----------------
+  renderAchievementPanel() {
+    const panel = this.el.achievementPanel;
+    if (!panel) return;
+    const game = this.game;
+    const owned = game.achievements;
+    const cats = [...new Set(ACHIEVEMENTS.map((a) => a.cat))];
+    let html = `<div class="ach-head">Unlocked: ${owned.size} / ${ACHIEVEMENTS.length}</div>`;
+    for (const cat of cats) {
+      html += `<div class="ach-cat">${escapeHtml(cat)}</div><div class="ach-grid">`;
+      for (const a of ACHIEVEMENTS.filter((x) => x.cat === cat)) {
+        const done = owned.has(a.id);
+        let prog = '';
+        if (!done && a.progress) { try { prog = a.progress(game); } catch { prog = ''; } }
+        html += `<div class="ach-cell ${done ? 'done' : 'locked'}" title="${escapeHtml(a.desc)}">` +
+          `<b>${escapeHtml(a.name)}</b><span class="ach-desc">${escapeHtml(a.desc)}</span>` +
+          (done ? '<span class="ach-tick">&#10003;</span>' : (prog ? `<span class="ach-prog">${escapeHtml(prog)}</span>` : '')) +
+          `</div>`;
+      }
+      html += '</div>';
+    }
+    panel.innerHTML = html;
+  }
+
   // ---------------- XP drops / level up ----------------
   showXpDrop({ skill, amount }) {
     const sk = SKILLS.find((s) => s.id === skill);
@@ -528,10 +556,29 @@ export class UI {
       cols.className = 'modal-cols';
       // Bank side
       const bankSide = document.createElement('div');
-      bankSide.innerHTML = '<div class="modal-section-title">Bank</div>';
+      const bankHead = document.createElement('div');
+      bankHead.className = 'modal-section-title bank-head';
+      bankHead.innerHTML = '<span>Bank</span>';
+      const search = document.createElement('input');
+      search.type = 'text';
+      search.className = 'bank-search';
+      search.placeholder = 'Search…';
+      search.value = this._bankSearch || '';
+      search.addEventListener('input', () => {
+        this._bankSearch = search.value;
+        render(body);
+        const next = body.querySelector('.bank-search');
+        if (next) { next.focus(); next.setSelectionRange(next.value.length, next.value.length); }
+      });
+      bankHead.appendChild(search);
+      bankSide.appendChild(bankHead);
       const bankGrid = document.createElement('div');
       bankGrid.className = 'item-grid';
-      for (const e of this.game.bank.items) {
+      const term = (this._bankSearch || '').trim().toLowerCase();
+      const shown = term
+        ? this.game.bank.items.filter((e) => getItem(e.id).name.toLowerCase().includes(term))
+        : this.game.bank.items;
+      for (const e of shown) {
         bankGrid.appendChild(this._cell(e.id, e.qty, {
           onClick: () => this.game.withdraw(e.id, 1),
           onRight: (ev) => this.showContextMenu(ev.clientX, ev.clientY, [
@@ -542,11 +589,24 @@ export class UI {
           ]),
         }));
       }
-      if (!this.game.bank.items.length) bankSide.innerHTML += '<div class="modal-hint">Your bank is empty.</div>';
       bankSide.appendChild(bankGrid);
+      if (!shown.length) {
+        const empty = document.createElement('div');
+        empty.className = 'modal-hint';
+        empty.textContent = term ? 'No matching items.' : 'Your bank is empty.';
+        bankSide.appendChild(empty);
+      }
       // Inventory side
       const invSide = document.createElement('div');
-      invSide.innerHTML = '<div class="modal-section-title">Inventory</div>';
+      const invHead = document.createElement('div');
+      invHead.className = 'modal-section-title bank-head';
+      invHead.innerHTML = '<span>Inventory</span>';
+      const depAll = document.createElement('button');
+      depAll.className = 'bank-deposit-all';
+      depAll.textContent = 'Deposit all';
+      depAll.addEventListener('click', () => this.game.depositAll());
+      invHead.appendChild(depAll);
+      invSide.appendChild(invHead);
       const invGrid = document.createElement('div');
       invGrid.className = 'item-grid';
       this.game.inventory.slots.forEach((s, i) => {

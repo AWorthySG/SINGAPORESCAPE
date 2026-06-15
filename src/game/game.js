@@ -28,6 +28,7 @@ import {
 import { saveGame, loadGame, hasSave } from './save.js';
 import { getShop } from '../data/shops.js';
 import { RARE_DROP_TABLE } from '../data/npcs.js';
+import { ACHIEVEMENTS } from '../data/achievements.js';
 
 const STARTER_TOOLS = ['bronze_axe', 'bronze_pickaxe', 'small_net', 'tinderbox', 'hammer', 'bronze_dagger'];
 
@@ -68,8 +69,15 @@ export class Game {
       pest_control: { state: 'notStarted', kills: 0 },
     };
 
-    // Celebratory sparkle on level up.
-    this.bus.on('levelup', () => this.spawnSparkle(this.player, '#ffe24a', 12));
+    // Achievement / collection-log progress.
+    this.totalKills = 0;
+    this.bossKills = 0;
+    this.zonesVisited = new Set();
+    this.achievements = new Set();
+
+    // Celebratory sparkle on level up; new milestones may unlock on level/quest changes.
+    this.bus.on('levelup', () => { this.spawnSparkle(this.player, '#ffe24a', 12); this.checkAchievements(); });
+    this.bus.on('quest', () => this.checkAchievements());
 
     this.tickAcc = 0;
     this.tickCount = 0;
@@ -95,6 +103,8 @@ export class Game {
     this.prayerPoints = this.skills.prayer;
     this.bus.emit('prayer');
     this.updateRegion();
+    this.checkAchievements(true);
+    this.bus.emit('achievement');
   }
 
   newGame() {
@@ -240,6 +250,8 @@ export class Game {
     this.drainPrayer();
 
     if (++this.autosaveCounter >= AUTOSAVE_TICKS) { this.autosaveCounter = 0; saveGame(this); }
+    // Catch wealth / collection milestones that don't fire a dedicated event.
+    if (this.tickCount % 10 === 0) this.checkAchievements();
     this.bus.emit('tick', this.tickCount);
   }
 
@@ -300,6 +312,25 @@ export class Game {
   protectFactor() {
     for (const id of this.activePrayers) { const p = PRAYER_BY_ID[id]; if (p.protect) return p.protect; }
     return 0;
+  }
+
+  // ---------------- Achievements / collection log ----------------
+  checkAchievements(silent = false) {
+    let unlocked = false;
+    for (const a of ACHIEVEMENTS) {
+      if (this.achievements.has(a.id)) continue;
+      let done = false;
+      try { done = a.test(this); } catch { done = false; }
+      if (!done) continue;
+      this.achievements.add(a.id);
+      unlocked = true;
+      if (!silent) {
+        this.msg(`Achievement unlocked: ${a.name} — ${a.desc}`, 'level');
+        this.banner(`<span class="big">Achievement unlocked!</span>${a.name}`);
+        this.spawnSparkle(this.player, '#ffd24a', 14);
+      }
+    }
+    if (unlocked) this.bus.emit('achievement');
   }
 
   // ---------------- Player action resolution ----------------
@@ -483,6 +514,9 @@ export class Game {
     } else {
       this.msg(`You have defeated the ${npc.name}.`, 'combat');
     }
+    this.totalKills++;
+    if (npc.def.boss) this.bossKills++;
+    this.checkAchievements();
     this.rollDrops(npc);
     npc.die();
     if (this.player.target === npc) this.player.target = null;
@@ -506,6 +540,7 @@ export class Game {
     const name = z ? z.name : 'Singapore';
     const wild = !!(z && z.wilderness);
     const lvl = wild ? Math.max(1, Math.floor((this.player.x - 94) / 3) + 1) : 0;
+    if (z && !this.zonesVisited.has(name)) { this.zonesVisited.add(name); this.checkAchievements(); }
     if (name !== this.currentZoneName) {
       this.currentZoneName = name;
       if (wild) {
@@ -863,6 +898,17 @@ export class Game {
     if (amount <= 0) return;
     this.inventory.remove(itemId, amount);
     this.bank.deposit(itemId, amount);
+  }
+
+  depositAll() {
+    // Snapshot ids first; removing while iterating compacts the slots.
+    const ids = [...new Set(this.inventory.slots.filter(Boolean).map((s) => s.id))];
+    let moved = 0;
+    for (const id of ids) {
+      const n = this.inventory.count(id);
+      if (n > 0) { this.inventory.remove(id, n); this.bank.deposit(id, n); moved += n; }
+    }
+    if (moved) this.msg('You deposit your inventory.', 'system');
   }
 
   withdraw(itemId, qty) {

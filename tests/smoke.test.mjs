@@ -16,6 +16,7 @@ import { ITEMS } from '../src/data/items.js';
 import { SKILLS } from '../src/data/skills.js';
 import { SPELLS } from '../src/data/magic.js';
 import { PRAYERS } from '../src/data/prayers.js';
+import { ACHIEVEMENTS } from '../src/data/achievements.js';
 
 test('OSRS xp table matches known values', () => {
   assert.equal(xpForLevel(1), 0);
@@ -133,6 +134,17 @@ test('Ranged & Magic skills + the spellbook exist', () => {
   assert.ok(SPELLS.length >= 6);
   for (const sp of SPELLS) assert.ok(sp.maxHit > 0 && sp.runes && sp.level >= 1, `spell ${sp.id} well-formed`);
   for (const w of ['shortbow', 'yew_shortbow', 'staff', 'mystic_staff']) assert.ok(hasIcon(w), `weapon ${w} icon`);
+});
+
+test('achievements are defined, unique and well-formed', () => {
+  assert.ok(ACHIEVEMENTS.length >= 18);
+  const ids = new Set();
+  for (const a of ACHIEVEMENTS) {
+    assert.ok(a.id && a.name && a.desc && a.cat, `achievement ${a.id} has fields`);
+    assert.equal(typeof a.test, 'function', `achievement ${a.id} has a test`);
+    assert.ok(!ids.has(a.id), `achievement id ${a.id} is unique`);
+    ids.add(a.id);
+  }
 });
 
 test('prayers are defined and well-formed', () => {
