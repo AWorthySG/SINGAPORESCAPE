@@ -498,9 +498,15 @@ function tree(ctx, variant, depleted, cx, cy, time) {
   circle(ctx, cxx, cyy - 3, r * 0.8); ctx.fill();
   ctx.fillStyle = base;
   circle(ctx, cxx, cyy - 1, r * 0.85); ctx.fill();
-  // highlight
-  ctx.fillStyle = 'rgba(255,255,255,0.12)';
-  circle(ctx, cxx - r * 0.35, cyy - r * 0.45, r * 0.4); ctx.fill();
+  // leaf-cluster dabs for texture
+  ctx.fillStyle = 'rgba(255,255,255,0.10)';
+  circle(ctx, cxx + r * 0.3, cyy - r * 0.1, r * 0.26); ctx.fill();
+  circle(ctx, cxx - r * 0.1, cyy + r * 0.25, r * 0.22); ctx.fill();
+  ctx.fillStyle = 'rgba(20,45,18,0.18)';
+  circle(ctx, cxx + r * 0.4, cyy + r * 0.35, r * 0.22); ctx.fill();
+  // warm sunlit highlight (upper-left)
+  ctx.fillStyle = 'rgba(255,240,180,0.22)';
+  circle(ctx, cxx - r * 0.38, cyy - r * 0.5, r * 0.38); ctx.fill();
   // outline blob
   ctx.strokeStyle = 'rgba(20,40,18,0.35)'; ctx.lineWidth = 2;
   circle(ctx, cxx, cyy - 1, r * 0.85); ctx.stroke();
