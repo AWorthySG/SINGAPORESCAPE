@@ -57,7 +57,11 @@ export class Character {
     this.tx = next.x;
     this.ty = next.y;
     this.facing = { dx: Math.sign(this.tx - this.x), dy: Math.sign(this.ty - this.y) };
-    this.moveDuration = this.running ? TICK_MS / 2 : TICK_MS;
+    // A diagonal step covers √2 tiles of ground, so give it √2 the time —
+    // otherwise the entity visibly speeds up whenever it moves diagonally.
+    const diagonal = this.facing.dx !== 0 && this.facing.dy !== 0;
+    const base = this.running ? TICK_MS / 2 : TICK_MS;
+    this.moveDuration = diagonal ? base * Math.SQRT2 : base;
     this.moving = true;
   }
 
@@ -71,11 +75,15 @@ export class Character {
     this.progress += dt / this.moveDuration;
     let guard = 0;
     while (this.progress >= 1 && guard++ < 8) {
+      // Land cleanly on the tile, then carry the overshoot into the next step as
+      // real time — consecutive steps can differ in length (a diagonal takes √2
+      // longer than a straight), so carrying a raw 0..1 fraction would jitter.
+      const leftover = (this.progress - 1) * this.moveDuration;
       this.x = this.tx;
       this.y = this.ty;
-      this.progress -= 1;
       if (this.path.length) {
         this._beginStep();
+        this.progress = leftover / this.moveDuration;
       } else {
         this.moving = false;
         this.progress = 0;

@@ -45,7 +45,12 @@ export class Renderer {
   render(timeMs) {
     const { ctx, game } = this;
     const cam = game.camera;
-    const ox = cam.originX, oy = cam.originY;
+    // Snap the camera origin to whole pixels. The camera still tracks the player
+    // at sub-pixel precision, but drawing the baked terrain (and the sprites laid
+    // over it) at fractional offsets makes everything shimmer/crawl as you walk.
+    // Rounding the shared origin keeps the world rock-steady while the player
+    // sprite — drawn at its own sub-pixel centre minus this origin — stays smooth.
+    const ox = Math.round(cam.originX), oy = Math.round(cam.originY);
     const vw = cam.viewW, vh = cam.viewH;
 
     ctx.clearRect(0, 0, vw, vh);

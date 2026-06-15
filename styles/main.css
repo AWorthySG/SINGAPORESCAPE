@@ -116,6 +116,20 @@ html, body {
   background: #2c4a1e;
   box-shadow: 0 0 0 3px var(--gold), 0 0 0 5px var(--ink), inset 0 0 14px rgba(0,0,0,0.6);
 }
+/* Minimap collapse toggle: tucked top-right; centres itself when collapsed. */
+#minimap-collapse { position: absolute; top: 0; right: 0; z-index: 23; }
+#minimap-panel.collapsed {
+  width: 30px; height: 30px;
+  background: linear-gradient(180deg, var(--panel-1), var(--panel-2));
+}
+#minimap-panel.collapsed #minimap-canvas,
+#minimap-panel.collapsed #minimap-compass,
+#minimap-panel.collapsed #minimap-region,
+#minimap-panel.collapsed #map-btn,
+#minimap-panel.collapsed .orb { display: none; }
+#minimap-panel.collapsed #minimap-collapse {
+  top: 50%; left: 50%; right: auto; transform: translate(-50%, -50%);
+}
 #minimap-compass {
   position: absolute; top: -2px; left: -2px;
   width: 26px; height: 26px; border-radius: 50%;
@@ -149,6 +163,14 @@ html, body {
   border-radius: 6px; z-index: 20;
   display: flex; flex-direction: column;
 }
+#chat-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 4px 8px 5px; font-weight: 800; font-size: 12px; letter-spacing: .4px;
+  color: var(--gold-hi); text-shadow: 0 1px 2px #000;
+}
+#chatbox.collapsed { height: auto; }
+#chatbox.collapsed #chat-log,
+#chatbox.collapsed #chat-tabs { display: none; }
 #chat-log {
   flex: 1; overflow-y: auto; padding: 8px 10px;
   font-size: 14px; line-height: 1.4;
@@ -188,13 +210,13 @@ html, body {
   border-bottom: 3px solid var(--teal);
   background: linear-gradient(180deg, rgba(0,0,0,0.10), rgba(0,0,0,0.28));
 }
-#panel-collapse {
+#panel-collapse, #chat-collapse, #minimap-collapse {
   flex: none; cursor: pointer; width: 22px; height: 22px; line-height: 1;
   display: flex; align-items: center; justify-content: center;
   background: rgba(0,0,0,0.25); color: var(--gold-hi); border: 1px solid rgba(0,0,0,0.4);
   border-radius: 5px; font-size: 12px; padding: 0;
 }
-#panel-collapse:hover { background: rgba(0,0,0,0.4); color: #fff; }
+#panel-collapse:hover, #chat-collapse:hover, #minimap-collapse:hover { background: rgba(0,0,0,0.4); color: #fff; }
 #sidepanel.collapsed { border-bottom: none; }
 #sidepanel.collapsed #panel-head { border-bottom: none; }
 #sidepanel.collapsed #panel-body,

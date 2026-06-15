@@ -16,15 +16,21 @@ export class Camera {
     this.viewH = h;
   }
 
-  /** Follow a world-pixel target (usually the player's centre). */
-  follow(targetX, targetY, smoothing = 0.18, clampRect = null) {
+  /**
+   * Follow a world-pixel target (usually the player's centre).
+   * `smoothing` is expressed per 60fps frame and corrected for the real frame
+   * time so the camera glides identically on 30Hz, 60Hz and 144Hz displays
+   * (a raw per-frame lerp speeds up / stutters with the refresh rate).
+   */
+  follow(targetX, targetY, smoothing = 0.18, clampRect = null, dt = 1000 / 60) {
     if (!this.snapped) {
       this.cx = targetX;
       this.cy = targetY;
       this.snapped = true;
     } else {
-      this.cx = lerp(this.cx, targetX, smoothing);
-      this.cy = lerp(this.cy, targetY, smoothing);
+      const k = 1 - Math.pow(1 - smoothing, Math.max(0, dt) / (1000 / 60));
+      this.cx = lerp(this.cx, targetX, k);
+      this.cy = lerp(this.cy, targetY, k);
     }
     if (clampRect) {
       const halfW = this.viewW / 2, halfH = this.viewH / 2;

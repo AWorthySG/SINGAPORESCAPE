@@ -207,7 +207,7 @@ export class Game {
     }
 
     const c = this.player.renderCenter();
-    this.camera.follow(c.x, c.y, 0.22, { width: this.world.width, height: this.world.height });
+    this.camera.follow(c.x, c.y, 0.22, { width: this.world.width, height: this.world.height }, dt);
 
     for (const e of this.effects) e.life -= dt;
     this.effects = this.effects.filter((e) => e.life > 0);
