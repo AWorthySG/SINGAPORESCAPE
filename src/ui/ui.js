@@ -179,15 +179,17 @@ export class UI {
       const btn = this._abilityBtns[ab.id];
       if (!btn) continue;
       const cd = g.abilityCd[ab.id] || 0;
-      const ready = cd <= 0 && g.adrenaline >= ab.cost;
+      const unlocked = g.abilityUnlocked(ab);
+      const ready = unlocked && cd <= 0 && g.adrenaline >= ab.cost;
       const armed = g.armedAbility === ab.id;
+      btn.classList.toggle('locked', !unlocked);
       btn.classList.toggle('armed', armed);
       btn.classList.toggle('ready', ready && !armed);
-      btn.classList.toggle('disabled', !ready && !armed);
+      btn.classList.toggle('disabled', unlocked && !ready && !armed);
       const cdEl = btn.querySelector('.ab-cd');
       if (cdEl) {
-        cdEl.style.height = cd > 0 ? `${Math.min(100, cd * 25)}%` : '0%';
-        cdEl.textContent = cd > 0 ? String(cd) : '';
+        if (!unlocked) { cdEl.style.height = '100%'; cdEl.textContent = `🔒${ab.unlock}`; }
+        else { cdEl.style.height = cd > 0 ? `${Math.min(100, cd * 25)}%` : '0%'; cdEl.textContent = cd > 0 ? String(cd) : ''; }
       }
     }
   }
@@ -609,7 +611,7 @@ export class UI {
       : s === 'active' ? '<span class="q-active">In progress</span>'
         : '<span class="q-todo">Not started</span>';
     const done = QUESTS.filter((d) => game.quests[d.id]?.state === 'done').length;
-    let html = `<div class="quest-head">Quests complete: ${done} / ${QUESTS.length}</div>`;
+    let html = `<div class="quest-head">Quests complete: ${done} / ${QUESTS.length} &middot; Quest points: ${game.questPoints()}</div>`;
     for (const d of QUESTS) {
       const st = game.quests[d.id]?.state || 'notStarted';
       let prog = '';

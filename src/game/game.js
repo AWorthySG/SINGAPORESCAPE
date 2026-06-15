@@ -33,7 +33,8 @@ import { RARE_DROP_TABLE } from '../data/npcs.js';
 import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
 import { eligibleTasks, SLAYER_REWARDS } from '../data/slayer.js';
 import { STATION_BY_ID, MRT_FARE } from '../data/transport.js';
-import { LIFE_STAGES, LIFE_GRAD } from '../data/lifeskills.js';
+import { LIFE_STAGES, LIFE_GRAD, LIFE_STAGES_ADV, LIFE_GRAD_ADV } from '../data/lifeskills.js';
+import { QUESTS, CHAMPION_QP } from '../data/quests.js';
 
 const STARTER_TOOLS = ['bronze_axe', 'bronze_pickaxe', 'small_net', 'tinderbox', 'hammer', 'bronze_dagger'];
 
@@ -79,6 +80,8 @@ export class Game {
       mystic_trial: { state: 'notStarted' },
       island_provisions: { state: 'notStarted' },
       life_skills: { state: 'notStarted', stage: 0, base: 0 },
+      life_skills_adv: { state: 'notStarted', stage: 0, base: 0 },
+      champion: { state: 'notStarted', startBoss: 0 },
     };
 
     // Achievement / collection-log progress.
@@ -630,10 +633,13 @@ export class Game {
     this.bus.emit('adrenaline');
   }
 
+  abilityUnlocked(ab) { return this.skills.combatLevel() >= (ab.unlock || 1); }
+
   /** Activate (or arm) a combat ability from the action bar / hotkey. */
   activateAbility(id) {
     const ab = ABILITY_BY_ID[id];
     if (!ab) return;
+    if (!this.abilityUnlocked(ab)) { this.msg(`${ab.name} unlocks at combat level ${ab.unlock}.`, 'system'); return; }
     if ((this.abilityCd[id] || 0) > 0) { this.msg(`${ab.name} is on cooldown.`, 'system'); return; }
     if (this.adrenaline < ab.cost) { this.msg(`You need ${ab.cost}% adrenaline for ${ab.name}.`, 'system'); return; }
     if (ab.kind === 'attack') {
@@ -668,7 +674,7 @@ export class Game {
     if (!this.armedAbility) return null;
     const ab = ABILITY_BY_ID[this.armedAbility];
     this.armedAbility = null;
-    if (!ab || ab.kind !== 'attack' || this.adrenaline < ab.cost || (this.abilityCd[ab.id] || 0) > 0) {
+    if (!ab || ab.kind !== 'attack' || !this.abilityUnlocked(ab) || this.adrenaline < ab.cost || (this.abilityCd[ab.id] || 0) > 0) {
       this.bus.emit('ability');
       return null;
     }
@@ -1180,45 +1186,63 @@ export class Game {
       const q = this.quests.island_provisions;
       if (q.state === 'notStarted') { q.state = 'active'; this.msg('Quest started — Island Provisions: bring 10 cooked salmon to the Kampong Guide.', 'level'); }
     } else if (action === 'provisionsTurnIn') this.turnInProvisions();
-    else if (action === 'lifeStart') this.startLifeSkills();
-    else if (action === 'lifeTurnIn') this.advanceLifeSkills();
-    else if (action === 'lifeRemind') this.remindLifeSkills();
+    else if (action === 'lifeStart') this.startLife('life_skills');
+    else if (action === 'lifeTurnIn') this.advanceLife('life_skills');
+    else if (action === 'lifeRemind') this.remindLife('life_skills');
+    else if (action === 'lifeAdvStart') this.startLife('life_skills_adv');
+    else if (action === 'lifeAdvTurnIn') this.advanceLife('life_skills_adv');
+    else if (action === 'lifeAdvRemind') this.remindLife('life_skills_adv');
+    else if (action === 'championStart') this.startChampion();
+    else if (action === 'championTurnIn') this.turnInChampion();
     this.bus.emit('quest');
   }
 
-  // ---------------- Trades of the Island (life-skills quest line) ----------------
-  startLifeSkills() {
-    const q = this.quests.life_skills;
-    if (q.state !== 'notStarted') { this.remindLifeSkills(); return; }
+  // ---------------- Trades of the Island (life-skills quest lines) ----------------
+  // The basic and advanced ("Master of Trades") courses share one staged engine,
+  // keyed by the quest id and its stage table.
+  _lifeLine(key) {
+    if (key === 'life_skills_adv') {
+      return { q: this.quests.life_skills_adv, stages: LIFE_STAGES_ADV, grad: LIFE_GRAD_ADV, name: 'Master of Trades' };
+    }
+    return { q: this.quests.life_skills, stages: LIFE_STAGES, grad: LIFE_GRAD, name: 'Trades of the Island' };
+  }
+
+  startLife(key) {
+    const { q, name } = this._lifeLine(key);
+    if (key === 'life_skills_adv' && this.quests.life_skills.state !== 'done') {
+      this.msg('Cikgu Surya: Master the basics first — finish Trades of the Island, then return for the advanced course.', 'system');
+      return;
+    }
+    if (q.state !== 'notStarted') { this.remindLife(key); return; }
     q.state = 'active';
     q.stage = 1;
-    this.msg('Quest started — Trades of the Island: learn the life skills with Cikgu Surya.', 'level');
-    this.banner('<span class="big">Quest started!</span>Trades of the Island');
-    this._beginLifeStage();
+    this.msg(`Quest started — ${name}: learn from Cikgu Surya.`, 'level');
+    this.banner(`<span class="big">Quest started!</span>${name}`);
+    this._beginLifeStage(key);
   }
 
   // Announce the current lesson and (for xp-based lessons) snapshot the baseline.
-  _beginLifeStage() {
-    const q = this.quests.life_skills;
-    const st = LIFE_STAGES[q.stage - 1];
+  _beginLifeStage(key) {
+    const { q, stages } = this._lifeLine(key);
+    const st = stages[q.stage - 1];
     if (!st) return;
     q.base = st.need.xp ? (this.skills.xp[st.skill] || 0) : 0;
     this.msg(`Cikgu Surya: ${st.teach}`, 'system');
   }
 
-  remindLifeSkills() {
-    const q = this.quests.life_skills;
-    if (q.state === 'done') { this.msg('Cikgu Surya: You have mastered every trade, well done lah!', 'system'); return; }
-    if (q.state !== 'active') { this.msg('Cikgu Surya: Ask me to teach you the life skills first.', 'system'); return; }
-    const st = LIFE_STAGES[q.stage - 1];
-    this.msg(`Cikgu Surya (Lesson ${q.stage}/${LIFE_STAGES.length}): ${st.teach}`, 'system');
+  remindLife(key) {
+    const { q, stages } = this._lifeLine(key);
+    if (q.state === 'done') { this.msg('Cikgu Surya: You have mastered this course, well done lah!', 'system'); return; }
+    if (q.state !== 'active') { this.msg('Cikgu Surya: Ask me to teach you first.', 'system'); return; }
+    const st = stages[q.stage - 1];
+    this.msg(`Cikgu Surya (Lesson ${q.stage}/${stages.length}): ${st.teach}`, 'system');
   }
 
-  advanceLifeSkills() {
-    const q = this.quests.life_skills;
+  advanceLife(key) {
+    const { q, stages, grad, name } = this._lifeLine(key);
     if (q.state === 'done') { this.msg('Cikgu Surya: Your training is complete, adventurer.', 'system'); return; }
-    if (q.state !== 'active') { this.msg('Cikgu Surya: Ask me to teach you the life skills first.', 'system'); return; }
-    const st = LIFE_STAGES[q.stage - 1];
+    if (q.state !== 'active') { this.msg('Cikgu Surya: Ask me to teach you first.', 'system'); return; }
+    const st = stages[q.stage - 1];
     // Verify the lesson's requirement is met.
     if (st.need.item) {
       if (this.inventory.count(st.need.item) < st.need.qty) {
@@ -1241,15 +1265,52 @@ export class Game {
     this.spawnSparkle(this.player, '#ffe24a', 12);
     // Move on to the next lesson, or graduate.
     q.stage++;
-    if (q.stage > LIFE_STAGES.length) {
+    if (q.stage > stages.length) {
       q.state = 'done';
-      for (const s of LIFE_GRAD.skills) this.skills.addXp(s, LIFE_GRAD.xp);
-      this.inventory.add('coins', LIFE_GRAD.coins);
-      this.msg(`Quest complete — Trades of the Island! Cikgu Surya names you a Master of Trades. (+${LIFE_GRAD.xp} XP in every life skill, +${LIFE_GRAD.coins} coins)`, 'level');
-      this.banner('<span class="big">Quest complete!</span>Trades of the Island');
+      for (const s of grad.skills) this.skills.addXp(s, grad.xp);
+      if (grad.coins) this.inventory.add('coins', grad.coins);
+      if (grad.item) this.inventory.add(grad.item, 1);
+      const extra = grad.item ? ` and the ${getItem(grad.item).name}` : '';
+      this.msg(`Quest complete — ${name}! Cikgu Surya honours your mastery (+${grad.xp} XP in every life skill, +${grad.coins} coins${extra}).`, 'level');
+      this.banner(`<span class="big">Quest complete!</span>${name}`);
     } else {
-      this._beginLifeStage();
+      this._beginLifeStage(key);
     }
+  }
+
+  // ---------------- Champion of Singapore (grandmaster capstone) ----------------
+  /** Total quest points = sum over completed quests of their point value. */
+  questPoints() {
+    let qp = 0;
+    for (const def of QUESTS) if (this.quests[def.id]?.state === 'done') qp += def.qp || 0;
+    return qp;
+  }
+
+  startChampion() {
+    const q = this.quests.champion;
+    if (q.state === 'done') { this.msg('You are already the Champion of Singapore.', 'system'); return; }
+    if (q.state === 'active') { this.msg(`Champion of Singapore: defeat ${Math.max(0, 1 - (this.bossKills - (q.startBoss || 0)))} more boss to claim your title.`, 'system'); return; }
+    const qp = this.questPoints();
+    if (qp < CHAMPION_QP) { this.msg(`The Kampong Guide: prove yourself first — earn ${CHAMPION_QP} quest points (you have ${qp}).`, 'system'); return; }
+    q.state = 'active';
+    q.startBoss = this.bossKills;
+    this.msg('Quest started — Champion of Singapore: defeat a boss as your final trial.', 'level');
+    this.banner('<span class="big">Quest started!</span>Champion of Singapore');
+  }
+
+  turnInChampion() {
+    const q = this.quests.champion;
+    if (q.state === 'done') { this.msg('The island salutes its Champion!', 'system'); return; }
+    if (q.state !== 'active') { this.msg('Ask the Kampong Guide about becoming Champion first.', 'system'); return; }
+    if (this.bossKills - (q.startBoss || 0) < 1) { this.msg('Defeat a boss as your final trial first.', 'system'); return; }
+    this.inventory.add('champions_cape', 1);
+    this.inventory.add('coins', 10000);
+    this.skills.addXp('hitpoints', 5000);
+    this.skills.addXp('attack', 3000);
+    this.skills.addXp('defence', 3000);
+    q.state = 'done';
+    this.msg("Quest complete — Champion of Singapore! You receive the Champion's cape.", 'level');
+    this.banner('<span class="big">Champion of Singapore!</span>The island is yours to protect.');
   }
 
   turnInProvisions() {

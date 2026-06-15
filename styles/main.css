@@ -388,6 +388,8 @@ html, body {
 .ability-btn.armed { border-color: var(--gold-hi); box-shadow: 0 0 12px rgba(230,179,74,0.9), inset 0 0 0 1px var(--gold-hi); }
 .ability-btn.ready { border-color: var(--gold); }
 .ability-btn.disabled { filter: grayscale(0.6) brightness(0.7); cursor: default; }
+.ability-btn.locked { filter: grayscale(0.85) brightness(0.5); cursor: not-allowed; }
+.ability-btn.locked .ab-cd { font-size: 10px; }
 @media (max-width: 760px) {
   #ability-bar { bottom: 8px; }
   #adrenaline { width: 184px; }

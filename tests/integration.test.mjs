@@ -660,3 +660,48 @@ test('starter-area monsters are tamed and weaker for onboarding', async () => {
   assert.ok(tame.maxHp < wild.maxHp, 'tamed spawn has less HP');
   assert.ok(tame.def.defence < wild.def.defence, 'tamed spawn is easier to hit');
 });
+
+test('the advanced "Master of Trades" course is gated behind the basics, then rewards the Trades cape', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const { LIFE_STAGES_ADV } = await import('../src/data/lifeskills.js');
+  const game = new Game();
+  game.start();
+  // Gated until the basic course is complete.
+  game.handleDialogueAction('lifeAdvStart');
+  assert.equal(game.quests.life_skills_adv.state, 'notStarted', 'gated behind Trades of the Island');
+  game.quests.life_skills.state = 'done';
+  game.handleDialogueAction('lifeAdvStart');
+  assert.equal(game.quests.life_skills_adv.state, 'active');
+  for (let i = 0; i < LIFE_STAGES_ADV.length; i++) {
+    const st = LIFE_STAGES_ADV[game.quests.life_skills_adv.stage - 1];
+    if (st.need.item) game.inventory.add(st.need.item, st.need.qty);
+    else game.skills.addXp(st.skill, st.need.xp + 5);
+    game.handleDialogueAction('lifeAdvTurnIn');
+  }
+  assert.equal(game.quests.life_skills_adv.state, 'done');
+  assert.ok(game.inventory.has('trades_cape'), 'awarded the Trades cape on completion');
+});
+
+test('quest points accrue and gate the Champion of Singapore capstone', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const { CHAMPION_QP } = await import('../src/data/quests.js');
+  const game = new Game();
+  game.start();
+  assert.equal(game.questPoints(), 0);
+  game.handleDialogueAction('championStart');
+  assert.equal(game.quests.champion.state, 'notStarted', 'gated by quest points');
+  game.quests.life_skills.state = 'done';     // +2
+  game.quests.island_defender.state = 'done'; // +2
+  game.quests.big_game_hunter.state = 'done'; // +2
+  assert.ok(game.questPoints() >= CHAMPION_QP, 'enough quest points now');
+  game.handleDialogueAction('championStart');
+  assert.equal(game.quests.champion.state, 'active');
+  game.handleDialogueAction('championTurnIn');
+  assert.equal(game.quests.champion.state, 'active', 'still needs a boss kill');
+  game.bossKills = (game.quests.champion.startBoss || 0) + 1;
+  game.handleDialogueAction('championTurnIn');
+  assert.equal(game.quests.champion.state, 'done');
+  assert.ok(game.inventory.has('champions_cape'), 'awarded the Champion cape');
+});
