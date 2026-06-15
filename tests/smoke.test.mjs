@@ -98,11 +98,11 @@ test('loading a weak save floors stats to the baseline', () => {
   assert.ok(skills.level('woodcutting') > 1); // existing progress preserved
 });
 
-test('bestiary has 280 monsters and 30 bosses, all well-formed', () => {
-  assert.equal(MONSTER_IDS.length, 280);
-  assert.equal(BOSS_IDS.length, 30);
+test('bestiary has 300 monsters and 31 bosses, all well-formed', () => {
+  assert.equal(MONSTER_IDS.length, 300);
+  assert.equal(BOSS_IDS.length, 31);
   const ids = new Set([...MONSTER_IDS, ...BOSS_IDS]);
-  assert.equal(ids.size, 310); // all ids unique
+  assert.equal(ids.size, 331); // all ids unique
   for (const id of MONSTER_IDS) {
     const n = getNpc(id);
     assert.ok(n.attackable && n.sprite && n.color && n.level >= 1, `mob ${id} well-formed`);

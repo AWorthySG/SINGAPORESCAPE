@@ -25,7 +25,7 @@ function mulberry32(seed) {
 }
 
 export function buildWorld() {
-  const W = 120, H = 104;
+  const W = 150, H = 104;
   const T = TERRAIN;
   const terrain = new Uint8Array(W * H);
   const idx = (x, y) => y * W + x;
@@ -51,6 +51,11 @@ export function buildWorld() {
   // --- Southern sea (Sentosa) ---
   rect(26, 98, 104, 103, T.WATER);
   rect(30, 95, 100, 97, T.SAND);
+  // --- Pulau Hantu (haunted island, deep east) inland lagoon ---
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const d = ((x - 138) / 9) ** 2 + ((y - 30) / 11) ** 2;
+    if (d + (rng() - 0.5) * 0.2 < 1) set(x, y, T.WATER);
+  }
 
   // --- Sandy beach ring around all water ---
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
@@ -65,6 +70,7 @@ export function buildWorld() {
   rect(46, 46, 70, 64, T.STONE);   // Kampong Glam plaza
   rect(75, 47, 92, 64, T.STONE);   // Chinatown market
   rect(66, 8, 86, 24, T.SAND);     // Bukit Timah mine hill
+  rect(124, 46, 136, 60, T.STONE); // Pulau Hantu ruined plaza
 
   // --- Paths ---
   rect(57, 20, 58, 46, T.PATH);
@@ -73,6 +79,7 @@ export function buildWorld() {
   rect(57, 64, 58, 95, T.PATH);
   rect(57, 20, 76, 21, T.PATH);
   rect(92, 40, 96, 41, T.PATH);
+  rect(110, 52, 124, 53, T.PATH);  // causeway into Pulau Hantu
 
   const objects = [];
   const npcSpawns = [];
@@ -110,6 +117,7 @@ export function buildWorld() {
 
   // Region rectangles (checked in order; first match wins).
   const zones = [
+    { name: 'Pulau Hantu', x0: 120, y0: 0, x1: 149, y1: 103, wilderness: true },
     { name: 'The Wilderness', x0: 95, y0: 0, x1: 119, y1: 103, wilderness: true },
     { name: 'Kampong Glam', x0: 44, y0: 44, x1: 72, y1: 66 },
     { name: 'Chinatown', x0: 73, y0: 44, x1: 94, y1: 70 },
@@ -186,6 +194,17 @@ export function buildWorld() {
   scatter('mithril_rock', 98, 8, 110, 90, 4, GRASSY);
   scatter('adamantite_rock', 106, 8, 116, 90, 3, GRASSY);
   scatter('runite_rock', 110, 8, 117, 90, 2, GRASSY);
+
+  // ================= Pulau Hantu (haunted island) =================
+  scatter('ruin', 121, 4, 148, 99, 22, GRASSY);
+  scatter('wall', 124, 44, 136, 60, 8, [T.STONE]);
+  placeObj('sign', 122, 53);
+  placeObj('lamp', 125, 47); placeObj('lamp', 135, 47); placeObj('lamp', 125, 59); placeObj('lamp', 135, 59);
+  scatter('magic_tree', 121, 60, 148, 99, 5, GRASSY);
+  scatter('yew_tree', 121, 60, 148, 99, 6, GRASSY);
+  scatter('runite_rock', 138, 60, 148, 95, 3, GRASSY);
+  scatter('adamantite_rock', 121, 62, 135, 95, 4, GRASSY);
+  placeFishing('harpoon_spot', 128, 22, 148, 40, 5);
 
   // ================= Populate the bestiary by zone =================
   const zoneByName = (name) => zones.find((z) => z.name === name);

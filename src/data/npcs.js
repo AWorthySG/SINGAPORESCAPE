@@ -83,6 +83,11 @@ const BASES = [
   ['Toyol', 'greenman', '#8a9a5a', 14, 'The Wilderness', true],
   ['Horseshoe crab', 'crab', '#6a5a4a', 18, 'Sentosa Beach', false],
   ['Sambar deer', 'beast', '#8a6a4a', 20, 'MacRitchie Reservoir', false],
+  ['Jungle wraith', 'ghost', '#9fb0d8', 64, 'Pulau Hantu', true],
+  ['Hantu raya', 'ghost', '#b8a0c0', 66, 'Pulau Hantu', true],
+  ['Pocong', 'undead', '#e8e2d0', 70, 'Pulau Hantu', true],
+  ['Cursed pirate', 'undead', '#7a6a4a', 72, 'Pulau Hantu', true],
+  ['Penanggal', 'ghost', '#c06a7a', 78, 'Pulau Hantu', true],
 ];
 
 const RANKS = [
@@ -95,7 +100,7 @@ const RANKS = [
   { p: 'Ancient', m: 3.8, agg: true },
 ];
 
-const TARGET_MONSTERS = 280;
+const TARGET_MONSTERS = 300;
 const MONSTER_IDS = [];
 const _mobs = {};
 {
@@ -111,7 +116,9 @@ const _mobs = {};
       while (seen.has(id)) id += '_x';
       seen.add(id);
       const level = Math.max(1, Math.min(124, Math.round(blvl * rank.m)));
-      const zone = level >= 45 ? 'The Wilderness' : bzone;
+      // High-level generic mobs drift into the Wilderness, but island-native
+      // families always stay on their island.
+      const zone = bzone === 'Pulau Hantu' ? 'Pulau Hantu' : (level >= 45 ? 'The Wilderness' : bzone);
       _mobs[id] = makeMob(id, name, sprite, color, level, zone, baggro || rank.agg, slug(bn));
       count++;
     }
@@ -192,6 +199,8 @@ const BOSS_DEFS = {
     [{ id: 'revenant_cape', weight: 11 }, { id: 'dragon_platelegs', weight: 14 }, { id: 'runite_ore', min: 3, max: 8, weight: 28 }, { id: 'dragon_longsword', weight: 9 }]),
   dragon_kiln_wyrm: makeBoss('dragon_kiln_wyrm', 'Dragon Kiln Wyrm', 'drake', '#c0392b', 150, 'The Wilderness', 2.5,
     [{ id: 'dragon_2h_sword', weight: 8 }, { id: 'dragon_platebody', weight: 14 }, { id: 'dragon_kiteshield', weight: 12 }, { id: 'dragon_scimitar', weight: 12 }, { id: 'megalodon_jaw', weight: 4 }]),
+  orang_minyak: makeBoss('orang_minyak', 'Orang Minyak', 'humanoid', '#1f1f1f', 158, 'Pulau Hantu', 2.6,
+    [{ id: 'cursed_cutlass', weight: 9 }, { id: 'dragon_2h_sword', weight: 12 }, { id: 'dragon_platebody', weight: 14 }, { id: 'occult_necklace', weight: 10 }, { id: 'runite_ore', min: 3, max: 8, weight: 28 }]),
 };
 const BOSS_IDS = Object.keys(BOSS_DEFS);
 
