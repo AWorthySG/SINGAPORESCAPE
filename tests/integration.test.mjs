@@ -107,9 +107,19 @@ test('praying at the Worthy Monument heals to full', () => {
   game.start();
   const shrine = game.world.objects.find((o) => o.def.type === 'shrine');
   assert.ok(shrine, 'monument exists');
+  // Isolate from random wandering aggro so the heal result is deterministic.
+  game.npcs = [];
+  game.player.autoRetaliate = false;
+  // Stand on a walkable tile next to the monument so it heals promptly.
+  const adj = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]
+    .map(([dx, dy]) => ({ x: shrine.x + dx, y: shrine.y + dy }))
+    .find((t) => game.world.inBounds(t.x, t.y) && !game.world.isBlocked(t.x, t.y));
+  assert.ok(adj, 'monument has a reachable adjacent tile');
+  game.player.x = game.player.tx = adj.x;
+  game.player.y = game.player.ty = adj.y;
   game.player.hp = 3;
   game.beginAction({ type: 'pray', obj: shrine }, { x: shrine.x, y: shrine.y }, true);
-  step(game, 60);
+  step(game, 10);
   assert.equal(game.player.hp, game.skills.hitpoints, 'fully healed after praying');
 });
 
