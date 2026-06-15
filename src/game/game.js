@@ -594,7 +594,6 @@ export class Game {
     const id = this.equipment.get('weapon');
     const spec = id && getItem(id).spec;
     if (!spec) { this.msg('This weapon has no special attack.'); return; }
-    if (this.combatMode() !== 'melee') { this.msg('Special attacks require a melee weapon.'); return; }
     if (this.specEnergy < spec.cost) { this.msg(`You need ${spec.cost}% special energy for ${spec.name}.`); return; }
     this.specArmed = !this.specArmed;
     if (this.specArmed) { this.msg(`${spec.name} armed — your next hit is special.`, 'system'); this.bus.emit('sfx', 'spec'); }
@@ -614,13 +613,26 @@ export class Game {
     const style = this.player.rangedStyle;
     const { atkRoll, defRoll, max } = playerRangedVsNpc(this.skills, this.equipment, style, npc.def, arrowStr);
     const pr = this.prayerMult().ranged;
-    const effMax = Math.round(max * pr);
-    const dmg = rollAttack(atkRoll * pr, defRoll, effMax);
-    this.inventory.removeAt(arrowIdx, 1);
+    const baseMax = Math.round(max * pr);
+    const spec = this._takeSpec();
+    const accM = spec ? (spec.acc || 1) : 1, dmgM = spec ? (spec.dmg || 1) : 1, hits = spec ? (spec.hits || 1) : 1;
+    if (spec) { this.msg(`Special attack: ${spec.name}!`, 'combat'); this.spawnSparkle(this.player, '#ffd24a', 10); }
     this._swingToward(this.player, npc.x, npc.y);
-    this._projectile(npc, '#d9c45a');
-    this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && dmg >= effMax });
-    if (dmg > 0) { this.spawnHitSparks(npc, '#cfe0a0'); for (const x of combatXpRanged(style, dmg)) this.skills.addXp(x.skill, x.xp); }
+    let total = 0;
+    for (let i = 0; i < hits && npc.hp > 0; i++) {
+      if (i > 0) { // extra shots consume extra arrows
+        const ai = this.inventory.slots.findIndex((s) => s && getItem(s.id).tags?.includes('ammo'));
+        if (ai === -1) break;
+        this.inventory.removeAt(ai, 1);
+      } else { this.inventory.removeAt(arrowIdx, 1); }
+      const effMax = Math.max(1, Math.round(baseMax * dmgM));
+      const dmg = rollAttack(atkRoll * pr * accM, defRoll, effMax);
+      this._projectile(npc, spec ? '#ffd24a' : '#d9c45a');
+      this._applyPlayerHit(npc, dmg, { crit: spec ? dmg > 0 : dmg > 0 && dmg >= effMax });
+      if (dmg > 0) { this.spawnHitSparks(npc, spec ? '#ffd24a' : '#cfe0a0'); for (const x of combatXpRanged(style, dmg)) this.skills.addXp(x.skill, x.xp); }
+      total += dmg;
+    }
+    if (spec && spec.heal && total > 0) { this.player.hp = Math.min(this.skills.hitpoints, this.player.hp + Math.round(total * spec.heal)); this.bus.emit('hp'); }
     this.player.attackCooldown = Math.max(2, this.equipment.weaponSpeed() + (RANGED_STYLES[style]?.speedMod || 0));
     this._postAttack(npc);
   }
@@ -631,10 +643,14 @@ export class Game {
     if (!this._hasRunes(spell)) { this.msg(`You don't have the runes to cast ${spell.name}.`); this.player.clearAction(); return; }
     this._consumeRunes(spell);
     const { atkRoll, defRoll, max } = playerMagicVsNpc(this.skills, this.equipment, spell, npc.def);
-    const dmg = rollAttack(atkRoll * this.prayerMult().magic, defRoll, max);
+    const spec = this._takeSpec();
+    const accM = spec ? (spec.acc || 1) : 1;
+    const effMax = spec ? Math.max(1, Math.round(max * (spec.dmg || 1))) : max;
+    if (spec) { this.msg(`Special attack: ${spec.name}!`, 'combat'); this.spawnSparkle(this.player, '#c06ad0', 12); this.bus.emit('sfx', 'spec'); }
+    const dmg = rollAttack(atkRoll * this.prayerMult().magic * accM, defRoll, effMax);
     this._swingToward(this.player, npc.x, npc.y);
-    this._projectile(npc, spell.tint);
-    this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && dmg >= max });
+    this._projectile(npc, spec ? '#e0a0ff' : spell.tint);
+    this._applyPlayerHit(npc, dmg, { crit: spec ? dmg > 0 : dmg > 0 && dmg >= max });
     this.skills.addXp('magic', spell.xp);
     if (dmg > 0) { this.spawnHitSparks(npc, spell.tint); this.skills.addXp('magic', dmg * 2); this.skills.addXp('hitpoints', dmg * 1.33); }
     this.player.attackCooldown = this.equipment.weaponSpeed();
