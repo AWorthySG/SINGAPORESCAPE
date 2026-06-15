@@ -33,6 +33,10 @@ export function snapshot(game) {
     equipment: game.equipment.serialize(),
     bank: game.bank.serialize(),
     quests: game.quests,
+    achievements: [...game.achievements],
+    totalKills: game.totalKills,
+    bossKills: game.bossKills,
+    zonesVisited: [...game.zonesVisited],
     settings: { running: game.running },
   };
 }
@@ -83,6 +87,10 @@ export function loadGame(game) {
       if (v && typeof v === 'object') game.quests[k] = { ...game.quests[k], ...v };
     }
   }
+  if (Array.isArray(data.achievements)) game.achievements = new Set(data.achievements);
+  if (typeof data.totalKills === 'number') game.totalKills = data.totalKills;
+  if (typeof data.bossKills === 'number') game.bossKills = data.bossKills;
+  if (Array.isArray(data.zonesVisited)) game.zonesVisited = new Set(data.zonesVisited);
   game.running = data.settings?.running ?? game.running;
   return true;
 }

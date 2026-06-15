@@ -335,6 +335,7 @@
   S.magic = `<path d="M12 2 L14 9 L21 11 L14 13 L12 20 L10 13 L3 11 L10 9 Z" fill="#8a96e8" stroke="${OL}" stroke-width="1" stroke-linejoin="round"/>`;
   T.prayer = S.prayer;
   T.quests = `<path d="M6 3 L18 3 L18 21 L6 21 Z" fill="${C.cream}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M8 7 L16 7 M8 10 L16 10 M8 13 L14 13" stroke="${C.stoneDk}" stroke-width="1"/><circle cx="17" cy="18" r="3" fill="${C.gold}" stroke="${OL}" stroke-width="1"/>`;
+  T.achievements = `<path d="M7 4 L17 4 L17 8 C17 12 14 13 12 13 C10 13 7 12 7 8 Z" fill="${C.gold}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M7 5 C4 5 4 9 7 9 M17 5 C20 5 20 9 17 9" fill="none" stroke="${OL}" stroke-width="1.1"/><rect x="10.6" y="13" width="2.8" height="4" fill="${C.goldDk}" stroke="${OL}" stroke-width="1"/><rect x="8" y="17" width="8" height="3" rx="1" fill="${C.stone}" stroke="${OL}" stroke-width="1.1"/>`;
 
   function svg(inner, size, cls) {
     return `<svg class="${cls || ''}" width="${size}" height="${size}" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="display:block">${inner}</svg>`;
