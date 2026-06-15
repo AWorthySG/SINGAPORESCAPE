@@ -15,6 +15,18 @@ export class Character {
     this.path = [];
     this.facing = { dx: 0, dy: 1 };
     this.moveDuration = TICK_MS;
+    // Combat-feel timers (ms): hit flash + attack lunge.
+    this.hurt = 0;
+    this.swing = 0;
+    this.lungeDX = 0;
+    this.lungeDY = 0;
+  }
+
+  /** Pixel lunge offset while mid-swing (out toward the target and back). */
+  renderOffset() {
+    if (this.swing <= 0) return { x: 0, y: 0 };
+    const amp = Math.sin((1 - this.swing / 180) * Math.PI) * 5;
+    return { x: this.lungeDX * amp, y: this.lungeDY * amp };
   }
 
   setPath(path, running = false) {
@@ -50,6 +62,8 @@ export class Character {
   }
 
   update(dt) {
+    if (this.hurt > 0) this.hurt = Math.max(0, this.hurt - dt);
+    if (this.swing > 0) this.swing = Math.max(0, this.swing - dt);
     if (!this.moving) {
       if (this.path.length) this._beginStep();
       if (!this.moving) return;

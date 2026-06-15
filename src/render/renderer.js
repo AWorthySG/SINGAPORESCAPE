@@ -61,23 +61,27 @@ export class Renderer {
       const c = n.renderCenter();
       const cx = c.x - ox, cy = c.y - oy;
       const sc = n.def.scale || 1;
+      const off = n.renderOffset ? n.renderOffset() : { x: 0, y: 0 };
       drawables.push({ sortY: c.y / TILE, z: 2, draw: () => {
         drawShadow(ctx, cx, cy + 12 * sc, 10 * sc, 4.5 * sc);
-        drawCreature(ctx, n.npcId, cx, cy - 2, {
+        drawCreature(ctx, n.npcId, cx + off.x, cy - 2 + off.y, {
           time: timeMs, facing: n.facing, moving: n.isMoving,
           scale: sc, sprite: n.def.sprite, color: n.def.color, boss: n.def.boss,
         });
+        if (n.hurt > 0) this._hurtFlash(cx + off.x, cy - 2 + off.y, sc, n.hurt);
       } });
     }
     if (game.player.alive) {
       const c = game.player.renderCenter();
       const cx = c.x - ox, cy = c.y - oy;
+      const off = game.player.renderOffset ? game.player.renderOffset() : { x: 0, y: 0 };
       drawables.push({ sortY: c.y / TILE, z: 2, draw: () => {
         drawShadow(ctx, cx, cy + 13, 10, 4.5);
-        drawPlayer(ctx, cx, cy - 2, {
+        drawPlayer(ctx, cx + off.x, cy - 2 + off.y, {
           time: timeMs, facing: game.player.facing, moving: game.player.isMoving,
           hasBody: !!game.equipment.get('body'), hasWeapon: !!game.equipment.get('weapon'),
         });
+        if (game.player.hurt > 0) this._hurtFlash(cx + off.x, cy - 2 + off.y, 1, game.player.hurt);
       } });
     }
     drawables.sort((a, b) => (a.sortY - b.sortY) || (a.z - b.z));
@@ -87,6 +91,34 @@ export class Renderer {
     this._drawParticles(ox, oy);
     this._drawProjectiles(ox, oy);
     this._drawOverheads(ox, oy);
+    this._drawHurtFlash(vw, vh);
+  }
+
+  // White impact flash over a struck entity (brightens the sprite briefly).
+  _hurtFlash(cx, cy, sc, hurt) {
+    const { ctx } = this;
+    const a = Math.min(0.55, (hurt / 200) * 0.55);
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = '#ffd6d6';
+    ctx.beginPath(); ctx.ellipse(cx, cy, 8 * sc, 11 * sc, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  // Red screen edges when the player takes a hit.
+  _drawHurtFlash(vw, vh) {
+    const { ctx, game } = this;
+    const h = game.player.hurt;
+    if (!h || !game.player.alive) return;
+    const a = Math.min(0.45, (h / 200) * 0.45);
+    const g = ctx.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * 0.32, vw / 2, vh / 2, Math.max(vw, vh) * 0.72);
+    g.addColorStop(0, 'rgba(180,0,0,0)');
+    g.addColorStop(1, `rgba(170,0,0,${a})`);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, vw, vh);
   }
 
   _drawProjectiles(ox, oy) {
@@ -295,17 +327,26 @@ export class Renderer {
     for (const e of game.effects) {
       if (e.type !== 'hitsplat') continue;
       const c = e.entity.renderCenter ? e.entity.renderCenter() : { x: e.entity.x * TILE, y: e.entity.y * TILE };
-      const px = c.x - ox, py = c.y - oy - 6 - (1100 - e.life) * 0.012;
+      const age = 1100 - e.life;
+      const px = c.x - ox, py = c.y - oy - 6 - age * 0.012;
       const hit = e.dmg > 0;
+      // Pop in: overshoot to ~1.15 then settle to 1.
+      const pop = age < 90 ? 0.5 + 0.72 * (age / 90) : Math.max(1, 1.22 - (age - 90) / 260);
       const a = Math.min(1, e.life / 350);
+      const r = e.crit ? 12 : 10;
+      ctx.save();
       ctx.globalAlpha = a;
-      ctx.fillStyle = hit ? '#c81e1e' : '#39557d';
-      ctx.beginPath(); ctx.arc(px, py, 10, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.beginPath(); ctx.arc(px, py - 3, 9, Math.PI, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#fff'; ctx.font = 'bold 12px "Trebuchet MS",sans-serif';
+      ctx.translate(px, py); ctx.scale(pop, pop);
+      // Splat body: gold for a max hit, red for a hit, blue for a block/miss.
+      ctx.fillStyle = e.crit ? '#f2c029' : hit ? '#c81e1e' : '#39557d';
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.28)'; ctx.beginPath(); ctx.arc(0, -3, r - 1, Math.PI, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.font = `bold ${e.crit ? 13 : 12}px "Trebuchet MS",sans-serif`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(String(e.dmg), px, py + 1);
-      ctx.textBaseline = 'alphabetic'; ctx.globalAlpha = 1;
+      ctx.fillText(String(e.dmg), 0, 1);
+      ctx.textBaseline = 'alphabetic';
+      ctx.restore();
+      ctx.globalAlpha = 1;
     }
   }
 
