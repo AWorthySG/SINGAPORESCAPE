@@ -15,16 +15,24 @@ function statsFor(level) {
   };
 }
 
+// Monsters drop level-appropriate combat equipment (weapons + armour) so hunting
+// is a real way to kit out, plus coins/ore. One entry is rolled per kill.
 function dropsFor(level) {
+  const tier = level < 10 ? 'bronze' : level < 22 ? 'iron' : level < 40 ? 'steel' : level < 58 ? 'mithril' : level < 75 ? 'adamant' : 'rune';
+  const ore = { bronze: 'copper_ore', iron: 'iron_ore', steel: 'coal', mithril: 'mithril_ore', adamant: 'adamantite_ore', rune: 'runite_ore' }[tier];
+  const next = { bronze: 'iron', iron: 'steel', steel: 'mithril', mithril: 'adamant', adamant: 'rune', rune: 'dragon' }[tier];
   const t = [
-    { nothing: true, weight: Math.max(8, Math.round(40 - level / 3)) },
-    { id: 'coins', min: Math.max(1, Math.round(level * 0.6)), max: Math.max(6, level * 8), weight: 55 },
+    { nothing: true, weight: Math.max(6, Math.round(30 - level / 3)) },
+    { id: 'coins', min: Math.max(2, Math.round(level * 0.7)), max: Math.max(8, level * 9), weight: 48 },
+    { id: ore, min: 1, max: 3, weight: 12 },
   ];
-  if (level < 10) t.push({ id: 'copper_ore', min: 1, max: 2, weight: 10 }, { id: 'bronze_dagger', weight: 6 });
-  else if (level < 22) t.push({ id: 'iron_ore', min: 1, max: 2, weight: 10 }, { id: 'iron_scimitar', weight: 6 }, { id: 'steel_bar', weight: 4 });
-  else if (level < 40) t.push({ id: 'coal', min: 1, max: 3, weight: 10 }, { id: 'steel_scimitar', weight: 6 }, { id: 'mithril_ore', weight: 5 });
-  else if (level < 65) t.push({ id: 'mithril_ore', min: 1, max: 2, weight: 8 }, { id: 'mithril_scimitar', weight: 6 }, { id: 'adamantite_ore', weight: 4 }, { id: 'mithril_platebody', weight: 2 });
-  else t.push({ id: 'adamantite_ore', min: 1, max: 2, weight: 8 }, { id: 'adamant_scimitar', weight: 5 }, { id: 'runite_ore', weight: 4 }, { id: 'rune_scimitar', weight: 1 });
+  // Tier-appropriate gear pool — the main way to obtain combat equipment.
+  for (const w of ['scimitar', 'sword', 'mace', 'longsword']) t.push({ id: `${tier}_${w}`, weight: 4 });
+  for (const a of ['med_helm', 'chainbody', 'platelegs', 'kiteshield', 'boots', 'gauntlets']) t.push({ id: `${tier}_${a}`, weight: 3 });
+  if (level >= 30) t.push({ id: `${tier}_full_helm`, weight: 3 }, { id: `${tier}_platebody`, weight: 2 }, { id: `${tier}_battleaxe`, weight: 3 });
+  if (level >= 50) t.push({ id: `${tier}_2h_sword`, weight: 2 });
+  // A rare glimpse of the next tier up.
+  t.push({ id: `${next}_scimitar`, weight: next === 'dragon' ? 1 : 2 });
   return t;
 }
 

@@ -100,6 +100,19 @@ test('loading a weak save floors stats to the baseline', () => {
   assert.ok(skills.level('woodcutting') > 1); // existing progress preserved
 });
 
+test('monsters drop level-appropriate combat equipment (weapons & armour)', () => {
+  // Sample a low/mid/high regular monster; each should drop several equippable items.
+  for (const id of ['goblin', 'wild_boar', 'skeleton']) {
+    const n = getNpc(id);
+    if (!n || n.boss) continue;
+    const equip = n.dropTable.filter((d) => d.id && ITEMS[d.id] && ITEMS[d.id].equip);
+    const weapons = equip.filter((d) => ITEMS[d.id].equip.slot === 'weapon');
+    const armour = equip.filter((d) => ITEMS[d.id].equip.slot !== 'weapon');
+    assert.ok(weapons.length >= 2, `${id} drops multiple weapons`);
+    assert.ok(armour.length >= 2, `${id} drops armour`);
+  }
+});
+
 test('bestiary has 300 monsters and 31 bosses, all well-formed', () => {
   assert.equal(MONSTER_IDS.length, 300);
   assert.equal(BOSS_IDS.length, 31);
