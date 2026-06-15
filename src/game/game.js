@@ -892,6 +892,16 @@ export class Game {
     if (path.length) { this.player.setPath(path, this.canRun()); this.player.clearAction(); }
   }
 
+  /** Long-range walk used by the world map; snaps to the nearest walkable tile. */
+  walkToFar(tile) {
+    const t = this._nearestFree(tile.x, tile.y);
+    if (!t) { this.msg("I can't reach there."); return; }
+    if (this.playerTile().x === t.x && this.playerTile().y === t.y) return;
+    const path = findPath(this.pathCfg(), this.playerTile(), t, { maxNodes: 40000 });
+    if (path.length) { this.player.setPath(path, this.canRun()); this.player.clearAction(); this.msg('You set off across the island.', 'system'); }
+    else this.msg("I can't find a path there.");
+  }
+
   attackNpc(npc) {
     if (!npc.attackable) { this.msg("You can't attack that."); return; }
     this.beginAction({ type: 'attack', npc }, { x: npc.x, y: npc.y }, true);
