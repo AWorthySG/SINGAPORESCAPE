@@ -137,6 +137,7 @@ export function buildWorld() {
   placeNpc('fletcher', 66, 51);
   placeNpc('slayer_master', 54, 58);
   placeNpc('guide', 56, 53);
+  placeNpc('skills_tutor', 58, 53);
   placeNpc('villager', 60, 54, 3);
   placeObj('lamp', 46, 46); placeObj('lamp', 70, 46); placeObj('lamp', 46, 64); placeObj('lamp', 70, 64);
   placeObj('flower', 54, 47); placeObj('flower', 62, 47); placeObj('bush', 48, 51); placeObj('bush', 68, 60);

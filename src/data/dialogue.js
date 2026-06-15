@@ -111,6 +111,35 @@ export const DIALOGUES = {
     },
   },
 
+  tutor: {
+    start: {
+      speaker: 'Cikgu Surya',
+      text: 'Ah, a new face! I am Cikgu Surya, master of the island\'s trades. Combat is not everything, lah — a true adventurer must know the LIFE SKILLS: woodcutting, firemaking, mining, smithing, fishing and cooking. Shall I teach you, one lesson at a time?',
+      options: [
+        { label: 'What are life skills?', next: 'explain' },
+        { label: 'Teach me the life skills.', next: 'begin', action: 'lifeStart' },
+        { label: 'I have done what you asked.', next: 'start', action: 'lifeTurnIn' },
+        { label: 'What should I be doing now?', next: 'start', action: 'lifeRemind' },
+        { label: 'Goodbye.', next: 'end' },
+      ],
+    },
+    explain: {
+      speaker: 'Cikgu Surya',
+      text: 'Life skills let you live off the land! You chop trees for logs, light them for fires, mine rocks for ore, smith ore into bars and gear, fish the waters, and cook your catch to heal in battle. Master these and you will never go hungry or unarmed, lah.',
+      options: [
+        { label: 'I want to learn them.', next: 'begin', action: 'lifeStart' },
+        { label: 'Interesting. Goodbye.', next: 'end' },
+      ],
+    },
+    begin: {
+      speaker: 'Cikgu Surya',
+      text: 'Good, good! Listen for each lesson and bring me what I ask. Master a trade and I will reward you, then teach the next. Check your Quest Journal anytime to see your current lesson.',
+      options: [
+        { label: 'I will begin.', next: 'start' },
+      ],
+    },
+  },
+
   villager: {
     start: {
       speaker: 'Villager',

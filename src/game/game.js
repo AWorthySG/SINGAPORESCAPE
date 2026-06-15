@@ -31,6 +31,7 @@ import { RARE_DROP_TABLE } from '../data/npcs.js';
 import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
 import { eligibleTasks, SLAYER_REWARDS } from '../data/slayer.js';
 import { STATION_BY_ID, MRT_FARE } from '../data/transport.js';
+import { LIFE_STAGES, LIFE_GRAD } from '../data/lifeskills.js';
 
 const STARTER_TOOLS = ['bronze_axe', 'bronze_pickaxe', 'small_net', 'tinderbox', 'hammer', 'bronze_dagger'];
 
@@ -75,6 +76,7 @@ export class Game {
       big_game_hunter: { state: 'notStarted', startKills: 0 },
       mystic_trial: { state: 'notStarted' },
       island_provisions: { state: 'notStarted' },
+      life_skills: { state: 'notStarted', stage: 0, base: 0 },
     };
 
     // Achievement / collection-log progress.
@@ -1070,7 +1072,76 @@ export class Game {
       const q = this.quests.island_provisions;
       if (q.state === 'notStarted') { q.state = 'active'; this.msg('Quest started — Island Provisions: bring 10 cooked salmon to the Kampong Guide.', 'level'); }
     } else if (action === 'provisionsTurnIn') this.turnInProvisions();
+    else if (action === 'lifeStart') this.startLifeSkills();
+    else if (action === 'lifeTurnIn') this.advanceLifeSkills();
+    else if (action === 'lifeRemind') this.remindLifeSkills();
     this.bus.emit('quest');
+  }
+
+  // ---------------- Trades of the Island (life-skills quest line) ----------------
+  startLifeSkills() {
+    const q = this.quests.life_skills;
+    if (q.state !== 'notStarted') { this.remindLifeSkills(); return; }
+    q.state = 'active';
+    q.stage = 1;
+    this.msg('Quest started — Trades of the Island: learn the life skills with Cikgu Surya.', 'level');
+    this.banner('<span class="big">Quest started!</span>Trades of the Island');
+    this._beginLifeStage();
+  }
+
+  // Announce the current lesson and (for xp-based lessons) snapshot the baseline.
+  _beginLifeStage() {
+    const q = this.quests.life_skills;
+    const st = LIFE_STAGES[q.stage - 1];
+    if (!st) return;
+    q.base = st.need.xp ? (this.skills.xp[st.skill] || 0) : 0;
+    this.msg(`Cikgu Surya: ${st.teach}`, 'system');
+  }
+
+  remindLifeSkills() {
+    const q = this.quests.life_skills;
+    if (q.state === 'done') { this.msg('Cikgu Surya: You have mastered every trade, well done lah!', 'system'); return; }
+    if (q.state !== 'active') { this.msg('Cikgu Surya: Ask me to teach you the life skills first.', 'system'); return; }
+    const st = LIFE_STAGES[q.stage - 1];
+    this.msg(`Cikgu Surya (Lesson ${q.stage}/${LIFE_STAGES.length}): ${st.teach}`, 'system');
+  }
+
+  advanceLifeSkills() {
+    const q = this.quests.life_skills;
+    if (q.state === 'done') { this.msg('Cikgu Surya: Your training is complete, adventurer.', 'system'); return; }
+    if (q.state !== 'active') { this.msg('Cikgu Surya: Ask me to teach you the life skills first.', 'system'); return; }
+    const st = LIFE_STAGES[q.stage - 1];
+    // Verify the lesson's requirement is met.
+    if (st.need.item) {
+      if (this.inventory.count(st.need.item) < st.need.qty) {
+        this.msg(`Cikgu Surya: Not yet, lah — bring me ${st.need.qty} ${getItem(st.need.item).name}.`, 'system');
+        return;
+      }
+      this.inventory.remove(st.need.item, st.need.qty);
+    } else {
+      const gained = (this.skills.xp[st.skill] || 0) - (q.base || 0);
+      if (gained < st.need.xp) {
+        this.msg(`Cikgu Surya: Keep practising your ${st.name}! (${Math.floor(Math.max(gained, 0))}/${st.need.xp} xp)`, 'system');
+        return;
+      }
+    }
+    // Pay out the lesson reward.
+    this.skills.addXp(st.skill, st.reward.xp);
+    if (st.reward.coins) this.inventory.add('coins', st.reward.coins);
+    if (st.reward.item) this.inventory.add(st.reward.item, 1);
+    this.msg(`Lesson complete — ${st.name}! +${st.reward.xp} ${st.name} XP${st.reward.coins ? ` and ${st.reward.coins} coins` : ''}.`, 'level');
+    this.spawnSparkle(this.player, '#ffe24a', 12);
+    // Move on to the next lesson, or graduate.
+    q.stage++;
+    if (q.stage > LIFE_STAGES.length) {
+      q.state = 'done';
+      for (const s of LIFE_GRAD.skills) this.skills.addXp(s, LIFE_GRAD.xp);
+      this.inventory.add('coins', LIFE_GRAD.coins);
+      this.msg(`Quest complete — Trades of the Island! Cikgu Surya names you a Master of Trades. (+${LIFE_GRAD.xp} XP in every life skill, +${LIFE_GRAD.coins} coins)`, 'level');
+      this.banner('<span class="big">Quest complete!</span>Trades of the Island');
+    } else {
+      this._beginLifeStage();
+    }
   }
 
   turnInProvisions() {

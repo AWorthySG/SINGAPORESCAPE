@@ -1,7 +1,23 @@
 // Quest metadata for the journal UI. The quest *logic* (rewards, conditions) lives
 // in game.js; this is the display layer + an optional progress(game) label so the
 // journal renders generically and scales as the quest line grows.
+import { LIFE_STAGES } from './lifeskills.js';
+
 export const QUESTS = [
+  {
+    id: 'life_skills', name: 'Trades of the Island',
+    desc: 'Learn each of the island\'s life skills, one lesson at a time, with Cikgu Surya.',
+    progress: (g) => {
+      const q = g.quests.life_skills;
+      if (q.state !== 'active') return '';
+      const st = LIFE_STAGES[q.stage - 1];
+      if (!st) return '';
+      let have, need;
+      if (st.need.item) { have = g.inventory.count(st.need.item); need = st.need.qty; }
+      else { have = Math.floor((g.skills.xp[st.skill] || 0) - (q.base || 0)); need = st.need.xp; }
+      return `Lesson ${q.stage}/${LIFE_STAGES.length}: ${st.name} — ${Math.min(Math.max(have, 0), need)}/${need}${st.need.xp ? ' xp' : ''}`;
+    },
+  },
   {
     id: 'bone_collector', name: 'A Bag of Bones',
     desc: 'Bring 10 bones to the Kampong Guide.',
