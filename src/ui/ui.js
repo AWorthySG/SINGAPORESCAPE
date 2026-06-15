@@ -12,6 +12,7 @@ import { PRAYERS } from '../data/prayers.js';
 import { ACHIEVEMENTS } from '../data/achievements.js';
 import { QUESTS } from '../data/quests.js';
 import { SLAYER_REWARDS } from '../data/slayer.js';
+import { STATIONS, MRT_FARE } from '../data/transport.js';
 import { EQUIP_SLOTS } from '../game/equipment.js';
 import { TILE } from '../config.js';
 import { TERRAIN } from '../data/world.js';
@@ -810,6 +811,35 @@ export class UI {
     };
     this.openModal('Slayer Rewards', render);
     this.modal.kind = 'slayerRewards';
+  }
+
+  // MRT fast travel ----------------------------------------------------
+  openTransport(obj) {
+    const render = (body) => {
+      const here = this._nearestStation(obj);
+      body.innerHTML = `<div class="modal-hint">Tap your EZ-link card. Fare: ${MRT_FARE} coins &middot; Coins: ${formatNumber(this.game.inventory.count('coins'))}</div>`;
+      const list = document.createElement('div');
+      list.className = 'mrt-list';
+      for (const st of STATIONS) {
+        const row = document.createElement('div');
+        row.className = 'dialogue-option mrt-row' + (st.id === here ? ' current' : '');
+        row.innerHTML = `<span class="mrt-dot"></span><b>${escapeHtml(st.name)}</b>${st.id === here ? ' <span class="mrt-here">(you are here)</span>' : ''}`;
+        if (st.id !== here) row.addEventListener('click', () => this.game.travelTo(st.id));
+        list.appendChild(row);
+      }
+      body.appendChild(list);
+    };
+    this.openModal('MRT Network', render);
+    this.modal.kind = 'transport';
+  }
+
+  _nearestStation(obj) {
+    let best = null, bd = Infinity;
+    for (const st of STATIONS) {
+      const d = Math.abs(st.x - obj.x) + Math.abs(st.y - obj.y);
+      if (d < bd) { bd = d; best = st.id; }
+    }
+    return best;
   }
 
   // Dialogue -----------------------------------------------------------

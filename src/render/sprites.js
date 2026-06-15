@@ -471,6 +471,7 @@ export function drawObjectSprite(ctx, obj, cx, cy, time = 0) {
     case 'shrine': return shrine(ctx, cx, cy, time);
     case 'rest': return hyco(ctx, cx, cy);
     case 'agility': return agilityCourse(ctx, cx, cy);
+    case 'transport': return mrtStation(ctx, cx, cy);
     case 'scenery': return scenery(ctx, obj.objId, cx, cy, time);
     default: return;
   }
@@ -682,6 +683,25 @@ function hyco(ctx, cx, cy) {
   ctx.fillStyle = 'rgba(238,243,247,0.8)'; rr(ctx, cx - 11, cy + 1, 22, 2, 1); ctx.fill();
   // Embed the genuine Hyco Education logo onto the standee face (its own navy bg blends in).
   drawLogo(ctx, 'hyco', cx - 14, cy - 21, 28, 15);
+}
+
+// MRT station: a sleek train cab beside a red station pylon.
+function mrtStation(ctx, cx, cy) {
+  drawShadow(ctx, cx, cy + 13, 15, 5);
+  // platform
+  ctx.fillStyle = '#9a948a'; rr(ctx, cx - 15, cy + 8, 30, 5, 2); ctx.fill(); line(ctx, 'rgba(40,36,30,0.5)', 1.2);
+  // train body
+  ctx.fillStyle = '#e8eef2'; rr(ctx, cx - 13, cy - 8, 20, 17, 4); ctx.fill(); line(ctx, OUTLINE, 1.3);
+  ctx.fillStyle = '#c0392b'; rr(ctx, cx - 13, cy - 8, 20, 4, 4); ctx.fill();            // red stripe (roof)
+  ctx.fillStyle = '#2f6f9e'; rr(ctx, cx - 10, cy - 3, 14, 6, 1.5); ctx.fill();          // windscreen
+  ctx.fillStyle = 'rgba(255,255,255,0.5)'; rr(ctx, cx - 9, cy - 2.5, 5, 5, 1); ctx.fill();
+  ctx.fillStyle = '#3a3530'; circle(ctx, cx - 8, cy + 9, 2); ctx.fill(); circle(ctx, cx + 2, cy + 9, 2); ctx.fill();
+  // station pylon with "M"
+  ctx.fillStyle = '#3a3530'; rr(ctx, cx + 10, cy - 14, 2.4, 24, 1); ctx.fill();
+  ctx.fillStyle = '#c0392b'; rr(ctx, cx + 6, cy - 16, 11, 8, 2); ctx.fill(); line(ctx, OUTLINE, 1.1);
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 7px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('M', cx + 11.5, cy - 11.5);
+  ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
 }
 
 // Agility course: two posts with a row of climbing ropes.

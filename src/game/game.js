@@ -30,6 +30,7 @@ import { getShop } from '../data/shops.js';
 import { RARE_DROP_TABLE } from '../data/npcs.js';
 import { ACHIEVEMENTS } from '../data/achievements.js';
 import { eligibleTasks, SLAYER_REWARDS } from '../data/slayer.js';
+import { STATION_BY_ID, MRT_FARE } from '../data/transport.js';
 
 const STARTER_TOOLS = ['bronze_axe', 'bronze_pickaxe', 'small_net', 'tinderbox', 'hammer', 'bronze_dagger'];
 
@@ -433,6 +434,7 @@ export class Game {
       });
       case 'thieve': return this._tickArrival(a, a.target, true, () => this.pickpocket(a.npc));
       case 'agility': return this._tickContinuous(a, a.obj, () => this.resolveAgility(a.obj));
+      case 'transport': return this._tickArrival(a, a.target, true, () => this.ui?.openTransport(a.obj));
       case 'openbank': return this._tickArrival(a, a.target, true, () => this.ui?.openBank());
       case 'openshop': return this._tickArrival(a, a.target, true, () => this.ui?.openShop(a.shop));
       case 'talk': return this._tickArrival(a, a.target, true, () => this.ui?.openDialogue(a.npc));
@@ -817,6 +819,7 @@ export class Game {
       case 'shrine': return this.beginAction({ type: 'pray', obj }, tgt, true);
       case 'rest': return this.beginAction({ type: 'rest', obj }, tgt, true);
       case 'agility': return this.beginAction({ type: 'agility', obj }, tgt, true);
+      case 'transport': return this.beginAction({ type: 'transport', obj, target: tgt }, tgt, true);
       default: return this.walkTo(tgt);
     }
   }
@@ -1095,6 +1098,34 @@ export class Game {
     if (amount <= 0) { this.msg('Your inventory is full.'); return; }
     this.bank.withdraw(itemId, amount);
     this.inventory.add(itemId, amount);
+  }
+
+  // ---------------- MRT fast travel ----------------
+  _nearestFree(x, y) {
+    if (this.world.inBounds(x, y) && !this.world.isBlocked(x, y)) return { x, y };
+    for (let r = 1; r <= 5; r++) {
+      for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+        const nx = x + dx, ny = y + dy;
+        if (this.world.inBounds(nx, ny) && !this.world.isBlocked(nx, ny)) return { x: nx, y: ny };
+      }
+    }
+    return null;
+  }
+
+  travelTo(stationId) {
+    const st = STATION_BY_ID[stationId];
+    if (!st) return;
+    if (this.inventory.count('coins') < MRT_FARE) { this.msg(`You need ${MRT_FARE} coins for the MRT fare.`); return; }
+    const tile = this._nearestFree(st.x, st.y);
+    if (!tile) { this.msg('That station is unreachable.'); return; }
+    this.inventory.remove('coins', MRT_FARE);
+    const p = this.player;
+    p.stopNow(); p.clearAction();
+    p.x = p.tx = tile.x; p.y = p.ty = tile.y; p.progress = 0; p.moving = false; p.path = [];
+    this.spawnSparkle(this.player, '#8fd6ff', 14);
+    this.msg(`You take the MRT to ${st.name}.`, 'system');
+    this.updateRegion();
+    this.ui?.closeModal();
   }
 
   // ---------------- Hover (per frame) ----------------

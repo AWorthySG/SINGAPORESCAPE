@@ -6,11 +6,11 @@ const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g
 
 function statsFor(level) {
   return {
-    maxHp: Math.max(3, Math.round(level * 2.6 + 3)),
-    attack: Math.max(1, Math.round(level * 0.95)),
-    strength: Math.max(1, Math.round(level * 0.95)),
-    defence: Math.max(1, Math.round(level * 0.8)),
-    maxHit: Math.max(1, Math.ceil(level / 9) + 1),
+    maxHp: Math.max(3, Math.round(level * 1.7 + 2)),
+    attack: Math.max(1, Math.round(level * 0.85)),
+    strength: Math.max(1, Math.round(level * 0.85)),
+    defence: Math.max(1, Math.round(level * 0.6)), // lower def -> player lands hits more reliably
+    maxHit: Math.max(1, Math.ceil(level / 11)),
     attackSpeed: level > 60 ? 5 : 4,
   };
 }

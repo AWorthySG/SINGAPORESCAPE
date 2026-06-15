@@ -165,6 +165,12 @@ export const OBJECTS = {
     examine: 'A monument to learning, presented by Hyco Education. Rest here to recover health and run energy.',
   },
 
+  // ---------------- MRT station (fast travel) ----------------
+  mrt_station: {
+    name: 'MRT Station', label: 'MRT', type: 'transport', verb: 'Travel', emoji: '🚇', blocking: false,
+    examine: 'A Mass Rapid Transit station. Tap in to travel across the island.',
+  },
+
   // ---------------- Agility course ----------------
   agility_course: {
     name: 'Agility course', label: 'Agility', type: 'agility', verb: 'Train at', emoji: '🏃', blocking: true,
