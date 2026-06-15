@@ -95,6 +95,7 @@ export class UI {
 
     this.el.runOrb.addEventListener('click', () => this.game.toggleRun());
     this.el.specOrb.addEventListener('click', () => this.game.toggleSpec());
+    if (this.el.minimap) { this.el.minimap.style.cursor = 'pointer'; this.el.minimap.title = 'Open world map (M)'; this.el.minimap.addEventListener('click', () => this.openWorldMap()); }
     this.el.modalClose.addEventListener('click', () => this.closeModal());
     this.el.modalOverlay.addEventListener('mousedown', (e) => {
       if (e.target === this.el.modalOverlay) this.closeModal();
@@ -1012,6 +1013,64 @@ export class UI {
     cell.addEventListener('mousemove', (e) => this.moveTooltip(e));
     cell.addEventListener('mouseleave', () => this.hideTooltip());
     return cell;
+  }
+
+  // ---------------- World map (full overview) ----------------
+  openWorldMap() {
+    const game = this.game;
+    const W = game.world.width, H = game.world.height;
+    const render = (body) => {
+      body.innerHTML = '';
+      const scale = Math.max(2, Math.floor(Math.min((Math.min(window.innerWidth * 0.9, 620)) / W, (window.innerHeight * 0.66) / H)));
+      const cnv = document.createElement('canvas');
+      cnv.width = W * scale; cnv.height = H * scale;
+      cnv.className = 'worldmap-canvas';
+      const c = cnv.getContext('2d');
+      const colors = {
+        [TERRAIN.GRASS]: '#3f6e2c', [TERRAIN.DARKGRASS]: '#365f25', [TERRAIN.PATH]: '#9c8456',
+        [TERRAIN.WATER]: '#2f6f9e', [TERRAIN.SAND]: '#c8b27a', [TERRAIN.STONE]: '#8a8378', [TERRAIN.WOOD]: '#7a5a36',
+      };
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        c.fillStyle = colors[game.world.terrainAt(x, y)] || '#3f6e2c';
+        c.fillRect(x * scale, y * scale, scale, scale);
+      }
+      // notable objects
+      for (const o of game.world.objects) {
+        let col = null, big = false;
+        const t = o.def.type;
+        if (t === 'bank') { col = '#ffd24a'; big = true; }
+        else if (t === 'transport') { col = '#ffffff'; big = true; }
+        else if (t === 'shrine') { col = '#6aa0ff'; big = true; }
+        else if (t === 'rest') { col = '#f5a623'; big = true; }
+        else if (t === 'fishing') col = '#7fd8ff';
+        else if (t === 'tree' && !o.depleted) col = '#1f5a1f';
+        else if (t === 'rock' && !o.depleted) col = '#cfcfcf';
+        if (!col) continue;
+        c.fillStyle = col;
+        const s = big ? scale + 2 : scale;
+        c.fillRect(o.x * scale - (big ? 1 : 0), o.y * scale - (big ? 1 : 0), s, s);
+      }
+      // zone labels
+      c.font = `bold ${Math.max(9, scale * 3)}px "Trebuchet MS",sans-serif`;
+      c.textAlign = 'center'; c.textBaseline = 'middle';
+      for (const z of game.world.zones) {
+        const cx = ((z.x0 + z.x1) / 2) * scale, cy = ((z.y0 + z.y1) / 2) * scale;
+        c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillText(z.name, cx + 1, cy + 1);
+        c.fillStyle = z.wilderness ? '#ff8a7a' : '#fff3c8'; c.fillText(z.name, cx, cy);
+      }
+      c.textAlign = 'start'; c.textBaseline = 'alphabetic';
+      // player marker
+      const px = game.player.x * scale + scale / 2, py = game.player.y * scale + scale / 2;
+      c.fillStyle = '#fff'; c.beginPath(); c.arc(px, py, scale + 1.5, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#d8324a'; c.beginPath(); c.arc(px, py, scale, 0, Math.PI * 2); c.fill();
+      body.appendChild(cnv);
+      const legend = document.createElement('div');
+      legend.className = 'modal-hint worldmap-legend';
+      legend.innerHTML = '<b style="color:#d8324a">●</b> You &nbsp; <b style="color:#ffd24a">▪</b> Bank &nbsp; <b style="color:#fff">▪</b> MRT &nbsp; <b style="color:#6aa0ff">▪</b> Monument &nbsp; <b style="color:#f5a623">▪</b> Obelisk &nbsp; <b style="color:#7fd8ff">▪</b> Fishing';
+      body.appendChild(legend);
+    };
+    this.openModal('World Map — Singapore', render);
+    this.modal.kind = 'worldmap';
   }
 
   // ---------------- Minimap ----------------

@@ -37,6 +37,8 @@ input.onKey((e) => {
     game.eatFirstFood();
   } else if (e.key === 'q' || e.key === 'Q') {
     game.toggleSpec();
+  } else if (e.key === 'm' || e.key === 'M') {
+    ui.openWorldMap();
   } else if (e.key === 'Escape') {
     ui.closeModal();
     ui.hideContextMenu();
