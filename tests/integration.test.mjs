@@ -523,6 +523,16 @@ test('quick-eat consumes the first food in the bag', () => {
   assert.equal(game.inventory.count('kaya_toast'), before - 1, 'one food consumed');
 });
 
+test('world-map long-range travel sets a path across the island', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  // Travel from the spawn town toward Sentosa Beach (far south).
+  game.walkToFar({ x: 58, y: 92 });
+  assert.ok(game.player.path.length > 0, 'a multi-tile path was planned');
+});
+
 test('run energy regenerates while standing still', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();

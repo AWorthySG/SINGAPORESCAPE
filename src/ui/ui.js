@@ -1063,10 +1063,17 @@ export class UI {
       const px = game.player.x * scale + scale / 2, py = game.player.y * scale + scale / 2;
       c.fillStyle = '#fff'; c.beginPath(); c.arc(px, py, scale + 1.5, 0, Math.PI * 2); c.fill();
       c.fillStyle = '#d8324a'; c.beginPath(); c.arc(px, py, scale, 0, Math.PI * 2); c.fill();
+      // Click anywhere to travel there.
+      cnv.addEventListener('click', (e) => {
+        const r = cnv.getBoundingClientRect();
+        const tx = Math.floor((e.clientX - r.left) / (r.width / W));
+        const ty = Math.floor((e.clientY - r.top) / (r.height / H));
+        if (game.world.inBounds(tx, ty)) { game.walkToFar({ x: tx, y: ty }); this.closeModal(); }
+      });
       body.appendChild(cnv);
       const legend = document.createElement('div');
       legend.className = 'modal-hint worldmap-legend';
-      legend.innerHTML = '<b style="color:#d8324a">●</b> You &nbsp; <b style="color:#ffd24a">▪</b> Bank &nbsp; <b style="color:#fff">▪</b> MRT &nbsp; <b style="color:#6aa0ff">▪</b> Monument &nbsp; <b style="color:#f5a623">▪</b> Obelisk &nbsp; <b style="color:#7fd8ff">▪</b> Fishing';
+      legend.innerHTML = 'Click the map to travel. &nbsp; <b style="color:#d8324a">●</b> You &nbsp; <b style="color:#ffd24a">▪</b> Bank &nbsp; <b style="color:#fff">▪</b> MRT &nbsp; <b style="color:#6aa0ff">▪</b> Monument &nbsp; <b style="color:#f5a623">▪</b> Obelisk &nbsp; <b style="color:#7fd8ff">▪</b> Fishing';
       body.appendChild(legend);
     };
     this.openModal('World Map — Singapore', render);
