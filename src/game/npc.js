@@ -4,13 +4,32 @@ import { findPath } from '../engine/pathfinding.js';
 import { chebyshev, randInt, uid } from '../core/utils.js';
 import { AGGRO_FORGET_TILES } from '../config.js';
 
+// Build a per-instance def from the shared registry entry plus spawn overrides.
+// Supported opts: { aggressive:false } pacifies a mob; { statMul:n } scales its
+// combat stats (hp/attack/strength/defence/maxHit) for easier or harder spawns.
+function applySpawnOpts(base, opts) {
+  const def = { ...base };
+  if (opts.aggressive === false) { def.aggressive = false; def.aggroRange = 0; }
+  if (opts.statMul && opts.statMul > 0) {
+    const m = opts.statMul;
+    def.maxHp = Math.max(2, Math.round((base.maxHp || 1) * m));
+    def.attack = Math.max(1, Math.round((base.attack || 1) * m));
+    def.strength = Math.max(1, Math.round((base.strength || 1) * m));
+    def.defence = Math.max(1, Math.round((base.defence || 1) * m));
+    def.maxHit = Math.max(1, Math.round((base.maxHit || 1) * m));
+  }
+  return def;
+}
+
 // A world NPC. Monsters fight/wander; townsfolk just wander or stand still.
 export class NPC extends Character {
-  constructor(npcId, x, y, wander = 0) {
+  constructor(npcId, x, y, wander = 0, opts = null) {
     super(x, y);
     this.entityId = uid();
     this.npcId = npcId;
-    this.def = getNpc(npcId);
+    // Per-spawn tweaks (e.g. gentle starter monsters) override a private copy of
+    // the def so the shared registry entry — and every other spawn — is untouched.
+    this.def = opts ? applySpawnOpts(getNpc(npcId), opts) : getNpc(npcId);
     this.spawnX = x;
     this.spawnY = y;
     this.wander = wander || this.def.wander || 0;
