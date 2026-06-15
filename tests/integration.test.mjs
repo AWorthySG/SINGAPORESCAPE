@@ -578,3 +578,62 @@ test('eating food heals the player', () => {
   game.eatItem(idx);
   assert.ok(game.player.hp > 5, 'eating should heal');
 });
+
+test('life-skills quest line teaches every life skill stage by stage', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const { LIFE_STAGES, LIFE_GRAD } = await import('../src/data/lifeskills.js');
+  const game = new Game();
+  game.start();
+
+  // Tutor NPC + dialogue tree exist and are reachable.
+  assert.ok(game.npcs.some((n) => n.npcId === 'skills_tutor'), 'Cikgu Surya is in the world');
+  const { getDialogue } = await import('../src/data/dialogue.js');
+  assert.ok(getDialogue('tutor'), 'tutor dialogue tree exists');
+
+  // Start the quest line.
+  game.handleDialogueAction('lifeStart');
+  assert.equal(game.quests.life_skills.state, 'active');
+  assert.equal(game.quests.life_skills.stage, 1);
+
+  // Turning in with nothing in hand must not advance or consume.
+  game.handleDialogueAction('lifeTurnIn');
+  assert.equal(game.quests.life_skills.stage, 1, 'no progress without the goods');
+
+  // Walk every stage by satisfying its requirement.
+  for (let i = 0; i < LIFE_STAGES.length; i++) {
+    const st = LIFE_STAGES[game.quests.life_skills.stage - 1];
+    const xpBefore = game.skills.xp[st.skill] || 0;
+    if (st.need.item) {
+      game.inventory.add(st.need.item, st.need.qty);
+      const held = game.inventory.count(st.need.item);
+      game.handleDialogueAction('lifeTurnIn');
+      assert.ok(game.inventory.count(st.need.item) < held, `${st.name} turn-in consumed the items`);
+    } else {
+      // xp-based lesson (Firemaking): practise past the baseline, then report.
+      game.skills.addXp(st.skill, st.need.xp + 5);
+      game.handleDialogueAction('lifeTurnIn');
+    }
+    assert.ok((game.skills.xp[st.skill] || 0) >= xpBefore + st.reward.xp, `${st.name} lesson granted its XP`);
+  }
+
+  // Completed — graduation paid out across all life skills.
+  assert.equal(game.quests.life_skills.state, 'done', 'quest line completes');
+  for (const s of LIFE_GRAD.skills) {
+    assert.ok((game.skills.xp[s] || 0) > 0, `graduation touched ${s}`);
+  }
+});
+
+test('life-skills journal entry reports the current lesson', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const { QUESTS } = await import('../src/data/quests.js');
+  const game = new Game();
+  game.start();
+  const entry = QUESTS.find((q) => q.id === 'life_skills');
+  assert.ok(entry, 'life_skills is in the quest journal');
+  assert.equal(entry.progress(game), '', 'no progress label before starting');
+  game.handleDialogueAction('lifeStart');
+  const label = entry.progress(game);
+  assert.match(label, /Lesson 1\/\d+: Woodcutting/, 'shows the first lesson');
+});

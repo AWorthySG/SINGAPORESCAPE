@@ -83,6 +83,7 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
     mage: { top: '#3a2f7a', skin: '#e6c0a0', hair: '#cfcfdf', hat: '#2a2060' },
     fletcher: { top: '#3f5a2a', skin: '#e0aa78', hair: '#3a2a18', hat: '#5a4020' },
     slayer_master: { top: '#3a2a2a', skin: '#caa078', hair: '#161616', apron: '#5a2a2a' },
+    skills_tutor: { top: '#b5862f', skin: '#caa078', hair: '#e6e0d0', hat: '#7a5a2a', apron: '#d8c089' },
     villager: { top: '#6a5aa0', skin: '#e8b98a', hair: '#4a3320' },
   };
   const p = TOWN[npcId] || TOWN.villager;
