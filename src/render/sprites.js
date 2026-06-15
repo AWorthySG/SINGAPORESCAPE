@@ -63,7 +63,7 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
   const arch = opts.sprite && ARCH[opts.sprite];
   if (arch) {
     return staged(ctx, cx, cy, opts, (c) => {
-      if (opts.boss) bossAura(c);
+      if (opts.boss) bossAura(c, opts.time || 0);
       arch(c, opts.color || '#8a8a8a');
       if (opts.boss) crown(c);
     });
@@ -89,15 +89,26 @@ function shade(hex, k) {
   return `rgb(${r | 0},${g | 0},${b | 0})`;
 }
 
-function bossAura(ctx) {
-  const g = ctx.createRadialGradient(0, -2, 2, 0, -2, 24);
-  g.addColorStop(0, 'rgba(255,90,70,0.34)'); g.addColorStop(1, 'rgba(255,90,70,0)');
-  ctx.fillStyle = g; circle(ctx, 0, -2, 24); ctx.fill();
+function bossAura(ctx, time = 0) {
+  const pulse = 1 + Math.sin(time * 0.004) * 0.12;
+  // outer menacing glow
+  const g = ctx.createRadialGradient(0, -2, 2, 0, -2, 28 * pulse);
+  g.addColorStop(0, 'rgba(255,90,70,0.30)');
+  g.addColorStop(0.6, 'rgba(180,40,30,0.16)');
+  g.addColorStop(1, 'rgba(255,90,70,0)');
+  ctx.fillStyle = g; circle(ctx, 0, -2, 28 * pulse); ctx.fill();
+  // dark contact ring on the ground for weight
+  ctx.fillStyle = 'rgba(60,0,0,0.22)';
+  ellipse(ctx, 0, 13, 15, 5); ctx.fill();
 }
 function crown(ctx) {
   ctx.fillStyle = '#ffd24a';
   path(ctx, () => { ctx.moveTo(-7, -20); ctx.lineTo(-5, -27); ctx.lineTo(-2, -22); ctx.lineTo(0, -28); ctx.lineTo(2, -22); ctx.lineTo(5, -27); ctx.lineTo(7, -20); });
   ctx.fill(); line(ctx, OUTLINE, 1);
+  ctx.fillStyle = '#fff3b0'; rr(ctx, -7, -21, 14, 1.6, 0.8); ctx.fill(); // gold band shine
+  // jewels
+  ctx.fillStyle = '#d8566f'; circle(ctx, 0, -25, 1); ctx.fill();
+  ctx.fillStyle = '#5ad1ff'; circle(ctx, -5, -25.4, 0.8); ctx.fill(); circle(ctx, 5, -25.4, 0.8); ctx.fill();
 }
 
 // ---- archetypes (ctx, col) ----

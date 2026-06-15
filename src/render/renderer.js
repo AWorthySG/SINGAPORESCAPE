@@ -464,10 +464,22 @@ export class Renderer {
     const { ctx } = this;
     const w = boss ? 60 : 30, h = boss ? 6 : 5;
     frac = Math.max(0, Math.min(1, frac));
-    ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(cx - w / 2 - 1, cy - 1, w + 2, h + 2);
-    ctx.fillStyle = '#b81818'; ctx.fillRect(cx - w / 2, cy, w, h);
-    ctx.fillStyle = '#2fd24a'; ctx.fillRect(cx - w / 2, cy, w * frac, h);
-    ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.fillRect(cx - w / 2, cy, w * frac, 1.5);
+    const x = cx - w / 2;
+    // frame
+    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(x - 1, cy - 1, w + 2, h + 2);
+    // empty track + filled portion (green→amber→red by remaining health)
+    ctx.fillStyle = '#5a1212'; ctx.fillRect(x, cy, w, h);
+    const hue = Math.round(120 * frac); // 120 green -> 0 red
+    ctx.fillStyle = `hsl(${hue},75%,46%)`;
+    ctx.fillRect(x, cy, w * frac, h);
+    // top gloss + a darker base line for a rounded look
+    ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fillRect(x, cy, w * frac, 1.5);
+    ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(x, cy + h - 1, w, 1);
+    // boss bars get segment ticks
+    if (boss) {
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      for (let i = 1; i < 4; i++) ctx.fillRect(x + (w / 4) * i, cy, 1, h);
+    }
   }
 }
 
