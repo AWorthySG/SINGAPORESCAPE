@@ -70,6 +70,8 @@ export const SHOPS = {
       { id: 'mind_rune', qty: 5000 },
       { id: 'chaos_rune', qty: 1000 },
       { id: 'death_rune', qty: 250 },
+      { id: 'blood_rune', qty: 150 },
+      { id: 'occult_necklace', qty: 1 },
     ],
   },
   hawker: {

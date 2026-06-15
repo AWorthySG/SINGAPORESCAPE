@@ -347,6 +347,40 @@ test('slayer state survives save/load', () => {
   assert.ok(g2.slayer.task && g2.slayer.task.family === g1.slayer.task.family);
 });
 
+test("the mystic's trial trades death runes for the ancient staff", () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.handleDialogueAction('mysticStart');
+  assert.equal(game.quests.mystic_trial.state, 'active');
+  game.handleDialogueAction('mysticTurnIn');
+  assert.equal(game.quests.mystic_trial.state, 'active', 'cannot complete without runes');
+  game.inventory.add('death_rune', 25);
+  game.handleDialogueAction('mysticTurnIn');
+  assert.equal(game.quests.mystic_trial.state, 'done');
+  assert.equal(game.inventory.count('death_rune'), 0, 'runes consumed');
+  assert.ok(game.inventory.has('ancient_staff'));
+});
+
+test('high-tier wave spells can be cast with blood runes', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.player.autoRetaliate = false; game.player.hp = 9999;
+  game.skills.addXp('magic', 5_000_000); // high Magic level
+  game.equipment.set('weapon', 'ancient_staff');
+  game.player.spell = 'fire_wave';
+  game.inventory.add('fire_rune', 50); game.inventory.add('air_rune', 50); game.inventory.add('blood_rune', 20);
+  assert.equal(game.combatMode(), 'magic');
+  const chicken = game.npcs.find((n) => n.npcId === 'chicken');
+  game.player.x = game.player.tx = chicken.x + 3; game.player.y = game.player.ty = chicken.y;
+  game.attackNpc(chicken);
+  step(game, 40);
+  assert.ok(game.inventory.count('blood_rune') < 20, 'blood runes were consumed by the wave spell');
+});
+
 test('eating food heals the player', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();

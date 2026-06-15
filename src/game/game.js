@@ -72,6 +72,7 @@ export class Game {
       smith_apprentice: { state: 'notStarted' },
       island_defender: { state: 'notStarted', startBoss: 0 },
       big_game_hunter: { state: 'notStarted', startKills: 0 },
+      mystic_trial: { state: 'notStarted' },
     };
 
     // Achievement / collection-log progress.
@@ -923,7 +924,24 @@ export class Game {
       const q = this.quests.big_game_hunter;
       if (q.state === 'notStarted') { q.state = 'active'; q.startKills = this.totalKills; this.msg('Quest started — Big Game Hunter: defeat 50 creatures.', 'level'); }
     } else if (action === 'bigGameTurnIn') this.turnInBigGame();
+    else if (action === 'mysticStart') {
+      const q = this.quests.mystic_trial;
+      if (q.state === 'notStarted') { q.state = 'active'; this.msg('Quest started — The Mystic\'s Trial: bring 25 death runes to the Kampong Guide.', 'level'); }
+    } else if (action === 'mysticTurnIn') this.turnInMystic();
     this.bus.emit('quest');
+  }
+
+  turnInMystic() {
+    const q = this.quests.mystic_trial;
+    if (q.state === 'done') { this.msg('May the runes favour you.', 'system'); return; }
+    if (q.state !== 'active') { this.msg('Ask me about the mystic trial first.', 'system'); return; }
+    if (this.inventory.count('death_rune') < 25) { this.msg('Bring 25 death runes to complete the trial.', 'system'); return; }
+    this.inventory.remove('death_rune', 25);
+    this.inventory.add('ancient_staff', 1);
+    this.skills.addXp('magic', 4000);
+    q.state = 'done';
+    this.msg('Quest complete — The Mystic\'s Trial! You receive the ancient staff.', 'level');
+    this.banner('<span class="big">Quest complete!</span>The Mystic\'s Trial');
   }
 
   turnInBigGame() {
