@@ -141,7 +141,15 @@ export function buildWorld() {
   placeNpc('villager', 60, 54, 3);
   placeObj('lamp', 46, 46); placeObj('lamp', 70, 46); placeObj('lamp', 46, 64); placeObj('lamp', 70, 64);
   placeObj('flower', 54, 47); placeObj('flower', 62, 47); placeObj('bush', 48, 51); placeObj('bush', 68, 60);
-  placeObj('agility_course', 66, 62); // train Agility in town
+  placeObj('agility_course', 66, 62); // beginner Agility spot in town
+  // A small obstacle loop in the south of town (train a full lap for a bonus).
+  placeObj('agility_balance', 46, 61);
+  placeObj('agility_net', 48, 61);
+  placeObj('agility_rope', 50, 61);
+  placeObj('agility_ledge', 50, 63);
+  placeObj('agility_zip', 47, 63);
+  // A hawker stall to practise Thieving in the kampung.
+  placeObj('stall_food', 64, 62);
 
   // ================= MRT fast-travel network =================
   placeObj('mrt_station', 68, 52); // Kampong Glam
@@ -192,6 +200,10 @@ export function buildWorld() {
   placeNpc('villager', 80, 56, 4); placeNpc('villager', 86, 54, 4);
   placeObj('lamp', 75, 47); placeObj('lamp', 92, 47); placeObj('lamp', 75, 64); placeObj('lamp', 92, 64);
   placeObj('sign', 83, 47, { sign: 'Chinatown' }); placeObj('flower', 80, 63); placeObj('flower', 88, 63);
+  // Chinatown bazaar: a row of Thieving stalls of rising value.
+  placeObj('stall_food', 85, 62);
+  placeObj('stall_market', 86, 50);
+  placeObj('stall_gem', 90, 50);
 
   // ================= Sentosa Beach =================
   scatter('palm', 34, 84, 98, 96, 12, [T.SAND, T.GRASS, T.DARKGRASS]);

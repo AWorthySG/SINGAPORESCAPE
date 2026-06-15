@@ -848,6 +848,7 @@ export function drawObjectSprite(ctx, obj, cx, cy, time = 0) {
     case 'shrine': return shrine(ctx, cx, cy, time);
     case 'rest': return hyco(ctx, cx, cy);
     case 'agility': return agilityCourse(ctx, cx, cy);
+    case 'stall': return stall(ctx, obj.objId, obj.depleted, cx, cy);
     case 'transport': return mrtStation(ctx, cx, cy);
     case 'scenery': return scenery(ctx, obj.objId, cx, cy, time);
     default: return;
@@ -991,6 +992,35 @@ function anvil(ctx, cx, cy) {
   });
   ctx.fill(); line(ctx, 'rgba(0,0,0,0.5)', 1.5);
   ctx.fillStyle = 'rgba(255,255,255,0.18)'; rr(ctx, cx - 10, cy - 4, 17, 1.6, 1); ctx.fill();
+}
+
+// Thieving market stall: striped awning on posts over a goods counter.
+// Awning colour signals the stall type; goods disappear briefly when depleted.
+function stall(ctx, objId, depleted, cx, cy) {
+  drawShadow(ctx, cx, cy + 12, 15, 5);
+  // posts
+  ctx.fillStyle = '#6b4524';
+  rr(ctx, cx - 13, cy - 14, 3, 26, 1); ctx.fill();
+  rr(ctx, cx + 10, cy - 14, 3, 26, 1); ctx.fill();
+  line(ctx, 'rgba(30,18,8,0.5)', 1);
+  // counter
+  ctx.fillStyle = '#7a5230'; rr(ctx, cx - 14, cy + 2, 28, 12, 2); ctx.fill(); line(ctx, 'rgba(30,18,8,0.5)', 2);
+  ctx.fillStyle = '#8a6038'; rr(ctx, cx - 14, cy, 28, 4, 2); ctx.fill();
+  // striped awning, coloured per stall type
+  const cols = { stall_food: '#d8566f', stall_market: '#2f7bbf', stall_gem: '#7a4a9a' };
+  const a = cols[objId] || '#d8566f';
+  for (let i = 0; i < 6; i++) { ctx.fillStyle = i % 2 ? a : '#f0e7d4'; rr(ctx, cx - 15 + i * 5, cy - 16, 5, 7, 0); ctx.fill(); }
+  line(ctx, 'rgba(30,18,8,0.5)', 1);
+  // scalloped hem
+  ctx.fillStyle = a;
+  for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.arc(cx - 12.5 + i * 5, cy - 9, 2.5, 0, Math.PI); ctx.fill(); }
+  // goods on the counter (hidden while restocking)
+  if (!depleted) {
+    ctx.fillStyle = objId === 'stall_gem' ? '#9adcff' : '#ffd773';
+    circle(ctx, cx - 6, cy + 3, 2); ctx.fill();
+    circle(ctx, cx, cy + 3, 2); ctx.fill();
+    circle(ctx, cx + 6, cy + 3, 2); ctx.fill();
+  }
 }
 
 function bank(ctx, cx, cy) {

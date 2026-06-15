@@ -345,6 +345,7 @@
   I.revenant_cape = capeIcon('#5a4a6a', '#8a7aa0');
   I.trades_cape = capeIcon('#2f9e6e', '#5fd0a0');     // jade — Master of Trades
   I.champions_cape = capeIcon('#e6b34a', '#ffd773');  // gold — Champion of Singapore
+  I.mark_of_grace = `<path d="M5 19 C5 9 11 4 19 4 C19 13 12 19 5 19 Z" fill="${C.jade}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M6.5 17.5 L16 8" fill="none" stroke="${C.jadeHi}" stroke-width="1.3" stroke-linecap="round"/><path d="M9 15 L13.5 12 M9.5 12.5 L13 10" stroke="${C.jadeDk}" stroke-width="1" stroke-linecap="round"/>`;
   // quest & special rewards
   I.tiger_kris = scim('#d8a23a', '#ffd773');
   I.cursed_cutlass = scim('#3a5a4a', '#6a9a7a');
