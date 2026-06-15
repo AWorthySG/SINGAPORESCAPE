@@ -533,6 +533,27 @@ test('world-map long-range travel sets a path across the island', () => {
   assert.ok(game.player.path.length > 0, 'a multi-tile path was planned');
 });
 
+test('ranged special (magic shortbow Rapid Volley) fires twice and spends arrows', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.player.autoRetaliate = false; game.player.hp = 9999;
+  game.equipment.set('weapon', 'magic_shortbow');
+  game.inventory.add('rune_arrow', 100);
+  game.specEnergy = 100;
+  assert.equal(game.combatMode(), 'ranged');
+  game.toggleSpec();
+  assert.ok(game.specArmed, 'spec armed on a bow (no longer melee-only)');
+  const chicken = game.npcs.find((n) => n.npcId === 'chicken');
+  game.player.x = game.player.tx = chicken.x + 3; game.player.y = game.player.ty = chicken.y;
+  const arrowsBefore = game.inventory.count('rune_arrow');
+  game.attackNpc(chicken);
+  step(game, 3);
+  assert.ok(arrowsBefore - game.inventory.count('rune_arrow') >= 2, 'two arrows consumed by the volley');
+  assert.ok(game.specEnergy < 60, 'spec energy spent');
+});
+
 test('run energy regenerates while standing still', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();

@@ -337,6 +337,12 @@ const WEAPON_SPECS = {
   cursed_cutlass: { name: 'Plunder', cost: 45, acc: 1.5, dmg: 1.5, heal: 0.3 },
   megalodon_jaw: { name: 'Devour', cost: 55, acc: 1.4, dmg: 1.7, heal: 0.25 },
   leviathan_trident: { name: 'Riptide', cost: 50, acc: 1.6, dmg: 1.45, heal: 0.4 },
+  // ranged
+  yew_shortbow: { name: 'Pinpoint Shot', cost: 40, acc: 2.5, dmg: 1.25 },
+  magic_shortbow: { name: 'Rapid Volley', cost: 50, acc: 1.3, dmg: 1.15, hits: 2 },
+  // magic
+  mystic_staff: { name: 'Spell Echo', cost: 45, acc: 1.4, dmg: 1.5 },
+  ancient_staff: { name: 'Arcane Surge', cost: 55, acc: 1.5, dmg: 1.8 },
 };
 for (const [id, spec] of Object.entries(WEAPON_SPECS)) { if (RAW[id]) RAW[id].spec = spec; }
 
