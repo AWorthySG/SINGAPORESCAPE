@@ -4,6 +4,7 @@ import { SMELT, SMITH } from '../data/smithing.js';
 import { COOKING } from '../game/skilling.js';
 import { SKILLS } from '../data/skills.js';
 import { getDialogue } from '../data/dialogue.js';
+import { MONSTER_IDS, BOSS_IDS, getNpc } from '../data/npcs.js';
 import { levelProgress, xpToNext } from '../data/xp.js';
 import { stackLabel, capitalize, formatNumber } from '../core/utils.js';
 import { STYLE_ORDER, STYLES, RANGED_STYLE_ORDER, RANGED_STYLES } from '../game/combat.js';
@@ -529,6 +530,50 @@ export class UI {
       html += '</div>';
     }
     panel.innerHTML = html;
+    const btn = document.createElement('button');
+    btn.className = 'bestiary-open';
+    const ids = MONSTER_IDS.length + BOSS_IDS.length;
+    const seen = [...MONSTER_IDS, ...BOSS_IDS].filter((id) => (game.kills[id] || 0) > 0).length;
+    btn.textContent = `Open Bestiary (${seen}/${ids})`;
+    btn.addEventListener('click', () => this.openBestiary());
+    panel.insertBefore(btn, panel.firstChild);
+  }
+
+  // ---------------- Bestiary / collection log ----------------
+  openBestiary() {
+    const ids = [...BOSS_IDS, ...MONSTER_IDS];
+    const render = (body) => {
+      const seen = ids.filter((id) => (this.game.kills[id] || 0) > 0).length;
+      body.innerHTML = `<div class="modal-hint">Discovered ${seen} / ${ids.length} creatures.</div>`;
+      const search = document.createElement('input');
+      search.className = 'bank-search'; search.placeholder = 'Search creatures…'; search.value = this._bestSearch || '';
+      search.addEventListener('input', () => {
+        this._bestSearch = search.value; render(body);
+        const n = body.querySelector('.bank-search'); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); }
+      });
+      body.appendChild(search);
+      const list = document.createElement('div'); list.className = 'bestiary-list';
+      const term = (this._bestSearch || '').trim().toLowerCase();
+      let shown = 0;
+      for (const id of ids) {
+        const d = getNpc(id);
+        if (term && !d.name.toLowerCase().includes(term)) continue;
+        if (++shown > 120) break; // cap rows for performance; narrow via search
+        const k = this.game.kills[id] || 0;
+        const drops = (d.dropTable || []).filter((x) => !x.nothing).map((x) => x.id);
+        const dropHtml = k
+          ? (drops.length ? drops.slice(0, 10).map((did) => `<span class="b-drop" title="${escapeHtml(getItem(did).name)}">${itemIconSVG(did, 20)}</span>`).join('') : '<span class="b-hidden">No notable drops.</span>')
+          : '<span class="b-hidden">Defeat one to reveal its drops.</span>';
+        const row = document.createElement('div');
+        row.className = 'bestiary-row' + (k ? '' : ' undiscovered');
+        row.innerHTML = `<div class="b-head"><b>${escapeHtml(d.name)}</b><span class="b-lvl">Lvl ${d.level}${d.boss ? ' · Boss' : ''}</span><span class="b-kc">${k} kills</span></div><div class="b-drops">${dropHtml}</div>`;
+        list.appendChild(row);
+      }
+      if (!shown) { const e = document.createElement('div'); e.className = 'modal-hint'; e.textContent = 'No creatures match your search.'; list.appendChild(e); }
+      body.appendChild(list);
+    };
+    this.openModal('Bestiary', render);
+    this.modal.kind = 'bestiary';
   }
 
   // ---------------- XP drops / level up ----------------

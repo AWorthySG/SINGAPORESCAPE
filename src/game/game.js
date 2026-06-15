@@ -82,6 +82,7 @@ export class Game {
     this.bossKills = 0;
     this.zonesVisited = new Set();
     this.achievements = new Set();
+    this.kills = {}; // per-monster kill counts (bestiary)
 
     // Slayer task system.
     this.slayer = { task: null, points: 0, completed: 0 };
@@ -652,6 +653,7 @@ export class Game {
       this.msg(`You have defeated the ${npc.name}.`, 'combat');
     }
     this.totalKills++;
+    this.kills[npc.npcId] = (this.kills[npc.npcId] || 0) + 1;
     if (npc.def.boss) this.bossKills++;
     if ((npc.def.boss && this.quests.island_defender.state === 'active') ||
         this.quests.big_game_hunter.state === 'active') this.bus.emit('quest');
