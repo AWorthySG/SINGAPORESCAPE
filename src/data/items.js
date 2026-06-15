@@ -321,6 +321,25 @@ for (const M of _METALS) {
   }
 }
 
+// Weapon special attacks (the spec bar). Attached after generation so the tiered
+// Dragon weapons can carry specs too. acc/dmg are multipliers; hits = swings;
+// heal = fraction of damage returned as health.
+const WEAPON_SPECS = {
+  dragon_dagger: { name: 'Puncture', cost: 25, acc: 1.5, dmg: 1.15, hits: 2 },
+  dragon_scimitar: { name: 'Sever', cost: 40, acc: 2.0, dmg: 1.25 },
+  dragon_longsword: { name: 'Cleave', cost: 35, acc: 1.5, dmg: 1.3 },
+  dragon_mace: { name: 'Crush', cost: 35, acc: 1.6, dmg: 1.35 },
+  dragon_battleaxe: { name: 'Rampage', cost: 50, acc: 1.2, dmg: 1.7 },
+  dragon_2h_sword: { name: 'Devastate', cost: 55, acc: 1.25, dmg: 1.7 },
+  merlion_blade: { name: 'Tide Strike', cost: 50, acc: 2.0, dmg: 1.5, heal: 0.2 },
+  tiger_fang: { name: 'Maul', cost: 40, acc: 1.6, dmg: 1.4 },
+  tiger_kris: { name: 'Flurry', cost: 25, acc: 1.4, dmg: 1.1, hits: 2 },
+  cursed_cutlass: { name: 'Plunder', cost: 45, acc: 1.5, dmg: 1.5, heal: 0.3 },
+  megalodon_jaw: { name: 'Devour', cost: 55, acc: 1.4, dmg: 1.7, heal: 0.25 },
+  leviathan_trident: { name: 'Riptide', cost: 50, acc: 1.6, dmg: 1.45, heal: 0.4 },
+};
+for (const [id, spec] of Object.entries(WEAPON_SPECS)) { if (RAW[id]) RAW[id].spec = spec; }
+
 // Freeze each definition and attach its id for convenience.
 export const ITEMS = Object.fromEntries(
   Object.entries(RAW).map(([id, def]) => [id, Object.freeze({ id, ...def })])

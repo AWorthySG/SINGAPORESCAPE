@@ -68,6 +68,8 @@ export class UI {
       prayerOrb: id('prayer-orb'),
       prayerOrbVal: id('prayer-orb-value'),
       runOrb: id('run-orb'),
+      specOrb: id('spec-orb'),
+      specOrbVal: id('spec-orb-value'),
       minimap: id('minimap-canvas'),
     };
     this.minimapCtx = this.el.minimap.getContext('2d');
@@ -86,6 +88,7 @@ export class UI {
     this._buildSettingsPanel();
 
     this.el.runOrb.addEventListener('click', () => this.game.toggleRun());
+    this.el.specOrb.addEventListener('click', () => this.game.toggleSpec());
     this.el.modalClose.addEventListener('click', () => this.closeModal());
     this.el.modalOverlay.addEventListener('mousedown', (e) => {
       if (e.target === this.el.modalOverlay) this.closeModal();
@@ -103,6 +106,8 @@ export class UI {
     this.bus.on('chat', (p) => this.addChat(p.text, p.cls));
     this.bus.on('hp', () => this.renderHp());
     this.bus.on('run', () => this.renderRun());
+    this.bus.on('spec', () => this.renderSpec());
+    this.bus.on('equipment', () => this.renderSpec());
     this.bus.on('prayer', () => { this.renderPrayer(); this.renderPrayerPanel(); });
     this.bus.on('skills', () => this.renderPrayerPanel());
     this.bus.on('quest', () => this.renderQuestPanel());
@@ -120,6 +125,7 @@ export class UI {
     this.renderHp();
     this.renderRun();
     this.renderPrayer();
+    this.renderSpec();
   }
 
   // ---------------- Tabs ----------------
@@ -278,11 +284,19 @@ export class UI {
     }
     const b = this.game.equipment.bonuses();
     const speed = this.game.equipment.weaponSpeed();
+    const sets = this.game.equipment.activeSets();
+    const wid = this.game.equipment.get('weapon');
+    let specLine = '';
+    try { const sp = wid && getItem(wid).spec; if (sp) specLine = `<div class="row"><span>Special</span><span>${sp.name} (${sp.cost}%)</span></div>`; } catch {}
     this.el.equipBonuses.innerHTML =
       `<div class="row"><span>Attack bonus</span><span>+${b.attack}</span></div>` +
       `<div class="row"><span>Strength bonus</span><span>+${b.strength}</span></div>` +
       `<div class="row"><span>Defence bonus</span><span>+${b.defence}</span></div>` +
-      `<div class="row"><span>Attack speed</span><span>${(speed * 0.6).toFixed(1)}s</span></div>`;
+      (b.ranged ? `<div class="row"><span>Ranged bonus</span><span>+${b.ranged}</span></div>` : '') +
+      (b.magic ? `<div class="row"><span>Magic bonus</span><span>+${b.magic}</span></div>` : '') +
+      `<div class="row"><span>Attack speed</span><span>${(speed * 0.6).toFixed(1)}s</span></div>` +
+      specLine +
+      (sets.length ? `<div class="row set-bonus"><span>Set bonus</span><span>${sets.join(', ')}</span></div>` : '');
   }
 
   // ---------------- Skills ----------------
@@ -395,6 +409,21 @@ export class UI {
   renderRun() {
     this.el.runOrb.textContent = `${Math.round(this.game.runEnergy)}%`;
     this.el.runOrb.classList.toggle('active', this.game.running);
+  }
+
+  renderSpec() {
+    if (!this.el.specOrb) return;
+    const e = Math.round(this.game.specEnergy);
+    if (this.el.specOrbVal) this.el.specOrbVal.textContent = e;
+    const id = this.game.equipment.get('weapon');
+    let hasSpec = false;
+    try { hasSpec = !!(id && getItem(id).spec); } catch { hasSpec = false; }
+    this.el.specOrb.classList.toggle('armed', this.game.specArmed);
+    this.el.specOrb.classList.toggle('disabled', !hasSpec);
+    this.el.specOrb.style.color = `hsl(${Math.round(e * 1.2)}, 85%, 62%)`;
+    this.el.specOrb.title = hasSpec
+      ? `Special: ${getItem(id).spec.name} (${getItem(id).spec.cost}%) — click to arm`
+      : 'Special attack (needs a spec weapon)';
   }
 
   // ---------------- Prayer ----------------
