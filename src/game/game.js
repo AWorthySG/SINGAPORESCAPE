@@ -87,7 +87,12 @@ export class Game {
     this.slayer = { task: null, points: 0, completed: 0 };
 
     // Celebratory sparkle on level up; new milestones may unlock on level/quest changes.
-    this.bus.on('levelup', () => { this.spawnSparkle(this.player, '#ffe24a', 12); this.checkAchievements(); });
+    this.bus.on('levelup', () => {
+      const c = this.player.renderCenter();
+      this.spawnSparkle(this.player, '#ffe24a', 18);
+      this.spawnPoof(c.x, c.y - 6, '#fff3a0');
+      this.checkAchievements();
+    });
     this.bus.on('quest', () => this.checkAchievements());
 
     this.tickAcc = 0;
@@ -170,7 +175,19 @@ export class Game {
 
   msg(text, cls = 'game') { this.bus.emit('chat', { text, cls }); }
   banner(html) { this.ui?.showBanner(html); }
-  addHitsplat(entity, dmg) { this.effects.push({ type: 'hitsplat', entity, dmg, life: 1100 }); }
+  addHitsplat(entity, dmg, opts = {}) {
+    if (entity && dmg > 0) entity.hurt = 200; // flash the struck entity
+    this.effects.push({ type: 'hitsplat', entity, dmg, crit: !!opts.crit, life: 1100 });
+  }
+
+  /** Point an attacker's lunge toward a tile and start the swing animation. */
+  _swingToward(attacker, tx, ty) {
+    const c = attacker.renderCenter();
+    let dx = (tx * TILE + TILE / 2) - c.x, dy = (ty * TILE + TILE / 2) - c.y;
+    const m = Math.hypot(dx, dy) || 1;
+    attacker.lungeDX = dx / m; attacker.lungeDY = dy / m;
+    attacker.swing = 180;
+  }
 
   // ---------------- Frame update (called from RAF) ----------------
   update(dt) {
@@ -212,6 +229,13 @@ export class Game {
     for (let i = 0; i < n; i++) {
       this._pushParticle({ x: c.x + (Math.random() - 0.5) * 18, y: c.y + (Math.random() - 0.5) * 8, vx: (Math.random() - 0.5) * 0.02, vy: -0.03 - Math.random() * 0.03, g: 0, life: 700, maxLife: 700, size: 2 + Math.random() * 2, color, add: true });
     }
+  }
+
+  _deathBurst(npc) {
+    const c = npc.renderCenter();
+    this.spawnHitSparks(npc, '#ffd9b0');
+    this.spawnPoof(c.x, c.y - 4, npc.def.color || '#caa15a');
+    if (npc.def.boss) { this.spawnSparkle(npc, '#ffd24a', 20); this.spawnPoof(c.x, c.y - 8, '#ff7a3a'); }
   }
 
   spawnPoof(wx, wy, color) {
@@ -501,14 +525,16 @@ export class Game {
     if (mode === 'magic') return this._magicAttack(npc);
     const { atkRoll, defRoll, max } = playerAttackVsNpc(this.skills, this.equipment, this.player.style, npc.def);
     const pm = this.prayerMult();
-    const dmg = rollAttack(atkRoll * pm.att, defRoll, Math.round(max * pm.str));
-    this._applyPlayerHit(npc, dmg);
+    const effMax = Math.round(max * pm.str);
+    const dmg = rollAttack(atkRoll * pm.att, defRoll, effMax);
+    this._swingToward(this.player, npc.x, npc.y);
+    this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && dmg >= effMax });
     if (dmg > 0) { this.spawnHitSparks(npc, '#fff2b0'); for (const x of combatXp(this.player.style, dmg)) this.skills.addXp(x.skill, x.xp); }
     this.player.attackCooldown = this.equipment.weaponSpeed();
     this._postAttack(npc);
   }
 
-  _applyPlayerHit(npc, dmg) { npc.takeDamage(dmg); this.addHitsplat(npc, dmg); }
+  _applyPlayerHit(npc, dmg, opts = {}) { npc.takeDamage(dmg); this.addHitsplat(npc, dmg, opts); }
   _postAttack(npc) {
     if (!npc.target) npc.target = this.player; // provoke retaliation
     if (npc.hp <= 0) { this.killNpc(npc); this.player.clearAction(); }
@@ -521,10 +547,12 @@ export class Game {
     const style = this.player.rangedStyle;
     const { atkRoll, defRoll, max } = playerRangedVsNpc(this.skills, this.equipment, style, npc.def, arrowStr);
     const pr = this.prayerMult().ranged;
-    const dmg = rollAttack(atkRoll * pr, defRoll, Math.round(max * pr));
+    const effMax = Math.round(max * pr);
+    const dmg = rollAttack(atkRoll * pr, defRoll, effMax);
     this.inventory.removeAt(arrowIdx, 1);
+    this._swingToward(this.player, npc.x, npc.y);
     this._projectile(npc, '#d9c45a');
-    this._applyPlayerHit(npc, dmg);
+    this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && dmg >= effMax });
     if (dmg > 0) { this.spawnHitSparks(npc, '#cfe0a0'); for (const x of combatXpRanged(style, dmg)) this.skills.addXp(x.skill, x.xp); }
     this.player.attackCooldown = Math.max(2, this.equipment.weaponSpeed() + (RANGED_STYLES[style]?.speedMod || 0));
     this._postAttack(npc);
@@ -537,8 +565,9 @@ export class Game {
     this._consumeRunes(spell);
     const { atkRoll, defRoll, max } = playerMagicVsNpc(this.skills, this.equipment, spell, npc.def);
     const dmg = rollAttack(atkRoll * this.prayerMult().magic, defRoll, max);
+    this._swingToward(this.player, npc.x, npc.y);
     this._projectile(npc, spell.tint);
-    this._applyPlayerHit(npc, dmg);
+    this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && dmg >= max });
     this.skills.addXp('magic', spell.xp);
     if (dmg > 0) { this.spawnHitSparks(npc, spell.tint); this.skills.addXp('magic', dmg * 2); this.skills.addXp('hitpoints', dmg * 1.33); }
     this.player.attackCooldown = this.equipment.weaponSpeed();
@@ -557,6 +586,7 @@ export class Game {
   resolveNpcAttack(npc) {
     const p = this.player;
     if (!p.alive) return;
+    this._swingToward(npc, p.x, p.y);
     const { atkRoll, defRoll, max } = npcAttackVsPlayer(npc.def, this.skills, this.equipment, p.style);
     let dmg = rollAttack(atkRoll, defRoll * this.prayerMult().def, max);
     const prot = this.protectFactor();
@@ -582,6 +612,7 @@ export class Game {
         this.quests.big_game_hunter.state === 'active') this.bus.emit('quest');
     this.progressSlayer(npc);
     this.checkAchievements();
+    this._deathBurst(npc);
     this.rollDrops(npc);
     npc.die();
     if (this.player.target === npc) this.player.target = null;

@@ -43,8 +43,11 @@ test('renderer.render runs without throwing (with combat/effects state)', () => 
   npc.combatLatch = 10; npc.hp = Math.ceil(npc.maxHp / 2);
   game.player.target = npc;
   game.player.path = [{ x: game.player.x + 2, y: game.player.y }];
-  game.addHitsplat(game.player, 4);
-  game.addHitsplat(npc, 0);
+  game.addHitsplat(game.player, 4);       // sets player.hurt -> entity + screen flash branches
+  game.addHitsplat(npc, 0);               // miss/block splat
+  game.addHitsplat(npc, 9, { crit: true }); // gold max-hit splat
+  game._swingToward(game.player, npc.x, npc.y); // lunge offset branch
+  npc.swing = 120; npc.lungeDX = 1;
   // Particles (sparks/sparkles/poofs) exercise the additive-blend draw path.
   game.spawnHitSparks(npc, '#fff2b0');
   game.spawnSparkle(game.player, '#ffe24a', 8);
