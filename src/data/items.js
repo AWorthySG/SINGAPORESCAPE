@@ -163,6 +163,38 @@ const RAW = {
   raw_hybrid_grouper: { name: 'Raw hybrid grouper', icon: '🐟', value: 150, tags: ['raw'], examine: 'A plump hybrid grouper. Cook it first.' },
   hybrid_grouper: { name: 'Hybrid grouper', icon: '🐟', value: 270, heal: 17, examine: 'Steamed hybrid grouper.' },
 
+  // ---- More freshwater species ----
+  raw_climbing_perch: { name: 'Raw climbing perch', icon: '🐟', value: 30, tags: ['raw'], examine: 'A hardy puyu. Cook it first.' },
+  climbing_perch: { name: 'Climbing perch', icon: '🐟', value: 54, heal: 7, examine: 'Fried puyu.' },
+  raw_ikan_keli: { name: 'Raw ikan keli', icon: '🐟', value: 34, tags: ['raw'], examine: 'A whiskered catfish. Cook it first.' },
+  ikan_keli: { name: 'Ikan keli', icon: '🐟', value: 60, heal: 8, examine: 'Grilled catfish.' },
+  raw_belida: { name: 'Raw belida', icon: '🐟', value: 80, tags: ['raw'], examine: 'A knifefish, great for fish cake. Cook it first.' },
+  belida: { name: 'Belida', icon: '🐟', value: 145, heal: 12, examine: 'Cooked knifefish.' },
+  raw_arapaima: { name: 'Raw arapaima', icon: '🐟', value: 200, tags: ['raw'], examine: 'A colossal arapaima. Cook it first.' },
+  arapaima: { name: 'Arapaima', icon: '🐟', value: 360, heal: 19, examine: 'A vast slab of cooked arapaima.' },
+  raw_arowana: { name: 'Raw arowana', icon: '🐉', value: 2000, tags: ['raw'], examine: 'A prized Asian arowana — a dragonfish! Worth a fortune.' },
+  arowana: { name: 'Arowana', icon: '🐉', value: 3500, heal: 16, examine: 'The legendary dragonfish, prepared.' },
+
+  // ---- More saltwater species ----
+  raw_milkfish: { name: 'Raw milkfish', icon: '🐟', value: 56, tags: ['raw'], examine: 'A bony bangus. Cook it first.' },
+  milkfish: { name: 'Milkfish', icon: '🐟', value: 100, heal: 11, examine: 'Grilled bangus.' },
+  raw_queenfish: { name: 'Raw queenfish', icon: '🐟', value: 70, tags: ['raw'], examine: 'A sleek talang. Cook it first.' },
+  queenfish: { name: 'Queenfish', icon: '🐟', value: 128, heal: 12, examine: 'Grilled queenfish.' },
+  raw_threadfin: { name: 'Raw threadfin', icon: '🐟', value: 130, tags: ['raw'], examine: 'Kurau — a premium fish. Cook it first.' },
+  threadfin: { name: 'Threadfin', icon: '🐟', value: 235, heal: 14, examine: 'Steamed kurau.' },
+  raw_white_pomfret: { name: 'Raw white pomfret', icon: '🐟', value: 150, tags: ['raw'], examine: 'A prized white pomfret. Cook it first.' },
+  white_pomfret: { name: 'White pomfret', icon: '🐟', value: 270, heal: 14, examine: 'Teochew steamed pomfret.' },
+  raw_coral_trout: { name: 'Raw coral trout', icon: '🐟', value: 140, tags: ['raw'], examine: 'A vivid kerapu. Cook it first.' },
+  coral_trout: { name: 'Coral trout', icon: '🐟', value: 250, heal: 16, examine: 'Steamed coral trout.' },
+  raw_cobia: { name: 'Raw cobia', icon: '🐟', value: 120, tags: ['raw'], examine: 'A muscular cobia. Cook it first.' },
+  cobia: { name: 'Cobia', icon: '🐟', value: 215, heal: 17, examine: 'Grilled cobia steak.' },
+
+  // ---- Fishing bait, junk & treasure ----
+  fishing_bait: { name: 'Fishing bait', icon: '🪱', value: 2, stackable: true, tags: ['bait'], examine: 'Improves your catch rate when fishing.' },
+  old_boot: { name: 'Old boot', icon: '🥾', value: 1, examine: 'You fished up someone\'s old boot. Charming.' },
+  seaweed: { name: 'Seaweed', icon: '🌿', value: 2, examine: 'A clump of soggy seaweed.' },
+  pearl: { name: 'Pearl', icon: '🦪', value: 600, examine: 'A lustrous pearl from an oyster.' },
+
   // ---- Fishing tools ----
   fishing_rod: { name: 'Fishing rod', icon: '🎣', value: 8, tool: 'rod', examine: 'For luring freshwater fish.' },
   lobster_pot: { name: 'Lobster pot', icon: '🪤', value: 20, tool: 'lobster_pot', examine: 'A cage for trapping lobster and grouper.' },

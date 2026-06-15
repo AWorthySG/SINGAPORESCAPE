@@ -1,5 +1,5 @@
 import { getItem } from '../data/items.js';
-import { clamp, weightedPick } from '../core/utils.js';
+import { clamp, weightedPick, randInt } from '../core/utils.js';
 import { TILE } from '../config.js';
 
 const objCenter = (obj) => ({ x: obj.x * TILE + TILE / 2, y: obj.y * TILE + TILE / 2 - 6 });
@@ -39,6 +39,19 @@ export const COOKING = {
   raw_giant_trevally: { result: 'giant_trevally', level: 64, xp: 168, burnStop: 86 },
   raw_diamond_trevally: { result: 'diamond_trevally', level: 56, xp: 150, burnStop: 80 },
   raw_hybrid_grouper: { result: 'hybrid_grouper', level: 60, xp: 160, burnStop: 84 },
+  // More freshwater
+  raw_climbing_perch: { result: 'climbing_perch', level: 12, xp: 50, burnStop: 46 },
+  raw_ikan_keli: { result: 'ikan_keli', level: 16, xp: 56, burnStop: 50 },
+  raw_belida: { result: 'belida', level: 30, xp: 92, burnStop: 60 },
+  raw_arapaima: { result: 'arapaima', level: 62, xp: 178, burnStop: 88 },
+  raw_arowana: { result: 'arowana', level: 70, xp: 230, burnStop: 92 },
+  // More saltwater
+  raw_milkfish: { result: 'milkfish', level: 26, xp: 86, burnStop: 58 },
+  raw_queenfish: { result: 'queenfish', level: 32, xp: 96, burnStop: 62 },
+  raw_threadfin: { result: 'threadfin', level: 38, xp: 112, burnStop: 68 },
+  raw_white_pomfret: { result: 'white_pomfret', level: 42, xp: 120, burnStop: 72 },
+  raw_coral_trout: { result: 'coral_trout', level: 46, xp: 135, burnStop: 76 },
+  raw_cobia: { result: 'cobia', level: 54, xp: 155, burnStop: 82 },
 };
 
 // Display names for the fishing tool each spot requires.
@@ -112,18 +125,62 @@ export function resolveFish(game, action) {
   if (!eligible.some((c) => game.inventory.canAdd(c.id, 1) > 0)) {
     game.msg('Your inventory is too full to hold any more fish.'); return false;
   }
+  // Now and then you snag something other than a fish.
+  if (Math.random() < 0.03) return fishOddity(game, obj);
+
+  const baited = game.inventory.count('fishing_bait') > 0;
   const pick = weightedPick(eligible);
-  if (Math.random() < gatherChance(pick.lowChance, pick.highChance, lvl)) {
-    // A "big catch" reels in two at once — more likely at higher levels.
-    const big = Math.random() < 0.05 + lvl * 0.0015 && game.inventory.canAdd(pick.id, 2) >= 2;
+  const chance = gatherChance(pick.lowChance, pick.highChance, lvl) + (baited ? 0.12 : 0);
+  if (Math.random() < chance) {
+    if (baited) game.inventory.remove('fishing_bait', 1);
+    const fc = objCenter(obj);
+    const nm = getItem(pick.id).name.replace(/^Raw /, '').toLowerCase();
+    // Rare trophy catch: triple XP + a coin bonus.
+    if (Math.random() < 0.02) {
+      game.inventory.add(pick.id, 1);
+      game.skills.addXp('fishing', pick.xp * 3);
+      game.inventory.add('coins', 50 + Math.round(pick.xp));
+      game.spawnSparkle(game.player, '#ffd24a', 14); game.spawnPoof(fc.x, fc.y, '#ffe79a');
+      game.msg(`A TROPHY catch! A magnificent ${nm}!`, 'level');
+      return true;
+    }
+    // A "big catch" reels in two at once — more likely at higher levels / with bait.
+    const big = Math.random() < 0.05 + lvl * 0.0015 + (baited ? 0.05 : 0) && game.inventory.canAdd(pick.id, 2) >= 2;
     const n = big ? 2 : 1;
     game.inventory.add(pick.id, n);
     game.skills.addXp('fishing', pick.xp * n);
-    const fc = objCenter(obj); game.spawnPoof(fc.x, fc.y, '#bfe3ff');
-    const nm = getItem(pick.id).name.replace(/^Raw /, '').toLowerCase();
+    game.spawnPoof(fc.x, fc.y, '#bfe3ff');
     game.msg(big ? `A big catch! You haul in two ${nm}.` : `You catch a ${nm}.`);
   }
   return true; // fishing spots never deplete
+}
+
+// A small chance while fishing to pull up junk or treasure (incl. a
+// message-in-a-bottle clue scroll) — keeps fishing lively and rewarding.
+function fishOddity(game, obj) {
+  const fc = objCenter(obj);
+  game.spawnPoof(fc.x, fc.y, '#bfe3ff');
+  const r = Math.random();
+  if (r < 0.4) {
+    const junk = Math.random() < 0.5 ? 'old_boot' : 'seaweed';
+    if (game.inventory.canAdd(junk, 1) > 0) { game.inventory.add(junk, 1); game.msg(`You fish up some ${getItem(junk).name.toLowerCase()}. Charming.`); }
+  } else if (r < 0.85) {
+    if (Math.random() < 0.35 && game.inventory.canAdd('pearl', 1) > 0) {
+      game.inventory.add('pearl', 1); game.skills.addXp('fishing', 25);
+      game.spawnSparkle(game.player, '#ffffff', 8); game.msg('You prise open an oyster and find a pearl!', 'level');
+    } else {
+      const c = randInt(20, 120); game.inventory.add('coins', c); game.skills.addXp('fishing', 12);
+      game.msg(`You haul up a soggy purse of ${c} coins.`);
+    }
+  } else if (!game.clue && !game._holdsClue()) {
+    // Message in a bottle -> a clue scroll, if you aren't already on a trail.
+    game.world.addGroundItem('clue_scroll_easy', 1, obj.x, obj.y);
+    game.msg('A message in a bottle! A clue scroll washes up beside you.', 'level');
+  } else {
+    const c = randInt(60, 200); game.inventory.add('coins', c);
+    game.msg(`A message in a bottle — empty, but ${c} coins were tucked inside.`);
+  }
+  return true;
 }
 
 export function resolveCook(game, action) {

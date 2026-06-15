@@ -1017,3 +1017,32 @@ test('Singapore fish species are defined, cookable, and catchable', async () => 
   assert.ok(freshwater.some((f) => game.inventory.count(`raw_${f}`) > 0), 'caught a Singapore freshwater fish');
   assert.ok(saltwater.some((f) => game.inventory.count(`raw_${f}`) > 0), 'caught a Singapore saltwater fish');
 });
+
+test('extra fish species, bait, junk & treasure are defined and catchable', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const [{ getItem }, { COOKING, resolveFish }] = await Promise.all([
+    import('../src/data/items.js'), import('../src/game/skilling.js'),
+  ]);
+  const extra = ['climbing_perch', 'ikan_keli', 'belida', 'arapaima', 'arowana',
+    'milkfish', 'queenfish', 'threadfin', 'white_pomfret', 'coral_trout', 'cobia'];
+  for (const f of extra) {
+    assert.ok(getItem(`raw_${f}`) && getItem(f), `${f} has raw + cooked items`);
+    assert.equal(COOKING[`raw_${f}`].result, f, `${f} is cookable`);
+  }
+  for (const id of ['fishing_bait', 'old_boot', 'seaweed', 'pearl']) {
+    assert.ok(getItem(id), `${id} is defined`);
+  }
+
+  // Catchable check: tally what fishing would add (don't actually fill the pack).
+  const game = new Game();
+  game.start();
+  game.skills.addXp('fishing', 2_000_000);
+  const tally = {};
+  game.inventory.add = (id, q = 1) => { tally[id] = (tally[id] || 0) + q; return q; };
+  game.inventory.canAdd = () => 99;
+  const rod = game.world.objects.find((o) => o.objId === 'rod_spot');
+  const sea = game.world.objects.find((o) => o.objId === 'sea_rod_spot');
+  for (let i = 0; i < 6000; i++) resolveFish(game, { obj: i % 2 ? rod : sea });
+  assert.ok(extra.some((f) => tally[`raw_${f}`] > 0), 'caught at least one extra species');
+});
