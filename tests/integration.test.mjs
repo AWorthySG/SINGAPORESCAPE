@@ -546,6 +546,7 @@ test('ranged special (magic shortbow Rapid Volley) fires twice and spends arrows
   game.toggleSpec();
   assert.ok(game.specArmed, 'spec armed on a bow (no longer melee-only)');
   const chicken = game.npcs.find((n) => n.npcId === 'chicken');
+  chicken.maxHp = chicken.hp = 99; // durable dummy so both volley arrows fire
   game.player.x = game.player.tx = chicken.x + 3; game.player.y = game.player.ty = chicken.y;
   const arrowsBefore = game.inventory.count('rune_arrow');
   game.attackNpc(chicken);
@@ -636,4 +637,26 @@ test('life-skills journal entry reports the current lesson', async () => {
   game.handleDialogueAction('lifeStart');
   const label = entry.progress(game);
   assert.match(label, /Lesson 1\/\d+: Woodcutting/, 'shows the first lesson');
+});
+
+test('starter-area monsters are tamed and weaker for onboarding', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const { getNpc } = await import('../src/data/npcs.js');
+  const { NPC } = await import('../src/game/npc.js');
+  const game = new Game();
+  game.start();
+
+  // World wiring: starter goblin/rat/chicken spawns carry a taming override.
+  const tamed = game.world.npcSpawns.filter((s) => s.opts && s.opts.aggressive === false);
+  assert.ok(tamed.some((s) => s.npcId === 'goblin'), 'town goblins are tamed in world data');
+
+  // The override pacifies + weakens the instance without touching the registry.
+  const wild = new NPC('goblin', 0, 0, 4);
+  const tame = new NPC('goblin', 0, 0, 4, { aggressive: false, statMul: 0.6 });
+  assert.equal(getNpc('goblin').aggressive, true, 'registry goblin stays aggressive for the rest of the island');
+  assert.equal(wild.def.aggressive, true, 'a normal goblin spawn is still aggressive');
+  assert.equal(tame.def.aggressive, false, 'a tamed spawn never attacks first');
+  assert.ok(tame.maxHp < wild.maxHp, 'tamed spawn has less HP');
+  assert.ok(tame.def.defence < wild.def.defence, 'tamed spawn is easier to hit');
 });

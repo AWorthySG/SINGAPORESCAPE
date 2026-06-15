@@ -92,7 +92,7 @@ export function buildWorld() {
     occupied.add(key(x, y));
     return true;
   };
-  const placeNpc = (npcId, x, y, wander = 0) => { npcSpawns.push({ npcId, x, y, wander }); };
+  const placeNpc = (npcId, x, y, wander = 0, opts = null) => { npcSpawns.push(opts ? { npcId, x, y, wander, opts } : { npcId, x, y, wander }); };
   const scatter = (objId, x0, y0, x1, y1, count, allowed) => {
     let placed = 0, attempts = 0;
     while (placed < count && attempts < count * 50) {
@@ -169,9 +169,12 @@ export function buildWorld() {
   for (let x = 34; x <= 40; x++) { placeObj('fence', x, 28); placeObj('fence', x, 34); }
   for (let y = 28; y <= 34; y++) { placeObj('fence', 34, y); placeObj('fence', 40, y); }
   occupied.delete(key(37, 34));
-  for (let i = 0; i < 5; i++) placeNpc('chicken', 35 + (i % 5), 29 + (i % 4), 2);
-  for (let i = 0; i < 3; i++) placeNpc('rat', 44 + i * 2, 38, 3);
-  for (let i = 0; i < 3; i++) placeNpc('goblin', 50 + i * 2, 36, 4);
+  // Gentle starter monsters near town: never aggressive and weaker than normal,
+  // so brand-new adventurers can learn to fight without being ambushed.
+  const TAME = { aggressive: false, statMul: 0.6 };
+  for (let i = 0; i < 5; i++) placeNpc('chicken', 35 + (i % 5), 29 + (i % 4), 2, TAME);
+  for (let i = 0; i < 3; i++) placeNpc('rat', 44 + i * 2, 38, 3, TAME);
+  for (let i = 0; i < 3; i++) placeNpc('goblin', 50 + i * 2, 36, 4, TAME);
 
   // ================= MacRitchie Reservoir =================
   placeFishing('fishing_spot', 30, 30, 40, 78, 6);

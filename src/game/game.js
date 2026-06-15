@@ -50,7 +50,7 @@ export class Game {
     this.player = new Player(data.spawnPoint.x, data.spawnPoint.y);
     this.player.hp = this.skills.hitpoints;
 
-    this.npcs = data.npcSpawns.map((s) => new NPC(s.npcId, s.x, s.y, s.wander));
+    this.npcs = data.npcSpawns.map((s) => new NPC(s.npcId, s.x, s.y, s.wander, s.opts));
 
     this.camera = new Camera();
     this.ui = null;     // set by main
