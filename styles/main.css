@@ -459,6 +459,7 @@ html, body {
 .quest-row { background: rgba(0,0,0,0.2); border-radius: 4px; padding: 6px 8px; margin-bottom: 6px; font-size: 12px; }
 .quest-row .q-desc { display: block; opacity: 0.72; font-size: 11px; margin-top: 2px; }
 .q-done { float: right; color: #6fff8f; } .q-active { float: right; color: #ffd24a; } .q-todo { float: right; opacity: 0.6; }
+.quest-row .q-prog { color: var(--gold-hi); opacity: 0.95; }
 
 /* ---------- Spellbook (magic combat tab) ---------- */
 #combat-panel .style-row.spells { flex-wrap: wrap; max-height: 178px; overflow-y: auto; gap: 4px; }

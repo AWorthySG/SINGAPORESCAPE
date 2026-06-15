@@ -263,6 +263,38 @@ test('pillars quest tracks both landmarks and rewards the sigil', () => {
   assert.ok(game.achievements.has('pillars'), 'sigil achievement unlocked');
 });
 
+test("smith's apprentice quest consumes steel bars for gauntlets", () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.handleDialogueAction('smithStart');
+  assert.equal(game.quests.smith_apprentice.state, 'active');
+  game.handleDialogueAction('smithTurnIn');
+  assert.equal(game.quests.smith_apprentice.state, 'active', 'cannot complete without bars');
+  game.inventory.add('steel_bar', 8);
+  game.handleDialogueAction('smithTurnIn');
+  assert.equal(game.quests.smith_apprentice.state, 'done');
+  assert.equal(game.inventory.count('steel_bar'), 0, 'bars consumed');
+  assert.ok(game.inventory.has('kampong_gauntlets'));
+});
+
+test('island defender quest tracks boss kills and rewards gear', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.handleDialogueAction('defenderStart');
+  assert.equal(game.quests.island_defender.state, 'active');
+  const boss = game.npcs.find((n) => n.def.boss);
+  assert.ok(boss, 'a boss exists in the world');
+  for (let i = 0; i < 3; i++) { boss.alive = true; boss.hp = 1; game.killNpc(boss); }
+  game.handleDialogueAction('defenderTurnIn');
+  assert.equal(game.quests.island_defender.state, 'done');
+  assert.ok(game.inventory.has('island_aegis') && game.inventory.has('champions_helm'));
+  assert.ok(game.achievements.has('defender'), 'defender achievement unlocked');
+});
+
 test('eating food heals the player', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();

@@ -183,6 +183,18 @@ const RAW = {
   revenant_cape: { name: 'Revenant cape', icon: '🧣', value: 130000, examine: 'Tattered shroud of the Bukit Brown Revenant.',
     equip: { slot: 'cape', req: { defence: 50 }, bonuses: { attack: 8, strength: 8, defence: 12 } } },
 
+  // ---- Quest & special rewards ----
+  tiger_kris: { name: 'Tiger kris', icon: '🗡️', value: 18000, examine: 'A wavy ceremonial blade, swift and deadly.',
+    equip: { slot: 'weapon', req: { attack: 30 }, bonuses: { attack: 34, strength: 30, speed: 3 } } },
+  merdeka_medallion: { name: 'Merdeka medallion', icon: '📿', value: 15000, examine: 'A medallion bearing the crescent and stars.',
+    equip: { slot: 'amulet', req: {}, bonuses: { attack: 8, strength: 8, defence: 8 } } },
+  kampong_gauntlets: { name: 'Kampong gauntlets', icon: '🧤', value: 12000, examine: 'Sturdy gloves blessed by the village smith.',
+    equip: { slot: 'hands', req: {}, bonuses: { attack: 9, strength: 9, defence: 7 } } },
+  champions_helm: { name: "Champion's helm", icon: '⛑️', value: 20000, examine: 'Worn by the island\'s defenders.',
+    equip: { slot: 'head', req: { defence: 30 }, bonuses: { attack: 6, defence: 16 } } },
+  island_aegis: { name: 'Island aegis', icon: '🛡️', value: 40000, examine: 'A bulwark awarded to a true Island Defender.',
+    equip: { slot: 'shield', req: { defence: 40 }, bonuses: { strength: 5, defence: 24 } } },
+
   // ---- Ranged: bows & arrows ----
   bronze_arrow: { name: 'Bronze arrow', icon: '🏹', value: 1, stackable: true, tags: ['ammo'], arrowStr: 7, examine: 'Arrows with bronze heads.' },
   iron_arrow: { name: 'Iron arrow', icon: '🏹', value: 3, stackable: true, tags: ['ammo'], arrowStr: 10, examine: 'Arrows with iron heads.' },
