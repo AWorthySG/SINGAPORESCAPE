@@ -318,11 +318,11 @@ export class Game {
   updateRunEnergy() {
     let changed = false;
     if (this.running && this.player.isMoving && this.player.alive) {
-      this.runEnergy = Math.max(0, this.runEnergy - 1.2);
+      this.runEnergy = Math.max(0, this.runEnergy - 1.0);
       if (this.runEnergy === 0) this.running = false;
       changed = true;
     } else if (this.runEnergy < 100) {
-      this.runEnergy = Math.min(100, this.runEnergy + 0.7 + this.skills.agility * 0.01);
+      this.runEnergy = Math.min(100, this.runEnergy + 1.0 + this.skills.agility * 0.015);
       changed = true;
     }
     if (changed) this.bus.emit('run');
