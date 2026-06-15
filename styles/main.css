@@ -41,7 +41,7 @@ html, body {
   cursor: default;
 }
 
-#game-root { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+#game-root { position: relative; width: 100vw; height: 100vh; height: 100dvh; overflow: hidden; }
 #game-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; image-rendering: pixelated; }
 
 /* Shared tile-framed panel treatment */
@@ -327,7 +327,7 @@ html, body {
   display: flex; align-items: center; justify-content: center;
 }
 #modal-window {
-  position: relative; width: min(640px, 92vw); max-height: 80vh;
+  position: relative; width: min(640px, 92vw); max-height: 80vh; max-height: 80dvh;
   border-radius: 8px; border-width: 6px;
   display: flex; flex-direction: column;
 }
@@ -395,6 +395,41 @@ html, body {
   #chatbox { width: 300px; height: 134px; }
   :root { --panel-w: 206px; }
   #panel-body { height: 262px; }
+}
+
+/* Phones (portrait): keep every panel inside the visible, toolbar-safe area. */
+@media (max-width: 540px) {
+  :root { --panel-w: 176px; --rail-w: 38px; }
+
+  /* Minimap + orbs: smaller and tucked into the corner so nothing clips. */
+  #minimap-panel { width: 122px; height: 122px; top: 6px; right: 6px; }
+  #minimap-canvas { width: 104px; height: 104px; }
+  .orb { width: 30px; height: 30px; line-height: 30px; font-size: 10px; }
+  #hp-orb { bottom: -2px; left: -10px; }
+  #prayer-orb { bottom: 28px; left: -13px; }
+  #spec-orb { bottom: 58px; left: -13px; }
+  #run-orb { bottom: 88px; left: -10px; }
+
+  /* Side panel: height follows the dynamic viewport so it never hides behind
+     the browser bar; tighter inventory cells fit the narrower rail. */
+  #sidepanel { right: 6px; bottom: 6px; }
+  #panel-head { font-size: 13px; padding: 5px 9px; }
+  #panel-body { height: 42dvh; max-height: 320px; min-height: 180px; padding: 7px; }
+  .tab-btn svg { width: 20px; height: 20px; }
+  #inventory-grid { gap: 4px; }
+  .inv-slot { border-radius: 5px; }
+  .inv-slot .icon svg { width: 28px; height: 28px; }
+
+  /* Chat: compact and clear of the side panel. */
+  #chatbox { width: 47vw; height: 92px; bottom: 6px; left: 6px; font-size: 12px; }
+  #chat-log { font-size: 12px; }
+
+  /* Trim the big top-left overlays so they don't dominate a small screen. */
+  #hover-text { font-size: 13px; top: 6px; left: 6px; }
+  #quest-tracker { top: 34px; left: 6px; font-size: 11px; max-width: 52vw; }
+  #region-label { font-size: 13px; }
+  #modal-window { max-height: 82dvh; }
+  #cobrand { display: none; } /* it would collide with chat/panel; still shown on the splash */
 }
 
 /* ---------- Splash / title screen ---------- */
