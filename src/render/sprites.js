@@ -132,433 +132,528 @@ function crown(ctx) {
   ctx.fillStyle = '#5ad1ff'; circle(ctx, -5, -25.4, 0.8); ctx.fill(); circle(ctx, 5, -25.4, 0.8); ctx.fill();
 }
 
-// ---- archetypes (ctx, col) ----
+// ---- IMPROVED ARCHETYPES (ctx, col) ----
+
 function beast(ctx, col) {
-  // legs (front pair lighter for depth)
-  ctx.fillStyle = shade(col, -0.32); rr(ctx, -8, 7, 3.6, 6, 1); ctx.fill(); rr(ctx, 4, 7, 3.6, 6, 1); ctx.fill();
-  ctx.fillStyle = shade(col, -0.12); rr(ctx, -5, 8, 3.4, 5, 1); ctx.fill(); rr(ctx, 6.5, 8, 3.4, 5, 1); ctx.fill();
+  // Improved: Better quadruped stance, more versatile for boar/tiger/otter/deer, stronger volume
+  // back legs
+  ctx.fillStyle = shade(col, -0.35); rr(ctx, -9, 7, 4, 6.5, 1.2); ctx.fill();
+  ctx.fillStyle = shade(col, -0.22); rr(ctx, 3, 7, 4, 6.5, 1.2); ctx.fill();
+  // front legs (lighter)
+  ctx.fillStyle = shade(col, -0.28); rr(ctx, -5.5, 7.5, 3.8, 6, 1); ctx.fill();
+  ctx.fillStyle = shade(col, -0.12); rr(ctx, 5, 7.5, 3.8, 6, 1); ctx.fill();
   // tail
-  ctx.strokeStyle = shade(col, -0.2); ctx.lineWidth = 2.4; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(-11, 0); ctx.quadraticCurveTo(-17, -2, -14, -7); ctx.stroke(); ctx.lineCap = 'butt';
-  // body with belly shade + back highlight
-  ellipse(ctx, -1, 2, 12, 8); fill(ctx, col); line(ctx);
-  ctx.fillStyle = shade(col, -0.18); ellipse(ctx, -1, 6, 10, 3.5); ctx.fill();
-  ctx.fillStyle = shade(col, 0.16); ellipse(ctx, -2, -2, 9, 2.6); ctx.fill();
-  // shaggy mane / spine tufts
-  ctx.fillStyle = shade(col, -0.35);
-  path(ctx, () => { ctx.moveTo(-9, -5); ctx.lineTo(-7, -10); ctx.lineTo(-4, -5); ctx.lineTo(-1, -10); ctx.lineTo(2, -5); }); ctx.fill();
-  // head + ear + snout + tusk
-  circle(ctx, 10, 0, 6); fill(ctx, col); line(ctx);
-  ctx.fillStyle = shade(col, -0.3); path(ctx, () => { ctx.moveTo(7, -5); ctx.lineTo(6, -10); ctx.lineTo(11, -6); }); ctx.fill(); // ear
-  ctx.fillStyle = shade(col, 0.22); ellipse(ctx, 15, 1, 3.2, 2.6); ctx.fill(); // snout
-  ctx.fillStyle = '#1a140d'; circle(ctx, 16.5, 0.4, 0.7); ctx.fill();          // nostril
-  fang(ctx, 14.5, 3.2, 1.3, 2.4);                                              // tusk
-  eyeW(ctx, 11, -2, 1.2);
+  ctx.strokeStyle = shade(col, -0.25); ctx.lineWidth = 2.8; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(-12, 2); ctx.quadraticCurveTo(-18, -1, -15, -8); ctx.stroke(); ctx.lineCap = 'butt';
+  // body - more substantial
+  ellipse(ctx, -0.5, 1.5, 11.5, 7.5); fill(ctx, col); line(ctx);
+  ctx.fillStyle = shade(col, -0.2); ellipse(ctx, -0.5, 5, 9.5, 3.8); ctx.fill(); // belly
+  ctx.fillStyle = shade(col, 0.18); ellipse(ctx, -1.5, -2.5, 8, 2.8); ctx.fill(); // back highlight
+  // shaggy spine / mane tufts (better flow)
+  ctx.fillStyle = shade(col, -0.38);
+  path(ctx, () => { ctx.moveTo(-10, -4); ctx.lineTo(-8, -11); ctx.lineTo(-5, -4); ctx.lineTo(-2, -10); ctx.lineTo(1, -4); ctx.lineTo(4, -9); ctx.lineTo(7, -4); }); ctx.fill();
+  // head
+  circle(ctx, 9.5, -0.5, 5.8); fill(ctx, col); line(ctx);
+  // ear
+  ctx.fillStyle = shade(col, -0.32); path(ctx, () => { ctx.moveTo(6, -5); ctx.lineTo(5, -11); ctx.lineTo(10, -6); }); ctx.fill();
+  // snout
+  ctx.fillStyle = shade(col, 0.2); ellipse(ctx, 14.5, 0.5, 3.4, 2.8); ctx.fill();
+  ctx.fillStyle = '#1a140d'; circle(ctx, 16, 0.3, 0.65); ctx.fill(); // nostril
+  // tusk
+  fang(ctx, 13.8, 2.8, 1.2, 2.6);
+  eyeW(ctx, 10.5, -2.2, 1.15);
 }
+
 function rodent(ctx, col) {
-  // long curling tail
-  ctx.strokeStyle = shade(col, 0.28); ctx.lineWidth = 2.4; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(-8, 4); ctx.quadraticCurveTo(-19, 3, -14, -7); ctx.stroke(); ctx.lineCap = 'butt';
+  // Improved: cuter but still rat-like, better tail curl, clearer buck tooth, whiskers
+  ctx.strokeStyle = shade(col, 0.25); ctx.lineWidth = 2.6; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(-9, 5); ctx.quadraticCurveTo(-20, 2, -15, -8); ctx.stroke(); ctx.lineCap = 'butt';
   // feet
-  ctx.fillStyle = shade(col, 0.32); circle(ctx, -3, 9, 1.6); ctx.fill(); circle(ctx, 4, 9, 1.6); ctx.fill();
-  // body
-  ellipse(ctx, 0, 3, 10, 7); fill(ctx, col); line(ctx);
-  ctx.fillStyle = shade(col, 0.18); ellipse(ctx, 1, 1, 7, 3); ctx.fill();
-  // head + big ear
-  circle(ctx, 9, 0, 5); fill(ctx, col); line(ctx);
-  circle(ctx, 8, -5, 3); fill(ctx, shade(col, 0.32)); line(ctx, OUTLINE, 1.1);
-  ctx.fillStyle = shade(col, 0.45); circle(ctx, 8, -5, 1.5); ctx.fill(); // inner ear
-  // snout + buck tooth + whiskers
-  path(ctx, () => { ctx.moveTo(13, -1); ctx.lineTo(16.5, 1); ctx.lineTo(13, 3); }); fill(ctx, shade(col, 0.3));
-  ctx.fillStyle = '#1a140d'; circle(ctx, 16.2, 1, 0.7); ctx.fill();
-  ctx.fillStyle = '#fff'; rr(ctx, 13.4, 2.4, 1.4, 2, 0.4); ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 0.5;
-  ctx.beginPath(); ctx.moveTo(13, 1); ctx.lineTo(18, 0); ctx.moveTo(13, 2); ctx.lineTo(18, 3); ctx.stroke();
-  eyeW(ctx, 11, -1, 1.1, '#a01818');
+  ctx.fillStyle = shade(col, 0.3); circle(ctx, -4, 9.5, 1.7); ctx.fill(); circle(ctx, 4.5, 9.5, 1.7); ctx.fill();
+  // body - rounder
+  ellipse(ctx, 0, 2.5, 9.5, 6.5); fill(ctx, col); line(ctx);
+  ctx.fillStyle = shade(col, 0.15); ellipse(ctx, 0.5, 0.5, 6.5, 3); ctx.fill();
+  // head
+  circle(ctx, 8.5, -0.5, 5); fill(ctx, col); line(ctx);
+  // big ear
+  circle(ctx, 7, -5.5, 3.2); fill(ctx, shade(col, 0.28)); line(ctx, OUTLINE, 1.2);
+  ctx.fillStyle = shade(col, 0.42); circle(ctx, 7, -5.5, 1.6); ctx.fill();
+  // snout + buck teeth
+  path(ctx, () => { ctx.moveTo(12.5, -1); ctx.lineTo(16, 1); ctx.lineTo(12.5, 3); }); fill(ctx, shade(col, 0.25));
+  ctx.fillStyle = '#1a140d'; circle(ctx, 15.8, 0.8, 0.65); ctx.fill();
+  // prominent buck tooth
+  ctx.fillStyle = '#f4f0e8'; rr(ctx, 13.2, 2.2, 1.6, 2.2, 0.3); ctx.fill();
+  // whiskers
+  ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 0.6;
+  ctx.beginPath(); ctx.moveTo(12.8, 0.8); ctx.lineTo(18.5, 0); ctx.moveTo(12.8, 1.6); ctx.lineTo(18.5, 2.2); ctx.stroke();
+  eyeW(ctx, 10.2, -1.5, 1.05, '#8a1010');
 }
+
 function primate(ctx, col) {
-  // curling tail
-  ctx.strokeStyle = shade(col, -0.1); ctx.lineWidth = 3; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(-7, 6); ctx.quadraticCurveTo(-19, 4, -15, -9); ctx.stroke(); ctx.lineCap = 'butt';
+  // Improved: better ape proportions, longer arms, clearer face patch, expressive
+  ctx.strokeStyle = shade(col, -0.12); ctx.lineWidth = 3.2; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(-8, 5); ctx.quadraticCurveTo(-20, 3, -16, -10); ctx.stroke(); ctx.lineCap = 'butt';
   // legs
-  ctx.fillStyle = shade(col, -0.22); rr(ctx, -6, 5, 4, 8, 2); ctx.fill(); rr(ctx, 2, 5, 4, 8, 2); ctx.fill();
-  // long arms reaching down
-  ctx.strokeStyle = col; ctx.lineWidth = 4; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(-6, -2); ctx.quadraticCurveTo(-11, 4, -8, 9); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(6, -2); ctx.quadraticCurveTo(11, 4, 8, 9); ctx.stroke(); ctx.lineCap = 'butt';
+  ctx.fillStyle = shade(col, -0.25); rr(ctx, -7, 5.5, 4.2, 8, 2); ctx.fill(); rr(ctx, 2, 5.5, 4.2, 8, 2); ctx.fill();
+  // long reaching arms
+  ctx.strokeStyle = shade(col, -0.08); ctx.lineWidth = 4.2; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(-7, -1); ctx.quadraticCurveTo(-13, 5, -9, 10); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(6, -1); ctx.quadraticCurveTo(12, 5, 8, 10); ctx.stroke(); ctx.lineCap = 'butt';
   // body
-  ellipse(ctx, 0, 1, 8.5, 9); fill(ctx, col); line(ctx);
-  ctx.fillStyle = shade(col, 0.16); ellipse(ctx, 0, 2, 4.5, 6); ctx.fill();
-  // head with face patch + ears
-  circle(ctx, 1, -10, 6.5); fill(ctx, col); line(ctx);
-  ctx.fillStyle = shade(col, -0.25); circle(ctx, -5, -10, 2); ctx.fill(); circle(ctx, 7, -10, 2); ctx.fill();
-  ellipse(ctx, 1, -9, 4.4, 5); fill(ctx, shade(col, 0.42));
-  ctx.fillStyle = shade(col, -0.3); rr(ctx, -2.5, -13.5, 7, 1.6, 0.8); ctx.fill(); // brow
-  eyeW(ctx, -1, -10, 1.1); eyeW(ctx, 3, -10, 1.1);
+  ellipse(ctx, 0, 0.5, 8, 9); fill(ctx, col); line(ctx);
+  ctx.fillStyle = shade(col, 0.14); ellipse(ctx, 0, 1.5, 4, 6); ctx.fill();
+  // head + face patch
+  circle(ctx, 0.5, -10.5, 6.2); fill(ctx, col); line(ctx);
+  ctx.fillStyle = shade(col, -0.28); circle(ctx, -5.5, -10.5, 2.1); ctx.fill(); circle(ctx, 6.5, -10.5, 2.1); ctx.fill();
+  // face patch (lighter)
+  ellipse(ctx, 0.5, -9.5, 4.8, 5.2); fill(ctx, shade(col, 0.38));
+  // brow ridge
+  ctx.fillStyle = shade(col, -0.32); rr(ctx, -3, -14, 7, 1.8, 0.9); ctx.fill();
+  eyeW(ctx, -1.5, -10.8, 1.05); eyeW(ctx, 2.8, -10.8, 1.05);
 }
+
 function reptile(ctx, col) {
-  // long tapering tail
-  ctx.strokeStyle = shade(col, -0.2); ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(-9, 4); ctx.quadraticCurveTo(-25, 7, -21, -4); ctx.stroke(); ctx.lineCap = 'butt';
+  // Improved: more lizard/croc feel, better tail, clearer dorsal ridge, tongue
+  ctx.strokeStyle = shade(col, -0.22); ctx.lineWidth = 4.2; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(-10, 3); ctx.quadraticCurveTo(-26, 6, -22, -5); ctx.stroke(); ctx.lineCap = 'butt';
   // sprawled legs
-  ctx.fillStyle = shade(col, -0.25); rr(ctx, -6, 6, 5, 5, 2); ctx.fill(); rr(ctx, 3, 6, 5, 5, 2); ctx.fill();
+  ctx.fillStyle = shade(col, -0.28); rr(ctx, -7, 6, 5.2, 5.5, 2); ctx.fill(); rr(ctx, 2.5, 6, 5.2, 5.5, 2); ctx.fill();
   // body
-  ellipse(ctx, 0, 2, 13, 7); fill(ctx, col); line(ctx);
-  // dorsal ridge
-  ctx.fillStyle = shade(col, -0.35); for (const x of [-7, -3, 1, 5]) { path(ctx, () => { ctx.moveTo(x, -4); ctx.lineTo(x + 1.4, -7.5); ctx.lineTo(x + 2.8, -4); }); ctx.fill(); }
-  // mottled scales
-  ctx.fillStyle = 'rgba(20,30,10,0.35)'; circle(ctx, -4, 1, 1.6); ctx.fill(); circle(ctx, 2, 3, 1.6); ctx.fill(); circle(ctx, -1, -1, 1.2); ctx.fill();
-  // head + jaw + eye + flicking tongue
-  ellipse(ctx, 13, 0, 7, 5); fill(ctx, col); line(ctx);
-  ctx.strokeStyle = '#1a140d'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(15, 2); ctx.lineTo(20, 1.6); ctx.stroke();
-  ctx.strokeStyle = '#d8324a'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(20, 1.8); ctx.lineTo(23, 1.4); ctx.stroke();
-  eyeW(ctx, 14, -2, 1.1, '#15110b');
+  ellipse(ctx, 0, 1.5, 12.5, 7); fill(ctx, col); line(ctx);
+  // dorsal ridge (more pronounced)
+  ctx.fillStyle = shade(col, -0.38);
+  for (const x of [-8, -4, 0, 4]) {
+    path(ctx, () => { ctx.moveTo(x, -4.5); ctx.lineTo(x + 1.3, -8); ctx.lineTo(x + 2.6, -4.5); }); ctx.fill();
+  }
+  // head
+  ellipse(ctx, 12, -0.5, 7, 4.8); fill(ctx, col); line(ctx);
+  // jaw line + tongue
+  ctx.strokeStyle = '#1a140d'; ctx.lineWidth = 0.9; ctx.beginPath(); ctx.moveTo(14.5, 1.8); ctx.lineTo(19.5, 1.4); ctx.stroke();
+  ctx.strokeStyle = '#d8324a'; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.moveTo(19.5, 1.5); ctx.lineTo(23, 1.1); ctx.stroke();
+  eyeW(ctx, 13.5, -2.5, 1.1, '#15110b');
 }
+
 function serpent(ctx, col) {
-  // coiled body, lighter belly stripe over it
-  ctx.strokeStyle = col; ctx.lineWidth = 6.5; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(-11, 11); ctx.quadraticCurveTo(9, 8, -4, 0); ctx.quadraticCurveTo(-14, -6, 4, -8); ctx.stroke();
-  ctx.lineWidth = 3; ctx.strokeStyle = shade(col, 0.28); ctx.beginPath(); ctx.moveTo(-11, 11); ctx.quadraticCurveTo(9, 8, -4, 0); ctx.stroke();
-  // scale ticks
-  ctx.lineWidth = 1; ctx.strokeStyle = shade(col, -0.3);
-  ctx.beginPath(); for (let i = 0; i < 5; i++) { const t = i / 5; ctx.moveTo(-9 + t * 14, 9 - t * 9); ctx.lineTo(-7 + t * 14, 11 - t * 9); } ctx.stroke();
-  ctx.lineCap = 'butt';
-  // hooded head
-  path(ctx, () => { ctx.moveTo(5, -9); ctx.quadraticCurveTo(0, -7, 2, -3); ctx.quadraticCurveTo(5, -2, 8, -3); ctx.quadraticCurveTo(10, -7, 5, -9); }); fill(ctx, col); line(ctx, OUTLINE, 1.1);
-  circle(ctx, 5, -8, 3.4); fill(ctx, col); line(ctx, OUTLINE, 1.1);
-  // slit eye + forked tongue
-  ctx.fillStyle = '#ffe24a'; ellipse(ctx, 6, -9, 1.4, 1); ctx.fill();
-  ctx.fillStyle = '#1a140d'; rr(ctx, 5.7, -9.8, 0.7, 1.6, 0.3); ctx.fill();
-  ctx.strokeStyle = '#d8324a'; ctx.lineWidth = 1; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(8, -8); ctx.lineTo(12, -8.6); ctx.moveTo(12, -8.6); ctx.lineTo(13, -9.6); ctx.moveTo(12, -8.6); ctx.lineTo(13, -7.6); ctx.stroke(); ctx.lineCap = 'butt';
+  // Improved: more dynamic coil, better hood for cobra, clearer scale suggestion, forked tongue
+  ctx.strokeStyle = col; ctx.lineWidth = 6.8; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(-12, 10); ctx.quadraticCurveTo(8, 7, -5, -1); ctx.quadraticCurveTo(-15, -7, 3, -9); ctx.stroke();
+  ctx.lineWidth = 3.2; ctx.strokeStyle = shade(col, 0.26); ctx.beginPath(); ctx.moveTo(-12, 10); ctx.quadraticCurveTo(8, 7, -5, -1); ctx.stroke();
+  // scale suggestion ticks
+  ctx.lineWidth = 1.1; ctx.strokeStyle = shade(col, -0.32);
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) { const t = i / 5; ctx.moveTo(-10 + t*13, 8.5 - t*8.5); ctx.lineTo(-8 + t*13, 10.5 - t*8.5); }
+  ctx.stroke(); ctx.lineCap = 'butt';
+  // hooded head (more cobra-like)
+  path(ctx, () => { ctx.moveTo(4, -10); ctx.quadraticCurveTo(-1, -8, 1, -3); ctx.quadraticCurveTo(5, -2, 9, -3); ctx.quadraticCurveTo(11, -8, 4, -10); }); fill(ctx, col); line(ctx, OUTLINE, 1.2);
+  circle(ctx, 5, -8.5, 3.6); fill(ctx, col); line(ctx, OUTLINE, 1.2);
+  // eye + slit pupil
+  ctx.fillStyle = '#ffe24a'; ellipse(ctx, 6.2, -9.2, 1.35, 0.95); ctx.fill();
+  ctx.fillStyle = '#1a140d'; rr(ctx, 5.9, -10, 0.7, 1.7, 0.25); ctx.fill();
+  // forked tongue
+  ctx.strokeStyle = '#d8324a'; ctx.lineWidth = 1.1; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(8.5, -8.2); ctx.lineTo(12.5, -8.8); ctx.moveTo(12.5, -8.8); ctx.lineTo(13.8, -9.8); ctx.moveTo(12.5, -8.8); ctx.lineTo(13.8, -7.8); ctx.stroke(); ctx.lineCap = 'butt';
 }
+
 function crab(ctx, col) {
-  // walking legs (jointed)
-  ctx.strokeStyle = shade(col, -0.3); ctx.lineWidth = 1.8; ctx.lineCap = 'round';
-  for (const s of [-1, 1]) for (const i of [0, 1, 2]) { ctx.beginPath(); ctx.moveTo(s * 6, 4); ctx.lineTo(s * (10 + i * 2), 6 + i); ctx.lineTo(s * (12 + i * 2), 11); ctx.stroke(); }
+  // Improved: better domed shell, more convincing jointed legs, bigger characterful pincers
+  // walking legs (more jointed look)
+  ctx.strokeStyle = shade(col, -0.32); ctx.lineWidth = 1.9; ctx.lineCap = 'round';
+  for (const s of [-1, 1]) for (const i of [0, 1, 2]) {
+    ctx.beginPath(); ctx.moveTo(s * 5.5, 3.5); ctx.lineTo(s * (9.5 + i * 2.2), 5.5 + i); ctx.lineTo(s * (12 + i * 2.2), 10.5); ctx.stroke();
+  }
   ctx.lineCap = 'butt';
-  // domed shell with rim
-  ellipse(ctx, 0, 2, 12, 7); fill(ctx, col); line(ctx);
-  ctx.fillStyle = shade(col, 0.25); ellipse(ctx, -2, -1, 8, 3.5); ctx.fill();
-  ctx.fillStyle = shade(col, -0.18); ellipse(ctx, 0, 5, 10, 2.5); ctx.fill();
-  ctx.strokeStyle = shade(col, -0.3); ctx.lineWidth = 0.7; ctx.beginPath(); ctx.moveTo(-6, 1); ctx.lineTo(-4, 4); ctx.moveTo(0, 1); ctx.lineTo(0, 4); ctx.moveTo(6, 1); ctx.lineTo(4, 4); ctx.stroke();
-  // big pincer claws
+  // domed shell
+  ellipse(ctx, 0, 1.5, 11.5, 7); fill(ctx, col); line(ctx);
+  ctx.fillStyle = shade(col, 0.22); ellipse(ctx, -1.5, -1.2, 7.5, 3.2); ctx.fill();
+  ctx.fillStyle = shade(col, -0.2); ellipse(ctx, 0, 4.5, 9.5, 2.8); ctx.fill();
+  // shell rim lines
+  ctx.strokeStyle = shade(col, -0.35); ctx.lineWidth = 0.8;
+  ctx.beginPath(); ctx.moveTo(-5.5, 0.5); ctx.lineTo(-4, 3.5); ctx.moveTo(0, 0.5); ctx.lineTo(0, 3.5); ctx.moveTo(5.5, 0.5); ctx.lineTo(4, 3.5); ctx.stroke();
+  // big pincer claws (more menacing)
   for (const s of [-1, 1]) {
-    ctx.fillStyle = col; ellipse(ctx, s * 12, -1, 4, 3.4); ctx.fill(); line(ctx, OUTLINE, 1.1);
-    ctx.fillStyle = shade(col, -0.2); path(ctx, () => { ctx.moveTo(s * 14, -3); ctx.lineTo(s * 17, -1); ctx.lineTo(s * 13, -1); }); ctx.fill();
-    ctx.strokeStyle = OUTLINE; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(s * 10, -1); ctx.lineTo(s * 15, -1); ctx.stroke();
+    ctx.fillStyle = col; ellipse(ctx, s * 11.5, -1.5, 4.2, 3.6); ctx.fill(); line(ctx, OUTLINE, 1.2);
+    ctx.fillStyle = shade(col, -0.22); path(ctx, () => { ctx.moveTo(s * 13.5, -3.5); ctx.lineTo(s * 17, -1.5); ctx.lineTo(s * 12.5, -1.5); }); ctx.fill();
+    ctx.strokeStyle = OUTLINE; ctx.lineWidth = 0.9; ctx.beginPath(); ctx.moveTo(s * 9.5, -1.5); ctx.lineTo(s * 14.5, -1.5); ctx.stroke();
   }
   // eyestalks
-  ctx.strokeStyle = OUTLINE; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-3, -6); ctx.lineTo(-3, -10); ctx.moveTo(3, -6); ctx.lineTo(3, -10); ctx.stroke();
-  eyeW(ctx, -3, -10, 1.4); eyeW(ctx, 3, -10, 1.4);
+  ctx.strokeStyle = OUTLINE; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.moveTo(-2.8, -6); ctx.lineTo(-2.8, -10.5); ctx.moveTo(2.8, -6); ctx.lineTo(2.8, -10.5); ctx.stroke();
+  eyeW(ctx, -2.8, -10.5, 1.35); eyeW(ctx, 2.8, -10.5, 1.35);
 }
+
 function fowl(ctx, col) {
-  ctx.strokeStyle = '#d98a2b'; ctx.lineWidth = 2; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(-3, 8); ctx.lineTo(-3, 13); ctx.moveTo(-4.5, 13); ctx.lineTo(-1.5, 13);
-  ctx.moveTo(3, 8); ctx.lineTo(3, 13); ctx.moveTo(1.5, 13); ctx.lineTo(4.5, 13); ctx.stroke(); ctx.lineCap = 'butt';
+  // Improved: better chicken/hornbill/kingfisher versatility, nicer tail, clearer comb/wattle
+  ctx.strokeStyle = '#d98a2b'; ctx.lineWidth = 2.1; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(-3.5, 7.5); ctx.lineTo(-3.5, 13); ctx.moveTo(-5, 13); ctx.lineTo(-2, 13);
+  ctx.moveTo(3, 7.5); ctx.lineTo(3, 13); ctx.moveTo(1.5, 13); ctx.lineTo(4.5, 13); ctx.stroke(); ctx.lineCap = 'butt';
   // body
-  ellipse(ctx, 0, 2, 9, 8); fill(ctx, col); line(ctx);
-  // layered tail feathers
-  path(ctx, () => { ctx.moveTo(-7, -2); ctx.lineTo(-15, -9); ctx.lineTo(-7, 4); }); fill(ctx, shade(col, -0.18)); line(ctx);
-  path(ctx, () => { ctx.moveTo(-7, 0); ctx.lineTo(-13, -4); ctx.lineTo(-7, 4); }); fill(ctx, shade(col, 0.12));
+  ellipse(ctx, 0, 1.5, 8.5, 7.5); fill(ctx, col); line(ctx);
+  // layered tail feathers (more dynamic)
+  path(ctx, () => { ctx.moveTo(-7.5, -1.5); ctx.lineTo(-15, -9); ctx.lineTo(-7.5, 4); }); fill(ctx, shade(col, -0.2)); line(ctx);
+  path(ctx, () => { ctx.moveTo(-7, 0.5); ctx.lineTo(-13, -4); ctx.lineTo(-7, 4); }); fill(ctx, shade(col, 0.1));
   // folded wing
-  ctx.fillStyle = shade(col, -0.12); ellipse(ctx, -1, 2, 5.5, 5); ctx.fill();
-  ctx.strokeStyle = shade(col, -0.3); ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(-4, 1); ctx.lineTo(2, 4); ctx.stroke();
+  ctx.fillStyle = shade(col, -0.14); ellipse(ctx, -1.5, 1.5, 5, 5); ctx.fill();
+  ctx.strokeStyle = shade(col, -0.35); ctx.lineWidth = 0.9; ctx.beginPath(); ctx.moveTo(-4.5, 0.5); ctx.lineTo(1.5, 3.5); ctx.stroke();
   // head + comb + wattle + beak
-  circle(ctx, 7, -7, 5); fill(ctx, shade(col, 0.12)); line(ctx);
-  ctx.fillStyle = '#d23b2e'; circle(ctx, 6, -12, 1.6); ctx.fill(); circle(ctx, 8.5, -12, 1.6); ctx.fill();
-  ctx.fillStyle = '#c2302a'; ellipse(ctx, 7, -3.5, 1.4, 2); ctx.fill();
-  path(ctx, () => { ctx.moveTo(11, -7); ctx.lineTo(16, -6); ctx.lineTo(11, -4); }); fill(ctx, '#f0a93b');
-  eyeW(ctx, 8.4, -8, 1.1);
+  circle(ctx, 6.5, -7, 4.8); fill(ctx, shade(col, 0.1)); line(ctx);
+  ctx.fillStyle = '#d23b2e'; circle(ctx, 5.5, -11.5, 1.5); ctx.fill(); circle(ctx, 7.8, -11.5, 1.5); ctx.fill();
+  ctx.fillStyle = '#c2302a'; ellipse(ctx, 6.5, -4, 1.3, 1.9); ctx.fill();
+  path(ctx, () => { ctx.moveTo(10, -7); ctx.lineTo(15, -6.2); ctx.lineTo(10, -4.5); }); fill(ctx, '#f0a93b');
+  eyeW(ctx, 7.8, -8, 1.05);
 }
+
 function greenman(ctx, col) {
-  ctx.fillStyle = shade(col, -0.2); rr(ctx, -5, 6, 4, 8, 2); ctx.fill(); rr(ctx, 1, 6, 4, 8, 2); ctx.fill();
-  rr(ctx, -7, -4, 14, 13, 5); fill(ctx, col); line(ctx);
-  ctx.fillStyle = shade(col, 0.14); ellipse(ctx, -2, 0, 4, 6); ctx.fill();      // chest light
-  ctx.fillStyle = '#7a5a2a'; rr(ctx, -7, 6, 14, 5, 2); ctx.fill();               // loincloth
-  ctx.fillStyle = '#5a4220'; rr(ctx, -7, 6, 14, 1.4, 1); ctx.fill();
-  ctx.fillStyle = col; rr(ctx, -10, -3, 4, 9, 2); ctx.fill(); rr(ctx, 6, -3, 4, 9, 2); ctx.fill();
-  // head + pointy ears
-  circle(ctx, 0, -10, 7); fill(ctx, shade(col, 0.1)); line(ctx);
-  path(ctx, () => { ctx.moveTo(-6, -11); ctx.lineTo(-12, -14); ctx.lineTo(-6, -7); }); fill(ctx, shade(col, 0.1)); line(ctx, OUTLINE, 1.1);
-  path(ctx, () => { ctx.moveTo(6, -11); ctx.lineTo(12, -14); ctx.lineTo(6, -7); }); fill(ctx, shade(col, 0.1)); line(ctx, OUTLINE, 1.1);
-  // brow, big nose, snaggle teeth
-  ctx.fillStyle = shade(col, -0.3); rr(ctx, -5, -13, 10, 1.6, 0.8); ctx.fill();
-  ctx.fillStyle = shade(col, -0.15); ellipse(ctx, 0.5, -8.5, 1.6, 2.4); ctx.fill();
-  ctx.fillStyle = '#f4efe0'; path(ctx, () => { ctx.moveTo(-2.5, -6); ctx.lineTo(-1.5, -4); ctx.lineTo(-0.5, -6); }); ctx.fill();
-  path(ctx, () => { ctx.moveTo(1.5, -6); ctx.lineTo(2.5, -4); ctx.lineTo(3.5, -6); }); ctx.fill();
-  eyeW(ctx, -2.6, -10.5, 1.3, '#7a1010'); eyeW(ctx, 3, -10.5, 1.3, '#7a1010');
+  // Improved: more goblin/leafy character, better ear shape, clearer snaggle teeth
+  ctx.fillStyle = shade(col, -0.22); rr(ctx, -5.5, 6, 4.2, 8, 2); ctx.fill(); rr(ctx, 0.8, 6, 4.2, 8, 2); ctx.fill();
+  rr(ctx, -7.5, -4.5, 15, 13, 5); fill(ctx, col); line(ctx);
+  ctx.fillStyle = shade(col, 0.12); ellipse(ctx, -2, -0.5, 4, 6); ctx.fill();
+  // loincloth
+  ctx.fillStyle = '#7a5a2a'; rr(ctx, -7.5, 6, 15, 5, 2); ctx.fill();
+  ctx.fillStyle = '#5a4220'; rr(ctx, -7.5, 6, 15, 1.5, 1); ctx.fill();
+  // arms
+  ctx.fillStyle = col; rr(ctx, -10.5, -3.5, 4, 9.5, 2); ctx.fill(); rr(ctx, 6, -3.5, 4, 9.5, 2); ctx.fill();
+  // head
+  circle(ctx, 0, -10.5, 6.8); fill(ctx, shade(col, 0.08)); line(ctx);
+  // pointy ears
+  path(ctx, () => { ctx.moveTo(-6, -11); ctx.lineTo(-12.5, -14.5); ctx.lineTo(-6, -7); }); fill(ctx, shade(col, 0.08)); line(ctx, OUTLINE, 1.2);
+  path(ctx, () => { ctx.moveTo(6, -11); ctx.lineTo(12.5, -14.5); ctx.lineTo(6, -7); }); fill(ctx, shade(col, 0.08)); line(ctx, OUTLINE, 1.2);
+  // brow, nose, teeth
+  ctx.fillStyle = shade(col, -0.32); rr(ctx, -5.5, -13.5, 11, 1.7, 0.8); ctx.fill();
+  ctx.fillStyle = shade(col, -0.16); ellipse(ctx, 0.3, -8.8, 1.7, 2.5); ctx.fill();
+  ctx.fillStyle = '#f4efe0';
+  path(ctx, () => { ctx.moveTo(-2.8, -6.2); ctx.lineTo(-1.6, -4.2); ctx.lineTo(-0.4, -6.2); }); ctx.fill();
+  path(ctx, () => { ctx.moveTo(1.2, -6.2); ctx.lineTo(2.4, -4.2); ctx.lineTo(3.6, -6.2); }); ctx.fill();
+  eyeW(ctx, -2.8, -11, 1.2, '#7a1010'); eyeW(ctx, 3.2, -11, 1.2, '#7a1010');
 }
+
 function spider(ctx, col) {
-  // 8 jointed legs
-  ctx.strokeStyle = shade(col, -0.12); ctx.lineWidth = 1.7; ctx.lineCap = 'round';
+  // Improved: cleaner 8 legs with better articulation, stronger hourglass/abdomen mark, cluster eyes
+  ctx.strokeStyle = shade(col, -0.15); ctx.lineWidth = 1.8; ctx.lineCap = 'round';
   for (const s of [-1, 1]) for (const i of [0, 1, 2, 3]) {
-    const ky = -3 + i * 3.4;
-    ctx.beginPath(); ctx.moveTo(0, 2); ctx.lineTo(s * (7 + i * 2.4), ky); ctx.lineTo(s * (11 + i * 2.6), ky + 5); ctx.stroke();
+    const ky = -3.5 + i * 3.5;
+    ctx.beginPath(); ctx.moveTo(0, 1.5); ctx.lineTo(s * (6.5 + i * 2.5), ky); ctx.lineTo(s * (11 + i * 2.7), ky + 4.5); ctx.stroke();
   }
   ctx.lineCap = 'butt';
-  // abdomen with marking
-  ellipse(ctx, 0, 4, 8, 7); fill(ctx, col); line(ctx);
-  ctx.fillStyle = shade(col, -0.3); path(ctx, () => { ctx.moveTo(0, -1); ctx.lineTo(2.6, 5); ctx.lineTo(0, 9); ctx.lineTo(-2.6, 5); }); ctx.fill();
-  // cephalothorax + fangs
-  circle(ctx, 0, -4, 4.6); fill(ctx, shade(col, -0.15)); line(ctx);
-  fang(ctx, -1.6, -0.5, 1, 2.2, shade(col, -0.4)); fang(ctx, 1.6, -0.5, 1, 2.2, shade(col, -0.4));
-  // cluster of eyes
-  ctx.fillStyle = '#ff3b3b'; for (const [ex, ey] of [[-2.2, -5], [2.2, -5], [-1, -6.4], [1, -6.4]]) { circle(ctx, ex, ey, 0.9); ctx.fill(); }
-  ctx.fillStyle = 'rgba(255,255,255,0.85)'; circle(ctx, -2.5, -5.3, 0.3); ctx.fill(); circle(ctx, 1.9, -5.3, 0.3); ctx.fill();
+  // abdomen
+  ellipse(ctx, 0, 3.5, 7.5, 6.5); fill(ctx, col); line(ctx);
+  ctx.fillStyle = shade(col, -0.32); path(ctx, () => { ctx.moveTo(0, -1.5); ctx.lineTo(2.4, 4.5); ctx.lineTo(0, 8.5); ctx.lineTo(-2.4, 4.5); }); ctx.fill();
+  // cephalothorax
+  circle(ctx, 0, -4.5, 4.3); fill(ctx, shade(col, -0.18)); line(ctx);
+  // fangs
+  fang(ctx, -1.5, -1, 0.95, 2.1, shade(col, -0.42)); fang(ctx, 1.5, -1, 0.95, 2.1, shade(col, -0.42));
+  // eye cluster (classic spider)
+  ctx.fillStyle = '#ff2a2a';
+  for (const [ex, ey] of [[-2.1, -5.2], [2.1, -5.2], [-0.9, -6.6], [0.9, -6.6], [-2.8, -6.3], [2.8, -6.3]]) {
+    circle(ctx, ex, ey, 0.85); ctx.fill();
+  }
+  ctx.fillStyle = 'rgba(255,255,255,0.9)'; circle(ctx, -2.4, -5.5, 0.28); ctx.fill(); circle(ctx, 1.8, -5.5, 0.28); ctx.fill();
 }
+
 function slime(ctx, col) {
-  // wobbly translucent blob with a couple of drips
-  ctx.globalAlpha = 0.92;
-  path(ctx, () => { ctx.moveTo(-10, 10); ctx.quadraticCurveTo(-12, -6, 0, -7); ctx.quadraticCurveTo(12, -6, 10, 10); }); fill(ctx, col); line(ctx);
+  // Improved: more organic wobble shape, better drips, cuter/more readable face
+  ctx.globalAlpha = 0.9;
+  path(ctx, () => { ctx.moveTo(-10.5, 9.5); ctx.quadraticCurveTo(-13, -7, 0, -7.5); ctx.quadraticCurveTo(13, -7, 10.5, 9.5); }); fill(ctx, col); line(ctx);
   ctx.globalAlpha = 1;
-  ctx.fillStyle = col; circle(ctx, -5, 10, 2); ctx.fill(); circle(ctx, 5, 10, 1.6); ctx.fill();
-  // glossy highlight + inner bubbles
-  ctx.fillStyle = shade(col, 0.4); ellipse(ctx, -3, -2, 3, 4.4); ctx.fill();
-  ctx.fillStyle = shade(col, 0.2); circle(ctx, 4, 4, 1.6); ctx.fill(); circle(ctx, -5, 5, 1.1); ctx.fill();
-  // face
-  eyeW(ctx, -3, 1, 1.5); eyeW(ctx, 3.5, 1, 1.5);
-  ctx.strokeStyle = '#1a140d'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(0.3, 4, 2, 0.2, Math.PI - 0.2); ctx.stroke();
+  // drips
+  ctx.fillStyle = col; circle(ctx, -5.5, 9.5, 2.2); ctx.fill(); circle(ctx, 5, 9.5, 1.8); ctx.fill();
+  // glossy highlight
+  ctx.fillStyle = shade(col, 0.38); ellipse(ctx, -3.5, -2.5, 3.2, 4.2); ctx.fill();
+  // inner bubbles
+  ctx.fillStyle = shade(col, 0.18); circle(ctx, 4, 3.5, 1.5); ctx.fill(); circle(ctx, -5.5, 4.5, 1.1); ctx.fill();
+  // face - more expressive
+  eyeW(ctx, -3.2, 0.5, 1.45); eyeW(ctx, 3.3, 0.5, 1.45);
+  ctx.strokeStyle = '#1a140d'; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.arc(0.2, 3.8, 2.1, 0.25, Math.PI - 0.25); ctx.stroke();
 }
+
 function ghost(ctx, col) {
-  // faint outer aura
-  const g = ctx.createRadialGradient(0, -4, 2, 0, -4, 16); g.addColorStop(0, 'rgba(255,255,255,0.18)'); g.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = g; circle(ctx, 0, -4, 16); ctx.fill();
-  ctx.globalAlpha = 0.82;
-  path(ctx, () => { ctx.moveTo(-8, 10); ctx.lineTo(-8, -6); ctx.quadraticCurveTo(-8, -14, 0, -14); ctx.quadraticCurveTo(8, -14, 8, -6); ctx.lineTo(8, 10); ctx.lineTo(5, 7); ctx.lineTo(2, 10); ctx.lineTo(-1, 7); ctx.lineTo(-4, 10); ctx.lineTo(-8, 7); }); fill(ctx, col); line(ctx);
-  // body sheen
-  ctx.fillStyle = shade(col, 0.3); ellipse(ctx, -3, -6, 2.4, 4); ctx.fill();
+  // Improved: better flowing sheet silhouette, more haunting eyes/mouth, subtle aura already in engine but enhanced here lightly
+  const g = ctx.createRadialGradient(0, -4.5, 2.5, 0, -4.5, 15); g.addColorStop(0, 'rgba(255,255,255,0.16)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g; circle(ctx, 0, -4.5, 15); ctx.fill();
+  ctx.globalAlpha = 0.78;
+  path(ctx, () => { ctx.moveTo(-8.5, 9.5); ctx.lineTo(-8.5, -6.5); ctx.quadraticCurveTo(-8.5, -14.5, 0, -14.5); ctx.quadraticCurveTo(8.5, -14.5, 8.5, -6.5); ctx.lineTo(8.5, 9.5); ctx.lineTo(5, 6.5); ctx.lineTo(2, 9.5); ctx.lineTo(-1, 6.5); ctx.lineTo(-4, 9.5); ctx.lineTo(-8.5, 6.5); }); fill(ctx, col); line(ctx);
+  ctx.fillStyle = shade(col, 0.28); ellipse(ctx, -3.2, -6.5, 2.3, 3.8); ctx.fill();
   ctx.globalAlpha = 1;
-  // hollow glowing eyes + wailing mouth
-  ctx.fillStyle = '#1a1824'; ellipse(ctx, -3, -7, 1.5, 2.1); ctx.fill(); ellipse(ctx, 3, -7, 1.5, 2.1); ctx.fill();
-  ctx.fillStyle = 'rgba(180,210,255,0.9)'; circle(ctx, -3, -7.4, 0.6); ctx.fill(); circle(ctx, 3, -7.4, 0.6); ctx.fill();
-  ctx.fillStyle = '#1a1824'; ellipse(ctx, 0, -2, 1.5, 2.2); ctx.fill();
+  // hollow eyes
+  ctx.fillStyle = '#16141f'; ellipse(ctx, -3.2, -7.5, 1.55, 2.15); ctx.fill(); ellipse(ctx, 3.2, -7.5, 1.55, 2.15); ctx.fill();
+  ctx.fillStyle = 'rgba(170,205,255,0.92)'; circle(ctx, -3.2, -7.9, 0.55); ctx.fill(); circle(ctx, 3.2, -7.9, 0.55); ctx.fill();
+  // wailing mouth
+  ctx.fillStyle = '#16141f'; ellipse(ctx, 0, -2.2, 1.6, 2.3); ctx.fill();
 }
+
 function demon(ctx, col) {
-  // bat-like wings behind
-  ctx.fillStyle = shade(col, -0.4);
-  path(ctx, () => { ctx.moveTo(-6, -3); ctx.lineTo(-16, -9); ctx.lineTo(-13, -3); ctx.lineTo(-16, 1); ctx.lineTo(-7, 3); }); ctx.fill();
-  path(ctx, () => { ctx.moveTo(6, -3); ctx.lineTo(16, -9); ctx.lineTo(13, -3); ctx.lineTo(16, 1); ctx.lineTo(7, 3); }); ctx.fill();
+  // Improved: more menacing bat wings, better horn curve, scarier fanged grin, stronger torso
+  ctx.fillStyle = shade(col, -0.42);
+  path(ctx, () => { ctx.moveTo(-6.5, -3.5); ctx.lineTo(-16.5, -10); ctx.lineTo(-13, -3.5); ctx.lineTo(-16.5, 1); ctx.lineTo(-7.5, 3); }); ctx.fill();
+  path(ctx, () => { ctx.moveTo(6.5, -3.5); ctx.lineTo(16.5, -10); ctx.lineTo(13, -3.5); ctx.lineTo(16.5, 1); ctx.lineTo(7.5, 3); }); ctx.fill();
   // hooved legs
-  ctx.fillStyle = shade(col, -0.2); rr(ctx, -5, 6, 4, 8, 2); ctx.fill(); rr(ctx, 1, 6, 4, 8, 2); ctx.fill();
-  ctx.fillStyle = '#1a120e'; rr(ctx, -5, 12.5, 4, 2.4, 1); ctx.fill(); rr(ctx, 1, 12.5, 4, 2.4, 1); ctx.fill();
-  // muscular torso
-  rr(ctx, -7, -4, 14, 12, 4); fill(ctx, col); line(ctx);
-  ctx.fillStyle = shade(col, -0.18); ellipse(ctx, 0, 4, 5, 4); ctx.fill();
-  ctx.fillStyle = shade(col, 0.14); ellipse(ctx, -2.5, -1, 2.6, 3.5); ctx.fill();
-  ctx.fillStyle = col; rr(ctx, -11, -3, 4, 9, 2); ctx.fill(); rr(ctx, 7, -3, 4, 9, 2); ctx.fill();
-  // head + horns + fanged grin
-  circle(ctx, 0, -10, 6.5); fill(ctx, col); line(ctx);
-  ctx.fillStyle = shade(col, -0.3); path(ctx, () => { ctx.moveTo(-6, -13); ctx.lineTo(-9, -20); ctx.lineTo(-3, -14); }); ctx.fill(); path(ctx, () => { ctx.moveTo(6, -13); ctx.lineTo(9, -20); ctx.lineTo(3, -14); }); ctx.fill();
-  ctx.fillStyle = '#f4efe0'; for (const x of [-3, -1, 1, 3]) { path(ctx, () => { ctx.moveTo(x - 0.7, -6.5); ctx.lineTo(x + 0.7, -6.5); ctx.lineTo(x, -4.8); }); ctx.fill(); }
-  // glowing eyes
-  ctx.fillStyle = '#ffd24a'; for (const x of [-2.3, 2.3]) { circle(ctx, x, -10, 1.4); ctx.fill(); }
-  ctx.fillStyle = '#fff7d0'; circle(ctx, -2.3, -10, 0.5); ctx.fill(); circle(ctx, 2.3, -10, 0.5); ctx.fill();
-}
-function golem(ctx, col) {
-  // chunky legs/arms
-  ctx.fillStyle = shade(col, -0.25); rr(ctx, -6, 6, 4.5, 8, 1); ctx.fill(); rr(ctx, 1.5, 6, 4.5, 8, 1); ctx.fill();
-  ctx.fillStyle = col; rr(ctx, -13, -4, 5, 11, 2); ctx.fill(); rr(ctx, 8, -4, 5, 11, 2); ctx.fill();
-  ctx.fillStyle = shade(col, -0.3); rr(ctx, -13.5, 5, 5.5, 3, 1); ctx.fill(); rr(ctx, 8, 5, 5.5, 3, 1); ctx.fill(); // fists
-  // boulder torso with facets + cracks
-  rr(ctx, -9, -6, 18, 14, 3); fill(ctx, col); line(ctx);
-  ctx.fillStyle = shade(col, 0.16); path(ctx, () => { ctx.moveTo(-9, -6); ctx.lineTo(2, -6); ctx.lineTo(-4, 1); ctx.lineTo(-9, 1); }); ctx.fill();
-  ctx.fillStyle = shade(col, -0.2); path(ctx, () => { ctx.moveTo(9, 8); ctx.lineTo(2, 8); ctx.lineTo(7, 1); ctx.lineTo(9, 1); }); ctx.fill();
-  ctx.strokeStyle = shade(col, -0.4); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-9, 0); ctx.lineTo(-2, 1); ctx.lineTo(3, -3); ctx.moveTo(3, 8); ctx.lineTo(5, 2); ctx.stroke();
-  // head with glowing rune eyes
-  rr(ctx, -5, -15, 10, 9, 2); fill(ctx, shade(col, 0.08)); line(ctx);
-  ctx.fillStyle = '#ffce4a'; rr(ctx, -3.4, -12, 2.6, 2.6, 1); ctx.fill(); rr(ctx, 0.8, -12, 2.6, 2.6, 1); ctx.fill();
-  ctx.fillStyle = '#fff3c0'; rr(ctx, -3.4, -12, 2.6, 1, 0.5); ctx.fill(); rr(ctx, 0.8, -12, 2.6, 1, 0.5); ctx.fill();
-}
-function undead(ctx, col) {
-  // bony legs + arms
-  ctx.strokeStyle = col; ctx.lineWidth = 2.6; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(-3, 8); ctx.lineTo(-3, 13); ctx.moveTo(3, 8); ctx.lineTo(3, 13);
-  ctx.moveTo(-5, -1); ctx.lineTo(-9, 5); ctx.moveTo(5, -1); ctx.lineTo(9, 5); ctx.stroke(); ctx.lineCap = 'butt';
-  // ribcage
-  rr(ctx, -5, -3, 10, 11, 2); fill(ctx, shade(col, -0.05)); line(ctx);
-  ctx.strokeStyle = shade(col, -0.45); ctx.lineWidth = 1.1;
-  ctx.beginPath(); ctx.moveTo(0, -3); ctx.lineTo(0, 8); ctx.stroke();
-  for (const yy of [-1, 2, 5]) { ctx.beginPath(); ctx.moveTo(-4, yy); ctx.quadraticCurveTo(0, yy + 1.6, 4, yy); ctx.stroke(); }
-  // skull: cranium, sockets, nose, jaw + teeth
-  circle(ctx, 0, -10, 6); fill(ctx, col); line(ctx);
-  ctx.fillStyle = '#15110b'; ellipse(ctx, -2.4, -10.5, 1.7, 2); ctx.fill(); ellipse(ctx, 2.4, -10.5, 1.7, 2); ctx.fill();
-  ctx.fillStyle = '#7a1414'; circle(ctx, -2.4, -10.5, 0.8); ctx.fill(); circle(ctx, 2.4, -10.5, 0.8); ctx.fill(); // eye glow
-  ctx.fillStyle = '#15110b'; path(ctx, () => { ctx.moveTo(0, -8.5); ctx.lineTo(-1, -6.6); ctx.lineTo(1, -6.6); }); ctx.fill();
-  ctx.fillStyle = shade(col, -0.1); rr(ctx, -3, -6, 6, 2.4, 0.6); ctx.fill();
-  ctx.strokeStyle = shade(col, -0.4); ctx.lineWidth = 0.7; ctx.beginPath(); ctx.moveTo(-1.5, -6); ctx.lineTo(-1.5, -3.8); ctx.moveTo(0, -6); ctx.lineTo(0, -3.8); ctx.moveTo(1.5, -6); ctx.lineTo(1.5, -3.8); ctx.stroke();
-}
-function insect(ctx, col) {
-  // blurred beating wings
-  ctx.globalAlpha = 0.55; ctx.fillStyle = '#dffaff'; ellipse(ctx, -6, -3, 7, 3.4); ctx.fill(); ellipse(ctx, 6, -3, 7, 3.4); ctx.fill(); ctx.globalAlpha = 1;
-  ctx.strokeStyle = 'rgba(180,220,235,0.7)'; ctx.lineWidth = 0.6; ctx.beginPath(); ctx.moveTo(-10, -3); ctx.lineTo(-2, -2); ctx.moveTo(10, -3); ctx.lineTo(2, -2); ctx.stroke();
-  // legs
-  ctx.strokeStyle = shade(col, -0.2); ctx.lineWidth = 1; ctx.lineCap = 'round';
-  for (const s of [-1, 1]) for (const i of [0, 1, 2]) { ctx.beginPath(); ctx.moveTo(s * 2, 3 + i); ctx.lineTo(s * 6, 8 + i * 1.5); ctx.stroke(); }
-  ctx.lineCap = 'butt';
-  // segmented abdomen + thorax
-  ellipse(ctx, 0, 4, 5, 7); fill(ctx, col); line(ctx);
-  ctx.strokeStyle = shade(col, -0.3); ctx.lineWidth = 0.6; ctx.beginPath(); ctx.moveTo(-4, 3); ctx.lineTo(4, 3); ctx.moveTo(-4, 6); ctx.lineTo(4, 6); ctx.stroke();
-  circle(ctx, 0, -5, 3.4); fill(ctx, shade(col, -0.18)); line(ctx);
-  ctx.strokeStyle = OUTLINE; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-2, -8); ctx.lineTo(-4, -12); ctx.moveTo(2, -8); ctx.lineTo(4, -12); ctx.stroke();
-  ctx.fillStyle = '#9b1e1e'; circle(ctx, -1.5, -5, 1.2); ctx.fill(); circle(ctx, 1.5, -5, 1.2); ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,0.8)'; circle(ctx, -1.8, -5.4, 0.4); ctx.fill(); circle(ctx, 1.2, -5.4, 0.4); ctx.fill();
-}
-function scorpion(ctx, col) {
-  // legs
-  ctx.strokeStyle = shade(col, -0.2); ctx.lineWidth = 1.5; ctx.lineCap = 'round';
-  for (const i of [-1, 0, 1]) { ctx.beginPath(); ctx.moveTo(i * 3, 7); ctx.lineTo(i * 3 - 4, 11); ctx.stroke(); ctx.beginPath(); ctx.moveTo(i * 3, 7); ctx.lineTo(i * 3 + 4, 11); ctx.stroke(); }
-  // segmented tail curling over the back to a stinger
-  ctx.strokeStyle = col; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(8, 6); ctx.quadraticCurveTo(18, 4, 14, -8); ctx.stroke();
-  ctx.lineWidth = 2; ctx.strokeStyle = shade(col, -0.25); ctx.beginPath(); ctx.moveTo(9, 5); ctx.quadraticCurveTo(17, 3, 14, -7); ctx.stroke(); ctx.lineCap = 'butt';
-  fang(ctx, 14, -10, 1.4, 3, shade(col, -0.35)); // stinger
-  // segmented body
-  ellipse(ctx, 0, 4, 9, 5); fill(ctx, col); line(ctx);
-  ctx.strokeStyle = shade(col, -0.3); ctx.lineWidth = 0.7; ctx.beginPath(); ctx.moveTo(-3, 0); ctx.lineTo(-3, 8); ctx.moveTo(2, 0); ctx.lineTo(2, 8); ctx.stroke();
-  // grasping pincers
-  for (const [px, py] of [[-10, 1], [-12, 4.5]]) { ctx.fillStyle = col; ellipse(ctx, px, py, 3, 2.2); ctx.fill(); line(ctx, OUTLINE, 1); ctx.strokeStyle = OUTLINE; ctx.lineWidth = 0.7; ctx.beginPath(); ctx.moveTo(px - 2, py); ctx.lineTo(px + 2, py); ctx.stroke(); }
-  eyeW(ctx, 3, 2.5, 0.9, '#15110b');
-}
-function bat(ctx, col) {
-  // scalloped wings with finger ribs
-  ctx.fillStyle = col;
-  path(ctx, () => { ctx.moveTo(-3, 0); ctx.lineTo(-15, -7); ctx.lineTo(-12, -1); ctx.lineTo(-15, 1); ctx.lineTo(-11, 3); ctx.lineTo(-14, 5); ctx.lineTo(-4, 4); }); ctx.fill(); line(ctx, OUTLINE, 1);
-  path(ctx, () => { ctx.moveTo(3, 0); ctx.lineTo(15, -7); ctx.lineTo(12, -1); ctx.lineTo(15, 1); ctx.lineTo(11, 3); ctx.lineTo(14, 5); ctx.lineTo(4, 4); }); ctx.fill(); line(ctx, OUTLINE, 1);
-  ctx.strokeStyle = shade(col, -0.3); ctx.lineWidth = 0.7; ctx.beginPath(); ctx.moveTo(-4, 1); ctx.lineTo(-13, -5); ctx.moveTo(4, 1); ctx.lineTo(13, -5); ctx.stroke();
-  // fuzzy body + ears
-  circle(ctx, 0, 0, 5); fill(ctx, shade(col, 0.12)); line(ctx);
-  ctx.fillStyle = shade(col, -0.2); path(ctx, () => { ctx.moveTo(-3, -4); ctx.lineTo(-4, -8); ctx.lineTo(-1, -5); }); ctx.fill(); path(ctx, () => { ctx.moveTo(3, -4); ctx.lineTo(4, -8); ctx.lineTo(1, -5); }); ctx.fill();
-  // eyes + tiny fangs
-  ctx.fillStyle = '#ffe24a'; circle(ctx, -1.7, -0.6, 1); ctx.fill(); circle(ctx, 1.7, -0.6, 1); ctx.fill();
-  ctx.fillStyle = '#1a140d'; circle(ctx, -1.7, -0.6, 0.4); ctx.fill(); circle(ctx, 1.7, -0.6, 0.4); ctx.fill();
-  fang(ctx, -1, 2.4, 0.7, 1.4); fang(ctx, 1, 2.4, 0.7, 1.4);
-}
-function seacreature(ctx, col) {
-  // body
-  path(ctx, () => { ctx.moveTo(-12, 2); ctx.quadraticCurveTo(0, -9, 14, 1); ctx.quadraticCurveTo(0, 11, -12, 2); }); fill(ctx, col); line(ctx);
-  // pale underbelly
-  ctx.fillStyle = shade(col, 0.3); path(ctx, () => { ctx.moveTo(-10, 3); ctx.quadraticCurveTo(2, 9, 12, 1.5); ctx.quadraticCurveTo(0, 7, -10, 3); }); ctx.fill();
-  // tail fluke
-  path(ctx, () => { ctx.moveTo(-12, 2); ctx.lineTo(-18, -4); ctx.lineTo(-15, 2); ctx.lineTo(-18, 8); }); fill(ctx, shade(col, -0.15)); line(ctx, OUTLINE, 1);
-  // dorsal + pectoral fins
-  ctx.fillStyle = shade(col, -0.18); path(ctx, () => { ctx.moveTo(1, -6); ctx.lineTo(5, -14); ctx.lineTo(8, -5); }); ctx.fill();
-  path(ctx, () => { ctx.moveTo(-1, 4); ctx.lineTo(-4, 10); ctx.lineTo(3, 5); }); ctx.fill();
-  // gills + jaw line
-  ctx.strokeStyle = shade(col, -0.3); ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(6, -3); ctx.lineTo(5, 3); ctx.moveTo(8, -3); ctx.lineTo(7, 3); ctx.stroke();
-  ctx.strokeStyle = '#1a140d'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(11, 2); ctx.lineTo(15, 1.5); ctx.stroke();
-  eyeW(ctx, 9, -1, 1.2);
-}
-function plant(ctx, col) {
-  // stem
-  ctx.strokeStyle = shade(col, -0.2); ctx.lineWidth = 3.4; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(0, 12); ctx.lineTo(0, -2); ctx.stroke(); ctx.lineCap = 'butt';
-  // leaves with veins
-  for (const s of [-1, 1]) {
-    ctx.fillStyle = shade(col, -0.05);
-    path(ctx, () => { ctx.moveTo(0, 5); ctx.quadraticCurveTo(s * 12, 4, s * 9, -3); ctx.quadraticCurveTo(s * 4, 1, 0, 5); }); ctx.fill(); line(ctx, OUTLINE, 0.8);
-    ctx.strokeStyle = shade(col, -0.3); ctx.lineWidth = 0.7; ctx.beginPath(); ctx.moveTo(0, 4); ctx.lineTo(s * 8, -2); ctx.stroke();
+  ctx.fillStyle = shade(col, -0.22); rr(ctx, -5.5, 6, 4.2, 8, 2); ctx.fill(); rr(ctx, 0.8, 6, 4.2, 8, 2); ctx.fill();
+  ctx.fillStyle = '#1a120e'; rr(ctx, -5.5, 12.2, 4.2, 2.5, 1); ctx.fill(); rr(ctx, 0.8, 12.2, 4.2, 2.5, 1); ctx.fill();
+  // torso
+  rr(ctx, -7.5, -4.5, 15, 12.5, 4); fill(ctx, col); line(ctx);
+  ctx.fillStyle = shade(col, -0.2); ellipse(ctx, 0, 3.5, 5.2, 4.2); ctx.fill();
+  ctx.fillStyle = shade(col, 0.12); ellipse(ctx, -2.8, -1.5, 2.8, 3.8); ctx.fill();
+  ctx.fillStyle = col; rr(ctx, -11.5, -3.5, 4.2, 9.5, 2); ctx.fill(); rr(ctx, 7, -3.5, 4.2, 9.5, 2); ctx.fill();
+  // head + curved horns
+  circle(ctx, 0, -10.5, 6.2); fill(ctx, col); line(ctx);
+  ctx.fillStyle = shade(col, -0.32);
+  path(ctx, () => { ctx.moveTo(-6, -13.5); ctx.lineTo(-9.5, -21); ctx.lineTo(-3, -14.5); }); ctx.fill();
+  path(ctx, () => { ctx.moveTo(6, -13.5); ctx.lineTo(9.5, -21); ctx.lineTo(3, -14.5); }); ctx.fill();
+  // fanged grin
+  ctx.fillStyle = '#f4efe0';
+  for (const x of [-3.2, -1.4, 0.4, 2.2]) {
+    path(ctx, () => { ctx.moveTo(x - 0.65, -6.8); ctx.lineTo(x + 0.65, -6.8); ctx.lineTo(x, -5); }); ctx.fill();
   }
-  // gaping flytrap maw (upper + lower jaw) with teeth
-  ctx.fillStyle = col; path(ctx, () => { ctx.moveTo(-7, -5); ctx.quadraticCurveTo(0, -17, 7, -5); ctx.quadraticCurveTo(0, -9, -7, -5); }); ctx.fill(); line(ctx, OUTLINE, 1);
-  ctx.fillStyle = '#7a1020'; ellipse(ctx, 0, -6.5, 4, 2.6); ctx.fill();
-  ctx.fillStyle = '#fff';
-  for (const x of [-4, -2, 0, 2, 4]) { path(ctx, () => { ctx.moveTo(x, -8.5); ctx.lineTo(x + 0.9, -6.4); ctx.lineTo(x - 0.9, -6.4); }); ctx.fill(); } // upper teeth
-  for (const x of [-3, -1, 1, 3]) { path(ctx, () => { ctx.moveTo(x, -4.6); ctx.lineTo(x + 0.9, -6.6); ctx.lineTo(x - 0.9, -6.6); }); ctx.fill(); } // lower teeth
-  ctx.fillStyle = shade(col, 0.3); circle(ctx, -3, -9, 1.1); ctx.fill(); // lure highlight
+  // glowing eyes
+  ctx.fillStyle = '#ffd24a'; circle(ctx, -2.4, -10.5, 1.35); ctx.fill(); circle(ctx, 2.4, -10.5, 1.35); ctx.fill();
+  ctx.fillStyle = '#fff7d0'; circle(ctx, -2.4, -10.5, 0.45); ctx.fill(); circle(ctx, 2.4, -10.5, 0.45); ctx.fill();
 }
+
+function golem(ctx, col) {
+  // Improved: chunkier stone feel, better facet shading, stronger glowing runes, clearer cracks
+  ctx.fillStyle = shade(col, -0.28); rr(ctx, -6.5, 6, 4.8, 8, 1.2); ctx.fill(); rr(ctx, 1.2, 6, 4.8, 8, 1.2); ctx.fill();
+  ctx.fillStyle = col; rr(ctx, -13.5, -4.5, 5.2, 11.5, 2); ctx.fill(); rr(ctx, 8, -4.5, 5.2, 11.5, 2); ctx.fill();
+  ctx.fillStyle = shade(col, -0.32); rr(ctx, -14, 5, 5.8, 3.2, 1); ctx.fill(); rr(ctx, 8, 5, 5.8, 3.2, 1); ctx.fill();
+  // boulder torso with facets
+  rr(ctx, -9.5, -6.5, 19, 14.5, 3); fill(ctx, col); line(ctx);
+  ctx.fillStyle = shade(col, 0.14); path(ctx, () => { ctx.moveTo(-9.5, -6.5); ctx.lineTo(2, -6.5); ctx.lineTo(-4.5, 0.5); ctx.lineTo(-9.5, 0.5); }); ctx.fill();
+  ctx.fillStyle = shade(col, -0.22); path(ctx, () => { ctx.moveTo(9, 7.5); ctx.lineTo(2, 7.5); ctx.lineTo(7, 0.5); ctx.lineTo(9, 0.5); }); ctx.fill();
+  // cracks
+  ctx.strokeStyle = shade(col, -0.42); ctx.lineWidth = 1.1;
+  ctx.beginPath(); ctx.moveTo(-9, -0.5); ctx.lineTo(-2.5, 0.5); ctx.lineTo(2.5, -3.5); ctx.moveTo(3, 7.5); ctx.lineTo(5, 1.5); ctx.stroke();
+  // head with runes
+  rr(ctx, -5.5, -15.5, 11, 9.5, 2); fill(ctx, shade(col, 0.06)); line(ctx);
+  ctx.fillStyle = '#ffce4a'; rr(ctx, -3.6, -12.5, 2.7, 2.7, 1); ctx.fill(); rr(ctx, 0.7, -12.5, 2.7, 2.7, 1); ctx.fill();
+  ctx.fillStyle = '#fff3c0'; rr(ctx, -3.6, -12.5, 2.7, 1.1, 0.5); ctx.fill(); rr(ctx, 0.7, -12.5, 2.7, 1.1, 0.5); ctx.fill();
+}
+
+function undead(ctx, col) {
+  // Improved: more skeletal, better ribcage detail, skull with full teeth row, glowing sockets
+  ctx.strokeStyle = col; ctx.lineWidth = 2.8; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(-3.5, 7.5); ctx.lineTo(-3.5, 13); ctx.moveTo(3.5, 7.5); ctx.lineTo(3.5, 13);
+  ctx.moveTo(-5.5, -1.5); ctx.lineTo(-9.5, 4.5); ctx.moveTo(5.5, -1.5); ctx.lineTo(9.5, 4.5); ctx.stroke(); ctx.lineCap = 'butt';
+  // ribcage
+  rr(ctx, -5.5, -3.5, 11, 11.5, 2); fill(ctx, shade(col, -0.08)); line(ctx);
+  ctx.strokeStyle = shade(col, -0.48); ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.moveTo(0, -3.5); ctx.lineTo(0, 7.5); ctx.stroke();
+  for (const yy of [-1.5, 1.5, 4.5]) { ctx.beginPath(); ctx.moveTo(-4.5, yy); ctx.quadraticCurveTo(0, yy + 1.7, 4.5, yy); ctx.stroke(); }
+  // skull
+  circle(ctx, 0, -10.5, 5.8); fill(ctx, col); line(ctx);
+  ctx.fillStyle = '#15110b'; ellipse(ctx, -2.5, -11, 1.65, 2); ctx.fill(); ellipse(ctx, 2.5, -11, 1.65, 2); ctx.fill();
+  ctx.fillStyle = '#7a1414'; circle(ctx, -2.5, -11, 0.75); ctx.fill(); circle(ctx, 2.5, -11, 0.75); ctx.fill();
+  // nose cavity
+  ctx.fillStyle = '#15110b'; path(ctx, () => { ctx.moveTo(0, -9); ctx.lineTo(-1.1, -7.2); ctx.lineTo(1.1, -7.2); }); ctx.fill();
+  // jaw + teeth
+  ctx.fillStyle = shade(col, -0.12); rr(ctx, -3.2, -6.5, 6.4, 2.6, 0.6); ctx.fill();
+  ctx.strokeStyle = shade(col, -0.45); ctx.lineWidth = 0.75;
+  ctx.beginPath(); ctx.moveTo(-1.6, -6.3); ctx.lineTo(-1.6, -4); ctx.moveTo(0, -6.3); ctx.lineTo(0, -4); ctx.moveTo(1.6, -6.3); ctx.lineTo(1.6, -4); ctx.stroke();
+}
+
+function insect(ctx, col) {
+  // Improved: more mosquito-like (long proboscis), better wing blur, spindly legs
+  ctx.globalAlpha = 0.5; ctx.fillStyle = '#d4f0ff'; ellipse(ctx, -6.5, -3.5, 7.5, 3.2); ctx.fill(); ellipse(ctx, 6.5, -3.5, 7.5, 3.2); ctx.fill(); ctx.globalAlpha = 1;
+  ctx.strokeStyle = 'rgba(180,220,235,0.65)'; ctx.lineWidth = 0.55; ctx.beginPath(); ctx.moveTo(-11, -3.5); ctx.lineTo(-2.5, -2.5); ctx.moveTo(11, -3.5); ctx.lineTo(2.5, -2.5); ctx.stroke();
+  // legs (very spindly)
+  ctx.strokeStyle = shade(col, -0.22); ctx.lineWidth = 0.95; ctx.lineCap = 'round';
+  for (const s of [-1, 1]) for (const i of [0, 1, 2]) { ctx.beginPath(); ctx.moveTo(s * 2.2, 2.5 + i*0.8); ctx.lineTo(s * 6.5, 8 + i * 1.6); ctx.stroke(); }
+  ctx.lineCap = 'butt';
+  // segmented body
+  ellipse(ctx, 0, 3.5, 4.8, 6.5); fill(ctx, col); line(ctx);
+  ctx.strokeStyle = shade(col, -0.35); ctx.lineWidth = 0.6; ctx.beginPath(); ctx.moveTo(-4, 2.5); ctx.lineTo(4, 2.5); ctx.moveTo(-4, 5.5); ctx.lineTo(4, 5.5); ctx.stroke();
+  circle(ctx, 0, -5.5, 3.2); fill(ctx, shade(col, -0.2)); line(ctx);
+  // proboscis
+  ctx.strokeStyle = OUTLINE; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-2.2, -8.5); ctx.lineTo(-4.5, -13); ctx.moveTo(2.2, -8.5); ctx.lineTo(4.5, -13); ctx.stroke();
+  ctx.fillStyle = '#9b1e1e'; circle(ctx, -1.6, -5.8, 1.1); ctx.fill(); circle(ctx, 1.6, -5.8, 1.1); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.75)'; circle(ctx, -1.9, -6.2, 0.35); ctx.fill(); circle(ctx, 1.3, -6.2, 0.35); ctx.fill();
+}
+
+function scorpion(ctx, col) {
+  // Improved: more threatening tail curl + stinger, better pincer grasp, segmented body clearer
+  ctx.strokeStyle = shade(col, -0.22); ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+  for (const i of [-1, 0, 1]) { ctx.beginPath(); ctx.moveTo(i * 3, 6.5); ctx.lineTo(i * 3 - 4, 10.5); ctx.stroke(); ctx.beginPath(); ctx.moveTo(i * 3, 6.5); ctx.lineTo(i * 3 + 4, 10.5); ctx.stroke(); }
+  // tail + stinger (more curved and dangerous)
+  ctx.strokeStyle = col; ctx.lineWidth = 4.2; ctx.beginPath(); ctx.moveTo(7.5, 5.5); ctx.quadraticCurveTo(19, 3, 14.5, -8.5); ctx.stroke();
+  ctx.lineWidth = 2.1; ctx.strokeStyle = shade(col, -0.26); ctx.beginPath(); ctx.moveTo(8.5, 4.5); ctx.quadraticCurveTo(18, 2, 14.5, -8); ctx.stroke(); ctx.lineCap = 'butt';
+  fang(ctx, 14.5, -10.5, 1.35, 3.2, shade(col, -0.38));
+  // body
+  ellipse(ctx, 0, 3.5, 8.5, 5); fill(ctx, col); line(ctx);
+  ctx.strokeStyle = shade(col, -0.32); ctx.lineWidth = 0.75; ctx.beginPath(); ctx.moveTo(-3.2, -0.5); ctx.lineTo(-3.2, 7); ctx.moveTo(2.2, -0.5); ctx.lineTo(2.2, 7); ctx.stroke();
+  // pincers
+  for (const [px, py] of [[-10.5, 0.5], [-12.5, 4]]) {
+    ctx.fillStyle = col; ellipse(ctx, px, py, 3.2, 2.3); ctx.fill(); line(ctx, OUTLINE, 1.1);
+    ctx.strokeStyle = OUTLINE; ctx.lineWidth = 0.75; ctx.beginPath(); ctx.moveTo(px - 2.2, py); ctx.lineTo(px + 2.2, py); ctx.stroke();
+  }
+  eyeW(ctx, 2.8, 2, 0.85, '#15110b');
+}
+
+function bat(ctx, col) {
+  // Improved: more detailed scalloped wings with finger bones, fuzzier body, cuter but creepy face
+  ctx.fillStyle = col;
+  path(ctx, () => { ctx.moveTo(-3.5, -0.5); ctx.lineTo(-15.5, -8); ctx.lineTo(-12, -1.5); ctx.lineTo(-15.5, 0.5); ctx.lineTo(-11, 2.5); ctx.lineTo(-14.5, 4.5); ctx.lineTo(-4.5, 3.5); }); ctx.fill(); line(ctx, OUTLINE, 1.1);
+  path(ctx, () => { ctx.moveTo(3.5, -0.5); ctx.lineTo(15.5, -8); ctx.lineTo(12, -1.5); ctx.lineTo(15.5, 0.5); ctx.lineTo(11, 2.5); ctx.lineTo(14.5, 4.5); ctx.lineTo(4.5, 3.5); }); ctx.fill(); line(ctx, OUTLINE, 1.1);
+  ctx.strokeStyle = shade(col, -0.32); ctx.lineWidth = 0.75; ctx.beginPath(); ctx.moveTo(-4.5, 0.5); ctx.lineTo(-13.5, -6); ctx.moveTo(4.5, 0.5); ctx.lineTo(13.5, -6); ctx.stroke();
+  // body
+  circle(ctx, 0, -0.5, 4.8); fill(ctx, shade(col, 0.1)); line(ctx);
+  // ears
+  ctx.fillStyle = shade(col, -0.22); path(ctx, () => { ctx.moveTo(-3.2, -4.5); ctx.lineTo(-4.2, -9); ctx.lineTo(-1, -5.5); }); ctx.fill();
+  path(ctx, () => { ctx.moveTo(3.2, -4.5); ctx.lineTo(4.2, -9); ctx.lineTo(1, -5.5); }); ctx.fill();
+  // eyes + tiny fangs
+  ctx.fillStyle = '#ffe24a'; circle(ctx, -1.8, -1, 0.95); ctx.fill(); circle(ctx, 1.8, -1, 0.95); ctx.fill();
+  ctx.fillStyle = '#1a140d'; circle(ctx, -1.8, -1, 0.38); ctx.fill(); circle(ctx, 1.8, -1, 0.38); ctx.fill();
+  fang(ctx, -1.1, 2, 0.65, 1.3); fang(ctx, 1.1, 2, 0.65, 1.3);
+}
+
+function seacreature(ctx, col) {
+  // Improved: more versatile for shark/dolphin/Merlion/kraken — sleeker body, better fin placement, stronger tail
+  path(ctx, () => { ctx.moveTo(-12.5, 1.5); ctx.quadraticCurveTo(0, -9.5, 14, 0.5); ctx.quadraticCurveTo(0, 10.5, -12.5, 1.5); }); fill(ctx, col); line(ctx);
+  ctx.fillStyle = shade(col, 0.28); path(ctx, () => { ctx.moveTo(-10.5, 2.5); ctx.quadraticCurveTo(1.5, 8.5, 12, 1); ctx.quadraticCurveTo(0, 6.5, -10.5, 2.5); }); ctx.fill();
+  // tail fluke
+  path(ctx, () => { ctx.moveTo(-12.5, 1.5); ctx.lineTo(-18.5, -4.5); ctx.lineTo(-15, 1.5); ctx.lineTo(-18.5, 7.5); }); fill(ctx, shade(col, -0.18)); line(ctx, OUTLINE, 1.1);
+  // dorsal fin
+  ctx.fillStyle = shade(col, -0.2); path(ctx, () => { ctx.moveTo(0.5, -6.5); ctx.lineTo(5, -14.5); ctx.lineTo(8, -5.5); }); ctx.fill();
+  // pectoral
+  path(ctx, () => { ctx.moveTo(-1.5, 3.5); ctx.lineTo(-4.5, 9.5); ctx.lineTo(2.5, 5); }); ctx.fill();
+  // gills + jaw
+  ctx.strokeStyle = shade(col, -0.32); ctx.lineWidth = 0.85; ctx.beginPath(); ctx.moveTo(5.5, -3.5); ctx.lineTo(4.5, 2.5); ctx.moveTo(7.5, -3.5); ctx.lineTo(6.5, 2.5); ctx.stroke();
+  ctx.strokeStyle = '#1a140d'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(10.5, 1.5); ctx.lineTo(15, 1); ctx.stroke();
+  eyeW(ctx, 8.5, -1.5, 1.15);
+}
+
+function plant(ctx, col) {
+  // Improved: more menacing flytrap, better stem, more detailed teeth + lure, clearer leaf veins
+  ctx.strokeStyle = shade(col, -0.22); ctx.lineWidth = 3.6; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(0, 12); ctx.lineTo(0, -2.5); ctx.stroke(); ctx.lineCap = 'butt';
+  // leaves
+  for (const s of [-1, 1]) {
+    ctx.fillStyle = shade(col, -0.08);
+    path(ctx, () => { ctx.moveTo(0, 4.5); ctx.quadraticCurveTo(s * 12.5, 3.5, s * 9.5, -3.5); ctx.quadraticCurveTo(s * 4, 0.5, 0, 4.5); }); ctx.fill(); line(ctx, OUTLINE, 0.85);
+    ctx.strokeStyle = shade(col, -0.32); ctx.lineWidth = 0.7; ctx.beginPath(); ctx.moveTo(0, 3.5); ctx.lineTo(s * 8.5, -2.5); ctx.stroke();
+  }
+  // flytrap maw (more open and toothy)
+  ctx.fillStyle = col; path(ctx, () => { ctx.moveTo(-7.5, -5.5); ctx.quadraticCurveTo(0, -17.5, 7.5, -5.5); ctx.quadraticCurveTo(0, -9.5, -7.5, -5.5); }); ctx.fill(); line(ctx, OUTLINE, 1.1);
+  ctx.fillStyle = '#6a0f1c'; ellipse(ctx, 0, -7, 4.2, 2.8); ctx.fill();
+  // upper teeth
+  ctx.fillStyle = '#f4f0e8';
+  for (const x of [-4.5, -2.2, 0, 2.2, 4.5]) { path(ctx, () => { ctx.moveTo(x, -9); ctx.lineTo(x + 0.85, -6.8); ctx.lineTo(x - 0.85, -6.8); }); ctx.fill(); }
+  // lower teeth
+  for (const x of [-3.5, -1.2, 1.2, 3.5]) { path(ctx, () => { ctx.moveTo(x, -5); ctx.lineTo(x + 0.85, -7); ctx.lineTo(x - 0.85, -7); }); ctx.fill(); }
+  // lure bulb
+  ctx.fillStyle = shade(col, 0.28); circle(ctx, -3.5, -9.5, 1.15); ctx.fill();
+}
+
 function drake(ctx, col) {
-  // membrane wing with ribs
-  ctx.fillStyle = shade(col, -0.22);
-  path(ctx, () => { ctx.moveTo(-2, -2); ctx.lineTo(-17, -11); ctx.lineTo(-13, -3); ctx.lineTo(-17, 0); ctx.lineTo(-12, 1); ctx.lineTo(-15, 4); ctx.lineTo(-4, 2); }); ctx.fill(); line(ctx, OUTLINE, 1);
-  ctx.strokeStyle = shade(col, -0.4); ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(-3, -1); ctx.lineTo(-15, -9); ctx.moveTo(-3, -1); ctx.lineTo(-14, -1); ctx.stroke();
+  // Improved: more dragon-like, better wing membrane with ribs, stronger dorsal spines, better snout/horn
+  ctx.fillStyle = shade(col, -0.24);
+  path(ctx, () => { ctx.moveTo(-2.5, -2.5); ctx.lineTo(-17.5, -11.5); ctx.lineTo(-13, -3.5); ctx.lineTo(-17.5, 0); ctx.lineTo(-12, 0.5); ctx.lineTo(-15.5, 3.5); ctx.lineTo(-4.5, 1.5); }); ctx.fill(); line(ctx, OUTLINE, 1.1);
+  ctx.strokeStyle = shade(col, -0.42); ctx.lineWidth = 0.85; ctx.beginPath(); ctx.moveTo(-3.5, -1.5); ctx.lineTo(-15.5, -10); ctx.moveTo(-3.5, -1.5); ctx.lineTo(-14.5, -1.5); ctx.stroke();
   // spiked tail
-  ctx.strokeStyle = col; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(-6, 6); ctx.quadraticCurveTo(-17, 9, -13, 0); ctx.stroke(); ctx.lineCap = 'butt';
-  ctx.fillStyle = col; path(ctx, () => { ctx.moveTo(-13, 1); ctx.lineTo(-16, -3); ctx.lineTo(-11, -1); }); ctx.fill();
+  ctx.strokeStyle = col; ctx.lineWidth = 4.2; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(-6.5, 5.5); ctx.quadraticCurveTo(-18, 8.5, -13.5, -0.5); ctx.stroke(); ctx.lineCap = 'butt';
+  ctx.fillStyle = col; path(ctx, () => { ctx.moveTo(-13.5, 0.5); ctx.lineTo(-16.5, -3.5); ctx.lineTo(-11, -1.5); }); ctx.fill();
   // legs + body
-  ctx.fillStyle = shade(col, -0.2); rr(ctx, -6, 5, 4, 8, 2); ctx.fill(); rr(ctx, 2, 5, 4, 8, 2); ctx.fill();
-  ellipse(ctx, 0, 1, 9, 8); fill(ctx, col); line(ctx);
-  ctx.fillStyle = shade(col, -0.18); ellipse(ctx, 0, 5, 6, 3); ctx.fill();
+  ctx.fillStyle = shade(col, -0.22); rr(ctx, -6.5, 5, 4.2, 8, 2); ctx.fill(); rr(ctx, 1.8, 5, 4.2, 8, 2); ctx.fill();
+  ellipse(ctx, 0, 0.5, 8.5, 7.5); fill(ctx, col); line(ctx);
+  ctx.fillStyle = shade(col, -0.2); ellipse(ctx, 0, 4.5, 5.5, 3); ctx.fill();
   // dorsal spines
-  ctx.fillStyle = shade(col, -0.3); for (const x of [-4, -1, 2]) { path(ctx, () => { ctx.moveTo(x, -6); ctx.lineTo(x + 1.4, -10); ctx.lineTo(x + 2.8, -6); }); ctx.fill(); }
+  ctx.fillStyle = shade(col, -0.32); for (const x of [-4.5, -1, 2.5]) { path(ctx, () => { ctx.moveTo(x, -6.5); ctx.lineTo(x + 1.3, -10.5); ctx.lineTo(x + 2.6, -6.5); }); ctx.fill(); }
   // head + horn + snout
-  circle(ctx, 9, -3, 5); fill(ctx, col); line(ctx);
-  ctx.fillStyle = shade(col, -0.3); path(ctx, () => { ctx.moveTo(7, -7); ctx.lineTo(6, -13); ctx.lineTo(10, -8); }); ctx.fill();
-  ctx.fillStyle = shade(col, 0.18); ellipse(ctx, 13, -2, 3, 2); ctx.fill();
-  ctx.fillStyle = '#1a140d'; circle(ctx, 14.5, -2.4, 0.6); ctx.fill();
-  fang(ctx, 12.5, 0, 1, 2, '#f4efe0');
-  eyeW(ctx, 10.5, -4, 1.2, '#7a1010');
+  circle(ctx, 8.5, -3.5, 4.8); fill(ctx, col); line(ctx);
+  ctx.fillStyle = shade(col, -0.32); path(ctx, () => { ctx.moveTo(6.5, -7.5); ctx.lineTo(5.5, -13.5); ctx.lineTo(9.5, -8.5); }); ctx.fill();
+  ctx.fillStyle = shade(col, 0.16); ellipse(ctx, 12.5, -2.5, 3.2, 2.2); ctx.fill();
+  ctx.fillStyle = '#1a140d'; circle(ctx, 14, -2.8, 0.55); ctx.fill();
+  fang(ctx, 12, -0.5, 0.95, 1.9, '#f4efe0');
+  eyeW(ctx, 9.8, -4.5, 1.1, '#7a1010');
 }
+
 function wisp(ctx, col) {
-  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 12); g.addColorStop(0, col); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; circle(ctx, 0, 0, 12); ctx.fill();
-  ctx.fillStyle = '#fff'; circle(ctx, 0, 0, 3); ctx.fill();
+  // Kept minimal & effective — glowing orb with bright core. Small polish on gradient.
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 11.5); g.addColorStop(0, col); g.addColorStop(0.65, shade(col, 0.3)); g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g; circle(ctx, 0, 0, 11.5); ctx.fill();
+  ctx.fillStyle = '#fff'; circle(ctx, 0, 0, 2.8); ctx.fill();
 }
+
 function humanoid(ctx, col) {
-  // legs + boots
-  ctx.fillStyle = shade(col, -0.4); rr(ctx, -5, 6, 4, 8, 2); ctx.fill(); rr(ctx, 1, 6, 4, 8, 2); ctx.fill();
-  ctx.fillStyle = '#1a120c'; rr(ctx, -5.4, 12, 5, 2.4, 1); ctx.fill(); rr(ctx, 0.6, 12, 5, 2.4, 1); ctx.fill();
-  // hooded cloak torso with shading
-  rr(ctx, -7, -5, 14, 13, 4); fill(ctx, col); line(ctx);
-  ctx.fillStyle = shade(col, 0.14); rr(ctx, -7, -5, 3.4, 13, 4); ctx.fill();
-  ctx.fillStyle = shade(col, -0.25); rr(ctx, 4.5, -5, 2.5, 13, 3); ctx.fill();
-  ctx.fillStyle = col; rr(ctx, -10, -3, 4, 9, 2); ctx.fill(); rr(ctx, 6, -3, 4, 9, 2); ctx.fill();
-  ctx.fillStyle = '#d8a578'; circle(ctx, -8, 6, 2); ctx.fill(); circle(ctx, 8, 6, 2); ctx.fill();
-  // hood with shadowed face + glinting eyes
-  circle(ctx, 0, -11, 6.5); fill(ctx, shade(col, -0.45)); line(ctx);
-  ctx.fillStyle = col; path(ctx, () => { ctx.arc(0, -12, 6.8, Math.PI, Math.PI * 2); ctx.lineTo(6.8, -9); ctx.quadraticCurveTo(0, -13, -6.8, -9); }); ctx.fill();
-  ctx.fillStyle = shade(col, -0.2); path(ctx, () => { ctx.moveTo(0, -18); ctx.lineTo(5, -10); ctx.lineTo(-5, -10); }); ctx.fill(); // hood peak
-  ctx.fillStyle = '#ffe24a'; circle(ctx, -2.2, -10.5, 0.9); ctx.fill(); circle(ctx, 2.2, -10.5, 0.9); ctx.fill();
-  // drawn dagger
-  ctx.strokeStyle = '#e9edf2'; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(10, 9); ctx.lineTo(13, -5); ctx.stroke();
-  ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.moveTo(8.5, 8); ctx.lineTo(11.5, 6); ctx.stroke();
+  // Improved: better cloak flow and hood shape, more threatening dagger pose, clearer face glow
+  ctx.fillStyle = shade(col, -0.42); rr(ctx, -5.5, 6, 4.2, 8, 2); ctx.fill(); rr(ctx, 0.8, 6, 4.2, 8, 2); ctx.fill();
+  ctx.fillStyle = '#1a120c'; rr(ctx, -5.8, 11.8, 5.2, 2.5, 1); ctx.fill(); rr(ctx, 0.4, 11.8, 5.2, 2.5, 1); ctx.fill();
+  // hooded cloak
+  rr(ctx, -7.5, -5.5, 15, 13.5, 4); fill(ctx, col); line(ctx);
+  ctx.fillStyle = shade(col, 0.12); rr(ctx, -7.5, -5.5, 3.6, 13.5, 4); ctx.fill();
+  ctx.fillStyle = shade(col, -0.28); rr(ctx, 4.2, -5.5, 2.8, 13.5, 3); ctx.fill();
+  ctx.fillStyle = col; rr(ctx, -10.5, -3.5, 4.2, 9.5, 2); ctx.fill(); rr(ctx, 6, -3.5, 4.2, 9.5, 2); ctx.fill();
+  ctx.fillStyle = '#d8a578'; circle(ctx, -8.5, 5.5, 2); ctx.fill(); circle(ctx, 8, 5.5, 2); ctx.fill();
+  // hood
+  circle(ctx, 0, -11.5, 6.3); fill(ctx, shade(col, -0.48)); line(ctx);
+  ctx.fillStyle = col; path(ctx, () => { ctx.arc(0, -12.5, 6.6, Math.PI, Math.PI * 2); ctx.lineTo(6.6, -9.5); ctx.quadraticCurveTo(0, -13.5, -6.6, -9.5); }); ctx.fill();
+  ctx.fillStyle = shade(col, -0.22); path(ctx, () => { ctx.moveTo(0, -18.5); ctx.lineTo(5, -10.5); ctx.lineTo(-5, -10.5); }); ctx.fill();
+  // eyes in shadow
+  ctx.fillStyle = '#ffe24a'; circle(ctx, -2.3, -11, 0.85); ctx.fill(); circle(ctx, 2.3, -11, 0.85); ctx.fill();
+  // dagger (more dynamic angle)
+  ctx.strokeStyle = '#e9edf2'; ctx.lineWidth = 2.3; ctx.beginPath(); ctx.moveTo(9.5, 8.5); ctx.lineTo(13.5, -6); ctx.stroke();
+  ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = 1.9; ctx.beginPath(); ctx.moveTo(8, 8); ctx.lineTo(11.5, 5.5); ctx.stroke();
 }
 
 function hound(ctx, col) {
-  // bushy tail
-  ctx.strokeStyle = shade(col, -0.1); ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(-9, 3); ctx.quadraticCurveTo(-16, -2, -12, -8); ctx.stroke(); ctx.lineCap = 'butt';
-  // legs (two tones for depth)
-  ctx.fillStyle = shade(col, -0.22); rr(ctx, -7, 6, 3.5, 7, 1); ctx.fill(); rr(ctx, 3, 6, 3.5, 7, 1); ctx.fill();
-  ctx.fillStyle = shade(col, -0.05); rr(ctx, -4, 7, 3.3, 6, 1); ctx.fill(); rr(ctx, 5.5, 7, 3.3, 6, 1); ctx.fill();
+  // Improved: more dog-like (less generic beast), better ear flop, snout, bushy tail
+  ctx.strokeStyle = shade(col, -0.12); ctx.lineWidth = 3.2; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(-9.5, 2.5); ctx.quadraticCurveTo(-17, -2.5, -12.5, -9); ctx.stroke(); ctx.lineCap = 'butt';
+  // legs
+  ctx.fillStyle = shade(col, -0.25); rr(ctx, -7.5, 6, 3.7, 7.2, 1); ctx.fill(); rr(ctx, 2.8, 6, 3.7, 7.2, 1); ctx.fill();
+  ctx.fillStyle = shade(col, -0.08); rr(ctx, -4.5, 6.8, 3.5, 6.2, 1); ctx.fill(); rr(ctx, 5.2, 6.8, 3.5, 6.2, 1); ctx.fill();
   // body
-  ellipse(ctx, -1, 2, 11, 6.5); fill(ctx, col); line(ctx);
-  ctx.fillStyle = shade(col, 0.14); ellipse(ctx, -2, -1, 7, 2); ctx.fill();
-  // head, ear, snout, fang
-  circle(ctx, 9, -2, 5.5); fill(ctx, col); line(ctx);
-  path(ctx, () => { ctx.moveTo(6, -6); ctx.lineTo(5, -12); ctx.lineTo(9, -7); }); fill(ctx, shade(col, -0.25)); // ear
-  path(ctx, () => { ctx.moveTo(13, -1); ctx.lineTo(17, 1); ctx.lineTo(13, 3.4); }); fill(ctx, shade(col, 0.2)); // snout
-  ctx.fillStyle = '#1a140d'; circle(ctx, 16.4, 1, 0.7); ctx.fill();
-  fang(ctx, 13.5, 3.2, 1, 1.8);
-  eyeW(ctx, 10.5, -3, 1.1, '#3a1010');
+  ellipse(ctx, -1, 1.5, 10.5, 6.2); fill(ctx, col); line(ctx);
+  ctx.fillStyle = shade(col, 0.12); ellipse(ctx, -2, -1.5, 6.5, 2.2); ctx.fill();
+  // head
+  circle(ctx, 8.5, -2.5, 5.2); fill(ctx, col); line(ctx);
+  // ear
+  path(ctx, () => { ctx.moveTo(5.5, -6.5); ctx.lineTo(4.5, -12.5); ctx.lineTo(9, -7.5); }); fill(ctx, shade(col, -0.28));
+  // snout
+  path(ctx, () => { ctx.moveTo(12.5, -1.5); ctx.lineTo(16.5, 0.8); ctx.lineTo(12.5, 3); }); fill(ctx, shade(col, 0.18));
+  ctx.fillStyle = '#1a140d'; circle(ctx, 16, 0.6, 0.6); ctx.fill();
+  fang(ctx, 13.2, 2.8, 0.95, 1.7);
+  eyeW(ctx, 9.8, -3.5, 1.05, '#3a1010');
 }
+
 function jellyfish(ctx, col) {
-  ctx.globalAlpha = 0.85;
-  path(ctx, () => { ctx.moveTo(-9, 2); ctx.quadraticCurveTo(-9, -10, 0, -10); ctx.quadraticCurveTo(9, -10, 9, 2); ctx.quadraticCurveTo(4, 5, 0, 2); ctx.quadraticCurveTo(-4, 5, -9, 2); }); fill(ctx, col); line(ctx);
+  // Improved: prettier bell curve, more elegant trailing tentacles, better internal highlight
+  ctx.globalAlpha = 0.82;
+  path(ctx, () => { ctx.moveTo(-9.5, 1.5); ctx.quadraticCurveTo(-9.5, -10.5, 0, -10.5); ctx.quadraticCurveTo(9.5, -10.5, 9.5, 1.5); ctx.quadraticCurveTo(4, 4.5, 0, 1.5); ctx.quadraticCurveTo(-4, 4.5, -9.5, 1.5); }); fill(ctx, col); line(ctx);
   ctx.globalAlpha = 1;
-  ctx.fillStyle = shade(col, 0.3); ellipse(ctx, -3, -5, 2.5, 3.5); ctx.fill();
-  ctx.strokeStyle = col; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
-  for (const x of [-6, -2, 2, 6]) { ctx.beginPath(); ctx.moveTo(x, 2); ctx.quadraticCurveTo(x + 2, 8, x - 1, 13); ctx.stroke(); }
+  ctx.fillStyle = shade(col, 0.28); ellipse(ctx, -3, -5.5, 2.4, 3.3); ctx.fill();
+  // tentacles
+  ctx.strokeStyle = col; ctx.lineWidth = 1.7; ctx.lineCap = 'round';
+  for (const x of [-6.5, -2, 2, 6.5]) { ctx.beginPath(); ctx.moveTo(x, 1.5); ctx.quadraticCurveTo(x + 2.2, 7.5, x - 1.2, 13); ctx.stroke(); }
   ctx.lineCap = 'butt';
 }
+
 function mantis(ctx, col) {
-  ctx.fillStyle = shade(col, -0.2); rr(ctx, -4, 6, 3, 7, 1); ctx.fill(); rr(ctx, 1, 6, 3, 7, 1); ctx.fill();
-  ellipse(ctx, -2, 1, 6, 8); fill(ctx, col); line(ctx);
-  ctx.strokeStyle = shade(col, -0.1); ctx.lineWidth = 2; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(3, -2); ctx.lineTo(9, -6); ctx.lineTo(7, -10); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(3, 1); ctx.lineTo(10, -2); ctx.lineTo(9, -6); ctx.stroke(); ctx.lineCap = 'butt';
-  circle(ctx, 2, -9, 3.6); fill(ctx, col); line(ctx);
-  circle(ctx, 0.6, -10, 1); fill(ctx, '#1a140d'); circle(ctx, 3.4, -10, 1); fill(ctx, '#1a140d');
+  // Improved: more recognizable praying mantis — better raptorial arms, triangular head, big eyes
+  ctx.fillStyle = shade(col, -0.22); rr(ctx, -4.5, 6, 3.2, 7.2, 1); ctx.fill(); rr(ctx, 0.8, 6, 3.2, 7.2, 1); ctx.fill();
+  ellipse(ctx, -2, 0.5, 5.8, 7.5); fill(ctx, col); line(ctx);
+  // raptorial forelegs (more mantis-like)
+  ctx.strokeStyle = shade(col, -0.12); ctx.lineWidth = 2.2; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(2.5, -2); ctx.lineTo(9.5, -6.5); ctx.lineTo(7.5, -10.5); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(2.5, 0.5); ctx.lineTo(10.5, -2.5); ctx.lineTo(9, -6.5); ctx.stroke(); ctx.lineCap = 'butt';
+  // head (more triangular/insect)
+  circle(ctx, 1.8, -9.5, 3.4); fill(ctx, col); line(ctx);
+  ctx.fillStyle = '#1a140d'; circle(ctx, 0.4, -10.2, 0.95); ctx.fill(); circle(ctx, 3.2, -10.2, 0.95); ctx.fill();
 }
+
 function turtle(ctx, col) {
-  // flippers + tail
-  ctx.fillStyle = shade(col, -0.25); rr(ctx, -10, 6, 4, 4, 2); ctx.fill(); rr(ctx, 6, 6, 4, 4, 2); ctx.fill();
-  path(ctx, () => { ctx.moveTo(-11, 1); ctx.lineTo(-15, 2); ctx.lineTo(-11, 4); }); ctx.fill();
+  // Improved: better domed shell with clearer scute pattern, nicer flippers, head proportion
+  ctx.fillStyle = shade(col, -0.26); rr(ctx, -10.5, 6, 4.2, 4.2, 2); ctx.fill(); rr(ctx, 5.8, 6, 4.2, 4.2, 2); ctx.fill();
+  path(ctx, () => { ctx.moveTo(-11.5, 0.8); ctx.lineTo(-15.5, 1.8); ctx.lineTo(-11.5, 3.8); }); ctx.fill();
   // head
-  circle(ctx, 11, 1, 4); fill(ctx, shade(col, 0.22)); line(ctx);
-  eyeW(ctx, 12.4, 0, 1, '#15110b');
-  // domed shell with hexagon scutes
-  ellipse(ctx, 0, 1, 12, 8.5); fill(ctx, col); line(ctx);
-  ctx.fillStyle = shade(col, 0.18); ellipse(ctx, 0, -1.5, 5, 3.5); ctx.fill();
-  ctx.strokeStyle = shade(col, -0.32); ctx.lineWidth = 1;
+  circle(ctx, 10.5, 0.5, 3.8); fill(ctx, shade(col, 0.2)); line(ctx);
+  eyeW(ctx, 11.8, -0.2, 0.95, '#15110b');
+  // shell
+  ellipse(ctx, 0, 0.8, 11.5, 8); fill(ctx, col); line(ctx);
+  ctx.fillStyle = shade(col, 0.15); ellipse(ctx, 0, -1.8, 4.8, 3.2); ctx.fill();
+  // scute lines (hex-like)
+  ctx.strokeStyle = shade(col, -0.35); ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(-5, -3); ctx.lineTo(5, -3); ctx.moveTo(-7, 2); ctx.lineTo(7, 2); ctx.moveTo(-5, 6); ctx.lineTo(5, 6);
-  ctx.moveTo(-5, -3); ctx.lineTo(-7, 2); ctx.lineTo(-5, 6); ctx.moveTo(0, -3); ctx.lineTo(0, 6); ctx.moveTo(5, -3); ctx.lineTo(7, 2); ctx.lineTo(5, 6);
+  ctx.moveTo(-5, -3.2); ctx.lineTo(5, -3.2);
+  ctx.moveTo(-7, 1.8); ctx.lineTo(7, 1.8);
+  ctx.moveTo(-5, 5.5); ctx.lineTo(5, 5.5);
+  ctx.moveTo(-5, -3.2); ctx.lineTo(-7, 1.8); ctx.lineTo(-5, 5.5);
+  ctx.moveTo(0, -3.2); ctx.lineTo(0, 5.5);
+  ctx.moveTo(5, -3.2); ctx.lineTo(7, 1.8); ctx.lineTo(5, 5.5);
   ctx.stroke();
 }
 
@@ -1079,3 +1174,4 @@ export function drawGroundItem(ctx, id, cx, cy) {
     ctx.fillStyle = 'rgba(255,235,170,0.6)'; circle(ctx, cx, cy, 5); ctx.fill();
   }
 }
+
