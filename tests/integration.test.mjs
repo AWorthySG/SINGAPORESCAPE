@@ -27,8 +27,8 @@ test('game boots with a populated world', () => {
   game.start();
 
   assert.ok(game.player.alive);
-  assert.equal(game.player.hp, 15);
-  assert.ok(game.skills.attack >= 5 && game.skills.defence >= 5, 'buffed starting combat stats');
+  assert.equal(game.player.hp, 25);
+  assert.ok(game.skills.attack >= 15 && game.skills.defence >= 12, 'buffed starting combat stats');
   assert.equal(game.equipment.get('weapon'), 'bronze_scimitar', 'starts equipped');
   assert.ok(game.world.objects.some((o) => o.def.type === 'shrine'), 'town has the Worthy Monument');
   assert.ok(game.npcs.length > 10, 'should spawn many NPCs');
@@ -439,6 +439,27 @@ test('Pulau Hantu region exists, is reachable land, and is populated', () => {
   assert.ok(game.world.objects.some((o) => inHantu(o) && o.def.type === 'tree'), 'island has trees');
   // The ruined plaza is walkable so the area is reachable.
   assert.ok(!game.world.isBlocked(130, 53), 'plaza is walkable');
+});
+
+test('MRT fast travel moves the player and charges a fare', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  const { STATION_BY_ID, MRT_FARE } = await import('../src/data/transport.js');
+  // Every station is placed in the world and lands on walkable ground.
+  for (const id of Object.keys(STATION_BY_ID)) {
+    const st = STATION_BY_ID[id];
+    assert.ok(game.world.objects.some((o) => o.objId === 'mrt_station' && o.x === st.x && o.y === st.y), `station ${id} placed`);
+    assert.ok(!game.world.isBlocked(st.x, st.y), `station ${id} tile is walkable`);
+  }
+  game.inventory.add('coins', 1000);
+  const before = game.inventory.count('coins');
+  const dest = STATION_BY_ID.sentosa;
+  game.travelTo('sentosa');
+  assert.equal(game.player.x, dest.x);
+  assert.equal(game.player.y, dest.y);
+  assert.equal(game.inventory.count('coins'), before - MRT_FARE, 'fare deducted');
 });
 
 test('eating food heals the player', () => {

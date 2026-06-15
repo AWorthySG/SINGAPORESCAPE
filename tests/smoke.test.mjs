@@ -77,24 +77,25 @@ test('a partial stack can still be topped up when all slots are used', () => {
 
 test('skills start at the buffed baseline and level up via xp', () => {
   const skills = new Skills(new EventBus());
-  assert.equal(skills.hitpoints, 15);
-  assert.equal(skills.attack, 5);
-  assert.equal(skills.strength, 5);
-  assert.equal(skills.defence, 5);
-  assert.equal(skills.combatLevel(), 8);
+  assert.equal(skills.hitpoints, 25);
+  assert.equal(skills.attack, 15);
+  assert.equal(skills.strength, 15);
+  assert.equal(skills.defence, 12);
+  assert.equal(skills.combatLevel(), 19);
 
-  const baseline = xpForLevel(5);
+  const baseline = xpForLevel(15);
   skills.addXp('attack', 100);
   assert.equal(skills.xp.attack, baseline + 100 * XP_RATE); // XP rate is applied
-  assert.ok(skills.attack > 5);
+  skills.addXp('attack', 5000);
+  assert.ok(skills.attack > 15); // and levels up with enough xp
 });
 
 test('loading a weak save floors stats to the baseline', () => {
   const skills = new Skills(new EventBus());
   skills.load({ attack: 0, strength: 0, defence: 0, hitpoints: 0, woodcutting: 5000 });
-  assert.equal(skills.attack, 5);
-  assert.equal(skills.strength, 5);
-  assert.equal(skills.hitpoints, 15);
+  assert.equal(skills.attack, 15);
+  assert.equal(skills.strength, 15);
+  assert.equal(skills.hitpoints, 25);
   assert.ok(skills.level('woodcutting') > 1); // existing progress preserved
 });
 
@@ -182,6 +183,15 @@ test('the Dragon tier and new boss uniques exist with icons', () => {
     assert.ok(ITEMS[id], `${id} exists`);
     assert.ok(hasIcon(id), `${id} has an icon`);
   }
+});
+
+test('combat is beginner-friendly: weak town mobs and a punchy starter hit', () => {
+  // Town starter monsters die fast now.
+  assert.ok(getNpc('chicken').maxHp <= 6, `chicken hp ${getNpc('chicken').maxHp}`);
+  assert.ok(getNpc('rat').maxHp <= 10, `rat hp ${getNpc('rat').maxHp}`);
+  assert.ok(getNpc('goblin').maxHp <= 14 && getNpc('goblin').defence <= 4, 'goblin is squishy');
+  // A fresh adventurer (Strength 15) with a bronze scimitar (+6 str) hits for 5+.
+  assert.ok(maxHit(15, 3, 6) >= 5, `starter max hit ${maxHit(15, 3, 6)}`);
 });
 
 test('combat formulas produce valid ranges', () => {

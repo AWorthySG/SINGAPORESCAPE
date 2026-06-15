@@ -26,16 +26,18 @@ export function hitChance(atkRoll, defRoll) {
   return atkRoll / (2 * (defRoll + 1));
 }
 
-/** Melee max hit. */
+/** Melee/ranged max hit. Divisor tuned below OSRS (640) so the adventurer hits
+ *  harder and combat feels punchy rather than grindy. */
 export function maxHit(strLevel, styleBonus, strEquipBonus) {
   const eff = strLevel + styleBonus + 8;
-  return Math.floor(0.5 + (eff * (strEquipBonus + 64)) / 640);
+  return Math.floor(1 + (eff * (strEquipBonus + 64)) / 360);
 }
 
-/** Roll one attack. Returns damage dealt (0 on a miss). */
+/** Roll one attack. Returns damage dealt (0 on a miss). Landed hits have a small
+ *  damage floor (max/4) so connecting feels meaningful instead of frequent 0s. */
 export function rollAttack(atkRoll, defRoll, max) {
   if (Math.random() < hitChance(atkRoll, defRoll)) {
-    return randInt(0, max);
+    return randInt(Math.floor(max / 4), max);
   }
   return 0;
 }

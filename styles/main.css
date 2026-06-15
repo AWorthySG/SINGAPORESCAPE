@@ -501,6 +501,14 @@ html, body {
 .slayer-cost { position: absolute; bottom: 1px; right: 2px; font-size: 10px; font-weight: bold; color: #ffd24a; text-shadow: 0 1px 2px #000; }
 .slayer-cost.short { color: #ff6a6a; }
 
+/* ---------- MRT fast travel ---------- */
+.mrt-list { display: flex; flex-direction: column; gap: 4px; }
+.mrt-row { display: flex; align-items: center; gap: 8px; }
+.mrt-row .mrt-dot { width: 10px; height: 10px; border-radius: 50%; background: #c0392b; box-shadow: 0 0 0 2px rgba(255,255,255,0.25); flex: none; }
+.mrt-row.current { opacity: 0.6; cursor: default; }
+.mrt-row.current .mrt-dot { background: #6fff8f; }
+.mrt-here { opacity: 0.7; font-weight: normal; font-size: 11px; }
+
 /* ---------- In-game co-brand badge ---------- */
 #cobrand {
   position: fixed; left: 50%; bottom: 6px; transform: translateX(-50%);

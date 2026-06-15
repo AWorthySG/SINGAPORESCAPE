@@ -142,6 +142,13 @@ export function buildWorld() {
   placeObj('flower', 54, 47); placeObj('flower', 62, 47); placeObj('bush', 48, 51); placeObj('bush', 68, 60);
   placeObj('agility_course', 66, 62); // train Agility in town
 
+  // ================= MRT fast-travel network =================
+  placeObj('mrt_station', 68, 52); // Kampong Glam
+  placeObj('mrt_station', 76, 52); // Chinatown
+  placeObj('mrt_station', 64, 18); // Bukit Timah
+  placeObj('mrt_station', 42, 52); // MacRitchie
+  placeObj('mrt_station', 58, 92); // Sentosa Beach
+
   // ================= Bukit Timah (forest + mine) =================
   scatter('tree', 30, 4, 92, 40, 30, GRASSY);
   scatter('oak', 40, 4, 88, 34, 14, GRASSY);
