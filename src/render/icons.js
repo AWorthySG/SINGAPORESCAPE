@@ -343,6 +343,8 @@
   I.phantom_robe = plate('#4a5a7a', '#7a8ab0');
   I.djinn_lamp = `<path d="M4 16 Q4 12 11 12 L20 12 Q21 12 20.5 13.5 L18 16 Z" fill="${C.gold}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><ellipse cx="11" cy="12" rx="6" ry="2.6" fill="${C.goldHi}" stroke="${OL}" stroke-width="1"/><path d="M16 11 Q19 7 16 4" fill="none" stroke="#8a96e8" stroke-width="2" stroke-linecap="round" opacity=".8"/><circle cx="15.5" cy="3.5" r="1.4" fill="#bcd0ff"/>`;
   I.revenant_cape = capeIcon('#5a4a6a', '#8a7aa0');
+  I.trades_cape = capeIcon('#2f9e6e', '#5fd0a0');     // jade — Master of Trades
+  I.champions_cape = capeIcon('#e6b34a', '#ffd773');  // gold — Champion of Singapore
   // quest & special rewards
   I.tiger_kris = scim('#d8a23a', '#ffd773');
   I.cursed_cutlass = scim('#3a5a4a', '#6a9a7a');

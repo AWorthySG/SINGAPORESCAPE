@@ -134,3 +134,14 @@ test('high-level monsters wind up telegraphed heavy attacks', () => {
   }
   assert.ok(telegraphed, 'the monster eventually wound up a heavy attack');
 });
+
+test('the Onslaught ultimate is gated by combat level', () => {
+  const g = boot();
+  g.adrenaline = 100;
+  g.activateAbility('onslaught');
+  assert.equal(g.armedAbility, null, 'locked at a low combat level');
+  for (const s of ['attack', 'strength', 'defence', 'hitpoints']) g.skills.addXp(s, 2_000_000);
+  assert.ok(g.skills.combatLevel() >= 45, 'now a high combat level');
+  g.activateAbility('onslaught');
+  assert.equal(g.armedAbility, 'onslaught', 'unlocks and arms once eligible');
+});

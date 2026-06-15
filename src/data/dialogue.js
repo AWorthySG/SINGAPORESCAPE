@@ -27,7 +27,17 @@ export const DIALOGUES = {
         { label: 'I have gathered the death runes.', next: 'start', action: 'mysticTurnIn' },
         { label: 'Need any provisions?', next: 'provisions' },
         { label: 'I have the cooked salmon.', next: 'start', action: 'provisionsTurnIn' },
+        { label: "Can I become the island's Champion?", next: 'champion' },
+        { label: 'I have completed the final trial.', next: 'start', action: 'championTurnIn' },
         { label: 'Goodbye.', next: 'end' },
+      ],
+    },
+    champion: {
+      speaker: 'Kampong Guide',
+      text: 'Wah, you want to be Champion of Singapore? That is the highest honour, lah! Prove yourself across many quests, then defeat one more boss as your final trial. Do it and the Champion\'s cape is yours!',
+      options: [
+        { label: 'I accept the challenge.', next: 'start', action: 'championStart' },
+        { label: 'Maybe later.', next: 'start' },
       ],
     },
     provisions: {
@@ -120,7 +130,18 @@ export const DIALOGUES = {
         { label: 'Teach me the life skills.', next: 'begin', action: 'lifeStart' },
         { label: 'I have done what you asked.', next: 'start', action: 'lifeTurnIn' },
         { label: 'What should I be doing now?', next: 'start', action: 'lifeRemind' },
+        { label: 'Tell me about the advanced course.', next: 'adv' },
         { label: 'Goodbye.', next: 'end' },
+      ],
+    },
+    adv: {
+      speaker: 'Cikgu Surya',
+      text: 'The Master of Trades course, lah! Once you have finished the basics, I set harder lessons — oak logs, iron ore, steel bars, trout and more. Finish them all and I will reward you with the Trades cape.',
+      options: [
+        { label: 'Begin the advanced course.', next: 'begin', action: 'lifeAdvStart' },
+        { label: 'I have done the advanced task.', next: 'start', action: 'lifeAdvTurnIn' },
+        { label: "What's my advanced lesson?", next: 'start', action: 'lifeAdvRemind' },
+        { label: 'Back.', next: 'start' },
       ],
     },
     explain: {

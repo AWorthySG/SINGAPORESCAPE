@@ -209,6 +209,10 @@ const RAW = {
     equip: { slot: 'head', req: { defence: 10 }, bonuses: { attack: 10, strength: 8, defence: 14, ranged: 8, magic: 8 } } },
   slayer_ring: { name: 'Slayer ring', icon: '💍', value: 8000, examine: 'A ring etched with slayer runes.',
     equip: { slot: 'ring', req: {}, bonuses: { attack: 5, strength: 5, defence: 3 } } },
+  trades_cape: { name: 'Trades cape', icon: '🧣', value: 30000, examine: 'Awarded by Cikgu Surya to a Master of Trades.',
+    equip: { slot: 'cape', req: {}, bonuses: { attack: 4, strength: 4, defence: 6 } } },
+  champions_cape: { name: "Champion's cape", icon: '🧣', value: 200000, examine: 'Only the Champion of Singapore may wear it.',
+    equip: { slot: 'cape', req: { defence: 40 }, bonuses: { attack: 10, strength: 10, defence: 14, ranged: 8, magic: 8 } } },
 
   // ---- Ranged: bows & arrows ----
   bronze_arrow: { name: 'Bronze arrow', icon: '🏹', value: 1, stackable: true, tags: ['ammo'], arrowStr: 7, examine: 'Arrows with bronze heads.' },

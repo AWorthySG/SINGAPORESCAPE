@@ -54,3 +54,51 @@ export const LIFE_GRAD = {
   xp: 250,
   coins: 600,
 };
+
+// "Master of Trades" — Cikgu Surya's advanced course, unlocked after the first.
+// The same six skills, but higher-tier products that demand real skill levels.
+export const LIFE_STAGES_ADV = [
+  {
+    skill: 'woodcutting', name: 'Woodcutting',
+    teach: 'Advanced Woodcutting: oak trees (level 15) give finer logs. Bring me 5 oak logs.',
+    need: { item: 'oak_logs', qty: 5 },
+    reward: { xp: 900, coins: 400 },
+  },
+  {
+    skill: 'firemaking', name: 'Firemaking',
+    teach: 'Burn those oak logs! Light them until your Firemaking really roars.',
+    need: { xp: 200 },
+    reward: { xp: 800, coins: 400 },
+  },
+  {
+    skill: 'mining', name: 'Mining',
+    teach: 'Iron rocks (level 15) yield tougher ore. Bring me 5 iron ore.',
+    need: { item: 'iron_ore', qty: 5 },
+    reward: { xp: 900, coins: 400 },
+  },
+  {
+    skill: 'smithing', name: 'Smithing',
+    teach: 'Steel is iron tempered with coal. Smelt 3 steel bars at the furnace and bring them to me.',
+    need: { item: 'steel_bar', qty: 3 },
+    reward: { xp: 1100, coins: 600 },
+  },
+  {
+    skill: 'fishing', name: 'Fishing',
+    teach: 'Trout (Fishing 20) take patience. Net me 5 raw trout.',
+    need: { item: 'raw_trout', qty: 5 },
+    reward: { xp: 900, coins: 400 },
+  },
+  {
+    skill: 'cooking', name: 'Cooking',
+    teach: 'Final mastery: cook your trout to perfection and bring me 5 cooked trout.',
+    need: { item: 'trout', qty: 5 },
+    reward: { xp: 1100, coins: 700 },
+  },
+];
+
+export const LIFE_GRAD_ADV = {
+  skills: ['woodcutting', 'firemaking', 'mining', 'smithing', 'fishing', 'cooking'],
+  xp: 600,
+  coins: 2000,
+  item: 'trades_cape',
+};
