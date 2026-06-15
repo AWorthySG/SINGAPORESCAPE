@@ -254,6 +254,12 @@
   I.lobster = cookedFish('#e05a2a');
   I.raw_swordfish = rawFish('#6a8ab0', '#a8c6e0');
   I.swordfish = cookedFish('#8a9ab0');
+  I.yew_logs = logIcon('#3f5a2a', '#5a7a3a');
+  I.magic_logs = logIcon('#4a6ad0', '#7a96e8');
+  I.gold_ore = oreIcon('#e8c84a');
+  I.raw_salmon = rawFish('#e0896a', '#f0b89a'); I.salmon = cookedFish('#e8956a');
+  I.raw_tuna = rawFish('#5a7a8a', '#8aa6b6'); I.tuna = cookedFish('#9aa6b0');
+  I.raw_shark = rawFish('#6a7a8a', '#9aaab6'); I.shark = cookedFish('#8a9aa6');
   I.laksa = `<path d="M3.5 11 C3.5 17 20.5 17 20.5 11 Z" fill="#d8552e" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/>
     <ellipse cx="12" cy="11" rx="8.5" ry="2.6" fill="#e8804a" stroke="${OL}" stroke-width="1"/>
     <path d="M7 10 C10 9 14 9 17 10" stroke="#f4d9a0" stroke-width="1.4" fill="none"/><circle cx="14" cy="10.4" r="1" fill="#a01f1f"/>`;

@@ -34,6 +34,18 @@ export const OBJECTS = {
     lowChance: 0.16, highChance: 0.62, depleteChance: 0.10, respawn: 22,
     examine: 'A vast, umbrella-shaped rain tree. (Woodcutting 45)',
   },
+  yew_tree: {
+    name: 'Yew tree', label: 'Yew', type: 'tree', verb: 'Chop down', emoji: '🌳', blocking: true,
+    skill: 'woodcutting', level: 60, tool: 'axe', gives: 'yew_logs', xp: 175,
+    lowChance: 0.10, highChance: 0.48, depleteChance: 0.08, respawn: 40,
+    examine: 'An ancient, gnarled yew. (Woodcutting 60)',
+  },
+  magic_tree: {
+    name: 'Magic tree', label: 'Magic', type: 'tree', verb: 'Chop down', emoji: '🌳', blocking: true,
+    skill: 'woodcutting', level: 75, tool: 'axe', gives: 'magic_logs', xp: 250,
+    lowChance: 0.06, highChance: 0.35, depleteChance: 0.06, respawn: 90,
+    examine: 'A tree humming with magical energy. (Woodcutting 75)',
+  },
 
   // ---------------- Rocks ----------------
   copper_rock: {
@@ -78,6 +90,12 @@ export const OBJECTS = {
     lowChance: 0.08, highChance: 0.38, depleteChance: 1, respawn: 90, ore: '#46b3c4',
     examine: 'A rock glittering with rune. (Mining 85)',
   },
+  gold_rock: {
+    name: 'Gold rock', label: 'Gold', type: 'rock', verb: 'Mine', emoji: '🪨', blocking: true,
+    skill: 'mining', level: 40, tool: 'pickaxe', gives: 'gold_ore', xp: 65,
+    lowChance: 0.20, highChance: 0.70, depleteChance: 1, respawn: 20, ore: '#e8c84a',
+    examine: 'A rock veined with gold. (Mining 40)',
+  },
 
   // ---------------- Fishing ----------------
   fishing_spot: {
@@ -85,6 +103,7 @@ export const OBJECTS = {
     skill: 'fishing', tool: 'net', depleteChance: 0, respawn: 0,
     // Level-gated catches; a weighted eligible-by-level entry is rolled.
     catches: [
+      { id: 'raw_salmon', level: 30, xp: 70, lowChance: 0.22, highChance: 0.72, weight: 22 },
       { id: 'raw_trout', level: 20, xp: 50, lowChance: 0.25, highChance: 0.80, weight: 30 },
       { id: 'raw_sardine', level: 5, xp: 20, lowChance: 0.35, highChance: 0.85, weight: 50 },
       { id: 'raw_anchovy', level: 1, xp: 10, lowChance: 0.45, highChance: 0.95, weight: 100 },
@@ -99,6 +118,15 @@ export const OBJECTS = {
       { id: 'raw_lobster', level: 40, xp: 90, lowChance: 0.25, highChance: 0.70, weight: 100 },
     ],
     examine: 'Bubbles rise where shellfish lurk. (Fishing 40)',
+  },
+  harpoon_spot: {
+    name: 'Harpoon fishing spot', label: 'Harpoon', type: 'fishing', verb: 'Harpoon', emoji: '🦈', blocking: false,
+    skill: 'fishing', tool: 'net', depleteChance: 0, respawn: 0,
+    catches: [
+      { id: 'raw_shark', level: 76, xp: 110, lowChance: 0.10, highChance: 0.45, weight: 35 },
+      { id: 'raw_tuna', level: 35, xp: 80, lowChance: 0.25, highChance: 0.72, weight: 100 },
+    ],
+    examine: 'Big shadows circle in the deep water. (Fishing 35)',
   },
 
   // ---------------- Processing ----------------

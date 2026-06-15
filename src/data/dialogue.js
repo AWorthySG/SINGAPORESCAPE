@@ -25,7 +25,17 @@ export const DIALOGUES = {
         { label: 'I have slain enough creatures.', next: 'start', action: 'bigGameTurnIn' },
         { label: "Tell me of the mystic's trial.", next: 'mystic' },
         { label: 'I have gathered the death runes.', next: 'start', action: 'mysticTurnIn' },
+        { label: 'Need any provisions?', next: 'provisions' },
+        { label: 'I have the cooked salmon.', next: 'start', action: 'provisionsTurnIn' },
         { label: 'Goodbye.', next: 'end' },
+      ],
+    },
+    provisions: {
+      speaker: 'Kampong Guide',
+      text: 'The kampung is hungry, lah! Catch and cook 10 salmon and bring them to me — I\'ll pay well and your skills will grow.',
+      options: [
+        { label: "I'll bring the salmon.", next: 'start', action: 'provisionsStart' },
+        { label: 'Maybe later.', next: 'start' },
       ],
     },
     mystic: {

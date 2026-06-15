@@ -92,11 +92,14 @@ const RAW = {
 
   // ---- Higher woodcutting ----
   maple_logs: { name: 'Rain-tree logs', icon: '🪵', value: 36, tags: ['log'], firemaking: 45, fmXp: 135, examine: 'Logs from a mighty rain tree.' },
+  yew_logs: { name: 'Yew logs', icon: '🪵', value: 80, tags: ['log'], firemaking: 60, fmXp: 175, examine: 'Logs from an ancient yew.' },
+  magic_logs: { name: 'Magic logs', icon: '🪵', value: 200, tags: ['log'], firemaking: 75, fmXp: 250, examine: 'Faintly glowing enchanted logs.' },
 
   // ---- Higher ores & bars ----
   mithril_ore: { name: 'Mithril ore', icon: '🔷', value: 162, examine: 'This needs refining.' },
   adamantite_ore: { name: 'Adamantite ore', icon: '🟢', value: 400, examine: 'This needs refining.' },
   runite_ore: { name: 'Runite ore', icon: '🔵', value: 1600, examine: 'This needs refining.' },
+  gold_ore: { name: 'Gold ore', icon: '🟡', value: 150, examine: 'A glittering nugget of gold.' },
   steel_bar: { name: 'Steel bar', icon: '⬜', value: 200, examine: 'A bar of steel.' },
   mithril_bar: { name: 'Mithril bar', icon: '🟦', value: 324, examine: 'A bar of mithril.' },
   adamant_bar: { name: 'Adamant bar', icon: '🟩', value: 800, examine: 'A bar of adamantite.' },
@@ -107,6 +110,12 @@ const RAW = {
   lobster: { name: 'Lobster', icon: '🦞', value: 120, heal: 12, examine: 'A tasty cooked lobster.' },
   raw_swordfish: { name: 'Raw swordfish', icon: '🐟', value: 100, tags: ['raw'], examine: 'I should cook this first.' },
   swordfish: { name: 'Swordfish', icon: '🐟', value: 180, heal: 14, examine: 'A hearty cooked swordfish.' },
+  raw_salmon: { name: 'Raw salmon', icon: '🐟', value: 40, tags: ['raw'], examine: 'I should cook this first.' },
+  salmon: { name: 'Salmon', icon: '🐟', value: 75, heal: 9, examine: 'A cooked salmon.' },
+  raw_tuna: { name: 'Raw tuna', icon: '🐟', value: 60, tags: ['raw'], examine: 'I should cook this first.' },
+  tuna: { name: 'Tuna', icon: '🐟', value: 110, heal: 10, examine: 'A cooked tuna.' },
+  raw_shark: { name: 'Raw shark', icon: '🦈', value: 200, tags: ['raw'], examine: 'I should cook this first.' },
+  shark: { name: 'Shark', icon: '🦈', value: 360, heal: 20, examine: 'A cooked shark — the finest food on the island.' },
 
   // ---- More hawker fare ----
   laksa: { name: 'Laksa', icon: '🍜', value: 60, heal: 11, examine: 'Spicy coconut noodle soup. Power up!' },

@@ -11,6 +11,11 @@ export const COOKING = {
   raw_sardine: { result: 'sardine', level: 1, xp: 40, burnStop: 38 },
   raw_trout: { result: 'trout', level: 15, xp: 70, burnStop: 50 },
   raw_chicken: { result: 'cooked_chicken', level: 1, xp: 30, burnStop: 33 },
+  raw_salmon: { result: 'salmon', level: 25, xp: 90, burnStop: 58 },
+  raw_tuna: { result: 'tuna', level: 30, xp: 100, burnStop: 63 },
+  raw_lobster: { result: 'lobster', level: 40, xp: 120, burnStop: 74 },
+  raw_swordfish: { result: 'swordfish', level: 45, xp: 140, burnStop: 86 },
+  raw_shark: { result: 'shark', level: 80, xp: 210, burnStop: 94 },
 };
 
 /** Interpolate gather success between level 1 (low) and level 99 (high). */

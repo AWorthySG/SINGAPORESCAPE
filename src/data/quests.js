@@ -37,6 +37,11 @@ export const QUESTS = [
     desc: 'Bring 25 death runes to the Kampong Guide.',
     progress: (g) => g.quests.mystic_trial.state === 'active' ? `${Math.min(g.inventory.count('death_rune'), 25)}/25 death runes` : '',
   },
+  {
+    id: 'island_provisions', name: 'Island Provisions',
+    desc: 'Bring 10 cooked salmon to the Kampong Guide.',
+    progress: (g) => g.quests.island_provisions.state === 'active' ? `${Math.min(g.inventory.count('salmon'), 10)}/10 salmon` : '',
+  },
 ];
 
 export const QUEST_IDS = QUESTS.map((q) => q.id);
