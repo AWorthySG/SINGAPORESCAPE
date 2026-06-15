@@ -303,6 +303,24 @@
   I.raw_giant_trevally = rawFish('#6a7a8a', '#9aaab6'); I.giant_trevally = cookedFish('#7a8a96');
   I.raw_diamond_trevally = rawFish('#b0c0d0', '#e0ecf4'); I.diamond_trevally = cookedFish('#bcc8d4');
   I.raw_hybrid_grouper = rawFish('#9a7a5a', '#c0a484'); I.hybrid_grouper = cookedFish('#a88a6a');
+  // More freshwater
+  I.raw_climbing_perch = rawFish('#7a8a5a', '#a8b888'); I.climbing_perch = cookedFish('#8a9a6a');
+  I.raw_ikan_keli = rawFish('#5a5040', '#8a7e68'); I.ikan_keli = cookedFish('#6a604a');
+  I.raw_belida = rawFish('#8a9aa0', '#bcccd2'); I.belida = cookedFish('#9aaab0');
+  I.raw_arapaima = rawFish('#6a5a4a', '#9a8a6a'); I.arapaima = cookedFish('#7a6a52');
+  I.raw_arowana = rawFish('#c0432a', '#ffd773'); I.arowana = cookedFish('#d8a23a');
+  // More saltwater
+  I.raw_milkfish = rawFish('#aab0b6', '#dde2e6'); I.milkfish = cookedFish('#b6bcc2');
+  I.raw_queenfish = rawFish('#8a9ab0', '#bcc8d8'); I.queenfish = cookedFish('#9aa6b6');
+  I.raw_threadfin = rawFish('#b0a890', '#ddd6c0'); I.threadfin = cookedFish('#bcb49a');
+  I.raw_white_pomfret = rawFish('#c0c4c8', '#eef0f2'); I.white_pomfret = cookedFish('#c8ccd0');
+  I.raw_coral_trout = rawFish('#d8563a', '#ff9a6a'); I.coral_trout = cookedFish('#e06a4a');
+  I.raw_cobia = rawFish('#5a6a72', '#8a9aa2'); I.cobia = cookedFish('#6a7a82');
+  // Bait, junk & treasure
+  I.fishing_bait = `<path d="M6 8 q3 -3 6 0 q3 3 6 0" fill="none" stroke="#c06a5a" stroke-width="2.4" stroke-linecap="round"/><path d="M6 13 q3 -3 6 0 q3 3 6 0" fill="none" stroke="#d8806a" stroke-width="2.4" stroke-linecap="round"/><circle cx="18.5" cy="7" r="1.1" fill="${OL}"/>`;
+  I.old_boot = `<path d="M7 5 H12 V13 L18 15 Q20 16 20 18 V20 H6 Q5 20 5 18 V7 Q5 5 7 5 Z" fill="#5a4632" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M6 18 H20" stroke="${C.woodDk}" stroke-width="1.4"/><path d="M8 7 H11" stroke="${C.woodHi}" stroke-width="1"/>`;
+  I.seaweed = `<path d="M9 21 C6 16 12 14 9 9 C7 5 11 4 11 3" fill="none" stroke="${C.leafDk}" stroke-width="2.2" stroke-linecap="round"/><path d="M15 21 C18 15 12 13 15 8 C17 5 14 4 14 3" fill="none" stroke="${C.leaf}" stroke-width="2.2" stroke-linecap="round"/>`;
+  I.pearl = `<circle cx="12" cy="13" r="6" fill="#f0f2f5" stroke="${OL}" stroke-width="1.1"/><circle cx="10" cy="11" r="2.2" fill="#ffffff" opacity=".9"/><path d="M5 16 Q12 21 19 16" fill="none" stroke="#b6c0c8" stroke-width="1"/>`;
   I.fishing_rod = `<path d="M5 20 L19 5" stroke="${C.wood}" stroke-width="2.2" stroke-linecap="round"/><path d="M19 5 L18 12" stroke="#cdd6dd" stroke-width="0.8"/><path d="M18 12 q2 1 0 3" fill="none" stroke="${OL}" stroke-width="1.2"/><circle cx="8" cy="17" r="1.6" fill="${C.gold}" stroke="${OL}" stroke-width="0.8"/>`;
   I.lobster_pot = `<path d="M5 9 H19 L17 20 H7 Z" fill="${C.wood}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M8 9 L9 20 M12 9 L12 20 M16 9 L15 20" stroke="${C.woodDk}" stroke-width="0.9"/><path d="M6 13 H18 M6.5 16.5 H17.5" stroke="${C.woodDk}" stroke-width="0.9"/><ellipse cx="12" cy="9" rx="7" ry="2" fill="${C.woodHi}" stroke="${OL}" stroke-width="1"/>`;
   I.harpoon = `<path d="M12 21 L12 7" stroke="${C.wood}" stroke-width="2" stroke-linecap="round"/><path d="M12 7 L12 2 M8 7 Q8 3 12 3 M16 7 Q16 3 12 3" fill="none" stroke="${C.steel}" stroke-width="1.6" stroke-linecap="round"/><path d="M8 7 L7 5 M16 7 L17 5" stroke="${C.steelHi}" stroke-width="1.2" stroke-linecap="round"/>`;
