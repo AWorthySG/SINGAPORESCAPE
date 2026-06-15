@@ -32,4 +32,5 @@ export const ACHIEVEMENTS = [
   { id: 'dragonkin', cat: 'Collection', name: 'Dragonkin', desc: 'Own a piece of Dragon equipment.', test: (g) => DRAGON_GEAR.some((id) => own(g, id)) },
   { id: 'legendary', cat: 'Collection', name: 'Legendary Loot', desc: 'Own a boss unique item.', test: (g) => UNIQUES.some((id) => own(g, id)) },
   { id: 'pillars', cat: 'Quests', name: 'Pillars of the Island', desc: 'Earn the A-Worthy Sigil.', test: (g) => own(g, 'worthy_sigil') },
+  { id: 'defender', cat: 'Quests', name: 'Island Defender', desc: 'Complete the Island Defender quest.', test: (g) => g.quests.island_defender && g.quests.island_defender.state === 'done' },
 ];

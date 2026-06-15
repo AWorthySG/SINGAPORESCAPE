@@ -17,7 +17,27 @@ export const DIALOGUES = {
         { label: 'Any pest control work?', next: 'pest' },
         { label: "Tell me about the island's pillars.", next: 'pillars' },
         { label: 'I have honoured both pillars.', next: 'start', action: 'pillarsTurnIn' },
+        { label: 'Any smithing work?', next: 'smith' },
+        { label: 'I have forged the steel bars.', next: 'start', action: 'smithTurnIn' },
+        { label: 'How can I defend the island?', next: 'defender' },
+        { label: 'I have defeated the bosses.', next: 'start', action: 'defenderTurnIn' },
         { label: 'Goodbye.', next: 'end' },
+      ],
+    },
+    smith: {
+      speaker: 'Kampong Guide',
+      text: 'Our blacksmith needs good steel, lah. Smelt iron and coal into 8 steel bars and bring them to me. I\'ll reward you with some sturdy gauntlets.',
+      options: [
+        { label: "I'll forge the bars.", next: 'start', action: 'smithStart' },
+        { label: 'Maybe later.', next: 'start' },
+      ],
+    },
+    defender: {
+      speaker: 'Kampong Guide',
+      text: 'Wah, the bosses out there are getting bold! Prove yourself a true Island Defender — slay 3 of them and I\'ll grant you the island aegis and a champion\'s helm.',
+      options: [
+        { label: "I'll defend the island.", next: 'start', action: 'defenderStart' },
+        { label: 'Sounds dangerous. Later.', next: 'start' },
       ],
     },
     pillars: {

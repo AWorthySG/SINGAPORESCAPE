@@ -68,6 +68,8 @@ export class Game {
       bone_collector: { state: 'notStarted' },
       pest_control: { state: 'notStarted', kills: 0 },
       pillars: { state: 'notStarted', monument: false, obelisk: false },
+      smith_apprentice: { state: 'notStarted' },
+      island_defender: { state: 'notStarted', startBoss: 0 },
     };
 
     // Achievement / collection-log progress.
@@ -518,7 +520,10 @@ export class Game {
       this.msg(`You have defeated the ${npc.name}.`, 'combat');
     }
     this.totalKills++;
-    if (npc.def.boss) this.bossKills++;
+    if (npc.def.boss) {
+      this.bossKills++;
+      if (this.quests.island_defender.state === 'active') this.bus.emit('quest');
+    }
     this.checkAchievements();
     this.rollDrops(npc);
     npc.die();
@@ -853,7 +858,43 @@ export class Game {
       const q = this.quests.pillars;
       if (q.state === 'notStarted') { q.state = 'active'; this.msg('Quest started — Pillars of the Island: pray at the A-Worthy Monument and rest at the Hyco Education obelisk.', 'level'); }
     } else if (action === 'pillarsTurnIn') this.turnInPillars();
+    else if (action === 'smithStart') {
+      const q = this.quests.smith_apprentice;
+      if (q.state === 'notStarted') { q.state = 'active'; this.msg('Quest started — A Smith\'s Apprentice: forge and bring 8 steel bars.', 'level'); }
+    } else if (action === 'smithTurnIn') this.turnInSmith();
+    else if (action === 'defenderStart') {
+      const q = this.quests.island_defender;
+      if (q.state === 'notStarted') { q.state = 'active'; q.startBoss = this.bossKills; this.msg('Quest started — Island Defender: defeat 3 bosses.', 'level'); }
+    } else if (action === 'defenderTurnIn') this.turnInDefender();
     this.bus.emit('quest');
+  }
+
+  turnInSmith() {
+    const q = this.quests.smith_apprentice;
+    if (q.state === 'done') { this.msg('Fine work, apprentice!', 'system'); return; }
+    if (q.state !== 'active') { this.msg('Ask me about smithing work first.', 'system'); return; }
+    if (this.inventory.count('steel_bar') < 8) { this.msg('Come back with 8 steel bars.', 'system'); return; }
+    this.inventory.remove('steel_bar', 8);
+    this.inventory.add('kampong_gauntlets', 1);
+    this.inventory.add('coins', 1500);
+    this.skills.addXp('smithing', 1500);
+    q.state = 'done';
+    this.msg('Quest complete — A Smith\'s Apprentice! You receive the Kampong gauntlets.', 'level');
+    this.banner('<span class="big">Quest complete!</span>A Smith\'s Apprentice');
+  }
+
+  turnInDefender() {
+    const q = this.quests.island_defender;
+    if (q.state === 'done') { this.msg('The island is safer for your deeds.', 'system'); return; }
+    if (q.state !== 'active') { this.msg('Ask me about defending the island first.', 'system'); return; }
+    if (this.bossKills - (q.startBoss || 0) < 3) { this.msg(`Defeat ${3 - (this.bossKills - (q.startBoss || 0))} more bosses first.`, 'system'); return; }
+    this.inventory.add('island_aegis', 1);
+    this.inventory.add('champions_helm', 1);
+    this.inventory.add('coins', 5000);
+    this.skills.addXp('defence', 4000);
+    q.state = 'done';
+    this.msg('Quest complete — Island Defender! You receive the Island aegis and Champion\'s helm.', 'level');
+    this.banner('<span class="big">Quest complete!</span>Island Defender');
   }
 
   markPillar(which) {

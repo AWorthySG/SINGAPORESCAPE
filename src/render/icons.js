@@ -317,6 +317,12 @@
   I.phantom_robe = plate('#4a5a7a', '#7a8ab0');
   I.djinn_lamp = `<path d="M4 16 Q4 12 11 12 L20 12 Q21 12 20.5 13.5 L18 16 Z" fill="${C.gold}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><ellipse cx="11" cy="12" rx="6" ry="2.6" fill="${C.goldHi}" stroke="${OL}" stroke-width="1"/><path d="M16 11 Q19 7 16 4" fill="none" stroke="#8a96e8" stroke-width="2" stroke-linecap="round" opacity=".8"/><circle cx="15.5" cy="3.5" r="1.4" fill="#bcd0ff"/>`;
   I.revenant_cape = capeIcon('#5a4a6a', '#8a7aa0');
+  // quest & special rewards
+  I.tiger_kris = scim('#d8a23a', '#ffd773');
+  I.kampong_gauntlets = gloves('#2f7a6a', '#4fb0a0');
+  I.champions_helm = helm('#caa15a', C.goldHi);
+  I.island_aegis = shield('#2f6e8a', '#5aa0c4');
+  I.merdeka_medallion = `<path d="M9 4 Q12 1.5 15 4" fill="none" stroke="${C.gold}" stroke-width="1.4"/><circle cx="12" cy="14" r="7.4" fill="#c0392b" stroke="${OL}" stroke-width="1.2"/><path d="M14.6 10.5 A4 4 0 1 0 14.6 17.5 A3.1 3.1 0 1 1 14.6 10.5 Z" fill="#fff"/><g fill="#fff"><circle cx="14.1" cy="11.7" r="0.6"/><circle cx="15.4" cy="13" r="0.6"/><circle cx="15.4" cy="15" r="0.6"/><circle cx="14.1" cy="16.3" r="0.6"/><circle cx="13.3" cy="14" r="0.6"/></g>`;
   const gemIcon = (col, hi) => `<path d="M6 9 L9 5 L15 5 L18 9 L12 20 Z" fill="${col}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M9 5 L12 9 L15 5 M6 9 L18 9 M12 9 L12 20" stroke="${OL}" stroke-width=".7" opacity=".4" fill="none"/><path d="M9 5 L12 9 L6 9 Z" fill="${hi}" opacity=".6"/>`;
   I.sapphire = gemIcon('#3a6ad8', '#8aa6f0');
   I.emerald = gemIcon('#2fa05a', '#7fe0a0');

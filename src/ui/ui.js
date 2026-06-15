@@ -10,6 +10,7 @@ import { STYLE_ORDER, STYLES, RANGED_STYLE_ORDER, RANGED_STYLES } from '../game/
 import { SPELLS } from '../data/magic.js';
 import { PRAYERS } from '../data/prayers.js';
 import { ACHIEVEMENTS } from '../data/achievements.js';
+import { QUESTS } from '../data/quests.js';
 import { EQUIP_SLOTS } from '../game/equipment.js';
 import { TILE } from '../config.js';
 import { TERRAIN } from '../data/world.js';
@@ -435,21 +436,20 @@ export class UI {
 
   // ---------------- Quest journal ----------------
   renderQuestPanel() {
-    const q = this.game.quests;
+    const game = this.game;
     const status = (s) => s === 'done' ? '<span class="q-done">Complete</span>'
       : s === 'active' ? '<span class="q-active">In progress</span>'
         : '<span class="q-todo">Not started</span>';
-    const pc = q.pest_control;
-    const pl = q.pillars;
-    const states = [q.bone_collector.state, pc.state, pl.state];
-    const done = states.filter((s) => s === 'done').length;
-    const pillarsProgress = pl.state === 'active'
-      ? ` (${(pl.monument ? 1 : 0) + (pl.obelisk ? 1 : 0)}/2 honoured)` : '';
-    this.el.questPanel.innerHTML =
-      `<div class="quest-head">Quests complete: ${done} / ${states.length}</div>` +
-      `<div class="quest-row"><b>A Bag of Bones</b>${status(q.bone_collector.state)}<span class="q-desc">Bring 10 bones to the Kampong Guide.</span></div>` +
-      `<div class="quest-row"><b>Pest Control</b>${status(pc.state)}<span class="q-desc">Slay 8 giant rats${pc.state === 'active' ? ` (${pc.kills}/8)` : ''}.</span></div>` +
-      `<div class="quest-row"><b>Pillars of the Island</b>${status(pl.state)}<span class="q-desc">Pray at the A-Worthy Monument &amp; rest at the Hyco obelisk${pillarsProgress}.</span></div>`;
+    const done = QUESTS.filter((d) => game.quests[d.id]?.state === 'done').length;
+    let html = `<div class="quest-head">Quests complete: ${done} / ${QUESTS.length}</div>`;
+    for (const d of QUESTS) {
+      const st = game.quests[d.id]?.state || 'notStarted';
+      let prog = '';
+      if (d.progress) { try { prog = d.progress(game); } catch { prog = ''; } }
+      html += `<div class="quest-row"><b>${escapeHtml(d.name)}</b>${status(st)}` +
+        `<span class="q-desc">${escapeHtml(d.desc)}${prog ? ` <span class="q-prog">(${escapeHtml(prog)})</span>` : ''}</span></div>`;
+    }
+    this.el.questPanel.innerHTML = html;
   }
 
   // ---------------- Achievements / collection log ----------------
