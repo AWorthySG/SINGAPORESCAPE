@@ -342,8 +342,8 @@ html, body {
 
 /* ---------- Active-combat ability bar ---------- */
 #ability-bar {
-  position: absolute; left: 50%; bottom: 34px; transform: translateX(-50%);
-  z-index: 19; display: flex; flex-direction: column; align-items: center; gap: 5px;
+  position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%);
+  z-index: 25; display: flex; flex-direction: column; align-items: center; gap: 5px;
   pointer-events: none;
 }
 #adrenaline {
@@ -391,8 +391,14 @@ html, body {
 .ability-btn.locked { filter: grayscale(0.85) brightness(0.5); cursor: not-allowed; }
 .ability-btn.locked .ab-cd { font-size: 10px; }
 @media (max-width: 760px) {
-  #ability-bar { bottom: 8px; }
+  /* Lift the ability bar above the bottom Chat/Inventory bars and give it its
+     own backdrop so the buttons are never hidden behind those panels. */
+  #ability-bar {
+    bottom: 52px; padding: 5px 8px; border-radius: 12px;
+    background: rgba(8,18,16,0.62); box-shadow: 0 3px 12px rgba(0,0,0,0.5);
+  }
   #adrenaline { width: 184px; }
+  #ability-buttons { gap: 5px; }
   .ability-btn { width: 44px; height: 44px; }
   .ability-btn .ab-icon { font-size: 16px; }
 }
@@ -522,6 +528,12 @@ html, body {
   /* Chat: compact and clear of the side panel. */
   #chatbox { width: 47vw; height: 92px; bottom: 6px; left: 6px; font-size: 12px; }
   #chat-log { font-size: 12px; }
+
+  /* Ability bar: float clear above the chat/inventory bars; trim to fit. */
+  #ability-bar { bottom: 52px; }
+  #ability-buttons { gap: 4px; }
+  .ability-btn { width: 42px; height: 42px; }
+  #adrenaline { width: 172px; }
 
   /* Trim the big top-left overlays so they don't dominate a small screen. */
   #hover-text { font-size: 13px; top: 6px; left: 6px; }
