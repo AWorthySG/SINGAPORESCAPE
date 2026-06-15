@@ -65,7 +65,9 @@
     <ellipse cx="13" cy="8" rx="3.2" ry="3.2" fill="${a}" stroke="${OL}" stroke-width="1"/>
     <ellipse cx="13" cy="8" rx="1.5" ry="1.5" fill="${b}"/>
     <rect x="3.6" y="12" width="17" height="6.4" rx="2.4" fill="${a}" stroke="${OL}" stroke-width="1"/>
-    <rect x="4.6" y="13" width="15" height="1.6" rx="1" fill="${b}" opacity=".7"/>`;
+    <rect x="4.6" y="13" width="15" height="1.6" rx="1" fill="${b}" opacity=".7"/>
+    <path d="M6 16.4 L18 16.4" stroke="${OL}" stroke-width="0.6" opacity=".3"/>
+    <ellipse cx="20.2" cy="15.2" rx="1.2" ry="3" fill="${a}" stroke="${OL}" stroke-width="0.8"/>`;
   I.logs = logIcon(C.wood, C.woodHi);
   I.oak_logs = logIcon('#8a5e33', '#a87a45');
   I.willow_logs = logIcon('#6e6a3a', '#928c4f');
@@ -73,9 +75,11 @@
   // ---- Ore & bars ----
   const oreIcon = (fleck) => `
     <path d="M4 16 L6 8 L11 5 L17 7 L20 13 L16 19 L8 19 Z" fill="${C.stone}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/>
-    <path d="M6 8 L11 5 L13 9 L8 10 Z" fill="${C.stoneHi}" opacity=".7"/>
-    <circle cx="9" cy="13" r="1.5" fill="${fleck}"/><circle cx="14" cy="11" r="1.4" fill="${fleck}"/>
-    <circle cx="13" cy="16" r="1.3" fill="${fleck}"/>`;
+    <path d="M6 8 L11 5 L13 9 L8 10 Z" fill="${C.stoneHi}" opacity=".8"/>
+    <path d="M8 19 L16 19 L18 16 L10 16 Z" fill="${C.stoneDk}" opacity=".45"/>
+    <circle cx="9" cy="13" r="1.6" fill="${fleck}"/><circle cx="14" cy="11" r="1.5" fill="${fleck}"/>
+    <circle cx="13" cy="16" r="1.3" fill="${fleck}"/>
+    <circle cx="8.5" cy="12.5" r="0.5" fill="#fff" opacity=".85"/><circle cx="13.5" cy="10.5" r="0.45" fill="#fff" opacity=".8"/>`;
   I.copper_ore = oreIcon('#c8743a');
   I.tin_ore = oreIcon('#d8dde2');
   I.iron_ore = oreIcon('#9a6a5a');
@@ -93,7 +97,10 @@
   // ---- Fish (raw & cooked) ----
   const rawFish = (col, hi) => `
     <path d="M3 12 C7 6 15 6 19 10 C20 8 21 8 21.5 8.5 C21 10 21 11 21.5 12 C21 13 20 13 19 12 C15 16 7 16 3 12 Z" fill="${col}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/>
-    <circle cx="7" cy="11" r="1" fill="${OL}"/>
+    <path d="M5 12.4 C9 14.6 15 14.6 18 12.6 C15 13.6 9 13.6 5 12.4 Z" fill="${hi}" opacity=".55"/>
+    <path d="M8 8.6 L10 11 L12 8.4 L14 11 L16 9" stroke="${hi}" stroke-width="0.7" fill="none" opacity=".6"/>
+    <path d="M9.5 9 C9 11 9 13 9.5 14.6" stroke="${OL}" stroke-width="0.7" fill="none" opacity=".4"/>
+    <circle cx="7" cy="11" r="1.1" fill="#f8f6ee"/><circle cx="7.1" cy="11.1" r="0.55" fill="${OL}"/>
     <path d="M9 9.5 C12 9 15 9.5 17 11" stroke="${hi}" stroke-width="1" fill="none" opacity=".8"/>`;
   I.raw_anchovy = rawFish(C.fish, C.fishHi);
   I.raw_sardine = rawFish('#9aa6b0', '#cdd6dd');
