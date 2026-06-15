@@ -13,6 +13,18 @@ const TERRAIN_RGB = {
   [TERRAIN.WOOD]: [128, 94, 56],
 };
 
+// Per-region atmospheric colour grade [r,g,b,alpha] — smoothly blended as you travel.
+const ZONE_TINT = {
+  'Kampong Glam': [255, 224, 150, 0.05],
+  Chinatown: [255, 206, 140, 0.06],
+  'Bukit Timah': [120, 200, 120, 0.06],
+  'MacRitchie Reservoir': [110, 175, 230, 0.09],
+  'Sentosa Beach': [255, 232, 175, 0.05],
+  'The Wilderness': [130, 40, 40, 0.17],
+  'Pulau Hantu': [86, 58, 120, 0.20],
+  Singapore: [255, 222, 160, 0.05],
+};
+
 function hash(x, y) {
   let h = (x * 374761393 + y * 668265263) | 0;
   h = (h ^ (h >> 13)) * 1274126177;
@@ -66,7 +78,17 @@ export class Renderer {
     for (const g of game.world.groundItems) {
       if (g.x < x0 || g.x > x1 || g.y < y0 || g.y > y1) continue;
       const cx = g.x * TILE + TILE / 2 - ox, cy = g.y * TILE + TILE * 0.62 - oy;
-      drawables.push({ sortY: g.y - 0.3, z: 0, draw: () => drawGroundItem(ctx, g.id, cx, cy) });
+      drawables.push({ sortY: g.y - 0.3, z: 0, draw: () => {
+        // Soft glow so loot on the ground is easy to spot.
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.22 + Math.sin(timeMs * 0.005 + g.x + g.y) * 0.06;
+        ctx.fillStyle = '#ffe79a';
+        ctx.beginPath(); ctx.arc(cx, cy, 8, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+        ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+        drawGroundItem(ctx, g.id, cx, cy);
+      } });
     }
     for (const n of game.npcs) {
       if (!n.alive) continue;
@@ -100,10 +122,23 @@ export class Renderer {
     for (const d of drawables) d.draw();
 
     this._drawVignette(vw, vh);
+    this._drawAtmosphere(vw, vh);
     this._drawParticles(ox, oy);
     this._drawProjectiles(ox, oy);
     this._drawOverheads(ox, oy);
     this._drawHurtFlash(vw, vh);
+  }
+
+  // Smoothly-blended colour grade per region for atmosphere (warm towns, cool
+  // reservoir, ominous wilderness). Tints the world but not the HUD on top.
+  _drawAtmosphere(vw, vh) {
+    const t = ZONE_TINT[this.game.currentZoneName] || ZONE_TINT.Singapore;
+    if (!this._grade) this._grade = t.slice();
+    const g = this._grade;
+    for (let i = 0; i < 4; i++) g[i] += (t[i] - g[i]) * 0.05;
+    if (g[3] <= 0.001) return;
+    this.ctx.fillStyle = `rgba(${g[0] | 0},${g[1] | 0},${g[2] | 0},${g[3].toFixed(3)})`;
+    this.ctx.fillRect(0, 0, vw, vh);
   }
 
   // White impact flash over a struck entity (brightens the sprite briefly).
@@ -227,12 +262,18 @@ export class Renderer {
 
   _tileDetail(ctx, t, x, y, sx, sy, h) {
     if (t === TERRAIN.GRASS || t === TERRAIN.DARKGRASS) {
-      ctx.fillStyle = 'rgba(40,80,30,0.35)';
+      // Low-frequency patchiness so large areas of grass aren't flat.
+      const lf = hash(Math.floor(x / 4), Math.floor(y / 4));
+      ctx.fillStyle = lf > 0.62 ? 'rgba(150,200,90,0.10)' : lf < 0.38 ? 'rgba(20,55,20,0.12)' : 'rgba(0,0,0,0)';
+      if (lf > 0.62 || lf < 0.38) ctx.fillRect(sx, sy, TILE + 1, TILE + 1);
       for (let i = 0; i < 3; i++) {
         const hx = hash(x * 7 + i, y * 13 - i), hy = hash(x * 3 - i, y * 11 + i);
         const px = sx + hx * (TILE - 6) + 3, py = sy + hy * (TILE - 6) + 3;
+        ctx.fillStyle = 'rgba(40,80,30,0.35)';
         ctx.fillRect(px, py - 3, 1.4, 3);
         ctx.fillRect(px + 1.6, py - 4, 1.4, 4);
+        ctx.fillStyle = 'rgba(170,215,120,0.5)'; // sunlit blade tip
+        ctx.fillRect(px + 1.6, py - 4, 1.4, 1.3);
       }
       if (h > 0.92) { ctx.fillStyle = '#d23b6e'; ctx.beginPath(); ctx.arc(sx + 8 + h * 12, sy + 10, 1.4, 0, 6.3); ctx.fill(); }
     } else if (t === TERRAIN.PATH || t === TERRAIN.SAND) {
@@ -240,6 +281,12 @@ export class Renderer {
       for (let i = 0; i < 4; i++) {
         const px = sx + hash(x * 5 + i, y) * TILE, py = sy + hash(x, y * 5 + i) * TILE;
         ctx.fillRect(px, py, 2, 2);
+      }
+      if (t === TERRAIN.SAND && h > 0.8) { // occasional pebble + shell fleck
+        ctx.fillStyle = 'rgba(120,108,86,0.55)';
+        ctx.beginPath(); ctx.arc(sx + 6 + h * 14, sy + 18 - h * 8, 1.6, 0, 6.3); ctx.fill();
+        ctx.fillStyle = 'rgba(255,250,238,0.5)';
+        ctx.beginPath(); ctx.arc(sx + 20 - h * 10, sy + 8 + h * 6, 1, 0, 6.3); ctx.fill();
       }
     } else if (t === TERRAIN.STONE) {
       ctx.strokeStyle = 'rgba(60,56,48,0.25)'; ctx.lineWidth = 1;
