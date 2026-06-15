@@ -19,6 +19,8 @@ import { TILE } from '../config.js';
 import { TERRAIN } from '../data/world.js';
 import { clearSave } from '../game/save.js';
 import { itemIconSVG, skillIconSVG, tabIconSVG } from '../render/icons.js';
+import { ABILITIES } from '../data/abilities.js';
+import { weaknessOf } from '../game/combat.js';
 
 const EQUIP_LAYOUT = [
   null, 'head', null,
@@ -94,6 +96,7 @@ export class UI {
     this._buildCombatPanel();
     this._buildPrayerPanel();
     this._buildSettingsPanel();
+    this._buildAbilityBar();
 
     this.el.runOrb.addEventListener('click', () => this.game.toggleRun());
     this.el.specOrb.addEventListener('click', () => this.game.toggleSpec());
@@ -118,6 +121,8 @@ export class UI {
     this.bus.on('run', () => this.renderRun());
     this.bus.on('spec', () => this.renderSpec());
     this.bus.on('equipment', () => this.renderSpec());
+    this.bus.on('adrenaline', () => this.renderAbilities());
+    this.bus.on('ability', () => this.renderAbilities());
     this.bus.on('prayer', () => { this.renderPrayer(); this.renderPrayerPanel(); });
     this.bus.on('skills', () => this.renderPrayerPanel());
     this.bus.on('quest', () => { this.renderQuestPanel(); this.renderTracker(); });
@@ -136,7 +141,55 @@ export class UI {
     this.renderRun();
     this.renderPrayer();
     this.renderSpec();
+    this.renderAbilities();
     this.renderTracker();
+  }
+
+  // ---------------- Active-combat ability bar ----------------
+  _buildAbilityBar() {
+    this.el.adrenalineFill = document.getElementById('adrenaline-fill');
+    this.el.adrenalineVal = document.getElementById('adrenaline-val');
+    const wrap = document.getElementById('ability-buttons');
+    this.el.abilityBar = document.getElementById('ability-bar');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    this._abilityBtns = {};
+    for (const ab of ABILITIES) {
+      const btn = document.createElement('button');
+      btn.className = 'ability-btn';
+      btn.dataset.ability = ab.id;
+      btn.title = `${ab.name} (${ab.key}) — ${ab.cost}% adrenaline\n${ab.desc}`;
+      btn.innerHTML =
+        `<span class="ab-key">${ab.key}</span>` +
+        `<span class="ab-icon">${ab.icon}</span>` +
+        `<span class="ab-cost">${ab.cost}</span>` +
+        `<span class="ab-cd"></span>`;
+      btn.addEventListener('click', () => this.game.activateAbility(ab.id));
+      wrap.appendChild(btn);
+      this._abilityBtns[ab.id] = btn;
+    }
+  }
+
+  renderAbilities() {
+    const g = this.game;
+    if (this.el.adrenalineFill) this.el.adrenalineFill.style.width = `${Math.round(g.adrenaline)}%`;
+    if (this.el.adrenalineVal) this.el.adrenalineVal.textContent = `${Math.round(g.adrenaline)}%`;
+    if (!this._abilityBtns) return;
+    for (const ab of ABILITIES) {
+      const btn = this._abilityBtns[ab.id];
+      if (!btn) continue;
+      const cd = g.abilityCd[ab.id] || 0;
+      const ready = cd <= 0 && g.adrenaline >= ab.cost;
+      const armed = g.armedAbility === ab.id;
+      btn.classList.toggle('armed', armed);
+      btn.classList.toggle('ready', ready && !armed);
+      btn.classList.toggle('disabled', !ready && !armed);
+      const cdEl = btn.querySelector('.ab-cd');
+      if (cdEl) {
+        cdEl.style.height = cd > 0 ? `${Math.min(100, cd * 25)}%` : '0%';
+        cdEl.textContent = cd > 0 ? String(cd) : '';
+      }
+    }
   }
 
   // ---------------- Objective tracker ----------------
@@ -472,6 +525,9 @@ export class UI {
     hint.className = 'hint';
     hint.innerHTML = 'Left-click to walk & interact. Right-click for more options.<br>' +
       'Click trees to chop, rocks to mine, water to fish, monsters to fight.<br>' +
+      'In combat, build <b>Adrenaline</b> and spend it on abilities (Z/X/C/V): ' +
+      'Power Strike, Flurry, Brace and Second Wind. Hit each foe\'s <b>weakness</b> ' +
+      '(melee/ranged/magic) and <b>Brace</b> when a monster winds up a heavy blow (!).<br>' +
       'Eat food to heal. Bank your loot. Your progress auto-saves.';
     p.appendChild(hint);
   }
@@ -623,7 +679,8 @@ export class UI {
           : '<span class="b-hidden">Defeat one to reveal its drops.</span>';
         const row = document.createElement('div');
         row.className = 'bestiary-row' + (k ? '' : ' undiscovered');
-        row.innerHTML = `<div class="b-head"><b>${escapeHtml(d.name)}</b><span class="b-lvl">Lvl ${d.level}${d.boss ? ' · Boss' : ''}</span><span class="b-kc">${k} kills</span></div><div class="b-drops">${dropHtml}</div>`;
+        const weak = k ? `<span class="b-weak">weak: ${weaknessOf(d)}</span>` : '';
+        row.innerHTML = `<div class="b-head"><b>${escapeHtml(d.name)}</b><span class="b-lvl">Lvl ${d.level}${d.boss ? ' · Boss' : ''}</span>${weak}<span class="b-kc">${k} kills</span></div><div class="b-drops">${dropHtml}</div>`;
         list.appendChild(row);
       }
       if (!shown) { const e = document.createElement('div'); e.className = 'modal-hint'; e.textContent = 'No creatures match your search.'; list.appendChild(e); }

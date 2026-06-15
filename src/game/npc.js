@@ -29,6 +29,7 @@ export class NPC extends Character {
     this.npcId = npcId;
     // Per-spawn tweaks (e.g. gentle starter monsters) override a private copy of
     // the def so the shared registry entry — and every other spawn — is untouched.
+    this._spawnOpts = opts;
     this.def = opts ? applySpawnOpts(getNpc(npcId), opts) : getNpc(npcId);
     this.spawnX = x;
     this.spawnY = y;
@@ -48,6 +49,12 @@ export class NPC extends Character {
     this.specialCooldown = this.def.specialEvery || 9; // boss special cadence
     this.enraged = false;
     this.temporary = false;       // summoned adds are removed on death
+    // Telegraphed heavy attacks: regular monsters of level >= 12 wind up a strong
+    // hit every few swings, giving the player a moment to Brace or back off.
+    this.heavyEvery = (!this.def.boss && (this.def.level || 0) >= 12) ? randInt(3, 6) : 0;
+    this.heavyCount = 0;
+    this.windup = 0;              // 1 while a heavy blow is charging
+    this.telegraph = 0;          // ticks the "!" warning is shown
   }
 
   get attackable() { return !!this.def.attackable && this.alive; }
@@ -73,6 +80,7 @@ export class NPC extends Character {
     if (this.repathCooldown > 0) this.repathCooldown--;
     if (this.combatLatch > 0) this.combatLatch--;
     if (this.specialCooldown > 0) this.specialCooldown--;
+    if (this.telegraph > 0) this.telegraph--;
 
     if (this.def.attackable) {
       this._combatAI(game);
@@ -110,8 +118,21 @@ export class NPC extends Character {
           this.specialCooldown = this.def.specialEvery || 9;
         }
         if (this.attackCooldown <= 0) {
-          game.resolveNpcAttack(this);
-          this.attackCooldown = Math.max(2, (this.def.attackSpeed || 4) - 2);
+          const speed = Math.max(2, (this.def.attackSpeed || 4) - 2);
+          if (this.windup > 0) {
+            this.windup = 0;                     // the telegraphed heavy blow lands now
+            game.resolveNpcAttack(this, { heavy: true });
+            this.attackCooldown = speed;
+          } else if (this.heavyEvery > 0 && ++this.heavyCount >= this.heavyEvery) {
+            this.heavyCount = 0;                  // wind up: warn this tick, strike next
+            this.windup = 1;
+            this.telegraph = 2;
+            game.npcTelegraph(this);
+            this.attackCooldown = 1;             // the brief pause is the visible tell
+          } else {
+            game.resolveNpcAttack(this);
+            this.attackCooldown = speed;
+          }
         }
       } else if (!this.isMoving || this.repathCooldown <= 0) {
         // Chase: path to a tile adjacent to the target.
@@ -158,6 +179,10 @@ export class NPC extends Character {
 
   respawn() {
     this.alive = true;
+    // Restore any enrage-mutated stats, re-applying this spawn's overrides so
+    // tamed/weakened monsters stay tamed after they come back.
+    this.def = this._spawnOpts ? applySpawnOpts(getNpc(this.npcId), this._spawnOpts) : getNpc(this.npcId);
+    this.maxHp = this.def.maxHp || 1;
     this.hp = this.maxHp;
     this.x = this.tx = this.spawnX;
     this.y = this.ty = this.spawnY;
@@ -165,8 +190,10 @@ export class NPC extends Character {
     this.moving = false;
     this.attackCooldown = 0;
     this.combatLatch = 0;
-    this.def = getNpc(this.npcId); // restore any enrage-mutated stats
     this.enraged = false;
     this.specialCooldown = this.def.specialEvery || 9;
+    this.windup = 0;
+    this.telegraph = 0;
+    this.heavyCount = 0;
   }
 }

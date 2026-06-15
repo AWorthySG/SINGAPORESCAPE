@@ -42,6 +42,37 @@ export function rollAttack(atkRoll, defRoll, max) {
   return 0;
 }
 
+/** A guaranteed hit (e.g. the Power Strike ability) — never misses, hits high. */
+export function rollGuaranteed(max) {
+  return randInt(Math.max(1, Math.ceil(max / 2)), Math.max(1, max));
+}
+
+// ----- Combat weakness (rock-paper-scissors style triangle) -----
+// Every monster is weakest to one combat style. Attacking with the matching
+// style is more accurate and hits harder, so players are rewarded for switching
+// between melee, ranged and magic instead of mashing one button.
+const WEAKNESS_BY_SPRITE = {
+  // Armoured / undead / magical -> Magic
+  undead: 'magic', ghost: 'magic', golem: 'magic', drake: 'magic', reptile: 'magic',
+  turtle: 'magic', crab: 'magic', slime: 'magic',
+  // Flying / small / agile -> Ranged
+  fowl: 'ranged', bat: 'ranged', insect: 'ranged', wisp: 'ranged', jellyfish: 'ranged',
+  mantis: 'ranged', scorpion: 'ranged', seacreature: 'ranged',
+  // Beasts / humanoids -> Melee
+  beast: 'melee', humanoid: 'melee', greenman: 'melee', primate: 'melee', serpent: 'melee',
+  spider: 'melee', hound: 'melee', rodent: 'melee', demon: 'melee', plant: 'melee',
+};
+
+export const WEAKNESS_BONUS = { acc: 1.15, dmg: 1.10 };
+
+/** The combat style ('melee'|'ranged'|'magic') a monster is weakest to. */
+export function weaknessOf(def) {
+  if (!def) return 'melee';
+  const w = WEAKNESS_BY_SPRITE[def.sprite];
+  if (w) return w;
+  return ['melee', 'ranged', 'magic'][(def.level || 1) % 3]; // stable fallback
+}
+
 // ----- Player vs NPC helpers -----
 
 export function playerAttackVsNpc(skills, equip, styleId, npc) {

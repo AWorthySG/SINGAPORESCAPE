@@ -340,6 +340,61 @@ html, body {
 #settings-panel .danger { border-color: var(--coral); color: #ffb8c4; }
 #settings-panel .hint { font-size: 11px; opacity: 0.72; margin-top: 12px; line-height: 1.5; }
 
+/* ---------- Active-combat ability bar ---------- */
+#ability-bar {
+  position: absolute; left: 50%; bottom: 34px; transform: translateX(-50%);
+  z-index: 19; display: flex; flex-direction: column; align-items: center; gap: 5px;
+  pointer-events: none;
+}
+#adrenaline {
+  position: relative; width: 232px; height: 16px; border-radius: 9px; overflow: hidden;
+  background: rgba(8,18,16,0.78); border: 1px solid var(--ink);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.6), 0 2px 6px rgba(0,0,0,0.4);
+  pointer-events: auto;
+}
+#adrenaline-fill {
+  position: absolute; inset: 0 100% 0 0; width: 0%;
+  background: linear-gradient(90deg, #d8566f, #e6b34a);
+  box-shadow: 0 0 10px rgba(230,179,74,0.6); transition: width .18s ease;
+}
+#adrenaline-label {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 9px; font-weight: 800; letter-spacing: .8px; color: #fff;
+  text-shadow: 0 1px 2px #000; pointer-events: none;
+}
+#adrenaline-label b { color: var(--gold-hi); margin-left: 4px; }
+#ability-buttons { display: flex; gap: 6px; pointer-events: auto; }
+.ability-btn {
+  position: relative; width: 52px; height: 52px; border-radius: 8px; cursor: pointer; overflow: hidden;
+  background: linear-gradient(180deg, #16403b, #0e2a27);
+  border: 2px solid var(--teal-dk); color: var(--text);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(0,0,0,0.4);
+  transition: filter .12s ease, transform .06s ease, box-shadow .12s ease;
+}
+.ability-btn:hover { filter: brightness(1.2); }
+.ability-btn:active { transform: translateY(1px); }
+.ability-btn .ab-icon { font-size: 19px; line-height: 1; filter: drop-shadow(0 1px 1px rgba(0,0,0,.6)); }
+.ability-btn .ab-cost { font-size: 9px; font-weight: 800; color: var(--gold-hi); text-shadow: 1px 1px 0 #000; }
+.ability-btn .ab-key {
+  position: absolute; top: 1px; left: 3px; font-size: 9px; font-weight: 800;
+  color: #cfe0d8; opacity: .8; text-shadow: 1px 1px 0 #000;
+}
+.ability-btn .ab-cd {
+  position: absolute; inset: auto 0 0 0; height: 0%;
+  background: rgba(6,16,14,0.72); display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 800; color: #fff; text-shadow: 0 1px 2px #000;
+}
+.ability-btn.armed { border-color: var(--gold-hi); box-shadow: 0 0 12px rgba(230,179,74,0.9), inset 0 0 0 1px var(--gold-hi); }
+.ability-btn.ready { border-color: var(--gold); }
+.ability-btn.disabled { filter: grayscale(0.6) brightness(0.7); cursor: default; }
+@media (max-width: 760px) {
+  #ability-bar { bottom: 8px; }
+  #adrenaline { width: 184px; }
+  .ability-btn { width: 44px; height: 44px; }
+  .ability-btn .ab-icon { font-size: 16px; }
+}
+
 /* ---------- Context menu ---------- */
 #context-menu {
   position: absolute; z-index: 60; min-width: 158px;
@@ -623,6 +678,7 @@ html, body {
 .bestiary-row .b-head b { flex: 1; }
 .bestiary-row .b-lvl { font-size: 11px; opacity: 0.8; }
 .bestiary-row .b-kc { font-size: 11px; color: var(--gold-hi); }
+.bestiary-row .b-weak { font-size: 10px; color: #9affd0; text-transform: capitalize; }
 .bestiary-row .b-drops { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; align-items: center; min-height: 18px; }
 .bestiary-row .b-hidden { font-size: 11px; opacity: 0.6; font-style: italic; }
 
