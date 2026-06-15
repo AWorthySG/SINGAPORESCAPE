@@ -597,11 +597,11 @@ export class Game {
     if (this.combatMode() !== 'melee') { this.msg('Special attacks require a melee weapon.'); return; }
     if (this.specEnergy < spec.cost) { this.msg(`You need ${spec.cost}% special energy for ${spec.name}.`); return; }
     this.specArmed = !this.specArmed;
-    if (this.specArmed) this.msg(`${spec.name} armed — your next hit is special.`, 'system');
+    if (this.specArmed) { this.msg(`${spec.name} armed — your next hit is special.`, 'system'); this.bus.emit('sfx', 'spec'); }
     this.bus.emit('spec');
   }
 
-  _applyPlayerHit(npc, dmg, opts = {}) { npc.takeDamage(dmg); this.addHitsplat(npc, dmg, opts); }
+  _applyPlayerHit(npc, dmg, opts = {}) { npc.takeDamage(dmg); this.addHitsplat(npc, dmg, opts); if (dmg > 0) this.bus.emit('sfx', 'hit'); }
   _postAttack(npc) {
     if (!npc.target) npc.target = this.player; // provoke retaliation
     if (npc.hp <= 0) { this.killNpc(npc); this.player.clearAction(); }
@@ -660,7 +660,7 @@ export class Game {
     if (prot) dmg = Math.floor(dmg * (1 - prot));
     p.takeDamage(dmg);
     this.addHitsplat(p, dmg);
-    if (dmg > 0) this.spawnHitSparks(p, '#ff8a8a');
+    if (dmg > 0) { this.spawnHitSparks(p, '#ff8a8a'); this.bus.emit('sfx', 'hurt'); }
     this.bus.emit('hp');
     if (p.autoRetaliate && (!p.action || p.action.type !== 'attack')) this.attackNpc(npc);
     if (p.hp <= 0) this.playerDeath();
@@ -930,6 +930,7 @@ export class Game {
     const added = this.inventory.add(gi.id, Math.min(space, gi.qty));
     gi.qty -= added;
     this.msg(`You pick up ${added > 1 ? added + ' x ' : ''}${getItem(gi.id).name}.`);
+    this.bus.emit('sfx', 'pickup');
     if (gi.qty <= 0) this.world.removeGroundItem(gi);
     else this.bus.emit('grounditems');
   }
@@ -954,6 +955,7 @@ export class Game {
     this.inventory.removeAt(index, 1);
     this.player.hp = Math.min(this.skills.hitpoints, this.player.hp + item.heal);
     this.msg(`You eat the ${item.name.toLowerCase()}.`);
+    this.bus.emit('sfx', 'eat');
     this.bus.emit('hp');
   }
 
@@ -1230,6 +1232,7 @@ export class Game {
     p.x = p.tx = tile.x; p.y = p.ty = tile.y; p.progress = 0; p.moving = false; p.path = [];
     this.spawnSparkle(this.player, '#8fd6ff', 14);
     this.msg(`You take the MRT to ${st.name}.`, 'system');
+    this.bus.emit('sfx', 'travel');
     this.updateRegion();
     this.ui?.closeModal();
   }

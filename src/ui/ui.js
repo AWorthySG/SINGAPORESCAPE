@@ -424,6 +424,14 @@ export class UI {
     };
     mk('Save game now', () => { import('../game/save.js').then((m) => { m.saveGame(this.game); this.game.msg('Game saved.', 'system'); }); });
     mk('Toggle run', () => this.game.toggleRun());
+    const soundBtn = mk('', () => {
+      const a = this.game.audio;
+      if (!a) return;
+      a.unlock();
+      const muted = a.toggle();
+      soundBtn.textContent = `Sound: ${muted ? 'Off' : 'On'}`;
+    });
+    soundBtn.textContent = `Sound: ${this.game.audio && this.game.audio.muted ? 'Off' : 'On'}`;
     mk('Delete save & restart', () => {
       if (confirm('Delete your saved character and start over?')) { clearSave(); location.reload(); }
     }, true);
