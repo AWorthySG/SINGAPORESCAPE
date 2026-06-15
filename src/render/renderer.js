@@ -402,6 +402,20 @@ export class Renderer {
       ctx.fillStyle = t === 'tree' ? '#9be08a' : t === 'fishing' ? '#8fd6ff' : (o.def.ore || '#dfe4ea');
       ctx.fillText(label, cx, yy);
     }
+    // Directional signposts (which way to each area).
+    ctx.font = 'bold 11px "Trebuchet MS",sans-serif';
+    for (const o of game.world.objects) {
+      if (!o.sign) continue;
+      const cx = o.x * TILE + TILE / 2 - ox, cy = o.y * TILE + TILE / 2 - oy;
+      if (cx < -40 || cx > vw + 40 || cy < -20 || cy > vh + 20) continue;
+      const yy = cy - 16;
+      const wpx = ctx.measureText(o.sign).width + 10;
+      ctx.fillStyle = 'rgba(40,26,12,0.78)';
+      if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(cx - wpx / 2, yy - 11, wpx, 15, 4); ctx.fill(); }
+      else ctx.fillRect(cx - wpx / 2, yy - 11, wpx, 15);
+      ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillText(o.sign, cx + 0.6, yy + 0.6);
+      ctx.fillStyle = o.sign.includes('Wilderness') ? '#ff9a7a' : '#ffe6a8'; ctx.fillText(o.sign, cx, yy);
+    }
   }
 
   _drawOverheads(ox, oy) {

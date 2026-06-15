@@ -19,7 +19,7 @@ function makeCtx() {
     beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop, arc: noop,
     ellipse: noop, rect: noop, roundRect: noop, quadraticCurveTo: noop, bezierCurveTo: noop,
     fill: noop, stroke: noop, fillRect: noop, strokeRect: noop, clearRect: noop,
-    fillText: noop, strokeText: noop, drawImage: noop,
+    fillText: noop, strokeText: noop, drawImage: noop, measureText: () => ({ width: 10 }),
     createRadialGradient: () => grad, createLinearGradient: () => grad,
   };
 }

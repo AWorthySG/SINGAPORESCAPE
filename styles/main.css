@@ -516,6 +516,23 @@ html, body {
 }
 #region-label.wild { color: #ff6a52; text-shadow: 0 2px 0 #000, 0 0 12px rgba(255,60,40,0.6); }
 #region-label .wild-lvl { font-size: 13px; opacity: 0.9; }
+#region-label .loc-pin { font-size: 14px; }
+
+/* current-area caption + map button on the minimap */
+#minimap-region {
+  position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 5px;
+  white-space: nowrap; font-size: 12px; font-weight: 800; color: var(--gold-hi);
+  background: rgba(10,20,16,0.7); border: 1px solid rgba(0,0,0,0.5); border-radius: 10px;
+  padding: 2px 10px; text-shadow: 1px 1px 0 #000; pointer-events: none; z-index: 22;
+}
+#minimap-region.wild { color: #ff8a6a; }
+#map-btn {
+  position: absolute; bottom: 1px; right: 1px; z-index: 22; cursor: pointer;
+  font-size: 9px; font-weight: 800; letter-spacing: .5px; color: #06201c;
+  background: linear-gradient(180deg, var(--gold-hi), var(--gold)); border: 1px solid var(--ink);
+  border-radius: 5px; padding: 2px 6px;
+}
+#map-btn:hover { filter: brightness(1.12); }
 
 /* ---------- Orbs (stacked on the minimap) ---------- */
 #hp-orb { bottom: -4px; left: -12px; }

@@ -86,9 +86,9 @@ export function buildWorld() {
   const occupied = new Set();
   const key = (x, y) => `${x},${y}`;
   const isFree = (x, y) => inB(x, y) && !occupied.has(key(x, y));
-  const placeObj = (objId, x, y) => {
+  const placeObj = (objId, x, y, extra) => {
     if (!isFree(x, y)) return false;
-    objects.push({ objId, x, y });
+    objects.push(extra ? { objId, x, y, ...extra } : { objId, x, y });
     occupied.add(key(x, y));
     return true;
   };
@@ -130,7 +130,7 @@ export function buildWorld() {
   placeObj('bank_booth', 50, 48); placeObj('bank_booth', 51, 48); placeObj('bank_booth', 52, 48);
   placeNpc('banker', 51, 47);
   placeObj('shrine', 58, 50);
-  placeObj('sign', 56, 46);
+  placeObj('sign', 56, 46, { sign: 'Kampong Glam' });
   placeObj('furnace', 48, 58); placeObj('anvil', 50, 59); placeObj('range', 62, 58);
   placeNpc('hawker', 63, 59);
   placeNpc('shopkeeper', 64, 50);
@@ -163,7 +163,7 @@ export function buildWorld() {
   scatter('gold_rock', 70, 11, 84, 21, 4, [T.SAND]);
   scatter('mithril_rock', 74, 12, 84, 20, 3, [T.SAND]);
   scatter('adamantite_rock', 78, 13, 84, 19, 2, [T.SAND]);
-  placeObj('sign', 57, 44);
+  placeObj('sign', 57, 44, { sign: 'Bukit Timah \u2191' });
   // Chicken pen + a few easy early monsters near the path
   for (let x = 34; x <= 40; x++) { placeObj('fence', x, 28); placeObj('fence', x, 34); }
   for (let y = 28; y <= 34; y++) { placeObj('fence', 34, y); placeObj('fence', 40, y); }
@@ -175,7 +175,7 @@ export function buildWorld() {
   // ================= MacRitchie Reservoir =================
   placeFishing('fishing_spot', 30, 30, 40, 78, 6);
   placeFishing('harpoon_spot', 30, 56, 40, 78, 4);
-  placeObj('sign', 40, 56);
+  placeObj('sign', 40, 56, { sign: 'MacRitchie \u2190' });
 
   // ================= Chinatown =================
   placeObj('bank_booth', 88, 48); placeObj('bank_booth', 89, 48);
@@ -187,17 +187,17 @@ export function buildWorld() {
   placeObj('hyco_obelisk', 83, 52); // Hyco Education landmark
   placeNpc('villager', 80, 56, 4); placeNpc('villager', 86, 54, 4);
   placeObj('lamp', 75, 47); placeObj('lamp', 92, 47); placeObj('lamp', 75, 64); placeObj('lamp', 92, 64);
-  placeObj('sign', 83, 47); placeObj('flower', 80, 63); placeObj('flower', 88, 63);
+  placeObj('sign', 83, 47, { sign: 'Chinatown' }); placeObj('flower', 80, 63); placeObj('flower', 88, 63);
 
   // ================= Sentosa Beach =================
   scatter('palm', 34, 84, 98, 96, 12, [T.SAND, T.GRASS, T.DARKGRASS]);
   placeFishing('fishing_cage', 30, 97, 100, 102, 6);
-  placeObj('sign', 57, 90);
+  placeObj('sign', 57, 90, { sign: 'Sentosa Beach \u2193' });
 
   // ================= The Wilderness =================
   scatter('ruin', 96, 6, 117, 96, 16, GRASSY);
   scatter('wall', 96, 6, 117, 96, 10, GRASSY);
-  placeObj('sign', 94, 40);
+  placeObj('sign', 94, 40, { sign: '\u26A0 Wilderness \u2192' });
   scatter('mithril_rock', 98, 8, 110, 90, 4, GRASSY);
   scatter('adamantite_rock', 106, 8, 116, 90, 3, GRASSY);
   scatter('runite_rock', 110, 8, 117, 90, 2, GRASSY);
@@ -205,7 +205,7 @@ export function buildWorld() {
   // ================= Pulau Hantu (haunted island) =================
   scatter('ruin', 121, 4, 148, 99, 22, GRASSY);
   scatter('wall', 124, 44, 136, 60, 8, [T.STONE]);
-  placeObj('sign', 122, 53);
+  placeObj('sign', 122, 53, { sign: 'Pulau Hantu' });
   placeObj('lamp', 125, 47); placeObj('lamp', 135, 47); placeObj('lamp', 125, 59); placeObj('lamp', 135, 59);
   scatter('magic_tree', 121, 60, 148, 99, 5, GRASSY);
   scatter('yew_tree', 121, 60, 148, 99, 6, GRASSY);

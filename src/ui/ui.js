@@ -73,6 +73,8 @@ export class UI {
       specOrb: id('spec-orb'),
       specOrbVal: id('spec-orb-value'),
       minimap: id('minimap-canvas'),
+      minimapRegion: id('minimap-region'),
+      mapBtn: id('map-btn'),
     };
     this.minimapCtx = this.el.minimap.getContext('2d');
 
@@ -96,6 +98,7 @@ export class UI {
     this.el.runOrb.addEventListener('click', () => this.game.toggleRun());
     this.el.specOrb.addEventListener('click', () => this.game.toggleSpec());
     if (this.el.minimap) { this.el.minimap.style.cursor = 'pointer'; this.el.minimap.title = 'Open world map (M)'; this.el.minimap.addEventListener('click', () => this.openWorldMap()); }
+    if (this.el.mapBtn) this.el.mapBtn.addEventListener('click', () => this.openWorldMap());
     this.el.modalClose.addEventListener('click', () => this.closeModal());
     this.el.modalOverlay.addEventListener('mousedown', (e) => {
       if (e.target === this.el.modalOverlay) this.closeModal();
@@ -200,12 +203,16 @@ export class UI {
 
   // ---------------- Region label ----------------
   setRegion(name, wildLevel = 0) {
-    if (!this.el.region) return;
     const wild = wildLevel > 0;
-    this.el.region.innerHTML = wild
-      ? `${escapeHtml(name)} <span class="wild-lvl">Lvl ${wildLevel}</span>`
-      : escapeHtml(name);
-    this.el.region.classList.toggle('wild', wild);
+    if (this.el.region) {
+      this.el.region.innerHTML = `<span class="loc-pin">&#128205;</span> ${escapeHtml(name)}` +
+        (wild ? ` <span class="wild-lvl">Lvl ${wildLevel}</span>` : '');
+      this.el.region.classList.toggle('wild', wild);
+    }
+    if (this.el.minimapRegion) {
+      this.el.minimapRegion.textContent = wild ? `${name} (Lvl ${wildLevel})` : name;
+      this.el.minimapRegion.classList.toggle('wild', wild);
+    }
   }
 
   // ---------------- Hover text ----------------
