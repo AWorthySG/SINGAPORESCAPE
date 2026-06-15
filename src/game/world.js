@@ -30,7 +30,7 @@ export class World {
         if (this.terrain[this.idx(x, y)] === TERRAIN.WATER) this.baseBlocked[this.idx(x, y)] = 1;
       }
     }
-    for (const o of data.objects) this.addObject(o.objId, o.x, o.y);
+    for (const o of data.objects) this.addObject(o.objId, o.x, o.y, o.sign ? { sign: o.sign } : {});
   }
 
   idx(x, y) { return y * this.width + x; }
