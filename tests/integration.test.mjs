@@ -523,6 +523,17 @@ test('quick-eat consumes the first food in the bag', () => {
   assert.equal(game.inventory.count('kaya_toast'), before - 1, 'one food consumed');
 });
 
+test('run energy regenerates while standing still', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.runEnergy = 20;
+  const before = game.runEnergy;
+  for (let i = 0; i < 10; i++) game.update(600); // idle ticks
+  assert.ok(game.runEnergy > before, 'run energy recovers when idle');
+});
+
 test('eating food heals the player', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
