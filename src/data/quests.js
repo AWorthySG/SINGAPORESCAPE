@@ -7,6 +7,10 @@ import { LIFE_STAGES, LIFE_STAGES_ADV } from './lifeskills.js';
 // Quest points needed before the Kampong Guide offers the grandmaster capstone.
 export const CHAMPION_QP = 6;
 
+// Karma thresholds for the redemption / corruption arc.
+export const REDEMPTION_GOAL = 30; // good karma to atone
+export const CORRUPTION_GOAL = 25; // evil karma to fully corrupt
+
 // Shared progress label for a staged life-skills course.
 function stageProgress(g, key, stages) {
   const q = g.quests[key];
@@ -69,6 +73,26 @@ export const QUESTS = [
     id: 'island_provisions', name: 'Island Provisions', qp: 1,
     desc: 'Bring 10 cooked salmon to the Kampong Guide.',
     progress: (g) => g.quests.island_provisions.state === 'active' ? `${Math.min(g.inventory.count('salmon'), 10)}/10 salmon` : '',
+  },
+  {
+    id: 'redemption', name: 'The Path of Redemption', qp: 2,
+    desc: 'Atone for your sins with Sister Mei through good works.',
+    progress: (g) => {
+      const q = g.quests.redemption;
+      if (q.state !== 'active') return '';
+      const done = Math.min(Math.max(g.karma.good - (q.baseGood || 0), 0), REDEMPTION_GOAL);
+      return `Penance: ${done}/${REDEMPTION_GOAL} good karma`;
+    },
+  },
+  {
+    id: 'corruption', name: 'The Path of Corruption', qp: 1,
+    desc: 'Embrace the darkness offered by the Tempter.',
+    progress: (g) => {
+      const q = g.quests.corruption;
+      if (q.state !== 'active') return '';
+      const done = Math.min(Math.max(g.karma.evil - (q.baseEvil || 0), 0), CORRUPTION_GOAL);
+      return `Corruption: ${done}/${CORRUPTION_GOAL} evil karma`;
+    },
   },
   {
     id: 'champion', name: 'Champion of Singapore', qp: 3,

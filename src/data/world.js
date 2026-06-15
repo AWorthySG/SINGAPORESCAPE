@@ -138,6 +138,8 @@ export function buildWorld() {
   placeNpc('slayer_master', 54, 58);
   placeNpc('guide', 56, 53);
   placeNpc('skills_tutor', 58, 53);
+  placeNpc('light_priestess', 60, 49); // by the Monument — the path of redemption
+  placeNpc('shadow_broker', 48, 47);   // lurking near the bank — the path of corruption
   placeNpc('villager', 60, 54, 3);
   placeObj('lamp', 46, 46); placeObj('lamp', 70, 46); placeObj('lamp', 46, 64); placeObj('lamp', 70, 64);
   placeObj('flower', 54, 47); placeObj('flower', 62, 47); placeObj('bush', 48, 51); placeObj('bush', 68, 60);

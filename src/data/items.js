@@ -215,6 +215,12 @@ const RAW = {
     equip: { slot: 'cape', req: { defence: 40 }, bonuses: { attack: 10, strength: 10, defence: 14, ranged: 8, magic: 8 } } },
   mark_of_grace: { name: 'Mark of grace', icon: '🪶', value: 40, stackable: true, examine: 'A token of agility — use it to catch your breath (restore run energy).' },
 
+  // ---- Alignment arc rewards ----
+  blessed_halo: { name: 'Blessed halo', icon: '😇', value: 80000, examine: 'A radiant halo earned through redemption.',
+    equip: { slot: 'head', req: {}, bonuses: { defence: 12, magic: 8, strength: 2 } } },
+  shadow_cloak: { name: 'Shadow cloak', icon: '🦇', value: 80000, examine: 'A cloak woven from darkness, granted to the corrupted.',
+    equip: { slot: 'cape', req: {}, bonuses: { attack: 10, strength: 10, defence: 3 } } },
+
   // ---- Clue scrolls & treasure trails ----
   clue_scroll_easy: { name: 'Clue scroll (easy)', icon: '📜', value: 0, examine: 'Read it to begin an easy treasure trail.' },
   clue_scroll_medium: { name: 'Clue scroll (medium)', icon: '📜', value: 0, examine: 'Read it to begin a medium treasure trail.' },

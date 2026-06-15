@@ -345,6 +345,8 @@
   I.revenant_cape = capeIcon('#5a4a6a', '#8a7aa0');
   I.trades_cape = capeIcon('#2f9e6e', '#5fd0a0');     // jade — Master of Trades
   I.champions_cape = capeIcon('#e6b34a', '#ffd773');  // gold — Champion of Singapore
+  I.shadow_cloak = capeIcon('#2a2336', '#5a4a72');    // shadow — corruption reward
+  I.blessed_halo = `<ellipse cx="12" cy="8" rx="7.5" ry="3" fill="none" stroke="${C.goldHi}" stroke-width="2.6"/><ellipse cx="12" cy="8" rx="7.5" ry="3" fill="none" stroke="${C.gold}" stroke-width="1"/><path d="M6.5 13 Q12 22 17.5 13" fill="${C.cream}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round" opacity=".85"/>`;
   I.mark_of_grace = `<path d="M5 19 C5 9 11 4 19 4 C19 13 12 19 5 19 Z" fill="${C.jade}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M6.5 17.5 L16 8" fill="none" stroke="${C.jadeHi}" stroke-width="1.3" stroke-linecap="round"/><path d="M9 15 L13.5 12 M9.5 12.5 L13 10" stroke="${C.jadeDk}" stroke-width="1" stroke-linecap="round"/>`;
   // Clue scrolls (rolled parchment, ribbon tinted by tier) & reward caskets (chest).
   const scrollIcon = (ribbon) => `
