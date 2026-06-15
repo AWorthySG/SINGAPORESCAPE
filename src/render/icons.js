@@ -325,6 +325,7 @@
   I.revenant_cape = capeIcon('#5a4a6a', '#8a7aa0');
   // quest & special rewards
   I.tiger_kris = scim('#d8a23a', '#ffd773');
+  I.cursed_cutlass = scim('#3a5a4a', '#6a9a7a');
   I.kampong_gauntlets = gloves('#2f7a6a', '#4fb0a0');
   I.champions_helm = helm('#caa15a', C.goldHi);
   I.island_aegis = shield('#2f6e8a', '#5aa0c4');

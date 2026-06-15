@@ -20,6 +20,8 @@ const FAMILY_NAMES = {
   kingfisher: 'Kingfishers', flying_fox: 'Flying foxes', reticulated_python: 'Reticulated pythons',
   saltwater_crocodile: 'Saltwater crocodiles', pontianak: 'Pontianaks', toyol: 'Toyols',
   horseshoe_crab: 'Horseshoe crabs', sambar_deer: 'Sambar deer',
+  jungle_wraith: 'Jungle wraiths', hantu_raya: 'Hantu raya', pocong: 'Pocong',
+  cursed_pirate: 'Cursed pirates', penanggal: 'Penanggal',
 };
 
 // Build the task table from the bestiary: each family's Slayer requirement is

@@ -412,6 +412,25 @@ test('island provisions quest trades cooked salmon for rewards', () => {
   assert.equal(game.inventory.count('salmon'), 0);
 });
 
+test('Pulau Hantu region exists, is reachable land, and is populated', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  // The map was widened to include the new eastern island.
+  assert.ok(game.world.width >= 150, 'map widened for the new region');
+  const zone = game.world.zoneAt(135, 52);
+  assert.ok(zone && zone.name === 'Pulau Hantu', 'zone detection covers the island');
+  // It has its own monsters (placed by zone) and a boss.
+  const inHantu = (n) => n.x >= 120 && n.x <= 149;
+  assert.ok(game.npcs.some((n) => n.attackable && !n.def.boss && inHantu(n)), 'island has monsters');
+  assert.ok(game.npcs.some((n) => n.def.boss && n.npcId === 'orang_minyak'), 'island boss spawned');
+  // And its own resource nodes.
+  assert.ok(game.world.objects.some((o) => inHantu(o) && o.def.type === 'tree'), 'island has trees');
+  // The ruined plaza is walkable so the area is reachable.
+  assert.ok(!game.world.isBlocked(130, 53), 'plaza is walkable');
+});
+
 test('eating food heals the player', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();

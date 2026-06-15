@@ -191,6 +191,8 @@ const RAW = {
     equip: { slot: 'amulet', req: { magic: 50 }, bonuses: { magic: 18, magicStr: 3, attack: 6 } } },
   revenant_cape: { name: 'Revenant cape', icon: '🧣', value: 130000, examine: 'Tattered shroud of the Bukit Brown Revenant.',
     equip: { slot: 'cape', req: { defence: 50 }, bonuses: { attack: 8, strength: 8, defence: 12 } } },
+  cursed_cutlass: { name: 'Cursed cutlass', icon: '🗡️', value: 175000, examine: 'A pirate blade from haunted Pulau Hantu.',
+    equip: { slot: 'weapon', req: { attack: 60 }, bonuses: { attack: 80, strength: 76, speed: 4 } } },
 
   // ---- Quest & special rewards ----
   tiger_kris: { name: 'Tiger kris', icon: '🗡️', value: 18000, examine: 'A wavy ceremonial blade, swift and deadly.',
