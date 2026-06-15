@@ -15,7 +15,17 @@ export const DIALOGUES = {
         { label: 'Do you have any work for me?', next: 'quest' },
         { label: "I've collected the bones.", next: 'start', action: 'questTurnIn' },
         { label: 'Any pest control work?', next: 'pest' },
+        { label: "Tell me about the island's pillars.", next: 'pillars' },
+        { label: 'I have honoured both pillars.', next: 'start', action: 'pillarsTurnIn' },
         { label: 'Goodbye.', next: 'end' },
+      ],
+    },
+    pillars: {
+      speaker: 'Kampong Guide',
+      text: 'Our island stands on two pillars, lah. Pray at the A-Worthy Monument in town, then rest at the Hyco Education obelisk. Honour both and I\'ll give you a sigil that carries their blessing.',
+      options: [
+        { label: "I'll honour both pillars.", next: 'start', action: 'pillarsStart' },
+        { label: 'Sounds spiritual. Maybe later.', next: 'start' },
       ],
     },
     quest: {

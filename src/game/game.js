@@ -67,6 +67,7 @@ export class Game {
     this.quests = {
       bone_collector: { state: 'notStarted' },
       pest_control: { state: 'notStarted', kills: 0 },
+      pillars: { state: 'notStarted', monument: false, obelisk: false },
     };
 
     // Achievement / collection-log progress.
@@ -363,6 +364,7 @@ export class Game {
         this.bus.emit('hp'); this.bus.emit('prayer');
         this.spawnSparkle(this.player, '#9adcff', 16);
         this.msg('You kneel at the A-Worthy Monument. Your health and prayer are restored.', 'system');
+        this.markPillar('monument');
       });
       case 'rest': return this._tickArrival(a, a.obj, true, () => {
         this.player.hp = this.skills.hitpoints;
@@ -370,6 +372,7 @@ export class Game {
         this.bus.emit('hp'); this.bus.emit('run');
         this.spawnSparkle(this.player, '#f5a623', 16);
         this.msg('You rest at the Hyco Education obelisk. Health and run energy restored.', 'system');
+        this.markPillar('obelisk');
       });
       case 'thieve': return this._tickArrival(a, a.target, true, () => this.pickpocket(a.npc));
       case 'agility': return this._tickContinuous(a, a.obj, () => this.resolveAgility(a.obj));
@@ -846,8 +849,35 @@ export class Game {
     else if (action === 'pestStart') {
       const q = this.quests.pest_control;
       if (q.state === 'notStarted') { q.state = 'active'; q.kills = 0; this.msg('Quest started — Pest Control: slay 8 giant rats.', 'level'); }
-    }
+    } else if (action === 'pillarsStart') {
+      const q = this.quests.pillars;
+      if (q.state === 'notStarted') { q.state = 'active'; this.msg('Quest started — Pillars of the Island: pray at the A-Worthy Monument and rest at the Hyco Education obelisk.', 'level'); }
+    } else if (action === 'pillarsTurnIn') this.turnInPillars();
     this.bus.emit('quest');
+  }
+
+  markPillar(which) {
+    const q = this.quests.pillars;
+    if (q.state !== 'active' || q[which]) return;
+    q[which] = true;
+    const label = which === 'monument' ? 'A-Worthy Monument' : 'Hyco Education obelisk';
+    this.msg(`Pillars of the Island: you have honoured the ${label}.`, 'system');
+    if (q.monument && q.obelisk) this.msg('Both pillars honoured — return to the Kampong Guide for your reward.', 'level');
+    this.bus.emit('quest');
+  }
+
+  turnInPillars() {
+    const q = this.quests.pillars;
+    if (q.state === 'done') { this.msg('The pillars watch over you, adventurer.', 'system'); return; }
+    if (q.state !== 'active') { this.msg('Ask me about the pillars first.', 'system'); return; }
+    if (!q.monument || !q.obelisk) { this.msg('You must honour BOTH pillars first.', 'system'); return; }
+    this.inventory.add('worthy_sigil', 1);
+    this.inventory.add('coins', 2500);
+    this.skills.addXp('prayer', 1200);
+    this.skills.addXp('defence', 800);
+    q.state = 'done';
+    this.msg('Quest complete — Pillars of the Island! You receive the A-Worthy Sigil, coins and XP.', 'level');
+    this.banner('<span class="big">Quest complete!</span>Pillars of the Island');
   }
 
   turnInBoneQuest() {

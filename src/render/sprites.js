@@ -5,6 +5,23 @@ import { itemIconImage } from './icons.js';
 
 const OUTLINE = 'rgba(26,18,12,0.55)';
 
+// Lazy-loaded brand logos so the real artwork can be embedded into the world
+// (on the A-Worthy Monument and the Hyco Education obelisk). Guarded for headless.
+const _logoCache = {};
+function logoImage(name) {
+  if (_logoCache[name] !== undefined) return _logoCache[name];
+  if (typeof Image === 'undefined') { _logoCache[name] = null; return null; }
+  const img = new Image();
+  img.src = `assets/${name}.svg`;
+  _logoCache[name] = img;
+  return img;
+}
+function drawLogo(ctx, name, x, y, w, h) {
+  const img = logoImage(name);
+  if (img && img.complete && img.naturalWidth) ctx.drawImage(img, x, y, w, h);
+  return !!(img && img.complete && img.naturalWidth);
+}
+
 function path(ctx, fn) { ctx.beginPath(); fn(); }
 function fill(ctx, color) { ctx.fillStyle = color; ctx.fill(); }
 function line(ctx, color = OUTLINE, w = 2) { ctx.strokeStyle = color; ctx.lineWidth = w; ctx.stroke(); }
@@ -609,6 +626,10 @@ function shrine(ctx, cx, cy, time) {
   ctx.translate(cx, cy);
   ctx.scale(1.85, 1.85);
   shrineBody(ctx, 0, 0, time);
+  // Embed the genuine A Worthy logo as a floating, glowing emblem above the arch.
+  const bob = Math.sin(time * 0.0022) * 1.2;
+  glow(ctx, 0, -30 + bob, 13, 'rgba(70,130,200,0.28)');
+  drawLogo(ctx, 'logo', -7, -41 + bob, 14, 21);
   ctx.restore();
 }
 function shrineBody(ctx, cx, cy, time) {
@@ -659,6 +680,8 @@ function hyco(ctx, cx, cy) {
   ctx.fillStyle = '#f5a623'; circle(ctx, cx + 9, cy - 13, 2.1); ctx.fill();
   // EDUCATION bar
   ctx.fillStyle = 'rgba(238,243,247,0.8)'; rr(ctx, cx - 11, cy + 1, 22, 2, 1); ctx.fill();
+  // Embed the genuine Hyco Education logo onto the standee face (its own navy bg blends in).
+  drawLogo(ctx, 'hyco', cx - 14, cy - 21, 28, 15);
 }
 
 // Agility course: two posts with a row of climbing ropes.
