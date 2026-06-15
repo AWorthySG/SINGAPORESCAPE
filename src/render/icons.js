@@ -346,6 +346,23 @@
   I.trades_cape = capeIcon('#2f9e6e', '#5fd0a0');     // jade — Master of Trades
   I.champions_cape = capeIcon('#e6b34a', '#ffd773');  // gold — Champion of Singapore
   I.mark_of_grace = `<path d="M5 19 C5 9 11 4 19 4 C19 13 12 19 5 19 Z" fill="${C.jade}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M6.5 17.5 L16 8" fill="none" stroke="${C.jadeHi}" stroke-width="1.3" stroke-linecap="round"/><path d="M9 15 L13.5 12 M9.5 12.5 L13 10" stroke="${C.jadeDk}" stroke-width="1" stroke-linecap="round"/>`;
+  // Clue scrolls (rolled parchment, ribbon tinted by tier) & reward caskets (chest).
+  const scrollIcon = (ribbon) => `
+    <rect x="6" y="4" width="12" height="16" rx="1.5" fill="${C.cream}" stroke="${OL}" stroke-width="1.1"/>
+    <path d="M6 7 H18 M6 16 H18" stroke="${C.woodDk}" stroke-width="0.8" opacity=".5"/>
+    <path d="M9 10 H15 M9 12 H14 M9 14 H15" stroke="${C.woodDk}" stroke-width="0.9" opacity=".7"/>
+    <rect x="4.5" y="9" width="15" height="3" rx="1" fill="${ribbon}" stroke="${OL}" stroke-width="0.9"/>`;
+  const casketIcon = (lid) => `
+    <rect x="4" y="11" width="16" height="9" rx="1.5" fill="${C.wood}" stroke="${OL}" stroke-width="1.1"/>
+    <path d="M4 12 Q4 6 12 6 Q20 6 20 12 Z" fill="${lid}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/>
+    <rect x="10.5" y="12" width="3" height="5" rx="0.6" fill="${C.gold}" stroke="${OL}" stroke-width="0.8"/>
+    <circle cx="12" cy="14" r="0.9" fill="${C.goldDk}"/>`;
+  I.clue_scroll_easy = scrollIcon(C.jade);
+  I.clue_scroll_medium = scrollIcon('#2f7bbf');
+  I.clue_scroll_hard = scrollIcon(C.coral);
+  I.reward_casket_easy = casketIcon('#3c7a4a');
+  I.reward_casket_medium = casketIcon('#2f6fa0');
+  I.reward_casket_hard = casketIcon('#9a3a4a');
   // quest & special rewards
   I.tiger_kris = scim('#d8a23a', '#ffd773');
   I.cursed_cutlass = scim('#3a5a4a', '#6a9a7a');

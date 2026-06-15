@@ -39,6 +39,7 @@ export function snapshot(game) {
     zonesVisited: [...game.zonesVisited],
     kills: game.kills,
     slayer: game.slayer,
+    clue: game.clue,
     specEnergy: game.specEnergy,
     settings: { running: game.running },
   };
@@ -102,6 +103,7 @@ export function loadGame(game) {
       completed: Number(data.slayer.completed) || 0,
     };
   }
+  if (data.clue && typeof data.clue === 'object' && Array.isArray(data.clue.spots)) game.clue = data.clue;
   if (typeof data.specEnergy === 'number') game.specEnergy = Math.max(0, Math.min(100, data.specEnergy));
   game.running = data.settings?.running ?? game.running;
   return true;

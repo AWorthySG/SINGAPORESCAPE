@@ -371,6 +371,8 @@ export class UI {
     else if (item.tags?.includes('log')) this.game.lightLogs(i);
     else if (s.id === 'bones') this.game.buryBones(i);
     else if (s.id === 'mark_of_grace') this.game.useMarkOfGrace(i);
+    else if (s.id.startsWith('clue_scroll_')) this.game.readClue(i);
+    else if (s.id.startsWith('reward_casket_')) this.game.openCasket(i);
     else this.game.msg(item.examine, 'system');
   }
 
@@ -384,6 +386,8 @@ export class UI {
     if (item.tags?.includes('log')) opts.push({ label: 'Light', target: item.name, fn: () => this.game.lightLogs(i) });
     if (s.id === 'bones') opts.push({ label: 'Bury', target: item.name, fn: () => this.game.buryBones(i) });
     if (s.id === 'mark_of_grace') opts.push({ label: 'Use', target: item.name, fn: () => this.game.useMarkOfGrace(i) });
+    if (s.id.startsWith('clue_scroll_')) opts.push({ label: 'Read', target: item.name, fn: () => this.game.readClue(i) });
+    if (s.id.startsWith('reward_casket_')) opts.push({ label: 'Open', target: item.name, fn: () => this.game.openCasket(i) });
     opts.push({ label: 'Drop', target: item.name, fn: () => this.game.dropItem(i) });
     opts.push({ label: 'Examine', target: item.name, fn: () => this.game.msg(item.examine, 'system') });
     this.showContextMenu(e.clientX, e.clientY, opts);
@@ -1240,6 +1244,18 @@ export class UI {
       else col = '#5ad1ff';
       ctx.fillStyle = col;
       ctx.beginPath(); ctx.arc(W / 2 + dx * scale, H / 2 + dy * scale, r, 0, Math.PI * 2); ctx.fill();
+    }
+    // Treasure-trail dig spot (pulsing gold).
+    if (game.clue) {
+      const spot = game.clue.spots[game.clue.step];
+      if (spot) {
+        const dx = spot.x - px, dy = spot.y - py;
+        if (Math.abs(dx) <= radius && Math.abs(dy) <= radius) {
+          ctx.fillStyle = '#ffd24a';
+          ctx.beginPath(); ctx.arc(W / 2 + dx * scale, H / 2 + dy * scale, 3, 0, Math.PI * 2); ctx.fill();
+          ctx.strokeStyle = '#3a2a00'; ctx.lineWidth = 1; ctx.stroke();
+        }
+      }
     }
     // Player.
     ctx.fillStyle = '#fff';

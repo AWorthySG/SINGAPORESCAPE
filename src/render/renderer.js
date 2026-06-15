@@ -128,6 +128,7 @@ export class Renderer {
     drawables.sort((a, b) => (a.sortY - b.sortY) || (a.z - b.z));
     for (const d of drawables) d.draw();
 
+    this._drawClueMarker(ox, oy, vw, vh, timeMs);
     this._drawVignette(vw, vh);
     this._drawAtmosphere(vw, vh);
     this._drawParticles(ox, oy);
@@ -173,6 +174,29 @@ export class Renderer {
     g.addColorStop(1, `rgba(170,0,0,${a})`);
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, vw, vh);
+  }
+
+  // A bobbing golden ✕ over the current treasure-trail dig spot.
+  _drawClueMarker(ox, oy, vw, vh, t) {
+    const clue = this.game.clue;
+    if (!clue) return;
+    const spot = clue.spots[clue.step];
+    if (!spot) return;
+    const x = spot.x * TILE + TILE / 2 - ox;
+    const y = spot.y * TILE + TILE / 2 - oy;
+    if (x < -40 || y < -40 || x > vw + 40 || y > vh + 40) return;
+    const { ctx } = this;
+    const pulse = 0.4 + Math.sin(t * 0.005) * 0.18;
+    const bob = Math.sin(t * 0.005) * 4;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = pulse;
+    ctx.fillStyle = '#ffd24a';
+    ctx.beginPath(); ctx.arc(x, y, 11, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    ctx.font = 'bold 18px "Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.lineWidth = 4; ctx.strokeText('✕', x, y - 18 - bob);
+    ctx.fillStyle = '#ffe88a'; ctx.fillText('✕', x, y - 18 - bob);
   }
 
   _drawProjectiles(ox, oy) {
