@@ -123,6 +123,7 @@ export class UI {
     this.bus.on('equipment', () => this.renderSpec());
     this.bus.on('adrenaline', () => this.renderAbilities());
     this.bus.on('ability', () => this.renderAbilities());
+    this.bus.on('karma', () => { this.renderAlignment(); this._refreshModalIfOpen(['shop']); });
     this.bus.on('prayer', () => { this.renderPrayer(); this.renderPrayerPanel(); });
     this.bus.on('skills', () => this.renderPrayerPanel());
     this.bus.on('quest', () => { this.renderQuestPanel(); this.renderTracker(); });
@@ -454,6 +455,22 @@ export class UI {
       grid.appendChild(cell);
     }
     this.el.skillsTotal.textContent = `Total level: ${this.game.skills.totalLevel()}`;
+    this.renderAlignment();
+  }
+
+  // ---------------- Good / evil alignment ----------------
+  renderAlignment() {
+    const el = this.el.alignment || (this.el.alignment = document.getElementById('alignment-readout'));
+    if (!el) return;
+    const g = this.game;
+    const { title, cls } = g.alignmentTitle();
+    const good = g.karma.good, evil = g.karma.evil, total = good + evil || 1;
+    const goodPct = Math.round((good / total) * 100);
+    el.className = `align-${cls}`;
+    el.innerHTML =
+      `<div class="align-head">Alignment: <b>${title}</b> <span class="align-net">(${g.alignment() >= 0 ? '+' : ''}${g.alignment()})</span></div>` +
+      `<div class="align-bar"><span class="align-good" style="width:${goodPct}%"></span></div>` +
+      `<div class="align-legend"><span class="ag-good">Good ${good}</span><span class="ag-evil">Evil ${evil}</span></div>`;
   }
 
   // ---------------- Combat panel ----------------
@@ -873,7 +890,7 @@ export class UI {
       const shopGrid = document.createElement('div');
       shopGrid.className = 'item-grid shop';
       for (const entry of shop.stock) {
-        const price = Math.max(1, Math.round(getItem(entry.id).value * shop.buyMul));
+        const price = Math.max(1, Math.round(getItem(entry.id).value * shop.buyMul * this.game.karmaFactor().buy));
         shopGrid.appendChild(this._cell(entry.id, entry.qty, {
           tooltip: `<b>${getItem(entry.id).name}</b><br>Buy: ${price} coins`,
           onClick: () => this.game.buyItem(shopId, entry.id, 1),
@@ -893,7 +910,7 @@ export class UI {
       invGrid.className = 'item-grid shop';
       this.game.inventory.slots.forEach((s) => {
         if (!s || s.id === 'coins') return;
-        const sell = Math.max(1, Math.round(getItem(s.id).value * shop.sellMul));
+        const sell = Math.max(1, Math.round(getItem(s.id).value * shop.sellMul * this.game.karmaFactor().sell));
         invGrid.appendChild(this._cell(s.id, s.qty, {
           tooltip: `<b>${getItem(s.id).name}</b><br>Sell: ${sell} coins`,
           onClick: () => this.game.sellItem(shopId, s.id, 1),

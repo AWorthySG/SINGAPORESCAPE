@@ -313,6 +313,25 @@ html, body {
   box-shadow: inset 0 0 0 1px rgba(43,179,163,0.22);
 }
 
+/* ---------- Alignment (good / evil) ---------- */
+#alignment-readout {
+  margin-top: 9px; padding: 8px 10px; border-radius: 5px;
+  background: linear-gradient(180deg, rgba(0,0,0,0.16), rgba(0,0,0,0.36));
+  box-shadow: inset 0 0 0 1px rgba(43,179,163,0.22); font-size: 12px;
+}
+#alignment-readout .align-head { text-align: center; font-weight: 800; color: var(--text); }
+#alignment-readout.align-good .align-head b { color: #6fffae; }
+#alignment-readout.align-evil .align-head b { color: #ff7a7a; }
+#alignment-readout.align-neutral .align-head b { color: var(--gold-hi); }
+#alignment-readout .align-net { opacity: .8; font-weight: 600; }
+.align-bar {
+  position: relative; height: 8px; margin: 6px 0 4px; border-radius: 5px; overflow: hidden;
+  background: linear-gradient(90deg, #b83a52, #8a2a3a); box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
+}
+.align-bar .align-good { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #1f7a4a, #6fffae); box-shadow: 0 0 6px rgba(111,255,174,0.5); }
+.align-legend { display: flex; justify-content: space-between; font-size: 10px; }
+.align-legend .ag-good { color: #6fffae; } .align-legend .ag-evil { color: #ff7a7a; }
+
 /* ---------- Combat panel ---------- */
 #combat-panel .style-row { display: flex; gap: 5px; margin-bottom: 8px; }
 .style-btn {

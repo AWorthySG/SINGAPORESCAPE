@@ -101,6 +101,9 @@ export class Game {
     // Active treasure trail (clue scroll), or null.
     this.clue = null;
 
+    // Good / evil alignment. Heroic deeds raise good; theft & cruelty raise evil.
+    this.karma = { good: 0, evil: 0 };
+
     // Special-attack energy (spec bar).
     this.specEnergy = 100;
     this.specArmed = false;
@@ -494,6 +497,7 @@ export class Game {
         this.bus.emit('hp'); this.bus.emit('prayer');
         this.spawnSparkle(this.player, '#9adcff', 16);
         this.msg('You kneel at the A-Worthy Monument. Your health and prayer are restored.', 'system');
+        this.addGood(1); // devotion is a small good
         this.markPillar('monument');
       });
       case 'rest': return this._tickArrival(a, a.obj, true, () => {
@@ -806,7 +810,39 @@ export class Game {
     if (p.hp <= 0) this.playerDeath();
   }
 
+  // ---------------- Good / evil alignment ----------------
+  addGood(n) { if (n > 0) { this.karma.good += n; this.bus.emit('karma'); } }
+  addEvil(n) { if (n > 0) { this.karma.evil += n; this.bus.emit('karma'); } }
+  alignment() { return this.karma.good - this.karma.evil; }
+
+  /** Title + css class for the current alignment. */
+  alignmentTitle() {
+    const a = this.alignment();
+    if (a >= 60) return { title: 'Paragon', cls: 'good' };
+    if (a >= 25) return { title: 'Virtuous', cls: 'good' };
+    if (a >= 8) return { title: 'Kind-hearted', cls: 'good' };
+    if (a <= -60) return { title: 'Villain', cls: 'evil' };
+    if (a <= -25) return { title: 'Wicked', cls: 'evil' };
+    if (a <= -8) return { title: 'Mischievous', cls: 'evil' };
+    return { title: 'Neutral', cls: 'neutral' };
+  }
+
+  /** Shop price modifiers: the virtuous are trusted (cheaper), the wicked gouged. */
+  karmaFactor() {
+    const a = this.alignment();
+    if (a >= 60) return { buy: 0.85, sell: 1.12 };
+    if (a >= 25) return { buy: 0.92, sell: 1.06 };
+    if (a <= -60) return { buy: 1.20, sell: 0.85 };
+    if (a <= -25) return { buy: 1.10, sell: 0.94 };
+    return { buy: 1, sell: 1 };
+  }
+
   killNpc(npc) {
+    // Alignment: heroism vs cruelty. Bosses & aggressive foes are heroic to slay;
+    // cutting down harmless creatures is a small evil.
+    if (npc.def.boss) this.addGood(5);
+    else if (npc.def.aggressive) this.addGood(1);
+    else this.addEvil(1);
     if (npc.def.boss) {
       this.msg(`You have slain ${npc.name}!`, 'combat');
       this.banner(`<span class="big">${npc.name} defeated!</span>The spoils are yours.`);
@@ -900,6 +936,7 @@ export class Game {
     if (!s || s.id !== 'bones') { this.msg('You can only bury bones.'); return; }
     this.inventory.removeAt(index, 1);
     this.skills.addXp('prayer', 4.5);
+    this.addGood(1); // honouring the dead is a small good
     this.spawnSparkle(this.player, '#ffe89a', 6);
     this.msg('You bury the bones.', 'system');
   }
@@ -916,6 +953,7 @@ export class Game {
       const coins = randInt(3, 12) + Math.floor(lvl * 1.5);
       this.inventory.add('coins', coins);
       this.skills.addXp('thieving', 8 + lvl);
+      this.addEvil(1); // theft tips you toward evil
       this.spawnSparkle(this.player, '#ffe24a', 6);
       this.msg(`You pick the ${npc.name}'s pocket and steal ${coins} coins.`, 'system');
     } else {
@@ -982,6 +1020,7 @@ export class Game {
       const qty = pick.min ? randInt(pick.min, pick.max) : 1;
       this.inventory.add(pick.id, qty);
       this.skills.addXp('thieving', d.xp || 16);
+      this.addEvil(1); // stealing from stalls is an evil deed
       this.spawnSparkle(this.player, '#ffe24a', 6);
       const name = getItem(pick.id).name;
       this.msg(`You steal ${qty > 1 ? qty + ' x ' : ''}${name} from the ${d.name}.`, 'system');
@@ -1570,7 +1609,7 @@ export class Game {
   // ---------------- Shop trading ----------------
   buyItem(shopId, itemId, qty = 1) {
     const shop = getShop(shopId);
-    const price = Math.max(1, Math.round(getItem(itemId).value * shop.buyMul));
+    const price = Math.max(1, Math.round(getItem(itemId).value * shop.buyMul * this.karmaFactor().buy));
     let bought = 0;
     for (let i = 0; i < qty; i++) {
       if (this.inventory.count('coins') < price) { if (i === 0) this.msg("You don't have enough coins."); break; }
@@ -1585,7 +1624,7 @@ export class Game {
   sellItem(shopId, itemId, qty = 1) {
     const shop = getShop(shopId);
     if (itemId === 'coins') return;
-    const price = Math.max(1, Math.round(getItem(itemId).value * shop.sellMul));
+    const price = Math.max(1, Math.round(getItem(itemId).value * shop.sellMul * this.karmaFactor().sell));
     const have = this.inventory.count(itemId);
     const sell = Math.min(qty, have);
     if (sell <= 0) return;

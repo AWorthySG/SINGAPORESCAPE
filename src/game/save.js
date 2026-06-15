@@ -39,6 +39,7 @@ export function snapshot(game) {
     zonesVisited: [...game.zonesVisited],
     kills: game.kills,
     slayer: game.slayer,
+    karma: game.karma,
     clue: game.clue,
     specEnergy: game.specEnergy,
     settings: { running: game.running },
@@ -102,6 +103,9 @@ export function loadGame(game) {
       points: Number(data.slayer.points) || 0,
       completed: Number(data.slayer.completed) || 0,
     };
+  }
+  if (data.karma && typeof data.karma === 'object') {
+    game.karma = { good: Number(data.karma.good) || 0, evil: Number(data.karma.evil) || 0 };
   }
   if (data.clue && typeof data.clue === 'object' && Array.isArray(data.clue.spots)) game.clue = data.clue;
   if (typeof data.specEnergy === 'number') game.specEnergy = Math.max(0, Math.min(100, data.specEnergy));
