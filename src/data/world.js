@@ -242,13 +242,18 @@ export function buildWorld() {
       const x = z.x0 + Math.floor(rng() * (z.x1 - z.x0 + 1));
       const y = z.y0 + Math.floor(rng() * (z.y1 - z.y0 + 1));
       if (inTown(x, y) || !LANDABLE.includes(get(x, y))) continue;
-      placeNpc(id, x, y, wander);
+      // Bosses that randomly land near the starting town shouldn't ambush newcomers.
+      const opts = (def.boss && Math.max(Math.abs(x - 58), Math.abs(y - 55)) <= 22) ? { aggressive: false } : null;
+      placeNpc(id, x, y, wander, opts);
       return;
     }
     placeNpc(id, Math.round((z.x0 + z.x1) / 2), Math.round((z.y0 + z.y1) / 2), wander);
   };
   for (const id of MONSTER_IDS) placeMobIn(id, 4);
-  for (const id of BOSS_IDS) placeMobIn(id, 3);
+  for (const id of BOSS_IDS) { if (NPCS[id].fixed) continue; placeMobIn(id, 3); }
+  // Alignment-arc bosses at fixed, thematic spots.
+  placeNpc('lion_of_light', 52, 56, 0, { aggressive: false }); // radiant guardian by the town temple (never aggressive)
+  placeNpc('shadow_sovereign', 108, 50, 2);                    // dark sovereign deep in the Wilderness
 
   // --- Border fence ---
   for (let x = 0; x < W; x++) { placeObj('fence', x, 0); placeObj('fence', x, H - 1); }

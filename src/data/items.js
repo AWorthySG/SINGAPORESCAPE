@@ -220,6 +220,10 @@ const RAW = {
     equip: { slot: 'head', req: {}, bonuses: { defence: 12, magic: 8, strength: 2 } } },
   shadow_cloak: { name: 'Shadow cloak', icon: '🦇', value: 80000, examine: 'A cloak woven from darkness, granted to the corrupted.',
     equip: { slot: 'cape', req: {}, bonuses: { attack: 10, strength: 10, defence: 3 } } },
+  seraph_blade: { name: 'Seraph blade', icon: '🗡️', value: 250000, examine: 'A radiant blade dropped by the Lion of Light.',
+    equip: { slot: 'weapon', req: { attack: 40 }, bonuses: { attack: 72, strength: 68, defence: 6, magic: 10, speed: 4 } } },
+  void_blade: { name: 'Void blade', icon: '🗡️', value: 260000, examine: 'A blade of pure darkness from the Shadow Sovereign.',
+    equip: { slot: 'weapon', req: { attack: 50 }, bonuses: { attack: 88, strength: 84, defence: 2, speed: 4 } } },
 
   // ---- Clue scrolls & treasure trails ----
   clue_scroll_easy: { name: 'Clue scroll (easy)', icon: '📜', value: 0, examine: 'Read it to begin an easy treasure trail.' },
