@@ -187,8 +187,9 @@ export function buildWorld() {
   for (let i = 0; i < 3; i++) placeNpc('goblin', 50 + i * 2, 36, 4, TAME);
 
   // ================= MacRitchie Reservoir =================
-  placeFishing('fishing_spot', 30, 30, 40, 78, 6);
-  placeFishing('harpoon_spot', 30, 56, 40, 78, 4);
+  placeFishing('fishing_spot', 30, 30, 40, 78, 9);   // net (small fish)
+  placeFishing('rod_spot', 30, 30, 40, 78, 7);        // rod (freshwater: trout/pike/eel)
+  placeFishing('harpoon_spot', 30, 56, 40, 78, 5);    // harpoon (deep reservoir)
   placeObj('sign', 40, 56, { sign: 'MacRitchie \u2190' });
 
   // ================= Chinatown =================
@@ -209,7 +210,10 @@ export function buildWorld() {
 
   // ================= Sentosa Beach =================
   scatter('palm', 34, 84, 98, 96, 12, [T.SAND, T.GRASS, T.DARKGRASS]);
-  placeFishing('fishing_cage', 30, 97, 100, 102, 6);
+  placeFishing('fishing_cage', 30, 97, 100, 102, 8);   // cage (lobster/grouper)
+  placeFishing('harpoon_spot', 34, 97, 100, 102, 6);   // sea harpoon (swordfish/stingray/manta)
+  placeFishing('fishing_spot', 30, 96, 100, 102, 4);   // beach net spots
+  placeFishing('sea_rod_spot', 30, 96, 100, 102, 8);   // coastal rod (snapper/trevally/barramundi…)
   placeObj('sign', 57, 90, { sign: 'Sentosa Beach \u2193' });
 
   // ================= The Wilderness =================
@@ -229,7 +233,9 @@ export function buildWorld() {
   scatter('yew_tree', 121, 60, 148, 99, 6, GRASSY);
   scatter('runite_rock', 138, 60, 148, 95, 3, GRASSY);
   scatter('adamantite_rock', 121, 62, 135, 95, 4, GRASSY);
-  placeFishing('harpoon_spot', 128, 22, 148, 40, 5);
+  placeFishing('harpoon_spot', 128, 22, 148, 40, 6);
+  placeFishing('fishing_cage', 128, 22, 148, 40, 4);
+  placeFishing('sea_rod_spot', 128, 22, 148, 40, 6);
 
   // ================= Populate the bestiary by zone =================
   const zoneByName = (name) => zones.find((z) => z.name === name);

@@ -37,7 +37,7 @@ import { LIFE_STAGES, LIFE_GRAD, LIFE_STAGES_ADV, LIFE_GRAD_ADV } from '../data/
 import { QUESTS, CHAMPION_QP, REDEMPTION_GOAL, CORRUPTION_GOAL } from '../data/quests.js';
 import { CLUE_TIERS, CLUE_SPOTS, clueTierForLevel } from '../data/clues.js';
 
-const STARTER_TOOLS = ['bronze_axe', 'bronze_pickaxe', 'small_net', 'tinderbox', 'hammer', 'bronze_dagger'];
+const STARTER_TOOLS = ['bronze_axe', 'bronze_pickaxe', 'small_net', 'fishing_rod', 'tinderbox', 'hammer', 'bronze_dagger'];
 
 export class Game {
   constructor() {
