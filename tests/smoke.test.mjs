@@ -198,6 +198,18 @@ test('gather chance stays within bounds and scales with level', () => {
   assert.ok(hi > lo);
 });
 
+test('every shop stocks only real items; the archery shop exists', async () => {
+  const { SHOPS } = await import('../src/data/shops.js');
+  assert.ok(SHOPS.archery, 'archery shop exists');
+  assert.ok(SHOPS.archery.stock.some((s) => s.id === 'magic_shortbow' || s.id === 'rune_arrow'));
+  for (const [shopId, shop] of Object.entries(SHOPS)) {
+    for (const entry of shop.stock) {
+      assert.doesNotThrow(() => ITEMS[entry.id] || (() => { throw 0; })(), `${shopId} stocks unknown ${entry.id}`);
+      assert.ok(ITEMS[entry.id], `${shopId} stocks unknown item ${entry.id}`);
+    }
+  }
+});
+
 test('bank deposits and withdraws', () => {
   const bank = new Bank(new EventBus());
   bank.deposit('iron_ore', 10);
