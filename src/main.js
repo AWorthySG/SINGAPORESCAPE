@@ -2,6 +2,7 @@ import { Game } from './game/game.js';
 import { UI } from './ui/ui.js';
 import { Renderer } from './render/renderer.js';
 import { Input } from './engine/input.js';
+import { Sfx } from './audio/sfx.js';
 import { now } from './core/utils.js';
 
 const canvas = document.getElementById('game-canvas');
@@ -14,6 +15,11 @@ const input = new Input(canvas);
 
 game.ui = ui;
 game.input = input;
+game.audio = new Sfx(game.bus);
+// Web Audio needs a user gesture to start; unlock on the first interaction.
+const unlockAudio = () => game.audio.unlock();
+window.addEventListener('pointerdown', unlockAudio, { once: true });
+window.addEventListener('keydown', unlockAudio, { once: true });
 
 ui.init();
 game.start();
@@ -66,7 +72,7 @@ requestAnimationFrame(frame);
 // Title / splash screen dismissal.
 const splash = document.getElementById('splash');
 const splashEnter = document.getElementById('splash-enter');
-function hideSplash() { splash && splash.classList.add('hidden'); }
+function hideSplash() { game.audio.unlock(); splash && splash.classList.add('hidden'); }
 splashEnter && splashEnter.addEventListener('click', hideSplash);
 splash && splash.addEventListener('click', (e) => { if (e.target === splash) hideSplash(); });
 
