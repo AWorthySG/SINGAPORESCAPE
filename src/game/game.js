@@ -73,6 +73,7 @@ export class Game {
       island_defender: { state: 'notStarted', startBoss: 0 },
       big_game_hunter: { state: 'notStarted', startKills: 0 },
       mystic_trial: { state: 'notStarted' },
+      island_provisions: { state: 'notStarted' },
     };
 
     // Achievement / collection-log progress.
@@ -928,7 +929,25 @@ export class Game {
       const q = this.quests.mystic_trial;
       if (q.state === 'notStarted') { q.state = 'active'; this.msg('Quest started — The Mystic\'s Trial: bring 25 death runes to the Kampong Guide.', 'level'); }
     } else if (action === 'mysticTurnIn') this.turnInMystic();
+    else if (action === 'provisionsStart') {
+      const q = this.quests.island_provisions;
+      if (q.state === 'notStarted') { q.state = 'active'; this.msg('Quest started — Island Provisions: bring 10 cooked salmon to the Kampong Guide.', 'level'); }
+    } else if (action === 'provisionsTurnIn') this.turnInProvisions();
     this.bus.emit('quest');
+  }
+
+  turnInProvisions() {
+    const q = this.quests.island_provisions;
+    if (q.state === 'done') { this.msg('The kampung eats well thanks to you.', 'system'); return; }
+    if (q.state !== 'active') { this.msg('Ask me about provisions first.', 'system'); return; }
+    if (this.inventory.count('salmon') < 10) { this.msg('Bring 10 cooked salmon.', 'system'); return; }
+    this.inventory.remove('salmon', 10);
+    this.inventory.add('coins', 2500);
+    this.skills.addXp('cooking', 1500);
+    this.skills.addXp('fishing', 1000);
+    q.state = 'done';
+    this.msg('Quest complete — Island Provisions! Coins, Cooking and Fishing XP.', 'level');
+    this.banner('<span class="big">Quest complete!</span>Island Provisions');
   }
 
   turnInMystic() {

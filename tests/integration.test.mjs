@@ -381,6 +381,37 @@ test('high-tier wave spells can be cast with blood runes', () => {
   assert.ok(game.inventory.count('blood_rune') < 20, 'blood runes were consumed by the wave spell');
 });
 
+test('lobster and the new fish can be cooked (cooking gap closed)', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.skills.addXp('cooking', 5_000_000); // high cooking so nothing burns
+  const range = game.world.objects.find((o) => o.def.type === 'range' || o.def.type === 'fire');
+  assert.ok(range, 'a cooking station exists');
+  game.player.x = game.player.tx = range.x; game.player.y = game.player.ty = range.y;
+  for (const raw of ['raw_lobster', 'raw_swordfish', 'raw_salmon', 'raw_tuna', 'raw_shark']) {
+    game.inventory.add(raw, 1);
+    game.beginAction({ type: 'cook', obj: range, rawId: raw }, { x: range.x, y: range.y }, true);
+    step(game, 4);
+  }
+  assert.ok(game.inventory.has('lobster') && game.inventory.has('swordfish'), 'lobster & swordfish cook now');
+  assert.ok(game.inventory.has('shark'), 'shark cooks');
+});
+
+test('island provisions quest trades cooked salmon for rewards', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.handleDialogueAction('provisionsStart');
+  assert.equal(game.quests.island_provisions.state, 'active');
+  game.inventory.add('salmon', 10);
+  game.handleDialogueAction('provisionsTurnIn');
+  assert.equal(game.quests.island_provisions.state, 'done');
+  assert.equal(game.inventory.count('salmon'), 0);
+});
+
 test('eating food heals the player', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();

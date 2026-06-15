@@ -138,11 +138,14 @@ export function buildWorld() {
   scatter('tree', 30, 4, 92, 40, 30, GRASSY);
   scatter('oak', 40, 4, 88, 34, 14, GRASSY);
   scatter('rain_tree', 50, 4, 88, 24, 6, GRASSY);
+  scatter('yew_tree', 40, 6, 86, 26, 5, GRASSY);
+  scatter('magic_tree', 50, 6, 82, 22, 3, GRASSY);
   scatter('willow', 32, 30, 42, 46, 6, GRASSY);
   scatter('copper_rock', 67, 9, 85, 23, 6, [T.SAND]);
   scatter('tin_rock', 67, 9, 85, 23, 6, [T.SAND]);
   scatter('iron_rock', 68, 10, 84, 22, 5, [T.SAND]);
   scatter('coal_rock', 70, 11, 84, 21, 4, [T.SAND]);
+  scatter('gold_rock', 70, 11, 84, 21, 4, [T.SAND]);
   scatter('mithril_rock', 74, 12, 84, 20, 3, [T.SAND]);
   scatter('adamantite_rock', 78, 13, 84, 19, 2, [T.SAND]);
   placeObj('sign', 57, 44);
@@ -156,6 +159,7 @@ export function buildWorld() {
 
   // ================= MacRitchie Reservoir =================
   placeFishing('fishing_spot', 30, 30, 40, 78, 6);
+  placeFishing('harpoon_spot', 30, 56, 40, 78, 4);
   placeObj('sign', 40, 56);
 
   // ================= Chinatown =================

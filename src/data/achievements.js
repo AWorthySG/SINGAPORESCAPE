@@ -37,4 +37,6 @@ export const ACHIEVEMENTS = [
   { id: 'task_master', cat: 'Slayer', name: 'Task Master', desc: 'Complete 10 Slayer tasks.', test: (g) => (g.slayer?.completed || 0) >= 10, progress: (g) => `${Math.min(g.slayer?.completed || 0, 10)}/10` },
   { id: 'slayer_50', cat: 'Slayer', name: 'Seasoned Slayer', desc: 'Reach Slayer level 50.', test: (g) => g.skills.level('slayer') >= 50 },
   { id: 'slayer_helm', cat: 'Collection', name: 'Helm of the Hunt', desc: 'Own a Slayer helmet.', test: (g) => own(g, 'slayer_helmet') },
+  { id: 'angler', cat: 'Skills', name: 'Master Angler', desc: 'Catch a shark.', test: (g) => own(g, 'raw_shark') || own(g, 'shark') },
+  { id: 'lumberjack', cat: 'Skills', name: 'Lumberjack', desc: 'Chop magic logs.', test: (g) => own(g, 'magic_logs') },
 ];
