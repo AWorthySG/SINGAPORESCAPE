@@ -77,8 +77,9 @@ export class Equipment {
 
   weaponSpeed() {
     const id = this.slots.weapon;
-    if (!id) return DEFAULT_WEAPON_SPEED;
-    return getItem(id).equip?.bonuses?.speed || DEFAULT_WEAPON_SPEED;
+    const base = (id && getItem(id).equip?.bonuses?.speed) || DEFAULT_WEAPON_SPEED;
+    // Faster-paced combat: shorten every weapon's interval (min 2 ticks = 1.2s).
+    return Math.max(2, base - 2);
   }
 
   /** Is a tool of `tag` currently wielded (e.g. an axe in the weapon slot)? */
