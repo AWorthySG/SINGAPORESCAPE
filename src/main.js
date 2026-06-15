@@ -27,6 +27,10 @@ input.onKey((e) => {
     document.querySelector(`#panel-tabs .tab-btn[data-view="${map[e.key]}"]`)?.click();
   } else if (e.key === 'r' || e.key === 'R') {
     game.toggleRun();
+  } else if (e.key === 'f' || e.key === 'F') {
+    game.eatFirstFood();
+  } else if (e.key === 'q' || e.key === 'Q') {
+    game.toggleSpec();
   } else if (e.key === 'Escape') {
     ui.closeModal();
     ui.hideContextMenu();

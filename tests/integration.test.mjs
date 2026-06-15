@@ -480,6 +480,20 @@ test('special attack spends energy and fires a stronger hit', () => {
   assert.ok(!game.specArmed, 'spec consumed');
 });
 
+test('quick-eat consumes the first food in the bag', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.skills.addXp('hitpoints', 5000);
+  game.player.hp = 5;
+  const before = game.inventory.count('kaya_toast');
+  assert.ok(before > 0, 'starter food present');
+  game.eatFirstFood();
+  assert.ok(game.player.hp > 5, 'healed');
+  assert.equal(game.inventory.count('kaya_toast'), before - 1, 'one food consumed');
+});
+
 test('eating food heals the player', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();

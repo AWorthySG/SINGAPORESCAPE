@@ -916,6 +916,13 @@ export class Game {
   }
 
   // ---------------- Inventory / equipment actions ----------------
+  /** Eat the first food in the inventory (quick-eat hotkey). */
+  eatFirstFood() {
+    const idx = this.inventory.slots.findIndex((s) => s && getItem(s.id).heal);
+    if (idx === -1) { this.msg('You have no food to eat.'); return; }
+    this.eatItem(idx);
+  }
+
   eatItem(index) {
     const s = this.inventory.slotAt(index);
     if (!s) return;

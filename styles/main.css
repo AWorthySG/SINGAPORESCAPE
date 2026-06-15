@@ -67,6 +67,20 @@ html, body {
   letter-spacing: 0.2px;
 }
 #hover-text .target { color: var(--gold-hi); }
+
+/* ---------- Objective tracker (top-left) ---------- */
+#quest-tracker {
+  position: absolute; top: 44px; left: 10px; z-index: 22; pointer-events: none;
+  background: rgba(10,20,16,0.55); border: 1px solid rgba(0,0,0,0.4); border-left: 3px solid var(--gold);
+  border-radius: 6px; padding: 5px 9px; font-size: 12px; max-width: 44vw;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+#quest-tracker .trk-title { font-size: 10px; letter-spacing: .5px; text-transform: uppercase; color: var(--gold-hi); opacity: .85; margin-bottom: 2px; }
+#quest-tracker .trk-row { display: flex; align-items: center; gap: 6px; line-height: 1.5; text-shadow: 1px 1px 0 #000; }
+#quest-tracker .trk-ic { width: 14px; text-align: center; font-weight: bold; }
+#quest-tracker .trk-quest { color: #ffd24a; }
+#quest-tracker .trk-slayer { color: #ff7a7a; }
+#quest-tracker .trk-prog { color: var(--gold-hi); opacity: .9; }
 #hover-text .extra  { color: var(--teal); font-weight: 400; }
 
 /* ---------- XP drops ---------- */

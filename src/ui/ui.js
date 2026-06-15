@@ -43,6 +43,7 @@ export class UI {
     const id = (x) => document.getElementById(x);
     this.el = {
       hover: id('hover-text'),
+      tracker: id('quest-tracker'),
       region: id('region-label'),
       xpDrops: id('xp-drops'),
       chatLog: id('chat-log'),
@@ -110,9 +111,9 @@ export class UI {
     this.bus.on('equipment', () => this.renderSpec());
     this.bus.on('prayer', () => { this.renderPrayer(); this.renderPrayerPanel(); });
     this.bus.on('skills', () => this.renderPrayerPanel());
-    this.bus.on('quest', () => this.renderQuestPanel());
+    this.bus.on('quest', () => { this.renderQuestPanel(); this.renderTracker(); });
     this.bus.on('achievement', () => this.renderAchievementPanel());
-    this.bus.on('slayer', () => this._refreshModalIfOpen(['slayer', 'slayerRewards']));
+    this.bus.on('slayer', () => { this._refreshModalIfOpen(['slayer', 'slayerRewards']); this.renderTracker(); });
     this.bus.on('bank', () => this._refreshModalIfOpen(['bank']));
 
     this.renderInventory();
@@ -126,6 +127,28 @@ export class UI {
     this.renderRun();
     this.renderPrayer();
     this.renderSpec();
+    this.renderTracker();
+  }
+
+  // ---------------- Objective tracker ----------------
+  renderTracker() {
+    const el = this.el.tracker;
+    if (!el) return;
+    const g = this.game;
+    const rows = [];
+    if (g.slayer && g.slayer.task) {
+      rows.push(`<div class="trk-row"><span class="trk-ic trk-slayer">&#9760;</span>${g.slayer.task.remaining} ${escapeHtml(g.slayer.task.name)}</div>`);
+    }
+    for (const q of QUESTS) {
+      const st = g.quests[q.id];
+      if (st && st.state === 'active') {
+        const p = q.progress ? q.progress(g) : '';
+        rows.push(`<div class="trk-row"><span class="trk-ic trk-quest">!</span>${escapeHtml(q.name)}${p ? ` <span class="trk-prog">${escapeHtml(p)}</span>` : ''}</div>`);
+        break; // show one active quest at a time to stay compact
+      }
+    }
+    el.innerHTML = rows.length ? `<div class="trk-title">Objectives</div>${rows.join('')}` : '';
+    el.classList.toggle('hidden', rows.length === 0);
   }
 
   // ---------------- Tabs ----------------
@@ -960,9 +983,11 @@ export class UI {
       else if (o.def.type === 'rock' && !o.depleted) col = '#cfcfcf';
       else if (o.def.type === 'bank') col = '#ffd24a';
       else if (o.def.type === 'fishing') col = '#7fd8ff';
+      else if (o.def.type === 'transport') col = '#ffffff';
       if (!col) continue;
+      const big = o.def.type === 'bank' || o.def.type === 'transport';
       ctx.fillStyle = col;
-      ctx.fillRect(W / 2 + dx * scale - 1, H / 2 + dy * scale - 1, 3, 3);
+      ctx.fillRect(W / 2 + dx * scale - (big ? 1.5 : 1), H / 2 + dy * scale - (big ? 1.5 : 1), big ? 4 : 3, big ? 4 : 3);
     }
     // Ground items.
     ctx.fillStyle = '#ff3b3b';
@@ -976,8 +1001,15 @@ export class UI {
       if (!n.alive) continue;
       const dx = n.x - px, dy = n.y - py;
       if (Math.abs(dx) > radius || Math.abs(dy) > radius) continue;
-      ctx.fillStyle = n.attackable ? '#ffe24a' : '#5ad1ff';
-      ctx.beginPath(); ctx.arc(W / 2 + dx * scale, H / 2 + dy * scale, 2.5, 0, Math.PI * 2); ctx.fill();
+      let col, r = 2.5;
+      if (n.attackable) { col = '#ffe24a'; r = 2; }
+      else if (n.def.role === 'bank') col = '#ffd24a';
+      else if (n.def.role === 'shop') col = '#ff9a3a';
+      else if (n.def.dialogue === 'slayer') col = '#ff5a5a';
+      else if (n.def.role === 'dialogue') { col = '#7CFC00'; r = 3; } // quest-givers stand out
+      else col = '#5ad1ff';
+      ctx.fillStyle = col;
+      ctx.beginPath(); ctx.arc(W / 2 + dx * scale, H / 2 + dy * scale, r, 0, Math.PI * 2); ctx.fill();
     }
     // Player.
     ctx.fillStyle = '#fff';
