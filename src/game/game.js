@@ -70,6 +70,7 @@ export class Game {
       pillars: { state: 'notStarted', monument: false, obelisk: false },
       smith_apprentice: { state: 'notStarted' },
       island_defender: { state: 'notStarted', startBoss: 0 },
+      big_game_hunter: { state: 'notStarted', startKills: 0 },
     };
 
     // Achievement / collection-log progress.
@@ -520,10 +521,9 @@ export class Game {
       this.msg(`You have defeated the ${npc.name}.`, 'combat');
     }
     this.totalKills++;
-    if (npc.def.boss) {
-      this.bossKills++;
-      if (this.quests.island_defender.state === 'active') this.bus.emit('quest');
-    }
+    if (npc.def.boss) this.bossKills++;
+    if ((npc.def.boss && this.quests.island_defender.state === 'active') ||
+        this.quests.big_game_hunter.state === 'active') this.bus.emit('quest');
     this.checkAchievements();
     this.rollDrops(npc);
     npc.die();
@@ -866,7 +866,24 @@ export class Game {
       const q = this.quests.island_defender;
       if (q.state === 'notStarted') { q.state = 'active'; q.startBoss = this.bossKills; this.msg('Quest started — Island Defender: defeat 3 bosses.', 'level'); }
     } else if (action === 'defenderTurnIn') this.turnInDefender();
+    else if (action === 'bigGameStart') {
+      const q = this.quests.big_game_hunter;
+      if (q.state === 'notStarted') { q.state = 'active'; q.startKills = this.totalKills; this.msg('Quest started — Big Game Hunter: defeat 50 creatures.', 'level'); }
+    } else if (action === 'bigGameTurnIn') this.turnInBigGame();
     this.bus.emit('quest');
+  }
+
+  turnInBigGame() {
+    const q = this.quests.big_game_hunter;
+    if (q.state === 'done') { this.msg('A fine hunter you are!', 'system'); return; }
+    if (q.state !== 'active') { this.msg('Ask me about the hunt first.', 'system'); return; }
+    if (this.totalKills - (q.startKills || 0) < 50) { this.msg(`Slay ${50 - (this.totalKills - (q.startKills || 0))} more creatures first.`, 'system'); return; }
+    this.inventory.add('magic_shortbow', 1);
+    this.inventory.add('rune_arrow', 100);
+    this.skills.addXp('ranged', 5000);
+    q.state = 'done';
+    this.msg('Quest complete — Big Game Hunter! You receive a magic shortbow and 100 rune arrows.', 'level');
+    this.banner('<span class="big">Quest complete!</span>Big Game Hunter');
   }
 
   turnInSmith() {

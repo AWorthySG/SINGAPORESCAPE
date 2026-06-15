@@ -27,6 +27,11 @@ export const QUESTS = [
     desc: 'Defeat 3 bosses to prove your might.',
     progress: (g) => { const q = g.quests.island_defender; return q.state === 'active' ? `${Math.min(g.bossKills - (q.startBoss || 0), 3)}/3 bosses` : ''; },
   },
+  {
+    id: 'big_game_hunter', name: 'Big Game Hunter',
+    desc: 'Defeat 50 creatures across the island.',
+    progress: (g) => { const q = g.quests.big_game_hunter; return q.state === 'active' ? `${Math.min(g.totalKills - (q.startKills || 0), 50)}/50 slain` : ''; },
+  },
 ];
 
 export const QUEST_IDS = QUESTS.map((q) => q.id);
