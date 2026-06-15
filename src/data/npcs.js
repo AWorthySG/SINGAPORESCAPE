@@ -28,8 +28,8 @@ function dropsFor(level) {
   return t;
 }
 
-function makeMob(id, name, sprite, color, level, zone, aggro) {
-  return { name, level, attackable: true, sprite, color, zone, ...statsFor(level),
+function makeMob(id, name, sprite, color, level, zone, aggro, family) {
+  return { name, level, attackable: true, sprite, color, zone, family, ...statsFor(level),
     aggressive: aggro, aggroRange: aggro ? 4 : 0, respawn: Math.max(10, Math.round(10 + level / 3)), wander: 4,
     examine: `A ${name.toLowerCase()} (level ${level}).`,
     alwaysDrop: [{ id: 'bones' }], dropTable: dropsFor(level) };
@@ -112,7 +112,7 @@ const _mobs = {};
       seen.add(id);
       const level = Math.max(1, Math.min(124, Math.round(blvl * rank.m)));
       const zone = level >= 45 ? 'The Wilderness' : bzone;
-      _mobs[id] = makeMob(id, name, sprite, color, level, zone, baggro || rank.agg);
+      _mobs[id] = makeMob(id, name, sprite, color, level, zone, baggro || rank.agg, slug(bn));
       count++;
     }
   }
@@ -221,6 +221,7 @@ const TOWNSFOLK = {
   hawker: { name: 'Hawker Auntie', level: 0, attackable: false, role: 'shop', wander: 0, examine: 'She sells delicious local food.', shop: 'hawker' },
   mage: { name: 'Mystic Merchant', level: 0, attackable: false, role: 'shop', wander: 0, examine: 'She trades in staves and runes.', shop: 'magic' },
   fletcher: { name: 'Fletcher', level: 0, attackable: false, role: 'shop', wander: 0, examine: 'He sells bows, arrows and ranged armour.', shop: 'archery' },
+  slayer_master: { name: 'Slayer Master Rajan', level: 0, attackable: false, role: 'dialogue', wander: 0, examine: 'He assigns Slayer tasks to the worthy.', dialogue: 'slayer' },
   villager: { name: 'Villager', level: 0, attackable: false, role: 'dialogue', wander: 5, examine: 'A local resident.', dialogue: 'villager' },
 };
 

@@ -36,6 +36,7 @@ export class Skills {
   get agility() { return this.level('agility'); }
   get ranged() { return this.level('ranged'); }
   get magic() { return this.level('magic'); }
+  get slayer() { return this.level('slayer'); }
 
   combatLevel() {
     const base = 0.25 * (this.defence + this.hitpoints + Math.floor(this.prayer / 2));

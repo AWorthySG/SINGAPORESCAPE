@@ -311,6 +311,42 @@ test('big game hunter quest counts kills and rewards a bow', () => {
   assert.ok(game.inventory.has('magic_shortbow') && game.inventory.count('rune_arrow') >= 100);
 });
 
+test('slayer: assign a task, complete it for points and XP, then spend points', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.assignSlayerTask();
+  const task = game.slayer.task;
+  assert.ok(task, 'a task was assigned');
+  const mob = game.npcs.find((n) => n.def.family === task.family);
+  assert.ok(mob, 'a monster of the task family exists in the world');
+  const need = task.amount;
+  for (let i = 0; i < need; i++) { mob.alive = true; mob.hp = 1; game.killNpc(mob); }
+  assert.equal(game.slayer.task, null, 'task completed and cleared');
+  assert.ok(game.slayer.completed >= 1 && game.slayer.points >= 10, 'points awarded');
+  assert.ok(game.skills.xp.slayer > 0, 'slayer xp gained');
+
+  game.slayer.points = 100;
+  game.buySlayerReward('slayer_ring');
+  assert.ok(game.inventory.has('slayer_ring'), 'reward redeemed');
+  assert.equal(game.slayer.points, 70, 'points deducted');
+});
+
+test('slayer state survives save/load', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const g1 = new Game();
+  g1.start();
+  g1.assignSlayerTask();
+  g1.slayer.points = 42;
+  assert.ok(saveGame(g1));
+  const g2 = new Game();
+  assert.ok(loadGame(g2));
+  assert.equal(g2.slayer.points, 42);
+  assert.ok(g2.slayer.task && g2.slayer.task.family === g1.slayer.task.family);
+});
+
 test('eating food heals the player', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();

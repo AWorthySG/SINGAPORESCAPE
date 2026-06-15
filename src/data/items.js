@@ -194,6 +194,10 @@ const RAW = {
     equip: { slot: 'head', req: { defence: 30 }, bonuses: { attack: 6, defence: 16 } } },
   island_aegis: { name: 'Island aegis', icon: '🛡️', value: 40000, examine: 'A bulwark awarded to a true Island Defender.',
     equip: { slot: 'shield', req: { defence: 40 }, bonuses: { strength: 5, defence: 24 } } },
+  slayer_helmet: { name: 'Slayer helmet', icon: '💀', value: 45000, examine: 'A fearsome helm prized by slayers — boosts all combat.',
+    equip: { slot: 'head', req: { defence: 10 }, bonuses: { attack: 10, strength: 8, defence: 14, ranged: 8, magic: 8 } } },
+  slayer_ring: { name: 'Slayer ring', icon: '💍', value: 8000, examine: 'A ring etched with slayer runes.',
+    equip: { slot: 'ring', req: {}, bonuses: { attack: 5, strength: 5, defence: 3 } } },
 
   // ---- Ranged: bows & arrows ----
   bronze_arrow: { name: 'Bronze arrow', icon: '🏹', value: 1, stackable: true, tags: ['ammo'], arrowStr: 7, examine: 'Arrows with bronze heads.' },

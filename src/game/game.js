@@ -29,6 +29,7 @@ import { saveGame, loadGame, hasSave } from './save.js';
 import { getShop } from '../data/shops.js';
 import { RARE_DROP_TABLE } from '../data/npcs.js';
 import { ACHIEVEMENTS } from '../data/achievements.js';
+import { eligibleTasks, SLAYER_REWARDS } from '../data/slayer.js';
 
 const STARTER_TOOLS = ['bronze_axe', 'bronze_pickaxe', 'small_net', 'tinderbox', 'hammer', 'bronze_dagger'];
 
@@ -78,6 +79,9 @@ export class Game {
     this.bossKills = 0;
     this.zonesVisited = new Set();
     this.achievements = new Set();
+
+    // Slayer task system.
+    this.slayer = { task: null, points: 0, completed: 0 };
 
     // Celebratory sparkle on level up; new milestones may unlock on level/quest changes.
     this.bus.on('levelup', () => { this.spawnSparkle(this.player, '#ffe24a', 12); this.checkAchievements(); });
@@ -337,6 +341,54 @@ export class Game {
     if (unlocked) this.bus.emit('achievement');
   }
 
+  // ---------------- Slayer task system ----------------
+  assignSlayerTask() {
+    if (this.slayer.task) { this.msg(`Finish your current task first: ${this.slayer.task.remaining} ${this.slayer.task.name} left.`, 'system'); return; }
+    const pool = eligibleTasks(this.skills.slayer);
+    if (!pool.length) { this.msg('No suitable tasks right now.', 'system'); return; }
+    const t = pool[randInt(0, pool.length - 1)];
+    const amount = randInt(t.min, t.max);
+    this.slayer.task = { family: t.family, name: t.name, amount, remaining: amount };
+    this.msg(`New Slayer task: slay ${amount} ${t.name}.`, 'level');
+    this.banner(`<span class="big">Slayer task</span>Slay ${amount} ${t.name}`);
+    this.bus.emit('slayer');
+  }
+
+  cancelSlayerTask() {
+    if (!this.slayer.task) return;
+    this.msg(`You abandon your task to slay ${this.slayer.task.name}.`, 'system');
+    this.slayer.task = null;
+    this.bus.emit('slayer');
+  }
+
+  progressSlayer(npc) {
+    const task = this.slayer.task;
+    if (!task || !npc.def.family || npc.def.family !== task.family) return;
+    task.remaining = Math.max(0, task.remaining - 1);
+    this.skills.addXp('slayer', Math.max(5, npc.def.level));
+    if (task.remaining <= 0) {
+      this.slayer.completed++;
+      const bonus = this.slayer.completed % 10 === 0 ? 50 : this.slayer.completed % 5 === 0 ? 25 : 10;
+      this.slayer.points += bonus;
+      this.slayer.task = null;
+      this.msg(`Slayer task complete! +${bonus} Slayer points (${this.slayer.points} total).`, 'level');
+      this.banner('<span class="big">Task complete!</span>Visit the Slayer Master for another.');
+      this.spawnSparkle(this.player, '#d0d0d0', 14);
+    }
+    this.bus.emit('slayer');
+  }
+
+  buySlayerReward(id) {
+    const r = SLAYER_REWARDS.find((x) => x.id === id);
+    if (!r) return;
+    if (this.slayer.points < r.cost) { this.msg('Not enough Slayer points.', 'system'); return; }
+    if (this.inventory.canAdd(id, r.qty) <= 0) { this.msg('You need more inventory space.', 'system'); return; }
+    this.slayer.points -= r.cost;
+    this.inventory.add(id, r.qty);
+    this.msg(`You redeem ${r.qty > 1 ? r.qty + ' x ' : ''}${getItem(id).name} for ${r.cost} Slayer points.`, 'system');
+    this.bus.emit('slayer');
+  }
+
   // ---------------- Player action resolution ----------------
   resolvePlayerAction() {
     const p = this.player;
@@ -524,6 +576,7 @@ export class Game {
     if (npc.def.boss) this.bossKills++;
     if ((npc.def.boss && this.quests.island_defender.state === 'active') ||
         this.quests.big_game_hunter.state === 'active') this.bus.emit('quest');
+    this.progressSlayer(npc);
     this.checkAchievements();
     this.rollDrops(npc);
     npc.die();

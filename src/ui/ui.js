@@ -11,6 +11,7 @@ import { SPELLS } from '../data/magic.js';
 import { PRAYERS } from '../data/prayers.js';
 import { ACHIEVEMENTS } from '../data/achievements.js';
 import { QUESTS } from '../data/quests.js';
+import { SLAYER_REWARDS } from '../data/slayer.js';
 import { EQUIP_SLOTS } from '../game/equipment.js';
 import { TILE } from '../config.js';
 import { TERRAIN } from '../data/world.js';
@@ -105,6 +106,7 @@ export class UI {
     this.bus.on('skills', () => this.renderPrayerPanel());
     this.bus.on('quest', () => this.renderQuestPanel());
     this.bus.on('achievement', () => this.renderAchievementPanel());
+    this.bus.on('slayer', () => this._refreshModalIfOpen(['slayer', 'slayerRewards']));
     this.bus.on('bank', () => this._refreshModalIfOpen(['bank']));
 
     this.renderInventory();
@@ -754,8 +756,65 @@ export class UI {
     this.modal.kind = 'smith';
   }
 
+  // Slayer Master ------------------------------------------------------
+  openSlayerMaster(npc) {
+    const render = (body) => {
+      const g = this.game;
+      const t = g.slayer.task;
+      body.innerHTML = '';
+      const info = document.createElement('div');
+      info.className = 'dialogue';
+      info.innerHTML = `<div class="speaker">${escapeHtml(npc.name)}</div>` +
+        (t ? `Your task: slay <b>${t.remaining}</b> more <b>${escapeHtml(t.name)}</b> (${t.amount - t.remaining}/${t.amount}).`
+          : 'You have no task, lah. Want one?') +
+        `<div class="slayer-stats">Slayer level ${g.skills.slayer} &middot; <b>${g.slayer.points}</b> points &middot; ${g.slayer.completed} tasks done</div>`;
+      body.appendChild(info);
+      const opts = document.createElement('div');
+      opts.className = 'dialogue-options';
+      const mk = (label, fn) => { const d = document.createElement('div'); d.className = 'dialogue-option'; d.textContent = label; d.addEventListener('click', fn); opts.appendChild(d); };
+      if (!t) mk('Give me a Slayer task', () => g.assignSlayerTask());
+      else mk('Cancel my current task', () => g.cancelSlayerTask());
+      mk('Slayer rewards shop', () => this.openSlayerRewards());
+      mk('Goodbye', () => this.closeModal());
+      body.appendChild(opts);
+    };
+    this.openModal('Slayer Master', render);
+    this.modal.kind = 'slayer';
+  }
+
+  openSlayerRewards() {
+    const render = (body) => {
+      const g = this.game;
+      body.innerHTML = `<div class="modal-hint">Slayer points: <b>${g.slayer.points}</b></div>`;
+      const grid = document.createElement('div');
+      grid.className = 'item-grid shop';
+      for (const r of SLAYER_REWARDS) {
+        const it = getItem(r.id);
+        grid.appendChild(this._cell(r.id, r.qty, {
+          tooltip: `<b>${it.name}</b><br>Cost: ${r.cost} Slayer points`,
+          onClick: () => g.buySlayerReward(r.id),
+        }));
+        const last = grid.lastChild;
+        const tag = document.createElement('span');
+        tag.className = 'slayer-cost' + (g.slayer.points < r.cost ? ' short' : '');
+        tag.textContent = `${r.cost}p`;
+        last.appendChild(tag);
+      }
+      body.appendChild(grid);
+      const back = document.createElement('div');
+      back.className = 'dialogue-options';
+      const b = document.createElement('div'); b.className = 'dialogue-option'; b.textContent = 'Back';
+      b.addEventListener('click', () => this.openSlayerMaster({ name: 'Slayer Master', def: {} }));
+      back.appendChild(b);
+      body.appendChild(back);
+    };
+    this.openModal('Slayer Rewards', render);
+    this.modal.kind = 'slayerRewards';
+  }
+
   // Dialogue -----------------------------------------------------------
   openDialogue(npc) {
+    if (npc.def.dialogue === 'slayer') return this.openSlayerMaster(npc);
     const tree = getDialogue(npc.def.dialogue);
     if (!tree) { this.game.msg(`${npc.name} has nothing to say.`); return; }
     const show = (nodeId) => {
