@@ -280,6 +280,32 @@
   I.raw_salmon = rawFish('#e0896a', '#f0b89a'); I.salmon = cookedFish('#e8956a');
   I.raw_tuna = rawFish('#5a7a8a', '#8aa6b6'); I.tuna = cookedFish('#9aa6b0');
   I.raw_shark = rawFish('#6a7a8a', '#9aaab6'); I.shark = cookedFish('#8a9aa6');
+  I.raw_mackerel = rawFish('#4a8a7a', '#7fc0b0'); I.mackerel = cookedFish('#5a9a8a');
+  I.raw_pike = rawFish('#7a8a4a', '#b0c080'); I.pike = cookedFish('#8a9a5a');
+  I.raw_eel = rawFish('#5a5a3a', '#8a8a5a'); I.eel = cookedFish('#6a6a4a');
+  I.raw_grouper = rawFish('#9a7a5a', '#c0a080'); I.grouper = cookedFish('#a88a6a');
+  I.raw_stingray = rawFish('#7a6a8a', '#a89ac0'); I.stingray = cookedFish('#8a7a9a');
+  I.raw_manta_ray = rawFish('#4a5a7a', '#8a9ac0'); I.manta_ray = cookedFish('#6a7a9a');
+  // Singapore freshwater
+  I.raw_tilapia = rawFish('#8a9a7a', '#b6c0a8'); I.tilapia = cookedFish('#9aaa8a');
+  I.raw_marble_goby = rawFish('#7a6a4a', '#a89a78'); I.marble_goby = cookedFish('#8a7a5a');
+  I.raw_peacock_bass = rawFish('#3a8a5a', '#6fc090'); I.peacock_bass = cookedFish('#4a9a6a');
+  I.raw_speckled_temensis = rawFish('#4a8a6a', '#7fc0a0'); I.speckled_temensis = cookedFish('#5a9a7a');
+  I.raw_giant_snakehead = rawFish('#5a6a3a', '#8a9a6a'); I.giant_snakehead = cookedFish('#6a7a4a');
+  // Singapore saltwater
+  I.raw_red_snapper = rawFish('#c0432a', '#e0805a'); I.red_snapper = cookedFish('#c85a3a');
+  I.raw_golden_snapper = rawFish('#d8a23a', '#ffd773'); I.golden_snapper = cookedFish('#e0b04a');
+  I.raw_mangrove_jack = rawFish('#b04a2a', '#d8805a'); I.mangrove_jack = cookedFish('#c05a3a');
+  I.raw_barramundi = rawFish('#aab6c0', '#dde6ee'); I.barramundi = cookedFish('#b6c0c8');
+  I.raw_red_drum = rawFish('#c06a3a', '#e0a070'); I.red_drum = cookedFish('#c87a4a');
+  I.raw_tenggiri = rawFish('#7a8a9a', '#aab6c0'); I.tenggiri = cookedFish('#8a9aa6');
+  I.raw_longfin_trevally = rawFish('#8aa6c0', '#bcd6e8'); I.longfin_trevally = cookedFish('#9ab0c4');
+  I.raw_giant_trevally = rawFish('#6a7a8a', '#9aaab6'); I.giant_trevally = cookedFish('#7a8a96');
+  I.raw_diamond_trevally = rawFish('#b0c0d0', '#e0ecf4'); I.diamond_trevally = cookedFish('#bcc8d4');
+  I.raw_hybrid_grouper = rawFish('#9a7a5a', '#c0a484'); I.hybrid_grouper = cookedFish('#a88a6a');
+  I.fishing_rod = `<path d="M5 20 L19 5" stroke="${C.wood}" stroke-width="2.2" stroke-linecap="round"/><path d="M19 5 L18 12" stroke="#cdd6dd" stroke-width="0.8"/><path d="M18 12 q2 1 0 3" fill="none" stroke="${OL}" stroke-width="1.2"/><circle cx="8" cy="17" r="1.6" fill="${C.gold}" stroke="${OL}" stroke-width="0.8"/>`;
+  I.lobster_pot = `<path d="M5 9 H19 L17 20 H7 Z" fill="${C.wood}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M8 9 L9 20 M12 9 L12 20 M16 9 L15 20" stroke="${C.woodDk}" stroke-width="0.9"/><path d="M6 13 H18 M6.5 16.5 H17.5" stroke="${C.woodDk}" stroke-width="0.9"/><ellipse cx="12" cy="9" rx="7" ry="2" fill="${C.woodHi}" stroke="${OL}" stroke-width="1"/>`;
+  I.harpoon = `<path d="M12 21 L12 7" stroke="${C.wood}" stroke-width="2" stroke-linecap="round"/><path d="M12 7 L12 2 M8 7 Q8 3 12 3 M16 7 Q16 3 12 3" fill="none" stroke="${C.steel}" stroke-width="1.6" stroke-linecap="round"/><path d="M8 7 L7 5 M16 7 L17 5" stroke="${C.steelHi}" stroke-width="1.2" stroke-linecap="round"/>`;
   I.laksa = `<path d="M3.5 11 C3.5 17 20.5 17 20.5 11 Z" fill="#d8552e" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/>
     <ellipse cx="12" cy="11" rx="8.5" ry="2.6" fill="#e8804a" stroke="${OL}" stroke-width="1"/>
     <path d="M7 10 C10 9 14 9 17 10" stroke="#f4d9a0" stroke-width="1.4" fill="none"/><circle cx="14" cy="10.4" r="1" fill="#a01f1f"/>`;

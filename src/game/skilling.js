@@ -16,6 +16,34 @@ export const COOKING = {
   raw_lobster: { result: 'lobster', level: 40, xp: 120, burnStop: 74 },
   raw_swordfish: { result: 'swordfish', level: 45, xp: 140, burnStop: 86 },
   raw_shark: { result: 'shark', level: 80, xp: 210, burnStop: 94 },
+  raw_mackerel: { result: 'mackerel', level: 10, xp: 60, burnStop: 45 },
+  raw_pike: { result: 'pike', level: 20, xp: 80, burnStop: 53 },
+  raw_eel: { result: 'eel', level: 38, xp: 95, burnStop: 62 },
+  raw_grouper: { result: 'grouper', level: 50, xp: 130, burnStop: 80 },
+  raw_stingray: { result: 'stingray', level: 60, xp: 160, burnStop: 88 },
+  raw_manta_ray: { result: 'manta_ray', level: 80, xp: 224, burnStop: 95 },
+  // Singapore freshwater
+  raw_tilapia: { result: 'tilapia', level: 8, xp: 55, burnStop: 44 },
+  raw_marble_goby: { result: 'marble_goby', level: 22, xp: 78, burnStop: 56 },
+  raw_peacock_bass: { result: 'peacock_bass', level: 30, xp: 90, burnStop: 60 },
+  raw_speckled_temensis: { result: 'speckled_temensis', level: 42, xp: 115, burnStop: 70 },
+  raw_giant_snakehead: { result: 'giant_snakehead', level: 52, xp: 140, burnStop: 80 },
+  // Singapore saltwater
+  raw_red_snapper: { result: 'red_snapper', level: 25, xp: 82, burnStop: 56 },
+  raw_golden_snapper: { result: 'golden_snapper', level: 38, xp: 108, burnStop: 66 },
+  raw_mangrove_jack: { result: 'mangrove_jack', level: 32, xp: 94, burnStop: 60 },
+  raw_barramundi: { result: 'barramundi', level: 28, xp: 88, burnStop: 58 },
+  raw_red_drum: { result: 'red_drum', level: 36, xp: 100, burnStop: 64 },
+  raw_tenggiri: { result: 'tenggiri', level: 46, xp: 122, burnStop: 72 },
+  raw_longfin_trevally: { result: 'longfin_trevally', level: 48, xp: 126, burnStop: 74 },
+  raw_giant_trevally: { result: 'giant_trevally', level: 64, xp: 168, burnStop: 86 },
+  raw_diamond_trevally: { result: 'diamond_trevally', level: 56, xp: 150, burnStop: 80 },
+  raw_hybrid_grouper: { result: 'hybrid_grouper', level: 60, xp: 160, burnStop: 84 },
+};
+
+// Display names for the fishing tool each spot requires.
+export const FISH_TOOL_NAME = {
+  net: 'small fishing net', rod: 'fishing rod', lobster_pot: 'lobster pot', harpoon: 'harpoon',
 };
 
 /** Interpolate gather success between level 1 (low) and level 99 (high). */
@@ -75,7 +103,8 @@ export function resolveMine(game, action) {
 export function resolveFish(game, action) {
   const { obj } = action;
   const def = obj.def;
-  if (!game.hasTool('net')) { game.msg('You need a small fishing net to fish here.'); return false; }
+  const tool = def.tool || 'net';
+  if (!game.hasTool(tool)) { game.msg(`You need a ${FISH_TOOL_NAME[tool] || tool} to fish here.`); return false; }
 
   const lvl = game.skills.level('fishing');
   const eligible = def.catches.filter((c) => lvl >= c.level);
@@ -85,10 +114,14 @@ export function resolveFish(game, action) {
   }
   const pick = weightedPick(eligible);
   if (Math.random() < gatherChance(pick.lowChance, pick.highChance, lvl)) {
-    game.inventory.add(pick.id, 1);
-    game.skills.addXp('fishing', pick.xp);
+    // A "big catch" reels in two at once — more likely at higher levels.
+    const big = Math.random() < 0.05 + lvl * 0.0015 && game.inventory.canAdd(pick.id, 2) >= 2;
+    const n = big ? 2 : 1;
+    game.inventory.add(pick.id, n);
+    game.skills.addXp('fishing', pick.xp * n);
     const fc = objCenter(obj); game.spawnPoof(fc.x, fc.y, '#bfe3ff');
-    game.msg(`You catch a ${getItem(pick.id).name.replace(/^Raw /, '').toLowerCase()}.`);
+    const nm = getItem(pick.id).name.replace(/^Raw /, '').toLowerCase();
+    game.msg(big ? `A big catch! You haul in two ${nm}.` : `You catch a ${nm}.`);
   }
   return true; // fishing spots never deplete
 }

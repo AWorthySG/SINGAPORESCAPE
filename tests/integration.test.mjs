@@ -954,3 +954,66 @@ test('no aggressive boss spawns near the starting town', () => {
     n.def.boss && n.def.aggressive && Math.max(Math.abs(n.x - 58), Math.abs(n.y - 55)) <= 22);
   assert.equal(nearAgg.length, 0, 'bosses near spawn are pacified so they cannot ambush newcomers');
 });
+
+test('fishing: new spot types, tool gating, and freshwater/sea catches', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const { resolveFish } = await import('../src/game/skilling.js');
+  const game = new Game();
+  game.start();
+  for (const id of ['fishing_spot', 'rod_spot', 'fishing_cage', 'harpoon_spot']) {
+    assert.ok(game.world.objects.some((o) => o.objId === id), `${id} is placed in the world`);
+  }
+  game.skills.addXp('fishing', 2_000_000); // max fishing
+
+  // Harpoon spots need a harpoon (not in the starter kit).
+  const harp = game.world.objects.find((o) => o.objId === 'harpoon_spot');
+  assert.ok(!game.hasTool('harpoon'), 'starter kit has no harpoon');
+  const seaIds = ['raw_tuna', 'raw_swordfish', 'raw_stingray', 'raw_shark', 'raw_manta_ray'];
+  const seaBefore = seaIds.reduce((s, id) => s + game.inventory.count(id), 0);
+  resolveFish(game, { obj: harp });
+  assert.equal(seaIds.reduce((s, id) => s + game.inventory.count(id), 0), seaBefore, 'no harpoon, no catch');
+  game.inventory.add('harpoon', 1);
+  for (let i = 0; i < 150; i++) resolveFish(game, { obj: harp });
+  assert.ok(seaIds.reduce((s, id) => s + game.inventory.count(id), 0) > seaBefore, 'harpoon catches sea fish');
+
+  // Rod spots use the starter fishing rod for freshwater fish.
+  assert.ok(game.hasTool('rod'), 'starter kit includes a fishing rod');
+  const rod = game.world.objects.find((o) => o.objId === 'rod_spot');
+  const freshIds = ['raw_pike', 'raw_eel', 'raw_trout'];
+  const freshBefore = freshIds.reduce((s, id) => s + game.inventory.count(id), 0);
+  for (let i = 0; i < 150; i++) resolveFish(game, { obj: rod });
+  assert.ok(freshIds.reduce((s, id) => s + game.inventory.count(id), 0) > freshBefore, 'rod catches freshwater fish');
+});
+
+test('every new fish is cookable', async () => {
+  const { COOKING } = await import('../src/game/skilling.js');
+  for (const raw of ['raw_mackerel', 'raw_pike', 'raw_eel', 'raw_grouper', 'raw_stingray', 'raw_manta_ray']) {
+    assert.ok(COOKING[raw] && COOKING[raw].result, `${raw} has a cooking recipe`);
+  }
+});
+
+test('Singapore fish species are defined, cookable, and catchable', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const [{ getItem }, { COOKING, resolveFish }] = await Promise.all([
+    import('../src/data/items.js'), import('../src/game/skilling.js'),
+  ]);
+  const freshwater = ['tilapia', 'marble_goby', 'peacock_bass', 'speckled_temensis', 'giant_snakehead'];
+  const saltwater = ['red_snapper', 'golden_snapper', 'mangrove_jack', 'barramundi', 'red_drum',
+    'tenggiri', 'longfin_trevally', 'giant_trevally', 'diamond_trevally', 'hybrid_grouper'];
+  for (const f of [...freshwater, ...saltwater]) {
+    assert.ok(getItem(`raw_${f}`) && getItem(f), `${f} has raw + cooked items`);
+    assert.equal(COOKING[`raw_${f}`].result, f, `${f} is cookable`);
+  }
+
+  const game = new Game();
+  game.start();
+  game.skills.addXp('fishing', 2_000_000);
+  const rod = game.world.objects.find((o) => o.objId === 'rod_spot');
+  const sea = game.world.objects.find((o) => o.objId === 'sea_rod_spot');
+  assert.ok(rod && sea, 'freshwater and coastal rod spots exist');
+  for (let i = 0; i < 800; i++) { resolveFish(game, { obj: rod }); resolveFish(game, { obj: sea }); }
+  assert.ok(freshwater.some((f) => game.inventory.count(`raw_${f}`) > 0), 'caught a Singapore freshwater fish');
+  assert.ok(saltwater.some((f) => game.inventory.count(`raw_${f}`) > 0), 'caught a Singapore saltwater fish');
+});
