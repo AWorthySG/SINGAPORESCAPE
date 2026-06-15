@@ -73,6 +73,16 @@ const BASES = [
   ['Sea turtle', 'turtle', '#3a7a5a', 16, 'Sentosa Beach', false],
   ['Vampire bat', 'bat', '#5a2a3a', 21, 'Bukit Timah', true],
   ['Wild dog', 'hound', '#7a5a3a', 25, 'MacRitchie Reservoir', true],
+  ['Smooth otter', 'beast', '#6a5038', 10, 'MacRitchie Reservoir', false],
+  ['Pink dolphin', 'seacreature', '#e6a6c0', 29, 'Sentosa Beach', false],
+  ['Kingfisher', 'fowl', '#1f8aa0', 9, 'MacRitchie Reservoir', true],
+  ['Flying fox', 'bat', '#3a2620', 23, 'Bukit Timah', true],
+  ['Reticulated python', 'serpent', '#6a5a3a', 42, 'MacRitchie Reservoir', true],
+  ['Saltwater crocodile', 'reptile', '#46583a', 48, 'MacRitchie Reservoir', true],
+  ['Pontianak', 'ghost', '#d8c0c8', 38, 'The Wilderness', true],
+  ['Toyol', 'greenman', '#8a9a5a', 14, 'The Wilderness', true],
+  ['Horseshoe crab', 'crab', '#6a5a4a', 18, 'Sentosa Beach', false],
+  ['Sambar deer', 'beast', '#8a6a4a', 20, 'MacRitchie Reservoir', false],
 ];
 
 const RANKS = [
@@ -85,7 +95,7 @@ const RANKS = [
   { p: 'Ancient', m: 3.8, agg: true },
 ];
 
-const TARGET_MONSTERS = 220;
+const TARGET_MONSTERS = 280;
 const MONSTER_IDS = [];
 const _mobs = {};
 {
@@ -172,6 +182,16 @@ const BOSS_DEFS = {
     [{ id: 'garuda_wings', weight: 12 }, { id: 'rune_platebody', weight: 18 }, { id: 'runite_ore', min: 2, max: 6, weight: 28 }, { id: 'merlion_blade', weight: 6 }]),
   rune_golem: makeBoss('rune_golem', 'Rune Golem', 'golem', '#46b3c4', 140, 'The Wilderness', 2.4,
     [{ id: 'rune_platebody', weight: 20 }, { id: 'rune_scimitar', weight: 18 }, { id: 'runite_ore', min: 3, max: 7, weight: 30 }, { id: 'leviathan_trident', weight: 5 }]),
+  sentosa_megalodon: makeBoss('sentosa_megalodon', 'Sentosa Megalodon', 'seacreature', '#5a7a8a', 145, 'Sentosa Beach', 2.5,
+    [{ id: 'megalodon_jaw', weight: 9 }, { id: 'dragon_platebody', weight: 14 }, { id: 'runite_ore', min: 3, max: 7, weight: 28 }, { id: 'dragon_scimitar', weight: 10 }]),
+  changi_phantom: makeBoss('changi_phantom', 'Changi Phantom', 'ghost', '#aeb8d8', 128, 'The Wilderness', 2.3,
+    [{ id: 'phantom_robe', weight: 12 }, { id: 'death_rune', min: 10, max: 30, weight: 24 }, { id: 'dragon_med_helm', weight: 12 }, { id: 'mystic_top', weight: 10 }]),
+  pulau_hantu_djinn: makeBoss('pulau_hantu_djinn', 'Pulau Hantu Djinn', 'demon', '#7a3a8a', 132, 'The Wilderness', 2.3,
+    [{ id: 'djinn_lamp', weight: 10 }, { id: 'dragon_dagger', weight: 14 }, { id: 'chaos_rune', min: 15, max: 40, weight: 24 }, { id: 'dragon_battleaxe', weight: 9 }]),
+  bukit_brown_revenant: makeBoss('bukit_brown_revenant', 'Bukit Brown Revenant', 'undead', '#cdbfae', 138, 'The Wilderness', 2.4,
+    [{ id: 'revenant_cape', weight: 11 }, { id: 'dragon_platelegs', weight: 14 }, { id: 'runite_ore', min: 3, max: 8, weight: 28 }, { id: 'dragon_longsword', weight: 9 }]),
+  dragon_kiln_wyrm: makeBoss('dragon_kiln_wyrm', 'Dragon Kiln Wyrm', 'drake', '#c0392b', 150, 'The Wilderness', 2.5,
+    [{ id: 'dragon_2h_sword', weight: 8 }, { id: 'dragon_platebody', weight: 14 }, { id: 'dragon_kiteshield', weight: 12 }, { id: 'dragon_scimitar', weight: 12 }, { id: 'megalodon_jaw', weight: 4 }]),
 };
 const BOSS_IDS = Object.keys(BOSS_DEFS);
 

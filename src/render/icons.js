@@ -293,7 +293,8 @@
   const ringIcon = (col, hi) => `<circle cx="12" cy="14" r="6" fill="none" stroke="${col}" stroke-width="2.6"/><path d="M12 8 L15 4 L9 4 Z" fill="${hi}" stroke="${OL}" stroke-width="1"/>`;
   const capeIcon = (col, hi) => `<path d="M8 4 L16 4 L19 20 L12 17 L5 20 Z" fill="${col}" stroke="${OL}" stroke-width="1.2" stroke-linejoin="round"/><path d="M8 4 C10 7 14 7 16 4" fill="none" stroke="${hi}" stroke-width="1.4"/>`;
 
-  const METAL_PAL = { bronze: [C.bronze, C.bronzeHi], iron: [C.iron, C.ironHi], steel: [C.steel, C.steelHi], mithril: [mith, mithHi], adamant: [adam, adamHi], rune: [rune, runeHi] };
+  const dragon = '#c0392b', dragonHi = '#e8543f';
+  const METAL_PAL = { bronze: [C.bronze, C.bronzeHi], iron: [C.iron, C.ironHi], steel: [C.steel, C.steelHi], mithril: [mith, mithHi], adamant: [adam, adamHi], rune: [rune, runeHi], dragon: [dragon, dragonHi] };
   const WBUILD = { dagger: blade, sword: blade, scimitar: scim, mace, longsword, battleaxe, warhammer, '2h_sword': twohander };
   const ABUILD = { med_helm: helm, full_helm: helm, chainbody: plate, platebody: plate, platelegs: legs, sq_shield: shield, kiteshield: shield, gauntlets: gloves, boots };
   for (const m of Object.keys(METAL_PAL)) {
@@ -312,6 +313,10 @@
   I.leviathan_trident = `<rect x="11" y="10" width="2" height="11" rx="1" fill="${C.wood}" stroke="${OL}" stroke-width="1"/><path d="M6 3 L6 9 M12 2 L12 9 M18 3 L18 9" stroke="${rune}" stroke-width="2.2" stroke-linecap="round"/><path d="M5 9 L19 9 L18 11 L6 11 Z" fill="${rune}" stroke="${OL}" stroke-width="1"/>`;
   I.hydra_leather = plate('#3f7a4a', '#5fa06a');
   I.treant_shield = shield('#5a7a3a', '#7aa04a');
+  I.megalodon_jaw = `<path d="M4 14 Q12 2 20 14 Q12 10 4 14 Z" fill="#dfe7ec" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M6 13 L7.5 17 L9 13 L10.5 17 L12 13 L13.5 17 L15 13 L16.5 17 L18 13" fill="#fff" stroke="${OL}" stroke-width="0.9" stroke-linejoin="round"/>`;
+  I.phantom_robe = plate('#4a5a7a', '#7a8ab0');
+  I.djinn_lamp = `<path d="M4 16 Q4 12 11 12 L20 12 Q21 12 20.5 13.5 L18 16 Z" fill="${C.gold}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><ellipse cx="11" cy="12" rx="6" ry="2.6" fill="${C.goldHi}" stroke="${OL}" stroke-width="1"/><path d="M16 11 Q19 7 16 4" fill="none" stroke="#8a96e8" stroke-width="2" stroke-linecap="round" opacity=".8"/><circle cx="15.5" cy="3.5" r="1.4" fill="#bcd0ff"/>`;
+  I.revenant_cape = capeIcon('#5a4a6a', '#8a7aa0');
   const gemIcon = (col, hi) => `<path d="M6 9 L9 5 L15 5 L18 9 L12 20 Z" fill="${col}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M9 5 L12 9 L15 5 M6 9 L18 9 M12 9 L12 20" stroke="${OL}" stroke-width=".7" opacity=".4" fill="none"/><path d="M9 5 L12 9 L6 9 Z" fill="${hi}" opacity=".6"/>`;
   I.sapphire = gemIcon('#3a6ad8', '#8aa6f0');
   I.emerald = gemIcon('#2fa05a', '#7fe0a0');
@@ -325,7 +330,7 @@
   const runeIcon = (col) => `<path d="M6 8 L12 4 L18 8 L18 16 L12 20 L6 16 Z" fill="${col}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M12 7 L12 17 M9 10 L15 14 M15 10 L9 14" stroke="#fff" stroke-width="1" opacity=".7"/>`;
   const hatIcon = (col) => `<path d="M12 2 L17 17 L7 17 Z" fill="${col}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><rect x="5" y="16.4" width="14" height="3.4" rx="1.4" fill="${col}" stroke="${OL}" stroke-width="1"/><circle cx="12" cy="6" r="1.2" fill="#ffe24a"/>`;
   I.shortbow = bowIcon('#7a5530'); I.oak_shortbow = bowIcon('#8a5e33'); I.willow_shortbow = bowIcon('#6e6a3a'); I.maple_shortbow = bowIcon('#6e8a3a'); I.yew_shortbow = bowIcon('#3f5a2a');
-  I.bronze_arrow = arrowIcon(C.bronze); I.iron_arrow = arrowIcon(C.iron); I.steel_arrow = arrowIcon(C.steel); I.mithril_arrow = arrowIcon(mith);
+  I.bronze_arrow = arrowIcon(C.bronze); I.iron_arrow = arrowIcon(C.iron); I.steel_arrow = arrowIcon(C.steel); I.mithril_arrow = arrowIcon(mith); I.adamant_arrow = arrowIcon(adam); I.rune_arrow = arrowIcon(rune);
   I.staff = staffIcon(C.wood, '#cfd6dd'); I.magic_staff = staffIcon('#3a3a55', '#8a96e8'); I.mystic_staff = staffIcon('#2a2a44', mith);
   I.air_rune = runeIcon('#bfe8d0'); I.water_rune = runeIcon('#6fb6e0'); I.earth_rune = runeIcon('#8a6a3a'); I.fire_rune = runeIcon('#ef7a23'); I.mind_rune = runeIcon('#caa15a'); I.chaos_rune = runeIcon('#7a3a8a'); I.death_rune = runeIcon('#3a3a44');
   I.coif = helm('#7a5530', '#9a734a'); I.leather_chaps = legs('#7a5530', '#9a734a'); I.studded_body = plate('#6a4a2a', '#8a6a3a');

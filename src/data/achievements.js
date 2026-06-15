@@ -6,7 +6,8 @@ const own = (g, id) => g.inventory.count(id) > 0 || g.bank.count(id) > 0;
 const coins = (g) => g.inventory.count('coins') + g.bank.count('coins');
 const anyLvl = (g, n) => SKILL_IDS.some((id) => g.skills.level(id) >= n);
 const questsDone = (g) => Object.values(g.quests).filter((q) => q && q.state === 'done').length;
-const UNIQUES = ['merlion_blade', 'warlord_cape', 'merlion_amulet', 'boar_tusk', 'tiger_fang', 'leviathan_trident', 'garuda_wings', 'hydra_leather', 'treant_shield'];
+const UNIQUES = ['merlion_blade', 'warlord_cape', 'merlion_amulet', 'boar_tusk', 'tiger_fang', 'leviathan_trident', 'garuda_wings', 'hydra_leather', 'treant_shield', 'megalodon_jaw', 'phantom_robe', 'djinn_lamp', 'revenant_cape'];
+const DRAGON_GEAR = ['dragon_scimitar', 'dragon_2h_sword', 'dragon_longsword', 'dragon_battleaxe', 'dragon_platebody', 'dragon_platelegs', 'dragon_kiteshield', 'dragon_dagger', 'dragon_full_helm'];
 
 export const ACHIEVEMENTS = [
   { id: 'first_blood', cat: 'Combat', name: 'First Blood', desc: 'Defeat your first monster.', test: (g) => g.totalKills >= 1, progress: (g) => `${Math.min(g.totalKills, 1)}/1` },
@@ -28,6 +29,7 @@ export const ACHIEVEMENTS = [
   { id: 'helper', cat: 'Quests', name: 'Lend a Hand', desc: 'Complete a quest.', test: (g) => questsDone(g) >= 1 },
   { id: 'quester', cat: 'Quests', name: 'Quester', desc: 'Complete every quest.', test: (g) => questsDone(g) >= Object.keys(g.quests).length },
   { id: 'armed', cat: 'Collection', name: 'Armed and Ready', desc: 'Own a rune scimitar.', test: (g) => own(g, 'rune_scimitar') },
+  { id: 'dragonkin', cat: 'Collection', name: 'Dragonkin', desc: 'Own a piece of Dragon equipment.', test: (g) => DRAGON_GEAR.some((id) => own(g, id)) },
   { id: 'legendary', cat: 'Collection', name: 'Legendary Loot', desc: 'Own a boss unique item.', test: (g) => UNIQUES.some((id) => own(g, id)) },
   { id: 'pillars', cat: 'Quests', name: 'Pillars of the Island', desc: 'Earn the A-Worthy Sigil.', test: (g) => own(g, 'worthy_sigil') },
 ];
