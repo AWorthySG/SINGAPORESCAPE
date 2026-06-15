@@ -34,6 +34,7 @@
 
     <!-- Minimap (top-right) -->
     <div id="minimap-panel">
+      <button id="minimap-collapse" title="Collapse minimap" aria-label="Collapse minimap">&#9662;</button>
       <canvas id="minimap-canvas" width="160" height="160"></canvas>
       <div id="minimap-compass">N</div>
       <button id="map-btn" title="Open world map (M)">MAP</button>
@@ -46,6 +47,7 @@
 
     <!-- Chat box (bottom-left) -->
     <div id="chatbox">
+      <div id="chat-head"><span id="chat-title">Chat</span><button id="chat-collapse" title="Collapse chat" aria-label="Collapse chat">&#9662;</button></div>
       <div id="chat-log"></div>
       <div id="chat-tabs">
         <span class="chat-tab active" data-filter="all">All</span>

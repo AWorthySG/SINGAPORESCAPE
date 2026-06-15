@@ -87,7 +87,7 @@ export class UI {
     this.el.panelCollapse = document.getElementById('panel-collapse');
     this.el.sidepanel = document.getElementById('sidepanel');
     this._setPanelTitle('inventory');
-    if (this.el.panelCollapse) this.el.panelCollapse.addEventListener('click', () => this.togglePanelCollapse());
+    this._initCollapsibles();
 
     this._bindTabs();
     this._bindChatTabs();
@@ -168,14 +168,39 @@ export class UI {
     el.textContent = titles[view] || '';
   }
 
-  togglePanelCollapse() {
-    const sp = this.el.sidepanel;
-    if (!sp) return;
-    const collapsed = sp.classList.toggle('collapsed');
-    if (this.el.panelCollapse) {
-      this.el.panelCollapse.innerHTML = collapsed ? '&#9656;' : '&#9662;'; // ▸ collapsed / ▾ expanded
-      this.el.panelCollapse.title = collapsed ? 'Expand panel' : 'Collapse panel';
-    }
+  // ---------------- Collapsible menus ----------------
+  // Every on-screen menu (side panel, chat, minimap) can be folded away to
+  // reduce clutter, and the state is remembered between sessions.
+  _initCollapsibles() {
+    this._collapse = this._loadCollapse();
+    const id = (x) => document.getElementById(x);
+    this._wireCollapse('panel', this.el.sidepanel, this.el.panelCollapse, 'panel');
+    this._wireCollapse('chat', id('chatbox'), id('chat-collapse'), 'chat');
+    this._wireCollapse('minimap', id('minimap-panel'), id('minimap-collapse'), 'minimap');
+  }
+
+  _wireCollapse(key, panel, btn, label) {
+    if (!panel || !btn) return;
+    const apply = (collapsed) => {
+      panel.classList.toggle('collapsed', collapsed);
+      btn.innerHTML = collapsed ? '&#9656;' : '&#9662;'; // ▸ collapsed / ▾ expanded
+      btn.title = `${collapsed ? 'Expand' : 'Collapse'} ${label}`;
+    };
+    apply(!!this._collapse[key]);
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this._collapse[key] = !panel.classList.contains('collapsed');
+      apply(this._collapse[key]);
+      this._saveCollapse();
+    });
+  }
+
+  _loadCollapse() {
+    try { return JSON.parse(localStorage.getItem('ss_ui_collapse')) || {}; } catch { return {}; }
+  }
+
+  _saveCollapse() {
+    try { localStorage.setItem('ss_ui_collapse', JSON.stringify(this._collapse)); } catch {}
   }
 
   _bindTabs() {
@@ -1089,6 +1114,8 @@ export class UI {
 
   // ---------------- Minimap ----------------
   renderMinimap() {
+    // Skip the per-tile scan entirely while the minimap is folded away.
+    if (this._collapse && this._collapse.minimap) return;
     // The minimap is called every frame from the main loop; ~7 fps is plenty
     // and keeps the per-tile scan off the hot path.
     const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
