@@ -391,16 +391,20 @@ html, body {
 .ability-btn.locked { filter: grayscale(0.85) brightness(0.5); cursor: not-allowed; }
 .ability-btn.locked .ab-cd { font-size: 10px; }
 @media (max-width: 760px) {
-  /* Lift the ability bar above the bottom Chat/Inventory bars and give it its
-     own backdrop so the buttons are never hidden behind those panels. */
+  /* On touch/small screens the ability bar becomes its own full-width strip
+     pinned to the very bottom, and the Chat & Inventory panels are lifted to
+     sit ABOVE it — so the action buttons get a clear lane and are never covered. */
   #ability-bar {
-    bottom: 52px; padding: 5px 8px; border-radius: 12px;
-    background: rgba(8,18,16,0.62); box-shadow: 0 3px 12px rgba(0,0,0,0.5);
+    left: 0; right: 0; width: 100%; transform: none;
+    bottom: 0; padding: 5px 8px 9px; gap: 4px; border-radius: 0;
+    background: linear-gradient(180deg, rgba(8,18,16,0), rgba(8,18,16,0.74) 38%);
   }
-  #adrenaline { width: 184px; }
-  #ability-buttons { gap: 5px; }
+  #adrenaline { width: 200px; }
+  #ability-buttons { gap: 6px; }
   .ability-btn { width: 44px; height: 44px; }
   .ability-btn .ab-icon { font-size: 16px; }
+  #chatbox { bottom: 88px; }
+  #sidepanel { bottom: 88px; }
 }
 
 /* ---------- Context menu ---------- */
@@ -516,8 +520,9 @@ html, body {
   #run-orb { bottom: 88px; left: -10px; }
 
   /* Side panel: height follows the dynamic viewport so it never hides behind
-     the browser bar; tighter inventory cells fit the narrower rail. */
-  #sidepanel { right: 6px; bottom: 6px; }
+     the browser bar; tighter inventory cells fit the narrower rail. Lifted to
+     sit above the bottom action bar. */
+  #sidepanel { right: 6px; bottom: 84px; }
   #panel-head { font-size: 13px; padding: 5px 9px; }
   #panel-body { height: 42dvh; max-height: 320px; min-height: 180px; padding: 7px; }
   .tab-btn svg { width: 20px; height: 20px; }
@@ -525,15 +530,15 @@ html, body {
   .inv-slot { border-radius: 5px; }
   .inv-slot .icon svg { width: 28px; height: 28px; }
 
-  /* Chat: compact and clear of the side panel. */
-  #chatbox { width: 47vw; height: 92px; bottom: 6px; left: 6px; font-size: 12px; }
+  /* Chat: compact, lifted above the bottom action bar. */
+  #chatbox { width: 47vw; height: 92px; bottom: 84px; left: 6px; font-size: 12px; }
   #chat-log { font-size: 12px; }
 
-  /* Ability bar: float clear above the chat/inventory bars; trim to fit. */
-  #ability-bar { bottom: 52px; }
-  #ability-buttons { gap: 4px; }
+  /* Bottom action bar: trim buttons so all five fit the narrow strip. */
+  #ability-bar { bottom: 0; }
+  #ability-buttons { gap: 5px; }
   .ability-btn { width: 42px; height: 42px; }
-  #adrenaline { width: 172px; }
+  #adrenaline { width: 178px; }
 
   /* Trim the big top-left overlays so they don't dominate a small screen. */
   #hover-text { font-size: 13px; top: 6px; left: 6px; }
