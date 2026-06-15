@@ -495,6 +495,12 @@ html, body {
 }
 .bank-deposit-all:hover { background: linear-gradient(#7d6230, #5a4720); }
 
+/* ---------- Slayer ---------- */
+.slayer-stats { margin-top: 8px; font-size: 11px; opacity: 0.85; color: var(--gold-hi); }
+.item-cell { position: relative; }
+.slayer-cost { position: absolute; bottom: 1px; right: 2px; font-size: 10px; font-weight: bold; color: #ffd24a; text-shadow: 0 1px 2px #000; }
+.slayer-cost.short { color: #ff6a6a; }
+
 /* ---------- In-game co-brand badge ---------- */
 #cobrand {
   position: fixed; left: 50%; bottom: 6px; transform: translateX(-50%);

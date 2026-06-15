@@ -127,6 +127,7 @@ export function buildWorld() {
   placeNpc('hawker', 63, 59);
   placeNpc('shopkeeper', 64, 50);
   placeNpc('fletcher', 66, 51);
+  placeNpc('slayer_master', 54, 58);
   placeNpc('guide', 56, 53);
   placeNpc('villager', 60, 54, 3);
   placeObj('lamp', 46, 46); placeObj('lamp', 70, 46); placeObj('lamp', 46, 64); placeObj('lamp', 70, 64);

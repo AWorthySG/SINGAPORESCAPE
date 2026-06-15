@@ -37,6 +37,7 @@ export function snapshot(game) {
     totalKills: game.totalKills,
     bossKills: game.bossKills,
     zonesVisited: [...game.zonesVisited],
+    slayer: game.slayer,
     settings: { running: game.running },
   };
 }
@@ -91,6 +92,13 @@ export function loadGame(game) {
   if (typeof data.totalKills === 'number') game.totalKills = data.totalKills;
   if (typeof data.bossKills === 'number') game.bossKills = data.bossKills;
   if (Array.isArray(data.zonesVisited)) game.zonesVisited = new Set(data.zonesVisited);
+  if (data.slayer && typeof data.slayer === 'object') {
+    game.slayer = {
+      task: data.slayer.task && typeof data.slayer.task === 'object' ? data.slayer.task : null,
+      points: Number(data.slayer.points) || 0,
+      completed: Number(data.slayer.completed) || 0,
+    };
+  }
   game.running = data.settings?.running ?? game.running;
   return true;
 }

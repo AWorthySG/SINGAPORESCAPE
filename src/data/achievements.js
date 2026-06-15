@@ -33,4 +33,8 @@ export const ACHIEVEMENTS = [
   { id: 'legendary', cat: 'Collection', name: 'Legendary Loot', desc: 'Own a boss unique item.', test: (g) => UNIQUES.some((id) => own(g, id)) },
   { id: 'pillars', cat: 'Quests', name: 'Pillars of the Island', desc: 'Earn the A-Worthy Sigil.', test: (g) => own(g, 'worthy_sigil') },
   { id: 'defender', cat: 'Quests', name: 'Island Defender', desc: 'Complete the Island Defender quest.', test: (g) => g.quests.island_defender && g.quests.island_defender.state === 'done' },
+  { id: 'first_task', cat: 'Slayer', name: 'Apprentice Slayer', desc: 'Complete your first Slayer task.', test: (g) => (g.slayer?.completed || 0) >= 1 },
+  { id: 'task_master', cat: 'Slayer', name: 'Task Master', desc: 'Complete 10 Slayer tasks.', test: (g) => (g.slayer?.completed || 0) >= 10, progress: (g) => `${Math.min(g.slayer?.completed || 0, 10)}/10` },
+  { id: 'slayer_50', cat: 'Slayer', name: 'Seasoned Slayer', desc: 'Reach Slayer level 50.', test: (g) => g.skills.level('slayer') >= 50 },
+  { id: 'slayer_helm', cat: 'Collection', name: 'Helm of the Hunt', desc: 'Own a Slayer helmet.', test: (g) => own(g, 'slayer_helmet') },
 ];

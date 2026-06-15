@@ -15,6 +15,7 @@ export const SKILLS = [
   { id: 'prayer', name: 'Prayer', icon: '🙏', color: '#d9c45a', combat: true },
   { id: 'thieving', name: 'Thieving', icon: '🤏', color: '#7a4a8a' },
   { id: 'agility', name: 'Agility', icon: '🏃', color: '#3a8a9a' },
+  { id: 'slayer', name: 'Slayer', icon: '💀', color: '#5a5a5a' },
 ];
 
 export const SKILL_IDS = SKILLS.map((s) => s.id);

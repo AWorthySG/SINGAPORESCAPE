@@ -210,6 +210,19 @@ test('every shop stocks only real items; the archery shop exists', async () => {
   }
 });
 
+test('slayer tasks/rewards are well-formed and a Slayer skill exists', async () => {
+  const { SLAYER_TASKS, SLAYER_REWARDS, eligibleTasks } = await import('../src/data/slayer.js');
+  assert.ok(SLAYER_TASKS.length >= 10);
+  for (const t of SLAYER_TASKS) {
+    assert.ok(t.family && t.name && t.req >= 1 && t.min >= 1 && t.max >= t.min, `task ${t.family} well-formed`);
+    assert.ok(NPCS[MONSTER_IDS.find((id) => NPCS[id].family === t.family)], `task ${t.family} maps to a real monster`);
+  }
+  assert.ok(eligibleTasks(1).length >= 1 && eligibleTasks(99).length >= eligibleTasks(1).length);
+  for (const r of SLAYER_REWARDS) { assert.ok(ITEMS[r.id], `reward ${r.id} is a real item`); assert.ok(r.cost >= 1); }
+  assert.ok(SKILLS.map((s) => s.id).includes('slayer'));
+  assert.ok(hasIcon('slayer_helmet') && hasIcon('slayer_ring'));
+});
+
 test('bank deposits and withdraws', () => {
   const bank = new Bank(new EventBus());
   bank.deposit('iron_ore', 10);
