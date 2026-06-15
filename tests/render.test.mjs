@@ -19,7 +19,7 @@ function makeCtx() {
     beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop, arc: noop,
     ellipse: noop, rect: noop, roundRect: noop, quadraticCurveTo: noop, bezierCurveTo: noop,
     fill: noop, stroke: noop, fillRect: noop, strokeRect: noop, clearRect: noop,
-    fillText: noop, strokeText: noop,
+    fillText: noop, strokeText: noop, drawImage: noop,
     createRadialGradient: () => grad, createLinearGradient: () => grad,
   };
 }
@@ -54,6 +54,19 @@ test('renderer.render runs without throwing (with combat/effects state)', () => 
   game.spawnPoof(game.player.x * 32, game.player.y * 32, '#caa15a');
 
   assert.doesNotThrow(() => { renderer.render(0); renderer.render(1234.5); });
+});
+
+test('renderer builds and uses a cached terrain canvas when a DOM exists', () => {
+  const prevDoc = globalThis.document;
+  globalThis.document = { createElement: () => ({ width: 0, height: 0, getContext: () => makeCtx() }) };
+  try {
+    const game = headlessGame();
+    const renderer = new Renderer(game, {}, makeCtx());
+    assert.ok(renderer.terrainCanvas, 'terrain cache was built');
+    assert.doesNotThrow(() => { renderer.render(0); renderer.render(900); });
+  } finally {
+    if (prevDoc === undefined) delete globalThis.document; else globalThis.document = prevDoc;
+  }
 });
 
 test('every creature sprite draws (both facings, moving + idle)', () => {

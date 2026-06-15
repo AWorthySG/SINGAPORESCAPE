@@ -924,6 +924,11 @@ export class UI {
 
   // ---------------- Minimap ----------------
   renderMinimap() {
+    // The minimap is called every frame from the main loop; ~7 fps is plenty
+    // and keeps the per-tile scan off the hot path.
+    const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    if (this._lastMinimap && now - this._lastMinimap < 140) return;
+    this._lastMinimap = now;
     const ctx = this.minimapCtx;
     const game = this.game;
     const W = this.el.minimap.width, H = this.el.minimap.height;

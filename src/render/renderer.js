@@ -24,6 +24,10 @@ export class Renderer {
     this.game = game;
     this.canvas = canvas;
     this.ctx = ctx;
+    // Static terrain is expensive to recompute per frame (grass blades, edges),
+    // so bake it once to an offscreen canvas and only animate water on top.
+    this.terrainCanvas = this._buildTerrainCache();
+    this._vig = null; // cached vignette gradients (rebuilt on resize)
   }
 
   render(timeMs) {
@@ -41,7 +45,15 @@ export class Renderer {
     const x1 = Math.min(game.world.width - 1, Math.ceil((ox + vw) / TILE) + 1);
     const y1 = Math.min(game.world.height - 1, Math.ceil((oy + vh) / TILE) + 1);
 
-    this._drawTerrain(x0, y0, x1, y1, ox, oy, timeMs);
+    if (this.terrainCanvas && ox >= 0 && oy >= 0) {
+      // Blit the cached static terrain for the visible slice, then animate water.
+      const sw = Math.min(vw, this.terrainCanvas.width - ox);
+      const sh = Math.min(vh, this.terrainCanvas.height - oy);
+      if (sw > 0 && sh > 0) ctx.drawImage(this.terrainCanvas, ox, oy, sw, sh, 0, 0, sw, sh);
+      this._drawWaterOverlay(x0, y0, x1, y1, ox, oy, timeMs);
+    } else {
+      this._drawTerrain(x0, y0, x1, y1, ox, oy, timeMs);
+    }
     this._drawGroundDecals(ox, oy);
 
     // Depth-sorted drawables.
@@ -152,6 +164,47 @@ export class Renderer {
     ctx.globalAlpha = 1;
   }
 
+  // Bake all static terrain (everything but the animated water surface) to a
+  // full-world offscreen canvas. Returns null in headless/no-DOM environments.
+  _buildTerrainCache() {
+    if (typeof document === 'undefined') return null;
+    const w = this.game.world;
+    let cnv, cx;
+    try {
+      cnv = document.createElement('canvas');
+      cnv.width = w.width * TILE;
+      cnv.height = w.height * TILE;
+      cx = cnv.getContext('2d');
+    } catch { return null; }
+    if (!cx) return null;
+    for (let y = 0; y < w.height; y++) {
+      for (let x = 0; x < w.width; x++) {
+        const t = w.terrainAt(x, y);
+        const sx = x * TILE, sy = y * TILE;
+        if (t === TERRAIN.WATER) { cx.fillStyle = 'rgb(36,104,156)'; cx.fillRect(sx, sy, TILE + 1, TILE + 1); continue; }
+        const base = TERRAIN_RGB[t] || TERRAIN_RGB[TERRAIN.GRASS];
+        const h = hash(x, y);
+        const j = (h - 0.5) * 10;
+        cx.fillStyle = `rgb(${clamp8(base[0] + j)},${clamp8(base[1] + j)},${clamp8(base[2] + j)})`;
+        cx.fillRect(sx, sy, TILE + 1, TILE + 1);
+        this._tileDetail(cx, t, x, y, sx, sy, h);
+        this._tileEdges(cx, w, t, x, y, sx, sy);
+      }
+    }
+    return cnv;
+  }
+
+  _drawWaterOverlay(x0, y0, x1, y1, ox, oy, timeMs) {
+    const { ctx, game } = this;
+    const w = game.world;
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        if (w.terrainAt(x, y) !== TERRAIN.WATER) continue;
+        this._water(ctx, w, x, y, Math.round(x * TILE - ox), Math.round(y * TILE - oy), timeMs);
+      }
+    }
+  }
+
   // ---------------- Terrain ----------------
   _drawTerrain(x0, y0, x1, y1, ox, oy, timeMs) {
     const { ctx, game } = this;
@@ -256,19 +309,19 @@ export class Renderer {
 
   _drawVignette(vw, vh) {
     const { ctx } = this;
-    // warm ambient sunlight washing in from the upper-left (golden-hour feel)
-    const warm = ctx.createLinearGradient(0, 0, vw * 0.55, vh);
-    warm.addColorStop(0, 'rgba(255,214,140,0.11)');
-    warm.addColorStop(0.45, 'rgba(255,198,118,0.035)');
-    warm.addColorStop(1, 'rgba(30,52,72,0.06)');
-    ctx.fillStyle = warm;
-    ctx.fillRect(0, 0, vw, vh);
-    // soft edge vignette
-    const g = ctx.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * 0.36, vw / 2, vh / 2, Math.max(vw, vh) * 0.74);
-    g.addColorStop(0, 'rgba(0,0,0,0)');
-    g.addColorStop(1, 'rgba(16,24,16,0.30)');
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, vw, vh);
+    // Gradients are static per viewport size — cache them instead of rebuilding each frame.
+    if (!this._vig || this._vig.vw !== vw || this._vig.vh !== vh) {
+      const warm = ctx.createLinearGradient(0, 0, vw * 0.55, vh);
+      warm.addColorStop(0, 'rgba(255,214,140,0.11)');
+      warm.addColorStop(0.45, 'rgba(255,198,118,0.035)');
+      warm.addColorStop(1, 'rgba(30,52,72,0.06)');
+      const edge = ctx.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * 0.36, vw / 2, vh / 2, Math.max(vw, vh) * 0.74);
+      edge.addColorStop(0, 'rgba(0,0,0,0)');
+      edge.addColorStop(1, 'rgba(16,24,16,0.30)');
+      this._vig = { vw, vh, warm, edge };
+    }
+    ctx.fillStyle = this._vig.warm; ctx.fillRect(0, 0, vw, vh);
+    ctx.fillStyle = this._vig.edge; ctx.fillRect(0, 0, vw, vh);
   }
 
   // ---------------- Overhead UI (bars, hitsplats, name) ----------------
