@@ -462,6 +462,24 @@ test('MRT fast travel moves the player and charges a fare', async () => {
   assert.equal(game.inventory.count('coins'), before - MRT_FARE, 'fare deducted');
 });
 
+test('special attack spends energy and fires a stronger hit', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.player.autoRetaliate = false; game.player.hp = 9999;
+  game.equipment.set('weapon', 'dragon_scimitar');
+  game.specEnergy = 100;
+  game.toggleSpec();
+  assert.ok(game.specArmed, 'spec armed');
+  const chicken = game.npcs.find((n) => n.npcId === 'chicken');
+  game.player.x = game.player.tx = chicken.x + 1; game.player.y = game.player.ty = chicken.y;
+  game.attackNpc(chicken);
+  step(game, 4);
+  assert.ok(game.specEnergy < 70, `energy spent (now ${game.specEnergy})`); // spent 40, minus a little regen
+  assert.ok(!game.specArmed, 'spec consumed');
+});
+
 test('eating food heals the player', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();

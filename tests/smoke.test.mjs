@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { XP_TABLE, levelForXp, xpForLevel, levelProgress, xpToNext } from '../src/data/xp.js';
 import { Inventory } from '../src/game/inventory.js';
 import { Skills } from '../src/game/skillset.js';
+import { Equipment } from '../src/game/equipment.js';
 import { Bank } from '../src/game/bank.js';
 import { EventBus } from '../src/core/events.js';
 import { findPath } from '../src/engine/pathfinding.js';
@@ -192,6 +193,24 @@ test('combat is beginner-friendly: weak town mobs and a punchy starter hit', () 
   assert.ok(getNpc('goblin').maxHp <= 14 && getNpc('goblin').defence <= 4, 'goblin is squishy');
   // A fresh adventurer (Strength 15) with a bronze scimitar (+6 str) hits for 5+.
   assert.ok(maxHit(15, 3, 6) >= 5, `starter max hit ${maxHit(15, 3, 6)}`);
+});
+
+test('armour set bonuses apply only when the full set is worn', () => {
+  const eq = new Equipment(new EventBus());
+  eq.set('head', 'dragon_full_helm');
+  eq.set('body', 'dragon_platebody');
+  assert.deepEqual(eq.activeSets(), [], 'partial set gives no bonus');
+  const partial = eq.bonuses().strength;
+  eq.set('legs', 'dragon_platelegs');
+  assert.deepEqual(eq.activeSets(), ['Dragon'], 'full set detected');
+  assert.ok(eq.bonuses().strength > partial, 'set bonus added on completion');
+});
+
+test('select weapons carry special attacks', () => {
+  for (const id of ['dragon_scimitar', 'dragon_dagger', 'merlion_blade', 'cursed_cutlass']) {
+    const sp = ITEMS[id].spec;
+    assert.ok(sp && sp.name && sp.cost >= 1 && sp.cost <= 100, `${id} has a valid spec`);
+  }
 });
 
 test('combat formulas produce valid ranges', () => {

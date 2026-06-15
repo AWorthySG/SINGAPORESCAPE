@@ -438,8 +438,12 @@ html, body {
 /* ---------- Orbs (stacked on the minimap) ---------- */
 #hp-orb { bottom: -4px; left: -12px; }
 #prayer-orb { bottom: 32px; left: -16px; color: #ffd24a; }
-#run-orb { bottom: 68px; left: -12px; }
+#spec-orb { bottom: 68px; left: -16px; font-size: 10px; cursor: pointer; color: #5ad1ff; }
+#run-orb { bottom: 104px; left: -12px; }
 #prayer-orb.active { box-shadow: 0 0 10px rgba(255,210,74,0.8), inset 0 0 6px rgba(0,0,0,0.5); }
+#spec-orb.armed { box-shadow: 0 0 12px rgba(255,210,74,0.95), inset 0 0 0 2px var(--gold-hi); }
+#spec-orb.disabled { opacity: 0.4; }
+.set-bonus span:last-child { color: var(--gold-hi); font-weight: bold; }
 
 /* ---------- Prayer panel ---------- */
 #prayer-panel .prayer-pts { text-align: center; font-weight: bold; color: var(--rs-gold); margin-bottom: 6px; }

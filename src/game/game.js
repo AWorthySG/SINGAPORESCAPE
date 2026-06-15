@@ -86,6 +86,10 @@ export class Game {
     // Slayer task system.
     this.slayer = { task: null, points: 0, completed: 0 };
 
+    // Special-attack energy (spec bar).
+    this.specEnergy = 100;
+    this.specArmed = false;
+
     // Celebratory sparkle on level up; new milestones may unlock on level/quest changes.
     this.bus.on('levelup', () => {
       const c = this.player.renderCenter();
@@ -282,6 +286,7 @@ export class Game {
       if (this.player.hp < this.skills.hitpoints) { this.player.hp++; this.bus.emit('hp'); }
     }
     this.updateRunEnergy();
+    if (this.specEnergy < 100) { this.specEnergy = Math.min(100, this.specEnergy + 1); this.bus.emit('spec'); }
     this.drainPrayer();
 
     if (++this.autosaveCounter >= AUTOSAVE_TICKS) { this.autosaveCounter = 0; saveGame(this); }
@@ -525,13 +530,53 @@ export class Game {
     if (mode === 'magic') return this._magicAttack(npc);
     const { atkRoll, defRoll, max } = playerAttackVsNpc(this.skills, this.equipment, this.player.style, npc.def);
     const pm = this.prayerMult();
-    const effMax = Math.round(max * pm.str);
-    const dmg = rollAttack(atkRoll * pm.att, defRoll, effMax);
+    const baseMax = Math.round(max * pm.str);
     this._swingToward(this.player, npc.x, npc.y);
-    this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && dmg >= effMax });
-    if (dmg > 0) { this.spawnHitSparks(npc, '#fff2b0'); for (const x of combatXp(this.player.style, dmg)) this.skills.addXp(x.skill, x.xp); }
+
+    // Spend a special attack if armed and affordable.
+    const spec = this._takeSpec();
+    const accM = spec ? (spec.acc || 1) : 1;
+    const dmgM = spec ? (spec.dmg || 1) : 1;
+    const hits = spec ? (spec.hits || 1) : 1;
+    if (spec) { this.msg(`Special attack: ${spec.name}!`, 'combat'); this.spawnSparkle(this.player, '#ffd24a', 12); }
+
+    let total = 0;
+    for (let i = 0; i < hits && npc.hp > 0; i++) {
+      const effMax = Math.max(1, Math.round(baseMax * dmgM));
+      const dmg = rollAttack(atkRoll * pm.att * accM, defRoll, effMax);
+      this._applyPlayerHit(npc, dmg, { crit: spec ? dmg > 0 : dmg > 0 && dmg >= effMax });
+      if (dmg > 0) { this.spawnHitSparks(npc, spec ? '#ffd24a' : '#fff2b0'); for (const x of combatXp(this.player.style, dmg)) this.skills.addXp(x.skill, x.xp); }
+      total += dmg;
+    }
+    if (spec && spec.heal && total > 0) {
+      this.player.hp = Math.min(this.skills.hitpoints, this.player.hp + Math.round(total * spec.heal));
+      this.bus.emit('hp');
+    }
     this.player.attackCooldown = this.equipment.weaponSpeed();
     this._postAttack(npc);
+  }
+
+  /** If a melee special is armed and affordable, consume the energy and return it. */
+  _takeSpec() {
+    if (!this.specArmed) return null;
+    const id = this.equipment.get('weapon');
+    const spec = id && getItem(id).spec;
+    if (!spec || this.specEnergy < spec.cost) { this.specArmed = false; this.bus.emit('spec'); return null; }
+    this.specEnergy -= spec.cost;
+    this.specArmed = false;
+    this.bus.emit('spec');
+    return spec;
+  }
+
+  toggleSpec() {
+    const id = this.equipment.get('weapon');
+    const spec = id && getItem(id).spec;
+    if (!spec) { this.msg('This weapon has no special attack.'); return; }
+    if (this.combatMode() !== 'melee') { this.msg('Special attacks require a melee weapon.'); return; }
+    if (this.specEnergy < spec.cost) { this.msg(`You need ${spec.cost}% special energy for ${spec.name}.`); return; }
+    this.specArmed = !this.specArmed;
+    if (this.specArmed) this.msg(`${spec.name} armed — your next hit is special.`, 'system');
+    this.bus.emit('spec');
   }
 
   _applyPlayerHit(npc, dmg, opts = {}) { npc.takeDamage(dmg); this.addHitsplat(npc, dmg, opts); }

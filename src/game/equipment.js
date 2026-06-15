@@ -1,4 +1,5 @@
 import { getItem } from '../data/items.js';
+import { ARMOUR_SETS } from '../data/sets.js';
 
 export const EQUIP_SLOTS = ['head', 'cape', 'amulet', 'weapon', 'body', 'shield', 'legs', 'hands', 'feet', 'ring'];
 export const DEFAULT_WEAPON_SPEED = 5; // ticks (unarmed)
@@ -41,7 +42,31 @@ export class Equipment {
       total.magic += b.magic || 0;
       total.magicStr += b.magicStr || 0;
     }
+    // Full-set bonuses on top of individual pieces.
+    const sb = this.setBonus();
+    for (const k of Object.keys(total)) total[k] += sb[k] || 0;
     return total;
+  }
+
+  /** Aggregated bonus from every fully-worn armour set. */
+  setBonus() {
+    const b = { attack: 0, strength: 0, defence: 0, ranged: 0, magic: 0, magicStr: 0 };
+    for (const set of ARMOUR_SETS) {
+      if (set.pieces.every((id) => this._wearing(id))) {
+        for (const k of Object.keys(set.bonus)) b[k] += set.bonus[k];
+      }
+    }
+    return b;
+  }
+
+  /** Names of the armour sets currently fully worn (for UI display). */
+  activeSets() {
+    return ARMOUR_SETS.filter((set) => set.pieces.every((id) => this._wearing(id))).map((s) => s.name);
+  }
+
+  _wearing(id) {
+    for (const slot of EQUIP_SLOTS) if (this.slots[slot] === id) return true;
+    return false;
   }
 
   /** Combat style implied by the wielded weapon: 'melee' | 'ranged' | 'magic'. */

@@ -38,6 +38,7 @@ export function snapshot(game) {
     bossKills: game.bossKills,
     zonesVisited: [...game.zonesVisited],
     slayer: game.slayer,
+    specEnergy: game.specEnergy,
     settings: { running: game.running },
   };
 }
@@ -99,6 +100,7 @@ export function loadGame(game) {
       completed: Number(data.slayer.completed) || 0,
     };
   }
+  if (typeof data.specEnergy === 'number') game.specEnergy = Math.max(0, Math.min(100, data.specEnergy));
   game.running = data.settings?.running ?? game.running;
   return true;
 }
