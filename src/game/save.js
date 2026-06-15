@@ -83,7 +83,7 @@ export function loadGame(game) {
   game.player.rangedStyle = p.rangedStyle || 'accurate';
   game.player.spell = p.spell || 'wind_strike';
   game.player.autoRetaliate = p.autoRetaliate !== false;
-  if (p.name) game.player.name = p.name;
+  if (p.name && p.name !== 'Adventurer') game.player.name = p.name; // migrate old default
   if (data.quests && typeof data.quests === 'object') {
     for (const k of Object.keys(game.quests)) {
       const v = data.quests[k];

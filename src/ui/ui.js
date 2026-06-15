@@ -81,7 +81,11 @@ export class UI {
       b.innerHTML = tabIconSVG(b.dataset.view, 24);
     });
     this.el.panelHead = document.getElementById('panel-head');
+    this.el.panelTitle = document.getElementById('panel-title');
+    this.el.panelCollapse = document.getElementById('panel-collapse');
+    this.el.sidepanel = document.getElementById('sidepanel');
     this._setPanelTitle('inventory');
+    if (this.el.panelCollapse) this.el.panelCollapse.addEventListener('click', () => this.togglePanelCollapse());
 
     this._bindTabs();
     this._bindChatTabs();
@@ -154,9 +158,20 @@ export class UI {
 
   // ---------------- Tabs ----------------
   _setPanelTitle(view) {
-    if (!this.el.panelHead) return;
+    const el = this.el.panelTitle || this.el.panelHead;
+    if (!el) return;
     const titles = { inventory: 'Inventory', equipment: 'Worn Equipment', skills: 'Skills', combat: 'Combat', prayer: 'Prayers', quests: 'Quest Journal', achievements: 'Achievements', settings: 'Settings' };
-    this.el.panelHead.textContent = titles[view] || '';
+    el.textContent = titles[view] || '';
+  }
+
+  togglePanelCollapse() {
+    const sp = this.el.sidepanel;
+    if (!sp) return;
+    const collapsed = sp.classList.toggle('collapsed');
+    if (this.el.panelCollapse) {
+      this.el.panelCollapse.innerHTML = collapsed ? '&#9656;' : '&#9662;'; // ▸ collapsed / ▾ expanded
+      this.el.panelCollapse.title = collapsed ? 'Expand panel' : 'Collapse panel';
+    }
   }
 
   _bindTabs() {

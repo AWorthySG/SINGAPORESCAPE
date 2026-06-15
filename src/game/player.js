@@ -7,7 +7,7 @@ export class Player extends Character {
   constructor(x, y) {
     super(x, y);
     this.entityId = uid();
-    this.name = 'Adventurer';
+    this.name = 'A-Worthling';
     this.hp = 10;
     this.alive = true;
 
