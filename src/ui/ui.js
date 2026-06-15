@@ -10,7 +10,7 @@ import { stackLabel, capitalize, formatNumber } from '../core/utils.js';
 import { STYLE_ORDER, STYLES, RANGED_STYLE_ORDER, RANGED_STYLES } from '../game/combat.js';
 import { SPELLS } from '../data/magic.js';
 import { PRAYERS } from '../data/prayers.js';
-import { ACHIEVEMENTS } from '../data/achievements.js';
+import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
 import { QUESTS } from '../data/quests.js';
 import { SLAYER_REWARDS } from '../data/slayer.js';
 import { STATIONS, MRT_FARE } from '../data/transport.js';
@@ -524,6 +524,7 @@ export class UI {
         if (!done && a.progress) { try { prog = a.progress(game); } catch { prog = ''; } }
         html += `<div class="ach-cell ${done ? 'done' : 'locked'}" title="${escapeHtml(a.desc)}">` +
           `<b>${escapeHtml(a.name)}</b><span class="ach-desc">${escapeHtml(a.desc)}</span>` +
+          `<span class="ach-reward">&#9733; ${formatNumber(rewardFor(a.id))}</span>` +
           (done ? '<span class="ach-tick">&#10003;</span>' : (prog ? `<span class="ach-prog">${escapeHtml(prog)}</span>` : '')) +
           `</div>`;
       }
