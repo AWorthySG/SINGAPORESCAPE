@@ -261,6 +261,24 @@ export class Game {
     }
   }
 
+  // Drifting ambient motes, tinted by region, to give the world some life.
+  _spawnAmbient() {
+    if (Math.random() < 0.5) return;
+    const c = this.player.renderCenter();
+    const x = c.x + (Math.random() - 0.5) * 360;
+    const y = c.y + (Math.random() - 0.5) * 260;
+    const zone = this.currentZoneName;
+    let color = '#fff0b0';
+    if (zone === 'Pulau Hantu') color = '#b58aff';
+    else if (zone === 'The Wilderness') color = '#ff8a5a';
+    else if (zone === 'MacRitchie Reservoir' || zone === 'Sentosa Beach') color = '#bfe8ff';
+    else if (zone === 'Bukit Timah') color = '#dfff9a';
+    this._pushParticle({
+      x, y, vx: (Math.random() - 0.5) * 0.006, vy: -0.004 - Math.random() * 0.006, g: 0,
+      life: 4200 + Math.random() * 2600, maxLife: 7000, size: 1 + Math.random() * 1.3, color, add: true,
+    });
+  }
+
   // ---------------- Game tick (600ms) ----------------
   doTick() {
     this.tickCount++;
@@ -281,6 +299,7 @@ export class Game {
     if (this.player.alive) this.updateRegion();
     this.world.tick();
     this._spawnEmbers();
+    if (this.player.alive) this._spawnAmbient();
 
     if (this.player.alive && ++this.regenCounter >= 100) {
       this.regenCounter = 0;
