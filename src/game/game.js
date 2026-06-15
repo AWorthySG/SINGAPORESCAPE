@@ -35,6 +35,7 @@ import { eligibleTasks, SLAYER_REWARDS } from '../data/slayer.js';
 import { STATION_BY_ID, MRT_FARE } from '../data/transport.js';
 import { LIFE_STAGES, LIFE_GRAD, LIFE_STAGES_ADV, LIFE_GRAD_ADV } from '../data/lifeskills.js';
 import { QUESTS, CHAMPION_QP } from '../data/quests.js';
+import { CLUE_TIERS, CLUE_SPOTS, clueTierForLevel } from '../data/clues.js';
 
 const STARTER_TOOLS = ['bronze_axe', 'bronze_pickaxe', 'small_net', 'tinderbox', 'hammer', 'bronze_dagger'];
 
@@ -96,6 +97,9 @@ export class Game {
 
     // Agility course: distinct obstacles touched this lap.
     this._agilityLap = new Set();
+
+    // Active treasure trail (clue scroll), or null.
+    this.clue = null;
 
     // Special-attack energy (spec bar).
     this.specEnergy = 100;
@@ -877,7 +881,18 @@ export class Game {
       this.msg(`A rare drop! ${q > 1 ? q + ' x ' : ''}${nm}.`, 'level');
       if (getItem(pick.id).value >= 5000) this.banner(`<span class="big">Rare drop!</span>${nm}`);
     }
+    // Treasure trails: a rare clue scroll, if you aren't already carrying one.
+    if (!this.clue && !this._holdsClue()) {
+      const clueChance = Math.min(0.05, (def.level || 1) / 3000 + (def.boss ? 0.04 : 0.006));
+      if (Math.random() < clueChance) {
+        const tier = clueTierForLevel(def.level || 1);
+        this.world.addGroundItem(CLUE_TIERS[tier].item, 1, npc.x, npc.y);
+        this.msg('A clue scroll drops to the ground!', 'level');
+      }
+    }
   }
+
+  _holdsClue() { return this.inventory.slots.some((s) => s && s.id.startsWith('clue_scroll_')); }
 
   // ---------------- New skills: Prayer, Thieving, Agility ----------------
   buryBones(index) {
@@ -980,6 +995,72 @@ export class Game {
       if (this.player.hp <= 0) this.playerDeath();
     }
     return false; // one attempt per click
+  }
+
+  // ---------------- Treasure trails (clue scrolls) ----------------
+  /** Read a clue scroll: start its trail, re-show the riddle, or dig if on the spot. */
+  readClue(index) {
+    const s = this.inventory.slotAt(index);
+    if (!s || !s.id.startsWith('clue_scroll_')) return;
+    const tierKey = s.id.replace('clue_scroll_', '');
+    if (this.clue && this.clue.item === s.id) {
+      const spot = this.clue.spots[this.clue.step];
+      if (chebyshev(this.player.x, this.player.y, spot.x, spot.y) <= 1) this.digClue();
+      else this.msg(`Clue: ${spot.hint}`, 'system');
+      return;
+    }
+    if (this.clue) { this.msg('Finish your current treasure trail first.', 'system'); return; }
+    const tier = CLUE_TIERS[tierKey];
+    if (!tier) return;
+    // Build a fresh trail of distinct dig spots.
+    const pool = [...CLUE_SPOTS];
+    const spots = [];
+    for (let i = 0; i < tier.steps && pool.length; i++) spots.push(pool.splice(randInt(0, pool.length - 1), 1)[0]);
+    this.clue = { tier: tierKey, item: tier.item, casket: tier.casket, step: 0, spots };
+    this.msg(`You read the ${getItem(s.id).name}. ${spots.length} dig spots to find.`, 'level');
+    this.msg(`Clue: ${spots[0].hint}`, 'system');
+    this.bus.emit('clue');
+  }
+
+  digClue() {
+    if (!this.clue) return;
+    this.spawnPoof(this.player.x * TILE + TILE / 2, this.player.y * TILE + TILE / 2 + 4, '#caa15a');
+    this.bus.emit('sfx', 'pickup');
+    this.clue.step++;
+    if (this.clue.step >= this.clue.spots.length) {
+      const casket = this.clue.casket;
+      const itemId = this.clue.item;
+      this.clue = null;
+      const idx = this.inventory.slots.findIndex((s) => s && s.id === itemId);
+      if (idx >= 0) this.inventory.removeAt(idx, 1);
+      this.inventory.add(casket, 1);
+      this.msg('You dig up a reward casket! Open it to claim your loot.', 'level');
+      this.banner('<span class="big">Treasure found!</span>A reward casket is yours.');
+      this.spawnSparkle(this.player, '#ffd24a', 16);
+    } else {
+      this.msg(`You dig... and uncover the next clue! Clue: ${this.clue.spots[this.clue.step].hint}`, 'system');
+    }
+    this.bus.emit('clue');
+  }
+
+  /** Open a reward casket: roll its tier's loot table a few times. */
+  openCasket(index) {
+    const s = this.inventory.slotAt(index);
+    if (!s || !s.id.startsWith('reward_casket_')) return;
+    const tier = CLUE_TIERS[s.id.replace('reward_casket_', '')];
+    if (!tier) return;
+    this.inventory.removeAt(index, 1);
+    const won = [];
+    for (let i = 0; i < (tier.rolls || 2); i++) {
+      const pick = weightedPick(tier.reward);
+      const q = pick.min ? randInt(pick.min, pick.max) : 1;
+      this.inventory.add(pick.id, q);
+      won.push(`${q > 1 ? q + ' x ' : ''}${getItem(pick.id).name}`);
+    }
+    this.spawnSparkle(this.player, '#ffd24a', 16);
+    this.msg(`The casket contained: ${won.join(', ')}.`, 'level');
+    this.banner(`<span class="big">Casket loot!</span>${won.join(', ')}`);
+    this.bus.emit('clue');
   }
 
   // ---------------- Boss mechanics ----------------

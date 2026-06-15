@@ -215,6 +215,14 @@ const RAW = {
     equip: { slot: 'cape', req: { defence: 40 }, bonuses: { attack: 10, strength: 10, defence: 14, ranged: 8, magic: 8 } } },
   mark_of_grace: { name: 'Mark of grace', icon: '🪶', value: 40, stackable: true, examine: 'A token of agility — use it to catch your breath (restore run energy).' },
 
+  // ---- Clue scrolls & treasure trails ----
+  clue_scroll_easy: { name: 'Clue scroll (easy)', icon: '📜', value: 0, examine: 'Read it to begin an easy treasure trail.' },
+  clue_scroll_medium: { name: 'Clue scroll (medium)', icon: '📜', value: 0, examine: 'Read it to begin a medium treasure trail.' },
+  clue_scroll_hard: { name: 'Clue scroll (hard)', icon: '📜', value: 0, examine: 'Read it to begin a hard treasure trail.' },
+  reward_casket_easy: { name: 'Reward casket (easy)', icon: '🧰', value: 0, examine: 'Open it for your easy trail loot!' },
+  reward_casket_medium: { name: 'Reward casket (medium)', icon: '🧰', value: 0, examine: 'Open it for your medium trail loot!' },
+  reward_casket_hard: { name: 'Reward casket (hard)', icon: '🧰', value: 0, examine: 'Open it for your hard trail loot!' },
+
   // ---- Ranged: bows & arrows ----
   bronze_arrow: { name: 'Bronze arrow', icon: '🏹', value: 1, stackable: true, tags: ['ammo'], arrowStr: 7, examine: 'Arrows with bronze heads.' },
   iron_arrow: { name: 'Iron arrow', icon: '🏹', value: 3, stackable: true, tags: ['ammo'], arrowStr: 10, examine: 'Arrows with iron heads.' },

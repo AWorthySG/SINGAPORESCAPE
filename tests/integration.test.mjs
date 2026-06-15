@@ -767,3 +767,57 @@ test('stealing from a stall is level-gated', () => {
   assert.equal(game.inventory.count('coins'), before, 'no loot below the level requirement');
   assert.ok(!gem.depleted, 'stall not disturbed');
 });
+
+test('clue scrolls run a treasure trail to an openable reward casket', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const { clueTierForLevel } = await import('../src/data/clues.js');
+  assert.equal(clueTierForLevel(5), 'easy');
+  assert.equal(clueTierForLevel(25), 'medium');
+  assert.equal(clueTierForLevel(60), 'hard');
+
+  const game = new Game();
+  game.start();
+  game.inventory.add('clue_scroll_easy', 1);
+  let idx = game.inventory.slots.findIndex((s) => s && s.id === 'clue_scroll_easy');
+  game.readClue(idx); // begins the trail
+  assert.ok(game.clue && game.clue.tier === 'easy', 'a trail started');
+  const steps = game.clue.spots.length;
+  assert.ok(steps >= 1);
+
+  // Walk to each dig spot and read the clue there (which digs).
+  for (let i = 0; i < steps; i++) {
+    const spot = game.clue.spots[game.clue.step];
+    game.player.x = game.player.tx = spot.x;
+    game.player.y = game.player.ty = spot.y;
+    idx = game.inventory.slots.findIndex((s) => s && s.id === 'clue_scroll_easy');
+    game.readClue(idx);
+  }
+  assert.equal(game.clue, null, 'trail completed');
+  assert.ok(game.inventory.has('reward_casket_easy'), 'earned a reward casket');
+  assert.ok(!game.inventory.has('clue_scroll_easy'), 'clue consumed');
+
+  const coinsBefore = game.inventory.count('coins');
+  const cIdx = game.inventory.slots.findIndex((s) => s && s.id === 'reward_casket_easy');
+  game.openCasket(cIdx);
+  assert.ok(!game.inventory.has('reward_casket_easy'), 'casket consumed on open');
+  const slotsUsed = game.inventory.slots.filter(Boolean).length;
+  assert.ok(slotsUsed > 0 && (game.inventory.count('coins') >= coinsBefore), 'received loot');
+});
+
+test('reading a clue away from the dig spot only shows the hint', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.inventory.add('clue_scroll_medium', 1);
+  const idx = game.inventory.slots.findIndex((s) => s && s.id === 'clue_scroll_medium');
+  game.readClue(idx); // start
+  const step0 = game.clue.step;
+  const spot = game.clue.spots[game.clue.step];
+  // Stand far from the spot, then read again.
+  game.player.x = game.player.tx = spot.x + 10;
+  game.player.y = game.player.ty = spot.y + 10;
+  game.readClue(idx);
+  assert.equal(game.clue.step, step0, 'no progress unless you are on the dig spot');
+});
