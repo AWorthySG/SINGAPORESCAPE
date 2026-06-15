@@ -543,8 +543,11 @@ function rock(ctx, ore, depleted, cx, cy) {
     ctx.lineTo(cx + 8, cy - 8); ctx.lineTo(cx + 12, cy + 2); ctx.lineTo(cx + 8, cy + 10);
   });
   ctx.fill(); line(ctx, 'rgba(30,30,34,0.5)', 2);
+  // shaded lower-right facet for 3D form
+  ctx.fillStyle = 'rgba(20,20,26,0.22)';
+  path(ctx, () => { ctx.moveTo(cx + 2, cy - 4); ctx.lineTo(cx + 12, cy + 2); ctx.lineTo(cx + 8, cy + 10); ctx.lineTo(cx - 1, cy + 9); }); ctx.fill();
   // top highlight
-  ctx.fillStyle = 'rgba(255,255,255,0.14)';
+  ctx.fillStyle = 'rgba(255,255,255,0.16)';
   path(ctx, () => { ctx.moveTo(cx - 9, cy - 7); ctx.lineTo(cx - 1, cy - 11); ctx.lineTo(cx + 2, cy - 4); ctx.lineTo(cx - 6, cy - 2); }); ctx.fill();
   if (!depleted && ore) {
     ctx.fillStyle = ore;

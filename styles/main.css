@@ -468,15 +468,23 @@ html, body {
     repeating-linear-gradient(-45deg, #2bb3a3 0 2px, transparent 2px 26px);
 }
 #splash.hidden { display: none !important; }
-.splash-inner { position: relative; text-align: center; padding: 28px; max-width: 440px; }
+.splash-inner {
+  position: relative; text-align: center; padding: 32px 30px 26px; max-width: 440px;
+  background: linear-gradient(180deg, rgba(23,63,58,0.74), rgba(14,42,39,0.84));
+  border: 4px solid transparent; border-image: var(--tile-trim) 6 round; border-radius: 12px;
+  box-shadow: 0 20px 54px rgba(0,0,0,0.6), inset 0 0 0 2px rgba(0,0,0,0.4), inset 0 0 26px rgba(43,179,163,0.12);
+}
 .splash-logo {
   width: 132px; height: auto; margin-bottom: 8px;
   filter: drop-shadow(0 6px 18px rgba(43,179,163,0.5));
   animation: splashFloat 4s ease-in-out infinite;
 }
 .splash-title {
-  font-size: 42px; font-weight: 800; letter-spacing: 1px; color: var(--gold-hi);
-  text-shadow: 0 2px 0 #000, 0 0 24px rgba(230,179,74,0.4); margin: 4px 0 6px;
+  font-size: 44px; font-weight: 800; letter-spacing: 1px; margin: 4px 0 6px;
+  background: linear-gradient(180deg, #fff0bf, #e6b34a 58%, #b07f24);
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 0 #2a1a0c) drop-shadow(0 0 18px rgba(230,179,74,0.35));
 }
 .splash-sub { color: var(--text); opacity: 0.88; margin-bottom: 24px; font-size: 14px; }
 .splash-sub b { color: var(--teal); }
@@ -487,11 +495,16 @@ html, body {
   box-shadow: 0 6px 18px rgba(0,0,0,0.5), inset 0 0 0 2px var(--gold-hi);
   transition: transform .08s ease, filter .12s ease;
 }
-#splash-enter:hover { filter: brightness(1.1); transform: translateY(-1px); }
+#splash-enter:hover { filter: brightness(1.12); transform: translateY(-1px); animation: none; }
 #splash-enter:active { transform: translateY(1px); }
 .splash-controls { margin-top: 20px; font-size: 12px; opacity: 0.6; }
 @keyframes splashIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes splashFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+#splash-enter { animation: enterPulse 2.4s ease-in-out infinite; }
+@keyframes enterPulse {
+  0%, 100% { box-shadow: 0 6px 18px rgba(0,0,0,0.5), inset 0 0 0 2px var(--gold-hi); }
+  50% { box-shadow: 0 6px 26px rgba(216,86,111,0.55), 0 0 24px rgba(230,179,74,0.5), inset 0 0 0 2px var(--gold-hi); }
+}
 
 /* ---------- Region / zone label ---------- */
 #region-label {
