@@ -174,12 +174,22 @@ const RAW = {
     equip: { slot: 'body', req: { defence: 40 }, bonuses: { defence: 48 } } },
   treant_shield: { name: 'Treant shield', icon: '🛡️', value: 75000, examine: 'Living bark that turns aside blows.',
     equip: { slot: 'shield', req: { defence: 45 }, bonuses: { defence: 50 } } },
+  megalodon_jaw: { name: 'Megalodon jaw', icon: '🦈', value: 160000, examine: 'The serrated jaw of the Sentosa Megalodon.',
+    equip: { slot: 'weapon', req: { attack: 60 }, bonuses: { attack: 78, strength: 72, speed: 5 } } },
+  phantom_robe: { name: 'Phantom robe', icon: '🥼', value: 95000, examine: 'Woven from the mist of the Changi Phantom.',
+    equip: { slot: 'body', req: { magic: 50, defence: 40 }, bonuses: { magic: 22, magicStr: 2, defence: 14 } } },
+  djinn_lamp: { name: 'Djinn lamp', icon: '🪔', value: 110000, examine: 'A lamp that channels the Pulau Hantu Djinn.',
+    equip: { slot: 'amulet', req: { magic: 50 }, bonuses: { magic: 18, magicStr: 3, attack: 6 } } },
+  revenant_cape: { name: 'Revenant cape', icon: '🧣', value: 130000, examine: 'Tattered shroud of the Bukit Brown Revenant.',
+    equip: { slot: 'cape', req: { defence: 50 }, bonuses: { attack: 8, strength: 8, defence: 12 } } },
 
   // ---- Ranged: bows & arrows ----
   bronze_arrow: { name: 'Bronze arrow', icon: '🏹', value: 1, stackable: true, tags: ['ammo'], arrowStr: 7, examine: 'Arrows with bronze heads.' },
   iron_arrow: { name: 'Iron arrow', icon: '🏹', value: 3, stackable: true, tags: ['ammo'], arrowStr: 10, examine: 'Arrows with iron heads.' },
   steel_arrow: { name: 'Steel arrow', icon: '🏹', value: 6, stackable: true, tags: ['ammo'], arrowStr: 16, examine: 'Arrows with steel heads.' },
   mithril_arrow: { name: 'Mithril arrow', icon: '🏹', value: 12, stackable: true, tags: ['ammo'], arrowStr: 22, examine: 'Arrows with mithril heads.' },
+  adamant_arrow: { name: 'Adamant arrow', icon: '🏹', value: 24, stackable: true, tags: ['ammo'], arrowStr: 31, examine: 'Arrows with adamant heads.' },
+  rune_arrow: { name: 'Rune arrow', icon: '🏹', value: 50, stackable: true, tags: ['ammo'], arrowStr: 49, examine: 'Arrows with runite heads.' },
   shortbow: { name: 'Shortbow', icon: '🏹', value: 50, examine: 'A simple shortbow.',
     equip: { slot: 'weapon', combatType: 'ranged', req: { ranged: 1 }, bonuses: { ranged: 8, speed: 3 } } },
   oak_shortbow: { name: 'Oak shortbow', icon: '🏹', value: 120, examine: 'A shortbow of oak.',
@@ -240,6 +250,7 @@ const _METALS = [
   { k: 'mithril', n: 'Mithril', ra: 20, rd: 20, m: 3.5, v: 14 },
   { k: 'adamant', n: 'Adamant', ra: 30, rd: 30, m: 4.7, v: 34 },
   { k: 'rune', n: 'Rune', ra: 40, rd: 40, m: 7.2, v: 120 },
+  { k: 'dragon', n: 'Dragon', ra: 60, rd: 60, m: 9.5, v: 340 },
 ];
 const _WEAPONS = [
   ['dagger', 'dagger', 4, 3, 4, 10], ['sword', 'sword', 5, 5, 5, 26], ['scimitar', 'scimitar', 7, 6, 4, 32],

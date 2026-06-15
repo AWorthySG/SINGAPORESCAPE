@@ -98,11 +98,11 @@ test('loading a weak save floors stats to the baseline', () => {
   assert.ok(skills.level('woodcutting') > 1); // existing progress preserved
 });
 
-test('bestiary has 220 monsters and 25 bosses, all well-formed', () => {
-  assert.equal(MONSTER_IDS.length, 220);
-  assert.equal(BOSS_IDS.length, 25);
+test('bestiary has 280 monsters and 30 bosses, all well-formed', () => {
+  assert.equal(MONSTER_IDS.length, 280);
+  assert.equal(BOSS_IDS.length, 30);
   const ids = new Set([...MONSTER_IDS, ...BOSS_IDS]);
-  assert.equal(ids.size, 245); // all ids unique
+  assert.equal(ids.size, 310); // all ids unique
   for (const id of MONSTER_IDS) {
     const n = getNpc(id);
     assert.ok(n.attackable && n.sprite && n.color && n.level >= 1, `mob ${id} well-formed`);
@@ -168,6 +168,18 @@ test('the tiered equipment generator produced a large gear set', () => {
   assert.ok(weapons.length >= 45, `weapons: ${weapons.length}`);
   assert.ok(armour.length >= 50, `armour pieces: ${armour.length}`);
   assert.ok(ITEMS.rune_2h_sword && ITEMS.bronze_gauntlets && ITEMS.mithril_boots);
+});
+
+test('the Dragon tier and new boss uniques exist with icons', () => {
+  for (const id of ['dragon_scimitar', 'dragon_2h_sword', 'dragon_platebody', 'dragon_kiteshield', 'dragon_full_helm']) {
+    assert.ok(ITEMS[id] && ITEMS[id].equip, `${id} is equippable`);
+    assert.ok(hasIcon(id), `${id} has an icon`);
+    assert.equal(ITEMS[id].equip.req.attack || ITEMS[id].equip.req.defence, 60, `${id} is end-game tier`);
+  }
+  for (const id of ['megalodon_jaw', 'phantom_robe', 'djinn_lamp', 'revenant_cape', 'adamant_arrow', 'rune_arrow']) {
+    assert.ok(ITEMS[id], `${id} exists`);
+    assert.ok(hasIcon(id), `${id} has an icon`);
+  }
 });
 
 test('combat formulas produce valid ranges', () => {
