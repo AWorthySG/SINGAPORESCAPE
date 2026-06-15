@@ -65,6 +65,13 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
     return staged(ctx, cx, cy, opts, (c) => {
       if (opts.boss) bossAura(c, opts.time || 0);
       arch(c, opts.color || '#8a8a8a');
+      // Soft upper sheen for volume (fades out, so it only lifts the body).
+      const sg = c.createRadialGradient(-3, -5, 0, -3, -5, 10);
+      sg.addColorStop(0, 'rgba(255,255,255,0.13)');
+      sg.addColorStop(1, 'rgba(255,255,255,0)');
+      c.globalCompositeOperation = 'lighter';
+      c.fillStyle = sg; circle(c, -3, -5, 10); c.fill();
+      c.globalCompositeOperation = 'source-over';
       if (opts.boss) crown(c);
     });
   }
