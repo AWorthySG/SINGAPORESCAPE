@@ -92,7 +92,7 @@ export class NPC extends Character {
         }
         if (this.attackCooldown <= 0) {
           game.resolveNpcAttack(this);
-          this.attackCooldown = this.def.attackSpeed || 4;
+          this.attackCooldown = Math.max(2, (this.def.attackSpeed || 4) - 2);
         }
       } else if (!this.isMoving || this.repathCooldown <= 0) {
         // Chase: path to a tile adjacent to the target.
