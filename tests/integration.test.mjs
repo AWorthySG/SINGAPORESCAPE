@@ -821,3 +821,69 @@ test('reading a clue away from the dig spot only shows the hint', () => {
   game.readClue(idx);
   assert.equal(game.clue.step, step0, 'no progress unless you are on the dig spot');
 });
+
+test('good/evil alignment rises with heroism and cruelty', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.player.hp = 9999;
+  assert.equal(game.alignment(), 0, 'starts neutral');
+
+  const agg = game.npcs.find((n) => n.attackable && n.def.aggressive && !n.def.boss);
+  const passive = game.npcs.find((n) => n.attackable && !n.def.aggressive && !n.def.boss);
+  assert.ok(agg && passive, 'both an aggressive and a harmless creature exist');
+
+  const good0 = game.karma.good;
+  game.killNpc(agg);
+  assert.ok(game.karma.good > good0, 'slaying an aggressive foe is good');
+
+  const evil0 = game.karma.evil;
+  game.killNpc(passive);
+  assert.ok(game.karma.evil > evil0, 'cutting down a harmless creature is evil');
+});
+
+test('thieving is evil; honouring the dead is good', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.player.hp = 9999;
+
+  game.inventory.add('bones', 1);
+  const bi = game.inventory.slots.findIndex((s) => s && s.id === 'bones');
+  const good0 = game.karma.good;
+  game.buryBones(bi);
+  assert.ok(game.karma.good > good0, 'burying bones is a small good');
+
+  game.skills.addXp('thieving', 200000);
+  const stall = game.world.objects.find((o) => o.objId === 'stall_food');
+  const evil0 = game.karma.evil;
+  for (let i = 0; i < 12; i++) { stall.depleted = false; game.player.hp = 9999; game.stealFromStall(stall); }
+  assert.ok(game.karma.evil > evil0, 'stealing tips you toward evil');
+});
+
+test('alignment yields a title and shifts shop prices', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.karma = { good: 100, evil: 0 };
+  assert.equal(game.alignmentTitle().cls, 'good');
+  assert.ok(game.karmaFactor().buy < 1 && game.karmaFactor().sell > 1, 'the virtuous are trusted: cheaper buys, better sells');
+  game.karma = { good: 0, evil: 100 };
+  assert.equal(game.alignmentTitle().cls, 'evil');
+  assert.ok(game.karmaFactor().buy > 1 && game.karmaFactor().sell < 1, 'the wicked are gouged');
+});
+
+test('alignment survives save/load', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const g1 = new Game();
+  g1.start();
+  g1.karma = { good: 17, evil: 4 };
+  assert.ok(saveGame(g1));
+  const g2 = new Game();
+  assert.ok(loadGame(g2));
+  assert.deepEqual(g2.karma, { good: 17, evil: 4 });
+});
