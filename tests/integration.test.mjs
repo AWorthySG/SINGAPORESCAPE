@@ -705,3 +705,65 @@ test('quest points accrue and gate the Champion of Singapore capstone', async ()
   assert.equal(game.quests.champion.state, 'done');
   assert.ok(game.inventory.has('champions_cape'), 'awarded the Champion cape');
 });
+
+test('agility obstacles grant XP/run energy, and finishing a lap yields a Mark of grace', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.skills.addXp('agility', 13000); // ~level 29, enough for every obstacle
+  const find = (id) => game.world.objects.find((o) => o.objId === id);
+  const xp0 = game.skills.xp.agility;
+  game.runEnergy = 0;
+  // Touch three distinct obstacles, then ride the zip-line (the finish).
+  for (const id of ['agility_balance', 'agility_net', 'agility_rope']) game.resolveAgility(find(id));
+  game.resolveAgility(find('agility_zip'));
+  assert.ok(game.skills.xp.agility > xp0, 'agility xp increased');
+  assert.ok(game.runEnergy > 0, 'run energy recovered on the course');
+  assert.ok(game.inventory.has('mark_of_grace'), 'completing a lap awards a Mark of grace');
+});
+
+test('a Mark of grace can be used to restore run energy', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.inventory.add('mark_of_grace', 1);
+  game.runEnergy = 10;
+  const idx = game.inventory.slots.findIndex((s) => s && s.id === 'mark_of_grace');
+  game.useMarkOfGrace(idx);
+  assert.ok(game.runEnergy > 10, 'run energy restored');
+  assert.equal(game.inventory.count('mark_of_grace'), 0, 'the mark was consumed');
+});
+
+test('thieving stalls give loot + XP and deplete on a successful steal', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.player.hp = 9999;
+  game.skills.addXp('thieving', 200000); // max thieving -> ~95% success
+  const stall = game.world.objects.find((o) => o.objId === 'stall_food');
+  assert.ok(stall, 'a hawker stall exists');
+  const xp0 = game.skills.xp.thieving;
+  let depleted = false;
+  for (let i = 0; i < 30 && !depleted; i++) {
+    stall.depleted = false;
+    game.stealFromStall(stall);
+    if (stall.depleted) depleted = true;
+  }
+  assert.ok(depleted, 'a successful steal empties the stall');
+  assert.ok(game.skills.xp.thieving > xp0, 'thieving xp gained');
+});
+
+test('stealing from a stall is level-gated', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  const gem = game.world.objects.find((o) => o.objId === 'stall_gem'); // needs Thieving 25
+  const before = game.inventory.count('coins');
+  game.stealFromStall(gem); // level 1 player -> blocked
+  assert.equal(game.inventory.count('coins'), before, 'no loot below the level requirement');
+  assert.ok(!gem.depleted, 'stall not disturbed');
+});

@@ -176,6 +176,56 @@ export const OBJECTS = {
     name: 'Agility course', label: 'Agility', type: 'agility', verb: 'Train at', emoji: '🏃', blocking: true,
     skill: 'agility', xp: 18, examine: 'Clamber across to train your Agility.',
   },
+  // A rooftop-style obstacle loop in Bukit Timah. Train each in turn; finishing a
+  // full lap (touching every obstacle) grants a bonus and a Mark of grace.
+  agility_balance: {
+    name: 'Balance beam', label: 'Beam', type: 'agility', verb: 'Cross', emoji: '🪵', blocking: false,
+    skill: 'agility', level: 1, xp: 22, markChance: 0.05, examine: 'Tip-toe across the beam. (Agility 1)',
+  },
+  agility_net: {
+    name: 'Cargo net', label: 'Net', type: 'agility', verb: 'Climb', emoji: '🕸️', blocking: false,
+    skill: 'agility', level: 5, xp: 30, markChance: 0.06, examine: 'Scramble up the net. (Agility 5)',
+  },
+  agility_rope: {
+    name: 'Rope swing', label: 'Rope', type: 'agility', verb: 'Swing on', emoji: '🪢', blocking: false,
+    skill: 'agility', level: 10, xp: 38, markChance: 0.07, examine: 'Swing across the gap. (Agility 10)',
+  },
+  agility_ledge: {
+    name: 'Narrow ledge', label: 'Ledge', type: 'agility', verb: 'Edge across', emoji: '🧗', blocking: false,
+    skill: 'agility', level: 15, xp: 46, markChance: 0.08, examine: 'Shuffle along the ledge. (Agility 15)',
+  },
+  agility_zip: {
+    name: 'Zip-line', label: 'Zip', type: 'agility', verb: 'Ride', emoji: '🛝', blocking: false,
+    skill: 'agility', level: 20, xp: 60, markChance: 0.10, finish: true, examine: 'Ride the zip-line home. (Agility 20)',
+  },
+
+  // ---------------- Thieving stalls ----------------
+  // Steal from a stall: success yields loot + XP and empties the stall briefly;
+  // failure stuns you. Loot is one weighted pick per successful theft.
+  stall_food: {
+    name: 'Hawker stall', label: 'Hawker stall', type: 'stall', verb: 'Steal-from', emoji: '🍢', blocking: true,
+    skill: 'thieving', level: 1, xp: 16, respawn: 4, examine: 'A food stall, ripe for a cheeky steal. (Thieving 1)',
+    loot: [
+      { id: 'coins', min: 5, max: 25, weight: 50 },
+      { id: 'kaya_toast', weight: 20 }, { id: 'roti_prata', weight: 14 }, { id: 'chicken_rice', weight: 8 },
+    ],
+  },
+  stall_market: {
+    name: 'Market stall', label: 'Market stall', type: 'stall', verb: 'Steal-from', emoji: '🛍️', blocking: true,
+    skill: 'thieving', level: 12, xp: 40, respawn: 6, examine: 'A bric-a-brac stall. (Thieving 12)',
+    loot: [
+      { id: 'coins', min: 25, max: 90, weight: 50 },
+      { id: 'sapphire', weight: 10 }, { id: 'emerald', weight: 5 }, { id: 'gold_ore', weight: 14 },
+    ],
+  },
+  stall_gem: {
+    name: 'Gem stall', label: 'Gem stall', type: 'stall', verb: 'Steal-from', emoji: '💎', blocking: true,
+    skill: 'thieving', level: 25, xp: 75, respawn: 9, examine: 'Glittering gems, lightly guarded. (Thieving 25)',
+    loot: [
+      { id: 'coins', min: 60, max: 200, weight: 40 },
+      { id: 'sapphire', weight: 16 }, { id: 'emerald', weight: 12 }, { id: 'ruby', weight: 7 }, { id: 'diamond', weight: 2 },
+    ],
+  },
 
   // ---------------- Scenery (blocking decor) ----------------
   wall: { name: 'Wall', type: 'scenery', emoji: '🧱', blocking: true, examine: 'A stone wall.' },

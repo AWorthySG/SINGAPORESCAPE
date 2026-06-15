@@ -213,6 +213,7 @@ const RAW = {
     equip: { slot: 'cape', req: {}, bonuses: { attack: 4, strength: 4, defence: 6 } } },
   champions_cape: { name: "Champion's cape", icon: '🧣', value: 200000, examine: 'Only the Champion of Singapore may wear it.',
     equip: { slot: 'cape', req: { defence: 40 }, bonuses: { attack: 10, strength: 10, defence: 14, ranged: 8, magic: 8 } } },
+  mark_of_grace: { name: 'Mark of grace', icon: '🪶', value: 40, stackable: true, examine: 'A token of agility — use it to catch your breath (restore run energy).' },
 
   // ---- Ranged: bows & arrows ----
   bronze_arrow: { name: 'Bronze arrow', icon: '🏹', value: 1, stackable: true, tags: ['ammo'], arrowStr: 7, examine: 'Arrows with bronze heads.' },

@@ -94,6 +94,9 @@ export class Game {
     // Slayer task system.
     this.slayer = { task: null, points: 0, completed: 0 };
 
+    // Agility course: distinct obstacles touched this lap.
+    this._agilityLap = new Set();
+
     // Special-attack energy (spec bar).
     this.specEnergy = 100;
     this.specArmed = false;
@@ -499,6 +502,7 @@ export class Game {
       });
       case 'thieve': return this._tickArrival(a, a.target, true, () => this.pickpocket(a.npc));
       case 'agility': return this._tickContinuous(a, a.obj, () => this.resolveAgility(a.obj));
+      case 'stall': return this._tickContinuous(a, a.obj, () => this.stealFromStall(a.obj));
       case 'transport': return this._tickArrival(a, a.target, true, () => this.ui?.openTransport(a.obj));
       case 'openbank': return this._tickArrival(a, a.target, true, () => this.ui?.openBank());
       case 'openshop': return this._tickArrival(a, a.target, true, () => this.ui?.openShop(a.shop));
@@ -909,11 +913,73 @@ export class Game {
   }
 
   resolveAgility(obj) {
-    this.skills.addXp('agility', obj.def.xp || 18);
+    const d = obj.def;
+    if (d.level && this.skills.level('agility') < d.level) {
+      this.msg(`You need Agility level ${d.level} for the ${d.name}.`, 'system');
+      return false;
+    }
+    this.skills.addXp('agility', d.xp || 18);
     this.runEnergy = Math.min(100, this.runEnergy + 8);
     this.bus.emit('run');
     this.spawnPoof(obj.x * TILE + TILE / 2, obj.y * TILE + TILE / 2 - 6, '#8fd6ff');
-    return true; // keep training until the player moves
+
+    // Course lap tracking: touching every distinct obstacle once = a lap.
+    if (d.markChance !== undefined) {
+      this._agilityLap.add(obj.uid);
+      let mark = Math.random() < d.markChance;
+      if (d.finish && this._agilityLap.size >= 3) {
+        // Completing the loop at the finish line: lap bonus + a guaranteed mark.
+        this.skills.addXp('agility', Math.round((d.xp || 30) * 0.6));
+        this._agilityLap.clear();
+        mark = true;
+        this.msg('You complete a lap of the course!', 'system');
+      }
+      if (mark) {
+        this.inventory.add('mark_of_grace', 1);
+        this.spawnSparkle(this.player, '#5fd0a0', 8);
+        this.msg('You find a Mark of grace.', 'system');
+      }
+    }
+    return d.finish ? false : true; // pause after the finish line; otherwise keep training
+  }
+
+  // Spend a Mark of grace to catch your breath (restore run energy).
+  useMarkOfGrace(index) {
+    const s = this.inventory.slotAt(index);
+    if (!s || s.id !== 'mark_of_grace') return;
+    this.inventory.removeAt(index, 1);
+    this.runEnergy = Math.min(100, this.runEnergy + 30);
+    this.bus.emit('run');
+    this.spawnSparkle(this.player, '#5fd0a0', 8);
+    this.msg('You use a Mark of grace and feel re-energised.', 'system');
+  }
+
+  // ---------------- Thieving: market stalls ----------------
+  stealFromStall(obj) {
+    const d = obj.def;
+    if (obj.depleted) { this.msg('The stall has nothing left — wait for it to restock.', 'system'); return false; }
+    const lvl = this.skills.level('thieving');
+    if (d.level && lvl < d.level) { this.msg(`You need Thieving level ${d.level} to steal from the ${d.name}.`, 'system'); return false; }
+    // Success scales with level over the stall's requirement.
+    const chance = Math.min(0.95, 0.5 + (lvl - (d.level || 1)) * 0.012);
+    if (Math.random() < chance) {
+      const pick = weightedPick(d.loot);
+      const qty = pick.min ? randInt(pick.min, pick.max) : 1;
+      this.inventory.add(pick.id, qty);
+      this.skills.addXp('thieving', d.xp || 16);
+      this.spawnSparkle(this.player, '#ffe24a', 6);
+      const name = getItem(pick.id).name;
+      this.msg(`You steal ${qty > 1 ? qty + ' x ' : ''}${name} from the ${d.name}.`, 'system');
+      obj.depleted = true; obj.respawnTimer = d.respawn || 5; // the stall is emptied briefly
+      this.bus.emit('sfx', 'pickup');
+    } else {
+      const dmg = randInt(1, 3);
+      this.player.takeDamage(dmg); this.addHitsplat(this.player, dmg); this.bus.emit('hp');
+      this.playerStun = 3;
+      this.msg(`You're caught stealing from the ${d.name} and are stunned!`, 'combat');
+      if (this.player.hp <= 0) this.playerDeath();
+    }
+    return false; // one attempt per click
   }
 
   // ---------------- Boss mechanics ----------------
@@ -1060,6 +1126,7 @@ export class Game {
       case 'shrine': return this.beginAction({ type: 'pray', obj }, tgt, true);
       case 'rest': return this.beginAction({ type: 'rest', obj }, tgt, true);
       case 'agility': return this.beginAction({ type: 'agility', obj }, tgt, true);
+      case 'stall': return this.beginAction({ type: 'stall', obj }, tgt, true);
       case 'transport': return this.beginAction({ type: 'transport', obj, target: tgt }, tgt, true);
       default: return this.walkTo(tgt);
     }
