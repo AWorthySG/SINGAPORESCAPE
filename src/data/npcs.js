@@ -240,6 +240,8 @@ const TOWNSFOLK = {
   fletcher: { name: 'Fletcher', level: 0, attackable: false, role: 'shop', wander: 0, examine: 'He sells bows, arrows and ranged armour.', shop: 'archery' },
   slayer_master: { name: 'Slayer Master Rajan', level: 0, attackable: false, role: 'dialogue', wander: 0, examine: 'He assigns Slayer tasks to the worthy.', dialogue: 'slayer' },
   skills_tutor: { name: 'Cikgu Surya', level: 0, attackable: false, role: 'dialogue', wander: 0, examine: 'A patient teacher of the island\'s trades.', dialogue: 'tutor' },
+  light_priestess: { name: 'Sister Mei', level: 0, attackable: false, role: 'dialogue', wander: 0, examine: 'A serene priestess who offers the path of redemption.', dialogue: 'priestess' },
+  shadow_broker: { name: 'The Tempter', level: 0, attackable: false, role: 'dialogue', wander: 0, examine: 'A hooded figure who whispers of corruption.', dialogue: 'tempter' },
   villager: { name: 'Villager', level: 0, attackable: false, role: 'dialogue', wander: 5, examine: 'A local resident.', dialogue: 'villager' },
 };
 

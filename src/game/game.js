@@ -34,7 +34,7 @@ import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
 import { eligibleTasks, SLAYER_REWARDS } from '../data/slayer.js';
 import { STATION_BY_ID, MRT_FARE } from '../data/transport.js';
 import { LIFE_STAGES, LIFE_GRAD, LIFE_STAGES_ADV, LIFE_GRAD_ADV } from '../data/lifeskills.js';
-import { QUESTS, CHAMPION_QP } from '../data/quests.js';
+import { QUESTS, CHAMPION_QP, REDEMPTION_GOAL, CORRUPTION_GOAL } from '../data/quests.js';
 import { CLUE_TIERS, CLUE_SPOTS, clueTierForLevel } from '../data/clues.js';
 
 const STARTER_TOOLS = ['bronze_axe', 'bronze_pickaxe', 'small_net', 'tinderbox', 'hammer', 'bronze_dagger'];
@@ -83,6 +83,8 @@ export class Game {
       life_skills: { state: 'notStarted', stage: 0, base: 0 },
       life_skills_adv: { state: 'notStarted', stage: 0, base: 0 },
       champion: { state: 'notStarted', startBoss: 0 },
+      redemption: { state: 'notStarted', baseGood: 0 },
+      corruption: { state: 'notStarted', baseEvil: 0 },
     };
 
     // Achievement / collection-log progress.
@@ -1381,7 +1383,80 @@ export class Game {
     else if (action === 'lifeAdvRemind') this.remindLife('life_skills_adv');
     else if (action === 'championStart') this.startChampion();
     else if (action === 'championTurnIn') this.turnInChampion();
+    else if (action === 'redemptionStart') this.startRedemption();
+    else if (action === 'redemptionTurnIn') this.turnInRedemption();
+    else if (action === 'redemptionRemind') this.remindRedemption();
+    else if (action === 'corruptionStart') this.startCorruption();
+    else if (action === 'corruptionTurnIn') this.turnInCorruption();
+    else if (action === 'corruptionRemind') this.remindCorruption();
     this.bus.emit('quest');
+  }
+
+  // ---------------- Redemption & corruption arc ----------------
+  startRedemption() {
+    const q = this.quests.redemption;
+    if (q.state === 'done') { this.msg('Sister Mei: You walk in the light now, child.', 'system'); return; }
+    if (q.state === 'active') { this.remindRedemption(); return; }
+    if (this.karma.evil < 10) { this.msg('Sister Mei: Your heart is not yet burdened by sin. Go in peace.', 'system'); return; }
+    q.state = 'active';
+    q.baseGood = this.karma.good;
+    this.msg(`Quest started — The Path of Redemption: perform good works (+${REDEMPTION_GOAL} good karma) to atone.`, 'level');
+    this.banner('<span class="big">Quest started!</span>The Path of Redemption');
+  }
+
+  remindRedemption() {
+    const q = this.quests.redemption;
+    if (q.state !== 'active') { this.msg('Sister Mei: Tell me if you wish to atone.', 'system'); return; }
+    const done = Math.max(0, this.karma.good - (q.baseGood || 0));
+    this.msg(`Sister Mei: Continue your penance through good deeds. (${Math.min(done, REDEMPTION_GOAL)}/${REDEMPTION_GOAL})`, 'system');
+  }
+
+  turnInRedemption() {
+    const q = this.quests.redemption;
+    if (q.state === 'done') { this.msg('Sister Mei: You are redeemed, child.', 'system'); return; }
+    if (q.state !== 'active') { this.msg('Sister Mei: Seek atonement first.', 'system'); return; }
+    const done = this.karma.good - (q.baseGood || 0);
+    if (done < REDEMPTION_GOAL) { this.msg(`Sister Mei: Your penance is not complete. (${Math.max(0, done)}/${REDEMPTION_GOAL})`, 'system'); return; }
+    this.karma.evil = 0; // sins washed away
+    this.inventory.add('blessed_halo', 1);
+    q.state = 'done';
+    this.spawnSparkle(this.player, '#ffe9a8', 18);
+    this.msg('Quest complete — The Path of Redemption! Your evil is washed away. You receive the Blessed halo.', 'level');
+    this.banner('<span class="big">Redeemed!</span>Your sins are forgiven.');
+    this.bus.emit('karma');
+  }
+
+  startCorruption() {
+    const q = this.quests.corruption;
+    if (q.state === 'done') { this.msg('The Tempter: The darkness is already yours, friend.', 'system'); return; }
+    if (q.state === 'active') { this.remindCorruption(); return; }
+    if (this.alignment() > -10) { this.msg('The Tempter: You are too... pure. Taste some wickedness first, then return to me.', 'system'); return; }
+    q.state = 'active';
+    q.baseEvil = this.karma.evil;
+    this.msg(`Quest started — The Path of Corruption: deepen your evil (+${CORRUPTION_GOAL} evil karma) to be reborn in darkness.`, 'level');
+    this.banner('<span class="big">Quest started!</span>The Path of Corruption');
+  }
+
+  remindCorruption() {
+    const q = this.quests.corruption;
+    if (q.state !== 'active') { this.msg('The Tempter: Ask, and the dark path opens.', 'system'); return; }
+    const done = Math.max(0, this.karma.evil - (q.baseEvil || 0));
+    this.msg(`The Tempter: Feed your darkness with wicked deeds. (${Math.min(done, CORRUPTION_GOAL)}/${CORRUPTION_GOAL})`, 'system');
+  }
+
+  turnInCorruption() {
+    const q = this.quests.corruption;
+    if (q.state === 'done') { this.msg('The Tempter: You are mine already.', 'system'); return; }
+    if (q.state !== 'active') { this.msg('The Tempter: Embrace the path first.', 'system'); return; }
+    const done = this.karma.evil - (q.baseEvil || 0);
+    if (done < CORRUPTION_GOAL) { this.msg(`The Tempter: Not dark enough yet. (${Math.max(0, done)}/${CORRUPTION_GOAL})`, 'system'); return; }
+    this.karma.good = 0; // forsake the light
+    this.inventory.add('shadow_cloak', 1);
+    q.state = 'done';
+    this.spawnSparkle(this.player, '#6a4a8a', 18);
+    this.msg('Quest complete — The Path of Corruption! You forsake the light. You receive the Shadow cloak.', 'level');
+    this.banner('<span class="big">Corrupted!</span>Darkness is your ally now.');
+    this.bus.emit('karma');
   }
 
   // ---------------- Trades of the Island (life-skills quest lines) ----------------

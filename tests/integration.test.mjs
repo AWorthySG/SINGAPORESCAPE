@@ -887,3 +887,45 @@ test('alignment survives save/load', () => {
   assert.ok(loadGame(g2));
   assert.deepEqual(g2.karma, { good: 17, evil: 4 });
 });
+
+test('redemption arc: atone to cleanse evil and earn the Blessed halo', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const { REDEMPTION_GOAL } = await import('../src/data/quests.js');
+  const game = new Game();
+  game.start();
+  assert.ok(game.npcs.some((n) => n.npcId === 'light_priestess'), 'Sister Mei is in the world');
+
+  game.handleDialogueAction('redemptionStart');
+  assert.equal(game.quests.redemption.state, 'notStarted', 'cannot atone without sin');
+  game.karma = { good: 0, evil: 20 };
+  game.handleDialogueAction('redemptionStart');
+  assert.equal(game.quests.redemption.state, 'active', 'penance begins');
+  game.handleDialogueAction('redemptionTurnIn');
+  assert.equal(game.quests.redemption.state, 'active', 'not enough good works yet');
+  game.addGood(REDEMPTION_GOAL);
+  game.handleDialogueAction('redemptionTurnIn');
+  assert.equal(game.quests.redemption.state, 'done');
+  assert.equal(game.karma.evil, 0, 'evil is washed away');
+  assert.ok(game.inventory.has('blessed_halo'), 'rewarded the Blessed halo');
+});
+
+test('corruption arc: embrace darkness to forsake the light and earn the Shadow cloak', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const { CORRUPTION_GOAL } = await import('../src/data/quests.js');
+  const game = new Game();
+  game.start();
+  assert.ok(game.npcs.some((n) => n.npcId === 'shadow_broker'), 'the Tempter is in the world');
+
+  game.handleDialogueAction('corruptionStart');
+  assert.equal(game.quests.corruption.state, 'notStarted', 'too pure to corrupt');
+  game.karma = { good: 0, evil: 15 }; // alignment -15
+  game.handleDialogueAction('corruptionStart');
+  assert.equal(game.quests.corruption.state, 'active');
+  game.addEvil(CORRUPTION_GOAL);
+  game.handleDialogueAction('corruptionTurnIn');
+  assert.equal(game.quests.corruption.state, 'done');
+  assert.equal(game.karma.good, 0, 'the light is forsaken');
+  assert.ok(game.inventory.has('shadow_cloak'), 'rewarded the Shadow cloak');
+});

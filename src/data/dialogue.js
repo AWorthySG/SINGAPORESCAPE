@@ -161,6 +161,32 @@ export const DIALOGUES = {
     },
   },
 
+  priestess: {
+    start: {
+      speaker: 'Sister Mei',
+      text: 'Peace be with you, adventurer. If darkness has crept into your heart, know that the path of redemption is always open. Atone through good works, and your sins can be washed away.',
+      options: [
+        { label: 'I wish to atone for my sins.', next: 'start', action: 'redemptionStart' },
+        { label: 'I have done my penance.', next: 'start', action: 'redemptionTurnIn' },
+        { label: 'What must I do?', next: 'start', action: 'redemptionRemind' },
+        { label: 'Farewell.', next: 'end' },
+      ],
+    },
+  },
+
+  tempter: {
+    start: {
+      speaker: 'The Tempter',
+      text: 'Heh heh... the righteous are so very weak. Embrace your darker nature, and I shall grant you power beyond their reckoning. All you must do is... let go.',
+      options: [
+        { label: 'Show me the path of corruption.', next: 'start', action: 'corruptionStart' },
+        { label: 'My corruption is complete.', next: 'start', action: 'corruptionTurnIn' },
+        { label: 'What must I do?', next: 'start', action: 'corruptionRemind' },
+        { label: 'I refuse your offer.', next: 'end' },
+      ],
+    },
+  },
+
   villager: {
     start: {
       speaker: 'Villager',
