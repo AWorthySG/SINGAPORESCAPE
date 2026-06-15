@@ -435,22 +435,45 @@ function human(ctx, p) {
 // ================= PLAYER =================
 export function drawPlayer(ctx, cx, cy, opts = {}) {
   staged(ctx, cx, cy, opts, (c) => {
-    // legs
+    const body = opts.hasBody ? '#b9c2cc' : '#5b8c4a';
+    const bodyHi = opts.hasBody ? '#dbe2ea' : '#74a85e';
+    const bodyDk = opts.hasBody ? '#8a96a2' : '#46702f';
+    // cape (behind everything), sways with motion
+    if (opts.hasCape) {
+      const sw = Math.sin((opts.time || 0) * 0.012) * 1.4;
+      c.fillStyle = '#8a2f44';
+      path(c, () => { c.moveTo(-6, -4); c.lineTo(6, -4); c.lineTo(8 + sw, 13); c.lineTo(-8 + sw, 13); });
+      c.fill();
+      c.fillStyle = '#a83a52'; rr(c, -6, -5, 12, 3, 1); c.fill();
+    }
+    // legs + boots
     c.fillStyle = '#2f3a52'; rr(c, -5, 6, 4, 8, 2); c.fill(); rr(c, 1, 6, 4, 8, 2); c.fill();
-    // torso (armour tint if body equipped)
-    rr(c, -7, -5, 14, 13, 4); fill(c, opts.hasBody ? '#b9c2cc' : '#5b8c4a'); line(c);
-    c.fillStyle = opts.hasBody ? '#9aa6b2' : '#4d7a3e'; rr(c, -7, 1, 14, 3, 1); c.fill();
+    c.fillStyle = '#23150c'; rr(c, -5.5, 12, 5, 3, 1.5); c.fill(); rr(c, 0.5, 12, 5, 3, 1.5); c.fill();
+    // torso (armour tint if body equipped) with edge shading
+    rr(c, -7, -5, 14, 13, 4); fill(c, body); line(c);
+    c.fillStyle = bodyHi; rr(c, -7, -5, 4, 13, 4); c.fill();          // left highlight
+    c.fillStyle = bodyDk; rr(c, 4, -5, 3, 13, 3); c.fill();           // right shadow
+    c.fillStyle = '#3a2a14'; rr(c, -7, 2, 14, 2.4, 1); c.fill();      // belt
+    c.fillStyle = '#e6b34a'; rr(c, -1.4, 2, 2.8, 2.4, 0.6); c.fill();    // buckle
     // arms
-    c.fillStyle = opts.hasBody ? '#b9c2cc' : '#5b8c4a'; rr(c, -10, -3, 4, 9, 2); c.fill(); rr(c, 6, -3, 4, 9, 2); c.fill();
+    c.fillStyle = body; rr(c, -10, -3, 4, 9, 2); c.fill(); rr(c, 6, -3, 4, 9, 2); c.fill();
     c.fillStyle = '#e8b98a'; circle(c, -8, 6, 2); c.fill(); circle(c, 8, 6, 2); c.fill();
-    // head + hair
+    // head + hair (+ helmet if worn)
     circle(c, 0, -11, 6.8); fill(c, '#e8b98a'); line(c);
-    c.fillStyle = '#46301c'; path(c, () => { c.arc(0, -12, 6.9, Math.PI, Math.PI * 2); }); c.fill();
+    c.fillStyle = 'rgba(255,255,255,0.25)'; circle(c, -2.4, -12.5, 2); c.fill(); // cheek light
+    if (opts.hasHelm) {
+      c.fillStyle = '#9aa6b2'; path(c, () => { c.arc(0, -11, 7.2, Math.PI, 0); }); c.fill();
+      c.fillStyle = '#cfd6dd'; rr(c, -7, -12, 14, 2.2, 1); c.fill();
+    } else {
+      c.fillStyle = '#46301c'; path(c, () => { c.arc(0, -12, 6.9, Math.PI, Math.PI * 2); }); c.fill();
+    }
     circle(c, -2.3, -11, 0.9); fill(c, '#1a140d'); circle(c, 2.3, -11, 0.9); fill(c, '#1a140d');
     // weapon
     if (opts.hasWeapon) {
       c.strokeStyle = '#e9edf2'; c.lineWidth = 2.4;
       c.beginPath(); c.moveTo(10, 11); c.lineTo(14, -9); c.stroke();
+      c.strokeStyle = '#cfe0ff'; c.lineWidth = 0.9;
+      c.beginPath(); c.moveTo(10.6, 9); c.lineTo(13.6, -7); c.stroke(); // blade glint
       c.strokeStyle = '#8a6a3a'; c.lineWidth = 2; c.beginPath(); c.moveTo(8, 9); c.lineTo(12, 6); c.stroke();
     }
   });
