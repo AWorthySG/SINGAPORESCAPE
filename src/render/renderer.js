@@ -1,6 +1,7 @@
 import { TILE } from '../config.js';
 import { TERRAIN } from '../data/world.js';
 import { getItem } from '../data/items.js';
+import { weaknessOf } from '../game/combat.js';
 import { drawShadow, drawCreature, drawPlayer, drawObjectSprite, drawGroundItem } from './sprites.js';
 
 // Base terrain colours (RGB). Water is drawn procedurally.
@@ -429,11 +430,25 @@ export class Renderer {
     for (const n of game.npcs) {
       if (!n.alive) continue;
       const boss = n.def.boss;
-      if (!boss && n.combatLatch <= 0) continue;
+      const targeted = n === game.player.target;
+      if (!boss && n.combatLatch <= 0 && n.telegraph <= 0 && !targeted) continue;
       const c = n.renderCenter();
       const sc = n.def.scale || 1;
       const yo = -(20 * sc) - 6;
-      this._healthBar(c.x - ox, c.y - oy + yo, n.hp / n.maxHp, boss);
+      if (boss || n.combatLatch > 0 || targeted) this._healthBar(c.x - ox, c.y - oy + yo, n.hp / n.maxHp, boss);
+      if (targeted) {
+        const px = c.x - ox, py = c.y - oy + yo + 12;
+        ctx.font = 'bold 9px "Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+        const tag = `weak: ${weaknessOf(n.def)}`;
+        ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.lineWidth = 3; ctx.strokeText(tag, px, py);
+        ctx.fillStyle = '#9affd0'; ctx.fillText(tag, px, py);
+      }
+      if (n.telegraph > 0) {
+        const px = c.x - ox, py = c.y - oy + yo - 12;
+        ctx.font = 'bold 18px "Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+        ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.lineWidth = 4; ctx.strokeText('!', px, py);
+        ctx.fillStyle = '#ff5a5a'; ctx.fillText('!', px, py);
+      }
       if (boss) {
         const px = c.x - ox, py = c.y - oy + yo - 6;
         ctx.font = 'bold 11px "Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';

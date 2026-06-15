@@ -16,9 +16,11 @@ import { NPC } from './npc.js';
 import { Camera } from '../engine/camera.js';
 import { findPath } from '../engine/pathfinding.js';
 import {
-  playerAttackVsNpc, npcAttackVsPlayer, rollAttack, combatXp,
+  playerAttackVsNpc, npcAttackVsPlayer, rollAttack, rollGuaranteed, combatXp,
   playerRangedVsNpc, combatXpRanged, playerMagicVsNpc, RANGED_STYLES,
+  weaknessOf, WEAKNESS_BONUS,
 } from './combat.js';
+import { ABILITIES, ABILITY_BY_ID } from '../data/abilities.js';
 import { getSpell } from '../data/magic.js';
 import { PRAYERS, PRAYER_BY_ID, PRAYER_GROUPS } from '../data/prayers.js';
 import {
@@ -92,6 +94,12 @@ export class Game {
     // Special-attack energy (spec bar).
     this.specEnergy = 100;
     this.specArmed = false;
+
+    // Active-combat layer: adrenaline fuels abilities; brace mitigates heavy hits.
+    this.adrenaline = 0;
+    this.armedAbility = null;     // ability armed for the next attack
+    this.abilityCd = {};          // ability id -> ticks until usable again
+    this.braceTicks = 0;          // ticks of halved incoming damage left
 
     // Celebratory sparkle on level up; new milestones may unlock on level/quest changes.
     this.bus.on('levelup', () => {
@@ -309,6 +317,7 @@ export class Game {
     }
     this.updateRunEnergy();
     if (this.specEnergy < 100) { this.specEnergy = Math.min(100, this.specEnergy + 1); this.bus.emit('spec'); }
+    this._tickCombatResources();
     this.drainPrayer();
 
     if (++this.autosaveCounter >= AUTOSAVE_TICKS) { this.autosaveCounter = 0; saveGame(this); }
@@ -557,23 +566,19 @@ export class Game {
     const baseMax = Math.round(max * pm.str);
     this._swingToward(this.player, npc.x, npc.y);
 
-    // Spend a special attack if armed and affordable.
-    const spec = this._takeSpec();
-    const accM = spec ? (spec.acc || 1) : 1;
-    const dmgM = spec ? (spec.dmg || 1) : 1;
-    const hits = spec ? (spec.hits || 1) : 1;
-    if (spec) { this.msg(`Special attack: ${spec.name}!`, 'combat'); this.spawnSparkle(this.player, '#ffd24a', 12); }
-
+    // Fold together special attack + armed ability + style-weakness bonuses.
+    const mods = this._offensiveMods(npc, 'melee');
+    const fancy = mods.spec || mods.ability;
     let total = 0;
-    for (let i = 0; i < hits && npc.hp > 0; i++) {
-      const effMax = Math.max(1, Math.round(baseMax * dmgM));
-      const dmg = rollAttack(atkRoll * pm.att * accM, defRoll, effMax);
-      this._applyPlayerHit(npc, dmg, { crit: spec ? dmg > 0 : dmg > 0 && dmg >= effMax });
-      if (dmg > 0) { this.spawnHitSparks(npc, spec ? '#ffd24a' : '#fff2b0'); for (const x of combatXp(this.player.style, dmg)) this.skills.addXp(x.skill, x.xp); }
+    for (let i = 0; i < mods.hits && npc.hp > 0; i++) {
+      const effMax = Math.max(1, Math.round(baseMax * mods.dmgM));
+      const dmg = mods.guaranteed ? rollGuaranteed(effMax) : rollAttack(atkRoll * pm.att * mods.accM, defRoll, effMax);
+      this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (fancy || dmg >= effMax) });
+      if (dmg > 0) { this.spawnHitSparks(npc, fancy ? '#ffd24a' : '#fff2b0'); for (const x of combatXp(this.player.style, dmg)) this.skills.addXp(x.skill, x.xp); }
       total += dmg;
     }
-    if (spec && spec.heal && total > 0) {
-      this.player.hp = Math.min(this.skills.hitpoints, this.player.hp + Math.round(total * spec.heal));
+    if (mods.heal && total > 0) {
+      this.player.hp = Math.min(this.skills.hitpoints, this.player.hp + Math.round(total * mods.heal));
       this.bus.emit('hp');
     }
     this.player.attackCooldown = this.equipment.weaponSpeed();
@@ -602,10 +607,111 @@ export class Game {
     this.bus.emit('spec');
   }
 
-  _applyPlayerHit(npc, dmg, opts = {}) { npc.takeDamage(dmg); this.addHitsplat(npc, dmg, opts); if (dmg > 0) this.bus.emit('sfx', 'hit'); }
+  // ---------------- Active-combat resources & abilities ----------------
+  _inCombat() {
+    if (this.player.action && this.player.action.type === 'attack') return true;
+    return this.npcs.some((n) => n.alive && n.target === this.player);
+  }
+
+  _tickCombatResources() {
+    let changed = false;
+    for (const id of Object.keys(this.abilityCd)) {
+      if (this.abilityCd[id] > 0) { this.abilityCd[id]--; changed = true; }
+    }
+    if (this.braceTicks > 0) this.braceTicks--;
+    // Adrenaline ebbs away once you leave a fight, so abilities are a combat tool.
+    if (!this._inCombat() && this.adrenaline > 0) { this.adrenaline = Math.max(0, this.adrenaline - 4); changed = true; }
+    if (changed) { this.bus.emit('adrenaline'); this.bus.emit('ability'); }
+  }
+
+  _gainAdrenaline(n) {
+    if (n <= 0) return;
+    this.adrenaline = Math.min(100, this.adrenaline + n);
+    this.bus.emit('adrenaline');
+  }
+
+  /** Activate (or arm) a combat ability from the action bar / hotkey. */
+  activateAbility(id) {
+    const ab = ABILITY_BY_ID[id];
+    if (!ab) return;
+    if ((this.abilityCd[id] || 0) > 0) { this.msg(`${ab.name} is on cooldown.`, 'system'); return; }
+    if (this.adrenaline < ab.cost) { this.msg(`You need ${ab.cost}% adrenaline for ${ab.name}.`, 'system'); return; }
+    if (ab.kind === 'attack') {
+      // Toggle-arm like a special; spent and put on cooldown when the hit lands.
+      this.armedAbility = this.armedAbility === id ? null : id;
+      if (this.armedAbility) this.msg(`${ab.name} readied — your next hit unleashes it.`, 'system');
+      this.bus.emit('ability');
+      return;
+    }
+    // Immediate abilities (guard / heal) resolve right away.
+    this.adrenaline -= ab.cost;
+    this.abilityCd[id] = ab.cd;
+    if (ab.kind === 'guard') {
+      this.braceTicks = ab.guardTicks;
+      this.msg('You brace for impact — incoming damage halved!', 'system');
+      this.spawnSparkle(this.player, '#7fd8ff', 12);
+      this.bus.emit('sfx', 'spec');
+    } else if (ab.kind === 'heal') {
+      const heal = Math.max(1, Math.round(this.skills.hitpoints * ab.healFrac));
+      this.player.hp = Math.min(this.skills.hitpoints, this.player.hp + heal);
+      this.msg(`Second Wind restores ${heal} life.`, 'system');
+      this.spawnSparkle(this.player, '#7fff8f', 14);
+      this.bus.emit('hp');
+      this.bus.emit('sfx', 'eat');
+    }
+    this.bus.emit('adrenaline');
+    this.bus.emit('ability');
+  }
+
+  /** Consume an armed offensive ability for the current hit (spends adrenaline). */
+  _takeAbility() {
+    if (!this.armedAbility) return null;
+    const ab = ABILITY_BY_ID[this.armedAbility];
+    this.armedAbility = null;
+    if (!ab || ab.kind !== 'attack' || this.adrenaline < ab.cost || (this.abilityCd[ab.id] || 0) > 0) {
+      this.bus.emit('ability');
+      return null;
+    }
+    this.adrenaline -= ab.cost;
+    this.abilityCd[ab.id] = ab.cd;
+    this.bus.emit('adrenaline');
+    this.bus.emit('ability');
+    return ab;
+  }
+
+  /** Combined offensive modifiers from an armed special + ability + weakness. */
+  _offensiveMods(npc, mode) {
+    const spec = this._takeSpec();
+    const ab = this._takeAbility();
+    const weak = weaknessOf(npc.def) === mode;
+    let accM = (spec ? spec.acc || 1 : 1) * (weak ? WEAKNESS_BONUS.acc : 1);
+    let dmgM = (spec ? spec.dmg || 1 : 1) * (ab ? ab.dmgMul || 1 : 1) * (weak ? WEAKNESS_BONUS.dmg : 1);
+    // Magic casts once (rune cost), so its extra hits are ignored.
+    const maxHits = mode === 'magic' ? 1 : Infinity;
+    const hits = Math.min(maxHits, Math.max(spec ? spec.hits || 1 : 1, ab ? ab.hits || 1 : 1));
+    const guaranteed = !!(ab && ab.guaranteed);
+    const heal = spec ? spec.heal || 0 : 0;
+    if (spec) { this.msg(`Special attack: ${spec.name}!`, 'combat'); this.spawnSparkle(this.player, '#ffd24a', 12); }
+    if (ab) { this.msg(`Ability: ${ab.name}!`, 'combat'); this.spawnSparkle(this.player, '#ff9a3a', 10); this.bus.emit('sfx', 'spec'); }
+    if (weak) this.spawnSparkle(npc, '#9affd0', 6);
+    return { accM, dmgM, hits, guaranteed, heal, spec, ability: ab, weak };
+  }
+
+  _applyPlayerHit(npc, dmg, opts = {}) {
+    npc.takeDamage(dmg);
+    this.addHitsplat(npc, dmg, opts);
+    if (dmg > 0) { this.bus.emit('sfx', 'hit'); this._gainAdrenaline(10); }
+  }
   _postAttack(npc) {
     if (!npc.target) npc.target = this.player; // provoke retaliation
     if (npc.hp <= 0) { this.killNpc(npc); this.player.clearAction(); }
+  }
+
+  /** A monster is winding up a heavy blow — flash a warning the player can react to. */
+  npcTelegraph(npc) {
+    this.spawnSparkle(npc, '#ff5a5a', 8);
+    this.bus.emit('sfx', 'spec');
+    if ((npc.def.level || 0) >= 30) this.msg(`${npc.name} is winding up a heavy attack — Brace yourself!`, 'combat');
   }
 
   _rangedAttack(npc) {
@@ -616,25 +722,24 @@ export class Game {
     const { atkRoll, defRoll, max } = playerRangedVsNpc(this.skills, this.equipment, style, npc.def, arrowStr);
     const pr = this.prayerMult().ranged;
     const baseMax = Math.round(max * pr);
-    const spec = this._takeSpec();
-    const accM = spec ? (spec.acc || 1) : 1, dmgM = spec ? (spec.dmg || 1) : 1, hits = spec ? (spec.hits || 1) : 1;
-    if (spec) { this.msg(`Special attack: ${spec.name}!`, 'combat'); this.spawnSparkle(this.player, '#ffd24a', 10); }
+    const mods = this._offensiveMods(npc, 'ranged');
+    const fancy = mods.spec || mods.ability;
     this._swingToward(this.player, npc.x, npc.y);
     let total = 0;
-    for (let i = 0; i < hits && npc.hp > 0; i++) {
+    for (let i = 0; i < mods.hits && npc.hp > 0; i++) {
       if (i > 0) { // extra shots consume extra arrows
         const ai = this.inventory.slots.findIndex((s) => s && getItem(s.id).tags?.includes('ammo'));
         if (ai === -1) break;
         this.inventory.removeAt(ai, 1);
       } else { this.inventory.removeAt(arrowIdx, 1); }
-      const effMax = Math.max(1, Math.round(baseMax * dmgM));
-      const dmg = rollAttack(atkRoll * pr * accM, defRoll, effMax);
-      this._projectile(npc, spec ? '#ffd24a' : '#d9c45a');
-      this._applyPlayerHit(npc, dmg, { crit: spec ? dmg > 0 : dmg > 0 && dmg >= effMax });
-      if (dmg > 0) { this.spawnHitSparks(npc, spec ? '#ffd24a' : '#cfe0a0'); for (const x of combatXpRanged(style, dmg)) this.skills.addXp(x.skill, x.xp); }
+      const effMax = Math.max(1, Math.round(baseMax * mods.dmgM));
+      const dmg = mods.guaranteed ? rollGuaranteed(effMax) : rollAttack(atkRoll * pr * mods.accM, defRoll, effMax);
+      this._projectile(npc, fancy ? '#ffd24a' : '#d9c45a');
+      this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (fancy || dmg >= effMax) });
+      if (dmg > 0) { this.spawnHitSparks(npc, fancy ? '#ffd24a' : '#cfe0a0'); for (const x of combatXpRanged(style, dmg)) this.skills.addXp(x.skill, x.xp); }
       total += dmg;
     }
-    if (spec && spec.heal && total > 0) { this.player.hp = Math.min(this.skills.hitpoints, this.player.hp + Math.round(total * spec.heal)); this.bus.emit('hp'); }
+    if (mods.heal && total > 0) { this.player.hp = Math.min(this.skills.hitpoints, this.player.hp + Math.round(total * mods.heal)); this.bus.emit('hp'); }
     this.player.attackCooldown = Math.max(2, this.equipment.weaponSpeed() + (RANGED_STYLES[style]?.speedMod || 0));
     this._postAttack(npc);
   }
@@ -645,14 +750,13 @@ export class Game {
     if (!this._hasRunes(spell)) { this.msg(`You don't have the runes to cast ${spell.name}.`); this.player.clearAction(); return; }
     this._consumeRunes(spell);
     const { atkRoll, defRoll, max } = playerMagicVsNpc(this.skills, this.equipment, spell, npc.def);
-    const spec = this._takeSpec();
-    const accM = spec ? (spec.acc || 1) : 1;
-    const effMax = spec ? Math.max(1, Math.round(max * (spec.dmg || 1))) : max;
-    if (spec) { this.msg(`Special attack: ${spec.name}!`, 'combat'); this.spawnSparkle(this.player, '#c06ad0', 12); this.bus.emit('sfx', 'spec'); }
-    const dmg = rollAttack(atkRoll * this.prayerMult().magic * accM, defRoll, effMax);
+    const mods = this._offensiveMods(npc, 'magic');
+    const fancy = mods.spec || mods.ability;
+    const effMax = Math.max(1, Math.round(max * mods.dmgM));
+    const dmg = mods.guaranteed ? rollGuaranteed(effMax) : rollAttack(atkRoll * this.prayerMult().magic * mods.accM, defRoll, effMax);
     this._swingToward(this.player, npc.x, npc.y);
-    this._projectile(npc, spec ? '#e0a0ff' : spell.tint);
-    this._applyPlayerHit(npc, dmg, { crit: spec ? dmg > 0 : dmg > 0 && dmg >= max });
+    this._projectile(npc, fancy ? '#e0a0ff' : spell.tint);
+    this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (fancy || dmg >= effMax) });
     this.skills.addXp('magic', spell.xp);
     if (dmg > 0) { this.spawnHitSparks(npc, spell.tint); this.skills.addXp('magic', dmg * 2); this.skills.addXp('hitpoints', dmg * 1.33); }
     this.player.attackCooldown = this.equipment.weaponSpeed();
@@ -668,17 +772,21 @@ export class Game {
     this.effects.push({ type: 'projectile', x: from.x, y: from.y - 8, ex: to.x, ey: to.y - 8, color, life: 240, maxLife: 240 });
   }
 
-  resolveNpcAttack(npc) {
+  resolveNpcAttack(npc, opts = {}) {
     const p = this.player;
     if (!p.alive) return;
     this._swingToward(npc, p.x, p.y);
     const { atkRoll, defRoll, max } = npcAttackVsPlayer(npc.def, this.skills, this.equipment, p.style);
-    let dmg = rollAttack(atkRoll, defRoll * this.prayerMult().def, max);
+    const heavy = !!opts.heavy;
+    let dmg = rollAttack(atkRoll, defRoll * this.prayerMult().def, heavy ? Math.round(max * 2) : max);
+    if (heavy && dmg === 0) dmg = Math.max(1, Math.round(max * 1.2)); // a telegraphed blow always stings
     const prot = this.protectFactor();
     if (prot) dmg = Math.floor(dmg * (1 - prot));
+    if (this.braceTicks > 0) dmg = Math.floor(dmg * 0.5); // the Brace ability soaks the blow
     p.takeDamage(dmg);
-    this.addHitsplat(p, dmg);
-    if (dmg > 0) { this.spawnHitSparks(p, '#ff8a8a'); this.bus.emit('sfx', 'hurt'); }
+    this.addHitsplat(p, dmg, { crit: heavy && dmg > 0 });
+    if (dmg > 0) { this.spawnHitSparks(p, heavy ? '#ff5a5a' : '#ff8a8a'); this.bus.emit('sfx', 'hurt'); this._gainAdrenaline(heavy ? 10 : 5); }
+    if (heavy) this.msg(`${npc.name} unleashes a heavy blow${this.braceTicks > 0 ? ' — you brace and soften it!' : '!'}`, 'combat');
     this.bus.emit('hp');
     if (p.autoRetaliate && (!p.action || p.action.type !== 'attack')) this.attackNpc(npc);
     if (p.hp <= 0) this.playerDeath();
