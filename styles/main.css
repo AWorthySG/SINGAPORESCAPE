@@ -128,8 +128,16 @@ html, body {
   font-size: 11px; font-weight: 800; text-align: center; line-height: 33px;
   z-index: 21; color: #fff; text-shadow: 1px 1px 0 #000;
   background: radial-gradient(circle at 36% 28%, rgba(255,255,255,0.42), rgba(0,0,0,0.12) 48%, #06201c 100%);
-  box-shadow: 0 2px 6px rgba(0,0,0,0.5), inset 0 0 0 2px rgba(230,179,74,0.7);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5), inset 0 0 0 2px rgba(230,179,74,0.7), inset 0 -3px 6px rgba(0,0,0,0.45);
+  transition: transform .12s ease, box-shadow .12s ease;
 }
+/* glassy top reflection */
+.orb::after {
+  content: ""; position: absolute; left: 22%; top: 12%; width: 46%; height: 32%;
+  border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle at 50% 40%, rgba(255,255,255,0.55), rgba(255,255,255,0));
+}
+.orb:hover { transform: scale(1.08); }
 #hp-orb  { bottom: -2px; left: -12px; color: #ff9fb0; }
 #run-orb { bottom: 34px; left: -16px; font-size: 10px; cursor: pointer; color: var(--gold-hi); }
 #run-orb.active { box-shadow: 0 0 12px rgba(43,179,163,0.8), inset 0 0 0 2px var(--teal); }
@@ -614,3 +622,15 @@ html, body {
   margin: 4px 0 20px; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; opacity: 0.75;
 }
 .splash-cobrand img { height: 46px; border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,0.45); }
+
+/* ---------- Extra visual polish (interactive sheen) ---------- */
+.item-cell { transition: transform .08s ease, box-shadow .1s ease, background .1s ease; }
+.item-cell:hover { transform: translateY(-1px); box-shadow: 0 3px 9px rgba(0,0,0,0.45), inset 0 0 0 1px var(--gold-hi); z-index: 2; }
+#modal-title { text-shadow: 0 1px 2px #000, 0 0 14px rgba(230,179,74,0.45); }
+.tab-btn { transition: filter .12s ease, background .12s ease, box-shadow .12s ease; }
+.tab-btn.active { box-shadow: inset 0 0 0 2px var(--gold-hi), 0 0 10px rgba(230,179,74,0.35); }
+.dialogue-option { transition: background .08s ease, transform .06s ease; }
+.dialogue-option:hover { transform: translateX(2px); }
+#banner { box-shadow: 0 10px 30px rgba(0,0,0,0.6), inset 0 0 0 2px rgba(0,0,0,0.4), inset 0 0 22px rgba(230,179,74,0.12); }
+.skill-cell, .prayer-cell, .ach-cell, .quest-row, .bestiary-row { transition: background .1s ease, box-shadow .1s ease, transform .08s ease; }
+.skill-cell:hover, .prayer-cell:hover { transform: translateY(-1px); box-shadow: inset 0 0 0 1px rgba(230,179,74,0.4); }

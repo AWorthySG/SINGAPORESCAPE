@@ -310,19 +310,28 @@ export class Renderer {
   }
 
   _water(ctx, w, x, y, sx, sy, timeMs) {
+    const land = (tt) => tt !== TERRAIN.WATER;
+    const shore = land(w.terrainAt(x, y - 1)) || land(w.terrainAt(x, y + 1)) || land(w.terrainAt(x - 1, y)) || land(w.terrainAt(x + 1, y));
     const wave = Math.sin((x + y) * 0.7 + timeMs * 0.0016) * 8 + Math.sin((x - y) * 0.5 + timeMs * 0.0011) * 6;
-    ctx.fillStyle = `rgb(${36 + wave * 0.4|0},${104 + wave|0},${156 + wave|0})`;
+    // Deeper water reads darker/greener; shallows near shore are brighter teal.
+    const d = shore ? 22 : 0;
+    ctx.fillStyle = `rgb(${(30 + d * 0.4 + wave * 0.4) | 0},${(96 + d + wave) | 0},${(150 + d * 0.6 + wave) | 0})`;
     ctx.fillRect(sx, sy, TILE + 1, TILE + 1);
-    // moving highlights
+    // caustic shimmer (two drifting bands)
     const hl = (Math.sin((x * 1.3 + y * 0.7) + timeMs * 0.002) + 1) / 2;
-    if (hl > 0.6) {
-      ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    if (hl > 0.55) {
+      ctx.fillStyle = 'rgba(190,240,255,0.14)';
       const yy = sy + ((timeMs * 0.02 + x * 9) % TILE);
-      ctx.fillRect(sx + 4, yy, TILE - 8, 1.5);
+      ctx.fillRect(sx + 3, yy, TILE - 6, 1.6);
+    }
+    const hl2 = (Math.sin((x * 0.6 - y * 1.1) + timeMs * 0.0013) + 1) / 2;
+    if (hl2 > 0.7) {
+      ctx.fillStyle = 'rgba(255,255,255,0.10)';
+      const yy = sy + ((timeMs * 0.013 + y * 7) % TILE);
+      ctx.fillRect(sx + 5, yy, TILE - 12, 1.2);
     }
     // foam on shore edges
-    const land = (tt) => tt !== TERRAIN.WATER;
-    ctx.fillStyle = 'rgba(220,240,255,0.5)';
+    ctx.fillStyle = 'rgba(225,243,255,0.55)';
     if (land(w.terrainAt(x, y - 1))) ctx.fillRect(sx, sy, TILE + 1, 2);
     if (land(w.terrainAt(x, y + 1))) ctx.fillRect(sx, sy + TILE - 1, TILE + 1, 2);
     if (land(w.terrainAt(x - 1, y))) ctx.fillRect(sx, sy, 2, TILE + 1);
