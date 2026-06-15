@@ -241,6 +241,28 @@ test('deposit all moves the whole inventory into the bank', () => {
   assert.equal(game.bank.count('logs'), logsBefore, 'logs now in the bank');
 });
 
+test('pillars quest tracks both landmarks and rewards the sigil', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.handleDialogueAction('pillarsStart');
+  assert.equal(game.quests.pillars.state, 'active');
+
+  // Turning in early fails until both pillars are honoured.
+  game.handleDialogueAction('pillarsTurnIn');
+  assert.equal(game.quests.pillars.state, 'active', 'cannot complete without both pillars');
+
+  game.markPillar('monument');
+  game.markPillar('obelisk');
+  assert.ok(game.quests.pillars.monument && game.quests.pillars.obelisk);
+
+  game.handleDialogueAction('pillarsTurnIn');
+  assert.equal(game.quests.pillars.state, 'done');
+  assert.ok(game.inventory.has('worthy_sigil'), 'received the A-Worthy Sigil');
+  assert.ok(game.achievements.has('pillars'), 'sigil achievement unlocked');
+});
+
 test('eating food heals the player', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();

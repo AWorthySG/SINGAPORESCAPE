@@ -150,6 +150,8 @@ const RAW = {
     equip: { slot: 'amulet', req: {}, bonuses: { strength: 8, defence: 2 } } },
 
   // ---- Accessories (amulets / rings / capes) ----
+  worthy_sigil: { name: 'A-Worthy Sigil', icon: '📿', value: 25000, examine: 'A blessing earned by honouring the island\'s two pillars.',
+    equip: { slot: 'amulet', req: {}, bonuses: { attack: 12, strength: 12, defence: 10 } } },
   amulet_of_strength: { name: 'Amulet of strength', icon: '📿', value: 2000, examine: 'Boosts raw power.',
     equip: { slot: 'amulet', req: {}, bonuses: { strength: 10 } } },
   amulet_of_glory: { name: 'Amulet of glory', icon: '📿', value: 8000, examine: 'A glorious amulet.',

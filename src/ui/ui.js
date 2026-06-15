@@ -440,11 +440,16 @@ export class UI {
       : s === 'active' ? '<span class="q-active">In progress</span>'
         : '<span class="q-todo">Not started</span>';
     const pc = q.pest_control;
-    const done = [q.bone_collector.state, pc.state].filter((s) => s === 'done').length;
+    const pl = q.pillars;
+    const states = [q.bone_collector.state, pc.state, pl.state];
+    const done = states.filter((s) => s === 'done').length;
+    const pillarsProgress = pl.state === 'active'
+      ? ` (${(pl.monument ? 1 : 0) + (pl.obelisk ? 1 : 0)}/2 honoured)` : '';
     this.el.questPanel.innerHTML =
-      `<div class="quest-head">Quests complete: ${done} / 2</div>` +
+      `<div class="quest-head">Quests complete: ${done} / ${states.length}</div>` +
       `<div class="quest-row"><b>A Bag of Bones</b>${status(q.bone_collector.state)}<span class="q-desc">Bring 10 bones to the Kampong Guide.</span></div>` +
-      `<div class="quest-row"><b>Pest Control</b>${status(pc.state)}<span class="q-desc">Slay 8 giant rats${pc.state === 'active' ? ` (${pc.kills}/8)` : ''}.</span></div>`;
+      `<div class="quest-row"><b>Pest Control</b>${status(pc.state)}<span class="q-desc">Slay 8 giant rats${pc.state === 'active' ? ` (${pc.kills}/8)` : ''}.</span></div>` +
+      `<div class="quest-row"><b>Pillars of the Island</b>${status(pl.state)}<span class="q-desc">Pray at the A-Worthy Monument &amp; rest at the Hyco obelisk${pillarsProgress}.</span></div>`;
   }
 
   // ---------------- Achievements / collection log ----------------

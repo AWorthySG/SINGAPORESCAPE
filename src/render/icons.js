@@ -331,6 +331,8 @@
   I.coif = helm('#7a5530', '#9a734a'); I.leather_chaps = legs('#7a5530', '#9a734a'); I.studded_body = plate('#6a4a2a', '#8a6a3a');
   I.wizard_hat = hatIcon('#2f3a8a'); I.wizard_robe_top = plate('#2f3a8a', '#4a5ad0'); I.wizard_robe_bottom = legs('#2f3a8a', '#4a5ad0');
   I.mystic_hat = hatIcon('#2a2a5a'); I.mystic_top = plate('#3a3a7a', '#6a6ad0'); I.mystic_bottom = legs('#3a3a7a', '#6a6ad0');
+  // A-Worthy Sigil — a blue medallion bearing the A Worthy arch + plus mark.
+  I.worthy_sigil = `<path d="M9 4 Q12 1.5 15 4" fill="none" stroke="${C.gold}" stroke-width="1.4"/><circle cx="12" cy="14" r="7.6" fill="#2b5c91" stroke="${OL}" stroke-width="1.2"/><circle cx="12" cy="14" r="6" fill="none" stroke="${C.goldHi}" stroke-width="0.9" opacity="0.8"/><path d="M8.7 18 L8.7 13.4 A3.3 3.3 0 0 1 15.3 13.4 L15.3 18 L13.7 18 L13.7 13.4 A1.7 1.7 0 0 0 10.3 13.4 L10.3 18 Z" fill="#e8eef7"/><rect x="10.7" y="10.4" width="2.6" height="1.1" rx="0.5" fill="#e8eef7"/><rect x="11.45" y="9.3" width="1.1" height="3.3" rx="0.5" fill="#e8eef7"/>`;
   S.ranged = bowIcon('#5a8a3a');
   S.magic = `<path d="M12 2 L14 9 L21 11 L14 13 L12 20 L10 13 L3 11 L10 9 Z" fill="#8a96e8" stroke="${OL}" stroke-width="1" stroke-linejoin="round"/>`;
   T.prayer = S.prayer;

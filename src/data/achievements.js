@@ -29,4 +29,5 @@ export const ACHIEVEMENTS = [
   { id: 'quester', cat: 'Quests', name: 'Quester', desc: 'Complete every quest.', test: (g) => questsDone(g) >= Object.keys(g.quests).length },
   { id: 'armed', cat: 'Collection', name: 'Armed and Ready', desc: 'Own a rune scimitar.', test: (g) => own(g, 'rune_scimitar') },
   { id: 'legendary', cat: 'Collection', name: 'Legendary Loot', desc: 'Own a boss unique item.', test: (g) => UNIQUES.some((id) => own(g, id)) },
+  { id: 'pillars', cat: 'Quests', name: 'Pillars of the Island', desc: 'Earn the A-Worthy Sigil.', test: (g) => own(g, 'worthy_sigil') },
 ];
