@@ -32,6 +32,11 @@ export const QUESTS = [
     desc: 'Defeat 50 creatures across the island.',
     progress: (g) => { const q = g.quests.big_game_hunter; return q.state === 'active' ? `${Math.min(g.totalKills - (q.startKills || 0), 50)}/50 slain` : ''; },
   },
+  {
+    id: 'mystic_trial', name: "The Mystic's Trial",
+    desc: 'Bring 25 death runes to the Kampong Guide.',
+    progress: (g) => g.quests.mystic_trial.state === 'active' ? `${Math.min(g.inventory.count('death_rune'), 25)}/25 death runes` : '',
+  },
 ];
 
 export const QUEST_IDS = QUESTS.map((q) => q.id);

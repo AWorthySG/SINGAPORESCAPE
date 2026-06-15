@@ -341,7 +341,8 @@
   I.bronze_arrow = arrowIcon(C.bronze); I.iron_arrow = arrowIcon(C.iron); I.steel_arrow = arrowIcon(C.steel); I.mithril_arrow = arrowIcon(mith); I.adamant_arrow = arrowIcon(adam); I.rune_arrow = arrowIcon(rune);
   I.staff = staffIcon(C.wood, '#cfd6dd'); I.magic_staff = staffIcon('#3a3a55', '#8a96e8'); I.mystic_staff = staffIcon('#2a2a44', mith); I.ancient_staff = staffIcon('#2a1a3a', '#c06ad0');
   I.dragonhide_coif = helm('#3f7a4a', '#5fa06a'); I.dragonhide_body = plate('#3f7a4a', '#5fa06a'); I.dragonhide_chaps = legs('#3f7a4a', '#5fa06a');
-  I.air_rune = runeIcon('#bfe8d0'); I.water_rune = runeIcon('#6fb6e0'); I.earth_rune = runeIcon('#8a6a3a'); I.fire_rune = runeIcon('#ef7a23'); I.mind_rune = runeIcon('#caa15a'); I.chaos_rune = runeIcon('#7a3a8a'); I.death_rune = runeIcon('#3a3a44');
+  I.air_rune = runeIcon('#bfe8d0'); I.water_rune = runeIcon('#6fb6e0'); I.earth_rune = runeIcon('#8a6a3a'); I.fire_rune = runeIcon('#ef7a23'); I.mind_rune = runeIcon('#caa15a'); I.chaos_rune = runeIcon('#7a3a8a'); I.death_rune = runeIcon('#3a3a44'); I.blood_rune = runeIcon('#a01a2a');
+  I.occult_necklace = `<path d="M9 4 Q12 1.5 15 4" fill="none" stroke="${C.gold}" stroke-width="1.4"/><path d="M12 9 L17 13 L12 21 L7 13 Z" fill="#5b2a8a" stroke="${OL}" stroke-width="1.2" stroke-linejoin="round"/><path d="M12 11 L14.6 13.4 L12 18 L9.4 13.4 Z" fill="#8a5ad0"/><circle cx="12" cy="13.4" r="1" fill="#e0c8ff"/>`;
   I.coif = helm('#7a5530', '#9a734a'); I.leather_chaps = legs('#7a5530', '#9a734a'); I.studded_body = plate('#6a4a2a', '#8a6a3a');
   I.wizard_hat = hatIcon('#2f3a8a'); I.wizard_robe_top = plate('#2f3a8a', '#4a5ad0'); I.wizard_robe_bottom = legs('#2f3a8a', '#4a5ad0');
   I.mystic_hat = hatIcon('#2a2a5a'); I.mystic_top = plate('#3a3a7a', '#6a6ad0'); I.mystic_bottom = legs('#3a3a7a', '#6a6ad0');

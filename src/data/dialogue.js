@@ -23,7 +23,17 @@ export const DIALOGUES = {
         { label: 'I have defeated the bosses.', next: 'start', action: 'defenderTurnIn' },
         { label: 'Is there any hunting work?', next: 'biggame' },
         { label: 'I have slain enough creatures.', next: 'start', action: 'bigGameTurnIn' },
+        { label: "Tell me of the mystic's trial.", next: 'mystic' },
+        { label: 'I have gathered the death runes.', next: 'start', action: 'mysticTurnIn' },
         { label: 'Goodbye.', next: 'end' },
+      ],
+    },
+    mystic: {
+      speaker: 'Kampong Guide',
+      text: 'The Mystic Merchant seeks proof of devotion. Gather 25 death runes and bring them to me — do this and the ancient staff is yours.',
+      options: [
+        { label: 'I accept the trial.', next: 'start', action: 'mysticStart' },
+        { label: 'Another time.', next: 'start' },
       ],
     },
     biggame: {
