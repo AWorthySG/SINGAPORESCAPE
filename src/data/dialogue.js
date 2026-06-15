@@ -21,7 +21,17 @@ export const DIALOGUES = {
         { label: 'I have forged the steel bars.', next: 'start', action: 'smithTurnIn' },
         { label: 'How can I defend the island?', next: 'defender' },
         { label: 'I have defeated the bosses.', next: 'start', action: 'defenderTurnIn' },
+        { label: 'Is there any hunting work?', next: 'biggame' },
+        { label: 'I have slain enough creatures.', next: 'start', action: 'bigGameTurnIn' },
         { label: 'Goodbye.', next: 'end' },
+      ],
+    },
+    biggame: {
+      speaker: 'Kampong Guide',
+      text: 'The wilds are overrun, lah. Cull 50 creatures of any kind and I\'ll set you up with a fine magic shortbow and a quiver of rune arrows.',
+      options: [
+        { label: 'The hunt begins.', next: 'start', action: 'bigGameStart' },
+        { label: 'Not today.', next: 'start' },
       ],
     },
     smith: {

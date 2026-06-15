@@ -295,6 +295,22 @@ test('island defender quest tracks boss kills and rewards gear', () => {
   assert.ok(game.achievements.has('defender'), 'defender achievement unlocked');
 });
 
+test('big game hunter quest counts kills and rewards a bow', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.handleDialogueAction('bigGameStart');
+  assert.equal(game.quests.big_game_hunter.state, 'active');
+  game.handleDialogueAction('bigGameTurnIn');
+  assert.equal(game.quests.big_game_hunter.state, 'active', 'cannot complete early');
+  const mob = game.npcs.find((n) => n.attackable && !n.def.boss);
+  for (let i = 0; i < 50; i++) { mob.alive = true; mob.hp = 1; game.killNpc(mob); }
+  game.handleDialogueAction('bigGameTurnIn');
+  assert.equal(game.quests.big_game_hunter.state, 'done');
+  assert.ok(game.inventory.has('magic_shortbow') && game.inventory.count('rune_arrow') >= 100);
+});
+
 test('eating food heals the player', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
