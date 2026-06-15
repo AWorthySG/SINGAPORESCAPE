@@ -37,6 +37,7 @@ export function snapshot(game) {
     totalKills: game.totalKills,
     bossKills: game.bossKills,
     zonesVisited: [...game.zonesVisited],
+    kills: game.kills,
     slayer: game.slayer,
     specEnergy: game.specEnergy,
     settings: { running: game.running },
@@ -93,6 +94,7 @@ export function loadGame(game) {
   if (typeof data.totalKills === 'number') game.totalKills = data.totalKills;
   if (typeof data.bossKills === 'number') game.bossKills = data.bossKills;
   if (Array.isArray(data.zonesVisited)) game.zonesVisited = new Set(data.zonesVisited);
+  if (data.kills && typeof data.kills === 'object') game.kills = { ...data.kills };
   if (data.slayer && typeof data.slayer === 'object') {
     game.slayer = {
       task: data.slayer.task && typeof data.slayer.task === 'object' ? data.slayer.task : null,

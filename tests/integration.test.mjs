@@ -480,6 +480,20 @@ test('special attack spends energy and fires a stronger hit', () => {
   assert.ok(!game.specArmed, 'spec consumed');
 });
 
+test('bestiary kill counts track per-monster and persist', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const g1 = new Game();
+  g1.start();
+  const chicken = g1.npcs.find((n) => n.npcId === 'chicken');
+  for (let i = 0; i < 3; i++) { chicken.alive = true; chicken.hp = 1; g1.killNpc(chicken); }
+  assert.equal(g1.kills.chicken, 3);
+  assert.ok(saveGame(g1));
+  const g2 = new Game();
+  assert.ok(loadGame(g2));
+  assert.equal(g2.kills.chicken, 3, 'per-monster kills survive save/load');
+});
+
 test('quick-eat consumes the first food in the bag', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
