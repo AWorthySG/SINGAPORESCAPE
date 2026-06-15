@@ -453,7 +453,7 @@ test('MRT fast travel moves the player and charges a fare', async () => {
     assert.ok(game.world.objects.some((o) => o.objId === 'mrt_station' && o.x === st.x && o.y === st.y), `station ${id} placed`);
     assert.ok(!game.world.isBlocked(st.x, st.y), `station ${id} tile is walkable`);
   }
-  game.inventory.add('coins', 1000);
+  game.inventory.add('coins', 200); // stay under the Pocket Money (1k) achievement threshold
   const before = game.inventory.count('coins');
   const dest = STATION_BY_ID.sentosa;
   game.travelTo('sentosa');
@@ -478,6 +478,21 @@ test('special attack spends energy and fires a stronger hit', () => {
   step(game, 4);
   assert.ok(game.specEnergy < 70, `energy spent (now ${game.specEnergy})`); // spent 40, minus a little regen
   assert.ok(!game.specArmed, 'spec consumed');
+});
+
+test('unlocking an achievement grants its coin reward (once)', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  const before = game.inventory.count('coins');
+  const chicken = game.npcs.find((n) => n.npcId === 'chicken');
+  chicken.alive = true; chicken.hp = 1; game.killNpc(chicken); // unlocks first_blood (+100)
+  assert.ok(game.achievements.has('first_blood'));
+  assert.equal(game.inventory.count('coins'), before + 100, 'reward granted');
+  const after = game.inventory.count('coins');
+  game.checkAchievements(); // re-check shouldn't re-grant
+  assert.equal(game.inventory.count('coins'), after, 'reward only granted once');
 });
 
 test('bestiary kill counts track per-monster and persist', () => {

@@ -28,7 +28,7 @@ import {
 import { saveGame, loadGame, hasSave } from './save.js';
 import { getShop } from '../data/shops.js';
 import { RARE_DROP_TABLE } from '../data/npcs.js';
-import { ACHIEVEMENTS } from '../data/achievements.js';
+import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
 import { eligibleTasks, SLAYER_REWARDS } from '../data/slayer.js';
 import { STATION_BY_ID, MRT_FARE } from '../data/transport.js';
 
@@ -366,8 +366,10 @@ export class Game {
       this.achievements.add(a.id);
       unlocked = true;
       if (!silent) {
-        this.msg(`Achievement unlocked: ${a.name} — ${a.desc}`, 'level');
-        this.banner(`<span class="big">Achievement unlocked!</span>${a.name}`);
+        const reward = rewardFor(a.id);
+        if (reward > 0) this.inventory.add('coins', reward);
+        this.msg(`Achievement unlocked: ${a.name} — ${a.desc} (+${reward} coins)`, 'level');
+        this.banner(`<span class="big">Achievement unlocked!</span>${a.name} &middot; +${reward} coins`);
         this.spawnSparkle(this.player, '#ffd24a', 14);
       }
     }

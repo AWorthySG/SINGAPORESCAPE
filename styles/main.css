@@ -499,6 +499,8 @@ html, body {
 .ach-cell.done { border-color: rgba(111,255,143,0.5); background: rgba(40,90,45,0.32); }
 .ach-tick { position: absolute; top: 5px; right: 7px; color: #6fff8f; font-weight: bold; }
 .ach-prog { position: absolute; top: 5px; right: 7px; color: #ffd24a; font-size: 10px; }
+.ach-reward { display: block; margin-top: 2px; font-size: 10px; color: var(--gold); }
+.ach-cell.done .ach-reward { opacity: 0.5; }
 
 /* ---------- Bestiary / collection log ---------- */
 .bestiary-open {

@@ -40,3 +40,16 @@ export const ACHIEVEMENTS = [
   { id: 'angler', cat: 'Skills', name: 'Master Angler', desc: 'Catch a shark.', test: (g) => own(g, 'raw_shark') || own(g, 'shark') },
   { id: 'lumberjack', cat: 'Skills', name: 'Lumberjack', desc: 'Chop magic logs.', test: (g) => own(g, 'magic_logs') },
 ];
+
+// Coin reward granted the first time each achievement is unlocked.
+export const ACH_REWARDS = {
+  first_blood: 100, slayer_25: 500, slayer_250: 5000, boss_slayer: 1000, boss_hunter: 5000, boss_master: 20000,
+  apprentice: 500, expert: 2000, master: 25000, renaissance: 3000, grandmaster: 15000,
+  pocket_money: 200, well_off: 5000, millionaire: 50000,
+  wilderness: 300, explorer: 2000,
+  helper: 300, quester: 10000, pillars: 1000, defender: 3000,
+  armed: 500, dragonkin: 5000, legendary: 5000, slayer_helm: 3000,
+  first_task: 300, task_master: 3000, slayer_50: 5000,
+  angler: 500, lumberjack: 1000,
+};
+export const rewardFor = (id) => ACH_REWARDS[id] || 250;
