@@ -6,6 +6,14 @@
   <title>SingaporeScape</title>
   <link rel="icon" type="image/svg+xml" href="assets/logo.svg" />
   <link rel="stylesheet" href="styles/main.css" />
+  <!-- Preload the heaviest modules so the browser fetches them in parallel -->
+  <link rel="modulepreload" href="src/main.js" />
+  <link rel="modulepreload" href="src/game/game.js" />
+  <link rel="modulepreload" href="src/data/npcs.js" />
+  <link rel="modulepreload" href="src/data/items.js" />
+  <link rel="modulepreload" href="src/data/world.js" />
+  <link rel="modulepreload" href="src/render/icons.js" />
+  <link rel="modulepreload" href="src/render/sprites.js" />
 </head>
 <body>
   <div id="game-root">
