@@ -1187,3 +1187,32 @@ test('jewelry requires a chisel', async () => {
   resolveCraft(game, { recipe: CRAFT.find((r) => r.result === 'sapphire_amulet'), obj: { x: 0, y: 0, def: { type: 'craft' } } });
   assert.ok(!game.inventory.has('sapphire_amulet'), 'cannot craft jewelry without a chisel');
 });
+
+test('expanded crafting: pottery, glassblowing, gem rings and granite armour', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const [{ resolveCraft }, { CRAFT }, { hasIcon }] = await Promise.all([
+    import('../src/game/skilling.js'), import('../src/data/crafting.js'), import('../src/render/icons.js'),
+  ]);
+  const game = new Game();
+  game.start();
+  game.skills.addXp('crafting', 2_000_000);
+  const obj = { x: 0, y: 0, def: { type: 'craft' } };
+
+  const expected = ['jug', 'pie_dish', 'molten_glass', 'vial', 'glass_orb', 'lantern',
+    'emerald_ring', 'ruby_ring', 'diamond_ring', 'granite_helm', 'granite_legs', 'granite_body'];
+  for (const id of expected) {
+    const r = CRAFT.find((x) => x.result === id);
+    assert.ok(r, `${id} has a recipe`);
+    // Clear the pack, then add exactly this recipe's inputs (+ its tool).
+    game.inventory.slots.forEach((s, i) => { if (s) game.inventory.removeAt(i, s.qty); });
+    if (r.tool) game.inventory.add(r.tool, 1);
+    for (const inp of r.inputs) game.inventory.add(inp.id, inp.qty);
+    resolveCraft(game, { recipe: r, obj });
+    assert.ok(game.inventory.has(id), `crafted ${id}`);
+  }
+  // Every equippable craftable has its own icon.
+  for (const id of ['emerald_ring', 'ruby_ring', 'diamond_ring', 'granite_helm', 'granite_legs', 'granite_body']) {
+    assert.ok(hasIcon(id), `${id} has an icon`);
+  }
+});
