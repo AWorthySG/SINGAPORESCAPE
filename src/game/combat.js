@@ -47,6 +47,15 @@ export function rollGuaranteed(max) {
   return randInt(Math.max(1, Math.ceil(max / 2)), Math.max(1, max));
 }
 
+/** Damage multiplier applied on a critical hit. */
+export const CRIT_MULT = 1.5;
+
+/** Critical-hit chance: scales with the attacking skill level, plus gear crit %.
+ *  Level 99 alone gives ~15%; gear adds flat percent on top. Capped at 50%. */
+export function critChance(level, equipCrit = 0) {
+  return Math.min(0.5, level * 0.0015 + (equipCrit || 0) / 100);
+}
+
 // ----- Combat weakness (rock-paper-scissors style triangle) -----
 // Every monster is weakest to one combat style. Attacking with the matching
 // style is more accurate and hits harder, so players are rewarded for switching
