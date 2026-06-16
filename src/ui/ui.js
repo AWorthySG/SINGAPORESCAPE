@@ -3,6 +3,7 @@ import { SHOPS, getShop } from '../data/shops.js';
 import { SMELT, SMITH } from '../data/smithing.js';
 import { CRAFT } from '../data/crafting.js';
 import { COOKING } from '../game/skilling.js';
+import { DISHES } from '../data/cooking.js';
 import { SKILLS } from '../data/skills.js';
 import { getDialogue } from '../data/dialogue.js';
 import { MONSTER_IDS, BOSS_IDS, getNpc } from '../data/npcs.js';
@@ -937,19 +938,38 @@ export class UI {
   // Cooking ------------------------------------------------------------
   openCookMenu(obj) {
     const raws = [...new Set(this.game.inventory.slots.filter((s) => s && COOKING[s.id]).map((s) => s.id))];
-    if (!raws.length) { this.game.msg('You have nothing to cook.'); return; }
+    const dishes = DISHES.filter((d) => d.inputs.every((inp) => this.game.inventory.has(inp.id, inp.qty)));
+    if (!raws.length && !dishes.length) { this.game.msg('You have nothing to cook.'); return; }
     const render = (body) => {
       body.innerHTML = '<div class="modal-hint">Choose what to cook. You\'ll cook until you run out.</div>';
-      const grid = document.createElement('div');
-      grid.className = 'item-grid';
-      for (const rawId of raws) {
-        const cook = COOKING[rawId];
-        grid.appendChild(this._cell(rawId, this.game.inventory.count(rawId), {
-          tooltip: `<b>${getItem(cook.result).name}</b><br>Cooking lvl ${cook.level}, ${cook.xp} xp`,
-          onClick: () => { this.game.startCooking(obj, rawId); this.closeModal(); },
-        }));
+      if (raws.length) {
+        const grid = document.createElement('div');
+        grid.className = 'item-grid';
+        for (const rawId of raws) {
+          const cook = COOKING[rawId];
+          grid.appendChild(this._cell(rawId, this.game.inventory.count(rawId), {
+            tooltip: `<b>${getItem(cook.result).name}</b><br>Cooking lvl ${cook.level}, ${cook.xp} xp`,
+            onClick: () => { this.game.startCooking(obj, rawId); this.closeModal(); },
+          }));
+        }
+        body.appendChild(grid);
       }
-      body.appendChild(grid);
+      // Combination dishes (use crafted pottery + cooked ingredients).
+      if (dishes.length) {
+        body.appendChild(Object.assign(document.createElement('div'), { className: 'modal-section-title', textContent: 'Dishes' }));
+        const list = document.createElement('div');
+        for (const d of dishes) {
+          const can = this.game.skills.level('cooking') >= d.level;
+          const row = document.createElement('div');
+          row.className = 'dialogue-option';
+          row.style.opacity = can ? '1' : '0.5';
+          const needs = d.inputs.map((inp) => `${inp.qty} ${getItem(inp.id).name}`).join(' + ');
+          row.innerHTML = `<span class="row-ic">${itemIconSVG(d.result, 22)}</span> <b>${getItem(d.result).name}</b> <span style="opacity:.75">(lvl ${d.level} &mdash; ${needs})</span>`;
+          row.addEventListener('click', () => { this.game.startDish(obj, d); this.closeModal(); });
+          list.appendChild(row);
+        }
+        body.appendChild(list);
+      }
     };
     this.openModal('Cooking', render);
     this.modal.kind = 'cook';

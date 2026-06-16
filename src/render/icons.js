@@ -412,6 +412,14 @@
   I.lantern = `<rect x="8" y="6" width="8" height="11" rx="1.5" fill="#ffe79a" stroke="${OL}" stroke-width="1.1"/><rect x="7" y="4.5" width="10" height="2.5" rx="1" fill="${C.gold}" stroke="${OL}" stroke-width="1"/><rect x="8.5" y="16.5" width="7" height="2" rx="0.8" fill="${C.gold}" stroke="${OL}" stroke-width="1"/><path d="M10 8 L10 15 M14 8 L14 15" stroke="${C.goldDk}" stroke-width="0.9"/>`;
   I.jug = `<path d="M9 5 H15 Q16 5 16 7 L17 17 Q17 20 12 20 Q7 20 7 17 L8 7 Q8 5 9 5 Z" fill="#c9603a" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M16 8 Q20 9 19 13 Q18 15 16 14" fill="none" stroke="${OL}" stroke-width="1.4"/>`;
   I.pie_dish = `<ellipse cx="12" cy="13" rx="8" ry="4.5" fill="#caa15a" stroke="${OL}" stroke-width="1.1"/><ellipse cx="12" cy="12" rx="8" ry="4.5" fill="#e0bd86" stroke="${OL}" stroke-width="1.1"/><ellipse cx="12" cy="12" rx="5.5" ry="2.8" fill="#b88a4a"/>`;
+  // Combination dishes
+  const pieFood = (col) => `<ellipse cx="12" cy="14" rx="8" ry="4.5" fill="#c9a05a" stroke="${OL}" stroke-width="1.1"/><path d="M5 13 Q12 7 19 13 Q12 16 5 13 Z" fill="${col}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M8.5 11 L9.5 13 M12 10.5 L12 13 M15.5 11 L14.5 13" stroke="${OL}" stroke-width="0.8"/>`;
+  const bowlFood = (col) => `<path d="M4 11 Q12 21 20 11 Z" fill="#c9a06a" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><ellipse cx="12" cy="11" rx="8" ry="2.6" fill="${col}" stroke="${OL}" stroke-width="1"/><ellipse cx="12" cy="11" rx="4" ry="1.2" fill="#fff" opacity=".35"/>`;
+  I.meat_pie = pieFood('#b8743a');
+  I.fish_pie = pieFood('#8ab0c8');
+  I.laksa = bowlFood('#d8623a');
+  I.seafood_stew = bowlFood('#b0793a');
+  I.seafood_platter = `<rect x="3" y="9" width="18" height="9" rx="3" fill="#2a2a32" stroke="${OL}" stroke-width="1.1"/><ellipse cx="8" cy="12" rx="3" ry="2" fill="#e05a2a"/><circle cx="14" cy="12.5" r="2.2" fill="#7fb6dd"/><ellipse cx="17" cy="15" rx="2.4" ry="1.4" fill="#e8b366"/>`;
   I.chisel = `<rect x="10.5" y="3" width="3" height="11" rx="1" fill="${C.steel}" stroke="${OL}" stroke-width="1"/><path d="M10.5 14 L13.5 14 L12 19 Z" fill="${C.steelHi}" stroke="${OL}" stroke-width="1" stroke-linejoin="round"/><rect x="10" y="2" width="4" height="3" rx="1" fill="${C.wood}" stroke="${OL}" stroke-width="1"/>`;
   I.pot = `<path d="M7 9 Q6 19 12 20 Q18 19 17 9 Z" fill="${C.meat}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><ellipse cx="12" cy="9" rx="5.5" ry="2" fill="#d8825a" stroke="${OL}" stroke-width="1"/>`;
   I.bowl = `<path d="M5 11 Q12 20 19 11 Z" fill="#c9a06a" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><ellipse cx="12" cy="11" rx="7" ry="2.2" fill="#e0bd86" stroke="${OL}" stroke-width="1"/>`;

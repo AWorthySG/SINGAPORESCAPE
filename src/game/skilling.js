@@ -283,6 +283,25 @@ export function resolveSmelt(game, action) {
   return r.inputs.every((inp) => game.inventory.has(inp.id, inp.qty));
 }
 
+// Combination dishes (pies, stews) assembled at a fire/range. Never burn.
+export function resolveDish(game, action) {
+  const r = action.recipe;
+  if (game.skills.level('cooking') < r.level) {
+    game.msg(`You need a Cooking level of ${r.level} to make this.`); return false;
+  }
+  for (const inp of r.inputs) {
+    if (!game.inventory.has(inp.id, inp.qty)) { game.msg('You have run out of ingredients.'); return false; }
+  }
+  if (game.inventory.canAdd(r.result, 1) <= 0) { game.msg('Your inventory is too full.'); return false; }
+  for (const inp of r.inputs) game.inventory.remove(inp.id, inp.qty);
+  game.inventory.add(r.result, 1);
+  game.skills.addXp('cooking', r.xp);
+  const fc = { x: action.obj.x * 32 + 16, y: action.obj.y * 32 + 10 };
+  game.spawnPoof(fc.x, fc.y, '#ffd9a0');
+  game.msg(`You prepare a ${getItem(r.result).name.toLowerCase()}.`);
+  return r.inputs.every((inp) => game.inventory.has(inp.id, inp.qty));
+}
+
 export function resolveCraft(game, action) {
   const r = action.recipe;
   if (r.tool && !game.hasTool(r.tool)) { game.msg(`You need a ${getItem(r.tool).name.toLowerCase()} to craft this.`); return false; }
