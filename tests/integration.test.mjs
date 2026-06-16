@@ -1139,3 +1139,51 @@ test('new tree & rock node types exist, are gatherable, and gem rocks yield gems
   for (let i = 0; i < 60; i++) { gr.depleted = false; resolveMine(game, { obj: gr }); }
   assert.ok(got > 0, 'gem rock produced gems');
 });
+
+test('crafting skill: table exists, recipes consume materials and yield products', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const [{ resolveCraft }, { CRAFT }, { SKILL_IDS }] = await Promise.all([
+    import('../src/game/skilling.js'), import('../src/data/crafting.js'), import('../src/data/skills.js'),
+  ]);
+  assert.ok(SKILL_IDS.includes('crafting'), 'Crafting is a tracked skill');
+
+  const game = new Game();
+  game.start();
+  assert.ok(game.world.objects.some((o) => o.objId === 'crafting_table'), 'a crafting table is placed');
+  assert.ok(game.hasTool('chisel'), 'starter kit includes a chisel');
+  game.skills.addXp('crafting', 2_000_000);
+  game.inventory.add('silver_ore', 3); game.inventory.add('sapphire', 3);
+  game.inventory.add('clay', 3); game.inventory.add('granite', 4);
+  const obj = { x: 0, y: 0, def: { type: 'craft' } };
+
+  const amulet = CRAFT.find((r) => r.result === 'sapphire_amulet');
+  const xp0 = game.skills.xp.crafting;
+  resolveCraft(game, { recipe: amulet, obj });
+  assert.ok(game.inventory.has('sapphire_amulet'), 'crafted a sapphire amulet');
+  assert.equal(game.inventory.count('silver_ore'), 2, 'consumed a silver ore');
+  assert.equal(game.inventory.count('sapphire'), 2, 'consumed a sapphire');
+  assert.ok(game.skills.xp.crafting > xp0, 'gained crafting xp');
+
+  resolveCraft(game, { recipe: CRAFT.find((r) => r.result === 'pot'), obj });
+  resolveCraft(game, { recipe: CRAFT.find((r) => r.result === 'granite_shield'), obj });
+  assert.ok(game.inventory.has('pot') && game.inventory.has('granite_shield'), 'crafted pottery and a granite shield');
+});
+
+test('jewelry requires a chisel', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const [{ resolveCraft }, { CRAFT }] = await Promise.all([
+    import('../src/game/skilling.js'), import('../src/data/crafting.js'),
+  ]);
+  const game = new Game();
+  game.start();
+  game.skills.addXp('crafting', 2_000_000);
+  game.inventory.add('silver_ore', 2); game.inventory.add('sapphire', 2);
+  // Remove the chisel from the starter kit.
+  const ci = game.inventory.slots.findIndex((s) => s && s.id === 'chisel');
+  if (ci >= 0) game.inventory.removeAt(ci, 1);
+  assert.ok(!game.hasTool('chisel'), 'no chisel');
+  resolveCraft(game, { recipe: CRAFT.find((r) => r.result === 'sapphire_amulet'), obj: { x: 0, y: 0, def: { type: 'craft' } } });
+  assert.ok(!game.inventory.has('sapphire_amulet'), 'cannot craft jewelry without a chisel');
+});

@@ -25,7 +25,7 @@ import { getSpell } from '../data/magic.js';
 import { PRAYERS, PRAYER_BY_ID, PRAYER_GROUPS } from '../data/prayers.js';
 import {
   resolveWoodcut, resolveMine, resolveFish, resolveCook,
-  resolveSmelt, resolveSmith, resolveFiremake,
+  resolveSmelt, resolveSmith, resolveFiremake, resolveCraft,
 } from './skilling.js';
 import { saveGame, loadGame, hasSave } from './save.js';
 import { getShop } from '../data/shops.js';
@@ -37,7 +37,7 @@ import { LIFE_STAGES, LIFE_GRAD, LIFE_STAGES_ADV, LIFE_GRAD_ADV } from '../data/
 import { QUESTS, CHAMPION_QP, REDEMPTION_GOAL, CORRUPTION_GOAL } from '../data/quests.js';
 import { CLUE_TIERS, CLUE_SPOTS, clueTierForLevel } from '../data/clues.js';
 
-const STARTER_TOOLS = ['bronze_axe', 'bronze_pickaxe', 'small_net', 'fishing_rod', 'tinderbox', 'hammer', 'bronze_dagger'];
+const STARTER_TOOLS = ['bronze_axe', 'bronze_pickaxe', 'small_net', 'fishing_rod', 'tinderbox', 'hammer', 'chisel', 'bronze_dagger'];
 
 export class Game {
   constructor() {
@@ -489,10 +489,12 @@ export class Game {
       case 'cook': return this._tickContinuous(a, a.obj, () => resolveCook(this, a));
       case 'smelt': return this._tickContinuous(a, a.obj, () => resolveSmelt(this, a));
       case 'smith': return this._tickContinuous(a, a.obj, () => resolveSmith(this, a));
+      case 'craft': return this._tickContinuous(a, a.obj, () => resolveCraft(this, a));
       // One-shot arrival actions (open a UI / talk).
       case 'cookmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openCookMenu(a.obj));
       case 'smeltmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openSmeltMenu(a.obj));
       case 'smithmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openSmithMenu(a.obj));
+      case 'craftmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openCraftMenu(a.obj));
       case 'pray': return this._tickArrival(a, a.obj, true, () => {
         this.player.hp = this.skills.hitpoints;
         this.prayerPoints = this.skills.prayer;
@@ -1261,6 +1263,7 @@ export class Game {
       case 'fire': case 'range': return this.beginAction({ type: 'cookmenu', obj, target: tgt }, tgt, true);
       case 'furnace': return this.beginAction({ type: 'smeltmenu', obj, target: tgt }, tgt, true);
       case 'anvil': return this.beginAction({ type: 'smithmenu', obj, target: tgt }, tgt, true);
+      case 'craft': return this.beginAction({ type: 'craftmenu', obj, target: tgt }, tgt, true);
       case 'bank': return this.beginAction({ type: 'openbank', target: tgt }, tgt, true);
       case 'shrine': return this.beginAction({ type: 'pray', obj }, tgt, true);
       case 'rest': return this.beginAction({ type: 'rest', obj }, tgt, true);
@@ -1358,6 +1361,7 @@ export class Game {
   startCooking(obj, rawId) { this.beginAction({ type: 'cook', obj, rawId }, { x: obj.x, y: obj.y }, true); }
   startSmelt(recipe, obj) { this.beginAction({ type: 'smelt', recipe, obj }, { x: obj.x, y: obj.y }, true); }
   startSmith(recipe, obj) { this.beginAction({ type: 'smith', recipe, obj }, { x: obj.x, y: obj.y }, true); }
+  startCraft(recipe, obj) { this.beginAction({ type: 'craft', recipe, obj }, { x: obj.x, y: obj.y }, true); }
 
   handleDialogueAction(action) {
     if (action === 'giveStarter') this.giveStarter();

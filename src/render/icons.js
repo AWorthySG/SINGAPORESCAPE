@@ -234,6 +234,7 @@
   S.smithing = `<rect x="6" y="6" width="3" height="9" rx="1" fill="${C.wood}" stroke="${OL}" stroke-width="1" transform="rotate(-30 7 10)"/>
     <rect x="3" y="3.5" width="8" height="4" rx="1.2" fill="${C.iron}" stroke="${OL}" stroke-width="1" transform="rotate(-30 7 5)"/>
     <path d="M5 15 L19 15 L18 18 L6 18 Z M9 13 L15 13 L15 15 L9 15 Z" fill="${C.stoneDk}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/>`;
+  S.crafting = `<circle cx="11" cy="14" r="5" fill="none" stroke="${C.gold}" stroke-width="2.4"/><path d="M11 7 L14 3 L8 3 Z" fill="#7aa6ff" stroke="${OL}" stroke-width="1" stroke-linejoin="round"/><path d="M11 7 L14 3 M11 7 L8 3" stroke="${C.goldHi}" stroke-width="0.8"/>`;
   S.prayer = `<circle cx="12" cy="12" r="5.5" fill="${C.gold}" stroke="${OL}" stroke-width="1.1"/>
     <path d="M12 2.5 L12 5 M12 19 L12 21.5 M2.5 12 L5 12 M19 12 L21.5 12 M5 5 L6.6 6.6 M17.4 17.4 L19 19 M5 19 L6.6 17.4 M17.4 6.6 L19 5" stroke="${C.goldHi}" stroke-width="1.5" stroke-linecap="round"/>`;
   S.thieving = `<path d="M7 9 C7 5 17 5 17 9 L19 18 C19 20 5 20 5 18 Z" fill="${C.wood}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/>
@@ -390,6 +391,18 @@
   I.amulet_of_glory = I.amulet_of_power;
   I.ring_of_kampong = ringIcon(C.gold, C.goldHi);
   I.ring_of_might = ringIcon('#c0432a', '#e08a5a');
+  // Crafted jewelry, pottery & tools
+  I.gold_ring = ringIcon(C.gold, C.goldHi);
+  I.sapphire_ring = ringIcon('#3a6fd8', '#7aa6ff');
+  I.gold_amulet = I.amulet_of_power;
+  I.sapphire_amulet = I.amulet_of_power;
+  I.emerald_amulet = I.amulet_of_power;
+  I.ruby_amulet = I.amulet_of_power;
+  I.diamond_amulet = I.amulet_of_power;
+  I.granite_shield = shield('#9a948a', '#c4c0b8');
+  I.chisel = `<rect x="10.5" y="3" width="3" height="11" rx="1" fill="${C.steel}" stroke="${OL}" stroke-width="1"/><path d="M10.5 14 L13.5 14 L12 19 Z" fill="${C.steelHi}" stroke="${OL}" stroke-width="1" stroke-linejoin="round"/><rect x="10" y="2" width="4" height="3" rx="1" fill="${C.wood}" stroke="${OL}" stroke-width="1"/>`;
+  I.pot = `<path d="M7 9 Q6 19 12 20 Q18 19 17 9 Z" fill="${C.meat}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><ellipse cx="12" cy="9" rx="5.5" ry="2" fill="#d8825a" stroke="${OL}" stroke-width="1"/>`;
+  I.bowl = `<path d="M5 11 Q12 20 19 11 Z" fill="#c9a06a" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><ellipse cx="12" cy="11" rx="7" ry="2.2" fill="#e0bd86" stroke="${OL}" stroke-width="1"/>`;
   I.fire_cape = capeIcon('#d8552e', '#f5a623');
   I.garuda_wings = capeIcon('#caa15a', '#f0d99a');
   I.tiger_fang = scim('#e8a23a', '#ffd773');

@@ -1,6 +1,7 @@
 import { getItem } from '../data/items.js';
 import { SHOPS, getShop } from '../data/shops.js';
 import { SMELT, SMITH } from '../data/smithing.js';
+import { CRAFT } from '../data/crafting.js';
 import { COOKING } from '../game/skilling.js';
 import { SKILLS } from '../data/skills.js';
 import { getDialogue } from '../data/dialogue.js';
@@ -973,6 +974,28 @@ export class UI {
     };
     this.openModal('Smelting', render);
     this.modal.kind = 'smelt';
+  }
+
+  // Crafting -----------------------------------------------------------
+  openCraftMenu(obj) {
+    const render = (body) => {
+      body.innerHTML = '<div class="modal-hint">Craft pottery and jewelry from gathered materials.</div>';
+      const list = document.createElement('div');
+      for (const r of CRAFT) {
+        const hasTool = !r.tool || this.game.hasTool(r.tool);
+        const can = hasTool && r.inputs.every((inp) => this.game.inventory.has(inp.id, inp.qty)) && this.game.skills.level('crafting') >= r.level;
+        const row = document.createElement('div');
+        row.className = 'dialogue-option';
+        row.style.opacity = can ? '1' : '0.5';
+        const needs = r.inputs.map((inp) => `${inp.qty} ${getItem(inp.id).name}`).join(' + ');
+        row.innerHTML = `<span class="row-ic">${itemIconSVG(r.result, 22)}</span> <b>${getItem(r.result).name}</b> <span style="opacity:.75">(lvl ${r.level} &mdash; ${needs}${r.tool ? ', chisel' : ''})</span>`;
+        row.addEventListener('click', () => { this.game.startCraft(r, obj); this.closeModal(); });
+        list.appendChild(row);
+      }
+      body.appendChild(list);
+    };
+    this.openModal('Crafting', render);
+    this.modal.kind = 'craft';
   }
 
   // Smithing -----------------------------------------------------------

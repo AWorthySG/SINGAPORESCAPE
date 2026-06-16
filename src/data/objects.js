@@ -266,6 +266,10 @@ export const OBJECTS = {
     name: 'Anvil', type: 'anvil', verb: 'Smith at', emoji: '🛠️', blocking: true,
     skill: 'smithing', tool: 'hammer', examine: 'A heavy iron anvil.',
   },
+  crafting_table: {
+    name: 'Crafting table', type: 'craft', verb: 'Craft at', emoji: '🧰', blocking: true,
+    skill: 'crafting', examine: 'A workbench for pottery and jewelry.',
+  },
 
   // ---------------- Banking ----------------
   bank_booth: {

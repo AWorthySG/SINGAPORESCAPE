@@ -846,6 +846,7 @@ export function drawObjectSprite(ctx, obj, cx, cy, time = 0) {
     case 'range': return range(ctx, cx, cy, time);
     case 'furnace': return furnace(ctx, cx, cy, time);
     case 'anvil': return anvil(ctx, cx, cy);
+    case 'craft': return craftTable(ctx, cx, cy);
     case 'bank': return bank(ctx, cx, cy);
     case 'shrine': return shrine(ctx, cx, cy, time);
     case 'rest': return hyco(ctx, cx, cy);
@@ -979,6 +980,18 @@ function furnace(ctx, cx, cy, time) {
   ctx.fillStyle = '#ffe07a'; rr(ctx, cx - 2.5, cy + 5, 5, 4 * f, 1); ctx.fill();
   // chimney
   ctx.fillStyle = '#6b4030'; rr(ctx, cx + 4, cy - 18, 6, 7, 1); ctx.fill();
+}
+
+function craftTable(ctx, cx, cy) {
+  drawShadow(ctx, cx, cy + 12, 14, 4.5);
+  // workbench top + legs
+  ctx.fillStyle = '#7a5230'; rr(ctx, cx - 12, cy - 2, 24, 6, 2); ctx.fill(); line(ctx, OUTLINE, 1.4);
+  ctx.fillStyle = '#5a3a1c'; rr(ctx, cx - 10, cy + 4, 3, 9, 1); ctx.fill(); rr(ctx, cx + 7, cy + 4, 3, 9, 1); ctx.fill();
+  line(ctx, OUTLINE, 1.2);
+  // tools/wares on the bench
+  ctx.fillStyle = '#c9603a'; rr(ctx, cx - 9, cy - 7, 5, 5, 1); ctx.fill(); line(ctx, OUTLINE, 1); // little pot
+  ctx.fillStyle = '#e6b34a'; circle(ctx, cx + 2, cy - 4, 2.4); ctx.fill(); line(ctx, OUTLINE, 1);  // gold
+  ctx.fillStyle = '#7aa6ff'; circle(ctx, cx + 7, cy - 4, 1.8); ctx.fill(); line(ctx, OUTLINE, 0.9); // gem
 }
 
 function anvil(ctx, cx, cy) {
