@@ -104,3 +104,18 @@ test('player and ground-item sprites draw in all states', () => {
     drawGroundItem(ctx, 'unknown_item', 80, 80);
   });
 });
+
+test('painted creature archetypes stay in lock-step with assets/creatures/', async () => {
+  const { readdirSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const { creaturePngs } = await import('../src/render/sprites.js');
+  const { NPCS } = await import('../src/data/npcs.js');
+  const dir = fileURLToPath(new URL('../assets/creatures/', import.meta.url));
+  const onDisk = new Set(readdirSync(dir).filter((f) => f.endsWith('.png')).map((f) => f.slice(0, -4)));
+  const declared = creaturePngs();
+  assert.deepEqual([...declared].filter((s) => !onDisk.has(s)), [], 'declared archetype has no file');
+  assert.deepEqual([...onDisk].filter((s) => !declared.has(s)), [], 'archetype file not declared');
+  // Every painted archetype must be a real sprite used by at least one monster.
+  const used = new Set(Object.values(NPCS).map((d) => d.sprite).filter(Boolean));
+  assert.deepEqual([...declared].filter((s) => !used.has(s)), [], 'painted archetype unused by any monster');
+});
