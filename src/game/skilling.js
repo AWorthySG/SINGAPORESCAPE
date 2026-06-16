@@ -283,6 +283,24 @@ export function resolveSmelt(game, action) {
   return r.inputs.every((inp) => game.inventory.has(inp.id, inp.qty));
 }
 
+export function resolveCraft(game, action) {
+  const r = action.recipe;
+  if (r.tool && !game.hasTool(r.tool)) { game.msg(`You need a ${getItem(r.tool).name.toLowerCase()} to craft this.`); return false; }
+  if (game.skills.level('crafting') < r.level) {
+    game.msg(`You need a Crafting level of ${r.level} to make this.`); return false;
+  }
+  for (const inp of r.inputs) {
+    if (!game.inventory.has(inp.id, inp.qty)) { game.msg('You have run out of materials.'); return false; }
+  }
+  if (game.inventory.canAdd(r.result, 1) <= 0) { game.msg('Your inventory is too full.'); return false; }
+  for (const inp of r.inputs) game.inventory.remove(inp.id, inp.qty);
+  game.inventory.add(r.result, 1);
+  game.skills.addXp('crafting', r.xp);
+  game.spawnSparkle(game.player, '#caa15a', 6);
+  game.msg(`You craft a ${getItem(r.result).name.toLowerCase()}.`);
+  return r.inputs.every((inp) => game.inventory.has(inp.id, inp.qty));
+}
+
 export function resolveSmith(game, action) {
   const r = action.recipe;
   if (!game.hasTool('hammer')) { game.msg('You need a hammer to work the metal.'); return false; }

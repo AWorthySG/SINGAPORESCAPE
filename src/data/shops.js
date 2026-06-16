@@ -17,6 +17,7 @@ export const SHOPS = {
       { id: 'fishing_bait', qty: 1000 },
       { id: 'tinderbox', qty: 10 },
       { id: 'hammer', qty: 10 },
+      { id: 'chisel', qty: 10 },
       { id: 'bronze_dagger', qty: 5 },
       { id: 'wooden_shield', qty: 5 },
       { id: 'leather_body', qty: 5 },

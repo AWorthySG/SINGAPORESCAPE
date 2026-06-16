@@ -8,6 +8,7 @@ export const SKILLS = [
   { id: 'ranged', name: 'Ranged', icon: '🏹', color: '#5a8a3a', combat: true },
   { id: 'magic', name: 'Magic', icon: '✨', color: '#5b6bd6', combat: true },
   { id: 'smithing', name: 'Smithing', icon: '🔨', color: '#8a6f4a' },
+  { id: 'crafting', name: 'Crafting', icon: '💍', color: '#a86fd0' },
   { id: 'fishing', name: 'Fishing', icon: '🎣', color: '#3a8aa0' },
   { id: 'cooking', name: 'Cooking', icon: '🍳', color: '#9c5b1f' },
   { id: 'firemaking', name: 'Firemaking', icon: '🔥', color: '#d4761f' },
