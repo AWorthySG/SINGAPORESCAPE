@@ -26,6 +26,8 @@ export const SHOPS = {
       { id: 'iron_arrow', qty: 1000 },
       { id: 'steel_arrow', qty: 1000 },
       { id: 'feather', qty: 1000 },
+      { id: 'batik_cape', qty: 5 },
+      { id: 'songket_cape', qty: 2 },
     ],
   },
   archery: {
@@ -91,6 +93,12 @@ export const SHOPS = {
       { id: 'chicken_rice', qty: 20 },
       { id: 'laksa', qty: 15 },
       { id: 'nasi_lemak', qty: 10 },
+      // fresh herbs for home cooking
+      { id: 'chilli', qty: 100 },
+      { id: 'galangal', qty: 100 },
+      { id: 'lemongrass', qty: 100 },
+      { id: 'pandan_leaves', qty: 100 },
+      { id: 'turmeric', qty: 100 },
     ],
   },
 };

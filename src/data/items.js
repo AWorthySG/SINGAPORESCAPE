@@ -148,6 +148,8 @@ const RAW = {
     equip: { slot: 'legs', req: { defence: 50 }, bonuses: { defence: 18, strength: 2 } } },
   granite_body: { name: 'Granite body', icon: '🦺', value: 22000, examine: 'A cuirass carved from granite.',
     equip: { slot: 'body', req: { defence: 55 }, bonuses: { defence: 26, strength: 2 } } },
+  granite_maul: { name: 'Granite maul', icon: '⚔️', value: 32000, examine: 'A colossal two-handed maul hewn from a single block of granite.',
+    equip: { slot: 'weapon', req: { attack: 50, strength: 50 }, bonuses: { attack: 58, strength: 82, speed: 7 } } },
   // glassblowing
   molten_glass: { name: 'Molten glass', icon: '🫧', value: 20, examine: 'Glass made from sandstone, ready to blow.' },
   vial: { name: 'Vial', icon: '🧪', value: 25, examine: 'A small glass vial.' },
@@ -156,6 +158,17 @@ const RAW = {
   // pottery
   jug: { name: 'Jug', icon: '🏺', value: 14, examine: 'A clay jug for holding liquids.' },
   pie_dish: { name: 'Pie dish', icon: '🥧', value: 16, examine: 'A clay dish for baking pies.' },
+  // ---- Cooking herbs & ingredients ----
+  chilli: { name: 'Chilli', icon: '🌶️', value: 8, stackable: true, tags: ['herb'], examine: 'A fiery red chilli — the heart of a good sambal.' },
+  galangal: { name: 'Galangal', icon: '🫚', value: 10, stackable: true, tags: ['herb'], examine: 'An aromatic rhizome, cousin to ginger.' },
+  lemongrass: { name: 'Lemongrass', icon: '🌿', value: 9, stackable: true, tags: ['herb'], examine: 'A fragrant stalk of lemongrass.' },
+  pandan_leaves: { name: 'Pandan leaves', icon: '🍃', value: 7, stackable: true, tags: ['herb'], examine: 'Sweet, fragrant pandan — the vanilla of the East.' },
+  turmeric: { name: 'Turmeric', icon: '🫚', value: 11, stackable: true, tags: ['herb'], examine: 'A golden root that colours and flavours a dish.' },
+  // ---- Cultural capes ----
+  batik_cape: { name: 'Batik cape', icon: '🧣', value: 6000, examine: 'A cape block-printed with traditional batik patterns.',
+    equip: { slot: 'cape', req: {}, bonuses: { attack: 3, strength: 3, defence: 4, ranged: 3, magic: 3 } } },
+  songket_cape: { name: 'Songket cape', icon: '🧣', value: 48000, examine: 'Woven with gold thread — fit for royalty.',
+    equip: { slot: 'cape', req: { defence: 30 }, bonuses: { attack: 6, strength: 6, defence: 8, ranged: 6, magic: 6 } } },
 
   // ---- Combination dishes (Cooking) ----
   meat_pie: { name: 'Meat pie', icon: '🥧', value: 120, heal: 13, examine: 'A hearty meat pie.' },
@@ -503,6 +516,7 @@ const WEAPON_SPECS = {
   dragon_2h_sword: { name: 'Devastate', cost: 55, acc: 1.25, dmg: 1.7 },
   merlion_blade: { name: 'Tide Strike', cost: 50, acc: 2.0, dmg: 1.5, heal: 0.2 },
   tiger_fang: { name: 'Maul', cost: 40, acc: 1.6, dmg: 1.4 },
+  granite_maul: { name: 'Quake', cost: 50, acc: 1.5, dmg: 1.7 },
   tiger_kris: { name: 'Flurry', cost: 25, acc: 1.4, dmg: 1.1, hits: 2 },
   cursed_cutlass: { name: 'Plunder', cost: 45, acc: 1.5, dmg: 1.5, heal: 0.3 },
   megalodon_jaw: { name: 'Devour', cost: 55, acc: 1.4, dmg: 1.7, heal: 0.25 },

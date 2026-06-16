@@ -4,6 +4,10 @@ import { TILE } from '../config.js';
 
 const objCenter = (obj) => ({ x: obj.x * TILE + TILE / 2, y: obj.y * TILE + TILE / 2 - 6 });
 
+// Aromatic herbs foraged from the undergrowth while woodcutting — feed the
+// local hawker-dish recipes (see DISHES) and are also sold at the Hawker Centre.
+const HERB_FORAGE = ['chilli', 'galangal', 'lemongrass', 'pandan_leaves', 'turmeric'];
+
 // Cooking definitions: raw item -> result, level, xp, and the level at which it
 // stops burning. Range cooking is more forgiving than a fire.
 export const COOKING = {
@@ -101,6 +105,14 @@ export function resolveWoodcut(game, action) {
       game.inventory.add('birds_nest', 1);
       game.spawnSparkle(game.player, '#caa15a', 6);
       game.msg("A bird's nest tumbles down! Open it from your pack.", 'level');
+    }
+    // Foraging: a fragrant herb sometimes grows in the undergrowth nearby.
+    else if (Math.random() < 0.03) {
+      const herb = HERB_FORAGE[Math.floor(Math.random() * HERB_FORAGE.length)];
+      if (game.inventory.canAdd(herb, 1) > 0) {
+        game.inventory.add(herb, 1);
+        game.msg(`You forage some ${getItem(herb).name.toLowerCase()} from the undergrowth.`);
+      }
     }
     if (Math.random() < def.depleteChance) {
       obj.depleted = true;
