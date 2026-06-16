@@ -501,20 +501,26 @@
   // other item falls back to the inline vector icon above. Keep in sync with
   // the files committed under assets/items/.
   const PNG_ITEMS = new Set([
-    'adamant_bar', 'adamantite_ore', 'angsana_logs', 'bamboo', 'bronze_axe', 'bronze_bar',
-    'bronze_pickaxe', 'chisel', 'clay', 'coal', 'copper_ore', 'fishing_bait', 'fishing_rod',
-    'gold_ore', 'granite', 'hammer', 'harpoon', 'iron_bar', 'iron_ore', 'limestone', 'lobster_pot',
-    'logs', 'magic_logs', 'mahogany_logs', 'mangrove_logs', 'maple_logs', 'mithril_bar', 'mithril_ore',
-    'oak_logs', 'raw_anchovy', 'raw_arapaima', 'raw_arowana', 'raw_barramundi', 'raw_belida',
+    'adamant_bar', 'adamantite_ore', 'angsana_logs', 'bamboo', 'birds_nest',
+    'bones', 'bowl', 'bronze_axe', 'bronze_bar', 'bronze_pickaxe',
+    'chisel', 'clay', 'coal', 'coins', 'copper_ore',
+    'diamond', 'emerald', 'feather', 'fishing_bait', 'fishing_rod',
+    'glass_orb', 'gold_ore', 'granite', 'hammer', 'harpoon',
+    'iron_bar', 'iron_ore', 'jug', 'lantern', 'limestone',
+    'lobster_pot', 'logs', 'magic_logs', 'mahogany_logs', 'mangrove_logs',
+    'maple_logs', 'mark_of_grace', 'mithril_bar', 'mithril_ore', 'molten_glass',
+    'oak_logs', 'old_boot', 'pearl', 'pie_dish', 'pot',
+    'raw_anchovy', 'raw_arapaima', 'raw_arowana', 'raw_barramundi', 'raw_belida',
     'raw_climbing_perch', 'raw_cobia', 'raw_coral_trout', 'raw_diamond_trevally', 'raw_eel',
-    'raw_giant_snakehead', 'raw_giant_trevally', 'raw_golden_snapper', 'raw_grouper',
-    'raw_hybrid_grouper', 'raw_ikan_keli', 'raw_lobster', 'raw_longfin_trevally', 'raw_mackerel',
-    'raw_mangrove_jack', 'raw_manta_ray', 'raw_marble_goby', 'raw_milkfish', 'raw_peacock_bass',
-    'raw_pike', 'raw_queenfish', 'raw_red_drum', 'raw_red_snapper', 'raw_salmon', 'raw_sardine',
-    'raw_shark', 'raw_stingray', 'raw_swordfish', 'raw_tenggiri', 'raw_threadfin', 'raw_tilapia',
-    'raw_trout', 'raw_tuna', 'raw_white_pomfret', 'rune_bar', 'runite_ore', 'sandstone', 'silver_ore',
-    'small_net', 'steel_bar', 'teak_logs', 'tembusu_logs', 'tin_ore', 'tinderbox', 'willow_logs',
-    'yew_logs',
+    'raw_giant_snakehead', 'raw_giant_trevally', 'raw_golden_snapper', 'raw_grouper', 'raw_hybrid_grouper',
+    'raw_ikan_keli', 'raw_lobster', 'raw_longfin_trevally', 'raw_mackerel', 'raw_mangrove_jack',
+    'raw_manta_ray', 'raw_marble_goby', 'raw_milkfish', 'raw_peacock_bass', 'raw_pike',
+    'raw_queenfish', 'raw_red_drum', 'raw_red_snapper', 'raw_salmon', 'raw_sardine',
+    'raw_shark', 'raw_stingray', 'raw_swordfish', 'raw_tenggiri', 'raw_threadfin',
+    'raw_tilapia', 'raw_trout', 'raw_tuna', 'raw_white_pomfret', 'ruby',
+    'rune_bar', 'runite_ore', 'sandstone', 'sapphire', 'seaweed',
+    'silver_ore', 'small_net', 'steel_bar', 'teak_logs', 'tembusu_logs',
+    'tin_ore', 'tinderbox', 'vial', 'willow_logs', 'yew_logs',
   ]);
   const itemPngSrc = (id) => `assets/items/${id}.png`;
 
@@ -536,6 +542,9 @@
   export const skillIconSVG = (id, size = 20, cls) => svg(S[id] || S.attack, size, cls);
   export const tabIconSVG = (id, size = 24, cls) => svg(T[id] || T.inventory, size, cls);
   export const hasIcon = (id) => !!I[id];
+  // The set of item ids backed by painted PNG art under assets/items/. Exposed
+  // so tests can assert it stays in lock-step with the files on disk.
+  export const pngItems = () => new Set(PNG_ITEMS);
 
   // Rasterised <img> cache for drawing item icons onto the world canvas
   // (ground item drops). Returns an HTMLImageElement that may still be loading.
