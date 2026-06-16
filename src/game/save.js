@@ -78,9 +78,9 @@ export function loadGame(game) {
     game.player.y = game.player.ty = p.y;
   }
   game.player.hp = typeof p.hp === 'number'
-    ? Math.max(0, Math.min(p.hp, game.skills.hitpoints))
-    : game.skills.hitpoints;
-  if (game.player.hp <= 0) game.player.hp = game.skills.hitpoints;
+    ? Math.max(0, Math.min(p.hp, game.maxHp()))
+    : game.maxHp();
+  if (game.player.hp <= 0) game.player.hp = game.maxHp();
   game.player.style = p.style || 'accurate';
   game.player.rangedStyle = p.rangedStyle || 'accurate';
   game.player.spell = p.spell || 'wind_strike';

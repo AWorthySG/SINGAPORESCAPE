@@ -483,7 +483,7 @@ export class Renderer {
     if (game.player.alive) {
       const c = game.player.renderCenter();
       const px = c.x - ox, py = c.y - oy;
-      if (game.player.target) this._healthBar(px, py - 30, game.player.hp / game.skills.hitpoints);
+      if (game.player.target) this._healthBar(px, py - 30, game.player.hp / game.maxHp());
       ctx.font = 'bold 11px "Trebuchet MS",sans-serif';
       ctx.textAlign = 'center';
       ctx.lineJoin = 'round';

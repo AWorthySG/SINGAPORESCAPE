@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 
 import { Game } from '../src/game/game.js';
 import { NPC } from '../src/game/npc.js';
-import { weaknessOf, rollGuaranteed } from '../src/game/combat.js';
+import { weaknessOf, rollGuaranteed, critChance } from '../src/game/combat.js';
 import { clearSave } from '../src/game/save.js';
 
 function fakeStorage() {
@@ -144,4 +144,36 @@ test('the Onslaught ultimate is gated by combat level', () => {
   assert.ok(g.skills.combatLevel() >= 45, 'now a high combat level');
   g.activateAbility('onslaught');
   assert.equal(g.armedAbility, 'onslaught', 'unlocks and arms once eligible');
+});
+
+test('critChance scales with level and gear, capped at 50%', () => {
+  assert.ok(critChance(1, 0) < critChance(99, 0), 'higher level crits more');
+  assert.ok(critChance(50, 10) > critChance(50, 0), 'crit gear adds chance');
+  assert.ok(critChance(99, 1000) <= 0.5, 'crit chance is capped');
+});
+
+test('_critHit multiplies damage on a crit, never on a miss', () => {
+  const g = boot();
+  assert.deepEqual(g._critHit(10, 0), { dmg: 10, crit: false });
+  const c = g._critHit(10, 1); // always crits
+  assert.ok(c.crit && c.dmg > 10, 'a crit boosts damage');
+  assert.equal(g._critHit(0, 1).crit, false, 'a missed hit cannot crit');
+});
+
+test('equipment crit & HP bonuses aggregate; maxHp reflects HP gear', () => {
+  const g = boot();
+  const base = g.maxHp();
+  g.equipment.set('cape', 'champions_cape'); // +12 hp, +6 crit
+  assert.equal(g.maxHp(), base + 12, 'HP gear raises max hitpoints');
+  assert.ok(g.equipment.bonuses().crit >= 6, 'crit gear adds crit chance');
+});
+
+test('a combat-skill level-up restores health, a life-skill one does not', () => {
+  const g = boot();
+  g.player.hp = 1;
+  g.bus.emit('levelup', { skill: 'strength', level: 30 });
+  assert.ok(g.player.hp > 1, 'healed on a combat level-up');
+  g.player.hp = 1;
+  g.bus.emit('levelup', { skill: 'cooking', level: 30 });
+  assert.equal(g.player.hp, 1, 'no heal on a non-combat level-up');
 });

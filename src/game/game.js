@@ -18,7 +18,7 @@ import { findPath } from '../engine/pathfinding.js';
 import {
   playerAttackVsNpc, npcAttackVsPlayer, rollAttack, rollGuaranteed, combatXp,
   playerRangedVsNpc, combatXpRanged, playerMagicVsNpc, RANGED_STYLES,
-  weaknessOf, WEAKNESS_BONUS,
+  weaknessOf, WEAKNESS_BONUS, critChance, CRIT_MULT,
 } from './combat.js';
 import { ABILITIES, ABILITY_BY_ID } from '../data/abilities.js';
 import { getSpell } from '../data/magic.js';
@@ -38,6 +38,7 @@ import { QUESTS, CHAMPION_QP, REDEMPTION_GOAL, CORRUPTION_GOAL } from '../data/q
 import { CLUE_TIERS, CLUE_SPOTS, clueTierForLevel } from '../data/clues.js';
 
 const STARTER_TOOLS = ['bronze_axe', 'bronze_pickaxe', 'small_net', 'fishing_rod', 'tinderbox', 'hammer', 'chisel', 'bronze_dagger'];
+const COMBAT_SKILLS = new Set(['attack', 'strength', 'defence', 'hitpoints', 'ranged', 'magic']);
 
 export class Game {
   constructor() {
@@ -52,7 +53,7 @@ export class Game {
     this.bank = new Bank(this.bus);
 
     this.player = new Player(data.spawnPoint.x, data.spawnPoint.y);
-    this.player.hp = this.skills.hitpoints;
+    this.player.hp = this.maxHp();
 
     this.npcs = data.npcSpawns.map((s) => new NPC(s.npcId, s.x, s.y, s.wander, s.opts));
 
@@ -117,10 +118,15 @@ export class Game {
     this.braceTicks = 0;          // ticks of halved incoming damage left
 
     // Celebratory sparkle on level up; new milestones may unlock on level/quest changes.
-    this.bus.on('levelup', () => {
+    this.bus.on('levelup', (p) => {
       const c = this.player.renderCenter();
       this.spawnSparkle(this.player, '#ffe24a', 18);
       this.spawnPoof(c.x, c.y - 6, '#fff3a0');
+      // Advancing a combat skill invigorates you — restore some health.
+      if (this.player.alive && COMBAT_SKILLS.has(p?.skill)) {
+        this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.ceil(this.maxHp() * 0.1));
+        this.bus.emit('hp');
+      }
       this.checkAchievements();
     });
     this.bus.on('quest', () => this.checkAchievements());
@@ -162,7 +168,7 @@ export class Game {
     this.equipment.set('weapon', 'bronze_scimitar');
     this.equipment.set('shield', 'wooden_shield');
     this.equipment.set('body', 'leather_body');
-    this.player.hp = this.skills.hitpoints;
+    this.player.hp = this.maxHp();
     this.starterGiven = true;
     this.msg(`Welcome to ${this.world.townName}, an island of adventure!`, 'system');
     this.msg('You are equipped and ready. Talk to the Kampong Guide for tips.', 'system');
@@ -185,6 +191,9 @@ export class Game {
   }
 
   canRun() { return this.running && this.runEnergy > 0; }
+
+  /** Max hitpoints = Hitpoints level + any bonus HP from equipment. */
+  maxHp() { return this.skills.hitpoints + (this.equipment.bonuses().hp || 0); }
 
   /** Tile the player will next occupy (intent tile), used as a pathfinding start. */
   playerTile() {
@@ -328,7 +337,7 @@ export class Game {
 
     if (this.player.alive && ++this.regenCounter >= 100) {
       this.regenCounter = 0;
-      if (this.player.hp < this.skills.hitpoints) { this.player.hp++; this.bus.emit('hp'); }
+      if (this.player.hp < this.maxHp()) { this.player.hp++; this.bus.emit('hp'); }
     }
     this.updateRunEnergy();
     if (this.specEnergy < 100) { this.specEnergy = Math.min(100, this.specEnergy + 1); this.bus.emit('spec'); }
@@ -497,7 +506,7 @@ export class Game {
       case 'smithmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openSmithMenu(a.obj));
       case 'craftmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openCraftMenu(a.obj));
       case 'pray': return this._tickArrival(a, a.obj, true, () => {
-        this.player.hp = this.skills.hitpoints;
+        this.player.hp = this.maxHp();
         this.prayerPoints = this.skills.prayer;
         this.bus.emit('hp'); this.bus.emit('prayer');
         this.spawnSparkle(this.player, '#9adcff', 16);
@@ -506,7 +515,7 @@ export class Game {
         this.markPillar('monument');
       });
       case 'rest': return this._tickArrival(a, a.obj, true, () => {
-        this.player.hp = this.skills.hitpoints;
+        this.player.hp = this.maxHp();
         this.runEnergy = 100;
         this.bus.emit('hp'); this.bus.emit('run');
         this.spawnSparkle(this.player, '#f5a623', 16);
@@ -592,13 +601,14 @@ export class Game {
     let total = 0;
     for (let i = 0; i < mods.hits && npc.hp > 0; i++) {
       const effMax = Math.max(1, Math.round(baseMax * mods.dmgM));
-      const dmg = mods.guaranteed ? rollGuaranteed(effMax) : rollAttack(atkRoll * pm.att * mods.accM, defRoll, effMax);
-      this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (fancy || dmg >= effMax) });
-      if (dmg > 0) { this.spawnHitSparks(npc, fancy ? '#ffd24a' : '#fff2b0'); for (const x of combatXp(this.player.style, dmg)) this.skills.addXp(x.skill, x.xp); }
+      let dmg = mods.guaranteed ? rollGuaranteed(effMax) : rollAttack(atkRoll * pm.att * mods.accM, defRoll, effMax);
+      const c = this._critHit(dmg, mods.critCh); dmg = c.dmg;
+      this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax) });
+      if (dmg > 0) { this.spawnHitSparks(npc, (c.crit || fancy) ? '#ffd24a' : '#fff2b0'); for (const x of combatXp(this.player.style, dmg)) this.skills.addXp(x.skill, x.xp); }
       total += dmg;
     }
     if (mods.heal && total > 0) {
-      this.player.hp = Math.min(this.skills.hitpoints, this.player.hp + Math.round(total * mods.heal));
+      this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.round(total * mods.heal));
       this.bus.emit('hp');
     }
     this.player.attackCooldown = this.equipment.weaponSpeed();
@@ -675,8 +685,8 @@ export class Game {
       this.spawnSparkle(this.player, '#7fd8ff', 12);
       this.bus.emit('sfx', 'spec');
     } else if (ab.kind === 'heal') {
-      const heal = Math.max(1, Math.round(this.skills.hitpoints * ab.healFrac));
-      this.player.hp = Math.min(this.skills.hitpoints, this.player.hp + heal);
+      const heal = Math.max(1, Math.round(this.maxHp() * ab.healFrac));
+      this.player.hp = Math.min(this.maxHp(), this.player.hp + heal);
       this.msg(`Second Wind restores ${heal} life.`, 'system');
       this.spawnSparkle(this.player, '#7fff8f', 14);
       this.bus.emit('hp');
@@ -717,7 +727,15 @@ export class Game {
     if (spec) { this.msg(`Special attack: ${spec.name}!`, 'combat'); this.spawnSparkle(this.player, '#ffd24a', 12); }
     if (ab) { this.msg(`Ability: ${ab.name}!`, 'combat'); this.spawnSparkle(this.player, '#ff9a3a', 10); this.bus.emit('sfx', 'spec'); }
     if (weak) this.spawnSparkle(npc, '#9affd0', 6);
-    return { accM, dmgM, hits, guaranteed, heal, spec, ability: ab, weak };
+    const lvl = mode === 'ranged' ? this.skills.ranged : mode === 'magic' ? this.skills.magic : this.skills.attack;
+    const critCh = critChance(lvl, this.equipment.bonuses().crit);
+    return { accM, dmgM, hits, guaranteed, heal, spec, ability: ab, weak, critCh };
+  }
+
+  /** Roll a critical hit on a landed blow: crits multiply damage by CRIT_MULT. */
+  _critHit(dmg, critCh) {
+    if (dmg > 0 && Math.random() < critCh) return { dmg: Math.max(dmg + 1, Math.round(dmg * CRIT_MULT)), crit: true };
+    return { dmg, crit: false };
   }
 
   _applyPlayerHit(npc, dmg, opts = {}) {
@@ -756,13 +774,14 @@ export class Game {
         this.inventory.removeAt(ai, 1);
       } else { this.inventory.removeAt(arrowIdx, 1); }
       const effMax = Math.max(1, Math.round(baseMax * mods.dmgM));
-      const dmg = mods.guaranteed ? rollGuaranteed(effMax) : rollAttack(atkRoll * pr * mods.accM, defRoll, effMax);
-      this._projectile(npc, fancy ? '#ffd24a' : '#d9c45a');
-      this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (fancy || dmg >= effMax) });
-      if (dmg > 0) { this.spawnHitSparks(npc, fancy ? '#ffd24a' : '#cfe0a0'); for (const x of combatXpRanged(style, dmg)) this.skills.addXp(x.skill, x.xp); }
+      let dmg = mods.guaranteed ? rollGuaranteed(effMax) : rollAttack(atkRoll * pr * mods.accM, defRoll, effMax);
+      const c = this._critHit(dmg, mods.critCh); dmg = c.dmg;
+      this._projectile(npc, (c.crit || fancy) ? '#ffd24a' : '#d9c45a');
+      this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax) });
+      if (dmg > 0) { this.spawnHitSparks(npc, (c.crit || fancy) ? '#ffd24a' : '#cfe0a0'); for (const x of combatXpRanged(style, dmg)) this.skills.addXp(x.skill, x.xp); }
       total += dmg;
     }
-    if (mods.heal && total > 0) { this.player.hp = Math.min(this.skills.hitpoints, this.player.hp + Math.round(total * mods.heal)); this.bus.emit('hp'); }
+    if (mods.heal && total > 0) { this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.round(total * mods.heal)); this.bus.emit('hp'); }
     this.player.attackCooldown = Math.max(2, this.equipment.weaponSpeed() + (RANGED_STYLES[style]?.speedMod || 0));
     this._postAttack(npc);
   }
@@ -776,10 +795,11 @@ export class Game {
     const mods = this._offensiveMods(npc, 'magic');
     const fancy = mods.spec || mods.ability;
     const effMax = Math.max(1, Math.round(max * mods.dmgM));
-    const dmg = mods.guaranteed ? rollGuaranteed(effMax) : rollAttack(atkRoll * this.prayerMult().magic * mods.accM, defRoll, effMax);
+    let dmg = mods.guaranteed ? rollGuaranteed(effMax) : rollAttack(atkRoll * this.prayerMult().magic * mods.accM, defRoll, effMax);
+    const c = this._critHit(dmg, mods.critCh); dmg = c.dmg;
     this._swingToward(this.player, npc.x, npc.y);
-    this._projectile(npc, fancy ? '#e0a0ff' : spell.tint);
-    this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (fancy || dmg >= effMax) });
+    this._projectile(npc, (c.crit || fancy) ? '#e0a0ff' : spell.tint);
+    this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax) });
     this.skills.addXp('magic', spell.xp);
     if (dmg > 0) { this.spawnHitSparks(npc, spell.tint); this.skills.addXp('magic', dmg * 2); this.skills.addXp('hitpoints', dmg * 1.33); }
     this.player.attackCooldown = this.equipment.weaponSpeed();
@@ -1195,7 +1215,7 @@ export class Game {
     const p = this.player;
     const rp = this.world.respawnPoint;
     p.alive = true;
-    p.hp = this.skills.hitpoints;
+    p.hp = this.maxHp();
     p.x = p.tx = rp.x;
     p.y = p.ty = rp.y;
     p.progress = 0;
@@ -1305,7 +1325,7 @@ export class Game {
     const item = getItem(s.id);
     if (!item.heal) { this.msg(`You can't eat the ${item.name.toLowerCase()}.`); return; }
     this.inventory.removeAt(index, 1);
-    this.player.hp = Math.min(this.skills.hitpoints, this.player.hp + item.heal);
+    this.player.hp = Math.min(this.maxHp(), this.player.hp + item.heal);
     this.msg(`You eat the ${item.name.toLowerCase()}.`);
     this.bus.emit('sfx', 'eat');
     this.bus.emit('hp');

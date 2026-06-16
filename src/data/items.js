@@ -317,7 +317,7 @@ const RAW = {
   ring_of_might: { name: 'Ring of might', icon: '💍', value: 5000, examine: 'It pulses with strength.',
     equip: { slot: 'ring', req: {}, bonuses: { strength: 8 } } },
   fire_cape: { name: 'Fire cape', icon: '🧣', value: 60000, examine: 'Singed, but glorious.',
-    equip: { slot: 'cape', req: { defence: 40 }, bonuses: { attack: 6, strength: 8, defence: 8 } } },
+    equip: { slot: 'cape', req: { defence: 40 }, bonuses: { attack: 6, strength: 8, defence: 8, crit: 5 } } },
 
   // ---- New boss uniques ----
   tiger_fang: { name: 'Tiger fang', icon: '🗡️', value: 90000, examine: 'A fang from the Night Safari Tiger.',
@@ -349,17 +349,17 @@ const RAW = {
   kampong_gauntlets: { name: 'Kampong gauntlets', icon: '🧤', value: 12000, examine: 'Sturdy gloves blessed by the village smith.',
     equip: { slot: 'hands', req: {}, bonuses: { attack: 9, strength: 9, defence: 7 } } },
   champions_helm: { name: "Champion's helm", icon: '⛑️', value: 20000, examine: 'Worn by the island\'s defenders.',
-    equip: { slot: 'head', req: { defence: 30 }, bonuses: { attack: 6, defence: 16 } } },
+    equip: { slot: 'head', req: { defence: 30 }, bonuses: { attack: 6, defence: 16, hp: 8 } } },
   island_aegis: { name: 'Island aegis', icon: '🛡️', value: 40000, examine: 'A bulwark awarded to a true Island Defender.',
-    equip: { slot: 'shield', req: { defence: 40 }, bonuses: { strength: 5, defence: 24 } } },
+    equip: { slot: 'shield', req: { defence: 40 }, bonuses: { strength: 5, defence: 24, hp: 12 } } },
   slayer_helmet: { name: 'Slayer helmet', icon: '💀', value: 45000, examine: 'A fearsome helm prized by slayers — boosts all combat.',
-    equip: { slot: 'head', req: { defence: 10 }, bonuses: { attack: 10, strength: 8, defence: 14, ranged: 8, magic: 8 } } },
+    equip: { slot: 'head', req: { defence: 10 }, bonuses: { attack: 10, strength: 8, defence: 14, ranged: 8, magic: 8, crit: 5 } } },
   slayer_ring: { name: 'Slayer ring', icon: '💍', value: 8000, examine: 'A ring etched with slayer runes.',
     equip: { slot: 'ring', req: {}, bonuses: { attack: 5, strength: 5, defence: 3 } } },
   trades_cape: { name: 'Trades cape', icon: '🧣', value: 30000, examine: 'Awarded by Cikgu Surya to a Master of Trades.',
     equip: { slot: 'cape', req: {}, bonuses: { attack: 4, strength: 4, defence: 6 } } },
   champions_cape: { name: "Champion's cape", icon: '🧣', value: 200000, examine: 'Only the Champion of Singapore may wear it.',
-    equip: { slot: 'cape', req: { defence: 40 }, bonuses: { attack: 10, strength: 10, defence: 14, ranged: 8, magic: 8 } } },
+    equip: { slot: 'cape', req: { defence: 40 }, bonuses: { attack: 10, strength: 10, defence: 14, ranged: 8, magic: 8, crit: 6, hp: 12 } } },
   mark_of_grace: { name: 'Mark of grace', icon: '🪶', value: 40, stackable: true, examine: 'A token of agility — use it to catch your breath (restore run energy).' },
 
   // ---- Alignment arc rewards ----
@@ -368,9 +368,9 @@ const RAW = {
   shadow_cloak: { name: 'Shadow cloak', icon: '🦇', value: 80000, examine: 'A cloak woven from darkness, granted to the corrupted.',
     equip: { slot: 'cape', req: {}, bonuses: { attack: 10, strength: 10, defence: 3 } } },
   seraph_blade: { name: 'Seraph blade', icon: '🗡️', value: 250000, examine: 'A radiant blade dropped by the Lion of Light.',
-    equip: { slot: 'weapon', req: { attack: 40 }, bonuses: { attack: 72, strength: 68, defence: 6, magic: 10, speed: 4 } } },
+    equip: { slot: 'weapon', req: { attack: 40 }, bonuses: { attack: 72, strength: 68, defence: 6, magic: 10, speed: 4, crit: 8 } } },
   void_blade: { name: 'Void blade', icon: '🗡️', value: 260000, examine: 'A blade of pure darkness from the Shadow Sovereign.',
-    equip: { slot: 'weapon', req: { attack: 50 }, bonuses: { attack: 88, strength: 84, defence: 2, speed: 4 } } },
+    equip: { slot: 'weapon', req: { attack: 50 }, bonuses: { attack: 88, strength: 84, defence: 2, speed: 4, crit: 10 } } },
 
   // ---- Clue scrolls & treasure trails ----
   clue_scroll_easy: { name: 'Clue scroll (easy)', icon: '📜', value: 0, examine: 'Read it to begin an easy treasure trail.' },

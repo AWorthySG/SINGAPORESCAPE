@@ -29,7 +29,7 @@ export class Equipment {
   }
 
   bonuses() {
-    const total = { attack: 0, strength: 0, defence: 0, ranged: 0, magic: 0, magicStr: 0 };
+    const total = { attack: 0, strength: 0, defence: 0, ranged: 0, magic: 0, magicStr: 0, crit: 0, hp: 0 };
     for (const slot of EQUIP_SLOTS) {
       const id = this.slots[slot];
       if (!id) continue;
@@ -41,6 +41,8 @@ export class Equipment {
       total.ranged += b.ranged || 0;
       total.magic += b.magic || 0;
       total.magicStr += b.magicStr || 0;
+      total.crit += b.crit || 0;   // bonus critical-hit chance (%)
+      total.hp += b.hp || 0;       // bonus max hitpoints
     }
     // Full-set bonuses on top of individual pieces.
     const sb = this.setBonus();
