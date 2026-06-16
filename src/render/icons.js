@@ -400,6 +400,18 @@
   I.ruby_amulet = I.amulet_of_power;
   I.diamond_amulet = I.amulet_of_power;
   I.granite_shield = shield('#9a948a', '#c4c0b8');
+  I.emerald_ring = ringIcon('#2f9e6e', '#6fd0a0');
+  I.ruby_ring = ringIcon('#c0392b', '#e87a6a');
+  I.diamond_ring = ringIcon('#bcd6e8', '#ffffff');
+  I.granite_helm = helm('#9a948a', '#c4c0b8');
+  I.granite_legs = legs('#9a948a', '#c4c0b8');
+  I.granite_body = plate('#9a948a', '#c4c0b8');
+  I.molten_glass = `<path d="M7 14 Q7 19 12 19 Q17 19 17 14 Q17 9 12 8 Q7 9 7 14 Z" fill="#bfe3ff" stroke="${OL}" stroke-width="1" opacity=".9"/><circle cx="10" cy="13" r="1.6" fill="#fff" opacity=".8"/>`;
+  I.vial = `<path d="M10 3 H14 V8 L16 16 Q16 20 12 20 Q8 20 8 16 L10 8 Z" fill="#bfe3ff" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M9 14 Q12 12 15 14 L16 16.5 Q16 20 12 20 Q8 20 8 16.5 Z" fill="#7ac0e8" opacity=".8"/><rect x="9.5" y="2" width="5" height="2" rx="0.8" fill="${C.wood}" stroke="${OL}" stroke-width="0.8"/>`;
+  I.glass_orb = `<circle cx="12" cy="13" r="6.5" fill="#bfe3ff" stroke="${OL}" stroke-width="1.1" opacity=".92"/><circle cx="9.6" cy="10.6" r="2.2" fill="#ffffff" opacity=".85"/>`;
+  I.lantern = `<rect x="8" y="6" width="8" height="11" rx="1.5" fill="#ffe79a" stroke="${OL}" stroke-width="1.1"/><rect x="7" y="4.5" width="10" height="2.5" rx="1" fill="${C.gold}" stroke="${OL}" stroke-width="1"/><rect x="8.5" y="16.5" width="7" height="2" rx="0.8" fill="${C.gold}" stroke="${OL}" stroke-width="1"/><path d="M10 8 L10 15 M14 8 L14 15" stroke="${C.goldDk}" stroke-width="0.9"/>`;
+  I.jug = `<path d="M9 5 H15 Q16 5 16 7 L17 17 Q17 20 12 20 Q7 20 7 17 L8 7 Q8 5 9 5 Z" fill="#c9603a" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M16 8 Q20 9 19 13 Q18 15 16 14" fill="none" stroke="${OL}" stroke-width="1.4"/>`;
+  I.pie_dish = `<ellipse cx="12" cy="13" rx="8" ry="4.5" fill="#caa15a" stroke="${OL}" stroke-width="1.1"/><ellipse cx="12" cy="12" rx="8" ry="4.5" fill="#e0bd86" stroke="${OL}" stroke-width="1.1"/><ellipse cx="12" cy="12" rx="5.5" ry="2.8" fill="#b88a4a"/>`;
   I.chisel = `<rect x="10.5" y="3" width="3" height="11" rx="1" fill="${C.steel}" stroke="${OL}" stroke-width="1"/><path d="M10.5 14 L13.5 14 L12 19 Z" fill="${C.steelHi}" stroke="${OL}" stroke-width="1" stroke-linejoin="round"/><rect x="10" y="2" width="4" height="3" rx="1" fill="${C.wood}" stroke="${OL}" stroke-width="1"/>`;
   I.pot = `<path d="M7 9 Q6 19 12 20 Q18 19 17 9 Z" fill="${C.meat}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><ellipse cx="12" cy="9" rx="5.5" ry="2" fill="#d8825a" stroke="${OL}" stroke-width="1"/>`;
   I.bowl = `<path d="M5 11 Q12 20 19 11 Z" fill="#c9a06a" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><ellipse cx="12" cy="11" rx="7" ry="2.2" fill="#e0bd86" stroke="${OL}" stroke-width="1"/>`;

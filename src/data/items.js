@@ -134,6 +134,28 @@ const RAW = {
     equip: { slot: 'amulet', req: {}, bonuses: { attack: 9, strength: 9, defence: 9 } } },
   granite_shield: { name: 'Granite shield', icon: '🛡️', value: 9000, examine: 'A heavy shield carved from granite.',
     equip: { slot: 'shield', req: { defence: 45 }, bonuses: { defence: 22, strength: 3 } } },
+  // gem rings (jewelry tier)
+  emerald_ring: { name: 'Emerald ring', icon: '💍', value: 1800, examine: 'A ring set with an emerald.',
+    equip: { slot: 'ring', req: {}, bonuses: { attack: 2, strength: 2, defence: 2 } } },
+  ruby_ring: { name: 'Ruby ring', icon: '💍', value: 4200, examine: 'A ring set with a ruby.',
+    equip: { slot: 'ring', req: {}, bonuses: { strength: 5 } } },
+  diamond_ring: { name: 'Diamond ring', icon: '💍', value: 9000, examine: 'A ring set with a diamond.',
+    equip: { slot: 'ring', req: {}, bonuses: { attack: 4, strength: 4, defence: 4 } } },
+  // granite armour
+  granite_helm: { name: 'Granite helm', icon: '⛑️', value: 6000, examine: 'A helm hewn from solid granite.',
+    equip: { slot: 'head', req: { defence: 45 }, bonuses: { defence: 13, strength: 1 } } },
+  granite_legs: { name: 'Granite legs', icon: '👖', value: 14000, examine: 'Heavy granite leg armour.',
+    equip: { slot: 'legs', req: { defence: 50 }, bonuses: { defence: 18, strength: 2 } } },
+  granite_body: { name: 'Granite body', icon: '🦺', value: 22000, examine: 'A cuirass carved from granite.',
+    equip: { slot: 'body', req: { defence: 55 }, bonuses: { defence: 26, strength: 2 } } },
+  // glassblowing
+  molten_glass: { name: 'Molten glass', icon: '🫧', value: 20, examine: 'Glass made from sandstone, ready to blow.' },
+  vial: { name: 'Vial', icon: '🧪', value: 25, examine: 'A small glass vial.' },
+  glass_orb: { name: 'Glass orb', icon: '🔮', value: 90, examine: 'A delicate blown-glass orb.' },
+  lantern: { name: 'Lantern', icon: '🏮', value: 220, examine: 'A glass lantern that lights the dark.' },
+  // pottery
+  jug: { name: 'Jug', icon: '🏺', value: 14, examine: 'A clay jug for holding liquids.' },
+  pie_dish: { name: 'Pie dish', icon: '🥧', value: 16, examine: 'A clay dish for baking pies.' },
   steel_bar: { name: 'Steel bar', icon: '⬜', value: 200, examine: 'A bar of steel.' },
   mithril_bar: { name: 'Mithril bar', icon: '🟦', value: 324, examine: 'A bar of mithril.' },
   adamant_bar: { name: 'Adamant bar', icon: '🟩', value: 800, examine: 'A bar of adamantite.' },
