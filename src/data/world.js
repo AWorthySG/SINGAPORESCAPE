@@ -167,6 +167,13 @@ export function buildWorld() {
   scatter('yew_tree', 40, 6, 86, 26, 5, GRASSY);
   scatter('magic_tree', 50, 6, 82, 22, 3, GRASSY);
   scatter('willow', 32, 30, 42, 46, 6, GRASSY);
+  // More tree species across Bukit Timah / MacRitchie
+  scatter('bamboo', 32, 28, 48, 50, 10, GRASSY);
+  scatter('angsana', 40, 6, 88, 34, 9, GRASSY);
+  scatter('teak', 44, 6, 86, 30, 7, GRASSY);
+  scatter('mangrove', 30, 54, 44, 80, 7, GRASSY);
+  scatter('mahogany', 48, 6, 84, 26, 5, GRASSY);
+  scatter('tembusu', 50, 6, 82, 22, 4, GRASSY);
   scatter('copper_rock', 67, 9, 85, 23, 6, [T.SAND]);
   scatter('tin_rock', 67, 9, 85, 23, 6, [T.SAND]);
   scatter('iron_rock', 68, 10, 84, 22, 5, [T.SAND]);
@@ -174,6 +181,13 @@ export function buildWorld() {
   scatter('gold_rock', 70, 11, 84, 21, 4, [T.SAND]);
   scatter('mithril_rock', 74, 12, 84, 20, 3, [T.SAND]);
   scatter('adamantite_rock', 78, 13, 84, 19, 2, [T.SAND]);
+  // More mining materials
+  scatter('clay_rock', 66, 9, 85, 24, 6, [T.SAND]);
+  scatter('limestone_rock', 66, 9, 85, 24, 5, [T.SAND]);
+  scatter('silver_rock', 67, 10, 85, 23, 5, [T.SAND]);
+  scatter('sandstone_rock', 68, 10, 84, 22, 4, [T.SAND]);
+  scatter('gem_rock', 72, 11, 84, 20, 3, [T.SAND]);
+  scatter('granite_rock', 70, 11, 84, 21, 4, [T.SAND]);
   placeObj('sign', 57, 44, { sign: 'Bukit Timah \u2191' });
   // Chicken pen + a few easy early monsters near the path
   for (let x = 34; x <= 40; x++) { placeObj('fence', x, 28); placeObj('fence', x, 34); }

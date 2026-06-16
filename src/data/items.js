@@ -94,12 +94,25 @@ const RAW = {
   maple_logs: { name: 'Rain-tree logs', icon: '🪵', value: 36, tags: ['log'], firemaking: 45, fmXp: 135, examine: 'Logs from a mighty rain tree.' },
   yew_logs: { name: 'Yew logs', icon: '🪵', value: 80, tags: ['log'], firemaking: 60, fmXp: 175, examine: 'Logs from an ancient yew.' },
   magic_logs: { name: 'Magic logs', icon: '🪵', value: 200, tags: ['log'], firemaking: 75, fmXp: 250, examine: 'Faintly glowing enchanted logs.' },
+  // ---- More tree species (logs) ----
+  bamboo: { name: 'Bamboo', icon: '🎍', value: 8, tags: ['log'], firemaking: 8, fmXp: 35, examine: 'A fast-growing bamboo stalk.' },
+  angsana_logs: { name: 'Angsana logs', icon: '🪵', value: 16, tags: ['log'], firemaking: 22, fmXp: 70, examine: 'Logs from a flowering angsana.' },
+  teak_logs: { name: 'Teak logs', icon: '🪵', value: 30, tags: ['log'], firemaking: 35, fmXp: 110, examine: 'Fine, durable teak.' },
+  mangrove_logs: { name: 'Mangrove logs', icon: '🪵', value: 40, tags: ['log'], firemaking: 40, fmXp: 125, examine: 'Salt-hardened mangrove wood.' },
+  mahogany_logs: { name: 'Mahogany logs', icon: '🪵', value: 60, tags: ['log'], firemaking: 50, fmXp: 160, examine: 'Rich red mahogany.' },
+  tembusu_logs: { name: 'Tembusu logs', icon: '🪵', value: 120, tags: ['log'], firemaking: 68, fmXp: 220, examine: 'Dense wood from a heritage tembusu.' },
 
   // ---- Higher ores & bars ----
   mithril_ore: { name: 'Mithril ore', icon: '🔷', value: 162, examine: 'This needs refining.' },
   adamantite_ore: { name: 'Adamantite ore', icon: '🟢', value: 400, examine: 'This needs refining.' },
   runite_ore: { name: 'Runite ore', icon: '🔵', value: 1600, examine: 'This needs refining.' },
   gold_ore: { name: 'Gold ore', icon: '🟡', value: 150, examine: 'A glittering nugget of gold.' },
+  // ---- More mining materials ----
+  clay: { name: 'Clay', icon: '🟫', value: 6, examine: 'Soft clay, handy for crafting.' },
+  limestone: { name: 'Limestone', icon: '⬜', value: 10, examine: 'A block of pale limestone.' },
+  silver_ore: { name: 'Silver ore', icon: '⚪', value: 60, examine: 'Refines into shining silver.' },
+  sandstone: { name: 'Sandstone', icon: '🟨', value: 14, examine: 'A gritty block of sandstone.' },
+  granite: { name: 'Granite', icon: '🪨', value: 50, examine: 'A heavy slab of speckled granite.' },
   steel_bar: { name: 'Steel bar', icon: '⬜', value: 200, examine: 'A bar of steel.' },
   mithril_bar: { name: 'Mithril bar', icon: '🟦', value: 324, examine: 'A bar of mithril.' },
   adamant_bar: { name: 'Adamant bar', icon: '🟩', value: 800, examine: 'A bar of adamantite.' },

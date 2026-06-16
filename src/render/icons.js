@@ -277,6 +277,18 @@
   I.yew_logs = logIcon('#3f5a2a', '#5a7a3a');
   I.magic_logs = logIcon('#4a6ad0', '#7a96e8');
   I.gold_ore = oreIcon('#e8c84a');
+  // More logs & mining materials
+  I.bamboo = logIcon('#7aa83a', '#aad05a');
+  I.angsana_logs = logIcon('#9a7a3a', '#c0a45a');
+  I.teak_logs = logIcon('#8a5a30', '#b07a45');
+  I.mangrove_logs = logIcon('#5a6a4a', '#7a8a5a');
+  I.mahogany_logs = logIcon('#7a3320', '#a85540');
+  I.tembusu_logs = logIcon('#6a5a3a', '#8a7a55');
+  I.clay = oreIcon('#b07a52');
+  I.limestone = oreIcon('#d8d2c0');
+  I.silver_ore = oreIcon('#d8dde6');
+  I.sandstone = oreIcon('#d8c890');
+  I.granite = oreIcon('#9a948a');
   I.raw_salmon = rawFish('#e0896a', '#f0b89a'); I.salmon = cookedFish('#e8956a');
   I.raw_tuna = rawFish('#5a7a8a', '#8aa6b6'); I.tuna = cookedFish('#9aa6b0');
   I.raw_shark = rawFish('#6a7a8a', '#9aaab6'); I.shark = cookedFish('#8a9aa6');
