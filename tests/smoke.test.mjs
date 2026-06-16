@@ -12,7 +12,9 @@ import { hitChance, maxHit, attackRoll, combatXp } from '../src/game/combat.js';
 import { gatherChance } from '../src/game/skilling.js';
 import { XP_RATE } from '../src/config.js';
 import { NPCS, MONSTER_IDS, BOSS_IDS, getNpc } from '../src/data/npcs.js';
-import { itemIconSVG, hasIcon, skillIconSVG } from '../src/render/icons.js';
+import { itemIconSVG, hasIcon, skillIconSVG, pngItems } from '../src/render/icons.js';
+import { readdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { ITEMS } from '../src/data/items.js';
 import { SKILLS } from '../src/data/skills.js';
 import { SPELLS } from '../src/data/magic.js';
@@ -188,6 +190,19 @@ test('painted PNG sprites render as <img>, the rest stay inline vectors', () => 
   assert.ok(itemIconSVG('merlion_blade', 24).includes('<svg'), 'vector fallback intact');
   // Painted items still retain a vector fallback (so hasIcon stays true).
   assert.ok(hasIcon('logs') && hasIcon('raw_barramundi'));
+});
+
+test('PNG_ITEMS stays in lock-step with the files under assets/items/', () => {
+  const dir = fileURLToPath(new URL('../assets/items/', import.meta.url));
+  const onDisk = new Set(readdirSync(dir).filter((f) => f.endsWith('.png')).map((f) => f.slice(0, -4)));
+  const declared = pngItems();
+  const missingFiles = [...declared].filter((id) => !onDisk.has(id));
+  const undeclared = [...onDisk].filter((id) => !declared.has(id));
+  assert.deepEqual(missingFiles, [], `declared in PNG_ITEMS but no file: ${missingFiles.join(', ')}`);
+  assert.deepEqual(undeclared, [], `file on disk but not in PNG_ITEMS: ${undeclared.join(', ')}`);
+  // Every painted id (bar the currency) must be a real game item.
+  const orphans = [...declared].filter((id) => id !== 'coins' && !ITEMS[id]);
+  assert.deepEqual(orphans, [], `painted ids with no item: ${orphans.join(', ')}`);
 });
 
 test('the tiered equipment generator produced a large gear set', () => {
