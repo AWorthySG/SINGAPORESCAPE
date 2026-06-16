@@ -179,6 +179,17 @@ test('every equippable item has its own custom icon', () => {
   assert.ok(itemIconSVG('merlion_blade', 24).includes('<svg'));
 });
 
+test('painted PNG sprites render as <img>, the rest stay inline vectors', () => {
+  // Items shipped as hand-drawn artwork point at assets/items/<id>.png.
+  const png = itemIconSVG('logs', 32);
+  assert.ok(png.includes('<img') && png.includes('assets/items/logs.png'), 'log sprite uses its PNG');
+  assert.ok(itemIconSVG('raw_barramundi', 24).includes('assets/items/raw_barramundi.png'));
+  // An item without painted art keeps its vector icon.
+  assert.ok(itemIconSVG('merlion_blade', 24).includes('<svg'), 'vector fallback intact');
+  // Painted items still retain a vector fallback (so hasIcon stays true).
+  assert.ok(hasIcon('logs') && hasIcon('raw_barramundi'));
+});
+
 test('the tiered equipment generator produced a large gear set', () => {
   const weapons = Object.keys(ITEMS).filter((id) => ITEMS[id].equip?.slot === 'weapon');
   const armour = Object.keys(ITEMS).filter((id) => ITEMS[id].equip && ITEMS[id].equip.slot !== 'weapon');
