@@ -194,6 +194,7 @@ const RAW = {
   old_boot: { name: 'Old boot', icon: '🥾', value: 1, examine: 'You fished up someone\'s old boot. Charming.' },
   seaweed: { name: 'Seaweed', icon: '🌿', value: 2, examine: 'A clump of soggy seaweed.' },
   pearl: { name: 'Pearl', icon: '🦪', value: 600, examine: 'A lustrous pearl from an oyster.' },
+  birds_nest: { name: "Bird's nest", icon: '🪺', value: 0, examine: 'Knocked from a tree while chopping — open it for a surprise.' },
 
   // ---- Fishing tools ----
   fishing_rod: { name: 'Fishing rod', icon: '🎣', value: 8, tool: 'rod', examine: 'For luring freshwater fish.' },

@@ -1046,3 +1046,66 @@ test('extra fish species, bait, junk & treasure are defined and catchable', asyn
   for (let i = 0; i < 6000; i++) resolveFish(game, { obj: i % 2 ? rod : sea });
   assert.ok(extra.some((f) => tally[`raw_${f}`] > 0), 'caught at least one extra species');
 });
+
+test('gathering lucky finds: woodcutting doubles/nests and mining doubles/gems', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const { resolveWoodcut, resolveMine } = await import('../src/game/skilling.js');
+  const game = new Game();
+  game.start();
+  game.skills.addXp('woodcutting', 2_000_000);
+  game.skills.addXp('mining', 2_000_000);
+  const tree = game.world.objects.find((o) => o.def.type === 'tree' && o.def.gives === 'logs');
+  const rock = game.world.objects.find((o) => o.def.type === 'rock');
+  assert.ok(tree && rock, 'a tree and a rock exist');
+
+  const hits = {};
+  game.msg = (t) => { for (const k of ['double', 'bird', 'seam', 'unearth']) if (t.includes(k)) hits[k] = (hits[k] || 0) + 1; };
+  game.inventory.canAdd = () => 99; game.inventory.add = () => 1; // never fill, just exercise
+
+  for (let i = 0; i < 5000; i++) { tree.depleted = false; resolveWoodcut(game, { obj: tree }); }
+  for (let i = 0; i < 5000; i++) { rock.depleted = false; resolveMine(game, { obj: rock }); }
+  assert.ok(hits.double > 0 && hits.bird > 0, 'woodcutting yields double logs and bird nests');
+  assert.ok(hits.seam > 0 && hits.unearth > 0, 'mining yields rich seams and gems');
+});
+
+test("a bird's nest opens into loot and is consumed", () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.inventory.add('birds_nest', 1);
+  const idx = game.inventory.slots.findIndex((s) => s && s.id === 'birds_nest');
+  const coinsBefore = game.inventory.count('coins');
+  game.openNest(idx);
+  assert.ok(!game.inventory.has('birds_nest'), 'the nest is consumed');
+  const slotsUsed = game.inventory.slots.filter(Boolean).length;
+  assert.ok(slotsUsed > 0 || game.inventory.count('coins') > coinsBefore, 'received loot from the nest');
+});
+
+test('artisan lucky finds: perfect cooks, bonus smelting/smithing, roaring fires', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const [{ resolveCook, resolveSmelt, resolveSmith, resolveFiremake }, { SMELT, SMITH }] = await Promise.all([
+    import('../src/game/skilling.js'), import('../src/data/smithing.js'),
+  ]);
+  const game = new Game();
+  game.start();
+  game.skills.addXp('cooking', 2_000_000);
+  game.skills.addXp('smithing', 2_000_000);
+  game.skills.addXp('firemaking', 2_000_000);
+  const hits = {};
+  game.msg = (t) => { for (const k of ['Perfectly', 'crucible', 'Flawless', 'roars']) if (t.includes(k)) hits[k] = (hits[k] || 0) + 1; };
+  game.inventory.has = () => true; game.inventory.canAdd = () => 99; game.inventory.add = () => 1; game.inventory.remove = () => {};
+  game.world.objectAt = () => null; game.world.lightFire = () => {}; game.world.isBlocked = () => true;
+  game.player.x = game.player.tx = 5; game.player.y = game.player.ty = 5;
+
+  for (let i = 0; i < 3000; i++) resolveCook(game, { rawId: 'raw_shark', obj: { def: { type: 'range' } } });
+  const smelt = SMELT.find((r) => r.result === 'bronze_bar');
+  const smith = SMITH.find((r) => r.bar === 'bronze_bar');
+  for (let i = 0; i < 3000; i++) { resolveSmelt(game, { recipe: smelt }); resolveSmith(game, { recipe: smith }); }
+  for (let i = 0; i < 3000; i++) resolveFiremake(game, { tile: { x: 5, y: 5 }, logId: 'logs' });
+  assert.ok(hits.Perfectly > 0, 'cooking has perfect dishes');
+  assert.ok(hits.crucible > 0 && hits.Flawless > 0, 'smelting and smithing have bonus output');
+  assert.ok(hits.roars > 0, 'firemaking has roaring fires');
+});
