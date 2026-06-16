@@ -1216,3 +1216,24 @@ test('expanded crafting: pottery, glassblowing, gem rings and granite armour', a
     assert.ok(hasIcon(id), `${id} has an icon`);
   }
 });
+
+test('combination dishes assemble cooked ingredients + pottery into meals', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const [{ resolveDish }, { DISHES }, { getItem }] = await Promise.all([
+    import('../src/game/skilling.js'), import('../src/data/cooking.js'), import('../src/data/items.js'),
+  ]);
+  const game = new Game();
+  game.start();
+  game.skills.addXp('cooking', 2_000_000);
+  const obj = { x: 0, y: 0, def: { type: 'range' } };
+  for (const d of DISHES) {
+    assert.ok(getItem(d.result).heal > 0, `${d.result} is edible`);
+    game.inventory.slots.forEach((s, i) => { if (s) game.inventory.removeAt(i, s.qty); });
+    for (const inp of d.inputs) game.inventory.add(inp.id, inp.qty);
+    const xp0 = game.skills.xp.cooking;
+    resolveDish(game, { recipe: d, obj });
+    assert.ok(game.inventory.has(d.result), `cooked ${d.result}`);
+    assert.ok(game.skills.xp.cooking > xp0, `${d.result} gave cooking xp`);
+  }
+});

@@ -25,7 +25,7 @@ import { getSpell } from '../data/magic.js';
 import { PRAYERS, PRAYER_BY_ID, PRAYER_GROUPS } from '../data/prayers.js';
 import {
   resolveWoodcut, resolveMine, resolveFish, resolveCook,
-  resolveSmelt, resolveSmith, resolveFiremake, resolveCraft,
+  resolveSmelt, resolveSmith, resolveFiremake, resolveCraft, resolveDish,
 } from './skilling.js';
 import { saveGame, loadGame, hasSave } from './save.js';
 import { getShop } from '../data/shops.js';
@@ -487,6 +487,7 @@ export class Game {
       case 'mine': return this._tickContinuous(a, a.obj, () => resolveMine(this, a));
       case 'fish': return this._tickContinuous(a, a.obj, () => resolveFish(this, a));
       case 'cook': return this._tickContinuous(a, a.obj, () => resolveCook(this, a));
+      case 'cookdish': return this._tickContinuous(a, a.obj, () => resolveDish(this, a));
       case 'smelt': return this._tickContinuous(a, a.obj, () => resolveSmelt(this, a));
       case 'smith': return this._tickContinuous(a, a.obj, () => resolveSmith(this, a));
       case 'craft': return this._tickContinuous(a, a.obj, () => resolveCraft(this, a));
@@ -1359,6 +1360,7 @@ export class Game {
 
   // ---------------- Processing started from UI menus ----------------
   startCooking(obj, rawId) { this.beginAction({ type: 'cook', obj, rawId }, { x: obj.x, y: obj.y }, true); }
+  startDish(obj, recipe) { this.beginAction({ type: 'cookdish', obj, recipe }, { x: obj.x, y: obj.y }, true); }
   startSmelt(recipe, obj) { this.beginAction({ type: 'smelt', recipe, obj }, { x: obj.x, y: obj.y }, true); }
   startSmith(recipe, obj) { this.beginAction({ type: 'smith', recipe, obj }, { x: obj.x, y: obj.y }, true); }
   startCraft(recipe, obj) { this.beginAction({ type: 'craft', recipe, obj }, { x: obj.x, y: obj.y }, true); }

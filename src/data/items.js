@@ -156,6 +156,13 @@ const RAW = {
   // pottery
   jug: { name: 'Jug', icon: '🏺', value: 14, examine: 'A clay jug for holding liquids.' },
   pie_dish: { name: 'Pie dish', icon: '🥧', value: 16, examine: 'A clay dish for baking pies.' },
+
+  // ---- Combination dishes (Cooking) ----
+  meat_pie: { name: 'Meat pie', icon: '🥧', value: 120, heal: 13, examine: 'A hearty meat pie.' },
+  laksa: { name: 'Laksa', icon: '🍜', value: 150, heal: 15, examine: 'Spicy coconut laksa — shiok!' },
+  fish_pie: { name: 'Fish pie', icon: '🥧', value: 180, heal: 16, examine: 'A flaky fish pie.' },
+  seafood_stew: { name: 'Seafood stew', icon: '🍲', value: 260, heal: 19, examine: 'A rich pot of seafood stew.' },
+  seafood_platter: { name: 'Seafood platter', icon: '🍱', value: 420, heal: 26, examine: 'A lavish seafood platter — the finest meal around.' },
   steel_bar: { name: 'Steel bar', icon: '⬜', value: 200, examine: 'A bar of steel.' },
   mithril_bar: { name: 'Mithril bar', icon: '🟦', value: 324, examine: 'A bar of mithril.' },
   adamant_bar: { name: 'Adamant bar', icon: '🟩', value: 800, examine: 'A bar of adamantite.' },
