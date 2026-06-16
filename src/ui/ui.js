@@ -374,6 +374,7 @@ export class UI {
     else if (s.id === 'mark_of_grace') this.game.useMarkOfGrace(i);
     else if (s.id.startsWith('clue_scroll_')) this.game.readClue(i);
     else if (s.id.startsWith('reward_casket_')) this.game.openCasket(i);
+    else if (s.id === 'birds_nest') this.game.openNest(i);
     else this.game.msg(item.examine, 'system');
   }
 
@@ -389,6 +390,7 @@ export class UI {
     if (s.id === 'mark_of_grace') opts.push({ label: 'Use', target: item.name, fn: () => this.game.useMarkOfGrace(i) });
     if (s.id.startsWith('clue_scroll_')) opts.push({ label: 'Read', target: item.name, fn: () => this.game.readClue(i) });
     if (s.id.startsWith('reward_casket_')) opts.push({ label: 'Open', target: item.name, fn: () => this.game.openCasket(i) });
+    if (s.id === 'birds_nest') opts.push({ label: 'Open', target: item.name, fn: () => this.game.openNest(i) });
     opts.push({ label: 'Drop', target: item.name, fn: () => this.game.dropItem(i) });
     opts.push({ label: 'Examine', target: item.name, fn: () => this.game.msg(item.examine, 'system') });
     this.showContextMenu(e.clientX, e.clientY, opts);

@@ -1104,6 +1104,23 @@ export class Game {
     this.bus.emit('clue');
   }
 
+  /** Open a bird's nest (from woodcutting) for coins or a gem. */
+  openNest(index) {
+    const s = this.inventory.slotAt(index);
+    if (!s || s.id !== 'birds_nest') return;
+    this.inventory.removeAt(index, 1);
+    const table = [
+      { id: 'coins', min: 60, max: 450, weight: 50 },
+      { id: 'sapphire', weight: 18 }, { id: 'emerald', weight: 12 },
+      { id: 'ruby', weight: 7 }, { id: 'diamond', weight: 3 },
+    ];
+    const pick = weightedPick(table);
+    const q = pick.min ? randInt(pick.min, pick.max) : 1;
+    this.inventory.add(pick.id, q);
+    this.spawnSparkle(this.player, '#caa15a', 8);
+    this.msg(`The bird's nest held ${q > 1 ? q + ' x ' : ''}${getItem(pick.id).name}.`, 'level');
+  }
+
   // ---------------- Boss mechanics ----------------
   spawnNpc(npcId, x, y, { temporary = false, wander = 3 } = {}) {
     const n = new NPC(npcId, x, y, wander);

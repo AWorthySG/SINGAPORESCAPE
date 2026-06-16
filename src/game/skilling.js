@@ -67,6 +67,12 @@ export function gatherChance(low, high, level) {
 
 // All resolvers return true to keep the action going next tick, false to stop.
 
+// Weighted gems unearthed while mining (better gems are rarer).
+const GEM_TABLE = [
+  { id: 'sapphire', weight: 50 }, { id: 'emerald', weight: 28 },
+  { id: 'ruby', weight: 16 }, { id: 'diamond', weight: 6 },
+];
+
 export function resolveWoodcut(game, action) {
   const { obj } = action;
   const def = obj.def;
@@ -77,11 +83,25 @@ export function resolveWoodcut(game, action) {
   if (!game.hasTool('axe')) { game.msg('You need an axe to chop this tree.'); return false; }
   if (game.inventory.canAdd(def.gives, 1) <= 0) { game.msg('Your inventory is too full to hold any more logs.'); return false; }
 
-  if (Math.random() < gatherChance(def.lowChance, def.highChance, game.skills.level('woodcutting'))) {
+  const lvl = game.skills.level('woodcutting');
+  if (Math.random() < gatherChance(def.lowChance, def.highChance, lvl)) {
     game.inventory.add(def.gives, 1);
     game.skills.addXp('woodcutting', def.xp);
     const wc = objCenter(obj); game.spawnPoof(wc.x, wc.y, '#caa15a');
-    game.msg(`You get some ${getItem(def.gives).name.toLowerCase()}.`);
+    const logName = getItem(def.gives).name.toLowerCase();
+    // Double logs: a sturdy bough sometimes drops an extra.
+    if (Math.random() < 0.04 + lvl * 0.001 && game.inventory.canAdd(def.gives, 1) > 0) {
+      game.inventory.add(def.gives, 1);
+      game.msg(`A second branch falls — double ${logName}!`);
+    } else {
+      game.msg(`You get some ${logName}.`);
+    }
+    // Rare bird's nest tumbles from the canopy.
+    if (Math.random() < 0.008 && game.inventory.canAdd('birds_nest', 1) > 0) {
+      game.inventory.add('birds_nest', 1);
+      game.spawnSparkle(game.player, '#caa15a', 6);
+      game.msg("A bird's nest tumbles down! Open it from your pack.", 'level');
+    }
     if (Math.random() < def.depleteChance) {
       obj.depleted = true;
       obj.respawnTimer = def.respawn;
@@ -101,11 +121,29 @@ export function resolveMine(game, action) {
   if (!game.hasTool('pickaxe')) { game.msg('You need a pickaxe to mine this rock.'); return false; }
   if (game.inventory.canAdd(def.gives, 1) <= 0) { game.msg('Your inventory is too full to hold any more ore.'); return false; }
 
-  if (Math.random() < gatherChance(def.lowChance, def.highChance, game.skills.level('mining'))) {
+  const lvl = game.skills.level('mining');
+  if (Math.random() < gatherChance(def.lowChance, def.highChance, lvl)) {
     game.inventory.add(def.gives, 1);
     game.skills.addXp('mining', def.xp);
     const mc = objCenter(obj); game.spawnPoof(mc.x, mc.y, def.ore || '#cfcfcf');
-    game.msg(`You manage to mine some ${getItem(def.gives).name.toLowerCase()}.`);
+    const oreName = getItem(def.gives).name.toLowerCase();
+    // Rich seam: a chance at a second ore.
+    if (Math.random() < 0.04 + lvl * 0.001 && game.inventory.canAdd(def.gives, 1) > 0) {
+      game.inventory.add(def.gives, 1);
+      game.msg(`A rich seam — double ${oreName}!`);
+    } else {
+      game.msg(`You manage to mine some ${oreName}.`);
+    }
+    // Lucky gem: unearth a precious stone now and then.
+    if (Math.random() < 0.012 + lvl * 0.0006) {
+      const gem = weightedPick(GEM_TABLE);
+      if (game.inventory.canAdd(gem.id, 1) > 0) {
+        game.inventory.add(gem.id, 1);
+        game.skills.addXp('mining', 40);
+        game.spawnSparkle(game.player, '#9adcff', 8);
+        game.msg(`You unearth a ${getItem(gem.id).name.toLowerCase()}!`, 'level');
+      }
+    }
     obj.depleted = true;
     obj.respawnTimer = def.respawn;
     return false; // rock depletes; player must find another
@@ -203,8 +241,15 @@ export function resolveCook(game, action) {
     game.msg(`Oops! You accidentally burn the ${getItem(action.rawId).name.replace(/^Raw /, '').toLowerCase()}.`);
   } else {
     game.inventory.add(cook.result, 1);
-    game.skills.addXp('cooking', cook.xp);
-    game.msg(`You cook the ${getItem(cook.result).name.toLowerCase()}.`);
+    // Perfectly cooked: an occasional flawless dish grants bonus XP.
+    if (Math.random() < 0.08) {
+      game.skills.addXp('cooking', Math.round(cook.xp * 1.5));
+      game.spawnSparkle(game.player, '#ffd24a', 6);
+      game.msg(`Perfectly cooked! A flawless ${getItem(cook.result).name.toLowerCase()}.`, 'level');
+    } else {
+      game.skills.addXp('cooking', cook.xp);
+      game.msg(`You cook the ${getItem(cook.result).name.toLowerCase()}.`);
+    }
   }
   return game.inventory.has(action.rawId);
 }
@@ -223,7 +268,15 @@ export function resolveSmelt(game, action) {
   } else {
     game.inventory.add(r.result, 1);
     game.skills.addXp('smithing', r.xp);
-    game.msg(`You smelt a ${getItem(r.result).name.toLowerCase()}.`);
+    const lvl = game.skills.level('smithing');
+    const barName = getItem(r.result).name.toLowerCase();
+    // A hot crucible occasionally yields an extra bar.
+    if (Math.random() < 0.03 + lvl * 0.001 && game.inventory.canAdd(r.result, 1) > 0) {
+      game.inventory.add(r.result, 1);
+      game.msg(`The crucible runs hot — an extra ${barName}!`);
+    } else {
+      game.msg(`You smelt a ${barName}.`);
+    }
   }
   return r.inputs.every((inp) => game.inventory.has(inp.id, inp.qty));
 }
@@ -238,7 +291,16 @@ export function resolveSmith(game, action) {
   game.inventory.remove(r.bar, r.barCount);
   game.inventory.add(r.result, 1);
   game.skills.addXp('smithing', r.xp);
-  game.msg(`You hammer the metal into a ${getItem(r.result).name.toLowerCase()}.`);
+  const lvl = game.skills.level('smithing');
+  const itemName = getItem(r.result).name.toLowerCase();
+  // Flawless work: a chance to forge an extra piece for free.
+  if (Math.random() < 0.03 + lvl * 0.001 && game.inventory.canAdd(r.result, 1) > 0) {
+    game.inventory.add(r.result, 1);
+    game.spawnSparkle(game.player, '#ffd24a', 6);
+    game.msg(`Flawless work — you forge an extra ${itemName}!`);
+  } else {
+    game.msg(`You hammer the metal into a ${itemName}.`);
+  }
   return game.inventory.has(r.bar, r.barCount);
 }
 
@@ -259,8 +321,22 @@ export function resolveFiremake(game, action) {
 
   game.inventory.remove(action.logId, 1);
   game.world.lightFire(p.x, p.y);
-  game.skills.addXp('firemaking', logDef.fmXp || 40);
-  game.msg('The fire catches and the logs begin to burn.');
+  // A fire occasionally roars up for bonus XP.
+  const baseFm = logDef.fmXp || 40;
+  if (Math.random() < 0.10) {
+    game.skills.addXp('firemaking', Math.round(baseFm * 1.5));
+    game.spawnSparkle(game.player, '#ffae3a', 8);
+    game.msg('The fire roars to life — bonus Firemaking XP!', 'level');
+  } else {
+    game.skills.addXp('firemaking', baseFm);
+    game.msg('The fire catches and the logs begin to burn.');
+  }
+  // Rarely, something glints in the embers.
+  if (Math.random() < 0.012) {
+    const c = randInt(15, 90);
+    game.inventory.add('coins', c);
+    game.msg(`You spot ${c} coins glinting in the ashes.`);
+  }
 
   // Try to step to an adjacent free tile (west preferred) and keep going.
   if (game.inventory.has(action.logId)) {
