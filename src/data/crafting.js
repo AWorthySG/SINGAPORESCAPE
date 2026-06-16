@@ -11,6 +11,7 @@ export const CRAFT = [
   { result: 'ruby_amulet', inputs: [{ id: 'silver_ore', qty: 1 }, { id: 'ruby', qty: 1 }], level: 42, xp: 125, tool: 'chisel' },
   { result: 'granite_shield', inputs: [{ id: 'granite', qty: 2 }], level: 50, xp: 130 },
   { result: 'diamond_amulet', inputs: [{ id: 'silver_ore', qty: 1 }, { id: 'diamond', qty: 1 }], level: 55, xp: 165, tool: 'chisel' },
+  { result: 'granite_maul', inputs: [{ id: 'granite', qty: 5 }], level: 58, xp: 240 },
 
   // ---- Pottery ----
   { result: 'jug', inputs: [{ id: 'clay', qty: 1 }], level: 8, xp: 12 },

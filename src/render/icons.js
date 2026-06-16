@@ -406,6 +406,16 @@
   I.granite_helm = helm('#9a948a', '#c4c0b8');
   I.granite_legs = legs('#9a948a', '#c4c0b8');
   I.granite_body = plate('#9a948a', '#c4c0b8');
+  I.granite_maul = warhammer('#9a948a', '#c4c0b8');
+  // Cultural capes
+  I.batik_cape = capeIcon('#8a5a2a', '#d8a04a');
+  I.songket_cape = capeIcon('#7a1f2a', '#e6b34a');
+  // Cooking herbs & ingredients
+  I.chilli = `<path d="M9 6 C14 7 16 13 12 18 C9 21 6 18 7 14 C8 10 6 7 9 6 Z" fill="#c83a2a" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M9 6 C9 4 12 3 13 4" fill="none" stroke="${C.leafDk}" stroke-width="1.6" stroke-linecap="round"/><path d="M10 9 C9 12 9 15 10 17" stroke="#e87a5a" stroke-width="1" fill="none" opacity=".6"/>`;
+  I.galangal = `<path d="M5 13 C5 10 8 9 10 11 C12 9 16 9 17 12 C19 13 19 17 16 17 C14 19 10 19 8 17 C5 17 4 15 5 13 Z" fill="#e8d8b0" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M10 11 C10 14 11 16 12 17 M14 11 C14 14 13 16 13 17" stroke="${C.woodDk}" stroke-width="0.8" opacity=".5" fill="none"/><circle cx="8" cy="13" r="0.8" fill="#caa15a"/>`;
+  I.lemongrass = `<g stroke="${OL}" stroke-width="1" stroke-linejoin="round"><path d="M11 21 C9 14 9 7 11 3 C12 7 12 14 12 21 Z" fill="#9ab05a"/><path d="M13 21 C13 14 14 8 16 4 C16 9 15 15 14 21 Z" fill="#aac06a"/></g>`;
+  I.pandan_leaves = `<g stroke="${OL}" stroke-width="1" stroke-linejoin="round"><path d="M12 21 C9 15 8 8 10 3 C12 8 13 15 13 21 Z" fill="#2f8a4a"/><path d="M13 21 C14 15 16 9 18 5 C17 11 16 16 15 21 Z" fill="#3c9e5a"/></g><path d="M11 6 C11 12 11.5 17 12 20" stroke="#1c6e3a" stroke-width="0.7" fill="none" opacity=".6"/>`;
+  I.turmeric = `<path d="M5 14 C5 11 8 10 10 12 C13 9 17 11 17 14 C18 16 16 18 14 17 C11 19 8 18 7 16 C5 16 4 15 5 14 Z" fill="#e0a23a" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M10 12 C10 14 10 16 11 17" stroke="#a86a1a" stroke-width="0.8" opacity=".6" fill="none"/><circle cx="14" cy="14" r="0.8" fill="#ffd773"/>`;
   I.molten_glass = `<path d="M7 14 Q7 19 12 19 Q17 19 17 14 Q17 9 12 8 Q7 9 7 14 Z" fill="#bfe3ff" stroke="${OL}" stroke-width="1" opacity=".9"/><circle cx="10" cy="13" r="1.6" fill="#fff" opacity=".8"/>`;
   I.vial = `<path d="M10 3 H14 V8 L16 16 Q16 20 12 20 Q8 20 8 16 L10 8 Z" fill="#bfe3ff" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M9 14 Q12 12 15 14 L16 16.5 Q16 20 12 20 Q8 20 8 16.5 Z" fill="#7ac0e8" opacity=".8"/><rect x="9.5" y="2" width="5" height="2" rx="0.8" fill="${C.wood}" stroke="${OL}" stroke-width="0.8"/>`;
   I.glass_orb = `<circle cx="12" cy="13" r="6.5" fill="#bfe3ff" stroke="${OL}" stroke-width="1.1" opacity=".92"/><circle cx="9.6" cy="10.6" r="2.2" fill="#ffffff" opacity=".85"/>`;
@@ -503,14 +513,15 @@
   const PNG_ITEMS = new Set([
     'adamant_bar', 'adamantite_ore', 'amulet_of_glory', 'angsana_logs', 'bamboo',
     'birds_nest', 'bones', 'bowl', 'bronze_axe', 'bronze_bar',
-    'bronze_pickaxe', 'chicken_rice', 'chisel', 'clay', 'coal',
-    'coins', 'copper_ore', 'diamond', 'emerald', 'feather',
-    'fishing_bait', 'fishing_rod', 'glass_orb', 'gold_ore', 'granite',
-    'hammer', 'harpoon', 'iron_bar', 'iron_ore', 'jug',
-    'kaya_toast', 'laksa', 'lantern', 'limestone', 'lobster_pot',
-    'logs', 'magic_logs', 'mahogany_logs', 'mangrove_logs', 'maple_logs',
-    'mark_of_grace', 'merlion_amulet', 'mithril_bar', 'mithril_ore', 'molten_glass',
-    'nasi_lemak', 'oak_logs', 'old_boot', 'pearl', 'pie_dish',
+    'bronze_pickaxe', 'chicken_rice', 'chilli', 'chisel', 'clay',
+    'coal', 'coins', 'copper_ore', 'diamond', 'emerald',
+    'feather', 'fishing_bait', 'fishing_rod', 'galangal', 'glass_orb',
+    'gold_ore', 'granite', 'granite_maul', 'hammer', 'harpoon',
+    'iron_bar', 'iron_ore', 'jug', 'kaya_toast', 'laksa',
+    'lantern', 'lemongrass', 'limestone', 'lobster_pot', 'logs',
+    'magic_logs', 'mahogany_logs', 'mangrove_logs', 'maple_logs', 'mark_of_grace',
+    'merlion_amulet', 'mithril_bar', 'mithril_ore', 'molten_glass', 'nasi_lemak',
+    'oak_logs', 'old_boot', 'pandan_leaves', 'pearl', 'pie_dish',
     'pot', 'raw_anchovy', 'raw_arapaima', 'raw_arowana', 'raw_barramundi',
     'raw_belida', 'raw_climbing_perch', 'raw_cobia', 'raw_coral_trout', 'raw_diamond_trevally',
     'raw_eel', 'raw_giant_snakehead', 'raw_giant_trevally', 'raw_golden_snapper', 'raw_grouper',
@@ -522,7 +533,8 @@
     'roti_prata', 'ruby', 'ruby_ring', 'rune_bar', 'runite_ore',
     'sandstone', 'sapphire', 'satay', 'seafood_stew', 'seaweed',
     'silver_ore', 'small_net', 'steel_bar', 'teak_logs', 'tembusu_logs',
-    'tin_ore', 'tinderbox', 'vial', 'willow_logs', 'yew_logs',
+    'tin_ore', 'tinderbox', 'turmeric', 'vial', 'willow_logs',
+    'yew_logs',
   ]);
   const itemPngSrc = (id) => `assets/items/${id}.png`;
 

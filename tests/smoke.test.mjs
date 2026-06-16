@@ -205,6 +205,30 @@ test('PNG_ITEMS stays in lock-step with the files under assets/items/', () => {
   assert.deepEqual(orphans, [], `painted ids with no item: ${orphans.join(', ')}`);
 });
 
+test('new content: capes, granite maul and cooking herbs are wired up & sourced', async () => {
+  const [{ SHOPS }, { CRAFT }, { DISHES }] = await Promise.all([
+    import('../src/data/shops.js'), import('../src/data/crafting.js'), import('../src/data/cooking.js'),
+  ]);
+  // Cultural capes — equippable back-slot gear, bought at the general store.
+  for (const id of ['batik_cape', 'songket_cape']) {
+    assert.equal(ITEMS[id].equip.slot, 'cape', `${id} is a cape`);
+    assert.ok(hasIcon(id), `${id} has an icon`);
+    assert.ok(SHOPS.general.stock.some((s) => s.id === id), `${id} is sold somewhere`);
+  }
+  // Granite maul — a crushing 2H weapon with a spec, crafted from granite.
+  assert.equal(ITEMS.granite_maul.equip.slot, 'weapon');
+  assert.ok(ITEMS.granite_maul.spec, 'granite maul has a special attack');
+  assert.ok(CRAFT.some((r) => r.result === 'granite_maul' && r.inputs.some((i) => i.id === 'granite')));
+  // Herbs — stackable ingredients, buyable at the hawker, feeding new dishes.
+  const herbs = ['chilli', 'galangal', 'lemongrass', 'pandan_leaves', 'turmeric'];
+  for (const h of herbs) {
+    assert.ok(ITEMS[h]?.stackable, `${h} is a stackable ingredient`);
+    assert.ok(SHOPS.hawker.stock.some((s) => s.id === h), `${h} is sold at the hawker`);
+  }
+  const herbDishes = DISHES.filter((d) => d.inputs.some((i) => herbs.includes(i.id)));
+  assert.ok(herbDishes.length >= 3, `herbs unlock new dishes: ${herbDishes.length}`);
+});
+
 test('the tiered equipment generator produced a large gear set', () => {
   const weapons = Object.keys(ITEMS).filter((id) => ITEMS[id].equip?.slot === 'weapon');
   const armour = Object.keys(ITEMS).filter((id) => ITEMS[id].equip && ITEMS[id].equip.slot !== 'weapon');
