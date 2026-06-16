@@ -57,21 +57,49 @@ export function drawShadow(ctx, cx, cy, rx = 11, ry = 5) {
 }
 
 // ================= CREATURES =================
+// Archetypes shipped as painted PNG art (assets/creatures/<sprite>.png). When the
+// image has loaded these replace the vector archetype for every monster of that
+// sprite; until then (and in headless tests) the vector drawing is used.
+const CREATURE_PNGS = new Set(['crab', 'fowl', 'serpent', 'spider']);
+const _creatureImg = {};
+function creatureImage(sprite) {
+  if (_creatureImg[sprite] !== undefined) return _creatureImg[sprite];
+  if (typeof Image === 'undefined' || !CREATURE_PNGS.has(sprite)) { _creatureImg[sprite] = null; return null; }
+  const img = new Image();
+  img.src = `assets/creatures/${sprite}.png`;
+  _creatureImg[sprite] = img;
+  return img;
+}
+// Exposed so tests can assert the set stays in lock-step with assets/creatures/.
+export const creaturePngs = () => new Set(CREATURE_PNGS);
+// Draw a painted creature sprite centred horizontally with its feet on the tile.
+function drawCreaturePng(c, img) {
+  const H = 34;                       // display height in local (pre-scale) units
+  const s = H / img.naturalHeight;
+  const w = img.naturalWidth * s;
+  c.drawImage(img, -w / 2, 13.5 - H, w, H);
+}
+
 // Monsters render via colour-tinted archetypes (def.sprite + def.color). Townsfolk
 // keep bespoke human palettes. Bosses get an aura + crown and are scaled by the caller.
 export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
   const arch = opts.sprite && ARCH[opts.sprite];
   if (arch) {
+    const pimg = creatureImage(opts.sprite);
     return staged(ctx, cx, cy, opts, (c) => {
       if (opts.boss) bossAura(c, opts.time || 0);
-      arch(c, opts.color || '#8a8a8a');
-      // Soft upper sheen for volume (fades out, so it only lifts the body).
-      const sg = c.createRadialGradient(-3, -5, 0, -3, -5, 10);
-      sg.addColorStop(0, 'rgba(255,255,255,0.13)');
-      sg.addColorStop(1, 'rgba(255,255,255,0)');
-      c.globalCompositeOperation = 'lighter';
-      c.fillStyle = sg; circle(c, -3, -5, 10); c.fill();
-      c.globalCompositeOperation = 'source-over';
+      if (pimg && pimg.complete && pimg.naturalWidth) {
+        drawCreaturePng(c, pimg);    // painted art carries its own shading
+      } else {
+        arch(c, opts.color || '#8a8a8a');
+        // Soft upper sheen for volume (fades out, so it only lifts the body).
+        const sg = c.createRadialGradient(-3, -5, 0, -3, -5, 10);
+        sg.addColorStop(0, 'rgba(255,255,255,0.13)');
+        sg.addColorStop(1, 'rgba(255,255,255,0)');
+        c.globalCompositeOperation = 'lighter';
+        c.fillStyle = sg; circle(c, -3, -5, 10); c.fill();
+        c.globalCompositeOperation = 'source-over';
+      }
       if (opts.boss) crown(c);
     });
   }
