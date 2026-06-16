@@ -119,23 +119,25 @@ export function resolveMine(game, action) {
     game.msg(`You need a Mining level of ${def.level} to mine this rock.`); return false;
   }
   if (!game.hasTool('pickaxe')) { game.msg('You need a pickaxe to mine this rock.'); return false; }
-  if (game.inventory.canAdd(def.gives, 1) <= 0) { game.msg('Your inventory is too full to hold any more ore.'); return false; }
+  // Gem rocks yield a random gem; ordinary rocks yield their fixed ore.
+  const yieldId = def.gemRock ? weightedPick(GEM_TABLE).id : def.gives;
+  if (game.inventory.canAdd(yieldId, 1) <= 0) { game.msg('Your inventory is too full to hold any more.'); return false; }
 
   const lvl = game.skills.level('mining');
   if (Math.random() < gatherChance(def.lowChance, def.highChance, lvl)) {
-    game.inventory.add(def.gives, 1);
+    game.inventory.add(yieldId, 1);
     game.skills.addXp('mining', def.xp);
     const mc = objCenter(obj); game.spawnPoof(mc.x, mc.y, def.ore || '#cfcfcf');
-    const oreName = getItem(def.gives).name.toLowerCase();
-    // Rich seam: a chance at a second ore.
-    if (Math.random() < 0.04 + lvl * 0.001 && game.inventory.canAdd(def.gives, 1) > 0) {
-      game.inventory.add(def.gives, 1);
+    const oreName = getItem(yieldId).name.toLowerCase();
+    // Rich seam: a chance at a second yield.
+    if (Math.random() < 0.04 + lvl * 0.001 && game.inventory.canAdd(yieldId, 1) > 0) {
+      game.inventory.add(yieldId, 1);
       game.msg(`A rich seam — double ${oreName}!`);
     } else {
-      game.msg(`You manage to mine some ${oreName}.`);
+      game.msg(def.gemRock ? `You chip out a ${oreName}!` : `You manage to mine some ${oreName}.`);
     }
-    // Lucky gem: unearth a precious stone now and then.
-    if (Math.random() < 0.012 + lvl * 0.0006) {
+    // Lucky gem: unearth a precious stone now and then (ordinary rocks only).
+    if (!def.gemRock && Math.random() < 0.012 + lvl * 0.0006) {
       const gem = weightedPick(GEM_TABLE);
       if (game.inventory.canAdd(gem.id, 1) > 0) {
         game.inventory.add(gem.id, 1);

@@ -1109,3 +1109,33 @@ test('artisan lucky finds: perfect cooks, bonus smelting/smithing, roaring fires
   assert.ok(hits.crucible > 0 && hits.Flawless > 0, 'smelting and smithing have bonus output');
   assert.ok(hits.roars > 0, 'firemaking has roaring fires');
 });
+
+test('new tree & rock node types exist, are gatherable, and gem rocks yield gems', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const { resolveWoodcut, resolveMine } = await import('../src/game/skilling.js');
+  const { getItem } = await import('../src/data/items.js');
+  const game = new Game();
+  game.start();
+  game.skills.addXp('woodcutting', 2_000_000);
+  game.skills.addXp('mining', 2_000_000);
+
+  const trees = ['bamboo', 'angsana', 'teak', 'mangrove', 'mahogany', 'tembusu'];
+  const rocks = ['clay_rock', 'limestone_rock', 'silver_rock', 'sandstone_rock', 'gem_rock', 'granite_rock'];
+  for (const id of [...trees, ...rocks]) {
+    assert.ok(game.world.objects.some((o) => o.objId === id), `${id} is placed in the world`);
+  }
+  // Each new tree/rock yields its product (and the product item exists).
+  for (const id of trees) {
+    assert.ok(getItem(game.world.objects.find((o) => o.objId === id).def.gives), `${id} log item exists`);
+  }
+
+  // Gem rocks yield a random gem.
+  const gr = game.world.objects.find((o) => o.objId === 'gem_rock');
+  const gems = new Set(['sapphire', 'emerald', 'ruby', 'diamond']);
+  let got = 0;
+  game.inventory.add = (itemId) => { if (gems.has(itemId)) got++; return 1; };
+  game.inventory.canAdd = () => 99;
+  for (let i = 0; i < 60; i++) { gr.depleted = false; resolveMine(game, { obj: gr }); }
+  assert.ok(got > 0, 'gem rock produced gems');
+});

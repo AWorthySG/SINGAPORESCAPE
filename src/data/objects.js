@@ -46,6 +46,42 @@ export const OBJECTS = {
     lowChance: 0.06, highChance: 0.35, depleteChance: 0.06, respawn: 90,
     examine: 'A tree humming with magical energy. (Woodcutting 75)',
   },
+  bamboo: {
+    name: 'Bamboo', label: 'Bamboo', type: 'tree', verb: 'Cut', emoji: '🎍', blocking: true,
+    skill: 'woodcutting', level: 8, tool: 'axe', gives: 'bamboo', xp: 30,
+    lowChance: 0.40, highChance: 0.92, depleteChance: 0.06, respawn: 6,
+    examine: 'A fast-growing stand of bamboo. (Woodcutting 8)',
+  },
+  angsana: {
+    name: 'Angsana tree', label: 'Angsana', type: 'tree', verb: 'Chop down', emoji: '🌳', blocking: true,
+    skill: 'woodcutting', level: 22, tool: 'axe', gives: 'angsana_logs', xp: 55,
+    lowChance: 0.24, highChance: 0.78, depleteChance: 0.12, respawn: 14,
+    examine: 'A flowering angsana. (Woodcutting 22)',
+  },
+  teak: {
+    name: 'Teak tree', label: 'Teak', type: 'tree', verb: 'Chop down', emoji: '🌳', blocking: true,
+    skill: 'woodcutting', level: 35, tool: 'axe', gives: 'teak_logs', xp: 85,
+    lowChance: 0.20, highChance: 0.70, depleteChance: 0.11, respawn: 18,
+    examine: 'A straight, durable teak. (Woodcutting 35)',
+  },
+  mangrove: {
+    name: 'Mangrove tree', label: 'Mangrove', type: 'tree', verb: 'Chop down', emoji: '🌳', blocking: true,
+    skill: 'woodcutting', level: 40, tool: 'axe', gives: 'mangrove_logs', xp: 100,
+    lowChance: 0.18, highChance: 0.66, depleteChance: 0.10, respawn: 20,
+    examine: 'A tangle of salt-hardened mangrove. (Woodcutting 40)',
+  },
+  mahogany: {
+    name: 'Mahogany tree', label: 'Mahogany', type: 'tree', verb: 'Chop down', emoji: '🌳', blocking: true,
+    skill: 'woodcutting', level: 50, tool: 'axe', gives: 'mahogany_logs', xp: 125,
+    lowChance: 0.15, highChance: 0.58, depleteChance: 0.09, respawn: 26,
+    examine: 'A grand mahogany with rich red wood. (Woodcutting 50)',
+  },
+  tembusu: {
+    name: 'Tembusu tree', label: 'Tembusu', type: 'tree', verb: 'Chop down', emoji: '🌳', blocking: true,
+    skill: 'woodcutting', level: 68, tool: 'axe', gives: 'tembusu_logs', xp: 210,
+    lowChance: 0.09, highChance: 0.44, depleteChance: 0.07, respawn: 55,
+    examine: 'A majestic heritage tembusu. (Woodcutting 68)',
+  },
 
   // ---------------- Rocks ----------------
   copper_rock: {
@@ -95,6 +131,42 @@ export const OBJECTS = {
     skill: 'mining', level: 40, tool: 'pickaxe', gives: 'gold_ore', xp: 65,
     lowChance: 0.20, highChance: 0.70, depleteChance: 1, respawn: 20, ore: '#e8c84a',
     examine: 'A rock veined with gold. (Mining 40)',
+  },
+  clay_rock: {
+    name: 'Clay rock', label: 'Clay', type: 'rock', verb: 'Mine', emoji: '🪨', blocking: true,
+    skill: 'mining', level: 1, tool: 'pickaxe', gives: 'clay', xp: 12,
+    lowChance: 0.45, highChance: 0.95, depleteChance: 1, respawn: 3, ore: '#b07a52',
+    examine: 'A seam of soft clay.',
+  },
+  limestone_rock: {
+    name: 'Limestone rock', label: 'Limestone', type: 'rock', verb: 'Mine', emoji: '🪨', blocking: true,
+    skill: 'mining', level: 10, tool: 'pickaxe', gives: 'limestone', xp: 26,
+    lowChance: 0.40, highChance: 0.90, depleteChance: 1, respawn: 5, ore: '#d8d2c0',
+    examine: 'A pale limestone outcrop. (Mining 10)',
+  },
+  silver_rock: {
+    name: 'Silver rock', label: 'Silver', type: 'rock', verb: 'Mine', emoji: '🪨', blocking: true,
+    skill: 'mining', level: 20, tool: 'pickaxe', gives: 'silver_ore', xp: 40,
+    lowChance: 0.35, highChance: 0.85, depleteChance: 1, respawn: 8, ore: '#d8dde6',
+    examine: 'A rock streaked with silver. (Mining 20)',
+  },
+  sandstone_rock: {
+    name: 'Sandstone rock', label: 'Sandstone', type: 'rock', verb: 'Mine', emoji: '🪨', blocking: true,
+    skill: 'mining', level: 35, tool: 'pickaxe', gives: 'sandstone', xp: 55,
+    lowChance: 0.25, highChance: 0.78, depleteChance: 1, respawn: 8, ore: '#d8c890',
+    examine: 'A block of gritty sandstone. (Mining 35)',
+  },
+  gem_rock: {
+    name: 'Gem rock', label: 'Gem', type: 'rock', verb: 'Mine', emoji: '💎', blocking: true,
+    skill: 'mining', level: 40, tool: 'pickaxe', gives: 'sapphire', gemRock: true, xp: 65,
+    lowChance: 0.16, highChance: 0.55, depleteChance: 1, respawn: 20, ore: '#9adcff',
+    examine: 'A rock glittering with raw gems. (Mining 40)',
+  },
+  granite_rock: {
+    name: 'Granite rock', label: 'Granite', type: 'rock', verb: 'Mine', emoji: '🪨', blocking: true,
+    skill: 'mining', level: 45, tool: 'pickaxe', gives: 'granite', xp: 75,
+    lowChance: 0.18, highChance: 0.64, depleteChance: 1, respawn: 12, ore: '#9a948a',
+    examine: 'A heavy slab of speckled granite. (Mining 45)',
   },
 
   // ---------------- Fishing ----------------
