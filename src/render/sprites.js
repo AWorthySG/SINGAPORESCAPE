@@ -408,6 +408,9 @@ function ghost(ctx, col) {
   ctx.fillStyle = 'rgba(170,205,255,0.92)'; circle(ctx, -3.2, -7.9, 0.55); ctx.fill(); circle(ctx, 3.2, -7.9, 0.55); ctx.fill();
   // wailing mouth
   ctx.fillStyle = '#16141f'; ellipse(ctx, 0, -2.2, 1.6, 2.3); ctx.fill();
+  // drifting ectoplasm motes
+  ctx.fillStyle = 'rgba(205,225,255,0.7)';
+  circle(ctx, -10, -9.5, 0.85); ctx.fill(); circle(ctx, 9.5, -11.5, 0.65); ctx.fill(); circle(ctx, 8, 2, 0.55); ctx.fill();
 }
 
 function demon(ctx, col) {
@@ -593,10 +596,24 @@ function drake(ctx, col) {
 }
 
 function wisp(ctx, col) {
-  // Kept minimal & effective — glowing orb with bright core. Small polish on gradient.
-  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 11.5); g.addColorStop(0, col); g.addColorStop(0.65, shade(col, 0.3)); g.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = g; circle(ctx, 0, 0, 11.5); ctx.fill();
-  ctx.fillStyle = '#fff'; circle(ctx, 0, 0, 2.8); ctx.fill();
+  // Improved: a proper will-o-wisp — soft aura, a flickering flame tail, a glowing
+  // body with a white-hot core, and a few orbiting motes for life.
+  const g = ctx.createRadialGradient(0, -1, 1, 0, -1, 13.5);
+  g.addColorStop(0, shade(col, 0.35)); g.addColorStop(0.5, col); g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g; circle(ctx, 0, -1, 13.5); ctx.fill();
+  // trailing flame tail
+  ctx.fillStyle = col;
+  path(ctx, () => { ctx.moveTo(-3.2, 0); ctx.quadraticCurveTo(0, 11, 3.2, 0); ctx.quadraticCurveTo(0, 4.5, -3.2, 0); }); ctx.fill();
+  // glowing body
+  const g2 = ctx.createRadialGradient(-1.5, -3, 0.5, 0, -1.5, 6.8);
+  g2.addColorStop(0, '#ffffff'); g2.addColorStop(0.45, shade(col, 0.5)); g2.addColorStop(1, col);
+  ctx.fillStyle = g2; circle(ctx, 0, -1.5, 6.8); ctx.fill();
+  // white-hot core
+  ctx.fillStyle = '#ffffff'; circle(ctx, -0.8, -2.2, 2.3); ctx.fill();
+  // orbiting motes
+  ctx.fillStyle = shade(col, 0.55);
+  circle(ctx, 8.5, -5.5, 1.3); ctx.fill(); circle(ctx, -8, 1.5, 1); ctx.fill(); circle(ctx, 5.5, 6, 0.85); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.9)'; circle(ctx, 8.2, -5.8, 0.5); ctx.fill();
 }
 
 function humanoid(ctx, col) {
@@ -643,6 +660,10 @@ function hound(ctx, col) {
 
 function jellyfish(ctx, col) {
   // Improved: prettier bell curve, more elegant trailing tentacles, better internal highlight
+  // soft bioluminescent glow
+  const gg = ctx.createRadialGradient(0, -4, 1, 0, -4, 13);
+  gg.addColorStop(0, 'rgba(255,255,255,0.18)'); gg.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = gg; circle(ctx, 0, -4, 13); ctx.fill();
   ctx.globalAlpha = 0.82;
   path(ctx, () => { ctx.moveTo(-9.5, 1.5); ctx.quadraticCurveTo(-9.5, -10.5, 0, -10.5); ctx.quadraticCurveTo(9.5, -10.5, 9.5, 1.5); ctx.quadraticCurveTo(4, 4.5, 0, 1.5); ctx.quadraticCurveTo(-4, 4.5, -9.5, 1.5); }); fill(ctx, col); line(ctx);
   ctx.globalAlpha = 1;
