@@ -105,16 +105,16 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
     });
   }
   const TOWN = {
-    banker: { top: '#2f4b8a', skin: '#e8b98a', hair: '#3a2a18', apron: '#d8c089' },
-    shopkeeper: { top: '#7a3b1d', skin: '#e0aa78', hair: '#272015', apron: '#cdbfa0' },
-    hawker: { top: '#b23b2e', skin: '#e8b98a', hair: '#2a2018', hat: '#f0ead8', apron: '#f0ead8' },
-    guide: { top: '#3d6b3a', skin: '#e6b886', hair: '#cfc4b0', hat: '#6b4a2a' },
-    mage: { top: '#3a2f7a', skin: '#e6c0a0', hair: '#cfcfdf', hat: '#2a2060' },
-    fletcher: { top: '#3f5a2a', skin: '#e0aa78', hair: '#3a2a18', hat: '#5a4020' },
-    slayer_master: { top: '#3a2a2a', skin: '#caa078', hair: '#161616', apron: '#5a2a2a' },
-    skills_tutor: { top: '#b5862f', skin: '#caa078', hair: '#e6e0d0', hat: '#7a5a2a', apron: '#d8c089' },
-    light_priestess: { top: '#eef0e8', skin: '#e6c0a0', hair: '#d8c89a', hat: '#ffe9a8', apron: '#f4ead2' },
-    shadow_broker: { top: '#2a2336', skin: '#8a7a90', hair: '#15121c', hat: '#1a1622' },
+    banker: { top: '#2f4b8a', skin: '#e8b98a', hair: '#3a2a18', apron: '#d8c089', acc: 'coins' },
+    shopkeeper: { top: '#7a3b1d', skin: '#e0aa78', hair: '#272015', apron: '#cdbfa0', acc: 'sack' },
+    hawker: { top: '#b23b2e', skin: '#e8b98a', hair: '#2a2018', hat: '#f0ead8', apron: '#f0ead8', acc: 'ladle' },
+    guide: { top: '#3d6b3a', skin: '#e6b886', hair: '#cfc4b0', hat: '#6b4a2a', acc: 'map' },
+    mage: { top: '#3a2f7a', skin: '#e6c0a0', hair: '#cfcfdf', hat: '#2a2060', acc: 'stars' },
+    fletcher: { top: '#3f5a2a', skin: '#e0aa78', hair: '#3a2a18', hat: '#5a4020', acc: 'bow' },
+    slayer_master: { top: '#3a2a2a', skin: '#caa078', hair: '#161616', apron: '#5a2a2a', acc: 'scar' },
+    skills_tutor: { top: '#b5862f', skin: '#caa078', hair: '#e6e0d0', hat: '#7a5a2a', apron: '#d8c089', acc: 'scroll' },
+    light_priestess: { top: '#eef0e8', skin: '#e6c0a0', hair: '#d8c89a', hat: '#ffe9a8', apron: '#f4ead2', acc: 'halo' },
+    shadow_broker: { top: '#2a2336', skin: '#8a7a90', hair: '#15121c', hat: '#1a1622', acc: 'hood' },
     villager: { top: '#6a5aa0', skin: '#e8b98a', hair: '#4a3320' },
   };
   const p = TOWN[npcId] || TOWN.villager;
@@ -916,27 +916,106 @@ function guard(ctx) {
 
 function human(ctx, p) {
   // legs + shoes
-  ctx.fillStyle = '#3a3326'; rr(ctx, -5, 6, 4, 8, 2); ctx.fill(); rr(ctx, 1, 6, 4, 8, 2); ctx.fill();
+  const pants = p.pants || '#3a3326';
+  ctx.fillStyle = pants; rr(ctx, -5, 6, 4, 8, 2); ctx.fill(); rr(ctx, 1, 6, 4, 8, 2); ctx.fill();
+  ctx.fillStyle = shade(pants, 0.16); rr(ctx, -5, 6, 1.3, 8, 0.6); ctx.fill(); rr(ctx, 1, 6, 1.3, 8, 0.6); ctx.fill();
   ctx.fillStyle = '#231a10'; rr(ctx, -5.4, 12, 5, 2.6, 1.2); ctx.fill(); rr(ctx, 0.6, 12, 5, 2.6, 1.2); ctx.fill();
+  // arms (behind torso) + hands
+  ctx.fillStyle = p.top; rr(ctx, -10, -3.5, 4, 9, 2); ctx.fill(); rr(ctx, 6, -3.5, 4, 9, 2); ctx.fill();
+  ctx.fillStyle = p.skin; circle(ctx, -8, 6.5, 2.1); ctx.fill(); circle(ctx, 8, 6.5, 2.1); ctx.fill();
+  ctx.fillStyle = shade(p.skin, -0.14); ellipse(ctx, -8, 7.5, 1.9, 0.9); ctx.fill(); ellipse(ctx, 8, 7.5, 1.9, 0.9); ctx.fill();
   // torso with edge shading
   rr(ctx, -7, -5, 14, 13, 4); fill(ctx, p.top); line(ctx);
-  ctx.fillStyle = shade(p.top, 0.18); rr(ctx, -7, -5, 3.5, 13, 4); ctx.fill();  // lit edge
-  ctx.fillStyle = shade(p.top, -0.22); rr(ctx, 4.5, -5, 2.5, 13, 3); ctx.fill(); // shaded edge
-  // apron
-  if (p.apron) { ctx.fillStyle = p.apron; rr(ctx, -5, -2, 10, 10, 2); ctx.fill(); ctx.fillStyle = shade(p.apron, -0.12); rr(ctx, -5, 6, 10, 2, 1); ctx.fill(); }
-  // arms
-  ctx.fillStyle = p.top; rr(ctx, -10, -3, 4, 9, 2); ctx.fill(); rr(ctx, 6, -3, 4, 9, 2); ctx.fill();
-  ctx.fillStyle = p.skin; circle(ctx, -8, 6, 2); ctx.fill(); circle(ctx, 8, 6, 2); ctx.fill();
+  ctx.fillStyle = shade(p.top, 0.2); rr(ctx, -7, -5, 3.5, 13, 4); ctx.fill();  // lit edge
+  ctx.fillStyle = shade(p.top, -0.24); rr(ctx, 4.5, -5, 2.5, 13, 3); ctx.fill(); // shaded edge
+  // collar
+  ctx.fillStyle = shade(p.top, -0.3); path(ctx, () => { ctx.moveTo(-3.5, -5); ctx.lineTo(0, -1.5); ctx.lineTo(3.5, -5); }); ctx.fill();
+  // apron, or a buttoned placket
+  if (p.apron) {
+    ctx.fillStyle = p.apron; rr(ctx, -5, -1.5, 10, 9.5, 2); ctx.fill();
+    ctx.fillStyle = shade(p.apron, -0.14); rr(ctx, -5, 6, 10, 2, 1); ctx.fill();
+    ctx.strokeStyle = shade(p.apron, -0.22); ctx.lineWidth = 0.6; ctx.beginPath(); ctx.moveTo(0, -1.5); ctx.lineTo(0, 8); ctx.stroke();
+  } else {
+    ctx.strokeStyle = shade(p.top, -0.3); ctx.lineWidth = 0.7; ctx.beginPath(); ctx.moveTo(0, -2); ctx.lineTo(0, 7); ctx.stroke();
+    ctx.fillStyle = shade(p.top, 0.28); for (const yy of [-0.5, 2, 4.5]) { circle(ctx, 0, yy, 0.5); ctx.fill(); }
+  }
+  // ears
+  ctx.fillStyle = p.skin; circle(ctx, -6.2, -11, 1.2); ctx.fill(); circle(ctx, 6.2, -11, 1.2); ctx.fill();
+  ctx.fillStyle = shade(p.skin, -0.18); circle(ctx, -6.2, -11, 0.55); ctx.fill(); circle(ctx, 6.2, -11, 0.55); ctx.fill();
   // head
   circle(ctx, 0, -11, 6.5); fill(ctx, p.skin); line(ctx);
-  ctx.fillStyle = 'rgba(255,255,255,0.22)'; circle(ctx, -2.3, -12.4, 1.9); ctx.fill(); // cheek light
-  // hair
-  if (p.hair) { ctx.fillStyle = p.hair; path(ctx, () => { ctx.arc(0, -12, 6.6, Math.PI, Math.PI * 2); }); ctx.fill(); }
+  ctx.fillStyle = shade(p.skin, -0.13); ellipse(ctx, 3.2, -9.8, 2.3, 3.1); ctx.fill(); // shaded cheek
+  ctx.fillStyle = 'rgba(255,255,255,0.24)'; circle(ctx, -2.3, -12.5, 1.9); ctx.fill(); // lit cheek
+  // hair (with a swept fringe)
+  if (p.hair) {
+    ctx.fillStyle = p.hair;
+    path(ctx, () => { ctx.arc(0, -11.3, 6.7, Math.PI * 1.02, Math.PI * 1.98); ctx.lineTo(5.4, -13.2); ctx.quadraticCurveTo(0, -19.2, -5.4, -13.2); }); ctx.fill();
+    ctx.fillStyle = shade(p.hair, 0.22); rr(ctx, -5, -16.5, 4.2, 1.8, 0.9); ctx.fill();
+  }
   // hat
-  if (p.hat) { ctx.fillStyle = p.hat; rr(ctx, -7, -16, 14, 4, 2); ctx.fill(); rr(ctx, -4, -21, 8, 6, 2); ctx.fill(); ctx.fillStyle = shade(p.hat, 0.2); rr(ctx, -7, -16, 14, 1.4, 1); ctx.fill(); }
+  if (p.hat) {
+    ctx.fillStyle = p.hat; rr(ctx, -7.5, -15.5, 15, 3.5, 1.8); ctx.fill(); rr(ctx, -4.5, -21, 9, 6.5, 2); ctx.fill();
+    ctx.fillStyle = shade(p.hat, 0.22); rr(ctx, -7.5, -15.5, 15, 1.3, 0.8); ctx.fill();
+  }
+  // brows
+  ctx.strokeStyle = p.hair || '#5a4632'; ctx.lineWidth = 0.9; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(-3.3, -12.3); ctx.lineTo(-1.2, -12.6); ctx.moveTo(1.2, -12.6); ctx.lineTo(3.3, -12.3); ctx.stroke(); ctx.lineCap = 'butt';
   // eyes with catchlight
-  circle(ctx, -2.2, -11, 0.9); fill(ctx, '#1a140d'); circle(ctx, 2.2, -11, 0.9); fill(ctx, '#1a140d');
-  ctx.fillStyle = 'rgba(255,255,255,0.8)'; circle(ctx, -2, -11.3, 0.3); ctx.fill(); circle(ctx, 2.4, -11.3, 0.3); ctx.fill();
+  ctx.fillStyle = '#1a140d'; circle(ctx, -2.2, -11, 0.95); ctx.fill(); circle(ctx, 2.2, -11, 0.95); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.85)'; circle(ctx, -2, -11.3, 0.32); ctx.fill(); circle(ctx, 2.4, -11.3, 0.32); ctx.fill();
+  // nose + friendly mouth
+  ctx.strokeStyle = shade(p.skin, -0.32); ctx.lineWidth = 0.8; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(-0.1, -10.4); ctx.lineTo(0.5, -9.4); ctx.stroke();
+  ctx.beginPath(); ctx.arc(0, -9.2, 1.5, 0.25, Math.PI - 0.25); ctx.stroke(); ctx.lineCap = 'butt';
+  // role accessory
+  if (p.acc) townAcc(ctx, p);
+}
+
+// Small role-distinguishing props drawn over the base townsfolk figure.
+function townAcc(ctx, p) {
+  switch (p.acc) {
+    case 'coins': // banker — a stack of gold coins in hand
+      for (let i = 0; i < 3; i++) { ctx.fillStyle = '#e6b34a'; ellipse(ctx, 8, 5.5 - i * 1.1, 2, 0.9); ctx.fill(); ctx.fillStyle = '#ffd773'; ellipse(ctx, 8, 5.2 - i * 1.1, 1.2, 0.4); ctx.fill(); }
+      break;
+    case 'sack': // shopkeeper — a goods sack
+      ctx.fillStyle = '#b89a5a'; circle(ctx, 9.5, 5, 2.6); ctx.fill(); ctx.fillStyle = shade('#b89a5a', -0.18); rr(ctx, 7.5, 1.5, 4, 1.6, 0.6); ctx.fill();
+      break;
+    case 'ladle': // hawker — a soup ladle
+      ctx.strokeStyle = '#7a5a2a'; ctx.lineWidth = 1.1; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(9, 7); ctx.lineTo(12, -1.5); ctx.stroke(); ctx.lineCap = 'butt';
+      ctx.fillStyle = '#cfd6dd'; circle(ctx, 12.4, -2, 1.8); ctx.fill(); ctx.fillStyle = '#aab4be'; ellipse(ctx, 12.4, -1.4, 1.3, 0.7); ctx.fill();
+      break;
+    case 'map': // guide — a rolled map
+      ctx.fillStyle = '#efe6cf'; rr(ctx, -13.5, 2.5, 5.5, 4.5, 0.9); ctx.fill();
+      ctx.strokeStyle = '#b8893f'; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.moveTo(-12.5, 4); ctx.lineTo(-9.5, 4); ctx.moveTo(-12.5, 5.3); ctx.lineTo(-9, 5.3); ctx.stroke();
+      ctx.fillStyle = '#c0392b'; circle(ctx, -10.5, 5.8, 0.6); ctx.fill();
+      break;
+    case 'stars': { // mage — arcane sparkles on the robe
+      ctx.fillStyle = '#ffe24a';
+      for (const [sx, sy, r] of [[-3, 1, 1.3], [2.5, 4, 1], [3, -1.5, 0.9]]) {
+        path(ctx, () => { ctx.moveTo(sx, sy - r); ctx.lineTo(sx + r * 0.4, sy); ctx.lineTo(sx, sy + r); ctx.lineTo(sx - r * 0.4, sy); }); ctx.fill();
+        path(ctx, () => { ctx.moveTo(sx - r, sy); ctx.lineTo(sx, sy + r * 0.4); ctx.lineTo(sx + r, sy); ctx.lineTo(sx, sy - r * 0.4); }); ctx.fill();
+      }
+      break;
+    }
+    case 'bow': // fletcher — a bow slung over the shoulder
+      ctx.strokeStyle = '#7a5530'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(-9.5, -0.5, 7, Math.PI * 1.58, Math.PI * 0.42); ctx.stroke();
+      ctx.strokeStyle = '#e8e0c8'; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.moveTo(-4.6, -5.4); ctx.lineTo(-4.6, 4.4); ctx.stroke();
+      break;
+    case 'scar': // slayer master — an eye scar
+      ctx.strokeStyle = '#9a5a4a'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(2.2, -13); ctx.lineTo(2.2, -9.4); ctx.stroke();
+      break;
+    case 'scroll': // skills tutor — a scroll in hand
+      ctx.fillStyle = '#efe6cf'; rr(ctx, 6.8, 1.5, 2.4, 6.5, 1); ctx.fill(); ctx.fillStyle = '#d8c089'; rr(ctx, 6.8, 1.5, 2.4, 1, 0.5); ctx.fill(); rr(ctx, 6.8, 7, 2.4, 1, 0.5); ctx.fill();
+      break;
+    case 'halo': // light priestess — a glowing halo
+      ctx.fillStyle = 'rgba(255,236,150,0.45)'; ellipse(ctx, 0, -18.5, 5.5, 1.8); ctx.fill();
+      ctx.strokeStyle = '#ffe9a8'; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(0, -18.5, 5, 1.5, 0, 0, Math.PI * 2); ctx.stroke();
+      break;
+    case 'hood': // shadow broker — a dark cowl shadow over the brow
+      ctx.fillStyle = 'rgba(8,6,14,0.55)'; path(ctx, () => { ctx.arc(0, -11, 6.5, Math.PI * 1.02, Math.PI * 1.98); ctx.lineTo(6, -11.5); ctx.lineTo(-6, -11.5); }); ctx.fill();
+      ctx.fillStyle = '#8a5ad0'; circle(ctx, -2.2, -11, 0.6); ctx.fill(); circle(ctx, 2.2, -11, 0.6); ctx.fill(); // glowing eyes
+      break;
+  }
 }
 
 // ================= PLAYER =================
