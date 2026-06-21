@@ -86,12 +86,13 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
   const arch = opts.sprite && ARCH[opts.sprite];
   if (arch) {
     const pimg = creatureImage(opts.sprite);
+    const col = opts.color || '#8a8a8a';
     return staged(ctx, cx, cy, opts, (c) => {
-      if (opts.boss) bossAura(c, opts.time || 0);
+      if (opts.boss) bossAura(c, opts.time || 0, col);
       if (pimg && pimg.complete && pimg.naturalWidth) {
         drawCreaturePng(c, pimg);    // painted art carries its own shading
       } else {
-        arch(c, opts.color || '#8a8a8a');
+        arch(c, col);
         // Soft upper sheen for volume (fades out, so it only lifts the body).
         const sg = c.createRadialGradient(-3, -5, 0, -3, -5, 10);
         sg.addColorStop(0, 'rgba(255,255,255,0.13)');
@@ -100,7 +101,7 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
         c.fillStyle = sg; circle(c, -3, -5, 10); c.fill();
         c.globalCompositeOperation = 'source-over';
       }
-      if (opts.boss) crown(c);
+      if (opts.boss) bossCrown(c, opts.time || 0);  // insignia over both painted & vector bodies
     });
   }
   const TOWN = {
@@ -128,6 +129,16 @@ function shade(hex, k) {
   if (k < 0) { const f = 1 + k; r *= f; g *= f; b *= f; }
   else { r += (255 - r) * k; g += (255 - g) * k; b += (255 - b) * k; }
   return `rgb(${r | 0},${g | 0},${b | 0})`;
+}
+
+// Colour (hex or rgb()) to an rgba() string at alpha a.
+function rgba(c, a) {
+  if (typeof c === 'string' && c[0] === '#') {
+    const n = parseInt(c.slice(1), 16);
+    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+  }
+  if (typeof c === 'string' && c.startsWith('rgb(')) return c.replace('rgb(', 'rgba(').replace(')', `,${a})`);
+  return c;
 }
 
 // A lively eye: white sclera, dark pupil, tiny catchlight.
@@ -161,26 +172,42 @@ function ticks(ctx, col, segs, k = -0.22, w = 0.7) {
   ctx.lineCap = 'butt';
 }
 
-function bossAura(ctx, time = 0) {
+function bossAura(ctx, time = 0, col = '#ff5a46') {
   const pulse = 1 + Math.sin(time * 0.004) * 0.12;
-  // outer menacing glow
-  const g = ctx.createRadialGradient(0, -2, 2, 0, -2, 28 * pulse);
-  g.addColorStop(0, 'rgba(255,90,70,0.30)');
-  g.addColorStop(0.6, 'rgba(180,40,30,0.16)');
-  g.addColorStop(1, 'rgba(255,90,70,0)');
-  ctx.fillStyle = g; circle(ctx, 0, -2, 28 * pulse); ctx.fill();
-  // dark contact ring on the ground for weight
-  ctx.fillStyle = 'rgba(60,0,0,0.22)';
-  ellipse(ctx, 0, 13, 15, 5); ctx.fill();
+  // heavy dark contact shadow for weight
+  ctx.fillStyle = 'rgba(28,0,0,0.26)'; ellipse(ctx, 0, 13, 16.5, 5.6); ctx.fill();
+  // a slowly-rotating summoning glyph ring on the ground, tinted by the boss
+  ctx.save();
+  ctx.translate(0, 12.5); ctx.scale(1, 0.34); ctx.rotate((time * 0.0005) % (Math.PI * 2));
+  ctx.strokeStyle = rgba(shade(col, 0.4), 0.5); ctx.lineWidth = 1.3;
+  ctx.beginPath(); ctx.arc(0, 0, 15.5, 0, Math.PI * 2); ctx.stroke();
+  ctx.lineWidth = 2.2;
+  for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; ctx.beginPath(); ctx.moveTo(Math.cos(a) * 13, Math.sin(a) * 13); ctx.lineTo(Math.cos(a) * 16, Math.sin(a) * 16); ctx.stroke(); }
+  ctx.restore();
+  // colour-tinted menacing glow (icy, fiery, necrotic… per the boss palette)
+  const g = ctx.createRadialGradient(0, -2, 2, 0, -2, 30 * pulse);
+  g.addColorStop(0, rgba(shade(col, 0.45), 0.36));
+  g.addColorStop(0.55, rgba(col, 0.20));
+  g.addColorStop(1, rgba(col, 0));
+  ctx.fillStyle = g; circle(ctx, 0, -2, 30 * pulse); ctx.fill();
 }
-function crown(ctx) {
+// The boss insignia: rising embers, an ornate jewelled crown, and a soft halo.
+function bossCrown(ctx, time = 0) {
+  ctx.fillStyle = 'rgba(255,190,110,0.85)';
+  for (let i = 0; i < 5; i++) {
+    const ph = ((time * 0.0016) + i * 0.37) % 1;
+    const ex = Math.sin(i * 2.3 + time * 0.0025) * 11;
+    circle(ctx, ex, 12 - ph * 32, (1 - ph) * 0.9 + 0.3); ctx.fill();
+  }
   ctx.fillStyle = '#ffd24a';
-  path(ctx, () => { ctx.moveTo(-7, -20); ctx.lineTo(-5, -27); ctx.lineTo(-2, -22); ctx.lineTo(0, -28); ctx.lineTo(2, -22); ctx.lineTo(5, -27); ctx.lineTo(7, -20); });
+  path(ctx, () => { ctx.moveTo(-8, -19); ctx.lineTo(-8, -24.5); ctx.lineTo(-4.5, -21); ctx.lineTo(-2.2, -28.5); ctx.lineTo(0, -22.5); ctx.lineTo(2.2, -28.5); ctx.lineTo(4.5, -21); ctx.lineTo(8, -24.5); ctx.lineTo(8, -19); });
   ctx.fill(); line(ctx, OUTLINE, 1);
-  ctx.fillStyle = '#fff3b0'; rr(ctx, -7, -21, 14, 1.6, 0.8); ctx.fill(); // gold band shine
+  ctx.fillStyle = '#fff3b0'; rr(ctx, -8, -20.4, 16, 1.7, 0.8); ctx.fill();
+  ctx.fillStyle = 'rgba(255,224,130,0.22)'; circle(ctx, 0, -22, 5.5); ctx.fill();
   // jewels
-  ctx.fillStyle = '#d8566f'; circle(ctx, 0, -25, 1); ctx.fill();
-  ctx.fillStyle = '#5ad1ff'; circle(ctx, -5, -25.4, 0.8); ctx.fill(); circle(ctx, 5, -25.4, 0.8); ctx.fill();
+  ctx.fillStyle = '#d8566f'; circle(ctx, 0, -23, 1.2); ctx.fill();
+  ctx.fillStyle = '#5ad1ff'; circle(ctx, -5, -22.6, 0.9); ctx.fill(); circle(ctx, 5, -22.6, 0.9); ctx.fill();
+  ctx.fillStyle = '#fff'; circle(ctx, -0.4, -23.4, 0.4); ctx.fill();
 }
 
 // ---- IMPROVED ARCHETYPES (ctx, col) ----
