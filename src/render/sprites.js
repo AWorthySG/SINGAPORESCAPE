@@ -1024,6 +1024,7 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
     const body = opts.hasBody ? '#b9c2cc' : '#5b8c4a';
     const bodyHi = opts.hasBody ? '#dbe2ea' : '#74a85e';
     const bodyDk = opts.hasBody ? '#8a96a2' : '#46702f';
+    const skin = '#e8b98a';
     // cape (behind everything), sways with motion
     if (opts.hasCape) {
       const sw = Math.sin((opts.time || 0) * 0.012) * 1.4;
@@ -1031,36 +1032,67 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
       path(c, () => { c.moveTo(-6, -4); c.lineTo(6, -4); c.lineTo(8 + sw, 13); c.lineTo(-8 + sw, 13); });
       c.fill();
       c.fillStyle = '#a83a52'; rr(c, -6, -5, 12, 3, 1); c.fill();
+      c.strokeStyle = '#6e2436'; c.lineWidth = 0.8; c.beginPath(); c.moveTo(-2, -3); c.lineTo(-3 + sw, 12); c.moveTo(2, -3); c.lineTo(3 + sw, 12); c.stroke();
     }
     // legs + boots
     c.fillStyle = '#2f3a52'; rr(c, -5, 6, 4, 8, 2); c.fill(); rr(c, 1, 6, 4, 8, 2); c.fill();
+    c.fillStyle = shade('#2f3a52', 0.16); rr(c, -5, 6, 1.3, 8, 0.6); c.fill(); rr(c, 1, 6, 1.3, 8, 0.6); c.fill();
     c.fillStyle = '#23150c'; rr(c, -5.5, 12, 5, 3, 1.5); c.fill(); rr(c, 0.5, 12, 5, 3, 1.5); c.fill();
-    // torso (armour tint if body equipped) with edge shading
+    // arms (behind torso) + hands
+    c.fillStyle = body; rr(c, -10, -3.5, 4, 9, 2); c.fill(); rr(c, 6, -3.5, 4, 9, 2); c.fill();
+    c.fillStyle = skin; circle(c, -8, 6.5, 2.1); c.fill(); circle(c, 8, 6.5, 2.1); c.fill();
+    c.fillStyle = shade(skin, -0.14); ellipse(c, -8, 7.5, 1.9, 0.9); c.fill(); ellipse(c, 8, 7.5, 1.9, 0.9); c.fill();
+    // torso with edge shading
     rr(c, -7, -5, 14, 13, 4); fill(c, body); line(c);
     c.fillStyle = bodyHi; rr(c, -7, -5, 4, 13, 4); c.fill();          // left highlight
     c.fillStyle = bodyDk; rr(c, 4, -5, 3, 13, 3); c.fill();           // right shadow
-    c.fillStyle = '#3a2a14'; rr(c, -7, 2, 14, 2.4, 1); c.fill();      // belt
-    c.fillStyle = '#e6b34a'; rr(c, -1.4, 2, 2.8, 2.4, 0.6); c.fill();    // buckle
-    // arms
-    c.fillStyle = body; rr(c, -10, -3, 4, 9, 2); c.fill(); rr(c, 6, -3, 4, 9, 2); c.fill();
-    c.fillStyle = '#e8b98a'; circle(c, -8, 6, 2); c.fill(); circle(c, 8, 6, 2); c.fill();
-    // head + hair (+ helmet if worn)
-    circle(c, 0, -11, 6.8); fill(c, '#e8b98a'); line(c);
+    if (opts.hasBody) {
+      // plated armour: pauldrons, chest seam + rivets, rim light
+      c.fillStyle = shade(body, 0.08); circle(c, -6.3, -3.5, 3); c.fill(); circle(c, 6.3, -3.5, 3); c.fill(); line(c, OUTLINE, 1);
+      c.fillStyle = bodyHi; circle(c, -7, -4.3, 1); c.fill(); circle(c, 6, -4.3, 1); c.fill();
+      c.strokeStyle = bodyDk; c.lineWidth = 0.8; c.beginPath(); c.moveTo(0, -3); c.lineTo(0, 1.5); c.stroke();
+      c.fillStyle = '#eef2f6'; for (const [rx, ry] of [[-3.2, -3.5], [3.2, -3.5], [-3.2, 0], [3.2, 0]]) { circle(c, rx, ry, 0.5); c.fill(); }
+      c.strokeStyle = 'rgba(255,255,255,0.4)'; c.lineWidth = 1; c.beginPath(); c.moveTo(-5.8, -4.5); c.lineTo(-5.8, 6); c.stroke();
+    } else {
+      // cloth tunic: collar + lace
+      c.fillStyle = shade(body, -0.22); path(c, () => { c.moveTo(-3.5, -5); c.lineTo(0, -1.5); c.lineTo(3.5, -5); }); c.fill();
+      c.strokeStyle = shade(body, -0.22); c.lineWidth = 0.7; c.beginPath(); c.moveTo(0, -1); c.lineTo(0, 2); c.stroke();
+    }
+    // belt + buckle
+    c.fillStyle = '#3a2a14'; rr(c, -7, 2, 14, 2.4, 1); c.fill();
+    c.fillStyle = '#e6b34a'; rr(c, -1.4, 2, 2.8, 2.4, 0.6); c.fill();
+    c.fillStyle = '#fff3c0'; rr(c, -1.1, 2.3, 2.2, 0.7, 0.3); c.fill();
+    // ears + head
+    c.fillStyle = skin; circle(c, -6.3, -11, 1.2); c.fill(); circle(c, 6.3, -11, 1.2); c.fill();
+    circle(c, 0, -11, 6.8); fill(c, skin); line(c);
+    c.fillStyle = shade(skin, -0.13); ellipse(c, 3.3, -9.8, 2.3, 3.2); c.fill();
     c.fillStyle = 'rgba(255,255,255,0.25)'; circle(c, -2.4, -12.5, 2); c.fill(); // cheek light
     if (opts.hasHelm) {
-      c.fillStyle = '#9aa6b2'; path(c, () => { c.arc(0, -11, 7.2, Math.PI, 0); }); c.fill();
-      c.fillStyle = '#cfd6dd'; rr(c, -7, -12, 14, 2.2, 1); c.fill();
+      c.fillStyle = '#9aa6b2'; path(c, () => { c.arc(0, -11.5, 7.2, Math.PI, 0); }); c.fill();
+      c.fillStyle = '#cfd6dd'; rr(c, -7.2, -12.6, 14.4, 2.2, 1); c.fill();
+      c.fillStyle = '#8a96a2'; rr(c, -0.9, -12.6, 1.8, 6, 0.7); c.fill();  // nasal guard
+      c.fillStyle = '#b9c2cc'; rr(c, -1.4, -19, 2.8, 6.5, 1); c.fill();    // crest holder
+      c.fillStyle = '#c0392b'; path(c, () => { c.moveTo(-1.4, -17.5); c.quadraticCurveTo(-5.5, -20, -4.5, -24.5); c.quadraticCurveTo(-1, -21, 1.4, -18.5); }); c.fill(); // plume
+      c.fillStyle = 'rgba(255,255,255,0.4)'; rr(c, -6, -12.3, 4, 0.8, 0.4); c.fill();
     } else {
-      c.fillStyle = '#46301c'; path(c, () => { c.arc(0, -12, 6.9, Math.PI, Math.PI * 2); }); c.fill();
+      c.fillStyle = '#46301c'; path(c, () => { c.arc(0, -11.3, 6.9, Math.PI * 1.02, Math.PI * 1.98); c.lineTo(5.6, -13.2); c.quadraticCurveTo(0, -19.4, -5.6, -13.2); }); c.fill();
+      c.fillStyle = shade('#46301c', 0.25); rr(c, -5, -16.6, 4.2, 1.8, 0.9); c.fill();
+      c.strokeStyle = '#3a2414'; c.lineWidth = 0.9; c.lineCap = 'round'; c.beginPath(); c.moveTo(-3.3, -12.3); c.lineTo(-1.2, -12.6); c.moveTo(1.2, -12.6); c.lineTo(3.3, -12.3); c.stroke(); c.lineCap = 'butt';
     }
-    circle(c, -2.3, -11, 0.9); fill(c, '#1a140d'); circle(c, 2.3, -11, 0.9); fill(c, '#1a140d');
+    // eyes + catchlight
+    c.fillStyle = '#1a140d'; circle(c, -2.3, -11, 0.95); c.fill(); circle(c, 2.3, -11, 0.95); c.fill();
+    c.fillStyle = 'rgba(255,255,255,0.85)'; circle(c, -2.05, -11.3, 0.32); c.fill(); circle(c, 2.55, -11.3, 0.32); c.fill();
+    // nose + resolute mouth
+    c.strokeStyle = shade(skin, -0.32); c.lineWidth = 0.8; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(-0.1, -10.3); c.lineTo(0.5, -9.4); c.stroke();
+    c.beginPath(); c.moveTo(-1.4, -9); c.lineTo(1.4, -9); c.stroke(); c.lineCap = 'butt';
     // weapon
     if (opts.hasWeapon) {
-      c.strokeStyle = '#e9edf2'; c.lineWidth = 2.4;
-      c.beginPath(); c.moveTo(10, 11); c.lineTo(14, -9); c.stroke();
-      c.strokeStyle = '#cfe0ff'; c.lineWidth = 0.9;
-      c.beginPath(); c.moveTo(10.6, 9); c.lineTo(13.6, -7); c.stroke(); // blade glint
-      c.strokeStyle = '#8a6a3a'; c.lineWidth = 2; c.beginPath(); c.moveTo(8, 9); c.lineTo(12, 6); c.stroke();
+      c.strokeStyle = '#e9edf2'; c.lineWidth = 2.4; c.beginPath(); c.moveTo(10, 11); c.lineTo(14, -9); c.stroke();
+      c.strokeStyle = '#cfe0ff'; c.lineWidth = 0.9; c.beginPath(); c.moveTo(10.6, 9); c.lineTo(13.6, -7); c.stroke(); // blade glint
+      c.fillStyle = '#ffffff'; circle(c, 13.4, -7.2, 0.7); c.fill(); // tip glint
+      c.strokeStyle = '#e6b34a'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(9.4, 3.4); c.lineTo(13.4, 4.8); c.stroke(); // crossguard
+      c.strokeStyle = '#8a6a3a'; c.lineWidth = 2; c.beginPath(); c.moveTo(8, 9); c.lineTo(11.4, 6); c.stroke(); // grip
     }
   });
 }
