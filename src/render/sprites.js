@@ -141,6 +141,26 @@ function fang(ctx, x, y, w, h, color = '#f4efe0') {
   ctx.fillStyle = color; path(ctx, () => { ctx.moveTo(x - w, y); ctx.lineTo(x + w, y); ctx.lineTo(x, y + h); }); ctx.fill();
 }
 
+// ---- shared detail helpers (used by the archetype detail pass) ----
+// A soft top rim-light arc traced over a body ellipse, for volume.
+function rimLight(ctx, x, y, rx, ry, col, k = 0.42) {
+  ctx.save();
+  ctx.strokeStyle = shade(col, k); ctx.lineWidth = 1.1; ctx.globalAlpha = 0.6; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.ellipse(x, y, Math.max(0.5, rx - 0.7), Math.max(0.5, ry - 0.7), 0, Math.PI * 1.1, Math.PI * 1.95); ctx.stroke();
+  ctx.restore();
+}
+// Scattered darker dapples/markings: pts = [[x,y,r],...].
+function speckle(ctx, col, pts, k = -0.17) {
+  ctx.fillStyle = shade(col, k);
+  for (const [x, y, r] of pts) { circle(ctx, x, y, r); ctx.fill(); }
+}
+// Short fur/scale ticks: segs = [[x1,y1,x2,y2],...].
+function ticks(ctx, col, segs, k = -0.22, w = 0.7) {
+  ctx.strokeStyle = shade(col, k); ctx.lineWidth = w; ctx.lineCap = 'round';
+  ctx.beginPath(); for (const [x1, y1, x2, y2] of segs) { ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); } ctx.stroke();
+  ctx.lineCap = 'butt';
+}
+
 function bossAura(ctx, time = 0) {
   const pulse = 1 + Math.sin(time * 0.004) * 0.12;
   // outer menacing glow
@@ -180,6 +200,9 @@ function beast(ctx, col) {
   ellipse(ctx, -0.5, 1.5, 11.5, 7.5); fill(ctx, col); line(ctx);
   ctx.fillStyle = shade(col, -0.2); ellipse(ctx, -0.5, 5, 9.5, 3.8); ctx.fill(); // belly
   ctx.fillStyle = shade(col, 0.18); ellipse(ctx, -1.5, -2.5, 8, 2.8); ctx.fill(); // back highlight
+  rimLight(ctx, -0.5, 1.5, 11.5, 7.5, col);
+  speckle(ctx, col, [[-6, 0, 1.1], [-1.5, 1.5, 0.9], [3, -0.5, 0.85], [-3.5, 4, 0.8]]);
+  ticks(ctx, col, [[-7, 4.5, -5.5, 7], [-2.5, 5, -1, 7.5], [2.5, 4.5, 4, 7]], -0.18);
   // shaggy spine / mane tufts (better flow)
   ctx.fillStyle = shade(col, -0.38);
   path(ctx, () => { ctx.moveTo(-10, -4); ctx.lineTo(-8, -11); ctx.lineTo(-5, -4); ctx.lineTo(-2, -10); ctx.lineTo(1, -4); ctx.lineTo(4, -9); ctx.lineTo(7, -4); }); ctx.fill();
@@ -203,7 +226,10 @@ function rodent(ctx, col) {
   ctx.fillStyle = shade(col, 0.3); circle(ctx, -4, 9.5, 1.7); ctx.fill(); circle(ctx, 4.5, 9.5, 1.7); ctx.fill();
   // body - rounder
   ellipse(ctx, 0, 2.5, 9.5, 6.5); fill(ctx, col); line(ctx);
+  ctx.fillStyle = shade(col, 0.32); ellipse(ctx, 1.5, 5, 5.5, 3); ctx.fill(); // pale belly
   ctx.fillStyle = shade(col, 0.15); ellipse(ctx, 0.5, 0.5, 6.5, 3); ctx.fill();
+  rimLight(ctx, 0, 2.5, 9.5, 6.5, col);
+  ticks(ctx, col, [[-6, 0, -4.5, 2.5], [-3, -1, -1.5, 1.5], [-7, 4, -5.5, 6]], -0.16);
   // head
   circle(ctx, 8.5, -0.5, 5); fill(ctx, col); line(ctx);
   // big ear
@@ -232,7 +258,12 @@ function primate(ctx, col) {
   ctx.beginPath(); ctx.moveTo(6, -1); ctx.quadraticCurveTo(12, 5, 8, 10); ctx.stroke(); ctx.lineCap = 'butt';
   // body
   ellipse(ctx, 0, 0.5, 8, 9); fill(ctx, col); line(ctx);
-  ctx.fillStyle = shade(col, 0.14); ellipse(ctx, 0, 1.5, 4, 6); ctx.fill();
+  ctx.fillStyle = shade(col, 0.2); ellipse(ctx, 0, 1.5, 4.2, 6); ctx.fill(); // bare chest
+  rimLight(ctx, 0, 0.5, 8, 9, col);
+  // pectoral / ab definition
+  ctx.strokeStyle = shade(col, -0.18); ctx.lineWidth = 0.7;
+  ctx.beginPath(); ctx.moveTo(0, -2.5); ctx.lineTo(0, 6); ctx.moveTo(-3, -1); ctx.quadraticCurveTo(0, 0.5, 3, -1); ctx.stroke();
+  ticks(ctx, col, [[-7, -2, -5.5, 0.5], [5.5, -2, 7, 0.5], [-6.5, 4, -5, 6]], -0.16);
   // head + face patch
   circle(ctx, 0.5, -10.5, 6.2); fill(ctx, col); line(ctx);
   ctx.fillStyle = shade(col, -0.28); circle(ctx, -5.5, -10.5, 2.1); ctx.fill(); circle(ctx, 6.5, -10.5, 2.1); ctx.fill();
@@ -251,6 +282,10 @@ function reptile(ctx, col) {
   ctx.fillStyle = shade(col, -0.28); rr(ctx, -7, 6, 5.2, 5.5, 2); ctx.fill(); rr(ctx, 2.5, 6, 5.2, 5.5, 2); ctx.fill();
   // body
   ellipse(ctx, 0, 1.5, 12.5, 7); fill(ctx, col); line(ctx);
+  ctx.fillStyle = shade(col, -0.24); ellipse(ctx, 0, 4.5, 10.5, 2.8); ctx.fill(); // belly shadow
+  ctx.fillStyle = shade(col, 0.16); ellipse(ctx, -1.5, -1.5, 8, 2.6); ctx.fill(); // back sheen
+  rimLight(ctx, 0, 1.5, 12.5, 7, col);
+  speckle(ctx, col, [[-7, 0.5, 0.9], [-3, 1.5, 0.9], [1, 0.5, 0.85], [5, 1.5, 0.8], [-5, 3.5, 0.7], [3, 3.5, 0.7]], -0.22);
   // dorsal ridge (more pronounced)
   ctx.fillStyle = shade(col, -0.38);
   for (const x of [-8, -4, 0, 4]) {
@@ -336,7 +371,9 @@ function greenman(ctx, col) {
   // Improved: more goblin/leafy character, better ear shape, clearer snaggle teeth
   ctx.fillStyle = shade(col, -0.22); rr(ctx, -5.5, 6, 4.2, 8, 2); ctx.fill(); rr(ctx, 0.8, 6, 4.2, 8, 2); ctx.fill();
   rr(ctx, -7.5, -4.5, 15, 13, 5); fill(ctx, col); line(ctx);
-  ctx.fillStyle = shade(col, 0.12); ellipse(ctx, -2, -0.5, 4, 6); ctx.fill();
+  ctx.fillStyle = shade(col, 0.18); ellipse(ctx, -1.5, 0.5, 4.2, 5.5); ctx.fill(); // pot belly highlight
+  ctx.fillStyle = shade(col, 0.16); rr(ctx, -6.5, -4, 13, 1.8, 1); ctx.fill(); // shoulder rim
+  speckle(ctx, col, [[3.5, -1, 1], [4.5, 2.5, 0.8], [-5, 3, 0.8], [2, 5, 0.7]], -0.24); // warts
   // loincloth
   ctx.fillStyle = '#7a5a2a'; rr(ctx, -7.5, 6, 15, 5, 2); ctx.fill();
   ctx.fillStyle = '#5a4220'; rr(ctx, -7.5, 6, 15, 1.5, 1); ctx.fill();
@@ -388,8 +425,9 @@ function slime(ctx, col) {
   ctx.fillStyle = col; circle(ctx, -5.5, 9.5, 2.2); ctx.fill(); circle(ctx, 5, 9.5, 1.8); ctx.fill();
   // glossy highlight
   ctx.fillStyle = shade(col, 0.38); ellipse(ctx, -3.5, -2.5, 3.2, 4.2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.6)'; ellipse(ctx, -4.5, -4, 1.4, 2); ctx.fill(); // bright specular
   // inner bubbles
-  ctx.fillStyle = shade(col, 0.18); circle(ctx, 4, 3.5, 1.5); ctx.fill(); circle(ctx, -5.5, 4.5, 1.1); ctx.fill();
+  ctx.fillStyle = shade(col, 0.18); circle(ctx, 4, 3.5, 1.5); ctx.fill(); circle(ctx, -5.5, 4.5, 1.1); ctx.fill(); circle(ctx, 6, -0.5, 0.9); ctx.fill();
   // face - more expressive
   eyeW(ctx, -3.2, 0.5, 1.45); eyeW(ctx, 3.3, 0.5, 1.45);
   ctx.strokeStyle = '#1a140d'; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.arc(0.2, 3.8, 2.1, 0.25, Math.PI - 0.25); ctx.stroke();
@@ -424,7 +462,11 @@ function demon(ctx, col) {
   // torso
   rr(ctx, -7.5, -4.5, 15, 12.5, 4); fill(ctx, col); line(ctx);
   ctx.fillStyle = shade(col, -0.2); ellipse(ctx, 0, 3.5, 5.2, 4.2); ctx.fill();
+  ctx.fillStyle = shade(col, 0.16); rr(ctx, -6.5, -4, 13, 2, 1); ctx.fill(); // shoulder rim light
   ctx.fillStyle = shade(col, 0.12); ellipse(ctx, -2.8, -1.5, 2.8, 3.8); ctx.fill();
+  // chest / ab muscle lines
+  ctx.strokeStyle = shade(col, -0.34); ctx.lineWidth = 0.8;
+  ctx.beginPath(); ctx.moveTo(0, -2.5); ctx.lineTo(0, 6); ctx.moveTo(-4, -1.5); ctx.quadraticCurveTo(0, 0.5, 4, -1.5); ctx.moveTo(-3.5, 2); ctx.lineTo(3.5, 2); ctx.stroke();
   ctx.fillStyle = col; rr(ctx, -11.5, -3.5, 4.2, 9.5, 2); ctx.fill(); rr(ctx, 7, -3.5, 4.2, 9.5, 2); ctx.fill();
   // head + curved horns
   circle(ctx, 0, -10.5, 6.2); fill(ctx, col); line(ctx);
@@ -449,6 +491,9 @@ function golem(ctx, col) {
   // boulder torso with facets
   rr(ctx, -9.5, -6.5, 19, 14.5, 3); fill(ctx, col); line(ctx);
   ctx.fillStyle = shade(col, 0.14); path(ctx, () => { ctx.moveTo(-9.5, -6.5); ctx.lineTo(2, -6.5); ctx.lineTo(-4.5, 0.5); ctx.lineTo(-9.5, 0.5); }); ctx.fill();
+  ctx.fillStyle = shade(col, 0.26); rr(ctx, -8.5, -6, 16, 1.6, 0.8); ctx.fill(); // top rim light
+  // patches of moss
+  ctx.fillStyle = 'rgba(74,128,58,0.55)'; circle(ctx, -7, 5, 1.6); ctx.fill(); circle(ctx, 6.5, 4, 1.3); ctx.fill(); circle(ctx, -5.5, 6, 1); ctx.fill();
   ctx.fillStyle = shade(col, -0.22); path(ctx, () => { ctx.moveTo(9, 7.5); ctx.lineTo(2, 7.5); ctx.lineTo(7, 0.5); ctx.lineTo(9, 0.5); }); ctx.fill();
   // cracks
   ctx.strokeStyle = shade(col, -0.42); ctx.lineWidth = 1.1;
@@ -471,6 +516,8 @@ function undead(ctx, col) {
   for (const yy of [-1.5, 1.5, 4.5]) { ctx.beginPath(); ctx.moveTo(-4.5, yy); ctx.quadraticCurveTo(0, yy + 1.7, 4.5, yy); ctx.stroke(); }
   // skull
   circle(ctx, 0, -10.5, 5.8); fill(ctx, col); line(ctx);
+  ctx.fillStyle = shade(col, 0.2); ellipse(ctx, -2, -12.5, 2.6, 1.6); ctx.fill(); // cranium sheen
+  ctx.strokeStyle = shade(col, -0.4); ctx.lineWidth = 0.6; ctx.beginPath(); ctx.moveTo(1.5, -14.5); ctx.lineTo(2.6, -12.5); ctx.lineTo(1.8, -11.5); ctx.stroke(); // hairline crack
   ctx.fillStyle = '#15110b'; ellipse(ctx, -2.5, -11, 1.65, 2); ctx.fill(); ellipse(ctx, 2.5, -11, 1.65, 2); ctx.fill();
   ctx.fillStyle = '#7a1414'; circle(ctx, -2.5, -11, 0.75); ctx.fill(); circle(ctx, 2.5, -11, 0.75); ctx.fill();
   // nose cavity
@@ -509,6 +556,8 @@ function scorpion(ctx, col) {
   fang(ctx, 14.5, -10.5, 1.35, 3.2, shade(col, -0.38));
   // body
   ellipse(ctx, 0, 3.5, 8.5, 5); fill(ctx, col); line(ctx);
+  ctx.fillStyle = shade(col, 0.22); ellipse(ctx, -1, 1.5, 5, 1.9); ctx.fill(); // carapace sheen
+  rimLight(ctx, 0, 3.5, 8.5, 5, col);
   ctx.strokeStyle = shade(col, -0.32); ctx.lineWidth = 0.75; ctx.beginPath(); ctx.moveTo(-3.2, -0.5); ctx.lineTo(-3.2, 7); ctx.moveTo(2.2, -0.5); ctx.lineTo(2.2, 7); ctx.stroke();
   // pincers
   for (const [px, py] of [[-10.5, 0.5], [-12.5, 4]]) {
@@ -526,6 +575,8 @@ function bat(ctx, col) {
   ctx.strokeStyle = shade(col, -0.32); ctx.lineWidth = 0.75; ctx.beginPath(); ctx.moveTo(-4.5, 0.5); ctx.lineTo(-13.5, -6); ctx.moveTo(4.5, 0.5); ctx.lineTo(13.5, -6); ctx.stroke();
   // body
   circle(ctx, 0, -0.5, 4.8); fill(ctx, shade(col, 0.1)); line(ctx);
+  ctx.fillStyle = shade(col, 0.32); ellipse(ctx, 0, 1, 2.6, 2.1); ctx.fill(); // furry belly
+  ticks(ctx, col, [[-2.5, -1.5, -1.8, 0], [0, -2, 0, -0.3], [2.5, -1.5, 1.8, 0]], 0.22, 0.6); // chest fluff
   // ears
   ctx.fillStyle = shade(col, -0.22); path(ctx, () => { ctx.moveTo(-3.2, -4.5); ctx.lineTo(-4.2, -9); ctx.lineTo(-1, -5.5); }); ctx.fill();
   path(ctx, () => { ctx.moveTo(3.2, -4.5); ctx.lineTo(4.2, -9); ctx.lineTo(1, -5.5); }); ctx.fill();
@@ -539,6 +590,8 @@ function seacreature(ctx, col) {
   // Improved: more versatile for shark/dolphin/Merlion/kraken — sleeker body, better fin placement, stronger tail
   path(ctx, () => { ctx.moveTo(-12.5, 1.5); ctx.quadraticCurveTo(0, -9.5, 14, 0.5); ctx.quadraticCurveTo(0, 10.5, -12.5, 1.5); }); fill(ctx, col); line(ctx);
   ctx.fillStyle = shade(col, 0.28); path(ctx, () => { ctx.moveTo(-10.5, 2.5); ctx.quadraticCurveTo(1.5, 8.5, 12, 1); ctx.quadraticCurveTo(0, 6.5, -10.5, 2.5); }); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.28)'; path(ctx, () => { ctx.moveTo(-7, -3); ctx.quadraticCurveTo(2, -6, 9, -1.5); ctx.quadraticCurveTo(2, -3.5, -7, -3); }); ctx.fill(); // top sheen
+  ticks(ctx, col, [[5, -2.5, 4.5, 2.5], [7, -2, 6.5, 2.5], [9, -1, 8.5, 2]], -0.3, 0.7); // gill-ish lateral lines
   // tail fluke
   path(ctx, () => { ctx.moveTo(-12.5, 1.5); ctx.lineTo(-18.5, -4.5); ctx.lineTo(-15, 1.5); ctx.lineTo(-18.5, 7.5); }); fill(ctx, shade(col, -0.18)); line(ctx, OUTLINE, 1.1);
   // dorsal fin
@@ -583,7 +636,11 @@ function drake(ctx, col) {
   // legs + body
   ctx.fillStyle = shade(col, -0.22); rr(ctx, -6.5, 5, 4.2, 8, 2); ctx.fill(); rr(ctx, 1.8, 5, 4.2, 8, 2); ctx.fill();
   ellipse(ctx, 0, 0.5, 8.5, 7.5); fill(ctx, col); line(ctx);
-  ctx.fillStyle = shade(col, -0.2); ellipse(ctx, 0, 4.5, 5.5, 3); ctx.fill();
+  ctx.fillStyle = shade(col, 0.26); ellipse(ctx, 0.5, 4, 4.4, 3.4); ctx.fill(); // pale belly
+  ctx.fillStyle = shade(col, -0.2); ellipse(ctx, 0, 5.5, 4.8, 2); ctx.fill();
+  ticks(ctx, col, [[-3, 2.5, 3, 2.5], [-3.2, 4, 3.2, 4], [-2.8, 5.5, 2.8, 5.5]], -0.12, 0.7); // belly scutes
+  rimLight(ctx, 0, 0.5, 8.5, 7.5, col);
+  speckle(ctx, col, [[-5, -1.5, 0.85], [-6, 2, 0.75], [5, -1, 0.8]], -0.24);
   // dorsal spines
   ctx.fillStyle = shade(col, -0.32); for (const x of [-4.5, -1, 2.5]) { path(ctx, () => { ctx.moveTo(x, -6.5); ctx.lineTo(x + 1.3, -10.5); ctx.lineTo(x + 2.6, -6.5); }); ctx.fill(); }
   // head + horn + snout
@@ -624,6 +681,10 @@ function humanoid(ctx, col) {
   rr(ctx, -7.5, -5.5, 15, 13.5, 4); fill(ctx, col); line(ctx);
   ctx.fillStyle = shade(col, 0.12); rr(ctx, -7.5, -5.5, 3.6, 13.5, 4); ctx.fill();
   ctx.fillStyle = shade(col, -0.28); rr(ctx, 4.2, -5.5, 2.8, 13.5, 3); ctx.fill();
+  // cloak folds + belt clasp
+  ctx.strokeStyle = shade(col, -0.36); ctx.lineWidth = 0.8;
+  ctx.beginPath(); ctx.moveTo(-2.5, -2.5); ctx.lineTo(-3.5, 7.5); ctx.moveTo(1.5, -2.5); ctx.lineTo(2.5, 7.5); ctx.stroke();
+  ctx.fillStyle = '#caa15a'; rr(ctx, -2.2, 3.5, 4.4, 1.7, 0.7); ctx.fill(); ctx.fillStyle = '#fff3c0'; rr(ctx, -2, 3.7, 4, 0.6, 0.3); ctx.fill();
   ctx.fillStyle = col; rr(ctx, -10.5, -3.5, 4.2, 9.5, 2); ctx.fill(); rr(ctx, 6, -3.5, 4.2, 9.5, 2); ctx.fill();
   ctx.fillStyle = '#d8a578'; circle(ctx, -8.5, 5.5, 2); ctx.fill(); circle(ctx, 8, 5.5, 2); ctx.fill();
   // hood
@@ -646,7 +707,14 @@ function hound(ctx, col) {
   ctx.fillStyle = shade(col, -0.08); rr(ctx, -4.5, 6.8, 3.5, 6.2, 1); ctx.fill(); rr(ctx, 5.2, 6.8, 3.5, 6.2, 1); ctx.fill();
   // body
   ellipse(ctx, -1, 1.5, 10.5, 6.2); fill(ctx, col); line(ctx);
+  ctx.fillStyle = shade(col, -0.22); ellipse(ctx, -1, 4.5, 8.5, 2.8); ctx.fill(); // underbelly shadow
   ctx.fillStyle = shade(col, 0.12); ellipse(ctx, -2, -1.5, 6.5, 2.2); ctx.fill();
+  rimLight(ctx, -1, 1.5, 10.5, 6.2, col);
+  ticks(ctx, col, [[-8, -2, -6.5, 1], [-5, 5, -3.5, 7.5], [1.5, 5, 3, 7.5], [4.5, -1.5, 5.5, 1]], -0.2);
+  speckle(ctx, col, [[-6, 2, 0.9], [-1, 3, 0.8]]);
+  // leather collar
+  ctx.strokeStyle = '#6a3f1e'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(4.5, -4); ctx.quadraticCurveTo(6, 1, 4, 3.5); ctx.stroke();
+  ctx.fillStyle = '#e6b34a'; circle(ctx, 4.8, 1.5, 0.9); ctx.fill();
   // head
   circle(ctx, 8.5, -2.5, 5.2); fill(ctx, col); line(ctx);
   // ear
@@ -677,7 +745,12 @@ function jellyfish(ctx, col) {
 function mantis(ctx, col) {
   // Improved: more recognizable praying mantis — better raptorial arms, triangular head, big eyes
   ctx.fillStyle = shade(col, -0.22); rr(ctx, -4.5, 6, 3.2, 7.2, 1); ctx.fill(); rr(ctx, 0.8, 6, 3.2, 7.2, 1); ctx.fill();
+  // folded wing case
+  ctx.fillStyle = shade(col, -0.16); ellipse(ctx, -3, 1.5, 4, 6.5); ctx.fill();
   ellipse(ctx, -2, 0.5, 5.8, 7.5); fill(ctx, col); line(ctx);
+  ctx.fillStyle = shade(col, 0.22); ellipse(ctx, -3.5, -2, 2.4, 3.2); ctx.fill(); // sheen
+  rimLight(ctx, -2, 0.5, 5.8, 7.5, col);
+  ticks(ctx, col, [[-6.5, 1.5, 1.5, 1.5], [-6.5, 3.5, 1.5, 3.5], [-6, 5.5, 1, 5.5]], -0.2, 0.55); // wing veins
   // raptorial forelegs (more mantis-like)
   ctx.strokeStyle = shade(col, -0.12); ctx.lineWidth = 2.2; ctx.lineCap = 'round';
   ctx.beginPath(); ctx.moveTo(2.5, -2); ctx.lineTo(9.5, -6.5); ctx.lineTo(7.5, -10.5); ctx.stroke();
@@ -697,6 +770,8 @@ function turtle(ctx, col) {
   // shell
   ellipse(ctx, 0, 0.8, 11.5, 8); fill(ctx, col); line(ctx);
   ctx.fillStyle = shade(col, 0.15); ellipse(ctx, 0, -1.8, 4.8, 3.2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.22)'; ellipse(ctx, -3.5, -3.5, 2.6, 1.6); ctx.fill(); // gloss
+  rimLight(ctx, 0, 0.8, 11.5, 8, col, 0.34);
   // scute lines (hex-like)
   ctx.strokeStyle = shade(col, -0.35); ctx.lineWidth = 1;
   ctx.beginPath();
