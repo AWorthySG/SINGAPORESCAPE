@@ -141,6 +141,16 @@ function rgba(c, a) {
   return c;
 }
 
+// Linear blend of two #rrggbb colours; t=0 -> a, t=1 -> b. Falls back to a.
+function mix(a, b, t) {
+  if (typeof a !== 'string' || a[0] !== '#' || typeof b !== 'string' || b[0] !== '#') return a;
+  const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
+  const r = ((pa >> 16) & 255) + (((pb >> 16) & 255) - ((pa >> 16) & 255)) * t;
+  const g = ((pa >> 8) & 255) + (((pb >> 8) & 255) - ((pa >> 8) & 255)) * t;
+  const bl = (pa & 255) + ((pb & 255) - (pa & 255)) * t;
+  return `rgb(${r | 0},${g | 0},${bl | 0})`;
+}
+
 // A lively eye: white sclera, dark pupil, tiny catchlight.
 function eyeW(ctx, x, y, r = 1.6, pupil = '#15110b') {
   ctx.fillStyle = '#f8f6ee'; circle(ctx, x, y, r); ctx.fill();
@@ -1229,23 +1239,30 @@ function tree(ctx, variant, depleted, cx, cy, time) {
 
 function rock(ctx, ore, depleted, cx, cy) {
   drawShadow(ctx, cx, cy + 9, 13, 5);
-  ctx.fillStyle = depleted ? '#5c5c5c' : '#828790';
+  // base stone tinted faintly toward the ore's colour so each material reads distinctly
+  const base = depleted ? '#5c5c5c' : (ore ? mix('#828790', ore, 0.17) : '#828790');
+  ctx.fillStyle = base;
   path(ctx, () => {
     ctx.moveTo(cx - 12, cy + 9); ctx.lineTo(cx - 9, cy - 7); ctx.lineTo(cx - 1, cy - 11);
     ctx.lineTo(cx + 8, cy - 8); ctx.lineTo(cx + 12, cy + 2); ctx.lineTo(cx + 8, cy + 10);
   });
   ctx.fill(); line(ctx, 'rgba(30,30,34,0.5)', 2);
   // shaded lower-right facet for 3D form
-  ctx.fillStyle = 'rgba(20,20,26,0.22)';
+  ctx.fillStyle = 'rgba(20,20,26,0.24)';
   path(ctx, () => { ctx.moveTo(cx + 2, cy - 4); ctx.lineTo(cx + 12, cy + 2); ctx.lineTo(cx + 8, cy + 10); ctx.lineTo(cx - 1, cy + 9); }); ctx.fill();
-  // top highlight
-  ctx.fillStyle = 'rgba(255,255,255,0.16)';
+  // top highlight facet
+  ctx.fillStyle = 'rgba(255,255,255,0.18)';
   path(ctx, () => { ctx.moveTo(cx - 9, cy - 7); ctx.lineTo(cx - 1, cy - 11); ctx.lineTo(cx + 2, cy - 4); ctx.lineTo(cx - 6, cy - 2); }); ctx.fill();
+  // a cleft crack for stone texture
+  ctx.strokeStyle = 'rgba(20,20,26,0.3)'; ctx.lineWidth = 0.8;
+  ctx.beginPath(); ctx.moveTo(cx - 3, cy - 6); ctx.lineTo(cx - 1, cy - 1); ctx.lineTo(cx - 4, cy + 4); ctx.stroke();
   if (!depleted && ore) {
-    ctx.fillStyle = ore;
-    for (const [dx, dy] of [[-5, 1], [3, 4], [-1, -4], [6, -1]]) { circle(ctx, cx + dx, cy + dy, 2); ctx.fill(); }
-    ctx.fillStyle = 'rgba(255,255,255,0.5)';
-    circle(ctx, cx - 5.6, cy + 0.4, 0.7); ctx.fill(); circle(ctx, cx + 2.4, cy + 3.4, 0.7); ctx.fill();
+    // embedded ore nuggets, each with a shadow + glint for relief
+    for (const [dx, dy, r] of [[-5, 1, 2.1], [3, 4, 1.9], [-1, -4, 1.7], [6, -1, 1.8], [1, 7, 1.2]]) {
+      ctx.fillStyle = 'rgba(0,0,0,0.2)'; circle(ctx, cx + dx + 0.5, cy + dy + 0.6, r); ctx.fill();
+      ctx.fillStyle = ore; circle(ctx, cx + dx, cy + dy, r); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.6)'; circle(ctx, cx + dx - 0.5, cy + dy - 0.6, r * 0.34); ctx.fill();
+    }
   }
 }
 
