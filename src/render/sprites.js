@@ -1088,6 +1088,34 @@ export function drawObjectSprite(ctx, obj, cx, cy, time = 0) {
   }
 }
 
+// Per-species tree profiles so each resource tree reads distinctly.
+const TREES = {
+  tree: { shape: 'round', base: '#33863a', dark: '#2a6e30', r: 15, trunk: '#6b4a2a' },
+  oak: { shape: 'round', base: '#2f7333', dark: '#255c29', r: 19, trunk: '#5e4326', tw: 8 },
+  willow: { shape: 'droop', base: '#7ba84a', dark: '#5f8a38', r: 16, trunk: '#6a5230' },
+  rain_tree: { shape: 'umbrella', base: '#3c9a4a', dark: '#2c7438', r: 20, trunk: '#6b4a2a' },
+  yew_tree: { shape: 'conifer', base: '#2c5e34', dark: '#1f4626', r: 16, trunk: '#4f3720' },
+  magic_tree: { shape: 'round', base: '#3fb6c4', dark: '#2a8a98', r: 16, trunk: '#8a7aa0', glow: '#7fe0ee' },
+  bamboo: { shape: 'bamboo', base: '#7aa83a', dark: '#5f8a2a', trunk: '#8aa84a' },
+  angsana: { shape: 'umbrella', base: '#5fb04a', dark: '#458a36', r: 19, trunk: '#7a5a30' },
+  teak: { shape: 'round', base: '#4a9a3f', dark: '#357a2e', r: 18, trunk: '#8a5a30' },
+  mangrove: { shape: 'mangrove', base: '#4a7a4a', dark: '#365c36', r: 15, trunk: '#5a4630' },
+  mahogany: { shape: 'round', base: '#357a32', dark: '#255c26', r: 18, trunk: '#7a3320' },
+  tembusu: { shape: 'umbrella', base: '#3a7a3f', dark: '#2a5c2e', r: 21, trunk: '#5a4a32' },
+};
+function leafyBlob(ctx, cxx, cyy, r, base, dark) {
+  ctx.fillStyle = dark;
+  circle(ctx, cxx - r * 0.55, cyy + 3, r * 0.72); ctx.fill();
+  circle(ctx, cxx + r * 0.55, cyy + 3, r * 0.72); ctx.fill();
+  circle(ctx, cxx, cyy - 3, r * 0.8); ctx.fill();
+  ctx.fillStyle = base; circle(ctx, cxx, cyy - 1, r * 0.85); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.10)';
+  circle(ctx, cxx + r * 0.3, cyy - r * 0.1, r * 0.26); ctx.fill();
+  circle(ctx, cxx - r * 0.1, cyy + r * 0.25, r * 0.22); ctx.fill();
+  ctx.fillStyle = 'rgba(20,45,18,0.18)'; circle(ctx, cxx + r * 0.4, cyy + r * 0.35, r * 0.22); ctx.fill();
+  ctx.fillStyle = 'rgba(255,240,180,0.22)'; circle(ctx, cxx - r * 0.38, cyy - r * 0.5, r * 0.38); ctx.fill();
+  ctx.strokeStyle = 'rgba(20,40,18,0.35)'; ctx.lineWidth = 2; circle(ctx, cxx, cyy - 1, r * 0.85); ctx.stroke();
+}
 function tree(ctx, variant, depleted, cx, cy, time) {
   if (depleted) {
     ctx.fillStyle = '#6b4a2a'; rr(ctx, cx - 5, cy + 2, 10, 9, 2); ctx.fill();
@@ -1096,31 +1124,75 @@ function tree(ctx, variant, depleted, cx, cy, time) {
     return;
   }
   const sway = Math.sin(time * 0.0012 + cx) * 1.4;
-  // trunk
-  ctx.fillStyle = '#6b4a2a'; rr(ctx, cx - 3.5, cy - 2, 7, 16, 2); ctx.fill(); line(ctx, OUTLINE, 1.5);
-  const big = variant === 'oak', willow = variant === 'willow';
-  const r = willow ? 17 : big ? 19 : 15;
-  const base = willow ? '#5f9a45' : big ? '#2f7333' : '#33863a';
-  const dark = willow ? '#4d7e38' : big ? '#255c29' : '#2a6e30';
+  const t = TREES[variant] || TREES.tree;
+  const trunk = t.trunk, tw = t.tw || 7, r = t.r || 15;
   const cxx = cx + sway, cyy = cy - 9;
-  ctx.fillStyle = dark;
-  circle(ctx, cxx - r * 0.55, cyy + 3, r * 0.72); ctx.fill();
-  circle(ctx, cxx + r * 0.55, cyy + 3, r * 0.72); ctx.fill();
-  circle(ctx, cxx, cyy - 3, r * 0.8); ctx.fill();
-  ctx.fillStyle = base;
-  circle(ctx, cxx, cyy - 1, r * 0.85); ctx.fill();
-  // leaf-cluster dabs for texture
-  ctx.fillStyle = 'rgba(255,255,255,0.10)';
-  circle(ctx, cxx + r * 0.3, cyy - r * 0.1, r * 0.26); ctx.fill();
-  circle(ctx, cxx - r * 0.1, cyy + r * 0.25, r * 0.22); ctx.fill();
-  ctx.fillStyle = 'rgba(20,45,18,0.18)';
-  circle(ctx, cxx + r * 0.4, cyy + r * 0.35, r * 0.22); ctx.fill();
-  // warm sunlit highlight (upper-left)
-  ctx.fillStyle = 'rgba(255,240,180,0.22)';
-  circle(ctx, cxx - r * 0.38, cyy - r * 0.5, r * 0.38); ctx.fill();
-  // outline blob
-  ctx.strokeStyle = 'rgba(20,40,18,0.35)'; ctx.lineWidth = 2;
-  circle(ctx, cxx, cyy - 1, r * 0.85); ctx.stroke();
+  // magic aura behind the canopy
+  if (t.glow) {
+    const g = ctx.createRadialGradient(cxx, cyy, 2, cxx, cyy, r * 1.6);
+    g.addColorStop(0, rgba(t.glow, 0.4)); g.addColorStop(1, rgba(t.glow, 0));
+    ctx.fillStyle = g; circle(ctx, cxx, cyy, r * 1.6); ctx.fill();
+  }
+
+  // ---- Bamboo: a clump of segmented stalks, no trunk/canopy ----
+  if (t.shape === 'bamboo') {
+    for (const [ox, h, w] of [[-5, 26, 2.6], [0, 32, 3], [5, 24, 2.4]]) {
+      const sx = cx + ox + sway * (h / 32);
+      ctx.fillStyle = ox === 0 ? t.base : shade(t.base, ox < 0 ? -0.12 : 0.1);
+      rr(ctx, sx - w / 2, cy + 12 - h, w, h, 1.2); ctx.fill(); line(ctx, OUTLINE, 1);
+      ctx.strokeStyle = shade(t.base, -0.3); ctx.lineWidth = 0.8;
+      for (let yy = cy + 12 - h + 4; yy < cy + 11; yy += 6) { ctx.beginPath(); ctx.moveTo(sx - w / 2, yy); ctx.lineTo(sx + w / 2, yy); ctx.stroke(); }
+      // leaf blades near the top
+      ctx.strokeStyle = t.dark; ctx.lineWidth = 1.4; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(sx, cy + 12 - h + 2); ctx.lineTo(sx - 6, cy + 12 - h - 4); ctx.moveTo(sx, cy + 12 - h + 4); ctx.lineTo(sx + 6, cy + 12 - h - 2); ctx.stroke(); ctx.lineCap = 'butt';
+    }
+    return;
+  }
+
+  // trunk
+  ctx.fillStyle = trunk; rr(ctx, cx - tw / 2, cy - 2, tw, 16, 2); ctx.fill(); line(ctx, OUTLINE, 1.5);
+  ctx.fillStyle = shade(trunk, -0.2); rr(ctx, cx + tw / 2 - 2, cy - 2, 2, 16, 1); ctx.fill();
+  ctx.fillStyle = shade(trunk, 0.18); rr(ctx, cx - tw / 2, cy - 2, 1.4, 16, 0.7); ctx.fill();
+  // mangrove prop roots splayed from the base
+  if (t.shape === 'mangrove') {
+    ctx.strokeStyle = shade(trunk, -0.08); ctx.lineWidth = 2.2; ctx.lineCap = 'round';
+    for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(cx + s * 1.5, cy + 4); ctx.quadraticCurveTo(cx + s * 6, cy + 8, cx + s * 7.5, cy + 14); ctx.stroke(); }
+    ctx.lineCap = 'butt';
+  }
+
+  if (t.shape === 'umbrella') {
+    // broad flattened parasol canopy in two layers
+    ctx.fillStyle = t.dark; ellipse(ctx, cxx, cyy + 1, r * 1.25, r * 0.62); ctx.fill();
+    ctx.fillStyle = t.base; ellipse(ctx, cxx, cyy - 2, r * 1.15, r * 0.5); ctx.fill();
+    ctx.fillStyle = 'rgba(255,240,180,0.22)'; ellipse(ctx, cxx - r * 0.4, cyy - 3.5, r * 0.5, r * 0.2); ctx.fill();
+    ctx.fillStyle = 'rgba(20,45,18,0.16)'; ellipse(ctx, cxx + r * 0.3, cyy + 2.5, r * 0.6, r * 0.22); ctx.fill();
+    ctx.strokeStyle = 'rgba(20,40,18,0.32)'; ctx.lineWidth = 1.8; ellipse(ctx, cxx, cyy + 1, r * 1.25, r * 0.62); ctx.stroke();
+  } else if (t.shape === 'conifer') {
+    // stacked dark tiers
+    for (let i = 0; i < 3; i++) {
+      const ty = cyy + 4 - i * 6, tw2 = r * (1 - i * 0.22);
+      ctx.fillStyle = i % 2 ? t.base : t.dark;
+      path(ctx, () => { ctx.moveTo(cxx - tw2, ty); ctx.lineTo(cxx, ty - 9); ctx.lineTo(cxx + tw2, ty); }); ctx.fill();
+    }
+    ctx.fillStyle = 'rgba(255,240,180,0.18)'; path(ctx, () => { ctx.moveTo(cxx - 2, cyy - 11); ctx.lineTo(cxx, cyy - 14); ctx.lineTo(cxx + 1.5, cyy - 11); }); ctx.fill();
+  } else {
+    // round canopy (default / oak / teak / mahogany / mangrove)
+    leafyBlob(ctx, cxx, cyy, r, t.base, t.dark);
+    if (t.shape === 'droop') {
+      // willow: drooping fronds beneath the canopy
+      ctx.strokeStyle = t.dark; ctx.lineWidth = 1.3; ctx.lineCap = 'round';
+      for (let i = -3; i <= 3; i++) {
+        const fx = cxx + i * (r * 0.42);
+        ctx.beginPath(); ctx.moveTo(fx, cyy + 2); ctx.quadraticCurveTo(fx + 1.5, cyy + 9, fx - 1, cyy + 14 + Math.abs(i)); ctx.stroke();
+      }
+      ctx.lineCap = 'butt';
+    }
+  }
+  // magic sparkles
+  if (t.glow) {
+    ctx.fillStyle = '#fff';
+    for (const [sx, sy] of [[cxx - 4, cyy - 6], [cxx + 6, cyy], [cxx + 2, cyy - 10]]) { circle(ctx, sx, sy, 0.9); ctx.fill(); }
+  }
 }
 
 function rock(ctx, ore, depleted, cx, cy) {
@@ -1398,10 +1470,16 @@ function scenery(ctx, objId, cx, cy, time) {
       return;
     }
     case 'flower': {
-      ctx.strokeStyle = '#3d7a3a'; ctx.lineWidth = 1.5;
-      for (const dx of [-5, 0, 5]) { ctx.beginPath(); ctx.moveTo(cx + dx, cy + 8); ctx.lineTo(cx + dx, cy - 2); ctx.stroke(); }
+      ctx.strokeStyle = '#3d7a3a'; ctx.lineWidth = 1.5; ctx.lineCap = 'round';
+      for (const dx of [-5, 0, 5]) { ctx.beginPath(); ctx.moveTo(cx + dx, cy + 9); ctx.lineTo(cx + dx, cy - 2); ctx.stroke(); }
+      ctx.fillStyle = '#3d7a3a'; for (const dx of [-5, 0, 5]) { ellipse(ctx, cx + dx - 2, cy + 4, 2, 1); ctx.fill(); }
+      ctx.lineCap = 'butt';
       const cols = ['#e85a8a', '#f0c64a', '#9a6ad8'];
-      [-5, 0, 5].forEach((dx, i) => { ctx.fillStyle = cols[i]; circle(ctx, cx + dx, cy - 3, 3); ctx.fill(); ctx.fillStyle = '#fff7d0'; circle(ctx, cx + dx, cy - 3, 1); ctx.fill(); });
+      [-5, 0, 5].forEach((dx, i) => {
+        ctx.fillStyle = cols[i];
+        for (let a = 0; a < 5; a++) { const ang = a / 5 * Math.PI * 2; circle(ctx, cx + dx + Math.cos(ang) * 2.2, cy - 3 + Math.sin(ang) * 2.2, 1.5); ctx.fill(); }
+        ctx.fillStyle = '#fff7d0'; circle(ctx, cx + dx, cy - 3, 1.4); ctx.fill();
+      });
       return;
     }
     case 'palm': {
@@ -1429,6 +1507,30 @@ function scenery(ctx, objId, cx, cy, time) {
       ctx.fillStyle = '#caa15a'; rr(ctx, cx - 11, cy - 12, 22, 11, 2); ctx.fill(); line(ctx, 'rgba(30,18,8,0.5)', 1.5);
       ctx.strokeStyle = 'rgba(90,58,28,0.7)'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(cx - 7, cy - 8); ctx.lineTo(cx + 7, cy - 8); ctx.moveTo(cx - 7, cy - 5); ctx.lineTo(cx + 5, cy - 5); ctx.stroke();
+      return;
+    }
+    case 'ruin': {
+      drawShadow(ctx, cx, cy + 11, 15, 4.5);
+      // fallen rubble blocks
+      ctx.fillStyle = '#9a948a';
+      rr(ctx, cx - 13, cy + 3, 9, 8, 1.5); ctx.fill(); line(ctx, 'rgba(40,36,30,0.5)', 1.2);
+      rr(ctx, cx + 4, cy + 5, 10, 6, 1.5); ctx.fill(); line(ctx, 'rgba(40,36,30,0.5)', 1.2);
+      // broken pillar with a jagged snapped top
+      ctx.fillStyle = '#aaa49a';
+      path(ctx, () => { ctx.moveTo(cx - 5, cy + 11); ctx.lineTo(cx - 5, cy - 9); ctx.lineTo(cx - 2, cy - 13); ctx.lineTo(cx + 1, cy - 8); ctx.lineTo(cx + 3, cy - 12); ctx.lineTo(cx + 4.5, cy + 11); });
+      ctx.fill(); line(ctx, 'rgba(40,36,30,0.5)', 1.4);
+      // shaded right face + a brighter lit left edge
+      ctx.fillStyle = 'rgba(20,20,26,0.2)'; rr(ctx, cx + 1, cy - 8, 3.5, 19, 1); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.14)'; rr(ctx, cx - 5, cy - 9, 1.6, 20, 0.8); ctx.fill();
+      // cracks + brick courses
+      ctx.strokeStyle = 'rgba(40,36,30,0.45)'; ctx.lineWidth = 0.8;
+      ctx.beginPath(); ctx.moveTo(cx - 3, cy - 5); ctx.lineTo(cx - 1, cy - 1); ctx.lineTo(cx - 3, cy + 4);
+      ctx.moveTo(cx - 5, cy + 1); ctx.lineTo(cx + 4, cy + 1); ctx.moveTo(cx - 11, cy + 7); ctx.lineTo(cx - 6, cy + 7); ctx.stroke();
+      // creeping moss
+      ctx.fillStyle = 'rgba(74,128,58,0.6)';
+      ctx.beginPath(); ctx.arc(cx - 3.5, cy + 9, 1.6, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx + 8, cy + 5.5, 1.4, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx - 11, cy + 4.5, 1.2, 0, Math.PI * 2); ctx.fill();
       return;
     }
     default: {
