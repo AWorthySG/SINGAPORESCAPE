@@ -418,12 +418,14 @@ html, body {
     bottom: 0; padding: 5px 8px 9px; gap: 4px; border-radius: 0;
     background: linear-gradient(180deg, rgba(8,18,16,0), rgba(8,18,16,0.74) 38%);
   }
-  #adrenaline { width: 200px; }
+  #adrenaline { width: 170px; height: 13px; }
+  #adrenaline-label { font-size: 8px; letter-spacing: .5px; }
   #ability-buttons { gap: 6px; }
-  .ability-btn { width: 44px; height: 44px; }
-  .ability-btn .ab-icon { font-size: 16px; }
-  #chatbox { bottom: 88px; }
-  #sidepanel { bottom: 88px; }
+  .ability-btn { width: 38px; height: 38px; border-width: 1.5px; }
+  .ability-btn .ab-icon { font-size: 14px; }
+  .ability-btn .ab-cd { font-size: 13px; }
+  #chatbox { bottom: 74px; }
+  #sidepanel { bottom: 74px; }
 }
 
 /* ---------- Context menu ---------- */
@@ -541,7 +543,7 @@ html, body {
   /* Side panel: height follows the dynamic viewport so it never hides behind
      the browser bar; tighter inventory cells fit the narrower rail. Lifted to
      sit above the bottom action bar. */
-  #sidepanel { right: 6px; bottom: 84px; }
+  #sidepanel { right: 6px; bottom: 66px; }
   #panel-head { font-size: 13px; padding: 5px 9px; }
   #panel-body { height: 42dvh; max-height: 320px; min-height: 180px; padding: 7px; }
   .tab-btn svg { width: 20px; height: 20px; }
@@ -550,14 +552,18 @@ html, body {
   .inv-slot .icon svg { width: 28px; height: 28px; }
 
   /* Chat: compact, lifted above the bottom action bar. */
-  #chatbox { width: 47vw; height: 92px; bottom: 84px; left: 6px; font-size: 12px; }
+  #chatbox { width: 47vw; height: 92px; bottom: 66px; left: 6px; font-size: 12px; }
   #chat-log { font-size: 12px; }
 
-  /* Bottom action bar: trim buttons so all five fit the narrow strip. */
-  #ability-bar { bottom: 0; }
-  #ability-buttons { gap: 5px; }
-  .ability-btn { width: 42px; height: 42px; }
-  #adrenaline { width: 178px; }
+  /* Bottom action bar: compact so it doesn't dominate a small screen. */
+  #ability-bar { bottom: 0; padding: 4px 6px 6px; gap: 3px; }
+  #ability-buttons { gap: 4px; }
+  .ability-btn { width: 34px; height: 34px; }
+  .ability-btn .ab-icon { font-size: 13px; }
+  .ability-btn .ab-cost { font-size: 8px; }
+  .ability-btn .ab-key { font-size: 8px; }
+  .ability-btn .ab-cd { font-size: 12px; }
+  #adrenaline { width: 150px; height: 12px; }
 
   /* Trim the big top-left overlays so they don't dominate a small screen. */
   #hover-text { font-size: 13px; top: 6px; left: 6px; }
