@@ -226,6 +226,8 @@ export class Game {
     const m = Math.hypot(dx, dy) || 1;
     attacker.lungeDX = dx / m; attacker.lungeDY = dy / m;
     attacker.swing = 180;
+    // Turn to face the foe so the sprite isn't swinging backwards.
+    if (Math.abs(dx) > 2) attacker.facing = { dx: Math.sign(dx), dy: 0 };
   }
 
   // ---------------- Frame update (called from RAF) ----------------
