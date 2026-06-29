@@ -97,6 +97,11 @@ export class Character {
   /** Authoritative tile the entity occupies. */
   tile() { return { x: this.x, y: this.y }; }
 
+  /** Tile to plan a fresh path FROM: the tile we're stepping onto when mid-step,
+   *  otherwise the tile we occupy. Re-pathing from the stale `x,y` while between
+   *  tiles makes an entity briefly walk backwards (visible chase jitter). */
+  stepTile() { return this.moving ? { x: this.tx, y: this.ty } : { x: this.x, y: this.y }; }
+
   /** Pixel centre for rendering (interpolated mid-step). */
   renderCenter() {
     const fx = this.x * TILE + TILE / 2;

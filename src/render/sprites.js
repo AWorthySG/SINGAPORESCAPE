@@ -33,9 +33,16 @@ function rr(ctx, x, y, w, h, r) {
   else ctx.rect(x, y, w, h);
 }
 
-// Run `draw` centred at (cx,cy), mirrored if facing left, with a vertical bob.
+// Shared per-draw animation state. `stride` is a -1..1 leg-swing phase that
+// bipedal draw functions read to animate a walk cycle; 0 when standing still.
+const _anim = { stride: 0 };
+
+// Run `draw` centred at (cx,cy), mirrored if facing left, with a vertical bob
+// and (when moving) a leg-swing phase exposed to the draw function.
 function staged(ctx, cx, cy, opts, draw) {
-  const bob = opts.moving ? Math.sin((opts.time || 0) * 0.018 + cx) * 1.6 : Math.sin((opts.time || 0) * 0.004 + cx) * 0.6;
+  const t = opts.time || 0;
+  const bob = opts.moving ? Math.abs(Math.sin(t * 0.018 + cx)) * 1.8 : Math.sin(t * 0.004 + cx) * 0.6;
+  _anim.stride = opts.moving ? Math.sin(t * 0.018 + cx) : 0;
   const s = opts.scale || 1;
   const fx = (opts.facing && opts.facing.dx < 0) ? -1 : 1;
   ctx.save();
@@ -925,11 +932,12 @@ function guard(ctx) {
 }
 
 function human(ctx, p) {
-  // legs + shoes
+  // legs + shoes (stride: lift one leg while the other plants)
   const pants = p.pants || '#3a3326';
-  ctx.fillStyle = pants; rr(ctx, -5, 6, 4, 8, 2); ctx.fill(); rr(ctx, 1, 6, 4, 8, 2); ctx.fill();
-  ctx.fillStyle = shade(pants, 0.16); rr(ctx, -5, 6, 1.3, 8, 0.6); ctx.fill(); rr(ctx, 1, 6, 1.3, 8, 0.6); ctx.fill();
-  ctx.fillStyle = '#231a10'; rr(ctx, -5.4, 12, 5, 2.6, 1.2); ctx.fill(); rr(ctx, 0.6, 12, 5, 2.6, 1.2); ctx.fill();
+  const st = _anim.stride * 1.8;
+  ctx.fillStyle = pants; rr(ctx, -5, 6 - st, 4, 8, 2); ctx.fill(); rr(ctx, 1, 6 + st, 4, 8, 2); ctx.fill();
+  ctx.fillStyle = shade(pants, 0.16); rr(ctx, -5, 6 - st, 1.3, 8, 0.6); ctx.fill(); rr(ctx, 1, 6 + st, 1.3, 8, 0.6); ctx.fill();
+  ctx.fillStyle = '#231a10'; rr(ctx, -5.4, 12 - st, 5, 2.6, 1.2); ctx.fill(); rr(ctx, 0.6, 12 + st, 5, 2.6, 1.2); ctx.fill();
   // arms (behind torso) + hands
   ctx.fillStyle = p.top; rr(ctx, -10, -3.5, 4, 9, 2); ctx.fill(); rr(ctx, 6, -3.5, 4, 9, 2); ctx.fill();
   ctx.fillStyle = p.skin; circle(ctx, -8, 6.5, 2.1); ctx.fill(); circle(ctx, 8, 6.5, 2.1); ctx.fill();
@@ -1044,10 +1052,11 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
       c.fillStyle = '#a83a52'; rr(c, -6, -5, 12, 3, 1); c.fill();
       c.strokeStyle = '#6e2436'; c.lineWidth = 0.8; c.beginPath(); c.moveTo(-2, -3); c.lineTo(-3 + sw, 12); c.moveTo(2, -3); c.lineTo(3 + sw, 12); c.stroke();
     }
-    // legs + boots
-    c.fillStyle = '#2f3a52'; rr(c, -5, 6, 4, 8, 2); c.fill(); rr(c, 1, 6, 4, 8, 2); c.fill();
-    c.fillStyle = shade('#2f3a52', 0.16); rr(c, -5, 6, 1.3, 8, 0.6); c.fill(); rr(c, 1, 6, 1.3, 8, 0.6); c.fill();
-    c.fillStyle = '#23150c'; rr(c, -5.5, 12, 5, 3, 1.5); c.fill(); rr(c, 0.5, 12, 5, 3, 1.5); c.fill();
+    // legs + boots (stride: lift one leg while the other plants)
+    const st = _anim.stride * 1.8;
+    c.fillStyle = '#2f3a52'; rr(c, -5, 6 - st, 4, 8, 2); c.fill(); rr(c, 1, 6 + st, 4, 8, 2); c.fill();
+    c.fillStyle = shade('#2f3a52', 0.16); rr(c, -5, 6 - st, 1.3, 8, 0.6); c.fill(); rr(c, 1, 6 + st, 1.3, 8, 0.6); c.fill();
+    c.fillStyle = '#23150c'; rr(c, -5.5, 12 - st, 5, 3, 1.5); c.fill(); rr(c, 0.5, 12 + st, 5, 3, 1.5); c.fill();
     // arms (behind torso) + hands
     c.fillStyle = body; rr(c, -10, -3.5, 4, 9, 2); c.fill(); rr(c, 6, -3.5, 4, 9, 2); c.fill();
     c.fillStyle = skin; circle(c, -8, 6.5, 2.1); c.fill(); circle(c, 8, 6.5, 2.1); c.fill();

@@ -135,9 +135,11 @@ export class NPC extends Character {
           }
         }
       } else if (!this.isMoving || this.repathCooldown <= 0) {
-        // Chase: path to a tile adjacent to the target.
+        // Chase: path to a tile adjacent to the target. Plan from the tile we're
+        // stepping onto (not the stale one) so a mid-step repath continues
+        // smoothly instead of jittering backwards.
         if (!this.lastTargetTile || this.lastTargetTile.x !== t.x || this.lastTargetTile.y !== t.y) {
-          const path = findPath(game.pathCfg(), { x: this.x, y: this.y }, { x: t.x, y: t.y },
+          const path = findPath(game.pathCfg(), this.stepTile(), { x: t.x, y: t.y },
             { reachAdjacent: true, maxNodes: 2000 });
           if (path.length) this.setPath(path);
           this.lastTargetTile = { x: t.x, y: t.y };
