@@ -833,6 +833,13 @@ button:focus:not(:focus-visible) { outline: none; }
 }
 ::-webkit-scrollbar-thumb:hover { background: var(--teal); }
 
+/* Low-health warning: the HP orb pulses red so danger reads at a glance. */
+#hp-orb.low { animation: hpLow 0.9s ease-in-out infinite; }
+@keyframes hpLow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(216, 60, 60, 0.0); transform: scale(1); }
+  50% { box-shadow: 0 0 14px 3px rgba(216, 60, 60, 0.55); transform: scale(1.07); }
+}
+
 /* Panel views fade-slide in when switching tabs; modals & menus pop in. */
 .panel-view { animation: viewIn .16s ease; }
 @keyframes viewIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }

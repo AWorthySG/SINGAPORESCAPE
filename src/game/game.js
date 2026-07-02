@@ -273,6 +273,8 @@ export class Game {
     for (const e of this.effects) e.life -= dt;
     this.effects = this.effects.filter((e) => e.life > 0);
     if (this.shakeT > 0) this.shakeT = Math.max(0, this.shakeT - dt);
+    // Harvest-judder timers on world objects (trees/rocks being worked).
+    for (const o of this.world.objects) if (o.shakeT > 0) o.shakeT = Math.max(0, o.shakeT - dt);
 
     for (const p of this.particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += p.g * dt; p.life -= dt; }
     if (this.particles.length) this.particles = this.particles.filter((p) => p.life > 0);

@@ -92,6 +92,7 @@ export function resolveWoodcut(game, action) {
     game.inventory.add(def.gives, 1);
     game.skills.addXp('woodcutting', def.xp);
     const wc = objCenter(obj); game.spawnPoof(wc.x, wc.y, '#caa15a');
+    obj.shakeT = 280; game.bus.emit('sfx', 'gather'); // the tree judders as the log falls
     const logName = getItem(def.gives).name.toLowerCase();
     // Double logs: a sturdy bough sometimes drops an extra.
     if (Math.random() < 0.04 + lvl * 0.001 && game.inventory.canAdd(def.gives, 1) > 0) {
@@ -140,6 +141,7 @@ export function resolveMine(game, action) {
     game.inventory.add(yieldId, 1);
     game.skills.addXp('mining', def.xp);
     const mc = objCenter(obj); game.spawnPoof(mc.x, mc.y, def.ore || '#cfcfcf');
+    obj.shakeT = 280; game.bus.emit('sfx', 'gather'); // the rock judders as ore breaks free
     const oreName = getItem(yieldId).name.toLowerCase();
     // Rich seam: a chance at a second yield.
     if (Math.random() < 0.04 + lvl * 0.001 && game.inventory.canAdd(yieldId, 1) > 0) {
@@ -202,6 +204,7 @@ export function resolveFish(game, action) {
     game.inventory.add(pick.id, n);
     game.skills.addXp('fishing', pick.xp * n);
     game.spawnPoof(fc.x, fc.y, '#bfe3ff');
+    game.bus.emit('sfx', 'gather');
     game.msg(big ? `A big catch! You haul in two ${nm}.` : `You catch a ${nm}.`);
   }
   return true; // fishing spots never deplete
@@ -282,6 +285,7 @@ export function resolveSmelt(game, action) {
   } else {
     game.inventory.add(r.result, 1);
     game.skills.addXp('smithing', r.xp);
+    game.bus.emit('sfx', 'clang');
     const lvl = game.skills.level('smithing');
     const barName = getItem(r.result).name.toLowerCase();
     // A hot crucible occasionally yields an extra bar.
@@ -342,6 +346,7 @@ export function resolveSmith(game, action) {
   game.inventory.remove(r.bar, r.barCount);
   game.inventory.add(r.result, 1);
   game.skills.addXp('smithing', r.xp);
+  game.bus.emit('sfx', 'clang');
   const lvl = game.skills.level('smithing');
   const itemName = getItem(r.result).name.toLowerCase();
   // Flawless work: a chance to forge an extra piece for free.
