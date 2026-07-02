@@ -69,6 +69,9 @@ export class UI {
       modalBody: id('modal-body'),
       modalClose: id('modal-close'),
       banner: id('banner'),
+      bossBar: id('boss-bar'),
+      bossBarName: id('boss-bar-name'),
+      bossBarFill: id('boss-bar-fill'),
       hpOrb: id('hp-orb'),
       hpOrbVal: id('hp-orb-value'),
       prayerOrb: id('prayer-orb'),
@@ -119,6 +122,7 @@ export class UI {
     });
 
     // Bus subscriptions.
+    this.bus.on('tick', () => this.updateBossBar());
     this.bus.on('inventory', () => { this.renderInventory(); this._refreshModalIfOpen(['bank', 'shop']); });
     this.bus.on('equipment', () => { this.renderEquipment(); this.renderCombatPanel(); });
     this.bus.on('skills', () => { this.renderSkills(); this.renderCombatPanel(); });
@@ -555,6 +559,14 @@ export class UI {
       soundBtn.textContent = `Sound: ${muted ? 'Off' : 'On'}`;
     });
     soundBtn.textContent = `Sound: ${this.game.audio && this.game.audio.muted ? 'Off' : 'On'}`;
+    const musicBtn = mk('', () => {
+      const a = this.game.audio;
+      if (!a) return;
+      a.unlock();
+      const on = a.toggleMusic();
+      musicBtn.textContent = `Music: ${on ? 'On' : 'Off'}`;
+    });
+    musicBtn.textContent = `Music: ${this.game.audio && this.game.audio.musicOn ? 'On' : 'Off'}`;
     mk('Delete save & restart', () => {
       if (confirm('Delete your saved character and start over?')) { clearSave(); location.reload(); }
     }, true);
@@ -567,6 +579,22 @@ export class UI {
       '(melee/ranged/magic) and <b>Brace</b> when a monster winds up a heavy blow (!).<br>' +
       'Eat food to heal. Bank your loot. Your progress auto-saves.';
     p.appendChild(hint);
+  }
+
+  // ---------------- Boss battle bar ----------------
+  updateBossBar() {
+    const g = this.game;
+    if (!this.el.bossBar) return;
+    const p = g.player;
+    // The boss we're engaged with: fighting us, being fought, or freshly hurt.
+    const boss = g.npcs.find((n) => n.alive && n.def.boss &&
+      Math.abs(n.x - p.x) <= 16 && Math.abs(n.y - p.y) <= 16 &&
+      (n.target === p || p.target === n || n.combatLatch > 0));
+    if (!boss || !p.alive) { this.el.bossBar.classList.add('hidden'); return; }
+    this.el.bossBar.classList.remove('hidden');
+    this.el.bossBarName.textContent = `${boss.name} — level ${boss.def.level}`;
+    this.el.bossBarFill.style.width = `${Math.max(0, Math.min(100, (boss.hp / boss.maxHp) * 100))}%`;
+    this.el.bossBar.classList.toggle('enraged', !!boss.enraged);
   }
 
   // ---------------- Orbs ----------------
