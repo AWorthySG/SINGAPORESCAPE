@@ -3,7 +3,7 @@ import { buildWorld } from '../data/world.js';
 import { getItem } from '../data/items.js';
 import { chebyshev, randInt, weightedPick, capitalize } from '../core/utils.js';
 import {
-  TILE, TICK_MS, RESPAWN_TICKS, AUTOSAVE_TICKS,
+  TILE, TICK_MS, RESPAWN_TICKS, AUTOSAVE_TICKS, DAY_CYCLE_MS,
 } from '../config.js';
 
 import { World } from './world.js';
@@ -69,6 +69,8 @@ export class Game {
     this.shakeT = 0;
     this.shakeDur = 1;
     this.shakeMag = 0;
+    // Day/night clock: accumulated play time, wrapped into a repeating cycle.
+    this.playMs = 0;
     this.hover = null;
     this.currentZoneName = null;
     this.wildLevel = 0;
@@ -259,6 +261,7 @@ export class Game {
   update(dt) {
     this.player.update(dt);
     for (const n of this.npcs) n.update(dt);
+    this.playMs += dt;
 
     this.tickAcc += dt;
     let guard = 0;
@@ -326,18 +329,20 @@ export class Game {
     }
   }
 
-  // Drifting ambient motes, tinted by region, to give the world some life.
+  // Drifting ambient motes, tinted by region (fireflies after dark), to give
+  // the world some life.
   _spawnAmbient() {
     if (Math.random() < 0.5) return;
     const c = this.player.renderCenter();
     const x = c.x + (Math.random() - 0.5) * 360;
     const y = c.y + (Math.random() - 0.5) * 260;
     const zone = this.currentZoneName;
-    let color = '#fff0b0';
+    const night = this.isNight();
+    let color = night ? '#ffe37a' : '#fff0b0';
     if (zone === 'Pulau Hantu') color = '#b58aff';
     else if (zone === 'The Wilderness') color = '#ff8a5a';
     else if (zone === 'MacRitchie Reservoir' || zone === 'Sentosa Beach') color = '#bfe8ff';
-    else if (zone === 'Bukit Timah') color = '#dfff9a';
+    else if (zone === 'Bukit Timah') color = night ? '#d4ff5a' : '#dfff9a'; // kunang-kunang after dark
     this._pushParticle({
       x, y, vx: (Math.random() - 0.5) * 0.006, vy: -0.004 - Math.random() * 0.006, g: 0,
       life: 4200 + Math.random() * 2600, maxLife: 7000, size: 1 + Math.random() * 1.3, color, add: true,
@@ -931,6 +936,25 @@ export class Game {
       } else this.msg(`Pest Control: ${pc.kills}/8 giant rats slain.`, 'system');
       this.bus.emit('quest');
     }
+  }
+
+  // ---------------- Day / night cycle ----------------
+  // A full day/night cycle takes DAY_CYCLE_MS of real play time (pausing when
+  // the tab is hidden, since it rides the same accumulated dt as everything
+  // else). Purely atmospheric — no gameplay stats are gated on it.
+  /** Phase in [0,1): 0 = midnight, 0.5 = high noon. */
+  dayPhase() { return (this.playMs % DAY_CYCLE_MS) / DAY_CYCLE_MS; }
+  /** Smooth brightness curve: 0 at midnight, 1 at noon. */
+  daylightFactor() { return (Math.cos((this.dayPhase() - 0.5) * Math.PI * 2) + 1) / 2; }
+  /** true from dusk through dawn (used to gate lamp glow / firefly ambience). */
+  isNight() { return this.daylightFactor() < 0.4; }
+  /** Flavour clock text, e.g. "11:42 PM" — purely cosmetic. */
+  clockLabel() {
+    const totalMin = Math.floor(this.dayPhase() * 24 * 60);
+    let h = Math.floor(totalMin / 60), m = totalMin % 60;
+    const suffix = h >= 12 ? 'PM' : 'AM';
+    h = h % 12; if (h === 0) h = 12;
+    return `${h}:${String(m).padStart(2, '0')} ${suffix}`;
   }
 
   // ---------------- Region / Wilderness ----------------

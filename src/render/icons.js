@@ -546,6 +546,16 @@
   ]);
   const itemPngSrc = (id) => `assets/items/${id}.png`;
 
+  // ---- Day/night HUD badge (sun / crescent moon) ----
+  const I_SUN = `<circle cx="12" cy="12" r="5.5" fill="${C.gold}" stroke="${OL}" stroke-width="1.1"/>
+    <circle cx="10.2" cy="10.2" r="1.7" fill="${C.goldHi}" opacity=".7"/>
+    <path d="M12 2.5 L12 5 M12 19 L12 21.5 M2.5 12 L5 12 M19 12 L21.5 12 M5 5 L6.6 6.6 M17.4 17.4 L19 19 M5 19 L6.6 17.4 M17.4 6.6 L19 5" stroke="${C.goldHi}" stroke-width="1.6" stroke-linecap="round"/>`;
+  const I_MOON = `<path d="M15.5 3 C10 3 6 7.5 6 13 C6 18.5 10.5 21.5 15 21 C10.8 19 8.2 14.8 8.2 11 C8.2 7.2 10.8 4.5 15.5 3 Z" fill="#cfd6f2" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/>
+    <circle cx="9.5" cy="9" r=".9" fill="#fff7d0"/><circle cx="12.5" cy="15.5" r=".6" fill="#fff7d0"/>
+    <path d="M18.5 4.5 L19.3 6.4 L21.2 7.2 L19.3 8 L18.5 9.9 L17.7 8 L15.8 7.2 L17.7 6.4 Z" fill="${C.goldHi}"/>`;
+  export const sunIconSVG = (size = 20, cls) => svg(I_SUN, size, cls);
+  export const moonIconSVG = (size = 20, cls) => svg(I_MOON, size, cls);
+
   function svg(inner, size, cls) {
     return `<svg class="${cls || ''}" width="${size}" height="${size}" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="display:block">${inner}</svg>`;
   }

@@ -73,6 +73,19 @@ test('renderer draws game-feel effects: dying NPC, screen shake and slash arcs',
   assert.equal(npc.deathT, 0, 'death animation finishes');
 });
 
+test('renderer draws the day/night wash and lit light-sources across the cycle', async () => {
+  const { DAY_CYCLE_MS } = await import('../src/config.js');
+  const game = headlessGame();
+  const renderer = new Renderer(game, {}, makeCtx());
+  // A lamp/fire/furnace/range should pick up the extra night-time glow bloom
+  // without throwing, at both full daylight and deep night.
+  assert.ok(game.world.objects.some((o) => o.def.type === 'fire' || o.def.type === 'furnace'), 'a light-source object exists in the world');
+  for (const frac of [0, 0.25, 0.5, 0.75, 0.99]) {
+    game.playMs = frac * DAY_CYCLE_MS;
+    assert.doesNotThrow(() => renderer.render(frac * 1000), `renders cleanly at phase ${frac}`);
+  }
+});
+
 test('renderer builds and uses a cached terrain canvas when a DOM exists', () => {
   const prevDoc = globalThis.document;
   globalThis.document = { createElement: () => ({ width: 0, height: 0, getContext: () => makeCtx() }) };

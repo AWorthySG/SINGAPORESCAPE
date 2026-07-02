@@ -20,7 +20,7 @@ import { EQUIP_SLOTS } from '../game/equipment.js';
 import { TILE } from '../config.js';
 import { TERRAIN } from '../data/world.js';
 import { clearSave } from '../game/save.js';
-import { itemIconSVG, skillIconSVG, tabIconSVG } from '../render/icons.js';
+import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG } from '../render/icons.js';
 import { ABILITIES } from '../data/abilities.js';
 import { weaknessOf } from '../game/combat.js';
 
@@ -72,6 +72,9 @@ export class UI {
       bossBar: id('boss-bar'),
       bossBarName: id('boss-bar-name'),
       bossBarFill: id('boss-bar-fill'),
+      daynightBadge: id('daynight-badge'),
+      daynightSun: id('daynight-sun'),
+      daynightMoon: id('daynight-moon'),
       hpOrb: id('hp-orb'),
       hpOrbVal: id('hp-orb-value'),
       prayerOrb: id('prayer-orb'),
@@ -122,7 +125,7 @@ export class UI {
     });
 
     // Bus subscriptions.
-    this.bus.on('tick', () => this.updateBossBar());
+    this.bus.on('tick', () => { this.updateBossBar(); this.updateDayNight(); });
     this.bus.on('inventory', () => { this.renderInventory(); this._refreshModalIfOpen(['bank', 'shop']); });
     this.bus.on('equipment', () => { this.renderEquipment(); this.renderCombatPanel(); });
     this.bus.on('skills', () => { this.renderSkills(); this.renderCombatPanel(); });
@@ -595,6 +598,22 @@ export class UI {
     this.el.bossBarName.textContent = `${boss.name} — level ${boss.def.level}`;
     this.el.bossBarFill.style.width = `${Math.max(0, Math.min(100, (boss.hp / boss.maxHp) * 100))}%`;
     this.el.bossBar.classList.toggle('enraged', !!boss.enraged);
+  }
+
+  // ---------------- Day/night badge ----------------
+  updateDayNight() {
+    const g = this.game;
+    if (!this.el.daynightBadge) return;
+    if (!this._dnInit) {
+      this.el.daynightSun.innerHTML = sunIconSVG(18);
+      this.el.daynightMoon.innerHTML = moonIconSVG(18);
+      this._dnInit = true;
+    }
+    const night = g.isNight();
+    this.el.daynightBadge.classList.toggle('night', night);
+    this.el.daynightSun.style.opacity = night ? 0 : 1;
+    this.el.daynightMoon.style.opacity = night ? 1 : 0;
+    this.el.daynightBadge.title = `${night ? 'Night' : 'Day'} · ${g.clockLabel()}`;
   }
 
   // ---------------- Orbs ----------------
@@ -1359,6 +1378,12 @@ export class UI {
     // Player.
     ctx.fillStyle = '#fff';
     ctx.beginPath(); ctx.arc(W / 2, H / 2, 3, 0, Math.PI * 2); ctx.fill();
+    // A faint navy wash after dark keeps the minimap in step with the world.
+    const night = 1 - game.daylightFactor();
+    if (night > 0.05) {
+      ctx.fillStyle = `rgba(8,16,40,${Math.min(0.45, night * night * 0.55).toFixed(3)})`;
+      ctx.fillRect(0, 0, W, H);
+    }
     ctx.restore();
   }
 }

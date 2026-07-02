@@ -74,6 +74,7 @@ html, body {
   background: rgba(10,20,16,0.55); border: 1px solid rgba(0,0,0,0.4); border-left: 3px solid var(--gold);
   border-radius: 6px; padding: 5px 9px; font-size: 12px; max-width: 44vw;
   box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  animation: viewIn .2s ease;
 }
 #quest-tracker .trk-title { font-size: 10px; letter-spacing: .5px; text-transform: uppercase; color: var(--gold-hi); opacity: .85; margin-bottom: 2px; }
 #quest-tracker .trk-row { display: flex; align-items: center; gap: 6px; line-height: 1.5; text-shadow: 1px 1px 0 #000; }
@@ -137,6 +138,25 @@ html, body {
   font-size: 12px; font-weight: 800; text-align: center; line-height: 26px;
   z-index: 21; box-shadow: 0 0 0 2px var(--gold-hi), 0 2px 5px rgba(0,0,0,.5);
 }
+/* Day/night badge — a small sun/moon dial mirroring the compass, top-right. */
+#daynight-badge {
+  position: absolute; top: -2px; right: -2px;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: linear-gradient(160deg, #8ecdf0, #4a8fce);
+  box-shadow: 0 0 0 2px var(--gold-hi), 0 2px 5px rgba(0,0,0,.5);
+  z-index: 21; pointer-events: none;
+  transition: background .8s ease, box-shadow .8s ease;
+}
+#daynight-badge.night {
+  background: linear-gradient(160deg, #2c3868, #12172c);
+  box-shadow: 0 0 0 2px #6c7fd0, 0 0 9px rgba(108,127,208,.6), 0 2px 5px rgba(0,0,0,.5);
+}
+.dn-icon {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity .8s ease;
+}
+.dn-icon svg { width: 18px; height: 18px; display: block; }
+#daynight-sun { opacity: 1; }
 .orb {
   position: absolute; width: 36px; height: 36px; border-radius: 50%;
   font-size: 11px; font-weight: 800; text-align: center; line-height: 33px;

@@ -61,6 +61,7 @@ export class Renderer {
     }
     const ox = Math.round(cam.originX + shx), oy = Math.round(cam.originY + shy);
     const vw = cam.viewW, vh = cam.viewH;
+    const night = 1 - game.daylightFactor(); // 0 (noon) .. 1 (midnight) — lights, fireflies
 
     ctx.clearRect(0, 0, vw, vh);
     ctx.fillStyle = '#16241a';
@@ -84,12 +85,31 @@ export class Renderer {
 
     // Depth-sorted drawables.
     const drawables = [];
+    const isLightSource = (o) => o.def.type === 'fire' || o.def.type === 'furnace' || o.def.type === 'range' ||
+      (o.def.type === 'scenery' && o.objId === 'lamp');
     for (const o of game.world.objects) {
       if (o.x < x0 - 1 || o.x > x1 + 1 || o.y < y0 - 1 || o.y > y1 + 1) continue;
       // Harvest judder: a struck tree/rock wobbles briefly as the resource pops.
       const jx = o.shakeT > 0 ? Math.sin(o.shakeT * 0.09) * 1.7 * (o.shakeT / 280) : 0;
       const cx = o.x * TILE + TILE / 2 - ox + jx, cy = o.y * TILE + TILE / 2 - oy;
-      drawables.push({ sortY: o.y + 0.4, z: 1, draw: () => drawObjectSprite(ctx, o, cx, cy, timeMs) });
+      const lit = night > 0.12 && isLightSource(o);
+      drawables.push({ sortY: o.y + 0.4, z: 1, draw: () => {
+        if (lit) {
+          // A warm light pool blooms outward after dark — fires, furnaces,
+          // ranges and street lamps become the island's night-time glow.
+          const flick = 0.85 + Math.sin(timeMs * 0.01 + o.x * 3.1 + o.y) * 0.15;
+          const r = (20 + night * 12) * flick;
+          const g = ctx.createRadialGradient(cx, cy - 4, 2, cx, cy - 4, r);
+          g.addColorStop(0, `rgba(255,190,110,${(0.32 * night).toFixed(3)})`);
+          g.addColorStop(1, 'rgba(255,190,110,0)');
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.fillStyle = g;
+          ctx.beginPath(); ctx.arc(cx, cy - 4, r, 0, Math.PI * 2); ctx.fill();
+          ctx.restore();
+        }
+        drawObjectSprite(ctx, o, cx, cy, timeMs);
+      } });
     }
     for (const g of game.world.groundItems) {
       if (g.x < x0 || g.x > x1 || g.y < y0 || g.y > y1) continue;
@@ -161,10 +181,30 @@ export class Renderer {
     this._drawClueMarker(ox, oy, vw, vh, timeMs);
     this._drawVignette(vw, vh);
     this._drawAtmosphere(vw, vh);
+    this._drawDayNight(vw, vh, night);
     this._drawParticles(ox, oy);
     this._drawProjectiles(ox, oy);
     this._drawOverheads(ox, oy);
     this._drawHurtFlash(vw, vh);
+  }
+
+  // Day/night colour wash: a warm dawn/dusk glow that peaks at mid-brightness
+  // (sun near the horizon) and fades at both full noon and full night, plus a
+  // cool navy night wash capped so the world stays readable at "midnight".
+  // Drawn under particles/hitsplats so embers and fireflies still pop at night.
+  _drawDayNight(vw, vh, night) {
+    const { ctx } = this;
+    const day = 1 - night;
+    const duskiness = 4 * day * night; // 0 at day=0 or day=1, peaks at day=0.5
+    if (duskiness > 0.02) {
+      ctx.fillStyle = `rgba(255,140,70,${(duskiness * 0.16).toFixed(3)})`;
+      ctx.fillRect(0, 0, vw, vh);
+    }
+    if (night > 0.05) {
+      const a = Math.min(0.5, night * night * 0.62);
+      ctx.fillStyle = `rgba(8,16,40,${a.toFixed(3)})`;
+      ctx.fillRect(0, 0, vw, vh);
+    }
   }
 
   // Smoothly-blended colour grade per region for atmosphere (warm towns, cool
