@@ -833,6 +833,38 @@ button:focus:not(:focus-visible) { outline: none; }
 }
 ::-webkit-scrollbar-thumb:hover { background: var(--teal); }
 
+/* ---------- Boss battle bar (top-centre while engaged) ---------- */
+#boss-bar {
+  position: absolute; top: 44px; left: 50%; transform: translateX(-50%);
+  z-index: 22; width: min(430px, 66vw); padding: 6px 10px 8px;
+  background: linear-gradient(180deg, var(--panel-1), var(--panel-2));
+  border: 4px solid transparent; border-image: var(--tile-trim) 6 round;
+  border-radius: 6px; box-shadow: 0 8px 20px rgba(0,0,0,0.5), inset 0 0 0 2px rgba(0,0,0,0.35);
+  animation: bossIn .25s ease-out;
+  pointer-events: none;
+}
+@keyframes bossIn { from { opacity: 0; transform: translateX(-50%) translateY(-8px); } to { opacity: 1; transform: translateX(-50%); } }
+#boss-bar-name {
+  text-align: center; font-weight: 800; font-size: 13px; letter-spacing: .8px;
+  color: var(--gold-hi); text-shadow: 0 1px 2px #000; margin-bottom: 4px;
+}
+#boss-bar.enraged #boss-bar-name { color: #ff7a6a; animation: hpLow 0.8s ease-in-out infinite; }
+#boss-bar-track {
+  position: relative; height: 11px; border-radius: 6px; overflow: hidden;
+  background: #3a0e0e; box-shadow: inset 0 1px 3px rgba(0,0,0,0.7);
+}
+#boss-bar-fill {
+  position: absolute; inset: 0 auto 0 0; width: 100%;
+  background: linear-gradient(90deg, #b83a52, #d8566f 55%, #e6b34a);
+  box-shadow: 0 0 8px rgba(216,86,111,0.6);
+  transition: width .25s ease;
+}
+#boss-bar-ticks {
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(90deg, transparent 0 calc(10% - 1px), rgba(0,0,0,0.45) calc(10% - 1px) 10%);
+}
+@media (max-width: 540px) { #boss-bar { top: 36px; width: min(320px, 72vw); } #boss-bar-name { font-size: 11px; } }
+
 /* Low-health warning: the HP orb pulses red so danger reads at a glance. */
 #hp-orb.low { animation: hpLow 0.9s ease-in-out infinite; }
 @keyframes hpLow {
