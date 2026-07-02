@@ -86,7 +86,9 @@ export class Renderer {
     const drawables = [];
     for (const o of game.world.objects) {
       if (o.x < x0 - 1 || o.x > x1 + 1 || o.y < y0 - 1 || o.y > y1 + 1) continue;
-      const cx = o.x * TILE + TILE / 2 - ox, cy = o.y * TILE + TILE / 2 - oy;
+      // Harvest judder: a struck tree/rock wobbles briefly as the resource pops.
+      const jx = o.shakeT > 0 ? Math.sin(o.shakeT * 0.09) * 1.7 * (o.shakeT / 280) : 0;
+      const cx = o.x * TILE + TILE / 2 - ox + jx, cy = o.y * TILE + TILE / 2 - oy;
       drawables.push({ sortY: o.y + 0.4, z: 1, draw: () => drawObjectSprite(ctx, o, cx, cy, timeMs) });
     }
     for (const g of game.world.groundItems) {
@@ -194,6 +196,15 @@ export class Renderer {
   // Red screen edges when the player takes a hit.
   _drawHurtFlash(vw, vh) {
     const { ctx, game } = this;
+    // Low-health heartbeat: a soft red edge pulse while below a quarter HP.
+    if (game.player.alive && game.player.hp / Math.max(1, game.maxHp()) <= 0.25) {
+      const a = 0.10 + (Math.sin(performance.now() * 0.005) + 1) * 0.045;
+      const lg = ctx.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * 0.38, vw / 2, vh / 2, Math.max(vw, vh) * 0.74);
+      lg.addColorStop(0, 'rgba(180,0,0,0)');
+      lg.addColorStop(1, `rgba(170,10,10,${a.toFixed(3)})`);
+      ctx.fillStyle = lg;
+      ctx.fillRect(0, 0, vw, vh);
+    }
     const h = game.player.hurt;
     if (!h || !game.player.alive) return;
     const a = Math.min(0.45, (h / 200) * 0.45);

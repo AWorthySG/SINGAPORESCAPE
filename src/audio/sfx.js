@@ -76,6 +76,8 @@ export class Sfx {
       case 'hurt': this._tone(210, 0.2, 'sawtooth', 0, 0.55, 70); break;
       case 'eat': this._tone(300, 0.13, 'sine', 0, 0.5, 540); break;
       case 'pickup': this._tone(720, 0.07, 'triangle', 0, 0.5, 940); break;
+      case 'gather': this._tone(470, 0.09, 'triangle', 0, 0.35, 640); break;
+      case 'clang': this._noise(0.03, 0.2); this._tone(840, 0.11, 'square', 0, 0.3, 620); this._tone(1260, 0.07, 'sine', 0, 0.18); break;
       case 'spec': this._noise(0.18, 0.28); this._tone(140, 0.22, 'sawtooth', 0, 0.4, 540); break;
       case 'travel': this._tone(300, 0.28, 'sine', 0, 0.4, 760); break;
       case 'level': [523, 659, 784].forEach((f, i) => this._tone(f, 0.17, 'triangle', i * 0.1, 0.55)); break;

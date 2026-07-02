@@ -111,6 +111,12 @@ export class UI {
     document.addEventListener('mousedown', (e) => {
       if (!this.el.contextMenu.contains(e.target)) this.hideContextMenu();
     });
+    // One delegated, quiet click tick for every HUD control.
+    document.addEventListener('click', (e) => {
+      if (e.target.closest('button, .chat-tab, .ctx-item, .dialogue-option, .inv-slot.filled, .equip-slot.filled, .item-cell, .orb')) {
+        this.bus.emit('sfx', 'click');
+      }
+    });
 
     // Bus subscriptions.
     this.bus.on('inventory', () => { this.renderInventory(); this._refreshModalIfOpen(['bank', 'shop']); });
@@ -571,6 +577,7 @@ export class UI {
     const frac = max ? hp / max : 1;
     const hue = Math.round(120 * frac);
     this.el.hpOrb.style.color = `hsl(${hue}, 90%, 65%)`;
+    this.el.hpOrb.classList.toggle('low', frac <= 0.25 && this.game.player.alive);
   }
 
   renderRun() {
