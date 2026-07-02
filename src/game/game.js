@@ -65,6 +65,10 @@ export class Game {
     this.runEnergy = 100;
     this.effects = [];
     this.particles = [];
+    // Screen-shake state (big hits, boss slams). Decays over shakeDur ms.
+    this.shakeT = 0;
+    this.shakeDur = 1;
+    this.shakeMag = 0;
     this.hover = null;
     this.currentZoneName = null;
     this.wildLevel = 0;
@@ -217,6 +221,27 @@ export class Game {
   addHitsplat(entity, dmg, opts = {}) {
     if (entity && dmg > 0) entity.hurt = 200; // flash the struck entity
     this.effects.push({ type: 'hitsplat', entity, dmg, crit: !!opts.crit, life: 1100 });
+    if (opts.crit && dmg > 0) this.addShake(2.5, 180); // crits thump the screen a little
+  }
+
+  /** Kick off a decaying screen shake (kept subtle; the strongest is a boss kill). */
+  addShake(mag = 3, ms = 220) {
+    if (mag >= this.shakeMag * (this.shakeT / this.shakeDur)) {
+      this.shakeMag = Math.min(6, mag);
+      this.shakeDur = ms;
+      this.shakeT = ms;
+    }
+  }
+
+  /** A sweeping melee arc drawn over the target — gold for the player's fancy
+   *  hits, red for a monster's telegraphed heavy blow. */
+  _slash(target, color) {
+    const c = target.renderCenter ? target.renderCenter() : target;
+    this.effects.push({
+      type: 'slash', x: c.x, y: c.y - 6,
+      ang: Math.random() * Math.PI * 2, dir: Math.random() < 0.5 ? -1 : 1,
+      color, life: 190, maxLife: 190,
+    });
   }
 
   /** Point an attacker's lunge toward a tile and start the swing animation. */
@@ -247,6 +272,7 @@ export class Game {
 
     for (const e of this.effects) e.life -= dt;
     this.effects = this.effects.filter((e) => e.life > 0);
+    if (this.shakeT > 0) this.shakeT = Math.max(0, this.shakeT - dt);
 
     for (const p of this.particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += p.g * dt; p.life -= dt; }
     if (this.particles.length) this.particles = this.particles.filter((p) => p.life > 0);
@@ -276,7 +302,7 @@ export class Game {
     const c = npc.renderCenter();
     this.spawnHitSparks(npc, '#ffd9b0');
     this.spawnPoof(c.x, c.y - 4, npc.def.color || '#caa15a');
-    if (npc.def.boss) { this.spawnSparkle(npc, '#ffd24a', 20); this.spawnPoof(c.x, c.y - 8, '#ff7a3a'); }
+    if (npc.def.boss) { this.spawnSparkle(npc, '#ffd24a', 20); this.spawnPoof(c.x, c.y - 8, '#ff7a3a'); this.addShake(5, 340); }
   }
 
   spawnPoof(wx, wy, color) {
@@ -600,6 +626,7 @@ export class Game {
     // Fold together special attack + armed ability + style-weakness bonuses.
     const mods = this._offensiveMods(npc, 'melee');
     const fancy = mods.spec || mods.ability;
+    this._slash(npc, fancy ? '#ffd24a' : '#eef2f6');
     let total = 0;
     for (let i = 0; i < mods.hits && npc.hp > 0; i++) {
       const effMax = Math.max(1, Math.round(baseMax * mods.dmgM));
@@ -825,6 +852,7 @@ export class Game {
     const heavy = !!opts.heavy;
     let dmg = rollAttack(atkRoll, defRoll * this.prayerMult().def, heavy ? Math.round(max * 2) : max);
     if (heavy && dmg === 0) dmg = Math.max(1, Math.round(max * 1.2)); // a telegraphed blow always stings
+    if (heavy) { this._slash(p, '#ff6a5a'); this.addShake(4, 260); }
     const prot = this.protectFactor();
     if (prot) dmg = Math.floor(dmg * (1 - prot));
     if (this.braceTicks > 0) dmg = Math.floor(dmg * 0.5); // the Brace ability soaks the blow
@@ -1158,6 +1186,7 @@ export class Game {
   bossSpecial(npc) {
     const p = this.player;
     if (!p.alive) return;
+    this.addShake(3.5, 280);
     switch (npc.def.mechanic) {
       case 'slam': {
         const { atkRoll, defRoll, max } = npcAttackVsPlayer(npc.def, this.skills, this.equipment, p.style);

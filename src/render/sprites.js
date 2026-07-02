@@ -38,7 +38,8 @@ function rr(ctx, x, y, w, h, r) {
 const _anim = { stride: 0 };
 
 // Run `draw` centred at (cx,cy), mirrored if facing left, with a vertical bob
-// and (when moving) a leg-swing phase exposed to the draw function.
+// and (when moving) a leg-swing phase exposed to the draw function. Creatures
+// without drawn legs pass opts.rock to get a gait-suggesting body rock instead.
 function staged(ctx, cx, cy, opts, draw) {
   const t = opts.time || 0;
   const bob = opts.moving ? Math.abs(Math.sin(t * 0.018 + cx)) * 1.8 : Math.sin(t * 0.004 + cx) * 0.6;
@@ -48,6 +49,7 @@ function staged(ctx, cx, cy, opts, draw) {
   ctx.save();
   ctx.translate(cx, cy + bob);
   ctx.scale(fx * s, s);
+  if (opts.rock && opts.moving) ctx.rotate(Math.sin(t * 0.018 + cx) * 0.055);
   draw(ctx);
   ctx.restore();
 }
@@ -94,6 +96,7 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
   if (arch) {
     const pimg = creatureImage(opts.sprite);
     const col = opts.color || '#8a8a8a';
+    opts.rock = true; // monsters rock side-to-side as they move (a gait cue)
     return staged(ctx, cx, cy, opts, (c) => {
       if (opts.boss) bossAura(c, opts.time || 0, col);
       if (pimg && pimg.complete && pimg.naturalWidth) {
@@ -938,10 +941,11 @@ function human(ctx, p) {
   ctx.fillStyle = pants; rr(ctx, -5, 6 - st, 4, 8, 2); ctx.fill(); rr(ctx, 1, 6 + st, 4, 8, 2); ctx.fill();
   ctx.fillStyle = shade(pants, 0.16); rr(ctx, -5, 6 - st, 1.3, 8, 0.6); ctx.fill(); rr(ctx, 1, 6 + st, 1.3, 8, 0.6); ctx.fill();
   ctx.fillStyle = '#231a10'; rr(ctx, -5.4, 12 - st, 5, 2.6, 1.2); ctx.fill(); rr(ctx, 0.6, 12 + st, 5, 2.6, 1.2); ctx.fill();
-  // arms (behind torso) + hands
-  ctx.fillStyle = p.top; rr(ctx, -10, -3.5, 4, 9, 2); ctx.fill(); rr(ctx, 6, -3.5, 4, 9, 2); ctx.fill();
-  ctx.fillStyle = p.skin; circle(ctx, -8, 6.5, 2.1); ctx.fill(); circle(ctx, 8, 6.5, 2.1); ctx.fill();
-  ctx.fillStyle = shade(p.skin, -0.14); ellipse(ctx, -8, 7.5, 1.9, 0.9); ctx.fill(); ellipse(ctx, 8, 7.5, 1.9, 0.9); ctx.fill();
+  // arms (behind torso) + hands — counter-swing to the legs while walking
+  const asw = _anim.stride * 1.1;
+  ctx.fillStyle = p.top; rr(ctx, -10, -3.5 + asw, 4, 9, 2); ctx.fill(); rr(ctx, 6, -3.5 - asw, 4, 9, 2); ctx.fill();
+  ctx.fillStyle = p.skin; circle(ctx, -8, 6.5 + asw, 2.1); ctx.fill(); circle(ctx, 8, 6.5 - asw, 2.1); ctx.fill();
+  ctx.fillStyle = shade(p.skin, -0.14); ellipse(ctx, -8, 7.5 + asw, 1.9, 0.9); ctx.fill(); ellipse(ctx, 8, 7.5 - asw, 1.9, 0.9); ctx.fill();
   // torso with edge shading
   rr(ctx, -7, -5, 14, 13, 4); fill(ctx, p.top); line(ctx);
   ctx.fillStyle = shade(p.top, 0.2); rr(ctx, -7, -5, 3.5, 13, 4); ctx.fill();  // lit edge
@@ -1057,10 +1061,11 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
     c.fillStyle = '#2f3a52'; rr(c, -5, 6 - st, 4, 8, 2); c.fill(); rr(c, 1, 6 + st, 4, 8, 2); c.fill();
     c.fillStyle = shade('#2f3a52', 0.16); rr(c, -5, 6 - st, 1.3, 8, 0.6); c.fill(); rr(c, 1, 6 + st, 1.3, 8, 0.6); c.fill();
     c.fillStyle = '#23150c'; rr(c, -5.5, 12 - st, 5, 3, 1.5); c.fill(); rr(c, 0.5, 12 + st, 5, 3, 1.5); c.fill();
-    // arms (behind torso) + hands
-    c.fillStyle = body; rr(c, -10, -3.5, 4, 9, 2); c.fill(); rr(c, 6, -3.5, 4, 9, 2); c.fill();
-    c.fillStyle = skin; circle(c, -8, 6.5, 2.1); c.fill(); circle(c, 8, 6.5, 2.1); c.fill();
-    c.fillStyle = shade(skin, -0.14); ellipse(c, -8, 7.5, 1.9, 0.9); c.fill(); ellipse(c, 8, 7.5, 1.9, 0.9); c.fill();
+    // arms (behind torso) + hands — counter-swing to the legs while walking
+    const asw = _anim.stride * 1.1;
+    c.fillStyle = body; rr(c, -10, -3.5 + asw, 4, 9, 2); c.fill(); rr(c, 6, -3.5 - asw, 4, 9, 2); c.fill();
+    c.fillStyle = skin; circle(c, -8, 6.5 + asw, 2.1); c.fill(); circle(c, 8, 6.5 - asw, 2.1); c.fill();
+    c.fillStyle = shade(skin, -0.14); ellipse(c, -8, 7.5 + asw, 1.9, 0.9); c.fill(); ellipse(c, 8, 7.5 - asw, 1.9, 0.9); c.fill();
     // torso with edge shading
     rr(c, -7, -5, 14, 13, 4); fill(c, body); line(c);
     c.fillStyle = bodyHi; rr(c, -7, -5, 4, 13, 4); c.fill();          // left highlight

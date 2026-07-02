@@ -51,7 +51,15 @@ export class Renderer {
     // over it) at fractional offsets makes everything shimmer/crawl as you walk.
     // Rounding the shared origin keeps the world rock-steady while the player
     // sprite — drawn at its own sub-pixel centre minus this origin — stays smooth.
-    const ox = Math.round(cam.originX), oy = Math.round(cam.originY);
+    // Screen shake rides on the origin so the whole world (not the HUD) jolts.
+    let shx = 0, shy = 0;
+    if (game.shakeT > 0) {
+      const k = game.shakeT / game.shakeDur;
+      const amp = game.shakeMag * k * k;
+      shx = Math.sin(timeMs * 0.11) * amp;
+      shy = Math.cos(timeMs * 0.137) * amp;
+    }
+    const ox = Math.round(cam.originX + shx), oy = Math.round(cam.originY + shy);
     const vw = cam.viewW, vh = cam.viewH;
 
     ctx.clearRect(0, 0, vw, vh);
@@ -97,10 +105,30 @@ export class Renderer {
       } });
     }
     for (const n of game.npcs) {
-      if (!n.alive) continue;
+      if (!n.alive && !(n.deathT > 0)) continue;
       const c = n.renderCenter();
       const cx = c.x - ox, cy = c.y - oy;
       const sc = n.def.scale || 1;
+      if (!n.alive) {
+        // Death animation: keel over about the feet while fading out.
+        if (cx < -40 || cy < -40 || cx > vw + 40 || cy > vh + 40) continue;
+        const k = 1 - n.deathT / 420; // 0 -> 1 over the fall
+        const dir = (n.facing && n.facing.dx < 0) ? -1 : 1;
+        drawables.push({ sortY: c.y / TILE - 0.01, z: 1, draw: () => {
+          ctx.save();
+          ctx.globalAlpha = Math.max(0, 1 - k * k);
+          ctx.translate(cx, cy + 11 * sc);
+          ctx.rotate(dir * k * Math.PI * 0.5);
+          ctx.translate(-cx, -(cy + 11 * sc));
+          drawCreature(ctx, n.npcId, cx, cy - 2, {
+            time: timeMs, facing: n.facing, moving: false,
+            scale: sc, sprite: n.def.sprite, color: n.def.color, boss: n.def.boss,
+          });
+          ctx.restore();
+          ctx.globalAlpha = 1;
+        } });
+        continue;
+      }
       const off = n.renderOffset ? n.renderOffset() : { x: 0, y: 0 };
       drawables.push({ sortY: c.y / TILE, z: 2, draw: () => {
         drawShadow(ctx, cx, cy + 12 * sc, 10 * sc, 4.5 * sc);
@@ -202,6 +230,25 @@ export class Renderer {
   _drawProjectiles(ox, oy) {
     const { ctx, game } = this;
     for (const e of game.effects) {
+      if (e.type === 'slash') {
+        // A crescent arc sweeping through the swing, fading as it goes.
+        const t = 1 - e.life / e.maxLife;
+        ctx.save();
+        ctx.translate(e.x - ox, e.y - oy);
+        ctx.rotate(e.ang + e.dir * (t - 0.5) * 2.1);
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = e.color;
+        ctx.globalAlpha = (1 - t) * 0.9;
+        ctx.lineWidth = 3.2 - t * 1.8;
+        ctx.beginPath(); ctx.arc(0, 0, 13, -0.8, 0.8); ctx.stroke();
+        ctx.globalAlpha = (1 - t) * 0.35;
+        ctx.lineWidth = 7 - t * 4;
+        ctx.beginPath(); ctx.arc(0, 0, 13, -0.55, 0.55); ctx.stroke();
+        ctx.restore();
+        ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+        continue;
+      }
       if (e.type !== 'projectile') continue;
       const t = 1 - e.life / e.maxLife;
       const x = e.x + (e.ex - e.x) * t - ox;

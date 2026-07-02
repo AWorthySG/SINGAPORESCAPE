@@ -56,6 +56,23 @@ test('renderer.render runs without throwing (with combat/effects state)', () => 
   assert.doesNotThrow(() => { renderer.render(0); renderer.render(1234.5); });
 });
 
+test('renderer draws game-feel effects: dying NPC, screen shake and slash arcs', () => {
+  const game = headlessGame();
+  const renderer = new Renderer(game, {}, makeCtx());
+  const npc = game.npcs.find((n) => n.attackable);
+  npc.die();
+  assert.ok(npc.deathT > 0, 'death animation timer armed');
+  game.addShake(4, 260);
+  assert.ok(game.shakeT > 0, 'screen shake armed');
+  game._slash(game.player, '#ffd24a');
+  assert.ok(game.effects.some((e) => e.type === 'slash'), 'slash effect queued');
+  assert.doesNotThrow(() => { renderer.render(100); renderer.render(400); });
+  // shake decays out through the frame update
+  for (let i = 0; i < 30; i++) game.update(16);
+  assert.equal(game.shakeT, 0, 'shake decays to zero');
+  assert.equal(npc.deathT, 0, 'death animation finishes');
+});
+
 test('renderer builds and uses a cached terrain canvas when a DOM exists', () => {
   const prevDoc = globalThis.document;
   globalThis.document = { createElement: () => ({ width: 0, height: 0, getContext: () => makeCtx() }) };

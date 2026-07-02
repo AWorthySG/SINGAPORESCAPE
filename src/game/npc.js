@@ -177,10 +177,17 @@ export class NPC extends Character {
     this.target = null;
     this.stopNow();
     this.respawnTimer = this.def.respawn || 15;
+    this.deathT = 420; // ms of fall-over + fade-out animation
+  }
+
+  update(dt) {
+    if (!this.alive && this.deathT > 0) this.deathT = Math.max(0, this.deathT - dt);
+    super.update(dt);
   }
 
   respawn() {
     this.alive = true;
+    this.deathT = 0;
     // Restore any enrage-mutated stats, re-applying this spawn's overrides so
     // tamed/weakened monsters stay tamed after they come back.
     this.def = this._spawnOpts ? applySpawnOpts(getNpc(this.npcId), this._spawnOpts) : getNpc(this.npcId);
