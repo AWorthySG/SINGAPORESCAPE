@@ -16,3 +16,5 @@ export const SAVE_KEY = 'singaporescape:save:v1';
 export const AUTOSAVE_TICKS = 50;  // autosave every ~30s
 
 export const XP_RATE = 5;          // global experience multiplier (eases the high-level grind)
+
+export const DAY_CYCLE_MS = 10 * 60 * 1000; // one full day/night cycle = 10 real minutes

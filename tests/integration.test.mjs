@@ -1237,3 +1237,38 @@ test('combination dishes assemble cooked ingredients + pottery into meals', asyn
     assert.ok(game.skills.xp.cooking > xp0, `${d.result} gave cooking xp`);
   }
 });
+
+test('day/night cycle: a smooth, repeating brightness curve driving isNight/clockLabel', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const { DAY_CYCLE_MS } = await import('../src/config.js');
+  const game = new Game();
+  game.start();
+
+  // Midnight: phase 0, minimum brightness, night, and a midnight clock label.
+  game.playMs = 0;
+  assert.equal(game.dayPhase(), 0);
+  assert.ok(game.daylightFactor() < 0.02, 'midnight is (near) fully dark');
+  assert.ok(game.isNight());
+  assert.equal(game.clockLabel(), '12:00 AM');
+
+  // Noon: half a cycle later, maximum brightness, day.
+  game.playMs = DAY_CYCLE_MS / 2;
+  assert.ok(game.daylightFactor() > 0.98, 'noon is (near) fully bright');
+  assert.ok(!game.isNight());
+  assert.equal(game.clockLabel(), '12:00 PM');
+
+  // The cycle repeats: one full period later, phase and brightness match.
+  game.playMs = DAY_CYCLE_MS * 2.25; // same phase as DAY_CYCLE_MS/4
+  const phaseA = game.dayPhase(), brightA = game.daylightFactor();
+  game.playMs = DAY_CYCLE_MS * 0.25;
+  assert.ok(Math.abs(game.dayPhase() - phaseA) < 1e-9, 'phase wraps every DAY_CYCLE_MS');
+  assert.ok(Math.abs(game.daylightFactor() - brightA) < 1e-9);
+
+  // Play time accumulates from update(dt), pausing the clock is not possible
+  // mid-tick but the phase must advance monotonically within one cycle.
+  game.playMs = 0;
+  const before = game.dayPhase();
+  step(game, 5);
+  assert.ok(game.dayPhase() > before, 'the clock advances as play time accrues');
+});
