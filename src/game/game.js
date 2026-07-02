@@ -302,6 +302,7 @@ export class Game {
     const c = npc.renderCenter();
     this.spawnHitSparks(npc, '#ffd9b0');
     this.spawnPoof(c.x, c.y - 4, npc.def.color || '#caa15a');
+    this.bus.emit('sfx', npc.def.boss ? 'bossdie' : 'die');
     if (npc.def.boss) { this.spawnSparkle(npc, '#ffd24a', 20); this.spawnPoof(c.x, c.y - 8, '#ff7a3a'); this.addShake(5, 340); }
   }
 
@@ -627,6 +628,7 @@ export class Game {
     const mods = this._offensiveMods(npc, 'melee');
     const fancy = mods.spec || mods.ability;
     this._slash(npc, fancy ? '#ffd24a' : '#eef2f6');
+    this.bus.emit('sfx', 'swish');
     let total = 0;
     for (let i = 0; i < mods.hits && npc.hp > 0; i++) {
       const effMax = Math.max(1, Math.round(baseMax * mods.dmgM));
@@ -1846,6 +1848,7 @@ export class Game {
     const tile = this.camera.screenToTile(this.input.mx, this.input.my);
     const npc = this.npcAt(tile.x, tile.y);
     if (npc) {
+      this.hover = { npc };
       if (npc.attackable) this.ui.setHoverText('Attack', `${npc.name} (level ${npc.def.level})`);
       else if (npc.def.role === 'shop') this.ui.setHoverText('Trade with', npc.name);
       else if (npc.def.role === 'bank') this.ui.setHoverText('Bank', npc.name);
@@ -1853,13 +1856,15 @@ export class Game {
       return;
     }
     const gi = this.world.topGroundItemAt(tile.x, tile.y);
-    if (gi) { this.ui.setHoverText('Take', getItem(gi.id).name); return; }
+    if (gi) { this.hover = null; this.ui.setHoverText('Take', getItem(gi.id).name); return; }
     const obj = this.world.objectAt(tile.x, tile.y);
     if (obj && obj.def.verb) {
-      if (obj.def.type === 'tree' && obj.depleted) this.ui.setHoverText('Walk here', '');
-      else this.ui.setHoverText(obj.def.verb, obj.def.name);
+      if (obj.def.type === 'tree' && obj.depleted) { this.hover = null; this.ui.setHoverText('Walk here', ''); return; }
+      this.hover = { obj };
+      this.ui.setHoverText(obj.def.verb, obj.def.name);
       return;
     }
+    this.hover = null;
     this.ui.setHoverText('Walk here', '');
   }
 

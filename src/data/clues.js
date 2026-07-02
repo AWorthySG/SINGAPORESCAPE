@@ -54,7 +54,7 @@ export const CLUE_SPOTS = [
   { x: 60, y: 62, hint: 'Dig near the kampung hawker stalls.' },
   { x: 37, y: 33, hint: 'Dig by the chicken pen in Bukit Timah.' },
   { x: 36, y: 52, hint: 'Dig on the banks of MacRitchie Reservoir.' },
-  { x: 84, y: 54, hint: 'Dig near the Hyco obelisk in Chinatown.' },
+  { x: 55, y: 51, hint: 'Dig near the Hyco obelisk in Kampong Glam.' },
   { x: 87, y: 50, hint: 'Dig outside the Chinatown bank.' },
   { x: 57, y: 88, hint: 'Dig on the golden sands of Sentosa Beach.' },
   { x: 70, y: 53, hint: 'Dig by the Kampong Glam MRT station.' },

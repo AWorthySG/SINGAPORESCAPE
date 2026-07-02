@@ -428,6 +428,29 @@ export class Renderer {
         ctx.strokeRect(sx + 1.5, sy + 1.5, TILE - 3, TILE - 3);
       }
     }
+    // Pulsing ground ring under the hovered target: coral for a foe, teal for
+    // friendly NPCs and usable objects — click feedback before you commit.
+    const hv = game.hover;
+    if (hv) {
+      const pulse = 1 + Math.sin(performance.now() * 0.008) * 0.12;
+      let cx, cy, rx, col;
+      if (hv.npc && hv.npc.alive) {
+        const c = hv.npc.renderCenter();
+        const sc = hv.npc.def.scale || 1;
+        cx = c.x - ox; cy = c.y - oy + 12 * sc; rx = 11 * sc * pulse;
+        col = hv.npc.attackable ? 'rgba(255,122,90,0.85)' : 'rgba(127,224,208,0.85)';
+      } else if (hv.obj && !hv.obj.depleted) {
+        cx = hv.obj.x * TILE + TILE / 2 - ox; cy = hv.obj.y * TILE + TILE * 0.72 - oy;
+        rx = 12 * pulse; col = 'rgba(255,215,115,0.8)';
+      }
+      if (col) {
+        ctx.strokeStyle = col; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.ellipse(cx, cy, rx, rx * 0.42, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.globalAlpha = 0.25; ctx.lineWidth = 4.5;
+        ctx.beginPath(); ctx.ellipse(cx, cy, rx, rx * 0.42, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+    }
     const p = game.player;
     if (p.moving || p.path.length) {
       const dest = p.path.length ? p.path[p.path.length - 1] : { x: p.tx, y: p.ty };
