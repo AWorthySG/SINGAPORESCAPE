@@ -1118,6 +1118,20 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
       c.strokeStyle = '#e6b34a'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(9.4, 3.4); c.lineTo(13.4, 4.8); c.stroke(); // crossguard
       c.strokeStyle = '#8a6a3a'; c.lineWidth = 2; c.beginPath(); c.moveTo(8, 9); c.lineTo(11.4, 6); c.stroke(); // grip
     }
+    // shield, strapped to the off-hand
+    if (opts.hasShield) {
+      const sx = -12, sy = 3;
+      path(c, () => {
+        c.moveTo(sx, sy - 7); c.lineTo(sx + 4, sy - 5); c.lineTo(sx + 4, sy + 3);
+        c.quadraticCurveTo(sx + 4, sy + 8, sx, sy + 10);
+        c.quadraticCurveTo(sx - 4, sy + 8, sx - 4, sy + 3); c.lineTo(sx - 4, sy - 5);
+      });
+      fill(c, '#8a96a2'); line(c, OUTLINE, 1.1);
+      c.fillStyle = 'rgba(255,255,255,0.32)';
+      path(c, () => { c.moveTo(sx - 3, sy - 4); c.lineTo(sx - 1, sy - 4); c.lineTo(sx - 1, sy + 6); c.lineTo(sx - 3, sy + 4); }); c.fill();
+      c.fillStyle = '#e6b34a'; circle(c, sx, sy, 1.7); c.fill(); // boss/emblem
+      c.fillStyle = '#fff3c0'; circle(c, sx - 0.5, sy - 0.7, 0.6); c.fill();
+    }
   });
 }
 
