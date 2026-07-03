@@ -40,6 +40,17 @@ import { CLUE_TIERS, CLUE_SPOTS, clueTierForLevel } from '../data/clues.js';
 const STARTER_TOOLS = ['bronze_axe', 'bronze_pickaxe', 'small_net', 'fishing_rod', 'tinderbox', 'hammer', 'chisel', 'bronze_dagger'];
 const COMBAT_SKILLS = new Set(['attack', 'strength', 'defence', 'hitpoints', 'ranged', 'magic']);
 
+// Where the in-game day/night clock starts: the equivalent point in
+// DAY_CYCLE_MS for the player's real local time of day, so a fresh session
+// opens at a sensible hour (bright at your midday, dark at your midnight)
+// instead of always at midnight.
+function localTimeSeedMs() {
+  try {
+    const d = new Date();
+    return ((d.getHours() * 60 + d.getMinutes()) / (24 * 60)) * DAY_CYCLE_MS;
+  } catch { return DAY_CYCLE_MS * 0.5; } // fall back to a bright noon start
+}
+
 export class Game {
   constructor() {
     this.bus = new EventBus();
@@ -69,8 +80,10 @@ export class Game {
     this.shakeT = 0;
     this.shakeDur = 1;
     this.shakeMag = 0;
-    // Day/night clock: accumulated play time, wrapped into a repeating cycle.
-    this.playMs = 0;
+    // Day/night clock: accumulated play time, wrapped into a repeating cycle
+    // (see update()). Seeded from the player's real local time of day so a
+    // fresh session opens at a sensible hour instead of always at midnight.
+    this.playMs = localTimeSeedMs();
     this.hover = null;
     this.currentZoneName = null;
     this.wildLevel = 0;

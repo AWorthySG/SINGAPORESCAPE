@@ -1272,3 +1272,14 @@ test('day/night cycle: a smooth, repeating brightness curve driving isNight/cloc
   step(game, 5);
   assert.ok(game.dayPhase() > before, 'the clock advances as play time accrues');
 });
+
+test('a fresh game seeds its day/night clock from the real local time of day', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const now = new Date();
+  const expectedPhase = (now.getHours() * 60 + now.getMinutes()) / (24 * 60);
+  const game = new Game(); // no game.start() — check the constructor's raw seed
+  // Allow a small tolerance for the minute ticking over between the two reads.
+  const diff = Math.abs(game.dayPhase() - expectedPhase);
+  assert.ok(diff < 0.01 || diff > 0.99, `fresh session opens near the real local hour (phase ${game.dayPhase()} vs expected ${expectedPhase})`);
+});
