@@ -827,7 +827,7 @@ export class Game {
       const effMax = Math.max(1, Math.round(baseMax * mods.dmgM));
       let dmg = mods.guaranteed ? rollGuaranteed(effMax) : rollAttack(atkRoll * pr * mods.accM, defRoll, effMax);
       const c = this._critHit(dmg, mods.critCh); dmg = c.dmg;
-      this._projectile(npc, (c.crit || fancy) ? '#ffd24a' : '#d9c45a');
+      this._projectile(npc, (c.crit || fancy) ? '#ffd24a' : '#d9c45a', 'arrow');
       this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax) });
       if (dmg > 0) { this.spawnHitSparks(npc, (c.crit || fancy) ? '#ffd24a' : '#cfe0a0'); for (const x of combatXpRanged(style, dmg)) this.skills.addXp(x.skill, x.xp); }
       total += dmg;
@@ -849,7 +849,7 @@ export class Game {
     let dmg = mods.guaranteed ? rollGuaranteed(effMax) : rollAttack(atkRoll * this.prayerMult().magic * mods.accM, defRoll, effMax);
     const c = this._critHit(dmg, mods.critCh); dmg = c.dmg;
     this._swingToward(this.player, npc.x, npc.y);
-    this._projectile(npc, (c.crit || fancy) ? '#e0a0ff' : spell.tint);
+    this._projectile(npc, (c.crit || fancy) ? '#e0a0ff' : spell.tint, 'bolt');
     this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax) });
     this.skills.addXp('magic', spell.xp);
     if (dmg > 0) { this.spawnHitSparks(npc, spell.tint); this.skills.addXp('magic', dmg * 2); this.skills.addXp('hitpoints', dmg * 1.33); }
@@ -860,10 +860,10 @@ export class Game {
   _hasRunes(spell) { return Object.entries(spell.runes).every(([id, q]) => this.inventory.count(id) >= q); }
   _consumeRunes(spell) { for (const [id, q] of Object.entries(spell.runes)) this.inventory.remove(id, q); }
 
-  _projectile(npc, color) {
+  _projectile(npc, color, kind = 'bolt') {
     const from = this.player.renderCenter();
     const to = npc.renderCenter();
-    this.effects.push({ type: 'projectile', x: from.x, y: from.y - 8, ex: to.x, ey: to.y - 8, color, life: 240, maxLife: 240 });
+    this.effects.push({ type: 'projectile', kind, x: from.x, y: from.y - 8, ex: to.x, ey: to.y - 8, color, life: 240, maxLife: 240 });
   }
 
   resolveNpcAttack(npc, opts = {}) {

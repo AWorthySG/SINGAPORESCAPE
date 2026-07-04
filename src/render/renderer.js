@@ -32,6 +32,15 @@ function hash(x, y) {
   return ((h ^ (h >> 16)) >>> 0) / 4294967296;
 }
 
+// Build a closed path through a small list of [x,y] points (e.g. a fletching
+// vane or an arrowhead), ready for the caller to fill or stroke.
+function path2(ctx, pts) {
+  ctx.beginPath();
+  ctx.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+  ctx.closePath();
+}
+
 export class Renderer {
   constructor(game, canvas, ctx) {
     this.game = game;
@@ -305,7 +314,31 @@ export class Renderer {
       const t = 1 - e.life / e.maxLife;
       const x = e.x + (e.ex - e.x) * t - ox;
       const y = e.y + (e.ey - e.y) * t - oy;
+      if (e.kind === 'arrow') {
+        // A fletched shaft flying true along its line to the target.
+        const ang = Math.atan2(e.ey - e.y, e.ex - e.x);
+        ctx.save();
+        ctx.translate(x, y); ctx.rotate(ang);
+        ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = 1.4; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(-9, 0); ctx.lineTo(3, 0); ctx.stroke();
+        ctx.fillStyle = '#e8e0c8';
+        path2(ctx, [[-9, 0], [-6, -2.6], [-5, 0]]); ctx.fill();
+        path2(ctx, [[-9, 0], [-6, 2.6], [-5, 0]]); ctx.fill();
+        ctx.fillStyle = e.color;
+        path2(ctx, [[6, 0], [1, -2.2], [1, 2.2]]); ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 0.6; ctx.stroke();
+        ctx.restore();
+        continue;
+      }
+      // Magic bolt: a glowing orb with a fading trail of embers behind it.
       ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.3;
+      for (let i = 1; i <= 3; i++) {
+        const tt = Math.max(0, t - i * 0.1);
+        const tx = e.x + (e.ex - e.x) * tt - ox, ty = e.y + (e.ey - e.y) * tt - oy;
+        ctx.fillStyle = e.color; ctx.beginPath(); ctx.arc(tx, ty, 2.6 - i * 0.6, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
       ctx.fillStyle = e.color;
       ctx.beginPath(); ctx.arc(x, y, 3.6, 0, Math.PI * 2); ctx.fill();
       ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;

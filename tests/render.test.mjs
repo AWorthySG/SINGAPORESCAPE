@@ -89,6 +89,15 @@ test('renderer draws the day/night wash and lit light-sources across the cycle',
   }
 });
 
+test('ranged arrows and magic bolts render as distinct projectiles', () => {
+  const game = headlessGame();
+  const renderer = new Renderer(game, {}, makeCtx());
+  const npc = game.npcs.find((n) => n.attackable);
+  game.effects.push({ type: 'projectile', kind: 'arrow', x: game.player.x * 32, y: game.player.y * 32 - 8, ex: npc.x * 32, ey: npc.y * 32 - 8, color: '#d9c45a', life: 120, maxLife: 240 });
+  game.effects.push({ type: 'projectile', kind: 'bolt', x: game.player.x * 32, y: game.player.y * 32 - 8, ex: npc.x * 32, ey: npc.y * 32 - 8, color: '#7fe0ee', life: 120, maxLife: 240 });
+  assert.doesNotThrow(() => { renderer.render(200); renderer.render(600); });
+});
+
 test('renderer builds and uses a cached terrain canvas when a DOM exists', () => {
   const prevDoc = globalThis.document;
   globalThis.document = { createElement: () => ({ width: 0, height: 0, getContext: () => makeCtx() }) };

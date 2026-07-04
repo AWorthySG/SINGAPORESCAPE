@@ -135,6 +135,8 @@ test('ranged combat consumes arrows and trains ranged', () => {
 
   const chicken = game.npcs.find((n) => n.npcId === 'chicken');
   game.player.x = game.player.tx = chicken.x + 3; game.player.y = game.player.ty = chicken.y;
+  game.doPlayerAttack(chicken); // fire once directly so the projectile hasn't decayed yet
+  assert.ok(game.effects.some((e) => e.type === 'projectile' && e.kind === 'arrow'), 'fires a fletched arrow, not a generic bolt');
   game.attackNpc(chicken);
   step(game, 40);
   assert.ok(game.inventory.count('bronze_arrow') < 100, 'arrows were used');
@@ -153,6 +155,8 @@ test('magic combat consumes runes and trains magic', () => {
 
   const chicken = game.npcs.find((n) => n.npcId === 'chicken');
   game.player.x = game.player.tx = chicken.x + 3; game.player.y = game.player.ty = chicken.y;
+  game.doPlayerAttack(chicken); // fire once directly so the projectile hasn't decayed yet
+  assert.ok(game.effects.some((e) => e.type === 'projectile' && e.kind === 'bolt'), 'casts a glowing bolt, distinct from an arrow');
   game.attackNpc(chicken);
   step(game, 40);
   assert.ok(game.inventory.count('air_rune') < 50, 'runes were used');
