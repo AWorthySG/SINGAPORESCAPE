@@ -180,7 +180,7 @@ export class Renderer {
           time: timeMs, facing: game.player.facing, moving: game.player.isMoving,
           hasBody: !!game.equipment.get('body'), hasWeapon: !!game.equipment.get('weapon'),
           hasCape: !!game.equipment.get('cape'), hasHelm: !!game.equipment.get('head'),
-          hasShield: !!game.equipment.get('shield'),
+          hasShield: !!game.equipment.get('shield'), prayerActive: game.activePrayers.size > 0,
         });
         if (game.player.hurt > 0) this._hurtFlash(cx + off.x, cy - 2 + off.y, 1, game.player.hurt);
       } });

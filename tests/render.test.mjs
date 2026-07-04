@@ -55,6 +55,8 @@ test('renderer.render runs without throwing (with combat/effects state)', () => 
   // A worn shield should flow from Equipment through the renderer to drawPlayer.
   game.equipment.set('shield', 'wooden_shield');
   assert.ok(game.equipment.get('shield'), 'shield equipped');
+  // An active prayer should flow through to the player's golden halo too.
+  game.activePrayers.add('thick_skin');
 
   assert.doesNotThrow(() => { renderer.render(0); renderer.render(1234.5); });
 });
@@ -145,6 +147,9 @@ test('player and ground-item sprites draw in all states', () => {
     // A shield on the off-hand is drawn independently of body/weapon/facing.
     drawPlayer(ctx, 80, 80, { time: 300, facing: { dx: 1, dy: 0 }, moving: false, hasShield: true });
     drawPlayer(ctx, 80, 80, { time: 300, facing: { dx: -1, dy: 0 }, moving: true, hasBody: true, hasWeapon: true, hasShield: true });
+    // A golden prayer halo, with and without other gear.
+    drawPlayer(ctx, 80, 80, { time: 150, facing: { dx: 1, dy: 0 }, moving: false, prayerActive: true });
+    drawPlayer(ctx, 80, 80, { time: 450, facing: { dx: -1, dy: 0 }, moving: true, hasBody: true, hasWeapon: true, hasShield: true, prayerActive: true });
     drawGroundItem(ctx, 'logs', 80, 80);   // id-keyed icon (headless: rasteriser returns null -> fallback)
     drawGroundItem(ctx, 'unknown_item', 80, 80);
   });
