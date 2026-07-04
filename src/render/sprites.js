@@ -1043,6 +1043,20 @@ function townAcc(ctx, p) {
 // ================= PLAYER =================
 export function drawPlayer(ctx, cx, cy, opts = {}) {
   staged(ctx, cx, cy, opts, (c) => {
+    // A soft golden halo while any prayer is active — the only in-world sign
+    // of it otherwise living entirely in the HUD's prayer orb/panel.
+    if (opts.prayerActive) {
+      const t = opts.time || 0;
+      const pulse = 1 + Math.sin(t * 0.004) * 0.08;
+      const g = c.createRadialGradient(0, -2, 2, 0, -2, 15 * pulse);
+      g.addColorStop(0, 'rgba(255,226,150,0.30)');
+      g.addColorStop(0.6, 'rgba(255,214,120,0.14)');
+      g.addColorStop(1, 'rgba(255,214,120,0)');
+      c.save();
+      c.globalCompositeOperation = 'lighter';
+      c.fillStyle = g; c.beginPath(); c.arc(0, -2, 15 * pulse, 0, Math.PI * 2); c.fill();
+      c.restore();
+    }
     const body = opts.hasBody ? '#b9c2cc' : '#5b8c4a';
     const bodyHi = opts.hasBody ? '#dbe2ea' : '#74a85e';
     const bodyDk = opts.hasBody ? '#8a96a2' : '#46702f';
