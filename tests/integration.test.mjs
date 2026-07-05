@@ -945,18 +945,19 @@ test('alignment-arc bosses: a guardian Lion of Light and a wild Shadow Sovereign
   assert.equal(lion.def.aggressive, false, 'the light guardian never ambushes');
   assert.ok(lion.def.dropTable.map((d) => d.id).includes('seraph_blade'), 'drops the Seraph blade');
   assert.ok(shadow && shadow.def.boss, 'Shadow Sovereign is a boss');
-  assert.equal(shadow.def.aggressive, true, 'the wilderness boss is aggressive');
+  assert.equal(shadow.def.aggressive, false, 'even the wilderness boss waits to be attacked');
   assert.ok(shadow.def.dropTable.map((d) => d.id).includes('void_blade'), 'drops the Void blade');
 });
 
-test('no aggressive boss spawns near the starting town', () => {
+test('no boss anywhere on the island is aggressive', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
   const game = new Game();
   game.start();
-  const nearAgg = game.npcs.filter((n) =>
-    n.def.boss && n.def.aggressive && Math.max(Math.abs(n.x - 58), Math.abs(n.y - 55)) <= 22);
-  assert.equal(nearAgg.length, 0, 'bosses near spawn are pacified so they cannot ambush newcomers');
+  const bosses = game.npcs.filter((n) => n.def.boss);
+  assert.ok(bosses.length >= 30, `expected the full bestiary of bosses, got ${bosses.length}`);
+  const agg = bosses.filter((n) => n.def.aggressive);
+  assert.equal(agg.length, 0, `every boss must wait for the player to attack first: ${agg.map((n) => n.npcId).join(', ')}`);
 });
 
 test('fishing: new spot types, tool gating, and freshwater/sea catches', async () => {

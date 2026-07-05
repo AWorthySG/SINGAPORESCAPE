@@ -140,7 +140,9 @@ function makeBoss(id, name, sprite, color, level, zone, scale, drops) {
     maxHp: Math.round(level * 4.5 + 30),
     attack: Math.round(level * 1.05), strength: Math.round(level * 1.05), defence: Math.round(level * 0.95),
     maxHit: Math.ceil(level / 7) + 3, attackSpeed: 5,
-    aggressive: true, aggroRange: 7, respawn: Math.round(60 + level), wander: 3,
+    // Bosses never ambush — you have to walk up and start the fight yourself.
+    // Once engaged they still fight back and chase normally.
+    aggressive: false, aggroRange: 0, respawn: Math.round(60 + level), wander: 3,
     examine: `${name} — a fearsome boss (level ${level}).`,
     alwaysDrop: [{ id: 'bones' }, { id: 'coins', min: level * 8, max: level * 32 }],
     dropTable: drops };
