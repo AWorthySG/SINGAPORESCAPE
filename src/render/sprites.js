@@ -1057,10 +1057,13 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
       c.fillStyle = g; c.beginPath(); c.arc(0, -2, 15 * pulse, 0, Math.PI * 2); c.fill();
       c.restore();
     }
-    const body = opts.hasBody ? '#b9c2cc' : '#5b8c4a';
-    const bodyHi = opts.hasBody ? '#dbe2ea' : '#74a85e';
-    const bodyDk = opts.hasBody ? '#8a96a2' : '#46702f';
-    const skin = '#e8b98a';
+    // Unarmoured tunic is teal — the game's own signature accent colour —
+    // rather than a generic green, so the hero reads as belonging to this
+    // world rather than a stock RPG adventurer.
+    const body = opts.hasBody ? '#b9c2cc' : '#2f8a7a';
+    const bodyHi = opts.hasBody ? '#dbe2ea' : '#4fb0a0';
+    const bodyDk = opts.hasBody ? '#8a96a2' : '#1f6058';
+    const skin = '#d9a06a';
     // cape (behind everything), sways with motion
     if (opts.hasCape) {
       const sw = Math.sin((opts.time || 0) * 0.012) * 1.4;
@@ -1092,9 +1095,14 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
       c.fillStyle = '#eef2f6'; for (const [rx, ry] of [[-3.2, -3.5], [3.2, -3.5], [-3.2, 0], [3.2, 0]]) { circle(c, rx, ry, 0.5); c.fill(); }
       c.strokeStyle = 'rgba(255,255,255,0.4)'; c.lineWidth = 1; c.beginPath(); c.moveTo(-5.8, -4.5); c.lineTo(-5.8, 6); c.stroke();
     } else {
-      // cloth tunic: collar + lace
+      // cloth tunic: collar + lace, with a small batik-style gold diamond
+      // motif over the chest (echoing the songket/batik capes and the
+      // Peranakan tile trim used throughout the HUD).
       c.fillStyle = shade(body, -0.22); path(c, () => { c.moveTo(-3.5, -5); c.lineTo(0, -1.5); c.lineTo(3.5, -5); }); c.fill();
       c.strokeStyle = shade(body, -0.22); c.lineWidth = 0.7; c.beginPath(); c.moveTo(0, -1); c.lineTo(0, 2); c.stroke();
+      path(c, () => { c.moveTo(0, -2.6); c.lineTo(1.8, -1); c.lineTo(0, 0.6); c.lineTo(-1.8, -1); c.closePath(); });
+      c.fillStyle = 'rgba(230,179,74,0.4)'; c.fill();
+      c.strokeStyle = 'rgba(230,179,74,0.9)'; c.lineWidth = 0.6; c.stroke();
     }
     // belt + buckle
     c.fillStyle = '#3a2a14'; rr(c, -7, 2, 14, 2.4, 1); c.fill();
@@ -1113,9 +1121,18 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
       c.fillStyle = '#c0392b'; path(c, () => { c.moveTo(-1.4, -17.5); c.quadraticCurveTo(-5.5, -20, -4.5, -24.5); c.quadraticCurveTo(-1, -21, 1.4, -18.5); }); c.fill(); // plume
       c.fillStyle = 'rgba(255,255,255,0.4)'; rr(c, -6, -12.3, 4, 0.8, 0.4); c.fill();
     } else {
-      c.fillStyle = '#46301c'; path(c, () => { c.arc(0, -11.3, 6.9, Math.PI * 1.02, Math.PI * 1.98); c.lineTo(5.6, -13.2); c.quadraticCurveTo(0, -19.4, -5.6, -13.2); }); c.fill();
-      c.fillStyle = shade('#46301c', 0.25); rr(c, -5, -16.6, 4.2, 1.8, 0.9); c.fill();
-      c.strokeStyle = '#3a2414'; c.lineWidth = 0.9; c.lineCap = 'round'; c.beginPath(); c.moveTo(-3.3, -12.3); c.lineTo(-1.2, -12.6); c.moveTo(1.2, -12.6); c.lineTo(3.3, -12.3); c.stroke(); c.lineCap = 'butt';
+      // Black hair, side-swept rather than a centre-parted mop.
+      const hair = '#18130f';
+      c.fillStyle = hair; path(c, () => { c.arc(0, -11.3, 6.9, Math.PI * 1.02, Math.PI * 1.98); c.lineTo(5.6, -13.2); c.quadraticCurveTo(0, -19.4, -5.6, -13.2); }); c.fill();
+      c.fillStyle = shade(hair, 0.32);
+      path(c, () => {
+        c.moveTo(-5.4, -13.6);
+        c.quadraticCurveTo(-1, -17.4, 4.2, -13.6);
+        c.quadraticCurveTo(-0.6, -14.8, -5.4, -13.6);
+        c.closePath();
+      }); c.fill();
+      c.strokeStyle = shade(hair, 0.12); c.lineWidth = 0.7; c.lineCap = 'round';
+      c.beginPath(); c.moveTo(-4.4, -13.4); c.lineTo(-1.4, -14.7); c.moveTo(-1, -14.3); c.lineTo(1.8, -15.3); c.stroke(); c.lineCap = 'butt';
     }
     // eyes + catchlight
     c.fillStyle = '#1a140d'; circle(c, -2.3, -11, 0.95); c.fill(); circle(c, 2.3, -11, 0.95); c.fill();
