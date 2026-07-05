@@ -263,9 +263,7 @@ export function buildWorld() {
       const x = z.x0 + Math.floor(rng() * (z.x1 - z.x0 + 1));
       const y = z.y0 + Math.floor(rng() * (z.y1 - z.y0 + 1));
       if (inTown(x, y) || !LANDABLE.includes(get(x, y))) continue;
-      // Bosses that randomly land near the starting town shouldn't ambush newcomers.
-      const opts = (def.boss && Math.max(Math.abs(x - 58), Math.abs(y - 55)) <= 22) ? { aggressive: false } : null;
-      placeNpc(id, x, y, wander, opts);
+      placeNpc(id, x, y, wander);
       return;
     }
     placeNpc(id, Math.round((z.x0 + z.x1) / 2), Math.round((z.y0 + z.y1) / 2), wander);
