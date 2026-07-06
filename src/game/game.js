@@ -71,6 +71,10 @@ export class Game {
     this.camera = new Camera();
     this.ui = null;     // set by main
     this.input = null;  // set by main
+    // Set true by newGame() for a brand-new character; the UI prompts a
+    // melee/ranged/magic choice (see chooseStartingStyle) before combat gear
+    // is granted. Never set for a loaded save.
+    this.pendingStyleChoice = false;
 
     this.running = false;
     this.runEnergy = 100;
@@ -183,14 +187,40 @@ export class Game {
     this.inventory.add('coins', 150);
     this.inventory.add('kaya_toast', 5);
     this.inventory.add('chicken_rice', 3);
-    // Start combat-ready so the early game isn't punishing.
-    this.equipment.set('weapon', 'bronze_scimitar');
-    this.equipment.set('shield', 'wooden_shield');
-    this.equipment.set('body', 'leather_body');
     this.player.hp = this.maxHp();
     this.starterGiven = true;
+    // Combat gear is granted once the player picks a fighting style — see
+    // chooseStartingStyle(). The UI prompts for this right after the splash.
+    this.pendingStyleChoice = true;
     this.msg(`Welcome to ${this.world.townName}, an island of adventure!`, 'system');
+  }
+
+  /** Grant starting combat gear for a freshly-chosen fighting style. Only
+   *  fires once, right after a brand-new game boots (never for a loaded save). */
+  chooseStartingStyle(style) {
+    if (!this.pendingStyleChoice) return;
+    this.pendingStyleChoice = false;
+    if (style === 'ranged') {
+      this.equipment.set('weapon', 'shortbow');
+      this.equipment.set('head', 'coif');
+      this.equipment.set('body', 'studded_body');
+      this.equipment.set('legs', 'leather_chaps');
+      this.inventory.add('bronze_arrow', 150);
+    } else if (style === 'magic') {
+      this.equipment.set('weapon', 'staff');
+      this.equipment.set('head', 'wizard_hat');
+      this.equipment.set('body', 'wizard_robe_top');
+      this.equipment.set('legs', 'wizard_robe_bottom');
+      this.inventory.add('air_rune', 150);
+      this.inventory.add('mind_rune', 150);
+    } else {
+      this.equipment.set('weapon', 'bronze_scimitar');
+      this.equipment.set('shield', 'wooden_shield');
+      this.equipment.set('body', 'leather_body');
+    }
+    this.player.hp = this.maxHp();
     this.msg('You are equipped and ready. Talk to the Kampong Guide for tips.', 'system');
+    this.bus.emit('inventory'); this.bus.emit('equipment'); this.bus.emit('hp');
   }
 
   giveStarter() {

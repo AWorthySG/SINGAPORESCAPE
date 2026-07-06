@@ -29,7 +29,13 @@ test('game boots with a populated world', () => {
   assert.ok(game.player.alive);
   assert.equal(game.player.hp, 25);
   assert.ok(game.skills.attack >= 15 && game.skills.defence >= 12, 'buffed starting combat stats');
-  assert.equal(game.equipment.get('weapon'), 'bronze_scimitar', 'starts equipped');
+  // A brand-new game waits for the player to pick a fighting style before
+  // granting combat gear (see the "Choose Your Path" prompt).
+  assert.ok(game.pendingStyleChoice, 'prompts a starting-style choice');
+  assert.equal(game.equipment.get('weapon'), null, 'no weapon until a style is chosen');
+  game.chooseStartingStyle('melee');
+  assert.ok(!game.pendingStyleChoice);
+  assert.equal(game.equipment.get('weapon'), 'bronze_scimitar', 'starts equipped once melee is chosen');
   assert.ok(game.world.objects.some((o) => o.def.type === 'shrine'), 'town has the Worthy Monument');
   assert.ok(game.npcs.length > 10, 'should spawn many NPCs');
   assert.ok(game.npcs.some((n) => n.attackable), 'should have monsters');
@@ -38,6 +44,46 @@ test('game boots with a populated world', () => {
   assert.ok(game.world.objects.some((o) => o.def.type === 'fishing'));
   assert.ok(game.world.objects.some((o) => o.def.type === 'bank'));
   assert.ok(game.inventory.has('bronze_axe'), 'new player gets a starter axe');
+});
+
+test('starting-style choice grants the right kit for melee, ranged and magic', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+
+  const ranged = new Game();
+  ranged.start();
+  ranged.chooseStartingStyle('ranged');
+  assert.equal(ranged.equipment.get('weapon'), 'shortbow');
+  assert.equal(ranged.combatMode(), 'ranged');
+  assert.ok(ranged.inventory.has('bronze_arrow', 150));
+
+  const magic = new Game();
+  magic.start();
+  magic.chooseStartingStyle('magic');
+  assert.equal(magic.equipment.get('weapon'), 'staff');
+  assert.equal(magic.combatMode(), 'magic');
+  assert.ok(magic.inventory.has('air_rune', 150) && magic.inventory.has('mind_rune', 150));
+
+  const melee = new Game();
+  melee.start();
+  melee.chooseStartingStyle('melee');
+  assert.equal(melee.equipment.get('weapon'), 'bronze_scimitar');
+  assert.equal(melee.combatMode(), 'melee');
+
+  // One-shot: choosing again (e.g. a stray click) must not re-grant items.
+  const before = melee.inventory.count('bronze_arrow');
+  melee.chooseStartingStyle('ranged');
+  assert.equal(melee.equipment.get('weapon'), 'bronze_scimitar', 'a second choice is ignored');
+  assert.equal(melee.inventory.count('bronze_arrow'), before);
+
+  // A loaded save never prompts for a style choice.
+  const loaded = new Game();
+  loaded.start();
+  loaded.chooseStartingStyle('melee');
+  saveGame(loaded);
+  const resumed = new Game();
+  resumed.start();
+  assert.ok(!resumed.pendingStyleChoice, 'a loaded save skips the style prompt');
 });
 
 test('player can chop logs from a tree', () => {
