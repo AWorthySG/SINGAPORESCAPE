@@ -1470,41 +1470,45 @@ function shrine(ctx, cx, cy, time) {
   shrineBody(ctx, 0, 0, time);
   // Embed the genuine Worthy logo as a floating, glowing emblem above the arch.
   const bob = Math.sin(time * 0.0022) * 1.2;
-  glow(ctx, 0, -30 + bob, 13, 'rgba(200,206,214,0.30)');
-  drawLogo(ctx, 'logo', -7, -41 + bob, 14, 21);
+  glow(ctx, 0, -58 + bob, 13, 'rgba(200,206,214,0.30)');
+  drawLogo(ctx, 'logo', -7, -69 + bob, 14, 21);
   ctx.restore();
 }
 function shrineBody(ctx, cx, cy, time) {
-  drawShadow(ctx, cx, cy + 13, 16, 5);
+  drawShadow(ctx, cx, cy + 13, 17, 5);
   const ink = '#3f4650', inkDk = '#2c3138';
-  // soft ambient aura, in the mark's own cool slate tone
-  glow(ctx, cx, cy - 6, 26, 'rgba(180,190,200,0.22)');
+  // soft ambient aura, sized to wrap the whole (now much taller) arch
+  glow(ctx, cx, cy - 20, 36, 'rgba(180,190,200,0.22)');
   // stone plinth
   ctx.fillStyle = '#8a8378'; rr(ctx, cx - 13, cy + 6, 26, 9, 2); ctx.fill(); line(ctx, 'rgba(40,36,30,0.5)', 1.5);
   ctx.fillStyle = '#9a948a'; rr(ctx, cx - 10, cy + 3, 20, 4, 2); ctx.fill();
-  // archway (the Worthy mark: two rounded legs joined by a dome)
+  // archway: the Worthy mark itself — two slender rounded legs joined by a
+  // tall dome (the logo's own silhouette is roughly 1:7 legs-to-height; this
+  // is a more moderate ~1:2.75 so the monument stays a sensible in-world size).
+  const legTopY = cy - 24, peakY = cy - 44;
   const arch = () => {
     ctx.beginPath();
-    ctx.moveTo(cx - 8, cy + 4); ctx.lineTo(cx - 8, cy - 8);
-    ctx.quadraticCurveTo(cx - 8, cy - 20, cx, cy - 20);
-    ctx.quadraticCurveTo(cx + 8, cy - 20, cx + 8, cy - 8);
+    ctx.moveTo(cx - 8, cy + 4); ctx.lineTo(cx - 8, legTopY);
+    ctx.quadraticCurveTo(cx - 8, peakY, cx, peakY);
+    ctx.quadraticCurveTo(cx + 8, peakY, cx + 8, legTopY);
     ctx.lineTo(cx + 8, cy + 4);
   };
   ctx.lineCap = 'round';
-  ctx.strokeStyle = inkDk; ctx.lineWidth = 9; arch(); ctx.stroke();
-  ctx.strokeStyle = ink; ctx.lineWidth = 6.4; arch(); ctx.stroke();
+  ctx.strokeStyle = inkDk; ctx.lineWidth = 8; arch(); ctx.stroke();
+  ctx.strokeStyle = ink; ctx.lineWidth = 5.6; arch(); ctx.stroke();
   ctx.lineCap = 'butt';
   // circle badge + plus at the crown, and a subtle crease beneath it
-  ctx.fillStyle = ink; circle(ctx, cx, cy - 18, 6.3); ctx.fill();
+  const badgeY = peakY + 2;
+  ctx.fillStyle = ink; circle(ctx, cx, badgeY, 6.6); ctx.fill();
   ctx.strokeStyle = inkDk; ctx.lineWidth = 0.8; ctx.globalAlpha = 0.55;
-  ctx.beginPath(); ctx.moveTo(cx - 4.5, cy - 13); ctx.quadraticCurveTo(cx, cy - 9.5, cx + 4.5, cy - 13); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx - 4.7, badgeY + 5); ctx.quadraticCurveTo(cx, badgeY + 8.5, cx + 4.7, badgeY + 5); ctx.stroke();
   ctx.globalAlpha = 1;
   ctx.fillStyle = '#f5f6f7';
-  rr(ctx, cx - 3.2, cy - 19.3, 6.4, 2.4, 1); ctx.fill();
-  rr(ctx, cx - 1.2, cy - 21.3, 2.4, 6.4, 1); ctx.fill();
+  rr(ctx, cx - 3.3, badgeY - 1.3, 6.6, 2.5, 1.1); ctx.fill();
+  rr(ctx, cx - 1.25, badgeY - 3.3, 2.5, 6.6, 1.1); ctx.fill();
   // glint
   ctx.fillStyle = 'rgba(255,255,255,0.35)';
-  circle(ctx, cx - 3.5, cy - 20.5, 1); ctx.fill();
+  circle(ctx, cx - 3.6, badgeY - 2.5, 1.05); ctx.fill();
 }
 
 // Hyco Education obelisk — a navy standee with the silver ring + orange dot mark.
