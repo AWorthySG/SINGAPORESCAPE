@@ -79,7 +79,11 @@ requestAnimationFrame(frame);
 // Title / splash screen dismissal.
 const splash = document.getElementById('splash');
 const splashEnter = document.getElementById('splash-enter');
-function hideSplash() { game.audio.unlock(); splash && splash.classList.add('hidden'); }
+function hideSplash() {
+  game.audio.unlock();
+  splash && splash.classList.add('hidden');
+  if (game.pendingStyleChoice) ui.openStyleChoice();
+}
 splashEnter && splashEnter.addEventListener('click', hideSplash);
 splash && splash.addEventListener('click', (e) => { if (e.target === splash) hideSplash(); });
 

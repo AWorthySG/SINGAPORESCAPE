@@ -842,10 +842,43 @@ export class UI {
     render(this.el.modalBody);
   }
 
+  /** One-time, non-dismissible prompt shown to a brand-new character: pick a
+   *  melee, ranged, or magic starting kit. See Game.chooseStartingStyle(). */
+  openStyleChoice() {
+    const paths = [
+      { id: 'melee', name: 'Melee', icon: 'bronze_scimitar', blurb: 'Bronze scimitar, wooden shield & leather body. Fight up close and personal.' },
+      { id: 'ranged', name: 'Ranged', icon: 'shortbow', blurb: 'Shortbow, 150 bronze arrows, coif & studded armour. Fight from a distance.' },
+      { id: 'magic', name: 'Magic', icon: 'staff', blurb: 'Staff, wizard robes & starter runes. Cast spells to fight.' },
+    ];
+    const render = (body) => {
+      body.innerHTML = '<div class="dialogue">Every adventure starts somewhere &mdash; choose how you\'ll fight. '
+        + '(You can still train every skill either way, and switch styles later by finding new gear.)</div>';
+      const opts = document.createElement('div');
+      opts.className = 'dialogue-options';
+      for (const p of paths) {
+        const div = document.createElement('div');
+        div.className = 'dialogue-option';
+        div.innerHTML = `<span class="row-ic">${itemIconSVG(p.icon, 26)}</span> <b>${p.name}</b> &mdash; ${p.blurb}`;
+        div.addEventListener('click', () => {
+          this.game.chooseStartingStyle(p.id);
+          if (this.modal) this.modal.locked = false; // a choice has been made — safe to close now
+          this.closeModal();
+        });
+        opts.appendChild(div);
+      }
+      body.appendChild(opts);
+    };
+    this.openModal('Choose Your Path', render);
+    this.modal.locked = true;
+    if (this.el.modalClose) this.el.modalClose.classList.add('hidden');
+  }
+
   closeModal() {
+    if (this.modal?.locked) return; // e.g. the starting-style choice — must pick one
     this.modal = null;
     this.el.modalOverlay.classList.add('hidden');
     this.el.modalBody.innerHTML = '';
+    if (this.el.modalClose) this.el.modalClose.classList.remove('hidden');
   }
 
   _refreshModalIfOpen(types) {
