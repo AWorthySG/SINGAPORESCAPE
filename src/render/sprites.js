@@ -1463,44 +1463,48 @@ function bank(ctx, cx, cy) {
 
 // The "A Worthy" logo as a town monument: a blue archway with a plus, on a stone plinth.
 function shrine(ctx, cx, cy, time) {
-  // The A-Worthy Monument is a landmark — render it large.
+  // The Worthy Monument is a landmark — render it large.
   ctx.save();
   ctx.translate(cx, cy);
   ctx.scale(1.85, 1.85);
   shrineBody(ctx, 0, 0, time);
-  // Embed the genuine A Worthy logo as a floating, glowing emblem above the arch.
+  // Embed the genuine Worthy logo as a floating, glowing emblem above the arch.
   const bob = Math.sin(time * 0.0022) * 1.2;
-  glow(ctx, 0, -30 + bob, 13, 'rgba(70,130,200,0.28)');
+  glow(ctx, 0, -30 + bob, 13, 'rgba(200,206,214,0.30)');
   drawLogo(ctx, 'logo', -7, -41 + bob, 14, 21);
   ctx.restore();
 }
 function shrineBody(ctx, cx, cy, time) {
   drawShadow(ctx, cx, cy + 13, 16, 5);
-  const blue = '#2b5c91', dark = '#21466e';
-  // soft worthy-blue aura
-  glow(ctx, cx, cy - 6, 26, 'rgba(70,130,200,0.20)');
+  const ink = '#3f4650', inkDk = '#2c3138';
+  // soft ambient aura, in the mark's own cool slate tone
+  glow(ctx, cx, cy - 6, 26, 'rgba(180,190,200,0.22)');
   // stone plinth
   ctx.fillStyle = '#8a8378'; rr(ctx, cx - 13, cy + 6, 26, 9, 2); ctx.fill(); line(ctx, 'rgba(40,36,30,0.5)', 1.5);
   ctx.fillStyle = '#9a948a'; rr(ctx, cx - 10, cy + 3, 20, 4, 2); ctx.fill();
-  // archway (logo mark)
+  // archway (the Worthy mark: two rounded legs joined by a dome)
   const arch = () => {
     ctx.beginPath();
-    ctx.moveTo(cx - 9, cy + 4); ctx.lineTo(cx - 9, cy - 8);
-    ctx.quadraticCurveTo(cx - 9, cy - 21, cx, cy - 21);
-    ctx.quadraticCurveTo(cx + 9, cy - 21, cx + 9, cy - 8);
-    ctx.lineTo(cx + 9, cy + 4);
+    ctx.moveTo(cx - 8, cy + 4); ctx.lineTo(cx - 8, cy - 8);
+    ctx.quadraticCurveTo(cx - 8, cy - 20, cx, cy - 20);
+    ctx.quadraticCurveTo(cx + 8, cy - 20, cx + 8, cy - 8);
+    ctx.lineTo(cx + 8, cy + 4);
   };
   ctx.lineCap = 'round';
-  ctx.strokeStyle = dark; ctx.lineWidth = 9; arch(); ctx.stroke();
-  ctx.strokeStyle = blue; ctx.lineWidth = 6; arch(); ctx.stroke();
+  ctx.strokeStyle = inkDk; ctx.lineWidth = 9; arch(); ctx.stroke();
+  ctx.strokeStyle = ink; ctx.lineWidth = 6.4; arch(); ctx.stroke();
   ctx.lineCap = 'butt';
-  // plus inside the arch
-  ctx.fillStyle = blue;
-  rr(ctx, cx - 5, cy - 13, 10, 3, 1); ctx.fill();
-  rr(ctx, cx - 1.5, cy - 17, 3, 11, 1); ctx.fill();
+  // circle badge + plus at the crown, and a subtle crease beneath it
+  ctx.fillStyle = ink; circle(ctx, cx, cy - 18, 6.3); ctx.fill();
+  ctx.strokeStyle = inkDk; ctx.lineWidth = 0.8; ctx.globalAlpha = 0.55;
+  ctx.beginPath(); ctx.moveTo(cx - 4.5, cy - 13); ctx.quadraticCurveTo(cx, cy - 9.5, cx + 4.5, cy - 13); ctx.stroke();
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = '#f5f6f7';
+  rr(ctx, cx - 3.2, cy - 19.3, 6.4, 2.4, 1); ctx.fill();
+  rr(ctx, cx - 1.2, cy - 21.3, 2.4, 6.4, 1); ctx.fill();
   // glint
-  ctx.fillStyle = 'rgba(255,255,255,0.45)';
-  circle(ctx, cx - 6, cy - 14, 1); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  circle(ctx, cx - 3.5, cy - 20.5, 1); ctx.fill();
 }
 
 // Hyco Education obelisk — a navy standee with the silver ring + orange dot mark.
