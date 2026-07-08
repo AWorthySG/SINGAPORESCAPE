@@ -404,6 +404,13 @@ export class Game {
     }
     // Only tick NPCs near the player (the bestiary is large).
     const px = this.player.x, py = this.player.y;
+    // Cached so every aggressive NPC's _combatAI can cheaply see how many
+    // wandering monsters already have unprovoked aggro this tick, instead of
+    // each one re-scanning the whole NPC list (avoids O(n^2) in dense areas).
+    this._aggroAttackers = 0;
+    for (const n of this.npcs) {
+      if (n.alive && !n.temporary && n.target === this.player) this._aggroAttackers++;
+    }
     for (const n of this.npcs) {
       if (Math.abs(n.x - px) > 46 || Math.abs(n.y - py) > 46) continue;
       n.tick(this);
