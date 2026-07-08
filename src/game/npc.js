@@ -2,7 +2,7 @@ import { Character } from './character.js';
 import { getNpc } from '../data/npcs.js';
 import { findPath } from '../engine/pathfinding.js';
 import { chebyshev, randInt, uid } from '../core/utils.js';
-import { AGGRO_FORGET_TILES } from '../config.js';
+import { AGGRO_FORGET_TILES, MAX_AGGRO_ATTACKERS } from '../config.js';
 
 // Build a per-instance def from the shared registry entry plus spawn overrides.
 // Supported opts: { aggressive:false } pacifies a mob; { statMul:n } scales its
@@ -91,14 +91,18 @@ export class NPC extends Character {
 
   _combatAI(game) {
     const player = game.player;
-    // Acquire a target through aggression.
+    // Acquire a target through aggression. Capped so a pack of wandering
+    // monsters can't all pile onto the player unprovoked at once — temporary
+    // boss "adds" are exempt since ganging up is their whole point.
     if (!this.target && this.def.aggressive && player.alive) {
       const range = this.def.aggroRange || 4;
       const distToPlayer = chebyshev(this.x, this.y, player.x, player.y);
       const distToSpawn = chebyshev(this.x, this.y, this.spawnX, this.spawnY);
       const tooStrong = game.skills.combatLevel() > this.def.level * 2 + 1;
-      if (distToPlayer <= range && distToSpawn <= this.wander + range && !tooStrong) {
+      const atCap = !this.temporary && (game._aggroAttackers || 0) >= MAX_AGGRO_ATTACKERS;
+      if (distToPlayer <= range && distToSpawn <= this.wander + range && !tooStrong && !atCap) {
         this.target = player;
+        if (!this.temporary) game._aggroAttackers = (game._aggroAttackers || 0) + 1;
       }
     }
 

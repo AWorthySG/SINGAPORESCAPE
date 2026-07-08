@@ -12,6 +12,13 @@ export const GROUND_ITEM_LIFETIME_TICKS = 300; // ~3 minutes
 export const ATTACK_RANGE = 1;     // melee adjacency
 export const AGGRO_FORGET_TILES = 12;
 
+// How many wandering monsters may unprovoked-aggro the player at once. Keeps
+// packs of aggressive mobs from all piling on together; a monster the player
+// deliberately attacks always retaliates regardless of this cap. Boss "add"
+// summons (temporary NPCs) are a deliberate multi-attacker mechanic and are
+// exempt in both directions.
+export const MAX_AGGRO_ATTACKERS = 1;
+
 export const SAVE_KEY = 'singaporescape:save:v1';
 export const AUTOSAVE_TICKS = 50;  // autosave every ~30s
 

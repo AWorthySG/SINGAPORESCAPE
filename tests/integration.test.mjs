@@ -1006,6 +1006,75 @@ test('no boss anywhere on the island is aggressive', () => {
   assert.equal(agg.length, 0, `every boss must wait for the player to attack first: ${agg.map((n) => n.npcId).join(', ')}`);
 });
 
+test('aggressive monsters take turns aggroing the player instead of swarming', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const { NPC } = await import('../src/game/npc.js');
+  const game = new Game();
+  game.start();
+
+  // Isolate from the world's own NPCs so only these three compete for the aggro slot.
+  const px = game.player.x, py = game.player.y;
+  const mobs = [
+    new NPC('forest_drake', px + 3, py, 0),
+    new NPC('forest_drake', px - 3, py, 0),
+    new NPC('forest_drake', px, py + 3, 0),
+  ];
+  game.npcs = mobs.slice();
+
+  step(game, 1);
+  let aggroed = mobs.filter((m) => m.target === game.player);
+  assert.equal(aggroed.length, 1, `only one wandering monster should unprovoked-aggro at once, got ${aggroed.length}`);
+
+  // Once the attacker is gone, a waiting monster gets its turn.
+  aggroed[0].alive = false;
+  step(game, 1);
+  aggroed = mobs.filter((m) => m.alive && m.target === game.player);
+  assert.equal(aggroed.length, 1, 'once the cap frees up, exactly one more monster can aggro');
+});
+
+test('a monster the player directly attacks always retaliates, even while the aggro cap is full', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const { NPC } = await import('../src/game/npc.js');
+  const game = new Game();
+  game.start();
+
+  const px = game.player.x, py = game.player.y;
+  const attacker = new NPC('forest_drake', px + 3, py, 0);
+  const bystander = new NPC('forest_drake', px - 3, py, 0);
+  game.npcs = [attacker, bystander];
+
+  step(game, 1);
+  assert.equal(attacker.target, game.player, 'the first eligible monster takes the unprovoked-aggro slot');
+  assert.notEqual(bystander.target, game.player, 'a second wandering monster holds back while the cap is full');
+
+  game._postAttack(bystander);
+  assert.equal(bystander.target, game.player, 'a monster the player directly attacks retaliates regardless of the aggro cap');
+});
+
+test('boss "summon" adds are exempt from the aggro cap so the encounter mechanic still works', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+
+  const boss = game.npcs.find((n) => n.def.mechanic === 'summon');
+  assert.ok(boss, 'a boss with the summon mechanic exists');
+  boss.target = game.player; // simulate the player already fighting this boss (fills the cap)
+  boss.x = game.player.x - 1; boss.y = game.player.y;
+
+  game.bossSpecial(boss);
+  const adds = game.npcs.filter((n) => n.temporary && n.alive);
+  assert.ok(adds.length >= 1, 'the boss summons at least one add regardless of the aggro cap');
+
+  const px = game.player.x, py = game.player.y;
+  for (const add of adds) { add.x = px + (add.x > px ? 1 : -1); add.y = py; add.spawnX = add.x; add.spawnY = add.y; }
+  game._aggroAttackers = 999; // pretend the cap is already saturated
+  for (const add of adds) add._combatAI(game);
+  assert.ok(adds.every((a) => a.target === game.player), 'summoned adds always join the fight, cap or not');
+});
+
 test('fishing: new spot types, tool gating, and freshwater/sea catches', async () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
