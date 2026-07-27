@@ -143,6 +143,12 @@ export function buildWorld() {
   placeNpc('light_priestess', 60, 49); // by the Monument — the path of redemption
   placeNpc('shadow_broker', 48, 47);   // lurking near the bank — the path of corruption
   placeNpc('villager', 60, 54, 3);
+  // A few little chickens right at spawn: harmless, killable, and they waddle
+  // up to the player on their own, clucking the whole way.
+  const CHATTY_CHICKEN = { statMul: 0.5, aggressive: true, ignoreLevelGate: true, chatter: ['Cluck cluck!', 'Bawk bawk!', 'Cluck!'] };
+  placeNpc('chicken', 59, 57, 3, CHATTY_CHICKEN);
+  placeNpc('chicken', 61, 58, 3, CHATTY_CHICKEN);
+  placeNpc('chicken', 58, 60, 3, CHATTY_CHICKEN);
   placeObj('lamp', 46, 46); placeObj('lamp', 70, 46); placeObj('lamp', 46, 64); placeObj('lamp', 70, 64);
   placeObj('flower', 54, 47); placeObj('flower', 62, 47); placeObj('bush', 48, 51); placeObj('bush', 68, 60);
   placeObj('agility_course', 66, 62); // beginner Agility spot in town

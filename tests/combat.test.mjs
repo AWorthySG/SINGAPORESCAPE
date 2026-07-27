@@ -103,6 +103,7 @@ test('ability cooldowns tick down and adrenaline decays out of combat', () => {
   g.adrenaline = 60;
   g.player.clearAction();
   for (const n of g.npcs) n.target = null; // ensure out of combat
+  g.player.x = g.player.tx = 85; g.player.y = g.player.ty = 55; // Chinatown: clear of the spawn-area chickens
   for (let i = 0; i < 3; i++) g.update(600);
   assert.ok(g.abilityCd.brace < cd0, 'cooldown ticked down');
   assert.ok(g.adrenaline < 60, 'adrenaline ebbs away when not fighting');
