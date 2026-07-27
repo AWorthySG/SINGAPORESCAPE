@@ -610,10 +610,21 @@ export class Renderer {
       if (!n.alive) continue;
       const boss = n.def.boss;
       const targeted = n === game.player.target;
-      if (!boss && n.combatLatch <= 0 && n.telegraph <= 0 && !targeted) continue;
+      if (!boss && n.combatLatch <= 0 && n.telegraph <= 0 && !targeted && n.chatTimer <= 0) continue;
       const c = n.renderCenter();
       const sc = n.def.scale || 1;
       const yo = -(20 * sc) - 6;
+      if (n.chatTimer > 0 && n.chatText) {
+        const px = c.x - ox, py = c.y - oy + yo - 14;
+        ctx.font = 'bold 10px "Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+        const wpx = ctx.measureText(n.chatText).width + 10;
+        ctx.fillStyle = 'rgba(255,255,255,0.92)';
+        if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(px - wpx / 2, py - 12, wpx, 15, 6); ctx.fill(); }
+        else ctx.fillRect(px - wpx / 2, py - 12, wpx, 15);
+        ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 1;
+        if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(px - wpx / 2, py - 12, wpx, 15, 6); ctx.stroke(); }
+        ctx.fillStyle = '#2a2620'; ctx.fillText(n.chatText, px, py - 1);
+      }
       if (boss || n.combatLatch > 0 || targeted) this._healthBar(c.x - ox, c.y - oy + yo, n.hp / n.maxHp, boss);
       if (targeted) {
         const px = c.x - ox, py = c.y - oy + yo + 12;

@@ -711,6 +711,58 @@ test('starter-area monsters are tamed and weaker for onboarding', async () => {
   assert.ok(tame.def.defence < wild.def.defence, 'tamed spawn is easier to hit');
 });
 
+test('little chickens at the starting town waddle up to the player and cluck', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+
+  const chattyChickens = game.world.npcSpawns.filter((s) => s.npcId === 'chicken' && s.opts?.chatter);
+  assert.ok(chattyChickens.length >= 3, 'a little flock of chatty chickens is placed in the starting town');
+  for (const s of chattyChickens) {
+    assert.equal(s.opts.aggressive, true, 'a starting chicken walks up to the player on its own');
+    assert.ok(s.opts.ignoreLevelGate, "a chicken doesn't hold back just because the player outlevels it");
+  }
+
+  const chicken = game.npcs.find((n) => n.npcId === 'chicken' && n.chatter);
+  assert.ok(chicken, 'a chatty chicken instance exists in the live world');
+  assert.ok(chicken.attackable, 'chickens can still be fought and killed');
+
+  // Even a high-level player (chickens are normally "too weak to bother" past
+  // combat level ~3) still gets approached by a chatty starter chicken.
+  game.skills.addXp('attack', 5_000_000);
+  game.skills.addXp('strength', 5_000_000);
+  game.skills.addXp('defence', 5_000_000);
+  assert.ok(game.skills.combatLevel() > chicken.def.level * 2 + 1, 'player is well past the normal aggro cutoff');
+  chicken.x = game.player.x + 2; chicken.y = game.player.y;
+  chicken.spawnX = chicken.x; chicken.spawnY = chicken.y;
+  step(game, 1);
+  assert.equal(chicken.target, game.player, 'the chicken aggros anyway');
+});
+
+test('a chatty NPC keeps cycling its speech bubble on a cooldown', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const { NPC } = await import('../src/game/npc.js');
+  const game = new Game();
+  game.start();
+
+  const chatterer = new NPC('chicken', 5, 5, 0, { chatter: ['Cluck cluck!'] });
+  const quiet = new NPC('chicken', 6, 5, 0);
+  game.npcs = [chatterer, quiet];
+
+  let sawText = false;
+  for (let i = 0; i < 20 && !sawText; i++) {
+    chatterer.tick(game);
+    if (chatterer.chatTimer > 0) sawText = true;
+  }
+  assert.ok(sawText, 'a chatty NPC eventually pops a speech bubble');
+  assert.equal(chatterer.chatText, 'Cluck cluck!');
+
+  for (let i = 0; i < 20; i++) quiet.tick(game);
+  assert.equal(quiet.chatTimer, 0, 'an NPC with no chatter never shows a bubble');
+});
+
 test('the advanced "Master of Trades" course is gated behind the basics, then rewards the Trades cape', async () => {
   globalThis.localStorage = fakeStorage();
   clearSave();

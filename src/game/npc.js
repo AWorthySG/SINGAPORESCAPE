@@ -5,11 +5,16 @@ import { chebyshev, randInt, uid } from '../core/utils.js';
 import { AGGRO_FORGET_TILES, MAX_AGGRO_ATTACKERS } from '../config.js';
 
 // Build a per-instance def from the shared registry entry plus spawn overrides.
-// Supported opts: { aggressive:false } pacifies a mob; { statMul:n } scales its
-// combat stats (hp/attack/strength/defence/maxHit) for easier or harder spawns.
+// Supported opts: { aggressive:false } pacifies a mob, { aggressive:true } makes
+// one approach unprompted; { statMul:n } scales its combat stats (hp/attack/
+// strength/defence/maxHit) for easier or harder spawns; { chatter:[...] } gives
+// it a random line to pop into a speech bubble every so often; { ignoreLevelGate:true }
+// keeps it aggroing even against a player who's normally "too strong" for it to bother.
 function applySpawnOpts(base, opts) {
   const def = { ...base };
   if (opts.aggressive === false) { def.aggressive = false; def.aggroRange = 0; }
+  else if (opts.aggressive === true) { def.aggressive = true; def.aggroRange = base.aggroRange || 4; }
+  if (opts.ignoreLevelGate) def.ignoreLevelGate = true;
   if (opts.statMul && opts.statMul > 0) {
     const m = opts.statMul;
     def.maxHp = Math.max(2, Math.round((base.maxHp || 1) * m));
@@ -18,6 +23,7 @@ function applySpawnOpts(base, opts) {
     def.defence = Math.max(1, Math.round((base.defence || 1) * m));
     def.maxHit = Math.max(1, Math.round((base.maxHit || 1) * m));
   }
+  if (opts.chatter) def.chatter = opts.chatter;
   return def;
 }
 
@@ -55,6 +61,11 @@ export class NPC extends Character {
     this.heavyCount = 0;
     this.windup = 0;              // 1 while a heavy blow is charging
     this.telegraph = 0;          // ticks the "!" warning is shown
+
+    this.chatter = this.def.chatter || null;
+    this.chatText = '';
+    this.chatTimer = 0;           // ticks left showing the current chatter line
+    this.chatCooldown = randInt(2, 6); // staggered so a flock doesn't cluck in unison
   }
 
   get attackable() { return !!this.def.attackable && this.alive; }
@@ -81,6 +92,14 @@ export class NPC extends Character {
     if (this.combatLatch > 0) this.combatLatch--;
     if (this.specialCooldown > 0) this.specialCooldown--;
     if (this.telegraph > 0) this.telegraph--;
+    if (this.chatter) {
+      if (this.chatTimer > 0) this.chatTimer--;
+      else if (--this.chatCooldown <= 0) {
+        this.chatText = this.chatter[randInt(0, this.chatter.length - 1)];
+        this.chatTimer = 2;                 // ~1.2s on screen
+        this.chatCooldown = randInt(4, 9);  // ~2.4-5.4s until the next line
+      }
+    }
 
     if (this.def.attackable) {
       this._combatAI(game);
@@ -98,7 +117,7 @@ export class NPC extends Character {
       const range = this.def.aggroRange || 4;
       const distToPlayer = chebyshev(this.x, this.y, player.x, player.y);
       const distToSpawn = chebyshev(this.x, this.y, this.spawnX, this.spawnY);
-      const tooStrong = game.skills.combatLevel() > this.def.level * 2 + 1;
+      const tooStrong = !this.def.ignoreLevelGate && game.skills.combatLevel() > this.def.level * 2 + 1;
       const atCap = !this.temporary && (game._aggroAttackers || 0) >= MAX_AGGRO_ATTACKERS;
       if (distToPlayer <= range && distToSpawn <= this.wander + range && !tooStrong && !atCap) {
         this.target = player;
@@ -208,5 +227,9 @@ export class NPC extends Character {
     this.windup = 0;
     this.telegraph = 0;
     this.heavyCount = 0;
+    this.chatter = this.def.chatter || null;
+    this.chatText = '';
+    this.chatTimer = 0;
+    this.chatCooldown = randInt(2, 6);
   }
 }
