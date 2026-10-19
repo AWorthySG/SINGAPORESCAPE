@@ -1,6 +1,7 @@
 // Global tuning constants.
 export const TILE = 32;            // pixel size of one world tile
 export const TICK_MS = 600;        // RuneScape game tick (0.6s)
+export const COMBAT_BEAT_MS = 300; // player attack clock: weapon speeds count these beats
 export const WALK_TICKS_PER_TILE = 1;  // tiles per tick walking
 export const RUN_TICKS_PER_TILE = 2;   // tiles per tick running (2x)
 

@@ -80,8 +80,9 @@ export class Equipment {
   weaponSpeed() {
     const id = this.slots.weapon;
     const base = (id && getItem(id).equip?.bonuses?.speed) || DEFAULT_WEAPON_SPEED;
-    // Fast-paced combat: shorten every weapon's interval by 3 ticks, down to a
-    // floor of 1 tick (0.6s), so quick weapons swing every single tick.
+    // Fast-paced combat: intervals are in 300ms combat beats (see
+    // COMBAT_BEAT_MS), shortened by 3, down to a floor of 1 beat, so quick
+    // weapons swing every 0.3s.
     return Math.max(1, base - 3);
   }
 
