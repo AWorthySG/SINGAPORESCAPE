@@ -45,6 +45,8 @@ input.onKey((e) => {
     game.toggleSpec();
   } else if (ABILITY_KEYS.has(e.key?.toLowerCase())) {
     game.activateAbilityKey(e.key);
+  } else if (e.key === 't' || e.key === 'T') {
+    game.toggleAutoBattle();
   } else if (e.key === 'm' || e.key === 'M') {
     ui.openWorldMap();
   } else if (e.key === 'Escape') {
