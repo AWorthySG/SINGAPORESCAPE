@@ -137,6 +137,8 @@ export class Game {
     // Active-combat layer: adrenaline fuels abilities; brace mitigates heavy hits.
     this.adrenaline = 0;
     this.armedAbility = null;     // ability armed for the next attack
+    this.moveInput = { x: 0, y: 0 }; // joystick / WASD vector, -1..1 on each axis
+    this._driving = false;
     this.abilityCd = {};          // ability id -> ticks until usable again
     this.braceTicks = 0;          // ticks of halved incoming damage left
 
@@ -302,6 +304,7 @@ export class Game {
 
   // ---------------- Frame update (called from RAF) ----------------
   update(dt) {
+    this._driveMovement();
     this.player.update(dt);
     for (const n of this.npcs) n.update(dt);
     this.playMs += dt;
@@ -1396,6 +1399,40 @@ export class Game {
     return true;
   }
 
+  /** Joystick / WASD: the held direction as an analogue vector (screen axes). */
+  setMoveInput(x, y) {
+    this.moveInput.x = x || 0;
+    this.moveInput.y = y || 0;
+  }
+
+  // While a direction is held, keep exactly one step queued ahead so walking
+  // is continuous and turns take effect on the next tile. Steering cancels
+  // whatever the player was doing (skilling, fighting, a clicked route).
+  _driveMovement() {
+    const p = this.player, v = this.moveInput;
+    const held = Math.hypot(v.x, v.y) >= 0.3;
+    if (!held || !p.alive) { this._driving = false; return; }
+    if (this.playerStun > 0) return;
+    if (!this._driving) {
+      this._driving = true;
+      if (p.action) p.clearAction();
+      p.path = [];           // drop any clicked route; the current step finishes
+    }
+    if (p.path.length) return;  // the next tile is already queued
+    const oct = Math.round(Math.atan2(v.y, v.x) / (Math.PI / 4)) & 7;
+    const [dx, dy] = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]][oct];
+    const from = this.playerTile();
+    const free = (x, y) => this.world.inBounds(x, y) && !this.world.isBlocked(x, y);
+    const tries = dx && dy ? [[dx, dy], [dx, 0], [0, dy]] : [[dx, dy]];
+    for (const [sx, sy] of tries) {
+      const nx = from.x + sx, ny = from.y + sy;
+      // Diagonals may not cut a blocked corner (same rule as pathfinding).
+      if (sx && sy && (!free(from.x + sx, from.y) || !free(from.x, from.y + sy))) continue;
+      if (free(nx, ny)) { p.setPath([{ x: nx, y: ny }], this.canRun()); return; }
+    }
+    if (!p.moving) p.facing = { dx, dy };   // blocked: at least turn to face it
+  }
+
   walkTo(tile) {
     if (!this.world.inBounds(tile.x, tile.y)) return;
     const start = this.playerTile();
@@ -1979,13 +2016,13 @@ export class Game {
     if (gi) { this.hover = null; this.ui.setHoverText('Take', getItem(gi.id).name); return; }
     const obj = this.world.objectAt(tile.x, tile.y);
     if (obj && obj.def.verb) {
-      if (obj.def.type === 'tree' && obj.depleted) { this.hover = null; this.ui.setHoverText('Walk here', ''); return; }
+      if (obj.def.type === 'tree' && obj.depleted) { this.hover = null; this.ui.setHoverText(''); return; }
       this.hover = { obj };
       this.ui.setHoverText(obj.def.verb, obj.def.name);
       return;
     }
     this.hover = null;
-    this.ui.setHoverText('Walk here', '');
+    this.ui.setHoverText('');
   }
 
   // ---------------- Input entrypoints ----------------
@@ -1999,7 +2036,7 @@ export class Game {
     if (gi) { this.pickup(gi); return; }
     const obj = this.world.objectAt(tile.x, tile.y);
     if (obj && obj.def.verb && !(obj.def.type === 'tree' && obj.depleted)) { this.defaultObjectAction(obj); return; }
-    this.walkTo(tile);
+    // Clicking bare ground no longer walks: moving is the joystick / WASD's job.
   }
 
   onRightClick(sx, sy) {

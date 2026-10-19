@@ -579,7 +579,7 @@ export class UI {
     }, true);
     const hint = document.createElement('div');
     hint.className = 'hint';
-    hint.innerHTML = 'Left-click to walk & interact. Right-click for more options.<br>' +
+    hint.innerHTML = 'Move: joystick or W A S D / arrow keys. Click things to interact; right-click for more options.<br>' +
       'Click trees to chop, rocks to mine, water to fish, monsters to fight.<br>' +
       'In combat, build <b>Adrenaline</b> and spend it on abilities (Z/X/C/V): ' +
       'Power Strike, Flurry, Brace and Second Wind. Hit each foe\'s <b>weakness</b> ' +
