@@ -587,7 +587,13 @@
   );
   // A-Worthy mascot artwork, where it exists, replaces the stickered vectors.
   // Items with A-Worthy mascot-sticker artwork (assets/icons/item-<id>.webp).
-  const ITEM_ART = new Set(['coins', 'bronze_axe', 'bronze_pickaxe', 'small_net', 'tinderbox', 'hammer', 'logs', 'oak_logs']);
+  const ITEM_ART = new Set([
+    'coins', 'bronze_axe', 'bronze_pickaxe', 'small_net', 'tinderbox', 'hammer',
+    'logs', 'oak_logs', 'willow_logs',
+    'copper_ore', 'tin_ore', 'iron_ore', 'coal', 'bronze_bar', 'iron_bar',
+    'raw_trout', 'raw_sardine', 'raw_mackerel', 'chicken_rice', 'roti_prata',
+    'bronze_dagger', 'bronze_sword', 'bronze_scimitar',
+  ]);
   export const itemArtSrc = (id) => (ITEM_ART.has(id) ? `assets/icons/item-${id}.webp` : null);
   const artImg = (file, size, cls) => `<img class="${cls || ''}" width="${size}" height="${size}" src="assets/icons/${file}.webp" alt="" style="display:block;object-fit:contain" />`;
   const SKILL_ART = new Set(['attack', 'strength', 'defence', 'hitpoints', 'ranged', 'magic', 'prayer', 'slayer',
