@@ -20,7 +20,7 @@ import { EQUIP_SLOTS } from '../game/equipment.js';
 import { TILE } from '../config.js';
 import { TERRAIN } from '../data/world.js';
 import { clearSave } from '../game/save.js';
-import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG } from '../render/icons.js';
+import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG, abilityIconHTML } from '../render/icons.js';
 import { weaknessOf } from '../game/combat.js';
 
 const EQUIP_LAYOUT = [
@@ -182,7 +182,7 @@ export class UI {
       btn.title = `${ab.name} (${ab.key}) — ${ab.cost}% adrenaline\n${ab.desc}`;
       btn.innerHTML =
         `<span class="ab-key">${ab.key}</span>` +
-        `<span class="ab-icon">${ab.icon}</span>` +
+        `<span class="ab-icon">${abilityIconHTML(ab.id, 36)}</span>` +
         `<span class="ab-cost">${ab.cost}</span>` +
         `<span class="ab-cd"></span>`;
       btn.addEventListener('click', () => this.game.activateAbility(ab.id));
@@ -476,7 +476,7 @@ export class UI {
       const cell = document.createElement('div');
       cell.className = 'skill-cell';
       cell.innerHTML =
-        `<span class="skill-icon">${skillIconSVG(sk.id, 20)}</span>` +
+        `<span class="skill-icon">${skillIconSVG(sk.id, 26)}</span>` +
         `<span class="skill-lvl"><span class="cur">${lvl}</span></span>` +
         `<div class="xp-bar" style="width:${Math.round(levelProgress(xp) * 100)}%"></div>`;
       const toNext = xpToNext(xp);
@@ -794,7 +794,7 @@ export class UI {
     const sk = SKILLS.find((s) => s.id === skill);
     const div = document.createElement('div');
     div.className = 'xp-drop';
-    div.innerHTML = `<span class="xp-ic">${skillIconSVG(skill, 16)}</span><span>+${Math.round(amount)}</span>`;
+    div.innerHTML = `<span class="xp-ic">${skillIconSVG(skill, 20)}</span><span>+${Math.round(amount)}</span>`;
     this.el.xpDrops.appendChild(div);
     setTimeout(() => div.remove(), 2300);
   }
