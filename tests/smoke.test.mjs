@@ -210,8 +210,8 @@ test('every equippable item has its own custom icon', () => {
 test('painted PNG sprites render as stickered images, the rest stay inline vectors', () => {
   // Items shipped as hand-drawn artwork point at assets/items/<id>.png, placed
   // inside the shared A-Worthy sticker filter.
-  const png = itemIconSVG('willow_logs', 32);
-  assert.ok(png.includes('<image') && png.includes('assets/items/willow_logs.png'), 'willow log sprite uses its PNG');
+  const png = itemIconSVG('yew_logs', 32);
+  assert.ok(png.includes('<image') && png.includes('assets/items/yew_logs.png'), 'yew log sprite uses its PNG');
   // Items with A-Worthy mascot-sticker artwork use that instead.
   assert.ok(itemIconSVG('logs', 32).includes('assets/icons/item-logs.webp'), 'logs use the sticker artwork');
   assert.ok(png.includes('aw-sticker'), 'and gets the sticker border');
