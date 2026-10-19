@@ -586,7 +586,7 @@
   );
   // A-Worthy mascot artwork, where it exists, replaces the stickered vectors.
   const artImg = (file, size, cls) => `<img class="${cls || ''}" width="${size}" height="${size}" src="assets/icons/${file}.webp" alt="" style="display:block;object-fit:contain" />`;
-  const SKILL_ART = new Set(['attack', 'strength', 'defence', 'hitpoints', 'ranged', 'magic', 'prayer']);
+  const SKILL_ART = new Set(['attack', 'strength', 'defence', 'hitpoints', 'ranged', 'magic', 'prayer', 'cooking']);
   export const skillIconSVG = (id, size = 20, cls) => (SKILL_ART.has(id) ? artImg(`skill-${id}`, size, cls) : svg(S[id] || S.attack, size, cls));
   /** Combat-skill (action bar) icon: every ability has mascot artwork. */
   export const abilityIconHTML = (id, size = 34, cls) => artImg(`ability-${id}`, size, cls);
