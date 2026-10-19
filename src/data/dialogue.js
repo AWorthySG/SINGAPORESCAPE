@@ -116,7 +116,7 @@ export const DIALOGUES = {
     },
     help: {
       speaker: 'Kampong Guide',
-      text: 'Left-click to walk and to do the main action. Right-click for more options. Click a tree to chop, a rock to mine, the water to fish, and monsters to fight. Bank your loot at the bank booth!',
+      text: 'Move with the joystick, or W A S D and the arrow keys. Tap or left-click things to do the main action. Right-click for more options. Click a tree to chop, a rock to mine, the water to fish, and monsters to fight. Bank your loot at the bank booth!',
       options: [{ label: 'Got it.', next: 'start' }],
     },
   },

@@ -1175,3 +1175,37 @@ button:focus-visible, .tab-btn:focus-visible, .chat-tab:focus-visible,
 }
 #splash-enter:hover { background: #A93226; }
 .splash-controls { color: var(--aw-text-sec); opacity: 1; font-weight: 600; }
+
+/* ---------- Movement joystick (touch + mouse; WASD/arrow keys too) ---------- */
+#joystick {
+  position: absolute; left: 18px; bottom: 192px; z-index: 26;
+  width: 124px; height: 124px; border-radius: 50%;
+  background: var(--aw-card) radial-gradient(circle at 1px 1px, rgba(70,50,20,0.05) 1px, transparent 0) 0 0 / 14px 14px;
+  border: 2px solid var(--aw-ink); box-shadow: var(--shadow-sticker);
+  touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab;
+  opacity: 0.92;
+}
+#joystick::before {          /* faint direction ring */
+  content: ""; position: absolute; inset: 16px; border-radius: 50%;
+  border: 2px dashed var(--aw-ink-faint); pointer-events: none;
+}
+#joystick.active { cursor: grabbing; opacity: 1; }
+#joystick-knob {
+  position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--aw-accent); border: 2px solid var(--aw-ink); box-shadow: var(--shadow-primary);
+  pointer-events: none; transition: transform .12s cubic-bezier(0.22, 1, 0.36, 1);
+}
+#joystick.active #joystick-knob { transition: none; box-shadow: 0 2px 0 #962D22; }
+@media (max-width: 760px) {
+  #joystick { left: 14px; bottom: 84px; width: 116px; height: 116px; }
+  #joystick-knob { width: 50px; height: 50px; }
+  #chatbox { bottom: 212px; }
+}
+@media (max-width: 540px) {
+  #joystick { left: 10px; bottom: 74px; width: 104px; height: 104px; }
+  #joystick-knob { width: 44px; height: 44px; }
+  #chatbox { bottom: 188px; height: 132px; }
+  #chat-tabs { padding: 4px; gap: 3px; }
+  .chat-tab { padding: 3px; font-size: 11px; }
+}

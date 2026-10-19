@@ -781,6 +781,31 @@ test('weapon-specific skills: a bow swaps in Snapshot, which looses three arrows
   assert.equal(game.currentAbilities()[0].id, 'power_strike');
 });
 
+test('joystick / WASD movement walks tile by tile, and bare-ground clicks no longer walk', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.npcs = game.npcs.filter((n) => !n.def.attackable); // no interruptions
+  const p = game.player;
+  const x0 = p.x, y0 = p.y;
+  game.setMoveInput(1, 0);              // hold right
+  for (let i = 0; i < 40; i++) game.update(100);   // 4s of walking at 1 tile / 600ms
+  game.setMoveInput(0, 0);
+  for (let i = 0; i < 10; i++) game.update(100);
+  assert.ok(p.x >= x0 + 5 && p.x <= x0 + 8, `walked right (${x0} -> ${p.x})`);
+  assert.equal(p.y, y0, 'stayed on the same row');
+  const xs = p.x;
+  for (let i = 0; i < 20; i++) game.update(100);
+  assert.equal(p.x, xs, 'stops once the stick is released');
+  // Clicking empty ground does nothing now.
+  const tile = { x: p.x, y: p.y + 2 };
+  game.camera.screenToTile = () => tile;
+  game.onLeftClick(0, 0);
+  for (let i = 0; i < 20; i++) game.update(100);
+  assert.equal(p.y, y0, 'a ground click no longer walks');
+});
+
 test('a chatty NPC keeps cycling its speech bubble on a cooldown', async () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
