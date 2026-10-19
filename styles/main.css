@@ -1209,3 +1209,21 @@ button:focus-visible, .tab-btn:focus-visible, .chat-tab:focus-visible,
   #chat-tabs { padding: 4px; gap: 3px; }
   .chat-tab { padding: 3px; font-size: 11px; }
 }
+
+/* ---------- Auto battle toggle (above the adrenaline bar) ---------- */
+#auto-battle-btn {
+  pointer-events: auto; cursor: pointer;
+  font-family: inherit; font-size: 12px; font-weight: 800;
+  padding: 4px 14px; border-radius: 999px;
+  background: var(--aw-card); color: var(--aw-text);
+  border: 2px solid var(--aw-ink); box-shadow: var(--shadow-sticker-sm);
+  transition: transform .07s ease, box-shadow .07s ease, background .12s ease;
+}
+#auto-battle-btn:hover { background: var(--aw-hover); }
+#auto-battle-btn:active { transform: translateY(3px); box-shadow: none; }
+#auto-battle-btn.active { background: var(--aw-accent); color: #fff; box-shadow: var(--shadow-primary); }
+#auto-battle-btn.active::before {
+  content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%;
+  background: var(--aw-sun); box-shadow: 0 0 0 2px var(--aw-ink); vertical-align: 1px;
+}
+@media (max-width: 540px) { #auto-battle-btn { font-size: 11px; padding: 3px 11px; } }

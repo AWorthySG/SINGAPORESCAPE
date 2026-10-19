@@ -104,6 +104,8 @@ export class UI {
     this._buildPrayerPanel();
     this._buildSettingsPanel();
     this._buildAbilityBar();
+    document.getElementById('auto-battle-btn')?.addEventListener('click', () => this.game.toggleAutoBattle());
+    this.renderAutoBattle();
 
     this.el.runOrb.addEventListener('click', () => this.game.toggleRun());
     this.el.specOrb.addEventListener('click', () => this.game.toggleSpec());
@@ -137,6 +139,7 @@ export class UI {
     this.bus.on('equipment', () => { this.renderSpec(); this.renderAbilities(); });
     this.bus.on('adrenaline', () => this.renderAbilities());
     this.bus.on('ability', () => this.renderAbilities());
+    this.bus.on('autobattle', () => this.renderAutoBattle());
     this.bus.on('karma', () => { this.renderAlignment(); this._refreshModalIfOpen(['shop']); });
     this.bus.on('prayer', () => { this.renderPrayer(); this.renderPrayerPanel(); });
     this.bus.on('skills', () => this.renderPrayerPanel());
@@ -186,6 +189,13 @@ export class UI {
       wrap.appendChild(btn);
       this._abilityBtns[ab.id] = btn;
     }
+  }
+
+  renderAutoBattle() {
+    const btn = this.el.autoBattle || (this.el.autoBattle = document.getElementById('auto-battle-btn'));
+    if (!btn) return;
+    btn.classList.toggle('active', this.game.autoBattle);
+    btn.textContent = this.game.autoBattle ? 'Auto battle: on' : 'Auto battle: off';
   }
 
   renderAbilities() {
@@ -579,7 +589,7 @@ export class UI {
     }, true);
     const hint = document.createElement('div');
     hint.className = 'hint';
-    hint.innerHTML = 'Move: joystick or W A S D / arrow keys. Click things to interact; right-click for more options.<br>' +
+    hint.innerHTML = 'Move: joystick or W A S D / arrow keys. Click things to interact; right-click for more options. T toggles auto battle.<br>' +
       'Click trees to chop, rocks to mine, water to fish, monsters to fight.<br>' +
       'In combat, build <b>Adrenaline</b> and spend it on abilities (Z/X/C/V): ' +
       'Power Strike, Flurry, Brace and Second Wind. Hit each foe\'s <b>weakness</b> ' +

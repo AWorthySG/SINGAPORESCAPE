@@ -139,6 +139,9 @@ export class Game {
     this.armedAbility = null;     // ability armed for the next attack
     this.moveInput = { x: 0, y: 0 }; // joystick / WASD vector, -1..1 on each axis
     this._driving = false;
+    this.autoBattle = false;      // auto battle: hunt, fight, eat and use skills
+    this._autoSkip = new Map();   // npc entityId -> tick until which it is skipped (unreachable)
+    this._autoLast = null;
     this.abilityCd = {};          // ability id -> ticks until usable again
     this.braceTicks = 0;          // ticks of halved incoming damage left
 
@@ -409,7 +412,7 @@ export class Game {
       if (--this.player.respawnTimer <= 0) this.respawnPlayer();
     } else {
       if (this.playerStun > 0) this.playerStun--;
-      else this.resolvePlayerAction();
+      else { this.resolvePlayerAction(); this._autoBattleTick(); }
     }
     // Only tick NPCs near the player (the bestiary is large).
     const px = this.player.x, py = this.player.y;
@@ -1375,6 +1378,7 @@ export class Game {
 
   playerDeath() {
     this.msg('Oh dear, you are dead!', 'combat');
+    if (this.autoBattle) this.toggleAutoBattle(false);
     this.banner('<span class="big">Oh dear, you are dead!</span>Respawning in town...');
     const p = this.player;
     p.alive = false;
@@ -1415,6 +1419,75 @@ export class Game {
     }
     this.player.setAction(action);
     return true;
+  }
+
+  // ---------------- Auto battle ----------------
+  toggleAutoBattle(on = !this.autoBattle) {
+    this.autoBattle = !!on;
+    this._autoSkip.clear();
+    this._autoLast = null;
+    this.msg(this.autoBattle
+      ? 'Auto battle on: you will hunt nearby monsters, eat when hurt and use your skills. Steer to pause.'
+      : 'Auto battle off.', 'system');
+    this.bus.emit('autobattle');
+  }
+
+  // Runs each world tick while auto battle is on: keep yourself fed, counter a
+  // telegraphed blow, spend adrenaline on skills, and pick the next fight.
+  _autoBattleTick() {
+    const p = this.player;
+    if (!this.autoBattle || !p.alive || this._driving) return;
+    // 1. Stay alive: eat below 40% life, or Second Wind when out of food.
+    if (p.hp <= this.maxHp() * 0.4) {
+      const idx = this.inventory.slots.findIndex((sl) => sl && getItem(sl.id).heal);
+      if (idx !== -1) this.eatItem(idx);
+      else this._autoAbility((ab) => ab.kind === 'heal');
+    }
+    const a = p.action;
+    const fighting = a && a.type === 'attack' && a.npc && a.npc.alive;
+    // A target we just sent you at that cleared itself without dying was
+    // unreachable: skip it for a while instead of retrying every tick.
+    if (!fighting && this._autoLast && this._autoLast.alive) {
+      this._autoSkip.set(this._autoLast.entityId, this.tickCount + 40);
+    }
+    this._autoLast = fighting ? a.npc : null;
+    if (fighting) {
+      // 2. Brace against a heavy blow being wound up next to you.
+      if (this.npcs.some((n) => n.alive && n.target === p && n.windup > 0)) this._autoAbility((ab) => ab.kind === 'guard');
+      // 3. Spend adrenaline: the biggest attack skill you can afford.
+      if (!this.armedAbility) this._autoAbility((ab) => ab.kind === 'attack', true);
+      return;
+    }
+    // 4. Find the next fight.
+    const target = this._autoPickTarget();
+    if (target) { this._autoLast = target; this.attackNpc(target); }
+  }
+
+  _autoAbility(filter, biggestFirst = false) {
+    const ready = this.currentAbilities().filter((ab) => filter(ab) && this.abilityUnlocked(ab)
+      && (this.abilityCd[ab.id] || 0) <= 0 && this.adrenaline >= ab.cost);
+    if (!ready.length) return false;
+    if (biggestFirst) ready.sort((x, y) => y.cost - x.cost);
+    this.activateAbility(ready[0].id);
+    return true;
+  }
+
+  _autoPickTarget() {
+    const p = this.player;
+    const cl = this.skills.combatLevel();
+    let best = null, bestScore = Infinity;
+    for (const n of this.npcs) {
+      if (!n.alive || !n.attackable || n.def.boss) continue;
+      if ((this._autoSkip.get(n.entityId) || 0) > this.tickCount) continue;
+      const d = chebyshev(p.x, p.y, n.x, n.y);
+      if (d > 10) continue;
+      const hunting = n.target === p;
+      // Leave monsters far above your level alone unless they're already on you.
+      if (!hunting && (n.def.level || 1) > cl * 1.5 + 5) continue;
+      const score = d - (hunting ? 100 : 0);   // anything attacking you comes first
+      if (score < bestScore) { bestScore = score; best = n; }
+    }
+    return best;
   }
 
   /** Joystick / WASD: the held direction as an analogue vector (screen axes). */

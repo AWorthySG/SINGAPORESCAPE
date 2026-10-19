@@ -826,6 +826,43 @@ test('player attacks run on a 300ms combat beat: a scimitar swings about 3x a se
   assert.ok(swings >= 8 && swings <= 11, `about 10 swings in 3s, got ${swings}`);
 });
 
+test('auto battle hunts nearby monsters, eats when hurt, skips bosses and pauses while steering', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const { NPC } = await import('../src/game/npc.js');
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  const p = game.player;
+  // Park on open plaza ground with only our test monsters around.
+  const mk = (id, dx, dy) => { const n = new NPC(id, p.x + dx, p.y + dy, 0); n.def = { ...n.def, aggressive: false }; return n; };
+  const a = mk('goblin', 2, 0), b = mk('goblin', -2, 1);
+  const boss = game.npcs.find((n) => n.def.boss);
+  boss.x = boss.tx = p.x; boss.y = boss.ty = p.y + 2; boss.target = null;
+  game.npcs = [a, b, boss];
+
+  // Steering pauses it: no target is picked while a direction is held.
+  game.toggleAutoBattle(true);
+  game.setMoveInput(0, -1);
+  for (let i = 0; i < 6; i++) game.update(100);
+  assert.ok(!(p.action && p.action.type === 'attack'), 'steering pauses auto battle');
+  game.setMoveInput(0, 0);
+  game.update(100);
+
+  // Low life: it eats.
+  p.hp = 3;
+  game.update(600);
+  assert.ok(p.hp > 3, 'auto battle eats when hurt');
+
+  for (let i = 0; i < 400 && (a.alive || b.alive); i++) game.update(100);
+  assert.ok(!a.alive && !b.alive, 'both nearby monsters were hunted down');
+  assert.ok(boss.alive && boss.hp === boss.maxHp, 'bosses are left alone');
+
+  // Dying switches it off.
+  game.playerDeath();
+  assert.equal(game.autoBattle, false, 'auto battle turns off on death');
+});
+
 test('a chatty NPC keeps cycling its speech bubble on a cooldown', async () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
