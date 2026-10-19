@@ -283,7 +283,7 @@ export class Renderer {
     ctx.fillStyle = '#ffd24a';
     ctx.beginPath(); ctx.arc(x, y, 11, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
-    ctx.font = 'bold 18px "Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+    ctx.font = '800 18px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
     ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.lineWidth = 4; ctx.strokeText('✕', x, y - 18 - bob);
     ctx.fillStyle = '#ffe88a'; ctx.fillText('✕', x, y - 18 - bob);
   }
@@ -570,7 +570,7 @@ export class Renderer {
   _drawNodeLabels(ox, oy) {
     const { ctx, game } = this;
     const vw = game.camera.viewW, vh = game.camera.viewH;
-    ctx.font = '10px "Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.font = '10px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
     for (const o of game.world.objects) {
       const t = o.def.type;
       if (t !== 'tree' && t !== 'rock' && t !== 'fishing') continue;
@@ -588,7 +588,7 @@ export class Renderer {
       ctx.fillText(label, cx, yy);
     }
     // Directional signposts (which way to each area).
-    ctx.font = 'bold 11px "Trebuchet MS",sans-serif';
+    ctx.font = '800 11px Nunito,"Trebuchet MS",sans-serif';
     for (const o of game.world.objects) {
       if (!o.sign) continue;
       const cx = o.x * TILE + TILE / 2 - ox, cy = o.y * TILE + TILE / 2 - oy;
@@ -616,32 +616,33 @@ export class Renderer {
       const yo = -(20 * sc) - 6;
       if (n.chatTimer > 0 && n.chatText) {
         const px = c.x - ox, py = c.y - oy + yo - 14;
-        ctx.font = 'bold 10px "Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+        ctx.font = '800 10px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
         const wpx = ctx.measureText(n.chatText).width + 10;
-        ctx.fillStyle = 'rgba(255,255,255,0.92)';
-        if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(px - wpx / 2, py - 12, wpx, 15, 6); ctx.fill(); }
+        // A-Worthy speech-bubble sticker: white card, navy ink outline.
+        ctx.fillStyle = '#FFFFFF';
+        if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(px - wpx / 2, py - 12, wpx, 15, 7.5); ctx.fill(); }
         else ctx.fillRect(px - wpx / 2, py - 12, wpx, 15);
-        ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 1;
-        if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(px - wpx / 2, py - 12, wpx, 15, 6); ctx.stroke(); }
-        ctx.fillStyle = '#2a2620'; ctx.fillText(n.chatText, px, py - 1);
+        ctx.strokeStyle = '#22304A'; ctx.lineWidth = 1.5;
+        if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(px - wpx / 2, py - 12, wpx, 15, 7.5); ctx.stroke(); }
+        ctx.fillStyle = '#1C1B19'; ctx.fillText(n.chatText, px, py - 1);
       }
       if (boss || n.combatLatch > 0 || targeted) this._healthBar(c.x - ox, c.y - oy + yo, n.hp / n.maxHp, boss);
       if (targeted) {
         const px = c.x - ox, py = c.y - oy + yo + 12;
-        ctx.font = 'bold 9px "Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+        ctx.font = '800 9px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
         const tag = `weak: ${weaknessOf(n.def)}`;
         ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.lineWidth = 3; ctx.strokeText(tag, px, py);
         ctx.fillStyle = '#9affd0'; ctx.fillText(tag, px, py);
       }
       if (n.telegraph > 0) {
         const px = c.x - ox, py = c.y - oy + yo - 12;
-        ctx.font = 'bold 18px "Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+        ctx.font = '800 18px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
         ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.lineWidth = 4; ctx.strokeText('!', px, py);
         ctx.fillStyle = '#ff5a5a'; ctx.fillText('!', px, py);
       }
       if (boss) {
         const px = c.x - ox, py = c.y - oy + yo - 6;
-        ctx.font = 'bold 11px "Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+        ctx.font = '800 11px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
         ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.lineWidth = 3; ctx.strokeText(n.name, px, py);
         ctx.fillStyle = '#ff7a5a'; ctx.fillText(n.name, px, py);
       }
@@ -650,13 +651,14 @@ export class Renderer {
       const c = game.player.renderCenter();
       const px = c.x - ox, py = c.y - oy;
       if (game.player.target) this._healthBar(px, py - 30, game.player.hp / game.maxHp());
-      ctx.font = 'bold 11px "Trebuchet MS",sans-serif';
+      ctx.font = '800 11px Nunito,"Trebuchet MS",sans-serif';
       ctx.textAlign = 'center';
       ctx.lineJoin = 'round';
-      ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.lineWidth = 3;
-      ctx.strokeText(game.player.name, px, py - 32);
-      ctx.fillStyle = '#ffe66a';
-      ctx.fillText(game.player.name, px, py - 32);
+      // Name tag in the sticker style: white letters inside a navy ink line.
+      ctx.strokeStyle = '#22304A'; ctx.lineWidth = 3.5;
+      ctx.strokeText(game.player.name, px, py - 36);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText(game.player.name, px, py - 36);
     }
     for (const e of game.effects) {
       if (e.type !== 'hitsplat') continue;
@@ -675,7 +677,7 @@ export class Renderer {
       ctx.fillStyle = e.crit ? '#f2c029' : hit ? '#c81e1e' : '#39557d';
       ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = 'rgba(255,255,255,0.28)'; ctx.beginPath(); ctx.arc(0, -3, r - 1, Math.PI, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#fff'; ctx.font = `bold ${e.crit ? 13 : 12}px "Trebuchet MS",sans-serif`;
+      ctx.fillStyle = '#fff'; ctx.font = `800 ${e.crit ? 13 : 12}px Nunito,"Trebuchet MS",sans-serif`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(String(e.dmg), 0, 1);
       ctx.textBaseline = 'alphabetic';

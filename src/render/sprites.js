@@ -114,18 +114,20 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
       if (opts.boss) bossCrown(c, opts.time || 0);  // insignia over both painted & vector bodies
     });
   }
+  // Townsfolk are all A-Worthy mascots; shirts come from the design system's
+  // marker pops and subject accents so each role reads at a glance.
   const TOWN = {
-    banker: { top: '#2f4b8a', skin: '#e8b98a', hair: '#3a2a18', apron: '#d8c089', acc: 'coins' },
-    shopkeeper: { top: '#7a3b1d', skin: '#e0aa78', hair: '#272015', apron: '#cdbfa0', acc: 'sack' },
-    hawker: { top: '#b23b2e', skin: '#e8b98a', hair: '#2a2018', hat: '#f0ead8', apron: '#f0ead8', acc: 'ladle' },
-    guide: { top: '#3d6b3a', skin: '#e6b886', hair: '#cfc4b0', hat: '#6b4a2a', acc: 'map' },
-    mage: { top: '#3a2f7a', skin: '#e6c0a0', hair: '#cfcfdf', hat: '#2a2060', acc: 'stars' },
-    fletcher: { top: '#3f5a2a', skin: '#e0aa78', hair: '#3a2a18', hat: '#5a4020', acc: 'bow' },
-    slayer_master: { top: '#3a2a2a', skin: '#caa078', hair: '#161616', apron: '#5a2a2a', acc: 'scar' },
-    skills_tutor: { top: '#b5862f', skin: '#caa078', hair: '#e6e0d0', hat: '#7a5a2a', apron: '#d8c089', acc: 'scroll' },
-    light_priestess: { top: '#eef0e8', skin: '#e6c0a0', hair: '#d8c89a', hat: '#ffe9a8', apron: '#f4ead2', acc: 'halo' },
-    shadow_broker: { top: '#2a2336', skin: '#8a7a90', hair: '#15121c', hat: '#1a1622', acc: 'hood' },
-    villager: { top: '#6a5aa0', skin: '#e8b98a', hair: '#4a3320' },
+    banker: { top: '#1F6FA8', apron: '#E6F1FB', acc: 'coins' },
+    shopkeeper: { top: '#D2691E', apron: '#FDEEE0', acc: 'sack' },
+    hawker: { top: '#E05040', hat: '#FFFFFF', apron: '#FFFFFF', acc: 'ladle' },
+    guide: { top: '#3DAA5C', hat: '#8A6205', acc: 'map' },
+    mage: { top: '#9B52AD', hat: '#6A3678', acc: 'stars' },
+    fletcher: { top: '#6E8B1E', hat: '#52690F', acc: 'bow' },
+    slayer_master: { top: '#2B2A27', apron: '#962D22', acc: 'scar' },
+    skills_tutor: { top: '#F5B82E', hat: '#8A6205', apron: '#FDF3DE', acc: 'scroll' },
+    light_priestess: { top: '#FDF3DE', hat: '#F5B82E', apron: '#FFFFFF', acc: 'halo' },
+    shadow_broker: { top: '#2B2A27', hat: '#1C1B19', acc: 'hood' },
+    villager: { top: '#12907F' },
   };
   const p = TOWN[npcId] || TOWN.villager;
   return staged(ctx, cx, cy, opts, (c) => human(c, p));
@@ -934,62 +936,86 @@ function guard(ctx) {
   circle(ctx, -2, -11, 0.9); fill(ctx, '#1a140d'); circle(ctx, 2, -11, 0.9); fill(ctx, '#1a140d');
 }
 
+// ================= A-WORTHY MASCOT =================
+// Every person in the world is drawn as the A-Worthy mascot sticker: a tall
+// cream capsule with a small cross on its forehead, happy-arc eyes, pink
+// blush and an open smile, outlined in navy ink inside a white die-cut border.
+// Body shape is the brand; a shirt colour, hat or prop tells characters apart.
+const M_INK = '#22304A';
+const M_CREAM = '#FBF5E6';
+const M_EDGE = '#E9C9A0';
+
+function capsulePath(c, w = 7, top = -19, bot = 12) {
+  c.beginPath();
+  c.moveTo(-w, bot - 4);
+  c.lineTo(-w, top + w);
+  c.arc(0, top + w, w, Math.PI, 0);
+  c.lineTo(w, bot - 4);
+  c.quadraticCurveTo(w, bot, w - 4, bot);
+  c.lineTo(-w + 4, bot);
+  c.quadraticCurveTo(-w, bot, -w, bot - 4);
+  c.closePath();
+}
+
+function mascot(c, o = {}) {
+  const st = _anim.stride * 1.6;
+  const asw = _anim.stride * 1.4;
+  c.lineJoin = 'round'; c.lineCap = 'round';
+  // little feet (one lifts while walking)
+  for (const [fx, lift] of [[-3.3, Math.max(0, st)], [3.3, Math.max(0, -st)]]) {
+    ellipse(c, fx, 12.6 - lift, 2.6, 1.6); fill(c, '#ffffff'); line(c, M_INK, 1.2);
+  }
+  // white die-cut border, then the cream body
+  capsulePath(c); line(c, '#ffffff', 4.4);
+  capsulePath(c); fill(c, M_CREAM);
+  c.save();
+  capsulePath(c); c.clip();
+  // warm tan shading down the left edge, as on the stickers
+  c.fillStyle = M_EDGE; ellipse(c, -7.6, -2, 3.4, 19); c.fill();
+  if (o.shirt) {
+    path(c, () => {
+      c.moveTo(-8, -3); c.lineTo(-3.2, -3); c.quadraticCurveTo(0, -0.6, 3.2, -3);
+      c.lineTo(8, -3); c.lineTo(8, 13); c.lineTo(-8, 13); c.closePath();
+    });
+    fill(c, o.shirt);
+    c.fillStyle = shade(o.shirt, -0.18); c.fillRect(4, -3, 4, 16);
+    c.fillStyle = shade(o.shirt, 0.14); c.fillRect(-8, -3, 2.4, 16);
+    if (o.apron) {
+      c.fillStyle = o.apron; rr(c, -4.5, 0.5, 9, 12, 1.5); c.fill();
+      c.strokeStyle = shade(o.apron, -0.25); c.lineWidth = 0.6; c.stroke();
+    }
+    path(c, () => { c.moveTo(-8, -3); c.lineTo(-3.2, -3); c.quadraticCurveTo(0, -0.6, 3.2, -3); c.lineTo(8, -3); });
+    line(c, M_INK, 0.9);
+  }
+  c.restore();
+  capsulePath(c); line(c, M_INK, 1.5);
+  // face: forehead cross, happy-arc eyes, blush, open smile
+  if (!o.noCross) {
+    c.strokeStyle = M_INK; c.lineWidth = 1.2; c.beginPath();
+    c.moveTo(-1.6, -14.8); c.lineTo(1.6, -14.8); c.moveTo(0, -16.4); c.lineTo(0, -13.2); c.stroke();
+  }
+  c.strokeStyle = o.eyeColor || M_INK; c.lineWidth = 1.1;
+  c.beginPath(); c.arc(-2.7, -10.2, 1.3, Math.PI * 1.1, Math.PI * 1.9); c.stroke();
+  c.beginPath(); c.arc(2.7, -10.2, 1.3, Math.PI * 1.1, Math.PI * 1.9); c.stroke();
+  c.fillStyle = 'rgba(239,71,111,0.38)'; circle(c, -4.4, -8.6, 1.25); c.fill(); circle(c, 4.4, -8.6, 1.25); c.fill();
+  path(c, () => { c.arc(0, -8.6, 1.8, 0, Math.PI); c.closePath(); }); fill(c, M_INK);
+  c.fillStyle = '#EF476F'; ellipse(c, 0, -7.4, 0.95, 0.5); c.fill();
+  // stick arms with white mitten hands, counter-swinging while walking
+  for (const [sx, hx, hy] of [[-6.8, -10, 4 + asw], [6.8, 10, 4 - asw]]) {
+    c.beginPath(); c.moveTo(sx, -1.5); c.quadraticCurveTo(hx * 1.02, -0.5, hx, hy); line(c, M_INK, 1.3);
+    circle(c, hx, hy, 1.8); fill(c, '#ffffff'); line(c, M_INK, 1);
+  }
+  // hat sits on the crown of the capsule
+  if (o.hat) {
+    rr(c, -5, -25, 10, 6, 2.2); fill(c, o.hat); line(c, M_INK, 1);
+    rr(c, -8, -19.8, 16, 2.8, 1.4); fill(c, o.hat); line(c, M_INK, 1);
+    c.fillStyle = 'rgba(255,255,255,0.3)'; rr(c, -4, -24.2, 2.4, 4.4, 1); c.fill();
+  }
+  c.lineCap = 'butt'; c.lineJoin = 'miter';
+}
+
 function human(ctx, p) {
-  // legs + shoes (stride: lift one leg while the other plants)
-  const pants = p.pants || '#3a3326';
-  const st = _anim.stride * 1.8;
-  ctx.fillStyle = pants; rr(ctx, -5, 6 - st, 4, 8, 2); ctx.fill(); rr(ctx, 1, 6 + st, 4, 8, 2); ctx.fill();
-  ctx.fillStyle = shade(pants, 0.16); rr(ctx, -5, 6 - st, 1.3, 8, 0.6); ctx.fill(); rr(ctx, 1, 6 + st, 1.3, 8, 0.6); ctx.fill();
-  ctx.fillStyle = '#231a10'; rr(ctx, -5.4, 12 - st, 5, 2.6, 1.2); ctx.fill(); rr(ctx, 0.6, 12 + st, 5, 2.6, 1.2); ctx.fill();
-  // arms (behind torso) + hands — counter-swing to the legs while walking
-  const asw = _anim.stride * 1.1;
-  ctx.fillStyle = p.top; rr(ctx, -10, -3.5 + asw, 4, 9, 2); ctx.fill(); rr(ctx, 6, -3.5 - asw, 4, 9, 2); ctx.fill();
-  ctx.fillStyle = p.skin; circle(ctx, -8, 6.5 + asw, 2.1); ctx.fill(); circle(ctx, 8, 6.5 - asw, 2.1); ctx.fill();
-  ctx.fillStyle = shade(p.skin, -0.14); ellipse(ctx, -8, 7.5 + asw, 1.9, 0.9); ctx.fill(); ellipse(ctx, 8, 7.5 - asw, 1.9, 0.9); ctx.fill();
-  // torso with edge shading
-  rr(ctx, -7, -5, 14, 13, 4); fill(ctx, p.top); line(ctx);
-  ctx.fillStyle = shade(p.top, 0.2); rr(ctx, -7, -5, 3.5, 13, 4); ctx.fill();  // lit edge
-  ctx.fillStyle = shade(p.top, -0.24); rr(ctx, 4.5, -5, 2.5, 13, 3); ctx.fill(); // shaded edge
-  // collar
-  ctx.fillStyle = shade(p.top, -0.3); path(ctx, () => { ctx.moveTo(-3.5, -5); ctx.lineTo(0, -1.5); ctx.lineTo(3.5, -5); }); ctx.fill();
-  // apron, or a buttoned placket
-  if (p.apron) {
-    ctx.fillStyle = p.apron; rr(ctx, -5, -1.5, 10, 9.5, 2); ctx.fill();
-    ctx.fillStyle = shade(p.apron, -0.14); rr(ctx, -5, 6, 10, 2, 1); ctx.fill();
-    ctx.strokeStyle = shade(p.apron, -0.22); ctx.lineWidth = 0.6; ctx.beginPath(); ctx.moveTo(0, -1.5); ctx.lineTo(0, 8); ctx.stroke();
-  } else {
-    ctx.strokeStyle = shade(p.top, -0.3); ctx.lineWidth = 0.7; ctx.beginPath(); ctx.moveTo(0, -2); ctx.lineTo(0, 7); ctx.stroke();
-    ctx.fillStyle = shade(p.top, 0.28); for (const yy of [-0.5, 2, 4.5]) { circle(ctx, 0, yy, 0.5); ctx.fill(); }
-  }
-  // ears
-  ctx.fillStyle = p.skin; circle(ctx, -6.2, -11, 1.2); ctx.fill(); circle(ctx, 6.2, -11, 1.2); ctx.fill();
-  ctx.fillStyle = shade(p.skin, -0.18); circle(ctx, -6.2, -11, 0.55); ctx.fill(); circle(ctx, 6.2, -11, 0.55); ctx.fill();
-  // head
-  circle(ctx, 0, -11, 6.5); fill(ctx, p.skin); line(ctx);
-  ctx.fillStyle = shade(p.skin, -0.13); ellipse(ctx, 3.2, -9.8, 2.3, 3.1); ctx.fill(); // shaded cheek
-  ctx.fillStyle = 'rgba(255,255,255,0.24)'; circle(ctx, -2.3, -12.5, 1.9); ctx.fill(); // lit cheek
-  // hair (with a swept fringe)
-  if (p.hair) {
-    ctx.fillStyle = p.hair;
-    path(ctx, () => { ctx.arc(0, -11.3, 6.7, Math.PI * 1.02, Math.PI * 1.98); ctx.lineTo(5.4, -13.2); ctx.quadraticCurveTo(0, -19.2, -5.4, -13.2); }); ctx.fill();
-    ctx.fillStyle = shade(p.hair, 0.22); rr(ctx, -5, -16.5, 4.2, 1.8, 0.9); ctx.fill();
-  }
-  // hat
-  if (p.hat) {
-    ctx.fillStyle = p.hat; rr(ctx, -7.5, -15.5, 15, 3.5, 1.8); ctx.fill(); rr(ctx, -4.5, -21, 9, 6.5, 2); ctx.fill();
-    ctx.fillStyle = shade(p.hat, 0.22); rr(ctx, -7.5, -15.5, 15, 1.3, 0.8); ctx.fill();
-  }
-  // brows
-  ctx.strokeStyle = p.hair || '#5a4632'; ctx.lineWidth = 0.9; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(-3.3, -12.3); ctx.lineTo(-1.2, -12.6); ctx.moveTo(1.2, -12.6); ctx.lineTo(3.3, -12.3); ctx.stroke(); ctx.lineCap = 'butt';
-  // eyes with catchlight
-  ctx.fillStyle = '#1a140d'; circle(ctx, -2.2, -11, 0.95); ctx.fill(); circle(ctx, 2.2, -11, 0.95); ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,0.85)'; circle(ctx, -2, -11.3, 0.32); ctx.fill(); circle(ctx, 2.4, -11.3, 0.32); ctx.fill();
-  // nose + friendly mouth
-  ctx.strokeStyle = shade(p.skin, -0.32); ctx.lineWidth = 0.8; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(-0.1, -10.4); ctx.lineTo(0.5, -9.4); ctx.stroke();
-  ctx.beginPath(); ctx.arc(0, -9.2, 1.5, 0.25, Math.PI - 0.25); ctx.stroke(); ctx.lineCap = 'butt';
-  // role accessory
+  mascot(ctx, { shirt: p.top, apron: p.apron, hat: p.hat, noCross: !!p.hat && p.acc === 'hood' });
   if (p.acc) townAcc(ctx, p);
 }
 
@@ -997,14 +1023,14 @@ function human(ctx, p) {
 function townAcc(ctx, p) {
   switch (p.acc) {
     case 'coins': // banker — a stack of gold coins in hand
-      for (let i = 0; i < 3; i++) { ctx.fillStyle = '#e6b34a'; ellipse(ctx, 8, 5.5 - i * 1.1, 2, 0.9); ctx.fill(); ctx.fillStyle = '#ffd773'; ellipse(ctx, 8, 5.2 - i * 1.1, 1.2, 0.4); ctx.fill(); }
+      for (let i = 0; i < 3; i++) { ctx.fillStyle = '#e6b34a'; ellipse(ctx, 10.5, 2.4 - i * 1.1, 2, 0.9); ctx.fill(); ctx.fillStyle = '#ffd773'; ellipse(ctx, 10.5, 2.1 - i * 1.1, 1.2, 0.4); ctx.fill(); }
       break;
     case 'sack': // shopkeeper — a goods sack
-      ctx.fillStyle = '#b89a5a'; circle(ctx, 9.5, 5, 2.6); ctx.fill(); ctx.fillStyle = shade('#b89a5a', -0.18); rr(ctx, 7.5, 1.5, 4, 1.6, 0.6); ctx.fill();
+      ctx.fillStyle = '#b89a5a'; circle(ctx, 11.5, 6.5, 2.6); ctx.fill(); ctx.fillStyle = shade('#b89a5a', -0.18); rr(ctx, 9.5, 3, 4, 1.6, 0.6); ctx.fill();
       break;
     case 'ladle': // hawker — a soup ladle
-      ctx.strokeStyle = '#7a5a2a'; ctx.lineWidth = 1.1; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(9, 7); ctx.lineTo(12, -1.5); ctx.stroke(); ctx.lineCap = 'butt';
-      ctx.fillStyle = '#cfd6dd'; circle(ctx, 12.4, -2, 1.8); ctx.fill(); ctx.fillStyle = '#aab4be'; ellipse(ctx, 12.4, -1.4, 1.3, 0.7); ctx.fill();
+      ctx.strokeStyle = '#7a5a2a'; ctx.lineWidth = 1.1; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(10, 4); ctx.lineTo(12.5, -4.5); ctx.stroke(); ctx.lineCap = 'butt';
+      ctx.fillStyle = '#cfd6dd'; circle(ctx, 12.9, -5, 1.8); ctx.fill(); ctx.fillStyle = '#aab4be'; ellipse(ctx, 12.9, -4.4, 1.3, 0.7); ctx.fill();
       break;
     case 'map': // guide — a rolled map
       ctx.fillStyle = '#efe6cf'; rr(ctx, -13.5, 2.5, 5.5, 4.5, 0.9); ctx.fill();
@@ -1024,18 +1050,18 @@ function townAcc(ctx, p) {
       ctx.strokeStyle = '#e8e0c8'; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.moveTo(-4.6, -5.4); ctx.lineTo(-4.6, 4.4); ctx.stroke();
       break;
     case 'scar': // slayer master — an eye scar
-      ctx.strokeStyle = '#9a5a4a'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(2.2, -13); ctx.lineTo(2.2, -9.4); ctx.stroke();
+      ctx.strokeStyle = '#9a5a4a'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(2.9, -12.6); ctx.lineTo(2.3, -8.8); ctx.stroke();
       break;
     case 'scroll': // skills tutor — a scroll in hand
-      ctx.fillStyle = '#efe6cf'; rr(ctx, 6.8, 1.5, 2.4, 6.5, 1); ctx.fill(); ctx.fillStyle = '#d8c089'; rr(ctx, 6.8, 1.5, 2.4, 1, 0.5); ctx.fill(); rr(ctx, 6.8, 7, 2.4, 1, 0.5); ctx.fill();
+      ctx.fillStyle = '#efe6cf'; rr(ctx, 10.6, -0.5, 2.4, 6.5, 1); ctx.fill(); ctx.fillStyle = '#d8c089'; rr(ctx, 10.6, -0.5, 2.4, 1, 0.5); ctx.fill(); rr(ctx, 10.6, 5, 2.4, 1, 0.5); ctx.fill();
       break;
     case 'halo': // light priestess — a glowing halo
-      ctx.fillStyle = 'rgba(255,236,150,0.45)'; ellipse(ctx, 0, -18.5, 5.5, 1.8); ctx.fill();
-      ctx.strokeStyle = '#ffe9a8'; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(0, -18.5, 5, 1.5, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,236,150,0.45)'; ellipse(ctx, 0, -22.5, 5.5, 1.8); ctx.fill();
+      ctx.strokeStyle = '#ffe9a8'; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(0, -22.5, 5, 1.5, 0, 0, Math.PI * 2); ctx.stroke();
       break;
     case 'hood': // shadow broker — a dark cowl shadow over the brow
-      ctx.fillStyle = 'rgba(8,6,14,0.55)'; path(ctx, () => { ctx.arc(0, -11, 6.5, Math.PI * 1.02, Math.PI * 1.98); ctx.lineTo(6, -11.5); ctx.lineTo(-6, -11.5); }); ctx.fill();
-      ctx.fillStyle = '#8a5ad0'; circle(ctx, -2.2, -11, 0.6); ctx.fill(); circle(ctx, 2.2, -11, 0.6); ctx.fill(); // glowing eyes
+      ctx.fillStyle = 'rgba(8,6,14,0.55)'; path(ctx, () => { ctx.arc(0, -12, 6.6, Math.PI, 0); ctx.lineTo(6.6, -11.8); ctx.quadraticCurveTo(0, -13.6, -6.6, -11.8); }); ctx.fill();
+      ctx.fillStyle = '#8a5ad0'; circle(ctx, -2.7, -10.6, 0.6); ctx.fill(); circle(ctx, 2.7, -10.6, 0.6); ctx.fill(); // glowing eyes
       break;
   }
 }
@@ -1057,13 +1083,9 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
       c.fillStyle = g; c.beginPath(); c.arc(0, -2, 15 * pulse, 0, Math.PI * 2); c.fill();
       c.restore();
     }
-    // Unarmoured tunic is teal — the game's own signature accent colour —
-    // rather than a generic green, so the hero reads as belonging to this
-    // world rather than a stock RPG adventurer.
-    const body = opts.hasBody ? '#b9c2cc' : '#2f8a7a';
-    const bodyHi = opts.hasBody ? '#dbe2ea' : '#4fb0a0';
-    const bodyDk = opts.hasBody ? '#8a96a2' : '#1f6058';
-    const skin = '#d9a06a';
+    // The hero is the A-Worthy mascot. Unarmoured, it wears a tunic in the
+    // brand's one action colour (rust); a platebody swaps it for steel.
+    const body = opts.hasBody ? '#b9c2cc' : '#C0392B';
     // cape (behind everything), sways with motion
     if (opts.hasCape) {
       const sw = Math.sin((opts.time || 0) * 0.012) * 1.4;
@@ -1073,81 +1095,32 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
       c.fillStyle = '#a83a52'; rr(c, -6, -5, 12, 3, 1); c.fill();
       c.strokeStyle = '#6e2436'; c.lineWidth = 0.8; c.beginPath(); c.moveTo(-2, -3); c.lineTo(-3 + sw, 12); c.moveTo(2, -3); c.lineTo(3 + sw, 12); c.stroke();
     }
-    // legs + boots (stride: lift one leg while the other plants)
-    const st = _anim.stride * 1.8;
-    c.fillStyle = '#2f3a52'; rr(c, -5, 6 - st, 4, 8, 2); c.fill(); rr(c, 1, 6 + st, 4, 8, 2); c.fill();
-    c.fillStyle = shade('#2f3a52', 0.16); rr(c, -5, 6 - st, 1.3, 8, 0.6); c.fill(); rr(c, 1, 6 + st, 1.3, 8, 0.6); c.fill();
-    c.fillStyle = '#23150c'; rr(c, -5.5, 12 - st, 5, 3, 1.5); c.fill(); rr(c, 0.5, 12 + st, 5, 3, 1.5); c.fill();
-    // arms (behind torso) + hands — counter-swing to the legs while walking
-    const asw = _anim.stride * 1.1;
-    c.fillStyle = body; rr(c, -10, -3.5 + asw, 4, 9, 2); c.fill(); rr(c, 6, -3.5 - asw, 4, 9, 2); c.fill();
-    c.fillStyle = skin; circle(c, -8, 6.5 + asw, 2.1); c.fill(); circle(c, 8, 6.5 - asw, 2.1); c.fill();
-    c.fillStyle = shade(skin, -0.14); ellipse(c, -8, 7.5 + asw, 1.9, 0.9); c.fill(); ellipse(c, 8, 7.5 - asw, 1.9, 0.9); c.fill();
-    // torso with edge shading
-    rr(c, -7, -5, 14, 13, 4); fill(c, body); line(c);
-    c.fillStyle = bodyHi; rr(c, -7, -5, 4, 13, 4); c.fill();          // left highlight
-    c.fillStyle = bodyDk; rr(c, 4, -5, 3, 13, 3); c.fill();           // right shadow
+    mascot(c, { shirt: body, noCross: opts.hasHelm });
     if (opts.hasBody) {
-      // plated armour: pauldrons, chest seam + rivets, rim light
-      c.fillStyle = shade(body, 0.08); circle(c, -6.3, -3.5, 3); c.fill(); circle(c, 6.3, -3.5, 3); c.fill(); line(c, OUTLINE, 1);
-      c.fillStyle = bodyHi; circle(c, -7, -4.3, 1); c.fill(); circle(c, 6, -4.3, 1); c.fill();
-      c.strokeStyle = bodyDk; c.lineWidth = 0.8; c.beginPath(); c.moveTo(0, -3); c.lineTo(0, 1.5); c.stroke();
-      c.fillStyle = '#eef2f6'; for (const [rx, ry] of [[-3.2, -3.5], [3.2, -3.5], [-3.2, 0], [3.2, 0]]) { circle(c, rx, ry, 0.5); c.fill(); }
-      c.strokeStyle = 'rgba(255,255,255,0.4)'; c.lineWidth = 1; c.beginPath(); c.moveTo(-5.8, -4.5); c.lineTo(-5.8, 6); c.stroke();
+      // plated armour over the capsule: pauldrons, chest seam + rivets
+      c.fillStyle = shade(body, 0.08); circle(c, -6.2, -2.2, 2.6); c.fill(); line(c, M_INK, 1); circle(c, 6.2, -2.2, 2.6); c.fill(); line(c, M_INK, 1);
+      c.strokeStyle = shade(body, -0.3); c.lineWidth = 0.8; c.beginPath(); c.moveTo(0, -1); c.lineTo(0, 10); c.stroke();
+      c.fillStyle = '#eef2f6'; for (const [rx, ry] of [[-3, 0.5], [3, 0.5], [-3, 4], [3, 4]]) { circle(c, rx, ry, 0.55); c.fill(); }
     } else {
-      // cloth tunic: collar + lace, with a small batik-style gold diamond
-      // motif over the chest (echoing the songket/batik capes and the
-      // Peranakan tile trim used throughout the HUD).
-      c.fillStyle = shade(body, -0.22); path(c, () => { c.moveTo(-3.5, -5); c.lineTo(0, -1.5); c.lineTo(3.5, -5); }); c.fill();
-      c.strokeStyle = shade(body, -0.22); c.lineWidth = 0.7; c.beginPath(); c.moveTo(0, -1); c.lineTo(0, 2); c.stroke();
-      path(c, () => { c.moveTo(0, -2.6); c.lineTo(1.8, -1); c.lineTo(0, 0.6); c.lineTo(-1.8, -1); c.closePath(); });
-      c.fillStyle = 'rgba(230,179,74,0.4)'; c.fill();
-      c.strokeStyle = 'rgba(230,179,74,0.9)'; c.lineWidth = 0.6; c.stroke();
+      // a small gold sun pip on the tunic, the brand's marker pop
+      c.fillStyle = '#F5B82E'; circle(c, -3.4, 2.2, 1.3); c.fill(); line(c, M_INK, 0.7);
     }
-    // belt + buckle
-    c.fillStyle = '#3a2a14'; rr(c, -7, 2, 14, 2.4, 1); c.fill();
-    c.fillStyle = '#e6b34a'; rr(c, -1.4, 2, 2.8, 2.4, 0.6); c.fill();
-    c.fillStyle = '#fff3c0'; rr(c, -1.1, 2.3, 2.2, 0.7, 0.3); c.fill();
-    // ears + head
-    c.fillStyle = skin; circle(c, -6.3, -11, 1.2); c.fill(); circle(c, 6.3, -11, 1.2); c.fill();
-    circle(c, 0, -11, 6.8); fill(c, skin); line(c);
-    c.fillStyle = shade(skin, -0.13); ellipse(c, 3.3, -9.8, 2.3, 3.2); c.fill();
-    c.fillStyle = 'rgba(255,255,255,0.25)'; circle(c, -2.4, -12.5, 2); c.fill(); // cheek light
     if (opts.hasHelm) {
-      c.fillStyle = '#9aa6b2'; path(c, () => { c.arc(0, -11.5, 7.2, Math.PI, 0); }); c.fill();
-      c.fillStyle = '#cfd6dd'; rr(c, -7.2, -12.6, 14.4, 2.2, 1); c.fill();
-      c.fillStyle = '#8a96a2'; rr(c, -0.9, -12.6, 1.8, 6, 0.7); c.fill();  // nasal guard
-      c.fillStyle = '#b9c2cc'; rr(c, -1.4, -19, 2.8, 6.5, 1); c.fill();    // crest holder
-      c.fillStyle = '#c0392b'; path(c, () => { c.moveTo(-1.4, -17.5); c.quadraticCurveTo(-5.5, -20, -4.5, -24.5); c.quadraticCurveTo(-1, -21, 1.4, -18.5); }); c.fill(); // plume
-      c.fillStyle = 'rgba(255,255,255,0.4)'; rr(c, -6, -12.3, 4, 0.8, 0.4); c.fill();
-    } else {
-      // Black hair, side-swept rather than a centre-parted mop.
-      const hair = '#18130f';
-      c.fillStyle = hair; path(c, () => { c.arc(0, -11.3, 6.9, Math.PI * 1.02, Math.PI * 1.98); c.lineTo(5.6, -13.2); c.quadraticCurveTo(0, -19.4, -5.6, -13.2); }); c.fill();
-      c.fillStyle = shade(hair, 0.32);
-      path(c, () => {
-        c.moveTo(-5.4, -13.6);
-        c.quadraticCurveTo(-1, -17.4, 4.2, -13.6);
-        c.quadraticCurveTo(-0.6, -14.8, -5.4, -13.6);
-        c.closePath();
-      }); c.fill();
-      c.strokeStyle = shade(hair, 0.12); c.lineWidth = 0.7; c.lineCap = 'round';
-      c.beginPath(); c.moveTo(-4.4, -13.4); c.lineTo(-1.4, -14.7); c.moveTo(-1, -14.3); c.lineTo(1.8, -15.3); c.stroke(); c.lineCap = 'butt';
+      path(c, () => { c.arc(0, -12, 7.6, Math.PI, 0); c.closePath(); }); fill(c, '#9aa6b2'); line(c, M_INK, 1.2);
+      rr(c, -7.8, -13.4, 15.6, 2.2, 1); fill(c, '#cfd6dd'); line(c, M_INK, 0.8);
+      c.fillStyle = '#b9c2cc'; rr(c, -1.4, -22, 2.8, 3.4, 1); c.fill();
+      c.fillStyle = '#C0392B'; path(c, () => { c.moveTo(-1.4, -21); c.quadraticCurveTo(-5.5, -23.5, -4.5, -28); c.quadraticCurveTo(-1, -24.5, 1.4, -22); }); c.fill(); // plume
+      c.fillStyle = 'rgba(255,255,255,0.4)'; rr(c, -5.5, -17.5, 3, 1, 0.5); c.fill();
     }
-    // eyes + catchlight
-    c.fillStyle = '#1a140d'; circle(c, -2.3, -11, 0.95); c.fill(); circle(c, 2.3, -11, 0.95); c.fill();
-    c.fillStyle = 'rgba(255,255,255,0.85)'; circle(c, -2.05, -11.3, 0.32); c.fill(); circle(c, 2.55, -11.3, 0.32); c.fill();
-    // nose + resolute mouth
-    c.strokeStyle = shade(skin, -0.32); c.lineWidth = 0.8; c.lineCap = 'round';
-    c.beginPath(); c.moveTo(-0.1, -10.3); c.lineTo(0.5, -9.4); c.stroke();
-    c.beginPath(); c.moveTo(-1.4, -9); c.lineTo(1.4, -9); c.stroke(); c.lineCap = 'butt';
-    // weapon
+    // weapon, held in the right mitten
     if (opts.hasWeapon) {
-      c.strokeStyle = '#e9edf2'; c.lineWidth = 2.4; c.beginPath(); c.moveTo(10, 11); c.lineTo(14, -9); c.stroke();
-      c.strokeStyle = '#cfe0ff'; c.lineWidth = 0.9; c.beginPath(); c.moveTo(10.6, 9); c.lineTo(13.6, -7); c.stroke(); // blade glint
-      c.fillStyle = '#ffffff'; circle(c, 13.4, -7.2, 0.7); c.fill(); // tip glint
-      c.strokeStyle = '#e6b34a'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(9.4, 3.4); c.lineTo(13.4, 4.8); c.stroke(); // crossguard
-      c.strokeStyle = '#8a6a3a'; c.lineWidth = 2; c.beginPath(); c.moveTo(8, 9); c.lineTo(11.4, 6); c.stroke(); // grip
+      c.strokeStyle = M_INK; c.lineWidth = 3.4; c.lineCap = 'round'; c.beginPath(); c.moveTo(10.6, 2); c.lineTo(14.6, -16); c.stroke();
+      c.strokeStyle = '#e9edf2'; c.lineWidth = 2; c.beginPath(); c.moveTo(10.6, 2); c.lineTo(14.6, -16); c.stroke();
+      c.fillStyle = '#ffffff'; circle(c, 14, -14, 0.7); c.fill(); // tip glint
+      c.strokeStyle = M_INK; c.lineWidth = 2.6; c.beginPath(); c.moveTo(8.6, 1); c.lineTo(13.2, 2.4); c.stroke();
+      c.strokeStyle = '#F5B82E'; c.lineWidth = 1.4; c.beginPath(); c.moveTo(8.6, 1); c.lineTo(13.2, 2.4); c.stroke(); // crossguard
+      c.lineCap = 'butt';
+      circle(c, 10, 4, 1.8); fill(c, '#ffffff'); line(c, M_INK, 1); // mitten over the grip
     }
     // shield, strapped to the off-hand
     if (opts.hasShield) {

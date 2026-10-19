@@ -1299,7 +1299,7 @@ export class UI {
         c.fillRect(o.x * scale - (big ? 1 : 0), o.y * scale - (big ? 1 : 0), s, s);
       }
       // zone labels
-      c.font = `bold ${Math.max(9, scale * 3)}px "Trebuchet MS",sans-serif`;
+      c.font = `800 ${Math.max(9, scale * 3)}px Nunito,"Trebuchet MS",sans-serif`;
       c.textAlign = 'center'; c.textBaseline = 'middle';
       for (const z of game.world.zones) {
         const cx = ((z.x0 + z.x1) / 2) * scale, cy = ((z.y0 + z.y1) / 2) * scale;
