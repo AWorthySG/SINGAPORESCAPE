@@ -160,6 +160,16 @@ export function buildWorld() {
   placeObj('agility_zip', 47, 63);
   // A hawker stall to practise Thieving in the kampung.
   placeObj('stall_food', 64, 62);
+  // A garden border round the plaza: flower beds with a bush every third tile,
+  // leaving the four path entrances open, and palms framing the corners.
+  for (const [px, py] of [[48, 48], [68, 48], [68, 63], [52, 63]]) placeObj('palm', px, py);
+  {
+    const entrance = (x, y) => (y === 46 || y === 64 ? x === 57 || x === 58 : y === 54 || y === 55);
+    const border = [];
+    for (let x = 47; x <= 69; x++) border.push([x, 46], [x, 64]);
+    for (let y = 47; y <= 63; y++) border.push([46, y], [70, y]);
+    border.forEach(([bx, by], i) => { if (!entrance(bx, by)) placeObj(i % 3 === 0 ? 'bush' : 'flower', bx, by); });
+  }
 
   // ================= MRT fast-travel network =================
   placeObj('mrt_station', 68, 52); // Kampong Glam

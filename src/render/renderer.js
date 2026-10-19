@@ -4,26 +4,32 @@ import { getItem } from '../data/items.js';
 import { weaknessOf } from '../game/combat.js';
 import { drawShadow, drawCreature, drawPlayer, drawObjectSprite, drawGroundItem } from './sprites.js';
 
-// Base terrain colours (RGB). Water is drawn procedurally.
+// Base terrain colours (RGB): a bright pastel world in the A-Worthy palette
+// (soft mint lawns, warm cream paths, cream paper paving). Water is procedural.
 const TERRAIN_RGB = {
-  [TERRAIN.GRASS]: [88, 140, 58],
-  [TERRAIN.DARKGRASS]: [74, 124, 50],
-  [TERRAIN.PATH]: [168, 142, 94],
-  [TERRAIN.SAND]: [208, 186, 130],
-  [TERRAIN.STONE]: [148, 140, 128],
-  [TERRAIN.WOOD]: [128, 94, 56],
+  [TERRAIN.GRASS]: [170, 216, 146],
+  [TERRAIN.DARKGRASS]: [162, 210, 140],
+  [TERRAIN.PATH]: [238, 216, 178],
+  [TERRAIN.SAND]: [248, 232, 196],
+  [TERRAIN.STONE]: [246, 238, 226],
+  [TERRAIN.WOOD]: [222, 186, 142],
 };
+// Pastel tile accents for the paved plazas (design-system chip pastels with
+// their marker-pop partners): sun, bloom, sky, grass.
+const TILE_POPS = [
+  ['#FDF3DE', '#F5B82E'], ['#FDE8EE', '#EF476F'], ['#E6F1FB', '#5FAEE3'], ['#E5F5E9', '#3DAA5C'],
+];
 
 // Per-region atmospheric colour grade [r,g,b,alpha] — smoothly blended as you travel.
 const ZONE_TINT = {
-  'Kampong Glam': [255, 224, 150, 0.05],
-  Chinatown: [255, 206, 140, 0.06],
-  'Bukit Timah': [120, 200, 120, 0.06],
-  'MacRitchie Reservoir': [110, 175, 230, 0.09],
-  'Sentosa Beach': [255, 232, 175, 0.05],
-  'The Wilderness': [130, 40, 40, 0.17],
-  'Pulau Hantu': [86, 58, 120, 0.20],
-  Singapore: [255, 222, 160, 0.05],
+  'Kampong Glam': [255, 236, 214, 0.04],
+  Chinatown: [255, 222, 214, 0.05],
+  'Bukit Timah': [214, 245, 200, 0.05],
+  'MacRitchie Reservoir': [200, 230, 250, 0.06],
+  'Sentosa Beach': [255, 240, 205, 0.05],
+  'The Wilderness': [170, 120, 170, 0.12],
+  'Pulau Hantu': [150, 125, 200, 0.14],
+  Singapore: [255, 236, 214, 0.04],
 };
 
 function hash(x, y) {
@@ -72,7 +78,7 @@ export class Renderer {
     const vw = cam.viewW, vh = cam.viewH;
     const night = 1 - game.daylightFactor(); // 0 (noon) .. 1 (midnight) — lights, fireflies
 
-    ctx.fillStyle = '#1C1B19'; ctx.fillRect(0, 0, vw, vh);   // opaque canvas: paint, don't clear
+    ctx.fillStyle = '#FAF6EE'; ctx.fillRect(0, 0, vw, vh);   // opaque canvas: paint, don't clear
     ctx.fillStyle = '#16241a';
     ctx.fillRect(0, 0, vw, vh);
 
@@ -206,13 +212,15 @@ export class Renderer {
     const { ctx } = this;
     const day = 1 - night;
     const duskiness = 4 * day * night; // 0 at day=0 or day=1, peaks at day=0.5
+    // Pastel lighting: a soft peach-pink dusk and a gentle lavender night that
+    // never drops the world into murk.
     if (duskiness > 0.02) {
-      ctx.fillStyle = `rgba(255,140,70,${(duskiness * 0.16).toFixed(3)})`;
+      ctx.fillStyle = `rgba(255,170,160,${(duskiness * 0.12).toFixed(3)})`;
       ctx.fillRect(0, 0, vw, vh);
     }
     if (night > 0.05) {
-      const a = Math.min(0.5, night * night * 0.62);
-      ctx.fillStyle = `rgba(8,16,40,${a.toFixed(3)})`;
+      const a = Math.min(0.18, night * night * 0.24);
+      ctx.fillStyle = `rgba(104,96,170,${a.toFixed(3)})`;
       ctx.fillRect(0, 0, vw, vh);
     }
   }
@@ -379,7 +387,7 @@ export class Renderer {
       for (let x = 0; x < w.width; x++) {
         const t = w.terrainAt(x, y);
         const sx = x * TILE, sy = y * TILE;
-        if (t === TERRAIN.WATER) { cx.fillStyle = 'rgb(36,104,156)'; cx.fillRect(sx, sy, TILE + 1, TILE + 1); continue; }
+        if (t === TERRAIN.WATER) { cx.fillStyle = 'rgb(122,190,232)'; cx.fillRect(sx, sy, TILE + 1, TILE + 1); continue; }
         const base = TERRAIN_RGB[t] || TERRAIN_RGB[TERRAIN.GRASS];
         const h = hash(x, y);
         const j = (h - 0.5) * 10;
@@ -427,20 +435,24 @@ export class Renderer {
     if (t === TERRAIN.GRASS || t === TERRAIN.DARKGRASS) {
       // Low-frequency patchiness so large areas of grass aren't flat.
       const lf = hash(Math.floor(x / 4), Math.floor(y / 4));
-      ctx.fillStyle = lf > 0.62 ? 'rgba(150,200,90,0.10)' : lf < 0.38 ? 'rgba(20,55,20,0.12)' : 'rgba(0,0,0,0)';
+      ctx.fillStyle = lf > 0.62 ? 'rgba(255,255,230,0.16)' : lf < 0.38 ? 'rgba(90,150,90,0.10)' : 'rgba(0,0,0,0)';
       if (lf > 0.62 || lf < 0.38) ctx.fillRect(sx, sy, TILE + 1, TILE + 1);
       for (let i = 0; i < 3; i++) {
         const hx = hash(x * 7 + i, y * 13 - i), hy = hash(x * 3 - i, y * 11 + i);
         const px = sx + hx * (TILE - 6) + 3, py = sy + hy * (TILE - 6) + 3;
-        ctx.fillStyle = 'rgba(40,80,30,0.35)';
+        ctx.fillStyle = 'rgba(70,140,80,0.32)';
         ctx.fillRect(px, py - 3, 1.4, 3);
         ctx.fillRect(px + 1.6, py - 4, 1.4, 4);
-        ctx.fillStyle = 'rgba(170,215,120,0.5)'; // sunlit blade tip
+        ctx.fillStyle = 'rgba(240,255,220,0.6)'; // sunlit blade tip
         ctx.fillRect(px + 1.6, py - 4, 1.4, 1.3);
       }
-      if (h > 0.92) { ctx.fillStyle = '#d23b6e'; ctx.beginPath(); ctx.arc(sx + 8 + h * 12, sy + 10, 1.4, 0, 6.3); ctx.fill(); }
+      // tiny pastel wildflowers in the marker-pop colours
+      if (h > 0.9) {
+        ctx.fillStyle = ['#EF476F', '#F5B82E', '#5FAEE3', '#FFFFFF'][Math.floor(h * 97) % 4];
+        ctx.beginPath(); ctx.arc(sx + 8 + h * 12, sy + 10, 1.6, 0, 6.3); ctx.fill();
+      }
     } else if (t === TERRAIN.PATH || t === TERRAIN.SAND) {
-      ctx.fillStyle = t === TERRAIN.PATH ? 'rgba(120,98,58,0.5)' : 'rgba(160,140,90,0.5)';
+      ctx.fillStyle = t === TERRAIN.PATH ? 'rgba(190,160,120,0.45)' : 'rgba(210,186,140,0.45)';
       for (let i = 0; i < 4; i++) {
         const px = sx + hash(x * 5 + i, y) * TILE, py = sy + hash(x, y * 5 + i) * TILE;
         ctx.fillRect(px, py, 2, 2);
@@ -452,9 +464,22 @@ export class Renderer {
         ctx.beginPath(); ctx.arc(sx + 20 - h * 10, sy + 8 + h * 6, 1, 0, 6.3); ctx.fill();
       }
     } else if (t === TERRAIN.STONE) {
-      ctx.strokeStyle = 'rgba(60,56,48,0.25)'; ctx.lineWidth = 1;
+      // Pastel Peranakan floor tiles: cream paving with soft grout, and on a
+      // checkerboard a small four-petal motif in one of the marker pastels.
+      // Mostly plain cream, a gentle warm checker, and every third tile in each
+      // direction a small four-petal motif in one of the marker pastels.
+      if ((x + y) % 2 === 0) { ctx.fillStyle = 'rgba(250,230,205,0.45)'; ctx.fillRect(sx, sy, TILE + 1, TILE + 1); }
+      if (x % 3 === 0 && y % 3 === 0) {
+        const [bg, pop] = TILE_POPS[Math.floor(hash(x, y) * TILE_POPS.length)];
+        const c = TILE / 2;
+        ctx.fillStyle = bg; ctx.fillRect(sx + 4, sy + 4, TILE - 8, TILE - 8);
+        ctx.fillStyle = pop; ctx.globalAlpha = 0.45;
+        for (const [dx, dy] of [[0, -5], [5, 0], [0, 5], [-5, 0]]) { ctx.beginPath(); ctx.ellipse(sx + c + dx, sy + c + dy, dx ? 3.4 : 2, dy ? 3.4 : 2, 0, 0, 6.3); ctx.fill(); }
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#FFFFFF'; ctx.beginPath(); ctx.arc(sx + c, sy + c, 1.8, 0, 6.3); ctx.fill();
+      }
+      ctx.strokeStyle = 'rgba(34,48,74,0.10)'; ctx.lineWidth = 1;
       ctx.strokeRect(sx + 0.5, sy + 0.5, TILE, TILE);
-      ctx.fillStyle = 'rgba(255,255,255,0.05)'; ctx.fillRect(sx + 2, sy + 2, TILE - 4, 2);
     } else if (t === TERRAIN.WOOD) {
       ctx.strokeStyle = 'rgba(60,40,20,0.4)'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(sx, sy + TILE / 2); ctx.lineTo(sx + TILE, sy + TILE / 2); ctx.stroke();
@@ -464,7 +489,7 @@ export class Renderer {
   // Crisp the edge of paths/stone against grass.
   _tileEdges(ctx, w, t, x, y, sx, sy) {
     if (t !== TERRAIN.PATH && t !== TERRAIN.STONE) return;
-    ctx.fillStyle = 'rgba(40,35,22,0.18)';
+    ctx.fillStyle = 'rgba(34,48,74,0.12)';
     const grassy = (tt) => tt === TERRAIN.GRASS || tt === TERRAIN.DARKGRASS;
     if (grassy(w.terrainAt(x, y - 1))) ctx.fillRect(sx, sy, TILE + 1, 2);
     if (grassy(w.terrainAt(x, y + 1))) ctx.fillRect(sx, sy + TILE - 1, TILE + 1, 2);
@@ -477,13 +502,13 @@ export class Renderer {
     const shore = land(w.terrainAt(x, y - 1)) || land(w.terrainAt(x, y + 1)) || land(w.terrainAt(x - 1, y)) || land(w.terrainAt(x + 1, y));
     const wave = Math.sin((x + y) * 0.7 + timeMs * 0.0016) * 8 + Math.sin((x - y) * 0.5 + timeMs * 0.0011) * 6;
     // Deeper water reads darker/greener; shallows near shore are brighter teal.
-    const d = shore ? 22 : 0;
-    ctx.fillStyle = `rgb(${(30 + d * 0.4 + wave * 0.4) | 0},${(96 + d + wave) | 0},${(150 + d * 0.6 + wave) | 0})`;
+    const d = shore ? 18 : 0;
+    ctx.fillStyle = `rgb(${(122 + d + wave * 0.5) | 0},${(190 + d * 0.6 + wave * 0.6) | 0},${(232 + d * 0.3 + wave * 0.4) | 0})`;
     ctx.fillRect(sx, sy, TILE + 1, TILE + 1);
     // caustic shimmer (two drifting bands)
     const hl = (Math.sin((x * 1.3 + y * 0.7) + timeMs * 0.002) + 1) / 2;
     if (hl > 0.55) {
-      ctx.fillStyle = 'rgba(190,240,255,0.14)';
+      ctx.fillStyle = 'rgba(255,255,255,0.22)';
       const yy = sy + ((timeMs * 0.02 + x * 9) % TILE);
       ctx.fillRect(sx + 3, yy, TILE - 6, 1.6);
     }
@@ -494,7 +519,7 @@ export class Renderer {
       ctx.fillRect(sx + 5, yy, TILE - 12, 1.2);
     }
     // foam on shore edges
-    ctx.fillStyle = 'rgba(225,243,255,0.55)';
+    ctx.fillStyle = 'rgba(255,255,255,0.75)';
     if (land(w.terrainAt(x, y - 1))) ctx.fillRect(sx, sy, TILE + 1, 2);
     if (land(w.terrainAt(x, y + 1))) ctx.fillRect(sx, sy + TILE - 1, TILE + 1, 2);
     if (land(w.terrainAt(x - 1, y))) ctx.fillRect(sx, sy, 2, TILE + 1);
@@ -554,12 +579,12 @@ export class Renderer {
     // Gradients are static per viewport size — cache them instead of rebuilding each frame.
     if (!this._vig || this._vig.vw !== vw || this._vig.vh !== vh) {
       const warm = ctx.createLinearGradient(0, 0, vw * 0.55, vh);
-      warm.addColorStop(0, 'rgba(255,214,140,0.11)');
-      warm.addColorStop(0.45, 'rgba(255,198,118,0.035)');
-      warm.addColorStop(1, 'rgba(30,52,72,0.06)');
+      warm.addColorStop(0, 'rgba(255,236,214,0.10)');
+      warm.addColorStop(0.45, 'rgba(255,226,236,0.03)');
+      warm.addColorStop(1, 'rgba(200,220,255,0.05)');
       const edge = ctx.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * 0.36, vw / 2, vh / 2, Math.max(vw, vh) * 0.74);
       edge.addColorStop(0, 'rgba(0,0,0,0)');
-      edge.addColorStop(1, 'rgba(16,24,16,0.30)');
+      edge.addColorStop(1, 'rgba(60,70,110,0.12)');
       this._vig = { vw, vh, warm, edge };
     }
     ctx.fillStyle = this._vig.warm; ctx.fillRect(0, 0, vw, vh);
@@ -581,10 +606,13 @@ export class Renderer {
       const yy = cy - (t === 'tree' ? 30 : t === 'rock' ? 18 : 16);
       const label = o.def.label;
       const wpx = ctx.measureText(label).width + 8;
-      ctx.fillStyle = 'rgba(0,0,0,0.5)';
-      if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(cx - wpx / 2, yy - 10, wpx, 13, 4); ctx.fill(); }
+      // Little white sticker pills, matching the HUD.
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(cx - wpx / 2, yy - 10, wpx, 13, 6.5); ctx.fill(); }
       else ctx.fillRect(cx - wpx / 2, yy - 10, wpx, 13);
-      ctx.fillStyle = t === 'tree' ? '#9be08a' : t === 'fishing' ? '#8fd6ff' : (o.def.ore || '#dfe4ea');
+      ctx.strokeStyle = 'rgba(34,48,74,0.35)'; ctx.lineWidth = 1;
+      if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(cx - wpx / 2, yy - 10, wpx, 13, 6.5); ctx.stroke(); }
+      ctx.fillStyle = t === 'tree' ? '#1F7A3D' : t === 'fishing' ? '#1F6FA8' : '#5E594F';
       ctx.fillText(label, cx, yy);
     }
     // Directional signposts (which way to each area).

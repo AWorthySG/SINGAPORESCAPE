@@ -1452,6 +1452,17 @@ export class Game {
     }
     this._autoLast = fighting ? a.npc : null;
     if (fighting) {
+      // A fight that has dealt no damage for ~15s (25 ticks) is stalled (out of
+      // reach, always missing): skip that target and move on.
+      const tgt = a.npc;
+      if (this._autoFight?.npc !== tgt) this._autoFight = { npc: tgt, hp: tgt.hp, since: this.tickCount };
+      else if (tgt.hp < this._autoFight.hp) { this._autoFight.hp = tgt.hp; this._autoFight.since = this.tickCount; }
+      else if (this.tickCount - this._autoFight.since > 25) {
+        this._autoSkip.set(tgt.entityId, this.tickCount + 60);
+        this._autoLast = null; this._autoFight = null;
+        p.clearAction();
+        return;
+      }
       // 2. Brace against a heavy blow being wound up next to you.
       if (this.npcs.some((n) => n.alive && n.target === p && n.windup > 0)) this._autoAbility((ab) => ab.kind === 'guard');
       // 3. Spend adrenaline: the biggest attack skill you can afford.
@@ -1460,7 +1471,11 @@ export class Game {
     }
     // 4. Find the next fight.
     const target = this._autoPickTarget();
-    if (target) { this._autoLast = target; this.attackNpc(target); }
+    if (target) { this._autoLast = target; this._autoIdleSaid = false; this.attackNpc(target); }
+    else if (!this._autoIdleSaid) {
+      this._autoIdleSaid = true;
+      this.msg('Auto battle: nothing to fight nearby. Walk somewhere wilder and it will pick up again.', 'system');
+    }
   }
 
   _autoAbility(filter, biggestFirst = false) {
@@ -1472,19 +1487,29 @@ export class Game {
     return true;
   }
 
+  // Nearby first (anything already on you wins); with nothing close, hunt out to
+  // 40 tiles for a monster near your level, never straying into the Wilderness
+  // from safe ground.
   _autoPickTarget() {
     const p = this.player;
     const cl = this.skills.combatLevel();
+    const wildZone = (x, y) => !!this.world.zoneAt(x, y)?.wilderness;
+    const inWild = wildZone(p.x, p.y);
     let best = null, bestScore = Infinity;
     for (const n of this.npcs) {
       if (!n.alive || !n.attackable || n.def.boss) continue;
       if ((this._autoSkip.get(n.entityId) || 0) > this.tickCount) continue;
       const d = chebyshev(p.x, p.y, n.x, n.y);
-      if (d > 10) continue;
+      if (d > 40) continue;
       const hunting = n.target === p;
-      // Leave monsters far above your level alone unless they're already on you.
-      if (!hunting && (n.def.level || 1) > cl * 1.5 + 5) continue;
-      const score = d - (hunting ? 100 : 0);   // anything attacking you comes first
+      const lvl = n.def.level || 1;
+      if (!hunting) {
+        // Close by: leave only far-stronger monsters alone. Further out: only
+        // seek monsters around your level, so a hunt is worth the walk.
+        if (d <= 10 ? lvl > cl * 1.5 + 5 : lvl > cl + 8) continue;
+        if (!inWild && wildZone(n.x, n.y)) continue;
+      }
+      const score = d - (hunting ? 100 : 0);
       if (score < bestScore) { bestScore = score; best = n; }
     }
     return best;

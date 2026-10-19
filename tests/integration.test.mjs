@@ -863,6 +863,25 @@ test('auto battle hunts nearby monsters, eats when hurt, skips bosses and pauses
   assert.equal(game.autoBattle, false, 'auto battle turns off on death');
 });
 
+test('auto battle hunts further afield when nothing is close, and skips the Wilderness from safe ground', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const { NPC } = await import('../src/game/npc.js');
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  const p = game.player;
+  const far = new NPC('goblin', p.x, p.y - 25, 0);
+  far.def = { ...far.def, aggressive: false, level: 3 };
+  const wild = new NPC('goblin', 100, 40, 0);   // in The Wilderness
+  wild.def = { ...wild.def, aggressive: false, level: 3 };
+  game.npcs = [far, wild];
+  assert.equal(game._autoPickTarget(), far, 'a monster 25 tiles away is hunted');
+  game.npcs = [wild];
+  p.x = p.tx = 92; p.y = p.ty = 40;            // just outside the Wilderness
+  assert.equal(game._autoPickTarget(), null, 'it will not drag you into the Wilderness');
+});
+
 test('a chatty NPC keeps cycling its speech bubble on a cooldown', async () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
