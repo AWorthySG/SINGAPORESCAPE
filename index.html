@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>SingaporeScape</title>
   <link rel="icon" type="image/svg+xml" href="assets/logo.svg" />
+  <link rel="preload" href="assets/fonts/nunito-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="styles/main.css" />
   <!-- Preload the heaviest modules so the browser fetches them in parallel -->
   <link rel="modulepreload" href="src/main.js" />
@@ -148,10 +149,10 @@
   <!-- Title / splash screen featuring the A Worthy logo -->
   <div id="splash">
     <div class="splash-inner">
-      <img src="assets/logo.svg" alt="A Worthy" class="splash-logo" />
+      <img src="assets/mascot-login.webp" alt="" class="splash-mascot" />
       <h1 class="splash-title">SingaporeScape</h1>
       <p class="splash-sub">An island of adventure &mdash; by <b>A&nbsp;Worthy</b></p>
-      <div class="splash-cobrand"><span>in collaboration with</span><img src="assets/hyco.svg" alt="Hyco Education" /></div>
+      <div class="splash-cobrand"><span>in collaboration with</span><span class="splash-marks"><img src="assets/logo.svg" alt="A Worthy" class="splash-logo" /><img src="assets/hyco.svg" alt="Hyco Education" /></span></div>
       <button id="splash-enter">Enter Kampong Glam &#9654;</button>
       <p class="splash-controls">Left-click to move &amp; interact &middot; Right-click for more options</p>
     </div>
