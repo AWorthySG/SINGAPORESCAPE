@@ -283,10 +283,10 @@ export const OBJECTS = {
     examine: 'A grand monument raised to those who proved worthy. Praying here mends your wounds.',
   },
 
-  // ---------------- Hyco Education Obelisk (the hyco logo) ----------------
-  hyco_obelisk: {
-    name: 'Hyco Education Obelisk', type: 'rest', verb: 'Rest at', emoji: '🔵', blocking: true,
-    examine: 'A monument to learning, presented by Hyco Education. Rest here to recover health and run energy.',
+  // ---------------- A-Worthy Mascot Statue (rest point) ----------------
+  mascot_statue: {
+    name: 'A-Worthy Mascot Statue', type: 'rest', verb: 'Rest at', emoji: '🗿', blocking: true,
+    examine: 'A big, friendly statue of the A-Worthy mascot. Rest here to recover health and run energy.',
   },
 
   // ---------------- MRT station (fast travel) ----------------

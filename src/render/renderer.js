@@ -72,7 +72,7 @@ export class Renderer {
     const vw = cam.viewW, vh = cam.viewH;
     const night = 1 - game.daylightFactor(); // 0 (noon) .. 1 (midnight) — lights, fireflies
 
-    ctx.clearRect(0, 0, vw, vh);
+    ctx.fillStyle = '#1C1B19'; ctx.fillRect(0, 0, vw, vh);   // opaque canvas: paint, don't clear
     ctx.fillStyle = '#16241a';
     ctx.fillRect(0, 0, vw, vh);
 

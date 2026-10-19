@@ -605,7 +605,7 @@ export class Game {
         this.runEnergy = 100;
         this.bus.emit('hp'); this.bus.emit('run');
         this.spawnSparkle(this.player, '#f5a623', 16);
-        this.msg('You rest at the Hyco Education obelisk. Health and run energy restored.', 'system');
+        this.msg('You rest at the A-Worthy Mascot Statue. Health and run energy restored.', 'system');
         this.markPillar('obelisk');
       });
       case 'thieve': return this._tickArrival(a, a.target, true, () => this.pickpocket(a.npc));
@@ -870,7 +870,7 @@ export class Game {
       total += dmg;
     }
     if (mods.heal && total > 0) { this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.round(total * mods.heal)); this.bus.emit('hp'); }
-    this.player.attackCooldown = Math.max(2, this.equipment.weaponSpeed() + (RANGED_STYLES[style]?.speedMod || 0));
+    this.player.attackCooldown = Math.max(1, this.equipment.weaponSpeed() + (RANGED_STYLES[style]?.speedMod || 0));
     this._postAttack(npc);
   }
 
@@ -1505,7 +1505,7 @@ export class Game {
       if (q.state === 'notStarted') { q.state = 'active'; q.kills = 0; this.msg('Quest started — Pest Control: slay 8 giant rats.', 'level'); }
     } else if (action === 'pillarsStart') {
       const q = this.quests.pillars;
-      if (q.state === 'notStarted') { q.state = 'active'; this.msg('Quest started — Pillars of the Island: pray at the A-Worthy Monument and rest at the Hyco Education obelisk.', 'level'); }
+      if (q.state === 'notStarted') { q.state = 'active'; this.msg('Quest started — Pillars of the Island: pray at the A-Worthy Monument and rest at the Mascot Statue.', 'level'); }
     } else if (action === 'pillarsTurnIn') this.turnInPillars();
     else if (action === 'smithStart') {
       const q = this.quests.smith_apprentice;
@@ -1799,7 +1799,7 @@ export class Game {
     const q = this.quests.pillars;
     if (q.state !== 'active' || q[which]) return;
     q[which] = true;
-    const label = which === 'monument' ? 'A-Worthy Monument' : 'Hyco Education obelisk';
+    const label = which === 'monument' ? 'A-Worthy Monument' : 'A-Worthy Mascot Statue';
     this.msg(`Pillars of the Island: you have honoured the ${label}.`, 'system');
     if (q.monument && q.obelisk) this.msg('Both pillars honoured — return to the Kampong Guide for your reward.', 'level');
     this.bus.emit('quest');
