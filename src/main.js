@@ -3,10 +3,9 @@ import { UI } from './ui/ui.js';
 import { Renderer } from './render/renderer.js';
 import { Input } from './engine/input.js';
 import { Sfx } from './audio/sfx.js';
-import { ABILITIES } from './data/abilities.js';
 import { now } from './core/utils.js';
 
-const ABILITY_KEYS = Object.fromEntries(ABILITIES.map((a) => [a.key.toLowerCase(), a.id]));
+const ABILITY_KEYS = new Set(['z', 'x', 'c', 'v', 'b']);   // resolved against the weapon in hand
 
 const canvas = document.getElementById('game-canvas');
 // Opaque context: the world covers the whole canvas, so the browser can skip
@@ -42,8 +41,8 @@ input.onKey((e) => {
     game.eatFirstFood();
   } else if (e.key === 'q' || e.key === 'Q') {
     game.toggleSpec();
-  } else if (ABILITY_KEYS[e.key?.toLowerCase()]) {
-    game.activateAbility(ABILITY_KEYS[e.key.toLowerCase()]);
+  } else if (ABILITY_KEYS.has(e.key?.toLowerCase())) {
+    game.activateAbilityKey(e.key);
   } else if (e.key === 'm' || e.key === 'M') {
     ui.openWorldMap();
   } else if (e.key === 'Escape') {

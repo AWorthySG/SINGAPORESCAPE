@@ -20,7 +20,7 @@ import {
   playerRangedVsNpc, combatXpRanged, playerMagicVsNpc, RANGED_STYLES,
   weaknessOf, WEAKNESS_BONUS, critChance, CRIT_MULT,
 } from './combat.js';
-import { ABILITIES, ABILITY_BY_ID } from '../data/abilities.js';
+import { ABILITY_BY_ID, abilitiesFor } from '../data/abilities.js';
 import { getSpell } from '../data/magic.js';
 import { PRAYERS, PRAYER_BY_ID, PRAYER_GROUPS } from '../data/prayers.js';
 import {
@@ -750,6 +750,15 @@ export class Game {
 
   abilityUnlocked(ab) { return this.skills.combatLevel() >= (ab.unlock || 1); }
 
+  /** The action-bar abilities for the weapon in hand (Z/X/B swap with the weapon). */
+  currentAbilities() { return abilitiesFor(this.combatMode()); }
+
+  /** Hotkey entry point: Z/X/C/V/B resolve against the current weapon's set. */
+  activateAbilityKey(key) {
+    const ab = this.currentAbilities().find((a) => a.key.toLowerCase() === String(key).toLowerCase());
+    if (ab) this.activateAbility(ab.id);
+  }
+
   /** Activate (or arm) a combat ability from the action bar / hotkey. */
   activateAbility(id) {
     const ab = ABILITY_BY_ID[id];
@@ -757,6 +766,23 @@ export class Game {
     if (!this.abilityUnlocked(ab)) { this.msg(`${ab.name} unlocks at combat level ${ab.unlock}.`, 'system'); return; }
     if ((this.abilityCd[id] || 0) > 0) { this.msg(`${ab.name} is on cooldown.`, 'system'); return; }
     if (this.adrenaline < ab.cost) { this.msg(`You need ${ab.cost}% adrenaline for ${ab.name}.`, 'system'); return; }
+    if (ab.mode && ab.mode !== this.combatMode()) {
+      const need = { melee: 'a melee weapon', ranged: 'a bow', magic: 'a staff' }[ab.mode];
+      this.msg(`${ab.name} needs ${need} equipped.`, 'system');
+      return;
+    }
+    if (ab.kind === 'attack' && ab.instant) {
+      // Instant skills fire straight away at whatever you're fighting.
+      const a = this.player.action;
+      const npc = a && a.type === 'attack' ? a.npc : null;
+      if (npc && npc.alive && this.player.alive && chebyshev(this.player.x, this.player.y, npc.x, npc.y) <= this.attackRange()) {
+        this.armedAbility = id;
+        this.player.stop();
+        this.doPlayerAttack(npc);
+        this.bus.emit('ability');
+        return;
+      }
+    }
     if (ab.kind === 'attack') {
       // Toggle-arm like a special; spent and put on cooldown when the hit lands.
       this.armedAbility = this.armedAbility === id ? null : id;
@@ -789,7 +815,8 @@ export class Game {
     if (!this.armedAbility) return null;
     const ab = ABILITY_BY_ID[this.armedAbility];
     this.armedAbility = null;
-    if (!ab || ab.kind !== 'attack' || !this.abilityUnlocked(ab) || this.adrenaline < ab.cost || (this.abilityCd[ab.id] || 0) > 0) {
+    if (!ab || ab.kind !== 'attack' || !this.abilityUnlocked(ab) || this.adrenaline < ab.cost || (this.abilityCd[ab.id] || 0) > 0
+        || (ab.mode && ab.mode !== this.combatMode())) {
       this.bus.emit('ability');
       return null;
     }
@@ -864,7 +891,7 @@ export class Game {
       const effMax = Math.max(1, Math.round(baseMax * mods.dmgM));
       let dmg = mods.guaranteed ? rollGuaranteed(effMax) : rollAttack(atkRoll * pr * mods.accM, defRoll, effMax);
       const c = this._critHit(dmg, mods.critCh); dmg = c.dmg;
-      this._projectile(npc, (c.crit || fancy) ? '#ffd24a' : '#d9c45a', 'arrow');
+      this._projectile(npc, (c.crit || fancy) ? '#ffd24a' : '#d9c45a', 'arrow', mods.hits > 1 ? i - (mods.hits - 1) / 2 : 0);
       this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax) });
       if (dmg > 0) { this.spawnHitSparks(npc, (c.crit || fancy) ? '#ffd24a' : '#cfe0a0'); for (const x of combatXpRanged(style, dmg)) this.skills.addXp(x.skill, x.xp); }
       total += dmg;
@@ -897,10 +924,12 @@ export class Game {
   _hasRunes(spell) { return Object.entries(spell.runes).every(([id, q]) => this.inventory.count(id) >= q); }
   _consumeRunes(spell) { for (const [id, q] of Object.entries(spell.runes)) this.inventory.remove(id, q); }
 
-  _projectile(npc, color, kind = 'bolt') {
+  _projectile(npc, color, kind = 'bolt', spread = 0) {
     const from = this.player.renderCenter();
     const to = npc.renderCenter();
-    this.effects.push({ type: 'projectile', kind, x: from.x, y: from.y - 8, ex: to.x, ey: to.y - 8, color, life: 240, maxLife: 240 });
+    // `spread` fans a volley (Snapshot, Arrow Storm) so each arrow is visible.
+    const off = spread * 5;
+    this.effects.push({ type: 'projectile', kind, x: from.x, y: from.y - 8 + off, ex: to.x, ey: to.y - 8 + off * 0.6, color, life: 240 + Math.abs(spread) * 40, maxLife: 240 + Math.abs(spread) * 40 });
   }
 
   resolveNpcAttack(npc, opts = {}) {
@@ -1029,15 +1058,16 @@ export class Game {
 
   rollDrops(npc) {
     const def = npc.def;
+    const loot = [];
     for (const d of def.alwaysDrop || []) {
       const q = d.min ? randInt(d.min, d.max) : 1;
-      this.world.addGroundItem(d.id, q, npc.x, npc.y);
+      loot.push([d.id, q]);
     }
     if (def.dropTable && def.dropTable.length) {
       const pick = weightedPick(def.dropTable);
       if (!pick.nothing) {
         const q = pick.min ? randInt(pick.min, pick.max) : 1;
-        this.world.addGroundItem(pick.id, q, npc.x, npc.y);
+        loot.push([pick.id, q]);
       }
     }
     // Rare drop table — small base chance, much higher for bosses & high levels.
@@ -1045,7 +1075,7 @@ export class Game {
     if (Math.random() < rareChance) {
       const pick = weightedPick(RARE_DROP_TABLE);
       const q = pick.min ? randInt(pick.min, pick.max) : 1;
-      this.world.addGroundItem(pick.id, q, npc.x, npc.y);
+      loot.push([pick.id, q]);
       const nm = getItem(pick.id).name;
       this.msg(`A rare drop! ${q > 1 ? q + ' x ' : ''}${nm}.`, 'level');
       if (getItem(pick.id).value >= 5000) this.banner(`<span class="big">Rare drop!</span>${nm}`);
@@ -1055,10 +1085,24 @@ export class Game {
       const clueChance = Math.min(0.05, (def.level || 1) / 3000 + (def.boss ? 0.04 : 0.006));
       if (Math.random() < clueChance) {
         const tier = clueTierForLevel(def.level || 1);
-        this.world.addGroundItem(CLUE_TIERS[tier].item, 1, npc.x, npc.y);
-        this.msg('A clue scroll drops to the ground!', 'level');
+        loot.push([CLUE_TIERS[tier].item, 1]);
+        this.msg('You find a clue scroll!', 'level');
       }
     }
+    this._autoLoot(loot, npc.x, npc.y);
+  }
+
+  /** Auto-loot: drops go straight into the pack; whatever won't fit falls to the ground. */
+  _autoLoot(loot, x, y) {
+    const got = [], spilled = [];
+    for (const [id, qty] of loot) {
+      const space = Math.min(qty, Math.max(0, this.inventory.canAdd(id, qty)));
+      const added = space > 0 ? this.inventory.add(id, space) : 0;
+      if (added > 0) got.push(`${added > 1 ? added + ' x ' : ''}${getItem(id).name}`);
+      if (qty - added > 0) { this.world.addGroundItem(id, qty - added, x, y); spilled.push(getItem(id).name); }
+    }
+    if (got.length) { this.msg(`You loot: ${got.join(', ')}.`); this.bus.emit('sfx', 'pickup'); }
+    if (spilled.length) this.msg(`Your inventory is full — ${spilled.join(', ')} fell to the ground.`, 'system');
   }
 
   _holdsClue() { return this.inventory.slots.some((s) => s && s.id.startsWith('clue_scroll_')); }

@@ -178,7 +178,7 @@ export class Renderer {
         drawShadow(ctx, cx, cy + 13, 10, 4.5);
         drawPlayer(ctx, cx + off.x, cy - 2 + off.y, {
           time: timeMs, facing: game.player.facing, moving: game.player.isMoving,
-          hasBody: !!game.equipment.get('body'), hasWeapon: !!game.equipment.get('weapon'),
+          hasBody: !!game.equipment.get('body'), hasWeapon: !!game.equipment.get('weapon'), weaponType: game.combatMode(),
           hasCape: !!game.equipment.get('cape'), hasHelm: !!game.equipment.get('head'),
           hasShield: !!game.equipment.get('shield'), prayerActive: game.activePrayers.size > 0,
         });
