@@ -806,6 +806,26 @@ test('joystick / WASD movement walks tile by tile, and bare-ground clicks no lon
   assert.equal(p.y, y0, 'a ground click no longer walks');
 });
 
+test('player attacks run on a 300ms combat beat: a scimitar swings about 3x a second', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const { NPC } = await import('../src/game/npc.js');
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  assert.equal(game.equipment.get('weapon'), 'bronze_scimitar');
+  const target = new NPC('goblin', game.player.x + 1, game.player.y, 0);
+  target.hp = target.maxHp = 99999;
+  target.def = { ...target.def, aggressive: false, maxHit: 0 };
+  game.npcs = [target];
+  let swings = 0;
+  const orig = game.doPlayerAttack.bind(game);
+  game.doPlayerAttack = (n) => { swings++; return orig(n); };
+  game.attackNpc(target);
+  for (let i = 0; i < 31; i++) game.update(100);   // ~3s
+  assert.ok(swings >= 8 && swings <= 11, `about 10 swings in 3s, got ${swings}`);
+});
+
 test('a chatty NPC keeps cycling its speech bubble on a cooldown', async () => {
   globalThis.localStorage = fakeStorage();
   clearSave();

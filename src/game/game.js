@@ -3,7 +3,7 @@ import { buildWorld } from '../data/world.js';
 import { getItem } from '../data/items.js';
 import { chebyshev, randInt, weightedPick, capitalize } from '../core/utils.js';
 import {
-  TILE, TICK_MS, RESPAWN_TICKS, AUTOSAVE_TICKS, DAY_CYCLE_MS,
+  TILE, TICK_MS, COMBAT_BEAT_MS, RESPAWN_TICKS, AUTOSAVE_TICKS, DAY_CYCLE_MS,
 } from '../config.js';
 
 import { World } from './world.js';
@@ -157,6 +157,7 @@ export class Game {
     this.bus.on('quest', () => this.checkAchievements());
 
     this.tickAcc = 0;
+    this.beatAcc = 0;             // player combat runs on a faster beat than the world tick
     this.tickCount = 0;
     this.regenCounter = 0;
     this.autosaveCounter = 0;
@@ -315,6 +316,12 @@ export class Game {
       this.tickAcc -= TICK_MS;
       this.doTick();
     }
+    this.beatAcc += dt;
+    guard = 0;
+    while (this.beatAcc >= COMBAT_BEAT_MS && guard++ < 10) {
+      this.beatAcc -= COMBAT_BEAT_MS;
+      this._combatBeat();
+    }
 
     const c = this.player.renderCenter();
     this.camera.follow(c.x, c.y, 0.22, { width: this.world.width, height: this.world.height }, dt);
@@ -401,7 +408,6 @@ export class Game {
     if (!this.player.alive) {
       if (--this.player.respawnTimer <= 0) this.respawnPlayer();
     } else {
-      if (this.player.attackCooldown > 0) this.player.attackCooldown--;
       if (this.playerStun > 0) this.playerStun--;
       else this.resolvePlayerAction();
     }
@@ -667,8 +673,20 @@ export class Game {
       }
       return;
     }
-    p.stop();
-    if (p.attackCooldown <= 0) this.doPlayerAttack(npc);
+    p.stop();   // in range: the swing itself happens on the combat beat
+  }
+
+  // Player swings run on a 300ms beat (twice the world tick), so weapon speeds
+  // are counted in beats: the quickest weapons strike every 0.3s.
+  _combatBeat() {
+    const p = this.player;
+    if (!p.alive) return;
+    if (p.attackCooldown > 0) p.attackCooldown--;
+    if (this.playerStun > 0 || p.attackCooldown > 0) return;
+    const a = p.action;
+    if (!a || a.type !== 'attack' || !a.npc || !a.npc.alive) return;
+    if (chebyshev(p.x, p.y, a.npc.x, a.npc.y) > this.attackRange()) return;
+    this.doPlayerAttack(a.npc);
   }
 
   // ---------------- Combat resolution ----------------

@@ -12,7 +12,7 @@ export class Player extends Character {
     this.alive = true;
 
     this.target = null;        // NPC being attacked
-    this.attackCooldown = 0;   // ticks until next swing
+    this.attackCooldown = 0;   // combat beats (300ms) until next swing
     this.action = null;        // pending interaction (resolved on arrival / each tick)
 
     this.style = 'accurate';   // melee combat style id
