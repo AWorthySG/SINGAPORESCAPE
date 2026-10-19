@@ -155,6 +155,15 @@ test('Ranged & Magic skills + the spellbook exist', () => {
   for (const w of ['shortbow', 'yew_shortbow', 'staff', 'mystic_staff']) assert.ok(hasIcon(w), `weapon ${w} icon`);
 });
 
+test('every skill is labelled: it has a group and a short description', async () => {
+  const { SKILL_GROUPS } = await import('../src/data/skills.js');
+  const groups = new Set(SKILL_GROUPS.map((g) => g.id));
+  for (const sk of SKILLS) {
+    assert.ok(groups.has(sk.group), `${sk.id} sits in a known group`);
+    assert.ok(typeof sk.desc === 'string' && sk.desc.length > 10 && sk.desc.length < 90, `${sk.id} has a short description`);
+  }
+});
+
 test('every mascot icon the game references exists on disk', async () => {
   const { ABILITIES } = await import('../src/data/abilities.js');
   const { abilityIconHTML, tabIconSVG } = await import('../src/render/icons.js');

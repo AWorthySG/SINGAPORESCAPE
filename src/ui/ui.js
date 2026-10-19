@@ -4,7 +4,7 @@ import { SMELT, SMITH } from '../data/smithing.js';
 import { CRAFT } from '../data/crafting.js';
 import { COOKING } from '../game/skilling.js';
 import { DISHES } from '../data/cooking.js';
-import { SKILLS } from '../data/skills.js';
+import { SKILLS, SKILL_GROUPS } from '../data/skills.js';
 import { getDialogue } from '../data/dialogue.js';
 import { MONSTER_IDS, BOSS_IDS, getNpc } from '../data/npcs.js';
 import { levelProgress, xpToNext } from '../data/xp.js';
@@ -297,6 +297,8 @@ export class UI {
         const view = btn.dataset.view;
         this._setPanelTitle(view);
         views.forEach((v) => v.classList.toggle('hidden', v.dataset.view !== view));
+        // The skills list carries a name + description per row, so it gets more room.
+        document.getElementById('sidepanel')?.classList.toggle('wide', view === 'skills');
       });
     });
   }
@@ -470,22 +472,31 @@ export class UI {
   renderSkills() {
     const grid = this.el.skillsGrid;
     grid.innerHTML = '';
-    for (const sk of SKILLS) {
-      const lvl = this.game.skills.level(sk.id);
-      const xp = this.game.skills.xp[sk.id];
-      const cell = document.createElement('div');
-      cell.className = 'skill-cell';
-      cell.innerHTML =
-        `<span class="skill-icon">${skillIconSVG(sk.id, 26)}</span>` +
-        `<span class="skill-lvl"><span class="cur">${lvl}</span></span>` +
-        `<div class="xp-bar" style="width:${Math.round(levelProgress(xp) * 100)}%"></div>`;
-      const toNext = xpToNext(xp);
-      cell.addEventListener('mouseenter', (e) => this.showTooltip(e,
-        `<b>${sk.name}</b> &mdash; level ${lvl}<br>XP: ${formatNumber(Math.floor(xp))}<br>` +
-        (toNext > 0 ? `Next level: ${formatNumber(toNext)} xp` : 'Maxed!')));
-      cell.addEventListener('mousemove', (e) => this.moveTooltip(e));
-      cell.addEventListener('mouseleave', () => this.hideTooltip());
-      grid.appendChild(cell);
+    // One labelled row per skill (icon, name, what it's for, level), grouped
+    // into Combat / Gathering / Making / Other.
+    for (const grp of SKILL_GROUPS) {
+      const head = document.createElement('div');
+      head.className = 'skill-group';
+      head.textContent = grp.name;
+      grid.appendChild(head);
+      for (const sk of SKILLS.filter((x) => x.group === grp.id)) {
+        const lvl = this.game.skills.level(sk.id);
+        const xp = this.game.skills.xp[sk.id];
+        const cell = document.createElement('div');
+        cell.className = 'skill-cell';
+        cell.innerHTML =
+          `<span class="skill-icon">${skillIconSVG(sk.id, 36)}</span>` +
+          `<span class="skill-text"><b class="skill-name">${sk.name}</b><span class="skill-desc">${sk.desc || ''}</span></span>` +
+          `<span class="skill-lvl"><span class="cur">${lvl}</span></span>` +
+          `<div class="xp-bar" style="width:${Math.round(levelProgress(xp) * 100)}%"></div>`;
+        const toNext = xpToNext(xp);
+        cell.addEventListener('mouseenter', (e) => this.showTooltip(e,
+          `<b>${sk.name}</b> &mdash; level ${lvl}<br>XP: ${formatNumber(Math.floor(xp))}<br>` +
+          (toNext > 0 ? `Next level: ${formatNumber(toNext)} xp` : 'Maxed!')));
+        cell.addEventListener('mousemove', (e) => this.moveTooltip(e));
+        cell.addEventListener('mouseleave', () => this.hideTooltip());
+        grid.appendChild(cell);
+      }
     }
     this.el.skillsTotal.textContent = `Total level: ${this.game.skills.totalLevel()}`;
     this.renderAlignment();
