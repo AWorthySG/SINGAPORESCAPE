@@ -94,14 +94,16 @@ function drawCreaturePng(c, img) {
 // offscreen canvas, then traced with a navy ink line inside a white die-cut
 // border (stamping its silhouette in a ring), and the finished sticker is
 // cached per sprite/colour/stride pose so a frame costs a single drawImage.
-const ST_X0 = -40, ST_Y0 = -50, ST_W = 80, ST_H = 76;   // local box the art fits in
+const ST_X0 = -40, ST_Y0 = -50, ST_W = 80, ST_H = 76;   // local box monster art fits in
 const ST_RES = 2;                                       // offscreen pixels per local unit
 const ST_INK = '#22304A';
+const MONSTER_BOX = { x0: ST_X0, y0: ST_Y0, w: ST_W, h: ST_H, ink: 1.3, cut: 3.2 };
+const ITEM_BOX = { x0: -14, y0: -14, w: 28, h: 28, ink: 0.8, cut: 1.9 };
 const _stickers = new Map();
-let _stScratch = null;
-function stCanvas() {
+const _stScratch = {};
+function stCanvas(box) {
   const cv = document.createElement('canvas');
-  cv.width = ST_W * ST_RES; cv.height = ST_H * ST_RES;
+  cv.width = box.w * ST_RES; cv.height = box.h * ST_RES;
   return cv;
 }
 function stRing(dst, src, r) {
@@ -111,19 +113,22 @@ function stRing(dst, src, r) {
     dst.drawImage(src, Math.cos(a) * r * ST_RES, Math.sin(a) * r * ST_RES);
   }
 }
-function monsterSticker(key, drawBody) {
+// Bake `drawBody` (drawn in local units inside `box`) into a sticker: navy ink
+// line inside a white die-cut border. Returns an ImageBitmap/canvas to draw at
+// (box.x0, box.y0, box.w, box.h), or null without a DOM.
+function bakeSticker(key, box, drawBody) {
   if (typeof document === 'undefined' || !document.createElement) return null;
   const hit = _stickers.get(key);
   if (hit) { _stickers.delete(key); _stickers.set(key, hit); return hit.img; }   // LRU touch
-  if (!_stScratch) _stScratch = { art: stCanvas(), ink: stCanvas(), white: stCanvas() };
-  const { art, ink, white } = _stScratch;
+  const sk = `${box.w}x${box.h}`;
+  if (!_stScratch[sk]) _stScratch[sk] = { art: stCanvas(box), ink: stCanvas(box), white: stCanvas(box) };
+  const { art, ink, white } = _stScratch[sk];
   const a = art.getContext('2d');
   if (!a) return null;
   a.setTransform(1, 0, 0, 1, 0, 0); a.clearRect(0, 0, art.width, art.height);
-  a.setTransform(ST_RES, 0, 0, ST_RES, -ST_X0 * ST_RES, -ST_Y0 * ST_RES);
+  a.setTransform(ST_RES, 0, 0, ST_RES, -box.x0 * ST_RES, -box.y0 * ST_RES);
   drawBody(a);
   a.setTransform(1, 0, 0, 1, 0, 0);
-  // Flat silhouettes in navy and white.
   for (const [cv, colr] of [[ink, ST_INK], [white, '#FFFFFF']]) {
     const g = cv.getContext('2d');
     g.globalCompositeOperation = 'source-over'; g.clearRect(0, 0, cv.width, cv.height);
@@ -131,10 +136,10 @@ function monsterSticker(key, drawBody) {
     g.globalCompositeOperation = 'source-in'; g.fillStyle = colr; g.fillRect(0, 0, cv.width, cv.height);
     g.globalCompositeOperation = 'source-over';
   }
-  const out = stCanvas();
+  const out = stCanvas(box);
   const o = out.getContext('2d');
-  stRing(o, white, 3.2);   // white die-cut border
-  stRing(o, ink, 1.3);     // navy ink line
+  stRing(o, white, box.cut);   // white die-cut border
+  stRing(o, ink, box.ink);     // navy ink line
   o.drawImage(art, 0, 0);
   // Canvas-to-canvas draws are slow on many GPUs/phones; an ImageBitmap is
   // uploaded once and then blits cheaply every frame. Use the canvas until
@@ -144,13 +149,14 @@ function monsterSticker(key, drawBody) {
     createImageBitmap(out).then((bm) => { entry.img = bm; }).catch(() => {});
   }
   _stickers.set(key, entry);
-  if (_stickers.size > 160) {
+  if (_stickers.size > 260) {
     const old = _stickers.keys().next().value;
     const e = _stickers.get(old); if (e && e.img && e.img.close) e.img.close();
     _stickers.delete(old);
   }
   return entry.img;
 }
+const monsterSticker = (key, drawBody) => bakeSticker(key, MONSTER_BOX, drawBody);
 
 // Monsters render via colour-tinted archetypes (def.sprite + def.color). Townsfolk
 // keep bespoke human palettes. Bosses get an aura + crown and are scaled by the caller.
@@ -1716,7 +1722,12 @@ export function drawGroundItem(ctx, id, cx, cy) {
   const img = itemIconImage(id);
   if (img && img.complete && img.naturalWidth) {
     const s = 22;
-    ctx.drawImage(img, cx - s / 2, cy - s / 2 - 1, s, s);
+    // Vector icons arrive pre-stickered (SVG filter); painted PNGs get the
+    // same navy-line + die-cut border baked once on canvas.
+    const isSvg = img.src && img.src.startsWith('data:image/svg');
+    const st = isSvg ? null : bakeSticker(`item|${id}`, ITEM_BOX, (g) => g.drawImage(img, -11, -11, 22, 22));
+    if (st) ctx.drawImage(st, cx + ITEM_BOX.x0, cy + ITEM_BOX.y0 - 1, ITEM_BOX.w, ITEM_BOX.h);
+    else ctx.drawImage(img, cx - s / 2, cy - s / 2 - 1, s, s);
   } else {
     ctx.fillStyle = 'rgba(255,235,170,0.6)'; circle(ctx, cx, cy, 5); ctx.fill();
   }

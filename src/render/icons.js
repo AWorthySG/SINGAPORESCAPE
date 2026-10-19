@@ -5,7 +5,7 @@
    Each entry returns the INNER markup of an <svg viewBox="0 0 24 24">.
    Exported as an ES module for the live game (ground items raster to <img>).
    ============================================================================ */
-  const OL = '#1c130b';                 // shared outline (matches world OUTLINE)
+  const OL = '#22304A';                 // A-Worthy navy ink outline
   // palettes
   const C = {
     bronze: '#c07b3a', bronzeHi: '#e0a05c', bronzeDk: '#8a5424',
@@ -556,23 +556,43 @@
   export const sunIconSVG = (size = 20, cls) => svg(I_SUN, size, cls);
   export const moonIconSVG = (size = 20, cls) => svg(I_MOON, size, cls);
 
+  // A-Worthy sticker treatment for every icon: the art is traced with a navy
+  // ink line inside a white die-cut border (two dilated copies of its
+  // silhouette), shrunk slightly so the border fits inside the 24x24 box.
+  const STICKER_FILTER = `<filter id="aw-sticker" x="-15%" y="-15%" width="130%" height="130%" color-interpolation-filters="sRGB">
+    <feMorphology in="SourceAlpha" operator="dilate" radius="1.7" result="cut"/>
+    <feFlood flood-color="#FFFFFF"/><feComposite in2="cut" operator="in" result="white"/>
+    <feMorphology in="SourceAlpha" operator="dilate" radius="1" result="ink"/>
+    <feFlood flood-color="#22304A"/><feComposite in2="ink" operator="in" result="navy"/>
+    <feMerge><feMergeNode in="white"/><feMergeNode in="navy"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>`;
+  const stickerize = (inner) => `<defs>${STICKER_FILTER}</defs><g filter="url(#aw-sticker)"><g transform="translate(2.2 2.2) scale(0.817)">${inner}</g></g>`;
+
   function svg(inner, size, cls) {
-    return `<svg class="${cls || ''}" width="${size}" height="${size}" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="display:block">${inner}</svg>`;
+    return `<svg class="${cls || ''}" width="${size}" height="${size}" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="display:block">${stickerize(inner)}</svg>`;
   }
 
   function svgString(inner) {
-    return '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24">' + inner + '</svg>';
+    return '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24">' + stickerize(inner) + '</svg>';
   }
 
   // SVG markup helpers (DOM use: inventory, equipment, skills, shops, tabs).
   // Items with painted PNG art render as an <img>; the rest stay inline vectors.
+  // Painted PNG items sit inside the same sticker filter via an SVG <image>.
   export const itemIconSVG = (id, size = 28, cls) => (
     PNG_ITEMS.has(id)
-      ? `<img class="${cls || ''}" width="${size}" height="${size}" src="${itemPngSrc(id)}" alt="" loading="lazy" style="display:block;object-fit:contain;image-rendering:auto" />`
+      ? svg(`<image href="${itemPngSrc(id)}" x="0" y="0" width="24" height="24" preserveAspectRatio="xMidYMid meet"/>`, size, cls)
       : svg(I[id] || I.coins, size, cls)
   );
   export const skillIconSVG = (id, size = 20, cls) => svg(S[id] || S.attack, size, cls);
-  export const tabIconSVG = (id, size = 24, cls) => svg(T[id] || T.inventory, size, cls);
+  // Side-panel tabs that have a real A-Worthy mascot icon use the artwork;
+  // the rest keep their stickered vector until artwork exists.
+  const TAB_ART = { settings: 'tab-settings', skills: 'tab-skills', quests: 'tab-quests', achievements: 'tab-achievements' };
+  export const tabIconSVG = (id, size = 24, cls) => (
+    TAB_ART[id]
+      ? `<img class="${cls || ''}" width="${size}" height="${size}" src="assets/icons/${TAB_ART[id]}.webp" alt="" style="display:block;object-fit:contain" />`
+      : svg(T[id] || T.inventory, size, cls)
+  );
   export const hasIcon = (id) => !!I[id];
   // The set of item ids backed by painted PNG art under assets/items/. Exposed
   // so tests can assert it stays in lock-step with the files on disk.

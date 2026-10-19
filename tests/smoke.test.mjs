@@ -181,10 +181,12 @@ test('every equippable item has its own custom icon', () => {
   assert.ok(itemIconSVG('merlion_blade', 24).includes('<svg'));
 });
 
-test('painted PNG sprites render as <img>, the rest stay inline vectors', () => {
-  // Items shipped as hand-drawn artwork point at assets/items/<id>.png.
+test('painted PNG sprites render as stickered images, the rest stay inline vectors', () => {
+  // Items shipped as hand-drawn artwork point at assets/items/<id>.png, placed
+  // inside the shared A-Worthy sticker filter.
   const png = itemIconSVG('logs', 32);
-  assert.ok(png.includes('<img') && png.includes('assets/items/logs.png'), 'log sprite uses its PNG');
+  assert.ok(png.includes('<image') && png.includes('assets/items/logs.png'), 'log sprite uses its PNG');
+  assert.ok(png.includes('aw-sticker'), 'and gets the sticker border');
   assert.ok(itemIconSVG('raw_barramundi', 24).includes('assets/items/raw_barramundi.png'));
   // An item without painted art keeps its vector icon.
   assert.ok(itemIconSVG('merlion_blade', 24).includes('<svg'), 'vector fallback intact');
