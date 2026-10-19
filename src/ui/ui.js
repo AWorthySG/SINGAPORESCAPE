@@ -89,7 +89,7 @@ export class UI {
 
     // Swap the placeholder emoji tab glyphs for hand-drawn vector icons.
     document.querySelectorAll('#panel-tabs .tab-btn').forEach((b) => {
-      b.innerHTML = tabIconSVG(b.dataset.view, 24);
+      b.innerHTML = tabIconSVG(b.dataset.view, 32);
     });
     this.el.panelHead = document.getElementById('panel-head');
     this.el.panelTitle = document.getElementById('panel-title');
