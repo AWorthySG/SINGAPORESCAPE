@@ -580,14 +580,18 @@
   // Items with painted PNG art render as an <img>; the rest stay inline vectors.
   // Painted PNG items sit inside the same sticker filter via an SVG <image>.
   export const itemIconSVG = (id, size = 28, cls) => (
-    PNG_ITEMS.has(id)
+    ITEM_ART.has(id) ? artImg(`item-${id}`, size, cls)
+    : PNG_ITEMS.has(id)
       ? svg(`<image href="${itemPngSrc(id)}" x="0" y="0" width="24" height="24" preserveAspectRatio="xMidYMid meet"/>`, size, cls)
       : svg(I[id] || I.coins, size, cls)
   );
   // A-Worthy mascot artwork, where it exists, replaces the stickered vectors.
+  // Items with A-Worthy mascot-sticker artwork (assets/icons/item-<id>.webp).
+  const ITEM_ART = new Set(['coins', 'bronze_axe', 'bronze_pickaxe', 'small_net', 'tinderbox', 'hammer', 'logs', 'oak_logs']);
+  export const itemArtSrc = (id) => (ITEM_ART.has(id) ? `assets/icons/item-${id}.webp` : null);
   const artImg = (file, size, cls) => `<img class="${cls || ''}" width="${size}" height="${size}" src="assets/icons/${file}.webp" alt="" style="display:block;object-fit:contain" />`;
   const SKILL_ART = new Set(['attack', 'strength', 'defence', 'hitpoints', 'ranged', 'magic', 'prayer', 'slayer',
-    'woodcutting', 'mining', 'fishing', 'firemaking', 'cooking', 'smithing', 'crafting']);
+    'woodcutting', 'mining', 'fishing', 'firemaking', 'cooking', 'smithing', 'crafting', 'thieving', 'agility']);
   export const skillIconSVG = (id, size = 20, cls) => (SKILL_ART.has(id) ? artImg(`skill-${id}`, size, cls) : svg(S[id] || S.attack, size, cls));
   /** Combat-skill (action bar) icon: every ability has mascot artwork. */
   export const abilityIconHTML = (id, size = 34, cls) => artImg(`ability-${id}`, size, cls);
@@ -606,6 +610,12 @@
   export function itemIconImage(id) {
     if (_imgCache[id] !== undefined) return _imgCache[id];
     if (typeof Image === 'undefined') { _imgCache[id] = null; return null; }
+    if (ITEM_ART.has(id)) {
+      const img = new Image();
+      img.src = `assets/icons/item-${id}.webp`;
+      _imgCache[id] = img;
+      return img;
+    }
     if (PNG_ITEMS.has(id)) {
       const img = new Image();
       img.src = itemPngSrc(id);

@@ -1724,7 +1724,8 @@ export function drawGroundItem(ctx, id, cx, cy) {
     const s = 22;
     // Vector icons arrive pre-stickered (SVG filter); painted PNGs get the
     // same navy-line + die-cut border baked once on canvas.
-    const isSvg = img.src && img.src.startsWith('data:image/svg');
+    // (Mascot-sticker artwork already carries its own die-cut border.)
+    const isSvg = img.src && (img.src.startsWith('data:image/svg') || img.src.includes('assets/icons/'));
     const st = isSvg ? null : bakeSticker(`item|${id}`, ITEM_BOX, (g) => g.drawImage(img, -11, -11, 22, 22));
     if (st) ctx.drawImage(st, cx + ITEM_BOX.x0, cy + ITEM_BOX.y0 - 1, ITEM_BOX.w, ITEM_BOX.h);
     else ctx.drawImage(img, cx - s / 2, cy - s / 2 - 1, s, s);
