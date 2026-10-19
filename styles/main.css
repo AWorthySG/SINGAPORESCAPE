@@ -1234,3 +1234,23 @@ button:focus-visible, .tab-btn:focus-visible, .chat-tab:focus-visible,
 .ability-btn .ab-cost { position: absolute; bottom: 1px; right: 4px; font-size: 10px; }
 @media (max-width: 760px) { .ability-btn .ab-icon img { width: 26px; height: 26px; } }
 @media (max-width: 540px) { .ability-btn .ab-icon img { width: 24px; height: 24px; } }
+
+/* ---------- Skills panel: labelled rows, grouped ---------- */
+#skills-grid { grid-template-columns: 1fr; gap: 6px; }
+.skill-group {
+  font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--aw-text-sec); margin: 6px 2px 0;
+}
+.skill-group:first-child { margin-top: 0; }
+.skill-cell { gap: 8px; padding: 5px 10px 7px 5px; align-items: center; }
+#sidepanel.wide { width: min(360px, calc(100vw - 20px)); }
+@media (max-width: 540px) { #sidepanel.wide { width: calc(100vw - 12px); z-index: 28; } }   /* above the joystick + action bar while open */
+.skill-cell .skill-icon { flex: none; }
+.skill-cell .skill-text { display: flex; flex-direction: column; min-width: 0; flex: 1; line-height: 1.25; }
+.skill-cell .skill-name { font-size: 13px; font-weight: 800; color: var(--aw-text); }
+.skill-cell .skill-desc { font-size: 11.5px; font-weight: 600; color: var(--aw-text-sec); }
+.skill-cell .skill-lvl { margin-left: 4px; font-size: 16px; font-weight: 900; flex: none; }
+@media (max-width: 540px) {
+  .skill-cell .skill-icon img, .skill-cell .skill-icon svg { width: 30px; height: 30px; }
+  .skill-cell .skill-desc { font-size: 11.5px; }
+}
