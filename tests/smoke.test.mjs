@@ -269,12 +269,14 @@ test('armour set bonuses apply only when the full set is worn', () => {
   assert.ok(eq.bonuses().strength > partial, 'set bonus added on completion');
 });
 
-test('combat is faster-paced: fast weapons swing every 2 ticks', () => {
+test('combat is fast-paced: quick weapons swing every tick', () => {
   const eq = new Equipment(new EventBus());
   eq.set('weapon', 'bronze_scimitar');
-  assert.equal(eq.weaponSpeed(), 2, 'scimitar interval shortened to 2 ticks');
+  assert.equal(eq.weaponSpeed(), 1, 'scimitar swings every tick (0.6s)');
+  eq.set('weapon', 'bronze_axe');
+  assert.equal(eq.weaponSpeed(), 2, 'slower weapons are still quicker than before');
   eq.clearSlot('weapon');
-  assert.ok(eq.weaponSpeed() <= 3, 'unarmed sped up too');
+  assert.equal(eq.weaponSpeed(), 2, 'unarmed sped up too');
 });
 
 test('select weapons carry special attacks', () => {

@@ -130,7 +130,7 @@ export function buildWorld() {
   placeObj('bank_booth', 50, 48); placeObj('bank_booth', 51, 48); placeObj('bank_booth', 52, 48);
   placeNpc('banker', 51, 47);
   placeObj('shrine', 58, 50);
-  placeObj('hyco_obelisk', 54, 50); // Hyco Education landmark, facing the Monument across the plaza
+  placeObj('mascot_statue', 54, 50); // A-Worthy mascot statue, facing the Monument across the plaza
   placeObj('sign', 56, 46, { sign: 'Kampong Glam' });
   placeObj('furnace', 48, 58); placeObj('anvil', 50, 59); placeObj('range', 62, 58);
   placeObj('crafting_table', 52, 59); // pottery & jewelry

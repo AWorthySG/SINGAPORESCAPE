@@ -46,7 +46,7 @@ export const QUESTS = [
   },
   {
     id: 'pillars', name: 'Pillars of the Island', qp: 1,
-    desc: 'Pray at the A-Worthy Monument & rest at the Hyco obelisk.',
+    desc: 'Pray at the A-Worthy Monument & rest at the Mascot Statue.',
     progress: (g) => { const q = g.quests.pillars; return q.state === 'active' ? `${(q.monument ? 1 : 0) + (q.obelisk ? 1 : 0)}/2 honoured` : ''; },
   },
   {

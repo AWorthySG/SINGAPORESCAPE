@@ -9,7 +9,9 @@ import { now } from './core/utils.js';
 const ABILITY_KEYS = Object.fromEntries(ABILITIES.map((a) => [a.key.toLowerCase(), a.id]));
 
 const canvas = document.getElementById('game-canvas');
-const ctx = canvas.getContext('2d');
+// Opaque context: the world covers the whole canvas, so the browser can skip
+// alpha-blending it against the page every frame.
+const ctx = canvas.getContext('2d', { alpha: false });
 
 const game = new Game();
 const ui = new UI(game);
@@ -52,7 +54,9 @@ input.onKey((e) => {
 
 // Resize handling with device-pixel-ratio scaling for crisp rendering.
 function resize() {
-  const dpr = window.devicePixelRatio || 1;
+  // Cap the backing-store density at 2x: 3x phone screens look the same at 2x
+  // but would cost more than twice the fill-rate per frame.
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
   const w = window.innerWidth, h = window.innerHeight;
   canvas.width = Math.floor(w * dpr);
   canvas.height = Math.floor(h * dpr);

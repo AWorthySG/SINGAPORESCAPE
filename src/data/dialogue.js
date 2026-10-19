@@ -82,7 +82,7 @@ export const DIALOGUES = {
     },
     pillars: {
       speaker: 'Kampong Guide',
-      text: 'Our island stands on two pillars, lah. Pray at the A-Worthy Monument in town, then rest at the Hyco Education obelisk. Honour both and I\'ll give you a sigil that carries their blessing.',
+      text: 'Our island stands on two pillars, lah. Pray at the A-Worthy Monument in town, then rest at the Mascot Statue. Honour both and I\'ll give you a sigil that carries their blessing.',
       options: [
         { label: "I'll honour both pillars.", next: 'start', action: 'pillarsStart' },
         { label: 'Sounds spiritual. Maybe later.', next: 'start' },

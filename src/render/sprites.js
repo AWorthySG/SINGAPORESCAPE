@@ -6,7 +6,7 @@ import { itemIconImage } from './icons.js';
 const OUTLINE = 'rgba(26,18,12,0.55)';
 
 // Lazy-loaded brand logos so the real artwork can be embedded into the world
-// (on the A-Worthy Monument and the Hyco Education obelisk). Guarded for headless.
+// (on the A-Worthy Monument). Guarded for headless.
 const _logoCache = {};
 function logoImage(name) {
   if (_logoCache[name] !== undefined) return _logoCache[name];
@@ -89,6 +89,69 @@ function drawCreaturePng(c, img) {
   c.drawImage(img, -w / 2, 13.5 - H, w, H);
 }
 
+// ---------------- Monster stickers ----------------
+// Monsters get the A-Worthy sticker treatment: the body is drawn once into an
+// offscreen canvas, then traced with a navy ink line inside a white die-cut
+// border (stamping its silhouette in a ring), and the finished sticker is
+// cached per sprite/colour/stride pose so a frame costs a single drawImage.
+const ST_X0 = -40, ST_Y0 = -50, ST_W = 80, ST_H = 76;   // local box the art fits in
+const ST_RES = 2;                                       // offscreen pixels per local unit
+const ST_INK = '#22304A';
+const _stickers = new Map();
+let _stScratch = null;
+function stCanvas() {
+  const cv = document.createElement('canvas');
+  cv.width = ST_W * ST_RES; cv.height = ST_H * ST_RES;
+  return cv;
+}
+function stRing(dst, src, r) {
+  const n = 16;
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    dst.drawImage(src, Math.cos(a) * r * ST_RES, Math.sin(a) * r * ST_RES);
+  }
+}
+function monsterSticker(key, drawBody) {
+  if (typeof document === 'undefined' || !document.createElement) return null;
+  const hit = _stickers.get(key);
+  if (hit) { _stickers.delete(key); _stickers.set(key, hit); return hit.img; }   // LRU touch
+  if (!_stScratch) _stScratch = { art: stCanvas(), ink: stCanvas(), white: stCanvas() };
+  const { art, ink, white } = _stScratch;
+  const a = art.getContext('2d');
+  if (!a) return null;
+  a.setTransform(1, 0, 0, 1, 0, 0); a.clearRect(0, 0, art.width, art.height);
+  a.setTransform(ST_RES, 0, 0, ST_RES, -ST_X0 * ST_RES, -ST_Y0 * ST_RES);
+  drawBody(a);
+  a.setTransform(1, 0, 0, 1, 0, 0);
+  // Flat silhouettes in navy and white.
+  for (const [cv, colr] of [[ink, ST_INK], [white, '#FFFFFF']]) {
+    const g = cv.getContext('2d');
+    g.globalCompositeOperation = 'source-over'; g.clearRect(0, 0, cv.width, cv.height);
+    g.drawImage(art, 0, 0);
+    g.globalCompositeOperation = 'source-in'; g.fillStyle = colr; g.fillRect(0, 0, cv.width, cv.height);
+    g.globalCompositeOperation = 'source-over';
+  }
+  const out = stCanvas();
+  const o = out.getContext('2d');
+  stRing(o, white, 3.2);   // white die-cut border
+  stRing(o, ink, 1.3);     // navy ink line
+  o.drawImage(art, 0, 0);
+  // Canvas-to-canvas draws are slow on many GPUs/phones; an ImageBitmap is
+  // uploaded once and then blits cheaply every frame. Use the canvas until
+  // the bitmap resolves.
+  const entry = { img: out };
+  if (typeof createImageBitmap === 'function') {
+    createImageBitmap(out).then((bm) => { entry.img = bm; }).catch(() => {});
+  }
+  _stickers.set(key, entry);
+  if (_stickers.size > 160) {
+    const old = _stickers.keys().next().value;
+    const e = _stickers.get(old); if (e && e.img && e.img.close) e.img.close();
+    _stickers.delete(old);
+  }
+  return entry.img;
+}
+
 // Monsters render via colour-tinted archetypes (def.sprite + def.color). Townsfolk
 // keep bespoke human palettes. Bosses get an aura + crown and are scaled by the caller.
 export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
@@ -99,18 +162,27 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
     opts.rock = true; // monsters rock side-to-side as they move (a gait cue)
     return staged(ctx, cx, cy, opts, (c) => {
       if (opts.boss) bossAura(c, opts.time || 0, col);
-      if (pimg && pimg.complete && pimg.naturalWidth) {
-        drawCreaturePng(c, pimg);    // painted art carries its own shading
-      } else {
-        arch(c, col);
-        // Soft upper sheen for volume (fades out, so it only lifts the body).
-        const sg = c.createRadialGradient(-3, -5, 0, -3, -5, 10);
-        sg.addColorStop(0, 'rgba(255,255,255,0.13)');
-        sg.addColorStop(1, 'rgba(255,255,255,0)');
-        c.globalCompositeOperation = 'lighter';
-        c.fillStyle = sg; circle(c, -3, -5, 10); c.fill();
-        c.globalCompositeOperation = 'source-over';
-      }
+      const drawBody = (g) => {
+        if (pimg && pimg.complete && pimg.naturalWidth) {
+          drawCreaturePng(g, pimg);    // painted art carries its own shading
+        } else {
+          arch(g, col);
+          // Soft upper sheen for volume, kept on the body (source-atop) so it
+          // never leaks past the silhouette the sticker border is traced from.
+          const sg = g.createRadialGradient(-3, -5, 0, -3, -5, 10);
+          sg.addColorStop(0, 'rgba(255,255,255,0.16)');
+          sg.addColorStop(1, 'rgba(255,255,255,0)');
+          g.globalCompositeOperation = 'source-atop';
+          g.fillStyle = sg; circle(g, -3, -5, 10); g.fill();
+          g.globalCompositeOperation = 'source-over';
+        }
+      };
+      const ready = !pimg || (pimg.complete && pimg.naturalWidth);
+      // Only the turtle's legs follow the stride; every other body is one pose.
+      const pose = opts.sprite === 'turtle' ? Math.round(_anim.stride * 2) : 0;
+      const sticker = ready ? monsterSticker(`${opts.sprite}|${col}|${pimg ? 'p' : 'v'}|${pose}`, drawBody) : null;
+      if (sticker) c.drawImage(sticker, ST_X0, ST_Y0, ST_W, ST_H);
+      else drawBody(c);              // headless (no DOM canvas) or art still loading
       if (opts.boss) bossCrown(c, opts.time || 0);  // insignia over both painted & vector bodies
     });
   }
@@ -1153,7 +1225,7 @@ export function drawObjectSprite(ctx, obj, cx, cy, time = 0) {
     case 'craft': return craftTable(ctx, cx, cy);
     case 'bank': return bank(ctx, cx, cy);
     case 'shrine': return shrine(ctx, cx, cy, time);
-    case 'rest': return hyco(ctx, cx, cy);
+    case 'rest': return mascotStatue(ctx, cx, cy);
     case 'agility': return agilityCourse(ctx, cx, cy);
     case 'stall': return stall(ctx, obj.objId, obj.depleted, cx, cy);
     case 'transport': return mrtStation(ctx, cx, cy);
@@ -1484,27 +1556,20 @@ function shrineBody(ctx, cx, cy, time) {
   circle(ctx, cx - 3.6, badgeY - 2.5, 1.05); ctx.fill();
 }
 
-// Hyco Education obelisk — a navy standee with the silver ring + orange dot mark.
-function hyco(ctx, cx, cy) {
+// A-Worthy Mascot Statue — the mascot sticker, twice life size, on a stone plinth.
+function mascotStatue(ctx, cx, cy) {
   drawShadow(ctx, cx, cy + 14, 14, 5);
-  glow(ctx, cx, cy - 6, 24, 'rgba(245,166,35,0.16)');
-  ctx.fillStyle = '#3a3530'; rr(ctx, cx - 2.5, cy + 4, 5, 11, 1); ctx.fill();
-  ctx.fillStyle = '#15273c'; rr(ctx, cx - 15, cy - 22, 30, 28, 4); ctx.fill(); line(ctx, OUTLINE, 1.5);
-  ctx.fillStyle = 'rgba(255,255,255,0.06)'; rr(ctx, cx - 15, cy - 22, 30, 6, 4); ctx.fill();
-  // "hy" suggestion
-  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.moveTo(cx - 10, cy - 4); ctx.lineTo(cx - 10, cy - 14);
-  ctx.moveTo(cx - 10, cy - 9); ctx.quadraticCurveTo(cx - 7, cy - 11, cx - 6, cy - 4);
-  ctx.stroke();
-  // ring "o" + orange dot
-  ctx.strokeStyle = '#dfe6ec'; ctx.lineWidth = 3.2; circle(ctx, cx + 4, cy - 8, 6); ctx.stroke();
-  ctx.lineCap = 'butt';
-  ctx.fillStyle = '#f5a623'; circle(ctx, cx + 9, cy - 13, 2.1); ctx.fill();
-  // EDUCATION bar
-  ctx.fillStyle = 'rgba(238,243,247,0.8)'; rr(ctx, cx - 11, cy + 1, 22, 2, 1); ctx.fill();
-  // Embed the genuine Hyco Education logo onto the standee face (its own navy bg blends in).
-  drawLogo(ctx, 'hyco', cx - 14, cy - 21, 28, 15);
+  glow(ctx, cx, cy - 10, 26, 'rgba(245,184,46,0.16)');
+  // plinth
+  rr(ctx, cx - 12, cy + 5, 24, 9, 2.5); fill(ctx, '#d8d0bf'); line(ctx, '#22304A', 1.4);
+  ctx.fillStyle = 'rgba(255,255,255,0.35)'; rr(ctx, cx - 11, cy + 6, 22, 2, 1); ctx.fill();
+  ctx.save();
+  ctx.translate(cx, cy - 4);
+  ctx.scale(1.15, 1.15);
+  const st = _anim.stride; _anim.stride = 0;
+  mascot(ctx, { shirt: '#C0392B' });
+  _anim.stride = st;
+  ctx.restore();
 }
 
 // MRT station: a sleek train cab beside a red station pylon.
