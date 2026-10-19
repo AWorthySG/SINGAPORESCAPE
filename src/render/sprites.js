@@ -1184,8 +1184,23 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
       c.fillStyle = '#C0392B'; path(c, () => { c.moveTo(-1.4, -21); c.quadraticCurveTo(-5.5, -23.5, -4.5, -28); c.quadraticCurveTo(-1, -24.5, 1.4, -22); }); c.fill(); // plume
       c.fillStyle = 'rgba(255,255,255,0.4)'; rr(c, -5.5, -17.5, 3, 1, 0.5); c.fill();
     }
-    // weapon, held in the right mitten
-    if (opts.hasWeapon) {
+    // weapon, held in the right mitten: a bow or staff for ranged / magic
+    if (opts.hasWeapon && opts.weaponType === 'ranged') {
+      c.lineCap = 'round';
+      c.strokeStyle = M_INK; c.lineWidth = 3; c.beginPath(); c.arc(8.5, 1, 10, -Math.PI * 0.42, Math.PI * 0.42); c.stroke();
+      c.strokeStyle = '#B07D2A'; c.lineWidth = 1.7; c.beginPath(); c.arc(8.5, 1, 10, -Math.PI * 0.42, Math.PI * 0.42); c.stroke();
+      c.strokeStyle = '#F0EEE8'; c.lineWidth = 0.6; c.beginPath(); c.moveTo(11.6, -8.3); c.lineTo(11.6, 10.3); c.stroke(); // string
+      c.lineCap = 'butt';
+      circle(c, 10, 4, 1.8); fill(c, '#ffffff'); line(c, M_INK, 1);
+    } else if (opts.hasWeapon && opts.weaponType === 'magic') {
+      c.lineCap = 'round';
+      c.strokeStyle = M_INK; c.lineWidth = 3; c.beginPath(); c.moveTo(10.4, 12); c.lineTo(12.6, -14); c.stroke();
+      c.strokeStyle = '#8A5A2B'; c.lineWidth = 1.7; c.beginPath(); c.moveTo(10.4, 12); c.lineTo(12.6, -14); c.stroke();
+      c.lineCap = 'butt';
+      circle(c, 12.8, -16, 2.8); fill(c, '#9B52AD'); line(c, M_INK, 1.1);
+      c.fillStyle = 'rgba(255,255,255,0.7)'; circle(c, 12, -16.9, 0.9); c.fill();
+      circle(c, 10.8, 4, 1.8); fill(c, '#ffffff'); line(c, M_INK, 1);
+    } else if (opts.hasWeapon) {
       c.strokeStyle = M_INK; c.lineWidth = 3.4; c.lineCap = 'round'; c.beginPath(); c.moveTo(10.6, 2); c.lineTo(14.6, -16); c.stroke();
       c.strokeStyle = '#e9edf2'; c.lineWidth = 2; c.beginPath(); c.moveTo(10.6, 2); c.lineTo(14.6, -16); c.stroke();
       c.fillStyle = '#ffffff'; circle(c, 14, -14, 0.7); c.fill(); // tip glint

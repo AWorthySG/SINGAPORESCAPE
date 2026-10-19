@@ -21,7 +21,6 @@ import { TILE } from '../config.js';
 import { TERRAIN } from '../data/world.js';
 import { clearSave } from '../game/save.js';
 import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG } from '../render/icons.js';
-import { ABILITIES } from '../data/abilities.js';
 import { weaknessOf } from '../game/combat.js';
 
 const EQUIP_LAYOUT = [
@@ -135,7 +134,7 @@ export class UI {
     this.bus.on('hp', () => this.renderHp());
     this.bus.on('run', () => this.renderRun());
     this.bus.on('spec', () => this.renderSpec());
-    this.bus.on('equipment', () => this.renderSpec());
+    this.bus.on('equipment', () => { this.renderSpec(); this.renderAbilities(); });
     this.bus.on('adrenaline', () => this.renderAbilities());
     this.bus.on('ability', () => this.renderAbilities());
     this.bus.on('karma', () => { this.renderAlignment(); this._refreshModalIfOpen(['shop']); });
@@ -170,7 +169,10 @@ export class UI {
     if (!wrap) return;
     wrap.innerHTML = '';
     this._abilityBtns = {};
-    for (const ab of ABILITIES) {
+    // The bar reflects the weapon in hand; renderAbilities rebuilds it on a swap.
+    const set = this.game.currentAbilities();
+    this._abilitySig = set.map((a) => a.id).join(',');
+    for (const ab of set) {
       const btn = document.createElement('button');
       btn.className = 'ability-btn';
       btn.dataset.ability = ab.id;
@@ -191,7 +193,9 @@ export class UI {
     if (this.el.adrenalineFill) this.el.adrenalineFill.style.width = `${Math.round(g.adrenaline)}%`;
     if (this.el.adrenalineVal) this.el.adrenalineVal.textContent = `${Math.round(g.adrenaline)}%`;
     if (!this._abilityBtns) return;
-    for (const ab of ABILITIES) {
+    const set = g.currentAbilities();
+    if (set.map((a) => a.id).join(',') !== this._abilitySig) { this._buildAbilityBar(); return this.renderAbilities(); }
+    for (const ab of set) {
       const btn = this._abilityBtns[ab.id];
       if (!btn) continue;
       const cd = g.abilityCd[ab.id] || 0;

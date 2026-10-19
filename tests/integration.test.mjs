@@ -535,6 +535,7 @@ test('unlocking an achievement grants its coin reward (once)', () => {
   clearSave();
   const game = new Game();
   game.start();
+  game.rollDrops = () => {}; // drops are auto-looted now; keep them out of the coin count
   const before = game.inventory.count('coins');
   const chicken = game.npcs.find((n) => n.npcId === 'chicken');
   chicken.alive = true; chicken.hp = 1; game.killNpc(chicken); // unlocks first_blood (+100)
@@ -738,6 +739,46 @@ test('little chickens at the starting town waddle up to the player and cluck', a
   chicken.spawnX = chicken.x; chicken.spawnY = chicken.y;
   step(game, 1);
   assert.equal(chicken.target, game.player, 'the chicken aggros anyway');
+});
+
+test('monster drops are auto-looted, spilling to the ground only when the pack is full', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  const chicken = game.npcs.find((n) => n.npcId === 'chicken');
+  const bones0 = game.inventory.count('bones');
+  game.rollDrops(chicken);
+  assert.equal(game.inventory.count('bones'), bones0 + 1, 'bones go straight into the pack');
+  game.inventory.remove('bones', 999);
+  for (let i = 0; i < game.inventory.size; i++) if (!game.inventory.slots[i]) game.inventory.slots[i] = { id: 'logs', qty: 1 };
+  const before = game.world.groundItems.length;
+  game.rollDrops(chicken);
+  assert.ok(game.world.groundItems.length > before, 'a full pack spills the drop onto the ground');
+});
+
+test('weapon-specific skills: a bow swaps in Snapshot, which looses three arrows instantly', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const { NPC } = await import('../src/game/npc.js');
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('ranged');
+  assert.equal(game.combatMode(), 'ranged');
+  const keys = game.currentAbilities().map((a) => a.id);
+  assert.deepEqual(keys, ['snapshot', 'piercing_shot', 'brace', 'second_wind', 'arrow_storm']);
+  const target = new NPC('goblin', game.player.x + 3, game.player.y, 0);
+  target.hp = target.maxHp = 9999;
+  game.npcs = [target];
+  game.attackNpc(target);
+  game.adrenaline = 100;
+  const arrows0 = game.inventory.count('bronze_arrow');
+  game.player.attackCooldown = 3; // mid-swing: Snapshot must not wait for it
+  game.activateAbilityKey('z');
+  assert.equal(arrows0 - game.inventory.count('bronze_arrow'), 3, 'three arrows fired at once');
+  assert.ok(game.abilityCd.snapshot > 0, 'Snapshot goes on cooldown');
+  game.equipment.set('weapon', 'bronze_scimitar'); // the melee set comes back with a melee weapon
+  assert.equal(game.currentAbilities()[0].id, 'power_strike');
 });
 
 test('a chatty NPC keeps cycling its speech bubble on a cooldown', async () => {
