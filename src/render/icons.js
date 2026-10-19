@@ -591,7 +591,7 @@
     'coins', 'bronze_axe', 'bronze_pickaxe', 'small_net', 'tinderbox', 'hammer',
     'logs', 'oak_logs', 'willow_logs',
     'copper_ore', 'tin_ore', 'iron_ore', 'coal', 'bronze_bar', 'iron_bar',
-    'raw_trout', 'raw_sardine', 'raw_mackerel', 'chicken_rice', 'roti_prata',
+    'raw_trout', 'raw_sardine', 'raw_anchovy', 'chicken_rice', 'roti_prata',
     'bronze_dagger', 'bronze_sword', 'bronze_scimitar',
   ]);
   export const itemArtSrc = (id) => (ITEM_ART.has(id) ? `assets/icons/item-${id}.webp` : null);
