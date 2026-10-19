@@ -137,7 +137,7 @@ test('new skills (Prayer, Thieving, Agility) exist with icons; gems have icons',
   const ids = SKILLS.map((s) => s.id);
   for (const s of ['prayer', 'thieving', 'agility']) {
     assert.ok(ids.includes(s), `skill ${s} present`);
-    assert.ok(skillIconSVG(s, 20).includes('<svg'));
+    assert.ok(/<svg|assets\/icons\/skill-/.test(skillIconSVG(s, 20)), `skill ${s} has an icon (vector or mascot art)`);
   }
   for (const g of ['sapphire', 'emerald', 'ruby', 'diamond']) {
     assert.ok(hasIcon(g), `gem ${g} has icon`);
@@ -147,12 +147,28 @@ test('new skills (Prayer, Thieving, Agility) exist with icons; gems have icons',
 test('Ranged & Magic skills + the spellbook exist', () => {
   const ids = SKILLS.map((s) => s.id);
   assert.ok(ids.includes('ranged') && ids.includes('magic'));
-  assert.ok(skillIconSVG('ranged', 20).includes('<svg') && skillIconSVG('magic', 20).includes('<svg'));
+  assert.ok(skillIconSVG('ranged', 20).includes('assets/icons/skill-ranged.webp') && skillIconSVG('magic', 20).includes('assets/icons/skill-magic.webp'));
   assert.ok(SPELLS.length >= 16, `spellbook has the full progression: ${SPELLS.length}`);
   for (const sp of SPELLS) assert.ok(sp.maxHit > 0 && sp.runes && sp.level >= 1, `spell ${sp.id} well-formed`);
   // Every rune referenced by a spell must be a real item.
   for (const sp of SPELLS) for (const r of Object.keys(sp.runes)) assert.ok(ITEMS[r], `spell ${sp.id} uses real rune ${r}`);
   for (const w of ['shortbow', 'yew_shortbow', 'staff', 'mystic_staff']) assert.ok(hasIcon(w), `weapon ${w} icon`);
+});
+
+test('every mascot icon the game references exists on disk', async () => {
+  const { ABILITIES } = await import('../src/data/abilities.js');
+  const { abilityIconHTML, tabIconSVG } = await import('../src/render/icons.js');
+  const dir = fileURLToPath(new URL('../assets/icons/', import.meta.url));
+  const onDisk = new Set(readdirSync(dir));
+  const refs = [
+    ...ABILITIES.map((a) => abilityIconHTML(a.id)),
+    ...['inventory', 'equipment', 'skills', 'combat', 'prayer', 'quests', 'achievements', 'settings'].map((t) => tabIconSVG(t)),
+    ...SKILLS.map((sk) => skillIconSVG(sk.id)),
+  ];
+  for (const html of refs) {
+    const m = html.match(/assets\/icons\/([\w-]+\.webp)/);
+    if (m) assert.ok(onDisk.has(m[1]), `${m[1]} exists`);
+  }
 });
 
 test('achievements are defined, unique and well-formed', () => {

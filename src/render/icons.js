@@ -584,15 +584,16 @@
       ? svg(`<image href="${itemPngSrc(id)}" x="0" y="0" width="24" height="24" preserveAspectRatio="xMidYMid meet"/>`, size, cls)
       : svg(I[id] || I.coins, size, cls)
   );
-  export const skillIconSVG = (id, size = 20, cls) => svg(S[id] || S.attack, size, cls);
+  // A-Worthy mascot artwork, where it exists, replaces the stickered vectors.
+  const artImg = (file, size, cls) => `<img class="${cls || ''}" width="${size}" height="${size}" src="assets/icons/${file}.webp" alt="" style="display:block;object-fit:contain" />`;
+  const SKILL_ART = new Set(['attack', 'strength', 'defence', 'hitpoints', 'ranged', 'magic', 'prayer']);
+  export const skillIconSVG = (id, size = 20, cls) => (SKILL_ART.has(id) ? artImg(`skill-${id}`, size, cls) : svg(S[id] || S.attack, size, cls));
+  /** Combat-skill (action bar) icon: every ability has mascot artwork. */
+  export const abilityIconHTML = (id, size = 34, cls) => artImg(`ability-${id}`, size, cls);
   // Side-panel tabs that have a real A-Worthy mascot icon use the artwork;
   // the rest keep their stickered vector until artwork exists.
-  const TAB_ART = { settings: 'tab-settings', skills: 'tab-skills', quests: 'tab-quests', achievements: 'tab-achievements' };
-  export const tabIconSVG = (id, size = 24, cls) => (
-    TAB_ART[id]
-      ? `<img class="${cls || ''}" width="${size}" height="${size}" src="assets/icons/${TAB_ART[id]}.webp" alt="" style="display:block;object-fit:contain" />`
-      : svg(T[id] || T.inventory, size, cls)
-  );
+  const TAB_ART = new Set(['inventory', 'equipment', 'skills', 'combat', 'prayer', 'quests', 'achievements', 'settings']);
+  export const tabIconSVG = (id, size = 24, cls) => (TAB_ART.has(id) ? artImg(`tab-${id}`, size, cls) : svg(T[id] || T.inventory, size, cls));
   export const hasIcon = (id) => !!I[id];
   // The set of item ids backed by painted PNG art under assets/items/. Exposed
   // so tests can assert it stays in lock-step with the files on disk.

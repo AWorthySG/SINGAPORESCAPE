@@ -1227,3 +1227,10 @@ button:focus-visible, .tab-btn:focus-visible, .chat-tab:focus-visible,
   background: var(--aw-sun); box-shadow: 0 0 0 2px var(--aw-ink); vertical-align: 1px;
 }
 @media (max-width: 540px) { #auto-battle-btn { font-size: 11px; padding: 3px 11px; } }
+
+/* ---------- A-Worthy mascot artwork in the action bar ---------- */
+.ability-btn .ab-icon { display: flex; align-items: center; justify-content: center; }
+.ability-btn .ab-icon img { width: 34px; height: 34px; }
+.ability-btn .ab-cost { position: absolute; bottom: 1px; right: 4px; font-size: 10px; }
+@media (max-width: 760px) { .ability-btn .ab-icon img { width: 26px; height: 26px; } }
+@media (max-width: 540px) { .ability-btn .ab-icon img { width: 24px; height: 24px; } }

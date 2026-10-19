@@ -2153,7 +2153,7 @@ export class Game {
       }
       options.push({ label: 'Examine', target: obj.def.name, fn: () => this.msg(obj.def.examine, 'system') });
     }
-    options.push({ label: 'Walk here', target: '', fn: () => this.walkTo(tile) });
+    if (!options.length) { this.ui?.hideContextMenu(); return; }   // bare ground: nothing to do
     this.ui?.showContextMenu(sx, sy, options);
   }
 }
