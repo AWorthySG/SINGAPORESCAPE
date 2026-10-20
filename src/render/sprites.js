@@ -168,6 +168,12 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
     opts.rock = true; // monsters rock side-to-side as they move (a gait cue)
     return staged(ctx, cx, cy, opts, (c) => {
       if (opts.boss) bossAura(c, opts.time || 0, col);
+      // Attack squash & stretch: crouch, then lunge tall into the bite/strike.
+      const ak = opts.attackK ?? -1;
+      if (ak >= 0) {
+        const s1 = ak < 0.35 ? -Math.sin((ak / 0.35) * Math.PI / 2) * 0.1 : Math.sin(((ak - 0.35) / 0.65) * Math.PI) * 0.14;
+        c.translate(0, 12); c.scale(1 - s1 * 0.6, 1 + s1); c.translate(0, -12);
+      }
       const drawBody = (g) => {
         if (pimg && pimg.complete && pimg.naturalWidth) {
           drawCreaturePng(g, pimg);    // painted art carries its own shading
@@ -1190,29 +1196,58 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
       c.fillStyle = '#C0392B'; path(c, () => { c.moveTo(-1.4, -21); c.quadraticCurveTo(-5.5, -23.5, -4.5, -28); c.quadraticCurveTo(-1, -24.5, 1.4, -22); }); c.fill(); // plume
       c.fillStyle = 'rgba(255,255,255,0.4)'; rr(c, -5.5, -17.5, 3, 1, 0.5); c.fill();
     }
-    // weapon, held in the right mitten: a bow or staff for ranged / magic
+    // weapon, held in the right mitten, animated through each attack
+    // (opts.swingK: 0..1 progress of the current swing, or -1 when idle).
+    const k = opts.swingK ?? -1;
     if (opts.hasWeapon && opts.weaponType === 'ranged') {
+      // Bow: the string draws back with an arrow nocked, then snaps on release.
+      const draw = k < 0 ? 0 : k < 0.55 ? Math.sin((k / 0.55) * Math.PI / 2) : 0;
+      const twang = k >= 0.55 ? Math.sin((k - 0.55) * 40) * (1 - k) * 2.2 : 0;
+      const sx = 11.6 - draw * 6.5 + twang;
       c.lineCap = 'round';
       c.strokeStyle = M_INK; c.lineWidth = 3; c.beginPath(); c.arc(8.5, 1, 10, -Math.PI * 0.42, Math.PI * 0.42); c.stroke();
       c.strokeStyle = '#B07D2A'; c.lineWidth = 1.7; c.beginPath(); c.arc(8.5, 1, 10, -Math.PI * 0.42, Math.PI * 0.42); c.stroke();
-      c.strokeStyle = '#F0EEE8'; c.lineWidth = 0.6; c.beginPath(); c.moveTo(11.6, -8.3); c.lineTo(11.6, 10.3); c.stroke(); // string
+      c.strokeStyle = '#F0EEE8'; c.lineWidth = 0.7; c.beginPath(); c.moveTo(11.6, -8.3); c.lineTo(sx, 1); c.lineTo(11.6, 10.3); c.stroke(); // string
+      if (draw > 0.05) {   // nocked arrow
+        c.strokeStyle = '#8A5A2B'; c.lineWidth = 1.3; c.beginPath(); c.moveTo(sx, 1); c.lineTo(sx + 13, 1); c.stroke();
+        c.fillStyle = '#cfd6dd'; path(c, () => { c.moveTo(sx + 15.5, 1); c.lineTo(sx + 12.5, -0.9); c.lineTo(sx + 12.5, 2.9); }); c.fill();
+      }
       c.lineCap = 'butt';
-      circle(c, 10, 4, 1.8); fill(c, '#ffffff'); line(c, M_INK, 1);
+      circle(c, sx - 1.5 + (draw > 0.05 ? 0 : 3), 3 + (draw > 0.05 ? -2 : 1), 1.8); fill(c, '#ffffff'); line(c, M_INK, 1);
     } else if (opts.hasWeapon && opts.weaponType === 'magic') {
+      // Staff: tips toward the foe while the orb swells and flares.
+      const flare = k < 0 ? 0 : Math.sin(k * Math.PI);
+      c.save(); c.translate(10.8, 4); c.rotate(flare * 0.45); c.translate(-10.8, -4);
       c.lineCap = 'round';
       c.strokeStyle = M_INK; c.lineWidth = 3; c.beginPath(); c.moveTo(10.4, 12); c.lineTo(12.6, -14); c.stroke();
       c.strokeStyle = '#8A5A2B'; c.lineWidth = 1.7; c.beginPath(); c.moveTo(10.4, 12); c.lineTo(12.6, -14); c.stroke();
       c.lineCap = 'butt';
-      circle(c, 12.8, -16, 2.8); fill(c, '#9B52AD'); line(c, M_INK, 1.1);
-      c.fillStyle = 'rgba(255,255,255,0.7)'; circle(c, 12, -16.9, 0.9); c.fill();
+      if (flare > 0) {
+        c.fillStyle = `rgba(200,150,255,${(0.45 * flare).toFixed(3)})`; circle(c, 12.8, -16, 5 + flare * 5); c.fill();
+      }
+      circle(c, 12.8, -16, 2.8 + flare * 1.6); fill(c, flare > 0.4 ? '#C890F0' : '#9B52AD'); line(c, M_INK, 1.1);
+      c.fillStyle = 'rgba(255,255,255,0.7)'; circle(c, 12, -16.9, 0.9 + flare); c.fill();
+      c.restore();
       circle(c, 10.8, 4, 1.8); fill(c, '#ffffff'); line(c, M_INK, 1);
     } else if (opts.hasWeapon) {
+      // Sword: wind up behind, sweep through the strike, follow through, recover.
+      const ease = (t) => 1 - (1 - t) * (1 - t);
+      const ang = k < 0 ? 0
+        : k < 0.3 ? -1.0 * ease(k / 0.3)
+        : k < 0.62 ? -1.0 + 2.4 * ease((k - 0.3) / 0.32)
+        : 1.4 * (1 - ease((k - 0.62) / 0.38));
+      c.save(); c.translate(10, 4); c.rotate(ang); c.translate(-10, -4);
+      if (k > 0.3 && k < 0.7) {   // motion smear behind the blade
+        c.strokeStyle = 'rgba(255,255,255,0.55)'; c.lineWidth = 5; c.lineCap = 'round';
+        c.beginPath(); c.arc(10, 4, 17, -Math.PI / 2 - 0.9, -Math.PI / 2 - 0.15); c.stroke();
+      }
       c.strokeStyle = M_INK; c.lineWidth = 3.4; c.lineCap = 'round'; c.beginPath(); c.moveTo(10.6, 2); c.lineTo(14.6, -16); c.stroke();
       c.strokeStyle = '#e9edf2'; c.lineWidth = 2; c.beginPath(); c.moveTo(10.6, 2); c.lineTo(14.6, -16); c.stroke();
       c.fillStyle = '#ffffff'; circle(c, 14, -14, 0.7); c.fill(); // tip glint
       c.strokeStyle = M_INK; c.lineWidth = 2.6; c.beginPath(); c.moveTo(8.6, 1); c.lineTo(13.2, 2.4); c.stroke();
       c.strokeStyle = '#F5B82E'; c.lineWidth = 1.4; c.beginPath(); c.moveTo(8.6, 1); c.lineTo(13.2, 2.4); c.stroke(); // crossguard
       c.lineCap = 'butt';
+      c.restore();
       circle(c, 10, 4, 1.8); fill(c, '#ffffff'); line(c, M_INK, 1); // mitten over the grip
     }
     // shield, strapped to the off-hand

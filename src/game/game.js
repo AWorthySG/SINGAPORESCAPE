@@ -271,7 +271,8 @@ export class Game {
   banner(html) { this.ui?.showBanner(html); }
   addHitsplat(entity, dmg, opts = {}) {
     if (entity && dmg > 0) entity.hurt = 200; // flash the struck entity
-    this.effects.push({ type: 'hitsplat', entity, dmg, crit: !!opts.crit, life: 1100 });
+    entity._splatN = ((entity._splatN || 0) + 1) % 3;
+    this.effects.push({ type: 'hitsplat', entity, dmg, crit: !!opts.crit, life: 1100, fan: entity._splatN - 1 });
     if (opts.crit && dmg > 0) this.addShake(2.5, 180); // crits thump the screen a little
   }
 
@@ -301,7 +302,7 @@ export class Game {
     let dx = (tx * TILE + TILE / 2) - c.x, dy = (ty * TILE + TILE / 2) - c.y;
     const m = Math.hypot(dx, dy) || 1;
     attacker.lungeDX = dx / m; attacker.lungeDY = dy / m;
-    attacker.swing = 180;
+    attacker.swing = attacker.swingDur || 240;
     // Turn to face the foe so the sprite isn't swinging backwards.
     if (Math.abs(dx) > 2) attacker.facing = { dx: Math.sign(dx), dy: 0 };
   }
@@ -879,6 +880,7 @@ export class Game {
 
   _applyPlayerHit(npc, dmg, opts = {}) {
     npc.takeDamage(dmg);
+    if (dmg > 0) this._knock(npc, this.player);
     this.addHitsplat(npc, dmg, opts);
     if (dmg > 0) { this.bus.emit('sfx', 'hit'); this._gainAdrenaline(10); }
   }
@@ -948,6 +950,13 @@ export class Game {
   _hasRunes(spell) { return Object.entries(spell.runes).every(([id, q]) => this.inventory.count(id) >= q); }
   _consumeRunes(spell) { for (const [id, q] of Object.entries(spell.runes)) this.inventory.remove(id, q); }
 
+  /** Knock a struck entity briefly away from whoever hit it. */
+  _knock(victim, from) {
+    const a = victim.renderCenter(), b = from.renderCenter();
+    const dx = a.x - b.x, dy = a.y - b.y, m = Math.hypot(dx, dy) || 1;
+    victim.knockDX = dx / m; victim.knockDY = dy / m; victim.knock = 160;
+  }
+
   _projectile(npc, color, kind = 'bolt', spread = 0) {
     const from = this.player.renderCenter();
     const to = npc.renderCenter();
@@ -969,6 +978,7 @@ export class Game {
     if (prot) dmg = Math.floor(dmg * (1 - prot));
     if (this.braceTicks > 0) dmg = Math.floor(dmg * 0.5); // the Brace ability soaks the blow
     p.takeDamage(dmg);
+    if (dmg > 0) this._knock(p, npc);
     this.addHitsplat(p, dmg, { crit: heavy && dmg > 0 });
     if (dmg > 0) { this.spawnHitSparks(p, heavy ? '#ff5a5a' : '#ff8a8a'); this.bus.emit('sfx', 'hurt'); this._gainAdrenaline(heavy ? 10 : 5); }
     if (heavy) this.msg(`${npc.name} unleashes a heavy blow${this.braceTicks > 0 ? ' — you brace and soften it!' : '!'}`, 'combat');
@@ -1437,6 +1447,15 @@ export class Game {
   _autoBattleTick() {
     const p = this.player;
     if (!this.autoBattle || !p.alive || this._driving) return;
+    // 0. Out of ammunition: stop rather than walking at targets it can't hit.
+    const mode = this.combatMode();
+    const noAmmo = mode === 'ranged' ? !this.inventory.slots.some((sl) => sl && getItem(sl.id).tags?.includes('ammo'))
+      : mode === 'magic' ? !this._hasRunes(getSpell(p.spell)) : false;
+    if (noAmmo) {
+      this.msg(mode === 'ranged' ? 'Auto battle stopped: you have no arrows left.' : 'Auto battle stopped: you are out of runes for your spell.', 'system');
+      this.toggleAutoBattle(false);
+      return;
+    }
     // 1. Stay alive: eat below 40% life, or Second Wind when out of food.
     if (p.hp <= this.maxHp() * 0.4) {
       const idx = this.inventory.slots.findIndex((sl) => sl && getItem(sl.id).heal);
@@ -1452,12 +1471,17 @@ export class Game {
     }
     this._autoLast = fighting ? a.npc : null;
     if (fighting) {
-      // A fight that has dealt no damage for ~15s (25 ticks) is stalled (out of
-      // reach, always missing): skip that target and move on.
+      // Give up on a target when the chase drags on (~24s without getting in
+      // range: it keeps wandering off or can't be reached) or the fight stalls
+      // (~12s in range without landing any damage).
       const tgt = a.npc;
-      if (this._autoFight?.npc !== tgt) this._autoFight = { npc: tgt, hp: tgt.hp, since: this.tickCount };
-      else if (tgt.hp < this._autoFight.hp) { this._autoFight.hp = tgt.hp; this._autoFight.since = this.tickCount; }
-      else if (this.tickCount - this._autoFight.since > 25) {
+      const inRange = chebyshev(p.x, p.y, tgt.x, tgt.y) <= this.attackRange();
+      if (this._autoFight?.npc !== tgt) this._autoFight = { npc: tgt, hp: tgt.hp, since: this.tickCount, chase: this.tickCount };
+      const f = this._autoFight;
+      if (!inRange) f.since = this.tickCount;              // the stall clock only runs in range
+      else f.chase = this.tickCount;
+      if (tgt.hp < f.hp) { f.hp = tgt.hp; f.since = this.tickCount; }
+      if (this.tickCount - f.since > 20 || this.tickCount - f.chase > 25) {
         this._autoSkip.set(tgt.entityId, this.tickCount + 60);
         this._autoLast = null; this._autoFight = null;
         p.clearAction();
@@ -1496,11 +1520,12 @@ export class Game {
     const wildZone = (x, y) => !!this.world.zoneAt(x, y)?.wilderness;
     const inWild = wildZone(p.x, p.y);
     let best = null, bestScore = Infinity;
+    const cands = [];
     for (const n of this.npcs) {
       if (!n.alive || !n.attackable || n.def.boss) continue;
       if ((this._autoSkip.get(n.entityId) || 0) > this.tickCount) continue;
       const d = chebyshev(p.x, p.y, n.x, n.y);
-      if (d > 40) continue;
+      if (d > 25) continue;
       const hunting = n.target === p;
       const lvl = n.def.level || 1;
       if (!hunting) {
@@ -1509,8 +1534,19 @@ export class Game {
         if (d <= 10 ? lvl > cl * 1.5 + 5 : lvl > cl + 8) continue;
         if (!inWild && wildZone(n.x, n.y)) continue;
       }
-      const score = d - (hunting ? 100 : 0);
-      if (score < bestScore) { bestScore = score; best = n; }
+      // Anything on you first, then anything within 8 tiles, then the rest.
+      const score = d + (d > 8 ? 50 : 0) - (hunting ? 200 : 0);
+      cands.push({ n, score });
+    }
+    // Nearest first by straight-line distance, then confirm a walkable route
+    // (and use its real length) so it never heads for something across water.
+    cands.sort((a, b) => a.score - b.score);
+    for (const { n, score } of cands.slice(0, 6)) {
+      if (chebyshev(p.x, p.y, n.x, n.y) <= 1) { if (score < bestScore) { bestScore = score; best = n; } continue; }
+      const route = findPath(this.pathCfg(), this.playerTile(), { x: n.x, y: n.y }, { reachAdjacent: true, maxNodes: 3000 });
+      if (!route.length) { this._autoSkip.set(n.entityId, this.tickCount + 40); continue; }
+      const real = route.length + (score >= 50 ? 50 : 0) + (score < 0 ? -200 : 0);
+      if (real < bestScore) { bestScore = real; best = n; }
     }
     return best;
   }
@@ -2115,70 +2151,87 @@ export class Game {
   }
 
   // ---------------- Hover (per frame) ----------------
+  // ---------------- Interact (no clicking the world) ----------------
+  // The world isn't clicked: the Interact button / E / Space acts on the nearest
+  // thing around you. Each frame we pick that thing, ring it, and label it.
+  _findInteract() {
+    const p = this.player;
+    if (!p.alive) return null;
+    const at = this.playerTile();
+    const fx = p.facing?.dx || 0, fy = p.facing?.dy || 0;
+    let best = null, bestScore = Infinity;
+    const consider = (kind, ref, x, y, reach) => {
+      const d = chebyshev(at.x, at.y, x, y);
+      if (d > reach) return;
+      // Nearest wins; ties go to what you're facing, then to items > people > objects.
+      const ahead = (Math.sign(x - at.x) === fx && Math.sign(y - at.y) === fy) ? -0.4 : 0;
+      const pref = kind === 'item' ? 0 : kind === 'npc' ? 0.1 : 0.2;
+      const score = d + ahead + pref;
+      if (score < bestScore) { bestScore = score; best = { kind, ref }; }
+    };
+    for (const g of this.world.groundItems) consider('item', g, g.x, g.y, 1);
+    const fightReach = Math.max(2, this.attackRange());
+    for (const n of this.npcs) {
+      if (!n.alive) continue;
+      consider('npc', n, n.x, n.y, n.attackable ? fightReach : 2);
+    }
+    for (const o of this.world.objects) {
+      if (!o.def.verb || (o.def.type === 'tree' && o.depleted)) continue;
+      if (Math.abs(o.x - at.x) > 2 || Math.abs(o.y - at.y) > 2) continue;
+      consider('obj', o, o.x, o.y, 2);
+    }
+    return best;
+  }
+
+  _interactLabel(t) {
+    if (!t) return null;
+    if (t.kind === 'item') return ['Take', getItem(t.ref.id).name];
+    if (t.kind === 'npc') {
+      const n = t.ref;
+      if (n.attackable) return ['Attack', `${n.name} (level ${n.def.level})`];
+      if (n.def.role === 'shop') return ['Trade with', n.name];
+      if (n.def.role === 'bank') return ['Bank', n.name];
+      return ['Talk to', n.name];
+    }
+    return [t.ref.def.verb, t.ref.def.name];
+  }
+
+  /** P: pickpocket the nearest townsperson (the old right-click option). */
+  pickpocketNearest() {
+    const at = this.playerTile();
+    let best = null, bd = Infinity;
+    for (const n of this.npcs) {
+      if (!n.alive || n.attackable || !n.def.role) continue;
+      const d = chebyshev(at.x, at.y, n.x, n.y);
+      if (d <= 2 && d < bd) { bd = d; best = n; }
+    }
+    if (!best) { this.msg('There is nobody close enough to pickpocket.', 'system'); return; }
+    this.startPickpocket(best);
+  }
+
+  /** Interact button / E / Space: act on the nearest thing around you. */
+  interact() {
+    const t = this._findInteract();
+    if (!t) { this.msg('There is nothing to interact with here.', 'system'); return; }
+    if (t.kind === 'item') this.pickup(t.ref);
+    else if (t.kind === 'npc') this.defaultNpcAction(t.ref);
+    else this.defaultObjectAction(t.ref);
+  }
+
   updateHover() {
-    if (!this.input || !this.ui) return;
-    if (!this.input.inside) { this.hover = null; this.ui.setHoverText(null); return; }
-    const tile = this.camera.screenToTile(this.input.mx, this.input.my);
-    const npc = this.npcAt(tile.x, tile.y);
-    if (npc) {
-      this.hover = { npc };
-      if (npc.attackable) this.ui.setHoverText('Attack', `${npc.name} (level ${npc.def.level})`);
-      else if (npc.def.role === 'shop') this.ui.setHoverText('Trade with', npc.name);
-      else if (npc.def.role === 'bank') this.ui.setHoverText('Bank', npc.name);
-      else this.ui.setHoverText('Talk to', npc.name);
-      return;
-    }
-    const gi = this.world.topGroundItemAt(tile.x, tile.y);
-    if (gi) { this.hover = null; this.ui.setHoverText('Take', getItem(gi.id).name); return; }
-    const obj = this.world.objectAt(tile.x, tile.y);
-    if (obj && obj.def.verb) {
-      if (obj.def.type === 'tree' && obj.depleted) { this.hover = null; this.ui.setHoverText(''); return; }
-      this.hover = { obj };
-      this.ui.setHoverText(obj.def.verb, obj.def.name);
-      return;
-    }
-    this.hover = null;
-    this.ui.setHoverText('');
+    if (!this.ui) return;
+    const t = this._findInteract();
+    this.interactTarget = t;
+    this.hover = t && t.kind === 'npc' ? { npc: t.ref } : t && t.kind === 'obj' ? { obj: t.ref } : null;
+    const label = this._interactLabel(t);
+    if (label) this.ui.setHoverText(label[0], label[1]);
+    else this.ui.setHoverText('');
+    this.ui.setInteractLabel?.(label);
   }
 
   // ---------------- Input entrypoints ----------------
-  onLeftClick(sx, sy) {
-    this.ui?.hideContextMenu();
-    const tile = this.camera.screenToTile(sx, sy);
-    if (!this.world.inBounds(tile.x, tile.y)) return;
-    const npc = this.npcAt(tile.x, tile.y);
-    if (npc) { this.defaultNpcAction(npc); return; }
-    const gi = this.world.topGroundItemAt(tile.x, tile.y);
-    if (gi) { this.pickup(gi); return; }
-    const obj = this.world.objectAt(tile.x, tile.y);
-    if (obj && obj.def.verb && !(obj.def.type === 'tree' && obj.depleted)) { this.defaultObjectAction(obj); return; }
-    // Clicking bare ground no longer walks: moving is the joystick / WASD's job.
-  }
-
-  onRightClick(sx, sy) {
-    const tile = this.camera.screenToTile(sx, sy);
-    if (!this.world.inBounds(tile.x, tile.y)) { this.ui?.hideContextMenu(); return; }
-    const options = [];
-    const npc = this.npcAt(tile.x, tile.y);
-    if (npc) {
-      if (npc.attackable) options.push({ label: 'Attack', target: `${npc.name} (level ${npc.def.level})`, fn: () => this.attackNpc(npc) });
-      if (npc.def.role === 'shop') options.push({ label: 'Trade with', target: npc.name, fn: () => this.defaultNpcAction(npc) });
-      if (npc.def.role === 'bank') options.push({ label: 'Bank', target: npc.name, fn: () => this.defaultNpcAction(npc) });
-      if (npc.def.role === 'dialogue') options.push({ label: 'Talk to', target: npc.name, fn: () => this.defaultNpcAction(npc) });
-      if (npc.def.role) options.push({ label: 'Pickpocket', target: npc.name, fn: () => this.startPickpocket(npc) });
-      options.push({ label: 'Examine', target: npc.name, fn: () => this.msg(npc.def.examine, 'system') });
-    }
-    for (const g of this.world.groundItemsAt(tile.x, tile.y)) {
-      options.push({ label: 'Take', target: getItem(g.id).name, fn: () => this.pickup(g) });
-    }
-    const obj = this.world.objectAt(tile.x, tile.y);
-    if (obj) {
-      if (obj.def.verb && !(obj.def.type === 'tree' && obj.depleted)) {
-        options.push({ label: obj.def.verb, target: obj.def.name, fn: () => this.defaultObjectAction(obj) });
-      }
-      options.push({ label: 'Examine', target: obj.def.name, fn: () => this.msg(obj.def.examine, 'system') });
-    }
-    if (!options.length) { this.ui?.hideContextMenu(); return; }   // bare ground: nothing to do
-    this.ui?.showContextMenu(sx, sy, options);
-  }
+  // Clicking or tapping the world does nothing: you move with the joystick /
+  // WASD and act with Interact. (The HUD panels are still clickable.)
+  onLeftClick() { this.ui?.hideContextMenu(); }
+  onRightClick() { this.ui?.hideContextMenu(); }
 }

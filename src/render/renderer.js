@@ -21,15 +21,17 @@ const TILE_POPS = [
 ];
 
 // Per-region atmospheric colour grade [r,g,b,alpha] — smoothly blended as you travel.
+// Bright regions need no grade (saves a full-screen paint per frame); only the
+// Wilderness and the haunted island carry a mood tint.
 const ZONE_TINT = {
-  'Kampong Glam': [255, 236, 214, 0.04],
-  Chinatown: [255, 222, 214, 0.05],
-  'Bukit Timah': [214, 245, 200, 0.05],
-  'MacRitchie Reservoir': [200, 230, 250, 0.06],
-  'Sentosa Beach': [255, 240, 205, 0.05],
+  'Kampong Glam': [255, 236, 214, 0],
+  Chinatown: [255, 222, 214, 0],
+  'Bukit Timah': [214, 245, 200, 0],
+  'MacRitchie Reservoir': [200, 230, 250, 0],
+  'Sentosa Beach': [255, 240, 205, 0],
   'The Wilderness': [170, 120, 170, 0.12],
   'Pulau Hantu': [150, 125, 200, 0.14],
-  Singapore: [255, 236, 214, 0.04],
+  Singapore: [255, 236, 214, 0],
 };
 
 function hash(x, y) {
@@ -74,7 +76,10 @@ export class Renderer {
       shx = Math.sin(timeMs * 0.11) * amp;
       shy = Math.cos(timeMs * 0.137) * amp;
     }
-    const ox = Math.round(cam.originX + shx), oy = Math.round(cam.originY + shy);
+    // Snap to *device* pixels (not CSS pixels) so on 2x/3x screens the world
+    // and the sub-pixel sprites move together without a 1px shimmer.
+    const dpr = (ctx.getTransform ? ctx.getTransform().a : 1) || 1;
+    const ox = Math.round((cam.originX + shx) * dpr) / dpr, oy = Math.round((cam.originY + shy) * dpr) / dpr;
     const vw = cam.viewW, vh = cam.viewH;
     const night = 1 - game.daylightFactor(); // 0 (noon) .. 1 (midnight) — lights, fireflies
 
@@ -172,6 +177,7 @@ export class Renderer {
         drawCreature(ctx, n.npcId, cx + off.x, cy - 2 + off.y, {
           time: timeMs, facing: n.facing, moving: n.isMoving,
           scale: sc, sprite: n.def.sprite, color: n.def.color, boss: n.def.boss,
+          attackK: n.swingProgress ? n.swingProgress() : -1,
         });
         if (n.hurt > 0) this._hurtFlash(cx + off.x, cy - 2 + off.y, sc, n.hurt);
       } });
@@ -182,8 +188,10 @@ export class Renderer {
       const off = game.player.renderOffset ? game.player.renderOffset() : { x: 0, y: 0 };
       drawables.push({ sortY: c.y / TILE, z: 2, draw: () => {
         drawShadow(ctx, cx, cy + 13, 10, 4.5);
+        const sk = game.player.swingProgress();
+        if (sk >= 0 && game.combatMode() === 'magic') this._castRing(cx, cy + 12, sk);
         drawPlayer(ctx, cx + off.x, cy - 2 + off.y, {
-          time: timeMs, facing: game.player.facing, moving: game.player.isMoving,
+          time: timeMs, facing: game.player.facing, moving: game.player.isMoving, swingK: sk,
           hasBody: !!game.equipment.get('body'), hasWeapon: !!game.equipment.get('weapon'), weaponType: game.combatMode(),
           hasCape: !!game.equipment.get('cape'), hasHelm: !!game.equipment.get('head'),
           hasShield: !!game.equipment.get('shield'), prayerActive: game.activePrayers.size > 0,
@@ -232,9 +240,25 @@ export class Renderer {
     if (!this._grade) this._grade = t.slice();
     const g = this._grade;
     for (let i = 0; i < 4; i++) g[i] += (t[i] - g[i]) * 0.05;
-    if (g[3] <= 0.001) return;
+    if (g[3] <= 0.004) return;
     this.ctx.fillStyle = `rgba(${g[0] | 0},${g[1] | 0},${g[2] | 0},${g[3].toFixed(3)})`;
     this.ctx.fillRect(0, 0, vw, vh);
+  }
+
+  // A glowing rune circle under the caster's feet while a spell goes off.
+  _castRing(cx, cy, k) {
+    const { ctx } = this;
+    const a = Math.sin(k * Math.PI);
+    const rr = 8 + k * 10;
+    ctx.save();
+    ctx.globalAlpha = 0.7 * a;
+    ctx.strokeStyle = '#B98AE8'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(cx, cy, rr, rr * 0.42, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 0.35 * a; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.ellipse(cx, cy, rr * 0.65, rr * 0.27, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = '#E8D6FF';
+    for (let i = 0; i < 6; i++) { const t = i / 6 * Math.PI * 2 + k * 3; ctx.beginPath(); ctx.arc(cx + Math.cos(t) * rr, cy + Math.sin(t) * rr * 0.42, 1.3, 0, 6.3); ctx.fill(); }
+    ctx.restore();
   }
 
   // White impact flash over a struck entity (brightens the sprite briefly).
@@ -587,7 +611,8 @@ export class Renderer {
       edge.addColorStop(1, 'rgba(60,70,110,0.12)');
       this._vig = { vw, vh, warm, edge };
     }
-    ctx.fillStyle = this._vig.warm; ctx.fillRect(0, 0, vw, vh);
+    // One soft edge vignette only: the old warm wash cost a full-screen paint
+    // every frame for an effect the pastel palette no longer needs.
     ctx.fillStyle = this._vig.edge; ctx.fillRect(0, 0, vw, vh);
   }
 
@@ -692,12 +717,14 @@ export class Renderer {
       if (e.type !== 'hitsplat') continue;
       const c = e.entity.renderCenter ? e.entity.renderCenter() : { x: e.entity.x * TILE, y: e.entity.y * TILE };
       const age = 1100 - e.life;
-      const px = c.x - ox, py = c.y - oy - 6 - age * 0.012;
+      // Rise from above the head and fan out sideways so rapid hits don't stack
+      // into one blob over the face.
+      const px = c.x - ox + (e.fan || 0) * 9, py = c.y - oy - 26 - age * 0.022;
       const hit = e.dmg > 0;
       // Pop in: overshoot to ~1.15 then settle to 1.
       const pop = age < 90 ? 0.5 + 0.72 * (age / 90) : Math.max(1, 1.22 - (age - 90) / 260);
       const a = Math.min(1, e.life / 350);
-      const r = e.crit ? 12 : 10;
+      const r = e.crit ? 10 : 8;
       ctx.save();
       ctx.globalAlpha = a;
       ctx.translate(px, py); ctx.scale(pop, pop);
@@ -705,7 +732,7 @@ export class Renderer {
       ctx.fillStyle = e.crit ? '#f2c029' : hit ? '#c81e1e' : '#39557d';
       ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = 'rgba(255,255,255,0.28)'; ctx.beginPath(); ctx.arc(0, -3, r - 1, Math.PI, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#fff'; ctx.font = `800 ${e.crit ? 13 : 12}px Nunito,"Trebuchet MS",sans-serif`;
+      ctx.fillStyle = '#fff'; ctx.font = `800 ${e.crit ? 11 : 10}px Nunito,"Trebuchet MS",sans-serif`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(String(e.dmg), 0, 1);
       ctx.textBaseline = 'alphabetic';

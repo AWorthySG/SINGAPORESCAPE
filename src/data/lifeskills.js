@@ -12,7 +12,7 @@
 export const LIFE_STAGES = [
   {
     skill: 'woodcutting', name: 'Woodcutting',
-    teach: 'First, Woodcutting, lah! Trees grow north of town. Left-click one to chop it for logs — bring me 5 logs.',
+    teach: 'First, Woodcutting, lah! Trees grow north of town. Walk up to one and press Interact to chop it for logs — bring me 5 logs.',
     need: { item: 'logs', qty: 5 },
     reward: { xp: 320, coins: 150 },
   },

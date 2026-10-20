@@ -1254,3 +1254,25 @@ button:focus-visible, .tab-btn:focus-visible, .chat-tab:focus-visible,
   .skill-cell .skill-icon img, .skill-cell .skill-icon svg { width: 30px; height: 30px; }
   .skill-cell .skill-desc { font-size: 11.5px; }
 }
+
+/* ---------- Interact button (beside the joystick; E / Space on a keyboard) ---------- */
+#interact-btn {
+  position: absolute; left: 154px; bottom: 214px; z-index: 26;
+  width: 82px; height: 82px; border-radius: 50%;
+  background: var(--aw-accent); color: #fff; border: 2px solid var(--aw-ink);
+  box-shadow: var(--shadow-primary); cursor: pointer; touch-action: none;
+  font-family: inherit; font-weight: 900; font-size: 12.5px; line-height: 1.1; padding: 6px;
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  transition: transform .07s ease, box-shadow .07s ease, background .12s ease;
+}
+#interact-btn:active { transform: translateY(3px); box-shadow: none; }
+#interact-btn.idle { background: var(--aw-card); color: var(--aw-text-sec); box-shadow: var(--shadow-sticker); }
+@media (max-width: 760px) {
+  #interact-btn { left: auto; right: auto; left: 140px; bottom: 96px; width: 72px; height: 72px; font-size: 11.5px; }
+}
+@media (max-width: 540px) {
+  #interact-btn { left: 122px; bottom: 82px; width: 66px; height: 66px; font-size: 11px; }
+}
+/* Phones: the Interact button already names the action, so the top-left
+   label would only collide with the area name. */
+@media (max-width: 540px) { #hover-text { display: none; } }

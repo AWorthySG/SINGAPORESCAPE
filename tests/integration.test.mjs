@@ -798,12 +798,42 @@ test('joystick / WASD movement walks tile by tile, and bare-ground clicks no lon
   const xs = p.x;
   for (let i = 0; i < 20; i++) game.update(100);
   assert.equal(p.x, xs, 'stops once the stick is released');
-  // Clicking empty ground does nothing now.
+  // Clicking the world does nothing now.
   const tile = { x: p.x, y: p.y + 2 };
   game.camera.screenToTile = () => tile;
   game.onLeftClick(0, 0);
   for (let i = 0; i < 20; i++) game.update(100);
   assert.equal(p.y, y0, 'a ground click no longer walks');
+});
+
+test('Interact acts on the nearest thing: picks it, labels it, and does its main action', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const { NPC } = await import('../src/game/npc.js');
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  const p = game.player;
+  // Nothing around: nothing to do.
+  game.npcs = []; game.world.groundItems.length = 0;
+  p.x = p.tx = 100; p.y = p.ty = 90;
+  const objs = game.world.objects; game.world.objects = [];
+  assert.equal(game._findInteract(), null);
+  // An item underfoot beats a monster two tiles away.
+  const gob = new NPC('goblin', p.x + 2, p.y, 0); gob.def = { ...gob.def, aggressive: false };
+  game.npcs = [gob];
+  game.world.addGroundItem('bones', 1, p.x, p.y);
+  assert.equal(game._findInteract().kind, 'item');
+  game.interact();
+  game.update(600);
+  assert.ok(game.inventory.has('bones'), 'Interact picked the item up');
+  // Then the monster: labelled Attack, and Interact starts the fight.
+  const t = game._findInteract();
+  assert.equal(t.kind, 'npc');
+  assert.equal(game._interactLabel(t)[0], 'Attack');
+  game.interact();
+  assert.equal(p.action?.type, 'attack', 'Interact attacks the nearest monster');
+  game.world.objects = objs;
 });
 
 test('player attacks run on a 300ms combat beat: a scimitar swings about 3x a second', async () => {
