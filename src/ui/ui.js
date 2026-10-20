@@ -105,6 +105,7 @@ export class UI {
     this._buildSettingsPanel();
     this._buildAbilityBar();
     document.getElementById('auto-battle-btn')?.addEventListener('click', () => this.game.toggleAutoBattle());
+    document.getElementById('interact-btn')?.addEventListener('pointerdown', (e) => { e.preventDefault(); this.game.interact(); });
     this.renderAutoBattle();
 
     this.el.runOrb.addEventListener('click', () => this.game.toggleRun());
@@ -189,6 +190,17 @@ export class UI {
       wrap.appendChild(btn);
       this._abilityBtns[ab.id] = btn;
     }
+  }
+
+  /** Label the Interact button with what it will do right now. */
+  setInteractLabel(label) {
+    const btn = this.el.interact || (this.el.interact = document.getElementById('interact-btn'));
+    if (!btn) return;
+    const key = label ? label[0] : '';
+    if (key === this._interactKey) return;
+    this._interactKey = key;
+    btn.classList.toggle('idle', !label);
+    btn.querySelector('.ib-verb').textContent = label ? label[0] : 'Interact';
   }
 
   renderAutoBattle() {
@@ -600,8 +612,8 @@ export class UI {
     }, true);
     const hint = document.createElement('div');
     hint.className = 'hint';
-    hint.innerHTML = 'Move: joystick or W A S D / arrow keys. Click things to interact; right-click for more options. T toggles auto battle.<br>' +
-      'Click trees to chop, rocks to mine, water to fish, monsters to fight.<br>' +
+    hint.innerHTML = 'Move: joystick or W A S D / arrow keys. Interact with the nearest thing: the Interact button, E or Space. P pickpockets, T toggles auto battle.<br>' +
+      'Stand by a tree to chop, a rock to mine, the water to fish, or a monster to fight, then press Interact.<br>' +
       'In combat, build <b>Adrenaline</b> and spend it on abilities (Z/X/C/V): ' +
       'Power Strike, Flurry, Brace and Second Wind. Hit each foe\'s <b>weakness</b> ' +
       '(melee/ranged/magic) and <b>Brace</b> when a monster winds up a heavy blow (!).<br>' +
@@ -801,12 +813,23 @@ export class UI {
   }
 
   // ---------------- XP drops / level up ----------------
+  // Fast combat earns XP several times a second, so drops for the same skill
+  // merge into one rising pill for ~0.8s, and at most 4 show at once.
   showXpDrop({ skill, amount }) {
-    const sk = SKILLS.find((s) => s.id === skill);
+    this._xpLive = this._xpLive || {};
+    const now = performance.now();
+    const live = this._xpLive[skill];
+    if (live && now - live.t < 800 && live.div.isConnected) {
+      live.total += amount;
+      live.div.querySelector('.xp-amt').textContent = `+${Math.round(live.total)}`;
+      return;
+    }
     const div = document.createElement('div');
     div.className = 'xp-drop';
-    div.innerHTML = `<span class="xp-ic">${skillIconSVG(skill, 20)}</span><span>+${Math.round(amount)}</span>`;
+    div.innerHTML = `<span class="xp-ic">${skillIconSVG(skill, 20)}</span><span class="xp-amt">+${Math.round(amount)}</span>`;
     this.el.xpDrops.appendChild(div);
+    this._xpLive[skill] = { div, total: amount, t: now };
+    while (this.el.xpDrops.children.length > 4) this.el.xpDrops.firstElementChild.remove();
     setTimeout(() => div.remove(), 2300);
   }
 

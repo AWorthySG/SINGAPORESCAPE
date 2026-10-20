@@ -18,16 +18,30 @@ export class Character {
     // Combat-feel timers (ms): hit flash + attack lunge.
     this.hurt = 0;
     this.swing = 0;
+    this.swingDur = 240;
     this.lungeDX = 0;
     this.lungeDY = 0;
+    this.knock = 0;      // ms of hit knockback left
+    this.knockDX = 0;
+    this.knockDY = 0;
   }
 
   /** Pixel lunge offset while mid-swing (out toward the target and back). */
   renderOffset() {
-    if (this.swing <= 0) return { x: 0, y: 0 };
-    const amp = Math.sin((1 - this.swing / 180) * Math.PI) * 5;
-    return { x: this.lungeDX * amp, y: this.lungeDY * amp };
+    let x = 0, y = 0;
+    if (this.swing > 0) {
+      const amp = Math.sin((1 - this.swing / this.swingDur) * Math.PI) * 5;
+      x += this.lungeDX * amp; y += this.lungeDY * amp;
+    }
+    if (this.knock > 0) {           // pushed back by a hit, easing home
+      const k = this.knock / 160;
+      x += this.knockDX * 4 * k * k; y += this.knockDY * 4 * k * k;
+    }
+    return { x, y };
   }
+
+  /** Swing progress 0..1 while an attack animation plays, else -1. */
+  swingProgress() { return this.swing > 0 ? 1 - this.swing / this.swingDur : -1; }
 
   setPath(path, running = false) {
     this.path = path ? [...path] : [];
@@ -68,6 +82,7 @@ export class Character {
   update(dt) {
     if (this.hurt > 0) this.hurt = Math.max(0, this.hurt - dt);
     if (this.swing > 0) this.swing = Math.max(0, this.swing - dt);
+    if (this.knock > 0) this.knock = Math.max(0, this.knock - dt);
     if (!this.moving) {
       if (this.path.length) this._beginStep();
       if (!this.moving) return;

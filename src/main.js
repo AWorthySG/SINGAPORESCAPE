@@ -45,6 +45,11 @@ input.onKey((e) => {
     game.toggleSpec();
   } else if (ABILITY_KEYS.has(e.key?.toLowerCase())) {
     game.activateAbilityKey(e.key);
+  } else if (e.key === 'e' || e.key === 'E' || e.key === ' ') {
+    if (e.key === ' ') e.preventDefault();   // don't scroll the page
+    game.interact();
+  } else if (e.key === 'p' || e.key === 'P') {
+    game.pickpocketNearest();
   } else if (e.key === 't' || e.key === 'T') {
     game.toggleAutoBattle();
   } else if (e.key === 'm' || e.key === 'M') {
