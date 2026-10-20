@@ -198,6 +198,16 @@ export class Renderer {
       const off = n.renderOffset ? n.renderOffset() : { x: 0, y: 0 };
       drawables.push({ sortY: c.y / TILE, z: 2, draw: () => {
         drawShadow(ctx, cx, cy + 12 * sc, 10 * sc, 4.5 * sc);
+        if (n.champion) {
+          // Champion: a spinning gold ring on the ground.
+          ctx.save();
+          ctx.strokeStyle = '#F5B82E'; ctx.lineWidth = 2.5;
+          ctx.setLineDash([5, 4]); ctx.lineDashOffset = -timeMs * 0.02;
+          ctx.globalAlpha = 0.85 + Math.sin(timeMs * 0.008) * 0.15;
+          ctx.beginPath(); ctx.ellipse(cx, cy + 12 * sc, 13 * sc, 5.5 * sc, 0, 0, Math.PI * 2); ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.restore();
+        }
         drawCreature(ctx, n.npcId, cx + off.x, cy - 2 + off.y, {
           time: timeMs, facing: n.facing, moving: n.isMoving,
           scale: sc, sprite: n.def.sprite, color: n.def.color, boss: n.def.boss,
@@ -759,7 +769,7 @@ export class Renderer {
       if (!n.alive) continue;
       const boss = n.def.boss;
       const targeted = n === game.player.target;
-      if (!boss && n.combatLatch <= 0 && n.telegraph <= 0 && !targeted && n.chatTimer <= 0) continue;
+      if (!boss && !n.champion && n.combatLatch <= 0 && n.telegraph <= 0 && !targeted && n.chatTimer <= 0) continue;
       const c = n.renderCenter();
       const sc = n.def.scale || 1;
       const yo = -(20 * sc) - 6;
@@ -789,11 +799,12 @@ export class Renderer {
         ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.lineWidth = 4; ctx.strokeText('!', px, py);
         ctx.fillStyle = '#ff5a5a'; ctx.fillText('!', px, py);
       }
-      if (boss) {
+      if (boss || n.champion) {
         const px = c.x - ox, py = c.y - oy + yo - 6;
+        const label = n.champion ? `★ ${n.name}` : n.name;
         ctx.font = '800 11px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
-        ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.lineWidth = 3; ctx.strokeText(n.name, px, py);
-        ctx.fillStyle = '#ff7a5a'; ctx.fillText(n.name, px, py);
+        ctx.strokeStyle = n.champion ? '#22304A' : 'rgba(0,0,0,0.85)'; ctx.lineWidth = 3; ctx.strokeText(label, px, py);
+        ctx.fillStyle = n.champion ? '#F5B82E' : '#ff7a5a'; ctx.fillText(label, px, py);
       }
     }
     if (game.player.alive) {

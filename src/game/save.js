@@ -39,10 +39,11 @@ export function snapshot(game) {
     zonesVisited: [...game.zonesVisited],
     kills: game.kills,
     slayer: game.slayer,
+    bounties: game.bounties,
     karma: game.karma,
     clue: game.clue,
     specEnergy: game.specEnergy,
-    settings: { running: game.running },
+    settings: { running: game.running, autoCfg: game.autoCfg },
   };
 }
 
@@ -104,11 +105,24 @@ export function loadGame(game) {
       completed: Number(data.slayer.completed) || 0,
     };
   }
+  if (data.bounties && typeof data.bounties === 'object' && Array.isArray(data.bounties.list)) {
+    const b = data.bounties;
+    game.bounties = { day: typeof b.day === 'string' ? b.day : null, list: b.list.filter((t) => t && typeof t.id === 'string'),
+      streak: Number(b.streak) || 0, lastFull: typeof b.lastFull === 'string' ? b.lastFull : null };
+  }
   if (data.karma && typeof data.karma === 'object') {
     game.karma = { good: Number(data.karma.good) || 0, evil: Number(data.karma.evil) || 0 };
   }
   if (data.clue && typeof data.clue === 'object' && Array.isArray(data.clue.spots)) game.clue = data.clue;
   if (typeof data.specEnergy === 'number') game.specEnergy = Math.max(0, Math.min(100, data.specEnergy));
   game.running = data.settings?.running ?? game.running;
+  const ac = data.settings?.autoCfg;
+  if (ac && typeof ac === 'object') {
+    game.autoCfg = {
+      eatAt: [0, 0.25, 0.4, 0.6].includes(ac.eatAt) ? ac.eatAt : 0.4,
+      target: typeof ac.target === 'string' ? ac.target : null,
+      abilities: ac.abilities !== false,
+    };
+  }
   return true;
 }

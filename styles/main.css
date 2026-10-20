@@ -1341,3 +1341,29 @@ button:focus-visible, .tab-btn:focus-visible, .chat-tab:focus-visible,
   background: var(--aw-card); color: var(--aw-ink); border: 2px solid var(--aw-ink); border-radius: 999px;
 }
 #tooltip .tc-actions button:first-child { background: var(--aw-accent); color: #fff; }
+
+/* ---------- Gear upgrades ---------- */
+.equip-slot { position: relative; }
+.equip-slot .up-badge, .inv-slot .up-badge {
+  position: absolute; right: 2px; top: 2px; font-size: 10px; font-weight: 900; line-height: 1;
+  color: #fff; background: var(--aw-sun-deep); border: 1.5px solid var(--aw-ink); border-radius: 999px; padding: 2px 4px;
+}
+#tooltip .gt-up { color: var(--aw-sun-deep); font-weight: 900; margin-top: 3px; }
+.gear-stats .short { color: var(--aw-accent); font-weight: 800; }
+.gear-row .gear-tab:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ---------- Auto battle settings ---------- */
+.auto-row { display: flex; gap: 6px; justify-content: center; align-items: center; pointer-events: none; }
+#auto-battle-cfg {
+  pointer-events: auto; cursor: pointer; font-family: inherit; font-size: 14px; line-height: 1;
+  width: 28px; height: 28px; border-radius: 50%; padding: 0;
+  background: var(--aw-card); color: var(--aw-ink); border: 2px solid var(--aw-ink); box-shadow: var(--shadow-sticker-sm);
+}
+#auto-battle-cfg:active { transform: translateY(2px); box-shadow: none; }
+@media (max-width: 540px) { #auto-battle-cfg { width: 24px; height: 24px; font-size: 12px; } }
+
+/* ---------- Daily bounties ---------- */
+.bounty-row { position: relative; }
+.bounty-row.done { opacity: 0.7; }
+.bounty-bar { height: 6px; margin-top: 5px; border-radius: 999px; background: var(--aw-muted); border: 1.5px solid var(--aw-ink); overflow: hidden; }
+.bounty-bar i { display: block; height: 100%; background: var(--aw-grass); }

@@ -2,6 +2,8 @@ import { EventBus } from '../core/events.js';
 import { buildWorld } from '../data/world.js';
 import { compareGear, deltaText } from './gear.js';
 import { RARITY, dropRarity, lootDelay } from './loot.js';
+import { dayKey, prevDayKey, makeBounties, streakMult } from './bounty.js';
+import { MAX_UPGRADE, upgradeCost, upgradeChance, upgradedName } from './upgrade.js';
 import { getItem } from '../data/items.js';
 import { chebyshev, randInt, weightedPick, capitalize } from '../core/utils.js';
 import {
@@ -31,7 +33,7 @@ import {
 } from './skilling.js';
 import { saveGame, loadGame, hasSave } from './save.js';
 import { getShop } from '../data/shops.js';
-import { RARE_DROP_TABLE } from '../data/npcs.js';
+import { RARE_DROP_TABLE, getNpc } from '../data/npcs.js';
 import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
 import { eligibleTasks, SLAYER_REWARDS } from '../data/slayer.js';
 import { STATION_BY_ID, MRT_FARE } from '../data/transport.js';
@@ -79,6 +81,10 @@ export class Game {
     this.runEnergy = 100;
     this.effects = [];
     this.hazards = [];          // pending boss area attacks (red ground markers)
+    this.hitStop = 0;           // ms of near-frozen animation after a big hit
+    // Auto battle settings: eat below this fraction of life (0 = never),
+    // fight only one monster type (null = anything), use attack skills.
+    this.autoCfg = { eatAt: 0.4, target: null, abilities: true };
     this.particles = [];
     // Screen-shake state (big hits, boss slams). Decays over shakeDur ms.
     this.shakeT = 0;
@@ -120,6 +126,7 @@ export class Game {
 
     // Slayer task system.
     this.slayer = { task: null, points: 0, completed: 0 };
+    this.bounties = { day: null, list: [], streak: 0, lastFull: null };   // daily bounty board
 
     // Agility course: distinct obstacles touched this lap.
     this._agilityLap = new Set();
@@ -184,6 +191,7 @@ export class Game {
     this.prayerPoints = this.skills.prayer;
     this.bus.emit('prayer');
     this.updateRegion();
+    this.ensureBounties();
     this.checkAchievements(true);
     this.bus.emit('achievement');
   }
@@ -273,7 +281,10 @@ export class Game {
     if (entity && dmg > 0) entity.hurt = 200; // flash the struck entity
     entity._splatN = ((entity._splatN || 0) + 1) % 3;
     this.effects.push({ type: 'hitsplat', entity, dmg, crit: !!opts.crit, text: opts.text, life: 1100, fan: entity._splatN - 1 });
-    if (opts.crit && dmg > 0) this.addShake(2.5, 180); // crits thump the screen a little
+    if (opts.crit && dmg > 0) {
+      this.addShake(2.5, 180);                 // crits thump the screen a little...
+      if (entity !== this.player) this.hitStop = Math.max(this.hitStop, 55);   // ...and freeze for a beat
+    }
   }
 
   /** Kick off a decaying screen shake (kept subtle; the strongest is a boss kill). */
@@ -310,8 +321,12 @@ export class Game {
   // ---------------- Frame update (called from RAF) ----------------
   update(dt) {
     this._driveMovement();
-    this.player.update(dt);
-    for (const n of this.npcs) n.update(dt);
+    // Hit-stop: on big hits and kills, animation all but freezes for a few
+    // frames (game ticks carry on), which makes impacts feel weighty.
+    let adt = dt;
+    if (this.hitStop > 0) { this.hitStop = Math.max(0, this.hitStop - dt); adt = dt * 0.12; }
+    this.player.update(adt);
+    for (const n of this.npcs) n.update(adt);
     this.playMs += dt;
 
     this.tickAcc += dt;
@@ -330,13 +345,13 @@ export class Game {
     const c = this.player.renderCenter();
     this.camera.follow(c.x, c.y, 0.22, { width: this.world.width, height: this.world.height }, dt);
 
-    for (const e of this.effects) e.life -= dt;
+    for (const e of this.effects) e.life -= adt;
     this.effects = this.effects.filter((e) => e.life > 0);
     if (this.shakeT > 0) this.shakeT = Math.max(0, this.shakeT - dt);
     // Harvest-judder timers on world objects (trees/rocks being worked).
     for (const o of this.world.objects) if (o.shakeT > 0) o.shakeT = Math.max(0, o.shakeT - dt);
 
-    for (const p of this.particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += p.g * dt; p.life -= dt; }
+    for (const p of this.particles) { p.x += p.vx * adt; p.y += p.vy * adt; p.vy += p.g * adt; p.life -= adt; }
     if (this.particles.length) this.particles = this.particles.filter((p) => p.life > 0);
 
     this.updateHover();
@@ -417,6 +432,7 @@ export class Game {
       this._autoPickup();
     }
     this._resolveHazards();
+    this._checkNightfall();
     // Only tick NPCs near the player (the bestiary is large).
     const px = this.player.x, py = this.player.y;
     // Cached so every aggressive NPC's _combatAI can cheaply see how many
@@ -445,6 +461,7 @@ export class Game {
     this._tickCombatResources();
     this.drainPrayer();
 
+    if (this.tickCount % 100 === 1) this.ensureBounties();   // roll over at local midnight
     if (++this.autosaveCounter >= AUTOSAVE_TICKS) { this.autosaveCounter = 0; saveGame(this); }
     // Catch wealth / collection milestones that don't fire a dedicated event.
     if (this.tickCount % 10 === 0) this.checkAchievements();
@@ -719,7 +736,7 @@ export class Game {
       let dmg = mods.guaranteed ? rollGuaranteed(effMax) : rollAttack(atkRoll * pm.att * mods.accM, defRoll, effMax);
       const c = this._critHit(dmg, mods.critCh); dmg = c.dmg;
       this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax) });
-      if (dmg > 0) { this.spawnHitSparks(npc, (c.crit || fancy) ? '#ffd24a' : '#fff2b0'); for (const x of combatXp(this.player.style, dmg)) this.skills.addXp(x.skill, x.xp); }
+      if (dmg > 0) { this.spawnHitSparks(npc, (c.crit || fancy) ? '#ffd24a' : '#fff2b0'); for (const x of combatXp(this.player.style, dmg)) this.skills.addXp(x.skill, x.xp * this.combatXpMult()); }
       total += dmg;
     }
     if (mods.heal && total > 0) {
@@ -921,7 +938,7 @@ export class Game {
       const c = this._critHit(dmg, mods.critCh); dmg = c.dmg;
       this._projectile(npc, (c.crit || fancy) ? '#ffd24a' : '#d9c45a', 'arrow', mods.hits > 1 ? i - (mods.hits - 1) / 2 : 0);
       this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax) });
-      if (dmg > 0) { this.spawnHitSparks(npc, (c.crit || fancy) ? '#ffd24a' : '#cfe0a0'); for (const x of combatXpRanged(style, dmg)) this.skills.addXp(x.skill, x.xp); }
+      if (dmg > 0) { this.spawnHitSparks(npc, (c.crit || fancy) ? '#ffd24a' : '#cfe0a0'); for (const x of combatXpRanged(style, dmg)) this.skills.addXp(x.skill, x.xp * this.combatXpMult()); }
       total += dmg;
     }
     if (mods.heal && total > 0) { this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.round(total * mods.heal)); this.bus.emit('hp'); }
@@ -943,7 +960,7 @@ export class Game {
     this._swingToward(this.player, npc.x, npc.y);
     this._projectile(npc, (c.crit || fancy) ? '#e0a0ff' : spell.tint, 'bolt');
     this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax) });
-    this.skills.addXp('magic', spell.xp);
+    this.skills.addXp('magic', spell.xp * this.combatXpMult());
     if (dmg > 0) { this.spawnHitSparks(npc, spell.tint); this.skills.addXp('magic', dmg * 2); this.skills.addXp('hitpoints', dmg * 1.33); }
     this.player.attackCooldown = this.equipment.weaponSpeed();
     this._postAttack(npc);
@@ -1022,9 +1039,13 @@ export class Game {
     if (npc.def.boss) this.addGood(5);
     else if (npc.def.aggressive) this.addGood(1);
     else this.addEvil(1);
+    this.hitStop = Math.max(this.hitStop, npc.def.boss ? 180 : npc.champion ? 120 : 70);
     if (npc.def.boss) {
       this.msg(`You have slain ${npc.name}!`, 'combat');
       this.banner(`<span class="big">${npc.name} defeated!</span>The spoils are yours.`);
+    } else if (npc.champion) {
+      this.msg(`You have defeated the ${npc.name}! Champions drop extra loot.`, 'level');
+      this.addShake(3.5, 260);
     } else {
       this.msg(`You have defeated the ${npc.name}.`, 'combat');
     }
@@ -1034,6 +1055,7 @@ export class Game {
     if ((npc.def.boss && this.quests.island_defender.state === 'active') ||
         this.quests.big_game_hunter.state === 'active') this.bus.emit('quest');
     this.progressSlayer(npc);
+    this.progressBounties(npc);
     this.checkAchievements();
     this._deathBurst(npc);
     this.rollDrops(npc);
@@ -1053,16 +1075,77 @@ export class Game {
     }
   }
 
+  // ---------------- Daily bounties ----------------
+  /** Make sure today's board exists (new day = three fresh bounties). */
+  ensureBounties(today = dayKey()) {
+    const b = this.bounties;
+    if (b.day === today && b.list.length) return false;
+    const seen = new Map();
+    for (const n of this.npcs) {
+      if (n.def.attackable && !n.def.boss && !n.temporary && !seen.has(n.npcId)) {
+        const d = n.def.champion ? getNpc(n.npcId) : n.def;
+        seen.set(n.npcId, { id: n.npcId, name: d.name, level: d.level || 1, zone: d.zone });
+      }
+    }
+    b.day = today;
+    b.list = makeBounties(today, this.skills.combatLevel(), [...seen.values()]);
+    if (b.lastFull && b.lastFull !== prevDayKey(today) && b.lastFull !== today) b.streak = 0;   // missed a day
+    this.bus.emit('bounties');
+    return true;
+  }
+
+  progressBounties(npc) {
+    const b = this.bounties;
+    let changed = false;
+    for (const t of b.list) {
+      if (t.done || t.id !== npc.npcId) continue;
+      t.have++;
+      changed = true;
+      if (t.have >= t.need) {
+        t.done = true;
+        const pay = Math.round(t.reward * streakMult(b.streak));
+        this.inventory.add('coins', pay);
+        this.bus.emit('sfx', 'achievement');
+        this.msg(`Bounty complete: ${t.need} ${t.name}! +${pay} coins.`, 'level');
+        this.banner(`<span class="big">Bounty complete!</span>+${pay} coins`);
+        if (b.list.every((x) => x.done)) {
+          b.streak = b.lastFull === prevDayKey(b.day) ? b.streak + 1 : 1;
+          b.lastFull = b.day;
+          const bonus = Math.round(b.list.reduce((a, x) => a + x.reward, 0) * 0.5 * streakMult(b.streak));
+          this.inventory.add('coins', bonus);
+          this.msg(`All of today's bounties done! Bonus +${bonus} coins. Streak: ${b.streak} day${b.streak === 1 ? '' : 's'}.`, 'level');
+        }
+      } else if (t.have % 5 === 0) this.msg(`Bounty: ${t.have}/${t.need} ${t.name}.`, 'system');
+    }
+    if (changed) this.bus.emit('bounties');
+  }
+
   // ---------------- Day / night cycle ----------------
   // A full day/night cycle takes DAY_CYCLE_MS of real play time (pausing when
   // the tab is hidden, since it rides the same accumulated dt as everything
-  // else). Purely atmospheric — no gameplay stats are gated on it.
+  // else). After dark, combat XP is boosted and ghostly champions roam more (see combatXpMult, NPC.maybeChampion).
   /** Phase in [0,1): 0 = midnight, 0.5 = high noon. */
   dayPhase() { return (this.playMs % DAY_CYCLE_MS) / DAY_CYCLE_MS; }
   /** Smooth brightness curve: 0 at midnight, 1 at noon. */
   daylightFactor() { return (Math.cos((this.dayPhase() - 0.5) * Math.PI * 2) + 1) / 2; }
   /** true from dusk through dawn (used to gate lamp glow / firefly ambience). */
   isNight() { return this.daylightFactor() < 0.4; }
+
+  /** Night hunt: combat XP is worth 25% more after dark. */
+  combatXpMult() { return this.isNight() ? 1.25 : 1; }
+
+  /** Announce dusk and dawn, since night changes what's out there. */
+  _checkNightfall() {
+    const night = this.isNight();
+    if (this._wasNight === undefined) { this._wasNight = night; return; }
+    if (night === this._wasNight) return;
+    this._wasNight = night;
+    if (night) {
+      this.msg('Night falls. Ghosts and bats stir, and champions roam more often. Combat XP +25% until dawn.', 'level');
+      this.banner('<span class="big">Night hunt</span>+25% combat XP until dawn');
+    } else this.msg('Dawn breaks. The night hunt bonus fades.', 'system');
+    this.bus.emit('night', night);
+  }
   /** Flavour clock text, e.g. "11:42 PM" — purely cosmetic. */
   clockLabel() {
     const totalMin = Math.floor(this.dayPhase() * 24 * 60);
@@ -1100,14 +1183,19 @@ export class Game {
       loot.push([d.id, q, 'common']);
     }
     if (def.dropTable && def.dropTable.length) {
-      const pick = weightedPick(def.dropTable);
-      if (!pick.nothing) {
+      // Champions roll their table three times and never come up empty.
+      for (let r = 0; r < (npc.champion ? 3 : 1); r++) {
+        let pick = weightedPick(def.dropTable);
+        if (npc.champion) for (let k = 0; pick.nothing && k < 5; k++) pick = weightedPick(def.dropTable);
+        if (pick.nothing) continue;
         const q = pick.min ? randInt(pick.min, pick.max) : 1;
-        loot.push([pick.id, q, dropRarity(pick.id, 'table', { boss: !!def.boss })]);
+        let rar = dropRarity(pick.id, 'table', { boss: !!def.boss });
+        if (npc.champion && rar === 'common') rar = 'rare';
+        loot.push([pick.id, q, rar]);
       }
     }
-    // Rare drop table — small base chance, much higher for bosses & high levels.
-    const rareChance = Math.min(0.22, (def.level || 1) / 1200 + (def.boss ? 0.18 : 0.01));
+    // Rare drop table — small base chance, much higher for bosses, champions & high levels.
+    const rareChance = Math.min(0.5, (def.level || 1) / 1200 + (def.boss ? 0.18 : 0.01) + (npc.champion ? 0.25 : 0));
     if (Math.random() < rareChance) {
       const pick = weightedPick(RARE_DROP_TABLE);
       const q = pick.min ? randInt(pick.min, pick.max) : 1;
@@ -1559,8 +1647,8 @@ export class Game {
       this._autoResume = null;
       if (n.alive) { this.attackNpc(n); return; }
     }
-    // 1. Stay alive: eat below 40% life, or Second Wind when out of food.
-    if (p.hp <= this.maxHp() * 0.4) {
+    // 1. Stay alive: eat below the chosen life level, or Second Wind when out of food.
+    if (this.autoCfg.eatAt > 0 && p.hp <= this.maxHp() * this.autoCfg.eatAt) {
       const idx = this.inventory.slots.findIndex((sl) => sl && getItem(sl.id).heal);
       if (idx !== -1) this.eatItem(idx);
       else this._autoAbility((ab) => ab.kind === 'heal');
@@ -1593,7 +1681,7 @@ export class Game {
       // 2. Brace against a heavy blow being wound up next to you.
       if (this.npcs.some((n) => n.alive && n.target === p && n.windup > 0)) this._autoAbility((ab) => ab.kind === 'guard');
       // 3. Spend adrenaline: the biggest attack skill you can afford.
-      if (!this.armedAbility) this._autoAbility((ab) => ab.kind === 'attack', true);
+      if (!this.armedAbility && this.autoCfg.abilities) this._autoAbility((ab) => ab.kind === 'attack', true);
       return;
     }
     // 4. Find the next fight.
@@ -1646,6 +1734,7 @@ export class Game {
       const d = chebyshev(p.x, p.y, n.x, n.y);
       if (d > 25) continue;
       const hunting = n.target === p;
+      if (!hunting && this.autoCfg.target && n.npcId !== this.autoCfg.target) continue;   // only the chosen monster type
       const lvl = n.def.level || 1;
       if (!hunting) {
         // Close by: leave only far-stronger monsters alone. Further out: only
@@ -1815,6 +1904,33 @@ export class Game {
       const head = { upgrade: 'Upgrade!', downgrade: 'Downgrade:', style: 'New style:' }[cmp.verdict];
       if (cmp.deltas.length) this.msg(`${head} ${deltaText(cmp.deltas)} vs your ${getItem(prev).name.toLowerCase()}.`, cmp.verdict === 'upgrade' ? 'level' : 'system');
     }
+  }
+
+  /** Spend coins (and bars, for metal gear) to raise an item type's upgrade level. */
+  upgradeItem(id) {
+    if (!getItem(id).equip) return false;
+    const lv = this.equipment.upgradeLevel(id);
+    if (lv >= MAX_UPGRADE) { this.msg(`${upgradedName(id, lv)} is already fully upgraded.`); return false; }
+    const next = lv + 1;
+    const cost = upgradeCost(id, next);
+    if (this.inventory.count('coins') < cost.coins) { this.msg(`You need ${cost.coins} coins to upgrade to +${next}.`); return false; }
+    if (cost.bar && this.inventory.count(cost.bar.id) < cost.bar.qty) {
+      this.msg(`You need ${cost.bar.qty} x ${getItem(cost.bar.id).name} to upgrade to +${next}.`); return false;
+    }
+    this.inventory.remove('coins', cost.coins);
+    if (cost.bar) this.inventory.remove(cost.bar.id, cost.bar.qty);
+    if (Math.random() < upgradeChance(next)) {
+      this.equipment.upgrades[id] = next;
+      this.equipment._changed();
+      this.spawnSparkle(this.player, '#F5B82E', 14);
+      this.bus.emit('sfx', 'level');
+      this.msg(`Success! Your ${upgradedName(id, next)} is stronger.`, 'level');
+      if (next === MAX_UPGRADE) this.banner(`<span class="big">+${MAX_UPGRADE}!</span>${getItem(id).name} is fully upgraded`);
+      return true;
+    }
+    this.bus.emit('sfx', 'hurt');
+    this.msg(`The upgrade failed. Your ${upgradedName(id, lv)} is unharmed, but the materials are used up.`, 'system');
+    return false;
   }
 
   unequip(slot) {

@@ -1,5 +1,6 @@
 import { getItem } from '../data/items.js';
 import { ARMOUR_SETS } from '../data/sets.js';
+import { upgradedBonuses } from './upgrade.js';
 
 export const EQUIP_SLOTS = ['head', 'cape', 'amulet', 'weapon', 'body', 'shield', 'legs', 'hands', 'feet', 'ring'];
 export const DEFAULT_WEAPON_SPEED = 5; // ticks (unarmed)
@@ -10,7 +11,13 @@ export class Equipment {
     this.bus = bus;
     this.slots = {};
     for (const s of EQUIP_SLOTS) this.slots[s] = null;
+    this.upgrades = {};           // itemId -> upgrade level (+1..+10), shared by every copy
   }
+
+  upgradeLevel(id) { return this.upgrades[id] || 0; }
+
+  /** An item's bonuses including its upgrade level. */
+  itemBonuses(id) { return upgradedBonuses(getItem(id).equip?.bonuses || {}, this.upgradeLevel(id)); }
 
   _changed() { this.bus?.emit('equipment'); }
 
@@ -33,8 +40,8 @@ export class Equipment {
     for (const slot of EQUIP_SLOTS) {
       const id = this.slots[slot];
       if (!id) continue;
-      const b = getItem(id).equip?.bonuses;
-      if (!b) continue;
+      if (!getItem(id).equip?.bonuses) continue;
+      const b = this.itemBonuses(id);
       total.attack += b.attack || 0;
       total.strength += b.strength || 0;
       total.defence += b.defence || 0;
@@ -92,12 +99,16 @@ export class Equipment {
     return !!id && getItem(id).tool === tag;
   }
 
-  serialize() { return { ...this.slots }; }
+  serialize() { return { ...this.slots, _upgrades: { ...this.upgrades } }; }
 
   load(data) {
     if (!data) return;
     for (const s of EQUIP_SLOTS) {
       this.slots[s] = data[s] && itemExists(data[s]) ? data[s] : null;
+    }
+    this.upgrades = {};
+    for (const [id, lv] of Object.entries(data._upgrades || {})) {
+      if (itemExists(id) && lv > 0) this.upgrades[id] = Math.min(10, Math.floor(lv));
     }
     this._changed();
   }

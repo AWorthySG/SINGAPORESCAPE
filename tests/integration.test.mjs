@@ -1703,3 +1703,123 @@ test('auto battle steps out of a boss marker by itself', () => {
   assert.ok(p.hp >= hp0, 'auto battle dodged the blast');
   assert.ok(chat.some((t) => t.startsWith('You dodge')));
 });
+
+test('champion monsters: tougher, gold-ringed, and drop much more', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  const n = game.npcs.find((x) => x.def.attackable && !x.def.boss && !x.champion && (x.def.level || 1) >= 3);
+  const hp0 = n.maxHp;
+  n.makeChampion();
+  assert.ok(n.champion && n.name.startsWith('Champion '));
+  assert.equal(n.maxHp, hp0 * 3);
+  assert.ok((n.def.scale || 1) > 1);
+  // Champions roll their drop table three times (plus bones).
+  let ground = 0;
+  const orig = game._autoLoot.bind(game);
+  game._autoLoot = (loot) => { ground = loot.length; };
+  game.rollDrops(n);
+  assert.ok(ground >= 4, `champion loot rolls (${ground})`);
+  game._autoLoot = orig;
+  // Respawning clears champion status.
+  n.respawn();
+  assert.ok(!n.champion && n.maxHp === hp0);
+});
+
+test('night hunt boosts combat XP; big hits and kills trigger hit-stop', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  assert.equal(game.combatXpMult(), 1, 'no bonus by day');
+  game.playMs = 0;                           // midnight
+  assert.ok(game.isNight());
+  assert.equal(game.combatXpMult(), 1.25);
+  const chat = [];
+  game.bus.on('chat', (c) => chat.push(c.text));
+  game._wasNight = false;
+  game._checkNightfall();
+  assert.ok(chat.some((t) => t.startsWith('Night falls')));
+  const n = game.npcs.find((x) => x.def.attackable && !x.def.boss);
+  game.addHitsplat(n, 5, { crit: true });
+  assert.ok(game.hitStop > 0, 'a crit freezes the action for a moment');
+  game.update(16); game.update(100);
+  assert.equal(game.hitStop, 0, 'and it is brief');
+});
+
+test('gear upgrades: +1..+10 with coins and bars, stronger stats, saved with the game', async () => {
+  const { upgradeCost, upgradeChance, upgradedBonuses } = await import('../src/game/upgrade.js');
+  assert.equal(upgradeChance(5), 1);
+  assert.ok(upgradeChance(10) < upgradeChance(6));
+  assert.deepEqual(upgradeCost('bronze_scimitar', 3).bar, { id: 'bronze_bar', qty: 3 });
+  assert.ok(upgradedBonuses({ attack: 10 }, 2).attack > 10);
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  const atk0 = game.equipment.bonuses().attack;
+  game.inventory.add('coins', 100000);
+  game.inventory.add('bronze_bar', 50);
+  const coins0 = game.inventory.count('coins'), bars0 = game.inventory.count('bronze_bar');
+  for (let i = 0; i < 5; i++) assert.ok(game.upgradeItem('bronze_scimitar'), `+${i + 1} always works`);
+  assert.equal(game.equipment.upgradeLevel('bronze_scimitar'), 5);
+  assert.ok(game.equipment.bonuses().attack > atk0, 'upgrades raise your bonuses');
+  assert.equal(game.inventory.count('bronze_bar'), bars0 - 15, 'bars are spent (1+2+3+4+5)');
+  assert.ok(game.inventory.count('coins') < coins0, 'coins are spent');
+  saveGame(game);
+  const g2 = new Game();
+  g2.start();
+  assert.equal(g2.equipment.upgradeLevel('bronze_scimitar'), 5, 'upgrade levels survive save/load');
+});
+
+test('auto battle settings: eat level, target filter, and they are saved', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  const p = game.player;
+  const near = game.npcs.filter((n) => n.alive && n.attackable && !n.def.boss && Math.max(Math.abs(n.x - p.x), Math.abs(n.y - p.y)) <= 10);
+  const kinds = [...new Set(near.map((n) => n.npcId))];
+  if (kinds.length) {
+    game.autoCfg.target = kinds[0];
+    const t = game._autoPickTarget();
+    assert.ok(!t || t.npcId === kinds[0] || t.target === p, 'only the chosen monster type is hunted');
+  }
+  game.autoCfg = { eatAt: 0.6, target: 'chicken', abilities: false };
+  saveGame(game);
+  const g2 = new Game();
+  g2.start();
+  assert.deepEqual(g2.autoCfg, { eatAt: 0.6, target: 'chicken', abilities: false });
+});
+
+test('daily bounties: three targets a day that pay out, with a streak', async () => {
+  const { makeBounties, prevDayKey } = await import('../src/game/bounty.js');
+  const mons = [{ id: 'a', name: 'A', level: 5 }, { id: 'b', name: 'B', level: 7 }, { id: 'c', name: 'C', level: 9 }, { id: 'd', name: 'D', level: 80 }];
+  assert.deepEqual(makeBounties('2026-10-20', 6, mons), makeBounties('2026-10-20', 6, mons), "a day's board is stable");
+  assert.ok(makeBounties('2026-10-20', 6, mons).every((t) => t.id !== 'd'), 'targets near your level');
+  assert.equal(prevDayKey('2026-03-01'), '2026-02-28');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  const b = game.bounties;
+  assert.equal(b.list.length, 3);
+  assert.ok(b.list.every((t) => game.npcs.some((n) => n.npcId === t.id)), 'every target lives in the world');
+  const coins0 = game.inventory.count('coins');
+  b.lastFull = prevDayKey(b.day); b.streak = 2;     // finished yesterday too
+  for (const t of b.list) {
+    const n = game.npcs.find((x) => x.npcId === t.id);
+    for (let i = 0; i < t.need; i++) game.progressBounties(n);
+  }
+  assert.ok(b.list.every((t) => t.done));
+  assert.equal(b.streak, 3, 'back-to-back days grow the streak');
+  assert.ok(game.inventory.count('coins') > coins0);
+  saveGame(game);
+  const g2 = new Game();
+  g2.start();
+  assert.equal(g2.bounties.streak, 3);
+  assert.ok(g2.bounties.list.every((t) => t.done), 'progress is saved');
+});
