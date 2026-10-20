@@ -48,34 +48,37 @@ test('items stack to 100 per slot; coins are uncapped', () => {
   // Coins are exempt from the cap -> a single slot.
   assert.equal(inv.add('coins', 5000), 5000);
   assert.equal(inv.count('coins'), 5000);
-  assert.equal(inv.freeSlots(), 27);
-
+  assert.equal(inv.slots.filter(Boolean).length, 1);
   // 250 logs span 3 slots (100 + 100 + 50).
   assert.equal(inv.add('logs', 250), 250);
   assert.equal(inv.count('logs'), 250);
-  assert.equal(inv.freeSlots(), 24); // 1 coins + 3 logs used
+  assert.equal(inv.slots.filter(Boolean).length, 4);
   assert.equal(inv.remove('logs', 120), 120);
   assert.equal(inv.count('logs'), 130);
 });
 
-test('per-slot cap fills the whole bag and blocks overflow', () => {
+test('the inventory is unlimited: it grows past 28 slots and always keeps a spare row', () => {
   const inv = new Inventory(new EventBus());
-  // 28 slots x 100 = 2800 capacity for a capped item.
-  assert.equal(inv.add('bones', 5000), 2800);
-  assert.ok(inv.isFull());
-  assert.equal(inv.canAdd('bones', 5), 0);
-  assert.equal(inv.canAdd('coins', 5), 0); // no empty slot for a new item
+  assert.equal(inv.size, 28);
+  // 5000 bones need 50 full slots: everything fits.
+  assert.equal(inv.canAdd('bones', 5000), 5000);
+  assert.equal(inv.add('bones', 5000), 5000);
+  assert.equal(inv.count('bones'), 5000);
+  assert.ok(!inv.isFull());
+  assert.ok(inv.size >= 54, `grew to hold them with a spare row (size ${inv.size})`);
+  assert.equal(inv.slots.slice(-4).filter((x) => x === null).length, 4, 'four empty slots stay open');
+  assert.equal(inv.add('coins', 7), 7, 'a brand-new item still fits');
+  // Clearing out shrinks back down to the normal 28.
+  inv.remove('bones', 5000); inv.remove('coins', 7);
+  assert.equal(inv.size, 28);
 });
 
-test('a partial stack can still be topped up when all slots are used', () => {
+test('an unlimited inventory survives save/load', () => {
   const inv = new Inventory(new EventBus());
-  assert.equal(inv.add('bones', 2700), 2700); // 27 full slots
-  assert.equal(inv.add('logs', 50), 50);      // 28th slot, partial
-  assert.ok(inv.isFull());                     // no empty slots
-  assert.equal(inv.canAdd('logs', 80), 50);    // can still top the 50 -> 100
-  assert.equal(inv.add('logs', 80), 50);
-  assert.equal(inv.count('logs'), 100);
-  assert.equal(inv.canAdd('logs', 1), 0);      // now genuinely full
+  inv.add('bones', 4000);
+  const inv2 = new Inventory(new EventBus());
+  inv2.load(inv.serialize());
+  assert.equal(inv2.count('bones'), 4000);
 });
 
 test('skills start at the buffed baseline and level up via xp', () => {

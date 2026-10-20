@@ -44,12 +44,9 @@ const COMBAT_SKILLS = new Set(['attack', 'strength', 'defence', 'hitpoints', 'ra
 // DAY_CYCLE_MS for the player's real local time of day, so a fresh session
 // opens at a sensible hour (bright at your midday, dark at your midnight)
 // instead of always at midnight.
-function localTimeSeedMs() {
-  try {
-    const d = new Date();
-    return ((d.getHours() * 60 + d.getMinutes()) / (24 * 60)) * DAY_CYCLE_MS;
-  } catch { return DAY_CYCLE_MS * 0.5; } // fall back to a bright noon start
-}
+// Every session starts on a bright morning (~7am), then runs the normal
+// day/night cycle from there.
+const MORNING_PHASE = 0.3;
 
 export class Game {
   constructor() {
@@ -87,7 +84,7 @@ export class Game {
     // Day/night clock: accumulated play time, wrapped into a repeating cycle
     // (see update()). Seeded from the player's real local time of day so a
     // fresh session opens at a sensible hour instead of always at midnight.
-    this.playMs = localTimeSeedMs();
+    this.playMs = MORNING_PHASE * DAY_CYCLE_MS;
     this.hover = null;
     this.currentZoneName = null;
     this.wildLevel = 0;
@@ -414,6 +411,7 @@ export class Game {
     } else {
       if (this.playerStun > 0) this.playerStun--;
       else { this.resolvePlayerAction(); this._autoBattleTick(); }
+      this._autoPickup();
     }
     // Only tick NPCs near the player (the bestiary is large).
     const px = this.player.x, py = this.player.y;
@@ -1127,16 +1125,37 @@ export class Game {
   }
 
   /** Auto-loot: drops go straight into the pack; whatever won't fit falls to the ground. */
+  // MapleStory-style loot: drops pop out onto the ground in a little fan,
+  // then (next tick) fly into your pack wherever you are.
   _autoLoot(loot, x, y) {
-    const got = [], spilled = [];
-    for (const [id, qty] of loot) {
-      const space = Math.min(qty, Math.max(0, this.inventory.canAdd(id, qty)));
-      const added = space > 0 ? this.inventory.add(id, space) : 0;
-      if (added > 0) got.push(`${added > 1 ? added + ' x ' : ''}${getItem(id).name}`);
-      if (qty - added > 0) { this.world.addGroundItem(id, qty - added, x, y); spilled.push(getItem(id).name); }
+    loot.forEach(([id, qty], i) => {
+      const gi = this.world.addGroundItem(id, qty, x, y);
+      const a = (i / Math.max(1, loot.length)) * Math.PI * 2 + Math.random();
+      gi.ox = Math.cos(a) * 9; gi.oy = Math.sin(a) * 5;     // pixel scatter
+      gi.born = performance.now();
+      gi.fromKill = true;
+      gi.lootAt = this.tickCount + 1;
+    });
+  }
+
+  /** Each tick: sweep up kill drops (from anywhere) and any other loot within 2 tiles. */
+  _autoPickup() {
+    const p = this.player;
+    if (!p.alive) return;
+    const at = this.playerTile();
+    const got = [];
+    for (const gi of [...this.world.groundItems]) {
+      if (gi.playerDropped) continue;                     // things you drop stay dropped
+      const near = chebyshev(at.x, at.y, gi.x, gi.y) <= 2;
+      if (!(near || (gi.fromKill && this.tickCount >= gi.lootAt))) continue;
+      const added = this.inventory.add(gi.id, gi.qty);
+      if (added <= 0) continue;
+      got.push(`${added > 1 ? added + ' x ' : ''}${getItem(gi.id).name}`);
+      const c = p.renderCenter();
+      this.effects.push({ type: 'lootfly', id: gi.id, x: gi.x * TILE + TILE / 2 + (gi.ox || 0), y: gi.y * TILE + TILE * 0.62 + (gi.oy || 0), ex: c.x, ey: c.y - 10, life: 420, maxLife: 420 });
+      this.world.removeGroundItem(gi);
     }
     if (got.length) { this.msg(`You loot: ${got.join(', ')}.`); this.bus.emit('sfx', 'pickup'); }
-    if (spilled.length) this.msg(`Your inventory is full — ${spilled.join(', ')} fell to the ground.`, 'system');
   }
 
   _holdsClue() { return this.inventory.slots.some((s) => s && s.id.startsWith('clue_scroll_')); }
@@ -1706,7 +1725,8 @@ export class Game {
     if (!s) return;
     const { id, qty } = s;
     this.inventory.removeAt(index, qty);
-    this.world.addGroundItem(id, qty, this.player.x, this.player.y);
+    const gi = this.world.addGroundItem(id, qty, this.player.x, this.player.y);
+    gi.playerDropped = true;   // auto-loot leaves things you drop on purpose
     this.msg(`You drop the ${getItem(id).name.toLowerCase()}.`);
   }
 
