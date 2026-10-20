@@ -50,11 +50,10 @@ export class Character {
   }
 
   stop() {
+    // Drop the rest of the route; a step already under way still finishes
+    // (update() lands it on its tile), then the character stands still. Queuing
+    // the current tile again here used to leave it "walking" on the spot.
     this.path = [];
-    if (this.moving) {
-      // Finish the current step so we land cleanly on a tile.
-      this.path = [{ x: this.tx, y: this.ty }];
-    }
   }
 
   /** Turn straight back mid-step: head for the tile we came from, keeping our

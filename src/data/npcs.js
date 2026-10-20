@@ -25,6 +25,8 @@ function dropsFor(level) {
     { nothing: true, weight: Math.max(6, Math.round(30 - level / 3)) },
     { id: 'coins', min: Math.max(2, Math.round(level * 0.7)), max: Math.max(8, level * 9), weight: 48 },
     { id: ore, min: 1, max: 3, weight: 12 },
+    // Arrows of the area's tier, so archers can keep hunting.
+    { id: `${tier}_arrow`, min: 8, max: 25, weight: 10 },
   ];
   // Tier-appropriate gear pool — the main way to obtain combat equipment.
   for (const w of ['scimitar', 'sword', 'mace', 'longsword']) t.push({ id: `${tier}_${w}`, weight: 4 });

@@ -185,7 +185,17 @@ test('ranged combat consumes arrows and trains ranged', () => {
   assert.ok(game.effects.some((e) => e.type === 'projectile' && e.kind === 'arrow'), 'fires a fletched arrow, not a generic bolt');
   game.attackNpc(chicken);
   step(game, 40);
-  assert.ok(game.inventory.count('bronze_arrow') < 100, 'arrows were used');
+  assert.ok(game.skills.xp.ranged > 0, 'shooting trains Ranged');
+  // About 4 in 5 arrows are recovered; the rest are used up.
+  const idx = game.inventory.slots.findIndex((x) => x && x.id === 'bronze_arrow');
+  const n0 = game.inventory.count('bronze_arrow');
+  const rnd = Math.random;
+  try {
+    Math.random = () => 0.1; game._spendArrow(idx);
+    assert.equal(game.inventory.count('bronze_arrow'), n0, 'a recovered arrow is kept');
+    Math.random = () => 0.95; game._spendArrow(idx);
+    assert.equal(game.inventory.count('bronze_arrow'), n0 - 1, 'a lost arrow is used up');
+  } finally { Math.random = rnd; }
 });
 
 test('magic combat consumes runes and trains magic', () => {
@@ -599,10 +609,13 @@ test('ranged special (magic shortbow Rapid Volley) fires twice and spends arrows
   const chicken = game.npcs.find((n) => n.npcId === 'chicken');
   chicken.maxHp = chicken.hp = 99; // durable dummy so both volley arrows fire
   game.player.x = game.player.tx = chicken.x + 3; game.player.y = game.player.ty = chicken.y;
-  const arrowsBefore = game.inventory.count('rune_arrow');
+  // Count arrows fired (most are recovered afterwards, so the stack barely moves).
+  let shots = 0;
+  const fire = game._projectile.bind(game);
+  game._projectile = (n, col, kind, ...rest) => { if (kind === 'arrow') shots++; return fire(n, col, kind, ...rest); };
   game.attackNpc(chicken);
   step(game, 3);
-  assert.ok(arrowsBefore - game.inventory.count('rune_arrow') >= 2, 'two arrows consumed by the volley');
+  assert.ok(shots >= 2, 'the volley fires two arrows');
   assert.ok(game.specEnergy < 60, 'spec energy spent');
 });
 
@@ -788,10 +801,12 @@ test('weapon-specific skills: a bow swaps in Snapshot, which looses three arrows
   game.npcs = [target];
   game.attackNpc(target);
   game.adrenaline = 100;
-  const arrows0 = game.inventory.count('bronze_arrow');
+  let shots = 0;
+  const fire = game._projectile.bind(game);
+  game._projectile = (n, col, kind, ...rest) => { if (kind === 'arrow') shots++; return fire(n, col, kind, ...rest); };
   game.player.attackCooldown = 3; // mid-swing: Snapshot must not wait for it
   game.activateAbilityKey('z');
-  assert.equal(arrows0 - game.inventory.count('bronze_arrow'), 3, 'three arrows fired at once');
+  assert.equal(shots, 3, 'three arrows fired at once');
   assert.ok(game.abilityCd.snapshot > 0, 'Snapshot goes on cooldown');
   game.equipment.set('weapon', 'bronze_scimitar'); // the melee set comes back with a melee weapon
   assert.equal(game.currentAbilities()[0].id, 'power_strike');
