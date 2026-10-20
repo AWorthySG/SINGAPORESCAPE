@@ -90,12 +90,34 @@ function creatureImage(sprite) {
 }
 // Exposed so tests can assert the set stays in lock-step with assets/creatures/.
 export const creaturePngs = () => new Set(CREATURE_PNGS);
+
+// Painted art for individual monster species (assets/creatures/species/<family>.webp).
+// Every rank of a species (Young, Wild, Feral...) and its champions share it, and
+// it takes priority over the archetype art above.
+const SPECIES_ART = new Set([
+  'box_jellyfish', 'chicken', 'civet', 'forest_drake', 'fruit_bat', 'giant_crab', 'goblin',
+  'hornbill', 'imp', 'jungle_spider', 'king_cobra', 'macaque', 'monitor_lizard', 'mosquito',
+  'mud_crab', 'pangolin', 'rat', 'reef_shark', 'saltwater_crocodile', 'sambar_deer',
+  'sand_scorpion', 'sea_snake', 'sea_turtle', 'skeleton', 'smooth_otter', 'stone_golem',
+  'swamp_slime', 'vampire_bat', 'wild_boar', 'wild_dog', 'wraith'
+]);
+const _speciesImg = {};
+function speciesImage(family) {
+  if (!family || !SPECIES_ART.has(family)) return null;
+  if (_speciesImg[family] !== undefined) return _speciesImg[family];
+  if (typeof Image === 'undefined') { _speciesImg[family] = null; return null; }
+  const img = new Image();
+  img.src = `assets/creatures/species/${family}.webp`;
+  _speciesImg[family] = img;
+  return img;
+}
+export const speciesArt = () => new Set(SPECIES_ART);
 // Draw a painted creature sprite centred horizontally with its feet on the tile.
 function drawCreaturePng(c, img) {
-  const H = 34;                       // display height in local (pre-scale) units
-  const s = H / img.naturalHeight;
-  const w = img.naturalWidth * s;
-  c.drawImage(img, -w / 2, 13.5 - H, w, H);
+  // Fit within 34 units tall and 64 wide (long bodies like crocodiles stay in their sticker box).
+  const s = Math.min(34 / img.naturalHeight, 64 / img.naturalWidth);
+  const w = img.naturalWidth * s, h = img.naturalHeight * s;
+  c.drawImage(img, -w / 2, 13.5 - h, w, h);
 }
 
 // ---------------- Monster stickers ----------------
@@ -209,7 +231,8 @@ function drawCached(ctx, key, box, draw) {
 export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
   const arch = opts.sprite && ARCH[opts.sprite];
   if (arch) {
-    const pimg = creatureImage(opts.sprite);
+    const simg = speciesImage(opts.family);
+    const pimg = simg || creatureImage(opts.sprite);
     const col = opts.color || '#8a8a8a';
     opts.rock = true; // monsters rock side-to-side as they move (a gait cue)
     return staged(ctx, cx, cy, opts, (c) => {
@@ -238,7 +261,8 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
       const ready = !pimg || (pimg.complete && pimg.naturalWidth);
       // Only the turtle's legs follow the stride; every other body is one pose.
       const pose = opts.sprite === 'turtle' ? Math.round(_anim.stride * 2) : 0;
-      const sticker = ready ? monsterSticker(`${opts.sprite}|${col}|${pimg ? 'p' : 'v'}|${pose}`, drawBody) : null;
+      const look = simg ? `species:${opts.family}` : `${opts.sprite}|${col}|${pimg ? 'p' : 'v'}`;
+      const sticker = ready ? monsterSticker(`${look}|${pose}`, drawBody) : null;
       if (sticker) c.drawImage(sticker, ST_X0, ST_Y0, ST_W, ST_H);
       else drawBody(c);              // headless (no DOM canvas) or art still loading
       if (opts.boss) bossCrown(c, opts.time || 0);  // insignia over both painted & vector bodies

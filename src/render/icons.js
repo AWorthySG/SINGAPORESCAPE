@@ -655,6 +655,9 @@
   const SKILL_ART = new Set(['attack', 'strength', 'defence', 'hitpoints', 'ranged', 'magic', 'prayer', 'slayer',
     'woodcutting', 'mining', 'fishing', 'firemaking', 'cooking', 'smithing', 'crafting', 'thieving', 'agility']);
   export const skillIconSVG = (id, size = 20, cls) => (SKILL_ART.has(id) ? artImg(`skill-${id}`, size, cls) : svg(S[id] || S.attack, size, cls));
+  /** Prayer and spell icons (assets/icons/prayer-<id>.webp, spell-<id>.webp). */
+  export const prayerIconHTML = (id, size = 28, cls) => artImg(`prayer-${id}`, size, cls);
+  export const spellIconHTML = (id, size = 28, cls) => artImg(`spell-${id}`, size, cls);
   /** Combat-skill (action bar) icon: every ability has mascot artwork. */
   export const abilityIconHTML = (id, size = 34, cls) => artImg(`ability-${id}`, size, cls);
   // Side-panel tabs that have a real A-Worthy mascot icon use the artwork;

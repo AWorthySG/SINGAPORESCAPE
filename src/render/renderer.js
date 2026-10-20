@@ -188,7 +188,7 @@ export class Renderer {
           ctx.translate(-cx, -(cy + 11 * sc));
           drawCreature(ctx, n.npcId, cx, cy - 2, {
             time: timeMs, facing: n.facing, moving: false,
-            scale: sc, sprite: n.def.sprite, color: n.def.color, boss: n.def.boss,
+            scale: sc, sprite: n.def.sprite, color: n.def.color, boss: n.def.boss, family: n.def.family,
           });
           ctx.restore();
           ctx.globalAlpha = 1;
@@ -210,7 +210,7 @@ export class Renderer {
         }
         drawCreature(ctx, n.npcId, cx + off.x, cy - 2 + off.y, {
           time: timeMs, facing: n.facing, moving: n.isMoving,
-          scale: sc, sprite: n.def.sprite, color: n.def.color, boss: n.def.boss,
+          scale: sc, sprite: n.def.sprite, color: n.def.color, boss: n.def.boss, family: n.def.family,
           attackK: n.swingProgress ? n.swingProgress() : -1,
         });
         if (n.hurt > 0) this._hurtFlash(cx + off.x, cy - 2 + off.y, sc, n.hurt);

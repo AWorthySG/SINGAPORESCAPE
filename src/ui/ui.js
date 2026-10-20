@@ -24,7 +24,7 @@ import { STAT_LABELS, STAT_HELP, compareGear, deltaText, gearBySlot, gearRating,
 import { TILE } from '../config.js';
 import { TERRAIN } from '../data/world.js';
 import { clearSave } from '../game/save.js';
-import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG, abilityIconHTML } from '../render/icons.js';
+import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG, abilityIconHTML, prayerIconHTML, spellIconHTML } from '../render/icons.js';
 import { weaknessOf } from '../game/combat.js';
 
 const EQUIP_LAYOUT = [
@@ -832,7 +832,7 @@ export class UI {
         const btn = document.createElement('div');
         btn.className = 'style-btn spell' + (p.spell === sp.id ? ' active' : '');
         const cost = Object.entries(sp.runes).map(([id, q]) => `${q}${id.replace('_rune', '').slice(0, 3)}`).join(' ');
-        btn.innerHTML = `${sp.name}<span class="style-skill">L${sp.level} · max ${sp.maxHit} · ${escapeHtml(cost)}</span>`;
+        btn.innerHTML = `<span class="sp-ic">${spellIconHTML(sp.id, 26)}</span><span class="sp-text">${sp.name}<span class="style-skill">L${sp.level} · max ${sp.maxHit} · ${escapeHtml(cost)}</span></span>`;
         btn.style.opacity = known ? (this.game._hasRunes(sp) ? '1' : '0.65') : '0.35';
         if (known) btn.addEventListener('click', () => { p.spell = sp.id; this.renderCombatPanel(); });
         row.appendChild(btn);
@@ -1057,7 +1057,7 @@ export class UI {
       const effect = pr.protect
         ? `-${Math.round(pr.protect * 100)}% melee dmg`
         : Object.keys(labels).filter((k) => pr[k]).map((k) => `+${Math.round(pr[k] * 100)}% ${labels[k]}`).join(' ');
-      cell.innerHTML = `<b>${pr.name}</b><span>Lvl ${pr.level} · ${effect}</span>`;
+      cell.innerHTML = `<span class="pr-ic">${prayerIconHTML(pr.id, 30)}</span><span class="pr-text"><b>${pr.name}</b><span>Lvl ${pr.level} · ${effect}</span></span>`;
       cell.addEventListener('click', () => this.game.togglePrayer(pr.id));
       this._prayerGrid.appendChild(cell);
     }
