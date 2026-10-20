@@ -1367,3 +1367,76 @@ button:focus-visible, .tab-btn:focus-visible, .chat-tab:focus-visible,
 .bounty-row.done { opacity: 0.7; }
 .bounty-bar { height: 6px; margin-top: 5px; border-radius: 999px; background: var(--aw-muted); border: 1.5px solid var(--aw-ink); overflow: hidden; }
 .bounty-bar i { display: block; height: 100%; background: var(--aw-grass); }
+
+/* ---------- Inventory tabs + sort ---------- */
+#inventory-bar { display: flex; align-items: center; gap: 6px; margin-bottom: 7px; }
+#inv-tabs { display: flex; gap: 4px; flex-wrap: wrap; flex: 1; min-width: 0; }
+.inv-tab, #inv-sort {
+  font-family: inherit; font-size: 11px; font-weight: 800; padding: 3px 8px; cursor: pointer; line-height: 1.2;
+  background: var(--aw-card); color: var(--aw-ink); border: 1.5px solid var(--aw-ink); border-radius: 999px;
+}
+.inv-tab.active { background: var(--aw-ink); color: #fff; }
+#inv-sort { background: var(--aw-sun-bg); flex: none; }
+@media (max-width: 540px) { .inv-tab, #inv-sort { font-size: 10px; padding: 2px 6px; } }
+
+/* ---------- Boss bar in the sticker style ---------- */
+#boss-bar {
+  background: var(--aw-card); border: 2.5px solid var(--aw-ink); border-image: none; border-radius: 14px;
+  box-shadow: var(--shadow-sticker); padding: 6px 12px 9px;
+}
+#boss-bar-name { color: var(--aw-text); font-weight: 900; letter-spacing: 0; }
+#boss-bar.enraged #boss-bar-name { color: var(--aw-accent); }
+#boss-bar-track { background: var(--aw-muted); border: 2px solid var(--aw-ink); box-shadow: none; height: 13px; }
+#boss-bar-fill { background: linear-gradient(90deg, var(--aw-accent), var(--aw-bloom)); box-shadow: none; }
+#boss-bar.champion #boss-bar-fill { background: linear-gradient(90deg, var(--aw-sun-deep), var(--aw-sun)); }
+#boss-bar.champion #boss-bar-name { color: var(--aw-sun-deep); }
+#boss-bar.warn { border-color: var(--aw-accent); animation: bossWarn .5s ease-in-out infinite alternate; }
+#boss-bar.warn #boss-bar-name { color: var(--aw-accent); }
+@keyframes bossWarn { from { box-shadow: var(--shadow-sticker); } to { box-shadow: 0 0 0 4px rgba(192,57,43,0.35), var(--shadow-sticker); } }
+
+/* ---------- Tracker pointers ---------- */
+#quest-tracker .trk-bounty { color: var(--aw-sun-deep); }
+#quest-tracker .trk-arrow { display: inline-block; margin-left: 6px; color: var(--aw-accent); font-size: 11px; line-height: 1; transition: transform .3s ease; }
+#quest-tracker .trk-dist { margin-left: 3px; font-size: 10px; font-weight: 800; color: var(--aw-text-sec); }
+#quest-tracker .trk-dist.here { margin-left: 6px; color: var(--aw-grass-deep); }
+
+/* ---------- First-time tips ---------- */
+#tip-toast {
+  position: fixed; left: 50%; top: 92px; transform: translateX(-50%); z-index: 60;
+  display: flex; align-items: center; gap: 10px; width: min(460px, calc(100vw - 24px));
+  background: var(--aw-card); color: var(--aw-text); border: 2.5px solid var(--aw-ink); border-radius: 16px;
+  box-shadow: var(--shadow-sticker); padding: 9px 10px 9px 12px; font-size: 13px; line-height: 1.4;
+  animation: bossIn .25s ease-out;
+}
+#tip-toast .tip-badge {
+  flex: none; font-size: 10px; font-weight: 900; text-transform: uppercase; color: #fff;
+  background: var(--aw-sky-deep); border-radius: 999px; padding: 3px 8px; border: 1.5px solid var(--aw-ink);
+}
+#tip-toast .tip-text { flex: 1; }
+#tip-toast button {
+  flex: none; font-family: inherit; font-weight: 800; font-size: 12px; padding: 5px 11px; cursor: pointer;
+  background: var(--aw-accent); color: #fff; border: 2px solid var(--aw-ink); border-radius: 999px;
+}
+@media (max-width: 540px) { #tip-toast { top: 74px; font-size: 12px; } }
+
+/* ---------- Settings: volume slider ---------- */
+#settings-panel .set-slider { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 800; color: var(--aw-text); margin: 2px 0 4px; }
+#settings-panel .set-slider span { display: flex; justify-content: space-between; }
+#settings-panel .set-slider input { width: 100%; accent-color: var(--aw-accent); }
+/* Keep the tip, tracker and boss bar from stacking on top of each other. */
+body.boss-on #tip-toast { top: 132px; }
+#inv-tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+#inv-tabs::-webkit-scrollbar { display: none; }
+.inv-tab { flex: none; }
+@media (max-width: 540px) {
+  body.boss-on #quest-tracker { top: 92px; }
+  #tip-toast { top: auto; bottom: 200px; }
+  body.boss-on #tip-toast { top: auto; }
+}
+.inv-tab, #inv-sort { padding: 3px 7px; }
+#inv-tabs { gap: 3px; }
+#inv-sort { font-size: 13px; padding: 1px 8px; }
+@media (max-width: 540px) { .inv-tab { padding: 2px 5px; } }
+/* Wrap the tabs onto a second row rather than hiding any off to the side. */
+#inv-tabs { flex-wrap: wrap; overflow: visible; }
+#inventory-bar { align-items: flex-start; }

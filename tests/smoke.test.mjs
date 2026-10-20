@@ -431,3 +431,22 @@ test('gear guide: ranks gear per slot and says whether a piece is an upgrade', a
   const hi = by.weapon.find((id) => (ITEMS[id].equip.req?.attack || 0) >= 40);
   assert.equal(meetsReq(hi, skills).ok, false);
 });
+
+test('inventory sort merges split stacks and groups by type; categories drive the tabs', async () => {
+  const { itemCategory } = await import('../src/game/inventory.js');
+  assert.equal(itemCategory('coins'), 'coins');
+  assert.equal(itemCategory('bronze_sword'), 'gear');
+  assert.equal(itemCategory('chicken_rice'), 'food');
+  assert.equal(itemCategory('iron_ore'), 'materials');
+  assert.equal(itemCategory('logs'), 'materials');
+  const inv = new Inventory(new EventBus());
+  inv.add('logs', 5); inv.add('bronze_sword', 1); inv.add('coins', 10); inv.add('chicken_rice', 2);
+  // Split the logs into two partial stacks by hand.
+  inv.slots[inv.slots.findIndex((x) => x === null)] = { id: 'logs', qty: 3 };
+  inv.sort();
+  const ids = inv.slots.filter(Boolean).map((x) => x.id);
+  assert.deepEqual(ids, ['coins', 'bronze_sword', 'chicken_rice', 'logs'], 'coins, gear, food, materials');
+  assert.equal(inv.count('logs'), 8, 'nothing lost');
+  assert.equal(inv.slots.filter((x) => x && x.id === 'logs').length, 1, 'split stacks merged');
+  assert.ok(inv.size >= 28, 'keeps the normal pack size');
+});

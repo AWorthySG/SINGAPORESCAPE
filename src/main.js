@@ -14,6 +14,8 @@ const canvas = document.getElementById('game-canvas');
 const ctx = canvas.getContext('2d', { alpha: false });
 
 const game = new Game();
+// Graphics quality: "low" renders at 1x and trims particles, for older phones.
+try { game.lowFx = localStorage.getItem('singaporescape:gfx') === 'low'; } catch { /* ignore */ }
 const ui = new UI(game);
 const renderer = new Renderer(game, canvas, ctx);
 const input = new Input(canvas);
@@ -64,7 +66,7 @@ input.onKey((e) => {
 function resize() {
   // Cap the backing-store density at 2x: 3x phone screens look the same at 2x
   // but would cost more than twice the fill-rate per frame.
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const dpr = Math.min(game.lowFx ? 1 : 2, window.devicePixelRatio || 1);
   const w = window.innerWidth, h = window.innerHeight;
   canvas.width = Math.floor(w * dpr);
   canvas.height = Math.floor(h * dpr);
