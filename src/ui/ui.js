@@ -18,6 +18,7 @@ import { SLAYER_REWARDS } from '../data/slayer.js';
 import { STATIONS, MRT_FARE } from '../data/transport.js';
 import { EQUIP_SLOTS } from '../game/equipment.js';
 import { streakMult } from '../game/bounty.js';
+import { itemCategory } from '../game/inventory.js';
 import { MAX_UPGRADE, upgradeCost, upgradeChance, upgradedName } from '../game/upgrade.js';
 import { STAT_LABELS, STAT_HELP, compareGear, deltaText, gearBySlot, gearRating, meetsReq, swingBeats, tierOf, weaponStyle } from '../game/gear.js';
 import { TILE } from '../config.js';
@@ -131,7 +132,7 @@ export class UI {
     });
 
     // Bus subscriptions.
-    this.bus.on('tick', () => { this.updateBossBar(); this.updateDayNight(); });
+    this.bus.on('tick', () => { this.updateBossBar(); this.updateDayNight(); this.renderTracker(); this._tipsTick(); });
     this.bus.on('inventory', () => { this.renderInventory(); this._refreshModalIfOpen(['bank', 'shop']); });
     this.bus.on('equipment', () => { this.renderEquipment(); this.renderCombatPanel(); this.renderInventory(); });
     this.bus.on('skills', () => { this.renderSkills(); this.renderCombatPanel(); });
@@ -283,7 +284,12 @@ export class UI {
     const g = this.game;
     const rows = [];
     if (g.slayer && g.slayer.task) {
-      rows.push(`<div class="trk-row"><span class="trk-ic trk-slayer">&#9760;</span>${g.slayer.task.remaining} ${escapeHtml(g.slayer.task.name)}</div>`);
+      const t = g.slayer.task;
+      rows.push(`<div class="trk-row"><span class="trk-ic trk-slayer">&#9760;</span>${t.remaining} ${escapeHtml(t.name)}${this._trkPointer((n) => n.def.family === t.family)}</div>`);
+    }
+    // Today's unfinished bounties (up to two), each with a pointer to the nearest target.
+    for (const t of (g.bounties?.list || []).filter((x) => !x.done).slice(0, 2)) {
+      rows.push(`<div class="trk-row"><span class="trk-ic trk-bounty">&#9733;</span>${escapeHtml(t.name)} <span class="trk-prog">${t.have}/${t.need}</span>${this._trkPointer((n) => n.npcId === t.id)}</div>`);
     }
     for (const q of QUESTS) {
       const st = g.quests[q.id];
@@ -295,6 +301,21 @@ export class UI {
     }
     el.innerHTML = rows.length ? `<div class="trk-title">Objectives</div>${rows.join('')}` : '';
     el.classList.toggle('hidden', rows.length === 0);
+  }
+
+  /** Arrow + distance from the player to the nearest living monster matching `pred`. */
+  _trkPointer(pred) {
+    const g = this.game, p = g.player;
+    let best = null, bd = Infinity;
+    for (const n of g.npcs) {
+      if (!n.alive || !pred(n)) continue;
+      const d = Math.hypot(n.x - p.x, n.y - p.y);
+      if (d < bd) { bd = d; best = n; }
+    }
+    if (!best) return '';
+    if (bd <= 6) return '<span class="trk-dist here">here</span>';
+    const deg = Math.round(Math.atan2(best.y - p.y, best.x - p.x) * 180 / Math.PI);
+    return `<span class="trk-arrow" style="transform:rotate(${deg}deg)">&#10148;</span><span class="trk-dist">${Math.round(bd)}m</span>`;
   }
 
   // ---------------- Tabs ----------------
@@ -418,12 +439,36 @@ export class UI {
   }
 
   // ---------------- Inventory ----------------
+  _buildInvBar() {
+    const tabs = document.getElementById('inv-tabs');
+    if (!tabs || this._invBarBuilt) return;
+    this._invBarBuilt = true;
+    this.invFilter = 'all';
+    for (const [id, label] of [['all', 'All'], ['gear', 'Gear'], ['food', 'Food'], ['materials', 'Mats'], ['other', 'Misc']]) {
+      const b = document.createElement('button');
+      b.className = 'inv-tab' + (id === 'all' ? ' active' : '');
+      b.dataset.cat = id;
+      b.textContent = label;
+      b.addEventListener('click', () => {
+        this.invFilter = id;
+        for (const x of tabs.children) x.classList.toggle('active', x.dataset.cat === id);
+        this.renderInventory();
+      });
+      tabs.appendChild(b);
+    }
+    document.getElementById('inv-sort')?.addEventListener('click', () => { this.game.inventory.sort(); this.game.msg('You tidy your pack.', 'system'); });
+  }
+
   renderInventory() {
+    this._buildInvBar();
     const grid = this.el.inventory;
     grid.innerHTML = '';
     const slots = this.game.inventory.slots;
+    const f = this.invFilter || 'all';
     for (let i = 0; i < slots.length; i++) {
       const s = slots[i];
+      // Category tabs show only matching items (coins count as "Other"); empties stay at the end.
+      if (f !== 'all' && (!s || (itemCategory(s.id) === 'coins' ? 'other' : itemCategory(s.id)) !== f)) continue;
       const cell = document.createElement('div');
       cell.className = 'inv-slot' + (s ? ' filled' : '');
       if (s) {
@@ -789,6 +834,45 @@ export class UI {
     if (cb) cb.checked = p.autoRetaliate;
   }
 
+  // ---------------- First-time tips ----------------
+  // One small, dismissible tip at a time, each shown once (remembered on this device).
+  _tipsTick() {
+    const g = this.game;
+    if (this._tipEl || this.modal || g.pendingStyleChoice || !g.player.alive) return;
+    if (!this._tipsSeen) { try { this._tipsSeen = new Set(JSON.parse(localStorage.getItem(TIPS_KEY) || '[]')); } catch { this._tipsSeen = new Set(); } }
+    const p = g.player;
+    const want = (id, cond) => !this._tipsSeen.has(id) && cond();
+    let id = null;
+    if (want('dodge', () => g.hazards.length > 0)) id = 'dodge';
+    else if (want('move', () => g.tickCount > 3)) id = 'move';
+    else if (want('champion', () => g.npcs.some((n) => n.alive && n.champion && Math.abs(n.x - p.x) <= 10 && Math.abs(n.y - p.y) <= 10))) id = 'champion';
+    else if (want('auto', () => g.totalKills >= 1)) id = 'auto';
+    else if (want('gear', () => g.tickCount % 5 === 0 && g.inventory.slots.some((s) => s && getItem(s.id).equip
+      && compareGear(s.id, g.equipment).verdict === 'upgrade' && meetsReq(s.id, g.skills).ok))) id = 'gear';
+    else if (want('bounty', () => g.tickCount > 150)) id = 'bounty';
+    else if (want('upgrade', () => g.inventory.count('coins') >= 3000)) id = 'upgrade';
+    if (id) this.showTip(id);
+  }
+
+  showTip(id) {
+    const el = document.createElement('div');
+    el.id = 'tip-toast';
+    el.innerHTML = `<span class="tip-badge">Tip</span><div class="tip-text">${TIPS[id]}</div>`;
+    const ok = document.createElement('button');
+    ok.textContent = 'Got it';
+    const done = () => {
+      this._tipsSeen.add(id);
+      try { localStorage.setItem(TIPS_KEY, JSON.stringify([...this._tipsSeen])); } catch {}
+      el.remove(); this._tipEl = null;
+    };
+    ok.addEventListener('click', done);
+    el.appendChild(ok);
+    document.body.appendChild(el);
+    this._tipEl = el;
+    clearTimeout(this._tipTimer);
+    this._tipTimer = setTimeout(() => { if (this._tipEl === el) done(); }, id === 'dodge' ? 6000 : 14000);
+  }
+
   // ---------------- Settings ----------------
   _buildSettingsPanel() {
     const p = this.el.settings;
@@ -819,6 +903,31 @@ export class UI {
       musicBtn.textContent = `Music: ${on ? 'On' : 'Off'}`;
     });
     musicBtn.textContent = `Music: ${this.game.audio && this.game.audio.musicOn ? 'On' : 'Off'}`;
+    // Volume slider.
+    const vol = document.createElement('label');
+    vol.className = 'set-slider';
+    const pct = Math.round((this.game.audio?.volume ?? 1) * 100);
+    vol.innerHTML = `<span>Volume <b>${pct}%</b></span><input type="range" min="0" max="100" step="5" value="${pct}">`;
+    vol.querySelector('input').addEventListener('input', (e) => {
+      const v = Number(e.target.value);
+      vol.querySelector('b').textContent = `${v}%`;
+      const a = this.game.audio;
+      if (a) { a.unlock(); a.setVolume(v / 100); }
+    });
+    vol.querySelector('input').addEventListener('change', () => this.game.audio?.play('pickup'));
+    p.appendChild(vol);
+    const gfxBtn = mk('', () => {
+      this.game.lowFx = !this.game.lowFx;
+      try { localStorage.setItem('singaporescape:gfx', this.game.lowFx ? 'low' : 'high'); } catch {}
+      gfxBtn.textContent = `Graphics: ${this.game.lowFx ? 'Low (faster)' : 'High'}`;
+      window.dispatchEvent(new Event('resize'));   // re-size the canvas for the new quality
+    });
+    gfxBtn.textContent = `Graphics: ${this.game.lowFx ? 'Low (faster)' : 'High'}`;
+    mk('Show tips again', () => {
+      try { localStorage.removeItem(TIPS_KEY); } catch {}
+      this._tipsSeen = new Set();
+      this.game.msg('Tips will show again as you play.', 'system');
+    });
     mk('Delete save & restart', () => {
       if (confirm('Delete your saved character and start over?')) { clearSave(); location.reload(); }
     }, true);
@@ -839,12 +948,19 @@ export class UI {
     if (!this.el.bossBar) return;
     const p = g.player;
     // The boss we're engaged with: fighting us, being fought, or freshly hurt.
-    const boss = g.npcs.find((n) => n.alive && n.def.boss &&
+    // Champions get the bar too, in gold.
+    const boss = g.npcs.find((n) => n.alive && (n.def.boss || n.champion) &&
       Math.abs(n.x - p.x) <= 16 && Math.abs(n.y - p.y) <= 16 &&
       (n.target === p || p.target === n || n.combatLatch > 0));
-    if (!boss || !p.alive) { this.el.bossBar.classList.add('hidden'); return; }
+    const on = !!boss && p.alive;
+    document.body.classList.toggle('boss-on', on);   // lets the tracker/tips move out of its way
+    if (!on) { this.el.bossBar.classList.add('hidden'); return; }
     this.el.bossBar.classList.remove('hidden');
-    this.el.bossBarName.textContent = `${boss.name} — level ${boss.def.level}`;
+    this.el.bossBar.classList.toggle('champion', !!boss.champion);
+    const warn = g.hazards.some((h) => h.npc === boss);
+    this.el.bossBar.classList.toggle('warn', warn);
+    this.el.bossBarName.textContent = warn ? '⚠ Get out of the red!'
+      : `${boss.champion ? '★ ' : ''}${boss.name} — level ${boss.def.level} · ${Math.ceil(boss.hp)}/${boss.maxHp}`;
     this.el.bossBarFill.style.width = `${Math.max(0, Math.min(100, (boss.hp / boss.maxHp) * 100))}%`;
     this.el.bossBar.classList.toggle('enraged', !!boss.enraged);
   }
@@ -1764,6 +1880,17 @@ export class UI {
     ctx.restore();
   }
 }
+
+const TIPS_KEY = 'singaporescape:tips';
+const TIPS = {
+  move: 'Move with the <b>joystick</b> (or W A S D). Walk up to something and press <b>Interact</b> (E / Space) to chop, mine, fish, talk or fight.',
+  auto: 'Tap <b>Auto battle</b> to hunt monsters for you. The &#9881; next to it sets when to eat and what to fight.',
+  gear: 'A green <b>&#9650;</b> on an item means it beats what you wear. <b>Hold</b> (or hover) an item for details, or open Worn Equipment &gt; <b>Gear Guide</b>.',
+  dodge: 'A boss marked the ground in <b>red</b>! Walk out before it fills up to dodge the hit.',
+  champion: 'A gold-ringed <b>&#9733; Champion</b> is nearby: tougher than normal, with extra loot.',
+  bounty: 'You have <b>daily bounties</b> in the Quest Journal: three kill targets that pay coins. The tracker on the left points the way.',
+  upgrade: 'Got coins to spare? <b>Upgrade</b> your gear up to +10 in Worn Equipment &gt; Upgrade gear.',
+};
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

@@ -358,7 +358,11 @@ export class Game {
   }
 
   // ---------------- Particles ----------------
-  _pushParticle(p) { this.particles.push(p); if (this.particles.length > 300) this.particles.shift(); }
+  _pushParticle(p) {
+    if (this.lowFx && Math.random() < 0.6) return;   // low graphics: far fewer particles
+    this.particles.push(p);
+    if (this.particles.length > (this.lowFx ? 80 : 300)) this.particles.shift();
+  }
 
   spawnHitSparks(entity, color) {
     const c = entity.renderCenter();
@@ -404,7 +408,7 @@ export class Game {
   // Drifting ambient motes, tinted by region (fireflies after dark), to give
   // the world some life.
   _spawnAmbient() {
-    if (Math.random() < 0.5) return;
+    if (this.lowFx || Math.random() < 0.5) return;
     const c = this.player.renderCenter();
     const x = c.x + (Math.random() - 0.5) * 360;
     const y = c.y + (Math.random() - 0.5) * 260;

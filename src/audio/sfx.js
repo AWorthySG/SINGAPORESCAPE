@@ -4,6 +4,7 @@
 // plus 'levelup'/'achievement'.
 const MUTE_KEY = 'singaporescape:muted';
 const MUSIC_KEY = 'singaporescape:music';
+const VOLUME_KEY = 'singaporescape:volume';
 const MASTER = 0.16;
 const MUSIC_VOL = 0.5; // relative to master
 // Gentle A-minor pentatonic — kampong evening kalimba.
@@ -17,6 +18,7 @@ export class Sfx {
     this.musicGain = null;
     this.musicTimer = null;
     this.muted = this._loadMuted();
+    this.volume = this._loadVolume();   // 0..1, scales everything
     this.musicOn = this._loadMusic();
     bus.on('sfx', (n) => this.play(n));
     bus.on('levelup', () => this.play('level'));
@@ -31,7 +33,7 @@ export class Sfx {
     try {
       this.ctx = new AC();
       this.master = this.ctx.createGain();
-      this.master.gain.value = this.muted ? 0 : MASTER;
+      this.master.gain.value = this.muted ? 0 : MASTER * this.volume;
       this.master.connect(this.ctx.destination);
       this.musicGain = this.ctx.createGain();
       this.musicGain.gain.value = this.musicOn ? MUSIC_VOL : 0;
@@ -94,7 +96,16 @@ export class Sfx {
   setMuted(m) {
     this.muted = m;
     this._saveMuted(m);
-    if (this.master) this.master.gain.value = m ? 0 : MASTER;
+    if (this.master) this.master.gain.value = m ? 0 : MASTER * this.volume;
+  }
+
+  setVolume(v) {
+    this.volume = Math.max(0, Math.min(1, v));
+    try { localStorage.setItem(VOLUME_KEY, String(this.volume)); } catch { /* ignore */ }
+    if (this.master) this.master.gain.value = this.muted ? 0 : MASTER * this.volume;
+  }
+  _loadVolume() {
+    try { const v = parseFloat(localStorage.getItem(VOLUME_KEY)); return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 1; } catch { return 1; }
   }
   toggle() { this.setMuted(!this.muted); return this.muted; }
 

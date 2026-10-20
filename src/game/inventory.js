@@ -7,7 +7,19 @@ export const STACK_LIMIT = 999; // max quantity of one item per inventory slot
 // always keeping a row of empty slots open. Every item stacks up to
 // STACK_LIMIT per slot; items with an explicit `maxStack` (e.g. coins =
 // Infinity) override that limit.
-const SPARE = 4;   // empty slots kept open at the end (one grid row)
+const SPARE = 4;
+
+export const CATEGORY_ORDER = ['coins', 'gear', 'food', 'materials', 'other'];
+const MATERIAL_TAGS = ['ore', 'bar', 'log', 'raw', 'herb', 'rune', 'ammo', 'gem', 'bait'];
+/** Which inventory tab an item belongs to. */
+export function itemCategory(id) {
+  if (id === 'coins') return 'coins';
+  const it = getItem(id);
+  if (it.equip) return 'gear';
+  if (it.heal) return 'food';
+  if ((it.tags || []).some((t) => MATERIAL_TAGS.includes(t)) || /_(ore|bar|logs)$|^raw_/.test(id)) return 'materials';
+  return 'other';
+}   // empty slots kept open at the end (one grid row)
 export class Inventory {
   constructor(bus, size = INV_SIZE) {
     this.bus = bus;
@@ -102,6 +114,25 @@ export class Inventory {
   }
 
   slotAt(index) { return this.slots[index]; }
+
+  /** Tidy up: merge split stacks and order by category (coins, gear, food,
+   *  materials, other), then by name. */
+  sort() {
+    const totals = new Map();
+    for (const s of this.slots) if (s) totals.set(s.id, (totals.get(s.id) || 0) + s.qty);
+    const ids = [...totals.keys()].sort((a, b) => {
+      const ca = CATEGORY_ORDER.indexOf(itemCategory(a)), cb = CATEGORY_ORDER.indexOf(itemCategory(b));
+      return ca - cb || getItem(a).name.localeCompare(getItem(b).name);
+    });
+    const out = [];
+    for (const id of ids) {
+      let left = totals.get(id);
+      const max = this.maxStackOf(id);
+      while (left > 0) { const put = Math.min(max, left); out.push({ id, qty: put }); left -= put; }
+    }
+    this.slots = out;
+    this._changed();
+  }
 
   swap(i, j) {
     [this.slots[i], this.slots[j]] = [this.slots[j], this.slots[i]];
