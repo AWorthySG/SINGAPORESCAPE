@@ -1856,3 +1856,40 @@ test('responsive controls: reverse mid-step instantly, act on the press', () => 
   game.attackNpc(mob);
   assert.ok(p.attackCooldown > 0, 'first swing landed immediately');
 });
+
+test('elemental staves supply unlimited runes; Alchemy turns items into coins with nature runes', async () => {
+  const { getSpell } = await import('../src/data/magic.js');
+  const { ITEMS } = await import('../src/data/items.js');
+  for (const s of ['air', 'water', 'earth', 'fire', 'nature', 'chaos', 'death', 'blood']) {
+    const it = ITEMS[`${s}_staff`];
+    assert.ok(it && it.equip.combatType === 'magic' && it.equip.runes === `${s}_rune`, `${s} staff is a magic weapon that supplies ${s} runes`);
+  }
+  assert.equal(ITEMS.dragonhide_vambraces.equip.slot, 'hands');
+  assert.ok(ITEMS.nature_rune.stackable);
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('magic');
+  game.skills.xp.magic = 200000;             // well past every staff's requirement
+  const fireStrike = getSpell('fire_strike');
+  game.inventory.remove('fire_rune', 1e6);
+  game.inventory.add('air_rune', 10); game.inventory.add('mind_rune', 10);
+  assert.ok(!game._hasRunes(fireStrike), 'no fire runes, no Fire Strike');
+  game.inventory.add('fire_staff', 1);
+  game.equipItem(game.inventory.slots.findIndex((x) => x && x.id === 'fire_staff'));
+  assert.equal(game.equipment.get('weapon'), 'fire_staff');
+  assert.ok(game._hasRunes(fireStrike), 'the fire staff supplies the fire runes');
+  const air0 = game.inventory.count('air_rune');
+  game._consumeRunes(fireStrike);
+  assert.equal(game.inventory.count('fire_rune'), 0);
+  assert.equal(game.inventory.count('air_rune'), air0 - 2, 'other runes are still spent');
+  // Alchemy: the fire staff covers the fire runes, a nature rune is spent.
+  game.inventory.add('nature_rune', 2);
+  game.inventory.add('iron_platebody', 1);
+  const coins0 = game.inventory.count('coins');
+  assert.ok(game.alchemise(game.inventory.slots.findIndex((x) => x && x.id === 'iron_platebody')));
+  assert.equal(game.inventory.count('iron_platebody'), 0);
+  assert.equal(game.inventory.count('nature_rune'), 1);
+  assert.equal(game.inventory.count('coins'), coins0 + game.alchemyValue('iron_platebody'));
+});

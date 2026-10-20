@@ -561,6 +561,11 @@ export class UI {
     if (s.id.startsWith('clue_scroll_')) opts.push({ label: 'Read', target: item.name, fn: () => this.game.readClue(i) });
     if (s.id.startsWith('reward_casket_')) opts.push({ label: 'Open', target: item.name, fn: () => this.game.openCasket(i) });
     if (s.id === 'birds_nest') opts.push({ label: 'Open', target: item.name, fn: () => this.game.openNest(i) });
+    // Alchemy, once you can cast it and carry (or wield the staff for) nature runes.
+    if (s.id !== 'coins' && item.value && !item.tags?.includes('rune') && this.game.skills.magic >= 21
+      && (this.game.inventory.count('nature_rune') > 0 || this.game.freeRune() === 'nature_rune')) {
+      opts.push({ label: 'Alchemise', target: `${item.name} (${this.game.alchemyValue(s.id)} coins)`, fn: () => this.game.alchemise(i) });
+    }
     opts.push({ label: 'Drop', target: item.name, fn: () => this.game.dropItem(i) });
     opts.push({ label: 'Examine', target: item.name, fn: () => this.game.msg(item.examine, 'system') });
     return opts;
@@ -624,6 +629,7 @@ export class UI {
     const b = base ? (eq.bonuses || {}) : this.game.equipment.itemBonuses(id);
     const chips = Object.keys(STAT_LABELS).filter((k) => b[k]).map((k) => `+${b[k]} ${STAT_LABELS[k]}`);
     if (eq.slot === 'weapon') chips.push(`${capitalize(weaponStyle(id))}, ${(swingBeats(id) * 0.3).toFixed(1)}s swing`);
+    if (eq.runes) chips.push(`Unlimited ${getItem(eq.runes).name.toLowerCase()}s`);
     return chips.join(' · ') || 'No combat stats';
   }
 

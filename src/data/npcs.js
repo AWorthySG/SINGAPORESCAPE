@@ -236,6 +236,10 @@ export const RARE_DROP_TABLE = [
   { id: 'rune_scimitar', weight: 5 },
   { id: 'rune_platebody', weight: 3 },
   { id: 'merlion_blade', weight: 1 },
+  { id: 'nature_rune', min: 5, max: 25, weight: 8 },
+  { id: 'chaos_staff', weight: 2 },
+  { id: 'death_staff', weight: 1 },
+  { id: 'blood_staff', weight: 1 },
 ];
 
 // ---------------- Townsfolk ----------------

@@ -52,6 +52,9 @@ const COMBAT_SKILLS = new Set(['attack', 'strength', 'defence', 'hitpoints', 'ra
 // day/night cycle from there.
 const MORNING_PHASE = 0.3;
 
+// Alchemy: a utility spell cast on an inventory item.
+const ALCHEMY = { level: 21, xp: 65, runes: { nature_rune: 1, fire_rune: 5 } };
+
 // Actions that can fire the instant you press (no random roll to exploit by spamming).
 const INSTANT_ACTIONS = new Set(['pickup', 'cookmenu', 'smeltmenu', 'smithmenu', 'craftmenu', 'pray', 'rest', 'transport', 'openbank', 'openshop', 'talk']);
 const GATHER_ACTIONS = new Set(['woodcut', 'mine', 'fish', 'stall']);
@@ -974,8 +977,33 @@ export class Game {
     this._postAttack(npc);
   }
 
-  _hasRunes(spell) { return Object.entries(spell.runes).every(([id, q]) => this.inventory.count(id) >= q); }
-  _consumeRunes(spell) { for (const [id, q] of Object.entries(spell.runes)) this.inventory.remove(id, q); }
+  /** The rune an equipped elemental staff supplies without limit (or null). */
+  freeRune() {
+    const w = this.equipment.get('weapon');
+    return (w && getItem(w).equip?.runes) || null;
+  }
+  _hasRunes(spell) { const free = this.freeRune(); return Object.entries(spell.runes).every(([id, q]) => id === free || this.inventory.count(id) >= q); }
+  _consumeRunes(spell) { const free = this.freeRune(); for (const [id, q] of Object.entries(spell.runes)) if (id !== free) this.inventory.remove(id, q); }
+
+  /** Alchemy (Magic 21): 1 nature + 5 fire runes turn an item into 60% of its value in coins. */
+  alchemyValue(id) { return Math.max(1, Math.floor((getItem(id).value || 0) * 0.6)); }
+  alchemise(index) {
+    const s = this.inventory.slotAt(index);
+    if (!s || s.id === 'coins') return false;
+    const item = getItem(s.id);
+    if (!item.value || item.tags?.includes('rune')) { this.msg("That can't be turned into coins."); return false; }
+    if (this.skills.magic < ALCHEMY.level) { this.msg(`You need Magic level ${ALCHEMY.level} to cast Alchemy.`); return false; }
+    if (!this._hasRunes(ALCHEMY)) { this.msg('Alchemy needs 1 nature rune and 5 fire runes.'); return false; }
+    this._consumeRunes(ALCHEMY);
+    const coins = this.alchemyValue(s.id);
+    this.inventory.removeAt(index, 1);
+    this.inventory.add('coins', coins);
+    this.skills.addXp('magic', ALCHEMY.xp);
+    this.spawnSparkle(this.player, '#F5B82E', 12);
+    this.bus.emit('sfx', 'spec');
+    this.msg(`Alchemy turns your ${item.name.toLowerCase()} into ${coins} coins.`, 'system');
+    return true;
+  }
 
   /** Knock a struck entity briefly away from whoever hit it. */
   _knock(victim, from) {
