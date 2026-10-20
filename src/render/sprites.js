@@ -56,6 +56,13 @@ function staged(ctx, cx, cy, opts, draw) {
 
 // ---------------- Ground shadow ----------------
 export function drawShadow(ctx, cx, cy, rx = 11, ry = 5) {
+  // One soft shadow is drawn once, then stretched to each entity's size.
+  const img = cachedBitmap('shadow', SHADOW_BOX, (c) => {
+    const sg = c.createRadialGradient(0, 0, 0, 0, 0, 12);
+    sg.addColorStop(0, 'rgba(0,0,0,0.26)'); sg.addColorStop(0.65, 'rgba(0,0,0,0.15)'); sg.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = sg; circle(c, 0, 0, 12); c.fill();
+  });
+  if (img) { ctx.drawImage(img, cx - rx, cy - ry, rx * 2, ry * 2); return; }
   const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rx);
   g.addColorStop(0, 'rgba(0,0,0,0.26)');
   g.addColorStop(0.65, 'rgba(0,0,0,0.15)');
@@ -64,6 +71,8 @@ export function drawShadow(ctx, cx, cy, rx = 11, ry = 5) {
   ellipse(ctx, cx, cy, rx, ry);
   ctx.fill();
 }
+
+const SHADOW_BOX = { x0: -12, y0: -12, w: 24, h: 24 };
 
 // ================= CREATURES =================
 // Archetypes shipped as painted PNG art (assets/creatures/<sprite>.png). When the
@@ -158,6 +167,43 @@ function bakeSticker(key, box, drawBody) {
 }
 const monsterSticker = (key, drawBody) => bakeSticker(key, MONSTER_BOX, drawBody);
 
+// Plain bitmap cache: draw vector art once into an offscreen canvas (local
+// units inside `box`), then blit it every frame instead of re-tracing every
+// path. Used for townsfolk, the hero's body, trees and static scenery.
+// Returns null without a DOM (headless tests), so callers draw directly.
+const BMP_RES = 2;
+const _bitmaps = new Map();
+function cachedBitmap(key, box, draw) {
+  if (typeof document === 'undefined' || !document.createElement) return null;
+  const hit = _bitmaps.get(key);
+  if (hit) return hit.img;
+  const cv = document.createElement('canvas');
+  cv.width = Math.ceil(box.w * BMP_RES); cv.height = Math.ceil(box.h * BMP_RES);
+  const g = cv.getContext('2d');
+  if (!g) return null;
+  g.setTransform(BMP_RES, 0, 0, BMP_RES, -box.x0 * BMP_RES, -box.y0 * BMP_RES);
+  draw(g);
+  const entry = { img: cv };
+  if (typeof createImageBitmap === 'function') createImageBitmap(cv).then((bm) => { entry.img = bm; }).catch(() => {});
+  _bitmaps.set(key, entry);
+  if (_bitmaps.size > 500) {
+    const old = _bitmaps.keys().next().value;
+    const e = _bitmaps.get(old); if (e && e.img && e.img.close) e.img.close();
+    _bitmaps.delete(old);
+  }
+  return entry.img;
+}
+// Measured extents (plus a margin) of the cached art.
+const MASCOT_BOX = { x0: -19, y0: -34, w: 38, h: 54 };
+const OBJ_BOX = { x0: -33, y0: -45, w: 66, h: 68 };
+// Walk poses are snapped to 5 steps so a handful of bitmaps covers the cycle.
+const strideKey = () => (Math.round(_anim.stride * 2) / 2);
+function drawCached(ctx, key, box, draw) {
+  const img = cachedBitmap(key, box, draw);
+  if (img) ctx.drawImage(img, box.x0, box.y0, box.w, box.h);
+  else draw(ctx);
+}
+
 // Monsters render via colour-tinted archetypes (def.sprite + def.color). Townsfolk
 // keep bespoke human palettes. Bosses get an aura + crown and are scaled by the caller.
 export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
@@ -214,7 +260,12 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
     villager: { top: '#12907F' },
   };
   const p = TOWN[npcId] || TOWN.villager;
-  return staged(ctx, cx, cy, opts, (c) => human(c, p));
+  return staged(ctx, cx, cy, opts, (c) => {
+    const q = strideKey();
+    const was = _anim.stride; _anim.stride = q;
+    drawCached(c, `town|${TOWN[npcId] ? npcId : 'villager'}|${q}`, MASCOT_BOX, (g) => human(g, p));
+    _anim.stride = was;
+  });
 }
 
 // Tint helper: k in [-1,1] darkens/lightens a #rrggbb colour.
@@ -283,20 +334,32 @@ function bossAura(ctx, time = 0, col = '#ff5a46') {
   // heavy dark contact shadow for weight
   ctx.fillStyle = 'rgba(28,0,0,0.26)'; ellipse(ctx, 0, 13, 16.5, 5.6); ctx.fill();
   // a slowly-rotating summoning glyph ring on the ground, tinted by the boss
+  const drawRing = (c) => {
+    c.strokeStyle = rgba(shade(col, 0.4), 0.5); c.lineWidth = 1.3;
+    c.beginPath(); c.arc(0, 0, 15.5, 0, Math.PI * 2); c.stroke();
+    c.lineWidth = 2.2;
+    for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; c.beginPath(); c.moveTo(Math.cos(a) * 13, Math.sin(a) * 13); c.lineTo(Math.cos(a) * 16, Math.sin(a) * 16); c.stroke(); }
+  };
   ctx.save();
   ctx.translate(0, 12.5); ctx.scale(1, 0.34); ctx.rotate((time * 0.0005) % (Math.PI * 2));
-  ctx.strokeStyle = rgba(shade(col, 0.4), 0.5); ctx.lineWidth = 1.3;
-  ctx.beginPath(); ctx.arc(0, 0, 15.5, 0, Math.PI * 2); ctx.stroke();
-  ctx.lineWidth = 2.2;
-  for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; ctx.beginPath(); ctx.moveTo(Math.cos(a) * 13, Math.sin(a) * 13); ctx.lineTo(Math.cos(a) * 16, Math.sin(a) * 16); ctx.stroke(); }
+  drawCached(ctx, `aura-ring|${col}`, AURA_RING_BOX, drawRing);
   ctx.restore();
-  // colour-tinted menacing glow (icy, fiery, necrotic… per the boss palette)
-  const g = ctx.createRadialGradient(0, -2, 2, 0, -2, 30 * pulse);
-  g.addColorStop(0, rgba(shade(col, 0.45), 0.36));
-  g.addColorStop(0.55, rgba(col, 0.20));
-  g.addColorStop(1, rgba(col, 0));
-  ctx.fillStyle = g; circle(ctx, 0, -2, 30 * pulse); ctx.fill();
+  // colour-tinted menacing glow (icy, fiery, necrotic… per the boss palette),
+  // drawn once per colour and scaled with the pulse
+  const drawGlow = (c) => {
+    const g = c.createRadialGradient(0, 0, 2, 0, 0, 30);
+    g.addColorStop(0, rgba(shade(col, 0.45), 0.36));
+    g.addColorStop(0.55, rgba(col, 0.20));
+    g.addColorStop(1, rgba(col, 0));
+    c.fillStyle = g; circle(c, 0, 0, 30); c.fill();
+  };
+  const glow = cachedBitmap(`aura-glow|${col}`, AURA_GLOW_BOX, drawGlow);
+  if (glow) ctx.drawImage(glow, -30 * pulse, -2 - 30 * pulse, 60 * pulse, 60 * pulse);
+  else { ctx.save(); ctx.translate(0, -2); ctx.scale(pulse, pulse); drawGlow(ctx); ctx.restore(); }
 }
+const AURA_RING_BOX = { x0: -18, y0: -18, w: 36, h: 36 };
+const AURA_GLOW_BOX = { x0: -30, y0: -30, w: 60, h: 60 };
+const CROWN_BOX = { x0: -10, y0: -31, w: 20, h: 14 };
 // The boss insignia: rising embers, an ornate jewelled crown, and a soft halo.
 function bossCrown(ctx, time = 0) {
   ctx.fillStyle = 'rgba(255,190,110,0.85)';
@@ -305,6 +368,7 @@ function bossCrown(ctx, time = 0) {
     const ex = Math.sin(i * 2.3 + time * 0.0025) * 11;
     circle(ctx, ex, 12 - ph * 32, (1 - ph) * 0.9 + 0.3); ctx.fill();
   }
+  drawCached(ctx, 'crown', CROWN_BOX, (ctx) => {
   ctx.fillStyle = '#ffd24a';
   path(ctx, () => { ctx.moveTo(-8, -19); ctx.lineTo(-8, -24.5); ctx.lineTo(-4.5, -21); ctx.lineTo(-2.2, -28.5); ctx.lineTo(0, -22.5); ctx.lineTo(2.2, -28.5); ctx.lineTo(4.5, -21); ctx.lineTo(8, -24.5); ctx.lineTo(8, -19); });
   ctx.fill(); line(ctx, OUTLINE, 1);
@@ -314,6 +378,7 @@ function bossCrown(ctx, time = 0) {
   ctx.fillStyle = '#d8566f'; circle(ctx, 0, -23, 1.2); ctx.fill();
   ctx.fillStyle = '#5ad1ff'; circle(ctx, -5, -22.6, 0.9); ctx.fill(); circle(ctx, 5, -22.6, 0.9); ctx.fill();
   ctx.fillStyle = '#fff'; circle(ctx, -0.4, -23.4, 0.4); ctx.fill();
+  });
 }
 
 // ---- IMPROVED ARCHETYPES (ctx, col) ----
@@ -1170,6 +1235,8 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
     // The hero is the A-Worthy mascot. Unarmoured, it wears a tunic in the
     // brand's one action colour (rust); a platebody swaps it for steel.
     const body = opts.hasBody ? '#b9c2cc' : '#C0392B';
+    const q = strideKey();
+    const was = _anim.stride; _anim.stride = q;
     // cape (behind everything), sways with motion
     if (opts.hasCape) {
       const sw = Math.sin((opts.time || 0) * 0.012) * 1.4;
@@ -1179,6 +1246,9 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
       c.fillStyle = '#a83a52'; rr(c, -6, -5, 12, 3, 1); c.fill();
       c.strokeStyle = '#6e2436'; c.lineWidth = 0.8; c.beginPath(); c.moveTo(-2, -3); c.lineTo(-3 + sw, 12); c.moveTo(2, -3); c.lineTo(3 + sw, 12); c.stroke();
     }
+    // The hero's body (capsule, armour, helm) is cached per look and walk pose;
+    // the cape, weapon and halo stay live because they animate continuously.
+    drawCached(c, `hero|${opts.hasBody ? 1 : 0}|${opts.hasHelm ? 1 : 0}|${q}`, MASCOT_BOX, (c) => {
     mascot(c, { shirt: body, noCross: opts.hasHelm });
     if (opts.hasBody) {
       // plated armour over the capsule: pauldrons, chest seam + rivets
@@ -1196,6 +1266,8 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
       c.fillStyle = '#C0392B'; path(c, () => { c.moveTo(-1.4, -21); c.quadraticCurveTo(-5.5, -23.5, -4.5, -28); c.quadraticCurveTo(-1, -24.5, 1.4, -22); }); c.fill(); // plume
       c.fillStyle = 'rgba(255,255,255,0.4)'; rr(c, -5.5, -17.5, 3, 1, 0.5); c.fill();
     }
+    });
+    _anim.stride = was;
     // weapon, held in the right mitten, animated through each attack
     // (opts.swingK: 0..1 progress of the current swing, or -1 when idle).
     const k = opts.swingK ?? -1;
@@ -1268,7 +1340,30 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
 }
 
 // ================= OBJECTS =================
+// Objects that never animate are cached as bitmaps; trees too, with their
+// sway applied as a gentle lean about the trunk base.
+const CACHED_OBJECTS = new Set(['tree', 'rock', 'anvil', 'craft', 'bank', 'rest', 'agility', 'stall', 'transport', 'scenery']);
 export function drawObjectSprite(ctx, obj, cx, cy, time = 0) {
+  const t = obj.def.type;
+  if (CACHED_OBJECTS.has(t)) {
+    const key = `obj|${t}|${obj.objId}|${obj.def.ore || ''}|${obj.depleted ? 1 : 0}`;
+    const img = cachedBitmap(key, OBJ_BOX, (g) => drawObjectRaw(g, obj, 0, 0, 0));
+    if (img) {
+      if (t === 'tree' && !obj.depleted) {
+        const sway = Math.sin(time * 0.0012 + obj.x * 1.7 + obj.y) * 1.4;
+        ctx.save();
+        ctx.translate(cx, cy + 12);
+        ctx.transform(1, 0, -sway / 38, 1, 0, 0);
+        ctx.drawImage(img, OBJ_BOX.x0, OBJ_BOX.y0 - 12, OBJ_BOX.w, OBJ_BOX.h);
+        ctx.restore();
+      } else ctx.drawImage(img, cx + OBJ_BOX.x0, cy + OBJ_BOX.y0, OBJ_BOX.w, OBJ_BOX.h);
+      return;
+    }
+  }
+  return drawObjectRaw(ctx, obj, cx, cy, time);
+}
+
+function drawObjectRaw(ctx, obj, cx, cy, time) {
   const t = obj.def.type;
   switch (t) {
     case 'tree': return tree(ctx, obj.objId, obj.depleted, cx, cy, time);

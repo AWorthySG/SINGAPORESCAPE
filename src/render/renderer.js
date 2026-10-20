@@ -500,6 +500,33 @@ export class Renderer {
   _drawWaterOverlay(x0, y0, x1, y1, ox, oy, timeMs) {
     const { ctx, game } = this;
     const w = game.world;
+    // The shimmer is slow, so redraw it into an offscreen layer ~11 times a
+    // second (or when the view crosses a tile) and blit that layer every frame.
+    if (typeof document !== 'undefined' && document.createElement) {
+      const dpr = (ctx.getTransform ? ctx.getTransform().a : 1) || 1;
+      const cols = x1 - x0 + 1, rows = y1 - y0 + 1;
+      const wc = this._waterCache || (this._waterCache = { cv: document.createElement('canvas'), t: -1e9 });
+      const g = wc.cv.getContext && wc.cv.getContext('2d');
+      if (g) {
+        if (wc.x0 !== x0 || wc.y0 !== y0 || wc.cols !== cols || wc.rows !== rows || wc.dpr !== dpr || timeMs - wc.t >= 90 || timeMs < wc.t) {
+          const W = Math.ceil(cols * TILE * dpr), H = Math.ceil(rows * TILE * dpr);
+          if (wc.cv.width !== W || wc.cv.height !== H) { wc.cv.width = W; wc.cv.height = H; }
+          g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H);
+          g.setTransform(dpr, 0, 0, dpr, 0, 0);
+          wc.any = false;
+          for (let y = y0; y <= y1; y++) {
+            for (let x = x0; x <= x1; x++) {
+              if (w.terrainAt(x, y) !== TERRAIN.WATER) continue;
+              this._water(g, w, x, y, (x - x0) * TILE, (y - y0) * TILE, timeMs);
+              wc.any = true;
+            }
+          }
+          Object.assign(wc, { x0, y0, cols, rows, dpr, t: timeMs });
+        }
+        if (wc.any) ctx.drawImage(wc.cv, x0 * TILE - ox, y0 * TILE - oy, cols * TILE, rows * TILE);
+        return;
+      }
+    }
     for (let y = y0; y <= y1; y++) {
       for (let x = x0; x <= x1; x++) {
         if (w.terrainAt(x, y) !== TERRAIN.WATER) continue;

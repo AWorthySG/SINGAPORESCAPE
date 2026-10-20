@@ -57,6 +57,17 @@ export class Character {
     }
   }
 
+  /** Turn straight back mid-step: head for the tile we came from, keeping our
+   *  on-screen position (no snap), so reversing feels instant. */
+  reverseStep() {
+    if (!this.moving) return;
+    [this.x, this.tx] = [this.tx, this.x];
+    [this.y, this.ty] = [this.ty, this.y];
+    this.progress = Math.max(0, 1 - this.progress);
+    this.facing = { dx: Math.sign(this.tx - this.x), dy: Math.sign(this.ty - this.y) };
+    this.path = [];
+  }
+
   stopNow() {
     this.path = [];
     this.moving = false;

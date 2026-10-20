@@ -15,7 +15,7 @@ function makeCtx() {
   return {
     fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, globalAlpha: 1,
     font: '', textAlign: '', textBaseline: '', lineCap: '', lineJoin: '',
-    save: noop, restore: noop, translate: noop, scale: noop, rotate: noop, clip: noop, setTransform: noop, setLineDash: noop,
+    save: noop, restore: noop, translate: noop, scale: noop, rotate: noop, clip: noop, setTransform: noop, setLineDash: noop, transform: noop,
     beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop, arc: noop,
     ellipse: noop, rect: noop, roundRect: noop, quadraticCurveTo: noop, bezierCurveTo: noop,
     fill: noop, stroke: noop, fillRect: noop, strokeRect: noop, clearRect: noop,
