@@ -1276,3 +1276,59 @@ button:focus-visible, .tab-btn:focus-visible, .chat-tab:focus-visible,
 /* Phones: the Interact button already names the action, so the top-left
    label would only collide with the area name. */
 @media (max-width: 540px) { #hover-text { display: none; } }
+
+/* ---------- Gear guide: upgrade arrows, comparison tooltips, ranked list ---------- */
+.inv-slot .gear-up {
+  position: absolute; right: 3px; bottom: 2px; font-size: 11px; line-height: 1; font-weight: 900;
+  color: #fff; background: var(--aw-grass); border: 1.5px solid var(--aw-ink); border-radius: 999px;
+  padding: 2px 3px 1px; pointer-events: none;
+}
+.gear-up-inline { color: var(--aw-grass-deep); font-weight: 900; }
+#tooltip .gt-stats { margin-top: 4px; font-weight: 700; }
+#tooltip .gt-tier { font-size: 11px; color: var(--aw-text-sec); }
+#tooltip .gt-req.no { color: var(--aw-accent); font-weight: 700; }
+#tooltip .gt-req.ok { color: var(--aw-grass-deep); }
+#tooltip .gt-verdict { margin-top: 4px; font-weight: 900; }
+#tooltip .gt-verdict.upgrade, #tooltip .gt-verdict.empty { color: var(--aw-grass-deep); }
+#tooltip .gt-verdict.downgrade { color: var(--aw-accent); }
+#tooltip .gt-verdict.style { color: var(--aw-sky-deep); }
+#tooltip .gt-verdict.same { color: var(--aw-text-sec); }
+#tooltip .gt-deltas { display: flex; flex-wrap: wrap; gap: 3px 8px; font-size: 11px; font-weight: 700; }
+#tooltip .gt-deltas .pos { color: var(--aw-grass-deep); }
+#tooltip .gt-deltas .neg { color: var(--aw-accent); }
+.gear-guide-open { margin: 8px 0 0; }
+.gear-intro { font-size: 13px; line-height: 1.45; color: var(--aw-text); }
+.gear-intro p { margin: 0 0 6px; }
+.gear-intro ul { padding-left: 18px; font-size: 12px; color: var(--aw-text-sec); }
+.gear-tabs { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+.gear-tab {
+  font-family: inherit; font-size: 12px; font-weight: 800; padding: 4px 10px; cursor: pointer;
+  background: var(--aw-card); color: var(--aw-ink); border: 2px solid var(--aw-ink); border-radius: 999px;
+}
+.gear-tab.active { background: var(--aw-ink); color: #fff; }
+.gear-list { display: flex; flex-direction: column; gap: 6px; max-height: 52vh; overflow-y: auto; padding: 2px; }
+.gear-row {
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: var(--aw-card);
+  border: 2px solid var(--aw-ink); border-radius: var(--r2, 10px); box-shadow: var(--shadow-sticker-sm);
+}
+.gear-row.is-worn { background: var(--aw-grass-bg); }
+.gear-row.locked { opacity: 0.62; }
+.gear-rank { font-weight: 900; font-size: 12px; color: var(--aw-text-sec); min-width: 24px; }
+.gear-ic { flex: none; display: flex; }
+.gear-info { flex: 1; min-width: 0; }
+.gear-name { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: 13px; }
+.gear-stats { font-size: 11px; color: var(--aw-text-sec); }
+.gear-score {
+  flex: none; min-width: 34px; text-align: center; font-weight: 900; font-size: 13px; color: var(--aw-ink);
+  background: var(--aw-sun-bg); border: 2px solid var(--aw-ink); border-radius: 999px; padding: 2px 6px;
+}
+.gear-tag { font-size: 10px; font-weight: 800; padding: 1px 7px; border-radius: 999px; border: 1.5px solid var(--aw-ink); }
+.gear-tag.worn { background: var(--aw-grass); color: #fff; }
+.gear-tag.own { background: var(--aw-sky-bg); color: var(--aw-sky-deep); }
+.gear-tag.lock { background: var(--aw-accent-bg); color: var(--aw-accent-dk); }
+.gear-intro details { margin: 0 0 10px; }
+.gear-intro summary { cursor: pointer; font-weight: 800; font-size: 12px; color: var(--aw-ink); }
+.gear-intro details ul { margin: 6px 0 0; }
+.gear-styles { margin-top: -2px; }
+.gear-tab.small { font-size: 11px; padding: 3px 9px; border-width: 1.5px; }
+.gear-tab.small.active { background: var(--aw-accent); border-color: var(--aw-ink); }

@@ -43,33 +43,34 @@ test('level progress and xp-to-next are sane', () => {
   assert.equal(xpToNext(13034431), 0);
 });
 
-test('items stack to 100 per slot; coins are uncapped', () => {
+test('items stack to 999 per slot; coins are uncapped', () => {
   const inv = new Inventory(new EventBus());
   // Coins are exempt from the cap -> a single slot.
   assert.equal(inv.add('coins', 5000), 5000);
   assert.equal(inv.count('coins'), 5000);
   assert.equal(inv.slots.filter(Boolean).length, 1);
-  // 250 logs span 3 slots (100 + 100 + 50).
-  assert.equal(inv.add('logs', 250), 250);
-  assert.equal(inv.count('logs'), 250);
+  // 2500 logs span 3 slots (999 + 999 + 502).
+  assert.equal(inv.add('logs', 2500), 2500);
+  assert.equal(inv.count('logs'), 2500);
   assert.equal(inv.slots.filter(Boolean).length, 4);
-  assert.equal(inv.remove('logs', 120), 120);
-  assert.equal(inv.count('logs'), 130);
+  assert.equal(inv.slots.find((x) => x?.id === 'logs').qty, 999);
+  assert.equal(inv.remove('logs', 1200), 1200);
+  assert.equal(inv.count('logs'), 1300);
 });
 
 test('the inventory is unlimited: it grows past 28 slots and always keeps a spare row', () => {
   const inv = new Inventory(new EventBus());
   assert.equal(inv.size, 28);
-  // 5000 bones need 50 full slots: everything fits.
-  assert.equal(inv.canAdd('bones', 5000), 5000);
-  assert.equal(inv.add('bones', 5000), 5000);
-  assert.equal(inv.count('bones'), 5000);
+  // 50,000 bones need 51 slots of 999: everything fits.
+  assert.equal(inv.canAdd('bones', 50000), 50000);
+  assert.equal(inv.add('bones', 50000), 50000);
+  assert.equal(inv.count('bones'), 50000);
   assert.ok(!inv.isFull());
   assert.ok(inv.size >= 54, `grew to hold them with a spare row (size ${inv.size})`);
   assert.equal(inv.slots.slice(-4).filter((x) => x === null).length, 4, 'four empty slots stay open');
   assert.equal(inv.add('coins', 7), 7, 'a brand-new item still fits');
   // Clearing out shrinks back down to the normal 28.
-  inv.remove('bones', 5000); inv.remove('coins', 7);
+  inv.remove('bones', 50000); inv.remove('coins', 7);
   assert.equal(inv.size, 28);
 });
 
@@ -396,4 +397,37 @@ test('pathfinding does not cut blocked corners', () => {
   const cfg = { width: 2, height: 2, isBlocked: (x, y) => (x === 1 && y === 0) || (x === 0 && y === 1) };
   const path = findPath(cfg, { x: 0, y: 0 }, { x: 1, y: 1 });
   assert.equal(path.length, 0);
+});
+
+test('gear guide: ranks gear per slot and says whether a piece is an upgrade', async () => {
+  const { gearRating, compareGear, gearBySlot, tierOf, meetsReq } = await import('../src/game/gear.js');
+  const eq = new Equipment(new EventBus());
+  // Better metal, better score.
+  assert.ok(gearRating('steel_scimitar') > gearRating('iron_scimitar'));
+  assert.ok(gearRating('iron_platebody') > gearRating('bronze_platebody'));
+  // An empty slot is always filled; then a stronger piece is an upgrade and a weaker one isn't.
+  assert.equal(compareGear('bronze_platebody', eq).verdict, 'empty');
+  eq.set('body', 'bronze_platebody');
+  const up = compareGear('iron_platebody', eq);
+  assert.equal(up.verdict, 'upgrade');
+  assert.ok(up.deltas.some((d) => d.key === 'defence' && d.delta > 0));
+  assert.equal(compareGear('leather_body', eq).verdict, 'downgrade');
+  assert.equal(compareGear('bronze_platebody', eq).verdict, 'worn');
+  // A bow next to a sword is a change of style, not a straight upgrade.
+  eq.set('weapon', 'bronze_sword');
+  assert.equal(compareGear('shortbow', eq).verdict, 'style');
+  // Every slot list is sorted best first and covers every equippable item.
+  const by = gearBySlot();
+  let total = 0;
+  for (const [slot, ids] of Object.entries(by)) {
+    total += ids.length;
+    for (let i = 1; i < ids.length; i++) assert.ok(gearRating(ids[i - 1]) >= gearRating(ids[i]), `${slot} sorted`);
+  }
+  assert.equal(total, Object.values(ITEMS).filter((it) => it.equip && by[it.equip.slot]).length);
+  assert.equal(tierOf(by.body[0]).rank, 1);
+  // Requirements are reported, not just enforced.
+  const skills = new Skills(new EventBus());
+  assert.equal(meetsReq('bronze_sword', skills).ok, true);
+  const hi = by.weapon.find((id) => (ITEMS[id].equip.req?.attack || 0) >= 40);
+  assert.equal(meetsReq(hi, skills).ok, false);
 });

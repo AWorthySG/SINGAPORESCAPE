@@ -17,6 +17,7 @@ import { QUESTS } from '../data/quests.js';
 import { SLAYER_REWARDS } from '../data/slayer.js';
 import { STATIONS, MRT_FARE } from '../data/transport.js';
 import { EQUIP_SLOTS } from '../game/equipment.js';
+import { STAT_LABELS, STAT_HELP, compareGear, deltaText, gearBySlot, gearRating, meetsReq, swingBeats, tierOf, weaponStyle } from '../game/gear.js';
 import { TILE } from '../config.js';
 import { TERRAIN } from '../data/world.js';
 import { clearSave } from '../game/save.js';
@@ -129,7 +130,7 @@ export class UI {
     // Bus subscriptions.
     this.bus.on('tick', () => { this.updateBossBar(); this.updateDayNight(); });
     this.bus.on('inventory', () => { this.renderInventory(); this._refreshModalIfOpen(['bank', 'shop']); });
-    this.bus.on('equipment', () => { this.renderEquipment(); this.renderCombatPanel(); });
+    this.bus.on('equipment', () => { this.renderEquipment(); this.renderCombatPanel(); this.renderInventory(); });
     this.bus.on('skills', () => { this.renderSkills(); this.renderCombatPanel(); });
     this.bus.on('xp', (p) => { this.renderSkills(); this.showXpDrop(p); });
     this.bus.on('levelup', (p) => this.onLevelUp(p));
@@ -396,9 +397,20 @@ export class UI {
           q.textContent = lbl.text;
           cell.appendChild(q);
         }
+        if (item.equip) {
+          // Green arrow on gear that beats what you're wearing (and you can wear it).
+          const cmp = compareGear(s.id, this.game.equipment);
+          if ((cmp.verdict === 'upgrade' || cmp.verdict === 'empty') && meetsReq(s.id, this.game.skills).ok) {
+            const up = document.createElement('span');
+            up.className = 'gear-up';
+            up.textContent = '▲';
+            up.title = 'Better than what you are wearing';
+            cell.appendChild(up);
+          }
+        }
         cell.addEventListener('click', () => this._invDefault(i));
         cell.addEventListener('contextmenu', (e) => { e.preventDefault(); this._invContext(i, e); });
-        cell.addEventListener('mouseenter', (e) => this.showTooltip(e, `<b>${item.name}</b><br><span style="opacity:.8">${item.examine}</span>`));
+        cell.addEventListener('mouseenter', (e) => this.showTooltip(e, `<b>${item.name}</b><br><span style="opacity:.8">${item.examine}</span>` + (item.equip ? this._gearTip(s.id) : '')));
         cell.addEventListener('mousemove', (e) => this.moveTooltip(e));
         cell.addEventListener('mouseleave', () => this.hideTooltip());
       }
@@ -452,7 +464,7 @@ export class UI {
         cell.className = 'equip-slot filled';
         cell.innerHTML = itemIconSVG(id, 32);
         cell.addEventListener('click', () => this.game.unequip(slot));
-        cell.addEventListener('mouseenter', (e) => this.showTooltip(e, `<b>${item.name}</b><br><span style="opacity:.8">Click to remove</span>`));
+        cell.addEventListener('mouseenter', (e) => this.showTooltip(e, `<b>${item.name}</b>${this._gearTip(id)}<br><span style="opacity:.8">Click to remove</span>`));
         cell.addEventListener('mousemove', (e) => this.moveTooltip(e));
         cell.addEventListener('mouseleave', () => this.hideTooltip());
       } else {
@@ -475,9 +487,113 @@ export class UI {
       (b.magic ? `<div class="row"><span>Magic bonus</span><span>+${b.magic}</span></div>` : '') +
       (b.crit ? `<div class="row"><span>Crit chance</span><span>+${b.crit}%</span></div>` : '') +
       (b.hp ? `<div class="row"><span>Bonus HP</span><span>+${b.hp}</span></div>` : '') +
-      `<div class="row"><span>Attack speed</span><span>${(speed * 0.6).toFixed(1)}s</span></div>` +
+      `<div class="row"><span>Attack speed</span><span>${(speed * 0.3).toFixed(1)}s</span></div>` +
       specLine +
       (sets.length ? `<div class="row set-bonus"><span>Set bonus</span><span>${sets.join(', ')}</span></div>` : '');
+    const guide = document.createElement('button');
+    guide.className = 'bestiary-open gear-guide-open';
+    guide.textContent = 'Gear Guide: which equipment is better?';
+    guide.addEventListener('click', () => this.openGearGuide());
+    this.el.equipBonuses.appendChild(guide);
+  }
+
+  /** Stat chips for one piece of gear, e.g. "+12 Defence · 1.2s". */
+  _gearStats(id) {
+    const eq = getItem(id).equip;
+    const b = eq.bonuses || {};
+    const chips = Object.keys(STAT_LABELS).filter((k) => b[k]).map((k) => `+${b[k]} ${STAT_LABELS[k]}`);
+    if (eq.slot === 'weapon') chips.push(`${capitalize(weaponStyle(id))}, ${(swingBeats(id) * 0.3).toFixed(1)}s swing`);
+    return chips.join(' · ') || 'No combat stats';
+  }
+
+  /** Tooltip block for equipment: stats, tier in its slot, requirements and
+   *  how it compares with what's worn. */
+  _gearTip(id) {
+    const eq = getItem(id).equip;
+    const t = tierOf(id);
+    const req = meetsReq(id, this.game.skills);
+    const reqTxt = Object.entries(eq.req || {}).filter(([, l]) => l > 1).map(([k, l]) => `${capitalize(k)} ${l}`).join(', ');
+    let html = `<div class="gt-stats">${this._gearStats(id)}</div>`
+      + `<div class="gt-tier">#${t.rank} of ${t.of} ${eq.slot === 'weapon' ? weaponStyle(id) + ' weapons' : eq.slot + ' items'}</div>`;
+    if (reqTxt) html += `<div class="gt-req ${req.ok ? 'ok' : 'no'}">Needs ${reqTxt}${req.ok ? ' ✓' : ''}</div>`;
+    const cmp = compareGear(id, this.game.equipment);
+    if (cmp.verdict === 'worn') return html + '<div class="gt-verdict same">Currently worn</div>';
+    const vs = cmp.worn ? ` vs ${escapeHtml(getItem(cmp.worn).name)}` : '';
+    const label = { upgrade: '▲ Upgrade', downgrade: '▼ Downgrade', same: '= Same strength', empty: '▲ Fills an empty slot', style: '⇄ Different fighting style' }[cmp.verdict];
+    html += `<div class="gt-verdict ${cmp.verdict}">${label}${vs}</div>`;
+    if (cmp.deltas.length && cmp.worn) html += `<div class="gt-deltas">${cmp.deltas.map((d) => {
+      const good = d.lowerIsBetter ? d.delta < 0 : d.delta > 0;
+      return `<span class="${good ? 'pos' : 'neg'}">${deltaText([d])}</span>`;
+    }).join(' ')}</div>`;
+    return html;
+  }
+
+  // ---------------- Gear guide ----------------
+  // Every equippable item per slot, ranked best first, with what it needs and
+  // whether you already own it — so players can see which equipment is better.
+  openGearGuide(slot = 'weapon') {
+    const g = this.game;
+    let style = g.equipment.combatType();
+    const render = (body) => {
+      body.innerHTML = '';
+      const intro = document.createElement('div');
+      intro.className = 'gear-intro';
+      intro.innerHTML = '<p>Each slot is ranked <b>best first</b> by its <b>gear score</b>: total bonuses, with weapons counted as damage per swing, so a fast sword can beat a slow axe. Look for the green <span class="gear-up-inline">▲</span> in your pack. It marks gear that beats what you are wearing.</p>'
+        + `<details><summary>What do the stats mean?</summary><ul>${STAT_HELP.map(([k, v]) => `<li><b>${k}</b>: ${v}</li>`).join('')}</ul></details>`;
+      body.appendChild(intro);
+      const tabs = document.createElement('div');
+      tabs.className = 'gear-tabs';
+      const bySlot = gearBySlot();
+      for (const s of EQUIP_SLOTS) {
+        if (!bySlot[s].length) continue;
+        const b = document.createElement('button');
+        b.className = 'gear-tab' + (s === slot ? ' active' : '');
+        b.textContent = capitalize(s);
+        b.addEventListener('click', () => { slot = s; render(body); });
+        tabs.appendChild(b);
+      }
+      body.appendChild(tabs);
+      let ids = bySlot[slot] || [];
+      if (slot === 'weapon') {
+        // Weapons only compare fairly within a fighting style.
+        const st = document.createElement('div');
+        st.className = 'gear-tabs gear-styles';
+        for (const k of ['melee', 'ranged', 'magic']) {
+          const b = document.createElement('button');
+          b.className = 'gear-tab small' + (k === style ? ' active' : '');
+          b.textContent = capitalize(k);
+          b.addEventListener('click', () => { style = k; render(body); });
+          st.appendChild(b);
+        }
+        body.appendChild(st);
+        ids = ids.filter((id) => weaponStyle(id) === style);
+      }
+      const list = document.createElement('div');
+      list.className = 'gear-list';
+      const worn = g.equipment.get(slot);
+      ids.forEach((id, i) => {
+        const it = getItem(id);
+        const req = meetsReq(id, g.skills);
+        const reqTxt = Object.entries(it.equip.req || {}).filter(([, l]) => l > 1).map(([k, l]) => `${capitalize(k)} ${l}`).join(', ');
+        let tag = '';
+        if (id === worn) tag = '<span class="gear-tag worn">Wearing</span>';
+        else if (g.inventory.count(id)) tag = '<span class="gear-tag own">In pack</span>';
+        else if (g.bank.count(id)) tag = '<span class="gear-tag own">In bank</span>';
+        if (!req.ok) tag += `<span class="gear-tag lock">Needs ${req.missing.map((m) => `${capitalize(m.skill)} ${m.lvl}`).join(', ')}</span>`;
+        const row = document.createElement('div');
+        row.className = 'gear-row' + (id === worn ? ' is-worn' : '') + (req.ok ? '' : ' locked');
+        row.innerHTML = `<span class="gear-rank">#${i + 1}</span><span class="gear-ic">${itemIconSVG(id, 28)}</span>`
+          + `<div class="gear-info"><div class="gear-name"><b>${escapeHtml(it.name)}</b>${tag}</div>`
+          + `<div class="gear-stats">${this._gearStats(id)}${reqTxt && req.ok ? ` · <i>req ${reqTxt}</i>` : ''}</div></div>`
+          + `<span class="gear-score" title="Gear score">${gearRating(id)}</span>`;
+        list.appendChild(row);
+      });
+      body.appendChild(list);
+      // Start the list at the piece you're wearing, so the next upgrades sit just above it.
+      const mine = list.querySelector('.is-worn');
+      if (mine) list.scrollTop = Math.max(0, mine.offsetTop - list.offsetTop - list.clientHeight / 2);
+    };
+    this.openModal('Gear Guide', render);
   }
 
   // ---------------- Skills ----------------

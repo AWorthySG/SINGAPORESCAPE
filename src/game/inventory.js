@@ -1,7 +1,7 @@
 import { getItem } from '../data/items.js';
 
 export const INV_SIZE = 28;
-export const STACK_LIMIT = 100; // max quantity of one item per inventory slot
+export const STACK_LIMIT = 999; // max quantity of one item per inventory slot
 
 // An unlimited inventory: it starts with 28 slots and grows as it fills,
 // always keeping a row of empty slots open. Every item stacks up to
