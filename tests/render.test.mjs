@@ -169,3 +169,27 @@ test('painted creature archetypes stay in lock-step with assets/creatures/', asy
   const used = new Set(Object.values(NPCS).map((d) => d.sprite).filter(Boolean));
   assert.deepEqual([...declared].filter((s) => !used.has(s)), [], 'painted archetype unused by any monster');
 });
+
+test('species art stays in lock-step with assets/creatures/species/ and names real species', async () => {
+  const { readdirSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const { speciesArt } = await import('../src/render/sprites.js');
+  const { NPCS } = await import('../src/data/npcs.js');
+  const dir = fileURLToPath(new URL('../assets/creatures/species/', import.meta.url));
+  const onDisk = new Set(readdirSync(dir).filter((f) => f.endsWith('.webp')).map((f) => f.slice(0, -5)));
+  const declared = speciesArt();
+  assert.deepEqual([...declared].filter((s) => !onDisk.has(s)), [], 'declared species has no file');
+  assert.deepEqual([...onDisk].filter((s) => !declared.has(s)), [], 'species file not declared');
+  const families = new Set(Object.values(NPCS).map((d) => d.family).filter(Boolean));
+  assert.deepEqual([...declared].filter((s) => !families.has(s)), [], 'species art for a family no monster has');
+});
+
+test('prayer and spell icons exist for every prayer and spell', async () => {
+  const { readdirSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const { PRAYERS } = await import('../src/data/prayers.js');
+  const { SPELLS } = await import('../src/data/magic.js');
+  const onDisk = new Set(readdirSync(fileURLToPath(new URL('../assets/icons/', import.meta.url))));
+  for (const p of PRAYERS) assert.ok(onDisk.has(`prayer-${p.id}.webp`), `prayer-${p.id}.webp`);
+  for (const s of SPELLS) assert.ok(onDisk.has(`spell-${s.id}.webp`), `spell-${s.id}.webp`);
+});
