@@ -410,9 +410,8 @@ export class UI {
         }
         cell.addEventListener('click', () => this._invDefault(i));
         cell.addEventListener('contextmenu', (e) => { e.preventDefault(); this._invContext(i, e); });
-        cell.addEventListener('mouseenter', (e) => this.showTooltip(e, `<b>${item.name}</b><br><span style="opacity:.8">${item.examine}</span>` + (item.equip ? this._gearTip(s.id) : '')));
-        cell.addEventListener('mousemove', (e) => this.moveTooltip(e));
-        cell.addEventListener('mouseleave', () => this.hideTooltip());
+        this._tip(cell, () => `<b>${item.name}</b><br><span style="opacity:.8">${item.examine}</span>` + (item.equip ? this._gearTip(s.id) : ''),
+          () => this._invOptions(i));
       }
       grid.appendChild(cell);
     }
@@ -434,8 +433,14 @@ export class UI {
   }
 
   _invContext(i, e) {
+    const opts = this._invOptions(i);
+    if (opts.length) this.showContextMenu(e.clientX, e.clientY, opts);
+  }
+
+  /** Everything you can do with an inventory item (right-click menu / hold card). */
+  _invOptions(i) {
     const s = this.game.inventory.slotAt(i);
-    if (!s) return;
+    if (!s) return [];
     const item = getItem(s.id);
     const opts = [];
     if (item.heal) opts.push({ label: 'Eat', target: item.name, fn: () => this.game.eatItem(i) });
@@ -448,7 +453,7 @@ export class UI {
     if (s.id === 'birds_nest') opts.push({ label: 'Open', target: item.name, fn: () => this.game.openNest(i) });
     opts.push({ label: 'Drop', target: item.name, fn: () => this.game.dropItem(i) });
     opts.push({ label: 'Examine', target: item.name, fn: () => this.game.msg(item.examine, 'system') });
-    this.showContextMenu(e.clientX, e.clientY, opts);
+    return opts;
   }
 
   // ---------------- Equipment ----------------
@@ -464,9 +469,8 @@ export class UI {
         cell.className = 'equip-slot filled';
         cell.innerHTML = itemIconSVG(id, 32);
         cell.addEventListener('click', () => this.game.unequip(slot));
-        cell.addEventListener('mouseenter', (e) => this.showTooltip(e, `<b>${item.name}</b>${this._gearTip(id)}<br><span style="opacity:.8">Click to remove</span>`));
-        cell.addEventListener('mousemove', (e) => this.moveTooltip(e));
-        cell.addEventListener('mouseleave', () => this.hideTooltip());
+        this._tip(cell, () => `<b>${item.name}</b>${this._gearTip(id)}<br><span style="opacity:.8">Tap to remove</span>`,
+          () => [{ label: 'Remove', target: item.name, fn: () => this.game.unequip(slot) }]);
       } else {
         cell.className = 'equip-slot empty';
         cell.textContent = capitalize(slot);
@@ -618,11 +622,8 @@ export class UI {
           `<span class="skill-lvl"><span class="cur">${lvl}</span></span>` +
           `<div class="xp-bar" style="width:${Math.round(levelProgress(xp) * 100)}%"></div>`;
         const toNext = xpToNext(xp);
-        cell.addEventListener('mouseenter', (e) => this.showTooltip(e,
-          `<b>${sk.name}</b> &mdash; level ${lvl}<br>XP: ${formatNumber(Math.floor(xp))}<br>` +
-          (toNext > 0 ? `Next level: ${formatNumber(toNext)} xp` : 'Maxed!')));
-        cell.addEventListener('mousemove', (e) => this.moveTooltip(e));
-        cell.addEventListener('mouseleave', () => this.hideTooltip());
+        this._tip(cell, `<b>${sk.name}</b> &mdash; level ${lvl}<br>XP: ${formatNumber(Math.floor(xp))}<br>` +
+          (toNext > 0 ? `Next level: ${formatNumber(toNext)} xp` : 'Maxed!'));
         grid.appendChild(cell);
       }
     }
@@ -996,7 +997,79 @@ export class UI {
     t.style.top = Math.min(e.clientY + 14, window.innerHeight - t.offsetHeight - 8) + 'px';
   }
 
-  hideTooltip() { this.el.tooltip.classList.add('hidden'); }
+  hideTooltip() {
+    if (this._cardOpen) return;            // a held-open touch card stays until you tap away
+    this.el.tooltip.classList.add('hidden');
+  }
+
+  /** Details on hover (mouse) or press-and-hold (touch). On touch the details open
+   *  as a card with the item's actions as buttons, since phones can't hover. */
+  _tip(el, html, actions) {
+    const get = () => (typeof html === 'function' ? html() : html);
+    el.addEventListener('mouseenter', (e) => { if (!this._touchUsed) this.showTooltip(e, get()); });
+    el.addEventListener('mousemove', (e) => { if (!this._touchUsed) this.moveTooltip(e); });
+    el.addEventListener('mouseleave', () => this.hideTooltip());
+    let timer = 0, sx = 0, sy = 0, fired = false, touching = false;
+    const open = () => {
+      if (fired) return;
+      fired = true; clearTimeout(timer);
+      try { navigator.vibrate?.(12); } catch {}
+      this.showTouchCard(sx, sy, get(), actions ? actions() : []);
+    };
+    el.addEventListener('touchstart', (e) => {
+      this._touchUsed = true; touching = true; fired = false;
+      const t = e.touches[0]; sx = t.clientX; sy = t.clientY;
+      clearTimeout(timer);
+      timer = setTimeout(open, 420);
+    }, { passive: true });
+    el.addEventListener('touchmove', (e) => {
+      const t = e.touches[0];
+      if (Math.hypot(t.clientX - sx, t.clientY - sy) > 10) clearTimeout(timer);
+    }, { passive: true });
+    el.addEventListener('touchend', (e) => { touching = false; clearTimeout(timer); if (fired) e.preventDefault(); });
+    el.addEventListener('touchcancel', () => { touching = false; clearTimeout(timer); });
+    // Android turns a long press into a right-click: show our card instead of the menu.
+    el.addEventListener('contextmenu', (e) => {
+      if (!touching) return;
+      e.preventDefault(); e.stopImmediatePropagation();
+      open();
+    }, { capture: true });
+  }
+
+  showTouchCard(x, y, html, actions = []) {
+    const t = this.el.tooltip;
+    this.hideContextMenu();
+    t.innerHTML = html;
+    if (actions.length) {
+      const row = document.createElement('div');
+      row.className = 'tc-actions';
+      for (const o of actions) {
+        const b = document.createElement('button');
+        b.textContent = o.label;
+        b.addEventListener('click', (e) => { e.stopPropagation(); this.closeTouchCard(); o.fn(); });
+        row.appendChild(b);
+      }
+      t.appendChild(row);
+    }
+    t.classList.add('touch-card');
+    t.classList.remove('hidden');
+    this._cardOpen = true;
+    const w = t.offsetWidth, h = t.offsetHeight;
+    t.style.left = Math.max(8, Math.min(x - w / 2, window.innerWidth - w - 8)) + 'px';
+    t.style.top = (y - h - 18 > 8 ? y - h - 18 : Math.min(y + 18, window.innerHeight - h - 8)) + 'px';
+    if (!this._cardCloser) {
+      // Any tap outside the card closes it.
+      this._cardCloser = (e) => { if (this._cardOpen && !t.contains(e.target)) this.closeTouchCard(); };
+      document.addEventListener('touchstart', this._cardCloser, { passive: true, capture: true });
+      document.addEventListener('mousedown', this._cardCloser, { capture: true });
+    }
+  }
+
+  closeTouchCard() {
+    this._cardOpen = false;
+    this.el.tooltip.classList.remove('touch-card');
+    this.el.tooltip.classList.add('hidden');
+  }
 
   // ---------------- Modals ----------------
   openModal(title, render) {
@@ -1421,9 +1494,7 @@ export class UI {
     }
     if (onClick) cell.addEventListener('click', onClick);
     if (onRight) cell.addEventListener('contextmenu', (e) => { e.preventDefault(); onRight(e); });
-    cell.addEventListener('mouseenter', (e) => this.showTooltip(e, tooltip || `<b>${item.name}</b>`));
-    cell.addEventListener('mousemove', (e) => this.moveTooltip(e));
-    cell.addEventListener('mouseleave', () => this.hideTooltip());
+    this._tip(cell, tooltip || `<b>${item.name}</b><br><span style="opacity:.8">${item.examine || ''}</span>`);
     return cell;
   }
 

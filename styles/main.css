@@ -1332,3 +1332,12 @@ button:focus-visible, .tab-btn:focus-visible, .chat-tab:focus-visible,
 .gear-styles { margin-top: -2px; }
 .gear-tab.small { font-size: 11px; padding: 3px 9px; border-width: 1.5px; }
 .gear-tab.small.active { background: var(--aw-accent); border-color: var(--aw-ink); }
+
+/* ---------- Press-and-hold details card (touch) ---------- */
+#tooltip.touch-card { pointer-events: auto; max-width: min(300px, calc(100vw - 16px)); padding: 10px 12px; font-size: 13px; z-index: 90; }
+#tooltip .tc-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; padding-top: 8px; border-top: 2px dashed var(--aw-ink-faint); }
+#tooltip .tc-actions button {
+  font-family: inherit; font-size: 13px; font-weight: 800; padding: 6px 12px; cursor: pointer;
+  background: var(--aw-card); color: var(--aw-ink); border: 2px solid var(--aw-ink); border-radius: 999px;
+}
+#tooltip .tc-actions button:first-child { background: var(--aw-accent); color: #fff; }

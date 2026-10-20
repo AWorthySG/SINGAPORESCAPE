@@ -61,6 +61,8 @@ export class NPC extends Character {
     this.heavyCount = 0;
     this.windup = 0;              // 1 while a heavy blow is charging
     this.telegraph = 0;          // ticks the "!" warning is shown
+    // Bosses mark the ground before a big area attack; step out of the red to dodge.
+    this.aoeCooldown = this.def.boss ? 5 : 0;
 
     this.chatter = this.def.chatter || null;
     this.chatText = '';
@@ -92,6 +94,7 @@ export class NPC extends Character {
     if (this.combatLatch > 0) this.combatLatch--;
     if (this.specialCooldown > 0) this.specialCooldown--;
     if (this.telegraph > 0) this.telegraph--;
+    if (this.aoeCooldown > 0) this.aoeCooldown--;
     if (this.chatter) {
       if (this.chatTimer > 0) this.chatTimer--;
       else if (--this.chatCooldown <= 0) {
@@ -134,6 +137,11 @@ export class NPC extends Character {
         return;
       }
       const t = this.target;
+      if (this.def.boss && this.aoeCooldown <= 0 && chebyshev(this.x, this.y, t.x, t.y) <= 8) {
+        game.bossHazard(this);
+        this.aoeCooldown = this.def.aoeEvery || 8;
+        this.attackCooldown = Math.max(this.attackCooldown, 2);   // it pauses to cast
+      }
       if (this.isAdjacentTo(t)) {
         this.stop();
         if (this.def.boss && this.specialCooldown <= 0) {
@@ -227,6 +235,7 @@ export class NPC extends Character {
     this.windup = 0;
     this.telegraph = 0;
     this.heavyCount = 0;
+    this.aoeCooldown = this.def.boss ? 5 : 0;
     this.chatter = this.def.chatter || null;
     this.chatText = '';
     this.chatTimer = 0;
