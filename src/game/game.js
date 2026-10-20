@@ -52,6 +52,9 @@ const COMBAT_SKILLS = new Set(['attack', 'strength', 'defence', 'hitpoints', 'ra
 // day/night cycle from there.
 const MORNING_PHASE = 0.3;
 
+// Share of fired arrows recovered after the shot.
+const ARROW_RECOVERY = 0.8;
+
 // Alchemy: a utility spell cast on an inventory item.
 const ALCHEMY = { level: 21, xp: 65, runes: { nature_rune: 1, fire_rune: 5 } };
 
@@ -348,6 +351,7 @@ export class Game {
       this.beatAcc -= COMBAT_BEAT_MS;
       this._combatBeat();
     }
+    if (this._autoRetarget) { this._autoRetarget = false; if (this.autoBattle && this.player.alive) this._autoBattleTick(); }
 
     const c = this.player.renderCenter();
     this.camera.follow(c.x, c.y, 0.22, { width: this.world.width, height: this.world.height }, dt);
@@ -926,9 +930,19 @@ export class Game {
     if ((npc.def.level || 0) >= 30) this.msg(`${npc.name} is winding up a heavy attack — Brace yourself!`, 'combat');
   }
 
+  /** Most arrows are picked back up after a fight: only ~1 in 5 shots uses one up. */
+  _spendArrow(idx) { if (Math.random() >= ARROW_RECOVERY) this.inventory.removeAt(idx, 1); }
+
+  /** Out of arrows or runes: say so once in a while, not on every retaliation. */
+  _outOfAmmo(text) {
+    if (this.tickCount - (this._ammoSaidAt ?? -99) < 15) return;
+    this._ammoSaidAt = this.tickCount;
+    this.msg(text);
+  }
+
   _rangedAttack(npc) {
     const arrowIdx = this.inventory.slots.findIndex((s) => s && getItem(s.id).tags?.includes('ammo'));
-    if (arrowIdx === -1) { this.msg('You have no arrows left.'); this.player.clearAction(); return; }
+    if (arrowIdx === -1) { this._outOfAmmo('You have no arrows left.'); this.player.clearAction(); return; }
     const arrowStr = getItem(this.inventory.slotAt(arrowIdx).id).arrowStr || 0;
     const style = this.player.rangedStyle;
     const { atkRoll, defRoll, max } = playerRangedVsNpc(this.skills, this.equipment, style, npc.def, arrowStr);
@@ -942,8 +956,8 @@ export class Game {
       if (i > 0) { // extra shots consume extra arrows
         const ai = this.inventory.slots.findIndex((s) => s && getItem(s.id).tags?.includes('ammo'));
         if (ai === -1) break;
-        this.inventory.removeAt(ai, 1);
-      } else { this.inventory.removeAt(arrowIdx, 1); }
+        this._spendArrow(ai);
+      } else { this._spendArrow(arrowIdx); }
       const effMax = Math.max(1, Math.round(baseMax * mods.dmgM));
       let dmg = mods.guaranteed ? rollGuaranteed(effMax) : rollAttack(atkRoll * pr * mods.accM, defRoll, effMax);
       const c = this._critHit(dmg, mods.critCh); dmg = c.dmg;
@@ -960,7 +974,7 @@ export class Game {
   _magicAttack(npc) {
     const spell = getSpell(this.player.spell);
     if (this.skills.magic < spell.level) { this.msg(`You need Magic level ${spell.level} to cast ${spell.name}.`); this.player.clearAction(); return; }
-    if (!this._hasRunes(spell)) { this.msg(`You don't have the runes to cast ${spell.name}.`); this.player.clearAction(); return; }
+    if (!this._hasRunes(spell)) { this._outOfAmmo(`You don't have the runes to cast ${spell.name}.`); this.player.clearAction(); return; }
     this._consumeRunes(spell);
     const { atkRoll, defRoll, max } = playerMagicVsNpc(this.skills, this.equipment, spell, npc.def);
     const mods = this._offensiveMods(npc, 'magic');
@@ -1097,6 +1111,9 @@ export class Game {
     this.rollDrops(npc);
     npc.die();
     if (this.player.target === npc) this.player.target = null;
+    // Auto battle moves straight on to the next fight (right after this attack
+    // resolves) instead of idling until the next world tick.
+    if (this.autoBattle) { this._autoLast = null; this._autoRetarget = true; }
     const pc = this.quests.pest_control;
     if (pc.state === 'active' && npc.npcId === 'rat') {
       pc.kills++;
