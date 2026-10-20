@@ -593,6 +593,18 @@
     'copper_ore', 'tin_ore', 'iron_ore', 'coal', 'bronze_bar', 'iron_bar',
     'raw_trout', 'raw_sardine', 'raw_anchovy', 'chicken_rice', 'roti_prata',
     'bronze_dagger', 'bronze_sword', 'bronze_scimitar',
+    // Batch 09: mithril/adamant/rune gear, ranged & magic kit, runes.
+    'mithril_gauntlets', 'mithril_boots', 'adamant_dagger', 'adamant_sword', 'adamant_mace',
+    'adamant_longsword', 'adamant_battleaxe', 'adamant_warhammer', 'adamant_2h_sword',
+    'adamant_med_helm', 'adamant_full_helm', 'adamant_chainbody', 'adamant_platebody',
+    'adamant_platelegs', 'adamant_sq_shield', 'adamant_kiteshield', 'adamant_gauntlets',
+    'adamant_boots', 'rune_dagger', 'rune_sword', 'studded_body', 'dragonhide_coif', 'staff',
+    'magic_staff', 'ancient_staff', 'mind_rune', 'occult_necklace', 'magic_shortbow', 'coif',
+    'leather_chaps', 'dragonhide_body', 'dragonhide_chaps', 'mystic_staff', 'air_rune',
+    'water_rune', 'earth_rune', 'fire_rune', 'chaos_rune', 'death_rune', 'blood_rune',
+    'mithril_mace', 'mithril_longsword', 'mithril_battleaxe', 'mithril_warhammer',
+    'mithril_2h_sword', 'mithril_med_helm', 'mithril_chainbody', 'mithril_platelegs',
+    'mithril_sq_shield', 'mithril_kiteshield',
   ]);
   export const itemArtSrc = (id) => (ITEM_ART.has(id) ? `assets/icons/item-${id}.webp` : null);
   const artImg = (file, size, cls) => `<img class="${cls || ''}" width="${size}" height="${size}" src="assets/icons/${file}.webp" alt="" style="display:block;object-fit:contain" />`;
