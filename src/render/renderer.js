@@ -3,6 +3,7 @@ import { TERRAIN } from '../data/world.js';
 import { getItem } from '../data/items.js';
 import { weaknessOf } from '../game/combat.js';
 import { drawShadow, drawCreature, drawPlayer, drawObjectSprite, drawGroundItem } from './sprites.js';
+import { itemIconImage } from './icons.js';
 
 // Base terrain colours (RGB): a bright pastel world in the A-Worthy palette
 // (soft mint lawns, warm cream paths, cream paper paving). Water is procedural.
@@ -133,7 +134,10 @@ export class Renderer {
     }
     for (const g of game.world.groundItems) {
       if (g.x < x0 || g.x > x1 || g.y < y0 || g.y > y1) continue;
-      const cx = g.x * TILE + TILE / 2 - ox, cy = g.y * TILE + TILE * 0.62 - oy;
+      // Fresh drops pop out in a little hop to their scatter spot.
+      const age = g.born ? Math.min(1, (performance.now() - g.born) / 260) : 1;
+      const hop = g.born ? Math.sin(age * Math.PI) * 10 : 0;
+      const cx = g.x * TILE + TILE / 2 - ox + (g.ox || 0) * age, cy = g.y * TILE + TILE * 0.62 - oy + (g.oy || 0) * age - hop;
       drawables.push({ sortY: g.y - 0.3, z: 0, draw: () => {
         // Soft glow so loot on the ground is easy to spot.
         ctx.save();
@@ -340,6 +344,23 @@ export class Renderer {
         ctx.beginPath(); ctx.arc(0, 0, 13, -0.55, 0.55); ctx.stroke();
         ctx.restore();
         ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+        continue;
+      }
+      if (e.type === 'lootfly') {
+        // Loot arcs up and into your pack, shrinking as it goes.
+        const t = 1 - e.life / e.maxLife;
+        const ease = t * t * (3 - 2 * t);
+        const x = e.x + (e.ex - e.x) * ease - ox;
+        const y = e.y + (e.ey - e.y) * ease - oy - Math.sin(t * Math.PI) * 26;
+        const img = itemIconImage(e.id);
+        const s = 20 * (1 - t * 0.55);
+        if (img && img.complete && img.naturalWidth) {
+          ctx.globalAlpha = t > 0.85 ? (1 - t) / 0.15 : 1;
+          ctx.drawImage(img, x - s / 2, y - s / 2, s, s);
+          ctx.globalAlpha = 1;
+        } else {
+          ctx.fillStyle = '#F5B82E'; ctx.beginPath(); ctx.arc(x, y, 4, 0, 6.3); ctx.fill();
+        }
         continue;
       }
       if (e.type !== 'projectile') continue;

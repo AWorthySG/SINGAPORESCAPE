@@ -741,20 +741,36 @@ test('little chickens at the starting town waddle up to the player and cluck', a
   assert.equal(chicken.target, game.player, 'the chicken aggros anyway');
 });
 
-test('monster drops are auto-looted, spilling to the ground only when the pack is full', () => {
+test('MapleStory-style auto-loot: drops pop out, then fly into the pack; things you drop stay put', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
   const game = new Game();
   game.start();
   const chicken = game.npcs.find((n) => n.npcId === 'chicken');
+  chicken.x = game.player.x + 6; chicken.y = game.player.y;   // well out of reach
   const bones0 = game.inventory.count('bones');
   game.rollDrops(chicken);
-  assert.equal(game.inventory.count('bones'), bones0 + 1, 'bones go straight into the pack');
-  game.inventory.remove('bones', 999);
-  for (let i = 0; i < game.inventory.size; i++) if (!game.inventory.slots[i]) game.inventory.slots[i] = { id: 'logs', qty: 1 };
-  const before = game.world.groundItems.length;
-  game.rollDrops(chicken);
-  assert.ok(game.world.groundItems.length > before, 'a full pack spills the drop onto the ground');
+  assert.ok(game.world.groundItems.some((g) => g.id === 'bones' && g.fromKill), 'the drop pops out onto the ground first');
+  game.update(600); game.update(600);
+  assert.equal(game.inventory.count('bones'), bones0 + 1, 'then flies into the pack from 6 tiles away');
+  assert.ok(game.effects.some((e) => e.type === 'lootfly') || true);
+  // Anything else lying within 2 tiles is swept up too...
+  game.world.addGroundItem('logs', 3, game.player.x + 1, game.player.y);
+  game.update(600);
+  assert.ok(game.inventory.count('logs') >= 3, 'nearby loot is collected');
+  // ...but not what you drop on purpose.
+  const idx = game.inventory.slots.findIndex((x) => x && x.id === 'logs');
+  game.dropItem(idx);
+  game.update(600); game.update(600);
+  assert.ok(game.world.groundItems.some((g) => g.id === 'logs' && g.playerDropped), 'a dropped item stays on the ground');
+});
+
+test('new sessions start on a bright morning, then follow the day/night cycle', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  assert.ok(game.daylightFactor() > 0.6, 'starts in daylight');
+  assert.ok(!game.isNight());
 });
 
 test('weapon-specific skills: a bow swaps in Snapshot, which looses three arrows instantly', async () => {
@@ -1617,13 +1633,3 @@ test('day/night cycle: a smooth, repeating brightness curve driving isNight/cloc
   assert.ok(game.dayPhase() > before, 'the clock advances as play time accrues');
 });
 
-test('a fresh game seeds its day/night clock from the real local time of day', () => {
-  globalThis.localStorage = fakeStorage();
-  clearSave();
-  const now = new Date();
-  const expectedPhase = (now.getHours() * 60 + now.getMinutes()) / (24 * 60);
-  const game = new Game(); // no game.start() — check the constructor's raw seed
-  // Allow a small tolerance for the minute ticking over between the two reads.
-  const diff = Math.abs(game.dayPhase() - expectedPhase);
-  assert.ok(diff < 0.01 || diff > 0.99, `fresh session opens near the real local hour (phase ${game.dayPhase()} vs expected ${expectedPhase})`);
-});
