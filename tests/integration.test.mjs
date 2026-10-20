@@ -1823,3 +1823,36 @@ test('daily bounties: three targets a day that pay out, with a streak', async ()
   assert.equal(g2.bounties.streak, 3);
   assert.ok(g2.bounties.list.every((t) => t.done), 'progress is saved');
 });
+
+test('responsive controls: reverse mid-step instantly, act on the press', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  const p = game.player;
+  game.npcs = game.npcs.filter((n) => Math.max(Math.abs(n.x - p.x), Math.abs(n.y - p.y)) > 15);
+  const x0 = p.x, y0 = p.y;
+  game.setMoveInput(1, 0);
+  game.update(16); game.update(150);           // part-way into a step right
+  assert.ok(p.moving && p.tx === x0 + 1);
+  const before = p.renderCenter().x;
+  game.setMoveInput(-1, 0);
+  game.update(0);                              // pulling back...
+  assert.equal(p.tx, x0, '...heads straight back without finishing the step');
+  assert.ok(Math.abs(p.renderCenter().x - before) < 0.01, 'and without snapping on screen');
+  game.setMoveInput(0, 0);
+  for (let i = 0; i < 10; i++) game.update(100);
+  assert.ok(!p.moving && p.x === x0 && p.y === y0);
+  // Picking up something underfoot happens on the press, not the next tick.
+  const gi = game.world.addGroundItem('logs', 2, p.x, p.y);
+  gi.playerDropped = true;                     // so auto-loot doesn't take it first
+  const logs0 = game.inventory.count('logs');
+  game.pickup(gi);
+  assert.equal(game.inventory.count('logs'), logs0 + 2, 'instant pick-up');
+  // Attacking a monster already in reach swings at once.
+  const mob = game.spawnNpc(game.npcs.find((n) => n.def.attackable && !n.def.boss).npcId, p.x + 1, p.y, { wander: 0 });
+  p.attackCooldown = 0;
+  game.attackNpc(mob);
+  assert.ok(p.attackCooldown > 0, 'first swing landed immediately');
+});

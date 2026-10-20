@@ -133,8 +133,8 @@ export class UI {
 
     // Bus subscriptions.
     this.bus.on('tick', () => { this.updateBossBar(); this.updateDayNight(); this.renderTracker(); this._tipsTick(); });
-    this.bus.on('inventory', () => { this.renderInventory(); this._refreshModalIfOpen(['bank', 'shop']); });
-    this.bus.on('equipment', () => { this.renderEquipment(); this.renderCombatPanel(); this.renderInventory(); });
+    this.bus.on('inventory', () => this.scheduleInventory());
+    this.bus.on('equipment', () => { this.renderEquipment(); this.renderCombatPanel(); this.scheduleInventory(); });
     this.bus.on('skills', () => { this.renderSkills(); this.renderCombatPanel(); });
     this.bus.on('xp', (p) => { this.renderSkills(); this.showXpDrop(p); });
     this.bus.on('levelup', (p) => this.onLevelUp(p));
@@ -459,48 +459,71 @@ export class UI {
     document.getElementById('inv-sort')?.addEventListener('click', () => { this.game.inventory.sort(); this.game.msg('You tidy your pack.', 'system'); });
   }
 
+  /** Coalesce bursts of inventory changes (auto-loot can add several items in
+   *  one tick) into a single repaint on the next frame. */
+  scheduleInventory() {
+    if (this._invQueued) return;
+    this._invQueued = true;
+    const run = () => { this._invQueued = false; this.renderInventory(); this._refreshModalIfOpen(['bank', 'shop']); };
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(run); else run();
+  }
+
+  // Cells are created once per slot (with listeners that read the slot live)
+  // and only re-painted when that slot's contents actually change.
   renderInventory() {
     this._buildInvBar();
     const grid = this.el.inventory;
-    grid.innerHTML = '';
     const slots = this.game.inventory.slots;
     const f = this.invFilter || 'all';
+    const cells = this._invCells || (this._invCells = []);
+    while (cells.length < slots.length) {
+      const i = cells.length;
+      const cell = document.createElement('div');
+      cell.className = 'inv-slot';
+      cell.addEventListener('click', () => this._invDefault(i));
+      cell.addEventListener('contextmenu', (e) => { e.preventDefault(); this._invContext(i, e); });
+      this._tip(cell, () => {
+        const sl = this.game.inventory.slotAt(i);
+        if (!sl) return '';
+        const item = getItem(sl.id);
+        return `<b>${item.name}</b><br><span style="opacity:.8">${item.examine}</span>` + (item.equip ? this._gearTip(sl.id) : '');
+      }, () => this._invOptions(i));
+      cell._sig = null;
+      grid.appendChild(cell);
+      cells.push(cell);
+    }
+    while (cells.length > slots.length) cells.pop().remove();
     for (let i = 0; i < slots.length; i++) {
       const s = slots[i];
-      // Category tabs show only matching items (coins count as "Other"); empties stay at the end.
-      if (f !== 'all' && (!s || (itemCategory(s.id) === 'coins' ? 'other' : itemCategory(s.id)) !== f)) continue;
-      const cell = document.createElement('div');
-      cell.className = 'inv-slot' + (s ? ' filled' : '');
+      const cell = cells[i];
+      // Category tabs show only matching items (coins count as "Other").
+      const show = f === 'all' || (s && (itemCategory(s.id) === 'coins' ? 'other' : itemCategory(s.id)) === f);
+      cell.style.display = show ? '' : 'none';
+      let sig = 'empty';
+      let up = 0, better = false;
       if (s) {
         const item = getItem(s.id);
-        cell.innerHTML = `<span class="icon">${itemIconSVG(s.id, 32)}</span>`;
-        if (item.stackable || s.qty > 1) {
-          const lbl = stackLabel(s.qty);
-          const q = document.createElement('span');
-          q.className = `qty ${lbl.cls}`;
-          q.textContent = lbl.text;
-          cell.appendChild(q);
-        }
-        if (item.equip && this.game.equipment.upgradeLevel(s.id)) {
-          cell.insertAdjacentHTML('beforeend', `<span class="up-badge">+${this.game.equipment.upgradeLevel(s.id)}</span>`);
-        }
         if (item.equip) {
-          // Green arrow on gear that beats what you're wearing (and you can wear it).
+          up = this.game.equipment.upgradeLevel(s.id);
           const cmp = compareGear(s.id, this.game.equipment);
-          if ((cmp.verdict === 'upgrade' || cmp.verdict === 'empty') && meetsReq(s.id, this.game.skills).ok) {
-            const up = document.createElement('span');
-            up.className = 'gear-up';
-            up.textContent = '▲';
-            up.title = 'Better than what you are wearing';
-            cell.appendChild(up);
-          }
+          better = (cmp.verdict === 'upgrade' || cmp.verdict === 'empty') && meetsReq(s.id, this.game.skills).ok;
         }
-        cell.addEventListener('click', () => this._invDefault(i));
-        cell.addEventListener('contextmenu', (e) => { e.preventDefault(); this._invContext(i, e); });
-        this._tip(cell, () => `<b>${item.name}</b><br><span style="opacity:.8">${item.examine}</span>` + (item.equip ? this._gearTip(s.id) : ''),
-          () => this._invOptions(i));
+        sig = `${s.id}|${s.qty}|${up}|${better ? 1 : 0}`;
       }
-      grid.appendChild(cell);
+      if (cell._sig === sig) continue;
+      cell._sig = sig;
+      cell.className = 'inv-slot' + (s ? ' filled' : '');
+      if (!s) { cell.innerHTML = ''; continue; }
+      const item = getItem(s.id);
+      let html = `<span class="icon">${itemIconSVG(s.id, 32)}</span>`;
+      if (item.stackable || s.qty > 1) {
+        const lbl = stackLabel(s.qty);
+        html += `<span class="qty ${lbl.cls}">${lbl.text}</span>`;
+      }
+      if (up) html += `<span class="up-badge">+${up}</span>`;
+      // Green arrow on gear that beats what you're wearing (and you can wear it).
+      if (better) html += '<span class="gear-up" title="Better than what you are wearing">▲</span>';
+      cell.innerHTML = html;
     }
   }
 
@@ -1180,6 +1203,7 @@ export class UI {
     this.addChat(`Congratulations, you just advanced a ${sk.name} level! You are now level ${level}.`, 'level');
     this.showBanner(`<span class="big">Level up!</span>Your ${sk.name} is now level ${level}.`);
     this.renderSkills();
+    this.scheduleInventory();   // a new level can unlock gear (green upgrade arrows)
   }
 
   showBanner(html) {
@@ -1231,15 +1255,17 @@ export class UI {
    *  as a card with the item's actions as buttons, since phones can't hover. */
   _tip(el, html, actions) {
     const get = () => (typeof html === 'function' ? html() : html);
-    el.addEventListener('mouseenter', (e) => { if (!this._touchUsed) this.showTooltip(e, get()); });
+    el.addEventListener('mouseenter', (e) => { if (this._touchUsed) return; const h = get(); if (h) this.showTooltip(e, h); });
     el.addEventListener('mousemove', (e) => { if (!this._touchUsed) this.moveTooltip(e); });
     el.addEventListener('mouseleave', () => this.hideTooltip());
     let timer = 0, sx = 0, sy = 0, fired = false, touching = false;
     const open = () => {
       if (fired) return;
       fired = true; clearTimeout(timer);
+      const h = get();
+      if (!h) return;                         // nothing to show (an empty slot)
       try { navigator.vibrate?.(12); } catch {}
-      this.showTouchCard(sx, sy, get(), actions ? actions() : []);
+      this.showTouchCard(sx, sy, h, actions ? actions() : []);
     };
     el.addEventListener('touchstart', (e) => {
       this._touchUsed = true; touching = true; fired = false;

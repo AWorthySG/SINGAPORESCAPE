@@ -52,6 +52,10 @@ const COMBAT_SKILLS = new Set(['attack', 'strength', 'defence', 'hitpoints', 'ra
 // day/night cycle from there.
 const MORNING_PHASE = 0.3;
 
+// Actions that can fire the instant you press (no random roll to exploit by spamming).
+const INSTANT_ACTIONS = new Set(['pickup', 'cookmenu', 'smeltmenu', 'smithmenu', 'craftmenu', 'pray', 'rest', 'transport', 'openbank', 'openshop', 'talk']);
+const GATHER_ACTIONS = new Set(['woodcut', 'mine', 'fish', 'stall']);
+
 export class Game {
   constructor() {
     this.bus = new EventBus();
@@ -1606,7 +1610,16 @@ export class Game {
       this.player.setPath([], false); // stop after current step
     }
     this.player.setAction(action);
+    if (reached && !this.player.isMoving) this._kickoff(action);
     return true;
+  }
+
+  /** Respond to a press right away instead of on the next 0.6s tick. One-shot
+   *  actions (talk, bank, shop, pick up...) fire now; gathering starts its swing
+   *  now but keeps its normal roll timing, so tapping fast can't gather faster. */
+  _kickoff(a) {
+    if (INSTANT_ACTIONS.has(a.type)) { this.resolvePlayerAction(); return; }
+    if (a.obj && GATHER_ACTIONS.has(a.type)) this._swingToward(this.player, a.obj.x, a.obj.y);
   }
 
   // ---------------- Auto battle ----------------
@@ -1770,7 +1783,8 @@ export class Game {
   }
 
   // While a direction is held, keep exactly one step queued ahead so walking
-  // is continuous and turns take effect on the next tile. Steering cancels
+  // is continuous and turns take effect on the next tile (pulling the opposite
+  // way reverses mid-step at once). Steering cancels
   // whatever the player was doing (skilling, fighting, a clicked route).
   _driveMovement() {
     const p = this.player, v = this.moveInput;
@@ -1782,9 +1796,15 @@ export class Game {
       if (p.action) p.clearAction();
       p.path = [];           // drop any clicked route; the current step finishes
     }
-    if (p.path.length) return;  // the next tile is already queued
     const oct = Math.round(Math.atan2(v.y, v.x) / (Math.PI / 4)) & 7;
     const [dx, dy] = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]][oct];
+    if (p.moving) {
+      // Pulling the opposite way turns you round on the spot, mid-step.
+      if (Math.sign(p.tx - p.x) === -dx && Math.sign(p.ty - p.y) === -dy) { p.reverseStep(); return; }
+      // Otherwise re-pick the queued next tile every frame, so a change of
+      // direction applies the moment this step lands.
+      if (p.path.length && p.path[0].x === p.tx + dx && p.path[0].y === p.ty + dy) return;
+    }
     const from = this.playerTile();
     const free = (x, y) => this.world.inBounds(x, y) && !this.world.isBlocked(x, y);
     const tries = dx && dy ? [[dx, dy], [dx, 0], [0, dy]] : [[dx, dy]];
@@ -1792,8 +1812,13 @@ export class Game {
       const nx = from.x + sx, ny = from.y + sy;
       // Diagonals may not cut a blocked corner (same rule as pathfinding).
       if (sx && sy && (!free(from.x + sx, from.y) || !free(from.x, from.y + sy))) continue;
-      if (free(nx, ny)) { p.setPath([{ x: nx, y: ny }], this.canRun()); return; }
+      if (free(nx, ny)) {
+        if (p.moving) { p.path = [{ x: nx, y: ny }]; p.running = this.canRun(); }
+        else p.setPath([{ x: nx, y: ny }], this.canRun());
+        return;
+      }
     }
+    if (p.moving) p.path = [];   // blocked ahead: stop when this step lands
     if (!p.moving) p.facing = { dx, dy };   // blocked: at least turn to face it
   }
 
@@ -1819,6 +1844,10 @@ export class Game {
   attackNpc(npc) {
     if (!npc.attackable) { this.msg("You can't attack that."); return; }
     this.beginAction({ type: 'attack', npc }, { x: npc.x, y: npc.y }, true);
+    // Already in range and ready: swing now rather than on the next combat beat.
+    const p = this.player;
+    if (!p.isMoving && !this.playerStun && p.attackCooldown <= 0 && p.alive
+      && chebyshev(p.x, p.y, npc.x, npc.y) <= this.attackRange()) this.doPlayerAttack(npc);
   }
 
   defaultNpcAction(npc) {
