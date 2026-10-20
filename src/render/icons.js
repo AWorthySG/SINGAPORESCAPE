@@ -479,6 +479,7 @@
   I.tiger_kris = scim('#d8a23a', '#ffd773');
   I.cursed_cutlass = scim('#3a5a4a', '#6a9a7a');
   I.kampong_gauntlets = gloves('#2f7a6a', '#4fb0a0');
+  I.dragonhide_vambraces = gloves('#3f7a4a', '#5fa06a');
   I.champions_helm = helm('#caa15a', C.goldHi);
   I.island_aegis = shield('#2f6e8a', '#5aa0c4');
   I.merdeka_medallion = `<path d="M9 4 Q12 1.5 15 4" fill="none" stroke="${C.gold}" stroke-width="1.4"/><circle cx="12" cy="14" r="7.4" fill="#c0392b" stroke="${OL}" stroke-width="1.2"/><path d="M14.6 10.5 A4 4 0 1 0 14.6 17.5 A3.1 3.1 0 1 1 14.6 10.5 Z" fill="#fff"/><g fill="#fff"><circle cx="14.1" cy="11.7" r="0.6"/><circle cx="15.4" cy="13" r="0.6"/><circle cx="15.4" cy="15" r="0.6"/><circle cx="14.1" cy="16.3" r="0.6"/><circle cx="13.3" cy="14" r="0.6"/></g>`;
@@ -500,6 +501,10 @@
   I.bronze_arrow = arrowIcon(C.bronze); I.iron_arrow = arrowIcon(C.iron); I.steel_arrow = arrowIcon(C.steel); I.mithril_arrow = arrowIcon(mith); I.adamant_arrow = arrowIcon(adam); I.rune_arrow = arrowIcon(rune);
   I.staff = staffIcon(C.wood, '#cfd6dd'); I.magic_staff = staffIcon('#3a3a55', '#8a96e8'); I.mystic_staff = staffIcon('#2a2a44', mith); I.ancient_staff = staffIcon('#2a1a3a', '#c06ad0');
   I.dragonhide_coif = helm('#3f7a4a', '#5fa06a'); I.dragonhide_body = plate('#3f7a4a', '#5fa06a'); I.dragonhide_chaps = legs('#3f7a4a', '#5fa06a');
+  I.air_staff = staffIcon(C.wood, '#bfe8d0'); I.water_staff = staffIcon('#3a4a66', '#6fb6e0'); I.earth_staff = staffIcon(C.wood, '#8a6a3a');
+  I.fire_staff = staffIcon('#5a2a1a', '#ef7a23'); I.nature_staff = staffIcon('#4a5a2a', '#5fc06a'); I.chaos_staff = staffIcon('#2a1a3a', '#9a4ad0');
+  I.death_staff = staffIcon('#cfc6b0', '#3a3a44'); I.blood_staff = staffIcon('#4a1a1a', '#d02a3a');
+  I.nature_rune = runeIcon('#4f9a3f');
   I.air_rune = runeIcon('#bfe8d0'); I.water_rune = runeIcon('#6fb6e0'); I.earth_rune = runeIcon('#8a6a3a'); I.fire_rune = runeIcon('#ef7a23'); I.mind_rune = runeIcon('#caa15a'); I.chaos_rune = runeIcon('#7a3a8a'); I.death_rune = runeIcon('#3a3a44'); I.blood_rune = runeIcon('#a01a2a');
   I.occult_necklace = `<path d="M9 4 Q12 1.5 15 4" fill="none" stroke="${C.gold}" stroke-width="1.4"/><path d="M12 9 L17 13 L12 21 L7 13 Z" fill="#5b2a8a" stroke="${OL}" stroke-width="1.2" stroke-linejoin="round"/><path d="M12 11 L14.6 13.4 L12 18 L9.4 13.4 Z" fill="#8a5ad0"/><circle cx="12" cy="13.4" r="1" fill="#e0c8ff"/>`;
   I.coif = helm('#7a5530', '#9a734a'); I.leather_chaps = legs('#7a5530', '#9a734a'); I.studded_body = plate('#6a4a2a', '#8a6a3a');
@@ -649,6 +654,8 @@
     'trout', 'tuna', 'turmeric', 'vial', 'void_blade', 'warlord_cape', 'white_pomfret',
     'willow_shortbow', 'wizard_hat', 'wizard_robe_bottom', 'wizard_robe_top', 'wooden_shield',
     'worthy_sigil', 'yew_logs', 'yew_shortbow',
+    // Elemental staves, dragonhide vambraces, nature rune.
+    'air_staff', 'water_staff', 'earth_staff', 'fire_staff', 'nature_staff', 'chaos_staff', 'death_staff', 'blood_staff', 'dragonhide_vambraces', 'nature_rune',
   ]);
   export const itemArtSrc = (id) => (ITEM_ART.has(id) ? `assets/icons/item-${id}.webp` : null);
   const artImg = (file, size, cls) => `<img class="${cls || ''}" width="${size}" height="${size}" src="assets/icons/${file}.webp" alt="" style="display:block;object-fit:contain" />`;
