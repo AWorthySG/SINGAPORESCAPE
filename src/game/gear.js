@@ -36,6 +36,17 @@ export function gearRating(id) {
   return offence + support;
 }
 
+/** Rating including the item's upgrade level, so a +5 piece can beat a better base item. */
+function upgradedRating(id, equipment) {
+  const lv = equipment.upgradeLevel ? equipment.upgradeLevel(id) : 0;
+  if (!lv) return gearRating(id);
+  const base = getItem(id).equip.bonuses || {};
+  const up = equipment.itemBonuses(id);
+  let extra = 0;
+  for (const k of Object.keys(up)) if (k !== 'speed') extra += (up[k] || 0) - (base[k] || 0);
+  return gearRating(id) + (getItem(id).equip.slot === 'weapon' ? Math.round((extra * 2) / swingBeats(id)) : extra);
+}
+
 /** Can the player wear it yet? Lists any skill levels still missing. */
 export function meetsReq(id, skills) {
   const missing = [];
@@ -53,8 +64,8 @@ export function compareGear(id, equipment) {
   if (!eq) return null;
   const worn = equipment.get(eq.slot);
   if (worn === id) return { worn, verdict: 'worn', deltas: [], ratingDelta: 0 };
-  const mine = eq.bonuses || {};
-  const theirs = (worn && getItem(worn).equip?.bonuses) || {};
+  const mine = equipment.itemBonuses ? equipment.itemBonuses(id) : (eq.bonuses || {});
+  const theirs = worn ? (equipment.itemBonuses ? equipment.itemBonuses(worn) : getItem(worn).equip?.bonuses || {}) : {};
   const deltas = [];
   for (const k of STAT_KEYS) {
     const d = (mine[k] || 0) - (theirs[k] || 0);
@@ -68,7 +79,7 @@ export function compareGear(id, equipment) {
   if (eq.slot === 'weapon' && weaponStyle(id) !== weaponStyle(worn)) {
     return { worn, verdict: 'style', deltas, ratingDelta: gearRating(id) - gearRating(worn) };
   }
-  const ratingDelta = gearRating(id) - gearRating(worn);
+  const ratingDelta = upgradedRating(id, equipment) - upgradedRating(worn, equipment);
   return { worn, verdict: ratingDelta > 0 ? 'upgrade' : ratingDelta < 0 ? 'downgrade' : 'same', deltas, ratingDelta };
 }
 

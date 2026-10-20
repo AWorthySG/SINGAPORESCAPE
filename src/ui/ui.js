@@ -17,6 +17,8 @@ import { QUESTS } from '../data/quests.js';
 import { SLAYER_REWARDS } from '../data/slayer.js';
 import { STATIONS, MRT_FARE } from '../data/transport.js';
 import { EQUIP_SLOTS } from '../game/equipment.js';
+import { streakMult } from '../game/bounty.js';
+import { MAX_UPGRADE, upgradeCost, upgradeChance, upgradedName } from '../game/upgrade.js';
 import { STAT_LABELS, STAT_HELP, compareGear, deltaText, gearBySlot, gearRating, meetsReq, swingBeats, tierOf, weaponStyle } from '../game/gear.js';
 import { TILE } from '../config.js';
 import { TERRAIN } from '../data/world.js';
@@ -106,6 +108,7 @@ export class UI {
     this._buildSettingsPanel();
     this._buildAbilityBar();
     document.getElementById('auto-battle-btn')?.addEventListener('click', () => this.game.toggleAutoBattle());
+    document.getElementById('auto-battle-cfg')?.addEventListener('click', () => this.openAutoSettings());
     document.getElementById('interact-btn')?.addEventListener('pointerdown', (e) => { e.preventDefault(); this.game.interact(); });
     this.renderAutoBattle();
 
@@ -146,6 +149,7 @@ export class UI {
     this.bus.on('prayer', () => { this.renderPrayer(); this.renderPrayerPanel(); });
     this.bus.on('skills', () => this.renderPrayerPanel());
     this.bus.on('quest', () => { this.renderQuestPanel(); this.renderTracker(); });
+    this.bus.on('bounties', () => { this.renderQuestPanel(); this.renderTracker(); });
     this.bus.on('achievement', () => this.renderAchievementPanel());
     this.bus.on('slayer', () => { this._refreshModalIfOpen(['slayer', 'slayerRewards']); this.renderTracker(); });
     this.bus.on('bank', () => this._refreshModalIfOpen(['bank']));
@@ -209,6 +213,41 @@ export class UI {
     if (!btn) return;
     btn.classList.toggle('active', this.game.autoBattle);
     btn.textContent = this.game.autoBattle ? 'Auto battle: on' : 'Auto battle: off';
+  }
+
+  openAutoSettings() {
+    const g = this.game;
+    const render = (body) => {
+      const cfg = g.autoCfg;
+      body.innerHTML = '';
+      const sec = (title, opts, cur, set) => {
+        const h = document.createElement('div'); h.className = 'modal-section-title'; h.textContent = title; body.appendChild(h);
+        const row = document.createElement('div'); row.className = 'gear-tabs';
+        for (const [val, label] of opts) {
+          const b = document.createElement('button');
+          b.className = 'gear-tab' + (val === cur ? ' active' : '');
+          b.textContent = label;
+          b.addEventListener('click', () => { set(val); render(body); });
+          row.appendChild(b);
+        }
+        body.appendChild(row);
+      };
+      sec('Eat food when life drops below', [[0, 'Never'], [0.25, '25%'], [0.4, '40%'], [0.6, '60%']], cfg.eatAt, (v) => { cfg.eatAt = v; });
+      // Monster types around you right now (plus the current choice).
+      const p = g.player;
+      const near = new Map();
+      for (const n of g.npcs) {
+        if (n.alive && n.attackable && !n.def.boss && Math.max(Math.abs(n.x - p.x), Math.abs(n.y - p.y)) <= 25) near.set(n.npcId, n.def.name.replace(/^Champion /, ''));
+      }
+      if (cfg.target && !near.has(cfg.target)) { try { near.set(cfg.target, getNpc(cfg.target).name); } catch { cfg.target = null; } }
+      sec('What to fight', [[null, 'Anything nearby'], ...[...near].sort((a, b) => a[1].localeCompare(b[1])).slice(0, 12).map(([id, nm]) => [id, `Only ${nm}`])],
+        cfg.target, (v) => { cfg.target = v; });
+      sec('Use attack skills automatically', [[true, 'Yes'], [false, 'No, save adrenaline']], cfg.abilities, (v) => { cfg.abilities = v; });
+      const hint = document.createElement('div'); hint.className = 'modal-hint';
+      hint.textContent = 'Auto battle always steps out of boss attack markers and uses Brace against heavy blows. Monsters attacking you are fought whatever you choose here.';
+      body.appendChild(hint);
+    };
+    this.openModal('Auto Battle Settings', render);
   }
 
   renderAbilities() {
@@ -397,6 +436,9 @@ export class UI {
           q.textContent = lbl.text;
           cell.appendChild(q);
         }
+        if (item.equip && this.game.equipment.upgradeLevel(s.id)) {
+          cell.insertAdjacentHTML('beforeend', `<span class="up-badge">+${this.game.equipment.upgradeLevel(s.id)}</span>`);
+        }
         if (item.equip) {
           // Green arrow on gear that beats what you're wearing (and you can wear it).
           const cmp = compareGear(s.id, this.game.equipment);
@@ -468,6 +510,8 @@ export class UI {
         const item = getItem(id);
         cell.className = 'equip-slot filled';
         cell.innerHTML = itemIconSVG(id, 32);
+        const lv = this.game.equipment.upgradeLevel(id);
+        if (lv) cell.insertAdjacentHTML('beforeend', `<span class="up-badge">+${lv}</span>`);
         cell.addEventListener('click', () => this.game.unequip(slot));
         this._tip(cell, () => `<b>${item.name}</b>${this._gearTip(id)}<br><span style="opacity:.8">Tap to remove</span>`,
           () => [{ label: 'Remove', target: item.name, fn: () => this.game.unequip(slot) }]);
@@ -499,12 +543,17 @@ export class UI {
     guide.textContent = 'Gear Guide: which equipment is better?';
     guide.addEventListener('click', () => this.openGearGuide());
     this.el.equipBonuses.appendChild(guide);
+    const up = document.createElement('button');
+    up.className = 'bestiary-open gear-guide-open';
+    up.textContent = 'Upgrade gear (+1 to +10)';
+    up.addEventListener('click', () => this.openUpgrade());
+    this.el.equipBonuses.appendChild(up);
   }
 
   /** Stat chips for one piece of gear, e.g. "+12 Defence · 1.2s". */
-  _gearStats(id) {
+  _gearStats(id, base = false) {
     const eq = getItem(id).equip;
-    const b = eq.bonuses || {};
+    const b = base ? (eq.bonuses || {}) : this.game.equipment.itemBonuses(id);
     const chips = Object.keys(STAT_LABELS).filter((k) => b[k]).map((k) => `+${b[k]} ${STAT_LABELS[k]}`);
     if (eq.slot === 'weapon') chips.push(`${capitalize(weaponStyle(id))}, ${(swingBeats(id) * 0.3).toFixed(1)}s swing`);
     return chips.join(' · ') || 'No combat stats';
@@ -517,7 +566,8 @@ export class UI {
     const t = tierOf(id);
     const req = meetsReq(id, this.game.skills);
     const reqTxt = Object.entries(eq.req || {}).filter(([, l]) => l > 1).map(([k, l]) => `${capitalize(k)} ${l}`).join(', ');
-    let html = `<div class="gt-stats">${this._gearStats(id)}</div>`
+    const lv = this.game.equipment.upgradeLevel(id);
+    let html = (lv ? `<div class="gt-up">Upgraded +${lv}</div>` : '') + `<div class="gt-stats">${this._gearStats(id)}</div>`
       + `<div class="gt-tier">#${t.rank} of ${t.of} ${eq.slot === 'weapon' ? weaponStyle(id) + ' weapons' : eq.slot + ' items'}</div>`;
     if (reqTxt) html += `<div class="gt-req ${req.ok ? 'ok' : 'no'}">Needs ${reqTxt}${req.ok ? ' ✓' : ''}</div>`;
     const cmp = compareGear(id, this.game.equipment);
@@ -530,6 +580,51 @@ export class UI {
       return `<span class="${good ? 'pos' : 'neg'}">${deltaText([d])}</span>`;
     }).join(' ')}</div>`;
     return html;
+  }
+
+  // ---------------- Gear upgrades ----------------
+  openUpgrade() {
+    const g = this.game;
+    const render = (body) => {
+      body.innerHTML = '<div class="gear-intro"><p>Spend coins (and metal bars, for metal gear) to make an item stronger: each level adds about 8% to its stats. '
+        + 'Levels belong to the item type, so every copy you own shares them. Up to +5 always works; after that it can fail, which only uses up the materials.</p></div>';
+      const ids = [...new Set([...EQUIP_SLOTS.map((s) => g.equipment.get(s)).filter(Boolean),
+        ...g.inventory.slots.filter((s) => s && getItem(s.id).equip).map((s) => s.id)])];
+      const list = document.createElement('div');
+      list.className = 'gear-list';
+      if (!ids.length) list.innerHTML = '<div class="modal-hint">Wear or carry some gear to upgrade it.</div>';
+      for (const id of ids) {
+        const lv = g.equipment.upgradeLevel(id);
+        const row = document.createElement('div');
+        row.className = 'gear-row';
+        let costHtml = '<b>Fully upgraded</b>';
+        let can = false;
+        if (lv < MAX_UPGRADE) {
+          const c = upgradeCost(id, lv + 1);
+          const okC = g.inventory.count('coins') >= c.coins;
+          const okB = !c.bar || g.inventory.count(c.bar.id) >= c.bar.qty;
+          can = okC && okB;
+          costHtml = `<span class="${okC ? '' : 'short'}">${formatNumber(c.coins)} coins</span>`
+            + (c.bar ? ` · <span class="${okB ? '' : 'short'}">${c.bar.qty} x ${escapeHtml(getItem(c.bar.id).name)}</span>` : '')
+            + ` · ${Math.round(upgradeChance(lv + 1) * 100)}% success`;
+        }
+        const worn = EQUIP_SLOTS.some((s) => g.equipment.get(s) === id);
+        row.innerHTML = `<span class="gear-ic">${itemIconSVG(id, 28)}</span>`
+          + `<div class="gear-info"><div class="gear-name"><b>${escapeHtml(upgradedName(id, lv))}</b>${worn ? '<span class="gear-tag worn">Wearing</span>' : ''}</div>`
+          + `<div class="gear-stats">${this._gearStats(id)}</div><div class="gear-stats">Next: ${costHtml}</div></div>`;
+        if (lv < MAX_UPGRADE) {
+          const b = document.createElement('button');
+          b.className = 'gear-tab' + (can ? ' active' : '');
+          b.textContent = `+${lv + 1}`;
+          b.disabled = !can;
+          b.addEventListener('click', () => { g.upgradeItem(id); render(body); });
+          row.appendChild(b);
+        }
+        list.appendChild(row);
+      }
+      body.appendChild(list);
+    };
+    this.openModal('Upgrade Gear', render);
   }
 
   // ---------------- Gear guide ----------------
@@ -588,7 +683,7 @@ export class UI {
         row.className = 'gear-row' + (id === worn ? ' is-worn' : '') + (req.ok ? '' : ' locked');
         row.innerHTML = `<span class="gear-rank">#${i + 1}</span><span class="gear-ic">${itemIconSVG(id, 28)}</span>`
           + `<div class="gear-info"><div class="gear-name"><b>${escapeHtml(it.name)}</b>${tag}</div>`
-          + `<div class="gear-stats">${this._gearStats(id)}${reqTxt && req.ok ? ` · <i>req ${reqTxt}</i>` : ''}</div></div>`
+          + `<div class="gear-stats">${this._gearStats(id, true)}${reqTxt && req.ok ? ` · <i>req ${reqTxt}</i>` : ''}</div></div>`
           + `<span class="gear-score" title="Gear score">${gearRating(id)}</span>`;
         list.appendChild(row);
       });
@@ -848,7 +943,21 @@ export class UI {
       : s === 'active' ? '<span class="q-active">In progress</span>'
         : '<span class="q-todo">Not started</span>';
     const done = QUESTS.filter((d) => game.quests[d.id]?.state === 'done').length;
-    let html = `<div class="quest-head">Quests complete: ${done} / ${QUESTS.length} &middot; Quest points: ${game.questPoints()}</div>`;
+    let html = '';
+    const b = game.bounties;
+    if (b && b.list.length) {
+      const mult = Math.round((streakMult(b.streak) - 1) * 100);
+      html += `<div class="quest-head">Daily bounties &middot; streak ${b.streak} day${b.streak === 1 ? '' : 's'}${mult ? ` (+${mult}% pay)` : ''}</div>`;
+      for (const t of b.list) {
+        const pct = Math.min(100, Math.round((t.have / t.need) * 100));
+        html += `<div class="quest-row bounty-row${t.done ? ' done' : ''}"><b>${escapeHtml(t.name)}</b>`
+          + (t.done ? '<span class="q-done">Paid</span>' : `<span class="q-active">${t.have}/${t.need}</span>`)
+          + `<span class="q-desc">Defeat ${t.need}${t.zone ? ` in ${escapeHtml(t.zone)}` : ''} &middot; ${formatNumber(Math.round(t.reward * streakMult(b.streak)))} coins</span>`
+          + `<div class="bounty-bar"><i style="width:${pct}%"></i></div></div>`;
+      }
+      html += '<div class="modal-hint">New bounties every day. Finish all three for a bonus, and on back-to-back days to grow your streak.</div>';
+    }
+    html += `<div class="quest-head">Quests complete: ${done} / ${QUESTS.length} &middot; Quest points: ${game.questPoints()}</div>`;
     for (const d of QUESTS) {
       const st = game.quests[d.id]?.state || 'notStarted';
       let prog = '';

@@ -113,7 +113,10 @@
 
     <!-- Active-combat ability bar (bottom-centre) -->
     <div id="ability-bar">
-      <button id="auto-battle-btn" title="Auto battle (T): hunt nearby monsters, eat when hurt and use your skills">Auto battle: off</button>
+      <div class="auto-row">
+        <button id="auto-battle-btn" title="Auto battle (T): hunt nearby monsters, eat when hurt and use your skills">Auto battle: off</button>
+        <button id="auto-battle-cfg" title="Auto battle settings" aria-label="Auto battle settings">&#9881;</button>
+      </div>
       <div id="adrenaline" title="Adrenaline — build it by landing and taking hits, spend it on abilities">
         <div id="adrenaline-fill"></div>
         <span id="adrenaline-label">ADRENALINE <b id="adrenaline-val">0%</b></span>

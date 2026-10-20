@@ -27,6 +27,11 @@ function applySpawnOpts(base, opts) {
   return def;
 }
 
+// Champions: a rare, gold-outlined, tougher version of a normal monster with
+// better loot. Ghostly monsters turn champion far more often after dark.
+export const CHAMPION_CHANCE = 0.04;
+export const NIGHT_FAMILIES = new Set(['ghost', 'undead', 'wisp', 'bat']);
+
 // A world NPC. Monsters fight/wander; townsfolk just wander or stand still.
 export class NPC extends Character {
   constructor(npcId, x, y, wander = 0, opts = null) {
@@ -68,6 +73,28 @@ export class NPC extends Character {
     this.chatText = '';
     this.chatTimer = 0;           // ticks left showing the current chatter line
     this.chatCooldown = randInt(2, 6); // staggered so a flock doesn't cluck in unison
+    this.champion = false;
+    this.maybeChampion(false);
+  }
+
+  /** Roll whether this spawn is a champion (x3 life, harder hits, bigger, better loot). */
+  maybeChampion(night) {
+    // Hand-placed spawns (tamed starter monsters etc.) never turn champion.
+    if (!this.def.attackable || this.def.boss || this.temporary || this._spawnOpts || (this.def.level || 1) < 3) return false;
+    const chance = CHAMPION_CHANCE * (night && NIGHT_FAMILIES.has(this.def.sprite) ? 3 : 1);
+    if (Math.random() >= chance) return false;
+    this.makeChampion();
+    return true;
+  }
+
+  makeChampion() {
+    const d = this.def;
+    this.champion = true;
+    this.def = { ...d, name: `Champion ${d.name}`, maxHp: Math.round((d.maxHp || 1) * 3),
+      maxHit: Math.max(2, Math.round((d.maxHit || 1) * 1.5)), attack: Math.round((d.attack || 1) * 1.25),
+      defence: Math.round((d.defence || 1) * 1.25), scale: (d.scale || 1) * 1.25, champion: true };
+    this.maxHp = this.def.maxHp;
+    this.hp = this.maxHp;
   }
 
   get attackable() { return !!this.def.attackable && this.alive; }
@@ -86,7 +113,7 @@ export class NPC extends Character {
   // ---------------- Per-tick AI ----------------
   tick(game) {
     if (!this.alive) {
-      if (this.respawnTimer > 0 && --this.respawnTimer <= 0) this.respawn();
+      if (this.respawnTimer > 0 && --this.respawnTimer <= 0) { this.respawn(); this.maybeChampion(game.isNight?.()); }
       return;
     }
     if (this.attackCooldown > 0) this.attackCooldown--;
@@ -240,5 +267,6 @@ export class NPC extends Character {
     this.chatText = '';
     this.chatTimer = 0;
     this.chatCooldown = randInt(2, 6);
+    this.champion = false;
   }
 }
