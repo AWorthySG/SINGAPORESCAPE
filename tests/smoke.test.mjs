@@ -207,21 +207,22 @@ test('prayers are defined and well-formed', () => {
 test('every equippable item has its own custom icon', () => {
   const missing = Object.keys(ITEMS).filter((id) => ITEMS[id].equip && !hasIcon(id));
   assert.deepEqual(missing, [], `items missing icons: ${missing.join(', ')}`);
-  assert.ok(itemIconSVG('rune_2h_sword', 24).includes('<svg'));
-  assert.ok(itemIconSVG('merlion_blade', 24).includes('<svg'));
+  // Gear now uses sticker artwork, with the vector kept as a fallback.
+  assert.ok(itemIconSVG('rune_2h_sword', 24).includes('assets/icons/item-rune_2h_sword.webp'));
+  assert.ok(itemIconSVG('merlion_blade', 24).includes('assets/icons/item-merlion_blade.webp'));
 });
 
 test('painted PNG sprites render as stickered images, the rest stay inline vectors', () => {
   // Items shipped as hand-drawn artwork point at assets/items/<id>.png, placed
   // inside the shared A-Worthy sticker filter.
-  const png = itemIconSVG('yew_logs', 32);
-  assert.ok(png.includes('<image') && png.includes('assets/items/yew_logs.png'), 'yew log sprite uses its PNG');
+  const png = itemIconSVG('nasi_lemak', 32);
+  assert.ok(png.includes('<image') && png.includes('assets/items/nasi_lemak.png'), 'nasi lemak sprite uses its PNG');
   // Items with A-Worthy mascot-sticker artwork use that instead.
   assert.ok(itemIconSVG('logs', 32).includes('assets/icons/item-logs.webp'), 'logs use the sticker artwork');
   assert.ok(png.includes('aw-sticker'), 'and gets the sticker border');
-  assert.ok(itemIconSVG('raw_barramundi', 24).includes('assets/items/raw_barramundi.png'));
+  assert.ok(itemIconSVG('raw_arowana', 24).includes('assets/items/raw_arowana.png'));
   // An item without painted art keeps its vector icon.
-  assert.ok(itemIconSVG('merlion_blade', 24).includes('<svg'), 'vector fallback intact');
+  assert.ok(itemIconSVG('arowana', 24).includes('<svg'), 'vector fallback intact');
   // Painted items still retain a vector fallback (so hasIcon stays true).
   assert.ok(hasIcon('logs') && hasIcon('raw_barramundi'));
 });

@@ -1440,3 +1440,8 @@ body.boss-on #tip-toast { top: 132px; }
 /* Wrap the tabs onto a second row rather than hiding any off to the side. */
 #inv-tabs { flex-wrap: wrap; overflow: visible; }
 #inventory-bar { align-items: flex-start; }
+
+/* Day/night badge: top-centre of the minimap (the collapse button owns the
+   top-right corner), showing the illustrated sun / moon. */
+#daynight-badge { top: -8px; right: auto; left: 50%; margin-left: -14px; width: 28px; height: 28px; }
+.dn-icon img { width: 22px; height: 22px; display: block; object-fit: contain; }

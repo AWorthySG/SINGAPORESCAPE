@@ -546,15 +546,9 @@
   ]);
   const itemPngSrc = (id) => `assets/items/${id}.png`;
 
-  // ---- Day/night HUD badge (sun / crescent moon) ----
-  const I_SUN = `<circle cx="12" cy="12" r="5.5" fill="${C.gold}" stroke="${OL}" stroke-width="1.1"/>
-    <circle cx="10.2" cy="10.2" r="1.7" fill="${C.goldHi}" opacity=".7"/>
-    <path d="M12 2.5 L12 5 M12 19 L12 21.5 M2.5 12 L5 12 M19 12 L21.5 12 M5 5 L6.6 6.6 M17.4 17.4 L19 19 M5 19 L6.6 17.4 M17.4 6.6 L19 5" stroke="${C.goldHi}" stroke-width="1.6" stroke-linecap="round"/>`;
-  const I_MOON = `<path d="M15.5 3 C10 3 6 7.5 6 13 C6 18.5 10.5 21.5 15 21 C10.8 19 8.2 14.8 8.2 11 C8.2 7.2 10.8 4.5 15.5 3 Z" fill="#cfd6f2" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/>
-    <circle cx="9.5" cy="9" r=".9" fill="#fff7d0"/><circle cx="12.5" cy="15.5" r=".6" fill="#fff7d0"/>
-    <path d="M18.5 4.5 L19.3 6.4 L21.2 7.2 L19.3 8 L18.5 9.9 L17.7 8 L15.8 7.2 L17.7 6.4 Z" fill="${C.goldHi}"/>`;
-  export const sunIconSVG = (size = 20, cls) => svg(I_SUN, size, cls);
-  export const moonIconSVG = (size = 20, cls) => svg(I_MOON, size, cls);
+  // ---- Day/night HUD badge: illustrated sun and moon artwork ----
+  export const sunIconSVG = (size = 20, cls) => artImg('hud-sun', size, cls);
+  export const moonIconSVG = (size = 20, cls) => artImg('hud-moon', size, cls);
 
   // A-Worthy sticker treatment for every icon: the art is traced with a navy
   // ink line inside a white die-cut border (two dilated copies of its
@@ -605,6 +599,56 @@
     'mithril_mace', 'mithril_longsword', 'mithril_battleaxe', 'mithril_warhammer',
     'mithril_2h_sword', 'mithril_med_helm', 'mithril_chainbody', 'mithril_platelegs',
     'mithril_sq_shield', 'mithril_kiteshield',
+    // Artwork Parts 1-5: food, fish, logs, ores, bars, gems, jewellery,
+    // bronze-to-dragon gear, ranged/magic kit, boss uniques, clues and caskets.
+    'adamant_arrow', 'adamant_bar', 'adamant_scimitar', 'adamantite_ore', 'amulet_of_power',
+    'amulet_of_strength', 'anchovy', 'angsana_logs', 'bamboo', 'barramundi', 'batik_cape',
+    'blessed_halo', 'boar_tusk', 'bones', 'bowl', 'bronze_2h_sword', 'bronze_arrow',
+    'bronze_battleaxe', 'bronze_boots', 'bronze_chainbody', 'bronze_full_helm', 'bronze_gauntlets',
+    'bronze_helm', 'bronze_kiteshield', 'bronze_longsword', 'bronze_mace', 'bronze_med_helm',
+    'bronze_platebody', 'bronze_platelegs', 'bronze_sq_shield', 'bronze_warhammer', 'burnt_fish',
+    'champions_cape', 'champions_helm', 'chilli', 'chisel', 'clay', 'clue_scroll_easy',
+    'clue_scroll_hard', 'clue_scroll_medium', 'cobia', 'cooked_chicken', 'coral_trout',
+    'cursed_cutlass', 'diamond', 'diamond_amulet', 'diamond_ring', 'djinn_lamp', 'dragon_2h_sword',
+    'dragon_battleaxe', 'dragon_boots', 'dragon_chainbody', 'dragon_dagger', 'dragon_full_helm',
+    'dragon_gauntlets', 'dragon_kiteshield', 'dragon_longsword', 'dragon_mace', 'dragon_med_helm',
+    'dragon_platebody', 'dragon_platelegs', 'dragon_scimitar', 'dragon_sq_shield', 'dragon_sword',
+    'dragon_warhammer', 'eel', 'egg', 'emerald', 'emerald_amulet', 'emerald_ring', 'feather',
+    'fire_cape', 'fish_pie', 'galangal', 'garuda_wings', 'giant_snakehead', 'glass_orb',
+    'gold_amulet', 'gold_ore', 'gold_ring', 'golden_snapper', 'granite', 'granite_body',
+    'granite_helm', 'granite_legs', 'granite_maul', 'granite_shield', 'grouper', 'hydra_leather',
+    'iron_2h_sword', 'iron_arrow', 'iron_battleaxe', 'iron_boots', 'iron_chainbody', 'iron_dagger',
+    'iron_full_helm', 'iron_gauntlets', 'iron_kiteshield', 'iron_longsword', 'iron_mace',
+    'iron_med_helm', 'iron_platebody', 'iron_platelegs', 'iron_scimitar', 'iron_sq_shield',
+    'iron_sword', 'iron_warhammer', 'island_aegis', 'jug', 'kampong_gauntlets', 'kaya_toast',
+    'laksa', 'lantern', 'leather_body', 'lemongrass', 'leviathan_trident', 'limestone', 'lobster',
+    'longfin_trevally', 'mackerel', 'magic_logs', 'mahogany_logs', 'mangrove_jack', 'mangrove_logs',
+    'manta_ray', 'maple_logs', 'maple_shortbow', 'marble_goby', 'meat_pie', 'megalodon_jaw',
+    'merdeka_medallion', 'merlion_blade', 'mithril_arrow', 'mithril_bar', 'mithril_dagger',
+    'mithril_full_helm', 'mithril_ore', 'mithril_platebody', 'mithril_scimitar', 'mithril_sword',
+    'molten_glass', 'mystic_bottom', 'mystic_hat', 'mystic_top', 'oak_shortbow', 'pandan_leaves',
+    'peacock_bass', 'phantom_robe', 'pie_dish', 'pike', 'pot', 'raw_barramundi', 'raw_chicken',
+    'raw_eel', 'raw_giant_snakehead', 'raw_golden_snapper', 'raw_grouper', 'raw_lobster',
+    'raw_longfin_trevally', 'raw_mackerel', 'raw_mangrove_jack', 'raw_manta_ray', 'raw_marble_goby',
+    'raw_peacock_bass', 'raw_pike', 'raw_red_drum', 'raw_red_snapper', 'raw_salmon', 'raw_shark',
+    'raw_speckled_temensis', 'raw_stingray', 'raw_swordfish', 'raw_tenggiri', 'raw_tilapia',
+    'raw_tuna', 'red_drum', 'red_snapper', 'revenant_cape', 'reward_casket_easy',
+    'reward_casket_hard', 'reward_casket_medium', 'ring_of_kampong', 'ring_of_might', 'ruby',
+    'ruby_amulet', 'ruby_ring', 'rune_2h_sword', 'rune_arrow', 'rune_bar', 'rune_battleaxe',
+    'rune_boots', 'rune_chainbody', 'rune_full_helm', 'rune_gauntlets', 'rune_kiteshield',
+    'rune_longsword', 'rune_mace', 'rune_med_helm', 'rune_platebody', 'rune_platelegs',
+    'rune_scimitar', 'rune_sq_shield', 'rune_warhammer', 'runite_ore', 'salmon', 'sandstone',
+    'sapphire', 'sapphire_amulet', 'sapphire_ring', 'sardine', 'seafood_platter', 'seafood_stew',
+    'seraph_blade', 'shadow_cloak', 'shark', 'shortbow', 'silver_ore', 'slayer_helmet',
+    'slayer_ring', 'songket_cape', 'speckled_temensis', 'steel_2h_sword', 'steel_arrow',
+    'steel_bar', 'steel_battleaxe', 'steel_boots', 'steel_chainbody', 'steel_dagger',
+    'steel_full_helm', 'steel_gauntlets', 'steel_kiteshield', 'steel_longsword', 'steel_mace',
+    'steel_med_helm', 'steel_platebody', 'steel_platelegs', 'steel_scimitar', 'steel_sq_shield',
+    'steel_sword', 'steel_warhammer', 'stingray', 'swordfish', 'teak_logs', 'tembusu_logs',
+    'tenggiri', 'threadfin', 'tiger_fang', 'tiger_kris', 'tilapia', 'trades_cape', 'treant_shield',
+    'trout', 'tuna', 'turmeric', 'vial', 'void_blade', 'warlord_cape', 'white_pomfret',
+    'willow_shortbow', 'wizard_hat', 'wizard_robe_bottom', 'wizard_robe_top', 'wooden_shield',
+    'worthy_sigil', 'yew_logs', 'yew_shortbow',
   ]);
   export const itemArtSrc = (id) => (ITEM_ART.has(id) ? `assets/icons/item-${id}.webp` : null);
   const artImg = (file, size, cls) => `<img class="${cls || ''}" width="${size}" height="${size}" src="assets/icons/${file}.webp" alt="" style="display:block;object-fit:contain" />`;
