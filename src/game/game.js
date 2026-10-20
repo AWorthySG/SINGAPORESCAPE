@@ -1,6 +1,7 @@
 import { EventBus } from '../core/events.js';
 import { buildWorld } from '../data/world.js';
 import { compareGear, deltaText } from './gear.js';
+import { RARITY, dropRarity, lootDelay } from './loot.js';
 import { getItem } from '../data/items.js';
 import { chebyshev, randInt, weightedPick, capitalize } from '../core/utils.js';
 import {
@@ -77,6 +78,7 @@ export class Game {
     this.running = false;
     this.runEnergy = 100;
     this.effects = [];
+    this.hazards = [];          // pending boss area attacks (red ground markers)
     this.particles = [];
     // Screen-shake state (big hits, boss slams). Decays over shakeDur ms.
     this.shakeT = 0;
@@ -270,7 +272,7 @@ export class Game {
   addHitsplat(entity, dmg, opts = {}) {
     if (entity && dmg > 0) entity.hurt = 200; // flash the struck entity
     entity._splatN = ((entity._splatN || 0) + 1) % 3;
-    this.effects.push({ type: 'hitsplat', entity, dmg, crit: !!opts.crit, life: 1100, fan: entity._splatN - 1 });
+    this.effects.push({ type: 'hitsplat', entity, dmg, crit: !!opts.crit, text: opts.text, life: 1100, fan: entity._splatN - 1 });
     if (opts.crit && dmg > 0) this.addShake(2.5, 180); // crits thump the screen a little
   }
 
@@ -414,6 +416,7 @@ export class Game {
       else { this.resolvePlayerAction(); this._autoBattleTick(); }
       this._autoPickup();
     }
+    this._resolveHazards();
     // Only tick NPCs near the player (the bestiary is large).
     const px = this.player.x, py = this.player.y;
     // Cached so every aggressive NPC's _combatAI can cheaply see how many
@@ -1094,13 +1097,13 @@ export class Game {
     const loot = [];
     for (const d of def.alwaysDrop || []) {
       const q = d.min ? randInt(d.min, d.max) : 1;
-      loot.push([d.id, q]);
+      loot.push([d.id, q, 'common']);
     }
     if (def.dropTable && def.dropTable.length) {
       const pick = weightedPick(def.dropTable);
       if (!pick.nothing) {
         const q = pick.min ? randInt(pick.min, pick.max) : 1;
-        loot.push([pick.id, q]);
+        loot.push([pick.id, q, dropRarity(pick.id, 'table', { boss: !!def.boss })]);
       }
     }
     // Rare drop table — small base chance, much higher for bosses & high levels.
@@ -1108,7 +1111,7 @@ export class Game {
     if (Math.random() < rareChance) {
       const pick = weightedPick(RARE_DROP_TABLE);
       const q = pick.min ? randInt(pick.min, pick.max) : 1;
-      loot.push([pick.id, q]);
+      loot.push([pick.id, q, dropRarity(pick.id, 'rare')]);
       const nm = getItem(pick.id).name;
       this.msg(`A rare drop! ${q > 1 ? q + ' x ' : ''}${nm}.`, 'level');
       if (getItem(pick.id).value >= 5000) this.banner(`<span class="big">Rare drop!</span>${nm}`);
@@ -1118,7 +1121,7 @@ export class Game {
       const clueChance = Math.min(0.05, (def.level || 1) / 3000 + (def.boss ? 0.04 : 0.006));
       if (Math.random() < clueChance) {
         const tier = clueTierForLevel(def.level || 1);
-        loot.push([CLUE_TIERS[tier].item, 1]);
+        loot.push([CLUE_TIERS[tier].item, 1, 'epic']);
         this.msg('You find a clue scroll!', 'level');
       }
     }
@@ -1129,14 +1132,21 @@ export class Game {
   // MapleStory-style loot: drops pop out onto the ground in a little fan,
   // then (next tick) fly into your pack wherever you are.
   _autoLoot(loot, x, y) {
-    loot.forEach(([id, qty], i) => {
+    let best = 'common';
+    loot.forEach(([id, qty, rarity = 'common'], i) => {
       const gi = this.world.addGroundItem(id, qty, x, y);
       const a = (i / Math.max(1, loot.length)) * Math.PI * 2 + Math.random();
       gi.ox = Math.cos(a) * 9; gi.oy = Math.sin(a) * 5;     // pixel scatter
       gi.born = performance.now();
       gi.fromKill = true;
-      gi.lootAt = this.tickCount + 1;
+      gi.rarity = rarity;
+      gi.lootAt = this.tickCount + lootDelay(rarity);       // rare drops linger so you see the beam
+      if (RARITY[rarity].rank > RARITY[best].rank) best = rarity;
     });
+    if (best !== 'common') {
+      this.bus.emit('sfx', best === 'rare' ? 'droprare' : 'dropepic');
+      if (best === 'legendary') this.addShake(3, 240);
+    }
   }
 
   /** Each tick: sweep up kill drops (from anywhere) and any other loot within 2 tiles. */
@@ -1145,18 +1155,22 @@ export class Game {
     if (!p.alive) return;
     const at = this.playerTile();
     const got = [];
+    let special = false;
     for (const gi of [...this.world.groundItems]) {
       if (gi.playerDropped) continue;                     // things you drop stay dropped
-      const near = chebyshev(at.x, at.y, gi.x, gi.y) <= 2;
-      if (!(near || (gi.fromKill && this.tickCount >= gi.lootAt))) continue;
+      // Kill drops fly in once their (rarity-based) delay is up, wherever you are;
+      // anything else is swept up when you're within 2 tiles.
+      if (gi.fromKill ? this.tickCount < gi.lootAt : chebyshev(at.x, at.y, gi.x, gi.y) > 2) continue;
       const added = this.inventory.add(gi.id, gi.qty);
       if (added <= 0) continue;
-      got.push(`${added > 1 ? added + ' x ' : ''}${getItem(gi.id).name}`);
+      const rar = RARITY[gi.rarity];
+      if (rar && rar.rank > 0) special = true;
+      got.push(`${added > 1 ? added + ' x ' : ''}${getItem(gi.id).name}${rar && rar.rank > 0 ? ` (${rar.label})` : ''}`);
       const c = p.renderCenter();
-      this.effects.push({ type: 'lootfly', id: gi.id, x: gi.x * TILE + TILE / 2 + (gi.ox || 0), y: gi.y * TILE + TILE * 0.62 + (gi.oy || 0), ex: c.x, ey: c.y - 10, life: 420, maxLife: 420 });
+      this.effects.push({ type: 'lootfly', id: gi.id, rarity: gi.rarity, x: gi.x * TILE + TILE / 2 + (gi.ox || 0), y: gi.y * TILE + TILE * 0.62 + (gi.oy || 0), ex: c.x, ey: c.y - 10, life: 420, maxLife: 420 });
       this.world.removeGroundItem(gi);
     }
-    if (got.length) { this.msg(`You loot: ${got.join(', ')}.`); this.bus.emit('sfx', 'pickup'); }
+    if (got.length) { this.msg(`You loot: ${got.join(', ')}.`, special ? 'level' : 'game'); this.bus.emit('sfx', 'pickup'); }
   }
 
   _holdsClue() { return this.inventory.slots.some((s) => s && s.id.startsWith('clue_scroll_')); }
@@ -1406,6 +1420,58 @@ export class Game {
     }
   }
 
+  /** Boss area attack: mark the ground now, strike in 3 ticks (~1.8s). Alternates
+   *  between a 3x3 blast on the player and a 5x5 nova around the boss. */
+  bossHazard(npc) {
+    const p = this.player;
+    if (!p.alive) return;
+    npc._aoeFlip = !npc._aoeFlip;
+    const at = this.playerTile();
+    const nova = !npc._aoeFlip;
+    const h = nova ? { cx: npc.x, cy: npc.y, r: 2 } : { cx: at.x, cy: at.y, r: 1 };
+    Object.assign(h, { npc, kind: nova ? 'nova' : 'blast', fireTick: this.tickCount + 3, start: performance.now(), dur: 3 * TICK_MS });
+    this.hazards.push(h);
+    this.spawnSparkle(npc, '#ff5a5a', 10);
+    this.bus.emit('sfx', 'spec');
+    this.msg(nova ? `${npc.name} gathers power around itself. Get away from it!` : `${npc.name} targets the ground under you. Move out of the red!`, 'combat');
+  }
+
+  /** Is this tile inside any pending boss attack? */
+  hazardAt(x, y) {
+    return this.hazards.some((h) => Math.abs(x - h.cx) <= h.r && Math.abs(y - h.cy) <= h.r);
+  }
+
+  _resolveHazards() {
+    if (!this.hazards.length) return;
+    const p = this.player;
+    const keep = [];
+    for (const h of this.hazards) {
+      if (!h.npc.alive || !p.alive) continue;               // the boss fell: its attack fizzles
+      if (chebyshev(p.x, p.y, h.cx, h.cy) > 15) continue;   // you've left (teleported away)
+      if (this.tickCount < h.fireTick) { keep.push(h); continue; }
+      this.effects.push({ type: 'blast', x: h.cx * TILE + TILE / 2, y: h.cy * TILE + TILE / 2, r: (h.r + 0.5) * TILE, life: 380, maxLife: 380 });
+      this.addShake(3.5, 260);
+      const t = this.playerTile();
+      if (Math.abs(t.x - h.cx) <= h.r && Math.abs(t.y - h.cy) <= h.r) {
+        const { max } = npcAttackVsPlayer(h.npc.def, this.skills, this.equipment, p.style);
+        let dmg = Math.min(Math.round(max * 1.8) + 2, Math.ceil(this.maxHp() * 0.45));  // hurts, never one-shots
+        const prot = this.protectFactor();
+        if (prot) dmg = Math.floor(dmg * (1 - prot));
+        if (this.braceTicks > 0) dmg = Math.floor(dmg * 0.5);
+        dmg = Math.min(p.hp, dmg);
+        p.takeDamage(dmg); this.addHitsplat(p, dmg, { crit: true }); this.spawnHitSparks(p, '#ff5a3a');
+        this.bus.emit('sfx', 'hurt'); this.bus.emit('hp');
+        this.msg(`${h.npc.name}'s attack hits you for ${dmg}!`, 'combat');
+        if (p.hp <= 0) { this.playerDeath(); break; }
+      } else {
+        this.addHitsplat(p, 0, { text: 'Dodged!' });
+        this._gainAdrenaline(8);                              // a clean dodge pays out
+        this.msg(`You dodge ${h.npc.name}'s attack!`, 'combat');
+      }
+    }
+    this.hazards = p.alive ? keep : [];
+  }
+
   playerDeath() {
     this.msg('Oh dear, you are dead!', 'combat');
     if (this.autoBattle) this.toggleAutoBattle(false);
@@ -1476,6 +1542,23 @@ export class Game {
       this.toggleAutoBattle(false);
       return;
     }
+    // 0b. Step out of a boss's red ground marker, then go back to the fight.
+    const at = this.playerTile();
+    if (this.hazardAt(at.x, at.y)) {
+      const safe = this._safeTileNear(at);
+      if (safe) {
+        if (p.action?.type === 'attack' && p.action.npc?.alive) this._autoResume = p.action.npc;
+        this.walkTo(safe);
+      }
+      return;
+    }
+    // Mid-dodge: hold still until the attack lands, rather than chasing something back into it.
+    if (this.hazards.some((h) => chebyshev(at.x, at.y, h.cx, h.cy) <= h.r + 4)) return;
+    if (this._autoResume) {
+      const n = this._autoResume;
+      this._autoResume = null;
+      if (n.alive) { this.attackNpc(n); return; }
+    }
     // 1. Stay alive: eat below 40% life, or Second Wind when out of food.
     if (p.hp <= this.maxHp() * 0.4) {
       const idx = this.inventory.slots.findIndex((sl) => sl && getItem(sl.id).heal);
@@ -1520,6 +1603,22 @@ export class Game {
       this._autoIdleSaid = true;
       this.msg('Auto battle: nothing to fight nearby. Walk somewhere wilder and it will pick up again.', 'system');
     }
+  }
+
+  /** Nearest walkable tile (within 4) that no boss attack is about to hit. */
+  _safeTileNear(at) {
+    for (let r = 1; r <= 4; r++) {
+      let best = null, bd = Infinity;
+      for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        const x = at.x + dx, y = at.y + dy;
+        if (!this.world.inBounds(x, y) || this.world.isBlocked(x, y) || this.hazardAt(x, y)) continue;
+        const d = dx * dx + dy * dy;
+        if (d < bd) { bd = d; best = { x, y }; }
+      }
+      if (best) return best;
+    }
+    return null;
   }
 
   _autoAbility(filter, biggestFirst = false) {

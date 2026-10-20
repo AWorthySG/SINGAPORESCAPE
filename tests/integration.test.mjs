@@ -1633,3 +1633,73 @@ test('day/night cycle: a smooth, repeating brightness curve driving isNight/cloc
   assert.ok(game.dayPhase() > before, 'the clock advances as play time accrues');
 });
 
+
+test('rare drops are colour-coded and linger with a beam before flying into the pack', async () => {
+  const { dropRarity, RARITY } = await import('../src/game/loot.js');
+  assert.equal(dropRarity('bones', 'always'), 'common');
+  assert.equal(dropRarity('bronze_sword', 'table'), 'rare', 'gear from a monster is at least rare');
+  assert.ok(['epic', 'legendary'].includes(dropRarity('coins', 'rare')), 'the rare drop table is epic or better');
+  assert.equal(dropRarity('bronze_sword', 'clue'), 'epic');
+  assert.ok(RARITY.legendary.rank > RARITY.epic.rank && RARITY.epic.rank > RARITY.rare.rank);
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  const x = game.player.x + 5, y = game.player.y;
+  game._autoLoot([['bones', 1, 'common'], ['bronze_sword', 1, 'rare']], x, y);
+  const sword = game.world.groundItems.find((g) => g.id === 'bronze_sword');
+  assert.equal(sword.rarity, 'rare');
+  game.update(600);
+  assert.ok(!game.world.groundItems.some((g) => g.id === 'bones' && g.fromKill), 'common loot flies in at once');
+  assert.ok(game.world.groundItems.includes(sword), 'the rare drop lingers so its beam is seen');
+  game.update(600);
+  assert.ok(!game.world.groundItems.includes(sword), 'then it flies into the pack too');
+  assert.ok(game.inventory.count('bronze_sword') >= 1);
+});
+
+test('boss area attacks: red ground marker first, then it hits only if you stay in it', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  const p = game.player;
+  game.npcs = game.npcs.filter((n) => Math.max(Math.abs(n.x - p.x), Math.abs(n.y - p.y)) > 15);  // no pecking chickens
+  const boss = game.spawnNpc('boar_king', p.x + 60, p.y, { wander: 0 });   // far enough not to join in
+  game.bossHazard(boss);           // first pattern: a 3x3 blast on the player
+  assert.equal(game.hazards.length, 1);
+  assert.ok(game.hazardAt(p.x, p.y) && game.hazardAt(p.x + 1, p.y + 1) && !game.hazardAt(p.x + 2, p.y));
+  const hp0 = p.hp;
+  step(game, 3);
+  assert.equal(game.hazards.length, 0, 'it lands after ~1.8s');
+  assert.ok(p.hp < hp0, 'standing in the red hurts');
+  assert.ok(hp0 - p.hp <= Math.ceil(game.maxHp() * 0.45), 'but never one-shots you');
+  // Step out of the marker and it misses.
+  p.hp = game.maxHp();
+  game.bossHazard(boss); game.bossHazard(boss);   // nova around the boss, then a blast on you
+  const blast = game.hazards[1];
+  assert.equal(blast.kind, 'blast');
+  game.hazards = [blast];
+  p.x = p.tx = blast.cx + 3;
+  step(game, 3);
+  assert.equal(p.hp, game.maxHp(), 'dodged');
+  assert.ok(game.effects.some((e) => e.type === 'hitsplat' && e.text === 'Dodged!'));
+});
+
+test('auto battle steps out of a boss marker by itself', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  const p = game.player;
+  game.npcs = game.npcs.filter((n) => Math.max(Math.abs(n.x - p.x), Math.abs(n.y - p.y)) > 15);  // no pecking chickens
+  const boss = game.spawnNpc('boar_king', p.x + 60, p.y, { wander: 0 });
+  const chat = [];
+  game.bus.on('chat', (c) => chat.push(c.text));
+  game.toggleAutoBattle(true);
+  game.bossHazard(boss);
+  const hp0 = p.hp;
+  step(game, 4);
+  assert.ok(p.hp >= hp0, 'auto battle dodged the blast');
+  assert.ok(chat.some((t) => t.startsWith('You dodge')));
+});

@@ -3,6 +3,7 @@ import { TERRAIN } from '../data/world.js';
 import { getItem } from '../data/items.js';
 import { weaknessOf } from '../game/combat.js';
 import { drawShadow, drawCreature, drawPlayer, drawObjectSprite, drawGroundItem } from './sprites.js';
+import { RARITY } from '../game/loot.js';
 import { itemIconImage } from './icons.js';
 
 // Base terrain colours (RGB): a bright pastel world in the A-Worthy palette
@@ -103,6 +104,7 @@ export class Renderer {
       this._drawTerrain(x0, y0, x1, y1, ox, oy, timeMs);
     }
     this._drawGroundDecals(ox, oy);
+    this._drawHazards(ox, oy, timeMs);
 
     // Depth-sorted drawables.
     const drawables = [];
@@ -138,13 +140,31 @@ export class Renderer {
       const age = g.born ? Math.min(1, (performance.now() - g.born) / 260) : 1;
       const hop = g.born ? Math.sin(age * Math.PI) * 10 : 0;
       const cx = g.x * TILE + TILE / 2 - ox + (g.ox || 0) * age, cy = g.y * TILE + TILE * 0.62 - oy + (g.oy || 0) * age - hop;
+      const rar = RARITY[g.rarity] || RARITY.common;
       drawables.push({ sortY: g.y - 0.3, z: 0, draw: () => {
-        // Soft glow so loot on the ground is easy to spot.
+        // Soft glow so loot on the ground is easy to spot, tinted by rarity.
         ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.globalAlpha = 0.22 + Math.sin(timeMs * 0.005 + g.x + g.y) * 0.06;
-        ctx.fillStyle = '#ffe79a';
-        ctx.beginPath(); ctx.arc(cx, cy, 8, 0, Math.PI * 2); ctx.fill();
+        // Additive light vanishes on the pale pastel ground, so rare beams paint solid colour.
+        ctx.globalCompositeOperation = rar.rank ? 'source-over' : 'lighter';
+        if (rar.rank > 0) {
+          // Rare+ drops shoot a pillar of light and pulse a ring at their base.
+          const grow = Math.min(1, age * 1.6);
+          const bh = (34 + rar.rank * 14) * grow, bw = 5 + rar.rank * 2;
+          const beam = ctx.createLinearGradient(0, cy - bh, 0, cy);
+          beam.addColorStop(0, rar.color + '00');
+          beam.addColorStop(0.6, rar.color + 'AA');
+          beam.addColorStop(1, rar.color);
+          ctx.globalAlpha = 0.75 + Math.sin(timeMs * 0.012) * 0.2;
+          ctx.fillStyle = beam;
+          ctx.fillRect(cx - bw / 2, cy - bh, bw, bh);
+          const ring = (timeMs % 700) / 700;
+          ctx.globalAlpha = 1 - ring;
+          ctx.strokeStyle = rar.color; ctx.lineWidth = 2.5;
+          ctx.beginPath(); ctx.ellipse(cx, cy + 3, 6 + ring * 10, 3 + ring * 5, 0, 0, Math.PI * 2); ctx.stroke();
+        }
+        ctx.globalAlpha = rar.rank ? 0.35 : 0.22 + Math.sin(timeMs * 0.005 + g.x + g.y) * 0.06;
+        ctx.fillStyle = rar.color;
+        ctx.beginPath(); ctx.arc(cx, cy, rar.rank ? 10 : 8, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
         ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
         drawGroundItem(ctx, g.id, cx, cy);
@@ -346,6 +366,19 @@ export class Renderer {
         ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
         continue;
       }
+      if (e.type === 'blast') {
+        // A boss area attack landing: an expanding shock ring.
+        const t = 1 - e.life / e.maxLife;
+        ctx.save();
+        ctx.globalAlpha = (1 - t) * 0.85;
+        ctx.strokeStyle = '#ff7a3a'; ctx.lineWidth = 6 * (1 - t) + 1;
+        ctx.beginPath(); ctx.arc(e.x - ox, e.y - oy, e.r * (0.4 + t * 0.8), 0, Math.PI * 2); ctx.stroke();
+        ctx.globalAlpha = (1 - t) * 0.3;
+        ctx.fillStyle = '#ffb27a';
+        ctx.beginPath(); ctx.arc(e.x - ox, e.y - oy, e.r * (0.3 + t * 0.6), 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+        continue;
+      }
       if (e.type === 'lootfly') {
         // Loot arcs up and into your pack, shrinking as it goes.
         const t = 1 - e.life / e.maxLife;
@@ -354,6 +387,15 @@ export class Renderer {
         const y = e.y + (e.ey - e.y) * ease - oy - Math.sin(t * Math.PI) * 26;
         const img = itemIconImage(e.id);
         const s = 20 * (1 - t * 0.55);
+        const rar = RARITY[e.rarity];
+        if (rar && rar.rank > 0) {
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.globalAlpha = 0.5 * (1 - t);
+          ctx.fillStyle = rar.color;
+          ctx.beginPath(); ctx.arc(x, y, s * 0.7, 0, Math.PI * 2); ctx.fill();
+          ctx.restore();
+        }
         if (img && img.complete && img.naturalWidth) {
           ctx.globalAlpha = t > 0.85 ? (1 - t) / 0.15 : 1;
           ctx.drawImage(img, x - s / 2, y - s / 2, s, s);
@@ -571,6 +613,39 @@ export class Renderer {
     if (land(w.terrainAt(x + 1, y))) ctx.fillRect(sx + TILE - 1, sy, 2, TILE + 1);
   }
 
+  /** Boss area attacks: red tiles with a fill that grows toward the moment it lands. */
+  _drawHazards(ox, oy, timeMs) {
+    const { ctx, game } = this;
+    if (!game.hazards || !game.hazards.length) return;
+    const now = performance.now();
+    for (const h of game.hazards) {
+      const k = Math.max(0, Math.min(1, (now - h.start) / h.dur));
+      const x = (h.cx - h.r) * TILE - ox, y = (h.cy - h.r) * TILE - oy, w = (h.r * 2 + 1) * TILE;
+      const pulse = 0.5 + Math.sin(timeMs * 0.02) * 0.5;
+      ctx.save();
+      ctx.fillStyle = `rgba(239,71,111,${(0.16 + pulse * 0.1).toFixed(3)})`;
+      ctx.fillRect(x, y, w, w);
+      // The inner square fills outward from the centre: when it reaches the edge, it hits.
+      const iw = w * k;
+      ctx.fillStyle = `rgba(192,57,43,${(0.22 + k * 0.25).toFixed(3)})`;
+      ctx.fillRect(x + (w - iw) / 2, y + (w - iw) / 2, iw, iw);
+      ctx.setLineDash([6, 4]);
+      ctx.lineDashOffset = -timeMs * 0.03;
+      ctx.strokeStyle = '#C0392B'; ctx.lineWidth = 2.5;
+      ctx.strokeRect(x + 1.5, y + 1.5, w - 3, w - 3);
+      ctx.setLineDash([]);
+      // Warning sign in the middle.
+      const cx = x + w / 2, cy = y + w / 2;
+      ctx.fillStyle = '#fff'; ctx.strokeStyle = '#22304A'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(cx, cy, 8 + pulse * 1.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#C0392B'; ctx.font = '900 13px Nunito,"Trebuchet MS",sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('!', cx, cy + 1);
+      ctx.textBaseline = 'alphabetic';
+      ctx.restore();
+    }
+  }
+
   _drawGroundDecals(ox, oy) {
     const { ctx, game } = this;
     if (game.input && game.input.inside) {
@@ -749,6 +824,19 @@ export class Renderer {
       ctx.save();
       ctx.globalAlpha = a;
       ctx.translate(px, py); ctx.scale(pop, pop);
+      if (e.text) {
+        // A word instead of a number (e.g. "Dodged!"): a white sticker label.
+        ctx.font = '900 11px Nunito,"Trebuchet MS",sans-serif';
+        const tw = ctx.measureText(e.text).width + 12;
+        ctx.fillStyle = '#fff'; ctx.strokeStyle = '#22304A'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.roundRect ? ctx.roundRect(-tw / 2, -8, tw, 16, 8) : ctx.rect(-tw / 2, -8, tw, 16);
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#1F7A3D'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(e.text, 0, 1);
+        ctx.textBaseline = 'alphabetic';
+        ctx.restore(); ctx.globalAlpha = 1;
+        continue;
+      }
       // Splat body: gold for a max hit, red for a hit, blue for a block/miss.
       ctx.fillStyle = e.crit ? '#f2c029' : hit ? '#c81e1e' : '#39557d';
       ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
