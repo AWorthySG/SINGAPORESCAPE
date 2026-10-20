@@ -1,5 +1,6 @@
 import { EventBus } from '../core/events.js';
 import { buildWorld } from '../data/world.js';
+import { compareGear, deltaText } from './gear.js';
 import { getItem } from '../data/items.js';
 import { chebyshev, randInt, weightedPick, capitalize } from '../core/utils.js';
 import {
@@ -1704,11 +1705,17 @@ export class Game {
         return;
       }
     }
+    const cmp = compareGear(s.id, this.equipment);
     this.inventory.removeAt(index, 1);
     const prev = this.equipment.get(eq.slot);
     this.equipment.set(eq.slot, s.id);
     if (prev) this.inventory.add(prev, 1);
     this.msg(`You ${eq.slot === 'weapon' ? 'wield' : 'wear'} the ${item.name.toLowerCase()}.`);
+    // Say plainly whether that was a step up, so players learn which gear is better.
+    if (cmp && prev && cmp.verdict !== 'same' && cmp.verdict !== 'worn') {
+      const head = { upgrade: 'Upgrade!', downgrade: 'Downgrade:', style: 'New style:' }[cmp.verdict];
+      if (cmp.deltas.length) this.msg(`${head} ${deltaText(cmp.deltas)} vs your ${getItem(prev).name.toLowerCase()}.`, cmp.verdict === 'upgrade' ? 'level' : 'system');
+    }
   }
 
   unequip(slot) {
