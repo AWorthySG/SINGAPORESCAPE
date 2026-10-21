@@ -2154,3 +2154,29 @@ test('stronger bows exist and drop from high-level monsters and bosses', async (
     assert.ok(from.length > 0, `${b} drops somewhere`);
   }
 });
+
+test('split shot: at Ranged 300 a bow shot hits three targets at once', async () => {
+  const { xpForLevel } = await import('../src/data/xp.js');
+  const { NPC } = await import('../src/game/npc.js');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.equipment.set('weapon', 'magic_shortbow');
+  game.inventory.add('rune_arrow', 500);
+  const p = game.player;
+  const mk = (dx) => new NPC('goblin', p.x + dx, p.y, 0, {});
+  const fire = () => {
+    const [a, b, c, far] = [mk(3), mk(4), mk(5), mk(40)];
+    game.npcs = [a, b, c, far];
+    game.effects = [];
+    game._rangedAttack(a);
+    return { arrows: game.effects.filter((e) => e.type === 'projectile').length, far };
+  };
+  game.skills.xp.ranged = xpForLevel(299);
+  assert.equal(fire().arrows, 1, 'below 300: one arrow');
+  game.skills.xp.ranged = xpForLevel(300);
+  const r = fire();
+  assert.equal(r.arrows, 3, 'at 300: three arrows');
+  assert.equal(r.far.hp, r.far.maxHp, 'out-of-range monsters are not hit');
+});
