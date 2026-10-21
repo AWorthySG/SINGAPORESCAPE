@@ -73,6 +73,7 @@ const WEAKNESS_BY_SPRITE = {
 };
 
 export const WEAKNESS_BONUS = { acc: 1.15, dmg: 1.10 };
+export const MELEE_BONUS = { acc: 1.2, dmg: 1.3 };
 
 /** The combat style ('melee'|'ranged'|'magic') a monster is weakest to. */
 export function weaknessOf(def) {
@@ -87,9 +88,11 @@ export function weaknessOf(def) {
 export function playerAttackVsNpc(skills, equip, styleId, npc) {
   const style = STYLES[styleId] || STYLES.accurate;
   const bonuses = equip.bonuses();
-  const aRoll = attackRoll(skills.attack, style.atk, bonuses.attack);
+  // Melee trades reach for power: it has to close the distance, so it lands
+  // more often and hits harder than the formula's base (x1.2 accuracy, x1.3+1 max).
+  const aRoll = attackRoll(skills.attack, style.atk, bonuses.attack) * MELEE_BONUS.acc;
   const dRoll = defenceRoll(npc.defence, 0, 0);
-  const mh = maxHit(skills.strength, style.str, bonuses.strength);
+  const mh = Math.round(maxHit(skills.strength, style.str, bonuses.strength) * MELEE_BONUS.dmg) + 1;
   return { atkRoll: aRoll, defRoll: dRoll, max: mh };
 }
 

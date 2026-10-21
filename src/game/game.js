@@ -95,7 +95,7 @@ export class Game {
     this.hitStop = 0;           // ms of near-frozen animation after a big hit
     // Auto battle settings: eat below this fraction of life (0 = never),
     // fight only one monster type (null = anything), use attack skills.
-    this.autoCfg = { eatAt: 0.4, target: null, abilities: true };
+    this.autoCfg = { eatAt: 0.4, target: null, abilities: true, bosses: true };
     this.particles = [];
     // Screen-shake state (big hits, boss slams). Decays over shakeDur ms.
     this.shakeT = 0;
@@ -1555,7 +1555,11 @@ export class Game {
         if (adds < 4) {
           for (let i = 0; i < 2; i++) {
             const ox = npc.x + (i ? 1 : -1), oy = npc.y + 1;
-            if (!this.world.isBlocked(ox, oy)) this.spawnNpc('imp', ox, oy, { temporary: true });
+            if (this.world.isBlocked(ox, oy)) continue;
+            // Summoned minions always join the fight, whatever their species' temperament.
+            const add = this.spawnNpc('imp', ox, oy, { temporary: true });
+            add.def = { ...add.def, aggressive: true, aggroRange: 8, ignoreLevelGate: true };
+            add.target = this.player;
           }
           this.msg(`${npc.name} summons minions!`, 'combat');
         }
@@ -1685,6 +1689,20 @@ export class Game {
   }
 
   // ---------------- Auto battle ----------------
+  /** One-line description of what auto battle is doing, for the HUD. */
+  autoStatus() {
+    if (!this.autoBattle) return 'Off';
+    const p = this.player;
+    const at = this.playerTile();
+    if (this.hazards.some((h) => Math.abs(at.x - h.cx) <= h.r + 1 && Math.abs(at.y - h.cy) <= h.r + 1)) return 'Dodging!';
+    const a = p.action;
+    if (a && a.type === 'attack' && a.npc && a.npc.alive) {
+      const inRange = chebyshev(p.x, p.y, a.npc.x, a.npc.y) <= this.attackRange();
+      return `${inRange ? 'Fighting' : 'Heading to'} ${a.npc.name}`;
+    }
+    return 'Looking for a fight…';
+  }
+
   toggleAutoBattle(on = !this.autoBattle) {
     this.autoBattle = !!on;
     this._autoSkip.clear();
@@ -1810,12 +1828,22 @@ export class Game {
     let best = null, bestScore = Infinity;
     const cands = [];
     for (const n of this.npcs) {
-      if (!n.alive || !n.attackable || n.def.boss) continue;
+      if (!n.alive || !n.attackable || n.temporary) continue;
+      if (n.def.boss && !this.autoCfg.bosses) continue;
       if ((this._autoSkip.get(n.entityId) || 0) > this.tickCount) continue;
       const d = chebyshev(p.x, p.y, n.x, n.y);
       if (d > 25) continue;
       const hunting = n.target === p;
       if (!hunting && this.autoCfg.target && n.npcId !== this.autoCfg.target) continue;   // only the chosen monster type
+      // Bosses within reach are taken on whatever their level, ahead of everything else.
+      // Story bosses (fixed spawns like the Lion of Light) and bosses far beyond
+      // your level are left for you to take on yourself.
+      if (n.def.boss) {
+        if (n.def.fixed || (n.def.level || 1) > cl * 3 + 20) continue;
+        if (d > 14 || (!inWild && wildZone(n.x, n.y))) continue;
+        cands.push({ n, score: d - 300 });
+        continue;
+      }
       const lvl = n.def.level || 1;
       if (!hunting) {
         // Close by: leave only far-stronger monsters alone. Further out: only

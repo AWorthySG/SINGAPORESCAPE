@@ -716,16 +716,16 @@ test('starter-area monsters are tamed and weaker for onboarding', async () => {
   assert.ok(tamed.some((s) => s.npcId === 'goblin'), 'town goblins are tamed in world data');
 
   // The override pacifies + weakens the instance without touching the registry.
-  const wild = new NPC('goblin', 0, 0, 4);
-  const tame = new NPC('goblin', 0, 0, 4, { aggressive: false, statMul: 0.6 });
-  assert.equal(getNpc('goblin').aggressive, true, 'registry goblin stays aggressive for the rest of the island');
-  assert.equal(wild.def.aggressive, true, 'a normal goblin spawn is still aggressive');
+  const wild = new NPC('wild_goblin', 0, 0, 4);
+  const tame = new NPC('wild_goblin', 0, 0, 4, { aggressive: false, statMul: 0.6 });
+  assert.equal(getNpc('wild_goblin').aggressive, true, 'registry wild goblin stays aggressive for the rest of the island');
+  assert.equal(wild.def.aggressive, true, 'a normal wild goblin spawn is still aggressive');
   assert.equal(tame.def.aggressive, false, 'a tamed spawn never attacks first');
   assert.ok(tame.maxHp < wild.maxHp, 'tamed spawn has less HP');
   assert.ok(tame.def.defence < wild.def.defence, 'tamed spawn is easier to hit');
 });
 
-test('little chickens at the starting town waddle up to the player and cluck', async () => {
+test('little chickens at the starting town cluck about but never attack', async () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
   const game = new Game();
@@ -733,25 +733,15 @@ test('little chickens at the starting town waddle up to the player and cluck', a
 
   const chattyChickens = game.world.npcSpawns.filter((s) => s.npcId === 'chicken' && s.opts?.chatter);
   assert.ok(chattyChickens.length >= 3, 'a little flock of chatty chickens is placed in the starting town');
-  for (const s of chattyChickens) {
-    assert.equal(s.opts.aggressive, true, 'a starting chicken walks up to the player on its own');
-    assert.ok(s.opts.ignoreLevelGate, "a chicken doesn't hold back just because the player outlevels it");
-  }
+  for (const s of chattyChickens) assert.equal(s.opts.aggressive, false, 'starting chickens are not aggressive');
 
   const chicken = game.npcs.find((n) => n.npcId === 'chicken' && n.chatter);
   assert.ok(chicken, 'a chatty chicken instance exists in the live world');
   assert.ok(chicken.attackable, 'chickens can still be fought and killed');
-
-  // Even a high-level player (chickens are normally "too weak to bother" past
-  // combat level ~3) still gets approached by a chatty starter chicken.
-  game.skills.addXp('attack', 5_000_000);
-  game.skills.addXp('strength', 5_000_000);
-  game.skills.addXp('defence', 5_000_000);
-  assert.ok(game.skills.combatLevel() > chicken.def.level * 2 + 1, 'player is well past the normal aggro cutoff');
-  chicken.x = game.player.x + 2; chicken.y = game.player.y;
+  chicken.x = game.player.x + 1; chicken.y = game.player.y;
   chicken.spawnX = chicken.x; chicken.spawnY = chicken.y;
-  step(game, 1);
-  assert.equal(chicken.target, game.player, 'the chicken aggros anyway');
+  step(game, 6);
+  assert.notEqual(chicken.target, game.player, 'a town chicken never picks a fight');
 });
 
 test('MapleStory-style auto-loot: drops pop out, then fly into the pack; things you drop stay put', () => {
@@ -887,7 +877,7 @@ test('player attacks run on a 300ms combat beat: a scimitar swings about 3x a se
   assert.ok(swings >= 8 && swings <= 11, `about 10 swings in 3s, got ${swings}`);
 });
 
-test('auto battle hunts nearby monsters, eats when hurt, skips bosses and pauses while steering', async () => {
+test('auto battle hunts nearby monsters, eats when hurt, can skip bosses and pauses while steering', async () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
   const { NPC } = await import('../src/game/npc.js');
@@ -901,6 +891,7 @@ test('auto battle hunts nearby monsters, eats when hurt, skips bosses and pauses
   const boss = game.npcs.find((n) => n.def.boss);
   boss.x = boss.tx = p.x; boss.y = boss.ty = p.y + 2; boss.target = null;
   game.npcs = [a, b, boss];
+  game.autoCfg.bosses = false;   // the "skip bosses" setting
 
   // Steering pauses it: no target is picked while a direction is held.
   game.toggleAutoBattle(true);
@@ -917,7 +908,7 @@ test('auto battle hunts nearby monsters, eats when hurt, skips bosses and pauses
 
   for (let i = 0; i < 400 && (a.alive || b.alive); i++) game.update(100);
   assert.ok(!a.alive && !b.alive, 'both nearby monsters were hunted down');
-  assert.ok(boss.alive && boss.hp === boss.maxHp, 'bosses are left alone');
+  assert.ok(boss.alive && boss.hp === boss.maxHp, 'bosses are left alone when skipping bosses');
 
   // Dying switches it off.
   game.playerDeath();
@@ -1271,9 +1262,9 @@ test('aggressive monsters take turns aggroing the player instead of swarming', a
   // Isolate from the world's own NPCs so only these three compete for the aggro slot.
   const px = game.player.x, py = game.player.y;
   const mobs = [
-    new NPC('forest_drake', px + 3, py, 0),
-    new NPC('forest_drake', px - 3, py, 0),
-    new NPC('forest_drake', px, py + 3, 0),
+    new NPC('wild_forest_drake', px + 3, py, 0),
+    new NPC('wild_forest_drake', px - 3, py, 0),
+    new NPC('wild_forest_drake', px, py + 3, 0),
   ];
   game.npcs = mobs.slice();
 
@@ -1296,8 +1287,8 @@ test('a monster the player directly attacks always retaliates, even while the ag
   game.start();
 
   const px = game.player.x, py = game.player.y;
-  const attacker = new NPC('forest_drake', px + 3, py, 0);
-  const bystander = new NPC('forest_drake', px - 3, py, 0);
+  const attacker = new NPC('wild_forest_drake', px + 3, py, 0);
+  const bystander = new NPC('wild_forest_drake', px - 3, py, 0);
   game.npcs = [attacker, bystander];
 
   step(game, 1);
@@ -1803,11 +1794,11 @@ test('auto battle settings: eat level, target filter, and they are saved', () =>
     const t = game._autoPickTarget();
     assert.ok(!t || t.npcId === kinds[0] || t.target === p, 'only the chosen monster type is hunted');
   }
-  game.autoCfg = { eatAt: 0.6, target: 'chicken', abilities: false };
+  game.autoCfg = { eatAt: 0.6, target: 'chicken', abilities: false, bosses: false };
   saveGame(game);
   const g2 = new Game();
   g2.start();
-  assert.deepEqual(g2.autoCfg, { eatAt: 0.6, target: 'chicken', abilities: false });
+  assert.deepEqual(g2.autoCfg, { eatAt: 0.6, target: 'chicken', abilities: false, bosses: false });
 });
 
 test('daily bounties: three targets a day that pay out, with a streak', async () => {
@@ -1936,4 +1927,20 @@ test('magic: casters start at Magic 15 with plenty of runes, damage scales with 
   game._magicAttack(mob);
   assert.ok(game.inventory.count('fire_rune') < fire0, 'it cast Fire Strike instead');
   assert.ok(game.player.attackCooldown >= 1);
+});
+
+test('auto battle takes on a nearby boss first (bosses on by default)', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const { NPC } = await import('../src/game/npc.js');
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  const p = game.player;
+  assert.equal(game.autoCfg.bosses, true);
+  const mob = new NPC('goblin', p.x + 2, p.y, 0);
+  const boss = game.npcs.find((n) => n.def.boss && !n.def.fixed);
+  boss.x = boss.tx = boss.spawnX = p.x + 6; boss.y = boss.ty = boss.spawnY = p.y;
+  game.npcs = [mob, boss];
+  assert.equal(game._autoPickTarget(), boss, 'the boss is chosen ahead of a closer goblin');
 });
