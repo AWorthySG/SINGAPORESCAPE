@@ -720,11 +720,18 @@ export class Game {
     const npc = a.npc;
     if (!npc || !npc.alive) { p.clearAction(); return; }
     const range = this.attackRange();
+    // Steering or dodging: movement is yours; keep shooting whenever in reach.
+    if (this._driving || this._dodging) return;
     if (chebyshev(p.x, p.y, npc.x, npc.y) > range) {
-      // Approach / chase a moving target.
+      // Approach / chase a moving target. Ranged attackers only walk as far as
+      // the first tile within reach, not right up to it.
       if (!a.lastNpcTile || a.lastNpcTile.x !== npc.x || a.lastNpcTile.y !== npc.y || !p.isMoving) {
-        const path = findPath(this.pathCfg(), this.playerTile(), { x: npc.x, y: npc.y },
+        let path = findPath(this.pathCfg(), this.playerTile(), { x: npc.x, y: npc.y },
           { reachAdjacent: true, maxNodes: 4000 });
+        if (range > 1) {
+          const cut = path.findIndex((t) => chebyshev(t.x, t.y, npc.x, npc.y) <= range);
+          if (cut !== -1) path = path.slice(0, cut + 1);
+        }
         if (path.length) this.player.setPath(path, this.canRun());
         else if (!p.isMoving) { this.msg("I can't reach that!"); p.clearAction(); return; }
         a.lastNpcTile = { x: npc.x, y: npc.y };
@@ -749,10 +756,10 @@ export class Game {
 
   // ---------------- Combat resolution ----------------
   combatMode() { return this.equipment.combatType(); }
-  /** Tiles you can attack from: bows have their own reach (9-14), spells 8, melee 1. */
+  /** Tiles you can attack from: bows have their own reach (12-18), spells 8, melee 1. */
   attackRange() {
     const m = this.combatMode();
-    if (m === 'ranged') { const w = this.equipment.get('weapon'); return (w && getItem(w).equip?.range) || 9; }
+    if (m === 'ranged') { const w = this.equipment.get('weapon'); return (w && getItem(w).equip?.range) || 12; }
     return m === 'magic' ? 8 : 1;
   }
 
@@ -1705,6 +1712,7 @@ export class Game {
 
   playerDeath() {
     this.msg('Oh dear, you are dead!', 'combat');
+    this._dodging = false;
     this.killStreak = 0; this.bus.emit('xpbonus');
     if (this.autoBattle) this.toggleAutoBattle(false);
     this.banner('<span class="big">Oh dear, you are dead!</span>Respawning in town...');
@@ -1802,11 +1810,20 @@ export class Game {
     if (this.hazardAt(at.x, at.y)) {
       const safe = this._safeTileNear(at);
       if (safe) {
-        if (p.action?.type === 'attack' && p.action.npc?.alive) this._autoResume = p.action.npc;
-        this.walkTo(safe);
+        const fighting = p.action?.type === 'attack' && p.action.npc?.alive;
+        if (fighting && this.attackRange() > 1) {
+          // Archers and casters sidestep without lowering their weapon: keep the
+          // attack and keep firing on the move.
+          const path = findPath(this.pathCfg(), at, safe, {});
+          if (path.length) { p.setPath(path, this.canRun()); this._dodging = true; }
+        } else {
+          if (fighting) this._autoResume = p.action.npc;
+          this.walkTo(safe);
+        }
       }
       return;
     }
+    if (this._dodging && !p.isMoving) this._dodging = false;
     // Mid-dodge: hold still until the attack lands, rather than chasing something back into it.
     if (this.hazards.some((h) => chebyshev(at.x, at.y, h.cx, h.cy) <= h.r + 4)) return;
     if (this._autoResume) {
@@ -1962,7 +1979,9 @@ export class Game {
     if (this.playerStun > 0) return;
     if (!this._driving) {
       this._driving = true;
-      if (p.action) p.clearAction();
+      // Bows and spells keep firing while you steer (handy for dodging); other actions stop.
+      const shooting = p.action?.type === 'attack' && this.attackRange() > 1;
+      if (p.action && !shooting) p.clearAction();
       p.path = [];           // drop any clicked route; the current step finishes
     }
     const oct = Math.round(Math.atan2(v.y, v.x) / (Math.PI / 4)) & 7;
@@ -2012,7 +2031,12 @@ export class Game {
 
   attackNpc(npc) {
     if (!npc.attackable) { this.msg("You can't attack that."); return; }
-    this.beginAction({ type: 'attack', npc }, { x: npc.x, y: npc.y }, true);
+    const p0 = this.player;
+    if (this.attackRange() > 1 && chebyshev(p0.x, p0.y, npc.x, npc.y) <= this.attackRange()) {
+      // Bows and spells: already in reach, so shoot from right here.
+      if (!this._driving && !this._dodging) p0.path = [];
+      p0.setAction({ type: 'attack', npc });
+    } else this.beginAction({ type: 'attack', npc }, { x: npc.x, y: npc.y }, true);
     // Already in range and ready: swing now rather than on the next combat beat.
     const p = this.player;
     if (!p.isMoving && !this.playerStun && p.attackCooldown <= 0 && p.alive

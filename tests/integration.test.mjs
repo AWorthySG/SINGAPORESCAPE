@@ -2054,12 +2054,48 @@ test('bows shoot from far: each bow has its own reach, and arrows fly at a stead
   const game = new Game();
   game.start();
   game.chooseStartingStyle('ranged');
-  assert.equal(game.attackRange(), 9, 'a shortbow reaches 9 tiles');
-  assert.equal(ITEMS.magic_shortbow.equip.range, 14);
+  assert.equal(game.attackRange(), 12, 'a shortbow reaches 12 tiles');
+  assert.equal(ITEMS.magic_shortbow.equip.range, 18);
   const near = game.spawnNpc('goblin', game.player.x + 2, game.player.y, { wander: 0 });
   const far = game.spawnNpc('goblin', game.player.x + 9, game.player.y, { wander: 0 });
   game._projectile(near, '#fff', 'arrow'); game._projectile(far, '#fff', 'arrow');
   const [a, b] = game.effects.filter((e) => e.kind === 'arrow').slice(-2);
   assert.ok(b.maxLife > a.maxLife, 'a longer shot takes longer to land');
   assert.ok(b.arc > 0, 'arrows arc through the air');
+});
+
+test('archers shoot from where they stand, and keep firing while dodging a boss attack', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('ranged');
+  const p = game.player;
+  game.npcs = game.npcs.filter((n) => Math.max(Math.abs(n.x - p.x), Math.abs(n.y - p.y)) > 25);
+  const x0 = p.x, y0 = p.y;
+  const mob = game.spawnNpc('goblin', p.x + 10, p.y, { wander: 0 });
+  mob.def = { ...mob.def, aggressive: false }; mob.maxHp = mob.hp = 9999;
+  game.attackNpc(mob);
+  step(game, 6);
+  assert.equal(p.x, x0, 'did not walk towards a target already in reach');
+  assert.equal(p.y, y0);
+  assert.ok(mob.hp < 9999, 'and hit it from 10 tiles away');
+  // Out of reach: walks only until in range, not right up to it.
+  const far = game.spawnNpc('goblin', p.x + 18, p.y, { wander: 0 });
+  far.def = { ...far.def, aggressive: false }; far.maxHp = far.hp = 9999;
+  game.attackNpc(far);
+  step(game, 12);
+  assert.ok(Math.abs(far.x - p.x) >= 10, `stopped at range (${Math.abs(far.x - p.x)} tiles away)`);
+  // Auto battle dodging keeps the attack going.
+  game.npcs = [mob];
+  p.x = p.tx = x0; p.y = p.ty = y0;
+  game.attackNpc(mob);
+  game.toggleAutoBattle(true);
+  const boss = game.spawnNpc('boar_king', p.x + 40, p.y, { wander: 0 });
+  game.npcs = [mob, boss];
+  game.bossHazard(boss);                         // a blast under the player
+  const hp0 = mob.hp;
+  step(game, 4);
+  assert.equal(p.action?.type, 'attack', 'still attacking after the dodge');
+  assert.ok(mob.hp < hp0, 'kept shooting while dodging');
 });
