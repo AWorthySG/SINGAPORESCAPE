@@ -8,6 +8,10 @@ export class Player extends Character {
     super(x, y);
     this.entityId = uid();
     this.name = 'A-Worthling';
+    // Quicker on their feet than the old 1 tile / 0.6s: walk ~0.42s a tile,
+    // run ~0.17s a tile.
+    this.stepMul = 0.7;
+    this.runMul = 0.4;
     this.hp = 10;
     this.alive = true;
 

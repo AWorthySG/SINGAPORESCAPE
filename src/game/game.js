@@ -57,9 +57,9 @@ const MORNING_PHASE = 0.3;
 // Combat XP: +25% per Wilderness level (1-10, deeper = higher), and a kill
 // streak bonus of +5% per chained kill (up to +100%, kills within ~30s).
 const WILD_EDGE_X = 95;
-const WILD_XP_PER_LEVEL = 0.25;
-const STREAK_XP_PER_KILL = 0.05;
-const STREAK_MAX_BONUS = 1;
+const WILD_XP_PER_LEVEL = 0.5;
+const STREAK_XP_PER_KILL = 0.1;
+const STREAK_MAX_BONUS = 2;
 const STREAK_WINDOW_TICKS = 50;
 // Bonus XP per boss level on a boss kill.
 const BOSS_XP_PER_LEVEL = 40;
@@ -1241,11 +1241,11 @@ export class Game {
   isNight() { return this.daylightFactor() < 0.4; }
 
   /** Night hunt: combat XP is worth 25% more after dark. */
-  // Combat XP multipliers, all stacking: night hunt x1.25, Wilderness level
-  // (x1.25 at level 1 up to x3.5 at level 10), and kill streak (+5% per kill, up to +100%).
+  // Combat XP multipliers, all stacking: night hunt x1.5, Wilderness level
+  // (x1.5 at level 1 up to x6 at level 10), and kill streak (+10% per kill, up to +200%).
   combatXpMult() { return this.xpBreakdown().total; }
   xpBreakdown() {
-    const night = this.isNight() ? 1.25 : 1;
+    const night = this.isNight() ? 1.5 : 1;
     const wl = this.wildernessLevel();
     const wild = wl ? 1 + WILD_XP_PER_LEVEL * wl : 1;
     const streak = 1 + Math.min(STREAK_MAX_BONUS, this.killStreak * STREAK_XP_PER_KILL);
@@ -1266,8 +1266,8 @@ export class Game {
     if (night === this._wasNight) return;
     this._wasNight = night;
     if (night) {
-      this.msg('Night falls. Ghosts and bats stir, and champions roam more often. Combat XP +25% until dawn.', 'level');
-      this.banner('<span class="big">Night hunt</span>+25% combat XP until dawn');
+      this.msg('Night falls. Ghosts and bats stir, and champions roam more often. Combat XP +50% until dawn.', 'level');
+      this.banner('<span class="big">Night hunt</span>+50% combat XP until dawn');
     } else this.msg('Dawn breaks. The night hunt bonus fades.', 'system');
     this.bus.emit('night', night);
   }
@@ -1291,7 +1291,7 @@ export class Game {
       this.currentZoneName = name;
       if (wild) {
         this.banner('<span class="big">&#9888; The Wilderness</span>Lawless and deadly &mdash; no safe healing. Beware bosses!');
-        this.msg('You enter the Wilderness: combat XP rises the deeper you go (up to x3.5), but fight or flee!', 'combat');
+        this.msg('You enter the Wilderness: combat XP rises the deeper you go (up to x6), but fight or flee!', 'combat');
       } else {
         this.msg(`You enter ${name}.`, 'system');
       }
@@ -1898,7 +1898,7 @@ export class Game {
       // Story bosses (fixed spawns like the Lion of Light) and bosses far beyond
       // your level are left for you to take on yourself.
       if (n.def.boss) {
-        if (n.def.fixed || (n.def.level || 1) > cl * 3 + 20) continue;
+        if (n.def.fixed || (n.def.level || 1) > cl + 10) continue;   // only bosses you can realistically beat
         if (d > 14 || (!inWild && wildZone(n.x, n.y))) continue;
         cands.push({ n, score: d - 300 });
         continue;

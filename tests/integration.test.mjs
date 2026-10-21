@@ -811,10 +811,10 @@ test('joystick / WASD movement walks tile by tile, and bare-ground clicks no lon
   const p = game.player;
   const x0 = p.x, y0 = p.y;
   game.setMoveInput(1, 0);              // hold right
-  for (let i = 0; i < 40; i++) game.update(100);   // 4s of walking at 1 tile / 600ms
+  for (let i = 0; i < 40; i++) game.update(100);   // 4s of walking at 1 tile / 420ms
   game.setMoveInput(0, 0);
   for (let i = 0; i < 10; i++) game.update(100);
-  assert.ok(p.x >= x0 + 5 && p.x <= x0 + 8, `walked right (${x0} -> ${p.x})`);
+  assert.ok(p.x >= x0 + 8 && p.x <= x0 + 12, `walked right (${x0} -> ${p.x})`);
   assert.equal(p.y, y0, 'stayed on the same row');
   const xs = p.x;
   for (let i = 0; i < 20; i++) game.update(100);
@@ -1741,7 +1741,7 @@ test('night hunt boosts combat XP; big hits and kills trigger hit-stop', () => {
   assert.equal(game.combatXpMult(), 1, 'no bonus by day');
   game.playMs = 0;                           // midnight
   assert.ok(game.isNight());
-  assert.equal(game.combatXpMult(), 1.25);
+  assert.equal(game.combatXpMult(), 1.5);
   const chat = [];
   game.bus.on('chat', (c) => chat.push(c.text));
   game._wasNight = false;
@@ -1939,10 +1939,16 @@ test('auto battle takes on a nearby boss first (bosses on by default)', async ()
   const p = game.player;
   assert.equal(game.autoCfg.bosses, true);
   const mob = new NPC('goblin', p.x + 2, p.y, 0);
-  const boss = game.npcs.find((n) => n.def.boss && !n.def.fixed);
+  // A boss near your level is chosen first; one far above it is left alone.
+  const cl = game.skills.combatLevel();
+  const boss = game.npcs.find((n) => n.def.boss && !n.def.fixed && n.def.level <= cl + 10)
+    || Object.assign(game.npcs.find((n) => n.def.boss && !n.def.fixed), {});
+  boss.def = { ...boss.def, level: Math.min(boss.def.level, cl + 5) };
   boss.x = boss.tx = boss.spawnX = p.x + 6; boss.y = boss.ty = boss.spawnY = p.y;
   game.npcs = [mob, boss];
   assert.equal(game._autoPickTarget(), boss, 'the boss is chosen ahead of a closer goblin');
+  boss.def = { ...boss.def, level: cl + 40 };
+  assert.equal(game._autoPickTarget(), mob, 'a boss far above your level is skipped');
 });
 
 test('daggers can be dual wielded in place of a shield, striking twice per swing', () => {
@@ -1992,16 +1998,16 @@ test('XP bonus stacks: Wilderness level and kill streak; bosses drop much more a
   const edge = game.world.zones.find((z) => z.name === 'The Wilderness');
   p.x = p.tx = edge.x0; p.y = p.ty = 50;
   assert.equal(game.wildernessLevel(), 1);
-  assert.ok(Math.abs(game.combatXpMult() - day * 1.25) < 1e-9, 'level 1: x1.25');
+  assert.ok(Math.abs(game.combatXpMult() - day * 1.5) < 1e-9, 'level 1: x1.5');
   p.x = p.tx = 148;
   assert.equal(game.wildernessLevel(), 10);
-  assert.ok(Math.abs(game.combatXpMult() - day * 3.5) < 1e-9, 'level 10: x3.5');
+  assert.ok(Math.abs(game.combatXpMult() - day * 6) < 1e-9, 'level 10: x6');
   // Kill streak stacks on top: +5% per chained kill.
   const deep = game.combatXpMult();
   const mobs = game.npcs.filter((n) => n.def.attackable && !n.def.boss).slice(0, 4);
   for (const m of mobs) game.killNpc(m);
   assert.equal(game.killStreak, 4);
-  assert.ok(Math.abs(game.combatXpMult() - deep * 1.2) < 1e-9, 'streak of 4: x1.2 more');
+  assert.ok(Math.abs(game.combatXpMult() - deep * 1.4) < 1e-9, 'streak of 4: x1.4 more');
   p.autoRetaliate = false; p.hp = 9999;
   game.npcs = game.npcs.filter((n) => n.def.boss);      // nothing around to fight back
   step(game, 60);
