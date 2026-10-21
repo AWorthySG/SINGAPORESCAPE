@@ -15,7 +15,8 @@ export class Character {
     this.path = [];
     this.facing = { dx: 0, dy: 1 };
     this.moveDuration = TICK_MS;
-    this.stepMul = 1;     // >1 walks slower (monsters and bosses amble)
+    this.stepMul = 1;     // >1 walks slower (monsters and bosses amble), <1 faster
+    this.runMul = 0.5;    // running step time as a share of walking
     // Combat-feel timers (ms): hit flash + attack lunge.
     this.hurt = 0;
     this.swing = 0;
@@ -85,7 +86,7 @@ export class Character {
     // A diagonal step covers √2 tiles of ground, so give it √2 the time —
     // otherwise the entity visibly speeds up whenever it moves diagonally.
     const diagonal = this.facing.dx !== 0 && this.facing.dy !== 0;
-    const base = (this.running ? TICK_MS / 2 : TICK_MS) * this.stepMul;
+    const base = TICK_MS * this.stepMul * (this.running ? this.runMul : 1);
     this.moveDuration = diagonal ? base * Math.SQRT2 : base;
     this.moving = true;
   }
