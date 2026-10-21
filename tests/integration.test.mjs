@@ -716,7 +716,7 @@ test('starter-area monsters are tamed and weaker for onboarding', async () => {
   assert.ok(tamed.some((s) => s.npcId === 'goblin'), 'town goblins are tamed in world data');
 
   // The override pacifies + weakens the instance without touching the registry.
-  const wild = new NPC('wild_goblin', 0, 0, 4);
+  const wild = new NPC('wild_goblin', 0, 0, 4, {});
   const tame = new NPC('wild_goblin', 0, 0, 4, { aggressive: false, statMul: 0.6 });
   assert.equal(getNpc('wild_goblin').aggressive, true, 'registry wild goblin stays aggressive for the rest of the island');
   assert.equal(wild.def.aggressive, true, 'a normal wild goblin spawn is still aggressive');
@@ -786,7 +786,7 @@ test('weapon-specific skills: a bow swaps in Snapshot, which looses three arrows
   assert.equal(game.combatMode(), 'ranged');
   const keys = game.currentAbilities().map((a) => a.id);
   assert.deepEqual(keys, ['snapshot', 'piercing_shot', 'brace', 'second_wind', 'arrow_storm']);
-  const target = new NPC('goblin', game.player.x + 3, game.player.y, 0);
+  const target = new NPC('goblin', game.player.x + 3, game.player.y, 0, {});
   target.hp = target.maxHp = 9999;
   game.npcs = [target];
   game.attackNpc(target);
@@ -841,7 +841,7 @@ test('Interact acts on the nearest thing: picks it, labels it, and does its main
   const objs = game.world.objects; game.world.objects = [];
   assert.equal(game._findInteract(), null);
   // An item underfoot beats a monster two tiles away.
-  const gob = new NPC('goblin', p.x + 2, p.y, 0); gob.def = { ...gob.def, aggressive: false };
+  const gob = new NPC('goblin', p.x + 2, p.y, 0, {}); gob.def = { ...gob.def, aggressive: false };
   game.npcs = [gob];
   game.world.addGroundItem('bones', 1, p.x, p.y);
   assert.equal(game._findInteract().kind, 'item');
@@ -865,7 +865,7 @@ test('player attacks run on a 300ms combat beat: a scimitar swings about 3x a se
   game.start();
   game.chooseStartingStyle('melee');
   assert.equal(game.equipment.get('weapon'), 'bronze_scimitar');
-  const target = new NPC('goblin', game.player.x + 1, game.player.y, 0);
+  const target = new NPC('goblin', game.player.x + 1, game.player.y, 0, {});
   target.hp = target.maxHp = 99999;
   target.def = { ...target.def, aggressive: false, maxHit: 0 };
   game.npcs = [target];
@@ -886,7 +886,7 @@ test('auto battle hunts nearby monsters, eats when hurt, can skip bosses and pau
   game.chooseStartingStyle('melee');
   const p = game.player;
   // Park on open plaza ground with only our test monsters around.
-  const mk = (id, dx, dy) => { const n = new NPC(id, p.x + dx, p.y + dy, 0); n.def = { ...n.def, aggressive: false }; return n; };
+  const mk = (id, dx, dy) => { const n = new NPC(id, p.x + dx, p.y + dy, 0, {}); n.def = { ...n.def, aggressive: false }; return n; };
   const a = mk('goblin', 2, 0), b = mk('goblin', -2, 1);
   const boss = game.npcs.find((n) => n.def.boss);
   boss.x = boss.tx = p.x; boss.y = boss.ty = p.y + 2; boss.target = null;
@@ -923,9 +923,9 @@ test('auto battle hunts further afield when nothing is close, and skips the Wild
   game.start();
   game.chooseStartingStyle('melee');
   const p = game.player;
-  const far = new NPC('goblin', p.x, p.y - 25, 0);
+  const far = new NPC('goblin', p.x, p.y - 25, 0, {});
   far.def = { ...far.def, aggressive: false, level: 3 };
-  const wild = new NPC('goblin', 100, 40, 0);   // in The Wilderness
+  const wild = new NPC('goblin', 100, 40, 0, {});   // in The Wilderness
   wild.def = { ...wild.def, aggressive: false, level: 3 };
   game.npcs = [far, wild];
   assert.equal(game._autoPickTarget(), far, 'a monster 25 tiles away is hunted');
@@ -942,7 +942,7 @@ test('a chatty NPC keeps cycling its speech bubble on a cooldown', async () => {
   game.start();
 
   const chatterer = new NPC('chicken', 5, 5, 0, { chatter: ['Cluck cluck!'] });
-  const quiet = new NPC('chicken', 6, 5, 0);
+  const quiet = new NPC('chicken', 6, 5, 0, {});
   game.npcs = [chatterer, quiet];
 
   let sawText = false;
@@ -1262,9 +1262,9 @@ test('aggressive monsters take turns aggroing the player instead of swarming', a
   // Isolate from the world's own NPCs so only these three compete for the aggro slot.
   const px = game.player.x, py = game.player.y;
   const mobs = [
-    new NPC('wild_forest_drake', px + 3, py, 0),
-    new NPC('wild_forest_drake', px - 3, py, 0),
-    new NPC('wild_forest_drake', px, py + 3, 0),
+    new NPC('wild_forest_drake', px + 3, py, 0, {}),
+    new NPC('wild_forest_drake', px - 3, py, 0, {}),
+    new NPC('wild_forest_drake', px, py + 3, 0, {}),
   ];
   game.npcs = mobs.slice();
 
@@ -1287,8 +1287,8 @@ test('a monster the player directly attacks always retaliates, even while the ag
   game.start();
 
   const px = game.player.x, py = game.player.y;
-  const attacker = new NPC('wild_forest_drake', px + 3, py, 0);
-  const bystander = new NPC('wild_forest_drake', px - 3, py, 0);
+  const attacker = new NPC('wild_forest_drake', px + 3, py, 0, {});
+  const bystander = new NPC('wild_forest_drake', px - 3, py, 0, {});
   game.npcs = [attacker, bystander];
 
   step(game, 1);
@@ -1938,7 +1938,7 @@ test('auto battle takes on a nearby boss first (bosses on by default)', async ()
   game.chooseStartingStyle('melee');
   const p = game.player;
   assert.equal(game.autoCfg.bosses, true);
-  const mob = new NPC('goblin', p.x + 2, p.y, 0);
+  const mob = new NPC('goblin', p.x + 2, p.y, 0, {});
   // A boss near your level is chosen first; one far above it is left alone.
   const cl = game.skills.combatLevel();
   const boss = game.npcs.find((n) => n.def.boss && !n.def.fixed && n.def.level <= cl + 10)
@@ -2034,8 +2034,8 @@ test('auto battle priority: bosses, then champions (mini-bosses), then ordinary 
   game.chooseStartingStyle('melee');
   const p = game.player;
   const cl = game.skills.combatLevel();
-  const mob = new NPC('goblin', p.x + 1, p.y, 0);
-  const champ = new NPC('goblin', p.x + 5, p.y, 0); champ.makeChampion();
+  const mob = new NPC('goblin', p.x + 1, p.y, 0, {});
+  const champ = new NPC('goblin', p.x + 5, p.y, 0, {}); champ.makeChampion();
   const boss = game.npcs.find((n) => n.def.boss && !n.def.fixed);
   boss.def = { ...boss.def, level: Math.min(boss.def.level, cl + 5) };
   boss.x = boss.tx = boss.spawnX = p.x + 9; boss.y = boss.ty = boss.spawnY = p.y;
@@ -2098,4 +2098,27 @@ test('archers shoot from where they stand, and keep firing while dodging a boss 
   step(game, 4);
   assert.equal(p.action?.type, 'attack', 'still attacking after the dodge');
   assert.ok(mob.hp < hp0, 'kept shooting while dodging');
+});
+
+test('ranged auto battle clears everything in reach before moving; bows drop often', async () => {
+  const { NPC } = await import('../src/game/npc.js');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('ranged');
+  const p = game.player;
+  const inReach = new NPC('goblin', p.x + 10, p.y, 0, {});
+  const closerButOut = new NPC('goblin', p.x, p.y - 14, 0, {});
+  const boss = game.npcs.find((n) => n.def.boss && !n.def.fixed);
+  boss.def = { ...boss.def, level: game.skills.combatLevel() };
+  boss.x = boss.tx = boss.spawnX = p.x - 13; boss.y = boss.ty = boss.spawnY = p.y;
+  game.npcs = [inReach, closerButOut, boss];
+  assert.equal(game._autoPickTarget(), inReach, 'a monster in reach beats even a boss out of reach');
+  // Bow drop rate: about one kill in eight drops a bow.
+  const mob = game.npcs[0];
+  let bows = 0;
+  game._autoLoot = (loot) => { bows += loot.filter(([id]) => /shortbow$/.test(id)).length; };
+  for (let i = 0; i < 400; i++) game.rollDrops(mob);
+  assert.ok(bows >= 25, `bows dropped ${bows} times in 400 kills`);
 });

@@ -1601,6 +1601,7 @@ export class Game {
   // ---------------- Boss mechanics ----------------
   spawnNpc(npcId, x, y, { temporary = false, wander = 3 } = {}) {
     const n = new NPC(npcId, x, y, wander);
+    n.wander = wander;          // an explicit 0 means "stay put" (the constructor would fall back to the default)
     n.temporary = temporary;
     if (temporary) this.hasTemps = true;
     this.npcs.push(n);
@@ -1908,6 +1909,10 @@ export class Game {
   // 40 tiles for a monster near your level, never straying into the Wilderness
   // from safe ground.
   _autoPickTarget() {
+    // Archers and casters clear everything already in reach before moving:
+    // in-range targets outrank everything out of range (bosses included).
+    const range = this.attackRange();
+    const shootable = (n, d) => range > 1 && d <= range;
     const p = this.player;
     const cl = this.skills.combatLevel();
     const wildZone = (x, y) => !!this.world.zoneAt(x, y)?.wilderness;
@@ -1928,13 +1933,13 @@ export class Game {
       if (n.def.boss) {
         if (n.def.fixed || (n.def.level || 1) > cl + 10) continue;   // only bosses you can realistically beat
         if (d > 14 || (!inWild && wildZone(n.x, n.y))) continue;
-        cands.push({ n, score: d - 300, tier: -300 });
+        { const tier = -300 - (shootable(n, d) ? 1000 : 0); cands.push({ n, score: d + tier, tier }); }
         continue;
       }
       // Then mini-bosses: gold-ringed champions within reach that you can take on.
       if (n.champion) {
         if (d > 14 || (n.def.level || 1) > cl + 10 || (!inWild && wildZone(n.x, n.y))) continue;
-        cands.push({ n, score: d - 150, tier: -150 });
+        { const tier = -150 - (shootable(n, d) ? 1000 : 0); cands.push({ n, score: d + tier, tier }); }
         continue;
       }
       const lvl = n.def.level || 1;
@@ -1945,14 +1950,15 @@ export class Game {
         if (!inWild && wildZone(n.x, n.y)) continue;
       }
       // Anything on you first, then anything within 8 tiles, then the rest.
-      const tier = (d > 8 ? 50 : 0) - (hunting ? 200 : 0);
+      const tier = (d > 8 ? 50 : 0) - (hunting ? 200 : 0) - (shootable(n, d) ? 1000 : 0);
       cands.push({ n, score: d + tier, tier });
     }
     // Nearest first by straight-line distance, then confirm a walkable route
     // (and use its real length) so it never heads for something across water.
     cands.sort((a, b) => a.score - b.score);
     for (const { n, score, tier } of cands.slice(0, 6)) {
-      if (chebyshev(p.x, p.y, n.x, n.y) <= 1) { if (score < bestScore) { bestScore = score; best = n; } continue; }
+      // Already in reach (or adjacent): no walking needed, so no route check.
+      if (chebyshev(p.x, p.y, n.x, n.y) <= Math.max(1, range)) { if (score < bestScore) { bestScore = score; best = n; } continue; }
       const route = findPath(this.pathCfg(), this.playerTile(), { x: n.x, y: n.y }, { reachAdjacent: true, maxNodes: 3000 });
       if (!route.length) { this._autoSkip.set(n.entityId, this.tickCount + 40); continue; }
       // Keep the priority tier (boss > something attacking you > champion > rest) over route length.
@@ -2036,6 +2042,10 @@ export class Game {
       // Bows and spells: already in reach, so shoot from right here.
       if (!this._driving && !this._dodging) p0.path = [];
       p0.setAction({ type: 'attack', npc });
+    } else if (this.attackRange() > 1) {
+      // Out of reach: walk only as far as the first tile in range.
+      p0.setAction({ type: 'attack', npc });
+      this._tickAttack(p0.action);
     } else this.beginAction({ type: 'attack', npc }, { x: npc.x, y: npc.y }, true);
     // Already in range and ready: swing now rather than on the next combat beat.
     const p = this.player;
