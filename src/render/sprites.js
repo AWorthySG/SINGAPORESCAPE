@@ -1346,6 +1346,21 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
       c.restore();
       circle(c, 10, 4, 1.8); fill(c, '#ffffff'); line(c, M_INK, 1); // mitten over the grip
     }
+    // off-hand dagger when dual wielding: a short blade in the left mitten that
+    // jabs on the follow-up beat of each swing
+    if (opts.dualWield) {
+      const ease = (t) => 1 - (1 - t) * (1 - t);
+      const jab = k < 0.35 ? 0 : k < 0.7 ? ease((k - 0.35) / 0.35) : 1 - ease((k - 0.7) / 0.3);
+      c.save(); c.translate(-10, 4); c.rotate(0.5 - jab * 1.3); c.translate(10, -4);
+      c.lineCap = 'round';
+      c.strokeStyle = M_INK; c.lineWidth = 3.2; c.beginPath(); c.moveTo(-10.4, 2); c.lineTo(-12.8, -9); c.stroke();
+      c.strokeStyle = '#e9edf2'; c.lineWidth = 1.8; c.beginPath(); c.moveTo(-10.4, 2); c.lineTo(-12.8, -9); c.stroke();
+      c.strokeStyle = M_INK; c.lineWidth = 2.4; c.beginPath(); c.moveTo(-12.6, 1.2); c.lineTo(-8.4, 2.4); c.stroke();
+      c.strokeStyle = '#F5B82E'; c.lineWidth = 1.2; c.beginPath(); c.moveTo(-12.6, 1.2); c.lineTo(-8.4, 2.4); c.stroke();
+      c.lineCap = 'butt';
+      c.restore();
+      circle(c, -10, 4, 1.8); fill(c, '#ffffff'); line(c, M_INK, 1);
+    }
     // shield, strapped to the off-hand
     if (opts.hasShield) {
       const sx = -12, sy = 3;

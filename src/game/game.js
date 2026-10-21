@@ -13,7 +13,7 @@ import {
 import { World } from './world.js';
 import { Skills } from './skillset.js';
 import { Inventory } from './inventory.js';
-import { Equipment } from './equipment.js';
+import { Equipment, canDualWield } from './equipment.js';
 import { Bank } from './bank.js';
 import { Player } from './player.js';
 import { NPC } from './npc.js';
@@ -755,6 +755,15 @@ export class Game {
       const c = this._critHit(dmg, mods.critCh); dmg = c.dmg;
       this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax) });
       if (dmg > 0) { this.spawnHitSparks(npc, (c.crit || fancy) ? '#ffd24a' : '#fff2b0'); for (const x of combatXp(this.player.style, dmg)) this.skills.addXp(x.skill, x.xp * this.combatXpMult()); }
+      total += dmg;
+    }
+    // Dual wielding: the off-hand dagger follows up with its own strike (60% max hit).
+    if (this.equipment.isDualWielding() && npc.hp > 0) {
+      const offMax = Math.max(1, Math.round(baseMax * 0.6));
+      const dmg = rollAttack(atkRoll * pm.att, defRoll, offMax);
+      this._slash(npc, '#cfe8ff');
+      this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && dmg >= offMax });
+      if (dmg > 0) { this.spawnHitSparks(npc, '#e6f2ff'); for (const x of combatXp(this.player.style, dmg)) this.skills.addXp(x.skill, x.xp * this.combatXpMult()); }
       total += dmg;
     }
     if (mods.heal && total > 0) {
@@ -2006,7 +2015,10 @@ export class Game {
     this.bus.emit('hp');
   }
 
-  equipItem(index) {
+  /** Wield a dagger in the off-hand (where a shield would go) for dual wielding. */
+  equipOffhand(index) { return this.equipItem(index, { offhand: true }); }
+
+  equipItem(index, opts = {}) {
     const s = this.inventory.slotAt(index);
     if (!s) return;
     const item = getItem(s.id);
@@ -2018,11 +2030,28 @@ export class Game {
         return;
       }
     }
-    const cmp = compareGear(s.id, this.equipment);
+    // A dagger goes in the off-hand when asked, or by default when you already
+    // hold a dagger and your off-hand isn't one yet.
+    const main = this.equipment.get('weapon');
+    const offhand = canDualWield(s.id) && canDualWield(main)
+      && (opts.offhand ?? !canDualWield(this.equipment.get('shield')));
+    if (opts.offhand && !offhand) { this.msg('Only a dagger can go in your off-hand, alongside another dagger.'); return; }
+    const slot = offhand ? 'shield' : eq.slot;
+    const cmp = offhand ? null : compareGear(s.id, this.equipment);
     this.inventory.removeAt(index, 1);
-    const prev = this.equipment.get(eq.slot);
-    this.equipment.set(eq.slot, s.id);
+    const prev = this.equipment.get(slot);
+    this.equipment.set(slot, s.id);
     if (prev) this.inventory.add(prev, 1);
+    if (offhand) {
+      this.msg(`You wield the ${item.name.toLowerCase()} in your off-hand. Dual wielding: every melee swing strikes twice.`, 'level');
+      return;
+    }
+    // Swapping the main hand off daggers sends an off-hand dagger back to the pack.
+    if (slot === 'weapon' && !canDualWield(s.id) && canDualWield(this.equipment.get('shield'))) {
+      const off = this.equipment.clearSlot('shield');
+      this.inventory.add(off, 1);
+      this.msg(`You put away your off-hand ${getItem(off).name.toLowerCase()}.`, 'system');
+    }
     this.msg(`You ${eq.slot === 'weapon' ? 'wield' : 'wear'} the ${item.name.toLowerCase()}.`);
     // Say plainly whether that was a step up, so players learn which gear is better.
     if (cmp && prev && cmp.verdict !== 'same' && cmp.verdict !== 'worn') {

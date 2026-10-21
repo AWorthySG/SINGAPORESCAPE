@@ -1944,3 +1944,37 @@ test('auto battle takes on a nearby boss first (bosses on by default)', async ()
   game.npcs = [mob, boss];
   assert.equal(game._autoPickTarget(), boss, 'the boss is chosen ahead of a closer goblin');
 });
+
+test('daggers can be dual wielded in place of a shield, striking twice per swing', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  const inv = game.inventory, eq = game.equipment;
+  const idx = (id) => inv.slots.findIndex((x) => x && x.id === id);
+  inv.add('bronze_dagger', 1); inv.add('iron_dagger', 1);
+  assert.equal(eq.get('shield'), 'wooden_shield');
+  game.equipItem(idx('bronze_dagger'));
+  assert.equal(eq.get('weapon'), 'bronze_dagger');
+  game.equipItem(idx('iron_dagger'));                         // already holding a dagger: goes to the off-hand
+  assert.equal(eq.get('shield'), 'iron_dagger', 'second dagger takes the shield slot');
+  assert.ok(inv.count('wooden_shield') >= 1, 'the shield goes back to the pack');
+  assert.ok(eq.isDualWielding());
+  // Each swing lands a main-hand and an off-hand strike.
+  const mob = game.spawnNpc(game.npcs.find((n) => n.def.attackable && !n.def.boss).npcId, game.player.x + 1, game.player.y, { wander: 0 });
+  mob.maxHp = mob.hp = 999;
+  let hits = 0;
+  const apply = game._applyPlayerHit.bind(game);
+  game._applyPlayerHit = (...a) => { hits++; return apply(...a); };
+  game.doPlayerAttack(mob);
+  assert.equal(hits, 2, 'main hand + off-hand');
+  // A non-dagger main weapon puts the off-hand dagger away.
+  game.equipItem(idx('bronze_scimitar'));
+  assert.equal(eq.get('weapon'), 'bronze_scimitar');
+  assert.equal(eq.get('shield'), null);
+  assert.ok(inv.count('iron_dagger') >= 1);
+  // Only a dagger can go in the off-hand.
+  game.equipOffhand(idx('bronze_dagger'));
+  assert.equal(eq.get('shield'), null, 'no off-hand dagger without a main-hand dagger');
+});

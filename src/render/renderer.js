@@ -228,7 +228,8 @@ export class Renderer {
           time: timeMs, facing: game.player.facing, moving: game.player.isMoving, swingK: sk,
           hasBody: !!game.equipment.get('body'), hasWeapon: !!game.equipment.get('weapon'), weaponType: game.combatMode(),
           hasCape: !!game.equipment.get('cape'), hasHelm: !!game.equipment.get('head'),
-          hasShield: !!game.equipment.get('shield'), prayerActive: game.activePrayers.size > 0,
+          hasShield: !!game.equipment.get('shield') && !game.equipment.isDualWielding(),
+          dualWield: game.equipment.isDualWielding(), prayerActive: game.activePrayers.size > 0,
         });
         if (game.player.hurt > 0) this._hurtFlash(cx + off.x, cy - 2 + off.y, 1, game.player.hurt);
       } });
