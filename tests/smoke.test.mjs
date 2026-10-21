@@ -465,3 +465,18 @@ test('monsters and bosses drop archery loot: bows, arrows and ranged armour', ()
     for (const x of t) if (x) assert.ok(ITEMS[x], `${id} drop ${x} is a real item`);
   }
 });
+
+test('monsters and bosses drop magic loot: staves, robes and runes', () => {
+  const ids = (d) => new Set((d.dropTable || []).map((x) => x.id));
+  const low = ids(getNpc('goblin'));
+  assert.ok(low.has('staff') && low.has('mind_rune') && low.has('wizard_hat'), 'a low monster drops a staff, runes and wizard robes');
+  const high = MONSTER_IDS.map(getNpc).find((d) => d.level >= 70);
+  const h = ids(high);
+  assert.ok((h.has('death_staff') || h.has('blood_staff')) && h.has('blood_rune') && h.has('mystic_top'), 'a high monster drops top staves, blood runes and mystic robes');
+  for (const id of BOSS_IDS) {
+    const t = ids(getNpc(id));
+    assert.ok([...t].some((x) => /staff$/.test(x)), `${id} drops a staff`);
+    assert.ok([...t].some((x) => /_rune$/.test(x)), `${id} drops runes`);
+    for (const x of t) if (x) assert.ok(ITEMS[x], `${id} drop ${x} is a real item`);
+  }
+});
