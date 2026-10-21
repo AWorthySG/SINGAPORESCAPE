@@ -19,6 +19,8 @@ export const ACHIEVEMENTS = [
   { id: 'apprentice', cat: 'Skills', name: 'Apprentice', desc: 'Reach level 25 in any skill.', test: (g) => anyLvl(g, 25) },
   { id: 'expert', cat: 'Skills', name: 'Expert', desc: 'Reach level 50 in any skill.', test: (g) => anyLvl(g, 50) },
   { id: 'master', cat: 'Skills', name: 'Master', desc: 'Reach level 99 in any skill.', test: (g) => anyLvl(g, 99) },
+  { id: 'high_master', cat: 'Skills', name: 'High Master', desc: 'Reach level 500 in any skill.', test: (g) => anyLvl(g, 500) },
+  { id: 'legend', cat: 'Skills', name: 'Legend', desc: 'Reach the level cap of 999 in any skill.', test: (g) => anyLvl(g, 999) },
   { id: 'renaissance', cat: 'Skills', name: 'Renaissance', desc: 'Reach 300 total level.', test: (g) => g.skills.totalLevel() >= 300, progress: (g) => `${g.skills.totalLevel()}/300` },
   { id: 'grandmaster', cat: 'Skills', name: 'Grandmaster', desc: 'Reach 600 total level.', test: (g) => g.skills.totalLevel() >= 600, progress: (g) => `${g.skills.totalLevel()}/600` },
   { id: 'pocket_money', cat: 'Wealth', name: 'Pocket Money', desc: 'Hold 1,000 coins.', test: (g) => coins(g) >= 1000 },
@@ -44,7 +46,7 @@ export const ACHIEVEMENTS = [
 // Coin reward granted the first time each achievement is unlocked.
 export const ACH_REWARDS = {
   first_blood: 100, slayer_25: 500, slayer_250: 5000, boss_slayer: 1000, boss_hunter: 5000, boss_master: 20000,
-  apprentice: 500, expert: 2000, master: 25000, renaissance: 3000, grandmaster: 15000,
+  apprentice: 500, expert: 2000, master: 25000, high_master: 100000, legend: 1000000, renaissance: 3000, grandmaster: 15000,
   pocket_money: 200, well_off: 5000, millionaire: 50000,
   wilderness: 300, explorer: 2000,
   helper: 300, quester: 10000, pillars: 1000, defender: 3000,

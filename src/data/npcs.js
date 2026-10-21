@@ -38,7 +38,8 @@ function dropsFor(level) {
   for (const id of robesFor(level)) t.push({ id, weight: 3 });
   for (const r of runesFor(level)) t.push({ id: r.id, min: r.min, max: r.max, weight: r.weight });
   // Tier-appropriate gear pool — the main way to obtain combat equipment.
-  for (const w of ['scimitar', 'sword', 'mace', 'longsword']) t.push({ id: `${tier}_${w}`, weight: 4 });
+  for (const w of ['scimitar', 'sword', 'mace', 'longsword', 'dagger']) t.push({ id: `${tier}_${w}`, weight: 4 });
+  t.push({ id: `${tier}_dagger`, weight: 6 });       // daggers come in pairs for dual wielding: extra weight
   for (const a of ['med_helm', 'chainbody', 'platelegs', 'kiteshield', 'boots', 'gauntlets']) t.push({ id: `${tier}_${a}`, weight: 3 });
   if (level >= 30) t.push({ id: `${tier}_full_helm`, weight: 3 }, { id: `${tier}_platebody`, weight: 2 }, { id: `${tier}_battleaxe`, weight: 3 });
   if (level >= 50) t.push({ id: `${tier}_2h_sword`, weight: 2 });
@@ -310,6 +311,8 @@ for (const id of BOSS_IDS) {
     { id: bowFor(lvl + 20), weight: 20 },
     { id: arrow, min: 60, max: 200, weight: 8 },
     ...rangedArmourFor(Math.max(40, lvl)).map((a) => ({ id: a, weight: 3 })),
+    // A pair-worthy dagger for dual wielders.
+    { id: lvl < 60 ? 'adamant_dagger' : lvl < 100 ? 'rune_dagger' : 'dragon_dagger', weight: 12 },
     // Magic loot: a staff a tier above, mystic robes and big bundles of strong runes.
     ...stavesFor(lvl + 20).map((st) => ({ id: st, weight: 20 / 2 })),
     ...robesFor(Math.max(30, lvl)).map((a) => ({ id: a, weight: 3 })),

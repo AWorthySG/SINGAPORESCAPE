@@ -26,7 +26,8 @@ test('OSRS xp table matches known values', () => {
   assert.equal(xpForLevel(2), 83);
   assert.equal(xpForLevel(10), 1154);
   assert.equal(xpForLevel(99), 13034431);
-  assert.equal(XP_TABLE.length, 100);
+  assert.equal(XP_TABLE.length, 1000, 'levels run to 999');
+  for (let l = 2; l <= 999; l++) assert.ok(XP_TABLE[l] > XP_TABLE[l - 1], `level ${l} costs more xp`);
 });
 
 test('levelForXp inverts the table', () => {
@@ -34,13 +35,17 @@ test('levelForXp inverts the table', () => {
   assert.equal(levelForXp(82), 1);
   assert.equal(levelForXp(83), 2);
   assert.equal(levelForXp(13034431), 99);
-  assert.equal(levelForXp(999_999_999), 99);
+  assert.equal(levelForXp(13034431 - 1), 98);
+  assert.equal(levelForXp(xpForLevel(500)), 500);
+  assert.equal(levelForXp(xpForLevel(999)), 999);
+  assert.equal(levelForXp(1e15), 999, 'capped at 999');
 });
 
 test('level progress and xp-to-next are sane', () => {
   assert.ok(levelProgress(0) === 0);
   assert.equal(xpToNext(0), 83);
-  assert.equal(xpToNext(13034431), 0);
+  assert.ok(xpToNext(13034431) > 0, 'level 99 is no longer the cap');
+  assert.equal(xpToNext(xpForLevel(999)), 0);
 });
 
 test('items stack to 999 per slot; coins are uncapped', () => {

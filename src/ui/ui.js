@@ -602,7 +602,10 @@ export class UI {
       } else opts.push({ label: item.equip.slot === 'weapon' ? 'Wield' : 'Wear', target: item.name, fn: () => this.game.equipItem(i) });
     }
     if (item.tags?.includes('log')) opts.push({ label: 'Light', target: item.name, fn: () => this.game.lightLogs(i) });
-    if (s.id === 'bones') opts.push({ label: 'Bury', target: item.name, fn: () => this.game.buryBones(i) });
+    if (s.id === 'bones') {
+      opts.push({ label: s.qty > 1 ? `Bury all ${s.qty}` : 'Bury', target: item.name, fn: () => this.game.buryBones(i) });
+      if (s.qty > 1) opts.push({ label: 'Bury one', target: item.name, fn: () => this.game.buryBones(i, 1) });
+    }
     if (s.id === 'mark_of_grace') opts.push({ label: 'Use', target: item.name, fn: () => this.game.useMarkOfGrace(i) });
     if (s.id.startsWith('clue_scroll_')) opts.push({ label: 'Read', target: item.name, fn: () => this.game.readClue(i) });
     if (s.id.startsWith('reward_casket_')) opts.push({ label: 'Open', target: item.name, fn: () => this.game.openCasket(i) });
