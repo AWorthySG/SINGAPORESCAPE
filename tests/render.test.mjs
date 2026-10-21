@@ -206,3 +206,16 @@ test('boss art stays in lock-step with assets/creatures/bosses/ and names real b
   assert.deepEqual([...onDisk].filter((s) => !declared.has(s)), [], 'boss art file not declared');
   assert.deepEqual([...declared].filter((s) => !BOSS_IDS.includes(s)), [], 'boss art for an unknown boss');
 });
+
+test('townsfolk art stays in lock-step with assets/creatures/townsfolk/ and names real NPCs', async () => {
+  const { readdirSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const { townArt } = await import('../src/render/sprites.js');
+  const { getNpc } = await import('../src/data/npcs.js');
+  const dir = fileURLToPath(new URL('../assets/creatures/townsfolk/', import.meta.url));
+  const onDisk = new Set(readdirSync(dir).filter((f) => f.endsWith('.webp')).map((f) => f.slice(0, -5)));
+  const declared = townArt();
+  assert.deepEqual([...declared].filter((s) => !onDisk.has(s)), [], 'declared townsfolk art has no file');
+  assert.deepEqual([...onDisk].filter((s) => !declared.has(s)), [], 'townsfolk art file not declared');
+  for (const id of declared) assert.ok(getNpc(id) && !getNpc(id).attackable, `${id} is a real townsfolk NPC`);
+});
