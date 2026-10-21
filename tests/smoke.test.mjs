@@ -465,7 +465,7 @@ test('monsters and bosses drop archery loot: bows, arrows and ranged armour', ()
   assert.ok(ids(high).has('magic_shortbow') && ids(high).has('dragonhide_body'), 'a high monster drops a magic shortbow and dragonhide');
   for (const id of BOSS_IDS) {
     const t = ids(getNpc(id));
-    assert.ok([...t].some((x) => /_shortbow$|^shortbow$/.test(x)), `${id} drops a bow`);
+    assert.ok([...t].some((x) => /bow$/.test(x)), `${id} drops a bow`);
     assert.ok([...t].some((x) => /_arrow$/.test(x)), `${id} drops arrows`);
     for (const x of t) if (x) assert.ok(ITEMS[x], `${id} drop ${x} is a real item`);
   }

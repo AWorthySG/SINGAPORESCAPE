@@ -498,6 +498,7 @@
   const runeIcon = (col) => `<path d="M6 8 L12 4 L18 8 L18 16 L12 20 L6 16 Z" fill="${col}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M12 7 L12 17 M9 10 L15 14 M15 10 L9 14" stroke="#fff" stroke-width="1" opacity=".7"/>`;
   const hatIcon = (col) => `<path d="M12 2 L17 17 L7 17 Z" fill="${col}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><rect x="5" y="16.4" width="14" height="3.4" rx="1.4" fill="${col}" stroke="${OL}" stroke-width="1"/><circle cx="12" cy="6" r="1.2" fill="#ffe24a"/>`;
   I.shortbow = bowIcon('#7a5530'); I.oak_shortbow = bowIcon('#8a5e33'); I.willow_shortbow = bowIcon('#6e6a3a'); I.maple_shortbow = bowIcon('#6e8a3a'); I.yew_shortbow = bowIcon('#3f5a2a'); I.magic_shortbow = bowIcon('#4a6ad0');
+  I.dark_bow = bowIcon('#3a2a4a'); I.crystal_bow = bowIcon('#8fe0f0'); I.twisted_bow = bowIcon('#c8a040');
   I.bronze_arrow = arrowIcon(C.bronze); I.iron_arrow = arrowIcon(C.iron); I.steel_arrow = arrowIcon(C.steel); I.mithril_arrow = arrowIcon(mith); I.adamant_arrow = arrowIcon(adam); I.rune_arrow = arrowIcon(rune);
   I.staff = staffIcon(C.wood, '#cfd6dd'); I.magic_staff = staffIcon('#3a3a55', '#8a96e8'); I.mystic_staff = staffIcon('#2a2a44', mith); I.ancient_staff = staffIcon('#2a1a3a', '#c06ad0');
   I.dragonhide_coif = helm('#3f7a4a', '#5fa06a'); I.dragonhide_body = plate('#3f7a4a', '#5fa06a'); I.dragonhide_chaps = legs('#3f7a4a', '#5fa06a');
