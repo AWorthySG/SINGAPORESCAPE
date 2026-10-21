@@ -141,6 +141,7 @@ export function playerMagicVsNpc(skills, equip, spell, npc) {
   return {
     atkRoll: (skills.magic + 8) * (b.magic + 64),
     defRoll: (npc.defence + 8) * 64,
-    max: spell.maxHit + (b.magicStr || 0),
+    // Spells hit harder as Magic rises (+1 max hit per 6 levels), like Strength does for melee.
+    max: spell.maxHit + Math.floor(skills.magic / 6) + (b.magicStr || 0),
   };
 }
