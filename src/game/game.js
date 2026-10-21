@@ -1410,14 +1410,16 @@ export class Game {
   _holdsClue() { return this.inventory.slots.some((s) => s && s.id.startsWith('clue_scroll_')); }
 
   // ---------------- New skills: Prayer, Thieving, Agility ----------------
-  buryBones(index) {
+  /** Bury bones from a stack: the whole stack by default (up to 999 at once), or `count`. */
+  buryBones(index, count = Infinity) {
     const s = this.inventory.slotAt(index);
     if (!s || s.id !== 'bones') { this.msg('You can only bury bones.'); return; }
-    this.inventory.removeAt(index, 1);
-    this.skills.addXp('prayer', 4.5);
-    this.addGood(1); // honouring the dead is a small good
-    this.spawnSparkle(this.player, '#ffe89a', 6);
-    this.msg('You bury the bones.', 'system');
+    const n = Math.min(s.qty, count);
+    this.inventory.removeAt(index, n);
+    this.skills.addXp('prayer', 4.5 * n);
+    this.addGood(Math.min(n, 10)); // honouring the dead is a small good
+    this.spawnSparkle(this.player, '#ffe89a', Math.min(24, 6 + n));
+    this.msg(n > 1 ? `You bury ${n} bones.` : 'You bury the bones.', 'system');
   }
 
   startPickpocket(npc) {
