@@ -28,6 +28,9 @@ function dropsFor(level) {
     // Arrows of the area's tier, so archers can keep hunting.
     { id: `${tier}_arrow`, min: 8, max: 25, weight: 10 },
   ];
+  // Archery gear: a bow of the area's tier and ranged armour, like the melee pool.
+  t.push({ id: bowFor(level), weight: 4 });
+  for (const id of rangedArmourFor(level)) t.push({ id, weight: 3 });
   // Tier-appropriate gear pool — the main way to obtain combat equipment.
   for (const w of ['scimitar', 'sword', 'mace', 'longsword']) t.push({ id: `${tier}_${w}`, weight: 4 });
   for (const a of ['med_helm', 'chainbody', 'platelegs', 'kiteshield', 'boots', 'gauntlets']) t.push({ id: `${tier}_${a}`, weight: 3 });
@@ -36,6 +39,16 @@ function dropsFor(level) {
   // A rare glimpse of the next tier up.
   t.push({ id: `${next}_scimitar`, weight: next === 'dragon' ? 1 : 2 });
   return t;
+}
+
+// Bow and ranged armour that suit a monster's level.
+function bowFor(level) {
+  return level < 10 ? 'shortbow' : level < 22 ? 'oak_shortbow' : level < 40 ? 'willow_shortbow'
+    : level < 58 ? 'maple_shortbow' : level < 75 ? 'yew_shortbow' : 'magic_shortbow';
+}
+function rangedArmourFor(level) {
+  return level < 40 ? ['coif', 'leather_chaps', 'studded_body']
+    : ['dragonhide_coif', 'dragonhide_body', 'dragonhide_chaps', 'dragonhide_vambraces'];
 }
 
 function makeMob(id, name, sprite, color, level, zone, aggro, family) {
@@ -263,6 +276,18 @@ const TOWNSFOLK = {
 
 export const NPCS = {};
 for (const id of MONSTER_IDS) NPCS[id] = _mobs[id];
+// Every boss also drops archery loot: a bow a tier above its level, a big
+// bundle of good arrows, and dragonhide.
+for (const id of BOSS_IDS) {
+  const b = BOSS_DEFS[id];
+  const lvl = b.level || 1;
+  const arrow = lvl < 50 ? 'mithril_arrow' : lvl < 90 ? 'adamant_arrow' : 'rune_arrow';
+  b.dropTable = [...(b.dropTable || []),
+    { id: bowFor(lvl + 20), weight: 6 },
+    { id: arrow, min: 60, max: 200, weight: 8 },
+    ...rangedArmourFor(Math.max(40, lvl)).map((a) => ({ id: a, weight: 3 })),
+  ];
+}
 for (const id of BOSS_IDS) NPCS[id] = BOSS_DEFS[id];
 Object.assign(NPCS, TOWNSFOLK);
 

@@ -451,3 +451,17 @@ test('inventory sort merges split stacks and groups by type; categories drive th
   assert.equal(inv.slots.filter((x) => x && x.id === 'logs').length, 1, 'split stacks merged');
   assert.ok(inv.size >= 28, 'keeps the normal pack size');
 });
+
+test('monsters and bosses drop archery loot: bows, arrows and ranged armour', () => {
+  const ids = (d) => new Set((d.dropTable || []).map((x) => x.id));
+  const low = ids(getNpc('goblin'));
+  assert.ok(low.has('shortbow') && low.has('bronze_arrow') && low.has('coif'), 'a low monster drops a shortbow, arrows and a coif');
+  const high = MONSTER_IDS.map(getNpc).find((d) => d.level >= 75);
+  assert.ok(ids(high).has('magic_shortbow') && ids(high).has('dragonhide_body'), 'a high monster drops a magic shortbow and dragonhide');
+  for (const id of BOSS_IDS) {
+    const t = ids(getNpc(id));
+    assert.ok([...t].some((x) => /_shortbow$|^shortbow$/.test(x)), `${id} drops a bow`);
+    assert.ok([...t].some((x) => /_arrow$/.test(x)), `${id} drops arrows`);
+    for (const x of t) if (x) assert.ok(ITEMS[x], `${id} drop ${x} is a real item`);
+  }
+});
