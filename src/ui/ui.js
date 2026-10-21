@@ -157,6 +157,7 @@ export class UI {
     this.bus.on('skills', () => this.renderPrayerPanel());
     this.bus.on('quest', () => { this.renderQuestPanel(); this.renderTracker(); });
     this.bus.on('bounties', () => { this.renderQuestPanel(); this.renderTracker(); });
+    this.bus.on('xpbonus', () => this.renderTracker());
     this.bus.on('spell', () => this.renderCombatPanel());
     this.bus.on('achievement', () => this.renderAchievementPanel());
     this.bus.on('slayer', () => { this._refreshModalIfOpen(['slayer', 'slayerRewards']); this.renderTracker(); });
@@ -302,6 +303,14 @@ export class UI {
     if (!el) return;
     const g = this.game;
     const rows = [];
+    const xb = g.xpBreakdown();
+    if (xb.total > 1.001) {
+      const parts = [];
+      if (xb.wildLevel) parts.push(`Wild lvl ${xb.wildLevel}`);
+      if (xb.streakKills > 1) parts.push(`streak ${xb.streakKills}`);
+      if (xb.night > 1) parts.push('night');
+      rows.push(`<div class="trk-row trk-xp"><span class="trk-ic">&#10022;</span><b>XP &times;${xb.total.toFixed(2)}</b> <span class="trk-prog">${parts.join(' · ')}</span></div>`);
+    }
     if (g.slayer && g.slayer.task) {
       const t = g.slayer.task;
       rows.push(`<div class="trk-row"><span class="trk-ic trk-slayer">&#9760;</span>${t.remaining} ${escapeHtml(t.name)}${this._trkPointer((n) => n.def.family === t.family)}</div>`);

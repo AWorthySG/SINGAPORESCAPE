@@ -54,8 +54,14 @@ const COMBAT_SKILLS = new Set(['attack', 'strength', 'defence', 'hitpoints', 'ra
 // day/night cycle from there.
 const MORNING_PHASE = 0.3;
 
-// Combat XP multiplier in the Wilderness, and bonus XP per boss level on a boss kill.
-const WILD_XP_MULT = 2;
+// Combat XP: +25% per Wilderness level (1-10, deeper = higher), and a kill
+// streak bonus of +5% per chained kill (up to +100%, kills within ~30s).
+const WILD_EDGE_X = 95;
+const WILD_XP_PER_LEVEL = 0.25;
+const STREAK_XP_PER_KILL = 0.05;
+const STREAK_MAX_BONUS = 1;
+const STREAK_WINDOW_TICKS = 50;
+// Bonus XP per boss level on a boss kill.
 const BOSS_XP_PER_LEVEL = 40;
 
 // Share of fired arrows recovered after the shot.
@@ -98,6 +104,8 @@ export class Game {
     this.effects = [];
     this.hazards = [];          // pending boss area attacks (red ground markers)
     this.hitStop = 0;           // ms of near-frozen animation after a big hit
+    this.killStreak = 0;        // chained kills for the XP bonus
+    this._lastKillTick = -1e9;
     // Auto battle settings: eat below this fraction of life (0 = never),
     // fight only one monster type (null = anything), use attack skills.
     this.autoCfg = { eatAt: 0.4, target: null, abilities: true, bosses: true };
@@ -455,6 +463,10 @@ export class Game {
       this._autoPickup();
     }
     this._resolveHazards();
+    if (this.killStreak && this.tickCount - this._lastKillTick > STREAK_WINDOW_TICKS) {
+      this.msg(`Your kill streak of ${this.killStreak} ends.`, 'system');
+      this.killStreak = 0; this.bus.emit('xpbonus');
+    }
     this._checkNightfall();
     // Only tick NPCs near the player (the bestiary is large).
     const px = this.player.x, py = this.player.y;
@@ -1131,6 +1143,11 @@ export class Game {
       this.msg(`You have defeated the ${npc.name}.`, 'combat');
     }
     this.totalKills++;
+    // Kill streak: chain kills (no more than ~30s apart) for a growing XP bonus.
+    this.killStreak = (this.tickCount - this._lastKillTick <= STREAK_WINDOW_TICKS) ? this.killStreak + 1 : 1;
+    this._lastKillTick = this.tickCount;
+    if (this.killStreak > 1 && this.killStreak % 5 === 0) this.msg(`Kill streak ${this.killStreak}! Combat XP +${Math.round(Math.min(STREAK_MAX_BONUS, this.killStreak * STREAK_XP_PER_KILL) * 100)}%.`, 'level');
+    this.bus.emit('xpbonus');
     this.kills[npc.npcId] = (this.kills[npc.npcId] || 0) + 1;
     if (npc.def.boss) {
       this.bossKills++;
@@ -1224,9 +1241,23 @@ export class Game {
   isNight() { return this.daylightFactor() < 0.4; }
 
   /** Night hunt: combat XP is worth 25% more after dark. */
-  // Night hunt: x1.25. The Wilderness is dangerous, so XP there is doubled (stacks).
-  combatXpMult() { return (this.isNight() ? 1.25 : 1) * (this.inWilderness() ? WILD_XP_MULT : 1); }
-  inWilderness() { const p = this.player; return !!this.world.zoneAt(p.x, p.y)?.wilderness; }
+  // Combat XP multipliers, all stacking: night hunt x1.25, Wilderness level
+  // (x1.25 at level 1 up to x3.5 at level 10), and kill streak (+5% per kill, up to +100%).
+  combatXpMult() { return this.xpBreakdown().total; }
+  xpBreakdown() {
+    const night = this.isNight() ? 1.25 : 1;
+    const wl = this.wildernessLevel();
+    const wild = wl ? 1 + WILD_XP_PER_LEVEL * wl : 1;
+    const streak = 1 + Math.min(STREAK_MAX_BONUS, this.killStreak * STREAK_XP_PER_KILL);
+    return { night, wild, wildLevel: wl, streak, streakKills: this.killStreak, total: night * wild * streak };
+  }
+  inWilderness() { return this.wildernessLevel() > 0; }
+  /** 0 outside the Wilderness; 1 at its western edge rising to 10 deep in the east (Pulau Hantu). */
+  wildernessLevel() {
+    const p = this.player;
+    if (!this.world.zoneAt(p.x, p.y)?.wilderness) return 0;
+    return Math.max(1, Math.min(10, 1 + Math.floor((p.x - WILD_EDGE_X) / 5)));
+  }
 
   /** Announce dusk and dawn, since night changes what's out there. */
   _checkNightfall() {
@@ -1254,17 +1285,18 @@ export class Game {
     const z = this.world.zoneAt(this.player.x, this.player.y);
     const name = z ? z.name : 'Singapore';
     const wild = !!(z && z.wilderness);
-    const lvl = wild ? Math.max(1, Math.floor((this.player.x - 94) / 3) + 1) : 0;
+    const lvl = this.wildernessLevel();   // same level the XP bonus uses
     if (z && !this.zonesVisited.has(name)) { this.zonesVisited.add(name); this.checkAchievements(); }
     if (name !== this.currentZoneName) {
       this.currentZoneName = name;
       if (wild) {
         this.banner('<span class="big">&#9888; The Wilderness</span>Lawless and deadly &mdash; no safe healing. Beware bosses!');
-        this.msg('You enter the Wilderness: double combat XP here, but fight or flee!', 'combat');
+        this.msg('You enter the Wilderness: combat XP rises the deeper you go (up to x3.5), but fight or flee!', 'combat');
       } else {
         this.msg(`You enter ${name}.`, 'system');
       }
     }
+    if (lvl !== this.wildLevel) this.bus.emit('xpbonus');
     this.wildLevel = lvl;
     this.ui?.setRegion?.(name, lvl);
   }
@@ -1662,6 +1694,7 @@ export class Game {
 
   playerDeath() {
     this.msg('Oh dear, you are dead!', 'combat');
+    this.killStreak = 0; this.bus.emit('xpbonus');
     if (this.autoBattle) this.toggleAutoBattle(false);
     this.banner('<span class="big">Oh dear, you are dead!</span>Respawning in town...');
     const p = this.player;

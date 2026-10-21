@@ -1979,7 +1979,7 @@ test('daggers can be dual wielded in place of a shield, striking twice per swing
   assert.equal(eq.get('shield'), null, 'no off-hand dagger without a main-hand dagger');
 });
 
-test('Wilderness doubles combat XP; bosses drop much more and give bonus XP', () => {
+test('XP bonus stacks: Wilderness level and kill streak; bosses drop much more and give bonus XP', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
   const game = new Game();
@@ -1988,10 +1988,25 @@ test('Wilderness doubles combat XP; bosses drop much more and give bonus XP', ()
   const p = game.player;
   assert.ok(!game.inWilderness());
   const day = game.combatXpMult();
-  const wild = game.world.zones.find((z) => z.wilderness);
-  p.x = p.tx = Math.round((wild.x0 + wild.x1) / 2); p.y = p.ty = Math.round((wild.y0 + wild.y1) / 2);
-  assert.ok(game.inWilderness());
-  assert.equal(game.combatXpMult(), day * 2, 'combat XP doubled in the Wilderness');
+  // Wilderness level rises going east: level 1 at the edge, 10 at the far east.
+  const edge = game.world.zones.find((z) => z.name === 'The Wilderness');
+  p.x = p.tx = edge.x0; p.y = p.ty = 50;
+  assert.equal(game.wildernessLevel(), 1);
+  assert.ok(Math.abs(game.combatXpMult() - day * 1.25) < 1e-9, 'level 1: x1.25');
+  p.x = p.tx = 148;
+  assert.equal(game.wildernessLevel(), 10);
+  assert.ok(Math.abs(game.combatXpMult() - day * 3.5) < 1e-9, 'level 10: x3.5');
+  // Kill streak stacks on top: +5% per chained kill.
+  const deep = game.combatXpMult();
+  const mobs = game.npcs.filter((n) => n.def.attackable && !n.def.boss).slice(0, 4);
+  for (const m of mobs) game.killNpc(m);
+  assert.equal(game.killStreak, 4);
+  assert.ok(Math.abs(game.combatXpMult() - deep * 1.2) < 1e-9, 'streak of 4: x1.2 more');
+  p.autoRetaliate = false; p.hp = 9999;
+  game.npcs = game.npcs.filter((n) => n.def.boss);      // nothing around to fight back
+  step(game, 60);
+  assert.equal(game.killStreak, 0, 'the streak ends after ~30s without a kill');
+  p.x = p.tx = Math.round((edge.x0 + edge.x1) / 2);
   // Boss loot: four table rolls plus two guaranteed rare-table rolls.
   const boss = game.npcs.find((n) => n.def.boss && !n.def.fixed);
   let n = 0;

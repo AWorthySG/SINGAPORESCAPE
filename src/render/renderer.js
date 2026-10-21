@@ -195,6 +195,10 @@ export class Renderer {
         } });
         continue;
       }
+      // Skip anything off-screen (with room for big bosses): the world holds
+      // over a thousand monsters, and only a few dozen are ever in view.
+      const pad = 48 * sc;
+      if (cx < -pad || cy < -pad || cx > vw + pad || cy > vh + pad) continue;
       const off = n.renderOffset ? n.renderOffset() : { x: 0, y: 0 };
       drawables.push({ sortY: c.y / TILE, z: 2, draw: () => {
         drawShadow(ctx, cx, cy + 12 * sc, 10 * sc, 4.5 * sc);

@@ -1551,3 +1551,5 @@ body.boss-on #tip-toast { top: 132px; }
   #quest-tracker { max-width: 34vw; }
   #quest-tracker .trk-dist { display: inline; }
 }
+#quest-tracker .trk-xp b { color: var(--aw-sun-deep); font-weight: 900; }
+#quest-tracker .trk-xp .trk-ic { color: var(--aw-sun-deep); }
