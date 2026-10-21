@@ -29,7 +29,8 @@ function dropsFor(level) {
     { id: `${tier}_arrow`, min: 8, max: 25, weight: 10 },
   ];
   // Archery gear: a bow of the area's tier and ranged armour, like the melee pool.
-  t.push({ id: bowFor(level), weight: 4 });
+  t.push({ id: bowFor(level), weight: 14 });         // ~1 kill in 10
+  t.push({ id: bowFor(level + 15), weight: 3 });     // and sometimes the next bow up
   for (const id of rangedArmourFor(level)) t.push({ id, weight: 3 });
   // Tier-appropriate gear pool — the main way to obtain combat equipment.
   for (const w of ['scimitar', 'sword', 'mace', 'longsword']) t.push({ id: `${tier}_${w}`, weight: 4 });
@@ -283,7 +284,7 @@ for (const id of BOSS_IDS) {
   const lvl = b.level || 1;
   const arrow = lvl < 50 ? 'mithril_arrow' : lvl < 90 ? 'adamant_arrow' : 'rune_arrow';
   b.dropTable = [...(b.dropTable || []),
-    { id: bowFor(lvl + 20), weight: 6 },
+    { id: bowFor(lvl + 20), weight: 20 },
     { id: arrow, min: 60, max: 200, weight: 8 },
     ...rangedArmourFor(Math.max(40, lvl)).map((a) => ({ id: a, weight: 3 })),
   ];
