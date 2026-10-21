@@ -193,3 +193,16 @@ test('prayer and spell icons exist for every prayer and spell', async () => {
   for (const p of PRAYERS) assert.ok(onDisk.has(`prayer-${p.id}.webp`), `prayer-${p.id}.webp`);
   for (const s of SPELLS) assert.ok(onDisk.has(`spell-${s.id}.webp`), `spell-${s.id}.webp`);
 });
+
+test('boss art stays in lock-step with assets/creatures/bosses/ and names real bosses', async () => {
+  const { readdirSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const { bossArt } = await import('../src/render/sprites.js');
+  const { BOSS_IDS } = await import('../src/data/npcs.js');
+  const dir = fileURLToPath(new URL('../assets/creatures/bosses/', import.meta.url));
+  const onDisk = new Set(readdirSync(dir).filter((f) => f.endsWith('.webp')).map((f) => f.slice(0, -5)));
+  const declared = bossArt();
+  assert.deepEqual([...declared].filter((s) => !onDisk.has(s)), [], 'declared boss art has no file');
+  assert.deepEqual([...onDisk].filter((s) => !declared.has(s)), [], 'boss art file not declared');
+  assert.deepEqual([...declared].filter((s) => !BOSS_IDS.includes(s)), [], 'boss art for an unknown boss');
+});

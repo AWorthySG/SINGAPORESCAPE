@@ -112,6 +112,24 @@ function speciesImage(family) {
   return img;
 }
 export const speciesArt = () => new Set(SPECIES_ART);
+
+// Painted art for individual bosses (assets/creatures/bosses/<npcId>.webp).
+// It already wears its own crown, so the drawn crown insignia is skipped.
+const BOSS_ART = new Set([
+  'bone_colossus', 'chilli_crab', 'demon_lord', 'durian_behemoth', 'molten_golem',
+  'sand_scorpion_king', 'sentosa_kraken', 'wilderness_warlord',
+]);
+const _bossImg = {};
+function bossImage(id) {
+  if (!id || !BOSS_ART.has(id)) return null;
+  if (_bossImg[id] !== undefined) return _bossImg[id];
+  if (typeof Image === 'undefined') { _bossImg[id] = null; return null; }
+  const img = new Image();
+  img.src = `assets/creatures/bosses/${id}.webp`;
+  _bossImg[id] = img;
+  return img;
+}
+export const bossArt = () => new Set(BOSS_ART);
 // Draw a painted creature sprite centred horizontally with its feet on the tile.
 function drawCreaturePng(c, img) {
   // Fit within 34 units tall and 64 wide (long bodies like crocodiles stay in their sticker box).
@@ -231,7 +249,8 @@ function drawCached(ctx, key, box, draw) {
 export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
   const arch = opts.sprite && ARCH[opts.sprite];
   if (arch) {
-    const simg = speciesImage(opts.family);
+    const bimg = opts.boss ? bossImage(npcId) : null;
+    const simg = bimg || speciesImage(opts.family);
     const pimg = simg || creatureImage(opts.sprite);
     const col = opts.color || '#8a8a8a';
     opts.rock = true; // monsters rock side-to-side as they move (a gait cue)
@@ -261,11 +280,11 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
       const ready = !pimg || (pimg.complete && pimg.naturalWidth);
       // Only the turtle's legs follow the stride; every other body is one pose.
       const pose = opts.sprite === 'turtle' ? Math.round(_anim.stride * 2) : 0;
-      const look = simg ? `species:${opts.family}` : `${opts.sprite}|${col}|${pimg ? 'p' : 'v'}`;
+      const look = bimg ? `boss:${npcId}` : simg ? `species:${opts.family}` : `${opts.sprite}|${col}|${pimg ? 'p' : 'v'}`;
       const sticker = ready ? monsterSticker(`${look}|${pose}`, drawBody) : null;
       if (sticker) c.drawImage(sticker, ST_X0, ST_Y0, ST_W, ST_H);
       else drawBody(c);              // headless (no DOM canvas) or art still loading
-      if (opts.boss) bossCrown(c, opts.time || 0);  // insignia over both painted & vector bodies
+      if (opts.boss && !bimg) bossCrown(c, opts.time || 0);  // insignia unless the boss art has its own crown
     });
   }
   // Townsfolk are all A-Worthy mascots; shirts come from the design system's
