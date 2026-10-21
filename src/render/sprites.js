@@ -180,7 +180,7 @@ function bakeSticker(key, box, drawBody) {
     createImageBitmap(out).then((bm) => { entry.img = bm; }).catch(() => {});
   }
   _stickers.set(key, entry);
-  if (_stickers.size > 260) {
+  if (_stickers.size > 700) {
     const old = _stickers.keys().next().value;
     const e = _stickers.get(old); if (e && e.img && e.img.close) e.img.close();
     _stickers.delete(old);

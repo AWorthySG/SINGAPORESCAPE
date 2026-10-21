@@ -5,7 +5,7 @@
 import { NPCS, MONSTER_IDS, BOSS_IDS } from './npcs.js';
 
 // How many of each monster kind populate the world.
-export const MONSTER_COPIES = 3;
+export const MONSTER_COPIES = 5;
 
 export const TERRAIN = {
   GRASS: 0,
