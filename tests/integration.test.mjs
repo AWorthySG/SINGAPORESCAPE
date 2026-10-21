@@ -2123,7 +2123,7 @@ test('ranged auto battle clears everything in reach before moving; bows drop oft
   assert.ok(bows >= 25, `bows dropped ${bows} times in 400 kills`);
 });
 
-test('a whole stack of bones can be buried at once; daggers drop', async () => {
+test('bones bury 100 at a time, or a whole stack; daggers drop', async () => {
   const { getNpc, BOSS_IDS } = await import('../src/data/npcs.js');
   globalThis.localStorage = fakeStorage();
   clearSave();
@@ -2131,10 +2131,12 @@ test('a whole stack of bones can be buried at once; daggers drop', async () => {
   game.start();
   game.inventory.add('bones', 999);
   const idx = game.inventory.slots.findIndex((x) => x && x.id === 'bones');
-  const xp0 = game.skills.xp.prayer;
   game.buryBones(idx);
-  assert.equal(game.inventory.count('bones'), 0, 'all 999 buried in one go');
-  assert.ok(game.skills.xp.prayer - xp0 >= 4.5 * 999, 'prayer xp for every bone');
+  assert.equal(game.inventory.count('bones'), 899, 'a click buries 100');
+  const xp0 = game.skills.xp.prayer;
+  game.buryBones(game.inventory.slots.findIndex((x) => x && x.id === 'bones'), Infinity);
+  assert.equal(game.inventory.count('bones'), 0, 'the rest of the stack buried in one go');
+  assert.ok(game.skills.xp.prayer - xp0 >= 4.5 * 899, 'prayer xp for every bone');
   game.inventory.add('bones', 5);
   game.buryBones(game.inventory.slots.findIndex((x) => x && x.id === 'bones'), 1);
   assert.equal(game.inventory.count('bones'), 4, 'or just one');

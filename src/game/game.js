@@ -66,6 +66,7 @@ const BOSS_XP_PER_LEVEL = 40;
 
 // Share of fired arrows recovered after the shot.
 const ARROW_RECOVERY = 0.8;
+export const BURY_BATCH = 100; // bones buried per click
 
 // Alchemy: a utility spell cast on an inventory item.
 const ALCHEMY = { level: 21, xp: 65, runes: { nature_rune: 1, fire_rune: 5 } };
@@ -1410,8 +1411,8 @@ export class Game {
   _holdsClue() { return this.inventory.slots.some((s) => s && s.id.startsWith('clue_scroll_')); }
 
   // ---------------- New skills: Prayer, Thieving, Agility ----------------
-  /** Bury bones from a stack: the whole stack by default (up to 999 at once), or `count`. */
-  buryBones(index, count = Infinity) {
+  /** Bury bones from a stack: 100 at a time by default, or `count` (Infinity = the whole stack). */
+  buryBones(index, count = BURY_BATCH) {
     const s = this.inventory.slotAt(index);
     if (!s || s.id !== 'bones') { this.msg('You can only bury bones.'); return; }
     const n = Math.min(s.qty, count);

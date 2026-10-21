@@ -603,7 +603,8 @@ export class UI {
     }
     if (item.tags?.includes('log')) opts.push({ label: 'Light', target: item.name, fn: () => this.game.lightLogs(i) });
     if (s.id === 'bones') {
-      opts.push({ label: s.qty > 1 ? `Bury all ${s.qty}` : 'Bury', target: item.name, fn: () => this.game.buryBones(i) });
+      opts.push({ label: s.qty > 1 ? `Bury ${Math.min(100, s.qty)}` : 'Bury', target: item.name, fn: () => this.game.buryBones(i) });
+      if (s.qty > 100) opts.push({ label: `Bury all ${s.qty}`, target: item.name, fn: () => this.game.buryBones(i, Infinity) });
       if (s.qty > 1) opts.push({ label: 'Bury one', target: item.name, fn: () => this.game.buryBones(i, 1) });
     }
     if (s.id === 'mark_of_grace') opts.push({ label: 'Use', target: item.name, fn: () => this.game.useMarkOfGrace(i) });
