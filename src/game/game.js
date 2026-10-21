@@ -749,7 +749,12 @@ export class Game {
 
   // ---------------- Combat resolution ----------------
   combatMode() { return this.equipment.combatType(); }
-  attackRange() { const m = this.combatMode(); return m === 'ranged' ? 7 : m === 'magic' ? 8 : 1; }
+  /** Tiles you can attack from: bows have their own reach (9-14), spells 8, melee 1. */
+  attackRange() {
+    const m = this.combatMode();
+    if (m === 'ranged') { const w = this.equipment.get('weapon'); return (w && getItem(w).equip?.range) || 9; }
+    return m === 'magic' ? 8 : 1;
+  }
 
   doPlayerAttack(npc) {
     const mode = this.combatMode();
@@ -1074,7 +1079,13 @@ export class Game {
     const to = npc.renderCenter();
     // `spread` fans a volley (Snapshot, Arrow Storm) so each arrow is visible.
     const off = spread * 5;
-    this.effects.push({ type: 'projectile', kind, x: from.x, y: from.y - 8 + off, ex: to.x, ey: to.y - 8 + off * 0.6, color, life: 240 + Math.abs(spread) * 40, maxLife: 240 + Math.abs(spread) * 40 });
+    // Arrows leave from the bow hand and fly at a steady speed, so long shots
+    // take visibly longer; bolts stay quick.
+    const fx = kind === 'arrow' ? from.x + (to.x >= from.x ? 9 : -9) : from.x;
+    const dist = Math.hypot(to.x - fx, to.y - from.y);
+    const life = kind === 'arrow' ? Math.min(650, 140 + dist / 0.55) + Math.abs(spread) * 40 : 240 + Math.abs(spread) * 40;
+    this.effects.push({ type: 'projectile', kind, x: fx, y: from.y - 6 + off, ex: to.x, ey: to.y - 8 + off * 0.6, color, life, maxLife: life,
+      arc: kind === 'arrow' ? Math.min(22, dist * 0.09) : 0 });
   }
 
   resolveNpcAttack(npc, opts = {}) {

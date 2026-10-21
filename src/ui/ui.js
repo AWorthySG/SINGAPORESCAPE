@@ -675,6 +675,7 @@ export class UI {
     const b = base ? (eq.bonuses || {}) : this.game.equipment.itemBonuses(id);
     const chips = Object.keys(STAT_LABELS).filter((k) => b[k]).map((k) => `+${b[k]} ${STAT_LABELS[k]}`);
     if (eq.slot === 'weapon') chips.push(`${capitalize(weaponStyle(id))}, ${(swingBeats(id) * 0.3).toFixed(1)}s swing`);
+    if (eq.range) chips.push(`${eq.range}-tile range`);
     if (eq.runes) chips.push(`Unlimited ${getItem(eq.runes).name.toLowerCase()}s`);
     return chips.join(' · ') || 'No combat stats';
   }
