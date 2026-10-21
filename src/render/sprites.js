@@ -95,11 +95,11 @@ export const creaturePngs = () => new Set(CREATURE_PNGS);
 // Every rank of a species (Young, Wild, Feral...) and its champions share it, and
 // it takes priority over the archetype art above.
 const SPECIES_ART = new Set([
-  'box_jellyfish', 'chicken', 'civet', 'forest_drake', 'fruit_bat', 'giant_crab', 'goblin',
+  'bandit', 'box_jellyfish', 'chicken', 'civet', 'forest_drake', 'fruit_bat', 'giant_crab', 'goblin',
   'hornbill', 'imp', 'jungle_spider', 'king_cobra', 'macaque', 'monitor_lizard', 'mosquito',
-  'mud_crab', 'pangolin', 'rat', 'reef_shark', 'saltwater_crocodile', 'sambar_deer',
+  'mud_crab', 'outlaw', 'pangolin', 'rat', 'reef_shark', 'saltwater_crocodile', 'sambar_deer',
   'sand_scorpion', 'sea_snake', 'sea_turtle', 'skeleton', 'smooth_otter', 'stone_golem',
-  'swamp_slime', 'vampire_bat', 'wild_boar', 'wild_dog', 'wraith'
+  'swamp_slime', 'vampire_bat', 'wild_boar', 'wild_dog', 'will_o_wisp', 'wraith'
 ]);
 const _speciesImg = {};
 function speciesImage(family) {
@@ -116,8 +116,8 @@ export const speciesArt = () => new Set(SPECIES_ART);
 // Painted art for individual bosses (assets/creatures/bosses/<npcId>.webp).
 // It already wears its own crown, so the drawn crown insignia is skipped.
 const BOSS_ART = new Set([
-  'bone_colossus', 'chilli_crab', 'demon_lord', 'durian_behemoth', 'molten_golem',
-  'sand_scorpion_king', 'sentosa_kraken', 'wilderness_warlord',
+  'bone_colossus', 'chilli_crab', 'demon_lord', 'durian_behemoth', 'lion_of_light', 'molten_golem',
+  'orang_minyak', 'sand_scorpion_king', 'sentosa_kraken', 'shadow_sovereign', 'wilderness_warlord',
 ]);
 const _bossImg = {};
 function bossImage(id) {
@@ -130,6 +130,23 @@ function bossImage(id) {
   return img;
 }
 export const bossArt = () => new Set(BOSS_ART);
+
+// Painted art for townsfolk roles (assets/creatures/townsfolk/<npcId>.webp),
+// used in place of the drawn mascot + prop when present.
+const TOWN_ART = new Set([
+  'banker', 'fletcher', 'guide', 'hawker', 'light_priestess', 'mage', 'shopkeeper', 'slayer_master',
+]);
+const _townImg = {};
+function townImage(id) {
+  if (!id || !TOWN_ART.has(id)) return null;
+  if (_townImg[id] !== undefined) return _townImg[id];
+  if (typeof Image === 'undefined') { _townImg[id] = null; return null; }
+  const img = new Image();
+  img.src = `assets/creatures/townsfolk/${id}.webp`;
+  _townImg[id] = img;
+  return img;
+}
+export const townArt = () => new Set(TOWN_ART);
 // Draw a painted creature sprite centred horizontally with its feet on the tile.
 function drawCreaturePng(c, img) {
   // Fit within 34 units tall and 64 wide (long bodies like crocodiles stay in their sticker box).
@@ -235,6 +252,7 @@ function cachedBitmap(key, box, draw) {
 }
 // Measured extents (plus a margin) of the cached art.
 const MASCOT_BOX = { x0: -19, y0: -34, w: 38, h: 54 };
+const TOWN_ART_H = 40, TOWN_ART_FEET = 15;
 const OBJ_BOX = { x0: -33, y0: -45, w: 66, h: 68 };
 // Walk poses are snapped to 5 steps so a handful of bitmaps covers the cycle.
 const strideKey = () => (Math.round(_anim.stride * 2) / 2);
@@ -303,6 +321,15 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
     villager: { top: '#12907F' },
   };
   const p = TOWN[npcId] || TOWN.villager;
+  const timg = townImage(npcId);
+  if (timg && timg.complete && timg.naturalWidth) {
+    return staged(ctx, cx, cy, opts, (c) => {
+      // Same footprint as the drawn mascot: feet on the tile, about mascot height.
+      const s = Math.min(TOWN_ART_H / timg.naturalHeight, MASCOT_BOX.w / timg.naturalWidth);
+      const w = timg.naturalWidth * s, h = timg.naturalHeight * s;
+      c.drawImage(timg, -w / 2, TOWN_ART_FEET - h, w, h);
+    });
+  }
   return staged(ctx, cx, cy, opts, (c) => {
     const q = strideKey();
     const was = _anim.stride; _anim.stride = q;
