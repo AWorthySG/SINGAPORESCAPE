@@ -1298,7 +1298,121 @@ function heroImage(style) {
   _heroImg[style] = img;
   return img;
 }
-const HERO_ART_H = 42, HERO_ART_FEET = 15;
+const HERO_ART_H = 56, HERO_ART_W = 60, HERO_ART_FEET = 15;
+
+// Attack choreography for the painted hero. k runs 0..1 through one attack;
+// +x is always "toward the foe" (staged() mirrors the hero when facing left).
+const easeOut = (x) => 1 - (1 - x) * (1 - x);
+const easeIn = (x) => x * x;
+const seg = (k, a, b) => Math.max(0, Math.min(1, (k - a) / (b - a)));
+function heroAttackPose(style, k) {
+  const P = { dx: 0, dy: 0, rot: 0, sx: 1, sy: 1, flash: 0, behind: null, front: null };
+  if (style === 'melee') {
+    // Wind up (lean back, crouch) -> lunge and slash -> settle.
+    const up = easeOut(seg(k, 0, 0.3)), hit = easeOut(seg(k, 0.3, 0.5)), back = easeIn(seg(k, 0.55, 1));
+    const lunge = k < 0.3 ? -up : k < 0.55 ? -1 + 2 * hit : 1 - back;
+    P.dx = lunge * (lunge < 0 ? 4 : 9);
+    P.dy = -Math.sin(seg(k, 0.25, 0.65) * Math.PI) * 5;            // a little leap into the blow
+    P.rot = lunge * (lunge < 0 ? 0.2 : 0.24);
+    P.sy = k < 0.3 ? 1 - up * 0.1 : 1 + Math.sin(seg(k, 0.3, 0.7) * Math.PI) * 0.12;
+    P.sx = 2 - P.sy;
+    P.flash = Math.sin(seg(k, 0.38, 0.6) * Math.PI);
+    P.front = (c) => {
+      const a = seg(k, 0.32, 0.7);
+      if (a <= 0 || a >= 1) return;
+      // A crescent slash sweeping top to bottom in front of the hero.
+      const sweep = easeOut(a), fade = 1 - a;
+      const a0 = -1.5 + sweep * 2.2, a1 = a0 - 1.3;
+      c.save(); c.lineCap = 'round';
+      c.strokeStyle = `rgba(34,48,74,${(0.85 * fade).toFixed(3)})`; c.lineWidth = 9;
+      c.beginPath(); c.arc(14, -16, 28, a1, a0); c.stroke();
+      c.strokeStyle = `rgba(255,255,255,${fade.toFixed(3)})`; c.lineWidth = 6;
+      c.beginPath(); c.arc(14, -16, 28, a1, a0); c.stroke();
+      c.strokeStyle = `rgba(245,184,46,${fade.toFixed(3)})`; c.lineWidth = 2.4;
+      c.beginPath(); c.arc(14, -16, 32, a1 + 0.2, a0); c.stroke();
+      if (a > 0.25 && a < 0.65) {   // impact star where the blade lands
+        const r = 4 + Math.sin(seg(a, 0.25, 0.65) * Math.PI) * 6;
+        c.fillStyle = `rgba(255,236,170,${fade.toFixed(3)})`;
+        c.beginPath();
+        for (let i = 0; i < 8; i++) { const ang = i * Math.PI / 4, rr2 = i % 2 ? r * 0.4 : r; c.lineTo(40 + Math.cos(ang) * rr2, -8 + Math.sin(ang) * rr2); }
+        c.closePath(); c.fill(); c.strokeStyle = `rgba(34,48,74,${fade.toFixed(3)})`; c.lineWidth = 1.2; c.stroke();
+      }
+      c.restore();
+    };
+  } else if (style === 'ranged') {
+    // Draw back (lean away, steady) -> release with a sharp recoil -> recover.
+    const draw = easeOut(seg(k, 0, 0.5)), rel = seg(k, 0.5, 0.62), rec = easeIn(seg(k, 0.62, 1));
+    const lean = k < 0.5 ? -draw * 3 : k < 0.62 ? -3 - rel * 4 : -7 * (1 - rec);
+    P.dx = lean;
+    P.rot = k < 0.5 ? -draw * 0.1 : k < 0.62 ? -0.1 - rel * 0.12 : -0.22 * (1 - rec);
+    P.sy = k < 0.5 ? 1 - draw * 0.06 : 1 + Math.sin(seg(k, 0.5, 0.8) * Math.PI) * 0.08;
+    P.sx = 2 - P.sy;
+    P.flash = Math.sin(seg(k, 0.5, 0.7) * Math.PI);
+    P.behind = (c) => {   // a tightening focus ring while drawing
+      if (k > 0.5) return;
+      c.save(); c.strokeStyle = `rgba(255,255,255,${(0.5 * draw).toFixed(3)})`; c.lineWidth = 1.4;
+      c.setLineDash([3, 3]); c.beginPath(); c.arc(0, -14, 26 - draw * 10, 0, Math.PI * 2); c.stroke(); c.restore();
+    };
+    P.front = (c) => {
+      const a = seg(k, 0.5, 0.85);
+      if (a <= 0 || a >= 1) return;
+      // Speed lines and a burst of air shooting forward from the bow.
+      c.save(); c.lineCap = 'round';
+      const f = 1 - a;
+      for (let i = 0; i < 4; i++) {
+        const y = -24 + i * 6, x0 = 32 + a * 22, len = 14 * f + 5;
+        c.strokeStyle = `rgba(34,48,74,${(0.8 * f).toFixed(3)})`; c.lineWidth = 4 - i * 0.4;
+        c.beginPath(); c.moveTo(x0, y); c.lineTo(x0 + len, y); c.stroke();
+        c.strokeStyle = `rgba(255,255,255,${f.toFixed(3)})`; c.lineWidth = 2 - i * 0.3;
+        c.beginPath(); c.moveTo(x0, y); c.lineTo(x0 + len, y); c.stroke();
+      }
+      c.strokeStyle = `rgba(245,184,46,${f.toFixed(3)})`; c.lineWidth = 2.6;
+      c.beginPath(); c.arc(30, -15, 5 + a * 12, -1.1, 1.1); c.stroke();
+      c.restore();
+    };
+  } else {
+    // Charge (float up inside a swirl of sparks) -> thrust the spell out -> land.
+    const ch = easeOut(seg(k, 0, 0.6)), cast = seg(k, 0.6, 0.75), land = easeIn(seg(k, 0.75, 1));
+    P.dy = k < 0.6 ? -ch * 8 : k < 0.75 ? -8 : -8 * (1 - land);
+    P.dx = k < 0.6 ? 0 : k < 0.75 ? easeOut(cast) * 5 : 5 * (1 - land);
+    P.rot = k < 0.6 ? Math.sin(k * 30) * 0.03 : k < 0.75 ? easeOut(cast) * 0.16 : 0.16 * (1 - land);
+    P.sy = k < 0.6 ? 1 + ch * 0.05 : 1 + Math.sin(seg(k, 0.6, 0.85) * Math.PI) * 0.1;
+    P.sx = 2 - P.sy;
+    P.flash = Math.sin(seg(k, 0.55, 0.8) * Math.PI);
+    P.behind = (c, kk, t) => {   // a glowing magic circle and orbiting sparks
+      const g = k < 0.75 ? ch : 1 - land;
+      if (g <= 0.02) return;
+      c.save();
+      c.globalCompositeOperation = 'lighter';
+      const rg = c.createRadialGradient(0, -14, 2, 0, -14, 30);
+      rg.addColorStop(0, `rgba(200,150,255,${(0.45 * g).toFixed(3)})`); rg.addColorStop(1, 'rgba(200,150,255,0)');
+      c.fillStyle = rg; c.beginPath(); c.arc(0, -14, 30, 0, Math.PI * 2); c.fill();
+      c.globalCompositeOperation = 'source-over';
+      c.strokeStyle = `rgba(155,82,173,${(0.8 * g).toFixed(3)})`; c.lineWidth = 1.3;
+      c.beginPath(); c.ellipse(0, 14, 16 * g, 5 * g, 0, 0, Math.PI * 2); c.stroke();
+      for (let i = 0; i < 6; i++) {
+        const ang = t * 0.008 + i * Math.PI / 3, r = 20 + Math.sin(t * 0.01 + i) * 2;
+        c.fillStyle = i % 2 ? `rgba(245,184,46,${g.toFixed(3)})` : `rgba(220,190,255,${g.toFixed(3)})`;
+        c.beginPath(); c.arc(Math.cos(ang) * r, -14 + Math.sin(ang) * r * 0.55, 1.8, 0, Math.PI * 2); c.fill();
+      }
+      c.restore();
+    };
+    P.front = (c) => {
+      const a = seg(k, 0.6, 0.9);
+      if (a <= 0 || a >= 1) return;
+      // A bright burst flung forward as the spell leaves the staff.
+      c.save(); c.globalCompositeOperation = 'lighter';
+      const r = 6 + easeOut(a) * 14;
+      const rg = c.createRadialGradient(24, -22, 0, 24, -22, r);
+      rg.addColorStop(0, `rgba(255,255,255,${(1 - a).toFixed(3)})`);
+      rg.addColorStop(0.5, `rgba(200,150,255,${(0.8 * (1 - a)).toFixed(3)})`);
+      rg.addColorStop(1, 'rgba(200,150,255,0)');
+      c.fillStyle = rg; c.beginPath(); c.arc(24, -22, r, 0, Math.PI * 2); c.fill();
+      c.restore();
+    };
+  }
+  return P;
+}
 
 export function drawPlayer(ctx, cx, cy, opts = {}) {
   const style = opts.hasWeapon && (opts.weaponType === 'ranged' || opts.weaponType === 'magic') ? opts.weaponType : 'melee';
@@ -1320,18 +1434,29 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
       c.restore();
     }
     if (painted) {
-      // The painted hero carries its own weapon, so attacks read as a lunge:
-      // crouch on the wind-up, then stretch tall into the strike.
+      // The painted hero carries its own weapon, so each attack is acted out with
+      // the whole body: a wind-up, a strike and a recovery, plus a style effect.
       const k = opts.swingK ?? -1;
-      if (k >= 0) {
-        const s1 = k < 0.35 ? -Math.sin((k / 0.35) * Math.PI / 2) * 0.08 : Math.sin(((k - 0.35) / 0.65) * Math.PI) * 0.12;
-        c.translate(0, HERO_ART_FEET); c.scale(1 - s1 * 0.6, 1 + s1); c.translate(0, -HERO_ART_FEET);
+      const pose = k >= 0 ? heroAttackPose(style, k) : null;
+      const t = opts.time || 0;
+      if (pose && pose.behind) pose.behind(c, k, t);
+      c.save();
+      if (pose) {
+        c.translate(pose.dx, pose.dy);
+        c.translate(0, HERO_ART_FEET); c.rotate(pose.rot); c.scale(pose.sx, pose.sy); c.translate(0, -HERO_ART_FEET);
       }
       // A side-to-side rock while walking, as the monsters do (a gait cue).
-      if (opts.moving) c.rotate(Math.sin((opts.time || 0) * 0.018 + cx) * 0.06);
-      const s = Math.min(HERO_ART_H / himg.naturalHeight, 44 / himg.naturalWidth);
+      if (opts.moving) c.rotate(Math.sin(t * 0.018 + cx) * 0.06);
+      const s = Math.min(HERO_ART_H / himg.naturalHeight, HERO_ART_W / himg.naturalWidth);
       const w = himg.naturalWidth * s, h = himg.naturalHeight * s;
       c.drawImage(himg, -w / 2, HERO_ART_FEET - h, w, h);
+      if (pose && pose.flash > 0) {   // a white flash over the body on the strike frame
+        c.globalAlpha = pose.flash * 0.35; c.globalCompositeOperation = 'lighter';
+        c.drawImage(himg, -w / 2, HERO_ART_FEET - h, w, h);
+        c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
+      }
+      c.restore();
+      if (pose && pose.front) pose.front(c, k, t);
       return;
     }
     // The hero is the A-Worthy mascot. Unarmoured, it wears a tunic in the

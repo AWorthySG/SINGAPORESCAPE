@@ -859,15 +859,15 @@ export class Renderer {
     if (game.player.alive) {
       const c = game.player.renderCenter();
       const px = c.x - ox, py = c.y - oy;
-      if (game.player.target) this._healthBar(px, py - 30, game.player.hp / game.maxHp());
+      if (game.player.target) this._healthBar(px, py - 47, game.player.hp / game.maxHp());
       ctx.font = '800 11px Nunito,"Trebuchet MS",sans-serif';
       ctx.textAlign = 'center';
       ctx.lineJoin = 'round';
       // Name tag in the sticker style: white letters inside a navy ink line.
       ctx.strokeStyle = '#22304A'; ctx.lineWidth = 3.5;
-      ctx.strokeText(game.player.name, px, py - 36);
+      ctx.strokeText(game.player.name, px, py - 53);
       ctx.fillStyle = '#FFFFFF';
-      ctx.fillText(game.player.name, px, py - 36);
+      ctx.fillText(game.player.name, px, py - 53);
     }
     for (const e of game.effects) {
       if (e.type !== 'hitsplat') continue;
