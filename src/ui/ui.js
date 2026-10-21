@@ -16,7 +16,7 @@ import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
 import { QUESTS } from '../data/quests.js';
 import { SLAYER_REWARDS } from '../data/slayer.js';
 import { STATIONS, MRT_FARE } from '../data/transport.js';
-import { EQUIP_SLOTS } from '../game/equipment.js';
+import { EQUIP_SLOTS, canDualWield } from '../game/equipment.js';
 import { streakMult } from '../game/bounty.js';
 import { itemCategory } from '../game/inventory.js';
 import { MAX_UPGRADE, upgradeCost, upgradeChance, upgradedName } from '../game/upgrade.js';
@@ -567,7 +567,14 @@ export class UI {
     const item = getItem(s.id);
     const opts = [];
     if (item.heal) opts.push({ label: 'Eat', target: item.name, fn: () => this.game.eatItem(i) });
-    if (item.equip) opts.push({ label: item.equip.slot === 'weapon' ? 'Wield' : 'Wear', target: item.name, fn: () => this.game.equipItem(i) });
+    if (item.equip) {
+      const dual = canDualWield(s.id) && canDualWield(this.game.equipment.get('weapon'));
+      if (dual) {
+        // Holding a dagger already: choose which hand the new one goes in.
+        opts.push({ label: 'Wield in off-hand', target: item.name, fn: () => this.game.equipOffhand(i) });
+        opts.push({ label: 'Wield in main hand', target: item.name, fn: () => this.game.equipItem(i, { offhand: false }) });
+      } else opts.push({ label: item.equip.slot === 'weapon' ? 'Wield' : 'Wear', target: item.name, fn: () => this.game.equipItem(i) });
+    }
     if (item.tags?.includes('log')) opts.push({ label: 'Light', target: item.name, fn: () => this.game.lightLogs(i) });
     if (s.id === 'bones') opts.push({ label: 'Bury', target: item.name, fn: () => this.game.buryBones(i) });
     if (s.id === 'mark_of_grace') opts.push({ label: 'Use', target: item.name, fn: () => this.game.useMarkOfGrace(i) });

@@ -5,6 +5,9 @@ import { upgradedBonuses } from './upgrade.js';
 export const EQUIP_SLOTS = ['head', 'cape', 'amulet', 'weapon', 'body', 'shield', 'legs', 'hands', 'feet', 'ring'];
 export const DEFAULT_WEAPON_SPEED = 5; // ticks (unarmed)
 
+/** Daggers (and the kris) can be dual wielded: a second one goes in the off-hand. */
+export const canDualWield = (id) => !!id && (/_dagger$/.test(id) || id === 'tiger_kris');
+
 // Worn-equipment state + bonus aggregation.
 export class Equipment {
   constructor(bus) {
@@ -77,6 +80,9 @@ export class Equipment {
     for (const slot of EQUIP_SLOTS) if (this.slots[slot] === id) return true;
     return false;
   }
+
+  /** A dagger held in the off-hand (shield slot) alongside a main-hand dagger. */
+  isDualWielding() { return canDualWield(this.slots.weapon) && canDualWield(this.slots.shield); }
 
   /** Combat style implied by the wielded weapon: 'melee' | 'ranged' | 'magic'. */
   combatType() {
