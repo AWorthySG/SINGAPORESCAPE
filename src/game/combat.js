@@ -120,14 +120,18 @@ export const RANGED_STYLES = {
   longrange: { name: 'Longrange', atk: 0, speedMod: 0, longrange: true },
 };
 export const RANGED_STYLE_ORDER = ['accurate', 'rapid', 'longrange'];
+export const RANGED_BONUS = { acc: 1.15, dmg: 1.5 };
 
 export function playerRangedVsNpc(skills, equip, styleId, npc, arrowStr) {
   const st = RANGED_STYLES[styleId] || RANGED_STYLES.accurate;
   const b = equip.bonuses();
+  // Arrows set the base; half the bow/armour Ranged bonus adds to damage too,
+  // so a better bow hits harder, not just more often.
+  const str = arrowStr + Math.floor((b.ranged || 0) / 2);
   return {
-    atkRoll: attackRoll(skills.ranged, st.atk, b.ranged),
+    atkRoll: attackRoll(skills.ranged, st.atk, b.ranged) * RANGED_BONUS.acc,
     defRoll: defenceRoll(npc.defence, 0, 0),
-    max: maxHit(skills.ranged, 0, arrowStr),
+    max: Math.round(maxHit(skills.ranged, 0, str) * RANGED_BONUS.dmg) + 1,
   };
 }
 
