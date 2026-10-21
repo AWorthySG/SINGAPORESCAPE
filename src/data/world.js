@@ -4,6 +4,9 @@
 
 import { NPCS, MONSTER_IDS, BOSS_IDS } from './npcs.js';
 
+// How many of each monster kind populate the world.
+export const MONSTER_COPIES = 3;
+
 export const TERRAIN = {
   GRASS: 0,
   PATH: 1,
@@ -143,9 +146,9 @@ export function buildWorld() {
   placeNpc('light_priestess', 60, 49); // by the Monument — the path of redemption
   placeNpc('shadow_broker', 48, 47);   // lurking near the bank — the path of corruption
   placeNpc('villager', 60, 54, 3);
-  // A few little chickens right at spawn: harmless, killable, and they waddle
-  // up to the player on their own, clucking the whole way.
-  const CHATTY_CHICKEN = { statMul: 0.5, aggressive: true, ignoreLevelGate: true, chatter: ['Cluck cluck!', 'Bawk bawk!', 'Cluck!'] };
+  // A few little chickens right at spawn: harmless and killable. They waddle
+  // about clucking, but never attack.
+  const CHATTY_CHICKEN = { statMul: 0.5, aggressive: false, chatter: ['Cluck cluck!', 'Bawk bawk!', 'Cluck!'] };
   placeNpc('chicken', 59, 57, 3, CHATTY_CHICKEN);
   placeNpc('chicken', 61, 58, 3, CHATTY_CHICKEN);
   placeNpc('chicken', 58, 60, 3, CHATTY_CHICKEN);
@@ -284,7 +287,8 @@ export function buildWorld() {
     }
     placeNpc(id, Math.round((z.x0 + z.x1) / 2), Math.round((z.y0 + z.y1) / 2), wander);
   };
-  for (const id of MONSTER_IDS) placeMobIn(id, 4);
+  // Plenty of monsters: three of every kind, spread around its zone.
+  for (let copy = 0; copy < MONSTER_COPIES; copy++) for (const id of MONSTER_IDS) placeMobIn(id, 4);
   for (const id of BOSS_IDS) { if (NPCS[id].fixed) continue; placeMobIn(id, 3); }
   // Alignment-arc bosses at fixed, thematic spots.
   placeNpc('lion_of_light', 52, 56, 0, { aggressive: false }); // radiant guardian by the town temple (never aggressive)

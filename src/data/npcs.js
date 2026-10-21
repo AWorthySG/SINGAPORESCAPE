@@ -129,7 +129,9 @@ const _mobs = {};
       // High-level generic mobs drift into the Wilderness, but island-native
       // families always stay on their island.
       const zone = bzone === 'Pulau Hantu' ? 'Pulau Hantu' : (level >= 45 ? 'The Wilderness' : bzone);
-      _mobs[id] = makeMob(id, name, sprite, color, level, zone, baggro || rank.agg, slug(bn));
+      // A mix of temperaments: Young and plain-rank monsters keep to themselves;
+      // from Wild up, only naturally aggressive species attack on sight.
+      _mobs[id] = makeMob(id, name, sprite, color, level, zone, baggro && rank.agg, slug(bn));
       count++;
     }
   }

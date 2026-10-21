@@ -122,6 +122,7 @@ export function loadGame(game) {
       eatAt: [0, 0.25, 0.4, 0.6].includes(ac.eatAt) ? ac.eatAt : 0.4,
       target: typeof ac.target === 'string' ? ac.target : null,
       abilities: ac.abilities !== false,
+      bosses: ac.bosses !== false,
     };
   }
   return true;

@@ -132,7 +132,7 @@ export class UI {
     });
 
     // Bus subscriptions.
-    this.bus.on('tick', () => { this.updateBossBar(); this.updateDayNight(); this.renderTracker(); this._tipsTick(); });
+    this.bus.on('tick', () => { this.renderAutoBattle(); this.updateBossBar(); this.updateDayNight(); this.renderTracker(); this._tipsTick(); });
     this.bus.on('inventory', () => this.scheduleInventory());
     this.bus.on('equipment', () => { this.renderEquipment(); this.renderCombatPanel(); this.scheduleInventory(); });
     this.bus.on('skills', () => { this.renderSkills(); this.renderCombatPanel(); });
@@ -213,8 +213,12 @@ export class UI {
   renderAutoBattle() {
     const btn = this.el.autoBattle || (this.el.autoBattle = document.getElementById('auto-battle-btn'));
     if (!btn) return;
-    btn.classList.toggle('active', this.game.autoBattle);
-    btn.textContent = this.game.autoBattle ? 'Auto battle: on' : 'Auto battle: off';
+    const on = this.game.autoBattle;
+    btn.classList.toggle('active', on);
+    btn.closest('.auto-row')?.classList.toggle('on', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    const st = btn.querySelector('.ab-status');
+    if (st) st.textContent = this.game.autoStatus();
   }
 
   openAutoSettings() {
@@ -222,19 +226,25 @@ export class UI {
     const render = (body) => {
       const cfg = g.autoCfg;
       body.innerHTML = '';
-      const sec = (title, opts, cur, set) => {
-        const h = document.createElement('div'); h.className = 'modal-section-title'; h.textContent = title; body.appendChild(h);
-        const row = document.createElement('div'); row.className = 'gear-tabs';
+      const list = document.createElement('div');
+      list.className = 'auto-set';
+      // One labelled row per setting, its choices as a segmented control.
+      const row = (title, help, opts, cur, set) => {
+        const r = document.createElement('div'); r.className = 'auto-set-row';
+        r.innerHTML = `<div class="as-head"><b>${escapeHtml(title)}</b><span>${escapeHtml(help)}</span></div>`;
+        const seg = document.createElement('div'); seg.className = 'as-seg';
         for (const [val, label] of opts) {
-          const b = document.createElement('button');
-          b.className = 'gear-tab' + (val === cur ? ' active' : '');
-          b.textContent = label;
-          b.addEventListener('click', () => { set(val); render(body); });
-          row.appendChild(b);
+          const btn = document.createElement('button');
+          btn.className = 'as-opt' + (val === cur ? ' active' : '');
+          btn.textContent = label;
+          btn.setAttribute('aria-pressed', val === cur ? 'true' : 'false');
+          btn.addEventListener('click', () => { set(val); render(body); });
+          seg.appendChild(btn);
         }
-        body.appendChild(row);
+        r.appendChild(seg);
+        list.appendChild(r);
       };
-      sec('Eat food when life drops below', [[0, 'Never'], [0.25, '25%'], [0.4, '40%'], [0.6, '60%']], cfg.eatAt, (v) => { cfg.eatAt = v; });
+      row('Eat food', 'when your life drops below', [[0, 'Never'], [0.25, '25%'], [0.4, '40%'], [0.6, '60%']], cfg.eatAt, (v) => { cfg.eatAt = v; });
       // Monster types around you right now (plus the current choice).
       const p = g.player;
       const near = new Map();
@@ -242,14 +252,16 @@ export class UI {
         if (n.alive && n.attackable && !n.def.boss && Math.max(Math.abs(n.x - p.x), Math.abs(n.y - p.y)) <= 25) near.set(n.npcId, n.def.name.replace(/^Champion /, ''));
       }
       if (cfg.target && !near.has(cfg.target)) { try { near.set(cfg.target, getNpc(cfg.target).name); } catch { cfg.target = null; } }
-      sec('What to fight', [[null, 'Anything nearby'], ...[...near].sort((a, b) => a[1].localeCompare(b[1])).slice(0, 12).map(([id, nm]) => [id, `Only ${nm}`])],
+      row('What to fight', 'monsters attacking you are always fought', [[null, 'Anything'], ...[...near].sort((x, y) => x[1].localeCompare(y[1])).slice(0, 12).map(([id, nm]) => [id, nm])],
         cfg.target, (v) => { cfg.target = v; });
-      sec('Use attack skills automatically', [[true, 'Yes'], [false, 'No, save adrenaline']], cfg.abilities, (v) => { cfg.abilities = v; });
+      row('Bosses', 'take on bosses within reach first', [[true, 'Fight them'], [false, 'Skip']], cfg.bosses !== false, (v) => { cfg.bosses = v; });
+      row('Attack skills', 'spend adrenaline on your skills', [[true, 'Use them'], [false, 'Save adrenaline']], cfg.abilities, (v) => { cfg.abilities = v; });
+      body.appendChild(list);
       const hint = document.createElement('div'); hint.className = 'modal-hint';
-      hint.textContent = 'Auto battle always steps out of boss attack markers and uses Brace against heavy blows. Monsters attacking you are fought whatever you choose here.';
+      hint.textContent = 'Auto battle always steps out of boss attack markers, braces against heavy blows and picks your strongest spell. Steering pauses it; press T to switch it on or off.';
       body.appendChild(hint);
     };
-    this.openModal('Auto Battle Settings', render);
+    this.openModal('Auto Battle', render);
   }
 
   renderAbilities() {

@@ -45,6 +45,9 @@ export class NPC extends Character {
     this.spawnX = x;
     this.spawnY = y;
     this.wander = wander || this.def.wander || 0;
+    // Monsters walk at half the player's pace, bosses slower still, so fights
+    // can be chosen (and escaped) rather than sprung.
+    this.stepMul = this.def.boss ? 2.2 : this.def.attackable ? 1.8 : 1.3;
 
     this.maxHp = this.def.maxHp || 1;
     this.hp = this.maxHp;
