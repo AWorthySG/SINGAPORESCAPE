@@ -394,6 +394,19 @@ export class Renderer {
         ctx.restore();
         continue;
       }
+      if (e.type === 'ring') {
+        // A celebratory burst ring (level ups): gold band inside a navy ink line.
+        const t = 1 - e.life / e.maxLife, ease = 1 - (1 - t) * (1 - t);
+        const r = e.r0 + (e.r1 - e.r0) * ease;
+        ctx.save();
+        ctx.globalAlpha = 1 - t;
+        ctx.strokeStyle = '#22304A'; ctx.lineWidth = 5 * (1 - t) + 1.5;
+        ctx.beginPath(); ctx.arc(e.x - ox, e.y - oy, r, 0, Math.PI * 2); ctx.stroke();
+        ctx.strokeStyle = e.color; ctx.lineWidth = 3 * (1 - t) + 0.8;
+        ctx.beginPath(); ctx.arc(e.x - ox, e.y - oy, r, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+        continue;
+      }
       if (e.type === 'lootfly') {
         // Loot arcs up and into your pack, shrinking as it goes.
         const t = 1 - e.life / e.maxLife;
@@ -481,9 +494,18 @@ export class Renderer {
       ctx.globalAlpha = a;
       if (p.add) ctx.globalCompositeOperation = 'lighter';
       ctx.fillStyle = p.color;
-      ctx.beginPath();
-      ctx.arc(p.x - ox, p.y - oy, p.size, 0, Math.PI * 2);
-      ctx.fill();
+      if (p.shape === 'confetti' || p.shape === 'leaf') {
+        // Flat pieces that tumble: squash one axis with the spin to fake a flip.
+        ctx.save(); ctx.translate(p.x - ox, p.y - oy); ctx.rotate(p.rot || 0);
+        ctx.scale(1, Math.abs(Math.cos((p.rot || 0) * 1.7)) * 0.8 + 0.2);
+        if (p.shape === 'leaf') { ctx.beginPath(); ctx.ellipse(0, 0, p.size * 1.4, p.size * 0.7, 0, 0, Math.PI * 2); ctx.fill(); }
+        else ctx.fillRect(-p.size, -p.size * 0.6, p.size * 2, p.size * 1.2);
+        ctx.restore();
+      } else {
+        ctx.beginPath();
+        ctx.arc(p.x - ox, p.y - oy, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
       if (p.add) ctx.globalCompositeOperation = 'source-over';
     }
     ctx.globalAlpha = 1;

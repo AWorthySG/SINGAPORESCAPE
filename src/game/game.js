@@ -67,6 +67,8 @@ const BOSS_XP_PER_LEVEL = 40;
 // Share of fired arrows recovered after the shot.
 const ARROW_RECOVERY = 0.8;
 export const BURY_BATCH = 100; // bones buried per click
+export const SPLIT_SHOT_LEVEL = 300;  // Ranged level at which every bow shot splits
+const SPLIT_SHOT_TARGETS = 3;       // ...into this many arrows, one per target
 
 // Alchemy: a utility spell cast on an inventory item.
 const ALCHEMY = { level: 21, xp: 65, runes: { nature_rune: 1, fire_rune: 5 } };
@@ -182,6 +184,14 @@ export class Game {
       const c = this.player.renderCenter();
       this.spawnSparkle(this.player, '#ffe24a', 18);
       this.spawnPoof(c.x, c.y - 6, '#fff3a0');
+      // Confetti and a burst ring; round-number levels get a bigger celebration.
+      const big = p?.level && (p.level % 10 === 0 || p.level === 99);
+      this.spawnConfetti(c.x, c.y - 18, big ? 46 : 22);
+      this.effects.push({ type: 'ring', x: c.x, y: c.y - 8, color: '#F5B82E', life: 520, maxLife: 520, r0: 6, r1: big ? 52 : 34 });
+      if (big) this.addShake(2, 160);
+      if (p?.skill === 'ranged' && p.level === SPLIT_SHOT_LEVEL) {
+        this.msg('Split shot unlocked! Every bow shot now also fires at two more monsters in reach.', 'level');
+      }
       // Advancing a combat skill invigorates you — restore some health.
       if (this.player.alive && COMBAT_SKILLS.has(p?.skill)) {
         this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.ceil(this.maxHp() * 0.1));
@@ -379,7 +389,12 @@ export class Game {
     // Harvest-judder timers on world objects (trees/rocks being worked).
     for (const o of this.world.objects) if (o.shakeT > 0) o.shakeT = Math.max(0, o.shakeT - dt);
 
-    for (const p of this.particles) { p.x += p.vx * adt; p.y += p.vy * adt; p.vy += p.g * adt; p.life -= adt; }
+    for (const p of this.particles) {
+      p.x += p.vx * adt; p.y += p.vy * adt; p.vy += p.g * adt; p.life -= adt;
+      if (p.drag) { const d = Math.pow(p.drag, adt / 16); p.vx *= d; p.vy *= d; }
+      if (p.spin) p.rot += p.spin * adt;
+      if (p.sway !== undefined) { p.sway += adt * 0.004; p.vx = Math.sin(p.sway) * 0.025; }   // leaves rock side to side as they fall
+    }
     if (this.particles.length) this.particles = this.particles.filter((p) => p.life > 0);
 
     this.updateHover();
@@ -413,6 +428,17 @@ export class Game {
     this.spawnPoof(c.x, c.y - 4, npc.def.color || '#caa15a');
     this.bus.emit('sfx', npc.def.boss ? 'bossdie' : 'die');
     if (npc.def.boss) { this.spawnSparkle(npc, '#ffd24a', 20); this.spawnPoof(c.x, c.y - 8, '#ff7a3a'); this.addShake(5, 340); }
+  }
+
+  /** A burst of tumbling paper confetti in the brand's marker colours. */
+  spawnConfetti(wx, wy, n = 22) {
+    const cols = ['#F5B82E', '#C0392B', '#1F6FA8', '#3DAA5C', '#9B52AD', '#FFFFFF'];
+    for (let i = 0; i < n; i++) {
+      const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.2, s = 0.08 + Math.random() * 0.1;
+      this._pushParticle({ x: wx, y: wy, vx: Math.cos(a) * s, vy: Math.sin(a) * s, g: 0.00025, drag: 0.996,
+        life: 1100 + Math.random() * 500, maxLife: 1500, size: 2.2 + Math.random() * 1.6, color: cols[i % cols.length],
+        add: false, shape: 'confetti', rot: Math.random() * 6.28, spin: (Math.random() - 0.5) * 0.03 });
+    }
   }
 
   spawnPoof(wx, wy, color) {
@@ -451,6 +477,25 @@ export class Game {
       x, y, vx: (Math.random() - 0.5) * 0.006, vy: -0.004 - Math.random() * 0.006, g: 0,
       life: 4200 + Math.random() * 2600, maxLife: 7000, size: 1 + Math.random() * 1.3, color, add: true,
     });
+    if (zone === 'The Wilderness') {
+      // Ash and grit gusting sideways across the Wilderness.
+      for (let i = 0; i < 2; i++) this._pushParticle({
+        x: c.x - 200 + Math.random() * 60, y: c.y + (Math.random() - 0.5) * 260, vx: 0.05 + Math.random() * 0.04, vy: (Math.random() - 0.5) * 0.008, g: 0,
+        life: 5200, maxLife: 5200, size: 0.8 + Math.random() * 1.2, color: Math.random() < 0.5 ? '#8a7a6a' : '#b5a48f', add: false,
+      });
+    } else {
+      // A leaf now and then, tumbling down from a nearby tree.
+      const trees = this.world.objects.filter((o) => o.def.type === 'tree' && Math.abs(o.x * TILE - c.x) < 200 && Math.abs(o.y * TILE - c.y) < 150);
+      if (trees.length && Math.random() < 0.6) {
+        const t = trees[Math.floor(Math.random() * trees.length)];
+        const autumn = Math.random() < 0.3;
+        this._pushParticle({
+          x: t.x * TILE + TILE / 2 + (Math.random() - 0.5) * 18, y: t.y * TILE - 6, vx: (Math.random() - 0.5) * 0.02, vy: 0.012 + Math.random() * 0.01, g: 0,
+          life: 2600, maxLife: 2600, size: 1.6 + Math.random() * 0.8, color: autumn ? '#e0a63a' : '#5fb05a', add: false,
+          shape: 'leaf', rot: Math.random() * 6.28, spin: (Math.random() - 0.5) * 0.006, sway: Math.random() * 6.28,
+        });
+      }
+    }
   }
 
   // ---------------- Game tick (600ms) ----------------
@@ -1009,8 +1054,34 @@ export class Game {
       total += dmg;
     }
     if (mods.heal && total > 0) { this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.round(total * mods.heal)); this.bus.emit('hp'); }
+    if (this.skills.ranged >= SPLIT_SHOT_LEVEL) this._splitShot(npc, style, pr);
     this.player.attackCooldown = Math.max(1, this.equipment.weaponSpeed() + (RANGED_STYLES[style]?.speedMod || 0));
     this._postAttack(npc);
+  }
+
+  /** Split shot (Ranged 300+): each shot also looses an arrow at up to two other
+   *  monsters in reach, nearest first, so three targets are hit at once. */
+  _splitShot(main, style, pr) {
+    const p = this.player, range = this.attackRange();
+    const extra = this.npcs
+      .filter((n) => n !== main && n.alive && n.attackable && !n.temporary && n.hp > 0 && chebyshev(p.x, p.y, n.x, n.y) <= range)
+      .sort((a, b) => chebyshev(p.x, p.y, a.x, a.y) - chebyshev(p.x, p.y, b.x, b.y))
+      .slice(0, SPLIT_SHOT_TARGETS - 1);
+    for (const n of extra) {
+      const ai = this.inventory.slots.findIndex((s) => s && getItem(s.id).tags?.includes('ammo'));
+      if (ai === -1) break;
+      const arrowStr = getItem(this.inventory.slotAt(ai).id).arrowStr || 0;
+      this._spendArrow(ai);
+      const { atkRoll, defRoll, max } = playerRangedVsNpc(this.skills, this.equipment, style, n.def, arrowStr);
+      const effMax = Math.max(1, Math.round(max * pr));
+      let dmg = rollAttack(atkRoll * pr, defRoll, effMax);
+      const c = this._critHit(dmg, 0); dmg = c.dmg;
+      this._projectile(n, '#9fe0ff', 'arrow', 0);
+      this._applyPlayerHit(n, dmg, { crit: dmg > 0 && (c.crit || dmg >= effMax) });
+      if (dmg > 0) { this.spawnHitSparks(n, '#9fe0ff'); for (const x of combatXpRanged(style, dmg)) this.skills.addXp(x.skill, x.xp * this.combatXpMult()); }
+      if (!n.target) n.target = p;
+      if (n.hp <= 0) this.killNpc(n);
+    }
   }
 
   /** The strongest spell you can cast right now (level and runes), or null. */
