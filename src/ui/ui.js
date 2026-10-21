@@ -100,6 +100,12 @@ export class UI {
     this.el.panelCollapse = document.getElementById('panel-collapse');
     this.el.sidepanel = document.getElementById('sidepanel');
     this._setPanelTitle('inventory');
+    // Phones (portrait or landscape): enables the fold-on-retap tab behaviour.
+    if (typeof matchMedia === 'function') {
+      const mq = matchMedia('(max-width: 540px), (max-height: 500px)');
+      const set = () => this.el.sidepanel?.classList.toggle('compact-ui', mq.matches);
+      set(); mq.addEventListener?.('change', set);
+    }
     this._initCollapsibles();
 
     this._bindTabs();
@@ -357,7 +363,13 @@ export class UI {
       btn.innerHTML = collapsed ? '&#9656;' : '&#9662;'; // ▸ collapsed / ▾ expanded
       btn.title = `${collapsed ? 'Expand' : 'Collapse'} ${label}`;
     };
+    // Small screens start with the big panels folded (the game needs the room);
+    // a saved choice always wins.
+    const compact = typeof matchMedia === 'function' && matchMedia('(max-width: 540px), (max-height: 500px)').matches;
+    if (this._collapse[key] === undefined && compact && (key === 'panel' || key === 'chat')) this._collapse[key] = true;
     apply(!!this._collapse[key]);
+    this._collapseApply = this._collapseApply || {};
+    this._collapseApply[key] = (c) => { this._collapse[key] = c; apply(c); this._saveCollapse(); };
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       this._collapse[key] = !panel.classList.contains('collapsed');
@@ -379,6 +391,11 @@ export class UI {
     const views = document.querySelectorAll('#panel-body .panel-view');
     tabs.forEach((btn) => {
       btn.addEventListener('click', () => {
+        // A folded panel opens on the tab you tap; tapping the open tab again folds it.
+        const panel = document.getElementById('sidepanel');
+        const folded = panel?.classList.contains('collapsed');
+        if (folded) this._collapseApply?.panel?.(false);
+        else if (btn.classList.contains('active') && panel?.classList.contains('compact-ui')) { this._collapseApply?.panel?.(true); return; }
         tabs.forEach((b) => b.classList.toggle('active', b === btn));
         const view = btn.dataset.view;
         this._setPanelTitle(view);
