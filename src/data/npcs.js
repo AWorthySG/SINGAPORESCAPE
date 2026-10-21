@@ -32,6 +32,11 @@ function dropsFor(level) {
   t.push({ id: bowFor(level), weight: 14 });         // ~1 kill in 10
   t.push({ id: bowFor(level + 15), weight: 3 });     // and sometimes the next bow up
   for (const id of rangedArmourFor(level)) t.push({ id, weight: 3 });
+  // Magic gear: staves of the area's tier (~1 kill in 10 drops one), robes and runes.
+  const staves = stavesFor(level);
+  for (const id of staves) t.push({ id, weight: 14 / staves.length });
+  for (const id of robesFor(level)) t.push({ id, weight: 3 });
+  for (const r of runesFor(level)) t.push({ id: r.id, min: r.min, max: r.max, weight: r.weight });
   // Tier-appropriate gear pool — the main way to obtain combat equipment.
   for (const w of ['scimitar', 'sword', 'mace', 'longsword']) t.push({ id: `${tier}_${w}`, weight: 4 });
   for (const a of ['med_helm', 'chainbody', 'platelegs', 'kiteshield', 'boots', 'gauntlets']) t.push({ id: `${tier}_${a}`, weight: 3 });
@@ -50,6 +55,24 @@ function bowFor(level) {
 function rangedArmourFor(level) {
   return level < 40 ? ['coif', 'leather_chaps', 'studded_body']
     : ['dragonhide_coif', 'dragonhide_body', 'dragonhide_chaps', 'dragonhide_vambraces'];
+}
+
+// Staves, robes and runes that suit a monster's level.
+function stavesFor(level) {
+  return level < 10 ? ['staff'] : level < 20 ? ['air_staff', 'water_staff']
+    : level < 35 ? ['earth_staff', 'fire_staff', 'magic_staff'] : level < 50 ? ['nature_staff', 'mystic_staff']
+    : level < 65 ? ['chaos_staff', 'ancient_staff'] : ['death_staff', 'blood_staff'];
+}
+function robesFor(level) {
+  return level < 30 ? ['wizard_hat', 'wizard_robe_top', 'wizard_robe_bottom'] : ['mystic_hat', 'mystic_top', 'mystic_bottom'];
+}
+function runesFor(level) {
+  const q = (base) => ({ min: Math.round(base * (1 + level / 30)), max: Math.round(base * 3 * (1 + level / 30)) });
+  const out = [{ id: 'mind_rune', ...q(8), weight: 4 }, { id: ['air_rune', 'water_rune', 'earth_rune', 'fire_rune'][level % 4], ...q(10), weight: 6 }];
+  if (level >= 15) out.push({ id: 'chaos_rune', ...q(4), weight: 4 }, { id: 'nature_rune', ...q(2), weight: 3 });
+  if (level >= 35) out.push({ id: 'death_rune', ...q(3), weight: 3 });
+  if (level >= 55) out.push({ id: 'blood_rune', ...q(2), weight: 3 });
+  return out;
 }
 
 function makeMob(id, name, sprite, color, level, zone, aggro, family) {
@@ -287,6 +310,12 @@ for (const id of BOSS_IDS) {
     { id: bowFor(lvl + 20), weight: 20 },
     { id: arrow, min: 60, max: 200, weight: 8 },
     ...rangedArmourFor(Math.max(40, lvl)).map((a) => ({ id: a, weight: 3 })),
+    // Magic loot: a staff a tier above, mystic robes and big bundles of strong runes.
+    ...stavesFor(lvl + 20).map((st) => ({ id: st, weight: 20 / 2 })),
+    ...robesFor(Math.max(30, lvl)).map((a) => ({ id: a, weight: 3 })),
+    { id: lvl < 60 ? 'death_rune' : 'blood_rune', min: 40, max: 150, weight: 8 },
+    { id: 'chaos_rune', min: 60, max: 200, weight: 6 },
+    { id: 'nature_rune', min: 20, max: 80, weight: 5 },
   ];
 }
 for (const id of BOSS_IDS) NPCS[id] = BOSS_DEFS[id];
