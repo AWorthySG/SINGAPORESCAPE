@@ -1900,7 +1900,13 @@ export class Game {
       if (n.def.boss) {
         if (n.def.fixed || (n.def.level || 1) > cl + 10) continue;   // only bosses you can realistically beat
         if (d > 14 || (!inWild && wildZone(n.x, n.y))) continue;
-        cands.push({ n, score: d - 300 });
+        cands.push({ n, score: d - 300, tier: -300 });
+        continue;
+      }
+      // Then mini-bosses: gold-ringed champions within reach that you can take on.
+      if (n.champion) {
+        if (d > 14 || (n.def.level || 1) > cl + 10 || (!inWild && wildZone(n.x, n.y))) continue;
+        cands.push({ n, score: d - 150, tier: -150 });
         continue;
       }
       const lvl = n.def.level || 1;
@@ -1911,17 +1917,18 @@ export class Game {
         if (!inWild && wildZone(n.x, n.y)) continue;
       }
       // Anything on you first, then anything within 8 tiles, then the rest.
-      const score = d + (d > 8 ? 50 : 0) - (hunting ? 200 : 0);
-      cands.push({ n, score });
+      const tier = (d > 8 ? 50 : 0) - (hunting ? 200 : 0);
+      cands.push({ n, score: d + tier, tier });
     }
     // Nearest first by straight-line distance, then confirm a walkable route
     // (and use its real length) so it never heads for something across water.
     cands.sort((a, b) => a.score - b.score);
-    for (const { n, score } of cands.slice(0, 6)) {
+    for (const { n, score, tier } of cands.slice(0, 6)) {
       if (chebyshev(p.x, p.y, n.x, n.y) <= 1) { if (score < bestScore) { bestScore = score; best = n; } continue; }
       const route = findPath(this.pathCfg(), this.playerTile(), { x: n.x, y: n.y }, { reachAdjacent: true, maxNodes: 3000 });
       if (!route.length) { this._autoSkip.set(n.entityId, this.tickCount + 40); continue; }
-      const real = route.length + (score >= 50 ? 50 : 0) + (score < 0 ? -200 : 0);
+      // Keep the priority tier (boss > something attacking you > champion > rest) over route length.
+      const real = route.length + tier;
       if (real < bestScore) { bestScore = real; best = n; }
     }
     return best;

@@ -2024,3 +2024,25 @@ test('XP bonus stacks: Wilderness level and kill streak; bosses drop much more a
   game.killNpc(boss);
   assert.ok(game.skills.xp.attack - xp0 >= boss.def.level * 40, 'a boss kill pays a large XP bonus');
 });
+
+test('auto battle priority: bosses, then champions (mini-bosses), then ordinary monsters', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const { NPC } = await import('../src/game/npc.js');
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  const p = game.player;
+  const cl = game.skills.combatLevel();
+  const mob = new NPC('goblin', p.x + 1, p.y, 0);
+  const champ = new NPC('goblin', p.x + 5, p.y, 0); champ.makeChampion();
+  const boss = game.npcs.find((n) => n.def.boss && !n.def.fixed);
+  boss.def = { ...boss.def, level: Math.min(boss.def.level, cl + 5) };
+  boss.x = boss.tx = boss.spawnX = p.x + 9; boss.y = boss.ty = boss.spawnY = p.y;
+  game.npcs = [mob, champ, boss];
+  assert.equal(game._autoPickTarget(), boss, 'boss first');
+  game.npcs = [mob, champ];
+  assert.equal(game._autoPickTarget(), champ, 'then the champion, over a closer ordinary goblin');
+  game.npcs = [mob];
+  assert.equal(game._autoPickTarget(), mob);
+});
