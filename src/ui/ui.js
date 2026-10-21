@@ -151,6 +151,7 @@ export class UI {
     this.bus.on('skills', () => this.renderPrayerPanel());
     this.bus.on('quest', () => { this.renderQuestPanel(); this.renderTracker(); });
     this.bus.on('bounties', () => { this.renderQuestPanel(); this.renderTracker(); });
+    this.bus.on('spell', () => this.renderCombatPanel());
     this.bus.on('achievement', () => this.renderAchievementPanel());
     this.bus.on('slayer', () => { this._refreshModalIfOpen(['slayer', 'slayerRewards']); this.renderTracker(); });
     this.bus.on('bank', () => this._refreshModalIfOpen(['bank']));

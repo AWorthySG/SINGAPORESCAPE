@@ -1908,3 +1908,32 @@ test('elemental staves supply unlimited runes; Alchemy turns items into coins wi
   assert.equal(game.inventory.count('nature_rune'), 1);
   assert.equal(game.inventory.count('coins'), coins0 + game.alchemyValue('iron_platebody'));
 });
+
+test('magic: casters start at Magic 15 with plenty of runes, damage scales with level, and the best spell is chosen', async () => {
+  const { getSpell } = await import('../src/data/magic.js');
+  const { playerMagicVsNpc } = await import('../src/game/combat.js');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const archer = new Game(); archer.start(); archer.chooseStartingStyle('ranged');
+  assert.equal(archer.inventory.count('bronze_arrow'), 999, 'archers start with 999 arrows');
+  clearSave();
+  const game = new Game(); game.start(); game.chooseStartingStyle('magic');
+  assert.ok(game.skills.magic >= 15, 'casters start at Magic 15');
+  assert.equal(game.inventory.count('air_rune'), 999);
+  const low = playerMagicVsNpc({ magic: 1 }, game.equipment, getSpell('wind_strike'), { defence: 1 }).max;
+  const high = playerMagicVsNpc({ magic: 60 }, game.equipment, getSpell('wind_strike'), { defence: 1 }).max;
+  assert.ok(high >= low + 9, 'spell damage grows with Magic level');
+  // Best castable spell: with only air + mind runes, Wind Strike; add fire runes and Fire Strike opens up.
+  assert.equal(game.bestSpell().id, 'wind_strike');
+  game.inventory.add('fire_rune', 100);
+  assert.equal(game.bestSpell().id, 'fire_strike');
+  // A chosen spell you can't afford falls back instead of failing.
+  game.player.spell = 'water_strike';                       // no water runes
+  const mob = game.spawnNpc(game.npcs.find((n) => n.def.attackable && !n.def.boss).npcId, game.player.x + 2, game.player.y, { wander: 0 });
+  mob.maxHp = mob.hp = 999;
+  const fire0 = game.inventory.count('fire_rune');
+  game.player.attackCooldown = 0;
+  game._magicAttack(mob);
+  assert.ok(game.inventory.count('fire_rune') < fire0, 'it cast Fire Strike instead');
+  assert.ok(game.player.attackCooldown >= 1);
+});

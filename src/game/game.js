@@ -25,7 +25,8 @@ import {
   weaknessOf, WEAKNESS_BONUS, critChance, CRIT_MULT,
 } from './combat.js';
 import { ABILITY_BY_ID, abilitiesFor } from '../data/abilities.js';
-import { getSpell } from '../data/magic.js';
+import { getSpell, SPELLS } from '../data/magic.js';
+import { xpForLevel } from '../data/xp.js';
 import { PRAYERS, PRAYER_BY_ID, PRAYER_GROUPS } from '../data/prayers.js';
 import {
   resolveWoodcut, resolveMine, resolveFish, resolveCook,
@@ -229,14 +230,16 @@ export class Game {
       this.equipment.set('head', 'coif');
       this.equipment.set('body', 'studded_body');
       this.equipment.set('legs', 'leather_chaps');
-      this.inventory.add('bronze_arrow', 150);
+      this.inventory.add('bronze_arrow', 999);
     } else if (style === 'magic') {
       this.equipment.set('weapon', 'staff');
       this.equipment.set('head', 'wizard_hat');
       this.equipment.set('body', 'wizard_robe_top');
       this.equipment.set('legs', 'wizard_robe_bottom');
-      this.inventory.add('air_rune', 150);
-      this.inventory.add('mind_rune', 150);
+      this.inventory.add('air_rune', 999);
+      this.inventory.add('mind_rune', 999);
+      // Casters start at Magic 15, matching melee's starting Attack/Strength.
+      this.skills.xp.magic = Math.max(this.skills.xp.magic, xpForLevel(15));
     } else {
       this.equipment.set('weapon', 'bronze_scimitar');
       this.equipment.set('shield', 'wooden_shield');
@@ -971,10 +974,23 @@ export class Game {
     this._postAttack(npc);
   }
 
+  /** The strongest spell you can cast right now (level and runes), or null. */
+  bestSpell() {
+    for (let i = SPELLS.length - 1; i >= 0; i--) {
+      const sp = SPELLS[i];
+      if (this.skills.magic >= sp.level && this._hasRunes(sp)) return sp;
+    }
+    return null;
+  }
+
   _magicAttack(npc) {
-    const spell = getSpell(this.player.spell);
-    if (this.skills.magic < spell.level) { this.msg(`You need Magic level ${spell.level} to cast ${spell.name}.`); this.player.clearAction(); return; }
-    if (!this._hasRunes(spell)) { this._outOfAmmo(`You don't have the runes to cast ${spell.name}.`); this.player.clearAction(); return; }
+    let spell = getSpell(this.player.spell);
+    // Can't cast the chosen spell (level or runes)? Fall back to the best one you can.
+    if (this.skills.magic < spell.level || !this._hasRunes(spell)) {
+      const alt = this.bestSpell();
+      if (!alt) { this._outOfAmmo(`You don't have the runes to cast ${spell.name}.`); this.player.clearAction(); return; }
+      spell = alt;
+    }
     this._consumeRunes(spell);
     const { atkRoll, defRoll, max } = playerMagicVsNpc(this.skills, this.equipment, spell, npc.def);
     const mods = this._offensiveMods(npc, 'magic');
@@ -987,7 +1003,8 @@ export class Game {
     this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax) });
     this.skills.addXp('magic', spell.xp * this.combatXpMult());
     if (dmg > 0) { this.spawnHitSparks(npc, spell.tint); this.skills.addXp('magic', dmg * 2); this.skills.addXp('hitpoints', dmg * 1.33); }
-    this.player.attackCooldown = this.equipment.weaponSpeed();
+    // Spells come off a staff a beat quicker than its swing speed.
+    this.player.attackCooldown = Math.max(1, this.equipment.weaponSpeed() - 1);
     this._postAttack(npc);
   }
 
@@ -1686,7 +1703,7 @@ export class Game {
     // 0. Out of ammunition: stop rather than walking at targets it can't hit.
     const mode = this.combatMode();
     const noAmmo = mode === 'ranged' ? !this.inventory.slots.some((sl) => sl && getItem(sl.id).tags?.includes('ammo'))
-      : mode === 'magic' ? !this._hasRunes(getSpell(p.spell)) : false;
+      : mode === 'magic' ? !this.bestSpell() : false;
     if (noAmmo) {
       this.msg(mode === 'ranged' ? 'Auto battle stopped: you have no arrows left.' : 'Auto battle stopped: you are out of runes for your spell.', 'system');
       this.toggleAutoBattle(false);
@@ -1742,6 +1759,8 @@ export class Game {
       }
       // 2. Brace against a heavy blow being wound up next to you.
       if (this.npcs.some((n) => n.alive && n.target === p && n.windup > 0)) this._autoAbility((ab) => ab.kind === 'guard');
+      // Casters always throw the strongest spell they can afford.
+      if (this.combatMode() === 'magic') { const best = this.bestSpell(); if (best && best.id !== p.spell) { p.spell = best.id; this.bus.emit('spell'); } }
       // 3. Spend adrenaline: the biggest attack skill you can afford.
       if (!this.armedAbility && this.autoCfg.abilities) this._autoAbility((ab) => ab.kind === 'attack', true);
       return;
