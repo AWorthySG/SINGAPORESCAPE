@@ -219,3 +219,10 @@ test('townsfolk art stays in lock-step with assets/creatures/townsfolk/ and name
   assert.deepEqual([...onDisk].filter((s) => !declared.has(s)), [], 'townsfolk art file not declared');
   for (const id of declared) assert.ok(getNpc(id) && !getNpc(id).attackable, `${id} is a real townsfolk NPC`);
 });
+
+test('hero art exists for every combat style', async () => {
+  const { existsSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const { HERO_STYLES } = await import('../src/render/sprites.js');
+  for (const s of HERO_STYLES) assert.ok(existsSync(fileURLToPath(new URL(`../assets/creatures/hero/${s}.webp`, import.meta.url))), `hero/${s}.webp`);
+});

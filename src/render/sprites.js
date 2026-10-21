@@ -1286,7 +1286,24 @@ function townAcc(ctx, p) {
 }
 
 // ================= PLAYER =================
+// Painted A-Worthy hero art, one per combat style (assets/creatures/hero/<style>.webp):
+// a knight for melee (and bare hands), an archer for bows, a wizard for staves.
+export const HERO_STYLES = ['melee', 'ranged', 'magic'];
+const _heroImg = {};
+function heroImage(style) {
+  if (_heroImg[style] !== undefined) return _heroImg[style];
+  if (typeof Image === 'undefined') { _heroImg[style] = null; return null; }
+  const img = new Image();
+  img.src = `assets/creatures/hero/${style}.webp`;
+  _heroImg[style] = img;
+  return img;
+}
+const HERO_ART_H = 42, HERO_ART_FEET = 15;
+
 export function drawPlayer(ctx, cx, cy, opts = {}) {
+  const style = opts.hasWeapon && (opts.weaponType === 'ranged' || opts.weaponType === 'magic') ? opts.weaponType : 'melee';
+  const himg = heroImage(style);
+  const painted = himg && himg.complete && himg.naturalWidth;
   staged(ctx, cx, cy, opts, (c) => {
     // A soft golden halo while any prayer is active — the only in-world sign
     // of it otherwise living entirely in the HUD's prayer orb/panel.
@@ -1301,6 +1318,21 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
       c.globalCompositeOperation = 'lighter';
       c.fillStyle = g; c.beginPath(); c.arc(0, -2, 15 * pulse, 0, Math.PI * 2); c.fill();
       c.restore();
+    }
+    if (painted) {
+      // The painted hero carries its own weapon, so attacks read as a lunge:
+      // crouch on the wind-up, then stretch tall into the strike.
+      const k = opts.swingK ?? -1;
+      if (k >= 0) {
+        const s1 = k < 0.35 ? -Math.sin((k / 0.35) * Math.PI / 2) * 0.08 : Math.sin(((k - 0.35) / 0.65) * Math.PI) * 0.12;
+        c.translate(0, HERO_ART_FEET); c.scale(1 - s1 * 0.6, 1 + s1); c.translate(0, -HERO_ART_FEET);
+      }
+      // A side-to-side rock while walking, as the monsters do (a gait cue).
+      if (opts.moving) c.rotate(Math.sin((opts.time || 0) * 0.018 + cx) * 0.06);
+      const s = Math.min(HERO_ART_H / himg.naturalHeight, 44 / himg.naturalWidth);
+      const w = himg.naturalWidth * s, h = himg.naturalHeight * s;
+      c.drawImage(himg, -w / 2, HERO_ART_FEET - h, w, h);
+      return;
     }
     // The hero is the A-Worthy mascot. Unarmoured, it wears a tunic in the
     // brand's one action colour (rust); a platebody swaps it for steel.
