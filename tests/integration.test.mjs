@@ -2118,7 +2118,7 @@ test('ranged auto battle clears everything in reach before moving; bows drop oft
   // Bow drop rate: about one kill in eight drops a bow.
   const mob = game.npcs[0];
   let bows = 0;
-  game._autoLoot = (loot) => { bows += loot.filter(([id]) => /shortbow$/.test(id)).length; };
+  game._autoLoot = (loot) => { bows += loot.filter(([id]) => /bow$/.test(id)).length; };
   for (let i = 0; i < 400; i++) game.rollDrops(mob);
   assert.ok(bows >= 25, `bows dropped ${bows} times in 400 kills`);
 });
@@ -2143,4 +2143,14 @@ test('bones bury 100 at a time, or a whole stack; daggers drop', async () => {
   const ids = (d) => new Set(d.dropTable.map((x) => x.id));
   assert.ok(ids(getNpc('goblin')).has('bronze_dagger'), 'monsters drop daggers');
   for (const b of BOSS_IDS) assert.ok([...ids(getNpc(b))].some((x) => /_dagger$/.test(x)), `${b} drops a dagger`);
+});
+
+test('stronger bows exist and drop from high-level monsters and bosses', async () => {
+  const { NPCS, getNpc, BOSS_IDS } = await import('../src/data/npcs.js');
+  const { ITEMS } = await import('../src/data/items.js');
+  for (const b of ['dark_bow', 'crystal_bow', 'twisted_bow']) {
+    assert.ok(ITEMS[b].equip.bonuses.ranged > ITEMS.magic_shortbow.equip.bonuses.ranged, `${b} beats a magic shortbow`);
+    const from = [...Object.values(NPCS), ...BOSS_IDS.map(getNpc)].filter((n) => (n.dropTable || []).some((d) => d.id === b));
+    assert.ok(from.length > 0, `${b} drops somewhere`);
+  }
 });

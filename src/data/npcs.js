@@ -30,7 +30,8 @@ function dropsFor(level) {
   ];
   // Archery gear: a bow of the area's tier and ranged armour, like the melee pool.
   t.push({ id: bowFor(level), weight: 14 });         // ~1 kill in 10
-  t.push({ id: bowFor(level + 15), weight: 3 });     // and sometimes the next bow up
+  t.push({ id: bowFor(level + 20), weight: 6 });     // often the next bow up
+  t.push({ id: bowFor(level + 40), weight: 2 });     // and now and then a much stronger one
   for (const id of rangedArmourFor(level)) t.push({ id, weight: 3 });
   // Magic gear: staves of the area's tier (~1 kill in 10 drops one), robes and runes.
   const staves = stavesFor(level);
@@ -51,7 +52,8 @@ function dropsFor(level) {
 // Bow and ranged armour that suit a monster's level.
 function bowFor(level) {
   return level < 10 ? 'shortbow' : level < 22 ? 'oak_shortbow' : level < 40 ? 'willow_shortbow'
-    : level < 58 ? 'maple_shortbow' : level < 75 ? 'yew_shortbow' : 'magic_shortbow';
+    : level < 58 ? 'maple_shortbow' : level < 75 ? 'yew_shortbow' : level < 95 ? 'magic_shortbow'
+    : level < 115 ? 'dark_bow' : level < 135 ? 'crystal_bow' : 'twisted_bow';
 }
 function rangedArmourFor(level) {
   return level < 40 ? ['coif', 'leather_chaps', 'studded_body']
@@ -308,7 +310,8 @@ for (const id of BOSS_IDS) {
   const lvl = b.level || 1;
   const arrow = lvl < 50 ? 'mithril_arrow' : lvl < 90 ? 'adamant_arrow' : 'rune_arrow';
   b.dropTable = [...(b.dropTable || []),
-    { id: bowFor(lvl + 20), weight: 20 },
+    { id: bowFor(lvl + 25), weight: 20 },
+    { id: bowFor(lvl + 50), weight: 8 },
     { id: arrow, min: 60, max: 200, weight: 8 },
     ...rangedArmourFor(Math.max(40, lvl)).map((a) => ({ id: a, weight: 3 })),
     // A pair-worthy dagger for dual wielders.

@@ -412,6 +412,12 @@ const RAW = {
     equip: { slot: 'weapon', combatType: 'ranged', range: 16, req: { ranged: 40 }, bonuses: { ranged: 48, speed: 3 } } },
   magic_shortbow: { name: 'Magic shortbow', icon: '🏹', value: 9000, examine: 'A swift bow of enchanted wood.',
     equip: { slot: 'weapon', combatType: 'ranged', range: 18, req: { ranged: 50 }, bonuses: { ranged: 62, speed: 2 } } },
+  dark_bow: { name: 'Dark bow', icon: '🏹', value: 30000, examine: 'A brooding bow that fires shadowy arrows.',
+    equip: { slot: 'weapon', combatType: 'ranged', range: 19, req: { ranged: 60 }, bonuses: { ranged: 84, crit: 3, speed: 2 } } },
+  crystal_bow: { name: 'Crystal bow', icon: '🏹', value: 90000, examine: 'Light as glass, sharp as starlight.',
+    equip: { slot: 'weapon', combatType: 'ranged', range: 20, req: { ranged: 75 }, bonuses: { ranged: 110, crit: 5, speed: 2 } } },
+  twisted_bow: { name: 'Twisted bow', icon: '🏹', value: 300000, examine: 'A legendary bow. The stronger the foe, the harder it hits.',
+    equip: { slot: 'weapon', combatType: 'ranged', range: 22, req: { ranged: 90 }, bonuses: { ranged: 145, crit: 8, speed: 2 } } },
   coif: { name: 'Coif', icon: '⛑️', value: 60, examine: 'A padded mail hood.',
     equip: { slot: 'head', req: { ranged: 1 }, bonuses: { ranged: 3, defence: 2 } } },
   leather_chaps: { name: 'Leather chaps', icon: '👖', value: 40, examine: 'Light leg armour.',
@@ -544,6 +550,9 @@ const WEAPON_SPECS = {
   // ranged
   yew_shortbow: { name: 'Pinpoint Shot', cost: 40, acc: 2.5, dmg: 1.25 },
   magic_shortbow: { name: 'Rapid Volley', cost: 50, acc: 1.3, dmg: 1.15, hits: 2 },
+  dark_bow: { name: 'Descent of Darkness', cost: 55, acc: 1.5, dmg: 1.5, hits: 2 },
+  crystal_bow: { name: 'Prism Shot', cost: 45, acc: 2.5, dmg: 1.6 },
+  twisted_bow: { name: 'Storm of Arrows', cost: 60, acc: 1.6, dmg: 1.4, hits: 3 },
   // magic
   mystic_staff: { name: 'Spell Echo', cost: 45, acc: 1.4, dmg: 1.5 },
   ancient_staff: { name: 'Arcane Surge', cost: 55, acc: 1.5, dmg: 1.8 },
