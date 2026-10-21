@@ -8,6 +8,7 @@ import { getItem } from '../data/items.js';
 import { chebyshev, randInt, weightedPick, capitalize } from '../core/utils.js';
 import {
   TILE, TICK_MS, COMBAT_BEAT_MS, RESPAWN_TICKS, AUTOSAVE_TICKS, DAY_CYCLE_MS,
+  XP_RATE,
 } from '../config.js';
 
 import { World } from './world.js';
@@ -52,6 +53,10 @@ const COMBAT_SKILLS = new Set(['attack', 'strength', 'defence', 'hitpoints', 'ra
 // Every session starts on a bright morning (~7am), then runs the normal
 // day/night cycle from there.
 const MORNING_PHASE = 0.3;
+
+// Combat XP multiplier in the Wilderness, and bonus XP per boss level on a boss kill.
+const WILD_XP_MULT = 2;
+const BOSS_XP_PER_LEVEL = 40;
 
 // Share of fired arrows recovered after the shot.
 const ARROW_RECOVERY = 0.8;
@@ -1127,7 +1132,15 @@ export class Game {
     }
     this.totalKills++;
     this.kills[npc.npcId] = (this.kills[npc.npcId] || 0) + 1;
-    if (npc.def.boss) this.bossKills++;
+    if (npc.def.boss) {
+      this.bossKills++;
+      // A boss kill is a big payday: bonus XP in your combat style and Hitpoints.
+      const xp = Math.round((npc.def.level || 1) * BOSS_XP_PER_LEVEL * this.combatXpMult());
+      const mode = this.combatMode();
+      const skill = mode === 'ranged' ? 'ranged' : mode === 'magic' ? 'magic' : ({ aggressive: 'strength', defensive: 'defence' }[this.player.style] || 'attack');
+      this.skills.addXp(skill, xp); this.skills.addXp('hitpoints', Math.round(xp / 3));
+      this.msg(`Boss slain! +${xp * XP_RATE} ${skill} XP.`, 'level');
+    }
     if ((npc.def.boss && this.quests.island_defender.state === 'active') ||
         this.quests.big_game_hunter.state === 'active') this.bus.emit('quest');
     this.progressSlayer(npc);
@@ -1211,7 +1224,9 @@ export class Game {
   isNight() { return this.daylightFactor() < 0.4; }
 
   /** Night hunt: combat XP is worth 25% more after dark. */
-  combatXpMult() { return this.isNight() ? 1.25 : 1; }
+  // Night hunt: x1.25. The Wilderness is dangerous, so XP there is doubled (stacks).
+  combatXpMult() { return (this.isNight() ? 1.25 : 1) * (this.inWilderness() ? WILD_XP_MULT : 1); }
+  inWilderness() { const p = this.player; return !!this.world.zoneAt(p.x, p.y)?.wilderness; }
 
   /** Announce dusk and dawn, since night changes what's out there. */
   _checkNightfall() {
@@ -1245,7 +1260,7 @@ export class Game {
       this.currentZoneName = name;
       if (wild) {
         this.banner('<span class="big">&#9888; The Wilderness</span>Lawless and deadly &mdash; no safe healing. Beware bosses!');
-        this.msg('You enter the Wilderness. Fight or flee!', 'combat');
+        this.msg('You enter the Wilderness: double combat XP here, but fight or flee!', 'combat');
       } else {
         this.msg(`You enter ${name}.`, 'system');
       }
@@ -1262,10 +1277,11 @@ export class Game {
       loot.push([d.id, q, 'common']);
     }
     if (def.dropTable && def.dropTable.length) {
-      // Champions roll their table three times and never come up empty.
-      for (let r = 0; r < (npc.champion ? 3 : 1); r++) {
+      // Champions roll their table three times, bosses four, and neither comes up empty.
+      const rolls = def.boss ? 4 : npc.champion ? 3 : 1;
+      for (let r = 0; r < rolls; r++) {
         let pick = weightedPick(def.dropTable);
-        if (npc.champion) for (let k = 0; pick.nothing && k < 5; k++) pick = weightedPick(def.dropTable);
+        if (npc.champion || def.boss) for (let k = 0; pick.nothing && k < 5; k++) pick = weightedPick(def.dropTable);
         if (pick.nothing) continue;
         const q = pick.min ? randInt(pick.min, pick.max) : 1;
         let rar = dropRarity(pick.id, 'table', { boss: !!def.boss });
@@ -1274,8 +1290,9 @@ export class Game {
       }
     }
     // Rare drop table — small base chance, much higher for bosses, champions & high levels.
-    const rareChance = Math.min(0.5, (def.level || 1) / 1200 + (def.boss ? 0.18 : 0.01) + (npc.champion ? 0.25 : 0));
-    if (Math.random() < rareChance) {
+    const rareChance = def.boss ? 1 : Math.min(0.5, (def.level || 1) / 1200 + 0.01 + (npc.champion ? 0.25 : 0));
+    // Bosses always hit the rare table, twice.
+    for (let rr = 0; rr < (def.boss ? 2 : 1); rr++) if (Math.random() < rareChance) {
       const pick = weightedPick(RARE_DROP_TABLE);
       const q = pick.min ? randInt(pick.min, pick.max) : 1;
       loot.push([pick.id, q, dropRarity(pick.id, 'rare')]);

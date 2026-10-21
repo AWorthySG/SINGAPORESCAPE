@@ -1978,3 +1978,28 @@ test('daggers can be dual wielded in place of a shield, striking twice per swing
   game.equipOffhand(idx('bronze_dagger'));
   assert.equal(eq.get('shield'), null, 'no off-hand dagger without a main-hand dagger');
 });
+
+test('Wilderness doubles combat XP; bosses drop much more and give bonus XP', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  const p = game.player;
+  assert.ok(!game.inWilderness());
+  const day = game.combatXpMult();
+  const wild = game.world.zones.find((z) => z.wilderness);
+  p.x = p.tx = Math.round((wild.x0 + wild.x1) / 2); p.y = p.ty = Math.round((wild.y0 + wild.y1) / 2);
+  assert.ok(game.inWilderness());
+  assert.equal(game.combatXpMult(), day * 2, 'combat XP doubled in the Wilderness');
+  // Boss loot: four table rolls plus two guaranteed rare-table rolls.
+  const boss = game.npcs.find((n) => n.def.boss && !n.def.fixed);
+  let n = 0;
+  game._autoLoot = (loot) => { n = loot.length; };
+  game.rollDrops(boss);
+  assert.ok(n >= 7, `boss drops ${n} items`);
+  // Boss kill XP.
+  const xp0 = game.skills.xp.attack;
+  game.killNpc(boss);
+  assert.ok(game.skills.xp.attack - xp0 >= boss.def.level * 40, 'a boss kill pays a large XP bonus');
+});
