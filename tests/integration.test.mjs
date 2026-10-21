@@ -2046,3 +2046,20 @@ test('auto battle priority: bosses, then champions (mini-bosses), then ordinary 
   game.npcs = [mob];
   assert.equal(game._autoPickTarget(), mob);
 });
+
+test('bows shoot from far: each bow has its own reach, and arrows fly at a steady speed', async () => {
+  const { ITEMS } = await import('../src/data/items.js');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('ranged');
+  assert.equal(game.attackRange(), 9, 'a shortbow reaches 9 tiles');
+  assert.equal(ITEMS.magic_shortbow.equip.range, 14);
+  const near = game.spawnNpc('goblin', game.player.x + 2, game.player.y, { wander: 0 });
+  const far = game.spawnNpc('goblin', game.player.x + 9, game.player.y, { wander: 0 });
+  game._projectile(near, '#fff', 'arrow'); game._projectile(far, '#fff', 'arrow');
+  const [a, b] = game.effects.filter((e) => e.kind === 'arrow').slice(-2);
+  assert.ok(b.maxLife > a.maxLife, 'a longer shot takes longer to land');
+  assert.ok(b.arc > 0, 'arrows arc through the air');
+});

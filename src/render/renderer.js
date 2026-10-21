@@ -425,18 +425,35 @@ export class Renderer {
       const x = e.x + (e.ex - e.x) * t - ox;
       const y = e.y + (e.ey - e.y) * t - oy;
       if (e.kind === 'arrow') {
-        // A fletched shaft flying true along its line to the target.
-        const ang = Math.atan2(e.ey - e.y, e.ex - e.x);
+        // A fletched arrow arcing out of the bow to its target: it rises and
+        // falls along a shallow parabola, tilting with its flight, with a
+        // white streak behind it.
+        const arc = e.arc || 0;
+        const at = (tt) => ({ x: e.x + (e.ex - e.x) * tt - ox, y: e.y + (e.ey - e.y) * tt - oy - Math.sin(tt * Math.PI) * arc });
+        const pt = at(t), nx = at(Math.min(1, t + 0.04));
+        const ang = Math.atan2(nx.y - pt.y, nx.x - pt.x);
+        // streak
         ctx.save();
-        ctx.translate(x, y); ctx.rotate(ang);
-        ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = 1.4; ctx.lineCap = 'round';
+        ctx.lineCap = 'round';
+        for (let i = 1; i <= 4; i++) {
+          const a = at(Math.max(0, t - i * 0.05)), b = at(Math.max(0, t - (i - 1) * 0.05));
+          ctx.strokeStyle = `rgba(255,255,255,${(0.55 - i * 0.12).toFixed(2)})`; ctx.lineWidth = 3.2 - i * 0.55;
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        }
+        ctx.translate(pt.x, pt.y); ctx.rotate(ang); ctx.scale(1.5, 1.5);
+        // shaft (navy ink under a wood core, matching the sticker style)
+        ctx.strokeStyle = '#22304A'; ctx.lineWidth = 2.4;
         ctx.beginPath(); ctx.moveTo(-9, 0); ctx.lineTo(3, 0); ctx.stroke();
-        ctx.fillStyle = '#e8e0c8';
-        path2(ctx, [[-9, 0], [-6, -2.6], [-5, 0]]); ctx.fill();
-        path2(ctx, [[-9, 0], [-6, 2.6], [-5, 0]]); ctx.fill();
+        ctx.strokeStyle = '#b8874a'; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(-9, 0); ctx.lineTo(3, 0); ctx.stroke();
+        // fletching
+        ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#22304A'; ctx.lineWidth = 0.6;
+        path2(ctx, [[-10, 0], [-6.5, -3], [-5, 0]]); ctx.fill(); ctx.stroke();
+        path2(ctx, [[-10, 0], [-6.5, 3], [-5, 0]]); ctx.fill(); ctx.stroke();
+        // head
         ctx.fillStyle = e.color;
-        path2(ctx, [[6, 0], [1, -2.2], [1, 2.2]]); ctx.fill();
-        ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 0.6; ctx.stroke();
+        path2(ctx, [[7, 0], [1.5, -2.6], [1.5, 2.6]]); ctx.fill();
+        ctx.strokeStyle = '#22304A'; ctx.lineWidth = 0.7; ctx.stroke();
         ctx.restore();
         continue;
       }
