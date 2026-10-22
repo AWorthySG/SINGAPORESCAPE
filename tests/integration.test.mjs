@@ -445,6 +445,9 @@ test('high-tier wave spells can be cast with blood runes', () => {
   game.inventory.add('fire_rune', 50); game.inventory.add('air_rune', 50); game.inventory.add('blood_rune', 20);
   assert.equal(game.combatMode(), 'magic');
   const chicken = game.npcs.find((n) => n.npcId === 'chicken');
+  // A sturdy target takes several casts, so the Rune Saver perk (a free cast now
+  // and then at high Magic) can't leave every rune unspent.
+  chicken.maxHp = chicken.hp = 5000;
   game.player.x = game.player.tx = chicken.x + 3; game.player.y = game.player.ty = chicken.y;
   game.attackNpc(chicken);
   step(game, 40);
