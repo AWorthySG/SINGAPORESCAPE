@@ -39,6 +39,10 @@ const ZONE_TINT = {
   'Changi Coast': [255, 240, 205, 0],
   'Marina Bay': [255, 232, 214, 0],
   'Tekong Badlands': [170, 110, 100, 0.12],
+  'Gardens by the Bay': [220, 250, 215, 0],
+  'Coney Island': [225, 245, 205, 0],
+  'Southern Islands': [210, 240, 250, 0],
+  'The Shadow Rift': [110, 70, 140, 0.18],
   Singapore: [255, 236, 214, 0],
 };
 

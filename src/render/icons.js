@@ -386,7 +386,10 @@
   const capeIcon = (col, hi) => `<path d="M8 4 L16 4 L19 20 L12 17 L5 20 Z" fill="${col}" stroke="${OL}" stroke-width="1.2" stroke-linejoin="round"/><path d="M8 4 C10 7 14 7 16 4" fill="none" stroke="${hi}" stroke-width="1.4"/>`;
 
   const dragon = '#c0392b', dragonHi = '#e8543f';
-  const METAL_PAL = { bronze: [C.bronze, C.bronzeHi], iron: [C.iron, C.ironHi], steel: [C.steel, C.steelHi], mithril: [mith, mithHi], adamant: [adam, adamHi], rune: [rune, runeHi], dragon: [dragon, dragonHi] };
+  const METAL_PAL = { bronze: [C.bronze, C.bronzeHi], iron: [C.iron, C.ironHi], steel: [C.steel, C.steelHi], mithril: [mith, mithHi], adamant: [adam, adamHi], rune: [rune, runeHi], dragon: [dragon, dragonHi],
+    // Endgame metals
+    obsidian: ['#2e2a3a', '#6a5a8a'], orichalcum: ['#d08a3a', '#f5c27a'], jade: ['#2f9a6a', '#8fe0b8'],
+    starmetal: ['#3a4a8a', '#9ab0ff'], celestial: ['#e8e2ff', '#ffffff'], eternal: ['#f5b82e', '#fff1b8'] };
   // Newer weapon families: spear, claws, katana, halberd.
   const spear = (col, hi) => `<path d="M5 21 L16.5 6.5" stroke="${OL}" stroke-width="3" stroke-linecap="round"/><path d="M5 21 L16.5 6.5" stroke="${C.wood}" stroke-width="1.8" stroke-linecap="round"/><path d="M15 8 L20 2 L19.2 8.6 Z" fill="${col}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M16.2 7.4 L19.4 3.4 L18.9 7.6 Z" fill="${hi}"/><rect x="13.4" y="8.2" width="3.4" height="1.6" rx="0.7" fill="${C.goldDk}" stroke="${OL}" stroke-width="0.6" transform="rotate(-52 15 9)"/>${glint(18.4, 4.2, 0.6)}`;
   const claws = (col, hi) => `<rect x="5" y="14" width="13" height="5" rx="2.2" fill="${C.wood}" stroke="${OL}" stroke-width="1.1"/><rect x="5.6" y="14.6" width="11.8" height="1.4" rx="0.7" fill="${C.goldDk}"/>${[7, 11.5, 16].map((x) => `<path d="M${x - 1.6} 14.4 C${x - 1.6} 9 ${x + 0.6} 5 ${x + 3} 2.6 C${x + 1.4} 6 ${x + 1.4} 10 ${x + 1.4} 14.4 Z" fill="${col}" stroke="${OL}" stroke-width="1" stroke-linejoin="round"/><path d="M${x - 0.4} 13.6 C${x - 0.4} 9.6 ${x + 0.8} 6.4 ${x + 2.4} 4" fill="none" stroke="${hi}" stroke-width="0.8"/>`).join('')}`;
@@ -520,12 +523,23 @@
   const wandIcon = (rod, gem) => `<path d="M5 20 L16 7" stroke="${OL}" stroke-width="3" stroke-linecap="round"/><path d="M5 20 L16 7" stroke="${rod}" stroke-width="1.8" stroke-linecap="round"/><path d="M17.5 2 L18.7 5.3 L22 6.5 L18.7 7.7 L17.5 11 L16.3 7.7 L13 6.5 L16.3 5.3 Z" fill="${gem}" stroke="${OL}" stroke-width="0.9" stroke-linejoin="round"/><circle cx="16.8" cy="5.6" r="0.8" fill="#fff"/>`;
   I.apprentice_wand = wandIcon(C.wood, '#cfd6dd'); I.teak_wand = wandIcon('#8a5e33', '#8adcf0'); I.mystic_wand = wandIcon('#2a2a44', '#9a8ae8'); I.master_wand = wandIcon('#2a1a3a', '#f5b82e');
   const tomeIcon = (cover, gem) => `<path d="M5 5 C8 4 10 4 12 5.5 C14 4 16 4 19 5 L19 19 C16 18 14 18 12 19.5 C10 18 8 18 5 19 Z" fill="${cover}" stroke="${OL}" stroke-width="1.2" stroke-linejoin="round"/><path d="M12 5.5 L12 19.5" stroke="${OL}" stroke-width="1"/><path d="M6.4 6.4 C8.4 5.8 10 5.8 11 6.6" fill="none" stroke="#fff" stroke-width="0.8" opacity=".7"/><circle cx="15.5" cy="11.5" r="2.2" fill="${gem}" stroke="${OL}" stroke-width="0.8"/><circle cx="8.5" cy="11.5" r="2.2" fill="${gem}" stroke="${OL}" stroke-width="0.8"/>`;
+  // Endgame ranged and magic gear
+  I.jade_bow = bowIcon('#2f9a6a'); I.starmetal_bow = bowIcon('#4a5ab0'); I.celestial_bow = bowIcon('#cfc8ff'); I.eternal_bow = bowIcon('#f5b82e');
+  I.dragon_arrow = arrowIcon('#c0392b'); I.jade_arrow = arrowIcon('#2f9a6a'); I.starmetal_arrow = arrowIcon('#7a8ae8'); I.eternal_arrow = arrowIcon('#f5b82e');
+  for (const [tier, c, h] of [['starhide', '#3a4a8a', '#7a8ae8'], ['eternalhide', '#a8741a', '#f5c24a']]) {
+    I[`${tier}_coif`] = helm(c, h); I[`${tier}_body`] = plate(c, h); I[`${tier}_chaps`] = legs(c, h); I[`${tier}_vambraces`] = gloves(c, h);
+  }
+  I.jade_staff = staffIcon('#1f5a3a', '#5fd09a'); I.starmetal_staff = staffIcon('#2a2a5a', '#9ab0ff'); I.celestial_staff = staffIcon('#cfc8ff', '#ffffff'); I.eternal_staff = staffIcon('#7a2a12', '#f5b82e');
+  for (const [tier, c, h] of [['astral', '#3a2a7a', '#9a8ae8'], ['eternal', '#7a2a12', '#f5b82e']]) {
+    I[`${tier}_hat`] = hatIcon(c); I[`${tier}_robe_top`] = plate(c, h); I[`${tier}_robe_bottom`] = legs(c, h);
+  }
   I.novice_tome = tomeIcon('#5a7aa8', '#cfe8ff'); I.arcane_tome = tomeIcon('#5a3a7a', '#c890f0'); I.merlion_tome = tomeIcon('#2a6a8a', '#f5b82e');
   // The Dancer: whips (coiled lash + handle) and two dancer outfits.
   const whipIcon = (lash, grip) => `<path d="M6 21 L9.6 15" stroke="${OL}" stroke-width="3.4" stroke-linecap="round"/><path d="M6 21 L9.6 15" stroke="${grip}" stroke-width="2.2" stroke-linecap="round"/><path d="M9.6 15 C12 10 19 13 19 8.5 C19 4.5 13 4 12.5 7.5 C12.2 10 16 10.4 17 8" fill="none" stroke="${OL}" stroke-width="2.8" stroke-linecap="round"/><path d="M9.6 15 C12 10 19 13 19 8.5 C19 4.5 13 4 12.5 7.5 C12.2 10 16 10.4 17 8" fill="none" stroke="${lash}" stroke-width="1.6" stroke-linecap="round"/><circle cx="9.6" cy="15" r="1.4" fill="${C.gold}" stroke="${OL}" stroke-width="0.6"/>`;
   I.leather_whip = whipIcon('#8a5a2b', '#4a2f17'); I.rattan_whip = whipIcon('#c8a160', '#8a6a3a'); I.studded_whip = whipIcon('#6a4a2a', '#c9a84a');
   I.serpent_whip = whipIcon('#3a9a8a', '#1f5a52'); I.coral_whip = whipIcon('#f07a6a', '#a8443a'); I.orchid_whip = whipIcon('#c86ad0', '#4a8a3a');
   I.dragon_whip = whipIcon('#d0402a', '#3a1a12'); I.celestial_whip = whipIcon('#9adcff', '#f5b82e');
+  I.jade_whip = whipIcon('#3fb07a', '#1f5a3a'); I.starmetal_whip = whipIcon('#7a8ae8', '#2a2a5a'); I.eternal_whip = whipIcon('#f5b82e', '#7a2a12');
   const DANCER_BUILD = {
     headdress: (c, h) => `<path d="M5 15 C8 11 16 11 19 15 L18 17 C14 15 10 15 6 17 Z" fill="${c}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M12 12.4 L10 4 C11 3 13 3 14 4 Z" fill="${h}" stroke="${OL}" stroke-width="0.9"/><path d="M9 13 L6 6 C7 5.4 8 5.6 8.6 6.4 Z M15 13 L18 6 C17 5.4 16 5.6 15.4 6.4 Z" fill="${h}" stroke="${OL}" stroke-width="0.8"/><circle cx="12" cy="13.4" r="1.4" fill="${C.gold}" stroke="${OL}" stroke-width="0.6"/>`,
     dancer_top: (c, h) => `<path d="M6 6 L9 4 C10 6 14 6 15 4 L18 6 L17 14 C14 15.4 10 15.4 7 14 Z" fill="${c}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M7.4 12.4 C10 13.6 14 13.6 16.6 12.4" fill="none" stroke="${h}" stroke-width="1.2"/><circle cx="12" cy="9" r="1.3" fill="${C.gold}" stroke="${OL}" stroke-width="0.6"/>`,
@@ -534,7 +548,7 @@
     bangles: (c, h) => `<ellipse cx="9.5" cy="12" rx="5" ry="6.4" fill="none" stroke="${OL}" stroke-width="3.2"/><ellipse cx="9.5" cy="12" rx="5" ry="6.4" fill="none" stroke="${c}" stroke-width="2"/><ellipse cx="14.5" cy="12" rx="5" ry="6.4" fill="none" stroke="${OL}" stroke-width="3.2"/><ellipse cx="14.5" cy="12" rx="5" ry="6.4" fill="none" stroke="${h}" stroke-width="2"/>`,
     sash: (c, h) => `<path d="M4 6 C9 9 15 9 20 6 L19 9 C15 11.6 9 11.6 5 9 Z" fill="${c}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M13 10 C14 14 13 17 15 21 L17.6 19.6 C16 16.4 16.6 13.6 15.6 9.8 Z" fill="${h}" stroke="${OL}" stroke-width="1" stroke-linejoin="round"/>`,
   };
-  for (const [tier, c, h] of [['silk', '#ef8ab4', '#ffd6e6'], ['golden', '#f5b82e', '#fff1b8']]) {
+  for (const [tier, c, h] of [['silk', '#ef8ab4', '#ffd6e6'], ['golden', '#f5b82e', '#fff1b8'], ['jade', '#2f9a6a', '#bff0d8'], ['eternal', '#8a3ad0', '#f5d27a']]) {
     for (const [t, fn] of Object.entries(DANCER_BUILD)) I[`${tier}_${t}`] = fn(c, h);
   }
   I.nature_rune = runeIcon('#4f9a3f');

@@ -2238,15 +2238,16 @@ test('melee weapons strike from 2 tiles, long ones from 3', async () => {
   assert.ok(ITEMS.bronze_scimitar.equip.range === 2 && ITEMS.rune_longsword.equip.range === 3);
 });
 
-test('the open world: 300x200 with six new regions, all reachable on foot, each with MRT and monsters', async () => {
+test('the open world: 400x280 with ten new regions, all reachable on foot, each with MRT and monsters', async () => {
   const { STATIONS } = await import('../src/data/transport.js');
   globalThis.localStorage = fakeStorage();
   clearSave();
   const game = new Game();
   game.start();
   const w = game.world;
-  assert.equal(w.width, 300); assert.equal(w.height, 200);
-  const NEW = ['Sungei Buloh Wetlands', 'Jurong Forest', 'Pulau Ubin', 'Changi Coast', 'Marina Bay', 'Tekong Badlands'];
+  assert.equal(w.width, 400); assert.equal(w.height, 280);
+  const NEW = ['Sungei Buloh Wetlands', 'Jurong Forest', 'Pulau Ubin', 'Changi Coast', 'Marina Bay', 'Tekong Badlands',
+    'Gardens by the Bay', 'Coney Island', 'Southern Islands', 'The Shadow Rift'];
   for (const n of NEW) assert.ok(w.zones.some((z) => z.name === n && !z.wilderness), `${n} exists and is not Wilderness`);
   // Flood fill from the spawn point over walkable tiles.
   const seen = new Uint8Array(w.width * w.height); const q = [[w.spawnPoint.x, w.spawnPoint.y]]; seen[w.spawnPoint.y * w.width + w.spawnPoint.x] = 1;
@@ -2261,4 +2262,21 @@ test('the open world: 300x200 with six new regions, all reachable on foot, each 
   // Wilderness levels only apply inside the Wilderness zones.
   game.player.x = 250; game.player.y = 150;
   assert.equal(game.wildernessLevel(), 0, 'the Tekong Badlands are not Wilderness');
+});
+
+test('endgame tiers: metals up to Eternal (300), gear for every style, monsters and bosses up to 320 that drop it', async () => {
+  const { ITEMS } = await import('../src/data/items.js');
+  const { NPCS, getNpc, BOSS_IDS } = await import('../src/data/npcs.js');
+  for (const m of ['obsidian', 'orichalcum', 'jade', 'starmetal', 'celestial', 'eternal']) {
+    for (const t of ['scimitar', 'katana', 'halberd', 'platebody', 'full_helm', 'kiteshield']) assert.ok(ITEMS[`${m}_${t}`], `${m}_${t}`);
+  }
+  assert.equal(ITEMS.eternal_scimitar.equip.req.attack, 300);
+  assert.ok(ITEMS.eternal_scimitar.equip.bonuses.attack > ITEMS.dragon_scimitar.equip.bonuses.attack * 3);
+  for (const id of ['eternal_bow', 'eternal_arrow', 'eternalhide_body', 'eternal_staff', 'eternal_robe_top', 'eternal_whip', 'eternal_dancer_top']) assert.ok(ITEMS[id], id);
+  const levels = Object.values(NPCS).filter((n) => n.attackable && !n.boss).map((n) => n.level);
+  assert.ok(Math.max(...levels) >= 300, 'endgame monsters reach level 300+');
+  assert.ok(getNpc('eternal_wyrm').level === 320 && BOSS_IDS.includes('rift_tyrant'));
+  // An endgame monster drops endgame metal.
+  const ids = new Set(getNpc('eternal_penanggal').dropTable.map((d) => d.id));
+  assert.ok([...ids].some((id) => /^(celestial|eternal)_/.test(id)), 'level-320 monsters drop celestial/eternal gear');
 });

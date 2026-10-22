@@ -32,7 +32,7 @@ function mulberry32(seed) {
 export function buildWorld() {
   // The original island (x 0-149, y 0-103) keeps its coordinates; the open world
   // extends south across a strait and east across a channel to six new regions.
-  const W = 300, H = 200;
+  const W = 400, H = 280;
   const T = TERRAIN;
   const terrain = new Uint8Array(W * H);
   const idx = (x, y) => y * W + x;
@@ -57,7 +57,8 @@ export function buildWorld() {
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     if (x < OLD_W && y < OLD_H) continue;
     let base = T.GRASS;
-    if (x >= 225 && y >= 100) base = rng2() < 0.75 ? T.DARKGRASS : T.GRASS;            // Tekong Badlands
+    if (x >= 200 && y >= 204) base = rng2() < 0.88 ? T.DARKGRASS : T.GRASS;            // the Shadow Rift
+    else if (x >= 225 && y >= 100) base = rng2() < 0.75 ? T.DARKGRASS : T.GRASS;       // Tekong Badlands
     else if (x >= 75 && x < 159 && y >= 113) base = rng2() < 0.3 ? T.DARKGRASS : T.GRASS; // Jurong Forest
     else if (rng2() < 0.06) base = T.DARKGRASS;
     set(x, y, base);
@@ -80,8 +81,19 @@ export function buildWorld() {
   // --- The open world beyond the island ---
   rect(0, 101, 158, 112, T.WATER);   // the southern strait (crossed by the Sentosa bridge)
   rect(150, 0, 158, 112, T.WATER);   // the eastern channel past Pulau Hantu
-  rect(291, 0, 299, 199, T.WATER);   // the open sea off the east coast
-  rect(0, 196, 290, 199, T.WATER);   // and off the south coast
+  rect(291, 0, 299, 203, T.WATER);   // the channel off Changi and Tekong
+  rect(0, 196, 399, 203, T.WATER);   // the south channel
+  rect(392, 0, 399, 279, T.WATER);   // the far east sea
+  rect(0, 272, 399, 279, T.WATER);   // the far south sea
+  // The Southern Islands: open sea dotted with islands.
+  rect(0, 204, 199, 271, T.WATER);
+  const island = (cx, cy, rx, ry) => { for (let y = cy - ry - 1; y <= cy + ry + 1; y++) for (let x = cx - rx - 1; x <= cx + rx + 1; x++) {
+    if (((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 + (rng2() - 0.5) * 0.25 < 1) set(x, y, rng2() < 0.12 ? T.DARKGRASS : T.GRASS); } };
+  island(40, 236, 17, 11);    // Kusu Island
+  island(96, 240, 23, 15);    // St John's Island
+  island(150, 232, 19, 13);   // Lazarus Island
+  island(168, 258, 12, 8);    // the Sisters' Islands
+  island(58, 260, 17, 8);     // Pulau Semakau
   // Sungei Buloh: winding tidal rivers and mangrove ponds.
   for (let y = 113; y < 196; y++) {
     const r1 = Math.round(18 + Math.sin(y / 9) * 7), r2 = Math.round(52 + Math.sin(y / 13 + 2) * 9);
@@ -93,6 +105,9 @@ export function buildWorld() {
   pond(194, 178, 15, 9);   // Marina Bay
   pond(178, 72, 6, 5);     // Pulau Ubin's quarry lake
   pond(248, 140, 5, 4); pond(272, 176, 6, 4);   // Tekong's black pools
+  pond(328, 36, 11, 7); pond(368, 72, 9, 6);    // Gardens by the Bay lakes
+  pond(344, 160, 6, 5);                         // a Coney Island pond
+  pond(230, 250, 8, 5); pond(330, 230, 10, 6); pond(370, 258, 7, 4);   // the Rift's dark pools
 
   // --- Sandy beach ring around all water ---
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
@@ -125,6 +140,17 @@ export function buildWorld() {
   road(159, 50, 286, 51);    // Pulau Ubin - Changi
   road(262, 51, 263, 150);   // Changi down into the Tekong Badlands
   road(236, 150, 262, 151);
+  road(286, 50, 341, 51);     // Changi over the channel into Gardens by the Bay
+  road(340, 51, 341, 151);    // south through the Gardens to Coney Island
+  road(262, 150, 341, 151);   // Tekong over the channel to Coney Island
+  road(262, 151, 263, 262);   // Tekong over the south channel into the Shadow Rift
+  road(190, 150, 191, 241);   // Marina Bay over the south channel to the islands
+  road(24, 240, 380, 241);    // the island bridges, on east through the Rift
+  road(58, 241, 59, 260);     // a bridge down to Pulau Semakau
+  road(168, 241, 169, 258);   // and to the Sisters' Islands
+  rect(250, 208, 274, 222, T.STONE);   // the Rift Outpost
+  rect(382, 100, 391, 195, T.SAND);    // Coney Island's east beach
+  rect(300, 2, 391, 4, T.SAND);
   // Floors for the new towns and the big quarries.
   rect(178, 128, 206, 147, T.STONE);   // Marina Bay plaza
   rect(182, 40, 198, 49, T.STONE);     // Pulau Ubin kampong square
@@ -182,6 +208,10 @@ export function buildWorld() {
     { name: 'Changi Coast', x0: 230, y0: 0, x1: 299, y1: 99, lo: 10, hi: 70 },
     { name: 'Marina Bay', x0: 159, y0: 100, x1: 229, y1: 199, lo: 15, hi: 60 },
     { name: 'Tekong Badlands', x0: 230, y0: 100, x1: 299, y1: 199, lo: 70, hi: 160 },
+    { name: 'Gardens by the Bay', x0: 300, y0: 0, x1: 399, y1: 99, lo: 60, hi: 120 },
+    { name: 'Coney Island', x0: 300, y0: 100, x1: 399, y1: 203, lo: 90, hi: 150 },
+    { name: 'Southern Islands', x0: 0, y0: 204, x1: 199, y1: 279, lo: 120, hi: 215 },
+    { name: 'The Shadow Rift', x0: 200, y0: 204, x1: 399, y1: 279, lo: 200, hi: 320 },
   ];
 
   // ================= Kampong Glam (town) =================
@@ -404,8 +434,58 @@ export function buildWorld() {
   scatter('runite_rock', 232, 102, 289, 194, 5, GRASSY);
   scatter('adamantite_rock', 232, 102, 289, 194, 5, GRASSY);
 
+  // ================= Gardens by the Bay (Supertree groves) =================
+  placeObj('sign', 343, 53, { sign: 'Gardens by the Bay' });
+  scatter('rain_tree', 302, 6, 390, 98, 26, GRASSY);
+  scatter('magic_tree', 302, 6, 390, 98, 10, GRASSY);
+  scatter('tembusu', 302, 6, 390, 98, 12, GRASSY);
+  scatter('angsana', 302, 6, 390, 98, 12, GRASSY);
+  scatter('flower', 302, 6, 390, 98, 120, GRASSY);
+  placeFishing('rod_spot', 314, 26, 380, 80, 8);
+  for (const [lx, ly] of [[336, 48], [346, 48], [336, 56], [346, 56]]) placeObj('lamp', lx, ly);
+  placeObj('mrt_station', 344, 50);
+
+  // ================= Coney Island =================
+  placeObj('sign', 343, 104, { sign: 'Coney Island' });
+  scatter('tree', 302, 104, 380, 194, 26, GRASSY);
+  scatter('mahogany', 302, 104, 380, 194, 12, GRASSY);
+  scatter('yew_tree', 302, 104, 380, 194, 10, GRASSY);
+  scatter('palm', 378, 100, 391, 195, 16, [T.SAND]);
+  scatter('bamboo', 302, 104, 380, 194, 12, GRASSY);
+  placeFishing('fishing_cage', 390, 100, 399, 195, 6);
+  placeFishing('harpoon_spot', 390, 100, 399, 195, 6);
+  placeObj('mrt_station', 344, 148);
+
+  // ================= Southern Islands =================
+  placeObj('sign', 193, 206, { sign: 'Southern Islands \u2193' });
+  scatter('palm', 2, 206, 197, 270, 34, [T.SAND, T.GRASS]);
+  scatter('rain_tree', 2, 206, 197, 270, 12, GRASSY);
+  scatter('magic_tree', 2, 206, 197, 270, 6, GRASSY);
+  scatter('ruin', 2, 206, 197, 270, 10, GRASSY);
+  scatter('runite_rock', 2, 206, 197, 270, 6, GRASSY);
+  scatter('gem_rock', 2, 206, 197, 270, 5, GRASSY);
+  placeFishing('sea_rod_spot', 2, 206, 197, 270, 14);
+  placeFishing('harpoon_spot', 2, 206, 197, 270, 10);
+  placeFishing('fishing_cage', 2, 206, 197, 270, 8);
+  placeObj('shrine', 40, 232);   // Kusu's turtle temple
+  placeObj('mrt_station', 98, 238);
+
+  // ================= The Shadow Rift (endgame) and its outpost =================
+  placeObj('sign', 262, 205, { sign: '\u26A0 The Shadow Rift: lvl 200+' });
+  placeObj('bank_booth', 252, 209); placeObj('bank_booth', 253, 209); placeNpc('banker', 252, 208);
+  placeNpc('shopkeeper', 270, 210); placeNpc('mage', 272, 214); placeNpc('fletcher', 270, 218); placeNpc('hawker', 254, 220);
+  placeObj('range', 256, 220); placeObj('furnace', 252, 214); placeObj('anvil', 253, 216);
+  for (const [lx, ly] of [[250, 208], [274, 208], [250, 222], [274, 222]]) placeObj('lamp', lx, ly);
+  placeNpc('villager', 260, 214, 4);
+  placeObj('mrt_station', 264, 222);
+  scatter('ruin', 202, 206, 390, 270, 40, GRASSY);
+  scatter('wall', 202, 206, 390, 270, 26, GRASSY);
+  scatter('runite_rock', 202, 206, 390, 270, 10, GRASSY);
+  scatter('gem_rock', 202, 206, 390, 270, 6, GRASSY);
+  scatter('magic_tree', 202, 206, 390, 270, 10, GRASSY);
+
   // Scenery so the open country feels alive: bushes, wildflowers and boulders.
-  for (const [x0, y0, x1, y1] of [[2, 114, 157, 194], [160, 2, 288, 98], [160, 100, 229, 194], [232, 102, 289, 194]]) {
+  for (const [x0, y0, x1, y1] of [[2, 114, 157, 194], [160, 2, 288, 98], [160, 100, 229, 194], [232, 102, 289, 194], [302, 6, 390, 194], [202, 206, 390, 270]]) {
     scatter('bush', x0, y0, x1, y1, 70, GRASSY);
     scatter('flower', x0, y0, x1, y1, 45, GRASSY);
   }
@@ -421,23 +501,25 @@ export function buildWorld() {
     for (let att = 0; att < 90; att++) {
       const x = z.x0 + Math.floor(R() * (z.x1 - z.x0 + 1));
       const y = z.y0 + Math.floor(R() * (z.y1 - z.y0 + 1));
-      if (inTown(x, y) || !LANDABLE.includes(get(x, y))) continue;
+      if (inTown(x, y) || !LANDABLE.includes(get(x, y)) || occupied.has(key(x, y))) continue;
       placeNpc(id, x, y, wander);
       return;
     }
     placeNpc(id, Math.round((z.x0 + z.x1) / 2), Math.round((z.y0 + z.y1) / 2), wander);
   };
   // Plenty of monsters: three of every kind, spread around its zone.
-  for (let copy = 0; copy < MONSTER_COPIES; copy++) for (const id of MONSTER_IDS) placeMobIn(id, 4);
-  for (const id of BOSS_IDS) { if (NPCS[id].fixed) continue; placeMobIn(id, 3); }
+  // Monsters native to the open-world regions are placed later, on the open world's stream.
+  const isNewZone = (id) => !!zoneByName(NPCS[id].zone)?.lo;
+  for (let copy = 0; copy < MONSTER_COPIES; copy++) for (const id of MONSTER_IDS) { if (!isNewZone(id)) placeMobIn(id, 4); }
+  for (const id of BOSS_IDS) { if (NPCS[id].fixed || isNewZone(id)) continue; placeMobIn(id, 3); }
   // The open-world regions draw on the whole bestiary: creatures that suit the
   // land (by body type), within the region's level band.
-  const towns = [[178, 128, 206, 147], [182, 40, 198, 49]];
+  const towns = [[178, 128, 206, 147], [182, 40, 198, 49], [250, 208, 274, 222]];
   const inNewTown = (x, y) => towns.some(([a, b, c, d]) => x >= a - 2 && x <= c + 2 && y >= b - 2 && y <= d + 2);
   const placeInZone = (id, z, wander) => {
     for (let att = 0; att < 90; att++) {
       const x = z.x0 + Math.floor(R() * (z.x1 - z.x0 + 1)), y = z.y0 + Math.floor(R() * (z.y1 - z.y0 + 1));
-      if (inNewTown(x, y) || !LANDABLE.includes(get(x, y))) continue;
+      if (inNewTown(x, y) || !LANDABLE.includes(get(x, y)) || occupied.has(key(x, y))) continue;
       placeNpc(id, x, y, wander);
       return;
     }
@@ -450,10 +532,20 @@ export function buildWorld() {
     'Changi Coast': ['crab', 'seacreature', 'turtle', 'jellyfish', 'fowl', 'scorpion'],
     'Marina Bay': ['humanoid', 'ghost', 'rodent', 'fowl', 'hound'],
     'Tekong Badlands': ['undead', 'ghost', 'demon', 'drake', 'golem', 'reptile', 'serpent', 'spider', 'hound', 'seacreature'],
+    'Gardens by the Bay': ['plant', 'fowl', 'insect', 'mantis', 'wisp', 'beast', 'primate', 'bat'],
+    'Coney Island': ['beast', 'hound', 'serpent', 'reptile', 'fowl', 'crab', 'spider'],
+    'Southern Islands': ['crab', 'seacreature', 'turtle', 'jellyfish', 'serpent', 'undead', 'ghost', 'reptile'],
+    'The Shadow Rift': ['undead', 'ghost', 'demon', 'drake', 'golem', 'reptile', 'serpent', 'spider', 'seacreature', 'beast'],
   };
+  // Endgame monsters and the open-world bosses, in their home regions.
+  for (let copy = 0; copy < MONSTER_COPIES; copy++) for (const id of MONSTER_IDS) { if (isNewZone(id)) placeInZone(id, zoneByName(NPCS[id].zone), 4); }
+  for (const id of BOSS_IDS) { if (!NPCS[id].fixed && isNewZone(id)) placeInZone(id, zoneByName(NPCS[id].zone), 3); }
   for (const [name, sprites] of Object.entries(REGION_FAUNA)) {
     const z = zoneByName(name);
-    const kinds = MONSTER_IDS.filter((id) => sprites.includes(NPCS[id].sprite) && NPCS[id].level >= z.lo && NPCS[id].level <= z.hi);
+    const inBand = (id) => NPCS[id].level >= z.lo && NPCS[id].level <= z.hi;
+    let kinds = MONSTER_IDS.filter((id) => sprites.includes(NPCS[id].sprite) && inBand(id));
+    // Few themed creatures at this level? Let any creature in the band roam here.
+    if (kinds.length < 20) kinds = MONSTER_IDS.filter(inBand);
     for (let copy = 0; copy < REGION_COPIES; copy++) for (const id of kinds) placeInZone(id, z, 4);
   }
   // A few bosses roam the open world too.

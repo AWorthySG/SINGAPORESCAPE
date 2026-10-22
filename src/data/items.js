@@ -500,6 +500,13 @@ const _METALS = [
   { k: 'adamant', n: 'Adamant', ra: 30, rd: 30, m: 4.7, v: 34 },
   { k: 'rune', n: 'Rune', ra: 40, rd: 40, m: 7.2, v: 120 },
   { k: 'dragon', n: 'Dragon', ra: 60, rd: 60, m: 9.5, v: 340 },
+  // Endgame metals, for the levels beyond 99.
+  { k: 'obsidian', n: 'Obsidian', ra: 80, rd: 80, m: 12, v: 600 },
+  { k: 'orichalcum', n: 'Orichalcum', ra: 100, rd: 100, m: 15, v: 1100 },
+  { k: 'jade', n: 'Jade', ra: 130, rd: 130, m: 19, v: 2000 },
+  { k: 'starmetal', n: 'Starmetal', ra: 170, rd: 170, m: 24, v: 3600 },
+  { k: 'celestial', n: 'Celestial', ra: 220, rd: 220, m: 30, v: 6500 },
+  { k: 'eternal', n: 'Eternal', ra: 300, rd: 300, m: 40, v: 12000 },
 ];
 const _WEAPONS = [
   ['dagger', 'dagger', 4, 3, 4, 10], ['sword', 'sword', 5, 5, 5, 26], ['scimitar', 'scimitar', 7, 6, 4, 32],
@@ -600,6 +607,48 @@ for (const [id, name, lvl, magic, magicStr, defence, value] of _TOMES) {
   RAW[id] = { name, icon: '📘', value, examine: 'A book of spells, held in the off-hand.', equip: { slot: 'shield', req: { magic: lvl }, bonuses } };
 }
 
+// ---- Endgame gear for every style (levels 100-300) ----
+// Bows beyond the Twisted bow, and arrows to match.
+for (const [id, name, lvl, ranged, range, value, examine] of [
+  ['jade_bow', 'Jade bow', 130, 190, 23, 600000, 'A bow carved from a single piece of imperial jade.'],
+  ['starmetal_bow', 'Starmetal bow', 170, 240, 24, 1500000, 'Forged from a fallen star; its string hums.'],
+  ['celestial_bow', 'Celestial bow', 220, 300, 25, 4000000, 'Arrows leave it trailing light.'],
+  ['eternal_bow', 'Eternal bow', 300, 390, 26, 12000000, 'A bow that has never missed in a thousand years.'],
+]) RAW[id] = { name, icon: '🏹', value, examine, equip: { slot: 'weapon', combatType: 'ranged', range, req: { ranged: lvl }, bonuses: { ranged, crit: Math.round(lvl / 20), speed: 2 } } };
+for (const [id, name, arrowStr, value] of [['dragon_arrow', 'Dragon arrow', 70, 120], ['jade_arrow', 'Jade arrow', 95, 260], ['starmetal_arrow', 'Starmetal arrow', 125, 600], ['eternal_arrow', 'Eternal arrow', 170, 1500]]) {
+  RAW[id] = { name, icon: '🏹', value, stackable: true, tags: ['ammo'], arrowStr, examine: `Arrows tipped with ${name.split(' ')[0].toLowerCase()}.` };
+}
+// Ranged armour sets above dragonhide.
+for (const [tier, label, lvl, mult, vmul] of [['starhide', 'Starhide', 120, 3.5, 30], ['eternalhide', 'Eternal hide', 250, 8, 300]]) {
+  for (const [t, name, slot, ranged, def] of [['coif', 'coif', 'head', 8, 6], ['body', 'body', 'body', 20, 16], ['chaps', 'chaps', 'legs', 14, 10], ['vambraces', 'vambraces', 'hands', 6, 4]]) {
+    RAW[`${tier}_${t}`] = { name: `${label} ${name}`, icon: '🦺', value: Math.round((ranged + def) * 100 * vmul / 10), examine: `${label} ${name}, shimmering and light.`,
+      equip: { slot, req: { ranged: lvl }, bonuses: { ranged: Math.round(ranged * mult), defence: Math.round(def * mult) } } };
+  }
+}
+// Staves and robes beyond the death and blood staves.
+for (const [id, name, lvl, magic, magicStr, value] of [['jade_staff', 'Jade staff', 100, 60, 7, 500000], ['starmetal_staff', 'Starmetal staff', 160, 85, 10, 1400000],
+  ['celestial_staff', 'Celestial staff', 220, 115, 14, 4000000], ['eternal_staff', 'Eternal staff', 300, 160, 20, 12000000]]) {
+  RAW[id] = { name, icon: '🪄', value, examine: 'A staff of immense power.', equip: { slot: 'weapon', combatType: 'magic', req: { magic: lvl }, bonuses: { magic, magicStr, speed: 4 } } };
+}
+for (const [tier, label, lvl, mult, vmul] of [['astral', 'Astral', 100, 4, 30], ['eternal', 'Eternal', 250, 9, 300]]) {
+  for (const [t, name, slot, magic, mstr] of [['hat', 'hat', 'head', 6, 1], ['robe_top', 'robe top', 'body', 10, 1], ['robe_bottom', 'robe bottom', 'legs', 8, 1]]) {
+    RAW[`${tier}_${t}`] = { name: `${label} ${name}`, icon: '🥼', value: Math.round(magic * 1000 * vmul / 10), examine: `${label} robes woven with starlight.`,
+      equip: { slot, req: { magic: lvl }, bonuses: { magic: Math.round(magic * mult), magicStr: Math.round(mstr * mult), defence: Math.round(4 * mult) } } };
+  }
+}
+// Whips beyond the Celestial whip, and two more dancer outfits.
+for (const [id, name, lvl, dance, crit, value, examine] of [
+  ['jade_whip', 'Jade whip', 130, 120, 9, 700000, 'Polished jade links that sing when cracked.'],
+  ['starmetal_whip', 'Starmetal whip', 170, 160, 10, 1600000, 'A comet-tail of starmetal.'],
+  ['eternal_whip', 'Eternal whip', 300, 240, 12, 12000000, 'It dances on its own if you let it.'],
+]) RAW[id] = { name, icon: '〰️', value, examine, equip: { slot: 'weapon', combatType: 'dance', range: 3, req: { agility: lvl }, bonuses: { dance, crit, speed: 4 } } };
+for (const [tier, label, req, mult, vmul] of [['jade', 'Jade', 130, 9, 400], ['eternal', 'Eternal', 300, 18, 3000]]) {
+  for (const [t, name, slot, dance, def] of _DANCER) {
+    RAW[`${tier}_${t}`] = { name: `${label} ${name}`, icon: '🎀', value: Math.round((40 + dance * 20) * vmul), examine: `A ${label.toLowerCase()} ${name} for the greatest dancers.`,
+      equip: { slot, req: { agility: req }, bonuses: { dance: dance * mult, defence: def * mult } } };
+  }
+}
+
 // Weapon special attacks (the spec bar). Attached after generation so the tiered
 // Dragon weapons can carry specs too. acc/dmg are multipliers; hits = swings;
 // heal = fraction of damage returned as health.
@@ -610,6 +659,15 @@ const WEAPON_SPECS = {
   dragon_mace: { name: 'Crush', cost: 35, acc: 1.6, dmg: 1.35 },
   dragon_battleaxe: { name: 'Rampage', cost: 50, acc: 1.2, dmg: 1.7 },
   dragon_2h_sword: { name: 'Devastate', cost: 55, acc: 1.25, dmg: 1.7 },
+  // Endgame melee specials
+  jade_katana: { name: 'Jade Wind', cost: 40, acc: 2.2, dmg: 1.4, hits: 2 },
+  starmetal_halberd: { name: 'Meteor Sweep', cost: 55, acc: 1.6, dmg: 2.0 },
+  celestial_scimitar: { name: 'Heaven Cut', cost: 45, acc: 2.4, dmg: 1.6 },
+  eternal_2h_sword: { name: 'Endless Edge', cost: 60, acc: 2.0, dmg: 2.4 },
+  eternal_claws: { name: 'Eternal Rend', cost: 50, acc: 2.0, dmg: 1.0, hits: 4 },
+  celestial_bow: { name: 'Starlight Volley', cost: 55, acc: 2.0, dmg: 1.3, hits: 3 },
+  eternal_bow: { name: 'Thousand Arrows', cost: 60, acc: 2.2, dmg: 1.2, hits: 4 },
+  eternal_whip: { name: 'Endless Waltz', cost: 60, acc: 2.2, dmg: 1.2, hits: 5 },
   merlion_blade: { name: 'Tide Strike', cost: 50, acc: 2.0, dmg: 1.5, heal: 0.2 },
   tiger_fang: { name: 'Maul', cost: 40, acc: 1.6, dmg: 1.4 },
   granite_maul: { name: 'Quake', cost: 50, acc: 1.5, dmg: 1.7 },
