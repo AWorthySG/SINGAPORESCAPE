@@ -1958,6 +1958,7 @@ test('daggers can be dual wielded in place of a shield, striking twice per swing
   const game = new Game();
   game.start();
   game.chooseStartingStyle('melee');
+  game.jobClass = null;   // dual wielding itself, free of the class weapon lock (tested separately)
   const inv = game.inventory, eq = game.equipment;
   const idx = (id) => inv.slots.findIndex((x) => x && x.id === id);
   inv.add('bronze_dagger', 1); inv.add('iron_dagger', 1);
@@ -2377,4 +2378,66 @@ test('passive perks change combat: more max life, less damage taken, thorns, and
   game.bus.on('chat', (c) => chat.push(c.text));
   game.bus.emit('levelup', { skill: 'magic', level: 20 });
   assert.ok(chat.some((t) => t.startsWith('New passive perk: Arcane Focus')));
+});
+
+test('job classes: one per weapon type, and every type has a weapon at every tier', async () => {
+  const { CLASSES, weaponsOfType } = await import('../src/data/classes.js');
+  const { WEAPON_TYPES, ITEMS } = await import('../src/data/items.js');
+  assert.equal(CLASSES.length, WEAPON_TYPES.length);
+  assert.deepEqual([...new Set(CLASSES.map((c) => c.weapon))].sort(), [...WEAPON_TYPES].sort(), 'each weapon type is a different class');
+  const lvl = (id) => Math.max(0, ...Object.values(ITEMS[id].equip.req || {}));
+  for (const t of WEAPON_TYPES) {
+    const levels = weaponsOfType(t).map(lvl);
+    for (const tier of [1, 20, 40, 60, 80, 100, 130, 170, 220, 300]) {
+      assert.ok(levels.some((l) => l <= tier && l > tier - 40), `${t} has a weapon around level ${tier}`);
+    }
+  }
+  // Every weapon (except tools) has a type.
+  for (const [id, it] of Object.entries(ITEMS)) if (it.equip?.slot === 'weapon' && !it.tool) assert.ok(it.equip.weaponType, `${id} has a weapon type`);
+});
+
+test('job classes: chosen at the start, permanent, locked to the class weapon; loot turns into the class equivalent', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseClass('samurai');
+  assert.equal(game.jobClass, 'samurai');
+  assert.equal(game.equipment.get('weapon'), 'bronze_katana', 'Samurai start with a katana');
+  game.chooseClass('archer');
+  assert.equal(game.jobClass, 'samurai', 'the choice is permanent');
+  game.inventory.add('bronze_scimitar', 1); game.inventory.add('iron_katana', 1);
+  game.equipItem(game.inventory.slots.findIndex((s) => s && s.id === 'bronze_scimitar'));
+  assert.equal(game.equipment.get('weapon'), 'bronze_katana', 'a Samurai cannot wield a scimitar');
+  game.equipItem(game.inventory.slots.findIndex((s) => s && s.id === 'iron_katana'));
+  assert.equal(game.equipment.get('weapon'), 'iron_katana', 'but can wield a better katana');
+  // Weapon drops mostly become katanas of the same tier.
+  const mob = game.npcs.find((n) => n.def.attackable && !n.def.boss);
+  let katanas = 0, others = 0;
+  game._autoLoot = (loot) => {
+    katanas += loot.filter(([id]) => /katana$/.test(id)).length;
+    others += loot.filter(([id]) => /(_scimitar|_sword|_mace|_dagger|_spear)$/.test(id)).length;
+  };
+  for (let i = 0; i < 600; i++) game.rollDrops(mob);
+  assert.ok(katanas > others, `class weapons dominate weapon drops (${katanas} katanas vs ${others} others)`);
+  // Saved and loaded with the class.
+  saveGame(game);
+  const g2 = new Game(); g2.start(); loadGame(g2);
+  assert.equal(g2.jobClass, 'samurai');
+  assert.equal(g2.pendingClassChoice, false);
+});
+
+test('an older save without a class picks one on load and keeps its gear', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const g2 = new Game(); g2.start();
+  // An old save: no job class yet, gear already on.
+  g2.pendingStyleChoice = false; g2.pendingClassChoice = true;
+  g2.equipment.set('weapon', 'rune_scimitar'); g2.equipment.set('body', 'rune_platebody');
+  g2.chooseClass('ranger');
+  assert.equal(g2.jobClass, 'ranger');
+  assert.equal(g2.pendingClassChoice, false);
+  assert.equal(g2.equipment.get('body'), 'rune_platebody', 'armour is kept');
+  assert.equal(g2.equipment.get('weapon'), 'longbow', 'the class weapon is equipped');
+  assert.ok(g2.inventory.has('rune_scimitar'), 'the old weapon goes to the pack');
 });

@@ -28,6 +28,7 @@ import {
 } from './combat.js';
 import { ABILITY_BY_ID, abilitiesFor } from '../data/abilities.js';
 import { DOT_KINDS } from '../data/bossAbilities.js';
+import { CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, equivalentWeapon } from '../data/classes.js';
 import { STYLE_TRACKS, sumPerks, perkAtLevel, rankName, PERK_SKILLS } from '../data/perks.js';
 import { getSpell, SPELLS } from '../data/magic.js';
 import { xpForLevel } from '../data/xp.js';
@@ -69,6 +70,8 @@ const BOSS_XP_PER_LEVEL = 40;
 
 // Share of fired arrows recovered after the shot.
 const ARROW_RECOVERY = 0.8;
+const CLASS_LOOT_SHARE = 0.75;   // chance another class's weapon drop becomes your class's equivalent
+const CLASS_FOR_TYPE = (t) => Object.values(CLASS_BY_ID).find((c) => c.weapon === t)?.name || 'different class';
 // What a boss's ground attack says when it marks the ground.
 const HAZARD_TEXT = {
   blast: (n) => `${n} targets the ground under you. Move out of the red!`,
@@ -117,6 +120,8 @@ export class Game {
     // melee/ranged/magic choice (see chooseStartingStyle) before combat gear
     // is granted. Never set for a loaded save.
     this.pendingStyleChoice = false;
+    this.jobClass = null;            // permanent job class (one per weapon type), see classes.js
+    this.pendingClassChoice = false; // an older save that hasn't picked a class yet
 
     this.running = false;
     this.runEnergy = 100;
@@ -272,17 +277,41 @@ export class Game {
 
   /** Grant starting combat gear for a freshly-chosen fighting style. Only
    *  fires once, right after a brand-new game boots (never for a loaded save). */
+  /** Older entry point: pick the default class of a fighting style. */
   chooseStartingStyle(style) {
-    if (!this.pendingStyleChoice) return;
+    return this.chooseClass({ ranged: 'archer', magic: 'wizard', dance: 'dancer' }[style] || 'corsair');
+  }
+
+  /** Pick a job class (permanent). A brand-new character also gets its class's
+   *  starting kit; an older save keeps its gear and is handed its class weapon. */
+  chooseClass(classId) {
+    const cls = CLASS_BY_ID[classId];
+    if (!cls || this.jobClass) return;
+    this.jobClass = classId;
+    if (!this.pendingStyleChoice) {
+      // An existing character: put away a weapon it can no longer use, and hand over its class weapon.
+      this.pendingClassChoice = false;
+      const w = this.equipment.get('weapon');
+      if (w && getItem(w).equip?.weaponType && getItem(w).equip.weaponType !== cls.weapon && this.inventory.freeSlots?.() !== 0) {
+        this.equipment.clearSlot('weapon'); this.inventory.add(w, 1);
+      }
+      const starter = starterWeapon(classId);
+      if (!this.equipment.get('weapon')) this.equipment.set('weapon', starter); else this.inventory.add(starter, 1);
+      this.msg(`You are now a ${cls.name}. Only ${WEAPON_TYPE_NAMES[cls.weapon]} can be wielded, and the choice is permanent.`, 'level');
+      this.bus.emit('inventory'); this.bus.emit('equipment');
+      return;
+    }
     this.pendingStyleChoice = false;
+    const style = cls.style;
+    const starter = starterWeapon(classId);
     if (style === 'ranged') {
-      this.equipment.set('weapon', 'shortbow');
+      this.equipment.set('weapon', starter);
       this.equipment.set('head', 'coif');
       this.equipment.set('body', 'studded_body');
       this.equipment.set('legs', 'leather_chaps');
       this.inventory.add('bronze_arrow', 999);
     } else if (style === 'dance') {
-      this.equipment.set('weapon', 'leather_whip');
+      this.equipment.set('weapon', starter);
       this.equipment.set('head', 'silk_headdress');
       this.equipment.set('body', 'silk_dancer_top');
       this.equipment.set('legs', 'silk_dancer_skirt');
@@ -290,7 +319,7 @@ export class Game {
       // Dancers start at Agility 15, matching melee's starting Attack/Strength.
       this.skills.xp.agility = Math.max(this.skills.xp.agility, xpForLevel(15));
     } else if (style === 'magic') {
-      this.equipment.set('weapon', 'staff');
+      this.equipment.set('weapon', starter);
       this.equipment.set('head', 'wizard_hat');
       this.equipment.set('body', 'wizard_robe_top');
       this.equipment.set('legs', 'wizard_robe_bottom');
@@ -299,12 +328,13 @@ export class Game {
       // Casters start at Magic 15, matching melee's starting Attack/Strength.
       this.skills.xp.magic = Math.max(this.skills.xp.magic, xpForLevel(15));
     } else {
-      this.equipment.set('weapon', 'bronze_scimitar');
-      this.equipment.set('shield', 'wooden_shield');
+      this.equipment.set('weapon', starter);
+      // Rogues start dual wielding; every other melee class gets a shield.
+      this.equipment.set('shield', cls.weapon === 'dagger' ? starter : 'wooden_shield');
       this.equipment.set('body', 'leather_body');
     }
     this.player.hp = this.maxHp();
-    this.msg('You are equipped and ready. Talk to the Kampong Guide for tips.', 'system');
+    this.msg(`You are a ${cls.name}: you fight with ${WEAPON_TYPE_NAMES[cls.weapon]}. Talk to the Kampong Guide for tips.`, 'system');
     this.bus.emit('inventory'); this.bus.emit('equipment'); this.bus.emit('hp');
   }
 
@@ -1618,6 +1648,14 @@ export class Game {
         this.msg('You find a clue scroll!', 'level');
       }
     }
+    // Weapons mostly drop as your own class's equivalent, so loot stays useful.
+    const myType = this.jobClass && CLASS_BY_ID[this.jobClass]?.weapon;
+    if (myType) {
+      for (const l of loot) {
+        const t = getItem(l[0]).equip?.weaponType;
+        if (t && t !== myType && Math.random() < CLASS_LOOT_SHARE) l[0] = equivalentWeapon(l[0], myType);
+      }
+    }
     this._autoLoot(loot, npc.x, npc.y);
   }
 
@@ -2556,6 +2594,12 @@ export class Game {
         this.msg(`You need ${capitalize(sk)} level ${lvl} to wear this.`);
         return;
       }
+    }
+    // Job classes: only your class's weapon type can be wielded (tools are fine).
+    const cls = this.jobClass && CLASS_BY_ID[this.jobClass];
+    if (cls && eq.weaponType && eq.weaponType !== cls.weapon) {
+      this.msg(`Only a ${CLASS_FOR_TYPE(eq.weaponType)} can wield ${WEAPON_TYPE_NAMES[eq.weaponType]}. You are a ${cls.name}: you fight with ${WEAPON_TYPE_NAMES[cls.weapon]}.`);
+      return;
     }
     // A dagger goes in the off-hand when asked, or by default when you already
     // hold a dagger and your off-hand isn't one yet.
