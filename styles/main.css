@@ -1657,3 +1657,27 @@ body.boss-on #tip-toast { top: 132px; }
 .perk-row .perk-text b { font-size: 13.5px; }
 .perk-row .perk-text span { font-size: 12px; color: var(--aw-text-sec, #625d54); }
 .perk-row .perk-next { flex: none; font-size: 11px; font-weight: 800; color: var(--aw-text-sec, #625d54); text-align: right; }
+
+/* ---------- Choose Your Class ---------- */
+#modal-window:has(.class-section) { width: min(880px, 96vw); }
+.class-section { margin-top: 12px; }
+.class-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.class-head img { width: 36px; height: 36px; object-fit: contain; }
+.class-head b { font-size: 16px; font-weight: 900; color: var(--aw-text, #1f1e1b); }
+.class-head span { font-size: 12.5px; color: var(--aw-text-sec, #625d54); }
+.class-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 0; }
+.dialogue-option.class-card { display: flex; align-items: center; gap: 9px; margin: 0; padding: 8px 10px; text-align: left; border-radius: var(--r2, 12px); min-height: 66px; }
+.class-card .class-pic { flex: none; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; border-radius: 50%;
+  background: var(--aw-sidebar, #f3ead8); box-shadow: inset 0 0 0 1.5px var(--aw-ink-faint, rgba(34,48,74,.18)); }
+.class-card .class-pic svg, .class-card .class-pic img { width: 34px; height: 34px; }
+.class-card .class-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.class-card b { font-size: 14.5px; font-weight: 900; }
+.class-card .class-weapon { font-size: 10.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--aw-accent, #c0392b); }
+.class-card .class-desc { font-size: 11.5px; color: var(--aw-text-sec, #625d54); }
+.cb-class { font-size: 13px; margin-bottom: 2px; }
+@media (max-width: 760px) { .class-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 540px) {
+  .class-grid { grid-template-columns: 1fr; gap: 6px; }
+  .dialogue-option.class-card { min-height: 0; padding: 6px 8px; }
+  .class-card .class-desc { display: none; }
+}

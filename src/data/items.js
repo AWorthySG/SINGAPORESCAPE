@@ -649,6 +649,25 @@ for (const [tier, label, req, mult, vmul] of [['jade', 'Jade', 130, 9, 400], ['e
   }
 }
 
+// ---- Filling every weapon type's ladder (levels 1-300) ----
+// Each weapon type has a weapon at every tier, so every job class can progress.
+for (const [id, name, lvl, ranged, range, value] of [
+  ['dragon_longbow', 'Dragon longbow', 60, 95, 22, 90000], ['obsidian_longbow', 'Obsidian longbow', 80, 122, 23, 200000],
+  ['orichalcum_longbow', 'Orichalcum longbow', 100, 152, 24, 400000], ['jade_longbow', 'Jade longbow', 130, 210, 25, 700000],
+  ['starmetal_longbow', 'Starmetal longbow', 170, 265, 26, 1700000], ['celestial_longbow', 'Celestial longbow', 220, 330, 27, 4500000],
+  ['eternal_longbow', 'Eternal longbow', 300, 430, 28, 13000000],
+]) RAW[id] = { name, icon: '🏹', value, examine: 'A tall bow that sends arrows a very long way.', equip: { slot: 'weapon', combatType: 'ranged', range, req: { ranged: lvl }, bonuses: { ranged, speed: 4 } } };
+for (const [id, name, lvl, value] of [['oak_wand', 'Oak wand', 5, 200], ['maple_wand', 'Maple wand', 30, 3000], ['obsidian_wand', 'Obsidian wand', 80, 90000],
+  ['orichalcum_wand', 'Orichalcum wand', 100, 300000], ['jade_wand', 'Jade wand', 130, 600000], ['starmetal_wand', 'Starmetal wand', 170, 1500000],
+  ['celestial_wand', 'Celestial wand', 220, 4000000], ['eternal_wand', 'Eternal wand', 300, 12000000]]) {
+  const bonuses = { magic: Math.round(lvl * 0.45 + 5), speed: 4 };
+  if (lvl >= 20) bonuses.magicStr = Math.floor(lvl / 20);
+  RAW[id] = { name, icon: '🪄', value, examine: 'A slim wand for quick casting.', equip: { slot: 'weapon', combatType: 'magic', req: { magic: lvl }, bonuses } };
+}
+RAW.obsidian_staff = { name: 'Obsidian staff', icon: '🪄', value: 200000, examine: 'Volcanic glass that drinks in spells.', equip: { slot: 'weapon', combatType: 'magic', req: { magic: 80 }, bonuses: { magic: 50, magicStr: 6, speed: 4 } } };
+RAW.imperial_staff = { name: 'Imperial staff', icon: '🪄', value: 800000, examine: 'Carried by the court sorcerers of old.', equip: { slot: 'weapon', combatType: 'magic', req: { magic: 130 }, bonuses: { magic: 72, magicStr: 8, speed: 4 } } };
+RAW.astral_whip = { name: 'Astral whip', icon: '〰️', value: 4000000, examine: 'Each crack opens a tiny window onto the stars.', equip: { slot: 'weapon', combatType: 'dance', range: 3, req: { agility: 220 }, bonuses: { dance: 200, crit: 11, speed: 4 } } };
+
 // Weapon special attacks (the spec bar). Attached after generation so the tiered
 // Dragon weapons can carry specs too. acc/dmg are multipliers; hits = swings;
 // heal = fraction of damage returned as health.
@@ -692,6 +711,24 @@ const WEAPON_SPECS = {
 for (const [id, spec] of Object.entries(WEAPON_SPECS)) { if (RAW[id]) RAW[id].spec = spec; }
 
 // Freeze each definition and attach its id for convenience.
+// ---- Weapon types (one per job class) ----
+// Every weapon belongs to exactly one type; a job class can only wield its own.
+export const WEAPON_TYPES = ['dagger', 'sword', 'scimitar', 'mace', 'longsword', 'battleaxe', 'warhammer', '2h_sword', 'spear', 'claws', 'katana', 'halberd',
+  'shortbow', 'longbow', 'staff', 'wand', 'whip'];
+const UNIQUE_TYPE = { tiger_kris: 'dagger', merlion_blade: 'sword', cursed_cutlass: 'scimitar', seraph_blade: 'longsword', megalodon_jaw: 'battleaxe',
+  granite_maul: 'warhammer', void_blade: 'katana', leviathan_trident: 'spear', tiger_fang: 'claws' };
+const MELEE_FAMILIES = WEAPON_TYPES.slice(0, 12).sort((a, b) => b.length - a.length);   // '2h_sword' before 'sword'
+function classifyWeapon(id, eq) {
+  if (UNIQUE_TYPE[id]) return UNIQUE_TYPE[id];
+  if (eq.combatType === 'dance') return 'whip';
+  if (eq.combatType === 'magic') return /wand$/.test(id) ? 'wand' : 'staff';
+  if (eq.combatType === 'ranged') return /longbow$/.test(id) ? 'longbow' : 'shortbow';
+  return MELEE_FAMILIES.find((f) => id.endsWith('_' + f)) || null;
+}
+for (const [id, it] of Object.entries(RAW)) {
+  if (it.equip?.slot === 'weapon' && !it.tool) it.equip.weaponType = classifyWeapon(id, it.equip);
+}
+
 export const ITEMS = Object.fromEntries(
   Object.entries(RAW).map(([id, def]) => [id, Object.freeze({ id, ...def })])
 );

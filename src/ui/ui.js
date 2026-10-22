@@ -1,3 +1,4 @@
+import { CLASSES, CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon } from '../data/classes.js';
 import { PERK_SKILLS, PERK_TRACKS, PERK_EVERY, trackPerks, rankName } from '../data/perks.js';
 import { drawPlayer } from '../render/sprites.js';
 import { getItem } from '../data/items.js';
@@ -802,7 +803,15 @@ export class UI {
       }
       body.appendChild(tabs);
       let ids = bySlot[slot] || [];
-      if (slot === 'weapon') {
+      const myCls = CLASS_BY_ID[g.jobClass];
+      if (slot === 'weapon' && myCls) {
+        // A job class can only wield its own weapon type, so list just those.
+        const note = document.createElement('div');
+        note.className = 'modal-hint';
+        note.innerHTML = `As a <b>${myCls.name}</b> you can wield <b>${WEAPON_TYPE_NAMES[myCls.weapon]}</b>. Other weapons you find are worth selling.`;
+        body.appendChild(note);
+        ids = ids.filter((id) => getItem(id).equip?.weaponType === myCls.weapon);
+      } else if (slot === 'weapon') {
         // Weapons only compare fairly within a fighting style.
         const st = document.createElement('div');
         st.className = 'gear-tabs gear-styles';
@@ -977,7 +986,9 @@ export class UI {
       }
     }
     const modeLabel = mode === 'ranged' ? 'Ranged' : mode === 'magic' ? 'Magic' : mode === 'dance' ? `Dancer &middot; Rhythm ${this.game.danceRhythm}/${RHYTHM_MAX}` : 'Melee';
-    this.el.combat.querySelector('.cb-level').innerHTML = `Combat level: ${this.game.skills.combatLevel()} <span style="opacity:.7">&middot; ${modeLabel}</span>`;
+    const cls = CLASS_BY_ID[this.game.jobClass];
+    const clsLabel = cls ? `<div class="cb-class">Class: <b>${cls.name}</b> &middot; ${WEAPON_TYPE_NAMES[cls.weapon]}</div>` : '';
+    this.el.combat.querySelector('.cb-level').innerHTML = `${clsLabel}Combat level: ${this.game.skills.combatLevel()} <span style="opacity:.7">&middot; ${modeLabel}</span>`;
     const cb = this.el.combat.querySelector('#auto-retal-cb');
     if (cb) cb.checked = p.autoRetaliate;
   }
@@ -986,7 +997,7 @@ export class UI {
   // One small, dismissible tip at a time, each shown once (remembered on this device).
   _tipsTick() {
     const g = this.game;
-    if (this._tipEl || this.modal || g.pendingStyleChoice || !g.player.alive) return;
+    if (this._tipEl || this.modal || g.pendingStyleChoice || g.pendingClassChoice || !g.player.alive) return;
     if (!this._tipsSeen) { try { this._tipsSeen = new Set(JSON.parse(localStorage.getItem(TIPS_KEY) || '[]')); } catch { this._tipsSeen = new Set(); } }
     const p = g.player;
     const want = (id, cond) => !this._tipsSeen.has(id) && cond();
@@ -1456,40 +1467,50 @@ export class UI {
     render(this.el.modalBody);
   }
 
-  /** One-time, non-dismissible prompt shown to a brand-new character: pick a
-   *  melee, ranged, magic or dancer starting kit. See Game.chooseStartingStyle(). */
+  /** One-time, non-dismissible prompt: pick a job class. A new character gets its
+   *  class's kit; an older save keeps its gear. The choice is permanent. */
   openStyleChoice() {
-    const paths = [
-      { id: 'melee', name: 'Knight', skill: 'Melee', art: 'assets/creatures/hero/melee.webp', blurb: 'Scimitar, shield and leather armour. Fight up close and hit hard.' },
-      { id: 'ranged', name: 'Archer', skill: 'Ranged', art: 'assets/creatures/hero/ranged.webp', blurb: 'Shortbow, 999 arrows and studded armour. Strike from far away.' },
-      { id: 'magic', name: 'Wizard', skill: 'Magic', art: 'assets/creatures/hero/magic.webp', blurb: 'Staff, wizard robes and runes. Cast spells from a distance.' },
-      { id: 'dance', name: 'Dancer', skill: 'Agility', icon: 'leather_whip', blurb: 'Whip and silk outfit. Lash from 3 tiles, build Rhythm and dodge blows.', isNew: true },
+    const g = this.game;
+    const STYLES = [
+      { id: 'melee', name: 'Melee', art: 'assets/creatures/hero/melee.webp', blurb: 'Fight up close (most weapons reach 2 tiles).' },
+      { id: 'ranged', name: 'Ranged', art: 'assets/creatures/hero/ranged.webp', blurb: 'Shoot from far away. Starts with 999 arrows.' },
+      { id: 'magic', name: 'Magic', art: 'assets/creatures/hero/magic.webp', blurb: 'Cast spells from a distance. Starts with runes.' },
+      { id: 'dance', name: 'Dance', art: null, blurb: 'Lash from 3 tiles, build Rhythm and dodge blows.' },
     ];
     const render = (body) => {
-      body.innerHTML = '<div class="dialogue path-intro">Choose how you\'ll fight. You can still train every skill, and switch any time by wielding different gear.</div>';
-      const opts = document.createElement('div');
-      opts.className = 'dialogue-options path-grid';
-      for (const p of paths) {
-        const div = document.createElement('div');
-        div.className = 'dialogue-option path-card';
-        div.tabIndex = 0;
-        const pic = p.art ? `<img src="${p.art}" alt="" width="72" height="72">` : (dancerPortrait() ? `<img src="${dancerPortrait()}" alt="" width="72" height="72">` : itemIconSVG(p.icon, 60));
-        div.innerHTML = `<span class="path-pic">${pic}</span><span class="path-text"><b>${p.name}</b>${p.isNew ? '<span class="path-new">New</span>' : ''}`
-          + `<span class="path-skill">Trains ${p.skill}</span><span class="path-blurb">${p.blurb}</span></span>`;
-        div.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); div.click(); } });
-        div.addEventListener('click', () => {
-          this.game.chooseStartingStyle(p.id);
-          if (this.modal) this.modal.locked = false; // a choice has been made — safe to close now
-          this.closeModal();
-        });
-        opts.appendChild(div);
+      body.innerHTML = `<div class="dialogue path-intro">${g.pendingClassChoice ? 'Choose your job class. You keep your gear, but from now on you can only wield your class\'s weapon type.' : 'Choose your job class. Each class masters one weapon type.'} <b>This choice is permanent.</b></div>`;
+      for (const st of STYLES) {
+        const sec = document.createElement('div');
+        sec.className = 'class-section';
+        const pic = st.art ? `<img src="${st.art}" alt="" width="40" height="40">` : (dancerPortrait() ? `<img src="${dancerPortrait()}" alt="" width="40" height="40">` : '');
+        sec.innerHTML = `<div class="class-head">${pic}<b>${st.name}</b><span>${st.blurb}</span></div>`;
+        const grid = document.createElement('div');
+        grid.className = 'dialogue-options class-grid';
+        for (const c of CLASSES.filter((x) => x.style === st.id)) {
+          const div = document.createElement('div');
+          div.className = 'dialogue-option class-card';
+          div.tabIndex = 0;
+          div.dataset.cls = c.id;
+          div.innerHTML = `<span class="class-pic">${itemIconSVG(starterWeapon(c.id), 34)}</span><span class="class-text"><b>${c.name}</b>`
+            + `<span class="class-weapon">${WEAPON_TYPE_NAMES[c.weapon]}</span><span class="class-desc">${c.desc}</span></span>`;
+          div.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); div.click(); } });
+          div.addEventListener('click', () => {
+            g.chooseClass(c.id);
+            if (this.modal) this.modal.locked = false; // a choice has been made — safe to close now
+            this.closeModal();
+            this.renderCombatPanel();
+          });
+          grid.appendChild(div);
+        }
+        sec.appendChild(grid);
+        body.appendChild(sec);
       }
-      body.appendChild(opts);
     };
-    this.openModal('Choose Your Path', render);
+    this.openModal('Choose Your Class', render);
     this.modal.locked = true;
     if (this.el.modalClose) this.el.modalClose.classList.add('hidden');
   }
+
 
   closeModal() {
     if (this.modal?.locked) return; // e.g. the starting-style choice — must pick one

@@ -45,6 +45,7 @@ export function snapshot(game) {
     clue: game.clue,
     specEnergy: game.specEnergy,
     settings: { running: game.running, autoCfg: game.autoCfg },
+    jobClass: game.jobClass,
   };
 }
 
@@ -118,6 +119,9 @@ export function loadGame(game) {
   if (data.clue && typeof data.clue === 'object' && Array.isArray(data.clue.spots)) game.clue = data.clue;
   if (typeof data.specEnergy === 'number') game.specEnergy = Math.max(0, Math.min(100, data.specEnergy));
   game.running = data.settings?.running ?? game.running;
+  // Job class: older saves pick one on their next visit.
+  game.jobClass = typeof data.jobClass === 'string' ? data.jobClass : null;
+  game.pendingClassChoice = !game.jobClass && !game.pendingStyleChoice;
   const ac = data.settings?.autoCfg;
   if (ac && typeof ac === 'object') {
     game.autoCfg = {

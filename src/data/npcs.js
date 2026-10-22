@@ -79,20 +79,26 @@ function rangedArmourFor(level) {
 function stavesFor(level) {
   return level < 10 ? ['staff'] : level < 20 ? ['air_staff', 'water_staff']
     : level < 35 ? ['earth_staff', 'fire_staff', 'magic_staff'] : level < 50 ? ['nature_staff', 'mystic_staff']
-    : level < 65 ? ['chaos_staff', 'ancient_staff'] : level < 100 ? ['death_staff', 'blood_staff']
-    : level < 160 ? ['jade_staff'] : level < 220 ? ['starmetal_staff'] : level < 300 ? ['celestial_staff'] : ['eternal_staff'];
+    : level < 65 ? ['chaos_staff', 'ancient_staff'] : level < 85 ? ['death_staff', 'blood_staff'] : level < 105 ? ['obsidian_staff']
+    : level < 135 ? ['jade_staff'] : level < 165 ? ['imperial_staff'] : level < 220 ? ['starmetal_staff'] : level < 300 ? ['celestial_staff'] : ['eternal_staff'];
 }
 function longbowFor(level) {
   return level < 10 ? 'longbow' : level < 22 ? 'oak_longbow' : level < 40 ? 'willow_longbow'
-    : level < 58 ? 'maple_longbow' : level < 75 ? 'yew_longbow' : 'magic_longbow';
+    : level < 58 ? 'maple_longbow' : level < 75 ? 'yew_longbow' : level < 95 ? 'magic_longbow' : level < 125 ? 'dragon_longbow'
+    : level < 150 ? 'obsidian_longbow' : level < 185 ? 'orichalcum_longbow' : level < 225 ? 'jade_longbow' : level < 270 ? 'starmetal_longbow'
+    : level < 310 ? 'celestial_longbow' : 'eternal_longbow';
 }
-function wandFor(level) { return level < 25 ? 'apprentice_wand' : level < 45 ? 'teak_wand' : level < 70 ? 'mystic_wand' : 'master_wand'; }
+function wandFor(level) {
+  return level < 10 ? 'apprentice_wand' : level < 25 ? 'oak_wand' : level < 35 ? 'teak_wand' : level < 50 ? 'maple_wand' : level < 75 ? 'mystic_wand'
+    : level < 95 ? 'master_wand' : level < 125 ? 'obsidian_wand' : level < 150 ? 'orichalcum_wand' : level < 185 ? 'jade_wand'
+    : level < 225 ? 'starmetal_wand' : level < 280 ? 'celestial_wand' : 'eternal_wand';
+}
 function tomeFor(level) { return level < 45 ? 'novice_tome' : level < 80 ? 'arcane_tome' : 'merlion_tome'; }
 // The Dancer's whips, one per tier, and the silk / golden dancer outfits.
 function whipFor(level) {
   return level < 12 ? 'leather_whip' : level < 24 ? 'rattan_whip' : level < 40 ? 'studded_whip' : level < 55 ? 'serpent_whip'
     : level < 70 ? 'coral_whip' : level < 90 ? 'orchid_whip' : level < 110 ? 'dragon_whip' : level < 140 ? 'celestial_whip'
-    : level < 185 ? 'jade_whip' : level < 260 ? 'starmetal_whip' : 'eternal_whip';
+    : level < 185 ? 'jade_whip' : level < 225 ? 'starmetal_whip' : level < 290 ? 'astral_whip' : 'eternal_whip';
 }
 function dancerFor(level) {
   const tier = level < 60 ? 'silk' : level < 130 ? 'golden' : level < 300 ? 'jade' : 'eternal';

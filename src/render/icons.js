@@ -533,12 +533,20 @@
   for (const [tier, c, h] of [['astral', '#3a2a7a', '#9a8ae8'], ['eternal', '#7a2a12', '#f5b82e']]) {
     I[`${tier}_hat`] = hatIcon(c); I[`${tier}_robe_top`] = plate(c, h); I[`${tier}_robe_bottom`] = legs(c, h);
   }
+  // Filling every weapon type's ladder
+  I.dragon_longbow = longbowIcon('#c0392b'); I.obsidian_longbow = longbowIcon('#2e2a3a'); I.orichalcum_longbow = longbowIcon('#d08a3a');
+  I.jade_longbow = longbowIcon('#2f9a6a'); I.starmetal_longbow = longbowIcon('#4a5ab0'); I.celestial_longbow = longbowIcon('#cfc8ff'); I.eternal_longbow = longbowIcon('#f5b82e');
+  I.oak_wand = wandIcon('#8a5e33', '#e8e0c8'); I.maple_wand = wandIcon('#6e8a3a', '#bfe8d0'); I.obsidian_wand = wandIcon('#2e2a3a', '#9a8ae8');
+  I.orichalcum_wand = wandIcon('#d08a3a', '#ffe89a'); I.jade_wand = wandIcon('#1f5a3a', '#5fd09a'); I.starmetal_wand = wandIcon('#2a2a5a', '#9ab0ff');
+  I.celestial_wand = wandIcon('#cfc8ff', '#ffffff'); I.eternal_wand = wandIcon('#7a2a12', '#f5b82e');
+  I.obsidian_staff = staffIcon('#2e2a3a', '#7a5ad0'); I.imperial_staff = staffIcon('#7a1a1a', '#f5b82e');
   I.novice_tome = tomeIcon('#5a7aa8', '#cfe8ff'); I.arcane_tome = tomeIcon('#5a3a7a', '#c890f0'); I.merlion_tome = tomeIcon('#2a6a8a', '#f5b82e');
   // The Dancer: whips (coiled lash + handle) and two dancer outfits.
   const whipIcon = (lash, grip) => `<path d="M6 21 L9.6 15" stroke="${OL}" stroke-width="3.4" stroke-linecap="round"/><path d="M6 21 L9.6 15" stroke="${grip}" stroke-width="2.2" stroke-linecap="round"/><path d="M9.6 15 C12 10 19 13 19 8.5 C19 4.5 13 4 12.5 7.5 C12.2 10 16 10.4 17 8" fill="none" stroke="${OL}" stroke-width="2.8" stroke-linecap="round"/><path d="M9.6 15 C12 10 19 13 19 8.5 C19 4.5 13 4 12.5 7.5 C12.2 10 16 10.4 17 8" fill="none" stroke="${lash}" stroke-width="1.6" stroke-linecap="round"/><circle cx="9.6" cy="15" r="1.4" fill="${C.gold}" stroke="${OL}" stroke-width="0.6"/>`;
   I.leather_whip = whipIcon('#8a5a2b', '#4a2f17'); I.rattan_whip = whipIcon('#c8a160', '#8a6a3a'); I.studded_whip = whipIcon('#6a4a2a', '#c9a84a');
   I.serpent_whip = whipIcon('#3a9a8a', '#1f5a52'); I.coral_whip = whipIcon('#f07a6a', '#a8443a'); I.orchid_whip = whipIcon('#c86ad0', '#4a8a3a');
   I.dragon_whip = whipIcon('#d0402a', '#3a1a12'); I.celestial_whip = whipIcon('#9adcff', '#f5b82e');
+  I.astral_whip = whipIcon('#9a8ae8', '#2a1a5a');
   I.jade_whip = whipIcon('#3fb07a', '#1f5a3a'); I.starmetal_whip = whipIcon('#7a8ae8', '#2a2a5a'); I.eternal_whip = whipIcon('#f5b82e', '#7a2a12');
   const DANCER_BUILD = {
     headdress: (c, h) => `<path d="M5 15 C8 11 16 11 19 15 L18 17 C14 15 10 15 6 17 Z" fill="${c}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M12 12.4 L10 4 C11 3 13 3 14 4 Z" fill="${h}" stroke="${OL}" stroke-width="0.9"/><path d="M9 13 L6 6 C7 5.4 8 5.6 8.6 6.4 Z M15 13 L18 6 C17 5.4 16 5.6 15.4 6.4 Z" fill="${h}" stroke="${OL}" stroke-width="0.8"/><circle cx="12" cy="13.4" r="1.4" fill="${C.gold}" stroke="${OL}" stroke-width="0.6"/>`,

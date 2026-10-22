@@ -96,7 +96,7 @@ const splashEnter = document.getElementById('splash-enter');
 function hideSplash() {
   game.audio.unlock();
   splash && splash.classList.add('hidden');
-  if (game.pendingStyleChoice) ui.openStyleChoice();
+  if (game.pendingStyleChoice || game.pendingClassChoice) ui.openStyleChoice();
 }
 splashEnter && splashEnter.addEventListener('click', hideSplash);
 splash && splash.addEventListener('click', (e) => { if (e.target === splash) hideSplash(); });
