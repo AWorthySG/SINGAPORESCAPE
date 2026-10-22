@@ -751,6 +751,10 @@ import { CROPS, POTIONS } from '../data/trades.js';
     ...['bronze', 'iron', 'steel', 'mithril', 'adamant', 'rune', 'dragon', 'obsidian', 'orichalcum', 'jade', 'starmetal', 'celestial', 'eternal']
       .flatMap((m) => [`${m}_claws`, `${m}_halberd`]),
     'giant_trevally', 'diamond_trevally', 'hybrid_grouper', 'climbing_perch', 'ikan_keli', 'belida', 'arapaima', 'arowana', 'milkfish', 'queenfish',
+    // Batch 11: the silk, golden and jade dancer outfits, starhide and eternal hide, astral and eternal robes.
+    ...['silk', 'golden', 'jade'].flatMap((t) => ['headdress', 'dancer_top', 'dancer_skirt', 'bangles', 'slippers', 'sash'].map((p) => `${t}_${p}`)),
+    ...['starhide', 'eternalhide'].flatMap((t) => ['coif', 'body', 'chaps', 'vambraces'].map((p) => `${t}_${p}`)),
+    ...['astral', 'eternal'].flatMap((t) => [`${t}_hat`, `${t}_robe_top`, `${t}_robe_bottom`]),
   ]);
   export const itemArtSrc = (id) => (ITEM_ART.has(id) ? `assets/icons/item-${id}.webp` : null);
   const artImg = (file, size, cls) => `<img class="${cls || ''}" width="${size}" height="${size}" src="assets/icons/${file}.webp" alt="" style="display:block;object-fit:contain" />`;
