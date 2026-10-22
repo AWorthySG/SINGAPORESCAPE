@@ -1297,7 +1297,7 @@ function townAcc(ctx, p) {
 // Job classes with their own painted hero (assets/creatures/hero/<classId>.webp)
 // use it in place of their style's art.
 export const HERO_STYLES = ['melee', 'ranged', 'magic'];
-export const CLASS_HERO_ART = new Set(['rogue', 'swordsman', 'samurai', 'berserker', 'paladin', 'sorcerer', 'dancer', 'lancer', 'juggernaut', 'brawler', 'corsair']);
+export const CLASS_HERO_ART = new Set(['rogue', 'swordsman', 'samurai', 'berserker', 'paladin', 'sorcerer', 'dancer', 'lancer', 'juggernaut', 'brawler', 'corsair', 'ranger', 'halberdier']);
 export const heroArtSrc = (classId) => (CLASS_HERO_ART.has(classId) ? `assets/creatures/hero/${classId}.webp` : null);
 const _heroImg = {};
 function heroImage(style) {
