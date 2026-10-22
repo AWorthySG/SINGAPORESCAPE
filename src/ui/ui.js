@@ -1,6 +1,6 @@
 import { CLASSES, CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon } from '../data/classes.js';
 import { PERK_SKILLS, PERK_TRACKS, PERK_EVERY, trackPerks, rankName } from '../data/perks.js';
-import { drawPlayer, heroArtSrc } from '../render/sprites.js';
+import { heroArtSrc } from '../render/sprites.js';
 import { getItem } from '../data/items.js';
 import { SHOPS, getShop } from '../data/shops.js';
 import { SMELT, SMITH } from '../data/smithing.js';
@@ -38,23 +38,6 @@ const EQUIP_LAYOUT = [
   null, 'legs', null,
   'hands', 'feet', 'ring',
 ];
-
-// The Dancer has no painted art yet: draw the in-game Dancer once into an image
-// for the class picker (null without a canvas, e.g. in tests).
-let _dancerPic;
-function dancerPortrait() {
-  if (_dancerPic !== undefined) return _dancerPic;
-  _dancerPic = null;
-  try {
-    const cv = document.createElement('canvas'); cv.width = 144; cv.height = 144;
-    const c = cv.getContext('2d');
-    if (!c) return null;
-    c.scale(2.6, 2.6);
-    drawPlayer(c, 26, 32, { time: 0, hasWeapon: true, weaponType: 'dance', hasBody: true, hasHelm: true, swingK: -1, facing: { dx: 1, dy: 0 } });
-    _dancerPic = cv.toDataURL('image/png');
-  } catch { _dancerPic = null; }
-  return _dancerPic;
-}
 
 export class UI {
   constructor(game) {
@@ -1478,14 +1461,14 @@ export class UI {
       { id: 'melee', name: 'Melee', art: 'assets/creatures/hero/melee.webp', blurb: 'Fight up close (most weapons reach 2 tiles).' },
       { id: 'ranged', name: 'Ranged', art: 'assets/creatures/hero/ranged.webp', blurb: 'Shoot from far away. Starts with 999 arrows.' },
       { id: 'magic', name: 'Magic', art: 'assets/creatures/hero/magic.webp', blurb: 'Cast spells from a distance. Starts with runes.' },
-      { id: 'dance', name: 'Dance', art: null, blurb: 'Lash from 3 tiles, build Rhythm and dodge blows.' },
+      { id: 'dance', name: 'Dance', art: 'assets/creatures/hero/dancer.webp', blurb: 'Lash from 3 tiles, build Rhythm and dodge blows.' },
     ];
     const render = (body) => {
       body.innerHTML = `<div class="dialogue path-intro">${g.pendingClassChoice ? 'Choose your job class. You keep your gear, but from now on you can only wield your class\'s weapon type.' : 'Choose your job class. Each class masters one weapon type.'} <b>This choice is permanent.</b></div>`;
       for (const st of STYLES) {
         const sec = document.createElement('div');
         sec.className = 'class-section';
-        const pic = st.art ? `<img src="${st.art}" alt="" width="40" height="40">` : (dancerPortrait() ? `<img src="${dancerPortrait()}" alt="" width="40" height="40">` : '');
+        const pic = `<img src="${st.art}" alt="" width="40" height="40">`;
         sec.innerHTML = `<div class="class-head">${pic}<b>${st.name}</b><span>${st.blurb}</span></div>`;
         const grid = document.createElement('div');
         grid.className = 'dialogue-options class-grid';
