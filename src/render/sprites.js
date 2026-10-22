@@ -104,7 +104,8 @@ const SPECIES_ART = new Set([
   'hornbill', 'imp', 'jungle_spider', 'king_cobra', 'macaque', 'monitor_lizard', 'mosquito',
   'mud_crab', 'outlaw', 'pangolin', 'rat', 'reef_shark', 'saltwater_crocodile', 'sambar_deer',
   'sand_scorpion', 'sea_snake', 'sea_turtle', 'skeleton', 'smooth_otter', 'stone_golem',
-  'swamp_slime', 'vampire_bat', 'wild_boar', 'wild_dog', 'will_o_wisp', 'wraith'
+  'swamp_slime', 'vampire_bat', 'wild_boar', 'wild_dog', 'will_o_wisp', 'wraith',
+  'reticulated_python', 'komodo_dragon', 'river_otter',
 ]);
 const _speciesImg = {};
 function speciesImage(family) {
@@ -123,6 +124,8 @@ export const speciesArt = () => new Set(SPECIES_ART);
 const BOSS_ART = new Set([
   'bone_colossus', 'chilli_crab', 'demon_lord', 'durian_behemoth', 'lion_of_light', 'molten_golem',
   'orang_minyak', 'sand_scorpion_king', 'sentosa_kraken', 'shadow_sovereign', 'wilderness_warlord', 'kusu_tortoise', 'rift_tyrant', 'coney_behemoth', 'supertree_guardian', 'eternal_wyrm', 'kranji_buffalo_king',
+  'merlion', 'the_garuda', 'ancient_tembusu', 'reservoir_serpent', 'boar_king', 'tualang_treant', 'night_safari_tiger',
+  'tuas_crane_colossus', 'harimau_jadian', 'punggol_lantern_spirit', 'bunian_queen', 'drowned_admiral',
 ]);
 const _bossImg = {};
 function bossImage(id) {
@@ -152,6 +155,64 @@ function townImage(id) {
   return img;
 }
 export const townArt = () => new Set(TOWN_ART);
+// ---------------- Creature animation ----------------
+// The painted monsters and bosses are single pictures, so they are brought to
+// life by moving and stretching the whole sticker about its feet (y = 13).
+const FLOATERS = new Set(['ghost', 'wisp', 'bat', 'jellyfish', 'insect']);
+const FEET = 13;
+function creaturePose(c, opts, t, seed) {
+  const ph = seed * 0.37;                       // every creature on its own rhythm
+  const ak = opts.attackK ?? -1;
+  let dx = 0, dy = 0, rot = 0, sx = 1, sy = 1;
+  if (FLOATERS.has(opts.sprite)) dy -= 2 + Math.sin(t * 0.0032 + ph) * 2.2;   // ghosts and fliers hover
+  if (ak >= 0) {
+    // Wind up (lean back and crouch), lunge into the strike, then recover.
+    const e = (x) => 1 - (1 - x) * (1 - x);
+    if (ak < 0.35) { const k = e(ak / 0.35); dx = -2.5 * k; rot = -0.09 * k; sy = 1 - 0.1 * k; sx = 1 + 0.06 * k; }
+    else if (ak < 0.6) { const k = Math.sin(((ak - 0.35) / 0.25) * Math.PI / 2); dx = -2.5 + 8 * k; rot = -0.09 + 0.2 * k; sy = 0.9 + 0.24 * k; sx = 1.06 - 0.14 * k; }
+    else { const k = e((ak - 0.6) / 0.4); dx = 5.5 * (1 - k); rot = 0.11 * (1 - k); sy = 1.14 - 0.14 * k; sx = 0.92 + 0.08 * k; }
+  } else if (opts.moving) {
+    // A springy hop: squash as the feet land, stretch at the top of the stride.
+    const st = Math.sin(t * 0.018 + seed);
+    sy = 1 + Math.abs(st) * 0.06 - 0.03; sx = 2 - sy;
+  } else {
+    // Idle breathing.
+    const br = Math.sin(t * 0.0028 + ph);
+    sy = 1 + br * 0.035; sx = 1 - br * 0.018;
+  }
+  if (opts.windup) dx += Math.sin(t * 0.09) * 0.9;                 // trembling as a heavy blow charges
+  if (opts.hurt > 0) dx += Math.sin(t * 0.11) * Math.min(1, opts.hurt / 200) * 2.6;   // flinch when struck
+  if (opts.castK > 0) { const k = Math.sin(opts.castK * Math.PI); sy *= 1 + k * 0.12; sx *= 1 + k * 0.08; }
+  c.translate(dx, dy + FEET); c.rotate(rot); c.scale(sx, sy); c.translate(0, -FEET);
+}
+// A boss's signature move: a burst of its ability colour from the ground up.
+function castBurst(c, k, col) {
+  const a = Math.sin(k * Math.PI);
+  c.save();
+  c.globalCompositeOperation = 'lighter';
+  const r = 10 + (1 - k) * 22;
+  const g = c.createRadialGradient(0, -6, 0, 0, -6, r);
+  g.addColorStop(0, rgba(col, 0.55 * a)); g.addColorStop(0.6, rgba(col, 0.25 * a)); g.addColorStop(1, rgba(col, 0));
+  c.fillStyle = g; circle(c, 0, -6, r); c.fill();
+  c.strokeStyle = rgba(col, 0.8 * a); c.lineWidth = 2;
+  c.beginPath(); c.ellipse(0, FEET, 8 + (1 - k) * 18, (8 + (1 - k) * 18) * 0.35, 0, 0, Math.PI * 2); c.stroke();
+  c.restore();
+}
+// A flat-colour copy of a sticker's silhouette, for hit and charge flashes.
+const _tints = new Map();
+function monsterTint(sticker, col) {
+  const key = sticker;
+  let m = _tints.get(key);
+  if (!m) { m = {}; _tints.set(key, m); }
+  if (m[col]) return m[col];
+  if (typeof document === 'undefined') return null;
+  const cv = document.createElement('canvas'); cv.width = sticker.width; cv.height = sticker.height;
+  const g = cv.getContext('2d'); if (!g) return null;
+  g.drawImage(sticker, 0, 0); g.globalCompositeOperation = 'source-in'; g.fillStyle = col; g.fillRect(0, 0, cv.width, cv.height);
+  m[col] = cv;
+  return cv;
+}
+
 // Draw a painted creature sprite centred horizontally with its feet on the tile.
 function drawCreaturePng(c, img) {
   // Fit within 34 units tall and 64 wide (long bodies like crocodiles stay in their sticker box).
@@ -279,12 +340,9 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
     opts.rock = true; // monsters rock side-to-side as they move (a gait cue)
     return staged(ctx, cx, cy, opts, (c) => {
       if (opts.boss) bossAura(c, opts.time || 0, col);
-      // Attack squash & stretch: crouch, then lunge tall into the bite/strike.
-      const ak = opts.attackK ?? -1;
-      if (ak >= 0) {
-        const s1 = ak < 0.35 ? -Math.sin((ak / 0.35) * Math.PI / 2) * 0.1 : Math.sin(((ak - 0.35) / 0.65) * Math.PI) * 0.14;
-        c.translate(0, 12); c.scale(1 - s1 * 0.6, 1 + s1); c.translate(0, -12);
-      }
+      const t = opts.time || 0;
+      if (opts.castK > 0) castBurst(c, opts.castK, opts.castCol || col);
+      creaturePose(c, opts, t, cx);
       const drawBody = (g) => {
         if (pimg && pimg.complete && pimg.naturalWidth) {
           drawCreaturePng(g, pimg);    // painted art carries its own shading
@@ -305,8 +363,15 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
       const pose = opts.sprite === 'turtle' ? Math.round(_anim.stride * 2) : 0;
       const look = bimg ? `boss:${npcId}` : simg ? `species:${opts.family}` : `${opts.sprite}|${col}|${pimg ? 'p' : 'v'}`;
       const sticker = ready ? monsterSticker(`${look}|${pose}`, drawBody) : null;
-      if (sticker) c.drawImage(sticker, ST_X0, ST_Y0, ST_W, ST_H);
-      else drawBody(c);              // headless (no DOM canvas) or art still loading
+      if (sticker) {
+        c.drawImage(sticker, ST_X0, ST_Y0, ST_W, ST_H);
+        // A white flash over the body when struck, a red pulse while a heavy blow charges.
+        const flash = Math.max(Math.min(1, (opts.hurt || 0) / 200) * 0.55, opts.windup ? 0.18 + Math.sin(t * 0.03) * 0.12 : 0);
+        if (flash > 0.01) {
+          const tint = monsterTint(sticker, opts.windup && !(opts.hurt > 0) ? '#ff5040' : '#ffffff');
+          if (tint) { c.globalAlpha = flash; c.drawImage(tint, ST_X0, ST_Y0, ST_W, ST_H); c.globalAlpha = 1; }
+        }
+      } else drawBody(c);              // headless (no DOM canvas) or art still loading
       if (opts.boss && !bimg) bossCrown(c, opts.time || 0);  // insignia unless the boss art has its own crown
     });
   }

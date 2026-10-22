@@ -2577,3 +2577,17 @@ test('Trades of the Wild: Cikgu Surya teaches the four new skills and pays out a
   game.skills.addXp('hunter', 200); game.advanceLife('life_skills_wild');
   assert.equal(game.quests.life_skills_wild.state, 'done');
 });
+
+test('a boss signature move starts a cast flourish that the renderer plays, then fades', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  const p = game.player;
+  p.hp = game.maxHp();
+  const boss = game.spawnNpc('merlion', p.x + 2, p.y, { wander: 0 });
+  game.bossSpecial(boss);
+  assert.ok(boss.castT > 0 && boss.castCol === boss.def.ability.color, 'the cast flourish starts in the ability colour');
+  boss.update(800);
+  assert.equal(boss.castT, 0, 'and fades out');
+});

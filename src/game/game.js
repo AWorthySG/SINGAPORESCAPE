@@ -2028,6 +2028,7 @@ export class Game {
 
   /** A boss's signature move: a named mix of effects (see bossAbilities.js). */
   _runBossAbility(npc, ab) {
+    npc.castT = 700; npc.castCol = ab.color;   // the renderer plays the boss's cast flourish
     const p = this.player;
     this.msg(`${npc.name} uses ${ab.name}! ${ab.desc}`, 'combat');
     this.addHitsplat(npc, 0, { text: ab.name });

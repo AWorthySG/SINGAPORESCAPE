@@ -247,8 +247,8 @@ export class Renderer {
           time: timeMs, facing: n.facing, moving: n.isMoving,
           scale: sc, sprite: n.def.sprite, color: n.def.color, boss: n.def.boss, family: n.def.family,
           attackK: n.swingProgress ? n.swingProgress() : -1,
+          hurt: n.hurt, windup: n.windup > 0, castK: n.castT > 0 ? 1 - n.castT / 700 : 0, castCol: n.castCol,
         });
-        if (n.hurt > 0) this._hurtFlash(cx + off.x, cy - 2 + off.y, sc, n.hurt);
       } });
     }
     if (game.player.alive) {
