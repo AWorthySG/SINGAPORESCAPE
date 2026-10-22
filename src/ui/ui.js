@@ -1,3 +1,4 @@
+import { PERK_SKILLS, PERK_TRACKS, PERK_EVERY, trackPerks, rankName } from '../data/perks.js';
 import { drawPlayer } from '../render/sprites.js';
 import { getItem } from '../data/items.js';
 import { SHOPS, getShop } from '../data/shops.js';
@@ -849,6 +850,11 @@ export class UI {
     grid.innerHTML = '';
     // One labelled row per skill (icon, name, what it's for, level), grouped
     // into Combat / Gathering / Making / Other.
+    const perkBtn = document.createElement('button');
+    perkBtn.className = 'perks-open';
+    perkBtn.innerHTML = '<b>Passive perks</b><span>A new perk every 20 levels in a fighting skill</span>';
+    perkBtn.addEventListener('click', () => this.openPerks());
+    grid.appendChild(perkBtn);
     for (const grp of SKILL_GROUPS) {
       const head = document.createElement('div');
       head.className = 'skill-group';
@@ -861,7 +867,8 @@ export class UI {
         cell.className = 'skill-cell';
         cell.innerHTML =
           `<span class="skill-icon">${skillIconSVG(sk.id, 36)}</span>` +
-          `<span class="skill-text"><b class="skill-name">${sk.name}</b><span class="skill-desc">${sk.desc || ''}</span></span>` +
+          `<span class="skill-text"><b class="skill-name">${sk.name}</b><span class="skill-desc">${sk.desc || ''}</span>` +
+          (PERK_SKILLS.includes(sk.id) ? `<span class="skill-perks">${Math.min(10, Math.floor(lvl / PERK_EVERY))}/10 perks${lvl >= 220 ? ' · ranked up' : ''}</span>` : '') + `</span>` +
           `<span class="skill-lvl"><span class="cur">${lvl}</span></span>` +
           `<div class="xp-bar" style="width:${Math.round(levelProgress(xp) * 100)}%"></div>`;
         const toNext = xpToNext(xp);
@@ -872,6 +879,40 @@ export class UI {
     }
     this.el.skillsTotal.textContent = `Total level: ${this.game.skills.totalLevel()}`;
     this.renderAlignment();
+  }
+
+  /** Every perk track: what each perk does, its rank, and when the next rank unlocks. */
+  openPerks() {
+    const g = this.game;
+    const NAMES = { attack: 'Attack', strength: 'Strength', defence: 'Defence', ranged: 'Ranged', magic: 'Magic', agility: 'Agility (Dancer)' };
+    let tab = PERK_SKILLS.find((s) => g.skills.level(s) >= PERK_EVERY) || 'attack';
+    const render = (body) => {
+      body.innerHTML = '<div class="modal-hint">Every 20 levels in a fighting skill unlocks that skill\'s next passive perk. After level 200 the perks rank up again (Rank II at 220, III at 420...) until level 999. Defence perks help in every style.</div>';
+      const tabs = document.createElement('div'); tabs.className = 'gear-tabs';
+      for (const s of PERK_SKILLS) {
+        const b = document.createElement('button');
+        b.className = 'gear-tab' + (s === tab ? ' active' : '');
+        b.textContent = `${NAMES[s].split(' ')[0]} ${g.skills.level(s)}`;
+        b.addEventListener('click', () => { tab = s; render(body); });
+        tabs.appendChild(b);
+      }
+      body.appendChild(tabs);
+      const lvl = g.skills.level(tab);
+      const list = document.createElement('div'); list.className = 'perk-list';
+      for (const p of trackPerks(tab, lvl)) {
+        // The next level at which this perk unlocks or ranks up.
+        const next = (p.index + 1 + p.rank * 10) * PERK_EVERY;
+        const row = document.createElement('div');
+        row.className = 'perk-row' + (p.rank ? ' owned' : '');
+        row.innerHTML = `<span class="perk-rank">${p.rank ? rankName(p.rank) : '–'}</span>`
+          + `<span class="perk-text"><b>${escapeHtml(p.name)}</b><span>${escapeHtml(p.desc)}${p.rank > 1 ? ` (x${p.rank})` : ''}</span></span>`
+          + `<span class="perk-next">${next <= 999 ? `${p.rank ? 'Rank up' : 'Unlocks'} at ${next}` : 'Max rank'}</span>`;
+        list.appendChild(row);
+      }
+      body.appendChild(list);
+    };
+    this.openModal('Passive Perks', render);
+    this.modal.kind = 'perks';
   }
 
   // ---------------- Good / evil alignment ----------------

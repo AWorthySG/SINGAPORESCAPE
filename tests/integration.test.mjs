@@ -2336,3 +2336,45 @@ test('boss effects: damage over time ticks, roots hold you, shields halve damage
   game._applyPlayerHit(boss, 40);
   assert.ok(p.hp < hp1, 'reflect hurts the attacker');
 });
+
+test('passive perks: one every 20 levels per fighting skill, ranking up past 200', async () => {
+  const { trackPerks, perkAtLevel, sumPerks, PERK_SKILLS, PERK_TRACKS } = await import('../src/data/perks.js');
+  for (const s of PERK_SKILLS) assert.equal(PERK_TRACKS[s].length, 10, `${s} has 10 perks`);
+  const names = new Set(PERK_SKILLS.flatMap((s) => PERK_TRACKS[s].map((p) => `${s}:${p.name}`)));
+  assert.equal(names.size, 60);
+  assert.equal(trackPerks('strength', 19).filter((p) => p.rank).length, 0, 'nothing before 20');
+  assert.equal(trackPerks('strength', 20).filter((p) => p.rank).length, 1, 'first perk at 20');
+  assert.equal(trackPerks('strength', 200).filter((p) => p.rank).length, 10, 'all ten by 200');
+  assert.equal(trackPerks('strength', 220)[0].rank, 2, 'first perk ranks up at 220');
+  assert.equal(trackPerks('strength', 999)[0].rank, 5);
+  assert.equal(perkAtLevel('magic', 40).name, PERK_TRACKS.magic[1].name);
+  assert.equal(perkAtLevel('magic', 41), null);
+  assert.equal(perkAtLevel('ranged', 240).rank, 2);
+  const m = sumPerks(['attack', 'strength', 'defence'], () => 999);
+  assert.ok(m.extra <= 0.3 && m.reduce <= 0.4 && m.dodge <= 0.25, 'caps hold at 999');
+});
+
+test('passive perks change combat: more max life, less damage taken, thorns, and a level-up announcement', async () => {
+  const { xpForLevel } = await import('../src/data/xp.js');
+  const { NPC } = await import('../src/game/npc.js');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  const base = game.maxHp();
+  game.skills.xp.defence = xpForLevel(200);
+  assert.ok(game.maxHp() > base, 'Vitality and Second Skin raise max life');
+  const boss = new NPC('boar_king', game.player.x + 1, game.player.y, 0, {});
+  assert.ok(game._perkReduce(100, boss) < 100, 'Defence perks cut damage taken (more from bosses)');
+  assert.ok(game.perkMods().thorns > 0, 'Spiked Armour is active');
+  game.skills.xp.attack = xpForLevel(200); game.skills.xp.strength = xpForLevel(200);
+  const mob = new NPC('goblin', game.player.x + 1, game.player.y, 0, {});
+  const mods = game._offensiveMods(mob, 'melee');
+  assert.ok(mods.accM > 1 && mods.dmgM > 1, 'melee perks raise accuracy and damage');
+  game._postAttack(mob);
+  const chat = [];
+  game.bus.on('chat', (c) => chat.push(c.text));
+  game.bus.emit('levelup', { skill: 'magic', level: 20 });
+  assert.ok(chat.some((t) => t.startsWith('New passive perk: Arcane Focus')));
+});
