@@ -21,6 +21,7 @@ export class Player extends Character {
 
     this.style = 'accurate';   // melee combat style id
     this.rangedStyle = 'accurate'; // ranged style id
+    this.danceStyle = 'flourish';  // Dancer (whip) style id
     this.spell = 'wind_strike';    // selected combat spell
     this.autoRetaliate = true;
     this.respawnTimer = 0;

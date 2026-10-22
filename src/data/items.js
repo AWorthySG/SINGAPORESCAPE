@@ -505,6 +505,10 @@ const _WEAPONS = [
   ['dagger', 'dagger', 4, 3, 4, 10], ['sword', 'sword', 5, 5, 5, 26], ['scimitar', 'scimitar', 7, 6, 4, 32],
   ['mace', 'mace', 6, 7, 5, 30], ['longsword', 'longsword', 9, 8, 5, 40], ['battleaxe', 'battleaxe', 10, 11, 6, 52],
   ['warhammer', 'warhammer', 8, 12, 6, 54], ['2h_sword', '2h sword', 14, 15, 7, 80],
+  // Newer families: an accurate spear, quick claws that crit, a balanced katana
+  // with a keen edge, and a slow, huge-hitting halberd. [.., crit %]
+  ['spear', 'spear', 9, 7, 5, 36], ['claws', 'claws', 6, 6, 4, 34, 4],
+  ['katana', 'katana', 9, 9, 5, 60, 3], ['halberd', 'halberd', 13, 16, 7, 84],
 ];
 const _ARMOURS = [
   ['med_helm', 'med helm', 'head', 4, 0, 18], ['full_helm', 'full helm', 'head', 6, 0, 44],
@@ -512,13 +516,16 @@ const _ARMOURS = [
   ['platelegs', 'platelegs', 'legs', 10, 0, 64], ['sq_shield', 'sq shield', 'shield', 6, 0, 48],
   ['kiteshield', 'kiteshield', 'shield', 9, 0, 84], ['gauntlets', 'gauntlets', 'hands', 3, 1, 30],
   ['boots', 'boots', 'feet', 3, 0, 28],
+  ['plateskirt', 'plateskirt', 'legs', 9, 1, 60], ['buckler', 'buckler', 'shield', 4, 3, 36],
 ];
 for (const M of _METALS) {
-  for (const [t, label, att, str, spd, v] of _WEAPONS) {
+  for (const [t, label, att, str, spd, v, crit] of _WEAPONS) {
     const id = `${M.k}_${t}`;
     if (RAW[id]) continue;
+    const bonuses = { attack: Math.round(att * M.m), strength: Math.round(str * M.m), speed: spd };
+    if (crit) bonuses.crit = crit;
     RAW[id] = { name: `${M.n} ${label}`, icon: '⚔️', value: Math.round(v * M.v), examine: `A ${M.n.toLowerCase()} ${label}.`,
-      equip: { slot: 'weapon', req: { attack: M.ra }, bonuses: { attack: Math.round(att * M.m), strength: Math.round(str * M.m), speed: spd } } };
+      equip: { slot: 'weapon', req: { attack: M.ra }, bonuses } };
   }
   for (const [t, label, slot, def, att, v] of _ARMOURS) {
     const id = `${M.k}_${t}`;
@@ -528,6 +535,62 @@ for (const M of _METALS) {
     RAW[id] = { name: `${M.n} ${label}`, icon: '🛡️', value: Math.round(v * M.v), examine: `${M.n} ${label}.`,
       equip: { slot, req: { defence: M.rd }, bonuses } };
   }
+}
+
+// ---- The Dancer: whips and dancer outfits ----
+// Whips are the Dancer's weapon: a quick lash that reaches 3 tiles. Dancers fight
+// with Agility (accuracy and damage) and their `dance` gear bonus.
+const _WHIPS = [
+  // id, name, Agility needed, dance bonus, crit %, value, examine
+  ['leather_whip', 'Leather whip', 1, 6, 0, 60, 'A supple leather whip. Every Dancer starts with one.'],
+  ['rattan_whip', 'Rattan whip', 10, 12, 1, 300, 'A springy rotan cane whip, a kampong classic.'],
+  ['studded_whip', 'Studded whip', 20, 19, 2, 900, 'Brass studs make every crack ring out.'],
+  ['serpent_whip', 'Sea serpent whip', 35, 30, 3, 3000, 'Woven from sea-snake hide; it hisses as it cracks.'],
+  ['coral_whip', 'Coral whip', 50, 42, 4, 9000, 'Living coral beads glow along its length.'],
+  ['orchid_whip', 'Orchid whip', 65, 56, 5, 26000, 'Vanda Miss Joaquim orchids bloom wherever it lands.'],
+  ['dragon_whip', 'Dragon whip', 80, 72, 6, 80000, 'Dragonhide braided with a molten-red core.'],
+  ['celestial_whip', 'Celestial whip', 95, 90, 8, 240000, 'Spun from starlight. It leaves trails of sparkles.'],
+];
+for (const [id, name, lvl, dance, crit, value, examine] of _WHIPS) {
+  const bonuses = { dance, speed: 4 };
+  if (crit) bonuses.crit = crit;
+  RAW[id] = { name, icon: '〰️', value, examine, equip: { slot: 'weapon', combatType: 'dance', range: 3, req: { agility: lvl }, bonuses } };
+}
+// Two dancer outfits: flowing silk to start, and a golden festival set.
+const _DANCER = [
+  ['headdress', 'headdress', 'head', 2, 2], ['dancer_top', 'dancer top', 'body', 5, 4], ['dancer_skirt', 'dancer skirt', 'legs', 4, 3],
+  ['slippers', 'slippers', 'feet', 2, 1], ['bangles', 'bangles', 'hands', 3, 1], ['sash', 'sash', 'cape', 3, 1],
+];
+for (const [tier, label, req, mult, vmul] of [['silk', 'Silk', 1, 1, 1], ['golden', 'Golden', 60, 4, 40]]) {
+  for (const [t, name, slot, dance, def] of _DANCER) {
+    RAW[`${tier}_${t}`] = { name: `${label} ${name}`, icon: '🎀', value: Math.round((40 + dance * 20) * vmul),
+      examine: tier === 'silk' ? `Flowing silk ${name}, made for dancing.` : `A golden festival ${name}, glittering with sequins.`,
+      equip: { slot, req: { agility: req }, bonuses: { dance: dance * mult, defence: def * mult } } };
+  }
+}
+
+// ---- Longbows, wands and spell tomes ----
+// Longbows hit harder and reach further than shortbows, but draw more slowly.
+const _LONGBOWS = [['longbow', 'Longbow', 1, 10, 15, 80], ['oak_longbow', 'Oak longbow', 5, 17, 16, 200], ['willow_longbow', 'Willow longbow', 20, 29, 17, 600],
+  ['maple_longbow', 'Maple longbow', 30, 41, 18, 1300], ['yew_longbow', 'Yew longbow', 40, 58, 19, 3400], ['magic_longbow', 'Magic longbow', 50, 75, 21, 12000]];
+for (const [id, name, lvl, ranged, range, value] of _LONGBOWS) {
+  RAW[id] = { name, icon: '🏹', value, examine: 'A tall bow that sends arrows a very long way.',
+    equip: { slot: 'weapon', combatType: 'ranged', range, req: { ranged: lvl }, bonuses: { ranged, speed: 4 } } };
+}
+// Wands cast faster than staves but carry less power.
+const _WANDS = [['apprentice_wand', 'Apprentice wand', 1, 5, 0, 60], ['teak_wand', 'Teak wand', 20, 13, 1, 1400],
+  ['mystic_wand', 'Mystic wand', 40, 23, 2, 5800], ['master_wand', 'Master wand', 60, 36, 4, 20000]];
+for (const [id, name, lvl, magic, magicStr, value] of _WANDS) {
+  const bonuses = { magic, speed: 4 };
+  if (magicStr) bonuses.magicStr = magicStr;
+  RAW[id] = { name, icon: '🪄', value, examine: 'A slim wand for quick casting.', equip: { slot: 'weapon', combatType: 'magic', req: { magic: lvl }, bonuses } };
+}
+// Tomes are a caster's off-hand: they go in the shield slot.
+const _TOMES = [['novice_tome', 'Novice tome', 1, 6, 0, 2, 120], ['arcane_tome', 'Arcane tome', 40, 16, 2, 4, 6000], ['merlion_tome', 'Tome of the Merlion', 70, 28, 4, 8, 40000]];
+for (const [id, name, lvl, magic, magicStr, defence, value] of _TOMES) {
+  const bonuses = { magic, defence };
+  if (magicStr) bonuses.magicStr = magicStr;
+  RAW[id] = { name, icon: '📘', value, examine: 'A book of spells, held in the off-hand.', equip: { slot: 'shield', req: { magic: lvl }, bonuses } };
 }
 
 // Weapon special attacks (the spec bar). Attached after generation so the tiered
@@ -553,6 +616,10 @@ const WEAPON_SPECS = {
   dark_bow: { name: 'Descent of Darkness', cost: 55, acc: 1.5, dmg: 1.5, hits: 2 },
   crystal_bow: { name: 'Prism Shot', cost: 45, acc: 2.5, dmg: 1.6 },
   twisted_bow: { name: 'Storm of Arrows', cost: 60, acc: 1.6, dmg: 1.4, hits: 3 },
+  // dance
+  orchid_whip: { name: 'Petal Storm', cost: 45, acc: 1.5, dmg: 1.2, hits: 3 },
+  dragon_whip: { name: 'Dragon Lash', cost: 50, acc: 1.6, dmg: 1.8 },
+  celestial_whip: { name: 'Starfall Dance', cost: 60, acc: 2.0, dmg: 1.3, hits: 4 },
   // magic
   mystic_staff: { name: 'Spell Echo', cost: 45, acc: 1.4, dmg: 1.5 },
   ancient_staff: { name: 'Arcane Surge', cost: 55, acc: 1.5, dmg: 1.8 },

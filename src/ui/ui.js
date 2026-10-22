@@ -1,3 +1,4 @@
+import { drawPlayer } from '../render/sprites.js';
 import { getItem } from '../data/items.js';
 import { SHOPS, getShop } from '../data/shops.js';
 import { SMELT, SMITH } from '../data/smithing.js';
@@ -9,7 +10,7 @@ import { getDialogue } from '../data/dialogue.js';
 import { MONSTER_IDS, BOSS_IDS, getNpc } from '../data/npcs.js';
 import { levelProgress, xpToNext } from '../data/xp.js';
 import { stackLabel, capitalize, formatNumber } from '../core/utils.js';
-import { STYLE_ORDER, STYLES, RANGED_STYLE_ORDER, RANGED_STYLES } from '../game/combat.js';
+import { STYLE_ORDER, STYLES, RANGED_STYLE_ORDER, RANGED_STYLES, DANCE_STYLE_ORDER, DANCE_STYLES, RHYTHM_MAX } from '../game/combat.js';
 import { SPELLS } from '../data/magic.js';
 import { PRAYERS } from '../data/prayers.js';
 import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
@@ -34,6 +35,23 @@ const EQUIP_LAYOUT = [
   null, 'legs', null,
   'hands', 'feet', 'ring',
 ];
+
+// The Dancer has no painted art yet: draw the in-game Dancer once into an image
+// for the class picker (null without a canvas, e.g. in tests).
+let _dancerPic;
+function dancerPortrait() {
+  if (_dancerPic !== undefined) return _dancerPic;
+  _dancerPic = null;
+  try {
+    const cv = document.createElement('canvas'); cv.width = 144; cv.height = 144;
+    const c = cv.getContext('2d');
+    if (!c) return null;
+    c.scale(2.6, 2.6);
+    drawPlayer(c, 26, 32, { time: 0, hasWeapon: true, weaponType: 'dance', hasBody: true, hasHelm: true, swingK: -1, facing: { dx: 1, dy: 0 } });
+    _dancerPic = cv.toDataURL('image/png');
+  } catch { _dancerPic = null; }
+  return _dancerPic;
+}
 
 export class UI {
   constructor(game) {
@@ -141,6 +159,7 @@ export class UI {
     this.bus.on('tick', () => { this.renderAutoBattle(); this.updateBossBar(); this.updateDayNight(); this.renderTracker(); this._tipsTick(); });
     this.bus.on('inventory', () => this.scheduleInventory());
     this.bus.on('equipment', () => { this.renderEquipment(); this.renderCombatPanel(); this.scheduleInventory(); });
+    this.bus.on('rhythm', () => { if (this.game.combatMode() === 'dance') this.renderCombatPanel(); });
     this.bus.on('skills', () => { this.renderSkills(); this.renderCombatPanel(); });
     this.bus.on('xp', (p) => { this.renderSkills(); this.showXpDrop(p); });
     this.bus.on('levelup', (p) => this.onLevelUp(p));
@@ -782,10 +801,10 @@ export class UI {
         // Weapons only compare fairly within a fighting style.
         const st = document.createElement('div');
         st.className = 'gear-tabs gear-styles';
-        for (const k of ['melee', 'ranged', 'magic']) {
+        for (const k of ['melee', 'ranged', 'magic', 'dance']) {
           const b = document.createElement('button');
           b.className = 'gear-tab small' + (k === style ? ' active' : '');
-          b.textContent = capitalize(k);
+          b.textContent = k === 'dance' ? 'Dancer' : capitalize(k);
           b.addEventListener('click', () => { style = k; render(body); });
           st.appendChild(b);
         }
@@ -895,20 +914,24 @@ export class UI {
         row.appendChild(btn);
       }
     } else {
-      const order = mode === 'ranged' ? RANGED_STYLE_ORDER : STYLE_ORDER;
-      const map = mode === 'ranged' ? RANGED_STYLES : STYLES;
-      const cur = mode === 'ranged' ? p.rangedStyle : p.style;
+      const order = mode === 'ranged' ? RANGED_STYLE_ORDER : mode === 'dance' ? DANCE_STYLE_ORDER : STYLE_ORDER;
+      const map = mode === 'ranged' ? RANGED_STYLES : mode === 'dance' ? DANCE_STYLES : STYLES;
+      const cur = mode === 'ranged' ? p.rangedStyle : mode === 'dance' ? p.danceStyle : p.style;
       for (const id of order) {
         const st = map[id];
         const btn = document.createElement('div');
         btn.className = 'style-btn' + (cur === id ? ' active' : '');
-        const xpLabel = mode === 'ranged' ? (id === 'longrange' ? 'Ranged + Defence' : 'Ranged XP') : `${capitalize(st.skill)} XP`;
+        const xpLabel = mode === 'ranged' ? (id === 'longrange' ? 'Ranged + Defence' : 'Ranged XP')
+          : mode === 'dance' ? (id === 'twirl' ? 'Agility + Defence, dodge more' : 'Agility XP') : `${capitalize(st.skill)} XP`;
         btn.innerHTML = `${st.name}<span class="style-skill">${xpLabel}</span>`;
-        btn.addEventListener('click', () => { if (mode === 'ranged') p.rangedStyle = id; else p.style = id; this.renderCombatPanel(); });
+        btn.addEventListener('click', () => {
+          if (mode === 'ranged') p.rangedStyle = id; else if (mode === 'dance') p.danceStyle = id; else p.style = id;
+          this.renderCombatPanel();
+        });
         row.appendChild(btn);
       }
     }
-    const modeLabel = mode === 'ranged' ? 'Ranged' : mode === 'magic' ? 'Magic' : 'Melee';
+    const modeLabel = mode === 'ranged' ? 'Ranged' : mode === 'magic' ? 'Magic' : mode === 'dance' ? `Dancer &middot; Rhythm ${this.game.danceRhythm}/${RHYTHM_MAX}` : 'Melee';
     this.el.combat.querySelector('.cb-level').innerHTML = `Combat level: ${this.game.skills.combatLevel()} <span style="opacity:.7">&middot; ${modeLabel}</span>`;
     const cb = this.el.combat.querySelector('#auto-retal-cb');
     if (cb) cb.checked = p.autoRetaliate;
@@ -1388,22 +1411,26 @@ export class UI {
   }
 
   /** One-time, non-dismissible prompt shown to a brand-new character: pick a
-   *  melee, ranged, or magic starting kit. See Game.chooseStartingStyle(). */
+   *  melee, ranged, magic or dancer starting kit. See Game.chooseStartingStyle(). */
   openStyleChoice() {
     const paths = [
-      { id: 'melee', name: 'Melee', icon: 'bronze_scimitar', blurb: 'Bronze scimitar, wooden shield & leather body. Fight up close and personal.' },
-      { id: 'ranged', name: 'Ranged', icon: 'shortbow', blurb: 'Shortbow, 150 bronze arrows, coif & studded armour. Fight from a distance.' },
-      { id: 'magic', name: 'Magic', icon: 'staff', blurb: 'Staff, wizard robes & starter runes. Cast spells to fight.' },
+      { id: 'melee', name: 'Knight', skill: 'Melee', art: 'assets/creatures/hero/melee.webp', blurb: 'Scimitar, shield and leather armour. Fight up close and hit hard.' },
+      { id: 'ranged', name: 'Archer', skill: 'Ranged', art: 'assets/creatures/hero/ranged.webp', blurb: 'Shortbow, 999 arrows and studded armour. Strike from far away.' },
+      { id: 'magic', name: 'Wizard', skill: 'Magic', art: 'assets/creatures/hero/magic.webp', blurb: 'Staff, wizard robes and runes. Cast spells from a distance.' },
+      { id: 'dance', name: 'Dancer', skill: 'Agility', icon: 'leather_whip', blurb: 'Whip and silk outfit. Lash from 3 tiles, build Rhythm and dodge blows.', isNew: true },
     ];
     const render = (body) => {
-      body.innerHTML = '<div class="dialogue">Every adventure starts somewhere &mdash; choose how you\'ll fight. '
-        + '(You can still train every skill either way, and switch styles later by finding new gear.)</div>';
+      body.innerHTML = '<div class="dialogue path-intro">Choose how you\'ll fight. You can still train every skill, and switch any time by wielding different gear.</div>';
       const opts = document.createElement('div');
-      opts.className = 'dialogue-options';
+      opts.className = 'dialogue-options path-grid';
       for (const p of paths) {
         const div = document.createElement('div');
-        div.className = 'dialogue-option';
-        div.innerHTML = `<span class="row-ic">${itemIconSVG(p.icon, 26)}</span> <b>${p.name}</b> &mdash; ${p.blurb}`;
+        div.className = 'dialogue-option path-card';
+        div.tabIndex = 0;
+        const pic = p.art ? `<img src="${p.art}" alt="" width="72" height="72">` : (dancerPortrait() ? `<img src="${dancerPortrait()}" alt="" width="72" height="72">` : itemIconSVG(p.icon, 60));
+        div.innerHTML = `<span class="path-pic">${pic}</span><span class="path-text"><b>${p.name}</b>${p.isNew ? '<span class="path-new">New</span>' : ''}`
+          + `<span class="path-skill">Trains ${p.skill}</span><span class="path-blurb">${p.blurb}</span></span>`;
+        div.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); div.click(); } });
         div.addEventListener('click', () => {
           this.game.chooseStartingStyle(p.id);
           if (this.modal) this.modal.locked = false; // a choice has been made — safe to close now

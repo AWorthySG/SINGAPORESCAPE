@@ -39,7 +39,7 @@ export class Equipment {
   }
 
   bonuses() {
-    const total = { attack: 0, strength: 0, defence: 0, ranged: 0, magic: 0, magicStr: 0, crit: 0, hp: 0 };
+    const total = { attack: 0, strength: 0, defence: 0, ranged: 0, magic: 0, magicStr: 0, dance: 0, crit: 0, hp: 0 };
     for (const slot of EQUIP_SLOTS) {
       const id = this.slots[slot];
       if (!id) continue;
@@ -51,6 +51,7 @@ export class Equipment {
       total.ranged += b.ranged || 0;
       total.magic += b.magic || 0;
       total.magicStr += b.magicStr || 0;
+      total.dance += b.dance || 0;   // Dancer accuracy and damage
       total.crit += b.crit || 0;   // bonus critical-hit chance (%)
       total.hp += b.hp || 0;       // bonus max hitpoints
     }
@@ -62,7 +63,7 @@ export class Equipment {
 
   /** Aggregated bonus from every fully-worn armour set. */
   setBonus() {
-    const b = { attack: 0, strength: 0, defence: 0, ranged: 0, magic: 0, magicStr: 0 };
+    const b = { attack: 0, strength: 0, defence: 0, ranged: 0, magic: 0, magicStr: 0, dance: 0 };
     for (const set of ARMOUR_SETS) {
       if (set.pieces.every((id) => this._wearing(id))) {
         for (const k of Object.keys(set.bonus)) b[k] += set.bonus[k];
@@ -84,7 +85,7 @@ export class Equipment {
   /** A dagger held in the off-hand (shield slot) alongside a main-hand dagger. */
   isDualWielding() { return canDualWield(this.slots.weapon) && canDualWield(this.slots.shield); }
 
-  /** Combat style implied by the wielded weapon: 'melee' | 'ranged' | 'magic'. */
+  /** Combat style implied by the wielded weapon: 'melee' | 'ranged' | 'magic' | 'dance'. */
   combatType() {
     const id = this.slots.weapon;
     return (id && getItem(id).equip?.combatType) || 'melee';

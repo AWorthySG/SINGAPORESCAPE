@@ -1553,3 +1553,26 @@ body.boss-on #tip-toast { top: 132px; }
 }
 #quest-tracker .trk-xp b { color: var(--aw-sun-deep); font-weight: 900; }
 #quest-tracker .trk-xp .trk-ic { color: var(--aw-sun-deep); }
+
+/* ---------- Choose Your Path: illustrated class cards ---------- */
+.path-intro { margin-bottom: 4px; }
+.path-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.dialogue-option.path-card {
+  display: flex; align-items: center; gap: 12px; padding: 12px; margin: 0; text-align: left;
+  border-radius: var(--r3, 16px); min-height: 104px;
+}
+.path-card .path-pic { flex: none; width: 76px; height: 76px; display: flex; align-items: center; justify-content: center;
+  background: var(--aw-sidebar, #f3ead8); border-radius: 50%; box-shadow: inset 0 0 0 2px var(--aw-ink-faint, rgba(34,48,74,.15)); }
+.path-card .path-pic img, .path-card .path-pic svg { width: 68px; height: 68px; object-fit: contain; }
+.path-card .path-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; line-height: 1.3; }
+.path-card b { font-size: 17px; font-weight: 900; color: var(--aw-text, #1f1e1b); }
+.path-card .path-skill { font-size: 11.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--aw-accent, #c0392b); }
+.path-card .path-blurb { font-size: 13px; color: var(--aw-text-sec, #625d54); }
+.path-card .path-new { align-self: flex-start; margin-top: 2px; font-size: 10.5px; font-weight: 900; padding: 1px 7px; border-radius: 999px;
+  background: var(--aw-sun, #f5b82e); color: var(--aw-text, #1f1e1b); box-shadow: inset 0 0 0 1.5px var(--aw-ink, #22304a); }
+@media (max-width: 540px) {
+  .path-grid { grid-template-columns: 1fr; gap: 8px; }
+  .dialogue-option.path-card { min-height: 0; padding: 9px; }
+  .path-card .path-pic { width: 58px; height: 58px; }
+  .path-card .path-pic img, .path-card .path-pic svg { width: 52px; height: 52px; }
+}

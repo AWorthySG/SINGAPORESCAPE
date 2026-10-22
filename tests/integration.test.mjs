@@ -2180,3 +2180,39 @@ test('split shot: at Ranged 300 a bow shot hits three targets at once', async ()
   assert.equal(r.arrows, 3, 'at 300: three arrows');
   assert.equal(r.far.hp, r.far.maxHp, 'out-of-range monsters are not hit');
 });
+
+test('the Dancer: whip kit, 3-tile reach, Agility XP, Rhythm and dodging', async () => {
+  const { NPC } = await import('../src/game/npc.js');
+  const { danceEvade } = await import('../src/game/combat.js');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.pendingStyleChoice = true;
+  game.chooseStartingStyle('dance');
+  assert.equal(game.equipment.get('weapon'), 'leather_whip');
+  assert.equal(game.combatMode(), 'dance');
+  assert.equal(game.attackRange(), 3, 'whips lash from 3 tiles');
+  assert.ok(game.skills.agility >= 15, 'Dancers start at Agility 15');
+  const p = game.player;
+  const mob = new NPC('goblin', p.x + 3, p.y, 0, {});
+  game.npcs = [mob];
+  const xp0 = game.skills.xp.agility;
+  for (let i = 0; i < 40 && mob.alive; i++) { game._danceAttack(mob); mob.hp = Math.max(mob.hp, 1); }
+  assert.ok(game.skills.xp.agility > xp0, 'lashing trains Agility');
+  assert.ok(game.danceRhythm > 0, 'landed lashes build Rhythm');
+  assert.ok(game.effects.some((e) => e.type === 'lash'), 'a whip crack is drawn');
+  assert.ok(danceEvade(99, 'twirl') > danceEvade(99, 'flourish'), 'Twirl dodges more');
+  assert.ok(danceEvade(999, 'twirl') <= 0.4, 'dodging is capped');
+});
+
+test('new weapon families and gear exist across tiers and drop', async () => {
+  const { ITEMS } = await import('../src/data/items.js');
+  const { NPCS } = await import('../src/data/npcs.js');
+  for (const m of ['bronze', 'iron', 'steel', 'mithril', 'adamant', 'rune', 'dragon']) {
+    for (const t of ['spear', 'claws', 'katana', 'halberd', 'plateskirt', 'buckler']) assert.ok(ITEMS[`${m}_${t}`], `${m}_${t}`);
+  }
+  for (const id of ['leather_whip', 'celestial_whip', 'silk_dancer_top', 'golden_sash', 'magic_longbow', 'master_wand', 'merlion_tome']) assert.ok(ITEMS[id], id);
+  const drops = new Set(Object.values(NPCS).flatMap((n) => (n.dropTable || []).map((d) => d.id)));
+  for (const id of ['leather_whip', 'rattan_whip', 'bronze_katana', 'iron_claws', 'longbow', 'apprentice_wand', 'silk_slippers']) assert.ok(drops.has(id), `${id} drops`);
+});

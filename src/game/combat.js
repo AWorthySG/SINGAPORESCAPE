@@ -142,6 +142,41 @@ export function combatXpRanged(styleId, damage) {
   return [{ skill: 'ranged', xp: damage * 4 }, { skill: 'hitpoints', xp: damage * 1.33 }];
 }
 
+// ----- Dance (whips) -----
+// The Dancer fights with Agility: it drives both accuracy and damage, boosted by
+// the `dance` gear bonus. Each landed lash builds Rhythm, which adds damage.
+export const DANCE_STYLES = {
+  flourish: { name: 'Flourish', atk: 3, str: 0, skill: 'agility' },
+  lash: { name: 'Lash', atk: 0, str: 3, skill: 'agility' },
+  twirl: { name: 'Twirl', atk: 0, str: 0, skill: 'defence', evade: 0.08 },
+};
+export const DANCE_STYLE_ORDER = ['flourish', 'lash', 'twirl'];
+export const DANCE_BONUS = { acc: 1.15, dmg: 1.3 };
+export const RHYTHM_MAX = 5;          // Rhythm stacks
+export const RHYTHM_DMG = 0.08;       // +8% damage per stack
+
+export function playerDanceVsNpc(skills, equip, styleId, npc, rhythm = 0) {
+  const st = DANCE_STYLES[styleId] || DANCE_STYLES.flourish;
+  const b = equip.bonuses();
+  return {
+    atkRoll: attackRoll(skills.agility, st.atk, b.dance) * DANCE_BONUS.acc,
+    defRoll: defenceRoll(npc.defence, 0, 0),
+    max: Math.round(maxHit(skills.agility, st.str, b.dance) * DANCE_BONUS.dmg * (1 + Math.min(RHYTHM_MAX, rhythm) * RHYTHM_DMG)) + 1,
+  };
+}
+
+/** Chance (0-1) a Dancer slips an incoming blow entirely. */
+export function danceEvade(agility, styleId) {
+  return Math.min(0.4, 0.08 + agility / 500 + (DANCE_STYLES[styleId]?.evade || 0));
+}
+
+export function combatXpDance(styleId, damage) {
+  if (styleId === 'twirl') {
+    return [{ skill: 'agility', xp: damage * 2 }, { skill: 'defence', xp: damage * 2 }, { skill: 'hitpoints', xp: damage * 1.33 }];
+  }
+  return [{ skill: 'agility', xp: damage * 4 }, { skill: 'hitpoints', xp: damage * 1.33 }];
+}
+
 // ----- Magic -----
 export function playerMagicVsNpc(skills, equip, spell, npc) {
   const b = equip.bonuses();

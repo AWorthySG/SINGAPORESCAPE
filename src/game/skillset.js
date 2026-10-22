@@ -43,7 +43,8 @@ export class Skills {
     const melee = 0.325 * (this.attack + this.strength);
     const range = 0.325 * Math.floor(this.ranged * 1.5);
     const mage = 0.325 * Math.floor(this.magic * 1.5);
-    return Math.floor(base + Math.max(melee, range, mage));
+    const dance = 0.325 * Math.floor(this.agility * 1.5);   // the Dancer fights with Agility
+    return Math.floor(base + Math.max(melee, range, mage, dance));
   }
 
   totalLevel() {

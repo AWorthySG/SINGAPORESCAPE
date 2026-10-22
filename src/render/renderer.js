@@ -394,6 +394,34 @@ export class Renderer {
         ctx.restore();
         continue;
       }
+      if (e.type === 'lash') {
+        // A Dancer's whip crack: a wavy line that snaps out to the target, then fades.
+        const t = 1 - e.life / e.maxLife;
+        const reach = Math.min(1, t * 3);
+        const x0 = e.x - ox, y0 = e.y - oy, dx = (e.ex - e.x) * reach, dy = (e.ey - e.y) * reach;
+        const len = Math.hypot(dx, dy) || 1, nx = -dy / len, ny = dx / len;
+        ctx.save();
+        ctx.globalAlpha = 1 - t * t;
+        ctx.lineCap = 'round';
+        const wave = (w, col) => {
+          ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath();
+          for (let i = 0; i <= 12; i++) {
+            const f = i / 12, amp = Math.sin(f * Math.PI) * 6 * (1 - t);
+            const px = x0 + dx * f + nx * Math.sin(f * 9 - t * 20) * amp, py = y0 + dy * f + ny * Math.sin(f * 9 - t * 20) * amp;
+            if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+          }
+          ctx.stroke();
+        };
+        wave(4, '#22304A'); wave(2, e.color);
+        if (reach >= 1 && t < 0.6) {   // the crack at the tip
+          ctx.fillStyle = '#FFE89A';
+          ctx.beginPath();
+          for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, r = i % 2 ? 2.5 : 7 * (1 - t); ctx.lineTo(e.ex - ox + Math.cos(a) * r, e.ey - oy + Math.sin(a) * r); }
+          ctx.closePath(); ctx.fill();
+        }
+        ctx.restore();
+        continue;
+      }
       if (e.type === 'ring') {
         // A celebratory burst ring (level ups): gold band inside a navy ink line.
         const t = 1 - e.life / e.maxLife, ease = 1 - (1 - t) * (1 - t);
