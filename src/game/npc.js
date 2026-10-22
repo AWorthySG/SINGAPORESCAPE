@@ -243,6 +243,7 @@ export class NPC extends Character {
 
   update(dt) {
     if (!this.alive && this.deathT > 0) this.deathT = Math.max(0, this.deathT - dt);
+    if (this.castT > 0) this.castT = Math.max(0, this.castT - dt);   // a boss's signature-move flourish
     super.update(dt);
   }
 
