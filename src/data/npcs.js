@@ -17,16 +17,24 @@ function statsFor(level) {
 
 // Monsters drop level-appropriate combat equipment (weapons + armour) so hunting
 // is a real way to kit out, plus coins/ore. One entry is rolled per kill.
+// Metal tier for a level, bronze to eternal, and the tier after it.
+const METAL_TIERS = [[10, 'bronze'], [22, 'iron'], [40, 'steel'], [58, 'mithril'], [75, 'adamant'], [95, 'rune'], [125, 'dragon'],
+  [150, 'obsidian'], [185, 'orichalcum'], [225, 'jade'], [270, 'starmetal'], [310, 'celestial'], [Infinity, 'eternal']];
+function metalFor(level) { return METAL_TIERS.find(([max]) => level < max)[1]; }
+function nextMetal(tier) { const i = METAL_TIERS.findIndex(([, t]) => t === tier); return METAL_TIERS[Math.min(METAL_TIERS.length - 1, i + 1)][1]; }
+// Arrows of a metal tier (the endgame metals share the nearest arrow).
+const ARROW_FOR = { obsidian: 'dragon_arrow', orichalcum: 'dragon_arrow', dragon: 'dragon_arrow', jade: 'jade_arrow', starmetal: 'starmetal_arrow', celestial: 'starmetal_arrow', eternal: 'eternal_arrow' };
+
 function dropsFor(level) {
-  const tier = level < 10 ? 'bronze' : level < 22 ? 'iron' : level < 40 ? 'steel' : level < 58 ? 'mithril' : level < 75 ? 'adamant' : 'rune';
-  const ore = { bronze: 'copper_ore', iron: 'iron_ore', steel: 'coal', mithril: 'mithril_ore', adamant: 'adamantite_ore', rune: 'runite_ore' }[tier];
-  const next = { bronze: 'iron', iron: 'steel', steel: 'mithril', mithril: 'adamant', adamant: 'rune', rune: 'dragon' }[tier];
+  const tier = metalFor(level);
+  const ore = { bronze: 'copper_ore', iron: 'iron_ore', steel: 'coal', mithril: 'mithril_ore', adamant: 'adamantite_ore' }[tier] || 'runite_ore';
+  const next = nextMetal(tier);
   const t = [
     { nothing: true, weight: Math.max(6, Math.round(30 - level / 3)) },
     { id: 'coins', min: Math.max(2, Math.round(level * 0.7)), max: Math.max(8, level * 9), weight: 48 },
     { id: ore, min: 1, max: 3, weight: 12 },
     // Arrows of the area's tier, so archers can keep hunting.
-    { id: `${tier}_arrow`, min: 8, max: 25, weight: 10 },
+    { id: ARROW_FOR[tier] || `${tier}_arrow`, min: 8, max: 25, weight: 10 },
   ];
   // Archery gear: a bow of the area's tier and ranged armour, like the melee pool.
   t.push({ id: bowFor(level), weight: 14 });         // ~1 kill in 10
@@ -49,7 +57,7 @@ function dropsFor(level) {
   if (level >= 30) t.push({ id: `${tier}_full_helm`, weight: 3 }, { id: `${tier}_platebody`, weight: 2 }, { id: `${tier}_battleaxe`, weight: 3 });
   if (level >= 50) t.push({ id: `${tier}_2h_sword`, weight: 2 }, { id: `${tier}_halberd`, weight: 2 });
   // A rare glimpse of the next tier up.
-  t.push({ id: `${next}_scimitar`, weight: next === 'dragon' ? 1 : 2 });
+  t.push({ id: `${next}_scimitar`, weight: METAL_TIERS.findIndex(([, m]) => m === next) >= 6 ? 1 : 2 });
   return t;
 }
 
@@ -57,18 +65,21 @@ function dropsFor(level) {
 function bowFor(level) {
   return level < 10 ? 'shortbow' : level < 22 ? 'oak_shortbow' : level < 40 ? 'willow_shortbow'
     : level < 58 ? 'maple_shortbow' : level < 75 ? 'yew_shortbow' : level < 95 ? 'magic_shortbow'
-    : level < 115 ? 'dark_bow' : level < 135 ? 'crystal_bow' : 'twisted_bow';
+    : level < 115 ? 'dark_bow' : level < 135 ? 'crystal_bow' : level < 160 ? 'twisted_bow'
+    : level < 200 ? 'jade_bow' : level < 245 ? 'starmetal_bow' : level < 300 ? 'celestial_bow' : 'eternal_bow';
 }
 function rangedArmourFor(level) {
+  const hide = (t) => [`${t}_coif`, `${t}_body`, `${t}_chaps`, `${t}_vambraces`];
   return level < 40 ? ['coif', 'leather_chaps', 'studded_body']
-    : ['dragonhide_coif', 'dragonhide_body', 'dragonhide_chaps', 'dragonhide_vambraces'];
+    : level < 120 ? hide('dragonhide') : level < 250 ? hide('starhide') : hide('eternalhide');
 }
 
 // Staves, robes and runes that suit a monster's level.
 function stavesFor(level) {
   return level < 10 ? ['staff'] : level < 20 ? ['air_staff', 'water_staff']
     : level < 35 ? ['earth_staff', 'fire_staff', 'magic_staff'] : level < 50 ? ['nature_staff', 'mystic_staff']
-    : level < 65 ? ['chaos_staff', 'ancient_staff'] : ['death_staff', 'blood_staff'];
+    : level < 65 ? ['chaos_staff', 'ancient_staff'] : level < 100 ? ['death_staff', 'blood_staff']
+    : level < 160 ? ['jade_staff'] : level < 220 ? ['starmetal_staff'] : level < 300 ? ['celestial_staff'] : ['eternal_staff'];
 }
 function longbowFor(level) {
   return level < 10 ? 'longbow' : level < 22 ? 'oak_longbow' : level < 40 ? 'willow_longbow'
@@ -79,14 +90,17 @@ function tomeFor(level) { return level < 45 ? 'novice_tome' : level < 80 ? 'arca
 // The Dancer's whips, one per tier, and the silk / golden dancer outfits.
 function whipFor(level) {
   return level < 12 ? 'leather_whip' : level < 24 ? 'rattan_whip' : level < 40 ? 'studded_whip' : level < 55 ? 'serpent_whip'
-    : level < 70 ? 'coral_whip' : level < 90 ? 'orchid_whip' : level < 110 ? 'dragon_whip' : 'celestial_whip';
+    : level < 70 ? 'coral_whip' : level < 90 ? 'orchid_whip' : level < 110 ? 'dragon_whip' : level < 140 ? 'celestial_whip'
+    : level < 185 ? 'jade_whip' : level < 260 ? 'starmetal_whip' : 'eternal_whip';
 }
 function dancerFor(level) {
-  const tier = level < 60 ? 'silk' : 'golden';
+  const tier = level < 60 ? 'silk' : level < 130 ? 'golden' : level < 300 ? 'jade' : 'eternal';
   return ['headdress', 'dancer_top', 'dancer_skirt', 'slippers', 'bangles', 'sash'].map((p) => `${tier}_${p}`);
 }
 function robesFor(level) {
-  return level < 30 ? ['wizard_hat', 'wizard_robe_top', 'wizard_robe_bottom'] : ['mystic_hat', 'mystic_top', 'mystic_bottom'];
+  const robes = (t) => [`${t}_hat`, `${t}_robe_top`, `${t}_robe_bottom`];
+  return level < 30 ? ['wizard_hat', 'wizard_robe_top', 'wizard_robe_bottom'] : level < 100 ? ['mystic_hat', 'mystic_top', 'mystic_bottom']
+    : level < 250 ? robes('astral') : robes('eternal');
 }
 function runesFor(level) {
   const q = (base) => ({ min: Math.round(base * (1 + level / 30)), max: Math.round(base * 3 * (1 + level / 30)) });
@@ -195,6 +209,25 @@ const _mobs = {};
     }
   }
 }
+// Endgame monsters: Mythic, Primordial and Eternal forms of the fiercest
+// species (levels ~165-320) for the Southern Islands and the Shadow Rift.
+const ENDGAME_RANKS = [
+  { p: 'Mythic', lo: 165, hi: 215, zone: 'Southern Islands', scale: 1.15 },
+  { p: 'Primordial', lo: 215, hi: 265, zone: 'The Shadow Rift', scale: 1.25 },
+  { p: 'Eternal', lo: 265, hi: 320, zone: 'The Shadow Rift', scale: 1.35 },
+];
+const ENDGAME_BASES = ['Imp', 'Sea snake', 'Box jellyfish', 'Jungle spider', 'Wild boar', 'Tarantula', 'Reef shark', 'Wraith', 'Komodo dragon',
+  'Stone golem', 'Reticulated python', 'Saltwater crocodile', 'Forest drake', 'Hantu raya', 'Cursed pirate', 'Penanggal'];
+for (const rank of ENDGAME_RANKS) {
+  ENDGAME_BASES.forEach((bn, i) => {
+    const b = BASES.find((x) => x[0] === bn);
+    if (!b) return;
+    const [, sprite, color] = b;
+    const level = Math.round(rank.lo + (rank.hi - rank.lo) * i / (ENDGAME_BASES.length - 1));
+    const id = slug(`${rank.p} ${bn}`);
+    _mobs[id] = { ...makeMob(id, `${rank.p} ${bn}`, sprite, color, level, rank.zone, true, slug(bn)), scale: rank.scale };
+  });
+}
 for (const id of Object.keys(_mobs)) MONSTER_IDS.push(id);
 
 // ---------------- Bosses (15) ----------------
@@ -281,6 +314,21 @@ const BOSS_DEFS = {
   shadow_sovereign: { ...makeBoss('shadow_sovereign', 'The Shadow Sovereign', 'demon', '#3a2a52', 120, 'The Wilderness', 2.4,
     [{ id: 'void_blade', weight: 8 }, { id: 'shadow_cloak', weight: 6 }, { id: 'dragon_platebody', weight: 16 }, { id: 'runite_ore', min: 3, max: 7, weight: 26 }, { id: 'occult_necklace', weight: 12 }]), fixed: true },
 };
+// ---- Open-world and endgame bosses ----
+const tierGear = (lvl, w) => [
+  { id: `${metalFor(lvl)}_platebody`, weight: 14 * w }, { id: `${metalFor(lvl)}_full_helm`, weight: 14 * w }, { id: `${metalFor(lvl)}_platelegs`, weight: 12 * w },
+  { id: `${metalFor(lvl)}_2h_sword`, weight: 10 * w }, { id: `${metalFor(lvl)}_katana`, weight: 10 * w }, { id: `${metalFor(lvl)}_halberd`, weight: 8 * w },
+  { id: `${nextMetal(metalFor(lvl))}_scimitar`, weight: 5 * w }, { id: `${nextMetal(metalFor(lvl))}_platebody`, weight: 3 * w },
+  { id: 'runite_ore', min: 3, max: 10, weight: 12 }, { id: 'diamond', min: 1, max: 3, weight: 8 },
+];
+Object.assign(BOSS_DEFS, {
+  supertree_guardian: makeBoss('supertree_guardian', 'Supertree Guardian', 'plant', '#2f9a6a', 140, 'Gardens by the Bay', 2.3, tierGear(140, 1)),
+  coney_behemoth: makeBoss('coney_behemoth', 'Coney Island Behemoth', 'beast', '#8a5a3a', 155, 'Coney Island', 2.3, tierGear(155, 1)),
+  kusu_tortoise: makeBoss('kusu_tortoise', 'Great Kusu Tortoise', 'turtle', '#3a8a6a', 195, 'Southern Islands', 2.5, tierGear(195, 1)),
+  rift_tyrant: makeBoss('rift_tyrant', 'Rift Tyrant', 'demon', '#5a1a6a', 260, 'The Shadow Rift', 2.6, tierGear(260, 1)),
+  eternal_wyrm: makeBoss('eternal_wyrm', 'The Eternal Wyrm', 'drake', '#f5b82e', 320, 'The Shadow Rift', 2.8,
+    [...tierGear(320, 1), { id: 'eternal_bow', weight: 4 }, { id: 'eternal_staff', weight: 4 }, { id: 'eternal_whip', weight: 4 }, { id: 'eternal_2h_sword', weight: 4 }]),
+});
 const BOSS_IDS = Object.keys(BOSS_DEFS);
 
 // Give every boss a special mechanic (cycled) + a special-attack cadence.
@@ -334,7 +382,7 @@ for (const id of BOSS_IDS) {
     { id: arrow, min: 60, max: 200, weight: 8 },
     ...rangedArmourFor(Math.max(40, lvl)).map((a) => ({ id: a, weight: 3 })),
     // A pair-worthy dagger for dual wielders.
-    { id: lvl < 60 ? 'adamant_dagger' : lvl < 100 ? 'rune_dagger' : 'dragon_dagger', weight: 12 },
+    { id: lvl < 60 ? 'adamant_dagger' : lvl < 100 ? 'rune_dagger' : `${metalFor(lvl)}_dagger`, weight: 12 },
     // Dancer loot: a whip a tier or two up, and dancer outfit pieces.
     { id: whipFor(lvl + 20), weight: 14 }, { id: whipFor(lvl + 45), weight: 5 },
     ...dancerFor(Math.max(30, lvl)).map((a) => ({ id: a, weight: 2 })),
