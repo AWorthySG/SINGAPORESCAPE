@@ -1,6 +1,6 @@
 import { CLASSES, CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon } from '../data/classes.js';
 import { PERK_SKILLS, PERK_TRACKS, PERK_EVERY, trackPerks, rankName } from '../data/perks.js';
-import { drawPlayer } from '../render/sprites.js';
+import { drawPlayer, heroArtSrc } from '../render/sprites.js';
 import { getItem } from '../data/items.js';
 import { SHOPS, getShop } from '../data/shops.js';
 import { SMELT, SMITH } from '../data/smithing.js';
@@ -1491,7 +1491,8 @@ export class UI {
           div.className = 'dialogue-option class-card';
           div.tabIndex = 0;
           div.dataset.cls = c.id;
-          div.innerHTML = `<span class="class-pic">${itemIconSVG(starterWeapon(c.id), 34)}</span><span class="class-text"><b>${c.name}</b>`
+          const art = heroArtSrc(c.id);
+          div.innerHTML = `<span class="class-pic">${art ? `<img src="${art}" alt="" width="40" height="40">` : itemIconSVG(starterWeapon(c.id), 34)}</span><span class="class-text"><b>${c.name}</b>`
             + `<span class="class-weapon">${WEAPON_TYPE_NAMES[c.weapon]}</span><span class="class-desc">${c.desc}</span></span>`;
           div.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); div.click(); } });
           div.addEventListener('click', () => {

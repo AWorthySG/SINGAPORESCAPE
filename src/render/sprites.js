@@ -1288,7 +1288,11 @@ function townAcc(ctx, p) {
 // ================= PLAYER =================
 // Painted A-Worthy hero art, one per combat style (assets/creatures/hero/<style>.webp):
 // a knight for melee (and bare hands), an archer for bows, a wizard for staves.
+// Job classes with their own painted hero (assets/creatures/hero/<classId>.webp)
+// use it in place of their style's art.
 export const HERO_STYLES = ['melee', 'ranged', 'magic'];
+export const CLASS_HERO_ART = new Set(['rogue', 'swordsman']);
+export const heroArtSrc = (classId) => (CLASS_HERO_ART.has(classId) ? `assets/creatures/hero/${classId}.webp` : null);
 const _heroImg = {};
 function heroImage(style) {
   if (_heroImg[style] !== undefined) return _heroImg[style];
@@ -1417,7 +1421,7 @@ function heroAttackPose(style, k) {
 export function drawPlayer(ctx, cx, cy, opts = {}) {
   const style = opts.hasWeapon && (opts.weaponType === 'ranged' || opts.weaponType === 'magic' || opts.weaponType === 'dance') ? opts.weaponType : 'melee';
   // The Dancer has no painted art yet, so it uses the drawn mascot in a silk outfit.
-  const himg = HERO_STYLES.includes(style) ? heroImage(style) : null;
+  const himg = CLASS_HERO_ART.has(opts.jobClass) ? heroImage(opts.jobClass) : HERO_STYLES.includes(style) ? heroImage(style) : null;
   const painted = himg && himg.complete && himg.naturalWidth;
   staged(ctx, cx, cy, opts, (c) => {
     // A soft golden halo while any prayer is active — the only in-world sign

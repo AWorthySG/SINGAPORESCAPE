@@ -225,4 +225,10 @@ test('hero art exists for every combat style', async () => {
   const { fileURLToPath } = await import('node:url');
   const { HERO_STYLES } = await import('../src/render/sprites.js');
   for (const s of HERO_STYLES) assert.ok(existsSync(fileURLToPath(new URL(`../assets/creatures/hero/${s}.webp`, import.meta.url))), `hero/${s}.webp`);
+  const { CLASS_HERO_ART } = await import('../src/render/sprites.js');
+  const { CLASS_BY_ID } = await import('../src/data/classes.js');
+  for (const id of CLASS_HERO_ART) {
+    assert.ok(CLASS_BY_ID[id], `${id} is a class`);
+    assert.ok(existsSync(fileURLToPath(new URL(`../assets/creatures/hero/${id}.webp`, import.meta.url))), `hero/${id}.webp`);
+  }
 });
