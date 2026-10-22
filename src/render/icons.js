@@ -756,6 +756,12 @@ import { CROPS, POTIONS } from '../data/trades.js';
     ...['starhide', 'eternalhide'].flatMap((t) => ['coif', 'body', 'chaps', 'vambraces'].map((p) => `${t}_${p}`)),
     ...['astral', 'eternal'].flatMap((t) => [`${t}_hat`, `${t}_robe_top`, `${t}_robe_bottom`]),
     'dragon_arrow', 'jade_arrow', 'starmetal_arrow', 'eternal_arrow',
+    // Batch 12: the Eternal dancer outfit and weapons, endgame staves, tomes, plateskirts, bucklers and the Jade armour set.
+    ...['headdress', 'dancer_top', 'dancer_skirt', 'bangles', 'slippers', 'sash'].map((p) => `eternal_${p}`),
+    ...['dagger', 'sword', 'scimitar', 'mace', 'longsword', 'battleaxe', 'warhammer', '2h_sword'].map((w) => `eternal_${w}`),
+    'obsidian_staff', 'jade_staff', 'imperial_staff', 'starmetal_staff', 'celestial_staff', 'eternal_staff', 'novice_tome', 'arcane_tome', 'merlion_tome',
+    ...['bronze', 'iron', 'steel', 'mithril', 'adamant', 'rune', 'dragon'].flatMap((m) => [`${m}_plateskirt`, `${m}_buckler`]),
+    ...['med_helm', 'full_helm', 'chainbody', 'platebody', 'platelegs', 'plateskirt', 'sq_shield', 'kiteshield', 'buckler', 'gauntlets', 'boots'].map((p) => `jade_${p}`),
   ]);
   export const itemArtSrc = (id) => (ITEM_ART.has(id) ? `assets/icons/item-${id}.webp` : null);
   const artImg = (file, size, cls) => `<img class="${cls || ''}" width="${size}" height="${size}" src="assets/icons/${file}.webp" alt="" style="display:block;object-fit:contain" />`;
