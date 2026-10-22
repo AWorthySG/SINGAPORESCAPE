@@ -33,6 +33,12 @@ const ZONE_TINT = {
   'Sentosa Beach': [255, 240, 205, 0],
   'The Wilderness': [170, 120, 170, 0.12],
   'Pulau Hantu': [150, 125, 200, 0.14],
+  'Sungei Buloh Wetlands': [200, 240, 210, 0],
+  'Jurong Forest': [200, 235, 190, 0],
+  'Pulau Ubin': [235, 245, 205, 0],
+  'Changi Coast': [255, 240, 205, 0],
+  'Marina Bay': [255, 232, 214, 0],
+  'Tekong Badlands': [170, 110, 100, 0.12],
   Singapore: [255, 236, 214, 0],
 };
 
@@ -51,13 +57,20 @@ function path2(ctx, pts) {
   ctx.closePath();
 }
 
+// Terrain is baked in square chunks of this many tiles (1024px at 32px tiles);
+// up to TERRAIN_CHUNK_CAP chunks are kept (~4MB each).
+const TERRAIN_CHUNK = 32;
+const TERRAIN_CHUNK_CAP = 24;
+
 export class Renderer {
   constructor(game, canvas, ctx) {
     this.game = game;
     this.canvas = canvas;
     this.ctx = ctx;
     // Static terrain is expensive to recompute per frame (grass blades, edges),
-    // so bake it once to an offscreen canvas and only animate water on top.
+    // so bake it to offscreen canvases and only animate water on top. The world
+    // is too big for one canvas (phones cap canvas size), so it's baked in
+    // chunks of TERRAIN_CHUNK tiles, built as they come into view.
     this.terrainCanvas = this._buildTerrainCache();
     this._vig = null; // cached vignette gradients (rebuilt on resize)
   }
@@ -94,11 +107,9 @@ export class Renderer {
     const x1 = Math.min(game.world.width - 1, Math.ceil((ox + vw) / TILE) + 1);
     const y1 = Math.min(game.world.height - 1, Math.ceil((oy + vh) / TILE) + 1);
 
-    if (this.terrainCanvas && ox >= 0 && oy >= 0) {
-      // Blit the cached static terrain for the visible slice, then animate water.
-      const sw = Math.min(vw, this.terrainCanvas.width - ox);
-      const sh = Math.min(vh, this.terrainCanvas.height - oy);
-      if (sw > 0 && sh > 0) ctx.drawImage(this.terrainCanvas, ox, oy, sw, sh, 0, 0, sw, sh);
+    if (this.terrainCanvas) {
+      // Blit the cached static terrain chunks for the visible slice, then animate water.
+      this._drawTerrainChunks(ox, oy, vw, vh);
       this._drawWaterOverlay(x0, y0, x1, y1, ox, oy, timeMs);
     } else {
       this._drawTerrain(x0, y0, x1, y1, ox, oy, timeMs);
@@ -541,32 +552,83 @@ export class Renderer {
 
   // Bake all static terrain (everything but the animated water surface) to a
   // full-world offscreen canvas. Returns null in headless/no-DOM environments.
+  /** The chunked terrain cache: a map of baked chunks, or null without a DOM. */
   _buildTerrainCache() {
-    if (typeof document === 'undefined') return null;
+    if (typeof document === 'undefined' || !document.createElement) return null;
+    return { chunks: new Map(), order: [] };
+  }
+
+  /** Bake one TERRAIN_CHUNK x TERRAIN_CHUNK tile chunk to its own canvas. */
+  _bakeChunk(cx0, cy0) {
     const w = this.game.world;
-    let cnv, cx;
+    let cnv, g;
     try {
       cnv = document.createElement('canvas');
-      cnv.width = w.width * TILE;
-      cnv.height = w.height * TILE;
-      cx = cnv.getContext('2d');
+      cnv.width = TERRAIN_CHUNK * TILE;
+      cnv.height = TERRAIN_CHUNK * TILE;
+      g = cnv.getContext('2d');
     } catch { return null; }
-    if (!cx) return null;
-    for (let y = 0; y < w.height; y++) {
-      for (let x = 0; x < w.width; x++) {
+    if (!g) return null;
+    const tx0 = cx0 * TERRAIN_CHUNK, ty0 = cy0 * TERRAIN_CHUNK;
+    const tx1 = Math.min(w.width, tx0 + TERRAIN_CHUNK), ty1 = Math.min(w.height, ty0 + TERRAIN_CHUNK);
+    for (let y = ty0; y < ty1; y++) {
+      for (let x = tx0; x < tx1; x++) {
         const t = w.terrainAt(x, y);
-        const sx = x * TILE, sy = y * TILE;
-        if (t === TERRAIN.WATER) { cx.fillStyle = 'rgb(122,190,232)'; cx.fillRect(sx, sy, TILE + 1, TILE + 1); continue; }
+        const sx = (x - tx0) * TILE, sy = (y - ty0) * TILE;
+        if (t === TERRAIN.WATER) { g.fillStyle = 'rgb(122,190,232)'; g.fillRect(sx, sy, TILE + 1, TILE + 1); continue; }
         const base = TERRAIN_RGB[t] || TERRAIN_RGB[TERRAIN.GRASS];
         const h = hash(x, y);
         const j = (h - 0.5) * 10;
-        cx.fillStyle = `rgb(${clamp8(base[0] + j)},${clamp8(base[1] + j)},${clamp8(base[2] + j)})`;
-        cx.fillRect(sx, sy, TILE + 1, TILE + 1);
-        this._tileDetail(cx, t, x, y, sx, sy, h);
-        this._tileEdges(cx, w, t, x, y, sx, sy);
+        g.fillStyle = `rgb(${clamp8(base[0] + j)},${clamp8(base[1] + j)},${clamp8(base[2] + j)})`;
+        g.fillRect(sx, sy, TILE + 1, TILE + 1);
+        this._tileDetail(g, t, x, y, sx, sy, h);
+        this._tileEdges(g, w, t, x, y, sx, sy);
       }
     }
     return cnv;
+  }
+
+  _chunk(cx, cy) {
+    const cache = this.terrainCanvas;
+    const k = cx + ',' + cy;
+    let cv = cache.chunks.get(k);
+    if (!cv) {
+      cv = this._bakeChunk(cx, cy);
+      if (!cv) return null;
+      cache.chunks.set(k, cv);
+      cache.order.push(k);
+      // Keep memory in check: drop the least recently baked chunks.
+      while (cache.order.length > TERRAIN_CHUNK_CAP) cache.chunks.delete(cache.order.shift());
+    }
+    return cv;
+  }
+
+  /** Blit the visible terrain chunks, then pre-bake one neighbour so walking
+   *  into a new chunk doesn't stall a frame. */
+  _drawTerrainChunks(ox, oy, vw, vh) {
+    const { ctx, game } = this;
+    const span = TERRAIN_CHUNK * TILE;
+    const maxCx = Math.ceil(game.world.width / TERRAIN_CHUNK) - 1, maxCy = Math.ceil(game.world.height / TERRAIN_CHUNK) - 1;
+    const c0x = Math.max(0, Math.floor(ox / span)), c1x = Math.min(maxCx, Math.floor((ox + vw) / span));
+    const c0y = Math.max(0, Math.floor(oy / span)), c1y = Math.min(maxCy, Math.floor((oy + vh) / span));
+    for (let cy = c0y; cy <= c1y; cy++) {
+      for (let cx = c0x; cx <= c1x; cx++) {
+        const cv = this._chunk(cx, cy);
+        if (!cv) continue;
+        // Copy only the part of the chunk that's on screen.
+        const wx = cx * span, wy = cy * span;
+        const sx = Math.max(0, ox - wx), sy = Math.max(0, oy - wy);
+        const sw = Math.min(span, ox + vw - wx) - sx, sh = Math.min(span, oy + vh - wy) - sy;
+        if (sw > 0 && sh > 0) ctx.drawImage(cv, sx, sy, sw, sh, wx + sx - ox, wy + sy - oy, sw, sh);
+      }
+    }
+    // Pre-bake the first missing chunk in a ring around the view (one per frame).
+    for (let cy = c0y - 1; cy <= c1y + 1; cy++) {
+      for (let cx = c0x - 1; cx <= c1x + 1; cx++) {
+        if (cx < 0 || cy < 0 || cx > maxCx || cy > maxCy) continue;
+        if (!this.terrainCanvas.chunks.has(cx + ',' + cy)) { this._chunk(cx, cy); return; }
+      }
+    }
   }
 
   _drawWaterOverlay(x0, y0, x1, y1, ox, oy, timeMs) {

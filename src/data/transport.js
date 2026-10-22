@@ -8,6 +8,12 @@ export const STATIONS = [
   { id: 'bukit_timah', name: 'Bukit Timah', x: 64, y: 18 },
   { id: 'macritchie', name: 'MacRitchie', x: 42, y: 52 },
   { id: 'sentosa', name: 'Sentosa Beach', x: 58, y: 92 },
+  // The open world
+  { id: 'sungei_buloh', name: 'Sungei Buloh', x: 40, y: 148 },
+  { id: 'jurong', name: 'Jurong Forest', x: 110, y: 148 },
+  { id: 'marina_bay', name: 'Marina Bay', x: 192, y: 149 },
+  { id: 'pulau_ubin', name: 'Pulau Ubin', x: 192, y: 52 },
+  { id: 'changi', name: 'Changi Coast', x: 258, y: 52 },
 ];
 
 export const STATION_BY_ID = Object.fromEntries(STATIONS.map((s) => [s.id, s]));

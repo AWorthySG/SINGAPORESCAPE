@@ -1875,8 +1875,14 @@ export class UI {
       // zone labels
       c.font = `800 ${Math.max(9, scale * 3)}px Nunito,"Trebuchet MS",sans-serif`;
       c.textAlign = 'center'; c.textBaseline = 'middle';
+      // Nudge labels apart where neighbouring regions' names would overlap.
+      const placed = [];
       for (const z of game.world.zones) {
-        const cx = ((z.x0 + z.x1) / 2) * scale, cy = ((z.y0 + z.y1) / 2) * scale;
+        const cx = ((z.x0 + z.x1) / 2) * scale;
+        let cy = ((z.y0 + z.y1) / 2) * scale;
+        const w2 = c.measureText(z.name).width / 2 + 3, h = Math.max(9, scale * 3) + 2;
+        while (placed.some((b) => Math.abs(b.cx - cx) < b.w2 + w2 && Math.abs(b.cy - cy) < h)) cy += h;
+        placed.push({ cx, cy, w2 });
         c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillText(z.name, cx + 1, cy + 1);
         c.fillStyle = z.wilderness ? '#ff8a7a' : '#fff3c8'; c.fillText(z.name, cx, cy);
       }

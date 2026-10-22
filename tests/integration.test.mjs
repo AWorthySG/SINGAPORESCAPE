@@ -2237,3 +2237,28 @@ test('melee weapons strike from 2 tiles, long ones from 3', async () => {
   assert.equal(game.attackRange(), 2, 'even bare hands reach 2 tiles');
   assert.ok(ITEMS.bronze_scimitar.equip.range === 2 && ITEMS.rune_longsword.equip.range === 3);
 });
+
+test('the open world: 300x200 with six new regions, all reachable on foot, each with MRT and monsters', async () => {
+  const { STATIONS } = await import('../src/data/transport.js');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  const w = game.world;
+  assert.equal(w.width, 300); assert.equal(w.height, 200);
+  const NEW = ['Sungei Buloh Wetlands', 'Jurong Forest', 'Pulau Ubin', 'Changi Coast', 'Marina Bay', 'Tekong Badlands'];
+  for (const n of NEW) assert.ok(w.zones.some((z) => z.name === n && !z.wilderness), `${n} exists and is not Wilderness`);
+  // Flood fill from the spawn point over walkable tiles.
+  const seen = new Uint8Array(w.width * w.height); const q = [[w.spawnPoint.x, w.spawnPoint.y]]; seen[w.spawnPoint.y * w.width + w.spawnPoint.x] = 1;
+  while (q.length) { const [x, y] = q.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy;
+    if (!w.inBounds(nx, ny) || seen[ny * w.width + nx] || w.isBlocked(nx, ny)) continue; seen[ny * w.width + nx] = 1; q.push([nx, ny]); } }
+  for (const s of STATIONS) assert.ok(seen[s.y * w.width + s.x], `${s.name} station is reachable on foot`);
+  for (const n of NEW) {
+    const z = w.zones.find((zz) => zz.name === n);
+    const mobs = game.npcs.filter((m) => m.attackable && m.x >= z.x0 && m.x <= z.x1 && m.y >= z.y0 && m.y <= z.y1);
+    assert.ok(mobs.length >= 50, `${n} has plenty of monsters (${mobs.length})`);
+  }
+  // Wilderness levels only apply inside the Wilderness zones.
+  game.player.x = 250; game.player.y = 150;
+  assert.equal(game.wildernessLevel(), 0, 'the Tekong Badlands are not Wilderness');
+});
