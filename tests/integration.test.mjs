@@ -2239,14 +2239,14 @@ test('melee weapons strike from 2 tiles, long ones from 3', async () => {
   assert.ok(ITEMS.bronze_scimitar.equip.range === 2 && ITEMS.rune_longsword.equip.range === 3);
 });
 
-test('the open world: 400x280 with ten new regions, all reachable on foot, each with MRT and monsters', async () => {
+test('the open world: 540x380 with ten open-world regions, all reachable on foot, each with MRT and monsters', async () => {
   const { STATIONS } = await import('../src/data/transport.js');
   globalThis.localStorage = fakeStorage();
   clearSave();
   const game = new Game();
   game.start();
   const w = game.world;
-  assert.equal(w.width, 400); assert.equal(w.height, 280);
+  assert.equal(w.width, 540); assert.equal(w.height, 380);
   const NEW = ['Sungei Buloh Wetlands', 'Jurong Forest', 'Pulau Ubin', 'Changi Coast', 'Marina Bay', 'Tekong Badlands',
     'Gardens by the Bay', 'Coney Island', 'Southern Islands', 'The Shadow Rift'];
   for (const n of NEW) assert.ok(w.zones.some((z) => z.name === n && !z.wilderness), `${n} exists and is not Wilderness`);
@@ -2263,6 +2263,30 @@ test('the open world: 400x280 with ten new regions, all reachable on foot, each 
   // Wilderness levels only apply inside the Wilderness zones.
   game.player.x = 250; game.player.y = 150;
   assert.equal(game.wildernessLevel(), 0, 'the Tekong Badlands are not Wilderness');
+});
+
+test('the far regions: six more regions up to level 450, reachable on foot, each with monsters and its own bosses', async () => {
+  const { NPCS, BOSS_IDS } = await import('../src/data/npcs.js');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  const w = game.world;
+  const FAR = ['Punggol Waterway', 'Kranji Farmlands', 'Mandai Rainforest', 'Tuas Docklands', 'Temasek Ruins', 'The Celestial Peaks'];
+  const seen = new Uint8Array(w.width * w.height); const q = [[w.spawnPoint.x, w.spawnPoint.y]]; seen[w.spawnPoint.y * w.width + w.spawnPoint.x] = 1;
+  while (q.length) { const [x, y] = q.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy;
+    if (!w.inBounds(nx, ny) || seen[ny * w.width + nx] || w.isBlocked(nx, ny)) continue; seen[ny * w.width + nx] = 1; q.push([nx, ny]); } }
+  for (const n of FAR) {
+    const z = w.zones.find((zz) => zz.name === n);
+    assert.ok(z && !z.wilderness, `${n} exists and is not Wilderness`);
+    const mobs = game.npcs.filter((m) => m.attackable && m.x >= z.x0 && m.x <= z.x1 && m.y >= z.y0 && m.y <= z.y1);
+    assert.ok(mobs.length >= 80, `${n} has plenty of monsters (${mobs.length})`);
+    assert.ok(mobs.every((m) => seen[m.y * w.width + m.x] || w.isBlocked(m.x, m.y)), `${n}'s monsters can be reached`);
+    const bosses = BOSS_IDS.filter((id) => NPCS[id].zone === n);
+    assert.ok(bosses.length >= 1, `${n} has its own boss`);
+    for (const id of bosses) assert.ok(mobs.some((m) => m.npcId === id), `${id} roams ${n}`);
+  }
+  assert.ok(Math.max(...Object.values(NPCS).filter((m) => m.attackable).map((m) => m.level)) >= 450, 'the highest foes reach level 450');
 });
 
 test('endgame tiers: metals up to Eternal (300), gear for every style, monsters and bosses up to 320 that drop it', async () => {
@@ -2440,4 +2464,113 @@ test('an older save without a class picks one on load and keeps its gear', async
   assert.equal(g2.equipment.get('body'), 'rune_platebody', 'armour is kept');
   assert.equal(g2.equipment.get('weapon'), 'longbow', 'the class weapon is equipped');
   assert.ok(g2.inventory.has('rune_scimitar'), 'the old weapon goes to the pack');
+});
+
+test('new life skills: Farming, Herblore, Fletching and Hunter exist, with stations, patches, traps, a farm shop and icons for everything', async () => {
+  const { SKILL_BY_ID } = await import('../src/data/skills.js');
+  const { ITEMS } = await import('../src/data/items.js');
+  const { CROPS, POTIONS, FLETCH, HUNT, HIDE_CRAFT } = await import('../src/data/trades.js');
+  const { SHOPS } = await import('../src/data/shops.js');
+  const { itemIconSVG, skillIconSVG } = await import('../src/render/icons.js');
+  const fallback = itemIconSVG('coins');
+  for (const id of ['farming', 'herblore', 'fletching', 'hunter']) {
+    assert.ok(SKILL_BY_ID[id], `${id} is a skill`);
+    assert.notEqual(skillIconSVG(id), skillIconSVG('attack'), `${id} has its own icon`);
+  }
+  const ids = new Set();
+  for (const c of CROPS) { ids.add(c[0]); ids.add(`${c[0]}_seed`); }
+  for (const [id, p] of Object.entries(POTIONS)) { ids.add(id); p.inputs.forEach(([i]) => ids.add(i)); }
+  for (const r of FLETCH) { ids.add(r.result); r.inputs.forEach(([i]) => ids.add(i)); }
+  for (const h of Object.values(HUNT)) h.gives.forEach((g) => ids.add(g.id));
+  for (const r of HIDE_CRAFT) { ids.add(r.result); r.inputs.forEach((i) => ids.add(i.id)); }
+  for (const id of ['knife', 'hunting_snare', 'venison', 'boar_steak']) ids.add(id);
+  for (const id of ids) {
+    assert.ok(ITEMS[id], `${id} is an item`);
+    if (id !== 'coins') assert.notEqual(itemIconSVG(id), fallback, `${id} has an icon`);
+  }
+  assert.ok(SHOPS.farming.stock.some((s) => s.id === 'chilli_seed') && SHOPS.general.stock.some((s) => s.id === 'hunting_snare'));
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  const count = (id) => game.world.objects.filter((o) => o.objId === id).length;
+  assert.ok(count('farm_patch') >= 20 && count('apothecary_table') >= 4 && count('fletching_bench') >= 4);
+  for (const id of Object.keys(HUNT)) assert.ok(count(id) >= 3, `${id} traps are placed`);
+  assert.ok(game.npcs.some((n) => n.npcId === 'farmer' && Math.abs(n.x - 58) < 10 && Math.abs(n.y - 60) < 10), 'a farmer by Kampong Glam');
+});
+
+test('farming: plant a seed, it grows, it survives a save, and the harvest gives crops and xp', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  const patch = game.world.objects.find((o) => o.objId === 'farm_patch');
+  game.inventory.add('chilli_seed', 1);
+  assert.ok(game.plantSeed(patch, 'chilli_seed'));
+  assert.equal(patch.crop, 'chilli');
+  assert.equal(game.inventory.count('chilli_seed'), 0);
+  game.tendPatch(patch);
+  assert.equal(patch.crop, 'chilli', 'checking a growing crop does not harvest it');
+  saveGame(game);
+  const g2 = new Game(); g2.start(); loadGame(g2);
+  assert.equal(g2.world.objectAt(patch.x, patch.y).crop, 'chilli', 'the crop is still there after loading');
+  for (let i = 0; i < 60; i++) game._tickFarms();
+  assert.equal(patch.growLeft, 0, 'it has grown');
+  const xp0 = game.skills.xp.farming;
+  game.tendPatch(patch);
+  assert.equal(patch.crop, null, 'harvested');
+  assert.ok(game.inventory.count('chilli') >= 3 && game.skills.xp.farming > xp0);
+  // A seed above your level won't go in.
+  game.inventory.add('durian_seed', 1);
+  assert.equal(game.plantSeed(patch, 'durian_seed'), false);
+});
+
+test('hunter, fletching and herblore: traps catch, benches make, potions brew, boost a fight and wear off', async () => {
+  const { resolveHunt, resolveRecipe } = await import('../src/game/skilling.js');
+  const { POTIONS, FLETCH } = await import('../src/data/trades.js');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  const trap = game.world.objects.find((o) => o.objId === 'bird_snare');
+  assert.equal(resolveHunt(game, { obj: trap }), false, 'a snare is needed');
+  game.inventory.add('hunting_snare', 1);
+  for (let i = 0; i < 200 && !game.skills.xp.hunter; i++) { trap.depleted = false; resolveHunt(game, { obj: trap }); }
+  assert.ok(game.skills.xp.hunter > 0 && game.inventory.count('feather') >= 3, 'the snare caught a junglefowl');
+  // Fletching: logs into shafts, then arrows.
+  game.inventory.add('knife', 1); game.inventory.add('logs', 1); game.inventory.add('bronze_bar', 1); game.inventory.add('feather', 15);
+  resolveRecipe(game, { skill: 'fletching', recipe: FLETCH.find((r) => r.result === 'arrow_shaft') });
+  assert.equal(game.inventory.count('arrow_shaft'), 15);
+  const arrows0 = game.inventory.count('bronze_arrow');
+  resolveRecipe(game, { skill: 'fletching', recipe: FLETCH.find((r) => r.result === 'bronze_arrow') });
+  assert.equal(game.inventory.count('bronze_arrow'), arrows0 + 15);
+  // Herblore: a chilli and a vial make an attack potion.
+  game.inventory.add('chilli', 1); game.inventory.add('vial', 1);
+  const p = POTIONS.attack_potion;
+  resolveRecipe(game, { skill: 'herblore', recipe: { result: 'attack_potion', qty: 1, inputs: p.inputs, level: p.level, xp: p.xp } });
+  assert.equal(game.inventory.count('attack_potion'), 1);
+  const acc0 = game.perkMods().acc || 0;
+  game.drinkPotion(game.inventory.slots.findIndex((s) => s && s.id === 'attack_potion'));
+  assert.ok(Math.abs((game.perkMods().acc || 0) - acc0 - 0.08) < 1e-9, 'the potion adds 8% accuracy');
+  game._tickPotions(p.ms + 1);
+  assert.equal(game.perkMods().acc || 0, acc0, 'and wears off');
+  // A healing potion heals at once.
+  game.player.hp = 1;
+  game.inventory.add('healing_potion', 1);
+  game.drinkPotion(game.inventory.slots.findIndex((s) => s && s.id === 'healing_potion'));
+  assert.ok(game.player.hp > 1);
+});
+
+test('Trades of the Wild: Cikgu Surya teaches the four new skills and pays out at the end', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.startLife('life_skills_wild');
+  assert.equal(game.quests.life_skills_wild.state, 'active');
+  game.inventory.add('chilli', 5); game.advanceLife('life_skills_wild');
+  game.inventory.add('attack_potion', 1); game.advanceLife('life_skills_wild');
+  game.inventory.add('arrow_shaft', 15); game.advanceLife('life_skills_wild');
+  game.skills.addXp('hunter', 200); game.advanceLife('life_skills_wild');
+  assert.equal(game.quests.life_skills_wild.state, 'done');
 });

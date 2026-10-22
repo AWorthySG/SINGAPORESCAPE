@@ -2,7 +2,7 @@
 // in game.js; this is the display layer + an optional progress(game) label so the
 // journal renders generically and scales as the quest line grows. `qp` is the
 // quest-point value awarded on completion (see game.questPoints()).
-import { LIFE_STAGES, LIFE_STAGES_ADV } from './lifeskills.js';
+import { LIFE_STAGES, LIFE_STAGES_ADV, LIFE_STAGES_WILD } from './lifeskills.js';
 
 // Quest points needed before the Kampong Guide offers the grandmaster capstone.
 export const CHAMPION_QP = 6;
@@ -33,6 +33,11 @@ export const QUESTS = [
     id: 'life_skills_adv', name: 'Master of Trades', qp: 2,
     desc: 'Cikgu Surya\'s advanced course — higher-tier gathering and crafting.',
     progress: (g) => stageProgress(g, 'life_skills_adv', LIFE_STAGES_ADV),
+  },
+  {
+    id: 'life_skills_wild', name: 'Trades of the Wild', qp: 2,
+    desc: 'Cikgu Surya teaches the newer life skills: Farming, Herblore, Fletching and Hunter.',
+    progress: (g) => stageProgress(g, 'life_skills_wild', LIFE_STAGES_WILD),
   },
   {
     id: 'bone_collector', name: 'A Bag of Bones', qp: 1,

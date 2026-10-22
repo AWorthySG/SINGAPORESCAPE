@@ -18,6 +18,13 @@ export const STATIONS = [
   { id: 'coney', name: 'Coney Island', x: 344, y: 148 },
   { id: 'southern_islands', name: "St John's Island", x: 98, y: 238 },
   { id: 'rift_outpost', name: 'Rift Outpost', x: 264, y: 222 },
+  // The far regions
+  { id: 'punggol', name: 'Punggol Point', x: 441, y: 48 },
+  { id: 'kranji', name: 'Kranji Village', x: 451, y: 140 },
+  { id: 'mandai', name: 'Mandai Rainforest', x: 474, y: 226 },
+  { id: 'tuas', name: 'Tuas Docklands', x: 99, y: 320 },
+  { id: 'temasek', name: 'Temasek Camp', x: 265, y: 318 },
+  { id: 'celestial_peaks', name: 'Celestial Peaks', x: 474, y: 320 },
 ];
 
 export const STATION_BY_ID = Object.fromEntries(STATIONS.map((s) => [s.id, s]));

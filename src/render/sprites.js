@@ -2,6 +2,11 @@
 // replacing the old emoji rendering. Everything is drawn relative to a centre
 // point (cx, cy) with the entity's "feet" near cy + 13.
 import { itemIconImage } from './icons.js';
+import { CROPS } from '../data/trades.js';
+
+const CROP_COLORS = Object.fromEntries(CROPS.map((c) => [c[0], c[9]]));
+const CROP_GROW = Object.fromEntries(CROPS.map((c) => [c[0], c[3]]));
+const cropGrowTicks = (id) => CROP_GROW[id] || 0;
 
 const OUTLINE = 'rgba(34,48,74,0.6)';   // A-Worthy navy ink
 
@@ -319,6 +324,7 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
     light_priestess: { top: '#FDF3DE', hat: '#F5B82E', apron: '#FFFFFF', acc: 'halo' },
     shadow_broker: { top: '#2B2A27', hat: '#1C1B19', acc: 'hood' },
     villager: { top: '#12907F' },
+    farmer: { top: '#5A8A3A', hat: '#E0C070', apron: '#C8A070', acc: 'sack' },
   };
   const p = TOWN[npcId] || TOWN.villager;
   const timg = townImage(npcId);
@@ -1288,7 +1294,11 @@ function townAcc(ctx, p) {
 // ================= PLAYER =================
 // Painted A-Worthy hero art, one per combat style (assets/creatures/hero/<style>.webp):
 // a knight for melee (and bare hands), an archer for bows, a wizard for staves.
+// Job classes with their own painted hero (assets/creatures/hero/<classId>.webp)
+// use it in place of their style's art.
 export const HERO_STYLES = ['melee', 'ranged', 'magic'];
+export const CLASS_HERO_ART = new Set(['rogue', 'swordsman']);
+export const heroArtSrc = (classId) => (CLASS_HERO_ART.has(classId) ? `assets/creatures/hero/${classId}.webp` : null);
 const _heroImg = {};
 function heroImage(style) {
   if (_heroImg[style] !== undefined) return _heroImg[style];
@@ -1417,7 +1427,7 @@ function heroAttackPose(style, k) {
 export function drawPlayer(ctx, cx, cy, opts = {}) {
   const style = opts.hasWeapon && (opts.weaponType === 'ranged' || opts.weaponType === 'magic' || opts.weaponType === 'dance') ? opts.weaponType : 'melee';
   // The Dancer has no painted art yet, so it uses the drawn mascot in a silk outfit.
-  const himg = HERO_STYLES.includes(style) ? heroImage(style) : null;
+  const himg = CLASS_HERO_ART.has(opts.jobClass) ? heroImage(opts.jobClass) : HERO_STYLES.includes(style) ? heroImage(style) : null;
   const painted = himg && himg.complete && himg.naturalWidth;
   staged(ctx, cx, cy, opts, (c) => {
     // A soft golden halo while any prayer is active — the only in-world sign
@@ -1664,6 +1674,10 @@ function drawObjectRaw(ctx, obj, cx, cy, time) {
     case 'furnace': return furnace(ctx, cx, cy, time);
     case 'anvil': return anvil(ctx, cx, cy);
     case 'craft': return craftTable(ctx, cx, cy);
+    case 'farm': return farmPatch(ctx, obj, cx, cy, time);
+    case 'herblore': return apothecaryTable(ctx, cx, cy, time);
+    case 'fletch': return fletchingBench(ctx, cx, cy);
+    case 'hunt': return huntTrap(ctx, obj, cx, cy);
     case 'bank': return bank(ctx, cx, cy);
     case 'shrine': return shrine(ctx, cx, cy, time);
     case 'rest': return mascotStatue(ctx, cx, cy);
@@ -1889,6 +1903,65 @@ function craftTable(ctx, cx, cy) {
   ctx.fillStyle = '#c9603a'; rr(ctx, cx - 9, cy - 7, 5, 5, 1); ctx.fill(); line(ctx, OUTLINE, 1); // little pot
   ctx.fillStyle = '#e6b34a'; circle(ctx, cx + 2, cy - 4, 2.4); ctx.fill(); line(ctx, OUTLINE, 1);  // gold
   ctx.fillStyle = '#7aa6ff'; circle(ctx, cx + 7, cy - 4, 1.8); ctx.fill(); line(ctx, OUTLINE, 0.9); // gem
+}
+
+// Farm patch: a bed of tilled soil; a planted crop sprouts, grows and ripens.
+function farmPatch(ctx, obj, cx, cy, time) {
+  ctx.fillStyle = '#7a5230'; rr(ctx, cx - 14, cy - 4, 28, 18, 4); ctx.fill(); line(ctx, OUTLINE, 1.2);
+  ctx.strokeStyle = 'rgba(40,24,10,0.35)'; ctx.lineWidth = 1;
+  for (const dy of [0, 5, 10]) { ctx.beginPath(); ctx.moveTo(cx - 11, cy + dy); ctx.lineTo(cx + 11, cy + dy); ctx.stroke(); }
+  if (!obj.crop) return;
+  const def = CROP_COLORS[obj.crop] || '#5aa04a';
+  const grow = cropGrowTicks(obj.crop);
+  const k = grow ? 1 - (obj.growLeft || 0) / grow : 1;   // 0 just planted .. 1 ripe
+  const sway = Math.sin(time * 0.003 + obj.x) * 0.8;
+  for (const [px, py] of [[-8, 1], [0, 1], [8, 1], [-4, 7], [4, 7]]) {
+    const h = 3 + k * 8;
+    ctx.strokeStyle = '#3f8a3a'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(cx + px, cy + py); ctx.lineTo(cx + px + sway, cy + py - h); ctx.stroke();
+    ctx.fillStyle = '#5cb04e'; ellipse(ctx, cx + px + sway - 1.8, cy + py - h * 0.6, 2, 1); ctx.fill(); ellipse(ctx, cx + px + sway + 1.8, cy + py - h * 0.75, 2, 1); ctx.fill();
+    if (k >= 1) { ctx.fillStyle = def; circle(ctx, cx + px + sway, cy + py - h - 1, 2.2); ctx.fill(); line(ctx, OUTLINE, 0.8); }
+  }
+  if (k >= 1) { ctx.fillStyle = 'rgba(255,240,150,0.5)'; circle(ctx, cx + 11, cy - 10 + Math.sin(time * 0.006) * 1.5, 1.6); ctx.fill(); }
+}
+
+// Apothecary table: a bench with a mortar, a bubbling flask and herbs.
+function apothecaryTable(ctx, cx, cy, time) {
+  drawShadow(ctx, cx, cy + 12, 14, 4.5);
+  ctx.fillStyle = '#6a4a2a'; rr(ctx, cx - 12, cy - 2, 24, 6, 2); ctx.fill(); line(ctx, OUTLINE, 1.4);
+  ctx.fillStyle = '#4a321a'; rr(ctx, cx - 10, cy + 4, 3, 9, 1); ctx.fill(); rr(ctx, cx + 7, cy + 4, 3, 9, 1); ctx.fill(); line(ctx, OUTLINE, 1.2);
+  ctx.fillStyle = '#b8b0a0'; rr(ctx, cx - 10, cy - 7, 6, 5, 2); ctx.fill(); line(ctx, OUTLINE, 1);   // mortar
+  ctx.fillStyle = '#e8f4ff'; circle(ctx, cx + 3, cy - 5, 3.4); ctx.fill(); line(ctx, OUTLINE, 1);     // flask
+  ctx.fillStyle = '#5fd08a'; circle(ctx, cx + 3, cy - 4.4, 2.4); ctx.fill();
+  ctx.fillStyle = 'rgba(160,255,190,0.7)'; circle(ctx, cx + 3 + Math.sin(time * 0.005), cy - 10 - ((time * 0.01) % 4), 1); ctx.fill();
+  ctx.fillStyle = '#3f8a3a'; ellipse(ctx, cx + 9, cy - 3.5, 2.6, 1.2); ctx.fill();                 // herbs
+}
+
+// Fletching bench: a bench with a strung bow and a bundle of arrows.
+function fletchingBench(ctx, cx, cy) {
+  drawShadow(ctx, cx, cy + 12, 14, 4.5);
+  ctx.fillStyle = '#9a6a3a'; rr(ctx, cx - 12, cy - 2, 24, 6, 2); ctx.fill(); line(ctx, OUTLINE, 1.4);
+  ctx.fillStyle = '#6a4626'; rr(ctx, cx - 10, cy + 4, 3, 9, 1); ctx.fill(); rr(ctx, cx + 7, cy + 4, 3, 9, 1); ctx.fill(); line(ctx, OUTLINE, 1.2);
+  ctx.strokeStyle = '#7a4a1a'; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.arc(cx - 3, cy - 3, 7, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+  ctx.strokeStyle = '#efe6cf'; ctx.lineWidth = 0.6; ctx.beginPath(); ctx.moveTo(cx - 8.8, cy - 6); ctx.lineTo(cx + 2.8, cy - 6); ctx.stroke();
+  for (let i = 0; i < 3; i++) {
+    ctx.strokeStyle = '#c8a070'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(cx + 5 + i * 1.6, cy - 1); ctx.lineTo(cx + 7 + i * 1.6, cy - 9); ctx.stroke();
+    ctx.fillStyle = '#e04a2a'; ellipse(ctx, cx + 5.2 + i * 1.6, cy - 1.5, 0.9, 1.6); ctx.fill();
+  }
+}
+
+// Hunter trap: a ring of pegs and rope; it shows a sprung snare once emptied.
+function huntTrap(ctx, obj, cx, cy) {
+  const col = obj.def.color || '#caa15a';
+  ctx.fillStyle = 'rgba(60,40,20,0.25)'; ellipse(ctx, cx, cy + 8, 11, 4); ctx.fill();
+  ctx.strokeStyle = '#d8c090'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.ellipse(cx, cy + 6, 8, 3, 0, 0, Math.PI * 2); ctx.stroke();
+  for (const a of [0, 1.6, 3.2, 4.7]) {
+    const px = cx + Math.cos(a) * 8, py = cy + 6 + Math.sin(a) * 3;
+    ctx.fillStyle = '#7a5230'; rr(ctx, px - 1, py - 5, 2, 6, 0.8); ctx.fill();
+  }
+  if (obj.depleted) { ctx.strokeStyle = '#a08060'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(cx - 5, cy + 6); ctx.lineTo(cx + 5, cy + 2); ctx.stroke(); return; }
+  // A little lure in the trap's own colour.
+  ctx.fillStyle = col; circle(ctx, cx, cy + 4, 2.6); ctx.fill(); line(ctx, OUTLINE, 0.9);
+  ctx.fillStyle = 'rgba(255,255,255,0.6)'; circle(ctx, cx - 0.8, cy + 3.2, 0.8); ctx.fill();
 }
 
 function anvil(ctx, cx, cy) {

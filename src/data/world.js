@@ -31,8 +31,10 @@ function mulberry32(seed) {
 
 export function buildWorld() {
   // The original island (x 0-149, y 0-103) keeps its coordinates; the open world
-  // extends south across a strait and east across a channel to six new regions.
-  const W = 400, H = 280;
+  // extends south across a strait and east across a channel, and the far regions
+  // lie beyond it, east of x 400 and south of y 280.
+  const W = 540, H = 380;
+  const OPEN_W = 400, OPEN_H = 280;
   const T = TERRAIN;
   const terrain = new Uint8Array(W * H);
   const idx = (x, y) => y * W + x;
@@ -44,6 +46,8 @@ export function buildWorld() {
   // The open world uses its own random stream, so the original island (x < 150,
   // y < 104) is generated exactly as before: same trees, rocks and spawns.
   const rng2 = mulberry32(20261022);
+  // And the far regions have a third stream, so the open world stays as it was.
+  const rng3 = mulberry32(20261101);
   let R = rng;   // the stream used by scatter / fishing / spawn helpers
   const OLD_W = 150, OLD_H = 104;
 
@@ -54,13 +58,24 @@ export function buildWorld() {
     else if (rng() < 0.06) base = T.DARKGRASS;
     set(x, y, base);
   }
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+  for (let y = 0; y < OPEN_H; y++) for (let x = 0; x < OPEN_W; x++) {
     if (x < OLD_W && y < OLD_H) continue;
     let base = T.GRASS;
     if (x >= 200 && y >= 204) base = rng2() < 0.88 ? T.DARKGRASS : T.GRASS;            // the Shadow Rift
     else if (x >= 225 && y >= 100) base = rng2() < 0.75 ? T.DARKGRASS : T.GRASS;       // Tekong Badlands
     else if (x >= 75 && x < 159 && y >= 113) base = rng2() < 0.3 ? T.DARKGRASS : T.GRASS; // Jurong Forest
     else if (rng2() < 0.06) base = T.DARKGRASS;
+    set(x, y, base);
+  }
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (x < OPEN_W && y < OPEN_H) continue;
+    let base = T.GRASS;
+    if (x >= 400 && y >= 180 && y < 272) base = rng3() < 0.8 ? T.DARKGRASS : T.GRASS;        // Mandai Rainforest
+    // Rocky slopes and dockyard sand come in broad drifts, not speckles.
+    else if (y >= 280 && x >= 360) base = Math.sin(x / 9) + Math.cos(y / 6) + Math.sin((x + y) / 13) + (rng3() - 0.5) * 0.5 > 0.4 ? T.STONE : T.GRASS;   // the Celestial Peaks
+    else if (y >= 280 && x < 180) base = Math.sin(x / 11 + 1) + Math.cos(y / 8) + (rng3() - 0.5) * 0.4 > 0.5 ? T.SAND : T.GRASS;                     // Tuas Docklands
+    else if (y >= 280) base = rng3() < 0.3 ? T.DARKGRASS : T.GRASS;                          // Temasek Ruins
+    else if (rng3() < 0.06) base = T.DARKGRASS;
     set(x, y, base);
   }
 
@@ -109,6 +124,37 @@ export function buildWorld() {
   pond(344, 160, 6, 5);                         // a Coney Island pond
   pond(230, 250, 8, 5); pond(330, 230, 10, 6); pond(370, 258, 7, 4);   // the Rift's dark pools
 
+  // --- The far regions ---
+  rect(400, 272, 531, 279, T.WATER);   // the channel between the east lands and the south
+  rect(532, 0, 539, 379, T.WATER);     // the outer east sea
+  rect(0, 372, 539, 379, T.WATER);     // the outer south sea
+  const pond3 = (cx, cy, rx, ry) => { for (let y = cy - ry - 1; y <= cy + ry + 1; y++) for (let x = cx - rx - 1; x <= cx + rx + 1; x++) {
+    if (((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 + (rng3() - 0.5) * 0.2 < 1) set(x, y, T.WATER); } };
+  // Punggol Waterway: a winding river with its own broad lagoon.
+  for (let x = 400; x < 532; x++) {
+    const ry = Math.round(66 + Math.sin(x / 11) * 8);
+    for (let dy = -1; dy <= 1; dy++) set(x, ry + dy, T.WATER);
+  }
+  pond3(500, 22, 14, 8); pond3(415, 80, 6, 4);
+  rect(400, 88, 531, 89, T.WATER);     // the Punggol-Kranji canal
+  // Kranji Farmlands: fish ponds and reservoir edges.
+  pond3(510, 105, 9, 6); pond3(420, 165, 7, 5); pond3(505, 160, 8, 5);
+  rect(400, 178, 531, 179, T.WATER);   // the Kranji-Mandai canal
+  // Mandai Rainforest: streams and the Upper Seletar shallows.
+  for (let y = 180; y < 272; y++) {
+    const rx = Math.round(440 + Math.sin(y / 10) * 10);
+    for (let dx = -1; dx <= 1; dx++) set(rx + dx, y, T.WATER);
+  }
+  pond3(505, 210, 10, 7);
+  // Tuas Docklands: square harbour basins.
+  rect(20, 296, 40, 306, T.WATER); rect(60, 330, 84, 342, T.WATER); rect(120, 296, 140, 310, T.WATER); rect(10, 350, 160, 352, T.WATER);
+  rect(178, 280, 181, 371, T.WATER);   // the Tuas-Temasek channel
+  // Temasek Ruins: the old moat and a sunken palace pool.
+  pond3(300, 300, 9, 6); pond3(220, 350, 8, 5);
+  rect(358, 280, 361, 371, T.WATER);   // the Temasek-Peaks gorge
+  // The Celestial Peaks: mountain tarns.
+  pond3(410, 300, 6, 4); pond3(500, 350, 7, 5);
+
   // --- Sandy beach ring around all water ---
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     if (get(x, y) !== T.WATER) continue;
@@ -148,6 +194,20 @@ export function buildWorld() {
   road(24, 240, 380, 241);    // the island bridges, on east through the Rift
   road(58, 241, 59, 260);     // a bridge down to Pulau Semakau
   road(168, 241, 169, 258);   // and to the Sisters' Islands
+  // Roads to the far regions.
+  road(341, 50, 470, 51);     // Gardens by the Bay east over the sea into Punggol
+  road(341, 150, 470, 151);   // Coney Island east into Kranji
+  road(380, 240, 470, 241);   // the Rift road east into Mandai
+  road(470, 50, 471, 331);    // north-south through the east lands, down to the Peaks
+  road(262, 262, 263, 331);   // the Rift south into the Temasek Ruins
+  road(96, 241, 97, 331);     // St John's Island south into Tuas
+  road(20, 330, 520, 331);    // the far south road
+  // Floors for the far towns.
+  rect(430, 30, 452, 46, T.STONE);     // Punggol Point
+  rect(440, 120, 462, 138, T.STONE);   // Kranji Village square
+  rect(250, 300, 272, 314, T.STONE);   // Temasek Camp
+  rect(196, 290, 340, 292, T.STONE); rect(196, 356, 340, 358, T.STONE);   // the old palace walls
+  rect(24, 312, 160, 316, T.STONE);    // the Tuas wharf
   rect(250, 208, 274, 222, T.STONE);   // the Rift Outpost
   rect(382, 100, 391, 195, T.SAND);    // Coney Island's east beach
   rect(300, 2, 391, 4, T.SAND);
@@ -212,6 +272,13 @@ export function buildWorld() {
     { name: 'Coney Island', x0: 300, y0: 100, x1: 399, y1: 203, lo: 90, hi: 150 },
     { name: 'Southern Islands', x0: 0, y0: 204, x1: 199, y1: 279, lo: 120, hi: 215 },
     { name: 'The Shadow Rift', x0: 200, y0: 204, x1: 399, y1: 279, lo: 200, hi: 320 },
+    // The far regions
+    { name: 'Punggol Waterway', x0: 400, y0: 0, x1: 539, y1: 89, lo: 40, hi: 110, far: true },
+    { name: 'Kranji Farmlands', x0: 400, y0: 90, x1: 539, y1: 179, lo: 15, hi: 80, far: true },
+    { name: 'Mandai Rainforest', x0: 400, y0: 180, x1: 539, y1: 279, lo: 150, hi: 240, far: true },
+    { name: 'Tuas Docklands', x0: 0, y0: 280, x1: 179, y1: 379, lo: 220, hi: 300, far: true },
+    { name: 'Temasek Ruins', x0: 180, y0: 280, x1: 359, y1: 379, lo: 290, hi: 380, far: true },
+    { name: 'The Celestial Peaks', x0: 360, y0: 280, x1: 539, y1: 379, lo: 360, hi: 450, far: true },
   ];
 
   // ================= Kampong Glam (town) =================
@@ -490,6 +557,82 @@ export function buildWorld() {
     scatter('flower', x0, y0, x1, y1, 45, GRASSY);
   }
 
+  // ================= The far regions (their own random stream) =================
+  R = rng3;
+  // ---- Punggol Waterway: a riverside town and boardwalks ----
+  placeObj('sign', 436, 48, { sign: 'Punggol Point' });
+  placeObj('bank_booth', 434, 32); placeObj('bank_booth', 435, 32); placeNpc('banker', 434, 31);
+  placeNpc('shopkeeper', 444, 33); placeNpc('hawker', 448, 38); placeNpc('fletcher', 446, 42); placeNpc('mage', 438, 42);
+  placeObj('range', 450, 38); placeObj('furnace', 432, 40); placeObj('anvil', 433, 42); placeObj('crafting_table', 435, 44);
+  for (const [lx, ly] of [[430, 30], [452, 30], [430, 46], [452, 46]]) placeObj('lamp', lx, ly);
+  placeNpc('villager', 440, 37, 4); placeNpc('villager', 444, 40, 4);
+  placeObj('mrt_station', 441, 48);
+  scatter('willow', 402, 2, 530, 86, 22, GRASSY);
+  scatter('mangrove', 402, 2, 530, 86, 20, GRASSY);
+  scatter('tree', 402, 2, 530, 86, 18, GRASSY);
+  scatter('palm', 402, 2, 530, 86, 10, [T.SAND]);
+  placeFishing('rod_spot', 402, 2, 530, 86, 12);
+  placeFishing('fishing_spot', 402, 2, 530, 86, 8);
+  placeFishing('harpoon_spot', 480, 10, 520, 34, 5);
+  // ---- Kranji Farmlands: fields, orchards and Kranji Village ----
+  placeObj('sign', 452, 118, { sign: 'Kranji Village' });
+  placeObj('bank_booth', 442, 122); placeObj('bank_booth', 443, 122); placeNpc('banker', 442, 121);
+  placeNpc('shopkeeper', 456, 123); placeNpc('hawker', 460, 128);
+  placeObj('range', 459, 132); placeObj('crafting_table', 444, 134);
+  for (const [lx, ly] of [[440, 120], [462, 120], [440, 138], [462, 138]]) placeObj('lamp', lx, ly);
+  placeNpc('villager', 450, 128, 4); placeNpc('villager', 454, 132, 4);
+  placeObj('mrt_station', 451, 140);
+  scatter('tree', 402, 92, 530, 176, 16, GRASSY);
+  scatter('palm', 402, 92, 530, 176, 10, GRASSY);
+  scatter('bamboo', 402, 92, 530, 176, 10, GRASSY);
+  placeFishing('fishing_spot', 402, 92, 530, 176, 8);
+  placeFishing('rod_spot', 402, 92, 530, 176, 8);
+  // ---- Mandai Rainforest: the deepest jungle ----
+  placeObj('sign', 466, 182, { sign: '\u26A0 Mandai Rainforest: lvl 150+' });
+  placeObj('mrt_station', 474, 226);
+  scatter('mahogany', 402, 182, 530, 270, 26, GRASSY);
+  scatter('tembusu', 402, 182, 530, 270, 18, GRASSY);
+  scatter('teak', 402, 182, 530, 270, 18, GRASSY);
+  scatter('yew_tree', 402, 182, 530, 270, 14, GRASSY);
+  scatter('magic_tree', 402, 182, 530, 270, 12, GRASSY);
+  scatter('bamboo', 402, 182, 530, 270, 16, GRASSY);
+  placeFishing('rod_spot', 402, 182, 530, 270, 8);
+  // ---- Tuas Docklands: wharves, cranes and quarries ----
+  placeObj('sign', 98, 284, { sign: '\u26A0 Tuas Docklands: lvl 220+' });
+  placeObj('mrt_station', 99, 320);
+  scatter('ruin', 2, 282, 176, 370, 26, GRASSY);
+  scatter('wall', 2, 282, 176, 370, 20, [T.SAND, T.GRASS]);
+  for (const [r, n] of [['runite_rock', 10], ['granite_rock', 10], ['adamantite_rock', 8], ['coal_rock', 8], ['gem_rock', 6], ['gold_rock', 6]]) scatter(r, 2, 282, 176, 370, n, [T.SAND]);
+  placeFishing('harpoon_spot', 2, 282, 176, 370, 10);
+  placeFishing('fishing_cage', 2, 282, 176, 370, 8);
+  placeFishing('sea_rod_spot', 2, 282, 176, 370, 10);
+  // ---- Temasek Ruins: the lost kingdom, and the camp at its edge ----
+  placeObj('sign', 264, 296, { sign: '\u26A0 Temasek Ruins: lvl 290+' });
+  placeObj('bank_booth', 252, 302); placeObj('bank_booth', 253, 302); placeNpc('banker', 252, 301);
+  placeNpc('shopkeeper', 268, 303); placeNpc('mage', 270, 307); placeNpc('fletcher', 268, 311); placeNpc('hawker', 256, 311);
+  placeObj('range', 258, 312); placeObj('furnace', 251, 307); placeObj('anvil', 252, 309);
+  for (const [lx, ly] of [[250, 300], [272, 300], [250, 314], [272, 314]]) placeObj('lamp', lx, ly);
+  placeObj('shrine', 262, 306);
+  placeObj('mrt_station', 265, 318);
+  scatter('ruin', 184, 282, 356, 370, 50, [T.GRASS, T.DARKGRASS, T.STONE]);
+  scatter('wall', 184, 282, 356, 370, 34, [T.GRASS, T.DARKGRASS]);
+  scatter('magic_tree', 184, 282, 356, 370, 12, GRASSY);
+  scatter('gem_rock', 184, 282, 356, 370, 8, GRASSY);
+  scatter('runite_rock', 184, 282, 356, 370, 8, GRASSY);
+  // ---- The Celestial Peaks: the roof of the world ----
+  placeObj('sign', 466, 284, { sign: '\u26A0 The Celestial Peaks: lvl 360+' });
+  placeObj('mrt_station', 474, 320);
+  scatter('magic_tree', 364, 282, 530, 370, 16, GRASSY);
+  scatter('yew_tree', 364, 282, 530, 370, 10, GRASSY);
+  scatter('runite_rock', 364, 282, 530, 370, 12, [T.STONE, T.GRASS]);
+  scatter('gem_rock', 364, 282, 530, 370, 10, [T.STONE, T.GRASS]);
+  scatter('ruin', 364, 282, 530, 370, 20, [T.STONE]);
+  placeFishing('rod_spot', 364, 282, 530, 370, 6);
+  for (const [x0, y0, x1, y1] of [[402, 2, 530, 176], [402, 182, 530, 270], [2, 282, 176, 370], [184, 282, 356, 370], [364, 282, 530, 370]]) {
+    scatter('bush', x0, y0, x1, y1, 60, GRASSY);
+    scatter('flower', x0, y0, x1, y1, 40, GRASSY);
+  }
+
   R = rng;
   // ================= Populate the bestiary by zone =================
   const zoneByName = (name) => zones.find((z) => z.name === name);
@@ -510,11 +653,12 @@ export function buildWorld() {
   // Plenty of monsters: three of every kind, spread around its zone.
   // Monsters native to the open-world regions are placed later, on the open world's stream.
   const isNewZone = (id) => !!zoneByName(NPCS[id].zone)?.lo;
+  const isFar = (id) => !!zoneByName(NPCS[id].zone)?.far;
   for (let copy = 0; copy < MONSTER_COPIES; copy++) for (const id of MONSTER_IDS) { if (!isNewZone(id)) placeMobIn(id, 4); }
   for (const id of BOSS_IDS) { if (NPCS[id].fixed || isNewZone(id)) continue; placeMobIn(id, 3); }
   // The open-world regions draw on the whole bestiary: creatures that suit the
   // land (by body type), within the region's level band.
-  const towns = [[178, 128, 206, 147], [182, 40, 198, 49], [250, 208, 274, 222]];
+  const towns = [[178, 128, 206, 147], [182, 40, 198, 49], [250, 208, 274, 222], [430, 30, 452, 46], [440, 120, 462, 138], [250, 300, 272, 314]];
   const inNewTown = (x, y) => towns.some(([a, b, c, d]) => x >= a - 2 && x <= c + 2 && y >= b - 2 && y <= d + 2);
   const placeInZone = (id, z, wander) => {
     for (let att = 0; att < 90; att++) {
@@ -538,11 +682,11 @@ export function buildWorld() {
     'The Shadow Rift': ['undead', 'ghost', 'demon', 'drake', 'golem', 'reptile', 'serpent', 'spider', 'seacreature', 'beast'],
   };
   // Endgame monsters and the open-world bosses, in their home regions.
-  for (let copy = 0; copy < MONSTER_COPIES; copy++) for (const id of MONSTER_IDS) { if (isNewZone(id)) placeInZone(id, zoneByName(NPCS[id].zone), 4); }
-  for (const id of BOSS_IDS) { if (!NPCS[id].fixed && isNewZone(id)) placeInZone(id, zoneByName(NPCS[id].zone), 3); }
+  for (let copy = 0; copy < MONSTER_COPIES; copy++) for (const id of MONSTER_IDS) { if (isNewZone(id) && !isFar(id)) placeInZone(id, zoneByName(NPCS[id].zone), 4); }
+  for (const id of BOSS_IDS) { if (!NPCS[id].fixed && isNewZone(id) && !isFar(id)) placeInZone(id, zoneByName(NPCS[id].zone), 3); }
   for (const [name, sprites] of Object.entries(REGION_FAUNA)) {
     const z = zoneByName(name);
-    const inBand = (id) => NPCS[id].level >= z.lo && NPCS[id].level <= z.hi;
+    const inBand = (id) => !isFar(id) && NPCS[id].level >= z.lo && NPCS[id].level <= z.hi;
     let kinds = MONSTER_IDS.filter((id) => sprites.includes(NPCS[id].sprite) && inBand(id));
     // Few themed creatures at this level? Let any creature in the band roam here.
     if (kinds.length < 20) kinds = MONSTER_IDS.filter(inBand);
@@ -554,9 +698,54 @@ export function buildWorld() {
     ['bukit_brown_revenant', 'Tekong Badlands']]) {
     if (NPCS[id]) placeInZone(id, zoneByName(name), 3);
   }
+  // The far regions, on their own stream: native species, their bosses, and any
+  // other creature of the right level.
+  R = rng3;
+  for (let copy = 0; copy < MONSTER_COPIES; copy++) for (const id of MONSTER_IDS) { if (isFar(id)) placeInZone(id, zoneByName(NPCS[id].zone), 4); }
+  for (const id of BOSS_IDS) { if (isFar(id)) placeInZone(id, zoneByName(NPCS[id].zone), 3); }
+  for (const z of zones.filter((zz) => zz.far)) {
+    const kinds = MONSTER_IDS.filter((id) => !isFar(id) && NPCS[id].level >= z.lo && NPCS[id].level <= z.hi);
+    for (let copy = 0; copy < 2; copy++) for (const id of kinds) placeInZone(id, z, 4);
+  }
+  R = rng2;
   // Alignment-arc bosses at fixed, thematic spots.
   placeNpc('lion_of_light', 52, 56, 0, { aggressive: false }); // radiant guardian by the town temple (never aggressive)
   placeNpc('shadow_sovereign', 108, 50, 2);                    // dark sovereign deep in the Wilderness
+
+  // ================= Farming, Herblore, Fletching and Hunter =================
+  // Placed last, at fixed spots, so nothing generated earlier moves.
+  const OPEN_GROUND = [T.GRASS, T.DARKGRASS, T.STONE, T.SAND];
+  const placeNear = (objId, x0, y0) => {
+    for (let r = 0; r < 8; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+      const x = x0 + dx, y = y0 + dy;
+      if (OPEN_GROUND.includes(get(x, y)) && placeObj(objId, x, y)) return true;
+    }
+    return false;
+  };
+  const stations = (x, y) => { placeNear('apothecary_table', x, y); placeNear('fletching_bench', x + 2, y); };
+  const patches = (x, y, n, per = 4) => { for (let i = 0; i < n; i++) placeNear('farm_patch', x + (i % per) * 2, y + Math.floor(i / per) * 2); };
+  // Kampong Glam: a kampung allotment just south of the plaza, and work benches.
+  stations(60, 66); patches(48, 67, 4); placeNpc('farmer', 56, 67);
+  // Kranji Village: the farming heartland.
+  stations(447, 132); patches(445, 124, 12, 6); placeNpc('farmer', 457, 128);
+  // Benches in the other towns, and allotments at Marina Bay and the Temasek Camp.
+  stations(186, 137); patches(181, 132, 4); placeNpc('farmer', 189, 133);
+  stations(447, 44);
+  stations(257, 305); patches(262, 310, 4); placeNpc('farmer', 270, 304);
+  stations(256, 216);
+  // Hunter grounds, from the starter snares by Bukit Timah to the qilin trails on the Peaks.
+  for (const [id, spots] of Object.entries({
+    bird_snare: [[40, 38], [46, 40], [52, 40], [425, 100], [470, 110], [500, 140]],
+    squirrel_trap: [[30, 20], [34, 24], [415, 120], [480, 165]],
+    lizard_snare: [[42, 70], [44, 76], [240, 30], [250, 80]],
+    mousedeer_trail: [[20, 10], [26, 14], [90, 130], [140, 130]],
+    boar_pit: [[170, 30], [176, 86], [430, 150], [490, 120], [515, 170]],
+    python_trap: [[30, 130], [60, 170], [420, 70], [500, 60], [420, 230]],
+    crocodile_trap: [[12, 160], [48, 190], [430, 62], [470, 75], [510, 230]],
+    hornbill_nest: [[410, 200], [460, 215], [490, 250], [520, 195]],
+    qilin_trail: [[380, 300], [430, 340], [500, 300], [520, 360]],
+  })) for (const [x, y] of spots) placeNear(id, x, y);
 
   // --- Border fence ---
   for (let x = 0; x < W; x++) { placeObj('fence', x, 0); placeObj('fence', x, H - 1); }

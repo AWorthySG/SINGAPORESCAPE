@@ -102,3 +102,38 @@ export const LIFE_GRAD_ADV = {
   coins: 2000,
   item: 'trades_cape',
 };
+
+// "Trades of the Wild" — Cikgu Surya's course in the four newer life skills.
+// It can be taken at any time.
+export const LIFE_STAGES_WILD = [
+  {
+    skill: 'farming', name: 'Farming',
+    teach: 'First, Farming! Buy chilli seeds from Farmer Lim by the allotment south of the plaza, plant them in a farm patch, wait for them to grow, and bring me 5 chillies.',
+    need: { item: 'chilli', qty: 5 },
+    reward: { xp: 400, coins: 200 },
+  },
+  {
+    skill: 'herblore', name: 'Herblore',
+    teach: 'Herblore turns herbs into potions. Take a chilli and a vial (Farmer Lim sells vials) to the apothecary table and brew me an attack potion.',
+    need: { item: 'attack_potion', qty: 1 },
+    reward: { xp: 400, coins: 200 },
+  },
+  {
+    skill: 'fletching', name: 'Fletching',
+    teach: 'Now Fletching. With a knife, carve some logs into arrow shafts at the fletching bench beside the apothecary table. Bring me 15 arrow shafts.',
+    need: { item: 'arrow_shaft', qty: 15 },
+    reward: { xp: 400, coins: 200 },
+  },
+  {
+    skill: 'hunter', name: 'Hunter',
+    teach: 'Last, Hunter! Take a hunting snare to the bird snares on the path to Bukit Timah and check them until something springs the trap.',
+    need: { xp: 150 },
+    reward: { xp: 400, coins: 250 },
+  },
+];
+
+export const LIFE_GRAD_WILD = {
+  skills: ['farming', 'herblore', 'fletching', 'hunter'],
+  xp: 400,
+  coins: 1500,
+};

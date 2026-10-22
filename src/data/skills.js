@@ -34,6 +34,14 @@ export const SKILLS = [
     group: 'other', desc: 'Run obstacle courses; higher levels refill run energy faster.' },
   { id: 'slayer', name: 'Slayer', icon: '💀', color: '#5a5a5a',
     group: 'combat', desc: 'Hunt monsters on tasks from Slayer Master Rajan.' },
+  { id: 'farming', name: 'Farming', icon: '🌱', color: '#4a9a3a',
+    group: 'gathering', desc: 'Plant seeds in farm patches and harvest the crops when they are grown.' },
+  { id: 'hunter', name: 'Hunter', icon: '🪤', color: '#8a6a3a',
+    group: 'gathering', desc: 'Work traps and trails in the wild for feathers, meat and hides. Needs a hunting snare.' },
+  { id: 'herblore', name: 'Herblore', icon: '🧪', color: '#3aa07a',
+    group: 'making', desc: 'Brew farmed herbs into potions at an apothecary table.' },
+  { id: 'fletching', name: 'Fletching', icon: '🏹', color: '#9a7a3a',
+    group: 'making', desc: 'Make arrows, bows, staves and wands at a fletching bench. Needs a knife.' },
 ];
 
 // Skills panel sections, in display order.

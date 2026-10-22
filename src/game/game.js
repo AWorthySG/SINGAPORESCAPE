@@ -36,14 +36,16 @@ import { PRAYERS, PRAYER_BY_ID, PRAYER_GROUPS } from '../data/prayers.js';
 import {
   resolveWoodcut, resolveMine, resolveFish, resolveCook,
   resolveSmelt, resolveSmith, resolveFiremake, resolveCraft, resolveDish,
+  resolveHunt, resolveRecipe,
 } from './skilling.js';
+import { CROP_BY_SEED, cropFor, POTIONS } from '../data/trades.js';
 import { saveGame, loadGame, hasSave } from './save.js';
 import { getShop } from '../data/shops.js';
 import { RARE_DROP_TABLE, getNpc } from '../data/npcs.js';
 import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
 import { eligibleTasks, SLAYER_REWARDS } from '../data/slayer.js';
 import { STATION_BY_ID, MRT_FARE } from '../data/transport.js';
-import { LIFE_STAGES, LIFE_GRAD, LIFE_STAGES_ADV, LIFE_GRAD_ADV } from '../data/lifeskills.js';
+import { LIFE_STAGES, LIFE_GRAD, LIFE_STAGES_ADV, LIFE_GRAD_ADV, LIFE_STAGES_WILD, LIFE_GRAD_WILD } from '../data/lifeskills.js';
 import { QUESTS, CHAMPION_QP, REDEMPTION_GOAL, CORRUPTION_GOAL } from '../data/quests.js';
 import { CLUE_TIERS, CLUE_SPOTS, clueTierForLevel } from '../data/clues.js';
 
@@ -93,7 +95,7 @@ const SPLIT_SHOT_TARGETS = 3;       // ...into this many arrows, one per target
 const ALCHEMY = { level: 21, xp: 65, runes: { nature_rune: 1, fire_rune: 5 } };
 
 // Actions that can fire the instant you press (no random roll to exploit by spamming).
-const INSTANT_ACTIONS = new Set(['pickup', 'cookmenu', 'smeltmenu', 'smithmenu', 'craftmenu', 'pray', 'rest', 'transport', 'openbank', 'openshop', 'talk']);
+const INSTANT_ACTIONS = new Set(['pickup', 'cookmenu', 'smeltmenu', 'smithmenu', 'craftmenu', 'fletchmenu', 'herbmenu', 'farm', 'pray', 'rest', 'transport', 'openbank', 'openshop', 'talk']);
 const GATHER_ACTIONS = new Set(['woodcut', 'mine', 'fish', 'stall']);
 
 export class Game {
@@ -122,6 +124,7 @@ export class Game {
     this.pendingStyleChoice = false;
     this.jobClass = null;            // permanent job class (one per weapon type), see classes.js
     this.pendingClassChoice = false; // an older save that hasn't picked a class yet
+    this.potions = {};               // active potion id -> ms left (see trades.js POTIONS)
 
     this.running = false;
     this.runEnergy = 100;
@@ -160,6 +163,7 @@ export class Game {
       island_provisions: { state: 'notStarted' },
       life_skills: { state: 'notStarted', stage: 0, base: 0 },
       life_skills_adv: { state: 'notStarted', stage: 0, base: 0 },
+      life_skills_wild: { state: 'notStarted', stage: 0, base: 0 },
       champion: { state: 'notStarted', startBoss: 0 },
       redemption: { state: 'notStarted', baseGood: 0 },
       corruption: { state: 'notStarted', baseEvil: 0 },
@@ -375,6 +379,13 @@ export class Game {
       if (this._perkCache.size > 64) this._perkCache.clear();
       this._perkCache.set(key, m);
     }
+    // Potions add on top of the perks (a fresh object, so the cache stays clean).
+    for (const _ in this.potions) {
+      const pm = this.potionMods(mode === 'defence' ? this.combatMode() : mode);
+      const out = { ...m };
+      for (const [k, v] of Object.entries(pm)) out[k] = (out[k] || 0) + v;
+      return out;
+    }
     return m;
   }
 
@@ -457,6 +468,7 @@ export class Game {
     this.player.update(adt);
     for (const n of this.npcs) n.update(adt);
     this.playMs += dt;
+    this._tickPotions(dt);
 
     this.tickAcc += dt;
     let guard = 0;
@@ -627,6 +639,7 @@ export class Game {
     if (this.hasTemps) this.npcs = this.npcs.filter((n) => !(n.temporary && !n.alive));
     if (this.player.alive) this.updateRegion();
     this.world.tick();
+    this._tickFarms();
     this._spawnEmbers();
     if (this.player.alive) this._spawnAmbient();
 
@@ -796,6 +809,11 @@ export class Game {
       case 'smelt': return this._tickContinuous(a, a.obj, () => resolveSmelt(this, a));
       case 'smith': return this._tickContinuous(a, a.obj, () => resolveSmith(this, a));
       case 'craft': return this._tickContinuous(a, a.obj, () => resolveCraft(this, a));
+      case 'hunt': return this._tickContinuous(a, a.obj, () => resolveHunt(this, a));
+      case 'recipe': return this._tickContinuous(a, a.obj, () => resolveRecipe(this, a));
+      case 'fletchmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openRecipeMenu('fletching', a.obj));
+      case 'herbmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openRecipeMenu('herblore', a.obj));
+      case 'farm': return this._tickArrival(a, a.obj, true, () => this.tendPatch(a.obj));
       // One-shot arrival actions (open a UI / talk).
       case 'cookmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openCookMenu(a.obj));
       case 'smeltmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openSmeltMenu(a.obj));
@@ -2534,6 +2552,10 @@ export class Game {
       case 'furnace': return this.beginAction({ type: 'smeltmenu', obj, target: tgt }, tgt, true);
       case 'anvil': return this.beginAction({ type: 'smithmenu', obj, target: tgt }, tgt, true);
       case 'craft': return this.beginAction({ type: 'craftmenu', obj, target: tgt }, tgt, true);
+      case 'hunt': return this.beginAction({ type: 'hunt', obj }, tgt, true);
+      case 'fletch': return this.beginAction({ type: 'fletchmenu', obj, target: tgt }, tgt, true);
+      case 'herblore': return this.beginAction({ type: 'herbmenu', obj, target: tgt }, tgt, true);
+      case 'farm': return this.beginAction({ type: 'farm', obj, target: tgt }, tgt, true);
       case 'bank': return this.beginAction({ type: 'openbank', target: tgt }, tgt, true);
       case 'shrine': return this.beginAction({ type: 'pray', obj }, tgt, true);
       case 'rest': return this.beginAction({ type: 'rest', obj }, tgt, true);
@@ -2693,6 +2715,106 @@ export class Game {
   startSmelt(recipe, obj) { this.beginAction({ type: 'smelt', recipe, obj }, { x: obj.x, y: obj.y }, true); }
   startSmith(recipe, obj) { this.beginAction({ type: 'smith', recipe, obj }, { x: obj.x, y: obj.y }, true); }
   startCraft(recipe, obj) { this.beginAction({ type: 'craft', recipe, obj }, { x: obj.x, y: obj.y }, true); }
+  /** Fletching or Herblore at a station: `recipe` is { result, qty, inputs: [[id, n]], level, xp, tool? }. */
+  startRecipe(skill, recipe, obj) { this.beginAction({ type: 'recipe', skill, recipe, obj }, { x: obj.x, y: obj.y }, true); }
+
+  // ---------------- Farming ----------------
+  /** Walked up to a farm patch: harvest it, check on it, or plant the best seed you can. */
+  tendPatch(obj, seedId) {
+    if (obj.crop) {
+      const c = cropFor(obj.crop);
+      if (obj.growLeft > 0) {
+        const pct = Math.round(100 * (1 - obj.growLeft / c.grow));
+        this.msg(`The ${c.name.toLowerCase()} is growing (${pct}%). About ${Math.ceil(obj.growLeft * TICK_MS / 1000)}s to go.`);
+        return;
+      }
+      return this.harvestPatch(obj);
+    }
+    const lvl = this.skills.level('farming');
+    const seeds = this.inventory.slots.filter((sl) => sl && CROP_BY_SEED[sl.id]).map((sl) => sl.id);
+    if (!seeds.length) { this.msg('You have no seeds to plant. The farmer at Kranji or in Kampong Glam sells them.'); return; }
+    const can = seeds.filter((id) => cropFor(CROP_BY_SEED[id][0]).level <= lvl);
+    if (!can.length) { this.msg(`You need a higher Farming level to plant those seeds.`); return; }
+    if (!seedId && can.length > 1 && this.ui?.openSeedMenu) { this.ui.openSeedMenu(obj, can); return; }
+    this.plantSeed(obj, seedId || can[0]);
+  }
+
+  plantSeed(obj, seedId) {
+    const c = cropFor(CROP_BY_SEED[seedId]?.[0]);
+    if (!c || obj.crop || !this.inventory.has(seedId)) return false;
+    if (this.skills.level('farming') < c.level) { this.msg(`You need a Farming level of ${c.level} to plant this.`); return false; }
+    this.inventory.remove(seedId, 1);
+    obj.crop = c.id; obj.growLeft = c.grow;
+    this.skills.addXp('farming', c.plantXp);
+    this.spawnPoof(obj.x * TILE + TILE / 2, obj.y * TILE + TILE / 2, '#8a6a3a');
+    this.msg(`You plant the ${c.name.toLowerCase()} seed. It will be ready in about ${Math.ceil(c.grow * TICK_MS / 1000)}s.`);
+    this.bus.emit('sfx', 'gather');
+    return true;
+  }
+
+  harvestPatch(obj) {
+    const c = cropFor(obj.crop);
+    const lvl = this.skills.level('farming');
+    // Green fingers: higher levels coax a little more from each patch.
+    const n = randInt(c.yield[0], c.yield[1]) + (Math.random() < Math.min(0.5, (lvl - c.level) / 100) ? 1 : 0);
+    if (this.inventory.canAdd(c.id, n) <= 0) { this.msg('Your inventory is too full to harvest.'); return false; }
+    this.inventory.add(c.id, n);
+    this.skills.addXp('farming', c.harvestXp * n);
+    obj.crop = null; obj.growLeft = 0;
+    this.spawnSparkle({ x: obj.x, y: obj.y }, c.color, 10);
+    this.msg(`You harvest ${n} ${c.name.toLowerCase()}.`);
+    if (Math.random() < 0.25) { this.inventory.add(c.seed, 1); this.msg(`You save a ${c.name.toLowerCase()} seed for next time.`); }
+    this.bus.emit('sfx', 'pickup');
+    return true;
+  }
+
+  _tickFarms() {
+    this._farms ||= this.world.objects.filter((o) => o.def.type === 'farm');
+    for (const o of this._farms) if (o.crop && o.growLeft > 0) {
+      o.growLeft--;
+      if (o.growLeft === 0 && chebyshev(o.x, o.y, this.player.x, this.player.y) < 40) this.msg(`Your ${cropFor(o.crop).name.toLowerCase()} is ready to harvest.`, 'level');
+    }
+  }
+
+  // ---------------- Potions (Herblore) ----------------
+  drinkPotion(index) {
+    const s = this.inventory.slotAt(index);
+    const pot = s && POTIONS[s.id];
+    if (!pot) return;
+    this.inventory.removeAt(index, 1);
+    if (pot.fx.heal) {
+      this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.round(this.maxHp() * pot.fx.heal));
+      this.bus.emit('hp');
+    }
+    if (pot.group) {
+      for (const id of Object.keys(this.potions)) if (POTIONS[id].group === pot.group) delete this.potions[id];
+      this.potions[s.id] = pot.ms;
+    }
+    this.spawnSparkle(this.player, pot.color, 10);
+    this.msg(pot.group ? `You drink the ${pot.name.toLowerCase()}. You feel stronger for ${Math.round(pot.ms / 60000)} minutes.` : `You drink the ${pot.name.toLowerCase()}.`);
+    this.bus.emit('sfx', 'eat');
+    this.bus.emit('potions');
+  }
+
+  _tickPotions(dt) {
+    let changed = false;
+    for (const id of Object.keys(this.potions)) {
+      this.potions[id] -= dt;
+      if (this.potions[id] <= 0) { delete this.potions[id]; changed = true; this.msg(`Your ${POTIONS[id].name.toLowerCase()} has worn off.`, 'system'); }
+    }
+    if (changed) this.bus.emit('potions');
+  }
+
+  /** Combined combat boosts from the potions you have active, for a fighting style. */
+  potionMods(mode = this.combatMode()) {
+    const out = {};
+    for (const id of Object.keys(this.potions)) {
+      const pot = POTIONS[id];
+      if (pot.style && pot.style !== mode) continue;
+      for (const [k, v] of Object.entries(pot.fx)) if (k !== 'heal') out[k] = (out[k] || 0) + v;
+    }
+    return out;
+  }
 
   handleDialogueAction(action) {
     if (action === 'giveStarter') this.giveStarter();
@@ -2733,6 +2855,9 @@ export class Game {
     else if (action === 'lifeAdvStart') this.startLife('life_skills_adv');
     else if (action === 'lifeAdvTurnIn') this.advanceLife('life_skills_adv');
     else if (action === 'lifeAdvRemind') this.remindLife('life_skills_adv');
+    else if (action === 'lifeWildStart') this.startLife('life_skills_wild');
+    else if (action === 'lifeWildTurnIn') this.advanceLife('life_skills_wild');
+    else if (action === 'lifeWildRemind') this.remindLife('life_skills_wild');
     else if (action === 'championStart') this.startChampion();
     else if (action === 'championTurnIn') this.turnInChampion();
     else if (action === 'redemptionStart') this.startRedemption();
@@ -2817,6 +2942,9 @@ export class Game {
   _lifeLine(key) {
     if (key === 'life_skills_adv') {
       return { q: this.quests.life_skills_adv, stages: LIFE_STAGES_ADV, grad: LIFE_GRAD_ADV, name: 'Master of Trades' };
+    }
+    if (key === 'life_skills_wild') {
+      return { q: this.quests.life_skills_wild, stages: LIFE_STAGES_WILD, grad: LIFE_GRAD_WILD, name: 'Trades of the Wild' };
     }
     return { q: this.quests.life_skills, stages: LIFE_STAGES, grad: LIFE_GRAD, name: 'Trades of the Island' };
   }

@@ -11,6 +11,8 @@
 //   equip      { slot, req?, bonuses?: {attack,strength,defence,speed} }
 //   tags       misc tags (e.g. 'log' for firemaking, 'raw' for cooking)
 
+import { CROPS, POTIONS } from './trades.js';
+
 const RAW = {
   // ---- Currency ----
   coins: { name: 'Coins', icon: '🪙', value: 1, stackable: true, maxStack: Infinity, examine: 'Lovely money!' },
@@ -709,6 +711,33 @@ const WEAPON_SPECS = {
   ancient_staff: { name: 'Arcane Surge', cost: 55, acc: 1.5, dmg: 1.8 },
 };
 for (const [id, spec] of Object.entries(WEAPON_SPECS)) { if (RAW[id]) RAW[id].spec = spec; }
+
+// ---- Farming, Herblore, Fletching and Hunter (see trades.js) ----
+for (const [id, name, lvl, , , , , heal, value] of CROPS) {
+  RAW[`${id}_seed`] = { name: `${name} seed`, icon: '🌱', value: Math.max(2, Math.round(value / 3)), stackable: true, tags: ['seed'],
+    examine: `Plant it in a farm patch to grow ${name.toLowerCase()}. (Farming ${lvl})` };
+  if (!RAW[id]) RAW[id] = { name, icon: heal ? '🍈' : '🌿', value, stackable: true, tags: heal ? ['crop'] : ['crop', 'herb'], ...(heal ? { heal } : {}),
+    examine: heal ? `Fresh ${name.toLowerCase()} from the farm. Heals ${heal}.` : `A farmed herb, ready for Herblore.` };
+}
+for (const [id, p] of Object.entries(POTIONS)) {
+  const what = p.fx.heal && !p.fx.acc ? `Restores ${Math.round(p.fx.heal * 100)}% of your life.` : `Boosts you in a fight for ${Math.round(p.ms / 60000)} minutes.`;
+  RAW[id] = { name: p.name, icon: '🧪', value: Math.round(20 + p.level * p.level * 0.6), stackable: true, potion: true, tags: ['potion'], examine: `${what} (Herblore ${p.level})` };
+}
+Object.assign(RAW, {
+  knife: { name: 'Knife', icon: '🔪', value: 6, tool: 'knife', examine: 'For fletching logs into shafts, bows, staves and wands.' },
+  hunting_snare: { name: 'Hunting snare', icon: '🪢', value: 10, tool: 'snare', examine: 'Rope and pegs for working Hunter traps.' },
+  arrow_shaft: { name: 'Arrow shaft', icon: '🥢', value: 1, stackable: true, examine: 'Add feathers and a metal bar to make arrows.' },
+  squirrel_pelt: { name: 'Squirrel pelt', icon: '🟫', value: 18, stackable: true, tags: ['hide'], examine: 'Soft fur. Craft three into a leather body.' },
+  lizard_skin: { name: 'Lizard skin', icon: '🟩', value: 40, stackable: true, tags: ['hide'], examine: 'Scaly skin, good for a coif or chaps.' },
+  raw_venison: { name: 'Raw venison', icon: '🥩', value: 45, tags: ['raw'], examine: 'Mousedeer meat. Cook it first.' },
+  venison: { name: 'Venison', icon: '🍖', value: 80, heal: 13, examine: 'Roast venison.' },
+  raw_boar_meat: { name: 'Raw boar meat', icon: '🥩', value: 70, tags: ['raw'], examine: 'Wild boar. Cook it first.' },
+  boar_steak: { name: 'Boar steak', icon: '🍖', value: 130, heal: 17, examine: 'A thick, smoky boar steak.' },
+  python_skin: { name: 'Python skin', icon: '🟨', value: 120, stackable: true, tags: ['hide'], examine: 'A patterned skin. Craft four into a studded body.' },
+  croc_hide: { name: 'Crocodile hide', icon: '🟢', value: 300, stackable: true, tags: ['hide'], examine: 'Tough as armour. Craft it into dragonhide.' },
+  hornbill_casque: { name: 'Hornbill casque', icon: '🟠', value: 1500, stackable: true, examine: 'A rare casque, prized by herbalists.' },
+  qilin_mane: { name: 'Qilin mane', icon: '✨', value: 6000, stackable: true, examine: 'A lock of golden mane from a celestial qilin.' },
+});
 
 // Freeze each definition and attach its id for convenience.
 // ---- Weapon types (one per job class) ----

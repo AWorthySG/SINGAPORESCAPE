@@ -1,3 +1,4 @@
+import { CROPS } from './trades.js';
 import { BOSS_ABILITIES } from './bossAbilities.js';
 // NPC registry. Monsters are generated from archetype "bases" × rank tiers into a
 // 169-strong bestiary (scaled stats + level-tiered drops), plus 15 hand-authored
@@ -26,6 +27,13 @@ function nextMetal(tier) { const i = METAL_TIERS.findIndex(([, t]) => t === tier
 // Arrows of a metal tier (the endgame metals share the nearest arrow).
 const ARROW_FOR = { obsidian: 'dragon_arrow', orichalcum: 'dragon_arrow', dragon: 'dragon_arrow', jade: 'jade_arrow', starmetal: 'starmetal_arrow', celestial: 'starmetal_arrow', eternal: 'eternal_arrow' };
 
+// The best seed a monster of this level might carry.
+function seedFor(level) {
+  let best = CROPS[0];
+  for (const c of CROPS) if (c[2] <= level * 0.9) best = c;
+  return `${best[0]}_seed`;
+}
+
 function dropsFor(level) {
   const tier = metalFor(level);
   const ore = { bronze: 'copper_ore', iron: 'iron_ore', steel: 'coal', mithril: 'mithril_ore', adamant: 'adamantite_ore' }[tier] || 'runite_ore';
@@ -37,6 +45,8 @@ function dropsFor(level) {
     // Arrows of the area's tier, so archers can keep hunting.
     { id: ARROW_FOR[tier] || `${tier}_arrow`, min: 8, max: 25, weight: 10 },
   ];
+  // Farming: seeds that suit the area.
+  t.push({ id: seedFor(level), min: 1, max: 3, weight: 4 }, { id: seedFor(level / 2), min: 1, max: 4, weight: 4 });
   // Archery gear: a bow of the area's tier and ranged armour, like the melee pool.
   t.push({ id: bowFor(level), weight: 14 });         // ~1 kill in 10
   t.push({ id: bowFor(level + 20), weight: 6 });     // often the next bow up
@@ -235,6 +245,60 @@ for (const rank of ENDGAME_RANKS) {
     _mobs[id] = { ...makeMob(id, `${rank.p} ${bn}`, sprite, color, level, rank.zone, true, slug(bn)), scale: rank.scale };
   });
 }
+// The far regions (east and south of the open world): their own species, each in
+// three forms spread across its region's level band.
+const FAR_BASES = [
+  // [name, sprite, color, zone, aggressive]
+  ['Water monitor', 'reptile', '#5a6a3a', 'Punggol Waterway', true],
+  ['Grey heron', 'fowl', '#b8c0c8', 'Punggol Waterway', false],
+  ['Mudskipper', 'seacreature', '#7a8a5a', 'Punggol Waterway', false],
+  ['River otter', 'beast', '#6a5038', 'Punggol Waterway', true],
+  ['Water buffalo', 'beast', '#4a4a4a', 'Kranji Farmlands', false],
+  ['House crow', 'fowl', '#2a2a30', 'Kranji Farmlands', true],
+  ['Field rat', 'rodent', '#8a7050', 'Kranji Farmlands', true],
+  ['Scarecrow', 'humanoid', '#caa05a', 'Kranji Farmlands', true],
+  ['Banded leaf monkey', 'primate', '#3a3a3a', 'Mandai Rainforest', true],
+  ['Sun bear', 'beast', '#2a2420', 'Mandai Rainforest', true],
+  ['Clouded leopard', 'beast', '#a08a5a', 'Mandai Rainforest', true],
+  ['Bunian', 'ghost', '#a8e0c0', 'Mandai Rainforest', true],
+  ['Dock rat', 'rodent', '#6a6a70', 'Tuas Docklands', true],
+  ['Rust golem', 'golem', '#a0582a', 'Tuas Docklands', true],
+  ['Smuggler', 'humanoid', '#3a4a5a', 'Tuas Docklands', true],
+  ['Drowned sailor', 'undead', '#7aa0a0', 'Tuas Docklands', true],
+  ['Temasek guardian', 'golem', '#caa86a', 'Temasek Ruins', true],
+  ['Ancient naga', 'serpent', '#2f8a6a', 'Temasek Ruins', true],
+  ['Ruin wraith', 'ghost', '#c8b8a0', 'Temasek Ruins', true],
+  ['Bronze warrior', 'undead', '#c07b3a', 'Temasek Ruins', true],
+  ['Storm drake', 'drake', '#5a7ac0', 'The Celestial Peaks', true],
+  ['Celestial qilin', 'beast', '#e8d080', 'The Celestial Peaks', true],
+  ['Jinn', 'demon', '#4a3a8a', 'The Celestial Peaks', true],
+  ['Garuda fledgling', 'fowl', '#e0b040', 'The Celestial Peaks', true],
+];
+// Level bands of the far regions (kept in step with world.js).
+export const FAR_BANDS = {
+  'Punggol Waterway': [40, 110], 'Kranji Farmlands': [15, 80], 'Mandai Rainforest': [150, 240],
+  'Tuas Docklands': [220, 300], 'Temasek Ruins': [290, 380], 'The Celestial Peaks': [360, 450],
+};
+const FAR_FORMS = [{ p: '', at: 0.1, scale: 1 }, { p: 'Elder', at: 0.5, scale: 1.1 }, { p: 'Ancient', at: 0.9, scale: 1.2 }];
+FAR_BASES.forEach(([bn, sprite, color, zone, aggro], i) => {
+  const [lo, hi] = FAR_BANDS[zone];
+  for (const f of FAR_FORMS) {
+    const name = (f.p ? f.p + ' ' : '') + bn;
+    // Stagger the species a little so each band is evenly covered.
+    const level = Math.round(lo + (hi - lo) * Math.min(1, f.at + (i % 4) * 0.03));
+    const id = slug(name);
+    _mobs[id] = { ...makeMob(id, name, sprite, color, level, zone, aggro || !!f.p, slug(bn)), scale: f.scale };
+  }
+});
+// Celestial and Divine forms of the fiercest species, for the two highest regions.
+for (const rank of [{ p: 'Celestial', lo: 320, hi: 380, zone: 'Temasek Ruins', scale: 1.4 }, { p: 'Divine', lo: 380, hi: 450, zone: 'The Celestial Peaks', scale: 1.45 }]) {
+  ENDGAME_BASES.forEach((bn, i) => {
+    const b = BASES.find((x) => x[0] === bn);
+    const level = Math.round(rank.lo + (rank.hi - rank.lo) * i / (ENDGAME_BASES.length - 1));
+    const id = slug(`${rank.p} ${bn}`);
+    _mobs[id] = { ...makeMob(id, `${rank.p} ${bn}`, b[1], b[2], level, rank.zone, true, slug(bn)), scale: rank.scale };
+  });
+}
 for (const id of Object.keys(_mobs)) MONSTER_IDS.push(id);
 
 // ---------------- Bosses (15) ----------------
@@ -335,6 +399,19 @@ Object.assign(BOSS_DEFS, {
   rift_tyrant: makeBoss('rift_tyrant', 'Rift Tyrant', 'demon', '#5a1a6a', 260, 'The Shadow Rift', 2.6, tierGear(260, 1)),
   eternal_wyrm: makeBoss('eternal_wyrm', 'The Eternal Wyrm', 'drake', '#f5b82e', 320, 'The Shadow Rift', 2.8,
     [...tierGear(320, 1), { id: 'eternal_bow', weight: 4 }, { id: 'eternal_staff', weight: 4 }, { id: 'eternal_whip', weight: 4 }, { id: 'eternal_2h_sword', weight: 4 }]),
+  // The far regions
+  kranji_buffalo_king: makeBoss('kranji_buffalo_king', 'Kranji Buffalo King', 'beast', '#3a3a3a', 80, 'Kranji Farmlands', 2.2, tierGear(80, 1)),
+  punggol_lantern_spirit: makeBoss('punggol_lantern_spirit', 'Punggol Lantern Spirit', 'ghost', '#ffc870', 110, 'Punggol Waterway', 2.2, tierGear(110, 1)),
+  harimau_jadian: makeBoss('harimau_jadian', 'Harimau Jadian', 'beast', '#d08a3a', 210, 'Mandai Rainforest', 2.5, tierGear(210, 1)),
+  bunian_queen: makeBoss('bunian_queen', 'Bunian Queen', 'ghost', '#8ae0b0', 235, 'Mandai Rainforest', 2.5, tierGear(235, 1)),
+  tuas_crane_colossus: makeBoss('tuas_crane_colossus', 'Tuas Crane Colossus', 'golem', '#e0a030', 270, 'Tuas Docklands', 2.7, tierGear(270, 1)),
+  drowned_admiral: makeBoss('drowned_admiral', 'The Drowned Admiral', 'undead', '#5a8a9a', 295, 'Tuas Docklands', 2.6, tierGear(295, 1)),
+  singa_of_temasek: makeBoss('singa_of_temasek', 'Singa of Temasek', 'beast', '#f0c040', 350, 'Temasek Ruins', 2.8, tierGear(350, 1.2)),
+  spirit_of_badang: makeBoss('spirit_of_badang', 'Spirit of Badang', 'humanoid', '#8a6a4a', 380, 'Temasek Ruins', 2.8, tierGear(380, 1.2)),
+  celestial_garuda: makeBoss('celestial_garuda', 'The Celestial Garuda', 'drake', '#ffd860', 420, 'The Celestial Peaks', 2.9,
+    [...tierGear(420, 1.3), { id: 'eternal_bow', weight: 6 }, { id: 'eternal_whip', weight: 6 }]),
+  jade_dragon: makeBoss('jade_dragon', 'The Jade Emperor\'s Dragon', 'drake', '#2f9a6a', 450, 'The Celestial Peaks', 3.0,
+    [...tierGear(450, 1.5), { id: 'eternal_bow', weight: 6 }, { id: 'eternal_staff', weight: 6 }, { id: 'eternal_whip', weight: 6 }, { id: 'eternal_2h_sword', weight: 6 }]),
 });
 const BOSS_IDS = Object.keys(BOSS_DEFS);
 
@@ -377,6 +454,7 @@ const TOWNSFOLK = {
   skills_tutor: { name: 'Cikgu Surya', level: 0, attackable: false, role: 'dialogue', wander: 0, examine: 'A patient teacher of the island\'s trades.', dialogue: 'tutor' },
   light_priestess: { name: 'Sister Mei', level: 0, attackable: false, role: 'dialogue', wander: 0, examine: 'A serene priestess who offers the path of redemption.', dialogue: 'priestess' },
   shadow_broker: { name: 'The Tempter', level: 0, attackable: false, role: 'dialogue', wander: 0, examine: 'A hooded figure who whispers of corruption.', dialogue: 'tempter' },
+  farmer: { name: 'Farmer Lim', level: 0, attackable: false, role: 'shop', wander: 0, examine: 'He sells seeds, vials, knives and snares.', shop: 'farming' },
   villager: { name: 'Villager', level: 0, attackable: false, role: 'dialogue', wander: 5, examine: 'A local resident.', dialogue: 'villager' },
 };
 
@@ -405,6 +483,8 @@ for (const id of BOSS_IDS) {
     { id: lvl < 60 ? 'death_rune' : 'blood_rune', min: 40, max: 150, weight: 8 },
     { id: 'chaos_rune', min: 60, max: 200, weight: 6 },
     { id: 'nature_rune', min: 20, max: 80, weight: 5 },
+    // Farming: rare seeds, and the high-level herbs' seeds from the strongest.
+    { id: seedFor(lvl), min: 2, max: 5, weight: 8 },
   ];
 }
 for (const id of BOSS_IDS) NPCS[id] = BOSS_DEFS[id];

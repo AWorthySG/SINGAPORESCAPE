@@ -10,13 +10,13 @@ export const STACK_LIMIT = 999; // max quantity of one item per inventory slot
 const SPARE = 4;
 
 export const CATEGORY_ORDER = ['coins', 'gear', 'food', 'materials', 'other'];
-const MATERIAL_TAGS = ['ore', 'bar', 'log', 'raw', 'herb', 'rune', 'ammo', 'gem', 'bait'];
+const MATERIAL_TAGS = ['ore', 'bar', 'log', 'raw', 'herb', 'rune', 'ammo', 'gem', 'bait', 'seed', 'crop', 'hide'];
 /** Which inventory tab an item belongs to. */
 export function itemCategory(id) {
   if (id === 'coins') return 'coins';
   const it = getItem(id);
   if (it.equip) return 'gear';
-  if (it.heal) return 'food';
+  if (it.heal || it.potion) return 'food';
   if ((it.tags || []).some((t) => MATERIAL_TAGS.includes(t)) || /_(ore|bar|logs)$|^raw_/.test(id)) return 'materials';
   return 'other';
 }   // empty slots kept open at the end (one grid row)
