@@ -24,6 +24,7 @@ import {
   playerAttackVsNpc, npcAttackVsPlayer, rollAttack, rollGuaranteed, combatXp,
   playerRangedVsNpc, combatXpRanged, playerMagicVsNpc, RANGED_STYLES,
   weaknessOf, WEAKNESS_BONUS, critChance, CRIT_MULT,
+  playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX,
 } from './combat.js';
 import { ABILITY_BY_ID, abilitiesFor } from '../data/abilities.js';
 import { getSpell, SPELLS } from '../data/magic.js';
@@ -178,6 +179,8 @@ export class Game {
     this._autoLast = null;
     this.abilityCd = {};          // ability id -> ticks until usable again
     this.braceTicks = 0;          // ticks of halved incoming damage left
+    this.danceRhythm = 0;         // Dancer Rhythm stacks (more whip damage per landed lash)
+    this._danceHitTick = 0;
 
     // Celebratory sparkle on level up; new milestones may unlock on level/quest changes.
     this.bus.on('levelup', (p) => {
@@ -255,6 +258,14 @@ export class Game {
       this.equipment.set('body', 'studded_body');
       this.equipment.set('legs', 'leather_chaps');
       this.inventory.add('bronze_arrow', 999);
+    } else if (style === 'dance') {
+      this.equipment.set('weapon', 'leather_whip');
+      this.equipment.set('head', 'silk_headdress');
+      this.equipment.set('body', 'silk_dancer_top');
+      this.equipment.set('legs', 'silk_dancer_skirt');
+      this.equipment.set('feet', 'silk_slippers');
+      // Dancers start at Agility 15, matching melee's starting Attack/Strength.
+      this.skills.xp.agility = Math.max(this.skills.xp.agility, xpForLevel(15));
     } else if (style === 'magic') {
       this.equipment.set('weapon', 'staff');
       this.equipment.set('head', 'wizard_hat');
@@ -501,6 +512,8 @@ export class Game {
   // ---------------- Game tick (600ms) ----------------
   doTick() {
     this.tickCount++;
+    // Rhythm fades if the Dancer stops lashing for a few ticks.
+    if (this.danceRhythm > 0 && this.tickCount - this._danceHitTick > 4) { this.danceRhythm = 0; this.bus.emit('rhythm'); }
     if (!this.player.alive) {
       if (--this.player.respawnTimer <= 0) this.respawnPlayer();
     } else {
@@ -806,6 +819,7 @@ export class Game {
   attackRange() {
     const m = this.combatMode();
     if (m === 'ranged') { const w = this.equipment.get('weapon'); return (w && getItem(w).equip?.range) || 12; }
+    if (m === 'dance') { const w = this.equipment.get('weapon'); return (w && getItem(w).equip?.range) || 3; }
     return m === 'magic' ? 8 : 1;
   }
 
@@ -813,6 +827,7 @@ export class Game {
     const mode = this.combatMode();
     if (mode === 'ranged') return this._rangedAttack(npc);
     if (mode === 'magic') return this._magicAttack(npc);
+    if (mode === 'dance') return this._danceAttack(npc);
     const { atkRoll, defRoll, max } = playerAttackVsNpc(this.skills, this.equipment, this.player.style, npc.def);
     const pm = this.prayerMult();
     const baseMax = Math.round(max * pm.str);
@@ -977,7 +992,7 @@ export class Game {
   _offensiveMods(npc, mode) {
     const spec = this._takeSpec();
     const ab = this._takeAbility();
-    const weak = weaknessOf(npc.def) === mode;
+    const weak = weaknessOf(npc.def) === (mode === 'dance' ? 'melee' : mode);   // whips count as melee for weaknesses
     let accM = (spec ? spec.acc || 1 : 1) * (weak ? WEAKNESS_BONUS.acc : 1);
     let dmgM = (spec ? spec.dmg || 1 : 1) * (ab ? ab.dmgMul || 1 : 1) * (weak ? WEAKNESS_BONUS.dmg : 1);
     // Magic casts once (rune cost), so its extra hits are ignored.
@@ -988,7 +1003,7 @@ export class Game {
     if (spec) { this.msg(`Special attack: ${spec.name}!`, 'combat'); this.spawnSparkle(this.player, '#ffd24a', 12); }
     if (ab) { this.msg(`Ability: ${ab.name}!`, 'combat'); this.spawnSparkle(this.player, '#ff9a3a', 10); this.bus.emit('sfx', 'spec'); }
     if (weak) this.spawnSparkle(npc, '#9affd0', 6);
-    const lvl = mode === 'ranged' ? this.skills.ranged : mode === 'magic' ? this.skills.magic : this.skills.attack;
+    const lvl = mode === 'ranged' ? this.skills.ranged : mode === 'magic' ? this.skills.magic : mode === 'dance' ? this.skills.agility : this.skills.attack;
     const critCh = critChance(lvl, this.equipment.bonuses().crit);
     return { accM, dmgM, hits, guaranteed, heal, spec, ability: ab, weak, critCh };
   }
@@ -1025,6 +1040,57 @@ export class Game {
     if (this.tickCount - (this._ammoSaidAt ?? -99) < 15) return;
     this._ammoSaidAt = this.tickCount;
     this.msg(text);
+  }
+
+  /** The Dancer's whip: a lash that reaches 3 tiles. Landed lashes build Rhythm
+   *  (more damage per stack); a miss or a pause lets it fade. Sweeping abilities
+   *  lash every monster within reach, and Crack stuns. */
+  _danceAttack(npc) {
+    const p = this.player, style = p.danceStyle;
+    const pm = this.prayerMult();
+    const mods = this._offensiveMods(npc, 'dance');
+    const fancy = mods.spec || mods.ability;
+    this._swingToward(p, npc.x, npc.y);
+    this.bus.emit('sfx', 'swish');
+    const range = this.attackRange();
+    const targets = mods.ability?.sweep
+      ? [npc, ...this.npcs.filter((n) => n !== npc && n.alive && n.attackable && !n.temporary && n.hp > 0 && chebyshev(p.x, p.y, n.x, n.y) <= range)]
+      : [npc];
+    let total = 0;
+    for (const t of targets) {
+      const { atkRoll, defRoll, max } = playerDanceVsNpc(this.skills, this.equipment, style, t.def, this.danceRhythm);
+      this._lash(t, fancy ? '#ffd24a' : '#ff8ac0');
+      for (let i = 0; i < mods.hits && t.hp > 0; i++) {
+        const effMax = Math.max(1, Math.round(max * pm.str * mods.dmgM));
+        let dmg = mods.guaranteed ? rollGuaranteed(effMax) : rollAttack(atkRoll * pm.att * mods.accM, defRoll, effMax);
+        const c = this._critHit(dmg, mods.critCh); dmg = c.dmg;
+        this._applyPlayerHit(t, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax) });
+        if (dmg > 0) {
+          this.spawnHitSparks(t, (c.crit || fancy) ? '#ffd24a' : '#ffb0d8');
+          for (const x of combatXpDance(style, dmg)) this.skills.addXp(x.skill, x.xp * this.combatXpMult());
+          this.danceRhythm = Math.min(RHYTHM_MAX, this.danceRhythm + 1);
+        } else if (t === npc) this.danceRhythm = 0;
+        total += dmg;
+      }
+      if (mods.ability?.stun && t.hp > 0) {   // Crack: the monster reels and can't strike back for a moment
+        t.windup = 0; t.attackCooldown = Math.max(t.attackCooldown || 0, mods.ability.stun * 2);
+        this.addHitsplat(t, 0, { text: 'Stunned!' });
+      }
+      if (!t.target) t.target = p;
+      if (t !== npc && t.hp <= 0) this.killNpc(t);
+    }
+    this._danceHitTick = this.tickCount;
+    if (this.danceRhythm >= RHYTHM_MAX && total > 0) this.spawnSparkle(p, '#ff8ac0', 4);
+    if (mods.heal && total > 0) { p.hp = Math.min(this.maxHp(), p.hp + Math.round(total * mods.heal)); this.bus.emit('hp'); }
+    p.attackCooldown = this.equipment.weaponSpeed();
+    this.bus.emit('rhythm');
+    this._postAttack(npc);
+  }
+
+  /** A whip crack: a wavy line from the hero's hand to the target. */
+  _lash(npc, color) {
+    const from = this.player.renderCenter(), to = npc.renderCenter();
+    this.effects.push({ type: 'lash', x: from.x + (to.x >= from.x ? 8 : -8), y: from.y - 4, ex: to.x, ey: to.y - 8, color, life: 260, maxLife: 260 });
   }
 
   _rangedAttack(npc) {
@@ -1171,8 +1237,15 @@ export class Game {
     const p = this.player;
     if (!p.alive) return;
     this._swingToward(npc, p.x, p.y);
-    const { atkRoll, defRoll, max } = npcAttackVsPlayer(npc.def, this.skills, this.equipment, p.style);
     const heavy = !!opts.heavy;
+    // Dancers slip blows entirely now and then (more often in the Twirl style).
+    if (this.combatMode() === 'dance' && Math.random() < danceEvade(this.skills.agility, p.danceStyle) * (heavy ? 0.5 : 1)) {
+      this.addHitsplat(p, 0, { text: 'Dodged!' });
+      this.spawnSparkle(p, '#ff8ac0', 5);
+      if (p.autoRetaliate && (!p.action || p.action.type !== 'attack')) this.attackNpc(npc);
+      return;
+    }
+    const { atkRoll, defRoll, max } = npcAttackVsPlayer(npc.def, this.skills, this.equipment, p.style);
     let dmg = rollAttack(atkRoll, defRoll * this.prayerMult().def, heavy ? Math.round(max * 2) : max);
     if (heavy && dmg === 0) dmg = Math.max(1, Math.round(max * 1.2)); // a telegraphed blow always stings
     if (heavy) { this._slash(p, '#ff6a5a'); this.addShake(4, 260); }
@@ -1244,7 +1317,7 @@ export class Game {
       // A boss kill is a big payday: bonus XP in your combat style and Hitpoints.
       const xp = Math.round((npc.def.level || 1) * BOSS_XP_PER_LEVEL * this.combatXpMult());
       const mode = this.combatMode();
-      const skill = mode === 'ranged' ? 'ranged' : mode === 'magic' ? 'magic' : ({ aggressive: 'strength', defensive: 'defence' }[this.player.style] || 'attack');
+      const skill = mode === 'ranged' ? 'ranged' : mode === 'magic' ? 'magic' : mode === 'dance' ? 'agility' : ({ aggressive: 'strength', defensive: 'defence' }[this.player.style] || 'attack');
       this.skills.addXp(skill, xp); this.skills.addXp('hitpoints', Math.round(xp / 3));
       this.msg(`Boss slain! +${xp * XP_RATE} ${skill} XP.`, 'level');
     }

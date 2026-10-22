@@ -387,8 +387,15 @@
 
   const dragon = '#c0392b', dragonHi = '#e8543f';
   const METAL_PAL = { bronze: [C.bronze, C.bronzeHi], iron: [C.iron, C.ironHi], steel: [C.steel, C.steelHi], mithril: [mith, mithHi], adamant: [adam, adamHi], rune: [rune, runeHi], dragon: [dragon, dragonHi] };
-  const WBUILD = { dagger: blade, sword: blade, scimitar: scim, mace, longsword, battleaxe, warhammer, '2h_sword': twohander };
-  const ABUILD = { med_helm: helm, full_helm: helm, chainbody: plate, platebody: plate, platelegs: legs, sq_shield: shield, kiteshield: shield, gauntlets: gloves, boots };
+  // Newer weapon families: spear, claws, katana, halberd.
+  const spear = (col, hi) => `<path d="M5 21 L16.5 6.5" stroke="${OL}" stroke-width="3" stroke-linecap="round"/><path d="M5 21 L16.5 6.5" stroke="${C.wood}" stroke-width="1.8" stroke-linecap="round"/><path d="M15 8 L20 2 L19.2 8.6 Z" fill="${col}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M16.2 7.4 L19.4 3.4 L18.9 7.6 Z" fill="${hi}"/><rect x="13.4" y="8.2" width="3.4" height="1.6" rx="0.7" fill="${C.goldDk}" stroke="${OL}" stroke-width="0.6" transform="rotate(-52 15 9)"/>${glint(18.4, 4.2, 0.6)}`;
+  const claws = (col, hi) => `<rect x="5" y="14" width="13" height="5" rx="2.2" fill="${C.wood}" stroke="${OL}" stroke-width="1.1"/><rect x="5.6" y="14.6" width="11.8" height="1.4" rx="0.7" fill="${C.goldDk}"/>${[7, 11.5, 16].map((x) => `<path d="M${x - 1.6} 14.4 C${x - 1.6} 9 ${x + 0.6} 5 ${x + 3} 2.6 C${x + 1.4} 6 ${x + 1.4} 10 ${x + 1.4} 14.4 Z" fill="${col}" stroke="${OL}" stroke-width="1" stroke-linejoin="round"/><path d="M${x - 0.4} 13.6 C${x - 0.4} 9.6 ${x + 0.8} 6.4 ${x + 2.4} 4" fill="none" stroke="${hi}" stroke-width="0.8"/>`).join('')}`;
+  const katana = (col, hi) => `<path d="M6 19 C9 13 13 7 19.5 2.5 C18 6 14 12 8.4 19.8 Z" fill="${col}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M8 18.6 C11 13 14.6 8 19 3.4" fill="none" stroke="${hi}" stroke-width="0.8"/><ellipse cx="7.2" cy="19.4" rx="2.6" ry="1.5" fill="${C.goldDk}" stroke="${OL}" stroke-width="0.9" transform="rotate(-50 7.2 19.4)"/><path d="M6.4 20.2 L3.6 23" stroke="${OL}" stroke-width="2.8" stroke-linecap="round"/><path d="M6.4 20.2 L3.6 23" stroke="#3a2a4a" stroke-width="1.6" stroke-linecap="round"/>${glint(16.6, 5.4, 0.6)}`;
+  const halberd = (col, hi) => `<rect x="11" y="2" width="2.2" height="20" rx="1" fill="${C.wood}" stroke="${OL}" stroke-width="1"/><path d="M13.2 4.5 C19 4 20.5 8 19.5 12 C17 10.4 15 10.2 13.2 10.6 Z" fill="${col}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M14.4 5.6 C17.6 5.4 19 7.4 18.8 10" fill="none" stroke="${hi}" stroke-width="0.9"/><path d="M11 6 L7.4 7.6 L11 9 Z" fill="${col}" stroke="${OL}" stroke-width="0.9" stroke-linejoin="round"/><path d="M12.1 0.6 L13.6 3 L10.6 3 Z" fill="${col}" stroke="${OL}" stroke-width="0.9" stroke-linejoin="round"/>${glint(17.6, 6.4, 0.6)}`;
+  const plateskirt = (col, hi) => `<path d="M8 4 L16 4 L19 19 L5 19 Z" fill="${col}" stroke="${OL}" stroke-width="1.2" stroke-linejoin="round"/><rect x="7.6" y="4" width="8.8" height="2.4" rx="1" fill="${C.goldDk}" stroke="${OL}" stroke-width="0.6"/><path d="M10 7 L9 18.6 M14 7 L15 18.6 M12 7 L12 18.6" stroke="rgba(0,0,0,0.18)" stroke-width="0.9"/><path d="M8.6 7 L6.4 18" stroke="${hi}" stroke-width="1"/>`;
+  const buckler = (col, hi) => `<circle cx="12" cy="12" r="8" fill="${col}" stroke="${OL}" stroke-width="1.2"/><circle cx="12" cy="12" r="5.6" fill="none" stroke="${hi}" stroke-width="1" opacity=".8"/><circle cx="12" cy="12" r="2.4" fill="${C.gold}" stroke="${OL}" stroke-width="0.8"/><path d="M7 8.6 A6 6 0 0 1 10.4 5.6" fill="none" stroke="#fff" stroke-width="1" opacity=".8"/>`;
+  const WBUILD = { dagger: blade, sword: blade, scimitar: scim, mace, longsword, battleaxe, warhammer, '2h_sword': twohander, spear, claws, katana, halberd };
+  const ABUILD = { med_helm: helm, full_helm: helm, chainbody: plate, platebody: plate, platelegs: legs, sq_shield: shield, kiteshield: shield, gauntlets: gloves, boots, plateskirt, buckler };
   for (const m of Object.keys(METAL_PAL)) {
     const [c, hi] = METAL_PAL[m];
     for (const t of Object.keys(WBUILD)) { const id = `${m}_${t}`; if (!I[id]) I[id] = WBUILD[t](c, hi); }
@@ -505,6 +512,31 @@
   I.air_staff = staffIcon(C.wood, '#bfe8d0'); I.water_staff = staffIcon('#3a4a66', '#6fb6e0'); I.earth_staff = staffIcon(C.wood, '#8a6a3a');
   I.fire_staff = staffIcon('#5a2a1a', '#ef7a23'); I.nature_staff = staffIcon('#4a5a2a', '#5fc06a'); I.chaos_staff = staffIcon('#2a1a3a', '#9a4ad0');
   I.death_staff = staffIcon('#cfc6b0', '#3a3a44'); I.blood_staff = staffIcon('#4a1a1a', '#d02a3a');
+  // Longbows: a taller, deeper bow than the shortbows.
+  const longbowIcon = (col) => `<path d="M8 1.5 C19 6 19 18 8 22.5" fill="none" stroke="${OL}" stroke-width="3.4" stroke-linecap="round"/><path d="M8 1.5 C19 6 19 18 8 22.5" fill="none" stroke="${col}" stroke-width="2.2" stroke-linecap="round"/><path d="M8 1.5 L8 22.5" stroke="#e8e0c8" stroke-width="0.9"/><rect x="13.6" y="10.4" width="3" height="3.2" rx="1" fill="${C.goldDk}" stroke="${OL}" stroke-width="0.6"/>`;
+  I.longbow = longbowIcon('#7a5530'); I.oak_longbow = longbowIcon('#8a5e33'); I.willow_longbow = longbowIcon('#6e6a3a');
+  I.maple_longbow = longbowIcon('#6e8a3a'); I.yew_longbow = longbowIcon('#3f5a2a'); I.magic_longbow = longbowIcon('#4a6ad0');
+  // Wands and tomes.
+  const wandIcon = (rod, gem) => `<path d="M5 20 L16 7" stroke="${OL}" stroke-width="3" stroke-linecap="round"/><path d="M5 20 L16 7" stroke="${rod}" stroke-width="1.8" stroke-linecap="round"/><path d="M17.5 2 L18.7 5.3 L22 6.5 L18.7 7.7 L17.5 11 L16.3 7.7 L13 6.5 L16.3 5.3 Z" fill="${gem}" stroke="${OL}" stroke-width="0.9" stroke-linejoin="round"/><circle cx="16.8" cy="5.6" r="0.8" fill="#fff"/>`;
+  I.apprentice_wand = wandIcon(C.wood, '#cfd6dd'); I.teak_wand = wandIcon('#8a5e33', '#8adcf0'); I.mystic_wand = wandIcon('#2a2a44', '#9a8ae8'); I.master_wand = wandIcon('#2a1a3a', '#f5b82e');
+  const tomeIcon = (cover, gem) => `<path d="M5 5 C8 4 10 4 12 5.5 C14 4 16 4 19 5 L19 19 C16 18 14 18 12 19.5 C10 18 8 18 5 19 Z" fill="${cover}" stroke="${OL}" stroke-width="1.2" stroke-linejoin="round"/><path d="M12 5.5 L12 19.5" stroke="${OL}" stroke-width="1"/><path d="M6.4 6.4 C8.4 5.8 10 5.8 11 6.6" fill="none" stroke="#fff" stroke-width="0.8" opacity=".7"/><circle cx="15.5" cy="11.5" r="2.2" fill="${gem}" stroke="${OL}" stroke-width="0.8"/><circle cx="8.5" cy="11.5" r="2.2" fill="${gem}" stroke="${OL}" stroke-width="0.8"/>`;
+  I.novice_tome = tomeIcon('#5a7aa8', '#cfe8ff'); I.arcane_tome = tomeIcon('#5a3a7a', '#c890f0'); I.merlion_tome = tomeIcon('#2a6a8a', '#f5b82e');
+  // The Dancer: whips (coiled lash + handle) and two dancer outfits.
+  const whipIcon = (lash, grip) => `<path d="M6 21 L9.6 15" stroke="${OL}" stroke-width="3.4" stroke-linecap="round"/><path d="M6 21 L9.6 15" stroke="${grip}" stroke-width="2.2" stroke-linecap="round"/><path d="M9.6 15 C12 10 19 13 19 8.5 C19 4.5 13 4 12.5 7.5 C12.2 10 16 10.4 17 8" fill="none" stroke="${OL}" stroke-width="2.8" stroke-linecap="round"/><path d="M9.6 15 C12 10 19 13 19 8.5 C19 4.5 13 4 12.5 7.5 C12.2 10 16 10.4 17 8" fill="none" stroke="${lash}" stroke-width="1.6" stroke-linecap="round"/><circle cx="9.6" cy="15" r="1.4" fill="${C.gold}" stroke="${OL}" stroke-width="0.6"/>`;
+  I.leather_whip = whipIcon('#8a5a2b', '#4a2f17'); I.rattan_whip = whipIcon('#c8a160', '#8a6a3a'); I.studded_whip = whipIcon('#6a4a2a', '#c9a84a');
+  I.serpent_whip = whipIcon('#3a9a8a', '#1f5a52'); I.coral_whip = whipIcon('#f07a6a', '#a8443a'); I.orchid_whip = whipIcon('#c86ad0', '#4a8a3a');
+  I.dragon_whip = whipIcon('#d0402a', '#3a1a12'); I.celestial_whip = whipIcon('#9adcff', '#f5b82e');
+  const DANCER_BUILD = {
+    headdress: (c, h) => `<path d="M5 15 C8 11 16 11 19 15 L18 17 C14 15 10 15 6 17 Z" fill="${c}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M12 12.4 L10 4 C11 3 13 3 14 4 Z" fill="${h}" stroke="${OL}" stroke-width="0.9"/><path d="M9 13 L6 6 C7 5.4 8 5.6 8.6 6.4 Z M15 13 L18 6 C17 5.4 16 5.6 15.4 6.4 Z" fill="${h}" stroke="${OL}" stroke-width="0.8"/><circle cx="12" cy="13.4" r="1.4" fill="${C.gold}" stroke="${OL}" stroke-width="0.6"/>`,
+    dancer_top: (c, h) => `<path d="M6 6 L9 4 C10 6 14 6 15 4 L18 6 L17 14 C14 15.4 10 15.4 7 14 Z" fill="${c}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M7.4 12.4 C10 13.6 14 13.6 16.6 12.4" fill="none" stroke="${h}" stroke-width="1.2"/><circle cx="12" cy="9" r="1.3" fill="${C.gold}" stroke="${OL}" stroke-width="0.6"/>`,
+    dancer_skirt: (c, h) => `<path d="M8.5 4 L15.5 4 L20 19 C16 20.6 8 20.6 4 19 Z" fill="${c}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><rect x="8.3" y="4" width="7.4" height="2.2" rx="1" fill="${h}" stroke="${OL}" stroke-width="0.6"/><path d="M10 7 C9 11 7.5 15 6.4 19 M14 7 C15 11 16.5 15 17.6 19 M12 7 L12 19.8" stroke="rgba(255,255,255,0.45)" stroke-width="0.8" fill="none"/>`,
+    slippers: (c, h) => `<path d="M4 15 C4 12 8 11 12 12 C15 12.6 19 13 20 15 C20 17 17 18 12 18 C7 18 4 17.4 4 15 Z" fill="${c}" stroke="${OL}" stroke-width="1.1"/><circle cx="16.4" cy="13.6" r="1.4" fill="${h}" stroke="${OL}" stroke-width="0.6"/><path d="M5.6 14.6 C8 13.6 10 13.6 12 14" fill="none" stroke="#fff" stroke-width="0.8" opacity=".6"/>`,
+    bangles: (c, h) => `<ellipse cx="9.5" cy="12" rx="5" ry="6.4" fill="none" stroke="${OL}" stroke-width="3.2"/><ellipse cx="9.5" cy="12" rx="5" ry="6.4" fill="none" stroke="${c}" stroke-width="2"/><ellipse cx="14.5" cy="12" rx="5" ry="6.4" fill="none" stroke="${OL}" stroke-width="3.2"/><ellipse cx="14.5" cy="12" rx="5" ry="6.4" fill="none" stroke="${h}" stroke-width="2"/>`,
+    sash: (c, h) => `<path d="M4 6 C9 9 15 9 20 6 L19 9 C15 11.6 9 11.6 5 9 Z" fill="${c}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M13 10 C14 14 13 17 15 21 L17.6 19.6 C16 16.4 16.6 13.6 15.6 9.8 Z" fill="${h}" stroke="${OL}" stroke-width="1" stroke-linejoin="round"/>`,
+  };
+  for (const [tier, c, h] of [['silk', '#ef8ab4', '#ffd6e6'], ['golden', '#f5b82e', '#fff1b8']]) {
+    for (const [t, fn] of Object.entries(DANCER_BUILD)) I[`${tier}_${t}`] = fn(c, h);
+  }
   I.nature_rune = runeIcon('#4f9a3f');
   I.air_rune = runeIcon('#bfe8d0'); I.water_rune = runeIcon('#6fb6e0'); I.earth_rune = runeIcon('#8a6a3a'); I.fire_rune = runeIcon('#ef7a23'); I.mind_rune = runeIcon('#caa15a'); I.chaos_rune = runeIcon('#7a3a8a'); I.death_rune = runeIcon('#3a3a44'); I.blood_rune = runeIcon('#a01a2a');
   I.occult_necklace = `<path d="M9 4 Q12 1.5 15 4" fill="none" stroke="${C.gold}" stroke-width="1.4"/><path d="M12 9 L17 13 L12 21 L7 13 Z" fill="#5b2a8a" stroke="${OL}" stroke-width="1.2" stroke-linejoin="round"/><path d="M12 11 L14.6 13.4 L12 18 L9.4 13.4 Z" fill="#8a5ad0"/><circle cx="12" cy="13.4" r="1" fill="#e0c8ff"/>`;
@@ -666,8 +698,14 @@
   /** Prayer and spell icons (assets/icons/prayer-<id>.webp, spell-<id>.webp). */
   export const prayerIconHTML = (id, size = 28, cls) => artImg(`prayer-${id}`, size, cls);
   export const spellIconHTML = (id, size = 28, cls) => artImg(`spell-${id}`, size, cls);
-  /** Combat-skill (action bar) icon: every ability has mascot artwork. */
-  export const abilityIconHTML = (id, size = 34, cls) => artImg(`ability-${id}`, size, cls);
+  /** Combat-skill (action bar) icon: mascot artwork, or a stickered vector for
+   *  the newer Dancer abilities until artwork exists. */
+  const ABILITY_SVG = {
+    whirl: `<circle cx="12" cy="12" r="9" fill="#ffd6e6" stroke="${OL}" stroke-width="1.2"/><path d="M12 5 C17 5 19 10 15.5 12.5 C12.5 14.5 9 12 10.5 9.5 C11.6 7.8 14 8.6 13.6 10.4" fill="none" stroke="#c0396a" stroke-width="1.8" stroke-linecap="round"/><path d="M5 14 C7 18 13 20 17 17" fill="none" stroke="#c0396a" stroke-width="1.6" stroke-linecap="round"/>`,
+    crack: `<circle cx="12" cy="12" r="9" fill="#fff1b8" stroke="${OL}" stroke-width="1.2"/><path d="M5 18 C9 15 8 9 13 8 C16 7.4 18 9 19 6" fill="none" stroke="#8a5a2b" stroke-width="1.8" stroke-linecap="round"/><path d="M17 4 L18 7 L21 7.4 L18.6 9 L19.4 12 L17 10.4 L14.6 12 L15.4 9 L13 7.4 L16 7 Z" fill="#f5b82e" stroke="${OL}" stroke-width="0.7" stroke-linejoin="round"/>`,
+    grand_finale: `<circle cx="12" cy="12" r="9" fill="#e9d6ff" stroke="${OL}" stroke-width="1.2"/><path d="M7 9 C7 6.5 10 6 12 8 C14 6 17 6.5 17 9 C17 13 12 15 12 15 C12 15 7 13 7 9 Z" fill="#c0396a" stroke="${OL}" stroke-width="0.9"/><path d="M5 17 L8 15 M19 17 L16 15 M12 20 L12 17" stroke="#f5b82e" stroke-width="1.6" stroke-linecap="round"/>`,
+  };
+  export const abilityIconHTML = (id, size = 34, cls) => (ABILITY_SVG[id] ? svg(ABILITY_SVG[id], size, cls) : artImg(`ability-${id}`, size, cls));
   // Side-panel tabs that have a real A-Worthy mascot icon use the artwork;
   // the rest keep their stickered vector until artwork exists.
   const TAB_ART = new Set(['inventory', 'equipment', 'skills', 'combat', 'prayer', 'quests', 'achievements', 'settings']);

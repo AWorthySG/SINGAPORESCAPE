@@ -1415,8 +1415,9 @@ function heroAttackPose(style, k) {
 }
 
 export function drawPlayer(ctx, cx, cy, opts = {}) {
-  const style = opts.hasWeapon && (opts.weaponType === 'ranged' || opts.weaponType === 'magic') ? opts.weaponType : 'melee';
-  const himg = heroImage(style);
+  const style = opts.hasWeapon && (opts.weaponType === 'ranged' || opts.weaponType === 'magic' || opts.weaponType === 'dance') ? opts.weaponType : 'melee';
+  // The Dancer has no painted art yet, so it uses the drawn mascot in a silk outfit.
+  const himg = HERO_STYLES.includes(style) ? heroImage(style) : null;
   const painted = himg && himg.complete && himg.naturalWidth;
   staged(ctx, cx, cy, opts, (c) => {
     // A soft golden halo while any prayer is active — the only in-world sign
@@ -1461,7 +1462,10 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
     }
     // The hero is the A-Worthy mascot. Unarmoured, it wears a tunic in the
     // brand's one action colour (rust); a platebody swaps it for steel.
-    const body = opts.hasBody ? '#b9c2cc' : '#C0392B';
+    const dancer = style === 'dance';
+    // Drawn at the painted heroes' size: the mascot is scaled up from the feet.
+    if (dancer) { c.translate(0, 13); c.scale(1.3, 1.3); c.translate(0, -13); }
+    const body = dancer ? '#EF8AB4' : opts.hasBody ? '#b9c2cc' : '#C0392B';
     const q = strideKey();
     const was = _anim.stride; _anim.stride = q;
     // cape (behind everything), sways with motion
@@ -1475,9 +1479,22 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
     }
     // The hero's body (capsule, armour, helm) is cached per look and walk pose;
     // the cape, weapon and halo stay live because they animate continuously.
-    drawCached(c, `hero|${opts.hasBody ? 1 : 0}|${opts.hasHelm ? 1 : 0}|${q}`, MASCOT_BOX, (c) => {
-    mascot(c, { shirt: body, noCross: opts.hasHelm });
-    if (opts.hasBody) {
+    drawCached(c, `hero|${dancer ? 'd' : opts.hasBody ? 1 : 0}|${opts.hasHelm ? 1 : 0}|${q}`, MASCOT_BOX, (c) => {
+    mascot(c, { shirt: body, noCross: opts.hasHelm && !dancer });
+    if (dancer) {
+      // A flared silk skirt with a gold waistband, and a feathered headdress.
+      path(c, () => { c.moveTo(-6.5, 5); c.lineTo(6.5, 5); c.quadraticCurveTo(10, 10, 10.5, 13); c.quadraticCurveTo(0, 15.5, -10.5, 13); c.quadraticCurveTo(-10, 10, -6.5, 5); });
+      fill(c, '#FFD6E6'); line(c, M_INK, 1);
+      c.strokeStyle = 'rgba(239,138,180,0.7)'; c.lineWidth = 0.8; c.beginPath(); c.moveTo(-3, 6); c.lineTo(-5, 13.4); c.moveTo(3, 6); c.lineTo(5, 13.4); c.moveTo(0, 6); c.lineTo(0, 14); c.stroke();
+      rr(c, -7, 3.6, 14, 2.2, 1); fill(c, '#F5B82E'); line(c, M_INK, 0.8);
+      if (opts.hasHelm) {
+        path(c, () => { c.moveTo(-6, -15); c.quadraticCurveTo(0, -18.5, 6, -15); c.lineTo(5.5, -13.6); c.quadraticCurveTo(0, -16.6, -5.5, -13.6); });
+        fill(c, '#F5B82E'); line(c, M_INK, 0.8);
+        c.fillStyle = '#EF8AB4';
+        for (const [fx, ang] of [[-4, -0.85], [-1.6, -0.3], [1.6, 0.3], [4, 0.85]]) { c.save(); c.translate(fx, -16.4); c.rotate(ang); c.beginPath(); c.ellipse(0, -2, 1.3, 2.4, 0, 0, Math.PI * 2); c.fill(); line(c, M_INK, 0.7); c.restore(); }
+        c.fillStyle = '#9adcff'; circle(c, 0, -15.6, 1); c.fill();
+      }
+    } else if (opts.hasBody) {
       // plated armour over the capsule: pauldrons, chest seam + rivets
       c.fillStyle = shade(body, 0.08); circle(c, -6.2, -2.2, 2.6); c.fill(); line(c, M_INK, 1); circle(c, 6.2, -2.2, 2.6); c.fill(); line(c, M_INK, 1);
       c.strokeStyle = shade(body, -0.3); c.lineWidth = 0.8; c.beginPath(); c.moveTo(0, -1); c.lineTo(0, 10); c.stroke();
@@ -1486,7 +1503,7 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
       // a small gold sun pip on the tunic, the brand's marker pop
       c.fillStyle = '#F5B82E'; circle(c, -3.4, 2.2, 1.3); c.fill(); line(c, M_INK, 0.7);
     }
-    if (opts.hasHelm) {
+    if (opts.hasHelm && !dancer) {
       path(c, () => { c.arc(0, -12, 7.6, Math.PI, 0); c.closePath(); }); fill(c, '#9aa6b2'); line(c, M_INK, 1.2);
       rr(c, -7.8, -13.4, 15.6, 2.2, 1); fill(c, '#cfd6dd'); line(c, M_INK, 0.8);
       c.fillStyle = '#b9c2cc'; rr(c, -1.4, -22, 2.8, 3.4, 1); c.fill();
@@ -1528,6 +1545,37 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
       c.fillStyle = 'rgba(255,255,255,0.7)'; circle(c, 12, -16.9, 0.9 + flare); c.fill();
       c.restore();
       circle(c, 10.8, 4, 1.8); fill(c, '#ffffff'); line(c, M_INK, 1);
+    } else if (opts.hasWeapon && dancer) {
+      // Whip: coiled at rest; on an attack it winds back, then snaps out in a
+      // travelling wave and cracks at the tip.
+      const t = opts.time || 0;
+      const reach = k < 0 ? 0 : k < 0.25 ? -0.3 * (k / 0.25) : k < 0.55 ? -0.3 + 1.3 * ((k - 0.25) / 0.3) : 1 - (k - 0.55) / 0.45;
+      c.save(); c.lineCap = 'round'; c.lineJoin = 'round';
+      const pts = [];
+      if (reach <= 0.02) {
+        // idle: a loose loop hanging from the hand, swaying gently
+        const sw = Math.sin(t * 0.004) * 0.8;
+        pts.push([10.6, 4], [13.5 + sw, 8], [12 + sw, 12], [9 + sw, 11], [10 + sw, 8.5], [14 + sw, 10]);
+      } else {
+        const len = 6 + reach * 30, seg = 7;
+        for (let i = 0; i <= seg; i++) {
+          const f = i / seg;
+          pts.push([10.6 + f * len, 4 - f * 3 + Math.sin(f * 7 - (k || 0) * 18) * (2.5 * f) * (1.2 - reach * 0.6)]);
+        }
+      }
+      const stroke = (w, col) => { c.strokeStyle = col; c.lineWidth = w; c.beginPath(); c.moveTo(pts[0][0], pts[0][1]);
+        for (let i = 1; i < pts.length; i++) { const [x0, y0] = pts[i - 1], [x1, y1] = pts[i]; c.quadraticCurveTo(x0, y0, (x0 + x1) / 2, (y0 + y1) / 2); }
+        c.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]); c.stroke(); };
+      stroke(2.6, M_INK); stroke(1.3, '#8A5A2B');
+      if (reach > 0.85) {   // the crack: a little starburst at the tip
+        const [tx, ty] = pts[pts.length - 1];
+        c.fillStyle = '#FFE89A';
+        c.beginPath(); for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, r = i % 2 ? 1.4 : 4; c.lineTo(tx + Math.cos(a) * r, ty + Math.sin(a) * r); } c.closePath(); c.fill();
+        line(c, M_INK, 0.6);
+      }
+      c.restore();
+      rr(c, 8.8, 2.4, 3.6, 4, 1.4); fill(c, '#5A3A1E'); line(c, M_INK, 0.8);   // handle
+      circle(c, 10.6, 4, 1.8); fill(c, '#ffffff'); line(c, M_INK, 1);
     } else if (opts.hasWeapon) {
       // Sword: wind up behind, sweep through the strike, follow through, recover.
       const ease = (t) => 1 - (1 - t) * (1 - t);

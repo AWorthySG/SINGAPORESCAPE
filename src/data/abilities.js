@@ -11,7 +11,7 @@
 // `unlock` is the combat level the ability becomes usable (abilities ramp in as
 // the player grows; the ultimate is gated behind a high level + full adrenaline).
 // `mode` ties an attack ability to the equipped weapon's combat style
-// ('melee' | 'ranged' | 'magic'); the action bar shows only the set for the
+// ('melee' | 'ranged' | 'magic' | 'dance'); the action bar shows only the set for the
 // weapon in hand, so each hotkey slot (Z / X / B) swaps with your weapon.
 // `instant` fires straight away at your current target instead of waiting for
 // the next swing.
@@ -31,6 +31,11 @@ export const ABILITIES = [
     unlock: 1, dmgMul: 1.9, guaranteed: true, desc: 'Your next spell surges: guaranteed, ~1.9x damage.' },
   { id: 'mana_burst', name: 'Mana Burst', key: 'X', icon: '🔮', cost: 35, cd: 6, kind: 'attack', mode: 'magic',
     unlock: 1, dmgMul: 2.4, instant: true, desc: 'Instantly unleash a burst of raw magic (~2.4x damage).' },
+  // ---- Dance (whips) ----
+  { id: 'whirl', name: 'Whirl', key: 'Z', icon: '🌪️', cost: 30, cd: 5, kind: 'attack', mode: 'dance',
+    unlock: 1, dmgMul: 1.2, sweep: true, desc: 'Spin and lash every monster within reach of your whip.' },
+  { id: 'crack', name: 'Crack', key: 'X', icon: '💫', cost: 35, cd: 6, kind: 'attack', mode: 'dance',
+    unlock: 1, dmgMul: 1.7, guaranteed: true, stun: 2, desc: 'A guaranteed crack (~1.7x damage) that stuns the target.' },
   // ---- Shared ----
   { id: 'brace', name: 'Brace', key: 'C', icon: '🛡️', cost: 20, cd: 5, kind: 'guard',
     unlock: 1, guardTicks: 4, reduce: 0.5, desc: 'Halve incoming damage for 4 ticks — counter heavy blows.' },
@@ -46,6 +51,9 @@ export const ABILITIES = [
   { id: 'meteor', name: 'Meteor', key: 'B', icon: '☄️', cost: 100, cd: 16, kind: 'attack', mode: 'magic',
     unlock: 45, dmgMul: 3.2, guaranteed: true, instant: true,
     desc: 'Ultimate: call down a guaranteed meteor (~3.2x damage).' },
+  { id: 'grand_finale', name: 'Grand Finale', key: 'B', icon: '🎭', cost: 100, cd: 16, kind: 'attack', mode: 'dance',
+    unlock: 45, hits: 5, dmgMul: 0.8, guaranteed: true, sweep: true,
+    desc: 'Ultimate: a five-beat dance that lashes everything in reach.' },
 ];
 
 export const ABILITY_BY_ID = Object.fromEntries(ABILITIES.map((a) => [a.id, a]));

@@ -38,12 +38,16 @@ function dropsFor(level) {
   for (const id of staves) t.push({ id, weight: 14 / staves.length });
   for (const id of robesFor(level)) t.push({ id, weight: 3 });
   for (const r of runesFor(level)) t.push({ id: r.id, min: r.min, max: r.max, weight: r.weight });
+  t.push({ id: longbowFor(level), weight: 5 }, { id: wandFor(level), weight: 4 }, { id: tomeFor(level), weight: 2 });
+  // Dancer gear: a whip of the area's tier (~1 kill in 18), sometimes the next one up, and outfit pieces.
+  t.push({ id: whipFor(level), weight: 8 }, { id: whipFor(level + 20), weight: 2 });
+  for (const id of dancerFor(level)) t.push({ id, weight: 2 });
   // Tier-appropriate gear pool — the main way to obtain combat equipment.
-  for (const w of ['scimitar', 'sword', 'mace', 'longsword', 'dagger']) t.push({ id: `${tier}_${w}`, weight: 4 });
+  for (const w of ['scimitar', 'sword', 'mace', 'longsword', 'dagger', 'spear', 'claws', 'katana']) t.push({ id: `${tier}_${w}`, weight: 4 });
   t.push({ id: `${tier}_dagger`, weight: 6 });       // daggers come in pairs for dual wielding: extra weight
-  for (const a of ['med_helm', 'chainbody', 'platelegs', 'kiteshield', 'boots', 'gauntlets']) t.push({ id: `${tier}_${a}`, weight: 3 });
+  for (const a of ['med_helm', 'chainbody', 'platelegs', 'plateskirt', 'kiteshield', 'buckler', 'boots', 'gauntlets']) t.push({ id: `${tier}_${a}`, weight: 3 });
   if (level >= 30) t.push({ id: `${tier}_full_helm`, weight: 3 }, { id: `${tier}_platebody`, weight: 2 }, { id: `${tier}_battleaxe`, weight: 3 });
-  if (level >= 50) t.push({ id: `${tier}_2h_sword`, weight: 2 });
+  if (level >= 50) t.push({ id: `${tier}_2h_sword`, weight: 2 }, { id: `${tier}_halberd`, weight: 2 });
   // A rare glimpse of the next tier up.
   t.push({ id: `${next}_scimitar`, weight: next === 'dragon' ? 1 : 2 });
   return t;
@@ -65,6 +69,21 @@ function stavesFor(level) {
   return level < 10 ? ['staff'] : level < 20 ? ['air_staff', 'water_staff']
     : level < 35 ? ['earth_staff', 'fire_staff', 'magic_staff'] : level < 50 ? ['nature_staff', 'mystic_staff']
     : level < 65 ? ['chaos_staff', 'ancient_staff'] : ['death_staff', 'blood_staff'];
+}
+function longbowFor(level) {
+  return level < 10 ? 'longbow' : level < 22 ? 'oak_longbow' : level < 40 ? 'willow_longbow'
+    : level < 58 ? 'maple_longbow' : level < 75 ? 'yew_longbow' : 'magic_longbow';
+}
+function wandFor(level) { return level < 25 ? 'apprentice_wand' : level < 45 ? 'teak_wand' : level < 70 ? 'mystic_wand' : 'master_wand'; }
+function tomeFor(level) { return level < 45 ? 'novice_tome' : level < 80 ? 'arcane_tome' : 'merlion_tome'; }
+// The Dancer's whips, one per tier, and the silk / golden dancer outfits.
+function whipFor(level) {
+  return level < 12 ? 'leather_whip' : level < 24 ? 'rattan_whip' : level < 40 ? 'studded_whip' : level < 55 ? 'serpent_whip'
+    : level < 70 ? 'coral_whip' : level < 90 ? 'orchid_whip' : level < 110 ? 'dragon_whip' : 'celestial_whip';
+}
+function dancerFor(level) {
+  const tier = level < 60 ? 'silk' : 'golden';
+  return ['headdress', 'dancer_top', 'dancer_skirt', 'slippers', 'bangles', 'sash'].map((p) => `${tier}_${p}`);
 }
 function robesFor(level) {
   return level < 30 ? ['wizard_hat', 'wizard_robe_top', 'wizard_robe_bottom'] : ['mystic_hat', 'mystic_top', 'mystic_bottom'];
@@ -316,6 +335,10 @@ for (const id of BOSS_IDS) {
     ...rangedArmourFor(Math.max(40, lvl)).map((a) => ({ id: a, weight: 3 })),
     // A pair-worthy dagger for dual wielders.
     { id: lvl < 60 ? 'adamant_dagger' : lvl < 100 ? 'rune_dagger' : 'dragon_dagger', weight: 12 },
+    // Dancer loot: a whip a tier or two up, and dancer outfit pieces.
+    { id: whipFor(lvl + 20), weight: 14 }, { id: whipFor(lvl + 45), weight: 5 },
+    ...dancerFor(Math.max(30, lvl)).map((a) => ({ id: a, weight: 2 })),
+    { id: longbowFor(lvl + 20), weight: 8 }, { id: wandFor(lvl + 20), weight: 6 }, { id: tomeFor(lvl + 20), weight: 4 },
     // Magic loot: a staff a tier above, mystic robes and big bundles of strong runes.
     ...stavesFor(lvl + 20).map((st) => ({ id: st, weight: 20 / 2 })),
     ...robesFor(Math.max(30, lvl)).map((a) => ({ id: a, weight: 3 })),

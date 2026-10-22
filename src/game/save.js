@@ -24,6 +24,7 @@ export function snapshot(game) {
       hp: game.player.hp,
       style: game.player.style,
       rangedStyle: game.player.rangedStyle,
+      danceStyle: game.player.danceStyle,
       spell: game.player.spell,
       autoRetaliate: game.player.autoRetaliate,
       name: game.player.name,
@@ -84,6 +85,7 @@ export function loadGame(game) {
   if (game.player.hp <= 0) game.player.hp = game.maxHp();
   game.player.style = p.style || 'accurate';
   game.player.rangedStyle = p.rangedStyle || 'accurate';
+  game.player.danceStyle = p.danceStyle || 'flourish';
   game.player.spell = p.spell || 'wind_strike';
   game.player.autoRetaliate = p.autoRetaliate !== false;
   if (p.name && p.name !== 'Adventurer') game.player.name = p.name; // migrate old default

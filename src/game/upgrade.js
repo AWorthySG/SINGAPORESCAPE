@@ -6,7 +6,7 @@ import { getItem } from '../data/items.js';
 // the materials, never the item.
 
 export const MAX_UPGRADE = 10;
-const STATS = ['attack', 'strength', 'defence', 'ranged', 'magic', 'magicStr', 'crit', 'hp'];
+const STATS = ['attack', 'strength', 'defence', 'ranged', 'magic', 'magicStr', 'dance', 'crit', 'hp'];
 const METALS = ['bronze', 'iron', 'steel', 'mithril', 'adamant', 'rune', 'dragon'];
 
 /** An item's bonuses at a given upgrade level (speed is never changed). */

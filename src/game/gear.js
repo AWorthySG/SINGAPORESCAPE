@@ -6,7 +6,7 @@ import { EQUIP_SLOTS } from './equipment.js';
 
 export const STAT_LABELS = {
   attack: 'Attack', strength: 'Strength', defence: 'Defence', ranged: 'Ranged',
-  magic: 'Magic', magicStr: 'Magic dmg', crit: 'Crit %', hp: 'Bonus HP',
+  magic: 'Magic', magicStr: 'Magic dmg', dance: 'Dance', crit: 'Crit %', hp: 'Bonus HP',
 };
 const STAT_KEYS = Object.keys(STAT_LABELS);
 
@@ -14,11 +14,12 @@ export const STAT_HELP = [
   ['Attack', 'how often your melee hits land'],
   ['Strength', 'how hard your melee hits are'],
   ['Ranged / Magic', 'accuracy and damage for bows and staves'],
+  ['Dance', 'the Dancer\'s accuracy and damage with whips'],
   ['Defence', 'how often enemies miss you'],
   ['Speed', 'time between swings — lower is faster'],
 ];
 
-/** Weapon style: 'melee' | 'ranged' | 'magic'. */
+/** Weapon style: 'melee' | 'ranged' | 'magic' | 'dance'. */
 export function weaponStyle(id) { return getItem(id).equip?.combatType || 'melee'; }
 
 /** Combat beats between swings (matches Equipment.weaponSpeed()). */
@@ -30,7 +31,7 @@ export function gearRating(id) {
   const eq = getItem(id).equip;
   if (!eq) return 0;
   const b = eq.bonuses || {};
-  const offence = (b.attack || 0) + (b.strength || 0) + (b.ranged || 0) + (b.magic || 0) + (b.magicStr || 0) * 8;
+  const offence = (b.attack || 0) + (b.strength || 0) + (b.ranged || 0) + (b.magic || 0) + (b.magicStr || 0) * 8 + (b.dance || 0) * 2;
   const support = (b.defence || 0) + (b.crit || 0) * 2 + (b.hp || 0);
   if (eq.slot === 'weapon') return Math.round((offence * 2) / swingBeats(id)) + support;
   return offence + support;
