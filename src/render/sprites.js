@@ -125,7 +125,7 @@ const BOSS_ART = new Set([
   'bone_colossus', 'chilli_crab', 'demon_lord', 'durian_behemoth', 'lion_of_light', 'molten_golem',
   'orang_minyak', 'sand_scorpion_king', 'sentosa_kraken', 'shadow_sovereign', 'wilderness_warlord', 'kusu_tortoise', 'rift_tyrant', 'coney_behemoth', 'supertree_guardian', 'eternal_wyrm', 'kranji_buffalo_king',
   'merlion', 'the_garuda', 'ancient_tembusu', 'reservoir_serpent', 'boar_king', 'tualang_treant', 'night_safari_tiger',
-  'tuas_crane_colossus', 'harimau_jadian', 'punggol_lantern_spirit', 'bunian_queen',
+  'tuas_crane_colossus', 'harimau_jadian', 'punggol_lantern_spirit', 'bunian_queen', 'drowned_admiral',
 ]);
 const _bossImg = {};
 function bossImage(id) {
