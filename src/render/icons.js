@@ -762,6 +762,9 @@ import { CROPS, POTIONS } from '../data/trades.js';
     'obsidian_staff', 'jade_staff', 'imperial_staff', 'starmetal_staff', 'celestial_staff', 'eternal_staff', 'novice_tome', 'arcane_tome', 'merlion_tome',
     ...['bronze', 'iron', 'steel', 'mithril', 'adamant', 'rune', 'dragon'].flatMap((m) => [`${m}_plateskirt`, `${m}_buckler`]),
     ...['med_helm', 'full_helm', 'chainbody', 'platebody', 'platelegs', 'plateskirt', 'sq_shield', 'kiteshield', 'buckler', 'gauntlets', 'boots'].map((p) => `jade_${p}`),
+    // Batch 13: the Orichalcum, Starmetal and Celestial armour sets, and Jade and Celestial weapons.
+    ...['orichalcum', 'starmetal', 'celestial'].flatMap((m) => ['med_helm', 'full_helm', 'chainbody', 'platebody', 'platelegs', 'plateskirt', 'sq_shield', 'kiteshield', 'buckler', 'gauntlets', 'boots'].map((p) => `${m}_${p}`)),
+    ...['jade', 'celestial'].flatMap((m) => ['dagger', 'sword', 'scimitar', 'mace', 'longsword', 'battleaxe', 'warhammer', '2h_sword'].map((w) => `${m}_${w}`)),
   ]);
   export const itemArtSrc = (id) => (ITEM_ART.has(id) ? `assets/icons/item-${id}.webp` : null);
   const artImg = (file, size, cls) => `<img class="${cls || ''}" width="${size}" height="${size}" src="assets/icons/${file}.webp" alt="" style="display:block;object-fit:contain" />`;
