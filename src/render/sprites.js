@@ -122,7 +122,7 @@ export const speciesArt = () => new Set(SPECIES_ART);
 // It already wears its own crown, so the drawn crown insignia is skipped.
 const BOSS_ART = new Set([
   'bone_colossus', 'chilli_crab', 'demon_lord', 'durian_behemoth', 'lion_of_light', 'molten_golem',
-  'orang_minyak', 'sand_scorpion_king', 'sentosa_kraken', 'shadow_sovereign', 'wilderness_warlord', 'kusu_tortoise',
+  'orang_minyak', 'sand_scorpion_king', 'sentosa_kraken', 'shadow_sovereign', 'wilderness_warlord', 'kusu_tortoise', 'rift_tyrant',
 ]);
 const _bossImg = {};
 function bossImage(id) {
