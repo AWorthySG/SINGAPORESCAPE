@@ -122,7 +122,7 @@ export const speciesArt = () => new Set(SPECIES_ART);
 // It already wears its own crown, so the drawn crown insignia is skipped.
 const BOSS_ART = new Set([
   'bone_colossus', 'chilli_crab', 'demon_lord', 'durian_behemoth', 'lion_of_light', 'molten_golem',
-  'orang_minyak', 'sand_scorpion_king', 'sentosa_kraken', 'shadow_sovereign', 'wilderness_warlord', 'kusu_tortoise', 'rift_tyrant', 'coney_behemoth', 'supertree_guardian', 'eternal_wyrm',
+  'orang_minyak', 'sand_scorpion_king', 'sentosa_kraken', 'shadow_sovereign', 'wilderness_warlord', 'kusu_tortoise', 'rift_tyrant', 'coney_behemoth', 'supertree_guardian', 'eternal_wyrm', 'kranji_buffalo_king',
 ]);
 const _bossImg = {};
 function bossImage(id) {
@@ -1297,7 +1297,7 @@ function townAcc(ctx, p) {
 // Job classes with their own painted hero (assets/creatures/hero/<classId>.webp)
 // use it in place of their style's art.
 export const HERO_STYLES = ['melee', 'ranged', 'magic'];
-export const CLASS_HERO_ART = new Set(['rogue', 'swordsman', 'samurai', 'berserker', 'paladin', 'sorcerer', 'dancer', 'lancer', 'juggernaut', 'brawler', 'corsair', 'ranger', 'halberdier']);
+export const CLASS_HERO_ART = new Set(['rogue', 'swordsman', 'samurai', 'berserker', 'paladin', 'sorcerer', 'dancer', 'lancer', 'juggernaut', 'brawler', 'corsair', 'ranger', 'halberdier', 'gladiator']);
 export const heroArtSrc = (classId) => (CLASS_HERO_ART.has(classId) ? `assets/creatures/hero/${classId}.webp` : null);
 const _heroImg = {};
 function heroImage(style) {
