@@ -2239,14 +2239,14 @@ test('melee weapons strike from 2 tiles, long ones from 3', async () => {
   assert.ok(ITEMS.bronze_scimitar.equip.range === 2 && ITEMS.rune_longsword.equip.range === 3);
 });
 
-test('the open world: 400x280 with ten new regions, all reachable on foot, each with MRT and monsters', async () => {
+test('the open world: 540x380 with ten open-world regions, all reachable on foot, each with MRT and monsters', async () => {
   const { STATIONS } = await import('../src/data/transport.js');
   globalThis.localStorage = fakeStorage();
   clearSave();
   const game = new Game();
   game.start();
   const w = game.world;
-  assert.equal(w.width, 400); assert.equal(w.height, 280);
+  assert.equal(w.width, 540); assert.equal(w.height, 380);
   const NEW = ['Sungei Buloh Wetlands', 'Jurong Forest', 'Pulau Ubin', 'Changi Coast', 'Marina Bay', 'Tekong Badlands',
     'Gardens by the Bay', 'Coney Island', 'Southern Islands', 'The Shadow Rift'];
   for (const n of NEW) assert.ok(w.zones.some((z) => z.name === n && !z.wilderness), `${n} exists and is not Wilderness`);
@@ -2263,6 +2263,30 @@ test('the open world: 400x280 with ten new regions, all reachable on foot, each 
   // Wilderness levels only apply inside the Wilderness zones.
   game.player.x = 250; game.player.y = 150;
   assert.equal(game.wildernessLevel(), 0, 'the Tekong Badlands are not Wilderness');
+});
+
+test('the far regions: six more regions up to level 450, reachable on foot, each with monsters and its own bosses', async () => {
+  const { NPCS, BOSS_IDS } = await import('../src/data/npcs.js');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  const w = game.world;
+  const FAR = ['Punggol Waterway', 'Kranji Farmlands', 'Mandai Rainforest', 'Tuas Docklands', 'Temasek Ruins', 'The Celestial Peaks'];
+  const seen = new Uint8Array(w.width * w.height); const q = [[w.spawnPoint.x, w.spawnPoint.y]]; seen[w.spawnPoint.y * w.width + w.spawnPoint.x] = 1;
+  while (q.length) { const [x, y] = q.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy;
+    if (!w.inBounds(nx, ny) || seen[ny * w.width + nx] || w.isBlocked(nx, ny)) continue; seen[ny * w.width + nx] = 1; q.push([nx, ny]); } }
+  for (const n of FAR) {
+    const z = w.zones.find((zz) => zz.name === n);
+    assert.ok(z && !z.wilderness, `${n} exists and is not Wilderness`);
+    const mobs = game.npcs.filter((m) => m.attackable && m.x >= z.x0 && m.x <= z.x1 && m.y >= z.y0 && m.y <= z.y1);
+    assert.ok(mobs.length >= 80, `${n} has plenty of monsters (${mobs.length})`);
+    assert.ok(mobs.every((m) => seen[m.y * w.width + m.x] || w.isBlocked(m.x, m.y)), `${n}'s monsters can be reached`);
+    const bosses = BOSS_IDS.filter((id) => NPCS[id].zone === n);
+    assert.ok(bosses.length >= 1, `${n} has its own boss`);
+    for (const id of bosses) assert.ok(mobs.some((m) => m.npcId === id), `${id} roams ${n}`);
+  }
+  assert.ok(Math.max(...Object.values(NPCS).filter((m) => m.attackable).map((m) => m.level)) >= 450, 'the highest foes reach level 450');
 });
 
 test('endgame tiers: metals up to Eternal (300), gear for every style, monsters and bosses up to 320 that drop it', async () => {

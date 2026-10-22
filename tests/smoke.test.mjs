@@ -124,11 +124,11 @@ test('monsters drop level-appropriate combat equipment (weapons & armour)', () =
   }
 });
 
-test('bestiary has 348 monsters and 38 bosses, all well-formed', () => {
-  assert.equal(MONSTER_IDS.length, 348); // 300 + 48 endgame (Mythic / Primordial / Eternal)
-  assert.equal(BOSS_IDS.length, 38); // 31 + the two alignment-arc bosses + 5 open-world/endgame bosses
+test('bestiary has 452 monsters and 48 bosses, all well-formed', () => {
+  assert.equal(MONSTER_IDS.length, 452); // 300 + 48 endgame + 72 far-region species forms + 32 Celestial / Divine
+  assert.equal(BOSS_IDS.length, 48); // 31 + the two alignment-arc bosses + 5 open-world/endgame + 10 far-region bosses
   const ids = new Set([...MONSTER_IDS, ...BOSS_IDS]);
-  assert.equal(ids.size, 386); // all ids unique
+  assert.equal(ids.size, 500); // all ids unique
   for (const id of MONSTER_IDS) {
     const n = getNpc(id);
     assert.ok(n.attackable && n.sprite && n.color && n.level >= 1, `mob ${id} well-formed`);
