@@ -232,3 +232,13 @@ test('hero art exists for every combat style', async () => {
     assert.ok(existsSync(fileURLToPath(new URL(`../assets/creatures/hero/${id}.webp`, import.meta.url))), `hero/${id}.webp`);
   }
 });
+
+test('rigged bosses ship every layer they animate', async () => {
+  const { rigIds, rigParts } = await import('../src/render/sprites.js');
+  const { existsSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  assert.ok(rigIds().includes('eternal_wyrm'));
+  for (const id of rigIds()) for (const part of rigParts(id)) {
+    assert.ok(existsSync(fileURLToPath(new URL(`../assets/creatures/bosses/rig/${id}_${part}.webp`, import.meta.url))), `${id}_${part}`);
+  }
+});

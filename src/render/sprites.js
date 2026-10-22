@@ -213,6 +213,69 @@ function monsterTint(sticker, col) {
   return cv;
 }
 
+// ---------------- Rigged bosses ----------------
+// A few showpiece bosses are cut into layers (assets/creatures/bosses/rig/<id>_<part>.webp,
+// all on one shared 320px canvas) so their parts move on their own. `piv` is each
+// part's joint as a fraction of the canvas; `swing(t, o)` gives its angle in radians.
+const ease = (x) => 1 - (1 - x) * (1 - x);
+const atkPhase = (ak) => (ak < 0 ? null : ak < 0.35 ? { wind: ease(ak / 0.35), hit: 0 } : ak < 0.6 ? { wind: 1 - (ak - 0.35) / 0.25, hit: Math.sin(((ak - 0.35) / 0.25) * Math.PI / 2) } : { wind: 0, hit: 1 - ease((ak - 0.6) / 0.4) });
+const RIGS = {
+  eternal_wyrm: {
+    order: ['tail', 'base', 'claw', 'head'],
+    parts: {
+      tail: { piv: [0.2587, 0.7345], swing: (t, o) => Math.sin(t * (o.moving ? 0.009 : 0.0045)) * 0.12 },
+      claw: { piv: [0.7627, 0.6865], swing: (t, o) => { const a = atkPhase(o.attackK ?? -1); return a ? -0.14 * a.wind + 0.12 * a.hit : Math.sin(t * 0.0035 + 1) * 0.05; } },
+      head: { piv: [0.6188, 0.5185], swing: (t, o) => {
+        const a = atkPhase(o.attackK ?? -1);
+        const roar = o.castK > 0 ? -0.06 * Math.sin(o.castK * Math.PI) : 0;   // rears up to roar on its signature move
+        return (a ? -0.06 * a.wind + 0.07 * a.hit : Math.sin(t * 0.0021) * 0.035) + roar;
+      } },
+    },
+  },
+};
+const _rigImg = {};
+function rigLayers(id) {
+  const rig = RIGS[id];
+  if (!rig || typeof Image === 'undefined') return null;
+  const imgs = _rigImg[id] || (_rigImg[id] = Object.fromEntries(rig.order.map((n) => {
+    const img = new Image(); img.src = `assets/creatures/bosses/rig/${id}_${n}.webp`; return [n, img];
+  })));
+  return rig.order.every((n) => imgs[n].complete && imgs[n].naturalWidth) ? imgs : null;
+}
+export const rigIds = () => Object.keys(RIGS);
+export const rigParts = (id) => RIGS[id] && [...RIGS[id].order];
+let _rigCv = null, _rigTint = null;
+const RIG_RES = 6;   // one showpiece boss at a time, so it can afford a sharper canvas than the cached stickers
+// Compose the layers (posed for this frame) into one canvas, then blit it.
+function drawRig(c, id, imgs, opts, t, flash, flashCol) {
+  const rig = RIGS[id];
+  const base = imgs.base;
+  const s = Math.min(34 / base.naturalHeight, 64 / base.naturalWidth);
+  const w = base.naturalWidth * s, h = base.naturalHeight * s, x0 = -w / 2, y0 = 13.5 - h;
+  if (!_rigCv) { _rigCv = document.createElement('canvas'); _rigCv.width = ST_W * RIG_RES; _rigCv.height = ST_H * RIG_RES; }
+  const g = _rigCv.getContext('2d');
+  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, _rigCv.width, _rigCv.height);
+  g.setTransform(RIG_RES, 0, 0, RIG_RES, -ST_X0 * RIG_RES, -ST_Y0 * RIG_RES);
+  for (const n of rig.order) {
+    const part = rig.parts[n];
+    g.save();
+    if (part) {
+      const px = x0 + part.piv[0] * w, py = y0 + part.piv[1] * h;
+      g.translate(px, py); g.rotate(part.swing(t, opts)); g.translate(-px, -py);
+    }
+    g.drawImage(imgs[n], x0, y0, w, h);
+    g.restore();
+  }
+  c.drawImage(_rigCv, ST_X0, ST_Y0, ST_W, ST_H);
+  if (flash > 0.01) {
+    if (!_rigTint) { _rigTint = document.createElement('canvas'); _rigTint.width = _rigCv.width; _rigTint.height = _rigCv.height; }
+    const tg = _rigTint.getContext('2d');
+    tg.globalCompositeOperation = 'source-over'; tg.clearRect(0, 0, _rigTint.width, _rigTint.height);
+    tg.drawImage(_rigCv, 0, 0); tg.globalCompositeOperation = 'source-in'; tg.fillStyle = flashCol; tg.fillRect(0, 0, _rigTint.width, _rigTint.height);
+    c.globalAlpha = flash; c.drawImage(_rigTint, ST_X0, ST_Y0, ST_W, ST_H); c.globalAlpha = 1;
+  }
+}
+
 // Draw a painted creature sprite centred horizontally with its feet on the tile.
 function drawCreaturePng(c, img) {
   // Fit within 34 units tall and 64 wide (long bodies like crocodiles stay in their sticker box).
@@ -343,6 +406,10 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
       const t = opts.time || 0;
       if (opts.castK > 0) castBurst(c, opts.castK, opts.castCol || col);
       creaturePose(c, opts, t, cx);
+      const flash = Math.max(Math.min(1, (opts.hurt || 0) / 200) * 0.55, opts.windup ? 0.18 + Math.sin(t * 0.03) * 0.12 : 0);
+      const flashCol = opts.windup && !(opts.hurt > 0) ? '#ff5040' : '#ffffff';
+      const rig = opts.boss && RIGS[npcId] ? rigLayers(npcId) : null;
+      if (rig) { drawRig(c, npcId, rig, opts, t, flash, flashCol); return; }   // a showpiece boss with moving parts
       const drawBody = (g) => {
         if (pimg && pimg.complete && pimg.naturalWidth) {
           drawCreaturePng(g, pimg);    // painted art carries its own shading
@@ -366,9 +433,8 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
       if (sticker) {
         c.drawImage(sticker, ST_X0, ST_Y0, ST_W, ST_H);
         // A white flash over the body when struck, a red pulse while a heavy blow charges.
-        const flash = Math.max(Math.min(1, (opts.hurt || 0) / 200) * 0.55, opts.windup ? 0.18 + Math.sin(t * 0.03) * 0.12 : 0);
         if (flash > 0.01) {
-          const tint = monsterTint(sticker, opts.windup && !(opts.hurt > 0) ? '#ff5040' : '#ffffff');
+          const tint = monsterTint(sticker, flashCol);
           if (tint) { c.globalAlpha = flash; c.drawImage(tint, ST_X0, ST_Y0, ST_W, ST_H); c.globalAlpha = 1; }
         }
       } else drawBody(c);              // headless (no DOM canvas) or art still loading
