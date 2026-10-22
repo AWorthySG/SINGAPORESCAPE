@@ -2465,3 +2465,112 @@ test('an older save without a class picks one on load and keeps its gear', async
   assert.equal(g2.equipment.get('weapon'), 'longbow', 'the class weapon is equipped');
   assert.ok(g2.inventory.has('rune_scimitar'), 'the old weapon goes to the pack');
 });
+
+test('new life skills: Farming, Herblore, Fletching and Hunter exist, with stations, patches, traps, a farm shop and icons for everything', async () => {
+  const { SKILL_BY_ID } = await import('../src/data/skills.js');
+  const { ITEMS } = await import('../src/data/items.js');
+  const { CROPS, POTIONS, FLETCH, HUNT, HIDE_CRAFT } = await import('../src/data/trades.js');
+  const { SHOPS } = await import('../src/data/shops.js');
+  const { itemIconSVG, skillIconSVG } = await import('../src/render/icons.js');
+  const fallback = itemIconSVG('coins');
+  for (const id of ['farming', 'herblore', 'fletching', 'hunter']) {
+    assert.ok(SKILL_BY_ID[id], `${id} is a skill`);
+    assert.notEqual(skillIconSVG(id), skillIconSVG('attack'), `${id} has its own icon`);
+  }
+  const ids = new Set();
+  for (const c of CROPS) { ids.add(c[0]); ids.add(`${c[0]}_seed`); }
+  for (const [id, p] of Object.entries(POTIONS)) { ids.add(id); p.inputs.forEach(([i]) => ids.add(i)); }
+  for (const r of FLETCH) { ids.add(r.result); r.inputs.forEach(([i]) => ids.add(i)); }
+  for (const h of Object.values(HUNT)) h.gives.forEach((g) => ids.add(g.id));
+  for (const r of HIDE_CRAFT) { ids.add(r.result); r.inputs.forEach((i) => ids.add(i.id)); }
+  for (const id of ['knife', 'hunting_snare', 'venison', 'boar_steak']) ids.add(id);
+  for (const id of ids) {
+    assert.ok(ITEMS[id], `${id} is an item`);
+    if (id !== 'coins') assert.notEqual(itemIconSVG(id), fallback, `${id} has an icon`);
+  }
+  assert.ok(SHOPS.farming.stock.some((s) => s.id === 'chilli_seed') && SHOPS.general.stock.some((s) => s.id === 'hunting_snare'));
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  const count = (id) => game.world.objects.filter((o) => o.objId === id).length;
+  assert.ok(count('farm_patch') >= 20 && count('apothecary_table') >= 4 && count('fletching_bench') >= 4);
+  for (const id of Object.keys(HUNT)) assert.ok(count(id) >= 3, `${id} traps are placed`);
+  assert.ok(game.npcs.some((n) => n.npcId === 'farmer' && Math.abs(n.x - 58) < 10 && Math.abs(n.y - 60) < 10), 'a farmer by Kampong Glam');
+});
+
+test('farming: plant a seed, it grows, it survives a save, and the harvest gives crops and xp', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  const patch = game.world.objects.find((o) => o.objId === 'farm_patch');
+  game.inventory.add('chilli_seed', 1);
+  assert.ok(game.plantSeed(patch, 'chilli_seed'));
+  assert.equal(patch.crop, 'chilli');
+  assert.equal(game.inventory.count('chilli_seed'), 0);
+  game.tendPatch(patch);
+  assert.equal(patch.crop, 'chilli', 'checking a growing crop does not harvest it');
+  saveGame(game);
+  const g2 = new Game(); g2.start(); loadGame(g2);
+  assert.equal(g2.world.objectAt(patch.x, patch.y).crop, 'chilli', 'the crop is still there after loading');
+  for (let i = 0; i < 60; i++) game._tickFarms();
+  assert.equal(patch.growLeft, 0, 'it has grown');
+  const xp0 = game.skills.xp.farming;
+  game.tendPatch(patch);
+  assert.equal(patch.crop, null, 'harvested');
+  assert.ok(game.inventory.count('chilli') >= 3 && game.skills.xp.farming > xp0);
+  // A seed above your level won't go in.
+  game.inventory.add('durian_seed', 1);
+  assert.equal(game.plantSeed(patch, 'durian_seed'), false);
+});
+
+test('hunter, fletching and herblore: traps catch, benches make, potions brew, boost a fight and wear off', async () => {
+  const { resolveHunt, resolveRecipe } = await import('../src/game/skilling.js');
+  const { POTIONS, FLETCH } = await import('../src/data/trades.js');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  const trap = game.world.objects.find((o) => o.objId === 'bird_snare');
+  assert.equal(resolveHunt(game, { obj: trap }), false, 'a snare is needed');
+  game.inventory.add('hunting_snare', 1);
+  for (let i = 0; i < 200 && !game.skills.xp.hunter; i++) { trap.depleted = false; resolveHunt(game, { obj: trap }); }
+  assert.ok(game.skills.xp.hunter > 0 && game.inventory.count('feather') >= 3, 'the snare caught a junglefowl');
+  // Fletching: logs into shafts, then arrows.
+  game.inventory.add('knife', 1); game.inventory.add('logs', 1); game.inventory.add('bronze_bar', 1); game.inventory.add('feather', 15);
+  resolveRecipe(game, { skill: 'fletching', recipe: FLETCH.find((r) => r.result === 'arrow_shaft') });
+  assert.equal(game.inventory.count('arrow_shaft'), 15);
+  const arrows0 = game.inventory.count('bronze_arrow');
+  resolveRecipe(game, { skill: 'fletching', recipe: FLETCH.find((r) => r.result === 'bronze_arrow') });
+  assert.equal(game.inventory.count('bronze_arrow'), arrows0 + 15);
+  // Herblore: a chilli and a vial make an attack potion.
+  game.inventory.add('chilli', 1); game.inventory.add('vial', 1);
+  const p = POTIONS.attack_potion;
+  resolveRecipe(game, { skill: 'herblore', recipe: { result: 'attack_potion', qty: 1, inputs: p.inputs, level: p.level, xp: p.xp } });
+  assert.equal(game.inventory.count('attack_potion'), 1);
+  const acc0 = game.perkMods().acc || 0;
+  game.drinkPotion(game.inventory.slots.findIndex((s) => s && s.id === 'attack_potion'));
+  assert.ok(Math.abs((game.perkMods().acc || 0) - acc0 - 0.08) < 1e-9, 'the potion adds 8% accuracy');
+  game._tickPotions(p.ms + 1);
+  assert.equal(game.perkMods().acc || 0, acc0, 'and wears off');
+  // A healing potion heals at once.
+  game.player.hp = 1;
+  game.inventory.add('healing_potion', 1);
+  game.drinkPotion(game.inventory.slots.findIndex((s) => s && s.id === 'healing_potion'));
+  assert.ok(game.player.hp > 1);
+});
+
+test('Trades of the Wild: Cikgu Surya teaches the four new skills and pays out at the end', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.startLife('life_skills_wild');
+  assert.equal(game.quests.life_skills_wild.state, 'active');
+  game.inventory.add('chilli', 5); game.advanceLife('life_skills_wild');
+  game.inventory.add('attack_potion', 1); game.advanceLife('life_skills_wild');
+  game.inventory.add('arrow_shaft', 15); game.advanceLife('life_skills_wild');
+  game.skills.addXp('hunter', 200); game.advanceLife('life_skills_wild');
+  assert.equal(game.quests.life_skills_wild.state, 'done');
+});

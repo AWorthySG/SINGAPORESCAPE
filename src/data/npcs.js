@@ -1,3 +1,4 @@
+import { CROPS } from './trades.js';
 import { BOSS_ABILITIES } from './bossAbilities.js';
 // NPC registry. Monsters are generated from archetype "bases" × rank tiers into a
 // 169-strong bestiary (scaled stats + level-tiered drops), plus 15 hand-authored
@@ -26,6 +27,13 @@ function nextMetal(tier) { const i = METAL_TIERS.findIndex(([, t]) => t === tier
 // Arrows of a metal tier (the endgame metals share the nearest arrow).
 const ARROW_FOR = { obsidian: 'dragon_arrow', orichalcum: 'dragon_arrow', dragon: 'dragon_arrow', jade: 'jade_arrow', starmetal: 'starmetal_arrow', celestial: 'starmetal_arrow', eternal: 'eternal_arrow' };
 
+// The best seed a monster of this level might carry.
+function seedFor(level) {
+  let best = CROPS[0];
+  for (const c of CROPS) if (c[2] <= level * 0.9) best = c;
+  return `${best[0]}_seed`;
+}
+
 function dropsFor(level) {
   const tier = metalFor(level);
   const ore = { bronze: 'copper_ore', iron: 'iron_ore', steel: 'coal', mithril: 'mithril_ore', adamant: 'adamantite_ore' }[tier] || 'runite_ore';
@@ -37,6 +45,8 @@ function dropsFor(level) {
     // Arrows of the area's tier, so archers can keep hunting.
     { id: ARROW_FOR[tier] || `${tier}_arrow`, min: 8, max: 25, weight: 10 },
   ];
+  // Farming: seeds that suit the area.
+  t.push({ id: seedFor(level), min: 1, max: 3, weight: 4 }, { id: seedFor(level / 2), min: 1, max: 4, weight: 4 });
   // Archery gear: a bow of the area's tier and ranged armour, like the melee pool.
   t.push({ id: bowFor(level), weight: 14 });         // ~1 kill in 10
   t.push({ id: bowFor(level + 20), weight: 6 });     // often the next bow up
@@ -444,6 +454,7 @@ const TOWNSFOLK = {
   skills_tutor: { name: 'Cikgu Surya', level: 0, attackable: false, role: 'dialogue', wander: 0, examine: 'A patient teacher of the island\'s trades.', dialogue: 'tutor' },
   light_priestess: { name: 'Sister Mei', level: 0, attackable: false, role: 'dialogue', wander: 0, examine: 'A serene priestess who offers the path of redemption.', dialogue: 'priestess' },
   shadow_broker: { name: 'The Tempter', level: 0, attackable: false, role: 'dialogue', wander: 0, examine: 'A hooded figure who whispers of corruption.', dialogue: 'tempter' },
+  farmer: { name: 'Farmer Lim', level: 0, attackable: false, role: 'shop', wander: 0, examine: 'He sells seeds, vials, knives and snares.', shop: 'farming' },
   villager: { name: 'Villager', level: 0, attackable: false, role: 'dialogue', wander: 5, examine: 'A local resident.', dialogue: 'villager' },
 };
 
@@ -472,6 +483,8 @@ for (const id of BOSS_IDS) {
     { id: lvl < 60 ? 'death_rune' : 'blood_rune', min: 40, max: 150, weight: 8 },
     { id: 'chaos_rune', min: 60, max: 200, weight: 6 },
     { id: 'nature_rune', min: 20, max: 80, weight: 5 },
+    // Farming: rare seeds, and the high-level herbs' seeds from the strongest.
+    { id: seedFor(lvl), min: 2, max: 5, weight: 8 },
   ];
 }
 for (const id of BOSS_IDS) NPCS[id] = BOSS_DEFS[id];

@@ -56,6 +56,9 @@ export const COOKING = {
   raw_white_pomfret: { result: 'white_pomfret', level: 42, xp: 120, burnStop: 72 },
   raw_coral_trout: { result: 'coral_trout', level: 46, xp: 135, burnStop: 76 },
   raw_cobia: { result: 'cobia', level: 54, xp: 155, burnStop: 82 },
+  // Hunter game
+  raw_venison: { result: 'venison', level: 35, xp: 105, burnStop: 66 },
+  raw_boar_meat: { result: 'boar_steak', level: 50, xp: 145, burnStop: 78 },
 };
 
 // Display names for the fishing tool each spot requires.
@@ -407,4 +410,52 @@ export function resolveFiremake(game, action) {
     }
   }
   return false;
+}
+
+// ---------------- Hunter ----------------
+export function resolveHunt(game, action) {
+  const { obj } = action;
+  const def = obj.def;
+  if (obj.depleted || game.world.objectAt(obj.x, obj.y) !== obj) return false;
+  if (game.skills.level('hunter') < def.level) { game.msg(`You need a Hunter level of ${def.level} to use this.`); return false; }
+  if (!game.hasTool('snare')) { game.msg('You need a hunting snare to work traps.'); return false; }
+  if (def.gives.some((g) => game.inventory.canAdd(g.id, g.max || 1) <= 0)) { game.msg('Your inventory is too full.'); return false; }
+  const lvl = game.skills.level('hunter');
+  if (Math.random() >= gatherChance(def.lowChance, def.highChance, lvl)) return true;   // nothing yet: keep watching
+  const got = [];
+  for (const g of def.gives) {
+    if (Math.random() >= (g.chance ?? 1)) continue;
+    const n = g.max ? randInt(g.min, g.max) : 1;
+    game.inventory.add(g.id, n);
+    got.push(n > 1 ? `${n} ${getItem(g.id).name.toLowerCase()}s` : getItem(g.id).name.toLowerCase());
+  }
+  game.skills.addXp('hunter', def.xp);
+  const c = objCenter(obj); game.spawnPoof(c.x, c.y, def.color || '#caa15a');
+  obj.shakeT = 280; game.bus.emit('sfx', 'gather');
+  game.msg(`The trap springs! You catch ${got.join(' and ')}.`);
+  if (Math.random() < def.depleteChance) {
+    obj.depleted = true;
+    obj.respawnTimer = def.respawn;
+    game.msg('The trap needs resetting. Try another, or wait a moment.');
+    return false;
+  }
+  return true;
+}
+
+// ---------------- Fletching and Herblore ----------------
+// A recipe worked at a station: `action.recipe` is { result, qty, inputs: [[id, n]...], level, xp, tool? }.
+export function resolveRecipe(game, action) {
+  const { recipe: r, skill } = action;
+  const sname = skill[0].toUpperCase() + skill.slice(1);
+  if (r.tool && !game.hasTool(r.tool)) { game.msg(`You need a ${getItem(r.tool === 'knife' ? 'knife' : r.tool).name.toLowerCase()} for this.`); return false; }
+  if (game.skills.level(skill) < r.level) { game.msg(`You need a ${sname} level of ${r.level} to make this.`); return false; }
+  if (!r.inputs.every(([id, n]) => game.inventory.has(id, n))) { game.msg('You have run out of materials.'); return false; }
+  if (game.inventory.canAdd(r.result, r.qty || 1) <= 0) { game.msg('Your inventory is too full.'); return false; }
+  for (const [id, n] of r.inputs) game.inventory.remove(id, n);
+  game.inventory.add(r.result, r.qty || 1);
+  game.skills.addXp(skill, r.xp);
+  game.spawnSparkle(game.player, skill === 'herblore' ? '#7ad08a' : '#caa15a', 6);
+  const name = getItem(r.result).name.toLowerCase();
+  game.msg(skill === 'herblore' ? `You brew a ${name}.` : `You fletch ${(r.qty || 1) > 1 ? `${r.qty} ${name}s` : `a ${name}`}.`);
+  return r.inputs.every(([id, n]) => game.inventory.has(id, n));
 }

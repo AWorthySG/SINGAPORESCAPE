@@ -1,3 +1,4 @@
+import { POTIONS, CROP_BY_ID } from '../data/trades.js';
 import { SAVE_KEY } from '../config.js';
 
 const VERSION = 1;
@@ -46,6 +47,8 @@ export function snapshot(game) {
     specEnergy: game.specEnergy,
     settings: { running: game.running, autoCfg: game.autoCfg },
     jobClass: game.jobClass,
+    potions: game.potions,
+    farms: game.world.objects.filter((o) => o.def.type === 'farm' && o.crop).map((o) => ({ x: o.x, y: o.y, crop: o.crop, left: o.growLeft })),
   };
 }
 
@@ -122,6 +125,17 @@ export function loadGame(game) {
   // Job class: older saves pick one on their next visit.
   game.jobClass = typeof data.jobClass === 'string' ? data.jobClass : null;
   game.pendingClassChoice = !game.jobClass && !game.pendingStyleChoice;
+  // Herblore boosts still running, and crops still growing in their patches.
+  game.potions = {};
+  if (data.potions && typeof data.potions === 'object') {
+    for (const [id, ms] of Object.entries(data.potions)) if (POTIONS[id] && ms > 0) game.potions[id] = Math.min(ms, POTIONS[id].ms || 0);
+  }
+  if (Array.isArray(data.farms)) {
+    for (const f of data.farms) {
+      const o = game.world.objectAt(f.x, f.y);
+      if (o && o.def.type === 'farm' && CROP_BY_ID[f.crop]) { o.crop = f.crop; o.growLeft = Math.max(0, Number(f.left) || 0); }
+    }
+  }
   const ac = data.settings?.autoCfg;
   if (ac && typeof ac === 'object') {
     game.autoCfg = {

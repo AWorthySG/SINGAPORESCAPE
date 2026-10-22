@@ -71,8 +71,9 @@ export function buildWorld() {
     if (x < OPEN_W && y < OPEN_H) continue;
     let base = T.GRASS;
     if (x >= 400 && y >= 180 && y < 272) base = rng3() < 0.8 ? T.DARKGRASS : T.GRASS;        // Mandai Rainforest
-    else if (y >= 280 && x >= 360) base = rng3() < 0.5 ? T.STONE : T.GRASS;                  // the Celestial Peaks
-    else if (y >= 280 && x < 180) base = rng3() < 0.35 ? T.SAND : T.GRASS;                   // Tuas Docklands
+    // Rocky slopes and dockyard sand come in broad drifts, not speckles.
+    else if (y >= 280 && x >= 360) base = Math.sin(x / 9) + Math.cos(y / 6) + Math.sin((x + y) / 13) + (rng3() - 0.5) * 0.5 > 0.4 ? T.STONE : T.GRASS;   // the Celestial Peaks
+    else if (y >= 280 && x < 180) base = Math.sin(x / 11 + 1) + Math.cos(y / 8) + (rng3() - 0.5) * 0.4 > 0.5 ? T.SAND : T.GRASS;                     // Tuas Docklands
     else if (y >= 280) base = rng3() < 0.3 ? T.DARKGRASS : T.GRASS;                          // Temasek Ruins
     else if (rng3() < 0.06) base = T.DARKGRASS;
     set(x, y, base);
@@ -710,6 +711,41 @@ export function buildWorld() {
   // Alignment-arc bosses at fixed, thematic spots.
   placeNpc('lion_of_light', 52, 56, 0, { aggressive: false }); // radiant guardian by the town temple (never aggressive)
   placeNpc('shadow_sovereign', 108, 50, 2);                    // dark sovereign deep in the Wilderness
+
+  // ================= Farming, Herblore, Fletching and Hunter =================
+  // Placed last, at fixed spots, so nothing generated earlier moves.
+  const OPEN_GROUND = [T.GRASS, T.DARKGRASS, T.STONE, T.SAND];
+  const placeNear = (objId, x0, y0) => {
+    for (let r = 0; r < 8; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+      const x = x0 + dx, y = y0 + dy;
+      if (OPEN_GROUND.includes(get(x, y)) && placeObj(objId, x, y)) return true;
+    }
+    return false;
+  };
+  const stations = (x, y) => { placeNear('apothecary_table', x, y); placeNear('fletching_bench', x + 2, y); };
+  const patches = (x, y, n, per = 4) => { for (let i = 0; i < n; i++) placeNear('farm_patch', x + (i % per) * 2, y + Math.floor(i / per) * 2); };
+  // Kampong Glam: a kampung allotment just south of the plaza, and work benches.
+  stations(60, 66); patches(48, 67, 4); placeNpc('farmer', 56, 67);
+  // Kranji Village: the farming heartland.
+  stations(447, 132); patches(445, 124, 12, 6); placeNpc('farmer', 457, 128);
+  // Benches in the other towns, and allotments at Marina Bay and the Temasek Camp.
+  stations(186, 137); patches(181, 132, 4); placeNpc('farmer', 189, 133);
+  stations(447, 44);
+  stations(257, 305); patches(262, 310, 4); placeNpc('farmer', 270, 304);
+  stations(256, 216);
+  // Hunter grounds, from the starter snares by Bukit Timah to the qilin trails on the Peaks.
+  for (const [id, spots] of Object.entries({
+    bird_snare: [[40, 38], [46, 40], [52, 40], [425, 100], [470, 110], [500, 140]],
+    squirrel_trap: [[30, 20], [34, 24], [415, 120], [480, 165]],
+    lizard_snare: [[42, 70], [44, 76], [240, 30], [250, 80]],
+    mousedeer_trail: [[20, 10], [26, 14], [90, 130], [140, 130]],
+    boar_pit: [[170, 30], [176, 86], [430, 150], [490, 120], [515, 170]],
+    python_trap: [[30, 130], [60, 170], [420, 70], [500, 60], [420, 230]],
+    crocodile_trap: [[12, 160], [48, 190], [430, 62], [470, 75], [510, 230]],
+    hornbill_nest: [[410, 200], [460, 215], [490, 250], [520, 195]],
+    qilin_trail: [[380, 300], [430, 340], [500, 300], [520, 360]],
+  })) for (const [x, y] of spots) placeNear(id, x, y);
 
   // --- Border fence ---
   for (let x = 0; x < W; x++) { placeObj('fence', x, 0); placeObj('fence', x, H - 1); }

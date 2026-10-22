@@ -5,6 +5,7 @@ import { getItem } from '../data/items.js';
 import { SHOPS, getShop } from '../data/shops.js';
 import { SMELT, SMITH } from '../data/smithing.js';
 import { CRAFT } from '../data/crafting.js';
+import { POTIONS, FLETCH, CROP_BY_SEED } from '../data/trades.js';
 import { COOKING } from '../game/skilling.js';
 import { DISHES } from '../data/cooking.js';
 import { SKILLS, SKILL_GROUPS } from '../data/skills.js';
@@ -596,6 +597,7 @@ export class UI {
     if (!s) return;
     const item = getItem(s.id);
     if (item.heal) this.game.eatItem(i);
+    else if (item.potion) this.game.drinkPotion(i);
     else if (item.equip) this.game.equipItem(i);
     else if (item.tags?.includes('log')) this.game.lightLogs(i);
     else if (s.id === 'bones') this.game.buryBones(i);
@@ -618,6 +620,7 @@ export class UI {
     const item = getItem(s.id);
     const opts = [];
     if (item.heal) opts.push({ label: 'Eat', target: item.name, fn: () => this.game.eatItem(i) });
+    if (item.potion) opts.push({ label: 'Drink', target: item.name, fn: () => this.game.drinkPotion(i) });
     if (item.equip) {
       const dual = canDualWield(s.id) && canDualWield(this.game.equipment.get('weapon'));
       if (dual) {
@@ -1745,6 +1748,53 @@ export class UI {
     };
     this.openModal('Crafting', render);
     this.modal.kind = 'craft';
+  }
+
+  // Fletching and Herblore ---------------------------------------------
+  openRecipeMenu(skill, obj) {
+    const g = this.game;
+    const recipes = skill === 'herblore'
+      ? Object.entries(POTIONS).map(([id, p]) => ({ result: id, qty: 1, inputs: p.inputs, level: p.level, xp: p.xp }))
+      : FLETCH;
+    const render = (body) => {
+      body.innerHTML = `<div class="modal-hint">${skill === 'herblore'
+        ? 'Brew farmed herbs into potions. Drink one from your pack for a boost in battle.'
+        : 'Carve logs with a knife, and tip arrow shafts with feathers and a metal bar.'}</div>`;
+      const list = document.createElement('div');
+      for (const r of recipes) {
+        const hasTool = !r.tool || g.hasTool(r.tool);
+        const can = hasTool && g.skills.level(skill) >= r.level && r.inputs.every(([id, n]) => g.inventory.has(id, n));
+        const row = document.createElement('div');
+        row.className = 'dialogue-option';
+        row.style.opacity = can ? '1' : '0.5';
+        const needs = r.inputs.map(([id, n]) => `${n} ${getItem(id).name}`).join(' + ');
+        row.innerHTML = `<span class="row-ic">${itemIconSVG(r.result, 22)}</span> <b>${r.qty > 1 ? r.qty + ' ' : ''}${getItem(r.result).name}</b> <span style="opacity:.75">(lvl ${r.level} &mdash; ${needs}${r.tool ? ', knife' : ''})</span>`;
+        row.addEventListener('click', () => { g.startRecipe(skill, r, obj); this.closeModal(); });
+        list.appendChild(row);
+      }
+      body.appendChild(list);
+    };
+    this.openModal(skill === 'herblore' ? 'Herblore' : 'Fletching', render);
+    this.modal.kind = skill;
+  }
+
+  // Farming: choose which seed to plant ------------------------------------
+  openSeedMenu(obj, seeds) {
+    const render = (body) => {
+      body.innerHTML = '<div class="modal-hint">Choose a seed to plant in this patch.</div>';
+      const list = document.createElement('div');
+      for (const id of seeds) {
+        const c = CROP_BY_SEED[id];
+        const row = document.createElement('div');
+        row.className = 'dialogue-option';
+        row.innerHTML = `<span class="row-ic">${itemIconSVG(id, 22)}</span> <b>${getItem(id).name}</b> <span style="opacity:.75">(Farming ${c[2]} &mdash; ${this.game.inventory.count(id)} in pack)</span>`;
+        row.addEventListener('click', () => { this.closeModal(); this.game.plantSeed(obj, id); });
+        list.appendChild(row);
+      }
+      body.appendChild(list);
+    };
+    this.openModal('Plant a seed', render);
+    this.modal.kind = 'farm';
   }
 
   // Smithing -----------------------------------------------------------

@@ -8,6 +8,8 @@
 // Gathering rate is interpolated between lowChance (lvl 1) and highChance (lvl 99).
 // depleteChance: probability the node is consumed after a successful gather.
 
+import { HUNT } from './trades.js';
+
 export const OBJECTS = {
   // ---------------- Trees ----------------
   tree: {
@@ -271,6 +273,20 @@ export const OBJECTS = {
     skill: 'crafting', examine: 'A workbench for pottery and jewelry.',
   },
 
+  // ---------------- Farming, Herblore, Fletching, Hunter ----------------
+  farm_patch: {
+    name: 'Farm patch', label: 'Patch', type: 'farm', verb: 'Tend', emoji: '🌱', blocking: false,
+    skill: 'farming', examine: 'Rich, tilled soil. Plant a seed here, then come back to harvest.',
+  },
+  apothecary_table: {
+    name: 'Apothecary table', type: 'herblore', verb: 'Brew at', emoji: '⚗️', blocking: true,
+    skill: 'herblore', examine: 'Mortar, pestle and vials for brewing potions.',
+  },
+  fletching_bench: {
+    name: 'Fletching bench', type: 'fletch', verb: 'Fletch at', emoji: '🏹', blocking: true,
+    skill: 'fletching', examine: 'A bench for carving bows and tipping arrows.',
+  },
+
   // ---------------- Banking ----------------
   bank_booth: {
     name: 'Bank booth', type: 'bank', verb: 'Use', emoji: '🏦', blocking: true,
@@ -361,6 +377,12 @@ export const OBJECTS = {
   lamp: { name: 'Lamp post', type: 'scenery', emoji: '🏮', blocking: true, examine: 'It lights the path.' },
   sign: { name: 'Signpost', type: 'scenery', emoji: '🪧', blocking: false, examine: 'Welcome to Kampong Glam!' },
 };
+
+// Hunter traps and trails (definitions in trades.js).
+for (const [id, h] of Object.entries(HUNT)) {
+  OBJECTS[id] = { ...h, label: h.name.split(' ')[0], type: 'hunt', verb: 'Check', emoji: '🪤', blocking: false, skill: 'hunter',
+    examine: `${h.examine} (Hunter ${h.level})` };
+}
 
 export function getObject(id) {
   const obj = OBJECTS[id];

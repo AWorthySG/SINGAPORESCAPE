@@ -5,6 +5,7 @@
    Each entry returns the INNER markup of an <svg viewBox="0 0 24 24">.
    Exported as an ES module for the live game (ground items raster to <img>).
    ============================================================================ */
+import { CROPS, POTIONS } from '../data/trades.js';
   const OL = '#22304A';                 // A-Worthy navy ink outline
   // palettes
   const C = {
@@ -570,6 +571,34 @@
   S.ranged = bowIcon('#5a8a3a');
   S.magic = `<path d="M12 2 L14 9 L21 11 L14 13 L12 20 L10 13 L3 11 L10 9 Z" fill="#8a96e8" stroke="${OL}" stroke-width="1" stroke-linejoin="round"/>`;
   S.slayer = `<path d="M5 11 C5 5 19 5 19 11 C19 14 17 15 16 16 L16 19 L8 19 L8 16 C7 15 5 14 5 11 Z" fill="#e8e2d0" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><circle cx="9.5" cy="11" r="1.8" fill="#2a2a30"/><circle cx="14.5" cy="11" r="1.8" fill="#2a2a30"/><path d="M11 13 L12 15 L13 13 Z" fill="#2a2a30"/><path d="M9 19 L9 17 M11 19 L11 17 M13 19 L13 17 M15 19 L15 17" stroke="${OL}" stroke-width="0.8"/>`;
+  // ---- Farming, Herblore, Fletching, Hunter ----
+  const seedIcon = (col) => `<path d="M6 6 L18 6 L17 21 L7 21 Z" fill="${C.cream}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M6 6 L8 3 L16 3 L18 6" fill="#d8c8a0" stroke="${OL}" stroke-width="1" stroke-linejoin="round"/><circle cx="12" cy="14" r="3.6" fill="${col}" stroke="${OL}" stroke-width="0.9"/><path d="M12 10.4 C12 8.5 13.5 8 14.5 8.2" fill="none" stroke="${C.leafDk}" stroke-width="1.2" stroke-linecap="round"/>`;
+  const herbIcon = (col) => `<g stroke="${OL}" stroke-width="1" stroke-linejoin="round"><path d="M12 21 L12 10" fill="none" stroke="${C.leafDk}" stroke-width="1.4"/><path d="M12 12 C7 12 5 8 6 5 C10 5 12 8 12 12 Z" fill="${col}"/><path d="M12 14 C17 14 19 10 18 7 C14 7 12 10 12 14 Z" fill="${col}"/><path d="M12 9 C10 6 11 3 12 2 C13 3 14 6 12 9 Z" fill="${col}"/></g><path d="M8 7 C9 8 10 10 11 11" stroke="#fff" stroke-width="0.7" opacity=".5" fill="none"/>`;
+  const fruitIcon = (col, spiky) => `${spiky ? `<g fill="${col}" stroke="${OL}" stroke-width="0.8">${[0, 45, 90, 135, 180, 225, 270, 315].map((a) => `<path d="M12 13 L${(12 + Math.cos(a * Math.PI / 180) * 9).toFixed(1)} ${(13 + Math.sin(a * Math.PI / 180) * 9).toFixed(1)} L${(12 + Math.cos((a + 20) * Math.PI / 180) * 6).toFixed(1)} ${(13 + Math.sin((a + 20) * Math.PI / 180) * 6).toFixed(1)} Z"/>`).join('')}</g>` : ''}<circle cx="12" cy="13" r="7" fill="${col}" stroke="${OL}" stroke-width="1.1"/><path d="M12 6 C12 4 13 3 14 3" fill="none" stroke="${C.wood}" stroke-width="1.3" stroke-linecap="round"/><path d="M13 5 C16 3 18 5 18 6 C16 7 14 6 13 5 Z" fill="${C.leaf}" stroke="${OL}" stroke-width="0.8"/>${glint(9.5, 10.5, 1.3)}`;
+  const potionIcon = (col) => `<path d="M10 3 H14 V7 C17 8.5 19 11 19 14 C19 18 16 21 12 21 C8 21 5 18 5 14 C5 11 7 8.5 10 7 Z" fill="#e8f4ff" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M5.6 13 C8 11.5 16 11.5 18.4 13 C18.6 17.5 16 20.4 12 20.4 C8 20.4 5.4 17.5 5.6 13 Z" fill="${col}"/><rect x="9.5" y="2" width="5" height="2.2" rx="0.8" fill="${C.wood}" stroke="${OL}" stroke-width="0.8"/>${glint(8.5, 14.5, 1.2)}`;
+  const hideIcon = (col) => `<path d="M6 5 C9 7 15 7 18 5 L19 9 C17 10 17 14 19 15 L18 19 C15 17 9 17 6 19 L5 15 C7 14 7 10 5 9 Z" fill="${col}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M9 10 C11 11 13 11 15 10 M9 13.5 C11 14.5 13 14.5 15 13.5" stroke="rgba(0,0,0,0.22)" stroke-width="1" fill="none"/>`;
+  const meatIcon = (raw) => `<path d="M6 9 C6 5 13 3 17 6 C21 9 19 16 14 18 C9 20 5 15 6 9 Z" fill="${raw ? '#d86a6a' : '#a8643a'}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M9 10 C11 8 14 8 16 10" stroke="${raw ? '#f4c0c0' : '#d89a6a'}" stroke-width="1.4" fill="none" stroke-linecap="round"/><circle cx="16" cy="15" r="1.6" fill="#f0e8d8" stroke="${OL}" stroke-width="0.7"/>`;
+  for (const c of CROPS) {
+    const [id, , , , , , , heal, , col] = c;
+    I[`${id}_seed`] = seedIcon(col);
+    if (!I[id]) I[id] = heal ? fruitIcon(col, id === 'durian' || id === 'rambutan') : herbIcon(col);
+  }
+  for (const [id, p] of Object.entries(POTIONS)) I[id] = potionIcon(p.color);
+  I.knife = `<path d="M5 19 L13 11" stroke="${OL}" stroke-width="3.6" stroke-linecap="round"/><path d="M5 19 L13 11" stroke="${C.wood}" stroke-width="2.2" stroke-linecap="round"/><path d="M12 12 L20 3 C21 6 18 10 14 13 Z" fill="${C.iron}" stroke="${OL}" stroke-width="1" stroke-linejoin="round"/>${glint(18, 6, 0.6)}`;
+  I.hunting_snare = `<ellipse cx="12" cy="14" rx="7" ry="5" fill="none" stroke="#c8a870" stroke-width="2"/><path d="M12 9 C12 6 14 4 17 4" fill="none" stroke="#c8a870" stroke-width="2" stroke-linecap="round"/>${[[6, 15], [18, 15], [12, 19]].map(([x, y]) => `<rect x="${x - 1}" y="${y - 4}" width="2" height="6" rx="0.8" fill="${C.wood}" stroke="${OL}" stroke-width="0.7"/>`).join('')}`;
+  I.arrow_shaft = `<g stroke-linecap="round">${[0, 2.4, 4.8].map((d) => `<path d="M${4 + d} ${20 - d * 0.3} L${17 + d * 0.4} ${5 - d * 0.2}" stroke="${OL}" stroke-width="2.4"/><path d="M${4 + d} ${20 - d * 0.3} L${17 + d * 0.4} ${5 - d * 0.2}" stroke="#d8b878" stroke-width="1.2"/>`).join('')}</g>`;
+  I.squirrel_pelt = hideIcon('#a8743a');
+  I.lizard_skin = hideIcon('#7a9a4a');
+  I.python_skin = hideIcon('#c8a85a') + `<g fill="#6a5a3a">${[[9, 9], [14, 11], [10, 14], [15, 15]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.3"/>`).join('')}</g>`;
+  I.croc_hide = hideIcon('#4a6a3a') + `<path d="M8 9 L16 9 M8 12 L16 12 M8 15 L16 15" stroke="#2a4a2a" stroke-width="0.9"/>`;
+  I.raw_venison = meatIcon(true); I.venison = meatIcon(false);
+  I.raw_boar_meat = meatIcon(true); I.boar_steak = meatIcon(false);
+  I.hornbill_casque = `<path d="M4 15 C6 8 12 5 19 7 C17 9 16 11 17 13 C13 12 9 13 7 17 Z" fill="#f0b030" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M7 15 C9 11 13 9 17 9" stroke="#d04a20" stroke-width="1.4" fill="none"/>${glint(10, 10, 1)}`;
+  I.qilin_mane = `<g stroke="${OL}" stroke-width="0.9" stroke-linejoin="round">${[0, 1, 2, 3].map((i) => `<path d="M${6 + i * 3} 20 C${4 + i * 3} 14 ${8 + i * 3} 9 ${7 + i * 3} 3 C${11 + i * 3} 8 ${10 + i * 3} 14 ${9 + i * 3} 20 Z" fill="${i % 2 ? '#f0d070' : '#ffe8a0'}"/>`).join('')}</g>${glint(9, 8, 0.9)}${glint(15, 12, 0.7)}`;
+  S.farming = `<path d="M5 18 C8 16 16 16 19 18 L18 21 L6 21 Z" fill="#8a5a30" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M12 17 L12 9" stroke="${C.leafDk}" stroke-width="1.6"/><path d="M12 11 C7 11 6 7 7 5 C10 5 12 8 12 11 Z" fill="${C.leafHi}" stroke="${OL}" stroke-width="1"/><path d="M12 13 C17 13 18 9 17 7 C14 7 12 10 12 13 Z" fill="${C.leaf}" stroke="${OL}" stroke-width="1"/>`;
+  S.herblore = potionIcon('#5fd08a');
+  S.fletching = `<path d="M4 20 L18 6" stroke="${OL}" stroke-width="2.8" stroke-linecap="round"/><path d="M4 20 L18 6" stroke="#d8b878" stroke-width="1.4" stroke-linecap="round"/><path d="M17 4 L21 3 L20 7 L18 6 Z" fill="${C.iron}" stroke="${OL}" stroke-width="0.9" stroke-linejoin="round"/><path d="M4 20 L3 15 L7 17 Z M4 20 L9 21 L7 17 Z" fill="#e04a2a" stroke="${OL}" stroke-width="0.8" stroke-linejoin="round"/>`;
+  S.hunter = `<ellipse cx="12" cy="15" rx="8" ry="5" fill="none" stroke="#c8a870" stroke-width="2.2"/>${[[5, 16], [19, 16], [12, 20]].map(([x, y]) => `<rect x="${x - 1.1}" y="${y - 5}" width="2.2" height="7" rx="0.9" fill="${C.wood}" stroke="${OL}" stroke-width="0.8"/>`).join('')}<path d="M9 7 C9 4 15 4 15 7 C15 9 12 11 12 11 C12 11 9 9 9 7 Z" fill="${C.coral}" stroke="${OL}" stroke-width="0.9"/>`;
   T.prayer = S.prayer;
   T.quests = `<path d="M6 3 L18 3 L18 21 L6 21 Z" fill="${C.cream}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M8 7 L16 7 M8 10 L16 10 M8 13 L14 13" stroke="${C.stoneDk}" stroke-width="1"/><circle cx="17" cy="18" r="3" fill="${C.gold}" stroke="${OL}" stroke-width="1"/>`;
   T.achievements = `<path d="M7 4 L17 4 L17 8 C17 12 14 13 12 13 C10 13 7 12 7 8 Z" fill="${C.gold}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M7 5 C4 5 4 9 7 9 M17 5 C20 5 20 9 17 9" fill="none" stroke="${OL}" stroke-width="1.1"/><rect x="10.6" y="13" width="2.8" height="4" fill="${C.goldDk}" stroke="${OL}" stroke-width="1"/><rect x="8" y="17" width="8" height="3" rx="1" fill="${C.stone}" stroke="${OL}" stroke-width="1.1"/>`;

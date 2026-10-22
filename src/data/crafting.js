@@ -1,3 +1,5 @@
+import { HIDE_CRAFT } from './trades.js';
+
 // Crafting recipes. Worked at a crafting table: inputs -> result. Jewelry needs a
 // chisel. Gives the materials gathered from the new mining/woodcutting nodes a use.
 export const CRAFT = [
@@ -32,4 +34,7 @@ export const CRAFT = [
   { result: 'granite_helm', inputs: [{ id: 'granite', qty: 1 }], level: 45, xp: 90 },
   { result: 'granite_legs', inputs: [{ id: 'granite', qty: 3 }], level: 55, xp: 170 },
   { result: 'granite_body', inputs: [{ id: 'granite', qty: 4 }], level: 60, xp: 230 },
+
+  // ---- Hunter hides into archer armour ----
+  ...HIDE_CRAFT,
 ];
