@@ -842,6 +842,7 @@ test('Interact acts on the nearest thing: picks it, labels it, and does its main
   assert.equal(game._findInteract(), null);
   // An item underfoot beats a monster two tiles away.
   const gob = new NPC('goblin', p.x + 2, p.y, 0, {}); gob.def = { ...gob.def, aggressive: false };
+  gob.hp = gob.maxHp = 9999;   // in melee reach, Interact swings at once: make sure one hit can't end the fight
   game.npcs = [gob];
   game.world.addGroundItem('bones', 1, p.x, p.y);
   assert.equal(game._findInteract().kind, 'item');
