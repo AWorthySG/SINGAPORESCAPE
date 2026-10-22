@@ -1251,7 +1251,8 @@ export class UI {
         const row = document.createElement('div');
         row.className = 'bestiary-row' + (k ? '' : ' undiscovered');
         const weak = k ? `<span class="b-weak">weak: ${weaknessOf(d)}</span>` : '';
-        row.innerHTML = `<div class="b-head"><b>${escapeHtml(d.name)}</b><span class="b-lvl">Lvl ${d.level}${d.boss ? ' · Boss' : ''}</span>${weak}<span class="b-kc">${k} kills</span></div><div class="b-drops">${dropHtml}</div>`;
+        const abil = d.ability ? `<div class="b-ability"><b>${escapeHtml(d.ability.name)}:</b> ${escapeHtml(d.ability.desc)}</div>` : '';
+        row.innerHTML = `<div class="b-head"><b>${escapeHtml(d.name)}</b><span class="b-lvl">Lvl ${d.level}${d.boss ? ' · Boss' : ''}</span>${weak}<span class="b-kc">${k} kills</span></div>${abil}<div class="b-drops">${dropHtml}</div>`;
         list.appendChild(row);
       }
       if (!shown) { const e = document.createElement('div'); e.className = 'modal-hint'; e.textContent = 'No creatures match your search.'; list.appendChild(e); }

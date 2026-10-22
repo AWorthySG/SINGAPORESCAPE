@@ -27,6 +27,7 @@ import {
   playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX,
 } from './combat.js';
 import { ABILITY_BY_ID, abilitiesFor } from '../data/abilities.js';
+import { DOT_KINDS } from '../data/bossAbilities.js';
 import { getSpell, SPELLS } from '../data/magic.js';
 import { xpForLevel } from '../data/xp.js';
 import { PRAYERS, PRAYER_BY_ID, PRAYER_GROUPS } from '../data/prayers.js';
@@ -67,6 +68,19 @@ const BOSS_XP_PER_LEVEL = 40;
 
 // Share of fired arrows recovered after the shot.
 const ARROW_RECOVERY = 0.8;
+// What a boss's ground attack says when it marks the ground.
+const HAZARD_TEXT = {
+  blast: (n) => `${n} targets the ground under you. Move out of the red!`,
+  nova: (n) => `${n} gathers power around itself. Get away from it!`,
+  quake: (n) => `${n} rears up for a huge quake. Get well clear!`,
+  line: (n) => `${n} lines up a charge straight through you. Step aside!`,
+  cross: (n) => `${n} marks a cross on you. Step diagonally out of it!`,
+  ring: (n) => `${n} lashes out all around itself. Get in close to dodge!`,
+  meteors: (n) => `${n} calls down meteors. Find a gap!`,
+  rain: (n) => `${n} rains blows around you. Pick a safe tile!`,
+  chase: (n) => `${n} hunts you with blast after blast. Keep moving!`,
+  twin: (n) => `${n} strikes on both sides of you. Stand still!`,
+};
 export const BURY_BATCH = 100; // bones buried per click
 export const SPLIT_SHOT_LEVEL = 300;  // Ranged level at which every bow shot splits
 const SPLIT_SHOT_TARGETS = 3;       // ...into this many arrows, one per target
@@ -180,6 +194,9 @@ export class Game {
     this.abilityCd = {};          // ability id -> ticks until usable again
     this.braceTicks = 0;          // ticks of halved incoming damage left
     this.danceRhythm = 0;         // Dancer Rhythm stacks (more whip damage per landed lash)
+    this.playerDot = null;        // boss damage-over-time on the player: { kind, dmg, ticks, from }
+    this.playerRoot = 0;          // ticks the player can't move (webs, roots, coils)
+    this._buffedBosses = new Set(); // bosses with a shield or reflect running
     this._danceHitTick = 0;
 
     // Celebratory sparkle on level up; new milestones may unlock on level/quest changes.
@@ -328,7 +345,7 @@ export class Game {
   addHitsplat(entity, dmg, opts = {}) {
     if (entity && dmg > 0) entity.hurt = 200; // flash the struck entity
     entity._splatN = ((entity._splatN || 0) + 1) % 3;
-    this.effects.push({ type: 'hitsplat', entity, dmg, crit: !!opts.crit, text: opts.text, life: 1100, fan: entity._splatN - 1 });
+    this.effects.push({ type: 'hitsplat', entity, dmg, crit: !!opts.crit, text: opts.text, tint: opts.tint, life: 1100, fan: entity._splatN - 1 });
     if (opts.crit && dmg > 0) {
       this.addShake(2.5, 180);                 // crits thump the screen a little...
       if (entity !== this.player) this.hitStop = Math.max(this.hitStop, 55);   // ...and freeze for a beat
@@ -368,6 +385,7 @@ export class Game {
 
   // ---------------- Frame update (called from RAF) ----------------
   update(dt) {
+    if (this.playerRoot > 0 && this.player.path?.length) this.player.path = [];   // rooted: no walking off
     this._driveMovement();
     // Hit-stop: on big hits and kills, animation all but freezes for a few
     // frames (game ticks carry on), which makes impacts feel weighty.
@@ -514,6 +532,7 @@ export class Game {
   // ---------------- Game tick (600ms) ----------------
   doTick() {
     this.tickCount++;
+    this._tickBossEffects();
     // Rhythm fades if the Dancer stops lashing for a few ticks.
     if (this.danceRhythm > 0 && this.tickCount - this._danceHitTick > 4) { this.danceRhythm = 0; this.bus.emit('rhythm'); }
     if (!this.player.alive) {
@@ -1020,6 +1039,14 @@ export class Game {
   }
 
   _applyPlayerHit(npc, dmg, opts = {}) {
+    if (npc.shieldTicks > 0 && dmg > 0) dmg = Math.max(1, Math.floor(dmg / 2));   // a boss shield halves the blow
+    if (npc.reflectTicks > 0 && dmg > 0 && this.player.alive) {
+      const back = Math.min(this.player.hp, Math.max(1, Math.round(dmg * (npc.reflectFrac || 0.2))), Math.ceil(this.maxHp() * 0.1));
+      this.player.takeDamage(back);
+      this.addHitsplat(this.player, back, { tint: '#f5b82e' });
+      this.bus.emit('hp');
+      if (this.player.hp <= 0) this.playerDeath();
+    }
     npc.takeDamage(dmg);
     if (dmg > 0) this._knock(npc, this.player);
     this.addHitsplat(npc, dmg, opts);
@@ -1764,6 +1791,7 @@ export class Game {
     const p = this.player;
     if (!p.alive) return;
     this.addShake(3.5, 280);
+    if (npc.def.ability) { this._runBossAbility(npc, npc.def.ability); return; }
     switch (npc.def.mechanic) {
       case 'slam': {
         const { atkRoll, defRoll, max } = npcAttackVsPlayer(npc.def, this.skills, this.equipment, p.style);
@@ -1816,15 +1844,167 @@ export class Game {
   bossHazard(npc) {
     const p = this.player;
     if (!p.alive) return;
-    npc._aoeFlip = !npc._aoeFlip;
-    const at = this.playerTile();
-    const nova = !npc._aoeFlip;
-    const h = nova ? { cx: npc.x, cy: npc.y, r: 2 } : { cx: at.x, cy: at.y, r: 1 };
-    Object.assign(h, { npc, kind: nova ? 'nova' : 'blast', fireTick: this.tickCount + 3, start: performance.now(), dur: 3 * TICK_MS });
-    this.hazards.push(h);
+    // Each boss cycles through its own ground patterns (the default is blast / nova).
+    const list = npc.def.ability?.hazards || ['blast', 'nova'];
+    npc._hzi = ((npc._hzi ?? -1) + 1) % list.length;
+    const pattern = list[npc._hzi];
+    const squares = this._hazardSquares(pattern, npc, this.playerTile());
+    const now = performance.now();
+    squares.forEach((sq, i) => {
+      const delay = sq.delay ?? (pattern === 'quake' ? 4 : 3);
+      this.hazards.push({ ...sq, npc, kind: pattern, sign: i === 0 || sq.r > 0, fireTick: this.tickCount + delay, start: now, dur: delay * TICK_MS });
+    });
     this.spawnSparkle(npc, '#ff5a5a', 10);
     this.bus.emit('sfx', 'spec');
-    this.msg(nova ? `${npc.name} gathers power around itself. Get away from it!` : `${npc.name} targets the ground under you. Move out of the red!`, 'combat');
+    this.msg(HAZARD_TEXT[pattern]?.(npc.name) || `${npc.name} marks the ground. Move out of the red!`, 'combat');
+  }
+
+  /** Squares ({cx, cy, r}) covered by a ground-attack pattern. */
+  _hazardSquares(pattern, npc, at) {
+    const out = [];
+    const near = (k) => ({ cx: at.x + Math.round((Math.random() - 0.5) * 2 * k), cy: at.y + Math.round((Math.random() - 0.5) * 2 * k) });
+    switch (pattern) {
+      case 'nova': out.push({ cx: npc.x, cy: npc.y, r: 2 }); break;
+      case 'quake': out.push({ cx: npc.x, cy: npc.y, r: 3 }); break;
+      case 'line': {   // a lane from the boss, through you and beyond
+        const dx = Math.sign(at.x - npc.x), dy = Math.sign(at.y - npc.y);
+        const sx = dx || (dy ? 0 : 1), sy = dy;
+        for (let i = 1; i <= 9; i++) out.push({ cx: npc.x + sx * i, cy: npc.y + sy * i, r: 0 });
+        break;
+      }
+      case 'cross':
+        out.push({ cx: at.x, cy: at.y, r: 0 });
+        for (let i = 1; i <= 3; i++) out.push({ cx: at.x + i, cy: at.y, r: 0 }, { cx: at.x - i, cy: at.y, r: 0 }, { cx: at.x, cy: at.y + i, r: 0 }, { cx: at.x, cy: at.y - i, r: 0 });
+        break;
+      case 'ring':     // everything 3 tiles out from the boss: step in close to dodge
+        for (const [ox, oy] of [[-3, -3], [0, -3], [3, -3], [-3, 0], [3, 0], [-3, 3], [0, 3], [3, 3]]) out.push({ cx: npc.x + ox, cy: npc.y + oy, r: 1 });
+        break;
+      case 'meteors': out.push({ cx: at.x, cy: at.y, r: 1 }); for (let i = 0; i < 3; i++) out.push({ ...near(4), r: 1 }); break;
+      case 'rain': for (let i = 0; i < 8; i++) out.push({ ...(i ? near(3) : { cx: at.x, cy: at.y }), r: 0 }); break;
+      case 'chase': for (let i = 0; i < 3; i++) out.push({ cx: at.x, cy: at.y, r: 1, delay: 3 + i * 2, follow: i > 0 }); break;
+      case 'twin': out.push({ cx: at.x - 2, cy: at.y, r: 1 }, { cx: at.x + 2, cy: at.y, r: 1 }); break;
+      default: out.push({ cx: at.x, cy: at.y, r: 1 });   // blast
+    }
+    return out;
+  }
+
+  /** A boss's signature move: a named mix of effects (see bossAbilities.js). */
+  _runBossAbility(npc, ab) {
+    const p = this.player;
+    this.msg(`${npc.name} uses ${ab.name}! ${ab.desc}`, 'combat');
+    this.addHitsplat(npc, 0, { text: ab.name });
+    this.spawnSparkle(npc, ab.color || '#ffd24a', 14);
+    this.bus.emit('sfx', 'spec');
+    const def = npc.def;
+    for (const fx of ab.fx) {
+      if (!p.alive) break;
+      switch (fx.t) {
+        case 'strike': {
+          const { atkRoll, defRoll, max } = npcAttackVsPlayer(def, this.skills, this.equipment, p.style);
+          for (let i = 0; i < (fx.hits || 1) && p.alive; i++) {
+            const base = fx.sure ? rollGuaranteed(max) : rollAttack(atkRoll, defRoll, max);
+            let dmg = Math.round(base * (fx.mul || 1)) + (base > 0 ? 1 : 0);
+            dmg = Math.min(dmg, Math.ceil(this.maxHp() * 0.4));     // signature moves hurt, but never one-shot
+            const prot = this.protectFactor();
+            if (prot) dmg = Math.floor(dmg * (1 - prot));
+            if (this.braceTicks > 0) dmg = Math.floor(dmg * 0.5);
+            dmg = Math.min(p.hp, dmg);
+            p.takeDamage(dmg); this.addHitsplat(p, dmg, { crit: dmg > 0 });
+            if (dmg > 0) this.spawnHitSparks(p, ab.color || '#ff5a3a');
+            if (fx.steal && dmg > 0) { npc.hp = Math.min(npc.maxHp, npc.hp + Math.round(dmg * fx.steal)); this.spawnSparkle(npc, '#5fe08a', 6); }
+          }
+          this.bus.emit('hp');
+          if (p.hp <= 0) { this.playerDeath(); return; }
+          break;
+        }
+        case 'dot': {
+          const per = Math.max(1, Math.round((def.maxHit || 1) * fx.per));
+          this.playerDot = { kind: fx.kind, dmg: per, ticks: fx.ticks, from: npc.name };
+          this.msg(`You are ${DOT_KINDS[fx.kind]?.name || 'hurt'}!`, 'combat');
+          break;
+        }
+        case 'stun': this.playerStun = Math.max(this.playerStun, fx.ticks); break;
+        case 'root': this.playerRoot = Math.max(this.playerRoot, fx.ticks); p.path = []; this.msg('You are held in place!', 'combat'); break;
+        case 'pull': this._movePlayerNear(npc.x, npc.y, 1); break;
+        case 'knock': {
+          const dx = Math.sign(p.x - npc.x) || 1, dy = Math.sign(p.y - npc.y);
+          for (let d = fx.dist; d > 0; d--) {
+            const tx = p.x + dx * d, ty = p.y + dy * d;
+            if (this.world.inBounds(tx, ty) && !this.world.isBlocked(tx, ty)) { this._placePlayer(tx, ty); break; }
+          }
+          break;
+        }
+        case 'blink': {
+          const t = this._nearestFree(p.x + (Math.sign(npc.x - p.x) || 1), p.y);
+          if (t) { npc.x = npc.tx = t.x; npc.y = npc.ty = t.y; npc.path = []; this.spawnPoof(t.x * TILE + TILE / 2, t.y * TILE + TILE / 2, ab.color || '#ffffff'); }
+          break;
+        }
+        case 'heal': npc.hp = Math.min(npc.maxHp, npc.hp + Math.round(npc.maxHp * fx.frac)); this.spawnSparkle(npc, '#5fe08a', 10); break;
+        case 'shield': npc.shieldTicks = Math.max(npc.shieldTicks || 0, fx.ticks); this._buffedBosses.add(npc); break;
+        case 'reflect': npc.reflectTicks = Math.max(npc.reflectTicks || 0, fx.ticks); npc.reflectFrac = fx.frac; this._buffedBosses.add(npc); break;
+        case 'summon': {
+          const adds = this.npcs.filter((n) => n.temporary && n.alive).length;
+          for (let i = 0; i < fx.n && adds + i < 6; i++) {
+            const t = this._nearestFree(npc.x + (i % 2 ? 1 : -1), npc.y + 1);
+            if (!t) continue;
+            const add = this.spawnNpc(fx.id, t.x, t.y, { temporary: true });
+            if (!add) continue;
+            add.def = { ...add.def, aggressive: true, aggroRange: 8, ignoreLevelGate: true };
+            add.target = p;
+          }
+          break;
+        }
+        case 'enrage':
+          if (!npc.enraged) {
+            npc.enraged = true;
+            npc.def = { ...npc.def, attackSpeed: Math.max(2, (npc.def.attackSpeed || 5) - 1) };
+            this.spawnSparkle(npc, '#ff5a3a', 14);
+            this.msg(`${npc.name} flies into a rage!`, 'combat');
+          }
+          break;
+        case 'drain':
+          if (fx.adrenaline) { this.adrenaline = Math.max(0, (this.adrenaline || 0) - fx.adrenaline); this.bus.emit('ability'); }
+          if (fx.run) { this.runEnergy = Math.max(0, this.runEnergy - fx.run); this.bus.emit('run'); }
+          break;
+        default: break;
+      }
+    }
+  }
+
+  /** Move the player to the free tile nearest (x, y) within `r` of it. */
+  _movePlayerNear(x, y, r = 1) {
+    for (let d = 1; d <= r + 2; d++) {
+      for (let dy = -d; dy <= d; dy++) for (let dx = -d; dx <= d; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== d) continue;
+        if (this.world.inBounds(x + dx, y + dy) && !this.world.isBlocked(x + dx, y + dy)) { this._placePlayer(x + dx, y + dy); return; }
+      }
+    }
+  }
+
+  _placePlayer(x, y) {
+    const p = this.player;
+    p.stopNow?.(); p.path = [];
+    p.x = p.tx = x; p.y = p.ty = y; p.progress = 0; p.moving = false;
+  }
+
+  /** Each world tick: damage over time on the player, root countdown, boss shield/reflect timers. */
+  _tickBossEffects() {
+    const p = this.player;
+    if (this.playerRoot > 0) this.playerRoot--;
+    const d = this.playerDot;
+    if (d && p.alive) {
+      const dmg = Math.min(p.hp, d.dmg);
+      p.takeDamage(dmg);
+      this.addHitsplat(p, dmg, { tint: DOT_KINDS[d.kind]?.color });
+      this.bus.emit('hp');
+      if (--d.ticks <= 0) this.playerDot = null;
+      if (p.hp <= 0) { this.playerDot = null; this.playerDeath(); }
+    } else if (d) this.playerDot = null;
+    for (const n of this._buffedBosses) {
+      if (n.shieldTicks > 0) n.shieldTicks--;
+      if (n.reflectTicks > 0) n.reflectTicks--;
+      if (!n.alive || (!(n.shieldTicks > 0) && !(n.reflectTicks > 0))) this._buffedBosses.delete(n);
+    }
   }
 
   /** Is this tile inside any pending boss attack? */
@@ -1839,6 +2019,10 @@ export class Game {
     for (const h of this.hazards) {
       if (!h.npc.alive || !p.alive) continue;               // the boss fell: its attack fizzles
       if (chebyshev(p.x, p.y, h.cx, h.cy) > 15) continue;   // you've left (teleported away)
+      // Follow-up blasts (the "chase" pattern) re-aim at you just before they land.
+      if (h.follow && !h.aimed && this.tickCount >= h.fireTick - 2) {
+        const t0 = this.playerTile(); h.cx = t0.x; h.cy = t0.y; h.aimed = true; h.start = performance.now(); h.dur = 2 * TICK_MS;
+      }
       if (this.tickCount < h.fireTick) { keep.push(h); continue; }
       this.effects.push({ type: 'blast', x: h.cx * TILE + TILE / 2, y: h.cy * TILE + TILE / 2, r: (h.r + 0.5) * TILE, life: 380, maxLife: 380 });
       this.addShake(3.5, 260);
@@ -2135,7 +2319,7 @@ export class Game {
     const p = this.player, v = this.moveInput;
     const held = Math.hypot(v.x, v.y) >= 0.3;
     if (!held || !p.alive) { this._driving = false; return; }
-    if (this.playerStun > 0) return;
+    if (this.playerStun > 0 || this.playerRoot > 0) return;
     if (!this._driving) {
       this._driving = true;
       // Bows and spells keep firing while you steer (handy for dodging); other actions stop.

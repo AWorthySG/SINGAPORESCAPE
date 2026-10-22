@@ -1,3 +1,4 @@
+import { BOSS_ABILITIES } from './bossAbilities.js';
 // NPC registry. Monsters are generated from archetype "bases" × rank tiers into a
 // 169-strong bestiary (scaled stats + level-tiered drops), plus 15 hand-authored
 // bosses and the townsfolk. Sprites are drawn from def.sprite + def.color.
@@ -333,7 +334,12 @@ const BOSS_IDS = Object.keys(BOSS_DEFS);
 
 // Give every boss a special mechanic (cycled) + a special-attack cadence.
 const MECHANICS = ['slam', 'heal', 'summon', 'enrage', 'frenzy'];
-BOSS_IDS.forEach((id, i) => { BOSS_DEFS[id].mechanic = MECHANICS[i % MECHANICS.length]; BOSS_DEFS[id].specialEvery = 9; });
+BOSS_IDS.forEach((id, i) => {
+  BOSS_DEFS[id].mechanic = MECHANICS[i % MECHANICS.length];
+  BOSS_DEFS[id].specialEvery = 9;
+  // Each boss's own signature move and ground-attack patterns (see bossAbilities.js).
+  if (BOSS_ABILITIES[id]) BOSS_DEFS[id].ability = BOSS_ABILITIES[id];
+});
 
 // Shared rare drop table — a small chance on any kill, larger for bosses.
 export const RARE_DROP_TABLE = [

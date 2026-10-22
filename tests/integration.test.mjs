@@ -1306,8 +1306,8 @@ test('boss "summon" adds are exempt from the aggro cap so the encounter mechanic
   const game = new Game();
   game.start();
 
-  const boss = game.npcs.find((n) => n.def.mechanic === 'summon');
-  assert.ok(boss, 'a boss with the summon mechanic exists');
+  const boss = game.npcs.find((n) => n.def.ability?.fx.some((f) => f.t === 'summon'));
+  assert.ok(boss, 'a boss whose signature move summons exists');
   boss.target = game.player; // simulate the player already fighting this boss (fills the cap)
   boss.x = game.player.x - 1; boss.y = game.player.y;
 
@@ -1671,8 +1671,8 @@ test('boss area attacks: red ground marker first, then it hits only if you stay 
   game.start();
   const p = game.player;
   game.npcs = game.npcs.filter((n) => Math.max(Math.abs(n.x - p.x), Math.abs(n.y - p.y)) > 15);  // no pecking chickens
-  const boss = game.spawnNpc('boar_king', p.x + 60, p.y, { wander: 0 });   // far enough not to join in
-  game.bossHazard(boss);           // first pattern: a 3x3 blast on the player
+  const boss = game.spawnNpc('sand_scorpion_king', p.x + 60, p.y, { wander: 0 });   // far enough not to join in
+  game.bossHazard(boss);           // its first pattern: a 3x3 blast on the player
   assert.equal(game.hazards.length, 1);
   assert.ok(game.hazardAt(p.x, p.y) && game.hazardAt(p.x + 1, p.y + 1) && !game.hazardAt(p.x + 2, p.y));
   const hp0 = p.hp;
@@ -1682,8 +1682,8 @@ test('boss area attacks: red ground marker first, then it hits only if you stay 
   assert.ok(hp0 - p.hp <= Math.ceil(game.maxHp() * 0.45), 'but never one-shots you');
   // Step out of the marker and it misses.
   p.hp = game.maxHp();
-  game.bossHazard(boss); game.bossHazard(boss);   // nova around the boss, then a blast on you
-  const blast = game.hazards[1];
+  game.bossHazard(boss); game.bossHazard(boss);   // twin blasts beside you, then a blast on you
+  const blast = game.hazards[game.hazards.length - 1];
   assert.equal(blast.kind, 'blast');
   game.hazards = [blast];
   p.x = p.tx = blast.cx + 3;
@@ -1700,7 +1700,7 @@ test('auto battle steps out of a boss marker by itself', () => {
   game.chooseStartingStyle('melee');
   const p = game.player;
   game.npcs = game.npcs.filter((n) => Math.max(Math.abs(n.x - p.x), Math.abs(n.y - p.y)) > 15);  // no pecking chickens
-  const boss = game.spawnNpc('boar_king', p.x + 60, p.y, { wander: 0 });
+  const boss = game.spawnNpc('sand_scorpion_king', p.x + 60, p.y, { wander: 0 });
   const chat = [];
   game.bus.on('chat', (c) => chat.push(c.text));
   game.toggleAutoBattle(true);
@@ -2279,4 +2279,60 @@ test('endgame tiers: metals up to Eternal (300), gear for every style, monsters 
   // An endgame monster drops endgame metal.
   const ids = new Set(getNpc('eternal_penanggal').dropTable.map((d) => d.id));
   assert.ok([...ids].some((id) => /^(celestial|eternal)_/.test(id)), 'level-320 monsters drop celestial/eternal gear');
+});
+
+test('every boss has its own signature move and ground patterns, and every move works', async () => {
+  const { BOSS_IDS, getNpc, NPCS } = await import('../src/data/npcs.js');
+  const names = new Set(), combos = new Set();
+  for (const id of BOSS_IDS) {
+    const ab = getNpc(id).ability;
+    assert.ok(ab && ab.name && ab.desc && ab.fx.length && ab.hazards.length, `${id} has an ability`);
+    names.add(ab.name);
+    combos.add(JSON.stringify(ab.fx) + JSON.stringify(ab.hazards));
+    for (const f of ab.fx) if (f.t === 'summon') assert.ok(NPCS[f.id], `${id} summons a real monster (${f.id})`);
+  }
+  assert.equal(names.size, BOSS_IDS.length, 'every signature move has its own name');
+  assert.equal(combos.size, BOSS_IDS.length, 'and its own mix of effects');
+  // Run every boss's move and every ground pattern against a sturdy player.
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  const p = game.player;
+  for (const id of BOSS_IDS) {
+    p.hp = game.maxHp(); game.playerDot = null; game.playerRoot = 0; game.playerStun = 0;
+    const boss = game.spawnNpc(id, p.x + 2, p.y, { wander: 0 });
+    assert.doesNotThrow(() => { game.bossSpecial(boss); for (let i = 0; i < 4; i++) game.bossHazard(boss); }, id);
+    assert.ok(p.hp > 0 || !p.alive, `${id}'s move resolved`);
+    game.hazards = []; boss.alive = false;
+    game.npcs = game.npcs.filter((n) => n !== boss && !n.temporary);
+    if (!p.alive) { p.alive = true; p.hp = game.maxHp(); }
+  }
+});
+
+test('boss effects: damage over time ticks, roots hold you, shields halve damage, reflect bites back', async () => {
+  const { NPC } = await import('../src/game/npc.js');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  const p = game.player;
+  p.hp = game.maxHp();
+  game.playerDot = { kind: 'poison', dmg: 2, ticks: 3, from: 'test' };
+  const hp0 = p.hp;
+  for (let i = 0; i < 3; i++) game._tickBossEffects();
+  assert.equal(p.hp, hp0 - 6, 'poison ticks 3 times');
+  assert.equal(game.playerDot, null, 'then wears off');
+  game.playerRoot = 2; p.path = [{ x: p.x + 1, y: p.y }];
+  game.update(16);
+  assert.equal(p.path.length, 0, 'a rooted player cannot walk');
+  const boss = new NPC('boar_king', p.x + 2, p.y, 0, {});
+  boss.hp = boss.maxHp = 10000;
+  boss.shieldTicks = 3;
+  game._applyPlayerHit(boss, 40);
+  assert.equal(boss.hp, 10000 - 20, 'a shield halves the hit');
+  boss.shieldTicks = 0; boss.reflectTicks = 3; boss.reflectFrac = 0.25;
+  const hp1 = p.hp;
+  game._applyPlayerHit(boss, 40);
+  assert.ok(p.hp < hp1, 'reflect hurts the attacker');
 });
