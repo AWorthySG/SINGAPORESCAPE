@@ -6,6 +6,8 @@ import { NPCS, MONSTER_IDS, BOSS_IDS } from './npcs.js';
 
 // How many of each monster kind populate the world.
 export const MONSTER_COPIES = 5;
+// Copies of each fitting monster kind placed in each open-world region.
+export const REGION_COPIES = 3;
 
 export const TERRAIN = {
   GRASS: 0,
@@ -28,7 +30,9 @@ function mulberry32(seed) {
 }
 
 export function buildWorld() {
-  const W = 150, H = 104;
+  // The original island (x 0-149, y 0-103) keeps its coordinates; the open world
+  // extends south across a strait and east across a channel to six new regions.
+  const W = 300, H = 200;
   const T = TERRAIN;
   const terrain = new Uint8Array(W * H);
   const idx = (x, y) => y * W + x;
@@ -37,17 +41,30 @@ export function buildWorld() {
   const get = (x, y) => (inB(x, y) ? terrain[idx(x, y)] : T.WATER);
   const rect = (x0, y0, x1, y1, v) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) set(x, y, v); };
   const rng = mulberry32(20260614);
+  // The open world uses its own random stream, so the original island (x < 150,
+  // y < 104) is generated exactly as before: same trees, rocks and spawns.
+  const rng2 = mulberry32(20261022);
+  let R = rng;   // the stream used by scatter / fishing / spawn helpers
+  const OLD_W = 150, OLD_H = 104;
 
   // --- Base terrain; the Wilderness (east) is dark, blasted grass ---
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+  for (let y = 0; y < OLD_H; y++) for (let x = 0; x < OLD_W; x++) {
     let base = T.GRASS;
-    if (x >= 95) base = rng() < 0.7 ? T.DARKGRASS : T.GRASS;
+    if (x >= 95) base = rng() < 0.7 ? T.DARKGRASS : T.GRASS;   // the Wilderness
     else if (rng() < 0.06) base = T.DARKGRASS;
+    set(x, y, base);
+  }
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (x < OLD_W && y < OLD_H) continue;
+    let base = T.GRASS;
+    if (x >= 225 && y >= 100) base = rng2() < 0.75 ? T.DARKGRASS : T.GRASS;            // Tekong Badlands
+    else if (x >= 75 && x < 159 && y >= 113) base = rng2() < 0.3 ? T.DARKGRASS : T.GRASS; // Jurong Forest
+    else if (rng2() < 0.06) base = T.DARKGRASS;
     set(x, y, base);
   }
 
   // --- MacRitchie Reservoir (west) ---
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+  for (let y = 0; y < OLD_H; y++) for (let x = 0; x < OLD_W; x++) {
     const d = ((x - 19) / 16) ** 2 + ((y - 54) / 24) ** 2;
     if (d + (rng() - 0.5) * 0.22 < 1) set(x, y, T.WATER);
   }
@@ -55,10 +72,27 @@ export function buildWorld() {
   rect(26, 98, 104, 103, T.WATER);
   rect(30, 95, 100, 97, T.SAND);
   // --- Pulau Hantu (haunted island, deep east) inland lagoon ---
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+  for (let y = 0; y < OLD_H; y++) for (let x = 0; x < OLD_W; x++) {
     const d = ((x - 138) / 9) ** 2 + ((y - 30) / 11) ** 2;
     if (d + (rng() - 0.5) * 0.2 < 1) set(x, y, T.WATER);
   }
+
+  // --- The open world beyond the island ---
+  rect(0, 101, 158, 112, T.WATER);   // the southern strait (crossed by the Sentosa bridge)
+  rect(150, 0, 158, 112, T.WATER);   // the eastern channel past Pulau Hantu
+  rect(291, 0, 299, 199, T.WATER);   // the open sea off the east coast
+  rect(0, 196, 290, 199, T.WATER);   // and off the south coast
+  // Sungei Buloh: winding tidal rivers and mangrove ponds.
+  for (let y = 113; y < 196; y++) {
+    const r1 = Math.round(18 + Math.sin(y / 9) * 7), r2 = Math.round(52 + Math.sin(y / 13 + 2) * 9);
+    for (let dx = -1; dx <= 1; dx++) { set(r1 + dx, y, T.WATER); set(r2 + dx, y, T.WATER); }
+  }
+  const pond = (cx, cy, rx, ry) => { for (let y = cy - ry - 1; y <= cy + ry + 1; y++) for (let x = cx - rx - 1; x <= cx + rx + 1; x++) {
+    if (((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 + (rng2() - 0.5) * 0.2 < 1) set(x, y, T.WATER); } };
+  pond(34, 140, 6, 4); pond(36, 178, 7, 5); pond(64, 125, 4, 3);
+  pond(194, 178, 15, 9);   // Marina Bay
+  pond(178, 72, 6, 5);     // Pulau Ubin's quarry lake
+  pond(248, 140, 5, 4); pond(272, 176, 6, 4);   // Tekong's black pools
 
   // --- Sandy beach ring around all water ---
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
@@ -83,6 +117,20 @@ export function buildWorld() {
   rect(57, 20, 76, 21, T.PATH);
   rect(92, 40, 96, 41, T.PATH);
   rect(110, 52, 124, 53, T.PATH);  // causeway into Pulau Hantu
+  // Roads across the open world. Where a road meets water it becomes a wooden bridge.
+  const road = (x0, y0, x1, y1) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) set(x, y, get(x, y) === T.WATER ? T.WOOD : T.PATH); };
+  road(57, 95, 58, 150);     // the Sentosa bridge south over the strait
+  road(8, 150, 236, 151);    // the great south road: Sungei Buloh - Jurong - Marina Bay
+  road(190, 8, 191, 150);    // north through Marina Bay into Pulau Ubin
+  road(159, 50, 286, 51);    // Pulau Ubin - Changi
+  road(262, 51, 263, 150);   // Changi down into the Tekong Badlands
+  road(236, 150, 262, 151);
+  // Floors for the new towns and the big quarries.
+  rect(178, 128, 206, 147, T.STONE);   // Marina Bay plaza
+  rect(182, 40, 198, 49, T.STONE);     // Pulau Ubin kampong square
+  rect(200, 8, 222, 28, T.SAND);       // Ubin granite quarry
+  rect(108, 160, 142, 188, T.SAND);    // Jurong quarry
+  rect(268, 4, 289, 98, T.SAND);       // Changi beach
 
   const objects = [];
   const npcSpawns = [];
@@ -100,8 +148,8 @@ export function buildWorld() {
     let placed = 0, attempts = 0;
     while (placed < count && attempts < count * 50) {
       attempts++;
-      const x = x0 + Math.floor(rng() * (x1 - x0 + 1));
-      const y = y0 + Math.floor(rng() * (y1 - y0 + 1));
+      const x = x0 + Math.floor(R() * (x1 - x0 + 1));
+      const y = y0 + Math.floor(R() * (y1 - y0 + 1));
       if (!allowed.includes(get(x, y))) continue;
       if (placeObj(objId, x, y)) placed++;
     }
@@ -110,7 +158,7 @@ export function buildWorld() {
     let n = 0, att = 0;
     while (n < count && att < count * 80) {
       att++;
-      const x = x0 + Math.floor(rng() * (x1 - x0 + 1)), y = y0 + Math.floor(rng() * (y1 - y0 + 1));
+      const x = x0 + Math.floor(R() * (x1 - x0 + 1)), y = y0 + Math.floor(R() * (y1 - y0 + 1));
       if (get(x, y) !== T.WATER) continue;
       const shore = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => inB(x + dx, y + dy) && get(x + dx, y + dy) !== T.WATER);
       if (shore && placeObj(objId, x, y)) n++;
@@ -127,6 +175,13 @@ export function buildWorld() {
     { name: 'MacRitchie Reservoir', x0: 0, y0: 44, x1: 43, y1: 82 },
     { name: 'Sentosa Beach', x0: 0, y0: 83, x1: 94, y1: 103 },
     { name: 'Bukit Timah', x0: 0, y0: 0, x1: 94, y1: 43 },
+    // The open world
+    { name: 'Sungei Buloh Wetlands', x0: 0, y0: 113, x1: 74, y1: 199, lo: 10, hi: 60 },
+    { name: 'Jurong Forest', x0: 75, y0: 113, x1: 158, y1: 199, lo: 20, hi: 75 },
+    { name: 'Pulau Ubin', x0: 159, y0: 0, x1: 229, y1: 99, lo: 5, hi: 45 },
+    { name: 'Changi Coast', x0: 230, y0: 0, x1: 299, y1: 99, lo: 10, hi: 70 },
+    { name: 'Marina Bay', x0: 159, y0: 100, x1: 229, y1: 199, lo: 15, hi: 60 },
+    { name: 'Tekong Badlands', x0: 230, y0: 100, x1: 299, y1: 199, lo: 70, hi: 160 },
   ];
 
   // ================= Kampong Glam (town) =================
@@ -271,6 +326,91 @@ export function buildWorld() {
   placeFishing('fishing_cage', 128, 22, 148, 40, 4);
   placeFishing('sea_rod_spot', 128, 22, 148, 40, 6);
 
+  // ================= The open world (its own random stream) =================
+  R = rng2;
+  // ================= Sungei Buloh Wetlands =================
+  placeObj('sign', 59, 116, { sign: 'Sungei Buloh \u2190  Jurong \u2192' });
+  scatter('mangrove', 2, 114, 72, 194, 40, GRASSY);
+  scatter('willow', 2, 114, 72, 194, 14, GRASSY);
+  scatter('bamboo', 2, 114, 72, 194, 12, GRASSY);
+  scatter('palm', 2, 114, 72, 194, 6, [T.SAND]);
+  placeFishing('fishing_spot', 2, 114, 72, 194, 10);
+  placeFishing('rod_spot', 2, 114, 72, 194, 10);
+  placeFishing('harpoon_spot', 2, 114, 72, 194, 6);
+  placeObj('mrt_station', 40, 148);
+
+  // ================= Jurong Forest =================
+  scatter('tree', 76, 114, 157, 194, 30, GRASSY);
+  scatter('oak', 76, 114, 157, 194, 16, GRASSY);
+  scatter('teak', 76, 114, 157, 194, 12, GRASSY);
+  scatter('mahogany', 76, 114, 157, 194, 10, GRASSY);
+  scatter('rain_tree', 76, 114, 157, 194, 8, GRASSY);
+  scatter('angsana', 76, 114, 157, 194, 8, GRASSY);
+  scatter('tembusu', 76, 114, 157, 194, 6, GRASSY);
+  scatter('yew_tree', 76, 114, 157, 194, 8, GRASSY);
+  scatter('magic_tree', 76, 114, 157, 194, 5, GRASSY);
+  for (const [r, n] of [['copper_rock', 6], ['tin_rock', 6], ['iron_rock', 6], ['coal_rock', 6], ['silver_rock', 5], ['gold_rock', 5], ['granite_rock', 5],
+    ['mithril_rock', 5], ['adamantite_rock', 4], ['runite_rock', 2], ['gem_rock', 4]]) scatter(r, 108, 160, 142, 188, n, [T.SAND]);
+  placeObj('sign', 106, 152, { sign: 'Jurong Quarry \u2193' });
+  placeObj('mrt_station', 110, 148);
+
+  // ================= Pulau Ubin (rustic island kampong) =================
+  placeObj('sign', 188, 52, { sign: 'Pulau Ubin' });
+  placeObj('bank_booth', 184, 41); placeObj('bank_booth', 185, 41); placeNpc('banker', 184, 40);
+  placeNpc('shopkeeper', 194, 42); placeNpc('hawker', 196, 46);
+  placeObj('range', 186, 47); placeObj('furnace', 193, 47); placeObj('anvil', 195, 48);
+  placeObj('stall_food', 197, 43);
+  for (const [lx, ly] of [[182, 40], [198, 40], [182, 49], [198, 49]]) placeObj('lamp', lx, ly);
+  placeNpc('villager', 189, 45, 4); placeNpc('villager', 192, 44, 4);
+  scatter('rain_tree', 160, 2, 228, 98, 14, GRASSY);
+  scatter('angsana', 160, 2, 228, 98, 10, GRASSY);
+  scatter('tree', 160, 2, 228, 98, 18, GRASSY);
+  scatter('palm', 160, 2, 228, 98, 8, GRASSY);
+  for (const [r, n] of [['granite_rock', 8], ['sandstone_rock', 6], ['iron_rock', 5], ['coal_rock', 5], ['gold_rock', 3], ['clay_rock', 4]]) scatter(r, 200, 8, 222, 28, n, [T.SAND]);
+  placeFishing('rod_spot', 170, 64, 186, 80, 5);
+  placeObj('mrt_station', 192, 52);
+
+  // ================= Changi Coast =================
+  placeObj('sign', 266, 52, { sign: 'Changi Coast \u2192' });
+  scatter('palm', 262, 4, 289, 98, 24, [T.SAND, T.GRASS]);
+  scatter('tree', 232, 2, 266, 98, 12, GRASSY);
+  placeFishing('fishing_cage', 288, 2, 299, 98, 8);
+  placeFishing('harpoon_spot', 288, 2, 299, 98, 8);
+  placeFishing('sea_rod_spot', 288, 2, 299, 98, 10);
+  for (const [lx, ly] of [[260, 48], [270, 48], [280, 48]]) placeObj('lamp', lx, ly);
+  placeObj('mrt_station', 258, 52);
+
+  // ================= Marina Bay (the second city) =================
+  placeObj('sign', 192, 127, { sign: 'Marina Bay' });
+  placeObj('bank_booth', 182, 130); placeObj('bank_booth', 183, 130); placeObj('bank_booth', 184, 130); placeNpc('banker', 183, 129);
+  placeNpc('shopkeeper', 198, 131); placeNpc('mage', 202, 133); placeNpc('fletcher', 200, 137);
+  placeNpc('hawker', 186, 143); placeObj('range', 188, 144);
+  placeObj('furnace', 180, 138); placeObj('anvil', 181, 140); placeObj('crafting_table', 183, 140);
+  placeObj('shrine', 192, 135);
+  placeObj('stall_market', 196, 143); placeObj('stall_gem', 200, 143); placeObj('stall_food', 204, 143);
+  for (let lx = 178; lx <= 206; lx += 7) { placeObj('lamp', lx, 128); placeObj('lamp', lx, 147); }
+  for (const [px2, py2] of [[179, 129], [205, 129], [179, 146], [205, 146]]) placeObj('palm', px2, py2);
+  placeNpc('villager', 190, 139, 5); placeNpc('villager', 196, 136, 5); placeNpc('villager', 186, 134, 5);
+  placeFishing('sea_rod_spot', 180, 168, 208, 188, 8);
+  placeFishing('fishing_spot', 180, 168, 208, 188, 4);
+  placeObj('mrt_station', 192, 149);
+
+  // ================= Tekong Badlands (endgame, not Wilderness) =================
+  placeObj('sign', 262, 104, { sign: '\u26A0 Tekong Badlands: lvl 70+' });
+  scatter('ruin', 232, 102, 289, 194, 24, GRASSY);
+  scatter('wall', 232, 102, 289, 194, 14, GRASSY);
+  scatter('magic_tree', 232, 102, 289, 194, 6, GRASSY);
+  scatter('yew_tree', 232, 102, 289, 194, 6, GRASSY);
+  scatter('runite_rock', 232, 102, 289, 194, 5, GRASSY);
+  scatter('adamantite_rock', 232, 102, 289, 194, 5, GRASSY);
+
+  // Scenery so the open country feels alive: bushes, wildflowers and boulders.
+  for (const [x0, y0, x1, y1] of [[2, 114, 157, 194], [160, 2, 288, 98], [160, 100, 229, 194], [232, 102, 289, 194]]) {
+    scatter('bush', x0, y0, x1, y1, 70, GRASSY);
+    scatter('flower', x0, y0, x1, y1, 45, GRASSY);
+  }
+
+  R = rng;
   // ================= Populate the bestiary by zone =================
   const zoneByName = (name) => zones.find((z) => z.name === name);
   const LANDABLE = [T.GRASS, T.DARKGRASS, T.SAND];
@@ -279,8 +419,8 @@ export function buildWorld() {
     const def = NPCS[id];
     const z = zoneByName(def.zone) || zoneByName('Bukit Timah');
     for (let att = 0; att < 90; att++) {
-      const x = z.x0 + Math.floor(rng() * (z.x1 - z.x0 + 1));
-      const y = z.y0 + Math.floor(rng() * (z.y1 - z.y0 + 1));
+      const x = z.x0 + Math.floor(R() * (z.x1 - z.x0 + 1));
+      const y = z.y0 + Math.floor(R() * (z.y1 - z.y0 + 1));
       if (inTown(x, y) || !LANDABLE.includes(get(x, y))) continue;
       placeNpc(id, x, y, wander);
       return;
@@ -290,6 +430,38 @@ export function buildWorld() {
   // Plenty of monsters: three of every kind, spread around its zone.
   for (let copy = 0; copy < MONSTER_COPIES; copy++) for (const id of MONSTER_IDS) placeMobIn(id, 4);
   for (const id of BOSS_IDS) { if (NPCS[id].fixed) continue; placeMobIn(id, 3); }
+  // The open-world regions draw on the whole bestiary: creatures that suit the
+  // land (by body type), within the region's level band.
+  const towns = [[178, 128, 206, 147], [182, 40, 198, 49]];
+  const inNewTown = (x, y) => towns.some(([a, b, c, d]) => x >= a - 2 && x <= c + 2 && y >= b - 2 && y <= d + 2);
+  const placeInZone = (id, z, wander) => {
+    for (let att = 0; att < 90; att++) {
+      const x = z.x0 + Math.floor(R() * (z.x1 - z.x0 + 1)), y = z.y0 + Math.floor(R() * (z.y1 - z.y0 + 1));
+      if (inNewTown(x, y) || !LANDABLE.includes(get(x, y))) continue;
+      placeNpc(id, x, y, wander);
+      return;
+    }
+  };
+  R = rng2;
+  const REGION_FAUNA = {
+    'Sungei Buloh Wetlands': ['reptile', 'fowl', 'crab', 'serpent', 'insect', 'turtle', 'slime', 'wisp', 'jellyfish'],
+    'Jurong Forest': ['beast', 'primate', 'spider', 'hound', 'plant', 'mantis', 'bat', 'greenman', 'humanoid'],
+    'Pulau Ubin': ['beast', 'primate', 'serpent', 'fowl', 'rodent', 'hound', 'bat', 'insect'],
+    'Changi Coast': ['crab', 'seacreature', 'turtle', 'jellyfish', 'fowl', 'scorpion'],
+    'Marina Bay': ['humanoid', 'ghost', 'rodent', 'fowl', 'hound'],
+    'Tekong Badlands': ['undead', 'ghost', 'demon', 'drake', 'golem', 'reptile', 'serpent', 'spider', 'hound', 'seacreature'],
+  };
+  for (const [name, sprites] of Object.entries(REGION_FAUNA)) {
+    const z = zoneByName(name);
+    const kinds = MONSTER_IDS.filter((id) => sprites.includes(NPCS[id].sprite) && NPCS[id].level >= z.lo && NPCS[id].level <= z.hi);
+    for (let copy = 0; copy < REGION_COPIES; copy++) for (const id of kinds) placeInZone(id, z, 4);
+  }
+  // A few bosses roam the open world too.
+  for (const [id, name] of [['mangrove_hydra', 'Sungei Buloh Wetlands'], ['tualang_treant', 'Jurong Forest'], ['boar_king', 'Pulau Ubin'],
+    ['coral_leviathan', 'Changi Coast'], ['bedok_bandit_lord', 'Marina Bay'], ['dragon_kiln_wyrm', 'Tekong Badlands'], ['rune_golem', 'Tekong Badlands'],
+    ['bukit_brown_revenant', 'Tekong Badlands']]) {
+    if (NPCS[id]) placeInZone(id, zoneByName(name), 3);
+  }
   // Alignment-arc bosses at fixed, thematic spots.
   placeNpc('lion_of_light', 52, 56, 0, { aggressive: false }); // radiant guardian by the town temple (never aggressive)
   placeNpc('shadow_sovereign', 108, 50, 2);                    // dark sovereign deep in the Wilderness

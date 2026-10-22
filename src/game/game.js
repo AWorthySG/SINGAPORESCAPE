@@ -482,7 +482,9 @@ export class Game {
     let color = night ? '#ffe37a' : '#fff0b0';
     if (zone === 'Pulau Hantu') color = '#b58aff';
     else if (zone === 'The Wilderness') color = '#ff8a5a';
-    else if (zone === 'MacRitchie Reservoir' || zone === 'Sentosa Beach') color = '#bfe8ff';
+    else if (zone === 'MacRitchie Reservoir' || zone === 'Sentosa Beach' || zone === 'Changi Coast' || zone === 'Marina Bay') color = '#bfe8ff';
+    else if (zone === 'Sungei Buloh Wetlands' || zone === 'Jurong Forest') color = night ? '#d4ff5a' : '#dfff9a';
+    else if (zone === 'Tekong Badlands') color = '#ff9a6a';
     else if (zone === 'Bukit Timah') color = night ? '#d4ff5a' : '#dfff9a'; // kunang-kunang after dark
     this._pushParticle({
       x, y, vx: (Math.random() - 0.5) * 0.006, vy: -0.004 - Math.random() * 0.006, g: 0,
