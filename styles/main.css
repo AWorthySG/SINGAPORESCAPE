@@ -1638,3 +1638,5 @@ body.boss-on #tip-toast { top: 132px; }
   .orb .orb-cap { right: auto; left: 50%; top: calc(100% + 2px); transform: translateX(-50%); font-size: 7.5px; padding: 2px 4px; }
   #minimap-region { margin-top: 4px; }
 }
+.bestiary-row .b-ability { font-size: 12px; color: var(--aw-text-sec, #625d54); margin: 2px 0 4px; line-height: 1.35; }
+.bestiary-row .b-ability b { color: var(--aw-accent, #c0392b); }

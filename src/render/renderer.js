@@ -217,6 +217,22 @@ export class Renderer {
       const off = n.renderOffset ? n.renderOffset() : { x: 0, y: 0 };
       drawables.push({ sortY: c.y / TILE, z: 2, draw: () => {
         drawShadow(ctx, cx, cy + 12 * sc, 10 * sc, 4.5 * sc);
+        if (n.shieldTicks > 0 || n.reflectTicks > 0) {
+          // Boss buffs: a blue bubble while shielded, a spiky gold ring while reflecting.
+          ctx.save();
+          const R = 22 * sc, by = cy - 6 * sc;
+          if (n.shieldTicks > 0) {
+            ctx.globalAlpha = 0.28 + Math.sin(timeMs * 0.01) * 0.06;
+            ctx.fillStyle = '#7fc8ff'; ctx.beginPath(); ctx.arc(cx, by, R, 0, Math.PI * 2); ctx.fill();
+            ctx.globalAlpha = 0.8; ctx.strokeStyle = '#1F6FA8'; ctx.lineWidth = 2; ctx.stroke();
+          }
+          if (n.reflectTicks > 0) {
+            ctx.globalAlpha = 0.9; ctx.strokeStyle = '#F5B82E'; ctx.lineWidth = 2.5; ctx.beginPath();
+            for (let i = 0; i <= 24; i++) { const a = i / 24 * Math.PI * 2 + timeMs * 0.002, rr2 = R + 4 + (i % 2 ? 5 : 0); ctx.lineTo(cx + Math.cos(a) * rr2, by + Math.sin(a) * rr2); }
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
         if (n.champion) {
           // Champion: a spinning gold ring on the ground.
           ctx.save();
@@ -809,7 +825,8 @@ export class Renderer {
       ctx.strokeStyle = '#C0392B'; ctx.lineWidth = 2.5;
       ctx.strokeRect(x + 1.5, y + 1.5, w - 3, w - 3);
       ctx.setLineDash([]);
-      // Warning sign in the middle.
+      // Warning sign in the middle (once per pattern piece, not on every single tile).
+      if (h.sign === false) { ctx.restore(); continue; }
       const cx = x + w / 2, cy = y + w / 2;
       ctx.fillStyle = '#fff'; ctx.strokeStyle = '#22304A'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(cx, cy, 8 + pulse * 1.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
@@ -976,6 +993,16 @@ export class Renderer {
       const c = game.player.renderCenter();
       const px = c.x - ox, py = c.y - oy;
       if (game.player.target) this._healthBar(px, py - 47, game.player.hp / game.maxHp());
+      // Status from a boss's signature move: poisoned, burning, rooted...
+      const status = game.playerDot ? { poison: ['Poisoned', '#2f8a2a'], burn: ['Burning', '#c0501a'], bleed: ['Bleeding', '#a01a2a'], chill: ['Chilled', '#2a7a9a'] }[game.playerDot.kind]
+        : game.playerRoot > 0 ? ['Rooted', '#6a4a2a'] : game.playerStun > 0 ? ['Stunned', '#7a5a9a'] : null;
+      if (status) {
+        ctx.font = '900 10px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center';
+        const tw = ctx.measureText(status[0]).width + 10;
+        ctx.fillStyle = status[1]; ctx.strokeStyle = '#22304A'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.roundRect ? ctx.roundRect(px - tw / 2, py - 76, tw, 14, 7) : ctx.rect(px - tw / 2, py - 76, tw, 14); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#fff'; ctx.fillText(status[0], px, py - 65.5);
+      }
       ctx.font = '800 11px Nunito,"Trebuchet MS",sans-serif';
       ctx.textAlign = 'center';
       ctx.lineJoin = 'round';
@@ -1014,7 +1041,7 @@ export class Renderer {
         continue;
       }
       // Splat body: gold for a max hit, red for a hit, blue for a block/miss.
-      ctx.fillStyle = e.crit ? '#f2c029' : hit ? '#c81e1e' : '#39557d';
+      ctx.fillStyle = e.tint && hit ? e.tint : e.crit ? '#f2c029' : hit ? '#c81e1e' : '#39557d';
       ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = 'rgba(255,255,255,0.28)'; ctx.beginPath(); ctx.arc(0, -3, r - 1, Math.PI, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#fff'; ctx.font = `800 ${e.crit ? 11 : 10}px Nunito,"Trebuchet MS",sans-serif`;
