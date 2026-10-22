@@ -767,7 +767,7 @@ import { CROPS, POTIONS } from '../data/trades.js';
     ...['jade', 'celestial'].flatMap((m) => ['dagger', 'sword', 'scimitar', 'mace', 'longsword', 'battleaxe', 'warhammer', '2h_sword'].map((w) => `${m}_${w}`)),
     // Batch 14: Obsidian armour, Obsidian and Orichalcum weapons, and every katana.
     ...['med_helm', 'full_helm', 'chainbody', 'platebody', 'platelegs', 'plateskirt', 'sq_shield', 'kiteshield', 'buckler', 'gauntlets', 'boots'].map((p) => `obsidian_${p}`),
-    ...['obsidian', 'orichalcum'].flatMap((m) => ['dagger', 'sword', 'scimitar', 'mace', 'longsword', 'battleaxe', 'warhammer', '2h_sword'].map((w) => `${m}_${w}`)),
+    ...['obsidian', 'orichalcum', 'starmetal'].flatMap((m) => ['dagger', 'sword', 'scimitar', 'mace', 'longsword', 'battleaxe', 'warhammer', '2h_sword'].map((w) => `${m}_${w}`)),
     ...['bronze', 'iron', 'steel', 'mithril', 'adamant', 'rune', 'dragon', 'obsidian', 'orichalcum', 'jade', 'starmetal', 'celestial', 'eternal'].flatMap((m) => [`${m}_katana`, `${m}_spear`]),
   ]);
   export const itemArtSrc = (id) => (ITEM_ART.has(id) ? `assets/icons/item-${id}.webp` : null);
