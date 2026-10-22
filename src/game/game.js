@@ -28,6 +28,7 @@ import {
 } from './combat.js';
 import { ABILITY_BY_ID, abilitiesFor } from '../data/abilities.js';
 import { DOT_KINDS } from '../data/bossAbilities.js';
+import { STYLE_TRACKS, sumPerks, perkAtLevel, rankName, PERK_SKILLS } from '../data/perks.js';
 import { getSpell, SPELLS } from '../data/magic.js';
 import { xpForLevel } from '../data/xp.js';
 import { PRAYERS, PRAYER_BY_ID, PRAYER_GROUPS } from '../data/prayers.js';
@@ -209,6 +210,11 @@ export class Game {
       this.spawnConfetti(c.x, c.y - 18, big ? 46 : 22);
       this.effects.push({ type: 'ring', x: c.x, y: c.y - 8, color: '#F5B82E', life: 520, maxLife: 520, r0: 6, r1: big ? 52 : 34 });
       if (big) this.addShake(2, 160);
+      const perk = p?.skill && perkAtLevel(p.skill, p.level);
+      if (perk) {
+        this.msg(`New passive perk: ${perk.name}${perk.rank > 1 ? ` (Rank ${rankName(perk.rank)})` : ''}. ${perk.desc}.`, 'level');
+        this.banner(`<span class="big">${perk.name}${perk.rank > 1 ? ' ' + rankName(perk.rank) : ''}</span>New passive perk: ${perk.desc}`);
+      }
       if (p?.skill === 'ranged' && p.level === SPLIT_SHOT_LEVEL) {
         this.msg('Split shot unlocked! Every bow shot now also fires at two more monsters in reach.', 'level');
       }
@@ -321,7 +327,34 @@ export class Game {
   canRun() { return this.running && this.runEnergy > 0; }
 
   /** Max hitpoints = Hitpoints level + any bonus HP from equipment. */
-  maxHp() { return this.skills.hitpoints + (this.equipment.bonuses().hp || 0); }
+  maxHp() {
+    const base = this.skills.hitpoints + (this.equipment.bonuses().hp || 0);
+    return base + Math.floor(base * (this.perkMods('defence').maxhp || 0));   // Vitality / Second Skin perks
+  }
+
+  /** Summed passive-perk modifiers for a fighting style (its tracks plus Defence),
+   *  or for 'defence' alone. Cached until a relevant level changes. */
+  perkMods(mode = this.combatMode()) {
+    const sk = this.skills;
+    const key = mode + ':' + PERK_SKILLS.map((s) => sk.level(s)).join(',');
+    this._perkCache ||= new Map();
+    let m = this._perkCache.get(key);
+    if (!m) {
+      const tracks = mode === 'defence' ? ['defence'] : [...(STYLE_TRACKS[mode] || STYLE_TRACKS.melee), 'defence'];
+      m = sumPerks(tracks, (s) => sk.level(s));
+      if (this._perkCache.size > 64) this._perkCache.clear();
+      this._perkCache.set(key, m);
+    }
+    return m;
+  }
+
+  /** Damage taken after Defence perks (and Boss Ward against bosses). */
+  _perkReduce(dmg, npc) {
+    if (dmg <= 0) return dmg;
+    const t = this.perkMods();
+    const cut = (t.reduce || 0) + (npc?.def?.boss ? (t.bossReduce || 0) : 0);
+    return cut > 0 ? Math.max(1, Math.round(dmg * (1 - Math.min(0.6, cut)))) : dmg;
+  }
 
   /** Tile the player will next occupy (intent tile), used as a pathfinding start. */
   playerTile() {
@@ -839,7 +872,7 @@ export class Game {
   /** Tiles you can attack from: bows have their own reach (12-18), spells 8, melee 1. */
   attackRange() {
     const m = this.combatMode();
-    if (m === 'ranged') { const w = this.equipment.get('weapon'); return (w && getItem(w).equip?.range) || 12; }
+    if (m === 'ranged') { const w = this.equipment.get('weapon'); return ((w && getItem(w).equip?.range) || 12) + Math.floor(this.perkMods('ranged').range || 0); }
     if (m === 'dance') { const w = this.equipment.get('weapon'); return (w && getItem(w).equip?.range) || 3; }
     if (m === 'magic') return 8;
     // Melee: 2 tiles for most weapons, 3 for long ones (spear, halberd, longsword, 2h).
@@ -929,6 +962,7 @@ export class Game {
 
   _gainAdrenaline(n) {
     if (n <= 0) return;
+    n *= 1 + (this.perkMods().adren || 0);   // Battle Rhythm / Lightfoot perks
     this.adrenaline = Math.min(100, this.adrenaline + n);
     this.bus.emit('adrenaline');
   }
@@ -1021,14 +1055,22 @@ export class Game {
     let dmgM = (spec ? spec.dmg || 1 : 1) * (ab ? ab.dmgMul || 1 : 1) * (weak ? WEAKNESS_BONUS.dmg : 1);
     // Magic casts once (rune cost), so its extra hits are ignored.
     const maxHits = mode === 'magic' ? 1 : Infinity;
-    const hits = Math.min(maxHits, Math.max(spec ? spec.hits || 1 : 1, ab ? ab.hits || 1 : 1));
+    // Passive perks: accuracy, armour piercing, damage (more against bosses and
+    // champions), crit, and a chance of an extra hit (a spell echoes instead).
+    const perk = this.perkMods(mode);
+    this._perkCtx = perk;
+    accM *= (1 + (perk.acc || 0)) / (1 - (perk.pierce || 0));
+    dmgM *= 1 + (perk.dmg || 0) + ((npc.def.boss || npc.champion) ? (perk.boss || 0) : 0);
+    const bonusHit = Math.random() < (perk.extra || 0);
+    perk._echo = mode === 'magic' && bonusHit;
+    const hits = Math.min(maxHits, Math.max(spec ? spec.hits || 1 : 1, ab ? ab.hits || 1 : 1)) + (bonusHit && mode !== 'magic' ? 1 : 0);
     const guaranteed = !!(ab && ab.guaranteed);
     const heal = spec ? spec.heal || 0 : 0;
     if (spec) { this.msg(`Special attack: ${spec.name}!`, 'combat'); this.spawnSparkle(this.player, '#ffd24a', 12); }
     if (ab) { this.msg(`Ability: ${ab.name}!`, 'combat'); this.spawnSparkle(this.player, '#ff9a3a', 10); this.bus.emit('sfx', 'spec'); }
     if (weak) this.spawnSparkle(npc, '#9affd0', 6);
     const lvl = mode === 'ranged' ? this.skills.ranged : mode === 'magic' ? this.skills.magic : mode === 'dance' ? this.skills.agility : this.skills.attack;
-    const critCh = critChance(lvl, this.equipment.bonuses().crit);
+    const critCh = critChance(lvl, this.equipment.bonuses().crit) + (perk.crit || 0);
     return { accM, dmgM, hits, guaranteed, heal, spec, ability: ab, weak, critCh };
   }
 
@@ -1048,11 +1090,26 @@ export class Game {
       if (this.player.hp <= 0) this.playerDeath();
     }
     npc.takeDamage(dmg);
+    const perk = this._perkCtx;
+    if (perk && dmg > 0) {
+      this._lastHitDmg = dmg;
+      if (perk.lifesteal) { const p = this.player; const heal = Math.max(1, Math.round(dmg * perk.lifesteal)); if (p.hp < this.maxHp()) { p.hp = Math.min(this.maxHp(), p.hp + heal); this.bus.emit('hp'); } }
+      if (perk.stun && npc.hp > 0 && Math.random() < perk.stun) { npc.windup = 0; npc.attackCooldown = Math.max(npc.attackCooldown || 0, 3); this.addHitsplat(npc, 0, { text: 'Stunned!' }); }
+    }
     if (dmg > 0) this._knock(npc, this.player);
     this.addHitsplat(npc, dmg, opts);
     if (dmg > 0) { this.bus.emit('sfx', 'hit'); this._gainAdrenaline(10); }
   }
   _postAttack(npc) {
+    const perk = this._perkCtx;
+    if (perk && this._lastHitDmg > 0) {
+      // Spell Echo: the spell lands a second time.
+      if (perk._echo && npc.hp > 0) { const d = this._lastHitDmg; npc.takeDamage(d); this.addHitsplat(npc, d, { tint: '#9a52ad' }); this.spawnSparkle(npc, '#c890f0', 6); }
+      // Cleave / Multishot / Chain Spell / Spin: a share of the hit lands on another monster nearby.
+      if (perk.splash && Math.random() < perk.splash) this._perkSplash(npc, Math.max(1, Math.round(this._lastHitDmg * 0.6)));
+    }
+    this._lastHitDmg = 0;
+    this._perkCtx = null;
     if (!npc.target) npc.target = this.player; // provoke retaliation
     if (npc.hp <= 0) { this.killNpc(npc); this.player.clearAction(); }
   }
@@ -1065,7 +1122,7 @@ export class Game {
   }
 
   /** Most arrows are picked back up after a fight: only ~1 in 5 shots uses one up. */
-  _spendArrow(idx) { if (Math.random() >= ARROW_RECOVERY) this.inventory.removeAt(idx, 1); }
+  _spendArrow(idx) { if (Math.random() >= ARROW_RECOVERY && Math.random() >= (this.perkMods('ranged').arrowSave || 0)) this.inventory.removeAt(idx, 1); }
 
   /** Out of arrows or runes: say so once in a while, not on every retaliation. */
   _outOfAmmo(text) {
@@ -1117,6 +1174,16 @@ export class Game {
     p.attackCooldown = this.equipment.weaponSpeed();
     this.bus.emit('rhythm');
     this._postAttack(npc);
+  }
+
+  _perkSplash(from, dmg) {
+    const other = this.npcs.find((n) => n !== from && n.alive && n.attackable && !n.temporary && n.hp > 0 && chebyshev(n.x, n.y, from.x, from.y) <= 3);
+    if (!other) return;
+    other.takeDamage(dmg);
+    this.addHitsplat(other, dmg, { tint: '#f5b82e' });
+    this.spawnHitSparks(other, '#ffe89a');
+    if (!other.target) other.target = this.player;
+    if (other.hp <= 0) this.killNpc(other);
   }
 
   /** A whip crack: a wavy line from the hero's hand to the target. */
@@ -1222,7 +1289,10 @@ export class Game {
     return (w && getItem(w).equip?.runes) || null;
   }
   _hasRunes(spell) { const free = this.freeRune(); return Object.entries(spell.runes).every(([id, q]) => id === free || this.inventory.count(id) >= q); }
-  _consumeRunes(spell) { const free = this.freeRune(); for (const [id, q] of Object.entries(spell.runes)) if (id !== free) this.inventory.remove(id, q); }
+  _consumeRunes(spell) {
+    if (Math.random() < (this.perkMods('magic').runeSave || 0)) return;   // Rune Saver perk
+    const free = this.freeRune(); for (const [id, q] of Object.entries(spell.runes)) if (id !== free) this.inventory.remove(id, q);
+  }
 
   /** Alchemy (Magic 21): 1 nature + 5 fire runes turn an item into 60% of its value in coins. */
   alchemyValue(id) { return Math.max(1, Math.floor((getItem(id).value || 0) * 0.6)); }
@@ -1277,6 +1347,12 @@ export class Game {
       if (p.autoRetaliate && (!p.action || p.action.type !== 'attack')) this.attackNpc(npc);
       return;
     }
+    const perk = this.perkMods();
+    if (perk.dodge && Math.random() < perk.dodge * (heavy ? 0.5 : 1)) {   // Evasion / Graceful perks
+      this.addHitsplat(p, 0, { text: 'Dodged!' });
+      if (p.autoRetaliate && (!p.action || p.action.type !== 'attack')) this.attackNpc(npc);
+      return;
+    }
     const { atkRoll, defRoll, max } = npcAttackVsPlayer(npc.def, this.skills, this.equipment, p.style);
     let dmg = rollAttack(atkRoll, defRoll * this.prayerMult().def, heavy ? Math.round(max * 2) : max);
     if (heavy && dmg === 0) dmg = Math.max(1, Math.round(max * 1.2)); // a telegraphed blow always stings
@@ -1284,6 +1360,12 @@ export class Game {
     const prot = this.protectFactor();
     if (prot) dmg = Math.floor(dmg * (1 - prot));
     if (this.braceTicks > 0) dmg = Math.floor(dmg * 0.5); // the Brace ability soaks the blow
+    dmg = this._perkReduce(dmg, npc);
+    if (dmg > 0 && perk.thorns && npc.alive) {           // Spiked Armour perk
+      const back = Math.max(1, Math.round(dmg * perk.thorns));
+      npc.takeDamage(back); this.addHitsplat(npc, back, { tint: '#9aa6b2' });
+      if (npc.hp <= 0) { this.killNpc(npc); }
+    }
     p.takeDamage(dmg);
     if (dmg > 0) this._knock(p, npc);
     this.addHitsplat(p, dmg, { crit: heavy && dmg > 0 });
@@ -1908,7 +1990,7 @@ export class Game {
             const prot = this.protectFactor();
             if (prot) dmg = Math.floor(dmg * (1 - prot));
             if (this.braceTicks > 0) dmg = Math.floor(dmg * 0.5);
-            dmg = Math.min(p.hp, dmg);
+            dmg = Math.min(p.hp, this._perkReduce(dmg, npc));
             p.takeDamage(dmg); this.addHitsplat(p, dmg, { crit: dmg > 0 });
             if (dmg > 0) this.spawnHitSparks(p, ab.color || '#ff5a3a');
             if (fx.steal && dmg > 0) { npc.hp = Math.min(npc.maxHp, npc.hp + Math.round(dmg * fx.steal)); this.spawnSparkle(npc, '#5fe08a', 6); }
@@ -1991,9 +2073,15 @@ export class Game {
   _tickBossEffects() {
     const p = this.player;
     if (this.playerRoot > 0) this.playerRoot--;
+    // Regeneration / Fortitude perks.
+    const regen = this.perkMods('defence').regen || 0;
+    if (regen && p.alive && p.hp < this.maxHp()) {
+      this._regenAcc = (this._regenAcc || 0) + regen;
+      if (this._regenAcc >= 1) { const h = Math.floor(this._regenAcc); this._regenAcc -= h; p.hp = Math.min(this.maxHp(), p.hp + h); this.bus.emit('hp'); }
+    }
     const d = this.playerDot;
     if (d && p.alive) {
-      const dmg = Math.min(p.hp, d.dmg);
+      const dmg = Math.min(p.hp, Math.max(1, Math.round(d.dmg * (1 - (this.perkMods('defence').dotReduce || 0)))));
       p.takeDamage(dmg);
       this.addHitsplat(p, dmg, { tint: DOT_KINDS[d.kind]?.color });
       this.bus.emit('hp');
@@ -2033,7 +2121,7 @@ export class Game {
         const prot = this.protectFactor();
         if (prot) dmg = Math.floor(dmg * (1 - prot));
         if (this.braceTicks > 0) dmg = Math.floor(dmg * 0.5);
-        dmg = Math.min(p.hp, dmg);
+        dmg = Math.min(p.hp, this._perkReduce(dmg, h.npc));
         p.takeDamage(dmg); this.addHitsplat(p, dmg, { crit: true }); this.spawnHitSparks(p, '#ff5a3a');
         this.bus.emit('sfx', 'hurt'); this.bus.emit('hp');
         this.msg(`${h.npc.name}'s attack hits you for ${dmg}!`, 'combat');
