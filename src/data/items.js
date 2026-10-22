@@ -518,6 +518,10 @@ const _ARMOURS = [
   ['boots', 'boots', 'feet', 3, 0, 28],
   ['plateskirt', 'plateskirt', 'legs', 9, 1, 60], ['buckler', 'buckler', 'shield', 4, 3, 36],
 ];
+// Melee reach in tiles: every melee weapon strikes from 2 tiles (less running
+// around); long weapons reach 3.
+export const MELEE_REACH = 2;
+const _REACH = { spear: 3, halberd: 3, longsword: 3, '2h_sword': 3 };
 for (const M of _METALS) {
   for (const [t, label, att, str, spd, v, crit] of _WEAPONS) {
     const id = `${M.k}_${t}`;
@@ -525,7 +529,7 @@ for (const M of _METALS) {
     const bonuses = { attack: Math.round(att * M.m), strength: Math.round(str * M.m), speed: spd };
     if (crit) bonuses.crit = crit;
     RAW[id] = { name: `${M.n} ${label}`, icon: '⚔️', value: Math.round(v * M.v), examine: `A ${M.n.toLowerCase()} ${label}.`,
-      equip: { slot: 'weapon', req: { attack: M.ra }, bonuses } };
+      equip: { slot: 'weapon', req: { attack: M.ra }, bonuses, range: _REACH[t] || MELEE_REACH } };
   }
   for (const [t, label, slot, def, att, v] of _ARMOURS) {
     const id = `${M.k}_${t}`;
@@ -536,6 +540,9 @@ for (const M of _METALS) {
       equip: { slot, req: { defence: M.rd }, bonuses } };
   }
 }
+
+// Hand-authored metal weapons (defined above the generator) get the same reach rules.
+for (const M of _METALS) for (const [t] of _WEAPONS) { const it = RAW[`${M.k}_${t}`]; if (it?.equip && it.equip.range == null) it.equip.range = _REACH[t] || MELEE_REACH; }
 
 // ---- The Dancer: whips and dancer outfits ----
 // Whips are the Dancer's weapon: a quick lash that reaches 3 tiles. Dancers fight

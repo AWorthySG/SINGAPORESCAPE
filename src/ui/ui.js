@@ -101,6 +101,7 @@ export class UI {
       prayerOrb: id('prayer-orb'),
       prayerOrbVal: id('prayer-orb-value'),
       runOrb: id('run-orb'),
+      runOrbVal: id('run-orb-value'),
       specOrb: id('spec-orb'),
       specOrbVal: id('spec-orb-value'),
       minimap: id('minimap-canvas'),
@@ -109,9 +110,11 @@ export class UI {
     };
     this.minimapCtx = this.el.minimap.getContext('2d');
 
-    // Swap the placeholder emoji tab glyphs for hand-drawn vector icons.
+    // Tab buttons: the mascot icon plus a short label, so each tab is easy to find.
+    const TAB_LABELS = { inventory: 'Bag', equipment: 'Gear', skills: 'Skills', combat: 'Combat', prayer: 'Prayer', quests: 'Quests', achievements: 'Awards', settings: 'Settings' };
     document.querySelectorAll('#panel-tabs .tab-btn').forEach((b) => {
-      b.innerHTML = tabIconSVG(b.dataset.view, 32);
+      b.innerHTML = tabIconSVG(b.dataset.view, 32) + `<span class="tab-label">${TAB_LABELS[b.dataset.view] || ''}</span>`;
+      b.setAttribute('aria-label', b.title || TAB_LABELS[b.dataset.view] || b.dataset.view);
     });
     this.el.panelHead = document.getElementById('panel-head');
     this.el.panelTitle = document.getElementById('panel-title');
@@ -280,7 +283,8 @@ export class UI {
       if (cfg.target && !near.has(cfg.target)) { try { near.set(cfg.target, getNpc(cfg.target).name); } catch { cfg.target = null; } }
       row('What to fight', 'monsters attacking you are always fought', [[null, 'Anything'], ...[...near].sort((x, y) => x[1].localeCompare(y[1])).slice(0, 12).map(([id, nm]) => [id, nm])],
         cfg.target, (v) => { cfg.target = v; });
-      row('Bosses', 'bosses first, then gold-ringed champions', [[true, 'Fight them'], [false, 'Skip']], cfg.bosses !== false, (v) => { cfg.bosses = v; });
+      row('Bosses', 'take on bosses you can beat', [[true, 'Fight them'], [false, 'Skip']], cfg.bosses !== false, (v) => { cfg.bosses = v; });
+      row('Targets', 'who auto battle goes for first', [[true, 'Bosses & champions'], [false, 'Nearest']], cfg.priority !== false, (v) => { cfg.priority = v; });
       row('Attack skills', 'spend adrenaline on your skills', [[true, 'Use them'], [false, 'Save adrenaline']], cfg.abilities, (v) => { cfg.abilities = v; });
       body.appendChild(list);
       const hint = document.createElement('div'); hint.className = 'modal-hint';
@@ -1096,7 +1100,7 @@ export class UI {
   }
 
   renderRun() {
-    this.el.runOrb.textContent = `${Math.round(this.game.runEnergy)}%`;
+    (this.el.runOrbVal || this.el.runOrb).textContent = `${Math.round(this.game.runEnergy)}%`;
     this.el.runOrb.classList.toggle('active', this.game.running);
   }
 

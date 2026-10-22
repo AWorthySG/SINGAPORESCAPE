@@ -125,6 +125,7 @@ export function loadGame(game) {
       target: typeof ac.target === 'string' ? ac.target : null,
       abilities: ac.abilities !== false,
       bosses: ac.bosses !== false,
+      priority: ac.priority !== false,
     };
   }
   return true;

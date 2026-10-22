@@ -1794,11 +1794,11 @@ test('auto battle settings: eat level, target filter, and they are saved', () =>
     const t = game._autoPickTarget();
     assert.ok(!t || t.npcId === kinds[0] || t.target === p, 'only the chosen monster type is hunted');
   }
-  game.autoCfg = { eatAt: 0.6, target: 'chicken', abilities: false, bosses: false };
+  game.autoCfg = { eatAt: 0.6, target: 'chicken', abilities: false, bosses: false, priority: false };
   saveGame(game);
   const g2 = new Game();
   g2.start();
-  assert.deepEqual(g2.autoCfg, { eatAt: 0.6, target: 'chicken', abilities: false, bosses: false });
+  assert.deepEqual(g2.autoCfg, { eatAt: 0.6, target: 'chicken', abilities: false, bosses: false, priority: false });
 });
 
 test('daily bounties: three targets a day that pay out, with a streak', async () => {
@@ -2114,7 +2114,10 @@ test('ranged auto battle clears everything in reach before moving; bows drop oft
   boss.def = { ...boss.def, level: game.skills.combatLevel() };
   boss.x = boss.tx = boss.spawnX = p.x - 13; boss.y = boss.ty = boss.spawnY = p.y;
   game.npcs = [inReach, closerButOut, boss];
-  assert.equal(game._autoPickTarget(), inReach, 'a monster in reach beats even a boss out of reach');
+  game.autoCfg.priority = false;
+  assert.equal(game._autoPickTarget(), inReach, '"Nearest first": a monster in reach beats even a boss out of reach');
+  game.autoCfg.priority = true;
+  assert.equal(game._autoPickTarget(), boss, '"Bosses & champions first": the boss wins');
   // Bow drop rate: about one kill in eight drops a bow.
   const mob = game.npcs[0];
   let bows = 0;
@@ -2215,4 +2218,21 @@ test('new weapon families and gear exist across tiers and drop', async () => {
   for (const id of ['leather_whip', 'celestial_whip', 'silk_dancer_top', 'golden_sash', 'magic_longbow', 'master_wand', 'merlion_tome']) assert.ok(ITEMS[id], id);
   const drops = new Set(Object.values(NPCS).flatMap((n) => (n.dropTable || []).map((d) => d.id)));
   for (const id of ['leather_whip', 'rattan_whip', 'bronze_katana', 'iron_claws', 'longbow', 'apprentice_wand', 'silk_slippers']) assert.ok(drops.has(id), `${id} drops`);
+});
+
+test('melee weapons strike from 2 tiles, long ones from 3', async () => {
+  const { ITEMS } = await import('../src/data/items.js');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.equipment.set('weapon', 'bronze_scimitar');
+  assert.equal(game.attackRange(), 2);
+  game.equipment.set('weapon', 'rune_spear');
+  assert.equal(game.attackRange(), 3);
+  game.equipment.set('weapon', 'dragon_2h_sword');
+  assert.equal(game.attackRange(), 3);
+  game.equipment.set('weapon', null);
+  assert.equal(game.attackRange(), 2, 'even bare hands reach 2 tiles');
+  assert.ok(ITEMS.bronze_scimitar.equip.range === 2 && ITEMS.rune_longsword.equip.range === 3);
 });
