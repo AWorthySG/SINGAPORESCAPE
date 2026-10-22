@@ -740,6 +740,17 @@ import { CROPS, POTIONS } from '../data/trades.js';
     'worthy_sigil', 'yew_logs', 'yew_shortbow',
     // Elemental staves, dragonhide vambraces, nature rune.
     'air_staff', 'water_staff', 'earth_staff', 'fire_staff', 'nature_staff', 'chaos_staff', 'death_staff', 'blood_staff', 'dragonhide_vambraces', 'nature_rune',
+    // Batch 10: the Eternal armour set, wands, endgame bows, longbows, whips, claws, halberds and cooked fish.
+    ...['med_helm', 'full_helm', 'chainbody', 'platebody', 'platelegs', 'plateskirt', 'sq_shield', 'kiteshield', 'buckler', 'gauntlets', 'boots'].map((p) => `eternal_${p}`),
+    'apprentice_wand', 'oak_wand', 'teak_wand', 'maple_wand', 'mystic_wand', 'master_wand',
+    'dark_bow', 'crystal_bow', 'twisted_bow', 'jade_bow', 'starmetal_bow', 'celestial_bow', 'eternal_bow',
+    'longbow', 'oak_longbow', 'willow_longbow', 'maple_longbow', 'yew_longbow', 'magic_longbow', 'dragon_longbow',
+    ...['obsidian', 'orichalcum', 'jade', 'starmetal', 'celestial', 'eternal'].flatMap((m) => [`${m}_wand`, `${m}_longbow`]),
+    'leather_whip', 'rattan_whip', 'studded_whip', 'serpent_whip', 'coral_whip', 'orchid_whip', 'dragon_whip', 'celestial_whip',
+    'jade_whip', 'starmetal_whip', 'astral_whip', 'eternal_whip',
+    ...['bronze', 'iron', 'steel', 'mithril', 'adamant', 'rune', 'dragon', 'obsidian', 'orichalcum', 'jade', 'starmetal', 'celestial', 'eternal']
+      .flatMap((m) => [`${m}_claws`, `${m}_halberd`]),
+    'giant_trevally', 'diamond_trevally', 'hybrid_grouper', 'climbing_perch', 'ikan_keli', 'belida', 'arapaima', 'arowana', 'milkfish', 'queenfish',
   ]);
   export const itemArtSrc = (id) => (ITEM_ART.has(id) ? `assets/icons/item-${id}.webp` : null);
   const artImg = (file, size, cls) => `<img class="${cls || ''}" width="${size}" height="${size}" src="assets/icons/${file}.webp" alt="" style="display:block;object-fit:contain" />`;

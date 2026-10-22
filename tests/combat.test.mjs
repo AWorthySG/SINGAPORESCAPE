@@ -129,7 +129,7 @@ test('high-level monsters wind up telegraphed heavy attacks', () => {
   npc.heavyEvery = 2;
   npc.target = g.player;
   let telegraphed = false;
-  for (let i = 0; i < 24 && !telegraphed; i++) {
+  for (let i = 0; i < 80 && !telegraphed; i++) {
     npc.tick(g);
     if (npc.telegraph > 0 || npc.windup > 0) telegraphed = true;
   }

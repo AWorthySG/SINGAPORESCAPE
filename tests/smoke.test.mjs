@@ -227,7 +227,7 @@ test('painted PNG sprites render as stickered images, the rest stay inline vecto
   assert.ok(png.includes('aw-sticker'), 'and gets the sticker border');
   assert.ok(itemIconSVG('raw_arowana', 24).includes('assets/items/raw_arowana.png'));
   // An item without painted art keeps its vector icon.
-  assert.ok(itemIconSVG('arowana', 24).includes('<svg'), 'vector fallback intact');
+  assert.ok(itemIconSVG('venison', 24).includes('<svg') && !itemIconSVG('venison', 24).includes('assets/'), 'vector fallback intact');
   // Painted items still retain a vector fallback (so hasIcon stays true).
   assert.ok(hasIcon('logs') && hasIcon('raw_barramundi'));
 });
