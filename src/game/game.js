@@ -4,7 +4,7 @@ import { compareGear, deltaText } from './gear.js';
 import { RARITY, dropRarity, lootDelay } from './loot.js';
 import { dayKey, prevDayKey, makeBounties, streakMult } from './bounty.js';
 import { MAX_UPGRADE, upgradeCost, upgradeChance, upgradedName } from './upgrade.js';
-import { getItem } from '../data/items.js';
+import { getItem, MELEE_REACH } from '../data/items.js';
 import { chebyshev, randInt, weightedPick, capitalize } from '../core/utils.js';
 import {
   TILE, TICK_MS, COMBAT_BEAT_MS, RESPAWN_TICKS, AUTOSAVE_TICKS, DAY_CYCLE_MS,
@@ -112,7 +112,7 @@ export class Game {
     this._lastKillTick = -1e9;
     // Auto battle settings: eat below this fraction of life (0 = never),
     // fight only one monster type (null = anything), use attack skills.
-    this.autoCfg = { eatAt: 0.4, target: null, abilities: true, bosses: true };
+    this.autoCfg = { eatAt: 0.4, target: null, abilities: true, bosses: true, priority: true };
     this.particles = [];
     // Screen-shake state (big hits, boss slams). Decays over shakeDur ms.
     this.shakeT = 0;
@@ -820,7 +820,10 @@ export class Game {
     const m = this.combatMode();
     if (m === 'ranged') { const w = this.equipment.get('weapon'); return (w && getItem(w).equip?.range) || 12; }
     if (m === 'dance') { const w = this.equipment.get('weapon'); return (w && getItem(w).equip?.range) || 3; }
-    return m === 'magic' ? 8 : 1;
+    if (m === 'magic') return 8;
+    // Melee: 2 tiles for most weapons, 3 for long ones (spear, halberd, longsword, 2h).
+    const w = this.equipment.get('weapon');
+    return (w && getItem(w).equip?.range) || MELEE_REACH;
   }
 
   doPlayerAttack(npc) {
@@ -2080,13 +2083,14 @@ export class Game {
       if (n.def.boss) {
         if (n.def.fixed || (n.def.level || 1) > cl + 10) continue;   // only bosses you can realistically beat
         if (d > 14 || (!inWild && wildZone(n.x, n.y))) continue;
-        { const tier = -300 - (shootable(n, d) ? 1000 : 0); cands.push({ n, score: d + tier, tier }); }
+        // "Bosses & champions first": a boss outranks everything, even monsters already in reach.
+        { const tier = this.autoCfg.priority !== false ? -3000 : -300 - (shootable(n, d) ? 1000 : 0); cands.push({ n, score: d + tier, tier }); }
         continue;
       }
       // Then mini-bosses: gold-ringed champions within reach that you can take on.
       if (n.champion) {
         if (d > 14 || (n.def.level || 1) > cl + 10 || (!inWild && wildZone(n.x, n.y))) continue;
-        { const tier = -150 - (shootable(n, d) ? 1000 : 0); cands.push({ n, score: d + tier, tier }); }
+        { const tier = this.autoCfg.priority !== false ? -2000 : -150 - (shootable(n, d) ? 1000 : 0); cands.push({ n, score: d + tier, tier }); }
         continue;
       }
       const lvl = n.def.level || 1;

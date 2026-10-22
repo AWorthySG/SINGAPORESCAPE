@@ -1576,3 +1576,65 @@ body.boss-on #tip-toast { top: 132px; }
   .path-card .path-pic { width: 58px; height: 58px; }
   .path-card .path-pic img, .path-card .path-pic svg { width: 52px; height: 52px; }
 }
+
+/* ======================================================================
+   Navigation pass: labelled tabs, captioned orbs, roomier phone panels.
+   ====================================================================== */
+/* Tab rail: icon + a short label under it, so every tab can be found at a glance. */
+:root { --rail-w: 58px; }
+.tab-btn { flex-direction: column; gap: 1px; padding: 4px 2px; min-height: 46px; }
+.tab-btn img, .tab-btn svg { width: 28px !important; height: 28px !important; }
+.tab-btn .tab-label {
+  font-size: 9.5px; font-weight: 800; line-height: 1; letter-spacing: .02em;
+  color: var(--aw-text-sec, #625d54); white-space: nowrap;
+}
+.tab-btn.active .tab-label { color: #fff; }
+/* Panel header: a touch larger and clearer. */
+#panel-head { font-size: 15px; letter-spacing: .01em; }
+
+/* Status orbs: a small caption pill beside each one (HP, Prayer, Special, Run). */
+.orb { overflow: visible; }
+.orb .orb-cap {
+  position: absolute; right: calc(100% + 4px); top: 50%; transform: translateY(-50%);
+  font-size: 9px; font-weight: 900; line-height: 1; letter-spacing: .03em; text-transform: uppercase;
+  padding: 3px 6px; border-radius: 999px; white-space: nowrap; pointer-events: none;
+  background: var(--aw-card, #fff); color: var(--aw-text, #1f1e1b); border: 1.5px solid var(--aw-ink, #22304a);
+  box-shadow: var(--shadow-sticker-sm, 0 2px 0 rgba(34,48,74,.2));
+  opacity: .92;
+}
+#minimap-panel.collapsed .orb-cap { display: none; }
+
+/* Ability bar: hotkey and cost as tidy badges in the corners, clear of the icon. */
+.ability-btn .ab-key, .ability-btn .ab-cost {
+  position: absolute; z-index: 2; line-height: 1; font-weight: 900; border-radius: 999px; padding: 2px 4px;
+  background: var(--aw-card, #fff); border: 1.2px solid var(--aw-ink, #22304a); opacity: 1;
+}
+.ability-btn .ab-key { top: 2px; left: 2px; font-size: 8.5px; color: var(--aw-text, #1f1e1b); }
+.ability-btn .ab-cost { bottom: 2px; right: 2px; font-size: 8.5px; color: var(--aw-sun-deep, #8a6205); }
+.ability-btn .ab-icon img, .ability-btn .ab-icon svg { width: 34px; height: 34px; }
+
+/* Mouse and keyboard: the touch joystick isn't needed (click to move, or W A S D),
+   so it's hidden and the Interact button moves into its corner. */
+@media (hover: hover) and (pointer: fine) {
+  #joystick { display: none !important; }
+  #interact-btn { left: 18px; }
+}
+
+/* Phones: open panels use the full width so nothing is cut off, and the
+   orbs sit in a neat row under the minimap instead of overlapping it. */
+@media (max-width: 540px) {
+  :root { --rail-w: 52px; }
+  #sidepanel:not(.collapsed) { width: calc(100vw - 12px); z-index: 28; }
+  .tab-btn { min-height: 44px; padding: 3px 1px; }
+  .tab-btn img, .tab-btn svg { width: 24px !important; height: 24px !important; }
+  .tab-btn .tab-label { font-size: 8.5px; }
+  #panel-body { height: 46dvh; max-height: 380px; }
+  .orb { width: 34px; height: 34px; line-height: 34px; font-size: 10px; }
+  #run-orb, #spec-orb, #prayer-orb, #hp-orb { top: auto; left: auto; bottom: -72px; }
+  #hp-orb { right: 0; }
+  #prayer-orb { right: 40px; }
+  #spec-orb { right: 80px; }
+  #run-orb { right: 120px; }
+  .orb .orb-cap { right: auto; left: 50%; top: calc(100% + 2px); transform: translateX(-50%); font-size: 7.5px; padding: 2px 4px; }
+  #minimap-region { margin-top: 4px; }
+}
