@@ -107,6 +107,10 @@ const SPECIES_ART = new Set([
   'swamp_slime', 'vampire_bat', 'wild_boar', 'wild_dog', 'will_o_wisp', 'wraith',
   'reticulated_python', 'komodo_dragon', 'river_otter',
   'scarecrow', 'storm_drake', 'bronze_warrior', 'grey_heron', 'water_buffalo', 'mudskipper', 'water_monitor',
+  'carnivorous_plant', 'tarantula', 'stray_dog', 'praying_mantis', 'pink_dolphin', 'kingfisher', 'flying_fox',
+  'pontianak', 'toyol', 'horseshoe_crab', 'jungle_wraith', 'hantu_raya', 'pocong', 'cursed_pirate', 'penanggal',
+  'house_crow', 'field_rat', 'banded_leaf_monkey', 'sun_bear', 'clouded_leopard', 'bunian', 'dock_rat', 'rust_golem',
+  'smuggler', 'drowned_sailor', 'temasek_guardian', 'ancient_naga', 'ruin_wraith', 'celestial_qilin', 'jinn', 'garuda_fledgling',
 ]);
 const _speciesImg = {};
 function speciesImage(family) {
@@ -129,6 +133,8 @@ const BOSS_ART = new Set([
   'tuas_crane_colossus', 'harimau_jadian', 'punggol_lantern_spirit', 'bunian_queen', 'drowned_admiral',
   'changi_phantom', 'pulau_hantu_djinn', 'singa_of_temasek', 'spirit_of_badang', 'goblin_warchief', 'spider_queen',
   'macaque_alpha', 'timah_drake', 'bedok_bandit_lord', 'mangrove_hydra', 'hungry_ghost_king',
+  'bandit_kingpin', 'coral_leviathan', 'rune_golem', 'sentosa_megalodon', 'bukit_brown_revenant', 'dragon_kiln_wyrm',
+  'celestial_garuda', 'jade_dragon',
 ]);
 const _bossImg = {};
 function bossImage(id) {
@@ -146,6 +152,7 @@ export const bossArt = () => new Set(BOSS_ART);
 // used in place of the drawn mascot + prop when present.
 const TOWN_ART = new Set([
   'banker', 'fletcher', 'guide', 'hawker', 'light_priestess', 'mage', 'shopkeeper', 'slayer_master',
+  'skills_tutor', 'shadow_broker', 'farmer', 'villager',
 ]);
 const _townImg = {};
 function townImage(id) {

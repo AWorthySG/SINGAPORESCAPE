@@ -217,17 +217,14 @@ test('every equippable item has its own custom icon', () => {
   assert.ok(itemIconSVG('merlion_blade', 24).includes('assets/icons/item-merlion_blade.webp'));
 });
 
-test('painted PNG sprites render as stickered images, the rest stay inline vectors', () => {
-  // Items shipped as hand-drawn artwork point at assets/items/<id>.png, placed
-  // inside the shared A-Worthy sticker filter.
-  const png = itemIconSVG('nasi_lemak', 32);
-  assert.ok(png.includes('<image') && png.includes('assets/items/nasi_lemak.png'), 'nasi lemak sprite uses its PNG');
-  // Items with A-Worthy mascot-sticker artwork use that instead.
+test('every item has A-Worthy sticker artwork, ahead of any older painted PNG', () => {
+  // Sticker artwork (assets/icons/item-<id>.webp) wins over the older
+  // hand-drawn PNGs in assets/items/, which stay as a fallback.
+  assert.ok(itemIconSVG('nasi_lemak', 32).includes('assets/icons/item-nasi_lemak.webp'), 'nasi lemak uses its sticker artwork');
   assert.ok(itemIconSVG('logs', 32).includes('assets/icons/item-logs.webp'), 'logs use the sticker artwork');
-  assert.ok(png.includes('aw-sticker'), 'and gets the sticker border');
-  assert.ok(itemIconSVG('raw_arowana', 24).includes('assets/items/raw_arowana.png'));
-  // An item without painted art keeps its vector icon.
-  assert.ok(itemIconSVG('venison', 24).includes('<svg') && !itemIconSVG('venison', 24).includes('assets/'), 'vector fallback intact');
+  assert.ok(itemIconSVG('raw_arowana', 24).includes('assets/icons/item-raw_arowana.webp'));
+  assert.ok(itemIconSVG('venison', 24).includes('assets/icons/item-venison.webp'));
+  for (const id of Object.keys(ITEMS)) assert.ok(itemIconSVG(id, 24).includes('assets/icons/item-'), `${id} has sticker artwork`);
   // Painted items still retain a vector fallback (so hasIcon stays true).
   assert.ok(hasIcon('logs') && hasIcon('raw_barramundi'));
 });

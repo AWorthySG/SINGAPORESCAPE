@@ -769,22 +769,32 @@ import { CROPS, POTIONS } from '../data/trades.js';
     ...['med_helm', 'full_helm', 'chainbody', 'platebody', 'platelegs', 'plateskirt', 'sq_shield', 'kiteshield', 'buckler', 'gauntlets', 'boots'].map((p) => `obsidian_${p}`),
     ...['obsidian', 'orichalcum', 'starmetal'].flatMap((m) => ['dagger', 'sword', 'scimitar', 'mace', 'longsword', 'battleaxe', 'warhammer', '2h_sword'].map((w) => `${m}_${w}`)),
     ...['bronze', 'iron', 'steel', 'mithril', 'adamant', 'rune', 'dragon', 'obsidian', 'orichalcum', 'jade', 'starmetal', 'celestial', 'eternal'].flatMap((m) => [`${m}_katana`, `${m}_spear`]),
+    // Batch 15: life-skill goods (seeds, crops, potions, Hunter kit), raw fish, fishing gear, foods and trinkets.
+    ...['chilli', 'kangkong', 'pandan_leaves', 'lemongrass', 'sweet_potato', 'sireh_leaf', 'tongkat_ali', 'misai_kucing', 'hempedu_bumi',
+      'butterfly_pea', 'rambutan', 'ginseng', 'mangosteen', 'durian', 'lingzhi', 'snow_lotus', 'peach_of_immortality'].map((c) => `${c}_seed`),
+    'kangkong', 'sweet_potato', 'sireh_leaf', 'tongkat_ali', 'misai_kucing', 'hempedu_bumi', 'butterfly_pea', 'rambutan', 'ginseng',
+    'mangosteen', 'durian', 'lingzhi', 'snow_lotus', 'peach_of_immortality',
+    'attack_potion', 'strength_potion', 'defence_potion', 'ranging_potion', 'magic_potion', 'healing_potion', 'super_attack',
+    'super_strength', 'super_defence', 'super_ranging', 'super_magic', 'super_healing', 'elixir_of_temasek', 'immortal_elixir',
+    'knife', 'hunting_snare', 'arrow_shaft', 'squirrel_pelt', 'lizard_skin', 'python_skin', 'croc_hide', 'raw_venison', 'venison',
+    'raw_boar_meat', 'boar_steak', 'hornbill_casque', 'qilin_mane',
+    ...['giant_trevally', 'diamond_trevally', 'hybrid_grouper', 'climbing_perch', 'ikan_keli', 'belida', 'arapaima', 'arowana',
+      'milkfish', 'queenfish', 'threadfin', 'white_pomfret', 'coral_trout', 'cobia'].map((f) => `raw_${f}`),
+    'fishing_rod', 'lobster_pot', 'harpoon', 'fishing_bait', 'old_boot', 'seaweed', 'pearl', 'birds_nest', 'satay', 'nasi_lemak',
+    'merlion_amulet', 'amulet_of_glory', 'mark_of_grace',
   ]);
   export const itemArtSrc = (id) => (ITEM_ART.has(id) ? `assets/icons/item-${id}.webp` : null);
   const artImg = (file, size, cls) => `<img class="${cls || ''}" width="${size}" height="${size}" src="assets/icons/${file}.webp" alt="" style="display:block;object-fit:contain" />`;
   const SKILL_ART = new Set(['attack', 'strength', 'defence', 'hitpoints', 'ranged', 'magic', 'prayer', 'slayer',
-    'woodcutting', 'mining', 'fishing', 'firemaking', 'cooking', 'smithing', 'crafting', 'thieving', 'agility']);
+    'woodcutting', 'mining', 'fishing', 'firemaking', 'cooking', 'smithing', 'crafting', 'thieving', 'agility',
+    'farming', 'hunter', 'herblore', 'fletching']);
   export const skillIconSVG = (id, size = 20, cls) => (SKILL_ART.has(id) ? artImg(`skill-${id}`, size, cls) : svg(S[id] || S.attack, size, cls));
   /** Prayer and spell icons (assets/icons/prayer-<id>.webp, spell-<id>.webp). */
   export const prayerIconHTML = (id, size = 28, cls) => artImg(`prayer-${id}`, size, cls);
   export const spellIconHTML = (id, size = 28, cls) => artImg(`spell-${id}`, size, cls);
   /** Combat-skill (action bar) icon: mascot artwork, or a stickered vector for
-   *  the newer Dancer abilities until artwork exists. */
-  const ABILITY_SVG = {
-    whirl: `<circle cx="12" cy="12" r="9" fill="#ffd6e6" stroke="${OL}" stroke-width="1.2"/><path d="M12 5 C17 5 19 10 15.5 12.5 C12.5 14.5 9 12 10.5 9.5 C11.6 7.8 14 8.6 13.6 10.4" fill="none" stroke="#c0396a" stroke-width="1.8" stroke-linecap="round"/><path d="M5 14 C7 18 13 20 17 17" fill="none" stroke="#c0396a" stroke-width="1.6" stroke-linecap="round"/>`,
-    crack: `<circle cx="12" cy="12" r="9" fill="#fff1b8" stroke="${OL}" stroke-width="1.2"/><path d="M5 18 C9 15 8 9 13 8 C16 7.4 18 9 19 6" fill="none" stroke="#8a5a2b" stroke-width="1.8" stroke-linecap="round"/><path d="M17 4 L18 7 L21 7.4 L18.6 9 L19.4 12 L17 10.4 L14.6 12 L15.4 9 L13 7.4 L16 7 Z" fill="#f5b82e" stroke="${OL}" stroke-width="0.7" stroke-linejoin="round"/>`,
-    grand_finale: `<circle cx="12" cy="12" r="9" fill="#e9d6ff" stroke="${OL}" stroke-width="1.2"/><path d="M7 9 C7 6.5 10 6 12 8 C14 6 17 6.5 17 9 C17 13 12 15 12 15 C12 15 7 13 7 9 Z" fill="#c0396a" stroke="${OL}" stroke-width="0.9"/><path d="M5 17 L8 15 M19 17 L16 15 M12 20 L12 17" stroke="#f5b82e" stroke-width="1.6" stroke-linecap="round"/>`,
-  };
+   *  any ability still waiting on artwork (listed in ABILITY_SVG). */
+  const ABILITY_SVG = {};
   export const abilityIconHTML = (id, size = 34, cls) => (ABILITY_SVG[id] ? svg(ABILITY_SVG[id], size, cls) : artImg(`ability-${id}`, size, cls));
   // Side-panel tabs that have a real A-Worthy mascot icon use the artwork;
   // the rest keep their stickered vector until artwork exists.
