@@ -47,10 +47,18 @@ const _anim = { stride: 0 };
 // without drawn legs pass opts.rock to get a gait-suggesting body rock instead.
 function staged(ctx, cx, cy, opts, draw) {
   const t = opts.time || 0;
-  const bob = opts.moving ? Math.abs(Math.sin(t * 0.018 + cx)) * 1.8 : Math.sin(t * 0.004 + cx) * 0.6;
+  let bob = opts.moving ? Math.abs(Math.sin(t * 0.018 + cx)) * 1.8 : Math.sin(t * 0.004 + cx) * 0.6;
   _anim.stride = opts.moving ? Math.sin(t * 0.018 + cx) : 0;
   const s = opts.scale || 1;
-  const fx = (opts.facing && opts.facing.dx < 0) ? -1 : 1;
+  let fx = (opts.facing && opts.facing.dx < 0) ? -1 : 1;
+  const g = opts.gait;
+  if (g) {
+    // Step-synced: the body rises as a foot swings through and dips as it
+    // lands, easing in and out as walking starts and stops.
+    bob = -Math.abs(Math.sin(g.phase * Math.PI)) * 1.7 * g.move;
+    // Turning round: squash through edge-on rather than snapping to the mirror image.
+    if (g.turn > 0) fx *= Math.max(0.12, Math.abs(1 - 2 * g.turn)) * (g.turn > 0.5 ? -1 : 1);
+  }
   ctx.save();
   ctx.translate(cx, cy + bob);
   ctx.scale(fx * s, s);
@@ -1451,6 +1459,63 @@ function heroImage(style) {
 }
 const HERO_ART_H = 56, HERO_ART_W = 60, HERO_ART_FEET = 15;
 
+// ---- Puppet animation for the painted hero ----
+// The picture is cut once into a body and two feet (the bottom band, split at
+// the gap between the feet). Walking lifts each foot in turn and swings it
+// forward, the body leans into the walk and squashes a touch as each foot
+// lands; standing still, the hero breathes. Without a DOM it draws whole.
+const PUPPET_FEET = 0.2;   // the bottom share of the picture that holds the feet
+const _puppets = new WeakMap();
+function heroRig(img) {
+  if (_puppets.has(img)) return _puppets.get(img);
+  let rig = null;
+  try {
+    const W = img.naturalWidth, H = img.naturalHeight;
+    const cnv = document.createElement('canvas'); cnv.width = W; cnv.height = H;
+    const g = cnv.getContext('2d'); g.drawImage(img, 0, 0);
+    const cut = Math.round(H * (1 - PUPPET_FEET));
+    // Split where the feet band is emptiest, in the middle half of the picture.
+    const band = g.getImageData(0, cut, W, H - cut).data;
+    const cols = new Float64Array(W);
+    for (let y = 0; y < H - cut; y++) for (let x = 0; x < W; x++) cols[x] += band[(y * W + x) * 4 + 3];
+    let split = W >> 1, best = Infinity;
+    for (let x = Math.round(W * 0.25); x < Math.round(W * 0.75); x++) if (cols[x] < best) { best = cols[x]; split = x; }
+    const part = (sx, sy, sw, sh) => {
+      const c = document.createElement('canvas'); c.width = Math.max(1, sw); c.height = Math.max(1, sh);
+      c.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh); return c;
+    };
+    rig = { W, H, cut, split, body: part(0, 0, W, cut), back: part(0, cut, split, H - cut), front: part(split, cut, W - split, H - cut) };
+  } catch { rig = null; }
+  _puppets.set(img, rig);
+  return rig;
+}
+function heroPuppet(c, img, w, h, g, t) {
+  const rig = typeof document !== 'undefined' ? heroRig(img) : null;
+  const top = HERO_ART_FEET - h, k = w / (rig ? rig.W : img.naturalWidth);
+  const m = g.move;
+  // Phase 0..2 per two tiles: the back foot swings on 0..1, the front on 1..2.
+  const p = g.phase % 2, sw = Math.sin(p * Math.PI);
+  const backLift = Math.max(0, sw) * m, frontLift = Math.max(0, -sw) * m;
+  const land = 1 - Math.abs(sw);                       // 1 as a foot plants
+  const breathe = (1 - m) * Math.sin(t * 0.0032) * 0.018;
+  c.save();
+  // Lean into the walk (more when running) and squash slightly on each footfall.
+  c.translate(0, HERO_ART_FEET);
+  c.rotate(m * (g.run ? 0.1 : 0.06));
+  const sy = 1 + breathe - land * land * 0.035 * m, sx = 1 - breathe * 0.5 + land * land * 0.025 * m;
+  c.scale(sx, sy);
+  c.translate(0, -HERO_ART_FEET);
+  if (!rig) { c.drawImage(img, -w / 2, top, w, h); c.restore(); return; }
+  const fy = top + rig.cut * k, fh = (rig.H - rig.cut) * k, bw = rig.split * k, fw = (rig.W - rig.split) * k;
+  // Feet first, so a lifted foot tucks up behind the body. A swinging foot
+  // rises and travels forward; the planted one slides back under the body.
+  const stride = 2.2 * m;
+  c.drawImage(rig.back, -w / 2 + (backLift - frontLift) * stride, fy - backLift * 3.2, bw, fh);
+  c.drawImage(rig.front, -w / 2 + bw + (frontLift - backLift) * stride, fy - frontLift * 3.2, fw, fh);
+  c.drawImage(rig.body, -w / 2, top, w, rig.cut * k);
+  c.restore();
+}
+
 // Attack choreography for the painted hero. k runs 0..1 through one attack;
 // +x is always "toward the foe" (staged() mirrors the hero when facing left).
 const easeOut = (x) => 1 - (1 - x) * (1 - x);
@@ -1597,11 +1662,15 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
         c.translate(pose.dx, pose.dy);
         c.translate(0, HERO_ART_FEET); c.rotate(pose.rot); c.scale(pose.sx, pose.sy); c.translate(0, -HERO_ART_FEET);
       }
-      // A side-to-side rock while walking, as the monsters do (a gait cue).
-      if (opts.moving) c.rotate(Math.sin(t * 0.018 + cx) * 0.06);
       const s = Math.min(HERO_ART_H / himg.naturalHeight, HERO_ART_W / himg.naturalWidth);
       const w = himg.naturalWidth * s, h = himg.naturalHeight * s;
-      c.drawImage(himg, -w / 2, HERO_ART_FEET - h, w, h);
+      const g = opts.gait;
+      if (g && !pose) heroPuppet(c, himg, w, h, g, t);
+      else {
+        // A side-to-side rock while walking, as the monsters do (a gait cue).
+        if (opts.moving) c.rotate(Math.sin(t * 0.018 + cx) * 0.06);
+        c.drawImage(himg, -w / 2, HERO_ART_FEET - h, w, h);
+      }
       if (pose && pose.flash > 0) {   // a white flash over the body on the strike frame
         c.globalAlpha = pose.flash * 0.35; c.globalCompositeOperation = 'lighter';
         c.drawImage(himg, -w / 2, HERO_ART_FEET - h, w, h);

@@ -454,7 +454,7 @@ export class Game {
     attacker.lungeDX = dx / m; attacker.lungeDY = dy / m;
     attacker.swing = attacker.swingDur || 240;
     // Turn to face the foe so the sprite isn't swinging backwards.
-    if (Math.abs(dx) > 2) attacker.facing = { dx: Math.sign(dx), dy: 0 };
+    if (Math.abs(dx) > 2) { attacker.facing = { dx: Math.sign(dx), dy: 0 }; attacker.noteFacing?.(); }
   }
 
   // ---------------- Frame update (called from RAF) ----------------
@@ -2528,7 +2528,7 @@ export class Game {
       }
     }
     if (p.moving) p.path = [];   // blocked ahead: stop when this step lands
-    if (!p.moving) p.facing = { dx, dy };   // blocked: at least turn to face it
+    if (!p.moving) { p.facing = { dx, dy }; p.noteFacing(); }   // blocked: at least turn to face it
   }
 
   walkTo(tile) {

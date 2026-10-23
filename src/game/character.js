@@ -1,6 +1,8 @@
 import { TILE, TICK_MS } from '../config.js';
 import { lerp } from '../core/utils.js';
 
+export const TURN_MS = 150;   // how long the turn-around takes on screen
+
 // Shared movement for the player and NPCs. Movement is time-based and decoupled
 // from the combat tick: walking = 1 tile / 600ms, running = 1 tile / 300ms.
 export class Character {
@@ -26,6 +28,13 @@ export class Character {
     this.knock = 0;      // ms of hit knockback left
     this.knockDX = 0;
     this.knockDY = 0;
+    // Animation state for the renderer: walkPhase counts tiles walked (one
+    // footstep each), animMove eases 0..1 as walking starts and stops, and
+    // turnT runs down after the character turns to face the other way.
+    this.walkPhase = 0;
+    this.animMove = 0;
+    this.turnT = 0;
+    this._fx = 1;
   }
 
   /** Pixel lunge offset while mid-swing (out toward the target and back). */
@@ -74,7 +83,14 @@ export class Character {
     [this.y, this.ty] = [this.ty, this.y];
     this.progress = Math.max(0, 1 - this.progress);
     this.facing = { dx: Math.sign(this.tx - this.x), dy: Math.sign(this.ty - this.y) };
+    this.noteFacing();
     this.path = [];
+  }
+
+  /** Start the quick turn-around animation when the facing flips left/right. */
+  noteFacing() {
+    const fx = this.facing.dx < 0 ? -1 : this.facing.dx > 0 ? 1 : this._fx;
+    if (fx !== this._fx) { this._fx = fx; this.turnT = TURN_MS; }
   }
 
   stopNow() {
@@ -91,6 +107,7 @@ export class Character {
     this.tx = next.x;
     this.ty = next.y;
     this.facing = { dx: Math.sign(this.tx - this.x), dy: Math.sign(this.ty - this.y) };
+    this.noteFacing();
     // A diagonal step covers √2 tiles of ground, so give it √2 the time —
     // otherwise the entity visibly speeds up whenever it moves diagonally.
     const diagonal = this.facing.dx !== 0 && this.facing.dy !== 0;
@@ -103,10 +120,13 @@ export class Character {
     if (this.hurt > 0) this.hurt = Math.max(0, this.hurt - dt);
     if (this.swing > 0) this.swing = Math.max(0, this.swing - dt);
     if (this.knock > 0) this.knock = Math.max(0, this.knock - dt);
+    if (this.turnT > 0) this.turnT = Math.max(0, this.turnT - dt);
+    this.animMove += ((this.moving ? 1 : 0) - this.animMove) * Math.min(1, dt / 90);
     if (!this.moving) {
       if (this.path.length) this._beginStep();
       if (!this.moving) return;
     }
+    this.walkPhase += dt / this.moveDuration;
     this.progress += dt / this.moveDuration;
     let guard = 0;
     while (this.progress >= 1 && guard++ < 8) {
