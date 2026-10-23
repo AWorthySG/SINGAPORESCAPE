@@ -727,6 +727,13 @@ button, input, select, textarea { font-family: inherit; }
 .quest-row .q-desc { display: block; opacity: 0.72; font-size: 11px; margin-top: 2px; }
 .q-done { float: right; color: #6fff8f; } .q-active { float: right; color: #ffd24a; } .q-todo { float: right; opacity: 0.6; }
 .quest-row .q-prog { color: var(--gold-hi); opacity: 0.95; }
+.quest-row { position: relative; }
+.quest-row.can-go { cursor: pointer; padding-right: 52px; }
+.quest-row.can-go:hover { background: rgba(255,215,115,0.12); }
+.quest-row .q-next { display: block; margin-top: 4px; font-size: 11px; font-weight: 700; color: var(--gold-hi); }
+.quest-row .q-go { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font: inherit; font-weight: 800; font-size: 12px;
+  padding: 5px 10px; border-radius: 999px; border: 1.5px solid var(--gold-hi); background: rgba(0,0,0,0.25); color: var(--gold-hi); cursor: pointer; }
+.quest-row .q-go:hover { background: var(--gold-hi); color: #22304A; }
 
 /* ---------- Spellbook (magic combat tab) ---------- */
 #combat-panel .style-row.spells { flex-wrap: wrap; max-height: 178px; overflow-y: auto; gap: 4px; }

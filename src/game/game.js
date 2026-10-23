@@ -1503,6 +1503,7 @@ export class Game {
       pc.kills++;
       if (pc.kills >= 8) {
         pc.state = 'done';
+        if (this._questTarget === 'rat') this._questTarget = null;
         this.inventory.add('coins', 600);
         this.skills.addXp('attack', 300);
         this.msg('Quest complete — Pest Control! 600 coins and Attack XP.', 'level');
@@ -2232,7 +2233,7 @@ export class Game {
       ? chebyshev(start.x, start.y, target.x, target.y) <= 1
       : start.x === target.x && start.y === target.y;
     if (!reached) {
-      const path = findPath(this.pathCfg(), start, target, { reachAdjacent: adjacent, maxNodes: 6000 });
+      const path = findPath(this.pathCfg(), start, target, { reachAdjacent: adjacent, maxNodes: this._pathBudget || 6000 });
       if (!path.length) { this.msg("I can't reach that."); return false; }
       this.player.setPath(path, this.canRun());
     } else {
@@ -2335,11 +2336,14 @@ export class Game {
       // range: it keeps wandering off or can't be reached) or the fight stalls
       // (~12s in range without landing any damage).
       const tgt = a.npc;
-      const inRange = chebyshev(p.x, p.y, tgt.x, tgt.y) <= this.attackRange();
-      if (this._autoFight?.npc !== tgt) this._autoFight = { npc: tgt, hp: tgt.hp, since: this.tickCount, chase: this.tickCount };
+      const dist = chebyshev(p.x, p.y, tgt.x, tgt.y);
+      const inRange = dist <= this.attackRange();
+      if (this._autoFight?.npc !== tgt) this._autoFight = { npc: tgt, hp: tgt.hp, since: this.tickCount, chase: this.tickCount, best: dist };
       const f = this._autoFight;
       if (!inRange) f.since = this.tickCount;              // the stall clock only runs in range
-      else f.chase = this.tickCount;
+      // The chase clock only runs while you aren't getting any closer, so a long
+      // walk to a far target (or a walk without run energy) never gives up early.
+      if (inRange || dist < f.best) { f.chase = this.tickCount; f.best = Math.min(f.best, dist); }
       if (tgt.hp < f.hp) { f.hp = tgt.hp; f.since = this.tickCount; }
       if (this.tickCount - f.since > 20 || this.tickCount - f.chase > 25) {
         this._autoSkip.set(tgt.entityId, this.tickCount + 60);
@@ -2403,48 +2407,57 @@ export class Game {
     const inWild = wildZone(p.x, p.y);
     let best = null, bestScore = Infinity;
     const cands = [];
+    // Bosses and champions somewhat above your level are still fair game.
+    const canTake = (lvl) => lvl <= Math.max(cl + 15, Math.round(cl * 1.2));
     for (const n of this.npcs) {
-      if (!n.alive || !n.attackable || n.temporary) continue;
-      if (n.def.boss && !this.autoCfg.bosses) continue;
-      if ((this._autoSkip.get(n.entityId) || 0) > this.tickCount) continue;
+      if (!n.alive || !n.attackable) continue;
       const d = chebyshev(p.x, p.y, n.x, n.y);
       if (d > 25) continue;
       const hunting = n.target === p;
-      if (!hunting && this.autoCfg.target && n.npcId !== this.autoCfg.target) continue;   // only the chosen monster type
+      // Anything already fighting you (a boss, its summoned adds, a champion)
+      // is always answered, whatever its level or where it stands.
+      if (hunting) {
+        const tier = n.def.boss ? -3000 : n.champion ? -2000 : -200 - (shootable(n, d) ? 1000 : 0);
+        cands.push({ n, score: d + tier, tier });
+        continue;
+      }
+      if (n.temporary) continue;
+      if (n.def.boss && !this.autoCfg.bosses) continue;
+      if ((this._autoSkip.get(n.entityId) || 0) > this.tickCount) continue;
+      if (this.autoCfg.target && n.npcId !== this.autoCfg.target) continue;   // only the chosen monster type
+      if (this._questTarget && n.npcId !== this._questTarget) continue;       // a quest hunt (e.g. rats for Pest Control)
       // Bosses within reach are taken on whatever their level, ahead of everything else.
       // Story bosses (fixed spawns like the Lion of Light) and bosses far beyond
       // your level are left for you to take on yourself.
       if (n.def.boss) {
-        if (n.def.fixed || (n.def.level || 1) > cl + 10) continue;   // only bosses you can realistically beat
-        if (d > 14 || (!inWild && wildZone(n.x, n.y))) continue;
+        if (n.def.fixed || !canTake(n.def.level || 1)) continue;   // story bosses are yours to start; only bosses you can realistically beat
+        if (!inWild && wildZone(n.x, n.y)) continue;
         // "Bosses & champions first": a boss outranks everything, even monsters already in reach.
         { const tier = this.autoCfg.priority !== false ? -3000 : -300 - (shootable(n, d) ? 1000 : 0); cands.push({ n, score: d + tier, tier }); }
         continue;
       }
       // Then mini-bosses: gold-ringed champions within reach that you can take on.
       if (n.champion) {
-        if (d > 14 || (n.def.level || 1) > cl + 10 || (!inWild && wildZone(n.x, n.y))) continue;
+        if (!canTake(n.def.level || 1) || (!inWild && wildZone(n.x, n.y))) continue;
         { const tier = this.autoCfg.priority !== false ? -2000 : -150 - (shootable(n, d) ? 1000 : 0); cands.push({ n, score: d + tier, tier }); }
         continue;
       }
       const lvl = n.def.level || 1;
-      if (!hunting) {
-        // Close by: leave only far-stronger monsters alone. Further out: only
-        // seek monsters around your level, so a hunt is worth the walk.
-        if (d <= 10 ? lvl > cl * 1.5 + 5 : lvl > cl + 8) continue;
-        if (!inWild && wildZone(n.x, n.y)) continue;
-      }
-      // Anything on you first, then anything within 8 tiles, then the rest.
-      const tier = (d > 8 ? 50 : 0) - (hunting ? 200 : 0) - (shootable(n, d) ? 1000 : 0);
+      // Close by: leave only far-stronger monsters alone. Further out: only
+      // seek monsters around your level, so a hunt is worth the walk.
+      if (d <= 10 ? lvl > cl * 1.5 + 5 : lvl > cl + 8) continue;
+      if (!inWild && wildZone(n.x, n.y)) continue;
+      // Anything within 8 tiles first, then the rest.
+      const tier = (d > 8 ? 50 : 0) - (shootable(n, d) ? 1000 : 0);
       cands.push({ n, score: d + tier, tier });
     }
     // Nearest first by straight-line distance, then confirm a walkable route
     // (and use its real length) so it never heads for something across water.
     cands.sort((a, b) => a.score - b.score);
-    for (const { n, score, tier } of cands.slice(0, 6)) {
+    for (const { n, score, tier } of cands.slice(0, 10)) {
       // Already in reach (or adjacent): no walking needed, so no route check.
       if (chebyshev(p.x, p.y, n.x, n.y) <= Math.max(1, range)) { if (score < bestScore) { bestScore = score; best = n; } continue; }
-      const route = findPath(this.pathCfg(), this.playerTile(), { x: n.x, y: n.y }, { reachAdjacent: true, maxNodes: 3000 });
+      const route = findPath(this.pathCfg(), this.playerTile(), { x: n.x, y: n.y }, { reachAdjacent: true, maxNodes: 8000 });
       if (!route.length) { this._autoSkip.set(n.entityId, this.tickCount + 40); continue; }
       // Keep the priority tier (boss > something attacking you > champion > rest) over route length.
       const real = route.length + tier;
@@ -2515,7 +2528,7 @@ export class Game {
     const t = this._nearestFree(tile.x, tile.y);
     if (!t) { this.msg("I can't reach there."); return; }
     if (this.playerTile().x === t.x && this.playerTile().y === t.y) return;
-    const path = findPath(this.pathCfg(), this.playerTile(), t, { maxNodes: 40000 });
+    const path = findPath(this.pathCfg(), this.playerTile(), t, { maxNodes: this._pathBudget || 40000 });
     if (path.length) { this.player.setPath(path, this.canRun()); this.player.clearAction(); this.msg('You set off across the island.', 'system'); }
     else this.msg("I can't find a path there.");
   }
@@ -3026,6 +3039,100 @@ export class Game {
 
   // ---------------- Champion of Singapore (grandmaster capstone) ----------------
   /** Total quest points = sum over completed quests of their point value. */
+  // ---------------- Quest guide ----------------
+  /** What a quest needs next, and where: { text, kind: 'npc'|'obj'|'hunt'|'boss'|'none', ... }. */
+  questGuide(id) {
+    const q = this.quests[id];
+    if (!q) return { text: '', kind: 'none' };
+    const inv = (item) => this.inventory.count(item);
+    const npc = (npcId, verb = 'Talk to') => ({ kind: 'npc', npcId, text: `${verb} ${getNpc(npcId).name}` });
+    const obj = (objId, text) => ({ kind: 'obj', objId, text });
+    const giver = { life_skills: 'skills_tutor', life_skills_adv: 'skills_tutor', life_skills_wild: 'skills_tutor', redemption: 'light_priestess', corruption: 'shadow_broker' }[id] || 'guide';
+    if (q.state === 'done') return { text: 'Complete', kind: 'none' };
+    if (q.state !== 'active') {
+      if (id === 'champion' && this.questPoints() < CHAMPION_QP) return { text: `Earn ${CHAMPION_QP} quest points first`, kind: 'none' };
+      if (id === 'life_skills_adv' && this.quests.life_skills.state !== 'done') return { text: 'Finish Trades of the Island first', kind: 'none' };
+      return npc(giver, 'Start it with');
+    }
+    switch (id) {
+      case 'life_skills': case 'life_skills_adv': case 'life_skills_wild': {
+        const { stages } = this._lifeLine(id);
+        const st = stages[q.stage - 1];
+        if (!st) return npc(giver);
+        const met = st.need.item ? inv(st.need.item) >= st.need.qty : (this.skills.xp[st.skill] || 0) - (q.base || 0) >= st.need.xp;
+        if (met) return npc(giver, 'Hand in to');
+        const SOURCE = { logs: 'tree', oak_logs: 'oak', copper_ore: 'copper_rock', iron_ore: 'iron_rock', bronze_bar: 'furnace', steel_bar: 'furnace',
+          raw_anchovy: 'fishing_spot', raw_trout: 'rod_spot', anchovy: 'range', trout: 'range', chilli: 'farm_patch', attack_potion: 'apothecary_table', arrow_shaft: 'fletching_bench' };
+        if (st.need.item) return obj(SOURCE[st.need.item] || 'tree', `${st.name}: get ${st.need.qty} ${getItem(st.need.item).name.toLowerCase()}`);
+        if (st.skill === 'firemaking') {
+          const log = this.inventory.slots.find((sl) => sl && getItem(sl.id).tags?.includes('log'));
+          return log ? { kind: 'light', text: 'Firemaking: light your logs' } : obj('tree', 'Firemaking: chop some logs first');
+        }
+        if (st.skill === 'hunter') return obj('bird_snare', 'Hunter: check a bird snare');
+        return npc(giver);
+      }
+      case 'bone_collector': return inv('bones') >= 10 ? npc('guide', 'Hand in to') : { kind: 'hunt', text: `Collect bones: ${inv('bones')}/10 (any monster drops them)` };
+      case 'pest_control': return { kind: 'hunt', target: 'rat', text: `Slay rats: ${q.kills}/8` };
+      case 'pillars': return !q.monument ? obj('shrine', 'Pray at the A-Worthy Monument') : !q.obelisk ? obj('mascot_statue', 'Rest at the Mascot Statue') : npc('guide', 'Hand in to');
+      case 'smith_apprentice':
+        if (inv('steel_bar') >= 8) return npc('guide', 'Hand in to');
+        if (inv('iron_ore') && inv('coal') >= 2) return obj('furnace', 'Smelt steel bars at the furnace');
+        if (inv('iron_ore') >= 4) return obj('coal_rock', 'Mine coal for the steel');
+        return obj('iron_rock', `Mine iron ore (${inv('steel_bar')}/8 steel bars)`);
+      case 'island_defender': return this.bossKills - (q.startBoss || 0) >= 3 ? npc('guide', 'Hand in to') : { kind: 'boss', text: 'Defeat a boss' };
+      case 'big_game_hunter': return this.totalKills - (q.startKills || 0) >= 50 ? npc('guide', 'Hand in to') : { kind: 'hunt', text: 'Defeat creatures' };
+      case 'mystic_trial': return inv('death_rune') >= 25 ? npc('guide', 'Hand in to') : npc('mage', 'Buy death runes from');
+      case 'island_provisions':
+        if (inv('salmon') >= 10) return npc('guide', 'Hand in to');
+        if (inv('raw_salmon')) return obj('range', 'Cook your salmon on a range');
+        return obj('rod_spot', 'Catch salmon (Fishing 30, fishing rod)');
+      case 'champion': return this.bossKills - (q.startBoss || 0) >= 1 ? npc('guide', 'Hand in to') : { kind: 'boss', text: 'Final trial: defeat a boss' };
+      default: return npc(giver);
+    }
+  }
+
+  /** Quest journal "Go": walk to wherever the quest needs you next and start on it. */
+  questTravel(id) {
+    const g = this.questGuide(id);
+    const p = this.player;
+    const here = this.playerTile();
+    const d2 = (o) => (o.x - here.x) ** 2 + (o.y - here.y) ** 2;
+    const nearest = (list) => list.reduce((b, o) => (!b || d2(o) < d2(b) ? o : b), null);
+    if (!p.alive || g.kind === 'none') { if (g.text && g.text !== 'Complete') this.msg(g.text + '.', 'system'); return false; }
+    this._questTarget = null;
+    this._pathBudget = 150000;       // quest trips can cross the whole map
+    let ok = false;
+    try {
+      if (g.kind === 'npc') {
+        const n = nearest(this.npcs.filter((x) => x.npcId === g.npcId));
+        if (n) ok = this.defaultNpcAction(n) !== false;   // talk, or open the shop
+      } else if (g.kind === 'obj') {
+        const o = nearest(this.world.objects.filter((x) => x.objId === g.objId && !x.depleted));
+        if (o) { this.defaultObjectAction(o); ok = !!p.action || p.isMoving; }
+      } else if (g.kind === 'light') {
+        const idx = this.inventory.slots.findIndex((sl) => sl && getItem(sl.id).tags?.includes('log'));
+        if (idx !== -1) { this.lightLogs(idx); ok = true; }
+      } else if (g.kind === 'hunt' || g.kind === 'boss') {
+        const cl = this.skills.combatLevel();
+        const fits = g.kind === 'boss'
+          ? (n) => n.def.boss && !n.def.fixed && (n.def.level || 1) <= Math.max(cl + 15, Math.round(cl * 1.2))
+          : g.target ? (n) => n.npcId === g.target : (n) => !n.def.boss && (n.def.level || 1) <= cl + 5;
+        const mob = nearest(this.npcs.filter((n) => n.alive && n.attackable && !n.temporary && fits(n)
+          && (!this.world.zoneAt(n.x, n.y)?.wilderness || this.world.zoneAt(here.x, here.y)?.wilderness)));
+        if (mob) {
+          this._questTarget = g.target || null;
+          if (g.kind === 'boss') this.autoCfg.bosses = true;
+          if (chebyshev(here.x, here.y, mob.x, mob.y) > 12) this.walkToFar({ x: mob.x, y: mob.y });
+          else this.attackNpc(mob);
+          if (!this.autoBattle) this.toggleAutoBattle(true);
+          ok = true;
+        }
+      }
+    } finally { this._pathBudget = 0; }
+    this.msg(ok ? `Quest: ${g.text}.` : `Quest: ${g.text}, but I can't find the way there.`, 'system');
+    return ok;
+  }
+
   questPoints() {
     let qp = 0;
     for (const def of QUESTS) if (this.quests[def.id]?.state === 'done') qp += def.qp || 0;
