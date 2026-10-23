@@ -747,6 +747,24 @@ export function buildWorld() {
     qilin_trail: [[380, 300], [430, 340], [500, 300], [520, 360]],
   })) for (const [x, y] of spots) placeNear(id, x, y);
 
+  // ================= Top up the thinner regions =================
+  // The open-world and far regions are far bigger than the old island zones, so
+  // they're filled up to a steady density with creatures of the right level. This
+  // runs on its own stream after everything else, so nothing earlier moves.
+  R = mulberry32(20261124);
+  const TARGET_PER_1000 = 55;
+  for (const z of zones.filter((zz) => zz.lo)) {
+    let walk = 0, have = 0;
+    for (let y = z.y0; y <= z.y1; y++) for (let x = z.x0; x <= z.x1; x++) if (LANDABLE.includes(get(x, y))) walk++;
+    for (const s of npcSpawns) if (s.x >= z.x0 && s.x <= z.x1 && s.y >= z.y0 && s.y <= z.y1 && NPCS[s.npcId]?.attackable && !NPCS[s.npcId].boss) have++;
+    const kinds = MONSTER_IDS.filter((id) => NPCS[id].level >= z.lo && NPCS[id].level <= z.hi && (z.far || !isFar(id)));
+    const native = kinds.filter((id) => NPCS[id].zone === z.name);
+    const pool = native.length ? [...native, ...native, ...kinds] : kinds;   // a region's own species turn up most
+    for (let need = Math.round(walk * TARGET_PER_1000 / 1000) - have, i = 0; need > 0 && pool.length; need--, i++) {
+      placeInZone(pool[Math.floor(R() * pool.length)], z, 4);
+    }
+  }
+
   // --- Border fence ---
   for (let x = 0; x < W; x++) { placeObj('fence', x, 0); placeObj('fence', x, H - 1); }
   for (let y = 0; y < H; y++) { placeObj('fence', 0, y); placeObj('fence', W - 1, y); }

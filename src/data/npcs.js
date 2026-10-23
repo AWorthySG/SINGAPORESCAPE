@@ -130,7 +130,7 @@ function runesFor(level) {
 
 function makeMob(id, name, sprite, color, level, zone, aggro, family) {
   return { name, level, attackable: true, sprite, color, zone, family, ...statsFor(level),
-    aggressive: aggro, aggroRange: aggro ? 4 : 0, respawn: Math.max(10, Math.round(10 + level / 3)), wander: 4,
+    aggressive: aggro, aggroRange: aggro ? 4 : 0, respawn: Math.min(18, Math.max(10, Math.round(10 + level / 40))), wander: 4,   // 6-11s, so high-level areas refill as fast as low ones
     examine: `A ${name.toLowerCase()} (level ${level}).`,
     alwaysDrop: [{ id: 'bones' }], dropTable: dropsFor(level) };
 }
@@ -309,7 +309,7 @@ function makeBoss(id, name, sprite, color, level, zone, scale, drops) {
     maxHit: Math.ceil(level / 7) + 3, attackSpeed: 5,
     // Bosses never ambush — you have to walk up and start the fight yourself.
     // Once engaged they still fight back and chase normally.
-    aggressive: false, aggroRange: 0, respawn: Math.round(60 + level), wander: 3,
+    aggressive: false, aggroRange: 0, respawn: Math.min(100, Math.round(60 + level / 8)), wander: 3,   // about 40-60s
     examine: `${name} — a fearsome boss (level ${level}).`,
     alwaysDrop: [{ id: 'bones' }, { id: 'coins', min: level * 8, max: level * 32 }],
     dropTable: drops };
