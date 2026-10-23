@@ -465,7 +465,10 @@ export class Game {
     // frames (game ticks carry on), which makes impacts feel weighty.
     let adt = dt;
     if (this.hitStop > 0) { this.hitStop = Math.max(0, this.hitStop - dt); adt = dt * 0.12; }
-    this.player.update(adt);
+    // Your own walking never freezes, though: stalling mid-stride on every kill
+    // made moving between fights (auto battle above all) stutter.
+    this.player.update(this.player.moving ? dt : adt);
+    this._keepChasing();
     // Only NPCs near the player animate and walk (the rest are frozen until you
     // come close, like their AI), so a fuller world costs no more per frame.
     { const px = this.player.x, py = this.player.y;
@@ -903,6 +906,19 @@ export class Game {
       return;
     }
     p.stop();   // in range: the swing itself happens on the combat beat
+  }
+
+  /** Between ticks: a chase whose route ran out short of reach (the target
+   *  stepped away) re-plans at once instead of standing still until the next
+   *  0.6s tick. Throttled so an awkward target can't cost a path search a frame. */
+  _keepChasing() {
+    const p = this.player, a = p.action;
+    if (p.moving || !p.alive || !a || a.type !== 'attack' || !a.npc?.alive) return;
+    if (this._driving || this._dodging || this.playerStun > 0 || this.playerRoot > 0) return;
+    if (chebyshev(p.x, p.y, a.npc.x, a.npc.y) <= this.attackRange()) return;
+    if (this.playMs < (this._chaseRetryAt || 0)) return;
+    this._chaseRetryAt = this.playMs + 150;
+    this._tickAttack(a);
   }
 
   // Player swings run on a 300ms beat (twice the world tick), so weapon speeds
@@ -2271,6 +2287,7 @@ export class Game {
     this.autoBattle = !!on;
     this._autoSkip.clear();
     this._autoLast = null;
+    if (this.autoBattle) this._autoRetarget = true;   // start at once, not on the next tick
     this.msg(this.autoBattle
       ? 'Auto battle on: you will hunt nearby monsters, eat when hurt and use your skills. Steer to pause.'
       : 'Auto battle off.', 'system');

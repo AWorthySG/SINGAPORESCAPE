@@ -59,3 +59,17 @@ test('camera converges toward its target over time', () => {
   for (let i = 0; i < 60; i++) cam.follow(500 * TILE, 0, 0.22, null, 16);
   assert.ok(Math.abs(cam.cx - 500 * TILE) < 1, 'camera reaches the target');
 });
+
+test('a new route that heads back the way we came turns round at once, with no snap', () => {
+  const c = new Character(5, 5);
+  c.setPath([{ x: 6, y: 5 }]);
+  c.update(TICK_MS * 0.3);
+  const before = c.renderCenter();
+  c.setPath([{ x: 5, y: 5 }, { x: 4, y: 5 }]);   // re-planned from the tile ahead
+  const after = c.renderCenter();
+  assert.ok(Math.abs(after.x - before.x) < 1e-6, 'stays where it is on screen');
+  assert.equal(c.tx, 5, 'now heading back west straight away');
+  c.update(TICK_MS * 0.2);
+  assert.ok(c.renderCenter().x < before.x, 'moving west, not finishing the eastward step first');
+  assert.deepEqual(c.path, [{ x: 4, y: 5 }]);
+});

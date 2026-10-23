@@ -2669,3 +2669,36 @@ test('quest journal Go: walks to the quest giver, the next objective, or a fight
   assert.equal(game.questGuide('pillars').kind, 'none');
   assert.equal(game.questTravel('pillars'), false);
 });
+
+test('auto battle movement is smooth: no freeze mid-stride on a hit, and a chase re-plans between ticks', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const { NPC } = await import('../src/game/npc.js');
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  const p = game.player;
+  game.npcs = [];
+  // Hit-stop freezes the world for a moment, but not your own walking.
+  p.setPath([{ x: p.x + 1, y: p.y }, { x: p.x + 2, y: p.y }], false);
+  game.hitStop = 120;
+  const x0 = p.renderCenter().x;
+  game.update(100);
+  assert.ok(p.renderCenter().x - x0 > 5, 'kept walking at full speed through the hit-stop');
+  p.stopNow();
+  game.update(600);
+
+  // The target steps out of reach right as you arrive: you set off again well
+  // before the next 0.6s tick.
+  const mob = new NPC('goblin', p.x + 4, p.y, 0, {});
+  mob.def = { ...mob.def, aggressive: false };
+  game.npcs = [mob];
+  game.attackNpc(mob);
+  for (let i = 0; i < 60 && p.moving; i++) game.update(16);
+  assert.ok(!p.moving, 'arrived');
+  mob.x = mob.tx = p.x + 4;                      // it moved away
+  game.tickAcc = 0;                               // the next world tick is a full 0.6s off
+  game.update(16); game.update(16); game.update(16);
+  game.update(150); game.update(16);
+  assert.ok(p.moving, 'already chasing again, without waiting for the tick');
+});
