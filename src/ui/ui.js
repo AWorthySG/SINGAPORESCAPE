@@ -1223,10 +1223,18 @@ export class UI {
       const st = game.quests[d.id]?.state || 'notStarted';
       let prog = '';
       if (d.progress) { try { prog = d.progress(game); } catch { prog = ''; } }
-      html += `<div class="quest-row"><b>${escapeHtml(d.name)}</b>${status(st)}` +
-        `<span class="q-desc">${escapeHtml(d.desc)}${prog ? ` <span class="q-prog">(${escapeHtml(prog)})</span>` : ''}</span></div>`;
+      const guide = game.questGuide(d.id);
+      const canGo = guide.kind !== 'none';
+      html += `<div class="quest-row${canGo ? ' can-go' : ''}" data-quest="${d.id}"><b>${escapeHtml(d.name)}</b>${status(st)}` +
+        `<span class="q-desc">${escapeHtml(d.desc)}${prog ? ` <span class="q-prog">(${escapeHtml(prog)})</span>` : ''}</span>` +
+        (st !== 'done' && guide.text ? `<span class="q-next">${canGo ? '&#10148; ' : ''}${escapeHtml(guide.text)}</span>` : '') +
+        (canGo ? `<button class="q-go" data-quest="${d.id}" title="Walk there and start on it">Go</button>` : '') + `</div>`;
     }
     this.el.questPanel.innerHTML = html;
+    // Tap a quest (or its Go button) to travel to wherever it needs you next.
+    for (const row of this.el.questPanel.querySelectorAll('.quest-row.can-go')) {
+      row.addEventListener('click', () => { game.questTravel(row.dataset.quest); this.renderQuestPanel(); });
+    }
   }
 
   // ---------------- Achievements / collection log ----------------

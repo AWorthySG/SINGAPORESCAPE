@@ -2608,3 +2608,64 @@ test('every open-world and far region is well stocked and refills quickly', asyn
     assert.ok(mobs / walk * 1000 >= 30, `${z.name} has ${(mobs / walk * 1000).toFixed(1)} monsters per 1000 tiles`);
   }
 });
+
+test('auto battle answers anything fighting you, takes on bosses a little above your level, and never gives up a long walk', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  const p = game.player;
+  const cl = game.skills.combatLevel();
+  game.npcs = game.npcs.filter((n) => Math.max(Math.abs(n.x - p.x), Math.abs(n.y - p.y)) > 30);
+  // A boss far above your level that is attacking you is answered.
+  const big = game.spawnNpc('eternal_wyrm', p.x + 3, p.y, { wander: 0 });
+  big.target = p;
+  assert.equal(game._autoPickTarget(), big, 'a boss on you is fought even far above your level');
+  big.alive = false;
+  // A boss's summoned add that is attacking you is answered.
+  const add = game.spawnNpc('goblin', p.x + 2, p.y, { temporary: true });
+  add.target = p;
+  assert.equal(game._autoPickTarget(), add, 'summoned adds on you are fought');
+  add.alive = false;
+  // A boss somewhat above your level, 20 tiles off, is sought out.
+  const t = game._nearestFree(p.x + 20, p.y) || game._nearestFree(p.x, p.y + 20);
+  const boss = game.spawnNpc('goblin_warchief', t.x, t.y, { wander: 0 });
+  boss.def = { ...boss.def, level: cl + 12 };
+  assert.equal(game._autoPickTarget(), boss, 'a boss 12 levels up and 20 tiles away is fair game');
+  // Walking without run energy toward it, the chase is not abandoned while closing in.
+  game.runEnergy = 0; game.running = false;
+  game.toggleAutoBattle(true);
+  for (let i = 0; i < 45 && Math.max(Math.abs(boss.x - p.x), Math.abs(boss.y - p.y)) > game.attackRange(); i++) game.update(600);
+  assert.equal(p.action?.npc, boss, 'still heading for it after a long walk');
+});
+
+test('quest journal Go: walks to the quest giver, the next objective, or a fight, and gets there', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  const p = game.player;
+  const run = (n) => { for (let i = 0; i < n && (p.isMoving || p.action); i++) game.update(600); };
+  // Not started: off to the Kampong Guide, and the chat opens there.
+  let opened = null;
+  game.ui = new Proxy({ openDialogue: (npc) => { opened = npc.npcId; } }, { get: (t, k) => (k in t ? t[k] : () => {}) });
+  assert.match(game.questGuide('pillars').text, /Kampong Guide/);
+  assert.ok(game.questTravel('pillars'));
+  run(120);
+  assert.equal(opened, 'guide', 'reached the guide and started talking');
+  // Active: the next pillar is the A-Worthy Monument; Go walks there and prays.
+  game.quests.pillars.state = 'active';
+  assert.equal(game.questGuide('pillars').kind, 'obj');
+  game.questTravel('pillars');
+  run(120);
+  assert.ok(game.quests.pillars.monument, 'prayed at the Monument');
+  assert.match(game.questGuide('pillars').text, /Mascot Statue/);
+  // A kill quest turns auto battle on, hunting only the quest's monster.
+  game.quests.pest_control.state = 'active';
+  game.questTravel('pest_control');
+  assert.ok(game.autoBattle && game._questTarget === 'rat');
+  // A finished quest has nowhere to go.
+  game.quests.pillars.state = 'done';
+  assert.equal(game.questGuide('pillars').kind, 'none');
+  assert.equal(game.questTravel('pillars'), false);
+});
