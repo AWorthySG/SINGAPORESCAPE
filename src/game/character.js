@@ -48,6 +48,14 @@ export class Character {
   setPath(path, running = false) {
     this.path = path ? [...path] : [];
     this.running = running;
+    // A new route that starts by heading back to the tile we're leaving: turn
+    // round on the spot instead of finishing the step and walking back.
+    const back = this.path[0];
+    if (this.moving && back && back.x === this.x && back.y === this.y && (this.x !== this.tx || this.y !== this.ty)) {
+      const rest = this.path.slice(1);
+      this.reverseStep();
+      this.path = rest;
+    }
     if (!this.moving) this._beginStep();
   }
 
