@@ -66,6 +66,16 @@ function path2(ctx, pts) {
 const TERRAIN_CHUNK = 32;
 const TERRAIN_CHUNK_CAP = 24;
 
+// Painted ground textures (assets/world/ground-<name>.webp). Each is a seamless
+// 128px square that repeats every 4 tiles; until they load (and headless, where
+// there's no Image) the ground keeps its drawn colours.
+const GROUND_TEX_PX = 128;
+const GROUND_TEX = {
+  [TERRAIN.GRASS]: 'grass', [TERRAIN.DARKGRASS]: 'darkgrass', [TERRAIN.PATH]: 'path', [TERRAIN.SAND]: 'sand',
+  [TERRAIN.STONE]: 'stone', [TERRAIN.WOOD]: 'wood', [TERRAIN.WATER]: 'water',
+};
+export const groundTextures = () => new Set(Object.values(GROUND_TEX));
+
 export class Renderer {
   constructor(game, canvas, ctx) {
     this.game = game;
@@ -77,6 +87,36 @@ export class Renderer {
     // chunks of TERRAIN_CHUNK tiles, built as they come into view.
     this.terrainCanvas = this._buildTerrainCache();
     this._vig = null; // cached vignette gradients (rebuilt on resize)
+    this.groundTex = this._loadGroundTextures();
+  }
+
+  /** Start loading the painted ground; once every texture is in, re-bake the
+   *  terrain so the painted ground replaces the drawn one. */
+  _loadGroundTextures() {
+    if (typeof Image === 'undefined' || !this.terrainCanvas) return null;
+    const tex = {}, ids = Object.keys(GROUND_TEX);
+    let left = ids.length;
+    tex.ready = false;
+    for (const t of ids) {
+      const img = new Image();
+      img.onload = () => {
+        if (--left > 0) return;
+        tex.ready = true;
+        this.terrainCanvas.chunks.clear(); this.terrainCanvas.order.length = 0;
+      };
+      img.src = `assets/world/ground-${GROUND_TEX[t]}.webp`;
+      tex[t] = img;
+    }
+    return tex;
+  }
+
+  /** Paint one tile's worth of a ground texture; false if it isn't ready. */
+  _groundTile(g, t, x, y, sx, sy) {
+    const tex = this.groundTex;
+    if (!tex || !tex.ready || !tex[t]) return false;
+    const k = GROUND_TEX_PX / TILE;
+    g.drawImage(tex[t], (x % k) * TILE, (y % k) * TILE, TILE, TILE, sx, sy, TILE + 0.5, TILE + 0.5);
+    return true;
   }
 
   render(timeMs) {
@@ -596,8 +636,17 @@ export class Renderer {
         const t = w.terrainAt(x, y);
         const sx = (x - tx0) * TILE, sy = (y - ty0) * TILE;
         if (t === TERRAIN.WATER) { g.fillStyle = 'rgb(122,190,232)'; g.fillRect(sx, sy, TILE + 1, TILE + 1); continue; }
-        const base = TERRAIN_RGB[t] || TERRAIN_RGB[TERRAIN.GRASS];
         const h = hash(x, y);
+        if (this._groundTile(g, t, x, y, sx, sy)) {
+          // Painted ground: keep the odd wildflower and the crisp path edges.
+          if ((t === TERRAIN.GRASS || t === TERRAIN.DARKGRASS) && h > 0.93) {
+            g.fillStyle = ['#EF476F', '#F5B82E', '#5FAEE3', '#FFFFFF'][Math.floor(h * 97) % 4];
+            g.beginPath(); g.arc(sx + 8 + h * 12, sy + 10, 1.6, 0, 6.3); g.fill();
+          }
+          this._tileEdges(g, w, t, x, y, sx, sy);
+          continue;
+        }
+        const base = TERRAIN_RGB[t] || TERRAIN_RGB[TERRAIN.GRASS];
         const j = (h - 0.5) * 10;
         g.fillStyle = `rgb(${clamp8(base[0] + j)},${clamp8(base[1] + j)},${clamp8(base[2] + j)})`;
         g.fillRect(sx, sy, TILE + 1, TILE + 1);
@@ -781,8 +830,15 @@ export class Renderer {
     const wave = Math.sin((x + y) * 0.7 + timeMs * 0.0016) * 8 + Math.sin((x - y) * 0.5 + timeMs * 0.0011) * 6;
     // Deeper water reads darker/greener; shallows near shore are brighter teal.
     const d = shore ? 18 : 0;
-    ctx.fillStyle = `rgb(${(122 + d + wave * 0.5) | 0},${(190 + d * 0.6 + wave * 0.6) | 0},${(232 + d * 0.3 + wave * 0.4) | 0})`;
-    ctx.fillRect(sx, sy, TILE + 1, TILE + 1);
+    if (this._groundTile(ctx, TERRAIN.WATER, x, y, sx, sy)) {
+      // Painted water: the swell rides on top as a soft light/dark wash.
+      const k = (wave + d * 0.6) / 14;
+      ctx.fillStyle = k > 0 ? `rgba(255,255,255,${Math.min(0.22, k * 0.12).toFixed(3)})` : `rgba(30,90,140,${Math.min(0.14, -k * 0.08).toFixed(3)})`;
+      ctx.fillRect(sx, sy, TILE + 1, TILE + 1);
+    } else {
+      ctx.fillStyle = `rgb(${(122 + d + wave * 0.5) | 0},${(190 + d * 0.6 + wave * 0.6) | 0},${(232 + d * 0.3 + wave * 0.4) | 0})`;
+      ctx.fillRect(sx, sy, TILE + 1, TILE + 1);
+    }
     // caustic shimmer (two drifting bands)
     const hl = (Math.sin((x * 1.3 + y * 0.7) + timeMs * 0.002) + 1) / 2;
     if (hl > 0.55) {
