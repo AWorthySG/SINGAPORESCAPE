@@ -2591,3 +2591,20 @@ test('a boss signature move starts a cast flourish that the renderer plays, then
   boss.update(800);
   assert.equal(boss.castT, 0, 'and fades out');
 });
+
+test('every open-world and far region is well stocked and refills quickly', async () => {
+  const { NPCS, MONSTER_IDS, BOSS_IDS } = await import('../src/data/npcs.js');
+  for (const id of MONSTER_IDS) assert.ok(NPCS[id].respawn <= 18, `${id} respawns within about 11s`);
+  for (const id of BOSS_IDS) assert.ok(NPCS[id].respawn <= 100, `${id} respawns within about a minute`);
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  const w = game.world;
+  for (const z of w.zones.filter((zz) => zz.lo)) {
+    let walk = 0;
+    for (let y = z.y0; y <= z.y1; y++) for (let x = z.x0; x <= z.x1; x++) if (w.inBounds(x, y) && !w.isBlocked(x, y)) walk++;
+    const mobs = game.npcs.filter((n) => n.attackable && !n.def.boss && n.x >= z.x0 && n.x <= z.x1 && n.y >= z.y0 && n.y <= z.y1).length;
+    assert.ok(mobs / walk * 1000 >= 30, `${z.name} has ${(mobs / walk * 1000).toFixed(1)} monsters per 1000 tiles`);
+  }
+});

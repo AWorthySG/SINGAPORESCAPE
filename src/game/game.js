@@ -466,7 +466,10 @@ export class Game {
     let adt = dt;
     if (this.hitStop > 0) { this.hitStop = Math.max(0, this.hitStop - dt); adt = dt * 0.12; }
     this.player.update(adt);
-    for (const n of this.npcs) n.update(adt);
+    // Only NPCs near the player animate and walk (the rest are frozen until you
+    // come close, like their AI), so a fuller world costs no more per frame.
+    { const px = this.player.x, py = this.player.y;
+      for (const n of this.npcs) if (Math.abs(n.x - px) <= 48 && Math.abs(n.y - py) <= 48) n.update(adt); }
     this.playMs += dt;
     this._tickPotions(dt);
 
