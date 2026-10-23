@@ -1,4 +1,5 @@
 import { TILE } from '../config.js';
+import { TURN_MS } from '../game/character.js';
 import { TERRAIN } from '../data/world.js';
 import { getItem } from '../data/items.js';
 import { weaknessOf } from '../game/combat.js';
@@ -305,6 +306,8 @@ export class Renderer {
           hasCape: !!game.equipment.get('cape'), hasHelm: !!game.equipment.get('head'),
           hasShield: !!game.equipment.get('shield') && !game.equipment.isDualWielding(),
           dualWield: game.equipment.isDualWielding(), prayerActive: game.activePrayers.size > 0, jobClass: game.jobClass,
+          gait: { phase: game.player.walkPhase, move: game.player.animMove, run: game.player.running && game.player.isMoving,
+            turn: game.player.turnT / TURN_MS },
         });
         if (game.player.hurt > 0) this._hurtFlash(cx + off.x, cy - 2 + off.y, 1, game.player.hurt);
       } });
