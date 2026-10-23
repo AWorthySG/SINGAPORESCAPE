@@ -1784,8 +1784,81 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
 // Objects that never animate are cached as bitmaps; trees too, with their
 // sway applied as a gentle lean about the trunk base.
 const CACHED_OBJECTS = new Set(['tree', 'rock', 'anvil', 'craft', 'bank', 'rest', 'agility', 'stall', 'transport', 'scenery']);
+
+// Painted world art (assets/world/<key>.webp): trees and their stumps, ore
+// rocks, stations, stalls, agility obstacles, scenery, fishing spots and Hunter
+// traps. Each entry is [max width, max height, feet below the tile centre] in
+// pixels; the picture is fitted inside and stood on that line. Anything
+// without art (fires, farm patches) keeps its drawn sprite.
+const TREE_IDS = ['tree', 'oak', 'willow', 'rain_tree', 'yew_tree', 'magic_tree', 'bamboo', 'angsana', 'teak', 'mangrove', 'mahogany', 'tembusu'];
+const ROCK_IDS = ['copper', 'tin', 'iron', 'coal', 'mithril', 'adamantite', 'runite', 'gold', 'clay', 'limestone', 'silver', 'sandstone', 'gem', 'granite'].map((o) => `${o}_rock`);
+const WORLD_ART = {
+  ...Object.fromEntries(TREE_IDS.flatMap((t) => [[`tree-${t}`, [66, 74, 15]], [`stump-${t}`, [34, 28, 14]]])),
+  ...Object.fromEntries(ROCK_IDS.map((r) => [`rock-${r}`, [38, 34, 14]])),
+  'rock-empty': [36, 32, 14],
+  'obj-furnace': [50, 50, 16], 'obj-anvil': [40, 38, 15], 'obj-range': [50, 46, 16], 'obj-crafting_table': [52, 42, 16],
+  'obj-apothecary_table': [52, 42, 16], 'obj-fletching_bench': [52, 42, 16], 'obj-bank_booth': [56, 54, 16],
+  'obj-shrine': [54, 56, 16], 'obj-mascot_statue': [48, 54, 16], 'obj-mrt_station': [66, 50, 16],
+  'obj-stall_food': [56, 50, 16], 'obj-stall_market': [56, 50, 16], 'obj-stall_gem': [56, 50, 16],
+  'obj-agility_course': [60, 48, 16], 'obj-agility_balance': [50, 34, 15], 'obj-agility_net': [46, 46, 16],
+  'obj-agility_rope': [44, 46, 16], 'obj-agility_ledge': [44, 42, 16], 'obj-agility_zip': [48, 46, 16],
+  'obj-wall': [40, 36, 15], 'obj-ruin': [44, 44, 15], 'obj-fence': [40, 34, 15], 'obj-bush': [34, 30, 14],
+  'obj-flower': [28, 26, 13], 'obj-palm': [50, 66, 15], 'obj-lamp': [24, 54, 15], 'obj-sign': [28, 38, 15],
+  'obj-fishing_spot': [42, 30, 12], 'obj-rod_spot': [42, 34, 12], 'obj-sea_rod_spot': [42, 34, 12],
+  'obj-fishing_cage': [42, 32, 12], 'obj-harpoon_spot': [42, 34, 12],
+  'obj-bird_snare': [40, 34, 14], 'obj-squirrel_trap': [40, 34, 14], 'obj-lizard_snare': [40, 34, 14],
+  'obj-mousedeer_trail': [40, 34, 14], 'obj-boar_pit': [42, 34, 14], 'obj-python_trap': [44, 34, 14],
+  'obj-crocodile_trap': [44, 32, 14], 'obj-hornbill_nest': [40, 40, 14], 'obj-qilin_trail': [40, 34, 14],
+};
+/** The painted-art key for a world object, or null to keep its drawn sprite. */
+function worldArtKey(obj) {
+  const t = obj.def.type;
+  if (t === 'tree') return obj.depleted ? `stump-${obj.objId}` : `tree-${obj.objId}`;
+  if (t === 'rock') return obj.depleted ? 'rock-empty' : `rock-${obj.objId}`;
+  return `obj-${obj.objId}`;
+}
+const _worldImg = {};
+function worldImage(key) {
+  if (!WORLD_ART[key]) return null;
+  if (_worldImg[key] !== undefined) return _worldImg[key];
+  if (typeof Image === 'undefined') { _worldImg[key] = null; return null; }
+  const img = new Image();
+  img.src = `assets/world/${key}.webp`;
+  _worldImg[key] = img;
+  return img;
+}
+export const worldArt = () => new Set(Object.keys(WORLD_ART));
+function drawWorldArt(ctx, obj, img, key, cx, cy, time) {
+  const [mw, mh, foot] = WORLD_ART[key];
+  const s = Math.min(mw / img.naturalWidth, mh / img.naturalHeight);
+  const w = img.naturalWidth * s, h = img.naturalHeight * s;
+  const t = obj.def.type;
+  if (t !== 'fishing') {   // a soft contact shadow; fishing spots sit in the water
+    ctx.fillStyle = 'rgba(34,48,74,0.16)';
+    ellipse(ctx, cx, cy + foot - 1, Math.min(w * 0.42, 22), Math.min(h * 0.12, 5)); ctx.fill();
+  }
+  ctx.save();
+  // Spent stalls, traps and fishing spots fade back; trees and rocks swap pictures instead.
+  if (obj.depleted && t !== 'tree' && t !== 'rock') ctx.globalAlpha = 0.5;
+  if (t === 'tree' && !obj.depleted) {
+    // The canopy leans gently about the base of the trunk.
+    const sway = Math.sin(time * 0.0012 + obj.x * 1.7 + obj.y) * 1.4;
+    ctx.translate(cx, cy + foot);
+    ctx.transform(1, 0, -sway / 38, 1, 0, 0);
+    ctx.drawImage(img, -w / 2, -h, w, h);
+  } else if (t === 'fishing') {
+    // Fishing spots bob on the swell.
+    const bob = Math.sin(time * 0.003 + obj.x + obj.y * 0.7) * 1.2;
+    ctx.drawImage(img, cx - w / 2, cy + foot - h + bob, w, h);
+  } else ctx.drawImage(img, cx - w / 2, cy + foot - h, w, h);
+  ctx.restore();
+}
+
 export function drawObjectSprite(ctx, obj, cx, cy, time = 0) {
   const t = obj.def.type;
+  const key = worldArtKey(obj);
+  const art = key && worldImage(key);
+  if (art && art.complete && art.naturalWidth) { drawWorldArt(ctx, obj, art, key, cx, cy, time); return; }
   if (CACHED_OBJECTS.has(t)) {
     const key = `obj|${t}|${obj.objId}|${obj.def.ore || ''}|${obj.depleted ? 1 : 0}`;
     const img = cachedBitmap(key, OBJ_BOX, (g) => drawObjectRaw(g, obj, 0, 0, 0));
