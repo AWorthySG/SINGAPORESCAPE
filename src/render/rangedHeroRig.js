@@ -1,6 +1,6 @@
 // Ranged and magic limbs are separate from the melee pilot so each batch can
 // be reviewed independently. All parts must load before replacing a portrait.
-export const RANGED_HERO_CLASSES = ['ranger', 'sorcerer'];
+export const RANGED_HERO_CLASSES = ['ranger', 'archer', 'sorcerer', 'wizard'];
 export const RANGED_HERO_PARTS = ['body', 'weapon', 'back', 'left', 'right', 'action'];
 export const rangedHeroSrc = (classId, part) => `assets/creatures/hero/rig/${classId}-${part}.webp`;
 const images = new Map();
@@ -11,10 +11,10 @@ export function rangedHeroPose(classId, gait = {}, time = 0, swing = -1) {
   const step = Math.sin((gait.phase || 0) * Math.PI) * move;
   const active = swing >= 0 && swing <= 1;
   let draw = 0, release = 0, charge = 0, cast = 0;
-  if (active && classId === 'ranger') {
+  if (active && (classId === 'ranger' || classId === 'archer')) {
     draw = smooth(swing / 0.48) * (1 - smooth((swing - 0.5) / 0.14));
     release = smooth((swing - 0.5) / 0.08) * (1 - smooth((swing - 0.58) / 0.27));
-  } else if (active && classId === 'sorcerer') {
+  } else if (active && (classId === 'sorcerer' || classId === 'wizard')) {
     charge = smooth(swing / 0.6) * (1 - smooth((swing - 0.72) / 0.28));
     cast = smooth((swing - 0.6) / 0.14) * (1 - smooth((swing - 0.74) / 0.26));
   }
@@ -43,16 +43,18 @@ export function drawRangedHeroRig(ctx, opts = {}) {
   };
   draw('left', -10 - pose.step * 1.5, -1 - Math.max(0, pose.step) * 3, 13, 16);
   draw('right', 1 + pose.step * 1.5, -1 - Math.max(0, -pose.step) * 3, 13, 16);
-  if (classId === 'sorcerer') draw('back', -15, -10 + pose.breathe, 16, 12, -pose.step * 0.2 - pose.charge * 0.35, 12, 3);
+  const bow = classId === 'ranger' || classId === 'archer';
+  if (!bow) draw('back', -15, -10 + pose.breathe, 16, 12, -pose.step * 0.2 - pose.charge * 0.35, 12, 3);
   draw('body', -21, -38 + pose.breathe, 42, 44);
-  if (classId === 'ranger') {
+  if (bow) {
     const y = -11 + pose.breathe;
-    draw('weapon', 14, y, 22, 46, 0, 1.5, 25);
+    const shortbow = classId === 'archer';
+    draw('weapon', 14, y, shortbow ? 21 : 22, shortbow ? 40 : 46, 0, 1.5, shortbow ? 23 : 25);
     // The string follows the drawing hand, rather than stretching a painted
     // bowstring. The arrow here is a nocked visual; combat owns projectiles.
-    const nock = 24 - pose.draw * 9;
+    const nock = (shortbow ? 23 : 24) - pose.draw * 9;
     ctx.save(); ctx.strokeStyle = '#f4e5bc'; ctx.lineWidth = 0.7;
-    ctx.beginPath(); ctx.moveTo(24, y - 23); ctx.lineTo(nock, y); ctx.lineTo(24, y + 22); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(shortbow ? 22 : 24, y - (shortbow ? 21 : 23)); ctx.lineTo(nock, y); ctx.lineTo(24, y + (shortbow ? 17 : 22)); ctx.stroke();
     if (pose.release < 0.05) {
       ctx.strokeStyle = '#815b36'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(nock - 3, y); ctx.lineTo(nock + 25, y); ctx.stroke();
@@ -64,8 +66,8 @@ export function drawRangedHeroRig(ctx, opts = {}) {
     draw('action', -10, y, 29, 16, 0, 0, 3, pose.draw);
   } else {
     const angle = -pose.charge * 0.2 + pose.cast * 1.1 + pose.step * 0.12;
-    draw('weapon', 14, -10 + pose.breathe, 20, 39, angle + 0.3, 5, 33, 1 - pose.cast);
-    draw('action', 14, -10 + pose.breathe, 35, 13, (angle - 1.1) * 0.3, 4, 5, pose.cast);
+    draw('weapon', 14, -10 + pose.breathe, 20, classId === 'wizard' ? 54 : 39, angle + 0.3, classId === 'wizard' ? 18 : 5, classId === 'wizard' ? 45 : 33, 1 - pose.cast);
+    draw('action', 14, -10 + pose.breathe, classId === 'wizard' ? 48 : 35, classId === 'wizard' ? 16 : 13, (angle - 1.1) * 0.3, 4, 5, pose.cast);
   }
   return true;
 }

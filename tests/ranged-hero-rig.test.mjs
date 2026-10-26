@@ -79,9 +79,9 @@ test('rig loading stays per class and never draws incomplete or broken parts', (
       }
       assert.ok(c.draws.slice(drawsBefore).every((src) => src.includes(`/${classId}-`)));
     }
-    assert.equal(loaded.length, 12);
+    assert.equal(loaded.length, 24);
     assert.equal(drawRangedHeroRig(c, { jobClass: 'ranger' }), true);
-    assert.equal(loaded.length, 12, 'already loaded parts are reused');
+    assert.equal(loaded.length, 24, 'already loaded parts are reused');
     const rest = context(), drawn = context(), shot = context();
     drawRangedHeroRig(rest, { jobClass: 'ranger' });
     drawRangedHeroRig(drawn, { jobClass: 'ranger', swingK: 0.5 });

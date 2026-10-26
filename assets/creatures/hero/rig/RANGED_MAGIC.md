@@ -1,11 +1,14 @@
-# Ranger and Sorcerer animation batch
+# Bow and casting animation
 
-Ranger gets articulated bow and drawing arms; Sorcerer gets separate wand and
-casting arms. Each class uses six transparent WebP components generated from its
-existing portrait. Keep original portraits as the all-or-nothing loading fallback.
+`src/render/rangedHeroRig.js` handles Archer/Ranger and Wizard/Sorcerer. Archer
+uses a shorter bow; Wizard uses a longer staff. Each has separate boots, body,
+weapon arm, free/drawing arm and alternate action arm.
 
-Runtime: `src/render/rangedHeroRig.js`; small hook in `src/render/sprites.js`.
-Regression tests: `tests/ranged-hero-rig.test.mjs`.
+Bows have no baked bowstring. The renderer joins the bow tips through the nock
+point, which moves back during draw and snaps forward on release. The local
+nocked arrow disappears during release; combat owns the actual projectile.
+Casting raises the weapon during charge, extends it for the spell, then recovers.
+Existing game attack effects remain in the shared sprite library.
 
-This batch is independent of the Rogue/Samurai work in PR #178. When merging
-both, preserve both optional rig hooks in the player drawing code.
+`tests/ranged-hero-rig.test.mjs` covers loading/failure, cache separation, opacity,
+movement phases, draw/release and charge/cast endpoints.
