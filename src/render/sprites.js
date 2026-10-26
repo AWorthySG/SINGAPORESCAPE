@@ -3,7 +3,7 @@
 // point (cx, cy) with the entity's "feet" near cy + 13.
 import { itemIconImage } from './icons.js';
 import { CROPS } from '../data/trades.js';
-import { drawSwordsmanRig } from './heroRig.js';
+import { drawHeroRig } from './heroRig.js';
 
 const CROP_COLORS = Object.fromEntries(CROPS.map((c) => [c[0], c[9]]));
 const CROP_GROW = Object.fromEntries(CROPS.map((c) => [c[0], c[3]]));
@@ -1666,7 +1666,7 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
       const s = Math.min(HERO_ART_H / himg.naturalHeight, HERO_ART_W / himg.naturalWidth);
       const w = himg.naturalWidth * s, h = himg.naturalHeight * s;
       const g = opts.gait;
-      const layered = drawSwordsmanRig(c, opts);
+      const layered = drawHeroRig(c, opts);
       if (!layered) {
         if (g && !pose) heroPuppet(c, himg, w, h, g, t);
         else {
