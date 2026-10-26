@@ -3,6 +3,7 @@
 // point (cx, cy) with the entity's "feet" near cy + 13.
 import { itemIconImage } from './icons.js';
 import { CROPS } from '../data/trades.js';
+import { drawSwordsmanRig } from './heroRig.js';
 
 const CROP_COLORS = Object.fromEntries(CROPS.map((c) => [c[0], c[9]]));
 const CROP_GROW = Object.fromEntries(CROPS.map((c) => [c[0], c[3]]));
@@ -1665,13 +1666,16 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
       const s = Math.min(HERO_ART_H / himg.naturalHeight, HERO_ART_W / himg.naturalWidth);
       const w = himg.naturalWidth * s, h = himg.naturalHeight * s;
       const g = opts.gait;
-      if (g && !pose) heroPuppet(c, himg, w, h, g, t);
-      else {
-        // A side-to-side rock while walking, as the monsters do (a gait cue).
-        if (opts.moving) c.rotate(Math.sin(t * 0.018 + cx) * 0.06);
-        c.drawImage(himg, -w / 2, HERO_ART_FEET - h, w, h);
+      const layered = drawSwordsmanRig(c, opts);
+      if (!layered) {
+        if (g && !pose) heroPuppet(c, himg, w, h, g, t);
+        else {
+          // A side-to-side rock while walking, as the monsters do (a gait cue).
+          if (opts.moving) c.rotate(Math.sin(t * 0.018 + cx) * 0.06);
+          c.drawImage(himg, -w / 2, HERO_ART_FEET - h, w, h);
+        }
       }
-      if (pose && pose.flash > 0) {   // a white flash over the body on the strike frame
+      if (!layered && pose && pose.flash > 0) {   // a white flash over the body on the strike frame
         c.globalAlpha = pose.flash * 0.35; c.globalCompositeOperation = 'lighter';
         c.drawImage(himg, -w / 2, HERO_ART_FEET - h, w, h);
         c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
