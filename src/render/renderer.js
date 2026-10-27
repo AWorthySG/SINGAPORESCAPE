@@ -933,8 +933,8 @@ export class Renderer {
       }
     }
     const p = game.player;
-    if (p.moving || p.path.length) {
-      const dest = p.path.length ? p.path[p.path.length - 1] : { x: p.tx, y: p.ty };
+    if (p.path.length) {   // a clicked route (joystick steering has no destination)
+      const dest = p.path[p.path.length - 1];
       const cx = dest.x * TILE + TILE / 2 - ox, cy = dest.y * TILE + TILE / 2 - oy;
       const pulse = 4 + Math.sin(performance.now() * 0.012) * 1.5;
       ctx.strokeStyle = '#ffe66a'; ctx.lineWidth = 2.5;

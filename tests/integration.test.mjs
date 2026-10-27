@@ -1834,7 +1834,7 @@ test('daily bounties: three targets a day that pay out, with a streak', async ()
   assert.ok(g2.bounties.list.every((t) => t.done), 'progress is saved');
 });
 
-test('responsive controls: reverse mid-step instantly, act on the press', () => {
+test('responsive controls: free joystick movement turns and stops at once, act on the press', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
   const game = new Game();
@@ -1844,16 +1844,18 @@ test('responsive controls: reverse mid-step instantly, act on the press', () => 
   game.npcs = game.npcs.filter((n) => Math.max(Math.abs(n.x - p.x), Math.abs(n.y - p.y)) > 15);
   const x0 = p.x, y0 = p.y;
   game.setMoveInput(1, 0);
-  game.update(16); game.update(150);           // part-way into a step right
-  assert.ok(p.moving && p.tx === x0 + 1);
+  game.update(16); game.update(150);           // gliding right, part-way across a tile
+  assert.ok(p.moving && p.fx > x0 + 0.1 && p.fx < x0 + 0.9, 'moves smoothly, not tile by tile');
   const before = p.renderCenter().x;
   game.setMoveInput(-1, 0);
-  game.update(0);                              // pulling back...
-  assert.equal(p.tx, x0, '...heads straight back without finishing the step');
-  assert.ok(Math.abs(p.renderCenter().x - before) < 0.01, 'and without snapping on screen');
+  game.update(16);                             // pulling back turns round at once
+  assert.ok(p.renderCenter().x < before, 'heads straight back without finishing a step');
   game.setMoveInput(0, 0);
+  game.update(16);
+  const rest = p.fx;
   for (let i = 0; i < 10; i++) game.update(100);
-  assert.ok(!p.moving && p.x === x0 && p.y === y0);
+  assert.ok(!p.moving && p.fx === rest, 'letting go stops on the spot');
+  assert.ok(p.x === x0 && p.y === y0, 'still standing on the starting tile');
   // Picking up something underfoot happens on the press, not the next tick.
   const gi = game.world.addGroundItem('logs', 2, p.x, p.y);
   gi.playerDropped = true;                     // so auto-loot doesn't take it first
@@ -2089,7 +2091,8 @@ test('archers shoot from where they stand, and keep firing while dodging a boss 
   const far = game.spawnNpc('goblin', p.x + 18, p.y, { wander: 0 });
   far.def = { ...far.def, aggressive: false }; far.maxHp = far.hp = 9999;
   game.attackNpc(far);
-  step(game, 12);
+  // Measure where the archer stops (the goblin then ambles over to retaliate).
+  for (let i = 0; i < 12 && (i < 1 || p.moving); i++) game.update(600);
   assert.ok(Math.abs(far.x - p.x) >= 10, `stopped at range (${Math.abs(far.x - p.x)} tiles away)`);
   // Auto battle dodging keeps the attack going.
   game.npcs = [mob];
@@ -2701,4 +2704,62 @@ test('auto battle movement is smooth: no freeze mid-stride on a hit, and a chase
   game.update(16); game.update(16); game.update(16);
   game.update(150); game.update(16);
   assert.ok(p.moving, 'already chasing again, without waiting for the tick');
+});
+
+test('free movement: any angle, slides along walls, and click routes walk straight instead of zigzagging', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  const p = game.player;
+  game.npcs = [];
+  // A private patch of open ground with one wall, so the test doesn't depend on the map.
+  const W = new Set(['10,5', '10,6', '10,7', '10,8']);
+  p.walkable = (x, y) => x >= 0 && y >= 0 && x < 40 && y < 40 && !W.has(`${x},${y}`);
+  game.world.isBlocked = (x, y) => !p.walkable(x, y);
+  game.world.inBounds = (x, y) => x >= 0 && y >= 0 && x < 40 && y < 40;
+  p.x = p.tx = 5; p.y = p.ty = 6;
+  game.running = false;
+
+  // Any angle: a shallow push up-right travels at that angle, not snapped to 45°.
+  game.setMoveInput(0.9, -0.3);
+  for (let i = 0; i < 20; i++) game.update(16);
+  const ang = Math.atan2(p.fy - 6, p.fx - 5);
+  assert.ok(Math.abs(ang - Math.atan2(-0.3, 0.9)) < 0.05, `moved at the stick's angle (${ang.toFixed(2)})`);
+
+  // Walking into the wall slides along it instead of stopping dead.
+  p.x = p.tx = 9; p.y = p.ty = 6; game.update(0);
+  game.setMoveInput(0.95, 0.31);
+  for (let i = 0; i < 80; i++) game.update(16);
+  assert.ok(p.fx <= 9.2, 'never walks into the wall');
+  assert.ok(p.fy > 6.5, 'slid along it');
+  game.setMoveInput(0, 0); game.update(16);
+
+  // A click route from (5,5) to (9,12) cuts straight across rather than
+  // following the grid's straight-then-diagonal zigzag.
+  p.x = p.tx = 5; p.y = p.ty = 5; game.update(0);
+  game.walkTo({ x: 9, y: 12 });
+  let off = 0, n = 0;
+  while (p.moving && n++ < 400) {
+    game.update(16);
+    // Distance from the straight line between start and goal.
+    const dx = 4, dy = 7, d = Math.hypot(dx, dy);
+    off = Math.max(off, Math.abs((p.fx - 5) * dy - (p.fy - 5) * dx) / d);
+  }
+  assert.ok(p.x === 9 && p.y === 12 && p.fx === 9 && p.fy === 12, 'arrived on the tile centre');
+  assert.ok(off < 0.25, `stayed on the straight line (max ${off.toFixed(2)} tiles off)`);
+});
+
+test('free movement: teleports and respawns move the glide position too', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  const p = game.player;
+  game.npcs = [];
+  p.x = p.tx = p.x + 3; game.update(16);
+  assert.equal(p.fx, p.x, 'the glide position follows a teleport');
+  assert.equal(p.renderCenter().x, p.x * 32 + 16);
 });

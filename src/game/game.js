@@ -111,6 +111,7 @@ export class Game {
     this.bank = new Bank(this.bus);
 
     this.player = new Player(data.spawnPoint.x, data.spawnPoint.y);
+    this.player.walkable = (x, y) => this.world.inBounds(x, y) && !this.world.isBlocked(x, y);
     this.player.hp = this.maxHp();
 
     this.npcs = data.npcSpawns.map((s) => new NPC(s.npcId, s.x, s.y, s.wander, s.opts));
@@ -2489,46 +2490,26 @@ export class Game {
     this.moveInput.y = y || 0;
   }
 
-  // While a direction is held, keep exactly one step queued ahead so walking
-  // is continuous and turns take effect on the next tile (pulling the opposite
-  // way reverses mid-step at once). Steering cancels
-  // whatever the player was doing (skilling, fighting, a clicked route).
+  // While a direction is held the player glides that way at full speed (a
+  // light push walks slower), sliding along walls, MOBA style. Steering
+  // cancels whatever the player was doing (skilling, fighting, a clicked route).
   _driveMovement() {
     const p = this.player, v = this.moveInput;
     const held = Math.hypot(v.x, v.y) >= 0.3;
-    if (!held || !p.alive) { this._driving = false; return; }
-    if (this.playerStun > 0 || this.playerRoot > 0) return;
+    if (!held || !p.alive || this.playerStun > 0 || this.playerRoot > 0) {
+      p.stick = null;
+      if (!held || !p.alive) this._driving = false;
+      return;
+    }
     if (!this._driving) {
       this._driving = true;
       // Bows and spells keep firing while you steer (handy for dodging); other actions stop.
       const shooting = p.action?.type === 'attack' && this.attackRange() > 1;
       if (p.action && !shooting) p.clearAction();
-      p.path = [];           // drop any clicked route; the current step finishes
+      p.path = [];           // drop any clicked route
     }
-    const oct = Math.round(Math.atan2(v.y, v.x) / (Math.PI / 4)) & 7;
-    const [dx, dy] = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]][oct];
-    if (p.moving) {
-      // Pulling the opposite way turns you round on the spot, mid-step.
-      if (Math.sign(p.tx - p.x) === -dx && Math.sign(p.ty - p.y) === -dy) { p.reverseStep(); return; }
-      // Otherwise re-pick the queued next tile every frame, so a change of
-      // direction applies the moment this step lands.
-      if (p.path.length && p.path[0].x === p.tx + dx && p.path[0].y === p.ty + dy) return;
-    }
-    const from = this.playerTile();
-    const free = (x, y) => this.world.inBounds(x, y) && !this.world.isBlocked(x, y);
-    const tries = dx && dy ? [[dx, dy], [dx, 0], [0, dy]] : [[dx, dy]];
-    for (const [sx, sy] of tries) {
-      const nx = from.x + sx, ny = from.y + sy;
-      // Diagonals may not cut a blocked corner (same rule as pathfinding).
-      if (sx && sy && (!free(from.x + sx, from.y) || !free(from.x, from.y + sy))) continue;
-      if (free(nx, ny)) {
-        if (p.moving) { p.path = [{ x: nx, y: ny }]; p.running = this.canRun(); }
-        else p.setPath([{ x: nx, y: ny }], this.canRun());
-        return;
-      }
-    }
-    if (p.moving) p.path = [];   // blocked ahead: stop when this step lands
-    if (!p.moving) { p.facing = { dx, dy }; p.noteFacing(); }   // blocked: at least turn to face it
+    p.running = this.canRun();
+    p.stick = { x: v.x, y: v.y };
   }
 
   walkTo(tile) {
