@@ -1688,3 +1688,36 @@ body.boss-on #tip-toast { top: 132px; }
   .dialogue-option.class-card { min-height: 0; padding: 6px 8px; }
   .class-card .class-desc { display: none; }
 }
+
+/* ======================================================================
+   Fit every screen: nothing is cut off on phones, tablets or desktops.
+   ====================================================================== */
+/* The open side panel never grows past the screen; if its tab rail can't fit,
+   the rail scrolls rather than pushing the panel off the top or bottom. */
+#sidepanel:not(.collapsed) { max-height: calc(100dvh - 12px); grid-template-rows: auto minmax(0, 1fr); }
+#panel-body { min-height: 0; max-height: calc(100dvh - 72px); }
+#panel-tabs { min-height: 0; overflow-y: auto; scrollbar-width: none; }
+#panel-tabs::-webkit-scrollbar { display: none; }
+/* Short screens (phones held sideways): icon-only tabs that share the height. */
+@media (max-height: 500px) {
+  .tab-btn { min-height: 0; padding: 2px 1px; }
+  .tab-btn .tab-label { display: none; }
+  .tab-btn img, .tab-btn svg { width: 24px !important; height: 24px !important; }
+}
+/* Title card: narrows to fit small phones, and scrolls on short screens
+   (centred when there's room, top-aligned when there isn't). */
+#splash { overflow-y: auto; align-items: flex-start; padding: 12px; box-sizing: border-box; }
+.splash-inner { box-sizing: border-box; width: min(440px, 100%); margin: auto; }
+.splash-title { font-size: clamp(30px, 9.5vw, 44px); }
+@media (max-height: 560px) {
+  .splash-inner { padding: 16px 22px 14px; }
+  .splash-mascot { width: 96px; }
+  .splash-logo { height: 34px; margin-bottom: 8px; }
+  .splash-sub { margin-bottom: 12px; }
+}
+@media (max-height: 440px) {
+  .splash-inner { padding: 12px 20px 12px; }
+  .splash-mascot { width: 72px; margin-bottom: 0; }
+  .splash-logo { display: none; }
+  .splash-title { font-size: 30px; }
+}

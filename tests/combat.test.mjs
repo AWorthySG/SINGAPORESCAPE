@@ -127,6 +127,7 @@ test('high-level monsters wind up telegraphed heavy attacks', () => {
   const npc = new NPC('goblin', g.player.x + 1, g.player.y, 0);
   npc.def = { ...npc.def, level: 30, attackable: true };
   npc.heavyEvery = 2;
+  npc.maxHp = npc.hp = 1e6;   // the player hits back; it mustn't die before it winds up
   npc.target = g.player;
   let telegraphed = false;
   for (let i = 0; i < 80 && !telegraphed; i++) {
