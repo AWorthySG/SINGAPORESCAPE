@@ -116,12 +116,17 @@ export class Character {
     this.moving = true;
   }
 
-  update(dt) {
+  /** Combat-feel and animation timers, shared by every way of moving. */
+  _tickTimers(dt) {
     if (this.hurt > 0) this.hurt = Math.max(0, this.hurt - dt);
     if (this.swing > 0) this.swing = Math.max(0, this.swing - dt);
     if (this.knock > 0) this.knock = Math.max(0, this.knock - dt);
     if (this.turnT > 0) this.turnT = Math.max(0, this.turnT - dt);
     this.animMove += ((this.moving ? 1 : 0) - this.animMove) * Math.min(1, dt / 90);
+  }
+
+  update(dt) {
+    this._tickTimers(dt);
     if (!this.moving) {
       if (this.path.length) this._beginStep();
       if (!this.moving) return;
