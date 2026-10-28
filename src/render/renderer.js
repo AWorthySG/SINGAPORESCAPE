@@ -287,7 +287,7 @@ export class Renderer {
           ctx.restore();
         }
         drawCreature(ctx, n.npcId, cx + off.x, cy - 2 + off.y, {
-          time: timeMs, facing: n.facing, moving: n.isMoving,
+          time: timeMs, facing: n.facing, moving: n.isMoving, walk: n.walkPhase, move: n.animMove,
           scale: sc, sprite: n.def.sprite, color: n.def.color, boss: n.def.boss, family: n.def.family,
           attackK: n.swingProgress ? n.swingProgress() : -1,
           hurt: n.hurt, windup: n.windup > 0, castK: n.castT > 0 ? 1 - n.castT / 700 : 0, castCol: n.castCol,
