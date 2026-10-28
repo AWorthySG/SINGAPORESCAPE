@@ -765,6 +765,60 @@ export function buildWorld() {
     }
   }
 
+  // ================= Gather monsters into packs =================
+  // Everything above scatters monsters at random across their region. Here each
+  // region's monsters are pulled into packs of 3-5 of the same species (Young,
+  // Wild and Feral rats run together) around a camp, so the wilds read as herds
+  // and nests rather than a sprinkle. Hand-placed creatures (opts) and bosses stay
+  // put; the number of monsters per region is unchanged. Its own stream, last.
+  R = mulberry32(20261128);
+  {
+    const packable = (s) => !s.opts && NPCS[s.npcId]?.attackable && !NPCS[s.npcId].boss;
+    const zoneOf = (s) => zones.find((z) => s.x >= z.x0 && s.x <= z.x1 && s.y >= z.y0 && s.y <= z.y1);
+    const taken = new Set();
+    for (const s of npcSpawns) if (!packable(s)) taken.add(key(s.x, s.y));
+    const openSpot = (x, y) => LANDABLE.includes(get(x, y)) && !occupied.has(key(x, y)) && !taken.has(key(x, y))
+      && !inTown(x, y) && !inNewTown(x, y);
+    // Nearest open tile to (cx, cy), ring by ring, out to `reach`.
+    const near = (cx, cy, reach) => {
+      for (let r = 0; r <= reach; r++) {
+        const ring = [];
+        for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) === r && openSpot(cx + dx, cy + dy)) ring.push([cx + dx, cy + dy]);
+        }
+        if (ring.length) return ring[Math.floor(R() * ring.length)];
+      }
+      return null;
+    };
+    const groups = new Map();
+    for (const s of npcSpawns) {
+      if (!packable(s)) continue;
+      const z = zoneOf(s);
+      const k = `${z ? z.name : '?'}|${NPCS[s.npcId].family || s.npcId}`;
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k).push(s);
+    }
+    for (const members of groups.values()) {
+      // Packs of 3-5; a leftover one or two join the last pack rather than roam alone.
+      const packs = [];
+      for (let i = 0; i < members.length; i += 4) packs.push(members.slice(i, i + 4));
+      if (packs.length > 1 && packs[packs.length - 1].length < 3) {
+        const tail = packs.pop();
+        packs[packs.length - 1].push(...tail);
+      }
+      for (const pack of packs) {
+        const cx = pack[0].x, cy = pack[0].y;   // the camp sits where the first member landed
+        for (const s of pack) {
+          const spot = near(cx, cy, 4);
+          if (!spot) continue;              // boxed in: leave this one where it was
+          s.x = spot[0]; s.y = spot[1];
+          s.wander = Math.min(s.wander, 3); // mill about the camp rather than drift off
+          taken.add(key(s.x, s.y));
+        }
+      }
+    }
+  }
+
   // --- Border fence ---
   for (let x = 0; x < W; x++) { placeObj('fence', x, 0); placeObj('fence', x, H - 1); }
   for (let y = 0; y < H; y++) { placeObj('fence', 0, y); placeObj('fence', W - 1, y); }

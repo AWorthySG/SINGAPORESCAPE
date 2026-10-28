@@ -899,6 +899,34 @@ export class Renderer {
 
   _drawGroundDecals(ox, oy) {
     const { ctx, game } = this;
+    // Aiming a skill (dragging off its button): an arrow on the ground the way
+    // it's pointed, and a ring on the foe it will go for.
+    const aim = game.aim;
+    if (aim && aim.dir && game.player.alive) {
+      const c = game.player.renderCenter();
+      const sx = c.x - ox, sy = c.y - oy + 8;
+      const len = Math.min(10, Math.max(4, game.attackRange())) * TILE;
+      const ex = sx + aim.dir.x * len, ey = sy + aim.dir.y * len * 0.8;
+      ctx.save();
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = 'rgba(34,48,74,0.35)'; ctx.lineWidth = 12;
+      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,214,120,0.9)'; ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke();
+      const a = Math.atan2(ey - sy, ex - sx);
+      ctx.fillStyle = 'rgba(255,214,120,0.95)';
+      ctx.beginPath();
+      ctx.moveTo(ex + Math.cos(a) * 12, ey + Math.sin(a) * 12);
+      ctx.lineTo(ex + Math.cos(a + 2.4) * 12, ey + Math.sin(a + 2.4) * 12);
+      ctx.lineTo(ex + Math.cos(a - 2.4) * 12, ey + Math.sin(a - 2.4) * 12);
+      ctx.closePath(); ctx.fill();
+      if (aim.foe && aim.foe.alive) {
+        const f = aim.foe.renderCenter(), sc = aim.foe.def.scale || 1;
+        ctx.strokeStyle = '#C0392B'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.ellipse(f.x - ox, f.y - oy + 12 * sc, 15 * sc, 6.5 * sc, 0, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.restore();
+    }
     if (game.input && game.input.inside) {
       const tile = game.camera.screenToTile(game.input.mx, game.input.my);
       if (game.world.inBounds(tile.x, tile.y)) {

@@ -124,6 +124,19 @@ export class UI {
     document.getElementById('auto-battle-btn')?.addEventListener('click', () => this.game.toggleAutoBattle());
     document.getElementById('auto-battle-cfg')?.addEventListener('click', () => this.openAutoSettings());
     document.getElementById('interact-btn')?.addEventListener('pointerdown', (e) => { e.preventDefault(); this.game.interact(); });
+    // Attack: a tap locks onto the nearest enemy; holding it keeps fighting,
+    // moving straight on to the next foe as each one falls.
+    const atk = document.getElementById('attack-btn');
+    if (atk) {
+      const release = () => { this.game.attackHeld = false; atk.classList.remove('held'); };
+      atk.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        try { atk.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+        this.game.attackHeld = true; atk.classList.add('held');
+        this.game.attackNearest();
+      });
+      for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) atk.addEventListener(ev, release);
+    }
     this.renderAutoBattle();
 
     this.el.runOrb.addEventListener('click', () => this.game.toggleRun());
@@ -208,10 +221,44 @@ export class UI {
         `<span class="ab-icon">${abilityIconHTML(ab.id, 36)}</span>` +
         `<span class="ab-cost">${ab.cost}</span>` +
         `<span class="ab-cd"></span>`;
-      btn.addEventListener('click', () => this.game.activateAbility(ab.id));
+      this._bindSkillAim(btn, ab);
       wrap.appendChild(btn);
       this._abilityBtns[ab.id] = btn;
     }
+  }
+
+  /** Skill buttons, MOBA style: a tap uses the skill on your current (or the
+   *  nearest) foe; dragging away from the button aims it, showing the aim on
+   *  the ground, and letting go fires it at the foe in that direction. Dragging
+   *  back onto the button before letting go cancels. Guard and heal skills
+   *  don't aim. */
+  _bindSkillAim(btn, ab) {
+    const g = this.game;
+    const AIM_PX = 16;
+    let start = null;
+    const end = () => { start = null; g.aim = null; btn.classList.remove('aiming'); };
+    btn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      start = { x: e.clientX, y: e.clientY, aiming: false };
+      try { btn.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+    });
+    btn.addEventListener('pointermove', (e) => {
+      if (!start || ab.kind !== 'attack') return;
+      const dx = e.clientX - start.x, dy = e.clientY - start.y, d = Math.hypot(dx, dy);
+      if (d < AIM_PX) { if (start.aiming) g.aim = { dir: null, cancel: true }; return; }
+      start.aiming = true;
+      btn.classList.add('aiming');
+      const dir = { x: dx / d, y: dy / d };
+      g.aim = { dir, foe: g.nearestFoe(dir) };
+    });
+    btn.addEventListener('pointerup', (e) => {
+      if (!start) return;
+      const dx = e.clientX - start.x, dy = e.clientY - start.y, d = Math.hypot(dx, dy);
+      if (!start.aiming) g.useSkillAt(ab.id);                          // a plain tap
+      else if (d >= AIM_PX) g.useSkillAt(ab.id, { x: dx / d, y: dy / d });
+      end();                                                             // dragged back: cancelled
+    });
+    btn.addEventListener('pointercancel', end);
   }
 
   /** Label the Interact button with what it will do right now. */
