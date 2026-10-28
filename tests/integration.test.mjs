@@ -2784,3 +2784,57 @@ test('monsters spawn in packs of their own kind, not scattered one by one', asyn
   assert.equal(new Set(mobs.map((s) => `${s.x},${s.y}`)).size, mobs.length, 'no two monsters start on the same tile');
   for (const s of mobs) assert.ok(s.wander <= 3, 'pack members stay near their camp');
 });
+
+test('MOBA attack and skill buttons: nearest lock-on, aimed skills, hold to keep fighting', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const { NPC } = await import('../src/game/npc.js');
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  game.ui = new Proxy({}, { get: () => () => {} });
+  const p = game.player;
+  const mk = (dx, dy) => {
+    const n = new NPC('goblin', p.x + dx, p.y + dy, 0, {});
+    n.def = { ...n.def, aggressive: false }; n.maxHp = n.hp = 9999;
+    return n;
+  };
+  const east = mk(3, 0), west = mk(-5, 0), far = mk(0, 14);
+  const story = game.npcs.find((n) => n.def.fixed) || mk(1, 1);
+  story.def = { ...story.def, fixed: true }; story.x = story.tx = p.x + 1; story.y = story.ty = p.y;
+  game.npcs = [east, west, far, story];
+
+  // Nearest wins; story bosses and anything out of reach are skipped.
+  assert.equal(game.nearestFoe(), east);
+  // Aimed west, the western goblin is chosen even though it's further away.
+  assert.equal(game.nearestFoe({ x: -1, y: 0 }), west);
+  // Something already hunting you outranks a nearer bystander.
+  west.target = p;
+  assert.equal(game.nearestFoe(), west);
+  west.target = null;
+
+  // Attack locks onto the nearest and keeps the lock on a second tap.
+  assert.ok(game.attackNearest());
+  assert.equal(p.action?.npc, east);
+  game.attackNearest();
+  assert.equal(p.action?.npc, east, 'a second tap keeps the current foe');
+
+  // An aimed skill switches to the foe it was aimed at and readies the skill.
+  const ab = game.currentAbilities().find((a) => a.kind === 'attack' && !a.instant && game.abilityUnlocked(a));
+  game.adrenaline = 100;
+  game.useSkillAt(ab.id, { x: -1, y: 0 });
+  assert.equal(p.action?.npc, west, 'aimed at the western goblin');
+  assert.equal(game.armedAbility, ab.id, 'and the skill is readied');
+
+  // Holding Attack: when the foe falls, it moves straight on to the next.
+  game.attackHeld = true;
+  west.hp = 0; west.die();
+  game.update(16); game.update(300);
+  assert.ok(p.action?.type === 'attack' && p.action.npc.alive && p.action.npc !== west, 'moved on to the next foe');
+  game.attackHeld = false;
+
+  // Nothing near: it says so once, and doesn't fight anything.
+  game.npcs = [far];
+  p.clearAction();
+  assert.equal(game.attackNearest(), false);
+});

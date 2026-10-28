@@ -470,6 +470,7 @@ export class Game {
     // made moving between fights (auto battle above all) stutter.
     this.player.update(this.player.moving ? dt : adt);
     this._keepChasing();
+    this._holdAttack();
     // Only NPCs near the player animate and walk (the rest are frozen until you
     // come close, like their AI), so a fuller world costs no more per frame.
     { const px = this.player.x, py = this.player.y;
@@ -3414,6 +3415,70 @@ export class Game {
   }
 
   /** Interact button / E / Space: act on the nearest thing around you. */
+  // ---------------- MOBA-style attack and skill buttons ----------------
+  /** The foe the Attack button (or a skill) should go for: whatever is hunting
+   *  you first, then the nearest. With `dir` (a unit vector from a dragged
+   *  skill), only foes inside a 60° cone that way count, nearest to the line
+   *  first. Story bosses are left alone unless they're already on you. */
+  nearestFoe(dir = null, reach = 10) {
+    const p = this.player;
+    let best = null, bestScore = Infinity;
+    for (const n of this.npcs) {
+      if (!n.alive || !n.attackable) continue;
+      if (n.def.fixed && n.target !== p && p.action?.npc !== n) continue;
+      const dx = n.x - p.fx, dy = n.y - p.fy, d = Math.hypot(dx, dy);
+      if (d > reach) continue;
+      let score = d - (n.target === p ? 3 : 0);
+      if (dir) {
+        const cos = d ? (dx * dir.x + dy * dir.y) / d : 1;
+        if (cos < 0.5) continue;
+        score = d * (2 - cos);
+      }
+      if (score < bestScore) { bestScore = score; best = n; }
+    }
+    return best;
+  }
+
+  /** Attack button: lock onto the best foe (keeping the current one if it's
+   *  still alive, unless a direction was given) and fight it. */
+  attackNearest(dir = null) {
+    const a = this.player.action;
+    const cur = a && a.type === 'attack' && a.npc && a.npc.alive ? a.npc : null;
+    const foe = (!dir && cur) || this.nearestFoe(dir);
+    if (!foe) {
+      if (!this._noFoeSaid) this.msg('No enemies nearby.', 'system');
+      this._noFoeSaid = true;
+      return false;
+    }
+    this._noFoeSaid = false;
+    if (foe !== cur) this.attackNpc(foe);
+    return true;
+  }
+
+  /** A skill button: attack skills go for the foe it was aimed at (or the
+   *  current / nearest foe on a tap), then the skill is readied or fired. */
+  useSkillAt(id, dir = null) {
+    const ab = ABILITY_BY_ID[id];
+    if (!ab) return;
+    if (ab.kind === 'attack' && this.player.alive) {
+      const a = this.player.action;
+      const cur = a && a.type === 'attack' && a.npc && a.npc.alive ? a.npc : null;
+      const foe = dir ? this.nearestFoe(dir) : (cur || this.nearestFoe());
+      if (foe && foe !== cur) this.attackNpc(foe);
+    }
+    this.activateAbility(id);
+  }
+
+  /** Holding the Attack button: when the foe falls, move straight on to the next. */
+  _holdAttack() {
+    if (!this.attackHeld || !this.player.alive) return;
+    const a = this.player.action;
+    if (a && a.type === 'attack' && a.npc && a.npc.alive) return;
+    if (this.playMs < (this._holdRetryAt || 0)) return;
+    this._holdRetryAt = this.playMs + 250;
+    this.attackNearest();
+  }
+
   interact() {
     const t = this._findInteract();
     if (!t) { this.msg('There is nothing to interact with here.', 'system'); return; }

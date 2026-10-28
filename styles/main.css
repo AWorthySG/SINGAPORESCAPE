@@ -1721,3 +1721,79 @@ body.boss-on #tip-toast { top: 132px; }
   .splash-logo { display: none; }
   .splash-title { font-size: 30px; }
 }
+
+/* ======================================================================
+   MOBA controls on touch screens (MLBB style): the joystick on the left; a
+   big Attack button bottom-right with the skills in an arc around it and the
+   Interact button tucked beside them. Mouse and keyboard keep the bar (G attacks).
+   ====================================================================== */
+#attack-btn { display: none; }
+@media (pointer: coarse) {
+  :root { --pad-r: calc(var(--rail-w) + 20px); --pad-b: 18px; --atk: 84px; --sk: 54px; }
+  /* Tablets: the side panel sits bottom-right, so the pad sits to its left. */
+  @media (min-width: 541px) and (min-height: 501px) { :root { --pad-r: calc(var(--panel-w) + 36px); --pad-b: 22px; } }
+
+  #attack-btn {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0;
+    position: fixed; right: var(--pad-r); bottom: var(--pad-b); z-index: 27;
+    width: var(--atk); height: var(--atk); border-radius: 50%; padding: 0; cursor: pointer; touch-action: none;
+    background: var(--aw-accent, #C0392B); color: #fff; border: 2.5px solid var(--aw-ink, #22304A);
+    box-shadow: 0 4px 0 #962D22, 0 6px 16px rgba(34,48,74,.25);
+    font-family: inherit; font-weight: 900; user-select: none; -webkit-user-select: none;
+    transition: transform .06s ease, box-shadow .06s ease;
+  }
+  #attack-btn .atk-icon { font-size: 30px; line-height: 1; }
+  #attack-btn .atk-label { font-size: 11px; letter-spacing: .03em; }
+  #attack-btn.held, #attack-btn:active { transform: translateY(3px) scale(.97); box-shadow: 0 1px 0 #962D22; }
+
+  /* The skills leave the bottom bar and fan round the Attack button. */
+  #ability-buttons {
+    position: fixed; right: var(--pad-r); bottom: var(--pad-b); z-index: 27;
+    width: var(--atk); height: var(--atk); display: block; gap: 0; pointer-events: none;
+  }
+  #ability-buttons .ability-btn {
+    position: absolute; width: var(--sk); height: var(--sk); border-radius: 50%;
+    left: calc(50% - var(--sk) / 2 + var(--ax, 0px)); top: calc(50% - var(--sk) / 2 + var(--ay, 0px));
+    pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none;
+  }
+  #ability-buttons .ability-btn .ab-icon img, #ability-buttons .ability-btn .ab-icon svg { width: 34px; height: 34px; }
+  #ability-buttons .ability-btn:nth-child(1) { --ax: -104px; --ay: 0px; }
+  #ability-buttons .ability-btn:nth-child(2) { --ax: -87px;  --ay: -57px; }
+  #ability-buttons .ability-btn:nth-child(3) { --ax: -42px;  --ay: -95px; }
+  #ability-buttons .ability-btn:nth-child(4) { --ax: 16px;   --ay: -103px; }
+  /* The ultimate sits on its own, a size up, further out. */
+  #ability-buttons .ability-btn:nth-child(5) { --ax: -103px; --ay: -123px; --sk: 62px; }
+  #ability-buttons .ability-btn.aiming { outline: 3px solid var(--aw-sun, #F5B82E); outline-offset: 2px; }
+
+  /* Interact (talk, gather, take) joins the cluster: above it when the screen
+     is tall, to its left when it's wide. */
+  #interact-btn {
+    position: fixed; left: auto; width: 62px; height: 62px; font-size: 10.5px; padding: 4px; z-index: 27;
+    right: calc(var(--pad-r) + var(--atk) / 2 - 31px); bottom: calc(var(--pad-b) + var(--atk) / 2 - 31px + 178px);
+  }
+  @media (orientation: landscape) {
+    #interact-btn { right: calc(var(--pad-r) + var(--atk) / 2 - 31px + 178px); bottom: calc(var(--pad-b) + var(--atk) / 2 - 31px); }
+  }
+
+  /* With the skills gone from it, the bar (auto battle + adrenaline) shrinks to
+     a small block: bottom-centre when wide, above the joystick when tall. */
+  /* (Centred without a transform: a transformed parent would anchor the fixed skill buttons to it.) */
+  #ability-bar { left: 0; right: 0; width: max-content; margin: 0 auto; transform: none; bottom: 8px; padding: 0; background: none; }
+  @media (orientation: portrait) {
+    #ability-bar { right: auto; margin: 0; left: 8px; align-items: flex-start; bottom: 236px; }
+    #adrenaline { width: 150px; }
+  }
+}
+@media (pointer: coarse) and (orientation: portrait) and (max-width: 540px) {
+  #chatbox.collapsed { min-width: 0; max-width: 120px; }   /* clear of the ultimate */
+}
+/* Tablets: the chat stays clear of the button cluster, and the auto battle +
+   adrenaline block sits just above the cluster rather than on the joystick. */
+@media (pointer: coarse) and (min-width: 541px) and (min-height: 501px) {
+  #chatbox { width: min(320px, 38vw); }
+  #ability-bar { left: auto; right: var(--pad-r); margin: 0; transform: none; align-items: flex-end; bottom: 300px; }
+  #adrenaline { width: 180px; }
+}
+@media (pointer: coarse) and (min-width: 541px) and (min-height: 501px) and (orientation: landscape) {
+  #ability-bar { bottom: 252px; }
+}

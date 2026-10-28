@@ -43,6 +43,8 @@ input.onKey((e) => {
     game.toggleRun();
   } else if (e.key === 'f' || e.key === 'F') {
     game.eatFirstFood();
+  } else if (e.key === 'g' || e.key === 'G') {
+    game.attackNearest();   // lock onto the nearest enemy, like the Attack button
   } else if (e.key === 'q' || e.key === 'Q') {
     game.toggleSpec();
   } else if (ABILITY_KEYS.has(e.key?.toLowerCase())) {
