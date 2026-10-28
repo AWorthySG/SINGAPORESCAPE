@@ -259,6 +259,7 @@ export class Renderer {
       const off = n.renderOffset ? n.renderOffset() : { x: 0, y: 0 };
       drawables.push({ sortY: c.y / TILE, z: 2, draw: () => {
         drawShadow(ctx, cx, cy + 12 * sc, 10 * sc, 4.5 * sc);
+        if (n === game.player.target) this._lockOn(cx, cy + 12 * sc, sc, timeMs);
         if (n.shieldTicks > 0 || n.reflectTicks > 0) {
           // Boss buffs: a blue bubble while shielded, a spiky gold ring while reflecting.
           ctx.save();
@@ -896,6 +897,15 @@ export class Renderer {
       ctx.textBaseline = 'alphabetic';
       ctx.restore();
     }
+  }
+
+  /** The locked-on ring on the ground under the foe you're fighting. */
+  _lockOn(cx, cy, sc, timeMs) {
+    const img = this._lockImg || (typeof Image !== 'undefined' ? (this._lockImg = Object.assign(new Image(), { src: 'assets/icons/ui-lockon.webp' })) : null);
+    if (!img || !img.complete || !img.naturalWidth) return;
+    const pulse = 1 + Math.sin(timeMs * 0.008) * 0.05;
+    const w = 40 * sc * pulse, h = w * img.naturalHeight / img.naturalWidth;
+    this.ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
   }
 
   _drawGroundDecals(ox, oy) {

@@ -230,14 +230,20 @@ export class UI {
 
   /** Skill buttons, MOBA style: a tap uses the skill on your current (or the
    *  nearest) foe; dragging away from the button aims it, showing the aim on
-   *  the ground, and letting go fires it at the foe in that direction. Dragging
-   *  back onto the button before letting go cancels. Guard and heal skills
-   *  don't aim. */
+   *  the ground, and letting go fires it at the foe in that direction. Letting
+   *  go on the cancel button (or back on the skill) cancels. Guard and heal
+   *  skills don't aim. */
   _bindSkillAim(btn, ab) {
     const g = this.game;
     const AIM_PX = 16;
     let start = null;
-    const end = () => { start = null; g.aim = null; btn.classList.remove('aiming'); };
+    const cancelEl = document.getElementById('aim-cancel');
+    const overCancel = (e) => {
+      if (!cancelEl || cancelEl.classList.contains('hidden')) return false;
+      const r = cancelEl.getBoundingClientRect();
+      return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+    };
+    const end = () => { start = null; g.aim = null; btn.classList.remove('aiming'); cancelEl?.classList.add('hidden'); cancelEl?.classList.remove('hot'); };
     btn.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       start = { x: e.clientX, y: e.clientY, aiming: false };
@@ -249,6 +255,10 @@ export class UI {
       if (d < AIM_PX) { if (start.aiming) g.aim = { dir: null, cancel: true }; return; }
       start.aiming = true;
       btn.classList.add('aiming');
+      cancelEl?.classList.remove('hidden');
+      const hot = overCancel(e);
+      cancelEl?.classList.toggle('hot', hot);
+      if (hot) { g.aim = { dir: null, cancel: true }; return; }
       const dir = { x: dx / d, y: dy / d };
       g.aim = { dir, foe: g.nearestFoe(dir) };
     });
@@ -256,7 +266,7 @@ export class UI {
       if (!start) return;
       const dx = e.clientX - start.x, dy = e.clientY - start.y, d = Math.hypot(dx, dy);
       if (!start.aiming) g.useSkillAt(ab.id);                          // a plain tap
-      else if (d >= AIM_PX) g.useSkillAt(ab.id, { x: dx / d, y: dy / d });
+      else if (d >= AIM_PX && !overCancel(e)) g.useSkillAt(ab.id, { x: dx / d, y: dy / d });
       end();                                                             // dragged back: cancelled
     });
     btn.addEventListener('pointercancel', end);
