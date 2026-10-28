@@ -6,12 +6,22 @@ import { BOSS_ABILITIES } from './bossAbilities.js';
 
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
 
+// Toughness: how much longer monsters and bosses take to bring down than the
+// base formulas, through extra health and a sturdier defence (fewer of your
+// hits land). Champions, ranks and special spawns all scale from these.
+export const MONSTER_TOUGHNESS = { hp: 2.5, defence: 1.25 };
+export const BOSS_TOUGHNESS = { hp: 3, defence: 1.2 };
+// The first town monsters (level 5 and under: chickens, rats, goblins) stay
+// quick to beat so new players can find their feet; toughness then ramps in to
+// its full amount by level 15.
+const toughAt = (level, full) => 1 + (full - 1) * Math.min(1, Math.max(0, (level - 5) / 10));
+
 function statsFor(level) {
   return {
-    maxHp: Math.max(3, Math.round(level * 1.7 + 2)),
+    maxHp: Math.max(3, Math.round((level * 1.7 + 2) * toughAt(level, MONSTER_TOUGHNESS.hp))),
     attack: Math.max(1, Math.round(level * 0.85)),
     strength: Math.max(1, Math.round(level * 0.85)),
-    defence: Math.max(1, Math.round(level * 0.6)), // lower def -> player lands hits more reliably
+    defence: Math.max(1, Math.round(level * 0.6 * toughAt(level, MONSTER_TOUGHNESS.defence))), // still lowish, so hits land fairly reliably
     maxHit: Math.max(1, Math.ceil(level / 11)),
     attackSpeed: level > 60 ? 5 : 4,
   };
@@ -304,8 +314,8 @@ for (const id of Object.keys(_mobs)) MONSTER_IDS.push(id);
 // ---------------- Bosses (15) ----------------
 function makeBoss(id, name, sprite, color, level, zone, scale, drops) {
   return { name, level, attackable: true, boss: true, sprite, color, scale, zone,
-    maxHp: Math.round(level * 4.5 + 30),
-    attack: Math.round(level * 1.05), strength: Math.round(level * 1.05), defence: Math.round(level * 0.95),
+    maxHp: Math.round((level * 4.5 + 30) * BOSS_TOUGHNESS.hp),
+    attack: Math.round(level * 1.05), strength: Math.round(level * 1.05), defence: Math.round(level * 0.95 * BOSS_TOUGHNESS.defence),
     maxHit: Math.ceil(level / 7) + 3, attackSpeed: 5,
     // Bosses never ambush — you have to walk up and start the fight yourself.
     // Once engaged they still fight back and chase normally.

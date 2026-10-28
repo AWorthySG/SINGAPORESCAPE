@@ -3,6 +3,7 @@ import { TURN_MS } from '../game/character.js';
 import { TERRAIN } from '../data/world.js';
 import { getItem } from '../data/items.js';
 import { weaknessOf } from '../game/combat.js';
+import { RACES, raceOf } from '../data/races.js';
 import { drawShadow, drawCreature, drawPlayer, drawObjectSprite, drawGroundItem } from './sprites.js';
 import { RARITY } from '../game/loot.js';
 import { itemIconImage } from './icons.js';
@@ -1058,9 +1059,11 @@ export class Renderer {
       if (targeted) {
         const px = c.x - ox, py = c.y - oy + yo + 12;
         ctx.font = '800 9px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
-        const tag = `weak: ${weaknessOf(n.def)}`;
+        // Race, how your weapon fares against it (▲ effective, ▼ resisted), and the style it's weak to.
+        const r = RACES[raceOf(n.def, n.npcId)], m = game.raceMatchup(n);
+        const tag = `${r.name}${m === 'strong' ? ' ▲' : m === 'weak' ? ' ▼' : ''} · weak: ${weaknessOf(n.def)}`;
         ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.lineWidth = 3; ctx.strokeText(tag, px, py);
-        ctx.fillStyle = '#9affd0'; ctx.fillText(tag, px, py);
+        ctx.fillStyle = m === 'strong' ? '#ffd24a' : m === 'weak' ? '#c8ccd4' : '#9affd0'; ctx.fillText(tag, px, py);
       }
       if (n.telegraph > 0) {
         const px = c.x - ox, py = c.y - oy + yo - 12;

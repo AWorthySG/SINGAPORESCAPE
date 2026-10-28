@@ -30,6 +30,7 @@ import { TERRAIN } from '../data/world.js';
 import { clearSave } from '../game/save.js';
 import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG, abilityIconHTML, prayerIconHTML, spellIconHTML } from '../render/icons.js';
 import { weaknessOf } from '../game/combat.js';
+import { RACES, raceOf, weaponsFor, weaponTypeName, WEAPON_VS_RACE } from '../data/races.js';
 
 const EQUIP_LAYOUT = [
   null, 'head', null,
@@ -259,6 +260,23 @@ export class UI {
       end();                                                             // dragged back: cancelled
     });
     btn.addEventListener('pointercancel', end);
+  }
+
+  /** Under the combat styles: which races the weapon in hand is strong and weak against. */
+  _renderRaceHint(after) {
+    let el = this._raceHint;
+    if (!el) {
+      el = this._raceHint = document.createElement('div');
+      el.className = 'race-hint';
+      after.parentNode?.insertBefore(el, after.nextSibling);
+    }
+    const wt = this.game.weaponType();
+    if (!wt || !WEAPON_VS_RACE[wt]) { el.innerHTML = '<b>Races</b><span>Wield a weapon to see which races it works best against.</span>'; return; }
+    const m = WEAPON_VS_RACE[wt];
+    const list = (ids) => ids.map((r) => `${RACES[r].icon} ${escapeHtml(RACES[r].name)}`).join(', ');
+    el.innerHTML = `<b>Your ${escapeHtml(weaponTypeName(wt))} against races</b>`
+      + `<span class="rh-strong">Strong vs ${list(m.strong)}: +30% damage</span>`
+      + (m.weak.length ? `<span class="rh-weak">Weak vs ${list(m.weak)}: -25% damage</span>` : '');
   }
 
   /** Label the Interact button with what it will do right now. */
@@ -987,6 +1005,7 @@ export class UI {
     const mode = this.game.combatMode();
     const p = this.game.player;
     const row = this._styleRow;
+    this._renderRaceHint(row);
     row.innerHTML = '';
     row.classList.toggle('spells', mode === 'magic');
     if (mode === 'magic') {
@@ -1344,8 +1363,13 @@ export class UI {
         const row = document.createElement('div');
         row.className = 'bestiary-row' + (k ? '' : ' undiscovered');
         const weak = k ? `<span class="b-weak">weak: ${weaknessOf(d)}</span>` : '';
+        // Its race is plain to see; which weapons bite or bounce off is learned by defeating one.
+        const rid = raceOf(d, id), race = RACES[rid];
+        const raceTag = `<span class="b-race" title="${escapeHtml(race.desc)}">${race.icon} ${escapeHtml(race.name)}</span>`;
+        const ws = weaponsFor(rid);
+        const raceInfo = k ? `<div class="b-matchups"><span class="b-strong">Weak to: ${ws.strong.map(weaponTypeName).join(', ')}</span>${ws.weak.length ? `<span class="b-resist">Resists: ${ws.weak.map(weaponTypeName).join(', ')}</span>` : ''}</div>` : '';
         const abil = d.ability ? `<div class="b-ability"><b>${escapeHtml(d.ability.name)}:</b> ${escapeHtml(d.ability.desc)}</div>` : '';
-        row.innerHTML = `<div class="b-head"><b>${escapeHtml(d.name)}</b><span class="b-lvl">Lvl ${d.level}${d.boss ? ' · Boss' : ''}</span>${weak}<span class="b-kc">${k} kills</span></div>${abil}<div class="b-drops">${dropHtml}</div>`;
+        row.innerHTML = `<div class="b-head"><b>${escapeHtml(d.name)}</b><span class="b-lvl">Lvl ${d.level}${d.boss ? ' · Boss' : ''}</span>${raceTag}${weak}<span class="b-kc">${k} kills</span></div>${raceInfo}${abil}<div class="b-drops">${dropHtml}</div>`;
         list.appendChild(row);
       }
       if (!shown) { const e = document.createElement('div'); e.className = 'modal-hint'; e.textContent = 'No creatures match your search.'; list.appendChild(e); }

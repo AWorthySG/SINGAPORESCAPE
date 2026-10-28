@@ -295,6 +295,20 @@ test('combat is beginner-friendly: weak town mobs and a punchy starter hit', () 
   assert.ok(maxHit(15, 3, 6) >= 5, `starter max hit ${maxHit(15, 3, 6)}`);
 });
 
+test('monsters and bosses are tougher, but the first town monsters stay easy', () => {
+  // Full toughness from level 15: 2.5x the base health.
+  const lizard = getNpc('monitor_lizard');   // level 14: nearly full
+  assert.ok(lizard.maxHp >= Math.round((14 * 1.7 + 2) * 2.3), `monitor lizard hp ${lizard.maxHp}`);
+  const high = Object.values(NPCS).find((d) => d.attackable && !d.boss && d.level >= 60);
+  assert.equal(high.maxHp, Math.round((high.level * 1.7 + 2) * 2.5), 'a level 60+ monster has 2.5x the base health');
+  // Bosses: three times the health and a sturdier defence.
+  const chief = getNpc('goblin_warchief');
+  assert.equal(chief.maxHp, Math.round((35 * 4.5 + 30) * 3));
+  assert.ok(chief.defence > Math.round(35 * 0.95), 'boss defence raised');
+  // Level 5 and under: unchanged.
+  assert.equal(getNpc('goblin').maxHp, Math.round(5 * 1.7 + 2));
+});
+
 test('armour set bonuses apply only when the full set is worn', () => {
   const eq = new Equipment(new EventBus());
   eq.set('head', 'dragon_full_helm');

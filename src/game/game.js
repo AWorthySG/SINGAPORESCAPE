@@ -27,6 +27,7 @@ import {
   playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX,
 } from './combat.js';
 import { ABILITY_BY_ID, abilitiesFor } from '../data/abilities.js';
+import { RACES, raceOf, matchup, RACE_BONUS, RACE_PENALTY } from '../data/races.js';
 import { DOT_KINDS } from '../data/bossAbilities.js';
 import { CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, equivalentWeapon } from '../data/classes.js';
 import { STYLE_TRACKS, sumPerks, perkAtLevel, rankName, PERK_SKILLS } from '../data/perks.js';
@@ -1122,6 +1123,10 @@ export class Game {
     const weak = weaknessOf(npc.def) === (mode === 'dance' ? 'melee' : mode);   // whips count as melee for weaknesses
     let accM = (spec ? spec.acc || 1 : 1) * (weak ? WEAKNESS_BONUS.acc : 1);
     let dmgM = (spec ? spec.dmg || 1 : 1) * (ab ? ab.dmgMul || 1 : 1) * (weak ? WEAKNESS_BONUS.dmg : 1);
+    // Race: the weapon in hand bites harder into some races and is shrugged off by others.
+    const race = this.raceMatchup(npc);
+    if (race === 'strong') { accM *= RACE_BONUS.acc; dmgM *= RACE_BONUS.dmg; }
+    else if (race === 'weak') dmgM *= RACE_PENALTY.dmg;
     // Magic casts once (rune cost), so its extra hits are ignored.
     const maxHits = mode === 'magic' ? 1 : Infinity;
     // Passive perks: accuracy, armour piercing, damage (more against bosses and
@@ -1138,9 +1143,23 @@ export class Game {
     if (spec) { this.msg(`Special attack: ${spec.name}!`, 'combat'); this.spawnSparkle(this.player, '#ffd24a', 12); }
     if (ab) { this.msg(`Ability: ${ab.name}!`, 'combat'); this.spawnSparkle(this.player, '#ff9a3a', 10); this.bus.emit('sfx', 'spec'); }
     if (weak) this.spawnSparkle(npc, '#9affd0', 6);
+    if (race === 'strong') this.spawnSparkle(npc, '#ffd24a', 5);
+    // Say it once per foe: an "Effective!" pop the first time your weapon bites, or "Resisted".
+    if (race && npc._raceSaid !== race) { npc._raceSaid = race; this.addHitsplat(npc, 0, { text: race === 'strong' ? 'Effective!' : 'Resisted' }); }
     const lvl = mode === 'ranged' ? this.skills.ranged : mode === 'magic' ? this.skills.magic : mode === 'dance' ? this.skills.agility : this.skills.attack;
     const critCh = critChance(lvl, this.equipment.bonuses().crit) + (perk.crit || 0);
-    return { accM, dmgM, hits, guaranteed, heal, spec, ability: ab, weak, critCh };
+    return { accM, dmgM, hits, guaranteed, heal, spec, ability: ab, weak, race, critCh };
+  }
+
+  /** The type of the weapon in hand ('dagger', 'longbow', ...), or null bare-handed. */
+  weaponType() {
+    const w = this.equipment.get('weapon');
+    return (w && getItem(w).equip?.weaponType) || null;
+  }
+
+  /** How the weapon in hand fares against this foe's race: 'strong', 'weak' or null. */
+  raceMatchup(npc) {
+    return matchup(this.weaponType(), raceOf(npc.def, npc.npcId));
   }
 
   /** Roll a critical hit on a landed blow: crits multiply damage by CRIT_MULT. */
@@ -1166,6 +1185,9 @@ export class Game {
       if (perk.stun && npc.hp > 0 && Math.random() < perk.stun) { npc.windup = 0; npc.attackCooldown = Math.max(npc.attackCooldown || 0, 3); this.addHitsplat(npc, 0, { text: 'Stunned!' }); }
     }
     if (dmg > 0) this._knock(npc, this.player);
+    // Effective blows land in gold, resisted ones in grey (unless something else tints them).
+    const rm = dmg > 0 && !opts.tint ? this.raceMatchup(npc) : null;
+    if (rm) opts = { ...opts, tint: rm === 'strong' ? '#f5b82e' : '#9aa3b2' };
     this.addHitsplat(npc, dmg, opts);
     if (dmg > 0) { this.bus.emit('sfx', 'hit'); this._gainAdrenaline(10); }
   }
@@ -3393,7 +3415,11 @@ export class Game {
     if (t.kind === 'item') return ['Take', getItem(t.ref.id).name];
     if (t.kind === 'npc') {
       const n = t.ref;
-      if (n.attackable) return ['Attack', `${n.name} (level ${n.def.level})`];
+      if (n.attackable) {
+        const m = this.raceMatchup(n);
+        const tip = m === 'strong' ? ', weak to your weapon' : m === 'weak' ? ', resists your weapon' : '';
+        return ['Attack', `${n.name} (level ${n.def.level}, ${RACES[raceOf(n.def, n.npcId)].name}${tip})`];
+      }
       if (n.def.role === 'shop') return ['Trade with', n.name];
       if (n.def.role === 'bank') return ['Bank', n.name];
       return ['Talk to', n.name];
