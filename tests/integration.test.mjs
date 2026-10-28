@@ -2838,3 +2838,39 @@ test('MOBA attack and skill buttons: nearest lock-on, aimed skills, hold to keep
   p.clearAction();
   assert.equal(game.attackNearest(), false);
 });
+
+test('races: every foe has one, weapons bite harder into some and are resisted by others', async () => {
+  const { RACES, raceOf, WEAPON_VS_RACE, matchup } = await import('../src/data/races.js');
+  const { NPCS } = await import('../src/data/npcs.js');
+  const { WEAPON_TYPES } = await import('../src/data/items.js');
+  for (const [id, d] of Object.entries(NPCS)) if (d.attackable) assert.ok(RACES[raceOf(d, id)], `${id} has a race`);
+  // Every weapon type has prey, and every race has at least two counters.
+  for (const w of WEAPON_TYPES) assert.ok(WEAPON_VS_RACE[w]?.strong.length >= 2, `${w} is strong against two or more races`);
+  for (const r of Object.keys(RACES)) {
+    const counters = WEAPON_TYPES.filter((w) => matchup(w, r) === 'strong');
+    assert.ok(counters.length >= 2, `${r} can be countered by ${counters.length} weapon types`);
+  }
+  // Folklore and great birds are filed correctly.
+  assert.equal(raceOf(NPCS.toyol, 'toyol'), 'spirit');
+  assert.equal(raceOf(NPCS.celestial_garuda, 'celestial_garuda'), 'avian');
+  assert.equal(raceOf(NPCS.stone_golem, 'stone_golem'), 'construct');
+
+  // In a fight: a dagger is effective on a bandit and resisted by a golem.
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const { NPC } = await import('../src/game/npc.js');
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  game.equipment.set('weapon', 'bronze_dagger');
+  const p = game.player;
+  const bandit = new NPC('bandit', p.x + 1, p.y, 0, {});
+  const golem = new NPC('stone_golem', p.x + 1, p.y + 1, 0, {});
+  assert.equal(game.raceMatchup(bandit), 'strong');
+  assert.equal(game.raceMatchup(golem), 'weak');
+  const eff = game._offensiveMods(bandit, 'melee'), res = game._offensiveMods(golem, 'melee');
+  assert.ok(eff.dmgM / res.dmgM > 1.6, `effective vs resisted damage (${eff.dmgM.toFixed(2)} vs ${res.dmgM.toFixed(2)})`);
+  // Swapping to a warhammer turns the tables on the golem.
+  game.equipment.set('weapon', 'bronze_warhammer');
+  assert.equal(game.raceMatchup(golem), 'strong');
+});
