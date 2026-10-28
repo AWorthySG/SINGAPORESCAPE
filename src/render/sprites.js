@@ -239,7 +239,26 @@ function monsterTint(sticker, col) {
 // part's joint as a fraction of the canvas; `swing(t, o)` gives its angle in radians.
 const ease = (x) => 1 - (1 - x) * (1 - x);
 const atkPhase = (ak) => (ak < 0 ? null : ak < 0.35 ? { wind: ease(ak / 0.35), hit: 0 } : ak < 0.6 ? { wind: 1 - (ak - 0.35) / 0.25, hit: Math.sin(((ak - 0.35) / 0.25) * Math.PI / 2) } : { wind: 0, hit: 1 - ease((ak - 0.6) / 0.4) });
+// Walking legs for four-legged species rigs: diagonal pairs swing together
+// (near-front with far-back), still when standing.
+const leg = (pair, amp = 0.42) => (t, o) => (o.moving ? Math.sin(t * 0.022 + (pair ? Math.PI : 0)) * amp : Math.sin(t * 0.003 + pair) * 0.03);
 const RIGS = {
+  // Monster species with moving parts (assets/creatures/species/rig/<family>_<part>.webp).
+  rat: {
+    kind: 'species', fit: 0.86,
+    order: ['tail', 'back_far', 'front_far', 'body', 'back_near', 'front_near', 'head'],
+    parts: {
+      tail: { piv: [0.1938, 0.6502], swing: (t, o) => Math.sin(t * (o.moving ? 0.012 : 0.005)) * (o.moving ? 0.16 : 0.1) },
+      back_far: { piv: [0.3322, 0.4148], swing: leg(1) },
+      front_far: { piv: [0.609, 0.6054], swing: leg(0) },
+      back_near: { piv: [0.361, 0.426], swing: leg(0) },
+      front_near: { piv: [0.6378, 0.6166], swing: leg(1) },
+      head: { piv: [0.6436, 0.5538], swing: (t, o) => {
+        const a = atkPhase(o.attackK ?? -1);
+        return a ? 0.12 * a.wind - 0.16 * a.hit : Math.sin(t * (o.moving ? 0.022 : 0.004)) * (o.moving ? 0.05 : 0.035);   // a sniffing nod; a snap forward to bite
+      } },
+    },
+  },
   eternal_wyrm: {
     order: ['tail', 'base', 'claw', 'head'],
     parts: {
@@ -257,25 +276,33 @@ const _rigImg = {};
 function rigLayers(id) {
   const rig = RIGS[id];
   if (!rig || typeof Image === 'undefined') return null;
+  const dir = rig.kind === 'species' ? 'species' : 'bosses';
   const imgs = _rigImg[id] || (_rigImg[id] = Object.fromEntries(rig.order.map((n) => {
-    const img = new Image(); img.src = `assets/creatures/bosses/rig/${id}_${n}.webp`; return [n, img];
+    const img = new Image(); img.src = `assets/creatures/${dir}/rig/${id}_${n}.webp`; return [n, img];
   })));
   return rig.order.every((n) => imgs[n].complete && imgs[n].naturalWidth) ? imgs : null;
 }
 export const rigIds = () => Object.keys(RIGS);
 export const rigParts = (id) => RIGS[id] && [...RIGS[id].order];
-let _rigCv = null, _rigTint = null;
+export const rigKind = (id) => RIGS[id] && (RIGS[id].kind || 'boss');
+let _rigCv = null, _rigTint = null, _spCv = null, _spTint = null;
 const RIG_RES = 6;   // one showpiece boss at a time, so it can afford a sharper canvas than the cached stickers
+const SPECIES_RIG_RES = 3;   // a pack of monsters can be on screen at once, so theirs is lighter
 // Compose the layers (posed for this frame) into one canvas, then blit it.
 function drawRig(c, id, imgs, opts, t, flash, flashCol) {
   const rig = RIGS[id];
-  const base = imgs.base;
-  const s = Math.min(34 / base.naturalHeight, 64 / base.naturalWidth);
+  const base = imgs[rig.order[0]];   // every layer shares one canvas size
+  const s = Math.min(34 / base.naturalHeight, 64 / base.naturalWidth) * (rig.fit || 1);
   const w = base.naturalWidth * s, h = base.naturalHeight * s, x0 = -w / 2, y0 = 13.5 - h;
-  if (!_rigCv) { _rigCv = document.createElement('canvas'); _rigCv.width = ST_W * RIG_RES; _rigCv.height = ST_H * RIG_RES; }
-  const g = _rigCv.getContext('2d');
-  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, _rigCv.width, _rigCv.height);
-  g.setTransform(RIG_RES, 0, 0, RIG_RES, -ST_X0 * RIG_RES, -ST_Y0 * RIG_RES);
+  const species = rig.kind === 'species', res = species ? SPECIES_RIG_RES : RIG_RES;
+  let cv = species ? _spCv : _rigCv;
+  if (!cv) {
+    cv = document.createElement('canvas'); cv.width = ST_W * res; cv.height = ST_H * res;
+    if (species) _spCv = cv; else _rigCv = cv;
+  }
+  const g = cv.getContext('2d');
+  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
+  g.setTransform(res, 0, 0, res, -ST_X0 * res, -ST_Y0 * res);
   for (const n of rig.order) {
     const part = rig.parts[n];
     g.save();
@@ -286,14 +313,27 @@ function drawRig(c, id, imgs, opts, t, flash, flashCol) {
     g.drawImage(imgs[n], x0, y0, w, h);
     g.restore();
   }
-  c.drawImage(_rigCv, ST_X0, ST_Y0, ST_W, ST_H);
-  if (flash > 0.01) {
-    if (!_rigTint) { _rigTint = document.createElement('canvas'); _rigTint.width = _rigCv.width; _rigTint.height = _rigCv.height; }
-    const tg = _rigTint.getContext('2d');
-    tg.globalCompositeOperation = 'source-over'; tg.clearRect(0, 0, _rigTint.width, _rigTint.height);
-    tg.drawImage(_rigCv, 0, 0); tg.globalCompositeOperation = 'source-in'; tg.fillStyle = flashCol; tg.fillRect(0, 0, _rigTint.width, _rigTint.height);
-    c.globalAlpha = flash; c.drawImage(_rigTint, ST_X0, ST_Y0, ST_W, ST_H); c.globalAlpha = 1;
+  // A tinted copy of this frame: the hit flash, and for species the white
+  // sticker border (the parts come without one, so it's traced round the whole animal).
+  const tinted = (col) => {
+    let tc = species ? _spTint : _rigTint;
+    if (!tc) {
+      tc = document.createElement('canvas'); tc.width = cv.width; tc.height = cv.height;
+      if (species) _spTint = tc; else _rigTint = tc;
+    }
+    const tg = tc.getContext('2d');
+    tg.globalCompositeOperation = 'source-over'; tg.clearRect(0, 0, tc.width, tc.height);
+    tg.drawImage(cv, 0, 0); tg.globalCompositeOperation = 'source-in'; tg.fillStyle = col; tg.fillRect(0, 0, tc.width, tc.height);
+    return tc;
+  };
+  if (species) {
+    const rim = tinted('#ffffff'), d = 1.3;
+    for (const [dx, dy] of [[d, 0], [-d, 0], [0, d], [0, -d], [d * 0.7, d * 0.7], [-d * 0.7, d * 0.7], [d * 0.7, -d * 0.7], [-d * 0.7, -d * 0.7]]) {
+      c.drawImage(rim, ST_X0 + dx, ST_Y0 + dy, ST_W, ST_H);
+    }
   }
+  c.drawImage(cv, ST_X0, ST_Y0, ST_W, ST_H);
+  if (flash > 0.01) { c.globalAlpha = flash; c.drawImage(tinted(flashCol), ST_X0, ST_Y0, ST_W, ST_H); c.globalAlpha = 1; }
 }
 
 // Draw a painted creature sprite centred horizontally with its feet on the tile.
@@ -428,8 +468,10 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
       creaturePose(c, opts, t, cx);
       const flash = Math.max(Math.min(1, (opts.hurt || 0) / 200) * 0.55, opts.windup ? 0.18 + Math.sin(t * 0.03) * 0.12 : 0);
       const flashCol = opts.windup && !(opts.hurt > 0) ? '#ff5040' : '#ffffff';
-      const rig = opts.boss && RIGS[npcId] ? rigLayers(npcId) : null;
-      if (rig) { drawRig(c, npcId, rig, opts, t, flash, flashCol); return; }   // a showpiece boss with moving parts
+      // A showpiece boss with moving parts, or a species whose parts sheet is in.
+      const rigId = opts.boss ? (RIGS[npcId] ? npcId : null) : (RIGS[opts.family]?.kind === 'species' ? opts.family : null);
+      const rig = rigId ? rigLayers(rigId) : null;
+      if (rig) { drawRig(c, rigId, rig, opts, t, flash, flashCol); return; }
       const drawBody = (g) => {
         if (pimg && pimg.complete && pimg.naturalWidth) {
           drawCreaturePng(g, pimg);    // painted art carries its own shading
@@ -1883,10 +1925,23 @@ const WORLD_ART = {
   'obj-bird_snare': [40, 34, 14], 'obj-squirrel_trap': [40, 34, 14], 'obj-lizard_snare': [40, 34, 14],
   'obj-mousedeer_trail': [40, 34, 14], 'obj-boar_pit': [42, 34, 14], 'obj-python_trap': [44, 34, 14],
   'obj-crocodile_trap': [44, 32, 14], 'obj-hornbill_nest': [40, 40, 14], 'obj-qilin_trail': [40, 34, 14],
+  // Animated: a campfire's four flicker frames, and a farm patch's five growth stages.
+  ...Object.fromEntries([0, 1, 2, 3].map((i) => [`obj-fire-${i}`, [32, 42, 14]])),
+  ...Object.fromEntries([0, 1, 2, 3, 4].map((i) => [`obj-farm_patch-${i}`, [42, 36, 15]])),
 };
+const FIRE_FRAME_MS = 110;
+/** A farm patch's growth stage: 0 empty, 1 planted, 2 sprouting, 3 growing, 4 ripe. */
+function farmStage(obj) {
+  if (!obj.crop) return 0;
+  const grow = cropGrowTicks(obj.crop);
+  const k = grow ? 1 - (obj.growLeft || 0) / grow : 1;
+  return k >= 1 ? 4 : k >= 0.5 ? 3 : k >= 0.15 ? 2 : 1;
+}
 /** The painted-art key for a world object, or null to keep its drawn sprite. */
-function worldArtKey(obj) {
+function worldArtKey(obj, time = 0) {
   const t = obj.def.type;
+  if (t === 'fire') return `obj-fire-${Math.floor(time / FIRE_FRAME_MS + obj.x * 3 + obj.y) % 4}`;   // each fire on its own beat
+  if (t === 'farm') return `obj-farm_patch-${farmStage(obj)}`;
   if (t === 'tree') return obj.depleted ? `stump-${obj.objId}` : `tree-${obj.objId}`;
   if (t === 'rock') return obj.depleted ? 'rock-empty' : `rock-${obj.objId}`;
   return `obj-${obj.objId}`;
@@ -1930,7 +1985,10 @@ function drawWorldArt(ctx, obj, img, key, cx, cy, time) {
 
 export function drawObjectSprite(ctx, obj, cx, cy, time = 0) {
   const t = obj.def.type;
-  const key = worldArtKey(obj);
+  const key = worldArtKey(obj, time);
+  // Load every frame of an animated object together, so it never drops back
+  // to its drawn version between frames.
+  if (t === 'fire' || t === 'farm') for (const k of Object.keys(WORLD_ART)) if (k.startsWith(t === 'fire' ? 'obj-fire-' : 'obj-farm_patch-')) worldImage(k);
   const art = key && worldImage(key);
   if (art && art.complete && art.naturalWidth) { drawWorldArt(ctx, obj, art, key, cx, cy, time); return; }
   if (CACHED_OBJECTS.has(t)) {

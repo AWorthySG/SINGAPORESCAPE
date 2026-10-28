@@ -233,7 +233,7 @@ test('world art stays in lock-step with assets/world/ and names real objects', a
   // Every object picture names a real object (trees and rocks by their id).
   for (const key of worldArt()) {
     if (key === 'rock-empty') continue;
-    const id = key.replace(/^(obj|tree|stump|rock)-/, '');
+    const id = key.replace(/^(obj|tree|stump|rock)-/, '').replace(/-\d+$/, '');   // animation frames end in -0, -1...
     assert.ok(OBJECTS[id], `${key} names a real object`);
   }
 });
@@ -251,12 +251,20 @@ test('hero art exists for every combat style', async () => {
   }
 });
 
-test('rigged bosses ship every layer they animate', async () => {
-  const { rigIds, rigParts } = await import('../src/render/sprites.js');
+test('rigged bosses and species ship every layer they animate', async () => {
+  const { rigIds, rigParts, rigKind } = await import('../src/render/sprites.js');
+  const { NPCS } = await import('../src/data/npcs.js');
   const { existsSync } = await import('node:fs');
   const { fileURLToPath } = await import('node:url');
   assert.ok(rigIds().includes('eternal_wyrm'));
-  for (const id of rigIds()) for (const part of rigParts(id)) {
-    assert.ok(existsSync(fileURLToPath(new URL(`../assets/creatures/bosses/rig/${id}_${part}.webp`, import.meta.url))), `${id}_${part}`);
+  assert.ok(rigIds().includes('rat'), 'the rat pilot is rigged');
+  const families = new Set(Object.values(NPCS).map((d) => d.family).filter(Boolean));
+  for (const id of rigIds()) {
+    const dir = rigKind(id) === 'species' ? 'species' : 'bosses';
+    if (dir === 'species') assert.ok(families.has(id), `${id} is a real monster family`);
+    else assert.ok(NPCS[id]?.boss, `${id} is a real boss`);
+    for (const part of rigParts(id)) {
+      assert.ok(existsSync(fileURLToPath(new URL(`../assets/creatures/${dir}/rig/${id}_${part}.webp`, import.meta.url))), `${dir}/rig/${id}_${part}`);
+    }
   }
 });
