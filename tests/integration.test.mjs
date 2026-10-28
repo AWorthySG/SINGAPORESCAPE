@@ -2763,3 +2763,24 @@ test('free movement: teleports and respawns move the glide position too', () => 
   assert.equal(p.fx, p.x, 'the glide position follows a teleport');
   assert.equal(p.renderCenter().x, p.x * 32 + 16);
 });
+
+test('monsters spawn in packs of their own kind, not scattered one by one', async () => {
+  const { buildWorld } = await import('../src/data/world.js');
+  const { NPCS } = await import('../src/data/npcs.js');
+  const w = buildWorld();
+  const mobs = w.npcSpawns.filter((s) => !s.opts && NPCS[s.npcId]?.attackable && !NPCS[s.npcId].boss);
+  const fam = (s) => NPCS[s.npcId].family || s.npcId;
+  const cells = new Map();
+  for (const s of mobs) { const k = `${s.x >> 3},${s.y >> 3}`; if (!cells.has(k)) cells.set(k, []); cells.get(k).push(s); }
+  let packed = 0;
+  for (const a of mobs) {
+    let n = 0;
+    for (let gx = (a.x >> 3) - 1; gx <= (a.x >> 3) + 1; gx++) for (let gy = (a.y >> 3) - 1; gy <= (a.y >> 3) + 1; gy++) {
+      for (const b of cells.get(`${gx},${gy}`) || []) if (b !== a && fam(b) === fam(a) && Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y)) <= 3) n++;
+    }
+    if (n >= 2) packed++;
+  }
+  assert.ok(packed / mobs.length > 0.9, `most monsters have two of their kind close by (${(packed / mobs.length * 100).toFixed(0)}%)`);
+  assert.equal(new Set(mobs.map((s) => `${s.x},${s.y}`)).size, mobs.length, 'no two monsters start on the same tile');
+  for (const s of mobs) assert.ok(s.wander <= 3, 'pack members stay near their camp');
+});
