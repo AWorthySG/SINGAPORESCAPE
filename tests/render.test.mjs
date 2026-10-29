@@ -276,3 +276,14 @@ test('every monster body type has an automatic animation style', async () => {
   const sprites = new Set(Object.values(NPCS).filter((d) => d.attackable).map((d) => d.sprite));
   for (const sp of sprites) assert.ok(kinds[sp], `${sp} monsters animate`);
 });
+
+test('every boss and champion-able monster has a battle-bar portrait', async () => {
+  const { portraitFor } = await import('../src/render/sprites.js');
+  const { NPCS } = await import('../src/data/npcs.js');
+  for (const [id, d] of Object.entries(NPCS)) {
+    if (!d.attackable) continue;
+    const pr = portraitFor(id, d);
+    assert.ok(pr && pr.src.endsWith('.webp'), `${id} has a portrait`);
+    if (d.boss) assert.ok(pr.src.includes('/bosses/'), `${id} uses its boss art`);
+  }
+});
