@@ -45,7 +45,8 @@ import { getShop } from '../data/shops.js';
 import { RARE_DROP_TABLE, getNpc } from '../data/npcs.js';
 import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
 import { eligibleTasks, SLAYER_REWARDS } from '../data/slayer.js';
-import { STATION_BY_ID, MRT_FARE } from '../data/transport.js';
+import { STATIONS, STATION_BY_ID, MRT_FARE } from '../data/transport.js';
+import { SKILLS } from '../data/skills.js';
 import { LIFE_STAGES, LIFE_GRAD, LIFE_STAGES_ADV, LIFE_GRAD_ADV, LIFE_STAGES_WILD, LIFE_GRAD_WILD } from '../data/lifeskills.js';
 import { QUESTS, CHAMPION_QP, REDEMPTION_GOAL, CORRUPTION_GOAL } from '../data/quests.js';
 import { CLUE_TIERS, CLUE_SPOTS, clueTierForLevel } from '../data/clues.js';
@@ -175,6 +176,7 @@ export class Game {
     this.totalKills = 0;
     this.bossKills = 0;
     this.zonesVisited = new Set();
+    this.stationsFound = new Set(['kampong_glam']);   // MRT stations you can ride to from the world map
     this.achievements = new Set();
     this.kills = {}; // per-monster kill counts (bestiary)
 
@@ -201,6 +203,7 @@ export class Game {
     this.moveInput = { x: 0, y: 0 }; // joystick / WASD vector, -1..1 on each axis
     this._driving = false;
     this.autoBattle = false;      // auto battle: hunt, fight, eat and use skills
+    this.autoGather = false;      // auto gather: when a node runs dry, move on to the next one
     this._autoSkip = new Map();   // npc entityId -> tick until which it is skipped (unreachable)
     this._autoLast = null;
     this.abilityCd = {};          // ability id -> ticks until usable again
@@ -871,7 +874,87 @@ export class Game {
       return;
     }
     this.player.stop();
-    if (!resolver()) this.player.clearAction();
+    // Count the bag before and after so every item gathered pops up over you.
+    const gather = GATHER_ACTIONS.has(a.type) || a.type === 'hunt';
+    const before = gather ? this._bagCounts() : null;
+    const going = resolver();
+    if (gather) {
+      const after = this._bagCounts();
+      for (const [id, n] of after) {
+        const got = n - (before.get(id) || 0);
+        if (got > 0 && id !== 'coins') this.addHitsplat(this.player, 0, { text: `+${got} ${getItem(id).name}` });
+      }
+    }
+    if (!going) {
+      this.player.clearAction();
+      if (gather && this.autoGather) this._autoGatherNext(a, obj);
+    }
+  }
+
+  _bagCounts() {
+    const m = new Map();
+    for (const sl of this.inventory.slots) if (sl) m.set(sl.id, (m.get(sl.id) || 0) + sl.qty);
+    return m;
+  }
+
+  /** Auto gather: the node ran dry (tree felled, rock mined out, fish moved on),
+   *  so walk to the nearest node of the same kind and keep going until the bag
+   *  is full. Anything else that stopped you (full bag, no tool, level) stops it. */
+  _autoGatherNext(a, obj) {
+    const gone = obj.depleted || this.world.objectAt(obj.x, obj.y) !== obj;
+    if (!gone) return false;
+    if (this.inventory.freeSlots() <= 0) { this.msg('Your bag is full: auto gather stops.', 'system'); return false; }
+    const here = this.playerTile();
+    let best = null, bd = Infinity;
+    for (const o of this.world.objects) {
+      if (o === obj || o.objId !== obj.objId || o.depleted) continue;
+      const d = chebyshev(here.x, here.y, o.x, o.y);
+      if (d <= 20 && d < bd) { bd = d; best = o; }
+    }
+    if (!best) { this.msg(`No more ${obj.def.name.toLowerCase()}s nearby: auto gather waits here.`, 'system'); return false; }
+    this.defaultObjectAction(best);
+    return true;
+  }
+
+  toggleAutoGather(on = !this.autoGather) {
+    this.autoGather = !!on;
+    this.msg(this.autoGather ? 'Auto gather on: when a node runs dry you move on to the next one.' : 'Auto gather off.', 'system');
+    this.bus.emit('autogather');
+  }
+
+  /** "Go" from a skill guide or the world map: walk to the nearest of these
+   *  objects (anywhere on the island) and start on it. */
+  goToNearest(objIds) {
+    const ids = new Set(objIds);
+    const here = this.playerTile();
+    let best = null, bd = Infinity;
+    for (const o of this.world.objects) {
+      if (!ids.has(o.objId) || o.depleted) continue;
+      const d = (o.x - here.x) ** 2 + (o.y - here.y) ** 2;
+      if (d < bd) { bd = d; best = o; }
+    }
+    if (!best || !this.player.alive) { this.msg("I can't find one of those anywhere.", 'system'); return false; }
+    return this.goToObject(best);
+  }
+
+  /** Walk to one object, however far away, and start on it when you arrive. */
+  goToObject(obj) {
+    if (!this.player.alive) return false;
+    this._pathBudget = 150000;       // like quest trips, these can cross the whole map
+    try { this.defaultObjectAction(obj); } finally { this._pathBudget = 0; }
+    const ok = !!this.player.action || this.player.isMoving;
+    this.msg(ok ? `You head for the ${obj.def.name.toLowerCase()}.` : "I can't find the way there.", 'system');
+    if (ok) this.ui?.closeModal();
+    return ok;
+  }
+
+  /** World map: ride the MRT to a station you've already found. */
+  mrtFromMap(stationId) {
+    if (!this.stationsFound.has(stationId)) { this.msg("You haven't found that station yet: walk there first.", 'system'); return false; }
+    if (this.npcs.some((n) => n.alive && n.target === this.player)) { this.msg("You can't take the MRT while something is attacking you.", 'system'); return false; }
+    const coins = this.inventory.count('coins');
+    this.travelTo(stationId);
+    return this.inventory.count('coins') < coins;
   }
 
   /** One-shot action: approach, then fire `onArrive` and clear. */
@@ -1656,6 +1739,12 @@ export class Game {
     const wild = !!(z && z.wilderness);
     const lvl = this.wildernessLevel();   // same level the XP bonus uses
     if (z && !this.zonesVisited.has(name)) { this.zonesVisited.add(name); this.checkAchievements(); }
+    // Walking past an MRT station adds it to the world map's ride list.
+    for (const st of STATIONS) {
+      if (this.stationsFound.has(st.id) || chebyshev(this.player.x, this.player.y, st.x, st.y) > 6) continue;
+      this.stationsFound.add(st.id);
+      this.msg(`You found ${st.name} MRT station: you can ride here from the world map now.`, 'level');
+    }
     if (name !== this.currentZoneName) {
       this.currentZoneName = name;
       if (wild) {
@@ -3424,7 +3513,13 @@ export class Game {
       if (n.def.role === 'bank') return ['Bank', n.name];
       return ['Talk to', n.name];
     }
-    return [t.ref.def.verb, t.ref.def.name];
+    const d = t.ref.def;
+    // Gathering spots say which skill they use, and warn when you're too low.
+    if (d.skill && d.level && this.skills.level(d.skill) < d.level) {
+      const sk = SKILLS.find((x) => x.id === d.skill);
+      return [d.verb, `${d.name} (needs ${sk ? sk.name : d.skill} ${d.level})`, d.skill, true];
+    }
+    return [d.verb, d.name, d.skill || null, false];
   }
 
   /** P: pickpocket the nearest townsperson (the old right-click option). */

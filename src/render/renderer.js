@@ -1,4 +1,4 @@
-import { TILE } from '../config.js';
+import { TILE, TICK_MS } from '../config.js';
 import { TURN_MS } from '../game/character.js';
 import { TERRAIN } from '../data/world.js';
 import { getItem } from '../data/items.js';
@@ -7,6 +7,9 @@ import { RACES, raceOf } from '../data/races.js';
 import { drawShadow, drawCreature, drawPlayer, drawObjectSprite, drawGroundItem } from './sprites.js';
 import { RARITY } from '../game/loot.js';
 import { itemIconImage } from './icons.js';
+
+// Gathering actions that show a progress ring over the node, and its colour.
+const GATHER_RING = { woodcut: '#4fa04f', mine: '#8a8fa0', fish: '#3a8fd8', hunt: '#d08a3a' };
 
 // Base terrain colours (RGB): a bright pastel world in the A-Worthy palette
 // (soft mint lawns, warm cream paths, cream paper paving). Water is procedural.
@@ -1112,6 +1115,7 @@ export class Renderer {
       ctx.fillStyle = '#FFFFFF';
       ctx.fillText(game.player.name, px, py - 53);
     }
+    this._drawGatherRing(ox, oy);
     for (const e of game.effects) {
       if (e.type !== 'hitsplat') continue;
       const c = e.entity.renderCenter ? e.entity.renderCenter() : { x: e.entity.x * TILE, y: e.entity.y * TILE };
@@ -1151,6 +1155,25 @@ export class Renderer {
       ctx.restore();
       ctx.globalAlpha = 1;
     }
+  }
+
+  /** While you gather, a ring over the node fills once per attempt (each game
+   *  tick), so you can see the work happening between items. */
+  _drawGatherRing(ox, oy) {
+    const { ctx, game } = this;
+    const a = game.player.action;
+    if (!a || !a.obj || !GATHER_RING[a.type] || game.player.isMoving || a.obj.depleted) return;
+    const o = a.obj;
+    if (Math.max(Math.abs(o.x - game.player.x), Math.abs(o.y - game.player.y)) > 1) return;
+    const t = Math.max(0, Math.min(1, game.tickAcc / TICK_MS));
+    const cx = o.x * TILE + TILE / 2 - ox, cy = o.y * TILE - oy - (o.def.type === 'tree' ? 26 : 4);
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.strokeStyle = '#22304A'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(cx, cy, 9, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = GATHER_RING[a.type]; ctx.lineWidth = 3.5;
+    ctx.beginPath(); ctx.arc(cx, cy, 5.5, -Math.PI / 2, -Math.PI / 2 + t * Math.PI * 2); ctx.stroke();
+    ctx.restore();
   }
 
   _healthBar(cx, cy, frac, boss) {

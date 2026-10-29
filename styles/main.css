@@ -1859,3 +1859,53 @@ body.boss-on #tip-toast { top: 132px; }
 @media (max-width: 540px) {
   #boss-bar, #boss-bar.normal { left: 12px; transform: none; top: 12px; width: calc(100vw - 168px); max-width: 260px; animation: none; }
 }
+
+/* ---------- Life skills: world map filters, skill guides, gathering feedback ---------- */
+.wm-chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 0 0 8px; }
+.wm-chip {
+  display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px;
+  border: 2px solid var(--aw-ink); background: var(--aw-card); color: var(--aw-text-sec);
+  font: inherit; font-weight: 800; font-size: 12px; cursor: pointer; opacity: .7;
+}
+.wm-chip i { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--aw-ink); }
+.wm-chip.on { opacity: 1; color: var(--aw-text); box-shadow: var(--shadow-sticker); background: #fff6dc; }
+.worldmap-canvas { cursor: pointer; }
+.wm-info {
+  display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px;
+  margin-top: 8px; font-size: 13px; text-align: center; min-height: 34px;
+}
+.wm-go {
+  padding: 5px 14px; border-radius: 999px; border: 2px solid var(--aw-ink); background: var(--aw-accent);
+  color: #fff; font: inherit; font-weight: 900; font-size: 12.5px; cursor: pointer; box-shadow: var(--shadow-sticker);
+}
+.wm-go.ride { background: #3a8fd8; }
+.wm-go:active { transform: translateY(2px); box-shadow: none; }
+.skill-cell.has-guide { cursor: pointer; }
+.skill-cell.has-guide::after { content: '›'; font-weight: 900; font-size: 18px; color: var(--aw-text-sec); margin-left: 4px; }
+.sg-head { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
+.sg-head > div { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.sg-head b { font-size: 15px; }
+.sg-auto {
+  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; margin: 4px 0 8px;
+  padding: 7px 10px; border-radius: var(--r2, 10px); border: 2px solid var(--aw-ink); background: var(--aw-card);
+  font: inherit; font-size: 12.5px; cursor: pointer; color: var(--aw-text);
+}
+.sg-auto.on { background: #e6f7df; }
+.sg-auto .ab-switch { flex: none; }
+.sg-where { display: block; margin: 2px auto 8px; }
+.sg-row { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-bottom: 1px dashed rgba(34,48,74,.18); }
+.sg-row.locked { opacity: .6; }
+.sg-lvl {
+  flex: none; min-width: 34px; text-align: center; font-weight: 900; font-size: 12px; padding: 2px 4px;
+  border-radius: 8px; background: #fff6dc; border: 1.5px solid var(--aw-ink);
+}
+.sg-row.locked .sg-lvl { background: #eee; }
+.sg-text { flex: 1; display: flex; flex-direction: column; font-size: 12.5px; min-width: 0; }
+.sg-text span { color: var(--aw-text-sec); font-size: 11.5px; }
+#interact-btn.has-icon { flex-direction: column; gap: 1px; }
+#interact-btn .ib-icon { display: block; line-height: 0; }
+#interact-btn .ib-icon img, #interact-btn .ib-icon svg { width: 26px; height: 26px; }
+#interact-btn.warn { background: #e8a33a; }
+#interact-btn.warn .ib-verb { font-size: .82em; }
+.sg-auto.on .ab-switch { background: var(--aw-accent); }
+.sg-auto.on .ab-switch i { transform: translateX(14px); }
