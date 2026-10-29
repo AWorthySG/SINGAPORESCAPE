@@ -413,6 +413,107 @@ function bakeSticker(key, box, drawBody) {
 }
 const monsterSticker = (key, drawBody) => bakeSticker(key, MONSTER_BOX, drawBody);
 
+// ---- Automatic animation for painted monsters ----
+// Species without a hand-made parts rig still move: their sticker is drawn in
+// strips that shift with the body type. Walkers step their feet in turn (the
+// bottom band split at the gap between front and back legs), crawlers scuttle,
+// fliers flap the top of the picture, snakes slither and fish swish in a
+// travelling wave, ghosts ripple, slimes wobble and plants sway. The look is
+// untouched: it's the same painted sticker, just in pieces.
+const PUPPET_KIND = {
+  beast: 'legs', hound: 'legs', primate: 'legs', rodent: 'legs', reptile: 'legs', humanoid: 'legs', greenman: 'legs',
+  undead: 'legs', golem: 'legs', demon: 'legs', turtle: 'legs', mantis: 'legs', fowl: 'legs',
+  spider: 'scuttle', crab: 'scuttle', scorpion: 'scuttle',
+  bat: 'wings', drake: 'wings', insect: 'wings',
+  serpent: 'slither', seacreature: 'swim',
+  ghost: 'float', wisp: 'float', jellyfish: 'float',
+  slime: 'squish', plant: 'sway',
+};
+export const puppetKinds = () => ({ ...PUPPET_KIND });
+const _puppetInfo = new Map();
+/** The painted area of a sticker (in its bitmap's pixels) and where its feet
+ *  divide front from back. Measured once per look. */
+function puppetInfo(key, sticker) {
+  if (_puppetInfo.has(key)) return _puppetInfo.get(key);
+  let inf = null;
+  try {
+    const W = ST_W * ST_RES, H = ST_H * ST_RES;
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const g = cv.getContext('2d', { willReadFrequently: true });
+    g.drawImage(sticker, 0, 0, W, H);
+    const d = g.getImageData(0, 0, W, H).data;
+    let x0 = W, y0 = H, x1 = -1, y1 = -1;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      if (d[(y * W + x) * 4 + 3] > 40) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    }
+    if (x1 > x0 && y1 > y0) {
+      const cut = Math.round(y1 - (y1 - y0) * 0.24);
+      const cols = new Float64Array(W);
+      for (let y = cut; y <= y1; y++) for (let x = x0; x <= x1; x++) cols[x] += d[(y * W + x) * 4 + 3];
+      let split = (x0 + x1) >> 1, best = Infinity;
+      for (let x = Math.round(x0 + (x1 - x0) * 0.3); x < Math.round(x0 + (x1 - x0) * 0.7); x++) if (cols[x] < best) { best = cols[x]; split = x; }
+      inf = { x0, y0, x1: x1 + 1, y1: y1 + 1, cut, split };
+    }
+  } catch { inf = null; }
+  _puppetInfo.set(key, inf);
+  return inf;
+}
+function drawPuppet(c, src, kind, inf, opts, t, seed) {
+  const R = ST_RES;
+  // Copy a pixel rectangle of the sticker to where it normally sits, nudged by (dx, dy) local units.
+  const blit = (sx, sy, sw, sh, dx = 0, dy = 0) => {
+    if (sw <= 0 || sh <= 0) return;
+    c.drawImage(src, sx, sy, sw, sh, ST_X0 + sx / R + dx, ST_Y0 + sy / R + dy, sw / R, sh / R);
+  };
+  const { x0, y0, x1, y1, cut, split } = inf;
+  const m = opts.move ?? (opts.moving ? 1 : 0);
+  const p = (opts.walk ?? 0) % 2;           // one footstep per tile walked (opts.gait is the hero's)
+  const ph = seed * 0.37;
+  if (kind === 'legs') {
+    const sw = Math.sin(p * Math.PI), back = Math.max(0, sw) * m, front = Math.max(0, -sw) * m;
+    blit(x0, cut, split - x0, y1 - cut, (back - front) * 1.2, -back * 2.4);
+    blit(split, cut, x1 - split, y1 - cut, (front - back) * 1.2, -front * 2.4);
+    blit(x0, y0, x1 - x0, cut - y0 + 1);    // body last, so a lifted foot tucks up behind it
+  } else if (kind === 'scuttle') {
+    const c2 = Math.round(y1 - (y1 - y0) * 0.32), n = 4, w = (x1 - x0) / n;
+    for (let i = 0; i < n; i++) {
+      const lift = m * Math.max(0, Math.sin(p * Math.PI * 2 + i * Math.PI / 2)) * 2;
+      blit(Math.floor(x0 + i * w), c2, Math.ceil(w) + 1, y1 - c2, 0, -lift);
+    }
+    blit(x0, y0, x1 - x0, c2 - y0 + 1);
+  } else if (kind === 'wings') {
+    // The top of the picture (the wings) stretches up and down about the back.
+    const spd = opts.sprite === 'insect' ? 0.05 : opts.sprite === 'bat' ? 0.02 : (m > 0.3 ? 0.012 : 0.006);
+    const hb = Math.round((y1 - y0) * 0.45), yb = y0 + hb;
+    blit(x0, yb, x1 - x0, y1 - yb);
+    const sy = 1 + Math.sin(t * spd + ph) * 0.2;
+    c.drawImage(src, x0, y0, x1 - x0, hb, ST_X0 + x0 / R, ST_Y0 + yb / R - (hb / R) * sy, (x1 - x0) / R, (hb / R) * sy);
+  } else if (kind === 'slither' || kind === 'swim') {
+    // A wave travels head to tail (the tail end, on the left, swings most when swimming).
+    // Snakes get finer strips and a gentler wave, so their outline stays smooth.
+    const sn = kind === 'slither', n = sn ? 16 : 10, w = (x1 - x0) / n, spd = m > 0.3 ? 0.012 : 0.005;
+    const amp = (m > 0.3 ? 1.6 : 0.9) * (sn ? 0.75 : 1);
+    for (let i = 0; i < n; i++) {
+      const k = kind === 'swim' ? 1 - i / n : 1;
+      blit(Math.floor(x0 + i * w), y0, Math.ceil(w) + 1, y1 - y0, 0, Math.sin(t * spd + ph - i * (sn ? 0.47 : 0.75)) * amp * k);
+    }
+  } else if (kind === 'float' || kind === 'sway') {
+    // Horizontal ripples: ghosts trail more at the bottom, plants sway more at the top.
+    const n = 10, h = (y1 - y0) / n;
+    for (let j = 0; j < n; j++) {
+      const dx = kind === 'float'
+        ? Math.sin(t * 0.005 + ph - j * 0.6) * 1.5 * Math.pow(j / n, 1.2)
+        : Math.sin(t * 0.0025 + ph) * 1.6 * (1 - j / n) + Math.sin(t * 0.006 + ph - j * 0.5) * 0.3;
+      blit(x0, Math.floor(y0 + j * h), x1 - x0, Math.ceil(h) + 1, dx, 0);
+    }
+  } else if (kind === 'squish') {
+    const k = Math.sin(t * 0.006 + ph) * 0.06;
+    c.save(); c.translate(0, FEET); c.scale(1 + k, 1 - k); c.translate(0, -FEET);
+    c.drawImage(src, ST_X0, ST_Y0, ST_W, ST_H);
+    c.restore();
+  } else c.drawImage(src, ST_X0, ST_Y0, ST_W, ST_H);
+}
+
 // Plain bitmap cache: draw vector art once into an offscreen canvas (local
 // units inside `box`), then blit it every frame instead of re-tracing every
 // path. Used for townsfolk, the hero's body, trees and static scenery.
@@ -493,11 +594,15 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
       const look = bimg ? `boss:${npcId}` : simg ? `species:${opts.family}` : `${opts.sprite}|${col}|${pimg ? 'p' : 'v'}`;
       const sticker = ready ? monsterSticker(`${look}|${pose}`, drawBody) : null;
       if (sticker) {
-        c.drawImage(sticker, ST_X0, ST_Y0, ST_W, ST_H);
+        // Painted monsters animate in pieces (see drawPuppet); the rest draw whole.
+        const kind = (bimg || simg) && !opts.still ? PUPPET_KIND[opts.sprite] : null;
+        const inf = kind ? puppetInfo(`${look}|${pose}`, sticker) : null;
+        const put = (img) => (inf ? drawPuppet(c, img, kind, inf, opts, t, cx) : c.drawImage(img, ST_X0, ST_Y0, ST_W, ST_H));
+        put(sticker);
         // A white flash over the body when struck, a red pulse while a heavy blow charges.
         if (flash > 0.01) {
           const tint = monsterTint(sticker, flashCol);
-          if (tint) { c.globalAlpha = flash; c.drawImage(tint, ST_X0, ST_Y0, ST_W, ST_H); c.globalAlpha = 1; }
+          if (tint) { c.globalAlpha = flash; put(tint); c.globalAlpha = 1; }
         }
       } else drawBody(c);              // headless (no DOM canvas) or art still loading
       if (opts.boss && !bimg) bossCrown(c, opts.time || 0);  // insignia unless the boss art has its own crown

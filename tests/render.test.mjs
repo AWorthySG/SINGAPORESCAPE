@@ -268,3 +268,11 @@ test('rigged bosses and species ship every layer they animate', async () => {
     }
   }
 });
+
+test('every monster body type has an automatic animation style', async () => {
+  const { puppetKinds } = await import('../src/render/sprites.js');
+  const { NPCS } = await import('../src/data/npcs.js');
+  const kinds = puppetKinds();
+  const sprites = new Set(Object.values(NPCS).filter((d) => d.attackable).map((d) => d.sprite));
+  for (const sp of sprites) assert.ok(kinds[sp], `${sp} monsters animate`);
+});
