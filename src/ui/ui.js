@@ -1,6 +1,6 @@
 import { CLASSES, CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon } from '../data/classes.js';
 import { PERK_SKILLS, PERK_TRACKS, PERK_EVERY, trackPerks, rankName } from '../data/perks.js';
-import { heroArtSrc } from '../render/sprites.js';
+import { heroArtSrc, portraitFor } from '../render/sprites.js';
 import { getItem } from '../data/items.js';
 import { SHOPS, getShop } from '../data/shops.js';
 import { SMELT, SMITH } from '../data/smithing.js';
@@ -1184,6 +1184,25 @@ export class UI {
       : `${boss.champion ? '★ ' : ''}${boss.name} — level ${boss.def.level} · ${Math.ceil(boss.hp)}/${boss.maxHp}`;
     this.el.bossBarFill.style.width = `${Math.max(0, Math.min(100, (boss.hp / boss.maxHp) * 100))}%`;
     this.el.bossBar.classList.toggle('enraged', !!boss.enraged);
+    // The portrait: set once per foe (it only changes when the foe does).
+    if (this._bossPortraitFor !== boss) {
+      this._bossPortraitFor = boss;
+      const pe = this.el.bossBar.querySelector('#boss-bar-portrait');
+      const pr = portraitFor(boss.npcId, boss.def);
+      if (pe) {
+        pe.classList.toggle('none', !pr);
+        const img = pe.querySelector('.bp-img');
+        img.style.backgroundImage = pr ? `url("${pr.src}")` : '';
+        img.style.backgroundPosition = pr ? pr.pos : '';
+        pe.querySelector('.bp-badge').textContent = boss.champion ? '★' : '♛';
+      }
+    }
+    // A flash on the portrait when the foe takes a hit.
+    if (this._bossPortraitHp !== undefined && boss.hp < this._bossPortraitHp) {
+      const pe = this.el.bossBar.querySelector('#boss-bar-portrait');
+      if (pe) { pe.classList.remove('hit'); void pe.offsetWidth; pe.classList.add('hit'); }
+    }
+    this._bossPortraitHp = boss.hp;
   }
 
   // ---------------- Day/night badge ----------------

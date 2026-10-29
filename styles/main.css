@@ -1818,3 +1818,29 @@ body.boss-on #tip-toast { top: 132px; }
 @media (pointer: coarse) and (orientation: landscape) {
   #aim-cancel { right: calc(var(--pad-r) + 196px); bottom: calc(var(--pad-b) + 150px); }
 }
+
+/* ---------- Boss / champion portrait on the battle bar ---------- */
+#boss-bar { display: flex; align-items: center; gap: 10px; padding-left: 8px; overflow: visible; }
+#boss-bar-main { flex: 1; min-width: 0; }
+#boss-bar-portrait {
+  position: relative; flex: none; width: 58px; height: 58px; margin: -14px 0 -14px -14px;
+  border-radius: 50%; background: var(--aw-bg, #F7F3EA);
+  border: 3px solid var(--aw-accent, #C0392B); box-shadow: 0 0 0 2.5px var(--aw-ink, #22304A), 0 4px 10px rgba(34,48,74,.25);
+}
+#boss-bar-portrait.none { display: none; }
+#boss-bar-portrait .bp-img {
+  position: absolute; inset: 0; border-radius: 50%; background-repeat: no-repeat; background-size: 165%;
+}
+#boss-bar-portrait .bp-badge {
+  position: absolute; top: -9px; left: 50%; transform: translateX(-50%);
+  font-size: 15px; line-height: 1; color: #F5B82E; text-shadow: 0 0 0 #22304A, -1px -1px 0 #22304A, 1px -1px 0 #22304A, -1px 1px 0 #22304A, 1px 1px 0 #22304A;
+}
+#boss-bar.champion #boss-bar-portrait { border-color: var(--aw-sun, #F5B82E); }
+#boss-bar.enraged #boss-bar-portrait { animation: bpRage .7s ease-in-out infinite alternate; }
+@keyframes bpRage { from { box-shadow: 0 0 0 2.5px var(--aw-ink, #22304A), 0 0 0 0 rgba(192,57,43,.6); } to { box-shadow: 0 0 0 2.5px var(--aw-ink, #22304A), 0 0 14px 5px rgba(192,57,43,.55); } }
+#boss-bar-portrait.hit .bp-img { animation: bpHit .22s ease-out; }
+@keyframes bpHit { 0% { filter: brightness(2.2) saturate(.4); transform: translateX(-2px); } 100% { filter: none; transform: none; } }
+@media (max-width: 540px) {
+  #boss-bar-portrait { width: 46px; height: 46px; margin: -10px 0 -10px -10px; }
+  #boss-bar-portrait .bp-badge { font-size: 12px; top: -7px; }
+}

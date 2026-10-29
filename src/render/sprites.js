@@ -437,6 +437,16 @@ const PUPPET_KIND = {
 const HEAD_TOP = new Set(['humanoid', 'greenman', 'undead', 'golem', 'demon', 'fowl', 'mantis', 'primate']);
 const TAILED = new Set(['beast', 'hound', 'rodent', 'reptile']);
 export const puppetKinds = () => ({ ...PUPPET_KIND });
+
+/** A boss or champion's portrait for the battle bar: its painted art and where
+ *  in the picture its head is (as a CSS background-position), or null. */
+export function portraitFor(npcId, def) {
+  const src = def.boss && BOSS_ART.has(npcId) ? `assets/creatures/bosses/${npcId}.webp`
+    : SPECIES_ART.has(def.family) ? `assets/creatures/species/${def.family}.webp` : null;
+  if (!src) return null;
+  const top = HEAD_TOP.has(def.sprite) || ['ghost', 'wisp', 'slime', 'plant', 'jellyfish', 'serpent'].includes(def.sprite);
+  return { src, pos: top ? '50% 8%' : '88% 22%' };
+}
 const _puppetInfo = new Map();
 /** The painted area of a sticker (in its bitmap's pixels) and where its feet
  *  divide front from back. Measured once per look. */
