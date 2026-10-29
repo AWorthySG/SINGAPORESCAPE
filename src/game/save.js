@@ -1,5 +1,6 @@
 import { POTIONS, CROP_BY_ID } from '../data/trades.js';
 import { SAVE_KEY } from '../config.js';
+import { STATION_BY_ID } from '../data/transport.js';
 
 const VERSION = 1;
 
@@ -39,13 +40,14 @@ export function snapshot(game) {
     totalKills: game.totalKills,
     bossKills: game.bossKills,
     zonesVisited: [...game.zonesVisited],
+    stationsFound: [...game.stationsFound],
     kills: game.kills,
     slayer: game.slayer,
     bounties: game.bounties,
     karma: game.karma,
     clue: game.clue,
     specEnergy: game.specEnergy,
-    settings: { running: game.running, autoCfg: game.autoCfg },
+    settings: { running: game.running, autoCfg: game.autoCfg, autoGather: game.autoGather },
     jobClass: game.jobClass,
     potions: game.potions,
     farms: game.world.objects.filter((o) => o.def.type === 'farm' && o.crop).map((o) => ({ x: o.x, y: o.y, crop: o.crop, left: o.growLeft })),
@@ -103,6 +105,7 @@ export function loadGame(game) {
   if (typeof data.totalKills === 'number') game.totalKills = data.totalKills;
   if (typeof data.bossKills === 'number') game.bossKills = data.bossKills;
   if (Array.isArray(data.zonesVisited)) game.zonesVisited = new Set(data.zonesVisited);
+  if (Array.isArray(data.stationsFound)) game.stationsFound = new Set(['kampong_glam', ...data.stationsFound.filter((id) => STATION_BY_ID[id])]);
   if (data.kills && typeof data.kills === 'object') game.kills = { ...data.kills };
   if (data.slayer && typeof data.slayer === 'object') {
     game.slayer = {
@@ -136,6 +139,7 @@ export function loadGame(game) {
       if (o && o.def.type === 'farm' && CROP_BY_ID[f.crop]) { o.crop = f.crop; o.growLeft = Math.max(0, Number(f.left) || 0); }
     }
   }
+  if (data.settings?.autoGather === true) game.autoGather = true;
   const ac = data.settings?.autoCfg;
   if (ac && typeof ac === 'object') {
     game.autoCfg = {

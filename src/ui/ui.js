@@ -9,6 +9,8 @@ import { POTIONS, FLETCH, CROP_BY_SEED } from '../data/trades.js';
 import { COOKING } from '../game/skilling.js';
 import { DISHES } from '../data/cooking.js';
 import { SKILLS, SKILL_GROUPS } from '../data/skills.js';
+import { SKILL_GUIDES, guideEntries } from '../game/skillguide.js';
+import { OBJECTS } from '../data/objects.js';
 import { getDialogue } from '../data/dialogue.js';
 import { MONSTER_IDS, BOSS_IDS, getNpc } from '../data/npcs.js';
 import { levelProgress, xpToNext } from '../data/xp.js';
@@ -38,6 +40,19 @@ const EQUIP_LAYOUT = [
   'weapon', 'body', 'shield',
   null, 'legs', null,
   'hands', 'feet', 'ring',
+];
+
+// World map marker filters: id, chip label, marker colour.
+const MAP_FILTERS = [
+  { id: 'mrt', name: 'MRT', col: '#ffffff' },
+  { id: 'boss', name: 'Bosses', col: '#ff4a5a' },
+  { id: 'bank', name: 'Banks', col: '#ffd24a' },
+  { id: 'tree', name: 'Trees', col: '#b6f55a' },
+  { id: 'rock', name: 'Rocks', col: '#e2e2e2' },
+  { id: 'fishing', name: 'Fishing', col: '#7fd8ff' },
+  { id: 'hunt', name: 'Traps', col: '#e0a060' },
+  { id: 'farm', name: 'Farms', col: '#c9e26a' },
+  { id: 'station', name: 'Crafting', col: '#f5a623' },
 ];
 
 export class UI {
@@ -293,11 +308,22 @@ export class UI {
   setInteractLabel(label) {
     const btn = this.el.interact || (this.el.interact = document.getElementById('interact-btn'));
     if (!btn) return;
-    const key = label ? label[0] : '';
+    const key = label ? `${label[0]}|${label[2] || ''}|${label[3] ? label[1] : ''}` : '';
     if (key === this._interactKey) return;
     this._interactKey = key;
     btn.classList.toggle('idle', !label);
-    btn.querySelector('.ib-verb').textContent = label ? label[0] : 'Interact';
+    // Gathering spots show their skill's icon, and turn amber when your level is too low.
+    const skill = label && label[2];
+    btn.classList.toggle('warn', !!(label && label[3]));
+    btn.classList.toggle('has-icon', !!skill);
+    let ic = btn.querySelector('.ib-icon');
+    if (skill) {
+      if (!ic) { ic = document.createElement('span'); ic.className = 'ib-icon'; btn.prepend(ic); }
+      ic.innerHTML = skillIconSVG(skill, 26);
+    } else ic?.remove();
+    const need = label && label[3] ? label[1].match(/needs (.+)\)$/) : null;
+    btn.querySelector('.ib-verb').innerHTML = label ? (need ? `Needs<br>${need[1]}` : label[0]) : 'Interact';
+    btn.title = label ? `${label[0]} ${label[1]}` : 'Interact with the nearest thing (E or Space)';
   }
 
   renderAutoBattle() {
@@ -944,11 +970,75 @@ export class UI {
         const toNext = xpToNext(xp);
         this._tip(cell, `<b>${sk.name}</b> &mdash; level ${lvl}<br>XP: ${formatNumber(Math.floor(xp))}<br>` +
           (toNext > 0 ? `Next level: ${formatNumber(toNext)} xp` : 'Maxed!'));
+        // Life skills open a guide: what you can do now, what's next, and where.
+        if (SKILL_GUIDES[sk.id]) {
+          cell.classList.add('has-guide');
+          cell.addEventListener('click', () => this.openSkillGuide(sk.id));
+        }
         grid.appendChild(cell);
       }
     }
     this.el.skillsTotal.textContent = `Total level: ${this.game.skills.totalLevel()}`;
     this.renderAlignment();
+  }
+
+  /** A life skill's guide: what it's for, everything you can gather or make
+   *  at your level, what unlocks next, and a Go button to the nearest spot. */
+  openSkillGuide(skill) {
+    const g = this.game;
+    const sk = SKILLS.find((x) => x.id === skill);
+    const guide = SKILL_GUIDES[skill];
+    const render = (body) => {
+      const lvl = g.skills.level(skill);
+      const all = guideEntries(skill);
+      const can = all.filter((e) => e.level <= lvl);
+      const next = all.filter((e) => e.level > lvl).slice(0, 3);
+      body.innerHTML = '';
+      const head = document.createElement('div');
+      head.className = 'sg-head';
+      head.innerHTML = `<span class="skill-icon">${skillIconSVG(skill, 44)}</span>` +
+        `<div><b>${sk.name} · level ${lvl}</b><span>${guide.use}</span></div>`;
+      body.appendChild(head);
+      // Gathering skills can run on their own: auto gather moves you to the next node.
+      if (['woodcutting', 'mining', 'fishing', 'hunter'].includes(skill)) {
+        const ag = document.createElement('button');
+        ag.className = 'sg-auto' + (g.autoGather ? ' on' : '');
+        ag.innerHTML = `<span class="ab-switch" aria-hidden="true"><i></i></span><span><b>Auto gather</b> ${g.autoGather ? 'On' : 'Off'}: when a tree, rock or spot runs dry, move on to the next one nearby</span>`;
+        ag.addEventListener('click', () => { g.toggleAutoGather(); render(body); });
+        body.appendChild(ag);
+      }
+      const where = guide.where || [...new Set(can.flatMap((e) => e.objIds || []))];
+      const row = (e, ok) => {
+        const r = document.createElement('div');
+        r.className = 'sg-row' + (ok ? '' : ' locked');
+        r.innerHTML = `<span class="sg-lvl">${e.level}</span><span class="sg-text"><b>${e.label}</b><span>${e.detail || ''}</span></span>`;
+        // Go: walk to the nearest place you can do this (only for things you can do now).
+        if (ok && e.objIds && !guide.where) {
+          const b = document.createElement('button'); b.className = 'wm-go'; b.textContent = 'Go';
+          b.addEventListener('click', () => g.goToNearest(e.objIds));
+          r.appendChild(b);
+        }
+        return r;
+      };
+      if (guide.where) {
+        const go = document.createElement('button');
+        go.className = 'wm-go sg-where';
+        go.textContent = `Go to the nearest ${guide.where.map((id) => OBJECTS[id]?.name.toLowerCase() || id).join(' or ')}`;
+        go.addEventListener('click', () => g.goToNearest(where));
+        body.appendChild(go);
+      }
+      const sect = (title, items, ok) => {
+        if (!items.length) return;
+        const h = document.createElement('div'); h.className = 'skill-group'; h.textContent = title;
+        body.appendChild(h);
+        for (const e of items) body.appendChild(row(e, ok));
+      };
+      sect('Coming up next', next, false);
+      sect(`You can do now (${can.length})`, can.slice().reverse(), true);
+      if (!can.length && !next.length) body.insertAdjacentHTML('beforeend', '<div class="modal-hint">Nothing listed for this skill yet.</div>');
+    };
+    this.openModal(`${sk.name} guide`, render);
+    this.modal.kind = 'skillguide';
   }
 
   /** Every perk track: what each perk does, its rank, and when the next rank unlocks. */
@@ -2051,36 +2141,89 @@ export class UI {
   openWorldMap() {
     const game = this.game;
     const W = game.world.width, H = game.world.height;
-    const render = (body) => {
-      body.innerHTML = '';
-      const scale = Math.max(2, Math.floor(Math.min((Math.min(window.innerWidth * 0.9, 620)) / W, (window.innerHeight * 0.66) / H)));
-      const cnv = document.createElement('canvas');
-      cnv.width = W * scale; cnv.height = H * scale;
-      cnv.className = 'worldmap-canvas';
-      const c = cnv.getContext('2d');
+    // Which markers show; remembered between openings.
+    const on = this._mapFilters || (this._mapFilters = new Set(['mrt', 'boss', 'bank']));
+    let sel = null;
+    // The terrain never changes, so paint it once (one pixel per tile) and scale it up.
+    if (!this._mapBase) {
+      const b = document.createElement('canvas');
+      b.width = W; b.height = H;
+      const bc = b.getContext('2d');
       const colors = {
         [TERRAIN.GRASS]: '#3f6e2c', [TERRAIN.DARKGRASS]: '#365f25', [TERRAIN.PATH]: '#9c8456',
         [TERRAIN.WATER]: '#2f6f9e', [TERRAIN.SAND]: '#c8b27a', [TERRAIN.STONE]: '#8a8378', [TERRAIN.WOOD]: '#7a5a36',
       };
       for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-        c.fillStyle = colors[game.world.terrainAt(x, y)] || '#3f6e2c';
-        c.fillRect(x * scale, y * scale, scale, scale);
+        bc.fillStyle = colors[game.world.terrainAt(x, y)] || '#3f6e2c';
+        bc.fillRect(x, y, 1, 1);
       }
-      // notable objects
+      this._mapBase = b;
+    }
+    const skillName = (id) => SKILLS.find((x) => x.id === id)?.name || id;
+    const objTypes = { tree: ['tree'], rock: ['rock'], fishing: ['fishing'], hunt: ['hunt'], farm: ['farm'], bank: ['bank'],
+      station: ['furnace', 'anvil', 'range', 'craft', 'fletch', 'herblore'] };
+    const markers = () => {
+      const out = [];
+      if (on.has('mrt')) for (const st of STATIONS) {
+        const found = game.stationsFound.has(st.id);
+        out.push({ f: 'mrt', x: st.x, y: st.y, big: true, station: st, locked: !found,
+          label: `${st.name} MRT${found ? '' : ' (not found yet)'}` });
+      }
+      if (on.has('boss')) for (const n of game.npcs) {
+        if (!n.alive || !n.def.boss || n.temporary) continue;
+        out.push({ f: 'boss', x: n.x, y: n.y, big: true, npc: n, label: `${n.name} (level ${n.def.level})` });
+      }
       for (const o of game.world.objects) {
-        let col = null, big = false;
-        const t = o.def.type;
-        if (t === 'bank') { col = '#ffd24a'; big = true; }
-        else if (t === 'transport') { col = '#ffffff'; big = true; }
-        else if (t === 'shrine') { col = '#6aa0ff'; big = true; }
-        else if (t === 'rest') { col = '#f5a623'; big = true; }
-        else if (t === 'fishing') col = '#7fd8ff';
-        else if (t === 'tree' && !o.depleted) col = '#1f5a1f';
-        else if (t === 'rock' && !o.depleted) col = '#cfcfcf';
-        if (!col) continue;
-        c.fillStyle = col;
-        const s = big ? scale + 2 : scale;
-        c.fillRect(o.x * scale - (big ? 1 : 0), o.y * scale - (big ? 1 : 0), s, s);
+        const f = Object.keys(objTypes).find((k) => objTypes[k].includes(o.def.type));
+        if (!f || !on.has(f)) continue;
+        const d = o.def;
+        const locked = !!(d.skill && d.level && game.skills.level(d.skill) < d.level);
+        out.push({ f, x: o.x, y: o.y, obj: o, locked, big: f === 'bank' || f === 'station' || f === 'farm',
+          label: d.skill && d.level ? `${d.name} (${skillName(d.skill)} ${d.level})` : d.name });
+      }
+      return out;
+    };
+    const render = (body) => {
+      body.innerHTML = '';
+      const chips = document.createElement('div');
+      chips.className = 'wm-chips';
+      for (const f of MAP_FILTERS) {
+        const b = document.createElement('button');
+        b.className = 'wm-chip' + (on.has(f.id) ? ' on' : '');
+        b.innerHTML = `<i style="background:${f.col}"></i>${f.name}`;
+        b.addEventListener('click', () => { on.has(f.id) ? on.delete(f.id) : on.add(f.id); sel = null; render(body); });
+        chips.appendChild(b);
+      }
+      body.appendChild(chips);
+      const scale = Math.max(2, Math.floor(Math.min((Math.min(window.innerWidth * 0.9, 620)) / W, (window.innerHeight * 0.6) / H)));
+      const cnv = document.createElement('canvas');
+      cnv.width = W * scale; cnv.height = H * scale;
+      cnv.className = 'worldmap-canvas';
+      const c = cnv.getContext('2d');
+      c.imageSmoothingEnabled = false;
+      c.drawImage(this._mapBase, 0, 0, W * scale, H * scale);
+      const list = markers();
+      // The canvas is shrunk to fit the panel, so size markers in on-screen pixels.
+      const k = cnv.width / Math.min(cnv.width, window.innerWidth * 0.9, 620);
+      for (const m of list) {
+        const col = MAP_FILTERS.find((f) => f.id === m.f).col;
+        const cx = m.x * scale + scale / 2, cy = m.y * scale + scale / 2;
+        if (m.big) {
+          // Big markers are sticker dots: navy ink ring, colour fill (hollow when locked).
+          const r = (m.f === 'mrt' ? 5 : 3.5) * k;
+          c.fillStyle = '#22304A'; c.beginPath(); c.arc(cx, cy, r + 1.2 * k, 0, Math.PI * 2); c.fill();
+          c.fillStyle = m.locked ? '#6b7383' : col; c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.fill();
+          if (m.f === 'mrt' && !m.locked) {
+            c.fillStyle = '#22304A'; c.font = `900 ${Math.round(r * 1.3)}px Nunito,sans-serif`;
+            c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('M', cx, cy + 0.5);
+          }
+        } else {
+          c.globalAlpha = m.locked ? 0.35 : 1;
+          const sz = Math.max(scale, 2 * k);
+          c.fillStyle = '#22304A'; c.fillRect(cx - sz / 2 - k * 0.6, cy - sz / 2 - k * 0.6, sz + k * 1.2, sz + k * 1.2);
+          c.fillStyle = col; c.fillRect(cx - sz / 2, cy - sz / 2, sz, sz);
+          c.globalAlpha = 1;
+        }
       }
       // zone labels
       c.font = `800 ${Math.max(9, scale * 3)}px Nunito,"Trebuchet MS",sans-serif`;
@@ -2097,22 +2240,49 @@ export class UI {
         c.fillStyle = z.wilderness ? '#ff8a7a' : '#fff3c8'; c.fillText(z.name, cx, cy);
       }
       c.textAlign = 'start'; c.textBaseline = 'alphabetic';
+      // The picked spot gets a gold ring.
+      if (sel) {
+        c.strokeStyle = '#F5B82E'; c.lineWidth = 3;
+        c.lineWidth = 2 * k;
+        c.beginPath(); c.arc(sel.x * scale + scale / 2, sel.y * scale + scale / 2, 9 * k, 0, Math.PI * 2); c.stroke();
+      }
       // player marker
       const px = game.player.x * scale + scale / 2, py = game.player.y * scale + scale / 2;
-      c.fillStyle = '#fff'; c.beginPath(); c.arc(px, py, scale + 1.5, 0, Math.PI * 2); c.fill();
-      c.fillStyle = '#d8324a'; c.beginPath(); c.arc(px, py, scale, 0, Math.PI * 2); c.fill();
-      // Click anywhere to travel there.
+      c.fillStyle = '#fff'; c.beginPath(); c.arc(px, py, 5 * k, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#d8324a'; c.beginPath(); c.arc(px, py, 3.6 * k, 0, Math.PI * 2); c.fill();
+      // Tap to pick a spot (snapping to the nearest marker), then Go / Ride below.
       cnv.addEventListener('click', (e) => {
         const r = cnv.getBoundingClientRect();
-        const tx = Math.floor((e.clientX - r.left) / (r.width / W));
-        const ty = Math.floor((e.clientY - r.top) / (r.height / H));
-        if (game.world.inBounds(tx, ty)) { game.walkToFar({ x: tx, y: ty }); this.closeModal(); }
+        const tpp = W / r.width;     // tiles per on-screen pixel
+        const fx = (e.clientX - r.left) * tpp, fy = (e.clientY - r.top) * tpp;
+        const tx = Math.floor(fx), ty = Math.floor(fy);
+        if (!game.world.inBounds(tx, ty)) return;
+        const reach = Math.max(2, 12 * tpp);
+        let best = null, bd = Infinity;
+        for (const m of list) {
+          const d = Math.hypot(m.x + 0.5 - fx, m.y + 0.5 - fy) - (m.big ? 1.5 : 0);
+          if (d < reach && d < bd) { bd = d; best = m; }
+        }
+        sel = best || { x: tx, y: ty, label: game.world.zoneAt(tx, ty)?.name || 'Open ground' };
+        render(body);
       });
       body.appendChild(cnv);
-      const legend = document.createElement('div');
-      legend.className = 'modal-hint worldmap-legend';
-      legend.innerHTML = 'Click the map to travel. &nbsp; <b style="color:#d8324a">●</b> You &nbsp; <b style="color:#ffd24a">▪</b> Bank &nbsp; <b style="color:#fff">▪</b> MRT &nbsp; <b style="color:#6aa0ff">▪</b> Monument &nbsp; <b style="color:#f5a623">▪</b> Obelisk &nbsp; <b style="color:#7fd8ff">▪</b> Fishing';
-      body.appendChild(legend);
+      const info = document.createElement('div');
+      info.className = 'wm-info';
+      if (!sel) {
+        info.innerHTML = '<span>Tap the map or a marker to pick where to go. Tap an <b>M</b> station you have found to ride the MRT.</span>';
+      } else {
+        const dist = Math.max(Math.abs(sel.x - game.player.x), Math.abs(sel.y - game.player.y));
+        info.innerHTML = `<span><b>${sel.label}</b> · ${dist} tiles away</span>`;
+        const btn = (text, fn, cls = '') => {
+          const b = document.createElement('button'); b.className = 'wm-go ' + cls; b.textContent = text;
+          b.addEventListener('click', fn); info.appendChild(b);
+        };
+        if (sel.station && !sel.locked) btn(`Ride MRT (${MRT_FARE} coins)`, () => game.mrtFromMap(sel.station.id), 'ride');
+        if (sel.obj) btn('Go', () => game.goToObject(sel.obj));
+        else btn('Walk here', () => { game._pathBudget = 150000; try { game.walkToFar({ x: sel.x, y: sel.y }); } finally { game._pathBudget = 0; } this.closeModal(); });
+      }
+      body.appendChild(info);
     };
     this.openModal('World Map — Singapore', render);
     this.modal.kind = 'worldmap';
