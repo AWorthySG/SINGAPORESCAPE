@@ -1844,3 +1844,18 @@ body.boss-on #tip-toast { top: 132px; }
   #boss-bar-portrait { width: 46px; height: 46px; margin: -10px 0 -10px -10px; }
   #boss-bar-portrait .bp-badge { font-size: 12px; top: -7px; }
 }
+/* Ordinary monsters: a smaller, plainer bar and portrait (no ring colour, no badge). */
+#boss-bar.normal { width: min(300px, 56vw); padding: 4px 8px 5px; }
+#boss-bar.normal #boss-bar-name { font-size: 11.5px; font-weight: 800; margin-bottom: 3px; }
+#boss-bar.normal #boss-bar-track { height: 8px; }
+#boss-bar.normal #boss-bar-fill { background: #5aa86c; }
+#boss-bar.normal #boss-bar-portrait { width: 40px; height: 40px; margin: -8px 0 -8px -8px; border-width: 2px; border-color: var(--aw-card, #fff); box-shadow: 0 0 0 1.5px var(--aw-ink, #22304A); }
+#boss-bar.normal .bp-badge { display: none; }
+@media (max-width: 540px) {
+  #boss-bar.normal { width: min(240px, 62vw); }
+  #boss-bar.normal #boss-bar-portrait { width: 34px; height: 34px; margin: -6px 0 -6px -6px; }
+}
+/* Phones: the battle bar sits top-left (the objectives step down below it), clear of the minimap. */
+@media (max-width: 540px) {
+  #boss-bar, #boss-bar.normal { left: 12px; transform: none; top: 12px; width: calc(100vw - 168px); max-width: 260px; animation: none; }
+}

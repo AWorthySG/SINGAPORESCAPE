@@ -1170,14 +1170,19 @@ export class UI {
     const p = g.player;
     // The boss we're engaged with: fighting us, being fought, or freshly hurt.
     // Champions get the bar too, in gold.
-    const boss = g.npcs.find((n) => n.alive && (n.def.boss || n.champion) &&
-      Math.abs(n.x - p.x) <= 16 && Math.abs(n.y - p.y) <= 16 &&
-      (n.target === p || p.target === n || n.combatLatch > 0));
+    const engaged = (n) => n.alive && Math.abs(n.x - p.x) <= 16 && Math.abs(n.y - p.y) <= 16 &&
+      (n.target === p || p.target === n || n.combatLatch > 0);
+    // A boss or champion takes the bar; otherwise the ordinary monster you're
+    // fighting gets a smaller, plainer one.
+    const boss = g.npcs.find((n) => (n.def.boss || n.champion) && engaged(n))
+      || (p.target && p.target.attackable && engaged(p.target) ? p.target : null)
+      || g.npcs.find((n) => n.attackable && n.target === p && engaged(n));
     const on = !!boss && p.alive;
     document.body.classList.toggle('boss-on', on);   // lets the tracker/tips move out of its way
     if (!on) { this.el.bossBar.classList.add('hidden'); return; }
     this.el.bossBar.classList.remove('hidden');
     this.el.bossBar.classList.toggle('champion', !!boss.champion);
+    this.el.bossBar.classList.toggle('normal', !boss.def.boss && !boss.champion);
     const warn = g.hazards.some((h) => h.npc === boss);
     this.el.bossBar.classList.toggle('warn', warn);
     this.el.bossBarName.textContent = warn ? '⚠ Get out of the red!'
@@ -1194,7 +1199,7 @@ export class UI {
         const img = pe.querySelector('.bp-img');
         img.style.backgroundImage = pr ? `url("${pr.src}")` : '';
         img.style.backgroundPosition = pr ? pr.pos : '';
-        pe.querySelector('.bp-badge').textContent = boss.champion ? '★' : '♛';
+        pe.querySelector('.bp-badge').textContent = boss.champion ? '★' : boss.def.boss ? '♛' : '';
       }
     }
     // A flash on the portrait when the foe takes a hit.
