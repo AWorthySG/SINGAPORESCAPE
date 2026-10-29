@@ -73,3 +73,16 @@ test('a new route that heads back the way we came turns round at once, with no s
   assert.ok(c.renderCenter().x < before.x, 'moving west, not finishing the eastward step first');
   assert.deepEqual(c.path, [{ x: 4, y: 5 }]);
 });
+
+test('camera zoom shows less of the world and maps the screen back to the right tile', () => {
+  const cam = new Camera();
+  cam.resize(1280, 720, 1.6);
+  assert.equal(cam.viewW, 800);
+  assert.equal(cam.viewH, 450);
+  cam.follow(1000, 1000);
+  // The centre of the screen is the camera's centre, at any zoom.
+  const w = cam.screenToWorld(640, 360);
+  assert.ok(Math.abs(w.x - 1000) < 1e-9 && Math.abs(w.y - 1000) < 1e-9);
+  const s = cam.worldToScreen(1000 + 16, 1000);
+  assert.ok(Math.abs(s.x - (640 + 16 * 1.6)) < 1e-9, 'world distances are scaled up on screen');
+});

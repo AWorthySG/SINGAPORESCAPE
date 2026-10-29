@@ -201,7 +201,10 @@ function creaturePose(c, opts, t, seed) {
     sy = 1 + br * 0.035; sx = 1 - br * 0.018;
   }
   if (opts.windup) dx += Math.sin(t * 0.09) * 0.9;                 // trembling as a heavy blow charges
-  if (opts.hurt > 0) dx += Math.sin(t * 0.11) * Math.min(1, opts.hurt / 200) * 2.6;   // flinch when struck
+  if (opts.hurt > 0) {   // flinch when struck: a shudder and a stagger back
+    const hk = Math.min(1, opts.hurt / 200);
+    dx += Math.sin(t * 0.11) * hk * 2.6 - hk * 1.5; rot -= hk * 0.08;
+  }
   if (opts.castK > 0) { const k = Math.sin(opts.castK * Math.PI); sy *= 1 + k * 0.12; sx *= 1 + k * 0.08; }
   c.translate(dx, dy + FEET); c.rotate(rot); c.scale(sx, sy); c.translate(0, -FEET);
 }
@@ -429,6 +432,10 @@ const PUPPET_KIND = {
   ghost: 'float', wisp: 'float', jellyfish: 'float',
   slime: 'squish', plant: 'sway',
 };
+// Walkers whose head sits on top (people, goblins, skeletons, golems, demons,
+// birds, mantises) rather than out in front; and those with a tail to swish.
+const HEAD_TOP = new Set(['humanoid', 'greenman', 'undead', 'golem', 'demon', 'fowl', 'mantis', 'primate']);
+const TAILED = new Set(['beast', 'hound', 'rodent', 'reptile']);
 export const puppetKinds = () => ({ ...PUPPET_KIND });
 const _puppetInfo = new Map();
 /** The painted area of a sticker (in its bitmap's pixels) and where its feet
@@ -452,14 +459,51 @@ function puppetInfo(key, sticker) {
       for (let y = cut; y <= y1; y++) for (let x = x0; x <= x1; x++) cols[x] += d[(y * W + x) * 4 + 3];
       let split = (x0 + x1) >> 1, best = Infinity;
       for (let x = Math.round(x0 + (x1 - x0) * 0.3); x < Math.round(x0 + (x1 - x0) * 0.7); x++) if (cols[x] < best) { best = cols[x]; split = x; }
-      inf = { x0, y0, x1: x1 + 1, y1: y1 + 1, cut, split };
+      // The actual legs: runs of filled columns along the very bottom (the feet),
+      // with small gaps closed and slivers dropped.
+      const foot = Math.round(y1 - (y1 - y0) * 0.1), fc = new Float64Array(W);
+      for (let y = foot; y <= y1; y++) for (let x = x0; x <= x1; x++) if (d[(y * W + x) * 4 + 3] > 120) fc[x]++;
+      const runs = [];
+      for (let x = x0; x <= x1; x++) {
+        if (fc[x] < 2) continue;
+        const last = runs[runs.length - 1];
+        if (last && x - last[1] <= 3) last[1] = x; else runs.push([x, x]);
+      }
+      const minW = (x1 - x0) * 0.04;
+      const legs = runs.filter(([a, b]) => b - a >= minW);
+      inf = { x0, y0, x1: x1 + 1, y1: y1 + 1, cut, split, legs: legs.length >= 2 && legs.length <= 6 ? legs : null };
     }
   } catch { inf = null; }
   _puppetInfo.set(key, inf);
   return inf;
 }
+// Moving pieces (head, tail, claws) are copied once into their own small
+// canvases. Drawing a sub-rectangle of the sticker directly, then nudging it,
+// let the smoothing pick up neighbouring pixels and left hairline seams.
+const _pieces = new WeakMap();
+function piece(src, x, y, w, h) {
+  let m = _pieces.get(src);
+  if (!m) { m = new Map(); _pieces.set(src, m); }
+  const k = `${x},${y},${w},${h}`;
+  let cv = m.get(k);
+  if (cv === undefined) {
+    try {
+      cv = document.createElement('canvas'); cv.width = w + 4; cv.height = h + 4;
+      cv.getContext('2d').drawImage(src, x, y, w, h, 2, 2, w, h);
+    } catch { cv = null; }
+    m.set(k, cv);
+  }
+  return cv;
+}
 function drawPuppet(c, src, kind, inf, opts, t, seed) {
   const R = ST_RES;
+  // A moving piece, from its own canvas (see piece()).
+  const mover = (sx, sy, sw, sh, dx = 0, dy = 0) => {
+    if (sw <= 0 || sh <= 0) return;
+    const cv = piece(src, sx, sy, sw, sh);
+    if (!cv) return blit(sx, sy, sw, sh, dx, dy);
+    c.drawImage(cv, ST_X0 + (sx - 2) / R + dx, ST_Y0 + (sy - 2) / R + dy, (sw + 4) / R, (sh + 4) / R);
+  };
   // Copy a pixel rectangle of the sticker to where it normally sits, nudged by (dx, dy) local units.
   const blit = (sx, sy, sw, sh, dx = 0, dy = 0) => {
     if (sw <= 0 || sh <= 0) return;
@@ -470,17 +514,60 @@ function drawPuppet(c, src, kind, inf, opts, t, seed) {
   const p = (opts.walk ?? 0) % 2;           // one footstep per tile walked (opts.gait is the hero's)
   const ph = seed * 0.37;
   if (kind === 'legs') {
-    const sw = Math.sin(p * Math.PI), back = Math.max(0, sw) * m, front = Math.max(0, -sw) * m;
-    blit(x0, cut, split - x0, y1 - cut, (back - front) * 1.2, -back * 2.4);
-    blit(split, cut, x1 - split, y1 - cut, (front - back) * 1.2, -front * 2.4);
-    blit(x0, y0, x1 - x0, cut - y0 + 1);    // body last, so a lifted foot tucks up behind it
+    const sw = Math.sin(p * Math.PI);
+    const step = (ph2) => { const v = ph2 ? -sw : sw; return { lift: Math.max(0, v) * m, fwd: v * m }; };
+    // Feet: each detected leg steps, diagonal pairs together (back-far with front-near);
+    // the belly between them stays put. Without clear legs, front and back halves step.
+    const legs = inf.legs;
+    if (legs) {
+      const n = legs.length, pad = 2;
+      let at = x0;
+      legs.forEach(([a, b], i) => {
+        const la = Math.max(at, a - pad), lb = Math.min(x1, b + pad + 1);
+        blit(at, cut, la - at, y1 - cut);                       // the stretch before this leg
+        const phase = n === 2 ? i : (i < n / 2 ? i % 2 : 1 - (i % 2));
+        const s2 = step(phase);
+        blit(la, cut, lb - la, y1 - cut, s2.fwd * 1.1, -s2.lift * 2.4);
+        at = lb;
+      });
+      blit(at, cut, x1 - at, y1 - cut);
+    } else {
+      const back = Math.max(0, sw) * m, front = Math.max(0, -sw) * m;
+      blit(x0, cut, split - x0, y1 - cut, (back - front) * 1.2, -back * 2.4);
+      blit(split, cut, x1 - split, y1 - cut, (front - back) * 1.2, -front * 2.4);
+    }
+    // Body, with the head and tail cut out so they can move on their own.
+    const top = HEAD_TOP.has(opts.sprite);
+    const bw = x1 - x0, bh = cut - y0;
+    const head = top
+      ? { x: Math.round(x0 + bw * 0.28), y: y0, w: Math.round(bw * 0.44), h: Math.round(bh * 0.42) }
+      : { x: Math.round(x0 + bw * 0.66), y: y0, w: x1 - Math.round(x0 + bw * 0.66), h: Math.round(bh * 0.72) };
+    const tail = TAILED.has(opts.sprite) ? { x: x0, y: Math.round(y0 + bh * 0.1), w: Math.round(bw * 0.2), h: Math.round(bh * 0.75) } : null;
+    // The whole body goes down first and the head and tail are redrawn on top,
+    // nudged. Cutting holes for them instead left hairline seams where the
+    // edges were smoothed; small nudges over the full body leave none.
+    blit(x0, y0, bw, bh + 1);
+    if (tail) {
+      const sway = Math.sin(t * (m > 0.3 ? 0.012 : 0.004) + ph) * (m > 0.3 ? 1.1 : 0.6);
+      mover(tail.x, tail.y, tail.w, tail.h, -Math.abs(sway) * 0.3, sway);
+    }
+    // Head: nods with each step, glances about when idle, lunges forward to bite.
+    const a = atkPhase(opts.attackK ?? -1);
+    const idleLook = Math.sin(t * 0.0011 + ph) > 0.55 ? Math.sin(t * 0.004 + ph) * 0.7 : 0;
+    let hx = idleLook * (1 - m), hy = -Math.abs(sw) * 1.1 * m + Math.sin(t * 0.0026 + ph) * 0.35 * (1 - m);
+    if (a) { hx += (top ? 0.8 : 2.4) * a.hit - 0.9 * a.wind; hy += 0.9 * a.wind - 0.6 * a.hit; }
+    mover(head.x, head.y, head.w, head.h, hx, hy);
   } else if (kind === 'scuttle') {
     const c2 = Math.round(y1 - (y1 - y0) * 0.32), n = 4, w = (x1 - x0) / n;
     for (let i = 0; i < n; i++) {
       const lift = m * Math.max(0, Math.sin(p * Math.PI * 2 + i * Math.PI / 2)) * 2;
       blit(Math.floor(x0 + i * w), c2, Math.ceil(w) + 1, y1 - c2, 0, -lift);
     }
-    blit(x0, y0, x1 - x0, c2 - y0 + 1);
+    // The front third (claws, fangs) rears up and snaps down on an attack.
+    const a = atkPhase(opts.attackK ?? -1);
+    const fx = Math.round(x0 + (x1 - x0) * 0.66);
+    blit(x0, y0, fx - x0 + 5, c2 - y0 + 1);   // a little past the joint, so no gap opens
+    mover(fx, y0, x1 - fx, c2 - y0 + 1, a ? 1.6 * a.hit : 0, a ? -2 * a.wind + 1 * a.hit : Math.sin(t * 0.003 + ph) * 0.3);
   } else if (kind === 'wings') {
     // The top of the picture (the wings) stretches up and down about the back.
     const spd = opts.sprite === 'insect' ? 0.05 : opts.sprite === 'bat' ? 0.02 : (m > 0.3 ? 0.012 : 0.006);

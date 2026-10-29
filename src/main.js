@@ -5,6 +5,10 @@ import { Input } from './engine/input.js';
 import { MovePad } from './engine/movepad.js';
 import { Sfx } from './audio/sfx.js';
 import { now } from './core/utils.js';
+import { TILE } from './config.js';
+
+const VIEW_TILES = 15;        // tiles shown across the shorter side of the screen, at most
+const VIEW_TILES_LONG = 24;   // ...and along the longer side
 
 const ABILITY_KEYS = new Set(['z', 'x', 'c', 'v', 'b']);   // resolved against the weapon in hand
 
@@ -72,8 +76,11 @@ function resize() {
   const w = window.innerWidth, h = window.innerHeight;
   canvas.width = Math.floor(w * dpr);
   canvas.height = Math.floor(h * dpr);
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  game.camera.resize(w, h);
+  // Zoom the world in so it never looks far away: at most VIEW_TILES tiles across
+  // the shorter side and VIEW_TILES_LONG along the longer one.
+  const zoom = Math.max(1, Math.min(2.2, Math.max(Math.min(w, h) / (VIEW_TILES * TILE), Math.max(w, h) / (VIEW_TILES_LONG * TILE))));
+  ctx.setTransform(dpr * zoom, 0, 0, dpr * zoom, 0, 0);
+  game.camera.resize(w, h, zoom);
 }
 window.addEventListener('resize', resize);
 resize();

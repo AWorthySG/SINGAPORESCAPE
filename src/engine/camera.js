@@ -8,12 +8,16 @@ export class Camera {
     this.cy = 0;
     this.viewW = 0;
     this.viewH = 0;
+    this.zoom = 1;     // screen pixels per world pixel
     this.snapped = false;
   }
 
-  resize(w, h) {
-    this.viewW = w;
-    this.viewH = h;
+  /** Size the view to a screen of w x h CSS pixels at the given zoom: the view
+   *  (viewW/viewH) is measured in world pixels, so a bigger zoom shows less. */
+  resize(w, h, zoom = 1) {
+    this.zoom = zoom;
+    this.viewW = w / zoom;
+    this.viewH = h / zoom;
   }
 
   /**
@@ -45,11 +49,11 @@ export class Camera {
   get originY() { return this.cy - this.viewH / 2; }
 
   worldToScreen(wx, wy) {
-    return { x: wx - this.originX, y: wy - this.originY };
+    return { x: (wx - this.originX) * this.zoom, y: (wy - this.originY) * this.zoom };
   }
 
   screenToWorld(sx, sy) {
-    return { x: sx + this.originX, y: sy + this.originY };
+    return { x: sx / this.zoom + this.originX, y: sy / this.zoom + this.originY };
   }
 
   /** Convert a screen pixel to a tile coordinate. */
