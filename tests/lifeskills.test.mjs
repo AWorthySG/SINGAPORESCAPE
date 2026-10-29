@@ -122,3 +122,15 @@ test('Go from a guide walks to the nearest spot, however far', () => {
   assert.ok(game.player.action?.type === 'smeltmenu' || game.player.isMoving);
   assert.equal(game.goToNearest(['no_such_thing']), false);
 });
+
+test('the beginner trees nearest town are clear of strong monsters', () => {
+  const game = newGame();
+  const here = game.playerTile();
+  const trees = game.world.objects.filter((o) => o.objId === 'tree')
+    .sort((a, b) => Math.hypot(a.x - here.x, a.y - here.y) - Math.hypot(b.x - here.x, b.y - here.y)).slice(0, 10);
+  for (const t of trees) {
+    const foe = game.npcs.find((n) => n.attackable && (n.def.boss || n.def.level > 10)
+      && Math.max(Math.abs(n.x - t.x), Math.abs(n.y - t.y)) <= 9);
+    assert.ok(!foe, `tree at ${t.x},${t.y} has ${foe?.name} (level ${foe?.def.level}) nearby`);
+  }
+});

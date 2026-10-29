@@ -819,6 +819,50 @@ export function buildWorld() {
     }
   }
 
+  // ================= Beginner grove =================
+  // Bukit Timah's plain trees used to be scattered among level 40 monsters, so a
+  // new player sent to chop their first logs got mauled. Gather them into a grove
+  // just north of Kampong Glam's gate, and send anything stronger than the town's
+  // chickens and rats (and any boss) further off within its own region, far
+  // enough that wandering and aggro range don't bring it back. Its own stream, last, so nothing
+  // placed earlier moves.
+  R = mulberry32(20261029);
+  {
+    const G = { x0: 48, y0: 32, x1: 80, y1: 43 };          // the grove
+    const inGrove = (x, y) => x >= G.x0 && x <= G.x1 && y >= G.y0 && y <= G.y1;
+    const BT = zones.find((z) => z.name === 'Bukit Timah');
+    const randIn = (x0, y0, x1, y1, ok) => {
+      for (let att = 0; att < 400; att++) {
+        const x = x0 + Math.floor(R() * (x1 - x0 + 1)), y = y0 + Math.floor(R() * (y1 - y0 + 1));
+        if (ok(x, y)) return [x, y];
+      }
+      return null;
+    };
+    const npcAt = new Set(npcSpawns.map((s) => key(s.x, s.y)));
+    for (const o of objects) {
+      if (o.objId !== 'tree' || inGrove(o.x, o.y) || o.x < BT.x0 || o.x > BT.x1 || o.y < BT.y0 || o.y > BT.y1) continue;
+      const spot = randIn(G.x0, G.y0, G.x1, G.y1, (x, y) => GRASSY.includes(get(x, y)) && isFree(x, y) && !npcAt.has(key(x, y)));
+      if (!spot) continue;
+      occupied.delete(key(o.x, o.y));
+      o.x = spot[0]; o.y = spot[1];
+      occupied.add(key(o.x, o.y));
+    }
+    // Strong monsters keep at least 10 tiles clear of the grove (aggro range 4 plus wander).
+    const tooStrong = (s) => !s.opts && NPCS[s.npcId]?.attackable && (NPCS[s.npcId].boss || NPCS[s.npcId].level > 10);
+    const gap = (x, y) => Math.max(G.x0 - x, x - G.x1, G.y0 - y, y - G.y1, 0);
+    for (const s of npcSpawns) {
+      if (!tooStrong(s) || gap(s.x, s.y) > 9) continue;
+      const z = zones.find((q) => s.x >= q.x0 && s.x <= q.x1 && s.y >= q.y0 && s.y <= q.y1) || BT;
+      const spot = randIn(z.x0, z.y0, z.x1, z.y1, (x, y) => gap(x, y) > 9 && !inTown(x, y)
+        && LANDABLE.includes(get(x, y)) && !occupied.has(key(x, y)) && !npcAt.has(key(x, y)));
+      if (!spot) continue;
+      npcAt.delete(key(s.x, s.y));
+      s.x = spot[0]; s.y = spot[1];
+      s.wander = Math.min(s.wander, 3);
+      npcAt.add(key(s.x, s.y));
+    }
+  }
+
   // --- Border fence ---
   for (let x = 0; x < W; x++) { placeObj('fence', x, 0); placeObj('fence', x, H - 1); }
   for (let y = 0; y < H; y++) { placeObj('fence', 0, y); placeObj('fence', W - 1, y); }
