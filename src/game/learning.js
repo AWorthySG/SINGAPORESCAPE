@@ -25,6 +25,7 @@ export class Learning {
     this.title = null;     // chosen title (topic id whose title you wear)
     this.mistakes = [];    // question ids you got wrong and haven't since got right (bounties)
     this.daily = { date: null, streak: 0, best: 0 };   // last day the daily revision was finished
+    this.hawker = { date: null, best: 0, runs: 0 };    // hawker stall: last paid day, best profit, runs played
   }
 
   get level() { return levelForXp(this.xp); }
@@ -126,7 +127,7 @@ export class Learning {
   titles() { return TOPICS.filter((t) => this.isMastered(t.id)); }
   titleText() { return this.title && this.isMastered(this.title) ? TOPIC_BY_ID[this.title].title : null; }
 
-  serialize() { return { xp: this.xp, topics: this.topics, known: this.known, title: this.title, mistakes: this.mistakes, daily: this.daily }; }
+  serialize() { return { xp: this.xp, topics: this.topics, known: this.known, title: this.title, mistakes: this.mistakes, daily: this.daily, hawker: this.hawker }; }
 
   load(d) {
     if (!d || typeof d !== 'object') return;
@@ -144,6 +145,10 @@ export class Learning {
     if (d.known && typeof d.known === 'object') this.known = { ...d.known };
     if (typeof d.title === 'string' && TOPIC_BY_ID[d.title]) this.title = d.title;
     if (Array.isArray(d.mistakes)) this.mistakes = d.mistakes.filter((id) => QUESTIONS.some((q) => q.id === id)).slice(-60);
+    if (d.hawker && typeof d.hawker === 'object') {
+      this.hawker = { date: typeof d.hawker.date === 'string' ? d.hawker.date : null,
+        best: Number(d.hawker.best) || 0, runs: Number(d.hawker.runs) || 0 };
+    }
     if (d.daily && typeof d.daily === 'object') {
       this.daily = { date: typeof d.daily.date === 'string' ? d.daily.date : null,
         streak: Number(d.daily.streak) || 0, best: Number(d.daily.best) || 0 };

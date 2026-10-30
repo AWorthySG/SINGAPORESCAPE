@@ -2134,6 +2134,24 @@ export class Game {
     return r;
   }
 
+  /** A five-day hawker stall run finished. Wisdom XP for how close you came to
+   *  the best possible profit; coins from your profit on the first run each day. */
+  finishHawker(sum) {
+    const L = this.learning, H = L.hawker, today = this.todayKey();
+    const xp = 40 + Math.round(160 * sum.score);
+    const before = L.level;
+    L.xp += xp;
+    const coins = H.date === today ? 0 : Math.max(0, Math.round(sum.profit * 2));
+    if (coins) this.inventory.add('coins', coins);
+    H.date = today; H.runs++;
+    const record = sum.profit > H.best;
+    if (record) H.best = sum.profit;
+    if (L.level > before) this.msg(`Your Wisdom is now level ${L.level}!`, 'level');
+    this.msg(`Hawker stall closed: $${sum.profit.toFixed(2)} profit (${Math.round(sum.score * 100)}% of the best possible). +${xp} Wisdom xp${coins ? `, +${coins} coins` : ''}.`, 'level');
+    this.bus.emit('learning');
+    return { xp, coins, record };
+  }
+
   /** The Knowledge Strike was answered (or ran out of time: correct = false). */
   answerKnowledgeStrike(correct) {
     const ks = this._ks;
