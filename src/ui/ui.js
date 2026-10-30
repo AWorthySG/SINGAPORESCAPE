@@ -1093,6 +1093,11 @@ export class UI {
         mb.addEventListener('click', () => this.openStudy({ mistakes: true }));
         habits.appendChild(mb);
       }
+      const cl = document.createElement('button');
+      cl.className = 'wm-go class-btn';
+      cl.textContent = g.classroom.joined ? `🏫 ${g.classroom.name || 'My class'}` : '🏫 Join a class';
+      cl.addEventListener('click', () => this.openClass());
+      habits.appendChild(cl);
       const rc = document.createElement('button');
       rc.className = 'wm-go ride';
       rc.textContent = '📋 Report card';
@@ -1153,6 +1158,93 @@ export class UI {
     };
     this.openModal('Knowledge Codex', render);
     this.modal.kind = 'codex';
+  }
+
+  /** Your class: join with the teacher's code, see the weekly raid boss the
+   *  whole class is fighting with correct answers, and the effort leaderboard.
+   *  Teachers create classes (with a PIN) and can restart the week. */
+  openClass() {
+    const g = this.game, C = g.classroom;
+    let status = '', busy = false;
+    const act = async (body, fn) => {
+      if (busy) return;
+      busy = true; status = 'Contacting the class server…'; render(body);
+      try { const msg = await fn(); status = typeof msg === 'string' ? msg : ''; } catch (e) { status = `⚠️ ${e.message}`; }
+      busy = false;
+      if (this.modal?.kind === 'class') render(body);
+    };
+    const field = (label, cls, attrs = '') => `<label class="cl-field">${label}<input class="${cls}" ${attrs}></label>`;
+    const render = (body) => {
+      body.innerHTML = '';
+      if (status) body.insertAdjacentHTML('beforeend', `<div class="cl-status">${status}</div>`);
+      if (!C.joined) {
+        body.insertAdjacentHTML('beforeend', '<div class="modal-hint">Join your class with the code your teacher shared. Every question you get right damages your class’s weekly raid boss, and the Wisdom you earn puts you on the class leaderboard (ranked by effort this week).</div>' +
+          field('Class code', 'cl-code', 'maxlength="6" placeholder="e.g. K7QF3M" autocapitalize="characters"') +
+          field('Your name (as your teacher knows you)', 'cl-name', `maxlength="24" value="${g.player.name.replace(/"/g, '')}"`));
+        const join = document.createElement('button');
+        join.className = 'wm-go'; join.textContent = 'Join class';
+        join.addEventListener('click', () => {
+          const code = body.querySelector('.cl-code').value, name = body.querySelector('.cl-name').value.trim();
+          act(body, () => C.join(code, name).then(() => g.bus.emit('learning')));
+        });
+        body.appendChild(join);
+        // Teachers: make a class and get its code.
+        const det = document.createElement('details');
+        det.className = 'rc-verify';
+        det.innerHTML = '<summary>Teachers: create a class</summary>' + field('Class name', 'cl-cname', 'maxlength="40" placeholder="e.g. Econ 4A"') +
+          field('Teacher PIN (to restart the week later)', 'cl-pin', 'type="password" minlength="4"') + '<div class="cl-made"></div>';
+        const mk = document.createElement('button');
+        mk.className = 'wm-go ride'; mk.textContent = 'Create class';
+        mk.addEventListener('click', () => {
+          const name = det.querySelector('.cl-cname').value, pin = det.querySelector('.cl-pin').value;
+          act(body, async () => { const r = await C.create(name, pin); return `✅ Class “${r.name.replace(/</g, '&lt;')}” created. Share this code with students: <b class="cl-codeout">${r.code}</b>`; });
+        });
+        det.appendChild(mk);
+        body.appendChild(det);
+        return;
+      }
+      const v = C.view;
+      body.insertAdjacentHTML('beforeend', `<div class="rc-head"><b>${C.name || 'My class'}</b><span>Code <code>${C.code}</code> · you are ${C.student}${v ? ` · ${v.members} students` : ''}${C.pending.correct ? ` · ${C.pending.correct} answers waiting to sync` : ''}</span></div>`);
+      if (!v) {
+        body.insertAdjacentHTML('beforeend', '<div class="modal-hint">Loading your class…</div>');
+        if (!busy && !status) act(body, () => C.flush().then(() => C.refresh()));
+      } else {
+        const pct = Math.round((v.raid.damage / v.raid.max) * 100);
+        body.insertAdjacentHTML('beforeend', `<div class="cl-raid"><b>⚔️ This week’s raid: ${v.raid.boss}</b>` +
+          `<div class="cl-hp"><i style="width:${100 - pct}%"></i><span>${v.raid.defeated ? 'Defeated!' : `${v.raid.max - v.raid.damage} / ${v.raid.max} HP`}</span></div>` +
+          `<span class="cl-sub">Each correct answer by anyone in the class deals 10 damage.</span></div>`);
+        if (C.canClaim()) {
+          const cb = document.createElement('button');
+          cb.className = 'wm-go'; cb.textContent = '🎁 Claim raid reward (+500 coins)';
+          cb.addEventListener('click', () => { g.claimRaidReward(); render(body); });
+          body.appendChild(cb);
+        }
+        const rows = v.board.map((r, i) => `<tr${r.name === C.student ? ' class="me"' : ''}><td>${i + 1}</td><td>${r.name.replace(/</g, '&lt;')}</td><td>${r.wisdom}</td></tr>`).join('');
+        body.insertAdjacentHTML('beforeend', `<div class="skill-group">Effort leaderboard · Wisdom this week</div>` +
+          (rows ? `<table class="rc-table cl-board"><tbody>${rows}</tbody></table>` : '<div class="modal-hint">No answers yet this week: be the first!</div>') +
+          (v.me && v.me.rank && v.me.rank > 10 ? `<div class="modal-hint">You are #${v.me.rank} with ${v.me.wisdom} Wisdom.</div>` : ''));
+      }
+      const row = document.createElement('div');
+      row.className = 'study-row rc-actions';
+      const sync = document.createElement('button');
+      sync.className = 'wm-go'; sync.textContent = 'Sync & refresh';
+      sync.addEventListener('click', () => act(body, () => C.flush().then(() => C.refresh())));
+      const leave = document.createElement('button');
+      leave.className = 'wm-go ride'; leave.textContent = 'Leave class';
+      leave.addEventListener('click', () => { C.leave(); g.bus.emit('learning'); render(body); });
+      row.append(sync, leave);
+      body.appendChild(row);
+      const det = document.createElement('details');
+      det.className = 'rc-verify';
+      det.innerHTML = '<summary>Teachers: restart this week’s raid and leaderboard</summary>' + field('Teacher PIN', 'cl-rpin', 'type="password"');
+      const rs = document.createElement('button');
+      rs.className = 'wm-go ride'; rs.textContent = 'Restart the week';
+      rs.addEventListener('click', () => act(body, () => C.reset(det.querySelector('.cl-rpin').value)));
+      det.appendChild(rs);
+      body.appendChild(det);
+    };
+    this.openModal('My class', render);
+    this.modal.kind = 'class';
   }
 
   /** The learning report card: mastery per learning objective, to copy,

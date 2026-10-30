@@ -42,6 +42,7 @@ export function snapshot(game) {
     zonesVisited: [...game.zonesVisited],
     stationsFound: [...game.stationsFound],
     learning: game.learning.serialize(),
+    classroom: game.classroom.serialize(),
     kills: game.kills,
     slayer: game.slayer,
     bounties: game.bounties,
@@ -142,6 +143,7 @@ export function loadGame(game) {
   }
   if (data.settings?.autoGather === true) game.autoGather = true;
   if (data.learning) game.learning.load(data.learning);
+  if (data.classroom) game.classroom.load(data.classroom);
   if (data.settings?.knowledgeStrikes === false) game.knowledgeStrikes = false;
   const ac = data.settings?.autoCfg;
   if (ac && typeof ac === 'object') {
