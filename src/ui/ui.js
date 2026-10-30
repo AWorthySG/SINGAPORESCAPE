@@ -14,6 +14,7 @@ import { OBJECTS } from '../data/objects.js';
 import { SUBJECTS, SUBJECT_BY_ID, TOPICS, TOPIC_BY_ID } from '../data/questions.js';
 import { DAILY_COUNT } from '../game/learning.js';
 import * as Hawker from '../game/hawker.js';
+import { buildReport, verifyReport } from '../game/report.js';
 import { getDialogue } from '../data/dialogue.js';
 import { MONSTER_IDS, BOSS_IDS, getNpc } from '../data/npcs.js';
 import { levelProgress, xpToNext } from '../data/xp.js';
@@ -1092,6 +1093,11 @@ export class UI {
         mb.addEventListener('click', () => this.openStudy({ mistakes: true }));
         habits.appendChild(mb);
       }
+      const rc = document.createElement('button');
+      rc.className = 'wm-go ride';
+      rc.textContent = '📋 Report card';
+      rc.addEventListener('click', () => this.openReport());
+      habits.appendChild(rc);
       body.appendChild(habits);
       body.appendChild(ks);
       // Perks earned from each subject, and the title picker.
@@ -1147,6 +1153,73 @@ export class UI {
     };
     this.openModal('Knowledge Codex', render);
     this.modal.kind = 'codex';
+  }
+
+  /** The learning report card: mastery per learning objective, to copy,
+   *  download or print and hand in through the LMS. Teachers can paste a
+   *  report back in to check its code. */
+  openReport() {
+    const g = this.game;
+    const rep = buildReport(g.learning, { name: g.player.name });
+    const render = (body) => {
+      body.innerHTML = '';
+      const t = rep.totals;
+      const head = document.createElement('div');
+      head.className = 'rc-head';
+      head.innerHTML = `<b>${g.player.name}</b><span>Wisdom ${t.wisdom} · ${t.mastered}/${t.topics} topics mastered · ${t.answered} questions${t.accuracy !== null ? ` · ${t.accuracy}% correct` : ''}</span>` +
+        `<span>Daily streak ${t.streak} (best ${t.bestStreak}) · ${t.openMistakes} mistakes to revisit · check code <code>${rep.code}</code></span>`;
+      body.appendChild(head);
+      const table = document.createElement('table');
+      table.className = 'rc-table';
+      table.innerHTML = '<thead><tr><th>Learning objective</th><th>Mastery</th><th>Right</th><th>Wrong</th></tr></thead>';
+      const tb = document.createElement('tbody');
+      for (const sb of SUBJECTS) {
+        tb.insertAdjacentHTML('beforeend', `<tr class="rc-sub"><td colspan="4" style="--sc:${sb.color}">${sb.name}</td></tr>`);
+        for (const r of rep.rows.filter((x) => x.subject === sb.id)) {
+          tb.insertAdjacentHTML('beforeend', `<tr><td>${r.topic}</td><td>${r.mastered ? '<b class="rc-m">Mastered</b>' : `${r.mastery}%`}</td><td>${r.correct}</td><td>${r.wrong}</td></tr>`);
+        }
+      }
+      table.appendChild(tb);
+      body.appendChild(table);
+      const row = document.createElement('div');
+      row.className = 'study-row rc-actions';
+      const btn = (label, fn, cls = '') => { const b = document.createElement('button'); b.className = 'wm-go ' + cls; b.textContent = label; b.addEventListener('click', fn); row.appendChild(b); return b; };
+      const copy = btn('Copy', async () => {
+        try { await navigator.clipboard.writeText(rep.text); copy.textContent = 'Copied!'; } catch { copy.textContent = 'Copy failed: use Download'; }
+      });
+      btn('Download', () => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([rep.text], { type: 'text/plain' }));
+        a.download = `singaporescape-report-${g.player.name.replace(/[^a-z0-9]+/gi, '_')}.txt`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+      });
+      btn('Print / PDF', () => {
+        const w = window.open('', '_blank');
+        if (!w) return;
+        w.document.title = 'SingaporeScape learning report';
+        const pre = w.document.createElement('pre');
+        pre.style.cssText = 'font:14px/1.5 ui-monospace,Menlo,monospace;white-space:pre-wrap;padding:24px';
+        pre.textContent = rep.text;
+        w.document.body.appendChild(pre);
+        w.print();
+      }, 'ride');
+      body.appendChild(row);
+      body.insertAdjacentHTML('beforeend', '<div class="modal-hint">Hand this in through your LMS (paste it into an assignment, or upload the downloaded file).</div>');
+      // Teacher check: paste a report to see whether it was edited.
+      const det = document.createElement('details');
+      det.className = 'rc-verify';
+      det.innerHTML = '<summary>Teachers: check a report</summary><textarea rows="5" placeholder="Paste a report here"></textarea><div class="rc-result"></div>';
+      const ta = det.querySelector('textarea'), out = det.querySelector('.rc-result');
+      ta.addEventListener('input', () => {
+        const v = ta.value.trim();
+        out.textContent = !v ? '' : verifyReport(v) ? '✓ The check code matches: this report has not been edited.' : '✗ The check code does not match: the report was changed or is incomplete.';
+        out.className = 'rc-result ' + (v && verifyReport(v) ? 'ok' : 'no');
+      });
+      body.appendChild(det);
+    };
+    this.openModal('Learning report card', render);
+    this.modal.kind = 'report';
   }
 
   /** The hawker stall simulation: five days of setting a price and cooking

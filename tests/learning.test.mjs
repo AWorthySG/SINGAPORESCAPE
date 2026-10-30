@@ -171,3 +171,19 @@ test('hawker stall: demand, waste and the best price behave like the economics s
   assert.ok(first.coins > 0 && first.xp === 200 && first.record);
   assert.equal(game.finishHawker(sum).coins, 0, 'coins only on the first week each day');
 });
+
+test('report card: lists every learning objective and its check code catches edits', async () => {
+  const { buildReport, verifyReport } = await import('../src/game/report.js');
+  const L = new Learning();
+  const qs = QUESTIONS_BY_TOPIC.econ_elasticity;
+  for (let i = 0; i < MASTERY_CORRECT; i++) L.answer(qs[i], true);
+  L.answer(QUESTIONS_BY_TOPIC.math_algebra[0], false);
+  const rep = buildReport(L, { name: 'Wei Ling', date: new Date(2026, 9, 30) });
+  assert.equal(rep.rows.length, TOPICS.length);
+  assert.ok(rep.rows.find((r) => r.id === 'econ_elasticity').mastered);
+  assert.equal(rep.totals.mastered, 1);
+  assert.match(rep.text, /Student: Wei Ling/);
+  assert.match(rep.text, /\[MASTERED\] Elasticity: 6 right, 0 wrong/);
+  assert.ok(verifyReport(rep.text), 'an untouched report checks out');
+  assert.ok(!verifyReport(rep.text.replace('6 right', '9 right')), 'an edited one does not');
+});

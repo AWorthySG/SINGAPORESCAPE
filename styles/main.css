@@ -2002,3 +2002,18 @@ body.boss-on #tip-toast { top: 132px; }
 .hk-nums .neg, .hk-table .neg { color: #c03a3a; } .hk-nums .pos { color: #2f8a3a; }
 .hk-chart { flex: 1 1 220px; max-width: 280px; background: #fff; border: 2px solid var(--aw-ink); border-radius: 12px; }
 .hk-table { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; font-size: 12px; margin: 4px 0 6px; }
+/* Learning report card */
+.rc-head { display: flex; flex-direction: column; gap: 2px; font-size: 12px; margin-bottom: 8px; }
+.rc-head b { font-size: 16px; }
+.rc-head code { font-weight: 900; letter-spacing: .05em; }
+.rc-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.rc-table th { text-align: left; font-size: 11px; color: var(--aw-text-sec); border-bottom: 2px solid var(--aw-ink); padding: 3px 4px; }
+.rc-table td { padding: 3px 4px; border-bottom: 1px dashed rgba(34,48,74,.18); }
+.rc-table td:not(:first-child), .rc-table th:not(:first-child) { text-align: right; }
+.rc-sub td { font-weight: 900; color: var(--sc); padding-top: 8px; border-bottom: none; }
+.rc-m { color: #2f8a3a; }
+.rc-actions { justify-content: flex-start; flex-wrap: wrap; }
+.rc-verify { margin-top: 8px; font-size: 12.5px; }
+.rc-verify summary { cursor: pointer; font-weight: 800; }
+.rc-verify textarea { width: 100%; margin-top: 6px; font: 12px ui-monospace, Menlo, monospace; border-radius: 8px; border: 1.5px solid var(--aw-ink); padding: 6px; box-sizing: border-box; }
+.rc-result.ok { color: #2f8a3a; font-weight: 800; } .rc-result.no { color: #c03a3a; font-weight: 800; }
