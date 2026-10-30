@@ -101,3 +101,39 @@ test('Knowledge Strikes: a boss special waits for a question, and a right answer
   assert.ok(!game._ks);
   assert.equal(game.learning.topics[shown[1].topic].wrong >= 1, true);
 });
+
+test('mistake bounties: a wrong answer becomes a bounty worth double when you get it right later', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.ui = new Proxy({}, { get: () => () => {} });
+  const q = QUESTIONS_BY_TOPIC.math_algebra[0];
+  game.studyAnswer(q, false);
+  assert.deepEqual(game.learning.mistakes, [q.id]);
+  const coins = game.inventory.count('coins');
+  const r = game.studyAnswer(q, true);
+  assert.ok(r.bounty && r.xp === 120, 'double Wisdom XP');
+  assert.ok(game.inventory.count('coins') >= coins + 40, 'bounty coins (plus any Wisdom level-up coins)');
+  assert.deepEqual(game.learning.mistakes, []);
+  assert.equal(game.studyAnswer(q, true).bounty, false, 'only once');
+});
+
+test('daily revision: five questions, bounties first, with a streak across days', () => {
+  const L = new Learning();
+  const wrong = QUESTIONS_BY_TOPIC.english_grammar[2];
+  L.answer(wrong, false);
+  const set = L.dailySet();
+  assert.equal(set.length, 5);
+  assert.equal(set[0].id, wrong.id, 'your mistakes come first');
+  assert.equal(new Set(set.map((q) => q.id)).size, 5, 'no repeats');
+  assert.equal(L.finishDaily('2026-10-29', '2026-10-28').streak, 1);
+  assert.equal(L.finishDaily('2026-10-29', '2026-10-28'), null, 'once a day');
+  assert.equal(L.finishDaily('2026-10-30', '2026-10-29').streak, 2, 'the next day keeps the streak');
+  assert.equal(L.finishDaily('2026-11-02', '2026-11-01').streak, 1, 'a missed day resets it');
+  assert.equal(L.daily.best, 2);
+  const L2 = new Learning();
+  L2.load(JSON.parse(JSON.stringify(L.serialize())));
+  assert.deepEqual(L2.mistakes, L.mistakes);
+  assert.equal(L2.daily.date, '2026-11-02');
+});

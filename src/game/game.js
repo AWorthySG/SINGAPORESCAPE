@@ -264,6 +264,7 @@ export class Game {
     if (loaded) {
       this.starterGiven = true;
       this.msg(`Welcome back to ${this.world.townName}, ${this.player.name}!`, 'system');
+      if (!this.learning.dailyDone(this.todayKey())) this.msg('Your daily revision is ready in the Knowledge Codex (Skills tab).', 'level');
     } else {
       this.newGame();
     }
@@ -1603,6 +1604,10 @@ export class Game {
       this.msg(`Your Wisdom is now level ${r.levelUp}! (+${coins} coins)`, 'level');
       this.bus.emit('sfx', 'level');
     }
+    if (r.bounty) {
+      this.inventory.add('coins', 40);
+      this.msg('Mistake bounty cleared: you got it right this time! (double Wisdom XP, +40 coins)', 'level');
+    }
     if (r.mastered) {
       const t = TOPIC_BY_ID[question.topic];
       this.msg(`Topic mastered: ${t.name}! New Codex card and title: "${t.title}".`, 'level');
@@ -2109,6 +2114,24 @@ export class Game {
       }
     }
     this._fireBossSpecial(npc);
+  }
+
+  /** Local calendar day as YYYY-MM-DD (offset days back for "yesterday"). */
+  todayKey(back = 0) {
+    const d = new Date(Date.now() - back * 86400000);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  /** The daily revision was finished: coins, a streak, and a banner. */
+  finishDaily() {
+    const r = this.learning.finishDaily(this.todayKey(), this.todayKey(1));
+    if (!r) return null;
+    this.inventory.add('coins', r.coins);
+    this.msg(`Daily revision done! ${r.streak}-day streak · +${r.coins} coins.`, 'level');
+    this.banner(`<span class="big">Daily revision done!</span>🔥 ${r.streak}-day streak · +${r.coins} coins`);
+    this.spawnSparkle(this.player, '#ffd24a', 14);
+    this.bus.emit('learning');
+    return r;
   }
 
   /** The Knowledge Strike was answered (or ran out of time: correct = false). */

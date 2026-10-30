@@ -12,6 +12,7 @@ import { SKILLS, SKILL_GROUPS } from '../data/skills.js';
 import { SKILL_GUIDES, guideEntries } from '../game/skillguide.js';
 import { OBJECTS } from '../data/objects.js';
 import { SUBJECTS, SUBJECT_BY_ID, TOPICS, TOPIC_BY_ID } from '../data/questions.js';
+import { DAILY_COUNT } from '../game/learning.js';
 import { getDialogue } from '../data/dialogue.js';
 import { MONSTER_IDS, BOSS_IDS, getNpc } from '../data/npcs.js';
 import { levelProgress, xpToNext } from '../data/xp.js';
@@ -957,7 +958,9 @@ export class UI {
     const L = this.game.learning;
     const codexBtn = document.createElement('button');
     codexBtn.className = 'perks-open codex-open';
-    codexBtn.innerHTML = `<b>📖 Knowledge Codex · Wisdom ${L.level}</b><span>Study topics to master them: ${L.masteredCount()}/${TOPICS.length} cards collected</span>`;
+    const dailyReady = !L.dailyDone(this.game.todayKey());
+    codexBtn.classList.toggle('daily', dailyReady);
+    codexBtn.innerHTML = `<b>📖 Knowledge Codex · Wisdom ${L.level}${dailyReady ? ' · ✨ daily revision ready' : ''}</b><span>Study topics to master them: ${L.masteredCount()}/${TOPICS.length} cards collected</span>`;
     codexBtn.addEventListener('click', () => this.openCodex());
     grid.appendChild(codexBtn);
     for (const grp of SKILL_GROUPS) {
@@ -1071,13 +1074,31 @@ export class UI {
       mixed.addEventListener('click', () => this.openStudy({}));
       head.appendChild(mixed);
       body.appendChild(head);
+      // Daily revision and mistake bounties.
+      const habits = document.createElement('div');
+      habits.className = 'codex-habits';
+      const done = L.dailyDone(g.todayKey());
+      const daily = document.createElement('button');
+      daily.className = 'wm-go' + (done ? ' ride' : '');
+      daily.textContent = done ? `Daily done · 🔥 ${L.daily.streak}-day streak` : `✨ Daily revision (${DAILY_COUNT} questions)${L.daily.streak ? ` · 🔥 ${L.daily.streak}` : ''}`;
+      daily.disabled = done;
+      daily.addEventListener('click', () => this.openStudy({ queue: L.dailySet(), daily: true }));
+      habits.appendChild(daily);
+      if (L.mistakes.length) {
+        const mb = document.createElement('button');
+        mb.className = 'wm-go bounty';
+        mb.textContent = `🎯 Mistake bounties (${L.mistakes.length}): double XP`;
+        mb.addEventListener('click', () => this.openStudy({ mistakes: true }));
+        habits.appendChild(mb);
+      }
+      body.appendChild(habits);
       body.appendChild(ks);
       // Perks earned from each subject, and the title picker.
       const perks = L.perks();
       const perkVal = { econ: `${Math.round(perks.shop * 100)}% better shop prices`, math: `+${Math.round(perks.crit * 100)}% crit chance`, english: `+${Math.round(perks.acc * 100)}% accuracy` };
       const pk = document.createElement('div');
       pk.className = 'codex-perks';
-      pk.innerHTML = SUBJECTS.map((sb) => `<span style="--sc:${sb.color}" title="${sb.perkDesc}"><b>${sb.perk}</b> ${L.masteredIn(sb.id) ? perkVal[sb.id] : `master a ${sb.name} topic to unlock`}</span>`).join('');
+      pk.innerHTML = SUBJECTS.map((sb) => `<span style="--sc:${sb.color}" title="${sb.perkDesc}"><b>${sb.perk}</b> ${L.masteredIn(sb.id) ? perkVal[sb.id] : `master ${/^[AEIOU]/.test(sb.name) ? 'an' : 'a'} ${sb.name} topic to unlock`}</span>`).join('');
       body.appendChild(pk);
       const titles = L.titles();
       if (titles.length) {
@@ -1167,22 +1188,38 @@ export class UI {
    *  mixed), with the explanation after each answer. */
   openStudy(opts) {
     const g = this.game, L = g.learning;
-    let q = null, order = null, picked = null, result = null, streak = 0, answered = 0, right = 0;
+    let q = null, order = null, picked = null, result = null, streak = 0, answered = 0, right = 0, idx = 0, reward = null;
     const next = () => {
-      q = L.pick(opts); picked = null; result = null;
+      // A fixed set (the daily revision), your open bounties, or a free pick.
+      q = opts.queue ? opts.queue[idx++] || null : opts.mistakes ? (L.mistakes.length ? L.pick({ ids: L.mistakes }) : null) : L.pick(opts);
+      picked = null; result = null;
+      if (!q && opts.daily && !reward) reward = g.finishDaily() || { streak: L.daily.streak, coins: 0 };
       order = q ? q.answers.map((_, i) => i).sort(() => Math.random() - 0.5) : [];
     };
     next();
     const render = (body) => {
       body.innerHTML = '';
-      if (!q) { body.innerHTML = '<div class="modal-hint">No questions here yet.</div>'; return; }
+      if (!q) {
+        // End of a daily set or of the bounty list: a short summary.
+        const sum = document.createElement('div');
+        sum.className = 'study-summary';
+        sum.innerHTML = opts.daily ? `<b>Daily revision done!</b><span>${right}/${answered} right · 🔥 ${reward.streak}-day streak${reward.coins ? ` · +${reward.coins} coins` : ''}</span><span>Come back tomorrow to keep the streak going.</span>`
+          : opts.mistakes ? `<b>All mistake bounties cleared!</b><span>${right}/${answered} right this session.</span>`
+          : '<b>No questions here yet.</b>';
+        body.appendChild(sum);
+        const back = document.createElement('button');
+        back.className = 'wm-go'; back.textContent = 'Back to Codex';
+        back.addEventListener('click', () => this.openCodex());
+        body.appendChild(back);
+        return;
+      }
       const t = TOPIC_BY_ID[q.topic], sb = SUBJECT_BY_ID[t.subject];
       const top = document.createElement('div');
       top.className = 'study-top';
       top.style.setProperty('--sc', sb.color);
       const prog = Math.round(L.progress(t.id) * 100);
       top.innerHTML = `<span class="study-topic">${t.icon} ${sb.name} · ${t.name}</span>` +
-        `<span class="study-meta">${L.isMastered(t.id) ? 'Mastered ✓' : `Mastery ${prog}%`} · ${right}/${answered} this session${streak >= 3 ? ` · 🔥 ${streak} in a row` : ''}</span>`;
+        `<span class="study-meta">${opts.queue ? `Question ${idx} of ${opts.queue.length} · ` : ''}${L.isMastered(t.id) ? 'Mastered ✓' : `Mastery ${prog}%`} · ${right}/${answered} this session${streak >= 3 ? ` · 🔥 ${streak} in a row` : ''}</span>`;
       body.appendChild(top);
       const qe = document.createElement('div');
       qe.className = 'study-q'; qe.textContent = q.q;
@@ -1213,7 +1250,8 @@ export class UI {
       if (result) {
         const fb = document.createElement('div');
         fb.className = 'study-fb ' + (result.correct ? 'ok' : 'no');
-        fb.innerHTML = `<b>${result.correct ? 'Correct!' : 'Not quite.'}</b> <span class="study-xp">+${result.xp} Wisdom xp</span>` +
+        fb.innerHTML = `<b>${result.correct ? (result.bounty ? 'Bounty cleared! 🎯' : 'Correct!') : 'Not quite.'}</b> <span class="study-xp">+${result.xp} Wisdom xp${result.bounty ? ' · +40 coins' : ''}</span>` +
+          (!result.correct ? '<div class="study-note">Added to your mistake bounties: get it right later for double XP.</div>' : '') +
           (result.mastered ? `<div class="study-master">${t.icon} Topic mastered! Codex card and title “${t.title}” unlocked.</div>` : '');
         const why = document.createElement('div');
         why.className = 'study-why'; why.textContent = q.why;
@@ -1231,7 +1269,7 @@ export class UI {
         body.appendChild(row);
       }
     };
-    this.openModal(opts.topic ? `Study: ${TOPIC_BY_ID[opts.topic].name}` : 'Mixed revision', render);
+    this.openModal(opts.daily ? 'Daily revision' : opts.mistakes ? 'Mistake bounties' : opts.topic ? `Study: ${TOPIC_BY_ID[opts.topic].name}` : 'Mixed revision', render);
     this.modal.kind = 'study';
   }
 

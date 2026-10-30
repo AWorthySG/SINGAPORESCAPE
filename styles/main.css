@@ -1979,3 +1979,11 @@ body.boss-on #tip-toast { top: 132px; }
 .ks-timer i { display: block; height: 100%; background: #e05a3a; animation: ks-drain linear forwards; }
 @keyframes ks-drain { from { width: 100%; } to { width: 0; } }
 .codex-ks { margin-top: 0; }
+/* Daily revision and mistake bounties */
+.codex-open.daily { box-shadow: 0 0 0 2px #F5B82E, var(--shadow-sticker); }
+.codex-habits { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.codex-habits .wm-go:disabled { opacity: .85; cursor: default; }
+.wm-go.bounty { background: #8a4fd0; }
+.study-note { font-size: 11.5px; margin-top: 3px; color: #8a4fd0; font-weight: 700; }
+.study-summary { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; padding: 16px 8px; font-size: 13px; }
+.study-summary b { font-size: 18px; }
