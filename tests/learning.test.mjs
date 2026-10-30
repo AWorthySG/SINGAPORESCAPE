@@ -70,3 +70,34 @@ test('mastery unlocks a title and subject perks that change prices and crits', (
   assert.equal(g2.learning.titleText(), 'Equation Breaker');
   assert.equal(g2.learning.xp, game.learning.xp);
 });
+
+test('Knowledge Strikes: a boss special waits for a question, and a right answer interrupts it', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  const shown = [];
+  game.ui = new Proxy({ showKnowledgeStrike: (q) => shown.push(q) }, { get: (t, k) => (k in t ? t[k] : () => {}) });
+  assert.equal(game.knowledgeStrikes, false, 'off in headless runs so other tests keep normal bosses');
+  game.knowledgeStrikes = true;
+  const boss = game.npcs.find((n) => n.def.boss && n.alive);
+  boss.target = game.player;
+  const hp0 = boss.hp, php0 = game.player.hp;
+  game.bossSpecial(boss);
+  assert.ok(game._ks && shown.length === 1, 'a question pops up instead of the special');
+  assert.equal(game.player.hp, php0, 'nothing has hit you yet');
+  game.answerKnowledgeStrike(true);
+  assert.ok(!game._ks);
+  assert.ok(boss.hp < hp0, 'the interrupted boss takes a wound');
+  assert.equal(game.player.hp, php0, 'and its special never lands');
+  const st = game.learning.topics[shown[0].topic];
+  assert.equal(st.correct, 1, 'the answer counts toward mastery');
+
+  // Run out of time: the answer counts as wrong and the special goes off.
+  game.bossSpecial(boss);
+  assert.ok(game._ks);
+  game._ks.until = game.tickCount;
+  game._tickKnowledgeStrike();
+  assert.ok(!game._ks);
+  assert.equal(game.learning.topics[shown[1].topic].wrong >= 1, true);
+});

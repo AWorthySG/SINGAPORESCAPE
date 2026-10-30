@@ -101,6 +101,8 @@ const ALCHEMY = { level: 21, xp: 65, runes: { nature_rune: 1, fire_rune: 5 } };
 // Actions that can fire the instant you press (no random roll to exploit by spamming).
 const INSTANT_ACTIONS = new Set(['pickup', 'cookmenu', 'smeltmenu', 'smithmenu', 'craftmenu', 'fletchmenu', 'herbmenu', 'farm', 'pray', 'rest', 'transport', 'openbank', 'openshop', 'talk']);
 const GATHER_ACTIONS = new Set(['woodcut', 'mine', 'fish', 'stall']);
+// Ticks you get to answer a Knowledge Strike before the boss's special lands (~7s).
+const KS_TICKS = 12;
 
 export class Game {
   constructor() {
@@ -180,6 +182,10 @@ export class Game {
     this.zonesVisited = new Set();
     this.stationsFound = new Set(['kampong_glam']);   // MRT stations you can ride to from the world map
     this.learning = new Learning();   // Wisdom, topic mastery, Codex cards and titles
+    // Knowledge Strikes: bosses' specials can be interrupted by answering a question.
+    // On by default in the browser; headless runs (tests) leave bosses as they were.
+    this.knowledgeStrikes = typeof document !== 'undefined';
+    this._ks = null;
     this.achievements = new Set();
     this.kills = {}; // per-monster kill counts (bestiary)
 
@@ -623,6 +629,7 @@ export class Game {
   doTick() {
     this.tickCount++;
     this._tickBossEffects();
+    this._tickKnowledgeStrike();
     // Rhythm fades if the Dancer stops lashing for a few ticks.
     if (this.danceRhythm > 0 && this.tickCount - this._danceHitTick > 4) { this.danceRhythm = 0; this.bus.emit('rhythm'); }
     if (!this.player.alive) {
@@ -2088,7 +2095,54 @@ export class Game {
     return n;
   }
 
+  /** A boss winds up its special. With Knowledge Strikes on, a study question
+   *  pops up first: answer it right in time to interrupt the move. */
   bossSpecial(npc) {
+    if (!this.player.alive) return;
+    if (this.knowledgeStrikes && !this._ks && npc.target === this.player) {
+      const q = this.learning.pick();
+      if (q) {
+        this._ks = { npc, q, until: this.tickCount + KS_TICKS };
+        this.msg(`${npc.name} gathers its power: answer the Knowledge Strike to interrupt it!`, 'combat');
+        this.ui?.showKnowledgeStrike?.(q, KS_TICKS * TICK_MS, npc);
+        return;
+      }
+    }
+    this._fireBossSpecial(npc);
+  }
+
+  /** The Knowledge Strike was answered (or ran out of time: correct = false). */
+  answerKnowledgeStrike(correct) {
+    const ks = this._ks;
+    if (!ks) return null;
+    this._ks = null;
+    const r = this.studyAnswer(ks.q, correct);
+    const npc = ks.npc;
+    if (correct && npc.alive) {
+      // Interrupted: the boss staggers, takes a knowledge-shaped wound, and its special resets.
+      npc.attackCooldown = Math.max(npc.attackCooldown || 0, 4);
+      npc.specialCooldown = npc.def.specialEvery || 9;
+      const dmg = Math.min(npc.hp - 1, Math.max(1, Math.round(npc.maxHp * 0.06)));
+      if (dmg > 0) { npc.hp -= dmg; this.addHitsplat(npc, dmg, { crit: true }); }
+      this.addHitsplat(npc, 0, { text: 'Interrupted!' });
+      this.spawnSparkle(npc, '#7fd8ff', 16);
+      this.msg(`Knowledge Strike! You interrupt ${npc.name}.`, 'combat');
+      this.bus.emit('sfx', 'spec');
+    } else if (npc.alive && this.player.alive) {
+      this._fireBossSpecial(npc);
+    }
+    this.ui?.hideKnowledgeStrike?.(correct, ks.q);
+    return r;
+  }
+
+  _tickKnowledgeStrike() {
+    const ks = this._ks;
+    if (!ks) return;
+    if (!ks.npc.alive || !this.player.alive) { this._ks = null; this.ui?.hideKnowledgeStrike?.(null, ks.q); return; }
+    if (this.tickCount >= ks.until) this.answerKnowledgeStrike(false);
+  }
+
+  _fireBossSpecial(npc) {
     const p = this.player;
     if (!p.alive) return;
     this.addShake(3.5, 280);
