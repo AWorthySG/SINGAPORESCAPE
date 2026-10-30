@@ -137,3 +137,37 @@ test('daily revision: five questions, bounties first, with a streak across days'
   assert.deepEqual(L2.mistakes, L.mistakes);
   assert.equal(L2.daily.date, '2026-11-02');
 });
+
+test('hawker stall: demand, waste and the best price behave like the economics says', async () => {
+  const H = await import('../src/game/hawker.js');
+  const base = H.params('normal');
+  // Higher price, fewer customers; cooking too many wastes plates.
+  assert.ok(H.simulate(base, 6, 100).wanted < H.simulate(base, 3, 100).wanted);
+  const over = H.simulate(base, 4, 100);
+  assert.equal(over.unsold, 100 - over.wanted);
+  // The best price beats nearby prices.
+  const b = H.best(base);
+  for (const d of [-0.5, 0.5]) {
+    const p = Math.round((b.price + d) * 10) / 10;
+    assert.ok(H.simulate(base, p, Math.round(base.a - base.b * p)).profit <= b.profit);
+  }
+  // News moves the best price the right way.
+  assert.ok(H.best(H.params('lunch_crowd')).price > b.price, 'demand shifts right: charge more');
+  assert.ok(H.best(H.params('rice_up')).price > b.price, 'costs rise: charge more');
+  assert.ok(H.best(H.params('competitor')).price < b.price, 'more elastic: charge less');
+  // A full run, played perfectly, scores 100% and pays coins once a day.
+  const run = H.newRun();
+  assert.equal(run.events.length, H.DAYS);
+  assert.equal(new Set(run.events).size, H.DAYS);
+  while (run.day < H.DAYS) { const bb = H.best(H.params(run.events[run.day])); H.playDay(run, bb.price, bb.cooked); }
+  const sum = H.summary(run);
+  assert.equal(sum.score, 1);
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.ui = new Proxy({}, { get: () => () => {} });
+  const first = game.finishHawker(sum);
+  assert.ok(first.coins > 0 && first.xp === 200 && first.record);
+  assert.equal(game.finishHawker(sum).coins, 0, 'coins only on the first week each day');
+});

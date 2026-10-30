@@ -13,6 +13,7 @@ import { SKILL_GUIDES, guideEntries } from '../game/skillguide.js';
 import { OBJECTS } from '../data/objects.js';
 import { SUBJECTS, SUBJECT_BY_ID, TOPICS, TOPIC_BY_ID } from '../data/questions.js';
 import { DAILY_COUNT } from '../game/learning.js';
+import * as Hawker from '../game/hawker.js';
 import { getDialogue } from '../data/dialogue.js';
 import { MONSTER_IDS, BOSS_IDS, getNpc } from '../data/npcs.js';
 import { levelProgress, xpToNext } from '../data/xp.js';
@@ -1116,6 +1117,14 @@ export class UI {
         h.className = 'skill-group';
         h.innerHTML = `${sb.name} <small>${L.masteredIn(sb.id)}/${TOPICS.filter((t) => t.subject === sb.id).length} mastered</small>`;
         body.appendChild(h);
+        if (sb.id === 'econ') {
+          // Learn by doing: run a chicken rice stall for five days.
+          const hk = document.createElement('button');
+          hk.className = 'perks-open hawker-open';
+          hk.innerHTML = `<b>🍗 Run a hawker stall</b><span>Set prices for five days of news, see demand and supply at work${L.hawker.best ? ` · best $${L.hawker.best.toFixed(2)}` : ''}</span>`;
+          hk.addEventListener('click', () => this.openHawker());
+          body.appendChild(hk);
+        }
         const grid = document.createElement('div');
         grid.className = 'codex-grid';
         for (const t of TOPICS.filter((x) => x.subject === sb.id)) {
@@ -1138,6 +1147,84 @@ export class UI {
     };
     this.openModal('Knowledge Codex', render);
     this.modal.kind = 'codex';
+  }
+
+  /** The hawker stall simulation: five days of setting a price and cooking
+   *  plates, each day's news shifting demand or cost, with a debrief after each. */
+  openHawker() {
+    const g = this.game;
+    const run = Hawker.newRun();
+    let price = 4, cooked = 50, last = null, reward = null;
+    const money = (v) => `${v < 0 ? '−' : ''}$${Math.abs(v).toFixed(2)}`;
+    // A small demand-curve chart: your price and the best price on today's curve.
+    const chart = (res) => {
+      const p = Hawker.params(res.event);
+      const W = 260, H = 150, qMax = 200, pMax = 12;
+      const X = (q) => 30 + (q / qMax) * (W - 40), Y = (pr) => H - 22 - (pr / pMax) * (H - 32);
+      const pt = (q, pr, col, label) => `<circle cx="${X(q)}" cy="${Y(pr)}" r="5" fill="${col}" stroke="#22304A" stroke-width="1.5"/>` +
+        `<text x="${X(q) + 8}" y="${Y(pr) + 4}" font-size="10" font-weight="800" fill="#22304A">${label}</text>`;
+      return `<svg class="hk-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Demand curve for the day">` +
+        `<line x1="30" y1="${H - 22}" x2="${W - 8}" y2="${H - 22}" stroke="#22304A"/><line x1="30" y1="8" x2="30" y2="${H - 22}" stroke="#22304A"/>` +
+        `<text x="${W - 8}" y="${H - 8}" font-size="9" text-anchor="end" fill="#625d54">plates wanted</text>` +
+        `<text x="34" y="14" font-size="9" fill="#625d54">price ($)</text>` +
+        `<line x1="${X(0)}" y1="${Y(Math.min(pMax, p.a / p.b))}" x2="${X(Math.min(qMax, p.a))}" y2="${Y(Math.max(0, (p.a - Math.min(qMax, p.a)) / p.b))}" stroke="#e0a03a" stroke-width="3"/>` +
+        `<text x="${X(Math.min(qMax, p.a)) - 4}" y="${Y(0) - 6}" font-size="10" font-weight="900" fill="#b07a1a" text-anchor="end">Demand</text>` +
+        pt(res.best.wanted, res.best.price, '#5fbf5f', 'best') + pt(res.wanted, res.price, '#e05a3a', 'you') + `</svg>`;
+    };
+    const render = (body) => {
+      body.innerHTML = '';
+      const done = run.day >= Hawker.DAYS && !last;
+      if (done) {
+        const sum = Hawker.summary(run);
+        reward ||= g.finishHawker(sum);
+        body.innerHTML = `<div class="study-summary"><b>Stall closed for the week!</b>` +
+          `<span>Your profit: <b>${money(sum.profit)}</b> · best possible: ${money(sum.best)} (${Math.round(sum.score * 100)}%)</span>` +
+          `<span>+${reward.xp} Wisdom xp${reward.coins ? ` · +${reward.coins} coins` : ' · coins are paid on your first week each day'}${reward.record ? ' · new record!' : ''}</span></div>` +
+          `<div class="hk-table">${run.results.map((r, i) => `<span>Day ${i + 1}: ${Hawker.EVENT_BY_ID[r.event].news}</span><b class="${r.profit < 0 ? 'neg' : ''}">${money(r.profit)}</b>`).join('')}</div>`;
+        const row = document.createElement('div'); row.className = 'study-row';
+        const again = document.createElement('button'); again.className = 'wm-go'; again.textContent = 'Play another week';
+        again.addEventListener('click', () => this.openHawker());
+        const back = document.createElement('button'); back.className = 'wm-go ride'; back.textContent = 'Back to Codex';
+        back.addEventListener('click', () => this.openCodex());
+        row.append(back, again); body.appendChild(row);
+        return;
+      }
+      if (last) {
+        // Debrief: what happened, which curve moved, and the best you could have done.
+        const r = last, ev = Hawker.EVENT_BY_ID[r.event];
+        body.innerHTML = `<div class="hk-day">Day ${run.day} of ${Hawker.DAYS} · results</div>` +
+          `<div class="hk-results"><div class="hk-nums">` +
+          `<span>Price</span><b>${money(r.price)}</b><span>Customers wanting a plate</span><b>${r.wanted}</b>` +
+          `<span>Plates cooked</span><b>${r.cooked}</b><span>Plates sold</span><b>${r.sold}</b>` +
+          (r.unsold ? `<span>Wasted</span><b class="neg">${r.unsold}</b>` : '') + (r.missed ? `<span>Turned away</span><b class="neg">${r.missed}</b>` : '') +
+          `<span>Revenue</span><b>${money(r.revenue)}</b><span>Costs (plates + rent)</span><b>${money(r.cost)}</b>` +
+          `<span>Profit</span><b class="${r.profit < 0 ? 'neg' : 'pos'}">${money(r.profit)}</b></div>${chart(r)}</div>` +
+          `<div class="study-fb ok"><b>The economics:</b> ${ev.why}<div class="study-why">Best today: charge ${money(r.best.price)} and cook ${r.best.cooked} plates for ${money(r.best.profit)} profit.</div></div>`;
+        const row = document.createElement('div'); row.className = 'study-row';
+        const nx = document.createElement('button'); nx.className = 'wm-go';
+        nx.textContent = run.day >= Hawker.DAYS ? 'Close the stall' : 'Next day';
+        nx.addEventListener('click', () => { last = null; render(body); });
+        row.appendChild(nx); body.appendChild(row);
+        return;
+      }
+      // Plan the day: read the news, then set price and plates.
+      const ev = Hawker.EVENT_BY_ID[run.events[run.day]], p = Hawker.params(ev.id);
+      body.innerHTML = `<div class="hk-day">Day ${run.day + 1} of ${Hawker.DAYS}</div>` +
+        `<div class="hk-news"><b>📰 Today's news</b><span></span></div>` +
+        `<div class="hk-facts">Each plate costs <b>${money(p.cost)}</b> to make · stall rent <b>${money(p.rent)}</b> a day · unsold plates are wasted</div>` +
+        `<label class="hk-slider">Price per plate <b class="hk-pv">${money(price)}</b><input type="range" min="1" max="12" step="0.1" value="${price}" class="hk-price"></label>` +
+        `<label class="hk-slider">Plates to cook <b class="hk-cv">${cooked}</b><input type="range" min="0" max="200" step="1" value="${cooked}" class="hk-cooked"></label>`;
+      body.querySelector('.hk-news span').textContent = ev.news;
+      const pi = body.querySelector('.hk-price'), ci = body.querySelector('.hk-cooked');
+      pi.addEventListener('input', () => { price = Number(pi.value); body.querySelector('.hk-pv').textContent = money(price); });
+      ci.addEventListener('input', () => { cooked = Number(ci.value); body.querySelector('.hk-cv').textContent = cooked; });
+      const row = document.createElement('div'); row.className = 'study-row';
+      const go = document.createElement('button'); go.className = 'wm-go'; go.textContent = 'Open the stall';
+      go.addEventListener('click', () => { last = Hawker.playDay(run, price, cooked); render(body); });
+      row.appendChild(go); body.appendChild(row);
+    };
+    this.openModal('Hawker stall: chicken rice', render);
+    this.modal.kind = 'hawker';
   }
 
   /** Knowledge Strike: a boss is winding up its special. A question card drops
