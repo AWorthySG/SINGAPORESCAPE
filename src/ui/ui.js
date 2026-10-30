@@ -1063,9 +1063,15 @@ export class UI {
         `<div class="codex-bar"><i style="width:${Math.round(levelProgress(L.xp) * 100)}%"></i></div></div>`;
       const mixed = document.createElement('button');
       mixed.className = 'wm-go'; mixed.textContent = 'Mixed revision';
+      // Knowledge Strikes switch: boss specials pause for a question you can answer to interrupt them.
+      const ks = document.createElement('button');
+      ks.className = 'sg-auto codex-ks' + (g.knowledgeStrikes ? ' on' : '');
+      ks.innerHTML = `<span class="ab-switch" aria-hidden="true"><i></i></span><span><b>Knowledge Strikes</b> ${g.knowledgeStrikes ? 'On' : 'Off'}: answer a question to interrupt a boss's special move</span>`;
+      ks.addEventListener('click', () => { g.knowledgeStrikes = !g.knowledgeStrikes; render(body); });
       mixed.addEventListener('click', () => this.openStudy({}));
       head.appendChild(mixed);
       body.appendChild(head);
+      body.appendChild(ks);
       // Perks earned from each subject, and the title picker.
       const perks = L.perks();
       const perkVal = { econ: `${Math.round(perks.shop * 100)}% better shop prices`, math: `+${Math.round(perks.crit * 100)}% crit chance`, english: `+${Math.round(perks.acc * 100)}% accuracy` };
@@ -1111,6 +1117,50 @@ export class UI {
     };
     this.openModal('Knowledge Codex', render);
     this.modal.kind = 'codex';
+  }
+
+  /** Knowledge Strike: a boss is winding up its special. A question card drops
+   *  in over the fight (the game keeps running) with a countdown bar. */
+  showKnowledgeStrike(q, ms, npc) {
+    if (typeof document === 'undefined') return;
+    let el = this.el.ks;
+    if (!el) { el = this.el.ks = document.createElement('div'); el.id = 'ks-card'; document.body.appendChild(el); }
+    clearTimeout(this._ksHide);
+    const t = TOPIC_BY_ID[q.topic], sb = SUBJECT_BY_ID[t.subject];
+    const order = q.answers.map((_, i) => i).sort(() => Math.random() - 0.5);
+    el.style.setProperty('--sc', sb.color);
+    el.className = 'show';
+    el.innerHTML = `<div class="ks-head"><b>⚡ Knowledge Strike!</b><span>${npc.name} is charging · ${t.icon} ${t.name}</span></div>` +
+      `<div class="ks-q"></div><div class="ks-answers"></div><div class="ks-timer"><i style="animation-duration:${ms}ms"></i></div>`;
+    el.querySelector('.ks-q').textContent = q.q;
+    const list = el.querySelector('.ks-answers');
+    order.forEach((ai, n) => {
+      const b = document.createElement('button');
+      b.className = 'study-ans'; b.dataset.ai = ai;
+      b.innerHTML = `<i>${'ABCD'[n]}</i><span></span>`;
+      b.querySelector('span').textContent = q.answers[ai];
+      b.addEventListener('click', () => { if (ai !== 0) b.classList.add('wrong'); this.game.answerKnowledgeStrike(ai === 0); });
+      list.appendChild(b);
+    });
+  }
+
+  hideKnowledgeStrike(correct, q) {
+    const el = this.el.ks;
+    if (!el) return;
+    if (correct === null) { el.className = ''; return; }
+    // Show the right answer and the explanation for a moment, then slide away.
+    for (const b of el.querySelectorAll('.study-ans')) {
+      b.disabled = true;
+      if (b.dataset.ai === '0') b.classList.add('right');
+    }
+    el.querySelector('.ks-timer')?.remove();
+    const fb = document.createElement('div');
+    fb.className = 'study-fb ' + (correct ? 'ok' : 'no');
+    fb.innerHTML = `<b>${correct ? 'Interrupted!' : 'The special lands!'}</b> `;
+    fb.appendChild(document.createTextNode(q.why));
+    el.appendChild(fb);
+    clearTimeout(this._ksHide);
+    this._ksHide = setTimeout(() => { el.className = ''; }, correct ? 2200 : 3800);
   }
 
   /** A study session: one multiple-choice question at a time from a topic (or

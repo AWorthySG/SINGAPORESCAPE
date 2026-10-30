@@ -48,7 +48,7 @@ export function snapshot(game) {
     karma: game.karma,
     clue: game.clue,
     specEnergy: game.specEnergy,
-    settings: { running: game.running, autoCfg: game.autoCfg, autoGather: game.autoGather },
+    settings: { running: game.running, autoCfg: game.autoCfg, autoGather: game.autoGather, knowledgeStrikes: game.knowledgeStrikes },
     jobClass: game.jobClass,
     potions: game.potions,
     farms: game.world.objects.filter((o) => o.def.type === 'farm' && o.crop).map((o) => ({ x: o.x, y: o.y, crop: o.crop, left: o.growLeft })),
@@ -142,6 +142,7 @@ export function loadGame(game) {
   }
   if (data.settings?.autoGather === true) game.autoGather = true;
   if (data.learning) game.learning.load(data.learning);
+  if (data.settings?.knowledgeStrikes === false) game.knowledgeStrikes = false;
   const ac = data.settings?.autoCfg;
   if (ac && typeof ac === 'object') {
     game.autoCfg = {
