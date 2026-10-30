@@ -48,6 +48,7 @@ import { eligibleTasks, SLAYER_REWARDS } from '../data/slayer.js';
 import { STATIONS, STATION_BY_ID, MRT_FARE } from '../data/transport.js';
 import { SKILLS } from '../data/skills.js';
 import { Learning } from './learning.js';
+import { Classroom } from './classroom.js';
 import { TOPIC_BY_ID } from '../data/questions.js';
 import { LIFE_STAGES, LIFE_GRAD, LIFE_STAGES_ADV, LIFE_GRAD_ADV, LIFE_STAGES_WILD, LIFE_GRAD_WILD } from '../data/lifeskills.js';
 import { QUESTS, CHAMPION_QP, REDEMPTION_GOAL, CORRUPTION_GOAL } from '../data/quests.js';
@@ -182,6 +183,7 @@ export class Game {
     this.zonesVisited = new Set();
     this.stationsFound = new Set(['kampong_glam']);   // MRT stations you can ride to from the world map
     this.learning = new Learning();   // Wisdom, topic mastery, Codex cards and titles
+    this.classroom = new Classroom(); // your class: weekly raid and effort leaderboard (online)
     // Knowledge Strikes: bosses' specials can be interrupted by answering a question.
     // On by default in the browser; headless runs (tests) leave bosses as they were.
     this.knowledgeStrikes = typeof document !== 'undefined';
@@ -1598,6 +1600,7 @@ export class Game {
    *  XP, and on mastering a topic, its Codex card and title. */
   studyAnswer(question, correct) {
     const r = this.learning.answer(question, correct);
+    this.classroom.record(correct, r.xp);   // counts toward the class raid and leaderboard
     if (r.levelUp) {
       const coins = 25 * r.levelUp;
       this.inventory.add('coins', coins);
@@ -2114,6 +2117,20 @@ export class Game {
       }
     }
     this._fireBossSpecial(npc);
+  }
+
+  /** The class raid boss fell this week: collect the reward once. */
+  claimRaidReward() {
+    const c = this.classroom;
+    if (!c.canClaim()) return false;
+    c.claimed = c.view.week;
+    this.inventory.add('coins', 500);
+    this.learning.xp += 300;
+    this.msg(`Your class defeated ${c.view.raid.boss}! +500 coins, +300 Wisdom xp.`, 'level');
+    this.banner(`<span class="big">Class raid won!</span>${c.view.raid.boss} has fallen · +500 coins`);
+    this.spawnSparkle(this.player, '#ffd24a', 20);
+    this.bus.emit('learning');
+    return true;
   }
 
   /** Local calendar day as YYYY-MM-DD (offset days back for "yesterday"). */

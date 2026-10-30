@@ -1,0 +1,7 @@
+{
+  "name": "singaporescape-api",
+  "private": true,
+  "type": "module",
+  "description": "Class raids and effort leaderboards for SingaporeScape. Vercel functions, no dependencies; stores in Upstash Redis over its REST API.",
+  "engines": { "node": "22.x" }
+}
