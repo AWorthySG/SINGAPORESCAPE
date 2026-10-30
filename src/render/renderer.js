@@ -1114,6 +1114,15 @@ export class Renderer {
       ctx.strokeText(game.player.name, px, py - 53);
       ctx.fillStyle = '#FFFFFF';
       ctx.fillText(game.player.name, px, py - 53);
+      // A Codex title (from a mastered topic) sits above the name, in gold.
+      const title = game.learning?.titleText();
+      if (title && !status) {   // a status badge takes that spot while it lasts
+        ctx.font = '900 9.5px Nunito,"Trebuchet MS",sans-serif';
+        ctx.strokeStyle = '#22304A'; ctx.lineWidth = 3;
+        ctx.strokeText(`« ${title} »`, px, py - 65);
+        ctx.fillStyle = '#FFD24A';
+        ctx.fillText(`« ${title} »`, px, py - 65);
+      }
     }
     this._drawGatherRing(ox, oy);
     for (const e of game.effects) {

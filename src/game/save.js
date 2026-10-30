@@ -41,6 +41,7 @@ export function snapshot(game) {
     bossKills: game.bossKills,
     zonesVisited: [...game.zonesVisited],
     stationsFound: [...game.stationsFound],
+    learning: game.learning.serialize(),
     kills: game.kills,
     slayer: game.slayer,
     bounties: game.bounties,
@@ -140,6 +141,7 @@ export function loadGame(game) {
     }
   }
   if (data.settings?.autoGather === true) game.autoGather = true;
+  if (data.learning) game.learning.load(data.learning);
   const ac = data.settings?.autoCfg;
   if (ac && typeof ac === 'object') {
     game.autoCfg = {
