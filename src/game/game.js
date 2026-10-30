@@ -47,6 +47,8 @@ import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
 import { eligibleTasks, SLAYER_REWARDS } from '../data/slayer.js';
 import { STATIONS, STATION_BY_ID, MRT_FARE } from '../data/transport.js';
 import { SKILLS } from '../data/skills.js';
+import { Learning } from './learning.js';
+import { TOPIC_BY_ID } from '../data/questions.js';
 import { LIFE_STAGES, LIFE_GRAD, LIFE_STAGES_ADV, LIFE_GRAD_ADV, LIFE_STAGES_WILD, LIFE_GRAD_WILD } from '../data/lifeskills.js';
 import { QUESTS, CHAMPION_QP, REDEMPTION_GOAL, CORRUPTION_GOAL } from '../data/quests.js';
 import { CLUE_TIERS, CLUE_SPOTS, clueTierForLevel } from '../data/clues.js';
@@ -177,6 +179,7 @@ export class Game {
     this.bossKills = 0;
     this.zonesVisited = new Set();
     this.stationsFound = new Set(['kampong_glam']);   // MRT stations you can ride to from the world map
+    this.learning = new Learning();   // Wisdom, topic mastery, Codex cards and titles
     this.achievements = new Set();
     this.kills = {}; // per-monster kill counts (bestiary)
 
@@ -1216,7 +1219,7 @@ export class Game {
     // champions), crit, and a chance of an extra hit (a spell echoes instead).
     const perk = this.perkMods(mode);
     this._perkCtx = perk;
-    accM *= (1 + (perk.acc || 0)) / (1 - (perk.pierce || 0));
+    accM *= (1 + (perk.acc || 0) + this.learning.perks().acc) / (1 - (perk.pierce || 0));   // English mastery: Eloquence
     dmgM *= 1 + (perk.dmg || 0) + ((npc.def.boss || npc.champion) ? (perk.boss || 0) : 0);
     const bonusHit = Math.random() < (perk.extra || 0);
     perk._echo = mode === 'magic' && bonusHit;
@@ -1230,7 +1233,7 @@ export class Game {
     // Say it once per foe: an "Effective!" pop the first time your weapon bites, or "Resisted".
     if (race && npc._raceSaid !== race) { npc._raceSaid = race; this.addHitsplat(npc, 0, { text: race === 'strong' ? 'Effective!' : 'Resisted' }); }
     const lvl = mode === 'ranged' ? this.skills.ranged : mode === 'magic' ? this.skills.magic : mode === 'dance' ? this.skills.agility : this.skills.attack;
-    const critCh = critChance(lvl, this.equipment.bonuses().crit) + (perk.crit || 0);
+    const critCh = critChance(lvl, this.equipment.bonuses().crit) + (perk.crit || 0) + this.learning.perks().crit;
     return { accM, dmgM, hits, guaranteed, heal, spec, ability: ab, weak, race, critCh };
   }
 
@@ -1575,6 +1578,33 @@ export class Game {
     if (a <= -60) return { buy: 1.20, sell: 0.85 };
     if (a <= -25) return { buy: 1.10, sell: 0.94 };
     return { buy: 1, sell: 1 };
+  }
+
+  /** Shop prices: karma, then the Economics Trader perk from mastered topics. */
+  priceFactor() {
+    const k = this.karmaFactor(), t = this.learning.perks().shop;
+    return { buy: k.buy * (1 - t), sell: k.sell * (1 + t) };
+  }
+
+  /** A study question answered (from the Codex or a study session). Grants Wisdom
+   *  XP, and on mastering a topic, its Codex card and title. */
+  studyAnswer(question, correct) {
+    const r = this.learning.answer(question, correct);
+    if (r.levelUp) {
+      const coins = 25 * r.levelUp;
+      this.inventory.add('coins', coins);
+      this.msg(`Your Wisdom is now level ${r.levelUp}! (+${coins} coins)`, 'level');
+      this.bus.emit('sfx', 'level');
+    }
+    if (r.mastered) {
+      const t = TOPIC_BY_ID[question.topic];
+      this.msg(`Topic mastered: ${t.name}! New Codex card and title: "${t.title}".`, 'level');
+      this.banner(`<span class="big">${t.icon} ${t.name} mastered!</span>Codex card unlocked · title "${t.title}"`);
+      this.spawnSparkle(this.player, '#ffd24a', 18);
+      if (!this.learning.title) this.learning.title = t.id;   // wear your first title straight away
+    }
+    this.bus.emit('learning');
+    return r;
   }
 
   killNpc(npc) {
@@ -3385,7 +3415,7 @@ export class Game {
   // ---------------- Shop trading ----------------
   buyItem(shopId, itemId, qty = 1) {
     const shop = getShop(shopId);
-    const price = Math.max(1, Math.round(getItem(itemId).value * shop.buyMul * this.karmaFactor().buy));
+    const price = Math.max(1, Math.round(getItem(itemId).value * shop.buyMul * this.priceFactor().buy));
     let bought = 0;
     for (let i = 0; i < qty; i++) {
       if (this.inventory.count('coins') < price) { if (i === 0) this.msg("You don't have enough coins."); break; }
@@ -3400,7 +3430,7 @@ export class Game {
   sellItem(shopId, itemId, qty = 1) {
     const shop = getShop(shopId);
     if (itemId === 'coins') return;
-    const price = Math.max(1, Math.round(getItem(itemId).value * shop.sellMul * this.karmaFactor().sell));
+    const price = Math.max(1, Math.round(getItem(itemId).value * shop.sellMul * this.priceFactor().sell));
     const have = this.inventory.count(itemId);
     const sell = Math.min(qty, have);
     if (sell <= 0) return;

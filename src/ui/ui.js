@@ -11,6 +11,7 @@ import { DISHES } from '../data/cooking.js';
 import { SKILLS, SKILL_GROUPS } from '../data/skills.js';
 import { SKILL_GUIDES, guideEntries } from '../game/skillguide.js';
 import { OBJECTS } from '../data/objects.js';
+import { SUBJECTS, SUBJECT_BY_ID, TOPICS, TOPIC_BY_ID } from '../data/questions.js';
 import { getDialogue } from '../data/dialogue.js';
 import { MONSTER_IDS, BOSS_IDS, getNpc } from '../data/npcs.js';
 import { levelProgress, xpToNext } from '../data/xp.js';
@@ -180,6 +181,7 @@ export class UI {
     this.bus.on('rhythm', () => { if (this.game.combatMode() === 'dance') this.renderCombatPanel(); });
     this.bus.on('skills', () => { this.renderSkills(); this.renderCombatPanel(); });
     this.bus.on('xp', (p) => { this.renderSkills(); this.showXpDrop(p); });
+    this.bus.on('learning', () => this.renderSkills());   // Codex button shows Wisdom and cards
     this.bus.on('levelup', (p) => this.onLevelUp(p));
     this.bus.on('chat', (p) => this.addChat(p.text, p.cls));
     this.bus.on('hp', () => this.renderHp());
@@ -951,6 +953,13 @@ export class UI {
     perkBtn.innerHTML = '<b>Passive perks</b><span>A new perk every 20 levels in a fighting skill</span>';
     perkBtn.addEventListener('click', () => this.openPerks());
     grid.appendChild(perkBtn);
+    // Study: the Knowledge Codex, with Wisdom level and topic mastery.
+    const L = this.game.learning;
+    const codexBtn = document.createElement('button');
+    codexBtn.className = 'perks-open codex-open';
+    codexBtn.innerHTML = `<b>📖 Knowledge Codex · Wisdom ${L.level}</b><span>Study topics to master them: ${L.masteredCount()}/${TOPICS.length} cards collected</span>`;
+    codexBtn.addEventListener('click', () => this.openCodex());
+    grid.appendChild(codexBtn);
     for (const grp of SKILL_GROUPS) {
       const head = document.createElement('div');
       head.className = 'skill-group';
@@ -1039,6 +1048,141 @@ export class UI {
     };
     this.openModal(`${sk.name} guide`, render);
     this.modal.kind = 'skillguide';
+  }
+
+  /** The Knowledge Codex: Wisdom level, subject perks, your title, and a card
+   *  per topic (learning objective), each with a Study button. */
+  openCodex() {
+    const g = this.game, L = g.learning;
+    const render = (body) => {
+      body.innerHTML = '';
+      const lvl = L.level;
+      const head = document.createElement('div');
+      head.className = 'codex-head';
+      head.innerHTML = `<div class="codex-wis"><b>Wisdom ${lvl}</b><span>${formatNumber(Math.floor(L.xp))} xp · ${xpToNext(L.xp) > 0 ? formatNumber(xpToNext(L.xp)) + ' to next level' : 'maxed'}</span>` +
+        `<div class="codex-bar"><i style="width:${Math.round(levelProgress(L.xp) * 100)}%"></i></div></div>`;
+      const mixed = document.createElement('button');
+      mixed.className = 'wm-go'; mixed.textContent = 'Mixed revision';
+      mixed.addEventListener('click', () => this.openStudy({}));
+      head.appendChild(mixed);
+      body.appendChild(head);
+      // Perks earned from each subject, and the title picker.
+      const perks = L.perks();
+      const perkVal = { econ: `${Math.round(perks.shop * 100)}% better shop prices`, math: `+${Math.round(perks.crit * 100)}% crit chance`, english: `+${Math.round(perks.acc * 100)}% accuracy` };
+      const pk = document.createElement('div');
+      pk.className = 'codex-perks';
+      pk.innerHTML = SUBJECTS.map((sb) => `<span style="--sc:${sb.color}" title="${sb.perkDesc}"><b>${sb.perk}</b> ${L.masteredIn(sb.id) ? perkVal[sb.id] : `master a ${sb.name} topic to unlock`}</span>`).join('');
+      body.appendChild(pk);
+      const titles = L.titles();
+      if (titles.length) {
+        const tl = document.createElement('label');
+        tl.className = 'codex-title';
+        tl.innerHTML = 'Title shown above your name: ';
+        const sel = document.createElement('select');
+        sel.innerHTML = '<option value="">None</option>' + titles.map((t) => `<option value="${t.id}"${L.title === t.id ? ' selected' : ''}>${t.title}</option>`).join('');
+        sel.addEventListener('change', () => { L.title = sel.value || null; g.bus.emit('learning'); });
+        tl.appendChild(sel);
+        body.appendChild(tl);
+      }
+      for (const sb of SUBJECTS) {
+        const h = document.createElement('div');
+        h.className = 'skill-group';
+        h.innerHTML = `${sb.name} <small>${L.masteredIn(sb.id)}/${TOPICS.filter((t) => t.subject === sb.id).length} mastered</small>`;
+        body.appendChild(h);
+        const grid = document.createElement('div');
+        grid.className = 'codex-grid';
+        for (const t of TOPICS.filter((x) => x.subject === sb.id)) {
+          const done = L.isMastered(t.id), prog = L.progress(t.id), st = L.topics[t.id];
+          const card = document.createElement('div');
+          card.className = 'codex-card' + (done ? ' mastered' : '');
+          card.style.setProperty('--sc', sb.color);
+          card.innerHTML = `<div class="cc-icon">${done ? t.icon : '?'}</div><b>${t.name}</b>` +
+            (done ? `<span class="cc-title">« ${t.title} »</span>` : `<div class="codex-bar"><i style="width:${Math.round(prog * 100)}%"></i></div>`) +
+            `<span class="cc-desc">${t.desc}</span>` +
+            `<span class="cc-stat">${st ? `${st.correct} right · ${st.wrong} wrong` : 'Not started'}</span>`;
+          const b = document.createElement('button');
+          b.className = 'wm-go'; b.textContent = done ? 'Revise' : 'Study';
+          b.addEventListener('click', () => this.openStudy({ topic: t.id }));
+          card.appendChild(b);
+          grid.appendChild(card);
+        }
+        body.appendChild(grid);
+      }
+    };
+    this.openModal('Knowledge Codex', render);
+    this.modal.kind = 'codex';
+  }
+
+  /** A study session: one multiple-choice question at a time from a topic (or
+   *  mixed), with the explanation after each answer. */
+  openStudy(opts) {
+    const g = this.game, L = g.learning;
+    let q = null, order = null, picked = null, result = null, streak = 0, answered = 0, right = 0;
+    const next = () => {
+      q = L.pick(opts); picked = null; result = null;
+      order = q ? q.answers.map((_, i) => i).sort(() => Math.random() - 0.5) : [];
+    };
+    next();
+    const render = (body) => {
+      body.innerHTML = '';
+      if (!q) { body.innerHTML = '<div class="modal-hint">No questions here yet.</div>'; return; }
+      const t = TOPIC_BY_ID[q.topic], sb = SUBJECT_BY_ID[t.subject];
+      const top = document.createElement('div');
+      top.className = 'study-top';
+      top.style.setProperty('--sc', sb.color);
+      const prog = Math.round(L.progress(t.id) * 100);
+      top.innerHTML = `<span class="study-topic">${t.icon} ${sb.name} · ${t.name}</span>` +
+        `<span class="study-meta">${L.isMastered(t.id) ? 'Mastered ✓' : `Mastery ${prog}%`} · ${right}/${answered} this session${streak >= 3 ? ` · 🔥 ${streak} in a row` : ''}</span>`;
+      body.appendChild(top);
+      const qe = document.createElement('div');
+      qe.className = 'study-q'; qe.textContent = q.q;
+      body.appendChild(qe);
+      const list = document.createElement('div');
+      list.className = 'study-answers';
+      order.forEach((ai, n) => {
+        const b = document.createElement('button');
+        b.className = 'study-ans';
+        b.innerHTML = `<i>${'ABCD'[n]}</i><span></span>`;
+        b.querySelector('span').textContent = q.answers[ai];
+        if (picked !== null) {
+          b.disabled = true;
+          if (ai === 0) b.classList.add('right');
+          else if (ai === picked) b.classList.add('wrong');
+        } else {
+          b.addEventListener('click', () => {
+            picked = ai;
+            result = g.studyAnswer(q, ai === 0);
+            answered++;
+            if (ai === 0) { right++; streak++; } else streak = 0;
+            render(body);
+          });
+        }
+        list.appendChild(b);
+      });
+      body.appendChild(list);
+      if (result) {
+        const fb = document.createElement('div');
+        fb.className = 'study-fb ' + (result.correct ? 'ok' : 'no');
+        fb.innerHTML = `<b>${result.correct ? 'Correct!' : 'Not quite.'}</b> <span class="study-xp">+${result.xp} Wisdom xp</span>` +
+          (result.mastered ? `<div class="study-master">${t.icon} Topic mastered! Codex card and title “${t.title}” unlocked.</div>` : '');
+        const why = document.createElement('div');
+        why.className = 'study-why'; why.textContent = q.why;
+        fb.appendChild(why);
+        body.appendChild(fb);
+        const row = document.createElement('div');
+        row.className = 'study-row';
+        const nx = document.createElement('button');
+        nx.className = 'wm-go'; nx.textContent = 'Next question';
+        nx.addEventListener('click', () => { next(); render(body); });
+        const back = document.createElement('button');
+        back.className = 'wm-go ride'; back.textContent = 'Back to Codex';
+        back.addEventListener('click', () => this.openCodex());
+        row.append(back, nx);
+        body.appendChild(row);
+      }
+    };
+    this.openModal(opts.topic ? `Study: ${TOPIC_BY_ID[opts.topic].name}` : 'Mixed revision', render);
+    this.modal.kind = 'study';
   }
 
   /** Every perk track: what each perk does, its rank, and when the next rank unlocks. */
@@ -1812,7 +1956,7 @@ export class UI {
       const shopGrid = document.createElement('div');
       shopGrid.className = 'item-grid shop';
       for (const entry of shop.stock) {
-        const price = Math.max(1, Math.round(getItem(entry.id).value * shop.buyMul * this.game.karmaFactor().buy));
+        const price = Math.max(1, Math.round(getItem(entry.id).value * shop.buyMul * this.game.priceFactor().buy));
         shopGrid.appendChild(this._cell(entry.id, entry.qty, {
           tooltip: `<b>${getItem(entry.id).name}</b><br>Buy: ${price} coins`,
           onClick: () => this.game.buyItem(shopId, entry.id, 1),
@@ -1832,7 +1976,7 @@ export class UI {
       invGrid.className = 'item-grid shop';
       this.game.inventory.slots.forEach((s) => {
         if (!s || s.id === 'coins') return;
-        const sell = Math.max(1, Math.round(getItem(s.id).value * shop.sellMul * this.game.karmaFactor().sell));
+        const sell = Math.max(1, Math.round(getItem(s.id).value * shop.sellMul * this.game.priceFactor().sell));
         invGrid.appendChild(this._cell(s.id, s.qty, {
           tooltip: `<b>${getItem(s.id).name}</b><br>Sell: ${sell} coins`,
           onClick: () => this.game.sellItem(shopId, s.id, 1),
