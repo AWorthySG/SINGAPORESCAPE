@@ -23,7 +23,11 @@ export const STAT_HELP = [
 export function weaponStyle(id) { return getItem(id).equip?.combatType || 'melee'; }
 
 /** Combat beats between swings (matches Equipment.weaponSpeed()). */
-export function swingBeats(id) { return Math.max(1, (getItem(id).equip?.bonuses?.speed || 5) - 3); }
+export function swingBeats(id) {
+  const eq = getItem(id).equip;
+  if (eq?.weaponType === 'scimitar' || eq?.weaponType === 'claws') return 0.7;   // quick weapons
+  return Math.max(1, (eq?.bonuses?.speed || 5) - 3);
+}
 
 /** A single "how good is this" number. Weapons count damage per swing beat, so
  *  a fast sword can outrank a slow axe with bigger numbers. */

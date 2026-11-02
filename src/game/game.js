@@ -14,7 +14,7 @@ import {
 import { World } from './world.js';
 import { Skills } from './skillset.js';
 import { Inventory } from './inventory.js';
-import { Equipment, canDualWield } from './equipment.js';
+import { Equipment, canDualWield, canDualPair } from './equipment.js';
 import { Bank } from './bank.js';
 import { Player } from './player.js';
 import { NPC } from './npc.js';
@@ -101,6 +101,12 @@ const ALCHEMY = { level: 21, xp: 65, runes: { nature_rune: 1, fire_rune: 5 } };
 // Actions that can fire the instant you press (no random roll to exploit by spamming).
 const INSTANT_ACTIONS = new Set(['pickup', 'cookmenu', 'smeltmenu', 'smithmenu', 'craftmenu', 'fletchmenu', 'herbmenu', 'farm', 'pray', 'rest', 'transport', 'openbank', 'openshop', 'talk']);
 const GATHER_ACTIONS = new Set(['woodcut', 'mine', 'fish', 'stall']);
+// Melee cleave: the share of a hit that sweeps into foes next to the target.
+// Quick weapons (scimitars, claws) don't cleave; they swing faster instead.
+const CLEAVE_SHARE = {
+  dagger: 0.35, sword: 0.45, mace: 0.45, katana: 0.45, longsword: 0.5, spear: 0.4,
+  battleaxe: 0.65, warhammer: 0.6, '2h_sword': 0.7, halberd: 0.65,
+};
 // Ticks you get to answer a Knowledge Strike before the boss's special lands (~7s).
 const KS_TICKS = 12;
 
@@ -348,8 +354,8 @@ export class Game {
       this.skills.xp.magic = Math.max(this.skills.xp.magic, xpForLevel(15));
     } else {
       this.equipment.set('weapon', starter);
-      // Rogues start dual wielding; every other melee class gets a shield.
-      this.equipment.set('shield', cls.weapon === 'dagger' ? starter : 'wooden_shield');
+      // Rogues and Corsairs start dual wielding; every other melee class gets a shield.
+      this.equipment.set('shield', canDualWield(starter) ? starter : 'wooden_shield');
       this.equipment.set('body', 'leather_body');
     }
     this.player.hp = this.maxHp();
@@ -1024,11 +1030,15 @@ export class Game {
     const p = this.player;
     if (!p.alive) return;
     if (p.attackCooldown > 0) p.attackCooldown--;
-    if (this.playerStun > 0 || p.attackCooldown > 0) return;
-    const a = p.action;
-    if (!a || a.type !== 'attack' || !a.npc || !a.npc.alive) return;
-    if (chebyshev(p.x, p.y, a.npc.x, a.npc.y) > this.attackRange()) return;
-    this.doPlayerAttack(a.npc);
+    // Quick weapons (scimitars, claws) have a cooldown under one beat, so the
+    // leftover carries over and now and then a second swing fits in the beat.
+    for (let swings = 0; swings < 2; swings++) {
+      if (this.playerStun > 0 || p.attackCooldown > 0) return;
+      const a = p.action;
+      if (!a || a.type !== 'attack' || !a.npc || !a.npc.alive) return;
+      if (chebyshev(p.x, p.y, a.npc.x, a.npc.y) > this.attackRange()) return;
+      this.doPlayerAttack(a.npc);
+    }
   }
 
   // ---------------- Combat resolution ----------------
@@ -1077,11 +1087,16 @@ export class Game {
       if (dmg > 0) { this.spawnHitSparks(npc, '#e6f2ff'); for (const x of combatXp(this.player.style, dmg)) this.skills.addXp(x.skill, x.xp * this.combatXpMult()); }
       total += dmg;
     }
+    // Cleave: every melee weapon but the quick ones (scimitars, claws) sweeps
+    // through the foes crowding the target, heavy weapons hardest.
+    if (total > 0) this._cleave(npc, total);
     if (mods.heal && total > 0) {
       this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.round(total * mods.heal));
       this.bus.emit('hp');
     }
-    this.player.attackCooldown = this.equipment.weaponSpeed();
+    const speed = this.equipment.weaponSpeed();
+    // A sub-beat cooldown keeps what's left over (never banking more than one swing).
+    this.player.attackCooldown = speed < 1 ? Math.max(-1, Math.min(0, this.player.attackCooldown)) + speed : speed;
     this._postAttack(npc);
   }
 
@@ -1359,6 +1374,28 @@ export class Game {
     p.attackCooldown = this.equipment.weaponSpeed();
     this.bus.emit('rhythm');
     this._postAttack(npc);
+  }
+
+  /** Melee cleave: up to 3 other foes next to the target take a share of the hit. */
+  _cleave(target, dmg) {
+    const type = this.weaponType();
+    const share = CLEAVE_SHARE[type];
+    if (!share) return;
+    let n = 0;
+    for (const o of this.npcs) {
+      if (n >= 3) break;
+      if (o === target || !o.alive || !o.attackable || o.temporary || o.hp <= 0) continue;
+      if (o.def.fixed && o.target !== this.player) continue;     // story bosses aren't dragged in
+      if (chebyshev(o.x, o.y, target.x, target.y) > 1 || chebyshev(o.x, o.y, this.player.x, this.player.y) > this.attackRange() + 1) continue;
+      const d = Math.max(1, Math.round(dmg * share));
+      o.takeDamage(d);
+      this.addHitsplat(o, d, { tint: '#ffb347' });
+      this.spawnHitSparks(o, '#ffd9a0');
+      if (!o.target) o.target = this.player;
+      if (o.hp <= 0) this.killNpc(o);
+      n++;
+    }
+    if (n) this._slash(target, '#ffb347');
   }
 
   _perkSplash(from, dmg) {
@@ -2878,9 +2915,9 @@ export class Game {
     // A dagger goes in the off-hand when asked, or by default when you already
     // hold a dagger and your off-hand isn't one yet.
     const main = this.equipment.get('weapon');
-    const offhand = canDualWield(s.id) && canDualWield(main)
-      && (opts.offhand ?? !canDualWield(this.equipment.get('shield')));
-    if (opts.offhand && !offhand) { this.msg('Only a dagger can go in your off-hand, alongside another dagger.'); return; }
+    const offhand = canDualPair(s.id, main)
+      && (opts.offhand ?? !canDualPair(main, this.equipment.get('shield')));
+    if (opts.offhand && !offhand) { this.msg('Only a dagger or scimitar can go in your off-hand, alongside another of the same kind.'); return; }
     const slot = offhand ? 'shield' : eq.slot;
     const cmp = offhand ? null : compareGear(s.id, this.equipment);
     this.inventory.removeAt(index, 1);
@@ -2892,7 +2929,7 @@ export class Game {
       return;
     }
     // Swapping the main hand off daggers sends an off-hand dagger back to the pack.
-    if (slot === 'weapon' && !canDualWield(s.id) && canDualWield(this.equipment.get('shield'))) {
+    if (slot === 'weapon' && canDualWield(this.equipment.get('shield')) && !canDualPair(s.id, this.equipment.get('shield'))) {
       const off = this.equipment.clearSlot('shield');
       this.inventory.add(off, 1);
       this.msg(`You put away your off-hand ${getItem(off).name.toLowerCase()}.`, 'system');

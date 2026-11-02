@@ -7,14 +7,14 @@ export const CLASSES = [
   // Melee
   { id: 'rogue', name: 'Rogue', weapon: 'dagger', style: 'melee', desc: 'Quick daggers, and two at once: dual wield for a strike from each hand.' },
   { id: 'swordsman', name: 'Swordsman', weapon: 'sword', style: 'melee', desc: 'A steady, well-rounded blade fighter.' },
-  { id: 'corsair', name: 'Corsair', weapon: 'scimitar', style: 'melee', desc: 'Fast curved scimitars, swung with a pirate swagger.' },
+  { id: 'corsair', name: 'Corsair', weapon: 'scimitar', style: 'melee', desc: 'Two curved scimitars at once, swung faster than any other blade.' },
   { id: 'paladin', name: 'Paladin', weapon: 'mace', style: 'melee', desc: 'Holy maces that crush armour.' },
   { id: 'knight', name: 'Knight', weapon: 'longsword', style: 'melee', desc: 'Longswords that strike from 3 tiles away.' },
   { id: 'berserker', name: 'Berserker', weapon: 'battleaxe', style: 'melee', desc: 'Heavy battleaxes for huge, wild blows.' },
   { id: 'juggernaut', name: 'Juggernaut', weapon: 'warhammer', style: 'melee', desc: 'Warhammers that hit harder than anything.' },
   { id: 'gladiator', name: 'Gladiator', weapon: '2h_sword', style: 'melee', desc: 'Mighty two-handed swords with long reach.' },
   { id: 'lancer', name: 'Lancer', weapon: 'spear', style: 'melee', desc: 'Accurate spears that reach 3 tiles.' },
-  { id: 'brawler', name: 'Brawler', weapon: 'claws', style: 'melee', desc: 'Lightning-fast claws that crit often.' },
+  { id: 'brawler', name: 'Brawler', weapon: 'claws', style: 'melee', desc: 'Lightning-fast claws: the quickest swings in the game, and they crit often.' },
   { id: 'samurai', name: 'Samurai', weapon: 'katana', style: 'melee', desc: 'Keen katanas: fast, balanced and deadly.' },
   { id: 'halberdier', name: 'Halberdier', weapon: 'halberd', style: 'melee', desc: 'Slow, devastating halberds with 3-tile reach.' },
   // Ranged
