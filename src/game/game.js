@@ -1384,8 +1384,10 @@ export class Game {
       if (o === target || !o.alive || !o.attackable || o.temporary || o.hp <= 0) continue;
       if (o.def.fixed && o.target !== this.player) continue;     // story bosses aren't dragged in
       if (chebyshev(o.x, o.y, target.x, target.y) > 1 || chebyshev(o.x, o.y, this.player.x, this.player.y) > this.attackRange() + 1) continue;
-      const d = Math.max(1, Math.round(dmg * share));
+      const d = Math.min(o.hp, Math.max(1, Math.round(dmg * share)));
       o.takeDamage(d);
+      // Cleave damage earns combat XP like any other hit.
+      for (const x of combatXp(this.player.style, d)) this.skills.addXp(x.skill, x.xp * this.combatXpMult());
       this.addHitsplat(o, d, { tint: '#ffb347' });
       this.spawnHitSparks(o, '#ffd9a0');
       if (!o.target) o.target = this.player;
