@@ -332,7 +332,7 @@ test('combat is fast-paced: quick weapons swing every tick', () => {
   eq.clearSlot('weapon');
   assert.equal(eq.weaponSpeed(), 1, 'unarmed sped up too');
   eq.set('weapon', 'shortbow');
-  assert.equal(eq.weaponSpeed(), 1, 'ranged is unchanged');
+  assert.equal(eq.weaponSpeed(), 0.99, 'ranged keeps its beat (bows carry 1% haste of their own)');
 });
 
 test('select weapons carry special attacks', () => {
@@ -553,4 +553,22 @@ test('every source module parses and loads headlessly (catches syntax slips in b
   const files = (await walk(root)).filter((f) => f.endsWith('.js') && !f.endsWith('/main.js'));
   for (const f of files) await import(f);
   assert.ok(files.length > 30);
+});
+
+test('existing weapons, jewellery and boss uniques carry the new offensive stats, within the caps', async () => {
+  const { ITEMS } = await import('../src/data/items.js');
+  const { OFFENCE_KEYS, OFFENCE_CAPS } = await import('../src/game/equipment.js');
+  const { upgradedBonuses } = await import('../src/game/upgrade.js');
+  const has = (id, k) => (ITEMS[id].equip.bonuses[k] || 0) > 0;
+  assert.ok(has('bronze_dagger', 'critDmg') && has('rune_mace', 'pierce') && has('eternal_pistol', 'haste'));
+  assert.ok(has('eternal_staff', 'bossDmg') && has('rune_scimitar', 'lifesteal'));
+  assert.ok(ITEMS.eternal_dagger.equip.bonuses.critDmg > ITEMS.bronze_dagger.equip.bonuses.critDmg, 'grows with tier');
+  assert.ok(has('diamond_ring', 'critDmg') && has('fire_cape', 'bossDmg') && has('tiger_kris', 'critDmg') && has('granite_maul', 'pierce'));
+  for (const it of Object.values(ITEMS)) {
+    for (const k of OFFENCE_KEYS) assert.ok((it.equip?.bonuses?.[k] || 0) <= OFFENCE_CAPS[k] / 2, `${it.id} ${k} leaves room under the cap`);
+  }
+  const b = ITEMS.tiger_kris.equip.bonuses;
+  const up = upgradedBonuses(b, 15);
+  assert.ok(up.attack > b.attack, 'upgrades raise the flat stats');
+  for (const k of OFFENCE_KEYS) assert.equal(up[k], b[k], `upgrades leave ${k} alone`);
 });

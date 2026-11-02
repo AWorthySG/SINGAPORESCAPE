@@ -1,7 +1,6 @@
 // Painted hero rigs use separate limbs. Keep loading and animation
 // here so the shared sprite library only needs one optional drawing hook.
 export const HERO_RIG_PARTS = ['body', 'sword', 'back', 'left', 'right', 'strike'];
-// Merchant and Ninja use copies of the Swordsman's and Corsair's parts until their own art arrives (see ART_BRIEF_CLASSES.md).
 export const HERO_RIG_CLASSES = ['swordsman', 'rogue', 'samurai', 'corsair', 'paladin', 'knight', 'berserker', 'juggernaut', 'gladiator', 'lancer', 'brawler', 'halberdier', 'dancer', 'merchant', 'ninja'];
 // Heavier weapons commit later; spears extend forward and whips sweep wider.
 const ATTACKS = {
@@ -108,8 +107,10 @@ export function drawHeroRig(ctx, opts = {}) {
   draw('right', 1 + pose.step * 1.5, bootY - Math.max(0, -pose.step) * 3, 13, bootH);
   // The Rogue's second dagger crosses in front of the tunic on its follow-up.
   const pilot = classId === 'swordsman';
+  const slim = classId === 'ninja' || classId === 'merchant';
   if (dancer) draw('back', -17, -9 + pose.breathe, 19, 25, pose.back, 16, 7);
-  else if (!rogue && !brawler) draw('back', pilot ? -12 : -17, -9 + pose.breathe, shield ? 20 : pilot ? 12 : 15, shield ? 29 : pilot ? 14 : 18, pose.back, shield ? 17 : pilot || samurai ? 5 : 10, shield ? 8 : 3);
+  // The Ninja and Merchant are slimmer, so their back hand sits closer in, half behind the body.
+  else if (!rogue && !brawler) draw('back', pilot ? -12 : slim ? -5 : -17, -9 + pose.breathe, shield ? 20 : pilot ? 12 : 15, shield ? 29 : pilot ? 14 : 18, pose.back, shield ? 17 : pilot || samurai ? 5 : 10, shield ? 8 : 3);
   draw('body', -21, -38 + pose.breathe, 42, 44);
   if (rogue) draw('back', -14, -9 + pose.breathe, 22, 18, pose.back, 18, 3);
   if (brawler) draw('back', -14, -9 + pose.breathe, 17, 26, -pose.back - 0.5, 14, 23);

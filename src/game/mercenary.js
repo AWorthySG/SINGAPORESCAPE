@@ -8,6 +8,7 @@ import { combatXp } from './combat.js';
 
 export const MAX_MERCS = 3;
 export const MERC_TICKS = 150;            // 90 seconds at 0.6s a tick
+const MERC_KINDS = ['mercenary_sellsword', 'mercenary_bruiser', 'mercenary_spear_guard', 'mercenary_duellist'];
 const MERC_NAMES = ['Ah Seng the Sellsword', 'Siti Steelhand', 'Big Raju', 'Old Tan', 'Mei the Blade', 'Kumar Ironjaw', 'Lim the Lancer', 'Farah Quickstep'];
 
 /** What one mercenary costs to hire: more as the Merchant grows. */
@@ -29,9 +30,9 @@ export function hire(game) {
   const spot = game._nearestFree(p.x + 1, p.y);
   if (!spot) return null;
   game.inventory.remove('coins', cost);
-  const m = game.spawnNpc('villager', spot.x, spot.y, { temporary: true, wander: 0 });
+  const m = game.spawnNpc(MERC_KINDS[Math.floor(Math.random() * MERC_KINDS.length)], spot.x, spot.y, { temporary: true, wander: 0 });
   m.ally = true;
-  // Name and attackability come from the definition (a villager's look, a fighter's name).
+  // Name and attackability come from the definition (a mercenary's look, a fighter's name).
   m.def = { ...m.def, name: MERC_NAMES[Math.floor(Math.random() * MERC_NAMES.length)], role: null, attackable: false, dialogue: null };
   m.allyUntil = game.tickCount + MERC_TICKS;
   m.mercPower = mercPower(game);

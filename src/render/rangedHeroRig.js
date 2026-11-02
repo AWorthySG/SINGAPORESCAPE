@@ -1,6 +1,5 @@
 // Ranged and magic limbs are separate from the melee pilot so each batch can
 // be reviewed independently. All parts must load before replacing a portrait.
-// The Pistoler uses a copy of the Archer's parts until its own art arrives (see ART_BRIEF_CLASSES.md).
 export const RANGED_HERO_CLASSES = ['ranger', 'archer', 'sorcerer', 'wizard', 'pistoler'];
 export const RANGED_HERO_PARTS = ['body', 'weapon', 'back', 'left', 'right', 'action'];
 export const rangedHeroSrc = (classId, part) => `assets/creatures/hero/rig/${classId}-${part}.webp`;
@@ -48,12 +47,21 @@ export function drawRangedHeroRig(ctx, opts = {}) {
   };
   draw('left', -10 - pose.step * 1.5, -1 - Math.max(0, pose.step) * 3, 13, 16);
   draw('right', 1 + pose.step * 1.5, -1 - Math.max(0, -pose.step) * 3, 13, 16);
-  const bow = classId === 'ranger' || classId === 'archer' || classId === 'pistoler';
-  if (!bow) draw('back', -15, -10 + pose.breathe, 16, 12, -pose.step * 0.2 - pose.charge * 0.35, 12, 3);
+  const bow = classId === 'ranger' || classId === 'archer';
+  const guns = classId === 'pistoler';
+  if (!bow && !guns) draw('back', -15, -10 + pose.breathe, 16, 12, -pose.step * 0.2 - pose.charge * 0.35, 12, 3);
   draw('body', -21, -38 + pose.breathe, 42, 44);
-  if (bow) {
+  if (guns) {
+    // Two pistols: the back hand aims level from the shoulder and kicks up on
+    // each shot; the front hand swings its pistol from upright to level, and a
+    // muzzle flash blooms at the front barrel on release.
+    const y = -12 + pose.breathe;
+    draw('back', -7, y, 31, 13, -pose.release * 0.22 + pose.step * 0.05, 2, 6);
+    draw('weapon', 14, y + 2, 14, 23, pose.draw * 1.25 - pose.release * 0.3, 3, 21);
+    draw('action', 27, y - 6, 16, 10, 0, 2, 5, pose.release);
+  } else if (bow) {
     const y = -11 + pose.breathe;
-    const shortbow = classId === 'archer' || classId === 'pistoler';
+    const shortbow = classId === 'archer';
     draw('weapon', 14, y, shortbow ? 21 : 22, shortbow ? 40 : 46, 0, 1.5, shortbow ? 23 : 25);
     // The string follows the drawing hand, rather than stretching a painted
     // bowstring. The arrow here is a nocked visual; combat owns projectiles.

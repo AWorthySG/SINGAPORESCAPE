@@ -313,6 +313,36 @@ for (const rank of [{ p: 'Celestial', lo: 320, hi: 380, zone: 'Temasek Ruins', s
 }
 for (const id of Object.keys(_mobs)) MONSTER_IDS.push(id);
 
+// ---- More monsters (Nov 2026) ----
+// Folklore and wildlife for the open-world regions, each in three forms. They
+// are kept out of MONSTER_IDS (world.js places them on a stream of their own at
+// the end), so adding them moves nothing that was already in the world.
+// [name, sprite, color, zone, aggressive, [levels of the three forms]]
+const EXTRA_BASES = [
+  ['Malayan tapir', 'beast', '#3a3a3a', 'Pulau Ubin', false, [12, 25, 40]],
+  ['Wild hornet', 'insect', '#e0b030', 'Pulau Ubin', true, [8, 18, 30]],
+  ['Kelong crab', 'crab', '#c0603a', 'Changi Coast', false, [20, 40, 60]],
+  ['Dugong', 'seacreature', '#9aa8b0', 'Changi Coast', false, [15, 30, 50]],
+  ['Merlion whelp', 'seacreature', '#e0e8f0', 'Marina Bay', true, [20, 38, 55]],
+  ['Weaver ant', 'insect', '#c06a2a', 'Sungei Buloh Wetlands', true, [12, 30, 55]],
+  ['Tiger cub', 'beast', '#e8a23a', 'Jurong Forest', true, [25, 45, 70]],
+  ['Orchid mantis', 'mantis', '#f0b0d0', 'Gardens by the Bay', true, [65, 90, 115]],
+  ['Langsuir', 'ghost', '#e0c8d8', 'Tekong Badlands', true, [80, 115, 150]],
+  ['Black panther', 'beast', '#1f1f24', 'Coney Island', true, [95, 120, 145]],
+  ['Oarfish', 'seacreature', '#c8d8e8', 'Southern Islands', true, [130, 170, 210]],
+  ['Jenglot', 'undead', '#6a3a2a', 'The Shadow Rift', true, [210, 255, 300]],
+];
+const EXTRA_FORMS = [{ p: '', scale: 1 }, { p: 'Elder', scale: 1.1 }, { p: 'Ancient', scale: 1.2 }];
+const EXTRA_MONSTER_IDS = [];
+for (const [bn, sprite, color, zone, aggro, levels] of EXTRA_BASES) {
+  EXTRA_FORMS.forEach((f, i) => {
+    const name = (f.p ? f.p + ' ' : '') + bn;
+    const id = slug(name);
+    _mobs[id] = { ...makeMob(id, name, sprite, color, levels[i], zone, aggro || !!f.p, slug(bn)), scale: f.scale };
+    EXTRA_MONSTER_IDS.push(id);
+  });
+}
+
 // ---------------- Bosses (15) ----------------
 function makeBoss(id, name, sprite, color, level, zone, scale, drops) {
   return { name, level, attackable: true, boss: true, sprite, color, scale, zone,
@@ -427,9 +457,23 @@ Object.assign(BOSS_DEFS, {
 });
 const BOSS_IDS = Object.keys(BOSS_DEFS);
 
+// ---- More bosses (Nov 2026) ----
+// Kept out of BOSS_IDS for the same reason as the extra monsters: world.js
+// places them last, on their own stream.
+const EXTRA_BOSS_DEFS = {
+  nian_beast: makeBoss('nian_beast', 'Nian, the New Year Beast', 'beast', '#c0302a', 55, 'Marina Bay', 2.1, tierGear(55, 1)),
+  kelong_king_crab: makeBoss('kelong_king_crab', 'Kelong King Crab', 'crab', '#c0603a', 75, 'Changi Coast', 2.2, tierGear(75, 1)),
+  langsuir_matriarch: makeBoss('langsuir_matriarch', 'Langsuir Matriarch', 'ghost', '#e0c8d8', 140, 'Tekong Badlands', 2.3, tierGear(140, 1)),
+  shadow_panther: makeBoss('shadow_panther', 'The Shadow Panther', 'beast', '#1f1f24', 150, 'Coney Island', 2.3, tierGear(150, 1)),
+  abyssal_oarfish: makeBoss('abyssal_oarfish', 'The Abyssal Oarfish', 'seacreature', '#c8d8e8', 205, 'Southern Islands', 2.6, tierGear(205, 1)),
+  jenglot_sovereign: makeBoss('jenglot_sovereign', 'Jenglot Sovereign', 'undead', '#6a3a2a', 300, 'The Shadow Rift', 2.7, tierGear(300, 1.1)),
+};
+const EXTRA_BOSS_IDS = Object.keys(EXTRA_BOSS_DEFS);
+Object.assign(BOSS_DEFS, EXTRA_BOSS_DEFS);
+
 // Give every boss a special mechanic (cycled) + a special-attack cadence.
 const MECHANICS = ['slam', 'heal', 'summon', 'enrage', 'frenzy'];
-BOSS_IDS.forEach((id, i) => {
+[...BOSS_IDS, ...EXTRA_BOSS_IDS].forEach((id, i) => {
   BOSS_DEFS[id].mechanic = MECHANICS[i % MECHANICS.length];
   BOSS_DEFS[id].specialEvery = 9;
   // Each boss's own signature move and ground-attack patterns (see bossAbilities.js).
@@ -468,13 +512,18 @@ const TOWNSFOLK = {
   shadow_broker: { name: 'The Tempter', level: 0, attackable: false, role: 'dialogue', wander: 0, examine: 'A hooded figure who whispers of corruption.', dialogue: 'tempter' },
   farmer: { name: 'Farmer Lim', level: 0, attackable: false, role: 'shop', wander: 0, examine: 'He sells seeds, vials, knives and snares.', shop: 'farming' },
   villager: { name: 'Villager', level: 0, attackable: false, role: 'dialogue', wander: 5, examine: 'A local resident.', dialogue: 'villager' },
+  // The Merchant's hired mercenaries (spawned on contract, never placed in the world).
+  mercenary_sellsword: { name: 'Sellsword', level: 0, attackable: false, wander: 0, examine: 'A blade for hire.' },
+  mercenary_bruiser: { name: 'Bruiser', level: 0, attackable: false, wander: 0, examine: 'All muscle, paid by the hour.' },
+  mercenary_spear_guard: { name: 'Spear guard', level: 0, attackable: false, wander: 0, examine: 'Keeps trouble a spear\u2019s length away.' },
+  mercenary_duellist: { name: 'Duellist', level: 0, attackable: false, wander: 0, examine: 'Quick, sharp and expensive.' },
 };
 
 export const NPCS = {};
-for (const id of MONSTER_IDS) NPCS[id] = _mobs[id];
+for (const id of [...MONSTER_IDS, ...EXTRA_MONSTER_IDS]) NPCS[id] = _mobs[id];
 // Every boss also drops archery loot: a bow a tier above its level, a big
 // bundle of good arrows, and dragonhide.
-for (const id of BOSS_IDS) {
+for (const id of [...BOSS_IDS, ...EXTRA_BOSS_IDS]) {
   const b = BOSS_DEFS[id];
   const lvl = b.level || 1;
   const arrow = lvl < 50 ? 'mithril_arrow' : lvl < 90 ? 'adamant_arrow' : 'rune_arrow';
@@ -499,10 +548,13 @@ for (const id of BOSS_IDS) {
     { id: seedFor(lvl), min: 2, max: 5, weight: 8 },
   ];
 }
-for (const id of BOSS_IDS) NPCS[id] = BOSS_DEFS[id];
+for (const id of [...BOSS_IDS, ...EXTRA_BOSS_IDS]) NPCS[id] = BOSS_DEFS[id];
 Object.assign(NPCS, TOWNSFOLK);
 
-export { MONSTER_IDS, BOSS_IDS };
+// Everything the bestiary lists: the original sets plus the extras.
+const ALL_MONSTER_IDS = [...MONSTER_IDS, ...EXTRA_MONSTER_IDS];
+const ALL_BOSS_IDS = [...BOSS_IDS, ...EXTRA_BOSS_IDS];
+export { MONSTER_IDS, BOSS_IDS, EXTRA_MONSTER_IDS, EXTRA_BOSS_IDS, ALL_MONSTER_IDS, ALL_BOSS_IDS };
 
 export function getNpc(id) {
   const npc = NPCS[id];
