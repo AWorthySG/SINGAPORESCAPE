@@ -1,9 +1,9 @@
 import { EventBus } from '../core/events.js';
 import { buildWorld } from '../data/world.js';
 import { compareGear, deltaText } from './gear.js';
-import { RARITY, dropRarity, lootDelay } from './loot.js';
+import { RARITY, dropRarity, lootDelay, QUALITY, rollQuality, NORMAL_GEAR_SKIP } from './loot.js';
 import { dayKey, prevDayKey, makeBounties, streakMult } from './bounty.js';
-import { MAX_UPGRADE, upgradeCost, upgradeChance, upgradedName } from './upgrade.js';
+import { MAX_UPGRADE, upgradeCost, upgradeChance, upgradedName, RISKY_FROM, STONE as UP_STONE, WARD as UP_WARD } from './upgrade.js';
 import { getItem, MELEE_REACH } from '../data/items.js';
 import { chebyshev, randInt, weightedPick, capitalize } from '../core/utils.js';
 import {
@@ -29,7 +29,7 @@ import {
 import { ABILITY_BY_ID, abilitiesFor } from '../data/abilities.js';
 import { RACES, raceOf, matchup, RACE_BONUS, RACE_PENALTY } from '../data/races.js';
 import { DOT_KINDS } from '../data/bossAbilities.js';
-import { CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, equivalentWeapon, CLEAVE_SHARE, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWear, equivalentArmour } from '../data/classes.js';
+import { CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, equivalentWeapon, CLEAVE_SHARE, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWear, equivalentArmour, classGearFor } from '../data/classes.js';
 import { STYLE_TRACKS, sumPerks, perkAtLevel, rankName, PERK_SKILLS } from '../data/perks.js';
 import { getSpell, SPELLS } from '../data/magic.js';
 import { xpForLevel } from '../data/xp.js';
@@ -1910,9 +1910,15 @@ export class Game {
     if (def.dropTable && def.dropTable.length) {
       // Champions roll their table three times, bosses four, and neither comes up empty.
       const rolls = def.boss ? 4 : npc.champion ? 3 : 1;
+      const normal = !def.boss && !npc.champion;
       for (let r = 0; r < rolls; r++) {
         let pick = weightedPick(def.dropTable);
         if (npc.champion || def.boss) for (let k = 0; pick.nothing && k < 5; k++) pick = weightedPick(def.dropTable);
+        // Normal monsters drop gear much less often: most gear rolls become something else.
+        if (normal && !pick.nothing && getItem(pick.id).equip && Math.random() < NORMAL_GEAR_SKIP) {
+          for (let k = 0; !pick.nothing && getItem(pick.id).equip && k < 6; k++) pick = weightedPick(def.dropTable);
+          if (!pick.nothing && getItem(pick.id).equip) continue;
+        }
         if (pick.nothing) continue;
         const q = pick.min ? randInt(pick.min, pick.max) : 1;
         let rar = dropRarity(pick.id, 'table', { boss: !!def.boss });
@@ -1931,6 +1937,15 @@ export class Game {
       this.msg(`A rare drop! ${q > 1 ? q + ' x ' : ''}${nm}.`, 'level');
       if (getItem(pick.id).value >= 5000) this.banner(`<span class="big">Rare drop!</span>${nm}`);
     }
+    // Bosses always drop a piece of gear for your class, of Superior quality or better.
+    if (def.boss && this.jobClass) {
+      const g = classGearFor(this.jobClass, Math.max(1, def.level || 1));
+      if (g) loot.push([g, 1, 'epic', 'boss']);
+    }
+    // Upgrade materials: stones from anything (bosses and champions most), wards from bosses.
+    const stoneChance = def.boss ? 1 : npc.champion ? 0.4 : Math.min(0.12, 0.03 + (def.level || 1) / 2500);
+    if (Math.random() < stoneChance) loot.push([UP_STONE, def.boss ? randInt(2, 5) : npc.champion ? randInt(1, 3) : 1, def.boss ? 'rare' : 'common']);
+    if (Math.random() < (def.boss ? 0.25 : npc.champion ? 0.03 : 0)) loot.push([UP_WARD, 1, 'epic']);
     // Treasure trails: a rare clue scroll, if you aren't already carrying one.
     if (!this.clue && !this._holdsClue()) {
       const clueChance = Math.min(0.05, (def.level || 1) / 3000 + (def.boss ? 0.04 : 0.006));
@@ -1951,7 +1966,28 @@ export class Game {
         if (fam && mine && fam !== mine && Math.random() < CLASS_LOOT_SHARE) l[0] = equivalentArmour(l[0], mine);
       }
     }
+    // Gear quality: a head start of upgrade levels for that item type.
+    for (const l of loot) {
+      if (!getItem(l[0]).equip) continue;
+      const q = rollQuality(l[3] === 'boss' ? 'boss' : npc.champion ? 'champion' : 'normal');
+      if (q) { this._applyQuality(l[0], q); l[2] = QUALITY[q].rarity; }
+      l.length = 3;
+    }
     this._autoLoot(loot, npc.x, npc.y);
+  }
+
+  /** A quality drop raises that item type's upgrade level (never lowers it). */
+  _applyQuality(id, q) {
+    const Q = QUALITY[q], lv = this.equipment.upgradeLevel(id);
+    const name = getItem(id).name;
+    if (Q.level > lv) {
+      this.equipment.upgrades[id] = Q.level;
+      this.equipment._changed();
+      this.msg(`${Q.label} ${name}! Your ${name.toLowerCase()} is now +${Q.level}.`, 'level');
+      if (q === 'legendary') this.banner(`<span class="big">Legendary drop!</span>${name} +${Q.level}`);
+    } else {
+      this.msg(`${Q.label} ${name} (yours is already +${lv}).`, 'system');
+    }
   }
 
   /** Auto-loot: drops go straight into the pack; whatever won't fit falls to the ground. */
@@ -3031,8 +3067,12 @@ export class Game {
     if (cost.bar && this.inventory.count(cost.bar.id) < cost.bar.qty) {
       this.msg(`You need ${cost.bar.qty} x ${getItem(cost.bar.id).name} to upgrade to +${next}.`); return false;
     }
+    if (cost.stones && this.inventory.count(UP_STONE) < cost.stones) {
+      this.msg(`You need ${cost.stones} upgrade stones to upgrade to +${next}. Monsters drop them, bosses most of all.`); return false;
+    }
     this.inventory.remove('coins', cost.coins);
     if (cost.bar) this.inventory.remove(cost.bar.id, cost.bar.qty);
+    if (cost.stones) this.inventory.remove(UP_STONE, cost.stones);
     if (Math.random() < upgradeChance(next)) {
       this.equipment.upgrades[id] = next;
       this.equipment._changed();
@@ -3043,6 +3083,19 @@ export class Game {
       return true;
     }
     this.bus.emit('sfx', 'hurt');
+    // Risky levels: a failure knocks the item down one level, unless a ward takes the blow.
+    if (next >= RISKY_FROM) {
+      if (this.inventory.count(UP_WARD) > 0) {
+        this.inventory.remove(UP_WARD, 1);
+        this.msg(`The upgrade failed, but your upgrade ward crumbled instead: your ${upgradedName(id, lv)} keeps its level.`, 'system');
+      } else {
+        this.equipment.upgrades[id] = lv - 1;
+        if (!this.equipment.upgrades[id]) delete this.equipment.upgrades[id];
+        this.equipment._changed();
+        this.msg(`The upgrade failed and your gear lost a level: it is now ${upgradedName(id, lv - 1)}. (An upgrade ward would have saved it.)`, 'combat');
+      }
+      return false;
+    }
     this.msg(`The upgrade failed. Your ${upgradedName(id, lv)} is unharmed, but the materials are used up.`, 'system');
     return false;
   }

@@ -31,7 +31,7 @@ import { STATIONS, MRT_FARE } from '../data/transport.js';
 import { EQUIP_SLOTS, canDualPair } from '../game/equipment.js';
 import { streakMult } from '../game/bounty.js';
 import { itemCategory } from '../game/inventory.js';
-import { MAX_UPGRADE, upgradeCost, upgradeChance, upgradedName } from '../game/upgrade.js';
+import { MAX_UPGRADE, upgradeCost, upgradeChance, upgradedName, RISKY_FROM, STONE as UP_STONE, WARD as UP_WARD } from '../game/upgrade.js';
 import { STAT_LABELS, STAT_HELP, compareGear, deltaText, gearBySlot, gearRating, meetsReq, swingBeats, tierOf, weaponStyle } from '../game/gear.js';
 import { TILE } from '../config.js';
 import { TERRAIN } from '../data/world.js';
@@ -791,7 +791,7 @@ export class UI {
     this.el.equipBonuses.appendChild(guide);
     const up = document.createElement('button');
     up.className = 'bestiary-open gear-guide-open';
-    up.textContent = 'Upgrade gear (+1 to +10)';
+    up.textContent = `Upgrade gear (+1 to +${MAX_UPGRADE})`;
     up.addEventListener('click', () => this.openUpgrade());
     this.el.equipBonuses.appendChild(up);
   }
@@ -841,8 +841,10 @@ export class UI {
   openUpgrade() {
     const g = this.game;
     const render = (body) => {
-      body.innerHTML = '<div class="gear-intro"><p>Spend coins (and metal bars, for metal gear) to make an item stronger: each level adds about 8% to its stats. '
-        + 'Levels belong to the item type, so every copy you own shares them. Up to +5 always works; after that it can fail, which only uses up the materials.</p></div>';
+      body.innerHTML = '<div class="gear-intro"><p>Spend coins (and metal bars, for metal gear) to make an item stronger: each level adds 8% to its stats, rising to 10% from +6 and 15% from +11. '
+        + 'Levels belong to the item type, so every copy you own shares them. Up to +5 always works; after that it can fail. '
+        + `From +4 you also need <b>upgrade stones</b> (monsters drop them). From +${RISKY_FROM}, a failure also <b>drops the item a level</b>, unless you carry an <b>upgrade ward</b>. `
+        + `Max +${MAX_UPGRADE}. You have ${g.inventory.count(UP_STONE)} stones and ${g.inventory.count(UP_WARD)} wards.</p></div>`;
       const ids = [...new Set([...EQUIP_SLOTS.map((s) => g.equipment.get(s)).filter(Boolean),
         ...g.inventory.slots.filter((s) => s && getItem(s.id).equip).map((s) => s.id)])];
       const list = document.createElement('div');
@@ -858,10 +860,13 @@ export class UI {
           const c = upgradeCost(id, lv + 1);
           const okC = g.inventory.count('coins') >= c.coins;
           const okB = !c.bar || g.inventory.count(c.bar.id) >= c.bar.qty;
-          can = okC && okB;
+          const okS = !c.stones || g.inventory.count(UP_STONE) >= c.stones;
+          can = okC && okB && okS;
           costHtml = `<span class="${okC ? '' : 'short'}">${formatNumber(c.coins)} coins</span>`
             + (c.bar ? ` · <span class="${okB ? '' : 'short'}">${c.bar.qty} x ${escapeHtml(getItem(c.bar.id).name)}</span>` : '')
-            + ` · ${Math.round(upgradeChance(lv + 1) * 100)}% success`;
+            + (c.stones ? ` · <span class="${okS ? '' : 'short'}">${c.stones} stones</span>` : '')
+            + ` · ${Math.round(upgradeChance(lv + 1) * 100)}% success`
+            + (lv + 1 >= RISKY_FROM ? ' · <span class="short">fail = −1 level</span>' : '');
         }
         const worn = EQUIP_SLOTS.some((s) => g.equipment.get(s) === id);
         row.innerHTML = `<span class="gear-ic">${itemIconSVG(id, 28)}</span>`
@@ -2824,7 +2829,7 @@ const TIPS = {
   dodge: 'A boss marked the ground in <b>red</b>! Walk out before it fills up to dodge the hit.',
   champion: 'A gold-ringed <b>&#9733; Champion</b> is nearby: tougher than normal, with extra loot.',
   bounty: 'You have <b>daily bounties</b> in the Quest Journal: three kill targets that pay coins. The tracker on the left points the way.',
-  upgrade: 'Got coins to spare? <b>Upgrade</b> your gear up to +10 in Worn Equipment &gt; Upgrade gear.',
+  upgrade: 'Got coins to spare? <b>Upgrade</b> your gear up to +15 in Worn Equipment &gt; Upgrade gear.',
 };
 
 function escapeHtml(s) {

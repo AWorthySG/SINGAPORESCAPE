@@ -296,14 +296,14 @@ test('combat is beginner-friendly: weak town mobs and a punchy starter hit', () 
 });
 
 test('monsters and bosses are tougher, but the first town monsters stay easy', () => {
-  // Full toughness from level 15: 2.5x the base health.
+  // Full toughness from level 15: 3.75x the base health.
   const lizard = getNpc('monitor_lizard');   // level 14: nearly full
-  assert.ok(lizard.maxHp >= Math.round((14 * 1.7 + 2) * 2.3), `monitor lizard hp ${lizard.maxHp}`);
+  assert.ok(lizard.maxHp >= Math.round((14 * 1.7 + 2) * 3.4), `monitor lizard hp ${lizard.maxHp}`);
   const high = Object.values(NPCS).find((d) => d.attackable && !d.boss && d.level >= 60);
-  assert.equal(high.maxHp, Math.round((high.level * 1.7 + 2) * 2.5), 'a level 60+ monster has 2.5x the base health');
-  // Bosses: three times the health and a sturdier defence.
+  assert.equal(high.maxHp, Math.round((high.level * 1.7 + 2) * 3.75), 'a level 60+ monster has 3.75x the base health');
+  // Bosses: nine times the health and a sturdier defence.
   const chief = getNpc('goblin_warchief');
-  assert.equal(chief.maxHp, Math.round((35 * 4.5 + 30) * 3));
+  assert.equal(chief.maxHp, Math.round((35 * 4.5 + 30) * 9));
   assert.ok(chief.defence > Math.round(35 * 0.95), 'boss defence raised');
   // Level 5 and under: unchanged.
   assert.equal(getNpc('goblin').maxHp, Math.round(5 * 1.7 + 2));
@@ -542,4 +542,15 @@ test('each class wears its own kind of armour, and armour families carry offensi
   assert.ok(ITEMS.dragonhide_body.equip.bonuses.haste > 0);
   assert.ok(ITEMS.mystic_top.equip.bonuses.bossDmg > 0);
   assert.ok(ITEMS.golden_dancer_top.equip.bonuses.lifesteal > 0);
+});
+
+test('every source module parses and loads headlessly (catches syntax slips in browser-only files)', async () => {
+  const { readdir } = await import('node:fs/promises');
+  const walk = async (dir) => (await Promise.all((await readdir(dir, { withFileTypes: true }))
+    .map((e) => (e.isDirectory() ? walk(`${dir}/${e.name}`) : [`${dir}/${e.name}`])))).flat();
+  const root = new URL('../src', import.meta.url).pathname;
+  // main.js boots the page (it needs a document), so it is checked by the browser instead.
+  const files = (await walk(root)).filter((f) => f.endsWith('.js') && !f.endsWith('/main.js'));
+  for (const f of files) await import(f);
+  assert.ok(files.length > 30);
 });
