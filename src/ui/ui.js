@@ -1,4 +1,5 @@
 import { CLASSES, CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon } from '../data/classes.js';
+import { classPerks, classPerkSummary } from '../game/classperks.js';
 import { PERK_SKILLS, PERK_TRACKS, PERK_EVERY, trackPerks, rankName } from '../data/perks.js';
 import { heroArtSrc, portraitFor } from '../render/sprites.js';
 import { getItem } from '../data/items.js';
@@ -1531,10 +1532,28 @@ export class UI {
     }
     const modeLabel = mode === 'ranged' ? 'Ranged' : mode === 'magic' ? 'Magic' : mode === 'dance' ? `Dancer &middot; Rhythm ${this.game.danceRhythm}/${RHYTHM_MAX}` : 'Melee';
     const cls = CLASS_BY_ID[this.game.jobClass];
-    const clsLabel = cls ? `<div class="cb-class">Class: <b>${cls.name}</b> &middot; ${WEAPON_TYPE_NAMES[cls.weapon]}</div>` : '';
-    this.el.combat.querySelector('.cb-level').innerHTML = `${clsLabel}Combat level: ${this.game.skills.combatLevel()} <span style="opacity:.7">&middot; ${modeLabel}</span>`;
+    const clsLabel = cls ? `<div class="cb-class">Class: <b>${cls.name}</b> &middot; ${WEAPON_TYPE_NAMES[cls.weapon]} <button class="cb-perks" type="button">Class perks</button></div>`
+      + `<div class="cb-perkline">${classPerkSummary(cls.id)}</div>` : '';
+    const lvlEl = this.el.combat.querySelector('.cb-level');
+    lvlEl.innerHTML = `${clsLabel}Combat level: ${this.game.skills.combatLevel()} <span style="opacity:.7">&middot; ${modeLabel}</span>`;
+    lvlEl.querySelector('.cb-perks')?.addEventListener('click', () => this.openClassPerks());
     const cb = this.el.combat.querySelector('#auto-retal-cb');
     if (cb) cb.checked = p.autoRetaliate;
+  }
+
+  /** Your class's perks in full: its signature, weapon speed, reach, cleave,
+   *  dual wielding, crit, strong and weak matchups and passive perk tracks. */
+  openClassPerks(classId = this.game.jobClass) {
+    const cls = CLASS_BY_ID[classId];
+    if (!cls) return;
+    this.openModal(`${cls.name} perks`, (body) => {
+      const art = heroArtSrc(cls.id);
+      body.innerHTML = `<div class="sg-head"><span class="class-pic">${art ? `<img src="${art}" alt="" width="48" height="48">` : itemIconSVG(starterWeapon(cls.id), 40)}</span>`
+        + `<div><b>${cls.name} · ${WEAPON_TYPE_NAMES[cls.weapon]}</b><span>${cls.desc}</span></div></div>`
+        + `<div class="cp-list">${classPerks(cls.id).map((p) => `<div class="cp-row"><span class="cp-ic">${p.icon}</span><span><b>${p.label}</b> ${p.text}</span></div>`).join('')}</div>`
+        + '<div class="modal-hint">Every class can use any armour, tools and the learning perks in the Knowledge Codex.</div>';
+    });
+    this.modal.kind = 'classperks';
   }
 
   // ---------------- First-time tips ----------------
@@ -2074,7 +2093,8 @@ export class UI {
           div.dataset.cls = c.id;
           const art = heroArtSrc(c.id);
           div.innerHTML = `<span class="class-pic">${art ? `<img src="${art}" alt="" width="40" height="40">` : itemIconSVG(starterWeapon(c.id), 34)}</span><span class="class-text"><b>${c.name}</b>`
-            + `<span class="class-weapon">${WEAPON_TYPE_NAMES[c.weapon]}</span><span class="class-desc">${c.desc}</span></span>`;
+            + `<span class="class-weapon">${WEAPON_TYPE_NAMES[c.weapon]}</span><span class="class-desc">${c.desc}</span>`
+            + `<span class="class-perks">${classPerkSummary(c.id)}</span></span>`;
           div.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); div.click(); } });
           div.addEventListener('click', () => {
             g.chooseClass(c.id);

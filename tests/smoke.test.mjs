@@ -498,3 +498,20 @@ test('monsters and bosses drop magic loot: staves, robes and runes', () => {
     for (const x of t) if (x) assert.ok(ITEMS[x], `${id} drop ${x} is a real item`);
   }
 });
+
+test('every class has its perks explained, matching the combat rules', async () => {
+  const { CLASSES } = await import('../src/data/classes.js');
+  const { classPerks, classPerkSummary } = await import('../src/game/classperks.js');
+  for (const c of CLASSES) {
+    const p = classPerks(c.id);
+    assert.equal(p[0].label, 'Signature', `${c.id} has a signature line`);
+    assert.ok(p.some((x) => x.label === 'Speed') && p.some((x) => x.label === 'Reach'), `${c.id} lists speed and reach`);
+    assert.ok(classPerkSummary(c.id).length > 0);
+  }
+  const labels = (id) => classPerks(id).map((x) => x.label);
+  assert.ok(labels('corsair').includes('Dual wield') && labels('corsair').includes('No cleave'));
+  assert.ok(labels('rogue').includes('Dual wield') && labels('rogue').includes('Cleave'));
+  assert.ok(labels('brawler').includes('Critical') && labels('brawler').includes('No cleave'));
+  assert.ok(!labels('archer').includes('Cleave'), 'only melee cleaves');
+  assert.match(classPerks('gladiator').find((x) => x.label === 'Cleave').text, /^70%/);
+});

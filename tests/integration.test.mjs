@@ -1316,6 +1316,7 @@ test('boss "summon" adds are exempt from the aggro cap so the encounter mechanic
   assert.ok(boss, 'a boss whose signature move summons exists');
   boss.target = game.player; // simulate the player already fighting this boss (fills the cap)
   boss.x = game.player.x - 1; boss.y = game.player.y;
+  game.player.hp = 99999;   // the move's strikes can't kill you before the summon (that made this test flaky)
 
   game.bossSpecial(boss);
   const adds = game.npcs.filter((n) => n.temporary && n.alive);
@@ -2017,8 +2018,12 @@ test('melee cleave sweeps foes next to the target, except with quick weapons', (
   assert.equal(side.hp, 99999, 'scimitars (quick weapons) do not cleave');
   game.equipment.set('weapon', Object.keys(ITEMS).find((k) => ITEMS[k].equip?.weaponType === '2h_sword'));
   game.equipment.clearSlot('shield');
+  const xp0 = game.skills.xp.attack + game.skills.xp.strength + game.skills.xp.defence;
+  const hp0 = game.skills.xp.hitpoints;
   game._cleave(main, 20);
   assert.equal(side.hp, 99999 - 14, 'a two-hander sweeps 70% into the foe beside the target');
+  assert.ok(game.skills.xp.attack + game.skills.xp.strength + game.skills.xp.defence > xp0, 'cleave damage earns style XP');
+  assert.ok(game.skills.xp.hitpoints > hp0, 'and Hitpoints XP');
   assert.equal(far.hp, 99999, 'foes out of reach are untouched');
   assert.equal(main.hp, 99999, 'the target itself takes only its own hit');
 });
