@@ -76,6 +76,8 @@ function dropsFor(level) {
   t.push({ id: `${tier}_dagger`, weight: 6 });       // daggers come in pairs for dual wielding: extra weight
   for (const a of ['med_helm', 'chainbody', 'platelegs', 'plateskirt', 'kiteshield', 'buckler', 'boots', 'gauntlets']) t.push({ id: `${tier}_${a}`, weight: 3 });
   if (level >= 30) t.push({ id: `${tier}_full_helm`, weight: 3 }, { id: `${tier}_platebody`, weight: 2 }, { id: `${tier}_battleaxe`, weight: 3 });
+  // Scout leather for the agile melee classes (Rogue, Corsair, Brawler, Samurai).
+  for (const a of ['scout_hood', 'scout_jerkin', 'scout_breeches']) t.push({ id: `${tier}_${a}`, weight: 3 });
   if (level >= 50) t.push({ id: `${tier}_2h_sword`, weight: 2 }, { id: `${tier}_halberd`, weight: 2 });
   // A rare glimpse of the next tier up.
   t.push({ id: `${next}_scimitar`, weight: METAL_TIERS.findIndex(([, m]) => m === next) >= 6 ? 1 : 2 });

@@ -28,6 +28,40 @@ export const CLASSES = [
 ];
 
 export const CLASS_BY_ID = Object.fromEntries(CLASSES.map((c) => [c.id, c]));
+
+// Armour families: each class wears one kind of helm, body and legs armour.
+export const ARMOUR_FAMILIES = {
+  plate: { name: 'Plate', desc: 'Heavy metal armour: the most Defence, and it pierces armour.', stat: 'armour piercing' },
+  leather: { name: 'Scout leather', desc: 'Light studded leather: less Defence, but extra Attack, crit chance and crit damage.', stat: 'crit damage' },
+  hide: { name: 'Hide', desc: 'Archers\u2019 hide: Ranged bonus and quicker shots.', stat: 'attack speed' },
+  robes: { name: 'Robes', desc: 'Casters\u2019 robes: Magic bonus and extra damage to bosses.', stat: 'boss damage' },
+  dancewear: { name: 'Dancewear', desc: 'Silk and gold outfits: Dance bonus and lifesteal.', stat: 'lifesteal' },
+};
+export const ARMOUR_FAMILY = {
+  swordsman: 'plate', paladin: 'plate', knight: 'plate', berserker: 'plate', juggernaut: 'plate', gladiator: 'plate', lancer: 'plate', halberdier: 'plate',
+  rogue: 'leather', corsair: 'leather', brawler: 'leather', samurai: 'leather',
+  archer: 'hide', ranger: 'hide', wizard: 'robes', sorcerer: 'robes', dancer: 'dancewear',
+};
+/** Can this class wear this item? (Only helm, body and legs armour is restricted.) */
+export function canWear(classId, id) {
+  const fam = ITEMS[id]?.equip?.family;
+  return !fam || !classId || ARMOUR_FAMILY[classId] === fam;
+}
+/** The piece of a family that best matches another piece's slot and level (for loot). */
+export function equivalentArmour(id, family) {
+  const eq = ITEMS[id]?.equip;
+  if (!eq) return id;
+  const req = (x) => Math.max(0, ...Object.values(ITEMS[x].equip.req || {}));
+  const lvl = req(id);
+  const metal = id.split('_')[0];
+  let best = null;
+  for (const [x, it] of Object.entries(ITEMS)) {
+    if (it.equip?.family !== family || it.equip.slot !== eq.slot || req(x) > lvl) continue;
+    // Highest level that fits; on a tie, the same metal tier (rune plate -> rune scout).
+    if (!best || req(x) > req(best) || (req(x) === req(best) && x.startsWith(metal + '_'))) best = x;
+  }
+  return best || id;
+}
 // Melee cleave: the share of a hit that sweeps into foes next to the target.
 // Quick weapons (scimitars, claws) don't cleave; they swing faster instead.
 export const CLEAVE_SHARE = {

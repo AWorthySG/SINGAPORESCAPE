@@ -29,7 +29,7 @@ import {
 import { ABILITY_BY_ID, abilitiesFor } from '../data/abilities.js';
 import { RACES, raceOf, matchup, RACE_BONUS, RACE_PENALTY } from '../data/races.js';
 import { DOT_KINDS } from '../data/bossAbilities.js';
-import { CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, equivalentWeapon, CLEAVE_SHARE } from '../data/classes.js';
+import { CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, equivalentWeapon, CLEAVE_SHARE, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWear, equivalentArmour } from '../data/classes.js';
 import { STYLE_TRACKS, sumPerks, perkAtLevel, rankName, PERK_SKILLS } from '../data/perks.js';
 import { getSpell, SPELLS } from '../data/magic.js';
 import { xpForLevel } from '../data/xp.js';
@@ -352,7 +352,8 @@ export class Game {
       this.equipment.set('weapon', starter);
       // Rogues and Corsairs start dual wielding; every other melee class gets a shield.
       this.equipment.set('shield', canDualWield(starter) ? starter : 'wooden_shield');
-      this.equipment.set('body', 'leather_body');
+      // Heavy melee starts in chainmail, agile melee in leather (each class has its own armour).
+      this.equipment.set('body', ARMOUR_FAMILY[classId] === 'plate' ? 'bronze_chainbody' : 'leather_body');
     }
     this.player.hp = this.maxHp();
     this.msg(`You are a ${cls.name}: you fight with ${WEAPON_TYPE_NAMES[cls.weapon]}. Talk to the Kampong Guide for tips.`, 'system');
@@ -1093,7 +1094,7 @@ export class Game {
     }
     const speed = this.equipment.weaponSpeed();
     // A sub-beat cooldown keeps what's left over (never banking more than one swing).
-    this.player.attackCooldown = speed < 1 ? Math.max(-1, Math.min(0, this.player.attackCooldown)) + speed : speed;
+    this._resetCooldown(speed);
     this._postAttack(npc);
   }
 
@@ -1239,8 +1240,10 @@ export class Game {
     // champions), crit, and a chance of an extra hit (a spell echoes instead).
     const perk = this.perkMods(mode);
     this._perkCtx = perk;
-    accM *= (1 + (perk.acc || 0) + this.learning.perks().acc) / (1 - (perk.pierce || 0));   // English mastery: Eloquence
-    dmgM *= 1 + (perk.dmg || 0) + ((npc.def.boss || npc.champion) ? (perk.boss || 0) : 0);
+    // Gear's armour piercing stacks with the perk; boss damage from gear with the perk's.
+    const gb = this.equipment.bonuses();
+    accM *= (1 + (perk.acc || 0) + this.learning.perks().acc) / (1 - Math.min(0.6, (perk.pierce || 0) + gb.pierce / 100));   // English mastery: Eloquence
+    dmgM *= 1 + (perk.dmg || 0) + ((npc.def.boss || npc.champion) ? (perk.boss || 0) + gb.bossDmg / 100 : 0);
     const bonusHit = Math.random() < (perk.extra || 0);
     perk._echo = mode === 'magic' && bonusHit;
     const hits = Math.min(maxHits, Math.max(spec ? spec.hits || 1 : 1, ab ? ab.hits || 1 : 1)) + (bonusHit && mode !== 'magic' ? 1 : 0);
@@ -1269,8 +1272,17 @@ export class Game {
   }
 
   /** Roll a critical hit on a landed blow: crits multiply damage by CRIT_MULT. */
+  /** Time until the next attack. A cooldown that doesn't land on a whole beat
+   *  keeps its leftover (never banking more than one beat), so fractional speeds
+   *  from quick weapons and haste really are faster. */
+  _resetCooldown(speed) {
+    const p = this.player;
+    p.attackCooldown = Math.max(-1, Math.min(0, p.attackCooldown || 0)) + speed;
+  }
+
   _critHit(dmg, critCh) {
-    if (dmg > 0 && Math.random() < critCh) return { dmg: Math.max(dmg + 1, Math.round(dmg * CRIT_MULT)), crit: true };
+    // Crit damage from gear adds to the base 1.5x multiplier.
+    if (dmg > 0 && Math.random() < critCh) return { dmg: Math.max(dmg + 1, Math.round(dmg * (CRIT_MULT + this.equipment.bonuses().critDmg / 100))), crit: true };
     return { dmg, crit: false };
   }
 
@@ -1284,6 +1296,12 @@ export class Game {
       if (this.player.hp <= 0) this.playerDeath();
     }
     npc.takeDamage(dmg);
+    // Lifesteal from gear: heal a share of the damage dealt.
+    const ls = dmg > 0 ? this.equipment.bonuses().lifesteal : 0;
+    if (ls && this.player.alive && this.player.hp < this.maxHp()) {
+      this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.max(1, Math.round(dmg * ls / 100)));
+      this.bus.emit('hp');
+    }
     const perk = this._perkCtx;
     if (perk && dmg > 0) {
       this._lastHitDmg = dmg;
@@ -1368,7 +1386,7 @@ export class Game {
     this._danceHitTick = this.tickCount;
     if (this.danceRhythm >= RHYTHM_MAX && total > 0) this.spawnSparkle(p, '#ff8ac0', 4);
     if (mods.heal && total > 0) { p.hp = Math.min(this.maxHp(), p.hp + Math.round(total * mods.heal)); this.bus.emit('hp'); }
-    p.attackCooldown = this.equipment.weaponSpeed();
+    this._resetCooldown(this.equipment.weaponSpeed());
     this.bus.emit('rhythm');
     this._postAttack(npc);
   }
@@ -1441,7 +1459,8 @@ export class Game {
     }
     if (mods.heal && total > 0) { this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.round(total * mods.heal)); this.bus.emit('hp'); }
     if (this.skills.ranged >= SPLIT_SHOT_LEVEL) this._splitShot(npc, style, pr);
-    this.player.attackCooldown = Math.max(1, this.equipment.weaponSpeed() + (RANGED_STYLES[style]?.speedMod || 0));
+    const hm = this.equipment.hasteMult();   // haste from gear shortens shots too
+    this._resetCooldown(Math.max(hm, this.equipment.weaponSpeed() + (RANGED_STYLES[style]?.speedMod || 0) * hm));
     this._postAttack(npc);
   }
 
@@ -1500,7 +1519,8 @@ export class Game {
     this.skills.addXp('magic', spell.xp * this.combatXpMult());
     if (dmg > 0) { this.spawnHitSparks(npc, spell.tint); this.skills.addXp('magic', dmg * 2); this.skills.addXp('hitpoints', dmg * 1.33); }
     // Spells come off a staff a beat quicker than its swing speed.
-    this.player.attackCooldown = Math.max(1, this.equipment.weaponSpeed() - 1);
+    const hm = this.equipment.hasteMult();
+    this._resetCooldown(Math.max(hm, this.equipment.weaponSpeed() - hm));
     this._postAttack(npc);
   }
 
@@ -1883,6 +1903,9 @@ export class Game {
       for (const l of loot) {
         const t = getItem(l[0]).equip?.weaponType;
         if (t && t !== myType && Math.random() < CLASS_LOOT_SHARE) l[0] = equivalentWeapon(l[0], myType);
+        // Armour of another class's kind mostly turns into your own kind.
+        const fam = getItem(l[0]).equip?.family, mine = ARMOUR_FAMILY[this.jobClass];
+        if (fam && mine && fam !== mine && Math.random() < CLASS_LOOT_SHARE) l[0] = equivalentArmour(l[0], mine);
       }
     }
     this._autoLoot(loot, npc.x, npc.y);
@@ -2909,6 +2932,12 @@ export class Game {
     const cls = this.jobClass && CLASS_BY_ID[this.jobClass];
     if (cls && eq.weaponType && eq.weaponType !== cls.weapon) {
       this.msg(`Only a ${CLASS_FOR_TYPE(eq.weaponType)} can wield ${WEAPON_TYPE_NAMES[eq.weaponType]}. You are a ${cls.name}: you fight with ${WEAPON_TYPE_NAMES[cls.weapon]}.`);
+      return;
+    }
+    // ...and only your class's kind of helm, body and legs armour.
+    if (cls && !canWear(cls.id, s.id)) {
+      const mine = ARMOUR_FAMILIES[ARMOUR_FAMILY[cls.id]];
+      this.msg(`That's ${ARMOUR_FAMILIES[eq.family].name.toLowerCase()} armour. A ${cls.name} wears ${mine.name.toLowerCase()}: ${mine.desc}`);
       return;
     }
     // A dagger goes in the off-hand when asked, or by default when you already
