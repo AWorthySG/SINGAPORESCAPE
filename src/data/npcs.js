@@ -468,6 +468,11 @@ const TOWNSFOLK = {
   shadow_broker: { name: 'The Tempter', level: 0, attackable: false, role: 'dialogue', wander: 0, examine: 'A hooded figure who whispers of corruption.', dialogue: 'tempter' },
   farmer: { name: 'Farmer Lim', level: 0, attackable: false, role: 'shop', wander: 0, examine: 'He sells seeds, vials, knives and snares.', shop: 'farming' },
   villager: { name: 'Villager', level: 0, attackable: false, role: 'dialogue', wander: 5, examine: 'A local resident.', dialogue: 'villager' },
+  // The Merchant's hired mercenaries (spawned on contract, never placed in the world).
+  mercenary_sellsword: { name: 'Sellsword', level: 0, attackable: false, wander: 0, examine: 'A blade for hire.' },
+  mercenary_bruiser: { name: 'Bruiser', level: 0, attackable: false, wander: 0, examine: 'All muscle, paid by the hour.' },
+  mercenary_spear_guard: { name: 'Spear guard', level: 0, attackable: false, wander: 0, examine: 'Keeps trouble a spear\u2019s length away.' },
+  mercenary_duellist: { name: 'Duellist', level: 0, attackable: false, wander: 0, examine: 'Quick, sharp and expensive.' },
 };
 
 export const NPCS = {};

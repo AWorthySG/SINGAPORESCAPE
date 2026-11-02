@@ -793,8 +793,7 @@ import { CROPS, POTIONS } from '../data/trades.js';
     'fishing_rod', 'lobster_pot', 'harpoon', 'fishing_bait', 'old_boot', 'seaweed', 'pearl', 'birds_nest', 'satay', 'nasi_lemak',
     'merlion_amulet', 'amulet_of_glory', 'mark_of_grace',
   ]);
-  // Weapons of the newer classes (pistols, shurikens, canes): stickers rasterised
-  // from their vector icons until painted ones arrive (see ART_BRIEF_CLASSES.md).
+  // Weapons of the newer classes (pistols, shurikens, canes): painted stickers.
   for (const t of ['bronze', 'iron', 'steel', 'mithril', 'adamant', 'rune', 'dragon', 'obsidian', 'orichalcum', 'jade', 'starmetal', 'celestial', 'eternal']) {
     for (const w of ['pistol', 'shuriken', 'cane']) ITEM_ART.add(`${t}_${w}`);
   }
