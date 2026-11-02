@@ -2918,3 +2918,33 @@ test('races: every foe has one, weapons bite harder into some and are resisted b
   game.equipment.set('weapon', 'bronze_warhammer');
   assert.equal(game.raceMatchup(golem), 'strong');
 });
+
+test('class armour: equipping is limited to your family; offensive stats change combat', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseClass('rogue');
+  const inv = game.inventory, eq = game.equipment;
+  const idx = (id) => inv.slots.findIndex((x) => x && x.id === id);
+  game.skills.addXp('defence', 2_000_000);
+  inv.add('rune_platebody', 1); inv.add('rune_scout_jerkin', 1);
+  game.equipItem(idx('rune_platebody'));
+  assert.notEqual(eq.get('body'), 'rune_platebody', 'a Rogue cannot wear plate');
+  game.equipItem(idx('rune_scout_jerkin'));
+  assert.equal(eq.get('body'), 'rune_scout_jerkin');
+  assert.ok(eq.bonuses().critDmg > 0, 'scout leather adds crit damage');
+  // Haste shortens attack time; lifesteal heals on hit.
+  const base = eq.weaponSpeed();
+  eq.set('legs', 'eternalhide_chaps');          // set directly: just to test the stat
+  assert.ok(eq.weaponSpeed() < base, 'haste makes attacks faster');
+  eq.set('legs', 'golden_dancer_skirt');
+  const mob = game.spawnNpc(game.npcs.find((n) => n.def.attackable && !n.def.boss).npcId, game.player.x + 1, game.player.y, { wander: 0 });
+  mob.maxHp = mob.hp = 99999;
+  game.player.hp = 5;
+  game._applyPlayerHit(mob, 100);
+  assert.ok(game.player.hp > 5, 'lifesteal heals you');
+  // The starting kit matches the class.
+  const g2 = new Game(); g2.start(); g2.chooseClass('juggernaut');
+  assert.equal(g2.equipment.get('body'), 'bronze_chainbody', 'heavy melee starts in chainmail');
+});

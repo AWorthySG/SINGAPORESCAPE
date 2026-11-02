@@ -518,3 +518,28 @@ test('every class has its perks explained, matching the combat rules', async () 
   assert.ok(!labels('archer').includes('Cleave'), 'only melee cleaves');
   assert.match(classPerks('gladiator').find((x) => x.label === 'Cleave').text, /^70%/);
 });
+
+test('each class wears its own kind of armour, and armour families carry offensive stats', async () => {
+  const { ITEMS } = await import('../src/data/items.js');
+  const { CLASSES, ARMOUR_FAMILY, canWear, equivalentArmour } = await import('../src/data/classes.js');
+  for (const c of CLASSES) assert.ok(ARMOUR_FAMILY[c.id], `${c.id} has an armour family`);
+  // Every family has a helm, body and legs to wear from level 1.
+  for (const fam of new Set(Object.values(ARMOUR_FAMILY))) {
+    for (const slot of ['head', 'body', 'legs']) {
+      assert.ok(Object.values(ITEMS).some((it) => it.equip?.family === fam && it.equip.slot === slot
+        && Math.max(1, ...Object.values(it.equip.req || {})) <= 1), `${fam} has a level-1 ${slot}`);
+    }
+  }
+  assert.ok(canWear('juggernaut', 'rune_platebody') && !canWear('rogue', 'rune_platebody'));
+  assert.ok(canWear('rogue', 'rune_scout_jerkin') && !canWear('wizard', 'rune_scout_jerkin'));
+  assert.ok(canWear('wizard', 'mystic_top') && !canWear('archer', 'mystic_top'));
+  assert.ok(canWear('rogue', 'rune_boots'), 'hands, feet, shields and jewellery stay open');
+  assert.ok(canWear('rogue', 'slayer_helmet'), 'special helms are for everyone');
+  assert.equal(equivalentArmour('rune_platebody', 'leather'), 'rune_scout_jerkin', 'loot converts to your kind at the same tier');
+  // Family stats.
+  assert.ok(ITEMS.rune_platebody.equip.bonuses.pierce > 0);
+  assert.ok(ITEMS.rune_scout_jerkin.equip.bonuses.critDmg > 0);
+  assert.ok(ITEMS.dragonhide_body.equip.bonuses.haste > 0);
+  assert.ok(ITEMS.mystic_top.equip.bonuses.bossDmg > 0);
+  assert.ok(ITEMS.golden_dancer_top.equip.bonuses.lifesteal > 0);
+});

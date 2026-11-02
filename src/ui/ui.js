@@ -1,4 +1,4 @@
-import { CLASSES, CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon } from '../data/classes.js';
+import { CLASSES, CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, canWear, ARMOUR_FAMILY, ARMOUR_FAMILIES } from '../data/classes.js';
 import { classPerks, classPerkSummary } from '../game/classperks.js';
 import { PERK_SKILLS, PERK_TRACKS, PERK_EVERY, trackPerks, rankName } from '../data/perks.js';
 import { heroArtSrc, portraitFor } from '../render/sprites.js';
@@ -776,6 +776,9 @@ export class UI {
       (b.magic ? `<div class="row"><span>Magic bonus</span><span>+${b.magic}</span></div>` : '') +
       (b.crit ? `<div class="row"><span>Crit chance</span><span>+${b.crit}%</span></div>` : '') +
       (b.hp ? `<div class="row"><span>Bonus HP</span><span>+${b.hp}</span></div>` : '') +
+      // The extra offensive stats, from armour families and gear.
+      [['pierce', 'Armour pierce'], ['critDmg', 'Crit damage'], ['haste', 'Haste'], ['lifesteal', 'Lifesteal'], ['bossDmg', 'Boss damage']]
+        .map(([k, l]) => (b[k] ? `<div class="row off-stat"><span>${l}</span><span>+${b[k]}%</span></div>` : '')).join('') +
       `<div class="row"><span>Attack speed</span><span>${speed * 0.3 < 0.3 ? (speed * 0.3).toFixed(2) : (speed * 0.3).toFixed(1)}s</span></div>` +
       specLine +
       (sets.length ? `<div class="row set-bonus"><span>Set bonus</span><span>${sets.join(', ')}</span></div>` : '');
@@ -813,6 +816,13 @@ export class UI {
     let html = (lv ? `<div class="gt-up">Upgraded +${lv}</div>` : '') + `<div class="gt-stats">${this._gearStats(id)}</div>`
       + `<div class="gt-tier">#${t.rank} of ${t.of} ${eq.slot === 'weapon' ? weaponStyle(id) + ' weapons' : eq.slot + ' items'}</div>`;
     if (reqTxt) html += `<div class="gt-req ${req.ok ? 'ok' : 'no'}">Needs ${reqTxt}${req.ok ? ' ✓' : ''}</div>`;
+    // Class armour: say whose armour this is, and warn when it isn't yours.
+    if (eq.family) {
+      const who = Object.keys(ARMOUR_FAMILY).filter((c) => ARMOUR_FAMILY[c] === eq.family).map((c) => CLASS_BY_ID[c].name).join(', ');
+      const ok = canWear(this.game.jobClass, id);
+      html += `<div class="gt-req ${ok ? 'ok' : 'no'}">${ARMOUR_FAMILIES[eq.family].name} armour: ${who}${ok ? '' : ' (not your class)'}</div>`;
+      if (!ok) return html;
+    }
     const cmp = compareGear(id, this.game.equipment);
     if (cmp.verdict === 'worn') return html + '<div class="gt-verdict same">Currently worn</div>';
     const vs = cmp.worn ? ` vs ${escapeHtml(getItem(cmp.worn).name)}` : '';
@@ -1570,7 +1580,7 @@ export class UI {
     else if (want('champion', () => g.npcs.some((n) => n.alive && n.champion && Math.abs(n.x - p.x) <= 10 && Math.abs(n.y - p.y) <= 10))) id = 'champion';
     else if (want('auto', () => g.totalKills >= 1)) id = 'auto';
     else if (want('gear', () => g.tickCount % 5 === 0 && g.inventory.slots.some((s) => s && getItem(s.id).equip
-      && compareGear(s.id, g.equipment).verdict === 'upgrade' && meetsReq(s.id, g.skills).ok))) id = 'gear';
+      && compareGear(s.id, g.equipment).verdict === 'upgrade' && meetsReq(s.id, g.skills).ok && canWear(g.jobClass, s.id)))) id = 'gear';
     else if (want('bounty', () => g.tickCount > 150)) id = 'bounty';
     else if (want('upgrade', () => g.inventory.count('coins') >= 3000)) id = 'upgrade';
     if (id) this.showTip(id);

@@ -18,6 +18,12 @@ export const canDualPair = (a, b) => !!dualType(a) && dualType(a) === dualType(b
 // Quick weapons swing faster than one combat beat: scimitars and claws swing
 // about 1.4 times a beat (a fractional cooldown carries over between beats).
 export const QUICK_WEAPON_SPEED = 0.7;
+// Extra offensive stats, all in percent, with caps so stacking stays sane:
+// pierce ignores that much of a foe's defence, critDmg adds to critical hits,
+// haste shortens the time between attacks, lifesteal heals you by a share of
+// the damage you deal, and bossDmg adds damage against bosses and champions.
+export const OFFENCE_KEYS = ['pierce', 'critDmg', 'haste', 'lifesteal', 'bossDmg'];
+export const OFFENCE_CAPS = { pierce: 40, critDmg: 150, haste: 30, lifesteal: 15, bossDmg: 60 };
 // Melee swing intervals are halved: every melee class attacks twice as fast.
 export const MELEE_SPEED_MULT = 0.5;
 const QUICK_TYPES = new Set(['scimitar', 'claws']);
@@ -53,7 +59,8 @@ export class Equipment {
   }
 
   bonuses() {
-    const total = { attack: 0, strength: 0, defence: 0, ranged: 0, magic: 0, magicStr: 0, dance: 0, crit: 0, hp: 0 };
+    const total = { attack: 0, strength: 0, defence: 0, ranged: 0, magic: 0, magicStr: 0, dance: 0, crit: 0, hp: 0,
+      pierce: 0, critDmg: 0, haste: 0, lifesteal: 0, bossDmg: 0 };
     for (const slot of EQUIP_SLOTS) {
       const id = this.slots[slot];
       if (!id) continue;
@@ -68,7 +75,9 @@ export class Equipment {
       total.dance += b.dance || 0;   // Dancer accuracy and damage
       total.crit += b.crit || 0;   // bonus critical-hit chance (%)
       total.hp += b.hp || 0;       // bonus max hitpoints
+      for (const k of OFFENCE_KEYS) total[k] += b[k] || 0;   // armour piercing, crit damage, haste, lifesteal, boss damage (%)
     }
+    for (const k of OFFENCE_KEYS) total[k] = Math.min(total[k], OFFENCE_CAPS[k]);
     // Full-set bonuses on top of individual pieces.
     const sb = this.setBonus();
     for (const k of Object.keys(total)) total[k] += sb[k] || 0;
@@ -108,13 +117,23 @@ export class Equipment {
   weaponSpeed() {
     const id = this.slots.weapon;
     // Melee swings twice as fast as everything else (it has to close the distance).
-    const melee = this.combatType() === 'melee' ? MELEE_SPEED_MULT : 1;
+    // Haste from gear shortens every kind of attack (capped at 30%).
+    const melee = (this.combatType() === 'melee' ? MELEE_SPEED_MULT : 1) * (1 - this._haste() / 100);
     if (id && QUICK_TYPES.has(getItem(id).equip?.weaponType)) return QUICK_WEAPON_SPEED * melee;
     const base = (id && getItem(id).equip?.bonuses?.speed) || DEFAULT_WEAPON_SPEED;
     // Fast-paced combat: intervals are in 300ms combat beats (see
     // COMBAT_BEAT_MS), shortened by 3, down to a floor of 1 beat, so quick
     // weapons swing every 0.3s.
     return Math.max(1, base - 3) * melee;
+  }
+
+  /** Attack-time multiplier from haste (1 = no haste, 0.7 = 30% faster). */
+  hasteMult() { return 1 - this._haste() / 100; }
+
+  _haste() {
+    let h = 0;
+    for (const slot of EQUIP_SLOTS) { const id = this.slots[slot]; if (id) h += getItem(id).equip?.bonuses?.haste || 0; }
+    return Math.min(h, OFFENCE_CAPS.haste);
   }
 
   /** Is a tool of `tag` currently wielded (e.g. an axe in the weapon slot)? */

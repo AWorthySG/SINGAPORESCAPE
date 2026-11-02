@@ -2,7 +2,7 @@
 // the Combat tab: the class's signature trait, then its weapon's numbers (swing
 // speed, reach, cleave, dual wielding, crit) and its strong and weak matchups.
 // Built from the same data the combat code uses, so it stays true.
-import { CLASS_BY_ID, starterWeapon, WEAPON_TYPE_NAMES, CLEAVE_SHARE } from '../data/classes.js';
+import { CLASS_BY_ID, starterWeapon, WEAPON_TYPE_NAMES, CLEAVE_SHARE, ARMOUR_FAMILY, ARMOUR_FAMILIES } from '../data/classes.js';
 import { getItem } from '../data/items.js';
 import { WEAPON_VS_RACE, RACES, weaponTypeName } from '../data/races.js';
 import { swingBeats } from './gear.js';
@@ -61,6 +61,8 @@ export function classPerks(classId) {
   const vs = WEAPON_VS_RACE[type];
   if (vs?.strong.length) out.push({ icon: '🎯', label: 'Strong against', text: raceList(vs.strong) });
   if (vs?.weak.length) out.push({ icon: '🛡️', label: 'Weak against', text: raceList(vs.weak) });
+  const fam = ARMOUR_FAMILIES[ARMOUR_FAMILY[classId]];
+  if (fam) out.push({ icon: '🧥', label: 'Armour', text: `${fam.name}. ${fam.desc}` });
   out.push({ icon: '📈', label: 'Passive perks', text: `a new perk every 20 levels in ${TRACKS[cls.style]}` });
   return out;
 }

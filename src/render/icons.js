@@ -399,7 +399,8 @@ import { CROPS, POTIONS } from '../data/trades.js';
   const plateskirt = (col, hi) => `<path d="M8 4 L16 4 L19 19 L5 19 Z" fill="${col}" stroke="${OL}" stroke-width="1.2" stroke-linejoin="round"/><rect x="7.6" y="4" width="8.8" height="2.4" rx="1" fill="${C.goldDk}" stroke="${OL}" stroke-width="0.6"/><path d="M10 7 L9 18.6 M14 7 L15 18.6 M12 7 L12 18.6" stroke="rgba(0,0,0,0.18)" stroke-width="0.9"/><path d="M8.6 7 L6.4 18" stroke="${hi}" stroke-width="1"/>`;
   const buckler = (col, hi) => `<circle cx="12" cy="12" r="8" fill="${col}" stroke="${OL}" stroke-width="1.2"/><circle cx="12" cy="12" r="5.6" fill="none" stroke="${hi}" stroke-width="1" opacity=".8"/><circle cx="12" cy="12" r="2.4" fill="${C.gold}" stroke="${OL}" stroke-width="0.8"/><path d="M7 8.6 A6 6 0 0 1 10.4 5.6" fill="none" stroke="#fff" stroke-width="1" opacity=".8"/>`;
   const WBUILD = { dagger: blade, sword: blade, scimitar: scim, mace, longsword, battleaxe, warhammer, '2h_sword': twohander, spear, claws, katana, halberd };
-  const ABUILD = { med_helm: helm, full_helm: helm, chainbody: plate, platebody: plate, platelegs: legs, sq_shield: shield, kiteshield: shield, gauntlets: gloves, boots, plateskirt, buckler };
+  const ABUILD = { med_helm: helm, full_helm: helm, chainbody: plate, platebody: plate, platelegs: legs, sq_shield: shield, kiteshield: shield, gauntlets: gloves, boots, plateskirt, buckler,
+    scout_hood: helm, scout_jerkin: plate, scout_breeches: legs };
   for (const m of Object.keys(METAL_PAL)) {
     const [c, hi] = METAL_PAL[m];
     for (const t of Object.keys(WBUILD)) { const id = `${m}_${t}`; if (!I[id]) I[id] = WBUILD[t](c, hi); }
@@ -512,6 +513,7 @@ import { CROPS, POTIONS } from '../data/trades.js';
   I.dark_bow = bowIcon('#3a2a4a'); I.crystal_bow = bowIcon('#8fe0f0'); I.twisted_bow = bowIcon('#c8a040');
   I.bronze_arrow = arrowIcon(C.bronze); I.iron_arrow = arrowIcon(C.iron); I.steel_arrow = arrowIcon(C.steel); I.mithril_arrow = arrowIcon(mith); I.adamant_arrow = arrowIcon(adam); I.rune_arrow = arrowIcon(rune);
   I.staff = staffIcon(C.wood, '#cfd6dd'); I.magic_staff = staffIcon('#3a3a55', '#8a96e8'); I.mystic_staff = staffIcon('#2a2a44', mith); I.ancient_staff = staffIcon('#2a1a3a', '#c06ad0');
+  I.hide_vest = plate('#8a6a3a', '#b08a5a');
   I.dragonhide_coif = helm('#3f7a4a', '#5fa06a'); I.dragonhide_body = plate('#3f7a4a', '#5fa06a'); I.dragonhide_chaps = legs('#3f7a4a', '#5fa06a');
   I.air_staff = staffIcon(C.wood, '#bfe8d0'); I.water_staff = staffIcon('#3a4a66', '#6fb6e0'); I.earth_staff = staffIcon(C.wood, '#8a6a3a');
   I.fire_staff = staffIcon('#5a2a1a', '#ef7a23'); I.nature_staff = staffIcon('#4a5a2a', '#5fc06a'); I.chaos_staff = staffIcon('#2a1a3a', '#9a4ad0');
@@ -664,6 +666,7 @@ import { CROPS, POTIONS } from '../data/trades.js';
   // Painted PNG items sit inside the same sticker filter via an SVG <image>.
   export const itemIconSVG = (id, size = 28, cls) => (
     ITEM_ART.has(id) ? artImg(`item-${id}`, size, cls)
+    : borrowedArt(id) ? artImg(`item-${borrowedArt(id).file}`, size, cls, borrowedArt(id).tint)
     : PNG_ITEMS.has(id)
       ? svg(`<image href="${itemPngSrc(id)}" x="0" y="0" width="24" height="24" preserveAspectRatio="xMidYMid meet"/>`, size, cls)
       : svg(I[id] || I.coins, size, cls)
@@ -783,8 +786,29 @@ import { CROPS, POTIONS } from '../data/trades.js';
     'fishing_rod', 'lobster_pot', 'harpoon', 'fishing_bait', 'old_boot', 'seaweed', 'pearl', 'birds_nest', 'satay', 'nasi_lemak',
     'merlion_amulet', 'amulet_of_glory', 'mark_of_grace',
   ]);
-  export const itemArtSrc = (id) => (ITEM_ART.has(id) ? `assets/icons/item-${id}.webp` : null);
-  const artImg = (file, size, cls) => `<img class="${cls || ''}" width="${size}" height="${size}" src="assets/icons/${file}.webp" alt="" style="display:block;object-fit:contain" />`;
+  export const itemArtSrc = (id) => (ITEM_ART.has(id) ? `assets/icons/item-${id}.webp` : borrowedArt(id) ? `assets/icons/item-${borrowedArt(id).file}.webp` : null);
+  const artImg = (file, size, cls, filter) => `<img class="${cls || ''}" width="${size}" height="${size}" src="assets/icons/${file}.webp" alt="" style="display:block;object-fit:contain${filter ? `;filter:${filter}` : ''}" />`;
+  // Scout armour (light armour for agile melee) has no stickers of its own yet:
+  // it borrows the leather stickers, tinted towards its metal's colour, until
+  // the real art arrives (see ART_BRIEF_ARMOUR.md).
+  const BORROW = { scout_hood: 'coif', scout_jerkin: 'leather_body', scout_breeches: 'leather_chaps' };
+  const BORROW_ID = { hide_vest: 'leather_body' };   // single items borrowing a sticker as-is
+  function hueOf(hex) {
+    const n = parseInt(hex.slice(1), 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+    if (!d) return { h: 0, s: 0 };
+    const h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    return { h: (h * 60 + 360) % 360, s: d / (1 - Math.abs(mx + mn - 1) || 1) };
+  }
+  function borrowedArt(id) {
+    if (BORROW_ID[id]) return { file: BORROW_ID[id], tint: 'sepia(.4) saturate(1.3)' };
+    const m = /^([a-z]+)_(scout_[a-z]+)$/.exec(id);
+    if (!m || !BORROW[m[2]] || !METAL_PAL[m[1]]) return null;
+    const { h, s } = hueOf(METAL_PAL[m[1]][0]);
+    // Sepia starts near 38 degrees; rotate it to the metal's hue, greys stay grey.
+    const tint = s < 0.15 ? 'grayscale(.7) brightness(1.05)' : `sepia(.75) hue-rotate(${Math.round(h - 38)}deg) saturate(${(1 + s).toFixed(2)})`;
+    return { file: BORROW[m[2]], tint };
+  }
   const SKILL_ART = new Set(['attack', 'strength', 'defence', 'hitpoints', 'ranged', 'magic', 'prayer', 'slayer',
     'woodcutting', 'mining', 'fishing', 'firemaking', 'cooking', 'smithing', 'crafting', 'thieving', 'agility',
     'farming', 'hunter', 'herblore', 'fletching']);
@@ -814,6 +838,12 @@ import { CROPS, POTIONS } from '../data/trades.js';
     if (ITEM_ART.has(id)) {
       const img = new Image();
       img.src = `assets/icons/item-${id}.webp`;
+      _imgCache[id] = img;
+      return img;
+    }
+    if (borrowedArt(id)) {
+      const img = new Image();
+      img.src = `assets/icons/item-${borrowedArt(id).file}.webp`;
       _imgCache[id] = img;
       return img;
     }

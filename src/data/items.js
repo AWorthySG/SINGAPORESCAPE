@@ -739,6 +739,59 @@ Object.assign(RAW, {
   qilin_mane: { name: 'Qilin mane', icon: '✨', value: 6000, stackable: true, examine: 'A lock of golden mane from a celestial qilin.' },
 });
 
+// A first hide body for archers (the studded body needs Ranged 20).
+RAW.hide_vest = { name: 'Hide vest', icon: '🦺', value: 30, examine: 'A soft hide vest that leaves the arms free to draw a bow.',
+  equip: { slot: 'body', req: { ranged: 1 }, bonuses: { ranged: 4, defence: 3 } } };
+
+// ---- Light armour for the agile melee classes ----
+// Rogues, Corsairs, Brawlers and Samurai wear scout gear instead of plate: about
+// two thirds of plate's Defence, plus Attack and crit. One set per metal tier.
+const _SCOUT = [['scout_hood', 'scout hood', 'head', 3, 1, 1, 22], ['scout_jerkin', 'scout jerkin', 'body', 6, 2, 2, 60], ['scout_breeches', 'scout breeches', 'legs', 5, 1, 1, 40]];
+for (const M of _METALS) {
+  for (const [t, label, slot, def, att, crit, v] of _SCOUT) {
+    const id = `${M.k}_${t}`;
+    if (RAW[id]) continue;
+    RAW[id] = { name: `${M.n} ${label}`, icon: '🧥', value: Math.round(v * M.v), examine: `Light ${M.n.toLowerCase()}-studded leather for quick fighters.`,
+      equip: { slot, req: { defence: M.rd }, bonuses: { defence: Math.round(def * M.m), attack: Math.round(att * M.m), crit } } };
+  }
+}
+
+// ---- Armour families ----
+// Each class wears one family of helm, body and legs armour (see ARMOUR_FAMILY in
+// classes.js): plate for heavy melee, scout leather for agile melee, hide for
+// archers, robes for casters and dancewear for the Dancer. Hands, feet, shields,
+// capes and jewellery stay open to everyone, and so do a few special helms.
+export const ARMOUR_SLOTS = ['head', 'body', 'legs'];
+const ANY_ARMOUR = new Set(['slayer_helmet', 'champions_helm', 'blessed_halo']);
+function armourFamily(id, eq) {
+  if (!ARMOUR_SLOTS.includes(eq.slot) || ANY_ARMOUR.has(id)) return null;
+  const b = eq.bonuses || {};
+  if (b.dance) return 'dancewear';
+  if (b.magic || b.magicStr) return 'robes';
+  if (b.ranged) return 'hide';
+  if (/_scout_/.test(id) || id === 'leather_body' || id === 'hydra_leather') return 'leather';
+  return 'plate';
+}
+// Each family's own offensive stat, on every helm, body and legs piece, growing
+// with the piece's level: plate pierces armour, scout leather sharpens crits,
+// hide quickens your shots, robes hurt bosses, and dancewear steals life.
+const FAMILY_STAT = {
+  plate: (r) => ({ pierce: 1 + Math.floor(r / 30) }),
+  leather: (r) => ({ critDmg: 3 * (1 + Math.floor(r / 30)) }),
+  hide: (r) => ({ haste: 1 + Math.floor(r / 40) }),
+  robes: (r) => ({ bossDmg: 2 * (1 + Math.floor(r / 30)) }),
+  dancewear: (r) => ({ lifesteal: 1 + Math.floor(r / 60) }),
+};
+for (const [id, it] of Object.entries(RAW)) {
+  const eq = it.equip;
+  if (!eq) continue;
+  const fam = armourFamily(id, eq);
+  if (!fam) continue;
+  eq.family = fam;
+  const req = Math.max(1, ...Object.values(eq.req || {}));
+  eq.bonuses = { ...(eq.bonuses || {}), ...FAMILY_STAT[fam](req) };
+}
+
 // Freeze each definition and attach its id for convenience.
 // ---- Weapon types (one per job class) ----
 // Every weapon belongs to exactly one type; a job class can only wield its own.

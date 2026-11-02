@@ -7,6 +7,7 @@ import { EQUIP_SLOTS } from './equipment.js';
 export const STAT_LABELS = {
   attack: 'Attack', strength: 'Strength', defence: 'Defence', ranged: 'Ranged',
   magic: 'Magic', magicStr: 'Magic dmg', dance: 'Dance', crit: 'Crit %', hp: 'Bonus HP',
+  pierce: 'Armour pierce %', critDmg: 'Crit damage %', haste: 'Attack speed %', lifesteal: 'Lifesteal %', bossDmg: 'Boss damage %',
 };
 const STAT_KEYS = Object.keys(STAT_LABELS);
 
@@ -17,6 +18,11 @@ export const STAT_HELP = [
   ['Dance', 'the Dancer\'s accuracy and damage with whips'],
   ['Defence', 'how often enemies miss you'],
   ['Speed', 'time between swings — lower is faster'],
+  ['Armour pierce', 'ignores part of the enemy\'s defence, so more hits land (plate armour)'],
+  ['Crit damage', 'makes critical hits bigger than the base 1.5x (scout leather)'],
+  ['Attack speed', 'shortens the time between attacks, up to 30% (hide)'],
+  ['Lifesteal', 'heals you by a share of the damage you deal (dancewear)'],
+  ['Boss damage', 'extra damage against bosses and champions (robes)'],
 ];
 
 /** Weapon style: 'melee' | 'ranged' | 'magic' | 'dance'. */
@@ -37,7 +43,8 @@ export function gearRating(id) {
   if (!eq) return 0;
   const b = eq.bonuses || {};
   const offence = (b.attack || 0) + (b.strength || 0) + (b.ranged || 0) + (b.magic || 0) + (b.magicStr || 0) * 8 + (b.dance || 0) * 2;
-  const support = (b.defence || 0) + (b.crit || 0) * 2 + (b.hp || 0);
+  const support = (b.defence || 0) + (b.crit || 0) * 2 + (b.hp || 0)
+    + (b.pierce || 0) * 2 + (b.critDmg || 0) * 0.5 + (b.haste || 0) * 3 + (b.lifesteal || 0) * 3 + (b.bossDmg || 0);
   if (eq.slot === 'weapon') return Math.round((offence * 2) / swingBeats(id)) + support;
   return offence + support;
 }
