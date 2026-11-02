@@ -1762,7 +1762,7 @@ test('night hunt boosts combat XP; big hits and kills trigger hit-stop', () => {
   assert.equal(game.hitStop, 0, 'and it is brief');
 });
 
-test('gear upgrades: +1..+10 with coins and bars, stronger stats, saved with the game', async () => {
+test('gear upgrades: +1..+15 with coins, bars and stones, stronger stats, saved with the game', async () => {
   const { upgradeCost, upgradeChance, upgradedBonuses } = await import('../src/game/upgrade.js');
   assert.equal(upgradeChance(5), 1);
   assert.ok(upgradeChance(10) < upgradeChance(6));
@@ -1776,8 +1776,15 @@ test('gear upgrades: +1..+10 with coins and bars, stronger stats, saved with the
   const atk0 = game.equipment.bonuses().attack;
   game.inventory.add('coins', 100000);
   game.inventory.add('bronze_bar', 50);
+  // +4 and up also need upgrade stones.
+  game.upgradeItem('bronze_scimitar'); game.upgradeItem('bronze_scimitar'); game.upgradeItem('bronze_scimitar');
+  assert.equal(game.upgradeItem('bronze_scimitar'), false, 'no stones, no +4');
+  game.equipment.upgrades = {};
+  game.inventory.add('bronze_bar', 6);
+  game.inventory.add('upgrade_stone', 3);
   const coins0 = game.inventory.count('coins'), bars0 = game.inventory.count('bronze_bar');
   for (let i = 0; i < 5; i++) assert.ok(game.upgradeItem('bronze_scimitar'), `+${i + 1} always works`);
+  assert.equal(game.inventory.count('upgrade_stone'), 0, 'stones are spent (1 for +4, 2 for +5)');
   assert.equal(game.equipment.upgradeLevel('bronze_scimitar'), 5);
   assert.ok(game.equipment.bonuses().attack > atk0, 'upgrades raise your bonuses');
   assert.equal(game.inventory.count('bronze_bar'), bars0 - 15, 'bars are spent (1+2+3+4+5)');
@@ -1786,6 +1793,27 @@ test('gear upgrades: +1..+10 with coins and bars, stronger stats, saved with the
   const g2 = new Game();
   g2.start();
   assert.equal(g2.equipment.upgradeLevel('bronze_scimitar'), 5, 'upgrade levels survive save/load');
+
+  // Risky levels: from +8 a failure drops a level, unless a ward is carried.
+  assert.equal(upgradeChance(15), 0.2);
+  assert.ok(upgradedBonuses({ attack: 100 }, 15).attack - upgradedBonuses({ attack: 100 }, 14).attack
+    > upgradedBonuses({ attack: 100 }, 3).attack - upgradedBonuses({ attack: 100 }, 2).attack, 'late levels give bigger jumps');
+  game.inventory.add('bronze_bar', 500); game.inventory.add('upgrade_stone', 500); game.inventory.add('coins', 10_000_000);
+  game.equipment.upgrades.bronze_scimitar = 7;
+  const rnd = Math.random;
+  try {
+    Math.random = () => 0.999;                      // force a failure
+    game.upgradeItem('bronze_scimitar');
+    assert.equal(game.equipment.upgradeLevel('bronze_scimitar'), 6, 'failing +8 drops a level');
+    game.equipment.upgrades.bronze_scimitar = 7;
+    game.inventory.add('upgrade_ward', 1);
+    game.upgradeItem('bronze_scimitar');
+    assert.equal(game.equipment.upgradeLevel('bronze_scimitar'), 7, 'a ward keeps the level');
+    assert.equal(game.inventory.count('upgrade_ward'), 0, 'and is used up');
+    game.equipment.upgrades.bronze_scimitar = 5;
+    game.upgradeItem('bronze_scimitar');
+    assert.equal(game.equipment.upgradeLevel('bronze_scimitar'), 5, 'below +8 a failure keeps the level');
+  } finally { Math.random = rnd; }
 });
 
 test('auto battle settings: eat level, target filter, and they are saved', () => {
@@ -3006,4 +3034,32 @@ test('new classes: Pistoler (dual pistols, no ammo, very fast), Ninja (ricochet)
   mc.update(600);
   assert.ok(!mc.npcs.includes(merc), 'the contract ends and the mercenary leaves');
   assert.equal(fresh('pistoler').hireMercenary(), null, 'only Merchants can hire');
+});
+
+test('drops: rarer gear from normal monsters, quality rolls, and bosses always drop class gear and stones', async () => {
+  const { rollQuality, QUALITY } = await import('../src/game/loot.js');
+  assert.equal(rollQuality('boss', () => 0.99), 'superior', 'bosses give at least Superior');
+  assert.equal(rollQuality('boss', () => 0.05), 'legendary');
+  assert.equal(rollQuality('normal', () => 0.9), null, 'most normal drops have no quality');
+  assert.equal(rollQuality('normal', () => 0.1), 'fine');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseClass('corsair');
+  game.ui = new Proxy({}, { get: () => () => {} });
+  let got = [];
+  game._autoLoot = (loot) => { got = loot.map((l) => l[0]); };
+  const boss = game.npcs.find((n) => n.def.boss && !n.def.fixed);
+  game.rollDrops(boss);
+  const gear = got.filter((id) => ITEMS[id].equip && (ITEMS[id].equip.weaponType === 'scimitar' || ITEMS[id].equip.family === 'leather'));
+  assert.ok(gear.length >= 1, `a boss drops Corsair gear (${got.join(', ')})`);
+  assert.ok(gear.some((id) => game.equipment.upgradeLevel(id) >= QUALITY.superior.level), 'of Superior quality or better');
+  assert.ok(got.includes('upgrade_stone'), 'and upgrade stones');
+  // Normal monsters: a gear roll is usually turned into something else.
+  const mob = game.npcs.find((n) => n.def.attackable && !n.def.boss && n.def.dropTable?.some((d) => d.id && ITEMS[d.id]?.equip));
+  let gearDrops = 0;
+  for (let i = 0; i < 300; i++) { game.rollDrops(mob); gearDrops += got.filter((id) => ITEMS[id].equip).length; }
+  const share = mob.def.dropTable.filter((d) => d.id && ITEMS[d.id]?.equip).reduce((s, d) => s + d.weight, 0) / mob.def.dropTable.reduce((s, d) => s + d.weight, 0);
+  assert.ok(gearDrops < 300 * share * 0.75, `gear drops cut well below the table's share (${gearDrops} vs ${Math.round(300 * share)})`);
 });

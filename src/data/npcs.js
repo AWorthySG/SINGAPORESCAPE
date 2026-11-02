@@ -9,8 +9,8 @@ const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g
 // Toughness: how much longer monsters and bosses take to bring down than the
 // base formulas, through extra health and a sturdier defence (fewer of your
 // hits land). Champions, ranks and special spawns all scale from these.
-export const MONSTER_TOUGHNESS = { hp: 2.5, defence: 1.25 };
-export const BOSS_TOUGHNESS = { hp: 3, defence: 1.2 };
+export const MONSTER_TOUGHNESS = { hp: 3.75, defence: 1.25 };   // hp raised 1.5x (was 2.5)
+export const BOSS_TOUGHNESS = { hp: 9, defence: 1.2 };          // hp raised 3x (was 3): boss fights are real fights
 // The first town monsters (level 5 and under: chickens, rats, goblins) stay
 // quick to beat so new players can find their feet; toughness then ramps in to
 // its full amount by level 15.

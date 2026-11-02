@@ -51,6 +51,19 @@ export function canWear(classId, id) {
   const fam = ITEMS[id]?.equip?.family;
   return !fam || !classId || ARMOUR_FAMILY[classId] === fam;
 }
+/** A piece of gear for a class at about a monster's level: its weapon type or
+ *  its armour family, the best one that level allows (for boss drops). */
+export function classGearFor(classId, level, rand = Math.random) {
+  const cls = CLASS_BY_ID[classId];
+  if (!cls) return null;
+  const req = (x) => Math.max(0, ...Object.values(ITEMS[x].equip.req || {}));
+  const pickBest = (ids) => ids.filter((x) => req(x) <= level).sort((a, b) => req(b) - req(a))[0] || ids[0];
+  if (rand() < 0.5) return pickBest(weaponsOfType(cls.weapon).filter((w) => !UNIQUES.has(w)));
+  const slot = ['head', 'body', 'legs'][Math.floor(rand() * 3)];
+  const fam = ARMOUR_FAMILY[classId];
+  return pickBest(Object.keys(ITEMS).filter((x) => ITEMS[x].equip?.family === fam && ITEMS[x].equip.slot === slot));
+}
+
 /** The piece of a family that best matches another piece's slot and level (for loot). */
 export function equivalentArmour(id, family) {
   const eq = ITEMS[id]?.equip;

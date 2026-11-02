@@ -24,3 +24,30 @@ export function dropRarity(id, source = 'table', { boss = false } = {}) {
 
 /** Ticks a drop sits on the ground before flying into the pack: rarer = longer, so you see it. */
 export function lootDelay(rarity) { return [1, 2, 3, 4][RARITY[rarity]?.rank ?? 0]; }
+
+// Gear quality: a dropped piece of gear can come out Fine, Superior, Epic or
+// Legendary. Quality is a head start on upgrades: the item type jumps straight
+// to that many upgrade levels (never lowering a level you already have).
+export const QUALITY = {
+  fine: { level: 1, label: 'Fine', rarity: 'rare' },
+  superior: { level: 2, label: 'Superior', rarity: 'epic' },
+  epic: { level: 3, label: 'Epic', rarity: 'epic' },
+  legendary: { level: 5, label: 'Legendary', rarity: 'legendary' },
+};
+
+/** Roll a quality for a gear drop. `source`: 'normal' | 'champion' | 'boss'.
+ *  Bosses always give at least Superior. Returns a QUALITY key or null. */
+export function rollQuality(source = 'normal', rand = Math.random) {
+  const r = rand();
+  if (source === 'boss') return r < 0.1 ? 'legendary' : r < 0.4 ? 'epic' : 'superior';
+  const m = source === 'champion' ? 2.5 : 1;
+  if (r < 0.003 * m) return 'legendary';
+  if (r < 0.018 * m) return 'epic';
+  if (r < 0.078 * m) return 'superior';
+  if (r < 0.278 * m) return 'fine';
+  return null;
+}
+
+// Normal monsters drop gear much less often than before (bosses and champions
+// are the place to farm it): this share of their gear rolls become something else.
+export const NORMAL_GEAR_SKIP = 0.6;

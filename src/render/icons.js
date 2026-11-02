@@ -520,6 +520,7 @@ import { CROPS, POTIONS } from '../data/trades.js';
   I.bronze_arrow = arrowIcon(C.bronze); I.iron_arrow = arrowIcon(C.iron); I.steel_arrow = arrowIcon(C.steel); I.mithril_arrow = arrowIcon(mith); I.adamant_arrow = arrowIcon(adam); I.rune_arrow = arrowIcon(rune);
   I.staff = staffIcon(C.wood, '#cfd6dd'); I.magic_staff = staffIcon('#3a3a55', '#8a96e8'); I.mystic_staff = staffIcon('#2a2a44', mith); I.ancient_staff = staffIcon('#2a1a3a', '#c06ad0');
   I.hide_vest = plate('#8a6a3a', '#b08a5a');
+  I.upgrade_stone = I.sapphire; I.upgrade_ward = I.clue_scroll_hard || I.sapphire;
   I.dragonhide_coif = helm('#3f7a4a', '#5fa06a'); I.dragonhide_body = plate('#3f7a4a', '#5fa06a'); I.dragonhide_chaps = legs('#3f7a4a', '#5fa06a');
   I.air_staff = staffIcon(C.wood, '#bfe8d0'); I.water_staff = staffIcon('#3a4a66', '#6fb6e0'); I.earth_staff = staffIcon(C.wood, '#8a6a3a');
   I.fire_staff = staffIcon('#5a2a1a', '#ef7a23'); I.nature_staff = staffIcon('#4a5a2a', '#5fc06a'); I.chaos_staff = staffIcon('#2a1a3a', '#9a4ad0');
@@ -803,7 +804,7 @@ import { CROPS, POTIONS } from '../data/trades.js';
   // it borrows the leather stickers, tinted towards its metal's colour, until
   // the real art arrives (see ART_BRIEF_ARMOUR.md).
   const BORROW = { scout_hood: 'coif', scout_jerkin: 'leather_body', scout_breeches: 'leather_chaps' };
-  const BORROW_ID = { hide_vest: 'leather_body' };   // single items borrowing a sticker as-is
+  const BORROW_ID = { hide_vest: 'leather_body', upgrade_stone: 'sapphire', upgrade_ward: 'clue_scroll_hard' };   // single items borrowing a sticker
   function hueOf(hex) {
     const n = parseInt(hex.slice(1), 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
     const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;

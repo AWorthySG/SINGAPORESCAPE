@@ -1,6 +1,6 @@
 import { getItem } from '../data/items.js';
 import { ARMOUR_SETS } from '../data/sets.js';
-import { upgradedBonuses } from './upgrade.js';
+import { upgradedBonuses, MAX_UPGRADE } from './upgrade.js';
 
 export const EQUIP_SLOTS = ['head', 'cape', 'amulet', 'weapon', 'body', 'shield', 'legs', 'hands', 'feet', 'ring'];
 export const DEFAULT_WEAPON_SPEED = 5; // ticks (unarmed)
@@ -38,7 +38,7 @@ export class Equipment {
     this.bus = bus;
     this.slots = {};
     for (const s of EQUIP_SLOTS) this.slots[s] = null;
-    this.upgrades = {};           // itemId -> upgrade level (+1..+10), shared by every copy
+    this.upgrades = {};           // itemId -> upgrade level (+1..+15), shared by every copy
   }
 
   upgradeLevel(id) { return this.upgrades[id] || 0; }
@@ -156,7 +156,7 @@ export class Equipment {
     }
     this.upgrades = {};
     for (const [id, lv] of Object.entries(data._upgrades || {})) {
-      if (itemExists(id) && lv > 0) this.upgrades[id] = Math.min(10, Math.floor(lv));
+      if (itemExists(id) && lv > 0) this.upgrades[id] = Math.min(MAX_UPGRADE, Math.floor(lv));
     }
     this._changed();
   }
