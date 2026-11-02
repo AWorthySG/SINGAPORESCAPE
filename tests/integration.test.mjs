@@ -863,7 +863,7 @@ test('Interact acts on the nearest thing: picks it, labels it, and does its main
   game.world.objects = objs;
 });
 
-test('player attacks run on a 300ms combat beat: a scimitar swings about 4-5 times a second', async () => {
+test('player attacks run on a 300ms combat beat: a scimitar swings about 9 times a second', async () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
   const { NPC } = await import('../src/game/npc.js');
@@ -880,8 +880,8 @@ test('player attacks run on a 300ms combat beat: a scimitar swings about 4-5 tim
   game.doPlayerAttack = (n) => { swings++; return orig(n); };
   game.attackNpc(target);
   for (let i = 0; i < 31; i++) game.update(100);   // ~3s
-  // Scimitars are quick weapons: about 1.4 swings per 300ms beat.
-  assert.ok(swings >= 12 && swings <= 16, `about 14 swings in 3s, got ${swings}`);
+  // Scimitars are quick weapons, and melee swings twice as fast: about 2.9 swings per 300ms beat.
+  assert.ok(swings >= 24 && swings <= 32, `about 28 swings in 3s, got ${swings}`);
 });
 
 test('auto battle hunts nearby monsters, eats when hurt, can skip bosses and pauses while steering', async () => {

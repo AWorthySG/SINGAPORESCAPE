@@ -6,7 +6,7 @@ import { CLASS_BY_ID, starterWeapon, WEAPON_TYPE_NAMES, CLEAVE_SHARE } from '../
 import { getItem } from '../data/items.js';
 import { WEAPON_VS_RACE, RACES, weaponTypeName } from '../data/races.js';
 import { swingBeats } from './gear.js';
-import { canDualWield, QUICK_WEAPON_SPEED } from './equipment.js';
+import { canDualWield } from './equipment.js';
 
 // One signature line per class: the thing to remember it by.
 const SIGNATURE = {
@@ -32,6 +32,7 @@ const SIGNATURE = {
 // The passive perk tracks each style levels up (a perk every 20 levels).
 const TRACKS = { melee: 'Attack, Strength and Defence', ranged: 'Ranged and Defence', magic: 'Magic and Defence', dance: 'Agility and Defence' };
 
+const secs = (s) => (s < 0.3 ? s.toFixed(2) : s.toFixed(1));
 const raceList = (ids) => ids.map((r) => RACES[r]?.name.toLowerCase()).filter(Boolean).join(', ');
 
 /** The class's traits: [{ icon, label, text }], signature first. */
@@ -45,8 +46,8 @@ export function classPerks(classId) {
   // Swing speed in seconds (a combat beat is 0.3s; spells come a beat quicker).
   let beats = swingBeats(w);
   if (cls.style === 'magic') beats = Math.max(1, beats - 1);
-  const quick = beats === QUICK_WEAPON_SPEED;
-  out.push({ icon: '⚡', label: 'Speed', text: `${quick ? 'Quick weapon: ' : ''}attacks every ${(beats * 0.3).toFixed(1)}s` });
+  const quick = beats < 0.5;   // scimitars and claws
+  out.push({ icon: '⚡', label: 'Speed', text: `${quick ? 'Quick weapon: ' : ''}attacks every ${secs(beats * 0.3)}s` });
   const reach = cls.style === 'magic' ? 8 : eq.range || 2;
   out.push({ icon: '📏', label: 'Reach', text: `${reach} tiles` });
   if (cls.style === 'melee') {

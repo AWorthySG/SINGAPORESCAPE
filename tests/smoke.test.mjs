@@ -323,13 +323,16 @@ test('armour set bonuses apply only when the full set is worn', () => {
 test('combat is fast-paced: quick weapons swing every tick', () => {
   const eq = new Equipment(new EventBus());
   eq.set('weapon', 'bronze_scimitar');
-  assert.equal(eq.weaponSpeed(), 0.7, 'scimitars are quick weapons: under one beat');
+  // Melee swings twice as fast as before; scimitars and claws are quicker still.
+  assert.equal(eq.weaponSpeed(), 0.35, 'scimitars are quick weapons: about 3 swings a beat');
   eq.set('weapon', 'bronze_dagger');
-  assert.equal(eq.weaponSpeed(), 1, 'daggers swing every beat');
+  assert.equal(eq.weaponSpeed(), 0.5, 'daggers swing twice a beat');
   eq.set('weapon', 'bronze_axe');
-  assert.equal(eq.weaponSpeed(), 2, 'slower weapons are still quicker than before');
+  assert.equal(eq.weaponSpeed(), 1, 'slower weapons swing every beat');
   eq.clearSlot('weapon');
-  assert.equal(eq.weaponSpeed(), 2, 'unarmed sped up too');
+  assert.equal(eq.weaponSpeed(), 1, 'unarmed sped up too');
+  eq.set('weapon', 'shortbow');
+  assert.equal(eq.weaponSpeed(), 1, 'ranged is unchanged');
 });
 
 test('select weapons carry special attacks', () => {

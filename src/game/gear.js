@@ -25,8 +25,9 @@ export function weaponStyle(id) { return getItem(id).equip?.combatType || 'melee
 /** Combat beats between swings (matches Equipment.weaponSpeed()). */
 export function swingBeats(id) {
   const eq = getItem(id).equip;
-  if (eq?.weaponType === 'scimitar' || eq?.weaponType === 'claws') return 0.7;   // quick weapons
-  return Math.max(1, (eq?.bonuses?.speed || 5) - 3);
+  const melee = (eq?.combatType || 'melee') === 'melee' ? 0.5 : 1;   // melee swings twice as fast
+  if (eq?.weaponType === 'scimitar' || eq?.weaponType === 'claws') return 0.7 * melee;   // quick weapons
+  return Math.max(1, (eq?.bonuses?.speed || 5) - 3) * melee;
 }
 
 /** A single "how good is this" number. Weapons count damage per swing beat, so
