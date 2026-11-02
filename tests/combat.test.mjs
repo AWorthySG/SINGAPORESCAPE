@@ -115,6 +115,8 @@ test('a telegraphed heavy blow always connects', () => {
   g.player.hp = g.skills.hitpoints;
   const npc = g.npcs.find((n) => n.attackable) || g.npcs[0];
   npc.def = { ...npc.def, attack: 220, maxHit: 12 };
+  // No hitting back: a retaliating swing can level up Hitpoints, which heals you and hides the blow.
+  g.player.autoRetaliate = false;
   const before = g.player.hp;
   g.resolveNpcAttack(npc, { heavy: true });
   assert.ok(g.player.hp < before, 'the heavy blow dealt damage');
