@@ -18,6 +18,8 @@ export const canDualPair = (a, b) => !!dualType(a) && dualType(a) === dualType(b
 // Quick weapons swing faster than one combat beat: scimitars and claws swing
 // about 1.4 times a beat (a fractional cooldown carries over between beats).
 export const QUICK_WEAPON_SPEED = 0.7;
+// Melee swing intervals are halved: every melee class attacks twice as fast.
+export const MELEE_SPEED_MULT = 0.5;
 const QUICK_TYPES = new Set(['scimitar', 'claws']);
 
 // Worn-equipment state + bonus aggregation.
@@ -105,12 +107,14 @@ export class Equipment {
 
   weaponSpeed() {
     const id = this.slots.weapon;
-    if (id && QUICK_TYPES.has(getItem(id).equip?.weaponType)) return QUICK_WEAPON_SPEED;
+    // Melee swings twice as fast as everything else (it has to close the distance).
+    const melee = this.combatType() === 'melee' ? MELEE_SPEED_MULT : 1;
+    if (id && QUICK_TYPES.has(getItem(id).equip?.weaponType)) return QUICK_WEAPON_SPEED * melee;
     const base = (id && getItem(id).equip?.bonuses?.speed) || DEFAULT_WEAPON_SPEED;
     // Fast-paced combat: intervals are in 300ms combat beats (see
     // COMBAT_BEAT_MS), shortened by 3, down to a floor of 1 beat, so quick
     // weapons swing every 0.3s.
-    return Math.max(1, base - 3);
+    return Math.max(1, base - 3) * melee;
   }
 
   /** Is a tool of `tag` currently wielded (e.g. an axe in the weapon slot)? */

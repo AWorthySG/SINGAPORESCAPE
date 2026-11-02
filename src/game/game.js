@@ -1027,9 +1027,9 @@ export class Game {
     const p = this.player;
     if (!p.alive) return;
     if (p.attackCooldown > 0) p.attackCooldown--;
-    // Quick weapons (scimitars, claws) have a cooldown under one beat, so the
-    // leftover carries over and now and then a second swing fits in the beat.
-    for (let swings = 0; swings < 2; swings++) {
+    // Melee weapons have cooldowns under one beat, so the leftover carries over
+    // and several swings can fit in one beat (up to 3 for the quickest).
+    for (let swings = 0; swings < 3; swings++) {
       if (this.playerStun > 0 || p.attackCooldown > 0) return;
       const a = p.action;
       if (!a || a.type !== 'attack' || !a.npc || !a.npc.alive) return;

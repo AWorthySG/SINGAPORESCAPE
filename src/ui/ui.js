@@ -776,7 +776,7 @@ export class UI {
       (b.magic ? `<div class="row"><span>Magic bonus</span><span>+${b.magic}</span></div>` : '') +
       (b.crit ? `<div class="row"><span>Crit chance</span><span>+${b.crit}%</span></div>` : '') +
       (b.hp ? `<div class="row"><span>Bonus HP</span><span>+${b.hp}</span></div>` : '') +
-      `<div class="row"><span>Attack speed</span><span>${(speed * 0.3).toFixed(1)}s</span></div>` +
+      `<div class="row"><span>Attack speed</span><span>${speed * 0.3 < 0.3 ? (speed * 0.3).toFixed(2) : (speed * 0.3).toFixed(1)}s</span></div>` +
       specLine +
       (sets.length ? `<div class="row set-bonus"><span>Set bonus</span><span>${sets.join(', ')}</span></div>` : '');
     const guide = document.createElement('button');
