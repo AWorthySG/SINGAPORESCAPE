@@ -198,7 +198,7 @@ test('boss art stays in lock-step with assets/creatures/bosses/ and names real b
   const { readdirSync } = await import('node:fs');
   const { fileURLToPath } = await import('node:url');
   const { bossArt } = await import('../src/render/sprites.js');
-  const { BOSS_IDS } = await import('../src/data/npcs.js');
+  const { ALL_BOSS_IDS: BOSS_IDS } = await import('../src/data/npcs.js');   // the original bosses plus the newer ones
   const dir = fileURLToPath(new URL('../assets/creatures/bosses/', import.meta.url));
   const onDisk = new Set(readdirSync(dir).filter((f) => f.endsWith('.webp')).map((f) => f.slice(0, -5)));
   const declared = bossArt();
