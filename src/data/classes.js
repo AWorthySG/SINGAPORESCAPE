@@ -28,6 +28,12 @@ export const CLASSES = [
 ];
 
 export const CLASS_BY_ID = Object.fromEntries(CLASSES.map((c) => [c.id, c]));
+// Melee cleave: the share of a hit that sweeps into foes next to the target.
+// Quick weapons (scimitars, claws) don't cleave; they swing faster instead.
+export const CLEAVE_SHARE = {
+  dagger: 0.35, sword: 0.45, mace: 0.45, katana: 0.45, longsword: 0.5, spear: 0.4,
+  battleaxe: 0.65, warhammer: 0.6, '2h_sword': 0.7, halberd: 0.65,
+};
 export const CLASS_FOR_WEAPON = Object.fromEntries(CLASSES.map((c) => [c.weapon, c]));
 export const WEAPON_TYPE_NAMES = {
   dagger: 'daggers', sword: 'swords', scimitar: 'scimitars', mace: 'maces', longsword: 'longswords', battleaxe: 'battleaxes',

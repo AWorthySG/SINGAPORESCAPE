@@ -2017,3 +2017,10 @@ body.boss-on #tip-toast { top: 132px; }
 .rc-verify summary { cursor: pointer; font-weight: 800; }
 .rc-verify textarea { width: 100%; margin-top: 6px; font: 12px ui-monospace, Menlo, monospace; border-radius: 8px; border: 1.5px solid var(--aw-ink); padding: 6px; box-sizing: border-box; }
 .rc-result.ok { color: #2f8a3a; font-weight: 800; } .rc-result.no { color: #c03a3a; font-weight: 800; }
+/* Class perks: picker summary, Combat tab line and the full list */
+.class-perks { display: block; margin-top: 3px; font-size: 11px; font-weight: 800; color: #8a5a00; }
+.cb-perks { margin-left: 6px; padding: 1px 8px; border-radius: 99px; border: 1.5px solid var(--aw-ink); background: #fff6dc; font: inherit; font-size: 11px; font-weight: 800; cursor: pointer; }
+.cb-perkline { font-size: 11px; color: var(--aw-text-sec); margin: 1px 0 4px; }
+.cp-list { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 8px; }
+.cp-row { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; line-height: 1.35; padding: 6px 8px; border-radius: 10px; background: #fff; border: 1.5px solid rgba(34,48,74,.2); }
+.cp-ic { flex: none; width: 22px; text-align: center; }
