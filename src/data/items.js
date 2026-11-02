@@ -830,6 +830,57 @@ for (const [id, it] of Object.entries(RAW)) {
   if (it.equip?.slot === 'weapon' && !it.tool) it.equip.weaponType = classifyWeapon(id, it.equip);
 }
 
+// ---- Offensive stats on weapons, jewellery, capes and boss uniques ----
+// Each weapon type leans on the stat that suits it (daggers find gaps for
+// bigger crits, maces crack armour, bows and pistols fire faster...), growing
+// gently with the weapon's level. All in percent, kept well inside the caps
+// in equipment.js so armour, jewellery and weapon can stack together.
+const WEAPON_STAT = {
+  dagger: 'critDmg', claws: 'critDmg', katana: 'critDmg', shuriken: 'critDmg',
+  mace: 'pierce', warhammer: 'pierce', spear: 'pierce', longsword: 'pierce',
+  '2h_sword': 'bossDmg', halberd: 'bossDmg', battleaxe: 'bossDmg', staff: 'bossDmg', wand: 'bossDmg', sword: 'bossDmg',
+  scimitar: 'lifesteal', whip: 'lifesteal', cane: 'lifesteal',
+  shortbow: 'haste', longbow: 'haste', pistol: 'haste',
+};
+// Size of one "step" of each stat (critDmg and bossDmg run bigger numbers).
+const STAT_STEP = { critDmg: 3, bossDmg: 2, pierce: 1, haste: 1, lifesteal: 1 };
+const reqOf = (eq) => Math.max(1, ...Object.values(eq.req || {}));
+for (const it of Object.values(RAW)) {
+  const eq = it.equip;
+  const k = eq && eq.slot === 'weapon' && !it.tool && WEAPON_STAT[eq.weaponType];
+  if (!k) continue;
+  // One step at level 1, one more every 40 levels (haste and lifesteal every 60).
+  const steps = 1 + Math.floor(reqOf(eq) / (k === 'haste' || k === 'lifesteal' ? 60 : 40));
+  eq.bonuses = { ...eq.bonuses, [k]: (eq.bonuses[k] || 0) + steps * STAT_STEP[k] };
+}
+// Hand-picked extras for jewellery, capes and the boss uniques: each one's flavour.
+const OFFENCE_EXTRA = {
+  // Rings and amulets
+  gold_ring: { critDmg: 2 }, sapphire_ring: { haste: 1 }, emerald_ring: { lifesteal: 1 }, ruby_ring: { pierce: 2 },
+  diamond_ring: { critDmg: 6 }, ring_of_kampong: { bossDmg: 3 }, ring_of_might: { pierce: 3 }, slayer_ring: { bossDmg: 4, critDmg: 4 },
+  amulet_of_power: { critDmg: 3 }, gold_amulet: { lifesteal: 1 }, sapphire_amulet: { haste: 1 }, emerald_amulet: { lifesteal: 1 },
+  ruby_amulet: { pierce: 2 }, diamond_amulet: { critDmg: 6 }, merlion_amulet: { bossDmg: 5, lifesteal: 1 }, boar_tusk: { pierce: 2 },
+  worthy_sigil: { bossDmg: 4 }, amulet_of_strength: { critDmg: 4 }, amulet_of_glory: { critDmg: 4, haste: 1 },
+  djinn_lamp: { bossDmg: 6 }, merdeka_medallion: { haste: 2, critDmg: 4 }, occult_necklace: { bossDmg: 8 },
+  // Capes and sashes
+  batik_cape: { haste: 1 }, songket_cape: { critDmg: 3 }, warlord_cape: { pierce: 3, bossDmg: 3 }, fire_cape: { bossDmg: 6, critDmg: 4 },
+  garuda_wings: { haste: 3 }, revenant_cape: { lifesteal: 2 }, champions_cape: { bossDmg: 5, critDmg: 5 }, shadow_cloak: { critDmg: 8 },
+  silk_sash: { lifesteal: 1 }, golden_sash: { lifesteal: 2 }, jade_sash: { lifesteal: 2, haste: 1 }, eternal_sash: { lifesteal: 3, haste: 2 },
+  // Boss uniques
+  tiger_kris: { critDmg: 12, lifesteal: 1 }, merlion_blade: { bossDmg: 10, lifesteal: 2 }, cursed_cutlass: { lifesteal: 4, haste: 2 },
+  seraph_blade: { pierce: 6, bossDmg: 6 }, megalodon_jaw: { bossDmg: 12, critDmg: 6 }, granite_maul: { pierce: 10 },
+  void_blade: { critDmg: 15, pierce: 3 }, leviathan_trident: { pierce: 8, bossDmg: 6 }, tiger_fang: { critDmg: 14, haste: 2 },
+  slayer_helmet: { bossDmg: 6, critDmg: 4 }, champions_helm: { bossDmg: 4, pierce: 2 }, blessed_halo: { lifesteal: 1, bossDmg: 2 },
+  kampong_gauntlets: { pierce: 2, critDmg: 3 }, island_aegis: { lifesteal: 1 },
+};
+for (const [id, extra] of Object.entries(OFFENCE_EXTRA)) {
+  const eq = RAW[id]?.equip;
+  if (!eq) continue;
+  const b = { ...(eq.bonuses || {}) };
+  for (const [k, v] of Object.entries(extra)) b[k] = (b[k] || 0) + v;
+  eq.bonuses = b;
+}
+
 export const ITEMS = Object.fromEntries(
   Object.entries(RAW).map(([id, def]) => [id, Object.freeze({ id, ...def })])
 );

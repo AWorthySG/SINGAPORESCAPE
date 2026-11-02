@@ -784,6 +784,32 @@ export class UI {
       `<div class="row"><span>Attack speed</span><span>${speed * 0.3 < 0.3 ? (speed * 0.3).toFixed(2) : (speed * 0.3).toFixed(1)}s</span></div>` +
       specLine +
       (sets.length ? `<div class="row set-bonus"><span>Set bonus</span><span>${sets.join(', ')}</span></div>` : '');
+    // What you're wearing, slot by slot: name, upgrade level and stats. Tap a
+    // row to open its full details (tier, requirements, class armour note).
+    const worn = EQUIP_SLOTS.filter((s) => this.game.equipment.get(s));
+    const list = document.createElement('div');
+    list.className = 'eq-list';
+    list.innerHTML = `<div class="eq-head">Equipped (${worn.length}/${EQUIP_SLOTS.length})</div>`;
+    if (!worn.length) list.insertAdjacentHTML('beforeend', '<div class="eq-empty">Nothing equipped yet.</div>');
+    for (const slot of worn) {
+      const id = this.game.equipment.get(slot);
+      const eq = getItem(id).equip;
+      const lv = this.game.equipment.upgradeLevel(id);
+      const fam = eq.family ? `<span class="eq-fam">${ARMOUR_FAMILIES[eq.family].name}</span>` : '';
+      const row = document.createElement('details');
+      row.className = 'eq-row';
+      row.innerHTML = `<summary><span class="eq-ic">${itemIconSVG(id, 26)}</span>`
+        + `<span class="eq-txt"><span class="eq-slot">${slot === 'shield' && this.game.equipment.isDualWielding() ? 'Off-hand' : capitalize(slot)}</span>`
+        + `<b class="eq-name">${escapeHtml(upgradedName(id, lv))}</b>${fam}`
+        + `<span class="eq-stats">${this._gearStats(id)}</span></span></summary>`
+        + `<div class="eq-detail">${this._gearTip(id)}</div>`;
+      const off = document.createElement('button');
+      off.className = 'eq-remove'; off.type = 'button'; off.textContent = 'Remove';
+      off.addEventListener('click', () => this.game.unequip(slot));
+      row.querySelector('.eq-detail').appendChild(off);
+      list.appendChild(row);
+    }
+    this.el.equipBonuses.prepend(list);
     const guide = document.createElement('button');
     guide.className = 'bestiary-open gear-guide-open';
     guide.textContent = 'Gear Guide: which equipment is better?';
