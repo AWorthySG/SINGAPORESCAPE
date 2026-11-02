@@ -48,6 +48,7 @@ import { eligibleTasks, SLAYER_REWARDS } from '../data/slayer.js';
 import { STATIONS, STATION_BY_ID, MRT_FARE } from '../data/transport.js';
 import { SKILLS } from '../data/skills.js';
 import { Learning } from './learning.js';
+import * as Mercs from './mercenary.js';
 import { classPerks } from './classperks.js';
 import { TOPIC_BY_ID } from '../data/questions.js';
 import { LIFE_STAGES, LIFE_GRAD, LIFE_STAGES_ADV, LIFE_GRAD_ADV, LIFE_STAGES_WILD, LIFE_GRAD_WILD } from '../data/lifeskills.js';
@@ -327,10 +328,17 @@ export class Game {
     const starter = starterWeapon(classId);
     if (style === 'ranged') {
       this.equipment.set('weapon', starter);
-      this.equipment.set('head', 'coif');
-      this.equipment.set('body', 'studded_body');
-      this.equipment.set('legs', 'leather_chaps');
-      this.inventory.add('bronze_arrow', 999);
+      if (canDualWield(starter)) this.equipment.set('shield', starter);   // Pistolers start with a pair
+      if (ARMOUR_FAMILY[classId] === 'leather') {   // the Ninja wears scout leather, not hide
+        this.equipment.set('head', 'bronze_scout_hood');
+        this.equipment.set('body', 'bronze_scout_jerkin');
+        this.equipment.set('legs', 'bronze_scout_breeches');
+      } else {
+        this.equipment.set('head', 'coif');
+        this.equipment.set('body', 'studded_body');
+        this.equipment.set('legs', 'leather_chaps');
+      }
+      if (!getItem(starter).equip.noAmmo) this.inventory.add('bronze_arrow', 999);
     } else if (style === 'dance') {
       this.equipment.set('weapon', starter);
       this.equipment.set('head', 'silk_headdress');
@@ -1030,7 +1038,7 @@ export class Game {
     if (p.attackCooldown > 0) p.attackCooldown--;
     // Melee weapons have cooldowns under one beat, so the leftover carries over
     // and several swings can fit in one beat (up to 3 for the quickest).
-    for (let swings = 0; swings < 3; swings++) {
+    for (let swings = 0; swings < 5; swings++) {   // pistols can fit 4 shots in a beat
       if (this.playerStun > 0 || p.attackCooldown > 0) return;
       const a = p.action;
       if (!a || a.type !== 'attack' || !a.npc || !a.npc.alive) return;
@@ -1432,9 +1440,14 @@ export class Game {
   }
 
   _rangedAttack(npc) {
-    const arrowIdx = this.inventory.slots.findIndex((s) => s && getItem(s.id).tags?.includes('ammo'));
-    if (arrowIdx === -1) { this._outOfAmmo('You have no arrows left.'); this.player.clearAction(); return; }
-    const arrowStr = getItem(this.inventory.slotAt(arrowIdx).id).arrowStr || 0;
+    // Pistols and shurikens need no ammo; their power comes from the weapon itself.
+    const wpn = getItem(this.equipment.get('weapon')).equip;
+    const noAmmo = !!wpn.noAmmo;
+    const arrowIdx = noAmmo ? -1 : this.inventory.slots.findIndex((s) => s && getItem(s.id).tags?.includes('ammo'));
+    if (!noAmmo && arrowIdx === -1) { this._outOfAmmo('You have no arrows left.'); this.player.clearAction(); return; }
+    const arrowStr = noAmmo ? Math.floor((wpn.bonuses.ranged || 0) / 3) : getItem(this.inventory.slotAt(arrowIdx).id).arrowStr || 0;
+    const shot = wpn.weaponType === 'pistol' ? 'bolt' : 'arrow';
+    const tint = wpn.weaponType === 'pistol' ? '#ffe28a' : wpn.weaponType === 'shuriken' ? '#cfd8e6' : '#d9c45a';
     const style = this.player.rangedStyle;
     const { atkRoll, defRoll, max } = playerRangedVsNpc(this.skills, this.equipment, style, npc.def, arrowStr);
     const pr = this.prayerMult().ranged;
@@ -1444,7 +1457,7 @@ export class Game {
     this._swingToward(this.player, npc.x, npc.y);
     let total = 0;
     for (let i = 0; i < mods.hits && npc.hp > 0; i++) {
-      if (i > 0) { // extra shots consume extra arrows
+      if (noAmmo) { /* nothing to spend */ } else if (i > 0) { // extra shots consume extra arrows
         const ai = this.inventory.slots.findIndex((s) => s && getItem(s.id).tags?.includes('ammo'));
         if (ai === -1) break;
         this._spendArrow(ai);
@@ -1452,15 +1465,41 @@ export class Game {
       const effMax = Math.max(1, Math.round(baseMax * mods.dmgM));
       let dmg = mods.guaranteed ? rollGuaranteed(effMax) : rollAttack(atkRoll * pr * mods.accM, defRoll, effMax);
       const c = this._critHit(dmg, mods.critCh); dmg = c.dmg;
-      this._projectile(npc, (c.crit || fancy) ? '#ffd24a' : '#d9c45a', 'arrow', mods.hits > 1 ? i - (mods.hits - 1) / 2 : 0);
+      this._projectile(npc, (c.crit || fancy) ? '#ffd24a' : tint, shot, mods.hits > 1 ? i - (mods.hits - 1) / 2 : 0);
       this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax) });
       if (dmg > 0) { this.spawnHitSparks(npc, (c.crit || fancy) ? '#ffd24a' : '#cfe0a0'); for (const x of combatXpRanged(style, dmg)) this.skills.addXp(x.skill, x.xp * this.combatXpMult()); }
       total += dmg;
     }
+    // Dual pistols: the off-hand fires too (60% power).
+    if (this.equipment.isDualWielding() && npc.hp > 0) {
+      const offMax = Math.max(1, Math.round(baseMax * 0.6));
+      let dmg = rollAttack(atkRoll * pr, defRoll, offMax);
+      this._projectile(npc, '#fff2b0', shot, 0.6);
+      this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && dmg >= offMax });
+      if (dmg > 0) for (const x of combatXpRanged(style, dmg)) this.skills.addXp(x.skill, x.xp * this.combatXpMult());
+      total += dmg;
+    }
+    // Shurikens ricochet off the target into one more foe nearby (60% of the hit).
+    if (wpn.weaponType === 'shuriken' && total > 0) {
+      const p = this.player;
+      const o = this.npcs.find((n) => n !== npc && n.alive && n.attackable && !n.temporary && n.hp > 0
+        && chebyshev(n.x, n.y, npc.x, npc.y) <= 3 && chebyshev(n.x, n.y, p.x, p.y) <= this.attackRange() + 3
+        && !(n.def.fixed && n.target !== p));
+      if (o) {
+        const d = Math.min(o.hp, Math.max(1, Math.round(total * 0.6)));
+        o.takeDamage(d);
+        this.addHitsplat(o, d, { tint: '#cfd8e6' });
+        for (const x of combatXpRanged(style, d)) this.skills.addXp(x.skill, x.xp * this.combatXpMult());
+        if (!o.target) o.target = p;
+        if (o.hp <= 0) this.killNpc(o);
+      }
+    }
     if (mods.heal && total > 0) { this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.round(total * mods.heal)); this.bus.emit('hp'); }
     if (this.skills.ranged >= SPLIT_SHOT_LEVEL) this._splitShot(npc, style, pr);
     const hm = this.equipment.hasteMult();   // haste from gear shortens shots too
-    this._resetCooldown(Math.max(hm, this.equipment.weaponSpeed() + (RANGED_STYLES[style]?.speedMod || 0) * hm));
+    const ws = this.equipment.weaponSpeed();
+    // Pistols and shurikens are quicker than a beat; bows never go under one beat.
+    this._resetCooldown(Math.max(Math.min(hm, ws), ws + (RANGED_STYLES[style]?.speedMod || 0) * hm));
     this._postAttack(npc);
   }
 
@@ -1472,11 +1511,15 @@ export class Game {
       .filter((n) => n !== main && n.alive && n.attackable && !n.temporary && n.hp > 0 && chebyshev(p.x, p.y, n.x, n.y) <= range)
       .sort((a, b) => chebyshev(p.x, p.y, a.x, a.y) - chebyshev(p.x, p.y, b.x, b.y))
       .slice(0, SPLIT_SHOT_TARGETS - 1);
+    const wpn = getItem(this.equipment.get('weapon')).equip;
     for (const n of extra) {
-      const ai = this.inventory.slots.findIndex((s) => s && getItem(s.id).tags?.includes('ammo'));
-      if (ai === -1) break;
-      const arrowStr = getItem(this.inventory.slotAt(ai).id).arrowStr || 0;
-      this._spendArrow(ai);
+      let arrowStr = Math.floor((wpn.bonuses.ranged || 0) / 3);
+      if (!wpn.noAmmo) {
+        const ai = this.inventory.slots.findIndex((s) => s && getItem(s.id).tags?.includes('ammo'));
+        if (ai === -1) break;
+        arrowStr = getItem(this.inventory.slotAt(ai).id).arrowStr || 0;
+        this._spendArrow(ai);
+      }
       const { atkRoll, defRoll, max } = playerRangedVsNpc(this.skills, this.equipment, style, n.def, arrowStr);
       const effMax = Math.max(1, Math.round(max * pr));
       let dmg = rollAttack(atkRoll * pr, defRoll, effMax);
@@ -2159,6 +2202,9 @@ export class Game {
     return n;
   }
 
+  /** Merchant: hire a mercenary for coins (see mercenary.js). */
+  hireMercenary() { return Mercs.hire(this); }
+
   /** A boss winds up its special. With Knowledge Strikes on, a study question
    *  pops up first: answer it right in time to interrupt the move. */
   bossSpecial(npc) {
@@ -2263,7 +2309,7 @@ export class Game {
         break;
       }
       case 'summon': {
-        const adds = this.npcs.filter((n) => n.temporary && n.alive).length;
+        const adds = this.npcs.filter((n) => n.temporary && n.alive && !n.ally).length;
         if (adds < 4) {
           for (let i = 0; i < 2; i++) {
             const ox = npc.x + (i ? 1 : -1), oy = npc.y + 1;
@@ -2399,7 +2445,7 @@ export class Game {
         case 'shield': npc.shieldTicks = Math.max(npc.shieldTicks || 0, fx.ticks); this._buffedBosses.add(npc); break;
         case 'reflect': npc.reflectTicks = Math.max(npc.reflectTicks || 0, fx.ticks); npc.reflectFrac = fx.frac; this._buffedBosses.add(npc); break;
         case 'summon': {
-          const adds = this.npcs.filter((n) => n.temporary && n.alive).length;
+          const adds = this.npcs.filter((n) => n.temporary && n.alive && !n.ally).length;
           for (let i = 0; i < fx.n && adds + i < 6; i++) {
             const t = this._nearestFree(npc.x + (i % 2 ? 1 : -1), npc.y + 1);
             if (!t) continue;
@@ -2598,13 +2644,17 @@ export class Game {
     if (!this.autoBattle || !p.alive || this._driving) return;
     // 0. Out of ammunition: stop rather than walking at targets it can't hit.
     const mode = this.combatMode();
-    const noAmmo = mode === 'ranged' ? !this.inventory.slots.some((sl) => sl && getItem(sl.id).tags?.includes('ammo'))
+    const wpnNoAmmo = !!getItem(this.equipment.get('weapon') || 'coins').equip?.noAmmo;   // pistols and shurikens
+    const noAmmo = mode === 'ranged' ? !wpnNoAmmo && !this.inventory.slots.some((sl) => sl && getItem(sl.id).tags?.includes('ammo'))
       : mode === 'magic' ? !this.bestSpell() : false;
     if (noAmmo) {
       this.msg(mode === 'ranged' ? 'Auto battle stopped: you have no arrows left.' : 'Auto battle stopped: you are out of runes for your spell.', 'system');
       this.toggleAutoBattle(false);
       return;
     }
+    // 0a. A Merchant in a fight tops up their mercenaries, keeping a coin reserve.
+    if (this.jobClass === 'merchant' && p.action?.type === 'attack' && p.action.npc?.alive
+      && Mercs.activeMercs(this).length < Mercs.MAX_MERCS && this.inventory.count('coins') >= Mercs.hireCost(this) * 3) this.hireMercenary();
     // 0b. Step out of a boss's red ground marker, then go back to the fight.
     const at = this.playerTile();
     if (this.hazardAt(at.x, at.y)) {
@@ -3678,7 +3728,7 @@ export class Game {
     for (const g of this.world.groundItems) consider('item', g, g.x, g.y, 1);
     const fightReach = Math.max(2, this.attackRange());
     for (const n of this.npcs) {
-      if (!n.alive) continue;
+      if (!n.alive || n.ally) continue;   // mercenaries aren't interactable
       consider('npc', n, n.x, n.y, n.attackable ? fightReach : 2);
     }
     for (const o of this.world.objects) {

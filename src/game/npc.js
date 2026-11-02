@@ -3,6 +3,7 @@ import { getNpc } from '../data/npcs.js';
 import { findPath } from '../engine/pathfinding.js';
 import { chebyshev, randInt, uid } from '../core/utils.js';
 import { AGGRO_FORGET_TILES, MAX_AGGRO_ATTACKERS } from '../config.js';
+import { mercTick } from './mercenary.js';
 
 // Build a per-instance def from the shared registry entry plus spawn overrides.
 // Supported opts: { aggressive:false } pacifies a mob, { aggressive:true } makes
@@ -119,6 +120,7 @@ export class NPC extends Character {
       if (this.respawnTimer > 0 && --this.respawnTimer <= 0) { this.respawn(); this.maybeChampion(game.isNight?.()); }
       return;
     }
+    if (this.ally) { mercTick(game, this); return; }   // a Merchant's mercenary
     if (this.attackCooldown > 0) this.attackCooldown--;
     if (this.repathCooldown > 0) this.repathCooldown--;
     if (this.combatLatch > 0) this.combatLatch--;

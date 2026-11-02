@@ -58,6 +58,8 @@ input.onKey((e) => {
     game.interact();
   } else if (e.key === 'p' || e.key === 'P') {
     game.pickpocketNearest();
+  } else if ((e.key === 'h' || e.key === 'H') && game.jobClass === 'merchant') {
+    game.hireMercenary();   // Merchant: hire a mercenary
   } else if (e.key === 't' || e.key === 'T') {
     game.toggleAutoBattle();
   } else if (e.key === 'm' || e.key === 'M') {

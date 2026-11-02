@@ -2948,3 +2948,62 @@ test('class armour: equipping is limited to your family; offensive stats change 
   const g2 = new Game(); g2.start(); g2.chooseClass('juggernaut');
   assert.equal(g2.equipment.get('body'), 'bronze_chainbody', 'heavy melee starts in chainmail');
 });
+
+test('new classes: Pistoler (dual pistols, no ammo, very fast), Ninja (ricochet), Merchant (mercenaries)', async () => {
+  const { NPC } = await import('../src/game/npc.js');
+  const fresh = (cls) => {
+    globalThis.localStorage = fakeStorage();
+    clearSave();
+    const g = new Game(); g.start(); g.chooseClass(cls);
+    g.ui = new Proxy({}, { get: () => () => {} });
+    return g;
+  };
+  const dummy = (g, dx, dy = 0) => {
+    const n = new NPC('goblin', g.player.x + dx, g.player.y + dy, 0, {});
+    n.hp = n.maxHp = 999999; n.def = { ...n.def, aggressive: false, maxHit: 0 };
+    return n;
+  };
+
+  // Pistoler: starts with a pair, needs no arrows, and fires several shots a beat.
+  const ps = fresh('pistoler');
+  assert.equal(ps.equipment.get('weapon'), 'bronze_pistol');
+  assert.equal(ps.equipment.get('shield'), 'bronze_pistol', 'starts dual wielding');
+  assert.equal(ps.inventory.count('bronze_arrow'), 0, 'no ammo needed');
+  const t1 = dummy(ps, 3);
+  ps.npcs = [t1];
+  let shots = 0;
+  const orig = ps.doPlayerAttack.bind(ps);
+  ps.doPlayerAttack = (n) => { shots++; return orig(n); };
+  ps.attackNpc(t1);
+  for (let i = 0; i < 31; i++) ps.update(100);   // ~3s
+  assert.ok(shots >= 30, `pistols fire very fast: ${shots} volleys in 3s`);
+  assert.ok(t1.hp < t1.maxHp, 'and they hit');
+
+  // Ninja: a shuriken that lands ricochets into a foe beside the target.
+  const nj = fresh('ninja');
+  assert.equal(nj.equipment.get('weapon'), 'bronze_shuriken');
+  assert.equal(nj.equipment.get('body'), 'bronze_scout_jerkin', 'ninjas wear scout leather');
+  const main = dummy(nj, 3), side = dummy(nj, 4);
+  nj.npcs = [main, side];
+  for (let i = 0; i < 40 && side.hp === side.maxHp; i++) { nj.player.attackCooldown = 0; nj._rangedAttack(main); }
+  assert.ok(side.hp < side.maxHp, 'the ricochet hit the second foe');
+
+  // Merchant: hire mercenaries who fight the Merchant's target, then leave.
+  const mc = fresh('merchant');
+  assert.equal(mc.equipment.get('weapon'), 'bronze_cane');
+  mc.inventory.add('coins', 100000);
+  const foe = dummy(mc, 2);
+  mc.npcs.push(foe);
+  const merc = mc.hireMercenary();
+  assert.ok(merc && merc.ally && !merc.attackable, 'a mercenary joins');
+  mc.hireMercenary(); mc.hireMercenary();
+  assert.equal(mc.hireMercenary(), null, 'at most three at once');
+  mc.player.setAction({ type: 'attack', npc: foe });
+  const hp0 = foe.hp;
+  for (let i = 0; i < 40; i++) { mc.player.attackCooldown = 99; mc.update(600); }
+  assert.ok(foe.hp < hp0, 'the mercenaries hit the target');
+  merc.allyUntil = mc.tickCount;
+  mc.update(600);
+  assert.ok(!mc.npcs.includes(merc), 'the contract ends and the mercenary leaves');
+  assert.equal(fresh('pistoler').hireMercenary(), null, 'only Merchants can hire');
+});

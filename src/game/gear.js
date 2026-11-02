@@ -33,6 +33,8 @@ export function swingBeats(id) {
   const eq = getItem(id).equip;
   const melee = (eq?.combatType || 'melee') === 'melee' ? 0.5 : 1;   // melee swings twice as fast
   if (eq?.weaponType === 'scimitar' || eq?.weaponType === 'claws') return 0.7 * melee;   // quick weapons
+  if (eq?.weaponType === 'pistol') return 0.25;
+  if (eq?.weaponType === 'shuriken') return 0.5;
   return Math.max(1, (eq?.bonuses?.speed || 5) - 3) * melee;
 }
 

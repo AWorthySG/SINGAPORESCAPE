@@ -1,6 +1,7 @@
 // Ranged and magic limbs are separate from the melee pilot so each batch can
 // be reviewed independently. All parts must load before replacing a portrait.
-export const RANGED_HERO_CLASSES = ['ranger', 'archer', 'sorcerer', 'wizard'];
+// The Pistoler uses a copy of the Archer's parts until its own art arrives (see ART_BRIEF_CLASSES.md).
+export const RANGED_HERO_CLASSES = ['ranger', 'archer', 'sorcerer', 'wizard', 'pistoler'];
 export const RANGED_HERO_PARTS = ['body', 'weapon', 'back', 'left', 'right', 'action'];
 export const rangedHeroSrc = (classId, part) => `assets/creatures/hero/rig/${classId}-${part}.webp`;
 const images = new Map();
@@ -11,7 +12,11 @@ export function rangedHeroPose(classId, gait = {}, time = 0, swing = -1) {
   const step = Math.sin((gait.phase || 0) * Math.PI) * move;
   const active = swing >= 0 && swing <= 1;
   let draw = 0, release = 0, charge = 0, cast = 0;
-  if (active && (classId === 'ranger' || classId === 'archer')) {
+  if (active && classId === 'pistoler') {
+    // A quick snap of the arm: barely any draw, a sharp recoil.
+    draw = smooth(swing / 0.2) * (1 - smooth((swing - 0.22) / 0.1));
+    release = smooth((swing - 0.22) / 0.06) * (1 - smooth((swing - 0.3) / 0.5));
+  } else if (active && (classId === 'ranger' || classId === 'archer')) {
     draw = smooth(swing / 0.48) * (1 - smooth((swing - 0.5) / 0.14));
     release = smooth((swing - 0.5) / 0.08) * (1 - smooth((swing - 0.58) / 0.27));
   } else if (active && (classId === 'sorcerer' || classId === 'wizard')) {
@@ -43,12 +48,12 @@ export function drawRangedHeroRig(ctx, opts = {}) {
   };
   draw('left', -10 - pose.step * 1.5, -1 - Math.max(0, pose.step) * 3, 13, 16);
   draw('right', 1 + pose.step * 1.5, -1 - Math.max(0, -pose.step) * 3, 13, 16);
-  const bow = classId === 'ranger' || classId === 'archer';
+  const bow = classId === 'ranger' || classId === 'archer' || classId === 'pistoler';
   if (!bow) draw('back', -15, -10 + pose.breathe, 16, 12, -pose.step * 0.2 - pose.charge * 0.35, 12, 3);
   draw('body', -21, -38 + pose.breathe, 42, 44);
   if (bow) {
     const y = -11 + pose.breathe;
-    const shortbow = classId === 'archer';
+    const shortbow = classId === 'archer' || classId === 'pistoler';
     draw('weapon', 14, y, shortbow ? 21 : 22, shortbow ? 40 : 46, 0, 1.5, shortbow ? 23 : 25);
     // The string follows the drawing hand, rather than stretching a painted
     // bowstring. The arrow here is a nocked visual; combat owns projectiles.
