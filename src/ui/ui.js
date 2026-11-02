@@ -26,7 +26,7 @@ import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
 import { QUESTS } from '../data/quests.js';
 import { SLAYER_REWARDS } from '../data/slayer.js';
 import { STATIONS, MRT_FARE } from '../data/transport.js';
-import { EQUIP_SLOTS, canDualWield } from '../game/equipment.js';
+import { EQUIP_SLOTS, canDualPair } from '../game/equipment.js';
 import { streakMult } from '../game/bounty.js';
 import { itemCategory } from '../game/inventory.js';
 import { MAX_UPGRADE, upgradeCost, upgradeChance, upgradedName } from '../game/upgrade.js';
@@ -711,7 +711,7 @@ export class UI {
     if (item.heal) opts.push({ label: 'Eat', target: item.name, fn: () => this.game.eatItem(i) });
     if (item.potion) opts.push({ label: 'Drink', target: item.name, fn: () => this.game.drinkPotion(i) });
     if (item.equip) {
-      const dual = canDualWield(s.id) && canDualWield(this.game.equipment.get('weapon'));
+      const dual = canDualPair(s.id, this.game.equipment.get('weapon'));
       if (dual) {
         // Holding a dagger already: choose which hand the new one goes in.
         opts.push({ label: 'Wield in off-hand', target: item.name, fn: () => this.game.equipOffhand(i) });

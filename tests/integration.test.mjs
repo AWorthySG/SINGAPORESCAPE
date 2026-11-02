@@ -5,6 +5,8 @@ import assert from 'node:assert/strict';
 
 import { Game } from '../src/game/game.js';
 import { saveGame, loadGame, clearSave } from '../src/game/save.js';
+import { ITEMS } from '../src/data/items.js';
+import { playerAttackVsNpc } from '../src/game/combat.js';
 
 // In-memory localStorage so save.js has somewhere to write.
 function fakeStorage() {
@@ -861,7 +863,7 @@ test('Interact acts on the nearest thing: picks it, labels it, and does its main
   game.world.objects = objs;
 });
 
-test('player attacks run on a 300ms combat beat: a scimitar swings about 3x a second', async () => {
+test('player attacks run on a 300ms combat beat: a scimitar swings about 4-5 times a second', async () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
   const { NPC } = await import('../src/game/npc.js');
@@ -878,7 +880,8 @@ test('player attacks run on a 300ms combat beat: a scimitar swings about 3x a se
   game.doPlayerAttack = (n) => { swings++; return orig(n); };
   game.attackNpc(target);
   for (let i = 0; i < 31; i++) game.update(100);   // ~3s
-  assert.ok(swings >= 8 && swings <= 11, `about 10 swings in 3s, got ${swings}`);
+  // Scimitars are quick weapons: about 1.4 swings per 300ms beat.
+  assert.ok(swings >= 12 && swings <= 16, `about 14 swings in 3s, got ${swings}`);
 });
 
 test('auto battle hunts nearby monsters, eats when hurt, can skip bosses and pauses while steering', async () => {
@@ -1967,12 +1970,14 @@ test('daggers can be dual wielded in place of a shield, striking twice per swing
   const inv = game.inventory, eq = game.equipment;
   const idx = (id) => inv.slots.findIndex((x) => x && x.id === id);
   inv.add('bronze_dagger', 1); inv.add('iron_dagger', 1);
-  assert.equal(eq.get('shield'), 'wooden_shield');
+  assert.equal(eq.get('shield'), 'bronze_scimitar', 'the melee starter dual wields scimitars');
+  assert.ok(eq.isDualWielding());
   game.equipItem(idx('bronze_dagger'));
   assert.equal(eq.get('weapon'), 'bronze_dagger');
+  assert.equal(eq.get('shield'), null, 'a scimitar can’t pair with a dagger, so it goes back to the pack');
   game.equipItem(idx('iron_dagger'));                         // already holding a dagger: goes to the off-hand
   assert.equal(eq.get('shield'), 'iron_dagger', 'second dagger takes the shield slot');
-  assert.ok(inv.count('wooden_shield') >= 1, 'the shield goes back to the pack');
+  assert.ok(inv.count('bronze_scimitar') >= 2, 'both scimitars are back in the pack');
   assert.ok(eq.isDualWielding());
   // Each swing lands a main-hand and an off-hand strike.
   const mob = game.spawnNpc(game.npcs.find((n) => n.def.attackable && !n.def.boss).npcId, game.player.x + 1, game.player.y, { wander: 0 });
@@ -1987,9 +1992,43 @@ test('daggers can be dual wielded in place of a shield, striking twice per swing
   assert.equal(eq.get('weapon'), 'bronze_scimitar');
   assert.equal(eq.get('shield'), null);
   assert.ok(inv.count('iron_dagger') >= 1);
-  // Only a dagger can go in the off-hand.
+  // Only the same kind can go in the off-hand: a dagger won't pair with a scimitar...
   game.equipOffhand(idx('bronze_dagger'));
   assert.equal(eq.get('shield'), null, 'no off-hand dagger without a main-hand dagger');
+  // ...but a second scimitar will.
+  game.equipItem(idx('bronze_scimitar'));
+  assert.equal(eq.get('shield'), 'bronze_scimitar', 'scimitars dual wield too');
+  assert.ok(eq.isDualWielding());
+});
+
+test('melee cleave sweeps foes next to the target, except with quick weapons', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  game.jobClass = null;
+  const p = game.player;
+  const id = game.npcs.find((n) => n.def.attackable && !n.def.boss).npcId;
+  const mk = (dx, dy) => { const n = game.spawnNpc(id, p.x + dx, p.y + dy, { wander: 0 }); n.maxHp = n.hp = 99999; n.def = { ...n.def, aggressive: false, maxHit: 0 }; return n; };
+  const main = mk(1, 0), side = mk(2, 0), far = mk(5, 0);
+  game.npcs = [main, side, far];
+  game._cleave(main, 20);
+  assert.equal(side.hp, 99999, 'scimitars (quick weapons) do not cleave');
+  game.equipment.set('weapon', Object.keys(ITEMS).find((k) => ITEMS[k].equip?.weaponType === '2h_sword'));
+  game.equipment.clearSlot('shield');
+  game._cleave(main, 20);
+  assert.equal(side.hp, 99999 - 14, 'a two-hander sweeps 70% into the foe beside the target');
+  assert.equal(far.hp, 99999, 'foes out of reach are untouched');
+  assert.equal(main.hp, 99999, 'the target itself takes only its own hit');
+});
+
+test('Attack adds a little melee damage; scimitars and claws swing faster than one beat', () => {
+  const eq = { bonuses: () => ({ attack: 0, strength: 0, defence: 0 }) };
+  const lo = playerAttackVsNpc({ attack: 1, strength: 50 }, eq, 'aggressive', { defence: 1 }).max;
+  const hi = playerAttackVsNpc({ attack: 99, strength: 50 }, eq, 'aggressive', { defence: 1 }).max;
+  assert.ok(hi > lo, `Attack raises max hit (${lo} -> ${hi})`);
+  assert.ok(hi < lo * 1.5, 'but only a little');
 });
 
 test('XP bonus stacks: Wilderness level and kill streak; bosses drop much more and give bonus XP', () => {

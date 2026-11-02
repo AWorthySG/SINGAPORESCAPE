@@ -323,7 +323,9 @@ test('armour set bonuses apply only when the full set is worn', () => {
 test('combat is fast-paced: quick weapons swing every tick', () => {
   const eq = new Equipment(new EventBus());
   eq.set('weapon', 'bronze_scimitar');
-  assert.equal(eq.weaponSpeed(), 1, 'scimitar swings every tick (0.6s)');
+  assert.equal(eq.weaponSpeed(), 0.7, 'scimitars are quick weapons: under one beat');
+  eq.set('weapon', 'bronze_dagger');
+  assert.equal(eq.weaponSpeed(), 1, 'daggers swing every beat');
   eq.set('weapon', 'bronze_axe');
   assert.equal(eq.weaponSpeed(), 2, 'slower weapons are still quicker than before');
   eq.clearSlot('weapon');

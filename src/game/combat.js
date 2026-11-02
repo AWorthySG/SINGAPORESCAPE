@@ -74,6 +74,8 @@ const WEAKNESS_BY_SPRITE = {
 
 export const WEAKNESS_BONUS = { acc: 1.15, dmg: 1.10 };
 export const MELEE_BONUS = { acc: 1.2, dmg: 1.3 };
+/** Share of the Attack level that also counts toward melee max hit. */
+export const ATTACK_TO_STRENGTH = 0.2;
 
 /** The combat style ('melee'|'ranged'|'magic') a monster is weakest to. */
 export function weaknessOf(def) {
@@ -92,7 +94,8 @@ export function playerAttackVsNpc(skills, equip, styleId, npc) {
   // more often and hits harder than the formula's base (x1.2 accuracy, x1.3+1 max).
   const aRoll = attackRoll(skills.attack, style.atk, bonuses.attack) * MELEE_BONUS.acc;
   const dRoll = defenceRoll(npc.defence, 0, 0);
-  const mh = Math.round(maxHit(skills.strength, style.str, bonuses.strength) * MELEE_BONUS.dmg) + 1;
+  // Attack adds a little power too: every 5 Attack levels count as 1 Strength level.
+  const mh = Math.round(maxHit(skills.strength + Math.floor(skills.attack * ATTACK_TO_STRENGTH), style.str, bonuses.strength) * MELEE_BONUS.dmg) + 1;
   return { atkRoll: aRoll, defRoll: dRoll, max: mh };
 }
 

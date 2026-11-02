@@ -5,8 +5,20 @@ import { upgradedBonuses } from './upgrade.js';
 export const EQUIP_SLOTS = ['head', 'cape', 'amulet', 'weapon', 'body', 'shield', 'legs', 'hands', 'feet', 'ring'];
 export const DEFAULT_WEAPON_SPEED = 5; // ticks (unarmed)
 
-/** Daggers (and the kris) can be dual wielded: a second one goes in the off-hand. */
-export const canDualWield = (id) => !!id && (/_dagger$/.test(id) || id === 'tiger_kris');
+/** Daggers (and the kris) and scimitars can be dual wielded: a second one of
+ *  the same kind goes in the off-hand. */
+export const dualType = (id) => {
+  if (!id) return null;
+  if (/_dagger$/.test(id) || id === 'tiger_kris') return 'dagger';
+  return getItem(id)?.equip?.weaponType === 'scimitar' ? 'scimitar' : null;
+};
+export const canDualWield = (id) => !!dualType(id);
+/** Can these two be held together (main hand and off-hand)? */
+export const canDualPair = (a, b) => !!dualType(a) && dualType(a) === dualType(b);
+// Quick weapons swing faster than one combat beat: scimitars and claws swing
+// about 1.4 times a beat (a fractional cooldown carries over between beats).
+export const QUICK_WEAPON_SPEED = 0.7;
+const QUICK_TYPES = new Set(['scimitar', 'claws']);
 
 // Worn-equipment state + bonus aggregation.
 export class Equipment {
@@ -83,7 +95,7 @@ export class Equipment {
   }
 
   /** A dagger held in the off-hand (shield slot) alongside a main-hand dagger. */
-  isDualWielding() { return canDualWield(this.slots.weapon) && canDualWield(this.slots.shield); }
+  isDualWielding() { return canDualPair(this.slots.weapon, this.slots.shield); }
 
   /** Combat style implied by the wielded weapon: 'melee' | 'ranged' | 'magic' | 'dance'. */
   combatType() {
@@ -93,6 +105,7 @@ export class Equipment {
 
   weaponSpeed() {
     const id = this.slots.weapon;
+    if (id && QUICK_TYPES.has(getItem(id).equip?.weaponType)) return QUICK_WEAPON_SPEED;
     const base = (id && getItem(id).equip?.bonuses?.speed) || DEFAULT_WEAPON_SPEED;
     // Fast-paced combat: intervals are in 300ms combat beats (see
     // COMBAT_BEAT_MS), shortened by 3, down to a floor of 1 beat, so quick
