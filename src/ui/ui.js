@@ -1,5 +1,6 @@
 import { CLASSES, CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, canWear, ARMOUR_FAMILY, ARMOUR_FAMILIES } from '../data/classes.js';
 import { classPerks, classPerkSummary } from '../game/classperks.js';
+import * as Mercs from '../game/mercenary.js';
 import { PERK_SKILLS, PERK_TRACKS, PERK_EVERY, trackPerks, rankName } from '../data/perks.js';
 import { heroArtSrc, portraitFor } from '../render/sprites.js';
 import { getItem } from '../data/items.js';
@@ -202,6 +203,7 @@ export class UI {
     this.bus.on('bounties', () => { this.renderQuestPanel(); this.renderTracker(); });
     this.bus.on('xpbonus', () => this.renderTracker());
     this.bus.on('spell', () => this.renderCombatPanel());
+    this.bus.on('mercs', () => this.renderCombatPanel());
     this.bus.on('achievement', () => this.renderAchievementPanel());
     this.bus.on('slayer', () => { this._refreshModalIfOpen(['slayer', 'slayerRewards']); this.renderTracker(); });
     this.bus.on('bank', () => this._refreshModalIfOpen(['bank']));
@@ -1547,6 +1549,17 @@ export class UI {
     const lvlEl = this.el.combat.querySelector('.cb-level');
     lvlEl.innerHTML = `${clsLabel}Combat level: ${this.game.skills.combatLevel()} <span style="opacity:.7">&middot; ${modeLabel}</span>`;
     lvlEl.querySelector('.cb-perks')?.addEventListener('click', () => this.openClassPerks());
+    // Merchant: hire mercenaries for coins.
+    if (cls?.id === 'merchant') {
+      const n = Mercs.activeMercs(this.game).length;
+      const hire = document.createElement('button');
+      hire.type = 'button';
+      hire.className = 'wm-go merc-hire';
+      hire.textContent = `Hire mercenary (${Mercs.hireCost(this.game)} coins) · ${n}/${Mercs.MAX_MERCS} on contract`;
+      hire.disabled = n >= Mercs.MAX_MERCS;
+      hire.addEventListener('click', () => { this.game.hireMercenary(); this.renderCombatPanel(); });
+      lvlEl.prepend(hire);
+    }
     const cb = this.el.combat.querySelector('#auto-retal-cb');
     if (cb) cb.checked = p.autoRetaliate;
   }

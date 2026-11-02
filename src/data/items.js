@@ -739,6 +739,21 @@ Object.assign(RAW, {
   qilin_mane: { name: 'Qilin mane', icon: '✨', value: 6000, stackable: true, examine: 'A lock of golden mane from a celestial qilin.' },
 });
 
+// ---- Weapons for the newer classes, one per metal tier ----
+// Pistols (Pistoler): dual wielded, need no ammo, light shots fired very fast.
+// Shurikens (Ninja): thrown, need no ammo, and ricochet into a second foe.
+// Canes (Merchant): a light melee cane; the Merchant's strength is the
+// mercenaries they hire.
+for (const M of _METALS) {
+  const tag = M.n.toLowerCase();
+  if (!RAW[`${M.k}_pistol`]) RAW[`${M.k}_pistol`] = { name: `${M.n} pistol`, icon: '🔫', value: Math.round(28 * M.v), examine: `A ${tag} flintlock pistol. Best in pairs.`,
+    equip: { slot: 'weapon', combatType: 'ranged', noAmmo: true, req: { ranged: M.ra }, bonuses: { ranged: Math.round(5 * M.m), speed: 3 }, range: 7 } };
+  if (!RAW[`${M.k}_shuriken`]) RAW[`${M.k}_shuriken`] = { name: `${M.n} shuriken`, icon: '✴️', value: Math.round(30 * M.v), examine: `${M.n} throwing stars that skip from foe to foe.`,
+    equip: { slot: 'weapon', combatType: 'ranged', noAmmo: true, req: { ranged: M.ra }, bonuses: { ranged: Math.round(8 * M.m), speed: 4 }, range: 8 } };
+  if (!RAW[`${M.k}_cane`]) RAW[`${M.k}_cane`] = { name: `${M.n}-tipped cane`, icon: '🦯', value: Math.round(26 * M.v), examine: `A merchant's cane with a ${tag} tip. More for show than for fighting.`,
+    equip: { slot: 'weapon', req: { attack: M.ra }, bonuses: { attack: Math.round(5 * M.m), strength: Math.round(4 * M.m), speed: 5 }, range: MELEE_REACH } };
+}
+
 // A first hide body for archers (the studded body needs Ranged 20).
 RAW.hide_vest = { name: 'Hide vest', icon: '🦺', value: 30, examine: 'A soft hide vest that leaves the arms free to draw a bow.',
   equip: { slot: 'body', req: { ranged: 1 }, bonuses: { ranged: 4, defence: 3 } } };
@@ -796,7 +811,7 @@ for (const [id, it] of Object.entries(RAW)) {
 // ---- Weapon types (one per job class) ----
 // Every weapon belongs to exactly one type; a job class can only wield its own.
 export const WEAPON_TYPES = ['dagger', 'sword', 'scimitar', 'mace', 'longsword', 'battleaxe', 'warhammer', '2h_sword', 'spear', 'claws', 'katana', 'halberd',
-  'shortbow', 'longbow', 'staff', 'wand', 'whip'];
+  'shortbow', 'longbow', 'staff', 'wand', 'whip', 'pistol', 'shuriken', 'cane'];
 const UNIQUE_TYPE = { tiger_kris: 'dagger', merlion_blade: 'sword', cursed_cutlass: 'scimitar', seraph_blade: 'longsword', megalodon_jaw: 'battleaxe',
   granite_maul: 'warhammer', void_blade: 'katana', leviathan_trident: 'spear', tiger_fang: 'claws' };
 const MELEE_FAMILIES = WEAPON_TYPES.slice(0, 12).sort((a, b) => b.length - a.length);   // '2h_sword' before 'sword'
@@ -804,7 +819,8 @@ function classifyWeapon(id, eq) {
   if (UNIQUE_TYPE[id]) return UNIQUE_TYPE[id];
   if (eq.combatType === 'dance') return 'whip';
   if (eq.combatType === 'magic') return /wand$/.test(id) ? 'wand' : 'staff';
-  if (eq.combatType === 'ranged') return /longbow$/.test(id) ? 'longbow' : 'shortbow';
+  if (eq.combatType === 'ranged') return /_pistol$/.test(id) ? 'pistol' : /_shuriken$/.test(id) ? 'shuriken' : /longbow$/.test(id) ? 'longbow' : 'shortbow';
+  if (/_cane$/.test(id)) return 'cane';
   return MELEE_FAMILIES.find((f) => id.endsWith('_' + f)) || null;
 }
 for (const [id, it] of Object.entries(RAW)) {

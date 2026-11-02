@@ -10,7 +10,8 @@ export const DEFAULT_WEAPON_SPEED = 5; // ticks (unarmed)
 export const dualType = (id) => {
   if (!id) return null;
   if (/_dagger$/.test(id) || id === 'tiger_kris') return 'dagger';
-  return getItem(id)?.equip?.weaponType === 'scimitar' ? 'scimitar' : null;
+  const t = getItem(id)?.equip?.weaponType;
+  return t === 'scimitar' || t === 'pistol' ? t : null;
 };
 export const canDualWield = (id) => !!dualType(id);
 /** Can these two be held together (main hand and off-hand)? */
@@ -27,6 +28,9 @@ export const OFFENCE_CAPS = { pierce: 40, critDmg: 150, haste: 30, lifesteal: 15
 // Melee swing intervals are halved: every melee class attacks twice as fast.
 export const MELEE_SPEED_MULT = 0.5;
 const QUICK_TYPES = new Set(['scimitar', 'claws']);
+// Ranged weapons quicker than any bow: pistols fire about 4 shots a beat (each
+// hand), shurikens 2 throws a beat.
+export const FAST_RANGED = { pistol: 0.25, shuriken: 0.5 };
 
 // Worn-equipment state + bonus aggregation.
 export class Equipment {
@@ -120,6 +124,7 @@ export class Equipment {
     // Haste from gear shortens every kind of attack (capped at 30%).
     const melee = (this.combatType() === 'melee' ? MELEE_SPEED_MULT : 1) * (1 - this._haste() / 100);
     if (id && QUICK_TYPES.has(getItem(id).equip?.weaponType)) return QUICK_WEAPON_SPEED * melee;
+    if (id && FAST_RANGED[getItem(id).equip?.weaponType]) return FAST_RANGED[getItem(id).equip.weaponType] * melee;
     const base = (id && getItem(id).equip?.bonuses?.speed) || DEFAULT_WEAPON_SPEED;
     // Fast-paced combat: intervals are in 300ms combat beats (see
     // COMBAT_BEAT_MS), shortened by 3, down to a floor of 1 beat, so quick

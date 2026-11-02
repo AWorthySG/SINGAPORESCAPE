@@ -398,7 +398,13 @@ import { CROPS, POTIONS } from '../data/trades.js';
   const halberd = (col, hi) => `<rect x="11" y="2" width="2.2" height="20" rx="1" fill="${C.wood}" stroke="${OL}" stroke-width="1"/><path d="M13.2 4.5 C19 4 20.5 8 19.5 12 C17 10.4 15 10.2 13.2 10.6 Z" fill="${col}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M14.4 5.6 C17.6 5.4 19 7.4 18.8 10" fill="none" stroke="${hi}" stroke-width="0.9"/><path d="M11 6 L7.4 7.6 L11 9 Z" fill="${col}" stroke="${OL}" stroke-width="0.9" stroke-linejoin="round"/><path d="M12.1 0.6 L13.6 3 L10.6 3 Z" fill="${col}" stroke="${OL}" stroke-width="0.9" stroke-linejoin="round"/>${glint(17.6, 6.4, 0.6)}`;
   const plateskirt = (col, hi) => `<path d="M8 4 L16 4 L19 19 L5 19 Z" fill="${col}" stroke="${OL}" stroke-width="1.2" stroke-linejoin="round"/><rect x="7.6" y="4" width="8.8" height="2.4" rx="1" fill="${C.goldDk}" stroke="${OL}" stroke-width="0.6"/><path d="M10 7 L9 18.6 M14 7 L15 18.6 M12 7 L12 18.6" stroke="rgba(0,0,0,0.18)" stroke-width="0.9"/><path d="M8.6 7 L6.4 18" stroke="${hi}" stroke-width="1"/>`;
   const buckler = (col, hi) => `<circle cx="12" cy="12" r="8" fill="${col}" stroke="${OL}" stroke-width="1.2"/><circle cx="12" cy="12" r="5.6" fill="none" stroke="${hi}" stroke-width="1" opacity=".8"/><circle cx="12" cy="12" r="2.4" fill="${C.gold}" stroke="${OL}" stroke-width="0.8"/><path d="M7 8.6 A6 6 0 0 1 10.4 5.6" fill="none" stroke="#fff" stroke-width="1" opacity=".8"/>`;
-  const WBUILD = { dagger: blade, sword: blade, scimitar: scim, mace, longsword, battleaxe, warhammer, '2h_sword': twohander, spear, claws, katana, halberd };
+  // Newer classes: a flintlock pistol (Pistoler), a four-point throwing star
+  // (Ninja) and a merchant's cane with a metal knob.
+  const pistol = (col, hi) => `<path d="M3 8 L17 8 L19 6.6 L21 6.6 L21 10.6 L11 10.6 L9.6 12.6 L10.6 19 L6 19 L5 12 Z" fill="${col}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M4.2 9 L17.4 9" stroke="${hi}" stroke-width="0.9"/><path d="M5.8 12.6 L6.6 18.2 L9.6 18.2 L8.9 12.6 Z" fill="${C.wood}" stroke="${OL}" stroke-width="0.8" stroke-linejoin="round"/><circle cx="11.6" cy="13.6" r="1.5" fill="none" stroke="${OL}" stroke-width="0.9"/>${glint(18.8, 7.6, 0.6)}`;
+  const shuriken = (col, hi) => `<path d="M12 1.6 L14 10 L22.4 12 L14 14 L12 22.4 L10 14 L1.6 12 L10 10 Z" fill="${col}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M12 3.6 L13.2 10.8 M20.4 12 L13.2 13.2" stroke="${hi}" stroke-width="0.9"/><circle cx="12" cy="12" r="2" fill="${C.cream}" stroke="${OL}" stroke-width="0.9"/>${glint(13.4, 6, 0.6)}`;
+  const cane = (col, hi) => `<path d="M8 21.5 L15.6 6.4" stroke="${OL}" stroke-width="3.2" stroke-linecap="round"/><path d="M8 21.5 L15.6 6.4" stroke="${C.wood}" stroke-width="2" stroke-linecap="round"/><circle cx="16.4" cy="4.8" r="3" fill="${col}" stroke="${OL}" stroke-width="1.1"/><path d="M15 3.6 A2 2 0 0 1 17.4 3" fill="none" stroke="${hi}" stroke-width="0.9"/><rect x="13.4" y="8.4" width="3.2" height="1.6" rx="0.7" fill="${col}" stroke="${OL}" stroke-width="0.6" transform="rotate(63 15 9.2)"/>${glint(17.2, 3.8, 0.6)}`;
+  const WBUILD = { dagger: blade, sword: blade, scimitar: scim, mace, longsword, battleaxe, warhammer, '2h_sword': twohander, spear, claws, katana, halberd,
+    pistol, shuriken, cane };
   const ABUILD = { med_helm: helm, full_helm: helm, chainbody: plate, platebody: plate, platelegs: legs, sq_shield: shield, kiteshield: shield, gauntlets: gloves, boots, plateskirt, buckler,
     scout_hood: helm, scout_jerkin: plate, scout_breeches: legs };
   for (const m of Object.keys(METAL_PAL)) {
@@ -786,6 +792,11 @@ import { CROPS, POTIONS } from '../data/trades.js';
     'fishing_rod', 'lobster_pot', 'harpoon', 'fishing_bait', 'old_boot', 'seaweed', 'pearl', 'birds_nest', 'satay', 'nasi_lemak',
     'merlion_amulet', 'amulet_of_glory', 'mark_of_grace',
   ]);
+  // Weapons of the newer classes (pistols, shurikens, canes): stickers rasterised
+  // from their vector icons until painted ones arrive (see ART_BRIEF_CLASSES.md).
+  for (const t of ['bronze', 'iron', 'steel', 'mithril', 'adamant', 'rune', 'dragon', 'obsidian', 'orichalcum', 'jade', 'starmetal', 'celestial', 'eternal']) {
+    for (const w of ['pistol', 'shuriken', 'cane']) ITEM_ART.add(`${t}_${w}`);
+  }
   export const itemArtSrc = (id) => (ITEM_ART.has(id) ? `assets/icons/item-${id}.webp` : borrowedArt(id) ? `assets/icons/item-${borrowedArt(id).file}.webp` : null);
   const artImg = (file, size, cls, filter) => `<img class="${cls || ''}" width="${size}" height="${size}" src="assets/icons/${file}.webp" alt="" style="display:block;object-fit:contain${filter ? `;filter:${filter}` : ''}" />`;
   // Scout armour (light armour for agile melee) has no stickers of its own yet:

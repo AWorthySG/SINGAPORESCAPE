@@ -68,6 +68,9 @@ export const WEAPON_VS_RACE = {
   staff:     { strong: ['spirit', 'undead', 'flora', 'aquatic'], weak: [] },
   wand:      { strong: ['spirit', 'demon'],              weak: [] },
   whip:      { strong: ['bug', 'avian'],                 weak: [] },
+  pistol:    { strong: ['humanoid', 'construct'],        weak: ['spirit', 'dragon'] },
+  shuriken:  { strong: ['bug', 'beast', 'avian'],        weak: ['construct'] },
+  cane:      { strong: ['humanoid', 'beast'],            weak: ['dragon', 'construct'] },
 };
 
 // Effective: more accurate and harder hitting. Resisted: noticeably softer.

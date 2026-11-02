@@ -2024,3 +2024,6 @@ body.boss-on #tip-toast { top: 132px; }
 .cp-list { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 8px; }
 .cp-row { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; line-height: 1.35; padding: 6px 8px; border-radius: 10px; background: #fff; border: 1.5px solid rgba(34,48,74,.2); }
 .cp-ic { flex: none; width: 22px; text-align: center; }
+/* Merchant: hire mercenaries */
+.merc-hire { display: block; width: 100%; margin: 0 0 6px; background: #2f8a6a; font-size: 12px; }
+.merc-hire:disabled { opacity: .6; cursor: default; }

@@ -1,7 +1,8 @@
 // Painted hero rigs use separate limbs. Keep loading and animation
 // here so the shared sprite library only needs one optional drawing hook.
 export const HERO_RIG_PARTS = ['body', 'sword', 'back', 'left', 'right', 'strike'];
-export const HERO_RIG_CLASSES = ['swordsman', 'rogue', 'samurai', 'corsair', 'paladin', 'knight', 'berserker', 'juggernaut', 'gladiator', 'lancer', 'brawler', 'halberdier', 'dancer'];
+// Merchant and Ninja use copies of the Swordsman's and Corsair's parts until their own art arrives (see ART_BRIEF_CLASSES.md).
+export const HERO_RIG_CLASSES = ['swordsman', 'rogue', 'samurai', 'corsair', 'paladin', 'knight', 'berserker', 'juggernaut', 'gladiator', 'lancer', 'brawler', 'halberdier', 'dancer', 'merchant', 'ninja'];
 // Heavier weapons commit later; spears extend forward and whips sweep wider.
 const ATTACKS = {
   corsair: { wind: 0.2, hit: 0.43, angle: 0.35, swing: 1.4, reach: 3 },
@@ -13,6 +14,8 @@ const ATTACKS = {
   lancer: { wind: 0.25, hit: 0.48, angle: 0.3, swing: 0.6, reach: 9 },
   halberdier: { wind: 0.4, hit: 0.64, angle: 0.75, swing: 1.4, reach: 6 },
   dancer: { wind: 0.28, hit: 0.52, angle: 0.55, swing: 1.8, reach: 6 },
+  merchant: { wind: 0.3, hit: 0.5, angle: 0.5, swing: 1.2, reach: 2 },
+  ninja: { wind: 0.15, hit: 0.35, angle: 0.6, swing: 1.6, reach: 4 },
 };
 const images = new Map();
 export const heroRigSrc = (part, classId = 'swordsman') => `assets/creatures/hero/rig/${classId}-${part}.webp`;

@@ -27,6 +27,9 @@ const SIGNATURE = {
   wizard: 'Staves cast powerful spells; elemental staves supply unlimited runes of their element.',
   sorcerer: 'Wands cast quickly: lighter spells, but more of them.',
   dancer: 'Whips lash from 3 tiles, build Rhythm for bigger hits, and help you dodge blows.',
+  pistoler: 'Dual pistols: by far the fastest attacks in the game, each hand firing, and no ammo to buy.',
+  ninja: 'Shurikens ricochet off your target into a second foe nearby (60% damage), and need no ammo.',
+  merchant: 'Hire up to 3 mercenaries with coins (Combat tab): they fight beside you for 90 seconds.',
 };
 
 // The passive perk tracks each style levels up (a perk every 20 levels).
