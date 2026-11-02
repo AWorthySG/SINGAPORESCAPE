@@ -3063,3 +3063,23 @@ test('drops: rarer gear from normal monsters, quality rolls, and bosses always d
   const share = mob.def.dropTable.filter((d) => d.id && ITEMS[d.id]?.equip).reduce((s, d) => s + d.weight, 0) / mob.def.dropTable.reduce((s, d) => s + d.weight, 0);
   assert.ok(gearDrops < 300 * share * 0.75, `gear drops cut well below the table's share (${gearDrops} vs ${Math.round(300 * share)})`);
 });
+
+test('November monsters and bosses: defined, placed in their regions, with abilities, drops and art', async () => {
+  const { NPCS, EXTRA_MONSTER_IDS, EXTRA_BOSS_IDS, ALL_MONSTER_IDS, ALL_BOSS_IDS } = await import('../src/data/npcs.js');
+  const { buildWorld } = await import('../src/data/world.js');
+  const { portraitFor } = await import('../src/render/sprites.js');
+  assert.ok(EXTRA_MONSTER_IDS.length >= 30, 'twelve new species in three forms');
+  assert.ok(EXTRA_BOSS_IDS.length >= 6);
+  const w = buildWorld();
+  for (const id of [...EXTRA_MONSTER_IDS, ...EXTRA_BOSS_IDS]) {
+    const d = NPCS[id];
+    assert.ok(d && d.attackable && d.dropTable.length > 0, `${id} is a monster with drops`);
+    const spawns = w.npcSpawns.filter((s) => s.npcId === id);
+    assert.ok(spawns.length >= 1, `${id} is placed in the world`);
+    for (const s of spawns) assert.equal(w.zones.find((z) => s.x >= z.x0 && s.x <= z.x1 && s.y >= z.y0 && s.y <= z.y1)?.name, d.zone, `${id} spawns in ${d.zone}`);
+    assert.ok(portraitFor(id, d)?.src.endsWith('.webp'), `${id} has art (its own or borrowed)`);
+  }
+  for (const id of EXTRA_BOSS_IDS) assert.ok(NPCS[id].boss && NPCS[id].ability?.fx.length, `${id} has a signature move`);
+  assert.ok(EXTRA_BOSS_IDS.every((id) => ALL_BOSS_IDS.includes(id)) && EXTRA_MONSTER_IDS.every((id) => ALL_MONSTER_IDS.includes(id)), 'the bestiary lists them');
+  assert.ok(NPCS[NPCS.jenglot_sovereign.ability.fx.find((f) => f.t === 'summon').id], 'the Jenglot Sovereign summons a real monster');
+});

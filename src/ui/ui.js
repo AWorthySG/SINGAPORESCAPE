@@ -18,7 +18,7 @@ import { DAILY_COUNT } from '../game/learning.js';
 import * as Hawker from '../game/hawker.js';
 import { buildReport, verifyReport } from '../game/report.js';
 import { getDialogue } from '../data/dialogue.js';
-import { MONSTER_IDS, BOSS_IDS, getNpc } from '../data/npcs.js';
+import { ALL_MONSTER_IDS as MONSTER_IDS, ALL_BOSS_IDS as BOSS_IDS, getNpc } from '../data/npcs.js';
 import { levelProgress, xpToNext } from '../data/xp.js';
 import { stackLabel, capitalize, formatNumber } from '../core/utils.js';
 import { STYLE_ORDER, STYLES, RANGED_STYLE_ORDER, RANGED_STYLES, DANCE_STYLE_ORDER, DANCE_STYLES, RHYTHM_MAX } from '../game/combat.js';

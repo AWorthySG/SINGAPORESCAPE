@@ -2,7 +2,7 @@
 // One connected map split into named Singapore-themed zones (returned as `zones`
 // for region detection) plus a dangerous Wilderness. A fixed seed keeps it stable.
 
-import { NPCS, MONSTER_IDS, BOSS_IDS } from './npcs.js';
+import { NPCS, MONSTER_IDS, BOSS_IDS, EXTRA_MONSTER_IDS, EXTRA_BOSS_IDS } from './npcs.js';
 
 // How many of each monster kind populate the world.
 export const MONSTER_COPIES = 5;
@@ -860,6 +860,49 @@ export function buildWorld() {
       s.x = spot[0]; s.y = spot[1];
       s.wander = Math.min(s.wander, 3);
       npcAt.add(key(s.x, s.y));
+    }
+  }
+
+  // ================= More monsters and bosses (Nov 2026) =================
+  // Placed last, on a stream of their own, so nothing placed earlier moves:
+  // five of each new monster and one of each new boss, in their home regions.
+  // Monsters come in packs (one of each form round a camp), like everything else.
+  R = mulberry32(20261104);
+  {
+    const taken = new Set(npcSpawns.map((sp) => key(sp.x, sp.y)));
+    const open = (x, y) => LANDABLE.includes(get(x, y)) && !occupied.has(key(x, y)) && !taken.has(key(x, y)) && !inTown(x, y) && !inNewTown(x, y);
+    const spotIn = (z) => {
+      for (let att = 0; att < 200; att++) {
+        const x = z.x0 + Math.floor(R() * (z.x1 - z.x0 + 1)), y = z.y0 + Math.floor(R() * (z.y1 - z.y0 + 1));
+        if (open(x, y)) return [x, y];
+      }
+      return null;
+    };
+    const inZ = (z, x, y) => x >= z.x0 && x <= z.x1 && y >= z.y0 && y <= z.y1;
+    const near = (cx, cy, z) => {
+      for (let r = 0; r <= 3; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) === r && inZ(z, cx + dx, cy + dy) && open(cx + dx, cy + dy)) return [cx + dx, cy + dy];
+      }
+      return null;
+    };
+    const families = new Map();
+    for (const id of EXTRA_MONSTER_IDS) { const f = NPCS[id].family; if (!families.has(f)) families.set(f, []); families.get(f).push(id); }
+    for (const ids of families.values()) {
+      for (let copy = 0; copy < MONSTER_COPIES; copy++) {
+        const z = zoneByName(NPCS[ids[0]].zone);
+        const camp = spotIn(z);
+        if (!camp) continue;
+        for (const id of ids) {
+          const at = near(camp[0], camp[1], z);
+          if (!at) continue;
+          placeNpc(id, at[0], at[1], 3);
+          taken.add(key(at[0], at[1]));
+        }
+      }
+    }
+    for (const id of EXTRA_BOSS_IDS) {
+      const at = spotIn(zoneByName(NPCS[id].zone));
+      if (at) { placeNpc(id, at[0], at[1], 3); taken.add(key(at[0], at[1])); }
     }
   }
 

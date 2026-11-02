@@ -122,13 +122,21 @@ const SPECIES_ART = new Set([
   'house_crow', 'field_rat', 'banded_leaf_monkey', 'sun_bear', 'clouded_leopard', 'bunian', 'dock_rat', 'rust_golem',
   'smuggler', 'drowned_sailor', 'temasek_guardian', 'ancient_naga', 'ruin_wraith', 'celestial_qilin', 'jinn', 'garuda_fledgling',
 ]);
+// Newer species without painted art yet borrow a close relative's art until
+// theirs arrives (see ART_BRIEF_MONSTERS.md). Remove a line once its file exists.
+const SPECIES_ALIAS = {
+  malayan_tapir: 'water_buffalo', wild_hornet: 'mosquito', kelong_crab: 'mud_crab', dugong: 'pink_dolphin',
+  merlion_whelp: 'reef_shark', weaver_ant: 'mosquito', tiger_cub: 'clouded_leopard', orchid_mantis: 'praying_mantis',
+  langsuir: 'pontianak', black_panther: 'clouded_leopard', oarfish: 'sea_snake', jenglot: 'toyol',
+};
+const speciesFile = (family) => (SPECIES_ART.has(family) ? family : SPECIES_ALIAS[family] || null);
 const _speciesImg = {};
 function speciesImage(family) {
-  if (!family || !SPECIES_ART.has(family)) return null;
+  if (!family || !speciesFile(family)) return null;
   if (_speciesImg[family] !== undefined) return _speciesImg[family];
   if (typeof Image === 'undefined') { _speciesImg[family] = null; return null; }
   const img = new Image();
-  img.src = `assets/creatures/species/${family}.webp`;
+  img.src = `assets/creatures/species/${speciesFile(family)}.webp`;
   _speciesImg[family] = img;
   return img;
 }
@@ -146,13 +154,19 @@ const BOSS_ART = new Set([
   'bandit_kingpin', 'coral_leviathan', 'rune_golem', 'sentosa_megalodon', 'bukit_brown_revenant', 'dragon_kiln_wyrm',
   'celestial_garuda', 'jade_dragon',
 ]);
+// Newer bosses borrow another boss's art until their own arrives (ART_BRIEF_MONSTERS.md).
+const BOSS_ALIAS = {
+  nian_beast: 'harimau_jadian', kelong_king_crab: 'chilli_crab', langsuir_matriarch: 'hungry_ghost_king',
+  shadow_panther: 'night_safari_tiger', abyssal_oarfish: 'reservoir_serpent', jenglot_sovereign: 'bukit_brown_revenant',
+};
+const bossFile = (id) => (BOSS_ART.has(id) ? id : BOSS_ALIAS[id] || null);
 const _bossImg = {};
 function bossImage(id) {
-  if (!id || !BOSS_ART.has(id)) return null;
+  if (!id || !bossFile(id)) return null;
   if (_bossImg[id] !== undefined) return _bossImg[id];
   if (typeof Image === 'undefined') { _bossImg[id] = null; return null; }
   const img = new Image();
-  img.src = `assets/creatures/bosses/${id}.webp`;
+  img.src = `assets/creatures/bosses/${bossFile(id)}.webp`;
   _bossImg[id] = img;
   return img;
 }
@@ -442,8 +456,8 @@ export const puppetKinds = () => ({ ...PUPPET_KIND });
 /** A boss or champion's portrait for the battle bar: its painted art and where
  *  in the picture its head is (as a CSS background-position), or null. */
 export function portraitFor(npcId, def) {
-  const src = def.boss && BOSS_ART.has(npcId) ? `assets/creatures/bosses/${npcId}.webp`
-    : SPECIES_ART.has(def.family) ? `assets/creatures/species/${def.family}.webp` : null;
+  const src = def.boss && bossFile(npcId) ? `assets/creatures/bosses/${bossFile(npcId)}.webp`
+    : speciesFile(def.family) ? `assets/creatures/species/${speciesFile(def.family)}.webp` : null;
   if (!src) return null;
   const top = HEAD_TOP.has(def.sprite) || ['ghost', 'wisp', 'slime', 'plant', 'jellyfish', 'serpent'].includes(def.sprite);
   return { src, pos: top ? '50% 8%' : '88% 22%' };
