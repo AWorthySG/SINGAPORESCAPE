@@ -3053,7 +3053,7 @@ test('new classes: Pistoler (dual pistols, no ammo, very fast), Ninja (ricochet)
   // A-Worthlings: each Merchant attack can call up a mirror image that hits for 25%.
   const r0 = Math.random;
   try {
-    Math.random = () => 0.1;           // under the 20% roll
+    Math.random = () => 0.1;           // under the 25% roll
     const prey = dummy(mc, -1);
     mc.npcs.push(prey);
     mc.doPlayerAttack(prey);
@@ -3067,6 +3067,10 @@ test('new classes: Pistoler (dual pistols, no ammo, very fast), Ninja (ricochet)
   } finally { Math.random = r0; }
   const aw = Mercs.activeFollowers(mc)[0];
   assert.ok(aw.ally && aw.follower && !aw.attackable && aw.npcId === 'aworthling');
+  // A-Worthlings split off smaller, weaker A-Worthlings.
+  const kid = Mercs.spawnFollower(mc, aw);
+  assert.ok(kid && kid.def.scale < 1 && kid.share === aw.share / 2, 'a smaller A-Worthling at half power');
+  kid.alive = false; mc.npcs = mc.npcs.filter((n) => n !== kid);
   const hp1 = foe.hp;
   for (let i = 0; i < 30; i++) { mc.player.attackCooldown = 99; mc.update(600); }
   assert.ok(foe.hp < hp1, 'the A-Worthling fights too');
