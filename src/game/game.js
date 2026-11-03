@@ -2699,9 +2699,10 @@ export class Game {
       this.toggleAutoBattle(false);
       return;
     }
-    // 0a. A Merchant in a fight tops up their mercenaries, keeping a coin reserve.
+    // 0a. A Merchant in a fight hires one more mercenary every tick, with no
+    //     limit, as long as a reserve of three hires' worth of coins is left.
     if (this.jobClass === 'merchant' && p.action?.type === 'attack' && p.action.npc?.alive
-      && Mercs.activeMercs(this).length < Mercs.AUTO_MERCS && this.inventory.count('coins') >= Mercs.hireCost(this) * 3) this.hireMercenary();
+      && this.inventory.count('coins') >= Mercs.hireCost(this) * 3) this.hireMercenary();
     // 0b. Step out of a boss's red ground marker, then go back to the fight.
     const at = this.playerTile();
     if (this.hazardAt(at.x, at.y)) {

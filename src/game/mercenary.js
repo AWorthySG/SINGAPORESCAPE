@@ -10,7 +10,6 @@ import { chebyshev, randInt } from '../core/utils.js';
 import { findPath } from '../engine/pathfinding.js';
 import { combatXp, playerAttackVsNpc } from './combat.js';
 
-export const AUTO_MERCS = 3;              // auto battle keeps this many hired; hiring by hand has no limit
 export const MERC_TICKS = 150;            // 90 seconds at 0.6s a tick
 export const FOLLOWER_CHANCE = 0.2;       // per Merchant kill
 export const FOLLOWER_SHARE = 0.25;       // of the Merchant's melee damage
