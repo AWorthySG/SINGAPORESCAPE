@@ -3,7 +3,7 @@
 // closest monster, cleaves like the Merchant's own weapon, and then heads home.
 // Monsters don't fight back against mercenaries: the Merchant pays them to
 // take no risks.
-// A-Worthlings: whenever the Merchant lands a kill there is a 20% chance a
+// A-Worthlings: every time the Merchant attacks there is a 20% chance a
 // mirror image of the Merchant appears. It fights like a mercenary, hitting for
 // a quarter of the Merchant's own melee damage, and stays for good.
 import { chebyshev, randInt } from '../core/utils.js';
@@ -13,7 +13,8 @@ import { combatXp, playerAttackVsNpc } from './combat.js';
 import { CLEAVE_SHARE } from '../data/classes.js';
 
 export const MERC_TICKS = 150;            // 90 seconds at 0.6s a tick
-export const FOLLOWER_CHANCE = 0.2;       // per Merchant kill
+export const FOLLOWER_CHANCE = 0.2;       // per Merchant attack
+export const MAX_FOLLOWERS = 40;          // a ceiling so a long session can't bog the game down
 export const FOLLOWER_SHARE = 0.25;       // of the Merchant's melee damage
 export const MERC_SHARE = 0.5;            // a mercenary hits for half the Merchant's melee damage (at least its hired power)
 const SEEK = 10;                          // how far an ally looks for a monster
@@ -54,9 +55,10 @@ export function hire(game) {
   return m;
 }
 
-/** A Merchant kill may call up an A-Worthling (a mirror image of the Merchant). */
-export function onMerchantKill(game) {
+/** A Merchant attack may call up an A-Worthling (a mirror image of the Merchant). */
+export function onMerchantAttack(game) {
   if (game.jobClass !== 'merchant' || Math.random() >= FOLLOWER_CHANCE) return null;
+  if (activeFollowers(game).length >= MAX_FOLLOWERS) return null;
   return spawnFollower(game);
 }
 
@@ -72,7 +74,7 @@ export function spawnFollower(game) {
   f.allyUntil = Infinity;            // A-Worthlings stay for good
   allyPace(f);
   game.spawnSparkle(f, '#f5b82e', 14);
-  game.msg('An A-Worthling, your mirror image, steps out to fight beside you!', 'level');
+  game.msg('An A-Worthling, your mirror image, steps out to fight beside you!', 'system');
   game.bus.emit('mercs');
   return f;
 }
@@ -104,7 +106,7 @@ function pickTarget(game, m) {
 
 /** Ally cleave: a share of the hit sweeps into up to 3 foes beside the target,
  *  the same share as the Merchant's weapon (canes 40%). */
-function allyCleave(game, target, dmg) {
+export function allyCleave(game, target, dmg) {
   const share = CLEAVE_SHARE[game.weaponType()] || CLEAVE_SHARE.cane;
   let hit = 0;
   for (const o of game.npcs) {

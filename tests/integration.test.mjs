@@ -3050,19 +3050,20 @@ test('new classes: Pistoler (dual pistols, no ammo, very fast), Ninja (ricochet)
   merc.allyUntil = mc.tickCount;
   mc.update(600);
   assert.ok(!mc.npcs.includes(merc), 'the contract ends and the mercenary leaves');
-  // A-Worthlings: a Merchant kill can call up a mirror image that hits for 25%.
+  // A-Worthlings: each Merchant attack can call up a mirror image that hits for 25%.
   const r0 = Math.random;
   try {
     Math.random = () => 0.1;           // under the 20% roll
-    const prey = dummy(mc, -2); prey.hp = 1;
+    const prey = dummy(mc, -1);
     mc.npcs.push(prey);
-    mc.killNpc(prey);
-    assert.equal(Mercs.activeFollowers(mc).length, 1, 'a kill called up an A-Worthling');
-    mc.killNpc(Object.assign(dummy(mc, -3), { hp: 0 }), { byAlly: true });
-    assert.equal(Mercs.activeFollowers(mc).length, 1, 'allies\' kills do not call up more');
-    Math.random = () => 0.5;           // over the roll
+    mc.doPlayerAttack(prey);
+    assert.equal(Mercs.activeFollowers(mc).length, 1, 'an attack called up an A-Worthling');
     mc.killNpc(Object.assign(dummy(mc, -3), { hp: 0 }));
+    assert.equal(Mercs.activeFollowers(mc).length, 1, 'kills no longer call them up');
+    Math.random = () => 0.5;           // over the roll
+    mc.doPlayerAttack(prey);
     assert.equal(Mercs.activeFollowers(mc).length, 1, 'no A-Worthling on a failed roll');
+    prey.alive = false; mc.npcs = mc.npcs.filter((n) => n !== prey);
   } finally { Math.random = r0; }
   const aw = Mercs.activeFollowers(mc)[0];
   assert.ok(aw.ally && aw.follower && !aw.attackable && aw.npcId === 'aworthling');
@@ -3072,9 +3073,10 @@ test('new classes: Pistoler (dual pistols, no ammo, very fast), Ninja (ricochet)
   assert.equal(aw.allyUntil, Infinity, 'A-Worthlings stay for good');
   assert.ok(aw.stepMul < 1 && merc.stepMul < 1, 'allies keep up with the Merchant and run');
   // Allies cleave: a foe beside the target takes a share too.
-  const beside = dummy(mc, 3, 1); mc.npcs.push(beside);
-  for (let i = 0; i < 30 && beside.hp === beside.maxHp; i++) { mc.player.attackCooldown = 99; mc.update(600); }
-  assert.ok(beside.hp < beside.maxHp, 'ally hits cleave into the foe beside the target');
+  // (Tested directly: in the live world the allies may pick another nearby monster.)
+  const beside = dummy(mc, 0); beside.x = beside.tx = foe.x; beside.y = beside.ty = foe.y + 1; mc.npcs.push(beside);
+  Mercs.allyCleave(mc, foe, 10);
+  assert.equal(beside.hp, beside.maxHp - 4, 'ally hits cleave 40% (cane) into the foe beside the target');
   // Left far behind (a teleport): they jump back to the Merchant.
   aw.stopNow(); aw.x = aw.tx = mc.player.x + 40; aw.y = aw.ty = mc.player.y;
   mc.update(600);
@@ -3096,6 +3098,29 @@ test('Equip best in slot puts on the strongest gear you can wear, and a dual-wie
   assert.equal(g.equipment.get('body'), 'leather_body', 'class armour only: no plate for a Rogue');
   assert.ok(g.inventory.count('rune_dagger') === 1 && g.inventory.count('bronze_sword') === 1, 'too-high levels and other classes\' weapons stay in the pack');
   assert.equal(g.equipBest(), 0, 'pressing again changes nothing');
+});
+
+test('every class is catered for: a starter weapon in a shop, and quest rewards that fit the class', async () => {
+  const { CLASSES, starterWeapon } = await import('../src/data/classes.js');
+  const { SHOPS } = await import('../src/data/shops.js');
+  const { ITEMS } = await import('../src/data/items.js');
+  const sold = new Set(Object.values(SHOPS).flatMap((s) => s.stock.map((x) => x.id)));
+  for (const id of sold) assert.ok(ITEMS[id], `shop item ${id} exists`);
+  for (const c of CLASSES) {
+    const ok = Object.keys(ITEMS).some((k) => sold.has(k) && ITEMS[k].equip?.weaponType === c.weapon);
+    assert.ok(ok, `${c.name} can buy ${c.weapon} weapons in a shop`);
+    assert.ok(starterWeapon(c.id), `${c.name} has a starter weapon`);
+  }
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const g = new Game(); g.start(); g.chooseClass('pistoler');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  const ranged0 = g.skills.xp.ranged;
+  const got = g._classReward('ancient_staff', 'magic', 4000);
+  assert.equal(ITEMS[got].equip.weaponType, 'pistol', 'a Pistoler gets pistols instead of a staff');
+  assert.ok(g.skills.xp.ranged > ranged0, 'and the XP goes to Ranged');
+  const helm = g._classReward('rune_full_helm');
+  assert.ok(!ITEMS[helm].equip.family || ITEMS[helm].equip.family === 'hide', 'armour rewards fit the class');
 });
 
 test('drops: rarer gear from normal monsters, quality rolls, and bosses always drop class gear and stones', async () => {

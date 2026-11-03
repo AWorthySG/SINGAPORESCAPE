@@ -17,7 +17,7 @@ export const CLASSES = [
   { id: 'brawler', name: 'Brawler', weapon: 'claws', style: 'melee', desc: 'Lightning-fast claws: the quickest swings in the game, and they crit often.' },
   { id: 'samurai', name: 'Samurai', weapon: 'katana', style: 'melee', desc: 'Keen katanas: fast, balanced and deadly.' },
   { id: 'halberdier', name: 'Halberdier', weapon: 'halberd', style: 'melee', desc: 'Slow, devastating halberds with 3-tile reach.' },
-  { id: 'merchant', name: 'Merchant', weapon: 'cane', style: 'melee', desc: 'Hires any number of mercenaries with coins; kills can call up A-Worthling mirror images.' },
+  { id: 'merchant', name: 'Merchant', weapon: 'cane', style: 'melee', desc: 'Hires any number of mercenaries with coins; every attack can call up an A-Worthling mirror image.' },
   // Ranged
   { id: 'archer', name: 'Archer', weapon: 'shortbow', style: 'ranged', desc: 'Rapid shortbows: arrow after arrow from afar.' },
   { id: 'ranger', name: 'Ranger', weapon: 'longbow', style: 'ranged', desc: 'Longbows: slower, harder-hitting shots from very far.' },
