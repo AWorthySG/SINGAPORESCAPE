@@ -8,7 +8,7 @@ import { getItem, MELEE_REACH } from '../data/items.js';
 import { chebyshev, randInt, weightedPick, capitalize } from '../core/utils.js';
 import {
   TILE, TICK_MS, COMBAT_BEAT_MS, RESPAWN_TICKS, AUTOSAVE_TICKS, DAY_CYCLE_MS,
-  XP_RATE,
+  XP_RATE, LEARNING_ENABLED,
 } from '../config.js';
 
 import { World } from './world.js';
@@ -186,7 +186,7 @@ export class Game {
     this.learning = new Learning();   // Wisdom, topic mastery, Codex cards and titles
     // Knowledge Strikes: bosses' specials can be interrupted by answering a question.
     // On by default in the browser; headless runs (tests) leave bosses as they were.
-    this.knowledgeStrikes = typeof document !== 'undefined';
+    this.knowledgeStrikes = LEARNING_ENABLED && typeof document !== 'undefined';
     this._ks = null;
     this.achievements = new Set();
     this.kills = {}; // per-monster kill counts (bestiary)
@@ -266,7 +266,7 @@ export class Game {
     if (loaded) {
       this.starterGiven = true;
       this.msg(`Welcome back to ${this.world.townName}, ${this.player.name}!`, 'system');
-      if (!this.learning.dailyDone(this.todayKey())) this.msg('Your daily revision is ready in the Knowledge Codex (Skills tab).', 'level');
+      if (LEARNING_ENABLED && !this.learning.dailyDone(this.todayKey())) this.msg('Your daily revision is ready in the Knowledge Codex (Skills tab).', 'level');
     } else {
       this.newGame();
     }
@@ -672,6 +672,7 @@ export class Game {
       if (!n.ally && (Math.abs(n.x - px) > 46 || Math.abs(n.y - py) > 46)) continue;
       n.tick(this);
     }
+    Mercs.flushAllies(this);
     if (this.hasTemps) this.npcs = this.npcs.filter((n) => !(n.temporary && !n.alive));
     if (this.player.alive) this.updateRegion();
     this.world.tick();

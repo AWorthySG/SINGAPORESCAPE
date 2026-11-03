@@ -6,8 +6,8 @@
 // A-Worthlings: every time the Merchant attacks there is a 25% chance a
 // mirror image of the Merchant appears. It fights like a mercenary, hitting for
 // a quarter of the Merchant's own melee damage, and stays for good. Each of its
-// swings has a 25% chance to split off a smaller A-Worthling that hits half as
-// hard as its parent (and so on down the line, all under MAX_FOLLOWERS).
+// swings has a 25% chance to split off a smaller A-Worthling (up to MAX_FOLLOWERS). Every A-Worthling, big or small, never misses and always hits
+// for a fixed 25% of the Merchant's max melee hit.
 import { chebyshev, randInt } from '../core/utils.js';
 import { TICK_MS, COMBAT_BEAT_MS } from '../config.js';
 import { findPath } from '../engine/pathfinding.js';
@@ -16,8 +16,8 @@ import { CLEAVE_SHARE } from '../data/classes.js';
 
 export const MERC_TICKS = 150;            // 90 seconds at 0.6s a tick
 export const FOLLOWER_CHANCE = 0.25;      // per Merchant attack
+export const MAX_FOLLOWERS = 200;         // splitting doubles them every second or so: this keeps the game running
 export const SPLIT_CHANCE = 0.25;         // per A-Worthling swing: a smaller A-Worthling splits off
-export const MAX_FOLLOWERS = 40;          // a ceiling so a long session can't bog the game down
 export const FOLLOWER_SHARE = 0.25;       // of the Merchant's melee damage
 export const MERC_SHARE = 0.5;            // a mercenary hits for half the Merchant's melee damage (at least its hired power)
 const SEEK = 10;                          // how far an ally looks for a monster
@@ -67,21 +67,28 @@ export function onMerchantAttack(game) {
 /** Summon one A-Worthling next to the player. Returns it, or null. */
 export function spawnFollower(game, parent = null) {
   const p = game.player;
-  if (!p.alive || activeFollowers(game).length >= MAX_FOLLOWERS) return null;
+  if (!p.alive) return null;
+  // Counted once a tick (then kept up to date here), not by scanning every spawn.
+  if (game._followerTick !== game.tickCount) { game._followerTick = game.tickCount; game._followerCount = activeFollowers(game).length; }
+  if (game._followerCount >= MAX_FOLLOWERS) return null;
   const from = parent || p;
   const spot = game._nearestFree(from.x - 1, from.y);
   if (!spot) return null;
   const f = game.spawnNpc('aworthling', spot.x, spot.y, { temporary: true, wander: 0 });
   f.ally = true;
   f.follower = true;
-  // A split-off A-Worthling is smaller and hits half as hard as its parent.
-  f.share = parent ? (parent.share || FOLLOWER_SHARE) * 0.5 : FOLLOWER_SHARE;
+  game._followerCount++;
+  // A split-off A-Worthling is drawn smaller but hits just as hard (25%).
+  f.share = FOLLOWER_SHARE;
   if (parent) f.def = { ...f.def, name: 'Little A-Worthling', scale: Math.max(0.45, (parent.def.scale || 1) * 0.8) };
   f.allyUntil = Infinity;            // A-Worthlings stay for good
   allyPace(f);
-  game.spawnSparkle(f, '#f5b82e', 14);
-  game.msg(parent ? 'Your A-Worthling splits off a smaller A-Worthling!' : 'An A-Worthling, your mirror image, steps out to fight beside you!', 'system');
-  game.bus.emit('mercs');
+  if (!parent) game.spawnSparkle(f, '#f5b82e', 10);
+  // Chat and the Combat tab are updated at most once a tick (see flushAllies),
+  // so a swarm of new A-Worthlings doesn't flood the page.
+  game._allyNews = game._allyNews || { spawned: 0, xp: {} };
+  game._allyNews.spawned++;
+  game._allyNews.dirty = true;
   return f;
 }
 
@@ -96,13 +103,25 @@ function fairGame(game, n) {
   return n.target === game.player || (a && a.type === 'attack' && a.npc === n);
 }
 
+/** Monsters near the Merchant that allies may fight, found once a tick and
+ *  shared by every ally (scanning the whole world per ally was the big cost). */
+function nearbyFoes(game) {
+  if (game._allyFoesTick === game.tickCount && game._allyFoes) return game._allyFoes;
+  const p = game.player, out = [];
+  for (const n of game.npcs) {
+    if (Math.abs(n.x - p.x) > LEASH || Math.abs(n.y - p.y) > LEASH || !fairGame(game, n)) continue;
+    out.push(n);
+  }
+  game._allyFoesTick = game.tickCount;
+  game._allyFoes = out;
+  return out;
+}
+
 /** The ally's foe: always the closest monster (ties keep the one it's already on). */
 function pickTarget(game, m) {
-  const p = game.player;
   let best = null, bd = Infinity;
-  for (const n of game.npcs) {
-    if (Math.abs(n.x - m.x) > SEEK || Math.abs(n.y - m.y) > SEEK || !fairGame(game, n)) continue;
-    if (chebyshev(n.x, n.y, p.x, p.y) > LEASH) continue;
+  for (const n of nearbyFoes(game)) {
+    if (!n.alive || n.hp <= 0 || Math.abs(n.x - m.x) > SEEK || Math.abs(n.y - m.y) > SEEK) continue;
     const d = chebyshev(n.x, n.y, m.x, m.y);
     if (d < bd || (d === bd && n === m.allyTarget)) { bd = d; best = n; }
   }
@@ -115,15 +134,15 @@ function pickTarget(game, m) {
 export function allyCleave(game, target, dmg) {
   const share = CLEAVE_SHARE[game.weaponType()] || CLEAVE_SHARE.cane;
   let hit = 0;
-  for (const o of game.npcs) {
+  for (const o of nearbyFoes(game)) {
     if (hit >= 3) break;
-    if (o === target || o.hp <= 0 || o.temporary || !fairGame(game, o)) continue;
+    if (o === target || o.hp <= 0 || o.temporary || !o.alive) continue;
     if (o.def.fixed && o.target !== game.player) continue;
     if (chebyshev(o.x, o.y, target.x, target.y) > 1) continue;
     const d = Math.min(o.hp, Math.max(1, Math.round(dmg * share)));
     o.takeDamage(d);
-    game.addHitsplat(o, d, { tint: '#ffb347' });
-    for (const x of combatXp(game.player.style, d)) game.skills.addXp(x.skill, x.xp * game.combatXpMult());
+    allySplat(game, o, d, '#ffb347');
+    allyXp(game, d);
     if (!o.target) o.target = game.player;
     if (o.hp <= 0) game.killNpc(o, { byAlly: true });
     hit++;
@@ -164,14 +183,15 @@ export function mercTick(game, m) {
       while (m.swingAcc >= 1 && target.hp > 0) {
         m.swingAcc--;
         if (m.follower && Math.random() < SPLIT_CHANCE) spawnFollower(game, m);
-        const dmg = Math.min(target.hp, Math.random() < 0.85 ? randInt(Math.ceil(max / 4), max) : 0);
+        // A-Worthlings hit a fixed 25% of the Merchant's max hit; mercenaries roll.
+        const dmg = Math.min(target.hp, m.follower ? max : Math.random() < 0.85 ? randInt(Math.ceil(max / 4), max) : 0);
         target.takeDamage(dmg);
-        game.addHitsplat(target, dmg, { tint: m.follower ? '#f5b82e' : '#3fbf9f' });
+        allySplat(game, target, dmg, m.follower ? '#f5b82e' : '#3fbf9f');
         if (dmg > 0) {
-          game._slash(target, '#bff5e6');
+          if (!m.follower) game._slash(target, '#bff5e6');
           allyCleave(game, target, dmg);
           // Every hit by the Merchant's allies earns the Merchant the full combat XP.
-          for (const x of combatXp(p.style, dmg)) game.skills.addXp(x.skill, x.xp * game.combatXpMult());
+          allyXp(game, dmg);
         }
       }
       if (!target.target) target.target = p;
@@ -187,7 +207,40 @@ export function mercTick(game, m) {
 }
 
 function walkTo(game, m, to) {
-  if (m.isMoving && m._goal && m._goal.x === to.x && m._goal.y === to.y) return;
-  const path = findPath(game.pathCfg(), { x: m.x, y: m.y }, { x: to.x, y: to.y }, { reachAdjacent: true, maxNodes: 1500 });
-  if (path.length) { m.setPath(path, true); m._goal = { x: to.x, y: to.y }; }
+  // Keep the current route while it still leads to (about) the same place:
+  // re-planning a path for every ally every tick was a big source of lag.
+  if (m.path?.length && m._goal && Math.abs(m._goal.x - to.x) <= 1 && Math.abs(m._goal.y - to.y) <= 1) return;
+  // No way through (a crowd of allies round the target): wait a few ticks
+  // before trying again rather than searching every tick.
+  if (m._pathWait > 0) { m._pathWait--; return; }
+  const path = findPath(game.pathCfg(), { x: m.x, y: m.y }, { x: to.x, y: to.y }, { reachAdjacent: true, maxNodes: 400 });
+  if (path.length) { m.setPath(path, true); m._goal = { x: to.x, y: to.y }; } else m._pathWait = 3 + Math.floor(Math.random() * 3);
+}
+
+/** Hitsplats from allies: skipped once the screen is already full of effects. */
+function allySplat(game, n, d, tint) {
+  if (game.effects.length < 250) game.addHitsplat(n, d, { tint });
+  else if (d > 0) n.hurt = 200;
+}
+
+/** Ally XP is pooled and handed over once a tick: every XP gain redraws the
+ *  Skills panel, so hundreds of small gains a tick froze the page. */
+function allyXp(game, dmg) {
+  game._allyNews = game._allyNews || { spawned: 0, xp: {} };
+  const pool = game._allyNews.xp;
+  for (const x of combatXp(game.player.style, dmg)) pool[x.skill] = (pool[x.skill] || 0) + x.xp * game.combatXpMult();
+}
+
+/** Once a tick (from the game tick): give the pooled XP and post one line
+ *  about new A-Worthlings. */
+export function flushAllies(game) {
+  const news = game._allyNews;
+  if (!news) return;
+  for (const [skill, xp] of Object.entries(news.xp)) if (xp > 0) game.skills.addXp(skill, xp);
+  news.xp = {};
+  if (news.spawned) {
+    game.msg(news.spawned === 1 ? 'An A-Worthling steps out to fight beside you!' : `${news.spawned} A-Worthlings step out to fight beside you!`, 'system');
+    news.spawned = 0;
+  }
+  if (news.dirty) { news.dirty = false; game.bus.emit('mercs'); }
 }

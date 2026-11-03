@@ -33,7 +33,7 @@ import { streakMult } from '../game/bounty.js';
 import { itemCategory } from '../game/inventory.js';
 import { MAX_UPGRADE, upgradeCost, upgradeChance, upgradedName, RISKY_FROM, STONE as UP_STONE, WARD as UP_WARD } from '../game/upgrade.js';
 import { STAT_LABELS, STAT_HELP, compareGear, deltaText, gearBySlot, gearRating, meetsReq, swingBeats, tierOf, weaponStyle } from '../game/gear.js';
-import { TILE } from '../config.js';
+import { TILE, LEARNING_ENABLED } from '../config.js';
 import { TERRAIN } from '../data/world.js';
 import { clearSave } from '../game/save.js';
 import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG, abilityIconHTML, prayerIconHTML, spellIconHTML } from '../render/icons.js';
@@ -1007,15 +1007,18 @@ export class UI {
     perkBtn.innerHTML = '<b>Passive perks</b><span>A new perk every 20 levels in a fighting skill</span>';
     perkBtn.addEventListener('click', () => this.openPerks());
     grid.appendChild(perkBtn);
-    // Study: the Knowledge Codex, with Wisdom level and topic mastery.
-    const L = this.game.learning;
-    const codexBtn = document.createElement('button');
-    codexBtn.className = 'perks-open codex-open';
-    const dailyReady = !L.dailyDone(this.game.todayKey());
-    codexBtn.classList.toggle('daily', dailyReady);
-    codexBtn.innerHTML = `<b>📖 Knowledge Codex · Wisdom ${L.level}${dailyReady ? ' · ✨ daily revision ready' : ''}</b><span>Study topics to master them: ${L.masteredCount()}/${TOPICS.length} cards collected</span>`;
-    codexBtn.addEventListener('click', () => this.openCodex());
-    grid.appendChild(codexBtn);
+    // Study: the Knowledge Codex, with Wisdom level and topic mastery (switched
+    // off for now: see LEARNING_ENABLED in config.js).
+    if (LEARNING_ENABLED) {
+      const L = this.game.learning;
+      const codexBtn = document.createElement('button');
+      codexBtn.className = 'perks-open codex-open';
+      const dailyReady = !L.dailyDone(this.game.todayKey());
+      codexBtn.classList.toggle('daily', dailyReady);
+      codexBtn.innerHTML = `<b>📖 Knowledge Codex · Wisdom ${L.level}${dailyReady ? ' · ✨ daily revision ready' : ''}</b><span>Study topics to master them: ${L.masteredCount()}/${TOPICS.length} cards collected</span>`;
+      codexBtn.addEventListener('click', () => this.openCodex());
+      grid.appendChild(codexBtn);
+    }
     for (const grp of SKILL_GROUPS) {
       const head = document.createElement('div');
       head.className = 'skill-group';
