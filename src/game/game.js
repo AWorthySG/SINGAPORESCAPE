@@ -1070,6 +1070,8 @@ export class Game {
     const pm = this.prayerMult();
     const baseMax = Math.round(max * pm.str);
     this._swingToward(this.player, npc.x, npc.y);
+    // A Merchant's every swing may call up an A-Worthling (a mirror image).
+    if (this.jobClass === 'merchant') Mercs.onMerchantAttack(this);
 
     // Fold together special attack + armed ability + style-weakness bonuses.
     const mods = this._offensiveMods(npc, 'melee');
@@ -1768,7 +1770,6 @@ export class Game {
     this.checkAchievements();
     this._deathBurst(npc);
     this.rollDrops(npc);
-    if (!byAlly) Mercs.onMerchantKill(this);
     npc.die();
     if (this.player.target === npc) this.player.target = null;
     // Auto battle moves straight on to the next fight (right after this attack
@@ -3056,6 +3057,29 @@ export class Game {
     return changed;
   }
 
+  _classWeaponType() { return this.jobClass ? CLASS_BY_ID[this.jobClass]?.weapon : null; }
+
+  /** A quest reward that fits your class: a weapon becomes your class's weapon
+   *  of about the same level, armour your class's family, and the XP goes to
+   *  your own combat skill. Players without a class get the piece as written. */
+  _classReward(id, xpSkill, xp) {
+    const cls = this.jobClass && CLASS_BY_ID[this.jobClass];
+    let give = id;
+    if (cls) {
+      const eq = getItem(id).equip;
+      if (eq?.weaponType && eq.weaponType !== cls.weapon) give = equivalentWeapon(id, cls.weapon);
+      else if (eq?.family && !canWear(cls.id, id)) give = equivalentArmour(id, ARMOUR_FAMILY[cls.id]);
+    }
+    this.inventory.add(give, 1);
+    if (give !== id) this.msg(`Your reward is made for a ${cls.name}: ${getItem(give).name}.`, 'level');
+    if (xpSkill && xp) {
+      const style = cls?.style;
+      const skill = !cls ? xpSkill : style === 'ranged' ? 'ranged' : style === 'magic' ? 'magic' : style === 'dance' ? 'agility' : (xpSkill === 'magic' || xpSkill === 'ranged' ? 'strength' : xpSkill);
+      this.skills.addXp(skill, xp);
+    }
+    return give;
+  }
+
   /** Wield a dagger in the off-hand (where a shield would go) for dual wielding. */
   equipOffhand(index) { return this.equipItem(index, { offhand: true }); }
 
@@ -3646,10 +3670,9 @@ export class Game {
     if (q.state !== 'active') { this.msg('Ask me about the mystic trial first.', 'system'); return; }
     if (this.inventory.count('death_rune') < 25) { this.msg('Bring 25 death runes to complete the trial.', 'system'); return; }
     this.inventory.remove('death_rune', 25);
-    this.inventory.add('ancient_staff', 1);
-    this.skills.addXp('magic', 4000);
+    this._classReward('ancient_staff', 'magic', 4000);
     q.state = 'done';
-    this.msg('Quest complete — The Mystic\'s Trial! You receive the ancient staff.', 'level');
+    this.msg('Quest complete — The Mystic\'s Trial!', 'level');
     this.banner('<span class="big">Quest complete!</span>The Mystic\'s Trial');
   }
 
@@ -3658,11 +3681,10 @@ export class Game {
     if (q.state === 'done') { this.msg('A fine hunter you are!', 'system'); return; }
     if (q.state !== 'active') { this.msg('Ask me about the hunt first.', 'system'); return; }
     if (this.totalKills - (q.startKills || 0) < 50) { this.msg(`Slay ${50 - (this.totalKills - (q.startKills || 0))} more creatures first.`, 'system'); return; }
-    this.inventory.add('magic_shortbow', 1);
-    this.inventory.add('rune_arrow', 100);
-    this.skills.addXp('ranged', 5000);
+    this._classReward('magic_shortbow', 'ranged', 5000);
+    if (this._classWeaponType() === 'shortbow' || this._classWeaponType() === 'longbow' || !this.jobClass) this.inventory.add('rune_arrow', 100);
     q.state = 'done';
-    this.msg('Quest complete — Big Game Hunter! You receive a magic shortbow and 100 rune arrows.', 'level');
+    this.msg('Quest complete — Big Game Hunter!', 'level');
     this.banner('<span class="big">Quest complete!</span>Big Game Hunter');
   }
 
@@ -3686,7 +3708,7 @@ export class Game {
     if (q.state !== 'active') { this.msg('Ask me about defending the island first.', 'system'); return; }
     if (this.bossKills - (q.startBoss || 0) < 3) { this.msg(`Defeat ${3 - (this.bossKills - (q.startBoss || 0))} more bosses first.`, 'system'); return; }
     this.inventory.add('island_aegis', 1);
-    this.inventory.add('champions_helm', 1);
+    this._classReward('champions_helm');
     this.inventory.add('coins', 5000);
     this.skills.addXp('defence', 4000);
     q.state = 'done';

@@ -161,6 +161,17 @@ export const SHOPS = {
   },
 };
 
+// Every class can buy a starter weapon: bronze, iron and steel of each metal
+// weapon type, added to the General Store (bows, staves, wands and whips are
+// already sold by the Fletcher, the Mystic Merchant and the store).
+const CLASS_METAL_WEAPONS = ['dagger', 'sword', 'scimitar', 'mace', 'longsword', 'battleaxe', 'warhammer', '2h_sword', 'spear', 'claws', 'katana', 'halberd', 'cane', 'pistol', 'shuriken'];
+for (const [metal, qty] of [['bronze', 5], ['iron', 3], ['steel', 2]]) {
+  for (const t of CLASS_METAL_WEAPONS) {
+    const id = `${metal}_${t}`;
+    if (!SHOPS.general.stock.some((s) => s.id === id)) SHOPS.general.stock.push({ id, qty });
+  }
+}
+
 export function getShop(id) {
   const shop = SHOPS[id];
   if (!shop) throw new Error(`Unknown shop id: ${id}`);

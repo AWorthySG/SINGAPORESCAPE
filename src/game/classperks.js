@@ -29,7 +29,7 @@ const SIGNATURE = {
   dancer: 'Whips lash from 3 tiles, build Rhythm for bigger hits, and help you dodge blows.',
   pistoler: 'Dual pistols: by far the fastest attacks in the game, each hand firing, and no ammo to buy.',
   ninja: 'Shurikens ricochet off your target into a second foe nearby (60% damage), and need no ammo.',
-  merchant: 'Hire as many mercenaries as you can pay for (Combat tab): each runs at the closest monster for 90 seconds, swings as fast as you, hits for half your melee damage with your cleave, and earns you full XP. Every kill has a 20% chance to call up an A-Worthling, a mirror image of you that fights the same way for 25% of your damage and stays for good.',
+  merchant: 'Hire as many mercenaries as you can pay for (Combat tab): each runs at the closest monster for 90 seconds, swings as fast as you, hits for half your melee damage with your cleave, and earns you full XP. Every attack has a 20% chance to call up an A-Worthling (up to 40), a mirror image of you that fights the same way for 25% of your damage and stays for good.',
 };
 
 // The passive perk tracks each style levels up (a perk every 20 levels).
