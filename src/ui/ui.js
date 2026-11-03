@@ -810,6 +810,13 @@ export class UI {
       list.appendChild(row);
     }
     this.el.equipBonuses.prepend(list);
+    // One tap to put on the strongest gear in the backpack.
+    const bis = document.createElement('button');
+    bis.className = 'bestiary-open gear-guide-open eq-best';
+    bis.type = 'button';
+    bis.textContent = '✨ Equip best in slot';
+    bis.addEventListener('click', () => this.game.equipBest());
+    this.el.equipBonuses.prepend(bis);
     const guide = document.createElement('button');
     guide.className = 'bestiary-open gear-guide-open';
     guide.textContent = 'Gear Guide: which equipment is better?';
@@ -1586,8 +1593,8 @@ export class UI {
       const hire = document.createElement('button');
       hire.type = 'button';
       hire.className = 'wm-go merc-hire';
-      hire.textContent = `Hire mercenary (${Mercs.hireCost(this.game)} coins) · ${n}/${Mercs.MAX_MERCS} on contract`;
-      hire.disabled = n >= Mercs.MAX_MERCS;
+      const f = Mercs.activeFollowers(this.game).length;
+      hire.textContent = `Hire mercenary (${Mercs.hireCost(this.game)} coins) · ${n} on contract${f ? ` · ${f} A-Worthling${f > 1 ? 's' : ''}` : ''}`;
       hire.addEventListener('click', () => { this.game.hireMercenary(); this.renderCombatPanel(); });
       lvlEl.prepend(hire);
     }

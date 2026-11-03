@@ -2030,7 +2030,7 @@ test('daggers can be dual wielded in place of a shield, striking twice per swing
   assert.ok(eq.isDualWielding());
 });
 
-test('melee cleave sweeps foes next to the target, except with quick weapons', () => {
+test('melee cleave sweeps foes next to the target, with every melee weapon', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
   const game = new Game();
@@ -2043,7 +2043,8 @@ test('melee cleave sweeps foes next to the target, except with quick weapons', (
   const main = mk(1, 0), side = mk(2, 0), far = mk(5, 0);
   game.npcs = [main, side, far];
   game._cleave(main, 20);
-  assert.equal(side.hp, 99999, 'scimitars (quick weapons) do not cleave');
+  assert.equal(side.hp, 99999 - 5, 'scimitars (quick weapons) sweep a light 25%');
+  side.hp = 99999;
   game.equipment.set('weapon', Object.keys(ITEMS).find((k) => ITEMS[k].equip?.weaponType === '2h_sword'));
   game.equipment.clearSlot('shield');
   const xp0 = game.skills.xp.attack + game.skills.xp.strength + game.skills.xp.defence;
@@ -2979,6 +2980,7 @@ test('class armour: equipping is limited to your family; offensive stats change 
 
 test('new classes: Pistoler (dual pistols, no ammo, very fast), Ninja (ricochet), Merchant (mercenaries)', async () => {
   const { NPC } = await import('../src/game/npc.js');
+  const Mercs = await import('../src/game/mercenary.js');
   const fresh = (cls) => {
     globalThis.localStorage = fakeStorage();
     clearSave();
@@ -3015,6 +3017,12 @@ test('new classes: Pistoler (dual pistols, no ammo, very fast), Ninja (ricochet)
   nj.npcs = [main, side];
   for (let i = 0; i < 40 && side.hp === side.maxHp; i++) { nj.player.attackCooldown = 0; nj._rangedAttack(main); }
   assert.ok(side.hp < side.maxHp, 'the ricochet hit the second foe');
+  // Only bows loose arrows: Ninjas throw shurikens and Pistolers fire bullets.
+  const kinds = (g) => new Set(g.effects.filter((e) => e.type === 'projectile').map((e) => e.kind));
+  assert.deepEqual([...kinds(nj)], ['shuriken'], 'a Ninja throws shurikens, not arrows');
+  const pt = dummy(ps, 3); ps.npcs.push(pt);
+  ps.player.attackCooldown = 0; ps._rangedAttack(pt);
+  assert.deepEqual([...kinds(ps)], ['bullet'], 'a Pistoler fires bullets, not arrows');
 
   // Merchant: hire mercenaries who fight the Merchant's target, then leave.
   const mc = fresh('merchant');
@@ -3024,16 +3032,54 @@ test('new classes: Pistoler (dual pistols, no ammo, very fast), Ninja (ricochet)
   mc.npcs.push(foe);
   const merc = mc.hireMercenary();
   assert.ok(merc && merc.ally && !merc.attackable, 'a mercenary joins');
-  mc.hireMercenary(); mc.hireMercenary();
-  assert.equal(mc.hireMercenary(), null, 'at most three at once');
-  mc.player.setAction({ type: 'attack', npc: foe });
+  for (let i = 0; i < 5; i++) assert.ok(mc.hireMercenary(), 'no limit on how many mercenaries');
+  assert.equal(Mercs.activeMercs(mc).length, 6);
+  // They go after the nearest monster by themselves: the Merchant isn't fighting.
+  mc.player.autoRetaliate = false;
   const hp0 = foe.hp;
   for (let i = 0; i < 40; i++) { mc.player.attackCooldown = 99; mc.update(600); }
-  assert.ok(foe.hp < hp0, 'the mercenaries hit the target');
+  assert.ok(foe.hp < hp0, 'the mercenaries hunt down the nearest monster');
   merc.allyUntil = mc.tickCount;
   mc.update(600);
   assert.ok(!mc.npcs.includes(merc), 'the contract ends and the mercenary leaves');
+  // A-Worthlings: a Merchant kill can call up a mirror image that hits for 25%.
+  const r0 = Math.random;
+  try {
+    Math.random = () => 0.1;           // under the 20% roll
+    const prey = dummy(mc, -2); prey.hp = 1;
+    mc.npcs.push(prey);
+    mc.killNpc(prey);
+    assert.equal(Mercs.activeFollowers(mc).length, 1, 'a kill called up an A-Worthling');
+    mc.killNpc(Object.assign(dummy(mc, -3), { hp: 0 }), { byAlly: true });
+    assert.equal(Mercs.activeFollowers(mc).length, 1, 'allies\' kills do not call up more');
+    Math.random = () => 0.5;           // over the roll
+    mc.killNpc(Object.assign(dummy(mc, -3), { hp: 0 }));
+    assert.equal(Mercs.activeFollowers(mc).length, 1, 'no A-Worthling on a failed roll');
+  } finally { Math.random = r0; }
+  const aw = Mercs.activeFollowers(mc)[0];
+  assert.ok(aw.ally && aw.follower && !aw.attackable && aw.npcId === 'aworthling');
+  const hp1 = foe.hp;
+  for (let i = 0; i < 30; i++) { mc.player.attackCooldown = 99; mc.update(600); }
+  assert.ok(foe.hp < hp1, 'the A-Worthling fights too');
+  aw.allyUntil = mc.tickCount; mc.update(600);
+  assert.ok(!mc.npcs.includes(aw), 'the A-Worthling fades after its minute');
   assert.equal(fresh('pistoler').hireMercenary(), null, 'only Merchants can hire');
+});
+
+test('Equip best in slot puts on the strongest gear you can wear, and a dual-wield off-hand', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const g = new Game(); g.start(); g.chooseClass('rogue');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.skills.xp.defence = g.skills.xp.defence || 0;
+  for (const id of ['iron_dagger', 'iron_dagger', 'leather_body', 'rune_platebody', 'rune_dagger', 'bronze_sword']) g.inventory.add(id, 1);
+  const n = g.equipBest();
+  assert.ok(n >= 2);
+  assert.equal(g.equipment.get('weapon'), 'iron_dagger', 'the better dagger goes in the main hand');
+  assert.equal(g.equipment.get('shield'), 'iron_dagger', 'and its twin in the off-hand');
+  assert.equal(g.equipment.get('body'), 'leather_body', 'class armour only: no plate for a Rogue');
+  assert.ok(g.inventory.count('rune_dagger') === 1 && g.inventory.count('bronze_sword') === 1, 'too-high levels and other classes\' weapons stay in the pack');
+  assert.equal(g.equipBest(), 0, 'pressing again changes nothing');
 });
 
 test('drops: rarer gear from normal monsters, quality rolls, and bosses always drop class gear and stones', async () => {

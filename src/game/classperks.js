@@ -12,14 +12,14 @@ import { canDualWield } from './equipment.js';
 const SIGNATURE = {
   rogue: 'Dual wields daggers: a second dagger in the off-hand strikes again (60% power) after every swing.',
   swordsman: 'The all-rounder: balanced accuracy and power, and a solid cleave.',
-  corsair: 'Dual wields scimitars and swings faster than any other blade (no cleave: speed instead).',
+  corsair: 'Dual wields scimitars and swings faster than any other blade, with a light cleave.',
   paladin: 'Holy maces that crush the undead, demons and armoured sea creatures.',
   knight: 'Longswords strike from 3 tiles away, and slay dragons and reptiles.',
   berserker: 'Heavy battleaxes with a wide cleave that mows down packs.',
   juggernaut: 'Warhammers hit harder than anything and cleave through crowds; they crack golems.',
   gladiator: 'Two-handed swords: the widest cleave (70%) and 3-tile reach.',
   lancer: 'Accurate spears that strike from 3 tiles away.',
-  brawler: 'Claws: the quickest swings in the game and extra critical hits (no cleave: speed instead).',
+  brawler: 'Claws: the quickest swings in the game and extra critical hits, with a light cleave.',
   samurai: 'Keen katanas: quick, balanced and extra critical hits.',
   halberdier: 'Halberds: slow, huge blows from 3 tiles with a wide cleave.',
   archer: 'Shortbows loose arrow after arrow from 12 tiles away.',
@@ -29,7 +29,7 @@ const SIGNATURE = {
   dancer: 'Whips lash from 3 tiles, build Rhythm for bigger hits, and help you dodge blows.',
   pistoler: 'Dual pistols: by far the fastest attacks in the game, each hand firing, and no ammo to buy.',
   ninja: 'Shurikens ricochet off your target into a second foe nearby (60% damage), and need no ammo.',
-  merchant: 'Hire up to 3 mercenaries with coins (Combat tab): they fight beside you for 90 seconds.',
+  merchant: 'Hire as many mercenaries as you can pay for (Combat tab): each hunts the nearest monster for 90 seconds, hits for half your melee damage and earns you full XP. Every kill has a 20% chance to call up an A-Worthling, a mirror image of you that hits for 25% of your damage for a minute.',
 };
 
 // The passive perk tracks each style levels up (a perk every 20 levels).

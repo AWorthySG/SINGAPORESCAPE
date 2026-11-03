@@ -17,7 +17,7 @@ export const CLASSES = [
   { id: 'brawler', name: 'Brawler', weapon: 'claws', style: 'melee', desc: 'Lightning-fast claws: the quickest swings in the game, and they crit often.' },
   { id: 'samurai', name: 'Samurai', weapon: 'katana', style: 'melee', desc: 'Keen katanas: fast, balanced and deadly.' },
   { id: 'halberdier', name: 'Halberdier', weapon: 'halberd', style: 'melee', desc: 'Slow, devastating halberds with 3-tile reach.' },
-  { id: 'merchant', name: 'Merchant', weapon: 'cane', style: 'melee', desc: 'Hires mercenaries with coins to fight at their side.' },
+  { id: 'merchant', name: 'Merchant', weapon: 'cane', style: 'melee', desc: 'Hires any number of mercenaries with coins; kills can call up A-Worthling mirror images.' },
   // Ranged
   { id: 'archer', name: 'Archer', weapon: 'shortbow', style: 'ranged', desc: 'Rapid shortbows: arrow after arrow from afar.' },
   { id: 'ranger', name: 'Ranger', weapon: 'longbow', style: 'ranged', desc: 'Longbows: slower, harder-hitting shots from very far.' },
@@ -80,9 +80,10 @@ export function equivalentArmour(id, family) {
   return best || id;
 }
 // Melee cleave: the share of a hit that sweeps into foes next to the target.
-// Quick weapons (scimitars, claws) don't cleave; they swing faster instead.
+// Every melee weapon cleaves; the quick ones (scimitars, claws) sweep a smaller
+// share, since they swing so much more often.
 export const CLEAVE_SHARE = {
-  dagger: 0.35, sword: 0.45, mace: 0.45, katana: 0.45, longsword: 0.5, spear: 0.4,
+  scimitar: 0.25, claws: 0.25, dagger: 0.35, sword: 0.45, mace: 0.45, katana: 0.45, longsword: 0.5, spear: 0.4,
   battleaxe: 0.65, warhammer: 0.6, '2h_sword': 0.7, halberd: 0.65, cane: 0.4,
 };
 export const CLASS_FOR_WEAPON = Object.fromEntries(CLASSES.map((c) => [c.weapon, c]));

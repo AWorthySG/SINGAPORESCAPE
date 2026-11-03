@@ -1,6 +1,6 @@
 import { EventBus } from '../core/events.js';
 import { buildWorld } from '../data/world.js';
-import { compareGear, deltaText } from './gear.js';
+import { compareGear, deltaText, gearRating } from './gear.js';
 import { RARITY, dropRarity, lootDelay, QUALITY, rollQuality, NORMAL_GEAR_SKIP } from './loot.js';
 import { dayKey, prevDayKey, makeBounties, streakMult } from './bounty.js';
 import { MAX_UPGRADE, upgradeCost, upgradeChance, upgradedName, RISKY_FROM, STONE as UP_STONE, WARD as UP_WARD } from './upgrade.js';
@@ -1446,7 +1446,7 @@ export class Game {
     const arrowIdx = noAmmo ? -1 : this.inventory.slots.findIndex((s) => s && getItem(s.id).tags?.includes('ammo'));
     if (!noAmmo && arrowIdx === -1) { this._outOfAmmo('You have no arrows left.'); this.player.clearAction(); return; }
     const arrowStr = noAmmo ? Math.floor((wpn.bonuses.ranged || 0) / 3) : getItem(this.inventory.slotAt(arrowIdx).id).arrowStr || 0;
-    const shot = wpn.weaponType === 'pistol' ? 'bolt' : 'arrow';
+    const shot = this._shotKind(wpn);
     const tint = wpn.weaponType === 'pistol' ? '#ffe28a' : wpn.weaponType === 'shuriken' ? '#cfd8e6' : '#d9c45a';
     const style = this.player.rangedStyle;
     const { atkRoll, defRoll, max } = playerRangedVsNpc(this.skills, this.equipment, style, npc.def, arrowStr);
@@ -1524,7 +1524,7 @@ export class Game {
       const effMax = Math.max(1, Math.round(max * pr));
       let dmg = rollAttack(atkRoll * pr, defRoll, effMax);
       const c = this._critHit(dmg, 0); dmg = c.dmg;
-      this._projectile(n, '#9fe0ff', 'arrow', 0);
+      this._projectile(n, '#9fe0ff', this._shotKind(wpn), 0);
       this._applyPlayerHit(n, dmg, { crit: dmg > 0 && (c.crit || dmg >= effMax) });
       if (dmg > 0) { this.spawnHitSparks(n, '#9fe0ff'); for (const x of combatXpRanged(style, dmg)) this.skills.addXp(x.skill, x.xp * this.combatXpMult()); }
       if (!n.target) n.target = p;
@@ -1605,6 +1605,12 @@ export class Game {
     victim.knockDX = dx / m; victim.knockDY = dy / m; victim.knock = 160;
   }
 
+  /** What a ranged weapon fires: only bows loose arrows; pistols fire bullets
+   *  and Ninjas throw spinning shurikens. */
+  _shotKind(wpn) {
+    return wpn?.weaponType === 'pistol' ? 'bullet' : wpn?.weaponType === 'shuriken' ? 'shuriken' : 'arrow';
+  }
+
   _projectile(npc, color, kind = 'bolt', spread = 0) {
     const from = this.player.renderCenter();
     const to = npc.renderCenter();
@@ -1614,7 +1620,11 @@ export class Game {
     // take visibly longer; bolts stay quick.
     const fx = kind === 'arrow' ? from.x + (to.x >= from.x ? 9 : -9) : from.x;
     const dist = Math.hypot(to.x - fx, to.y - from.y);
-    const life = kind === 'arrow' ? Math.min(650, 140 + dist / 0.55) + Math.abs(spread) * 40 : 240 + Math.abs(spread) * 40;
+    // Bullets are the quickest of all; shurikens spin across a little slower than arrows.
+    const life = kind === 'arrow' ? Math.min(650, 140 + dist / 0.55) + Math.abs(spread) * 40
+      : kind === 'bullet' ? 110 + dist / 2.2 + Math.abs(spread) * 20
+        : kind === 'shuriken' ? Math.min(560, 120 + dist / 0.6) + Math.abs(spread) * 40
+          : 240 + Math.abs(spread) * 40;
     this.effects.push({ type: 'projectile', kind, x: fx, y: from.y - 6 + off, ex: to.x, ey: to.y - 8 + off * 0.6, color, life, maxLife: life,
       arc: kind === 'arrow' ? Math.min(22, dist * 0.09) : 0 });
   }
@@ -1718,7 +1728,7 @@ export class Game {
     return r;
   }
 
-  killNpc(npc) {
+  killNpc(npc, { byAlly = false } = {}) {
     // Alignment: heroism vs cruelty. Bosses & aggressive foes are heroic to slay;
     // cutting down harmless creatures is a small evil.
     if (npc.def.boss) this.addGood(5);
@@ -1757,6 +1767,7 @@ export class Game {
     this.checkAchievements();
     this._deathBurst(npc);
     this.rollDrops(npc);
+    if (!byAlly) Mercs.onMerchantKill(this);
     npc.die();
     if (this.player.target === npc) this.player.target = null;
     // Auto battle moves straight on to the next fight (right after this attack
@@ -2690,7 +2701,7 @@ export class Game {
     }
     // 0a. A Merchant in a fight tops up their mercenaries, keeping a coin reserve.
     if (this.jobClass === 'merchant' && p.action?.type === 'attack' && p.action.npc?.alive
-      && Mercs.activeMercs(this).length < Mercs.MAX_MERCS && this.inventory.count('coins') >= Mercs.hireCost(this) * 3) this.hireMercenary();
+      && Mercs.activeMercs(this).length < Mercs.AUTO_MERCS && this.inventory.count('coins') >= Mercs.hireCost(this) * 3) this.hireMercenary();
     // 0b. Step out of a boss's red ground marker, then go back to the fight.
     const at = this.playerTile();
     if (this.hazardAt(at.x, at.y)) {
@@ -2997,6 +3008,50 @@ export class Game {
     this.msg(`You eat the ${item.name.toLowerCase()}.`);
     this.bus.emit('sfx', 'eat');
     this.bus.emit('hp');
+  }
+
+  /** Can this piece be worn right now (levels, class weapon and class armour)? Silent. */
+  _canEquipNow(id) {
+    const it = getItem(id), eq = it.equip;
+    if (!eq || it.tool) return false;
+    for (const [sk, lvl] of Object.entries(eq.req || {})) if (this.skills.level(sk) < lvl) return false;
+    const cls = this.jobClass && CLASS_BY_ID[this.jobClass];
+    if (cls && eq.weaponType && eq.weaponType !== cls.weapon) return false;
+    return !cls || canWear(cls.id, id);
+  }
+
+  /** Best in slot: put on the strongest piece in the backpack for every slot
+   *  (counting upgrade levels), keeping to your current weapon style, then fill
+   *  a dual-wield off-hand. Returns how many pieces were changed. */
+  equipBest() {
+    let changed = 0;
+    for (let guard = 0; guard < 30; guard++) {
+      let best = null;
+      this.inventory.slots.forEach((s, i) => {
+        if (!s || !this._canEquipNow(s.id)) return;
+        // Dual wielders keep their off-hand for a second weapon, not a shield.
+        if (getItem(s.id).equip.slot === 'shield' && canDualWield(this.equipment.get('weapon'))) return;
+        const cmp = compareGear(s.id, this.equipment);
+        if (!cmp || !(cmp.verdict === 'upgrade' || (cmp.verdict === 'empty' && cmp.ratingDelta > 0))) return;
+        if (!best || cmp.ratingDelta > best.gain) best = { i, gain: cmp.ratingDelta };
+      });
+      if (!best) break;
+      this.equipItem(best.i);
+      changed++;
+    }
+    // Dual wielders: the best matching weapon left in the pack goes in the off-hand.
+    const main = this.equipment.get('weapon');
+    if (canDualWield(main)) {
+      const off = this.equipment.get('shield');
+      const offRating = canDualPair(off, main) ? gearRating(off) : -1;
+      let bi = -1, br = offRating;
+      this.inventory.slots.forEach((s, i) => {
+        if (s && canDualPair(s.id, main) && this._canEquipNow(s.id) && gearRating(s.id) > br) { bi = i; br = gearRating(s.id); }
+      });
+      if (bi >= 0) { this.equipItem(bi, { offhand: true }); changed++; }
+    }
+    this.msg(changed ? `Best in slot: you put on ${changed} better piece${changed > 1 ? 's' : ''} of gear.` : 'You are already wearing your best gear.', changed ? 'level' : 'system');
+    return changed;
   }
 
   /** Wield a dagger in the off-hand (where a shield would go) for dual wielding. */

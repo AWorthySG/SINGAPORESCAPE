@@ -9,7 +9,7 @@ const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g
 // Toughness: how much longer monsters and bosses take to bring down than the
 // base formulas, through extra health and a sturdier defence (fewer of your
 // hits land). Champions, ranks and special spawns all scale from these.
-export const MONSTER_TOUGHNESS = { hp: 3.75, defence: 1.25 };   // hp raised 1.5x (was 2.5)
+export const MONSTER_TOUGHNESS = { hp: 5.6, defence: 1.25 };   // hp raised 1.5x twice (was 2.5, then 3.75)
 export const BOSS_TOUGHNESS = { hp: 9, defence: 1.2 };          // hp raised 3x (was 3): boss fights are real fights
 // The first town monsters (level 5 and under: chickens, rats, goblins) stay
 // quick to beat so new players can find their feet; toughness then ramps in to
@@ -517,6 +517,7 @@ const TOWNSFOLK = {
   mercenary_bruiser: { name: 'Bruiser', level: 0, attackable: false, wander: 0, examine: 'All muscle, paid by the hour.' },
   mercenary_spear_guard: { name: 'Spear guard', level: 0, attackable: false, wander: 0, examine: 'Keeps trouble a spear\u2019s length away.' },
   mercenary_duellist: { name: 'Duellist', level: 0, attackable: false, wander: 0, examine: 'Quick, sharp and expensive.' },
+  aworthling: { name: 'A-Worthling', level: 0, attackable: false, wander: 0, examine: 'A shimmering mirror image of the Merchant.' },
 };
 
 export const NPCS = {};
