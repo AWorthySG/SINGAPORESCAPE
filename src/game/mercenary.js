@@ -3,9 +3,11 @@
 // closest monster, cleaves like the Merchant's own weapon, and then heads home.
 // Monsters don't fight back against mercenaries: the Merchant pays them to
 // take no risks.
-// A-Worthlings: every time the Merchant attacks there is a 20% chance a
+// A-Worthlings: every time the Merchant attacks there is a 25% chance a
 // mirror image of the Merchant appears. It fights like a mercenary, hitting for
-// a quarter of the Merchant's own melee damage, and stays for good.
+// a quarter of the Merchant's own melee damage, and stays for good. Each of its
+// swings has a 25% chance to split off a smaller A-Worthling that hits half as
+// hard as its parent (and so on down the line, all under MAX_FOLLOWERS).
 import { chebyshev, randInt } from '../core/utils.js';
 import { TICK_MS, COMBAT_BEAT_MS } from '../config.js';
 import { findPath } from '../engine/pathfinding.js';
@@ -13,7 +15,8 @@ import { combatXp, playerAttackVsNpc } from './combat.js';
 import { CLEAVE_SHARE } from '../data/classes.js';
 
 export const MERC_TICKS = 150;            // 90 seconds at 0.6s a tick
-export const FOLLOWER_CHANCE = 0.2;       // per Merchant attack
+export const FOLLOWER_CHANCE = 0.25;      // per Merchant attack
+export const SPLIT_CHANCE = 0.25;         // per A-Worthling swing: a smaller A-Worthling splits off
 export const MAX_FOLLOWERS = 40;          // a ceiling so a long session can't bog the game down
 export const FOLLOWER_SHARE = 0.25;       // of the Merchant's melee damage
 export const MERC_SHARE = 0.5;            // a mercenary hits for half the Merchant's melee damage (at least its hired power)
@@ -58,23 +61,26 @@ export function hire(game) {
 /** A Merchant attack may call up an A-Worthling (a mirror image of the Merchant). */
 export function onMerchantAttack(game) {
   if (game.jobClass !== 'merchant' || Math.random() >= FOLLOWER_CHANCE) return null;
-  if (activeFollowers(game).length >= MAX_FOLLOWERS) return null;
   return spawnFollower(game);
 }
 
 /** Summon one A-Worthling next to the player. Returns it, or null. */
-export function spawnFollower(game) {
+export function spawnFollower(game, parent = null) {
   const p = game.player;
-  if (!p.alive) return null;
-  const spot = game._nearestFree(p.x - 1, p.y);
+  if (!p.alive || activeFollowers(game).length >= MAX_FOLLOWERS) return null;
+  const from = parent || p;
+  const spot = game._nearestFree(from.x - 1, from.y);
   if (!spot) return null;
   const f = game.spawnNpc('aworthling', spot.x, spot.y, { temporary: true, wander: 0 });
   f.ally = true;
   f.follower = true;
+  // A split-off A-Worthling is smaller and hits half as hard as its parent.
+  f.share = parent ? (parent.share || FOLLOWER_SHARE) * 0.5 : FOLLOWER_SHARE;
+  if (parent) f.def = { ...f.def, name: 'Little A-Worthling', scale: Math.max(0.45, (parent.def.scale || 1) * 0.8) };
   f.allyUntil = Infinity;            // A-Worthlings stay for good
   allyPace(f);
   game.spawnSparkle(f, '#f5b82e', 14);
-  game.msg('An A-Worthling, your mirror image, steps out to fight beside you!', 'system');
+  game.msg(parent ? 'Your A-Worthling splits off a smaller A-Worthling!' : 'An A-Worthling, your mirror image, steps out to fight beside you!', 'system');
   game.bus.emit('mercs');
   return f;
 }
@@ -154,9 +160,10 @@ export function mercTick(game, m) {
       game._swingToward(m, target.x, target.y);
       // Both scale with the Merchant as they are now: levels, gear and upgrades.
       const own = playerAttackVsNpc(game.skills, game.equipment, p.style, target.def).max;
-      const max = m.follower ? Math.max(1, Math.round(own * FOLLOWER_SHARE)) : Math.max(m.mercPower, Math.round(own * MERC_SHARE));
+      const max = m.follower ? Math.max(1, Math.round(own * (m.share || FOLLOWER_SHARE))) : Math.max(m.mercPower, Math.round(own * MERC_SHARE));
       while (m.swingAcc >= 1 && target.hp > 0) {
         m.swingAcc--;
+        if (m.follower && Math.random() < SPLIT_CHANCE) spawnFollower(game, m);
         const dmg = Math.min(target.hp, Math.random() < 0.85 ? randInt(Math.ceil(max / 4), max) : 0);
         target.takeDamage(dmg);
         game.addHitsplat(target, dmg, { tint: m.follower ? '#f5b82e' : '#3fbf9f' });
