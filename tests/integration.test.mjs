@@ -3034,6 +3034,14 @@ test('new classes: Pistoler (dual pistols, no ammo, very fast), Ninja (ricochet)
   assert.ok(merc && merc.ally && !merc.attackable, 'a mercenary joins');
   for (let i = 0; i < 5; i++) assert.ok(mc.hireMercenary(), 'no limit on how many mercenaries');
   assert.equal(Mercs.activeMercs(mc).length, 6);
+  // Auto battle hires without a limit too, keeping three hires' worth of coins.
+  mc.autoBattle = true;
+  mc.player.setAction({ type: 'attack', npc: foe });
+  for (let i = 0; i < 4; i++) mc._autoBattleTick();
+  assert.ok(Mercs.activeMercs(mc).length >= 10, 'auto battle keeps hiring past three');
+  mc.autoBattle = false; mc.player.clearAction();
+  for (const m of Mercs.activeMercs(mc).slice(6)) m.alive = false;
+  mc.npcs = mc.npcs.filter((n) => n.alive);
   // They go after the nearest monster by themselves: the Merchant isn't fighting.
   mc.player.autoRetaliate = false;
   const hp0 = foe.hp;
