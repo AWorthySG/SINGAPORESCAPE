@@ -793,17 +793,18 @@ import { CROPS, POTIONS } from '../data/trades.js';
     'fishing_rod', 'lobster_pot', 'harpoon', 'fishing_bait', 'old_boot', 'seaweed', 'pearl', 'birds_nest', 'satay', 'nasi_lemak',
     'merlion_amulet', 'amulet_of_glory', 'mark_of_grace',
   ]);
-  // Weapons of the newer classes (pistols, shurikens, canes): painted stickers.
+  // Weapons of the newer classes (pistols, shurikens, canes) and scout leather: painted stickers.
+  ITEM_ART.add('hide_vest');
   for (const t of ['bronze', 'iron', 'steel', 'mithril', 'adamant', 'rune', 'dragon', 'obsidian', 'orichalcum', 'jade', 'starmetal', 'celestial', 'eternal']) {
-    for (const w of ['pistol', 'shuriken', 'cane']) ITEM_ART.add(`${t}_${w}`);
+    for (const w of ['pistol', 'shuriken', 'cane', 'scout_hood', 'scout_jerkin', 'scout_breeches']) ITEM_ART.add(`${t}_${w}`);
   }
   export const itemArtSrc = (id) => (ITEM_ART.has(id) ? `assets/icons/item-${id}.webp` : borrowedArt(id) ? `assets/icons/item-${borrowedArt(id).file}.webp` : null);
   const artImg = (file, size, cls, filter) => `<img class="${cls || ''}" width="${size}" height="${size}" src="assets/icons/${file}.webp" alt="" style="display:block;object-fit:contain${filter ? `;filter:${filter}` : ''}" />`;
-  // Scout armour (light armour for agile melee) has no stickers of its own yet:
-  // it borrows the leather stickers, tinted towards its metal's colour, until
-  // the real art arrives (see ART_BRIEF_ARMOUR.md).
-  const BORROW = { scout_hood: 'coif', scout_jerkin: 'leather_body', scout_breeches: 'leather_chaps' };
-  const BORROW_ID = { hide_vest: 'leather_body', upgrade_stone: 'sapphire', upgrade_ward: 'clue_scroll_hard' };   // single items borrowing a sticker
+  // Metal-tier items without stickers of their own can borrow another sticker,
+  // tinted towards their metal's colour (BORROW), and single items can borrow
+  // one as-is (BORROW_ID) until their art arrives (see ART_BRIEF_EXTRAS.md).
+  const BORROW = {};
+  const BORROW_ID = { upgrade_stone: 'sapphire', upgrade_ward: 'clue_scroll_hard' };   // single items borrowing a sticker
   function hueOf(hex) {
     const n = parseInt(hex.slice(1), 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
     const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
