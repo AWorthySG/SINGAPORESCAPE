@@ -174,6 +174,7 @@ const TOWN_ART = new Set([
   'banker', 'fletcher', 'guide', 'hawker', 'light_priestess', 'mage', 'shopkeeper', 'slayer_master',
   'skills_tutor', 'shadow_broker', 'farmer', 'villager',
   'mercenary_sellsword', 'mercenary_bruiser', 'mercenary_spear_guard', 'mercenary_duellist',
+  'aworthling',   // the Merchant's mirror-image follower (a copy of the Merchant hero art)
 ]);
 const _townImg = {};
 function townImage(id) {
@@ -739,6 +740,8 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
       // Same footprint as the drawn mascot: feet on the tile, about mascot height.
       const s = Math.min(TOWN_ART_H / timg.naturalHeight, MASCOT_BOX.w / timg.naturalWidth);
       const w = timg.naturalWidth * s, h = timg.naturalHeight * s;
+      // An A-Worthling is a mirror image of the Merchant, a little see-through.
+      if (npcId === 'aworthling') c.globalAlpha *= 0.8;
       c.drawImage(timg, -w / 2, TOWN_ART_FEET - h, w, h);
     });
   }

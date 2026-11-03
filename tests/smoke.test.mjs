@@ -296,11 +296,11 @@ test('combat is beginner-friendly: weak town mobs and a punchy starter hit', () 
 });
 
 test('monsters and bosses are tougher, but the first town monsters stay easy', () => {
-  // Full toughness from level 15: 3.75x the base health.
+  // Full toughness from level 15: 5.6x the base health.
   const lizard = getNpc('monitor_lizard');   // level 14: nearly full
-  assert.ok(lizard.maxHp >= Math.round((14 * 1.7 + 2) * 3.4), `monitor lizard hp ${lizard.maxHp}`);
+  assert.ok(lizard.maxHp >= Math.round((14 * 1.7 + 2) * 5), `monitor lizard hp ${lizard.maxHp}`);
   const high = Object.values(NPCS).find((d) => d.attackable && !d.boss && d.level >= 60);
-  assert.equal(high.maxHp, Math.round((high.level * 1.7 + 2) * 3.75), 'a level 60+ monster has 3.75x the base health');
+  assert.equal(high.maxHp, Math.round((high.level * 1.7 + 2) * 5.6), 'a level 60+ monster has 5.6x the base health');
   // Bosses: nine times the health and a sturdier defence.
   const chief = getNpc('goblin_warchief');
   assert.equal(chief.maxHp, Math.round((35 * 4.5 + 30) * 9));
@@ -512,9 +512,9 @@ test('every class has its perks explained, matching the combat rules', async () 
     assert.ok(classPerkSummary(c.id).length > 0);
   }
   const labels = (id) => classPerks(id).map((x) => x.label);
-  assert.ok(labels('corsair').includes('Dual wield') && labels('corsair').includes('No cleave'));
+  assert.ok(labels('corsair').includes('Dual wield') && labels('corsair').includes('Cleave'));
   assert.ok(labels('rogue').includes('Dual wield') && labels('rogue').includes('Cleave'));
-  assert.ok(labels('brawler').includes('Critical') && labels('brawler').includes('No cleave'));
+  assert.ok(labels('brawler').includes('Critical') && labels('brawler').includes('Cleave'));
   assert.ok(!labels('archer').includes('Cleave'), 'only melee cleaves');
   assert.match(classPerks('gladiator').find((x) => x.label === 'Cleave').text, /^70%/);
 });

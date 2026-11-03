@@ -1,13 +1,23 @@
-// Mercenaries: the Merchant hires fighters with coins. Each one follows the
-// Merchant for a contract of 90 seconds, piles onto whatever the Merchant is
-// fighting (or anything attacking them), and then heads home. Monsters don't
-// fight back against mercenaries: the Merchant pays them to take no risks.
+// Mercenaries: the Merchant hires fighters with coins, as many as they can pay
+// for. Each one follows the Merchant for a contract of 90 seconds, goes after
+// the nearest monster (sticking with it until it falls), and then heads home.
+// Monsters don't fight back against mercenaries: the Merchant pays them to
+// take no risks.
+// A-Worthlings: whenever the Merchant lands a kill there is a 20% chance a
+// mirror image of the Merchant appears. It fights like a mercenary for a minute,
+// hitting for a quarter of the Merchant's own melee damage.
 import { chebyshev, randInt } from '../core/utils.js';
 import { findPath } from '../engine/pathfinding.js';
-import { combatXp } from './combat.js';
+import { combatXp, playerAttackVsNpc } from './combat.js';
 
-export const MAX_MERCS = 3;
+export const AUTO_MERCS = 3;              // auto battle keeps this many hired; hiring by hand has no limit
 export const MERC_TICKS = 150;            // 90 seconds at 0.6s a tick
+export const FOLLOWER_CHANCE = 0.2;       // per Merchant kill
+export const FOLLOWER_SHARE = 0.25;       // of the Merchant's melee damage
+export const MERC_SHARE = 0.5;            // a mercenary hits for half the Merchant's melee damage (at least its hired power)
+export const FOLLOWER_TICKS = 100;        // 60 seconds
+const SEEK = 10;                          // how far an ally looks for a monster
+const LEASH = 14;                         // allies don't chase further than this from the Merchant
 const MERC_KINDS = ['mercenary_sellsword', 'mercenary_bruiser', 'mercenary_spear_guard', 'mercenary_duellist'];
 const MERC_NAMES = ['Ah Seng the Sellsword', 'Siti Steelhand', 'Big Raju', 'Old Tan', 'Mei the Blade', 'Kumar Ironjaw', 'Lim the Lancer', 'Farah Quickstep'];
 
@@ -17,14 +27,14 @@ export const hireCost = (game) => 80 + 15 * game.skills.combatLevel();
 /** A mercenary's best hit: grows with the Merchant's level and gear Strength. */
 export const mercPower = (game) => Math.max(2, Math.round(2 + game.skills.combatLevel() * 0.4 + (game.equipment.bonuses().strength || 0) * 0.15));
 
-export const activeMercs = (game) => game.npcs.filter((n) => n.ally && n.alive);
+export const activeMercs = (game) => game.npcs.filter((n) => n.ally && n.alive && !n.follower);
+export const activeFollowers = (game) => game.npcs.filter((n) => n.ally && n.alive && n.follower);
 
 /** Hire one mercenary next to the player. Returns the mercenary, or null. */
 export function hire(game) {
   const p = game.player;
   if (game.jobClass !== 'merchant') { game.msg('Only a Merchant can hire mercenaries.', 'system'); return null; }
   if (!p.alive) return null;
-  if (activeMercs(game).length >= MAX_MERCS) { game.msg(`You already have ${MAX_MERCS} mercenaries on contract.`, 'system'); return null; }
   const cost = hireCost(game);
   if (game.inventory.count('coins') < cost) { game.msg(`A mercenary costs ${cost} coins.`, 'system'); return null; }
   const spot = game._nearestFree(p.x + 1, p.y);
@@ -43,45 +53,87 @@ export function hire(game) {
   return m;
 }
 
-/** One game tick of a mercenary (called from NPC.tick for allies). */
+/** A Merchant kill may call up an A-Worthling (a mirror image of the Merchant). */
+export function onMerchantKill(game) {
+  if (game.jobClass !== 'merchant' || Math.random() >= FOLLOWER_CHANCE) return null;
+  return spawnFollower(game);
+}
+
+/** Summon one A-Worthling next to the player. Returns it, or null. */
+export function spawnFollower(game) {
+  const p = game.player;
+  if (!p.alive) return null;
+  const spot = game._nearestFree(p.x - 1, p.y);
+  if (!spot) return null;
+  const f = game.spawnNpc('aworthling', spot.x, spot.y, { temporary: true, wander: 0 });
+  f.ally = true;
+  f.follower = true;
+  f.allyUntil = game.tickCount + FOLLOWER_TICKS;
+  f.mercCd = 0;
+  game.spawnSparkle(f, '#f5b82e', 14);
+  game.msg('An A-Worthling, your mirror image, steps out to fight beside you!', 'level');
+  game.bus.emit('mercs');
+  return f;
+}
+
+/** Is this monster fair game for an ally? Bosses only once the fight with them has started. */
+function fairGame(game, n) {
+  if (!n.alive || !n.attackable || n.ally) return false;
+  if (!n.def.boss) return true;
+  const a = game.player.action;
+  return n.target === game.player || (a && a.type === 'attack' && a.npc === n);
+}
+
+/** The ally's current foe: keep the last one while it lasts, else the nearest monster. */
+function pickTarget(game, m) {
+  const p = game.player;
+  const t = m.allyTarget;
+  if (t && fairGame(game, t) && game.npcs.includes(t) && chebyshev(t.x, t.y, p.x, p.y) <= LEASH) return t;
+  let best = null, bd = Infinity;
+  for (const n of game.npcs) {
+    if (Math.abs(n.x - m.x) > SEEK || Math.abs(n.y - m.y) > SEEK || !fairGame(game, n)) continue;
+    if (chebyshev(n.x, n.y, p.x, p.y) > LEASH) continue;
+    const d = chebyshev(n.x, n.y, m.x, m.y);
+    if (d < bd) { bd = d; best = n; }
+  }
+  m.allyTarget = best;
+  return best;
+}
+
+/** One game tick of a mercenary or A-Worthling (called from NPC.tick for allies). */
 export function mercTick(game, m) {
   const p = game.player;
   if (game.tickCount >= m.allyUntil || !p.alive) {
     m.alive = false;
-    game.spawnSparkle(m, '#3fbf9f', 8);
-    game.msg(`${m.name}'s contract is up.`, 'system');
+    game.spawnSparkle(m, m.follower ? '#f5b82e' : '#3fbf9f', 8);
+    game.msg(m.follower ? 'Your A-Worthling shimmers and fades away.' : `${m.name}'s contract is up.`, 'system');
     game.bus.emit('mercs');
     return;
   }
   if (m.mercCd > 0) m.mercCd--;
-  // Fight what the Merchant fights, or whatever is hunting the Merchant.
-  const a = p.action;
-  let target = a && a.type === 'attack' && a.npc && a.npc.alive ? a.npc : null;
-  if (!target) {
-    let bd = Infinity;
-    for (const n of game.npcs) {
-      if (!n.alive || !n.attackable || n.target !== p) continue;
-      const d = chebyshev(n.x, n.y, p.x, p.y);
-      if (d <= 8 && d < bd) { bd = d; target = n; }
-    }
-  }
+  // Go after the nearest monster and stay on it until it falls.
+  const target = pickTarget(game, m);
   if (target) {
     if (chebyshev(m.x, m.y, target.x, target.y) <= 1) {
       if (m.mercCd > 0) return;
       m.stop?.();
-      m.mercCd = 2;
+      // A-Worthlings swing every tick, like the quick Merchant they copy.
+      m.mercCd = m.follower ? 1 : 2;
       game._swingToward(m, target.x, target.y);
-      const max = m.mercPower;
+      // Both scale with the Merchant as they are now: levels, gear and upgrades.
+      const own = playerAttackVsNpc(game.skills, game.equipment, p.style, target.def).max;
+      const max = m.follower ? Math.max(1, Math.round(own * FOLLOWER_SHARE)) : Math.max(m.mercPower, Math.round(own * MERC_SHARE));
       const dmg = Math.min(target.hp, Math.random() < 0.85 ? randInt(Math.ceil(max / 4), max) : 0);
       target.takeDamage(dmg);
-      game.addHitsplat(target, dmg, { tint: '#3fbf9f' });
+      game.addHitsplat(target, dmg, { tint: m.follower ? '#f5b82e' : '#3fbf9f' });
       if (dmg > 0) {
         game._slash(target, '#bff5e6');
-        // The Merchant learns from watching: half the usual combat XP.
-        for (const x of combatXp(p.style, dmg)) game.skills.addXp(x.skill, x.xp * 0.5 * game.combatXpMult());
+        // Every hit by the Merchant's allies earns the Merchant the full combat XP.
+        for (const x of combatXp(p.style, dmg)) game.skills.addXp(x.skill, x.xp * game.combatXpMult());
       }
       if (!target.target) target.target = p;
-      if (target.hp <= 0) game.killNpc(target);
+      // Kills by allies don't call up more A-Worthlings: only the Merchant's own do.
+      if (target.hp <= 0) game.killNpc(target, { byAlly: true });
       return;
     }
     walkTo(game, m, target);

@@ -577,6 +577,31 @@ export class Renderer {
         ctx.restore();
         continue;
       }
+      if (e.kind === 'bullet') {
+        // A pistol round: a short, hot tracer streak with a bright tip.
+        const tt = Math.max(0, t - 0.18);
+        const tx = e.x + (e.ex - e.x) * tt - ox, ty = e.y + (e.ey - e.y) * tt - oy;
+        ctx.save(); ctx.lineCap = 'round';
+        ctx.strokeStyle = '#22304A'; ctx.lineWidth = 3.4;
+        ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(x, y); ctx.stroke();
+        ctx.strokeStyle = e.color; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(x, y); ctx.stroke();
+        ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(x, y, 1.8, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+        continue;
+      }
+      if (e.kind === 'shuriken') {
+        // A four-pointed throwing star, spinning as it flies.
+        ctx.save(); ctx.translate(x, y); ctx.rotate(t * 28); ctx.scale(1.3, 1.3);
+        ctx.beginPath();
+        for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, r = i % 2 ? 1.8 : 6; ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
+        ctx.closePath();
+        ctx.fillStyle = e.color; ctx.fill();
+        ctx.strokeStyle = '#22304A'; ctx.lineWidth = 1; ctx.stroke();
+        ctx.fillStyle = '#22304A'; ctx.beginPath(); ctx.arc(0, 0, 1.1, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+        continue;
+      }
       // Magic bolt: a glowing orb with a fading trail of embers behind it.
       ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = 0.3;
