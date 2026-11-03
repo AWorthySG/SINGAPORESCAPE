@@ -23,6 +23,9 @@ export const MAX_AGGRO_ATTACKERS = 1;
 export const SAVE_KEY = 'singaporescape:save:v1';
 export const AUTOSAVE_TICKS = 50;  // autosave every ~30s
 
+// The Knowledge Codex (study questions, Knowledge Strikes, daily revision) is
+// switched off for now while lag is investigated; progress stays in saves.
+export const LEARNING_ENABLED = false;
 export const XP_RATE = 20;         // global experience multiplier (doubled from 10 alongside tougher monsters)
 
 export const DAY_CYCLE_MS = 10 * 60 * 1000; // one full day/night cycle = 10 real minutes
