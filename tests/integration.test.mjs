@@ -3069,8 +3069,16 @@ test('new classes: Pistoler (dual pistols, no ammo, very fast), Ninja (ricochet)
   const hp1 = foe.hp;
   for (let i = 0; i < 30; i++) { mc.player.attackCooldown = 99; mc.update(600); }
   assert.ok(foe.hp < hp1, 'the A-Worthling fights too');
-  aw.allyUntil = mc.tickCount; mc.update(600);
-  assert.ok(!mc.npcs.includes(aw), 'the A-Worthling fades after its minute');
+  assert.equal(aw.allyUntil, Infinity, 'A-Worthlings stay for good');
+  assert.ok(aw.stepMul < 1 && merc.stepMul < 1, 'allies keep up with the Merchant and run');
+  // Allies cleave: a foe beside the target takes a share too.
+  const beside = dummy(mc, 3, 1); mc.npcs.push(beside);
+  for (let i = 0; i < 30 && beside.hp === beside.maxHp; i++) { mc.player.attackCooldown = 99; mc.update(600); }
+  assert.ok(beside.hp < beside.maxHp, 'ally hits cleave into the foe beside the target');
+  // Left far behind (a teleport): they jump back to the Merchant.
+  aw.stopNow(); aw.x = aw.tx = mc.player.x + 40; aw.y = aw.ty = mc.player.y;
+  mc.update(600);
+  assert.ok(Math.abs(aw.x - mc.player.x) <= 3, 'an A-Worthling left behind catches up');
   assert.equal(fresh('pistoler').hireMercenary(), null, 'only Merchants can hire');
 });
 

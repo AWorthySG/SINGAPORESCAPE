@@ -500,7 +500,7 @@ export class Game {
     // Only NPCs near the player animate and walk (the rest are frozen until you
     // come close, like their AI), so a fuller world costs no more per frame.
     { const px = this.player.x, py = this.player.y;
-      for (const n of this.npcs) if (Math.abs(n.x - px) <= 48 && Math.abs(n.y - py) <= 48) n.update(adt); }
+      for (const n of this.npcs) if (n.ally || (Math.abs(n.x - px) <= 48 && Math.abs(n.y - py) <= 48)) n.update(adt); }
     this.playMs += dt;
     this._tickPotions(dt);
 
@@ -668,7 +668,8 @@ export class Game {
       if (n.alive && !n.temporary && n.target === this.player) this._aggroAttackers++;
     }
     for (const n of this.npcs) {
-      if (Math.abs(n.x - px) > 46 || Math.abs(n.y - py) > 46) continue;
+      // Allies always tick, so they can catch up with a Merchant who travelled far.
+      if (!n.ally && (Math.abs(n.x - px) > 46 || Math.abs(n.y - py) > 46)) continue;
       n.tick(this);
     }
     if (this.hasTemps) this.npcs = this.npcs.filter((n) => !(n.temporary && !n.alive));
