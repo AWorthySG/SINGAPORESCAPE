@@ -3069,7 +3069,7 @@ test('new classes: Pistoler (dual pistols, no ammo, very fast), Ninja (ricochet)
   assert.ok(aw.ally && aw.follower && !aw.attackable && aw.npcId === 'aworthling');
   // A-Worthlings split off smaller, weaker A-Worthlings.
   const kid = Mercs.spawnFollower(mc, aw);
-  assert.ok(kid && kid.def.scale < 1 && kid.share === aw.share / 2, 'a smaller A-Worthling at half power');
+  assert.ok(kid && kid.def.scale < 1 && kid.share === 0.25 && aw.share === 0.25, 'a smaller A-Worthling, still at a fixed 25%');
   kid.alive = false; mc.npcs = mc.npcs.filter((n) => n !== kid);
   const hp1 = foe.hp;
   for (let i = 0; i < 30; i++) { mc.player.attackCooldown = 99; mc.update(600); }
@@ -3079,6 +3079,7 @@ test('new classes: Pistoler (dual pistols, no ammo, very fast), Ninja (ricochet)
   // Allies cleave: a foe beside the target takes a share too.
   // (Tested directly: in the live world the allies may pick another nearby monster.)
   const beside = dummy(mc, 0); beside.x = beside.tx = foe.x; beside.y = beside.ty = foe.y + 1; mc.npcs.push(beside);
+  mc._allyFoes = null;   // the nearby-foe list is cached per tick
   Mercs.allyCleave(mc, foe, 10);
   assert.equal(beside.hp, beside.maxHp - 4, 'ally hits cleave 40% (cane) into the foe beside the target');
   // Left far behind (a teleport): they jump back to the Merchant.

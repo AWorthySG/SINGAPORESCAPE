@@ -672,6 +672,7 @@ export class Game {
       if (!n.ally && (Math.abs(n.x - px) > 46 || Math.abs(n.y - py) > 46)) continue;
       n.tick(this);
     }
+    Mercs.flushAllies(this);
     if (this.hasTemps) this.npcs = this.npcs.filter((n) => !(n.temporary && !n.alive));
     if (this.player.alive) this.updateRegion();
     this.world.tick();
