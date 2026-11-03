@@ -387,6 +387,7 @@ button, input, select, textarea { font-family: inherit; }
 .style-btn:hover { filter: brightness(1.2); }
 .style-btn:active { transform: translateY(1px); }
 .style-btn.active { background: linear-gradient(180deg, var(--coral), var(--coral-dk)); border-color: var(--gold-hi); color: #fff7e0; }
+.style-note { font-size: 12px; opacity: 0.8; padding: 4px 2px; }
 .style-btn .style-skill { display: block; font-size: 10px; opacity: 0.85; font-weight: 400; }
 #combat-panel .cb-level { text-align: center; font-weight: 800; margin: 8px 0; color: var(--gold-hi); }
 #combat-panel .auto-retal { display: flex; align-items: center; gap: 7px; margin-top: 10px; font-size: 12px; }

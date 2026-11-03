@@ -27,9 +27,11 @@ export class Player extends Character {
     this.attackCooldown = 0;   // combat beats (300ms) until next swing
     this.action = null;        // pending interaction (resolved on arrival / each tick)
 
-    this.style = 'accurate';   // melee combat style id
-    this.rangedStyle = 'accurate'; // ranged style id
-    this.danceStyle = 'flourish';  // Dancer (whip) style id
+    // There are no combat stances any more (see STYLES in combat.js); these
+    // stay so older saves and callers still find a value.
+    this.style = 'balanced';
+    this.rangedStyle = 'balanced';
+    this.danceStyle = 'balanced';
     this.spell = 'wind_strike';    // selected combat spell
     this.autoRetaliate = true;
     this.respawnTimer = 0;

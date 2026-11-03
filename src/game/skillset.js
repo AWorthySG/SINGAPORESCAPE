@@ -10,14 +10,18 @@ export class Skills {
     for (const id of SKILL_IDS) this.xp[id] = xpForLevel(startLevel(id));
   }
 
-  level(id) { return levelForXp(this.xp[id] ?? 0); }
+  // Melee is one skill: Strength mirrors Attack (shown as "Melee"), so every
+  // Strength requirement, perk and formula reads the Melee level.
+  level(id) { return levelForXp(this.xp[id === 'strength' ? 'attack' : id] ?? 0); }
 
   /** Add experience; fires events; returns number of levels gained. */
   addXp(id, amount) {
+    if (id === 'strength') id = 'attack';
     if (!(id in this.xp) || amount <= 0) return 0;
     amount *= XP_RATE;
     const before = this.level(id);
     this.xp[id] = Math.min(MAX_XP, this.xp[id] + amount);
+    if (id === 'attack' && 'strength' in this.xp) this.xp.strength = this.xp.attack;
     const after = this.level(id);
     this.bus.emit('xp', { skill: id, amount, total: this.xp[id] });
     if (after > before) {
@@ -40,7 +44,7 @@ export class Skills {
 
   combatLevel() {
     const base = 0.25 * (this.defence + this.hitpoints + Math.floor(this.prayer / 2));
-    const melee = 0.325 * (this.attack + this.strength);
+    const melee = 0.325 * (this.attack * 2);   // Melee counts for the old Attack + Strength, so levels don't drop
     const range = 0.325 * Math.floor(this.ranged * 1.5);
     const mage = 0.325 * Math.floor(this.magic * 1.5);
     const dance = 0.325 * Math.floor(this.agility * 1.5);   // the Dancer fights with Agility
@@ -48,11 +52,11 @@ export class Skills {
   }
 
   totalLevel() {
-    return SKILL_IDS.reduce((sum, id) => sum + this.level(id), 0);
+    return SKILL_IDS.reduce((sum, id) => sum + (id === 'strength' ? 0 : this.level(id)), 0);
   }
 
   totalXp() {
-    return SKILL_IDS.reduce((sum, id) => sum + (this.xp[id] || 0), 0);
+    return SKILL_IDS.reduce((sum, id) => sum + (id === 'strength' ? 0 : this.xp[id] || 0), 0);
   }
 
   serialize() { return { ...this.xp }; }
@@ -68,5 +72,8 @@ export class Skills {
       const floor = xpForLevel(startLevel(id));
       if ((this.xp[id] || 0) < floor) this.xp[id] = floor;
     }
+    // Older saves trained Attack and Strength apart: Melee keeps the higher of the two.
+    this.xp.attack = Math.max(this.xp.attack || 0, this.xp.strength || 0);
+    this.xp.strength = this.xp.attack;
   }
 }

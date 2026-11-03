@@ -21,7 +21,7 @@ import { getDialogue } from '../data/dialogue.js';
 import { ALL_MONSTER_IDS as MONSTER_IDS, ALL_BOSS_IDS as BOSS_IDS, getNpc } from '../data/npcs.js';
 import { levelProgress, xpToNext } from '../data/xp.js';
 import { stackLabel, capitalize, formatNumber } from '../core/utils.js';
-import { STYLE_ORDER, STYLES, RANGED_STYLE_ORDER, RANGED_STYLES, DANCE_STYLE_ORDER, DANCE_STYLES, RHYTHM_MAX } from '../game/combat.js';
+import { RHYTHM_MAX } from '../game/combat.js';
 import { SPELLS } from '../data/magic.js';
 import { PRAYERS } from '../data/prayers.js';
 import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
@@ -1024,7 +1024,7 @@ export class UI {
       head.className = 'skill-group';
       head.textContent = grp.name;
       grid.appendChild(head);
-      for (const sk of SKILLS.filter((x) => x.group === grp.id)) {
+      for (const sk of SKILLS.filter((x) => x.group === grp.id && !x.hidden)) {
         const lvl = this.game.skills.level(sk.id);
         const xp = this.game.skills.xp[sk.id];
         const cell = document.createElement('div');
@@ -1566,22 +1566,12 @@ export class UI {
         row.appendChild(btn);
       }
     } else {
-      const order = mode === 'ranged' ? RANGED_STYLE_ORDER : mode === 'dance' ? DANCE_STYLE_ORDER : STYLE_ORDER;
-      const map = mode === 'ranged' ? RANGED_STYLES : mode === 'dance' ? DANCE_STYLES : STYLES;
-      const cur = mode === 'ranged' ? p.rangedStyle : mode === 'dance' ? p.danceStyle : p.style;
-      for (const id of order) {
-        const st = map[id];
-        const btn = document.createElement('div');
-        btn.className = 'style-btn' + (cur === id ? ' active' : '');
-        const xpLabel = mode === 'ranged' ? (id === 'longrange' ? 'Ranged + Defence' : 'Ranged XP')
-          : mode === 'dance' ? (id === 'twirl' ? 'Agility + Defence, dodge more' : 'Agility XP') : `${capitalize(st.skill)} XP`;
-        btn.innerHTML = `${st.name}<span class="style-skill">${xpLabel}</span>`;
-        btn.addEventListener('click', () => {
-          if (mode === 'ranged') p.rangedStyle = id; else if (mode === 'dance') p.danceStyle = id; else p.style = id;
-          this.renderCombatPanel();
-        });
-        row.appendChild(btn);
-      }
+      // No stances to pick: say what every hit trains.
+      const skill = mode === 'ranged' ? 'Ranged' : mode === 'dance' ? 'Agility' : 'Melee';
+      const note = document.createElement('div');
+      note.className = 'style-note';
+      note.textContent = `Every hit trains ${skill}, Defence and Hitpoints.`;
+      row.appendChild(note);
     }
     const modeLabel = mode === 'ranged' ? 'Ranged' : mode === 'magic' ? 'Magic' : mode === 'dance' ? `Dancer &middot; Rhythm ${this.game.danceRhythm}/${RHYTHM_MAX}` : 'Melee';
     const cls = CLASS_BY_ID[this.game.jobClass];

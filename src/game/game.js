@@ -1564,7 +1564,7 @@ export class Game {
     this._projectile(npc, (c.crit || fancy) ? '#e0a0ff' : spell.tint, 'bolt');
     this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax) });
     this.skills.addXp('magic', spell.xp * this.combatXpMult());
-    if (dmg > 0) { this.spawnHitSparks(npc, spell.tint); this.skills.addXp('magic', dmg * 2); this.skills.addXp('hitpoints', dmg * 1.33); }
+    if (dmg > 0) { this.spawnHitSparks(npc, spell.tint); this.skills.addXp('magic', dmg * 2); this.skills.addXp('defence', dmg * 1.33); this.skills.addXp('hitpoints', dmg * 1.33); }
     // Spells come off a staff a beat quicker than its swing speed.
     const hm = this.equipment.hasteMult();
     this._resetCooldown(Math.max(hm, this.equipment.weaponSpeed() - hm));
@@ -1638,7 +1638,7 @@ export class Game {
     if (!p.alive) return;
     this._swingToward(npc, p.x, p.y);
     const heavy = !!opts.heavy;
-    // Dancers slip blows entirely now and then (more often in the Twirl style).
+    // Dancers slip blows entirely now and then.
     if (this.combatMode() === 'dance' && Math.random() < danceEvade(this.skills.agility, p.danceStyle) * (heavy ? 0.5 : 1)) {
       this.addHitsplat(p, 0, { text: 'Dodged!' });
       this.spawnSparkle(p, '#ff8ac0', 5);
@@ -1760,7 +1760,7 @@ export class Game {
       // A boss kill is a big payday: bonus XP in your combat style and Hitpoints.
       const xp = Math.round((npc.def.level || 1) * BOSS_XP_PER_LEVEL * this.combatXpMult());
       const mode = this.combatMode();
-      const skill = mode === 'ranged' ? 'ranged' : mode === 'magic' ? 'magic' : mode === 'dance' ? 'agility' : ({ aggressive: 'strength', defensive: 'defence' }[this.player.style] || 'attack');
+      const skill = mode === 'ranged' ? 'ranged' : mode === 'magic' ? 'magic' : mode === 'dance' ? 'agility' : 'attack';
       this.skills.addXp(skill, xp); this.skills.addXp('hitpoints', Math.round(xp / 3));
       this.msg(`Boss slain! +${xp * XP_RATE} ${skill} XP.`, 'level');
     }
@@ -3075,7 +3075,7 @@ export class Game {
     if (give !== id) this.msg(`Your reward is made for a ${cls.name}: ${getItem(give).name}.`, 'level');
     if (xpSkill && xp) {
       const style = cls?.style;
-      const skill = !cls ? xpSkill : style === 'ranged' ? 'ranged' : style === 'magic' ? 'magic' : style === 'dance' ? 'agility' : (xpSkill === 'magic' || xpSkill === 'ranged' ? 'strength' : xpSkill);
+      const skill = !cls ? xpSkill : style === 'ranged' ? 'ranged' : style === 'magic' ? 'magic' : style === 'dance' ? 'agility' : (xpSkill === 'magic' || xpSkill === 'ranged' ? 'attack' : xpSkill);
       this.skills.addXp(skill, xp);
     }
     return give;
