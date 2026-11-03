@@ -100,6 +100,15 @@ test('skills start at the buffed baseline and level up via xp', () => {
   assert.equal(skills.xp.attack, baseline + 100 * XP_RATE); // XP rate is applied
   skills.addXp('attack', 5000);
   assert.ok(skills.attack > 15); // and levels up with enough xp
+  // Strength is part of Melee now: it always reads the Melee (attack) level.
+  assert.equal(skills.strength, skills.attack);
+  skills.addXp('strength', 100);
+  assert.equal(skills.xp.strength, skills.xp.attack, 'Strength XP goes to Melee');
+  // An old save with Strength ahead of Attack keeps the higher of the two.
+  const old = new Skills(new EventBus());
+  old.load({ attack: xpForLevel(30), strength: xpForLevel(40) });
+  assert.equal(old.attack, 40);
+  assert.equal(old.strength, 40);
 });
 
 test('loading a weak save floors stats to the baseline', () => {
@@ -347,8 +356,12 @@ test('combat formulas produce valid ranges', () => {
   assert.ok(maxHit(99, 3, 14) > maxHit(1, 0, 0));
   const hc = hitChance(attackRoll(50, 3, 20), attackRoll(20, 0, 0));
   assert.ok(hc > 0 && hc <= 1);
-  const xp = combatXp('aggressive', 10);
-  assert.deepEqual(xp.find((x) => x.skill === 'strength').xp, 40);
+  // No stances: every melee hit trains Melee, plus a share of Defence and Hitpoints.
+  const xp = combatXp('balanced', 10);
+  assert.equal(xp.find((x) => x.skill === 'attack').xp, 40);
+  assert.ok(xp.find((x) => x.skill === 'defence').xp > 0, 'Defence trains from every hit');
+  assert.ok(!xp.some((x) => x.skill === 'strength'));
+  assert.deepEqual(combatXp('aggressive', 10), xp, 'old style ids make no difference');
 });
 
 test('gather chance stays within bounds and scales with level', () => {

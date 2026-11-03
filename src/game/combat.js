@@ -2,13 +2,22 @@
 // (simplified: melee only, no prayer/potions). Pure functions.
 import { randInt } from '../core/utils.js';
 
+// There are no combat stances to pick any more: every fighter uses one balanced
+// stance (a little accuracy, power and defence), and every hit trains your
+// fighting skill plus a share of Defence and Hitpoints, whatever the style.
+// The style ids saved in older games are simply ignored.
 export const STYLES = {
-  accurate:  { name: 'Accurate',  skill: 'attack',   atk: 3, str: 0, def: 0 },
-  aggressive:{ name: 'Aggressive', skill: 'strength', atk: 0, str: 3, def: 0 },
-  defensive: { name: 'Defensive',  skill: 'defence',  atk: 0, str: 0, def: 3 },
+  balanced: { name: 'Balanced', skill: 'attack', atk: 2, str: 2, def: 2 },
 };
+const BAL = STYLES.balanced;
+/** XP for `damage` in a fighting skill: the skill, plus Defence and Hitpoints. */
+const fightXp = (skill, damage) => [
+  { skill, xp: damage * 4 },
+  { skill: 'defence', xp: damage * 1.33 },
+  { skill: 'hitpoints', xp: damage * 1.33 },
+];
 
-export const STYLE_ORDER = ['accurate', 'aggressive', 'defensive'];
+export const STYLE_ORDER = ['balanced'];
 
 /** Attack roll = (level + styleBonus + 8) * (equipmentAttackBonus + 64). */
 export function attackRoll(level, styleBonus, equipBonus) {
@@ -88,45 +97,39 @@ export function weaknessOf(def) {
 // ----- Player vs NPC helpers -----
 
 export function playerAttackVsNpc(skills, equip, styleId, npc) {
-  const style = STYLES[styleId] || STYLES.accurate;
+  const style = BAL;
   const bonuses = equip.bonuses();
   // Melee trades reach for power: it has to close the distance, so it lands
   // more often and hits harder than the formula's base (x1.2 accuracy, x1.3+1 max).
   const aRoll = attackRoll(skills.attack, style.atk, bonuses.attack) * MELEE_BONUS.acc;
   const dRoll = defenceRoll(npc.defence, 0, 0);
-  // Attack adds a little power too: every 5 Attack levels count as 1 Strength level.
+  // Melee is one skill now (Strength mirrors it); the extra fifth keeps damage where
+  // it was for a player who had trained Attack and Strength evenly.
   const mh = Math.round(maxHit(skills.strength + Math.floor(skills.attack * ATTACK_TO_STRENGTH), style.str, bonuses.strength) * MELEE_BONUS.dmg) + 1;
   return { atkRoll: aRoll, defRoll: dRoll, max: mh };
 }
 
 export function npcAttackVsPlayer(npc, skills, equip, styleId) {
-  const style = STYLES[styleId] || STYLES.accurate;
+  const style = BAL;
   const bonuses = equip.bonuses();
   const aRoll = attackRoll(npc.attack, 0, 0);
   const dRoll = defenceRoll(skills.defence, style.def, bonuses.defence);
   return { atkRoll: aRoll, defRoll: dRoll, max: npc.maxHit };
 }
 
-/** XP awards for `damage` dealt under `styleId`: style skill + hitpoints. */
-export function combatXp(styleId, damage) {
-  const style = STYLES[styleId] || STYLES.accurate;
-  return [
-    { skill: style.skill, xp: damage * 4 },
-    { skill: 'hitpoints', xp: damage * 1.33 },
-  ];
-}
+/** XP awards for `damage` dealt in melee: Melee, plus Defence and Hitpoints.
+ *  (`styleId` is kept for older callers and ignored.) */
+export function combatXp(styleId, damage) { return fightXp('attack', damage); }
 
 // ----- Ranged -----
 export const RANGED_STYLES = {
-  accurate: { name: 'Accurate', atk: 3, speedMod: 0 },
-  rapid: { name: 'Rapid', atk: 0, speedMod: -1 },
-  longrange: { name: 'Longrange', atk: 0, speedMod: 0, longrange: true },
+  balanced: { name: 'Balanced', atk: 2, speedMod: 0 },
 };
-export const RANGED_STYLE_ORDER = ['accurate', 'rapid', 'longrange'];
+export const RANGED_STYLE_ORDER = ['balanced'];
 export const RANGED_BONUS = { acc: 1.15, dmg: 1.5 };
 
 export function playerRangedVsNpc(skills, equip, styleId, npc, arrowStr) {
-  const st = RANGED_STYLES[styleId] || RANGED_STYLES.accurate;
+  const st = RANGED_STYLES.balanced;
   const b = equip.bonuses();
   // Arrows set the base; half the bow/armour Ranged bonus adds to damage too,
   // so a better bow hits harder, not just more often.
@@ -138,28 +141,21 @@ export function playerRangedVsNpc(skills, equip, styleId, npc, arrowStr) {
   };
 }
 
-export function combatXpRanged(styleId, damage) {
-  if (styleId === 'longrange') {
-    return [{ skill: 'ranged', xp: damage * 2 }, { skill: 'defence', xp: damage * 2 }, { skill: 'hitpoints', xp: damage * 1.33 }];
-  }
-  return [{ skill: 'ranged', xp: damage * 4 }, { skill: 'hitpoints', xp: damage * 1.33 }];
-}
+export function combatXpRanged(styleId, damage) { return fightXp('ranged', damage); }
 
 // ----- Dance (whips) -----
 // The Dancer fights with Agility: it drives both accuracy and damage, boosted by
 // the `dance` gear bonus. Each landed lash builds Rhythm, which adds damage.
 export const DANCE_STYLES = {
-  flourish: { name: 'Flourish', atk: 3, str: 0, skill: 'agility' },
-  lash: { name: 'Lash', atk: 0, str: 3, skill: 'agility' },
-  twirl: { name: 'Twirl', atk: 0, str: 0, skill: 'defence', evade: 0.08 },
+  balanced: { name: 'Balanced', atk: 2, str: 2, skill: 'agility', evade: 0.04 },
 };
-export const DANCE_STYLE_ORDER = ['flourish', 'lash', 'twirl'];
+export const DANCE_STYLE_ORDER = ['balanced'];
 export const DANCE_BONUS = { acc: 1.15, dmg: 1.3 };
 export const RHYTHM_MAX = 5;          // Rhythm stacks
 export const RHYTHM_DMG = 0.08;       // +8% damage per stack
 
 export function playerDanceVsNpc(skills, equip, styleId, npc, rhythm = 0) {
-  const st = DANCE_STYLES[styleId] || DANCE_STYLES.flourish;
+  const st = DANCE_STYLES.balanced;
   const b = equip.bonuses();
   return {
     atkRoll: attackRoll(skills.agility, st.atk, b.dance) * DANCE_BONUS.acc,
@@ -170,15 +166,10 @@ export function playerDanceVsNpc(skills, equip, styleId, npc, rhythm = 0) {
 
 /** Chance (0-1) a Dancer slips an incoming blow entirely. */
 export function danceEvade(agility, styleId) {
-  return Math.min(0.4, 0.08 + agility / 500 + (DANCE_STYLES[styleId]?.evade || 0));
+  return Math.min(0.4, 0.08 + agility / 500 + DANCE_STYLES.balanced.evade);
 }
 
-export function combatXpDance(styleId, damage) {
-  if (styleId === 'twirl') {
-    return [{ skill: 'agility', xp: damage * 2 }, { skill: 'defence', xp: damage * 2 }, { skill: 'hitpoints', xp: damage * 1.33 }];
-  }
-  return [{ skill: 'agility', xp: damage * 4 }, { skill: 'hitpoints', xp: damage * 1.33 }];
-}
+export function combatXpDance(styleId, damage) { return fightXp('agility', damage); }
 
 // ----- Magic -----
 export function playerMagicVsNpc(skills, equip, spell, npc) {

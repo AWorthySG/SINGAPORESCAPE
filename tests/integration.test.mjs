@@ -2286,7 +2286,7 @@ test('the Dancer: whip kit, 3-tile reach, Agility XP, Rhythm and dodging', async
   assert.ok(game.skills.xp.agility > xp0, 'lashing trains Agility');
   assert.ok(game.danceRhythm > 0, 'landed lashes build Rhythm');
   assert.ok(game.effects.some((e) => e.type === 'lash'), 'a whip crack is drawn');
-  assert.ok(danceEvade(99, 'twirl') > danceEvade(99, 'flourish'), 'Twirl dodges more');
+  assert.ok(danceEvade(99) > danceEvade(1), 'higher Agility dodges more');
   assert.ok(danceEvade(999, 'twirl') <= 0.4, 'dodging is capped');
 });
 

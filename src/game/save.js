@@ -90,9 +90,10 @@ export function loadGame(game) {
     ? Math.max(0, Math.min(p.hp, game.maxHp()))
     : game.maxHp();
   if (game.player.hp <= 0) game.player.hp = game.maxHp();
-  game.player.style = p.style || 'accurate';
-  game.player.rangedStyle = p.rangedStyle || 'accurate';
-  game.player.danceStyle = p.danceStyle || 'flourish';
+  // Combat stances were removed: saved style ids are ignored.
+  game.player.style = 'balanced';
+  game.player.rangedStyle = 'balanced';
+  game.player.danceStyle = 'balanced';
   game.player.spell = p.spell || 'wind_strike';
   game.player.autoRetaliate = p.autoRetaliate !== false;
   if (p.name && p.name !== 'Adventurer') game.player.name = p.name; // migrate old default

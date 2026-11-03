@@ -33,7 +33,7 @@ const SIGNATURE = {
 };
 
 // The passive perk tracks each style levels up (a perk every 20 levels).
-const TRACKS = { melee: 'Attack, Strength and Defence', ranged: 'Ranged and Defence', magic: 'Magic and Defence', dance: 'Agility and Defence' };
+const TRACKS = { melee: 'Melee and Defence', ranged: 'Ranged and Defence', magic: 'Magic and Defence', dance: 'Agility and Defence' };
 
 const secs = (s) => (s < 0.3 ? s.toFixed(2) : s.toFixed(1));
 const raceList = (ids) => ids.map((r) => RACES[r]?.name.toLowerCase()).filter(Boolean).join(', ');
