@@ -212,6 +212,7 @@ test('magic combat consumes runes and trains magic', () => {
   assert.equal(game.combatMode(), 'magic');
 
   const chicken = game.npcs.find((n) => n.npcId === 'chicken');
+  chicken.hp = chicken.maxHp = 99999;   // keep it alive: a kill refunds the runes spent on it
   game.player.x = game.player.tx = chicken.x + 3; game.player.y = game.player.ty = chicken.y;
   game.doPlayerAttack(chicken); // fire once directly so the projectile hasn't decayed yet
   assert.ok(game.effects.some((e) => e.type === 'projectile' && e.kind === 'bolt'), 'casts a glowing bolt, distinct from an arrow');
@@ -3174,4 +3175,23 @@ test('November monsters and bosses: defined, placed in their regions, with abili
   for (const id of EXTRA_BOSS_IDS) assert.ok(NPCS[id].boss && NPCS[id].ability?.fx.length, `${id} has a signature move`);
   assert.ok(EXTRA_BOSS_IDS.every((id) => ALL_BOSS_IDS.includes(id)) && EXTRA_MONSTER_IDS.every((id) => ALL_MONSTER_IDS.includes(id)), 'the bestiary lists them');
   assert.ok(NPCS[NPCS.jenglot_sovereign.ability.fx.find((f) => f.t === 'summon').id], 'the Jenglot Sovereign summons a real monster');
+});
+
+test('rune refund: a monster killed with spells gives back every rune spent on it', async () => {
+  const { NPC } = await import('../src/game/npc.js');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const g = new Game(); g.start(); g.chooseClass('wizard');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  for (const r of ['air_rune', 'water_rune', 'earth_rune', 'fire_rune', 'mind_rune', 'chaos_rune']) g.inventory.add(r, 500);
+  const foe = new NPC('goblin', g.player.x + 2, g.player.y, 0, {});
+  foe.hp = foe.maxHp = 999999; foe.def = { ...foe.def, aggressive: false, maxHit: 0, dropTable: [] };
+  g.npcs.push(foe);
+  const before = {};
+  for (const s of g.inventory.slots) if (s && /_rune$/.test(s.id)) before[s.id] = g.inventory.count(s.id);
+  for (let i = 0; i < 10; i++) g._magicAttack(foe);
+  const spent = Object.values(foe._runesSpent || {}).reduce((a, b) => a + b, 0);
+  assert.ok(spent > 0, 'casting spent runes on the foe');
+  g.killNpc(foe);
+  for (const [id, n] of Object.entries(before)) assert.equal(g.inventory.count(id), n, `${id} all refunded`);
 });
