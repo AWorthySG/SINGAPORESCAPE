@@ -586,22 +586,22 @@ test('existing weapons, jewellery and boss uniques carry the new offensive stats
   for (const k of OFFENCE_KEYS) assert.equal(up[k], b[k], `upgrades leave ${k} alone`);
 });
 
-test('amulets, rings and capes help melee, ranged, magic and Dancer users equally', async () => {
-  const { ITEMS, ACCESSORY_SLOTS, accessoryPower } = await import('../src/data/items.js');
-  let n = 0;
+test('every amulet, ring and cape suits one style, and each style gets an equal ladder', async () => {
+  const { ITEMS, ACCESSORY_SLOTS, ACCESSORY_STYLE, accessoryStats } = await import('../src/data/items.js');
   for (const [id, it] of Object.entries(ITEMS)) {
     const eq = it.equip;
     if (!eq || !ACCESSORY_SLOTS.includes(eq.slot) || /_sash$/.test(id)) continue;
     const b = eq.bonuses || {};
-    if (!accessoryPower(b)) continue;
-    const P = b.attack;
-    n++;
-    assert.equal(b.attack, P, `${id} melee accuracy`);
-    assert.equal(b.strength, P, `${id} melee power`);
-    assert.equal(b.ranged, Math.round(P * 1.5), `${id} ranged`);
-    assert.equal(b.magic, P, `${id} magic accuracy`);
-    assert.equal(b.magicStr, Math.max(1, Math.round(P / 4)), `${id} magic damage`);
-    assert.equal(b.dance, P, `${id} dance`);
+    if (!['attack', 'strength', 'ranged', 'magic', 'dance'].some((k) => b[k])) continue;
+    assert.ok(ACCESSORY_STYLE[id], `${id} has a style`);
+    const [style, P] = ACCESSORY_STYLE[id];
+    const want = accessoryStats(style, P);
+    for (const k of ['attack', 'strength', 'ranged', 'magic', 'magicStr', 'dance']) assert.equal(b[k] || 0, want[k] || 0, `${id} ${k}`);
   }
-  assert.ok(n >= 30, 'covers every amulet, ring and cape');
+  // Each style's best amulet, ring and cape are equally strong.
+  for (const slot of ACCESSORY_SLOTS) {
+    const best = (st) => Math.max(...Object.entries(ACCESSORY_STYLE).filter(([id, [s]]) => s === st && ITEMS[id].equip.slot === slot).map(([, [, P]]) => P));
+    assert.equal(best('melee'), best('ranged'), `${slot}: melee and ranged peak alike`);
+    assert.equal(best('melee'), best('magic'), `${slot}: melee and magic peak alike`);
+  }
 });

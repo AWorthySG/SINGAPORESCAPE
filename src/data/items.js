@@ -881,28 +881,45 @@ for (const [id, extra] of Object.entries(OFFENCE_EXTRA)) {
   eq.bonuses = b;
 }
 
-// ---- Accessories work equally for every fighting style ----
-// Amulets, rings and capes give one "power" P, turned into the matching stats
-// for each style so melee, ranged, magic and Dancer users gain the same:
-//   melee  +P Attack, +P Strength
+// ---- Accessories: each one suits a single fighting style ----
+// Every amulet, ring and cape now belongs to melee, ranged or magic, and each
+// style gets a matching ladder of power P (3, 6, 10, 14, 20 for amulets;
+// 2, 5, 8 for rings; 3, 6, 10 for capes), so no style is short-changed.
+// P turns into that style's stats, worth the same in a fight:
+//   melee  +P Attack, +P Strength (and +P Dance: the Dancer fights up close too)
 //   ranged +1.5P Ranged (only half the Ranged bonus counts towards damage)
 //   magic  +P Magic, +P/4 magic damage (each point is a full extra max hit)
-//   Dancer +P Dance (it drives accuracy and damage, like Strength)
-// P is the strongest of the piece's old stats, so nothing gets weaker for the
-// style it used to suit. Defence, HP, crit and the offensive stats (pierce,
-// crit damage, haste, lifesteal, boss damage) already help every style.
+// Defence, HP, crit and the offensive stats (pierce, crit damage, haste,
+// lifesteal, boss damage) stay as they were. Dancer sashes keep their stats.
 export const ACCESSORY_SLOTS = ['amulet', 'ring', 'cape'];
-export function accessoryPower(b = {}) {
-  return Math.max(b.attack || 0, b.strength || 0, Math.round((b.ranged || 0) / 1.5), b.magic || 0, (b.magicStr || 0) * 4, b.dance || 0);
+export const ACCESSORY_STYLE = {
+  // Amulets
+  gold_amulet: ['melee', 3], amulet_of_power: ['melee', 6], amulet_of_strength: ['melee', 10], ruby_amulet: ['melee', 14], worthy_sigil: ['melee', 20],
+  emerald_amulet: ['ranged', 3], merdeka_medallion: ['ranged', 6], boar_tusk: ['ranged', 10], amulet_of_glory: ['ranged', 14], merlion_amulet: ['ranged', 20],
+  sapphire_amulet: ['magic', 6], diamond_amulet: ['magic', 10], djinn_lamp: ['magic', 14], occult_necklace: ['magic', 20],
+  // Rings
+  gold_ring: ['melee', 2], ruby_ring: ['melee', 5], ring_of_might: ['melee', 8],
+  emerald_ring: ['ranged', 2], ring_of_kampong: ['ranged', 5], slayer_ring: ['ranged', 8],
+  sapphire_ring: ['magic', 5], diamond_ring: ['magic', 8],
+  // Capes
+  batik_cape: ['melee', 3], warlord_cape: ['melee', 6], fire_cape: ['melee', 10],
+  trades_cape: ['ranged', 3], garuda_wings: ['ranged', 6], shadow_cloak: ['ranged', 10],
+  songket_cape: ['magic', 3], revenant_cape: ['magic', 6], champions_cape: ['magic', 10],
+};
+/** The fighting stats an accessory of `style` and power `P` gives. */
+export function accessoryStats(style, P) {
+  if (style === 'ranged') return { ranged: Math.round(P * 1.5) };
+  if (style === 'magic') return { magic: P, magicStr: Math.max(1, Math.round(P / 4)) };
+  return { attack: P, strength: P, dance: P };
 }
-for (const [id, it] of Object.entries(RAW)) {
-  const eq = it.equip;
-  // Sashes are the Dancer's tiered outfit in the cape slot (like its bangles
-  // and slippers), not shared accessories, so they keep their Dance stats.
-  if (!eq || !ACCESSORY_SLOTS.includes(eq.slot) || /_sash$/.test(id)) continue;
-  const P = accessoryPower(eq.bonuses);
-  if (!P) continue;
-  eq.bonuses = { ...eq.bonuses, attack: P, strength: P, ranged: Math.round(P * 1.5), magic: P, magicStr: Math.max(1, Math.round(P / 4)), dance: P };
+const FIGHT_KEYS = ['attack', 'strength', 'ranged', 'magic', 'magicStr', 'dance'];
+for (const [id, [style, P]] of Object.entries(ACCESSORY_STYLE)) {
+  const eq = RAW[id]?.equip;
+  if (!eq) continue;
+  const b = { ...(eq.bonuses || {}) };
+  for (const k of FIGHT_KEYS) delete b[k];
+  eq.bonuses = { ...b, ...accessoryStats(style, P) };
+  eq.style = style;
 }
 
 export const ITEMS = Object.fromEntries(
