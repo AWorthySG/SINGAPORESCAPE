@@ -585,3 +585,23 @@ test('existing weapons, jewellery and boss uniques carry the new offensive stats
   assert.ok(up.attack > b.attack, 'upgrades raise the flat stats');
   for (const k of OFFENCE_KEYS) assert.equal(up[k], b[k], `upgrades leave ${k} alone`);
 });
+
+test('every amulet, ring and cape suits one style, and each style gets an equal ladder', async () => {
+  const { ITEMS, ACCESSORY_SLOTS, ACCESSORY_STYLE, accessoryStats } = await import('../src/data/items.js');
+  for (const [id, it] of Object.entries(ITEMS)) {
+    const eq = it.equip;
+    if (!eq || !ACCESSORY_SLOTS.includes(eq.slot) || /_sash$/.test(id)) continue;
+    const b = eq.bonuses || {};
+    if (!['attack', 'strength', 'ranged', 'magic', 'dance'].some((k) => b[k])) continue;
+    assert.ok(ACCESSORY_STYLE[id], `${id} has a style`);
+    const [style, P] = ACCESSORY_STYLE[id];
+    const want = accessoryStats(style, P);
+    for (const k of ['attack', 'strength', 'ranged', 'magic', 'magicStr', 'dance']) assert.equal(b[k] || 0, want[k] || 0, `${id} ${k}`);
+  }
+  // Each style's best amulet, ring and cape are equally strong.
+  for (const slot of ACCESSORY_SLOTS) {
+    const best = (st) => Math.max(...Object.entries(ACCESSORY_STYLE).filter(([id, [s]]) => s === st && ITEMS[id].equip.slot === slot).map(([, [, P]]) => P));
+    assert.equal(best('melee'), best('ranged'), `${slot}: melee and ranged peak alike`);
+    assert.equal(best('melee'), best('magic'), `${slot}: melee and magic peak alike`);
+  }
+});

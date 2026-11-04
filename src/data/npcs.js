@@ -131,12 +131,16 @@ function robesFor(level) {
   return level < 30 ? ['wizard_hat', 'wizard_robe_top', 'wizard_robe_bottom'] : level < 100 ? ['mystic_hat', 'mystic_top', 'mystic_bottom']
     : level < 250 ? robes('astral') : robes('eternal');
 }
+export const RUNE_DROP_MULT = 3;
 function runesFor(level) {
   const q = (base) => ({ min: Math.round(base * (1 + level / 30)), max: Math.round(base * 3 * (1 + level / 30)) });
   const out = [{ id: 'mind_rune', ...q(8), weight: 4 }, { id: ['air_rune', 'water_rune', 'earth_rune', 'fire_rune'][level % 4], ...q(10), weight: 6 }];
   if (level >= 15) out.push({ id: 'chaos_rune', ...q(4), weight: 4 }, { id: 'nature_rune', ...q(2), weight: 3 });
   if (level >= 35) out.push({ id: 'death_rune', ...q(3), weight: 3 });
   if (level >= 55) out.push({ id: 'blood_rune', ...q(2), weight: 3 });
+  // Runes drop three times as often as they used to, so a caster's kills keep
+  // their rune pouch topped up (like arrows do for archers).
+  for (const r of out) r.weight *= RUNE_DROP_MULT;
   return out;
 }
 

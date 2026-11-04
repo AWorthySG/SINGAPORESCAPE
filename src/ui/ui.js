@@ -851,6 +851,11 @@ export class UI {
     let html = (lv ? `<div class="gt-up">Upgraded +${lv}</div>` : '') + `<div class="gt-stats">${this._gearStats(id)}</div>`
       + `<div class="gt-tier">#${t.rank} of ${t.of} ${eq.slot === 'weapon' ? weaponStyle(id) + ' weapons' : eq.slot + ' items'}</div>`;
     if (reqTxt) html += `<div class="gt-req ${req.ok ? 'ok' : 'no'}">Needs ${reqTxt}${req.ok ? ' ✓' : ''}</div>`;
+    // Accessories suit one fighting style: say which, and whether it's yours.
+    if (eq.style) {
+      const mine = this.game.combatMode() === 'dance' ? 'melee' : this.game.combatMode();
+      html += `<div class="gt-req ${eq.style === mine ? 'ok' : 'no'}">For ${eq.style} fighters${eq.style === mine ? ' ✓' : ''}</div>`;
+    }
     // Class armour: say whose armour this is, and warn when it isn't yours.
     if (eq.family) {
       const who = Object.keys(ARMOUR_FAMILY).filter((c) => ARMOUR_FAMILY[c] === eq.family).map((c) => CLASS_BY_ID[c].name).join(', ');
