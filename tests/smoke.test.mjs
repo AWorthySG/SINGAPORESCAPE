@@ -310,9 +310,9 @@ test('monsters and bosses are tougher, but the first town monsters stay easy', (
   assert.ok(lizard.maxHp >= Math.round((14 * 1.7 + 2) * 5), `monitor lizard hp ${lizard.maxHp}`);
   const high = Object.values(NPCS).find((d) => d.attackable && !d.boss && d.level >= 60);
   assert.equal(high.maxHp, Math.round((high.level * 1.7 + 2) * 5.6), 'a level 60+ monster has 5.6x the base health');
-  // Bosses: nine times the health and a sturdier defence.
+  // Bosses: 900x the base health (100x the old 9x) and a sturdier defence.
   const chief = getNpc('goblin_warchief');
-  assert.equal(chief.maxHp, Math.round((35 * 4.5 + 30) * 9));
+  assert.equal(chief.maxHp, Math.round((35 * 4.5 + 30) * 900));
   assert.ok(chief.defence > Math.round(35 * 0.95), 'boss defence raised');
   // Level 5 and under: unchanged.
   assert.equal(getNpc('goblin').maxHp, Math.round(5 * 1.7 + 2));
