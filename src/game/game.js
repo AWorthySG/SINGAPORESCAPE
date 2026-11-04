@@ -914,6 +914,9 @@ export class Game {
         if (got > 0 && id !== 'coins') this.addHitsplat(this.player, 0, { text: `+${got} ${getItem(id).name}` });
       }
     }
+    // Remember what we're gathering, so auto gather can pick it up again after
+    // a fight, or once the mined-out rocks and felled trees grow back.
+    if (gather && this.autoGather && obj?.objId) this._autoLife = { kind: 'gather', objId: obj.objId };
     if (!going) {
       this.player.clearAction();
       if (gather && this.autoGather) this._autoGatherNext(a, obj);
@@ -940,7 +943,7 @@ export class Game {
       const d = chebyshev(here.x, here.y, o.x, o.y);
       if (d <= 20 && d < bd) { bd = d; best = o; }
     }
-    if (!best) { this.msg(`No more ${obj.def.name.toLowerCase()}s nearby: auto gather waits here.`, 'system'); return false; }
+    if (!best) { this.msg(`No more ${obj.def.name.toLowerCase()}s nearby: auto gather waits here until they grow back.`, 'system'); return false; }
     this.defaultObjectAction(best);
     return true;
   }
@@ -953,6 +956,19 @@ export class Game {
     const job = this._autoLife;
     const p = this.player;
     if (!job || !this.autoGather || p.action || p.isMoving || this.autoBattle) return;
+    if (job.kind === 'gather') {
+      // Back to the nearest node of the same kind that's ready again.
+      if (this.inventory.freeSlots() <= 0) return;
+      const here = this.playerTile();
+      let best = null, bd = Infinity;
+      for (const o of this.world.objects) {
+        if (o.objId !== job.objId || o.depleted) continue;
+        const d = chebyshev(here.x, here.y, o.x, o.y);
+        if (d <= 20 && d < bd) { bd = d; best = o; }
+      }
+      if (best) this.defaultObjectAction(best);
+      return;
+    }
     if (job.kind === 'thieve') {
       if (job.npc?.alive && chebyshev(job.npc.x, job.npc.y, p.x, p.y) <= 6) this.startPickpocket(job.npc);
       else this._autoLife = null;
@@ -2965,6 +2981,7 @@ export class Game {
     }
     if (!this._driving) {
       this._driving = true;
+      this._autoLife = null;   // steering away ends any auto gather loop
       // Bows and spells keep firing while you steer (handy for dodging); other actions stop.
       const shooting = p.action?.type === 'attack' && this.attackRange() > 1;
       if (p.action && !shooting) p.clearAction();
@@ -2976,6 +2993,7 @@ export class Game {
 
   walkTo(tile) {
     if (!this.world.inBounds(tile.x, tile.y)) return;
+    this._autoLife = null;   // walking off yourself ends any auto gather loop
     const start = this.playerTile();
     if (start.x === tile.x && start.y === tile.y) { this.player.clearAction(); return; }
     let path = findPath(this.pathCfg(), start, tile, {});
@@ -2985,6 +3003,7 @@ export class Game {
 
   /** Long-range walk used by the world map; snaps to the nearest walkable tile. */
   walkToFar(tile) {
+    this._autoLife = null;
     const t = this._nearestFree(tile.x, tile.y);
     if (!t) { this.msg("I can't reach there."); return; }
     if (this.playerTile().x === t.x && this.playerTile().y === t.y) return;

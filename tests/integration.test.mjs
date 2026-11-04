@@ -3243,3 +3243,20 @@ test('auto gather for Farming: plants and harvests patch after patch by itself',
   for (let i = 0; i < 40 && g.inventory.count(crop) === 0; i++) g.update(600);
   assert.ok(g.inventory.count(crop) > 0, 'ripe crops harvested without clicking');
 });
+
+test('auto gather picks mining back up after an interruption or once rocks grow back', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const g = new Game(); g.start();
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.npcs = [];   // no monsters to interrupt
+  const rock = g.world.objects.find((o) => o.objId === 'copper_rock');
+  g.toggleAutoGather(true);
+  g.player.x = g.player.tx = rock.x; g.player.y = g.player.ty = rock.y + 1;
+  g.defaultObjectAction(rock);
+  for (let i = 0; i < 20; i++) g.update(600);
+  g.player.clearAction();   // something interrupts (a monster, a click elsewhere)
+  const ore0 = g.inventory.count('copper_ore');
+  for (let i = 0; i < 200; i++) g.update(600);
+  assert.ok(g.inventory.count('copper_ore') >= ore0 + 10, `picked mining back up: ${g.inventory.count('copper_ore') - ore0} more ore`);
+});
