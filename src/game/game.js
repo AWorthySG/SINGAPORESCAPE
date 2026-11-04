@@ -1553,7 +1553,7 @@ export class Game {
       if (!alt) { this._outOfAmmo(`You don't have the runes to cast ${spell.name}.`); this.player.clearAction(); return; }
       spell = alt;
     }
-    this._consumeRunes(spell);
+    this._consumeRunes(spell, npc);
     const { atkRoll, defRoll, max } = playerMagicVsNpc(this.skills, this.equipment, spell, npc.def);
     const mods = this._offensiveMods(npc, 'magic');
     const fancy = mods.spec || mods.ability;
@@ -1577,9 +1577,31 @@ export class Game {
     return (w && getItem(w).equip?.runes) || null;
   }
   _hasRunes(spell) { const free = this.freeRune(); return Object.entries(spell.runes).every(([id, q]) => id === free || this.inventory.count(id) >= q); }
-  _consumeRunes(spell) {
+  _consumeRunes(spell, npc = null) {
     if (Math.random() < (this.perkMods('magic').runeSave || 0)) return;   // Rune Saver perk
-    const free = this.freeRune(); for (const [id, q] of Object.entries(spell.runes)) if (id !== free) this.inventory.remove(id, q);
+    const free = this.freeRune();
+    for (const [id, q] of Object.entries(spell.runes)) {
+      if (id === free) continue;
+      this.inventory.remove(id, q);
+      // Remember what each monster cost you, for the rune refund when it falls.
+      if (npc) { npc._runesSpent = npc._runesSpent || {}; npc._runesSpent[id] = (npc._runesSpent[id] || 0) + q; }
+    }
+  }
+
+  /** Rune refund: a monster you kill with spells gives back every rune you spent
+   *  on it, so casting pays for itself (rune drops come on top). Runes go into
+   *  the pack, or onto the ground if there's no room. */
+  _refundRunes(npc) {
+    const spent = npc._runesSpent;
+    if (!spent) return;
+    npc._runesSpent = null;
+    let total = 0;
+    for (const [id, q] of Object.entries(spent)) {
+      if (q <= 0) continue;
+      total += q;
+      if (!this.inventory.add(id, q)) this.world.addGroundItem(id, q, npc.x, npc.y);
+    }
+    if (total) this.msg(`Rune refund: ${total} rune${total > 1 ? 's' : ''} back from the ${npc.name}.`, 'system');
   }
 
   /** Alchemy (Magic 21): 1 nature + 5 fire runes turn an item into 60% of its value in coins. */
@@ -1771,6 +1793,7 @@ export class Game {
     this.checkAchievements();
     this._deathBurst(npc);
     this.rollDrops(npc);
+    this._refundRunes(npc);
     npc.die();
     if (this.player.target === npc) this.player.target = null;
     // Auto battle moves straight on to the next fight (right after this attack
