@@ -585,3 +585,23 @@ test('existing weapons, jewellery and boss uniques carry the new offensive stats
   assert.ok(up.attack > b.attack, 'upgrades raise the flat stats');
   for (const k of OFFENCE_KEYS) assert.equal(up[k], b[k], `upgrades leave ${k} alone`);
 });
+
+test('amulets, rings and capes help melee, ranged, magic and Dancer users equally', async () => {
+  const { ITEMS, ACCESSORY_SLOTS, accessoryPower } = await import('../src/data/items.js');
+  let n = 0;
+  for (const [id, it] of Object.entries(ITEMS)) {
+    const eq = it.equip;
+    if (!eq || !ACCESSORY_SLOTS.includes(eq.slot) || /_sash$/.test(id)) continue;
+    const b = eq.bonuses || {};
+    if (!accessoryPower(b)) continue;
+    const P = b.attack;
+    n++;
+    assert.equal(b.attack, P, `${id} melee accuracy`);
+    assert.equal(b.strength, P, `${id} melee power`);
+    assert.equal(b.ranged, Math.round(P * 1.5), `${id} ranged`);
+    assert.equal(b.magic, P, `${id} magic accuracy`);
+    assert.equal(b.magicStr, Math.max(1, Math.round(P / 4)), `${id} magic damage`);
+    assert.equal(b.dance, P, `${id} dance`);
+  }
+  assert.ok(n >= 30, 'covers every amulet, ring and cape');
+});
