@@ -44,13 +44,15 @@ function seedFor(level) {
   return `${best[0]}_seed`;
 }
 
+export const COIN_DROP_MULT = 3;
 function dropsFor(level) {
   const tier = metalFor(level);
   const ore = { bronze: 'copper_ore', iron: 'iron_ore', steel: 'coal', mithril: 'mithril_ore', adamant: 'adamantite_ore' }[tier] || 'runite_ore';
   const next = nextMetal(tier);
   const t = [
     { nothing: true, weight: Math.max(6, Math.round(30 - level / 3)) },
-    { id: 'coins', min: Math.max(2, Math.round(level * 0.7)), max: Math.max(8, level * 9), weight: 48 },
+    // Coin piles are three times what they were (COIN_DROP_MULT).
+    { id: 'coins', min: Math.max(2, Math.round(level * 0.7)) * COIN_DROP_MULT, max: Math.max(8, level * 9) * COIN_DROP_MULT, weight: 48 },
     { id: ore, min: 1, max: 3, weight: 12 },
     // Arrows of the area's tier, so archers can keep hunting.
     { id: ARROW_FOR[tier] || `${tier}_arrow`, min: 8, max: 25, weight: 10 },
