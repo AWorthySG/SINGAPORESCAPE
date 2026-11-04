@@ -3195,3 +3195,26 @@ test('rune refund: a monster killed with spells gives back every rune spent on i
   g.killNpc(foe);
   for (const [id, n] of Object.entries(before)) assert.equal(g.inventory.count(id), n, `${id} all refunded`);
 });
+
+test('boss rewards scale with their 100x health: big kill bonus, hoards of loot', async () => {
+  const { NPC } = await import('../src/game/npc.js');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const g = new Game(); g.start(); g.chooseClass('swordsman');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  const boss = new NPC('goblin_warchief', g.player.x + 2, g.player.y, 0, {});
+  let loot = null;
+  g._autoLoot = (l) => { loot = l; };
+  g.rollDrops(boss);
+  const gear = loot.filter(([id]) => ITEMS[id].equip);
+  assert.ok(gear.length >= 3, 'at least three pieces of class gear');
+  assert.ok(loot.some(([id]) => id === 'upgrade_ward'), 'always an upgrade ward');
+  const stone = loot.find(([id]) => id === 'upgrade_stone');
+  assert.ok(stone && stone[1] >= 20, 'a pile of upgrade stones');
+  const coins = loot.filter(([id]) => id === 'coins').reduce((a, [, q]) => a + q, 0);
+  if (coins) assert.ok(coins >= 100, 'coins come in boss-sized piles');
+  const xp0 = g.skills.xp.attack;
+  boss.hp = 0; g.npcs.push(boss);
+  g.killNpc(boss);
+  assert.ok(g.skills.xp.attack - xp0 >= 35 * 4000, 'the kill bonus is 100x what it was');
+});

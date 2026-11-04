@@ -74,7 +74,11 @@ const STREAK_XP_PER_KILL = 0.1;
 const STREAK_MAX_BONUS = 2;
 const STREAK_WINDOW_TICKS = 50;
 // Bonus XP per boss level on a boss kill.
-const BOSS_XP_PER_LEVEL = 40;
+// Bosses are 100x tankier (BOSS_TOUGHNESS), so their rewards scale with them:
+// the kill bonus is 100x, stackable loot (coins, runes, arrows...) comes in 100x
+// the amount, and the gear, rare-table and upgrade-material rolls are richer.
+const BOSS_XP_PER_LEVEL = 4000;
+const BOSS_STACK_MULT = 100;
 
 // Share of fired arrows recovered after the shot.
 const ARROW_RECOVERY = 0.8;
@@ -1945,8 +1949,8 @@ export class Game {
       loot.push([d.id, q, 'common']);
     }
     if (def.dropTable && def.dropTable.length) {
-      // Champions roll their table three times, bosses four, and neither comes up empty.
-      const rolls = def.boss ? 4 : npc.champion ? 3 : 1;
+      // Champions roll their table three times, bosses ten, and neither comes up empty.
+      const rolls = def.boss ? 10 : npc.champion ? 3 : 1;
       const normal = !def.boss && !npc.champion;
       for (let r = 0; r < rolls; r++) {
         let pick = weightedPick(def.dropTable);
@@ -1965,8 +1969,8 @@ export class Game {
     }
     // Rare drop table — small base chance, much higher for bosses, champions & high levels.
     const rareChance = def.boss ? 1 : Math.min(0.5, (def.level || 1) / 1200 + 0.01 + (npc.champion ? 0.25 : 0));
-    // Bosses always hit the rare table, twice.
-    for (let rr = 0; rr < (def.boss ? 2 : 1); rr++) if (Math.random() < rareChance) {
+    // Bosses always hit the rare table, five times.
+    for (let rr = 0; rr < (def.boss ? 5 : 1); rr++) if (Math.random() < rareChance) {
       const pick = weightedPick(RARE_DROP_TABLE);
       const q = pick.min ? randInt(pick.min, pick.max) : 1;
       loot.push([pick.id, q, dropRarity(pick.id, 'rare')]);
@@ -1974,15 +1978,18 @@ export class Game {
       this.msg(`A rare drop! ${q > 1 ? q + ' x ' : ''}${nm}.`, 'level');
       if (getItem(pick.id).value >= 5000) this.banner(`<span class="big">Rare drop!</span>${nm}`);
     }
-    // Bosses always drop a piece of gear for your class, of Superior quality or better.
+    // Bosses always drop three pieces of gear for your class, of Superior quality or better.
     if (def.boss && this.jobClass) {
-      const g = classGearFor(this.jobClass, Math.max(1, def.level || 1));
-      if (g) loot.push([g, 1, 'epic', 'boss']);
+      for (let k = 0; k < 3; k++) {
+        const g = classGearFor(this.jobClass, Math.max(1, def.level || 1));
+        if (g) loot.push([g, 1, 'epic', 'boss']);
+      }
     }
     // Upgrade materials: stones from anything (bosses and champions most), wards from bosses.
     const stoneChance = def.boss ? 1 : npc.champion ? 0.4 : Math.min(0.12, 0.03 + (def.level || 1) / 2500);
-    if (Math.random() < stoneChance) loot.push([UP_STONE, def.boss ? randInt(2, 5) : npc.champion ? randInt(1, 3) : 1, def.boss ? 'rare' : 'common']);
-    if (Math.random() < (def.boss ? 0.25 : npc.champion ? 0.03 : 0)) loot.push([UP_WARD, 1, 'epic']);
+    if (Math.random() < stoneChance) loot.push([UP_STONE, def.boss ? randInt(20, 50) : npc.champion ? randInt(1, 3) : 1, def.boss ? 'rare' : 'common']);
+    if (def.boss) loot.push([UP_WARD, randInt(1, 3), 'epic']);
+    else if (Math.random() < (npc.champion ? 0.03 : 0)) loot.push([UP_WARD, 1, 'epic']);
     // Treasure trails: a rare clue scroll, if you aren't already carrying one.
     if (!this.clue && !this._holdsClue()) {
       const clueChance = Math.min(0.05, (def.level || 1) / 3000 + (def.boss ? 0.04 : 0.006));
@@ -2003,6 +2010,8 @@ export class Game {
         if (fam && mine && fam !== mine && Math.random() < CLASS_LOOT_SHARE) l[0] = equivalentArmour(l[0], mine);
       }
     }
+    // Boss hoards: stackables (coins, runes, arrows, seeds...) come in 100x the amount.
+    if (def.boss) for (const l of loot) if (l[0] !== UP_STONE && getItem(l[0]).stackable) l[1] *= BOSS_STACK_MULT;
     // Gear quality: a head start of upgrade levels for that item type.
     for (const l of loot) {
       if (!getItem(l[0]).equip) continue;
