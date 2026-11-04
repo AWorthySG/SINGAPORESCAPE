@@ -653,7 +653,7 @@ export class Game {
       if (--this.player.respawnTimer <= 0) this.respawnPlayer();
     } else {
       if (this.playerStun > 0) this.playerStun--;
-      else { this.resolvePlayerAction(); this._autoBattleTick(); }
+      else { this.resolvePlayerAction(); this._autoBattleTick(); this._autoLifeTick(); }
       this._autoPickup();
     }
     this._resolveHazards();
@@ -854,7 +854,7 @@ export class Game {
       case 'recipe': return this._tickContinuous(a, a.obj, () => resolveRecipe(this, a));
       case 'fletchmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openRecipeMenu('fletching', a.obj));
       case 'herbmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openRecipeMenu('herblore', a.obj));
-      case 'farm': return this._tickArrival(a, a.obj, true, () => this.tendPatch(a.obj));
+      case 'farm': return this._tickArrival(a, a.obj, true, () => { this.tendPatch(a.obj, a.seed); if (this.autoGather) this._autoLife = { kind: 'farm' }; });
       // One-shot arrival actions (open a UI / talk).
       case 'cookmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openCookMenu(a.obj));
       case 'smeltmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openSmeltMenu(a.obj));
@@ -877,7 +877,7 @@ export class Game {
         this.msg('You rest at the A-Worthy Mascot Statue. Health and run energy restored.', 'system');
         this.markPillar('obelisk');
       });
-      case 'thieve': return this._tickArrival(a, a.target, true, () => this.pickpocket(a.npc));
+      case 'thieve': return this._tickArrival(a, a.target, true, () => { this.pickpocket(a.npc); if (this.autoGather) this._autoLife = { kind: 'thieve', npc: a.npc }; });
       case 'agility': return this._tickContinuous(a, a.obj, () => this.resolveAgility(a.obj));
       case 'stall': return this._tickContinuous(a, a.obj, () => this.stealFromStall(a.obj));
       case 'transport': return this._tickArrival(a, a.target, true, () => this.ui?.openTransport(a.obj));
@@ -914,6 +914,9 @@ export class Game {
         if (got > 0 && id !== 'coins') this.addHitsplat(this.player, 0, { text: `+${got} ${getItem(id).name}` });
       }
     }
+    // Remember what we're gathering, so auto gather can pick it up again after
+    // a fight, or once the mined-out rocks and felled trees grow back.
+    if (gather && this.autoGather && obj?.objId) this._autoLife = { kind: 'gather', objId: obj.objId };
     if (!going) {
       this.player.clearAction();
       if (gather && this.autoGather) this._autoGatherNext(a, obj);
@@ -940,13 +943,59 @@ export class Game {
       const d = chebyshev(here.x, here.y, o.x, o.y);
       if (d <= 20 && d < bd) { bd = d; best = o; }
     }
-    if (!best) { this.msg(`No more ${obj.def.name.toLowerCase()}s nearby: auto gather waits here.`, 'system'); return false; }
+    if (!best) { this.msg(`No more ${obj.def.name.toLowerCase()}s nearby: auto gather waits here until they grow back.`, 'system'); return false; }
     this.defaultObjectAction(best);
     return true;
   }
 
+  /** Auto gather for Farming and Thieving: once you're idle, carry on by
+   *  yourself. Farming harvests ripe patches and replants empty ones with your
+   *  best seed, patch after patch nearby; Thieving keeps picking the same
+   *  pocket. It stops when there's nothing left to do or the bag is full. */
+  _autoLifeTick() {
+    const job = this._autoLife;
+    const p = this.player;
+    if (!job || !this.autoGather || p.action || p.isMoving || this.autoBattle) return;
+    if (job.kind === 'gather') {
+      // Back to the nearest node of the same kind that's ready again.
+      if (this.inventory.freeSlots() <= 0) return;
+      const here = this.playerTile();
+      let best = null, bd = Infinity;
+      for (const o of this.world.objects) {
+        if (o.objId !== job.objId || o.depleted) continue;
+        const d = chebyshev(here.x, here.y, o.x, o.y);
+        if (d <= 20 && d < bd) { bd = d; best = o; }
+      }
+      if (best) this.defaultObjectAction(best);
+      return;
+    }
+    if (job.kind === 'thieve') {
+      if (job.npc?.alive && chebyshev(job.npc.x, job.npc.y, p.x, p.y) <= 6) this.startPickpocket(job.npc);
+      else this._autoLife = null;
+      return;
+    }
+    // Farming: the nearest patch that's ripe, or empty when you have a seed you can plant.
+    const lvl = this.skills.level('farming');
+    const seed = this.inventory.slots.filter((sl) => sl && CROP_BY_SEED[sl.id] && cropFor(CROP_BY_SEED[sl.id][0]).level <= lvl)
+      .map((sl) => sl.id).sort((a, b) => cropFor(CROP_BY_SEED[b][0]).level - cropFor(CROP_BY_SEED[a][0]).level)[0];
+    const here = this.playerTile();
+    let best = null, bd = Infinity;
+    for (const o of this.world.objects) {
+      if (o.def?.type !== 'farm') continue;
+      const ripe = o.crop && !(o.growLeft > 0);
+      if (!ripe && (o.crop || !seed)) continue;
+      if (ripe && this.inventory.freeSlots() <= 0) continue;
+      const d = chebyshev(here.x, here.y, o.x, o.y);
+      if (d <= 20 && d < bd) { bd = d; best = o; }
+    }
+    if (!best) return;   // nothing ready yet: wait here (crops keep growing)
+    const tgt = { x: best.x, y: best.y };
+    this.beginAction({ type: 'farm', obj: best, target: tgt, seed: best.crop ? undefined : seed }, tgt, true);
+  }
+
   toggleAutoGather(on = !this.autoGather) {
     this.autoGather = !!on;
+    if (!this.autoGather) this._autoLife = null;
     this.msg(this.autoGather ? 'Auto gather on: when a node runs dry you move on to the next one.' : 'Auto gather off.', 'system');
     this.bus.emit('autogather');
   }
@@ -2932,6 +2981,7 @@ export class Game {
     }
     if (!this._driving) {
       this._driving = true;
+      this._autoLife = null;   // steering away ends any auto gather loop
       // Bows and spells keep firing while you steer (handy for dodging); other actions stop.
       const shooting = p.action?.type === 'attack' && this.attackRange() > 1;
       if (p.action && !shooting) p.clearAction();
@@ -2943,6 +2993,7 @@ export class Game {
 
   walkTo(tile) {
     if (!this.world.inBounds(tile.x, tile.y)) return;
+    this._autoLife = null;   // walking off yourself ends any auto gather loop
     const start = this.playerTile();
     if (start.x === tile.x && start.y === tile.y) { this.player.clearAction(); return; }
     let path = findPath(this.pathCfg(), start, tile, {});
@@ -2952,6 +3003,7 @@ export class Game {
 
   /** Long-range walk used by the world map; snaps to the nearest walkable tile. */
   walkToFar(tile) {
+    this._autoLife = null;
     const t = this._nearestFree(tile.x, tile.y);
     if (!t) { this.msg("I can't reach there."); return; }
     if (this.playerTile().x === t.x && this.playerTile().y === t.y) return;

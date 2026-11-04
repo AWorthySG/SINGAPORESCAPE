@@ -1073,10 +1073,18 @@ export class UI {
         `<div><b>${sk.name} · level ${lvl}</b><span>${guide.use}</span></div>`;
       body.appendChild(head);
       // Gathering skills can run on their own: auto gather moves you to the next node.
-      if (['woodcutting', 'mining', 'fishing', 'hunter'].includes(skill)) {
+      const AUTO_TEXT = {
+        woodcutting: 'when a tree, rock or spot runs dry, move on to the next one nearby',
+        mining: 'when a tree, rock or spot runs dry, move on to the next one nearby',
+        fishing: 'when a tree, rock or spot runs dry, move on to the next one nearby',
+        hunter: 'when a trap or trail runs dry, move on to the next one nearby',
+        farming: 'harvest ripe patches and replant with your best seed, patch after patch',
+        thieving: 'keep picking the same pocket after each try',
+      };
+      if (AUTO_TEXT[skill]) {
         const ag = document.createElement('button');
         ag.className = 'sg-auto' + (g.autoGather ? ' on' : '');
-        ag.innerHTML = `<span class="ab-switch" aria-hidden="true"><i></i></span><span><b>Auto gather</b> ${g.autoGather ? 'On' : 'Off'}: when a tree, rock or spot runs dry, move on to the next one nearby</span>`;
+        ag.innerHTML = `<span class="ab-switch" aria-hidden="true"><i></i></span><span><b>Auto gather</b> ${g.autoGather ? 'On' : 'Off'}: ${AUTO_TEXT[skill]}</span>`;
         ag.addEventListener('click', () => { g.toggleAutoGather(); render(body); });
         body.appendChild(ag);
       }

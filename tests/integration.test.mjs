@@ -6,6 +6,8 @@ import assert from 'node:assert/strict';
 import { Game } from '../src/game/game.js';
 import { saveGame, loadGame, clearSave } from '../src/game/save.js';
 import { ITEMS } from '../src/data/items.js';
+import { chebyshev } from '../src/core/utils.js';
+import { CROP_BY_SEED, cropFor } from '../src/data/trades.js';
 import { playerAttackVsNpc } from '../src/game/combat.js';
 
 // In-memory localStorage so save.js has somewhere to write.
@@ -3217,4 +3219,44 @@ test('boss rewards scale with their 100x health: big kill bonus, hoards of loot'
   boss.hp = 0; g.npcs.push(boss);
   g.killNpc(boss);
   assert.ok(g.skills.xp.attack - xp0 >= 35 * 4000, 'the kill bonus is 100x what it was');
+});
+
+test('auto gather for Farming: plants and harvests patch after patch by itself', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const g = new Game(); g.start();
+  g.ui = new Proxy({}, { get: () => () => {} });
+  const patches = g.world.objects.filter((o) => o.def?.type === 'farm');
+  // Two patches close together.
+  let a = null, b = null;
+  for (const p of patches) { const q = patches.find((x) => x !== p && chebyshev(x.x, x.y, p.x, p.y) <= 6); if (q) { a = p; b = q; break; } }
+  assert.ok(a && b, 'two farm patches near each other');
+  const seedId = Object.keys(CROP_BY_SEED).find((id) => cropFor(CROP_BY_SEED[id][0]).level <= g.skills.level('farming'));
+  g.inventory.add(seedId, 5);
+  g.toggleAutoGather(true);
+  g.player.x = g.player.tx = a.x; g.player.y = g.player.ty = a.y + 1;
+  g.beginAction({ type: 'farm', obj: a, target: { x: a.x, y: a.y }, seed: seedId }, { x: a.x, y: a.y }, true);
+  for (let i = 0; i < 40 && !(a.crop && b.crop); i++) g.update(600);
+  assert.ok(a.crop && b.crop, 'both patches planted');
+  a.growLeft = 0; b.growLeft = 0;
+  const crop = a.crop;
+  for (let i = 0; i < 40 && g.inventory.count(crop) === 0; i++) g.update(600);
+  assert.ok(g.inventory.count(crop) > 0, 'ripe crops harvested without clicking');
+});
+
+test('auto gather picks mining back up after an interruption or once rocks grow back', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const g = new Game(); g.start();
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.npcs = [];   // no monsters to interrupt
+  const rock = g.world.objects.find((o) => o.objId === 'copper_rock');
+  g.toggleAutoGather(true);
+  g.player.x = g.player.tx = rock.x; g.player.y = g.player.ty = rock.y + 1;
+  g.defaultObjectAction(rock);
+  for (let i = 0; i < 20; i++) g.update(600);
+  g.player.clearAction();   // something interrupts (a monster, a click elsewhere)
+  const ore0 = g.inventory.count('copper_ore');
+  for (let i = 0; i < 200; i++) g.update(600);
+  assert.ok(g.inventory.count('copper_ore') >= ore0 + 10, `picked mining back up: ${g.inventory.count('copper_ore') - ore0} more ore`);
 });
