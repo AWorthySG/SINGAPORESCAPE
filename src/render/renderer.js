@@ -1153,7 +1153,7 @@ export class Renderer {
     for (const e of game.effects) {
       if (e.type !== 'hitsplat') continue;
       const c = e.entity.renderCenter ? e.entity.renderCenter() : { x: e.entity.x * TILE, y: e.entity.y * TILE };
-      const age = 1100 - e.life;
+      const age = (e.critX ? 1400 : 1100) - e.life;
       // Rise from above the head and fan out sideways so rapid hits don't stack
       // into one blob over the face.
       const px = c.x - ox + (e.fan || 0) * 9, py = c.y - oy - 26 - age * 0.022;
@@ -1174,6 +1174,27 @@ export class Renderer {
         ctx.fill(); ctx.stroke();
         ctx.fillStyle = '#1F7A3D'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(e.text, 0, 1);
+        ctx.textBaseline = 'alphabetic';
+        ctx.restore(); ctx.globalAlpha = 1;
+        continue;
+      }
+      if (e.critX) {
+        // Critical hit: a big red number with a ×2 / ×4 tag, larger still for a mega crit.
+        const mega = e.critX >= 4;
+        const size = mega ? 30 : 22;
+        ctx.font = `900 ${size}px Nunito,"Trebuchet MS",sans-serif`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = mega ? 6 : 5; ctx.strokeStyle = '#ffffff';
+        ctx.strokeText(String(e.dmg), 0, 0);
+        ctx.lineWidth = 2; ctx.strokeStyle = '#4a0606';
+        ctx.strokeText(String(e.dmg), 0, 0);
+        ctx.fillStyle = mega ? '#ff1a1a' : '#e01b1b';
+        ctx.fillText(String(e.dmg), 0, 0);
+        ctx.font = `900 ${mega ? 13 : 11}px Nunito,"Trebuchet MS",sans-serif`;
+        const tag = `CRIT \u00d7${e.critX}`;
+        ctx.lineWidth = 3; ctx.strokeStyle = '#ffffff'; ctx.strokeText(tag, 0, -size * 0.8);
+        ctx.fillStyle = '#b30000'; ctx.fillText(tag, 0, -size * 0.8);
         ctx.textBaseline = 'alphabetic';
         ctx.restore(); ctx.globalAlpha = 1;
         continue;

@@ -23,7 +23,7 @@ import { findPath } from '../engine/pathfinding.js';
 import {
   playerAttackVsNpc, npcAttackVsPlayer, rollAttack, rollGuaranteed, combatXp,
   playerRangedVsNpc, combatXpRanged, playerMagicVsNpc, RANGED_STYLES,
-  weaknessOf, WEAKNESS_BONUS, critChance, CRIT_MULT,
+  weaknessOf, WEAKNESS_BONUS, critChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE,
   playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX,
 } from './combat.js';
 import { ABILITY_BY_ID, abilitiesFor } from '../data/abilities.js';
@@ -450,7 +450,7 @@ export class Game {
   addHitsplat(entity, dmg, opts = {}) {
     if (entity && dmg > 0) entity.hurt = 200; // flash the struck entity
     entity._splatN = ((entity._splatN || 0) + 1) % 3;
-    this.effects.push({ type: 'hitsplat', entity, dmg, crit: !!opts.crit, text: opts.text, tint: opts.tint, life: 1100, fan: entity._splatN - 1 });
+    this.effects.push({ type: 'hitsplat', entity, dmg, crit: !!opts.crit, critX: opts.critX || 0, text: opts.text, tint: opts.tint, life: opts.critX ? 1400 : 1100, fan: entity._splatN - 1 });
     if (opts.crit && dmg > 0) {
       this.addShake(2.5, 180);                 // crits thump the screen a little...
       if (entity !== this.player) this.hitStop = Math.max(this.hitStop, 55);   // ...and freeze for a beat
@@ -1346,12 +1346,21 @@ export class Game {
   }
 
   _critHit(dmg, critCh) {
-    // Crit damage from gear adds to the base 1.5x multiplier.
-    if (dmg > 0 && Math.random() < critCh) return { dmg: Math.max(dmg + 1, Math.round(dmg * (CRIT_MULT + this.equipment.bonuses().critDmg / 100))), crit: true };
-    return { dmg, crit: false };
+    // A crit doubles the blow, or (one time in four) quadruples it; crit damage
+    // from gear adds on top. The next hitsplat shows it big and red.
+    this._pendingCrit = 0;
+    if (dmg > 0 && Math.random() < critCh) {
+      const mult = Math.random() < MEGA_CRIT_CHANCE ? MEGA_CRIT_MULT : CRIT_MULT;
+      this._pendingCrit = mult;
+      return { dmg: Math.max(dmg + 1, Math.round(dmg * (mult + this.equipment.bonuses().critDmg / 100))), crit: true, mult };
+    }
+    return { dmg, crit: false, mult: 1 };
   }
 
   _applyPlayerHit(npc, dmg, opts = {}) {
+    // A crit rolled just before this hit: show it as a big red ×2 / ×4 number.
+    if (this._pendingCrit && dmg > 0) opts = { ...opts, critX: this._pendingCrit };
+    this._pendingCrit = 0;
     if (npc.shieldTicks > 0 && dmg > 0) dmg = Math.max(1, Math.floor(dmg / 2));   // a boss shield halves the blow
     if (npc.reflectTicks > 0 && dmg > 0 && this.player.alive) {
       const back = Math.min(this.player.hp, Math.max(1, Math.round(dmg * (npc.reflectFrac || 0.2))), Math.ceil(this.maxHp() * 0.1));

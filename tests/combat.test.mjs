@@ -158,9 +158,15 @@ test('critChance scales with level and gear, capped at 50%', () => {
 
 test('_critHit multiplies damage on a crit, never on a miss', () => {
   const g = boot();
-  assert.deepEqual(g._critHit(10, 0), { dmg: 10, crit: false });
+  assert.deepEqual(g._critHit(10, 0), { dmg: 10, crit: false, mult: 1 });
   const c = g._critHit(10, 1); // always crits
   assert.ok(c.crit && c.dmg > 10, 'a crit boosts damage');
+  // Crits are x2, or x4 on a mega crit (plus any crit damage from gear).
+  const seen = new Set();
+  for (let i = 0; i < 200; i++) seen.add(g._critHit(10, 1).mult);
+  assert.deepEqual([...seen].sort(), [2, 4], 'every crit is either x2 or x4');
+  const cd = g.equipment.bonuses().critDmg / 100;
+  for (let i = 0; i < 50; i++) { const h = g._critHit(10, 1); assert.equal(h.dmg, Math.round(10 * (h.mult + cd))); }
   assert.equal(g._critHit(0, 1).crit, false, 'a missed hit cannot crit');
 });
 

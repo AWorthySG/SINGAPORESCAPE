@@ -19,7 +19,7 @@ export const STAT_HELP = [
   ['Defence', 'how often enemies miss you'],
   ['Speed', 'time between swings — lower is faster'],
   ['Armour pierce', 'ignores part of the enemy\'s defence, so more hits land (plate armour)'],
-  ['Crit damage', 'makes critical hits bigger than the base 1.5x (scout leather)'],
+  ['Crit damage', 'makes critical hits (x2, or x4 on a mega crit) bigger still (scout leather)'],
   ['Attack speed', 'shortens the time between attacks, up to 30% (hide)'],
   ['Lifesteal', 'heals you by a share of the damage you deal (dancewear)'],
   ['Boss damage', 'extra damage against bosses and champions (robes)'],
