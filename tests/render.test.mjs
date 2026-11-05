@@ -96,6 +96,7 @@ test('ranged arrows and magic bolts render as distinct projectiles', () => {
   const renderer = new Renderer(game, {}, makeCtx());
   const npc = game.npcs.find((n) => n.attackable);
   game.effects.push({ type: 'projectile', kind: 'arrow', x: game.player.x * 32, y: game.player.y * 32 - 8, ex: npc.x * 32, ey: npc.y * 32 - 8, color: '#d9c45a', life: 120, maxLife: 240 });
+  game.addHitsplat(npc, 42, { critX: 2 }); game.addHitsplat(npc, 99, { critX: 4 }); game.addHitsplat(npc, 7, {});
   game.effects.push({ type: 'projectile', kind: 'bullet', x: game.player.x * 32, y: game.player.y * 32 - 8, ex: npc.x * 32, ey: npc.y * 32 - 8, color: '#ffe28a', life: 120, maxLife: 240 });
   game.effects.push({ type: 'projectile', kind: 'shuriken', x: game.player.x * 32, y: game.player.y * 32 - 8, ex: npc.x * 32, ey: npc.y * 32 - 8, color: '#cfd8e6', life: 120, maxLife: 240 });
   game.effects.push({ type: 'projectile', kind: 'bolt', x: game.player.x * 32, y: game.player.y * 32 - 8, ex: npc.x * 32, ey: npc.y * 32 - 8, color: '#7fe0ee', life: 120, maxLife: 240 });

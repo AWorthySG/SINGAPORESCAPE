@@ -57,7 +57,10 @@ export function rollGuaranteed(max) {
 }
 
 /** Damage multiplier applied on a critical hit. */
-export const CRIT_MULT = 1.5;
+// A critical hit doubles the blow, and one crit in four (a mega crit) quadruples it.
+export const CRIT_MULT = 2;
+export const MEGA_CRIT_MULT = 4;
+export const MEGA_CRIT_CHANCE = 0.25;
 
 /** Critical-hit chance: scales with the attacking skill level, plus gear crit %.
  *  Level 99 alone gives ~15%; gear adds flat percent on top. Capped at 50%. */
