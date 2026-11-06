@@ -3352,3 +3352,19 @@ test('class passives: one every 100 levels of the class skill, ranking up after 
   g.skills.xp.attack = 20000000;   // well past level 100
   assert.ok((g.perkMods('melee').reduce || 0) > r0, 'Plate Mastery cuts damage taken');
 });
+
+test('a Berserker rakes swipe marks across the monster on every critical hit', async () => {
+  const { NPC } = await import('../src/game/npc.js');
+  const mk = (cls) => {
+    globalThis.localStorage = fakeStorage(); clearSave();
+    const g = new Game(); g.start(); g.chooseClass(cls);
+    g.ui = new Proxy({}, { get: () => () => {} });
+    const t = new NPC('goblin', g.player.x + 1, g.player.y, 0, {});
+    t.hp = t.maxHp = 999999; t.def = { ...t.def, aggressive: false, maxHit: 0 };
+    g.npcs = [t];
+    g._pendingCrit = 2; g._applyPlayerHit(t, 10, {});
+    return g.effects.some((e) => e.type === 'swipe');
+  };
+  assert.ok(mk('berserker'), 'Berserker crits leave swipe marks');
+  assert.ok(!mk('swordsman'), 'other classes do not');
+});

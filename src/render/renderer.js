@@ -460,6 +460,35 @@ export class Renderer {
         ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
         continue;
       }
+      if (e.type === 'swipe') {
+        // Berserker crit: three claw-like swipe marks raked across the monster,
+        // drawn in quickly one after another, then fading.
+        const c = e.entity.renderCenter ? e.entity.renderCenter() : { x: e.entity.x * TILE, y: e.entity.y * TILE };
+        const t = 1 - e.life / e.maxLife;
+        const size = e.mega ? 1.35 : 1;
+        ctx.save();
+        ctx.translate(c.x - ox, c.y - oy - 8);
+        ctx.rotate(-0.75 + e.ang);
+        ctx.scale(size, size);
+        ctx.lineCap = 'round';
+        for (let i = 0; i < 3; i++) {
+          const draw = Math.max(0, Math.min(1, (t - i * 0.08) / 0.18));   // each mark sweeps in after the last
+          if (draw <= 0) continue;
+          const fade = t < 0.55 ? 1 : 1 - (t - 0.55) / 0.45;
+          const y = (i - 1) * 7, len = 30 - Math.abs(i - 1) * 6;
+          const x0 = -len / 2, x1 = x0 + len * draw;
+          ctx.globalAlpha = fade;
+          ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 6.5;
+          ctx.beginPath(); ctx.moveTo(x0, y - 2); ctx.quadraticCurveTo((x0 + x1) / 2, y + 3, x1, y + 2); ctx.stroke();
+          ctx.strokeStyle = e.mega ? '#ff1010' : '#c8161b'; ctx.lineWidth = 3.5;
+          ctx.beginPath(); ctx.moveTo(x0, y - 2); ctx.quadraticCurveTo((x0 + x1) / 2, y + 3, x1, y + 2); ctx.stroke();
+          ctx.strokeStyle = '#5a0505'; ctx.lineWidth = 1.2;
+          ctx.beginPath(); ctx.moveTo(x0 + 2, y - 1); ctx.quadraticCurveTo((x0 + x1) / 2, y + 3.5, x1 - 1, y + 2.5); ctx.stroke();
+        }
+        ctx.restore();
+        ctx.globalAlpha = 1;
+        continue;
+      }
       if (e.type === 'blast') {
         // A boss area attack landing: an expanding shock ring.
         const t = 1 - e.life / e.maxLife;
