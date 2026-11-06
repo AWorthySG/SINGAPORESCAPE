@@ -3335,3 +3335,20 @@ test('archers always fire their strongest arrows first', () => {
   g.inventory.add('rune_arrow', 50);
   assert.equal(g.inventory.slotAt(g._bestAmmoIdx()).id, 'rune_arrow');
 });
+
+test('class passives: one every 100 levels of the class skill, ranking up after 300', async () => {
+  const { classPassives, classPassiveMods, CLASS_PASSIVES } = await import('../src/data/classPassives.js');
+  const { CLASSES } = await import('../src/data/classes.js');
+  for (const c of CLASSES) assert.equal(CLASS_PASSIVES[c.id]?.length, 3, `${c.name} has three passives`);
+  assert.deepEqual(classPassives('rogue', 99).map((p) => p.rank), [0, 0, 0]);
+  assert.deepEqual(classPassives('rogue', 250).map((p) => p.rank), [1, 1, 0]);
+  assert.deepEqual(classPassives('rogue', 400).map((p) => p.rank), [2, 1, 1]);
+  assert.ok(classPassiveMods('rogue', 100).dodge > 0);
+  // The game applies them: a level-100 Knight takes less damage than a level-99 one.
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('knight');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  const r0 = g.perkMods('melee').reduce || 0;
+  g.skills.xp.attack = 20000000;   // well past level 100
+  assert.ok((g.perkMods('melee').reduce || 0) > r0, 'Plate Mastery cuts damage taken');
+});

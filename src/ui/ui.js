@@ -22,6 +22,7 @@ import { ALL_MONSTER_IDS as MONSTER_IDS, ALL_BOSS_IDS as BOSS_IDS, getNpc } from
 import { levelProgress, xpToNext } from '../data/xp.js';
 import { stackLabel, capitalize, formatNumber } from '../core/utils.js';
 import { RHYTHM_MAX, levelBonuses } from '../game/combat.js';
+import { classPassives, CLASS_SKILL } from '../data/classPassives.js';
 import { ELEMENTS, SPELLS } from '../data/magic.js';
 import { PRAYERS } from '../data/prayers.js';
 import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
@@ -772,7 +773,7 @@ export class UI {
     try { const sp = wid && getItem(wid).spec; if (sp) specLine = `<div class="row"><span>Special</span><span>${sp.name} (${sp.cost}%)</span></div>`; } catch {}
     this.el.equipBonuses.innerHTML =
       `<div class="row"><span>Attack bonus</span><span>+${b.attack}</span></div>` +
-      `<div class="row"><span>Strength bonus</span><span>+${b.strength}</span></div>` +
+      `<div class="row"><span>Melee power</span><span>+${b.strength}</span></div>` +
       `<div class="row"><span>Defence bonus</span><span>+${b.defence}</span></div>` +
       (b.ranged ? `<div class="row"><span>Ranged bonus</span><span>+${b.ranged}</span></div>` : '') +
       (b.magic ? `<div class="row"><span>Magic bonus</span><span>+${b.magic}</span></div>` : '') +
@@ -1506,7 +1507,7 @@ export class UI {
   /** Every perk track: what each perk does, its rank, and when the next rank unlocks. */
   openPerks() {
     const g = this.game;
-    const NAMES = { attack: 'Attack', strength: 'Strength', defence: 'Defence', ranged: 'Ranged', magic: 'Magic', agility: 'Agility (Dancer)' };
+    const NAMES = { attack: 'Melee', strength: 'Melee power', defence: 'Defence', ranged: 'Ranged', magic: 'Magic', agility: 'Agility (Dancer)' };
     let tab = PERK_SKILLS.find((s) => g.skills.level(s) >= PERK_EVERY) || 'attack';
     const render = (body) => {
       body.innerHTML = '<div class="modal-hint">Every 20 levels in a fighting skill unlocks that skill\'s next passive perk. After level 200 the perks rank up again (Rank II at 220, III at 420...) until level 999. Defence perks help in every style.</div>';
@@ -1621,6 +1622,15 @@ export class UI {
       body.innerHTML = `<div class="sg-head"><span class="class-pic">${art ? `<img src="${art}" alt="" width="48" height="48">` : itemIconSVG(starterWeapon(cls.id), 40)}</span>`
         + `<div><b>${cls.name} · ${WEAPON_TYPE_NAMES[cls.weapon]}</b><span>${cls.desc}</span></div></div>`
         + `<div class="cp-list">${classPerks(cls.id).map((p) => `<div class="cp-row"><span class="cp-ic">${p.icon}</span><span><b>${p.label}</b> ${p.text}</span></div>`).join('')}</div>`
+        // Class passives: one every 100 levels of the class's fighting skill.
+        + (() => {
+          const skill = CLASS_SKILL[cls.style] || 'attack';
+          const lvl = classId === this.game.jobClass ? this.game.skills.level(skill) : 0;
+          const skName = { attack: 'Melee', ranged: 'Ranged', magic: 'Magic', agility: 'Agility' }[skill];
+          return `<div class="cp-head"><b>Class passives</b> · one every 100 ${skName} levels${lvl ? ` (you: ${lvl})` : ''}</div><div class="cp-list">`
+            + classPassives(cls.id, lvl).map((p) => `<div class="cp-row${p.rank ? '' : ' locked'}"><span class="cp-ic">${p.rank ? '🏅' : '🔒'}</span><span><b>${escapeHtml(p.name)}${p.rank > 1 ? ` (Rank ${p.rank})` : ''}</b> ${escapeHtml(p.desc)} · <i>${skName} ${p.unlockAt}${p.rank ? '' : ' to unlock'}, ranks up every 300 levels after</i></span></div>`).join('')
+            + '</div>';
+        })()
         + '<div class="modal-hint">Every class can use any armour, tools and the learning perks in the Knowledge Codex.</div>';
     });
     this.modal.kind = 'classperks';
