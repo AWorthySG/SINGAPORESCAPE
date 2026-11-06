@@ -188,3 +188,15 @@ test('a combat-skill level-up restores health, a life-skill one does not', () =>
   g.bus.emit('levelup', { skill: 'cooking', level: 30 });
   assert.equal(g.player.hp, 1, 'no heal on a non-combat level-up');
 });
+
+test('Magic level multiplies spell damage, like Melee and Ranged levels do', async () => {
+  const { playerMagicVsNpc } = await import('../src/game/combat.js');
+  const { getSpell } = await import('../src/data/magic.js');
+  const eq = { bonuses: () => ({ magic: 0, magicStr: 0 }) };
+  const spell = getSpell('fire_wave');
+  const lo = playerMagicVsNpc({ magic: 1 }, eq, spell, { defence: 1 }).max;
+  const mid = playerMagicVsNpc({ magic: 50 }, eq, spell, { defence: 1 }).max;
+  const hi = playerMagicVsNpc({ magic: 99 }, eq, spell, { defence: 1 }).max;
+  assert.ok(lo < mid && mid < hi, 'higher Magic hits harder');
+  assert.ok(hi >= spell.maxHit * 2, 'a level 99 mage more than doubles the spell\'s base');
+});

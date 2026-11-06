@@ -2061,12 +2061,14 @@ test('melee cleave sweeps foes next to the target, with every melee weapon', () 
   assert.equal(main.hp, 99999, 'the target itself takes only its own hit');
 });
 
-test('Attack adds a little melee damage; scimitars and claws swing faster than one beat', () => {
+test('Melee level raises damage (and adds a level bonus like gear); scimitars and claws swing faster than one beat', async () => {
+  const { levelBonuses } = await import('../src/game/combat.js');
   const eq = { bonuses: () => ({ attack: 0, strength: 0, defence: 0 }) };
-  const lo = playerAttackVsNpc({ attack: 1, strength: 50 }, eq, 'aggressive', { defence: 1 }).max;
-  const hi = playerAttackVsNpc({ attack: 99, strength: 50 }, eq, 'aggressive', { defence: 1 }).max;
-  assert.ok(hi > lo, `Attack raises max hit (${lo} -> ${hi})`);
-  assert.ok(hi < lo * 1.5, 'but only a little');
+  const lo = playerAttackVsNpc({ attack: 1, strength: 1 }, eq, 'balanced', { defence: 1 }).max;
+  const hi = playerAttackVsNpc({ attack: 99, strength: 99 }, eq, 'balanced', { defence: 1 }).max;
+  assert.ok(hi > lo * 3, `Melee level raises max hit a lot (${lo} -> ${hi})`);
+  const lb = levelBonuses({ attack: 80, ranged: 60, magic: 50, agility: 40 });
+  assert.deepEqual([lb.attack, lb.strength, lb.ranged, lb.magic, lb.magicStr, lb.dance], [40, 40, 30, 25, 5, 20], 'every 2 levels give +1 bonus');
 });
 
 test('XP bonus stacks: Wilderness level and kill streak; bosses drop much more and give bonus XP', () => {

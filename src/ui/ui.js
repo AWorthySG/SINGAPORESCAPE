@@ -21,7 +21,7 @@ import { getDialogue } from '../data/dialogue.js';
 import { ALL_MONSTER_IDS as MONSTER_IDS, ALL_BOSS_IDS as BOSS_IDS, getNpc } from '../data/npcs.js';
 import { levelProgress, xpToNext } from '../data/xp.js';
 import { stackLabel, capitalize, formatNumber } from '../core/utils.js';
-import { RHYTHM_MAX } from '../game/combat.js';
+import { RHYTHM_MAX, levelBonuses } from '../game/combat.js';
 import { ELEMENTS, SPELLS } from '../data/magic.js';
 import { PRAYERS } from '../data/prayers.js';
 import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
@@ -781,6 +781,9 @@ export class UI {
       // The extra offensive stats, from armour families and gear.
       [['pierce', 'Armour pierce'], ['critDmg', 'Crit damage'], ['haste', 'Haste'], ['lifesteal', 'Lifesteal'], ['bossDmg', 'Boss damage']]
         .map(([k, l]) => (b[k] ? `<div class="row off-stat"><span>${l}</span><span>+${b[k]}%</span></div>` : '')).join('') +
+      // What your fighting levels add on top of your gear (see levelBonuses).
+      (() => { const lb = levelBonuses({ attack: this.game.skills.attack, ranged: this.game.skills.ranged, magic: this.game.skills.magic, agility: this.game.skills.agility });
+        return `<div class="row lvl-bonus"><span>From your levels</span><span>+${lb.attack} Atk/Str · +${lb.ranged} Rng · +${lb.magic} Mag (+${lb.magicStr} dmg) · +${lb.dance} Dance</span></div>`; })() +
       `<div class="row"><span>Attack speed</span><span>${speed * 0.3 < 0.3 ? (speed * 0.3).toFixed(2) : (speed * 0.3).toFixed(1)}s</span></div>` +
       specLine +
       (sets.length ? `<div class="row set-bonus"><span>Set bonus</span><span>${sets.join(', ')}</span></div>` : '');

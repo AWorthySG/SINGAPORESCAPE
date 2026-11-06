@@ -99,9 +99,29 @@ export function weaknessOf(def) {
 
 // ----- Player vs NPC helpers -----
 
+// Your fighting levels add bonuses on top of your gear, like an extra piece of
+// equipment that grows with you: every 2 Melee levels give +1 Attack and +1
+// Strength bonus, every 2 Ranged levels +1 Ranged, every 2 Magic levels +1 Magic
+// (and every 10 a point of magic damage), every 2 Agility levels +1 Dance.
+export function levelBonuses(skills = {}) {
+  const half = (n) => Math.floor((n || 0) / 2);
+  return {
+    attack: half(skills.attack), strength: half(skills.attack),
+    ranged: half(skills.ranged),
+    magic: half(skills.magic), magicStr: Math.floor((skills.magic || 0) / 10),
+    dance: half(skills.agility),
+  };
+}
+function withLevelBonus(b, skills) {
+  const lv = levelBonuses(skills);
+  const out = { ...b };
+  for (const k of Object.keys(lv)) out[k] = (out[k] || 0) + lv[k];
+  return out;
+}
+
 export function playerAttackVsNpc(skills, equip, styleId, npc) {
   const style = BAL;
-  const bonuses = equip.bonuses();
+  const bonuses = withLevelBonus(equip.bonuses(), skills);
   // Melee trades reach for power: it has to close the distance, so it lands
   // more often and hits harder than the formula's base (x1.2 accuracy, x1.3+1 max).
   const aRoll = attackRoll(skills.attack, style.atk, bonuses.attack) * MELEE_BONUS.acc;
@@ -133,7 +153,7 @@ export const RANGED_BONUS = { acc: 1.15, dmg: 1.5 };
 
 export function playerRangedVsNpc(skills, equip, styleId, npc, arrowStr) {
   const st = RANGED_STYLES.balanced;
-  const b = equip.bonuses();
+  const b = withLevelBonus(equip.bonuses(), skills);
   // Arrows set the base; half the bow/armour Ranged bonus adds to damage too,
   // so a better bow hits harder, not just more often.
   const str = arrowStr + Math.floor((b.ranged || 0) / 2);
@@ -159,7 +179,7 @@ export const RHYTHM_DMG = 0.08;       // +8% damage per stack
 
 export function playerDanceVsNpc(skills, equip, styleId, npc, rhythm = 0) {
   const st = DANCE_STYLES.balanced;
-  const b = equip.bonuses();
+  const b = withLevelBonus(equip.bonuses(), skills);
   return {
     atkRoll: attackRoll(skills.agility, st.atk, b.dance) * DANCE_BONUS.acc,
     defRoll: defenceRoll(npc.defence, 0, 0),
@@ -175,12 +195,15 @@ export function danceEvade(agility, styleId) {
 export function combatXpDance(styleId, damage) { return fightXp('agility', damage); }
 
 // ----- Magic -----
+export const MAGIC_LEVEL_DIV = 80;
 export function playerMagicVsNpc(skills, equip, spell, npc) {
-  const b = equip.bonuses();
+  const b = withLevelBonus(equip.bonuses(), skills);
   return {
     atkRoll: (skills.magic + 8) * (b.magic + 64),
     defRoll: (npc.defence + 8) * 64,
-    // Spells hit harder as Magic rises (+1 max hit per 6 levels), like Strength does for melee.
-    max: spell.maxHit + Math.floor(skills.magic / 6) + (b.magicStr || 0),
+    // Magic level multiplies the spell's power (with gear's magic damage), the way
+    // Melee and Ranged levels multiply weapon power: +1.25% per level, so a
+    // level 50 mage hits ~1.6x the spell's base and a level 99 mage ~2.2x.
+    max: Math.max(1, Math.round((spell.maxHit + (b.magicStr || 0)) * (1 + skills.magic / MAGIC_LEVEL_DIV))),
   };
 }
