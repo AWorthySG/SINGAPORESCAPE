@@ -3387,6 +3387,8 @@ test('champion monsters have 150x a normal monster\'s life (50x the old 3x)', as
   assert.equal(CHAMPION_HP_MULT, 150);
   assert.equal(n.maxHp, Math.round(hp0 * 150));
   assert.equal(n.hp, n.maxHp);
+});
+
 test('mercenaries and A-Worthlings can land critical hits too', async () => {
   const { NPC } = await import('../src/game/npc.js');
   const Mercs = await import('../src/game/mercenary.js');
