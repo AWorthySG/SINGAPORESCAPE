@@ -31,6 +31,8 @@ function applySpawnOpts(base, opts) {
 // Champions: a rare, gold-outlined, tougher version of a normal monster with
 // better loot. Ghostly monsters turn champion far more often after dark.
 export const CHAMPION_CHANCE = 0.04;
+// A champion has 150x a normal monster's life (50x the old 3x): a real mini-boss.
+export const CHAMPION_HP_MULT = 150;
 export const NIGHT_FAMILIES = new Set(['ghost', 'undead', 'wisp', 'bat']);
 
 // A world NPC. Monsters fight/wander; townsfolk just wander or stand still.
@@ -81,7 +83,7 @@ export class NPC extends Character {
     this.maybeChampion(false);
   }
 
-  /** Roll whether this spawn is a champion (x3 life, harder hits, bigger, better loot). */
+  /** Roll whether this spawn is a champion (x150 life, harder hits, bigger, better loot). */
   maybeChampion(night) {
     // Hand-placed spawns (tamed starter monsters etc.) never turn champion.
     if (!this.def.attackable || this.def.boss || this.temporary || this._spawnOpts || (this.def.level || 1) < 3) return false;
@@ -94,7 +96,7 @@ export class NPC extends Character {
   makeChampion() {
     const d = this.def;
     this.champion = true;
-    this.def = { ...d, name: `Champion ${d.name}`, maxHp: Math.round((d.maxHp || 1) * 3),
+    this.def = { ...d, name: `Champion ${d.name}`, maxHp: Math.round((d.maxHp || 1) * CHAMPION_HP_MULT),
       maxHit: Math.max(2, Math.round((d.maxHit || 1) * 1.5)), attack: Math.round((d.attack || 1) * 1.25),
       defence: Math.round((d.defence || 1) * 1.25), scale: (d.scale || 1) * 1.25, champion: true };
     this.maxHp = this.def.maxHp;

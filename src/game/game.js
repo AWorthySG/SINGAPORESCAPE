@@ -2147,7 +2147,7 @@ export class Game {
       this.equipment.upgrades[id] = Q.level;
       this.equipment._changed();
       this.msg(`${Q.label} ${name}! Your ${name.toLowerCase()} is now +${Q.level}.`, 'level');
-      if (q === 'legendary') this.banner(`<span class="big">Legendary drop!</span>${name} +${Q.level}`);
+      if (q === 'legendary' || q === 'mythic') this.banner(`<span class="big">${Q.label} drop!</span>${name} +${Q.level}`);
     } else {
       this.msg(`${Q.label} ${name} (yours is already +${lv}).`, 'system');
     }
