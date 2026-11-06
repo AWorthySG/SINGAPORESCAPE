@@ -1731,7 +1731,7 @@ test('champion monsters: tougher, gold-ringed, and drop much more', () => {
   const hp0 = n.maxHp;
   n.makeChampion();
   assert.ok(n.champion && n.name.startsWith('Champion '));
-  assert.equal(n.maxHp, hp0 * 3);
+  assert.equal(n.maxHp, hp0 * 150);
   assert.ok((n.def.scale || 1) > 1);
   // Champions roll their drop table three times (plus bones).
   let ground = 0;
@@ -3145,6 +3145,9 @@ test('drops: rarer gear from normal monsters, quality rolls, and bosses always d
   const { rollQuality, QUALITY } = await import('../src/game/loot.js');
   assert.equal(rollQuality('boss', () => 0.99), 'superior', 'bosses give at least Superior');
   assert.equal(rollQuality('boss', () => 0.05), 'legendary');
+  assert.equal(rollQuality('boss', () => 0.01), 'mythic', 'bosses can drop +15 gear');
+  assert.equal(rollQuality('normal', () => 0.0005), 'mythic', 'even normal monsters, very rarely');
+  assert.equal(QUALITY.mythic.level, 15);
   assert.equal(rollQuality('normal', () => 0.9), null, 'most normal drops have no quality');
   assert.equal(rollQuality('normal', () => 0.1), 'fine');
   globalThis.localStorage = fakeStorage();
@@ -3374,4 +3377,14 @@ test('a Berserker rakes swipe marks across the monster on every critical hit', a
   };
   assert.ok(mk('berserker'), 'Berserker crits leave swipe marks');
   assert.ok(!mk('swordsman'), 'other classes do not');
+});
+
+test('champion monsters have 150x a normal monster\'s life (50x the old 3x)', async () => {
+  const { NPC, CHAMPION_HP_MULT } = await import('../src/game/npc.js');
+  const n = new NPC('goblin', 10, 10, 0, {});
+  const hp0 = n.maxHp;
+  n.makeChampion();
+  assert.equal(CHAMPION_HP_MULT, 150);
+  assert.equal(n.maxHp, Math.round(hp0 * 150));
+  assert.equal(n.hp, n.maxHp);
 });
