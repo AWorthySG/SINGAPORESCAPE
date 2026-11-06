@@ -2984,8 +2984,9 @@ export class Game {
     const inWild = wildZone(p.x, p.y);
     let best = null, bestScore = Infinity;
     const cands = [];
-    // Bosses and champions somewhat above your level are still fair game.
-    const canTake = (lvl) => lvl <= Math.max(cl + 15, Math.round(cl * 1.2));
+    // Bosses and champions are fair game at any level now (they used to be
+    // skipped when well above you, which made auto battle look like it ignored them).
+    const canTake = () => true;
     for (const n of this.npcs) {
       if (!n.alive || !n.attackable) continue;
       const d = chebyshev(p.x, p.y, n.x, n.y);
@@ -3020,9 +3021,9 @@ export class Game {
         continue;
       }
       const lvl = n.def.level || 1;
-      // Close by: leave only far-stronger monsters alone. Further out: only
-      // seek monsters around your level, so a hunt is worth the walk.
-      if (d <= 10 ? lvl > cl * 1.5 + 5 : lvl > cl + 8) continue;
+      // Close by: fight anything. Further out: only walk to monsters up to a
+      // little above your level, so a hunt is worth the walk.
+      if (d > 10 && lvl > cl + 20) continue;
       if (!inWild && wildZone(n.x, n.y)) continue;
       // Anything within 8 tiles first, then the rest.
       const tier = (d > 8 ? 50 : 0) - (shootable(n, d) ? 1000 : 0);
