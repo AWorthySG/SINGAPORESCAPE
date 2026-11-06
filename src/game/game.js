@@ -1212,7 +1212,7 @@ export class Game {
   abilityUnlocked(ab) { return this.skills.combatLevel() >= (ab.unlock || 1); }
 
   /** The action-bar abilities for the weapon in hand (Z/X/B swap with the weapon). */
-  currentAbilities() { return abilitiesFor(this.combatMode()); }
+  currentAbilities() { return abilitiesFor(this.combatMode(), this.jobClass); }
 
   /** Hotkey entry point: Z/X/C/V/B resolve against the current weapon's set. */
   activateAbilityKey(key) {
@@ -1227,6 +1227,7 @@ export class Game {
     if (!this.abilityUnlocked(ab)) { this.msg(`${ab.name} unlocks at combat level ${ab.unlock}.`, 'system'); return; }
     if ((this.abilityCd[id] || 0) > 0) { this.msg(`${ab.name} is on cooldown.`, 'system'); return; }
     if (this.adrenaline < ab.cost) { this.msg(`You need ${ab.cost}% adrenaline for ${ab.name}.`, 'system'); return; }
+    if (ab.cls && ab.cls !== this.jobClass) { this.msg(`${ab.name} is a ${CLASS_BY_ID[ab.cls]?.name || ab.cls} ability.`, 'system'); return; }
     if (ab.mode && ab.mode !== this.combatMode()) {
       const need = { melee: 'a melee weapon', ranged: 'a bow', magic: 'a staff' }[ab.mode];
       this.msg(`${ab.name} needs ${need} equipped.`, 'system');
@@ -1277,7 +1278,7 @@ export class Game {
     const ab = ABILITY_BY_ID[this.armedAbility];
     this.armedAbility = null;
     if (!ab || ab.kind !== 'attack' || !this.abilityUnlocked(ab) || this.adrenaline < ab.cost || (this.abilityCd[ab.id] || 0) > 0
-        || (ab.mode && ab.mode !== this.combatMode())) {
+        || (ab.mode && ab.mode !== this.combatMode()) || (ab.cls && ab.cls !== this.jobClass)) {
       this.bus.emit('ability');
       return null;
     }
@@ -1313,7 +1314,14 @@ export class Game {
     perk._echo = mode === 'magic' && bonusHit;
     const hits = Math.min(maxHits, Math.max(spec ? spec.hits || 1 : 1, ab ? ab.hits || 1 : 1)) + (bonusHit && mode !== 'magic' ? 1 : 0);
     const guaranteed = !!(ab && ab.guaranteed);
-    const heal = spec ? spec.heal || 0 : 0;
+    const heal = (spec ? spec.heal || 0 : 0) || (ab ? ab.lifesteal || 0 : 0);
+    // Class ability extras: armour pierce, a wider cleave, a stun once the hit
+    // lands, a brace afterwards, and (Merchant) A-Worthlings called up.
+    if (ab?.pierce) accM /= 1 - Math.min(0.6, ab.pierce);
+    this._abCleave = ab?.cleave || 1;
+    this._abStun = ab?.stun && mode !== 'dance' ? ab.stun : 0;   // the Dancer's whip handles its own stun
+    if (ab?.guard) this.braceTicks = Math.max(this.braceTicks || 0, ab.guard);
+    if (ab?.summon && this.jobClass === 'merchant') for (let k = 0; k < ab.summon; k++) Mercs.spawnFollower(this);
     if (spec) { this.msg(`Special attack: ${spec.name}!`, 'combat'); this.spawnSparkle(this.player, '#ffd24a', 12); }
     if (ab) { this.msg(`Ability: ${ab.name}!`, 'combat'); this.spawnSparkle(this.player, '#ff9a3a', 10); this.bus.emit('sfx', 'spec'); }
     if (weak) this.spawnSparkle(npc, '#9affd0', 6);
@@ -1321,7 +1329,8 @@ export class Game {
     // Say it once per foe: an "Effective!" pop the first time your weapon bites, or "Resisted".
     if (race && npc._raceSaid !== race) { npc._raceSaid = race; this.addHitsplat(npc, 0, { text: race === 'strong' ? 'Effective!' : 'Resisted' }); }
     const lvl = mode === 'ranged' ? this.skills.ranged : mode === 'magic' ? this.skills.magic : mode === 'dance' ? this.skills.agility : this.skills.attack;
-    const critCh = critChance(lvl, this.equipment.bonuses().crit) + (perk.crit || 0) + this.learning.perks().crit;
+    // A `crit` ability makes every one of its hits a critical.
+    const critCh = ab?.crit ? 1 : critChance(lvl, this.equipment.bonuses().crit) + (perk.crit || 0) + this.learning.perks().crit;
     return { accM, dmgM, hits, guaranteed, heal, spec, ability: ab, weak, race, critCh };
   }
 
@@ -1358,6 +1367,12 @@ export class Game {
   }
 
   _applyPlayerHit(npc, dmg, opts = {}) {
+    // A stunning class ability: the foe reels once the blow lands.
+    if (this._abStun && dmg > 0) {
+      const t = this._abStun; this._abStun = 0;
+      npc.windup = 0; npc.attackCooldown = Math.max(npc.attackCooldown || 0, t * 2);
+      this.addHitsplat(npc, 0, { text: 'Stunned!' });
+    }
     // A crit rolled just before this hit: show it as a big red ×2 / ×4 number.
     if (this._pendingCrit && dmg > 0) opts = { ...opts, critX: this._pendingCrit };
     this._pendingCrit = 0;
@@ -1468,7 +1483,9 @@ export class Game {
   /** Melee cleave: up to 3 other foes next to the target take a share of the hit. */
   _cleave(target, dmg) {
     const type = this.weaponType();
-    const share = CLEAVE_SHARE[type];
+    // A class ability can widen the sweep for this one hit.
+    const share = Math.min(1, (CLEAVE_SHARE[type] || 0) * (this._abCleave || 1));
+    this._abCleave = 1;
     if (!share) return;
     let n = 0;
     for (const o of this.npcs) {

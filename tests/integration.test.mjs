@@ -791,6 +791,7 @@ test('weapon-specific skills: a bow swaps in Snapshot, which looses three arrows
   const game = new Game();
   game.start();
   game.chooseStartingStyle('ranged');
+  game.jobClass = null;   // the general ranged set (classes have their own; tested below)
   assert.equal(game.combatMode(), 'ranged');
   const keys = game.currentAbilities().map((a) => a.id);
   assert.deepEqual(keys, ['snapshot', 'piercing_shot', 'brace', 'second_wind', 'arrow_storm']);
@@ -3259,4 +3260,43 @@ test('auto gather picks mining back up after an interruption or once rocks grow 
   const ore0 = g.inventory.count('copper_ore');
   for (let i = 0; i < 200; i++) g.update(600);
   assert.ok(g.inventory.count('copper_ore') >= ore0 + 10, `picked mining back up: ${g.inventory.count('copper_ore') - ore0} more ore`);
+});
+
+test('every class has its own three abilities, and their extra effects work', async () => {
+  const { CLASSES } = await import('../src/data/classes.js');
+  const { abilitiesFor, ABILITIES } = await import('../src/data/abilities.js');
+  const seen = new Set();
+  for (const c of CLASSES) {
+    if (c.id === 'dancer') continue;   // the Dancer keeps the whip set
+    const mode = c.style;
+    const set = abilitiesFor(mode, c.id);
+    const own = set.filter((a) => a.cls === c.id).map((a) => a.key).sort();
+    assert.deepEqual(own, ['B', 'X', 'Z'], `${c.name} has its own Z, X and B`);
+    for (const a of set.filter((x) => x.cls)) { assert.ok(!seen.has(a.id), `${a.id} is unique`); seen.add(a.id); assert.ok(a.desc && a.art, `${a.id} has a description and art`); }
+  }
+  assert.equal(new Set(ABILITIES.map((a) => a.id)).size, ABILITIES.length, 'ability ids are unique');
+  // A Rogue's Backstab always crits; a Merchant's favour calls up an A-Worthling.
+  const { NPC } = await import('../src/game/npc.js');
+  const Mercs = await import('../src/game/mercenary.js');
+  const mk = (cls) => {
+    globalThis.localStorage = fakeStorage(); clearSave();
+    const g = new Game(); g.start(); g.chooseClass(cls);
+    g.ui = new Proxy({}, { get: () => () => {} });
+    const t = new NPC('goblin', g.player.x + 1, g.player.y, 0, {});
+    t.hp = t.maxHp = 999999; t.def = { ...t.def, aggressive: false, maxHit: 0 };
+    g.npcs = [t]; g.adrenaline = 100;
+    return { g, t };
+  };
+  const r = mk('rogue');
+  assert.deepEqual(r.g.currentAbilities().map((a) => a.id), ['backstab', 'twin_fangs', 'brace', 'second_wind', 'assassinate']);
+  r.g.activateAbility('backstab');
+  r.g.player.attackCooldown = 0; r.g.doPlayerAttack(r.t);
+  assert.ok(r.g.effects.some((e) => e.type === 'hitsplat' && e.critX >= 2), 'Backstab lands a critical');
+  const m = mk('merchant');
+  m.g.activateAbility('call_a_favour');
+  m.g.player.attackCooldown = 0; m.g.doPlayerAttack(m.t);
+  assert.ok(Mercs.activeFollowers(m.g).length >= 1, 'Call in a Favour summons an A-Worthling');
+  // Another class's ability can't be used.
+  m.g.adrenaline = 100; m.g.activateAbility('backstab');
+  assert.notEqual(m.g.armedAbility, 'backstab');
 });

@@ -6,6 +6,7 @@
    Exported as an ES module for the live game (ground items raster to <img>).
    ============================================================================ */
 import { CROPS, POTIONS } from '../data/trades.js';
+import { ABILITY_BY_ID } from '../data/abilities.js';
   const OL = '#22304A';                 // A-Worthy navy ink outline
   // palettes
   const C = {
@@ -832,7 +833,8 @@ import { CROPS, POTIONS } from '../data/trades.js';
   /** Combat-skill (action bar) icon: mascot artwork, or a stickered vector for
    *  any ability still waiting on artwork (listed in ABILITY_SVG). */
   const ABILITY_SVG = {};
-  export const abilityIconHTML = (id, size = 34, cls) => (ABILITY_SVG[id] ? svg(ABILITY_SVG[id], size, cls) : artImg(`ability-${id}`, size, cls));
+  // Class abilities reuse an existing ability's artwork (`art`) until they get their own.
+  export const abilityIconHTML = (id, size = 34, cls) => (ABILITY_SVG[id] ? svg(ABILITY_SVG[id], size, cls) : artImg(`ability-${ABILITY_BY_ID[id]?.art || id}`, size, cls));
   // Side-panel tabs that have a real A-Worthy mascot icon use the artwork;
   // the rest keep their stickered vector until artwork exists.
   const TAB_ART = new Set(['inventory', 'equipment', 'skills', 'combat', 'prayer', 'quests', 'achievements', 'settings']);
