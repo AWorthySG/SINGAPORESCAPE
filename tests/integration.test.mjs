@@ -438,7 +438,7 @@ test("the mystic's trial trades death runes for the ancient staff", () => {
   assert.ok(game.inventory.has('ancient_staff'));
 });
 
-test('high-tier wave spells can be cast with blood runes', () => {
+test('an old saved wave spell casts as its element (Fire) at high Magic', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
   const game = new Game();
@@ -447,7 +447,7 @@ test('high-tier wave spells can be cast with blood runes', () => {
   game.skills.addXp('magic', 5_000_000); // high Magic level
   game.equipment.set('weapon', 'ancient_staff');
   game.player.spell = 'fire_wave';
-  game.inventory.add('fire_rune', 50); game.inventory.add('air_rune', 50); game.inventory.add('blood_rune', 20);
+  game.inventory.add('fire_rune', 50); game.inventory.add('air_rune', 50); game.inventory.add('mind_rune', 20);
   assert.equal(game.combatMode(), 'magic');
   const chicken = game.npcs.find((n) => n.npcId === 'chicken');
   // A sturdy target takes several casts, so the Rune Saver perk (a free cast now
@@ -456,7 +456,7 @@ test('high-tier wave spells can be cast with blood runes', () => {
   game.player.x = game.player.tx = chicken.x + 3; game.player.y = game.player.ty = chicken.y;
   game.attackNpc(chicken);
   step(game, 40);
-  assert.ok(game.inventory.count('blood_rune') < 20, 'blood runes were consumed by the wave spell');
+  assert.ok(game.inventory.count('mind_rune') < 20, 'runes were spent casting Fire');
 });
 
 test('lobster and the new fish can be cooked (cooking gap closed)', () => {
@@ -3491,40 +3491,70 @@ test('Sell gear for other classes: sells other weapons, armour, accessories and 
   assert.equal(s.unrelatedToClass('bronze_arrow'), true);
 });
 
-test('spell elements: wind casts faster, water freezes, earth hits wider, fire burns', async () => {
+test('one spell per element: wind casts 2x faster, water slows and casts 30% faster, earth hits 5 tiles, fire 50% harder', async () => {
   const { NPC } = await import('../src/game/npc.js');
+  const { getSpell, SPELLS } = await import('../src/data/magic.js');
+  const { playerMagicVsNpc } = await import('../src/game/combat.js');
   globalThis.localStorage = fakeStorage(); clearSave();
   const g = new Game(); g.start(); g.chooseStartingStyle('magic');
   g.ui = new Proxy({}, { get: () => () => {} });
   for (const r of ['fire_rune', 'water_rune', 'earth_rune', 'air_rune', 'mind_rune']) g.inventory.add(r, 5000);
   g.skills.xp.magic = 50000000;
+  assert.deepEqual(SPELLS.map((s) => s.element), ['wind', 'water', 'earth', 'fire']);
+  assert.equal(getSpell('fire_wave').id, 'fire_strike', 'an old saved tier becomes its element');
   const p = g.player;
   const foe = (dx, dy = 0) => { const n = new NPC('goblin', p.x + dx, p.y + dy, 0, {}); n.maxHp = n.hp = 1e7; n.def = { ...n.def, defence: 0 }; return n; };
   const cast = (spell, target) => {
-    p.spell = spell; p.attackCooldown = 0;
-    for (let i = 0; i < 40; i++) { const before = target.hp; g._magicAttack(target); if (target.hp < before) return p.attackCooldown; p.attackCooldown = 0; }
+    p.spell = spell;
+    for (let i = 0; i < 60; i++) { p.attackCooldown = 0; const before = target.hp; g._magicAttack(target); if (target.hp < before) return p.attackCooldown; }
     assert.fail(`${spell} never hit`);
   };
-  // Wind casts quicker than fire.
+  // Cast speeds: wind half of earth's, water 1/1.3 of it.
   const t = foe(2); g.npcs = [t];
-  assert.ok(cast('wind_strike', t) < cast('fire_strike', t), 'wind recovers faster');
-  // Earth reaches 3 tiles from the target, fire only 2.
-  const main = foe(2), far = foe(5); g.npcs = [main, far];
-  const farHp = far.hp; cast('fire_strike', main);
-  assert.equal(far.hp, farHp, 'fire splash stops at 2 tiles');
-  g._burns = [];
+  const earthCd = cast('earth_strike', t), windCd = cast('wind_strike', t), waterCd = cast('water_strike', t);
+  assert.ok(Math.abs(windCd - earthCd * 0.5) < 0.01, `wind ${windCd} vs earth ${earthCd}`);
+  assert.ok(Math.abs(waterCd - earthCd / 1.3) < 0.01, `water ${waterCd} vs earth ${earthCd}`);
+  // Fire hits 50% harder than the others.
+  const max = (id) => playerMagicVsNpc(g.skills, g.equipment, getSpell(id), { defence: 1 }).max;
+  assert.ok(Math.abs(max('fire_strike') / max('wind_strike') - 1.5) < 0.05, 'fire is 1.5x');
+  // Earth reaches 5 tiles from the target; others 2.
+  const main = foe(2), far = foe(7); g.npcs = [main, far];
+  const farHp = far.hp; cast('wind_strike', main);
+  assert.equal(far.hp, farHp, 'wind splash stops at 2 tiles');
   cast('earth_strike', main);
-  assert.ok(far.hp < farHp, 'earth splash reaches 3 tiles');
-  // Fire burns for 3 ticks.
-  const b = foe(2); g.npcs = [b]; g._burns = [];
-  cast('fire_strike', b);
-  const hp0 = b.hp;
-  g._tickBurns(); g._tickBurns(); g._tickBurns(); g._tickBurns();
-  assert.ok(b.hp < hp0, 'the burn hurts after the cast');
-  assert.equal(g._burns.length, 0, 'and ends after 3 ticks');
-  // Water freezes within a handful of hits.
+  assert.ok(far.hp < farHp, 'earth splash reaches 5 tiles');
+  // Water slows: the foe walks and attacks slower, then recovers.
   const w = foe(2); g.npcs = [w];
-  let frozen = false;
-  for (let i = 0; i < 60 && !frozen; i++) { w.attackCooldown = 0; cast('water_strike', w); frozen = w.attackCooldown >= 7; }
-  assert.ok(frozen, 'water froze the target');
+  const step0 = w.stepMul;
+  cast('water_strike', w);
+  assert.ok(w.slowTicks > 0 && w.stepMul > step0, 'slowed');
+  for (let i = 0; i < 6; i++) w._combatAI(g);
+  assert.equal(w.stepMul, step0, 'the slow wears off');
+});
+
+test('area hits roll their own crits (melee cleave, spell splash)', async () => {
+  const { NPC } = await import('../src/game/npc.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseStartingStyle('magic');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g._aoeCritCh = 1;   // every area hit crits
+  const c = g._aoeCrit(10);
+  assert.ok(c.critX >= 2 && c.dmg >= 20, 'a crit doubles or quadruples the area hit');
+  g._aoeCritCh = 0;
+  assert.deepEqual(g._aoeCrit(10), { dmg: 10, critX: 0 });
+  // Spell splash shows crit hitsplats when crits are certain.
+  g.inventory.add('fire_rune', 500);
+  const p = g.player;
+  const main = new NPC('goblin', p.x + 2, p.y, 0, {}), side = new NPC('goblin', p.x + 3, p.y, 0, {});
+  for (const n of [main, side]) { n.maxHp = n.hp = 1e7; n.def = { ...n.def, defence: 0 }; }
+  g.npcs = [main, side];
+  g.perkMods = () => ({ crit: 1 });
+  g._offensiveMods = ((orig) => function (...a) { const m = orig.apply(this, a); return { ...m, critCh: 1 }; })(g._offensiveMods);
+  let hit = false;
+  for (let i = 0; i < 40 && !hit; i++) {
+    p.attackCooldown = 0; g.effects = [];
+    g._magicAttack(main);
+    hit = g.effects.some((e) => e.type === 'hitsplat' && e.entity === side && e.critX >= 2);
+  }
+  assert.ok(hit, 'the splashed foe took a crit');
 });

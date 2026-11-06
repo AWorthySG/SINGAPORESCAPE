@@ -671,7 +671,6 @@ export class Game {
       this._autoPickup();
     }
     this._resolveHazards();
-    this._tickBurns();
     if (this.killStreak && this.tickCount - this._lastKillTick > STREAK_WINDOW_TICKS) {
       this.msg(`Your kill streak of ${this.killStreak} ends.`, 'system');
       this.killStreak = 0; this.bus.emit('xpbonus');
@@ -1138,10 +1137,11 @@ export class Game {
     const fancy = mods.spec || mods.ability;
     this._slash(npc, fancy ? '#ffd24a' : '#eef2f6');
     this.bus.emit('sfx', 'swish');
-    let total = 0;
+    let total = 0, raw = 0;   // raw: before crits, so each cleaved foe rolls its own
     for (let i = 0; i < mods.hits && npc.hp > 0; i++) {
       const effMax = Math.max(1, Math.round(baseMax * mods.dmgM));
       let dmg = mods.guaranteed ? rollGuaranteed(effMax) : rollAttack(atkRoll * pm.att * mods.accM, defRoll, effMax);
+      raw += dmg;
       const c = this._critHit(dmg, mods.critCh); dmg = c.dmg;
       this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax) });
       if (dmg > 0) { this.spawnHitSparks(npc, (c.crit || fancy) ? '#ffd24a' : '#fff2b0'); for (const x of combatXp(this.player.style, dmg)) this.skills.addXp(x.skill, x.xp * this.combatXpMult()); }
@@ -1154,11 +1154,11 @@ export class Game {
       this._slash(npc, '#cfe8ff');
       this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && dmg >= offMax });
       if (dmg > 0) { this.spawnHitSparks(npc, '#e6f2ff'); for (const x of combatXp(this.player.style, dmg)) this.skills.addXp(x.skill, x.xp * this.combatXpMult()); }
-      total += dmg;
+      total += dmg; raw += dmg;
     }
     // Cleave: every melee weapon but the quick ones (scimitars, claws) sweeps
     // through the foes crowding the target, heavy weapons hardest.
-    if (total > 0) this._cleave(npc, total);
+    if (total > 0) this._cleave(npc, raw);
     if (mods.heal && total > 0) {
       this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.round(total * mods.heal));
       this.bus.emit('hp');
@@ -1370,12 +1370,23 @@ export class Game {
     // A crit doubles the blow, or (one time in four) quadruples it; crit damage
     // from gear adds on top. The next hitsplat shows it big and red.
     this._pendingCrit = 0;
+    this._aoeCritCh = critCh;   // area hits that follow roll their own crits at this chance
     if (dmg > 0 && Math.random() < critCh) {
       const mult = Math.random() < MEGA_CRIT_CHANCE ? MEGA_CRIT_MULT : CRIT_MULT;
       this._pendingCrit = mult;
       return { dmg: Math.max(dmg + 1, Math.round(dmg * (mult + this.equipment.bonuses().critDmg / 100))), crit: true, mult };
     }
     return { dmg, crit: false, mult: 1 };
+  }
+
+  /** An area hit (cleave, splash, ricochet) rolls its own crit at the main
+   *  attack's crit chance: returns the damage and the hitsplat's ×2 / ×4 tag. */
+  _aoeCrit(dmg) {
+    if (dmg > 0 && Math.random() < (this._aoeCritCh || 0)) {
+      const mult = Math.random() < MEGA_CRIT_CHANCE ? MEGA_CRIT_MULT : CRIT_MULT;
+      return { dmg: Math.max(dmg + 1, Math.round(dmg * (mult + this.equipment.bonuses().critDmg / 100))), critX: mult };
+    }
+    return { dmg, critX: 0 };
   }
 
   _applyPlayerHit(npc, dmg, opts = {}) {
@@ -1509,11 +1520,12 @@ export class Game {
       if (o === target || !o.alive || !o.attackable || o.temporary || o.hp <= 0) continue;
       if (o.def.fixed && o.target !== this.player) continue;     // story bosses aren't dragged in
       if (chebyshev(o.x, o.y, target.x, target.y) > 1 || chebyshev(o.x, o.y, this.player.x, this.player.y) > this.attackRange() + 1) continue;
-      const d = Math.min(o.hp, Math.max(1, Math.round(dmg * share)));
+      const c = this._aoeCrit(Math.max(1, Math.round(dmg * share)));
+      const d = Math.min(o.hp, c.dmg);
       o.takeDamage(d);
       // Cleave damage earns combat XP like any other hit.
       for (const x of combatXp(this.player.style, d)) this.skills.addXp(x.skill, x.xp * this.combatXpMult());
-      this.addHitsplat(o, d, { tint: '#ffb347' });
+      this.addHitsplat(o, d, { tint: '#ffb347', critX: c.critX });
       this.spawnHitSparks(o, '#ffd9a0');
       if (!o.target) o.target = this.player;
       if (o.hp <= 0) this.killNpc(o);
@@ -1525,8 +1537,9 @@ export class Game {
   _perkSplash(from, dmg) {
     const other = this.npcs.find((n) => n !== from && n.alive && n.attackable && !n.temporary && n.hp > 0 && chebyshev(n.x, n.y, from.x, from.y) <= 3);
     if (!other) return;
+    const c = this._aoeCrit(dmg); dmg = c.dmg;
     other.takeDamage(dmg);
-    this.addHitsplat(other, dmg, { tint: '#f5b82e' });
+    this.addHitsplat(other, dmg, { tint: '#f5b82e', critX: c.critX });
     this.spawnHitSparks(other, '#ffe89a');
     if (!other.target) other.target = this.player;
     if (other.hp <= 0) this.killNpc(other);
@@ -1567,7 +1580,7 @@ export class Game {
     const mods = this._offensiveMods(npc, 'ranged');
     const fancy = mods.spec || mods.ability;
     this._swingToward(this.player, npc.x, npc.y);
-    let total = 0;
+    let total = 0, raw = 0;   // raw: before crits, for the ricochet
     for (let i = 0; i < mods.hits && npc.hp > 0; i++) {
       if (noAmmo) { /* nothing to spend */ } else if (i > 0) { // extra shots consume extra arrows
         const ai = this._bestAmmoIdx();
@@ -1576,6 +1589,7 @@ export class Game {
       } else { this._spendArrow(arrowIdx); }
       const effMax = Math.max(1, Math.round(baseMax * mods.dmgM));
       let dmg = mods.guaranteed ? rollGuaranteed(effMax) : rollAttack(atkRoll * pr * mods.accM, defRoll, effMax);
+      raw += dmg;
       const c = this._critHit(dmg, mods.critCh); dmg = c.dmg;
       this._projectile(npc, (c.crit || fancy) ? '#ffd24a' : tint, shot, mods.hits > 1 ? i - (mods.hits - 1) / 2 : 0);
       this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax) });
@@ -1598,15 +1612,17 @@ export class Game {
         && chebyshev(n.x, n.y, npc.x, npc.y) <= 3 && chebyshev(n.x, n.y, p.x, p.y) <= this.attackRange() + 3
         && !(n.def.fixed && n.target !== p));
       if (o) {
-        const d = Math.min(o.hp, Math.max(1, Math.round(total * 0.6)));
+        const c = this._aoeCrit(Math.max(1, Math.round(raw * 0.6)));
+        const d = Math.min(o.hp, c.dmg);
         o.takeDamage(d);
-        this.addHitsplat(o, d, { tint: '#cfd8e6' });
+        this.addHitsplat(o, d, { tint: '#cfd8e6', critX: c.critX });
         for (const x of combatXpRanged(style, d)) this.skills.addXp(x.skill, x.xp * this.combatXpMult());
         if (!o.target) o.target = p;
         if (o.hp <= 0) this.killNpc(o);
       }
     }
     if (mods.heal && total > 0) { this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.round(total * mods.heal)); this.bus.emit('hp'); }
+    this._mainCritCh = mods.critCh;   // split-shot arrows crit like the main shot
     if (this.skills.ranged >= SPLIT_SHOT_LEVEL) this._splitShot(npc, style, pr);
     const hm = this.equipment.hasteMult();   // haste from gear shortens shots too
     const ws = this.equipment.weaponSpeed();
@@ -1635,7 +1651,7 @@ export class Game {
       const { atkRoll, defRoll, max } = playerRangedVsNpc(this.skills, this.equipment, style, n.def, arrowStr);
       const effMax = Math.max(1, Math.round(max * pr));
       let dmg = rollAttack(atkRoll * pr, defRoll, effMax);
-      const c = this._critHit(dmg, 0); dmg = c.dmg;
+      const c = this._critHit(dmg, this._mainCritCh || 0); dmg = c.dmg;
       this._projectile(n, '#9fe0ff', this._shotKind(wpn), 0);
       this._applyPlayerHit(n, dmg, { crit: dmg > 0 && (c.crit || dmg >= effMax) });
       if (dmg > 0) { this.spawnHitSparks(n, '#9fe0ff'); for (const x of combatXpRanged(style, dmg)) this.skills.addXp(x.skill, x.xp * this.combatXpMult()); }
@@ -1663,9 +1679,11 @@ export class Game {
       if (o === target || !o.alive || !o.attackable || o.ally || o.hp <= 0) continue;
       if (o.def.fixed && o.target !== p) continue;   // story bosses aren't dragged in
       if (chebyshev(o.x, o.y, target.x, target.y) > radius) continue;
-      const d = Math.min(o.hp, dmg);
+      const c = this._aoeCrit(dmg);
+      const d = Math.min(o.hp, c.dmg);
       o.takeDamage(d);
-      this.addHitsplat(o, d, { tint: spell.tint });
+      this.addHitsplat(o, d, { tint: spell.tint, critX: c.critX });
+      if (ELEMENTS[spell.element]?.slowTicks) this._slowFoe(o, ELEMENTS[spell.element].slowTicks);
       this.spawnHitSparks(o, spell.tint);
       xp += d;
       if (!o.target) o.target = p;
@@ -1692,45 +1710,27 @@ export class Game {
     const fancy = mods.spec || mods.ability;
     const effMax = Math.max(1, Math.round(max * mods.dmgM));
     let dmg = mods.guaranteed ? rollGuaranteed(effMax) : rollAttack(atkRoll * this.prayerMult().magic * mods.accM, defRoll, effMax);
+    const raw = dmg;   // the splash rolls its own crits
     const c = this._critHit(dmg, mods.critCh); dmg = c.dmg;
     this._swingToward(this.player, npc.x, npc.y);
     this._projectile(npc, (c.crit || fancy) ? '#e0a0ff' : spell.tint, 'bolt');
     this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax) });
     this.skills.addXp('magic', spell.xp * this.combatXpMult());
     if (dmg > 0) { const m = this.combatXpMult(); this.spawnHitSparks(npc, spell.tint); this.skills.addXp('magic', dmg * 2 * m); this.skills.addXp('defence', dmg * 1.33 * m); this.skills.addXp('hitpoints', dmg * 1.33 * m); }
-    if (dmg > 0) this._spellSplash(npc, dmg, spell);
+    if (dmg > 0) this._spellSplash(npc, raw, spell);
     const el = ELEMENTS[spell.element] || {};
-    // Water's Freeze: the target can't strike back for a moment.
-    if (dmg > 0 && npc.hp > 0 && el.freezeChance && Math.random() < el.freezeChance) {
-      npc.windup = 0; npc.attackCooldown = Math.max(npc.attackCooldown || 0, el.freezeBeats);
-      this.addHitsplat(npc, 0, { text: 'Frozen!' }); this.spawnSparkle(npc, '#9fe6ff', 6);
-    }
-    // Fire's Burn: a share of the hit again on each of the next few ticks.
-    if (dmg > 0 && npc.hp > 0 && el.burnShare) {
-      this._burns = (this._burns || []).filter((b) => b.npc !== npc);
-      this._burns.push({ npc, dmg: Math.max(1, Math.round(dmg * el.burnShare)), ticks: el.burnTicks });
-    }
-    // Spells come off a staff a beat quicker than its swing speed; Wind's Gale quicker still.
+    if (dmg > 0 && el.slowTicks) this._slowFoe(npc, el.slowTicks);   // Water's Tide
+    // Spells come off a staff a beat quicker than its swing speed; Wind and Water quicker still.
     const hm = this.equipment.hasteMult();
     this._resetCooldown(Math.max(hm, this.equipment.weaponSpeed() - hm) * (el.castSpeed || 1));
     this._postAttack(npc);
   }
 
-  /** Fire spells leave their target burning: damage each tick, with Magic XP. */
-  _tickBurns() {
-    if (!this._burns?.length) return;
-    const m = this.combatXpMult();
-    for (const b of this._burns) {
-      const n = b.npc;
-      if (!n.alive || n.hp <= 0) { b.ticks = 0; continue; }
-      const d = Math.min(n.hp, b.dmg);
-      n.takeDamage(d);
-      this.addHitsplat(n, d, { tint: '#ff7a3a' });
-      this.skills.addXp('magic', d * 2 * m); this.skills.addXp('defence', d * 1.33 * m); this.skills.addXp('hitpoints', d * 1.33 * m);
-      b.ticks--;
-      if (n.hp <= 0) this.killNpc(n);
-    }
-    this._burns = this._burns.filter((b) => b.ticks > 0);
+  /** Water's Tide: the foe moves and attacks slower for a few ticks (see NPC.slowTicks). */
+  _slowFoe(npc, ticks) {
+    if (!npc.alive || npc.hp <= 0) return;
+    if (!npc.slowTicks) { npc._baseStepMul = npc.stepMul; npc.stepMul = npc.stepMul * 1.6; this.spawnSparkle(npc, '#9fe6ff', 4); }
+    npc.slowTicks = Math.max(npc.slowTicks || 0, ticks);
   }
 
   /** The rune an equipped elemental staff supplies without limit (or null). */
