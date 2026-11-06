@@ -34,8 +34,24 @@ export function swingBeats(id) {
   const melee = (eq?.combatType || 'melee') === 'melee' ? 0.5 : 1;   // melee swings twice as fast
   if (eq?.weaponType === 'scimitar' || eq?.weaponType === 'claws') return 0.7 * melee;   // quick weapons
   if (eq?.weaponType === 'pistol') return 0.25;
-  if (eq?.weaponType === 'shuriken') return 0.5;
+  if (eq?.weaponType === 'shuriken' || eq?.weaponType === 'shortbow') return 0.5;
   return Math.max(1, (eq?.bonuses?.speed || 5) - 3) * melee;
+}
+
+/** How good a piece is for YOU right now: its stats with its upgrade level,
+ *  counting only the attack stats your fighting style uses (a melee amulet is
+ *  worth nothing to an archer but its Defence). Weapons count damage per beat. */
+export function effectiveRating(id, equipment, mode = 'melee') {
+  const eq = getItem(id).equip;
+  if (!eq) return 0;
+  const b = equipment.itemBonuses ? equipment.itemBonuses(id) : (eq.bonuses || {});
+  const offence = mode === 'ranged' ? (b.ranged || 0) : mode === 'magic' ? (b.magic || 0) + (b.magicStr || 0) * 8
+    : mode === 'dance' ? (b.dance || 0) * 2 : (b.attack || 0) + (b.strength || 0);
+  const styleOk = !eq.style || eq.style === (mode === 'dance' ? 'melee' : mode);
+  const extras = styleOk ? (b.crit || 0) * 2 + (b.pierce || 0) * 2 + (b.critDmg || 0) * 0.5 + (b.haste || 0) * 3 + (b.lifesteal || 0) * 3 + (b.bossDmg || 0) : 0;
+  const support = (b.defence || 0) + (b.hp || 0);
+  if (eq.slot === 'weapon') return Math.round((offence * 2) / swingBeats(id)) + support + extras;
+  return offence + support + extras;
 }
 
 /** A single "how good is this" number. Weapons count damage per swing beat, so

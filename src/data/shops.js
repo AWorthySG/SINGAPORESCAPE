@@ -172,6 +172,11 @@ for (const [metal, qty] of [['bronze', 5], ['iron', 3], ['steel', 2]]) {
   }
 }
 
+// Starter accessories for every style (the cheaper rungs of the ladder).
+for (const id of ['gold_amulet', 'emerald_amulet', 'gold_ring', 'emerald_ring', 'batik_cape', 'trades_cape', 'songket_cape', 'amulet_of_power', 'merdeka_medallion', 'sapphire_amulet', 'sapphire_ring', 'ruby_ring', 'ring_of_kampong', 'warlord_cape', 'garuda_wings', 'revenant_cape']) {
+  if (!SHOPS.general.stock.some((s) => s.id === id)) SHOPS.general.stock.push({ id, qty: 3 });
+}
+
 // Every armour family can buy its first boots and gloves (bronze and iron).
 for (const [metal, qty] of [['bronze', 5], ['iron', 3]]) {
   for (const t of ['boots', 'gauntlets', 'scout_boots', 'scout_gloves', 'hide_boots', 'hide_vambraces', 'mage_boots', 'mage_gloves']) {

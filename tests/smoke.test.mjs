@@ -341,7 +341,9 @@ test('combat is fast-paced: quick weapons swing every tick', () => {
   eq.clearSlot('weapon');
   assert.equal(eq.weaponSpeed(), 1, 'unarmed sped up too');
   eq.set('weapon', 'shortbow');
-  assert.equal(eq.weaponSpeed(), 0.99, 'ranged keeps its beat (bows carry 1% haste of their own)');
+  assert.equal(eq.weaponSpeed(), 0.5, 'shortbows loose twice a beat');
+  eq.set('weapon', 'longbow');
+  assert.equal(eq.weaponSpeed(), 1, 'longbows keep their beat, and hit harder instead');
 });
 
 test('select weapons carry special attacks', () => {
@@ -561,7 +563,7 @@ test('each class wears its own kind of armour, and armour families carry offensi
   // Family stats.
   assert.ok(ITEMS.rune_platebody.equip.bonuses.pierce > 0);
   assert.ok(ITEMS.rune_scout_jerkin.equip.bonuses.critDmg > 0);
-  assert.ok(ITEMS.dragonhide_body.equip.bonuses.haste > 0);
+  assert.ok(ITEMS.dragonhide_body.equip.bonuses.critDmg > 0, 'hide carries crit damage (it used to be haste)');
   assert.ok(ITEMS.mystic_top.equip.bonuses.bossDmg > 0);
   assert.ok(ITEMS.golden_dancer_top.equip.bonuses.lifesteal > 0);
 });
@@ -582,7 +584,7 @@ test('existing weapons, jewellery and boss uniques carry the new offensive stats
   const { OFFENCE_KEYS, OFFENCE_CAPS } = await import('../src/game/equipment.js');
   const { upgradedBonuses } = await import('../src/game/upgrade.js');
   const has = (id, k) => (ITEMS[id].equip.bonuses[k] || 0) > 0;
-  assert.ok(has('bronze_dagger', 'critDmg') && has('rune_mace', 'pierce') && has('eternal_pistol', 'haste'));
+  assert.ok(has('bronze_dagger', 'critDmg') && has('rune_mace', 'pierce') && has('eternal_pistol', 'critDmg') && has('yew_longbow', 'pierce') && has('yew_shortbow', 'critDmg'));
   assert.ok(has('eternal_staff', 'bossDmg') && has('rune_scimitar', 'lifesteal'));
   assert.ok(ITEMS.eternal_dagger.equip.bonuses.critDmg > ITEMS.bronze_dagger.equip.bonuses.critDmg, 'grows with tier');
   assert.ok(has('diamond_ring', 'critDmg') && has('fire_cape', 'bossDmg') && has('tiger_kris', 'critDmg') && has('granite_maul', 'pierce'));
@@ -624,6 +626,6 @@ test('style accessories only lend their crit and offensive stats to their own st
   assert.ok(melee.crit > 0 && melee.bossDmg > 0, 'a melee fighter gets the melee cape\'s extras');
   eq.set('weapon', 'shortbow');
   const ranged = eq.bonuses();
-  assert.equal(ranged.crit, 0); assert.equal(ranged.bossDmg, 0); assert.equal(ranged.critDmg, 0);
+  assert.equal(ranged.crit, 0); assert.equal(ranged.bossDmg, 0); assert.equal(ranged.critDmg, ITEMS.shortbow.equip.bonuses.critDmg || 0, 'only the bow\'s own crit damage');
   assert.equal(ranged.defence, melee.defence - (ITEMS.bronze_sword.equip.bonuses.defence || 0) + (ITEMS.shortbow.equip.bonuses.defence || 0), 'Defence still counts');
 });

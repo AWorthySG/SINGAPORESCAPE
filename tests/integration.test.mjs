@@ -1322,7 +1322,9 @@ test('boss "summon" adds are exempt from the aggro cap so the encounter mechanic
   boss.x = game.player.x - 1; boss.y = game.player.y;
   game.player.hp = 99999;   // the move's strikes can't kill you before the summon (that made this test flaky)
 
+  const blocked = game.world.isBlocked; game.world.isBlocked = () => false; // the summon tiles can't be walls
   game.bossSpecial(boss);
+  game.world.isBlocked = blocked;
   const adds = game.npcs.filter((n) => n.temporary && n.alive);
   assert.ok(adds.length >= 1, 'the boss summons at least one add regardless of the aggro cap');
 
@@ -2978,7 +2980,7 @@ test('class armour: equipping is limited to your family; offensive stats change 
   assert.ok(eq.bonuses().critDmg > 0, 'scout leather adds crit damage');
   // Haste shortens attack time; lifesteal heals on hit.
   const base = eq.weaponSpeed();
-  eq.set('legs', 'eternalhide_chaps');          // set directly: just to test the stat
+  eq.set('cape', 'batik_cape');                 // a melee cape with haste
   assert.ok(eq.weaponSpeed() < base, 'haste makes attacks faster');
   eq.set('legs', 'golden_dancer_skirt');
   const mob = game.spawnNpc(game.npcs.find((n) => n.def.attackable && !n.def.boss).npcId, game.player.x + 1, game.player.y, { wander: 0 });
@@ -3424,4 +3426,47 @@ test('auto mining walks the player from rock to rock, including other rocks they
   for (const o of g.world.objects) if (o.objId === 'copper_rock') o.depleted = true;
   const next = g._nextGatherNode('copper_rock');
   if (next) assert.equal(next.def.skill, 'mining', 'another rock of the same skill');
+});
+
+test('shortbows fire twice as fast as longbows; longbows hit 60% harder', async () => {
+  const { Equipment } = await import('../src/game/equipment.js');
+  const eq = new Equipment();
+  eq.set('weapon', 'yew_shortbow'); const sb = eq.weaponSpeed();
+  eq.set('weapon', 'yew_longbow'); const lb = eq.weaponSpeed();
+  assert.ok(sb < lb * 0.6, `shortbow ${sb} beats vs longbow ${lb}`);
+});
+
+test('every amulet, ring and cape can be found: monster drops by level, shops, and boss drops for your style', async () => {
+  const { ACCESSORY_STYLE, accessoriesFor } = await import('../src/data/items.js');
+  const { NPCS } = await import('../src/data/npcs.js');
+  const { SHOPS } = await import('../src/data/shops.js');
+  const sources = new Set(Object.values(SHOPS).flatMap((s) => s.stock.map((x) => x.id)));
+  for (const d of Object.values(NPCS)) for (const e of d.dropTable || []) if (e.id) sources.add(e.id);
+  for (const id of Object.keys(ACCESSORY_STYLE)) assert.ok(sources.has(id), `${id} can be obtained`);
+  assert.ok(accessoriesFor(1).length > 0 && accessoriesFor(400).length > 0);
+  // A boss always drops an accessory for your fighting style.
+  const { NPC } = await import('../src/game/npc.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('archer');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  let loot = null; g._autoLoot = (l) => { loot = l; };
+  g.rollDrops(new NPC('goblin_warchief', 5, 5, 0, {}));
+  assert.ok(loot.some(([id]) => ACCESSORY_STYLE[id]?.[0] === 'ranged'), 'a ranged accessory for an archer');
+});
+
+test('Equip best in slot counts upgrade levels and only the stats your style uses', () => {
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('swordsman');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.skills.xp.attack = 50000000; g.skills.xp.defence = 50000000;
+  g.inventory.add('iron_sword', 1); g.inventory.add('mithril_sword', 1);
+  g.equipment.upgrades.iron_sword = 15;            // a +15 iron sword beats a plain mithril one
+  g.equipBest();
+  assert.equal(g.equipment.get('weapon'), 'iron_sword', 'the upgraded sword wins');
+  // An archer's amulet slot ignores a melee amulet's attack stats.
+  const a = new Game(); a.start(); a.chooseClass('archer');
+  a.ui = new Proxy({}, { get: () => () => {} });
+  a.inventory.add('ruby_amulet', 1); a.inventory.add('emerald_amulet', 1);
+  a.equipBest();
+  assert.equal(a.equipment.get('amulet'), 'emerald_amulet', 'the ranged amulet, not the stronger melee one');
 });

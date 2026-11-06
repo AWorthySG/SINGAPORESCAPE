@@ -1,10 +1,10 @@
 import { EventBus } from '../core/events.js';
 import { buildWorld } from '../data/world.js';
-import { compareGear, deltaText, gearRating } from './gear.js';
+import { compareGear, deltaText, gearRating, effectiveRating, weaponStyle } from './gear.js';
 import { RARITY, dropRarity, lootDelay, rollUpgrade, qualityFor, NORMAL_GEAR_SKIP } from './loot.js';
 import { dayKey, prevDayKey, makeBounties, streakMult } from './bounty.js';
 import { MAX_UPGRADE, upgradeCost, upgradeChance, upgradedName, RISKY_FROM, STONE as UP_STONE, WARD as UP_WARD } from './upgrade.js';
-import { getItem, MELEE_REACH } from '../data/items.js';
+import { getItem, MELEE_REACH, accessoriesFor } from '../data/items.js';
 import { chebyshev, randInt, weightedPick, capitalize } from '../core/utils.js';
 import {
   TILE, TICK_MS, COMBAT_BEAT_MS, RESPAWN_TICKS, AUTOSAVE_TICKS, DAY_CYCLE_MS,
@@ -80,6 +80,7 @@ const STREAK_WINDOW_TICKS = 50;
 // the amount, and the gear, rare-table and upgrade-material rolls are richer.
 const BOSS_XP_PER_LEVEL = 4000;
 const BOSS_STACK_MULT = 100;
+const LONGBOW_DMG = 1.6;
 // Champions have 50x the life they used to, so their loot scales the same way:
 // stackables x50, 8 table rolls, the rare table twice and a pile of stones.
 const CHAMPION_STACK_MULT = 50;
@@ -1560,7 +1561,8 @@ export class Game {
     const style = this.player.rangedStyle;
     const { atkRoll, defRoll, max } = playerRangedVsNpc(this.skills, this.equipment, style, npc.def, arrowStr);
     const pr = this.prayerMult().ranged;
-    const baseMax = Math.round(max * pr);
+    // Longbows fire half as often as shortbows but each arrow hits 60% harder.
+    const baseMax = Math.round(max * pr * (wpn.weaponType === 'longbow' ? LONGBOW_DMG : 1));
     const mods = this._offensiveMods(npc, 'ranged');
     const fancy = mods.spec || mods.ability;
     this._swingToward(this.player, npc.x, npc.y);
@@ -2082,7 +2084,8 @@ export class Game {
         let pick = weightedPick(def.dropTable);
         if (npc.champion || def.boss) for (let k = 0; pick.nothing && k < 5; k++) pick = weightedPick(def.dropTable);
         // Normal monsters drop gear much less often: most gear rolls become something else.
-        if (normal && !pick.nothing && getItem(pick.id).equip && Math.random() < NORMAL_GEAR_SKIP) {
+        // (Amulets, rings and capes are exempt, so accessories stay easy to find.)
+        if (normal && !pick.nothing && getItem(pick.id).equip && !getItem(pick.id).equip.style && Math.random() < NORMAL_GEAR_SKIP) {
           for (let k = 0; !pick.nothing && getItem(pick.id).equip && k < 6; k++) pick = weightedPick(def.dropTable);
           if (!pick.nothing && getItem(pick.id).equip) continue;
         }
@@ -2103,6 +2106,12 @@ export class Game {
       const nm = getItem(pick.id).name;
       this.msg(`A rare drop! ${q > 1 ? q + ' x ' : ''}${nm}.`, 'level');
       if (getItem(pick.id).value >= 5000) this.banner(`<span class="big">Rare drop!</span>${nm}`);
+    }
+    // Bosses always drop an accessory for your fighting style, and champions half the time.
+    if ((def.boss || (npc.champion && Math.random() < 0.5))) {
+      const mode = this.combatMode() === 'dance' ? 'melee' : this.combatMode();
+      const acc = accessoriesFor(Math.max(1, def.level || 1), mode);
+      if (acc.length) loot.push([acc[Math.floor(Math.random() * acc.length)], 1, 'epic']);
     }
     // Bosses always drop three pieces of gear for your class, of Superior quality or better.
     if (def.boss && this.jobClass) {
@@ -3193,15 +3202,22 @@ export class Game {
    *  a dual-wield off-hand. Returns how many pieces were changed. */
   equipBest() {
     let changed = 0;
+    // Scores include each piece's upgrade level and count only the stats your
+    // fighting style uses, so a +10 iron sword can beat a plain rune one.
+    const mode = this.combatMode();
+    const score = (id) => effectiveRating(id, this.equipment, mode);
     for (let guard = 0; guard < 30; guard++) {
       let best = null;
       this.inventory.slots.forEach((s, i) => {
         if (!s || !this._canEquipNow(s.id)) return;
+        const eq = getItem(s.id).equip;
         // Dual wielders keep their off-hand for a second weapon, not a shield.
-        if (getItem(s.id).equip.slot === 'shield' && canDualWield(this.equipment.get('weapon'))) return;
-        const cmp = compareGear(s.id, this.equipment);
-        if (!cmp || !(cmp.verdict === 'upgrade' || (cmp.verdict === 'empty' && cmp.ratingDelta > 0))) return;
-        if (!best || cmp.ratingDelta > best.gain) best = { i, gain: cmp.ratingDelta };
+        if (eq.slot === 'shield' && canDualWield(this.equipment.get('weapon'))) return;
+        const worn = this.equipment.get(eq.slot);
+        // Keep to the weapon style you fight with (a staff won't replace a sword).
+        if (eq.slot === 'weapon' && worn && weaponStyle(s.id) !== weaponStyle(worn)) return;
+        const gain = score(s.id) - (worn ? score(worn) : 0);
+        if (gain > 0 && (!best || gain > best.gain)) best = { i, gain };
       });
       if (!best) break;
       this.equipItem(best.i);
@@ -3211,10 +3227,9 @@ export class Game {
     const main = this.equipment.get('weapon');
     if (canDualWield(main)) {
       const off = this.equipment.get('shield');
-      const offRating = canDualPair(off, main) ? gearRating(off) : -1;
-      let bi = -1, br = offRating;
+      let bi = -1, br = canDualPair(off, main) ? score(off) : -1;
       this.inventory.slots.forEach((s, i) => {
-        if (s && canDualPair(s.id, main) && this._canEquipNow(s.id) && gearRating(s.id) > br) { bi = i; br = gearRating(s.id); }
+        if (s && canDualPair(s.id, main) && this._canEquipNow(s.id) && score(s.id) > br) { bi = i; br = score(s.id); }
       });
       if (bi >= 0) { this.equipItem(bi, { offhand: true }); changed++; }
     }

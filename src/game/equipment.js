@@ -30,7 +30,8 @@ export const MELEE_SPEED_MULT = 0.5;
 const QUICK_TYPES = new Set(['scimitar', 'claws']);
 // Ranged weapons quicker than any bow: pistols fire about 4 shots a beat (each
 // hand), shurikens 2 throws a beat.
-export const FAST_RANGED = { pistol: 0.25, shuriken: 0.5 };
+// Shortbows loose twice as fast as longbows; longbows hit harder instead (LONGBOW_DMG in game.js).
+export const FAST_RANGED = { pistol: 0.25, shuriken: 0.5, shortbow: 0.5 };
 
 // Worn-equipment state + bonus aggregation.
 export class Equipment {

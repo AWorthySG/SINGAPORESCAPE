@@ -818,7 +818,7 @@ function armourFamily(id, eq) {
 const FAMILY_STAT = {
   plate: (r) => ({ pierce: 1 + Math.floor(r / 30) }),
   leather: (r) => ({ critDmg: 3 * (1 + Math.floor(r / 30)) }),
-  hide: (r) => ({ haste: 1 + Math.floor(r / 40) }),
+  hide: (r) => ({ critDmg: 3 * (1 + Math.floor(r / 30)) }),   // archers' precision (was haste, which did little)
   robes: (r) => ({ bossDmg: 2 * (1 + Math.floor(r / 30)) }),
   dancewear: (r) => ({ lifesteal: 1 + Math.floor(r / 60) }),
 };
@@ -858,11 +858,10 @@ for (const [id, it] of Object.entries(RAW)) {
 // gently with the weapon's level. All in percent, kept well inside the caps
 // in equipment.js so armour, jewellery and weapon can stack together.
 const WEAPON_STAT = {
-  dagger: 'critDmg', claws: 'critDmg', katana: 'critDmg', shuriken: 'critDmg',
-  mace: 'pierce', warhammer: 'pierce', spear: 'pierce', longsword: 'pierce',
+  dagger: 'critDmg', claws: 'critDmg', katana: 'critDmg', shuriken: 'critDmg', shortbow: 'critDmg', pistol: 'critDmg',
+  mace: 'pierce', warhammer: 'pierce', spear: 'pierce', longsword: 'pierce', longbow: 'pierce',
   '2h_sword': 'bossDmg', halberd: 'bossDmg', battleaxe: 'bossDmg', staff: 'bossDmg', wand: 'bossDmg', sword: 'bossDmg',
   scimitar: 'lifesteal', whip: 'lifesteal', cane: 'lifesteal',
-  shortbow: 'haste', longbow: 'haste', pistol: 'haste',
 };
 // Size of one "step" of each stat (critDmg and bossDmg run bigger numbers).
 const STAT_STEP = { critDmg: 3, bossDmg: 2, pierce: 1, haste: 1, lifesteal: 1 };
@@ -928,6 +927,15 @@ export const ACCESSORY_STYLE = {
   trades_cape: ['ranged', 3], garuda_wings: ['ranged', 6], shadow_cloak: ['ranged', 10],
   songket_cape: ['magic', 3], revenant_cape: ['magic', 6], champions_cape: ['magic', 10],
 };
+/** Accessories that suit a monster or boss of this level: the ladder rungs
+ *  around its power band (level 1 drops P 2-3 pieces, level 100 up to P 10ish,
+ *  level 200+ the P 20 ones). Optionally only one fighting style. */
+export function accessoriesFor(level, style = null) {
+  // (minP stops at 7 so the best rings, P 8, and capes, P 10, keep dropping at high levels.)
+  const maxP = 3 + (level || 1) / 12, minP = Math.min(7, maxP * 0.35);
+  return Object.entries(ACCESSORY_STYLE).filter(([, [st, P]]) => P <= maxP && P >= minP && (!style || st === style)).map(([id]) => id);
+}
+
 /** The fighting stats an accessory of `style` and power `P` gives. */
 export function accessoryStats(style, P) {
   if (style === 'ranged') return { ranged: Math.round(P * 1.5) };
