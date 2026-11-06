@@ -820,10 +820,10 @@ test('joystick / WASD movement walks tile by tile, and bare-ground clicks no lon
   const p = game.player;
   const x0 = p.x, y0 = p.y;
   game.setMoveInput(1, 0);              // hold right
-  for (let i = 0; i < 40; i++) game.update(100);   // 4s of walking at 1 tile / 420ms
+  for (let i = 0; i < 40; i++) game.update(100);   // 4s of moving; everyone always runs now (~1 tile / 170ms)
   game.setMoveInput(0, 0);
   for (let i = 0; i < 10; i++) game.update(100);
-  assert.ok(p.x >= x0 + 8 && p.x <= x0 + 12, `walked right (${x0} -> ${p.x})`);
+  assert.ok(p.x >= x0 + 16 && p.x <= x0 + 28, `moved right (${x0} -> ${p.x})`);
   assert.equal(p.y, y0, 'stayed on the same row');
   const xs = p.x;
   for (let i = 0; i < 20; i++) game.update(100);
@@ -1880,7 +1880,7 @@ test('responsive controls: free joystick movement turns and stops at once, act o
   game.npcs = game.npcs.filter((n) => Math.max(Math.abs(n.x - p.x), Math.abs(n.y - p.y)) > 15);
   const x0 = p.x, y0 = p.y;
   game.setMoveInput(1, 0);
-  game.update(16); game.update(150);           // gliding right, part-way across a tile
+  game.update(16); game.update(60);            // gliding right, part-way across a tile
   assert.ok(p.moving && p.fx > x0 + 0.1 && p.fx < x0 + 0.9, 'moves smoothly, not tile by tile');
   const before = p.renderCenter().x;
   game.setMoveInput(-1, 0);

@@ -162,7 +162,7 @@ export class UI {
     }
     this.renderAutoBattle();
 
-    this.el.runOrb.addEventListener('click', () => this.game.toggleRun());
+    this.el.runOrb?.remove();   // no run energy any more: everyone always runs
     this.el.specOrb.addEventListener('click', () => this.game.toggleSpec());
     if (this.el.minimap) { this.el.minimap.style.cursor = 'pointer'; this.el.minimap.title = 'Open world map (M)'; this.el.minimap.addEventListener('click', () => this.openWorldMap()); }
     if (this.el.mapBtn) this.el.mapBtn.addEventListener('click', () => this.openWorldMap());
@@ -1688,7 +1688,6 @@ export class UI {
       return b;
     };
     mk('Save game now', () => { import('../game/save.js').then((m) => { m.saveGame(this.game); this.game.msg('Game saved.', 'system'); }); });
-    mk('Toggle run', () => this.game.toggleRun());
     const soundBtn = mk('', () => {
       const a = this.game.audio;
       if (!a) return;
@@ -1819,6 +1818,7 @@ export class UI {
   }
 
   renderRun() {
+    if (!this.el.runOrb?.isConnected) return;
     (this.el.runOrbVal || this.el.runOrb).textContent = `${Math.round(this.game.runEnergy)}%`;
     this.el.runOrb.classList.toggle('active', this.game.running);
   }
