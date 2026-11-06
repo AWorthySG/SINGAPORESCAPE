@@ -172,6 +172,14 @@ for (const [metal, qty] of [['bronze', 5], ['iron', 3], ['steel', 2]]) {
   }
 }
 
+// Every armour family can buy its first boots and gloves (bronze and iron).
+for (const [metal, qty] of [['bronze', 5], ['iron', 3]]) {
+  for (const t of ['boots', 'gauntlets', 'scout_boots', 'scout_gloves', 'hide_boots', 'hide_vambraces', 'mage_boots', 'mage_gloves']) {
+    const id = `${metal}_${t}`;
+    if (!SHOPS.general.stock.some((s) => s.id === id)) SHOPS.general.stock.push({ id, qty });
+  }
+}
+
 export function getShop(id) {
   const shop = SHOPS[id];
   if (!shop) throw new Error(`Unknown shop id: ${id}`);

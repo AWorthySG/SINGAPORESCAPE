@@ -774,12 +774,34 @@ for (const M of _METALS) {
   }
 }
 
+// ---- Boots and gloves for every armour family ----
+// Metal boots and gauntlets are plate (pure Defence); the other families get
+// their own at every metal tier: scout boots and gloves (Defence, Attack, crit),
+// hide boots and vambraces (Ranged), and mage boots and gloves (Magic).
+const _LIMBS = [
+  ['scout_boots', 'scout boots', 'feet', 0.66, (m) => ({ attack: Math.max(1, Math.round(m * 0.5)), crit: 1 }), 'defence', 'Light studded boots for quick feet.', 26],
+  ['scout_gloves', 'scout gloves', 'hands', 0.66, (m) => ({ attack: Math.max(1, Math.round(m)), crit: 1 }), 'defence', 'Studded leather gloves with a sure grip.', 28],
+  ['hide_boots', 'hide boots', 'feet', 0.6, (m) => ({ ranged: Math.max(1, Math.round(m * 2)) }), 'ranged', 'Soft hide boots for a steady stance.', 26],
+  ['hide_vambraces', 'hide vambraces', 'hands', 0.6, (m) => ({ ranged: Math.max(1, Math.round(m * 3)) }), 'ranged', 'Hide bracers that guard the bow arm.', 30],
+  ['mage_boots', 'mage boots', 'feet', 0.5, (m) => ({ magic: Math.max(1, Math.round(m * 2)) }), 'magic', 'Woven boots humming with quiet power.', 26],
+  ['mage_gloves', 'mage gloves', 'hands', 0.5, (m) => ({ magic: Math.max(1, Math.round(m * 3)), ...(m >= 7 ? { magicStr: 1 } : {}) }), 'magic', 'Silk gloves that steady a casting hand.', 30],
+];
+for (const M of _METALS) {
+  for (const [t, label, slot, defShare, extra, reqSkill, examine, v] of _LIMBS) {
+    const id = `${M.k}_${t}`;
+    if (RAW[id]) continue;
+    RAW[id] = { name: `${M.n} ${label}`, icon: slot === 'feet' ? '🥾' : '🧤', value: Math.round(v * M.v), examine,
+      equip: { slot, req: { [reqSkill]: reqSkill === 'defence' ? M.rd : M.ra }, bonuses: { defence: Math.max(1, Math.round(3 * M.m * defShare)), ...extra(M.m) } } };
+  }
+}
+
 // ---- Armour families ----
 // Each class wears one family of helm, body and legs armour (see ARMOUR_FAMILY in
 // classes.js): plate for heavy melee, scout leather for agile melee, hide for
-// archers, robes for casters and dancewear for the Dancer. Hands, feet, shields,
-// capes and jewellery stay open to everyone, and so do a few special helms.
-export const ARMOUR_SLOTS = ['head', 'body', 'legs'];
+// archers, robes for casters and dancewear for the Dancer, and the matching
+// gloves and boots. Shields, capes and jewellery stay open to everyone, and so
+// do a few special helms.
+export const ARMOUR_SLOTS = ['head', 'body', 'legs', 'hands', 'feet'];
 const ANY_ARMOUR = new Set(['slayer_helmet', 'champions_helm', 'blessed_halo']);
 function armourFamily(id, eq) {
   if (!ARMOUR_SLOTS.includes(eq.slot) || ANY_ARMOUR.has(id)) return null;
