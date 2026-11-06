@@ -1388,7 +1388,11 @@ export class Game {
       this.addHitsplat(npc, 0, { text: 'Stunned!' });
     }
     // A crit rolled just before this hit: show it as a big red ×2 / ×4 number.
-    if (this._pendingCrit && dmg > 0) opts = { ...opts, critX: this._pendingCrit };
+    if (this._pendingCrit && dmg > 0) {
+      opts = { ...opts, critX: this._pendingCrit };
+      // Berserkers rake the foe: three bloody swipe marks across it on every crit.
+      if (this.jobClass === 'berserker') this.effects.push({ type: 'swipe', entity: npc, mega: this._pendingCrit >= 4, ang: (Math.random() - 0.5) * 0.5, life: 520, maxLife: 520 });
+    }
     this._pendingCrit = 0;
     if (npc.shieldTicks > 0 && dmg > 0) dmg = Math.max(1, Math.floor(dmg / 2));   // a boss shield halves the blow
     if (npc.reflectTicks > 0 && dmg > 0 && this.player.alive) {
