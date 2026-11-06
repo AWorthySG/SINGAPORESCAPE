@@ -3323,3 +3323,13 @@ test('spells: every spell hits the area for 100% damage (with XP), and elements 
   assert.equal(far.hp, far.maxHp, 'out of the blast: untouched');
   assert.ok(g.skills.xp.magic - xp0 > 0, 'Magic XP gained');
 });
+
+test('archers always fire their strongest arrows first', () => {
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('archer');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  for (const s of g.inventory.slots) if (s && ITEMS[s.id].tags?.includes('ammo')) g.inventory.remove(s.id, s.qty);
+  g.inventory.add('bronze_arrow', 50);
+  g.inventory.add('rune_arrow', 50);
+  assert.equal(g.inventory.slotAt(g._bestAmmoIdx()).id, 'rune_arrow');
+});
