@@ -1528,11 +1528,23 @@ export class Game {
     this.effects.push({ type: 'lash', x: from.x + (to.x >= from.x ? 8 : -8), y: from.y - 4, ex: to.x, ey: to.y - 8, color, life: 260, maxLife: 260 });
   }
 
+  /** The backpack slot holding your strongest arrows (highest arrow strength),
+   *  so better arrows are always fired first; -1 when you have none. */
+  _bestAmmoIdx() {
+    let best = -1, bs = -1;
+    this.inventory.slots.forEach((sl, i) => {
+      if (!sl || !getItem(sl.id).tags?.includes('ammo')) return;
+      const st = getItem(sl.id).arrowStr || 0;
+      if (st > bs) { bs = st; best = i; }
+    });
+    return best;
+  }
+
   _rangedAttack(npc) {
     // Pistols and shurikens need no ammo; their power comes from the weapon itself.
     const wpn = getItem(this.equipment.get('weapon')).equip;
     const noAmmo = !!wpn.noAmmo;
-    const arrowIdx = noAmmo ? -1 : this.inventory.slots.findIndex((s) => s && getItem(s.id).tags?.includes('ammo'));
+    const arrowIdx = noAmmo ? -1 : this._bestAmmoIdx();
     if (!noAmmo && arrowIdx === -1) { this._outOfAmmo('You have no arrows left.'); this.player.clearAction(); return; }
     const arrowStr = noAmmo ? Math.floor((wpn.bonuses.ranged || 0) / 3) : getItem(this.inventory.slotAt(arrowIdx).id).arrowStr || 0;
     const shot = this._shotKind(wpn);
@@ -1547,7 +1559,7 @@ export class Game {
     let total = 0;
     for (let i = 0; i < mods.hits && npc.hp > 0; i++) {
       if (noAmmo) { /* nothing to spend */ } else if (i > 0) { // extra shots consume extra arrows
-        const ai = this.inventory.slots.findIndex((s) => s && getItem(s.id).tags?.includes('ammo'));
+        const ai = this._bestAmmoIdx();
         if (ai === -1) break;
         this._spendArrow(ai);
       } else { this._spendArrow(arrowIdx); }
@@ -1604,7 +1616,7 @@ export class Game {
     for (const n of extra) {
       let arrowStr = Math.floor((wpn.bonuses.ranged || 0) / 3);
       if (!wpn.noAmmo) {
-        const ai = this.inventory.slots.findIndex((s) => s && getItem(s.id).tags?.includes('ammo'));
+        const ai = this._bestAmmoIdx();
         if (ai === -1) break;
         arrowStr = getItem(this.inventory.slotAt(ai).id).arrowStr || 0;
         this._spendArrow(ai);
