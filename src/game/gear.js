@@ -5,7 +5,7 @@ import { EQUIP_SLOTS } from './equipment.js';
 // compare a piece against what's worn and to rank everything in a slot.
 
 export const STAT_LABELS = {
-  attack: 'Attack', strength: 'Strength', defence: 'Defence', ranged: 'Ranged',
+  attack: 'Attack', strength: 'Melee power', defence: 'Defence', ranged: 'Ranged',
   magic: 'Magic', magicStr: 'Magic dmg', dance: 'Dance', crit: 'Crit %', hp: 'Bonus HP',
   pierce: 'Armour pierce %', critDmg: 'Crit damage %', haste: 'Attack speed %', lifesteal: 'Lifesteal %', bossDmg: 'Boss damage %',
 };
@@ -13,7 +13,7 @@ const STAT_KEYS = Object.keys(STAT_LABELS);
 
 export const STAT_HELP = [
   ['Attack', 'how often your melee hits land'],
-  ['Strength', 'how hard your melee hits are'],
+  ['Melee power', 'how hard your melee hits are (the old Strength bonus)'],
   ['Ranged / Magic', 'accuracy and damage for bows and staves'],
   ['Dance', 'the Dancer\'s accuracy and damage with whips'],
   ['Defence', 'how often enemies miss you'],

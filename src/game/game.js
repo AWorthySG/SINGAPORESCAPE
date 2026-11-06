@@ -27,10 +27,11 @@ import {
   playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX,
 } from './combat.js';
 import { ABILITY_BY_ID, abilitiesFor } from '../data/abilities.js';
+import { classPassiveMods, CLASS_SKILL } from '../data/classPassives.js';
 import { RACES, raceOf, matchup, RACE_BONUS, RACE_PENALTY } from '../data/races.js';
 import { DOT_KINDS } from '../data/bossAbilities.js';
 import { CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, equivalentWeapon, CLEAVE_SHARE, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWear, equivalentArmour, classGearFor } from '../data/classes.js';
-import { STYLE_TRACKS, sumPerks, perkAtLevel, rankName, PERK_SKILLS } from '../data/perks.js';
+import { STYLE_TRACKS, sumPerks, perkAtLevel, rankName, PERK_SKILLS, PERK_CAPS } from '../data/perks.js';
 import { getSpell, SPELLS, ELEMENTS, AOE_RADIUS, elementMatchup } from '../data/magic.js';
 import { xpForLevel } from '../data/xp.js';
 import { PRAYERS, PRAYER_BY_ID, PRAYER_GROUPS } from '../data/prayers.js';
@@ -401,12 +402,19 @@ export class Game {
    *  or for 'defence' alone. Cached until a relevant level changes. */
   perkMods(mode = this.combatMode()) {
     const sk = this.skills;
-    const key = mode + ':' + PERK_SKILLS.map((s) => sk.level(s)).join(',');
+    const key = mode + ':' + (this.jobClass || '') + ':' + PERK_SKILLS.map((s) => sk.level(s)).join(',');
     this._perkCache ||= new Map();
     let m = this._perkCache.get(key);
     if (!m) {
       const tracks = mode === 'defence' ? ['defence'] : [...(STYLE_TRACKS[mode] || STYLE_TRACKS.melee), 'defence'];
       m = sumPerks(tracks, (s) => sk.level(s));
+      // Class passives: one every 100 levels of the class's own fighting skill.
+      const cls = this.jobClass && CLASS_BY_ID[this.jobClass];
+      if (cls) {
+        const cm = classPassiveMods(cls.id, sk.level(CLASS_SKILL[cls.style] || 'attack'));
+        for (const [k, v] of Object.entries(cm)) m[k] = (m[k] || 0) + v;
+        for (const k of Object.keys(m)) if (PERK_CAPS[k] != null) m[k] = Math.min(PERK_CAPS[k], m[k]);
+      }
       if (this._perkCache.size > 64) this._perkCache.clear();
       this._perkCache.set(key, m);
     }
