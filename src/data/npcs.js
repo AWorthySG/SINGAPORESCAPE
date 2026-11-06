@@ -1,4 +1,5 @@
 import { CROPS } from './trades.js';
+import { accessoriesFor } from './items.js';
 import { BOSS_ABILITIES } from './bossAbilities.js';
 // NPC registry. Monsters are generated from archetype "bases" × rank tiers into a
 // 169-strong bestiary (scaled stats + level-tiered drops), plus 15 hand-authored
@@ -68,6 +69,8 @@ function dropsFor(level) {
   const staves = stavesFor(level);
   for (const id of staves) t.push({ id, weight: 14 / staves.length });
   for (const id of robesFor(level)) t.push({ id, weight: 3 });
+  // Amulets, rings and capes of the area's power (all three styles), about 1 kill in 12.
+  { const acc = accessoriesFor(level); for (const id of acc) t.push({ id, weight: 12 / Math.max(1, acc.length) }); }
   for (const r of runesFor(level)) t.push({ id: r.id, min: r.min, max: r.max, weight: r.weight });
   t.push({ id: longbowFor(level), weight: 5 }, { id: wandFor(level), weight: 4 }, { id: tomeFor(level), weight: 2 });
   // Dancer gear: a whip of the area's tier (~1 kill in 18), sometimes the next one up, and outfit pieces.
