@@ -3388,3 +3388,18 @@ test('champion monsters have 150x a normal monster\'s life (50x the old 3x)', as
   assert.equal(n.maxHp, Math.round(hp0 * 150));
   assert.equal(n.hp, n.maxHp);
 });
+
+test('mercenaries and A-Worthlings can land critical hits too', async () => {
+  const { NPC } = await import('../src/game/npc.js');
+  const Mercs = await import('../src/game/mercenary.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('merchant');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  const t = new NPC('goblin', g.player.x + 2, g.player.y, 0, {});
+  t.hp = t.maxHp = 9999999; t.def = { ...t.def, aggressive: false, maxHit: 0 };
+  g.npcs = [t];
+  g.equipment.bonuses = ((orig) => () => ({ ...orig.call(g.equipment), crit: 100 }))(g.equipment.bonuses);   // always crit
+  Mercs.spawnFollower(g);
+  for (let i = 0; i < 20 && !g.effects.some((e) => e.type === 'hitsplat' && e.critX); i++) { g.player.attackCooldown = 99; g.update(600); }
+  assert.ok(g.effects.some((e) => e.type === 'hitsplat' && e.critX >= 2), 'an A-Worthling crit shows as a big red number');
+});
