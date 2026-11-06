@@ -147,6 +147,8 @@ export class NPC extends Character {
 
   _combatAI(game) {
     const player = game.player;
+    // A Water spell's slow wears off.
+    if (this.slowTicks > 0 && --this.slowTicks === 0) this.stepMul = this._baseStepMul || this.stepMul;
     // Acquire a target through aggression. Capped so a pack of wandering
     // monsters can't all pile onto the player unprovoked at once — temporary
     // boss "adds" are exempt since ganging up is their whole point.
@@ -196,7 +198,7 @@ export class NPC extends Character {
             this.attackCooldown = 1;             // the brief pause is the visible tell
           } else {
             game.resolveNpcAttack(this);
-            this.attackCooldown = speed;
+            this.attackCooldown = this.slowTicks > 0 ? Math.round(speed * 1.6) : speed;   // a Water spell slows it
           }
         }
       } else if (!this.isMoving || this.repathCooldown <= 0) {

@@ -21,7 +21,7 @@ import { getDialogue } from '../data/dialogue.js';
 import { ALL_MONSTER_IDS as MONSTER_IDS, ALL_BOSS_IDS as BOSS_IDS, getNpc } from '../data/npcs.js';
 import { levelProgress, xpToNext } from '../data/xp.js';
 import { stackLabel, capitalize, formatNumber } from '../core/utils.js';
-import { RHYTHM_MAX, levelBonuses } from '../game/combat.js';
+import { RHYTHM_MAX, levelBonuses, playerMagicVsNpc } from '../game/combat.js';
 import { classPassives, CLASS_SKILL } from '../data/classPassives.js';
 import { ELEMENTS, SPELLS } from '../data/magic.js';
 import { PRAYERS } from '../data/prayers.js';
@@ -1577,7 +1577,7 @@ export class UI {
         const btn = document.createElement('div');
         btn.className = 'style-btn spell' + (p.spell === sp.id ? ' active' : '');
         const cost = Object.entries(sp.runes).map(([id, q]) => `${q}${id.replace('_rune', '').slice(0, 3)}`).join(' ');
-        btn.innerHTML = `<span class="sp-ic">${spellIconHTML(sp.id, 26)}</span><span class="sp-text">${sp.name}<span class="style-skill">L${sp.level} · max ${sp.maxHit} · ${ELEMENTS[sp.element].icon} ${ELEMENTS[sp.element].name}, area · ${escapeHtml(cost)}</span></span>`;
+        btn.innerHTML = `<span class="sp-ic">${spellIconHTML(sp.id, 26)}</span><span class="sp-text">${sp.name}<span class="style-skill">L${sp.level} · max ${playerMagicVsNpc(this.game.skills, this.game.equipment, sp, { defence: 1 }).max} · ${ELEMENTS[sp.element].icon} area · ${escapeHtml(cost)}<br>${escapeHtml(ELEMENTS[sp.element].effect)}</span></span>`;
         btn.style.opacity = known ? (this.game._hasRunes(sp) ? '1' : '0.65') : '0.35';
         if (known) btn.addEventListener('click', () => { p.spell = sp.id; this.renderCombatPanel(); });
         row.appendChild(btn);
