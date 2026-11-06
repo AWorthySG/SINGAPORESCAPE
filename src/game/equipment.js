@@ -62,6 +62,15 @@ export class Equipment {
     return prev;
   }
 
+  /** Does this accessory's style (melee / ranged / magic) match the weapon in
+   *  hand? Accessories without a style always count. The Dancer's whip counts as melee. */
+  styleFits(id) {
+    const st = getItem(id).equip?.style;
+    if (!st) return true;
+    const mode = this.combatType();
+    return st === (mode === 'dance' ? 'melee' : mode);
+  }
+
   bonuses() {
     const total = { attack: 0, strength: 0, defence: 0, ranged: 0, magic: 0, magicStr: 0, dance: 0, crit: 0, hp: 0,
       pierce: 0, critDmg: 0, haste: 0, lifesteal: 0, bossDmg: 0 };
@@ -69,7 +78,11 @@ export class Equipment {
       const id = this.slots[slot];
       if (!id) continue;
       if (!getItem(id).equip?.bonuses) continue;
-      const b = this.itemBonuses(id);
+      let b = this.itemBonuses(id);
+      // A melee, ranged or magic accessory only lends its crit and offensive
+      // stats (pierce, crit damage, haste, lifesteal, boss damage) when you fight
+      // in that style; its Defence and HP help whatever you fight with.
+      if (!this.styleFits(id)) { b = { ...b, crit: 0 }; for (const k of OFFENCE_KEYS) b[k] = 0; }
       total.attack += b.attack || 0;
       total.strength += b.strength || 0;
       total.defence += b.defence || 0;
@@ -137,7 +150,7 @@ export class Equipment {
 
   _haste() {
     let h = 0;
-    for (const slot of EQUIP_SLOTS) { const id = this.slots[slot]; if (id) h += getItem(id).equip?.bonuses?.haste || 0; }
+    for (const slot of EQUIP_SLOTS) { const id = this.slots[slot]; if (id && this.styleFits(id)) h += getItem(id).equip?.bonuses?.haste || 0; }
     return Math.min(h, OFFENCE_CAPS.haste);
   }
 

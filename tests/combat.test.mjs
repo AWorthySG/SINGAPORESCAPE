@@ -175,6 +175,7 @@ test('equipment crit & HP bonuses aggregate; maxHp reflects HP gear', () => {
   const base = g.maxHp();
   g.equipment.set('cape', 'champions_cape'); // +12 hp, +6 crit
   assert.equal(g.maxHp(), base + 12, 'HP gear raises max hitpoints');
+  g.equipment.set('weapon', 'staff');   // a magic cape: its crit counts for spellcasters
   assert.ok(g.equipment.bonuses().crit >= 6, 'crit gear adds crit chance');
 });
 
