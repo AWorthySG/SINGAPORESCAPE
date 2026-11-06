@@ -546,7 +546,16 @@ test('each class wears its own kind of armour, and armour families carry offensi
   assert.ok(canWear('juggernaut', 'rune_platebody') && !canWear('rogue', 'rune_platebody'));
   assert.ok(canWear('rogue', 'rune_scout_jerkin') && !canWear('wizard', 'rune_scout_jerkin'));
   assert.ok(canWear('wizard', 'mystic_top') && !canWear('archer', 'mystic_top'));
-  assert.ok(canWear('rogue', 'rune_boots'), 'hands, feet, shields and jewellery stay open');
+  // Gloves and boots belong to a family too, and every family has its own at each metal tier.
+  assert.ok(canWear('juggernaut', 'rune_boots') && !canWear('rogue', 'rune_boots'), 'metal boots are plate');
+  for (const [cls, boots, gloves] of [['rogue', 'rune_scout_boots', 'rune_scout_gloves'], ['archer', 'rune_hide_boots', 'rune_hide_vambraces'], ['wizard', 'rune_mage_boots', 'rune_mage_gloves'], ['juggernaut', 'rune_boots', 'rune_gauntlets']]) {
+    assert.ok(canWear(cls, boots) && canWear(cls, gloves), `${cls} has boots and gloves`);
+  }
+  for (const fam of ['plate', 'leather', 'hide', 'robes']) for (const slot of ['hands', 'feet']) {
+    const n = Object.values(ITEMS).filter((it) => it.equip?.family === fam && it.equip.slot === slot).length;
+    assert.ok(n >= 13, `${fam} has ${slot} at every tier (${n})`);
+  }
+  assert.ok(canWear('rogue', 'wooden_shield') || !ITEMS.wooden_shield, 'shields and jewellery stay open');
   assert.ok(canWear('rogue', 'slayer_helmet'), 'special helms are for everyone');
   assert.equal(equivalentArmour('rune_platebody', 'leather'), 'rune_scout_jerkin', 'loot converts to your kind at the same tier');
   // Family stats.

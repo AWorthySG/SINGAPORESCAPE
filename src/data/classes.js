@@ -59,7 +59,7 @@ export function classGearFor(classId, level, rand = Math.random) {
   const req = (x) => Math.max(0, ...Object.values(ITEMS[x].equip.req || {}));
   const pickBest = (ids) => ids.filter((x) => req(x) <= level).sort((a, b) => req(b) - req(a))[0] || ids[0];
   if (rand() < 0.5) return pickBest(weaponsOfType(cls.weapon).filter((w) => !UNIQUES.has(w)));
-  const slot = ['head', 'body', 'legs'][Math.floor(rand() * 3)];
+  const slot = ['head', 'body', 'legs', 'hands', 'feet'][Math.floor(rand() * 5)];
   const fam = ARMOUR_FAMILY[classId];
   return pickBest(Object.keys(ITEMS).filter((x) => ITEMS[x].equip?.family === fam && ITEMS[x].equip.slot === slot));
 }

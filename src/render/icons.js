@@ -407,7 +407,8 @@ import { ABILITY_BY_ID } from '../data/abilities.js';
   const WBUILD = { dagger: blade, sword: blade, scimitar: scim, mace, longsword, battleaxe, warhammer, '2h_sword': twohander, spear, claws, katana, halberd,
     pistol, shuriken, cane };
   const ABUILD = { med_helm: helm, full_helm: helm, chainbody: plate, platebody: plate, platelegs: legs, sq_shield: shield, kiteshield: shield, gauntlets: gloves, boots, plateskirt, buckler,
-    scout_hood: helm, scout_jerkin: plate, scout_breeches: legs };
+    scout_hood: helm, scout_jerkin: plate, scout_breeches: legs,
+    scout_boots: boots, scout_gloves: gloves, hide_boots: boots, hide_vambraces: gloves, mage_boots: boots, mage_gloves: gloves };
   for (const m of Object.keys(METAL_PAL)) {
     const [c, hi] = METAL_PAL[m];
     for (const t of Object.keys(WBUILD)) { const id = `${m}_${t}`; if (!I[id]) I[id] = WBUILD[t](c, hi); }
@@ -807,6 +808,15 @@ import { ABILITY_BY_ID } from '../data/abilities.js';
   // one as-is (BORROW_ID) until their art arrives.
   const BORROW = {};
   const BORROW_ID = {};   // single items borrowing a sticker
+  // Family boots and gloves borrow the metal boots / gauntlets, the archer's
+  // vambraces and the Dancer's slippers / bangles until their own art arrives.
+  for (const t of ['bronze', 'iron', 'steel', 'mithril', 'adamant', 'rune', 'dragon', 'obsidian', 'orichalcum', 'jade', 'starmetal', 'celestial', 'eternal']) {
+    Object.assign(BORROW_ID, {
+      [`${t}_scout_boots`]: `${t}_boots`, [`${t}_scout_gloves`]: `${t}_gauntlets`,
+      [`${t}_hide_boots`]: `${t}_boots`, [`${t}_hide_vambraces`]: 'dragonhide_vambraces',
+      [`${t}_mage_boots`]: 'silk_slippers', [`${t}_mage_gloves`]: 'silk_bangles',
+    });
+  }
   function hueOf(hex) {
     const n = parseInt(hex.slice(1), 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
     const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
