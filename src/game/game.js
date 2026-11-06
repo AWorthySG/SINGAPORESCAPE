@@ -1,7 +1,7 @@
 import { EventBus } from '../core/events.js';
 import { buildWorld } from '../data/world.js';
 import { compareGear, deltaText, gearRating } from './gear.js';
-import { RARITY, dropRarity, lootDelay, QUALITY, rollQuality, NORMAL_GEAR_SKIP } from './loot.js';
+import { RARITY, dropRarity, lootDelay, rollUpgrade, qualityFor, NORMAL_GEAR_SKIP } from './loot.js';
 import { dayKey, prevDayKey, makeBounties, streakMult } from './bounty.js';
 import { MAX_UPGRADE, upgradeCost, upgradeChance, upgradedName, RISKY_FROM, STONE as UP_STONE, WARD as UP_WARD } from './upgrade.js';
 import { getItem, MELEE_REACH } from '../data/items.js';
@@ -80,6 +80,9 @@ const STREAK_WINDOW_TICKS = 50;
 // the amount, and the gear, rare-table and upgrade-material rolls are richer.
 const BOSS_XP_PER_LEVEL = 4000;
 const BOSS_STACK_MULT = 100;
+// Champions have 50x the life they used to, so their loot scales the same way:
+// stackables x50, 8 table rolls, the rare table twice and a pile of stones.
+const CHAMPION_STACK_MULT = 50;
 
 // Share of fired arrows recovered after the shot.
 const ARROW_RECOVERY = 0.8;
@@ -931,16 +934,28 @@ export class Game {
     const gone = obj.depleted || this.world.objectAt(obj.x, obj.y) !== obj;
     if (!gone) return false;
     if (this.inventory.freeSlots() <= 0) { this.msg('Your bag is full: auto gather stops.', 'system'); return false; }
-    const here = this.playerTile();
-    let best = null, bd = Infinity;
-    for (const o of this.world.objects) {
-      if (o === obj || o.objId !== obj.objId || o.depleted) continue;
-      const d = chebyshev(here.x, here.y, o.x, o.y);
-      if (d <= 20 && d < bd) { bd = d; best = o; }
-    }
+    const best = this._nextGatherNode(obj.objId, obj);
     if (!best) { this.msg(`No more ${obj.def.name.toLowerCase()}s nearby: auto gather waits here until they grow back.`, 'system'); return false; }
     this.defaultObjectAction(best);
     return true;
+  }
+
+  /** Where auto gather goes next: the nearest ready node of the same kind
+   *  within 30 tiles, or failing that the nearest ready node of the same skill
+   *  you have the level for (another kind of rock, tree or fishing spot). */
+  _nextGatherNode(objId, exclude = null) {
+    const here = this.playerTile();
+    const def = this.world.objects.find((o) => o.objId === objId)?.def;
+    let same = null, sd = Infinity, other = null, od = Infinity;
+    for (const o of this.world.objects) {
+      if (o === exclude || o.depleted) continue;
+      const d = chebyshev(here.x, here.y, o.x, o.y);
+      if (d > 30) continue;
+      if (o.objId === objId) { if (d < sd) { sd = d; same = o; } continue; }
+      if (def?.skill && o.def?.skill === def.skill && o.def.type === def.type
+        && (o.def.level || 1) <= this.skills.level(def.skill) && d < od) { od = d; other = o; }
+    }
+    return same || other;
   }
 
   /** Auto gather for Farming and Thieving: once you're idle, carry on by
@@ -954,13 +969,7 @@ export class Game {
     if (job.kind === 'gather') {
       // Back to the nearest node of the same kind that's ready again.
       if (this.inventory.freeSlots() <= 0) return;
-      const here = this.playerTile();
-      let best = null, bd = Infinity;
-      for (const o of this.world.objects) {
-        if (o.objId !== job.objId || o.depleted) continue;
-        const d = chebyshev(here.x, here.y, o.x, o.y);
-        if (d <= 20 && d < bd) { bd = d; best = o; }
-      }
+      const best = this._nextGatherNode(job.objId);
       if (best) this.defaultObjectAction(best);
       return;
     }
@@ -2066,8 +2075,8 @@ export class Game {
       loot.push([d.id, q, 'common']);
     }
     if (def.dropTable && def.dropTable.length) {
-      // Champions roll their table three times, bosses ten, and neither comes up empty.
-      const rolls = def.boss ? 10 : npc.champion ? 3 : 1;
+      // Champions roll their table eight times, bosses ten, and neither comes up empty.
+      const rolls = def.boss ? 10 : npc.champion ? 8 : 1;
       const normal = !def.boss && !npc.champion;
       for (let r = 0; r < rolls; r++) {
         let pick = weightedPick(def.dropTable);
@@ -2085,9 +2094,9 @@ export class Game {
       }
     }
     // Rare drop table — small base chance, much higher for bosses, champions & high levels.
-    const rareChance = def.boss ? 1 : Math.min(0.5, (def.level || 1) / 1200 + 0.01 + (npc.champion ? 0.25 : 0));
-    // Bosses always hit the rare table, five times.
-    for (let rr = 0; rr < (def.boss ? 5 : 1); rr++) if (Math.random() < rareChance) {
+    const rareChance = def.boss || npc.champion ? 1 : Math.min(0.5, (def.level || 1) / 1200 + 0.01);
+    // Bosses always hit the rare table five times, champions twice.
+    for (let rr = 0; rr < (def.boss ? 5 : npc.champion ? 2 : 1); rr++) if (Math.random() < rareChance) {
       const pick = weightedPick(RARE_DROP_TABLE);
       const q = pick.min ? randInt(pick.min, pick.max) : 1;
       loot.push([pick.id, q, dropRarity(pick.id, 'rare')]);
@@ -2103,10 +2112,10 @@ export class Game {
       }
     }
     // Upgrade materials: stones from anything (bosses and champions most), wards from bosses.
-    const stoneChance = def.boss ? 1 : npc.champion ? 0.4 : Math.min(0.12, 0.03 + (def.level || 1) / 2500);
-    if (Math.random() < stoneChance) loot.push([UP_STONE, def.boss ? randInt(20, 50) : npc.champion ? randInt(1, 3) : 1, def.boss ? 'rare' : 'common']);
+    const stoneChance = def.boss || npc.champion ? 1 : Math.min(0.12, 0.03 + (def.level || 1) / 2500);
+    if (Math.random() < stoneChance) loot.push([UP_STONE, def.boss ? randInt(20, 50) : npc.champion ? randInt(5, 15) : 1, def.boss || npc.champion ? 'rare' : 'common']);
     if (def.boss) loot.push([UP_WARD, randInt(1, 3), 'epic']);
-    else if (Math.random() < (npc.champion ? 0.03 : 0)) loot.push([UP_WARD, 1, 'epic']);
+    else if (Math.random() < (npc.champion ? 0.25 : 0)) loot.push([UP_WARD, 1, 'epic']);
     // Treasure trails: a rare clue scroll, if you aren't already carrying one.
     if (!this.clue && !this._holdsClue()) {
       const clueChance = Math.min(0.05, (def.level || 1) / 3000 + (def.boss ? 0.04 : 0.006));
@@ -2128,30 +2137,32 @@ export class Game {
       }
     }
     // Boss hoards: stackables (coins, runes, arrows, seeds...) come in 100x the amount.
-    if (def.boss) for (const l of loot) if (l[0] !== UP_STONE && getItem(l[0]).stackable) l[1] *= BOSS_STACK_MULT;
+    const stackMult = def.boss ? BOSS_STACK_MULT : npc.champion ? CHAMPION_STACK_MULT : 1;
+    if (stackMult > 1) for (const l of loot) if (l[0] !== UP_STONE && getItem(l[0]).stackable) l[1] *= stackMult;
     // Gear quality: a head start of upgrade levels for that item type.
     for (const l of loot) {
       if (!getItem(l[0]).equip) continue;
-      const q = rollQuality(l[3] === 'boss' ? 'boss' : npc.champion ? 'champion' : 'normal');
-      if (q) { this._applyQuality(l[0], q); l[2] = QUALITY[q].rarity; }
+      const lv = rollUpgrade(l[3] === 'boss' || def.boss ? 'boss' : npc.champion ? 'champion' : 'normal');
+      if (lv) { this._applyQuality(l[0], lv); l[2] = qualityFor(lv).rarity; }
       l.length = 3;
     }
     this._autoLoot(loot, npc.x, npc.y);
   }
 
   /** A quality drop raises that item type's upgrade level (never lowers it). */
-  _applyQuality(id, q) {
-    const Q = QUALITY[q], lv = this.equipment.upgradeLevel(id);
+  _applyQuality(id, level) {
+    const Q = qualityFor(level), lv = this.equipment.upgradeLevel(id);
     const name = getItem(id).name;
-    if (Q.level > lv) {
-      this.equipment.upgrades[id] = Q.level;
+    if (level > lv) {
+      this.equipment.upgrades[id] = level;
       this.equipment._changed();
-      this.msg(`${Q.label} ${name}! Your ${name.toLowerCase()} is now +${Q.level}.`, 'level');
-      if (q === 'legendary' || q === 'mythic') this.banner(`<span class="big">${Q.label} drop!</span>${name} +${Q.level}`);
+      this.msg(`${Q.label} ${name}! Your ${name.toLowerCase()} is now +${level}.`, 'level');
+      if (level >= 5) this.banner(`<span class="big">${Q.label} drop!</span>${name} +${level}`);
     } else {
-      this.msg(`${Q.label} ${name} (yours is already +${lv}).`, 'system');
+      this.msg(`${Q.label} ${name} +${level} (yours is already +${lv}).`, 'system');
     }
   }
+
 
   /** Auto-loot: drops go straight into the pack; whatever won't fit falls to the ground. */
   // MapleStory-style loot: drops pop out onto the ground in a little fan,

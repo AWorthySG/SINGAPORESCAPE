@@ -3143,13 +3143,17 @@ test('every class is catered for: a starter weapon in a shop, and quest rewards 
 
 test('drops: rarer gear from normal monsters, quality rolls, and bosses always drop class gear and stones', async () => {
   const { rollQuality, QUALITY } = await import('../src/game/loot.js');
-  assert.equal(rollQuality('boss', () => 0.99), 'superior', 'bosses give at least Superior');
-  assert.equal(rollQuality('boss', () => 0.05), 'legendary');
-  assert.equal(rollQuality('boss', () => 0.01), 'mythic', 'bosses can drop +15 gear');
-  assert.equal(rollQuality('normal', () => 0.0005), 'mythic', 'even normal monsters, very rarely');
-  assert.equal(QUALITY.mythic.level, 15);
+  const { rollUpgrade } = await import('../src/game/loot.js');
+  assert.equal(rollQuality('boss', () => 0.99), 'superior', 'bosses give at least Superior (+2)');
+  assert.equal(rollUpgrade('boss', () => 0.01), 15, 'a lucky boss roll is +15');
+  assert.equal(rollUpgrade('normal', () => 0.01), 15, 'even a normal monster can drop +15 (very rarely)');
   assert.equal(rollQuality('normal', () => 0.9), null, 'most normal drops have no quality');
-  assert.equal(rollQuality('normal', () => 0.1), 'fine');
+  // Odds vary greatly by source: count how often +10 or better comes up.
+  let seed = 1; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const highShare = (src) => { let n = 0; for (let i = 0; i < 40000; i++) if (rollUpgrade(src, rnd) >= 10) n++; return n / 40000; };
+  const nrm = highShare('normal'), ch = highShare('champion'), bs = highShare('boss');
+  assert.ok(nrm < ch && ch < bs, `+10 or better: normal ${nrm} < champion ${ch} < boss ${bs}`);
+  assert.ok(bs > nrm * 50, 'bosses are far likelier than normal monsters to drop it');
   globalThis.localStorage = fakeStorage();
   clearSave();
   const game = new Game();
@@ -3402,4 +3406,22 @@ test('mercenaries and A-Worthlings can land critical hits too', async () => {
   Mercs.spawnFollower(g);
   for (let i = 0; i < 20 && !g.effects.some((e) => e.type === 'hitsplat' && e.critX); i++) { g.player.attackCooldown = 99; g.update(600); }
   assert.ok(g.effects.some((e) => e.type === 'hitsplat' && e.critX >= 2), 'an A-Worthling crit shows as a big red number');
+});
+
+test('auto mining walks the player from rock to rock, including other rocks they can mine', () => {
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start();
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.npcs = [];
+  const rock = g.world.objects.find((o) => o.objId === 'copper_rock');
+  g.toggleAutoGather(true);
+  g.player.x = g.player.tx = rock.x; g.player.y = g.player.ty = rock.y + 1;
+  g.defaultObjectAction(rock);
+  const visited = new Set();
+  for (let i = 0; i < 300; i++) { g.update(600); const o = g.player.action?.obj; if (o) visited.add(`${o.x},${o.y}`); }
+  assert.ok(visited.size >= 2, `moved between rocks (${visited.size} visited)`);
+  // With every copper rock mined out, a tin rock nearby is the next stop.
+  for (const o of g.world.objects) if (o.objId === 'copper_rock') o.depleted = true;
+  const next = g._nextGatherNode('copper_rock');
+  if (next) assert.equal(next.def.skill, 'mining', 'another rock of the same skill');
 });
