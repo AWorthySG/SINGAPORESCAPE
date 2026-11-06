@@ -3961,6 +3961,33 @@ export class Game {
     this.msg(`You sell ${sell} x ${getItem(itemId).name} for ${price * sell} coins.`);
   }
 
+  /** Is this gear for another class? Weapons of another type, armour of another
+   *  family, accessories for another style, and arrows if you don't use a bow.
+   *  Tools, shields and everything that isn't gear never count. */
+  unrelatedToClass(id) {
+    const cls = this.jobClass && CLASS_BY_ID[this.jobClass];
+    const it = getItem(id);
+    if (!cls || !it || id === 'coins' || it.tool) return false;
+    if (it.tags?.includes('ammo')) return cls.weapon !== 'shortbow' && cls.weapon !== 'longbow';
+    const eq = it.equip;
+    if (!eq) return false;
+    if (eq.weaponType) return eq.weaponType !== cls.weapon;
+    if (eq.family) return !canWear(cls.id, id);
+    if (eq.style) return eq.style !== (cls.style === 'dance' ? 'melee' : cls.style);
+    return false;
+  }
+
+  /** Sell every item in the backpack that is gear for another class (see above). */
+  sellUnrelated(shopId) {
+    const ids = [...new Set(this.inventory.slots.filter(Boolean).map((s) => s.id))].filter((id) => this.unrelatedToClass(id));
+    if (!ids.length) { this.msg('You have nothing for other classes to sell.', 'system'); return 0; }
+    const before = this.inventory.count('coins');
+    for (const id of ids) this.sellItem(shopId, id, this.inventory.count(id));
+    const earned = this.inventory.count('coins') - before;
+    this.msg(`You sell ${ids.length} kinds of gear for other classes for ${earned} coins.`, 'system');
+    return earned;
+  }
+
   // ---------------- Banking ----------------
   deposit(itemId, qty) {
     const have = this.inventory.count(itemId);

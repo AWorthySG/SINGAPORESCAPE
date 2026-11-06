@@ -2320,6 +2320,18 @@ export class UI {
       // Player inventory (sell)
       const invSide = document.createElement('div');
       invSide.innerHTML = '<div class="modal-section-title">Sell from inventory</div>';
+      // One click sells every weapon, armour piece, accessory and arrow made for another class.
+      const cls = this.game.jobClass && CLASS_BY_ID[this.game.jobClass];
+      if (cls) {
+        const n = this.game.inventory.slots.filter((s) => s && this.game.unrelatedToClass(s.id)).length;
+        const btn = document.createElement('button');
+        btn.className = 'bestiary-open gear-guide-open sell-unrelated'; btn.type = 'button';
+        btn.textContent = `💰 Sell gear not for ${cls.name}s (${n})`;
+        btn.title = 'Sells weapons, armour, accessories and arrows your class can\'t use';
+        btn.disabled = !n;
+        btn.onclick = () => this.game.sellUnrelated(shopId);
+        invSide.appendChild(btn);
+      }
       const invGrid = document.createElement('div');
       invGrid.className = 'item-grid shop';
       this.game.inventory.slots.forEach((s) => {
