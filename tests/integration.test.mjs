@@ -791,6 +791,7 @@ test('weapon-specific skills: a bow swaps in Snapshot, which looses three arrows
   const game = new Game();
   game.start();
   game.chooseStartingStyle('ranged');
+  game.jobClass = null;   // the general ranged set (classes have their own; tested below)
   assert.equal(game.combatMode(), 'ranged');
   const keys = game.currentAbilities().map((a) => a.id);
   assert.deepEqual(keys, ['snapshot', 'piercing_shot', 'brace', 'second_wind', 'arrow_storm']);
@@ -3259,4 +3260,66 @@ test('auto gather picks mining back up after an interruption or once rocks grow 
   const ore0 = g.inventory.count('copper_ore');
   for (let i = 0; i < 200; i++) g.update(600);
   assert.ok(g.inventory.count('copper_ore') >= ore0 + 10, `picked mining back up: ${g.inventory.count('copper_ore') - ore0} more ore`);
+});
+
+test('every class has its own three abilities, and their extra effects work', async () => {
+  const { CLASSES } = await import('../src/data/classes.js');
+  const { abilitiesFor, ABILITIES } = await import('../src/data/abilities.js');
+  const seen = new Set();
+  for (const c of CLASSES) {
+    if (c.id === 'dancer') continue;   // the Dancer keeps the whip set
+    const mode = c.style;
+    const set = abilitiesFor(mode, c.id);
+    const own = set.filter((a) => a.cls === c.id).map((a) => a.key).sort();
+    assert.deepEqual(own, ['B', 'X', 'Z'], `${c.name} has its own Z, X and B`);
+    for (const a of set.filter((x) => x.cls)) { assert.ok(!seen.has(a.id), `${a.id} is unique`); seen.add(a.id); assert.ok(a.desc && a.art, `${a.id} has a description and art`); }
+  }
+  assert.equal(new Set(ABILITIES.map((a) => a.id)).size, ABILITIES.length, 'ability ids are unique');
+  // A Rogue's Backstab always crits; a Merchant's favour calls up an A-Worthling.
+  const { NPC } = await import('../src/game/npc.js');
+  const Mercs = await import('../src/game/mercenary.js');
+  const mk = (cls) => {
+    globalThis.localStorage = fakeStorage(); clearSave();
+    const g = new Game(); g.start(); g.chooseClass(cls);
+    g.ui = new Proxy({}, { get: () => () => {} });
+    const t = new NPC('goblin', g.player.x + 1, g.player.y, 0, {});
+    t.hp = t.maxHp = 999999; t.def = { ...t.def, aggressive: false, maxHit: 0 };
+    g.npcs = [t]; g.adrenaline = 100;
+    return { g, t };
+  };
+  const r = mk('rogue');
+  assert.deepEqual(r.g.currentAbilities().map((a) => a.id), ['backstab', 'twin_fangs', 'brace', 'second_wind', 'assassinate']);
+  r.g.activateAbility('backstab');
+  r.g.player.attackCooldown = 0; r.g.doPlayerAttack(r.t);
+  assert.ok(r.g.effects.some((e) => e.type === 'hitsplat' && e.critX >= 2), 'Backstab lands a critical');
+  const m = mk('merchant');
+  m.g.activateAbility('call_a_favour');
+  m.g.player.attackCooldown = 0; m.g.doPlayerAttack(m.t);
+  assert.ok(Mercs.activeFollowers(m.g).length >= 1, 'Call in a Favour summons an A-Worthling');
+  // Another class's ability can't be used.
+  m.g.adrenaline = 100; m.g.activateAbility('backstab');
+  assert.notEqual(m.g.armedAbility, 'backstab');
+});
+
+test('spells: every spell hits the area for 100% damage (with XP), and elements bite or are resisted', async () => {
+  const { NPC } = await import('../src/game/npc.js');
+  const { elementMatchup, SPELLS } = await import('../src/data/magic.js');
+  assert.equal(elementMatchup('fire', 'flora'), 'strong');
+  assert.equal(elementMatchup('fire', 'aquatic'), 'weak');
+  assert.ok(SPELLS.every((s) => ['wind', 'water', 'earth', 'fire'].includes(s.element)), 'every spell has an element');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('wizard');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.inventory.add('air_rune', 500); g.inventory.add('mind_rune', 500);
+  g.player.spell = 'wind_strike';
+  const mk = (dx, dy) => { const n = new NPC('goblin', g.player.x + dx, g.player.y + dy, 0, {}); n.hp = n.maxHp = 99999; n.def = { ...n.def, aggressive: false, maxHit: 0 }; return n; };
+  const main = mk(3, 0), near = mk(4, 1), far = mk(9, 0);
+  g.npcs = [main, near, far];
+  const xp0 = g.skills.xp.magic;
+  for (let i = 0; i < 30 && main.hp === main.maxHp; i++) { g.player.attackCooldown = 0; g._magicAttack(main); }
+  const hit = main.maxHp - main.hp;
+  assert.ok(hit > 0, 'the target was hit');
+  assert.equal(near.maxHp - near.hp, hit, 'the monster beside it takes the same damage');
+  assert.equal(far.hp, far.maxHp, 'out of the blast: untouched');
+  assert.ok(g.skills.xp.magic - xp0 > 0, 'Magic XP gained');
 });

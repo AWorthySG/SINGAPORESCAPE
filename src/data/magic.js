@@ -19,5 +19,23 @@ export const SPELLS = [
   { id: 'fire_wave', name: 'Fire Wave', level: 75, maxHit: 20, xp: 42.5, tint: '#ff7a3a', runes: { fire_rune: 7, air_rune: 5, blood_rune: 1 } },
 ];
 
+// Each spell's element is a damage type: it bites into some races and is
+// shrugged off by others (like weapon types do), and every spell blasts the
+// area around its target (see AOE_RADIUS) for the same damage.
+export const ELEMENTS = {
+  wind:  { name: 'Wind',  icon: '🌪️', strong: ['avian', 'spirit', 'bug'], weak: ['construct', 'dragon'] },
+  water: { name: 'Water', icon: '💧', strong: ['dragon', 'demon', 'construct'], weak: ['aquatic', 'flora'] },
+  earth: { name: 'Earth', icon: '🪨', strong: ['beast', 'reptile', 'humanoid', 'aquatic'], weak: ['avian', 'spirit'] },
+  fire:  { name: 'Fire',  icon: '🔥', strong: ['flora', 'undead', 'bug'], weak: ['aquatic', 'dragon', 'demon'] },
+};
+for (const s of SPELLS) s.element = s.id.split('_')[0];
+export const AOE_RADIUS = 2;   // tiles around the target that every spell also hits
+/** 'strong' | 'weak' | null: how a spell's element fares against a race. */
+export function elementMatchup(element, race) {
+  const e = ELEMENTS[element];
+  if (!e) return null;
+  return e.strong.includes(race) ? 'strong' : e.weak.includes(race) ? 'weak' : null;
+}
+
 export const SPELL_BY_ID = Object.fromEntries(SPELLS.map((s) => [s.id, s]));
 export const getSpell = (id) => SPELL_BY_ID[id] || SPELLS[0];
