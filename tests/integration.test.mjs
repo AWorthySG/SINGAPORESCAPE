@@ -3300,3 +3300,26 @@ test('every class has its own three abilities, and their extra effects work', as
   m.g.adrenaline = 100; m.g.activateAbility('backstab');
   assert.notEqual(m.g.armedAbility, 'backstab');
 });
+
+test('spells: every spell hits the area for 100% damage (with XP), and elements bite or are resisted', async () => {
+  const { NPC } = await import('../src/game/npc.js');
+  const { elementMatchup, SPELLS } = await import('../src/data/magic.js');
+  assert.equal(elementMatchup('fire', 'flora'), 'strong');
+  assert.equal(elementMatchup('fire', 'aquatic'), 'weak');
+  assert.ok(SPELLS.every((s) => ['wind', 'water', 'earth', 'fire'].includes(s.element)), 'every spell has an element');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('wizard');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.inventory.add('air_rune', 500); g.inventory.add('mind_rune', 500);
+  g.player.spell = 'wind_strike';
+  const mk = (dx, dy) => { const n = new NPC('goblin', g.player.x + dx, g.player.y + dy, 0, {}); n.hp = n.maxHp = 99999; n.def = { ...n.def, aggressive: false, maxHit: 0 }; return n; };
+  const main = mk(3, 0), near = mk(4, 1), far = mk(9, 0);
+  g.npcs = [main, near, far];
+  const xp0 = g.skills.xp.magic;
+  for (let i = 0; i < 30 && main.hp === main.maxHp; i++) { g.player.attackCooldown = 0; g._magicAttack(main); }
+  const hit = main.maxHp - main.hp;
+  assert.ok(hit > 0, 'the target was hit');
+  assert.equal(near.maxHp - near.hp, hit, 'the monster beside it takes the same damage');
+  assert.equal(far.hp, far.maxHp, 'out of the blast: untouched');
+  assert.ok(g.skills.xp.magic - xp0 > 0, 'Magic XP gained');
+});

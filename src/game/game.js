@@ -31,7 +31,7 @@ import { RACES, raceOf, matchup, RACE_BONUS, RACE_PENALTY } from '../data/races.
 import { DOT_KINDS } from '../data/bossAbilities.js';
 import { CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, equivalentWeapon, CLEAVE_SHARE, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWear, equivalentArmour, classGearFor } from '../data/classes.js';
 import { STYLE_TRACKS, sumPerks, perkAtLevel, rankName, PERK_SKILLS } from '../data/perks.js';
-import { getSpell, SPELLS } from '../data/magic.js';
+import { getSpell, SPELLS, ELEMENTS, AOE_RADIUS, elementMatchup } from '../data/magic.js';
 import { xpForLevel } from '../data/xp.js';
 import { PRAYERS, PRAYER_BY_ID, PRAYER_GROUPS } from '../data/prayers.js';
 import {
@@ -1327,7 +1327,11 @@ export class Game {
     if (weak) this.spawnSparkle(npc, '#9affd0', 6);
     if (race === 'strong') this.spawnSparkle(npc, '#ffd24a', 5);
     // Say it once per foe: an "Effective!" pop the first time your weapon bites, or "Resisted".
-    if (race && npc._raceSaid !== race) { npc._raceSaid = race; this.addHitsplat(npc, 0, { text: race === 'strong' ? 'Effective!' : 'Resisted' }); }
+    if (race && npc._raceSaid !== race + (this._castElement || '')) {
+      npc._raceSaid = race + (this._castElement || '');
+      const el = this._castElement ? `${ELEMENTS[this._castElement].name}: ` : '';
+      this.addHitsplat(npc, 0, { text: el + (race === 'strong' ? 'Effective!' : 'Resisted') });
+    }
     const lvl = mode === 'ranged' ? this.skills.ranged : mode === 'magic' ? this.skills.magic : mode === 'dance' ? this.skills.agility : this.skills.attack;
     // A `crit` ability makes every one of its hits a critical.
     const critCh = ab?.crit ? 1 : critChance(lvl, this.equipment.bonuses().crit) + (perk.crit || 0) + this.learning.perks().crit;
@@ -1342,6 +1346,8 @@ export class Game {
 
   /** How the weapon in hand fares against this foe's race: 'strong', 'weak' or null. */
   raceMatchup(npc) {
+    // Spells are judged by their element (fire, water...) rather than by the staff.
+    if (this._castElement) return elementMatchup(this._castElement, raceOf(npc.def, npc.npcId));
     return matchup(this.weaponType(), raceOf(npc.def, npc.npcId));
   }
 
@@ -1624,6 +1630,26 @@ export class Game {
     return null;
   }
 
+  /** Every spell is an area attack: each other monster within AOE_RADIUS tiles
+   *  of the target takes the same damage (100%), and it all earns Magic XP. */
+  _spellSplash(target, dmg, spell) {
+    const p = this.player;
+    let xp = 0;
+    for (const o of this.npcs) {
+      if (o === target || !o.alive || !o.attackable || o.ally || o.hp <= 0) continue;
+      if (o.def.fixed && o.target !== p) continue;   // story bosses aren't dragged in
+      if (chebyshev(o.x, o.y, target.x, target.y) > AOE_RADIUS) continue;
+      const d = Math.min(o.hp, dmg);
+      o.takeDamage(d);
+      this.addHitsplat(o, d, { tint: spell.tint });
+      this.spawnHitSparks(o, spell.tint);
+      xp += d;
+      if (!o.target) o.target = p;
+      if (o.hp <= 0) this.killNpc(o);
+    }
+    if (xp) { this.skills.addXp('magic', xp * 2); this.skills.addXp('defence', xp * 1.33); this.skills.addXp('hitpoints', xp * 1.33); }
+  }
+
   _magicAttack(npc) {
     let spell = getSpell(this.player.spell);
     // Can't cast the chosen spell (level or runes)? Fall back to the best one you can.
@@ -1634,7 +1660,9 @@ export class Game {
     }
     this._consumeRunes(spell, npc);
     const { atkRoll, defRoll, max } = playerMagicVsNpc(this.skills, this.equipment, spell, npc.def);
+    this._castElement = spell.element;   // the element decides what this spell is strong or weak against
     const mods = this._offensiveMods(npc, 'magic');
+    this._castElement = null;
     const fancy = mods.spec || mods.ability;
     const effMax = Math.max(1, Math.round(max * mods.dmgM));
     let dmg = mods.guaranteed ? rollGuaranteed(effMax) : rollAttack(atkRoll * this.prayerMult().magic * mods.accM, defRoll, effMax);
@@ -1644,6 +1672,7 @@ export class Game {
     this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax) });
     this.skills.addXp('magic', spell.xp * this.combatXpMult());
     if (dmg > 0) { this.spawnHitSparks(npc, spell.tint); this.skills.addXp('magic', dmg * 2); this.skills.addXp('defence', dmg * 1.33); this.skills.addXp('hitpoints', dmg * 1.33); }
+    if (dmg > 0) this._spellSplash(npc, dmg, spell);
     // Spells come off a staff a beat quicker than its swing speed.
     const hm = this.equipment.hasteMult();
     this._resetCooldown(Math.max(hm, this.equipment.weaponSpeed() - hm));
