@@ -43,8 +43,6 @@ input.onKey((e) => {
   const map = { '1': 'inventory', '2': 'equipment', '3': 'skills', '4': 'combat', '5': 'prayer', '6': 'quests', '7': 'achievements', '8': 'settings' };
   if (map[e.key]) {
     document.querySelector(`#panel-tabs .tab-btn[data-view="${map[e.key]}"]`)?.click();
-  } else if (e.key === 'r' || e.key === 'R') {
-    game.toggleRun();
   } else if (e.key === 'f' || e.key === 'F') {
     game.eatFirstFood();
   } else if (e.key === 'g' || e.key === 'G') {

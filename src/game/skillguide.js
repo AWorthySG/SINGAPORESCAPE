@@ -26,7 +26,7 @@ export const SKILL_GUIDES = {
   herblore: { use: 'Potions that boost you in a fight for several minutes.', where: ['apothecary_table'] },
   firemaking: { use: 'Light a fire anywhere to cook on (use logs from your bag; you need a tinderbox).' },
   thieving: { use: 'Coins, food and gems, stolen from market stalls (and pockets).' },
-  agility: { use: 'Restores run energy faster and earns Marks of grace.' },
+  agility: { use: 'Obstacle courses for XP and Marks of grace; powers the Dancer.' },
 };
 export const GUIDE_SKILLS = Object.keys(SKILL_GUIDES);
 

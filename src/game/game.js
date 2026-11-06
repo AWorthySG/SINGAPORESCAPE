@@ -140,7 +140,7 @@ export class Game {
     this.pendingClassChoice = false; // an older save that hasn't picked a class yet
     this.potions = {};               // active potion id -> ms left (see trades.js POTIONS)
 
-    this.running = false;
+    this.running = true;    // everyone always runs (the run toggle was removed)
     this.runEnergy = 100;
     this.effects = [];
     this.hazards = [];          // pending boss area attacks (red ground markers)
@@ -390,7 +390,9 @@ export class Game {
     return { width: this.world.width, height: this.world.height, isBlocked: (x, y) => this.world.isBlocked(x, y) };
   }
 
-  canRun() { return this.running && this.runEnergy > 0; }
+  // There is no walking or run energy any more: everyone always moves at full
+  // (running) speed. runEnergy stays at 100 for older saves and effects.
+  canRun() { return true; }
 
   /** Max hitpoints = Hitpoints level + any bonus HP from equipment. */
   maxHp() {
@@ -708,24 +710,9 @@ export class Game {
     this.bus.emit('tick', this.tickCount);
   }
 
-  updateRunEnergy() {
-    let changed = false;
-    if (this.running && this.player.isMoving && this.player.alive) {
-      this.runEnergy = Math.max(0, this.runEnergy - 1.0);
-      if (this.runEnergy === 0) this.running = false;
-      changed = true;
-    } else if (this.runEnergy < 100) {
-      this.runEnergy = Math.min(100, this.runEnergy + 1.0 + this.skills.agility * 0.015);
-      changed = true;
-    }
-    if (changed) this.bus.emit('run');
-  }
+  updateRunEnergy() { this.runEnergy = 100; }   // run energy was removed: always full
 
-  toggleRun() {
-    if (!this.running && this.runEnergy <= 0) return;
-    this.running = !this.running;
-    this.bus.emit('run');
-  }
+  toggleRun() {}   // kept so old key bindings and callers do nothing harmful
 
   // ---------------- Prayers ----------------
   maxPrayer() { return this.skills.prayer; }
@@ -882,7 +869,7 @@ export class Game {
         this.runEnergy = 100;
         this.bus.emit('hp'); this.bus.emit('run');
         this.spawnSparkle(this.player, '#f5a623', 16);
-        this.msg('You rest at the A-Worthy Mascot Statue. Health and run energy restored.', 'system');
+        this.msg('You rest at the A-Worthy Mascot Statue. Health restored.', 'system');
         this.markPillar('obelisk');
       });
       case 'thieve': return this._tickArrival(a, a.target, true, () => { this.pickpocket(a.npc); if (this.autoGather) this._autoLife = { kind: 'thieve', npc: a.npc }; });
