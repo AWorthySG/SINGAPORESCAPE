@@ -3470,3 +3470,23 @@ test('Equip best in slot counts upgrade levels and only the stats your style use
   a.equipBest();
   assert.equal(a.equipment.get('amulet'), 'emerald_amulet', 'the ranged amulet, not the stronger melee one');
 });
+
+test('Sell gear for other classes: sells other weapons, armour, accessories and unused arrows only', () => {
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('archer');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  const keep = ['oak_shortbow', 'dragonhide_body', 'emerald_amulet', 'bronze_arrow', 'bronze_pickaxe', 'cooked_chicken'];
+  const sell = ['bronze_sword', 'bronze_platebody', 'ruby_amulet', 'iron_dagger'];
+  for (const id of [...keep, ...sell]) g.inventory.add(id, id === 'bronze_arrow' ? 50 : 1);
+  for (const id of keep) assert.equal(g.unrelatedToClass(id), false, `${id} is for an archer (or not gear)`);
+  for (const id of sell) assert.equal(g.unrelatedToClass(id), true, `${id} is for another class`);
+  const coins = g.inventory.count('coins');
+  assert.ok(g.sellUnrelated('general') > 0);
+  assert.ok(g.inventory.count('coins') > coins, 'coins earned');
+  for (const id of sell) assert.equal(g.inventory.count(id), 0, `${id} sold`);
+  for (const id of keep) assert.ok(g.inventory.count(id) > 0, `${id} kept`);
+  assert.equal(g.sellUnrelated('general'), 0, 'nothing left to sell');
+  // A swordsman sells arrows.
+  const s = new Game(); s.start(); s.chooseClass('swordsman');
+  assert.equal(s.unrelatedToClass('bronze_arrow'), true);
+});
