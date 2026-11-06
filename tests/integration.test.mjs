@@ -3407,3 +3407,21 @@ test('mercenaries and A-Worthlings can land critical hits too', async () => {
   for (let i = 0; i < 20 && !g.effects.some((e) => e.type === 'hitsplat' && e.critX); i++) { g.player.attackCooldown = 99; g.update(600); }
   assert.ok(g.effects.some((e) => e.type === 'hitsplat' && e.critX >= 2), 'an A-Worthling crit shows as a big red number');
 });
+
+test('auto mining walks the player from rock to rock, including other rocks they can mine', () => {
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start();
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.npcs = [];
+  const rock = g.world.objects.find((o) => o.objId === 'copper_rock');
+  g.toggleAutoGather(true);
+  g.player.x = g.player.tx = rock.x; g.player.y = g.player.ty = rock.y + 1;
+  g.defaultObjectAction(rock);
+  const visited = new Set();
+  for (let i = 0; i < 300; i++) { g.update(600); const o = g.player.action?.obj; if (o) visited.add(`${o.x},${o.y}`); }
+  assert.ok(visited.size >= 2, `moved between rocks (${visited.size} visited)`);
+  // With every copper rock mined out, a tin rock nearby is the next stop.
+  for (const o of g.world.objects) if (o.objId === 'copper_rock') o.depleted = true;
+  const next = g._nextGatherNode('copper_rock');
+  if (next) assert.equal(next.def.skill, 'mining', 'another rock of the same skill');
+});

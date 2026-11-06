@@ -934,16 +934,28 @@ export class Game {
     const gone = obj.depleted || this.world.objectAt(obj.x, obj.y) !== obj;
     if (!gone) return false;
     if (this.inventory.freeSlots() <= 0) { this.msg('Your bag is full: auto gather stops.', 'system'); return false; }
-    const here = this.playerTile();
-    let best = null, bd = Infinity;
-    for (const o of this.world.objects) {
-      if (o === obj || o.objId !== obj.objId || o.depleted) continue;
-      const d = chebyshev(here.x, here.y, o.x, o.y);
-      if (d <= 20 && d < bd) { bd = d; best = o; }
-    }
+    const best = this._nextGatherNode(obj.objId, obj);
     if (!best) { this.msg(`No more ${obj.def.name.toLowerCase()}s nearby: auto gather waits here until they grow back.`, 'system'); return false; }
     this.defaultObjectAction(best);
     return true;
+  }
+
+  /** Where auto gather goes next: the nearest ready node of the same kind
+   *  within 30 tiles, or failing that the nearest ready node of the same skill
+   *  you have the level for (another kind of rock, tree or fishing spot). */
+  _nextGatherNode(objId, exclude = null) {
+    const here = this.playerTile();
+    const def = this.world.objects.find((o) => o.objId === objId)?.def;
+    let same = null, sd = Infinity, other = null, od = Infinity;
+    for (const o of this.world.objects) {
+      if (o === exclude || o.depleted) continue;
+      const d = chebyshev(here.x, here.y, o.x, o.y);
+      if (d > 30) continue;
+      if (o.objId === objId) { if (d < sd) { sd = d; same = o; } continue; }
+      if (def?.skill && o.def?.skill === def.skill && o.def.type === def.type
+        && (o.def.level || 1) <= this.skills.level(def.skill) && d < od) { od = d; other = o; }
+    }
+    return same || other;
   }
 
   /** Auto gather for Farming and Thieving: once you're idle, carry on by
@@ -957,13 +969,7 @@ export class Game {
     if (job.kind === 'gather') {
       // Back to the nearest node of the same kind that's ready again.
       if (this.inventory.freeSlots() <= 0) return;
-      const here = this.playerTile();
-      let best = null, bd = Infinity;
-      for (const o of this.world.objects) {
-        if (o.objId !== job.objId || o.depleted) continue;
-        const d = chebyshev(here.x, here.y, o.x, o.y);
-        if (d <= 20 && d < bd) { bd = d; best = o; }
-      }
+      const best = this._nextGatherNode(job.objId);
       if (best) this.defaultObjectAction(best);
       return;
     }
