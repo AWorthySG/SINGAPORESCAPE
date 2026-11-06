@@ -11,7 +11,7 @@
 import { chebyshev, randInt } from '../core/utils.js';
 import { TICK_MS, COMBAT_BEAT_MS } from '../config.js';
 import { findPath } from '../engine/pathfinding.js';
-import { combatXp, playerAttackVsNpc } from './combat.js';
+import { combatXp, playerAttackVsNpc, critChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE } from './combat.js';
 import { CLEAVE_SHARE } from '../data/classes.js';
 
 export const MERC_TICKS = 150;            // 90 seconds at 0.6s a tick
@@ -184,9 +184,16 @@ export function mercTick(game, m) {
         m.swingAcc--;
         if (m.follower && Math.random() < SPLIT_CHANCE) spawnFollower(game, m);
         // A-Worthlings hit a fixed 25% of the Merchant's max hit; mercenaries roll.
-        const dmg = Math.min(target.hp, m.follower ? max : Math.random() < 0.85 ? randInt(Math.ceil(max / 4), max) : 0);
+        let raw = m.follower ? max : Math.random() < 0.85 ? randInt(Math.ceil(max / 4), max) : 0;
+        // Allies crit like the Merchant does (same crit chance, x2 or x4 on a mega crit).
+        let critX = 0;
+        if (raw > 0 && Math.random() < allyCritChance(game)) {
+          critX = Math.random() < MEGA_CRIT_CHANCE ? MEGA_CRIT_MULT : CRIT_MULT;
+          raw = Math.round(raw * (critX + (game.equipment.bonuses().critDmg || 0) / 100));
+        }
+        const dmg = Math.min(target.hp, raw);
         target.takeDamage(dmg);
-        allySplat(game, target, dmg, m.follower ? '#f5b82e' : '#3fbf9f');
+        allySplat(game, target, dmg, m.follower ? '#f5b82e' : '#3fbf9f', critX);
         if (dmg > 0) {
           if (!m.follower) game._slash(target, '#bff5e6');
           allyCleave(game, target, dmg);
@@ -217,9 +224,14 @@ function walkTo(game, m, to) {
   if (path.length) { m.setPath(path, true); m._goal = { x: to.x, y: to.y }; } else m._pathWait = 3 + Math.floor(Math.random() * 3);
 }
 
+/** The Merchant's own melee crit chance (level, gear and perks), shared by their allies. */
+function allyCritChance(game) {
+  return critChance(game.skills.attack, game.equipment.bonuses().crit) + (game.perkMods?.('melee').crit || 0);
+}
+
 /** Hitsplats from allies: skipped once the screen is already full of effects. */
-function allySplat(game, n, d, tint) {
-  if (game.effects.length < 250) game.addHitsplat(n, d, { tint });
+function allySplat(game, n, d, tint, critX = 0) {
+  if (game.effects.length < 250 || critX) game.addHitsplat(n, d, critX && d > 0 ? { critX } : { tint });
   else if (d > 0) n.hurt = 200;
 }
 
