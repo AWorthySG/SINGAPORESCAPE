@@ -1659,7 +1659,9 @@ export class Game {
       if (!o.target) o.target = p;
       if (o.hp <= 0) this.killNpc(o);
     }
-    if (xp) { this.skills.addXp('magic', xp * 2); this.skills.addXp('defence', xp * 1.33); this.skills.addXp('hitpoints', xp * 1.33); }
+    // Splash damage earns XP like any other hit, XP bonuses included.
+    const m = this.combatXpMult();
+    if (xp) { this.skills.addXp('magic', xp * 2 * m); this.skills.addXp('defence', xp * 1.33 * m); this.skills.addXp('hitpoints', xp * 1.33 * m); }
   }
 
   _magicAttack(npc) {
@@ -1683,7 +1685,7 @@ export class Game {
     this._projectile(npc, (c.crit || fancy) ? '#e0a0ff' : spell.tint, 'bolt');
     this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax) });
     this.skills.addXp('magic', spell.xp * this.combatXpMult());
-    if (dmg > 0) { this.spawnHitSparks(npc, spell.tint); this.skills.addXp('magic', dmg * 2); this.skills.addXp('defence', dmg * 1.33); this.skills.addXp('hitpoints', dmg * 1.33); }
+    if (dmg > 0) { const m = this.combatXpMult(); this.spawnHitSparks(npc, spell.tint); this.skills.addXp('magic', dmg * 2 * m); this.skills.addXp('defence', dmg * 1.33 * m); this.skills.addXp('hitpoints', dmg * 1.33 * m); }
     if (dmg > 0) this._spellSplash(npc, dmg, spell);
     // Spells come off a staff a beat quicker than its swing speed.
     const hm = this.equipment.hasteMult();
