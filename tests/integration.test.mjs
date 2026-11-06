@@ -1990,7 +1990,14 @@ test('auto battle takes on a nearby boss first (bosses on by default)', async ()
   game.npcs = [mob, boss];
   assert.equal(game._autoPickTarget(), boss, 'the boss is chosen ahead of a closer goblin');
   boss.def = { ...boss.def, level: cl + 40 };
-  assert.equal(game._autoPickTarget(), mob, 'a boss far above your level is skipped');
+  assert.equal(game._autoPickTarget(), boss, 'a boss far above your level is still taken on');
+  game.autoCfg.bosses = false;
+  assert.equal(game._autoPickTarget(), mob, 'with bosses switched off, it fights the goblin');
+  game.autoCfg.bosses = true;
+  // A monster far above your level right next to you is fought too.
+  const big = new NPC('goblin', p.x + 1, p.y, 0, {}); big.def = { ...big.def, level: cl * 3 + 20 };
+  game.npcs = [big];
+  assert.equal(game._autoPickTarget(), big, 'a strong monster beside you is not ignored');
 });
 
 test('daggers can be dual wielded in place of a shield, striking twice per swing', () => {
