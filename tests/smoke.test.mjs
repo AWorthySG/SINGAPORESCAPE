@@ -605,3 +605,16 @@ test('every amulet, ring and cape suits one style, and each style gets an equal 
     assert.equal(best('melee'), best('magic'), `${slot}: melee and magic peak alike`);
   }
 });
+
+test('style accessories only lend their crit and offensive stats to their own style', async () => {
+  const { Equipment } = await import('../src/game/equipment.js');
+  const eq = new Equipment();
+  eq.set('cape', 'fire_cape');                 // melee cape: crit, boss damage, crit damage
+  eq.set('weapon', 'bronze_sword');
+  const melee = eq.bonuses();
+  assert.ok(melee.crit > 0 && melee.bossDmg > 0, 'a melee fighter gets the melee cape\'s extras');
+  eq.set('weapon', 'shortbow');
+  const ranged = eq.bonuses();
+  assert.equal(ranged.crit, 0); assert.equal(ranged.bossDmg, 0); assert.equal(ranged.critDmg, 0);
+  assert.equal(ranged.defence, melee.defence - (ITEMS.bronze_sword.equip.bonuses.defence || 0) + (ITEMS.shortbow.equip.bonuses.defence || 0), 'Defence still counts');
+});
