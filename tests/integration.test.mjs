@@ -3490,3 +3490,41 @@ test('Sell gear for other classes: sells other weapons, armour, accessories and 
   const s = new Game(); s.start(); s.chooseClass('swordsman');
   assert.equal(s.unrelatedToClass('bronze_arrow'), true);
 });
+
+test('spell elements: wind casts faster, water freezes, earth hits wider, fire burns', async () => {
+  const { NPC } = await import('../src/game/npc.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseStartingStyle('magic');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  for (const r of ['fire_rune', 'water_rune', 'earth_rune', 'air_rune', 'mind_rune']) g.inventory.add(r, 5000);
+  g.skills.xp.magic = 50000000;
+  const p = g.player;
+  const foe = (dx, dy = 0) => { const n = new NPC('goblin', p.x + dx, p.y + dy, 0, {}); n.maxHp = n.hp = 1e7; n.def = { ...n.def, defence: 0 }; return n; };
+  const cast = (spell, target) => {
+    p.spell = spell; p.attackCooldown = 0;
+    for (let i = 0; i < 40; i++) { const before = target.hp; g._magicAttack(target); if (target.hp < before) return p.attackCooldown; p.attackCooldown = 0; }
+    assert.fail(`${spell} never hit`);
+  };
+  // Wind casts quicker than fire.
+  const t = foe(2); g.npcs = [t];
+  assert.ok(cast('wind_strike', t) < cast('fire_strike', t), 'wind recovers faster');
+  // Earth reaches 3 tiles from the target, fire only 2.
+  const main = foe(2), far = foe(5); g.npcs = [main, far];
+  const farHp = far.hp; cast('fire_strike', main);
+  assert.equal(far.hp, farHp, 'fire splash stops at 2 tiles');
+  g._burns = [];
+  cast('earth_strike', main);
+  assert.ok(far.hp < farHp, 'earth splash reaches 3 tiles');
+  // Fire burns for 3 ticks.
+  const b = foe(2); g.npcs = [b]; g._burns = [];
+  cast('fire_strike', b);
+  const hp0 = b.hp;
+  g._tickBurns(); g._tickBurns(); g._tickBurns(); g._tickBurns();
+  assert.ok(b.hp < hp0, 'the burn hurts after the cast');
+  assert.equal(g._burns.length, 0, 'and ends after 3 ticks');
+  // Water freezes within a handful of hits.
+  const w = foe(2); g.npcs = [w];
+  let frozen = false;
+  for (let i = 0; i < 60 && !frozen; i++) { w.attackCooldown = 0; cast('water_strike', w); frozen = w.attackCooldown >= 7; }
+  assert.ok(frozen, 'water froze the target');
+});

@@ -671,6 +671,7 @@ export class Game {
       this._autoPickup();
     }
     this._resolveHazards();
+    this._tickBurns();
     if (this.killStreak && this.tickCount - this._lastKillTick > STREAK_WINDOW_TICKS) {
       this.msg(`Your kill streak of ${this.killStreak} ends.`, 'system');
       this.killStreak = 0; this.bus.emit('xpbonus');
@@ -1656,11 +1657,12 @@ export class Game {
    *  of the target takes the same damage (100%), and it all earns Magic XP. */
   _spellSplash(target, dmg, spell) {
     const p = this.player;
+    const radius = ELEMENTS[spell.element]?.aoeRadius || AOE_RADIUS;   // Earth's Quake reaches further
     let xp = 0;
     for (const o of this.npcs) {
       if (o === target || !o.alive || !o.attackable || o.ally || o.hp <= 0) continue;
       if (o.def.fixed && o.target !== p) continue;   // story bosses aren't dragged in
-      if (chebyshev(o.x, o.y, target.x, target.y) > AOE_RADIUS) continue;
+      if (chebyshev(o.x, o.y, target.x, target.y) > radius) continue;
       const d = Math.min(o.hp, dmg);
       o.takeDamage(d);
       this.addHitsplat(o, d, { tint: spell.tint });
@@ -1697,10 +1699,38 @@ export class Game {
     this.skills.addXp('magic', spell.xp * this.combatXpMult());
     if (dmg > 0) { const m = this.combatXpMult(); this.spawnHitSparks(npc, spell.tint); this.skills.addXp('magic', dmg * 2 * m); this.skills.addXp('defence', dmg * 1.33 * m); this.skills.addXp('hitpoints', dmg * 1.33 * m); }
     if (dmg > 0) this._spellSplash(npc, dmg, spell);
-    // Spells come off a staff a beat quicker than its swing speed.
+    const el = ELEMENTS[spell.element] || {};
+    // Water's Freeze: the target can't strike back for a moment.
+    if (dmg > 0 && npc.hp > 0 && el.freezeChance && Math.random() < el.freezeChance) {
+      npc.windup = 0; npc.attackCooldown = Math.max(npc.attackCooldown || 0, el.freezeBeats);
+      this.addHitsplat(npc, 0, { text: 'Frozen!' }); this.spawnSparkle(npc, '#9fe6ff', 6);
+    }
+    // Fire's Burn: a share of the hit again on each of the next few ticks.
+    if (dmg > 0 && npc.hp > 0 && el.burnShare) {
+      this._burns = (this._burns || []).filter((b) => b.npc !== npc);
+      this._burns.push({ npc, dmg: Math.max(1, Math.round(dmg * el.burnShare)), ticks: el.burnTicks });
+    }
+    // Spells come off a staff a beat quicker than its swing speed; Wind's Gale quicker still.
     const hm = this.equipment.hasteMult();
-    this._resetCooldown(Math.max(hm, this.equipment.weaponSpeed() - hm));
+    this._resetCooldown(Math.max(hm, this.equipment.weaponSpeed() - hm) * (el.castSpeed || 1));
     this._postAttack(npc);
+  }
+
+  /** Fire spells leave their target burning: damage each tick, with Magic XP. */
+  _tickBurns() {
+    if (!this._burns?.length) return;
+    const m = this.combatXpMult();
+    for (const b of this._burns) {
+      const n = b.npc;
+      if (!n.alive || n.hp <= 0) { b.ticks = 0; continue; }
+      const d = Math.min(n.hp, b.dmg);
+      n.takeDamage(d);
+      this.addHitsplat(n, d, { tint: '#ff7a3a' });
+      this.skills.addXp('magic', d * 2 * m); this.skills.addXp('defence', d * 1.33 * m); this.skills.addXp('hitpoints', d * 1.33 * m);
+      b.ticks--;
+      if (n.hp <= 0) this.killNpc(n);
+    }
+    this._burns = this._burns.filter((b) => b.ticks > 0);
   }
 
   /** The rune an equipped elemental staff supplies without limit (or null). */

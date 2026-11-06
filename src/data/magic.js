@@ -22,11 +22,17 @@ export const SPELLS = [
 // Each spell's element is a damage type: it bites into some races and is
 // shrugged off by others (like weapon types do), and every spell blasts the
 // area around its target (see AOE_RADIUS) for the same damage.
+// Each element also has its own effect, so the choice matters beyond damage:
+//   wind casts quickest, water can freeze, earth hits the widest area, fire burns.
 export const ELEMENTS = {
-  wind:  { name: 'Wind',  icon: '🌪️', strong: ['avian', 'spirit', 'bug'], weak: ['construct', 'dragon'] },
-  water: { name: 'Water', icon: '💧', strong: ['dragon', 'demon', 'construct'], weak: ['aquatic', 'flora'] },
-  earth: { name: 'Earth', icon: '🪨', strong: ['beast', 'reptile', 'humanoid', 'aquatic'], weak: ['avian', 'spirit'] },
-  fire:  { name: 'Fire',  icon: '🔥', strong: ['flora', 'undead', 'bug'], weak: ['aquatic', 'dragon', 'demon'] },
+  wind:  { name: 'Wind',  icon: '🌪️', strong: ['avian', 'spirit', 'bug'], weak: ['construct', 'dragon'],
+    effect: 'Gale: casts 30% faster', castSpeed: 0.7 },
+  water: { name: 'Water', icon: '💧', strong: ['dragon', 'demon', 'construct'], weak: ['aquatic', 'flora'],
+    effect: 'Freeze: 30% chance the target can\'t strike for 2s', freezeChance: 0.3, freezeBeats: 7 },
+  earth: { name: 'Earth', icon: '🪨', strong: ['beast', 'reptile', 'humanoid', 'aquatic'], weak: ['avian', 'spirit'],
+    effect: 'Quake: blasts a wider area (3 tiles)', aoeRadius: 3 },
+  fire:  { name: 'Fire',  icon: '🔥', strong: ['flora', 'undead', 'bug'], weak: ['aquatic', 'dragon', 'demon'],
+    effect: 'Burn: the target burns for 20% of the hit each tick for 3 ticks', burnShare: 0.2, burnTicks: 3 },
 };
 for (const s of SPELLS) s.element = s.id.split('_')[0];
 export const AOE_RADIUS = 2;   // tiles around the target that every spell also hits
