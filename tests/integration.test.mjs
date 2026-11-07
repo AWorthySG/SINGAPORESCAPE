@@ -3794,3 +3794,30 @@ test('Agility speeds up attacks, casting and movement for every class', async ()
     assert.equal(g.player.stepMul, g.playerStepMul(), 'the player really walks at that pace');
   }
 });
+
+test('"Do all" at a station makes everything you can, best recipe first (smelt all, cook all)', async () => {
+  const { xpForLevel } = await import('../src/data/xp.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start();
+  g.npcs = g.npcs.filter((n) => !n.def.attackable);   // no interruptions
+  g.skills.xp.smithing = xpForLevel(40); g.skills.xp.cooking = xpForLevel(99);
+  for (const id of g.inventory.slots.filter(Boolean).map((s) => s.id)) g.inventory.remove(id, g.inventory.count(id));
+  g.inventory.add('copper_ore', 3); g.inventory.add('tin_ore', 3);
+  g.inventory.add('iron_ore', 2); g.inventory.add('coal', 4);
+  const furnace = g.world.objects.find((o) => o.def.type === 'furnace');
+  g.player.x = g.player.tx = furnace.x + 1; g.player.y = g.player.ty = furnace.y;
+  assert.ok(g.startAll('smelt', furnace));
+  step(g, 30);
+  assert.equal(g.inventory.count('copper_ore') + g.inventory.count('tin_ore') + g.inventory.count('iron_ore'), 0, 'every ore was smelted');
+  assert.ok(g.inventory.count('steel_bar') >= 2, 'steel first (the best it could make), with the coal');
+  assert.ok(g.inventory.count('bronze_bar') >= 3, 'then bronze');
+  assert.equal(g.player.action, null, 'and it stopped when nothing was left');
+  // Cook all: every kind of raw food in the pack.
+  g.inventory.add('raw_chicken', 2); g.inventory.add('raw_anchovy', 2); g.inventory.add('raw_trout', 1);
+  const range = g.world.objects.find((o) => o.def.type === 'range' || o.def.type === 'fire');
+  g.player.x = g.player.tx = range.x + 1; g.player.y = g.player.ty = range.y;
+  assert.ok(g.startAll('cook', range));
+  step(g, 30);
+  assert.equal(g.inventory.count('raw_chicken') + g.inventory.count('raw_anchovy') + g.inventory.count('raw_trout'), 0, 'everything was cooked');
+  assert.equal(g.startAll('cook', range), false, 'nothing left to cook');
+});

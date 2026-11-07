@@ -44,6 +44,7 @@ import { CROP_BY_SEED, cropFor, POTIONS } from '../data/trades.js';
 import { saveGame, loadGame, hasSave } from './save.js';
 import { getShop } from '../data/shops.js';
 import { RARE_DROP_TABLE, getNpc, ALL_BOSS_IDS } from '../data/npcs.js';
+import { nextJob, jobKey } from './autoprocess.js';
 import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
 import { eligibleTasks, SLAYER_REWARDS } from '../data/slayer.js';
 import { STATIONS, STATION_BY_ID, MRT_FARE } from '../data/transport.js';
@@ -935,6 +936,14 @@ export class Game {
     // Remember what we're gathering, so auto gather can pick it up again after
     // a fight, or once the mined-out rocks and felled trees grow back.
     if (gather && this.autoGather && obj?.objId) this._autoLife = { kind: 'gather', objId: obj.objId };
+    // "Do all": when one recipe runs out, move straight on to the next one.
+    if (!going && a.all) {
+      a.done ||= new Set();
+      a.done.add(jobKey(a));
+      const nxt = nextJob(this, a.all, a.done);
+      if (nxt) { Object.assign(a, { rawId: undefined, recipe: undefined, skill: undefined }, nxt); return; }
+      this.msg('Done: nothing left you can make here.', 'system');
+    }
     if (!going) {
       this.player.clearAction();
       if (gather && this.autoGather) this._autoGatherNext(a, obj);
@@ -3638,6 +3647,13 @@ export class Game {
   startSmith(recipe, obj) { this.beginAction({ type: 'smith', recipe, obj }, { x: obj.x, y: obj.y }, true); }
   startCraft(recipe, obj) { this.beginAction({ type: 'craft', recipe, obj }, { x: obj.x, y: obj.y }, true); }
   /** Fletching or Herblore at a station: `recipe` is { result, qty, inputs: [[id, n]], level, xp, tool? }. */
+  /** "Do all" at a station: make everything you can there, best recipe first. */
+  startAll(kind, obj) {
+    const job = nextJob(this, kind);
+    if (!job) { this.msg('You have nothing here you can make.'); return false; }
+    this.beginAction({ ...job, obj, all: kind }, { x: obj.x, y: obj.y }, true);
+    return true;
+  }
   startRecipe(skill, recipe, obj) { this.beginAction({ type: 'recipe', skill, recipe, obj }, { x: obj.x, y: obj.y }, true); }
 
   // ---------------- Farming ----------------
