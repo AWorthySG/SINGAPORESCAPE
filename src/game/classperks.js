@@ -46,9 +46,9 @@ export function classPerks(classId) {
   const w = starterWeapon(classId);
   const eq = getItem(w).equip || {};
   const out = [{ icon: '⭐', label: 'Signature', text: SIGNATURE[classId] || cls.desc }];
-  // Swing speed in seconds (a combat beat is 0.3s; spells come a beat quicker).
+  // Swing speed in seconds (a combat beat is 0.3s; spells take half a swing, so wands cast quickest).
   let beats = swingBeats(w);
-  if (cls.style === 'magic') beats = Math.max(1, beats - 1);
+  if (cls.style === 'magic') beats *= 0.5;
   const quick = beats < 0.5;   // scimitars and claws
   out.push({ icon: '⚡', label: 'Speed', text: `${quick ? 'Quick weapon: ' : ''}attacks every ${secs(beats * 0.3)}s` });
   const reach = cls.style === 'magic' ? 8 : eq.range || 2;

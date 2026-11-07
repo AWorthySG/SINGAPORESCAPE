@@ -818,8 +818,8 @@ function armourFamily(id, eq) {
 const FAMILY_STAT = {
   plate: (r) => ({ pierce: 1 + Math.floor(r / 30) }),
   leather: (r) => ({ critDmg: 3 * (1 + Math.floor(r / 30)) }),
-  hide: (r) => ({ critDmg: 3 * (1 + Math.floor(r / 30)) }),   // archers' precision (was haste, which did little)
-  robes: (r) => ({ bossDmg: 2 * (1 + Math.floor(r / 30)) }),
+  hide: (r) => ({ atkPct: 2 * (1 + Math.floor(r / 30)), haste: 1 + Math.floor(r / 40) }),   // archers' power and quick hands
+  robes: (r) => ({ magPct: 2 * (1 + Math.floor(r / 30)) }),   // casters' Magic bonus %
   dancewear: (r) => ({ lifesteal: 1 + Math.floor(r / 60) }),
 };
 for (const [id, it] of Object.entries(RAW)) {
@@ -858,13 +858,13 @@ for (const [id, it] of Object.entries(RAW)) {
 // gently with the weapon's level. All in percent, kept well inside the caps
 // in equipment.js so armour, jewellery and weapon can stack together.
 const WEAPON_STAT = {
-  dagger: 'critDmg', claws: 'critDmg', katana: 'critDmg', shuriken: 'critDmg', shortbow: 'critDmg', pistol: 'critDmg',
+  dagger: 'critDmg', claws: 'critDmg', katana: 'critDmg', shuriken: 'atkPct', shortbow: 'atkPct', pistol: 'atkPct',
   mace: 'pierce', warhammer: 'pierce', spear: 'pierce', longsword: 'pierce', longbow: 'pierce',
-  '2h_sword': 'bossDmg', halberd: 'bossDmg', battleaxe: 'bossDmg', staff: 'bossDmg', wand: 'bossDmg', sword: 'bossDmg',
+  '2h_sword': 'bossDmg', halberd: 'bossDmg', battleaxe: 'atkPct', staff: 'magPct', wand: 'magPct', sword: 'atkPct',
   scimitar: 'lifesteal', whip: 'lifesteal', cane: 'lifesteal',
 };
 // Size of one "step" of each stat (critDmg and bossDmg run bigger numbers).
-const STAT_STEP = { critDmg: 3, bossDmg: 2, pierce: 1, haste: 1, lifesteal: 1 };
+const STAT_STEP = { critDmg: 3, bossDmg: 2, pierce: 1, haste: 1, lifesteal: 1, atkPct: 2, magPct: 2 };
 const reqOf = (eq) => Math.max(1, ...Object.values(eq.req || {}));
 for (const it of Object.values(RAW)) {
   const eq = it.equip;
@@ -873,6 +873,13 @@ for (const it of Object.values(RAW)) {
   // One step at level 1, one more every 40 levels (haste and lifesteal every 60).
   const steps = 1 + Math.floor(reqOf(eq) / (k === 'haste' || k === 'lifesteal' ? 60 : 40));
   eq.bonuses = { ...eq.bonuses, [k]: (eq.bonuses[k] || 0) + steps * STAT_STEP[k] };
+}
+// Every weapon also carries attack speed %: 2% at level 1, +1% every 15 levels
+// (now uncapped, so it keeps paying off on top-tier gear).
+for (const it of Object.values(RAW)) {
+  const eq = it.equip;
+  if (!eq || eq.slot !== 'weapon' || it.tool || !eq.combatType && !eq.weaponType) continue;
+  eq.bonuses = { ...eq.bonuses, haste: (eq.bonuses.haste || 0) + 2 + Math.floor(reqOf(eq) / 15) };
 }
 // Hand-picked extras for jewellery, capes and the boss uniques: each one's flavour.
 const OFFENCE_EXTRA = {

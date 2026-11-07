@@ -1098,7 +1098,8 @@ export class Game {
     if (p.attackCooldown > 0) p.attackCooldown--;
     // Melee weapons have cooldowns under one beat, so the leftover carries over
     // and several swings can fit in one beat (up to 3 for the quickest).
-    for (let swings = 0; swings < 5; swings++) {   // pistols can fit 4 shots in a beat
+    // No cap on attack speed: only a guard against a runaway loop in one frame.
+    for (let swings = 0; swings < 100; swings++) {
       if (this.playerStun > 0 || p.attackCooldown > 0) return;
       const a = p.action;
       if (!a || a.type !== 'attack' || !a.npc || !a.npc.alive) return;
@@ -1163,9 +1164,8 @@ export class Game {
       this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.round(total * mods.heal));
       this.bus.emit('hp');
     }
-    const speed = this.equipment.weaponSpeed();
     // A sub-beat cooldown keeps what's left over (never banking more than one swing).
-    this._resetCooldown(speed);
+    this._resetCooldown(this.attackInterval());
     this._postAttack(npc);
   }
 
@@ -1316,6 +1316,8 @@ export class Game {
     const gb = this.equipment.bonuses();
     accM *= (1 + (perk.acc || 0) + this.learning.perks().acc) / (1 - Math.min(0.6, (perk.pierce || 0) + gb.pierce / 100));   // English mastery: Eloquence
     dmgM *= 1 + (perk.dmg || 0) + ((npc.def.boss || npc.champion) ? (perk.boss || 0) + gb.bossDmg / 100 : 0);
+    // Attack bonus % boosts physical damage (melee, ranged, whips); Magic bonus % boosts spells.
+    dmgM *= 1 + (mode === 'magic' ? gb.magPct : gb.atkPct) / 100;
     const bonusHit = Math.random() < (perk.extra || 0);
     perk._echo = mode === 'magic' && bonusHit;
     const hits = Math.min(maxHits, Math.max(spec ? spec.hits || 1 : 1, ab ? ab.hits || 1 : 1)) + (bonusHit && mode !== 'magic' ? 1 : 0);
@@ -1361,6 +1363,16 @@ export class Game {
   /** Time until the next attack. A cooldown that doesn't land on a whole beat
    *  keeps its leftover (never banking more than one beat), so fractional speeds
    *  from quick weapons and haste really are faster. */
+  /** Combat beats between attacks in the current style, with no floor: the
+   *  weapon's speed (attack speed % included), and for spells half that (spells
+   *  come off quicker than a swing) times the element's cast speed. */
+  attackInterval(spell = null) {
+    const ws = this.equipment.weaponSpeed();
+    if (this.combatMode() !== 'magic') return ws;
+    const sp = spell || getSpell(this.player.spell);
+    return ws * 0.5 * (ELEMENTS[sp.element]?.castSpeed || 1);
+  }
+
   _resetCooldown(speed) {
     const p = this.player;
     p.attackCooldown = Math.max(-1, Math.min(0, p.attackCooldown || 0)) + speed;
@@ -1502,7 +1514,7 @@ export class Game {
     this._danceHitTick = this.tickCount;
     if (this.danceRhythm >= RHYTHM_MAX && total > 0) this.spawnSparkle(p, '#ff8ac0', 4);
     if (mods.heal && total > 0) { p.hp = Math.min(this.maxHp(), p.hp + Math.round(total * mods.heal)); this.bus.emit('hp'); }
-    this._resetCooldown(this.equipment.weaponSpeed());
+    this._resetCooldown(this.attackInterval());
     this.bus.emit('rhythm');
     this._postAttack(npc);
   }
@@ -1624,10 +1636,8 @@ export class Game {
     if (mods.heal && total > 0) { this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.round(total * mods.heal)); this.bus.emit('hp'); }
     this._mainCritCh = mods.critCh;   // split-shot arrows crit like the main shot
     if (this.skills.ranged >= SPLIT_SHOT_LEVEL) this._splitShot(npc, style, pr);
-    const hm = this.equipment.hasteMult();   // haste from gear shortens shots too
-    const ws = this.equipment.weaponSpeed();
-    // Pistols and shurikens are quicker than a beat; bows never go under one beat.
-    this._resetCooldown(Math.max(Math.min(hm, ws), ws + (RANGED_STYLES[style]?.speedMod || 0) * hm));
+    // Shots come as fast as the weapon and attack speed % allow (no floor).
+    this._resetCooldown(this.attackInterval());
     this._postAttack(npc);
   }
 
@@ -1720,9 +1730,8 @@ export class Game {
     if (dmg > 0) this._spellSplash(npc, raw, spell);
     const el = ELEMENTS[spell.element] || {};
     if (dmg > 0 && el.slowTicks) this._slowFoe(npc, el.slowTicks);   // Water's Tide
-    // Spells come off a staff a beat quicker than its swing speed; Wind and Water quicker still.
-    const hm = this.equipment.hasteMult();
-    this._resetCooldown(Math.max(hm, this.equipment.weaponSpeed() - hm) * (el.castSpeed || 1));
+    // Spells come off at half the weapon's swing time (wands quicker than staves); Wind and Water quicker still.
+    this._resetCooldown(this.attackInterval(spell));
     this._postAttack(npc);
   }
 
@@ -2975,7 +2984,8 @@ export class Game {
       // 2. Brace against a heavy blow being wound up next to you.
       if (this.npcs.some((n) => n.alive && n.target === p && n.windup > 0)) this._autoAbility((ab) => ab.kind === 'guard');
       // Casters always throw the strongest spell they can afford.
-      if (this.combatMode() === 'magic') { const best = this._autoSpellFor(tgt); if (best && best.id !== p.spell) { p.spell = best.id; this.bus.emit('spell'); } }
+      // Casters on 'Auto' get the element that suits the target; a chosen element is kept.
+      if (this.combatMode() === 'magic' && p.spellAuto) { const best = this._autoSpellFor(tgt); if (best && best.id !== p.spell) { p.spell = best.id; this.bus.emit('spell'); } }
       // 3. Spend adrenaline: the biggest attack skill you can afford.
       if (!this.armedAbility && this.autoCfg.abilities) this._autoAbility((ab) => ab.kind === 'attack', true);
       return;

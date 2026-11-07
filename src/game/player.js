@@ -33,6 +33,7 @@ export class Player extends Character {
     this.rangedStyle = 'balanced';
     this.danceStyle = 'balanced';
     this.spell = 'wind_strike';    // selected combat spell
+    this.spellAuto = false;        // true: auto battle picks the element for each target
     this.autoRetaliate = true;
     this.respawnTimer = 0;
 

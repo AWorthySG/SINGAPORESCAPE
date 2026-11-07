@@ -8,6 +8,7 @@ export const STAT_LABELS = {
   attack: 'Attack', strength: 'Melee power', defence: 'Defence', ranged: 'Ranged',
   magic: 'Magic', magicStr: 'Magic dmg', dance: 'Dance', crit: 'Crit %', hp: 'Bonus HP',
   pierce: 'Armour pierce %', critDmg: 'Crit damage %', haste: 'Attack speed %', lifesteal: 'Lifesteal %', bossDmg: 'Boss damage %',
+  atkPct: 'Attack bonus %', magPct: 'Magic bonus %',
 };
 const STAT_KEYS = Object.keys(STAT_LABELS);
 
@@ -20,9 +21,11 @@ export const STAT_HELP = [
   ['Speed', 'time between swings — lower is faster'],
   ['Armour pierce', 'ignores part of the enemy\'s defence, so more hits land (plate armour)'],
   ['Crit damage', 'makes critical hits (x2, or x4 on a mega crit) bigger still (scout leather)'],
-  ['Attack speed', 'shortens the time between attacks, up to 30% (hide)'],
+  ['Attack speed', 'more attacks: +100% attacks twice as often, with no cap (every weapon, hide)'],
+  ['Attack bonus', 'more damage from melee and ranged hits (bows, pistols, shurikens, swords, hide)'],
+  ['Magic bonus', 'more damage from spells (staves, wands, robes)'],
   ['Lifesteal', 'heals you by a share of the damage you deal (dancewear)'],
-  ['Boss damage', 'extra damage against bosses and champions (robes)'],
+  ['Boss damage', 'extra damage against bosses and champions'],
 ];
 
 /** Weapon style: 'melee' | 'ranged' | 'magic' | 'dance'. */
@@ -48,7 +51,7 @@ export function effectiveRating(id, equipment, mode = 'melee') {
   const offence = mode === 'ranged' ? (b.ranged || 0) : mode === 'magic' ? (b.magic || 0) + (b.magicStr || 0) * 8
     : mode === 'dance' ? (b.dance || 0) * 2 : (b.attack || 0) + (b.strength || 0);
   const styleOk = !eq.style || eq.style === (mode === 'dance' ? 'melee' : mode);
-  const extras = styleOk ? (b.crit || 0) * 2 + (b.pierce || 0) * 2 + (b.critDmg || 0) * 0.5 + (b.haste || 0) * 3 + (b.lifesteal || 0) * 3 + (b.bossDmg || 0) : 0;
+  const extras = styleOk ? (b.crit || 0) * 2 + (b.pierce || 0) * 2 + (b.critDmg || 0) * 0.5 + (b.haste || 0) * 3 + (b.lifesteal || 0) * 3 + (b.bossDmg || 0) + (b.atkPct || 0) * 2 + (b.magPct || 0) * 2 : 0;
   const support = (b.defence || 0) + (b.hp || 0);
   if (eq.slot === 'weapon') return Math.round((offence * 2) / swingBeats(id)) + support + extras;
   return offence + support + extras;
@@ -62,7 +65,7 @@ export function gearRating(id) {
   const b = eq.bonuses || {};
   const offence = (b.attack || 0) + (b.strength || 0) + (b.ranged || 0) + (b.magic || 0) + (b.magicStr || 0) * 8 + (b.dance || 0) * 2;
   const support = (b.defence || 0) + (b.crit || 0) * 2 + (b.hp || 0)
-    + (b.pierce || 0) * 2 + (b.critDmg || 0) * 0.5 + (b.haste || 0) * 3 + (b.lifesteal || 0) * 3 + (b.bossDmg || 0);
+    + (b.pierce || 0) * 2 + (b.critDmg || 0) * 0.5 + (b.haste || 0) * 3 + (b.lifesteal || 0) * 3 + (b.bossDmg || 0) + (b.atkPct || 0) * 2 + (b.magPct || 0) * 2;
   if (eq.slot === 'weapon') return Math.round((offence * 2) / swingBeats(id)) + support;
   return offence + support;
 }
