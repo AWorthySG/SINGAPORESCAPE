@@ -3791,7 +3791,7 @@ test('Agility speeds up attacks, casting and movement for every class', async ()
     assert.ok(g.playerStepMul() < step * 0.51, `${cls}: and moves twice as fast`);
     g.skills.xp.agility = xpForLevel(9999);
     assert.ok(g.attackInterval() < iv / 9, 'attack speed keeps growing');
-    assert.ok(Math.abs(g.playerStepMul() - 0.7 / 3) < 1e-9, 'movement stops at +200%');
+    assert.ok(Math.abs(g.playerStepMul() - 0.7 * 100 / (100 + 999.9)) < 1e-9, 'movement has no cap either');
     g.doTick();
     assert.equal(g.player.stepMul, g.playerStepMul(), 'the player really walks at that pace');
   }
@@ -3896,4 +3896,20 @@ test('A-Worthlings merge past 40: fewer on screen, the same total damage and pow
   for (let i = 0; i < 400; i++) { g.tickCount = 1000 + i; Mercs.spawnFollower(g); g.doTick(); }
   assert.ok(power(Mercs.activeFollowers(g)) <= Mercs.MAX_FOLLOWERS * Mercs.FOLLOWER_SHARE + 1e-9, 'total power still capped');
   assert.ok(Mercs.activeFollowers(g).length <= Mercs.MERGE_AT, 'and never more than 40 on screen after a tick');
+});
+
+test('very fast movement never passes through walls', async () => {
+  const { xpForLevel } = await import('../src/data/xp.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start();
+  g.npcs = g.npcs.filter((n) => !n.def.attackable);
+  g.skills.xp.agility = xpForLevel(9999);
+  g.doTick();
+  const p = g.player;
+  g.setMoveInput(1, 0);
+  for (let i = 0; i < 60; i++) {
+    g.update(100);
+    assert.ok(!g.world.isBlocked(Math.round(p.fx), Math.round(p.fy)), 'never inside a wall');
+  }
+  g.setMoveInput(0, 0);
 });
