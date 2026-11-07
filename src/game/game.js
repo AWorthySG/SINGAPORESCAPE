@@ -153,7 +153,7 @@ export class Game {
     this._lastKillTick = -1e9;
     // Auto battle settings: eat below this fraction of life (0 = never),
     // fight only one monster type (null = anything), use attack skills.
-    this.autoCfg = { eatAt: 0.4, target: null, abilities: true, bosses: true, priority: true };
+    this.autoCfg = { eatAt: 0.4, target: null, abilities: true, bosses: true, champions: true, priority: true };
     this.particles = [];
     // Screen-shake state (big hits, boss slams). Decays over shakeDur ms.
     this.shakeT = 0;
@@ -2965,10 +2965,17 @@ export class Game {
         p.clearAction();
         return;
       }
+      // Still chasing a target that isn't fighting back while something else is
+      // already hitting you from within reach: turn and deal with that first.
+      if (!inRange && tgt.target !== p) {
+        const att = this.npcs.find((n) => n !== tgt && n.alive && n.attackable && !n.ally && n.target === p
+          && chebyshev(p.x, p.y, n.x, n.y) <= Math.max(1, this.attackRange()));
+        if (att) { this._autoFight = null; this._autoLast = att; this.attackNpc(att); return; }
+      }
       // 2. Brace against a heavy blow being wound up next to you.
       if (this.npcs.some((n) => n.alive && n.target === p && n.windup > 0)) this._autoAbility((ab) => ab.kind === 'guard');
       // Casters always throw the strongest spell they can afford.
-      if (this.combatMode() === 'magic') { const best = this.bestSpell(); if (best && best.id !== p.spell) { p.spell = best.id; this.bus.emit('spell'); } }
+      if (this.combatMode() === 'magic') { const best = this._autoSpellFor(tgt); if (best && best.id !== p.spell) { p.spell = best.id; this.bus.emit('spell'); } }
       // 3. Spend adrenaline: the biggest attack skill you can afford.
       if (!this.armedAbility && this.autoCfg.abilities) this._autoAbility((ab) => ab.kind === 'attack', true);
       return;
@@ -2980,6 +2987,26 @@ export class Game {
       this._autoIdleSaid = true;
       this.msg('Auto battle: nothing to fight nearby. Walk somewhere wilder and it will pick up again.', 'system');
     }
+  }
+
+  /** Auto battle's spell for a target: the element that hits it hardest (its
+   *  damage x the race matchup), or Earth when a crowd stands within its reach. */
+  _autoSpellFor(tgt) {
+    const ok = SPELLS.filter((sp) => this.skills.magic >= sp.level && this._hasRunes(sp));
+    if (!ok.length) return null;
+    const race = raceOf(tgt.def, tgt.npcId);
+    const crowd = this.npcs.filter((n) => n !== tgt && n.alive && n.attackable && !n.ally && !n.def.fixed
+      && chebyshev(n.x, n.y, tgt.x, tgt.y) <= 5).length;
+    const value = (sp) => {
+      const el = ELEMENTS[sp.element] || {};
+      const m = elementMatchup(sp.element, race);
+      let v = (el.dmgMult || 1) * (m === 'strong' ? RACE_BONUS.dmg : m === 'weak' ? RACE_PENALTY.dmg : 1) / (el.castSpeed || 1);
+      // Area damage: Earth reaches everyone within 5 tiles, the rest only within 2.
+      const near = el.aoeRadius ? crowd : this.npcs.filter((n) => n !== tgt && n.alive && n.attackable && !n.ally && !n.def.fixed
+        && chebyshev(n.x, n.y, tgt.x, tgt.y) <= AOE_RADIUS).length;
+      return v * (1 + near);
+    };
+    return ok.reduce((a, b) => (value(b) > value(a) ? b : a));
   }
 
   /** Nearest walkable tile (within 4) that no boss attack is about to hit. */
@@ -3053,6 +3080,7 @@ export class Game {
       }
       // Then mini-bosses: gold-ringed champions within reach that you can take on.
       if (n.champion) {
+        if (this.autoCfg.champions === false) continue;   // "Champions: Skip"
         if (!canTake(n.def.level || 1) || (!inWild && wildZone(n.x, n.y))) continue;
         { const tier = this.autoCfg.priority !== false ? -2000 : -150 - (shootable(n, d) ? 1000 : 0); cands.push({ n, score: d + tier, tier }); }
         continue;
@@ -3062,8 +3090,15 @@ export class Game {
       // little above your level, so a hunt is worth the walk.
       if (d > 10 && lvl > cl + 20) continue;
       if (!inWild && wildZone(n.x, n.y)) continue;
-      // Anything within 8 tiles first, then the rest.
-      const tier = (d > 8 ? 50 : 0) - (shootable(n, d) ? 1000 : 0);
+      // Anything within 8 tiles first, then the rest. Among those, a monster in
+      // a pack (every hit cleaves or splashes into its neighbours) and one
+      // already hurt (a quick kill) are worth a few tiles' extra walk.
+      let pack = 0;
+      for (const o of this.npcs) {
+        if (o !== n && o.alive && o.attackable && !o.ally && !o.temporary && Math.abs(o.x - n.x) <= 2 && Math.abs(o.y - n.y) <= 2) pack++;
+      }
+      const hurt = n.maxHp ? 1 - n.hp / n.maxHp : 0;
+      const tier = (d > 8 ? 50 : 0) - (shootable(n, d) ? 1000 : 0) - Math.min(3, pack) * 1.5 - hurt * 3;
       cands.push({ n, score: d + tier, tier });
     }
     // Nearest first by straight-line distance, then confirm a walkable route

@@ -1836,11 +1836,11 @@ test('auto battle settings: eat level, target filter, and they are saved', () =>
     const t = game._autoPickTarget();
     assert.ok(!t || t.npcId === kinds[0] || t.target === p, 'only the chosen monster type is hunted');
   }
-  game.autoCfg = { eatAt: 0.6, target: 'chicken', abilities: false, bosses: false, priority: false };
+  game.autoCfg = { eatAt: 0.6, target: 'chicken', abilities: false, bosses: false, champions: false, priority: false };
   saveGame(game);
   const g2 = new Game();
   g2.start();
-  assert.deepEqual(g2.autoCfg, { eatAt: 0.6, target: 'chicken', abilities: false, bosses: false, priority: false });
+  assert.deepEqual(g2.autoCfg, { eatAt: 0.6, target: 'chicken', abilities: false, bosses: false, champions: false, priority: false });
 });
 
 test('daily bounties: three targets a day that pay out, with a streak', async () => {
@@ -3557,4 +3557,62 @@ test('area hits roll their own crits (melee cleave, spell splash)', async () => 
     hit = g.effects.some((e) => e.type === 'hitsplat' && e.entity === side && e.critX >= 2);
   }
   assert.ok(hit, 'the splashed foe took a crit');
+});
+
+test('auto battle: fight champions but skip bosses; packs and hurt monsters first; turn on an attacker while chasing', async () => {
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const { NPC } = await import('../src/game/npc.js');
+  const game = new Game(); game.start(); game.chooseStartingStyle('melee');
+  game.ui = new Proxy({}, { get: () => () => {} });
+  const p = game.player;
+  const calm = (n) => { n.def = { ...n.def, aggressive: false }; return n; };
+  const mob = calm(new NPC('goblin', p.x + 1, p.y, 0, {}));
+  const champ = calm(new NPC('goblin', p.x + 5, p.y, 0, {})); champ.makeChampion();
+  const boss = game.npcs.find((n) => n.def.boss && !n.def.fixed);
+  boss.x = boss.tx = boss.spawnX = p.x + 9; boss.y = boss.ty = boss.spawnY = p.y;
+  game.npcs = [mob, champ, boss];
+  game.autoCfg.bosses = false; game.autoCfg.champions = true;
+  assert.equal(game._autoPickTarget(), champ, 'champions on, bosses off: the champion');
+  game.autoCfg.champions = false;
+  assert.equal(game._autoPickTarget(), mob, 'both off: an ordinary monster');
+  champ.target = p;
+  assert.equal(game._autoPickTarget(), champ, 'a champion attacking you is still fought');
+  // A goblin in a pack beats a lone one a tile closer.
+  const lone = calm(new NPC('goblin', p.x + 4, p.y, 0, {}));
+  const packed = [0, 1, 2].map((i) => calm(new NPC('goblin', p.x - 5, p.y + i - 1, 0, {})));
+  game.npcs = [lone, ...packed];
+  assert.ok(packed.includes(game._autoPickTarget()), 'the pack is worth the extra step');
+  // While chasing a far target, something hitting you in reach takes over.
+  const far = calm(new NPC('goblin', p.x + 12, p.y, 0, {})); far.maxHp = far.hp = 9999;
+  const biter = calm(new NPC('goblin', p.x + 1, p.y + 1, 0, {})); biter.maxHp = biter.hp = 9999;
+  game.npcs = [far, biter];
+  game.autoBattle = true;
+  game.attackNpc(far);
+  biter.target = p;
+  game._autoBattleTick();
+  assert.equal(p.action?.npc, biter, 'turned on the monster attacking you');
+});
+
+test('auto battle casters pick the element that suits the target', async () => {
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const { NPC } = await import('../src/game/npc.js');
+  const { raceOf } = await import('../src/data/races.js');
+  const { ELEMENTS } = await import('../src/data/magic.js');
+  const game = new Game(); game.start(); game.chooseStartingStyle('magic');
+  game.skills.xp.magic = 50000000;
+  for (const r of ['fire_rune', 'water_rune', 'earth_rune', 'air_rune', 'mind_rune']) game.inventory.add(r, 500);
+  const p = game.player;
+  // A lone monster that resists fire: not Fire.
+  const ids = game.npcs.filter((n) => n.def.attackable && !n.def.boss).map((n) => n.npcId);
+  const fireProof = ids.find((id) => ELEMENTS.fire.weak.includes(raceOf(game.npcs.find((n) => n.npcId === id).def, id)));
+  if (fireProof) {
+    const t = new NPC(fireProof, p.x + 3, p.y, 0, {});
+    game.npcs = [t];
+    assert.notEqual(game._autoSpellFor(t).element, 'fire', 'a fire-resistant target gets another element');
+  }
+  // A crowd spread around the target: Earth reaches them all.
+  const t = new NPC('goblin', p.x + 3, p.y, 0, {});
+  const crowd = [[3, 0], [-3, 0], [0, 4], [0, -4], [4, 4]].map(([dx, dy]) => new NPC('goblin', t.x + dx, t.y + dy, 0, {}));
+  game.npcs = [t, ...crowd];
+  assert.equal(game._autoSpellFor(t).element, 'earth');
 });

@@ -380,6 +380,7 @@ export class UI {
       row('What to fight', 'monsters attacking you are always fought', [[null, 'Anything'], ...[...near].sort((x, y) => x[1].localeCompare(y[1])).slice(0, 12).map(([id, nm]) => [id, nm])],
         cfg.target, (v) => { cfg.target = v; });
       row('Bosses', 'take on bosses you can beat', [[true, 'Fight them'], [false, 'Skip']], cfg.bosses !== false, (v) => { cfg.bosses = v; });
+      row('Champions', 'gold-ringed mini-bosses (one attacking you is always fought)', [[true, 'Fight them'], [false, 'Skip']], cfg.champions !== false, (v) => { cfg.champions = v; });
       row('Targets', 'who auto battle goes for first', [[true, 'Bosses & champions'], [false, 'Nearest']], cfg.priority !== false, (v) => { cfg.priority = v; });
       row('Attack skills', 'spend adrenaline on your skills', [[true, 'Use them'], [false, 'Save adrenaline']], cfg.abilities, (v) => { cfg.abilities = v; });
       body.appendChild(list);
