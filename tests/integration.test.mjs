@@ -3099,9 +3099,11 @@ test('new classes: Pistoler (dual pistols, no ammo, very fast), Ninja (ricochet)
   Mercs.allyCleave(mc, foe, 10);
   assert.equal(beside.hp, beside.maxHp - 4, 'ally hits cleave 40% (cane) into the foe beside the target');
   // Left far behind (a teleport): they jump back to the Merchant.
-  aw.stopNow(); aw.x = aw.tx = mc.player.x + 40; aw.y = aw.ty = mc.player.y;
+  // (A-Worthlings merge once there are many of them, so take one that's still about.)
+  const aw2 = Mercs.activeFollowers(mc)[0];
+  aw2.stopNow(); aw2.x = aw2.tx = mc.player.x + 40; aw2.y = aw2.ty = mc.player.y;
   mc.update(600);
-  assert.ok(Math.abs(aw.x - mc.player.x) <= 3, 'an A-Worthling left behind catches up');
+  assert.ok(Math.abs(aw2.x - mc.player.x) <= 3, 'an A-Worthling left behind catches up');
   assert.equal(fresh('pistoler').hireMercenary(), null, 'only Merchants can hire');
 });
 
@@ -3873,4 +3875,25 @@ test('mercenaries and A-Worthlings throw coins from range and give Ranged XP', a
   assert.ok(g.effects.some((e) => e.type === 'projectile' && e.kind === 'coin'), 'by throwing coins');
   assert.ok(g.skills.xp.ranged > xp0.ranged, 'their hits train Ranged');
   assert.equal(g.skills.xp.attack, xp0.attack, 'not Melee');
+});
+
+test('A-Worthlings merge past 40: fewer on screen, the same total damage and power cap', async () => {
+  const Mercs = await import('../src/game/mercenary.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('merchant');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  for (let i = 0; i < 90; i++) { g.tickCount = i; Mercs.spawnFollower(g); }
+  const power = (list) => list.reduce((s, f) => s + (f.share || Mercs.FOLLOWER_SHARE), 0);
+  const before = Mercs.activeFollowers(g);
+  const p0 = power(before);
+  assert.equal(before.length, 90);
+  Mercs.mergeFollowers(g);   // (it runs once a tick; called directly so no fight changes the numbers)
+  const after = Mercs.activeFollowers(g);
+  assert.ok(after.length <= Mercs.MERGE_TO, `merged down to ${after.length}`);
+  assert.ok(Math.abs(power(after) - p0) < 1e-9, 'the same total damage share');
+  assert.ok(after.some((f) => f.share > Mercs.FOLLOWER_SHARE && f.def.scale > 1), 'merged ones hit harder and look bigger');
+  // The power cap still counts merged ones: 200 A-Worthlings' worth at most.
+  for (let i = 0; i < 400; i++) { g.tickCount = 1000 + i; Mercs.spawnFollower(g); g.doTick(); }
+  assert.ok(power(Mercs.activeFollowers(g)) <= Mercs.MAX_FOLLOWERS * Mercs.FOLLOWER_SHARE + 1e-9, 'total power still capped');
+  assert.ok(Mercs.activeFollowers(g).length <= Mercs.MERGE_AT, 'and never more than 40 on screen after a tick');
 });
