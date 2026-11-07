@@ -43,7 +43,7 @@ import {
 import { CROP_BY_SEED, cropFor, POTIONS } from '../data/trades.js';
 import { saveGame, loadGame, hasSave } from './save.js';
 import { getShop } from '../data/shops.js';
-import { RARE_DROP_TABLE, getNpc } from '../data/npcs.js';
+import { RARE_DROP_TABLE, getNpc, ALL_BOSS_IDS } from '../data/npcs.js';
 import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
 import { eligibleTasks, SLAYER_REWARDS } from '../data/slayer.js';
 import { STATIONS, STATION_BY_ID, MRT_FARE } from '../data/transport.js';
@@ -81,6 +81,12 @@ const STREAK_WINDOW_TICKS = 50;
 const BOSS_XP_PER_LEVEL = 4000;
 const BOSS_STACK_MULT = 100;
 // Whip ricochet: bounces after each landed lash (one more at full Rhythm), and their share of the hit.
+// World boss: every 2 minutes (if none is about) a random boss rises near you,
+// far tougher than usual, and hunts you down. It leaves after 5 minutes unfought.
+const WORLD_BOSS_EVERY = 200;      // ticks (0.6s each): 2 minutes
+const WORLD_BOSS_STAY = 500;       // ticks it lingers without a fight: 5 minutes
+const WORLD_BOSS_MULT = { hp: 5, hit: 2, stats: 1.5 };
+const WORLD_BOSS_LOOT_ROLLS = 3;   // its loot, three times over
 const DANCE_RICOCHET = 2;
 // Above this many attacks a beat (1/0.05 = 20), attacks are grouped into volleys.
 const VOLLEY_MIN_BEATS = 0.05;
@@ -676,6 +682,7 @@ export class Game {
       this._autoPickup();
     }
     this._resolveHazards();
+    this._tickWorldBoss();
     if (this.killStreak && this.tickCount - this._lastKillTick > STREAK_WINDOW_TICKS) {
       this.msg(`Your kill streak of ${this.killStreak} ends.`, 'system');
       this.killStreak = 0; this.bus.emit('xpbonus');
@@ -697,6 +704,7 @@ export class Game {
     }
     Mercs.flushAllies(this);
     if (this.hasTemps) this.npcs = this.npcs.filter((n) => !(n.temporary && !n.alive));
+    if (this._worldBoss && !this._worldBoss.alive) { this.npcs = this.npcs.filter((n) => n !== this._worldBoss); this._worldBoss = null; }
     if (this.player.alive) this.updateRegion();
     this.world.tick();
     this._tickFarms();
@@ -2061,6 +2069,7 @@ export class Game {
     this.checkAchievements();
     this._deathBurst(npc);
     this.rollDrops(npc);
+    if (npc.worldBoss) { for (let k = 1; k < WORLD_BOSS_LOOT_ROLLS; k++) this.rollDrops(npc); this.msg('World Boss slain! Triple loot.', 'level'); }
     this._refundRunes(npc);
     npc.die();
     if (this.player.target === npc) this.player.target = null;
@@ -2554,6 +2563,53 @@ export class Game {
     n.temporary = temporary;
     if (temporary) this.hasTemps = true;
     this.npcs.push(n);
+    return n;
+  }
+
+  /** World boss: every WORLD_BOSS_EVERY ticks, if none is about, a random boss
+   *  (one at or above your combat level where possible) rises 8-14 tiles away:
+   *  5x its life, 2x its hits, 1.5x attack and defence, aggressive from far off
+   *  at any level. It never respawns, and leaves after WORLD_BOSS_STAY ticks
+   *  unless you're fighting it. */
+  _tickWorldBoss() {
+    const wb = this._worldBoss;
+    if (wb && wb.alive && this.tickCount > wb.worldBossUntil && wb.target !== this.player) {
+      this.msg(`${wb.name} fades back into the wilds.`, 'system');
+      this.npcs = this.npcs.filter((n) => n !== wb); this._worldBoss = null;
+    }
+    if (this.tickCount % WORLD_BOSS_EVERY !== 0 || this._worldBoss || !this.player.alive) return;
+    return this.spawnWorldBoss();
+  }
+
+  spawnWorldBoss() {
+    const p = this.player, cl = this.skills.combatLevel();
+    const ids = ALL_BOSS_IDS.filter((id) => { try { const d = getNpc(id); return d.boss && !d.fixed && d.attackable; } catch { return false; } });
+    if (!ids.length) return null;
+    const lvl = (id) => getNpc(id).level || 1;
+    const fit = ids.filter((id) => lvl(id) >= cl);
+    const pool = fit.length ? fit : [ids.reduce((a, b) => (lvl(b) > lvl(a) ? b : a))];
+    const id = pool[Math.floor(Math.random() * pool.length)];
+    // A walkable tile 8-14 tiles from you.
+    let spot = null;
+    for (let tries = 0; tries < 60 && !spot; tries++) {
+      const ang = Math.random() * Math.PI * 2, r = 8 + Math.random() * 6;
+      const x = Math.round(p.x + Math.cos(ang) * r), y = Math.round(p.y + Math.sin(ang) * r);
+      if (this.world.inBounds(x, y) && !this.world.isBlocked(x, y)) spot = { x, y };
+    }
+    if (!spot) return null;
+    const n = this.spawnNpc(id, spot.x, spot.y, { wander: 6 });
+    const d = n.def, M = WORLD_BOSS_MULT;
+    n.def = { ...d, name: `World Boss ${d.name}`, maxHp: Math.round((d.maxHp || 1) * M.hp), maxHit: Math.max(2, Math.round((d.maxHit || 1) * M.hit)),
+      attack: Math.round((d.attack || 1) * M.stats), defence: Math.round((d.defence || 1) * M.stats),
+      aggressive: true, aggroRange: 16, ignoreLevelGate: true, scale: (d.scale || 1) * 1.3, worldBoss: true };
+    n.maxHp = n.hp = n.def.maxHp;
+    n.worldBoss = true;
+    n.worldBossUntil = this.tickCount + WORLD_BOSS_STAY;
+    this._worldBoss = n;
+    this.msg(`A World Boss has appeared: ${n.name}! It's coming for you.`, 'level');
+    this.banner(`<span class="big">World Boss!</span>${n.name} rises nearby`);
+    this.addShake(5, 400);
+    this.bus.emit('sfx', 'spec');
     return n;
   }
 
