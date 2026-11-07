@@ -151,6 +151,7 @@ export function loadGame(game) {
       target: typeof ac.target === 'string' ? ac.target : null,
       abilities: ac.abilities !== false,
       bosses: ac.bosses !== false,
+      champions: ac.champions !== false,
       priority: ac.priority !== false,
     };
   }
