@@ -3361,6 +3361,9 @@ test('spells: every spell hits the area for 100% damage (with XP), and elements 
   const mk = (dx, dy) => { const n = new NPC('goblin', g.player.x + dx, g.player.y + dy, 0, {}); n.hp = n.maxHp = 99999; n.def = { ...n.def, aggressive: false, maxHit: 0 }; return n; };
   const main = mk(3, 0), near = mk(4, 1), far = mk(9, 0);
   g.npcs = [main, near, far];
+  // No crits here: area hits roll their own, so a crit on one side only would break the equal-damage check.
+  g._critHit = (dmg) => ({ dmg, crit: false, mult: 1 });
+  g._aoeCrit = (dmg) => ({ dmg, critX: 0 });
   const xp0 = g.skills.xp.magic;
   for (let i = 0; i < 30 && main.hp === main.maxHp; i++) { g.player.attackCooldown = 0; g._magicAttack(main); }
   const hit = main.maxHp - main.hp;

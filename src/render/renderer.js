@@ -1218,9 +1218,9 @@ export class Renderer {
         continue;
       }
       if (e.critX) {
-        // Critical hit: a big red number with a ×2 / ×4 tag, larger still for a mega crit.
+        // Critical hit: just a red number, a touch smaller for x2 and a touch bigger for x4 (a mega crit).
         const mega = e.critX >= 4;
-        const size = mega ? 30 : 22;
+        const size = mega ? 26 : 20;
         ctx.font = `900 ${size}px Nunito,"Trebuchet MS",sans-serif`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.lineJoin = 'round';
@@ -1230,10 +1230,6 @@ export class Renderer {
         ctx.strokeText(String(e.dmg), 0, 0);
         ctx.fillStyle = mega ? '#ff1a1a' : '#e01b1b';
         ctx.fillText(String(e.dmg), 0, 0);
-        ctx.font = `900 ${mega ? 13 : 11}px Nunito,"Trebuchet MS",sans-serif`;
-        const tag = `CRIT \u00d7${e.critX}`;
-        ctx.lineWidth = 3; ctx.strokeStyle = '#ffffff'; ctx.strokeText(tag, 0, -size * 0.8);
-        ctx.fillStyle = '#b30000'; ctx.fillText(tag, 0, -size * 0.8);
         ctx.textBaseline = 'alphabetic';
         ctx.restore(); ctx.globalAlpha = 1;
         continue;
