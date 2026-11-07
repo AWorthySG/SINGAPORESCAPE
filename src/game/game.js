@@ -87,6 +87,11 @@ const WORLD_BOSS_EVERY = 200;      // ticks (0.6s each): 2 minutes
 const WORLD_BOSS_STAY = 500;       // ticks it lingers without a fight: 5 minutes
 const WORLD_BOSS_MULT = { hp: 5, hit: 2, stats: 1.5 };
 const WORLD_BOSS_LOOT_ROLLS = 3;   // its loot, three times over
+// Agility: every 10 levels give +1% attack and casting speed (uncapped, every
+// class) and +1% movement speed (up to +200%, so steps stay smooth tile to tile).
+const AGILITY_SPEED_PER = 10;
+const AGILITY_MOVE_CAP = 200;
+const PLAYER_STEP_MUL = 0.7;   // the player's base step time (see player.js)
 const DANCE_RICOCHET = 2;
 // Above this many attacks a beat (1/0.05 = 20), attacks are grouped into volleys.
 const VOLLEY_MIN_BEATS = 0.05;
@@ -682,6 +687,7 @@ export class Game {
       this._autoPickup();
     }
     this._resolveHazards();
+    this.player.stepMul = this.playerStepMul();   // Agility quickens your steps
     this._tickWorldBoss();
     if (this.killStreak && this.tickCount - this._lastKillTick > STREAK_WINDOW_TICKS) {
       this.msg(`Your kill streak of ${this.killStreak} ends.`, 'system');
@@ -1306,6 +1312,11 @@ export class Game {
     this.bus.emit('ability');
   }
 
+  /** Agility's bonus to attack, casting and movement speed, in %. */
+  agilitySpeed() { return this.skills.agility / AGILITY_SPEED_PER; }
+  /** The player's step time multiplier: the base pace, quickened by Agility. */
+  playerStepMul() { return PLAYER_STEP_MUL * 100 / (100 + Math.min(AGILITY_MOVE_CAP, this.agilitySpeed())); }
+
   /** The active buff's value for a key (dmg, haste, crit, lifesteal, reduce, dodge), or 0. */
   buffMod(k) {
     const b = this.buff;
@@ -1404,7 +1415,8 @@ export class Game {
    *  weapon's speed (attack speed % included), and for spells half that (spells
    *  come off quicker than a swing) times the element's cast speed. */
   attackInterval(spell = null) {
-    const ws = this.equipment.weaponSpeed() * 100 / (100 + this.buffMod('haste'));   // a class buff's attack speed
+    // A class buff's attack speed and Agility's speed bonus, on top of gear.
+    const ws = this.equipment.weaponSpeed() * 100 / (100 + this.buffMod('haste')) * 100 / (100 + this.agilitySpeed());
     if (this.combatMode() !== 'magic') return ws;
     const sp = spell || getSpell(this.player.spell);
     return ws * 0.5 * (ELEMENTS[sp.element]?.castSpeed || 1);
