@@ -69,6 +69,7 @@ export const WEAPON_VS_RACE = {
   wand:      { strong: ['spirit', 'demon'],              weak: [] },
   whip:      { strong: ['bug', 'avian'],                 weak: [] },
   pistol:    { strong: ['humanoid', 'construct'],        weak: ['spirit', 'dragon'] },
+  rifle:     { strong: ['dragon', 'beast', 'reptile'],    weak: ['spirit'] },
   shuriken:  { strong: ['bug', 'beast', 'avian'],        weak: ['construct'] },
   cane:      { strong: ['humanoid', 'beast'],            weak: ['dragon', 'construct'] },
 };

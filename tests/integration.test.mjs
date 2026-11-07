@@ -3913,3 +3913,29 @@ test('very fast movement never passes through walls', async () => {
   }
   g.setMoveInput(0, 0);
 });
+
+test('Sniper: a sniper rifle with the longest reach, huge shots and a slow rate of fire', async () => {
+  const { NPC } = await import('../src/game/npc.js');
+  const { CLASSES } = await import('../src/data/classes.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  assert.ok(CLASSES.some((c) => c.id === 'sniper' && c.style === 'ranged' && c.weapon === 'rifle'));
+  const mk = (cls) => { clearSave(); const g = new Game(); g.start(); g.chooseClass(cls); g.ui = new Proxy({}, { get: () => () => {} }); return g; };
+  const s = mk('sniper'), a = mk('archer');
+  assert.equal(s.equipment.get('weapon'), 'bronze_rifle');
+  const maxRange = Math.max(...Object.values(ITEMS).filter((it) => it.equip?.slot === 'weapon' && it.equip.weaponType !== 'rifle').map((it) => it.equip.range || 0));
+  assert.ok(s.attackRange() > maxRange, `reach ${s.attackRange()} beats every other weapon (${maxRange})`);
+  assert.ok(s.attackInterval() >= a.attackInterval() * 3, 'fires far slower than a shortbow');
+  // Each round hits far harder.
+  const hit = (g) => {
+    const t = new NPC('goblin', g.player.x + 5, g.player.y, 0, {}); t.hp = t.maxHp = 1e7; t.def = { ...t.def, defence: 0, aggressive: false };
+    g.npcs = [t]; g.abilityUnlocked = () => false;
+    let total = 0, n = 0;
+    for (let i = 0; i < 60; i++) { const hp = t.hp; g.player.attackCooldown = 0; g._rangedAttack(t); if (t.hp < hp) { total += hp - t.hp; n++; } }
+    return total / Math.max(1, n);
+  };
+  assert.ok(hit(s) > hit(a) * 3, 'each landed round hits several times as hard as an arrow');
+  // Auto battle reaches its full range.
+  const far = new NPC('goblin', s.player.x + 30, s.player.y, 0, {}); far.def = { ...far.def, aggressive: false };
+  s.npcs = [far];
+  assert.equal(s._autoPickTarget(), far, 'auto battle picks off a monster 30 tiles away');
+});

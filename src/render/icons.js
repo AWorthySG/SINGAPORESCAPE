@@ -404,8 +404,10 @@ import { ABILITY_BY_ID } from '../data/abilities.js';
   const pistol = (col, hi) => `<path d="M3 8 L17 8 L19 6.6 L21 6.6 L21 10.6 L11 10.6 L9.6 12.6 L10.6 19 L6 19 L5 12 Z" fill="${col}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M4.2 9 L17.4 9" stroke="${hi}" stroke-width="0.9"/><path d="M5.8 12.6 L6.6 18.2 L9.6 18.2 L8.9 12.6 Z" fill="${C.wood}" stroke="${OL}" stroke-width="0.8" stroke-linejoin="round"/><circle cx="11.6" cy="13.6" r="1.5" fill="none" stroke="${OL}" stroke-width="0.9"/>${glint(18.8, 7.6, 0.6)}`;
   const shuriken = (col, hi) => `<path d="M12 1.6 L14 10 L22.4 12 L14 14 L12 22.4 L10 14 L1.6 12 L10 10 Z" fill="${col}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M12 3.6 L13.2 10.8 M20.4 12 L13.2 13.2" stroke="${hi}" stroke-width="0.9"/><circle cx="12" cy="12" r="2" fill="${C.cream}" stroke="${OL}" stroke-width="0.9"/>${glint(13.4, 6, 0.6)}`;
   const cane = (col, hi) => `<path d="M8 21.5 L15.6 6.4" stroke="${OL}" stroke-width="3.2" stroke-linecap="round"/><path d="M8 21.5 L15.6 6.4" stroke="${C.wood}" stroke-width="2" stroke-linecap="round"/><circle cx="16.4" cy="4.8" r="3" fill="${col}" stroke="${OL}" stroke-width="1.1"/><path d="M15 3.6 A2 2 0 0 1 17.4 3" fill="none" stroke="${hi}" stroke-width="0.9"/><rect x="13.4" y="8.4" width="3.2" height="1.6" rx="0.7" fill="${col}" stroke="${OL}" stroke-width="0.6" transform="rotate(63 15 9.2)"/>${glint(17.2, 3.8, 0.6)}`;
+  // A long sniper rifle with a scope (Sniper).
+  const rifle = (col, hi) => `<path d="M2 15.5 L8 13.2 L21.6 7.6 L22.4 9.2 L9.4 15 L8.6 18.6 L4.6 19.6 Z" fill="${C.wood}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M8 12.6 L22.2 6.8" stroke="${col}" stroke-width="1.8" stroke-linecap="round"/><path d="M8 12.6 L22.2 6.8" stroke="${OL}" stroke-width="0.5" opacity=".5"/><rect x="10.2" y="7.4" width="6.4" height="2.4" rx="1.1" transform="rotate(-22 13.4 8.6)" fill="${col}" stroke="${OL}" stroke-width="0.9"/><path d="M11.4 7.8 L15.2 6.3" stroke="${hi}" stroke-width="0.7"/>`;
   const WBUILD = { dagger: blade, sword: blade, scimitar: scim, mace, longsword, battleaxe, warhammer, '2h_sword': twohander, spear, claws, katana, halberd,
-    pistol, shuriken, cane };
+    pistol, shuriken, cane, rifle };
   const ABUILD = { med_helm: helm, full_helm: helm, chainbody: plate, platebody: plate, platelegs: legs, sq_shield: shield, kiteshield: shield, gauntlets: gloves, boots, plateskirt, buckler,
     scout_hood: helm, scout_jerkin: plate, scout_breeches: legs,
     scout_boots: boots, scout_gloves: gloves, hide_boots: boots, hide_vambraces: gloves, mage_boots: boots, mage_gloves: gloves };
@@ -815,6 +817,7 @@ import { ABILITY_BY_ID } from '../data/abilities.js';
       [`${t}_scout_boots`]: `${t}_boots`, [`${t}_scout_gloves`]: `${t}_gauntlets`,
       [`${t}_hide_boots`]: `${t}_boots`, [`${t}_hide_vambraces`]: 'dragonhide_vambraces',
       [`${t}_mage_boots`]: 'silk_slippers', [`${t}_mage_gloves`]: 'silk_bangles',
+      [`${t}_rifle`]: `${t}_pistol`,   // sniper rifles borrow the pistol sticker until their own art arrives
     });
   }
   function hueOf(hex) {

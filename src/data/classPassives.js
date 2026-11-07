@@ -82,6 +82,11 @@ export const CLASS_PASSIVES = {
     { name: 'Hunter\'s Mark', desc: '+6% damage to bosses, ignore 3% of enemy defence', mods: { boss: 0.06, pierce: 0.03 } },
     { name: 'Far Shot', desc: '+6% damage, +1 tile of reach', mods: { dmg: 0.06, range: 1 } },
   ],
+  sniper: [
+    { name: 'Steady Hands', desc: '+6% accuracy', mods: { acc: 0.06 } },
+    { name: 'Long Barrel', desc: '+2 tiles of reach, +3% damage', mods: { range: 2, dmg: 0.03 } },
+    { name: 'One Shot', desc: '+6% damage to bosses, +3% crit chance', mods: { boss: 0.06, crit: 0.03 } },
+  ],
   pistoler: [
     { name: 'Trigger Happy', desc: '6% chance of an extra shot', mods: { extra: 0.06 } },
     { name: 'Gunslinger', desc: '+3% crit chance, +3% dodge', mods: { crit: 0.03, dodge: 0.03 } },

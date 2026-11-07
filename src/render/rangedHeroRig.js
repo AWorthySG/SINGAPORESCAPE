@@ -1,6 +1,7 @@
 // Ranged and magic limbs are separate from the melee pilot so each batch can
 // be reviewed independently. All parts must load before replacing a portrait.
-export const RANGED_HERO_CLASSES = ['ranger', 'archer', 'sorcerer', 'wizard', 'pistoler'];
+// The Sniper borrows the Pistoler's parts until its own art arrives (same file names, sniper-*).
+export const RANGED_HERO_CLASSES = ['ranger', 'archer', 'sorcerer', 'wizard', 'pistoler', 'sniper'];
 export const RANGED_HERO_PARTS = ['body', 'weapon', 'back', 'left', 'right', 'action'];
 export const rangedHeroSrc = (classId, part) => `assets/creatures/hero/rig/${classId}-${part}.webp`;
 const images = new Map();
@@ -15,6 +16,10 @@ export function rangedHeroPose(classId, gait = {}, time = 0, swing = -1) {
     // A quick snap of the arm: barely any draw, a sharp recoil.
     draw = smooth(swing / 0.2) * (1 - smooth((swing - 0.22) / 0.1));
     release = smooth((swing - 0.22) / 0.06) * (1 - smooth((swing - 0.3) / 0.5));
+  } else if (active && classId === 'sniper') {
+    // A long, still aim, then one heavy kick of recoil.
+    draw = smooth(swing / 0.6) * (1 - smooth((swing - 0.62) / 0.08));
+    release = smooth((swing - 0.62) / 0.05) * (1 - smooth((swing - 0.67) / 0.33));
   } else if (active && (classId === 'ranger' || classId === 'archer')) {
     draw = smooth(swing / 0.48) * (1 - smooth((swing - 0.5) / 0.14));
     release = smooth((swing - 0.5) / 0.08) * (1 - smooth((swing - 0.58) / 0.27));
