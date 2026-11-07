@@ -3775,3 +3775,22 @@ test('a world boss rises every 2 minutes: much tougher, aggressive, triple loot,
   w2.target = null; g.tickCount = 600 + 501; g._tickWorldBoss();
   assert.ok(!g.npcs.includes(w2), 'an unfought world boss leaves');
 });
+
+test('Agility speeds up attacks, casting and movement for every class', async () => {
+  const { xpForLevel } = await import('../src/data/xp.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  for (const cls of ['swordsman', 'archer', 'wizard', 'dancer']) {
+    clearSave();
+    const g = new Game(); g.start(); g.chooseClass(cls);
+    g.skills.xp.agility = 0;
+    const iv = g.attackInterval(), step = g.playerStepMul();
+    g.skills.xp.agility = xpForLevel(1000);   // +100%
+    assert.ok(Math.abs(g.attackInterval() - iv * (100 + 0.1) / 200) < 1e-6, `${cls}: attacks/casts twice as often at Agility 1000`);
+    assert.ok(g.playerStepMul() < step * 0.51, `${cls}: and moves twice as fast`);
+    g.skills.xp.agility = xpForLevel(9999);
+    assert.ok(g.attackInterval() < iv / 9, 'attack speed keeps growing');
+    assert.ok(Math.abs(g.playerStepMul() - 0.7 / 3) < 1e-9, 'movement stops at +200%');
+    g.doTick();
+    assert.equal(g.player.stepMul, g.playerStepMul(), 'the player really walks at that pace');
+  }
+});
