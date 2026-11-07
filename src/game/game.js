@@ -102,6 +102,9 @@ const RICOCHET_SHARE = 0.6;
 const LONGBOW_DMG = 1.6;
 // Sniper rifles fire only every 1.5s, but each round hits this many times as hard.
 const RIFLE_DMG = 5.5;
+// A sniper round never misses, and carries on in a straight line through every
+// monster up to this many tiles past the target (each takes the full hit).
+const RIFLE_PIERCE_TILES = 10;
 // Champions have 50x the life they used to, so their loot scales the same way:
 // stackables x50, 8 table rolls, the rare table twice and a pile of stones.
 const CHAMPION_STACK_MULT = 50;
@@ -1604,6 +1607,37 @@ export class Game {
     this._postAttack(npc);
   }
 
+  /** A sniper round goes straight through: every monster on the line from you
+   *  through the target, up to RIFLE_PIERCE_TILES tiles past it, takes the same
+   *  hit (rolling its own crit), with Ranged XP. */
+  _riflePierce(target, raw, style) {
+    const p = this.player;
+    const dx = target.x - p.x, dy = target.y - p.y, len = Math.hypot(dx, dy) || 1;
+    const ux = dx / len, uy = dy / len;
+    const m = this.combatXpMult();
+    for (const o of this.npcs) {
+      if (o === target || !o.alive || !o.attackable || o.ally || o.hp <= 0) continue;
+      if (o.def.fixed && o.target !== p) continue;   // story bosses aren't dragged in
+      const ox = o.x - p.x, oy = o.y - p.y;
+      const along = ox * ux + oy * uy;                // how far down the line
+      const off = Math.abs(ox * uy - oy * ux);        // how far to the side of it
+      if (along <= len || along > len + RIFLE_PIERCE_TILES || off > 0.75) continue;
+      const c = this._aoeCrit(raw);
+      const d = Math.min(o.hp, c.dmg);
+      o.takeDamage(d);
+      this.addHitsplat(o, d, { tint: '#ffe28a', critX: c.critX });
+      this.spawnHitSparks(o, '#ffe28a');
+      for (const x of combatXpRanged(style, d)) this.skills.addXp(x.skill, x.xp * m);
+      if (!o.target) o.target = p;
+      if (o.hp <= 0) this.killNpc(o);
+    }
+    // The tracer carries on past the target.
+    const from = target.renderCenter();
+    const life = 160;
+    this.effects.push({ type: 'projectile', kind: 'bullet', x: from.x, y: from.y - 8,
+      ex: from.x + ux * RIFLE_PIERCE_TILES * TILE, ey: from.y - 8 + uy * RIFLE_PIERCE_TILES * TILE, color: '#fff2b0', life, maxLife: life, arc: 0 });
+  }
+
   /** An ultimate's area: every other monster within `radius` tiles of the target
    *  takes the same damage (before crits; each rolls its own), with XP. */
   _abilityAoe(target, raw, mode) {
@@ -1751,7 +1785,9 @@ export class Game {
         this._spendArrow(ai);
       } else { this._spendArrow(arrowIdx); }
       const effMax = Math.max(1, Math.round(baseMax * mods.dmgM));
-      let dmg = mods.guaranteed ? rollGuaranteed(effMax) : rollAttack(atkRoll * pr * mods.accM, defRoll, effMax);
+      let dmg = mods.guaranteed ? rollGuaranteed(effMax)
+        : wpn.weaponType === 'rifle' ? randInt(Math.max(1, Math.floor(effMax / 4)), effMax)   // sniper rounds always land
+        : rollAttack(atkRoll * pr * mods.accM, defRoll, effMax);
       raw += dmg;
       const c = this._critHit(dmg, mods.critCh); dmg = c.dmg;
       this._projectile(npc, (c.crit || fancy) ? '#ffd24a' : tint, shot, mods.hits > 1 ? i - (mods.hits - 1) / 2 : 0);
@@ -1786,6 +1822,7 @@ export class Game {
     }
     if (mods.heal && total > 0) { this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.round(total * mods.heal)); this.bus.emit('hp'); }
     this._abilityAoe(npc, raw, 'ranged');
+    if (wpn.weaponType === 'rifle' && raw > 0) this._riflePierce(npc, raw, style);
     this._mainCritCh = mods.critCh;   // split-shot arrows crit like the main shot
     if (this.skills.ranged >= SPLIT_SHOT_LEVEL) this._splitShot(npc, style, pr);
     // Shots come as fast as the weapon and attack speed % allow (no floor).
