@@ -26,7 +26,7 @@ const SIGNATURE = {
   ranger: 'Longbows: each arrow hits 60% harder, from very far away.',
   wizard: 'Staves cast powerful spells; elemental staves supply unlimited runes of their element.',
   sorcerer: 'Wands cast quickly: lighter spells, but more of them.',
-  dancer: 'Whips lash from 3 tiles, build Rhythm for bigger hits, and help you dodge blows.',
+  dancer: 'Whips lash from 3 tiles and ricochet into 2 more monsters (3 at full Rhythm), build Rhythm for bigger hits, and help you dodge blows.',
   pistoler: 'Dual pistols: by far the fastest attacks in the game, each hand firing, and no ammo to buy.',
   ninja: 'Shurikens ricochet off your target into a second foe nearby (60% damage), and need no ammo.',
   merchant: 'Hire as many mercenaries as you can pay for (Combat tab): each runs at the closest monster for 90 seconds, swings as fast as you, hits for half your melee damage with your cleave, and earns you full XP. Every attack has a 25% chance to call up an A-Worthling, a mirror image of you that fights the same way for 25% of your damage and stays for good. Each A-Worthling swing has a 25% chance to split off a smaller one. Every A-Worthling never misses and hits for a fixed 25% of your max hit (up to 200 in all).',
@@ -46,9 +46,9 @@ export function classPerks(classId) {
   const w = starterWeapon(classId);
   const eq = getItem(w).equip || {};
   const out = [{ icon: '⭐', label: 'Signature', text: SIGNATURE[classId] || cls.desc }];
-  // Swing speed in seconds (a combat beat is 0.3s; spells come a beat quicker).
+  // Swing speed in seconds (a combat beat is 0.3s; spells take half a swing, so wands cast quickest).
   let beats = swingBeats(w);
-  if (cls.style === 'magic') beats = Math.max(1, beats - 1);
+  if (cls.style === 'magic') beats *= 0.5;
   const quick = beats < 0.5;   // scimitars and claws
   out.push({ icon: '⚡', label: 'Speed', text: `${quick ? 'Quick weapon: ' : ''}attacks every ${secs(beats * 0.3)}s` });
   const reach = cls.style === 'magic' ? 8 : eq.range || 2;

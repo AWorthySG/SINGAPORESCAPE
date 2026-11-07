@@ -36,8 +36,8 @@ export const CLASS_BY_ID = Object.fromEntries(CLASSES.map((c) => [c.id, c]));
 export const ARMOUR_FAMILIES = {
   plate: { name: 'Plate', desc: 'Heavy metal armour: the most Defence, and it pierces armour.', stat: 'armour piercing' },
   leather: { name: 'Scout leather', desc: 'Light studded leather: less Defence, but extra Attack, crit chance and crit damage.', stat: 'crit damage' },
-  hide: { name: 'Hide', desc: 'Archers\u2019 hide: Ranged bonus and quicker shots.', stat: 'attack speed' },
-  robes: { name: 'Robes', desc: 'Casters\u2019 robes: Magic bonus and extra damage to bosses.', stat: 'boss damage' },
+  hide: { name: 'Hide', desc: 'Archers\u2019 hide: Ranged bonus, Attack bonus % and quicker shots.', stat: 'attack bonus' },
+  robes: { name: 'Robes', desc: 'Casters\u2019 robes: Magic bonus and Magic bonus %.', stat: 'magic bonus' },
   dancewear: { name: 'Dancewear', desc: 'Silk and gold outfits: Dance bonus and lifesteal.', stat: 'lifesteal' },
 };
 export const ARMOUR_FAMILY = {

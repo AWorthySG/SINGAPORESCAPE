@@ -1970,7 +1970,7 @@ test('magic: casters start at Magic 15 with plenty of runes, damage scales with 
   game.player.attackCooldown = 0;
   game._magicAttack(mob);
   assert.ok(game.inventory.count('fire_rune') < fire0, 'it cast Fire Strike instead');
-  assert.ok(game.player.attackCooldown >= 1);
+  assert.ok(game.player.attackCooldown > 0);
 });
 
 test('auto battle takes on a nearby boss first (bosses on by default)', async () => {
@@ -3615,4 +3615,109 @@ test('auto battle casters pick the element that suits the target', async () => {
   const crowd = [[3, 0], [-3, 0], [0, 4], [0, -4], [4, 4]].map(([dx, dy]) => new NPC('goblin', t.x + dx, t.y + dy, 0, {}));
   game.npcs = [t, ...crowd];
   assert.equal(game._autoSpellFor(t).element, 'earth');
+});
+
+test('attack speed % has no cap; wands cast faster than staves; spells halve the swing time', () => {
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseStartingStyle('magic');
+  const eq = g.equipment;
+  assert.ok(ITEMS.bronze_sword.equip.bonuses.haste > 0 && ITEMS.rune_sword.equip.bonuses.haste > ITEMS.bronze_sword.equip.bonuses.haste, 'every weapon has attack speed %, more on better tiers');
+  // +300% attack speed: four times as often, well past the old 30% cap.
+  eq._haste = () => 300;
+  assert.equal(eq.hasteMult(), 0.25);
+  delete eq._haste;
+  eq.set('weapon', 'magic_staff'); g.player.spell = 'fire_strike';
+  const staff = g.attackInterval();
+  eq.set('weapon', 'mystic_wand');
+  const wand = g.attackInterval();
+  assert.ok(wand < staff * 0.75, `a wand (${wand}) casts clearly faster than a staff (${staff})`);
+  g.player.spell = 'wind_strike';
+  assert.ok(g.attackInterval() < wand, 'and Wind faster still: no floor');
+});
+
+test('Attack bonus % raises melee and ranged damage; Magic bonus % raises spells only', async () => {
+  const { NPC } = await import('../src/game/npc.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseStartingStyle('melee');
+  const t = new NPC('goblin', g.player.x + 1, g.player.y, 0, {});
+  const base = g._offensiveMods(t, 'melee').dmgM, rbase = g._offensiveMods(t, 'ranged').dmgM;
+  const real = g.equipment.bonuses.bind(g.equipment);
+  g.equipment.bonuses = () => ({ ...real(), atkPct: 50, magPct: 0 });
+  assert.ok(Math.abs(g._offensiveMods(t, 'melee').dmgM / base - 1.5) < 1e-9, '+50% Attack bonus: x1.5 melee');
+  assert.ok(Math.abs(g._offensiveMods(t, 'ranged').dmgM / rbase - 1.5) < 1e-9, 'and x1.5 ranged');
+  const mag = g._offensiveMods(t, 'magic').dmgM;
+  g.equipment.bonuses = () => ({ ...real(), atkPct: 0, magPct: 50 });
+  assert.ok(Math.abs(g._offensiveMods(t, 'magic').dmgM / mag - 1.5) < 1e-9, '+50% Magic bonus: x1.5 spells');
+  assert.ok(Math.abs(g._offensiveMods(t, 'melee').dmgM - base) < 1e-9, 'and nothing for melee');
+});
+
+test('the element you press is the one you cast, even in auto battle; Auto lets it choose', async () => {
+  const { NPC } = await import('../src/game/npc.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseStartingStyle('magic');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.skills.xp.magic = 50000000;
+  for (const r of ['fire_rune', 'water_rune', 'earth_rune', 'air_rune', 'mind_rune']) g.inventory.add(r, 500);
+  const p = g.player;
+  const t = new NPC('goblin', p.x + 2, p.y, 0, {}); t.maxHp = t.hp = 1e7;
+  const crowd = [[3, 0], [-3, 0], [0, 4], [0, -4]].map(([dx, dy]) => new NPC('goblin', t.x + dx, t.y + dy, 0, {}));
+  g.npcs = [t, ...crowd];
+  p.spell = 'water_strike'; p.spellAuto = false;
+  g.autoBattle = true; g.attackNpc(t);
+  g._autoBattleTick();
+  assert.equal(p.spell, 'water_strike', 'auto battle keeps the element you chose');
+  p.spellAuto = true;
+  g._autoBattleTick();
+  assert.equal(p.spell, 'earth_strike', 'on Auto it picks Earth for the crowd');
+  // The choice is saved.
+  saveGame(g);
+  const g2 = new Game(); g2.start(); loadGame(g2);
+  assert.equal(g2.player.spellAuto, true);
+});
+
+test('Dancer whips ricochet between monsters; Chain Crack bounces further and stuns', async () => {
+  const { NPC } = await import('../src/game/npc.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('dancer');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  const p = g.player;
+  const mk = (dx, dy) => { const n = new NPC('goblin', p.x + dx, p.y + dy, 0, {}); n.maxHp = n.hp = 1e6; n.def = { ...n.def, defence: 0, aggressive: false }; return n; };
+  // A line of monsters 2 tiles apart: the lash hops along it.
+  const main = mk(2, 0), b1 = mk(4, 0), b2 = mk(6, 0), b3 = mk(8, 0), b4 = mk(10, 0), far = mk(2, 9);
+  g.npcs = [main, b1, b2, b3, b4, far];
+  g.danceRhythm = 0;
+  for (let i = 0; i < 50 && main.hp === 1e6; i++) { p.attackCooldown = 0; g._danceAttack(main); }
+  assert.ok(main.hp < 1e6, 'the lash landed');
+  assert.ok(b1.hp < 1e6 && b2.hp < 1e6, 'it ricocheted into two more monsters');
+  assert.equal(far.hp, 1e6, 'nothing out of ricochet range');
+  // Chain Crack: up to 6 bounces, each stunned.
+  for (const n of g.npcs) { n.hp = n.maxHp; n.attackCooldown = 0; }
+  g.adrenaline = 100;
+  g.armedAbility = 'crack';
+  p.attackCooldown = 0; g._danceAttack(main);
+  for (const n of [b1, b2, b3, b4]) {
+    assert.ok(n.hp < 1e6, 'Chain Crack reached every monster down the line');
+    assert.ok(n.attackCooldown >= 4, 'and stunned it');
+  }
+});
+
+test('no cap on hits per second: huge attack speed keeps adding damage (volleys)', async () => {
+  const { NPC } = await import('../src/game/npc.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const dpsAt = (haste) => {
+    clearSave();
+    const g = new Game(); g.start(); g.chooseClass('swordsman');
+    g.ui = new Proxy({}, { get: () => () => {} });
+    g.equipment._haste = () => haste;
+    const t = new NPC('goblin', g.player.x + 1, g.player.y, 0, {}); t.maxHp = t.hp = 1e12; t.def = { ...t.def, defence: 0, aggressive: false };
+    g.npcs = [t]; g.attackNpc(t);
+    const origRandom = Math.random; Math.random = () => 0.5;   // steady rolls, no crits
+    const t0 = Date.now();
+    for (let i = 0; i < 40; i++) g._combatBeat();
+    Math.random = origRandom;
+    return { dmg: 1e12 - t.hp, ms: Date.now() - t0 };
+  };
+  const a = dpsAt(1000), b = dpsAt(100000);
+  assert.ok(b.dmg > a.dmg * 50, `+100000% speed (${b.dmg}) far out-damages +1000% (${a.dmg})`);
+  assert.ok(b.ms < 2000, 'and the game stays responsive');
 });

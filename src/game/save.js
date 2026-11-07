@@ -28,6 +28,7 @@ export function snapshot(game) {
       rangedStyle: game.player.rangedStyle,
       danceStyle: game.player.danceStyle,
       spell: game.player.spell,
+      spellAuto: !!game.player.spellAuto,
       autoRetaliate: game.player.autoRetaliate,
       name: game.player.name,
     },
@@ -95,6 +96,7 @@ export function loadGame(game) {
   game.player.rangedStyle = 'balanced';
   game.player.danceStyle = 'balanced';
   game.player.spell = p.spell || 'wind_strike';
+  game.player.spellAuto = p.spellAuto === true;   // optional: older saves keep the chosen element
   game.player.autoRetaliate = p.autoRetaliate !== false;
   if (p.name && p.name !== 'Adventurer') game.player.name = p.name; // migrate old default
   if (data.quests && typeof data.quests === 'object') {

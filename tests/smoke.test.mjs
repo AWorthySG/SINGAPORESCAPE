@@ -335,17 +335,17 @@ test('combat is fast-paced: quick weapons swing every tick', () => {
   const eq = new Equipment(new EventBus());
   eq.set('weapon', 'bronze_scimitar');
   // Melee swings twice as fast as before; scimitars and claws are quicker still.
-  assert.equal(eq.weaponSpeed(), 0.35, 'scimitars are quick weapons: about 3 swings a beat');
+  assert.equal(+(eq.weaponSpeed() / eq.hasteMult()).toFixed(6), 0.35, 'scimitars are quick weapons: about 3 swings a beat');
   eq.set('weapon', 'bronze_dagger');
-  assert.equal(eq.weaponSpeed(), 0.5, 'daggers swing twice a beat');
+  assert.equal(+(eq.weaponSpeed() / eq.hasteMult()).toFixed(6), 0.5, 'daggers swing twice a beat');
   eq.set('weapon', 'bronze_axe');
-  assert.equal(eq.weaponSpeed(), 1, 'slower weapons swing every beat');
+  assert.equal(+(eq.weaponSpeed() / eq.hasteMult()).toFixed(6), 1, 'slower weapons swing every beat');
   eq.clearSlot('weapon');
-  assert.equal(eq.weaponSpeed(), 1, 'unarmed sped up too');
+  assert.equal(+(eq.weaponSpeed() / eq.hasteMult()).toFixed(6), 1, 'unarmed sped up too');
   eq.set('weapon', 'shortbow');
-  assert.equal(eq.weaponSpeed(), 0.5, 'shortbows loose twice a beat');
+  assert.equal(+(eq.weaponSpeed() / eq.hasteMult()).toFixed(6), 0.5, 'shortbows loose twice a beat');
   eq.set('weapon', 'longbow');
-  assert.equal(eq.weaponSpeed(), 1, 'longbows keep their beat, and hit harder instead');
+  assert.equal(+(eq.weaponSpeed() / eq.hasteMult()).toFixed(6), 1, 'longbows keep their beat, and hit harder instead');
 });
 
 test('select weapons carry special attacks', () => {
@@ -565,8 +565,8 @@ test('each class wears its own kind of armour, and armour families carry offensi
   // Family stats.
   assert.ok(ITEMS.rune_platebody.equip.bonuses.pierce > 0);
   assert.ok(ITEMS.rune_scout_jerkin.equip.bonuses.critDmg > 0);
-  assert.ok(ITEMS.dragonhide_body.equip.bonuses.critDmg > 0, 'hide carries crit damage (it used to be haste)');
-  assert.ok(ITEMS.mystic_top.equip.bonuses.bossDmg > 0);
+  assert.ok(ITEMS.dragonhide_body.equip.bonuses.atkPct > 0 && ITEMS.dragonhide_body.equip.bonuses.haste > 0, 'hide: Attack bonus % and attack speed');
+  assert.ok(ITEMS.mystic_top.equip.bonuses.magPct > 0, 'robes: Magic bonus %');
   assert.ok(ITEMS.golden_dancer_top.equip.bonuses.lifesteal > 0);
 });
 
@@ -586,12 +586,12 @@ test('existing weapons, jewellery and boss uniques carry the new offensive stats
   const { OFFENCE_KEYS, OFFENCE_CAPS } = await import('../src/game/equipment.js');
   const { upgradedBonuses } = await import('../src/game/upgrade.js');
   const has = (id, k) => (ITEMS[id].equip.bonuses[k] || 0) > 0;
-  assert.ok(has('bronze_dagger', 'critDmg') && has('rune_mace', 'pierce') && has('eternal_pistol', 'critDmg') && has('yew_longbow', 'pierce') && has('yew_shortbow', 'critDmg'));
-  assert.ok(has('eternal_staff', 'bossDmg') && has('rune_scimitar', 'lifesteal'));
+  assert.ok(has('bronze_dagger', 'critDmg') && has('rune_mace', 'pierce') && has('eternal_pistol', 'atkPct') && has('yew_longbow', 'pierce') && has('yew_shortbow', 'atkPct'));
+  assert.ok(has('eternal_staff', 'magPct') && has('mystic_wand', 'magPct') && has('rune_sword', 'atkPct') && has('rune_scimitar', 'lifesteal'));
   assert.ok(ITEMS.eternal_dagger.equip.bonuses.critDmg > ITEMS.bronze_dagger.equip.bonuses.critDmg, 'grows with tier');
   assert.ok(has('diamond_ring', 'critDmg') && has('fire_cape', 'bossDmg') && has('tiger_kris', 'critDmg') && has('granite_maul', 'pierce'));
   for (const it of Object.values(ITEMS)) {
-    for (const k of OFFENCE_KEYS) assert.ok((it.equip?.bonuses?.[k] || 0) <= OFFENCE_CAPS[k] / 2, `${it.id} ${k} leaves room under the cap`);
+    for (const k of OFFENCE_KEYS) if (OFFENCE_CAPS[k] != null) assert.ok((it.equip?.bonuses?.[k] || 0) <= OFFENCE_CAPS[k] / 2, `${it.id} ${k} leaves room under the cap`);
   }
   const b = ITEMS.tiger_kris.equip.bonuses;
   const up = upgradedBonuses(b, 15);

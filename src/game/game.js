@@ -80,6 +80,11 @@ const STREAK_WINDOW_TICKS = 50;
 // the amount, and the gear, rare-table and upgrade-material rolls are richer.
 const BOSS_XP_PER_LEVEL = 4000;
 const BOSS_STACK_MULT = 100;
+// Whip ricochet: bounces after each landed lash (one more at full Rhythm), and their share of the hit.
+const DANCE_RICOCHET = 2;
+// Above this many attacks a beat (1/0.05 = 20), attacks are grouped into volleys.
+const VOLLEY_MIN_BEATS = 0.05;
+const RICOCHET_SHARE = 0.6;
 const LONGBOW_DMG = 1.6;
 // Champions have 50x the life they used to, so their loot scales the same way:
 // stackables x50, 8 table rolls, the rare table twice and a pile of stones.
@@ -1098,13 +1103,19 @@ export class Game {
     if (p.attackCooldown > 0) p.attackCooldown--;
     // Melee weapons have cooldowns under one beat, so the leftover carries over
     // and several swings can fit in one beat (up to 3 for the quickest).
-    for (let swings = 0; swings < 5; swings++) {   // pistols can fit 4 shots in a beat
-      if (this.playerStun > 0 || p.attackCooldown > 0) return;
+    // No cap on attack speed. Past 20 attacks a beat, each attack call stands
+    // for a volley of several (its damage multiplied to match), so the number
+    // of hits a second keeps growing with attack speed without freezing the game.
+    const iv = Math.max(1e-9, this.attackInterval());
+    this._volley = iv < VOLLEY_MIN_BEATS ? VOLLEY_MIN_BEATS / iv : 1;
+    for (let swings = 0; swings < 24; swings++) {
+      if (this.playerStun > 0 || p.attackCooldown > 0) break;
       const a = p.action;
-      if (!a || a.type !== 'attack' || !a.npc || !a.npc.alive) return;
-      if (chebyshev(p.x, p.y, a.npc.x, a.npc.y) > this.attackRange()) return;
+      if (!a || a.type !== 'attack' || !a.npc || !a.npc.alive) break;
+      if (chebyshev(p.x, p.y, a.npc.x, a.npc.y) > this.attackRange()) break;
       this.doPlayerAttack(a.npc);
     }
+    this._volley = 1;
   }
 
   // ---------------- Combat resolution ----------------
@@ -1163,9 +1174,8 @@ export class Game {
       this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.round(total * mods.heal));
       this.bus.emit('hp');
     }
-    const speed = this.equipment.weaponSpeed();
     // A sub-beat cooldown keeps what's left over (never banking more than one swing).
-    this._resetCooldown(speed);
+    this._resetCooldown(this.attackInterval());
     this._postAttack(npc);
   }
 
@@ -1316,6 +1326,9 @@ export class Game {
     const gb = this.equipment.bonuses();
     accM *= (1 + (perk.acc || 0) + this.learning.perks().acc) / (1 - Math.min(0.6, (perk.pierce || 0) + gb.pierce / 100));   // English mastery: Eloquence
     dmgM *= 1 + (perk.dmg || 0) + ((npc.def.boss || npc.champion) ? (perk.boss || 0) + gb.bossDmg / 100 : 0);
+    // Attack bonus % boosts physical damage (melee, ranged, whips); Magic bonus % boosts spells.
+    dmgM *= 1 + (mode === 'magic' ? gb.magPct : gb.atkPct) / 100;
+    dmgM *= this._volley || 1;   // a volley of very fast attacks lands as one big hit
     const bonusHit = Math.random() < (perk.extra || 0);
     perk._echo = mode === 'magic' && bonusHit;
     const hits = Math.min(maxHits, Math.max(spec ? spec.hits || 1 : 1, ab ? ab.hits || 1 : 1)) + (bonusHit && mode !== 'magic' ? 1 : 0);
@@ -1361,8 +1374,19 @@ export class Game {
   /** Time until the next attack. A cooldown that doesn't land on a whole beat
    *  keeps its leftover (never banking more than one beat), so fractional speeds
    *  from quick weapons and haste really are faster. */
+  /** Combat beats between attacks in the current style, with no floor: the
+   *  weapon's speed (attack speed % included), and for spells half that (spells
+   *  come off quicker than a swing) times the element's cast speed. */
+  attackInterval(spell = null) {
+    const ws = this.equipment.weaponSpeed();
+    if (this.combatMode() !== 'magic') return ws;
+    const sp = spell || getSpell(this.player.spell);
+    return ws * 0.5 * (ELEMENTS[sp.element]?.castSpeed || 1);
+  }
+
   _resetCooldown(speed) {
     const p = this.player;
+    speed *= this._volley || 1;   // a volley takes the time of all the attacks it stands for
     p.attackCooldown = Math.max(-1, Math.min(0, p.attackCooldown || 0)) + speed;
   }
 
@@ -1476,13 +1500,14 @@ export class Game {
     const targets = mods.ability?.sweep
       ? [npc, ...this.npcs.filter((n) => n !== npc && n.alive && n.attackable && !n.temporary && n.hp > 0 && chebyshev(p.x, p.y, n.x, n.y) <= range)]
       : [npc];
-    let total = 0;
+    let total = 0, raw = 0;   // raw: the main target's damage before crits, for the ricochet
     for (const t of targets) {
       const { atkRoll, defRoll, max } = playerDanceVsNpc(this.skills, this.equipment, style, t.def, this.danceRhythm);
       this._lash(t, fancy ? '#ffd24a' : '#ff8ac0');
       for (let i = 0; i < mods.hits && t.hp > 0; i++) {
         const effMax = Math.max(1, Math.round(max * pm.str * mods.dmgM));
         let dmg = mods.guaranteed ? rollGuaranteed(effMax) : rollAttack(atkRoll * pm.att * mods.accM, defRoll, effMax);
+        if (t === npc) raw += dmg;
         const c = this._critHit(dmg, mods.critCh); dmg = c.dmg;
         this._applyPlayerHit(t, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax) });
         if (dmg > 0) {
@@ -1499,12 +1524,48 @@ export class Game {
       if (!t.target) t.target = p;
       if (t !== npc && t.hp <= 0) this.killNpc(t);
     }
+    // A whip that lands ricochets on from the target to the monsters near it
+    // (a sweep already lashes everyone in reach, so it doesn't bounce).
+    if (raw > 0 && !mods.ability?.sweep) this._whipRicochet(npc, raw, mods.ability?.chain, mods.ability?.stun);
+    if (mods.ability?.rhythm) this.danceRhythm = Math.min(RHYTHM_MAX, this.danceRhythm + mods.ability.rhythm);
     this._danceHitTick = this.tickCount;
     if (this.danceRhythm >= RHYTHM_MAX && total > 0) this.spawnSparkle(p, '#ff8ac0', 4);
     if (mods.heal && total > 0) { p.hp = Math.min(this.maxHp(), p.hp + Math.round(total * mods.heal)); this.bus.emit('hp'); }
-    this._resetCooldown(this.equipment.weaponSpeed());
+    this._resetCooldown(this.attackInterval());
     this.bus.emit('rhythm');
     this._postAttack(npc);
+  }
+
+  /** Whip ricochet: the lash snaps on from monster to monster (each within 3
+   *  tiles of the last), 2 bounces normally and 3 at full Rhythm, each for 60%
+   *  of the hit and rolling its own crit. Chain Crack bounces further and stuns. */
+  _whipRicochet(from, raw, chain = 0, stun = 0) {
+    const p = this.player;
+    const bounces = chain || (DANCE_RICOCHET + (this.danceRhythm >= RHYTHM_MAX ? 1 : 0));
+    const hit = new Set([from]);
+    let prev = from;
+    for (let k = 0; k < bounces; k++) {
+      let next = null, bd = Infinity;
+      for (const n of this.npcs) {
+        if (hit.has(n) || !n.alive || !n.attackable || n.ally || n.temporary || n.hp <= 0) continue;
+        if (n.def.fixed && n.target !== p) continue;   // story bosses aren't dragged in
+        const d = chebyshev(n.x, n.y, prev.x, prev.y);
+        if (d <= 3 && d < bd) { bd = d; next = n; }
+      }
+      if (!next) break;
+      hit.add(next);
+      const c = this._aoeCrit(Math.max(1, Math.round(raw * RICOCHET_SHARE)));
+      const d = Math.min(next.hp, c.dmg);
+      this._lash(next, '#ff8ac0', prev);
+      next.takeDamage(d);
+      this.addHitsplat(next, d, { tint: '#ff8ac0', critX: c.critX });
+      this.spawnHitSparks(next, '#ffb0d8');
+      for (const x of combatXpDance(p.danceStyle, d)) this.skills.addXp(x.skill, x.xp * this.combatXpMult());
+      if (stun && next.hp > 0) { next.windup = 0; next.attackCooldown = Math.max(next.attackCooldown || 0, stun * 2); this.addHitsplat(next, 0, { text: 'Stunned!' }); }
+      if (!next.target) next.target = p;
+      if (next.hp <= 0) this.killNpc(next);
+      prev = next;
+    }
   }
 
   /** Melee cleave: up to 3 other foes next to the target take a share of the hit. */
@@ -1546,9 +1607,11 @@ export class Game {
   }
 
   /** A whip crack: a wavy line from the hero's hand to the target. */
-  _lash(npc, color) {
-    const from = this.player.renderCenter(), to = npc.renderCenter();
-    this.effects.push({ type: 'lash', x: from.x + (to.x >= from.x ? 8 : -8), y: from.y - 4, ex: to.x, ey: to.y - 8, color, life: 260, maxLife: 260 });
+  _lash(npc, color, src = null) {
+    // From the hero's hand, or (a ricochet) from the last monster the whip hit.
+    const from = (src || this.player).renderCenter(), to = npc.renderCenter();
+    const off = src ? 0 : (to.x >= from.x ? 8 : -8);
+    this.effects.push({ type: 'lash', x: from.x + off, y: from.y - (src ? 8 : 4), ex: to.x, ey: to.y - 8, color, life: 260, maxLife: 260 });
   }
 
   /** The backpack slot holding your strongest arrows (highest arrow strength),
@@ -1624,10 +1687,8 @@ export class Game {
     if (mods.heal && total > 0) { this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.round(total * mods.heal)); this.bus.emit('hp'); }
     this._mainCritCh = mods.critCh;   // split-shot arrows crit like the main shot
     if (this.skills.ranged >= SPLIT_SHOT_LEVEL) this._splitShot(npc, style, pr);
-    const hm = this.equipment.hasteMult();   // haste from gear shortens shots too
-    const ws = this.equipment.weaponSpeed();
-    // Pistols and shurikens are quicker than a beat; bows never go under one beat.
-    this._resetCooldown(Math.max(Math.min(hm, ws), ws + (RANGED_STYLES[style]?.speedMod || 0) * hm));
+    // Shots come as fast as the weapon and attack speed % allow (no floor).
+    this._resetCooldown(this.attackInterval());
     this._postAttack(npc);
   }
 
@@ -1720,9 +1781,8 @@ export class Game {
     if (dmg > 0) this._spellSplash(npc, raw, spell);
     const el = ELEMENTS[spell.element] || {};
     if (dmg > 0 && el.slowTicks) this._slowFoe(npc, el.slowTicks);   // Water's Tide
-    // Spells come off a staff a beat quicker than its swing speed; Wind and Water quicker still.
-    const hm = this.equipment.hasteMult();
-    this._resetCooldown(Math.max(hm, this.equipment.weaponSpeed() - hm) * (el.castSpeed || 1));
+    // Spells come off at half the weapon's swing time (wands quicker than staves); Wind and Water quicker still.
+    this._resetCooldown(this.attackInterval(spell));
     this._postAttack(npc);
   }
 
@@ -2975,7 +3035,8 @@ export class Game {
       // 2. Brace against a heavy blow being wound up next to you.
       if (this.npcs.some((n) => n.alive && n.target === p && n.windup > 0)) this._autoAbility((ab) => ab.kind === 'guard');
       // Casters always throw the strongest spell they can afford.
-      if (this.combatMode() === 'magic') { const best = this._autoSpellFor(tgt); if (best && best.id !== p.spell) { p.spell = best.id; this.bus.emit('spell'); } }
+      // Casters on 'Auto' get the element that suits the target; a chosen element is kept.
+      if (this.combatMode() === 'magic' && p.spellAuto) { const best = this._autoSpellFor(tgt); if (best && best.id !== p.spell) { p.spell = best.id; this.bus.emit('spell'); } }
       // 3. Spend adrenaline: the biggest attack skill you can afford.
       if (!this.armedAbility && this.autoCfg.abilities) this._autoAbility((ab) => ab.kind === 'attack', true);
       return;

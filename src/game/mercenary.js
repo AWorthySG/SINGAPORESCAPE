@@ -175,11 +175,14 @@ export function mercTick(game, m) {
       m.stop?.();
       // Allies swing exactly as fast as the Merchant: a weapon speed of N combat
       // beats (0.3s each) means 2/N swings per 0.6s tick, the remainder carried over.
-      m.swingAcc = Math.min(6, (m.swingAcc || 0) + (TICK_MS / COMBAT_BEAT_MS) / Math.max(0.25, game.equipment.weaponSpeed()));
+      // No cap: past 6 swings a tick, each swing stands for a volley (damage multiplied to match).
+      const rate = (TICK_MS / COMBAT_BEAT_MS) / Math.max(1e-9, game.equipment.weaponSpeed());
+      const volley = Math.max(1, rate / 6);
+      m.swingAcc = Math.min(6, (m.swingAcc || 0) + rate / volley);
       game._swingToward(m, target.x, target.y);
       // Both scale with the Merchant as they are now: levels, gear and upgrades.
       const own = playerAttackVsNpc(game.skills, game.equipment, p.style, target.def).max;
-      const max = m.follower ? Math.max(1, Math.round(own * (m.share || FOLLOWER_SHARE))) : Math.max(m.mercPower, Math.round(own * MERC_SHARE));
+      const max = Math.round(volley * (m.follower ? Math.max(1, Math.round(own * (m.share || FOLLOWER_SHARE))) : Math.max(m.mercPower, Math.round(own * MERC_SHARE))));
       while (m.swingAcc >= 1 && target.hp > 0) {
         m.swingAcc--;
         if (m.follower && Math.random() < SPLIT_CHANCE) spawnFollower(game, m);

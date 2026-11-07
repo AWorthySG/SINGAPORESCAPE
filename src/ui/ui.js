@@ -23,7 +23,7 @@ import { levelProgress, xpToNext, MAX_LEVEL } from '../data/xp.js';
 import { stackLabel, capitalize, formatNumber } from '../core/utils.js';
 import { RHYTHM_MAX, levelBonuses, playerMagicVsNpc } from '../game/combat.js';
 import { classPassives, CLASS_SKILL } from '../data/classPassives.js';
-import { ELEMENTS, SPELLS } from '../data/magic.js';
+import { ELEMENTS, SPELLS, getSpell } from '../data/magic.js';
 import { PRAYERS } from '../data/prayers.js';
 import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
 import { QUESTS } from '../data/quests.js';
@@ -767,26 +767,26 @@ export class UI {
       layout.appendChild(cell);
     }
     const b = this.game.equipment.bonuses();
-    const speed = this.game.equipment.weaponSpeed();
+    const speed = this.game.attackInterval();   // what you really get, spells and attack speed % included
     const sets = this.game.equipment.activeSets();
     const wid = this.game.equipment.get('weapon');
     let specLine = '';
     try { const sp = wid && getItem(wid).spec; if (sp) specLine = `<div class="row"><span>Special</span><span>${sp.name} (${sp.cost}%)</span></div>`; } catch {}
     this.el.equipBonuses.innerHTML =
-      `<div class="row"><span>Attack bonus</span><span>+${b.attack}</span></div>` +
+      `<div class="row"><span>Melee accuracy</span><span>+${b.attack}</span></div>` +
       `<div class="row"><span>Melee power</span><span>+${b.strength}</span></div>` +
       `<div class="row"><span>Defence bonus</span><span>+${b.defence}</span></div>` +
       (b.ranged ? `<div class="row"><span>Ranged bonus</span><span>+${b.ranged}</span></div>` : '') +
-      (b.magic ? `<div class="row"><span>Magic bonus</span><span>+${b.magic}</span></div>` : '') +
+      (b.magic ? `<div class="row"><span>Magic accuracy</span><span>+${b.magic}</span></div>` : '') +
       (b.crit ? `<div class="row"><span>Crit chance</span><span>+${b.crit}%</span></div>` : '') +
       (b.hp ? `<div class="row"><span>Bonus HP</span><span>+${b.hp}</span></div>` : '') +
       // The extra offensive stats, from armour families and gear.
-      [['pierce', 'Armour pierce'], ['critDmg', 'Crit damage'], ['haste', 'Haste'], ['lifesteal', 'Lifesteal'], ['bossDmg', 'Boss damage']]
+      [['atkPct', 'Attack bonus'], ['magPct', 'Magic bonus'], ['pierce', 'Armour pierce'], ['critDmg', 'Crit damage'], ['haste', 'Attack speed'], ['lifesteal', 'Lifesteal'], ['bossDmg', 'Boss damage']]
         .map(([k, l]) => (b[k] ? `<div class="row off-stat"><span>${l}</span><span>+${b[k]}%</span></div>` : '')).join('') +
       // What your fighting levels add on top of your gear (see levelBonuses).
       (() => { const lb = levelBonuses({ attack: this.game.skills.attack, ranged: this.game.skills.ranged, magic: this.game.skills.magic, agility: this.game.skills.agility });
         return `<div class="row lvl-bonus"><span>From your levels</span><span>+${lb.attack} Atk/Str · +${lb.ranged} Rng · +${lb.magic} Mag (+${lb.magicStr} dmg) · +${lb.dance} Dance</span></div>`; })() +
-      `<div class="row"><span>Attack speed</span><span>${speed * 0.3 < 0.3 ? (speed * 0.3).toFixed(2) : (speed * 0.3).toFixed(1)}s</span></div>` +
+      `<div class="row"><span>Time between attacks</span><span>${speed * 0.3 < 0.1 ? (speed * 0.3).toFixed(3) : speed * 0.3 < 0.3 ? (speed * 0.3).toFixed(2) : (speed * 0.3).toFixed(1)}s</span></div>` +
       specLine +
       (sets.length ? `<div class="row set-bonus"><span>Set bonus</span><span>${sets.join(', ')}</span></div>` : '');
     // What you're wearing, slot by slot: name, upgrade level and stats. Tap a
@@ -1580,9 +1580,16 @@ export class UI {
         const cost = Object.entries(sp.runes).map(([id, q]) => `${q}${id.replace('_rune', '').slice(0, 3)}`).join(' ');
         btn.innerHTML = `<span class="sp-ic">${spellIconHTML(sp.id, 26)}</span><span class="sp-text">${sp.name}<span class="style-skill">L${sp.level} · max ${playerMagicVsNpc(this.game.skills, this.game.equipment, sp, { defence: 1 }).max} · ${ELEMENTS[sp.element].icon} area · ${escapeHtml(cost)}<br>${escapeHtml(ELEMENTS[sp.element].effect)}</span></span>`;
         btn.style.opacity = known ? (this.game._hasRunes(sp) ? '1' : '0.65') : '0.35';
-        if (known) btn.addEventListener('click', () => { p.spell = sp.id; this.renderCombatPanel(); });
+        if (known) btn.addEventListener('click', () => { p.spell = sp.id; p.spellAuto = false; this.renderCombatPanel(); });
+        if (p.spellAuto) btn.classList.remove('active');
         row.appendChild(btn);
       }
+      // Auto: auto battle chooses the element that suits each target.
+      const auto = document.createElement('div');
+      auto.className = 'style-btn spell spell-auto' + (p.spellAuto ? ' active' : '');
+      auto.innerHTML = `<span class="sp-ic">🤖</span><span class="sp-text">Auto element<span class="style-skill">Auto battle picks the best element for each monster${p.spellAuto ? ` (now: ${escapeHtml(getSpell(p.spell).name)})` : ''}</span></span>`;
+      auto.addEventListener('click', () => { p.spellAuto = true; this.renderCombatPanel(); });
+      row.appendChild(auto);
     } else {
       // No stances to pick: say what every hit trains.
       const skill = mode === 'ranged' ? 'Ranged' : mode === 'dance' ? 'Agility' : 'Melee';
