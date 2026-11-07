@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { Game } from '../src/game/game.js';
 import { saveGame, loadGame, clearSave } from '../src/game/save.js';
 import { ITEMS } from '../src/data/items.js';
+import { getNpc } from '../src/data/npcs.js';
 import { chebyshev } from '../src/core/utils.js';
 import { CROP_BY_SEED, cropFor } from '../src/data/trades.js';
 import { playerAttackVsNpc } from '../src/game/combat.js';
@@ -3745,4 +3746,32 @@ test('no cap on hits per second: huge attack speed keeps adding damage (volleys)
   const a = dpsAt(1000), b = dpsAt(100000);
   assert.ok(b.dmg > a.dmg * 50, `+100000% speed (${b.dmg}) far out-damages +1000% (${a.dmg})`);
   assert.ok(b.ms < 2000, 'and the game stays responsive');
+});
+
+test('a world boss rises every 2 minutes: much tougher, aggressive, triple loot, gone once slain', () => {
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseStartingStyle('melee');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.tickCount = 199;
+  g._tickWorldBoss(); assert.equal(g._worldBoss, undefined, 'not before 2 minutes');
+  g.tickCount = 200;
+  const wb = g._tickWorldBoss();
+  assert.ok(wb && wb.worldBoss && g.npcs.includes(wb), 'a world boss appeared');
+  const base = getNpc(wb.npcId);
+  assert.equal(wb.maxHp, Math.round(base.maxHp * 5), '5x the life of the normal boss');
+  assert.ok(wb.def.maxHit >= base.maxHit * 2 && wb.def.aggressive && wb.def.aggroRange >= 16 && wb.def.ignoreLevelGate);
+  const d = Math.max(Math.abs(wb.x - g.player.x), Math.abs(wb.y - g.player.y));
+  assert.ok(d >= 7 && d <= 15, `it rose ${d} tiles away`);
+  g.tickCount = 400;
+  assert.equal(g._tickWorldBoss(), undefined, 'only one at a time');
+  // Triple loot, then it's gone for good.
+  let rolls = 0; const roll = g.rollDrops.bind(g); g.rollDrops = (n) => { rolls++; return roll(n); };
+  g.killNpc(wb);
+  assert.equal(rolls, 3, 'its loot rolls three times');
+  g.doTick();
+  assert.ok(!g.npcs.includes(wb) && !g._worldBoss, 'removed once slain, never respawns');
+  // One left unfought wanders off after 5 minutes.
+  g.tickCount = 600; const w2 = g._tickWorldBoss();
+  w2.target = null; g.tickCount = 600 + 501; g._tickWorldBoss();
+  assert.ok(!g.npcs.includes(w2), 'an unfought world boss leaves');
 });
