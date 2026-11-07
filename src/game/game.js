@@ -100,6 +100,8 @@ const DANCE_RICOCHET = 2;
 const VOLLEY_MIN_BEATS = 0.05;
 const RICOCHET_SHARE = 0.6;
 const LONGBOW_DMG = 1.6;
+// Sniper rifles fire only every 1.5s, but each round hits this many times as hard.
+const RIFLE_DMG = 5.5;
 // Champions have 50x the life they used to, so their loot scales the same way:
 // stackables x50, 8 table rolls, the rare table twice and a pile of stones.
 const CHAMPION_STACK_MULT = 50;
@@ -1737,7 +1739,7 @@ export class Game {
     const { atkRoll, defRoll, max } = playerRangedVsNpc(this.skills, this.equipment, style, npc.def, arrowStr);
     const pr = this.prayerMult().ranged;
     // Longbows fire half as often as shortbows but each arrow hits 60% harder.
-    const baseMax = Math.round(max * pr * (wpn.weaponType === 'longbow' ? LONGBOW_DMG : 1));
+    const baseMax = Math.round(max * pr * (wpn.weaponType === 'longbow' ? LONGBOW_DMG : wpn.weaponType === 'rifle' ? RIFLE_DMG : 1));
     const mods = this._offensiveMods(npc, 'ranged');
     const fancy = mods.spec || mods.ability;
     this._swingToward(this.player, npc.x, npc.y);
@@ -1956,7 +1958,7 @@ export class Game {
   /** What a ranged weapon fires: only bows loose arrows; pistols fire bullets
    *  and Ninjas throw spinning shurikens. */
   _shotKind(wpn) {
-    return wpn?.coins ? 'coin' : wpn?.weaponType === 'pistol' ? 'bullet' : wpn?.weaponType === 'shuriken' ? 'shuriken' : 'arrow';
+    return wpn?.coins ? 'coin' : wpn?.weaponType === 'pistol' || wpn?.weaponType === 'rifle' ? 'bullet' : wpn?.weaponType === 'shuriken' ? 'shuriken' : 'arrow';
   }
 
   _projectile(npc, color, kind = 'bolt', spread = 0) {
@@ -3266,7 +3268,7 @@ export class Game {
     for (const n of this.npcs) {
       if (!n.alive || !n.attackable) continue;
       const d = chebyshev(p.x, p.y, n.x, n.y);
-      if (d > 25) continue;
+      if (d > Math.max(25, range + 2)) continue;   // a Sniper picks off monsters from further still
       const hunting = n.target === p;
       // Anything already fighting you (a boss, its summoned adds, a champion)
       // is always answered, whatever its level or where it stands.

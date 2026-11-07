@@ -754,6 +754,9 @@ for (const M of _METALS) {
     equip: { slot: 'weapon', combatType: 'ranged', noAmmo: true, req: { ranged: M.ra }, bonuses: { ranged: Math.round(5 * M.m), speed: 3 }, range: 7 } };
   if (!RAW[`${M.k}_shuriken`]) RAW[`${M.k}_shuriken`] = { name: `${M.n} shuriken`, icon: '✴️', value: Math.round(30 * M.v), examine: `${M.n} throwing stars that skip from foe to foe.`,
     equip: { slot: 'weapon', combatType: 'ranged', noAmmo: true, req: { ranged: M.ra }, bonuses: { ranged: Math.round(8 * M.m), speed: 4 }, range: 8 } };
+  // Sniper rifles (Sniper): the longest reach in the game and huge shots, fired slowly. No ammo.
+  if (!RAW[`${M.k}_rifle`]) RAW[`${M.k}_rifle`] = { name: `${M.n} sniper rifle`, icon: '🎯', value: Math.round(40 * M.v), examine: `A long ${tag}-barrelled sniper rifle. One shot, one kill.`,
+    equip: { slot: 'weapon', combatType: 'ranged', noAmmo: true, req: { ranged: M.ra }, bonuses: { ranged: Math.round(14 * M.m), speed: 8 }, range: 32 + Math.floor(M.ra / 40) } };   // the furthest in the game (longbows top out at 28)
   if (!RAW[`${M.k}_cane`]) RAW[`${M.k}_cane`] = { name: `${M.n}-tipped cane`, icon: '🦯', value: Math.round(26 * M.v), examine: `A merchant's cane with a ${tag} tip, for flicking coins at foes. Every throw costs money.`,
     equip: { slot: 'weapon', combatType: 'ranged', noAmmo: true, coins: true, req: { ranged: M.ra }, bonuses: { ranged: Math.round(8 * M.m), speed: 4 }, range: 8 } };
 }
@@ -837,7 +840,7 @@ for (const [id, it] of Object.entries(RAW)) {
 // ---- Weapon types (one per job class) ----
 // Every weapon belongs to exactly one type; a job class can only wield its own.
 export const WEAPON_TYPES = ['dagger', 'sword', 'scimitar', 'mace', 'longsword', 'battleaxe', 'warhammer', '2h_sword', 'spear', 'claws', 'katana', 'halberd',
-  'shortbow', 'longbow', 'staff', 'wand', 'whip', 'pistol', 'shuriken', 'cane'];
+  'shortbow', 'longbow', 'staff', 'wand', 'whip', 'pistol', 'shuriken', 'cane', 'rifle'];
 const UNIQUE_TYPE = { tiger_kris: 'dagger', merlion_blade: 'sword', cursed_cutlass: 'scimitar', seraph_blade: 'longsword', megalodon_jaw: 'battleaxe',
   granite_maul: 'warhammer', void_blade: 'katana', leviathan_trident: 'spear', tiger_fang: 'claws' };
 const MELEE_FAMILIES = WEAPON_TYPES.slice(0, 12).sort((a, b) => b.length - a.length);   // '2h_sword' before 'sword'
@@ -846,6 +849,7 @@ function classifyWeapon(id, eq) {
   if (eq.combatType === 'dance') return 'whip';
   if (eq.combatType === 'magic') return /wand$/.test(id) ? 'wand' : 'staff';
   if (eq.combatType === 'ranged' && /_cane$/.test(id)) return 'cane';
+  if (eq.combatType === 'ranged' && /_rifle$/.test(id)) return 'rifle';
   if (eq.combatType === 'ranged') return /_pistol$/.test(id) ? 'pistol' : /_shuriken$/.test(id) ? 'shuriken' : /longbow$/.test(id) ? 'longbow' : 'shortbow';
   if (/_cane$/.test(id)) return 'cane';
   return MELEE_FAMILIES.find((f) => id.endsWith('_' + f)) || null;
@@ -860,7 +864,7 @@ for (const [id, it] of Object.entries(RAW)) {
 // gently with the weapon's level. All in percent, kept well inside the caps
 // in equipment.js so armour, jewellery and weapon can stack together.
 const WEAPON_STAT = {
-  dagger: 'critDmg', claws: 'critDmg', katana: 'critDmg', shuriken: 'atkPct', shortbow: 'atkPct', pistol: 'atkPct',
+  dagger: 'critDmg', claws: 'critDmg', katana: 'critDmg', rifle: 'critDmg', shuriken: 'atkPct', shortbow: 'atkPct', pistol: 'atkPct',
   mace: 'pierce', warhammer: 'pierce', spear: 'pierce', longsword: 'pierce', longbow: 'pierce',
   '2h_sword': 'bossDmg', halberd: 'bossDmg', battleaxe: 'atkPct', staff: 'magPct', wand: 'magPct', sword: 'atkPct',
   scimitar: 'lifesteal', whip: 'lifesteal', cane: 'lifesteal',

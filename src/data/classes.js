@@ -22,6 +22,7 @@ export const CLASSES = [
   { id: 'archer', name: 'Archer', weapon: 'shortbow', style: 'ranged', desc: 'Rapid shortbows: arrow after arrow from afar.' },
   { id: 'ranger', name: 'Ranger', weapon: 'longbow', style: 'ranged', desc: 'Longbows: slower, harder-hitting shots from very far.' },
   { id: 'pistoler', name: 'Pistoler', weapon: 'pistol', style: 'ranged', desc: 'A pistol in each hand: the fastest attacks in the game, and no ammo needed.' },
+  { id: 'sniper', name: 'Sniper', weapon: 'rifle', style: 'ranged', desc: 'A sniper rifle: the furthest reach in the game and massive shots, but slow to fire.' },
   { id: 'ninja', name: 'Ninja', weapon: 'shuriken', style: 'ranged', desc: 'Thrown shurikens that ricochet into a second foe. No ammo needed.' },
   // Magic
   { id: 'wizard', name: 'Wizard', weapon: 'staff', style: 'magic', desc: 'Powerful staves; elemental staves give free runes.' },
@@ -44,7 +45,7 @@ export const ARMOUR_FAMILY = {
   swordsman: 'plate', paladin: 'plate', knight: 'plate', berserker: 'plate', juggernaut: 'plate', gladiator: 'plate', lancer: 'plate', halberdier: 'plate',
   rogue: 'leather', corsair: 'leather', brawler: 'leather', samurai: 'leather',
   archer: 'hide', ranger: 'hide', wizard: 'robes', sorcerer: 'robes', dancer: 'dancewear',
-  pistoler: 'hide', ninja: 'leather', merchant: 'hide',
+  pistoler: 'hide', ninja: 'leather', merchant: 'hide', sniper: 'hide',
 };
 /** Can this class wear this item? (Only helm, body and legs armour is restricted.) */
 export function canWear(classId, id) {
@@ -91,7 +92,7 @@ export const WEAPON_TYPE_NAMES = {
   dagger: 'daggers', sword: 'swords', scimitar: 'scimitars', mace: 'maces', longsword: 'longswords', battleaxe: 'battleaxes',
   warhammer: 'warhammers', '2h_sword': '2h swords', spear: 'spears', claws: 'claws', katana: 'katanas', halberd: 'halberds',
   shortbow: 'shortbows', longbow: 'longbows', staff: 'staves', wand: 'wands', whip: 'whips',
-  pistol: 'pistols', shuriken: 'shurikens', cane: 'canes',
+  pistol: 'pistols', shuriken: 'shurikens', cane: 'canes', rifle: 'sniper rifles',
 };
 
 /** Weapon type of an item (null for non-weapons and tools). */

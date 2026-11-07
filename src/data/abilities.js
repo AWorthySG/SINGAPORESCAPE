@@ -141,6 +141,10 @@ const CLASS_ABILITIES = [
   { ...Z, id: 'quickdraw', cls: 'pistoler', mode: 'ranged', name: 'Quickdraw', icon: '🔫', art: 'snapshot', hits: 3, dmgMul: 0.7, instant: true, desc: 'Fan the hammer: three instant shots.' },
   { ...BF, id: 'fan_the_hammer', cls: 'pistoler', mode: 'ranged', name: 'Fan the Hammer', icon: '🔫', art: 'brace', buff: { haste: 100 }, desc: 'Fan the hammer: shoot twice as often for 6s.' },
   { ...B, id: 'bullet_hell', cls: 'pistoler', mode: 'ranged', name: 'Bullet Hell', icon: '💥', art: 'arrow_storm', hits: 8, dmgMul: 0.5, guaranteed: true, instant: true, desc: 'Ultimate: empty both pistols, eight guaranteed shots at once.' },
+  // Sniper: sniper rifles
+  { ...Z, id: 'deadshot', cls: 'sniper', mode: 'ranged', name: 'Deadshot', icon: '🎯', art: 'piercing_shot', dmgMul: 1.5, guaranteed: true, crit: true, pierce: 0.5, desc: 'A guaranteed critical round (~1.5x, then x2 or x4) that ignores half their armour.' },
+  { ...BF, id: 'hold_breath', cls: 'sniper', mode: 'ranged', name: 'Hold Your Breath', icon: '🫁', art: 'brace', buff: { crit: 0.3, dmg: 0.3 }, desc: 'Steady the scope: +30% crit chance and +30% damage for 6s.' },
+  { ...B, id: 'collateral', cls: 'sniper', mode: 'ranged', name: 'Collateral', icon: '💥', art: 'arrow_storm', dmgMul: 3.5, guaranteed: true, instant: true, pierce: 0.5, desc: 'Ultimate: one round (~3.5x) that punches through everything in its path.' },
   // Ninja: shurikens
   { ...Z, id: 'shadow_stars', cls: 'ninja', mode: 'ranged', name: 'Shadow Stars', icon: '✴️', art: 'snapshot', hits: 3, dmgMul: 0.7, instant: true, desc: 'Three shurikens flung at once, out of the shadows.' },
   { ...BF, id: 'shadow_clone', cls: 'ninja', mode: 'ranged', name: 'Shadow Clone', icon: '💨', art: 'brace', buff: { dodge: 0.3, haste: 40 }, desc: 'Shadow clones: +30% dodge and +40% attack speed for 6s.' },
