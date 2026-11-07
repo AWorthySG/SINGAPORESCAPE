@@ -3051,7 +3051,7 @@ test('new classes: Pistoler (dual pistols, no ammo, very fast), Ninja (ricochet)
   for (let i = 0; i < 5; i++) assert.ok(mc.hireMercenary(), 'no limit on how many mercenaries');
   assert.equal(Mercs.activeMercs(mc).length, 6);
   // Auto battle hires without a limit too, keeping three hires' worth of coins.
-  mc.autoBattle = true;
+  mc.autoBattle = true; mc.autoCfg.abilities = false;   // (its coin-paid skills would summon A-Worthlings)
   mc.player.setAction({ type: 'attack', npc: foe });
   for (let i = 0; i < 4; i++) mc._autoBattleTick();
   assert.ok(Mercs.activeMercs(mc).length >= 10, 'auto battle keeps hiring past three');
@@ -3820,4 +3820,33 @@ test('"Do all" at a station makes everything you can, best recipe first (smelt a
   step(g, 30);
   assert.equal(g.inventory.count('raw_chicken') + g.inventory.count('raw_anchovy') + g.inventory.count('raw_trout'), 0, 'everything was cooked');
   assert.equal(g.startAll('cook', range), false, 'nothing left to cook');
+});
+
+test('Merchant throws money: a ranged class whose throws and skills cost coins', async () => {
+  const { NPC } = await import('../src/game/npc.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('merchant');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  assert.equal(g.combatMode(), 'ranged', 'canes are ranged now');
+  assert.ok(g.attackRange() >= 8);
+  const t = new NPC('goblin', g.player.x + 5, g.player.y, 0, {}); t.hp = t.maxHp = 1e6; t.def = { ...t.def, aggressive: false };
+  g.npcs = [t];
+  const c0 = g.inventory.count('coins');
+  g._rangedAttack(t);
+  assert.equal(g.inventory.count('coins'), c0 - g.coinThrowCost(), 'a throw costs coins');
+  assert.ok(g.effects.some((e) => e.type === 'projectile' && e.kind === 'coin'), 'and flies as a coin');
+  // No coins, no throw.
+  g.inventory.remove('coins', g.inventory.count('coins'));
+  const hp = t.hp; g.player.attackCooldown = 0; g._rangedAttack(t);
+  assert.equal(t.hp, hp, 'broke: nothing to throw');
+  // Skills cost coins, not adrenaline.
+  const ab = g.currentAbilities().find((a) => a.key === 'X');
+  assert.ok(g.abilityCoinCost(ab) > 0 && /coins/.test(g.abilityCostText(ab)));
+  g.adrenaline = 100;
+  g.activateAbility(ab.id);
+  assert.ok(!g.buff, 'cannot afford it with adrenaline alone');
+  g.inventory.add('coins', 100000);
+  const before = g.inventory.count('coins');
+  g.activateAbility(ab.id);
+  assert.ok(g.buff && g.inventory.count('coins') === before - g.abilityCoinCost(ab) && g.adrenaline === 100, 'paid in coins, adrenaline untouched');
 });

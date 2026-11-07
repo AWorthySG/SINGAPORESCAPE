@@ -17,7 +17,7 @@ export const CLASSES = [
   { id: 'brawler', name: 'Brawler', weapon: 'claws', style: 'melee', desc: 'Lightning-fast claws: the quickest swings in the game, and they crit often.' },
   { id: 'samurai', name: 'Samurai', weapon: 'katana', style: 'melee', desc: 'Keen katanas: fast, balanced and deadly.' },
   { id: 'halberdier', name: 'Halberdier', weapon: 'halberd', style: 'melee', desc: 'Slow, devastating halberds with 3-tile reach.' },
-  { id: 'merchant', name: 'Merchant', weapon: 'cane', style: 'melee', desc: 'Hires any number of mercenaries with coins; every attack can call up an A-Worthling mirror image.' },
+  { id: 'merchant', name: 'Merchant', weapon: 'cane', style: 'ranged', desc: 'Throws money: every attack and skill costs coins. Hires mercenaries, and every throw can call up an A-Worthling mirror image.' },
   // Ranged
   { id: 'archer', name: 'Archer', weapon: 'shortbow', style: 'ranged', desc: 'Rapid shortbows: arrow after arrow from afar.' },
   { id: 'ranger', name: 'Ranger', weapon: 'longbow', style: 'ranged', desc: 'Longbows: slower, harder-hitting shots from very far.' },
@@ -44,7 +44,7 @@ export const ARMOUR_FAMILY = {
   swordsman: 'plate', paladin: 'plate', knight: 'plate', berserker: 'plate', juggernaut: 'plate', gladiator: 'plate', lancer: 'plate', halberdier: 'plate',
   rogue: 'leather', corsair: 'leather', brawler: 'leather', samurai: 'leather',
   archer: 'hide', ranger: 'hide', wizard: 'robes', sorcerer: 'robes', dancer: 'dancewear',
-  pistoler: 'hide', ninja: 'leather', merchant: 'leather',
+  pistoler: 'hide', ninja: 'leather', merchant: 'hide',
 };
 /** Can this class wear this item? (Only helm, body and legs armour is restricted.) */
 export function canWear(classId, id) {

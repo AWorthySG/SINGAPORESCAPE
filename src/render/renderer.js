@@ -619,6 +619,16 @@ export class Renderer {
         ctx.restore();
         continue;
       }
+      if (e.kind === 'coin') {
+        // A Merchant's thrown coin: a gold disc flipping end over end.
+        const flip = Math.abs(Math.cos(t * 30));
+        ctx.save(); ctx.translate(x, y);
+        ctx.fillStyle = '#f5b82e'; ctx.strokeStyle = '#22304A'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.ellipse(0, 0, 4.5 * Math.max(0.25, flip), 4.5, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        if (flip > 0.5) { ctx.fillStyle = '#ffe9a6'; ctx.beginPath(); ctx.arc(-1, -1, 1.4, 0, Math.PI * 2); ctx.fill(); }
+        ctx.restore();
+        continue;
+      }
       if (e.kind === 'shuriken') {
         // A four-pointed throwing star, spinning as it flies.
         ctx.save(); ctx.translate(x, y); ctx.rotate(t * 28); ctx.scale(1.3, 1.3);

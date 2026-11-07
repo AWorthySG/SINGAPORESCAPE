@@ -745,7 +745,8 @@ Object.assign(RAW, {
 // ---- Weapons for the newer classes, one per metal tier ----
 // Pistols (Pistoler): dual wielded, need no ammo, light shots fired very fast.
 // Shurikens (Ninja): thrown, need no ammo, and ricochet into a second foe.
-// Canes (Merchant): a light melee cane; the Merchant's strength is the
+// Canes (Merchant): a ranged weapon that flicks coins at the foe. Every throw
+// costs coins (see Game.coinThrowCost); the Merchant's other strength is the
 // mercenaries they hire.
 for (const M of _METALS) {
   const tag = M.n.toLowerCase();
@@ -753,8 +754,8 @@ for (const M of _METALS) {
     equip: { slot: 'weapon', combatType: 'ranged', noAmmo: true, req: { ranged: M.ra }, bonuses: { ranged: Math.round(5 * M.m), speed: 3 }, range: 7 } };
   if (!RAW[`${M.k}_shuriken`]) RAW[`${M.k}_shuriken`] = { name: `${M.n} shuriken`, icon: '✴️', value: Math.round(30 * M.v), examine: `${M.n} throwing stars that skip from foe to foe.`,
     equip: { slot: 'weapon', combatType: 'ranged', noAmmo: true, req: { ranged: M.ra }, bonuses: { ranged: Math.round(8 * M.m), speed: 4 }, range: 8 } };
-  if (!RAW[`${M.k}_cane`]) RAW[`${M.k}_cane`] = { name: `${M.n}-tipped cane`, icon: '🦯', value: Math.round(26 * M.v), examine: `A merchant's cane with a ${tag} tip. More for show than for fighting.`,
-    equip: { slot: 'weapon', req: { attack: M.ra }, bonuses: { attack: Math.round(5 * M.m), strength: Math.round(4 * M.m), speed: 5 }, range: MELEE_REACH } };
+  if (!RAW[`${M.k}_cane`]) RAW[`${M.k}_cane`] = { name: `${M.n}-tipped cane`, icon: '🦯', value: Math.round(26 * M.v), examine: `A merchant's cane with a ${tag} tip, for flicking coins at foes. Every throw costs money.`,
+    equip: { slot: 'weapon', combatType: 'ranged', noAmmo: true, coins: true, req: { ranged: M.ra }, bonuses: { ranged: Math.round(8 * M.m), speed: 4 }, range: 8 } };
 }
 
 // A first hide body for archers (the studded body needs Ranged 20).
@@ -844,6 +845,7 @@ function classifyWeapon(id, eq) {
   if (UNIQUE_TYPE[id]) return UNIQUE_TYPE[id];
   if (eq.combatType === 'dance') return 'whip';
   if (eq.combatType === 'magic') return /wand$/.test(id) ? 'wand' : 'staff';
+  if (eq.combatType === 'ranged' && /_cane$/.test(id)) return 'cane';
   if (eq.combatType === 'ranged') return /_pistol$/.test(id) ? 'pistol' : /_shuriken$/.test(id) ? 'shuriken' : /longbow$/.test(id) ? 'longbow' : 'shortbow';
   if (/_cane$/.test(id)) return 'cane';
   return MELEE_FAMILIES.find((f) => id.endsWith('_' + f)) || null;

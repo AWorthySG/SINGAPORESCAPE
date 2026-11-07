@@ -126,9 +126,9 @@ const CLASS_ABILITIES = [
   { ...BF, id: 'hold_the_line', cls: 'halberdier', mode: 'melee', name: 'Hold the Line', icon: '🚩', art: 'brace', buff: { reduce: 0.35, dmg: 0.2 }, desc: 'Stand firm: take 35% less damage and deal 20% more for 6s.' },
   { ...B, id: 'iron_tempest', cls: 'halberdier', mode: 'melee', name: 'Iron Tempest', icon: '🌪️', art: 'onslaught', hits: 3, dmgMul: 1.1, guaranteed: true, cleave: 2, desc: 'Ultimate: three guaranteed sweeps, cleaving twice as hard.' },
   // Merchant: canes and A-Worthlings
-  { ...Z, id: 'golden_cane', cls: 'merchant', mode: 'melee', name: 'Golden Cane', icon: '🪙', art: 'power_strike', dmgMul: 1.7, guaranteed: true, lifesteal: 0.2, desc: 'A guaranteed rap of the cane (~1.7x) that heals a fifth of it.' },
-  { ...BF, id: 'hire_bodyguards', cls: 'merchant', mode: 'melee', name: 'Hire Bodyguards', icon: '🤝', art: 'brace', summon: 2, buff: { dmg: 0.2 }, desc: 'Call in two A-Worthlings and +20% damage for 6s.' },
-  { ...B, id: 'hostile_takeover', cls: 'merchant', mode: 'melee', name: 'Hostile Takeover', icon: '📈', art: 'onslaught', dmgMul: 3, guaranteed: true, summon: 3, desc: 'Ultimate: a guaranteed blow (~3x) and three A-Worthlings join the fight.' },
+  { ...Z, id: 'golden_cane', cls: 'merchant', mode: 'ranged', name: 'Gold Rush', icon: '🪙', art: 'snapshot', hits: 3, dmgMul: 0.8, instant: true, lifesteal: 0.2, desc: 'Fling three fistfuls of gold at once (~0.8x each), healing a fifth of the damage.' },
+  { ...BF, id: 'hire_bodyguards', cls: 'merchant', mode: 'ranged', name: 'Hire Bodyguards', icon: '🤝', art: 'brace', summon: 2, buff: { dmg: 0.2 }, desc: 'Call in two A-Worthlings and +20% damage for 6s.' },
+  { ...B, id: 'hostile_takeover', cls: 'merchant', mode: 'ranged', name: 'Hostile Takeover', icon: '📈', art: 'arrow_storm', dmgMul: 3, guaranteed: true, instant: true, summon: 3, desc: 'Ultimate: a guaranteed shower of coins (~3x) and three A-Worthlings join the fight.' },
   // Archer: shortbows
   { ...Z, id: 'quick_volley', cls: 'archer', mode: 'ranged', name: 'Quick Volley', icon: '🏹', art: 'snapshot', hits: 3, dmgMul: 0.8, instant: true, desc: 'Loose three arrows at once.' },
   { ...BF, id: 'eagle_eye', cls: 'archer', mode: 'ranged', name: 'Eagle Eye', icon: '🦅', art: 'brace', buff: { haste: 60, crit: 0.1 }, desc: 'Sharp eyes: +60% attack speed and +10% crit chance for 6s.' },

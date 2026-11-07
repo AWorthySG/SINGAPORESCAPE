@@ -29,7 +29,7 @@ const SIGNATURE = {
   dancer: 'Whips lash from 3 tiles and ricochet into 2 more monsters (3 at full Rhythm), build Rhythm for bigger hits, and help you dodge blows.',
   pistoler: 'Dual pistols: by far the fastest attacks in the game, each hand firing, and no ammo to buy.',
   ninja: 'Shurikens ricochet off your target into a second foe nearby (60% damage), and need no ammo.',
-  merchant: 'Hire as many mercenaries as you can pay for (Combat tab): each runs at the closest monster for 90 seconds, swings as fast as you, hits for half your melee damage with your cleave, and earns you full XP. Every attack has a 25% chance to call up an A-Worthling, a mirror image of you that fights the same way for 25% of your damage and stays for good. Each A-Worthling swing has a 25% chance to split off a smaller one. Every A-Worthling never misses and hits for a fixed 25% of your max hit (up to 200 in all).',
+  merchant: 'Throws money: every coin flick from your cane costs coins (1 + 1 per 10 Ranged levels), and your skills cost coins instead of adrenaline. Hire as many mercenaries as you can pay for (Combat tab): each runs at the closest monster for 90 seconds, swings as fast as you, hits for half your damage, and earns you full XP. Every attack has a 25% chance to call up an A-Worthling, a mirror image of you that fights the same way for 25% of your damage and stays for good. Each A-Worthling swing has a 25% chance to split off a smaller one. Every A-Worthling never misses and hits for a fixed 25% of your max hit (up to 200 in all).',
 };
 
 // The passive perk tracks each style levels up (a perk every 20 levels).

@@ -92,6 +92,9 @@ const WORLD_BOSS_LOOT_ROLLS = 3;   // its loot, three times over
 // class) and +1% movement speed (up to +200%, so steps stay smooth tile to tile).
 const AGILITY_SPEED_PER = 10;
 const AGILITY_MOVE_CAP = 200;
+// Merchant: every coin throw costs 1 coin + 1 per 10 Ranged levels, and skills
+// cost coins instead of adrenaline (the adrenaline cost x this, x2 per 100 Ranged).
+const COIN_SKILL_MULT = 20;
 const PLAYER_STEP_MUL = 0.7;   // the player's base step time (see player.js)
 const DANCE_RICOCHET = 2;
 // Above this many attacks a beat (1/0.05 = 20), attacks are grouped into volleys.
@@ -1163,8 +1166,6 @@ export class Game {
     const pm = this.prayerMult();
     const baseMax = Math.round(max * pm.str);
     this._swingToward(this.player, npc.x, npc.y);
-    // A Merchant's every swing may call up an A-Worthling (a mirror image).
-    if (this.jobClass === 'merchant') Mercs.onMerchantAttack(this);
 
     // Fold together special attack + armed ability + style-weakness bonuses.
     const mods = this._offensiveMods(npc, 'melee');
@@ -1266,7 +1267,7 @@ export class Game {
     if (!ab) return;
     if (!this.abilityUnlocked(ab)) { this.msg(`${ab.name} unlocks at combat level ${ab.unlock}.`, 'system'); return; }
     if ((this.abilityCd[id] || 0) > 0) { this.msg(`${ab.name} is on cooldown.`, 'system'); return; }
-    if (this.adrenaline < ab.cost) { this.msg(`You need ${ab.cost}% adrenaline for ${ab.name}.`, 'system'); return; }
+    if (!this.canAffordAbility(ab)) { this.msg(`You need ${this.abilityCostText(ab)} for ${ab.name}.`, 'system'); return; }
     if (ab.cls && ab.cls !== this.jobClass) { this.msg(`${ab.name} is a ${CLASS_BY_ID[ab.cls]?.name || ab.cls} ability.`, 'system'); return; }
     if (ab.mode && ab.mode !== this.combatMode()) {
       const need = { melee: 'a melee weapon', ranged: 'a bow', magic: 'a staff' }[ab.mode];
@@ -1293,7 +1294,7 @@ export class Game {
       return;
     }
     // Immediate abilities (guard / heal) resolve right away.
-    this.adrenaline -= ab.cost;
+    this._payAbility(ab);
     this.abilityCd[id] = ab.cd;
     if (ab.kind === 'guard') {
       this.braceTicks = ab.guardTicks;
@@ -1332,17 +1333,36 @@ export class Game {
     return b && b.until > this.tickCount ? b[k] || 0 : 0;
   }
 
+  /** Merchant: coins per coin throw (1, +1 per 10 Ranged levels). */
+  coinThrowCost() { return 1 + Math.floor(this.skills.ranged / 10); }
+  /** Coins a skill costs a Merchant (every skill, instead of adrenaline); 0 for everyone else. */
+  abilityCoinCost(ab) {
+    return this.jobClass === 'merchant' ? Math.round(ab.cost * COIN_SKILL_MULT * (1 + Math.floor(this.skills.ranged / 100))) : 0;
+  }
+  canAffordAbility(ab) {
+    const coins = this.abilityCoinCost(ab);
+    return coins ? this.inventory.count('coins') >= coins : this.adrenaline >= ab.cost;
+  }
+  abilityCostText(ab) {
+    const coins = this.abilityCoinCost(ab);
+    return coins ? `${coins} coins` : `${ab.cost}% adrenaline`;
+  }
+  _payAbility(ab) {
+    const coins = this.abilityCoinCost(ab);
+    if (coins) this.inventory.remove('coins', coins); else this.adrenaline -= ab.cost;
+  }
+
   /** Consume an armed offensive ability for the current hit (spends adrenaline). */
   _takeAbility() {
     if (!this.armedAbility) return null;
     const ab = ABILITY_BY_ID[this.armedAbility];
     this.armedAbility = null;
-    if (!ab || ab.kind !== 'attack' || !this.abilityUnlocked(ab) || this.adrenaline < ab.cost || (this.abilityCd[ab.id] || 0) > 0
+    if (!ab || ab.kind !== 'attack' || !this.abilityUnlocked(ab) || !this.canAffordAbility(ab) || (this.abilityCd[ab.id] || 0) > 0
         || (ab.mode && ab.mode !== this.combatMode()) || (ab.cls && ab.cls !== this.jobClass)) {
       this.bus.emit('ability');
       return null;
     }
-    this.adrenaline -= ab.cost;
+    this._payAbility(ab);
     this.abilityCd[ab.id] = ab.cd;
     this.bus.emit('adrenaline');
     this.bus.emit('ability');
@@ -1704,8 +1724,16 @@ export class Game {
     const arrowIdx = noAmmo ? -1 : this._bestAmmoIdx();
     if (!noAmmo && arrowIdx === -1) { this._outOfAmmo('You have no arrows left.'); this.player.clearAction(); return; }
     const arrowStr = noAmmo ? Math.floor((wpn.bonuses.ranged || 0) / 3) : getItem(this.inventory.slotAt(arrowIdx).id).arrowStr || 0;
+    // A Merchant's cane throws money: every throw (a volley counts in full) costs coins.
+    if (wpn.coins) {
+      const cost = Math.ceil(this.coinThrowCost() * (this._volley || 1));
+      if (this.inventory.count('coins') < cost) { this._outOfAmmo(`You need ${cost} coins to throw.`); this.player.clearAction(); return; }
+      this.inventory.remove('coins', cost);
+    }
+    // A Merchant's every throw may call up an A-Worthling (a mirror image).
+    if (this.jobClass === 'merchant') Mercs.onMerchantAttack(this);
     const shot = this._shotKind(wpn);
-    const tint = wpn.weaponType === 'pistol' ? '#ffe28a' : wpn.weaponType === 'shuriken' ? '#cfd8e6' : '#d9c45a';
+    const tint = wpn.coins ? '#f5b82e' : wpn.weaponType === 'pistol' ? '#ffe28a' : wpn.weaponType === 'shuriken' ? '#cfd8e6' : '#d9c45a';
     const style = this.player.rangedStyle;
     const { atkRoll, defRoll, max } = playerRangedVsNpc(this.skills, this.equipment, style, npc.def, arrowStr);
     const pr = this.prayerMult().ranged;
@@ -1929,7 +1957,7 @@ export class Game {
   /** What a ranged weapon fires: only bows loose arrows; pistols fire bullets
    *  and Ninjas throw spinning shurikens. */
   _shotKind(wpn) {
-    return wpn?.weaponType === 'pistol' ? 'bullet' : wpn?.weaponType === 'shuriken' ? 'shuriken' : 'arrow';
+    return wpn?.coins ? 'coin' : wpn?.weaponType === 'pistol' ? 'bullet' : wpn?.weaponType === 'shuriken' ? 'shuriken' : 'arrow';
   }
 
   _projectile(npc, color, kind = 'bolt', spread = 0) {
@@ -1944,7 +1972,7 @@ export class Game {
     // Bullets are the quickest of all; shurikens spin across a little slower than arrows.
     const life = kind === 'arrow' ? Math.min(650, 140 + dist / 0.55) + Math.abs(spread) * 40
       : kind === 'bullet' ? 110 + dist / 2.2 + Math.abs(spread) * 20
-        : kind === 'shuriken' ? Math.min(560, 120 + dist / 0.6) + Math.abs(spread) * 40
+        : kind === 'shuriken' || kind === 'coin' ? Math.min(560, 120 + dist / 0.6) + Math.abs(spread) * 40
           : 240 + Math.abs(spread) * 40;
     this.effects.push({ type: 'projectile', kind, x: fx, y: from.y - 6 + off, ex: to.x, ey: to.y - 8 + off * 0.6, color, life, maxLife: life,
       arc: kind === 'arrow' ? Math.min(22, dist * 0.09) : 0 });
@@ -3212,7 +3240,7 @@ export class Game {
 
   _autoAbility(filter, biggestFirst = false) {
     const ready = this.currentAbilities().filter((ab) => filter(ab) && this.abilityUnlocked(ab)
-      && (this.abilityCd[ab.id] || 0) <= 0 && this.adrenaline >= ab.cost);
+      && (this.abilityCd[ab.id] || 0) <= 0 && this.canAffordAbility(ab));
     if (!ready.length) return false;
     if (biggestFirst) ready.sort((x, y) => y.cost - x.cost);
     this.activateAbility(ready[0].id);
