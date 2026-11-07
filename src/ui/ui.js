@@ -2372,6 +2372,7 @@ export class UI {
     if (!raws.length && !dishes.length) { this.game.msg('You have nothing to cook.'); return; }
     const render = (body) => {
       body.innerHTML = '<div class="modal-hint">Choose what to cook. You\'ll cook until you run out.</div>';
+      body.appendChild(this._doAllRow('cook', obj, 'Cook all'));
       if (raws.length) {
         const grid = document.createElement('div');
         grid.className = 'item-grid';
@@ -2405,11 +2406,21 @@ export class UI {
     this.modal.kind = 'cook';
   }
 
+  /** A "Do all" row at the top of a station menu: make everything you can here. */
+  _doAllRow(kind, obj, label) {
+    const row = document.createElement('div');
+    row.className = 'dialogue-option do-all';
+    row.innerHTML = `<b>⚡ ${label}</b> <span style="opacity:.75">(everything you can make here, best first)</span>`;
+    row.addEventListener('click', () => { this.game.startAll(kind, obj); this.closeModal(); });
+    return row;
+  }
+
   // Smelting -----------------------------------------------------------
   openSmeltMenu(obj) {
     const render = (body) => {
       body.innerHTML = '<div class="modal-hint">Smelt ore into bars.</div>';
       const list = document.createElement('div');
+      list.appendChild(this._doAllRow('smelt', obj, 'Smelt all'));
       for (const r of SMELT) {
         const can = r.inputs.every((inp) => this.game.inventory.has(inp.id, inp.qty)) && this.game.skills.level('smithing') >= r.level;
         const row = document.createElement('div');
@@ -2431,6 +2442,7 @@ export class UI {
     const render = (body) => {
       body.innerHTML = '<div class="modal-hint">Craft pottery and jewelry from gathered materials.</div>';
       const list = document.createElement('div');
+      list.appendChild(this._doAllRow('craft', obj, 'Craft all'));
       for (const r of CRAFT) {
         const hasTool = !r.tool || this.game.hasTool(r.tool);
         const can = hasTool && r.inputs.every((inp) => this.game.inventory.has(inp.id, inp.qty)) && this.game.skills.level('crafting') >= r.level;
@@ -2459,6 +2471,7 @@ export class UI {
         ? 'Brew farmed herbs into potions. Drink one from your pack for a boost in battle.'
         : 'Carve logs with a knife, and tip arrow shafts with feathers and a metal bar.'}</div>`;
       const list = document.createElement('div');
+      list.appendChild(this._doAllRow(skill, obj, skill === 'herblore' ? 'Brew all' : 'Fletch all'));
       for (const r of recipes) {
         const hasTool = !r.tool || g.hasTool(r.tool);
         const can = hasTool && g.skills.level(skill) >= r.level && r.inputs.every(([id, n]) => g.inventory.has(id, n));
@@ -2500,6 +2513,7 @@ export class UI {
     const render = (body) => {
       body.innerHTML = '<div class="modal-hint">Hammer bars into equipment.</div>';
       const list = document.createElement('div');
+      list.appendChild(this._doAllRow('smith', obj, 'Smith all'));
       for (const r of SMITH) {
         const can = this.game.inventory.has(r.bar, r.barCount) && this.game.skills.level('smithing') >= r.level && this.game.hasTool('hammer');
         const row = document.createElement('div');
