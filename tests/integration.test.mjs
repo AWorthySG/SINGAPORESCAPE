@@ -3674,3 +3674,29 @@ test('the element you press is the one you cast, even in auto battle; Auto lets 
   const g2 = new Game(); g2.start(); loadGame(g2);
   assert.equal(g2.player.spellAuto, true);
 });
+
+test('Dancer whips ricochet between monsters; Chain Crack bounces further and stuns', async () => {
+  const { NPC } = await import('../src/game/npc.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('dancer');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  const p = g.player;
+  const mk = (dx, dy) => { const n = new NPC('goblin', p.x + dx, p.y + dy, 0, {}); n.maxHp = n.hp = 1e6; n.def = { ...n.def, defence: 0, aggressive: false }; return n; };
+  // A line of monsters 2 tiles apart: the lash hops along it.
+  const main = mk(2, 0), b1 = mk(4, 0), b2 = mk(6, 0), b3 = mk(8, 0), b4 = mk(10, 0), far = mk(2, 9);
+  g.npcs = [main, b1, b2, b3, b4, far];
+  g.danceRhythm = 0;
+  for (let i = 0; i < 50 && main.hp === 1e6; i++) { p.attackCooldown = 0; g._danceAttack(main); }
+  assert.ok(main.hp < 1e6, 'the lash landed');
+  assert.ok(b1.hp < 1e6 && b2.hp < 1e6, 'it ricocheted into two more monsters');
+  assert.equal(far.hp, 1e6, 'nothing out of ricochet range');
+  // Chain Crack: up to 6 bounces, each stunned.
+  for (const n of g.npcs) { n.hp = n.maxHp; n.attackCooldown = 0; }
+  g.adrenaline = 100;
+  g.armedAbility = 'crack';
+  p.attackCooldown = 0; g._danceAttack(main);
+  for (const n of [b1, b2, b3, b4]) {
+    assert.ok(n.hp < 1e6, 'Chain Crack reached every monster down the line');
+    assert.ok(n.attackCooldown >= 4, 'and stunned it');
+  }
+});

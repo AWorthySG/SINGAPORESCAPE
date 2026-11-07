@@ -33,9 +33,9 @@ export const ABILITIES = [
     unlock: 1, dmgMul: 2.4, instant: true, desc: 'Instantly unleash a burst of raw magic (~2.4x damage).' },
   // ---- Dance (whips) ----
   { id: 'whirl', name: 'Whirl', key: 'Z', icon: '🌪️', cost: 30, cd: 5, kind: 'attack', mode: 'dance',
-    unlock: 1, dmgMul: 1.2, sweep: true, desc: 'Spin and lash every monster within reach of your whip.' },
-  { id: 'crack', name: 'Crack', key: 'X', icon: '💫', cost: 35, cd: 6, kind: 'attack', mode: 'dance',
-    unlock: 1, dmgMul: 1.7, guaranteed: true, stun: 2, desc: 'A guaranteed crack (~1.7x damage) that stuns the target.' },
+    unlock: 1, dmgMul: 1.4, sweep: true, rhythm: 2, desc: 'Spin and lash every monster within reach of your whip (~1.4x), building 2 extra Rhythm.' },
+  { id: 'crack', name: 'Chain Crack', key: 'X', icon: '💫', cost: 35, cd: 6, kind: 'attack', mode: 'dance',
+    unlock: 1, dmgMul: 1.8, guaranteed: true, stun: 2, chain: 6, desc: 'A guaranteed crack (~1.8x) that ricochets through up to 6 more monsters, stunning every one.' },
   // ---- Shared ----
   { id: 'brace', name: 'Brace', key: 'C', icon: '🛡️', cost: 20, cd: 5, kind: 'guard',
     unlock: 1, guardTicks: 4, reduce: 0.5, desc: 'Halve incoming damage for 4 ticks — counter heavy blows.' },
@@ -52,8 +52,8 @@ export const ABILITIES = [
     unlock: 45, dmgMul: 3.2, guaranteed: true, instant: true,
     desc: 'Ultimate: call down a guaranteed meteor (~3.2x damage).' },
   { id: 'grand_finale', name: 'Grand Finale', key: 'B', icon: '🎭', cost: 100, cd: 16, kind: 'attack', mode: 'dance',
-    unlock: 45, hits: 5, dmgMul: 0.8, guaranteed: true, sweep: true,
-    desc: 'Ultimate: a five-beat dance that lashes everything in reach.' },
+    unlock: 45, hits: 5, dmgMul: 0.9, guaranteed: true, sweep: true, rhythm: 5,
+    desc: 'Ultimate: a five-beat dance that lashes everything in reach and leaves you at full Rhythm.' },
 ];
 
 // ---- Class abilities ----
