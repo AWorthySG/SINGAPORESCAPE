@@ -3939,3 +3939,24 @@ test('Sniper: a sniper rifle with the longest reach, huge shots and a slow rate 
   s.npcs = [far];
   assert.equal(s._autoPickTarget(), far, 'auto battle picks off a monster 30 tiles away');
 });
+
+test('sniper rounds never miss and pierce every monster in a line up to 10 tiles past the target', async () => {
+  const { NPC } = await import('../src/game/npc.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('sniper');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.abilityUnlocked = () => false;
+  const p = g.player;
+  const mk = (dx, dy = 0, def = 0) => { const n = new NPC('goblin', p.x + dx, p.y + dy, 0, {}); n.hp = n.maxHp = 1e7; n.def = { ...n.def, defence: def, aggressive: false }; return n; };
+  // A heavily armoured target is still hit every time.
+  const tank = mk(5, 0, 5000);
+  g.npcs = [tank];
+  for (let i = 0; i < 20; i++) { const hp = tank.hp; p.attackCooldown = 0; g._rangedAttack(tank); assert.ok(tank.hp < hp, 'every round lands'); }
+  // In a line: behind the target within 10 tiles is hit; further, or off the line, is not.
+  const main = mk(5), behind = mk(12), far = mk(17), aside = mk(10, 3);
+  g.npcs = [main, behind, far, aside];
+  p.attackCooldown = 0; g._rangedAttack(main);
+  assert.ok(main.hp < 1e7 && behind.hp < 1e7, 'the round goes through to the monster behind');
+  assert.equal(far.hp, 1e7, 'but no more than 10 tiles past the target');
+  assert.equal(aside.hp, 1e7, 'and only along the line');
+});
