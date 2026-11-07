@@ -124,7 +124,10 @@ export class Player extends Character {
       const k = budget * Math.min(1, 0.45 + m * 0.75) / (m || 1);
       const dx = this.stick.x * k, dy = this.stick.y * k;
       this._face(dx, dy);
-      moved = this._slide(dx, dy);
+      // Very fast movement (Agility has no cap) is taken in small steps so it
+      // can never jump through a wall in one frame.
+      const n = Math.min(4000, Math.max(1, Math.ceil(Math.hypot(dx, dy) / 0.4)));
+      for (let i = 0; i < n; i++) moved += this._slide(dx / n, dy / n);
       this.path = [];
     } else if (this.path.length) {
       moved = this._follow(budget);
@@ -141,7 +144,7 @@ export class Player extends Character {
    *  instead of zigzagging tile by tile. */
   _follow(budget) {
     let moved = 0, guard = 0;
-    while (budget > 1e-6 && this.path.length && guard++ < 8) {
+    while (budget > 1e-6 && this.path.length && guard++ < 4000) {   // fast movers cover many tiles a frame
       for (let i = Math.min(this.path.length - 1, LOOKAHEAD); i > 0; i--) {
         if (this._clear(this.fx, this.fy, this.path[i].x, this.path[i].y)) { this.path.splice(0, i); break; }
       }

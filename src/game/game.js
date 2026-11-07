@@ -88,10 +88,9 @@ const WORLD_BOSS_EVERY = 200;      // ticks (0.6s each): 2 minutes
 const WORLD_BOSS_STAY = 500;       // ticks it lingers without a fight: 5 minutes
 const WORLD_BOSS_MULT = { hp: 5, hit: 2, stats: 1.5 };
 const WORLD_BOSS_LOOT_ROLLS = 3;   // its loot, three times over
-// Agility: every 10 levels give +1% attack and casting speed (uncapped, every
-// class) and +1% movement speed (up to +200%, so steps stay smooth tile to tile).
+// Agility: every 10 levels give +1% attack and casting speed and +1% movement
+// speed, for every class, with no cap on either.
 const AGILITY_SPEED_PER = 10;
-const AGILITY_MOVE_CAP = 200;
 // Merchant: every coin throw costs 1 coin + 1 per 10 Ranged levels, and skills
 // cost coins instead of adrenaline (the adrenaline cost x this, x2 per 100 Ranged).
 const COIN_SKILL_MULT = 20;
@@ -1325,7 +1324,7 @@ export class Game {
   /** Agility's bonus to attack, casting and movement speed, in %. */
   agilitySpeed() { return this.skills.agility / AGILITY_SPEED_PER; }
   /** The player's step time multiplier: the base pace, quickened by Agility. */
-  playerStepMul() { return PLAYER_STEP_MUL * 100 / (100 + Math.min(AGILITY_MOVE_CAP, this.agilitySpeed())); }
+  playerStepMul() { return PLAYER_STEP_MUL * 100 / (100 + this.agilitySpeed()); }
 
   /** The active buff's value for a key (dmg, haste, crit, lifesteal, reduce, dodge), or 0. */
   buffMod(k) {
