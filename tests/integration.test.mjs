@@ -794,7 +794,7 @@ test('weapon-specific skills: a bow swaps in Snapshot, which looses three arrows
   game.jobClass = null;   // the general ranged set (classes have their own; tested below)
   assert.equal(game.combatMode(), 'ranged');
   const keys = game.currentAbilities().map((a) => a.id);
-  assert.deepEqual(keys, ['snapshot', 'piercing_shot', 'brace', 'second_wind', 'arrow_storm']);
+  assert.deepEqual(keys, ['snapshot', 'focus', 'brace', 'second_wind', 'arrow_storm']);
   const target = new NPC('goblin', game.player.x + 3, game.player.y, 0, {});
   target.hp = target.maxHp = 9999;
   game.npcs = [target];
@@ -3280,14 +3280,18 @@ test('auto gather picks mining back up after an interruption or once rocks grow 
   assert.ok(g.inventory.count('copper_ore') >= ore0 + 10, `picked mining back up: ${g.inventory.count('copper_ore') - ore0} more ore`);
 });
 
-test('every class has its own three abilities, and their extra effects work', async () => {
+test('every class has its own three abilities (damage Z, buff X, area B), and their extra effects work', async () => {
   const { CLASSES } = await import('../src/data/classes.js');
   const { abilitiesFor, ABILITIES } = await import('../src/data/abilities.js');
   const seen = new Set();
   for (const c of CLASSES) {
-    if (c.id === 'dancer') continue;   // the Dancer keeps the whip set
     const mode = c.style;
     const set = abilitiesFor(mode, c.id);
+    const by = Object.fromEntries(set.map((a) => [a.key, a]));
+    assert.equal(by.Z.kind, 'attack', `${c.name}: Z is a damage skill`);
+    assert.equal(by.X.kind, 'buff', `${c.name}: X is a buff`);
+    assert.ok(by.B.aoe || by.B.sweep, `${c.name}: B hits an area`);
+    if (c.id === 'dancer') continue;   // the Dancer uses the whip set
     const own = set.filter((a) => a.cls === c.id).map((a) => a.key).sort();
     assert.deepEqual(own, ['B', 'X', 'Z'], `${c.name} has its own Z, X and B`);
     for (const a of set.filter((x) => x.cls)) { assert.ok(!seen.has(a.id), `${a.id} is unique`); seen.add(a.id); assert.ok(a.desc && a.art, `${a.id} has a description and art`); }
@@ -3306,14 +3310,35 @@ test('every class has its own three abilities, and their extra effects work', as
     return { g, t };
   };
   const r = mk('rogue');
-  assert.deepEqual(r.g.currentAbilities().map((a) => a.id), ['backstab', 'twin_fangs', 'brace', 'second_wind', 'assassinate']);
+  assert.deepEqual(r.g.currentAbilities().map((a) => a.id), ['backstab', 'shadow_step', 'brace', 'second_wind', 'assassinate']);
   r.g.activateAbility('backstab');
   r.g.player.attackCooldown = 0; r.g.doPlayerAttack(r.t);
   assert.ok(r.g.effects.some((e) => e.type === 'hitsplat' && e.critX >= 2), 'Backstab lands a critical');
   const m = mk('merchant');
-  m.g.activateAbility('call_a_favour');
-  m.g.player.attackCooldown = 0; m.g.doPlayerAttack(m.t);
-  assert.ok(Mercs.activeFollowers(m.g).length >= 1, 'Call in a Favour summons an A-Worthling');
+  m.g.activateAbility('hire_bodyguards');
+  assert.ok(Mercs.activeFollowers(m.g).length >= 2, 'Hire Bodyguards calls up two A-Worthlings');
+  assert.ok(m.g.buffMod('dmg') > 0, 'and the damage buff is on');
+  // Buffs: a Brawler's Adrenaline Rush attacks twice as often, then wears off.
+  const b = mk('brawler');
+  const iv = b.g.attackInterval();
+  b.g.activateAbility('adrenaline_rush');
+  assert.ok(Math.abs(b.g.attackInterval() - iv / 2) < 1e-9, 'twice as often');
+  b.g.tickCount += 11;
+  assert.equal(b.g.attackInterval(), iv, 'and it wears off after 6s');
+  // A Knight's Shield Wall halves the damage taken.
+  const k = mk('knight');
+  k.g.activateAbility('shield_wall');
+  assert.equal(k.g.buffMod('reduce'), 0.5);
+  // Ultimates hit everything within 3 tiles of the target.
+  const s2 = mk('swordsman');
+  const near = new NPC('goblin', s2.t.x + 2, s2.t.y, 0, {}); near.hp = near.maxHp = 999999;
+  const far = new NPC('goblin', s2.t.x + 6, s2.t.y, 0, {}); far.hp = far.maxHp = 999999;
+  s2.g.npcs.push(near, far);
+  s2.g.abilityUnlocked = () => true;   // ultimates unlock at combat level 45
+  s2.g.activateAbility('heroic_strike');
+  s2.g.player.attackCooldown = 0; s2.g.doPlayerAttack(s2.t);
+  assert.ok(near.hp < 999999, 'the ultimate hit a monster 2 tiles from the target');
+  assert.equal(far.hp, 999999, 'but not one 6 tiles away');
   // Another class's ability can't be used.
   m.g.adrenaline = 100; m.g.activateAbility('backstab');
   assert.notEqual(m.g.armedAbility, 'backstab');
