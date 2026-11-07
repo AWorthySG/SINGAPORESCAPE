@@ -3850,3 +3850,27 @@ test('Merchant throws money: a ranged class whose throws and skills cost coins',
   g.activateAbility(ab.id);
   assert.ok(g.buff && g.inventory.count('coins') === before - g.abilityCoinCost(ab) && g.adrenaline === 100, 'paid in coins, adrenaline untouched');
 });
+
+test('mercenaries and A-Worthlings throw coins from range and give Ranged XP', async () => {
+  const { NPC } = await import('../src/game/npc.js');
+  const Mercs = await import('../src/game/mercenary.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('merchant');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.inventory.add('coins', 100000);
+  g.player.autoRetaliate = false;
+  const p = g.player;
+  const foe = new NPC('goblin', p.x + 5, p.y, 0, {}); foe.hp = foe.maxHp = 1e7; foe.def = { ...foe.def, aggressive: false, maxHit: 0 };
+  g.npcs = [foe];
+  const m = g.hireMercenary();
+  const aw = Mercs.spawnFollower(g);
+  assert.ok(m && aw);
+  const xp0 = { ranged: g.skills.xp.ranged, attack: g.skills.xp.attack };
+  const startDist = chebyshev(m.x, m.y, foe.x, foe.y);
+  for (let i = 0; i < 20; i++) { p.attackCooldown = 99; Mercs.mercTick(g, m); Mercs.mercTick(g, aw); Mercs.flushAllies(g); }
+  assert.ok(foe.hp < foe.maxHp, 'the allies hit the monster');
+  assert.ok(chebyshev(m.x, m.y, foe.x, foe.y) >= 2 || startDist < 2, 'from range, without running up to it');
+  assert.ok(g.effects.some((e) => e.type === 'projectile' && e.kind === 'coin'), 'by throwing coins');
+  assert.ok(g.skills.xp.ranged > xp0.ranged, 'their hits train Ranged');
+  assert.equal(g.skills.xp.attack, xp0.attack, 'not Melee');
+});

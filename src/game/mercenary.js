@@ -1,17 +1,18 @@
 // Mercenaries: the Merchant hires fighters with coins, as many as they can pay
-// for. Each one follows the Merchant for a contract of 90 seconds, runs at the
-// closest monster, cleaves like the Merchant's own weapon, and then heads home.
+// for. Each one follows the Merchant for a contract of 90 seconds, closes to
+// within ALLY_RANGE of the closest monster and pelts it with coins, like the
+// Merchant does, and then heads home. All their XP goes to Ranged.
 // Monsters don't fight back against mercenaries: the Merchant pays them to
 // take no risks.
 // A-Worthlings: every time the Merchant attacks there is a 25% chance a
-// mirror image of the Merchant appears. It fights like a mercenary, hitting for
-// a quarter of the Merchant's own melee damage, and stays for good. Each of its
+// mirror image of the Merchant appears. It throws coins like a mercenary, hitting
+// for a quarter of the Merchant's own damage, and stays for good. Each of its
 // swings has a 25% chance to split off a smaller A-Worthling (up to MAX_FOLLOWERS). Every A-Worthling, big or small, never misses and always hits
 // for a fixed 25% of the Merchant's max melee hit.
 import { chebyshev, randInt } from '../core/utils.js';
 import { TICK_MS, COMBAT_BEAT_MS } from '../config.js';
 import { findPath } from '../engine/pathfinding.js';
-import { combatXp, combatXpRanged, playerAttackVsNpc, playerRangedVsNpc, critChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE } from './combat.js';
+import { combatXpRanged, playerAttackVsNpc, playerRangedVsNpc, critChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE } from './combat.js';
 import { CLEAVE_SHARE } from '../data/classes.js';
 import { getItem } from '../data/items.js';
 
@@ -22,6 +23,7 @@ export const SPLIT_CHANCE = 0.25;         // per A-Worthling swing: a smaller A-
 export const FOLLOWER_SHARE = 0.25;       // of the Merchant's melee damage
 export const MERC_SHARE = 0.5;            // a mercenary hits for half the Merchant's melee damage (at least its hired power)
 const SEEK = 10;                          // how far an ally looks for a monster
+const ALLY_RANGE = 6;                     // allies throw coins from this far away
 const LEASH = 14;                         // allies don't chase further than this from the Merchant
 const CATCH_UP = 24;                      // further than this from the Merchant (a teleport, the MRT): jump back to them
 const MERC_KINDS = ['mercenary_sellsword', 'mercenary_bruiser', 'mercenary_spear_guard', 'mercenary_duellist'];
@@ -31,7 +33,7 @@ const MERC_NAMES = ['Ah Seng the Sellsword', 'Siti Steelhand', 'Big Raju', 'Old 
 export const hireCost = (game) => 80 + 15 * game.skills.combatLevel();
 
 /** A mercenary's best hit: grows with the Merchant's level and gear Strength. */
-export const mercPower = (game) => Math.max(2, Math.round(2 + game.skills.combatLevel() * 0.4 + (game.equipment.bonuses().strength || 0) * 0.15));
+export const mercPower = (game) => Math.max(2, Math.round(2 + game.skills.combatLevel() * 0.4 + (game.equipment.bonuses().ranged || 0) * 0.15));
 
 export const activeMercs = (game) => game.npcs.filter((n) => n.ally && n.alive && !n.follower);
 export const activeFollowers = (game) => game.npcs.filter((n) => n.ally && n.alive && n.follower);
@@ -169,10 +171,10 @@ export function mercTick(game, m) {
     if (spot) { m.stopNow(); m.x = m.tx = spot.x; m.y = m.ty = spot.y; m._goal = null; game.spawnSparkle(m, m.follower ? '#f5b82e' : '#3fbf9f', 8); }
     return;
   }
-  // Run at the closest monster.
+  // Close in on the closest monster, then throw coins at it from range.
   const target = pickTarget(game, m);
   if (target) {
-    if (chebyshev(m.x, m.y, target.x, target.y) <= 1) {
+    if (chebyshev(m.x, m.y, target.x, target.y) <= ALLY_RANGE) {
       m.stop?.();
       // Allies swing exactly as fast as the Merchant: a weapon speed of N combat
       // beats (0.3s each) means 2/N swings per 0.6s tick, the remainder carried over.
@@ -198,9 +200,9 @@ export function mercTick(game, m) {
         const dmg = Math.min(target.hp, raw);
         target.takeDamage(dmg);
         allySplat(game, target, dmg, m.follower ? '#f5b82e' : '#3fbf9f', critX);
+        allyCoin(game, m, target);
         if (dmg > 0) {
-          if (!m.follower) game._slash(target, '#bff5e6');
-          allyCleave(game, target, dmg);
+          allyCleave(game, target, dmg);   // the coins scatter into foes beside the target
           // Every hit by the Merchant's allies earns the Merchant the full combat XP.
           allyXp(game, dmg);
         }
@@ -215,6 +217,14 @@ export function mercTick(game, m) {
   }
   // Nothing to fight: keep close to the Merchant.
   if (chebyshev(m.x, m.y, p.x, p.y) > 2) walkTo(game, m, p);
+}
+
+/** A thrown coin flying from an ally to its target (skipped when the screen is busy). */
+function allyCoin(game, m, target) {
+  if (game.effects.length >= 200) return;
+  const from = m.renderCenter(), to = target.renderCenter();
+  const life = Math.min(560, 120 + Math.hypot(to.x - from.x, to.y - from.y) / 0.6);
+  game.effects.push({ type: 'projectile', kind: 'coin', x: from.x, y: from.y - 6, ex: to.x, ey: to.y - 8, color: '#f5b82e', life, maxLife: life, arc: 0 });
 }
 
 function walkTo(game, m, to) {
@@ -256,7 +266,8 @@ function allySplat(game, n, d, tint, critX = 0) {
 function allyXp(game, dmg) {
   game._allyNews = game._allyNews || { spawned: 0, xp: {} };
   const pool = game._allyNews.xp;
-  for (const x of (game.combatMode() === 'ranged' ? combatXpRanged : combatXp)(game.player.style, dmg)) pool[x.skill] = (pool[x.skill] || 0) + x.xp * game.combatXpMult();
+  // Allies throw coins, so every hit they land trains Ranged (with Defence and Hitpoints).
+  for (const x of combatXpRanged(game.player.style, dmg)) pool[x.skill] = (pool[x.skill] || 0) + x.xp * game.combatXpMult();
 }
 
 /** Once a tick (from the game tick): give the pooled XP and post one line
