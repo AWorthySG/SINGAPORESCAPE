@@ -82,6 +82,8 @@ const BOSS_XP_PER_LEVEL = 4000;
 const BOSS_STACK_MULT = 100;
 // Whip ricochet: bounces after each landed lash (one more at full Rhythm), and their share of the hit.
 const DANCE_RICOCHET = 2;
+// Above this many attacks a beat (1/0.05 = 20), attacks are grouped into volleys.
+const VOLLEY_MIN_BEATS = 0.05;
 const RICOCHET_SHARE = 0.6;
 const LONGBOW_DMG = 1.6;
 // Champions have 50x the life they used to, so their loot scales the same way:
@@ -1101,14 +1103,19 @@ export class Game {
     if (p.attackCooldown > 0) p.attackCooldown--;
     // Melee weapons have cooldowns under one beat, so the leftover carries over
     // and several swings can fit in one beat (up to 3 for the quickest).
-    // No cap on attack speed: only a guard against a runaway loop in one frame.
-    for (let swings = 0; swings < 100; swings++) {
-      if (this.playerStun > 0 || p.attackCooldown > 0) return;
+    // No cap on attack speed. Past 20 attacks a beat, each attack call stands
+    // for a volley of several (its damage multiplied to match), so the number
+    // of hits a second keeps growing with attack speed without freezing the game.
+    const iv = Math.max(1e-9, this.attackInterval());
+    this._volley = iv < VOLLEY_MIN_BEATS ? VOLLEY_MIN_BEATS / iv : 1;
+    for (let swings = 0; swings < 24; swings++) {
+      if (this.playerStun > 0 || p.attackCooldown > 0) break;
       const a = p.action;
-      if (!a || a.type !== 'attack' || !a.npc || !a.npc.alive) return;
-      if (chebyshev(p.x, p.y, a.npc.x, a.npc.y) > this.attackRange()) return;
+      if (!a || a.type !== 'attack' || !a.npc || !a.npc.alive) break;
+      if (chebyshev(p.x, p.y, a.npc.x, a.npc.y) > this.attackRange()) break;
       this.doPlayerAttack(a.npc);
     }
+    this._volley = 1;
   }
 
   // ---------------- Combat resolution ----------------
@@ -1321,6 +1328,7 @@ export class Game {
     dmgM *= 1 + (perk.dmg || 0) + ((npc.def.boss || npc.champion) ? (perk.boss || 0) + gb.bossDmg / 100 : 0);
     // Attack bonus % boosts physical damage (melee, ranged, whips); Magic bonus % boosts spells.
     dmgM *= 1 + (mode === 'magic' ? gb.magPct : gb.atkPct) / 100;
+    dmgM *= this._volley || 1;   // a volley of very fast attacks lands as one big hit
     const bonusHit = Math.random() < (perk.extra || 0);
     perk._echo = mode === 'magic' && bonusHit;
     const hits = Math.min(maxHits, Math.max(spec ? spec.hits || 1 : 1, ab ? ab.hits || 1 : 1)) + (bonusHit && mode !== 'magic' ? 1 : 0);
@@ -1378,6 +1386,7 @@ export class Game {
 
   _resetCooldown(speed) {
     const p = this.player;
+    speed *= this._volley || 1;   // a volley takes the time of all the attacks it stands for
     p.attackCooldown = Math.max(-1, Math.min(0, p.attackCooldown || 0)) + speed;
   }
 

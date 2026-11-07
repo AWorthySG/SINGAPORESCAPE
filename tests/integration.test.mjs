@@ -3700,3 +3700,24 @@ test('Dancer whips ricochet between monsters; Chain Crack bounces further and st
     assert.ok(n.attackCooldown >= 4, 'and stunned it');
   }
 });
+
+test('no cap on hits per second: huge attack speed keeps adding damage (volleys)', async () => {
+  const { NPC } = await import('../src/game/npc.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const dpsAt = (haste) => {
+    clearSave();
+    const g = new Game(); g.start(); g.chooseClass('swordsman');
+    g.ui = new Proxy({}, { get: () => () => {} });
+    g.equipment._haste = () => haste;
+    const t = new NPC('goblin', g.player.x + 1, g.player.y, 0, {}); t.maxHp = t.hp = 1e12; t.def = { ...t.def, defence: 0, aggressive: false };
+    g.npcs = [t]; g.attackNpc(t);
+    const origRandom = Math.random; Math.random = () => 0.5;   // steady rolls, no crits
+    const t0 = Date.now();
+    for (let i = 0; i < 40; i++) g._combatBeat();
+    Math.random = origRandom;
+    return { dmg: 1e12 - t.hp, ms: Date.now() - t0 };
+  };
+  const a = dpsAt(1000), b = dpsAt(100000);
+  assert.ok(b.dmg > a.dmg * 50, `+100000% speed (${b.dmg}) far out-damages +1000% (${a.dmg})`);
+  assert.ok(b.ms < 2000, 'and the game stays responsive');
+});
