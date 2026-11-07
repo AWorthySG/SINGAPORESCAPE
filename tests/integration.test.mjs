@@ -451,13 +451,17 @@ test('an old saved wave spell casts as its element (Fire) at high Magic', () => 
   game.inventory.add('fire_rune', 50); game.inventory.add('air_rune', 50); game.inventory.add('mind_rune', 20);
   assert.equal(game.combatMode(), 'magic');
   const chicken = game.npcs.find((n) => n.npcId === 'chicken');
-  // A sturdy target takes several casts, so the Rune Saver perk (a free cast now
-  // and then at high Magic) can't leave every rune unspent.
-  chicken.maxHp = chicken.hp = 5000;
+  // A sturdy target takes many casts, so the Rune Saver perk (up to a 50% free
+  // cast at high Magic) can't leave every rune unspent. It must outlast all 40
+  // ticks: uncapped cast speed now kills a 5000 HP target in about 5 casts.
+  chicken.maxHp = chicken.hp = 10_000_000;
   game.player.x = game.player.tx = chicken.x + 3; game.player.y = game.player.ty = chicken.y;
   game.attackNpc(chicken);
   step(game, 40);
-  assert.ok(game.inventory.count('mind_rune') < 20, 'runes were spent casting Fire');
+  // Any of its runes going down shows Fire was cast (the area splash can kill
+  // neighbours whose loot or rune refund tops one kind back up).
+  const inv = game.inventory;
+  assert.ok(inv.count('fire_rune') < 50 || inv.count('air_rune') < 50 || inv.count('mind_rune') < 20, 'runes were spent casting Fire');
 });
 
 test('lobster and the new fish can be cooked (cooking gap closed)', () => {
