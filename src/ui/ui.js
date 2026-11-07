@@ -240,11 +240,11 @@ export class UI {
       const btn = document.createElement('button');
       btn.className = 'ability-btn';
       btn.dataset.ability = ab.id;
-      btn.title = `${ab.name} (${ab.key}) — ${ab.cost}% adrenaline\n${ab.desc}`;
+      btn.title = `${ab.name} (${ab.key}) — ${this.game.abilityCostText(ab)}\n${ab.desc}`;   // a Merchant pays in coins
       btn.innerHTML =
         `<span class="ab-key">${ab.key}</span>` +
         `<span class="ab-icon">${abilityIconHTML(ab.id, 36)}</span>` +
-        `<span class="ab-cost">${ab.cost}</span>` +
+        `<span class="ab-cost">${this.game.abilityCoinCost(ab) ? '🪙' : ab.cost}</span>` +
         `<span class="ab-cd"></span>`;
       this._bindSkillAim(btn, ab);
       wrap.appendChild(btn);
@@ -403,7 +403,7 @@ export class UI {
       if (!btn) continue;
       const cd = g.abilityCd[ab.id] || 0;
       const unlocked = g.abilityUnlocked(ab);
-      const ready = unlocked && cd <= 0 && g.adrenaline >= ab.cost;
+      const ready = unlocked && cd <= 0 && g.canAffordAbility(ab);
       const armed = g.armedAbility === ab.id;
       btn.classList.toggle('locked', !unlocked);
       btn.classList.toggle('armed', armed);

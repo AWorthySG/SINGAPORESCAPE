@@ -11,8 +11,9 @@
 import { chebyshev, randInt } from '../core/utils.js';
 import { TICK_MS, COMBAT_BEAT_MS } from '../config.js';
 import { findPath } from '../engine/pathfinding.js';
-import { combatXp, playerAttackVsNpc, critChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE } from './combat.js';
+import { combatXp, combatXpRanged, playerAttackVsNpc, playerRangedVsNpc, critChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE } from './combat.js';
 import { CLEAVE_SHARE } from '../data/classes.js';
+import { getItem } from '../data/items.js';
 
 export const MERC_TICKS = 150;            // 90 seconds at 0.6s a tick
 export const FOLLOWER_CHANCE = 0.25;      // per Merchant attack
@@ -181,7 +182,7 @@ export function mercTick(game, m) {
       m.swingAcc = Math.min(6, (m.swingAcc || 0) + rate / volley);
       game._swingToward(m, target.x, target.y);
       // Both scale with the Merchant as they are now: levels, gear and upgrades.
-      const own = playerAttackVsNpc(game.skills, game.equipment, p.style, target.def).max;
+      const own = merchantMax(game, target.def);
       const max = Math.round(volley * (m.follower ? Math.max(1, Math.round(own * (m.share || FOLLOWER_SHARE))) : Math.max(m.mercPower, Math.round(own * MERC_SHARE))));
       while (m.swingAcc >= 1 && target.hp > 0) {
         m.swingAcc--;
@@ -227,9 +228,21 @@ function walkTo(game, m, to) {
   if (path.length) { m.setPath(path, true); m._goal = { x: to.x, y: to.y }; } else m._pathWait = 3 + Math.floor(Math.random() * 3);
 }
 
-/** The Merchant's own melee crit chance (level, gear and perks), shared by their allies. */
+/** The Merchant's own max hit against a foe, in the style they fight in (coin
+ *  throws are ranged now; a melee weapon in hand still counts as melee). */
+function merchantMax(game, def) {
+  if (game.combatMode() === 'ranged') {
+    const w = game.equipment.get('weapon');
+    const str = w ? Math.floor((getItem(w).equip?.bonuses?.ranged || 0) / 3) : 0;
+    return playerRangedVsNpc(game.skills, game.equipment, game.player.rangedStyle, def, str).max;
+  }
+  return playerAttackVsNpc(game.skills, game.equipment, game.player.style, def).max;
+}
+
+/** The Merchant's own crit chance (level, gear and perks), shared by their allies. */
 function allyCritChance(game) {
-  return critChance(game.skills.attack, game.equipment.bonuses().crit) + (game.perkMods?.('melee').crit || 0);
+  const ranged = game.combatMode() === 'ranged';
+  return critChance(ranged ? game.skills.ranged : game.skills.attack, game.equipment.bonuses().crit) + (game.perkMods?.(ranged ? 'ranged' : 'melee').crit || 0);
 }
 
 /** Hitsplats from allies: skipped once the screen is already full of effects. */
@@ -243,7 +256,7 @@ function allySplat(game, n, d, tint, critX = 0) {
 function allyXp(game, dmg) {
   game._allyNews = game._allyNews || { spawned: 0, xp: {} };
   const pool = game._allyNews.xp;
-  for (const x of combatXp(game.player.style, dmg)) pool[x.skill] = (pool[x.skill] || 0) + x.xp * game.combatXpMult();
+  for (const x of (game.combatMode() === 'ranged' ? combatXpRanged : combatXp)(game.player.style, dmg)) pool[x.skill] = (pool[x.skill] || 0) + x.xp * game.combatXpMult();
 }
 
 /** Once a tick (from the game tick): give the pooled XP and post one line
