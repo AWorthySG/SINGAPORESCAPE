@@ -20,7 +20,7 @@ export const ACHIEVEMENTS = [
   { id: 'expert', cat: 'Skills', name: 'Expert', desc: 'Reach level 50 in any skill.', test: (g) => anyLvl(g, 50) },
   { id: 'master', cat: 'Skills', name: 'Master', desc: 'Reach level 99 in any skill.', test: (g) => anyLvl(g, 99) },
   { id: 'high_master', cat: 'Skills', name: 'High Master', desc: 'Reach level 500 in any skill.', test: (g) => anyLvl(g, 500) },
-  { id: 'legend', cat: 'Skills', name: 'Legend', desc: 'Reach the level cap of 999 in any skill.', test: (g) => anyLvl(g, 999) },
+  { id: 'legend', cat: 'Skills', name: 'Legend', desc: 'Reach level 999 in any skill.', test: (g) => anyLvl(g, 999) },
   { id: 'renaissance', cat: 'Skills', name: 'Renaissance', desc: 'Reach 300 total level.', test: (g) => g.skills.totalLevel() >= 300, progress: (g) => `${g.skills.totalLevel()}/300` },
   { id: 'grandmaster', cat: 'Skills', name: 'Grandmaster', desc: 'Reach 600 total level.', test: (g) => g.skills.totalLevel() >= 600, progress: (g) => `${g.skills.totalLevel()}/600` },
   { id: 'pocket_money', cat: 'Wealth', name: 'Pocket Money', desc: 'Hold 1,000 coins.', test: (g) => coins(g) >= 1000 },

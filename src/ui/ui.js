@@ -19,7 +19,7 @@ import * as Hawker from '../game/hawker.js';
 import { buildReport, verifyReport } from '../game/report.js';
 import { getDialogue } from '../data/dialogue.js';
 import { ALL_MONSTER_IDS as MONSTER_IDS, ALL_BOSS_IDS as BOSS_IDS, getNpc } from '../data/npcs.js';
-import { levelProgress, xpToNext } from '../data/xp.js';
+import { levelProgress, xpToNext, MAX_LEVEL } from '../data/xp.js';
 import { stackLabel, capitalize, formatNumber } from '../core/utils.js';
 import { RHYTHM_MAX, levelBonuses, playerMagicVsNpc } from '../game/combat.js';
 import { classPassives, CLASS_SKILL } from '../data/classPassives.js';
@@ -1511,7 +1511,7 @@ export class UI {
     const NAMES = { attack: 'Melee', strength: 'Melee power', defence: 'Defence', ranged: 'Ranged', magic: 'Magic', agility: 'Agility (Dancer)' };
     let tab = PERK_SKILLS.find((s) => g.skills.level(s) >= PERK_EVERY) || 'attack';
     const render = (body) => {
-      body.innerHTML = '<div class="modal-hint">Every 20 levels in a fighting skill unlocks that skill\'s next passive perk. After level 200 the perks rank up again (Rank II at 220, III at 420...) until level 999. Defence perks help in every style.</div>';
+      body.innerHTML = '<div class="modal-hint">Every 20 levels in a fighting skill unlocks that skill\'s next passive perk. After level 200 the perks rank up again (Rank II at 220, III at 420...) until level 9999. Defence perks help in every style.</div>';
       const tabs = document.createElement('div'); tabs.className = 'gear-tabs';
       for (const s of PERK_SKILLS) {
         const b = document.createElement('button');
@@ -1530,7 +1530,7 @@ export class UI {
         row.className = 'perk-row' + (p.rank ? ' owned' : '');
         row.innerHTML = `<span class="perk-rank">${p.rank ? rankName(p.rank) : '–'}</span>`
           + `<span class="perk-text"><b>${escapeHtml(p.name)}</b><span>${escapeHtml(p.desc)}${p.rank > 1 ? ` (x${p.rank})` : ''}</span></span>`
-          + `<span class="perk-next">${next <= 999 ? `${p.rank ? 'Rank up' : 'Unlocks'} at ${next}` : 'Max rank'}</span>`;
+          + `<span class="perk-next">${next <= MAX_LEVEL ? `${p.rank ? 'Rank up' : 'Unlocks'} at ${next}` : 'Max rank'}</span>`;
         list.appendChild(row);
       }
       body.appendChild(list);

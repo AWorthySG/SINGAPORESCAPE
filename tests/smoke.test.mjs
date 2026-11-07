@@ -26,8 +26,8 @@ test('OSRS xp table matches known values', () => {
   assert.equal(xpForLevel(2), 83);
   assert.equal(xpForLevel(10), 1154);
   assert.equal(xpForLevel(99), 13034431);
-  assert.equal(XP_TABLE.length, 1000, 'levels run to 999');
-  for (let l = 2; l <= 999; l++) assert.ok(XP_TABLE[l] > XP_TABLE[l - 1], `level ${l} costs more xp`);
+  assert.equal(XP_TABLE.length, 10000, 'levels run to 9999');
+  for (let l = 2; l <= 9999; l++) assert.ok(XP_TABLE[l] > XP_TABLE[l - 1], `level ${l} costs more xp`);
 });
 
 test('levelForXp inverts the table', () => {
@@ -38,14 +38,16 @@ test('levelForXp inverts the table', () => {
   assert.equal(levelForXp(13034431 - 1), 98);
   assert.equal(levelForXp(xpForLevel(500)), 500);
   assert.equal(levelForXp(xpForLevel(999)), 999);
-  assert.equal(levelForXp(1e15), 999, 'capped at 999');
+  assert.equal(levelForXp(1e15), 9999, 'capped at 9999');
 });
 
 test('level progress and xp-to-next are sane', () => {
   assert.ok(levelProgress(0) === 0);
   assert.equal(xpToNext(0), 83);
   assert.ok(xpToNext(13034431) > 0, 'level 99 is no longer the cap');
-  assert.equal(xpToNext(xpForLevel(999)), 0);
+  assert.equal(xpToNext(xpForLevel(9999)), 0);
+  assert.ok(xpToNext(xpForLevel(999)) > 0, 'level 999 is no longer the cap');
+  assert.ok(Number.isSafeInteger(XP_TABLE[9999]), 'the top of the table stays an exact number');
 });
 
 test('items stack to 999 per slot; coins are uncapped', () => {
