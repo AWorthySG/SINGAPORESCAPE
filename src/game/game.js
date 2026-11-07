@@ -1170,6 +1170,7 @@ export class Game {
     // Cleave: every melee weapon but the quick ones (scimitars, claws) sweeps
     // through the foes crowding the target, heavy weapons hardest.
     if (total > 0) this._cleave(npc, raw);
+    this._abilityAoe(npc, raw, 'melee');
     if (mods.heal && total > 0) {
       this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.round(total * mods.heal));
       this.bus.emit('hp');
@@ -1276,6 +1277,15 @@ export class Game {
       this.msg('You brace for impact — incoming damage halved!', 'system');
       this.spawnSparkle(this.player, '#7fd8ff', 12);
       this.bus.emit('sfx', 'spec');
+    } else if (ab.kind === 'buff') {
+      // A class buff: one at a time, a new one replaces the last.
+      this.buff = { id: ab.id, name: ab.name, ...ab.buff, until: this.tickCount + (ab.ticks || 10) };
+      if (ab.rhythm) { this.danceRhythm = Math.min(RHYTHM_MAX, this.danceRhythm + ab.rhythm); this.bus.emit('rhythm'); }
+      if (ab.summon && this.jobClass === 'merchant') for (let k = 0; k < ab.summon; k++) Mercs.spawnFollower(this);
+      this.msg(`${ab.name}! ${ab.desc}`, 'system');
+      this.addHitsplat(this.player, 0, { text: ab.name });
+      this.spawnSparkle(this.player, '#ffd24a', 14);
+      this.bus.emit('sfx', 'spec');
     } else if (ab.kind === 'heal') {
       const heal = Math.max(1, Math.round(this.maxHp() * ab.healFrac));
       this.player.hp = Math.min(this.maxHp(), this.player.hp + heal);
@@ -1286,6 +1296,12 @@ export class Game {
     }
     this.bus.emit('adrenaline');
     this.bus.emit('ability');
+  }
+
+  /** The active buff's value for a key (dmg, haste, crit, lifesteal, reduce, dodge), or 0. */
+  buffMod(k) {
+    const b = this.buff;
+    return b && b.until > this.tickCount ? b[k] || 0 : 0;
   }
 
   /** Consume an armed offensive ability for the current hit (spends adrenaline). */
@@ -1329,6 +1345,7 @@ export class Game {
     // Attack bonus % boosts physical damage (melee, ranged, whips); Magic bonus % boosts spells.
     dmgM *= 1 + (mode === 'magic' ? gb.magPct : gb.atkPct) / 100;
     dmgM *= this._volley || 1;   // a volley of very fast attacks lands as one big hit
+    dmgM *= 1 + this.buffMod('dmg');   // a class buff
     const bonusHit = Math.random() < (perk.extra || 0);
     perk._echo = mode === 'magic' && bonusHit;
     const hits = Math.min(maxHits, Math.max(spec ? spec.hits || 1 : 1, ab ? ab.hits || 1 : 1)) + (bonusHit && mode !== 'magic' ? 1 : 0);
@@ -1353,7 +1370,8 @@ export class Game {
     }
     const lvl = mode === 'ranged' ? this.skills.ranged : mode === 'magic' ? this.skills.magic : mode === 'dance' ? this.skills.agility : this.skills.attack;
     // A `crit` ability makes every one of its hits a critical.
-    const critCh = ab?.crit ? 1 : critChance(lvl, this.equipment.bonuses().crit) + (perk.crit || 0) + this.learning.perks().crit;
+    const critCh = ab?.crit ? 1 : critChance(lvl, this.equipment.bonuses().crit) + (perk.crit || 0) + this.learning.perks().crit + this.buffMod('crit');
+    this._abAoe = ab?.aoe || 0;   // an ultimate's area: everything this close to the target is hit too
     return { accM, dmgM, hits, guaranteed, heal, spec, ability: ab, weak, race, critCh };
   }
 
@@ -1378,7 +1396,7 @@ export class Game {
    *  weapon's speed (attack speed % included), and for spells half that (spells
    *  come off quicker than a swing) times the element's cast speed. */
   attackInterval(spell = null) {
-    const ws = this.equipment.weaponSpeed();
+    const ws = this.equipment.weaponSpeed() * 100 / (100 + this.buffMod('haste'));   // a class buff's attack speed
     if (this.combatMode() !== 'magic') return ws;
     const sp = spell || getSpell(this.player.spell);
     return ws * 0.5 * (ELEMENTS[sp.element]?.castSpeed || 1);
@@ -1437,7 +1455,7 @@ export class Game {
     }
     npc.takeDamage(dmg);
     // Lifesteal from gear: heal a share of the damage dealt.
-    const ls = dmg > 0 ? this.equipment.bonuses().lifesteal : 0;
+    const ls = dmg > 0 ? this.equipment.bonuses().lifesteal + this.buffMod('lifesteal') * 100 : 0;
     if (ls && this.player.alive && this.player.hp < this.maxHp()) {
       this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.max(1, Math.round(dmg * ls / 100)));
       this.bus.emit('hp');
@@ -1534,6 +1552,30 @@ export class Game {
     this._resetCooldown(this.attackInterval());
     this.bus.emit('rhythm');
     this._postAttack(npc);
+  }
+
+  /** An ultimate's area: every other monster within `radius` tiles of the target
+   *  takes the same damage (before crits; each rolls its own), with XP. */
+  _abilityAoe(target, raw, mode) {
+    const r = this._abAoe; this._abAoe = 0;
+    if (!r || raw <= 0) return;
+    const p = this.player, m = this.combatXpMult();
+    for (const o of this.npcs) {
+      if (o === target || !o.alive || !o.attackable || o.ally || o.hp <= 0) continue;
+      if (o.def.fixed && o.target !== p) continue;   // story bosses aren't dragged in
+      if (chebyshev(o.x, o.y, target.x, target.y) > r) continue;
+      const c = this._aoeCrit(raw);
+      const d = Math.min(o.hp, c.dmg);
+      o.takeDamage(d);
+      this.addHitsplat(o, d, { tint: '#ffb347', critX: c.critX });
+      this.spawnHitSparks(o, '#ffd9a0');
+      const xp = mode === 'ranged' ? combatXpRanged(p.style, d) : mode === 'magic'
+        ? [{ skill: 'magic', xp: d * 2 }, { skill: 'defence', xp: d * 1.33 }, { skill: 'hitpoints', xp: d * 1.33 }] : combatXp(p.style, d);
+      for (const x of xp) this.skills.addXp(x.skill, x.xp * m);
+      if (!o.target) o.target = p;
+      if (o.hp <= 0) this.killNpc(o);
+    }
+    this.addShake(3, 200);
   }
 
   /** Whip ricochet: the lash snaps on from monster to monster (each within 3
@@ -1685,6 +1727,7 @@ export class Game {
       }
     }
     if (mods.heal && total > 0) { this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.round(total * mods.heal)); this.bus.emit('hp'); }
+    this._abilityAoe(npc, raw, 'ranged');
     this._mainCritCh = mods.critCh;   // split-shot arrows crit like the main shot
     if (this.skills.ranged >= SPLIT_SHOT_LEVEL) this._splitShot(npc, style, pr);
     // Shots come as fast as the weapon and attack speed % allow (no floor).
@@ -1779,6 +1822,7 @@ export class Game {
     this.skills.addXp('magic', spell.xp * this.combatXpMult());
     if (dmg > 0) { const m = this.combatXpMult(); this.spawnHitSparks(npc, spell.tint); this.skills.addXp('magic', dmg * 2 * m); this.skills.addXp('defence', dmg * 1.33 * m); this.skills.addXp('hitpoints', dmg * 1.33 * m); }
     if (dmg > 0) this._spellSplash(npc, raw, spell);
+    this._abilityAoe(npc, raw, 'magic');
     const el = ELEMENTS[spell.element] || {};
     if (dmg > 0 && el.slowTicks) this._slowFoe(npc, el.slowTicks);   // Water's Tide
     // Spells come off at half the weapon's swing time (wands quicker than staves); Wind and Water quicker still.
@@ -1890,7 +1934,8 @@ export class Game {
       return;
     }
     const perk = this.perkMods();
-    if (perk.dodge && Math.random() < perk.dodge * (heavy ? 0.5 : 1)) {   // Evasion / Graceful perks
+    const dodge = (perk.dodge || 0) + this.buffMod('dodge');   // perks and a dodging class buff
+    if (dodge && Math.random() < dodge * (heavy ? 0.5 : 1)) {   // Evasion / Graceful perks
       this.addHitsplat(p, 0, { text: 'Dodged!' });
       if (p.autoRetaliate && (!p.action || p.action.type !== 'attack')) this.attackNpc(npc);
       return;
@@ -1902,6 +1947,7 @@ export class Game {
     const prot = this.protectFactor();
     if (prot) dmg = Math.floor(dmg * (1 - prot));
     if (this.braceTicks > 0) dmg = Math.floor(dmg * 0.5); // the Brace ability soaks the blow
+    if (this.buffMod('reduce')) dmg = Math.floor(dmg * (1 - Math.min(0.9, this.buffMod('reduce'))));   // a defensive class buff
     dmg = this._perkReduce(dmg, npc);
     if (dmg > 0 && perk.thorns && npc.alive) {           // Spiked Armour perk
       const back = Math.max(1, Math.round(dmg * perk.thorns));
@@ -3038,6 +3084,7 @@ export class Game {
       // Casters on 'Auto' get the element that suits the target; a chosen element is kept.
       if (this.combatMode() === 'magic' && p.spellAuto) { const best = this._autoSpellFor(tgt); if (best && best.id !== p.spell) { p.spell = best.id; this.bus.emit('spell'); } }
       // 3. Spend adrenaline: the biggest attack skill you can afford.
+      if (this.autoCfg.abilities && !(this.buff && this.buff.until > this.tickCount)) this._autoAbility((ab) => ab.kind === 'buff');
       if (!this.armedAbility && this.autoCfg.abilities) this._autoAbility((ab) => ab.kind === 'attack', true);
       return;
     }
