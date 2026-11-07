@@ -2,7 +2,7 @@
 // melee classes, Ranged, Magic, or Agility for the Dancer) unlocks one of the
 // class's own passive abilities. Each class has three, at levels 100, 200 and
 // 300; after that they rank up in turn (Rank II at 400, 500 and 600, and so on
-// up to level 999). `mods` use the same keys as the perk tracks (perks.js) and
+// up to level 9999). `mods` use the same keys as the perk tracks (perks.js) and
 // stack once per rank.
 export const CLASS_SKILL = { melee: 'attack', ranged: 'ranged', magic: 'magic', dance: 'agility' };
 

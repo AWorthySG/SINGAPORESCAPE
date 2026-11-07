@@ -1,7 +1,7 @@
 // Passive perks: every 20 levels in a fighting skill unlocks the next perk on
 // that skill's track (10 per track). Past level 200 the track goes round
 // again, ranking each perk up (Rank II at 220, III at 420, ...), all the way
-// to level 999.
+// to level 9999.
 //
 // A perk's `mods` are added once per rank. The keys are read by the combat code:
 //   acc, dmg, crit         accuracy, damage (fractions) and crit chance (fraction)
@@ -102,7 +102,7 @@ export const PERK_TRACKS = {
   ],
 };
 
-// Caps so stacked ranks stay sane at level 999.
+// Caps so stacked ranks stay sane at level 9999.
 export const PERK_CAPS = {
   acc: 0.6, dmg: 1.0, crit: 0.25, extra: 0.3, pierce: 0.5, boss: 1.0, lifesteal: 0.15, stun: 0.2, splash: 0.4, adren: 1.0,
   arrowSave: 0.5, runeSave: 0.5, range: 6, reduce: 0.4, bossReduce: 0.3, dodge: 0.25, maxhp: 0.6, regen: 3, thorns: 0.5, dotReduce: 0.6,

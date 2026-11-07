@@ -1,8 +1,8 @@
 // Experience curve. Levels 1-99 follow Old School RuneScape's formula exactly:
 //   points accumulates floor(l + 300 * 2^(l/7)) for l = 1..L-1, then xp = floor(points/4).
-// Past 99 the cap rises to 999: each further level costs what 98->99 did,
+// Past 99 the cap rises to 9999: each further level costs what 98->99 did,
 // growing gently (+1/150 per level), instead of RS's runaway doubling.
-export const MAX_LEVEL = 999;
+export const MAX_LEVEL = 9999;
 const RS_MAX = 99;
 
 export const XP_TABLE = (() => {
@@ -21,7 +21,7 @@ export const XP_TABLE = (() => {
 
 export const MAX_XP = XP_TABLE[MAX_LEVEL];
 
-/** Level (1..999) for a given total xp (binary search: skills ask this a lot). */
+/** Level (1..9999) for a given total xp (binary search: skills ask this a lot). */
 export function levelForXp(xp) {
   let lo = 1, hi = MAX_LEVEL;
   while (lo < hi) {
