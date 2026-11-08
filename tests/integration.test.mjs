@@ -3973,3 +3973,39 @@ test('sniper rounds never miss and pierce every monster within 1 tile of the lin
   assert.equal(aside.hp, 1e7, 'and nothing 3 tiles off the line');
   assert.equal(shooterSide.hp, 1e7, 'nor anything between you and the target');
 });
+
+test('bosses scale up with the player: f x hits and defence, f^2 x life, never mid-fight', () => {
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start();
+  g.ui = new Proxy({}, { get: () => () => {} });
+  const boss = g.npcs.find((n) => n.def.boss && n.npcId === 'goblin_warchief');
+  const base = { ...boss.def };
+  // A weak player: the boss stays as it is.
+  g._scaleBoss(boss, 3);
+  assert.equal(boss.maxHp, base.maxHp, 'no scaling below the boss level');
+  // A player at twice the boss's level: double hits/defence, 4x life.
+  g._scaleBoss(boss, base.level * 2);
+  assert.equal(boss.maxHp, Math.round(base.maxHp * 4));
+  assert.equal(boss.def.maxHit, Math.round(base.maxHit * 2));
+  assert.equal(boss.def.defence, Math.round(base.defence * 2));
+  assert.equal(boss.hp, boss.maxHp, 'starts at full life');
+  // Mid-fight it never changes.
+  boss.hp -= 10; const hp = boss.hp, max = boss.maxHp;
+  g._scaleBoss(boss, base.level * 5);
+  assert.equal(boss.maxHp, max); assert.equal(boss.hp, hp);
+  // Healed back up, it scales from its own base (not compounding).
+  boss.hp = boss.maxHp;
+  g._scaleBoss(boss, base.level * 3);
+  assert.equal(boss.maxHp, Math.round(base.maxHp * 9));
+  // After a respawn it scales again from its fresh stats.
+  boss.respawn();
+  g._scaleBoss(boss, base.level * 2);
+  assert.equal(boss.maxHp, Math.round(base.maxHp * 4));
+  // And the tick does it for bosses near the player.
+  const g2 = new Game(); g2.start();
+  const b2 = g2.npcs.find((n) => n.npcId === 'goblin_warchief');
+  g2.skills.combatLevel = () => b2.def.level * 2;
+  g2.player.x = g2.player.tx = b2.x + 30; g2.player.y = g2.player.ty = b2.y;
+  const m0 = b2.maxHp; g2.doTick();
+  assert.equal(b2.maxHp, Math.round(m0 * 4), 'a nearby boss is scaled during the tick');
+});

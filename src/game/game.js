@@ -104,6 +104,9 @@ const LONGBOW_DMG = 1.6;
 const RIFLE_DMG = 5.5;
 // A sniper round never misses, and carries on in a straight line through every
 // monster up to this many tiles past the target (each takes the full hit).
+// Bosses scale up to the player's combat level (see _scaleBoss), up to this
+// many times their own level.
+const BOSS_SCALE_MAX = 100;
 const RIFLE_PIERCE_TILES = 10;
 // ...and the round's wake also catches anything within 1 tile to either side of
 // its path (and beside the target), not just monsters squarely on the line.
@@ -714,9 +717,11 @@ export class Game {
     for (const n of this.npcs) {
       if (n.alive && !n.temporary && n.target === this.player) this._aggroAttackers++;
     }
+    const cl = this.skills.combatLevel();
     for (const n of this.npcs) {
       // Allies always tick, so they can catch up with a Merchant who travelled far.
       if (!n.ally && (Math.abs(n.x - px) > 46 || Math.abs(n.y - py) > 46)) continue;
+      if (n.def.boss) this._scaleBoss(n, cl);
       n.tick(this);
     }
     Mercs.flushAllies(this);
@@ -2669,6 +2674,24 @@ export class Game {
     }
     if (this.tickCount % WORLD_BOSS_EVERY !== 0 || this._worldBoss || !this.player.alive) return;
     return this.spawnWorldBoss();
+  }
+
+  /** Bosses grow with you: once your combat level passes a boss's level, the
+   *  boss is rebuilt from its own stats scaled by f = your level / its level,
+   *  with f x attack, strength, defence and max hit, and f^2 x life. It only
+   *  happens while the boss is untouched (full life), so a fight in progress
+   *  never shifts; a boss that has respawned scales again from its fresh stats. */
+  _scaleBoss(n, cl) {
+    if (!n.alive || n.hp < n.maxHp) return;
+    if (n.def !== n._bossScaledDef) n._bossBase = n.def;     // fresh def (spawn, respawn): new base
+    const base = n._bossBase, lvl = Math.max(1, base.level || 1);
+    const f = Math.min(BOSS_SCALE_MAX, Math.max(1, cl / lvl));
+    if (n._bossScaledDef && n._bossScale === f) return;
+    const r = (v, m) => Math.max(1, Math.round((v || 1) * m));
+    n.def = f === 1 ? base : { ...base, maxHp: r(base.maxHp, f * f), attack: r(base.attack, f), strength: r(base.strength, f),
+      defence: r(base.defence, f), maxHit: r(base.maxHit, f), scaledTo: cl };
+    n._bossScaledDef = n.def; n._bossScale = f;
+    n.maxHp = n.def.maxHp || 1; n.hp = n.maxHp;
   }
 
   spawnWorldBoss() {
