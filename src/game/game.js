@@ -105,6 +105,9 @@ const RIFLE_DMG = 5.5;
 // A sniper round never misses, and carries on in a straight line through every
 // monster up to this many tiles past the target (each takes the full hit).
 const RIFLE_PIERCE_TILES = 10;
+// ...and the round's wake also catches anything within 1 tile to either side of
+// its path (and beside the target), not just monsters squarely on the line.
+const RIFLE_PIERCE_WIDTH = 1;
 // Champions have 50x the life they used to, so their loot scales the same way:
 // stackables x50, 8 table rolls, the rare table twice and a pile of stones.
 const CHAMPION_STACK_MULT = 50;
@@ -1621,7 +1624,7 @@ export class Game {
       const ox = o.x - p.x, oy = o.y - p.y;
       const along = ox * ux + oy * uy;                // how far down the line
       const off = Math.abs(ox * uy - oy * ux);        // how far to the side of it
-      if (along <= len || along > len + RIFLE_PIERCE_TILES || off > 0.75) continue;
+      if (along < len - RIFLE_PIERCE_WIDTH || along > len + RIFLE_PIERCE_TILES || off > RIFLE_PIERCE_WIDTH + 0.5) continue;
       const c = this._aoeCrit(raw);
       const d = Math.min(o.hp, c.dmg);
       o.takeDamage(d);

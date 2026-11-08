@@ -3947,7 +3947,7 @@ test('Sniper: a sniper rifle with the longest reach, huge shots and a slow rate 
   assert.equal(s._autoPickTarget(), far, 'auto battle picks off a monster 30 tiles away');
 });
 
-test('sniper rounds never miss and pierce every monster in a line up to 10 tiles past the target', async () => {
+test('sniper rounds never miss and pierce every monster within 1 tile of the line, up to 10 tiles past the target', async () => {
   const { NPC } = await import('../src/game/npc.js');
   globalThis.localStorage = fakeStorage(); clearSave();
   const g = new Game(); g.start(); g.chooseClass('sniper');
@@ -3961,9 +3961,15 @@ test('sniper rounds never miss and pierce every monster in a line up to 10 tiles
   for (let i = 0; i < 20; i++) { const hp = tank.hp; p.attackCooldown = 0; g._rangedAttack(tank); assert.ok(tank.hp < hp, 'every round lands'); }
   // In a line: behind the target within 10 tiles is hit; further, or off the line, is not.
   const main = mk(5), behind = mk(12), far = mk(17), aside = mk(10, 3);
-  g.npcs = [main, behind, far, aside];
+  // The path is 1 tile wide on each side: a monster a tile off the line, or right
+  // beside the target, is caught too.
+  const nearLine = mk(9, 1), besideTarget = mk(5, -1), shooterSide = mk(2, 1);
+  g.npcs = [main, behind, far, aside, nearLine, besideTarget, shooterSide];
   p.attackCooldown = 0; g._rangedAttack(main);
   assert.ok(main.hp < 1e7 && behind.hp < 1e7, 'the round goes through to the monster behind');
+  assert.ok(nearLine.hp < 1e7, 'a monster 1 tile off the path is hit');
+  assert.ok(besideTarget.hp < 1e7, 'a monster beside the target is hit');
   assert.equal(far.hp, 1e7, 'but no more than 10 tiles past the target');
-  assert.equal(aside.hp, 1e7, 'and only along the line');
+  assert.equal(aside.hp, 1e7, 'and nothing 3 tiles off the line');
+  assert.equal(shooterSide.hp, 1e7, 'nor anything between you and the target');
 });
