@@ -19,7 +19,7 @@ import * as Hawker from '../game/hawker.js';
 import { buildReport, verifyReport } from '../game/report.js';
 import { getDialogue } from '../data/dialogue.js';
 import { ALL_MONSTER_IDS as MONSTER_IDS, ALL_BOSS_IDS as BOSS_IDS, getNpc } from '../data/npcs.js';
-import { levelProgress, xpToNext, MAX_LEVEL } from '../data/xp.js';
+import { levelProgress, xpToNext, MAX_LEVEL, maxLevelFor } from '../data/xp.js';
 import { stackLabel, capitalize, formatNumber } from '../core/utils.js';
 import { RHYTHM_MAX, levelBonuses, playerMagicVsNpc } from '../game/combat.js';
 import { classPassives, CLASS_SKILL } from '../data/classPassives.js';
@@ -1044,8 +1044,8 @@ export class UI {
           `<span class="skill-text"><b class="skill-name">${sk.name}</b><span class="skill-desc">${sk.desc || ''}</span>` +
           (PERK_SKILLS.includes(sk.id) ? `<span class="skill-perks">${Math.min(10, Math.floor(lvl / PERK_EVERY))}/10 perks${lvl >= 220 ? ' · ranked up' : ''}</span>` : '') + `</span>` +
           `<span class="skill-lvl"><span class="cur">${lvl}</span></span>` +
-          `<div class="xp-bar" style="width:${Math.round(levelProgress(xp) * 100)}%"></div>`;
-        const toNext = xpToNext(xp);
+          `<div class="xp-bar" style="width:${Math.round(levelProgress(xp, maxLevelFor(sk.id)) * 100)}%"></div>`;
+        const toNext = xpToNext(xp, maxLevelFor(sk.id));
         this._tip(cell, `<b>${sk.name}</b> &mdash; level ${lvl}<br>XP: ${formatNumber(Math.floor(xp))}<br>` +
           (toNext > 0 ? `Next level: ${formatNumber(toNext)} xp` : 'Maxed!'));
         // Life skills open a guide: what you can do now, what's next, and where.
