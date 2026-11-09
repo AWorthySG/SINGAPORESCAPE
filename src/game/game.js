@@ -1941,8 +1941,9 @@ export class Game {
    *  are kept as one running total per foe: any number of stacks costs the same. */
   _igniteFoe(npc, hit, { share }) {
     if (!npc.alive || npc.hp <= 0) return;
-    const ig = npc.ignite || (npc.ignite = { acc: 0, perSec: 0 });
+    const ig = npc.ignite || (npc.ignite = { acc: 0, perSec: 0, critCh: 0 });
     ig.perSec += Math.max(1, Math.round(hit * share));
+    ig.critCh = this._aoeCritCh || 0;   // every burn tick can crit, at the casting spell's crit chance
   }
 
   /** Burning foes near the player take all their burns' damage once a second
@@ -1959,9 +1960,13 @@ export class Game {
       ig.acc += TICK_MS / 1000;
       while (ig.acc >= 1 && n.hp > 0) {
         ig.acc -= 1;
-        const d = Math.min(n.hp, ig.perSec);
+        // Each tick rolls its own crit (x2, or x4 on a mega crit, plus gear crit damage).
+        const saved = this._aoeCritCh; this._aoeCritCh = ig.critCh || 0;
+        const c = this._aoeCrit(ig.perSec);
+        this._aoeCritCh = saved;
+        const d = Math.min(n.hp, c.dmg);
         n.takeDamage(d);
-        this.addHitsplat(n, d, { tint: '#ff8a3d' });
+        this.addHitsplat(n, d, { tint: '#ff8a3d', critX: c.critX });
         this.spawnSparkle(n, '#ff9a4a', 3);
         xp += d;
         if (!n.target) n.target = p;
