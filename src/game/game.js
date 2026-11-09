@@ -1937,18 +1937,16 @@ export class Game {
   }
 
   /** Fire's Ignite: every hit adds its own burn, `share` of that hit every
-   *  second for `secs` seconds, and burns stack without limit. They are kept
-   *  as one bucket per second left (bucket k = the burns with k+1 seconds to
-   *  go), so even thousands of stacks cost the same as one. */
-  _igniteFoe(npc, hit, { share, secs }) {
+   *  second, for as long as the foe lives. Burns stack without limit, so they
+   *  are kept as one running total per foe: any number of stacks costs the same. */
+  _igniteFoe(npc, hit, { share }) {
     if (!npc.alive || npc.hp <= 0) return;
-    const ig = npc.ignite || (npc.ignite = { acc: 0, buckets: new Array(secs).fill(0) });
-    while (ig.buckets.length < secs) ig.buckets.push(0);
-    ig.buckets[secs - 1] += Math.max(1, Math.round(hit * share));
+    const ig = npc.ignite || (npc.ignite = { acc: 0, perSec: 0 });
+    ig.perSec += Math.max(1, Math.round(hit * share));
   }
 
-  /** Burning foes take all their burns' damage once a second (with Magic XP,
-   *  like any spell damage). Called every tick. */
+  /** Burning foes near the player take all their burns' damage once a second
+   *  (with Magic XP, like any spell damage) until they die. Called every tick. */
   _tickIgnites() {
     const p = this.player, m = this.combatXpMult();
     let xp = 0;
@@ -1956,20 +1954,19 @@ export class Game {
       const ig = n.ignite;
       if (!ig) continue;
       if (!n.alive || n.hp <= 0) { n.ignite = null; continue; }
+      // Like the rest of the world, foes far from the player wait (still alight) until you return.
+      if (Math.abs(n.x - p.x) > 46 || Math.abs(n.y - p.y) > 46) continue;
       ig.acc += TICK_MS / 1000;
-      while (ig.acc >= 1 && n.hp > 0 && ig.buckets.some((b) => b > 0)) {
+      while (ig.acc >= 1 && n.hp > 0) {
         ig.acc -= 1;
-        const total = ig.buckets.reduce((a, b) => a + b, 0);
-        ig.buckets.shift(); ig.buckets.push(0);   // every burn is a second nearer its end
-        const d = Math.min(n.hp, total);
+        const d = Math.min(n.hp, ig.perSec);
         n.takeDamage(d);
         this.addHitsplat(n, d, { tint: '#ff8a3d' });
         this.spawnSparkle(n, '#ff9a4a', 3);
         xp += d;
         if (!n.target) n.target = p;
-        if (n.hp <= 0) this.killNpc(n);
+        if (n.hp <= 0) { this.killNpc(n); n.ignite = null; }
       }
-      if (!ig.buckets.some((b) => b > 0)) n.ignite = null;
     }
     if (xp) { this.skills.addXp('magic', xp * 2 * m); this.skills.addXp('defence', xp * 1.33 * m); this.skills.addXp('hitpoints', xp * 1.33 * m); }
   }
@@ -3383,8 +3380,9 @@ export class Game {
     const value = (sp) => {
       const el = ELEMENTS[sp.element] || {};
       const m = elementMatchup(sp.element, race);
-      // Fire's Ignite: every cast adds a burn worth share x secs of its hit, on top of the hit itself.
-      const burn = el.ignite ? el.ignite.share * el.ignite.secs : 0;
+      // Fire's Ignite: every cast adds a burn of share x its hit every second until the foe dies;
+      // counted as five seconds' worth on top of the hit, so a resisted Fire still loses out.
+      const burn = el.ignite ? el.ignite.share * 5 : 0;
       let v = (1 + burn) * (m === 'strong' ? RACE_BONUS.dmg : m === 'weak' ? RACE_PENALTY.dmg : 1) / (el.castSpeed || 1);
       // Area damage: Earth reaches everyone within 5 tiles, the rest only within 2.
       const near = el.aoeRadius ? crowd : this.npcs.filter((n) => n !== tgt && n.alive && n.attackable && !n.ally && !n.def.fixed

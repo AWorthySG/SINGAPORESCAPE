@@ -3556,21 +3556,25 @@ test('one spell per element: wind casts 2x faster, water slows and casts 30% fas
   g._critHit = (d) => ({ dmg: d, crit: false }); g._aoeCrit = (d) => ({ dmg: d, critX: 0 });
   cast('fire_strike', f);
   const hit = 1e7 - f.hp, per = Math.max(1, Math.round(hit * 0.25));
-  assert.deepEqual(f.ignite.buckets, [0, 0, 0, 0, per], 'set alight for 5 seconds');
-  const burning = f.hp;
-  for (let i = 0; i < 20; i++) g._tickIgnites();   // 12 seconds of ticks
-  assert.equal(burning - f.hp, per * 5, 'burned for 5 seconds at 25% of the hit');
-  assert.equal(f.ignite, null, 'and then goes out');
-  // Burns stack without limit: three hits burn three times as hard.
-  for (let k = 0; k < 3; k++) g._igniteFoe(f, 100, { share: 0.25, secs: 5 });
+  assert.equal(f.ignite.perSec, per, 'set alight');
+  const burning = f.hp; f.ignite.acc = 0;
+  for (let i = 0; i < 51; i++) g._tickIgnites();   // 30.6 seconds of ticks: 30 burns
+  assert.equal(burning - f.hp, per * 30, 'still burning at 25% of the hit every second: no time limit');
+  assert.ok(f.ignite, 'never goes out on its own');
+  // Burns stack without limit: three more hits add three more burns.
+  for (let k = 0; k < 3; k++) g._igniteFoe(f, 100, { share: 0.25 });
   const h2 = f.hp;
-  g._tickIgnites(); assert.equal(f.hp, h2, 'not yet a second');
-  g._tickIgnites(); assert.equal(h2 - f.hp, 75, 'three stacks burn 3 x 25 a second');
-  // A thousand stacks still just burn (and stay cheap: five buckets).
-  for (let k = 0; k < 1000; k++) g._igniteFoe(f, 100, { share: 0.25, secs: 5 });
-  assert.equal(f.ignite.buckets.length, 5);
-  const h3 = f.hp; g._tickIgnites(); g._tickIgnites();
-  assert.equal(h3 - f.hp, 25 * 1003, 'every stack burns');
+  g._tickIgnites(); g._tickIgnites();
+  assert.equal(h2 - f.hp, per + 75, 'all the stacks burn together');
+  // A thousand stacks still just burn, stored as one total.
+  for (let k = 0; k < 1000; k++) g._igniteFoe(f, 100, { share: 0.25 });
+  assert.equal(f.ignite.perSec, per + 25 * 1003);
+  // Out only when the foe dies.
+  const small = foe(3); small.maxHp = small.hp = 100; g.npcs = [f, small];
+  g._igniteFoe(small, 400, { share: 0.25 });
+  for (let i = 0; i < 4; i++) g._tickIgnites();
+  assert.ok(!small.alive || small.hp <= 0, 'burned to death');
+  assert.equal(small.ignite, null, 'and the burn ends with it');
   delete g._critHit; delete g._aoeCrit;
   // Earth reaches 5 tiles from the target; others 2.
   const main = foe(2), far = foe(7); g.npcs = [main, far];
