@@ -41,6 +41,20 @@ const DIRS = [
   [1, 1], [1, -1], [-1, 1], [-1, -1],
 ];
 
+// Search scratch space, reused by every call. Allocating (and filling) four
+// map-sized arrays per search cost ~0.3ms even for a three-tile walk, and the
+// game runs hundreds of searches a tick; instead each search gets a new
+// generation number, and a tile's entries only count when its stamp matches.
+let BUF = null, GEN = 0;
+function scratch(n) {
+  if (!BUF || BUF.size !== n) {
+    BUF = { size: n, cameX: new Int32Array(n), cameY: new Int32Array(n), g: new Float64Array(n), seen: new Uint32Array(n), closed: new Uint32Array(n) };
+    GEN = 0;
+  }
+  if (++GEN >= 0xfffffff0) { BUF.seen.fill(0); BUF.closed.fill(0); GEN = 1; }
+  return BUF;
+}
+
 /**
  * @param {object} cfg
  * @param {number} cfg.width
@@ -66,13 +80,13 @@ export function findPath(cfg, start, goal, opts = {}) {
   if (isGoal(start.x, start.y)) return [];
   if (!reachAdjacent && (!inB(goal.x, goal.y) || isBlocked(goal.x, goal.y))) return [];
 
-  const cameX = new Int32Array(width * height).fill(-1);
-  const cameY = new Int32Array(width * height).fill(-1);
-  const gScore = new Float64Array(width * height).fill(Infinity);
-  const closed = new Uint8Array(width * height);
+  const { cameX, cameY, g, seen, closed } = scratch(width * height);
+  const gen = GEN;
+  const gOf = (i) => (seen[i] === gen ? g[i] : Infinity);
   const open = new MinHeap();
 
-  gScore[idx(start.x, start.y)] = 0;
+  const si = idx(start.x, start.y);
+  seen[si] = gen; g[si] = 0; cameX[si] = -1; cameY[si] = -1;
   open.push({ x: start.x, y: start.y, f: cheb(start.x, start.y) });
 
   let processed = 0;
@@ -80,8 +94,8 @@ export function findPath(cfg, start, goal, opts = {}) {
     if (++processed > maxNodes) break;
     const cur = open.pop();
     const ci = idx(cur.x, cur.y);
-    if (closed[ci]) continue;
-    closed[ci] = 1;
+    if (closed[ci] === gen) continue;
+    closed[ci] = gen;
 
     if (isGoal(cur.x, cur.y)) return reconstruct(cameX, cameY, width, start, cur);
 
@@ -93,10 +107,10 @@ export function findPath(cfg, start, goal, opts = {}) {
         if (isBlocked(cur.x + dx, cur.y) || isBlocked(cur.x, cur.y + dy)) continue;
       }
       const ni = idx(nx, ny);
-      if (closed[ni]) continue;
-      const tentative = gScore[ci] + 1;
-      if (tentative < gScore[ni]) {
-        gScore[ni] = tentative;
+      if (closed[ni] === gen) continue;
+      const tentative = g[ci] + 1;
+      if (tentative < gOf(ni)) {
+        seen[ni] = gen; g[ni] = tentative;
         cameX[ni] = cur.x; cameY[ni] = cur.y;
         open.push({ x: nx, y: ny, f: tentative + cheb(nx, ny) });
       }

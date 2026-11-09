@@ -107,6 +107,11 @@ const RIFLE_DMG = 5.5;
 // Bosses scale up to the player's combat level (see _scaleBoss), up to this
 // many times their own level.
 const BOSS_SCALE_MAX = 100;
+// Every area attack, splash, ricochet and target search looks only at the
+// NPCs within this many tiles of the player (see nearbyNpcs): the world holds
+// thousands, and scanning them all on every hit was the main cause of lag.
+const NEAR_RADIUS = 60;
+const SPLAT_MERGE_MS = 120;   // hits on one foe this close together share one damage number
 const RIFLE_PIERCE_TILES = 10;
 // ...and the round's wake also catches anything within 1 tile to either side of
 // its path (and beside the target), not just monsters squarely on the line.
@@ -266,6 +271,10 @@ export class Game {
 
     // Celebratory sparkle on level up; new milestones may unlock on level/quest changes.
     this.bus.on('levelup', (p) => {
+      // A big hit can jump many levels at once: the celebration and the
+      // achievement check run once a tick, however many levels came in it.
+      if (this._lvlFxTick === this.tickCount) { this._lvlLevelUpLight(p); return; }
+      this._lvlFxTick = this.tickCount;
       const c = this.player.renderCenter();
       this.spawnSparkle(this.player, '#ffe24a', 18);
       this.spawnPoof(c.x, c.y - 6, '#fff3a0');
@@ -289,6 +298,12 @@ export class Game {
       }
       this.checkAchievements();
     });
+    // The rest of a multi-level jump: just the perk news and the health top-up.
+    this._lvlLevelUpLight = (p) => {
+      const perk = p?.skill && perkAtLevel(p.skill, p.level);
+      if (perk) this.msg(`New passive perk: ${perk.name}${perk.rank > 1 ? ` (Rank ${rankName(perk.rank)})` : ''}. ${perk.desc}.`, 'level');
+      if (this.player.alive && COMBAT_SKILLS.has(p?.skill)) this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.ceil(this.maxHp() * 0.1));
+    };
     this.bus.on('quest', () => this.checkAchievements());
 
     this.tickAcc = 0;
@@ -421,7 +436,8 @@ export class Game {
 
   // ---------------- Helpers ----------------
   pathCfg() {
-    return { width: this.world.width, height: this.world.height, isBlocked: (x, y) => this.world.isBlocked(x, y) };
+    // Built once: every path search (hundreds a tick with many monsters) shares it.
+    return this._pathCfg || (this._pathCfg = { width: this.world.width, height: this.world.height, isBlocked: (x, y) => this.world.isBlocked(x, y) });
   }
 
   // There is no walking or run energy any more: everyone always moves at full
@@ -493,8 +509,20 @@ export class Game {
   banner(html) { this.ui?.showBanner(html); }
   addHitsplat(entity, dmg, opts = {}) {
     if (entity && dmg > 0) entity.hurt = 200; // flash the struck entity
+    // Very fast attacks: hits landing on the same foe within 120ms of its last
+    // number add into that number instead of each drawing its own, so a flurry
+    // stays readable and cheap to draw. Text splats and crits keep their own.
+    const last = entity._lastSplat;
+    if (last && !opts.text && !last.text && dmg > 0 && last.dmg > 0 && !!opts.crit === last.crit && (opts.critX || 0) === last.critX
+      && opts.tint === last.tint && last.life > last.maxLife - SPLAT_MERGE_MS && this.effects.includes(last)) {
+      last.dmg += dmg;
+      return;
+    }
     entity._splatN = ((entity._splatN || 0) + 1) % 3;
-    this.effects.push({ type: 'hitsplat', entity, dmg, crit: !!opts.crit, critX: opts.critX || 0, text: opts.text, tint: opts.tint, life: opts.critX ? 1400 : 1100, fan: entity._splatN - 1 });
+    const fx = { type: 'hitsplat', entity, dmg, crit: !!opts.crit, critX: opts.critX || 0, text: opts.text, tint: opts.tint, life: opts.critX ? 1400 : 1100, fan: entity._splatN - 1 };
+    fx.maxLife = fx.life;
+    entity._lastSplat = fx;
+    this.effects.push(fx);
     if (opts.crit && dmg > 0) {
       this.addShake(2.5, 180);                 // crits thump the screen a little...
       if (entity !== this.player) this.hitStop = Math.max(this.hitStop, 55);   // ...and freeze for a beat
@@ -1240,9 +1268,21 @@ export class Game {
   }
 
   // ---------------- Active-combat resources & abilities ----------------
+  /** NPCs within NEAR_RADIUS tiles of the player, worked out at most once a
+   *  tick (again if the NPC list is replaced or grows, or the player changes
+   *  tile). Hot paths loop over this instead of the whole world. */
+  nearbyNpcs() {
+    const p = this.player, px = Math.round(p.x), py = Math.round(p.y), c = this._near;
+    if (c && c.tick === this.tickCount && c.arr === this.npcs && c.len === this.npcs.length && c.px === px && c.py === py) return c.list;
+    const list = [];
+    for (const n of this.npcs) if (Math.abs(n.x - px) <= NEAR_RADIUS && Math.abs(n.y - py) <= NEAR_RADIUS) list.push(n);
+    this._near = { tick: this.tickCount, arr: this.npcs, len: this.npcs.length, px, py, list };
+    return list;
+  }
+
   _inCombat() {
     if (this.player.action && this.player.action.type === 'attack') return true;
-    return this.npcs.some((n) => n.alive && n.target === this.player);
+    return this.nearbyNpcs().some((n) => n.alive && n.target === this.player);
   }
 
   _tickCombatResources() {
@@ -1578,7 +1618,7 @@ export class Game {
     this.bus.emit('sfx', 'swish');
     const range = this.attackRange();
     const targets = mods.ability?.sweep
-      ? [npc, ...this.npcs.filter((n) => n !== npc && n.alive && n.attackable && !n.temporary && n.hp > 0 && chebyshev(p.x, p.y, n.x, n.y) <= range)]
+      ? [npc, ...this.nearbyNpcs().filter((n) => n !== npc && n.alive && n.attackable && !n.temporary && n.hp > 0 && chebyshev(p.x, p.y, n.x, n.y) <= range)]
       : [npc];
     let total = 0, raw = 0;   // raw: the main target's damage before crits, for the ricochet
     for (const t of targets) {
@@ -1624,7 +1664,7 @@ export class Game {
     const dx = target.x - p.x, dy = target.y - p.y, len = Math.hypot(dx, dy) || 1;
     const ux = dx / len, uy = dy / len;
     const m = this.combatXpMult();
-    for (const o of this.npcs) {
+    for (const o of this.nearbyNpcs()) {
       if (o === target || !o.alive || !o.attackable || o.ally || o.hp <= 0) continue;
       if (o.def.fixed && o.target !== p) continue;   // story bosses aren't dragged in
       const ox = o.x - p.x, oy = o.y - p.y;
@@ -1653,7 +1693,7 @@ export class Game {
     const r = this._abAoe; this._abAoe = 0;
     if (!r || raw <= 0) return;
     const p = this.player, m = this.combatXpMult();
-    for (const o of this.npcs) {
+    for (const o of this.nearbyNpcs()) {
       if (o === target || !o.alive || !o.attackable || o.ally || o.hp <= 0) continue;
       if (o.def.fixed && o.target !== p) continue;   // story bosses aren't dragged in
       if (chebyshev(o.x, o.y, target.x, target.y) > r) continue;
@@ -1681,7 +1721,7 @@ export class Game {
     let prev = from;
     for (let k = 0; k < bounces; k++) {
       let next = null, bd = Infinity;
-      for (const n of this.npcs) {
+      for (const n of this.nearbyNpcs()) {
         if (hit.has(n) || !n.alive || !n.attackable || n.ally || n.temporary || n.hp <= 0) continue;
         if (n.def.fixed && n.target !== p) continue;   // story bosses aren't dragged in
         const d = chebyshev(n.x, n.y, prev.x, prev.y);
@@ -1711,7 +1751,7 @@ export class Game {
     this._abCleave = 1;
     if (!share) return;
     let n = 0;
-    for (const o of this.npcs) {
+    for (const o of this.nearbyNpcs()) {
       if (n >= 3) break;
       if (o === target || !o.alive || !o.attackable || o.temporary || o.hp <= 0) continue;
       if (o.def.fixed && o.target !== this.player) continue;     // story bosses aren't dragged in
@@ -1731,7 +1771,7 @@ export class Game {
   }
 
   _perkSplash(from, dmg) {
-    const other = this.npcs.find((n) => n !== from && n.alive && n.attackable && !n.temporary && n.hp > 0 && chebyshev(n.x, n.y, from.x, from.y) <= 3);
+    const other = this.nearbyNpcs().find((n) => n !== from && n.alive && n.attackable && !n.temporary && n.hp > 0 && chebyshev(n.x, n.y, from.x, from.y) <= 3);
     if (!other) return;
     const c = this._aoeCrit(dmg); dmg = c.dmg;
     other.takeDamage(dmg);
@@ -1816,7 +1856,7 @@ export class Game {
     // Shurikens ricochet off the target into one more foe nearby (60% of the hit).
     if (wpn.weaponType === 'shuriken' && total > 0) {
       const p = this.player;
-      const o = this.npcs.find((n) => n !== npc && n.alive && n.attackable && !n.temporary && n.hp > 0
+      const o = this.nearbyNpcs().find((n) => n !== npc && n.alive && n.attackable && !n.temporary && n.hp > 0
         && chebyshev(n.x, n.y, npc.x, npc.y) <= 3 && chebyshev(n.x, n.y, p.x, p.y) <= this.attackRange() + 3
         && !(n.def.fixed && n.target !== p));
       if (o) {
@@ -1843,7 +1883,7 @@ export class Game {
    *  monsters in reach, nearest first, so three targets are hit at once. */
   _splitShot(main, style, pr) {
     const p = this.player, range = this.attackRange();
-    const extra = this.npcs
+    const extra = this.nearbyNpcs()
       .filter((n) => n !== main && n.alive && n.attackable && !n.temporary && n.hp > 0 && chebyshev(p.x, p.y, n.x, n.y) <= range)
       .sort((a, b) => chebyshev(p.x, p.y, a.x, a.y) - chebyshev(p.x, p.y, b.x, b.y))
       .slice(0, SPLIT_SHOT_TARGETS - 1);
@@ -1883,7 +1923,7 @@ export class Game {
     const p = this.player;
     const radius = ELEMENTS[spell.element]?.aoeRadius || AOE_RADIUS;   // Earth's Quake reaches further
     let xp = 0;
-    for (const o of this.npcs) {
+    for (const o of this.nearbyNpcs()) {
       if (o === target || !o.alive || !o.attackable || o.ally || o.hp <= 0) continue;
       if (o.def.fixed && o.target !== p) continue;   // story bosses aren't dragged in
       if (chebyshev(o.x, o.y, target.x, target.y) > radius) continue;
@@ -1951,7 +1991,7 @@ export class Game {
   _tickIgnites() {
     const p = this.player, m = this.combatXpMult();
     let xp = 0;
-    for (const n of this.npcs) {
+    for (const n of this.nearbyNpcs()) {
       const ig = n.ignite;
       if (!ig) continue;
       if (!n.alive || n.hp <= 0) { n.ignite = null; continue; }
@@ -3286,12 +3326,12 @@ export class Game {
       // Still chasing a target that isn't fighting back while something else is
       // already hitting you from within reach: turn and deal with that first.
       if (!inRange && tgt.target !== p) {
-        const att = this.npcs.find((n) => n !== tgt && n.alive && n.attackable && !n.ally && n.target === p
+        const att = this.nearbyNpcs().find((n) => n !== tgt && n.alive && n.attackable && !n.ally && n.target === p
           && chebyshev(p.x, p.y, n.x, n.y) <= Math.max(1, this.attackRange()));
         if (att) { this._autoFight = null; this._autoLast = att; this.attackNpc(att); return; }
       }
       // 2. Brace against a heavy blow being wound up next to you.
-      if (this.npcs.some((n) => n.alive && n.target === p && n.windup > 0)) this._autoAbility((ab) => ab.kind === 'guard');
+      if (this.nearbyNpcs().some((n) => n.alive && n.target === p && n.windup > 0)) this._autoAbility((ab) => ab.kind === 'guard');
       // Casters always throw the strongest spell they can afford.
       // Casters on 'Auto' get the element that suits the target; a chosen element is kept.
       if (this.combatMode() === 'magic' && p.spellAuto) { const best = this._autoSpellFor(tgt); if (best && best.id !== p.spell) { p.spell = best.id; this.bus.emit('spell'); } }
@@ -3380,7 +3420,7 @@ export class Game {
     const ok = SPELLS.filter((sp) => this.skills.magic >= sp.level && this._hasRunes(sp));
     if (!ok.length) return null;
     const race = raceOf(tgt.def, tgt.npcId);
-    const crowd = this.npcs.filter((n) => n !== tgt && n.alive && n.attackable && !n.ally && !n.def.fixed
+    const crowd = this.nearbyNpcs().filter((n) => n !== tgt && n.alive && n.attackable && !n.ally && !n.def.fixed
       && chebyshev(n.x, n.y, tgt.x, tgt.y) <= 5).length;
     const value = (sp) => {
       const el = ELEMENTS[sp.element] || {};
@@ -3390,7 +3430,7 @@ export class Game {
       const burn = el.ignite ? el.ignite.share * 5 : 0;
       let v = (1 + burn) * (m === 'strong' ? RACE_BONUS.dmg : m === 'weak' ? RACE_PENALTY.dmg : 1) / (el.castSpeed || 1);
       // Area damage: Earth reaches everyone within 5 tiles, the rest only within 2.
-      const near = el.aoeRadius ? crowd : this.npcs.filter((n) => n !== tgt && n.alive && n.attackable && !n.ally && !n.def.fixed
+      const near = el.aoeRadius ? crowd : this.nearbyNpcs().filter((n) => n !== tgt && n.alive && n.attackable && !n.ally && !n.def.fixed
         && chebyshev(n.x, n.y, tgt.x, tgt.y) <= AOE_RADIUS).length;
       return v * (1 + near);
     };
@@ -3436,10 +3476,13 @@ export class Game {
     const inWild = wildZone(p.x, p.y);
     let best = null, bestScore = Infinity;
     const cands = [];
+    // Only monsters near you matter here, and pack counts only look at those (see nearbyNpcs).
+    const near = this.nearbyNpcs();
+    let packAt = null;
     // Bosses and champions are fair game at any level now (they used to be
     // skipped when well above you, which made auto battle look like it ignored them).
     const canTake = () => true;
-    for (const n of this.npcs) {
+    for (const n of near) {
       if (!n.alive || !n.attackable) continue;
       const d = chebyshev(p.x, p.y, n.x, n.y);
       if (d > Math.max(25, range + 2)) continue;   // a Sniper picks off monsters from further still
@@ -3483,10 +3526,13 @@ export class Game {
       // Anything within 8 tiles first, then the rest. Among those, a monster in
       // a pack (every hit cleaves or splashes into its neighbours) and one
       // already hurt (a quick kill) are worth a few tiles' extra walk.
-      let pack = 0;
-      for (const o of this.npcs) {
-        if (o !== n && o.alive && o.attackable && !o.ally && !o.temporary && Math.abs(o.x - n.x) <= 2 && Math.abs(o.y - n.y) <= 2) pack++;
+      // Pack size from a per-tile count of nearby monsters (25 lookups, not a scan of every monster).
+      if (!packAt) {
+        packAt = new Map();
+        for (const o of near) if (o.alive && o.attackable && !o.ally && !o.temporary) { const k = o.x * 4096 + o.y; packAt.set(k, (packAt.get(k) || 0) + 1); }
       }
+      let pack = -1;   // not counting itself
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) pack += packAt.get((n.x + dx) * 4096 + n.y + dy) || 0;
       const hurt = n.maxHp ? 1 - n.hp / n.maxHp : 0;
       const tier = (d > 8 ? 50 : 0) - (shootable(n, d) ? 1000 : 0) - Math.min(3, pack) * 1.5 - hurt * 3 + (weak ? 2000 : 0);
       cands.push({ n, score: d + tier, tier });
@@ -3494,7 +3540,8 @@ export class Game {
     // Nearest first by straight-line distance, then confirm a walkable route
     // (and use its real length) so it never heads for something across water.
     cands.sort((a, b) => a.score - b.score);
-    for (const { n, score, tier } of cands.slice(0, 10)) {
+    // Route checks are the costly part: only the best few candidates get one.
+    for (const { n, score, tier } of cands.slice(0, 4)) {
       // Already in reach (or adjacent): no walking needed, so no route check.
       if (chebyshev(p.x, p.y, n.x, n.y) <= Math.max(1, range)) { if (score < bestScore) { bestScore = score; best = n; } continue; }
       const route = findPath(this.pathCfg(), this.playerTile(), { x: n.x, y: n.y }, { reachAdjacent: true, maxNodes: 8000 });
@@ -4585,7 +4632,7 @@ export class Game {
   nearestFoe(dir = null, reach = 10) {
     const p = this.player;
     let best = null, bestScore = Infinity;
-    for (const n of this.npcs) {
+    for (const n of this.nearbyNpcs()) {
       if (!n.alive || !n.attackable) continue;
       if (n.def.fixed && n.target !== p && p.action?.npc !== n) continue;
       const dx = n.x - p.fx, dy = n.y - p.fy, d = Math.hypot(dx, dy);

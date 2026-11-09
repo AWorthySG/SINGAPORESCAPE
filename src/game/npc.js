@@ -33,6 +33,8 @@ function applySpawnOpts(base, opts) {
 export const CHAMPION_CHANCE = 0.04;
 // A champion has 150x a normal monster's life (50x the old 3x): a real mini-boss.
 export const CHAMPION_HP_MULT = 150;
+// Monsters further than this from the player (in tiles) don't idly wander.
+const WANDER_VIEW = 26;
 export const NIGHT_FAMILIES = new Set(['ghost', 'undead', 'wisp', 'bat']);
 
 // A world NPC. Monsters fight/wander; townsfolk just wander or stand still.
@@ -229,13 +231,20 @@ export class NPC extends Character {
   _wanderAI(game) {
     if (this.wander <= 0 || this.isMoving) return;
     if (--this.wanderCooldown > 0) return;
+    // Idle wandering only matters where it can be seen: monsters well off
+    // screen stand still (they still fight, chase and return home as normal).
+    const p = game.player;
+    if (p && (Math.abs(this.x - p.x) > WANDER_VIEW || Math.abs(this.y - p.y) > WANDER_VIEW)) { this.wanderCooldown = randInt(3, 10); return; }
     this.wanderCooldown = randInt(3, 10);
     const tx = this.spawnX + randInt(-this.wander, this.wander);
     const ty = this.spawnY + randInt(-this.wander, this.wander);
     if (tx === this.x && ty === this.y) return;
     if (game.world.isBlocked(tx, ty)) return;
+    // A wander step stays inside a small box around home, so the search is
+    // capped to about that box: an unreachable spot gives up quickly instead
+    // of exploring 1500 tiles (the biggest per-tick cost with many monsters).
     const path = findPath(game.pathCfg(), { x: this.x, y: this.y }, { x: tx, y: ty },
-      { maxNodes: 1500 });
+      { maxNodes: Math.min(1500, 2 * (2 * this.wander + 3) ** 2) });
     if (path.length) this.setPath(path);
   }
 
