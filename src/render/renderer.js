@@ -230,7 +230,9 @@ export class Renderer {
         drawGroundItem(ctx, g.id, cx, cy);
       } });
     }
-    for (const n of game.npcs) {
+    // Only NPCs near the player can be on screen (the world holds thousands).
+    const npcs = game.nearbyNpcs ? game.nearbyNpcs() : game.npcs;
+    for (const n of npcs) {
       if (!n.alive && !(n.deathT > 0)) continue;
       const c = n.renderCenter();
       const cx = c.x - ox, cy = c.y - oy;
@@ -1112,12 +1114,16 @@ export class Renderer {
   _drawOverheads(ox, oy) {
     const { ctx, game } = this;
     this._drawNodeLabels(ox, oy);
-    for (const n of game.npcs) {
+    const vw = game.camera.viewW, vh = game.camera.viewH;
+    for (const n of (game.nearbyNpcs ? game.nearbyNpcs() : game.npcs)) {
       if (!n.alive) continue;
       const boss = n.def.boss;
       const targeted = n === game.player.target;
       if (!boss && !n.champion && n.combatLatch <= 0 && n.telegraph <= 0 && !targeted && n.chatTimer <= 0) continue;
       const c = n.renderCenter();
+      // Labels and bars for monsters off screen were the biggest drawing cost
+      // (every champion and boss in range drew its name each frame): skip them.
+      if (c.x - ox < -90 || c.x - ox > vw + 90 || c.y - oy < -90 || c.y - oy > vh + 60) continue;
       const sc = n.def.scale || 1;
       const yo = -(20 * sc) - 6;
       if (n.chatTimer > 0 && n.chatText) {
