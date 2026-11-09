@@ -29,7 +29,7 @@ export const ELEMENTS = {
   earth: { name: 'Earth', icon: '🪨', strong: ['beast', 'reptile', 'humanoid', 'aquatic'], weak: ['avian', 'spirit'],
     effect: 'Quake: blasts everything within 5 tiles', aoeRadius: 5 },
   fire:  { name: 'Fire',  icon: '🔥', strong: ['flora', 'undead', 'bug'], weak: ['aquatic', 'dragon', 'demon'],
-    effect: 'Ignite: sets what it hits alight, burning for 25% of the hit every second for 5s', ignite: { share: 0.25, secs: 5 } },
+    effect: 'Ignite: every hit adds a burn of 25% of the hit every second for 5s; burns stack without limit', ignite: { share: 0.25, secs: 5 } },
 };
 for (const s of SPELLS) s.element = s.id.split('_')[0];
 export const AOE_RADIUS = 2;   // tiles around the target that every spell also hits

@@ -3555,16 +3555,22 @@ test('one spell per element: wind casts 2x faster, water slows and casts 30% fas
   const f = foe(2); g.npcs = [f];
   g._critHit = (d) => ({ dmg: d, crit: false }); g._aoeCrit = (d) => ({ dmg: d, critX: 0 });
   cast('fire_strike', f);
-  const hit = 1e7 - f.hp;
-  assert.ok(f.ignite && f.ignite.left === 5 && f.ignite.perSec === Math.max(1, Math.round(hit * 0.25)), 'set alight');
-  const burning = f.hp, per = f.ignite.perSec;
+  const hit = 1e7 - f.hp, per = Math.max(1, Math.round(hit * 0.25));
+  assert.deepEqual(f.ignite.buckets, [0, 0, 0, 0, per], 'set alight for 5 seconds');
+  const burning = f.hp;
   for (let i = 0; i < 20; i++) g._tickIgnites();   // 12 seconds of ticks
   assert.equal(burning - f.hp, per * 5, 'burned for 5 seconds at 25% of the hit');
   assert.equal(f.ignite, null, 'and then goes out');
-  // One second in, only one burn has landed.
-  cast('fire_strike', f); const h2 = f.hp;
+  // Burns stack without limit: three hits burn three times as hard.
+  for (let k = 0; k < 3; k++) g._igniteFoe(f, 100, { share: 0.25, secs: 5 });
+  const h2 = f.hp;
   g._tickIgnites(); assert.equal(f.hp, h2, 'not yet a second');
-  g._tickIgnites(); assert.equal(h2 - f.hp, f.ignite.perSec, 'one burn after a second');
+  g._tickIgnites(); assert.equal(h2 - f.hp, 75, 'three stacks burn 3 x 25 a second');
+  // A thousand stacks still just burn (and stay cheap: five buckets).
+  for (let k = 0; k < 1000; k++) g._igniteFoe(f, 100, { share: 0.25, secs: 5 });
+  assert.equal(f.ignite.buckets.length, 5);
+  const h3 = f.hp; g._tickIgnites(); g._tickIgnites();
+  assert.equal(h3 - f.hp, 25 * 1003, 'every stack burns');
   delete g._critHit; delete g._aoeCrit;
   // Earth reaches 5 tiles from the target; others 2.
   const main = foe(2), far = foe(7); g.npcs = [main, far];
