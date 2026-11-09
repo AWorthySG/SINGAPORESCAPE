@@ -323,15 +323,29 @@ test('combat is beginner-friendly: weak town mobs and a punchy starter hit', () 
   assert.ok(maxHit(15, 3, 6) >= 5, `starter max hit ${maxHit(15, 3, 6)}`);
 });
 
+test('monster levels stretch out above 15; stats follow; the old level stays for loot and placement', async () => {
+  const { stretchLevel } = await import('../src/data/npcs.js');
+  assert.equal(stretchLevel(5), 5); assert.equal(stretchLevel(15), 15);
+  assert.equal(stretchLevel(30), 59); assert.equal(stretchLevel(100), 518);
+  assert.ok(stretchLevel(450) > 4500, 'the top reaches the thousands');
+  const all = Object.values(NPCS).filter((d) => d.attackable && d.level);
+  assert.ok(all.every((d) => d.level === stretchLevel(d.tierLevel)), 'every monster and boss uses its stretched level');
+  const lizard = getNpc('monitor_lizard'), chief = getNpc('goblin_warchief');
+  assert.ok(chief.level > chief.tierLevel && chief.maxHit > 1, 'bosses stretch too');
+  assert.equal(getNpc('goblin').level, 5, 'town monsters keep their levels');
+  assert.ok(lizard.level <= 15);
+});
+
 test('monsters and bosses are tougher, but the first town monsters stay easy', () => {
   // Full toughness from level 15: 22.4x the base health.
   const lizard = getNpc('monitor_lizard');   // level 14: nearly full
   assert.ok(lizard.maxHp >= Math.round((14 * 1.7 + 2) * 20), `monitor lizard hp ${lizard.maxHp}`);
-  const high = Object.values(NPCS).find((d) => d.attackable && !d.boss && d.level >= 60);
-  assert.equal(high.maxHp, Math.round((high.level * 1.7 + 2) * 22.4), 'a level 60+ monster has 22.4x the base health');
+  // (Stats are worked out from the monster's original level, then scaled up with its stretched level.)
+  const high = Object.values(NPCS).find((d) => d.attackable && !d.boss && d.tierLevel >= 60);
+  assert.equal(high.maxHp, Math.round(Math.round((high.tierLevel * 1.7 + 2) * 22.4) * high.level / high.tierLevel), 'a level 60+ monster has 22.4x the base health');
   // Bosses: 3600x the base health and a sturdier defence.
   const chief = getNpc('goblin_warchief');
-  assert.equal(chief.maxHp, Math.round((35 * 4.5 + 30) * 3600));
+  assert.equal(chief.maxHp, Math.round(Math.round((35 * 4.5 + 30) * 3600) * chief.level / 35));
   assert.ok(chief.defence > Math.round(35 * 0.95), 'boss defence raised');
   // Level 5 and under: unchanged.
   assert.equal(getNpc('goblin').maxHp, Math.round(5 * 1.7 + 2));
@@ -511,7 +525,7 @@ test('monsters and bosses drop archery loot: bows, arrows and ranged armour', ()
   const ids = (d) => new Set((d.dropTable || []).map((x) => x.id));
   const low = ids(getNpc('goblin'));
   assert.ok(low.has('shortbow') && low.has('bronze_arrow') && low.has('coif'), 'a low monster drops a shortbow, arrows and a coif');
-  const high = MONSTER_IDS.map(getNpc).find((d) => d.level >= 75);
+  const high = MONSTER_IDS.map(getNpc).find((d) => d.tierLevel >= 75);
   assert.ok(ids(high).has('magic_shortbow') && ids(high).has('dragonhide_body'), 'a high monster drops a magic shortbow and dragonhide');
   for (const id of BOSS_IDS) {
     const t = ids(getNpc(id));
@@ -525,7 +539,7 @@ test('monsters and bosses drop magic loot: staves, robes and runes', () => {
   const ids = (d) => new Set((d.dropTable || []).map((x) => x.id));
   const low = ids(getNpc('goblin'));
   assert.ok(low.has('staff') && low.has('mind_rune') && low.has('wizard_hat'), 'a low monster drops a staff, runes and wizard robes');
-  const high = MONSTER_IDS.map(getNpc).find((d) => d.level >= 70);
+  const high = MONSTER_IDS.map(getNpc).find((d) => d.tierLevel >= 70);
   const h = ids(high);
   assert.ok((h.has('death_staff') || h.has('blood_staff')) && h.has('blood_rune') && h.has('mystic_top'), 'a high monster drops top staves, blood runes and mystic robes');
   for (const id of BOSS_IDS) {

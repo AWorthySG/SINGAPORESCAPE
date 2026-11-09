@@ -686,7 +686,7 @@ export function buildWorld() {
   for (const id of BOSS_IDS) { if (!NPCS[id].fixed && isNewZone(id) && !isFar(id)) placeInZone(id, zoneByName(NPCS[id].zone), 3); }
   for (const [name, sprites] of Object.entries(REGION_FAUNA)) {
     const z = zoneByName(name);
-    const inBand = (id) => !isFar(id) && NPCS[id].level >= z.lo && NPCS[id].level <= z.hi;
+    const inBand = (id) => !isFar(id) && (NPCS[id].tierLevel ?? NPCS[id].level) >= z.lo && (NPCS[id].tierLevel ?? NPCS[id].level) <= z.hi;
     let kinds = MONSTER_IDS.filter((id) => sprites.includes(NPCS[id].sprite) && inBand(id));
     // Few themed creatures at this level? Let any creature in the band roam here.
     if (kinds.length < 20) kinds = MONSTER_IDS.filter(inBand);
@@ -704,7 +704,7 @@ export function buildWorld() {
   for (let copy = 0; copy < MONSTER_COPIES; copy++) for (const id of MONSTER_IDS) { if (isFar(id)) placeInZone(id, zoneByName(NPCS[id].zone), 4); }
   for (const id of BOSS_IDS) { if (isFar(id)) placeInZone(id, zoneByName(NPCS[id].zone), 3); }
   for (const z of zones.filter((zz) => zz.far)) {
-    const kinds = MONSTER_IDS.filter((id) => !isFar(id) && NPCS[id].level >= z.lo && NPCS[id].level <= z.hi);
+    const kinds = MONSTER_IDS.filter((id) => !isFar(id) && (NPCS[id].tierLevel ?? NPCS[id].level) >= z.lo && (NPCS[id].tierLevel ?? NPCS[id].level) <= z.hi);
     for (let copy = 0; copy < 2; copy++) for (const id of kinds) placeInZone(id, z, 4);
   }
   R = rng2;
@@ -757,7 +757,7 @@ export function buildWorld() {
     let walk = 0, have = 0;
     for (let y = z.y0; y <= z.y1; y++) for (let x = z.x0; x <= z.x1; x++) if (LANDABLE.includes(get(x, y))) walk++;
     for (const s of npcSpawns) if (s.x >= z.x0 && s.x <= z.x1 && s.y >= z.y0 && s.y <= z.y1 && NPCS[s.npcId]?.attackable && !NPCS[s.npcId].boss) have++;
-    const kinds = MONSTER_IDS.filter((id) => NPCS[id].level >= z.lo && NPCS[id].level <= z.hi && (z.far || !isFar(id)));
+    const kinds = MONSTER_IDS.filter((id) => (NPCS[id].tierLevel ?? NPCS[id].level) >= z.lo && (NPCS[id].tierLevel ?? NPCS[id].level) <= z.hi && (z.far || !isFar(id)));
     const native = kinds.filter((id) => NPCS[id].zone === z.name);
     const pool = native.length ? [...native, ...native, ...kinds] : kinds;   // a region's own species turn up most
     for (let need = Math.round(walk * TARGET_PER_1000 / 1000) - have, i = 0; need > 0 && pool.length; need--, i++) {
