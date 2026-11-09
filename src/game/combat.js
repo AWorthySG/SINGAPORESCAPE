@@ -95,7 +95,7 @@ export function weaknessOf(def) {
   if (!def) return 'melee';
   const w = WEAKNESS_BY_SPRITE[def.sprite];
   if (w) return w;
-  return ['melee', 'ranged', 'magic'][(def.level || 1) % 3]; // stable fallback
+  return ['melee', 'ranged', 'magic'][(def.tierLevel || def.level || 1) % 3]; // stable fallback
 }
 
 // ----- Player vs NPC helpers -----

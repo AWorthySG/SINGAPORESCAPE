@@ -2397,9 +2397,9 @@ test('endgame tiers: metals up to Eternal (300), gear for every style, monsters 
   assert.equal(ITEMS.eternal_scimitar.equip.req.attack, 300);
   assert.ok(ITEMS.eternal_scimitar.equip.bonuses.attack > ITEMS.dragon_scimitar.equip.bonuses.attack * 3);
   for (const id of ['eternal_bow', 'eternal_arrow', 'eternalhide_body', 'eternal_staff', 'eternal_robe_top', 'eternal_whip', 'eternal_dancer_top']) assert.ok(ITEMS[id], id);
-  const levels = Object.values(NPCS).filter((n) => n.attackable && !n.boss).map((n) => n.level);
-  assert.ok(Math.max(...levels) >= 300, 'endgame monsters reach level 300+');
-  assert.ok(getNpc('eternal_wyrm').level === 320 && BOSS_IDS.includes('rift_tyrant'));
+  const levels = Object.values(NPCS).filter((n) => n.attackable && !n.boss).map((n) => n.tierLevel);
+  assert.ok(Math.max(...levels) >= 300, 'endgame monsters reach loot tier 300+');
+  assert.ok(getNpc('eternal_wyrm').tierLevel === 320 && BOSS_IDS.includes('rift_tyrant'));
   // An endgame monster drops endgame metal.
   const ids = new Set(getNpc('eternal_penanggal').dropTable.map((d) => d.id));
   assert.ok([...ids].some((id) => /^(celestial|eternal)_/.test(id)), 'level-320 monsters drop celestial/eternal gear');
@@ -4047,10 +4047,10 @@ test('auto battle walks a strong player past weak monsters to ones of their leve
   globalThis.localStorage = fakeStorage(); clearSave();
   const g = new Game(); g.start();
   g.ui = new Proxy({}, { get: () => () => {} });
-  g.skills.combatLevel = () => 120;
+  g.skills.combatLevel = () => 600;   // monsters near the start are all far below this
   const p = g.player;
   const lo = g._autoBandLo(false);
-  assert.ok(lo >= 80 && lo <= 90, `band starts at 3/4 of your level (${lo})`);
+  assert.equal(lo, 450, `band starts at 3/4 of your level (${lo})`);
   // Only weak monsters around (the starting town): auto battle sets off towards
   // monsters of your level instead of farming chickens.
   g.toggleAutoBattle(true);

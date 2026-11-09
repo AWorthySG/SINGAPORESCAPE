@@ -24,9 +24,9 @@ export function makeBounties(day, combatLevel, monsters) {
   const rnd = seeded(day + ':' + Math.floor(combatLevel / 5));
   let lo = Math.max(1, combatLevel - 8), hi = combatLevel + 6;
   let pool = [];
-  while (pool.length < 3 && hi < 200) {
+  while (pool.length < 3 && hi < 20000) {   // monster levels now reach the thousands
     pool = monsters.filter((m) => m.level >= lo && m.level <= hi);
-    lo = Math.max(1, lo - 6); hi += 8;
+    lo = Math.max(1, lo - 6); hi += Math.max(8, Math.round(hi * 0.15));
   }
   if (!pool.length) pool = monsters.slice();
   const picks = [];

@@ -2420,7 +2420,7 @@ export class Game {
       }
     }
     // Rare drop table — small base chance, much higher for bosses, champions & high levels.
-    const rareChance = def.boss || npc.champion ? 1 : Math.min(0.5, (def.level || 1) / 1200 + 0.01);
+    const rareChance = def.boss || npc.champion ? 1 : Math.min(0.5, (def.tierLevel || def.level || 1) / 1200 + 0.01);
     // Bosses always hit the rare table five times, champions twice.
     for (let rr = 0; rr < (def.boss ? 5 : npc.champion ? 2 : 1); rr++) if (Math.random() < rareChance) {
       const pick = weightedPick(RARE_DROP_TABLE);
@@ -2433,26 +2433,26 @@ export class Game {
     // Bosses always drop an accessory for your fighting style, and champions half the time.
     if ((def.boss || (npc.champion && Math.random() < 0.5))) {
       const mode = this.combatMode() === 'dance' ? 'melee' : this.combatMode();
-      const acc = accessoriesFor(Math.max(1, def.level || 1), mode);
+      const acc = accessoriesFor(Math.max(1, def.tierLevel || def.level || 1), mode);
       if (acc.length) loot.push([acc[Math.floor(Math.random() * acc.length)], 1, 'epic']);
     }
     // Bosses always drop three pieces of gear for your class, of Superior quality or better.
     if (def.boss && this.jobClass) {
       for (let k = 0; k < 3; k++) {
-        const g = classGearFor(this.jobClass, Math.max(1, def.level || 1));
+        const g = classGearFor(this.jobClass, Math.max(1, def.tierLevel || def.level || 1));
         if (g) loot.push([g, 1, 'epic', 'boss']);
       }
     }
     // Upgrade materials: stones from anything (bosses and champions most), wards from bosses.
-    const stoneChance = def.boss || npc.champion ? 1 : Math.min(0.12, 0.03 + (def.level || 1) / 2500);
+    const stoneChance = def.boss || npc.champion ? 1 : Math.min(0.12, 0.03 + (def.tierLevel || def.level || 1) / 2500);
     if (Math.random() < stoneChance) loot.push([UP_STONE, def.boss ? randInt(20, 50) : npc.champion ? randInt(5, 15) : 1, def.boss || npc.champion ? 'rare' : 'common']);
     if (def.boss) loot.push([UP_WARD, randInt(1, 3), 'epic']);
     else if (Math.random() < (npc.champion ? 0.25 : 0)) loot.push([UP_WARD, 1, 'epic']);
     // Treasure trails: a rare clue scroll, if you aren't already carrying one.
     if (!this.clue && !this._holdsClue()) {
-      const clueChance = Math.min(0.05, (def.level || 1) / 3000 + (def.boss ? 0.04 : 0.006));
+      const clueChance = Math.min(0.05, (def.tierLevel || def.level || 1) / 3000 + (def.boss ? 0.04 : 0.006));
       if (Math.random() < clueChance) {
-        const tier = clueTierForLevel(def.level || 1);
+        const tier = clueTierForLevel(def.tierLevel || def.level || 1);
         loot.push([CLUE_TIERS[tier].item, 1, 'epic']);
         this.msg('You find a clue scroll!', 'level');
       }

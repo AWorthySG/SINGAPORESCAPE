@@ -561,6 +561,24 @@ for (const id of [...BOSS_IDS, ...EXTRA_BOSS_IDS]) {
 for (const id of [...BOSS_IDS, ...EXTRA_BOSS_IDS]) NPCS[id] = BOSS_DEFS[id];
 Object.assign(NPCS, TOWNSFOLK);
 
+// Stretched levels: the old ladder (1 to ~450) packed neighbouring areas only a
+// few levels apart. Above level 15 a monster's level now climbs much faster,
+// 15 + (L - 15)^1.4 (e.g. 30 -> 59, 100 -> 518, 200 -> 1509, 450 -> ~4950), and
+// its fighting stats grow with it. The old level is kept as `tierLevel`: where
+// it lives in the world and which tier of loot it drops don't change.
+export const STRETCH_FROM = 15;
+export const stretchLevel = (l) => (l <= STRETCH_FROM ? l : Math.round(STRETCH_FROM + Math.pow(l - STRETCH_FROM, 1.4)));
+for (const d of Object.values(NPCS)) {
+  if (!d.attackable || !d.level || d.tierLevel) continue;
+  const old = d.level, lvl = stretchLevel(old);
+  d.tierLevel = old;
+  if (lvl === old) continue;
+  const r = lvl / old;
+  d.level = lvl;
+  for (const k of ['maxHp', 'attack', 'strength', 'defence', 'maxHit']) if (typeof d[k] === 'number') d[k] = Math.max(1, Math.round(d[k] * r));
+  if (typeof d.examine === 'string') d.examine = d.examine.replace(`(level ${old})`, `(level ${lvl})`);
+}
+
 // Everything the bestiary lists: the original sets plus the extras.
 const ALL_MONSTER_IDS = [...MONSTER_IDS, ...EXTRA_MONSTER_IDS];
 const ALL_BOSS_IDS = [...BOSS_IDS, ...EXTRA_BOSS_IDS];
