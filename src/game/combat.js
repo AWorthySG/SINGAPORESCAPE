@@ -205,7 +205,7 @@ export function playerMagicVsNpc(skills, equip, spell, npc) {
     // Magic level multiplies the spell's power (with gear's magic damage), the way
     // Melee and Ranged levels multiply weapon power: +1.25% per level, so a
     // level 50 mage hits ~1.6x the spell's base and a level 99 mage ~2.2x.
-    // The spell's base grows with Magic too (see spellBaseHit); Fire hits 50% harder.
+    // The spell's base grows with Magic too (see spellBaseHit). (A dmgMult on an element would scale it.)
     max: Math.max(1, Math.round((spellBaseHit(spell, skills.magic) + (b.magicStr || 0)) * (1 + skills.magic / MAGIC_LEVEL_DIV)
       * (ELEMENTS[spell.element]?.dmgMult || 1))),
   };
