@@ -184,18 +184,21 @@ export class UI {
     this.bus.on('tick', () => { this.renderAutoBattle(); this.updateBossBar(); this.updateDayNight(); this.renderTracker(); this._tipsTick(); });
     this.bus.on('inventory', () => this.scheduleInventory());
     this.bus.on('equipment', () => { this.renderEquipment(); this.renderCombatPanel(); this.scheduleInventory(); });
-    this.bus.on('rhythm', () => { if (this.game.combatMode() === 'dance') this.renderCombatPanel(); });
-    this.bus.on('skills', () => { this.renderSkills(); this.renderCombatPanel(); });
-    this.bus.on('xp', (p) => { this.renderSkills(); this.showXpDrop(p); });
-    this.bus.on('learning', () => this.renderSkills());   // Codex button shows Wisdom and cards
+    // Busy events (every hit gives XP, adrenaline, rhythm) only mark a panel to
+    // redraw; _soon redraws it once on the next frame (the Skills list at most
+    // ~3 times a second), instead of rebuilding it for every single hit.
+    this.bus.on('rhythm', () => { if (this.game.combatMode() === 'dance') this._soon('combat', () => this.renderCombatPanel(), 150); });
+    this.bus.on('skills', () => { this._soon('skills', () => this.renderSkills()); this._soon('combat', () => this.renderCombatPanel()); });
+    this.bus.on('xp', (p) => { this._soon('skills', () => this.renderSkills(), 350); this.showXpDrop(p); });
+    this.bus.on('learning', () => this._soon('skills', () => this.renderSkills()));   // Codex button shows Wisdom and cards
     this.bus.on('levelup', (p) => this.onLevelUp(p));
     this.bus.on('chat', (p) => this.addChat(p.text, p.cls));
-    this.bus.on('hp', () => this.renderHp());
+    this.bus.on('hp', () => this._soon('hp', () => this.renderHp()));
     this.bus.on('run', () => this.renderRun());
     this.bus.on('spec', () => this.renderSpec());
     this.bus.on('equipment', () => { this.renderSpec(); this.renderAbilities(); });
-    this.bus.on('adrenaline', () => this.renderAbilities());
-    this.bus.on('ability', () => this.renderAbilities());
+    this.bus.on('adrenaline', () => this._soon('abilities', () => this.renderAbilities(), 100));
+    this.bus.on('ability', () => this._soon('abilities', () => this.renderAbilities()));
     this.bus.on('autobattle', () => this.renderAutoBattle());
     this.bus.on('karma', () => { this.renderAlignment(); this._refreshModalIfOpen(['shop']); });
     this.bus.on('prayer', () => { this.renderPrayer(); this.renderPrayerPanel(); });
@@ -581,7 +584,23 @@ export class UI {
     this.el.chatLog.appendChild(div);
     while (this.el.chatLog.childElementCount > 120) this.el.chatLog.removeChild(this.el.chatLog.firstChild);
     this._applyVisibility(div);
-    this.el.chatLog.scrollTop = this.el.chatLog.scrollHeight;
+    // Scrolling to the bottom forces a layout: do it once a frame, not per message.
+    this._soon('chatScroll', () => { this.el.chatLog.scrollTop = this.el.chatLog.scrollHeight; });
+  }
+
+  /** Run `fn` once on the next animation frame, however many times it is asked
+   *  for before then (keyed by `key`), and no sooner than `minMs` after its last
+   *  run. Busy game events use this so the HUD redraws once a frame at most. */
+  _soon(key, fn, minMs = 0) {
+    const q = (this._soonQ || (this._soonQ = {}))[key] || (this._soonQ[key] = { pending: false, last: 0, fn: null });
+    q.fn = fn;
+    if (q.pending) return;
+    q.pending = true;
+    const run = () => { q.pending = false; q.last = performance.now(); q.fn(); };
+    if (typeof requestAnimationFrame === 'undefined') { run(); return; }
+    const wait = q.last + minMs - performance.now();
+    if (wait > 0) setTimeout(() => requestAnimationFrame(run), wait);
+    else requestAnimationFrame(run);
   }
 
   _applyChatFilter() {
@@ -2815,6 +2834,28 @@ export class UI {
   }
 
   // ---------------- Minimap ----------------
+  /** The whole map's terrain at one pixel per tile, built once (terrain never changes). */
+  _minimapTerrain() {
+    if (this._miniTerr !== undefined) return this._miniTerr;
+    const world = this.game.world, w = world.width, h = world.height;
+    if (typeof document === 'undefined') return (this._miniTerr = null);
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    const c = cv.getContext('2d'); if (!c) return (this._miniTerr = null);
+    const hex = {
+      [TERRAIN.GRASS]: '#3f6e2c', [TERRAIN.DARKGRASS]: '#365f25', [TERRAIN.PATH]: '#9c8456',
+      [TERRAIN.WATER]: '#2f6f9e', [TERRAIN.SAND]: '#c8b27a', [TERRAIN.STONE]: '#8a8378', [TERRAIN.WOOD]: '#7a5a36',
+    };
+    const rgb = {}; const toRgb = (x) => [parseInt(x.slice(1, 3), 16), parseInt(x.slice(3, 5), 16), parseInt(x.slice(5, 7), 16)];
+    const img = c.createImageData(w, h), d = img.data;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const t = world.terrainAt(x, y);
+      const col = rgb[t] || (rgb[t] = toRgb(hex[t] || '#3f6e2c'));
+      const i = (y * w + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255;
+    }
+    c.putImageData(img, 0, 0);
+    return (this._miniTerr = cv);
+  }
+
   renderMinimap() {
     // Skip the per-tile scan entirely while the minimap is folded away.
     if (this._collapse && this._collapse.minimap) return;
@@ -2833,17 +2874,17 @@ export class UI {
     ctx.save();
     ctx.beginPath(); ctx.arc(W / 2, H / 2, W / 2 - 1, 0, Math.PI * 2); ctx.clip();
 
-    const colors = {
-      [TERRAIN.GRASS]: '#3f6e2c', [TERRAIN.DARKGRASS]: '#365f25', [TERRAIN.PATH]: '#9c8456',
-      [TERRAIN.WATER]: '#2f6f9e', [TERRAIN.SAND]: '#c8b27a', [TERRAIN.STONE]: '#8a8378', [TERRAIN.WOOD]: '#7a5a36',
-    };
-    for (let dy = -radius; dy <= radius; dy++) {
-      for (let dx = -radius; dx <= radius; dx++) {
-        const tx = px + dx, ty = py + dy;
-        if (!game.world.inBounds(tx, ty)) continue;
-        ctx.fillStyle = colors[game.world.terrainAt(tx, ty)] || '#3f6e2c';
-        ctx.fillRect(W / 2 + dx * scale - scale / 2, H / 2 + dy * scale - scale / 2, scale, scale);
-      }
+    // Terrain: the whole map is painted once into a one-pixel-per-tile image,
+    // and each update just draws the patch around the player, scaled up
+    // (was one small rectangle per tile, ~2400 a refresh).
+    const terr = this._minimapTerrain();
+    if (terr) {
+      const prev = ctx.imageSmoothingEnabled;
+      ctx.imageSmoothingEnabled = false;
+      const side = radius * 2 + 1;
+      ctx.drawImage(terr, Math.round(px) - radius, Math.round(py) - radius, side, side,
+        W / 2 + (Math.round(px) - px - radius) * scale - scale / 2, H / 2 + (Math.round(py) - py - radius) * scale - scale / 2, side * scale, side * scale);
+      ctx.imageSmoothingEnabled = prev;
     }
     // Objects (notable ones).
     for (const o of game.world.objects) {
@@ -2867,8 +2908,8 @@ export class UI {
       if (Math.abs(dx) > radius || Math.abs(dy) > radius) continue;
       ctx.fillRect(W / 2 + dx * scale, H / 2 + dy * scale, 2, 2);
     }
-    // NPCs.
-    for (const n of game.npcs) {
+    // NPCs (only nearby ones can be on the minimap).
+    for (const n of (game.nearbyNpcs ? game.nearbyNpcs() : game.npcs)) {
       if (!n.alive) continue;
       const dx = n.x - px, dy = n.y - py;
       if (Math.abs(dx) > radius || Math.abs(dy) > radius) continue;
