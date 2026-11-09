@@ -703,6 +703,7 @@ export class Game {
     this._resolveHazards();
     this.player.stepMul = this.playerStepMul();   // Agility quickens your steps
     this._tickWorldBoss();
+    this._tickIgnites();
     if (this.killStreak && this.tickCount - this._lastKillTick > STREAK_WINDOW_TICKS) {
       this.msg(`Your kill streak of ${this.killStreak} ends.`, 'system');
       this.killStreak = 0; this.bus.emit('xpbonus');
@@ -1891,6 +1892,7 @@ export class Game {
       o.takeDamage(d);
       this.addHitsplat(o, d, { tint: spell.tint, critX: c.critX });
       if (ELEMENTS[spell.element]?.slowTicks) this._slowFoe(o, ELEMENTS[spell.element].slowTicks);
+      if (ELEMENTS[spell.element]?.ignite && d > 0) this._igniteFoe(o, d, ELEMENTS[spell.element].ignite);
       this.spawnHitSparks(o, spell.tint);
       xp += d;
       if (!o.target) o.target = p;
@@ -1928,9 +1930,45 @@ export class Game {
     this._abilityAoe(npc, raw, 'magic');
     const el = ELEMENTS[spell.element] || {};
     if (dmg > 0 && el.slowTicks) this._slowFoe(npc, el.slowTicks);   // Water's Tide
+    if (dmg > 0 && el.ignite) this._igniteFoe(npc, dmg, el.ignite);   // Fire's Ignite
     // Spells come off at half the weapon's swing time (wands quicker than staves); Wind and Water quicker still.
     this._resetCooldown(this.attackInterval(spell));
     this._postAttack(npc);
+  }
+
+  /** Fire's Ignite: the foe burns for `share` of the hit every second for
+   *  `secs` seconds. A new hit restarts the burn, keeping the stronger of the
+   *  two, so fast casting keeps a foe alight rather than stacking burns. */
+  _igniteFoe(npc, hit, { share, secs }) {
+    if (!npc.alive || npc.hp <= 0) return;
+    const perSec = Math.max(1, Math.round(hit * share));
+    const cur = npc.ignite;
+    npc.ignite = { perSec: Math.max(perSec, cur && cur.left > 0 ? cur.perSec : 0), left: secs, acc: cur?.acc || 0 };
+  }
+
+  /** Burning foes near the player take their Ignite damage once a second
+   *  (with Magic XP, like any spell damage). Called every tick. */
+  _tickIgnites() {
+    const p = this.player, m = this.combatXpMult();
+    let xp = 0;
+    for (const n of this.npcs) {
+      const ig = n.ignite;
+      if (!ig) continue;
+      if (!n.alive || n.hp <= 0 || ig.left <= 0) { n.ignite = null; continue; }
+      ig.acc += TICK_MS / 1000;
+      while (ig.acc >= 1 && ig.left > 0 && n.hp > 0) {
+        ig.acc -= 1; ig.left--;
+        const d = Math.min(n.hp, ig.perSec);
+        n.takeDamage(d);
+        this.addHitsplat(n, d, { tint: '#ff8a3d' });
+        this.spawnSparkle(n, '#ff9a4a', 3);
+        xp += d;
+        if (!n.target) n.target = p;
+        if (n.hp <= 0) this.killNpc(n);
+      }
+      if (ig.left <= 0) n.ignite = null;
+    }
+    if (xp) { this.skills.addXp('magic', xp * 2 * m); this.skills.addXp('defence', xp * 1.33 * m); this.skills.addXp('hitpoints', xp * 1.33 * m); }
   }
 
   /** Water's Tide: the foe moves and attacks slower for a few ticks (see NPC.slowTicks). */
@@ -3342,7 +3380,9 @@ export class Game {
     const value = (sp) => {
       const el = ELEMENTS[sp.element] || {};
       const m = elementMatchup(sp.element, race);
-      let v = (el.dmgMult || 1) * (m === 'strong' ? RACE_BONUS.dmg : m === 'weak' ? RACE_PENALTY.dmg : 1) / (el.castSpeed || 1);
+      // Fire's Ignite adds share x the hit every second, on top of the hit itself.
+      const burn = el.ignite ? el.ignite.share * (this.attackInterval(sp) * COMBAT_BEAT_MS / 1000) : 0;
+      let v = (1 + burn) * (m === 'strong' ? RACE_BONUS.dmg : m === 'weak' ? RACE_PENALTY.dmg : 1) / (el.castSpeed || 1);
       // Area damage: Earth reaches everyone within 5 tiles, the rest only within 2.
       const near = el.aoeRadius ? crowd : this.npcs.filter((n) => n !== tgt && n.alive && n.attackable && !n.ally && !n.def.fixed
         && chebyshev(n.x, n.y, tgt.x, tgt.y) <= AOE_RADIUS).length;

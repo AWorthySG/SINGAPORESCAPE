@@ -3549,9 +3549,23 @@ test('one spell per element: wind casts 2x faster, water slows and casts 30% fas
   const earthCd = cast('earth_strike', t), windCd = cast('wind_strike', t), waterCd = cast('water_strike', t);
   assert.ok(Math.abs(windCd - earthCd * 0.5) < 0.01, `wind ${windCd} vs earth ${earthCd}`);
   assert.ok(Math.abs(waterCd - earthCd / 1.3) < 0.01, `water ${waterCd} vs earth ${earthCd}`);
-  // Fire hits 50% harder than the others.
+  // Fire hits like the others, and ignites: 25% of the hit every second for 5 seconds.
   const max = (id) => playerMagicVsNpc(g.skills, g.equipment, getSpell(id), { defence: 1 }).max;
-  assert.ok(Math.abs(max('fire_strike') / max('wind_strike') - 1.5) < 0.05, 'fire is 1.5x');
+  assert.equal(max('fire_strike'), max('wind_strike'), 'no flat fire bonus any more');
+  const f = foe(2); g.npcs = [f];
+  g._critHit = (d) => ({ dmg: d, crit: false }); g._aoeCrit = (d) => ({ dmg: d, critX: 0 });
+  cast('fire_strike', f);
+  const hit = 1e7 - f.hp;
+  assert.ok(f.ignite && f.ignite.left === 5 && f.ignite.perSec === Math.max(1, Math.round(hit * 0.25)), 'set alight');
+  const burning = f.hp, per = f.ignite.perSec;
+  for (let i = 0; i < 20; i++) g._tickIgnites();   // 12 seconds of ticks
+  assert.equal(burning - f.hp, per * 5, 'burned for 5 seconds at 25% of the hit');
+  assert.equal(f.ignite, null, 'and then goes out');
+  // One second in, only one burn has landed.
+  cast('fire_strike', f); const h2 = f.hp;
+  g._tickIgnites(); assert.equal(f.hp, h2, 'not yet a second');
+  g._tickIgnites(); assert.equal(h2 - f.hp, f.ignite.perSec, 'one burn after a second');
+  delete g._critHit; delete g._aoeCrit;
   // Earth reaches 5 tiles from the target; others 2.
   const main = foe(2), far = foe(7); g.npcs = [main, far];
   const farHp = far.hp; cast('wind_strike', main);
