@@ -3575,6 +3575,15 @@ test('one spell per element: wind casts 2x faster, water slows and casts 30% fas
   for (let i = 0; i < 4; i++) g._tickIgnites();
   assert.ok(!small.alive || small.hp <= 0, 'burned to death');
   assert.equal(small.ignite, null, 'and the burn ends with it');
+  // Every burn tick can crit, at the crit chance of the cast that lit it.
+  const c1 = foe(4); g.npcs = [c1];
+  g._aoeCritCh = 1; g._igniteFoe(c1, 400, { share: 0.25 }); g._aoeCritCh = 0;
+  assert.equal(c1.ignite.critCh, 1);
+  delete g._aoeCrit;   // the real crit roll from here on
+  const hc = c1.hp; g.effects = [];
+  g._tickIgnites(); g._tickIgnites();
+  assert.ok(hc - c1.hp >= 200, `a certain crit at least doubles the 100 burn (${hc - c1.hp})`);
+  assert.ok(g.effects.some((e) => e.type === 'hitsplat' && e.entity === c1 && e.critX >= 2), 'shown as a crit');
   delete g._critHit; delete g._aoeCrit;
   // Earth reaches 5 tiles from the target; others 2.
   const main = foe(2), far = foe(7); g.npcs = [main, far];
