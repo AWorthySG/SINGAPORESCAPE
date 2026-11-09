@@ -4009,3 +4009,34 @@ test('bosses scale up with the player: f x hits and defence, f^2 x life, never m
   const m0 = b2.maxHp; g2.doTick();
   assert.equal(b2.maxHp, Math.round(m0 * 4), 'a nearby boss is scaled during the tick');
 });
+
+test('auto battle walks a strong player past weak monsters to ones of their level', () => {
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start();
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.skills.combatLevel = () => 120;
+  const p = g.player;
+  const lo = g._autoBandLo(false);
+  assert.ok(lo >= 80 && lo <= 90, `band starts at 3/4 of your level (${lo})`);
+  // Only weak monsters around (the starting town): auto battle sets off towards
+  // monsters of your level instead of farming chickens.
+  g.toggleAutoBattle(true);
+  g.autoCfg.bosses = false; g.autoCfg.champions = false;   // bosses always come first; this is about ordinary monsters
+  g._autoBattleTick();
+  assert.ok(g._autoTravel, 'heading somewhere');
+  assert.ok(p.isMoving && p.path.length > 10, 'walking a long route');
+  assert.ok(!(p.action?.type === 'attack' && g._autoIsWeak(p.action.npc)), 'not attacking a weak monster');
+  // On the way it keeps walking rather than turning back to weak monsters...
+  const pathLen = p.path.length;
+  g._autoBattleTick();
+  assert.ok(p.path.length >= pathLen - 2 && g._autoTravel, 'the route is kept, not re-planned');
+  // ...but a weak monster attacking you is still fought.
+  const rat = g.npcs.find((n) => n.alive && n.attackable && !n.def.boss && (n.def.level || 1) < lo);
+  rat.x = rat.tx = p.x + 1; rat.y = rat.ty = p.y; rat.target = p;
+  assert.equal(g._autoIsWeak(rat), false, 'an attacker always counts');
+  g._autoBattleTick();
+  assert.equal(p.action?.npc, rat, 'turns to fight the attacker');
+  // A low-level player has no band: every monster is fair game.
+  g.skills.combatLevel = () => 3;
+  assert.equal(g._autoIsWeak(rat), false);
+});

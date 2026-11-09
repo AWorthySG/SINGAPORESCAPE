@@ -3257,13 +3257,78 @@ export class Game {
       if (!this.armedAbility && this.autoCfg.abilities) this._autoAbility((ab) => ab.kind === 'attack', true);
       return;
     }
-    // 4. Find the next fight.
+    // 4. Find the next fight. A monster well below your level is only fought
+    //    when nothing in your level band can be reached: otherwise auto battle
+    //    walks you to the nearest monsters of your level, fighting anything
+    //    that attacks you on the way.
     const target = this._autoPickTarget();
+    const weakPick = target && this._autoIsWeak(target);
+    if ((!target || weakPick) && this._autoTravel && p.isMoving) return;   // still on the way
+    this._autoTravel = null;
+    if ((!target || weakPick) && this.tickCount >= (this._autoHeadNext || 0)) {
+      if (this._autoHeadToLevel()) return;
+      this._autoHeadNext = this.tickCount + 10;   // no route found: look again in a few seconds, not every tick
+    }
     if (target) { this._autoLast = target; this._autoIdleSaid = false; this.attackNpc(target); }
     else if (!this._autoIdleSaid) {
       this._autoIdleSaid = true;
       this.msg('Auto battle: nothing to fight nearby. Walk somewhere wilder and it will pick up again.', 'system');
     }
+  }
+
+  /** The lowest monster level auto battle counts as "your level": three
+   *  quarters of your combat level, but never above 85% of the strongest
+   *  ordinary monster you could go to (so the very top players still have
+   *  something in their band). */
+  _autoBandLo(inWild) {
+    const cl = this.skills.combatLevel();
+    if (this._autoTopFor !== inWild || this._autoTop == null) {
+      let top = 1;
+      for (const n of this.npcs) {
+        if (!n.def.attackable || n.def.boss || n.temporary || n.ally) continue;
+        if (!inWild && this.world.zoneAt(n.x, n.y)?.wilderness) continue;
+        top = Math.max(top, n.def.level || 1);
+      }
+      this._autoTop = top; this._autoTopFor = inWild;
+    }
+    return Math.min(Math.floor(cl * 0.75), Math.floor(this._autoTop * 0.85));
+  }
+
+  /** A pick auto battle would rather walk past: an ordinary monster well below
+   *  your level that isn't fighting you (bosses, champions, attackers, a chosen
+   *  monster type or a quest hunt always count). */
+  _autoIsWeak(n) {
+    if (n.def.boss || n.champion || n.target === this.player || this.autoCfg.target || this._questTarget) return false;
+    const inWild = !!this.world.zoneAt(this.player.x, this.player.y)?.wilderness;
+    return (n.def.level || 1) < this._autoBandLo(inWild);
+  }
+
+  /** Walk towards the nearest monster in your level band (up to 20 levels
+   *  above you), outside the Wilderness unless you are in it. True if a route
+   *  was found and the walk has started. */
+  _autoHeadToLevel() {
+    const p = this.player, cl = this.skills.combatLevel();
+    const inWild = !!this.world.zoneAt(p.x, p.y)?.wilderness;
+    const lo = this._autoBandLo(inWild);
+    if (lo <= 1) return false;
+    let best = null, bd = Infinity;
+    for (const n of this.npcs) {
+      if (!n.alive || !n.attackable || n.def.boss || n.champion || n.temporary || n.ally || n.def.fixed) continue;
+      const lvl = n.def.level || 1;
+      if (lvl < lo || lvl > cl + 20) continue;
+      if ((this._autoSkip.get(n.entityId) || 0) > this.tickCount) continue;
+      if (!inWild && this.world.zoneAt(n.x, n.y)?.wilderness) continue;
+      const d = (n.x - p.x) ** 2 + (n.y - p.y) ** 2;
+      if (d < bd) { bd = d; best = n; }
+    }
+    if (!best) return false;
+    const t = this._nearestFree(best.x, best.y);
+    const path = t && findPath(this.pathCfg(), this.playerTile(), t, { maxNodes: 150000 });
+    if (!path || !path.length) { this._autoSkip.set(best.entityId, this.tickCount + 100); return false; }
+    p.setPath(path, this.canRun()); p.clearAction();
+    this._autoTravel = { x: t.x, y: t.y };
+    this.msg(`Auto battle: heading to monsters of your level (${best.name}, level ${best.def.level}).`, 'system');
+    return true;
   }
 
   /** Auto battle's spell for a target: the element that hits it hardest (its
@@ -3366,6 +3431,8 @@ export class Game {
       // Close by: fight anything. Further out: only walk to monsters up to a
       // little above your level, so a hunt is worth the walk.
       if (d > 10 && lvl > cl + 20) continue;
+      // Monsters well below your level rank behind any in your level band.
+      const weak = !this.autoCfg.target && !this._questTarget && lvl < this._autoBandLo(inWild);
       if (!inWild && wildZone(n.x, n.y)) continue;
       // Anything within 8 tiles first, then the rest. Among those, a monster in
       // a pack (every hit cleaves or splashes into its neighbours) and one
@@ -3375,7 +3442,7 @@ export class Game {
         if (o !== n && o.alive && o.attackable && !o.ally && !o.temporary && Math.abs(o.x - n.x) <= 2 && Math.abs(o.y - n.y) <= 2) pack++;
       }
       const hurt = n.maxHp ? 1 - n.hp / n.maxHp : 0;
-      const tier = (d > 8 ? 50 : 0) - (shootable(n, d) ? 1000 : 0) - Math.min(3, pack) * 1.5 - hurt * 3;
+      const tier = (d > 8 ? 50 : 0) - (shootable(n, d) ? 1000 : 0) - Math.min(3, pack) * 1.5 - hurt * 3 + (weak ? 2000 : 0);
       cands.push({ n, score: d + tier, tier });
     }
     // Nearest first by straight-line distance, then confirm a walkable route
