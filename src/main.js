@@ -69,11 +69,17 @@ input.onKey((e) => {
 });
 
 // Resize handling with device-pixel-ratio scaling for crisp rendering.
+// Drawing cost grows with the canvas's pixel count, so it is kept within a
+// budget: big or very sharp screens draw at a slightly lower resolution (the
+// browser scales it up). `autoScale` drops further if frames keep running slow.
+const PIXEL_BUDGET = 2.4e6;
+let autoScale = 1;
 function resize() {
+  const w = window.innerWidth, h = window.innerHeight;
   // Cap the backing-store density at 2x: 3x phone screens look the same at 2x
   // but would cost more than twice the fill-rate per frame.
-  const dpr = Math.min(game.lowFx ? 1 : 2, window.devicePixelRatio || 1);
-  const w = window.innerWidth, h = window.innerHeight;
+  const budget = Math.sqrt(PIXEL_BUDGET / Math.max(1, w * h));
+  const dpr = Math.max(0.6, Math.min(game.lowFx ? 1 : 2, window.devicePixelRatio || 1, budget) * autoScale);
   canvas.width = Math.floor(w * dpr);
   canvas.height = Math.floor(h * dpr);
   // Zoom the world in so it never looks far away: at most VIEW_TILES tiles across
@@ -86,12 +92,20 @@ window.addEventListener('resize', resize);
 resize();
 
 // Main loop.
-let last = now();
+let last = now(), slowAvg = 16, lastScaleDown = 0;
 function frame() {
   const t = now();
   let dt = t - last;
   last = t;
   if (dt > 250) dt = 250; // avoid huge catch-up after a tab switch
+  // Frames averaging slower than ~30fps for a couple of seconds: draw at a
+  // lower resolution (a step at a time, down to 60%; a reload starts afresh).
+  if (dt < 250) {
+    slowAvg = slowAvg * 0.97 + dt * 0.03;
+    if (slowAvg > 33 && autoScale > 0.6 && t - lastScaleDown > 2500) {
+      autoScale = Math.max(0.6, autoScale - 0.15); lastScaleDown = t; slowAvg = 20; resize();
+    }
+  }
   game.update(dt);
   renderer.render(t);
   ui.renderMinimap();
