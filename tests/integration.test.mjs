@@ -4073,3 +4073,31 @@ test('auto battle walks a strong player past weak monsters to ones of their leve
   g.skills.combatLevel = () => 3;
   assert.equal(g._autoIsWeak(rat), false);
 });
+
+test('performance helpers: nearby list, reusable path search, merged hitsplats', async () => {
+  const { NPC } = await import('../src/game/npc.js');
+  const { findPath } = await import('../src/engine/pathfinding.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start();
+  g.ui = new Proxy({}, { get: () => () => {} });
+  const p = g.player;
+  // Only NPCs within 60 tiles; rebuilt when the list changes.
+  const near = g.nearbyNpcs();
+  assert.ok(near.length > 0 && near.length < g.npcs.length, 'a slice of the world');
+  assert.ok(near.every((n) => Math.abs(n.x - p.x) <= 60 && Math.abs(n.y - p.y) <= 60));
+  const extra = new NPC('goblin', p.x + 2, p.y, 0, {});
+  g.npcs.push(extra);
+  assert.ok(g.nearbyNpcs().includes(extra), 'a new NPC shows up straight away');
+  // Many searches in a row give the same answers as a fresh one (scratch space is reused).
+  const cfg = g.pathCfg();
+  const a = findPath(cfg, { x: p.x, y: p.y }, { x: p.x + 6, y: p.y + 3 }, { reachAdjacent: true });
+  for (let i = 0; i < 50; i++) findPath(cfg, { x: p.x, y: p.y }, { x: p.x - 5 + (i % 10), y: p.y + 4 }, { maxNodes: 300 });
+  assert.deepEqual(findPath(cfg, { x: p.x, y: p.y }, { x: p.x + 6, y: p.y + 3 }, { reachAdjacent: true }), a);
+  // Hits on one foe in quick succession share one number; a crit keeps its own.
+  g.effects = [];
+  g.addHitsplat(extra, 5); g.addHitsplat(extra, 7); g.addHitsplat(extra, 3);
+  const splats = g.effects.filter((e) => e.type === 'hitsplat' && e.entity === extra);
+  assert.equal(splats.length, 1); assert.equal(splats[0].dmg, 15, 'damage adds up');
+  g.addHitsplat(extra, 40, { critX: 2 });
+  assert.equal(g.effects.filter((e) => e.type === 'hitsplat' && e.entity === extra).length, 2, 'a crit gets its own number');
+});
