@@ -1,5 +1,5 @@
 import { SKILL_IDS, startLevel } from '../data/skills.js';
-import { levelForXp, xpForLevel, MAX_XP } from '../data/xp.js';
+import { levelForXp, xpForLevel, maxLevelFor, maxXpFor } from '../data/xp.js';
 import { XP_RATE } from '../config.js';
 
 // Tracks XP per skill and derives levels. Emits 'xp' and 'levelup' on the bus.
@@ -12,7 +12,7 @@ export class Skills {
 
   // Melee is one skill: Strength mirrors Attack (shown as "Melee"), so every
   // Strength requirement, perk and formula reads the Melee level.
-  level(id) { return levelForXp(this.xp[id === 'strength' ? 'attack' : id] ?? 0); }
+  level(id) { const k = id === 'strength' ? 'attack' : id; return levelForXp(this.xp[k] ?? 0, maxLevelFor(k)); }
 
   /** Add experience; fires events; returns number of levels gained. */
   addXp(id, amount) {
@@ -20,7 +20,7 @@ export class Skills {
     if (!(id in this.xp) || amount <= 0) return 0;
     amount *= XP_RATE;
     const before = this.level(id);
-    this.xp[id] = Math.min(MAX_XP, this.xp[id] + amount);
+    this.xp[id] = Math.min(maxXpFor(id), this.xp[id] + amount);
     if (id === 'attack' && 'strength' in this.xp) this.xp.strength = this.xp.attack;
     const after = this.level(id);
     this.bus.emit('xp', { skill: id, amount, total: this.xp[id] });
@@ -42,7 +42,16 @@ export class Skills {
   get magic() { return this.level('magic'); }
   get slayer() { return this.level('slayer'); }
 
+  /** Combat level: the RuneScape formula up to 100, then it climbs much more
+   *  slowly (100 + 6 x the square root of the rest), so bosses that scale with
+   *  it (see Game._scaleBoss) don't run away from you as your skills soar.
+   *  E.g. a raw 1000 is combat 280, a raw 13000 (level ~9999 everything) 781. */
   combatLevel() {
+    const raw = this.rawCombatLevel();
+    return raw <= 100 ? raw : Math.floor(100 + 6 * Math.sqrt(raw - 100));
+  }
+
+  rawCombatLevel() {
     const base = 0.25 * (this.defence + this.hitpoints + Math.floor(this.prayer / 2));
     const melee = 0.325 * (this.attack * 2);   // Melee counts for the old Attack + Strength, so levels don't drop
     const range = 0.325 * Math.floor(this.ranged * 1.5);

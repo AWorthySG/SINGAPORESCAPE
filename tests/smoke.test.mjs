@@ -26,8 +26,25 @@ test('OSRS xp table matches known values', () => {
   assert.equal(xpForLevel(2), 83);
   assert.equal(xpForLevel(10), 1154);
   assert.equal(xpForLevel(99), 13034431);
-  assert.equal(XP_TABLE.length, 10000, 'levels run to 9999');
-  for (let l = 2; l <= 9999; l++) assert.ok(XP_TABLE[l] > XP_TABLE[l - 1], `level ${l} costs more xp`);
+  assert.equal(XP_TABLE.length, 100000, 'levels run to 99999 (Melee, Ranged and Magic)');
+  for (let l = 2; l <= 99999; l++) assert.ok(XP_TABLE[l] > XP_TABLE[l - 1], `level ${l} costs more xp`);
+  assert.ok(Number.isSafeInteger(XP_TABLE[99999]), 'the top of the table stays an exact number');
+});
+
+test('Melee, Ranged and Magic go to 99999; other skills stop at 9999; combat level climbs slowly past 100', async () => {
+  const { Skills } = await import('../src/game/skillset.js');
+  const sk = new Skills(new EventBus());
+  for (const id of ['attack', 'ranged', 'magic', 'defence', 'woodcutting']) sk.addXp(id, 1e15);
+  assert.equal(sk.level('attack'), 99999); assert.equal(sk.level('strength'), 99999, 'Strength mirrors Melee');
+  assert.equal(sk.level('ranged'), 99999); assert.equal(sk.level('magic'), 99999);
+  assert.equal(sk.level('defence'), 9999, 'Defence keeps the 9999 cap');
+  assert.equal(sk.level('woodcutting'), 9999);
+  // Combat level: unchanged up to 100, then 100 + 6 x sqrt(the rest).
+  const s2 = new Skills(new EventBus());
+  assert.ok(s2.combatLevel() <= 100 && s2.combatLevel() === s2.rawCombatLevel(), 'a new player is unchanged');
+  const raw = sk.rawCombatLevel();
+  assert.equal(sk.combatLevel(), Math.floor(100 + 6 * Math.sqrt(raw - 100)));
+  assert.ok(sk.combatLevel() < raw / 20, `combat ${sk.combatLevel()} rises far slower than raw ${raw}`);
 });
 
 test('levelForXp inverts the table', () => {
