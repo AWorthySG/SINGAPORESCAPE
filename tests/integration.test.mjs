@@ -244,7 +244,7 @@ test('prayers activate, conflict by group, boost combat and drain points', () =>
   clearSave();
   const game = new Game();
   game.start();
-  game.skills.addXp('prayer', 50000); // high Prayer level
+  game.skills.addXp('prayer', 5e7); // high Prayer level (Protect from Melee needs 99)
   game.prayerPoints = game.maxPrayer();
 
   game.togglePrayer('burst_strength');
@@ -1710,7 +1710,7 @@ test('boss area attacks: red ground marker first, then it hits only if you stay 
   assert.ok(game.effects.some((e) => e.type === 'hitsplat' && e.text === 'Dodged!'));
 });
 
-test('auto battle steps out of a boss marker by itself', () => {
+test('auto battle no longer steps out of a boss marker by itself', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
   const game = new Game();
@@ -1722,11 +1722,12 @@ test('auto battle steps out of a boss marker by itself', () => {
   const chat = [];
   game.bus.on('chat', (c) => chat.push(c.text));
   game.toggleAutoBattle(true);
+  game._autoPickTarget = () => null; game._autoHeadToLevel = () => false;   // nothing else to walk to
   game.bossHazard(boss);
-  const hp0 = p.hp;
+  const x0 = p.x, y0 = p.y;
   step(game, 4);
-  assert.ok(p.hp >= hp0, 'auto battle dodged the blast');
-  assert.ok(chat.some((t) => t.startsWith('You dodge')));
+  assert.ok(p.x === x0 && p.y === y0, 'auto battle stays put: dodging is up to the player');
+  assert.ok(!game._dodging);
 });
 
 test('champion monsters: tougher, gold-ringed, and drop much more', () => {
@@ -2164,7 +2165,7 @@ test('bows shoot from far: each bow has its own reach, and arrows fly at a stead
   assert.ok(b.arc > 0, 'arrows arc through the air');
 });
 
-test('archers shoot from where they stand, and keep firing while dodging a boss attack', () => {
+test('archers shoot from where they stand', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
   const game = new Game();
@@ -2187,18 +2188,6 @@ test('archers shoot from where they stand, and keep firing while dodging a boss 
   // Measure where the archer stops (the goblin then ambles over to retaliate).
   for (let i = 0; i < 12 && (i < 1 || p.moving); i++) game.update(600);
   assert.ok(Math.abs(far.x - p.x) >= 10, `stopped at range (${Math.abs(far.x - p.x)} tiles away)`);
-  // Auto battle dodging keeps the attack going.
-  game.npcs = [mob];
-  p.x = p.tx = x0; p.y = p.ty = y0;
-  game.attackNpc(mob);
-  game.toggleAutoBattle(true);
-  const boss = game.spawnNpc('boar_king', p.x + 40, p.y, { wander: 0 });
-  game.npcs = [mob, boss];
-  game.bossHazard(boss);                         // a blast under the player
-  const hp0 = mob.hp;
-  step(game, 4);
-  assert.equal(p.action?.type, 'attack', 'still attacking after the dodge');
-  assert.ok(mob.hp < hp0, 'kept shooting while dodging');
 });
 
 test('ranged auto battle clears everything in reach before moving; bows drop often', async () => {
@@ -2240,7 +2229,7 @@ test('bones bury 100 at a time, or a whole stack; daggers drop', async () => {
   const xp0 = game.skills.xp.prayer;
   game.buryBones(game.inventory.slots.findIndex((x) => x && x.id === 'bones'), Infinity);
   assert.equal(game.inventory.count('bones'), 0, 'the rest of the stack buried in one go');
-  assert.ok(game.skills.xp.prayer - xp0 >= 4.5 * 899, 'prayer xp for every bone');
+  assert.ok(game.skills.xp.prayer - xp0 >= 45 * 899, 'prayer xp for every bone (45 each)');
   game.inventory.add('bones', 5);
   game.buryBones(game.inventory.slots.findIndex((x) => x && x.id === 'bones'), 1);
   assert.equal(game.inventory.count('bones'), 4, 'or just one');

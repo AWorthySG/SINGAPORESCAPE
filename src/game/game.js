@@ -138,6 +138,7 @@ const HAZARD_TEXT = {
   twin: (n) => `${n} strikes on both sides of you. Stand still!`,
 };
 export const BURY_BATCH = 100; // bones buried per click
+export const BONE_PRAYER_XP = 45;   // Prayer XP per bone buried (10x the old 4.5)
 export const SPLIT_SHOT_LEVEL = 300;  // Ranged level at which every bow shot splits
 const SPLIT_SHOT_TARGETS = 3;       // ...into this many arrows, one per target
 
@@ -2550,7 +2551,7 @@ export class Game {
     if (!s || s.id !== 'bones') { this.msg('You can only bury bones.'); return; }
     const n = Math.min(s.qty, count);
     this.inventory.removeAt(index, n);
-    this.skills.addXp('prayer', 4.5 * n);
+    this.skills.addXp('prayer', BONE_PRAYER_XP * n);
     this.addGood(Math.min(n, 10)); // honouring the dead is a small good
     this.spawnSparkle(this.player, '#ffe89a', Math.min(24, 6 + n));
     this.msg(n > 1 ? `You bury ${n} bones.` : 'You bury the bones.', 'system');
@@ -3263,27 +3264,7 @@ export class Game {
     //     limit, as long as a reserve of three hires' worth of coins is left.
     if (this.jobClass === 'merchant' && p.action?.type === 'attack' && p.action.npc?.alive
       && this.inventory.count('coins') >= Mercs.hireCost(this) * 3) this.hireMercenary();
-    // 0b. Step out of a boss's red ground marker, then go back to the fight.
-    const at = this.playerTile();
-    if (this.hazardAt(at.x, at.y)) {
-      const safe = this._safeTileNear(at);
-      if (safe) {
-        const fighting = p.action?.type === 'attack' && p.action.npc?.alive;
-        if (fighting && this.attackRange() > 1) {
-          // Archers and casters sidestep without lowering their weapon: keep the
-          // attack and keep firing on the move.
-          const path = findPath(this.pathCfg(), at, safe, {});
-          if (path.length) { p.setPath(path, this.canRun()); this._dodging = true; }
-        } else {
-          if (fighting) this._autoResume = p.action.npc;
-          this.walkTo(safe);
-        }
-      }
-      return;
-    }
-    if (this._dodging && !p.isMoving) this._dodging = false;
-    // Mid-dodge: hold still until the attack lands, rather than chasing something back into it.
-    if (this.hazards.some((h) => chebyshev(at.x, at.y, h.cx, h.cy) <= h.r + 4)) return;
+    // (Auto battle no longer steps out of boss ground markers: dodging is yours to do.)
     if (this._autoResume) {
       const n = this._autoResume;
       this._autoResume = null;
