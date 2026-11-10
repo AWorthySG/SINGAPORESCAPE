@@ -143,6 +143,8 @@ export const BURY_BATCH = 100; // bones buried per click
 // reachable goal (~12 hours of courses) rather than a lifetime.
 export const AGILITY_XP_MULT = 5;
 export const AGILITY_XP_DIV = 10;
+// A Mark of grace trades for this many zip-line crossings' worth of Agility XP.
+export const MARK_XP_CROSSINGS = 10;
 export const BONE_PRAYER_XP = 45;   // Prayer XP per bone buried (10x the old 4.5)
 export const SPLIT_SHOT_LEVEL = 300;  // Ranged level at which every bow shot splits
 const SPLIT_SHOT_TARGETS = 3;       // ...into this many arrows, one per target
@@ -2618,15 +2620,24 @@ export class Game {
     return d.finish ? false : true; // pause after the finish line; otherwise keep training
   }
 
-  // Spend a Mark of grace to catch your breath (restore run energy).
-  useMarkOfGrace(index) {
+  /** Trade Marks of grace for Agility XP: each is worth MARK_XP_CROSSINGS zip-line
+   *  crossings at your current Agility level (so it keeps pace as you level).
+   *  Trades the whole stack by default. */
+  useMarkOfGrace(index, count = Infinity) {
     const s = this.inventory.slotAt(index);
     if (!s || s.id !== 'mark_of_grace') return;
-    this.inventory.removeAt(index, 1);
-    this.runEnergy = Math.min(100, this.runEnergy + 30);
-    this.bus.emit('run');
-    this.spawnSparkle(this.player, '#5fd0a0', 8);
-    this.msg('You use a Mark of grace and feel re-energised.', 'system');
+    const n = Math.min(s.qty, count);
+    if (n <= 0) return;
+    this.inventory.removeAt(index, n);
+    const each = this.markOfGraceXp();
+    this.skills.addXp('agility', each * n);
+    this.spawnSparkle(this.player, '#5fd0a0', Math.min(24, 8 + n));
+    this.msg(n > 1 ? `You trade ${n} Marks of grace for Agility experience.` : 'You trade a Mark of grace for Agility experience.', 'system');
+  }
+
+  /** Agility XP (before the global XP rate) one Mark of grace is worth right now. */
+  markOfGraceXp() {
+    return MARK_XP_CROSSINGS * 60 * AGILITY_XP_MULT * (1 + this.skills.level('agility') / AGILITY_XP_DIV);
   }
 
   // ---------------- Thieving: market stalls ----------------
