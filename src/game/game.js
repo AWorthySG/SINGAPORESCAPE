@@ -2911,7 +2911,7 @@ export class Game {
         break;
       }
       case 'heal': {
-        npc.hp = Math.min(npc.maxHp, npc.hp + Math.round(npc.maxHp * 0.1)); npc.combatLatch = 12;
+        npc.healCapped(npc.maxHp * 0.1); npc.combatLatch = 12;   // capped by recent damage (see NPC.healCapped)
         this.spawnSparkle(npc, '#5fe08a', 12);
         this.msg(`${npc.name} channels power and heals!`, 'combat');
         break;
@@ -3021,7 +3021,7 @@ export class Game {
             dmg = Math.min(p.hp, this._perkReduce(dmg, npc));
             p.takeDamage(dmg); this.addHitsplat(p, dmg, { crit: dmg > 0 });
             if (dmg > 0) this.spawnHitSparks(p, ab.color || '#ff5a3a');
-            if (fx.steal && dmg > 0) { npc.hp = Math.min(npc.maxHp, npc.hp + Math.round(dmg * fx.steal)); this.spawnSparkle(npc, '#5fe08a', 6); }
+            if (fx.steal && dmg > 0 && npc.healCapped(dmg * fx.steal) > 0) this.spawnSparkle(npc, '#5fe08a', 6);
           }
           this.bus.emit('hp');
           if (p.hp <= 0) { this.playerDeath(); return; }
@@ -3049,7 +3049,7 @@ export class Game {
           if (t) { npc.x = npc.tx = t.x; npc.y = npc.ty = t.y; npc.path = []; this.spawnPoof(t.x * TILE + TILE / 2, t.y * TILE + TILE / 2, ab.color || '#ffffff'); }
           break;
         }
-        case 'heal': npc.hp = Math.min(npc.maxHp, npc.hp + Math.round(npc.maxHp * fx.frac)); this.spawnSparkle(npc, '#5fe08a', 10); break;
+        case 'heal': if (npc.healCapped(npc.maxHp * fx.frac) > 0) this.spawnSparkle(npc, '#5fe08a', 10); break;   // capped by recent damage (see NPC.healCapped)
         case 'shield': npc.shieldTicks = Math.max(npc.shieldTicks || 0, fx.ticks); this._buffedBosses.add(npc); break;
         case 'reflect': npc.reflectTicks = Math.max(npc.reflectTicks || 0, fx.ticks); npc.reflectFrac = fx.frac; this._buffedBosses.add(npc); break;
         case 'summon': {

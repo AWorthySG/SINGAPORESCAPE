@@ -4091,3 +4091,32 @@ test('performance helpers: nearby list, reusable path search, merged hitsplats',
   g.addHitsplat(extra, 40, { critX: 2 });
   assert.equal(g.effects.filter((e) => e.type === 'hitsplat' && e.entity === extra).length, 2, 'a crit gets its own number');
 });
+
+test('boss heals are capped by recent damage: at most 30% of what it took lately', async () => {
+  const { NPC, HEAL_CAP_SHARE } = await import('../src/game/npc.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start();
+  g.ui = new Proxy({}, { get: () => () => {} });
+  const b = new NPC('supertree_guardian', g.player.x + 3, g.player.y, 0, {});
+  assert.equal(HEAL_CAP_SHARE, 0.3);
+  // Untouched: a 15%-of-life heal does nothing.
+  b.hp = b.maxHp - 5000;   // hurt long ago, nothing recent
+  b.recentDmg = 0;
+  assert.equal(b.healCapped(b.maxHp * 0.15), 0, 'no recent damage, no heal');
+  // Took 10,000 just now: heals at most 3,000, never 15% of a huge life pool.
+  const full = b.maxHp; b.hp = full;
+  b.takeDamage(10000);
+  const healed = b.healCapped(full * 0.15);
+  assert.equal(healed, 3000, 'heals 30% of the recent damage');
+  assert.equal(b.hp, full - 7000);
+  assert.equal(b.healCapped(full * 0.15), 0, 'and the same damage cannot be healed twice');
+  // The window fades: damage from long ago no longer counts.
+  b.takeDamage(10000);
+  for (let i = 0; i < 60; i++) b.tick(g);
+  assert.equal(b.healCapped(full * 0.15), 0, 'old damage has faded out');
+  // The signature-move heal goes through the cap too.
+  b.hp = full; b.recentDmg = 0; b.takeDamage(1000);
+  const before = b.hp;
+  g.bossSpecial(b);
+  assert.ok(b.hp - before <= 300, `the signature move healed at most 30% of 1000 (${b.hp - before})`);
+});

@@ -33,6 +33,10 @@ function applySpawnOpts(base, opts) {
 export const CHAMPION_CHANCE = 0.04;
 // A champion has 150x a normal monster's life (50x the old 3x): a real mini-boss.
 export const CHAMPION_HP_MULT = 150;
+// Boss heals: at most this share of the damage taken lately, which fades by
+// HEAL_WINDOW_DECAY each tick (about the last 4 seconds counts).
+export const HEAL_CAP_SHARE = 0.3;
+const HEAL_WINDOW_DECAY = 0.85;
 // Monsters further than this from the player (in tiles) don't idly wander.
 const WANDER_VIEW = 26;
 export const NIGHT_FAMILIES = new Set(['ghost', 'undead', 'wisp', 'bat']);
@@ -113,9 +117,22 @@ export class NPC extends Character {
   }
 
   takeDamage(dmg) {
+    const before = this.hp;
     this.hp = Math.max(0, this.hp - dmg);
     this.combatLatch = 12;
+    // Damage taken lately (fades each tick): a boss's heal is capped by it.
+    this.recentDmg = (this.recentDmg || 0) + (before - this.hp);
     return this.hp;
+  }
+
+  /** Heal up to `want` life, but never more than HEAL_CAP_SHARE of the damage
+   *  taken in the last few seconds, so a heal slows a fight but can't undo it.
+   *  Returns the amount healed. */
+  healCapped(want) {
+    const cap = Math.floor((this.recentDmg || 0) * HEAL_CAP_SHARE);
+    const amt = Math.max(0, Math.min(Math.round(want), cap, this.maxHp - this.hp));
+    if (amt > 0) { this.hp += amt; this.recentDmg -= amt / HEAL_CAP_SHARE; }
+    return amt;
   }
 
   // ---------------- Per-tick AI ----------------
@@ -125,6 +142,7 @@ export class NPC extends Character {
       return;
     }
     if (this.ally) { mercTick(game, this); return; }   // a Merchant's mercenary
+    if (this.recentDmg) this.recentDmg = this.recentDmg < 1 ? 0 : this.recentDmg * HEAL_WINDOW_DECAY;
     if (this.attackCooldown > 0) this.attackCooldown--;
     if (this.repathCooldown > 0) this.repathCooldown--;
     if (this.combatLatch > 0) this.combatLatch--;
