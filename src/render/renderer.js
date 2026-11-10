@@ -463,7 +463,7 @@ export class Renderer {
         continue;
       }
       if (e.type === 'swipe') {
-        // Berserker crit: three claw-like swipe marks raked across the monster,
+        // Brawler crit: three claw-like swipe marks raked across the monster,
         // drawn in quickly one after another, then fading.
         const c = e.entity.renderCenter ? e.entity.renderCenter() : { x: e.entity.x * TILE, y: e.entity.y * TILE };
         const t = 1 - e.life / e.maxLife;
