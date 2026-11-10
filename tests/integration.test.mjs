@@ -3393,7 +3393,7 @@ test('class passives: one every 100 levels of the class skill, ranking up after 
   assert.ok((g.perkMods('melee').reduce || 0) > r0, 'Plate Mastery cuts damage taken');
 });
 
-test('a Berserker rakes swipe marks across the monster on every critical hit', async () => {
+test('a Brawler rakes claw swipe marks across the monster on every critical hit', async () => {
   const { NPC } = await import('../src/game/npc.js');
   const mk = (cls) => {
     globalThis.localStorage = fakeStorage(); clearSave();
@@ -3405,8 +3405,9 @@ test('a Berserker rakes swipe marks across the monster on every critical hit', a
     g._pendingCrit = 2; g._applyPlayerHit(t, 10, {});
     return g.effects.some((e) => e.type === 'swipe');
   };
-  assert.ok(mk('berserker'), 'Berserker crits leave swipe marks');
-  assert.ok(!mk('swordsman'), 'other classes do not');
+  assert.ok(mk('brawler'), 'Brawler crits leave claw marks');
+  assert.ok(!mk('berserker'), 'Berserkers no longer do');
+  assert.ok(!mk('swordsman'), 'nor other classes');
 });
 
 test('champion monsters have 150x a normal monster\'s life (50x the old 3x)', async () => {
