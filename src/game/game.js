@@ -138,6 +138,11 @@ const HAZARD_TEXT = {
   twin: (n) => `${n} strikes on both sides of you. Stand still!`,
 };
 export const BURY_BATCH = 100; // bones buried per click
+// Agility obstacles give AGILITY_XP_MULT x their listed XP, growing by 1/AGILITY_XP_DIV
+// per Agility level (level 100 -> 11x the multiplier), so level 999 is a
+// reachable goal (~12 hours of courses) rather than a lifetime.
+export const AGILITY_XP_MULT = 5;
+export const AGILITY_XP_DIV = 10;
 export const BONE_PRAYER_XP = 45;   // Prayer XP per bone buried (10x the old 4.5)
 export const SPLIT_SHOT_LEVEL = 300;  // Ranged level at which every bow shot splits
 const SPLIT_SHOT_TARGETS = 3;       // ...into this many arrows, one per target
@@ -2587,7 +2592,8 @@ export class Game {
       this.msg(`You need Agility level ${d.level} for the ${d.name}.`, 'system');
       return false;
     }
-    this.skills.addXp('agility', d.xp || 18);
+    const xpScale = AGILITY_XP_MULT * (1 + this.skills.level('agility') / AGILITY_XP_DIV);
+    this.skills.addXp('agility', (d.xp || 18) * xpScale);
     this.runEnergy = Math.min(100, this.runEnergy + 8);
     this.bus.emit('run');
     this.spawnPoof(obj.x * TILE + TILE / 2, obj.y * TILE + TILE / 2 - 6, '#8fd6ff');
@@ -2598,7 +2604,7 @@ export class Game {
       let mark = Math.random() < d.markChance;
       if (d.finish && this._agilityLap.size >= 3) {
         // Completing the loop at the finish line: lap bonus + a guaranteed mark.
-        this.skills.addXp('agility', Math.round((d.xp || 30) * 0.6));
+        this.skills.addXp('agility', Math.round((d.xp || 30) * 0.6 * xpScale));
         this._agilityLap.clear();
         mark = true;
         this.msg('You complete a lap of the course!', 'system');
