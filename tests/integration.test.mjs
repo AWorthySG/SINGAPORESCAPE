@@ -1035,19 +1035,6 @@ test('agility obstacles grant XP/run energy, and finishing a lap yields a Mark o
   assert.ok(game.inventory.has('mark_of_grace'), 'completing a lap awards a Mark of grace');
 });
 
-test('a Mark of grace can be used to restore run energy', () => {
-  globalThis.localStorage = fakeStorage();
-  clearSave();
-  const game = new Game();
-  game.start();
-  game.inventory.add('mark_of_grace', 1);
-  game.runEnergy = 10;
-  const idx = game.inventory.slots.findIndex((s) => s && s.id === 'mark_of_grace');
-  game.useMarkOfGrace(idx);
-  assert.ok(game.runEnergy > 10, 'run energy restored');
-  assert.equal(game.inventory.count('mark_of_grace'), 0, 'the mark was consumed');
-});
-
 test('thieving stalls give loot + XP and deplete on a successful steal', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
@@ -4136,4 +4123,22 @@ test('agility obstacles give 5x their XP, growing with Agility level, so 999 is 
   g.skills.xp.agility = (await import('../src/data/xp.js')).xpForLevel(500);
   assert.ok(Math.abs(gain() - expect(500)) < 1, 'and far more at level 500');
   assert.ok(expect(500) / expect(1) > 40, 'XP grows strongly with level');
+});
+
+test('Marks of grace trade for Agility XP (the whole stack, scaled to your level)', async () => {
+  const { XP_RATE } = await import('../src/config.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start();
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.inventory.add('mark_of_grace', 5);
+  const idx = g.inventory.slots.findIndex((sl) => sl && sl.id === 'mark_of_grace');
+  const each = g.markOfGraceXp();
+  assert.ok(each >= 10 * 60 * 5, 'a mark is worth ten zip-line crossings');
+  const x0 = g.skills.xp.agility;
+  g.useMarkOfGrace(idx);
+  assert.equal(g.inventory.count('mark_of_grace'), 0, 'the whole stack is traded');
+  assert.ok(Math.abs(g.skills.xp.agility - x0 - each * 5 * XP_RATE) < 1, 'for Agility XP');
+  // Worth more at a higher Agility level.
+  g.skills.xp.agility = (await import('../src/data/xp.js')).xpForLevel(300);
+  assert.ok(g.markOfGraceXp() > each * 10);
 });
