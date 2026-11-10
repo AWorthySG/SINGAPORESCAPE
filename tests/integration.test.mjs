@@ -4120,3 +4120,20 @@ test('boss heals are capped by recent damage: at most 30% of what it took lately
   g.bossSpecial(b);
   assert.ok(b.hp - before <= 300, `the signature move healed at most 30% of 1000 (${b.hp - before})`);
 });
+
+test('agility obstacles give 5x their XP, growing with Agility level, so 999 is reachable', async () => {
+  const { AGILITY_XP_MULT, AGILITY_XP_DIV } = await import('../src/game/game.js');
+  const { XP_RATE } = await import('../src/config.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start();
+  g.ui = new Proxy({}, { get: () => () => {} });
+  const beam = g.world.objects.find((o) => o.objId === 'agility_balance');
+  assert.ok(beam, 'a balance beam exists');
+  const gain = () => { const x0 = g.skills.xp.agility; g.resolveAgility(beam); return g.skills.xp.agility - x0; };
+  const lvl = g.skills.level('agility');
+  const expect = (L) => 22 * AGILITY_XP_MULT * (1 + L / AGILITY_XP_DIV) * XP_RATE;
+  assert.ok(Math.abs(gain() - expect(lvl)) < 1, 'a low-level beam crossing gives 5x+ its listed XP');
+  g.skills.xp.agility = (await import('../src/data/xp.js')).xpForLevel(500);
+  assert.ok(Math.abs(gain() - expect(500)) < 1, 'and far more at level 500');
+  assert.ok(expect(500) / expect(1) > 40, 'XP grows strongly with level');
+});
