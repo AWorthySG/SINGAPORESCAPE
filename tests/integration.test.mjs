@@ -2086,6 +2086,28 @@ test('High-level damage grows in a straight line with level, not with its square
   assert.ok(at(99999) < 200000, `level 99999 max hit stays sane (${at(99999)})`);
 });
 
+test('Player attacks always land: no misses even against a heavily armoured foe', async () => {
+  const { rollHit } = await import('../src/game/combat.js');
+  for (let i = 0; i < 500; i++) {
+    const d = rollHit(40);
+    assert.ok(d >= 10 && d <= 40, `a blow rolls a quarter to the max (${d})`);
+    assert.ok(rollHit(1) >= 1 && rollHit(0) >= 1, 'even the weakest blow deals 1');
+  }
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  const npc = game.npcs.find((n) => n.def.attackable && n.alive);
+  npc.def = { ...npc.def, defence: 99999 };   // a level 1 player could never touch this
+  npc.maxHp = npc.hp = 1e9;
+  for (let i = 0; i < 30; i++) {
+    const before = npc.hp;
+    game.doPlayerAttack(npc);
+    assert.ok(npc.hp < before, `swing ${i} landed`);
+  }
+});
+
 test('XP bonus stacks: Wilderness level and kill streak; bosses drop much more and give bonus XP', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();

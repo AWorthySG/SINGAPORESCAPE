@@ -21,7 +21,7 @@ import { NPC } from './npc.js';
 import { Camera } from '../engine/camera.js';
 import { findPath } from '../engine/pathfinding.js';
 import {
-  playerAttackVsNpc, npcAttackVsPlayer, rollAttack, rollGuaranteed, combatXp,
+  playerAttackVsNpc, npcAttackVsPlayer, rollAttack, rollGuaranteed, rollHit, combatXp,
   playerRangedVsNpc, combatXpRanged, playerMagicVsNpc, RANGED_STYLES,
   weaknessOf, WEAKNESS_BONUS, critChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE,
   playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX,
@@ -1224,7 +1224,7 @@ export class Game {
     let total = 0, raw = 0;   // raw: before crits, so each cleaved foe rolls its own
     for (let i = 0; i < mods.hits && npc.hp > 0; i++) {
       const effMax = Math.max(1, Math.round(baseMax * mods.dmgM));
-      let dmg = mods.guaranteed ? rollGuaranteed(effMax) : rollAttack(atkRoll * pm.att * mods.accM, defRoll, effMax);
+      let dmg = mods.guaranteed ? rollGuaranteed(effMax) : rollHit(effMax);
       raw += dmg;
       const c = this._critHit(dmg, mods.critCh); dmg = c.dmg;
       this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax) });
@@ -1234,7 +1234,7 @@ export class Game {
     // Dual wielding: the off-hand dagger follows up with its own strike (60% max hit).
     if (this.equipment.isDualWielding() && npc.hp > 0) {
       const offMax = Math.max(1, Math.round(baseMax * 0.6));
-      const dmg = rollAttack(atkRoll * pm.att, defRoll, offMax);
+      const dmg = rollHit(offMax);
       this._slash(npc, '#cfe8ff');
       this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && dmg >= offMax });
       if (dmg > 0) { this.spawnHitSparks(npc, '#e6f2ff'); for (const x of combatXp(this.player.style, dmg)) this.skills.addXp(x.skill, x.xp * this.combatXpMult()); }
@@ -1634,7 +1634,7 @@ export class Game {
       this._lash(t, fancy ? '#ffd24a' : '#ff8ac0');
       for (let i = 0; i < mods.hits && t.hp > 0; i++) {
         const effMax = Math.max(1, Math.round(max * pm.str * mods.dmgM));
-        let dmg = mods.guaranteed ? rollGuaranteed(effMax) : rollAttack(atkRoll * pm.att * mods.accM, defRoll, effMax);
+        let dmg = mods.guaranteed ? rollGuaranteed(effMax) : rollHit(effMax);
         if (t === npc) raw += dmg;
         const c = this._critHit(dmg, mods.critCh); dmg = c.dmg;
         this._applyPlayerHit(t, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax) });
@@ -1844,7 +1844,7 @@ export class Game {
       const effMax = Math.max(1, Math.round(baseMax * mods.dmgM));
       let dmg = mods.guaranteed ? rollGuaranteed(effMax)
         : wpn.weaponType === 'rifle' ? randInt(Math.max(1, Math.floor(effMax / 4)), effMax)   // sniper rounds always land
-        : rollAttack(atkRoll * pr * mods.accM, defRoll, effMax);
+        : rollHit(effMax);
       raw += dmg;
       const c = this._critHit(dmg, mods.critCh); dmg = c.dmg;
       this._projectile(npc, (c.crit || fancy) ? '#ffd24a' : tint, shot, mods.hits > 1 ? i - (mods.hits - 1) / 2 : 0);
@@ -1855,7 +1855,7 @@ export class Game {
     // Dual pistols: the off-hand fires too (60% power).
     if (this.equipment.isDualWielding() && npc.hp > 0) {
       const offMax = Math.max(1, Math.round(baseMax * 0.6));
-      let dmg = rollAttack(atkRoll * pr, defRoll, offMax);
+      let dmg = rollHit(offMax);
       this._projectile(npc, '#fff2b0', shot, 0.6);
       this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && dmg >= offMax });
       if (dmg > 0) for (const x of combatXpRanged(style, dmg)) this.skills.addXp(x.skill, x.xp * this.combatXpMult());
@@ -1906,7 +1906,7 @@ export class Game {
       }
       const { atkRoll, defRoll, max } = playerRangedVsNpc(this.skills, this.equipment, style, n.def, arrowStr);
       const effMax = Math.max(1, Math.round(max * pr));
-      let dmg = rollAttack(atkRoll * pr, defRoll, effMax);
+      let dmg = rollHit(effMax);
       const c = this._critHit(dmg, this._mainCritCh || 0); dmg = c.dmg;
       this._projectile(n, '#9fe0ff', this._shotKind(wpn), 0);
       this._applyPlayerHit(n, dmg, { crit: dmg > 0 && (c.crit || dmg >= effMax) });
@@ -1966,7 +1966,7 @@ export class Game {
     this._castElement = null;
     const fancy = mods.spec || mods.ability;
     const effMax = Math.max(1, Math.round(max * mods.dmgM));
-    let dmg = mods.guaranteed ? rollGuaranteed(effMax) : rollAttack(atkRoll * this.prayerMult().magic * mods.accM, defRoll, effMax);
+    let dmg = mods.guaranteed ? rollGuaranteed(effMax) : rollHit(effMax);
     const raw = dmg;   // the splash rolls its own crits
     const c = this._critHit(dmg, mods.critCh); dmg = c.dmg;
     this._swingToward(this.player, npc.x, npc.y);
