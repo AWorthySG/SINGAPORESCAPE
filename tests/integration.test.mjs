@@ -2146,6 +2146,25 @@ test('Former accuracy stats now add damage: gear Attack and Magic bonus, and arm
   assert.ok(Math.abs(d1 / d0 - 1.2) < 1e-9, `20% armour pierce adds 20% damage (x${(d1 / d0).toFixed(3)})`);
 });
 
+test('Dodging a monster attack trains Agility; the boss ladder tops out at level 9999', async () => {
+  const { NPCS, BOSS_TOP_LEVEL } = await import('../src/data/npcs.js');
+  const bossLevels = Object.values(NPCS).filter((d) => d.boss && d.attackable).map((d) => d.level);
+  assert.equal(Math.max(...bossLevels), BOSS_TOP_LEVEL, 'the strongest boss is level 9999');
+  assert.equal(BOSS_TOP_LEVEL, 9999);
+  assert.ok(Math.min(...bossLevels) < 100, 'the first boss stays low');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  const npc = game.npcs.find((n) => n.def.attackable && n.alive && !n.def.boss);
+  game.perkMods = () => ({ dodge: 1 });   // every blow is slipped
+  const xp0 = game.skills.xp.agility || 0, hp0 = game.player.hp;
+  for (let i = 0; i < 5; i++) game.resolveNpcAttack(npc);
+  assert.equal(game.player.hp, hp0, 'the dodged blows did no damage');
+  assert.ok((game.skills.xp.agility || 0) > xp0, 'dodging earned Agility XP');
+});
+
 test('XP bonus stacks: Wilderness level and kill streak; bosses drop much more and give bonus XP', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
@@ -3852,8 +3871,10 @@ test('a world boss rises every 2 minutes: much tougher, aggressive, triple loot,
   const base = getNpc(wb.npcId);
   assert.equal(wb.maxHp, Math.round(base.maxHp * 5), '5x the life of the normal boss');
   assert.ok(wb.def.maxHit >= base.maxHit * 2 && wb.def.aggressive && wb.def.aggroRange >= 16 && wb.def.ignoreLevelGate);
-  const d = Math.max(Math.abs(wb.x - g.player.x), Math.abs(wb.y - g.player.y));
-  assert.ok(d >= 7 && d <= 15, `it rose ${d} tiles away`);
+  // The spot is picked 8-14 tiles away in a straight line (so as few as ~6 tiles
+  // across on a diagonal: measuring it that way made this test flaky).
+  const d = Math.hypot(wb.x - g.player.x, wb.y - g.player.y);
+  assert.ok(d >= 7 && d <= 15, `it rose ${d.toFixed(1)} tiles away`);
   g.tickCount = 400;
   assert.equal(g._tickWorldBoss(), undefined, 'only one at a time');
   // Triple loot, then it's gone for good.

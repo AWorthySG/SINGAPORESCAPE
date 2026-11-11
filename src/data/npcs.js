@@ -579,6 +579,26 @@ for (const d of Object.values(NPCS)) {
   if (typeof d.examine === 'string') d.examine = d.examine.replace(`(level ${old})`, `(level ${lvl})`);
 }
 
+// The boss ladder reaches level 9999: on top of the stretch above, each boss's
+// level is raised by a factor that climbs from x1 for the weakest boss to the
+// one that puts the strongest at BOSS_TOP_LEVEL, with its stats scaled to match.
+export const BOSS_TOP_LEVEL = 9999;
+{
+  const bosses = Object.values(NPCS).filter((d) => d.boss && d.attackable && d.level && !d.ladderLevel);
+  const lo = Math.min(...bosses.map((d) => d.level)), hi = Math.max(...bosses.map((d) => d.level));
+  for (const d of bosses) {
+    const old = d.level;
+    const k = hi > lo ? 1 + (BOSS_TOP_LEVEL / hi - 1) * (old - lo) / (hi - lo) : 1;
+    const lvl = Math.min(BOSS_TOP_LEVEL, Math.round(old * k));
+    d.ladderLevel = lvl;
+    if (lvl === old) continue;
+    const r = lvl / old;
+    d.level = lvl;
+    for (const s of ['maxHp', 'attack', 'strength', 'defence', 'maxHit']) if (typeof d[s] === 'number') d[s] = Math.max(1, Math.round(d[s] * r));
+    if (typeof d.examine === 'string') d.examine = d.examine.replace(`(level ${old})`, `(level ${lvl})`);
+  }
+}
+
 // Player damage now always lands and grows in a straight line with level, while
 // gear keeps adding power, so a level-matched fighter killed high-level monsters
 // in ~8 hits against ~30-40 low down. Monster HP above level 40 is scaled up to

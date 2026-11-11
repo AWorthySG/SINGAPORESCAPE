@@ -107,6 +107,9 @@ const RIFLE_DMG = 5.5;
 // Bosses scale up to the player's combat level (see _scaleBoss), up to this
 // many times their own level.
 const BOSS_SCALE_MAX = 100;
+// Agility XP for slipping a monster's blow: this many times its max hit (about
+// what landing an average hit of that size would give a fighting skill).
+export const DODGE_AGILITY_XP = 2;
 // Every area attack, splash, ricochet and target search looks only at the
 // NPCs within this many tiles of the player (see nearbyNpcs): the world holds
 // thousands, and scanning them all on every hit was the main cause of lag.
@@ -2115,6 +2118,13 @@ export class Game {
       arc: kind === 'arrow' ? Math.min(22, dist * 0.09) : 0 });
   }
 
+  /** Dodging a monster's attack trains Agility, more for harder-hitting foes. */
+  _dodgeXp(npc) {
+    if (!npc?.def) return;
+    const { max } = npcAttackVsPlayer(npc.def, this.skills, this.equipment, this.player.style);
+    this.skills.addXp('agility', Math.max(1, max) * DODGE_AGILITY_XP * this.combatXpMult());
+  }
+
   resolveNpcAttack(npc, opts = {}) {
     const p = this.player;
     if (!p.alive) return;
@@ -2124,6 +2134,7 @@ export class Game {
     if (this.combatMode() === 'dance' && Math.random() < danceEvade(this.skills.agility, p.danceStyle) * (heavy ? 0.5 : 1)) {
       this.addHitsplat(p, 0, { text: 'Dodged!' });
       this.spawnSparkle(p, '#ff8ac0', 5);
+      this._dodgeXp(npc);
       if (p.autoRetaliate && (!p.action || p.action.type !== 'attack')) this.attackNpc(npc);
       return;
     }
@@ -2131,6 +2142,7 @@ export class Game {
     const dodge = (perk.dodge || 0) + this.buffMod('dodge');   // perks and a dodging class buff
     if (dodge && Math.random() < dodge * (heavy ? 0.5 : 1)) {   // Evasion / Graceful perks
       this.addHitsplat(p, 0, { text: 'Dodged!' });
+      this._dodgeXp(npc);
       if (p.autoRetaliate && (!p.action || p.action.type !== 'attack')) this.attackNpc(npc);
       return;
     }
@@ -3174,6 +3186,7 @@ export class Game {
       } else {
         this.addHitsplat(p, 0, { text: 'Dodged!' });
         this._gainAdrenaline(8);                              // a clean dodge pays out
+        this._dodgeXp(h.npc);
         this.msg(`You dodge ${h.npc.name}'s attack!`, 'combat');
       }
     }
