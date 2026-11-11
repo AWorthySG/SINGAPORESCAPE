@@ -104,12 +104,18 @@ export function weaknessOf(def) {
 // equipment that grows with you: every 2 Melee levels give +1 Attack and +1
 // Strength bonus, every 2 Ranged levels +1 Ranged, every 2 Magic levels +1 Magic
 // (and every 10 a point of magic damage), every 2 Agility levels +1 Dance.
+// The bonus stops growing at level LEVEL_BONUS_CAP: the level already scales the
+// max hit once, and a bonus that kept growing with it too made damage climb with
+// the square of the level (a level 5000 fighter one-shot monsters of its level).
+// Past the cap, damage grows in a straight line with level, like monster HP does.
+export const LEVEL_BONUS_CAP = 200;
 export function levelBonuses(skills = {}) {
-  const half = (n) => Math.floor((n || 0) / 2);
+  const lv = (n) => Math.min(LEVEL_BONUS_CAP, n || 0);
+  const half = (n) => Math.floor(lv(n) / 2);
   return {
     attack: half(skills.attack), strength: half(skills.attack),
     ranged: half(skills.ranged),
-    magic: half(skills.magic), magicStr: Math.floor((skills.magic || 0) / 10),
+    magic: half(skills.magic), magicStr: Math.floor(lv(skills.magic) / 10),
     dance: half(skills.agility),
   };
 }

@@ -2073,6 +2073,19 @@ test('Melee level raises damage (and adds a level bonus like gear); scimitars an
   assert.deepEqual([lb.attack, lb.strength, lb.ranged, lb.magic, lb.magicStr, lb.dance], [40, 40, 30, 25, 5, 20], 'every 2 levels give +1 bonus');
 });
 
+test('High-level damage grows in a straight line with level, not with its square', async () => {
+  const { levelBonuses, LEVEL_BONUS_CAP } = await import('../src/game/combat.js');
+  const top = levelBonuses({ attack: 99999, ranged: 99999, magic: 99999, agility: 99999 });
+  const cap = levelBonuses({ attack: LEVEL_BONUS_CAP, ranged: LEVEL_BONUS_CAP, magic: LEVEL_BONUS_CAP, agility: LEVEL_BONUS_CAP });
+  assert.deepEqual(top, cap, 'the level bonus stops growing at the cap');
+  const eq = { bonuses: () => ({ attack: 60, strength: 60, ranged: 60 }) };
+  const at = (L) => playerAttackVsNpc({ attack: L, strength: L }, eq, 'balanced', { defence: 1 }).max;
+  // Ten times the level gives about ten times the damage (it gave ~25x before).
+  const r = at(10000) / at(1000);
+  assert.ok(r > 8 && r < 11, `damage scales linearly past the cap (x${r.toFixed(1)})`);
+  assert.ok(at(99999) < 200000, `level 99999 max hit stays sane (${at(99999)})`);
+});
+
 test('XP bonus stacks: Wilderness level and kill streak; bosses drop much more and give bonus XP', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
