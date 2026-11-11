@@ -398,7 +398,7 @@ test('combat formulas produce valid ranges', () => {
   assert.ok(hc > 0 && hc <= 1);
   // No stances: every melee hit trains Melee, plus a share of Defence and Hitpoints.
   const xp = combatXp('balanced', 10);
-  assert.equal(xp.find((x) => x.skill === 'attack').xp, 40);
+  assert.equal(xp.find((x) => x.skill === 'attack').xp, 10, 'a quarter of the old 4 XP per damage (the rest comes on the kill)');
   assert.ok(xp.find((x) => x.skill === 'defence').xp > 0, 'Defence trains from every hit');
   assert.ok(!xp.some((x) => x.skill === 'strength'));
   assert.deepEqual(combatXp('aggressive', 10), xp, 'old style ids make no difference');

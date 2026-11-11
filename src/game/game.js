@@ -21,7 +21,7 @@ import { NPC } from './npc.js';
 import { Camera } from '../engine/camera.js';
 import { findPath } from '../engine/pathfinding.js';
 import {
-  playerAttackVsNpc, npcAttackVsPlayer, rollAttack, rollGuaranteed, rollHit, combatXp,
+  playerAttackVsNpc, npcAttackVsPlayer, rollAttack, rollGuaranteed, rollHit, combatXp, magicXp, killXp,
   playerRangedVsNpc, combatXpRanged, playerMagicVsNpc, RANGED_STYLES,
   weaknessOf, WEAKNESS_BONUS, critChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE,
   playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX,
@@ -1714,7 +1714,7 @@ export class Game {
       this.addHitsplat(o, d, { tint: '#ffb347', critX: c.critX });
       this.spawnHitSparks(o, '#ffd9a0');
       const xp = mode === 'ranged' ? combatXpRanged(p.style, d) : mode === 'magic'
-        ? [{ skill: 'magic', xp: d * 2 }, { skill: 'defence', xp: d * 1.33 }, { skill: 'hitpoints', xp: d * 1.33 }] : combatXp(p.style, d);
+        ? magicXp(d) : combatXp(p.style, d);
       for (const x of xp) this.skills.addXp(x.skill, x.xp * m);
       if (!o.target) o.target = p;
       if (o.hp <= 0) this.killNpc(o);
@@ -1951,7 +1951,7 @@ export class Game {
     }
     // Splash damage earns XP like any other hit, XP bonuses included.
     const m = this.combatXpMult();
-    if (xp) { this.skills.addXp('magic', xp * 2 * m); this.skills.addXp('defence', xp * 1.33 * m); this.skills.addXp('hitpoints', xp * 1.33 * m); }
+    if (xp) for (const x of magicXp(xp)) this.skills.addXp(x.skill, x.xp * m);
   }
 
   _magicAttack(npc) {
@@ -1976,7 +1976,7 @@ export class Game {
     this._projectile(npc, (c.crit || fancy) ? '#e0a0ff' : spell.tint, 'bolt');
     this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax) });
     this.skills.addXp('magic', spell.xp * this.combatXpMult());
-    if (dmg > 0) { const m = this.combatXpMult(); this.spawnHitSparks(npc, spell.tint); this.skills.addXp('magic', dmg * 2 * m); this.skills.addXp('defence', dmg * 1.33 * m); this.skills.addXp('hitpoints', dmg * 1.33 * m); }
+    if (dmg > 0) { const m = this.combatXpMult(); this.spawnHitSparks(npc, spell.tint); for (const x of magicXp(dmg)) this.skills.addXp(x.skill, x.xp * m); }
     if (dmg > 0) this._spellSplash(npc, raw, spell);
     this._abilityAoe(npc, raw, 'magic');
     const el = ELEMENTS[spell.element] || {};
@@ -2024,7 +2024,7 @@ export class Game {
         if (n.hp <= 0) { this.killNpc(n); n.ignite = null; }
       }
     }
-    if (xp) { this.skills.addXp('magic', xp * 2 * m); this.skills.addXp('defence', xp * 1.33 * m); this.skills.addXp('hitpoints', xp * 1.33 * m); }
+    if (xp) for (const x of magicXp(xp)) this.skills.addXp(x.skill, x.xp * m);
   }
 
   /** Water's Tide: the foe moves and attacks slower for a few ticks (see NPC.slowTicks). */
@@ -2251,6 +2251,11 @@ export class Game {
     if (this.killStreak > 1 && this.killStreak % 5 === 0) this.msg(`Kill streak ${this.killStreak}! Combat XP +${Math.round(Math.min(STREAK_MAX_BONUS, this.killStreak * STREAK_XP_PER_KILL) * 100)}%.`, 'level');
     this.bus.emit('xpbonus');
     this.kills[npc.npcId] = (this.kills[npc.npcId] || 0) + 1;
+    // The kill reward: most of a monster's combat XP comes when it dies, worth
+    // its full life, in the style you fight with (see killXp in combat.js).
+    { const mode = this.combatMode(), m = this.combatXpMult();
+      const skill = mode === 'ranged' ? 'ranged' : mode === 'magic' ? 'magic' : mode === 'dance' ? 'agility' : 'attack';
+      for (const x of killXp(skill, npc.maxHp)) this.skills.addXp(x.skill, x.xp * m); }
     if (npc.def.boss) {
       this.bossKills++;
       // A boss kill is a big payday: bonus XP in your combat style and Hitpoints.
