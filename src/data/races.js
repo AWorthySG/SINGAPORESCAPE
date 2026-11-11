@@ -74,8 +74,8 @@ export const WEAPON_VS_RACE = {
   cane:      { strong: ['humanoid', 'beast'],            weak: ['dragon', 'construct'] },
 };
 
-// Effective: more accurate and harder hitting. Resisted: noticeably softer.
-export const RACE_BONUS = { acc: 1.1, dmg: 1.3 };
+// Effective: harder hitting. Resisted: noticeably softer.
+export const RACE_BONUS = { dmg: 1.3 };
 export const RACE_PENALTY = { dmg: 0.75 };
 
 /** 'strong' | 'weak' | null: how a weapon type fares against a race. */

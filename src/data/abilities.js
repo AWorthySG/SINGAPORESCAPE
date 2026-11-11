@@ -65,7 +65,7 @@ export const ABILITIES = [
 // and Second Wind (V) stay shared.
 // Extra effects on top of the ones above:
 //   crit     the hit is always a critical (x2, or x4 on a mega crit)
-//   pierce   share of the foe's defence ignored (more accurate)
+//   pierce   flavour only: player attacks always land, so there is no defence to ignore
 //   lifesteal share of the damage dealt healed back
 //   cleave   multiplies the weapon's cleave share for this hit (melee)
 //   stun     ticks the foe reels and can't strike back

@@ -78,7 +78,7 @@ export function critChance(level, equipCrit = 0) {
 
 // ----- Combat weakness (rock-paper-scissors style triangle) -----
 // Every monster is weakest to one combat style. Attacking with the matching
-// style is more accurate and hits harder, so players are rewarded for switching
+// style hits harder, so players are rewarded for switching
 // between melee, ranged and magic instead of mashing one button.
 const WEAKNESS_BY_SPRITE = {
   // Armoured / undead / magical -> Magic
@@ -92,7 +92,7 @@ const WEAKNESS_BY_SPRITE = {
   spider: 'melee', hound: 'melee', rodent: 'melee', demon: 'melee', plant: 'melee',
 };
 
-export const WEAKNESS_BONUS = { acc: 1.15, dmg: 1.10 };
+export const WEAKNESS_BONUS = { dmg: 1.10 };
 export const MELEE_BONUS = { acc: 1.2, dmg: 1.3 };
 /** Share of the Attack level that also counts toward melee max hit. */
 export const ATTACK_TO_STRENGTH = 0.2;
@@ -135,7 +135,11 @@ function withLevelBonus(b, skills) {
 
 export function playerAttackVsNpc(skills, equip, styleId, npc) {
   const style = BAL;
-  const bonuses = withLevelBonus(equip.bonuses(), skills);
+  const gear = equip.bonuses();
+  const bonuses = withLevelBonus(gear, skills);
+  // Player hits always land, so gear's melee Attack bonus (once accuracy) now
+  // adds a quarter of itself to melee power.
+  bonuses.strength += Math.floor((gear.attack || 0) / 4);
   // Melee trades reach for power: it has to close the distance, so it lands
   // more often and hits harder than the formula's base (x1.2 accuracy, x1.3+1 max).
   const aRoll = attackRoll(skills.attack, style.atk, bonuses.attack) * MELEE_BONUS.acc;
@@ -211,7 +215,10 @@ export function combatXpDance(styleId, damage) { return fightXp('agility', damag
 // ----- Magic -----
 export const MAGIC_LEVEL_DIV = 80;
 export function playerMagicVsNpc(skills, equip, spell, npc) {
-  const b = withLevelBonus(equip.bonuses(), skills);
+  const gear = equip.bonuses();
+  const b = withLevelBonus(gear, skills);
+  // Gear's Magic bonus (once accuracy) adds a point of magic damage per 16.
+  b.magicStr = (b.magicStr || 0) + Math.floor((gear.magic || 0) / 16);
   return {
     atkRoll: (skills.magic + 8) * (b.magic + 64),
     defRoll: (npc.defence + 8) * 64,

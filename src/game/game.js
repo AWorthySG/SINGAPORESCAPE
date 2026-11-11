@@ -1435,21 +1435,21 @@ export class Game {
     const spec = this._takeSpec();
     const ab = this._takeAbility();
     const weak = weaknessOf(npc.def) === (mode === 'dance' ? 'melee' : mode);   // whips count as melee for weaknesses
-    let accM = (spec ? spec.acc || 1 : 1) * (weak ? WEAKNESS_BONUS.acc : 1);
     let dmgM = (spec ? spec.dmg || 1 : 1) * (ab ? ab.dmgMul || 1 : 1) * (weak ? WEAKNESS_BONUS.dmg : 1);
     // Race: the weapon in hand bites harder into some races and is shrugged off by others.
     const race = this.raceMatchup(npc);
-    if (race === 'strong') { accM *= RACE_BONUS.acc; dmgM *= RACE_BONUS.dmg; }
+    if (race === 'strong') dmgM *= RACE_BONUS.dmg;
     else if (race === 'weak') dmgM *= RACE_PENALTY.dmg;
     // Magic casts once (rune cost), so its extra hits are ignored.
     const maxHits = mode === 'magic' ? 1 : Infinity;
-    // Passive perks: accuracy, armour piercing, damage (more against bosses and
+    // Passive perks: damage (more against bosses and
     // champions), crit, and a chance of an extra hit (a spell echoes instead).
     const perk = this.perkMods(mode);
     this._perkCtx = perk;
-    // Gear's armour piercing stacks with the perk; boss damage from gear with the perk's.
+    // Your attacks always land, so gear's armour pierce adds its % as damage;
+    // boss damage from gear stacks with the perk's.
     const gb = this.equipment.bonuses();
-    accM *= (1 + (perk.acc || 0)) / (1 - Math.min(0.6, (perk.pierce || 0) + gb.pierce / 100));
+    dmgM *= 1 + gb.pierce / 100;
     dmgM *= 1 + (perk.dmg || 0) + this.learning.perks().dmg +   // English mastery: Eloquence
       ((npc.def.boss || npc.champion) ? (perk.boss || 0) + gb.bossDmg / 100 : 0);
     // Attack bonus % boosts physical damage (melee, ranged, whips); Magic bonus % boosts spells.
@@ -1461,9 +1461,8 @@ export class Game {
     const hits = Math.min(maxHits, Math.max(spec ? spec.hits || 1 : 1, ab ? ab.hits || 1 : 1)) + (bonusHit && mode !== 'magic' ? 1 : 0);
     const guaranteed = !!(ab && ab.guaranteed);
     const heal = (spec ? spec.heal || 0 : 0) || (ab ? ab.lifesteal || 0 : 0);
-    // Class ability extras: armour pierce, a wider cleave, a stun once the hit
+    // Class ability extras: a wider cleave, a stun once the hit
     // lands, a brace afterwards, and (Merchant) A-Worthlings called up.
-    if (ab?.pierce) accM /= 1 - Math.min(0.6, ab.pierce);
     this._abCleave = ab?.cleave || 1;
     this._abStun = ab?.stun && mode !== 'dance' ? ab.stun : 0;   // the Dancer's whip handles its own stun
     if (ab?.guard) this.braceTicks = Math.max(this.braceTicks || 0, ab.guard);
@@ -1482,7 +1481,7 @@ export class Game {
     // A `crit` ability makes every one of its hits a critical.
     const critCh = ab?.crit ? 1 : critChance(lvl, this.equipment.bonuses().crit) + (perk.crit || 0) + this.learning.perks().crit + this.buffMod('crit');
     this._abAoe = ab?.aoe || 0;   // an ultimate's area: everything this close to the target is hit too
-    return { accM, dmgM, hits, guaranteed, heal, spec, ability: ab, weak, race, critCh };
+    return { dmgM, hits, guaranteed, heal, spec, ability: ab, weak, race, critCh };
   }
 
   /** The type of the weapon in hand ('dagger', 'longbow', ...), or null bare-handed. */

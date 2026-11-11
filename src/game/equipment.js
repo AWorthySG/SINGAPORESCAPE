@@ -20,7 +20,7 @@ export const canDualPair = (a, b) => !!dualType(a) && dualType(a) === dualType(b
 // about 1.4 times a beat (a fractional cooldown carries over between beats).
 export const QUICK_WEAPON_SPEED = 0.7;
 // Extra offensive stats, all in percent, with caps so stacking stays sane:
-// pierce ignores that much of a foe's defence, critDmg adds to critical hits,
+// pierce adds that much damage (player hits always land), critDmg adds to critical hits,
 // haste shortens the time between attacks, lifesteal heals you by a share of
 // the damage you deal, and bossDmg adds damage against bosses and champions.
 // atkPct / magPct: 'Attack bonus %' (melee and ranged physical damage) and 'Magic bonus %' (spell damage).

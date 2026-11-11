@@ -792,11 +792,11 @@ export class UI {
     let specLine = '';
     try { const sp = wid && getItem(wid).spec; if (sp) specLine = `<div class="row"><span>Special</span><span>${sp.name} (${sp.cost}%)</span></div>`; } catch {}
     this.el.equipBonuses.innerHTML =
-      `<div class="row"><span>Melee accuracy</span><span>+${b.attack}</span></div>` +
+      `<div class="row"><span>Melee attack</span><span>+${b.attack}</span></div>` +
       `<div class="row"><span>Melee power</span><span>+${b.strength}</span></div>` +
       `<div class="row"><span>Defence bonus</span><span>+${b.defence}</span></div>` +
       (b.ranged ? `<div class="row"><span>Ranged bonus</span><span>+${b.ranged}</span></div>` : '') +
-      (b.magic ? `<div class="row"><span>Magic accuracy</span><span>+${b.magic}</span></div>` : '') +
+      (b.magic ? `<div class="row"><span>Magic attack</span><span>+${b.magic}</span></div>` : '') +
       (b.crit ? `<div class="row"><span>Crit chance</span><span>+${b.crit}%</span></div>` : '') +
       (b.hp ? `<div class="row"><span>Bonus HP</span><span>+${b.hp}</span></div>` : '') +
       // The extra offensive stats, from armour families and gear.
