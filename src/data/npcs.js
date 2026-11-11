@@ -579,6 +579,19 @@ for (const d of Object.values(NPCS)) {
   if (typeof d.examine === 'string') d.examine = d.examine.replace(`(level ${old})`, `(level ${lvl})`);
 }
 
+// Player damage now always lands and grows in a straight line with level, while
+// gear keeps adding power, so a level-matched fighter killed high-level monsters
+// in ~8 hits against ~30-40 low down. Monster HP above level 40 is scaled up to
+// keep kills around 30 hits all the way: x1 at level 40 rising to x4 by level 350
+// (bosses scale to the player themselves, so they're left alone).
+export const HP_SCALE_FROM = 40, HP_SCALE_TO = 350, HP_SCALE_MAX = 4;
+export const monsterHpScale = (lvl) => 1 + (HP_SCALE_MAX - 1) * Math.min(1, Math.max(0, (lvl - HP_SCALE_FROM) / (HP_SCALE_TO - HP_SCALE_FROM)));
+for (const d of Object.values(NPCS)) {
+  if (!d.attackable || !d.maxHp || d.boss || d.hpScaled) continue;
+  d.hpScaled = true;
+  d.maxHp = Math.round(d.maxHp * monsterHpScale(d.level));
+}
+
 // Everything the bestiary lists: the original sets plus the extras.
 const ALL_MONSTER_IDS = [...MONSTER_IDS, ...EXTRA_MONSTER_IDS];
 const ALL_BOSS_IDS = [...BOSS_IDS, ...EXTRA_BOSS_IDS];
