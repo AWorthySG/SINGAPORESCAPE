@@ -2108,9 +2108,12 @@ test('Player attacks always land: no misses even against a heavily armoured foe'
   }
 });
 
-test('Class passives grant no accuracy or armour piercing, since attacks always land', async () => {
+test('Class passives, perks and potions grant no accuracy or armour piercing, since attacks always land', async () => {
   const { CLASS_PASSIVES } = await import('../src/data/classPassives.js');
-  for (const [cls, list] of Object.entries(CLASS_PASSIVES)) {
+  const { PERK_TRACKS } = await import('../src/data/perks.js');
+  const { POTIONS } = await import('../src/data/trades.js');
+  for (const [id, pot] of Object.entries(POTIONS)) assert.ok(!('acc' in (pot.fx || {})), `${id} grants no accuracy`);
+  for (const [cls, list] of [...Object.entries(CLASS_PASSIVES), ...Object.entries(PERK_TRACKS)]) {
     for (const p of list) {
       assert.ok(!('acc' in p.mods) && !('pierce' in p.mods), `${cls} ${p.name} has no hit-chance mods`);
       assert.ok(!/accuracy|defence/i.test(p.desc), `${cls} ${p.name} doesn't promise accuracy`);
@@ -2669,11 +2672,11 @@ test('hunter, fletching and herblore: traps catch, benches make, potions brew, b
   const p = POTIONS.attack_potion;
   resolveRecipe(game, { skill: 'herblore', recipe: { result: 'attack_potion', qty: 1, inputs: p.inputs, level: p.level, xp: p.xp } });
   assert.equal(game.inventory.count('attack_potion'), 1);
-  const acc0 = game.perkMods().acc || 0;
+  const crit0 = game.perkMods().crit || 0;
   game.drinkPotion(game.inventory.slots.findIndex((s) => s && s.id === 'attack_potion'));
-  assert.ok(Math.abs((game.perkMods().acc || 0) - acc0 - 0.08) < 1e-9, 'the potion adds 8% accuracy');
+  assert.ok(Math.abs((game.perkMods().crit || 0) - crit0 - 0.04) < 1e-9, 'the potion adds 4% crit chance');
   game._tickPotions(p.ms + 1);
-  assert.equal(game.perkMods().acc || 0, acc0, 'and wears off');
+  assert.equal(game.perkMods().crit || 0, crit0, 'and wears off');
   // A healing potion heals at once.
   game.player.hp = 1;
   game.inventory.add('healing_potion', 1);

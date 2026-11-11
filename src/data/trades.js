@@ -40,24 +40,24 @@ export const cropFor = (id) => {
 // `style` limits it to one fighting style.
 const MIN = 60000;
 export const POTIONS = {
-  attack_potion: { name: 'Attack potion', level: 1, xp: 25, inputs: [['chilli', 1], ['vial', 1]], group: 'attack', fx: { acc: 0.08 }, ms: 5 * MIN, color: '#d8402a' },
+  attack_potion: { name: 'Attack potion', level: 1, xp: 25, inputs: [['chilli', 1], ['vial', 1]], group: 'attack', fx: { crit: 0.04 }, ms: 5 * MIN, color: '#d8402a' },
   strength_potion: { name: 'Strength potion', level: 10, xp: 40, inputs: [['lemongrass', 1], ['vial', 1]], group: 'strength', fx: { dmg: 0.08 }, ms: 5 * MIN, color: '#3aa04a' },
   defence_potion: { name: 'Defence potion', level: 20, xp: 55, inputs: [['sireh_leaf', 1], ['vial', 1]], group: 'defence', fx: { reduce: 0.06 }, ms: 5 * MIN, color: '#3a7ad8' },
-  ranging_potion: { name: 'Ranging potion', level: 30, xp: 70, inputs: [['tongkat_ali', 1], ['vial', 1]], group: 'ranging', style: 'ranged', fx: { acc: 0.07, dmg: 0.07 }, ms: 5 * MIN, color: '#5ac0a0' },
-  magic_potion: { name: 'Magic potion', level: 38, xp: 85, inputs: [['misai_kucing', 1], ['vial', 1]], group: 'magic', style: 'magic', fx: { acc: 0.07, dmg: 0.07 }, ms: 5 * MIN, color: '#6a5ae0' },
+  ranging_potion: { name: 'Ranging potion', level: 30, xp: 70, inputs: [['tongkat_ali', 1], ['vial', 1]], group: 'ranging', style: 'ranged', fx: { crit: 0.03, dmg: 0.07 }, ms: 5 * MIN, color: '#5ac0a0' },
+  magic_potion: { name: 'Magic potion', level: 38, xp: 85, inputs: [['misai_kucing', 1], ['vial', 1]], group: 'magic', style: 'magic', fx: { crit: 0.03, dmg: 0.07 }, ms: 5 * MIN, color: '#6a5ae0' },
   healing_potion: { name: 'Healing potion', level: 45, xp: 100, inputs: [['hempedu_bumi', 1], ['vial', 1]], fx: { heal: 0.35 }, color: '#e87aa0' },
-  super_attack: { name: 'Super attack', level: 60, xp: 140, inputs: [['attack_potion', 1], ['butterfly_pea', 1]], group: 'attack', fx: { acc: 0.16 }, ms: 6 * MIN, color: '#a01a1a' },
+  super_attack: { name: 'Super attack', level: 60, xp: 140, inputs: [['attack_potion', 1], ['butterfly_pea', 1]], group: 'attack', fx: { crit: 0.08 }, ms: 6 * MIN, color: '#a01a1a' },
   super_strength: { name: 'Super strength', level: 66, xp: 155, inputs: [['strength_potion', 1], ['butterfly_pea', 1]], group: 'strength', fx: { dmg: 0.16 }, ms: 6 * MIN, color: '#1a7a2a' },
   super_defence: { name: 'Super defence', level: 72, xp: 170, inputs: [['defence_potion', 1], ['butterfly_pea', 1]], group: 'defence', fx: { reduce: 0.12 }, ms: 6 * MIN, color: '#1a4aa0' },
-  super_ranging: { name: 'Super ranging', level: 78, xp: 185, inputs: [['ranging_potion', 1], ['butterfly_pea', 1]], group: 'ranging', style: 'ranged', fx: { acc: 0.14, dmg: 0.14 }, ms: 6 * MIN, color: '#2a9a7a' },
-  super_magic: { name: 'Super magic', level: 84, xp: 200, inputs: [['magic_potion', 1], ['butterfly_pea', 1]], group: 'magic', style: 'magic', fx: { acc: 0.14, dmg: 0.14 }, ms: 6 * MIN, color: '#4a2ac0' },
+  super_ranging: { name: 'Super ranging', level: 78, xp: 185, inputs: [['ranging_potion', 1], ['butterfly_pea', 1]], group: 'ranging', style: 'ranged', fx: { crit: 0.06, dmg: 0.14 }, ms: 6 * MIN, color: '#2a9a7a' },
+  super_magic: { name: 'Super magic', level: 84, xp: 200, inputs: [['magic_potion', 1], ['butterfly_pea', 1]], group: 'magic', style: 'magic', fx: { crit: 0.06, dmg: 0.14 }, ms: 6 * MIN, color: '#4a2ac0' },
   super_healing: { name: 'Super healing', level: 90, xp: 220, inputs: [['healing_potion', 1], ['ginseng', 1]], fx: { heal: 0.6 }, color: '#d84a80' },
   elixir_of_temasek: { name: 'Elixir of Temasek', level: 110, xp: 420,
     inputs: [['super_attack', 1], ['super_strength', 1], ['super_defence', 1], ['lingzhi', 1], ['hornbill_casque', 1]],
-    group: 'elixir', fx: { acc: 0.2, dmg: 0.2, reduce: 0.14 }, ms: 10 * MIN, color: '#f0c040' },
+    group: 'elixir', fx: { crit: 0.08, dmg: 0.2, reduce: 0.14 }, ms: 10 * MIN, color: '#f0c040' },
   immortal_elixir: { name: 'Immortal elixir', level: 180, xp: 950,
     inputs: [['elixir_of_temasek', 1], ['snow_lotus', 1], ['peach_of_immortality', 1], ['qilin_mane', 1]],
-    group: 'elixir', fx: { acc: 0.3, dmg: 0.3, reduce: 0.2, crit: 0.05, heal: 0.5 }, ms: 10 * MIN, color: '#fff0a0' },
+    group: 'elixir', fx: { dmg: 0.3, reduce: 0.2, crit: 0.12, heal: 0.5 }, ms: 10 * MIN, color: '#fff0a0' },
 };
 export const POTION_IDS = Object.keys(POTIONS);
 

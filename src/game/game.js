@@ -1449,8 +1449,9 @@ export class Game {
     this._perkCtx = perk;
     // Gear's armour piercing stacks with the perk; boss damage from gear with the perk's.
     const gb = this.equipment.bonuses();
-    accM *= (1 + (perk.acc || 0) + this.learning.perks().acc) / (1 - Math.min(0.6, (perk.pierce || 0) + gb.pierce / 100));   // English mastery: Eloquence
-    dmgM *= 1 + (perk.dmg || 0) + ((npc.def.boss || npc.champion) ? (perk.boss || 0) + gb.bossDmg / 100 : 0);
+    accM *= (1 + (perk.acc || 0)) / (1 - Math.min(0.6, (perk.pierce || 0) + gb.pierce / 100));
+    dmgM *= 1 + (perk.dmg || 0) + this.learning.perks().dmg +   // English mastery: Eloquence
+      ((npc.def.boss || npc.champion) ? (perk.boss || 0) + gb.bossDmg / 100 : 0);
     // Attack bonus % boosts physical damage (melee, ranged, whips); Magic bonus % boosts spells.
     dmgM *= 1 + (mode === 'magic' ? gb.magPct : gb.atkPct) / 100;
     dmgM *= this._volley || 1;   // a volley of very fast attacks lands as one big hit

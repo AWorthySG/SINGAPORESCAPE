@@ -117,10 +117,10 @@ export class Learning {
     return { streak: this.daily.streak, coins: 150 + 50 * Math.min(this.daily.streak - 1, 6) };
   }
 
-  /** Subject perks: { shop, crit, acc } from mastered topics. */
+  /** Subject perks: { shop, crit, dmg } from mastered topics. */
   perks() {
     const p = (id) => Math.min(PERK_CAP[id], this.masteredIn(id) * PERK_STEP[id]);
-    return { shop: p('econ'), crit: p('math'), acc: p('english') };
+    return { shop: p('econ'), crit: p('math'), dmg: p('english') };
   }
 
   /** Titles you've unlocked (one per mastered topic). */

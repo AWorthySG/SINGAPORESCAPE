@@ -4,9 +4,8 @@
 // to level 9999.
 //
 // A perk's `mods` are added once per rank. The keys are read by the combat code:
-//   acc, dmg, crit         accuracy, damage (fractions) and crit chance (fraction)
+//   dmg, crit              damage (fraction) and crit chance (fraction)
 //   extra                  chance of an extra hit / arrow / swing
-//   pierce                 ignore this share of the target's defence
 //   boss                   extra damage against bosses and champions
 //   lifesteal              heal this share of the damage you deal
 //   stun                   chance a hit stops the target attacking for a moment
@@ -29,14 +28,14 @@ export const STYLE_TRACKS = { melee: ['attack', 'strength'], ranged: ['ranged'],
 
 export const PERK_TRACKS = {
   attack: [
-    { name: 'Keen Eye', desc: '+3% melee accuracy', mods: { acc: 0.03 } },
+    { name: 'Keen Eye', desc: '+1% melee critical chance', mods: { crit: 0.01 } },
     { name: 'Precision', desc: '+1% melee critical chance', mods: { crit: 0.01 } },
     { name: 'Double Strike', desc: '3% chance to swing twice', mods: { extra: 0.03 } },
-    { name: 'Armour Breaker', desc: 'Ignore 4% of enemy defence', mods: { pierce: 0.04 } },
+    { name: 'Armour Breaker', desc: '+4% melee damage', mods: { dmg: 0.04 } },
     { name: 'Giant Slayer', desc: '+4% damage to bosses and champions', mods: { boss: 0.04 } },
     { name: 'Battle Rhythm', desc: '+5% adrenaline from hits', mods: { adren: 0.05 } },
     { name: 'Vampiric Edge', desc: 'Heal 1% of melee damage dealt', mods: { lifesteal: 0.01 } },
-    { name: 'Weapon Master', desc: '+2% accuracy and +0.5% critical chance', mods: { acc: 0.02, crit: 0.005 } },
+    { name: 'Weapon Master', desc: '+1% melee critical chance and +1% damage', mods: { crit: 0.01, dmg: 0.01 } },
     { name: 'Concussive Blow', desc: '2% chance to stun on hit', mods: { stun: 0.02 } },
     { name: 'Deadly Focus', desc: '+1.5% melee critical chance', mods: { crit: 0.015 } },
   ],
@@ -45,12 +44,12 @@ export const PERK_TRACKS = {
     { name: 'Heavy Hitter', desc: '+5% damage to bosses and champions', mods: { boss: 0.05 } },
     { name: 'Bloodlust', desc: 'Heal 1.5% of melee damage dealt', mods: { lifesteal: 0.015 } },
     { name: 'Cleave', desc: '4% chance to hit a second nearby monster', mods: { splash: 0.04 } },
-    { name: 'Overpower', desc: 'Ignore 3% of enemy defence', mods: { pierce: 0.03 } },
+    { name: 'Overpower', desc: '+3% melee damage', mods: { dmg: 0.03 } },
     { name: 'Rampage', desc: '2% chance to swing twice', mods: { extra: 0.02 } },
     { name: 'Bone Crusher', desc: '2.5% chance to stun on hit', mods: { stun: 0.025 } },
     { name: 'Mighty', desc: '+3% melee damage', mods: { dmg: 0.03 } },
     { name: 'Executioner', desc: '+1% melee critical chance', mods: { crit: 0.01 } },
-    { name: 'Titan Grip', desc: '+2% melee damage and accuracy', mods: { dmg: 0.02, acc: 0.02 } },
+    { name: 'Titan Grip', desc: '+3% melee damage', mods: { dmg: 0.03 } },
   ],
   defence: [
     { name: 'Thick Hide', desc: 'Take 2% less damage', mods: { reduce: 0.02 } },
@@ -65,19 +64,19 @@ export const PERK_TRACKS = {
     { name: 'Fortitude', desc: 'Regain life over time', mods: { regen: 0.2 } },
   ],
   ranged: [
-    { name: 'Eagle Eye', desc: '+3% ranged accuracy', mods: { acc: 0.03 } },
+    { name: 'Eagle Eye', desc: '+1% ranged critical chance', mods: { crit: 0.01 } },
     { name: 'Steady Aim', desc: '+1% ranged critical chance', mods: { crit: 0.01 } },
     { name: 'Quiver Master', desc: '4% chance a shot uses no arrow', mods: { arrowSave: 0.04 } },
     { name: 'Long Shot', desc: '+1 tile of bow reach', mods: { range: 1 } },
     { name: 'Multishot', desc: '3% chance an arrow also hits another monster', mods: { splash: 0.03 } },
-    { name: 'Piercing Arrows', desc: 'Ignore 4% of enemy defence', mods: { pierce: 0.04 } },
+    { name: 'Piercing Arrows', desc: '+4% ranged damage', mods: { dmg: 0.04 } },
     { name: "Hunter's Mark", desc: '+4% damage to bosses and champions', mods: { boss: 0.04 } },
     { name: 'Rapid Fire', desc: '2% chance to loose a second arrow', mods: { extra: 0.02 } },
     { name: 'Deadeye', desc: '+4% ranged damage', mods: { dmg: 0.04 } },
     { name: 'Barbed Arrows', desc: '2% chance to stun on hit', mods: { stun: 0.02 } },
   ],
   magic: [
-    { name: 'Arcane Focus', desc: '+3% magic accuracy', mods: { acc: 0.03 } },
+    { name: 'Arcane Focus', desc: '+1% spell critical chance', mods: { crit: 0.01 } },
     { name: 'Spell Power', desc: '+4% spell damage', mods: { dmg: 0.04 } },
     { name: 'Rune Saver', desc: '5% chance a cast uses no runes', mods: { runeSave: 0.05 } },
     { name: 'Chain Spell', desc: '3% chance a spell leaps to another monster', mods: { splash: 0.03 } },
@@ -92,7 +91,7 @@ export const PERK_TRACKS = {
     { name: 'Graceful', desc: '+1% chance to dodge', mods: { dodge: 0.01 } },
     { name: 'Tempo', desc: '+3% whip damage', mods: { dmg: 0.03 } },
     { name: 'Whiplash', desc: '+4% whip damage', mods: { dmg: 0.04 } },
-    { name: 'Flourish Master', desc: '+3% whip accuracy', mods: { acc: 0.03 } },
+    { name: 'Flourish Master', desc: '+1% whip critical chance', mods: { crit: 0.01 } },
     { name: 'Spin', desc: '4% chance a lash also hits another monster', mods: { splash: 0.04 } },
     { name: 'Lightfoot', desc: '+5% adrenaline from hits', mods: { adren: 0.05 } },
     { name: 'Silk Step', desc: '+1% whip critical chance', mods: { crit: 0.01 } },
