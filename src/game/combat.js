@@ -52,6 +52,13 @@ export function rollAttack(atkRoll, defRoll, max) {
   return 0;
 }
 
+/** The player's attacks always land: a blow rolls between a quarter of the max
+ *  hit and the max (never 0), so there is no miss for the player. Monsters still
+ *  roll against your Defence with rollAttack. */
+export function rollHit(max) {
+  return randInt(Math.max(1, Math.floor(max / 4)), Math.max(1, max));
+}
+
 /** A guaranteed hit (e.g. the Power Strike ability) — never misses, hits high. */
 export function rollGuaranteed(max) {
   return randInt(Math.max(1, Math.ceil(max / 2)), Math.max(1, max));
