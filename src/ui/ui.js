@@ -1193,7 +1193,7 @@ export class UI {
       body.appendChild(ks);
       // Perks earned from each subject, and the title picker.
       const perks = L.perks();
-      const perkVal = { econ: `${Math.round(perks.shop * 100)}% better shop prices`, math: `+${Math.round(perks.crit * 100)}% crit chance`, english: `+${Math.round(perks.acc * 100)}% accuracy` };
+      const perkVal = { econ: `${Math.round(perks.shop * 100)}% better shop prices`, math: `+${Math.round(perks.crit * 100)}% crit chance`, english: `+${Math.round(perks.dmg * 100)}% damage` };
       const pk = document.createElement('div');
       pk.className = 'codex-perks';
       pk.innerHTML = SUBJECTS.map((sb) => `<span style="--sc:${sb.color}" title="${sb.perkDesc}"><b>${sb.perk}</b> ${L.masteredIn(sb.id) ? perkVal[sb.id] : `master ${/^[AEIOU]/.test(sb.name) ? 'an' : 'a'} ${sb.name} topic to unlock`}</span>`).join('');

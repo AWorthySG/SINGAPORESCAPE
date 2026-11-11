@@ -9,7 +9,7 @@
 export const SUBJECTS = [
   { id: 'econ', name: 'Economics', color: '#e0a03a', perk: 'Trader', perkDesc: 'Shops sell to you for less and buy from you for more' },
   { id: 'math', name: 'Mathematics', color: '#3a8fd8', perk: 'Precision', perkDesc: 'Higher chance to land a critical hit' },
-  { id: 'english', name: 'English', color: '#c0569a', perk: 'Eloquence', perkDesc: 'Your attacks are more accurate' },
+  { id: 'english', name: 'English', color: '#c0569a', perk: 'Eloquence', perkDesc: 'Your attacks hit harder' },
 ];
 export const SUBJECT_BY_ID = Object.fromEntries(SUBJECTS.map((s) => [s.id, s]));
 
