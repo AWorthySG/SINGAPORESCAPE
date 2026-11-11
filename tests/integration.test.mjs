@@ -1322,6 +1322,9 @@ test('boss "summon" adds are exempt from the aggro cap so the encounter mechanic
 
   const px = game.player.x, py = game.player.y;
   for (const add of adds) { add.x = px + (add.x > px ? 1 : -1); add.y = py; add.spawnX = add.x; add.spawnY = add.y; }
+  // One add's swing can make you strike back and kill a frail imp mid-check,
+  // which clears its target (that made this test flaky), so the adds can't die here.
+  for (const add of adds) add.maxHp = add.hp = 1e9;
   game._aggroAttackers = 999; // pretend the cap is already saturated
   for (const add of adds) add._combatAI(game);
   assert.ok(adds.every((a) => a.target === game.player), 'summoned adds always join the fight, cap or not');
