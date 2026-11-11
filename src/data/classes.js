@@ -13,7 +13,7 @@ export const CLASSES = [
   { id: 'berserker', name: 'Berserker', weapon: 'battleaxe', style: 'melee', desc: 'Heavy battleaxes for huge, wild blows.' },
   { id: 'juggernaut', name: 'Juggernaut', weapon: 'warhammer', style: 'melee', desc: 'Warhammers that hit harder than anything.' },
   { id: 'gladiator', name: 'Gladiator', weapon: '2h_sword', style: 'melee', desc: 'Mighty two-handed swords with long reach.' },
-  { id: 'lancer', name: 'Lancer', weapon: 'spear', style: 'melee', desc: 'Accurate spears that reach 3 tiles.' },
+  { id: 'lancer', name: 'Lancer', weapon: 'spear', style: 'melee', desc: 'Long spears that reach 3 tiles.' },
   { id: 'brawler', name: 'Brawler', weapon: 'claws', style: 'melee', desc: 'Lightning-fast claws: the quickest swings in the game, and they crit often.' },
   { id: 'samurai', name: 'Samurai', weapon: 'katana', style: 'melee', desc: 'Keen katanas: fast, balanced and deadly.' },
   { id: 'halberdier', name: 'Halberdier', weapon: 'halberd', style: 'melee', desc: 'Slow, devastating halberds with 3-tile reach.' },

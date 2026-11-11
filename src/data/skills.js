@@ -1,10 +1,10 @@
 // Skill definitions. Order here drives the Skills tab layout (RS-style grid).
 export const SKILLS = [
-  // Melee is one skill, like Ranged: it drives both accuracy and damage. It keeps
+  // Melee is one skill, like Ranged: it drives your damage. It keeps
   // the id 'attack' so saves, requirements and perks carry over; 'strength' now
   // just mirrors it (see Skills in skillset.js) and is hidden from the Skills tab.
   { id: 'attack', name: 'Melee', icon: '⚔️', color: '#9c2b1f', combat: true, startLevel: 15,
-    group: 'combat', desc: 'Melee accuracy and power in one skill. Train it with any melee weapon.' },
+    group: 'combat', desc: 'Melee power: how hard your melee hits are. Train it with any melee weapon.' },
   { id: 'hitpoints', name: 'Hitpoints', icon: '❤️', color: '#9c2b1f', combat: true, startLevel: 25,
     group: 'combat', desc: 'Your life. Rises as you deal damage; eat food to heal.' },
   { id: 'mining', name: 'Mining', icon: '⛏️', color: '#6f7a8a',
@@ -14,7 +14,7 @@ export const SKILLS = [
   { id: 'defence', name: 'Defence', icon: '🛡️', color: '#2f6fdb', combat: true, startLevel: 12,
     group: 'combat', desc: 'Shrugs off hits and unlocks armour. Trained by Defensive, Longrange or Twirl.' },
   { id: 'ranged', name: 'Ranged', icon: '🏹', color: '#5a8a3a', combat: true,
-    group: 'combat', desc: 'Bow accuracy and damage. Train it by shooting with a bow.' },
+    group: 'combat', desc: 'Bow damage. Train it by shooting with a bow.' },
   { id: 'magic', name: 'Magic', icon: '✨', color: '#5b6bd6', combat: true,
     group: 'combat', desc: 'Spell power and new spells. Train it by casting with a staff.' },
   { id: 'smithing', name: 'Smithing', icon: '🔨', color: '#8a6f4a',

@@ -11,14 +11,14 @@ import { canDualWield } from './equipment.js';
 // One signature line per class: the thing to remember it by.
 const SIGNATURE = {
   rogue: 'Dual wields daggers: a second dagger in the off-hand strikes again (60% power) after every swing.',
-  swordsman: 'The all-rounder: balanced accuracy and power, and a solid cleave.',
+  swordsman: 'The all-rounder: steady damage, sturdy defence, and a solid cleave.',
   corsair: 'Dual wields scimitars and swings faster than any other blade, with a light cleave.',
   paladin: 'Holy maces that crush the undead, demons and armoured sea creatures.',
   knight: 'Longswords strike from 3 tiles away, and slay dragons and reptiles.',
   berserker: 'Heavy battleaxes with a wide cleave that mows down packs.',
   juggernaut: 'Warhammers hit harder than anything and cleave through crowds; they crack golems.',
   gladiator: 'Two-handed swords: the widest cleave (70%) and 3-tile reach.',
-  lancer: 'Accurate spears that strike from 3 tiles away.',
+  lancer: 'Long spears that strike from 3 tiles away.',
   brawler: 'Claws: the quickest swings in the game and extra critical hits, with a light cleave.',
   samurai: 'Keen katanas: quick, balanced and extra critical hits.',
   halberdier: 'Halberds: slow, huge blows from 3 tiles with a wide cleave.',
@@ -27,10 +27,10 @@ const SIGNATURE = {
   wizard: 'Staves cast powerful spells; elemental staves supply unlimited runes of their element.',
   sorcerer: 'Wands cast quickly: lighter spells, but more of them.',
   dancer: 'Whips lash from 3 tiles and ricochet into 2 more monsters (3 at full Rhythm), build Rhythm for bigger hits, and help you dodge blows.',
-  sniper: 'Sniper rifles: the furthest reach in the game (32+ tiles) and each round hits about 5.5x as hard, never misses, and pierces every monster within 1 tile of its path, up to 10 tiles past the target, but fires only every 1.5s. No ammo to buy.',
+  sniper: 'Sniper rifles: the furthest reach in the game (32+ tiles) and each round hits about 5.5x as hard and pierces every monster within 1 tile of its path, up to 10 tiles past the target, but fires only every 1.5s. No ammo to buy.',
   pistoler: 'Dual pistols: by far the fastest attacks in the game, each hand firing, and no ammo to buy.',
   ninja: 'Shurikens ricochet off your target into a second foe nearby (60% damage), and need no ammo.',
-  merchant: 'Throws money: every coin flick from your cane costs coins (1 + 1 per 10 Ranged levels), and your skills cost coins instead of adrenaline. Hire as many mercenaries as you can pay for (Combat tab): each runs at the closest monster for 90 seconds, swings as fast as you, hits for half your damage, and earns you full XP. Every attack has a 25% chance to call up an A-Worthling, a mirror image of you that fights the same way for 25% of your damage and stays for good. Each A-Worthling swing has a 25% chance to split off a smaller one. Every A-Worthling never misses and hits for a fixed 25% of your max hit (up to 200 in all).',
+  merchant: 'Throws money: every coin flick from your cane costs coins (1 + 1 per 10 Ranged levels), and your skills cost coins instead of adrenaline. Hire as many mercenaries as you can pay for (Combat tab): each runs at the closest monster for 90 seconds, swings as fast as you, hits for half your damage, and earns you full XP. Every attack has a 25% chance to call up an A-Worthling, a mirror image of you that fights the same way for 25% of your damage and stays for good. Each A-Worthling swing has a 25% chance to split off a smaller one. Every A-Worthling hits for a fixed 25% of your max hit (up to 200 in all).',
 };
 
 // The passive perk tracks each style levels up (a perk every 20 levels).
