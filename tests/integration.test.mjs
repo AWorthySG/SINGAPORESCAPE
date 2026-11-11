@@ -2165,6 +2165,26 @@ test('Dodging a monster attack trains Agility; the boss ladder tops out at level
   assert.ok((game.skills.xp.agility || 0) > xp0, 'dodging earned Agility XP');
 });
 
+test('Hybrid combat XP: a trickle per hit, most of it as a kill reward worth the monster\'s full life', async () => {
+  const { killXp, DAMAGE_XP_SHARE, KILL_XP_SHARE } = await import('../src/game/combat.js');
+  assert.equal(DAMAGE_XP_SHARE + KILL_XP_SHARE, 1);
+  assert.equal(killXp('attack', 100).find((x) => x.skill === 'attack').xp, 300, '3 XP per point of life on the kill');
+  assert.equal(killXp('magic', 100).find((x) => x.skill === 'magic').xp, 150, 'Magic earns half (spells also pay per cast)');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  const npc = game.npcs.find((n) => n.def.attackable && n.alive && !n.def.boss && n.maxHp >= 20);
+  // A one-shot still pays the whole monster: the kill reward is its full life,
+  // and the damage trickle comes on top.
+  const { XP_RATE } = await import('../src/config.js');
+  const xp0 = game.skills.xp.attack;
+  game.killNpc(npc);
+  const gained = game.skills.xp.attack - xp0, expect = npc.maxHp * 3 * game.combatXpMult() * XP_RATE;
+  assert.ok(gained >= expect - 1, `kill reward ${gained} >= 3 x ${npc.maxHp} life (${expect})`);
+});
+
 test('XP bonus stacks: Wilderness level and kill streak; bosses drop much more and give bonus XP', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();

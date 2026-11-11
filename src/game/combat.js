@@ -11,12 +11,27 @@ export const STYLES = {
   balanced: { name: 'Balanced', skill: 'attack', atk: 2, str: 2, def: 2 },
 };
 const BAL = STYLES.balanced;
-/** XP for `damage` in a fighting skill: the skill, plus Defence and Hitpoints. */
-const fightXp = (skill, damage) => [
-  { skill, xp: damage * 4 },
-  { skill: 'defence', xp: damage * 1.33 },
-  { skill: 'hitpoints', xp: damage * 1.33 },
+// Combat XP is a hybrid: a quarter of it trickles in with every point of
+// damage you deal (DAMAGE_XP_SHARE), and the rest comes as a reward when a
+// monster dies (killXp), worth its full life. So overkill and one-shots no
+// longer waste XP, and splash damage can't farm more than the kills it makes.
+export const DAMAGE_XP_SHARE = 0.25;
+export const KILL_XP_SHARE = 1 - DAMAGE_XP_SHARE;
+// XP per point of damage (or of a monster's life, for the kill reward), before
+// the shares: the fighting skill (Magic earns half, as spells also give XP per
+// cast), plus Defence and Hitpoints.
+const RATES = { skill: 4, magic: 2, defence: 1.33, hitpoints: 1.33 };
+const spread = (skill, amount) => [
+  { skill, xp: amount * (skill === 'magic' ? RATES.magic : RATES.skill) },
+  { skill: 'defence', xp: amount * RATES.defence },
+  { skill: 'hitpoints', xp: amount * RATES.hitpoints },
 ];
+/** XP for `damage` dealt in a fighting skill: the per-hit trickle. */
+const fightXp = (skill, damage) => spread(skill, damage * DAMAGE_XP_SHARE);
+/** Magic XP for spell damage (on top of the spell's own XP per cast). */
+export function magicXp(damage) { return fightXp('magic', damage); }
+/** The kill reward for a monster with `maxHp` life, in a fighting skill. */
+export function killXp(skill, maxHp) { return spread(skill, Math.max(1, maxHp || 1) * KILL_XP_SHARE); }
 
 export const STYLE_ORDER = ['balanced'];
 
