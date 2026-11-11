@@ -11,7 +11,7 @@ import { findPath } from '../src/engine/pathfinding.js';
 import { hitChance, maxHit, attackRoll, combatXp } from '../src/game/combat.js';
 import { gatherChance } from '../src/game/skilling.js';
 import { XP_RATE } from '../src/config.js';
-import { NPCS, MONSTER_IDS, BOSS_IDS, getNpc } from '../src/data/npcs.js';
+import { NPCS, MONSTER_IDS, BOSS_IDS, getNpc, monsterHpScale } from '../src/data/npcs.js';
 import { itemIconSVG, hasIcon, skillIconSVG, pngItems } from '../src/render/icons.js';
 import { readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -342,7 +342,11 @@ test('monsters and bosses are tougher, but the first town monsters stay easy', (
   assert.ok(lizard.maxHp >= Math.round((14 * 1.7 + 2) * 20), `monitor lizard hp ${lizard.maxHp}`);
   // (Stats are worked out from the monster's original level, then scaled up with its stretched level.)
   const high = Object.values(NPCS).find((d) => d.attackable && !d.boss && d.tierLevel >= 60);
-  assert.equal(high.maxHp, Math.round(Math.round((high.tierLevel * 1.7 + 2) * 22.4) * high.level / high.tierLevel), 'a level 60+ monster has 22.4x the base health');
+  const stretched = Math.round(Math.round((high.tierLevel * 1.7 + 2) * 22.4) * high.level / high.tierLevel);
+  assert.equal(high.maxHp, Math.round(stretched * monsterHpScale(high.level)), 'a level 60+ monster has 22.4x the base health, scaled up with its level');
+  // High-level monster HP keeps pace with player damage: x1 up to level 40, x4 from 350.
+  assert.equal(monsterHpScale(40), 1); assert.equal(monsterHpScale(350), 4); assert.equal(monsterHpScale(5000), 4);
+  assert.ok(monsterHpScale(200) > 2 && monsterHpScale(200) < 3);
   // Bosses: 3600x the base health and a sturdier defence.
   const chief = getNpc('goblin_warchief');
   assert.equal(chief.maxHp, Math.round(Math.round((35 * 4.5 + 30) * 3600) * chief.level / 35));
