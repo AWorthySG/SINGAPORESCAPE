@@ -2121,6 +2121,28 @@ test('Class passives, perks and potions grant no accuracy or armour piercing, si
   }
 });
 
+test('Former accuracy stats now add damage: gear Attack and Magic bonus, and armour pierce', async () => {
+  const { playerMagicVsNpc } = await import('../src/game/combat.js');
+  const { SPELLS } = await import('../src/data/magic.js');
+  const sk = { attack: 50, strength: 50, magic: 50 };
+  const gear = (b) => ({ bonuses: () => ({ attack: 0, strength: 0, magic: 0, magicStr: 0, ...b }) });
+  const mel = (b) => playerAttackVsNpc(sk, gear(b), 'balanced', { defence: 1 }).max;
+  assert.ok(mel({ attack: 400 }) > mel({}), 'a melee Attack bonus raises max hit');
+  const mag = (b) => playerMagicVsNpc(sk, gear(b), SPELLS[0], { defence: 1 }).max;
+  assert.ok(mag({ magic: 160 }) > mag({}), 'a Magic bonus raises spell damage');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  const mob = game.npcs.find((n) => n.def.attackable && n.alive && !n.def.boss);
+  const plain = game.equipment.bonuses.bind(game.equipment);
+  const d0 = game._offensiveMods(mob, 'melee').dmgM;
+  game.equipment.bonuses = () => ({ ...plain(), pierce: 20 });
+  const d1 = game._offensiveMods(mob, 'melee').dmgM;
+  assert.ok(Math.abs(d1 / d0 - 1.2) < 1e-9, `20% armour pierce adds 20% damage (x${(d1 / d0).toFixed(3)})`);
+});
+
 test('XP bonus stacks: Wilderness level and kill streak; bosses drop much more and give bonus XP', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
@@ -2519,7 +2541,7 @@ test('passive perks change combat: more max life, less damage taken, thorns, and
   game.skills.xp.attack = xpForLevel(200); game.skills.xp.strength = xpForLevel(200);
   const mob = new NPC('goblin', game.player.x + 1, game.player.y, 0, {});
   const mods = game._offensiveMods(mob, 'melee');
-  assert.ok(mods.accM > 1 && mods.dmgM > 1, 'melee perks raise accuracy and damage');
+  assert.ok(mods.accM === undefined && mods.dmgM > 1, 'melee perks raise damage (there is no accuracy any more)');
   game._postAttack(mob);
   const chat = [];
   game.bus.on('chat', (c) => chat.push(c.text));

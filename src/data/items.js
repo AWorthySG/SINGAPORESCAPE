@@ -674,44 +674,44 @@ RAW.imperial_staff = { name: 'Imperial staff', icon: '🪄', value: 800000, exam
 RAW.astral_whip = { name: 'Astral whip', icon: '〰️', value: 4000000, examine: 'Each crack opens a tiny window onto the stars.', equip: { slot: 'weapon', combatType: 'dance', range: 3, req: { agility: 220 }, bonuses: { dance: 200, crit: 11, speed: 4 } } };
 
 // Weapon special attacks (the spec bar). Attached after generation so the tiered
-// Dragon weapons can carry specs too. acc/dmg are multipliers; hits = swings;
+// Dragon weapons can carry specs too. dmg is a multiplier; hits = swings;
 // heal = fraction of damage returned as health.
 const WEAPON_SPECS = {
-  dragon_dagger: { name: 'Puncture', cost: 25, acc: 1.5, dmg: 1.15, hits: 2 },
-  dragon_scimitar: { name: 'Sever', cost: 40, acc: 2.0, dmg: 1.25 },
-  dragon_longsword: { name: 'Cleave', cost: 35, acc: 1.5, dmg: 1.3 },
-  dragon_mace: { name: 'Crush', cost: 35, acc: 1.6, dmg: 1.35 },
-  dragon_battleaxe: { name: 'Rampage', cost: 50, acc: 1.2, dmg: 1.7 },
-  dragon_2h_sword: { name: 'Devastate', cost: 55, acc: 1.25, dmg: 1.7 },
+  dragon_dagger: { name: 'Puncture', cost: 25, dmg: 1.15, hits: 2 },
+  dragon_scimitar: { name: 'Sever', cost: 40, dmg: 1.25 },
+  dragon_longsword: { name: 'Cleave', cost: 35, dmg: 1.3 },
+  dragon_mace: { name: 'Crush', cost: 35, dmg: 1.35 },
+  dragon_battleaxe: { name: 'Rampage', cost: 50, dmg: 1.7 },
+  dragon_2h_sword: { name: 'Devastate', cost: 55, dmg: 1.7 },
   // Endgame melee specials
-  jade_katana: { name: 'Jade Wind', cost: 40, acc: 2.2, dmg: 1.4, hits: 2 },
-  starmetal_halberd: { name: 'Meteor Sweep', cost: 55, acc: 1.6, dmg: 2.0 },
-  celestial_scimitar: { name: 'Heaven Cut', cost: 45, acc: 2.4, dmg: 1.6 },
-  eternal_2h_sword: { name: 'Endless Edge', cost: 60, acc: 2.0, dmg: 2.4 },
-  eternal_claws: { name: 'Eternal Rend', cost: 50, acc: 2.0, dmg: 1.0, hits: 4 },
-  celestial_bow: { name: 'Starlight Volley', cost: 55, acc: 2.0, dmg: 1.3, hits: 3 },
-  eternal_bow: { name: 'Thousand Arrows', cost: 60, acc: 2.2, dmg: 1.2, hits: 4 },
-  eternal_whip: { name: 'Endless Waltz', cost: 60, acc: 2.2, dmg: 1.2, hits: 5 },
-  merlion_blade: { name: 'Tide Strike', cost: 50, acc: 2.0, dmg: 1.5, heal: 0.2 },
-  tiger_fang: { name: 'Maul', cost: 40, acc: 1.6, dmg: 1.4 },
-  granite_maul: { name: 'Quake', cost: 50, acc: 1.5, dmg: 1.7 },
-  tiger_kris: { name: 'Flurry', cost: 25, acc: 1.4, dmg: 1.1, hits: 2 },
-  cursed_cutlass: { name: 'Plunder', cost: 45, acc: 1.5, dmg: 1.5, heal: 0.3 },
-  megalodon_jaw: { name: 'Devour', cost: 55, acc: 1.4, dmg: 1.7, heal: 0.25 },
-  leviathan_trident: { name: 'Riptide', cost: 50, acc: 1.6, dmg: 1.45, heal: 0.4 },
+  jade_katana: { name: 'Jade Wind', cost: 40, dmg: 1.4, hits: 2 },
+  starmetal_halberd: { name: 'Meteor Sweep', cost: 55, dmg: 2.0 },
+  celestial_scimitar: { name: 'Heaven Cut', cost: 45, dmg: 1.6 },
+  eternal_2h_sword: { name: 'Endless Edge', cost: 60, dmg: 2.4 },
+  eternal_claws: { name: 'Eternal Rend', cost: 50, dmg: 1.0, hits: 4 },
+  celestial_bow: { name: 'Starlight Volley', cost: 55, dmg: 1.3, hits: 3 },
+  eternal_bow: { name: 'Thousand Arrows', cost: 60, dmg: 1.2, hits: 4 },
+  eternal_whip: { name: 'Endless Waltz', cost: 60, dmg: 1.2, hits: 5 },
+  merlion_blade: { name: 'Tide Strike', cost: 50, dmg: 1.5, heal: 0.2 },
+  tiger_fang: { name: 'Maul', cost: 40, dmg: 1.4 },
+  granite_maul: { name: 'Quake', cost: 50, dmg: 1.7 },
+  tiger_kris: { name: 'Flurry', cost: 25, dmg: 1.1, hits: 2 },
+  cursed_cutlass: { name: 'Plunder', cost: 45, dmg: 1.5, heal: 0.3 },
+  megalodon_jaw: { name: 'Devour', cost: 55, dmg: 1.7, heal: 0.25 },
+  leviathan_trident: { name: 'Riptide', cost: 50, dmg: 1.45, heal: 0.4 },
   // ranged
-  yew_shortbow: { name: 'Pinpoint Shot', cost: 40, acc: 2.5, dmg: 1.25 },
-  magic_shortbow: { name: 'Rapid Volley', cost: 50, acc: 1.3, dmg: 1.15, hits: 2 },
-  dark_bow: { name: 'Descent of Darkness', cost: 55, acc: 1.5, dmg: 1.5, hits: 2 },
-  crystal_bow: { name: 'Prism Shot', cost: 45, acc: 2.5, dmg: 1.6 },
-  twisted_bow: { name: 'Storm of Arrows', cost: 60, acc: 1.6, dmg: 1.4, hits: 3 },
+  yew_shortbow: { name: 'Pinpoint Shot', cost: 40, dmg: 1.25 },
+  magic_shortbow: { name: 'Rapid Volley', cost: 50, dmg: 1.15, hits: 2 },
+  dark_bow: { name: 'Descent of Darkness', cost: 55, dmg: 1.5, hits: 2 },
+  crystal_bow: { name: 'Prism Shot', cost: 45, dmg: 1.6 },
+  twisted_bow: { name: 'Storm of Arrows', cost: 60, dmg: 1.4, hits: 3 },
   // dance
-  orchid_whip: { name: 'Petal Storm', cost: 45, acc: 1.5, dmg: 1.2, hits: 3 },
-  dragon_whip: { name: 'Dragon Lash', cost: 50, acc: 1.6, dmg: 1.8 },
-  celestial_whip: { name: 'Starfall Dance', cost: 60, acc: 2.0, dmg: 1.3, hits: 4 },
+  orchid_whip: { name: 'Petal Storm', cost: 45, dmg: 1.2, hits: 3 },
+  dragon_whip: { name: 'Dragon Lash', cost: 50, dmg: 1.8 },
+  celestial_whip: { name: 'Starfall Dance', cost: 60, dmg: 1.3, hits: 4 },
   // magic
-  mystic_staff: { name: 'Spell Echo', cost: 45, acc: 1.4, dmg: 1.5 },
-  ancient_staff: { name: 'Arcane Surge', cost: 55, acc: 1.5, dmg: 1.8 },
+  mystic_staff: { name: 'Spell Echo', cost: 45, dmg: 1.5 },
+  ancient_staff: { name: 'Arcane Surge', cost: 55, dmg: 1.8 },
 };
 for (const [id, spec] of Object.entries(WEAPON_SPECS)) { if (RAW[id]) RAW[id].spec = spec; }
 
@@ -723,7 +723,7 @@ for (const [id, name, lvl, , , , , heal, value] of CROPS) {
     examine: heal ? `Fresh ${name.toLowerCase()} from the farm. Heals ${heal}.` : `A farmed herb, ready for Herblore.` };
 }
 for (const [id, p] of Object.entries(POTIONS)) {
-  const what = p.fx.heal && !p.fx.acc ? `Restores ${Math.round(p.fx.heal * 100)}% of your life.` : `Boosts you in a fight for ${Math.round(p.ms / 60000)} minutes.`;
+  const what = p.fx.heal && !p.fx.dmg && !p.fx.crit ? `Restores ${Math.round(p.fx.heal * 100)}% of your life.` : `Boosts you in a fight for ${Math.round(p.ms / 60000)} minutes.`;
   RAW[id] = { name: p.name, icon: '🧪', value: Math.round(20 + p.level * p.level * 0.6), stackable: true, potion: true, tags: ['potion'], examine: `${what} (Herblore ${p.level})` };
 }
 Object.assign(RAW, {

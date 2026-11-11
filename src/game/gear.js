@@ -13,13 +13,13 @@ export const STAT_LABELS = {
 const STAT_KEYS = Object.keys(STAT_LABELS);
 
 export const STAT_HELP = [
-  ['Attack', 'how often your melee hits land'],
+  ['Attack', 'melee attack: a quarter of it adds to Melee power'],
   ['Melee power', 'how hard your melee hits are (the old Strength bonus)'],
-  ['Ranged / Magic', 'accuracy and damage for bows and staves'],
-  ['Dance', 'the Dancer\'s accuracy and damage with whips'],
+  ['Ranged / Magic', 'damage for bows and staves'],
+  ['Dance', 'the Dancer\'s damage with whips'],
   ['Defence', 'how often enemies miss you'],
   ['Speed', 'time between swings — lower is faster'],
-  ['Armour pierce', 'ignores part of the enemy\'s defence, so more hits land (plate armour)'],
+  ['Armour pierce', 'extra damage on every hit, as a % (plate armour)'],
   ['Crit damage', 'makes critical hits (x2, or x4 on a mega crit) bigger still (scout leather)'],
   ['Attack speed', 'more attacks: +100% attacks twice as often, with no cap (every weapon, hide)'],
   ['Attack bonus', 'more damage from melee and ranged hits (bows, pistols, shurikens, swords, hide)'],
