@@ -102,7 +102,7 @@ const RICOCHET_SHARE = 0.6;
 const LONGBOW_DMG = 1.6;
 // Sniper rifles fire only every 1.5s, but each round hits this many times as hard.
 const RIFLE_DMG = 5.5;
-// A sniper round never misses, and carries on in a straight line through every
+// A sniper round carries on in a straight line through every
 // monster up to this many tiles past the target (each takes the full hit).
 // Bosses scale up to the player's combat level (see _scaleBoss), up to this
 // many times their own level.

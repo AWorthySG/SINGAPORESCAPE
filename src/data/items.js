@@ -517,7 +517,7 @@ const _WEAPONS = [
   ['dagger', 'dagger', 4, 3, 4, 10], ['sword', 'sword', 5, 5, 5, 26], ['scimitar', 'scimitar', 7, 6, 4, 32],
   ['mace', 'mace', 6, 7, 5, 30], ['longsword', 'longsword', 9, 8, 5, 40], ['battleaxe', 'battleaxe', 10, 11, 6, 52],
   ['warhammer', 'warhammer', 8, 12, 6, 54], ['2h_sword', '2h sword', 14, 15, 7, 80],
-  // Newer families: an accurate spear, quick claws that crit, a balanced katana
+  // Newer families: a long-reaching spear, quick claws that crit, a balanced katana
   // with a keen edge, and a slow, huge-hitting halberd. [.., crit %]
   ['spear', 'spear', 9, 7, 5, 36], ['claws', 'claws', 6, 6, 4, 34, 4],
   ['katana', 'katana', 9, 9, 5, 60, 3], ['halberd', 'halberd', 13, 16, 7, 84],
@@ -558,7 +558,7 @@ for (const M of _METALS) for (const [t] of _WEAPONS) { const it = RAW[`${M.k}_${
 
 // ---- The Dancer: whips and dancer outfits ----
 // Whips are the Dancer's weapon: a quick lash that reaches 3 tiles. Dancers fight
-// with Agility (accuracy and damage) and their `dance` gear bonus.
+// with Agility (damage) and their `dance` gear bonus.
 const _WHIPS = [
   // id, name, Agility needed, dance bonus, crit %, value, examine
   ['leather_whip', 'Leather whip', 1, 6, 0, 60, 'A supple leather whip. Every Dancer starts with one.'],

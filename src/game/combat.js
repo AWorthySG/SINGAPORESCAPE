@@ -59,7 +59,7 @@ export function rollHit(max) {
   return randInt(Math.max(1, Math.floor(max / 4)), Math.max(1, max));
 }
 
-/** A guaranteed hit (e.g. the Power Strike ability) — never misses, hits high. */
+/** A guaranteed hit (e.g. the Power Strike ability): rolls high, at least half the max. */
 export function rollGuaranteed(max) {
   return randInt(Math.max(1, Math.ceil(max / 2)), Math.max(1, max));
 }
@@ -185,7 +185,7 @@ export function playerRangedVsNpc(skills, equip, styleId, npc, arrowStr) {
 export function combatXpRanged(styleId, damage) { return fightXp('ranged', damage); }
 
 // ----- Dance (whips) -----
-// The Dancer fights with Agility: it drives both accuracy and damage, boosted by
+// The Dancer fights with Agility: it drives damage, boosted by
 // the `dance` gear bonus. Each landed lash builds Rhythm, which adds damage.
 export const DANCE_STYLES = {
   balanced: { name: 'Balanced', atk: 2, str: 2, skill: 'agility', evade: 0.04 },

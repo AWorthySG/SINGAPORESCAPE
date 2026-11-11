@@ -92,7 +92,7 @@ export class Equipment {
       total.ranged += b.ranged || 0;
       total.magic += b.magic || 0;
       total.magicStr += b.magicStr || 0;
-      total.dance += b.dance || 0;   // Dancer accuracy and damage
+      total.dance += b.dance || 0;   // Dancer damage
       total.crit += b.crit || 0;   // bonus critical-hit chance (%)
       total.hp += b.hp || 0;       // bonus max hitpoints
       for (const k of OFFENCE_KEYS) total[k] += b[k] || 0;   // armour piercing, crit damage, haste, lifesteal, boss damage (%)
