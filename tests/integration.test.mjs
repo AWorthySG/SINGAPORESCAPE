@@ -2108,6 +2108,16 @@ test('Player attacks always land: no misses even against a heavily armoured foe'
   }
 });
 
+test('Class passives grant no accuracy or armour piercing, since attacks always land', async () => {
+  const { CLASS_PASSIVES } = await import('../src/data/classPassives.js');
+  for (const [cls, list] of Object.entries(CLASS_PASSIVES)) {
+    for (const p of list) {
+      assert.ok(!('acc' in p.mods) && !('pierce' in p.mods), `${cls} ${p.name} has no hit-chance mods`);
+      assert.ok(!/accuracy|defence/i.test(p.desc), `${cls} ${p.name} doesn't promise accuracy`);
+    }
+  }
+});
+
 test('XP bonus stacks: Wilderness level and kill streak; bosses drop much more and give bonus XP', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();

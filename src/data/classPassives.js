@@ -4,6 +4,8 @@
 // 300; after that they rank up in turn (Rank II at 400, 500 and 600, and so on
 // up to level 9999). `mods` use the same keys as the perk tracks (perks.js) and
 // stack once per rank.
+// Player attacks always land, so no passive grants accuracy or armour piercing
+// (both only raised the chance to hit); those became crit chance and damage.
 export const CLASS_SKILL = { melee: 'attack', ranged: 'ranged', magic: 'magic', dance: 'agility' };
 
 export const CLASS_PASSIVES = {
@@ -13,7 +15,7 @@ export const CLASS_PASSIVES = {
     { name: 'Killer Instinct', desc: '+5% crit chance, +5% damage to bosses', mods: { crit: 0.05, boss: 0.05 } },
   ],
   swordsman: [
-    { name: 'Blade Discipline', desc: '+5% accuracy, +3% damage', mods: { acc: 0.05, dmg: 0.03 } },
+    { name: 'Blade Discipline', desc: '+3% crit chance, +3% damage', mods: { crit: 0.03, dmg: 0.03 } },
     { name: 'Parry', desc: '+4% dodge, 3% less damage taken', mods: { dodge: 0.04, reduce: 0.03 } },
     { name: 'Hero\'s Resolve', desc: '+6% max life, +1 life a tick', mods: { maxhp: 0.06, regen: 1 } },
   ],
@@ -29,7 +31,7 @@ export const CLASS_PASSIVES = {
   ],
   knight: [
     { name: 'Plate Mastery', desc: '5% less damage taken, +4% max life', mods: { reduce: 0.05, maxhp: 0.04 } },
-    { name: 'Lance Reach', desc: 'Ignore 5% of enemy defence, +3% accuracy', mods: { pierce: 0.05, acc: 0.03 } },
+    { name: 'Lance Reach', desc: '+5% damage, +2% crit chance', mods: { dmg: 0.05, crit: 0.02 } },
     { name: 'Dragonslayer', desc: '+8% damage to bosses and champions', mods: { boss: 0.08 } },
   ],
   berserker: [
@@ -48,8 +50,8 @@ export const CLASS_PASSIVES = {
     { name: 'Champion', desc: '6% chance to strike another foe, +4% damage to bosses', mods: { splash: 0.06, boss: 0.04 } },
   ],
   lancer: [
-    { name: 'Long Reach', desc: '+6% accuracy', mods: { acc: 0.06 } },
-    { name: 'Skewer', desc: 'Ignore 6% of enemy defence', mods: { pierce: 0.06 } },
+    { name: 'Long Reach', desc: '+4% crit chance', mods: { crit: 0.04 } },
+    { name: 'Skewer', desc: '+6% damage', mods: { dmg: 0.06 } },
     { name: 'Impaler', desc: '4% chance of an extra thrust, +4% damage', mods: { extra: 0.04, dmg: 0.04 } },
   ],
   brawler: [
@@ -58,9 +60,9 @@ export const CLASS_PASSIVES = {
     { name: 'Alpha', desc: '+5% damage, +3% dodge', mods: { dmg: 0.05, dodge: 0.03 } },
   ],
   samurai: [
-    { name: 'Bushido', desc: '+4% accuracy, +3% crit chance', mods: { acc: 0.04, crit: 0.03 } },
+    { name: 'Bushido', desc: '+3% crit chance, +3% damage', mods: { crit: 0.03, dmg: 0.03 } },
     { name: 'Focus', desc: '+8% adrenaline from hits, +2% crit chance', mods: { adren: 0.08, crit: 0.02 } },
-    { name: 'Ronin\'s Edge', desc: '+5% crit chance, ignore 3% of enemy defence', mods: { crit: 0.05, pierce: 0.03 } },
+    { name: 'Ronin\'s Edge', desc: '+5% crit chance, +3% damage', mods: { crit: 0.05, dmg: 0.03 } },
   ],
   halberdier: [
     { name: 'Polearm Mastery', desc: '5% chance a hit strikes another foe', mods: { splash: 0.05 } },
@@ -73,17 +75,17 @@ export const CLASS_PASSIVES = {
     { name: 'Tycoon', desc: '+5% damage to bosses, +6% max life', mods: { boss: 0.05, maxhp: 0.06 } },
   ],
   archer: [
-    { name: 'Eagle Eye', desc: '+6% accuracy', mods: { acc: 0.06 } },
+    { name: 'Eagle Eye', desc: '+4% crit chance', mods: { crit: 0.04 } },
     { name: 'Quiver Master', desc: '5% chance of an extra arrow, 5% chance a shot uses no arrow', mods: { extra: 0.05, arrowSave: 0.05 } },
     { name: 'Rain of Arrows', desc: '6% chance a shot strikes another foe', mods: { splash: 0.06 } },
   ],
   ranger: [
     { name: 'Steady Aim', desc: '+4% crit chance', mods: { crit: 0.04 } },
-    { name: 'Hunter\'s Mark', desc: '+6% damage to bosses, ignore 3% of enemy defence', mods: { boss: 0.06, pierce: 0.03 } },
+    { name: 'Hunter\'s Mark', desc: '+6% damage to bosses, +3% damage', mods: { boss: 0.06, dmg: 0.03 } },
     { name: 'Far Shot', desc: '+6% damage, +1 tile of reach', mods: { dmg: 0.06, range: 1 } },
   ],
   sniper: [
-    { name: 'Steady Hands', desc: '+6% accuracy', mods: { acc: 0.06 } },
+    { name: 'Steady Hands', desc: '+4% crit chance', mods: { crit: 0.04 } },
     { name: 'Long Barrel', desc: '+2 tiles of reach, +3% damage', mods: { range: 2, dmg: 0.03 } },
     { name: 'One Shot', desc: '+6% damage to bosses, +3% crit chance', mods: { boss: 0.06, crit: 0.03 } },
   ],
@@ -98,7 +100,7 @@ export const CLASS_PASSIVES = {
     { name: 'Blade Storm', desc: '5% chance of an extra star, +3% crit chance', mods: { extra: 0.05, crit: 0.03 } },
   ],
   wizard: [
-    { name: 'Arcane Mind', desc: '+5% accuracy, 5% chance a cast uses no runes', mods: { acc: 0.05, runeSave: 0.05 } },
+    { name: 'Arcane Mind', desc: '+3% crit chance, 5% chance a cast uses no runes', mods: { crit: 0.03, runeSave: 0.05 } },
     { name: 'Elementalist', desc: '+6% spell damage', mods: { dmg: 0.06 } },
     { name: 'Archmage', desc: '+5% damage to bosses, +4% crit chance', mods: { boss: 0.05, crit: 0.04 } },
   ],
