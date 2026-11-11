@@ -329,7 +329,8 @@ test('monster levels stretch out above 15; stats follow; the old level stays for
   assert.equal(stretchLevel(30), 59); assert.equal(stretchLevel(100), 518);
   assert.ok(stretchLevel(450) > 4500, 'the top reaches the thousands');
   const all = Object.values(NPCS).filter((d) => d.attackable && d.level);
-  assert.ok(all.every((d) => d.level === stretchLevel(d.tierLevel)), 'every monster and boss uses its stretched level');
+  assert.ok(all.every((d) => d.level === (d.boss ? d.ladderLevel : stretchLevel(d.tierLevel))), 'every monster uses its stretched level, every boss its ladder level');
+  assert.ok(all.filter((d) => d.boss).every((d) => d.level >= stretchLevel(d.tierLevel)), 'the boss ladder only raises levels');
   const lizard = getNpc('monitor_lizard'), chief = getNpc('goblin_warchief');
   assert.ok(chief.level > chief.tierLevel && chief.maxHit > 1, 'bosses stretch too');
   assert.equal(getNpc('goblin').level, 5, 'town monsters keep their levels');
