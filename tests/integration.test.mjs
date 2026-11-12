@@ -789,7 +789,7 @@ test('new sessions start on a bright morning, then follow the day/night cycle', 
   assert.ok(!game.isNight());
 });
 
-test('weapon-specific skills: a bow swaps in Snapshot, which looses three arrows instantly', async () => {
+test('weapon-specific skills: a bow swaps in Snapshot, whose next shot looses two arrows', async () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
   const { NPC } = await import('../src/game/npc.js');
@@ -808,9 +808,10 @@ test('weapon-specific skills: a bow swaps in Snapshot, which looses three arrows
   let shots = 0;
   const fire = game._projectile.bind(game);
   game._projectile = (n, col, kind, ...rest) => { if (kind === 'arrow') shots++; return fire(n, col, kind, ...rest); };
-  game.player.attackCooldown = 3; // mid-swing: Snapshot must not wait for it
   game.activateAbilityKey('z');
-  assert.equal(shots, 3, 'three arrows fired at once');
+  assert.equal(game.armedAbility, 'snapshot', 'Snapshot readies the next shot (a free skill is never an extra attack)');
+  game.player.attackCooldown = 0; game.doPlayerAttack(target);
+  assert.equal(shots, 2, 'two arrows fired at once');
   assert.ok(game.abilityCd.snapshot > 0, 'Snapshot goes on cooldown');
   game.equipment.set('weapon', 'bronze_scimitar'); // the melee set comes back with a melee weapon
   assert.equal(game.currentAbilities()[0].id, 'power_strike');
@@ -2185,6 +2186,42 @@ test('Hybrid combat XP: a trickle per hit, most of it as a kill reward worth the
   assert.ok(gained >= expect - 1, `kill reward ${gained} >= 3 x ${npc.maxHp} life (${expect})`);
 });
 
+test('Auto battle rotation: builds with basics, saves big skills for fights worth them, defends when a blow winds up', async () => {
+  const { NPC } = await import('../src/game/npc.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('swordsman');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.abilityUnlocked = () => true;
+  g.autoBattle = true; g.autoCfg.abilities = true;
+  const t = new NPC('goblin', g.player.x + 1, g.player.y, 0, {});
+  t.hp = t.maxHp = 1000; t.def = { ...t.def, aggressive: false };
+  g.npcs = [t];
+  // Nothing to spend: the free basic (Riposte) is readied to build adrenaline.
+  g.adrenaline = 0;
+  g._autoSkills(t);
+  assert.equal(g.armedAbility, 'riposte', 'the basic skill is used whenever it is ready');
+  // A foe about to drop: the full bar is kept for the next fight.
+  g.armedAbility = null; g.abilityCd = { riposte: 99 }; g.adrenaline = 100;
+  g._autoHitAvg = 50; t.hp = 40;
+  g._autoSkills(t);
+  assert.notEqual(g.armedAbility, 'heroic_strike', 'no ultimate on a foe one hit from death');
+  // (With the ultimate held, the full bar went on Battle Focus instead of sitting capped.)
+  assert.ok(g.buff?.id === 'battle_focus', 'a capped bar is spent on the threshold skill');
+  // A healthy foe: the ultimate goes off.
+  t.hp = 1000; g.adrenaline = 100; g.abilityCd = { riposte: 99 };
+  g._autoSkills(t);
+  assert.equal(g.armedAbility, 'heroic_strike', 'the ultimate on a fight worth it');
+  // A heavy blow winding up: the class's defensive move (Parry) answers it.
+  g.armedAbility = null; g.abilityCd = {}; g.adrenaline = 0;
+  t.target = g.player; t.windup = 2;
+  g._autoSkills(t);
+  assert.ok(g.braceTicks > 0 && g.abilityCd.parry > 0, 'Parry against the wind-up');
+  // Abilities off: nothing is used.
+  g.autoCfg.abilities = false; g.abilityCd = {}; g.armedAbility = null;
+  g._autoSkills(t);
+  assert.equal(g.armedAbility, null);
+});
+
 test('XP bonus stacks: Wilderness level and kill streak; bosses drop much more and give bonus XP', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
@@ -3375,7 +3412,7 @@ test('auto gather picks mining back up after an interruption or once rocks grow 
   assert.ok(g.inventory.count('copper_ore') >= ore0 + 10, `picked mining back up: ${g.inventory.count('copper_ore') - ore0} more ore`);
 });
 
-test('every class has its own three abilities (damage Z, buff X, area B), and their extra effects work', async () => {
+test('every class has its own four abilities (basic Z, threshold X, utility C, ultimate B), and their extra effects work', async () => {
   const { CLASSES } = await import('../src/data/classes.js');
   const { abilitiesFor, ABILITIES } = await import('../src/data/abilities.js');
   const seen = new Set();
@@ -3386,13 +3423,19 @@ test('every class has its own three abilities (damage Z, buff X, area B), and th
     assert.equal(by.Z.kind, 'attack', `${c.name}: Z is a damage skill`);
     assert.equal(by.X.kind, 'buff', `${c.name}: X is a buff`);
     assert.ok(by.B.aoe || by.B.sweep, `${c.name}: B hits an area`);
+    // Build and spend: Z and C are free and Z builds adrenaline, X spends 50, B the full 100.
+    assert.ok(by.Z.cost === 0 && by.Z.build > 0, `${c.name}: Z is a free builder`);
+    assert.equal(by.C.cost, 0, `${c.name}: C is free`);
+    assert.equal(by.X.cost, 50, `${c.name}: X is a threshold skill`);
+    assert.equal(by.B.cost, 100, `${c.name}: B is the ultimate`);
+    assert.ok(!by.Z.instant, `${c.name}: a free skill is never an extra attack`);
     if (c.id === 'dancer') continue;   // the Dancer uses the whip set
     const own = set.filter((a) => a.cls === c.id).map((a) => a.key).sort();
-    assert.deepEqual(own, ['B', 'X', 'Z'], `${c.name} has its own Z, X and B`);
+    assert.deepEqual(own, ['B', 'C', 'X', 'Z'], `${c.name} has its own Z, X, C and B`);
     for (const a of set.filter((x) => x.cls)) { assert.ok(!seen.has(a.id), `${a.id} is unique`); seen.add(a.id); assert.ok(a.desc && a.art, `${a.id} has a description and art`); }
   }
   assert.equal(new Set(ABILITIES.map((a) => a.id)).size, ABILITIES.length, 'ability ids are unique');
-  // A Rogue's Backstab always crits; a Merchant's favour calls up an A-Worthling.
+  // A Rogue's Backstab finishes off the wounded; a Merchant's favour calls up an A-Worthling.
   const { NPC } = await import('../src/game/npc.js');
   const Mercs = await import('../src/game/mercenary.js');
   const mk = (cls) => {
@@ -3405,11 +3448,16 @@ test('every class has its own three abilities (damage Z, buff X, area B), and th
     return { g, t };
   };
   const r = mk('rogue');
-  assert.deepEqual(r.g.currentAbilities().map((a) => a.id), ['backstab', 'shadow_step', 'brace', 'second_wind', 'assassinate']);
+  assert.deepEqual(r.g.currentAbilities().map((a) => a.id), ['backstab', 'shadow_step', 'vanish', 'second_wind', 'assassinate']);
   r.g.activateAbility('backstab');
-  r.g.player.attackCooldown = 0; r.g.doPlayerAttack(r.t);
-  assert.ok(r.g.effects.some((e) => e.type === 'hitsplat' && e.critX >= 2), 'Backstab lands a critical');
+  const healthy = r.g._offensiveMods(r.t, 'melee').dmgM;
+  r.g.abilityCd = {}; r.t.hp = Math.floor(r.t.maxHp * 0.2);
+  r.g.activateAbility('backstab');
+  assert.ok(Math.abs(r.g._offensiveMods(r.t, 'melee').dmgM / healthy - 2) < 1e-9, 'Backstab doubles on a foe under 35% life');
+  r.g.activateAbility('vanish');
+  assert.equal(r.g.buffMod('dodge'), 0.6, 'Vanish: 60% dodge');
   const m = mk('merchant');
+  m.g.inventory.add('coins', 100000);   // a Merchant pays for skills in coins
   m.g.activateAbility('hire_bodyguards');
   assert.ok(Mercs.activeFollowers(m.g).length >= 2, 'Hire Bodyguards calls up two A-Worthlings');
   assert.ok(m.g.buffMod('dmg') > 0, 'and the damage buff is on');
@@ -3418,8 +3466,8 @@ test('every class has its own three abilities (damage Z, buff X, area B), and th
   const iv = b.g.attackInterval();
   b.g.activateAbility('adrenaline_rush');
   assert.ok(Math.abs(b.g.attackInterval() - iv / 2) < 1e-9, 'twice as often');
-  b.g.tickCount += 11;
-  assert.equal(b.g.attackInterval(), iv, 'and it wears off after 6s');
+  b.g.tickCount += 16;
+  assert.equal(b.g.attackInterval(), iv, 'and it wears off after 9s');
   // A Knight's Shield Wall halves the damage taken.
   const k = mk('knight');
   k.g.activateAbility('shield_wall');
@@ -3847,14 +3895,14 @@ test('Dancer whips ricochet between monsters; Chain Crack bounces further and st
   assert.ok(main.hp < 1e6, 'the lash landed');
   assert.ok(b1.hp < 1e6 && b2.hp < 1e6, 'it ricocheted into two more monsters');
   assert.equal(far.hp, 1e6, 'nothing out of ricochet range');
-  // Chain Crack: up to 6 bounces, each stunned.
+  // Chain Crack: up to 3 bounces, each stunned.
   for (const n of g.npcs) { n.hp = n.maxHp; n.attackCooldown = 0; }
   g.adrenaline = 100;
   g.armedAbility = 'crack';
   p.attackCooldown = 0; g._danceAttack(main);
-  for (const n of [b1, b2, b3, b4]) {
-    assert.ok(n.hp < 1e6, 'Chain Crack reached every monster down the line');
-    assert.ok(n.attackCooldown >= 4, 'and stunned it');
+  for (const n of [b1, b2, b3]) {
+    assert.ok(n.hp < 1e6, 'Chain Crack reached three monsters down the line');
+    assert.ok(n.attackCooldown >= 2, 'and stunned it');
   }
 });
 

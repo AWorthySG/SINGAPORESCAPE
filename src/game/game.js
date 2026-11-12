@@ -26,7 +26,7 @@ import {
   weaknessOf, WEAKNESS_BONUS, critChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE,
   playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX,
 } from './combat.js';
-import { ABILITY_BY_ID, abilitiesFor } from '../data/abilities.js';
+import { ABILITY_BY_ID, abilitiesFor, ADREN_PER_HIT, ADREN_PER_HURT, CLASS_ADRENALINE, EXECUTE_BELOW } from '../data/abilities.js';
 import { classPassiveMods, CLASS_SKILL } from '../data/classPassives.js';
 import { RACES, raceOf, matchup, RACE_BONUS, RACE_PENALTY } from '../data/races.js';
 import { DOT_KINDS } from '../data/bossAbilities.js';
@@ -1307,6 +1307,16 @@ export class Game {
     if (changed) { this.bus.emit('adrenaline'); this.bus.emit('ability'); }
   }
 
+  /** How much extra adrenaline your class builds for an event (see CLASS_ADRENALINE). */
+  _adrenTrait(k) { return CLASS_ADRENALINE[this.jobClass]?.[k] || 0; }
+  /** Adrenaline for landing a hit: the base, plus your class's own way of building it. */
+  _hitAdrenaline(crit) {
+    let n = ADREN_PER_HIT + this._adrenTrait('hit');
+    if (crit) n += this._adrenTrait('crit');
+    if (this.player.hp < this.maxHp() * 0.5) n += this._adrenTrait('lowHp');
+    this._gainAdrenaline(n);
+  }
+
   _gainAdrenaline(n) {
     if (n <= 0) return;
     n *= 1 + (this.perkMods().adren || 0);   // Battle Rhythm / Lightfoot perks
@@ -1360,6 +1370,7 @@ export class Game {
     // Immediate abilities (guard / heal) resolve right away.
     this._payAbility(ab);
     this.abilityCd[id] = ab.cd;
+    if (ab.build) this._gainAdrenaline(ab.build);
     if (ab.kind === 'guard') {
       this.braceTicks = ab.guardTicks;
       this.msg('You brace for impact — incoming damage halved!', 'system');
@@ -1377,7 +1388,7 @@ export class Game {
     } else if (ab.kind === 'heal') {
       const heal = Math.max(1, Math.round(this.maxHp() * ab.healFrac));
       this.player.hp = Math.min(this.maxHp(), this.player.hp + heal);
-      this.msg(`Second Wind restores ${heal} life.`, 'system');
+      this.msg(`${ab.name} restores ${heal} life.`, 'system');
       this.spawnSparkle(this.player, '#7fff8f', 14);
       this.bus.emit('hp');
       this.bus.emit('sfx', 'eat');
@@ -1409,7 +1420,8 @@ export class Game {
   }
   abilityCostText(ab) {
     const coins = this.abilityCoinCost(ab);
-    return coins ? `${coins} coins` : `${ab.cost}% adrenaline`;
+    if (coins) return `${coins} coins`;
+    return ab.cost ? `${ab.cost}% adrenaline` : ab.build ? `free, builds ${ab.build}% adrenaline` : 'free';
   }
   _payAbility(ab) {
     const coins = this.abilityCoinCost(ab);
@@ -1428,6 +1440,7 @@ export class Game {
     }
     this._payAbility(ab);
     this.abilityCd[ab.id] = ab.cd;
+    if (ab.build) this._gainAdrenaline(ab.build);   // a basic skill builds adrenaline
     this.bus.emit('adrenaline');
     this.bus.emit('ability');
     return ab;
@@ -1439,6 +1452,8 @@ export class Game {
     const ab = this._takeAbility();
     const weak = weaknessOf(npc.def) === (mode === 'dance' ? 'melee' : mode);   // whips count as melee for weaknesses
     let dmgM = (spec ? spec.dmg || 1 : 1) * (ab ? ab.dmgMul || 1 : 1) * (weak ? WEAKNESS_BONUS.dmg : 1);
+    // Finishers: more damage against a foe already under EXECUTE_BELOW life.
+    if (ab?.execute && npc.hp < npc.maxHp * EXECUTE_BELOW) dmgM *= 1 + ab.execute;
     // Race: the weapon in hand bites harder into some races and is shrugged off by others.
     const race = this.raceMatchup(npc);
     if (race === 'strong') dmgM *= RACE_BONUS.dmg;
@@ -1557,6 +1572,7 @@ export class Game {
       // Brawlers (claw fighters) rake the foe: three bloody swipe marks across it on every crit.
       if (this.jobClass === 'brawler') this.effects.push({ type: 'swipe', entity: npc, mega: this._pendingCrit >= 4, ang: (Math.random() - 0.5) * 0.5, life: 520, maxLife: 520 });
     }
+    const wasCrit = this._pendingCrit > 0 && dmg > 0;
     this._pendingCrit = 0;
     if (npc.shieldTicks > 0 && dmg > 0) dmg = Math.max(1, Math.floor(dmg / 2));   // a boss shield halves the blow
     if (npc.reflectTicks > 0 && dmg > 0 && this.player.alive) {
@@ -1584,7 +1600,12 @@ export class Game {
     const rm = dmg > 0 && !opts.tint ? this.raceMatchup(npc) : null;
     if (rm) opts = { ...opts, tint: rm === 'strong' ? '#f5b82e' : '#9aa3b2' };
     this.addHitsplat(npc, dmg, opts);
-    if (dmg > 0) { this.bus.emit('sfx', 'hit'); this._gainAdrenaline(10); }
+    if (dmg > 0) {
+      this.bus.emit('sfx', 'hit'); this._hitAdrenaline(wasCrit);
+      // A running average of your landed hits, so auto battle can tell when a
+      // foe is about to drop and hold its big skills back.
+      this._autoHitAvg = this._autoHitAvg ? this._autoHitAvg * 0.8 + dmg * 0.2 : dmg;
+    }
   }
   _postAttack(npc) {
     const perk = this._perkCtx;
@@ -2163,7 +2184,7 @@ export class Game {
     p.takeDamage(dmg);
     if (dmg > 0) this._knock(p, npc);
     this.addHitsplat(p, dmg, { crit: heavy && dmg > 0 });
-    if (dmg > 0) { this.spawnHitSparks(p, heavy ? '#ff5a5a' : '#ff8a8a'); this.bus.emit('sfx', 'hurt'); this._gainAdrenaline(heavy ? 10 : 5); }
+    if (dmg > 0) { this.spawnHitSparks(p, heavy ? '#ff5a5a' : '#ff8a8a'); this.bus.emit('sfx', 'hurt'); this._gainAdrenaline((heavy ? 2 : 1) * ADREN_PER_HURT + this._adrenTrait('hurt')); }
     if (heavy) this.msg(`${npc.name} unleashes a heavy blow${this.braceTicks > 0 ? ' — you brace and soften it!' : '!'}`, 'combat');
     this.bus.emit('hp');
     if (p.autoRetaliate && (!p.action || p.action.type !== 'attack')) this.attackNpc(npc);
@@ -2251,6 +2272,7 @@ export class Game {
     if (this.killStreak > 1 && this.killStreak % 5 === 0) this.msg(`Kill streak ${this.killStreak}! Combat XP +${Math.round(Math.min(STREAK_MAX_BONUS, this.killStreak * STREAK_XP_PER_KILL) * 100)}%.`, 'level');
     this.bus.emit('xpbonus');
     this.kills[npc.npcId] = (this.kills[npc.npcId] || 0) + 1;
+    if (!byAlly) this._gainAdrenaline(this._adrenTrait('kill'));   // Gladiators, Berserkers, Sorcerers
     // The kill reward: most of a monster's combat XP comes when it dies, worth
     // its full life, in the style you fight with (see killXp in combat.js).
     { const mode = this.combatMode(), m = this.combatXpMult();
@@ -3346,14 +3368,11 @@ export class Game {
           && chebyshev(p.x, p.y, n.x, n.y) <= Math.max(1, this.attackRange()));
         if (att) { this._autoFight = null; this._autoLast = att; this.attackNpc(att); return; }
       }
-      // 2. Brace against a heavy blow being wound up next to you.
-      if (this.nearbyNpcs().some((n) => n.alive && n.target === p && n.windup > 0)) this._autoAbility((ab) => ab.kind === 'guard');
       // Casters always throw the strongest spell they can afford.
       // Casters on 'Auto' get the element that suits the target; a chosen element is kept.
       if (this.combatMode() === 'magic' && p.spellAuto) { const best = this._autoSpellFor(tgt); if (best && best.id !== p.spell) { p.spell = best.id; this.bus.emit('spell'); } }
-      // 3. Spend adrenaline: the biggest attack skill you can afford.
-      if (this.autoCfg.abilities && !(this.buff && this.buff.until > this.tickCount)) this._autoAbility((ab) => ab.kind === 'buff');
-      if (!this.armedAbility && this.autoCfg.abilities) this._autoAbility((ab) => ab.kind === 'attack', true);
+      // 2-3. Defend, then build and spend adrenaline (see _autoSkills).
+      this._autoSkills(tgt);
       return;
     }
     // 4. Find the next fight. A monster well below your level is only fought
@@ -3467,6 +3486,49 @@ export class Game {
       if (best) return best;
     }
     return null;
+  }
+
+  /** Auto battle's skill rotation, run each tick of a fight:
+   *  - defend first: your class's guard or defensive move (C) when a heavy blow
+   *    is being wound up, a boss is on you or you're under half life;
+   *  - the ultimate (B) at full adrenaline, but only on a fight worth it (a boss
+   *    or champion, a crowd, or a foe with plenty of life left);
+   *  - the threshold skill (X) on the same kind of fight, or to avoid sitting
+   *    on a full bar the ultimate can't use;
+   *  - the free basic skills (Z, and an attacking C) whenever they're ready,
+   *    since they build the adrenaline the others spend.
+   *  Big skills are held back from a foe that's about to drop anyway. */
+  _autoSkills(tgt) {
+    if (!this.autoCfg.abilities || !tgt?.alive) return;
+    const p = this.player;
+    const ready = (k, f = () => true) => this.currentAbilities().find((ab) => ab.key === k && f(ab) && this.abilityUnlocked(ab)
+      && (this.abilityCd[ab.id] || 0) <= 0 && this.canAffordAbility(ab));
+    const near = this.nearbyNpcs();
+    const attackers = near.filter((n) => n.alive && n.target === p && !n.ally).length;
+    const crowd = near.filter((n) => n !== tgt && n.alive && n.attackable && !n.ally && chebyshev(n.x, n.y, tgt.x, tgt.y) <= 3).length;
+    const hit = Math.max(1, this._autoHitAvg || 1);   // your recent landed hit
+    const big = tgt.def.boss || tgt.champion;
+    const worth = (mult) => big || attackers >= 2 || crowd >= 2 || tgt.hp > hit * mult;
+    const hpFrac = p.hp / this.maxHp();
+    const danger = big || hpFrac < 0.5 || near.some((n) => n.alive && n.target === p && n.windup > 0);
+    // Defend.
+    const defensive = (ab) => ab.kind === 'guard' || (ab.kind === 'heal' ? hpFrac < 0.6 : ab.kind === 'buff' && (ab.buff?.reduce || ab.buff?.dodge || ab.buff?.lifesteal));
+    if (danger) { const c = ready('C', defensive); if (c) this.activateAbility(c.id); }
+    if (hpFrac < 0.35) { const v = ready('V'); if (v) this.activateAbility(v.id); }
+    // Spend.
+    const buffUp = this.buff && this.buff.until > this.tickCount;
+    const ult = ready('B');
+    if (ult && !this.armedAbility && worth(4)) { this.activateAbility(ult.id); return; }
+    const x = ready('X');
+    const capped = this.adrenaline >= 100 && (!ult || !worth(4));
+    if (x && (x.kind !== 'buff' || !buffUp) && (worth(3) || capped)) this.activateAbility(x.id);
+    // Build.
+    if (!this.armedAbility) {
+      const c = ready('C', (ab) => ab.kind === 'attack' && (!ab.lifesteal || hpFrac < 0.8));
+      const z = ready('Z');
+      const pick = c || z;
+      if (pick) this.activateAbility(pick.id);
+    }
   }
 
   _autoAbility(filter, biggestFirst = false) {

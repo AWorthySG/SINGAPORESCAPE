@@ -247,7 +247,7 @@ export class UI {
       btn.innerHTML =
         `<span class="ab-key">${ab.key}</span>` +
         `<span class="ab-icon">${abilityIconHTML(ab.id, 36)}</span>` +
-        `<span class="ab-cost">${this.game.abilityCoinCost(ab) ? '🪙' : ab.cost}</span>` +
+        `<span class="ab-cost">${this.game.abilityCoinCost(ab) ? '🪙' : ab.cost || (ab.build ? `+${ab.build}` : '·')}</span>` +
         `<span class="ab-cd"></span>`;
       this._bindSkillAim(btn, ab);
       wrap.appendChild(btn);
