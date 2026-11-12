@@ -2247,7 +2247,7 @@ test('Dancer: combat XP is split between Agility and Ranged, and both power the 
   assert.equal(g.fightLevel(), Math.max(g.skills.combatLevel(), 500));
 });
 
-test('Auto-upgrade: raises every worn item, lowest first, and stops before risky levels without a ward', async () => {
+test('Auto-upgrade: raises every worn item, strongest upgrade first, and stops before risky levels without a ward', async () => {
   const { RISKY_FROM, WARD } = await import('../src/game/upgrade.js');
   const { EQUIP_SLOTS } = await import('../src/game/equipment.js');
   globalThis.localStorage = fakeStorage(); clearSave();
@@ -2255,6 +2255,16 @@ test('Auto-upgrade: raises every worn item, lowest first, and stops before risky
   g.ui = new Proxy({}, { get: () => () => {} });
   const worn = [...new Set(EQUIP_SLOTS.map((s) => g.equipment.get(s)).filter(Boolean))];
   assert.ok(worn.length >= 1);
+  // Strongest first: for a melee fighter a weapon's next level (Melee power) is
+  // worth more than a shield's (Defence only), so with money for one upgrade the weapon gets it.
+  const wpn = g.equipment.get('weapon'), shield = g.equipment.get('shield');
+  if (wpn && shield) {
+    assert.ok(g.upgradeValue(wpn) > g.upgradeValue(shield), 'the weapon upgrade is worth more');
+    g.inventory.remove('coins', g.inventory.count('coins'));
+    g.inventory.add('coins', 200); g.inventory.add('bronze_bar', 5);
+    const r1 = g.autoUpgradeEquipped({ maxTries: 1 });
+    assert.equal(r1.changes[0]?.id, wpn, 'the weapon went first');
+  }
   // Plenty of everything, but no ward.
   g.inventory.add('coins', 1e9); g.inventory.add('upgrade_stone', 5000);
   for (const b of ['bronze_bar', 'iron_bar', 'steel_bar', 'mithril_bar', 'adamant_bar', 'rune_bar']) g.inventory.add(b, 5000);

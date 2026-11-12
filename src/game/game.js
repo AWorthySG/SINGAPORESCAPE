@@ -3,7 +3,7 @@ import { buildWorld } from '../data/world.js';
 import { compareGear, deltaText, gearRating, effectiveRating, weaponStyle } from './gear.js';
 import { RARITY, dropRarity, lootDelay, rollUpgrade, qualityFor, NORMAL_GEAR_SKIP } from './loot.js';
 import { dayKey, prevDayKey, makeBounties, streakMult } from './bounty.js';
-import { MAX_UPGRADE, upgradeCost, upgradeChance, upgradedName, RISKY_FROM, STONE as UP_STONE, WARD as UP_WARD } from './upgrade.js';
+import { MAX_UPGRADE, upgradeCost, upgradeChance, upgradedName, upgradedBonuses, RISKY_FROM, STONE as UP_STONE, WARD as UP_WARD } from './upgrade.js';
 import { getItem, MELEE_REACH, accessoriesFor } from '../data/items.js';
 import { chebyshev, randInt, weightedPick, capitalize } from '../core/utils.js';
 import {
@@ -3987,9 +3987,25 @@ export class Game {
       && (!c.stones || this.inventory.count(UP_STONE) >= c.stones);
   }
 
+  /** How much stronger the next upgrade makes an item for the way you fight
+   *  now: the stats it gains, weighted by what they do for you (your style's
+   *  damage stat most, then crit, life and Defence), times the chance it works. */
+  upgradeValue(id) {
+    const lv = this.equipment.upgradeLevel(id);
+    if (lv >= MAX_UPGRADE) return 0;
+    const base = getItem(id).equip?.bonuses || {};
+    const now = upgradedBonuses(base, lv), next = upgradedBonuses(base, lv + 1);
+    const mode = this.combatMode();
+    const W = { defence: 0.5, hp: 1, crit: 2,
+      ...(mode === 'ranged' ? { ranged: 1 } : mode === 'magic' ? { magic: 0.5, magicStr: 8 } : mode === 'dance' ? { dance: 1 } : { strength: 1, attack: 0.25 }) };
+    let v = 0;
+    for (const [k, w] of Object.entries(W)) v += ((next[k] || 0) - (now[k] || 0)) * w;
+    return v * upgradeChance(lv + 1);
+  }
+
   /** Auto-upgrade: keep upgrading the gear you're wearing for as long as your
-   *  coins, bars and stones last, always raising the lowest item first so the
-   *  whole set climbs together. Risky levels (+8 and up, where a failure costs a
+   *  coins, bars and stones last, always taking the upgrade that makes you
+   *  strongest first (see upgradeValue), so the money goes where it counts. Risky levels (+8 and up, where a failure costs a
    *  level) are only tried while an upgrade ward can take the blow, unless
    *  `allowRisk` is set. Returns { tries, wins, changes, stoppedAtRisk }. */
   autoUpgradeEquipped({ allowRisk = false, maxTries = 2000 } = {}) {
@@ -4001,8 +4017,8 @@ export class Game {
       const safe = ready.filter((id) => allowRisk || this.equipment.upgradeLevel(id) + 1 < RISKY_FROM || this.inventory.count(UP_WARD) > 0);
       if (ready.length > safe.length) stoppedAtRisk = true;
       if (!safe.length) break;
-      // The lowest-levelled piece first (ties go to the earlier slot: weapon first).
-      const id = safe.reduce((a, b) => (this.equipment.upgradeLevel(b) < this.equipment.upgradeLevel(a) ? b : a));
+      // The upgrade that makes you strongest first (ties go to the earlier slot: weapon first).
+      const id = safe.reduce((a, b) => (this.upgradeValue(b) > this.upgradeValue(a) ? b : a));
       tries++;
       if (this.upgradeItem(id, { quiet: true })) wins++;
     }
