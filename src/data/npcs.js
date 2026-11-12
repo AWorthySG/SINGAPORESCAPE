@@ -599,6 +599,18 @@ export const BOSS_TOP_LEVEL = 9999;
   }
 }
 
+// The reworked skills (free basics, a free class defence on C, Second Wind
+// on a cooldown instead of adrenaline) let players last about 40% longer
+// against a boss, so every boss hits BOSS_DAMAGE_MULT times harder to keep
+// boss fights as tense as they were. Signature moves follow (they're worked
+// out from the boss's max hit) but still never take more than 40% of your life.
+export const BOSS_DAMAGE_MULT = 1.3;
+for (const d of Object.values(NPCS)) {
+  if (!d.boss || !d.attackable || !d.maxHit || d.bossDamageScaled) continue;
+  d.bossDamageScaled = true;
+  d.maxHit = Math.max(1, Math.round(d.maxHit * BOSS_DAMAGE_MULT));
+}
+
 // Player damage now always lands and grows in a straight line with level, while
 // gear keeps adding power, so a level-matched fighter killed high-level monsters
 // in ~8 hits against ~30-40 low down. Monster HP above level 40 is scaled up to

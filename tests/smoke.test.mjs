@@ -337,7 +337,7 @@ test('monster levels stretch out above 15; stats follow; the old level stays for
   assert.ok(lizard.level <= 15);
 });
 
-test('monsters and bosses are tougher, but the first town monsters stay easy', () => {
+test('monsters and bosses are tougher, but the first town monsters stay easy', async () => {
   // Full toughness from level 15: 22.4x the base health.
   const lizard = getNpc('monitor_lizard');   // level 14: nearly full
   assert.ok(lizard.maxHp >= Math.round((14 * 1.7 + 2) * 20), `monitor lizard hp ${lizard.maxHp}`);
@@ -352,6 +352,10 @@ test('monsters and bosses are tougher, but the first town monsters stay easy', (
   const chief = getNpc('goblin_warchief');
   assert.equal(chief.maxHp, Math.round(Math.round((35 * 4.5 + 30) * 3600) * chief.level / 35));
   assert.ok(chief.defence > Math.round(35 * 0.95), 'boss defence raised');
+  // Bosses hit 1.3x harder to match the reworked skills (free defence and heals).
+  const { BOSS_DAMAGE_MULT } = await import('../src/data/npcs.js');
+  assert.equal(BOSS_DAMAGE_MULT, 1.3);
+  assert.ok(Object.values(NPCS).filter((d) => d.boss && d.attackable && d.maxHit).every((d) => d.bossDamageScaled), 'every boss is scaled once');
   // Level 5 and under: unchanged.
   assert.equal(getNpc('goblin').maxHp, Math.round(5 * 1.7 + 2));
 });
