@@ -1,5 +1,5 @@
 /* ============================================================================
-   SingaporeScape — hand-drawn vector icon library (replaces all emoji).
+   A-Worthy Adventure — hand-drawn vector icon library (replaces all emoji).
    Style matches the world sprites in src/render/sprites.js:
    solid fills, soft dark outline, a single highlight. 24x24 viewBox.
    Each entry returns the INNER markup of an <svg viewBox="0 0 24 24">.

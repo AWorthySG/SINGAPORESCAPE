@@ -7,7 +7,7 @@ export const DIALOGUES = {
   guide: {
     start: {
       speaker: 'Kampong Guide',
-      text: 'Eh, welcome to SingaporeScape, lah! New around here? I can help you get started.',
+      text: 'Eh, welcome to A-Worthy Adventure, lah! New around here? I can help you get started.',
       options: [
         { label: 'Where am I?', next: 'where' },
         { label: 'Can you give me some starter gear?', next: 'gear' },

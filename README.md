@@ -1,4 +1,4 @@
-# SingaporeScape 🇸🇬⚔️
+# A-Worthy Adventure 🇸🇬⚔️
 
 A self-contained, browser-based **RuneScape-style RPG** with a light Singapore
 theme. Tile world, click-to-move pathfinding, the authentic Old School RuneScape
@@ -149,7 +149,7 @@ Those are each **one half** of RuneScape bolted onto Jagex's servers/content:
   Jagex's proprietary game cache (all the art/maps/items) to show anything.
 
 Both depend on Jagex's copyrighted cache, so neither yields a runnable game you
-can own. SingaporeScape instead reimplements the *mechanics* with original code
+can own. A-Worthy Adventure instead reimplements the *mechanics* with original code
 and art, so it actually runs standalone and is yours to modify.
 
 ---

@@ -37,7 +37,7 @@ export function buildReport(learning, { name = 'Student', date = new Date() } = 
     openMistakes: learning.mistakes?.length || 0, hawkerBest: learning.hawker?.best || 0,
   };
   const lines = [
-    'SingaporeScape learning report',
+    'A-Worthy Adventure learning report',
     `Student: ${name}`,
     `Date: ${day}`,
     `Wisdom level: ${totals.wisdom} · Topics mastered: ${totals.mastered}/${totals.topics} · Questions answered: ${answered}${totals.accuracy !== null ? ` (${totals.accuracy}% correct)` : ''}`,
