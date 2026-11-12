@@ -103,7 +103,7 @@ export const PERK_TRACKS = {
 
 // Caps so stacked ranks stay sane at level 9999.
 export const PERK_CAPS = {
-  dmg: 1.0, crit: 0.25, extra: 0.3, boss: 1.0, lifesteal: 0.15, stun: 0.2, splash: 0.4, adren: 1.0,
+  dmg: 0.6, crit: 0.25, extra: 0.3, boss: 1.0, lifesteal: 0.15, stun: 0.2, splash: 0.4, adren: 1.0,
   arrowSave: 0.5, runeSave: 0.5, range: 6, reduce: 0.4, bossReduce: 0.3, dodge: 0.25, maxhp: 0.6, regen: 3, thorns: 0.5, dotReduce: 0.6,
 };
 
