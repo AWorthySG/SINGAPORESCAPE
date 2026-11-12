@@ -4,49 +4,51 @@
 // 300; after that they rank up in turn (Rank II at 400, 500 and 600, and so on
 // up to level 9999). `mods` use the same keys as the perk tracks (perks.js) and
 // stack once per rank.
-// Player attacks always land, so no passive grants accuracy or armour piercing
-// (both only raised the chance to hit); those became crit chance and damage.
 export const CLASS_SKILL = { melee: 'attack', ranged: 'ranged', magic: 'magic', dance: 'agility' };
 
+// Every class passive is a damage perk: more damage, crit chance, damage to
+// bosses and champions, extra hits or splash onto another foe, flavoured by
+// the class (defensive passives became offensive ones). They still stack per
+// rank up to the perk caps (PERK_CAPS in perks.js).
 export const CLASS_PASSIVES = {
   rogue: [
-    { name: 'Shadow Step', desc: '+4% dodge, +2% crit chance', mods: { dodge: 0.04, crit: 0.02 } },
-    { name: 'Venom Edge', desc: '+2% lifesteal, +5% damage', mods: { lifesteal: 0.02, dmg: 0.05 } },
+    { name: 'Shadow Strike', desc: '+4% damage, +2% crit chance', mods: { dmg: 0.04, crit: 0.02 } },
+    { name: 'Venom Edge', desc: '+6% damage', mods: { dmg: 0.06 } },
     { name: 'Killer Instinct', desc: '+5% crit chance, +5% damage to bosses', mods: { crit: 0.05, boss: 0.05 } },
   ],
   swordsman: [
     { name: 'Blade Discipline', desc: '+3% crit chance, +3% damage', mods: { crit: 0.03, dmg: 0.03 } },
-    { name: 'Parry', desc: '+4% dodge, 3% less damage taken', mods: { dodge: 0.04, reduce: 0.03 } },
-    { name: 'Hero\'s Resolve', desc: '+6% max life, +1 life a tick', mods: { maxhp: 0.06, regen: 1 } },
+    { name: 'Counter-Cut', desc: '4% chance of an extra slash, +2% damage', mods: { extra: 0.04, dmg: 0.02 } },
+    { name: 'Hero\'s Resolve', desc: '+5% damage, +4% damage to bosses', mods: { dmg: 0.05, boss: 0.04 } },
   ],
   corsair: [
-    { name: 'Sea Legs', desc: '+5% dodge', mods: { dodge: 0.05 } },
-    { name: 'Plunderer', desc: '+2% lifesteal, 3% chance of an extra slash', mods: { lifesteal: 0.02, extra: 0.03 } },
+    { name: 'Sea Legs', desc: '+4% damage, +1% crit chance', mods: { dmg: 0.04, crit: 0.01 } },
+    { name: 'Plunderer', desc: '+3% damage, 3% chance of an extra slash', mods: { dmg: 0.03, extra: 0.03 } },
     { name: 'Double Down', desc: '5% chance of an extra slash, +2% crit chance', mods: { extra: 0.05, crit: 0.02 } },
   ],
   paladin: [
-    { name: 'Holy Ward', desc: '5% less damage taken', mods: { reduce: 0.05 } },
-    { name: 'Lay on Hands', desc: '+1 life a tick, +2% lifesteal', mods: { regen: 1, lifesteal: 0.02 } },
+    { name: 'Holy Fury', desc: '+5% damage', mods: { dmg: 0.05 } },
+    { name: 'Righteous Blows', desc: '+3% damage, +2% crit chance', mods: { dmg: 0.03, crit: 0.02 } },
     { name: 'Crusader', desc: '+6% damage to bosses, +3% damage', mods: { boss: 0.06, dmg: 0.03 } },
   ],
   knight: [
-    { name: 'Plate Mastery', desc: '5% less damage taken, +4% max life', mods: { reduce: 0.05, maxhp: 0.04 } },
+    { name: 'Plate Momentum', desc: '+5% damage', mods: { dmg: 0.05 } },
     { name: 'Lance Reach', desc: '+5% damage, +2% crit chance', mods: { dmg: 0.05, crit: 0.02 } },
     { name: 'Dragonslayer', desc: '+8% damage to bosses and champions', mods: { boss: 0.08 } },
   ],
   berserker: [
     { name: 'Blood Rage', desc: '+6% damage', mods: { dmg: 0.06 } },
-    { name: 'Unstoppable', desc: '5% of melee damage taken hurts the attacker, +5% max life', mods: { thorns: 0.05, maxhp: 0.05 } },
-    { name: 'Carnage', desc: '6% chance a hit strikes another foe, +2% lifesteal', mods: { splash: 0.06, lifesteal: 0.02 } },
+    { name: 'Unstoppable', desc: '+4% damage, 3% chance of an extra chop', mods: { dmg: 0.04, extra: 0.03 } },
+    { name: 'Carnage', desc: '6% chance a hit strikes another foe, +2% damage', mods: { splash: 0.06, dmg: 0.02 } },
   ],
   juggernaut: [
-    { name: 'Iron Skin', desc: '6% less damage taken', mods: { reduce: 0.06 } },
-    { name: 'Shockwave', desc: '3% chance to stun, 4% chance to strike another foe', mods: { stun: 0.03, splash: 0.04 } },
-    { name: 'Titan', desc: '+8% max life, +4% damage', mods: { maxhp: 0.08, dmg: 0.04 } },
+    { name: 'Crushing Weight', desc: '+5% damage', mods: { dmg: 0.05 } },
+    { name: 'Shockwave', desc: '6% chance to strike another foe, +2% damage', mods: { splash: 0.06, dmg: 0.02 } },
+    { name: 'Titan', desc: '+6% damage, +3% damage to bosses', mods: { dmg: 0.06, boss: 0.03 } },
   ],
   gladiator: [
-    { name: 'Crowd Pleaser', desc: '+8% adrenaline from hits, +3% damage', mods: { adren: 0.08, dmg: 0.03 } },
-    { name: 'Arena Veteran', desc: '+3% dodge, 3% less damage taken', mods: { dodge: 0.03, reduce: 0.03 } },
+    { name: 'Crowd Pleaser', desc: '+5% damage, +1% crit chance', mods: { dmg: 0.05, crit: 0.01 } },
+    { name: 'Arena Veteran', desc: '+3% crit chance, +2% damage', mods: { crit: 0.03, dmg: 0.02 } },
     { name: 'Champion', desc: '6% chance to strike another foe, +4% damage to bosses', mods: { splash: 0.06, boss: 0.04 } },
   ],
   lancer: [
@@ -56,63 +58,63 @@ export const CLASS_PASSIVES = {
   ],
   brawler: [
     { name: 'Quick Paws', desc: '5% chance of an extra swipe', mods: { extra: 0.05 } },
-    { name: 'Feral', desc: '+4% crit chance, +1% lifesteal', mods: { crit: 0.04, lifesteal: 0.01 } },
-    { name: 'Alpha', desc: '+5% damage, +3% dodge', mods: { dmg: 0.05, dodge: 0.03 } },
+    { name: 'Feral', desc: '+4% crit chance, +2% damage', mods: { crit: 0.04, dmg: 0.02 } },
+    { name: 'Alpha', desc: '+6% damage, +2% damage to bosses', mods: { dmg: 0.06, boss: 0.02 } },
   ],
   samurai: [
     { name: 'Bushido', desc: '+3% crit chance, +3% damage', mods: { crit: 0.03, dmg: 0.03 } },
-    { name: 'Focus', desc: '+8% adrenaline from hits, +2% crit chance', mods: { adren: 0.08, crit: 0.02 } },
+    { name: 'Focus', desc: '+3% crit chance, +3% damage to bosses', mods: { crit: 0.03, boss: 0.03 } },
     { name: 'Ronin\'s Edge', desc: '+5% crit chance, +3% damage', mods: { crit: 0.05, dmg: 0.03 } },
   ],
   halberdier: [
     { name: 'Polearm Mastery', desc: '5% chance a hit strikes another foe', mods: { splash: 0.05 } },
-    { name: 'Bulwark', desc: '5% less damage taken', mods: { reduce: 0.05 } },
+    { name: 'Sweeping Blade', desc: '+5% damage', mods: { dmg: 0.05 } },
     { name: 'Reaper', desc: '+5% damage, 4% chance to strike another foe', mods: { dmg: 0.05, splash: 0.04 } },
   ],
   merchant: [
-    { name: 'Comfortable Living', desc: '+1 life a tick, +2% lifesteal', mods: { regen: 1, lifesteal: 0.02 } },
-    { name: 'Investor', desc: '+8% adrenaline from hits, +3% damage', mods: { adren: 0.08, dmg: 0.03 } },
-    { name: 'Tycoon', desc: '+5% damage to bosses, +6% max life', mods: { boss: 0.05, maxhp: 0.06 } },
+    { name: 'Heavy Purse', desc: '+5% damage', mods: { dmg: 0.05 } },
+    { name: 'Investor', desc: '+4% damage, +1% crit chance', mods: { dmg: 0.04, crit: 0.01 } },
+    { name: 'Tycoon', desc: '+5% damage to bosses, +3% damage', mods: { boss: 0.05, dmg: 0.03 } },
   ],
   archer: [
     { name: 'Eagle Eye', desc: '+4% crit chance', mods: { crit: 0.04 } },
-    { name: 'Quiver Master', desc: '5% chance of an extra arrow, 5% chance a shot uses no arrow', mods: { extra: 0.05, arrowSave: 0.05 } },
+    { name: 'Quiver Master', desc: '5% chance of an extra arrow, +2% damage', mods: { extra: 0.05, dmg: 0.02 } },
     { name: 'Rain of Arrows', desc: '6% chance a shot strikes another foe', mods: { splash: 0.06 } },
   ],
   ranger: [
     { name: 'Steady Aim', desc: '+4% crit chance', mods: { crit: 0.04 } },
     { name: 'Hunter\'s Mark', desc: '+6% damage to bosses, +3% damage', mods: { boss: 0.06, dmg: 0.03 } },
-    { name: 'Far Shot', desc: '+6% damage, +1 tile of reach', mods: { dmg: 0.06, range: 1 } },
+    { name: 'Far Shot', desc: '+6% damage', mods: { dmg: 0.06 } },
   ],
   sniper: [
     { name: 'Steady Hands', desc: '+4% crit chance', mods: { crit: 0.04 } },
-    { name: 'Long Barrel', desc: '+2 tiles of reach, +3% damage', mods: { range: 2, dmg: 0.03 } },
+    { name: 'Long Barrel', desc: '+6% damage', mods: { dmg: 0.06 } },
     { name: 'One Shot', desc: '+6% damage to bosses, +3% crit chance', mods: { boss: 0.06, crit: 0.03 } },
   ],
   pistoler: [
     { name: 'Trigger Happy', desc: '6% chance of an extra shot', mods: { extra: 0.06 } },
-    { name: 'Gunslinger', desc: '+3% crit chance, +3% dodge', mods: { crit: 0.03, dodge: 0.03 } },
+    { name: 'Gunslinger', desc: '+3% crit chance, +3% damage', mods: { crit: 0.03, dmg: 0.03 } },
     { name: 'Ricochet', desc: '6% chance a shot strikes another foe', mods: { splash: 0.06 } },
   ],
   ninja: [
-    { name: 'Shadow', desc: '+6% dodge', mods: { dodge: 0.06 } },
-    { name: 'Poisoned Stars', desc: '+2% lifesteal, +4% damage', mods: { lifesteal: 0.02, dmg: 0.04 } },
+    { name: 'Shadow', desc: '+3% crit chance, +2% damage', mods: { crit: 0.03, dmg: 0.02 } },
+    { name: 'Poisoned Stars', desc: '+6% damage', mods: { dmg: 0.06 } },
     { name: 'Blade Storm', desc: '5% chance of an extra star, +3% crit chance', mods: { extra: 0.05, crit: 0.03 } },
   ],
   wizard: [
-    { name: 'Arcane Mind', desc: '+3% crit chance, 5% chance a cast uses no runes', mods: { crit: 0.03, runeSave: 0.05 } },
+    { name: 'Arcane Mind', desc: '+3% crit chance, +2% spell damage', mods: { crit: 0.03, dmg: 0.02 } },
     { name: 'Elementalist', desc: '+6% spell damage', mods: { dmg: 0.06 } },
     { name: 'Archmage', desc: '+5% damage to bosses, +4% crit chance', mods: { boss: 0.05, crit: 0.04 } },
   ],
   sorcerer: [
-    { name: 'Dark Pact', desc: '+3% lifesteal', mods: { lifesteal: 0.03 } },
-    { name: 'Hexcraft', desc: '4% chance to stun, +3% damage', mods: { stun: 0.04, dmg: 0.03 } },
+    { name: 'Dark Pact', desc: '+5% spell damage', mods: { dmg: 0.05 } },
+    { name: 'Hexcraft', desc: '4% chance a spell leaps to another foe, +3% damage', mods: { splash: 0.04, dmg: 0.03 } },
     { name: 'Void Lord', desc: '+4% crit chance, +5% damage to bosses', mods: { crit: 0.04, boss: 0.05 } },
   ],
   dancer: [
-    { name: 'Grace', desc: '+5% dodge', mods: { dodge: 0.05 } },
-    { name: 'Tempo', desc: '+8% adrenaline from hits, 3% chance of an extra lash', mods: { adren: 0.08, extra: 0.03 } },
-    { name: 'Showstopper', desc: '+5% damage, 3% chance to stun', mods: { dmg: 0.05, stun: 0.03 } },
+    { name: 'Grace', desc: '+3% crit chance, +2% damage', mods: { crit: 0.03, dmg: 0.02 } },
+    { name: 'Tempo', desc: '3% chance of an extra lash, +3% damage', mods: { extra: 0.03, dmg: 0.03 } },
+    { name: 'Showstopper', desc: '+5% damage, 4% chance a lash strikes another foe', mods: { dmg: 0.05, splash: 0.04 } },
   ],
 };
 
