@@ -82,6 +82,9 @@ const STREAK_WINDOW_TICKS = 50;
 // the amount, and the gear, rare-table and upgrade-material rolls are richer.
 const BOSS_XP_PER_LEVEL = 4000;
 const BOSS_STACK_MULT = 100;
+// Every coin drop, from any monster, boss or champion (and the rare table), is
+// this many times what its drop table says.
+export const COIN_LOOT_MULT = 2;
 // Whip ricochet: bounces after each landed lash (one more at full Rhythm), and their share of the hit.
 // World boss: every 2 minutes (if none is about) a random boss rises near you,
 // far tougher than usual, and hunts you down. It leaves after 5 minutes unfought.
@@ -2544,6 +2547,7 @@ export class Game {
     // Boss hoards: stackables (coins, runes, arrows, seeds...) come in 100x the amount.
     const stackMult = def.boss ? BOSS_STACK_MULT : npc.champion ? CHAMPION_STACK_MULT : 1;
     if (stackMult > 1) for (const l of loot) if (l[0] !== UP_STONE && getItem(l[0]).stackable) l[1] *= stackMult;
+    for (const l of loot) if (l[0] === 'coins') l[1] = Math.round(l[1] * COIN_LOOT_MULT);
     // Gear quality: a head start of upgrade levels for that item type.
     for (const l of loot) {
       if (!getItem(l[0]).equip) continue;

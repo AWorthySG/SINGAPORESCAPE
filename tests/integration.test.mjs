@@ -2324,6 +2324,23 @@ test('Refinement: a second ★1-★15 layer with success, failure, downgrade and
   assert.equal(g.equipment.refineLevel(w), 0);
 });
 
+test('Every monster drops twice the coins its table says', async () => {
+  const { COIN_LOOT_MULT } = await import('../src/game/game.js');
+  assert.equal(COIN_LOOT_MULT, 2);
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start();
+  g.ui = new Proxy({}, { get: () => () => {} });
+  const n = g.npcs.find((x) => x.def.attackable && !x.def.boss && (x.def.dropTable || []).some((d) => d.id === 'coins'));
+  const entry = n.def.dropTable.find((d) => d.id === 'coins');
+  // Force the coin roll: every table roll lands on coins.
+  n.def = { ...n.def, dropTable: [entry], alwaysDrop: [] };
+  let got = null; const orig = g._autoLoot.bind(g);
+  g._autoLoot = (loot) => { got = loot.filter((l) => l[0] === 'coins').reduce((a, l) => a + l[1], 0); };
+  g.rollDrops(n);
+  g._autoLoot = orig;
+  assert.ok(got >= entry.min * 2 && got <= entry.max * 2, `coins doubled (${got} within ${entry.min * 2}-${entry.max * 2})`);
+});
+
 test('XP bonus stacks: Wilderness level and kill streak; bosses drop much more and give bonus XP', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
