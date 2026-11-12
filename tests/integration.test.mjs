@@ -2247,6 +2247,32 @@ test('Dancer: combat XP is split between Agility and Ranged, and both power the 
   assert.equal(g.fightLevel(), Math.max(g.skills.combatLevel(), 500));
 });
 
+test('Auto-upgrade: raises every worn item, lowest first, and stops before risky levels without a ward', async () => {
+  const { RISKY_FROM, WARD } = await import('../src/game/upgrade.js');
+  const { EQUIP_SLOTS } = await import('../src/game/equipment.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('swordsman');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  const worn = [...new Set(EQUIP_SLOTS.map((s) => g.equipment.get(s)).filter(Boolean))];
+  assert.ok(worn.length >= 1);
+  // Plenty of everything, but no ward.
+  g.inventory.add('coins', 1e9); g.inventory.add('upgrade_stone', 5000);
+  for (const b of ['bronze_bar', 'iron_bar', 'steel_bar', 'mithril_bar', 'adamant_bar', 'rune_bar']) g.inventory.add(b, 5000);
+  const r = g.autoUpgradeEquipped();
+  assert.ok(r.tries > 0 && r.wins > 0, 'it upgraded');
+  for (const id of worn) assert.equal(g.equipment.upgradeLevel(id), RISKY_FROM - 1, `${id} climbed to +${RISKY_FROM - 1}, the last safe level`);
+  assert.ok(r.stoppedAtRisk, 'and stopped before the risky levels');
+  // With a ward, it carries on into the risky levels and never loses a level while the ward lasts.
+  g.inventory.add(WARD, 1);
+  const before = Object.fromEntries(worn.map((id) => [id, g.equipment.upgradeLevel(id)]));
+  g.autoUpgradeEquipped();
+  for (const id of worn) assert.ok(g.equipment.upgradeLevel(id) >= before[id], `${id} kept its level`);
+  // Nothing to pay with: nothing happens.
+  const g2 = new Game(); clearSave(); g2.start(); g2.chooseClass('swordsman'); g2.ui = g.ui;
+  g2.inventory.remove('coins', g2.inventory.count('coins'));
+  assert.equal(g2.autoUpgradeEquipped().tries, 0);
+});
+
 test('XP bonus stacks: Wilderness level and kill streak; bosses drop much more and give bonus XP', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();

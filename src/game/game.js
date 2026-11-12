@@ -14,7 +14,7 @@ import {
 import { World } from './world.js';
 import { Skills } from './skillset.js';
 import { Inventory } from './inventory.js';
-import { Equipment, canDualWield, canDualPair } from './equipment.js';
+import { Equipment, canDualWield, canDualPair, EQUIP_SLOTS } from './equipment.js';
 import { Bank } from './bank.js';
 import { Player } from './player.js';
 import { NPC } from './npc.js';
@@ -3934,18 +3934,20 @@ export class Game {
   }
 
   /** Spend coins (and bars, for metal gear) to raise an item type's upgrade level. */
-  upgradeItem(id) {
+  upgradeItem(id, opts = {}) {
+    // Auto-upgrade runs many attempts in a row and sums them up itself, so it asks for quiet.
+    const say = opts.quiet ? () => {} : (...a) => this.msg(...a);
     if (!getItem(id).equip) return false;
     const lv = this.equipment.upgradeLevel(id);
-    if (lv >= MAX_UPGRADE) { this.msg(`${upgradedName(id, lv)} is already fully upgraded.`); return false; }
+    if (lv >= MAX_UPGRADE) { say(`${upgradedName(id, lv)} is already fully upgraded.`); return false; }
     const next = lv + 1;
     const cost = upgradeCost(id, next);
-    if (this.inventory.count('coins') < cost.coins) { this.msg(`You need ${cost.coins} coins to upgrade to +${next}.`); return false; }
+    if (this.inventory.count('coins') < cost.coins) { say(`You need ${cost.coins} coins to upgrade to +${next}.`); return false; }
     if (cost.bar && this.inventory.count(cost.bar.id) < cost.bar.qty) {
-      this.msg(`You need ${cost.bar.qty} x ${getItem(cost.bar.id).name} to upgrade to +${next}.`); return false;
+      say(`You need ${cost.bar.qty} x ${getItem(cost.bar.id).name} to upgrade to +${next}.`); return false;
     }
     if (cost.stones && this.inventory.count(UP_STONE) < cost.stones) {
-      this.msg(`You need ${cost.stones} upgrade stones to upgrade to +${next}. Monsters drop them, bosses most of all.`); return false;
+      say(`You need ${cost.stones} upgrade stones to upgrade to +${next}. Monsters drop them, bosses most of all.`); return false;
     }
     this.inventory.remove('coins', cost.coins);
     if (cost.bar) this.inventory.remove(cost.bar.id, cost.bar.qty);
@@ -3953,28 +3955,70 @@ export class Game {
     if (Math.random() < upgradeChance(next)) {
       this.equipment.upgrades[id] = next;
       this.equipment._changed();
-      this.spawnSparkle(this.player, '#F5B82E', 14);
-      this.bus.emit('sfx', 'level');
-      this.msg(`Success! Your ${upgradedName(id, next)} is stronger.`, 'level');
-      if (next === MAX_UPGRADE) this.banner(`<span class="big">+${MAX_UPGRADE}!</span>${getItem(id).name} is fully upgraded`);
+      if (!opts.quiet) { this.spawnSparkle(this.player, '#F5B82E', 14); this.bus.emit('sfx', 'level'); }
+      say(`Success! Your ${upgradedName(id, next)} is stronger.`, 'level');
+      if (next === MAX_UPGRADE && !opts.quiet) this.banner(`<span class="big">+${MAX_UPGRADE}!</span>${getItem(id).name} is fully upgraded`);
       return true;
     }
-    this.bus.emit('sfx', 'hurt');
+    if (!opts.quiet) this.bus.emit('sfx', 'hurt');
     // Risky levels: a failure knocks the item down one level, unless a ward takes the blow.
     if (next >= RISKY_FROM) {
       if (this.inventory.count(UP_WARD) > 0) {
         this.inventory.remove(UP_WARD, 1);
-        this.msg(`The upgrade failed, but your upgrade ward crumbled instead: your ${upgradedName(id, lv)} keeps its level.`, 'system');
+        say(`The upgrade failed, but your upgrade ward crumbled instead: your ${upgradedName(id, lv)} keeps its level.`, 'system');
       } else {
         this.equipment.upgrades[id] = lv - 1;
         if (!this.equipment.upgrades[id]) delete this.equipment.upgrades[id];
         this.equipment._changed();
-        this.msg(`The upgrade failed and your gear lost a level: it is now ${upgradedName(id, lv - 1)}. (An upgrade ward would have saved it.)`, 'combat');
+        say(`The upgrade failed and your gear lost a level: it is now ${upgradedName(id, lv - 1)}. (An upgrade ward would have saved it.)`, 'combat');
       }
       return false;
     }
-    this.msg(`The upgrade failed. Your ${upgradedName(id, lv)} is unharmed, but the materials are used up.`, 'system');
+    say(`The upgrade failed. Your ${upgradedName(id, lv)} is unharmed, but the materials are used up.`, 'system');
     return false;
+  }
+
+  /** What the next upgrade of an item costs, and whether you can pay for it now. */
+  canAffordUpgrade(id) {
+    const lv = this.equipment.upgradeLevel(id);
+    if (lv >= MAX_UPGRADE) return false;
+    const c = upgradeCost(id, lv + 1);
+    return this.inventory.count('coins') >= c.coins && (!c.bar || this.inventory.count(c.bar.id) >= c.bar.qty)
+      && (!c.stones || this.inventory.count(UP_STONE) >= c.stones);
+  }
+
+  /** Auto-upgrade: keep upgrading the gear you're wearing for as long as your
+   *  coins, bars and stones last, always raising the lowest item first so the
+   *  whole set climbs together. Risky levels (+8 and up, where a failure costs a
+   *  level) are only tried while an upgrade ward can take the blow, unless
+   *  `allowRisk` is set. Returns { tries, wins, changes, stoppedAtRisk }. */
+  autoUpgradeEquipped({ allowRisk = false, maxTries = 2000 } = {}) {
+    const ids = [...new Set(EQUIP_SLOTS.map((s) => this.equipment.get(s)).filter((id) => id && getItem(id).equip))];
+    const start = Object.fromEntries(ids.map((id) => [id, this.equipment.upgradeLevel(id)]));
+    let tries = 0, wins = 0, stoppedAtRisk = false;
+    while (tries < maxTries) {
+      const ready = ids.filter((id) => this.canAffordUpgrade(id));
+      const safe = ready.filter((id) => allowRisk || this.equipment.upgradeLevel(id) + 1 < RISKY_FROM || this.inventory.count(UP_WARD) > 0);
+      if (ready.length > safe.length) stoppedAtRisk = true;
+      if (!safe.length) break;
+      // The lowest-levelled piece first (ties go to the earlier slot: weapon first).
+      const id = safe.reduce((a, b) => (this.equipment.upgradeLevel(b) < this.equipment.upgradeLevel(a) ? b : a));
+      tries++;
+      if (this.upgradeItem(id, { quiet: true })) wins++;
+    }
+    const changes = ids.filter((id) => this.equipment.upgradeLevel(id) !== start[id])
+      .map((id) => ({ id, from: start[id], to: this.equipment.upgradeLevel(id) }));
+    if (!tries) {
+      this.msg(stoppedAtRisk ? `Auto-upgrade: your gear is ready for +${RISKY_FROM} or higher, where a failure costs a level. Carry an upgrade ward, or allow risky upgrades.`
+        : 'Auto-upgrade: nothing you are wearing can be upgraded with what you have (coins, bars or stones).', 'system');
+    } else {
+      const list = changes.map((c) => `${upgradedName(c.id, c.to)} (from +${c.from})`).join(', ');
+      this.msg(`Auto-upgrade: ${tries} attempt${tries > 1 ? 's' : ''}, ${wins} succeeded.${list ? ' ' + list + '.' : ''}`
+        + (stoppedAtRisk ? ` Stopped before the risky levels (+${RISKY_FROM} and up) without a ward.` : ''), 'level');
+      this.spawnSparkle(this.player, '#F5B82E', 18);
+      this.bus.emit('sfx', wins ? 'level' : 'hurt');
+    }
+    return { tries, wins, changes, stoppedAtRisk };
   }
 
   unequip(slot) {
