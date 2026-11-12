@@ -34,7 +34,7 @@ export const SKILLS = [
   { id: 'thieving', name: 'Thieving', icon: '🤏', color: '#7a4a8a',
     group: 'other', desc: 'Pickpocket townsfolk and steal from market stalls.' },
   { id: 'agility', name: 'Agility', icon: '🏃', color: '#3a8a9a',
-    group: 'other', desc: 'Obstacle courses. Every 10 levels: +1% movement speed; attack and casting speed rise too, tapering off towards +100%.' },
+    group: 'other', desc: 'Obstacle courses. Faster movement, and attack speed that tapers to +100%.' },
   { id: 'slayer', name: 'Slayer', icon: '💀', color: '#5a5a5a',
     group: 'combat', desc: 'Hunt monsters on tasks from Slayer Master Rajan.' },
   { id: 'farming', name: 'Farming', icon: '🌱', color: '#4a9a3a',
