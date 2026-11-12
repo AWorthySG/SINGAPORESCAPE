@@ -1,4 +1,4 @@
-// Procedural-but-deterministic overworld for SingaporeScape.
+// Procedural-but-deterministic overworld for A-Worthy Adventure.
 // One connected map split into named Singapore-themed zones (returned as `zones`
 // for region detection) plus a dangerous Wilderness. A fixed seed keeps it stable.
 

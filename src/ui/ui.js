@@ -1281,14 +1281,14 @@ export class UI {
       btn('Download', () => {
         const a = document.createElement('a');
         a.href = URL.createObjectURL(new Blob([rep.text], { type: 'text/plain' }));
-        a.download = `singaporescape-report-${g.player.name.replace(/[^a-z0-9]+/gi, '_')}.txt`;
+        a.download = `a-worthy-adventure-report-${g.player.name.replace(/[^a-z0-9]+/gi, '_')}.txt`;
         a.click();
         setTimeout(() => URL.revokeObjectURL(a.href), 2000);
       });
       btn('Print / PDF', () => {
         const w = window.open('', '_blank');
         if (!w) return;
-        w.document.title = 'SingaporeScape learning report';
+        w.document.title = 'A-Worthy Adventure learning report';
         const pre = w.document.createElement('pre');
         pre.style.cssText = 'font:14px/1.5 ui-monospace,Menlo,monospace;white-space:pre-wrap;padding:24px';
         pre.textContent = rep.text;
