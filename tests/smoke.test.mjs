@@ -1,3 +1,4 @@
+import './seed.mjs';   // seeded Math.random: no test fails on an unlucky roll
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -670,4 +671,12 @@ test('style accessories only lend their crit and offensive stats to their own st
   const ranged = eq.bonuses();
   assert.equal(ranged.crit, 0); assert.equal(ranged.bossDmg, 0); assert.equal(ranged.critDmg, ITEMS.shortbow.equip.bonuses.critDmg || 0, 'only the bow\'s own crit damage');
   assert.equal(ranged.defence, melee.defence - (ITEMS.bronze_sword.equip.bonuses.defence || 0) + (ITEMS.shortbow.equip.bonuses.defence || 0), 'Defence still counts');
+});
+
+test('the test suite runs on seeded randomness: the same rolls every run', async () => {
+  const { seedRandom } = await import('./seed.mjs');
+  seedRandom(42); const a = [Math.random(), Math.random(), Math.random()];
+  seedRandom(42); const b = [Math.random(), Math.random(), Math.random()];
+  assert.deepEqual(a, b, 'the same seed gives the same rolls');
+  assert.ok(a.every((x) => x >= 0 && x < 1) && new Set(a).size === 3, 'rolls are spread over [0, 1)');
 });

@@ -1,6 +1,7 @@
 // Life skills and getting around: skill guides, MRT stations found on foot and
 // ridden from the world map, auto gather, gathering popups and the Interact
 // button's level warning.
+import './seed.mjs';   // seeded Math.random: no test fails on an unlucky roll
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
