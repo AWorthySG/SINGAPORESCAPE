@@ -2052,3 +2052,17 @@ body.boss-on #tip-toast { top: 132px; }
 .gear-auto { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 4px 0 10px; }
 .gear-auto .gear-tab { padding: 8px 14px; }
 .gear-risk { font-size: 12px; opacity: .85; display: flex; align-items: center; gap: 6px; }
+
+/* Stats (Strength / Intelligence / Dexterity) in the Combat tab. */
+.cb-stats { margin: 8px 0; padding: 8px 10px; border: 2px solid var(--ink, #1f2a44); border-radius: 12px; background: #fff; font-size: 12px; }
+.cb-stats .st-head { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.cb-stats .st-row { display: grid; grid-template-columns: 1fr auto; grid-template-areas: 'name add' 'eff eff'; align-items: center; gap: 0 8px; padding: 3px 0; }
+.cb-stats .st-name { grid-area: name; }
+.cb-stats .st-add { grid-area: add; }
+.cb-stats .st-eff { grid-area: eff; }
+.cb-stats .st-row.main .st-name { color: #c0392b; }
+.cb-stats .st-eff { opacity: .75; font-size: 11px; }
+.cb-stats .st-add { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--ink, #1f2a44); background: #ffe08a; font-weight: 700; cursor: pointer; }
+.cb-stats .st-add:disabled { opacity: .35; cursor: default; }
+.cb-stats .st-foot { margin-top: 4px; opacity: .8; font-size: 11px; }
+.cb-stats .st-reset { margin-left: 6px; font-size: 11px; border-radius: 8px; border: 1px solid #999; background: #f4f4f4; cursor: pointer; }

@@ -47,6 +47,7 @@ export function snapshot(game) {
     slayer: game.slayer,
     bounties: game.bounties,
     karma: game.karma,
+    attrs: game.attrs,
     clue: game.clue,
     specEnergy: game.specEnergy,
     settings: { running: game.running, autoCfg: game.autoCfg, autoGather: game.autoGather, knowledgeStrikes: game.knowledgeStrikes },
@@ -122,6 +123,10 @@ export function loadGame(game) {
     const b = data.bounties;
     game.bounties = { day: typeof b.day === 'string' ? b.day : null, list: b.list.filter((t) => t && typeof t.id === 'string'),
       streak: Number(b.streak) || 0, lastFull: typeof b.lastFull === 'string' ? b.lastFull : null };
+  }
+  // Spent stat points (older saves have none).
+  if (data.attrs && typeof data.attrs === 'object') {
+    for (const k of ['str', 'int', 'dex']) game.attrs[k] = Math.max(0, Math.floor(Number(data.attrs[k]) || 0));
   }
   if (data.karma && typeof data.karma === 'object') {
     game.karma = { good: Number(data.karma.good) || 0, evil: Number(data.karma.evil) || 0 };
