@@ -31,8 +31,9 @@ function applySpawnOpts(base, opts) {
 // Champions: a rare, gold-outlined, tougher version of a normal monster with
 // better loot. Ghostly monsters turn champion far more often after dark.
 export const CHAMPION_CHANCE = 0.04;
-// A champion has 150x a normal monster's life (50x the old 3x): a real mini-boss.
-export const CHAMPION_HP_MULT = 150;
+// A champion has 30x a normal monster's life (10x the old 3x): a mini-boss of a
+// few minutes, not the ~20-minute slog the old 150x made it. Its loot is unchanged.
+export const CHAMPION_HP_MULT = 30;
 // Boss heals: at most this share of the damage taken lately, which fades by
 // HEAL_WINDOW_DECAY each tick (about the last 4 seconds counts).
 export const HEAL_CAP_SHARE = 0.3;
