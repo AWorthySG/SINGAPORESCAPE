@@ -803,7 +803,7 @@ export class UI {
       [['atkPct', 'Attack bonus'], ['magPct', 'Magic bonus'], ['pierce', 'Armour pierce'], ['critDmg', 'Crit damage'], ['haste', 'Attack speed'], ['lifesteal', 'Lifesteal'], ['bossDmg', 'Boss damage']]
         .map(([k, l]) => (b[k] ? `<div class="row off-stat"><span>${l}</span><span>+${b[k]}%</span></div>` : '')).join('') +
       // What your fighting levels add on top of your gear (see levelBonuses).
-      (() => { const lb = levelBonuses({ attack: this.game.skills.attack, ranged: this.game.skills.ranged, magic: this.game.skills.magic, agility: this.game.skills.agility });
+      (() => { const lb = levelBonuses({ attack: this.game.skills.attack, ranged: this.game.skills.ranged, magic: this.game.skills.magic, agility: this.game.skills.agility, dance: this.game.skills.danceLevel() });
         return `<div class="row lvl-bonus"><span>From your levels</span><span>+${lb.attack} Atk/Str · +${lb.ranged} Rng · +${lb.magic} Mag (+${lb.magicStr} dmg) · +${lb.dance} Dance</span></div>`; })() +
       `<div class="row"><span>Time between attacks</span><span>${speed * 0.3 < 0.1 ? (speed * 0.3).toFixed(3) : speed * 0.3 < 0.3 ? (speed * 0.3).toFixed(2) : (speed * 0.3).toFixed(1)}s</span></div>` +
       specLine +

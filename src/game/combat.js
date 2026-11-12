@@ -21,8 +21,12 @@ export const KILL_XP_SHARE = 1 - DAMAGE_XP_SHARE;
 // the shares: the fighting skill (Magic earns half, as spells also give XP per
 // cast), plus Defence and Hitpoints.
 const RATES = { skill: 4, magic: 2, defence: 1.33, hitpoints: 1.33 };
+// The Dancer ('dance') fights with a whip that reaches like a short bow: its
+// fighting-skill XP is split evenly between Agility and Ranged.
 const spread = (skill, amount) => [
-  { skill, xp: amount * (skill === 'magic' ? RATES.magic : RATES.skill) },
+  ...(skill === 'dance'
+    ? [{ skill: 'agility', xp: amount * RATES.skill / 2 }, { skill: 'ranged', xp: amount * RATES.skill / 2 }]
+    : [{ skill, xp: amount * (skill === 'magic' ? RATES.magic : RATES.skill) }]),
   { skill: 'defence', xp: amount * RATES.defence },
   { skill: 'hitpoints', xp: amount * RATES.hitpoints },
 ];
@@ -138,7 +142,7 @@ export function levelBonuses(skills = {}) {
     attack: half(skills.attack), strength: half(skills.attack),
     ranged: half(skills.ranged),
     magic: half(skills.magic), magicStr: Math.floor(lv(skills.magic) / 10),
-    dance: half(skills.agility),
+    dance: half(skills.dance ?? skills.agility),
   };
 }
 function withLevelBonus(b, skills) {
@@ -209,8 +213,10 @@ export const RHYTHM_DMG = 0.08;       // +8% damage per stack
 export function playerDanceVsNpc(skills, equip, styleId, npc, rhythm = 0) {
   const st = DANCE_STYLES.balanced;
   const b = withLevelBonus(equip.bonuses(), skills);
+  // The whip's power comes from Agility and Ranged together (see Skills.danceLevel).
+  const lvl = skills.dance ?? skills.agility;
   return {
-    max: Math.round(maxHit(skills.agility, st.str, b.dance) * DANCE_BONUS.dmg * (1 + Math.min(RHYTHM_MAX, rhythm) * RHYTHM_DMG)) + 1,
+    max: Math.round(maxHit(lvl, st.str, b.dance) * DANCE_BONUS.dmg * (1 + Math.min(RHYTHM_MAX, rhythm) * RHYTHM_DMG)) + 1,
   };
 }
 
@@ -219,7 +225,7 @@ export function danceEvade(agility, styleId) {
   return Math.min(0.4, 0.08 + agility / 500 + DANCE_STYLES.balanced.evade);
 }
 
-export function combatXpDance(styleId, damage) { return fightXp('agility', damage); }
+export function combatXpDance(styleId, damage) { return fightXp('dance', damage); }
 
 // ----- Magic -----
 export const MAGIC_LEVEL_DIV = 80;

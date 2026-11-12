@@ -2223,6 +2223,30 @@ test('Auto battle rotation: builds with basics, saves big skills for fights wort
   assert.equal(g.armedAbility, null);
 });
 
+test('Dancer: combat XP is split between Agility and Ranged, and both power the whip', async () => {
+  const { xpForLevel } = await import('../src/data/xp.js');
+  const { playerDanceVsNpc } = await import('../src/game/combat.js');
+  const { NPC } = await import('../src/game/npc.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('dancer');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  const t = new NPC('goblin', g.player.x + 1, g.player.y, 0, {});
+  const a0 = g.skills.xp.agility, r0 = g.skills.xp.ranged;
+  g.killNpc(t);
+  const da = g.skills.xp.agility - a0, dr = g.skills.xp.ranged - r0;
+  assert.ok(da > 0 && Math.abs(da - dr) < 1e-6, `the kill reward is split evenly (${da} / ${dr})`);
+  // The whip's power pools both: Ranged XP alone raises it.
+  g.skills.xp.agility = xpForLevel(200); g.skills.xp.ranged = 0;
+  const eq = { bonuses: () => ({ dance: 0 }) };
+  const before = playerDanceVsNpc(g.skills, eq, 'balanced', t.def).max;
+  g.skills.xp.ranged = xpForLevel(200);
+  assert.ok(playerDanceVsNpc(g.skills, eq, 'balanced', t.def).max > before, 'Ranged XP adds to whip damage');
+  // Splitting never slows a Dancer down: the pooled level matches one skill holding all the XP.
+  g.skills.xp.agility = g.skills.xp.ranged = xpForLevel(500) / 2;
+  assert.equal(g.skills.danceLevel(), 500);
+  assert.equal(g.fightLevel(), Math.max(g.skills.combatLevel(), 500));
+});
+
 test('XP bonus stacks: Wilderness level and kill streak; bosses drop much more and give bonus XP', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
