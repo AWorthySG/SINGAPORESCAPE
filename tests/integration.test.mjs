@@ -4216,6 +4216,34 @@ test('auto battle walks a strong player past weak monsters to ones of their leve
   assert.equal(g._autoIsWeak(rat), false);
 });
 
+test('Late-game players fight at their skill level: auto battle seeks, and monsters gauge them by, Melee/Ranged/Magic, not the compressed combat level', async () => {
+  const { xpForLevel } = await import('../src/data/xp.js');
+  const { NPC } = await import('../src/game/npc.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseStartingStyle('melee');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  for (const s of ['attack', 'strength', 'defence', 'hitpoints']) g.skills.xp[s] = xpForLevel(5000);
+  const cl = g.skills.combatLevel();
+  assert.ok(cl < 1500, `combat level is compressed (${cl})`);
+  assert.equal(g.fightLevel(), 5000, 'but you fight at your Melee level');
+  assert.ok(g._autoBandLo(false) > cl, 'auto battle looks for monsters around your Melee level');
+  // Monsters size you up by it too: a level-300 monster leaves a Melee-5000 hero
+  // alone (by combat level it would have thought you its equal), a level-3000 one doesn't.
+  const weak = new NPC('goblin', g.player.x + 2, g.player.y, 0, {});
+  weak.def = { ...weak.def, level: 300, aggressive: true, aggroRange: 5 };
+  const strong = new NPC('goblin', g.player.x - 2, g.player.y, 0, {});
+  strong.def = { ...strong.def, level: 3000, aggressive: true, aggroRange: 5 };
+  g.npcs = [weak, strong];
+  weak._combatAI(g); strong._combatAI(g);
+  assert.ok(cl <= 300 * 2 + 1, 'by combat level alone the weak one would have attacked');
+  assert.equal(weak.target, null, 'a far weaker monster keeps its distance');
+  assert.equal(strong.target, g.player, 'a monster of a comparable level still attacks');
+  // Early on nothing changes: combat level leads while skills are low.
+  clearSave();
+  const e = new Game(); e.start(); e.chooseStartingStyle('melee');
+  assert.equal(e.fightLevel(), e.skills.combatLevel());
+});
+
 test('performance helpers: nearby list, reusable path search, merged hitsplats', async () => {
   const { NPC } = await import('../src/game/npc.js');
   const { findPath } = await import('../src/engine/pathfinding.js');
