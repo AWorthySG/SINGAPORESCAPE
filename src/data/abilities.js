@@ -102,7 +102,6 @@ export const ABILITIES = [
 // attack). Second Wind (V) stays shared.
 // Extra effects on top of the ones above:
 //   crit     the hit is always a critical (x2, or x4 on a mega crit)
-//   pierce   unused: player attacks always land, so there is no defence to ignore
 //   lifesteal share of the damage dealt healed back
 //   cleave   multiplies the weapon's cleave share for this hit (melee)
 //   stun     ticks the foe reels and can't strike back
@@ -134,7 +133,7 @@ const CLASS_ABILITIES = [
   { ...Z, id: 'lance_thrust', cls: 'knight', mode: 'melee', name: 'Lance Thrust', icon: '🛡️', art: 'piercing_shot', dmgMul: 1.4, guaranteed: true, desc: 'A heavy thrust (~1.4x) through a gap in their guard.' },
   { ...BF, id: 'shield_wall', cls: 'knight', mode: 'melee', name: 'Shield Wall', icon: '🛡️', art: 'brace', buff: { reduce: 0.5, dmg: 0.15 }, desc: 'Raise your guard: take 50% less damage and deal 15% more for 9s.' },
   { ...C, id: 'hold_fast', cls: 'knight', mode: 'melee', name: 'Hold Fast', icon: '🏰', art: 'brace', cd: 15, kind: 'guard', guardTicks: 6, build: 5, desc: 'Plant your feet: halve damage for 6 ticks.' },
-  { ...B, id: 'dragonbane', cls: 'knight', mode: 'melee', name: 'Dragonbane', icon: '🐉', art: 'onslaught', dmgMul: 3.4, guaranteed: true, pierce: 0.4, desc: 'Ultimate: a heavy knightly blow (~3.4x) fit to fell a dragon.' },
+  { ...B, id: 'dragonbane', cls: 'knight', mode: 'melee', name: 'Dragonbane', icon: '🐉', art: 'onslaught', dmgMul: 3.4, guaranteed: true, desc: 'Ultimate: a heavy knightly blow (~3.4x) fit to fell a dragon.' },
   // Berserker: battleaxes. Rage: builds faster when hurt and on every kill.
   { ...Z, id: 'axe_cleave', cls: 'berserker', mode: 'melee', name: 'Great Cleave', icon: '🪓', art: 'power_strike', dmgMul: 1.2, cleave: 2, desc: 'A huge chop (~1.2x) that cleaves twice as hard into the pack.' },
   { ...BF, id: 'berserk_rage', cls: 'berserker', mode: 'melee', name: 'Berserk Rage', icon: '😡', art: 'brace', buff: { dmg: 0.5, haste: 40 }, desc: 'Lose yourself in rage: +50% damage and +40% attack speed for 9s.' },
@@ -154,7 +153,7 @@ const CLASS_ABILITIES = [
   { ...Z, id: 'impale', cls: 'lancer', mode: 'melee', name: 'Impale', icon: '🔱', art: 'piercing_shot', dmgMul: 1.4, guaranteed: true, desc: 'A heavy thrust (~1.4x) that skewers them.' },
   { ...BF, id: 'phalanx_stance', cls: 'lancer', mode: 'melee', name: 'Phalanx Stance', icon: '🔱', art: 'brace', buff: { dmg: 0.3, reduce: 0.25 }, desc: 'Plant your spear: +30% damage and 25% less damage taken for 9s.' },
   { ...C, id: 'set_spear', cls: 'lancer', mode: 'melee', name: 'Set Spear', icon: '📍', art: 'piercing_shot', cd: 10, kind: 'attack', dmgMul: 1, stun: 2, build: 8, desc: 'Brace your spear against the charge (~1x): the foe is stunned for 2 ticks.' },
-  { ...B, id: 'phalanx', cls: 'lancer', mode: 'melee', name: 'Phalanx', icon: '🛡️', art: 'onslaught', hits: 4, dmgMul: 0.9, guaranteed: true, pierce: 0.3, desc: 'Ultimate: four heavy spear thrusts in a wall of steel.' },
+  { ...B, id: 'phalanx', cls: 'lancer', mode: 'melee', name: 'Phalanx', icon: '🛡️', art: 'onslaught', hits: 4, dmgMul: 0.9, guaranteed: true, desc: 'Ultimate: four heavy spear thrusts in a wall of steel.' },
   // Brawler: claws. Crit-hungry and fast.
   { ...Z, id: 'rend', cls: 'brawler', mode: 'melee', name: 'Rend', icon: '🐾', art: 'flurry', build: 8, hits: 2, dmgMul: 0.6, crit: true, desc: 'Two raking slashes, each a critical hit.' },
   { ...BF, id: 'adrenaline_rush', cls: 'brawler', mode: 'melee', name: 'Adrenaline Rush', icon: '💢', art: 'brace', buff: { haste: 100 }, desc: 'Fists of fury: attack twice as often for 9s.' },
@@ -194,7 +193,7 @@ const CLASS_ABILITIES = [
   { ...Z, id: 'deadshot', cls: 'sniper', mode: 'ranged', name: 'Deadshot', icon: '🎯', art: 'piercing_shot', build: 15, dmgMul: 1.3, guaranteed: true, desc: 'A heavy round (~1.3x) that lands with crushing force.' },
   { ...BF, id: 'hold_breath', cls: 'sniper', mode: 'ranged', name: 'Hold Your Breath', icon: '🫁', art: 'brace', buff: { crit: 0.3, dmg: 0.3 }, desc: 'Steady the scope: +30% crit chance and +30% damage for 9s.' },
   { ...C, id: 'ghillie', cls: 'sniper', mode: 'ranged', name: 'Ghillie Suit', icon: '🌾', art: 'brace', kind: 'buff', ticks: 8, buff: { dodge: 0.4, reduce: 0.2 }, desc: 'Go to ground: +40% dodge and 20% less damage taken for 5s.' },
-  { ...B, id: 'collateral', cls: 'sniper', mode: 'ranged', name: 'Collateral', icon: '💥', art: 'arrow_storm', dmgMul: 3.5, guaranteed: true, instant: true, pierce: 0.5, desc: 'Ultimate: one round (~3.5x) that punches through everything in its path.' },
+  { ...B, id: 'collateral', cls: 'sniper', mode: 'ranged', name: 'Collateral', icon: '💥', art: 'arrow_storm', dmgMul: 3.5, guaranteed: true, instant: true, desc: 'Ultimate: one round (~3.5x) that punches through everything in its path.' },
   // Ninja: shurikens. Out of the shadows: crits build.
   { ...Z, id: 'shadow_stars', cls: 'ninja', mode: 'ranged', name: 'Shadow Stars', icon: '✴️', art: 'snapshot', build: 10, hits: 2, dmgMul: 0.6, desc: 'Two shurikens flung at once, out of the shadows.' },
   { ...BF, id: 'shadow_clone', cls: 'ninja', mode: 'ranged', name: 'Shadow Clone', icon: '💨', art: 'brace', buff: { dodge: 0.3, haste: 40 }, desc: 'Shadow clones: +30% dodge and +40% attack speed for 9s.' },

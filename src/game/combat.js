@@ -108,7 +108,7 @@ const WEAKNESS_BY_SPRITE = {
 };
 
 export const WEAKNESS_BONUS = { dmg: 1.10 };
-export const MELEE_BONUS = { acc: 1.2, dmg: 1.3 };
+export const MELEE_BONUS = { dmg: 1.3 };
 /** Share of the Attack level that also counts toward melee max hit. */
 export const ATTACK_TO_STRENGTH = 0.2;
 
@@ -155,14 +155,13 @@ export function playerAttackVsNpc(skills, equip, styleId, npc) {
   // Player hits always land, so gear's melee Attack bonus (once accuracy) now
   // adds a quarter of itself to melee power.
   bonuses.strength += Math.floor((gear.attack || 0) / 4);
-  // Melee trades reach for power: it has to close the distance, so it lands
-  // more often and hits harder than the formula's base (x1.2 accuracy, x1.3+1 max).
-  const aRoll = attackRoll(skills.attack, style.atk, bonuses.attack) * MELEE_BONUS.acc;
-  const dRoll = defenceRoll(npc.defence, 0, 0);
+  // Melee trades reach for power: it has to close the distance, so it hits
+  // harder than the formula's base (x1.3+1 max). (Player hits always land, so
+  // there is no attack roll: only the max hit matters.)
   // Melee is one skill now (Strength mirrors it); the extra fifth keeps damage where
   // it was for a player who had trained Attack and Strength evenly.
   const mh = Math.round(maxHit(skills.strength + Math.floor(skills.attack * ATTACK_TO_STRENGTH), style.str, bonuses.strength) * MELEE_BONUS.dmg) + 1;
-  return { atkRoll: aRoll, defRoll: dRoll, max: mh };
+  return { max: mh };
 }
 
 export function npcAttackVsPlayer(npc, skills, equip, styleId) {
@@ -182,17 +181,14 @@ export const RANGED_STYLES = {
   balanced: { name: 'Balanced', atk: 2, speedMod: 0 },
 };
 export const RANGED_STYLE_ORDER = ['balanced'];
-export const RANGED_BONUS = { acc: 1.15, dmg: 1.5 };
+export const RANGED_BONUS = { dmg: 1.5 };
 
 export function playerRangedVsNpc(skills, equip, styleId, npc, arrowStr) {
-  const st = RANGED_STYLES.balanced;
   const b = withLevelBonus(equip.bonuses(), skills);
   // Arrows set the base; half the bow/armour Ranged bonus adds to damage too,
-  // so a better bow hits harder, not just more often.
+  // so a better bow hits harder.
   const str = arrowStr + Math.floor((b.ranged || 0) / 2);
   return {
-    atkRoll: attackRoll(skills.ranged, st.atk, b.ranged) * RANGED_BONUS.acc,
-    defRoll: defenceRoll(npc.defence, 0, 0),
     max: Math.round(maxHit(skills.ranged, 0, str) * RANGED_BONUS.dmg) + 1,
   };
 }
@@ -206,7 +202,7 @@ export const DANCE_STYLES = {
   balanced: { name: 'Balanced', atk: 2, str: 2, skill: 'agility', evade: 0.04 },
 };
 export const DANCE_STYLE_ORDER = ['balanced'];
-export const DANCE_BONUS = { acc: 1.15, dmg: 1.3 };
+export const DANCE_BONUS = { dmg: 1.3 };
 export const RHYTHM_MAX = 5;          // Rhythm stacks
 export const RHYTHM_DMG = 0.08;       // +8% damage per stack
 
@@ -214,8 +210,6 @@ export function playerDanceVsNpc(skills, equip, styleId, npc, rhythm = 0) {
   const st = DANCE_STYLES.balanced;
   const b = withLevelBonus(equip.bonuses(), skills);
   return {
-    atkRoll: attackRoll(skills.agility, st.atk, b.dance) * DANCE_BONUS.acc,
-    defRoll: defenceRoll(npc.defence, 0, 0),
     max: Math.round(maxHit(skills.agility, st.str, b.dance) * DANCE_BONUS.dmg * (1 + Math.min(RHYTHM_MAX, rhythm) * RHYTHM_DMG)) + 1,
   };
 }
@@ -235,8 +229,6 @@ export function playerMagicVsNpc(skills, equip, spell, npc) {
   // Gear's Magic bonus (once accuracy) adds a point of magic damage per 16.
   b.magicStr = (b.magicStr || 0) + Math.floor((gear.magic || 0) / 16);
   return {
-    atkRoll: (skills.magic + 8) * (b.magic + 64),
-    defRoll: (npc.defence + 8) * 64,
     // Magic level multiplies the spell's power (with gear's magic damage), the way
     // Melee and Ranged levels multiply weapon power: +1.25% per level, so a
     // level 50 mage hits ~1.6x the spell's base and a level 99 mage ~2.2x.

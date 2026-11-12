@@ -1218,7 +1218,7 @@ export class Game {
     if (mode === 'ranged') return this._rangedAttack(npc);
     if (mode === 'magic') return this._magicAttack(npc);
     if (mode === 'dance') return this._danceAttack(npc);
-    const { atkRoll, defRoll, max } = playerAttackVsNpc(this.skills, this.equipment, this.player.style, npc.def);
+    const { max } = playerAttackVsNpc(this.skills, this.equipment, this.player.style, npc.def);
     const pm = this.prayerMult();
     const baseMax = Math.round(max * pm.str);
     this._swingToward(this.player, npc.x, npc.y);
@@ -1660,7 +1660,7 @@ export class Game {
       : [npc];
     let total = 0, raw = 0;   // raw: the main target's damage before crits, for the ricochet
     for (const t of targets) {
-      const { atkRoll, defRoll, max } = playerDanceVsNpc(this.skills, this.equipment, style, t.def, this.danceRhythm);
+      const { max } = playerDanceVsNpc(this.skills, this.equipment, style, t.def, this.danceRhythm);
       this._lash(t, fancy ? '#ffd24a' : '#ff8ac0');
       for (let i = 0; i < mods.hits && t.hp > 0; i++) {
         const effMax = Math.max(1, Math.round(max * pm.str * mods.dmgM));
@@ -1857,7 +1857,7 @@ export class Game {
     const shot = this._shotKind(wpn);
     const tint = wpn.coins ? '#f5b82e' : wpn.weaponType === 'pistol' ? '#ffe28a' : wpn.weaponType === 'shuriken' ? '#cfd8e6' : '#d9c45a';
     const style = this.player.rangedStyle;
-    const { atkRoll, defRoll, max } = playerRangedVsNpc(this.skills, this.equipment, style, npc.def, arrowStr);
+    const { max } = playerRangedVsNpc(this.skills, this.equipment, style, npc.def, arrowStr);
     const pr = this.prayerMult().ranged;
     // Longbows fire half as often as shortbows but each arrow hits 60% harder.
     const baseMax = Math.round(max * pr * (wpn.weaponType === 'longbow' ? LONGBOW_DMG : wpn.weaponType === 'rifle' ? RIFLE_DMG : 1));
@@ -1934,7 +1934,7 @@ export class Game {
         arrowStr = getItem(this.inventory.slotAt(ai).id).arrowStr || 0;
         this._spendArrow(ai);
       }
-      const { atkRoll, defRoll, max } = playerRangedVsNpc(this.skills, this.equipment, style, n.def, arrowStr);
+      const { max } = playerRangedVsNpc(this.skills, this.equipment, style, n.def, arrowStr);
       const effMax = Math.max(1, Math.round(max * pr));
       let dmg = rollHit(effMax);
       const c = this._critHit(dmg, this._mainCritCh || 0); dmg = c.dmg;
@@ -1990,7 +1990,7 @@ export class Game {
       spell = alt;
     }
     this._consumeRunes(spell, npc);
-    const { atkRoll, defRoll, max } = playerMagicVsNpc(this.skills, this.equipment, spell, npc.def);
+    const { max } = playerMagicVsNpc(this.skills, this.equipment, spell, npc.def);
     this._castElement = spell.element;   // the element decides what this spell is strong or weak against
     const mods = this._offensiveMods(npc, 'magic');
     this._castElement = null;
