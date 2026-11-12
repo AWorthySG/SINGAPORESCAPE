@@ -1,5 +1,6 @@
 // Headless render smoke test: drives the Renderer and every sprite branch against
 // a stub 2D context to catch runtime errors (missing methods, bad colours) without a browser.
+import './seed.mjs';   // seeded Math.random: no test fails on an unlucky roll
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 

@@ -1,5 +1,6 @@
 // Learning: the question bank, Wisdom XP, topic mastery, Codex titles, the
 // subject perks they grant in the game, and saving it all.
+import './seed.mjs';   // seeded Math.random: no test fails on an unlucky roll
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 

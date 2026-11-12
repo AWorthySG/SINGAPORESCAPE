@@ -1,5 +1,6 @@
 // Headless integration tests: boot the Game (no DOM), simulate ticks, and verify
 // the world, gathering pipeline and save/load all work end-to-end.
+import './seed.mjs';   // seeded Math.random: no test fails on an unlucky roll
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
