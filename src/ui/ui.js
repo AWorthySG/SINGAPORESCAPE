@@ -907,6 +907,15 @@ export class UI {
         + 'Levels belong to the item type, so every copy you own shares them. Up to +5 always works; after that it can fail. '
         + `From +4 you also need <b>upgrade stones</b> (monsters drop them). From +${RISKY_FROM}, a failure also <b>drops the item a level</b>, unless you carry an <b>upgrade ward</b>. `
         + `Max +${MAX_UPGRADE}. You have ${g.inventory.count(UP_STONE)} stones and ${g.inventory.count(UP_WARD)} wards.</p></div>`;
+      // Auto-upgrade: spend what you have on everything you're wearing, lowest level first.
+      const auto = document.createElement('div');
+      auto.className = 'gear-auto';
+      auto.innerHTML = `<button type="button" class="gear-tab active">⚡ Auto-upgrade worn gear</button>`
+        + `<label class="gear-risk"><input type="checkbox"${this._autoUpRisk ? ' checked' : ''}> Also try +${RISKY_FROM} and up without a ward (a failure costs a level)</label>`;
+      const riskBox = auto.querySelector('input');
+      riskBox.addEventListener('change', () => { this._autoUpRisk = riskBox.checked; });
+      auto.querySelector('button').addEventListener('click', () => { g.autoUpgradeEquipped({ allowRisk: !!this._autoUpRisk }); render(body); });
+      body.appendChild(auto);
       const ids = [...new Set([...EQUIP_SLOTS.map((s) => g.equipment.get(s)).filter(Boolean),
         ...g.inventory.slots.filter((s) => s && getItem(s.id).equip).map((s) => s.id)])];
       const list = document.createElement('div');
