@@ -680,3 +680,12 @@ test('the test suite runs on seeded randomness: the same rolls every run', async
   assert.deepEqual(a, b, 'the same seed gives the same rolls');
   assert.ok(a.every((x) => x >= 0 && x < 1) && new Set(a).size === 3, 'rolls are spread over [0, 1)');
 });
+
+test('weapon balance: every weapon type has a damage scale, slow weapons hit harder per blow', async () => {
+  const { WEAPON_DMG_MULT, weaponDmgMult } = await import('../src/game/combat.js');
+  const { WEAPON_TYPES } = await import('../src/data/items.js');
+  for (const t of WEAPON_TYPES) assert.ok(WEAPON_DMG_MULT[t] > 0, `${t} has a damage scale`);
+  assert.ok(WEAPON_DMG_MULT['2h_sword'] > WEAPON_DMG_MULT.sword && WEAPON_DMG_MULT.sword > WEAPON_DMG_MULT.pistol, 'slower weapons, bigger blows');
+  assert.equal(weaponDmgMult({ weaponType: () => null }), 1, 'unarmed is unscaled');
+  assert.equal(weaponDmgMult({ bonuses: () => ({}) }), 1, 'and so is a bare test stub');
+});

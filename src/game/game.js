@@ -3484,10 +3484,21 @@ export class Game {
     const value = (sp) => {
       const el = ELEMENTS[sp.element] || {};
       const m = elementMatchup(sp.element, race);
-      // Fire's Ignite: every cast adds a burn of share x its hit every second until the foe dies;
-      // counted as five seconds' worth on top of the hit, so a resisted Fire still loses out.
-      const burn = el.ignite ? el.ignite.share * 5 : 0;
-      let v = (1 + burn) * (m === 'strong' ? RACE_BONUS.dmg : m === 'weak' ? RACE_PENALTY.dmg : 1) / (el.castSpeed || 1);
+      // Damage per second from the casts alone (an average hit, the race matchup, the cast speed).
+      const hit = playerMagicVsNpc(this.skills, this.equipment, sp, tgt.def).max * 0.625;
+      const d = Math.max(1, hit * (m === 'strong' ? RACE_BONUS.dmg : m === 'weak' ? RACE_PENALTY.dmg : 1)
+        / (this.attackInterval(sp) * COMBAT_BEAT_MS / 1000));
+      // Fire's Ignite: every cast adds a burn of share x its hit every second until
+      // the foe dies, so it pays off more the longer the fight. Work out how long
+      // the kill takes: with burns the damage dealt by time T is d*T*(1 + share*T/2),
+      // so a foe with hp life falls at T = (sqrt(1 + 2*share*hp/d) - 1) / share, and
+      // the spell is worth hp/T. On a quick kill Wind's double cast speed wins;
+      // on a long fight (a boss, a champion) Fire pulls far ahead.
+      let v = d;
+      if (el.ignite) {
+        const s = el.ignite.share, hp = Math.max(1, tgt.hp);
+        v = hp / ((Math.sqrt(1 + 2 * s * hp / d) - 1) / s);
+      }
       // Area damage: Earth reaches everyone within 5 tiles, the rest only within 2.
       const near = el.aoeRadius ? crowd : this.nearbyNpcs().filter((n) => n !== tgt && n.alive && n.attackable && !n.ally && !n.def.fixed
         && chebyshev(n.x, n.y, tgt.x, tgt.y) <= AOE_RADIUS).length;

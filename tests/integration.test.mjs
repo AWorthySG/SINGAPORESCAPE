@@ -3850,6 +3850,15 @@ test('auto battle casters pick the element that suits the target', async () => {
   const crowd = [[3, 0], [-3, 0], [0, 4], [0, -4], [4, 4]].map(([dx, dy]) => new NPC('goblin', t.x + dx, t.y + dy, 0, {}));
   game.npcs = [t, ...crowd];
   assert.equal(game._autoSpellFor(t).element, 'earth');
+  // A lone foe: a quick kill favours Wind (casts twice as fast); a long fight
+  // (a boss's worth of life) favours Fire, whose stacking burns keep growing.
+  const solo = new NPC('goblin', p.x + 3, p.y, 0, {});
+  solo.def = { ...solo.def, sprite: 'none', race: 'humanoid' };
+  game.npcs = [solo];
+  solo.maxHp = solo.hp = 500;
+  assert.equal(game._autoSpellFor(solo).element, 'wind', 'Wind on a quick kill');
+  solo.maxHp = solo.hp = 5e7;
+  assert.equal(game._autoSpellFor(solo).element, 'fire', 'Fire on a long fight');
 });
 
 test('attack speed % has no cap; wands cast faster than staves; spells halve the swing time', () => {
@@ -3894,7 +3903,7 @@ test('the element you press is the one you cast, even in auto battle; Auto lets 
   g.skills.xp.magic = 50000000;
   for (const r of ['fire_rune', 'water_rune', 'earth_rune', 'air_rune', 'mind_rune']) g.inventory.add(r, 500);
   const p = g.player;
-  const t = new NPC('goblin', p.x + 2, p.y, 0, {}); t.maxHp = t.hp = 1e7;
+  const t = new NPC('goblin', p.x + 2, p.y, 0, {}); t.maxHp = t.hp = 2000;   // an ordinary fight (a huge one would favour Fire's burns)
   const crowd = [[3, 0], [-3, 0], [0, 4], [0, -4]].map(([dx, dy]) => new NPC('goblin', t.x + dx, t.y + dy, 0, {}));
   g.npcs = [t, ...crowd];
   p.spell = 'water_strike'; p.spellAuto = false;
