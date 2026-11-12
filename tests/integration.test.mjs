@@ -2283,6 +2283,47 @@ test('Auto-upgrade: raises every worn item, strongest upgrade first, and stops b
   assert.equal(g2.autoUpgradeEquipped().tries, 0);
 });
 
+test('Refinement: a second ★1-★15 layer with success, failure, downgrade and broken (destroyed), saved with the game', async () => {
+  const R = await import('../src/game/refine.js');
+  const { WARD, STONE } = await import('../src/game/upgrade.js');
+  // Odds by tier: always works to ★5; can fail from ★6; downgrade from ★10; break from ★13.
+  for (let n = 1; n <= 15; n++) {
+    const o = R.refineOdds(n);
+    assert.ok(Math.abs(o.success + o.fail + o.downgrade + o.broken - 1) < 1e-9, `★${n} odds sum to 1`);
+    assert.equal(o.fail > 0, n >= 6); assert.equal(o.downgrade > 0, n >= 10); assert.equal(o.broken > 0, n >= 13);
+  }
+  assert.equal(R.rollRefine(14, 0.0), 'success'); assert.equal(R.rollRefine(14, 0.4), 'fail');
+  assert.equal(R.rollRefine(14, 0.7), 'downgrade'); assert.equal(R.rollRefine(14, 0.99), 'broken');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('swordsman');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.inventory.add('coins', 1e9); g.inventory.add(STONE, 10000);
+  const w = g.equipment.get('weapon');
+  const before = g.equipment.itemBonuses(w);
+  // Success adds stats on top of upgrades.
+  const roll = (r) => { const m = Math.random; Math.random = () => r; try { return g.refineItem(w); } finally { Math.random = m; } };
+  for (let i = 0; i < 5; i++) assert.equal(roll(0.99), 'success', '★1-★5 always succeed');
+  assert.equal(g.equipment.refineLevel(w), 5);
+  assert.ok(g.equipment.itemBonuses(w).strength > before.strength, 'refining adds stats');
+  g.equipment.refines[w] = 7;   // trying for ★8: success or failure only
+  assert.equal(roll(0.99), 'fail'); assert.equal(g.equipment.refineLevel(w), 7, 'a failure keeps the level');
+  g.equipment.refines[w] = 11;
+  assert.equal(roll(0.99), 'downgrade'); assert.equal(g.equipment.refineLevel(w), 10, 'a downgrade loses a level');
+  // A ward takes the blow.
+  g.inventory.add(WARD, 1);
+  assert.equal(roll(0.99), 'warded'); assert.equal(g.equipment.refineLevel(w), 10);
+  assert.equal(g.inventory.count(WARD), 0, 'and is used up');
+  // Saved and loaded.
+  saveGame(g);
+  const g2 = new Game(); g2.start(); loadGame(g2);
+  assert.equal(g2.equipment.refineLevel(w), 10);
+  // Broken: from ★13 the worn item can be destroyed and the type's refine resets.
+  g.equipment.refines[w] = 14;
+  assert.equal(roll(0.995), 'broken');
+  assert.notEqual(g.equipment.get('weapon'), w, 'the weapon is gone');
+  assert.equal(g.equipment.refineLevel(w), 0);
+});
+
 test('XP bonus stacks: Wilderness level and kill streak; bosses drop much more and give bonus XP', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();

@@ -33,6 +33,7 @@ import { EQUIP_SLOTS, canDualPair } from '../game/equipment.js';
 import { streakMult } from '../game/bounty.js';
 import { itemCategory } from '../game/inventory.js';
 import { MAX_UPGRADE, upgradeCost, upgradeChance, upgradedName, RISKY_FROM, STONE as UP_STONE, WARD as UP_WARD } from '../game/upgrade.js';
+import { MAX_REFINE, refineCost, refineOdds, refineTag } from '../game/refine.js';
 import { STAT_LABELS, STAT_HELP, compareGear, deltaText, gearBySlot, gearRating, meetsReq, swingBeats, tierOf, weaponStyle } from '../game/gear.js';
 import { TILE, LEARNING_ENABLED } from '../config.js';
 import { TERRAIN } from '../data/world.js';
@@ -775,7 +776,8 @@ export class UI {
         cell.className = 'equip-slot filled';
         cell.innerHTML = itemIconSVG(id, 32);
         const lv = this.game.equipment.upgradeLevel(id);
-        if (lv) cell.insertAdjacentHTML('beforeend', `<span class="up-badge">+${lv}</span>`);
+        const rl = this.game.equipment.refineLevel(id);
+        if (lv || rl) cell.insertAdjacentHTML('beforeend', `<span class="up-badge">${lv ? `+${lv}` : ''}${rl ? `★${rl}` : ''}</span>`);
         cell.addEventListener('click', () => this.game.unequip(slot));
         this._tip(cell, () => `<b>${item.name}</b>${this._gearTip(id)}<br><span style="opacity:.8">Tap to remove</span>`,
           () => [{ label: 'Remove', target: item.name, fn: () => this.game.unequip(slot) }]);
@@ -824,7 +826,7 @@ export class UI {
       row.className = 'eq-row';
       row.innerHTML = `<summary><span class="eq-ic">${itemIconSVG(id, 26)}</span>`
         + `<span class="eq-txt"><span class="eq-slot">${slot === 'shield' && this.game.equipment.isDualWielding() ? 'Off-hand' : capitalize(slot)}</span>`
-        + `<b class="eq-name">${escapeHtml(upgradedName(id, lv))}</b>${fam}`
+        + `<b class="eq-name">${escapeHtml(upgradedName(id, lv))}${this.game.equipment.refineLevel(id) ? ' ' + refineTag(this.game.equipment.refineLevel(id)) : ''}</b>${fam}`
         + `<span class="eq-stats">${this._gearStats(id)}</span></span></summary>`
         + `<div class="eq-detail">${this._gearTip(id)}</div>`;
       const off = document.createElement('button');
@@ -851,6 +853,11 @@ export class UI {
     up.textContent = `Upgrade gear (+1 to +${MAX_UPGRADE})`;
     up.addEventListener('click', () => this.openUpgrade());
     this.el.equipBonuses.appendChild(up);
+    const rf = document.createElement('button');
+    rf.className = 'bestiary-open gear-guide-open';
+    rf.textContent = `Refine gear (★1 to ★${MAX_REFINE})`;
+    rf.addEventListener('click', () => this.openRefine());
+    this.el.equipBonuses.appendChild(rf);
   }
 
   /** Stat chips for one piece of gear, e.g. "+12 Defence · 1.2s". */
@@ -956,6 +963,55 @@ export class UI {
       body.appendChild(list);
     };
     this.openModal('Upgrade Gear', render);
+  }
+
+  // ---------------- Gear refinement ----------------
+  openRefine() {
+    const g = this.game;
+    const pct = (x) => `${Math.round(x * 100)}%`;
+    const render = (body) => {
+      body.innerHTML = '<div class="gear-intro"><p>Refining is a second layer on top of upgrades: each ★ adds 6% of an item\'s base stats, rising to 10% from ★10 and 15% from ★13. '
+        + 'Like upgrades, a refine level belongs to the item type. Every attempt costs coins and upgrade stones, and the higher you go the riskier it gets: '
+        + '★1–★5 always work; from ★6 an attempt can <b>fail</b> (materials lost); from ★10 it can also <b>downgrade</b> the item a level; '
+        + 'from ★13 it can <b>break</b> the item, destroying it for good. An <b>upgrade ward</b> in your pack takes a downgrade or a break instead. '
+        + `You have ${formatNumber(g.inventory.count(UP_STONE))} stones and ${g.inventory.count(UP_WARD)} wards.</p></div>`;
+      const ids = [...new Set([...EQUIP_SLOTS.map((s) => g.equipment.get(s)).filter(Boolean),
+        ...g.inventory.slots.filter((s) => s && getItem(s.id).equip).map((s) => s.id)])];
+      const list = document.createElement('div');
+      list.className = 'gear-list';
+      if (!ids.length) list.innerHTML = '<div class="modal-hint">Wear or carry some gear to refine it.</div>';
+      for (const id of ids) {
+        const lv = g.equipment.refineLevel(id);
+        const row = document.createElement('div');
+        row.className = 'gear-row';
+        let costHtml = '<b>Fully refined</b>';
+        let can = false;
+        if (lv < MAX_REFINE) {
+          const c = refineCost(id, lv + 1), o = refineOdds(lv + 1);
+          const okC = g.inventory.count('coins') >= c.coins, okS = g.inventory.count(UP_STONE) >= c.stones;
+          can = okC && okS;
+          costHtml = `<span class="${okC ? '' : 'short'}">${formatNumber(c.coins)} coins</span> · <span class="${okS ? '' : 'short'}">${c.stones} stone${c.stones > 1 ? 's' : ''}</span>`
+            + ` · ${pct(o.success)} success` + (o.fail ? ` · ${pct(o.fail)} fail` : '')
+            + (o.downgrade ? ` · <span class="short">${pct(o.downgrade)} downgrade</span>` : '')
+            + (o.broken ? ` · <span class="short">${pct(o.broken)} break</span>` : '');
+        }
+        const worn = EQUIP_SLOTS.some((s) => g.equipment.get(s) === id);
+        row.innerHTML = `<span class="gear-ic">${itemIconSVG(id, 28)}</span>`
+          + `<div class="gear-info"><div class="gear-name"><b>${escapeHtml(upgradedName(id, g.equipment.upgradeLevel(id)))}${lv ? ' ' + refineTag(lv) : ''}</b>${worn ? '<span class="gear-tag worn">Wearing</span>' : ''}</div>`
+          + `<div class="gear-stats">${this._gearStats(id)}</div><div class="gear-stats">Next: ${costHtml}</div></div>`;
+        if (lv < MAX_REFINE) {
+          const b = document.createElement('button');
+          b.className = 'gear-tab' + (can ? ' active' : '');
+          b.textContent = refineTag(lv + 1);
+          b.disabled = !can;
+          b.addEventListener('click', () => { g.refineItem(id); render(body); });
+          row.appendChild(b);
+        }
+        list.appendChild(row);
+      }
+      body.appendChild(list);
+    };
+    this.openModal('Refine Gear', render);
   }
 
   // ---------------- Gear guide ----------------
