@@ -34,6 +34,7 @@ import { streakMult } from '../game/bounty.js';
 import { itemCategory } from '../game/inventory.js';
 import { MAX_UPGRADE, upgradeCost, upgradeChance, upgradedName, RISKY_FROM, STONE as UP_STONE, WARD as UP_WARD } from '../game/upgrade.js';
 import { MAX_REFINE, refineCost, refineOdds, refineTag } from '../game/refine.js';
+import { ATTRS, ATTR_NAMES, attrSummary, attrForMode, MAX_STAT_POINTS, RESET_COST_PER_POINT } from '../game/attributes.js';
 import { STAT_LABELS, STAT_HELP, compareGear, deltaText, gearBySlot, gearRating, meetsReq, swingBeats, tierOf, weaponStyle } from '../game/gear.js';
 import { TILE, LEARNING_ENABLED } from '../config.js';
 import { TERRAIN } from '../data/world.js';
@@ -193,6 +194,9 @@ export class UI {
     this.bus.on('xp', (p) => { this._soon('skills', () => this.renderSkills(), 350); this.showXpDrop(p); });
     this.bus.on('learning', () => this._soon('skills', () => this.renderSkills()));   // Codex button shows Wisdom and cards
     this.bus.on('levelup', (p) => this.onLevelUp(p));
+    // New stat points can come with a level, and spending them changes the Stats box.
+    this.bus.on('stats', () => this.renderCombatPanel());
+    this.bus.on('levelup', () => this._soon('combatStats', () => this.renderCombatPanel(), 400));
     this.bus.on('chat', (p) => this.addChat(p.text, p.cls));
     this.bus.on('hp', () => this._soon('hp', () => this.renderHp()));
     this.bus.on('run', () => this.renderRun());
@@ -1648,6 +1652,21 @@ export class UI {
   }
 
   // Combat panel adapts to the wielded weapon: melee styles, ranged styles, or spellbook.
+  /** Strength / Intelligence / Dexterity: spend stat points (see attributes.js). */
+  _renderStats(after, mode) {
+    const g = this.game;
+    let box = this.el.combat.querySelector('.cb-stats');
+    if (!box) { box = document.createElement('div'); box.className = 'cb-stats'; after.insertAdjacentElement('afterend', box); }
+    const free = g.unspentPoints(), sum = attrSummary(g.attrs), main = attrForMode(mode);
+    box.innerHTML = `<div class="st-head"><b>Stats</b><span>${free ? `<b>${free}</b> point${free > 1 ? 's' : ''} to spend` : `${g.statPoints()}/${MAX_STAT_POINTS} points`}</span></div>`
+      + ATTRS.map((k) => `<div class="st-row${k === main ? ' main' : ''}"><span class="st-name">${ATTR_NAMES[k]} <b>${g.attrs[k]}</b></span>`
+        + `<span class="st-eff">${sum[k]}</span><button type="button" class="st-add" data-k="${k}"${free ? '' : ' disabled'}>+</button></div>`).join('')
+      + `<div class="st-foot">Points come as your fighting skill grows (up to ${MAX_STAT_POINTS}).`
+      + (g.spentPoints() ? ` <button type="button" class="st-reset">Reset (${g.spentPoints() * RESET_COST_PER_POINT} coins)</button>` : '') + '</div>';
+    box.querySelectorAll('.st-add').forEach((b) => b.addEventListener('click', () => { g.addStat(b.dataset.k); this.renderCombatPanel(); }));
+    box.querySelector('.st-reset')?.addEventListener('click', () => { g.resetStats(); this.renderCombatPanel(); });
+  }
+
   renderCombatPanel() {
     if (!this._styleRow) return;
     const mode = this.game.combatMode();
@@ -1689,6 +1708,7 @@ export class UI {
     const lvlEl = this.el.combat.querySelector('.cb-level');
     lvlEl.innerHTML = `${clsLabel}Combat level: ${this.game.skills.combatLevel()} <span style="opacity:.7">&middot; ${modeLabel}</span>`;
     lvlEl.querySelector('.cb-perks')?.addEventListener('click', () => this.openClassPerks());
+    this._renderStats(lvlEl, mode);
     // Merchant: hire mercenaries for coins.
     if (cls?.id === 'merchant') {
       const n = Mercs.activeMercs(this.game).length;

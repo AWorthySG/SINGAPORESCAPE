@@ -2341,6 +2341,34 @@ test('Every monster drops twice the coins its table says', async () => {
   assert.ok(got >= entry.min * 2 && got <= entry.max * 2, `coins doubled (${got} within ${entry.min * 2}-${entry.max * 2})`);
 });
 
+test('Stats: Strength, Intelligence and Dexterity points from your fighting level, each boosting its style, saved', async () => {
+  const A = await import('../src/game/attributes.js');
+  const { xpForLevel } = await import('../src/data/xp.js');
+  assert.equal(A.statPointsAt(100), 10); assert.equal(A.statPointsAt(10000), 100); assert.equal(A.statPointsAt(99999), 100, 'capped');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('swordsman');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.skills.xp.attack = xpForLevel(400);
+  assert.equal(g.statPoints(), 20);
+  const { NPC } = await import('../src/game/npc.js');
+  const t = new NPC('goblin', g.player.x + 1, g.player.y, 0, {});
+  const d0 = g._offensiveMods(t, 'melee').dmgM, hp0 = g.maxHp(), iv0 = g.attackInterval();
+  assert.ok(g.addStat('str', 10) && g.attrs.str === 10);
+  assert.ok(Math.abs(g._offensiveMods(t, 'melee').dmgM / d0 - 1.05) < 1e-9, 'Strength: +5% melee damage');
+  assert.ok(g.maxHp() > hp0, 'and more life');
+  g.addStat('dex', 10);
+  assert.ok(g.attackInterval() < iv0, 'Dexterity: faster attacks');
+  assert.equal(g.unspentPoints(), 0);
+  assert.equal(g.addStat('int'), false, 'no points left to spend');
+  // Saved, then reset for coins.
+  saveGame(g);
+  const g2 = new Game(); g2.start(); loadGame(g2);
+  assert.deepEqual(g2.attrs, { str: 10, int: 0, dex: 10 });
+  g.inventory.add('coins', 1e6);
+  assert.ok(g.resetStats());
+  assert.equal(g.spentPoints(), 0); assert.equal(g.unspentPoints(), 20, 'every point back to spend');
+});
+
 test('XP bonus stacks: Wilderness level and kill streak; bosses drop much more and give bonus XP', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();

@@ -3,6 +3,7 @@ import { buildWorld } from '../data/world.js';
 import { compareGear, deltaText, gearRating, effectiveRating, weaponStyle } from './gear.js';
 import { RARITY, dropRarity, lootDelay, rollUpgrade, qualityFor, NORMAL_GEAR_SKIP } from './loot.js';
 import { dayKey, prevDayKey, makeBounties, streakMult } from './bounty.js';
+import { ATTRS, ATTR_NAMES, statPointsAt, attrForMode, DMG_PER_POINT, LIFE_PER_STR, CRIT_PER_INT, SPEED_PER_DEX, RESET_COST_PER_POINT } from './attributes.js';
 import { MAX_REFINE, refineCost, rollRefine, refineTag } from './refine.js';
 import { MAX_UPGRADE, upgradeCost, upgradeChance, upgradedName, upgradedBonuses, RISKY_FROM, STONE as UP_STONE, WARD as UP_WARD } from './upgrade.js';
 import { getItem, MELEE_REACH, accessoriesFor } from '../data/items.js';
@@ -267,6 +268,7 @@ export class Game {
 
     // Good / evil alignment. Heroic deeds raise good; theft & cruelty raise evil.
     this.karma = { good: 0, evil: 0 };
+    this.attrs = { str: 0, int: 0, dex: 0 };   // spent stat points (see attributes.js)
 
     // Special-attack energy (spec bar).
     this.specEnergy = 100;
@@ -467,7 +469,39 @@ export class Game {
   /** Max hitpoints = Hitpoints level + any bonus HP from equipment. */
   maxHp() {
     const base = this.skills.hitpoints + (this.equipment.bonuses().hp || 0);
-    return base + Math.floor(base * (this.perkMods('defence').maxhp || 0));   // Vitality / Second Skin perks
+    return base + Math.floor(base * ((this.perkMods('defence').maxhp || 0)   // Vitality / Second Skin perks
+      + (this.attrs?.str || 0) * LIFE_PER_STR));                               // Strength
+  }
+
+  // ---- Attributes: Strength, Intelligence, Dexterity (see attributes.js) ----
+  /** Stat points earned so far: from your best fighting skill. */
+  statPoints() {
+    const sk = this.skills;
+    return statPointsAt(Math.max(sk.attack, sk.ranged, sk.magic, sk.danceLevel ? sk.danceLevel() : sk.agility));
+  }
+  spentPoints() { return ATTRS.reduce((t, k) => t + (this.attrs[k] || 0), 0); }
+  unspentPoints() { return Math.max(0, this.statPoints() - this.spentPoints()); }
+  /** Put a point into an attribute. */
+  addStat(k, n = 1) {
+    if (!ATTRS.includes(k)) return false;
+    const add = Math.min(n, this.unspentPoints());
+    if (add <= 0) { this.msg('You have no stat points to spend. You earn more as your fighting skill grows.', 'system'); return false; }
+    this.attrs[k] += add;
+    this.bus.emit('hp'); this.bus.emit('stats');
+    return true;
+  }
+  /** Refund every point, for coins. */
+  resetStats() {
+    const spent = this.spentPoints();
+    if (!spent) return false;
+    const cost = spent * RESET_COST_PER_POINT;
+    if (this.inventory.count('coins') < cost) { this.msg(`Resetting your stats costs ${cost} coins.`, 'system'); return false; }
+    this.inventory.remove('coins', cost);
+    this.attrs = { str: 0, int: 0, dex: 0 };
+    if (this.player.hp > this.maxHp()) this.player.hp = this.maxHp();
+    this.msg(`Your stat points are refunded (${cost} coins).`, 'system');
+    this.bus.emit('hp'); this.bus.emit('stats');
+    return true;
   }
 
   /** Summed passive-perk modifiers for a fighting style (its tracks plus Defence),
@@ -1492,6 +1526,7 @@ export class Game {
     // boss damage from gear stacks with the perk's.
     const gb = this.equipment.bonuses();
     dmgM *= 1 + gb.pierce / 100;
+    dmgM *= 1 + (this.attrs[attrForMode(mode)] || 0) * DMG_PER_POINT;   // Strength / Intelligence / Dexterity
     dmgM *= 1 + (perk.dmg || 0) + this.learning.perks().dmg +   // English mastery: Eloquence
       ((npc.def.boss || npc.champion) ? (perk.boss || 0) + gb.bossDmg / 100 : 0);
     // Attack bonus % boosts physical damage (melee, ranged, whips); Magic bonus % boosts spells.
@@ -1521,7 +1556,8 @@ export class Game {
     }
     const lvl = mode === 'ranged' ? this.skills.ranged : mode === 'magic' ? this.skills.magic : mode === 'dance' ? this.skills.agility : this.skills.attack;
     // A `crit` ability makes every one of its hits a critical.
-    const critCh = ab?.crit ? 1 : critChance(lvl, this.equipment.bonuses().crit) + (perk.crit || 0) + this.learning.perks().crit + this.buffMod('crit');
+    const critCh = ab?.crit ? 1 : critChance(lvl, this.equipment.bonuses().crit) + (perk.crit || 0) + this.learning.perks().crit + this.buffMod('crit')
+      + (mode === 'magic' ? (this.attrs.int || 0) * CRIT_PER_INT : 0);   // Intelligence
     this._abAoe = ab?.aoe || 0;   // an ultimate's area: everything this close to the target is hit too
     return { dmgM, hits, guaranteed, heal, spec, ability: ab, weak, race, critCh };
   }
@@ -1548,7 +1584,8 @@ export class Game {
    *  come off quicker than a swing) times the element's cast speed. */
   attackInterval(spell = null) {
     // A class buff's attack speed and Agility's speed bonus, on top of gear.
-    const ws = this.equipment.weaponSpeed() * 100 / (100 + this.buffMod('haste')) * 100 / (100 + this.agilityAttackSpeed());
+    const ws = this.equipment.weaponSpeed() * 100 / (100 + this.buffMod('haste')) * 100 / (100 + this.agilityAttackSpeed())
+      * 100 / (100 + (this.attrs?.dex || 0) * SPEED_PER_DEX);   // Dexterity
     if (this.combatMode() !== 'magic') return ws;
     const sp = spell || getSpell(this.player.spell);
     return ws * 0.5 * (ELEMENTS[sp.element]?.castSpeed || 1);
