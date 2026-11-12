@@ -53,6 +53,9 @@ export class Equipment {
 
   get(slot) { return this.slots[slot]; }
 
+  /** The weapon in hand's type ('sword', 'staff', 'whip'…), or null when unarmed. */
+  weaponType() { const id = this.slots.weapon; return id ? getItem(id).equip?.weaponType || null : null; }
+
   set(slot, itemId) {
     this.slots[slot] = itemId;
     this._changed();

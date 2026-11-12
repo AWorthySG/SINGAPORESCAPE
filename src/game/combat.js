@@ -112,6 +112,22 @@ const WEAKNESS_BY_SPRITE = {
 };
 
 export const WEAKNESS_BONUS = { dmg: 1.10 };
+
+// Weapon balance. Weapons attack at very different speeds (pistols and wands
+// ~16 times a second, greatswords twice, a rifle under once), and heavier hits
+// never made up for slower swings: best-in-slot damage per second varied about
+// 7x between classes. Each weapon type's hits are scaled so every class lands
+// near the same single-target damage per second, slow weapons in bigger blows.
+// Weapons that also hit a crowd (heavy cleavers, whips, spells, rifles) sit
+// about 10% lower to pay for it. Measured with best-in-slot gear at levels 200
+// and 1000 (see the class balance PR); applies to both hands and every skill.
+export const WEAPON_DMG_MULT = {
+  dagger: 0.98, sword: 1.85, scimitar: 0.53, mace: 2.02, longsword: 1.55, battleaxe: 1.52, warhammer: 2.05,
+  '2h_sword': 2.34, spear: 1.45, claws: 0.72, katana: 1.44, halberd: 2.34, cane: 1.82, shortbow: 0.81,
+  longbow: 1.08, pistol: 0.57, rifle: 1.06, shuriken: 0.75, staff: 0.61, wand: 0.64, whip: 1.39,
+};
+/** The damage scale for the weapon in hand (1 when unarmed or for a test stub). */
+export const weaponDmgMult = (equip) => WEAPON_DMG_MULT[equip?.weaponType?.()] || 1;
 export const MELEE_BONUS = { dmg: 1.3 };
 /** Share of the Attack level that also counts toward melee max hit. */
 export const ATTACK_TO_STRENGTH = 0.2;
@@ -164,7 +180,7 @@ export function playerAttackVsNpc(skills, equip, styleId, npc) {
   // there is no attack roll: only the max hit matters.)
   // Melee is one skill now (Strength mirrors it); the extra fifth keeps damage where
   // it was for a player who had trained Attack and Strength evenly.
-  const mh = Math.round(maxHit(skills.strength + Math.floor(skills.attack * ATTACK_TO_STRENGTH), style.str, bonuses.strength) * MELEE_BONUS.dmg) + 1;
+  const mh = Math.round(maxHit(skills.strength + Math.floor(skills.attack * ATTACK_TO_STRENGTH), style.str, bonuses.strength) * MELEE_BONUS.dmg * weaponDmgMult(equip)) + 1;
   return { max: mh };
 }
 
@@ -193,7 +209,7 @@ export function playerRangedVsNpc(skills, equip, styleId, npc, arrowStr) {
   // so a better bow hits harder.
   const str = arrowStr + Math.floor((b.ranged || 0) / 2);
   return {
-    max: Math.round(maxHit(skills.ranged, 0, str) * RANGED_BONUS.dmg) + 1,
+    max: Math.round(maxHit(skills.ranged, 0, str) * RANGED_BONUS.dmg * weaponDmgMult(equip)) + 1,
   };
 }
 
@@ -216,7 +232,7 @@ export function playerDanceVsNpc(skills, equip, styleId, npc, rhythm = 0) {
   // The whip's power comes from Agility and Ranged together (see Skills.danceLevel).
   const lvl = skills.dance ?? skills.agility;
   return {
-    max: Math.round(maxHit(lvl, st.str, b.dance) * DANCE_BONUS.dmg * (1 + Math.min(RHYTHM_MAX, rhythm) * RHYTHM_DMG)) + 1,
+    max: Math.round(maxHit(lvl, st.str, b.dance) * DANCE_BONUS.dmg * weaponDmgMult(equip) * (1 + Math.min(RHYTHM_MAX, rhythm) * RHYTHM_DMG)) + 1,
   };
 }
 
@@ -240,6 +256,6 @@ export function playerMagicVsNpc(skills, equip, spell, npc) {
     // level 50 mage hits ~1.6x the spell's base and a level 99 mage ~2.2x.
     // The spell's base grows with Magic too (see spellBaseHit). (A dmgMult on an element would scale it.)
     max: Math.max(1, Math.round((spellBaseHit(spell, skills.magic) + (b.magicStr || 0)) * (1 + skills.magic / MAGIC_LEVEL_DIV)
-      * (ELEMENTS[spell.element]?.dmgMult || 1))),
+      * (ELEMENTS[spell.element]?.dmgMult || 1) * weaponDmgMult(equip))),
   };
 }
