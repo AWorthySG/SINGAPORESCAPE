@@ -10,6 +10,12 @@ export class Skills {
     for (const id of SKILL_IDS) this.xp[id] = xpForLevel(startLevel(id));
   }
 
+  /** The Dancer's fighting level: Agility and Ranged experience pooled together
+   *  (the Dancer's combat XP is split between them), so splitting it never slows
+   *  a Dancer down and Ranged trained with a bow powers the whip as well. */
+  danceLevel() { return levelForXp((this.xp.agility || 0) + (this.xp.ranged || 0), maxLevelFor('ranged')); }
+  get dance() { return this.danceLevel(); }
+
   // Melee is one skill: Strength mirrors Attack (shown as "Melee"), so every
   // Strength requirement, perk and formula reads the Melee level.
   level(id) { const k = id === 'strength' ? 'attack' : id; return levelForXp(this.xp[k] ?? 0, maxLevelFor(k)); }
@@ -56,7 +62,7 @@ export class Skills {
     const melee = 0.325 * (this.attack * 2);   // Melee counts for the old Attack + Strength, so levels don't drop
     const range = 0.325 * Math.floor(this.ranged * 1.5);
     const mage = 0.325 * Math.floor(this.magic * 1.5);
-    const dance = 0.325 * Math.floor(this.agility * 1.5);   // the Dancer fights with Agility
+    const dance = 0.325 * Math.floor(this.danceLevel() * 1.5);   // the Dancer fights with Agility and Ranged
     return Math.floor(base + Math.max(melee, range, mage, dance));
   }
 

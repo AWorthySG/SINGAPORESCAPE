@@ -1332,14 +1332,15 @@ export class Game {
 
   /** The level you fight at, on the same scale as monster levels: your combat
    *  level, or the level of the skill you fight with (Melee, Ranged, Magic, or
-   *  Agility for a Dancer) when that's higher. Combat level is compressed past
+   *  a Dancer's pooled Agility and Ranged) when that's higher. Combat level is compressed past
    *  100 (it tops out near 1,700) while monsters reach ~5,000 and bosses 9,999,
    *  so comparing monsters with combat level alone left late-game players unable
    *  to find, or be found by, anything their size. Auto battle's level band,
    *  monster aggression, bounties, world bosses and goal hunts all use this. */
   fightLevel() {
-    const skill = { ranged: 'ranged', magic: 'magic', dance: 'agility' }[this.combatMode()] || 'attack';
-    return Math.max(this.skills.combatLevel(), this.skills.level(skill));
+    const mode = this.combatMode();
+    const lvl = mode === 'dance' ? this.skills.danceLevel() : this.skills.level({ ranged: 'ranged', magic: 'magic' }[mode] || 'attack');
+    return Math.max(this.skills.combatLevel(), lvl);
   }
 
   /** The action-bar abilities for the weapon in hand (Z/X/B swap with the weapon). */
@@ -1753,7 +1754,7 @@ export class Game {
       this.addHitsplat(o, d, { tint: '#ffb347', critX: c.critX });
       this.spawnHitSparks(o, '#ffd9a0');
       const xp = mode === 'ranged' ? combatXpRanged(p.style, d) : mode === 'magic'
-        ? magicXp(d) : combatXp(p.style, d);
+        ? magicXp(d) : mode === 'dance' ? combatXpDance(p.danceStyle, d) : combatXp(p.style, d);
       for (const x of xp) this.skills.addXp(x.skill, x.xp * m);
       if (!o.target) o.target = p;
       if (o.hp <= 0) this.killNpc(o);
@@ -2294,16 +2295,21 @@ export class Game {
     // The kill reward: most of a monster's combat XP comes when it dies, worth
     // its full life, in the style you fight with (see killXp in combat.js).
     { const mode = this.combatMode(), m = this.combatXpMult();
-      const skill = mode === 'ranged' ? 'ranged' : mode === 'magic' ? 'magic' : mode === 'dance' ? 'agility' : 'attack';
+      const skill = mode === 'ranged' ? 'ranged' : mode === 'magic' ? 'magic' : mode === 'dance' ? 'dance' : 'attack';
       for (const x of killXp(skill, npc.maxHp)) this.skills.addXp(x.skill, x.xp * m); }
     if (npc.def.boss) {
       this.bossKills++;
       // A boss kill is a big payday: bonus XP in your combat style and Hitpoints.
       const xp = Math.round((npc.def.level || 1) * BOSS_XP_PER_LEVEL * this.combatXpMult());
       const mode = this.combatMode();
-      const skill = mode === 'ranged' ? 'ranged' : mode === 'magic' ? 'magic' : mode === 'dance' ? 'agility' : 'attack';
-      this.skills.addXp(skill, xp); this.skills.addXp('hitpoints', Math.round(xp / 3));
-      this.msg(`Boss slain! +${xp * XP_RATE} ${skill} XP.`, 'level');
+      if (mode === 'dance') {   // a Dancer's bonus is split between Agility and Ranged
+        this.skills.addXp('agility', xp / 2); this.skills.addXp('ranged', xp / 2); this.skills.addXp('hitpoints', Math.round(xp / 3));
+        this.msg(`Boss slain! +${xp * XP_RATE / 2} Agility and Ranged XP.`, 'level');
+      } else {
+        const skill = mode === 'ranged' ? 'ranged' : mode === 'magic' ? 'magic' : 'attack';
+        this.skills.addXp(skill, xp); this.skills.addXp('hitpoints', Math.round(xp / 3));
+        this.msg(`Boss slain! +${xp * XP_RATE} ${skill} XP.`, 'level');
+      }
     }
     if ((npc.def.boss && this.quests.island_defender.state === 'active') ||
         this.quests.big_game_hunter.state === 'active') this.bus.emit('quest');
