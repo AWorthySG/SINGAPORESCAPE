@@ -1330,6 +1330,18 @@ export class Game {
 
   abilityUnlocked(ab) { return this.skills.combatLevel() >= (ab.unlock || 1); }
 
+  /** The level you fight at, on the same scale as monster levels: your combat
+   *  level, or the level of the skill you fight with (Melee, Ranged, Magic, or
+   *  Agility for a Dancer) when that's higher. Combat level is compressed past
+   *  100 (it tops out near 1,700) while monsters reach ~5,000 and bosses 9,999,
+   *  so comparing monsters with combat level alone left late-game players unable
+   *  to find, or be found by, anything their size. Auto battle's level band,
+   *  monster aggression, bounties, world bosses and goal hunts all use this. */
+  fightLevel() {
+    const skill = { ranged: 'ranged', magic: 'magic', dance: 'agility' }[this.combatMode()] || 'attack';
+    return Math.max(this.skills.combatLevel(), this.skills.level(skill));
+  }
+
   /** The action-bar abilities for the weapon in hand (Z/X/B swap with the weapon). */
   currentAbilities() { return abilitiesFor(this.combatMode(), this.jobClass); }
 
@@ -2335,7 +2347,7 @@ export class Game {
       }
     }
     b.day = today;
-    b.list = makeBounties(today, this.skills.combatLevel(), [...seen.values()]);
+    b.list = makeBounties(today, this.fightLevel(), [...seen.values()]);
     if (b.lastFull && b.lastFull !== prevDayKey(today) && b.lastFull !== today) b.streak = 0;   // missed a day
     this.bus.emit('bounties');
     return true;
@@ -2841,7 +2853,7 @@ export class Game {
   }
 
   spawnWorldBoss() {
-    const p = this.player, cl = this.skills.combatLevel();
+    const p = this.player, cl = this.fightLevel();
     const ids = ALL_BOSS_IDS.filter((id) => { try { const d = getNpc(id); return d.boss && !d.fixed && d.attackable; } catch { return false; } });
     if (!ids.length) return null;
     const lvl = (id) => getNpc(id).level || 1;
@@ -3405,7 +3417,7 @@ export class Game {
    *  ordinary monster you could go to (so the very top players still have
    *  something in their band). */
   _autoBandLo(inWild) {
-    const cl = this.skills.combatLevel();
+    const cl = this.fightLevel();
     if (this._autoTopFor !== inWild || this._autoTop == null) {
       let top = 1;
       for (const n of this.npcs) {
@@ -3431,7 +3443,7 @@ export class Game {
    *  above you), outside the Wilderness unless you are in it. True if a route
    *  was found and the walk has started. */
   _autoHeadToLevel() {
-    const p = this.player, cl = this.skills.combatLevel();
+    const p = this.player, cl = this.fightLevel();
     const inWild = !!this.world.zoneAt(p.x, p.y)?.wilderness;
     const lo = this._autoBandLo(inWild);
     if (lo <= 1) return false;
@@ -3555,7 +3567,7 @@ export class Game {
     const range = this.attackRange();
     const shootable = (n, d) => range > 1 && d <= range;
     const p = this.player;
-    const cl = this.skills.combatLevel();
+    const cl = this.fightLevel();
     const wildZone = (x, y) => !!this.world.zoneAt(x, y)?.wilderness;
     const inWild = wildZone(p.x, p.y);
     let best = null, bestScore = Infinity;
@@ -4370,7 +4382,7 @@ export class Game {
         const idx = this.inventory.slots.findIndex((sl) => sl && getItem(sl.id).tags?.includes('log'));
         if (idx !== -1) { this.lightLogs(idx); ok = true; }
       } else if (g.kind === 'hunt' || g.kind === 'boss') {
-        const cl = this.skills.combatLevel();
+        const cl = this.fightLevel();
         const fits = g.kind === 'boss'
           ? (n) => n.def.boss && !n.def.fixed && (n.def.level || 1) <= Math.max(cl + 15, Math.round(cl * 1.2))
           : g.target ? (n) => n.npcId === g.target : (n) => !n.def.boss && (n.def.level || 1) <= cl + 5;
