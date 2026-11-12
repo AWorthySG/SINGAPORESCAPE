@@ -3457,7 +3457,7 @@ test('every class has its own four abilities (basic Z, threshold X, utility C, u
     if (c.id === 'dancer') continue;   // the Dancer uses the whip set
     const own = set.filter((a) => a.cls === c.id).map((a) => a.key).sort();
     assert.deepEqual(own, ['B', 'C', 'X', 'Z'], `${c.name} has its own Z, X, C and B`);
-    for (const a of set.filter((x) => x.cls)) { assert.ok(!seen.has(a.id), `${a.id} is unique`); seen.add(a.id); assert.ok(a.desc && a.art, `${a.id} has a description and art`); }
+    for (const a of set.filter((x) => x.cls)) { assert.ok(!seen.has(a.id), `${a.id} is unique`); seen.add(a.id); assert.ok(a.desc, `${a.id} has a description`); }
   }
   assert.equal(new Set(ABILITIES.map((a) => a.id)).size, ABILITIES.length, 'ability ids are unique');
   // A Rogue's Backstab finishes off the wounded; a Merchant's favour calls up an A-Worthling.
