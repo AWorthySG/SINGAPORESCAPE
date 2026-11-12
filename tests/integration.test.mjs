@@ -3957,7 +3957,7 @@ test('a world boss rises every 2 minutes: much tougher, aggressive, triple loot,
   assert.ok(!g.npcs.includes(w2), 'an unfought world boss leaves');
 });
 
-test('Agility speeds up attacks, casting and movement for every class', async () => {
+test('Agility speeds up attacks and casting (tapering off) and movement (uncapped) for every class', async () => {
   const { xpForLevel } = await import('../src/data/xp.js');
   globalThis.localStorage = fakeStorage(); clearSave();
   for (const cls of ['swordsman', 'archer', 'wizard', 'dancer']) {
@@ -3965,11 +3965,14 @@ test('Agility speeds up attacks, casting and movement for every class', async ()
     const g = new Game(); g.start(); g.chooseClass(cls);
     g.skills.xp.agility = 0;
     const iv = g.attackInterval(), step = g.playerStepMul();
-    g.skills.xp.agility = xpForLevel(1000);   // +100%
-    assert.ok(Math.abs(g.attackInterval() - iv * (100 + 0.1) / 200) < 1e-6, `${cls}: attacks/casts twice as often at Agility 1000`);
+    g.skills.xp.agility = xpForLevel(100);   // +~9%, close to the old +10%
+    assert.ok(g.attackInterval() < iv / 1.08 && g.attackInterval() > iv / 1.1, `${cls}: a little quicker at Agility 100`);
+    g.skills.xp.agility = xpForLevel(1000);   // +50% attack speed, +100% movement
+    assert.ok(Math.abs(g.attackInterval() - iv * (100 + 100 / 1001) / 150) < 1e-6,   // (Agility starts at level 1)
+      `${cls}: attacks/casts half again as often at Agility 1000`);
     assert.ok(g.playerStepMul() < step * 0.51, `${cls}: and moves twice as fast`);
     g.skills.xp.agility = xpForLevel(9999);
-    assert.ok(g.attackInterval() < iv / 9, 'attack speed keeps growing');
+    assert.ok(g.attackInterval() > iv / 2, 'attack speed tapers off: never even double from Agility alone');
     assert.ok(Math.abs(g.playerStepMul() - 0.7 * 100 / (100 + 999.9)) < 1e-9, 'movement has no cap either');
     g.doTick();
     assert.equal(g.player.stepMul, g.playerStepMul(), 'the player really walks at that pace');
