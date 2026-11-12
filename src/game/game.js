@@ -123,9 +123,10 @@ const RIFLE_PIERCE_TILES = 10;
 // ...and the round's wake also catches anything within 1 tile to either side of
 // its path (and beside the target), not just monsters squarely on the line.
 const RIFLE_PIERCE_WIDTH = 1;
-// Champions have 50x the life they used to, so their loot scales the same way:
-// stackables x50, 8 table rolls, the rare table twice and a pile of stones.
-const CHAMPION_STACK_MULT = 50;
+// Champions have 10x the life they used to (30x a monster, down from 150x), so
+// their loot is trimmed to match: stackables x10, 4 table rolls, the rare table
+// once and a few upgrade stones.
+const CHAMPION_STACK_MULT = 10;
 
 // Share of fired arrows recovered after the shot.
 const ARROW_RECOVERY = 0.8;
@@ -2472,7 +2473,7 @@ export class Game {
     }
     if (def.dropTable && def.dropTable.length) {
       // Champions roll their table eight times, bosses ten, and neither comes up empty.
-      const rolls = def.boss ? 10 : npc.champion ? 8 : 1;
+      const rolls = def.boss ? 10 : npc.champion ? 4 : 1;
       const normal = !def.boss && !npc.champion;
       for (let r = 0; r < rolls; r++) {
         let pick = weightedPick(def.dropTable);
@@ -2492,8 +2493,8 @@ export class Game {
     }
     // Rare drop table — small base chance, much higher for bosses, champions & high levels.
     const rareChance = def.boss || npc.champion ? 1 : Math.min(0.5, (def.tierLevel || def.level || 1) / 1200 + 0.01);
-    // Bosses always hit the rare table five times, champions twice.
-    for (let rr = 0; rr < (def.boss ? 5 : npc.champion ? 2 : 1); rr++) if (Math.random() < rareChance) {
+    // Bosses always hit the rare table five times, champions once.
+    for (let rr = 0; rr < (def.boss ? 5 : 1); rr++) if (Math.random() < rareChance) {
       const pick = weightedPick(RARE_DROP_TABLE);
       const q = pick.min ? randInt(pick.min, pick.max) : 1;
       loot.push([pick.id, q, dropRarity(pick.id, 'rare')]);
@@ -2516,9 +2517,9 @@ export class Game {
     }
     // Upgrade materials: stones from anything (bosses and champions most), wards from bosses.
     const stoneChance = def.boss || npc.champion ? 1 : Math.min(0.12, 0.03 + (def.tierLevel || def.level || 1) / 2500);
-    if (Math.random() < stoneChance) loot.push([UP_STONE, def.boss ? randInt(20, 50) : npc.champion ? randInt(5, 15) : 1, def.boss || npc.champion ? 'rare' : 'common']);
+    if (Math.random() < stoneChance) loot.push([UP_STONE, def.boss ? randInt(20, 50) : npc.champion ? randInt(2, 5) : 1, def.boss || npc.champion ? 'rare' : 'common']);
     if (def.boss) loot.push([UP_WARD, randInt(1, 3), 'epic']);
-    else if (Math.random() < (npc.champion ? 0.25 : 0)) loot.push([UP_WARD, 1, 'epic']);
+    else if (Math.random() < (npc.champion ? 0.1 : 0)) loot.push([UP_WARD, 1, 'epic']);
     // Treasure trails: a rare clue scroll, if you aren't already carrying one.
     if (!this.clue && !this._holdsClue()) {
       const clueChance = Math.min(0.05, (def.tierLevel || def.level || 1) / 3000 + (def.boss ? 0.04 : 0.006));
