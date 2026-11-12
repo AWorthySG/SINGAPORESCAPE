@@ -3531,14 +3531,19 @@ test('class passives: one every 100 levels of the class skill, ranking up after 
   assert.deepEqual(classPassives('rogue', 99).map((p) => p.rank), [0, 0, 0]);
   assert.deepEqual(classPassives('rogue', 250).map((p) => p.rank), [1, 1, 0]);
   assert.deepEqual(classPassives('rogue', 400).map((p) => p.rank), [2, 1, 1]);
-  assert.ok(classPassiveMods('rogue', 100).dodge > 0);
-  // The game applies them: a level-100 Knight takes less damage than a level-99 one.
+  assert.ok(classPassiveMods('rogue', 100).dmg > 0);
+  // Every passive is a damage perk: damage, crit, boss damage, extra hits or splash.
+  const DAMAGE = new Set(['dmg', 'crit', 'boss', 'extra', 'splash']);
+  for (const [cls, list] of Object.entries(CLASS_PASSIVES)) for (const p of list) {
+    assert.ok(Object.keys(p.mods).every((k) => DAMAGE.has(k)), `${cls} ${p.name} is a damage perk`);
+  }
+  // The game applies them: a level-100 Knight hits harder than a level-99 one.
   globalThis.localStorage = fakeStorage(); clearSave();
   const g = new Game(); g.start(); g.chooseClass('knight');
   g.ui = new Proxy({}, { get: () => () => {} });
-  const r0 = g.perkMods('melee').reduce || 0;
+  const d0 = g.perkMods('melee').dmg || 0;
   g.skills.xp.attack = 20000000;   // well past level 100
-  assert.ok((g.perkMods('melee').reduce || 0) > r0, 'Plate Mastery cuts damage taken');
+  assert.ok((g.perkMods('melee').dmg || 0) > d0, 'Plate Momentum adds damage');
 });
 
 test('a Brawler rakes claw swipe marks across the monster on every critical hit', async () => {
