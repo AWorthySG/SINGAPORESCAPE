@@ -34,19 +34,30 @@ test('rollGuaranteed always lands a meaningful hit', () => {
   }
 });
 
-test('landing a hit builds adrenaline', () => {
+test('landing a hit builds adrenaline, and each class builds it its own way', async () => {
+  const { ADREN_PER_HIT, CLASS_ADRENALINE } = await import('../src/data/abilities.js');
   const g = boot();
   g.adrenaline = 0;
   const npc = g.npcs.find((n) => n.attackable);
   g._applyPlayerHit(npc, 5);
-  assert.equal(g.adrenaline, 10, 'a landed hit grants adrenaline');
+  assert.equal(g.adrenaline, ADREN_PER_HIT, 'a landed hit grants adrenaline');
   g._applyPlayerHit(npc, 0);
-  assert.equal(g.adrenaline, 10, 'a miss grants none');
+  assert.equal(g.adrenaline, ADREN_PER_HIT, 'a blocked hit grants none');
+  // A Rogue builds extra on a critical hit.
+  g.jobClass = 'rogue'; g.adrenaline = 0;
+  g._pendingCrit = 2; g._applyPlayerHit(npc, 5);
+  assert.equal(g.adrenaline, ADREN_PER_HIT + CLASS_ADRENALINE.rogue.crit, 'a Rogue crit builds more');
+  // A Sniper's slow, heavy rounds build a lot each.
+  g.jobClass = 'sniper'; g.adrenaline = 0;
+  g._applyPlayerHit(npc, 5);
+  assert.equal(g.adrenaline, ADREN_PER_HIT + CLASS_ADRENALINE.sniper.hit);
+  // Every class has a way to build it.
+  for (const [cls, t] of Object.entries(CLASS_ADRENALINE)) assert.ok(Object.values(t).some((v) => v > 0), cls);
 });
 
-test('Power Strike arms, then spends adrenaline + goes on cooldown when it fires', () => {
+test('Power Strike is a free basic skill: it arms, builds adrenaline and goes on cooldown when it fires', () => {
   const g = boot();
-  g.adrenaline = 100;
+  g.adrenaline = 0;
   g.activateAbility('power_strike');
   assert.equal(g.armedAbility, 'power_strike', 'ability armed');
   const npc = g.npcs.find((n) => n.attackable);
@@ -55,15 +66,22 @@ test('Power Strike arms, then spends adrenaline + goes on cooldown when it fires
   assert.ok(mods.guaranteed, 'Power Strike never misses');
   assert.ok(mods.dmgM > 1, 'and hits harder');
   assert.equal(g.armedAbility, null, 'disarmed after firing');
-  assert.equal(g.adrenaline, 75, 'adrenaline spent');
+  assert.equal(g.adrenaline, 12, 'adrenaline built, not spent');
   assert.ok(g.abilityCd.power_strike > 0, 'on cooldown');
 });
 
-test('abilities are gated by adrenaline', () => {
+test('threshold and ultimate skills are gated by adrenaline', () => {
   const g = boot();
-  g.adrenaline = 0;
-  g.activateAbility('power_strike');
-  assert.equal(g.armedAbility, null, 'cannot arm without enough adrenaline');
+  g.adrenaline = 49;
+  g.activateAbility('battle_cry');
+  assert.ok(!g.buff, 'a threshold skill needs 50 adrenaline');
+  g.adrenaline = 50;
+  g.activateAbility('battle_cry');
+  assert.ok(g.buff && g.adrenaline === 0, 'and spends it');
+  g.abilityUnlocked = () => true;
+  g.adrenaline = 99;
+  g.activateAbility('onslaught');
+  assert.equal(g.armedAbility, null, 'the ultimate needs a full bar');
 });
 
 test('Brace sets a damage-reduction window; Second Wind heals', () => {
@@ -72,14 +90,14 @@ test('Brace sets a damage-reduction window; Second Wind heals', () => {
   g.activateAbility('brace');
   assert.ok(g.braceTicks > 0, 'braced');
   assert.ok(g.abilityCd.brace > 0, 'brace on cooldown');
-  assert.equal(g.adrenaline, 80, 'brace spent adrenaline');
+  assert.equal(g.adrenaline, 100, 'brace is free');
 
   g.adrenaline = 100;
   g.skills.addXp('hitpoints', 5000);
   g.player.hp = 5;
   g.activateAbility('second_wind');
   assert.ok(g.player.hp > 5, 'Second Wind restored life');
-  assert.ok(g.adrenaline < 100, 'and spent adrenaline');
+  assert.ok(g.abilityCd.second_wind > 0, 'and went on a long cooldown');
 });
 
 test('the weakness triangle boosts matching-style damage', () => {
