@@ -1,6 +1,7 @@
 import { getItem } from '../data/items.js';
 import { ARMOUR_SETS } from '../data/sets.js';
 import { upgradedBonuses, MAX_UPGRADE } from './upgrade.js';
+import { refinedBonuses, MAX_REFINE } from './refine.js';
 
 export const EQUIP_SLOTS = ['head', 'cape', 'amulet', 'weapon', 'body', 'shield', 'legs', 'hands', 'feet', 'ring'];
 export const DEFAULT_WEAPON_SPEED = 5; // ticks (unarmed)
@@ -42,12 +43,17 @@ export class Equipment {
     this.slots = {};
     for (const s of EQUIP_SLOTS) this.slots[s] = null;
     this.upgrades = {};           // itemId -> upgrade level (+1..+15), shared by every copy
+    this.refines = {};            // itemId -> refine level (★1..★15), shared by every copy (see refine.js)
   }
 
   upgradeLevel(id) { return this.upgrades[id] || 0; }
+  refineLevel(id) { return this.refines[id] || 0; }
 
-  /** An item's bonuses including its upgrade level. */
-  itemBonuses(id) { return upgradedBonuses(getItem(id).equip?.bonuses || {}, this.upgradeLevel(id)); }
+  /** An item's bonuses including its upgrade and refine levels. */
+  itemBonuses(id) {
+    const base = getItem(id).equip?.bonuses || {};
+    return refinedBonuses(base, upgradedBonuses(base, this.upgradeLevel(id)), this.refineLevel(id));
+  }
 
   _changed() { this.bus?.emit('equipment'); }
 
@@ -167,7 +173,7 @@ export class Equipment {
     return !!id && getItem(id).tool === tag;
   }
 
-  serialize() { return { ...this.slots, _upgrades: { ...this.upgrades } }; }
+  serialize() { return { ...this.slots, _upgrades: { ...this.upgrades }, _refines: { ...this.refines } }; }
 
   load(data) {
     if (!data) return;
@@ -177,6 +183,10 @@ export class Equipment {
     this.upgrades = {};
     for (const [id, lv] of Object.entries(data._upgrades || {})) {
       if (itemExists(id) && lv > 0) this.upgrades[id] = Math.min(MAX_UPGRADE, Math.floor(lv));
+    }
+    this.refines = {};   // older saves have none
+    for (const [id, lv] of Object.entries(data._refines || {})) {
+      if (itemExists(id) && lv > 0) this.refines[id] = Math.min(MAX_REFINE, Math.floor(lv));
     }
     this._changed();
   }

@@ -3,6 +3,7 @@ import { buildWorld } from '../data/world.js';
 import { compareGear, deltaText, gearRating, effectiveRating, weaponStyle } from './gear.js';
 import { RARITY, dropRarity, lootDelay, rollUpgrade, qualityFor, NORMAL_GEAR_SKIP } from './loot.js';
 import { dayKey, prevDayKey, makeBounties, streakMult } from './bounty.js';
+import { MAX_REFINE, refineCost, rollRefine, refineTag } from './refine.js';
 import { MAX_UPGRADE, upgradeCost, upgradeChance, upgradedName, upgradedBonuses, RISKY_FROM, STONE as UP_STONE, WARD as UP_WARD } from './upgrade.js';
 import { getItem, MELEE_REACH, accessoriesFor } from '../data/items.js';
 import { chebyshev, randInt, weightedPick, capitalize } from '../core/utils.js';
@@ -4035,6 +4036,60 @@ export class Game {
       this.bus.emit('sfx', wins ? 'level' : 'hurt');
     }
     return { tries, wins, changes, stoppedAtRisk };
+  }
+
+  /** Refine an item type one level (★1..★15), on top of its upgrades. The
+   *  attempt costs coins and upgrade stones, and ends in success, failure,
+   *  a downgrade or (from ★13) the item breaking, destroyed for good. An
+   *  upgrade ward in your pack takes a downgrade or a break instead. Returns
+   *  the outcome ('success' | 'fail' | 'downgrade' | 'broken' | 'warded'), or
+   *  null when the attempt couldn't be made. */
+  refineItem(id) {
+    if (!getItem(id).equip) return null;
+    const lv = this.equipment.refineLevel(id);
+    const name = (l) => `${getItem(id).name}${l ? ' ' + refineTag(l) : ''}`;
+    if (lv >= MAX_REFINE) { this.msg(`${name(lv)} is already fully refined.`); return null; }
+    const next = lv + 1;
+    const cost = refineCost(id, next);
+    if (this.inventory.count('coins') < cost.coins) { this.msg(`You need ${cost.coins} coins to refine to ${refineTag(next)}.`); return null; }
+    if (this.inventory.count(UP_STONE) < cost.stones) { this.msg(`You need ${cost.stones} upgrade stones to refine to ${refineTag(next)}.`); return null; }
+    this.inventory.remove('coins', cost.coins);
+    this.inventory.remove(UP_STONE, cost.stones);
+    let out = rollRefine(next);
+    // A ward takes a downgrade or a break instead (and is used up).
+    if ((out === 'downgrade' || out === 'broken') && this.inventory.count(UP_WARD) > 0) {
+      this.inventory.remove(UP_WARD, 1);
+      this.msg(`The refine went badly, but your upgrade ward crumbled instead: your ${name(lv)} is unharmed.`, 'system');
+      this.bus.emit('sfx', 'hurt');
+      return 'warded';
+    }
+    if (out === 'success') {
+      this.equipment.refines[id] = next;
+      this.equipment._changed();
+      this.spawnSparkle(this.player, '#9fd8ff', 16);
+      this.bus.emit('sfx', 'level');
+      this.msg(`Refine success! Your ${name(next)} shines brighter.`, 'level');
+      if (next === MAX_REFINE) this.banner(`<span class="big">${refineTag(MAX_REFINE)}!</span>${getItem(id).name} is fully refined`);
+    } else if (out === 'fail') {
+      this.bus.emit('sfx', 'hurt');
+      this.msg(`The refine failed. Your ${name(lv)} is unharmed, but the materials are used up.`, 'system');
+    } else if (out === 'downgrade') {
+      if (lv - 1 > 0) this.equipment.refines[id] = lv - 1; else delete this.equipment.refines[id];
+      this.equipment._changed();
+      this.bus.emit('sfx', 'hurt');
+      this.msg(`The refine failed and your gear lost a level: it is now ${name(lv - 1)}. (An upgrade ward would have saved it.)`, 'combat');
+    } else {
+      // Broken: one copy is destroyed (the worn one first) and the type's refine resets.
+      const slot = EQUIP_SLOTS.find((s) => this.equipment.get(s) === id);
+      if (slot) this.equipment.clearSlot(slot); else this.inventory.remove(id, 1);
+      delete this.equipment.refines[id];
+      this.equipment._changed();
+      this.bus.emit('sfx', 'hurt');
+      this.addShake(4, 300);
+      this.msg(`The refine shattered your ${name(lv)}! It is destroyed. (An upgrade ward would have saved it.)`, 'combat');
+      this.banner(`<span class="big">Broken!</span>${getItem(id).name} shattered`);
+    }
+    return out;
   }
 
   unequip(slot) {
