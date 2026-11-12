@@ -292,3 +292,15 @@ test('every boss and champion-able monster has a battle-bar portrait', async () 
     if (d.boss) assert.ok(pr.src.includes('/bosses/'), `${id} uses its boss art`);
   }
 });
+
+test('every ability has an icon on disk: its own art, or the art it names', async () => {
+  const { ABILITIES } = await import('../src/data/abilities.js');
+  const { readdirSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const onDisk = new Set(readdirSync(fileURLToPath(new URL('../assets/icons/', import.meta.url))));
+  for (const a of ABILITIES) {
+    assert.ok(onDisk.has(`ability-${a.art || a.id}.webp`), `${a.id} has ability-${a.art || a.id}.webp`);
+  }
+  // The class C skills have their own painted icons.
+  for (const a of ABILITIES.filter((x) => x.cls && x.key === 'C')) assert.ok(!a.art && onDisk.has(`ability-${a.id}.webp`), `${a.id} has its own icon`);
+});
