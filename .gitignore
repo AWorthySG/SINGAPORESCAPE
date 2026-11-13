@@ -3,3 +3,7 @@ node_modules/
 *.log
 .idea/
 .vscode/
+
+# Local agent tool state and chat exports (per machine, never committed)
+.claude/
+.clawness/
