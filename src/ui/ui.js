@@ -1727,32 +1727,67 @@ export class UI {
     set(s.reset, `Reset (${spent * RESET_COST_PER_POINT} coins)`);
   }
 
-  /** Fire `fire` the moment a button is pressed (pointerdown, not click, so a
-   *  tap needs no release and no click delay), then keep firing while it is
-   *  held, faster and faster (holdRepeatDelay). `fire` returns false to stop.
+  /** Spend with `fire` on a press, then keep firing while it is held, faster
+   *  and faster (holdRepeatDelay). `fire` returns false to stop.
+   *  - Mouse / pen: fires the moment the button goes down (no click delay).
+   *  - Touch: a tap fires when the finger lifts, and a hold starts repeating
+   *    after the first repeat delay. Nothing is spent until then, so a swipe
+   *    that starts on a button scrolls the panel (touch-action: pan-y) and
+   *    costs nothing: moving more than a few pixels, or the browser taking
+   *    the gesture (pointercancel), drops the press.
+   *  A press ends when it is released anywhere, slides off the button, or the
+   *  window loses focus or is hidden, so a missed release can't keep spending.
    *  Enter / Space add one each, as for any button. */
   _holdToRepeat(btn, fire) {
-    let timer = 0, n = 0, fromPointer = false;
-    const stop = () => { clearTimeout(timer); timer = 0; };
-    const step = () => { timer = 0; if (fire()) timer = setTimeout(step, holdRepeatDelay(n++)); };
+    let timer = 0, n = 0, press = null, lastPress = -1e9;
+    const end = () => { clearTimeout(timer); timer = 0; if (press) { press = null; lastPress = performance.now(); } };
+    // Repeat only while the press is live and the button is still on screen and usable.
+    const live = () => press && !btn.disabled && btn.isConnected && btn.offsetParent !== null;
+    const step = () => { timer = 0; if (!live()) return end(); press.spent = true; if (fire()) timer = setTimeout(step, holdRepeatDelay(n++)); };
     btn.addEventListener('pointerdown', (e) => {
       if (e.button > 0 || btn.disabled) return;
-      e.preventDefault();          // no text selection or focus-scroll on a long press
-      fromPointer = true; stop(); n = 0;
-      if (fire()) timer = setTimeout(step, holdRepeatDelay(n++));
+      end(); n = 0;
+      press = { id: e.pointerId, x: e.clientX, y: e.clientY, touch: e.pointerType === 'touch', spent: false };
+      if (press.touch) {
+        // A touch is captured by the button it starts on, so without this the
+        // finger could slide away and never leave it. Off-button moves are
+        // caught below.
+        if (btn.hasPointerCapture?.(e.pointerId)) btn.releasePointerCapture(e.pointerId);
+        timer = setTimeout(step, holdRepeatDelay(n++));
+      } else {
+        e.preventDefault();        // no text selection or focus-scroll on a long press
+        step();
+      }
     });
-    for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) btn.addEventListener(ev, stop);
+    btn.addEventListener('pointerleave', (e) => { if (press && e.pointerId === press.id) end(); });
+    // Window-level, capture phase: these see the press wherever the pointer goes.
+    const mine = (e) => press && e.pointerId === press.id;
+    window.addEventListener('pointermove', (e) => {
+      if (!mine(e)) return;
+      const r = btn.getBoundingClientRect();
+      const off = e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+      // A touch that wanders before its first spend is a scroll or a swipe, not a tap.
+      if (off || (press.touch && !press.spent && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 8)) end();
+    }, { capture: true, passive: true });
+    window.addEventListener('pointerup', (e) => {
+      if (!mine(e)) return;
+      const tap = press.touch && !press.spent && btn.contains(e.target);
+      end();
+      if (tap && !btn.disabled) fire();
+    }, true);
+    window.addEventListener('pointercancel', (e) => { if (mine(e)) end(); }, true);
+    window.addEventListener('blur', end);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) end(); });
     // Enter / Space add one here (a held key repeats), and are kept from the
     // game's Space shortcut, which would otherwise talk to a nearby NPC.
     btn.addEventListener('keydown', (e) => {
-      fromPointer = false;
       if (e.key !== 'Enter' && e.key !== ' ') return;
       e.preventDefault(); e.stopPropagation();
       fire();
     });
     // The click that follows a press is already counted; only a click with no
-    // press before it (a screen reader's, say) adds a point here.
-    btn.addEventListener('click', () => { if (fromPointer) { fromPointer = false; return; } fire(); });
+    // press just before it (a screen reader's, say) adds a point here.
+    btn.addEventListener('click', () => { if (!press && performance.now() - lastPress > 500) fire(); });
   }
 
   renderCombatPanel() {
