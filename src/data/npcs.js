@@ -1,6 +1,7 @@
 import { CROPS } from './trades.js';
-import { accessoriesFor } from './items.js';
+import { accessoriesFor, PRAYER_GEAR } from './items.js';
 import { BOSS_ABILITIES } from './bossAbilities.js';
+import { boneForTier, bossBoneQty } from './bones.js';
 // NPC registry. Monsters are generated from archetype "bases" × rank tiers into a
 // 169-strong bestiary (scaled stats + level-tiered drops), plus 15 hand-authored
 // bosses and the townsfolk. Sprites are drawn from def.sprite + def.color.
@@ -78,6 +79,10 @@ function dropsFor(level) {
   for (const id of dancerFor(level)) t.push({ id, weight: 2 });
   // Tier-appropriate gear pool — the main way to obtain combat equipment.
   for (const w of ['scimitar', 'sword', 'mace', 'longsword', 'dagger', 'spear', 'claws', 'katana']) t.push({ id: `${tier}_${w}`, weight: 4 });
+  // Secondary weapons and quivers of the area's tier (each class wields one secondary type).
+  for (const w of ['parang', 'kerambit', 'toya', 'crossbow', 'chakram', 'orb', 'fan', 'quiver']) t.push({ id: `${tier}_${w}`, weight: 1.5 });
+  // Prayer accessories of about the area's level, rarely.
+  { const pg = PRAYER_GEAR.filter(([, , , lvl]) => lvl <= level + 10 && lvl >= level - 40); for (const [id] of pg) t.push({ id, weight: 1.5 / pg.length }); }
   t.push({ id: `${tier}_dagger`, weight: 6 });       // daggers come in pairs for dual wielding: extra weight
   for (const a of ['med_helm', 'chainbody', 'platelegs', 'plateskirt', 'kiteshield', 'buckler', 'boots', 'gauntlets']) t.push({ id: `${tier}_${a}`, weight: 3 });
   if (level >= 30) t.push({ id: `${tier}_full_helm`, weight: 3 }, { id: `${tier}_platebody`, weight: 2 }, { id: `${tier}_battleaxe`, weight: 3 });
@@ -153,7 +158,7 @@ function makeMob(id, name, sprite, color, level, zone, aggro, family) {
   return { name, level, attackable: true, sprite, color, zone, family, ...statsFor(level),
     aggressive: aggro, aggroRange: aggro ? 4 : 0, respawn: Math.min(18, Math.max(10, Math.round(10 + level / 40))), wander: 4,   // 6-11s, so high-level areas refill as fast as low ones
     examine: `A ${name.toLowerCase()} (level ${level}).`,
-    alwaysDrop: [{ id: 'bones' }], dropTable: dropsFor(level) };
+    alwaysDrop: [{ id: boneForTier(level) }], dropTable: dropsFor(level) };   // better bones from stronger bands (see bones.js)
 }
 
 // Archetype bases (Singapore-flavoured). [name, sprite, color, baseLevel, zone, aggressive]
@@ -352,6 +357,42 @@ for (const [bn, sprite, color, zone, aggro, levels] of EXTRA_BASES) {
   });
 }
 
+// ---- More monsters, second batch (Nov 2026) ----
+// Fills the open-world regions that had only one or two native species, and the body
+// types only one species used (slime, wisp, plant, jellyfish, turtle). Kept on a list of
+// their own so world.js can place them last without moving anything. Bones come from
+// makeMob (better bones in stronger bands); each family may add one themed drop.
+// [name, sprite, color, zone, aggressive, [levels of the three forms], extra drop or null]
+const MORE_BASES = [
+  ['Kancil', 'beast', '#b08050', 'Pulau Ubin', false, [6, 16, 32], { id: 'raw_venison', weight: 14 }],
+  ['Kunang-kunang', 'wisp', '#d8f070', 'Pulau Ubin', true, [10, 24, 42], null],
+  ['Shore pit viper', 'serpent', '#5a9a4a', 'Sungei Buloh Wetlands', true, [15, 32, 52], null],
+  ['Mangrove terrapin', 'turtle', '#6a7a4a', 'Sungei Buloh Wetlands', false, [12, 28, 48], { id: 'seaweed', min: 1, max: 3, weight: 10 }],
+  ['Lumpur slime', 'slime', '#6a5a3a', 'Sungei Buloh Wetlands', false, [10, 26, 45], { id: 'clay', min: 1, max: 4, weight: 12 }],
+  ['Colugo', 'bat', '#8a7a6a', 'Jurong Forest', false, [22, 40, 62], null],
+  ['Forest scorpion', 'scorpion', '#2a2a3a', 'Jurong Forest', true, [28, 48, 72], null],
+  ['Estuarine stingray', 'seacreature', '#7a6a5a', 'Changi Coast', true, [18, 38, 62], { id: 'raw_stingray', weight: 14 }],
+  ['Moon jellyfish', 'jellyfish', '#c8d8f0', 'Marina Bay', true, [16, 34, 55], null],
+  ['Javan myna', 'fowl', '#3a3a40', 'Marina Bay', true, [15, 30, 50], { id: 'feather', min: 3, max: 10, weight: 12 }],
+  ['Pitcher plant', 'plant', '#a04a5a', 'Gardens by the Bay', true, [62, 88, 116], null],
+  ['Slow loris', 'primate', '#c09a6a', 'Gardens by the Bay', true, [64, 90, 118], null],
+  ['Polong', 'greenman', '#7a5a8a', 'Tekong Badlands', true, [72, 105, 140], null],
+  ['Mambang kuning', 'demon', '#e8c040', 'Coney Island', true, [92, 118, 146], { id: 'chaos_rune', min: 20, max: 60, weight: 8 }],
+  ['Coconut crab', 'crab', '#5a3a6a', 'Southern Islands', false, [125, 165, 205], { id: 'raw_lobster', min: 1, max: 3, weight: 10 }],
+  ['Rift wyvern', 'drake', '#5a2a7a', 'The Shadow Rift', true, [205, 255, 305], null],
+];
+const MORE_MONSTER_IDS = [];
+for (const [bn, sprite, color, zone, aggro, levels, extra] of MORE_BASES) {
+  EXTRA_FORMS.forEach((f, i) => {
+    const name = (f.p ? f.p + ' ' : '') + bn;
+    const id = slug(name);
+    if (_mobs[id]) throw new Error(`monster id clash: ${id}`);
+    const m = makeMob(id, name, sprite, color, levels[i], zone, aggro || !!f.p, slug(bn));
+    _mobs[id] = { ...m, scale: f.scale, dropTable: extra ? [...m.dropTable, extra] : m.dropTable };
+    MORE_MONSTER_IDS.push(id);
+  });
+}
+
 // ---------------- Bosses (15) ----------------
 function makeBoss(id, name, sprite, color, level, zone, scale, drops) {
   return { name, level, attackable: true, boss: true, sprite, color, scale, zone,
@@ -362,7 +403,7 @@ function makeBoss(id, name, sprite, color, level, zone, scale, drops) {
     // Once engaged they still fight back and chase normally.
     aggressive: false, aggroRange: 0, respawn: Math.min(100, Math.round(60 + level / 8)), wander: 3,   // about 40-60s
     examine: `${name} — a fearsome boss (level ${level}).`,
-    alwaysDrop: [{ id: 'bones' }, { id: 'coins', min: level * 8, max: level * 32 }],
+    alwaysDrop: [{ id: 'titan_bones', ...bossBoneQty(level) }, { id: 'coins', min: level * 8, max: level * 32 }],
     dropTable: drops };
 }
 
@@ -480,9 +521,22 @@ const EXTRA_BOSS_DEFS = {
 const EXTRA_BOSS_IDS = Object.keys(EXTRA_BOSS_DEFS);
 Object.assign(BOSS_DEFS, EXTRA_BOSS_DEFS);
 
+// ---- More bosses, second batch (Nov 2026): one each for the three regions that only
+// had a visiting boss. Kept apart like the extra monsters above.
+const MORE_BOSS_DEFS = {
+  ubin_stone_frog: makeBoss('ubin_stone_frog', 'The Stone Frog of Ubin', 'golem', '#8a8a7a', 45, 'Pulau Ubin', 2.0,
+    [...tierGear(45, 1), { id: 'sandstone', min: 5, max: 15, weight: 16 }, { id: 'pilgrim_cape', weight: 6 }]),
+  buaya_putih: makeBoss('buaya_putih', 'Buaya Putih, the White Crocodile', 'reptile', '#e8e4d8', 60, 'Sungei Buloh Wetlands', 2.2,
+    [...tierGear(60, 1), { id: 'croc_hide', weight: 14 }, { id: 'temple_pendant', weight: 6 }]),
+  hantu_tinggi: makeBoss('hantu_tinggi', 'Hantu Tinggi', 'ghost', '#5a5a6a', 72, 'Jurong Forest', 2.6,
+    [...tierGear(72, 1), { id: 'death_rune', min: 20, max: 60, weight: 12 }, { id: 'ring_of_serenity', weight: 5 }]),
+};
+const MORE_BOSS_IDS = Object.keys(MORE_BOSS_DEFS);
+Object.assign(BOSS_DEFS, MORE_BOSS_DEFS);
+
 // Give every boss a special mechanic (cycled) + a special-attack cadence.
 const MECHANICS = ['slam', 'heal', 'summon', 'enrage', 'frenzy'];
-[...BOSS_IDS, ...EXTRA_BOSS_IDS].forEach((id, i) => {
+[...BOSS_IDS, ...EXTRA_BOSS_IDS, ...MORE_BOSS_IDS].forEach((id, i) => {
   BOSS_DEFS[id].mechanic = MECHANICS[i % MECHANICS.length];
   BOSS_DEFS[id].specialEvery = 9;
   // Each boss's own signature move and ground-attack patterns (see bossAbilities.js).
@@ -530,10 +584,10 @@ const TOWNSFOLK = {
 };
 
 export const NPCS = {};
-for (const id of [...MONSTER_IDS, ...EXTRA_MONSTER_IDS]) NPCS[id] = _mobs[id];
+for (const id of [...MONSTER_IDS, ...EXTRA_MONSTER_IDS, ...MORE_MONSTER_IDS]) NPCS[id] = _mobs[id];
 // Every boss also drops archery loot: a bow a tier above its level, a big
 // bundle of good arrows, and dragonhide.
-for (const id of [...BOSS_IDS, ...EXTRA_BOSS_IDS]) {
+for (const id of [...BOSS_IDS, ...EXTRA_BOSS_IDS, ...MORE_BOSS_IDS]) {
   const b = BOSS_DEFS[id];
   const lvl = b.level || 1;
   const arrow = lvl < 50 ? 'mithril_arrow' : lvl < 90 ? 'adamant_arrow' : 'rune_arrow';
@@ -558,7 +612,7 @@ for (const id of [...BOSS_IDS, ...EXTRA_BOSS_IDS]) {
     { id: seedFor(lvl), min: 2, max: 5, weight: 8 },
   ];
 }
-for (const id of [...BOSS_IDS, ...EXTRA_BOSS_IDS]) NPCS[id] = BOSS_DEFS[id];
+for (const id of [...BOSS_IDS, ...EXTRA_BOSS_IDS, ...MORE_BOSS_IDS]) NPCS[id] = BOSS_DEFS[id];
 Object.assign(NPCS, TOWNSFOLK);
 
 // Stretched levels: the old ladder (1 to ~450) packed neighbouring areas only a
@@ -638,9 +692,9 @@ for (const d of Object.values(NPCS)) {
 }
 
 // Everything the bestiary lists: the original sets plus the extras.
-const ALL_MONSTER_IDS = [...MONSTER_IDS, ...EXTRA_MONSTER_IDS];
-const ALL_BOSS_IDS = [...BOSS_IDS, ...EXTRA_BOSS_IDS];
-export { MONSTER_IDS, BOSS_IDS, EXTRA_MONSTER_IDS, EXTRA_BOSS_IDS, ALL_MONSTER_IDS, ALL_BOSS_IDS };
+const ALL_MONSTER_IDS = [...MONSTER_IDS, ...EXTRA_MONSTER_IDS, ...MORE_MONSTER_IDS];
+const ALL_BOSS_IDS = [...BOSS_IDS, ...EXTRA_BOSS_IDS, ...MORE_BOSS_IDS];
+export { MONSTER_IDS, BOSS_IDS, EXTRA_MONSTER_IDS, EXTRA_BOSS_IDS, ALL_MONSTER_IDS, ALL_BOSS_IDS, MORE_MONSTER_IDS, MORE_BOSS_IDS };
 
 export function getNpc(id) {
   const npc = NPCS[id];

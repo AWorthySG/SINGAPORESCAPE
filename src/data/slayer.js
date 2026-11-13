@@ -2,7 +2,7 @@
 // e.g. all ranks of Goblin) so any matching kill counts. Families/levels are
 // derived from the bestiary so a task can never reference a monster that doesn't
 // exist. Higher Slayer level unlocks tougher families.
-import { NPCS, MONSTER_IDS } from './npcs.js';
+import { NPCS, ALL_MONSTER_IDS } from './npcs.js';
 
 // Pretty plural names for the families we want to assign (keyed by family slug).
 const FAMILY_NAMES = {
@@ -22,13 +22,25 @@ const FAMILY_NAMES = {
   horseshoe_crab: 'Horseshoe crabs', sambar_deer: 'Sambar deer',
   jungle_wraith: 'Jungle wraiths', hantu_raya: 'Hantu raya', pocong: 'Pocong',
   cursed_pirate: 'Cursed pirates', penanggal: 'Penanggal',
+  // The two November batches (their families live outside MONSTER_IDS, so the
+  // pool below reads ALL_MONSTER_IDS to reach them).
+  malayan_tapir: 'Malayan tapirs', wild_hornet: 'Wild hornets', kelong_crab: 'Kelong crabs',
+  dugong: 'Dugongs', merlion_whelp: 'Merlion whelps', weaver_ant: 'Weaver ants', tiger_cub: 'Tiger cubs',
+  orchid_mantis: 'Orchid mantises', langsuir: 'Langsuir', black_panther: 'Black panthers',
+  oarfish: 'Oarfish', jenglot: 'Jenglot',
+  kancil: 'Kancils', kunang_kunang: 'Kunang-kunang', shore_pit_viper: 'Shore pit vipers',
+  mangrove_terrapin: 'Mangrove terrapins', lumpur_slime: 'Lumpur slimes', colugo: 'Colugos',
+  forest_scorpion: 'Forest scorpions', estuarine_stingray: 'Estuarine stingrays',
+  moon_jellyfish: 'Moon jellyfish', javan_myna: 'Javan mynas', pitcher_plant: 'Pitcher plants',
+  slow_loris: 'Slow lorises', polong: 'Polong', mambang_kuning: 'Mambang kuning',
+  coconut_crab: 'Coconut crabs', rift_wyvern: 'Rift wyverns',
 };
 
 // Build the task table from the bestiary: each family's Slayer requirement is
 // based on the lowest-level member; harder families need a higher Slayer level.
 function buildTasks() {
   const minLevel = {};
-  for (const id of MONSTER_IDS) {
+  for (const id of ALL_MONSTER_IDS) {
     const n = NPCS[id];
     if (!n || !n.family || !FAMILY_NAMES[n.family]) continue;
     if (minLevel[n.family] === undefined || n.level < minLevel[n.family]) minLevel[n.family] = n.level;

@@ -3,6 +3,7 @@
 // journal renders generically and scales as the quest line grows. `qp` is the
 // quest-point value awarded on completion (see game.questPoints()).
 import { LIFE_STAGES, LIFE_STAGES_ADV, LIFE_STAGES_WILD } from './lifeskills.js';
+import { countBones } from './bones.js';
 
 // Quest points needed before the Kampong Guide offers the grandmaster capstone.
 export const CHAMPION_QP = 6;
@@ -42,7 +43,7 @@ export const QUESTS = [
   {
     id: 'bone_collector', name: 'A Bag of Bones', qp: 1,
     desc: 'Bring 10 bones to the Kampong Guide.',
-    progress: (g) => g.quests.bone_collector.state === 'active' ? `${Math.min(g.inventory.count('bones'), 10)}/10 bones` : '',
+    progress: (g) => g.quests.bone_collector.state === 'active' ? `${Math.min(countBones(g.inventory), 10)}/10 bones` : '',
   },
   {
     id: 'pest_control', name: 'Pest Control', qp: 1,

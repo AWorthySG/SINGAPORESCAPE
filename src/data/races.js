@@ -72,6 +72,14 @@ export const WEAPON_VS_RACE = {
   rifle:     { strong: ['dragon', 'beast', 'reptile'],    weak: ['spirit'] },
   shuriken:  { strong: ['bug', 'beast', 'avian'],        weak: ['construct'] },
   cane:      { strong: ['humanoid', 'beast'],            weak: ['dragon', 'construct'] },
+  // Secondary weapon types (see SECONDARY_WEAPON in classes.js)
+  parang:    { strong: ['flora', 'beast'],               weak: ['construct'] },
+  kerambit:  { strong: ['humanoid', 'reptile'],          weak: ['construct', 'dragon'] },
+  toya:      { strong: ['humanoid', 'undead'],           weak: ['dragon'] },
+  crossbow:  { strong: ['construct', 'reptile'],         weak: ['spirit'] },
+  chakram:   { strong: ['bug', 'flora', 'avian'],        weak: ['construct'] },
+  orb:       { strong: ['demon', 'undead'],              weak: [] },
+  fan:       { strong: ['spirit', 'avian'],              weak: [] },
 };
 
 // Effective: harder hitting. Resisted: noticeably softer.

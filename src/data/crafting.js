@@ -30,6 +30,12 @@ export const CRAFT = [
   { result: 'ruby_ring', inputs: [{ id: 'silver_ore', qty: 1 }, { id: 'ruby', qty: 1 }], level: 44, xp: 130, tool: 'chisel' },
   { result: 'diamond_ring', inputs: [{ id: 'silver_ore', qty: 1 }, { id: 'diamond', qty: 1 }], level: 58, xp: 170, tool: 'chisel' },
 
+  // ---- Pearl jewellery: a caster's first rungs, and prayer beads ----
+  { result: 'pearl_ring', inputs: [{ id: 'silver_ore', qty: 1 }, { id: 'pearl', qty: 1 }], level: 10, xp: 40, tool: 'chisel' },
+  { result: 'holy_beads', inputs: [{ id: 'pearl', qty: 2 }], level: 12, xp: 45 },
+  { result: 'pearl_amulet', inputs: [{ id: 'silver_ore', qty: 1 }, { id: 'pearl', qty: 2 }], level: 14, xp: 55, tool: 'chisel' },
+  { result: 'ring_of_devotion', inputs: [{ id: 'gold_ore', qty: 1 }, { id: 'pearl', qty: 1 }], level: 20, xp: 70, tool: 'chisel' },
+
   // ---- Granite armour ----
   { result: 'granite_helm', inputs: [{ id: 'granite', qty: 1 }], level: 45, xp: 90 },
   { result: 'granite_legs', inputs: [{ id: 'granite', qty: 3 }], level: 55, xp: 170 },

@@ -125,8 +125,8 @@ const SPECIES_ART = new Set([
   'langsuir', 'black_panther', 'oarfish', 'jenglot',
 ]);
 // Newer species without painted art yet borrow a close relative's art until
-// theirs arrives (see ART_BRIEF_MONSTERS.md). Remove a line once its file exists.
-const SPECIES_ALIAS = {};
+// theirs arrives (remove the line when the file is added).
+const SPECIES_ALIAS = { kancil: 'sambar_deer', kunang_kunang: 'will_o_wisp', shore_pit_viper: 'king_cobra', mangrove_terrapin: 'sea_turtle', lumpur_slime: 'swamp_slime', colugo: 'flying_fox', forest_scorpion: 'sand_scorpion', estuarine_stingray: 'reef_shark', moon_jellyfish: 'box_jellyfish', javan_myna: 'house_crow', pitcher_plant: 'carnivorous_plant', slow_loris: 'banded_leaf_monkey', polong: 'toyol', mambang_kuning: 'jinn', coconut_crab: 'kelong_crab', rift_wyvern: 'storm_drake' };
 const speciesFile = (family) => (SPECIES_ART.has(family) ? family : SPECIES_ALIAS[family] || null);
 const _speciesImg = {};
 function speciesImage(family) {
@@ -153,8 +153,8 @@ const BOSS_ART = new Set([
   'celestial_garuda', 'jade_dragon',
   'nian_beast', 'kelong_king_crab', 'langsuir_matriarch', 'shadow_panther', 'abyssal_oarfish', 'jenglot_sovereign',
 ]);
-// Newer bosses borrow another boss's art until their own arrives (ART_BRIEF_MONSTERS.md).
-const BOSS_ALIAS = {};
+// Newer bosses borrow another boss's art until its own art arrives (remove the line when the file is added).
+const BOSS_ALIAS = { ubin_stone_frog: 'kusu_tortoise', buaya_putih: 'mangrove_hydra', hantu_tinggi: 'changi_phantom' };
 const bossFile = (id) => (BOSS_ART.has(id) ? id : BOSS_ALIAS[id] || null);
 const _bossImg = {};
 function bossImage(id) {
@@ -2785,7 +2785,11 @@ export function drawGroundItem(ctx, id, cx, cy) {
     const isSvg = img.src && (img.src.startsWith('data:image/svg') || img.src.includes('assets/icons/'));
     const st = isSvg ? null : bakeSticker(`item|${id}`, ITEM_BOX, (g) => g.drawImage(img, -11, -11, 22, 22));
     if (st) ctx.drawImage(st, cx + ITEM_BOX.x0, cy + ITEM_BOX.y0 - 1, ITEM_BOX.w, ITEM_BOX.h);
-    else ctx.drawImage(img, cx - s / 2, cy - s / 2 - 1, s, s);
+    else {
+      if (img.tint) ctx.filter = img.tint;
+      ctx.drawImage(img, cx - s / 2, cy - s / 2 - 1, s, s);
+      if (img.tint) ctx.filter = 'none';
+    }
   } else {
     ctx.fillStyle = 'rgba(255,235,170,0.6)'; circle(ctx, cx, cy, 5); ctx.fill();
   }

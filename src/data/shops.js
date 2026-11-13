@@ -171,11 +171,19 @@ for (const [metal, qty] of [['bronze', 5], ['iron', 3], ['steel', 2]]) {
     if (!SHOPS.general.stock.some((s) => s.id === id)) SHOPS.general.stock.push({ id, qty });
   }
 }
+// Secondary types only in bronze, to keep the shop list short on phones: better ones
+// come from drops and smithing.
+for (const t of ['parang', 'kerambit', 'toya', 'crossbow', 'chakram', 'orb', 'fan']) {
+  if (!SHOPS.general.stock.some((s) => s.id === `bronze_${t}`)) SHOPS.general.stock.push({ id: `bronze_${t}`, qty: 5 });
+}
 
 // Starter accessories for every style (the cheaper rungs of the ladder).
-for (const id of ['gold_amulet', 'emerald_amulet', 'gold_ring', 'emerald_ring', 'batik_cape', 'trades_cape', 'songket_cape', 'amulet_of_power', 'merdeka_medallion', 'sapphire_amulet', 'sapphire_ring', 'ruby_ring', 'ring_of_kampong', 'warlord_cape', 'garuda_wings', 'revenant_cape']) {
+for (const id of ['gold_amulet', 'emerald_amulet', 'gold_ring', 'emerald_ring', 'batik_cape', 'trades_cape', 'songket_cape', 'amulet_of_power', 'merdeka_medallion', 'sapphire_amulet', 'sapphire_ring', 'ruby_ring', 'ring_of_kampong', 'warlord_cape', 'garuda_wings', 'revenant_cape',
+  'pearl_ring', 'pearl_amulet', 'holy_beads', 'pilgrim_cape']) {
   if (!SHOPS.general.stock.some((s) => s.id === id)) SHOPS.general.stock.push({ id, qty: 3 });
 }
+// The Fletcher sells studded quivers, a ranged off-hand.
+for (const [metal, qty] of [['bronze', 5], ['iron', 3], ['steel', 2]]) { const id = `${metal}_quiver`; if (!SHOPS.archery.stock.some((s) => s.id === id)) SHOPS.archery.stock.push({ id, qty }); }
 
 // Every armour family can buy its first boots and gloves (bronze and iron).
 for (const [metal, qty] of [['bronze', 5], ['iron', 3]]) {

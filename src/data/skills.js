@@ -30,7 +30,7 @@ export const SKILLS = [
   { id: 'woodcutting', name: 'Woodcutting', icon: '🪓', color: '#5a8a3a',
     group: 'gathering', desc: 'Chop trees for logs. Needs an axe.' },
   { id: 'prayer', name: 'Prayer', icon: '🙏', color: '#d9c45a', combat: true,
-    group: 'combat', desc: 'Unlocks prayers that boost you in a fight. Train it by burying bones.' },
+    group: 'combat', desc: 'Unlocks combat prayers. Bury bones, or offer them at a monument for 2.5x XP.' },
   { id: 'thieving', name: 'Thieving', icon: '🤏', color: '#7a4a8a',
     group: 'other', desc: 'Pickpocket townsfolk and steal from market stalls.' },
   { id: 'agility', name: 'Agility', icon: '🏃', color: '#3a8a9a',

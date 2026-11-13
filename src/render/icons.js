@@ -407,10 +407,12 @@ import { ABILITY_BY_ID } from '../data/abilities.js';
   // A long sniper rifle with a scope (Sniper).
   const rifle = (col, hi) => `<path d="M2 15.5 L8 13.2 L21.6 7.6 L22.4 9.2 L9.4 15 L8.6 18.6 L4.6 19.6 Z" fill="${C.wood}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M8 12.6 L22.2 6.8" stroke="${col}" stroke-width="1.8" stroke-linecap="round"/><path d="M8 12.6 L22.2 6.8" stroke="${OL}" stroke-width="0.5" opacity=".5"/><rect x="10.2" y="7.4" width="6.4" height="2.4" rx="1.1" transform="rotate(-22 13.4 8.6)" fill="${col}" stroke="${OL}" stroke-width="0.9"/><path d="M11.4 7.8 L15.2 6.3" stroke="${hi}" stroke-width="0.7"/>`;
   const WBUILD = { dagger: blade, sword: blade, scimitar: scim, mace, longsword, battleaxe, warhammer, '2h_sword': twohander, spear, claws, katana, halberd,
-    pistol, shuriken, cane, rifle };
+    pistol, shuriken, cane, rifle,
+    // Secondary weapon types: vector fallbacks borrowed from their nearest kin.
+    parang: scim, kerambit: blade, toya: spear, crossbow: rifle, chakram: shuriken, orb: (c, hi) => ringIcon(hi, c), fan: capeIcon };
   const ABUILD = { med_helm: helm, full_helm: helm, chainbody: plate, platebody: plate, platelegs: legs, sq_shield: shield, kiteshield: shield, gauntlets: gloves, boots, plateskirt, buckler,
     scout_hood: helm, scout_jerkin: plate, scout_breeches: legs,
-    scout_boots: boots, scout_gloves: gloves, hide_boots: boots, hide_vambraces: gloves, mage_boots: boots, mage_gloves: gloves };
+    scout_boots: boots, scout_gloves: gloves, hide_boots: boots, hide_vambraces: gloves, mage_boots: boots, mage_gloves: gloves, quiver: shield };
   for (const m of Object.keys(METAL_PAL)) {
     const [c, hi] = METAL_PAL[m];
     for (const t of Object.keys(WBUILD)) { const id = `${m}_${t}`; if (!I[id]) I[id] = WBUILD[t](c, hi); }
@@ -429,6 +431,10 @@ import { ABILITY_BY_ID } from '../data/abilities.js';
   I.emerald_amulet = I.amulet_of_power;
   I.ruby_amulet = I.amulet_of_power;
   I.diamond_amulet = I.amulet_of_power;
+  // Pearl jewellery and prayer accessories
+  I.holy_beads = I.temple_pendant = I.starlit_pendant = I.pearl_amulet = I.amulet_of_power;
+  I.ring_of_devotion = ringIcon(C.gold, '#ffffff'); I.ring_of_serenity = ringIcon('#2f9e6e', '#ffffff'); I.pearl_ring = ringIcon('#c8ccd4', '#ffffff');
+  I.pilgrim_cape = capeIcon('#8a6a3a', '#d8b878'); I.lantern_cape = capeIcon('#c0392b', '#f5b82e');
   I.granite_shield = shield('#9a948a', '#c4c0b8');
   I.emerald_ring = ringIcon('#2f9e6e', '#6fd0a0');
   I.ruby_ring = ringIcon('#c0392b', '#e87a6a');
@@ -810,6 +816,7 @@ import { ABILITY_BY_ID } from '../data/abilities.js';
   // one as-is (BORROW_ID) until their art arrives.
   const BORROW = {};
   const BORROW_ID = {};   // single items borrowing a sticker
+  const BORROW_TINT = {};   // optional per-item tint for a BORROW_ID sticker
   // Family boots and gloves borrow the metal boots / gauntlets, the archer's
   // vambraces and the Dancer's slippers / bangles until their own art arrives.
   for (const t of ['bronze', 'iron', 'steel', 'mithril', 'adamant', 'rune', 'dragon', 'obsidian', 'orichalcum', 'jade', 'starmetal', 'celestial', 'eternal']) {
@@ -818,8 +825,22 @@ import { ABILITY_BY_ID } from '../data/abilities.js';
       [`${t}_hide_boots`]: `${t}_boots`, [`${t}_hide_vambraces`]: 'dragonhide_vambraces',
       [`${t}_mage_boots`]: 'silk_slippers', [`${t}_mage_gloves`]: 'silk_bangles',
       [`${t}_rifle`]: `${t}_pistol`,   // sniper rifles borrow the pistol sticker until their own art arrives
+      // Secondary weapon types and quivers borrow their nearest kin's sticker until their own art arrives.
+      [`${t}_parang`]: `${t}_scimitar`, [`${t}_kerambit`]: `${t}_dagger`, [`${t}_toya`]: `${t}_spear`, [`${t}_crossbow`]: `${t}_pistol`, [`${t}_chakram`]: `${t}_shuriken`, [`${t}_orb`]: 'glass_orb',
+      [`${t}_fan`]: ['dragon', 'obsidian', 'orichalcum', 'jade', 'starmetal', 'celestial', 'eternal'].includes(t) ? 'golden_sash' : 'silk_sash',
+      [`${t}_quiver`]: ({ obsidian: 'dragon_arrow', orichalcum: 'jade_arrow', celestial: 'starmetal_arrow' })[t] || `${t}_arrow`,
     });
   }
+  Object.assign(BORROW_ID, { holy_beads: 'amulet_of_power', temple_pendant: 'emerald_amulet', starlit_pendant: 'diamond_amulet', pearl_amulet: 'sapphire_amulet', pearl_ring: 'sapphire_ring',
+    ring_of_devotion: 'gold_ring', ring_of_serenity: 'emerald_ring', pilgrim_cape: 'trades_cape', lantern_cape: 'revenant_cape' });
+  // New bone kinds borrow the bones sticker, each tinted its own colour, until their art arrives.
+  for (const [id, tint] of Object.entries({
+    big_bones: 'sepia(.3) saturate(1.2) brightness(.97)', heavy_bones: 'sepia(.6) brightness(.85)',
+    ancient_bones: 'sepia(.9) hue-rotate(-15deg) brightness(.75)', spirit_bones: 'sepia(.8) hue-rotate(150deg) saturate(1.6) brightness(1.08)',
+    champion_bones: 'sepia(1) saturate(3) brightness(1.05)', titan_bones: 'sepia(.6) hue-rotate(230deg) saturate(1.5)',
+    dragon_bones: 'sepia(1) hue-rotate(-40deg) saturate(3)', fiend_bones: 'sepia(1) hue-rotate(250deg) saturate(2) brightness(.7)',
+    legend_bones: 'sepia(.7) hue-rotate(-50deg) saturate(2.2) brightness(1.2)',
+  })) { BORROW_ID[id] = 'bones'; BORROW_TINT[id] = tint; }
   function hueOf(hex) {
     const n = parseInt(hex.slice(1), 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
     const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
@@ -827,21 +848,27 @@ import { ABILITY_BY_ID } from '../data/abilities.js';
     const h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
     return { h: (h * 60 + 360) % 360, s: d / (1 - Math.abs(mx + mn - 1) || 1) };
   }
+  // Sepia starts near 38 degrees; rotate it to the metal's hue, greys stay grey.
+  function metalTint(metal) {
+    const { h, s } = hueOf(METAL_PAL[metal][0]);
+    return s < 0.15 ? 'grayscale(.7) brightness(1.05)' : `sepia(.75) hue-rotate(${Math.round(h - 38)}deg) saturate(${(1 + s).toFixed(2)})`;
+  }
   function borrowedArt(id) {
-    if (BORROW_ID[id]) return { file: BORROW_ID[id], tint: 'sepia(.4) saturate(1.3)' };
+    if (BORROW_ID[id]) {
+      // Orbs and war fans borrow one sticker for many tiers, so tint it to the metal.
+      const mt = /^([a-z]+)_(orb|fan)$/.exec(id);
+      return { file: BORROW_ID[id], tint: BORROW_TINT[id] || (mt && METAL_PAL[mt[1]] ? metalTint(mt[1]) : 'sepia(.4) saturate(1.3)') };
+    }
     const m = /^([a-z]+)_(scout_[a-z]+)$/.exec(id);
     if (!m || !BORROW[m[2]] || !METAL_PAL[m[1]]) return null;
-    const { h, s } = hueOf(METAL_PAL[m[1]][0]);
-    // Sepia starts near 38 degrees; rotate it to the metal's hue, greys stay grey.
-    const tint = s < 0.15 ? 'grayscale(.7) brightness(1.05)' : `sepia(.75) hue-rotate(${Math.round(h - 38)}deg) saturate(${(1 + s).toFixed(2)})`;
-    return { file: BORROW[m[2]], tint };
+    return { file: BORROW[m[2]], tint: metalTint(m[1]) };
   }
   const SKILL_ART = new Set(['attack', 'strength', 'defence', 'hitpoints', 'ranged', 'magic', 'prayer', 'slayer',
     'woodcutting', 'mining', 'fishing', 'firemaking', 'cooking', 'smithing', 'crafting', 'thieving', 'agility',
     'farming', 'hunter', 'herblore', 'fletching']);
   export const skillIconSVG = (id, size = 20, cls) => (SKILL_ART.has(id) ? artImg(`skill-${id}`, size, cls) : svg(S[id] || S.attack, size, cls));
   /** Prayer and spell icons (assets/icons/prayer-<id>.webp, spell-<id>.webp). */
-  export const prayerIconHTML = (id, size = 28, cls) => artImg(`prayer-${id}`, size, cls);
+  export const prayerIconHTML = (id, size = 28, cls, tint) => artImg(`prayer-${id}`, size, cls, tint);
   export const spellIconHTML = (id, size = 28, cls) => artImg(`spell-${id}`, size, cls);
   /** Combat-skill (action bar) icon: mascot artwork, or a stickered vector for
    *  any ability still waiting on artwork (listed in ABILITY_SVG). */
@@ -872,6 +899,7 @@ import { ABILITY_BY_ID } from '../data/abilities.js';
     if (borrowedArt(id)) {
       const img = new Image();
       img.src = `assets/icons/item-${borrowedArt(id).file}.webp`;
+      img.tint = borrowedArt(id).tint;   // drawGroundItem applies it, so borrowed stickers keep their colour on the ground
       _imgCache[id] = img;
       return img;
     }

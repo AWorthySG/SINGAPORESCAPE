@@ -240,6 +240,22 @@ test('the bone quest can be started and completed', () => {
   assert.ok(game.inventory.has('amulet_of_strength'));
 });
 
+test('the bone quest takes any kind of bones, cheapest first', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.handleDialogueAction('questStart');
+  game.inventory.add('bones', 3);
+  game.inventory.add('big_bones', 5);
+  game.inventory.add('spirit_bones', 4);
+  game.handleDialogueAction('questTurnIn');
+  assert.equal(game.quests.bone_collector.state, 'done');
+  assert.equal(game.inventory.count('bones'), 0);
+  assert.equal(game.inventory.count('big_bones'), 0);
+  assert.equal(game.inventory.count('spirit_bones'), 2, 'the best bones are kept');
+});
+
 test('prayers activate, conflict by group, boost combat and drain points', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
@@ -2536,7 +2552,7 @@ test('bones bury 100 at a time, or a whole stack; daggers drop', async () => {
   const xp0 = game.skills.xp.prayer;
   game.buryBones(game.inventory.slots.findIndex((x) => x && x.id === 'bones'), Infinity);
   assert.equal(game.inventory.count('bones'), 0, 'the rest of the stack buried in one go');
-  assert.ok(game.skills.xp.prayer - xp0 >= 45 * 899, 'prayer xp for every bone (45 each)');
+  assert.ok(game.skills.xp.prayer - xp0 >= ITEMS.bones.prayerXp * 899, `prayer xp for every bone (${ITEMS.bones.prayerXp} each)`);
   game.inventory.add('bones', 5);
   game.buryBones(game.inventory.slots.findIndex((x) => x && x.id === 'bones'), 1);
   assert.equal(game.inventory.count('bones'), 4, 'or just one');
@@ -3469,7 +3485,7 @@ test('drops: rarer gear from normal monsters, quality rolls, and bosses always d
   game._autoLoot = (loot) => { got = loot.map((l) => l[0]); };
   const boss = game.npcs.find((n) => n.def.boss && !n.def.fixed);
   game.rollDrops(boss);
-  const gear = got.filter((id) => ITEMS[id].equip && (ITEMS[id].equip.weaponType === 'scimitar' || ITEMS[id].equip.family === 'leather'));
+  const gear = got.filter((id) => ITEMS[id].equip && (ITEMS[id].equip.weaponType === 'scimitar' || ITEMS[id].equip.weaponType === 'parang' || ITEMS[id].equip.family === 'leather'));
   assert.ok(gear.length >= 1, `a boss drops Corsair gear (${got.join(', ')})`);
   assert.ok(gear.some((id) => game.equipment.upgradeLevel(id) >= QUALITY.superior.level), 'of Superior quality or better');
   assert.ok(got.includes('upgrade_stone'), 'and upgrade stones');
@@ -3499,6 +3515,67 @@ test('November monsters and bosses: defined, placed in their regions, with abili
   for (const id of EXTRA_BOSS_IDS) assert.ok(NPCS[id].boss && NPCS[id].ability?.fx.length, `${id} has a signature move`);
   assert.ok(EXTRA_BOSS_IDS.every((id) => ALL_BOSS_IDS.includes(id)) && EXTRA_MONSTER_IDS.every((id) => ALL_MONSTER_IDS.includes(id)), 'the bestiary lists them');
   assert.ok(NPCS[NPCS.jenglot_sovereign.ability.fx.find((f) => f.t === 'summon').id], 'the Jenglot Sovereign summons a real monster');
+});
+
+test('second November batch: 16 species and 3 bosses, placed at home, with bones, drops and borrowed art', async () => {
+  const { NPCS, MONSTER_IDS, BOSS_IDS, MORE_MONSTER_IDS, MORE_BOSS_IDS, ALL_MONSTER_IDS, ALL_BOSS_IDS, EXTRA_BOSS_IDS } = await import('../src/data/npcs.js');
+  const { buildWorld } = await import('../src/data/world.js');
+  const { portraitFor } = await import('../src/render/sprites.js');
+  const { boneForTier } = await import('../src/data/bones.js');
+  assert.equal(MORE_MONSTER_IDS.length, 48, 'sixteen species in three forms');
+  assert.equal(new Set(MORE_MONSTER_IDS).size, 48, 'no id used twice');
+  assert.equal(MORE_BOSS_IDS.length, 3);
+  // The older lists keep their size, so nothing already in the world moves.
+  assert.equal(MONSTER_IDS.length, 452);
+  assert.equal(BOSS_IDS.length, 48);
+  const w = buildWorld();
+  const zoneByName = (n) => w.zones.find((z) => z.name === n);
+  for (const id of [...MORE_MONSTER_IDS, ...MORE_BOSS_IDS]) {
+    const d = NPCS[id];
+    assert.ok(d && d.attackable && d.dropTable.length > 0, `${id} is a monster with drops`);
+    assert.ok(ALL_MONSTER_IDS.includes(id) || ALL_BOSS_IDS.includes(id), `${id} is in the bestiary`);
+    const z = zoneByName(d.zone);
+    assert.ok(z, `${id} lives in a real region (${d.zone})`);
+    if (d.boss) {
+      assert.ok(d.alwaysDrop.some((a) => a.id === 'titan_bones'), `${id} drops titan bones`);
+      assert.ok(d.ability?.fx.length && d.ability.hazards.length, `${id} has a signature move and ground attacks`);
+      assert.ok(portraitFor(id, d)?.src.includes('/bosses/'), `${id} borrows boss art`);
+    } else {
+      assert.equal(d.alwaysDrop[0].id, boneForTier(d.tierLevel), `${id} drops its band's bones`);
+      assert.ok(d.tierLevel >= z.lo && d.tierLevel <= z.hi, `${id} (level ${d.tierLevel}) fits ${d.zone} ${z.lo}-${z.hi}`);
+    }
+    const spawns = w.npcSpawns.filter((s) => s.npcId === id);
+    assert.ok(spawns.length >= 1, `${id} is placed in the world`);
+    for (const s of spawns) assert.ok(s.x >= z.x0 && s.x <= z.x1 && s.y >= z.y0 && s.y <= z.y1, `${id} spawns inside ${d.zone}`);
+    for (const s of spawns) assert.ok(s.x > 0 && s.y > 0 && s.x < w.width - 1 && s.y < w.height - 1, `${id} is not on the border fence`);
+    assert.ok(portraitFor(id, d)?.src.endsWith('.webp'), `${id} has art (its own or borrowed)`);
+  }
+  const names = ALL_BOSS_IDS.map((id) => NPCS[id].ability?.name).filter(Boolean);
+  assert.equal(new Set(names).size, names.length, 'every signature move has its own name');
+  for (const id of EXTRA_BOSS_IDS) assert.ok(w.npcSpawns.some((s) => s.npcId === id), `${id} is still placed`);
+  const extras = ['raw_venison', 'seaweed', 'clay', 'raw_stingray', 'feather', 'chaos_rune', 'raw_lobster',
+    'sandstone', 'pilgrim_cape', 'croc_hide', 'temple_pendant', 'death_rune', 'ring_of_serenity'];
+  for (const it of extras) assert.ok(ITEMS[it], `${it} is a real item`);
+  for (const id of [...MORE_MONSTER_IDS, ...MORE_BOSS_IDS]) {
+    for (const dr of NPCS[id].dropTable) if (dr.id) assert.ok(ITEMS[dr.id], `${id} drops a real item (${dr.id})`);
+  }
+});
+
+test('Slayer masters hand out the November families too', async () => {
+  const { SLAYER_TASKS, eligibleTasks } = await import('../src/data/slayer.js');
+  const { NPCS, EXTRA_MONSTER_IDS, MORE_MONSTER_IDS } = await import('../src/data/npcs.js');
+  const fams = new Set([...EXTRA_MONSTER_IDS, ...MORE_MONSTER_IDS].map((id) => NPCS[id].family));
+  for (const f of fams) assert.ok(SLAYER_TASKS.some((t) => t.family === f), `${f} can be a Slayer task`);
+  // A low-level new family is open to a beginner, e.g. the level-6 kancil.
+  assert.ok(eligibleTasks(5).some((t) => t.family === 'kancil'), 'kancil is assignable early');
+  // A kill of the plain form counts toward its task.
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const g = new Game(); g.start(); g.chooseClass('rogue');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.slayer.task = { family: 'kancil', name: 'Kancils', amount: 5, remaining: 5 };
+  g.progressSlayer({ def: NPCS.kancil });
+  assert.equal(g.slayer.task.remaining, 4);
 });
 
 test('rune refund: a monster killed with spells gives back every rune spent on it', async () => {
@@ -4564,4 +4641,222 @@ test('auto quest gives up on a step it cannot make progress on instead of loopin
   for (let i = 0; i < 600 && game.autoQuest; i++) game.update(600);
   assert.ok(game.player.alive);
   assert.equal(game.autoQuest, false, 'stopped after a few fruitless tries');
+});
+
+test('bones ladder: better bones by band, champion and boss bones, altar offering', async () => {
+  const { NPCS } = await import('../src/data/npcs.js');
+  const { boneForTier, championBoneQty, RARE_BOSS_BONES } = await import('../src/data/bones.js');
+  const { PRAYER_BY_ID } = await import('../src/data/prayers.js');
+  const { xpForLevel } = await import('../src/data/xp.js');
+  const { BURY_RESTORE_CAP } = await import('../src/game/game.js');
+  const { XP_RATE } = await import('../src/config.js');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.ui = new Proxy({}, { get: () => () => {} });
+  // (a) Ordinary monsters drop the bone of their band; the early ones still drop plain bones.
+  assert.equal(getNpc('chicken').alwaysDrop[0].id, 'bones');
+  for (const [id, d] of Object.entries(NPCS)) {
+    if (!d.attackable || d.boss) continue;
+    assert.equal(d.alwaysDrop[0].id, boneForTier(d.tierLevel), `${id} drops its band's bones`);
+  }
+  // (b) Every boss drops Titan bones; the rare kinds name real bosses and real bones.
+  for (const [id, d] of Object.entries(NPCS)) {
+    if (!d.boss) continue;
+    const t = d.alwaysDrop.find((x) => x.id === 'titan_bones');
+    assert.ok(t && t.min >= 2, `${id} drops at least two titan bones`);
+  }
+  for (const [id, bone] of Object.entries(RARE_BOSS_BONES)) {
+    assert.ok(NPCS[id]?.boss, `${id} is a boss`);
+    assert.ok(ITEMS[bone]?.prayerXp, `${bone} is a bone`);
+  }
+  // (c) Each rung is worth more than the last.
+  const xp = (id) => ITEMS[id].prayerXp;
+  const ladder = ['bones', 'big_bones', 'heavy_bones', 'ancient_bones', 'spirit_bones'];
+  for (let i = 1; i < ladder.length; i++) assert.ok(xp(ladder[i]) > xp(ladder[i - 1]), `${ladder[i]} > ${ladder[i - 1]}`);
+  const rare = ['spirit_bones', 'titan_bones', 'fiend_bones', 'dragon_bones', 'legend_bones'];
+  for (let i = 1; i < rare.length; i++) assert.ok(xp(rare[i]) > xp(rare[i - 1]), `${rare[i]} > ${rare[i - 1]}`);
+  assert.ok(xp('champion_bones') > xp('spirit_bones'), 'a champion bone beats any ordinary bone');
+  // (d) Champions of stronger bands give more Champion bones.
+  assert.equal(championBoneQty(1), 1);
+  assert.ok(championBoneQty(300) > championBoneQty(30));
+  // (e) A champion's loot has Champion bones on top of its band's bones.
+  const mob = game.npcs.find((n) => n.def.attackable && !n.def.boss && !n.champion && (n.def.level || 1) >= 3);
+  mob.makeChampion();
+  let got = [];
+  game._autoLoot = (loot) => { got = loot.map((l) => l[0]); };
+  game.rollDrops(mob);
+  assert.ok(got.includes('champion_bones'), 'champion bones dropped');
+  assert.ok(got.includes(boneForTier(mob.def.tierLevel)), 'band bones dropped');
+  // (f) Burying a whole stack of big bones: exact XP, and prayer never overfills.
+  game.inventory.add('big_bones', 10);
+  let xp0 = game.skills.xp.prayer;
+  assert.equal(game.buryBones(game.inventory.slots.findIndex((x) => x && x.id === 'big_bones'), Infinity), 10);
+  assert.equal(game.skills.xp.prayer - xp0, 200 * 10 * XP_RATE);
+  assert.ok(game.prayerPoints <= game.maxPrayer(), 'prayer points capped');
+  // ...and one click on a big stack only restores a few bones' worth of prayer.
+  game.skills.xp.prayer = xpForLevel(99);
+  game.prayerPoints = 0;
+  game.inventory.add('bones', 50);
+  game.buryBones(game.inventory.slots.findIndex((x) => x && x.id === 'bones'), Infinity);
+  assert.equal(game.prayerPoints, BURY_RESTORE_CAP * ITEMS.bones.prayerRestore, 'restore capped per bury');
+  // (g) Offering only works at a monument, and pays 2.5x.
+  const shrine = game.world.objects.find((o) => o.def.type === 'shrine');
+  game.player.x = shrine.x + 20; game.player.y = shrine.y + 20;
+  assert.ok(!game.nearShrine(), 'away from the monuments');
+  game.inventory.add('bones', 10);
+  const bi = () => game.inventory.slots.findIndex((x) => x && x.id === 'bones');
+  assert.equal(game.buryBones(bi(), Infinity, true), 0, 'no offering away from a monument');
+  assert.equal(game.inventory.count('bones'), 10, 'bones kept');
+  game.player.x = shrine.x + 1; game.player.y = shrine.y;
+  assert.ok(game.nearShrine());
+  xp0 = game.skills.xp.prayer;
+  assert.equal(game.buryBones(bi(), Infinity, true), 10);
+  assert.equal(game.skills.xp.prayer - xp0, 75 * 10 * 2.5 * XP_RATE);
+  // (h) Bury all bones clears every kind.
+  game.inventory.add('bones', 3); game.inventory.add('heavy_bones', 4); game.inventory.add('titan_bones', 2);
+  assert.equal(game.buryAllBones(), 9);
+  for (const id of ['bones', 'heavy_bones', 'titan_bones']) assert.equal(game.inventory.count(id), 0, `${id} buried`);
+  // (i) The new prayers, and the level-300 blessing replaces the melee prayers.
+  for (const id of ['deadeye', 'mystic_might', 'worthy_spirit']) assert.ok(PRAYER_BY_ID[id], id);
+  game.skills.xp.prayer = xpForLevel(300);
+  game.prayerPoints = game.maxPrayer();
+  game.togglePrayer('clarity');
+  assert.ok(game.activePrayers.has('clarity'));
+  game.togglePrayer('worthy_spirit');
+  assert.ok(!game.activePrayers.has('clarity'), 'clarity switched off');
+  const m = game.prayerMult();
+  for (const k of ['att', 'str', 'def']) assert.ok(Math.abs(m[k] - 1.6) < 1e-9, `${k} x1.6`);
+});
+
+test('secondary weapon types: a weapon at every tier, wieldable by their classes only', async () => {
+  const { SECONDARY_WEAPON_TYPES } = await import('../src/data/items.js');
+  const { weaponsOfType } = await import('../src/data/classes.js');
+  const lvl = (id) => Math.max(0, ...Object.values(ITEMS[id].equip.req || {}));
+  for (const t of SECONDARY_WEAPON_TYPES) {
+    const levels = weaponsOfType(t).map(lvl);
+    for (const tier of [1, 20, 40, 60, 80, 100, 130, 170, 220, 300]) {
+      assert.ok(levels.some((l) => l <= tier && l > tier - 40), `${t} has a weapon around level ${tier}`);
+    }
+    for (const id of weaponsOfType(t)) assert.equal(ITEMS[id].equip.weaponType, t, `${id} has a weapon type`);
+  }
+  // A Rogue wields kerambits (in pairs) as well as daggers, but not parangs.
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const g = new Game(); g.start(); g.chooseClass('rogue');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  const idx = (id) => g.inventory.slots.findIndex((s) => s && s.id === id);
+  g.inventory.add('bronze_kerambit', 2); g.inventory.add('bronze_parang', 1);
+  g.equipItem(idx('bronze_kerambit'));
+  assert.equal(g.equipment.get('weapon'), 'bronze_kerambit', 'a Rogue can wield a kerambit');
+  g.equipItem(idx('bronze_parang'));
+  assert.equal(g.equipment.get('weapon'), 'bronze_kerambit', 'but not a parang');
+  g.equipOffhand(idx('bronze_kerambit'));
+  assert.ok(g.equipment.isDualWielding(), 'two kerambits are dual wielded');
+  assert.equal(g.unrelatedToClass('bronze_kerambit'), false);
+  assert.equal(g._classReward('iron_kerambit'), 'iron_kerambit', 'a kerambit reward stays a kerambit');
+  clearSave();
+  const sw = new Game(); sw.start(); sw.chooseClass('swordsman');
+  assert.equal(sw.unrelatedToClass('bronze_kerambit'), true, 'a kerambit is no use to a Swordsman');
+});
+
+test('secondary weapon types: a chakram bounces into two more foes', async () => {
+  const { NPC } = await import('../src/game/npc.js');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const g = new Game(); g.start(); g.chooseClass('ninja');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.inventory.add('bronze_chakram', 1);
+  g.equipItem(g.inventory.slots.findIndex((s) => s && s.id === 'bronze_chakram'));
+  assert.equal(g.equipment.get('weapon'), 'bronze_chakram');
+  const dummy = (dx, dy = 0) => {
+    const n = new NPC('goblin', g.player.x + dx, g.player.y + dy, 0, {});
+    n.hp = n.maxHp = 999999; n.def = { ...n.def, aggressive: false, maxHit: 0 };
+    return n;
+  };
+  const main = dummy(3), a = dummy(4), b = dummy(3, 1);
+  g.npcs = [main, a, b];
+  for (let i = 0; i < 60 && (a.hp === a.maxHp || b.hp === b.maxHp); i++) { g.player.attackCooldown = 0; g._rangedAttack(main); }
+  assert.ok(a.hp < a.maxHp && b.hp < b.maxHp, 'both side foes took a bounce');
+  const kinds = new Set(g.effects.filter((e) => e.type === 'projectile').map((e) => e.kind));
+  assert.deepEqual([...kinds], ['shuriken'], 'a chakram flies like a thrown star');
+});
+
+test('secondary weapon types sit a little under each class\'s main type', async () => {
+  // Measured, not derived: a maxed fighter hits a huge dummy for 100 ticks with each
+  // weapon (race matchups switched off), and the secondary must not beat the main
+  // type by much, nor be a dead pick. Orbs once did twice an early staff's damage.
+  const { NPC } = await import('../src/game/npc.js');
+  const { SPELLS } = await import('../src/data/magic.js');
+  const dmg = (cls, w, dual) => {
+    globalThis.localStorage = fakeStorage();
+    clearSave();
+    const g = new Game(); g.start(); g.chooseClass(cls);
+    g.ui = new Proxy({}, { get: () => () => {} });
+    g.raceMatchup = () => null;
+    for (const s of ['attack', 'strength', 'defence', 'ranged', 'magic', 'agility', 'hitpoints']) g.skills.addXp(s, 13034431);
+    // Plenty of runes: a caster that runs dry part way through would skew the measure.
+    for (const sp of SPELLS) for (const r of Object.keys(sp.runes)) g.inventory.add(r, 1e6);
+    g.equipment.set('weapon', w); g.equipment.set('shield', dual ? w : null);
+    const t = new NPC('goblin', g.player.x + 2, g.player.y, 0, {});
+    t.hp = t.maxHp = 1e9; t.def = { ...t.def, aggressive: false, maxHit: 0 };
+    g.npcs = [t]; g.attackNpc(t);
+    step(g, 100);
+    return t.maxHp - t.hp;
+  };
+  const pairs = [
+    ['wizard', 'mystic_staff', 'rune_orb'], ['wizard', 'jade_staff', 'orichalcum_orb'], ['sorcerer', 'orichalcum_wand', 'orichalcum_orb'],
+    ['lancer', 'rune_spear', 'rune_toya'], ['knight', 'rune_longsword', 'rune_toya'],
+    ['samurai', 'rune_katana', 'rune_parang'], ['dancer', 'serpent_whip', 'rune_fan'],
+    ['brawler', 'rune_claws', 'rune_kerambit', true],
+  ];
+  for (const [cls, main, sec, dual] of pairs) {
+    const a = dmg(cls, main, false), b = dmg(cls, sec, dual);
+    assert.ok(a > 0 && b > 0, `${cls} hits with both`);
+    assert.ok(b / a <= 1.2 && b / a >= 0.6, `${cls}: ${sec} vs ${main} = ${(b / a).toFixed(2)}`);
+  }
+});
+
+test('best in slot swaps a wielded tool for a weapon', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const g = new Game(); g.start(); g.chooseClass('rogue');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.inventory.slots.fill(null);
+  g.equipment.set('weapon', 'bronze_axe'); g.equipment.set('shield', null);
+  g.inventory.add('iron_dagger', 2);
+  g.equipBest();
+  assert.equal(g.equipment.get('weapon'), 'iron_dagger', 'the axe makes way for a dagger');
+});
+
+test('prayer accessories slow the prayer drain', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const g = new Game(); g.start();
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.skills.addXp('prayer', 40000);   // about Prayer 40
+  assert.ok(g.skills.level('prayer') >= 30, 'high enough Prayer for the gear');
+  const drainOver = (ticks) => {
+    g.prayerPoints = g.maxPrayer();
+    g.activePrayers.clear(); g.togglePrayer('clarity');
+    const before = g.prayerPoints;
+    for (let i = 0; i < ticks; i++) g.drainPrayer();
+    return before - g.prayerPoints;
+  };
+  const bare = drainOver(10);
+  g.equipment.set('amulet', 'holy_beads'); g.equipment.set('cape', 'pilgrim_cape');
+  assert.equal(g.equipment.bonuses().prayer, 9);
+  const geared = drainOver(10);
+  assert.ok(bare > 0 && geared < bare, `gear slows the drain (${geared} < ${bare})`);
+  assert.ok(Math.abs(geared / bare - 1 / (1 + 9 / 30)) < 1e-6, 'by 1 / (1 + prayer / 30)');
+});
+
+test('new gear enters the game: the Fletcher sells quivers, and every drop is a real item', async () => {
+  const { SHOPS } = await import('../src/data/shops.js');
+  const { NPCS } = await import('../src/data/npcs.js');
+  assert.ok(SHOPS.archery.stock.some((s) => s.id === 'bronze_quiver'), 'the Fletcher sells quivers');
+  for (const [nid, def] of Object.entries(NPCS)) {
+    for (const d of def.dropTable || []) if (!d.nothing) assert.ok(ITEMS[d.id], `${nid} drops a real item (${d.id})`);
+  }
 });

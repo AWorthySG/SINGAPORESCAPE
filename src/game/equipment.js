@@ -6,18 +6,18 @@ import { refinedBonuses, MAX_REFINE } from './refine.js';
 export const EQUIP_SLOTS = ['head', 'cape', 'amulet', 'weapon', 'body', 'shield', 'legs', 'hands', 'feet', 'ring'];
 export const DEFAULT_WEAPON_SPEED = 5; // ticks (unarmed)
 
-/** Daggers (and the kris) and scimitars can be dual wielded: a second one of
+/** Daggers (and the kris), scimitars, pistols and kerambits can be dual wielded: a second one of
  *  the same kind goes in the off-hand. */
 export const dualType = (id) => {
   if (!id) return null;
   if (/_dagger$/.test(id) || id === 'tiger_kris') return 'dagger';
   const t = getItem(id)?.equip?.weaponType;
-  return t === 'scimitar' || t === 'pistol' ? t : null;
+  return t === 'scimitar' || t === 'pistol' || t === 'kerambit' ? t : null;
 };
 export const canDualWield = (id) => !!dualType(id);
 /** Can these two be held together (main hand and off-hand)? */
 export const canDualPair = (a, b) => !!dualType(a) && dualType(a) === dualType(b);
-// Quick weapons swing faster than one combat beat: scimitars and claws swing
+// Quick weapons swing faster than one combat beat: scimitars, claws, kerambits and war fans swing
 // about 1.4 times a beat (a fractional cooldown carries over between beats).
 export const QUICK_WEAPON_SPEED = 0.7;
 // Extra offensive stats, all in percent, with caps so stacking stays sane:
@@ -30,7 +30,7 @@ export const OFFENCE_KEYS = ['pierce', 'critDmg', 'haste', 'lifesteal', 'bossDmg
 export const OFFENCE_CAPS = { pierce: 40, critDmg: 150, lifesteal: 15, bossDmg: 60 };
 // Melee swing intervals are halved: every melee class attacks twice as fast.
 export const MELEE_SPEED_MULT = 0.5;
-const QUICK_TYPES = new Set(['scimitar', 'claws']);
+export const QUICK_TYPES = new Set(['scimitar', 'claws', 'kerambit', 'fan']);
 // Ranged weapons quicker than any bow: pistols fire about 4 shots a beat (each
 // hand), shurikens 2 throws a beat.
 // Shortbows loose twice as fast as longbows; longbows hit harder instead (LONGBOW_DMG in game.js).
@@ -85,7 +85,7 @@ export class Equipment {
 
   bonuses() {
     const total = { attack: 0, strength: 0, defence: 0, ranged: 0, magic: 0, magicStr: 0, dance: 0, crit: 0, hp: 0,
-      pierce: 0, critDmg: 0, haste: 0, lifesteal: 0, bossDmg: 0, atkPct: 0, magPct: 0 };
+      pierce: 0, critDmg: 0, haste: 0, lifesteal: 0, bossDmg: 0, atkPct: 0, magPct: 0, prayer: 0 };
     for (const slot of EQUIP_SLOTS) {
       const id = this.slots[slot];
       if (!id) continue;
@@ -104,6 +104,7 @@ export class Equipment {
       total.dance += b.dance || 0;   // Dancer damage
       total.crit += b.crit || 0;   // bonus critical-hit chance (%)
       total.hp += b.hp || 0;       // bonus max hitpoints
+      total.prayer += b.prayer || 0;   // slows prayer drain (prayer accessories)
       for (const k of OFFENCE_KEYS) total[k] += b[k] || 0;   // armour piercing, crit damage, haste, lifesteal, boss damage (%)
     }
     for (const k of OFFENCE_KEYS) if (OFFENCE_CAPS[k] != null) total[k] = Math.min(total[k], OFFENCE_CAPS[k]);

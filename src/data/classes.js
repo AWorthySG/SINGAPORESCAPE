@@ -52,6 +52,21 @@ export function canWear(classId, id) {
   const fam = ITEMS[id]?.equip?.family;
   return !fam || !classId || ARMOUR_FAMILY[classId] === fam;
 }
+// Each class also wields one secondary weapon type of its own fighting style
+// (its main type stays its identity: starter weapon, perks, abilities).
+export const SECONDARY_WEAPON = {
+  // The Samurai takes the parang, a short chopping blade like a wakizashi: two dual-wielded
+  // kerambits out-damaged a lone katana by half again.
+  swordsman: 'parang', corsair: 'parang', berserker: 'parang', gladiator: 'parang', samurai: 'parang',
+  rogue: 'kerambit', brawler: 'kerambit',
+  paladin: 'toya', knight: 'toya', juggernaut: 'toya', lancer: 'toya', halberdier: 'toya',
+  archer: 'crossbow', ranger: 'crossbow', sniper: 'crossbow',
+  pistoler: 'chakram', ninja: 'chakram', merchant: 'chakram',
+  wizard: 'orb', sorcerer: 'orb', dancer: 'fan',
+};
+/** Can this class wield this weapon type? (Its own type or its secondary; no class = anything.) */
+export function canWield(classId, type) { const c = CLASS_BY_ID[classId]; return !c || !type || c.weapon === type || SECONDARY_WEAPON[classId] === type; }
+export const classesForType = (t) => CLASSES.filter((c) => canWield(c.id, t));
 /** A piece of gear for a class at about a monster's level: its weapon type or
  *  its armour family, the best one that level allows (for boss drops). */
 export function classGearFor(classId, level, rand = Math.random) {
@@ -59,7 +74,7 @@ export function classGearFor(classId, level, rand = Math.random) {
   if (!cls) return null;
   const req = (x) => Math.max(0, ...Object.values(ITEMS[x].equip.req || {}));
   const pickBest = (ids) => ids.filter((x) => req(x) <= level).sort((a, b) => req(b) - req(a))[0] || ids[0];
-  if (rand() < 0.5) return pickBest(weaponsOfType(cls.weapon).filter((w) => !UNIQUES.has(w)));
+  if (rand() < 0.5) { const t = SECONDARY_WEAPON[classId] && rand() < 0.25 ? SECONDARY_WEAPON[classId] : cls.weapon; return pickBest(weaponsOfType(t).filter((w) => !UNIQUES.has(w))); }
   const slot = ['head', 'body', 'legs', 'hands', 'feet'][Math.floor(rand() * 5)];
   const fam = ARMOUR_FAMILY[classId];
   return pickBest(Object.keys(ITEMS).filter((x) => ITEMS[x].equip?.family === fam && ITEMS[x].equip.slot === slot));
@@ -85,7 +100,7 @@ export function equivalentArmour(id, family) {
 // share, since they swing so much more often.
 export const CLEAVE_SHARE = {
   scimitar: 0.25, claws: 0.25, dagger: 0.35, sword: 0.45, mace: 0.45, katana: 0.45, longsword: 0.5, spear: 0.4,
-  battleaxe: 0.65, warhammer: 0.6, '2h_sword': 0.7, halberd: 0.65, cane: 0.4,
+  battleaxe: 0.65, warhammer: 0.6, '2h_sword': 0.7, halberd: 0.65, cane: 0.4, parang: 0.55, kerambit: 0.25, toya: 0.5,
 };
 export const CLASS_FOR_WEAPON = Object.fromEntries(CLASSES.map((c) => [c.weapon, c]));
 export const WEAPON_TYPE_NAMES = {
@@ -93,6 +108,7 @@ export const WEAPON_TYPE_NAMES = {
   warhammer: 'warhammers', '2h_sword': '2h swords', spear: 'spears', claws: 'claws', katana: 'katanas', halberd: 'halberds',
   shortbow: 'shortbows', longbow: 'longbows', staff: 'staves', wand: 'wands', whip: 'whips',
   pistol: 'pistols', shuriken: 'shurikens', cane: 'canes', rifle: 'sniper rifles',
+  parang: 'parangs', kerambit: 'kerambits', toya: 'toya staves', crossbow: 'crossbows', chakram: 'chakrams', orb: 'orbs', fan: 'war fans',
 };
 
 /** Weapon type of an item (null for non-weapons and tools). */

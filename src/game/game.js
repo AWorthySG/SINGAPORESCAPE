@@ -32,11 +32,12 @@ import { ABILITY_BY_ID, abilitiesFor, ADREN_PER_HIT, ADREN_PER_HURT, CLASS_ADREN
 import { classPassiveMods, CLASS_SKILL } from '../data/classPassives.js';
 import { RACES, raceOf, matchup, RACE_BONUS, RACE_PENALTY } from '../data/races.js';
 import { DOT_KINDS } from '../data/bossAbilities.js';
-import { CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, equivalentWeapon, CLEAVE_SHARE, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWear, equivalentArmour, classGearFor } from '../data/classes.js';
+import { CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, equivalentWeapon, CLEAVE_SHARE, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWear, equivalentArmour, classGearFor, canWield, classesForType, SECONDARY_WEAPON } from '../data/classes.js';
 import { STYLE_TRACKS, sumPerks, perkAtLevel, rankName, PERK_SKILLS, PERK_CAPS } from '../data/perks.js';
 import { getSpell, SPELLS, ELEMENTS, AOE_RADIUS, elementMatchup } from '../data/magic.js';
 import { xpForLevel } from '../data/xp.js';
 import { PRAYERS, PRAYER_BY_ID, PRAYER_GROUPS } from '../data/prayers.js';
+import { isBone, boneXp, BONE_IDS, countBones, championBoneQty, RARE_BOSS_BONES, RARE_BONE_CHANCE, RARE_BONE_QTY, ALTAR_XP_MULT, ALTAR_RANGE } from '../data/bones.js';
 import {
   resolveWoodcut, resolveMine, resolveFish, resolveCook,
   resolveSmelt, resolveSmith, resolveFiremake, resolveCraft, resolveDish,
@@ -123,6 +124,8 @@ const DANCE_RICOCHET = 2;
 const VOLLEY_MIN_BEATS = 0.05;
 const RICOCHET_SHARE = 0.6;
 const LONGBOW_DMG = 1.6;
+// Thrown weapons that bounce on: extra foes and the share of the hit each takes.
+const RICOCHET = { shuriken: { hits: 1, share: 0.6 }, chakram: { hits: 2, share: 0.45 } };
 // Sniper rifles fire only every 1.5s, but each round hits this many times as hard.
 const RIFLE_DMG = 5.5;
 // A sniper round carries on in a straight line through every
@@ -150,7 +153,7 @@ const CHAMPION_STACK_MULT = 10;
 // Share of fired arrows recovered after the shot.
 const ARROW_RECOVERY = 0.8;
 const CLASS_LOOT_SHARE = 0.75;   // chance another class's weapon drop becomes your class's equivalent
-const CLASS_FOR_TYPE = (t) => Object.values(CLASS_BY_ID).find((c) => c.weapon === t)?.name || 'different class';
+const CLASS_FOR_TYPE = (t) => classesForType(t).map((c) => c.name).join(' or ') || 'different class';
 // What a boss's ground attack says when it marks the ground.
 const HAZARD_TEXT = {
   blast: (n) => `${n} targets the ground under you. Move out of the red!`,
@@ -165,6 +168,7 @@ const HAZARD_TEXT = {
   twin: (n) => `${n} strikes on both sides of you. Stand still!`,
 };
 export const BURY_BATCH = 100; // bones buried per click
+export const BURY_RESTORE_CAP = 3; // at most this many bones per bury restore prayer
 // Agility obstacles give AGILITY_XP_MULT x their listed XP, growing by 1/AGILITY_XP_DIV
 // per Agility level (level 100 -> 11x the multiplier), so level 999 is a
 // reachable goal (~12 hours of courses) rather than a lifetime.
@@ -172,7 +176,7 @@ export const AGILITY_XP_MULT = 5;
 export const AGILITY_XP_DIV = 10;
 // A Mark of grace trades for this many zip-line crossings' worth of Agility XP.
 export const MARK_XP_CROSSINGS = 10;
-export const BONE_PRAYER_XP = 45;   // Prayer XP per bone buried (10x the old 4.5)
+export const BONE_PRAYER_XP = getItem('bones').prayerXp;   // plain bones; every kind's XP is its item's prayerXp (bones.js)
 export const SPLIT_SHOT_LEVEL = 300;  // Ranged level at which every bow shot splits
 const SPLIT_SHOT_TARGETS = 3;       // ...into this many arrows, one per target
 
@@ -405,12 +409,12 @@ export class Game {
       // An existing character: put away a weapon it can no longer use, and hand over its class weapon.
       this.pendingClassChoice = false;
       const w = this.equipment.get('weapon');
-      if (w && getItem(w).equip?.weaponType && getItem(w).equip.weaponType !== cls.weapon && this.inventory.freeSlots?.() !== 0) {
+      if (w && getItem(w).equip?.weaponType && !canWield(classId, getItem(w).equip.weaponType) && this.inventory.freeSlots?.() !== 0) {
         this.equipment.clearSlot('weapon'); this.inventory.add(w, 1);
       }
       const starter = starterWeapon(classId);
       if (!this.equipment.get('weapon')) this.equipment.set('weapon', starter); else this.inventory.add(starter, 1);
-      this.msg(`You are now a ${cls.name}. Only ${WEAPON_TYPE_NAMES[cls.weapon]} can be wielded, and the choice is permanent.`, 'level');
+      this.msg(`You are now a ${cls.name}. Only ${WEAPON_TYPE_NAMES[cls.weapon]} and ${WEAPON_TYPE_NAMES[SECONDARY_WEAPON[classId]]} can be wielded, and the choice is permanent.`, 'level');
       this.msg(`${cls.name} perk: ${classPerks(classId)[0].text} (see Class perks in the Combat tab)`, 'system');
       this.bus.emit('inventory'); this.bus.emit('equipment');
       return;
@@ -456,7 +460,7 @@ export class Game {
       this.equipment.set('body', ARMOUR_FAMILY[classId] === 'plate' ? 'bronze_chainbody' : 'leather_body');
     }
     this.player.hp = this.maxHp();
-    this.msg(`You are a ${cls.name}: you fight with ${WEAPON_TYPE_NAMES[cls.weapon]}. Talk to the Kampong Guide for tips.`, 'system');
+    this.msg(`You are a ${cls.name}: you fight with ${WEAPON_TYPE_NAMES[cls.weapon]} (or ${WEAPON_TYPE_NAMES[SECONDARY_WEAPON[classId]]}). Talk to the Kampong Guide for tips.`, 'system');
     this.msg(`${cls.name} perk: ${classPerks(classId)[0].text} (see Class perks in the Combat tab)`, 'system');
     this.bus.emit('inventory'); this.bus.emit('equipment'); this.bus.emit('hp');
   }
@@ -859,7 +863,7 @@ export class Game {
     if (!this.activePrayers.size || this.prayerPoints <= 0) return;
     let drain = 0;
     for (const id of this.activePrayers) drain += PRAYER_BY_ID[id].drain;
-    this.prayerPoints = Math.max(0, this.prayerPoints - drain * 0.15);
+    this.prayerPoints = Math.max(0, this.prayerPoints - drain * 0.15 / (1 + (this.equipment.bonuses().prayer || 0) / 30));   // prayer gear slows the drain
     if (this.prayerPoints <= 0) { this.activePrayers.clear(); this.msg('You have run out of prayer points.', 'system'); }
     this.bus.emit('prayer');
   }
@@ -999,6 +1003,7 @@ export class Game {
         this.bus.emit('hp'); this.bus.emit('prayer');
         this.spawnSparkle(this.player, '#9adcff', 16);
         this.msg('You kneel at the A-Worthy Monument. Your health and prayer are restored.', 'system');
+        if (this.inventory.slots.some((x) => x && isBone(x.id))) this.msg('You could offer your bones here for 2.5x Prayer XP (right-click them).', 'system');
         this.addGood(1); // devotion is a small good
         this.markPillar('monument');
       });
@@ -1956,7 +1961,7 @@ export class Game {
     // A Merchant's every throw may call up an A-Worthling (a mirror image).
     if (this.jobClass === 'merchant') Mercs.onMerchantAttack(this);
     const shot = this._shotKind(wpn);
-    const tint = wpn.coins ? '#f5b82e' : wpn.weaponType === 'pistol' ? '#ffe28a' : wpn.weaponType === 'shuriken' ? '#cfd8e6' : '#d9c45a';
+    const tint = wpn.coins ? '#f5b82e' : wpn.weaponType === 'pistol' ? '#ffe28a' : wpn.weaponType === 'shuriken' || wpn.weaponType === 'chakram' ? '#cfd8e6' : '#d9c45a';
     const style = this.player.rangedStyle;
     const { max } = playerRangedVsNpc(this.skills, this.equipment, style, npc.def, arrowStr);
     const pr = this.prayerMult().ranged;
@@ -1992,14 +1997,19 @@ export class Game {
       if (dmg > 0) for (const x of combatXpRanged(style, dmg)) this.skills.addXp(x.skill, x.xp * this.combatXpMult());
       total += dmg;
     }
-    // Shurikens ricochet off the target into one more foe nearby (60% of the hit).
-    if (wpn.weaponType === 'shuriken' && total > 0) {
+    // Shurikens ricochet off the target into one more foe nearby (60% of the hit);
+    // chakrams bounce on into two more (45% each).
+    const rc = RICOCHET[wpn.weaponType];
+    if (rc && total > 0) {
       const p = this.player;
-      const o = this.nearbyNpcs().find((n) => n !== npc && n.alive && n.attackable && !n.temporary && n.hp > 0
-        && chebyshev(n.x, n.y, npc.x, npc.y) <= 3 && chebyshev(n.x, n.y, p.x, p.y) <= this.attackRange() + 3
-        && !(n.def.fixed && n.target !== p));
-      if (o) {
-        const c = this._aoeCrit(Math.max(1, Math.round(raw * 0.6)));
+      const hit = new Set([npc]);
+      for (let k = 0; k < rc.hits; k++) {
+        const o = this.nearbyNpcs().find((n) => !hit.has(n) && n.alive && n.attackable && !n.temporary && n.hp > 0
+          && chebyshev(n.x, n.y, npc.x, npc.y) <= 3 && chebyshev(n.x, n.y, p.x, p.y) <= this.attackRange() + 3
+          && !(n.def.fixed && n.target !== p));
+        if (!o) break;
+        hit.add(o);
+        const c = this._aoeCrit(Math.max(1, Math.round(raw * rc.share)));
         const d = Math.min(o.hp, c.dmg);
         o.takeDamage(d);
         this.addHitsplat(o, d, { tint: '#cfd8e6', critX: c.critX });
@@ -2225,7 +2235,7 @@ export class Game {
   /** What a ranged weapon fires: only bows loose arrows; pistols fire bullets
    *  and Ninjas throw spinning shurikens. */
   _shotKind(wpn) {
-    return wpn?.coins ? 'coin' : wpn?.weaponType === 'pistol' || wpn?.weaponType === 'rifle' ? 'bullet' : wpn?.weaponType === 'shuriken' ? 'shuriken' : 'arrow';
+    return wpn?.coins ? 'coin' : wpn?.weaponType === 'pistol' || wpn?.weaponType === 'rifle' ? 'bullet' : wpn?.weaponType === 'shuriken' || wpn?.weaponType === 'chakram' ? 'shuriken' : 'arrow';
   }
 
   _projectile(npc, color, kind = 'bolt', spread = 0) {
@@ -2556,6 +2566,14 @@ export class Game {
       const q = d.min ? randInt(d.min, d.max) : 1;
       loot.push([d.id, q, 'common']);
     }
+    // Champions add Champion bones (more from stronger bands); a few bosses add a named rare kind.
+    if (npc.champion) loot.push(['champion_bones', championBoneQty(def.tierLevel || def.level || 1), 'rare']);
+    const rareBone = def.boss && RARE_BOSS_BONES[npc.npcId];
+    if (rareBone && Math.random() < RARE_BONE_CHANCE) {
+      const [a, b] = RARE_BONE_QTY[rareBone], q = randInt(a, b);
+      loot.push([rareBone, q, 'epic']);
+      this.msg(`A rare drop! ${q > 1 ? q + ' x ' : ''}${getItem(rareBone).name}.`, 'level');
+    }
     if (def.dropTable && def.dropTable.length) {
       // Champions roll their table eight times, bosses ten, and neither comes up empty.
       const rolls = def.boss ? 10 : npc.champion ? 4 : 1;
@@ -2619,7 +2637,7 @@ export class Game {
     if (myType) {
       for (const l of loot) {
         const t = getItem(l[0]).equip?.weaponType;
-        if (t && t !== myType && Math.random() < CLASS_LOOT_SHARE) l[0] = equivalentWeapon(l[0], myType);
+        if (t && !canWield(this.jobClass, t) && Math.random() < CLASS_LOOT_SHARE) l[0] = equivalentWeapon(l[0], myType);
         // Armour of another class's kind mostly turns into your own kind.
         const fam = getItem(l[0]).equip?.family, mine = ARMOUR_FAMILY[this.jobClass];
         if (fam && mine && fam !== mine && Math.random() < CLASS_LOOT_SHARE) l[0] = equivalentArmour(l[0], mine);
@@ -2702,17 +2720,35 @@ export class Game {
   _holdsClue() { return this.inventory.slots.some((s) => s && s.id.startsWith('clue_scroll_')); }
 
   // ---------------- New skills: Prayer, Thieving, Agility ----------------
-  /** Bury bones from a stack: 100 at a time by default, or `count` (Infinity = the whole stack). */
-  buryBones(index, count = BURY_BATCH) {
+  /** Bury bones from a stack (any kind): 100 at a time by default, or `count` (Infinity = the whole stack).
+   *  Offering at an A-Worthy Monument (`altar`) pays ALTAR_XP_MULT x. Each bone also restores a little prayer. */
+  buryBones(index, count = BURY_BATCH, altar = false) {
     const s = this.inventory.slotAt(index);
-    if (!s || s.id !== 'bones') { this.msg('You can only bury bones.'); return; }
-    const n = Math.min(s.qty, count);
+    if (!s || !isBone(s.id)) { this.msg('You can only bury bones.'); return 0; }
+    if (altar && !this.nearShrine()) { this.msg('You need to be at an A-Worthy Monument to offer bones.'); return 0; }
+    const it = getItem(s.id), n = Math.min(s.qty, count);
     this.inventory.removeAt(index, n);
-    this.skills.addXp('prayer', BONE_PRAYER_XP * n);
+    this.skills.addXp('prayer', boneXp(s.id) * n * (altar ? ALTAR_XP_MULT : 1));
+    // Only the first few bones of a click restore prayer, so a big stack can't stand in for a monument mid-fight.
+    this.prayerPoints = Math.min(this.maxPrayer(), this.prayerPoints + (it.prayerRestore || 1) * Math.min(n, BURY_RESTORE_CAP));
+    this.bus.emit('prayer');
     this.addGood(Math.min(n, 10)); // honouring the dead is a small good
-    this.spawnSparkle(this.player, '#ffe89a', Math.min(24, 6 + n));
-    this.msg(n > 1 ? `You bury ${n} bones.` : 'You bury the bones.', 'system');
+    this.spawnSparkle(this.player, altar ? '#9adcff' : '#ffe89a', Math.min(24, 6 + n));
+    const what = n > 1 ? `${n} ${it.name.toLowerCase()}` : `the ${it.name.toLowerCase()}`;
+    this.msg(altar ? `You offer ${what} at the monument.` : `You bury ${what}.`, 'system');
+    return n;
   }
+  /** Bury (or offer) every kind of bone in the pack. Walks backwards: removeAt only nulls a slot
+   *  and _pad only trims trailing nulls, so lower indices stay valid. */
+  buryAllBones(altar = false) {
+    if (altar && !this.nearShrine()) { this.msg('You need to be at an A-Worthy Monument to offer bones.'); return 0; }
+    let total = 0;
+    for (let i = this.inventory.size - 1; i >= 0; i--) { const s = this.inventory.slotAt(i); if (s && isBone(s.id)) total += this.buryBones(i, Infinity, altar); }
+    if (!total) this.msg('You have no bones.');
+    return total;
+  }
+  /** Close enough to an A-Worthy Monument to offer bones there. */
+  nearShrine() { const p = this.player; return this.world.objects.some((o) => o.def.type === 'shrine' && chebyshev(p.x, p.y, o.x, o.y) <= ALTAR_RANGE); }
 
   startPickpocket(npc) {
     if (!npc.def.role) { this.msg("You can't pickpocket that."); return; }
@@ -3896,7 +3932,7 @@ export class Game {
     if (!eq || it.tool) return false;
     for (const [sk, lvl] of Object.entries(eq.req || {})) if (this.skills.level(sk) < lvl) return false;
     const cls = this.jobClass && CLASS_BY_ID[this.jobClass];
-    if (cls && eq.weaponType && eq.weaponType !== cls.weapon) return false;
+    if (cls && eq.weaponType && !canWield(cls.id, eq.weaponType)) return false;
     return !cls || canWear(cls.id, id);
   }
 
@@ -3919,6 +3955,10 @@ export class Game {
         const worn = this.equipment.get(eq.slot);
         // Keep to the weapon style you fight with (a staff won't replace a sword).
         if (eq.slot === 'weapon' && worn && weaponStyle(s.id) !== weaponStyle(worn)) return;
+        // Keep to the weapon type in hand: ratings can't compare a main and a secondary type fairly.
+        // (A tool in hand, such as an axe, has no type and is always swapped for a weapon.)
+        const wornType = worn && getItem(worn).equip.weaponType;
+        if (eq.slot === 'weapon' && wornType && this.jobClass && getItem(s.id).equip.weaponType !== wornType) return;
         const gain = score(s.id) - (worn ? score(worn) : 0);
         if (gain > 0 && (!best || gain > best.gain)) best = { i, gain };
       });
@@ -3950,7 +3990,7 @@ export class Game {
     let give = id;
     if (cls) {
       const eq = getItem(id).equip;
-      if (eq?.weaponType && eq.weaponType !== cls.weapon) give = equivalentWeapon(id, cls.weapon);
+      if (eq?.weaponType && !canWield(cls.id, eq.weaponType)) give = equivalentWeapon(id, cls.weapon);
       else if (eq?.family && !canWear(cls.id, id)) give = equivalentArmour(id, ARMOUR_FAMILY[cls.id]);
     }
     this.inventory.add(give, 1);
@@ -3980,8 +4020,8 @@ export class Game {
     }
     // Job classes: only your class's weapon type can be wielded (tools are fine).
     const cls = this.jobClass && CLASS_BY_ID[this.jobClass];
-    if (cls && eq.weaponType && eq.weaponType !== cls.weapon) {
-      this.msg(`Only a ${CLASS_FOR_TYPE(eq.weaponType)} can wield ${WEAPON_TYPE_NAMES[eq.weaponType]}. You are a ${cls.name}: you fight with ${WEAPON_TYPE_NAMES[cls.weapon]}.`);
+    if (cls && eq.weaponType && !canWield(cls.id, eq.weaponType)) {
+      this.msg(`Only a ${CLASS_FOR_TYPE(eq.weaponType)} can wield ${WEAPON_TYPE_NAMES[eq.weaponType]}. You are a ${cls.name}: you fight with ${WEAPON_TYPE_NAMES[cls.weapon]} and ${WEAPON_TYPE_NAMES[SECONDARY_WEAPON[cls.id]]}.`);
       return;
     }
     // ...and only your class's kind of helm, body and legs armour.
@@ -3995,7 +4035,7 @@ export class Game {
     const main = this.equipment.get('weapon');
     const offhand = canDualPair(s.id, main)
       && (opts.offhand ?? !canDualPair(main, this.equipment.get('shield')));
-    if (opts.offhand && !offhand) { this.msg('Only a dagger or scimitar can go in your off-hand, alongside another of the same kind.'); return; }
+    if (opts.offhand && !offhand) { this.msg('Only a second weapon of the same dual-wield kind (daggers, scimitars, kerambits or pistols) can go in your off-hand.'); return; }
     const slot = offhand ? 'shield' : eq.slot;
     const cmp = offhand ? null : compareGear(s.id, this.equipment);
     this.inventory.removeAt(index, 1);
@@ -4559,7 +4599,7 @@ export class Game {
         if (st.skill === 'hunter') return obj('bird_snare', 'Hunter: check a bird snare');
         return npc(giver);
       }
-      case 'bone_collector': return inv('bones') >= 10 ? npc('guide', 'Hand in to') : { kind: 'hunt', text: `Collect bones: ${inv('bones')}/10 (any monster drops them)` };
+      case 'bone_collector': return countBones(this.inventory) >= 10 ? npc('guide', 'Hand in to') : { kind: 'hunt', text: `Collect bones: ${countBones(this.inventory)}/10 (any kind of bones counts)` };
       case 'pest_control': return { kind: 'hunt', target: 'rat', text: `Slay rats: ${q.kills}/8` };
       case 'pillars': return !q.monument ? obj('shrine', 'Pray at the A-Worthy Monument') : !q.obelisk ? obj('mascot_statue', 'Rest at the Mascot Statue') : npc('guide', 'Hand in to');
       case 'smith_apprentice':
@@ -4869,8 +4909,9 @@ export class Game {
     const q = this.quests.bone_collector;
     if (q.state === 'done') { this.msg('Thanks again, adventurer!', 'system'); return; }
     if (q.state !== 'active') { this.msg('Ask me about work first.', 'system'); return; }
-    if (this.inventory.count('bones') < 10) { this.msg('Come back when you have 10 bones.', 'system'); return; }
-    this.inventory.remove('bones', 10);
+    if (countBones(this.inventory) < 10) { this.msg('Come back when you have 10 bones.', 'system'); return; }
+    let left = 10;   // any kind counts; hand over the cheapest first
+    for (const id of BONE_IDS) { const n = Math.min(left, this.inventory.count(id)); if (n) { this.inventory.remove(id, n); left -= n; } }
     this.inventory.add('coins', 1000);
     this.inventory.add('amulet_of_strength', 1);
     this.skills.addXp('prayer', 500);
@@ -4916,7 +4957,7 @@ export class Game {
     if (it.tags?.includes('ammo')) return cls.weapon !== 'shortbow' && cls.weapon !== 'longbow';
     const eq = it.equip;
     if (!eq) return false;
-    if (eq.weaponType) return eq.weaponType !== cls.weapon;
+    if (eq.weaponType) return !canWield(cls.id, eq.weaponType);
     if (eq.family) return !canWear(cls.id, id);
     if (eq.style) return eq.style !== (cls.style === 'dance' ? 'melee' : cls.style);
     return false;

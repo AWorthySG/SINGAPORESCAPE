@@ -1,4 +1,4 @@
-import { CLASSES, CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, canWear, ARMOUR_FAMILY, ARMOUR_FAMILIES } from '../data/classes.js';
+import { CLASSES, CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, canWear, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWield, SECONDARY_WEAPON } from '../data/classes.js';
 import { classPerks, classPerkSummary } from '../game/classperks.js';
 import * as Mercs from '../game/mercenary.js';
 import { PERK_SKILLS, PERK_TRACKS, PERK_EVERY, trackPerks, rankName } from '../data/perks.js';
@@ -41,6 +41,7 @@ import { TERRAIN } from '../data/world.js';
 import { clearSave } from '../game/save.js';
 import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG, abilityIconHTML, prayerIconHTML, spellIconHTML } from '../render/icons.js';
 import { weaknessOf } from '../game/combat.js';
+import { isBone } from '../data/bones.js';
 import { RACES, raceOf, weaponsFor, weaponTypeName, WEAPON_VS_RACE } from '../data/races.js';
 
 const EQUIP_LAYOUT = [
@@ -719,7 +720,7 @@ export class UI {
     else if (item.potion) this.game.drinkPotion(i);
     else if (item.equip) this.game.equipItem(i);
     else if (item.tags?.includes('log')) this.game.lightLogs(i);
-    else if (s.id === 'bones') this.game.buryBones(i);
+    else if (isBone(s.id)) this.game.buryBones(i);
     else if (s.id === 'mark_of_grace') this.game.useMarkOfGrace(i);
     else if (s.id.startsWith('clue_scroll_')) this.game.readClue(i);
     else if (s.id.startsWith('reward_casket_')) this.game.openCasket(i);
@@ -749,10 +750,12 @@ export class UI {
       } else opts.push({ label: item.equip.slot === 'weapon' ? 'Wield' : 'Wear', target: item.name, fn: () => this.game.equipItem(i) });
     }
     if (item.tags?.includes('log')) opts.push({ label: 'Light', target: item.name, fn: () => this.game.lightLogs(i) });
-    if (s.id === 'bones') {
+    if (isBone(s.id)) {
       opts.push({ label: s.qty > 1 ? `Bury ${Math.min(100, s.qty)}` : 'Bury', target: item.name, fn: () => this.game.buryBones(i) });
       if (s.qty > 100) opts.push({ label: `Bury all ${s.qty}`, target: item.name, fn: () => this.game.buryBones(i, Infinity) });
       if (s.qty > 1) opts.push({ label: 'Bury one', target: item.name, fn: () => this.game.buryBones(i, 1) });
+      if (this.game.nearShrine()) opts.push({ label: 'Offer at monument', target: item.name, fn: () => this.game.buryBones(i, Infinity, true) }, { label: 'Offer all bones', target: 'every kind', fn: () => this.game.buryAllBones(true) });
+      opts.push({ label: 'Bury all bones', target: 'every kind', fn: () => this.game.buryAllBones() });
     }
     if (s.id === 'mark_of_grace') opts.push({ label: 'Trade for XP', target: item.name, fn: () => this.game.useMarkOfGrace(i) });
     if (s.id.startsWith('clue_scroll_')) opts.push({ label: 'Read', target: item.name, fn: () => this.game.readClue(i) });
@@ -1050,9 +1053,9 @@ export class UI {
         // A job class can only wield its own weapon type, so list just those.
         const note = document.createElement('div');
         note.className = 'modal-hint';
-        note.innerHTML = `As a <b>${myCls.name}</b> you can wield <b>${WEAPON_TYPE_NAMES[myCls.weapon]}</b>. Other weapons you find are worth selling.`;
+        note.innerHTML = `As a <b>${myCls.name}</b> you can wield <b>${WEAPON_TYPE_NAMES[myCls.weapon]}</b> and <b>${WEAPON_TYPE_NAMES[SECONDARY_WEAPON[myCls.id]]}</b>. Other weapons you find are worth selling.`;
         body.appendChild(note);
-        ids = ids.filter((id) => getItem(id).equip?.weaponType === myCls.weapon);
+        ids = ids.filter((id) => { const t = getItem(id).equip?.weaponType; return t && canWield(myCls.id, t); });
       } else if (slot === 'weapon') {
         // Weapons only compare fairly within a fighting style.
         const st = document.createElement('div');
@@ -1976,7 +1979,7 @@ export class UI {
         : Object.keys(labels).filter((k) => pr[k]).map((k) => `+${Math.round(pr[k] * 100)}% ${labels[k]}`).join(' ');
       // The level sits beside the name as a chip; a thin bar along the bottom
       // shows how close a locked prayer is to unlocking.
-      cell.innerHTML = `<span class="pr-ic">${prayerIconHTML(pr.id, 30)}</span><span class="pr-text">`
+      cell.innerHTML = `<span class="pr-ic">${prayerIconHTML(pr.art || pr.id, 30, '', pr.tint)}</span><span class="pr-text">`
         + `<span class="pr-top"><b>${pr.name}</b><span class="pr-lvl">Lvl ${pr.level}</span></span><span class="pr-effect">${effect}</span></span>`
         + '<span class="pr-bar"><i></i></span>';
       cell.addEventListener('click', () => this.game.togglePrayer(pr.id));

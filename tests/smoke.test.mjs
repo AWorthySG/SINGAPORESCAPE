@@ -12,7 +12,7 @@ import { findPath } from '../src/engine/pathfinding.js';
 import { hitChance, maxHit, attackRoll, combatXp } from '../src/game/combat.js';
 import { gatherChance } from '../src/game/skilling.js';
 import { XP_RATE } from '../src/config.js';
-import { NPCS, MONSTER_IDS, BOSS_IDS, getNpc, monsterHpScale } from '../src/data/npcs.js';
+import { NPCS, MONSTER_IDS, ALL_MONSTER_IDS, BOSS_IDS, getNpc, monsterHpScale } from '../src/data/npcs.js';
 import { itemIconSVG, hasIcon, skillIconSVG, pngItems } from '../src/render/icons.js';
 import { readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -433,7 +433,7 @@ test('slayer tasks/rewards are well-formed and a Slayer skill exists', async () 
   assert.ok(SLAYER_TASKS.length >= 10);
   for (const t of SLAYER_TASKS) {
     assert.ok(t.family && t.name && t.req >= 1 && t.min >= 1 && t.max >= t.min, `task ${t.family} well-formed`);
-    assert.ok(NPCS[MONSTER_IDS.find((id) => NPCS[id].family === t.family)], `task ${t.family} maps to a real monster`);
+    assert.ok(NPCS[ALL_MONSTER_IDS.find((id) => NPCS[id].family === t.family)], `task ${t.family} maps to a real monster`);
   }
   assert.ok(eligibleTasks(1).length >= 1 && eligibleTasks(99).length >= eligibleTasks(1).length);
   for (const r of SLAYER_REWARDS) { assert.ok(ITEMS[r.id], `reward ${r.id} is a real item`); assert.ok(r.cost >= 1); }
@@ -688,4 +688,25 @@ test('weapon balance: every weapon type has a damage scale, slow weapons hit har
   assert.ok(WEAPON_DMG_MULT['2h_sword'] > WEAPON_DMG_MULT.sword && WEAPON_DMG_MULT.sword > WEAPON_DMG_MULT.pistol, 'slower weapons, bigger blows');
   assert.equal(weaponDmgMult({ weaponType: () => null }), 1, 'unarmed is unscaled');
   assert.equal(weaponDmgMult({ bonuses: () => ({}) }), 1, 'and so is a bare test stub');
+});
+
+test('secondary weapon types: every type is fully described, and each class wields one of its own style', async () => {
+  const { ALL_WEAPON_TYPES, SECONDARY_WEAPON_TYPES } = await import('../src/data/items.js');
+  const { WEAPON_DMG_MULT } = await import('../src/game/combat.js');
+  const { WEAPON_VS_RACE } = await import('../src/data/races.js');
+  const { CLASSES, SECONDARY_WEAPON, WEAPON_TYPE_NAMES, weaponsOfType } = await import('../src/data/classes.js');
+  const { weaponStyle } = await import('../src/game/gear.js');
+  const { classPerks } = await import('../src/game/classperks.js');
+  for (const t of ALL_WEAPON_TYPES) {
+    assert.ok(WEAPON_DMG_MULT[t] > 0, `${t} has a damage scale`);
+    assert.ok(WEAPON_TYPE_NAMES[t], `${t} has a name`);
+    assert.ok(WEAPON_VS_RACE[t]?.strong.length >= 2, `${t} is strong against at least two races`);
+  }
+  for (const cls of CLASSES) {
+    const sec = SECONDARY_WEAPON[cls.id];
+    assert.ok(SECONDARY_WEAPON_TYPES.includes(sec), `${cls.id} has a secondary type`);
+    assert.notEqual(sec, cls.weapon, `${cls.id}'s secondary is not its main type`);
+    assert.equal(weaponStyle(weaponsOfType(sec)[0]), cls.style, `${cls.id}'s ${sec} suits its ${cls.style} style`);
+  }
+  assert.ok(classPerks('rogue').some((p) => p.label === 'Second weapon'), 'the class perks list the second weapon');
 });
