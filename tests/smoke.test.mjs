@@ -345,13 +345,13 @@ test('monsters and bosses are tougher, but the first town monsters stay easy', a
   // (Stats are worked out from the monster's original level, then scaled up with its stretched level.)
   const high = Object.values(NPCS).find((d) => d.attackable && !d.boss && d.tierLevel >= 60);
   const stretched = Math.round(Math.round((high.tierLevel * 1.7 + 2) * 22.4) * high.level / high.tierLevel);
-  assert.equal(high.maxHp, Math.round(stretched * monsterHpScale(high.level)), 'a level 60+ monster has 22.4x the base health, scaled up with its level');
+  assert.equal(high.maxHp, Math.max(1, Math.round(Math.round(stretched * monsterHpScale(high.level)) / high.hpScale)), 'a level 60+ monster has 22.4x the base health, scaled up with its level (then shown smaller above level 100)');
   // High-level monster HP keeps pace with player damage: x1 up to level 40, x4 from 350.
   assert.equal(monsterHpScale(40), 1); assert.equal(monsterHpScale(350), 4); assert.equal(monsterHpScale(5000), 4);
   assert.ok(monsterHpScale(200) > 2 && monsterHpScale(200) < 3);
   // Bosses: 3600x the base health and a sturdier defence.
   const chief = getNpc('goblin_warchief');
-  assert.equal(chief.maxHp, Math.round(Math.round((35 * 4.5 + 30) * 3600) * chief.level / 35));
+  assert.equal(chief.maxHp, Math.round(Math.round((35 * 4.5 + 30) * 3600) * chief.level / 35));   // level 81: below the number scale
   assert.ok(chief.defence > Math.round(35 * 0.95), 'boss defence raised');
   // Bosses hit 1.3x harder to match the reworked skills (free defence and heals).
   const { BOSS_DAMAGE_MULT } = await import('../src/data/npcs.js');

@@ -23,7 +23,7 @@ import { NPC } from './npc.js';
 import { Camera } from '../engine/camera.js';
 import { findPath } from '../engine/pathfinding.js';
 import {
-  playerAttackVsNpc, npcAttackVsPlayer, rollAttack, rollGuaranteed, rollHit, combatXp, magicXp, killXp,
+  playerAttackVsNpc, npcAttackVsPlayer, rollAttack, rollGuaranteed, rollHit, combatXp, magicXp, killXp, DAMAGE_XP_SHARE, KILL_XP_SHARE,
   playerRangedVsNpc, combatXpRanged, playerMagicVsNpc, RANGED_STYLES,
   weaknessOf, WEAKNESS_BONUS, critChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE,
   playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX,
@@ -1291,7 +1291,7 @@ export class Game {
     if (total > 0) this._cleave(npc, raw);
     this._abilityAoe(npc, raw, 'melee');
     if (mods.heal && total > 0) {
-      this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.round(total * mods.heal));
+      this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.round(total * mods.heal * (npc.def?.hpScale || 1)));
       this.bus.emit('hp');
     }
     // A sub-beat cooldown keeps what's left over (never banking more than one swing).
@@ -1645,15 +1645,17 @@ export class Game {
     }
     npc.takeDamage(dmg);
     // Lifesteal from gear: heal a share of the damage dealt.
+    // Lifesteal heals in your own life's units: a hit on a big monster counts at its real size.
+    const realDmg = dmg * (npc.def?.hpScale || 1);
     const ls = dmg > 0 ? this.equipment.bonuses().lifesteal + this.buffMod('lifesteal') * 100 : 0;
     if (ls && this.player.alive && this.player.hp < this.maxHp()) {
-      this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.max(1, Math.round(dmg * ls / 100)));
+      this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.max(1, Math.round(realDmg * ls / 100)));
       this.bus.emit('hp');
     }
     const perk = this._perkCtx;
     if (perk && dmg > 0) {
       this._lastHitDmg = dmg;
-      if (perk.lifesteal) { const p = this.player; const heal = Math.max(1, Math.round(dmg * perk.lifesteal)); if (p.hp < this.maxHp()) { p.hp = Math.min(this.maxHp(), p.hp + heal); this.bus.emit('hp'); } }
+      if (perk.lifesteal) { const p = this.player; const heal = Math.max(1, Math.round(realDmg * perk.lifesteal)); if (p.hp < this.maxHp()) { p.hp = Math.min(this.maxHp(), p.hp + heal); this.bus.emit('hp'); } }
       if (perk.stun && npc.hp > 0 && Math.random() < perk.stun) { npc.windup = 0; npc.attackCooldown = Math.max(npc.attackCooldown || 0, 3); this.addHitsplat(npc, 0, { text: 'Stunned!' }); }
     }
     if (dmg > 0) this._knock(npc, this.player);
@@ -1743,7 +1745,7 @@ export class Game {
     if (mods.ability?.rhythm) this.danceRhythm = Math.min(RHYTHM_MAX, this.danceRhythm + mods.ability.rhythm);
     this._danceHitTick = this.tickCount;
     if (this.danceRhythm >= RHYTHM_MAX && total > 0) this.spawnSparkle(p, '#ff8ac0', 4);
-    if (mods.heal && total > 0) { p.hp = Math.min(this.maxHp(), p.hp + Math.round(total * mods.heal)); this.bus.emit('hp'); }
+    if (mods.heal && total > 0) { p.hp = Math.min(this.maxHp(), p.hp + Math.round(total * mods.heal * (npc.def?.hpScale || 1))); this.bus.emit('hp'); }
     this._resetCooldown(this.attackInterval());
     this.bus.emit('rhythm');
     this._postAttack(npc);
@@ -1962,7 +1964,7 @@ export class Game {
         if (o.hp <= 0) this.killNpc(o);
       }
     }
-    if (mods.heal && total > 0) { this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.round(total * mods.heal)); this.bus.emit('hp'); }
+    if (mods.heal && total > 0) { this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.round(total * mods.heal * (npc.def?.hpScale || 1))); this.bus.emit('hp'); }
     this._abilityAoe(npc, raw, 'ranged');
     if (wpn.weaponType === 'rifle' && raw > 0) this._riflePierce(npc, raw, style);
     this._mainCritCh = mods.critCh;   // split-shot arrows crit like the main shot
@@ -2238,7 +2240,7 @@ export class Game {
     if (this.buffMod('reduce')) dmg = Math.floor(dmg * (1 - Math.min(0.9, this.buffMod('reduce'))));   // a defensive class buff
     dmg = this._perkReduce(dmg, npc);
     if (dmg > 0 && perk.thorns && npc.alive) {           // Spiked Armour perk
-      const back = Math.max(1, Math.round(dmg * perk.thorns));
+      const back = Math.max(1, Math.round(dmg * perk.thorns / (npc.def?.hpScale || 1)));
       npc.takeDamage(back); this.addHitsplat(npc, back, { tint: '#9aa6b2' });
       if (npc.hp <= 0) { this.killNpc(npc); }
     }
@@ -2338,7 +2340,11 @@ export class Game {
     // its full life, in the style you fight with (see killXp in combat.js).
     { const mode = this.combatMode(), m = this.combatXpMult();
       const skill = mode === 'ranged' ? 'ranged' : mode === 'magic' ? 'magic' : mode === 'dance' ? 'dance' : 'attack';
-      for (const x of killXp(skill, npc.maxHp)) this.skills.addXp(x.skill, x.xp * m); }
+      // Life is shown smaller on big monsters (hpScale), so the reward is worked out on
+      // its real size, plus the per-hit share that the smaller hits no longer pay.
+      const hs = npc.def.hpScale || 1, real = npc.maxHp * hs;
+      const owed = real + (real - npc.maxHp) * DAMAGE_XP_SHARE / KILL_XP_SHARE;
+      for (const x of killXp(skill, owed)) this.skills.addXp(x.skill, x.xp * m); }
     if (npc.def.boss) {
       this.bossKills++;
       // A boss kill is a big payday: bonus XP in your combat style and Hitpoints.

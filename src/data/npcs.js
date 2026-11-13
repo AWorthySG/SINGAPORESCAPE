@@ -624,6 +624,19 @@ for (const d of Object.values(NPCS)) {
   d.maxHp = Math.round(d.maxHp * monsterHpScale(d.level));
 }
 
+// Smaller numbers: above level 100 a monster's life is divided by its level /
+// 100 (`hpScale`: x10 smaller at level 1,000, x100 at 10,000), and every hit the
+// player lands on it is divided by the same amount (see the player*VsNpc helpers
+// in combat.js). Fights take exactly as many hits as before; the numbers on the
+// screen just stay in the hundreds and thousands instead of the millions.
+export const NUMBER_SCALE_FROM = 100;
+export const hpScaleFor = (level) => Math.max(1, (level || 1) / NUMBER_SCALE_FROM);
+for (const d of Object.values(NPCS)) {
+  if (!d.attackable || !d.maxHp || d.hpScale) continue;
+  d.hpScale = hpScaleFor(d.level);
+  d.maxHp = Math.max(1, Math.round(d.maxHp / d.hpScale));
+}
+
 // Everything the bestiary lists: the original sets plus the extras.
 const ALL_MONSTER_IDS = [...MONSTER_IDS, ...EXTRA_MONSTER_IDS];
 const ALL_BOSS_IDS = [...BOSS_IDS, ...EXTRA_BOSS_IDS];

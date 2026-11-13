@@ -2369,6 +2369,30 @@ test('Stats: Strength, Intelligence and Dexterity points from your fighting leve
   assert.equal(g.spentPoints(), 0); assert.equal(g.unspentPoints(), 20, 'every point back to spend');
 });
 
+test('Smaller numbers: big monsters show less life and take smaller hits in proportion, so fights and XP are unchanged', async () => {
+  const { NPCS, hpScaleFor } = await import('../src/data/npcs.js');
+  const { xpForLevel } = await import('../src/data/xp.js');
+  const { XP_RATE } = await import('../src/config.js');
+  assert.equal(hpScaleFor(50), 1); assert.equal(hpScaleFor(100), 1); assert.equal(hpScaleFor(5000), 50);
+  const big = Object.values(NPCS).find((d) => d.attackable && !d.boss && d.level >= 2000);
+  assert.ok(big && big.hpScale >= 20, 'a high-level monster is scaled');
+  // The same hero's max hit against it, with and without the scale: hits-to-kill match.
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('swordsman');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.skills.xp.attack = xpForLevel(3000);
+  const scaled = playerAttackVsNpc(g.skills, g.equipment, 'x', big).max;
+  const unscaled = playerAttackVsNpc(g.skills, g.equipment, 'x', { ...big, hpScale: 1 }).max;
+  const hitsNow = big.maxHp / scaled, hitsBefore = (big.maxHp * big.hpScale) / unscaled;
+  assert.ok(Math.abs(hitsNow / hitsBefore - 1) < 0.02, `same number of hits (${hitsNow.toFixed(1)} vs ${hitsBefore.toFixed(1)})`);
+  assert.ok(scaled < unscaled / 20, `and much smaller numbers (${scaled} vs ${unscaled})`);
+  // The kill reward is worked out on the real size: at least what the unscaled life would give.
+  const { NPC } = await import('../src/game/npc.js');
+  const n = new NPC(Object.keys(NPCS).find((id) => NPCS[id] === big), g.player.x + 1, g.player.y, 0, {});
+  const xp0 = g.skills.xp.attack; g.killNpc(n);
+  assert.ok(g.skills.xp.attack - xp0 >= big.maxHp * big.hpScale * 3 * XP_RATE * 0.99, 'XP is worked out on its real life');
+});
+
 test('XP bonus stacks: Wilderness level and kill streak; bosses drop much more and give bonus XP', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
