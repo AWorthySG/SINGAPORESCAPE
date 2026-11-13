@@ -6,6 +6,7 @@ import { MovePad } from './engine/movepad.js';
 import { Sfx } from './audio/sfx.js';
 import { now } from './core/utils.js';
 import { TILE } from './config.js';
+import { saveGame } from './game/save.js';
 
 const VIEW_TILES = 15;        // tiles shown across the shorter side of the screen, at most
 const VIEW_TILES_LONG = 24;   // ...and along the longer side
@@ -40,6 +41,9 @@ game.start();
 input.onLeftClick((x, y) => game.onLeftClick(x, y));
 input.onRightClick((x, y) => game.onRightClick(x, y));
 input.onKey((e) => {
+  // Typing in a search box (bank, bestiary) must not fire the shortcut keys.
+  const t = e.target;
+  if (e.key !== 'Escape' && t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
   const map = { '1': 'inventory', '2': 'equipment', '3': 'skills', '4': 'combat', '5': 'prayer', '6': 'quests', '7': 'achievements', '8': 'settings' };
   if (map[e.key]) {
     document.querySelector(`#panel-tabs .tab-btn[data-view="${map[e.key]}"]`)?.click();
@@ -60,6 +64,10 @@ input.onKey((e) => {
     game.hireMercenary();   // Merchant: hire a mercenary
   } else if (e.key === 't' || e.key === 'T') {
     game.toggleAutoBattle();
+  } else if (e.key === 'y' || e.key === 'Y') {
+    game.toggleAutoGather();
+  } else if (e.key === 'u' || e.key === 'U') {
+    game.toggleAutoQuest();
   } else if (e.key === 'm' || e.key === 'M') {
     ui.openWorldMap();
   } else if (e.key === 'Escape') {
@@ -106,12 +114,25 @@ function frame() {
       autoScale = Math.max(0.6, autoScale - 0.15); lastScaleDown = t; slowAvg = 20; resize();
     }
   }
-  game.update(dt);
-  renderer.render(t);
-  ui.renderMinimap();
+  // One bad frame must not stop the loop: the game (and its autosave) would
+  // freeze for good. Log the first error and carry on with the next frame.
+  try {
+    game.update(dt);
+    renderer.render(t);
+    ui.renderMinimap();
+  } catch (err) {
+    if (!frameErrorLogged) { frameErrorLogged = true; console.error('Frame error (the game keeps running):', err); }
+  }
   requestAnimationFrame(frame);
 }
+let frameErrorLogged = false;
 requestAnimationFrame(frame);
+
+// Save when the tab is hidden or closed, so nothing since the last autosave
+// (up to ~30s) is lost. Phones often kill a background tab without warning.
+const saveOnLeave = () => { if (!game.pendingStyleChoice) saveGame(game); };
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveOnLeave(); });
+window.addEventListener('pagehide', saveOnLeave);
 
 // Title / splash screen dismissal.
 const splash = document.getElementById('splash');

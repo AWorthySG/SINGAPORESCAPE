@@ -5,9 +5,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { Game } from '../src/game/game.js';
-import { saveGame, loadGame, clearSave } from '../src/game/save.js';
+import { saveGame, loadGame, clearSave, suppressSaves, BACKUP_KEY } from '../src/game/save.js';
+import { SAVE_KEY } from '../src/config.js';
 import { ITEMS } from '../src/data/items.js';
-import { getNpc } from '../src/data/npcs.js';
+import { getNpc, ALL_BOSS_IDS } from '../src/data/npcs.js';
 import { chebyshev } from '../src/core/utils.js';
 import { CROP_BY_SEED, cropFor } from '../src/data/trades.js';
 import { playerAttackVsNpc } from '../src/game/combat.js';
@@ -24,6 +25,14 @@ function fakeStorage() {
 
 function step(game, ticks) {
   for (let i = 0; i < ticks; i++) game.update(600);
+}
+
+// Make a boss one a fresh character can beat (auto battle only takes on bosses
+// that pass its can-beat check): the given level, a feeble hit and little life.
+function beatableBoss(boss, level) {
+  boss.def = { ...boss.def, level, maxHit: 1 };
+  boss.hp = boss.maxHp = 30;
+  return boss;
 }
 
 test('game boots with a populated world', () => {
@@ -150,6 +159,126 @@ test('save and load round-trips skills and inventory', () => {
   assert.ok(loadGame(g2));
   assert.equal(g2.skills.level('woodcutting'), wcLevel);
   assert.equal(g2.inventory.count('coal'), coal);
+});
+
+test('an unreadable save is backed up before a new game starts, and the first backup is kept', () => {
+  globalThis.localStorage = fakeStorage();
+  localStorage.setItem(SAVE_KEY, '{not json');
+  const g1 = new Game();
+  g1.start();
+  assert.ok(g1.pendingStyleChoice, 'falls back to a new game');
+  assert.equal(localStorage.getItem(BACKUP_KEY), '{not json', 'the broken save is kept aside');
+
+  // A save from another version is backed up too, but never over an earlier backup.
+  localStorage.setItem(SAVE_KEY, JSON.stringify({ version: 999 }));
+  assert.equal(loadGame(new Game()), false);
+  assert.equal(localStorage.getItem(BACKUP_KEY), '{not json', 'the first backup is not overwritten');
+
+  globalThis.localStorage = fakeStorage();
+  localStorage.setItem(SAVE_KEY, JSON.stringify({ version: 999 }));
+  assert.equal(loadGame(new Game()), false);
+  assert.equal(localStorage.getItem(BACKUP_KEY), JSON.stringify({ version: 999 }));
+});
+
+test('saving reports failure when storage is full or blocked, and warns the player once', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseClass('rogue');   // saves only start once a class is picked
+  const chat = [];
+  game.bus.on('chat', (m) => chat.push(m.text));
+  localStorage.setItem = () => { throw new Error('QuotaExceededError'); };
+  const warn = console.warn; console.warn = () => {};
+  try {
+    assert.equal(saveGame(game), false, 'a failed write is not reported as saved');
+    game.saveSoon = true;
+    step(game, 3);
+    game.saveSoon = true;
+    step(game, 3);
+  } finally { console.warn = warn; }
+  assert.equal(chat.filter((t) => t.startsWith('Could not save')).length, 1, 'one warning, not one per tick');
+});
+
+test('picking a class saves on the next tick', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseClass('rogue');
+  step(game, 1);
+  const saved = JSON.parse(localStorage.getItem(SAVE_KEY));
+  assert.equal(saved.jobClass, 'rogue', 'saved straight away, not 30s later');
+});
+
+test('after Delete save & restart, nothing writes the old character back', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseClass('rogue');
+  step(game, 1);
+  suppressSaves();
+  try {
+    clearSave();
+    assert.equal(saveGame(game), false, 'the leave-the-page save is skipped');
+    game.saveSoon = true;
+    step(game, 2);
+    assert.equal(localStorage.getItem(SAVE_KEY), null, 'the save stays deleted');
+  } finally { suppressSaves(false); }
+});
+
+test('a save made while dead loads at the respawn point, not where the player fell', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseClass('rogue');
+  const rp = game.world.respawnPoint;
+  game.player.x = game.player.tx = rp.x + 30;
+  game.player.y = game.player.ty = rp.y + 30;
+  game.player.hp = 0;
+  game.playerDeath();
+  step(game, 1);   // the death banner saves on the next tick, while still dead
+  assert.equal(game.player.alive, false);
+  const saved = JSON.parse(localStorage.getItem(SAVE_KEY)).player;
+  assert.deepEqual([saved.x, saved.y], [rp.x, rp.y]);
+  assert.equal(saved.hp, game.maxHp());
+});
+
+test('a new player is not saved before picking a class', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.saveSoon = true;
+  step(game, 60);   // past the 50-tick autosave too
+  assert.equal(localStorage.getItem(SAVE_KEY), null);
+});
+
+test('a second unreadable save goes to the second backup slot; a bad field load is backed up and blocks saving', () => {
+  globalThis.localStorage = fakeStorage();
+  localStorage.setItem(BACKUP_KEY, 'old');
+  localStorage.setItem(SAVE_KEY, '{newer broken');
+  assert.equal(loadGame(new Game()), false);
+  assert.equal(localStorage.getItem(BACKUP_KEY), 'old');
+  assert.equal(localStorage.getItem(BACKUP_KEY + '-2'), '{newer broken');
+  const full = new Game();
+  localStorage.setItem(SAVE_KEY, '{third');
+  full.start();
+  assert.equal(full.saveBackedUp, false, 'both slots full: the player is told it was not kept');
+
+  globalThis.localStorage = fakeStorage();
+  const raw = JSON.stringify({ version: 1, skills: 'garbage', inventory: { bad: true } });
+  localStorage.setItem(SAVE_KEY, raw);
+  const g = new Game();
+  g.skills.load = () => { throw new Error('bad skills'); };
+  try {
+    assert.throws(() => loadGame(g));
+    assert.equal(localStorage.getItem(BACKUP_KEY), raw);
+    assert.equal(saveGame(g), false, 'the half-loaded game cannot save over the original');
+    assert.equal(localStorage.getItem(SAVE_KEY), raw);
+  } finally { suppressSaves(false); }
 });
 
 test('praying at the Worthy Monument heals to full', () => {
@@ -1987,7 +2116,7 @@ test('magic: casters start at Magic 15 with plenty of runes, damage scales with 
   assert.ok(game.player.attackCooldown > 0);
 });
 
-test('auto battle takes on a nearby boss first (bosses on by default)', async () => {
+test('auto battle takes on a nearby boss it can beat first (bosses off by default)', async () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
   const { NPC } = await import('../src/game/npc.js');
@@ -1995,18 +2124,17 @@ test('auto battle takes on a nearby boss first (bosses on by default)', async ()
   game.start();
   game.chooseStartingStyle('melee');
   const p = game.player;
-  assert.equal(game.autoCfg.bosses, true);
+  assert.equal(game.autoCfg.bosses, false, 'new games start with bosses off');
+  game.autoCfg.bosses = true;
   const mob = new NPC('goblin', p.x + 2, p.y, 0, {});
-  // A boss near your level is chosen first; one far above it is left alone.
+  // A boss you can beat is chosen first; one far above you is left alone.
   const cl = game.skills.combatLevel();
-  const boss = game.npcs.find((n) => n.def.boss && !n.def.fixed && n.def.level <= cl + 10)
-    || Object.assign(game.npcs.find((n) => n.def.boss && !n.def.fixed), {});
-  boss.def = { ...boss.def, level: Math.min(boss.def.level, cl + 5) };
+  const boss = beatableBoss(game.npcs.find((n) => n.def.boss && !n.def.fixed), cl + 5);
   boss.x = boss.tx = boss.spawnX = p.x + 6; boss.y = boss.ty = boss.spawnY = p.y;
   game.npcs = [mob, boss];
   assert.equal(game._autoPickTarget(), boss, 'the boss is chosen ahead of a closer goblin');
-  boss.def = { ...boss.def, level: cl + 40 };
-  assert.equal(game._autoPickTarget(), boss, 'a boss far above your level is still taken on');
+  boss.def = { ...boss.def, level: cl * 2 + 40 };
+  assert.equal(game._autoPickTarget(), mob, 'a boss far above your level is skipped');
   game.autoCfg.bosses = false;
   assert.equal(game._autoPickTarget(), mob, 'with bosses switched off, it fights the goblin');
   game.autoCfg.bosses = true;
@@ -2460,10 +2588,10 @@ test('auto battle priority: bosses, then champions (mini-bosses), then ordinary 
   const cl = game.skills.combatLevel();
   const mob = new NPC('goblin', p.x + 1, p.y, 0, {});
   const champ = new NPC('goblin', p.x + 5, p.y, 0, {}); champ.makeChampion();
-  const boss = game.npcs.find((n) => n.def.boss && !n.def.fixed);
-  boss.def = { ...boss.def, level: Math.min(boss.def.level, cl + 5) };
+  const boss = beatableBoss(game.npcs.find((n) => n.def.boss && !n.def.fixed), cl + 5);
   boss.x = boss.tx = boss.spawnX = p.x + 9; boss.y = boss.ty = boss.spawnY = p.y;
   game.npcs = [mob, champ, boss];
+  game.autoCfg.bosses = true;
   assert.equal(game._autoPickTarget(), boss, 'boss first');
   game.npcs = [mob, champ];
   assert.equal(game._autoPickTarget(), champ, 'then the champion, over a closer ordinary goblin');
@@ -2523,10 +2651,10 @@ test('ranged auto battle clears everything in reach before moving; bows drop oft
   const p = game.player;
   const inReach = new NPC('goblin', p.x + 10, p.y, 0, {});
   const closerButOut = new NPC('goblin', p.x, p.y - 14, 0, {});
-  const boss = game.npcs.find((n) => n.def.boss && !n.def.fixed);
-  boss.def = { ...boss.def, level: game.skills.combatLevel() };
+  const boss = beatableBoss(game.npcs.find((n) => n.def.boss && !n.def.fixed), game.skills.combatLevel());
   boss.x = boss.tx = boss.spawnX = p.x - 13; boss.y = boss.ty = boss.spawnY = p.y;
   game.npcs = [inReach, closerButOut, boss];
+  game.autoCfg.bosses = true;
   game.autoCfg.priority = false;
   assert.equal(game._autoPickTarget(), inReach, '"Nearest first": a monster in reach beats even a boss out of reach');
   game.autoCfg.priority = true;
@@ -3017,7 +3145,7 @@ test('every open-world and far region is well stocked and refills quickly', asyn
   }
 });
 
-test('auto battle answers anything fighting you, takes on bosses a little above your level, and never gives up a long walk', () => {
+test('auto battle answers anything fighting you, takes on beatable bosses a little above your level, and never gives up a long walk', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
   const game = new Game();
@@ -3035,11 +3163,11 @@ test('auto battle answers anything fighting you, takes on bosses a little above 
   add.target = p;
   assert.equal(game._autoPickTarget(), add, 'summoned adds on you are fought');
   add.alive = false;
-  // A boss somewhat above your level, 20 tiles off, is sought out.
+  // A beatable boss a quarter above your level, 20 tiles off, is sought out.
+  game.autoCfg.bosses = true;
   const t = game._nearestFree(p.x + 20, p.y) || game._nearestFree(p.x, p.y + 20);
-  const boss = game.spawnNpc('goblin_warchief', t.x, t.y, { wander: 0 });
-  boss.def = { ...boss.def, level: cl + 12 };
-  assert.equal(game._autoPickTarget(), boss, 'a boss 12 levels up and 20 tiles away is fair game');
+  const boss = beatableBoss(game.spawnNpc('goblin_warchief', t.x, t.y, { wander: 0 }), Math.round(cl * 1.25));
+  assert.equal(game._autoPickTarget(), boss, 'a beatable boss a quarter above you and 20 tiles away is fair game');
   // Walking without run energy toward it, the chase is not abandoned while closing in.
   game.runEnergy = 0; game.running = false;
   game.toggleAutoBattle(true);
@@ -4189,10 +4317,79 @@ test('no cap on hits per second: huge attack speed keeps adding damage (volleys)
   assert.ok(b.ms < 2000, 'and the game stays responsive');
 });
 
+// A walkable tile in Jurong Forest, well away from every town and bank.
+function wildSpot(g) {
+  for (let y = 150; y < 199; y++) for (let x = 90; x < 150; x++) {
+    if (g.world.isBlocked(x, y) || g._worldBossTooNearTown(x, y)) continue;
+    let open = 0;
+    for (let dy = -14; dy <= 14; dy++) for (let dx = -14; dx <= 14; dx++) if (g.world.inBounds(x + dx, y + dy) && !g.world.isBlocked(x + dx, y + dy)) open++;
+    if (open > 500) return { x, y };
+  }
+  throw new Error('no open wild spot');
+}
+
+test('world bosses leave new players alone: quests and level first, never in or near town, near your level', () => {
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseStartingStyle('melee');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g._worldBossFair = () => true;   // rule out the can-beat-a-boss check: this is about the new gates
+  // A fresh character idling at the respawn point for 20 minutes meets none.
+  step(g, 2000);
+  assert.ok(!g._worldBoss && !g.npcs.some((n) => n.worldBoss), 'no World Boss for a fresh character');
+  assert.ok(g.player.alive, 'and the new player is still alive');
+  const tryAt = (x, y) => { g._worldBoss = null; g.npcs = g.npcs.filter((n) => !n.worldBoss); g.player.x = g.player.tx = x; g.player.y = g.player.ty = y; g.tickCount = 2200; return g._tickWorldBoss(); };
+  const wild = wildSpot(g);
+  // Level alone is not enough: two quests are needed too, and the other way round.
+  g.fightLevel = () => 120;
+  assert.equal(tryAt(wild.x, wild.y), undefined, 'none before two quests are done');
+  const ids = Object.keys(g.quests).slice(0, 2);
+  for (const id of ids) g.quests[id].state = 'done';
+  g.fightLevel = () => 39;
+  assert.equal(tryAt(wild.x, wild.y), undefined, 'none below fight level 40');
+  g.fightLevel = () => 120;
+  // Never in Kampong Glam or Chinatown, nor beside an outer town's bank.
+  assert.equal(tryAt(58, 55), undefined, 'none in Kampong Glam');
+  assert.equal(tryAt(85, 60), undefined, 'none in Chinatown');
+  assert.equal(tryAt(183, 140), undefined, 'none beside the Marina Bay bank');
+  // Each part of the town rule on its own: town tiles far from any bank, and the
+  // margin just outside the starting towns.
+  assert.equal(tryAt(72, 66), undefined, 'none in the far corner of Kampong Glam');
+  assert.equal(tryAt(204, 128), undefined, 'none in the far corner of Marina Bay town');
+  assert.equal(tryAt(462, 129), undefined, 'none at the edge of Kranji Village');
+  assert.equal(tryAt(60, 68), undefined, 'none just outside Kampong Glam');
+  for (const [x, y] of [[72, 66], [204, 128], [462, 129]]) assert.ok(!g._bankSpots.some((b) => Math.hypot(b.x - x, b.y - y) <= 20), `${x},${y} is far from every bank`);
+  // Out in the wilds it rises, away from any town, and close to your level.
+  const wb = tryAt(wild.x, wild.y);
+  assert.ok(wb && wb.worldBoss, 'an established player in the wilds meets one');
+  assert.ok(!g._worldBossTooNearTown(wb.x, wb.y), 'it rose away from every town');
+  // One of the three World Boss candidates nearest fight level 120.
+  const gaps = ALL_BOSS_IDS.map((id) => getNpc(id)).filter((d) => d.boss && !d.fixed && d.attackable)
+    .map((d) => Math.abs((d.level || 1) - 120)).sort((a, b) => a - b);
+  const base = getNpc(wb.npcId).level;
+  assert.ok(Math.abs(base - 120) <= gaps[2], `a boss near your level (level ${base} for fight level 120)`);
+  // It leaves when it kills you.
+  g.playerDeath();
+  assert.ok(!g._worldBoss && !g.npcs.includes(wb), 'gone once the player dies');
+  // Retreating into town is safe: it fades rather than chasing you in.
+  g.player.alive = true;
+  const wb2 = tryAt(wild.x, wild.y);
+  assert.ok(wb2, 'another rises in the wilds');
+  g.player.x = g.player.tx = 60; g.player.y = g.player.ty = 60; g.tickCount = 2201;
+  g._tickWorldBoss();
+  assert.ok(!g._worldBoss && !g.npcs.includes(wb2), 'it gives up once you step into Kampong Glam');
+});
+
 test('a world boss rises every 2 minutes: much tougher, aggressive, triple loot, gone once slain', () => {
   globalThis.localStorage = fakeStorage(); clearSave();
   const g = new Game(); g.start(); g.chooseStartingStyle('melee');
   g.ui = new Proxy({}, { get: () => () => {} });
+  g.tickCount = 200;
+  assert.equal(g._tickWorldBoss(), undefined, 'none for a fresh character who could beat no boss');
+  g._worldBossFair = () => true;   // from here on, a character strong enough to face bosses
+  // ...and an established one (two quests done, fight level 120), out in the wilds.
+  g.fightLevel = () => 120;
+  for (const id of Object.keys(g.quests).slice(0, 2)) g.quests[id].state = 'done';
+  g.player.x = g.player.tx = wildSpot(g).x; g.player.y = g.player.ty = wildSpot(g).y;
   g.tickCount = 199;
   g._tickWorldBoss(); assert.equal(g._worldBoss, undefined, 'not before 2 minutes');
   g.tickCount = 200;
@@ -4859,4 +5056,309 @@ test('new gear enters the game: the Fletcher sells quivers, and every drop is a 
   for (const [nid, def] of Object.entries(NPCS)) {
     for (const d of def.dropTable || []) if (!d.nothing) assert.ok(ITEMS[d.id], `${nid} drops a real item (${d.id})`);
   }
+});
+
+test('auto quest keeps to a quest already under way before starting a new one', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.ui = new Proxy({}, { get: () => () => {} });
+  // Nothing begun: the first quest in journal order.
+  assert.equal(game.autoQuestPick(), 'life_skills');
+  // A Bag of Bones accepted: auto quest carries on with it, not an untouched one.
+  game.quests.bone_collector.state = 'active';
+  assert.equal(game.autoQuestPick(), 'bone_collector');
+  assert.equal(game.autoQuestStatus(), 'Off');
+  game.toggleAutoQuest(true);
+  assert.equal(game.autoQuestStatus(), 'A Bag of Bones', 'the HUD names the quest');
+  game.toggleAutoQuest(false);
+  // The quest you last pressed Go on still wins.
+  game.autoQuestId = 'pillars';
+  assert.equal(game.autoQuestPick(), 'pillars');
+  // ...until it is done, then back to the one under way.
+  game.quests.pillars.state = 'done';
+  assert.equal(game.autoQuestPick(), 'bone_collector');
+});
+
+test('the Smithing lesson sends you to mine copper and tin before the furnace, and auto quest gets it done', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.ui = new Proxy({}, { get: () => () => {} });
+  game.startLife('life_skills');
+  const q = game.quests.life_skills;
+  q.stage = 4;   // Smithing: bring 2 bronze bars
+  game._beginLifeStage('life_skills');
+  for (const id of ['copper_ore', 'tin_ore', 'bronze_bar']) game.inventory.remove(id, game.inventory.count(id));
+  assert.equal(game.questGuide('life_skills').objId, 'copper_rock', 'no ore: mine copper first');
+  game.inventory.add('copper_ore', 2);
+  assert.equal(game.questGuide('life_skills').objId, 'tin_rock', 'copper in hand: now tin');
+  game.inventory.add('tin_ore', 1);
+  assert.equal(game.questGuide('life_skills').objId, 'tin_rock', 'one tin is not enough for two bars');
+  game.inventory.add('tin_ore', 1);
+  assert.equal(game.questGuide('life_skills').objId, 'furnace', 'both ores: off to the furnace');
+  // From empty-handed, auto quest mines, smelts and hands in by itself.
+  game.inventory.remove('copper_ore', 2);
+  game.inventory.remove('tin_ore', 2);
+  game.autoQuestId = 'life_skills';
+  game.toggleAutoQuest(true);
+  // 250ms steps, the longest frame the browser runs: a long frame once slid
+  // the walker a whole tile per axis and wedged it on a corner into town.
+  for (let i = 0; i < 4000 * 3 && q.stage === 4 && game.autoQuest; i++) game.update(250);
+  assert.ok(q.stage > 4, 'the Smithing lesson was handed in');
+  assert.ok(game.player.alive);
+  // Fishing next: fishing spots never run dry, so auto quest has to stop
+  // fishing once it has enough and go and hand the lesson in.
+  for (let i = 0; i < 4000 * 3 && q.stage === 5 && game.autoQuest; i++) game.update(250);
+  assert.ok(q.stage > 5, 'the Fishing lesson was handed in');
+  assert.equal(game.autoQuest, true);
+  // Herblore needs a vial too: the guide sends you to Farmer Lim to buy one.
+  game.toggleAutoQuest(false);
+  game.startLife('life_skills_wild');
+  game.quests.life_skills_wild.stage = 2;
+  game.inventory.add('chilli', 1);
+  game.inventory.remove('vial', game.inventory.count('vial'));
+  const g = game.questGuide('life_skills_wild');
+  assert.equal(g.npcId, 'farmer');
+  assert.deepEqual(g.buy, { item: 'vial', qty: 1 });
+});
+
+test('auto quest sets aside an accepted quest it cannot do yet and gets on with the lessons', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.ui = new Proxy({}, { get: () => () => {} });
+  // Island Provisions needs Fishing 30: a new player can't catch salmon.
+  game.quests.island_provisions.state = 'active';
+  assert.equal(game.autoQuestPick(), 'island_provisions');
+  game.toggleAutoQuest(true);
+  for (let i = 0; i < 4000 && game.quests.life_skills.state !== 'active'; i++) game.update(250);
+  assert.equal(game.autoQuest, true, 'still on, not given up');
+  assert.equal(game.quests.life_skills.state, 'active', 'started Trades of the Island instead');
+  assert.equal(game.autoQuestPick(), 'life_skills');
+  // Switching it back on tries the set-aside quest again.
+  game.toggleAutoQuest(false);
+  game.toggleAutoQuest(true);
+  assert.equal(game.autoQuestPick(), 'life_skills', 'the quest under way still comes first in journal order');
+  assert.ok(!game._autoQuestSkip, 'nothing set aside any more');
+});
+
+test('the Farming and Herblore lessons grow a chilli: other crops do not count, and auto quest waits for it to grow', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.ui = new Proxy({}, { get: () => () => {} });
+  game.startLife('life_skills_wild');
+  const q = game.quests.life_skills_wild;
+  q.stage = 2;   // Herblore: an attack potion (a chilli and a vial)
+  game._beginLifeStage('life_skills_wild');
+  for (const id of ['chilli', 'chilli_seed']) game.inventory.remove(id, game.inventory.count(id));
+  const patches = game.world.objects.filter((o) => o.def.type === 'farm');
+  // A kangkong patch is no chilli: buy chilli seeds.
+  patches[0].crop = 'kangkong'; patches[0].growLeft = 50;
+  assert.deepEqual(game.questGuide('life_skills_wild').buy, { item: 'chilli_seed', qty: 1 });
+  // A chilli already growing: wait for it rather than buy another seed.
+  patches[1].crop = 'chilli'; patches[1].growLeft = 50;
+  const g = game.questGuide('life_skills_wild');
+  assert.equal(g.buy, undefined);
+  assert.equal(g.wait, true);
+  // Ripe: harvest it.
+  patches[1].growLeft = 0;
+  assert.equal(game.questGuide('life_skills_wild').objId, 'farm_patch');
+  // From nothing, auto quest buys a seed, plants it, waits and brews the potion.
+  patches[0].crop = null; patches[0].growLeft = 0;
+  patches[1].crop = null; patches[1].growLeft = 0;
+  game.inventory.add('coins', 500);
+  const seedsBought = [];
+  const buy = game.buyItem.bind(game);
+  game.buyItem = (shop, item, qty) => { if (item === 'chilli_seed') seedsBought.push(qty); return buy(shop, item, qty); };
+  game.autoQuestId = 'life_skills_wild';
+  game.toggleAutoQuest(true);
+  for (let i = 0; i < 4000 && q.stage === 2 && game.autoQuest; i++) game.update(250);
+  assert.ok(q.stage > 2, 'the Herblore lesson was handed in');
+  assert.equal(game.autoQuest, true, 'waiting for the crop did not count as stuck');
+  assert.equal(seedsBought.length, 1, 'one chilli seed, not a second while the first grew');
+});
+
+test('a fresh character on auto battle never picks a fight with a boss too strong for it', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  const p = game.player;
+  const chat = [];
+  game.bus.on('chat', (c) => chat.push(c.text));
+  // Clear the area, then put the Reservoir Serpent a few tiles away. It is made
+  // peaceful so only auto battle's own choice can start the fight.
+  game.npcs = game.npcs.filter((n) => Math.max(Math.abs(n.x - p.x), Math.abs(n.y - p.y)) > 40);
+  const t = game._nearestFree(p.x + 5, p.y) || game._nearestFree(p.x, p.y + 5);
+  const boss = game.spawnNpc('reservoir_serpent', t.x, t.y, { wander: 0 });
+  boss.def = { ...boss.def, aggressive: false };
+  assert.equal(game.autoCfg.bosses, false, 'bosses are off for a new game');
+  assert.equal(game._autoCanBeat(boss), false, 'the can-beat check says no');
+  // Even with "take on bosses you can beat" switched on, it is left alone.
+  game.autoCfg.bosses = true;
+  game.toggleAutoBattle(true);
+  for (let i = 0; i < 60; i++) {
+    game.update(600);
+    assert.notEqual(p.action?.npc, boss, 'never heads for the boss');
+  }
+  assert.equal(boss.hp, boss.maxHp, 'the boss was never hit');
+  assert.ok(p.alive);
+  const said = chat.filter((m) => m === 'Skipping Reservoir Serpent: too strong for now.');
+  assert.equal(said.length, 1, 'says once that it is skipping the boss');
+  // A quest's boss step respects the same check: no beatable boss, no fight.
+  game.toggleAutoBattle(false);
+  game.npcs = [boss];
+  game.quests.island_defender.state = 'active';
+  assert.equal(game.questTravel('island_defender'), false);
+  assert.notEqual(p.action?.npc, boss);
+  assert.ok(chat.some((m) => /too strong for you for now/.test(m)), 'explains why');
+});
+
+test('area hits never drag in a boss that is not already fighting you', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  game.ui = new Proxy({}, { get: () => () => {} });
+  const p = game.player;
+  // A goblin beside you with the Reservoir Serpent (peaceful, so only a stray
+  // hit could start the fight) right next to it.
+  game.npcs = game.npcs.filter((n) => Math.max(Math.abs(n.x - p.x), Math.abs(n.y - p.y)) > 40);
+  const t = game._nearestFree(p.x + 1, p.y);
+  const mob = game.spawnNpc('goblin', t.x, t.y, { wander: 0 });
+  mob.hp = mob.maxHp = 1e6;   // it never dies, so the fight goes on
+  const b = game._nearestFree(t.x + 1, t.y) || game._nearestFree(t.x, t.y + 1);
+  const boss = game.spawnNpc('reservoir_serpent', b.x, b.y, { wander: 0 });
+  boss.def = { ...boss.def, aggressive: false };
+  boss.x = boss.tx = t.x + 1; boss.y = boss.ty = t.y;
+  game._cleave(mob, 50);
+  game._perkSplash(mob, 50);
+  assert.equal(boss.hp, boss.maxHp, 'cleave and splash leave the boss alone');
+  assert.notEqual(boss.target, p);
+  // A real auto battle beside it (on goblins only, so it stays here): the
+  // goblin is fought, the boss never touched.
+  game.autoCfg.target = 'goblin';
+  game.toggleAutoBattle(true);
+  for (let i = 0; i < 80; i++) game.update(600);
+  assert.ok(mob.hp < mob.maxHp, 'the goblin was fought');
+  assert.equal(boss.hp, boss.maxHp, 'the boss was never hit');
+  assert.ok(p.alive);
+  // Once a boss is fighting you, area hits reach it as before.
+  boss.target = p;
+  game._perkSplash(mob, 50);
+  assert.ok(boss.hp < boss.maxHp, 'a boss already on you takes the splash');
+});
+
+test('a quest boss step takes on bosses for that trip only; a World Boss leaves when it kills you', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  game.ui = new Proxy({}, { get: () => () => {} });
+  const p = game.player;
+  game.npcs = game.npcs.filter((n) => Math.max(Math.abs(n.x - p.x), Math.abs(n.y - p.y)) > 40);
+  const t = game._nearestFree(p.x + 4, p.y);
+  beatableBoss(game.spawnNpc('goblin_warchief', t.x, t.y, { wander: 0 }), 5);
+  game.quests.island_defender.state = 'active';
+  assert.ok(game.questTravel('island_defender'));
+  assert.equal(game._questBoss, true, 'bosses are on for the quest trip');
+  assert.equal(game.autoCfg.bosses, false, 'but the saved setting is untouched');
+  game.toggleAutoBattle(false);
+  assert.equal(game._questBoss, false, 'and off again once auto battle stops');
+  // A World Boss that kills you doesn't wait by the respawn point (it only rises
+  // away from towns, so meet it out in the wilds).
+  const wild = wildSpot(game); p.x = p.tx = wild.x; p.y = p.ty = wild.y;
+  const wb = game.spawnWorldBoss();
+  assert.ok(wb && game.npcs.includes(wb));
+  wb.target = p;
+  game.playerDeath();
+  assert.ok(!game.npcs.includes(wb) && !game._worldBoss, 'the World Boss left');
+});
+
+test('the starter ring is safe: no ambushers near spawn, no Wilderness spill-over', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  const rp = game.world.respawnPoint;
+  // Nothing attacks on sight within 30 tiles of the respawn point, nor within 10
+  // tiles of the nearest tree, copper and tin rocks and fishing spots.
+  const near = (id) => game.world.objects.filter((o) => o.objId === id)
+    .reduce((b, o) => (!b || chebyshev(o.x, o.y, rp.x, rp.y) < chebyshev(b.x, b.y, rp.x, rp.y) ? o : b), null);
+  const safe = [{ x: rp.x, y: rp.y, r: 30 }, ...['tree', 'copper_rock', 'tin_rock', 'fishing_spot', 'rod_spot'].map((id) => ({ ...near(id), r: 10 }))];
+  const ambushers = game.npcs.filter((n) => n.attackable && n.def.aggressive
+    && safe.some((c) => chebyshev(n.spawnX, n.spawnY, c.x, c.y) <= c.r));
+  assert.deepEqual(ambushers.map((n) => `${n.npcId}@${n.spawnX},${n.spawnY}`), []);
+  // The tamed ones keep their level: still there to fight, just not on sight.
+  assert.ok(game.npcs.some((n) => n.attackable && !n.def.boss && (n.def.level || 0) > 20 && !n.def.aggressive
+    && chebyshev(n.spawnX, n.spawnY, rp.x, rp.y) <= 30), 'strong monsters near town are tamed, not removed');
+  // Wilderness packs stay on their side of the line: no Wilderness or Pulau Hantu
+  // monster spawns in the starter island's safe regions (Chinatown, Bukit Timah...).
+  const wild = new Set(game.world.zones.filter((z) => z.wilderness).map((z) => z.name));
+  const leaks = game.npcs.filter((n) => {
+    if (!n.attackable || !wild.has(n.def.zone)) return false;
+    const z = game.world.zoneAt(n.spawnX, n.spawnY);
+    return z && !z.wilderness && !z.lo;
+  });
+  assert.deepEqual(leaks.map((n) => `${n.npcId}@${n.spawnX},${n.spawnY}`), []);
+  // ...and nothing that attacks on sight can reach over it: a monster notices you
+  // within its aggro range while up to wander + aggro range from its spawn.
+  const WZ = game.world.zones.find((z) => z.name === 'The Wilderness');
+  const reachers = game.npcs.filter((n) => n.attackable && n.def.aggressive
+    && n.spawnX >= WZ.x0 && n.spawnX <= WZ.x1 && n.spawnY >= WZ.y0 && n.spawnY <= WZ.y1
+    && n.spawnX - n.wander - (n.def.aggroRange || 4) <= WZ.x0);
+  assert.deepEqual(reachers.map((n) => `${n.npcId}@${n.spawnX},${n.spawnY}`), []);
+});
+
+test('a new player can stand at the Chinatown bank and the shops by the Wilderness', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  game.ui = new Proxy({}, { get: () => () => {} });
+  const p = game.player;
+  // The spots where Wilderness crocodiles, pythons and flying foxes used to kill
+  // a fresh character: the bank booth, beside the mage, the street by the line.
+  for (const [x, y] of [[88, 49], [89, 53], [88, 60], [91, 60], [92, 95]]) {
+    p.x = p.tx = x; p.y = p.ty = y; p.path = [];
+    p.hp = p.maxHp; p.alive = true;
+    for (const n of game.npcs) n.target = null;
+    game._aggroAttackers = 0;
+    for (let i = 0; i < 200; i++) {
+      game.update(600);
+      const wildFoe = game.npcs.find((n) => n.target === p && game.world.zoneAt(n.spawnX, n.spawnY)?.wilderness);
+      assert.equal(wildFoe, undefined, `${wildFoe?.npcId} from the Wilderness went for a new player at ${x},${y}`);
+    }
+  }
+});
+
+test("Cikgu Surya's fishing lesson points to the pond by town", async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.ui = new Proxy({}, { get: () => () => {} });
+  const { LIFE_STAGES } = await import('../src/data/lifeskills.js');
+  const rp = game.world.respawnPoint;
+  game.handleDialogueAction('lifeStart');
+  game.quests.life_skills.stage = LIFE_STAGES.findIndex((st) => st.need.item === 'raw_anchovy') + 1;
+  const g = game.questGuide('life_skills');
+  assert.equal(g.kind, 'obj');
+  // The nearest spot of that kind from the respawn point, as the journal's Go picks it.
+  const spots = game.world.objects.filter((o) => o.objId === g.objId);
+  const near = spots.reduce((b, o) => (!b || chebyshev(o.x, o.y, rp.x, rp.y) < chebyshev(b.x, b.y, rp.x, rp.y) ? o : b), null);
+  assert.ok(near && chebyshev(near.x, near.y, rp.x, rp.y) <= 20, `fishing lesson target ${near?.x},${near?.y} is near spawn`);
+  assert.ok(game.world.objects.some((o) => o.objId === 'rod_spot' && chebyshev(o.x, o.y, rp.x, rp.y) <= 25), 'a rod spot by town too');
+  // Go walks there from the respawn point.
+  assert.ok(game.questTravel('life_skills'), 'Go finds the way to the pond');
 });

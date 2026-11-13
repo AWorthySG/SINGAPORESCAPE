@@ -1,5 +1,5 @@
 import { EventBus } from '../core/events.js';
-import { buildWorld, TERRAIN } from '../data/world.js';
+import { buildWorld, TERRAIN, zoneLevel } from '../data/world.js';
 import { compareGear, deltaText, gearRating, effectiveRating, weaponStyle } from './gear.js';
 import { RARITY, dropRarity, lootDelay, rollUpgrade, qualityFor, NORMAL_GEAR_SKIP } from './loot.js';
 import { dayKey, prevDayKey, makeBounties, streakMult } from './bounty.js';
@@ -25,7 +25,7 @@ import { findPath } from '../engine/pathfinding.js';
 import {
   playerAttackVsNpc, npcAttackVsPlayer, rollAttack, rollGuaranteed, rollHit, combatXp, magicXp, killXp, DAMAGE_XP_SHARE, KILL_XP_SHARE,
   playerRangedVsNpc, combatXpRanged, playerMagicVsNpc, RANGED_STYLES,
-  weaknessOf, WEAKNESS_BONUS, critChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE,
+  weaknessOf, WEAKNESS_BONUS, critChance, hitChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE,
   playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX,
 } from './combat.js';
 import { ABILITY_BY_ID, abilitiesFor, ADREN_PER_HIT, ADREN_PER_HURT, CLASS_ADRENALINE, EXECUTE_BELOW } from '../data/abilities.js';
@@ -106,6 +106,11 @@ const WORLD_BOSS_EVERY = 200;      // ticks (0.6s each): 2 minutes
 const WORLD_BOSS_STAY = 500;       // ticks it lingers without a fight: 5 minutes
 const WORLD_BOSS_MULT = { hp: 5, hit: 2, stats: 1.5 };
 const WORLD_BOSS_LOOT_ROLLS = 3;   // its loot, three times over
+// New players are left alone: none rise until you've finished a couple of
+// quests and reached this fight level, never in the first island's towns, and
+// never within this many tiles of a bank (every town has one).
+const WORLD_BOSS_MIN_QUESTS = 2, WORLD_BOSS_MIN_LEVEL = 40, WORLD_BOSS_TOWN_GAP = 20;
+const WORLD_BOSS_SAFE_ZONES = ['Kampong Glam', 'Chinatown'];
 // Agility: every 10 levels give +1% movement speed, for every class, with no cap.
 // Its bonus to attack and casting speed starts at the same pace but tapers off
 // towards AGILITY_ATK_MAX (half of it at AGILITY_ATK_HALF levels): uncapped, it
@@ -227,7 +232,9 @@ export class Game {
     this._lastKillTick = -1e9;
     // Auto battle settings: eat below this fraction of life (0 = never),
     // fight only one monster type (null = anything), use attack skills.
-    this.autoCfg = { eatAt: 0.4, target: null, abilities: true, bosses: true, champions: true, priority: true };
+    // Bosses start off for new games (auto battle used to walk new players into
+    // bosses far above them); saves keep whatever the player chose.
+    this.autoCfg = { eatAt: 0.4, target: null, abilities: true, bosses: false, champions: true, priority: true };
     this.particles = [];
     // Screen-shake state (big hits, boss slams). Decays over shakeDur ms.
     this.shakeT = 0;
@@ -302,6 +309,8 @@ export class Game {
     this.autoQuest = false;       // auto quest: work through quests by yourself (see _autoQuestTick)
     this.autoQuestId = null;      // the quest auto quest is on (the one you last pressed Go on)
     this._autoSkip = new Map();   // npc entityId -> tick until which it is skipped (unreachable)
+    this._autoSkipSaid = new Set();   // bosses auto battle has said it is skipping as too strong
+    this._questBoss = false;      // a quest boss step (journal "Go") lets auto battle take on bosses for that trip
     this._autoLast = null;
     this.abilityCd = {};          // ability id -> ticks until usable again
     this.braceTicks = 0;          // ticks of halved incoming damage left
@@ -346,13 +355,14 @@ export class Game {
       if (perk) this.msg(`New passive perk: ${perk.name}${perk.rank > 1 ? ` (Rank ${rankName(perk.rank)})` : ''}. ${perk.desc}.`, 'level');
       if (this.player.alive && COMBAT_SKILLS.has(p?.skill)) this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.ceil(this.maxHp() * 0.1));
     };
-    this.bus.on('quest', () => this.checkAchievements());
+    this.bus.on('quest', () => { this.checkAchievements(); this.saveSoon = true; });
 
     this.tickAcc = 0;
     this.beatAcc = 0;             // player combat runs on a faster beat than the world tick
     this.tickCount = 0;
     this.regenCounter = 0;
     this.autosaveCounter = 0;
+    this.saveSoon = false;        // set by key moments: save on the next tick
     this.starterGiven = false;
   }
 
@@ -365,6 +375,8 @@ export class Game {
       if (LEARNING_ENABLED && !this.learning.dailyDone(this.todayKey())) this.msg('Your daily revision is ready in the Knowledge Codex (Skills tab).', 'level');
     } else {
       this.newGame();
+      if (this.saveBackedUp) this.msg('Your old save could not be read, so a new game has started. A copy of it was kept in this browser.', 'system');
+      else if (this.saveBackedUp === false) this.msg('Your old save could not be read, and older unreadable saves already fill the backup space, so it could not be kept.', 'system');
     }
     this.bus.emit('inventory');
     this.bus.emit('equipment');
@@ -405,6 +417,7 @@ export class Game {
     const cls = CLASS_BY_ID[classId];
     if (!cls || this.jobClass) return;
     this.jobClass = classId;
+    this.saveSoon = true;   // a permanent choice: don't lose it to a closed tab
     if (!this.pendingStyleChoice) {
       // An existing character: put away a weapon it can no longer use, and hand over its class weapon.
       this.pendingClassChoice = false;
@@ -580,7 +593,7 @@ export class Game {
   }
 
   msg(text, cls = 'game') { this.bus.emit('chat', { text, cls }); }
-  banner(html) { this.ui?.showBanner(html); }
+  banner(html) { this.ui?.showBanner(html); this.saveSoon = true; }
   addHitsplat(entity, dmg, opts = {}) {
     if (entity && dmg > 0) entity.hurt = 200; // flash the struck entity
     // Very fast attacks: hits landing on the same foe within 120ms of its last
@@ -846,7 +859,15 @@ export class Game {
     this.drainPrayer();
 
     if (this.tickCount % 100 === 1) this.ensureBounties();   // roll over at local midnight
-    if (++this.autosaveCounter >= AUTOSAVE_TICKS) { this.autosaveCounter = 0; saveGame(this); }
+    // Big moments (a class picked, a quest done, anything with a banner) save on
+    // the next tick rather than waiting up to 30s for the autosave.
+    // Not before a brand-new player has picked a class: a classless save would
+    // reload as an old character and skip the starting kit.
+    if ((++this.autosaveCounter >= AUTOSAVE_TICKS || this.saveSoon) && !this.pendingStyleChoice) {
+      this.autosaveCounter = 0; this.saveSoon = false;
+      // Storage full or blocked: say so once instead of failing silently forever.
+      if (!saveGame(this) && !this.saveWarned) { this.saveWarned = true; this.msg('Could not save: this browser\'s storage is full or blocked. Your progress is not being kept.', 'system'); }
+    }
     // Catch wealth / collection milestones that don't fire a dedicated event.
     if (this.tickCount % 10 === 0) this.checkAchievements();
     this.bus.emit('tick', this.tickCount);
@@ -1153,6 +1174,16 @@ export class Game {
     this.bus.emit('autogather');
   }
 
+  /** One-line description of what auto gather is doing, for the HUD. */
+  autoGatherStatus() {
+    if (!this.autoGather) return 'Off';
+    const a = this.player.action;
+    if (a && GATHER_ACTIONS.has(a.type) && a.obj?.def) return a.obj.def.name;
+    if (a?.type === 'farm' || this._autoLife?.kind === 'farm') return 'Farming';
+    if (a?.type === 'thieve' || this._autoLife?.kind === 'thieve') return 'Pickpocketing';
+    return this._autoLife ? 'Waiting for regrowth' : 'Start gathering';
+  }
+
   /** "Go" from a skill guide or the world map: walk to the nearest of these
    *  objects (anywhere on the island) and start on it. */
   goToNearest(objIds) {
@@ -1180,9 +1211,12 @@ export class Game {
     return ok;
   }
 
-  /** World map: ride the MRT to any station (every station is open from the start). */
+  /** World map: ride the MRT to any station (every station is open from the start).
+   *  Not mid-fight: the map is no escape hatch. A station's own gates (openTransport,
+   *  then travelTo) still let you ride out while something attacks you, so arriving
+   *  somewhere too dangerous is never a trap. */
   mrtFromMap(stationId) {
-    if (this.npcs.some((n) => n.alive && n.target === this.player)) { this.msg("You can't take the MRT while something is attacking you.", 'system'); return false; }
+    if (this.npcs.some((n) => n.alive && n.target === this.player)) { this.msg("You can't ride from the map while something is attacking you: tap in at a station's gates instead.", 'system'); return false; }
     return this.travelTo(stationId);
   }
 
@@ -1669,6 +1703,14 @@ export class Game {
     return { dmg, critX: 0 };
   }
 
+  /** Area hits (cleave, splash, ricochet, sweeps, pierces) leave alone any boss
+   *  that isn't already fighting you: a stray share of a hit on a monster beside
+   *  it would wake a boss you never chose to fight (or that auto battle judged
+   *  too strong), and it would then hunt you down. */
+  _aoeSpares(o) {
+    return !!(o.def.fixed || o.def.boss) && o.target !== this.player;
+  }
+
   _applyPlayerHit(npc, dmg, opts = {}) {
     // A stunning class ability: the foe reels once the blow lands.
     if (this._abStun && dmg > 0) {
@@ -1762,7 +1804,7 @@ export class Game {
     this.bus.emit('sfx', 'swish');
     const range = this.attackRange();
     const targets = mods.ability?.sweep
-      ? [npc, ...this.nearbyNpcs().filter((n) => n !== npc && n.alive && n.attackable && !n.temporary && n.hp > 0 && chebyshev(p.x, p.y, n.x, n.y) <= range)]
+      ? [npc, ...this.nearbyNpcs().filter((n) => n !== npc && n.alive && n.attackable && !n.temporary && n.hp > 0 && !this._aoeSpares(n) && chebyshev(p.x, p.y, n.x, n.y) <= range)]
       : [npc];
     let total = 0, raw = 0;   // raw: the main target's damage before crits, for the ricochet
     for (const t of targets) {
@@ -1810,7 +1852,7 @@ export class Game {
     const m = this.combatXpMult();
     for (const o of this.nearbyNpcs()) {
       if (o === target || !o.alive || !o.attackable || o.ally || o.hp <= 0) continue;
-      if (o.def.fixed && o.target !== p) continue;   // story bosses aren't dragged in
+      if (this._aoeSpares(o)) continue;   // bosses aren't dragged in
       const ox = o.x - p.x, oy = o.y - p.y;
       const along = ox * ux + oy * uy;                // how far down the line
       const off = Math.abs(ox * uy - oy * ux);        // how far to the side of it
@@ -1839,7 +1881,7 @@ export class Game {
     const p = this.player, m = this.combatXpMult();
     for (const o of this.nearbyNpcs()) {
       if (o === target || !o.alive || !o.attackable || o.ally || o.hp <= 0) continue;
-      if (o.def.fixed && o.target !== p) continue;   // story bosses aren't dragged in
+      if (this._aoeSpares(o)) continue;   // bosses aren't dragged in
       if (chebyshev(o.x, o.y, target.x, target.y) > r) continue;
       const c = this._aoeCrit(raw);
       const d = Math.min(o.hp, c.dmg);
@@ -1867,7 +1909,7 @@ export class Game {
       let next = null, bd = Infinity;
       for (const n of this.nearbyNpcs()) {
         if (hit.has(n) || !n.alive || !n.attackable || n.ally || n.temporary || n.hp <= 0) continue;
-        if (n.def.fixed && n.target !== p) continue;   // story bosses aren't dragged in
+        if (this._aoeSpares(n)) continue;   // bosses aren't dragged in
         const d = chebyshev(n.x, n.y, prev.x, prev.y);
         if (d <= 3 && d < bd) { bd = d; next = n; }
       }
@@ -1898,7 +1940,7 @@ export class Game {
     for (const o of this.nearbyNpcs()) {
       if (n >= 3) break;
       if (o === target || !o.alive || !o.attackable || o.temporary || o.hp <= 0) continue;
-      if (o.def.fixed && o.target !== this.player) continue;     // story bosses aren't dragged in
+      if (this._aoeSpares(o)) continue;     // bosses aren't dragged in
       if (chebyshev(o.x, o.y, target.x, target.y) > 1 || chebyshev(o.x, o.y, this.player.x, this.player.y) > this.attackRange() + 1) continue;
       const c = this._aoeCrit(Math.max(1, Math.round(dmg * share)));
       const d = Math.min(o.hp, c.dmg);
@@ -1915,7 +1957,7 @@ export class Game {
   }
 
   _perkSplash(from, dmg) {
-    const other = this.nearbyNpcs().find((n) => n !== from && n.alive && n.attackable && !n.temporary && n.hp > 0 && chebyshev(n.x, n.y, from.x, from.y) <= 3);
+    const other = this.nearbyNpcs().find((n) => n !== from && n.alive && n.attackable && !n.temporary && n.hp > 0 && !this._aoeSpares(n) && chebyshev(n.x, n.y, from.x, from.y) <= 3);
     if (!other) return;
     const c = this._aoeCrit(dmg); dmg = c.dmg;
     other.takeDamage(dmg);
@@ -2006,7 +2048,7 @@ export class Game {
       for (let k = 0; k < rc.hits; k++) {
         const o = this.nearbyNpcs().find((n) => !hit.has(n) && n.alive && n.attackable && !n.temporary && n.hp > 0
           && chebyshev(n.x, n.y, npc.x, npc.y) <= 3 && chebyshev(n.x, n.y, p.x, p.y) <= this.attackRange() + 3
-          && !(n.def.fixed && n.target !== p));
+          && !this._aoeSpares(n));
         if (!o) break;
         hit.add(o);
         const c = this._aoeCrit(Math.max(1, Math.round(raw * rc.share)));
@@ -2033,7 +2075,7 @@ export class Game {
   _splitShot(main, style, pr) {
     const p = this.player, range = this.attackRange();
     const extra = this.nearbyNpcs()
-      .filter((n) => n !== main && n.alive && n.attackable && !n.temporary && n.hp > 0 && chebyshev(p.x, p.y, n.x, n.y) <= range)
+      .filter((n) => n !== main && n.alive && n.attackable && !n.temporary && n.hp > 0 && !this._aoeSpares(n) && chebyshev(p.x, p.y, n.x, n.y) <= range)
       .sort((a, b) => chebyshev(p.x, p.y, a.x, a.y) - chebyshev(p.x, p.y, b.x, b.y))
       .slice(0, SPLIT_SHOT_TARGETS - 1);
     const wpn = getItem(this.equipment.get('weapon')).equip;
@@ -2074,7 +2116,7 @@ export class Game {
     let xp = 0;
     for (const o of this.nearbyNpcs()) {
       if (o === target || !o.alive || !o.attackable || o.ally || o.hp <= 0) continue;
-      if (o.def.fixed && o.target !== p) continue;   // story bosses aren't dragged in
+      if (this._aoeSpares(o)) continue;   // bosses aren't dragged in
       if (chebyshev(o.x, o.y, target.x, target.y) > radius) continue;
       const c = this._aoeCrit(dmg);
       const d = Math.min(o.hp, c.dmg);
@@ -2551,7 +2593,9 @@ export class Game {
         this.banner('<span class="big">&#9888; The Wilderness</span>Lawless and deadly &mdash; no safe healing. Beware bosses!');
         this.msg('You enter the Wilderness: combat XP rises the deeper you go (up to x6), but fight or flee!', 'combat');
       } else {
-        this.msg(`You enter ${name}.`, 'system');
+        // Regions with a level band say so, on the scale their monsters show.
+        const rec = zoneLevel(z);
+        this.msg(rec ? `You enter ${name} (monsters level ${rec}+).` : `You enter ${name}.`, 'system');
       }
     }
     if (lvl !== this.wildLevel) this.bus.emit('xpbonus');
@@ -2949,7 +2993,7 @@ export class Game {
   }
 
   /** World boss: every WORLD_BOSS_EVERY ticks, if none is about, a random boss
-   *  (one at or above your combat level where possible) rises 8-14 tiles away:
+   *  (one of the few nearest your fight level) rises 8-14 tiles away:
    *  5x its life, 2x its hits, 1.5x attack and defence, aggressive from far off
    *  at any level. It never respawns, and leaves after WORLD_BOSS_STAY ticks
    *  unless you're fighting it. */
@@ -2958,9 +3002,53 @@ export class Game {
     if (wb && wb.alive && this.tickCount > wb.worldBossUntil && wb.target !== this.player) {
       this.msg(`${wb.name} fades back into the wilds.`, 'system');
       this.npcs = this.npcs.filter((n) => n !== wb); this._worldBoss = null;
+    } else if (wb && wb.alive && this._worldBossInTown(this.player.x, this.player.y)) {
+      // Retreating into town is safe: it won't follow you in and fight there.
+      this.msg(`${wb.name} loses your trail and fades back into the wilds.`, 'system');
+      if (this.player.target === wb) this.player.target = null;
+      this.npcs = this.npcs.filter((n) => n !== wb); this._worldBoss = null;
     }
     if (this.tickCount % WORLD_BOSS_EVERY !== 0 || this._worldBoss || !this.player.alive) return;
+    // Not for players who couldn't beat even an ordinary boss yet: it would only
+    // hunt them down again and again (the same check auto battle uses).
+    if (!this._worldBossFair()) return;
+    // Nor for new players (a couple of quests and some levels first), nor in town.
+    const done = QUESTS.filter((def) => this.quests[def.id]?.state === 'done').length;
+    if (done < WORLD_BOSS_MIN_QUESTS || this.fightLevel() < WORLD_BOSS_MIN_LEVEL) return;
+    if (this._worldBossTooNearTown(this.player.x, this.player.y)) return;
     return this.spawnWorldBoss();
+  }
+
+  /** True for tiles in or within WORLD_BOSS_TOWN_GAP of a town (the starting
+   *  towns and every outer town) or a bank: a World Boss never rises there (or
+   *  near you while you stand there). Measured from each town's edges, since
+   *  the bigger towns reach well past 20 tiles from their bank. */
+  _worldBossTooNearTown(x, y) {
+    const g = WORLD_BOSS_TOWN_GAP;
+    if (this._worldBossTowns().some(([a, b, c, d]) => x >= a - g && x <= c + g && y >= b - g && y <= d + g)) return true;
+    this._bankSpots ??= this.world.objects.filter((o) => o.objId === 'bank_booth');
+    return this._bankSpots.some((b) => Math.abs(b.x - x) <= g && Math.abs(b.y - y) <= g && Math.hypot(b.x - x, b.y - y) <= g);
+  }
+
+  /** True when standing in a town itself (no margin): a World Boss gives up there. */
+  _worldBossInTown(x, y) {
+    return this._worldBossTowns().some(([a, b, c, d]) => x >= a && x <= c && y >= b && y <= d);
+  }
+
+  /** Town rectangles [x0, y0, x1, y1]: the starting towns' zones plus the outer towns (worked out once). */
+  _worldBossTowns() {
+    return this._wbTowns ??= [
+      ...this.world.zones.filter((z) => WORLD_BOSS_SAFE_ZONES.includes(z.name)).map((z) => [z.x0, z.y0, z.x1, z.y1]),
+      ...(this.world.towns || []),
+    ];
+  }
+
+  /** True when you could beat at least one ordinary (non-story) boss. */
+  _worldBossFair() {
+    return ALL_BOSS_IDS.some((id) => {
+      let d; try { d = getNpc(id); } catch { return false; }
+      return d.boss && !d.fixed && d.attackable && this._autoCanBeat({ def: d, hp: d.maxHp || 1 });
+    });
   }
 
   /** Bosses grow with you: once your combat level passes a boss's level, the
@@ -2985,16 +3073,19 @@ export class Game {
     const p = this.player, cl = this.fightLevel();
     const ids = ALL_BOSS_IDS.filter((id) => { try { const d = getNpc(id); return d.boss && !d.fixed && d.attackable; } catch { return false; } });
     if (!ids.length) return null;
+    // One of the three bosses nearest your level: picking from everything at or
+    // above it sent bosses thousands of levels too strong. Bosses you could beat
+    // in their normal form come first (the auto battle check); the rest only if none.
     const lvl = (id) => getNpc(id).level || 1;
-    const fit = ids.filter((id) => lvl(id) >= cl);
-    const pool = fit.length ? fit : [ids.reduce((a, b) => (lvl(b) > lvl(a) ? b : a))];
+    const beatable = ids.filter((id) => { const d = getNpc(id); return this._autoCanBeat({ def: d, hp: d.maxHp || 1 }); });
+    const pool = (beatable.length ? beatable : ids).slice().sort((a, b) => Math.abs(lvl(a) - cl) - Math.abs(lvl(b) - cl)).slice(0, 3);
     const id = pool[Math.floor(Math.random() * pool.length)];
-    // A walkable tile 8-14 tiles from you.
+    // A walkable tile 8-14 tiles from you, and not in or near a town.
     let spot = null;
     for (let tries = 0; tries < 60 && !spot; tries++) {
       const ang = Math.random() * Math.PI * 2, r = 8 + Math.random() * 6;
       const x = Math.round(p.x + Math.cos(ang) * r), y = Math.round(p.y + Math.sin(ang) * r);
-      if (this.world.inBounds(x, y) && !this.world.isBlocked(x, y)) spot = { x, y };
+      if (this.world.inBounds(x, y) && !this.world.isBlocked(x, y) && !this._worldBossTooNearTown(x, y)) spot = { x, y };
     }
     if (!spot) return null;
     const n = this.spawnNpc(id, spot.x, spot.y, { wander: 6 });
@@ -3380,6 +3471,12 @@ export class Game {
     p.stopNow();
     p.clearAction();
     for (const n of this.npcs) if (n.target === p) { n.target = null; }
+    // A World Boss that beat you leaves rather than waiting by the respawn point.
+    const wb = this._worldBoss;
+    if (wb) {
+      if (wb.alive) this.msg(`${wb.name} fades back into the wilds.`, 'system');
+      this.npcs = this.npcs.filter((n) => n !== wb); this._worldBoss = null;
+    }
     this.ui?.closeModal();
   }
 
@@ -3444,6 +3541,7 @@ export class Game {
     this._autoSkip.clear();
     this._autoLast = null;
     if (this.autoBattle) this._autoRetarget = true;   // start at once, not on the next tick
+    else this._questBoss = false;                     // a quest's boss hunt ends with auto battle
     this.msg(this.autoBattle
       ? 'Auto battle on: you will hunt nearby monsters, eat when hurt and use your skills. Steer to pause.'
       : 'Auto battle off.', 'system');
@@ -3567,6 +3665,50 @@ export class Game {
     if (n.def.boss || n.champion || n.target === this.player || this.autoCfg.target || this._questTarget) return false;
     const inWild = !!this.world.zoneAt(this.player.x, this.player.y)?.wilderness;
     return (n.def.level || 1) < this._autoBandLo(inWild);
+  }
+
+  /** Could you beat this boss, so auto battle (or a quest's boss step) may pick
+   *  the fight? First the quick check: no more than about a quarter above your
+   *  fight level. Then a rough time-to-kill from both sides: your average hits
+   *  must empty its life within about 30 minutes (boss fights are long), and its
+   *  average hits must take at least 20 seconds to empty yours, which healing,
+   *  lifesteal and food then hold off. Both sides are rough (specials and heals
+   *  are left out) and lean towards leaving a boss alone. */
+  _autoCanBeat(n) {
+    const cl = this.fightLevel(), def = n.def;
+    if ((def.level || 1) > Math.max(cl + 5, Math.round(cl * 1.25))) return false;
+    const mode = this.combatMode(), pm = this.prayerMult();
+    let max;
+    if (mode === 'magic') {
+      const chosen = getSpell(this.player.spell);
+      const sp = this.skills.magic >= chosen.level && this._hasRunes(chosen) ? chosen : this.bestSpell();
+      if (!sp) return false;
+      max = playerMagicVsNpc(this.skills, this.equipment, sp, def).max * pm.magic;
+    } else if (mode === 'ranged') {
+      const wpn = getItem(this.equipment.get('weapon'))?.equip || {};
+      const idx = wpn.noAmmo ? -1 : this._bestAmmoIdx();
+      const arrowStr = wpn.noAmmo ? Math.floor((wpn.bonuses?.ranged || 0) / 3) : idx === -1 ? 0 : getItem(this.inventory.slotAt(idx).id).arrowStr || 0;
+      max = playerRangedVsNpc(this.skills, this.equipment, this.player.rangedStyle, def, arrowStr).max * pm.ranged;
+    } else if (mode === 'dance') {
+      max = playerDanceVsNpc(this.skills, this.equipment, this.player.danceStyle, def, 0).max * pm.str;
+    } else max = playerAttackVsNpc(this.skills, this.equipment, this.player.style, def).max * pm.str;
+    // Your blows always land, for a quarter to all of the max hit (5/8 on average);
+    // crits, abilities and perks roughly treble that in a real fight.
+    // Your attack interval is in 0.3s beats; its attack speed is in 0.6s ticks.
+    const myDps = 3 * max * 0.625 / (Math.max(0.1, this.attackInterval()) * COMBAT_BEAT_MS / 1000);
+    const { atkRoll, defRoll, max: theirMax } = npcAttackVsPlayer(def, this.skills, this.equipment, this.player.style);
+    const theirDps = hitChance(atkRoll, defRoll * pm.def) * theirMax * 0.625 * (1 - this.protectFactor())
+      / (Math.max(2, (def.attackSpeed || 4) - 2) * TICK_MS / 1000);
+    const myTime = (n.hp || n.maxHp || 1) / Math.max(0.01, myDps);
+    const theirTime = this.maxHp() / Math.max(0.01, theirDps);
+    return myTime <= 1800 && theirTime >= 20;
+  }
+
+  /** Auto battle says once per boss when it walks past one it can't beat. */
+  _autoSaySkip(n) {
+    if (this._autoSkipSaid.has(n.entityId)) return;
+    this._autoSkipSaid.add(n.entityId);
+    this.msg(`Skipping ${n.name}: too strong for now.`, 'system');
   }
 
   /** Walk towards the nearest monster in your level band (up to 20 levels
@@ -3716,9 +3858,9 @@ export class Game {
     // Only monsters near you matter here, and pack counts only look at those (see nearbyNpcs).
     const near = this.nearbyNpcs();
     let packAt = null;
-    // Bosses and champions are fair game at any level now (they used to be
-    // skipped when well above you, which made auto battle look like it ignored them).
-    const canTake = () => true;
+    // Champions are fair game at any level now (they used to be skipped when
+    // well above you, which made auto battle look like it ignored them).
+    // Bosses must pass _autoCanBeat.
     for (const n of near) {
       if (!n.alive || !n.attackable) continue;
       const d = chebyshev(p.x, p.y, n.x, n.y);
@@ -3732,16 +3874,17 @@ export class Game {
         continue;
       }
       if (n.temporary) continue;
-      if (n.def.boss && !this.autoCfg.bosses) continue;
+      if (n.def.boss && !this.autoCfg.bosses && !this._questBoss) continue;
       if ((this._autoSkip.get(n.entityId) || 0) > this.tickCount) continue;
       if (this.autoCfg.target && n.npcId !== this.autoCfg.target) continue;   // only the chosen monster type
       if (this._questTarget && n.npcId !== this._questTarget) continue;       // a quest hunt (e.g. rats for Pest Control)
-      // Bosses within reach are taken on whatever their level, ahead of everything else.
-      // Story bosses (fixed spawns like the Lion of Light) and bosses far beyond
-      // your level are left for you to take on yourself.
+      // Bosses within reach that you could beat are taken on ahead of everything else.
+      // Story bosses (fixed spawns like the Lion of Light) and bosses too strong
+      // for you are left for you to take on yourself.
       if (n.def.boss) {
-        if (n.def.fixed || !canTake(n.def.level || 1)) continue;   // story bosses are yours to start; only bosses you can realistically beat
+        if (n.def.fixed) continue;   // story bosses are yours to start
         if (!inWild && wildZone(n.x, n.y)) continue;
+        if (!this._autoCanBeat(n)) { this._autoSaySkip(n); continue; }
         // "Bosses & champions first": a boss outranks everything, even monsters already in reach.
         { const tier = this.autoCfg.priority !== false ? -3000 : -300 - (shootable(n, d) ? 1000 : 0); cands.push({ n, score: d + tier, tier }); }
         continue;
@@ -3749,7 +3892,7 @@ export class Game {
       // Then mini-bosses: gold-ringed champions within reach that you can take on.
       if (n.champion) {
         if (this.autoCfg.champions === false) continue;   // "Champions: Skip"
-        if (!canTake(n.def.level || 1) || (!inWild && wildZone(n.x, n.y))) continue;
+        if (!inWild && wildZone(n.x, n.y)) continue;
         { const tier = this.autoCfg.priority !== false ? -2000 : -150 - (shootable(n, d) ? 1000 : 0); cands.push({ n, score: d + tier, tier }); }
         continue;
       }
@@ -4591,12 +4734,51 @@ export class Game {
         if (met) return npc(giver, 'Hand in to');
         const SOURCE = { logs: 'tree', oak_logs: 'oak', copper_ore: 'copper_rock', iron_ore: 'iron_rock', bronze_bar: 'furnace', steel_bar: 'furnace',
           raw_anchovy: 'fishing_spot', raw_trout: 'rod_spot', anchovy: 'range', trout: 'range', chilli: 'farm_patch', attack_potion: 'apothecary_table', arrow_shaft: 'fletching_bench' };
-        if (st.need.item) return obj(SOURCE[st.need.item] || 'tree', `${st.name}: get ${st.need.qty} ${getItem(st.need.item).name.toLowerCase()}`);
+        const buy = (item, what) => ({ ...npc('farmer', `${st.name}: buy ${what} from`), buy: { item, qty: 1 } });
+        // Chillies come from a patch: harvest one that is ripe, wait for one
+        // that is growing (other crops don't count), else plant or buy a seed.
+        const growChilli = () => {
+          const crop = (this._farms ||= this.world.objects.filter((o) => o.def.type === 'farm')).find((o) => o.crop === 'chilli');
+          if (inv('chilli_seed')) return obj('farm_patch', `${st.name}: plant a chilli seed`);
+          if (crop?.growLeft > 0) return { ...obj('farm_patch', `${st.name}: wait for your chilli to grow`), wait: true };
+          return crop ? obj('farm_patch', `${st.name}: harvest your chilli`) : buy('chilli_seed', 'chilli seeds');
+        };
+        if (st.need.item) {
+          // A made item needs its ingredients first: send the player to whichever
+          // one is short (ore before the furnace, a catch before the range, logs
+          // and a knife before the bench), so Go and auto quest never walk to a
+          // station with nothing to work on.
+          const left = st.need.qty - inv(st.need.item);
+          const lesson = `${st.name}: get ${st.need.qty} ${getItem(st.need.item).name.toLowerCase()}`;
+          const short = (item, per = 1) => inv(item) < left * per;
+          switch (st.need.item) {
+            case 'bronze_bar':
+              if (short('copper_ore')) return obj('copper_rock', `${st.name}: mine copper ore (${inv('copper_ore')}/${left})`);
+              if (short('tin_ore')) return obj('tin_rock', `${st.name}: mine tin ore (${inv('tin_ore')}/${left})`);
+              break;
+            case 'steel_bar':
+              if (short('iron_ore')) return obj('iron_rock', `${st.name}: mine iron ore (${inv('iron_ore')}/${left})`);
+              if (short('coal', 2)) return obj('coal_rock', `${st.name}: mine coal (${inv('coal')}/${left * 2})`);
+              break;
+            case 'anchovy': if (short('raw_anchovy')) return obj('fishing_spot', `${st.name}: catch raw anchovies (${inv('raw_anchovy')}/${left})`); break;
+            case 'trout': if (short('raw_trout')) return obj('rod_spot', `${st.name}: catch raw trout (${inv('raw_trout')}/${left})`); break;
+            case 'attack_potion':
+              if (!inv('chilli')) return growChilli();
+              if (!inv('vial')) return buy('vial', 'a vial');
+              break;
+            case 'chilli': return growChilli();
+            case 'arrow_shaft':
+              if (!this.hasTool('knife')) return buy('knife', 'a knife');
+              if (!inv('logs')) return obj('tree', `${st.name}: chop some logs first`);
+              break;
+          }
+          return obj(SOURCE[st.need.item] || 'tree', lesson);
+        }
         if (st.skill === 'firemaking') {
           const log = this.inventory.slots.find((sl) => sl && getItem(sl.id).tags?.includes('log'));
           return log ? { kind: 'light', text: 'Firemaking: light your logs' } : obj('tree', 'Firemaking: chop some logs first');
         }
-        if (st.skill === 'hunter') return obj('bird_snare', 'Hunter: check a bird snare');
+        if (st.skill === 'hunter') return this.hasTool('snare') ? obj('bird_snare', 'Hunter: check a bird snare') : buy('hunting_snare', 'a hunting snare');
         return npc(giver);
       }
       case 'bone_collector': return countBones(this.inventory) >= 10 ? npc('guide', 'Hand in to') : { kind: 'hunt', text: `Collect bones: ${countBones(this.inventory)}/10 (any kind of bones counts)` };
@@ -4628,8 +4810,9 @@ export class Game {
     const nearest = (list) => list.reduce((b, o) => (!b || d2(o) < d2(b) ? o : b), null);
     if (!p.alive || g.kind === 'none') { if (g.text && g.text !== 'Complete') this.msg(g.text + '.', 'system'); return false; }
     this._questTarget = null;
+    this._questBoss = false;
     this._pathBudget = 150000;       // quest trips can cross the whole map
-    let ok = false;
+    let ok = false, tooStrong = false, wildOnly = false;
     try {
       if (g.kind === 'npc') {
         const n = nearest(this.npcs.filter((x) => x.npcId === g.npcId));
@@ -4643,22 +4826,29 @@ export class Game {
       } else if (g.kind === 'hunt' || g.kind === 'boss') {
         const cl = this.fightLevel();
         const fits = g.kind === 'boss'
-          ? (n) => n.def.boss && !n.def.fixed && (n.def.level || 1) <= Math.max(cl + 15, Math.round(cl * 1.2))
+          ? (n) => n.def.boss && !n.def.fixed && this._autoCanBeat(n)   // the same can-beat check as auto battle
           : g.target ? (n) => n.npcId === g.target : (n) => !n.def.boss && (n.def.level || 1) <= cl + 5;
         const mob = nearest(this.npcs.filter((n) => n.alive && n.attackable && !n.temporary && fits(n)
           && (!this.world.zoneAt(n.x, n.y)?.wilderness || this.world.zoneAt(here.x, here.y)?.wilderness)));
         if (mob) {
           this._questTarget = g.target || null;
-          if (g.kind === 'boss') this.autoCfg.bosses = true;
+          // Bosses are taken on for this quest trip only, not switched on for good.
+          this._questBoss = g.kind === 'boss';
           if (this._mrtHopToward(mob)) this.walkToFar({ x: mob.x, y: mob.y });
           else if (chebyshev(here.x, here.y, mob.x, mob.y) > 12) this.walkToFar({ x: mob.x, y: mob.y });
           else this.attackNpc(mob);
           if (!this.autoBattle) this.toggleAutoBattle(true);
           ok = true;
+        } else if (g.kind === 'boss') {
+          // Say why: a boss you could beat that only roams the Wilderness, or none at all.
+          wildOnly = this.npcs.some((n) => n.alive && n.attackable && !n.temporary && fits(n));
+          tooStrong = !wildOnly;
         }
       }
     } finally { this._pathBudget = 0; }
-    this.msg(ok ? `Quest: ${g.text}.` : `Quest: ${g.text}, but I can't find the way there.`, 'system');
+    this.msg(ok ? `Quest: ${g.text}.` : tooStrong ? `Quest: ${g.text}, but every boss is too strong for you for now. Train up first.`
+      : wildOnly ? `Quest: ${g.text}, but the only boss you can beat roams the Wilderness. Head there yourself.`
+      : `Quest: ${g.text}, but I can't find the way there.`, 'system');
     if (ok && AUTO_QUEST_ACTIONS[id]) this.autoQuestId = id;   // auto quest works on the quest you last chose
     return ok;
   }
@@ -4668,9 +4858,12 @@ export class Game {
    *  unfinished one in journal order that it knows how to do. The karma quests
    *  are a moral choice, so they are always left to the player. */
   autoQuestPick() {
-    const can = (id) => AUTO_QUEST_ACTIONS[id] && this.quests[id] && this.quests[id].state !== 'done' && this.questGuide(id).kind !== 'none';
+    const can = (id) => AUTO_QUEST_ACTIONS[id] && this.quests[id] && this.quests[id].state !== 'done' && this.questGuide(id).kind !== 'none'
+      && (id === this.autoQuestId || !this._autoQuestSkip?.has(id));
     if (this.autoQuestId && can(this.autoQuestId)) return this.autoQuestId;
-    return QUESTS.find((d) => can(d.id))?.id || null;
+    // Finish what you have already started before taking on anything new.
+    return QUESTS.find((d) => this.quests[d.id]?.state === 'active' && can(d.id))?.id
+      || QUESTS.find((d) => can(d.id))?.id || null;
   }
 
   toggleAutoQuest(on = !this.autoQuest, why = '') {
@@ -4678,6 +4871,7 @@ export class Game {
     this._autoQuestStep = null;
     this._autoQuestMark = null;
     this._autoQuestStuck = 0;
+    if (this.autoQuest) this._autoQuestSkip = null;   // switching it back on tries everything again
     if (!this.autoQuest && this._autoQuestFight) {
       // Hand back a fight auto quest started for you.
       this._autoQuestFight = false;
@@ -4688,6 +4882,13 @@ export class Game {
       ? 'Auto quest on: you will start, work through and hand in your quests by yourself. Steer to pause.'
       : `Auto quest off${why ? `: ${why}` : '.'}`, 'system');
     this.bus.emit('autoquest');
+  }
+
+  /** One-line description of what auto quest is doing, for the HUD. */
+  autoQuestStatus() {
+    if (!this.autoQuest) return 'Off';
+    const id = this.autoQuestPick();
+    return id ? QUESTS.find((d) => d.id === id)?.name || id : 'No quest';
   }
 
   /** A rough "has anything happened" mark (bag contents and total XP), so auto
@@ -4717,6 +4918,10 @@ export class Game {
       if (this.autoBattle) this.toggleAutoBattle(false);
     }
     if (fighting && this.autoBattle) return;          // auto battle is on the job
+    // Fishing spots never run dry, so a catch would go on for ever once the
+    // lesson has enough: stop gathering as soon as the step wants something else.
+    const a = p.action;
+    if (a && (GATHER_ACTIONS.has(a.type) || a.type === 'hunt') && (g.kind !== 'obj' || a.obj?.objId !== g.objId)) { p.clearAction(); p.stop(); }
     if (p.action || p.isMoving) return;               // busy: wait until idle
     const name = QUESTS.find((d) => d.id === id)?.name || id;
     const step = `${id}:${g.text}`;
@@ -4726,11 +4931,25 @@ export class Game {
       this._autoQuestMark = null;
       this.msg(`Auto quest — ${name}: ${g.text}.`, 'system');
     }
+    if (g.wait) return;              // a crop is growing: waiting is not being stuck
     // Same step, nothing gained since the last try: count it, and give up
     // after a few rather than walking back and forth forever.
     const mark = this._autoQuestFingerprint();
     if (mark === this._autoQuestMark) {
-      if (++this._autoQuestStuck >= 3) { this.toggleAutoQuest(false, `I'm stuck on "${g.text}". You'll need to do this step yourself.`); return; }
+      if (++this._autoQuestStuck >= 3) {
+        // A quest you didn't send it to (one you merely accepted, say at too low
+        // a level) is set aside for this session so it can get on with others.
+        if (id !== this.autoQuestId) {
+          (this._autoQuestSkip ||= new Set()).add(id);
+          if (this.autoQuestPick()) {
+            this._autoQuestStep = null;
+            this.msg(`Auto quest: I can't do "${g.text}" yet, so I'll leave ${name} for now.`, 'system');
+            return;
+          }
+          this._autoQuestSkip.delete(id);   // nothing else to do: say where it got stuck
+        }
+        this.toggleAutoQuest(false, `I'm stuck on "${g.text}". You'll need to do this step yourself.`); return;
+      }
     } else this._autoQuestStuck = 0;
     this._autoQuestMark = mark;
     const here = this.playerTile();
@@ -4745,7 +4964,10 @@ export class Game {
         const tgt = { x: n.x, y: n.y };
         this.beginAction({ type: 'questtalk', npc: n, quest: id, target: tgt }, tgt, true);
       } else if (g.kind === 'obj') {
-        const o = nearest(this.world.objects.filter((x) => x.objId === g.objId && !x.depleted));
+        // A farm patch has to be one you can use now: ripe, or empty with a seed to plant.
+        const seed = this.inventory.slots.some((sl) => sl && CROP_BY_SEED[sl.id]);
+        const o = nearest(this.world.objects.filter((x) => x.objId === g.objId && !x.depleted
+          && (x.def.type !== 'farm' || (x.crop ? !(x.growLeft > 0) : seed))));
         if (!o) { this.toggleAutoQuest(false, `I can't find anywhere to "${g.text}".`); return; }
         const make = AUTO_QUEST_STATION[o.def.type];
         this._mrtHopToward(o);
@@ -4773,6 +4995,12 @@ export class Game {
     const q = this.quests[id];
     const acts = AUTO_QUEST_ACTIONS[id];
     if (!q || !acts) return;
+    // A lesson step that sends you shopping (a vial, a knife, seeds): buy it.
+    const g = this.questGuide(id);
+    if (g.buy && npc.def.role === 'shop') {
+      if (this.inventory.count(g.buy.item) < g.buy.qty) this.buyItem(npc.def.shop, g.buy.item, g.buy.qty);
+      return;
+    }
     if (id === 'mystic_trial' && q.state === 'active' && npc.def.role === 'shop') {
       const need = 25 - this.inventory.count('death_rune');
       if (need > 0) this.buyItem(npc.def.shop, 'death_rune', need);

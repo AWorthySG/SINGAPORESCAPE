@@ -264,6 +264,12 @@ export class NPC extends Character {
     // of exploring 1500 tiles (the biggest per-tick cost with many monsters).
     const path = findPath(game.pathCfg(), { x: this.x, y: this.y }, { x: tx, y: ty },
       { maxNodes: Math.min(1500, 2 * (2 * this.wander + 3) ** 2) });
+    // A path that detours round water or walls out of that box is dropped, so
+    // an idle monster never strays further than `wander` from home (the MRT
+    // platforms rely on that to stay out of its aggro reach). One already
+    // outside it (left behind after a chase) may still wander back in.
+    const box = Math.max(this.wander, chebyshev(this.x, this.y, this.spawnX, this.spawnY));
+    if (path.some((s) => chebyshev(s.x, s.y, this.spawnX, this.spawnY) > box)) return;
     if (path.length) this.setPath(path);
   }
 

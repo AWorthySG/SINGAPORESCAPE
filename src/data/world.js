@@ -2,13 +2,20 @@
 // One connected map split into named Singapore-themed zones (returned as `zones`
 // for region detection) plus a dangerous Wilderness. A fixed seed keeps it stable.
 
-import { NPCS, MONSTER_IDS, BOSS_IDS, EXTRA_MONSTER_IDS, EXTRA_BOSS_IDS, MORE_MONSTER_IDS, MORE_BOSS_IDS } from './npcs.js';
+import { NPCS, MONSTER_IDS, BOSS_IDS, EXTRA_MONSTER_IDS, EXTRA_BOSS_IDS, MORE_MONSTER_IDS, MORE_BOSS_IDS, stretchLevel } from './npcs.js';
 import { STATIONS } from './transport.js';
 
 // How many of each monster kind populate the world.
 export const MONSTER_COPIES = 5;
 // Copies of each fitting monster kind placed in each open-world region.
 export const REGION_COPIES = 3;
+// Monsters keep at least this many tiles (Chebyshev) clear of every MRT station
+// beyond the starting island (aggressive ones of every station), so riding
+// somewhere new doesn't land you in a pack.
+export const MRT_CLEAR = 9;
+// The level a region recommends, on the same (stretched) scale its monsters
+// display: zone bands are written in the old tier levels. 0 for the old island zones.
+export const zoneLevel = (z) => (z && z.lo ? stretchLevel(z.lo) : 0);
 
 export const TERRAIN = {
   GRASS: 0,
@@ -403,6 +410,10 @@ export function buildWorld() {
     border.forEach(([bx, by], i) => { if (!entrance(bx, by)) placeObj(i % 3 === 0 ? 'bush' : 'flower', bx, by); });
   }
 
+  // Danger signs quote a region's level on the scale its monsters show (their
+  // stretched level), worked out from the zone's band so the two can't drift apart.
+  const dangerSign = (name) => `\u26A0 ${name}: lvl ${zoneLevel(zones.find((z) => z.name === name))}+`;
+
   // ================= MRT fast-travel network =================
   placeObj('mrt_station', 68, 52); // Kampong Glam
   placeObj('mrt_station', 76, 52); // Chinatown
@@ -570,7 +581,7 @@ export function buildWorld() {
   placeObj('mrt_station', 192, 149);
 
   // ================= Tekong Badlands (endgame, not Wilderness) =================
-  placeObj('sign', 262, 104, { sign: '\u26A0 Tekong Badlands: lvl 70+' });
+  placeObj('sign', 262, 104, { sign: dangerSign('Tekong Badlands') });
   scatter('ruin', 232, 102, 289, 194, 24, GRASSY);
   scatter('wall', 232, 102, 289, 194, 14, GRASSY);
   scatter('magic_tree', 232, 102, 289, 194, 6, GRASSY);
@@ -615,7 +626,7 @@ export function buildWorld() {
   placeObj('mrt_station', 98, 238);
 
   // ================= The Shadow Rift (endgame) and its outpost =================
-  placeObj('sign', 262, 205, { sign: '\u26A0 The Shadow Rift: lvl 200+' });
+  placeObj('sign', 262, 205, { sign: dangerSign('The Shadow Rift') });
   placeObj('bank_booth', 252, 209); placeObj('bank_booth', 253, 209); placeNpc('banker', 252, 208);
   placeNpc('shopkeeper', 270, 210); placeNpc('mage', 272, 214); placeNpc('fletcher', 270, 218); placeNpc('hawker', 254, 220);
   placeObj('range', 256, 220); placeObj('furnace', 252, 214); placeObj('anvil', 253, 216);
@@ -665,7 +676,7 @@ export function buildWorld() {
   placeFishing('fishing_spot', 402, 92, 530, 176, 8);
   placeFishing('rod_spot', 402, 92, 530, 176, 8);
   // ---- Mandai Rainforest: the deepest jungle ----
-  placeObj('sign', 466, 182, { sign: '\u26A0 Mandai Rainforest: lvl 150+' });
+  placeObj('sign', 466, 182, { sign: dangerSign('Mandai Rainforest') });
   placeObj('mrt_station', 474, 226);
   scatter('mahogany', 402, 182, 530, 270, 26, GRASSY);
   scatter('tembusu', 402, 182, 530, 270, 18, GRASSY);
@@ -675,7 +686,7 @@ export function buildWorld() {
   scatter('bamboo', 402, 182, 530, 270, 16, GRASSY);
   placeFishing('rod_spot', 402, 182, 530, 270, 8);
   // ---- Tuas Docklands: wharves, cranes and quarries ----
-  placeObj('sign', 98, 284, { sign: '\u26A0 Tuas Docklands: lvl 220+' });
+  placeObj('sign', 98, 284, { sign: dangerSign('Tuas Docklands') });
   placeObj('mrt_station', 99, 320);
   scatter('ruin', 2, 282, 176, 370, 26, GRASSY);
   scatter('wall', 2, 282, 176, 370, 20, [T.SAND, T.GRASS]);
@@ -684,7 +695,7 @@ export function buildWorld() {
   placeFishing('fishing_cage', 2, 282, 176, 370, 8);
   placeFishing('sea_rod_spot', 2, 282, 176, 370, 10);
   // ---- Temasek Ruins: the lost kingdom, and the camp at its edge ----
-  placeObj('sign', 264, 296, { sign: '\u26A0 Temasek Ruins: lvl 290+' });
+  placeObj('sign', 264, 296, { sign: dangerSign('Temasek Ruins') });
   placeObj('bank_booth', 252, 302); placeObj('bank_booth', 253, 302); placeNpc('banker', 252, 301);
   placeNpc('shopkeeper', 268, 303); placeNpc('mage', 270, 307); placeNpc('fletcher', 268, 311); placeNpc('hawker', 256, 311);
   placeObj('range', 258, 312); placeObj('furnace', 251, 307); placeObj('anvil', 252, 309);
@@ -697,7 +708,7 @@ export function buildWorld() {
   scatter('gem_rock', 184, 282, 356, 370, 8, GRASSY);
   scatter('runite_rock', 184, 282, 356, 370, 8, GRASSY);
   // ---- The Celestial Peaks: the roof of the world ----
-  placeObj('sign', 466, 284, { sign: '\u26A0 The Celestial Peaks: lvl 360+' });
+  placeObj('sign', 466, 284, { sign: dangerSign('The Celestial Peaks') });
   placeObj('mrt_station', 474, 320);
   scatter('magic_tree', 364, 282, 530, 370, 16, GRASSY);
   scatter('yew_tree', 364, 282, 530, 370, 10, GRASSY);
@@ -915,12 +926,16 @@ export function buildWorld() {
     for (const s of npcSpawns) if (!packable(s)) taken.add(key(s.x, s.y));
     const openSpot = (x, y) => LANDABLE.includes(get(x, y)) && !occupied.has(key(x, y)) && !taken.has(key(x, y))
       && !inTown(x, y) && !inNewTown(x, y);
-    // Nearest open tile to (cx, cy), ring by ring, out to `reach`.
-    const near = (cx, cy, reach) => {
+    // Nearest open tile to (cx, cy), ring by ring, out to `reach`, inside the
+    // pack's own region. Without the region check a Wilderness pack camped on its
+    // west edge spilled over the line, leaving level 250-700 crocodiles and
+    // pythons in Chinatown, Bukit Timah and Sentosa, a short walk from town.
+    const near = (cx, cy, reach, z) => {
       for (let r = 0; r <= reach; r++) {
         const ring = [];
         for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
-          if (Math.max(Math.abs(dx), Math.abs(dy)) === r && openSpot(cx + dx, cy + dy)) ring.push([cx + dx, cy + dy]);
+          if (Math.max(Math.abs(dx), Math.abs(dy)) === r && openSpot(cx + dx, cy + dy)
+            && (!z || zoneOf({ x: cx + dx, y: cy + dy }) === z)) ring.push([cx + dx, cy + dy]);
         }
         if (ring.length) return ring[Math.floor(R() * ring.length)];
       }
@@ -944,8 +959,9 @@ export function buildWorld() {
       }
       for (const pack of packs) {
         const cx = pack[0].x, cy = pack[0].y;   // the camp sits where the first member landed
+        const home = zoneOf(pack[0]);
         for (const s of pack) {
-          const spot = near(cx, cy, 4);
+          const spot = near(cx, cy, 4, home);
           if (!spot) continue;              // boxed in: leave this one where it was
           s.x = spot[0]; s.y = spot[1];
           s.wander = Math.min(s.wander, 3); // mill about the camp rather than drift off
@@ -1058,6 +1074,131 @@ export function buildWorld() {
     for (const id of MORE_BOSS_IDS) { const at = spotIn(inner(zoneByName(NPCS[id].zone))); if (at) { placeNpc(id, at[0], at[1], 3); taken.add(key(at[0], at[1])); } }
   }
 
+  // ================= Clear the MRT platforms =================
+  // Every station is open from the start, so a new player can ride straight to
+  // the far regions. Anything that can fight is moved off each station beyond
+  // the starting island, and anything that attacks on sight off the starting
+  // island's own stations (Sentosa's sea snakes, Bukit Timah's bats): each to an
+  // open tile MRT_CLEAR to MRT_CLEAR + 6 tiles out, picked at random in that band
+  // so the moved monsters thin out instead of ringing the station. Wander paths
+  // keep to the spawn box (npc.js), wander is capped at 3 and aggro range is 4,
+  // so nothing reaches the platform on its own. Moved, not removed: the counts stay.
+  // Its own stream, last, so nothing placed earlier moves.
+  R = mulberry32(20261113);
+  {
+    const outer = (st) => st.x > 149 || st.y > 103;   // the starting island is 0-149 x 0-103
+    const gapTo = (x, y, list) => Math.min(...list.map((st) => Math.max(Math.abs(st.x - x), Math.abs(st.y - y))));
+    const zoneOf = (x, y) => zones.find((z) => x >= z.x0 && x <= z.x1 && y >= z.y0 && y <= z.y1);
+    const taken = new Set(npcSpawns.map((s) => key(s.x, s.y)));
+    for (const s of npcSpawns) {
+      const def = NPCS[s.npcId];
+      if (!def?.attackable) continue;
+      // Every station counts for a fighter that attacks on sight; only the
+      // outer ones for the rest (the starter fields keep their chickens).
+      const near = STATIONS.filter((st) => def.aggressive || outer(st));
+      if (gapTo(s.x, s.y, near) >= MRT_CLEAR) continue;
+      const far = MRT_CLEAR + Math.floor(R() * 7);
+      const home = zoneOf(s.x, s.y);
+      const ok = (x, y) => inB(x, y) && gapTo(x, y, near) >= far && zoneOf(x, y) === home && LANDABLE.includes(get(x, y))
+        && !occupied.has(key(x, y)) && !taken.has(key(x, y)) && !inTown(x, y) && !inNewTown(x, y);
+      let spot = null;
+      for (let r = 1; r <= 4 * MRT_CLEAR && !spot; r++) {
+        const ring = [];
+        for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) === r && ok(s.x + dx, s.y + dy)) ring.push([s.x + dx, s.y + dy]);
+        }
+        if (ring.length) spot = ring[Math.floor(R() * ring.length)];
+      }
+      if (!spot) continue;
+      taken.delete(key(s.x, s.y));
+      s.x = spot[0]; s.y = spot[1];
+      s.wander = Math.min(s.wander || def.wander || 0, 3);   // 0 would fall back to the def's 4
+      taken.add(key(s.x, s.y));
+    }
+  }
+
+  // ================= Kampong pond =================
+  // Cikgu Surya's fishing lesson used to send new players to MacRitchie's
+  // shore, among its monsters and the Mangrove Hydra. A little pond just south
+  // of town, off the south road, gives them a net spot and a rod spot of their
+  // own. Dug last, on open grass only, so nothing placed earlier moves.
+  {
+    const npcAt = new Set(npcSpawns.map((s) => key(s.x, s.y)));
+    for (let y = 69; y <= 72; y++) for (let x = 62; x <= 67; x++) {
+      const corner = (x === 62 || x === 67) && (y === 69 || y === 72);   // round it off
+      if (!corner && GRASSY.includes(get(x, y)) && isFree(x, y) && !npcAt.has(key(x, y))) set(x, y, T.WATER);
+    }
+    placeObj('fishing_spot', 62, 70);   // fished from the west bank
+    placeObj('rod_spot', 65, 69);       // fished from the north bank
+  }
+
+  // ================= Keep the Wilderness line clear =================
+  // Chinatown, Bukit Timah and Sentosa run straight into the Wilderness with no
+  // wall between, and a monster attacks anyone within its aggro range while it
+  // is up to wander + aggro range from its spawn. A level 400 crocodile camped on
+  // the Wilderness's first column could therefore reach into Chinatown and kill a
+  // new player at its bank. Anything that attacks on sight is moved east until
+  // its whole reach stays inside the Wilderness, keeping its pack's layout (each
+  // one shifts by the same margin). Bosses here don't attack on sight. No dice
+  // rolled, so nothing else moves.
+  {
+    const WZ = zones.find((z) => z.name === 'The Wilderness');
+    const npcAt = new Set(npcSpawns.map((s) => key(s.x, s.y)));
+    const open = (x, y) => x >= WZ.x0 && x <= WZ.x1 && y >= WZ.y0 && y <= WZ.y1
+      && LANDABLE.includes(get(x, y)) && isFree(x, y) && !npcAt.has(key(x, y));
+    for (const s of npcSpawns) {
+      const def = NPCS[s.npcId];
+      if (!def?.attackable || !def.aggressive || s.opts?.aggressive === false) continue;
+      if (s.x < WZ.x0 || s.x > WZ.x1 || s.y < WZ.y0 || s.y > WZ.y1) continue;
+      const margin = (s.wander || def.wander || 0) + (def.aggroRange || 4) + 1;
+      const minX = WZ.x0 + margin;
+      if (s.x >= minX) continue;
+      const tx = Math.min(WZ.x1, s.x + margin);
+      let spot = null;
+      for (let r = 0; r <= 8 && !spot; r++) {
+        for (let dy = -r; dy <= r && !spot; dy++) for (let dx = -r; dx <= r && !spot; dx++) {
+          const x = tx + dx, y = s.y + dy;
+          if (Math.max(Math.abs(dx), Math.abs(dy)) === r && x >= minX && open(x, y)) spot = [x, y];
+        }
+      }
+      // Boxed in (never seen): leave it be but stop it attacking on sight.
+      if (!spot) { s.opts = { ...(s.opts || {}), aggressive: false }; continue; }
+      npcAt.delete(key(s.x, s.y));
+      s.x = spot[0]; s.y = spot[1];
+      npcAt.add(key(s.x, s.y));
+    }
+  }
+
+  // ================= Tame the starter ring =================
+  // A level-1 character has 25 life, and the starter island's monsters hit far
+  // harder than that. Anything that would attack on sight within 30 tiles of
+  // the respawn point (MacRitchie's lizards, dogs and macaques, Bukit Timah's
+  // bats) or within 10 tiles of the nearest spot for each first lesson (the
+  // trees, copper and tin rocks, fishing spots) is made non-aggressive: it keeps
+  // its level and stats, so it is still a fair fight when you choose one, but no
+  // new player is ambushed on the way to a lesson. That goes for the weak ones
+  // too: a level 14 macaque that starts a fight gets its tamed level 68 packmates
+  // hit by the starter weapon's cleave, and they join in.
+  {
+    const RESPAWN = { x: 58, y: 55 }, SAFE_RING = 30, LESSON_RING = 10;
+    const safe = [{ x: RESPAWN.x, y: RESPAWN.y, r: SAFE_RING }];
+    for (const id of ['tree', 'copper_rock', 'tin_rock', 'fishing_spot', 'rod_spot']) {
+      let best = null, bd = Infinity;
+      for (const o of objects) {
+        if (o.objId !== id) continue;
+        const d = Math.max(Math.abs(o.x - RESPAWN.x), Math.abs(o.y - RESPAWN.y));
+        if (d < bd) { bd = d; best = o; }
+      }
+      if (best) safe.push({ x: best.x, y: best.y, r: LESSON_RING });
+    }
+    for (const s of npcSpawns) {
+      const def = NPCS[s.npcId];
+      if (!def?.attackable || !def.aggressive || s.opts?.aggressive === false) continue;
+      if (!safe.some((c) => Math.max(Math.abs(s.x - c.x), Math.abs(s.y - c.y)) <= c.r)) continue;
+      s.opts = { ...(s.opts || {}), aggressive: false };
+    }
+  }
+
   // --- Border fence ---
   for (let x = 0; x < W; x++) { placeObj('fence', x, 0); placeObj('fence', x, H - 1); }
   for (let y = 0; y < H; y++) { placeObj('fence', 0, y); placeObj('fence', W - 1, y); }
@@ -1069,6 +1210,7 @@ export function buildWorld() {
     objects,
     npcSpawns,
     zones,
+    towns,   // the outer towns' rectangles (the World Boss keeps its distance)
     spawnPoint: { x: 58, y: 55 },
     respawnPoint: { x: 58, y: 55 },
     townName: 'Kampong Glam',

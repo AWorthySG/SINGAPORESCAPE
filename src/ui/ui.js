@@ -37,8 +37,8 @@ import { MAX_REFINE, refineCost, refineOdds, refineTag } from '../game/refine.js
 import { ATTRS, ATTR_NAMES, attrSummary, attrForMode, MAX_STAT_POINTS, RESET_COST_PER_POINT } from '../game/attributes.js';
 import { STAT_LABELS, STAT_HELP, compareGear, deltaText, gearBySlot, gearRating, meetsReq, swingBeats, tierOf, weaponStyle } from '../game/gear.js';
 import { TILE, LEARNING_ENABLED } from '../config.js';
-import { TERRAIN } from '../data/world.js';
-import { clearSave } from '../game/save.js';
+import { TERRAIN, zoneLevel } from '../data/world.js';
+import { clearSave, suppressSaves } from '../game/save.js';
 import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG, abilityIconHTML, prayerIconHTML, spellIconHTML } from '../render/icons.js';
 import { weaknessOf } from '../game/combat.js';
 import { isBone } from '../data/bones.js';
@@ -52,6 +52,9 @@ const EQUIP_LAYOUT = [
   'hands', 'feet', 'ring',
 ];
 
+// A region recommends a level "well above" yours once it's past a quarter more
+// (plus a little, so the low levels aren't all flagged). Warns only; never blocks.
+const tooHigh = (rec, you) => rec > 0 && rec > you * 1.25 + 5;
 // World map marker filters: id, chip label, marker colour.
 const MAP_FILTERS = [
   { id: 'mrt', name: 'MRT', col: '#ffffff' },
@@ -148,6 +151,8 @@ export class UI {
     this._buildSettingsPanel();
     this._buildAbilityBar();
     document.getElementById('auto-battle-btn')?.addEventListener('click', () => this.game.toggleAutoBattle());
+    document.getElementById('auto-gather-btn')?.addEventListener('click', () => this.game.toggleAutoGather());
+    document.getElementById('auto-quest-btn')?.addEventListener('click', () => this.game.toggleAutoQuest());
     document.getElementById('auto-battle-cfg')?.addEventListener('click', () => this.openAutoSettings());
     document.getElementById('interact-btn')?.addEventListener('pointerdown', (e) => { e.preventDefault(); this.game.interact(); });
     // Attack: a tap locks onto the nearest enemy; holding it keeps fighting,
@@ -206,7 +211,8 @@ export class UI {
     this.bus.on('adrenaline', () => this._soon('abilities', () => this.renderAbilities(), 100));
     this.bus.on('ability', () => this._soon('abilities', () => this.renderAbilities()));
     this.bus.on('autobattle', () => this.renderAutoBattle());
-    this.bus.on('autoquest', () => this.renderQuestPanel());
+    this.bus.on('autoquest', () => { this.renderQuestPanel(); this.renderAutoBattle(); });
+    this.bus.on('autogather', () => this.renderAutoBattle());
     this.bus.on('karma', () => { this.renderAlignment(); this._refreshModalIfOpen(['shop']); });
     this.bus.on('prayer', () => { this.renderPrayer(); this.renderPrayerPanel(); });
     this.bus.on('skills', () => this.renderPrayerPanel());
@@ -345,15 +351,24 @@ export class UI {
     btn.title = label ? `${label[0]} ${label[1]}` : 'Interact with the nearest thing (E or Space)';
   }
 
+  // The three auto switches on the action bar (battle, gather, quest), each
+  // with its own on/off and a one-line status. Runs every tick.
   renderAutoBattle() {
-    const btn = this.el.autoBattle || (this.el.autoBattle = document.getElementById('auto-battle-btn'));
-    if (!btn) return;
-    const on = this.game.autoBattle;
-    btn.classList.toggle('active', on);
-    btn.closest('.auto-row')?.classList.toggle('on', on);
-    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-    const st = btn.querySelector('.ab-status');
-    if (st) st.textContent = this.game.autoStatus();
+    const g = this.game;
+    const modes = [['auto-battle-btn', g.autoBattle, () => g.autoStatus()],
+      ['auto-gather-btn', g.autoGather, () => g.autoGatherStatus()],
+      ['auto-quest-btn', g.autoQuest, () => g.autoQuestStatus()]];
+    this.el.autoBtns ||= {};
+    for (const [id, on, status] of modes) {
+      const btn = this.el.autoBtns[id] || (this.el.autoBtns[id] = document.getElementById(id));
+      if (!btn) continue;
+      btn.classList.toggle('active', on);
+      btn.classList.toggle('on', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      const st = btn.querySelector('.ab-status');
+      const text = status();
+      if (st && st.textContent !== text) st.textContent = text;
+    }
   }
 
   openAutoSettings() {
@@ -1803,7 +1818,10 @@ export class UI {
       p.appendChild(b);
       return b;
     };
-    mk('Save game now', () => { import('../game/save.js').then((m) => { m.saveGame(this.game); this.game.msg('Game saved.', 'system'); }); });
+    mk('Save game now', () => { import('../game/save.js').then((m) => {
+      if (m.saveGame(this.game)) this.game.msg('Game saved.', 'system');
+      else this.game.msg('Could not save: this browser\'s storage is full or blocked. Your progress is not being kept.', 'system');
+    }); });
     const soundBtn = mk('', () => {
       const a = this.game.audio;
       if (!a) return;
@@ -1846,7 +1864,7 @@ export class UI {
       this.game.msg('Tips will show again as you play.', 'system');
     });
     mk('Delete save & restart', () => {
-      if (confirm('Delete your saved character and start over?')) { clearSave(); location.reload(); }
+      if (confirm('Delete your saved character and start over?')) { suppressSaves(); clearSave(); location.reload(); }
     }, true);
     const hint = document.createElement('div');
     hint.className = 'hint';
@@ -2338,6 +2356,9 @@ export class UI {
     this.modal = null;
     this.el.modalOverlay.classList.add('hidden');
     this.el.modalBody.innerHTML = '';
+    // Removed cells never fire mouseleave, and the hover tip now sits above
+    // the modal, so drop it here rather than leave it floating over the game.
+    this.hideTooltip();
     if (this.el.modalClose) this.el.modalClose.classList.remove('hidden');
   }
 
@@ -2378,12 +2399,12 @@ export class UI {
       for (const e of shown) {
         bankGrid.appendChild(this._cell(e.id, e.qty, {
           onClick: () => this.game.withdraw(e.id, 1),
-          onRight: (ev) => this.showContextMenu(ev.clientX, ev.clientY, [
+          menu: () => [
             { label: 'Withdraw 1', fn: () => this.game.withdraw(e.id, 1) },
             { label: 'Withdraw 5', fn: () => this.game.withdraw(e.id, 5) },
             { label: 'Withdraw 10', fn: () => this.game.withdraw(e.id, 10) },
             { label: 'Withdraw All', fn: () => this.game.withdraw(e.id, e.qty) },
-          ]),
+          ],
         }));
       }
       bankSide.appendChild(bankGrid);
@@ -2410,11 +2431,11 @@ export class UI {
         if (!s) return;
         invGrid.appendChild(this._cell(s.id, s.qty, {
           onClick: () => this.game.deposit(s.id, s.qty),
-          onRight: (ev) => this.showContextMenu(ev.clientX, ev.clientY, [
+          menu: () => [
             { label: 'Deposit 1', fn: () => this.game.deposit(s.id, 1) },
             { label: 'Deposit 5', fn: () => this.game.deposit(s.id, 5) },
             { label: 'Deposit All', fn: () => this.game.deposit(s.id, this.game.inventory.count(s.id)) },
-          ]),
+          ],
         }));
       });
       invSide.appendChild(invGrid);
@@ -2423,7 +2444,11 @@ export class UI {
       body.appendChild(cols);
       const hint = document.createElement('div');
       hint.className = 'modal-hint';
-      hint.textContent = 'Left-click to withdraw/deposit one. Right-click for amounts.';
+      // The first tap that opens the bank lands on the canvas, so ask the browser too.
+      const touch = this._touchUsed || !!window.matchMedia?.('(pointer: coarse)').matches;
+      hint.textContent = touch
+        ? 'Tap to withdraw/deposit one. Press and hold for amounts.'
+        : 'Left-click to withdraw/deposit one. Right-click for amounts.';
       body.appendChild(hint);
     };
     this.openModal('Bank of Singapore', render);
@@ -2447,12 +2472,12 @@ export class UI {
         shopGrid.appendChild(this._cell(entry.id, entry.qty, {
           tooltip: `<b>${getItem(entry.id).name}</b><br>Buy: ${price} coins`,
           onClick: () => this.game.buyItem(shopId, entry.id, 1),
-          onRight: (ev) => this.showContextMenu(ev.clientX, ev.clientY, [
+          menu: () => [
             { label: `Buy 1 (${price})`, fn: () => this.game.buyItem(shopId, entry.id, 1) },
             { label: 'Buy 5', fn: () => this.game.buyItem(shopId, entry.id, 5) },
             { label: 'Buy 10', fn: () => this.game.buyItem(shopId, entry.id, 10) },
             { label: 'Value', fn: () => this.game.msg(`${getItem(entry.id).name}: ${price} coins.`, 'system') },
-          ]),
+          ],
         }));
       }
       shopSide.appendChild(shopGrid);
@@ -2479,11 +2504,11 @@ export class UI {
         invGrid.appendChild(this._cell(s.id, s.qty, {
           tooltip: `<b>${getItem(s.id).name}</b><br>Sell: ${sell} coins`,
           onClick: () => this.game.sellItem(shopId, s.id, 1),
-          onRight: (ev) => this.showContextMenu(ev.clientX, ev.clientY, [
+          menu: () => [
             { label: `Sell 1 (${sell})`, fn: () => this.game.sellItem(shopId, s.id, 1) },
             { label: 'Sell 5', fn: () => this.game.sellItem(shopId, s.id, 5) },
             { label: 'Sell All', fn: () => this.game.sellItem(shopId, s.id, this.game.inventory.count(s.id)) },
-          ]),
+          ],
         }));
       });
       invSide.appendChild(invGrid);
@@ -2778,7 +2803,9 @@ export class UI {
   }
 
   // Shared item cell ---------------------------------------------------
-  _cell(id, qty, { onClick, onRight, tooltip } = {}) {
+  // `menu` lists the amount choices (Buy 5, Withdraw all ...): a right-click menu on
+  // desktop, and buttons on the press-and-hold card on phones, which have no right-click.
+  _cell(id, qty, { onClick, menu, tooltip } = {}) {
     const item = getItem(id);
     const cell = document.createElement('div');
     cell.className = 'item-cell';
@@ -2789,8 +2816,8 @@ export class UI {
       cell.appendChild(q);
     }
     if (onClick) cell.addEventListener('click', onClick);
-    if (onRight) cell.addEventListener('contextmenu', (e) => { e.preventDefault(); onRight(e); });
-    this._tip(cell, tooltip || `<b>${item.name}</b><br><span style="opacity:.8">${item.examine || ''}</span>`);
+    if (menu) cell.addEventListener('contextmenu', (e) => { e.preventDefault(); this.showContextMenu(e.clientX, e.clientY, menu()); });
+    this._tip(cell, tooltip || `<b>${item.name}</b><br><span style="opacity:.8">${item.examine || ''}</span>`, menu);
     return cell;
   }
 
@@ -2885,14 +2912,19 @@ export class UI {
       c.textAlign = 'center'; c.textBaseline = 'middle';
       // Nudge labels apart where neighbouring regions' names would overlap.
       const placed = [];
+      // Regions with a level band carry it, on the scale monsters show, and turn
+      // amber where it's well above you.
+      const you = game.fightLevel();
       for (const z of game.world.zones) {
+        const rec = zoneLevel(z);
+        const label = rec ? `${z.name} ${rec}+` : z.name;
         const cx = ((z.x0 + z.x1) / 2) * scale;
         let cy = ((z.y0 + z.y1) / 2) * scale;
-        const w2 = c.measureText(z.name).width / 2 + 3, h = Math.max(9, scale * 3) + 2;
+        const w2 = c.measureText(label).width / 2 + 3, h = Math.max(9, scale * 3) + 2;
         while (placed.some((b) => Math.abs(b.cx - cx) < b.w2 + w2 && Math.abs(b.cy - cy) < h)) cy += h;
         placed.push({ cx, cy, w2 });
-        c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillText(z.name, cx + 1, cy + 1);
-        c.fillStyle = z.wilderness ? '#ff8a7a' : '#fff3c8'; c.fillText(z.name, cx, cy);
+        c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillText(label, cx + 1, cy + 1);
+        c.fillStyle = z.wilderness ? '#ff8a7a' : tooHigh(rec, you) ? '#ffb347' : '#fff3c8'; c.fillText(label, cx, cy);
       }
       c.textAlign = 'start'; c.textBaseline = 'alphabetic';
       // The picked spot gets a gold ring.
@@ -2933,11 +2965,22 @@ export class UI {
           const b = document.createElement('button'); b.className = 'wm-go ' + cls; b.textContent = text;
           b.addEventListener('click', fn); info.appendChild(b);
         };
-        if (sel.station) btn(`Ride MRT (${MRT_FARE} coins)`, () => game.mrtFromMap(sel.station.id), 'ride');
+        if (sel.station) {
+          // Still rideable, but warn when the station's region is well above you.
+          const rec = zoneLevel(game.world.zoneAt(sel.station.x, sel.station.y)), you = game.fightLevel();
+          if (tooHigh(rec, you)) {
+            // Quote the Combat level the character panel shows (the threshold uses
+            // your best fighting level, so it only warns when even that falls short).
+            info.insertAdjacentHTML('beforeend', `<span class="wm-warn">Monsters ${rec}+ · you: combat ${game.skills.combatLevel()}</span>`);
+            btn(`Ride MRT anyway (${MRT_FARE} coins)`, () => game.mrtFromMap(sel.station.id), 'ride danger');
+          } else btn(`Ride MRT (${MRT_FARE} coins)`, () => game.mrtFromMap(sel.station.id), 'ride');
+        }
         if (sel.obj) btn('Go', () => game.goToObject(sel.obj));
         else btn('Travel here', () => { game.travelToTile({ x: sel.x, y: sel.y }); this.closeModal(); });
       }
       body.appendChild(info);
+      // On a short laptop screen the buttons can sit below the fold: bring them up.
+      if (sel && info.scrollIntoView) requestAnimationFrame(() => info.scrollIntoView({ block: 'nearest' }));
     };
     this.openModal('World Map — Singapore', render);
     this.modal.kind = 'worldmap';
