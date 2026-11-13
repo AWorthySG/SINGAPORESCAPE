@@ -205,6 +205,7 @@ export class UI {
     this.bus.on('adrenaline', () => this._soon('abilities', () => this.renderAbilities(), 100));
     this.bus.on('ability', () => this._soon('abilities', () => this.renderAbilities()));
     this.bus.on('autobattle', () => this.renderAutoBattle());
+    this.bus.on('autoquest', () => this.renderQuestPanel());
     this.bus.on('karma', () => { this.renderAlignment(); this._refreshModalIfOpen(['shop']); });
     this.bus.on('prayer', () => { this.renderPrayer(); this.renderPrayerPanel(); });
     this.bus.on('skills', () => this.renderPrayerPanel());
@@ -2012,6 +2013,11 @@ export class UI {
       html += '<div class="modal-hint">New bounties every day. Finish all three for a bonus, and on back-to-back days to grow your streak.</div>';
     }
     html += `<div class="quest-head">Quests complete: ${done} / ${QUESTS.length} &middot; Quest points: ${game.questPoints()}</div>`;
+    // Auto quest: works on the quest you last pressed Go on, else the next one.
+    const aq = game.autoQuestPick();
+    const aqName = aq ? QUESTS.find((d) => d.id === aq)?.name : '';
+    html += `<button class="q-auto${game.autoQuest ? ' on' : ''}" title="Start, work through and hand in quests by yourself">`
+      + `Auto quest: ${game.autoQuest ? 'On' : 'Off'}${aqName ? ` &middot; ${escapeHtml(aqName)}` : ''}</button>`;
     for (const d of QUESTS) {
       const st = game.quests[d.id]?.state || 'notStarted';
       let prog = '';
@@ -2028,6 +2034,7 @@ export class UI {
     for (const row of this.el.questPanel.querySelectorAll('.quest-row.can-go')) {
       row.addEventListener('click', () => { game.questTravel(row.dataset.quest); this.renderQuestPanel(); });
     }
+    this.el.questPanel.querySelector('.q-auto')?.addEventListener('click', () => { game.toggleAutoQuest(); });
   }
 
   // ---------------- Achievements / collection log ----------------
