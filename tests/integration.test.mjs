@@ -3547,6 +3547,7 @@ test('second November batch: 16 species and 3 bosses, placed at home, with bones
     const spawns = w.npcSpawns.filter((s) => s.npcId === id);
     assert.ok(spawns.length >= 1, `${id} is placed in the world`);
     for (const s of spawns) assert.ok(s.x >= z.x0 && s.x <= z.x1 && s.y >= z.y0 && s.y <= z.y1, `${id} spawns inside ${d.zone}`);
+    for (const s of spawns) assert.ok(s.x > 0 && s.y > 0 && s.x < w.width - 1 && s.y < w.height - 1, `${id} is not on the border fence`);
     assert.ok(portraitFor(id, d)?.src.endsWith('.webp'), `${id} has art (its own or borrowed)`);
   }
   const names = ALL_BOSS_IDS.map((id) => NPCS[id].ability?.name).filter(Boolean);
@@ -3558,6 +3559,23 @@ test('second November batch: 16 species and 3 bosses, placed at home, with bones
   for (const id of [...MORE_MONSTER_IDS, ...MORE_BOSS_IDS]) {
     for (const dr of NPCS[id].dropTable) if (dr.id) assert.ok(ITEMS[dr.id], `${id} drops a real item (${dr.id})`);
   }
+});
+
+test('Slayer masters hand out the November families too', async () => {
+  const { SLAYER_TASKS, eligibleTasks } = await import('../src/data/slayer.js');
+  const { NPCS, EXTRA_MONSTER_IDS, MORE_MONSTER_IDS } = await import('../src/data/npcs.js');
+  const fams = new Set([...EXTRA_MONSTER_IDS, ...MORE_MONSTER_IDS].map((id) => NPCS[id].family));
+  for (const f of fams) assert.ok(SLAYER_TASKS.some((t) => t.family === f), `${f} can be a Slayer task`);
+  // A low-level new family is open to a beginner, e.g. the level-6 kancil.
+  assert.ok(eligibleTasks(5).some((t) => t.family === 'kancil'), 'kancil is assignable early');
+  // A kill of the plain form counts toward its task.
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const g = new Game(); g.start(); g.chooseClass('rogue');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.slayer.task = { family: 'kancil', name: 'Kancils', amount: 5, remaining: 5 };
+  g.progressSlayer({ def: NPCS.kancil });
+  assert.equal(g.slayer.task.remaining, 4);
 });
 
 test('rune refund: a monster killed with spells gives back every rune spent on it', async () => {

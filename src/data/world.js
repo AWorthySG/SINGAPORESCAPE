@@ -1042,17 +1042,20 @@ export function buildWorld() {
     }
     // The second November batch, on a stream of its own so everything above stays put.
     R = mulberry32(20261113);
+    // The border fence goes up after this, so edge tiles still look open here:
+    // trim each zone by one tile so nothing spawns inside the fence.
+    const inner = (z) => ({ x0: Math.max(z.x0, 1), y0: Math.max(z.y0, 1), x1: Math.min(z.x1, W - 2), y1: Math.min(z.y1, H - 2) });
     const more = new Map();
     for (const id of MORE_MONSTER_IDS) { const f = NPCS[id].family; if (!more.has(f)) more.set(f, []); more.get(f).push(id); }
     for (const ids of more.values()) {
       for (let copy = 0; copy < MONSTER_COPIES; copy++) {
-        const z = zoneByName(NPCS[ids[0]].zone);
+        const z = inner(zoneByName(NPCS[ids[0]].zone));
         const camp = spotIn(z);
         if (!camp) continue;
         for (const id of ids) { const at = near(camp[0], camp[1], z); if (!at) continue; placeNpc(id, at[0], at[1], 3); taken.add(key(at[0], at[1])); }
       }
     }
-    for (const id of MORE_BOSS_IDS) { const at = spotIn(zoneByName(NPCS[id].zone)); if (at) { placeNpc(id, at[0], at[1], 3); taken.add(key(at[0], at[1])); } }
+    for (const id of MORE_BOSS_IDS) { const at = spotIn(inner(zoneByName(NPCS[id].zone))); if (at) { placeNpc(id, at[0], at[1], 3); taken.add(key(at[0], at[1])); } }
   }
 
   // --- Border fence ---

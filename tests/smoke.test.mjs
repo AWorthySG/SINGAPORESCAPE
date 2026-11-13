@@ -12,7 +12,7 @@ import { findPath } from '../src/engine/pathfinding.js';
 import { hitChance, maxHit, attackRoll, combatXp } from '../src/game/combat.js';
 import { gatherChance } from '../src/game/skilling.js';
 import { XP_RATE } from '../src/config.js';
-import { NPCS, MONSTER_IDS, BOSS_IDS, getNpc, monsterHpScale } from '../src/data/npcs.js';
+import { NPCS, MONSTER_IDS, ALL_MONSTER_IDS, BOSS_IDS, getNpc, monsterHpScale } from '../src/data/npcs.js';
 import { itemIconSVG, hasIcon, skillIconSVG, pngItems } from '../src/render/icons.js';
 import { readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -433,7 +433,7 @@ test('slayer tasks/rewards are well-formed and a Slayer skill exists', async () 
   assert.ok(SLAYER_TASKS.length >= 10);
   for (const t of SLAYER_TASKS) {
     assert.ok(t.family && t.name && t.req >= 1 && t.min >= 1 && t.max >= t.min, `task ${t.family} well-formed`);
-    assert.ok(NPCS[MONSTER_IDS.find((id) => NPCS[id].family === t.family)], `task ${t.family} maps to a real monster`);
+    assert.ok(NPCS[ALL_MONSTER_IDS.find((id) => NPCS[id].family === t.family)], `task ${t.family} maps to a real monster`);
   }
   assert.ok(eligibleTasks(1).length >= 1 && eligibleTasks(99).length >= eligibleTasks(1).length);
   for (const r of SLAYER_REWARDS) { assert.ok(ITEMS[r.id], `reward ${r.id} is a real item`); assert.ok(r.cost >= 1); }
