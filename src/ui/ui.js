@@ -2014,7 +2014,7 @@ export class UI {
       for (const t of b.list) {
         const pct = Math.min(100, Math.round((t.have / t.need) * 100));
         html += `<div class="quest-row bounty-row${t.done ? ' done' : ''}"><div class="q-top"><b>${escapeHtml(t.name)}</b>`
-          + (t.done ? '<span class="q-chip done">Paid</span>' : `<span class="q-chip active">${t.have}/${t.need}</span>`) + '</div>'
+          + (t.done ? '<span class="q-chip done">Paid</span>' : `<span class="q-chip ${t.have > 0 ? 'active' : 'todo'}">${t.have}/${t.need}</span>`) + '</div>'
           + `<span class="q-desc">Defeat ${t.need}${t.zone ? ` in ${escapeHtml(t.zone)}` : ''} &middot; ${formatNumber(Math.round(t.reward * streakMult(b.streak)))} coins</span>`
           + `<div class="bounty-bar"><i style="width:${pct}%"></i></div></div>`;
       }

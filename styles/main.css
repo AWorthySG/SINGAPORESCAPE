@@ -762,6 +762,11 @@ button, input, select, textarea { font-family: inherit; }
 .q-chip.todo   { background: var(--aw-muted); color: var(--aw-text-sec); }
 .q-chip.active { background: var(--warn-bg); color: var(--warn); }
 .q-chip.done   { background: var(--ok-bg); color: var(--ok); }
+/* Phone panels are narrow: a plain-case chip leaves the title room to stay
+   on one or two lines. */
+@media (max-width: 540px), (max-height: 500px) {
+  .q-chip { text-transform: none; letter-spacing: 0; padding: 2px 6px; }
+}
 /* The next step and Go share the foot of the card. */
 .quest-row .q-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-top: var(--sp-1); }
 .quest-row .q-foot .q-next { margin-top: 0; flex: 1; min-width: 0; }
@@ -2247,16 +2252,22 @@ body.boss-on #tip-toast { top: 132px; }
 /* Status orbs fill like little jars: ui.js sets --fill (0-1) and the level
    shows as a tint rising from the bottom. The number keeps its deep colour
    (see #hp-orb etc. above), readable on white at any level. The tints are
-   bloom, sun and sky mixed about a third into white: strong enough to read
-   as a level, light enough that the deep numbers stay crisp on them. */
-#hp-orb     { --jar: #FAC0CE; }
-#prayer-orb { --jar: #FBE3AB; }
-#spec-orb   { --jar: #C5E2F5; }
+   bloom, sun and sky mixed lightly into white: strong enough to read as a
+   level, light enough that the deep numbers keep 4.5:1 contrast on a full jar. */
+#hp-orb     { --jar: #FCD3DD; }
+#prayer-orb { --jar: #FCEBC3; }
+#spec-orb   { --jar: #DCEEF9; }
 #hp-orb, #prayer-orb, #spec-orb {
   background: linear-gradient(to top, var(--jar) calc(var(--fill, 1) * 100%), var(--aw-card) 0);
   box-shadow: var(--shadow-sticker-sm);
 }
-#hp-orb.low { color: var(--danger); }
+#hp-orb.low { color: var(--danger); animation-name: orbLow; }
+/* The low-HP pulse keeps the sticker shadow and adds a hard danger ring,
+   rather than the older soft red glow (hpLow, still used by the boss bar). */
+@keyframes orbLow {
+  0%, 100% { box-shadow: var(--shadow-sticker-sm); transform: scale(1); }
+  50% { box-shadow: 0 0 0 3px var(--danger-bg), var(--shadow-sticker-sm); transform: scale(1.07); }
+}
 /* Prayer on and Special armed keep their solid "switched on" look. */
 #prayer-orb.active { background: var(--aw-sun); }
 #spec-orb.armed { background: var(--aw-sky); }
@@ -2272,13 +2283,16 @@ body.boss-on #tip-toast { top: 132px; }
 .ach-prog { flex: none; font-size: var(--fs-cap); font-weight: var(--fw-label); color: var(--warn); line-height: 1.4; }
 .ach-tick { flex: none; font-weight: var(--fw-title); color: var(--ok); line-height: 1.2; }
 .ach-cell .ach-desc { font-weight: var(--fw-body); }
-/* A white track with a hairline top, so an empty bar still reads as a bar
-   on the muted locked card. */
+/* A rounded white track inset inside the card, so it reads as a bar rather
+   than a second border under the dashed locked outline. A prayer bar always
+   has some progress (level 1 and up), so its fill has a minimum width and a
+   barely-started bar never shows as a stray fleck; award bars can be empty. */
 .ach-bar, .prayer-cell .pr-bar {
-  position: absolute; left: 0; right: 0; bottom: 0; height: 5px;
-  background: var(--aw-card); box-shadow: inset 0 1px 0 var(--aw-ink-faint);
+  position: absolute; left: 8px; right: 8px; bottom: 4px; height: 4px;
+  background: var(--aw-card); border-radius: var(--r-pill); overflow: hidden;
 }
-.ach-bar i, .prayer-cell .pr-bar i { display: block; height: 100%; background: var(--aw-sun); border-radius: 0 3px 3px 0; }
+.ach-bar i, .prayer-cell .pr-bar i { display: block; height: 100%; background: var(--aw-sun); border-radius: var(--r-pill); }
+.prayer-cell .pr-bar i { min-width: 6px; }
 .ach-cell.locked, .prayer-cell.locked {
   background: var(--aw-muted); border: var(--stroke) dashed var(--aw-ink-faint); box-shadow: none; color: var(--aw-text-sec);
 }
@@ -2317,6 +2331,14 @@ body.boss-on #tip-toast { top: 132px; }
   .orb, #spec-orb { font-size: 12px; }
   .orb .orb-cap { font-size: var(--fs-cap); }
   .tab-btn .tab-label { font-size: var(--fs-cap); }
+}
+/* Short desktop windows: the tab rail's natural height (about 430px with the
+   header) would carry the panel up over the minimap, orbs and region label,
+   so the panel stops 222px below the top and the tabs share what is left. */
+@media (min-width: 900px) and (max-height: 679px) and (hover: hover) {
+  #sidepanel:not(.collapsed) { max-height: calc(100dvh - 222px); }
+  .tab-btn { min-height: 0; padding: 2px 1px; }
+  .tab-btn img, .tab-btn svg { width: 20px !important; height: 20px !important; }
 }
 /* Below 1000px a 320px panel would run into the centred ability bar, so the
    narrower windows keep the old widths. */
