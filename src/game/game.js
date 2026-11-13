@@ -866,7 +866,8 @@ export class Game {
     if ((++this.autosaveCounter >= AUTOSAVE_TICKS || this.saveSoon) && !this.pendingStyleChoice) {
       this.autosaveCounter = 0; this.saveSoon = false;
       // Storage full or blocked: say so once instead of failing silently forever.
-      if (!saveGame(this) && !this.saveWarned) { this.saveWarned = true; this.msg('Could not save: this browser\'s storage is full or blocked. Your progress is not being kept.', 'system'); }
+      // (null is saving paused before a reload, which is not a failure.)
+      if (saveGame(this) === false && !this.saveWarned) { this.saveWarned = true; this.msg('Could not save: this browser\'s storage is full or blocked. Your progress is not being kept.', 'system'); }
     }
     // Catch wealth / collection milestones that don't fire a dedicated event.
     if (this.tickCount % 10 === 0) this.checkAchievements();

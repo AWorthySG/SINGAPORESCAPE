@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { Game } from '../src/game/game.js';
-import { saveGame, loadGame, clearSave, suppressSaves, BACKUP_KEY, snapshot, exportSaveCode, importSaveCode } from '../src/game/save.js';
+import { saveGame, loadGame, clearSave, suppressSaves, BACKUP_KEY, IMPORT_BACKUP_KEY, snapshot, exportSaveCode, importSaveCode } from '../src/game/save.js';
 import { SAVE_KEY } from '../src/config.js';
 import { ITEMS } from '../src/data/items.js';
 import { getNpc, ALL_BOSS_IDS } from '../src/data/npcs.js';
@@ -221,7 +221,7 @@ test('after Delete save & restart, nothing writes the old character back', () =>
   suppressSaves();
   try {
     clearSave();
-    assert.equal(saveGame(game), false, 'the leave-the-page save is skipped');
+    assert.equal(saveGame(game), null, 'the leave-the-page save is skipped');
     game.saveSoon = true;
     step(game, 2);
     assert.equal(localStorage.getItem(SAVE_KEY), null, 'the save stays deleted');
@@ -276,7 +276,7 @@ test('a second unreadable save goes to the second backup slot; a bad field load 
   try {
     assert.throws(() => loadGame(g));
     assert.equal(localStorage.getItem(BACKUP_KEY), raw);
-    assert.equal(saveGame(g), false, 'the half-loaded game cannot save over the original');
+    assert.equal(saveGame(g), null, 'the half-loaded game cannot save over the original');
     assert.equal(localStorage.getItem(SAVE_KEY), raw);
   } finally { suppressSaves(false); }
 });
@@ -5425,33 +5425,65 @@ test('a truncated or edited save code is rejected and leaves the stored save alo
   assert.ok(saveGame(g), 'saving still works after a failed import');
 });
 
-test('importing keeps the current save as a backup', () => {
+test('importing keeps the current save in its own backup and leaves the rescue slots alone', () => {
   const g = playedGame();
   const code = exportSaveCode(g);
-  // A different character is saved here now.
+  // A different character is saved here now, and both unreadable-save slots hold rescued saves.
   const other = new Game();
   other.start();
   other.chooseClass('rogue');
   other.player.name = 'Other';
   assert.ok(saveGame(other));
   const current = localStorage.getItem(SAVE_KEY);
+  localStorage.setItem(BACKUP_KEY, 'rescued 1');
+  localStorage.setItem(BACKUP_KEY + '-2', 'rescued 2');
   try {
     assert.ok(importSaveCode(code).ok);
-    assert.equal(localStorage.getItem(BACKUP_KEY), current, 'the replaced save is kept');
+    assert.equal(localStorage.getItem(IMPORT_BACKUP_KEY), current, 'the replaced save is kept');
+    assert.equal(localStorage.getItem(BACKUP_KEY), 'rescued 1', 'rescued saves are never overwritten');
+    assert.equal(localStorage.getItem(BACKUP_KEY + '-2'), 'rescued 2');
     assert.equal(JSON.parse(localStorage.getItem(SAVE_KEY)).player.name, 'Ah Bèng 阿明');
-    assert.equal(saveGame(other), false, 'the old game cannot write itself back before the reload');
+    assert.equal(saveGame(other), null, 'the old game cannot write itself back before the reload');
+    // Importing again before playing: the backup still holds the character the first import replaced.
+    assert.ok(importSaveCode(code).ok);
+    assert.equal(localStorage.getItem(IMPORT_BACKUP_KEY), current);
   } finally { suppressSaves(false); }
+});
 
-  // Both backup slots already full: the oldest is kept, the newer one replaced.
-  localStorage.setItem(BACKUP_KEY, 'oldest');
-  localStorage.setItem(BACKUP_KEY + '-2', 'newer');
-  const before = localStorage.getItem(SAVE_KEY);
-  localStorage.setItem(SAVE_KEY, current);
+test('an import pauses saving without a false "storage is full" warning, and export still works', () => {
+  const g = playedGame();
+  const code = exportSaveCode(g);
+  const msgs = [];
+  const origMsg = g.msg.bind(g);
+  g.msg = (t, k) => { msgs.push(t); return origMsg(t, k); };
   try {
     assert.ok(importSaveCode(code).ok);
-    assert.equal(localStorage.getItem(BACKUP_KEY), 'oldest');
-    assert.equal(localStorage.getItem(BACKUP_KEY + '-2'), current);
-    assert.equal(localStorage.getItem(SAVE_KEY), before);
+    g.saveSoon = true;
+    step(g, 3);
+    assert.ok(!msgs.some((t) => /Could not save/.test(t)), 'no storage warning while waiting for the reload');
+    assert.ok(exportSaveCode(g), 'the stored (imported) save can still be exported');
+  } finally { suppressSaves(false); }
+});
+
+test('a shared save code cannot set an oversized or non-string name', () => {
+  const g = playedGame();
+  assert.ok(exportSaveCode(g));
+  const data = JSON.parse(localStorage.getItem(SAVE_KEY));
+  const sign = (obj) => {
+    const b64 = Buffer.from(JSON.stringify(obj), 'utf8').toString('base64');
+    let h = 0x811c9dc5; for (let i = 0; i < b64.length; i++) { h ^= b64.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+    return `AWA1:${b64}:${(h >>> 0).toString(16).padStart(8, '0')}`;
+  };
+  try {
+    assert.ok(importSaveCode(sign({ ...data, player: { ...data.player, name: '<img src=x onerror=alert(1)>'.repeat(3) } })).ok);
+    const g2 = new Game();
+    assert.ok(loadGame(g2));
+    assert.ok(g2.player.name.length <= 24, 'the name is cut short');
+    suppressSaves(false);
+    assert.ok(importSaveCode(sign({ ...data, player: { ...data.player, name: { evil: true } } })).ok);
+    const g3 = new Game();
+    assert.ok(loadGame(g3));
+    assert.equal(typeof g3.player.name, 'string', 'a name that is not a string is ignored');
   } finally { suppressSaves(false); }
 });
 

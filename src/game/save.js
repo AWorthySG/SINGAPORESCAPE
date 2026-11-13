@@ -8,11 +8,15 @@ const VERSION = 1;
 export const BACKUP_KEY = SAVE_KEY + '-backup';
 // A second slot, so an old backup doesn't stop a newer unreadable save being kept.
 const BACKUP_KEYS = [BACKUP_KEY, BACKUP_KEY + '-2'];
+// The save an import replaced, in a key of its own so imports never use up (or
+// overwrite) the slots kept for unreadable saves. Each import replaces it.
+export const IMPORT_BACKUP_KEY = SAVE_KEY + '-before-import';
 
 // Set once the player deletes their save (or a save half-loaded): the page is
 // about to reload, and the leave-the-page save must not write the old game back.
 let savesSuppressed = false;
 export function suppressSaves(on = true) { savesSuppressed = on; }
+export function savesAreSuppressed() { return savesSuppressed; }
 
 function storage() {
   try { return typeof localStorage !== 'undefined' ? localStorage : null; } catch { return null; }
@@ -71,9 +75,13 @@ export function snapshot(game) {
   };
 }
 
+/** true when saved, false when storage failed (full or blocked), and null when
+ *  saving is paused on purpose (the page is about to reload), which is not a
+ *  failure to warn the player about. */
 export function saveGame(game) {
+  if (savesSuppressed) return null;
   const s = storage();
-  if (!s || savesSuppressed) return false;
+  if (!s) return false;
   try {
     s.setItem(SAVE_KEY, JSON.stringify(snapshot(game)));
     return true;
@@ -84,7 +92,7 @@ export function saveGame(game) {
   }
 }
 
-/** Keep a copy of a save we could not use (or one an import is replacing), in the first empty backup slot.
+/** Keep a copy of a save we could not use, in the first empty backup slot.
  *  A copy already kept is never overwritten with yet another unusable save. */
 function backupBadSave(s, raw) {
   try {
@@ -103,6 +111,7 @@ function backupBadSave(s, raw) {
 // safe base64, and a checksum so a code cut short or edited while pasting is
 // caught before it replaces anything.
 const CODE_PREFIX = 'AWA1:';
+const NAME_MAX = 24;   // longest player name a save (or a shared code) may set
 
 /** FNV-1a: a tiny 32-bit hash, plenty to catch a truncated or mistyped paste. */
 function checksum(text) {
@@ -134,9 +143,13 @@ export function exportSaveCode(game) {
   if (game.pendingStyleChoice) return null;
   const s = storage();
   let raw = null;
-  if (saveGame(game)) raw = s.getItem(SAVE_KEY);
+  const saved = saveGame(game);
+  if (saved) raw = s.getItem(SAVE_KEY);
+  // Saving paused (an import is waiting for the reload): the stored save is the
+  // one to carry out, not a game in memory that may be about to be replaced.
+  else if (saved === null) raw = s?.getItem(SAVE_KEY) ?? null;
   // Storage full or blocked: the game in memory can still be carried out.
-  else if (!savesSuppressed) raw = JSON.stringify(snapshot(game));
+  else raw = JSON.stringify(snapshot(game));
   if (!raw) return null;
   const b64 = toBase64(raw);
   return CODE_PREFIX + b64 + ':' + checksum(b64);
@@ -144,9 +157,9 @@ export function exportSaveCode(game) {
 
 /** Replace the stored save with the one in a save code. Returns { ok, error }
  *  and never throws: a bad code leaves the stored save exactly as it was.
- *  The current save is kept in a backup slot first, and on success further
- *  saves are stopped so the old game can't write itself back before the page
- *  reloads into the imported one. */
+ *  The current save is kept under IMPORT_BACKUP_KEY first, and on success
+ *  further saves are stopped so the old game can't write itself back before
+ *  the page reloads into the imported one. */
 export function importSaveCode(code) {
   try {
     // Pasting can wrap a long line or add spaces: none belong in a code.
@@ -169,14 +182,20 @@ export function importSaveCode(code) {
         !data.skills || typeof data.skills !== 'object' || !data.inventory || typeof data.inventory !== 'object') {
       return { ok: false, error: 'This save code does not hold a complete save.' };
     }
+    // Codes get shared between players, and the name ends up on screen: keep it
+    // a short string (the UI escapes it too).
+    if (p.name !== undefined) p.name = typeof p.name === 'string' ? p.name.slice(0, NAME_MAX) : undefined;
     const s = storage();
     if (!s) return { ok: false, error: 'This browser is not letting the game store anything, so the save cannot be imported.' };
+    // Marks the save as freshly imported, so another open tab of the game can
+    // tell (see watchForImports). Saving again drops it, as snapshot() leaves it out.
+    data.importedAt = Date.now();
     const raw = JSON.stringify(data);
     const current = s.getItem(SAVE_KEY);
-    if (current && current !== raw && !backupBadSave(s, current)) {
-      // Both slots taken: replace the newer one, so the oldest kept save (often
-      // an unreadable one waiting to be rescued) survives.
-      try { s.setItem(BACKUP_KEYS[BACKUP_KEYS.length - 1], current); } catch {
+    // A save imported but never played since (importing twice, say) is only a
+    // copy of a code: keep the backup of the character it replaced instead.
+    if (current && !importedUnplayed(current)) {
+      try { s.setItem(IMPORT_BACKUP_KEY, current); } catch {
         return { ok: false, error: 'Could not keep a backup of your current save, so nothing was changed.' };
       }
     }
@@ -187,6 +206,23 @@ export function importSaveCode(code) {
     console.warn('Import failed:', err);
     return { ok: false, error: 'Could not import: this browser\'s storage is full or blocked.' };
   }
+}
+
+function importedUnplayed(raw) {
+  if (!raw.includes('"importedAt"')) return false;
+  try { return !!JSON.parse(raw).importedAt; } catch { return false; }
+}
+
+/** Another tab of the game imported a save: call onImport so this tab stops
+ *  saving (its old game would otherwise autosave over the import) and asks the
+ *  player to reload. Ordinary saves from another tab are left alone. */
+export function watchForImports(onImport) {
+  if (typeof window === 'undefined' || !window.addEventListener) return;
+  window.addEventListener('storage', (e) => {
+    if (e.key !== SAVE_KEY || !e.newValue || !importedUnplayed(e.newValue)) return;
+    suppressSaves();
+    onImport();
+  });
 }
 
 export function loadGame(game) {
@@ -234,7 +270,7 @@ function loadFields(game, data) {
   game.player.spell = p.spell || 'wind_strike';
   game.player.spellAuto = p.spellAuto === true;   // optional: older saves keep the chosen element
   game.player.autoRetaliate = p.autoRetaliate !== false;
-  if (p.name && p.name !== 'Adventurer') game.player.name = p.name; // migrate old default
+  if (typeof p.name === 'string' && p.name && p.name !== 'Adventurer') game.player.name = p.name.slice(0, NAME_MAX); // migrate old default
   if (data.quests && typeof data.quests === 'object') {
     for (const k of Object.keys(game.quests)) {
       const v = data.quests[k];
