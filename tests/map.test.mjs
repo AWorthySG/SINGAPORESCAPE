@@ -108,12 +108,14 @@ test('each station out in the country has a signpost naming where its roads go',
   }
 });
 
-test('monsters keep clear of every MRT station beyond the starting island', () => {
+test('monsters keep clear of the MRT stations, so a new rider arrives safely anywhere', () => {
   const w = buildWorld();
-  const outer = STATIONS.filter((s) => s.x >= 150 || s.y >= 104);
+  const outer = (s) => s.x >= 150 || s.y >= 104;
   assert.ok(MRT_CLEAR >= 7);
-  for (const st of outer) {
-    const near = w.npcSpawns.filter((s) => NPCS[s.npcId]?.attackable && Math.max(Math.abs(s.x - st.x), Math.abs(s.y - st.y)) < 7);
+  for (const st of STATIONS) {
+    // Beyond the starting island nothing that fights; on it nothing that attacks on sight.
+    const near = w.npcSpawns.filter((s) => NPCS[s.npcId]?.attackable && (outer(st) || NPCS[s.npcId].aggressive)
+      && Math.max(Math.abs(s.x - st.x), Math.abs(s.y - st.y)) < 7);
     assert.deepEqual(near.map((s) => s.npcId), [], `nothing that fights spawns within 7 tiles of ${st.name}`);
   }
   // Moved, not removed: every far region is still well stocked.
@@ -121,13 +123,23 @@ test('monsters keep clear of every MRT station beyond the starting island', () =
     const n = w.npcSpawns.filter((s) => s.x >= z.x0 && s.x <= z.x1 && s.y >= z.y0 && s.y <= z.y1 && NPCS[s.npcId]?.attackable).length;
     assert.ok(n > 300, `${z.name} still has ${n} monsters`);
   }
-  // A level-3 rider arriving at Temasek Camp isn't set upon.
+  // A level-3 rider idling at each station for a minute and a half (long
+  // enough for the monsters nearby to wander every way they can, round water
+  // and walls included) is never set upon. Twice over, on different rolls.
   const game = newGame();
-  game.inventory.add('coins', 100);
-  assert.equal(game.travelTo('temasek'), true);
-  for (let i = 0; i < 30; i++) game.update(600);
-  assert.ok(game.player.alive);
-  assert.equal(game.npcs.filter((n) => n.alive && n.target === game.player).length, 0, 'nothing attacks on arrival');
+  const p = game.player;
+  for (let round = 0; round < 2; round++) {
+    for (const st of STATIONS) {
+      game.inventory.add('coins', 100);
+      assert.equal(game.travelTo(st.id), true, `rode to ${st.name}`);
+      for (let i = 0; i < 150; i++) {
+        game.update(600);
+        const foe = game.npcs.find((n) => n.alive && n.target === p);
+        assert.ok(!foe, `${foe?.name} attacks a rider idling at ${st.name}`);
+      }
+      assert.ok(p.alive);
+    }
+  }
 });
 
 test('you can ride out from a station while something attacks you, but not from the world map', () => {
@@ -137,8 +149,15 @@ test('you can ride out from a station while something attacks you, but not from 
   game.ui = new Proxy({ openTransport: (obj) => { opened = obj; } }, { get: (t, k) => t[k] || (() => {}) });
   const st = STATION_BY_ID.temasek;
   game.travelTo('temasek');
-  const foe = game.npcs.find((n) => n.alive && n.attackable && !n.def.boss);
-  foe.target = game.player;
+  const p = game.player;
+  game.maxHp = () => 100000; p.hp = 100000;   // survive the beating
+  // A real fight: a sturdy monster beside you hits you and you hit back.
+  const id = Object.keys(NPCS).find((k) => NPCS[k].attackable && NPCS[k].aggressive && !NPCS[k].boss && NPCS[k].level > 20);
+  const foe = game.spawnNpc(id, p.x + 1, p.y, { temporary: true, wander: 0 });
+  foe.hp = foe.maxHp = 1e9;
+  foe.target = p;
+  for (let i = 0; i < 6; i++) game.update(600);
+  assert.ok(foe.alive && foe.target === p && foe.hp < 1e9, 'the monster is attacking and you hit back');
   assert.equal(game.mrtFromMap('kampong_glam'), false, 'the map refuses mid-fight');
   const gates = game.world.objects.find((o) => o.objId === 'mrt_station' && o.x === st.x && o.y === st.y);
   game.defaultObjectAction(gates);

@@ -52,10 +52,10 @@ const EQUIP_LAYOUT = [
   'hands', 'feet', 'ring',
 ];
 
-// World map marker filters: id, chip label, marker colour.
 // A region recommends a level "well above" yours once it's past a quarter more
 // (plus a little, so the low levels aren't all flagged). Warns only; never blocks.
 const tooHigh = (rec, you) => rec > 0 && rec > you * 1.25 + 5;
+// World map marker filters: id, chip label, marker colour.
 const MAP_FILTERS = [
   { id: 'mrt', name: 'MRT', col: '#ffffff' },
   { id: 'boss', name: 'Bosses', col: '#ff4a5a' },
@@ -2957,7 +2957,9 @@ export class UI {
           // Still rideable, but warn when the station's region is well above you.
           const rec = zoneLevel(game.world.zoneAt(sel.station.x, sel.station.y)), you = game.fightLevel();
           if (tooHigh(rec, you)) {
-            info.insertAdjacentHTML('beforeend', `<span class="wm-warn">Recommended level ${rec}+, you are ${you}</span>`);
+            // Quote the Combat level the character panel shows (the threshold uses
+            // your best fighting level, so it only warns when even that falls short).
+            info.insertAdjacentHTML('beforeend', `<span class="wm-warn">Monsters ${rec}+ · you: combat ${game.skills.combatLevel()}</span>`);
             btn(`Ride MRT anyway (${MRT_FARE} coins)`, () => game.mrtFromMap(sel.station.id), 'ride danger');
           } else btn(`Ride MRT (${MRT_FARE} coins)`, () => game.mrtFromMap(sel.station.id), 'ride');
         }
@@ -2965,6 +2967,8 @@ export class UI {
         else btn('Travel here', () => { game.travelToTile({ x: sel.x, y: sel.y }); this.closeModal(); });
       }
       body.appendChild(info);
+      // On a short laptop screen the buttons can sit below the fold: bring them up.
+      if (sel && info.scrollIntoView) requestAnimationFrame(() => info.scrollIntoView({ block: 'nearest' }));
     };
     this.openModal('World Map — Singapore', render);
     this.modal.kind = 'worldmap';

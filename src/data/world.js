@@ -10,7 +10,8 @@ export const MONSTER_COPIES = 5;
 // Copies of each fitting monster kind placed in each open-world region.
 export const REGION_COPIES = 3;
 // Monsters keep at least this many tiles (Chebyshev) clear of every MRT station
-// beyond the starting island, so riding somewhere new doesn't land you in a pack.
+// beyond the starting island (aggressive ones of every station), so riding
+// somewhere new doesn't land you in a pack.
 export const MRT_CLEAR = 9;
 // The level a region recommends, on the same (stretched) scale its monsters
 // display: zone bands are written in the old tier levels. 0 for the old island zones.
@@ -1071,23 +1072,32 @@ export function buildWorld() {
   // ================= Clear the MRT platforms =================
   // Every station is open from the start, so a new player can ride straight to
   // the far regions. Anything that can fight is moved off each station beyond
-  // the starting island: to the nearest open tile at least MRT_CLEAR away, so
-  // packs stay together just outside. With wander capped at 3 and aggro range 4,
-  // nothing reaches the platform on its own. Moved, not removed: the counts stay.
+  // the starting island, and anything that attacks on sight off the starting
+  // island's own stations (Sentosa's sea snakes, Bukit Timah's bats): each to an
+  // open tile MRT_CLEAR to MRT_CLEAR + 6 tiles out, picked at random in that band
+  // so the moved monsters thin out instead of ringing the station. Wander paths
+  // keep to the spawn box (npc.js), wander is capped at 3 and aggro range is 4,
+  // so nothing reaches the platform on its own. Moved, not removed: the counts stay.
   // Its own stream, last, so nothing placed earlier moves.
   R = mulberry32(20261113);
   {
-    const outer = STATIONS.filter((st) => st.x > 149 || st.y > 103);   // the starting island is 0-149 x 0-103
-    const clear = (x, y) => outer.every((st) => Math.max(Math.abs(st.x - x), Math.abs(st.y - y)) >= MRT_CLEAR);
+    const outer = (st) => st.x > 149 || st.y > 103;   // the starting island is 0-149 x 0-103
+    const gapTo = (x, y, list) => Math.min(...list.map((st) => Math.max(Math.abs(st.x - x), Math.abs(st.y - y))));
     const zoneOf = (x, y) => zones.find((z) => x >= z.x0 && x <= z.x1 && y >= z.y0 && y <= z.y1);
     const taken = new Set(npcSpawns.map((s) => key(s.x, s.y)));
     for (const s of npcSpawns) {
-      if (!NPCS[s.npcId]?.attackable || clear(s.x, s.y)) continue;
+      const def = NPCS[s.npcId];
+      if (!def?.attackable) continue;
+      // Every station counts for a fighter that attacks on sight; only the
+      // outer ones for the rest (the starter fields keep their chickens).
+      const near = STATIONS.filter((st) => def.aggressive || outer(st));
+      if (gapTo(s.x, s.y, near) >= MRT_CLEAR) continue;
+      const far = MRT_CLEAR + Math.floor(R() * 7);
       const home = zoneOf(s.x, s.y);
-      const ok = (x, y) => inB(x, y) && clear(x, y) && zoneOf(x, y) === home && LANDABLE.includes(get(x, y))
+      const ok = (x, y) => inB(x, y) && gapTo(x, y, near) >= far && zoneOf(x, y) === home && LANDABLE.includes(get(x, y))
         && !occupied.has(key(x, y)) && !taken.has(key(x, y)) && !inTown(x, y) && !inNewTown(x, y);
       let spot = null;
-      for (let r = 1; r <= 3 * MRT_CLEAR && !spot; r++) {
+      for (let r = 1; r <= 4 * MRT_CLEAR && !spot; r++) {
         const ring = [];
         for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
           if (Math.max(Math.abs(dx), Math.abs(dy)) === r && ok(s.x + dx, s.y + dy)) ring.push([s.x + dx, s.y + dy]);
@@ -1097,7 +1107,7 @@ export function buildWorld() {
       if (!spot) continue;
       taken.delete(key(s.x, s.y));
       s.x = spot[0]; s.y = spot[1];
-      s.wander = Math.min(s.wander, 3);
+      s.wander = Math.min(s.wander || def.wander || 0, 3);   // 0 would fall back to the def's 4
       taken.add(key(s.x, s.y));
     }
   }
