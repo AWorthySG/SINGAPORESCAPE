@@ -18,7 +18,7 @@ import { Skills } from './skillset.js';
 import { Inventory } from './inventory.js';
 import { Equipment, canDualWield, canDualPair, EQUIP_SLOTS } from './equipment.js';
 import { Bank } from './bank.js';
-import { Player } from './player.js';
+import { Player, STICK_DEAD } from './player.js';
 import { NPC } from './npc.js';
 import { Camera } from '../engine/camera.js';
 import { findPath } from '../engine/pathfinding.js';
@@ -304,6 +304,7 @@ export class Game {
     this.armedAbility = null;     // ability armed for the next attack
     this.moveInput = { x: 0, y: 0 }; // joystick / WASD vector, -1..1 on each axis
     this._driving = false;
+    this._stopOnAttackRelease = false;   // the stick was let go while Attack was held
     this.autoBattle = false;      // auto battle: hunt, fight, eat and use skills
     this.autoGather = false;      // auto gather: when a node runs dry, move on to the next one
     this.autoQuest = false;       // auto quest: work through quests by yourself (see _autoQuestTick)
@@ -3945,14 +3946,25 @@ export class Game {
   // cancels whatever the player was doing (skilling, fighting, a clicked route).
   _driveMovement() {
     const p = this.player, v = this.moveInput;
-    const held = Math.hypot(v.x, v.y) >= 0.3;
+    const held = Math.hypot(v.x, v.y) >= STICK_DEAD;
     if (!held || !p.alive || this.playerStun > 0 || this.playerRoot > 0) {
       p.stick = null;
-      if (!held || !p.alive) this._driving = false;
+      if ((!held || !p.alive) && this._driving) {
+        this._driving = false;
+        // Letting go of the stick means stop. A close-range target picked up
+        // while steering (Attack tapped mid-run) that is now well out of reach
+        // would otherwise drag the player off after it the moment the thumb
+        // lifts. Holding Attack still chases (until Attack is let go too, see
+        // releaseAttack), a foe close by is still fought, and bows and spells
+        // keep their target for kiting.
+        if (this.attackHeld) this._stopOnAttackRelease = true;
+        else this._dropFarMeleeTarget();
+      }
       return;
     }
     if (!this._driving) {
       this._driving = true;
+      this._stopOnAttackRelease = false;
       this._autoLife = null;   // steering away ends any auto gather loop
       // Bows and spells keep firing while you steer (handy for dodging); other actions stop.
       const shooting = p.action?.type === 'attack' && this.attackRange() > 1;
@@ -3961,6 +3973,23 @@ export class Game {
     }
     p.running = this.canRun();
     p.stick = { x: v.x, y: v.y };
+  }
+
+  /** Drops a close-range (range 3 or less) attack target that is well out of
+   *  reach, so letting go of the controls doesn't run the player off after it. */
+  _dropFarMeleeTarget() {
+    const p = this.player, a = p.action, range = this.attackRange();
+    if (a?.type === 'attack' && range <= 3 && a.npc
+      && chebyshev(p.x, p.y, a.npc.x, a.npc.y) > range + 2) { p.clearAction(); p.path = []; }
+  }
+
+  /** The Attack button is let go. If the stick was let go while Attack was
+   *  held, nothing is held any more, so the same "letting go stops" rule
+   *  applies now. A plain tapped Attack still chases its target as before. */
+  releaseAttack() {
+    this.attackHeld = false;
+    if (this._stopOnAttackRelease && !this._driving) this._dropFarMeleeTarget();
+    this._stopOnAttackRelease = false;
   }
 
   walkTo(tile) {

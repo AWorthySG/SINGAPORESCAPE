@@ -9,6 +9,18 @@ import { TILE, TICK_MS } from '../config.js';
 const BODY = 0.3;        // half-width of the player's footprint, in tiles
 const LOOKAHEAD = 6;     // how many waypoints ahead a route may cut straight to
 
+// Joystick response. Pushes below STICK_DEAD are ignored (a resting thumb
+// wobbles); past it the push is rescaled from 0, so speed ramps up smoothly
+// from a slow walk instead of jumping, and reaches full speed at about two
+// thirds of the way to the rim, so a thumb never has to hunt for the edge.
+export const STICK_DEAD = 0.12;
+/** Speed factor (0..1) for a stick pushed `m` of the way to its rim. */
+export function stickSpeed(m) {
+  if (!(m >= STICK_DEAD)) return 0;
+  const t = Math.min(1, (m - STICK_DEAD) / (1 - STICK_DEAD));
+  return Math.min(1, 0.4 + t);
+}
+
 // The player. Holds combat/action state; skills, inventory and equipment live
 // on the Game so the UI and save system can reach them directly.
 export class Player extends Character {
@@ -119,9 +131,9 @@ export class Player extends Character {
     const budget = this.speed() * dt;
     let moved = 0;
     if (this.stick) {
-      // Joystick: full speed past a light push, slower for a gentle one.
+      // Joystick: full speed past a moderate push, slower for a gentle one.
       const m = Math.hypot(this.stick.x, this.stick.y);
-      const k = budget * Math.min(1, 0.45 + m * 0.75) / (m || 1);
+      const k = budget * stickSpeed(m) / (m || 1);
       const dx = this.stick.x * k, dy = this.stick.y * k;
       this._face(dx, dy);
       // Very fast movement (Agility has no cap) is taken in small steps so it

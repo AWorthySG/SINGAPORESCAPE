@@ -95,6 +95,18 @@ button, input, select, textarea { font-family: inherit; }
 
 #game-root { position: relative; width: 100vw; height: 100vh; height: 100dvh; overflow: hidden; }
 #game-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+/* Touch: no browser zoom during play (iPad Safari ignores user-scalable=no).
+   manipulation still lets panels, the bag, the chat and dialogues scroll, but
+   drops double-tap zoom everywhere; the world itself takes no browser gestures
+   at all, so a pinch or a quick second tap that lands on it can't zoom either. */
+html, body, #game-root { touch-action: manipulation; }
+/* WebKit resets touch-action to auto inside every scrolling box (the bag and
+   other panels, the tabs, the chat log, shop and bank windows), so the rule
+   above doesn't reach their contents: give every element manipulation. It
+   has no specificity, so the id/class 'none' rules below still win. */
+* { touch-action: manipulation; }
+body { -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+#game-canvas { touch-action: none; }
 
 /* Shared sticker panel: white card, 2px navy ink outline, hard offset shadow */
 .tile-panel,
@@ -1268,6 +1280,13 @@ button:focus-visible, .tab-btn:focus-visible, .chat-tab:focus-visible,
   pointer-events: none; transition: transform .12s cubic-bezier(0.22, 1, 0.36, 1);
 }
 #joystick.active #joystick-knob { transition: none; box-shadow: 0 2px 0 #962D22; }
+/* Touch: the stick's touch area reaches past the drawn ring, so a thumb that
+   lands just outside it (or jammed into the screen corner) still steers; the
+   stick floats to wherever it lands. Only 8px upwards, where the chat sits
+   just above the stick and must keep its taps. */
+@media (pointer: coarse) {
+  #joystick::after { content: ""; position: absolute; inset: -8px -28px -28px; border-radius: 36px; }
+}
 @media (max-width: 760px) {
   #joystick { left: 14px; bottom: 84px; width: 116px; height: 116px; }
   #joystick-knob { width: 50px; height: 50px; }
@@ -1810,6 +1829,8 @@ body.boss-on #tip-toast { top: 132px; }
     font-family: inherit; font-weight: 900; user-select: none; -webkit-user-select: none;
     transition: transform .06s ease, box-shadow .06s ease;
   }
+  /* A slightly larger round tap area, so a mashed tap just off the edge still attacks. */
+  #attack-btn::before { content: ""; position: absolute; inset: -12px; border-radius: 50%; }
   #attack-btn .atk-icon { font-size: 30px; line-height: 1; }
   #attack-btn .atk-label { font-size: 11px; letter-spacing: .03em; }
   #attack-btn.held, #attack-btn:active { transform: translateY(3px) scale(.97); box-shadow: 0 1px 0 #962D22; }
@@ -1854,6 +1875,14 @@ body.boss-on #tip-toast { top: 132px; }
 }
 @media (pointer: coarse) and (orientation: portrait) and (max-width: 540px) {
   #chatbox.collapsed { min-width: 0; max-width: 120px; }   /* clear of the ultimate */
+}
+/* Tablets: the joystick sits in the bottom-left corner under the left thumb,
+   a size up, rather than at the desktop offset with the chat below it; the
+   chat moves up above it. bottom 184px = the stick's 24px offset + 148px + 12px. */
+@media (pointer: coarse) and (min-width: 541px) and (min-height: 501px) {
+  #joystick { left: calc(24px + env(safe-area-inset-left, 0px)); bottom: calc(24px + env(safe-area-inset-bottom, 0px)); width: 148px; height: 148px; }
+  #joystick-knob { width: 62px; height: 62px; }
+  #chatbox { bottom: calc(184px + env(safe-area-inset-bottom, 0px)); }
 }
 /* Tablets: the chat stays clear of the button cluster, and the auto battle +
    adrenaline block sits just above the cluster rather than on the joystick. */

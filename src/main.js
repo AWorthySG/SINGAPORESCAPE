@@ -1,7 +1,7 @@
 import { Game } from './game/game.js';
 import { UI } from './ui/ui.js';
 import { Renderer } from './render/renderer.js';
-import { Input } from './engine/input.js';
+import { Input, guardTouchZoom, clickSecondFingerTaps } from './engine/input.js';
 import { MovePad } from './engine/movepad.js';
 import { Sfx } from './audio/sfx.js';
 import { now } from './core/utils.js';
@@ -25,6 +25,8 @@ const ui = new UI(game);
 const renderer = new Renderer(game, canvas, ctx);
 const input = new Input(canvas);
 const movepad = new MovePad(game);
+guardTouchZoom();
+clickSecondFingerTaps();
 
 game.ui = ui;
 game.input = input;
