@@ -5058,6 +5058,68 @@ test('new gear enters the game: the Fletcher sells quivers, and every drop is a 
   }
 });
 
+test('auto quest keeps to a quest already under way before starting a new one', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.ui = new Proxy({}, { get: () => () => {} });
+  // Nothing begun: the first quest in journal order.
+  assert.equal(game.autoQuestPick(), 'life_skills');
+  // A Bag of Bones accepted: auto quest carries on with it, not an untouched one.
+  game.quests.bone_collector.state = 'active';
+  assert.equal(game.autoQuestPick(), 'bone_collector');
+  assert.equal(game.autoQuestStatus(), 'Off');
+  game.toggleAutoQuest(true);
+  assert.equal(game.autoQuestStatus(), 'A Bag of Bones', 'the HUD names the quest');
+  game.toggleAutoQuest(false);
+  // The quest you last pressed Go on still wins.
+  game.autoQuestId = 'pillars';
+  assert.equal(game.autoQuestPick(), 'pillars');
+  // ...until it is done, then back to the one under way.
+  game.quests.pillars.state = 'done';
+  assert.equal(game.autoQuestPick(), 'bone_collector');
+});
+
+test('the Smithing lesson sends you to mine copper and tin before the furnace, and auto quest gets it done', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.ui = new Proxy({}, { get: () => () => {} });
+  game.startLife('life_skills');
+  const q = game.quests.life_skills;
+  q.stage = 4;   // Smithing: bring 2 bronze bars
+  game._beginLifeStage('life_skills');
+  for (const id of ['copper_ore', 'tin_ore', 'bronze_bar']) game.inventory.remove(id, game.inventory.count(id));
+  assert.equal(game.questGuide('life_skills').objId, 'copper_rock', 'no ore: mine copper first');
+  game.inventory.add('copper_ore', 2);
+  assert.equal(game.questGuide('life_skills').objId, 'tin_rock', 'copper in hand: now tin');
+  game.inventory.add('tin_ore', 1);
+  assert.equal(game.questGuide('life_skills').objId, 'tin_rock', 'one tin is not enough for two bars');
+  game.inventory.add('tin_ore', 1);
+  assert.equal(game.questGuide('life_skills').objId, 'furnace', 'both ores: off to the furnace');
+  // From empty-handed, auto quest mines, smelts and hands in by itself.
+  game.inventory.remove('copper_ore', 2);
+  game.inventory.remove('tin_ore', 2);
+  game.autoQuestId = 'life_skills';
+  game.toggleAutoQuest(true);
+  // Real frame-sized steps: whole 600ms jumps can wedge the walker on a corner
+  // on the way into town, which a browser at any sensible frame rate never does.
+  for (let i = 0; i < 4000 * 12 && q.stage === 4 && game.autoQuest; i++) game.update(50);
+  assert.ok(q.stage > 4, 'the Smithing lesson was handed in');
+  assert.ok(game.player.alive);
+  // Herblore needs a vial too: the guide sends you to Farmer Lim to buy one.
+  game.toggleAutoQuest(false);
+  game.startLife('life_skills_wild');
+  game.quests.life_skills_wild.stage = 2;
+  game.inventory.add('chilli', 1);
+  game.inventory.remove('vial', game.inventory.count('vial'));
+  const g = game.questGuide('life_skills_wild');
+  assert.equal(g.npcId, 'farmer');
+  assert.deepEqual(g.buy, { item: 'vial', qty: 1 });
+});
+
 test('a fresh character on auto battle never picks a fight with a boss too strong for it', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();

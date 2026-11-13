@@ -1174,6 +1174,16 @@ export class Game {
     this.bus.emit('autogather');
   }
 
+  /** One-line description of what auto gather is doing, for the HUD. */
+  autoGatherStatus() {
+    if (!this.autoGather) return 'Off';
+    const a = this.player.action;
+    if (a && GATHER_ACTIONS.has(a.type) && a.obj?.def) return a.obj.def.name;
+    if (a?.type === 'farm' || this._autoLife?.kind === 'farm') return 'Farming';
+    if (a?.type === 'thieve' || this._autoLife?.kind === 'thieve') return 'Pickpocketing';
+    return this._autoLife ? 'Waiting for regrowth' : 'Start gathering';
+  }
+
   /** "Go" from a skill guide or the world map: walk to the nearest of these
    *  objects (anywhere on the island) and start on it. */
   goToNearest(objIds) {
@@ -4724,7 +4734,38 @@ export class Game {
         if (met) return npc(giver, 'Hand in to');
         const SOURCE = { logs: 'tree', oak_logs: 'oak', copper_ore: 'copper_rock', iron_ore: 'iron_rock', bronze_bar: 'furnace', steel_bar: 'furnace',
           raw_anchovy: 'fishing_spot', raw_trout: 'rod_spot', anchovy: 'range', trout: 'range', chilli: 'farm_patch', attack_potion: 'apothecary_table', arrow_shaft: 'fletching_bench' };
-        if (st.need.item) return obj(SOURCE[st.need.item] || 'tree', `${st.name}: get ${st.need.qty} ${getItem(st.need.item).name.toLowerCase()}`);
+        if (st.need.item) {
+          // A made item needs its ingredients first: send the player to whichever
+          // one is short (ore before the furnace, a catch before the range, logs
+          // and a knife before the bench), so Go and auto quest never walk to a
+          // station with nothing to work on.
+          const left = st.need.qty - inv(st.need.item);
+          const lesson = `${st.name}: get ${st.need.qty} ${getItem(st.need.item).name.toLowerCase()}`;
+          const short = (item, per = 1) => inv(item) < left * per;
+          const buy = (item, what) => ({ ...npc('farmer', `${st.name}: buy ${what} from`), buy: { item, qty: 1 } });
+          switch (st.need.item) {
+            case 'bronze_bar':
+              if (short('copper_ore')) return obj('copper_rock', `${st.name}: mine copper ore (${inv('copper_ore')}/${left})`);
+              if (short('tin_ore')) return obj('tin_rock', `${st.name}: mine tin ore (${inv('tin_ore')}/${left})`);
+              break;
+            case 'steel_bar':
+              if (short('iron_ore')) return obj('iron_rock', `${st.name}: mine iron ore (${inv('iron_ore')}/${left})`);
+              if (short('coal', 2)) return obj('coal_rock', `${st.name}: mine coal (${inv('coal')}/${left * 2})`);
+              break;
+            case 'anchovy': if (!inv('raw_anchovy')) return obj('fishing_spot', `${st.name}: catch some raw anchovies first`); break;
+            case 'trout': if (!inv('raw_trout')) return obj('rod_spot', `${st.name}: catch some raw trout first`); break;
+            case 'attack_potion':
+              if (!inv('chilli')) return inv('chilli_seed') ? obj('farm_patch', `${st.name}: grow a chilli first`) : buy('chilli_seed', 'chilli seeds');
+              if (!inv('vial')) return buy('vial', 'a vial');
+              break;
+            case 'chilli': if (!inv('chilli_seed') && !this.world.objects.some((o) => o.crop)) return buy('chilli_seed', 'chilli seeds'); break;
+            case 'arrow_shaft':
+              if (!this.hasTool('knife')) return buy('knife', 'a knife');
+              if (!inv('logs')) return obj('tree', `${st.name}: chop some logs first`);
+              break;
+          }
+          return obj(SOURCE[st.need.item] || 'tree', lesson);
+        }
         if (st.skill === 'firemaking') {
           const log = this.inventory.slots.find((sl) => sl && getItem(sl.id).tags?.includes('log'));
           return log ? { kind: 'light', text: 'Firemaking: light your logs' } : obj('tree', 'Firemaking: chop some logs first');
@@ -4811,7 +4852,9 @@ export class Game {
   autoQuestPick() {
     const can = (id) => AUTO_QUEST_ACTIONS[id] && this.quests[id] && this.quests[id].state !== 'done' && this.questGuide(id).kind !== 'none';
     if (this.autoQuestId && can(this.autoQuestId)) return this.autoQuestId;
-    return QUESTS.find((d) => can(d.id))?.id || null;
+    // Finish what you have already started before taking on anything new.
+    return QUESTS.find((d) => this.quests[d.id]?.state === 'active' && can(d.id))?.id
+      || QUESTS.find((d) => can(d.id))?.id || null;
   }
 
   toggleAutoQuest(on = !this.autoQuest, why = '') {
@@ -4829,6 +4872,13 @@ export class Game {
       ? 'Auto quest on: you will start, work through and hand in your quests by yourself. Steer to pause.'
       : `Auto quest off${why ? `: ${why}` : '.'}`, 'system');
     this.bus.emit('autoquest');
+  }
+
+  /** One-line description of what auto quest is doing, for the HUD. */
+  autoQuestStatus() {
+    if (!this.autoQuest) return 'Off';
+    const id = this.autoQuestPick();
+    return id ? QUESTS.find((d) => d.id === id)?.name || id : 'No quest';
   }
 
   /** A rough "has anything happened" mark (bag contents and total XP), so auto
@@ -4914,6 +4964,12 @@ export class Game {
     const q = this.quests[id];
     const acts = AUTO_QUEST_ACTIONS[id];
     if (!q || !acts) return;
+    // A lesson step that sends you shopping (a vial, a knife, seeds): buy it.
+    const g = this.questGuide(id);
+    if (g.buy && npc.def.role === 'shop') {
+      if (this.inventory.count(g.buy.item) < g.buy.qty) this.buyItem(npc.def.shop, g.buy.item, g.buy.qty);
+      return;
+    }
     if (id === 'mystic_trial' && q.state === 'active' && npc.def.role === 'shop') {
       const need = 25 - this.inventory.count('death_rune');
       if (need > 0) this.buyItem(npc.def.shop, 'death_rune', need);

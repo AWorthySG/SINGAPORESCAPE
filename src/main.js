@@ -61,6 +61,10 @@ input.onKey((e) => {
     game.hireMercenary();   // Merchant: hire a mercenary
   } else if (e.key === 't' || e.key === 'T') {
     game.toggleAutoBattle();
+  } else if (e.key === 'y' || e.key === 'Y') {
+    game.toggleAutoGather();
+  } else if (e.key === 'u' || e.key === 'U') {
+    game.toggleAutoQuest();
   } else if (e.key === 'm' || e.key === 'M') {
     ui.openWorldMap();
   } else if (e.key === 'Escape') {

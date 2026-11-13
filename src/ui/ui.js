@@ -151,6 +151,8 @@ export class UI {
     this._buildSettingsPanel();
     this._buildAbilityBar();
     document.getElementById('auto-battle-btn')?.addEventListener('click', () => this.game.toggleAutoBattle());
+    document.getElementById('auto-gather-btn')?.addEventListener('click', () => this.game.toggleAutoGather());
+    document.getElementById('auto-quest-btn')?.addEventListener('click', () => this.game.toggleAutoQuest());
     document.getElementById('auto-battle-cfg')?.addEventListener('click', () => this.openAutoSettings());
     document.getElementById('interact-btn')?.addEventListener('pointerdown', (e) => { e.preventDefault(); this.game.interact(); });
     // Attack: a tap locks onto the nearest enemy; holding it keeps fighting,
@@ -209,7 +211,8 @@ export class UI {
     this.bus.on('adrenaline', () => this._soon('abilities', () => this.renderAbilities(), 100));
     this.bus.on('ability', () => this._soon('abilities', () => this.renderAbilities()));
     this.bus.on('autobattle', () => this.renderAutoBattle());
-    this.bus.on('autoquest', () => this.renderQuestPanel());
+    this.bus.on('autoquest', () => { this.renderQuestPanel(); this.renderAutoBattle(); });
+    this.bus.on('autogather', () => this.renderAutoBattle());
     this.bus.on('karma', () => { this.renderAlignment(); this._refreshModalIfOpen(['shop']); });
     this.bus.on('prayer', () => { this.renderPrayer(); this.renderPrayerPanel(); });
     this.bus.on('skills', () => this.renderPrayerPanel());
@@ -348,15 +351,24 @@ export class UI {
     btn.title = label ? `${label[0]} ${label[1]}` : 'Interact with the nearest thing (E or Space)';
   }
 
+  // The three auto switches on the action bar (battle, gather, quest), each
+  // with its own on/off and a one-line status. Runs every tick.
   renderAutoBattle() {
-    const btn = this.el.autoBattle || (this.el.autoBattle = document.getElementById('auto-battle-btn'));
-    if (!btn) return;
-    const on = this.game.autoBattle;
-    btn.classList.toggle('active', on);
-    btn.closest('.auto-row')?.classList.toggle('on', on);
-    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-    const st = btn.querySelector('.ab-status');
-    if (st) st.textContent = this.game.autoStatus();
+    const g = this.game;
+    const modes = [['auto-battle-btn', g.autoBattle, () => g.autoStatus()],
+      ['auto-gather-btn', g.autoGather, () => g.autoGatherStatus()],
+      ['auto-quest-btn', g.autoQuest, () => g.autoQuestStatus()]];
+    this.el.autoBtns ||= {};
+    for (const [id, on, status] of modes) {
+      const btn = this.el.autoBtns[id] || (this.el.autoBtns[id] = document.getElementById(id));
+      if (!btn) continue;
+      btn.classList.toggle('active', on);
+      btn.classList.toggle('on', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      const st = btn.querySelector('.ab-status');
+      const text = status();
+      if (st && st.textContent !== text) st.textContent = text;
+    }
   }
 
   openAutoSettings() {

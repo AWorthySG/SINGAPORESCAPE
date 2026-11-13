@@ -120,9 +120,17 @@
     <!-- Active-combat ability bar (bottom-centre) -->
     <div id="ability-bar">
       <div class="auto-row">
-        <button id="auto-battle-btn" aria-pressed="false" title="Auto battle (T): hunt monsters, eat when hurt and use your skills">
+        <button id="auto-battle-btn" class="ab-btn" aria-pressed="false" title="Auto battle (T): hunt monsters, eat when hurt and use your skills">
           <span class="ab-switch" aria-hidden="true"><i></i></span>
-          <span class="ab-text"><b class="ab-label">Auto battle</b><span class="ab-status">Off</span></span>
+          <span class="ab-text"><b class="ab-label">Battle <kbd>T</kbd></b><span class="ab-status">Off</span></span>
+        </button>
+        <button id="auto-gather-btn" class="ab-btn" aria-pressed="false" title="Auto gather (Y): when a tree, rock or fishing spot runs dry, move on to the next one">
+          <span class="ab-switch" aria-hidden="true"><i></i></span>
+          <span class="ab-text"><b class="ab-label">Gather <kbd>Y</kbd></b><span class="ab-status">Off</span></span>
+        </button>
+        <button id="auto-quest-btn" class="ab-btn" aria-pressed="false" title="Auto quest (U): start, work through and hand in quests by yourself">
+          <span class="ab-switch" aria-hidden="true"><i></i></span>
+          <span class="ab-text"><b class="ab-label">Quest <kbd>U</kbd></b><span class="ab-status">Off</span></span>
         </button>
         <button id="auto-battle-cfg" title="Auto battle settings" aria-label="Auto battle settings">&#9881;</button>
       </div>
@@ -170,7 +178,7 @@
       <p class="splash-sub">An island of adventure &mdash; by <b>A&nbsp;Worthy</b></p>
       <img src="assets/logo.svg" alt="A Worthy" class="splash-logo" />
       <button id="splash-enter">Enter Kampong Glam &#9654;</button>
-      <p class="splash-controls">Joystick or W A S D to move &middot; Interact button, E or Space to act &middot; T for auto battle</p>
+      <p class="splash-controls">Joystick or W A S D to move &middot; Interact button, E or Space to act &middot; T, Y and U for auto battle, gather and quest</p>
     </div>
   </div>
 
