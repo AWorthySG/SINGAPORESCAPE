@@ -38,7 +38,7 @@ import { ATTRS, ATTR_NAMES, attrSummary, attrForMode, MAX_STAT_POINTS, RESET_COS
 import { STAT_LABELS, STAT_HELP, compareGear, deltaText, gearBySlot, gearRating, meetsReq, swingBeats, tierOf, weaponStyle } from '../game/gear.js';
 import { TILE, LEARNING_ENABLED } from '../config.js';
 import { TERRAIN, zoneLevel } from '../data/world.js';
-import { clearSave, suppressSaves } from '../game/save.js';
+import { clearSave, suppressSaves, exportSaveCode, importSaveCode } from '../game/save.js';
 import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG, abilityIconHTML, prayerIconHTML, spellIconHTML } from '../render/icons.js';
 import { weaknessOf } from '../game/combat.js';
 import { isBone } from '../data/bones.js';
@@ -458,11 +458,11 @@ export class UI {
     }
     if (g.slayer && g.slayer.task) {
       const t = g.slayer.task;
-      rows.push(`<div class="trk-row"><span class="trk-ic trk-slayer">&#9760;</span>${t.remaining} ${escapeHtml(t.name)}${this._trkPointer((n) => n.def.family === t.family)}</div>`);
+      rows.push(`<div class="trk-row"><span class="trk-ic trk-slayer">&#9760;</span>${Number(t.remaining) || 0} ${escapeHtml(t.name)}${this._trkPointer((n) => n.def.family === t.family)}</div>`);
     }
     // Today's unfinished bounties (up to two), each with a pointer to the nearest target.
     for (const t of (g.bounties?.list || []).filter((x) => !x.done).slice(0, 2)) {
-      rows.push(`<div class="trk-row"><span class="trk-ic trk-bounty">&#9733;</span>${escapeHtml(t.name)} <span class="trk-prog">${t.have}/${t.need}</span>${this._trkPointer((n) => n.npcId === t.id)}</div>`);
+      rows.push(`<div class="trk-row"><span class="trk-ic trk-bounty">&#9733;</span>${escapeHtml(t.name)} <span class="trk-prog">${Number(t.have) || 0}/${Number(t.need) || 0}</span>${this._trkPointer((n) => n.npcId === t.id)}</div>`);
     }
     for (const q of QUESTS) {
       const st = g.quests[q.id];
@@ -1345,7 +1345,7 @@ export class UI {
       const t = rep.totals;
       const head = document.createElement('div');
       head.className = 'rc-head';
-      head.innerHTML = `<b>${g.player.name}</b><span>Wisdom ${t.wisdom} · ${t.mastered}/${t.topics} topics mastered · ${t.answered} questions${t.accuracy !== null ? ` · ${t.accuracy}% correct` : ''}</span>` +
+      head.innerHTML = `<b>${escapeHtml(g.player.name)}</b><span>Wisdom ${t.wisdom} · ${t.mastered}/${t.topics} topics mastered · ${t.answered} questions${t.accuracy !== null ? ` · ${t.accuracy}% correct` : ''}</span>` +
         `<span>Daily streak ${t.streak} (best ${t.bestStreak}) · ${t.openMistakes} mistakes to revisit · check code <code>${rep.code}</code></span>`;
       body.appendChild(head);
       const table = document.createElement('table');
@@ -1369,7 +1369,7 @@ export class UI {
       btn('Download', () => {
         const a = document.createElement('a');
         a.href = URL.createObjectURL(new Blob([rep.text], { type: 'text/plain' }));
-        a.download = `a-worthy-adventure-report-${g.player.name.replace(/[^a-z0-9]+/gi, '_')}.txt`;
+        a.download = `a-worthy-adventure-report-${String(g.player.name).replace(/[^a-z0-9]+/gi, '_')}.txt`;
         a.click();
         setTimeout(() => URL.revokeObjectURL(a.href), 2000);
       });
@@ -1819,7 +1819,9 @@ export class UI {
       return b;
     };
     mk('Save game now', () => { import('../game/save.js').then((m) => {
-      if (m.saveGame(this.game)) this.game.msg('Game saved.', 'system');
+      const saved = m.saveGame(this.game);
+      if (saved) this.game.msg('Game saved.', 'system');
+      else if (saved === null) this.game.msg('Saving is paused: reload the page to carry on.', 'system');
       else this.game.msg('Could not save: this browser\'s storage is full or blocked. Your progress is not being kept.', 'system');
     }); });
     const soundBtn = mk('', () => {
@@ -1863,6 +1865,10 @@ export class UI {
       this._tipsSeen = new Set();
       this.game.msg('Tips will show again as you play.', 'system');
     });
+    // Carry a character to another browser, device or web address (saves live
+    // in one site's storage, so they don't follow the player on their own).
+    mk('Export save', () => this.openExportSave());
+    mk('Import save', () => this.openImportSave());
     mk('Delete save & restart', () => {
       if (confirm('Delete your saved character and start over?')) { suppressSaves(); clearSave(); location.reload(); }
     }, true);
@@ -1875,6 +1881,100 @@ export class UI {
       '(melee/ranged/magic) and <b>Brace</b> when a monster winds up a heavy blow (!).<br>' +
       'Eat food to heal. Bank your loot. Your progress auto-saves.';
     p.appendChild(hint);
+  }
+
+  /** The save as a code to copy out. Buttons and a plain textarea, so it works
+   *  the same with a mouse or a finger. */
+  openExportSave() {
+    const code = exportSaveCode(this.game);
+    this.openModal('Export save', (body) => {
+      if (!code) {
+        body.innerHTML = `<div class="modal-hint">${this.game.pendingStyleChoice ? 'There is nothing to export yet: pick a class first.'
+          : 'There is no save here to export. Reload the page and try again.'}</div>`;
+        return;
+      }
+      body.innerHTML = '<p class="save-xfer-note">Copy this code and keep it somewhere safe. To carry on elsewhere, open the game there and paste it into <b>Settings → Import save</b>.</p>' +
+        '<textarea class="save-code" readonly rows="6" spellcheck="false"></textarea><div class="study-row save-xfer-actions"></div>';
+      const ta = body.querySelector('textarea');
+      ta.value = code;
+      // One tap selects the whole code, ready for the system Copy menu.
+      const selectAll = () => { ta.focus(); ta.setSelectionRange(0, ta.value.length); };
+      ta.addEventListener('focus', selectAll);
+      const copy = document.createElement('button');
+      copy.className = 'wm-go';
+      copy.textContent = 'Copy';
+      copy.addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(code); copy.textContent = 'Copied!'; return; } catch { /* fall back below */ }
+        // No clipboard access (older browsers, insecure pages): select it instead.
+        selectAll();
+        let ok = false;
+        try { ok = document.execCommand('copy'); } catch { /* ignore */ }
+        copy.textContent = ok ? 'Copied!' : 'Selected: copy it now';
+      });
+      body.querySelector('.save-xfer-actions').appendChild(copy);
+    });
+    this.modal.kind = 'saveExport';
+  }
+
+  /** Paste a save code to replace this browser's save. The current save is kept
+   *  as a backup, and the page reloads so the imported game starts cleanly.
+   *  From the class picker (a returning player on a new address), back() goes
+   *  back to it, and the modal can't be closed in between. */
+  openImportSave(back = null) {
+    this.openModal('Import save', (body) => {
+      body.innerHTML = '<p class="save-xfer-note">Paste a save code from <b>Export save</b>. It replaces the character saved here; your current save is kept as a backup. Close any other tabs with the game open first.</p>' +
+        '<textarea class="save-code" rows="6" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="AWA1:…"></textarea>' +
+        '<div class="save-xfer-msg" role="status"></div><div class="study-row save-xfer-actions"></div>';
+      const ta = body.querySelector('textarea'), msg = body.querySelector('.save-xfer-msg');
+      const go = document.createElement('button');
+      go.className = 'wm-go';
+      go.textContent = 'Import';
+      go.addEventListener('click', () => {
+        const res = importSaveCode(ta.value);
+        msg.textContent = res.ok ? 'Save imported! Loading your character…' : res.error;
+        msg.className = 'save-xfer-msg ' + (res.ok ? 'ok' : 'no');
+        if (!res.ok) return;
+        go.disabled = ta.disabled = true;
+        if (backBtn) backBtn.disabled = true;
+        if (this.modal) this.modal.locked = true;   // nothing else to do now but reload
+        // An imported character has played before: don't greet it with beginner tips.
+        try { localStorage.setItem(TIPS_KEY, JSON.stringify(Object.keys(TIPS))); } catch { /* ignore */ }
+        setTimeout(() => location.reload(), 900);
+      });
+      ta.addEventListener('input', () => { msg.textContent = ''; msg.className = 'save-xfer-msg'; });
+      const actions = body.querySelector('.save-xfer-actions');
+      let backBtn = null;
+      if (back) {
+        backBtn = document.createElement('button');
+        backBtn.className = 'wm-go';
+        backBtn.textContent = 'Back';
+        backBtn.addEventListener('click', () => { if (this.modal) this.modal.locked = false; back(); });
+        actions.appendChild(backBtn);
+      }
+      actions.appendChild(go);
+    });
+    this.modal.kind = 'saveImport';
+    if (back) {
+      this.modal.locked = true;
+      if (this.el.modalClose) this.el.modalClose.classList.add('hidden');
+    }
+  }
+
+  /** Another tab imported a save: this tab's game is out of date and has stopped
+   *  saving, so the only way on is a reload. */
+  showSaveReplacedElsewhere() {
+    if (this.modal) { this.modal.locked = false; this.closeModal(); }
+    this.openModal('Save replaced', (body) => {
+      body.innerHTML = '<p class="save-xfer-note">A save was imported in another tab, so this tab has stopped saving. Reload to carry on with the imported character.</p><div class="study-row save-xfer-actions"></div>';
+      const b = document.createElement('button');
+      b.className = 'wm-go';
+      b.textContent = 'Reload';
+      b.addEventListener('click', () => location.reload());
+      body.querySelector('.save-xfer-actions').appendChild(b);
+    });
+    this.modal.kind = 'saveReplaced';
+    this.modal.locked = true;
+    if (this.el.modalClose) this.el.modalClose.classList.add('hidden');
   }
 
   // ---------------- Boss battle bar ----------------
@@ -2316,6 +2416,19 @@ export class UI {
     ];
     const render = (body) => {
       body.innerHTML = `<div class="dialogue path-intro">${g.pendingClassChoice ? 'Choose your job class. You keep your gear, but from now on you can only wield your class\'s weapon type.' : 'Choose your job class. Each class masters one weapon type.'} <b>This choice is permanent.</b></div>`;
+      // A returning player on a new web address or device: bring the old
+      // character in straight away, instead of first starting a throwaway one.
+      if (g.pendingStyleChoice) {
+        const imp = document.createElement('div');
+        imp.className = 'save-xfer-intro';
+        imp.innerHTML = '<span>Played before? Bring your character over with a save code.</span>';
+        const b = document.createElement('button');
+        b.className = 'wm-go';
+        b.textContent = 'Import save';
+        b.addEventListener('click', () => this.openImportSave(() => this.openStyleChoice()));
+        imp.appendChild(b);
+        body.appendChild(imp);
+      }
       for (const st of STYLES) {
         const sec = document.createElement('div');
         sec.className = 'class-section';

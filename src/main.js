@@ -6,7 +6,7 @@ import { MovePad } from './engine/movepad.js';
 import { Sfx } from './audio/sfx.js';
 import { now } from './core/utils.js';
 import { TILE } from './config.js';
-import { saveGame } from './game/save.js';
+import { saveGame, watchForImports } from './game/save.js';
 
 const VIEW_TILES = 15;        // tiles shown across the shorter side of the screen, at most
 const VIEW_TILES_LONG = 24;   // ...and along the longer side
@@ -133,6 +133,9 @@ requestAnimationFrame(frame);
 const saveOnLeave = () => { if (!game.pendingStyleChoice) saveGame(game); };
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveOnLeave(); });
 window.addEventListener('pagehide', saveOnLeave);
+// A save imported in another tab: this tab's game would autosave the old
+// character back over it, so it stops saving and asks for a reload.
+watchForImports(() => ui.showSaveReplacedElsewhere());
 
 // Title / splash screen dismissal.
 const splash = document.getElementById('splash');
