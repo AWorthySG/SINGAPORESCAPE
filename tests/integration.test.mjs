@@ -4230,6 +4230,13 @@ test('world bosses leave new players alone: quests and level first, never in or 
   assert.equal(tryAt(58, 55), undefined, 'none in Kampong Glam');
   assert.equal(tryAt(85, 60), undefined, 'none in Chinatown');
   assert.equal(tryAt(183, 140), undefined, 'none beside the Marina Bay bank');
+  // Each part of the town rule on its own: town tiles far from any bank, and the
+  // margin just outside the starting towns.
+  assert.equal(tryAt(72, 66), undefined, 'none in the far corner of Kampong Glam');
+  assert.equal(tryAt(204, 128), undefined, 'none in the far corner of Marina Bay town');
+  assert.equal(tryAt(462, 129), undefined, 'none at the edge of Kranji Village');
+  assert.equal(tryAt(60, 68), undefined, 'none just outside Kampong Glam');
+  for (const [x, y] of [[72, 66], [204, 128], [462, 129]]) assert.ok(!g._bankSpots.some((b) => Math.hypot(b.x - x, b.y - y) <= 20), `${x},${y} is far from every bank`);
   // Out in the wilds it rises, away from any town, and close to your level.
   const wb = tryAt(wild.x, wild.y);
   assert.ok(wb && wb.worldBoss, 'an established player in the wilds meets one');
@@ -4242,6 +4249,13 @@ test('world bosses leave new players alone: quests and level first, never in or 
   // It leaves when it kills you.
   g.playerDeath();
   assert.ok(!g._worldBoss && !g.npcs.includes(wb), 'gone once the player dies');
+  // Retreating into town is safe: it fades rather than chasing you in.
+  g.player.alive = true;
+  const wb2 = tryAt(wild.x, wild.y);
+  assert.ok(wb2, 'another rises in the wilds');
+  g.player.x = g.player.tx = 60; g.player.y = g.player.ty = 60; g.tickCount = 2201;
+  g._tickWorldBoss();
+  assert.ok(!g._worldBoss && !g.npcs.includes(wb2), 'it gives up once you step into Kampong Glam');
 });
 
 test('a world boss rises every 2 minutes: much tougher, aggressive, triple loot, gone once slain', () => {
@@ -5013,7 +5027,9 @@ test('a quest boss step takes on bosses for that trip only; a World Boss leaves 
   assert.equal(game.autoCfg.bosses, false, 'but the saved setting is untouched');
   game.toggleAutoBattle(false);
   assert.equal(game._questBoss, false, 'and off again once auto battle stops');
-  // A World Boss that kills you doesn't wait by the respawn point.
+  // A World Boss that kills you doesn't wait by the respawn point (it only rises
+  // away from towns, so meet it out in the wilds).
+  const wild = wildSpot(game); p.x = p.tx = wild.x; p.y = p.ty = wild.y;
   const wb = game.spawnWorldBoss();
   assert.ok(wb && game.npcs.includes(wb));
   wb.target = p;

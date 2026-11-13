@@ -2975,6 +2975,11 @@ export class Game {
     if (wb && wb.alive && this.tickCount > wb.worldBossUntil && wb.target !== this.player) {
       this.msg(`${wb.name} fades back into the wilds.`, 'system');
       this.npcs = this.npcs.filter((n) => n !== wb); this._worldBoss = null;
+    } else if (wb && wb.alive && this._worldBossInTown(this.player.x, this.player.y)) {
+      // Retreating into town is safe: it won't follow you in and fight there.
+      this.msg(`${wb.name} loses your trail and fades back into the wilds.`, 'system');
+      if (this.player.target === wb) this.player.target = null;
+      this.npcs = this.npcs.filter((n) => n !== wb); this._worldBoss = null;
     }
     if (this.tickCount % WORLD_BOSS_EVERY !== 0 || this._worldBoss || !this.player.alive) return;
     // Not for players who couldn't beat even an ordinary boss yet: it would only
@@ -2987,13 +2992,28 @@ export class Game {
     return this.spawnWorldBoss();
   }
 
-  /** True for tiles in the starting towns or within WORLD_BOSS_TOWN_GAP of a
-   *  bank: a World Boss never rises there (or near you while you stand there). */
+  /** True for tiles in or within WORLD_BOSS_TOWN_GAP of a town (the starting
+   *  towns and every outer town) or a bank: a World Boss never rises there (or
+   *  near you while you stand there). Measured from each town's edges, since
+   *  the bigger towns reach well past 20 tiles from their bank. */
   _worldBossTooNearTown(x, y) {
-    if (WORLD_BOSS_SAFE_ZONES.includes(this.world.zoneAt(x, y)?.name)) return true;
-    this._bankSpots ??= this.world.objects.filter((o) => o.objId === 'bank_booth');
     const g = WORLD_BOSS_TOWN_GAP;
+    if (this._worldBossTowns().some(([a, b, c, d]) => x >= a - g && x <= c + g && y >= b - g && y <= d + g)) return true;
+    this._bankSpots ??= this.world.objects.filter((o) => o.objId === 'bank_booth');
     return this._bankSpots.some((b) => Math.abs(b.x - x) <= g && Math.abs(b.y - y) <= g && Math.hypot(b.x - x, b.y - y) <= g);
+  }
+
+  /** True when standing in a town itself (no margin): a World Boss gives up there. */
+  _worldBossInTown(x, y) {
+    return this._worldBossTowns().some(([a, b, c, d]) => x >= a && x <= c && y >= b && y <= d);
+  }
+
+  /** Town rectangles [x0, y0, x1, y1]: the starting towns' zones plus the outer towns (worked out once). */
+  _worldBossTowns() {
+    return this._wbTowns ??= [
+      ...this.world.zones.filter((z) => WORLD_BOSS_SAFE_ZONES.includes(z.name)).map((z) => [z.x0, z.y0, z.x1, z.y1]),
+      ...(this.world.towns || []),
+    ];
   }
 
   /** True when you could beat at least one ordinary (non-story) boss. */
@@ -3027,9 +3047,11 @@ export class Game {
     const ids = ALL_BOSS_IDS.filter((id) => { try { const d = getNpc(id); return d.boss && !d.fixed && d.attackable; } catch { return false; } });
     if (!ids.length) return null;
     // One of the three bosses nearest your level: picking from everything at or
-    // above it sent bosses thousands of levels too strong.
+    // above it sent bosses thousands of levels too strong. Bosses you could beat
+    // in their normal form come first (the auto battle check); the rest only if none.
     const lvl = (id) => getNpc(id).level || 1;
-    const pool = ids.slice().sort((a, b) => Math.abs(lvl(a) - cl) - Math.abs(lvl(b) - cl)).slice(0, 3);
+    const beatable = ids.filter((id) => { const d = getNpc(id); return this._autoCanBeat({ def: d, hp: d.maxHp || 1 }); });
+    const pool = (beatable.length ? beatable : ids).slice().sort((a, b) => Math.abs(lvl(a) - cl) - Math.abs(lvl(b) - cl)).slice(0, 3);
     const id = pool[Math.floor(Math.random() * pool.length)];
     // A walkable tile 8-14 tiles from you, and not in or near a town.
     let spot = null;

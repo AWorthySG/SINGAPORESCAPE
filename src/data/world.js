@@ -1069,6 +1069,7 @@ export function buildWorld() {
     objects,
     npcSpawns,
     zones,
+    towns,   // the outer towns' rectangles (the World Boss keeps its distance)
     spawnPoint: { x: 58, y: 55 },
     respawnPoint: { x: 58, y: 55 },
     townName: 'Kampong Glam',

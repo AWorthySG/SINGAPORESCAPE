@@ -19,6 +19,7 @@ export class World {
     this.respawnPoint = data.respawnPoint;
     this.npcSpawns = data.npcSpawns;
     this.zones = data.zones || [];
+    this.towns = data.towns || [];   // [x0, y0, x1, y1] of each outer town
 
     this.objects = [];
     this.objectByTile = new Map();
