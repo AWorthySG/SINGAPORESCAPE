@@ -329,6 +329,9 @@ button, input, select, textarea { font-family: inherit; }
 .inv-slot .qty.k { color: #fff; }
 .inv-slot .qty.m { color: #7fffae; }
 .inv-slot .icon { line-height: 1; pointer-events: none; display: flex; }
+/* Let a long press on shop/bank item art reach the cell (amount card),
+   not iOS's own image menu, as the inventory icons above already do. */
+.item-cell img { pointer-events: none; -webkit-user-drag: none; -webkit-touch-callout: none; }
 .inv-slot .icon svg, .item-cell svg, .equip-slot svg {  }
 
 /* ---------- Equipment ---------- */
@@ -495,8 +498,10 @@ button, input, select, textarea { font-family: inherit; }
 }
 
 /* ---------- Context menu ---------- */
+/* Above #modal-overlay (80) so the shop/bank amount menu can be clicked;
+   still below the phone touch card (90). */
 #context-menu {
-  position: absolute; z-index: 60; min-width: 158px;
+  position: absolute; z-index: 85; min-width: 158px;
   border-radius: 6px; overflow: hidden; border-width: 4px;
 }
 #context-menu .ctx-title {
@@ -509,8 +514,10 @@ button, input, select, textarea { font-family: inherit; }
 #context-menu.hidden, .hidden { display: none !important; }
 
 /* ---------- Tooltip ---------- */
+/* Above the modal too, so shop and bank prices show on hover, but under
+   the context menu so a hover tip never covers its choices. */
 #tooltip {
-  position: absolute; z-index: 70; pointer-events: none;
+  position: absolute; z-index: 82; pointer-events: none;
   background: #06201cF2; color: #fff; padding: 5px 9px; border-radius: 5px;
   font-size: 12px; max-width: 230px; border: 1px solid var(--gold);
   box-shadow: 0 4px 12px rgba(0,0,0,0.6);
@@ -554,6 +561,8 @@ button, input, select, textarea { font-family: inherit; }
 .item-cell .qty { position: absolute; top: 1px; left: 3px; font-size: 10px; font-weight: 800; color: var(--gold-hi); }
 .modal-section-title { font-weight: 800; color: var(--gold-hi); margin: 10px 0 7px; letter-spacing: .3px; }
 .modal-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+/* On phones two item grids side by side cut the right one off, so stack them. */
+@media (max-width: 540px) { .modal-cols { grid-template-columns: 1fr; } }
 .modal-hint { font-size: 12px; opacity: 0.82; margin-top: 9px; }
 
 /* Dialogue */

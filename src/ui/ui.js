@@ -2341,6 +2341,9 @@ export class UI {
     this.modal = null;
     this.el.modalOverlay.classList.add('hidden');
     this.el.modalBody.innerHTML = '';
+    // Removed cells never fire mouseleave, and the hover tip now sits above
+    // the modal, so drop it here rather than leave it floating over the game.
+    this.hideTooltip();
     if (this.el.modalClose) this.el.modalClose.classList.remove('hidden');
   }
 
