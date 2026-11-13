@@ -926,12 +926,16 @@ export function buildWorld() {
     for (const s of npcSpawns) if (!packable(s)) taken.add(key(s.x, s.y));
     const openSpot = (x, y) => LANDABLE.includes(get(x, y)) && !occupied.has(key(x, y)) && !taken.has(key(x, y))
       && !inTown(x, y) && !inNewTown(x, y);
-    // Nearest open tile to (cx, cy), ring by ring, out to `reach`.
-    const near = (cx, cy, reach) => {
+    // Nearest open tile to (cx, cy), ring by ring, out to `reach`, inside the
+    // pack's own region. Without the region check a Wilderness pack camped on its
+    // west edge spilled over the line, leaving level 250-700 crocodiles and
+    // pythons in Chinatown, Bukit Timah and Sentosa, a short walk from town.
+    const near = (cx, cy, reach, z) => {
       for (let r = 0; r <= reach; r++) {
         const ring = [];
         for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
-          if (Math.max(Math.abs(dx), Math.abs(dy)) === r && openSpot(cx + dx, cy + dy)) ring.push([cx + dx, cy + dy]);
+          if (Math.max(Math.abs(dx), Math.abs(dy)) === r && openSpot(cx + dx, cy + dy)
+            && (!z || zoneOf({ x: cx + dx, y: cy + dy }) === z)) ring.push([cx + dx, cy + dy]);
         }
         if (ring.length) return ring[Math.floor(R() * ring.length)];
       }
@@ -955,8 +959,9 @@ export function buildWorld() {
       }
       for (const pack of packs) {
         const cx = pack[0].x, cy = pack[0].y;   // the camp sits where the first member landed
+        const home = zoneOf(pack[0]);
         for (const s of pack) {
-          const spot = near(cx, cy, 4);
+          const spot = near(cx, cy, 4, home);
           if (!spot) continue;              // boxed in: leave this one where it was
           s.x = spot[0]; s.y = spot[1];
           s.wander = Math.min(s.wander, 3); // mill about the camp rather than drift off
@@ -1109,6 +1114,39 @@ export function buildWorld() {
       s.x = spot[0]; s.y = spot[1];
       s.wander = Math.min(s.wander || def.wander || 0, 3);   // 0 would fall back to the def's 4
       taken.add(key(s.x, s.y));
+    }
+  }
+
+  // ================= Kampong pond =================
+  // Cikgu Surya's fishing lesson used to send new players to MacRitchie's
+  // shore, among its monsters and the Mangrove Hydra. A little pond just south
+  // of town, off the south road, gives them a net spot and a rod spot of their
+  // own. Dug last, on open grass only, so nothing placed earlier moves.
+  {
+    const npcAt = new Set(npcSpawns.map((s) => key(s.x, s.y)));
+    for (let y = 69; y <= 72; y++) for (let x = 62; x <= 67; x++) {
+      const corner = (x === 62 || x === 67) && (y === 69 || y === 72);   // round it off
+      if (!corner && GRASSY.includes(get(x, y)) && isFree(x, y) && !npcAt.has(key(x, y))) set(x, y, T.WATER);
+    }
+    placeObj('fishing_spot', 62, 70);   // fished from the west bank
+    placeObj('rod_spot', 65, 69);       // fished from the north bank
+  }
+
+  // ================= Tame the starter ring =================
+  // A level-1 character has 25 life, and the starter island's monsters hit far
+  // harder than that. Anything that would attack on sight within 30 tiles of
+  // the respawn point (MacRitchie's lizards and dogs, Bukit Timah's bats) is
+  // made non-aggressive: it keeps its level and stats, so it is still a fair
+  // fight when you choose one, but no new player is ambushed on the way to a
+  // lesson. Weak monsters (level 20 and under) are left alone: they barely
+  // scratch, and anything under about level 9 ignores a new player anyway.
+  {
+    const RESPAWN = { x: 58, y: 55 }, SAFE_RING = 30, SAFE_LEVEL = 20;
+    for (const s of npcSpawns) {
+      const def = NPCS[s.npcId];
+      if (!def?.attackable || !def.aggressive || s.opts?.aggressive === false || (def.level || 0) <= SAFE_LEVEL) continue;
+      if (Math.max(Math.abs(s.x - RESPAWN.x), Math.abs(s.y - RESPAWN.y)) > SAFE_RING) continue;
+      s.opts = { ...(s.opts || {}), aggressive: false };
     }
   }
 

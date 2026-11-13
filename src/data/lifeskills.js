@@ -36,7 +36,7 @@ export const LIFE_STAGES = [
   },
   {
     skill: 'fishing', name: 'Fishing',
-    teach: 'Time to fish. Take your net to a fishing spot by the water (west of town) and bring me 5 raw anchovies.',
+    teach: 'Time to fish. Take your net to a fishing spot at the pond just south of town and bring me 5 raw anchovies.',
     need: { item: 'raw_anchovy', qty: 5 },
     reward: { xp: 320, coins: 150 },
   },

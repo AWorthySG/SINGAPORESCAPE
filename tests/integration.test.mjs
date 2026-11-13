@@ -5157,3 +5157,48 @@ test('a quest boss step takes on bosses for that trip only; a World Boss leaves 
   game.playerDeath();
   assert.ok(!game.npcs.includes(wb) && !game._worldBoss, 'the World Boss left');
 });
+
+test('the starter ring is safe: no ambushers near spawn, no Wilderness spill-over', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  const rp = game.world.respawnPoint;
+  // Nothing above level 20 attacks on sight within 30 tiles of the respawn point.
+  const ambushers = game.npcs.filter((n) => n.attackable && n.def.aggressive && (n.def.level || 0) > 20
+    && chebyshev(n.spawnX, n.spawnY, rp.x, rp.y) <= 30);
+  assert.deepEqual(ambushers.map((n) => `${n.npcId}@${n.spawnX},${n.spawnY}`), []);
+  // The tamed ones keep their level: still there to fight, just not on sight.
+  assert.ok(game.npcs.some((n) => n.attackable && !n.def.boss && (n.def.level || 0) > 20 && !n.def.aggressive
+    && chebyshev(n.spawnX, n.spawnY, rp.x, rp.y) <= 30), 'strong monsters near town are tamed, not removed');
+  // Wilderness packs stay on their side of the line: no Wilderness or Pulau Hantu
+  // monster spawns in the starter island's safe regions (Chinatown, Bukit Timah...).
+  const wild = new Set(game.world.zones.filter((z) => z.wilderness).map((z) => z.name));
+  const leaks = game.npcs.filter((n) => {
+    if (!n.attackable || !wild.has(n.def.zone)) return false;
+    const z = game.world.zoneAt(n.spawnX, n.spawnY);
+    return z && !z.wilderness && !z.lo;
+  });
+  assert.deepEqual(leaks.map((n) => `${n.npcId}@${n.spawnX},${n.spawnY}`), []);
+});
+
+test("Cikgu Surya's fishing lesson points to the pond by town", async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.ui = new Proxy({}, { get: () => () => {} });
+  const { LIFE_STAGES } = await import('../src/data/lifeskills.js');
+  const rp = game.world.respawnPoint;
+  game.handleDialogueAction('lifeStart');
+  game.quests.life_skills.stage = LIFE_STAGES.findIndex((st) => st.need.item === 'raw_anchovy') + 1;
+  const g = game.questGuide('life_skills');
+  assert.equal(g.kind, 'obj');
+  // The nearest spot of that kind from the respawn point, as the journal's Go picks it.
+  const spots = game.world.objects.filter((o) => o.objId === g.objId);
+  const near = spots.reduce((b, o) => (!b || chebyshev(o.x, o.y, rp.x, rp.y) < chebyshev(b.x, b.y, rp.x, rp.y) ? o : b), null);
+  assert.ok(near && chebyshev(near.x, near.y, rp.x, rp.y) <= 20, `fishing lesson target ${near?.x},${near?.y} is near spawn`);
+  assert.ok(game.world.objects.some((o) => o.objId === 'rod_spot' && chebyshev(o.x, o.y, rp.x, rp.y) <= 25), 'a rod spot by town too');
+  // Go walks there from the respawn point.
+  assert.ok(game.questTravel('life_skills'), 'Go finds the way to the pond');
+});

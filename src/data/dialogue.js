@@ -106,7 +106,7 @@ export const DIALOGUES = {
     },
     where: {
       speaker: 'Kampong Guide',
-      text: 'This is Kampong Glam, our cosy little town. Trees and rocks to the north, fishing by the water to the west, and monsters out east if you fancy a fight.',
+      text: 'This is Kampong Glam, our cosy little town. Trees and rocks to the north, and a fishing pond just south of town. If you fancy a fight, start with the rats and goblins in the fields north of town: they won\'t come at you. Keep clear of the Wilderness far to the east until you\'re much stronger.',
       options: [{ label: 'Thanks!', next: 'start' }],
     },
     gear: {
