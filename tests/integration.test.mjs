@@ -3517,6 +3517,49 @@ test('November monsters and bosses: defined, placed in their regions, with abili
   assert.ok(NPCS[NPCS.jenglot_sovereign.ability.fx.find((f) => f.t === 'summon').id], 'the Jenglot Sovereign summons a real monster');
 });
 
+test('second November batch: 16 species and 3 bosses, placed at home, with bones, drops and borrowed art', async () => {
+  const { NPCS, MONSTER_IDS, BOSS_IDS, MORE_MONSTER_IDS, MORE_BOSS_IDS, ALL_MONSTER_IDS, ALL_BOSS_IDS, EXTRA_BOSS_IDS } = await import('../src/data/npcs.js');
+  const { buildWorld } = await import('../src/data/world.js');
+  const { portraitFor } = await import('../src/render/sprites.js');
+  const { boneForTier } = await import('../src/data/bones.js');
+  assert.equal(MORE_MONSTER_IDS.length, 48, 'sixteen species in three forms');
+  assert.equal(new Set(MORE_MONSTER_IDS).size, 48, 'no id used twice');
+  assert.equal(MORE_BOSS_IDS.length, 3);
+  // The older lists keep their size, so nothing already in the world moves.
+  assert.equal(MONSTER_IDS.length, 452);
+  assert.equal(BOSS_IDS.length, 48);
+  const w = buildWorld();
+  const zoneByName = (n) => w.zones.find((z) => z.name === n);
+  for (const id of [...MORE_MONSTER_IDS, ...MORE_BOSS_IDS]) {
+    const d = NPCS[id];
+    assert.ok(d && d.attackable && d.dropTable.length > 0, `${id} is a monster with drops`);
+    assert.ok(ALL_MONSTER_IDS.includes(id) || ALL_BOSS_IDS.includes(id), `${id} is in the bestiary`);
+    const z = zoneByName(d.zone);
+    assert.ok(z, `${id} lives in a real region (${d.zone})`);
+    if (d.boss) {
+      assert.ok(d.alwaysDrop.some((a) => a.id === 'titan_bones'), `${id} drops titan bones`);
+      assert.ok(d.ability?.fx.length && d.ability.hazards.length, `${id} has a signature move and ground attacks`);
+      assert.ok(portraitFor(id, d)?.src.includes('/bosses/'), `${id} borrows boss art`);
+    } else {
+      assert.equal(d.alwaysDrop[0].id, boneForTier(d.tierLevel), `${id} drops its band's bones`);
+      assert.ok(d.tierLevel >= z.lo && d.tierLevel <= z.hi, `${id} (level ${d.tierLevel}) fits ${d.zone} ${z.lo}-${z.hi}`);
+    }
+    const spawns = w.npcSpawns.filter((s) => s.npcId === id);
+    assert.ok(spawns.length >= 1, `${id} is placed in the world`);
+    for (const s of spawns) assert.ok(s.x >= z.x0 && s.x <= z.x1 && s.y >= z.y0 && s.y <= z.y1, `${id} spawns inside ${d.zone}`);
+    assert.ok(portraitFor(id, d)?.src.endsWith('.webp'), `${id} has art (its own or borrowed)`);
+  }
+  const names = ALL_BOSS_IDS.map((id) => NPCS[id].ability?.name).filter(Boolean);
+  assert.equal(new Set(names).size, names.length, 'every signature move has its own name');
+  for (const id of EXTRA_BOSS_IDS) assert.ok(w.npcSpawns.some((s) => s.npcId === id), `${id} is still placed`);
+  const extras = ['raw_venison', 'seaweed', 'clay', 'raw_stingray', 'feather', 'chaos_rune', 'raw_lobster',
+    'sandstone', 'pilgrim_cape', 'croc_hide', 'temple_pendant', 'death_rune', 'ring_of_serenity'];
+  for (const it of extras) assert.ok(ITEMS[it], `${it} is a real item`);
+  for (const id of [...MORE_MONSTER_IDS, ...MORE_BOSS_IDS]) {
+    for (const dr of NPCS[id].dropTable) if (dr.id) assert.ok(ITEMS[dr.id], `${id} drops a real item (${dr.id})`);
+  }
+});
+
 test('rune refund: a monster killed with spells gives back every rune spent on it', async () => {
   const { NPC } = await import('../src/game/npc.js');
   globalThis.localStorage = fakeStorage();

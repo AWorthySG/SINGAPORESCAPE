@@ -136,6 +136,13 @@ export const BOSS_ABILITIES = {
     fx: [{ t: 'knock', dist: 3 }, { t: 'dot', kind: 'chill', per: 0.45, ticks: 5 }, { t: 'shield', ticks: 4 }], hazards: ['line', 'quake'] },
   jenglot_sovereign: { name: 'Blood Pact', desc: 'Drinks your life, calls its tiny jenglot kin and grows fierce.', color: '#8a2a2a',
     fx: [{ t: 'strike', mul: 2.0, steal: 0.5 }, { t: 'summon', id: 'jenglot', n: 2 }, { t: 'enrage' }], hazards: ['meteors', 'ring', 'chase'] },
+  // The second November batch.
+  ubin_stone_frog: { name: 'Granite Leap', desc: 'The stone frog of the old legend leaps and lands like a quarry blast: you are thrown back and dazed.', color: '#8a8a7a',
+    fx: [{ t: 'strike', mul: 1.5 }, { t: 'knock', dist: 3 }, { t: 'stun', ticks: 1 }], hazards: ['quake', 'blast'] },
+  buaya_putih: { name: 'Death Roll', desc: 'The white crocodile drags you into the mangrove mud and rolls.', color: '#e8e4d8',
+    fx: [{ t: 'pull' }, { t: 'root', ticks: 2 }, { t: 'strike', mul: 1.6, hits: 2 }, { t: 'dot', kind: 'bleed', per: 0.3, ticks: 4 }], hazards: ['line', 'twin'] },
+  hantu_tinggi: { name: 'Towering Dread', desc: 'It grows taller than the trees and stares down at you: you freeze, and your fighting spirit drains away.', color: '#5a5a6a',
+    fx: [{ t: 'stun', ticks: 2 }, { t: 'drain', adrenaline: 30 }, { t: 'strike', mul: 1.5 }], hazards: ['rain', 'ring'] },
   jade_dragon: { name: 'Celestial Judgement', desc: 'The final trial: twin jade bolts, a heavenly shield, renewal and rising fury.', color: '#2f9a6a',
     fx: [{ t: 'strike', mul: 2.5, hits: 2 }, { t: 'shield', ticks: 4 }, { t: 'heal', frac: 0.1 }, { t: 'enrage' }], hazards: ['quake', 'meteors', 'chase', 'ring'] },
 };
