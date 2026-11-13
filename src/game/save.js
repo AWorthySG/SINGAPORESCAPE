@@ -6,6 +6,13 @@ const VERSION = 1;
 // An unreadable save is copied here before a new game replaces it, so a bug or
 // a bad version check never destroys someone's progress for good.
 export const BACKUP_KEY = SAVE_KEY + '-backup';
+// A second slot, so an old backup doesn't stop a newer unreadable save being kept.
+const BACKUP_KEYS = [BACKUP_KEY, BACKUP_KEY + '-2'];
+
+// Set once the player deletes their save (or a save half-loaded): the page is
+// about to reload, and the leave-the-page save must not write the old game back.
+let savesSuppressed = false;
+export function suppressSaves(on = true) { savesSuppressed = on; }
 
 function storage() {
   try { return typeof localStorage !== 'undefined' ? localStorage : null; } catch { return null; }
@@ -20,13 +27,17 @@ export function clearSave() {
 }
 
 export function snapshot(game) {
+  // Saved while dead (closing the tab during the respawn wait): store the
+  // respawn spot and full health, so reloading can't skip the trip back to town.
+  const dead = !game.player.alive;
+  const rp = game.world.respawnPoint;
   return {
     version: VERSION,
     savedAt: Date.now(),
     player: {
-      x: game.player.x,
-      y: game.player.y,
-      hp: game.player.hp,
+      x: dead ? rp.x : game.player.x,
+      y: dead ? rp.y : game.player.y,
+      hp: dead ? game.maxHp() : game.player.hp,
       style: game.player.style,
       rangedStyle: game.player.rangedStyle,
       danceStyle: game.player.danceStyle,
@@ -62,7 +73,7 @@ export function snapshot(game) {
 
 export function saveGame(game) {
   const s = storage();
-  if (!s) return false;
+  if (!s || savesSuppressed) return false;
   try {
     s.setItem(SAVE_KEY, JSON.stringify(snapshot(game)));
     return true;
@@ -73,12 +84,13 @@ export function saveGame(game) {
   }
 }
 
-/** Keep a copy of a save we could not use. The first bad copy wins: a later
- *  failure must not overwrite it with yet another unusable save. */
+/** Keep a copy of a save we could not use, in the first empty backup slot.
+ *  A copy already kept is never overwritten with yet another unusable save. */
 function backupBadSave(s, raw) {
   try {
-    if (s.getItem(BACKUP_KEY)) return false;
-    s.setItem(BACKUP_KEY, raw);
+    const key = BACKUP_KEYS.find((k) => !s.getItem(k));
+    if (!key) return false;
+    s.setItem(key, raw);
     return true;
   } catch { return false; }
 }
@@ -91,10 +103,22 @@ export function loadGame(game) {
   let data;
   try { data = JSON.parse(raw); } catch { data = null; }
   if (!data || typeof data !== 'object' || data.version !== VERSION) {
-    if (backupBadSave(s, raw)) game.saveBackedUp = true;
+    game.saveBackedUp = backupBadSave(s, raw);   // false: both slots full, the player is told
     return false;
   }
+  try {
+    loadFields(game, data);
+  } catch (err) {
+    // Right version but bad data: keep a copy, and stop the half-loaded game
+    // saving over the original before the error reaches the player.
+    backupBadSave(s, raw);
+    suppressSaves();
+    throw err;
+  }
+  return true;
+}
 
+function loadFields(game, data) {
   game.skills.load(data.skills);
   game.inventory.load(data.inventory);
   game.equipment.load(data.equipment);
@@ -179,5 +203,4 @@ export function loadGame(game) {
       priority: ac.priority !== false,
     };
   }
-  return true;
 }

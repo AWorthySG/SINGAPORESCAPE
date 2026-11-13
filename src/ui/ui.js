@@ -38,7 +38,7 @@ import { ATTRS, ATTR_NAMES, attrSummary, attrForMode, MAX_STAT_POINTS, RESET_COS
 import { STAT_LABELS, STAT_HELP, compareGear, deltaText, gearBySlot, gearRating, meetsReq, swingBeats, tierOf, weaponStyle } from '../game/gear.js';
 import { TILE, LEARNING_ENABLED } from '../config.js';
 import { TERRAIN } from '../data/world.js';
-import { clearSave } from '../game/save.js';
+import { clearSave, suppressSaves } from '../game/save.js';
 import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG, abilityIconHTML, prayerIconHTML, spellIconHTML } from '../render/icons.js';
 import { weaknessOf } from '../game/combat.js';
 import { isBone } from '../data/bones.js';
@@ -1849,7 +1849,7 @@ export class UI {
       this.game.msg('Tips will show again as you play.', 'system');
     });
     mk('Delete save & restart', () => {
-      if (confirm('Delete your saved character and start over?')) { clearSave(); location.reload(); }
+      if (confirm('Delete your saved character and start over?')) { suppressSaves(); clearSave(); location.reload(); }
     }, true);
     const hint = document.createElement('div');
     hint.className = 'hint';

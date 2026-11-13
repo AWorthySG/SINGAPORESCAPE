@@ -376,6 +376,7 @@ export class Game {
     } else {
       this.newGame();
       if (this.saveBackedUp) this.msg('Your old save could not be read, so a new game has started. A copy of it was kept in this browser.', 'system');
+      else if (this.saveBackedUp === false) this.msg('Your old save could not be read, and older unreadable saves already fill the backup space, so it could not be kept.', 'system');
     }
     this.bus.emit('inventory');
     this.bus.emit('equipment');
@@ -860,7 +861,9 @@ export class Game {
     if (this.tickCount % 100 === 1) this.ensureBounties();   // roll over at local midnight
     // Big moments (a class picked, a quest done, anything with a banner) save on
     // the next tick rather than waiting up to 30s for the autosave.
-    if (++this.autosaveCounter >= AUTOSAVE_TICKS || this.saveSoon) {
+    // Not before a brand-new player has picked a class: a classless save would
+    // reload as an old character and skip the starting kit.
+    if ((++this.autosaveCounter >= AUTOSAVE_TICKS || this.saveSoon) && !this.pendingStyleChoice) {
       this.autosaveCounter = 0; this.saveSoon = false;
       // Storage full or blocked: say so once instead of failing silently forever.
       if (!saveGame(this) && !this.saveWarned) { this.saveWarned = true; this.msg('Could not save: this browser\'s storage is full or blocked. Your progress is not being kept.', 'system'); }

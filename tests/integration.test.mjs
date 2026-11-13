@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { Game } from '../src/game/game.js';
-import { saveGame, loadGame, clearSave, BACKUP_KEY } from '../src/game/save.js';
+import { saveGame, loadGame, clearSave, suppressSaves, BACKUP_KEY } from '../src/game/save.js';
 import { SAVE_KEY } from '../src/config.js';
 import { ITEMS } from '../src/data/items.js';
 import { getNpc, ALL_BOSS_IDS } from '../src/data/npcs.js';
@@ -185,6 +185,7 @@ test('saving reports failure when storage is full or blocked, and warns the play
   clearSave();
   const game = new Game();
   game.start();
+  game.chooseClass('rogue');   // saves only start once a class is picked
   const chat = [];
   game.bus.on('chat', (m) => chat.push(m.text));
   localStorage.setItem = () => { throw new Error('QuotaExceededError'); };
@@ -208,6 +209,76 @@ test('picking a class saves on the next tick', () => {
   step(game, 1);
   const saved = JSON.parse(localStorage.getItem(SAVE_KEY));
   assert.equal(saved.jobClass, 'rogue', 'saved straight away, not 30s later');
+});
+
+test('after Delete save & restart, nothing writes the old character back', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseClass('rogue');
+  step(game, 1);
+  suppressSaves();
+  try {
+    clearSave();
+    assert.equal(saveGame(game), false, 'the leave-the-page save is skipped');
+    game.saveSoon = true;
+    step(game, 2);
+    assert.equal(localStorage.getItem(SAVE_KEY), null, 'the save stays deleted');
+  } finally { suppressSaves(false); }
+});
+
+test('a save made while dead loads at the respawn point, not where the player fell', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseClass('rogue');
+  const rp = game.world.respawnPoint;
+  game.player.x = game.player.tx = rp.x + 30;
+  game.player.y = game.player.ty = rp.y + 30;
+  game.player.hp = 0;
+  game.playerDeath();
+  step(game, 1);   // the death banner saves on the next tick, while still dead
+  assert.equal(game.player.alive, false);
+  const saved = JSON.parse(localStorage.getItem(SAVE_KEY)).player;
+  assert.deepEqual([saved.x, saved.y], [rp.x, rp.y]);
+  assert.equal(saved.hp, game.maxHp());
+});
+
+test('a new player is not saved before picking a class', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.saveSoon = true;
+  step(game, 60);   // past the 50-tick autosave too
+  assert.equal(localStorage.getItem(SAVE_KEY), null);
+});
+
+test('a second unreadable save goes to the second backup slot; a bad field load is backed up and blocks saving', () => {
+  globalThis.localStorage = fakeStorage();
+  localStorage.setItem(BACKUP_KEY, 'old');
+  localStorage.setItem(SAVE_KEY, '{newer broken');
+  assert.equal(loadGame(new Game()), false);
+  assert.equal(localStorage.getItem(BACKUP_KEY), 'old');
+  assert.equal(localStorage.getItem(BACKUP_KEY + '-2'), '{newer broken');
+  const full = new Game();
+  localStorage.setItem(SAVE_KEY, '{third');
+  full.start();
+  assert.equal(full.saveBackedUp, false, 'both slots full: the player is told it was not kept');
+
+  globalThis.localStorage = fakeStorage();
+  const raw = JSON.stringify({ version: 1, skills: 'garbage', inventory: { bad: true } });
+  localStorage.setItem(SAVE_KEY, raw);
+  const g = new Game();
+  g.skills.load = () => { throw new Error('bad skills'); };
+  try {
+    assert.throws(() => loadGame(g));
+    assert.equal(localStorage.getItem(BACKUP_KEY), raw);
+    assert.equal(saveGame(g), false, 'the half-loaded game cannot save over the original');
+    assert.equal(localStorage.getItem(SAVE_KEY), raw);
+  } finally { suppressSaves(false); }
 });
 
 test('praying at the Worthy Monument heals to full', () => {
