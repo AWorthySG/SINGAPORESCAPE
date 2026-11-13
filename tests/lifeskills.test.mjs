@@ -1,6 +1,5 @@
-// Life skills and getting around: skill guides, MRT stations found on foot and
-// ridden from the world map, auto gather, gathering popups and the Interact
-// button's level warning.
+// Life skills and getting around: skill guides, MRT rides from the world map,
+// auto gather, gathering popups and the Interact button's level warning.
 import './seed.mjs';   // seeded Math.random: no test fails on an unlucky roll
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -42,31 +41,27 @@ test('every life skill has a guide, sorted by level, pointing at real objects', 
   }
 });
 
-test('MRT stations are found on foot and can then be ridden from the world map', () => {
+test('every MRT station can be ridden to from the start, for the fare', () => {
   const game = newGame();
   const far = STATION_BY_ID.bukit_timah;
-  assert.ok(game.stationsFound.has('kampong_glam'), 'the home station is known from the start');
-  assert.ok(!game.stationsFound.has('bukit_timah'));
   game.inventory.add('coins', 500);
-  assert.equal(game.mrtFromMap('bukit_timah'), false, "can't ride to a station you haven't found");
-  // Walk past it: it's added.
-  placeAt(game, far.x, far.y);
-  game.updateRegion();
-  assert.ok(game.stationsFound.has('bukit_timah'));
-  // Ride home and back again, paying the fare each time.
+  game.checkAchievements();   // settle any coin achievement before counting
+  // No need to find a station on foot first: ride straight there.
   const coins = game.inventory.count('coins');
-  assert.equal(game.mrtFromMap('kampong_glam'), true);
-  assert.equal(game.inventory.count('coins'), coins - MRT_FARE);
-  assert.ok(Math.abs(game.player.x - STATION_BY_ID.kampong_glam.x) <= 3);
   assert.equal(game.mrtFromMap('bukit_timah'), true);
+  assert.equal(game.inventory.count('coins'), coins - MRT_FARE);
   assert.ok(Math.abs(game.player.y - far.y) <= 3);
+  assert.equal(game.mrtFromMap('celestial_peaks'), true, 'even the farthest station');
+  assert.ok(Math.abs(game.player.x - STATION_BY_ID.celestial_peaks.x) <= 3);
+  // Out of coins: no ride.
+  game.inventory.remove('coins', game.inventory.count('coins'));
+  assert.equal(game.mrtFromMap('kampong_glam'), false);
 
-  // Found stations and the auto-gather switch survive a save and load.
+  // The auto-gather switch survives a save and load.
   game.autoGather = true;
   saveGame(game);
   const g2 = new Game();
   loadGame(g2);
-  assert.ok(g2.stationsFound.has('bukit_timah') && g2.stationsFound.has('kampong_glam'));
   assert.equal(g2.autoGather, true);
 });
 

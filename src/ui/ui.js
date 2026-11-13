@@ -2802,9 +2802,7 @@ export class UI {
     const markers = () => {
       const out = [];
       if (on.has('mrt')) for (const st of STATIONS) {
-        const found = game.stationsFound.has(st.id);
-        out.push({ f: 'mrt', x: st.x, y: st.y, big: true, station: st, locked: !found,
-          label: `${st.name} MRT${found ? '' : ' (not found yet)'}` });
+        out.push({ f: 'mrt', x: st.x, y: st.y, big: true, station: st, label: `${st.name} MRT` });
       }
       if (on.has('boss')) for (const n of game.npcs) {
         if (!n.alive || !n.def.boss || n.temporary) continue;
@@ -2907,7 +2905,7 @@ export class UI {
       const info = document.createElement('div');
       info.className = 'wm-info';
       if (!sel) {
-        info.innerHTML = '<span>Tap the map or a marker to pick where to go. Tap an <b>M</b> station you have found to ride the MRT.</span>';
+        info.innerHTML = '<span>Tap the map or a marker to pick where to go. Tap an <b>M</b> station to ride the MRT there; long trips ride part of the way by themselves.</span>';
       } else {
         const dist = Math.max(Math.abs(sel.x - game.player.x), Math.abs(sel.y - game.player.y));
         info.innerHTML = `<span><b>${sel.label}</b> · ${dist} tiles away</span>`;
@@ -2915,9 +2913,9 @@ export class UI {
           const b = document.createElement('button'); b.className = 'wm-go ' + cls; b.textContent = text;
           b.addEventListener('click', fn); info.appendChild(b);
         };
-        if (sel.station && !sel.locked) btn(`Ride MRT (${MRT_FARE} coins)`, () => game.mrtFromMap(sel.station.id), 'ride');
+        if (sel.station) btn(`Ride MRT (${MRT_FARE} coins)`, () => game.mrtFromMap(sel.station.id), 'ride');
         if (sel.obj) btn('Go', () => game.goToObject(sel.obj));
-        else btn('Walk here', () => { game._pathBudget = 150000; try { game.walkToFar({ x: sel.x, y: sel.y }); } finally { game._pathBudget = 0; } this.closeModal(); });
+        else btn('Travel here', () => { game.travelToTile({ x: sel.x, y: sel.y }); this.closeModal(); });
       }
       body.appendChild(info);
     };

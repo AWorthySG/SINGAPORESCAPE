@@ -1,5 +1,5 @@
 import { EventBus } from '../core/events.js';
-import { buildWorld } from '../data/world.js';
+import { buildWorld, TERRAIN } from '../data/world.js';
 import { compareGear, deltaText, gearRating, effectiveRating, weaponStyle } from './gear.js';
 import { RARITY, dropRarity, lootDelay, rollUpgrade, qualityFor, NORMAL_GEAR_SKIP } from './loot.js';
 import { dayKey, prevDayKey, makeBounties, streakMult } from './bounty.js';
@@ -116,6 +116,8 @@ export const AGILITY_ATK_MAX = 100, AGILITY_ATK_HALF = 1000;
 // cost coins instead of adrenaline (the adrenaline cost x this, x2 per 100 Ranged).
 const COIN_SKILL_MULT = 20;
 const PLAYER_STEP_MUL = 0.7;   // the player's base step time (see player.js)
+const ROAD_PACE = 0.75;        // step time on a road or bridge: a third quicker than open ground
+const MRT_HOP_MIN = 60;        // trips longer than this (tiles) ride the MRT part of the way when it helps
 const DANCE_RICOCHET = 2;
 // Above this many attacks a beat (1/0.05 = 20), attacks are grouped into volleys.
 const VOLLEY_MIN_BEATS = 0.05;
@@ -797,7 +799,7 @@ export class Game {
       this._autoPickup();
     }
     this._resolveHazards();
-    this.player.stepMul = this.playerStepMul();   // Agility quickens your steps
+    this.player.stepMul = this.playerStepMul() * (this._onRoad() ? ROAD_PACE : 1);   // Agility quickens your steps, and so do roads
     this._tickWorldBoss();
     this._tickIgnites();
     if (this.killStreak && this.tickCount - this._lastKillTick > STREAK_WINDOW_TICKS) {
@@ -1164,6 +1166,7 @@ export class Game {
   /** Walk to one object, however far away, and start on it when you arrive. */
   goToObject(obj) {
     if (!this.player.alive) return false;
+    this._mrtHopToward(obj);
     this._pathBudget = 150000;       // like quest trips, these can cross the whole map
     try { this.defaultObjectAction(obj); } finally { this._pathBudget = 0; }
     const ok = !!this.player.action || this.player.isMoving;
@@ -1172,13 +1175,34 @@ export class Game {
     return ok;
   }
 
-  /** World map: ride the MRT to a station you've already found. */
+  /** World map: ride the MRT to any station (every station is open from the start). */
   mrtFromMap(stationId) {
-    if (!this.stationsFound.has(stationId)) { this.msg("You haven't found that station yet: walk there first.", 'system'); return false; }
     if (this.npcs.some((n) => n.alive && n.target === this.player)) { this.msg("You can't take the MRT while something is attacking you.", 'system'); return false; }
-    const coins = this.inventory.count('coins');
-    this.travelTo(stationId);
-    return this.inventory.count('coins') < coins;
+    return this.travelTo(stationId);
+  }
+
+  /** A long trip: if a station lies much nearer the destination than you do,
+   *  ride the MRT there first (one fare) so you only walk the last stretch.
+   *  Returns true if it rode. Used by the world map's Travel, quest Go and auto quest. */
+  _mrtHopToward(tile) {
+    const p = this.player, here = this.playerTile();
+    const walk = chebyshev(here.x, here.y, tile.x, tile.y);
+    if (!p.alive || walk < MRT_HOP_MIN || this.inventory.count('coins') < MRT_FARE) return false;
+    if (this.world.zoneAt(here.x, here.y)?.wilderness) return false;   // no MRT out of the Wilderness
+    if (this.npcs.some((n) => n.alive && n.target === p)) return false;
+    let best = null, bd = Infinity;
+    for (const st of STATIONS) { const d = chebyshev(st.x, st.y, tile.x, tile.y); if (d < bd) { bd = d; best = st; } }
+    if (!best || walk - bd < MRT_HOP_MIN / 2 || bd > walk * 0.6) return false;
+    return this.travelTo(best.id);
+  }
+
+  /** World map: get to any tile, by MRT and on foot. */
+  travelToTile(tile) {
+    if (!this.player.alive) return false;
+    this._mrtHopToward(tile);
+    this._pathBudget = 150000;
+    try { this.walkToFar(tile); } finally { this._pathBudget = 0; }
+    return true;
   }
 
   /** One-shot action: approach, then fire `onArrive` and clear. */
@@ -1474,6 +1498,11 @@ export class Game {
   agilityAttackSpeed() { const a = this.skills.agility; return AGILITY_ATK_MAX * a / (a + AGILITY_ATK_HALF); }
   /** The player's step time multiplier: the base pace, quickened by Agility. */
   playerStepMul() { return PLAYER_STEP_MUL * 100 / (100 + this.agilitySpeed()); }
+  /** Standing on a road or a bridge (walking there is quicker). */
+  _onRoad() {
+    const t = this.world.terrainAt(this.player.x, this.player.y);
+    return t === TERRAIN.PATH || t === TERRAIN.WOOD;
+  }
 
   /** The active buff's value for a key (dmg, haste, crit, lifesteal, reduce, dodge), or 0. */
   buffMod(k) {
@@ -2506,12 +2535,6 @@ export class Game {
     const wild = !!(z && z.wilderness);
     const lvl = this.wildernessLevel();   // same level the XP bonus uses
     if (z && !this.zonesVisited.has(name)) { this.zonesVisited.add(name); this.checkAchievements(); }
-    // Walking past an MRT station adds it to the world map's ride list.
-    for (const st of STATIONS) {
-      if (this.stationsFound.has(st.id) || chebyshev(this.player.x, this.player.y, st.x, st.y) > 6) continue;
-      this.stationsFound.add(st.id);
-      this.msg(`You found ${st.name} MRT station: you can ride here from the world map now.`, 'level');
-    }
     if (name !== this.currentZoneName) {
       this.currentZoneName = name;
       if (wild) {
@@ -4570,10 +4593,10 @@ export class Game {
     try {
       if (g.kind === 'npc') {
         const n = nearest(this.npcs.filter((x) => x.npcId === g.npcId));
-        if (n) ok = this.defaultNpcAction(n) !== false;   // talk, or open the shop
+        if (n) { this._mrtHopToward(n); ok = this.defaultNpcAction(n) !== false; }   // talk, or open the shop
       } else if (g.kind === 'obj') {
         const o = nearest(this.world.objects.filter((x) => x.objId === g.objId && !x.depleted));
-        if (o) { this.defaultObjectAction(o); ok = !!p.action || p.isMoving; }
+        if (o) { this._mrtHopToward(o); this.defaultObjectAction(o); ok = !!p.action || p.isMoving; }
       } else if (g.kind === 'light') {
         const idx = this.inventory.slots.findIndex((sl) => sl && getItem(sl.id).tags?.includes('log'));
         if (idx !== -1) { this.lightLogs(idx); ok = true; }
@@ -4587,7 +4610,8 @@ export class Game {
         if (mob) {
           this._questTarget = g.target || null;
           if (g.kind === 'boss') this.autoCfg.bosses = true;
-          if (chebyshev(here.x, here.y, mob.x, mob.y) > 12) this.walkToFar({ x: mob.x, y: mob.y });
+          if (this._mrtHopToward(mob)) this.walkToFar({ x: mob.x, y: mob.y });
+          else if (chebyshev(here.x, here.y, mob.x, mob.y) > 12) this.walkToFar({ x: mob.x, y: mob.y });
           else this.attackNpc(mob);
           if (!this.autoBattle) this.toggleAutoBattle(true);
           ok = true;
@@ -4677,12 +4701,14 @@ export class Game {
       if (g.kind === 'npc') {
         const n = nearest(this.npcs.filter((x) => x.npcId === g.npcId));
         if (!n) { this.toggleAutoQuest(false, `I can't find ${getNpc(g.npcId).name}.`); return; }
+        this._mrtHopToward(n);
         const tgt = { x: n.x, y: n.y };
         this.beginAction({ type: 'questtalk', npc: n, quest: id, target: tgt }, tgt, true);
       } else if (g.kind === 'obj') {
         const o = nearest(this.world.objects.filter((x) => x.objId === g.objId && !x.depleted));
         if (!o) { this.toggleAutoQuest(false, `I can't find anywhere to "${g.text}".`); return; }
         const make = AUTO_QUEST_STATION[o.def.type];
+        this._mrtHopToward(o);
         if (make) {
           if (!nextJob(this, make)) { this.toggleAutoQuest(false, `you don't have what you need to "${g.text}".`); return; }
           this.startAll(make, o);
@@ -4949,10 +4975,10 @@ export class Game {
 
   travelTo(stationId) {
     const st = STATION_BY_ID[stationId];
-    if (!st) return;
-    if (this.inventory.count('coins') < MRT_FARE) { this.msg(`You need ${MRT_FARE} coins for the MRT fare.`); return; }
+    if (!st) return false;
+    if (this.inventory.count('coins') < MRT_FARE) { this.msg(`You need ${MRT_FARE} coins for the MRT fare.`); return false; }
     const tile = this._nearestFree(st.x, st.y);
-    if (!tile) { this.msg('That station is unreachable.'); return; }
+    if (!tile) { this.msg('That station is unreachable.'); return false; }
     this.inventory.remove('coins', MRT_FARE);
     const p = this.player;
     p.stopNow(); p.clearAction();
@@ -4962,6 +4988,7 @@ export class Game {
     this.bus.emit('sfx', 'travel');
     this.updateRegion();
     this.ui?.closeModal();
+    return true;
   }
 
   // ---------------- Hover (per frame) ----------------
