@@ -37,7 +37,7 @@ import { STYLE_TRACKS, sumPerks, perkAtLevel, rankName, PERK_SKILLS, PERK_CAPS }
 import { getSpell, SPELLS, ELEMENTS, AOE_RADIUS, elementMatchup } from '../data/magic.js';
 import { xpForLevel } from '../data/xp.js';
 import { PRAYERS, PRAYER_BY_ID, PRAYER_GROUPS } from '../data/prayers.js';
-import { isBone, boneXp, championBoneQty, RARE_BOSS_BONES, RARE_BONE_CHANCE, RARE_BONE_QTY, ALTAR_XP_MULT, ALTAR_RANGE } from '../data/bones.js';
+import { isBone, boneXp, BONE_IDS, countBones, championBoneQty, RARE_BOSS_BONES, RARE_BONE_CHANCE, RARE_BONE_QTY, ALTAR_XP_MULT, ALTAR_RANGE } from '../data/bones.js';
 import {
   resolveWoodcut, resolveMine, resolveFish, resolveCook,
   resolveSmelt, resolveSmith, resolveFiremake, resolveCraft, resolveDish,
@@ -166,6 +166,7 @@ const HAZARD_TEXT = {
   twin: (n) => `${n} strikes on both sides of you. Stand still!`,
 };
 export const BURY_BATCH = 100; // bones buried per click
+export const BURY_RESTORE_CAP = 3; // at most this many bones per bury restore prayer
 // Agility obstacles give AGILITY_XP_MULT x their listed XP, growing by 1/AGILITY_XP_DIV
 // per Agility level (level 100 -> 11x the multiplier), so level 999 is a
 // reachable goal (~12 hours of courses) rather than a lifetime.
@@ -2562,9 +2563,9 @@ export class Game {
     if (npc.champion) loot.push(['champion_bones', championBoneQty(def.tierLevel || def.level || 1), 'rare']);
     const rareBone = def.boss && RARE_BOSS_BONES[npc.npcId];
     if (rareBone && Math.random() < RARE_BONE_CHANCE) {
-      const [a, b] = RARE_BONE_QTY[rareBone];
-      loot.push([rareBone, randInt(a, b), 'epic']);
-      this.msg(`A rare drop! ${getItem(rareBone).name}.`, 'level');
+      const [a, b] = RARE_BONE_QTY[rareBone], q = randInt(a, b);
+      loot.push([rareBone, q, 'epic']);
+      this.msg(`A rare drop! ${q > 1 ? q + ' x ' : ''}${getItem(rareBone).name}.`, 'level');
     }
     if (def.dropTable && def.dropTable.length) {
       // Champions roll their table eight times, bosses ten, and neither comes up empty.
@@ -2721,7 +2722,8 @@ export class Game {
     const it = getItem(s.id), n = Math.min(s.qty, count);
     this.inventory.removeAt(index, n);
     this.skills.addXp('prayer', boneXp(s.id) * n * (altar ? ALTAR_XP_MULT : 1));
-    this.prayerPoints = Math.min(this.maxPrayer(), this.prayerPoints + (it.prayerRestore || 1) * n);
+    // Only the first few bones of a click restore prayer, so a big stack can't stand in for a monument mid-fight.
+    this.prayerPoints = Math.min(this.maxPrayer(), this.prayerPoints + (it.prayerRestore || 1) * Math.min(n, BURY_RESTORE_CAP));
     this.bus.emit('prayer');
     this.addGood(Math.min(n, 10)); // honouring the dead is a small good
     this.spawnSparkle(this.player, altar ? '#9adcff' : '#ffe89a', Math.min(24, 6 + n));
@@ -4586,7 +4588,7 @@ export class Game {
         if (st.skill === 'hunter') return obj('bird_snare', 'Hunter: check a bird snare');
         return npc(giver);
       }
-      case 'bone_collector': return inv('bones') >= 10 ? npc('guide', 'Hand in to') : { kind: 'hunt', text: `Collect bones: ${inv('bones')}/10 (monsters in the early areas drop them)` };
+      case 'bone_collector': return countBones(this.inventory) >= 10 ? npc('guide', 'Hand in to') : { kind: 'hunt', text: `Collect bones: ${countBones(this.inventory)}/10 (any kind of bones counts)` };
       case 'pest_control': return { kind: 'hunt', target: 'rat', text: `Slay rats: ${q.kills}/8` };
       case 'pillars': return !q.monument ? obj('shrine', 'Pray at the A-Worthy Monument') : !q.obelisk ? obj('mascot_statue', 'Rest at the Mascot Statue') : npc('guide', 'Hand in to');
       case 'smith_apprentice':
@@ -4896,8 +4898,9 @@ export class Game {
     const q = this.quests.bone_collector;
     if (q.state === 'done') { this.msg('Thanks again, adventurer!', 'system'); return; }
     if (q.state !== 'active') { this.msg('Ask me about work first.', 'system'); return; }
-    if (this.inventory.count('bones') < 10) { this.msg('Come back when you have 10 bones.', 'system'); return; }
-    this.inventory.remove('bones', 10);
+    if (countBones(this.inventory) < 10) { this.msg('Come back when you have 10 bones.', 'system'); return; }
+    let left = 10;   // any kind counts; hand over the cheapest first
+    for (const id of BONE_IDS) { const n = Math.min(left, this.inventory.count(id)); if (n) { this.inventory.remove(id, n); left -= n; } }
     this.inventory.add('coins', 1000);
     this.inventory.add('amulet_of_strength', 1);
     this.skills.addXp('prayer', 500);

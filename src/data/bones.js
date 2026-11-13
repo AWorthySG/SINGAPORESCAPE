@@ -17,6 +17,10 @@ export const BONE_LADDER = [
 export const boneForTier = (tier) => BONE_LADDER.find((b) => (tier || 1) <= b.maxTier).id;
 export const isBone = (id) => !!ITEMS[id]?.prayerXp;
 export const boneXp = (id) => ITEMS[id]?.prayerXp || 0;
+// Every bone kind, cheapest first, and how many bones of any kind a pack holds
+// (the Bone Collector quest takes any kind, spending the cheapest first).
+export const BONE_IDS = Object.keys(ITEMS).filter(isBone).sort((a, b) => boneXp(a) - boneXp(b));
+export const countBones = (inv) => BONE_IDS.reduce((t, id) => t + inv.count(id), 0);
 
 export const CHAMPION_BONE_KILLS = 10;   // a champion is worth ~ten ordinary kills of its band
 export const championBoneQty = (tier) => Math.max(1, Math.round(CHAMPION_BONE_KILLS * boneXp(boneForTier(tier)) / boneXp('champion_bones')));

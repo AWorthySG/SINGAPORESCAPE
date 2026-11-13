@@ -827,7 +827,7 @@ import { ABILITY_BY_ID } from '../data/abilities.js';
     ancient_bones: 'sepia(.9) hue-rotate(-15deg) brightness(.75)', spirit_bones: 'sepia(.8) hue-rotate(150deg) saturate(1.6) brightness(1.08)',
     champion_bones: 'sepia(1) saturate(3) brightness(1.05)', titan_bones: 'sepia(.6) hue-rotate(230deg) saturate(1.5)',
     dragon_bones: 'sepia(1) hue-rotate(-40deg) saturate(3)', fiend_bones: 'sepia(1) hue-rotate(250deg) saturate(2) brightness(.7)',
-    legend_bones: 'sepia(1) hue-rotate(10deg) saturate(4) brightness(1.15)',
+    legend_bones: 'sepia(.7) hue-rotate(-50deg) saturate(2.2) brightness(1.2)',
   })) { BORROW_ID[id] = 'bones'; BORROW_TINT[id] = tint; }
   function hueOf(hex) {
     const n = parseInt(hex.slice(1), 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
@@ -850,7 +850,7 @@ import { ABILITY_BY_ID } from '../data/abilities.js';
     'farming', 'hunter', 'herblore', 'fletching']);
   export const skillIconSVG = (id, size = 20, cls) => (SKILL_ART.has(id) ? artImg(`skill-${id}`, size, cls) : svg(S[id] || S.attack, size, cls));
   /** Prayer and spell icons (assets/icons/prayer-<id>.webp, spell-<id>.webp). */
-  export const prayerIconHTML = (id, size = 28, cls) => artImg(`prayer-${id}`, size, cls);
+  export const prayerIconHTML = (id, size = 28, cls, tint) => artImg(`prayer-${id}`, size, cls, tint);
   export const spellIconHTML = (id, size = 28, cls) => artImg(`spell-${id}`, size, cls);
   /** Combat-skill (action bar) icon: mascot artwork, or a stickered vector for
    *  any ability still waiting on artwork (listed in ABILITY_SVG). */
@@ -881,6 +881,7 @@ import { ABILITY_BY_ID } from '../data/abilities.js';
     if (borrowedArt(id)) {
       const img = new Image();
       img.src = `assets/icons/item-${borrowedArt(id).file}.webp`;
+      img.tint = borrowedArt(id).tint;   // drawGroundItem applies it, so borrowed stickers keep their colour on the ground
       _imgCache[id] = img;
       return img;
     }

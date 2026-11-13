@@ -240,6 +240,22 @@ test('the bone quest can be started and completed', () => {
   assert.ok(game.inventory.has('amulet_of_strength'));
 });
 
+test('the bone quest takes any kind of bones, cheapest first', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.handleDialogueAction('questStart');
+  game.inventory.add('bones', 3);
+  game.inventory.add('big_bones', 5);
+  game.inventory.add('spirit_bones', 4);
+  game.handleDialogueAction('questTurnIn');
+  assert.equal(game.quests.bone_collector.state, 'done');
+  assert.equal(game.inventory.count('bones'), 0);
+  assert.equal(game.inventory.count('big_bones'), 0);
+  assert.equal(game.inventory.count('spirit_bones'), 2, 'the best bones are kept');
+});
+
 test('prayers activate, conflict by group, boost combat and drain points', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
@@ -4571,6 +4587,7 @@ test('bones ladder: better bones by band, champion and boss bones, altar offerin
   const { boneForTier, championBoneQty, RARE_BOSS_BONES } = await import('../src/data/bones.js');
   const { PRAYER_BY_ID } = await import('../src/data/prayers.js');
   const { xpForLevel } = await import('../src/data/xp.js');
+  const { BURY_RESTORE_CAP } = await import('../src/game/game.js');
   const { XP_RATE } = await import('../src/config.js');
   globalThis.localStorage = fakeStorage();
   clearSave();
@@ -4599,7 +4616,7 @@ test('bones ladder: better bones by band, champion and boss bones, altar offerin
   for (let i = 1; i < ladder.length; i++) assert.ok(xp(ladder[i]) > xp(ladder[i - 1]), `${ladder[i]} > ${ladder[i - 1]}`);
   const rare = ['spirit_bones', 'titan_bones', 'fiend_bones', 'dragon_bones', 'legend_bones'];
   for (let i = 1; i < rare.length; i++) assert.ok(xp(rare[i]) > xp(rare[i - 1]), `${rare[i]} > ${rare[i - 1]}`);
-  assert.ok(xp('champion_bones') > xp('heavy_bones'));
+  assert.ok(xp('champion_bones') > xp('spirit_bones'), 'a champion bone beats any ordinary bone');
   // (d) Champions of stronger bands give more Champion bones.
   assert.equal(championBoneQty(1), 1);
   assert.ok(championBoneQty(300) > championBoneQty(30));
@@ -4617,6 +4634,12 @@ test('bones ladder: better bones by band, champion and boss bones, altar offerin
   assert.equal(game.buryBones(game.inventory.slots.findIndex((x) => x && x.id === 'big_bones'), Infinity), 10);
   assert.equal(game.skills.xp.prayer - xp0, 200 * 10 * XP_RATE);
   assert.ok(game.prayerPoints <= game.maxPrayer(), 'prayer points capped');
+  // ...and one click on a big stack only restores a few bones' worth of prayer.
+  game.skills.xp.prayer = xpForLevel(99);
+  game.prayerPoints = 0;
+  game.inventory.add('bones', 50);
+  game.buryBones(game.inventory.slots.findIndex((x) => x && x.id === 'bones'), Infinity);
+  assert.equal(game.prayerPoints, BURY_RESTORE_CAP * ITEMS.bones.prayerRestore, 'restore capped per bury');
   // (g) Offering only works at a monument, and pays 2.5x.
   const shrine = game.world.objects.find((o) => o.def.type === 'shrine');
   game.player.x = shrine.x + 20; game.player.y = shrine.y + 20;

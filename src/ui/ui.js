@@ -1979,7 +1979,7 @@ export class UI {
         : Object.keys(labels).filter((k) => pr[k]).map((k) => `+${Math.round(pr[k] * 100)}% ${labels[k]}`).join(' ');
       // The level sits beside the name as a chip; a thin bar along the bottom
       // shows how close a locked prayer is to unlocking.
-      cell.innerHTML = `<span class="pr-ic">${prayerIconHTML(pr.art || pr.id, 30)}</span><span class="pr-text">`
+      cell.innerHTML = `<span class="pr-ic">${prayerIconHTML(pr.art || pr.id, 30, '', pr.tint)}</span><span class="pr-text">`
         + `<span class="pr-top"><b>${pr.name}</b><span class="pr-lvl">Lvl ${pr.level}</span></span><span class="pr-effect">${effect}</span></span>`
         + '<span class="pr-bar"><i></i></span>';
       cell.addEventListener('click', () => this.game.togglePrayer(pr.id));

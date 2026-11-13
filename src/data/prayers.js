@@ -19,12 +19,12 @@ export const PRAYERS = [
   { id: 'mystic_lore', name: 'Mystic Lore', level: 80, drain: 3, magic: 0.35 },
   { id: 'protect_melee', name: 'Protect from Melee', level: 99, drain: 4, protect: 0.60 },
   { id: 'steel_skin', name: 'Steel Skin', level: 150, drain: 3, def: 0.50 },
-  { id: 'deadeye', name: 'Deadeye', level: 175, drain: 3, ranged: 0.60, art: 'eagle_eye' },
+  { id: 'deadeye', name: 'Deadeye', level: 175, drain: 3, ranged: 0.60, art: 'eagle_eye', tint: 'hue-rotate(-60deg) saturate(1.6)' },
   { id: 'ultimate_strength', name: 'Ultimate Strength', level: 200, drain: 3, str: 0.50 },
-  { id: 'mystic_might', name: 'Mystic Might', level: 225, drain: 3, magic: 0.60, art: 'mystic_lore' },
+  { id: 'mystic_might', name: 'Mystic Might', level: 225, drain: 3, magic: 0.60, art: 'mystic_lore', tint: 'hue-rotate(60deg) saturate(1.6)' },
   { id: 'incredible_reflexes', name: 'Incredible Reflexes', level: 250, drain: 3, att: 0.50 },
   // The Worthy's blessing at 300: all three melee stats at once, a little stronger and cheaper than running the three tier-3 prayers (drain 9).
-  { id: 'worthy_spirit', name: 'Spirit of the Worthy', level: 300, drain: 8, att: 0.60, str: 0.60, def: 0.60, art: 'incredible_reflexes' },
+  { id: 'worthy_spirit', name: 'Spirit of the Worthy', level: 300, drain: 8, att: 0.60, str: 0.60, def: 0.60, art: 'incredible_reflexes', tint: 'sepia(1) saturate(3) brightness(1.1)' },
 ];
 
 export const PRAYER_BY_ID = Object.fromEntries(PRAYERS.map((p) => [p.id, p]));
