@@ -36,6 +36,27 @@
   --r1: 10px; --r2: 14px; --r3: 20px; --r4: 26px;
   --font: "Nunito", "Nunito Fallback", system-ui, sans-serif;
 
+  /* Design tokens. Meaning-based colours point at the marker colours above, so
+     "done" or "careful" reads the same everywhere and a shade changes in one
+     place. New components use these; older rules move over one at a time. */
+  --ok:     var(--aw-grass-deep); --ok-bg:     var(--aw-grass-bg);   /* done, good */
+  --warn:   var(--aw-sun-deep);   --warn-bg:   var(--aw-sun-bg);     /* in progress, careful */
+  --danger: var(--aw-accent);     --danger-bg: var(--aw-accent-bg);  /* menus: delete, death */
+  --info:   var(--aw-sky-deep);   --info-bg:   var(--aw-sky-bg);
+  --hazard:    #FF3D7F;   /* in-world ground danger only, so "get out of the red" is unmistakable */
+  --hit-taken: #8A1020;   /* a heavy blow on you */
+  --hp-trail:  #FFE6A8;   /* health just lost */
+  /* Type: seven sizes; --fs-cap is the floor for anything always on screen. */
+  --fs-cap: 10px; --fs-xs: 11px; --fs-sm: 12.5px; --fs-md: 14px;
+  --fs-lg: 16px;  --fs-xl: 20px; --fs-display: 28px;
+  --fw-body: 600; --fw-label: 800; --fw-title: 900;
+  --sp-1: 4px; --sp-2: 6px; --sp-3: 8px; --sp-4: 12px; --sp-5: 16px; --sp-6: 24px;
+  --r-pill: 999px;
+  /* Ink outlines: hairline for chips and badges, standard for cards and
+     buttons, bold for banners and pop-up windows. */
+  --stroke-hair: 1.5px; --stroke: 2px; --stroke-bold: 2.5px;
+  /* Sticker shadows are the --shadow-sticker-* and --shadow-primary set above. */
+
   /* Legacy names the rest of the sheet (and inline UI markup) still use,
      re-pointed at text-safe A-Worthy values on light paper. */
   --bg:        var(--aw-bg);
@@ -706,7 +727,6 @@ button, input, select, textarea { font-family: inherit; }
 #run-orb { bottom: 104px; left: -12px; }
 #prayer-orb.active { box-shadow: 0 0 10px rgba(255,210,74,0.8), inset 0 0 6px rgba(0,0,0,0.5); }
 #spec-orb.armed { box-shadow: 0 0 12px rgba(255,210,74,0.95), inset 0 0 0 2px var(--gold-hi); }
-#spec-orb.disabled { opacity: 0.4; }
 .set-bonus span:last-child { color: var(--gold-hi); font-weight: bold; }
 
 /* ---------- Prayer panel ---------- */
@@ -720,24 +740,55 @@ button, input, select, textarea { font-family: inherit; }
 .prayer-cell b { display: block; font-size: 11px; }
 .prayer-cell span { opacity: 0.72; font-size: 9.5px; }
 .prayer-cell.active { box-shadow: inset 0 0 0 2px var(--rs-gold), 0 0 8px rgba(255,176,0,0.4); }
-.prayer-cell.locked { opacity: 0.38; cursor: not-allowed; }
+.prayer-cell.locked { cursor: not-allowed; }
 
 /* ---------- Quest journal ---------- */
 #quest-panel .quest-head { text-align: center; font-weight: bold; color: var(--rs-gold); margin-bottom: 8px; }
 .quest-row { background: rgba(0,0,0,0.2); border-radius: 4px; padding: 6px 8px; margin-bottom: 6px; font-size: 12px; }
 .quest-row .q-desc { display: block; opacity: 0.72; font-size: 11px; margin-top: 2px; }
-.q-done { float: right; color: #6fff8f; } .q-active { float: right; color: #ffd24a; } .q-todo { float: right; opacity: 0.6; }
 .quest-row .q-prog { color: var(--gold-hi); opacity: 0.95; }
 .quest-row { position: relative; }
-.quest-row.can-go { cursor: pointer; padding-right: 52px; }
+.quest-row.can-go { cursor: pointer; }
 .quest-row.can-go:hover { background: rgba(255,215,115,0.12); }
 .quest-row .q-next { display: block; margin-top: 4px; font-size: 11px; font-weight: 700; color: var(--gold-hi); }
-.quest-row .q-go { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font: inherit; font-weight: 800; font-size: 12px;
-  padding: 5px 10px; border-radius: 999px; border: 1.5px solid var(--gold-hi); background: rgba(0,0,0,0.25); color: var(--gold-hi); cursor: pointer; }
-.quest-row .q-go:hover { background: var(--gold-hi); color: #22304A; }
-.q-auto { display: block; width: 100%; margin: 0 0 8px; font: inherit; font-weight: 800; font-size: 12px; padding: 7px 10px;
-  border-radius: 999px; border: 1.5px solid var(--gold-hi); background: rgba(0,0,0,0.25); color: var(--gold-hi); cursor: pointer; }
-.q-auto.on { background: var(--gold-hi); color: #22304A; }
+.quest-row .q-top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-2); }
+.quest-row .q-top b { flex: 1; min-width: 0; }
+/* Status chip: small, coloured by meaning, never floated over the title. */
+.q-chip {
+  flex: none; margin-top: 1px; font-size: var(--fs-cap); font-weight: var(--fw-title); line-height: 1.2;
+  text-transform: uppercase; letter-spacing: .03em; white-space: nowrap;
+  padding: 2px 7px; border-radius: var(--r-pill); border: var(--stroke-hair) solid var(--aw-ink);
+}
+.q-chip.todo   { background: var(--aw-muted); color: var(--aw-text-sec); }
+.q-chip.active { background: var(--warn-bg); color: var(--warn); }
+.q-chip.done   { background: var(--ok-bg); color: var(--ok); }
+/* The next step and Go share the foot of the card. */
+.quest-row .q-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-top: var(--sp-1); }
+.quest-row .q-foot .q-next { margin-top: 0; flex: 1; min-width: 0; }
+/* Go: the brand's rust "press me" button. */
+.quest-row .q-go {
+  position: relative; flex: none; margin-left: auto; min-height: 30px; padding: 4px 14px;
+  font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-title); cursor: pointer;
+  border-radius: var(--r-pill); border: var(--stroke) solid var(--aw-ink);
+  background: var(--aw-accent); color: #fff; box-shadow: var(--shadow-primary);
+  transition: transform .07s ease, box-shadow .07s ease, background .12s ease;
+}
+.quest-row .q-go:hover { background: var(--aw-accent-dk); }
+.quest-row .q-go:active { transform: translateY(3px); box-shadow: none; }
+/* Auto quest: the same switch as Auto battle (.ab-switch / .ab-text). */
+.q-auto {
+  display: flex; align-items: center; gap: 9px; width: 100%; margin: 0 0 var(--sp-3); padding: 6px 12px 6px 8px;
+  font: inherit; text-align: left; cursor: pointer; color: var(--aw-text);
+  background: var(--aw-card); border: var(--stroke) solid var(--aw-ink); border-radius: var(--r-pill);
+  box-shadow: var(--shadow-sticker-sm);
+}
+.q-auto:hover { background: var(--aw-hover); }
+/* Spelled out here because phones trim the action-bar switch to its status. */
+.q-auto .ab-label { display: block; font-size: var(--fs-sm); }
+.q-auto .ab-status { max-width: none; white-space: normal; font-size: var(--fs-xs); font-weight: 700; color: var(--aw-text-sec); }
+.q-auto.on .ab-switch { background: var(--aw-accent); }
+.q-auto.on .ab-switch i { transform: translateX(14px); }
+.q-auto.on .ab-status { color: var(--aw-accent); }
 
 /* ---------- Spellbook (magic combat tab) ---------- */
 #combat-panel .style-row.spells { flex-wrap: wrap; max-height: 178px; overflow-y: auto; gap: 4px; }
@@ -755,10 +806,7 @@ button, input, select, textarea { font-family: inherit; }
 }
 .ach-cell b { display: block; font-size: 11px; }
 .ach-cell .ach-desc { display: block; opacity: 0.66; font-size: 10px; margin-top: 1px; }
-.ach-cell.locked { opacity: 0.5; filter: grayscale(0.5); }
 .ach-cell.done { border-color: rgba(111,255,143,0.5); background: rgba(40,90,45,0.32); }
-.ach-tick { position: absolute; top: 5px; right: 7px; color: #6fff8f; font-weight: bold; }
-.ach-prog { position: absolute; top: 5px; right: 7px; color: #ffd24a; font-size: 10px; }
 .ach-reward { display: block; margin-top: 2px; font-size: 10px; color: var(--gold); }
 .ach-cell.done .ach-reward { opacity: 0.5; }
 
@@ -1053,8 +1101,6 @@ button:focus:not(:focus-visible) { outline: none; }
 .align-bar .align-good { background: var(--aw-grass); box-shadow: none; }
 .prayer-cell.active { background: var(--aw-sun-bg); box-shadow: 0 0 0 3px var(--aw-sun), var(--shadow-sticker-sm); }
 .prayer-cell span, .quest-row .q-desc, .ach-cell .ach-desc { color: var(--aw-text-sec); opacity: 1; }
-.q-done, .ach-tick { color: var(--aw-grass-deep); }
-.q-active, .ach-prog { color: var(--aw-sun-deep); }
 .quest-row .q-prog, .ach-reward, .bestiary-row .b-kc, .slayer-stats { color: var(--aw-sun-deep); }
 .ach-cell.done { background: var(--aw-grass-bg); border-color: var(--aw-ink); }
 .bestiary-row .b-weak { color: var(--aw-sky-deep); }
@@ -2069,3 +2115,212 @@ body.boss-on #tip-toast { top: 132px; }
 .cb-stats .st-add:disabled { opacity: .35; cursor: default; }
 .cb-stats .st-foot { margin-top: 4px; opacity: .8; font-size: 11px; }
 .cb-stats .st-reset { margin-left: 6px; font-size: 11px; border-radius: 8px; border: 1px solid #999; background: #f4f4f4; cursor: pointer; }
+
+/* ======================================================================
+   Phone layout fixes: open panels win over the touch controls, thumbs reach
+   the joystick, small buttons get finger-sized tap areas, and nothing on
+   screen drops below 9px. Desktop (fine pointer, tall and wide) is untouched.
+   ====================================================================== */
+/* The game never scrolls. With overflow: hidden a focus() or scroll-into-view
+   could still nudge #game-root a few px sideways and shift every control;
+   clip forbids that (browsers without clip keep the hidden above). */
+#game-root { overflow: clip; }
+
+/* Landscape: the open panel sits above the skill arc, Attack and Interact
+   (z-index 27), as it already does in portrait. Fold it to fight. */
+@media (max-height: 500px) {
+  #sidepanel:not(.collapsed) { z-index: 28; }
+  /* The first-run tip moves into the space left of the open panel instead of
+     covering its cards. A wide panel takes about 370px (360 + its 10px margin),
+     so the tip centres in what is left of the screen with ~15px either side.
+     Only left moves (it still centres with translateX(-50%)), so its pop-in
+     animation still lines up. */
+  body:has(#sidepanel:not(.collapsed)) #tip-toast { left: calc((100vw - 380px) / 2); width: min(400px, calc(100vw - 400px)); }
+  /* The orbs move into a column clear of the minimap ring, so Special isn't half
+     hidden behind it. Steps of 54px leave room for each orb (36px) and its
+     caption pill. (Units are before the minimap's 0.8 scale.) */
+  #spec-orb, #prayer-orb, #hp-orb { left: -46px; }
+  #hp-orb { bottom: -4px; }
+  #prayer-orb { bottom: 50px; }
+  #spec-orb { bottom: 104px; }
+  /* An open panel covers the minimap, so the orb column hides with it rather
+     than leaving its caption pills floating beside the panel. */
+  body:has(#sidepanel:not(.collapsed)) #minimap-panel .orb { visibility: hidden; }
+  /* Compact dialogues: a smaller title and options in two columns, so most of
+     a long conversation fits without scrolling. */
+  #modal-window { width: min(780px, 94vw); max-height: 94dvh; }
+  #modal-title { font-size: 16px; padding: 7px 44px; }
+  #modal-close { top: 5px; }
+  /* The last 18px fade out, so a row cut off at the edge reads as "scroll for
+     more"; the bottom padding is as deep, so nothing is faded once scrolled down. */
+  #modal-body {
+    padding: 10px 12px 20px;
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent);
+  }
+  .dialogue { font-size: 14px; line-height: 1.45; }
+  .dialogue + .dialogue-options { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
+  .dialogue + .dialogue-options .dialogue-option { margin: 0; padding: 7px 10px; }
+  /* An odd one out (usually "Goodbye.") takes the full row instead of half of it. */
+  .dialogue + .dialogue-options .dialogue-option:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  /* World map: the filter chips stack in a column beside the map, so the map
+     gets the height. 132px = title (~38) + body padding (30) + the info line
+     under the map (two lines, ~50) + the window's own margin and border. */
+  #modal-body:has(.worldmap-canvas) { display: grid; grid-template-columns: auto 1fr; grid-template-rows: 1fr auto; column-gap: 10px; }
+  #modal-body:has(.worldmap-canvas) .wm-chips { grid-row: 1 / 3; flex-direction: column; flex-wrap: nowrap; gap: 4px; overflow-x: hidden; overflow-y: auto; padding: 2px 4px 2px 2px; margin: 0; }
+  #modal-body:has(.worldmap-canvas) .worldmap-canvas { max-height: calc(100dvh - 132px); align-self: center; }
+  #modal-body:has(.worldmap-canvas) .wm-info { font-size: 12px; margin-top: 6px; }
+}
+/* Landscape touch: the joystick drops to the bottom-left corner under the
+   left thumb (the desktop offset left it near the top), and the chat stacks
+   above it, clear of the auto battle bar in the middle. */
+@media (pointer: coarse) and (max-height: 500px) {
+  #joystick { left: 16px; bottom: 16px; width: 112px; height: 112px; }
+  #joystick-knob { width: 48px; height: 48px; }
+  /* bottom 136px = the joystick's 16px offset + 112px + an 8px gap. The top
+     stays at least 90px down, under the objectives tracker. */
+  #chatbox { left: 6px; bottom: 136px; width: min(360px, 44vw); height: min(150px, calc(100dvh - 226px)); }
+}
+
+/* Portrait phones. */
+@media (max-width: 540px) {
+  /* An open panel runs from just under the orb row to the bottom edge, so a tap
+     near its foot can't fall through to Attack. Its top is fixed rather than
+     set by its height: on short phones the tab rail would otherwise push it up
+     under the tip. The rail scrolls when it doesn't fit.
+     The orb row ends at about 214px (orbs at 164-198 plus captions); the tip
+     waits at 220px and is at most ~90px tall, so the panel starts at 316px. */
+  #sidepanel:not(.collapsed) { top: 316px; bottom: 6px; }
+  #panel-body { height: auto; max-height: none; min-height: 0; }
+  body:has(#sidepanel:not(.collapsed)) #tip-toast { top: 220px; bottom: auto; }
+  /* Objectives: the minimap column takes 142px (128px + margins), so the
+     tracker can have the rest; names stop wrapping and the distances come back. */
+  #quest-tracker { max-width: calc(100vw - 142px); }
+  #quest-tracker .trk-dist { display: inline; }
+  /* Readable minimum sizes, and orbs spaced so the larger captions don't touch. */
+  .orb .orb-cap { font-size: 9px; padding: 2px 3px; letter-spacing: 0; }
+  #prayer-orb { right: 50px; }
+  #spec-orb { right: 100px; }
+  .tab-btn .tab-label { font-size: 9.5px; }
+  .inv-tab, #inv-sort { font-size: 11px; }
+}
+
+/* Touch: finger-sized (44px) tap areas for the small controls. An invisible
+   ::before reaches past each button, so the artwork keeps its size (::after is
+   the orbs' glassy highlight in the older skin, so it stays theirs).
+   Insets are measured from inside the border, hence a couple of px extra.
+   Next to the minimap they reach away from its disc, whose own tap opens the
+   world map, and only a few px towards the screen edge. */
+@media (pointer: coarse) {
+  #panel-collapse, #chat-collapse { position: relative; z-index: 1; }
+  #panel-collapse::before, #chat-collapse::before, #minimap-collapse::before, #map-btn::before, .orb::before, .quest-row .q-go::before {
+    content: ""; position: absolute; inset: -13px;
+  }
+  #minimap-collapse::before { inset: -13px -8px -6px -6px; }
+  #map-btn::before { inset: -2px -4px -26px; }
+  .orb::before { inset: -7px 6px -7px -14px; }
+  .quest-row .q-go::before { inset: -10px -5px; }
+}
+/* The minimap is drawn at 0.8 in landscape, so its tap areas reach further to
+   stay 44px on screen. */
+@media (pointer: coarse) and (max-height: 500px) {
+  #minimap-collapse::before { inset: -19px -19px -6px -6px; }
+  #map-btn::before { inset: -6px -9px -30px; }
+  .orb::before { inset: -12px; }
+}
+
+/* World map on phones: the whole island fits the screen, and the filter chips
+   scroll sideways in one row instead of taking two. 170px = title, chip row,
+   info line and paddings. */
+@media (max-width: 540px), (max-height: 500px) {
+  #modal-window:has(.worldmap-canvas) { width: calc(100vw - 12px); max-height: calc(100dvh - 12px); }
+  .worldmap-canvas { width: auto; height: auto; max-width: 100%; max-height: calc(100dvh - 170px); }
+  .wm-chips { flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; padding: 2px 2px 6px; margin-bottom: 4px; scrollbar-width: none; }
+  .wm-chips::-webkit-scrollbar { display: none; }
+  .wm-chip { flex: none; }
+}
+
+/* ======================================================================
+   Sticker skin, finished: the parts the first pass missed (orbs, journal,
+   award and prayer cards, the desktop panel), built on the tokens above.
+   ====================================================================== */
+/* Status orbs fill like little jars: ui.js sets --fill (0-1) and the level
+   shows as a tint rising from the bottom. The number keeps its deep colour
+   (see #hp-orb etc. above), readable on white at any level. The tints are
+   bloom, sun and sky mixed about a third into white: strong enough to read
+   as a level, light enough that the deep numbers stay crisp on them. */
+#hp-orb     { --jar: #FAC0CE; }
+#prayer-orb { --jar: #FBE3AB; }
+#spec-orb   { --jar: #C5E2F5; }
+#hp-orb, #prayer-orb, #spec-orb {
+  background: linear-gradient(to top, var(--jar) calc(var(--fill, 1) * 100%), var(--aw-card) 0);
+  box-shadow: var(--shadow-sticker-sm);
+}
+#hp-orb.low { color: var(--danger); }
+/* Prayer on and Special armed keep their solid "switched on" look. */
+#prayer-orb.active { background: var(--aw-sun); }
+#spec-orb.armed { background: var(--aw-sky); }
+
+/* Achievement cards: the counter sits beside the title, progress runs along
+   the foot, and not-yet-earned cards look "coming later" rather than faded. */
+.ach-cell { display: flex; flex-direction: column; overflow: hidden; padding-bottom: 8px; }
+.ach-top { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; column-gap: var(--sp-1); }
+/* A one-word title too long to share its row pushes the counter onto the next
+   line (still on the right) rather than running into it. */
+.ach-top b { flex: 1 0 auto; max-width: 100%; }
+.ach-prog, .ach-tick { margin-left: auto; }
+.ach-prog { flex: none; font-size: var(--fs-cap); font-weight: var(--fw-label); color: var(--warn); line-height: 1.4; }
+.ach-tick { flex: none; font-weight: var(--fw-title); color: var(--ok); line-height: 1.2; }
+.ach-cell .ach-desc { font-weight: var(--fw-body); }
+/* A white track with a hairline top, so an empty bar still reads as a bar
+   on the muted locked card. */
+.ach-bar, .prayer-cell .pr-bar {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 5px;
+  background: var(--aw-card); box-shadow: inset 0 1px 0 var(--aw-ink-faint);
+}
+.ach-bar i, .prayer-cell .pr-bar i { display: block; height: 100%; background: var(--aw-sun); border-radius: 0 3px 3px 0; }
+.ach-cell.locked, .prayer-cell.locked {
+  background: var(--aw-muted); border: var(--stroke) dashed var(--aw-ink-faint); box-shadow: none; color: var(--aw-text-sec);
+}
+.ach-cell.locked b, .prayer-cell.locked b { color: var(--aw-text); }
+.prayer-cell.locked:hover { transform: none; box-shadow: none; background: var(--aw-muted); }
+
+/* Prayer cards: the level as a chip beside the name; the bar only shows while
+   a prayer is still locked. */
+.prayer-cell { position: relative; overflow: hidden; }
+.prayer-cell .pr-top { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-1); font-size: inherit; color: inherit; }
+.prayer-cell .pr-text { flex: 1; color: var(--aw-text); }
+.prayer-cell .pr-top b { min-width: 0; }
+.prayer-cell .pr-lvl {
+  flex: none; font-size: var(--fs-cap); font-weight: var(--fw-title); line-height: 1.2; color: var(--aw-text-sec);
+  padding: 1px 6px; border-radius: var(--r-pill); border: var(--stroke-hair) solid var(--aw-ink); background: var(--aw-card);
+}
+.prayer-cell.active .pr-lvl { background: var(--aw-sun); color: var(--aw-text); }
+.prayer-cell .pr-effect { font-size: var(--fs-xs); font-weight: var(--fw-body); color: var(--aw-text-sec); }
+.prayer-cell:not(.locked) .pr-bar { display: none; }
+.prayer-cell.locked .pr-ic { opacity: .7; }
+/* Special with no spec weapon: "not available" in the locked-card style
+   instead of a see-through orb whose number can't be read. */
+#spec-orb.disabled { background: var(--aw-muted); border-style: dashed; color: var(--aw-text-sec); }
+
+/* Phones draw the switch smaller, so the knob travels less. */
+@media (max-width: 540px) { .q-auto.on .ab-switch i { transform: translateX(12px); } }
+
+/* Desktop: the body fills the height of the tab rail beside it instead of
+   ending in an empty strip, and from 1000px the panel keeps one steady 320px
+   width on every tab (Skills no longer jumps wider). contain: size stops a
+   long list from growing the panel; it scrolls inside instead. */
+@media (min-width: 900px) and (hover: hover) {
+  #sidepanel:not(.collapsed) { grid-template-rows: auto minmax(0, 1fr); }
+  #panel-body { height: auto; min-height: 0; contain: size; }
+  /* Always-visible labels reach the 10px floor. */
+  .orb, #spec-orb { font-size: 12px; }
+  .orb .orb-cap { font-size: var(--fs-cap); }
+  .tab-btn .tab-label { font-size: var(--fs-cap); }
+}
+/* Below 1000px a 320px panel would run into the centred ability bar, so the
+   narrower windows keep the old widths. */
+@media (min-width: 1000px) and (hover: hover) {
+  :root { --panel-w: 320px; }
+  #sidepanel.wide { width: var(--panel-w); }
+}

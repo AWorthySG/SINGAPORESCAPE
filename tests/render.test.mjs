@@ -304,3 +304,22 @@ test('every ability has an icon on disk: its own art, or the art it names', asyn
   // The class C skills have their own painted icons.
   for (const a of ABILITIES.filter((x) => x.cls && x.key === 'C')) assert.ok(!a.art && onDisk.has(`ability-${a.id}.webp`), `${a.id} has its own icon`);
 });
+
+test('HUD orbs keep the sticker skin: no dark-skin neon colours in the orb code', async () => {
+  const { readFileSync } = await import('node:fs');
+  const ui = readFileSync(new URL('../src/ui/ui.js', import.meta.url), 'utf8');
+  // The orb renderers, from renderHp through renderPrayer.
+  const start = ui.indexOf('  renderHp() {');
+  const end = ui.indexOf('  _buildPrayerPanel() {');
+  assert.ok(start > 0 && end > start, 'found the orb renderers in ui.js');
+  const orbCode = ui.slice(start, end);
+  // The old dark orbs set neon text inline (hsl(hue, 90%, 65%) and friends,
+  // measured at rgb(76,240,76): about 1.3:1 on the white discs) and sat on a
+  // #06201c glass gradient. The numbers take their deep colours from CSS now.
+  assert.doesNotMatch(orbCode, /style\.color\s*=/, 'orbs set no inline text colour');
+  assert.doesNotMatch(orbCode, /hsla?\(/i, 'no hsl() neon colours in the orb code');
+  for (const hex of ['#06201c', '#0e2a27', '#16403b', '#6fff8f', '#ffd24a', '#5ad1ff', '#ff9fb0', 'rgb\\(76, ?240, ?76\\)']) {
+    assert.doesNotMatch(orbCode, new RegExp(hex, 'i'), `no ${hex} in the orb code`);
+  }
+  assert.match(orbCode, /setProperty\('--fill'/, 'orbs report their fill level to CSS');
+});

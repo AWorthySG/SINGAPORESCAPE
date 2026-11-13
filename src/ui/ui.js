@@ -1925,8 +1925,9 @@ export class UI {
     const max = this.game.maxHp();
     this.el.hpOrbVal.textContent = hp;
     const frac = max ? hp / max : 1;
-    const hue = Math.round(120 * frac);
-    this.el.hpOrb.style.color = `hsl(${hue}, 90%, 65%)`;
+    // The orb fills like a jar (CSS reads --fill); the number keeps its deep
+    // sticker colour so it stays readable on the white disc at any level.
+    this.el.hpOrb.style.setProperty('--fill', Math.max(0, Math.min(1, frac)).toFixed(3));
     this.el.hpOrb.classList.toggle('low', frac <= 0.25 && this.game.player.alive);
   }
 
@@ -1945,7 +1946,7 @@ export class UI {
     try { hasSpec = !!(id && getItem(id).spec); } catch { hasSpec = false; }
     this.el.specOrb.classList.toggle('armed', this.game.specArmed);
     this.el.specOrb.classList.toggle('disabled', !hasSpec);
-    this.el.specOrb.style.color = `hsl(${Math.round(e * 1.2)}, 85%, 62%)`;
+    this.el.specOrb.style.setProperty('--fill', Math.max(0, Math.min(1, e / 100)).toFixed(3));
     this.el.specOrb.title = hasSpec
       ? `Special: ${getItem(id).spec.name} (${getItem(id).spec.cost}%) — click to arm`
       : 'Special attack (needs a spec weapon)';
@@ -1957,7 +1958,7 @@ export class UI {
     if (this.el.prayerOrb) {
       const max = this.game.maxPrayer();
       const frac = max ? this.game.prayerPoints / max : 0;
-      this.el.prayerOrb.style.color = `hsl(48, 90%, ${Math.round(45 + frac * 25)}%)`;
+      this.el.prayerOrb.style.setProperty('--fill', Math.max(0, Math.min(1, frac)).toFixed(3));
       this.el.prayerOrb.classList.toggle('active', this.game.activePrayers.size > 0);
     }
   }
@@ -1973,7 +1974,11 @@ export class UI {
       const effect = pr.protect
         ? `-${Math.round(pr.protect * 100)}% melee dmg`
         : Object.keys(labels).filter((k) => pr[k]).map((k) => `+${Math.round(pr[k] * 100)}% ${labels[k]}`).join(' ');
-      cell.innerHTML = `<span class="pr-ic">${prayerIconHTML(pr.id, 30)}</span><span class="pr-text"><b>${pr.name}</b><span>Lvl ${pr.level} · ${effect}</span></span>`;
+      // The level sits beside the name as a chip; a thin bar along the bottom
+      // shows how close a locked prayer is to unlocking.
+      cell.innerHTML = `<span class="pr-ic">${prayerIconHTML(pr.id, 30)}</span><span class="pr-text">`
+        + `<span class="pr-top"><b>${pr.name}</b><span class="pr-lvl">Lvl ${pr.level}</span></span><span class="pr-effect">${effect}</span></span>`
+        + '<span class="pr-bar"><i></i></span>';
       cell.addEventListener('click', () => this.game.togglePrayer(pr.id));
       this._prayerGrid.appendChild(cell);
     }
@@ -1988,15 +1993,18 @@ export class UI {
       const pr = PRAYERS.find((p) => p.id === cell.dataset.prayer);
       cell.classList.toggle('active', this.game.activePrayers.has(pr.id));
       cell.classList.toggle('locked', lvl < pr.level);
+      const bar = cell.querySelector('.pr-bar i');
+      if (bar) bar.style.width = `${Math.round(Math.min(1, lvl / pr.level) * 100)}%`;
     }
   }
 
   // ---------------- Quest journal ----------------
   renderQuestPanel() {
     const game = this.game;
-    const status = (s) => s === 'done' ? '<span class="q-done">Complete</span>'
-      : s === 'active' ? '<span class="q-active">In progress</span>'
-        : '<span class="q-todo">Not started</span>';
+    // Status is a small chip in the card's top row, beside (never over) the title.
+    const status = (s) => s === 'done' ? '<span class="q-chip done">Done</span>'
+      : s === 'active' ? '<span class="q-chip active">Active</span>'
+        : '<span class="q-chip todo">Not started</span>';
     const done = QUESTS.filter((d) => game.quests[d.id]?.state === 'done').length;
     let html = '';
     const b = game.bounties;
@@ -2005,8 +2013,8 @@ export class UI {
       html += `<div class="quest-head">Daily bounties &middot; streak ${b.streak} day${b.streak === 1 ? '' : 's'}${mult ? ` (+${mult}% pay)` : ''}</div>`;
       for (const t of b.list) {
         const pct = Math.min(100, Math.round((t.have / t.need) * 100));
-        html += `<div class="quest-row bounty-row${t.done ? ' done' : ''}"><b>${escapeHtml(t.name)}</b>`
-          + (t.done ? '<span class="q-done">Paid</span>' : `<span class="q-active">${t.have}/${t.need}</span>`)
+        html += `<div class="quest-row bounty-row${t.done ? ' done' : ''}"><div class="q-top"><b>${escapeHtml(t.name)}</b>`
+          + (t.done ? '<span class="q-chip done">Paid</span>' : `<span class="q-chip active">${t.have}/${t.need}</span>`) + '</div>'
           + `<span class="q-desc">Defeat ${t.need}${t.zone ? ` in ${escapeHtml(t.zone)}` : ''} &middot; ${formatNumber(Math.round(t.reward * streakMult(b.streak)))} coins</span>`
           + `<div class="bounty-bar"><i style="width:${pct}%"></i></div></div>`;
       }
@@ -2016,18 +2024,22 @@ export class UI {
     // Auto quest: works on the quest you last pressed Go on, else the next one.
     const aq = game.autoQuestPick();
     const aqName = aq ? QUESTS.find((d) => d.id === aq)?.name : '';
-    html += `<button class="q-auto${game.autoQuest ? ' on' : ''}" title="Start, work through and hand in quests by yourself">`
-      + `Auto quest: ${game.autoQuest ? 'On' : 'Off'}${aqName ? ` &middot; ${escapeHtml(aqName)}` : ''}</button>`;
+    // Drawn as the same switch as Auto battle, so both automations read On and Off alike.
+    html += `<button class="q-auto${game.autoQuest ? ' on' : ''}" aria-pressed="${game.autoQuest}" title="Start, work through and hand in quests by yourself">`
+      + '<span class="ab-switch" aria-hidden="true"><i></i></span><span class="ab-text"><b class="ab-label">Auto quest</b>'
+      + `<span class="ab-status">${game.autoQuest ? 'On' : 'Off'}${aqName ? ` &middot; ${escapeHtml(aqName)}` : ''}</span></span></button>`;
     for (const d of QUESTS) {
       const st = game.quests[d.id]?.state || 'notStarted';
       let prog = '';
       if (d.progress) { try { prog = d.progress(game); } catch { prog = ''; } }
       const guide = game.questGuide(d.id);
       const canGo = guide.kind !== 'none';
-      html += `<div class="quest-row${canGo ? ' can-go' : ''}" data-quest="${d.id}"><b>${escapeHtml(d.name)}</b>${status(st)}` +
+      const next = st !== 'done' && guide.text ? `<span class="q-next">${canGo ? '&#10148; ' : ''}${escapeHtml(guide.text)}</span>` : '';
+      html += `<div class="quest-row${canGo ? ' can-go' : ''}" data-quest="${d.id}"><div class="q-top"><b>${escapeHtml(d.name)}</b>${status(st)}</div>` +
         `<span class="q-desc">${escapeHtml(d.desc)}${prog ? ` <span class="q-prog">(${escapeHtml(prog)})</span>` : ''}</span>` +
-        (st !== 'done' && guide.text ? `<span class="q-next">${canGo ? '&#10148; ' : ''}${escapeHtml(guide.text)}</span>` : '') +
-        (canGo ? `<button class="q-go" data-quest="${d.id}" title="Walk there and start on it">Go</button>` : '') + `</div>`;
+        // The next step and its Go button share the card's foot, so Go never squeezes the text.
+        (next || canGo ? `<div class="q-foot">${next}` +
+          (canGo ? `<button class="q-go" data-quest="${d.id}" title="Walk there and start on it">Go</button>` : '') + '</div>' : '') + `</div>`;
     }
     this.el.questPanel.innerHTML = html;
     // Tap a quest (or its Go button) to travel to wherever it needs you next.
@@ -2051,10 +2063,15 @@ export class UI {
         const done = owned.has(a.id);
         let prog = '';
         if (!done && a.progress) { try { prog = a.progress(game); } catch { prog = ''; } }
+        // "12/25"-style progress also fills a thin bar along the card's foot.
+        const m = /^\s*([\d,]+)\s*\/\s*([\d,]+)/.exec(prog);
+        const frac = m ? Math.min(1, Number(m[1].replace(/,/g, '')) / (Number(m[2].replace(/,/g, '')) || 1)) : 0;
         html += `<div class="ach-cell ${done ? 'done' : 'locked'}" title="${escapeHtml(a.desc)}">` +
-          `<b>${escapeHtml(a.name)}</b><span class="ach-desc">${escapeHtml(a.desc)}</span>` +
+          `<div class="ach-top"><b>${escapeHtml(a.name)}</b>` +
+          (done ? '<span class="ach-tick">&#10003;</span>' : (prog ? `<span class="ach-prog">${escapeHtml(prog)}</span>` : '')) + '</div>' +
+          `<span class="ach-desc">${escapeHtml(a.desc)}</span>` +
           `<span class="ach-reward">&#9733; ${formatNumber(rewardFor(a.id))}</span>` +
-          (done ? '<span class="ach-tick">&#10003;</span>' : (prog ? `<span class="ach-prog">${escapeHtml(prog)}</span>` : '')) +
+          (!done && m ? `<span class="ach-bar"><i style="width:${Math.round(frac * 100)}%"></i></span>` : '') +
           `</div>`;
       }
       html += '</div>';
