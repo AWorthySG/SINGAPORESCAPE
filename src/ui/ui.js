@@ -1803,7 +1803,10 @@ export class UI {
       p.appendChild(b);
       return b;
     };
-    mk('Save game now', () => { import('../game/save.js').then((m) => { m.saveGame(this.game); this.game.msg('Game saved.', 'system'); }); });
+    mk('Save game now', () => { import('../game/save.js').then((m) => {
+      if (m.saveGame(this.game)) this.game.msg('Game saved.', 'system');
+      else this.game.msg('Could not save: this browser\'s storage is full or blocked. Your progress is not being kept.', 'system');
+    }); });
     const soundBtn = mk('', () => {
       const a = this.game.audio;
       if (!a) return;

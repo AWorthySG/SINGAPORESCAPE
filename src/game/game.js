@@ -355,13 +355,14 @@ export class Game {
       if (perk) this.msg(`New passive perk: ${perk.name}${perk.rank > 1 ? ` (Rank ${rankName(perk.rank)})` : ''}. ${perk.desc}.`, 'level');
       if (this.player.alive && COMBAT_SKILLS.has(p?.skill)) this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.ceil(this.maxHp() * 0.1));
     };
-    this.bus.on('quest', () => this.checkAchievements());
+    this.bus.on('quest', () => { this.checkAchievements(); this.saveSoon = true; });
 
     this.tickAcc = 0;
     this.beatAcc = 0;             // player combat runs on a faster beat than the world tick
     this.tickCount = 0;
     this.regenCounter = 0;
     this.autosaveCounter = 0;
+    this.saveSoon = false;        // set by key moments: save on the next tick
     this.starterGiven = false;
   }
 
@@ -374,6 +375,7 @@ export class Game {
       if (LEARNING_ENABLED && !this.learning.dailyDone(this.todayKey())) this.msg('Your daily revision is ready in the Knowledge Codex (Skills tab).', 'level');
     } else {
       this.newGame();
+      if (this.saveBackedUp) this.msg('Your old save could not be read, so a new game has started. A copy of it was kept in this browser.', 'system');
     }
     this.bus.emit('inventory');
     this.bus.emit('equipment');
@@ -414,6 +416,7 @@ export class Game {
     const cls = CLASS_BY_ID[classId];
     if (!cls || this.jobClass) return;
     this.jobClass = classId;
+    this.saveSoon = true;   // a permanent choice: don't lose it to a closed tab
     if (!this.pendingStyleChoice) {
       // An existing character: put away a weapon it can no longer use, and hand over its class weapon.
       this.pendingClassChoice = false;
@@ -589,7 +592,7 @@ export class Game {
   }
 
   msg(text, cls = 'game') { this.bus.emit('chat', { text, cls }); }
-  banner(html) { this.ui?.showBanner(html); }
+  banner(html) { this.ui?.showBanner(html); this.saveSoon = true; }
   addHitsplat(entity, dmg, opts = {}) {
     if (entity && dmg > 0) entity.hurt = 200; // flash the struck entity
     // Very fast attacks: hits landing on the same foe within 120ms of its last
@@ -855,7 +858,13 @@ export class Game {
     this.drainPrayer();
 
     if (this.tickCount % 100 === 1) this.ensureBounties();   // roll over at local midnight
-    if (++this.autosaveCounter >= AUTOSAVE_TICKS) { this.autosaveCounter = 0; saveGame(this); }
+    // Big moments (a class picked, a quest done, anything with a banner) save on
+    // the next tick rather than waiting up to 30s for the autosave.
+    if (++this.autosaveCounter >= AUTOSAVE_TICKS || this.saveSoon) {
+      this.autosaveCounter = 0; this.saveSoon = false;
+      // Storage full or blocked: say so once instead of failing silently forever.
+      if (!saveGame(this) && !this.saveWarned) { this.saveWarned = true; this.msg('Could not save: this browser\'s storage is full or blocked. Your progress is not being kept.', 'system'); }
+    }
     // Catch wealth / collection milestones that don't fire a dedicated event.
     if (this.tickCount % 10 === 0) this.checkAchievements();
     this.bus.emit('tick', this.tickCount);

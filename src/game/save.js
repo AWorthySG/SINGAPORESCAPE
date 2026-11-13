@@ -3,6 +3,9 @@ import { SAVE_KEY } from '../config.js';
 import { STATION_BY_ID } from '../data/transport.js';
 
 const VERSION = 1;
+// An unreadable save is copied here before a new game replaces it, so a bug or
+// a bad version check never destroys someone's progress for good.
+export const BACKUP_KEY = SAVE_KEY + '-backup';
 
 function storage() {
   try { return typeof localStorage !== 'undefined' ? localStorage : null; } catch { return null; }
@@ -64,9 +67,20 @@ export function saveGame(game) {
     s.setItem(SAVE_KEY, JSON.stringify(snapshot(game)));
     return true;
   } catch (err) {
+    // Storage full, or blocked (private browsing, site data turned off).
     console.warn('Save failed:', err);
     return false;
   }
+}
+
+/** Keep a copy of a save we could not use. The first bad copy wins: a later
+ *  failure must not overwrite it with yet another unusable save. */
+function backupBadSave(s, raw) {
+  try {
+    if (s.getItem(BACKUP_KEY)) return false;
+    s.setItem(BACKUP_KEY, raw);
+    return true;
+  } catch { return false; }
 }
 
 export function loadGame(game) {
@@ -75,8 +89,11 @@ export function loadGame(game) {
   const raw = s.getItem(SAVE_KEY);
   if (!raw) return false;
   let data;
-  try { data = JSON.parse(raw); } catch { return false; }
-  if (!data || data.version !== VERSION) return false;
+  try { data = JSON.parse(raw); } catch { data = null; }
+  if (!data || typeof data !== 'object' || data.version !== VERSION) {
+    if (backupBadSave(s, raw)) game.saveBackedUp = true;
+    return false;
+  }
 
   game.skills.load(data.skills);
   game.inventory.load(data.inventory);

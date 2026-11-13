@@ -5,7 +5,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { Game } from '../src/game/game.js';
-import { saveGame, loadGame, clearSave } from '../src/game/save.js';
+import { saveGame, loadGame, clearSave, BACKUP_KEY } from '../src/game/save.js';
+import { SAVE_KEY } from '../src/config.js';
 import { ITEMS } from '../src/data/items.js';
 import { getNpc, ALL_BOSS_IDS } from '../src/data/npcs.js';
 import { chebyshev } from '../src/core/utils.js';
@@ -158,6 +159,55 @@ test('save and load round-trips skills and inventory', () => {
   assert.ok(loadGame(g2));
   assert.equal(g2.skills.level('woodcutting'), wcLevel);
   assert.equal(g2.inventory.count('coal'), coal);
+});
+
+test('an unreadable save is backed up before a new game starts, and the first backup is kept', () => {
+  globalThis.localStorage = fakeStorage();
+  localStorage.setItem(SAVE_KEY, '{not json');
+  const g1 = new Game();
+  g1.start();
+  assert.ok(g1.pendingStyleChoice, 'falls back to a new game');
+  assert.equal(localStorage.getItem(BACKUP_KEY), '{not json', 'the broken save is kept aside');
+
+  // A save from another version is backed up too, but never over an earlier backup.
+  localStorage.setItem(SAVE_KEY, JSON.stringify({ version: 999 }));
+  assert.equal(loadGame(new Game()), false);
+  assert.equal(localStorage.getItem(BACKUP_KEY), '{not json', 'the first backup is not overwritten');
+
+  globalThis.localStorage = fakeStorage();
+  localStorage.setItem(SAVE_KEY, JSON.stringify({ version: 999 }));
+  assert.equal(loadGame(new Game()), false);
+  assert.equal(localStorage.getItem(BACKUP_KEY), JSON.stringify({ version: 999 }));
+});
+
+test('saving reports failure when storage is full or blocked, and warns the player once', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  const chat = [];
+  game.bus.on('chat', (m) => chat.push(m.text));
+  localStorage.setItem = () => { throw new Error('QuotaExceededError'); };
+  const warn = console.warn; console.warn = () => {};
+  try {
+    assert.equal(saveGame(game), false, 'a failed write is not reported as saved');
+    game.saveSoon = true;
+    step(game, 3);
+    game.saveSoon = true;
+    step(game, 3);
+  } finally { console.warn = warn; }
+  assert.equal(chat.filter((t) => t.startsWith('Could not save')).length, 1, 'one warning, not one per tick');
+});
+
+test('picking a class saves on the next tick', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseClass('rogue');
+  step(game, 1);
+  const saved = JSON.parse(localStorage.getItem(SAVE_KEY));
+  assert.equal(saved.jobClass, 'rogue', 'saved straight away, not 30s later');
 });
 
 test('praying at the Worthy Monument heals to full', () => {
