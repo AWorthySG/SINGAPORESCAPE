@@ -4200,6 +4200,9 @@ test('a world boss rises every 2 minutes: much tougher, aggressive, triple loot,
   globalThis.localStorage = fakeStorage(); clearSave();
   const g = new Game(); g.start(); g.chooseStartingStyle('melee');
   g.ui = new Proxy({}, { get: () => () => {} });
+  g.tickCount = 200;
+  assert.equal(g._tickWorldBoss(), undefined, 'none for a fresh character who could beat no boss');
+  g._worldBossFair = () => true;   // from here on, a character strong enough to face bosses
   g.tickCount = 199;
   g._tickWorldBoss(); assert.equal(g._worldBoss, undefined, 'not before 2 minutes');
   g.tickCount = 200;
@@ -4903,4 +4906,65 @@ test('a fresh character on auto battle never picks a fight with a boss too stron
   assert.equal(game.questTravel('island_defender'), false);
   assert.notEqual(p.action?.npc, boss);
   assert.ok(chat.some((m) => /too strong for you for now/.test(m)), 'explains why');
+});
+
+test('area hits never drag in a boss that is not already fighting you', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  game.ui = new Proxy({}, { get: () => () => {} });
+  const p = game.player;
+  // A goblin beside you with the Reservoir Serpent (peaceful, so only a stray
+  // hit could start the fight) right next to it.
+  game.npcs = game.npcs.filter((n) => Math.max(Math.abs(n.x - p.x), Math.abs(n.y - p.y)) > 40);
+  const t = game._nearestFree(p.x + 1, p.y);
+  const mob = game.spawnNpc('goblin', t.x, t.y, { wander: 0 });
+  mob.hp = mob.maxHp = 1e6;   // it never dies, so the fight goes on
+  const b = game._nearestFree(t.x + 1, t.y) || game._nearestFree(t.x, t.y + 1);
+  const boss = game.spawnNpc('reservoir_serpent', b.x, b.y, { wander: 0 });
+  boss.def = { ...boss.def, aggressive: false };
+  boss.x = boss.tx = t.x + 1; boss.y = boss.ty = t.y;
+  game._cleave(mob, 50);
+  game._perkSplash(mob, 50);
+  assert.equal(boss.hp, boss.maxHp, 'cleave and splash leave the boss alone');
+  assert.notEqual(boss.target, p);
+  // A real auto battle beside it (on goblins only, so it stays here): the
+  // goblin is fought, the boss never touched.
+  game.autoCfg.target = 'goblin';
+  game.toggleAutoBattle(true);
+  for (let i = 0; i < 80; i++) game.update(600);
+  assert.ok(mob.hp < mob.maxHp, 'the goblin was fought');
+  assert.equal(boss.hp, boss.maxHp, 'the boss was never hit');
+  assert.ok(p.alive);
+  // Once a boss is fighting you, area hits reach it as before.
+  boss.target = p;
+  game._perkSplash(mob, 50);
+  assert.ok(boss.hp < boss.maxHp, 'a boss already on you takes the splash');
+});
+
+test('a quest boss step takes on bosses for that trip only; a World Boss leaves when it kills you', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  game.ui = new Proxy({}, { get: () => () => {} });
+  const p = game.player;
+  game.npcs = game.npcs.filter((n) => Math.max(Math.abs(n.x - p.x), Math.abs(n.y - p.y)) > 40);
+  const t = game._nearestFree(p.x + 4, p.y);
+  beatableBoss(game.spawnNpc('goblin_warchief', t.x, t.y, { wander: 0 }), 5);
+  game.quests.island_defender.state = 'active';
+  assert.ok(game.questTravel('island_defender'));
+  assert.equal(game._questBoss, true, 'bosses are on for the quest trip');
+  assert.equal(game.autoCfg.bosses, false, 'but the saved setting is untouched');
+  game.toggleAutoBattle(false);
+  assert.equal(game._questBoss, false, 'and off again once auto battle stops');
+  // A World Boss that kills you doesn't wait by the respawn point.
+  const wb = game.spawnWorldBoss();
+  assert.ok(wb && game.npcs.includes(wb));
+  wb.target = p;
+  game.playerDeath();
+  assert.ok(!game.npcs.includes(wb) && !game._worldBoss, 'the World Boss left');
 });

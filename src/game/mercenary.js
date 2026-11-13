@@ -146,7 +146,7 @@ export function allyCleave(game, target, dmg) {
   for (const o of nearbyFoes(game)) {
     if (hit >= 3) break;
     if (o === target || o.hp <= 0 || o.temporary || !o.alive) continue;
-    if (o.def.fixed && o.target !== game.player) continue;
+    if ((o.def.fixed || o.def.boss) && o.target !== game.player) continue;   // bosses aren't dragged in
     if (chebyshev(o.x, o.y, target.x, target.y) > 1) continue;
     const d = Math.min(o.hp, Math.max(1, Math.round(dmg * share)));
     o.takeDamage(d);

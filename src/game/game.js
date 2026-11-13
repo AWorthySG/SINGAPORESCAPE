@@ -305,6 +305,7 @@ export class Game {
     this.autoQuestId = null;      // the quest auto quest is on (the one you last pressed Go on)
     this._autoSkip = new Map();   // npc entityId -> tick until which it is skipped (unreachable)
     this._autoSkipSaid = new Set();   // bosses auto battle has said it is skipping as too strong
+    this._questBoss = false;      // a quest boss step (journal "Go") lets auto battle take on bosses for that trip
     this._autoLast = null;
     this.abilityCd = {};          // ability id -> ticks until usable again
     this.braceTicks = 0;          // ticks of halved incoming damage left
@@ -1672,6 +1673,14 @@ export class Game {
     return { dmg, critX: 0 };
   }
 
+  /** Area hits (cleave, splash, ricochet, sweeps, pierces) leave alone any boss
+   *  that isn't already fighting you: a stray share of a hit on a monster beside
+   *  it would wake a boss you never chose to fight (or that auto battle judged
+   *  too strong), and it would then hunt you down. */
+  _aoeSpares(o) {
+    return !!(o.def.fixed || o.def.boss) && o.target !== this.player;
+  }
+
   _applyPlayerHit(npc, dmg, opts = {}) {
     // A stunning class ability: the foe reels once the blow lands.
     if (this._abStun && dmg > 0) {
@@ -1765,7 +1774,7 @@ export class Game {
     this.bus.emit('sfx', 'swish');
     const range = this.attackRange();
     const targets = mods.ability?.sweep
-      ? [npc, ...this.nearbyNpcs().filter((n) => n !== npc && n.alive && n.attackable && !n.temporary && n.hp > 0 && chebyshev(p.x, p.y, n.x, n.y) <= range)]
+      ? [npc, ...this.nearbyNpcs().filter((n) => n !== npc && n.alive && n.attackable && !n.temporary && n.hp > 0 && !this._aoeSpares(n) && chebyshev(p.x, p.y, n.x, n.y) <= range)]
       : [npc];
     let total = 0, raw = 0;   // raw: the main target's damage before crits, for the ricochet
     for (const t of targets) {
@@ -1813,7 +1822,7 @@ export class Game {
     const m = this.combatXpMult();
     for (const o of this.nearbyNpcs()) {
       if (o === target || !o.alive || !o.attackable || o.ally || o.hp <= 0) continue;
-      if (o.def.fixed && o.target !== p) continue;   // story bosses aren't dragged in
+      if (this._aoeSpares(o)) continue;   // bosses aren't dragged in
       const ox = o.x - p.x, oy = o.y - p.y;
       const along = ox * ux + oy * uy;                // how far down the line
       const off = Math.abs(ox * uy - oy * ux);        // how far to the side of it
@@ -1842,7 +1851,7 @@ export class Game {
     const p = this.player, m = this.combatXpMult();
     for (const o of this.nearbyNpcs()) {
       if (o === target || !o.alive || !o.attackable || o.ally || o.hp <= 0) continue;
-      if (o.def.fixed && o.target !== p) continue;   // story bosses aren't dragged in
+      if (this._aoeSpares(o)) continue;   // bosses aren't dragged in
       if (chebyshev(o.x, o.y, target.x, target.y) > r) continue;
       const c = this._aoeCrit(raw);
       const d = Math.min(o.hp, c.dmg);
@@ -1870,7 +1879,7 @@ export class Game {
       let next = null, bd = Infinity;
       for (const n of this.nearbyNpcs()) {
         if (hit.has(n) || !n.alive || !n.attackable || n.ally || n.temporary || n.hp <= 0) continue;
-        if (n.def.fixed && n.target !== p) continue;   // story bosses aren't dragged in
+        if (this._aoeSpares(n)) continue;   // bosses aren't dragged in
         const d = chebyshev(n.x, n.y, prev.x, prev.y);
         if (d <= 3 && d < bd) { bd = d; next = n; }
       }
@@ -1901,7 +1910,7 @@ export class Game {
     for (const o of this.nearbyNpcs()) {
       if (n >= 3) break;
       if (o === target || !o.alive || !o.attackable || o.temporary || o.hp <= 0) continue;
-      if (o.def.fixed && o.target !== this.player) continue;     // story bosses aren't dragged in
+      if (this._aoeSpares(o)) continue;     // bosses aren't dragged in
       if (chebyshev(o.x, o.y, target.x, target.y) > 1 || chebyshev(o.x, o.y, this.player.x, this.player.y) > this.attackRange() + 1) continue;
       const c = this._aoeCrit(Math.max(1, Math.round(dmg * share)));
       const d = Math.min(o.hp, c.dmg);
@@ -1918,7 +1927,7 @@ export class Game {
   }
 
   _perkSplash(from, dmg) {
-    const other = this.nearbyNpcs().find((n) => n !== from && n.alive && n.attackable && !n.temporary && n.hp > 0 && chebyshev(n.x, n.y, from.x, from.y) <= 3);
+    const other = this.nearbyNpcs().find((n) => n !== from && n.alive && n.attackable && !n.temporary && n.hp > 0 && !this._aoeSpares(n) && chebyshev(n.x, n.y, from.x, from.y) <= 3);
     if (!other) return;
     const c = this._aoeCrit(dmg); dmg = c.dmg;
     other.takeDamage(dmg);
@@ -2009,7 +2018,7 @@ export class Game {
       for (let k = 0; k < rc.hits; k++) {
         const o = this.nearbyNpcs().find((n) => !hit.has(n) && n.alive && n.attackable && !n.temporary && n.hp > 0
           && chebyshev(n.x, n.y, npc.x, npc.y) <= 3 && chebyshev(n.x, n.y, p.x, p.y) <= this.attackRange() + 3
-          && !(n.def.fixed && n.target !== p));
+          && !this._aoeSpares(n));
         if (!o) break;
         hit.add(o);
         const c = this._aoeCrit(Math.max(1, Math.round(raw * rc.share)));
@@ -2036,7 +2045,7 @@ export class Game {
   _splitShot(main, style, pr) {
     const p = this.player, range = this.attackRange();
     const extra = this.nearbyNpcs()
-      .filter((n) => n !== main && n.alive && n.attackable && !n.temporary && n.hp > 0 && chebyshev(p.x, p.y, n.x, n.y) <= range)
+      .filter((n) => n !== main && n.alive && n.attackable && !n.temporary && n.hp > 0 && !this._aoeSpares(n) && chebyshev(p.x, p.y, n.x, n.y) <= range)
       .sort((a, b) => chebyshev(p.x, p.y, a.x, a.y) - chebyshev(p.x, p.y, b.x, b.y))
       .slice(0, SPLIT_SHOT_TARGETS - 1);
     const wpn = getItem(this.equipment.get('weapon')).equip;
@@ -2077,7 +2086,7 @@ export class Game {
     let xp = 0;
     for (const o of this.nearbyNpcs()) {
       if (o === target || !o.alive || !o.attackable || o.ally || o.hp <= 0) continue;
-      if (o.def.fixed && o.target !== p) continue;   // story bosses aren't dragged in
+      if (this._aoeSpares(o)) continue;   // bosses aren't dragged in
       if (chebyshev(o.x, o.y, target.x, target.y) > radius) continue;
       const c = this._aoeCrit(dmg);
       const d = Math.min(o.hp, c.dmg);
@@ -2963,7 +2972,18 @@ export class Game {
       this.npcs = this.npcs.filter((n) => n !== wb); this._worldBoss = null;
     }
     if (this.tickCount % WORLD_BOSS_EVERY !== 0 || this._worldBoss || !this.player.alive) return;
+    // Not for players who couldn't beat even an ordinary boss yet: it would only
+    // hunt them down again and again (the same check auto battle uses).
+    if (!this._worldBossFair()) return;
     return this.spawnWorldBoss();
+  }
+
+  /** True when you could beat at least one ordinary (non-story) boss. */
+  _worldBossFair() {
+    return ALL_BOSS_IDS.some((id) => {
+      let d; try { d = getNpc(id); } catch { return false; }
+      return d.boss && !d.fixed && d.attackable && this._autoCanBeat({ def: d, hp: d.maxHp || 1 });
+    });
   }
 
   /** Bosses grow with you: once your combat level passes a boss's level, the
@@ -3383,6 +3403,12 @@ export class Game {
     p.stopNow();
     p.clearAction();
     for (const n of this.npcs) if (n.target === p) { n.target = null; }
+    // A World Boss that beat you leaves rather than waiting by the respawn point.
+    const wb = this._worldBoss;
+    if (wb) {
+      if (wb.alive) this.msg(`${wb.name} fades back into the wilds.`, 'system');
+      this.npcs = this.npcs.filter((n) => n !== wb); this._worldBoss = null;
+    }
     this.ui?.closeModal();
   }
 
@@ -3447,6 +3473,7 @@ export class Game {
     this._autoSkip.clear();
     this._autoLast = null;
     if (this.autoBattle) this._autoRetarget = true;   // start at once, not on the next tick
+    else this._questBoss = false;                     // a quest's boss hunt ends with auto battle
     this.msg(this.autoBattle
       ? 'Auto battle on: you will hunt nearby monsters, eat when hurt and use your skills. Steer to pause.'
       : 'Auto battle off.', 'system');
@@ -3575,7 +3602,7 @@ export class Game {
   /** Could you beat this boss, so auto battle (or a quest's boss step) may pick
    *  the fight? First the quick check: no more than about a quarter above your
    *  fight level. Then a rough time-to-kill from both sides: your average hits
-   *  must empty its life within about 15 minutes (boss fights are long), and its
+   *  must empty its life within about 30 minutes (boss fights are long), and its
    *  average hits must take at least 20 seconds to empty yours, which healing,
    *  lifesteal and food then hold off. Both sides are rough (specials and heals
    *  are left out) and lean towards leaving a boss alone. */
@@ -3606,7 +3633,7 @@ export class Game {
       / (Math.max(2, (def.attackSpeed || 4) - 2) * TICK_MS / 1000);
     const myTime = (n.hp || n.maxHp || 1) / Math.max(0.01, myDps);
     const theirTime = this.maxHp() / Math.max(0.01, theirDps);
-    return myTime <= 900 && theirTime >= 20;
+    return myTime <= 1800 && theirTime >= 20;
   }
 
   /** Auto battle says once per boss when it walks past one it can't beat. */
@@ -3766,7 +3793,6 @@ export class Game {
     // Champions are fair game at any level now (they used to be skipped when
     // well above you, which made auto battle look like it ignored them).
     // Bosses must pass _autoCanBeat.
-    const canTake = () => true;
     for (const n of near) {
       if (!n.alive || !n.attackable) continue;
       const d = chebyshev(p.x, p.y, n.x, n.y);
@@ -3780,7 +3806,7 @@ export class Game {
         continue;
       }
       if (n.temporary) continue;
-      if (n.def.boss && !this.autoCfg.bosses) continue;
+      if (n.def.boss && !this.autoCfg.bosses && !this._questBoss) continue;
       if ((this._autoSkip.get(n.entityId) || 0) > this.tickCount) continue;
       if (this.autoCfg.target && n.npcId !== this.autoCfg.target) continue;   // only the chosen monster type
       if (this._questTarget && n.npcId !== this._questTarget) continue;       // a quest hunt (e.g. rats for Pest Control)
@@ -3798,7 +3824,7 @@ export class Game {
       // Then mini-bosses: gold-ringed champions within reach that you can take on.
       if (n.champion) {
         if (this.autoCfg.champions === false) continue;   // "Champions: Skip"
-        if (!canTake(n.def.level || 1) || (!inWild && wildZone(n.x, n.y))) continue;
+        if (!inWild && wildZone(n.x, n.y)) continue;
         { const tier = this.autoCfg.priority !== false ? -2000 : -150 - (shootable(n, d) ? 1000 : 0); cands.push({ n, score: d + tier, tier }); }
         continue;
       }
@@ -4677,8 +4703,9 @@ export class Game {
     const nearest = (list) => list.reduce((b, o) => (!b || d2(o) < d2(b) ? o : b), null);
     if (!p.alive || g.kind === 'none') { if (g.text && g.text !== 'Complete') this.msg(g.text + '.', 'system'); return false; }
     this._questTarget = null;
+    this._questBoss = false;
     this._pathBudget = 150000;       // quest trips can cross the whole map
-    let ok = false, tooStrong = false;
+    let ok = false, tooStrong = false, wildOnly = false;
     try {
       if (g.kind === 'npc') {
         const n = nearest(this.npcs.filter((x) => x.npcId === g.npcId));
@@ -4698,16 +4725,22 @@ export class Game {
           && (!this.world.zoneAt(n.x, n.y)?.wilderness || this.world.zoneAt(here.x, here.y)?.wilderness)));
         if (mob) {
           this._questTarget = g.target || null;
-          if (g.kind === 'boss') this.autoCfg.bosses = true;
+          // Bosses are taken on for this quest trip only, not switched on for good.
+          this._questBoss = g.kind === 'boss';
           if (this._mrtHopToward(mob)) this.walkToFar({ x: mob.x, y: mob.y });
           else if (chebyshev(here.x, here.y, mob.x, mob.y) > 12) this.walkToFar({ x: mob.x, y: mob.y });
           else this.attackNpc(mob);
           if (!this.autoBattle) this.toggleAutoBattle(true);
           ok = true;
-        } else if (g.kind === 'boss') tooStrong = true;
+        } else if (g.kind === 'boss') {
+          // Say why: a boss you could beat that only roams the Wilderness, or none at all.
+          wildOnly = this.npcs.some((n) => n.alive && n.attackable && !n.temporary && fits(n));
+          tooStrong = !wildOnly;
+        }
       }
     } finally { this._pathBudget = 0; }
     this.msg(ok ? `Quest: ${g.text}.` : tooStrong ? `Quest: ${g.text}, but every boss is too strong for you for now. Train up first.`
+      : wildOnly ? `Quest: ${g.text}, but the only boss you can beat roams the Wilderness. Head there yourself.`
       : `Quest: ${g.text}, but I can't find the way there.`, 'system');
     if (ok && AUTO_QUEST_ACTIONS[id]) this.autoQuestId = id;   // auto quest works on the quest you last chose
     return ok;
