@@ -2153,15 +2153,29 @@ body.boss-on #tip-toast { top: 132px; }
 
 /* Stats (Strength / Intelligence / Dexterity) in the Combat tab. */
 .cb-stats { margin: 8px 0; padding: 8px 10px; border: 2px solid var(--ink, #1f2a44); border-radius: 12px; background: #fff; font-size: 12px; }
-.cb-stats .st-head { display: flex; justify-content: space-between; margin-bottom: 4px; }
-.cb-stats .st-row { display: grid; grid-template-columns: 1fr auto; grid-template-areas: 'name add' 'eff eff'; align-items: center; gap: 0 8px; padding: 3px 0; }
-.cb-stats .st-name { grid-area: name; }
-.cb-stats .st-add { grid-area: add; }
-.cb-stats .st-eff { grid-area: eff; }
+.cb-stats .st-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-1) var(--sp-2); margin-bottom: 4px; }
+.cb-stats .st-free.has { color: var(--ok); font-weight: var(--fw-label); }
+/* Name and buttons share a line when they fit; in a narrow box (iPad
+   portrait) the buttons wrap under the name instead of poking out. */
+.cb-stats .st-row { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; padding: 4px 0; }
+.cb-stats .st-name { flex: 1 1 auto; }
+.cb-stats .st-btns { display: flex; gap: var(--sp-2); margin-left: auto; }
+.cb-stats .st-eff { flex-basis: 100%; }
 .cb-stats .st-row.main .st-name { color: #c0392b; }
 .cb-stats .st-eff { opacity: .75; font-size: 11px; }
-.cb-stats .st-add { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--ink, #1f2a44); background: #ffe08a; font-weight: 700; cursor: pointer; }
-.cb-stats .st-add:disabled { opacity: .35; cursor: default; }
+/* Big, instant buttons (see _holdToRepeat): no zoom, text selection or
+   callout on a long press. The + buttons still let a vertical swipe scroll
+   the panel; such a swipe cancels the press and spends nothing. */
+.cb-stats .st-add, .cb-stats .st-all {
+  touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent; cursor: pointer; font: inherit; font-weight: var(--fw-title);
+  border: var(--stroke) solid var(--ink); box-shadow: var(--shadow-sticker-sm);
+}
+.cb-stats .st-add { touch-action: pan-y; min-width: 44px; height: 40px; padding: 0 8px; border-radius: var(--r1); background: #ffe08a; color: var(--ink); font-size: var(--fs-md); }
+.cb-stats .st-all { min-height: 36px; padding: 0 12px; border-radius: var(--r-pill); background: var(--aw-accent); color: #fff; font-size: var(--fs-sm); box-shadow: var(--shadow-primary); }
+.cb-stats .st-add:active:not(:disabled), .cb-stats .st-all:active { transform: translateY(2px); box-shadow: none; }
+.cb-stats .st-add:disabled { opacity: .35; cursor: default; box-shadow: none; }
+.cb-stats [hidden] { display: none; }
 .cb-stats .st-foot { margin-top: 4px; opacity: .8; font-size: 11px; }
 .cb-stats .st-reset { margin-left: 6px; font-size: 11px; border-radius: 8px; border: 1px solid #999; background: #f4f4f4; cursor: pointer; }
 

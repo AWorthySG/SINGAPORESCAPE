@@ -2513,6 +2513,91 @@ test('Stats: Strength, Intelligence and Dexterity points from your fighting leve
   assert.equal(g.spentPoints(), 0); assert.equal(g.unspentPoints(), 20, 'every point back to spend');
 });
 
+test('Stats: +10 spends ten at once (capped by free points), Spend all fills the style stat, held buttons speed up', async () => {
+  const A = await import('../src/game/attributes.js');
+  const { xpForLevel } = await import('../src/data/xp.js');
+  // Hold-to-repeat: a pause before the first repeat (so a tap adds one), then
+  // ever-shorter gaps down to about twenty a second, never faster.
+  assert.equal(A.holdRepeatDelay(0), A.REPEAT_FIRST_MS);
+  for (let n = 1; n < 40; n++) assert.ok(A.holdRepeatDelay(n) <= A.holdRepeatDelay(n - 1), 'never slows down');
+  assert.equal(A.holdRepeatDelay(20), A.REPEAT_MIN_MS, 'settles at the floor');
+  let t = 0, n = 0; while (t < 2000) t += A.holdRepeatDelay(n++);
+  assert.ok(n >= 20, `a two-second hold adds plenty (${n})`);
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('swordsman');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.skills.xp.attack = xpForLevel(400);                  // 20 points
+  let stats = 0; g.bus.on('stats', () => stats++);
+  assert.ok(g.addStat('dex', 10)); assert.equal(g.attrs.dex, 10);
+  assert.equal(stats, 1, 'one spend, one stats event');
+  assert.ok(g.addStat('int', 10.7)); assert.equal(g.attrs.int, 10, 'whole points only');
+  assert.equal(g.unspentPoints(), 0);
+  assert.equal(g.spendAllStats(), false, 'nothing to spend');
+  g.inventory.add('coins', 1e6); g.resetStats();
+  assert.equal(g.unspentPoints(), 20);
+  g.addStat('dex', 3);
+  assert.ok(g.addStat('int', 50)); assert.equal(g.attrs.int, 17, '+N is capped by free points');
+  g.inventory.add('coins', 1e6); g.resetStats();
+  assert.equal(g.combatMode(), 'melee');
+  assert.ok(g.spendAllStats());
+  assert.deepEqual(g.attrs, { str: 20, int: 0, dex: 0 }, 'every point into Strength for a melee fighter');
+  assert.equal(g.unspentPoints(), 0);
+});
+
+test('Stats: a held + stops when the press ends anywhere, and a touch swipe spends nothing', async (t) => {
+  const { UI } = await import('../src/ui/ui.js');
+  const { REPEAT_FIRST_MS } = await import('../src/game/attributes.js');
+  // A stand-in button, window and document: just enough DOM for _holdToRepeat.
+  const prevWin = globalThis.window, prevDoc = globalThis.document;
+  t.after(() => { globalThis.window = prevWin; globalThis.document = prevDoc; });
+  globalThis.window = new EventTarget();
+  globalThis.document = Object.assign(new EventTarget(), { hidden: false });
+  const btn = Object.assign(new EventTarget(), {
+    disabled: false, isConnected: true, offsetParent: {},
+    getBoundingClientRect: () => ({ left: 0, top: 0, right: 40, bottom: 40 }),
+    contains: (el) => el === btn, hasPointerCapture: () => false,
+  });
+  let spent = 0;
+  UI.prototype._holdToRepeat.call({}, btn, () => { spent++; return true; });
+  // Fire a pointer event at `at` (the button or the window), as if over `target`.
+  const ev = (at, type, { target = at, ...o } = {}) => {
+    const e = new Event(type, { bubbles: true, cancelable: true });
+    Object.assign(e, { pointerId: 1, button: 0, pointerType: 'mouse', clientX: 20, clientY: 20, ...o });
+    Object.defineProperty(e, 'target', { value: target });
+    at.dispatchEvent(e);
+  };
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  // Mouse: spends on press, repeats while held, stops on release.
+  ev(btn, 'pointerdown'); assert.equal(spent, 1, 'a mouse press spends at once');
+  t.mock.timers.tick(REPEAT_FIRST_MS); assert.equal(spent, 2, 'holding repeats');
+  ev(window, 'pointerup', { target: {} }); t.mock.timers.tick(5000);
+  assert.equal(spent, 2, 'a release off the button still stops it');
+  // A held press stops when the window loses focus (Alt-Tab) or the tab is hidden.
+  spent = 0; ev(btn, 'pointerdown'); window.dispatchEvent(new Event('blur')); t.mock.timers.tick(5000);
+  assert.equal(spent, 1, 'blur stops the repeat');
+  spent = 0; ev(btn, 'pointerdown'); document.hidden = true; document.dispatchEvent(new Event('visibilitychange')); t.mock.timers.tick(5000);
+  assert.equal(spent, 1, 'a hidden tab stops the repeat'); document.hidden = false;
+  // Touch: a tap spends one on release, the click after it adds nothing.
+  const touch = { pointerType: 'touch' };
+  spent = 0; ev(btn, 'pointerdown', touch); assert.equal(spent, 0, 'a touch waits');
+  ev(window, 'pointerup', { ...touch, target: btn }); btn.dispatchEvent(new Event('click'));
+  assert.equal(spent, 1, 'a tap adds exactly one');
+  // A swipe that starts on the button scrolls instead: nothing spent.
+  spent = 0; ev(btn, 'pointerdown', touch); ev(window, 'pointermove', { ...touch, clientY: 8 });
+  t.mock.timers.tick(5000); ev(window, 'pointerup', { ...touch, target: btn });
+  assert.equal(spent, 0, 'a swipe spends nothing');
+  spent = 0; ev(btn, 'pointerdown', touch); ev(window, 'pointercancel', touch); t.mock.timers.tick(5000);
+  assert.equal(spent, 0, 'the browser taking over the gesture spends nothing');
+  // A held touch repeats, and sliding the finger off the button stops it.
+  spent = 0; ev(btn, 'pointerdown', touch); t.mock.timers.tick(REPEAT_FIRST_MS); assert.equal(spent, 1, 'a held touch starts adding');
+  ev(window, 'pointermove', { ...touch, clientX: 200 }); t.mock.timers.tick(5000);
+  assert.equal(spent, 1, 'sliding off stops it');
+  t.mock.timers.reset();
+  // A click with no press just before it (a screen reader's) still adds one.
+  await new Promise((r) => setTimeout(r, 550));
+  spent = 0; btn.dispatchEvent(new Event('click')); assert.equal(spent, 1, 'a lone click adds one');
+});
+
 test('Smaller numbers: big monsters show less life and take smaller hits in proportion, so fights and XP are unchanged', async () => {
   const { NPCS, hpScaleFor } = await import('../src/data/npcs.js');
   const { xpForLevel } = await import('../src/data/xp.js');
