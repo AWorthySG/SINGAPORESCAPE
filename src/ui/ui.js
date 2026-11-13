@@ -2381,12 +2381,12 @@ export class UI {
       for (const e of shown) {
         bankGrid.appendChild(this._cell(e.id, e.qty, {
           onClick: () => this.game.withdraw(e.id, 1),
-          onRight: (ev) => this.showContextMenu(ev.clientX, ev.clientY, [
+          menu: () => [
             { label: 'Withdraw 1', fn: () => this.game.withdraw(e.id, 1) },
             { label: 'Withdraw 5', fn: () => this.game.withdraw(e.id, 5) },
             { label: 'Withdraw 10', fn: () => this.game.withdraw(e.id, 10) },
             { label: 'Withdraw All', fn: () => this.game.withdraw(e.id, e.qty) },
-          ]),
+          ],
         }));
       }
       bankSide.appendChild(bankGrid);
@@ -2413,11 +2413,11 @@ export class UI {
         if (!s) return;
         invGrid.appendChild(this._cell(s.id, s.qty, {
           onClick: () => this.game.deposit(s.id, s.qty),
-          onRight: (ev) => this.showContextMenu(ev.clientX, ev.clientY, [
+          menu: () => [
             { label: 'Deposit 1', fn: () => this.game.deposit(s.id, 1) },
             { label: 'Deposit 5', fn: () => this.game.deposit(s.id, 5) },
             { label: 'Deposit All', fn: () => this.game.deposit(s.id, this.game.inventory.count(s.id)) },
-          ]),
+          ],
         }));
       });
       invSide.appendChild(invGrid);
@@ -2426,7 +2426,11 @@ export class UI {
       body.appendChild(cols);
       const hint = document.createElement('div');
       hint.className = 'modal-hint';
-      hint.textContent = 'Left-click to withdraw/deposit one. Right-click for amounts.';
+      // The first tap that opens the bank lands on the canvas, so ask the browser too.
+      const touch = this._touchUsed || !!window.matchMedia?.('(pointer: coarse)').matches;
+      hint.textContent = touch
+        ? 'Tap to withdraw/deposit one. Press and hold for amounts.'
+        : 'Left-click to withdraw/deposit one. Right-click for amounts.';
       body.appendChild(hint);
     };
     this.openModal('Bank of Singapore', render);
@@ -2450,12 +2454,12 @@ export class UI {
         shopGrid.appendChild(this._cell(entry.id, entry.qty, {
           tooltip: `<b>${getItem(entry.id).name}</b><br>Buy: ${price} coins`,
           onClick: () => this.game.buyItem(shopId, entry.id, 1),
-          onRight: (ev) => this.showContextMenu(ev.clientX, ev.clientY, [
+          menu: () => [
             { label: `Buy 1 (${price})`, fn: () => this.game.buyItem(shopId, entry.id, 1) },
             { label: 'Buy 5', fn: () => this.game.buyItem(shopId, entry.id, 5) },
             { label: 'Buy 10', fn: () => this.game.buyItem(shopId, entry.id, 10) },
             { label: 'Value', fn: () => this.game.msg(`${getItem(entry.id).name}: ${price} coins.`, 'system') },
-          ]),
+          ],
         }));
       }
       shopSide.appendChild(shopGrid);
@@ -2482,11 +2486,11 @@ export class UI {
         invGrid.appendChild(this._cell(s.id, s.qty, {
           tooltip: `<b>${getItem(s.id).name}</b><br>Sell: ${sell} coins`,
           onClick: () => this.game.sellItem(shopId, s.id, 1),
-          onRight: (ev) => this.showContextMenu(ev.clientX, ev.clientY, [
+          menu: () => [
             { label: `Sell 1 (${sell})`, fn: () => this.game.sellItem(shopId, s.id, 1) },
             { label: 'Sell 5', fn: () => this.game.sellItem(shopId, s.id, 5) },
             { label: 'Sell All', fn: () => this.game.sellItem(shopId, s.id, this.game.inventory.count(s.id)) },
-          ]),
+          ],
         }));
       });
       invSide.appendChild(invGrid);
@@ -2781,7 +2785,9 @@ export class UI {
   }
 
   // Shared item cell ---------------------------------------------------
-  _cell(id, qty, { onClick, onRight, tooltip } = {}) {
+  // `menu` lists the amount choices (Buy 5, Withdraw all ...): a right-click menu on
+  // desktop, and buttons on the press-and-hold card on phones, which have no right-click.
+  _cell(id, qty, { onClick, menu, tooltip } = {}) {
     const item = getItem(id);
     const cell = document.createElement('div');
     cell.className = 'item-cell';
@@ -2792,8 +2798,8 @@ export class UI {
       cell.appendChild(q);
     }
     if (onClick) cell.addEventListener('click', onClick);
-    if (onRight) cell.addEventListener('contextmenu', (e) => { e.preventDefault(); onRight(e); });
-    this._tip(cell, tooltip || `<b>${item.name}</b><br><span style="opacity:.8">${item.examine || ''}</span>`);
+    if (menu) cell.addEventListener('contextmenu', (e) => { e.preventDefault(); this.showContextMenu(e.clientX, e.clientY, menu()); });
+    this._tip(cell, tooltip || `<b>${item.name}</b><br><span style="opacity:.8">${item.examine || ''}</span>`, menu);
     return cell;
   }
 
