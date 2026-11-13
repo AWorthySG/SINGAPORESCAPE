@@ -59,6 +59,18 @@ import { LIFE_STAGES, LIFE_GRAD, LIFE_STAGES_ADV, LIFE_GRAD_ADV, LIFE_STAGES_WIL
 import { QUESTS, CHAMPION_QP, REDEMPTION_GOAL, CORRUPTION_GOAL } from '../data/quests.js';
 import { CLUE_TIERS, CLUE_SPOTS, clueTierForLevel } from '../data/clues.js';
 
+// Auto quest: the dialogue actions that start and hand in each quest it can
+// do ([start, hand-in]; Pest Control completes itself on the last rat). The
+// karma quests are missing on purpose: that choice is the player's.
+const AUTO_QUEST_ACTIONS = {
+  life_skills: ['lifeStart', 'lifeTurnIn'], life_skills_adv: ['lifeAdvStart', 'lifeAdvTurnIn'], life_skills_wild: ['lifeWildStart', 'lifeWildTurnIn'],
+  bone_collector: ['questStart', 'questTurnIn'], pest_control: ['pestStart', null], pillars: ['pillarsStart', 'pillarsTurnIn'],
+  smith_apprentice: ['smithStart', 'smithTurnIn'], island_defender: ['defenderStart', 'defenderTurnIn'], big_game_hunter: ['bigGameStart', 'bigGameTurnIn'],
+  mystic_trial: ['mysticStart', 'mysticTurnIn'], island_provisions: ['provisionsStart', 'provisionsTurnIn'], champion: ['championStart', 'championTurnIn'],
+};
+// Stations whose menu auto quest runs with "make everything" (autoprocess.js kinds).
+const AUTO_QUEST_STATION = { furnace: 'smelt', range: 'cook', fire: 'cook', anvil: 'smith', craft: 'craft', fletch: 'fletching', herblore: 'herblore' };
+
 const STARTER_TOOLS = ['bronze_axe', 'bronze_pickaxe', 'small_net', 'fishing_rod', 'tinderbox', 'hammer', 'chisel', 'bronze_dagger'];
 const COMBAT_SKILLS = new Set(['attack', 'strength', 'defence', 'hitpoints', 'ranged', 'magic']);
 
@@ -281,6 +293,8 @@ export class Game {
     this._driving = false;
     this.autoBattle = false;      // auto battle: hunt, fight, eat and use skills
     this.autoGather = false;      // auto gather: when a node runs dry, move on to the next one
+    this.autoQuest = false;       // auto quest: work through quests by yourself (see _autoQuestTick)
+    this.autoQuestId = null;      // the quest auto quest is on (the one you last pressed Go on)
     this._autoSkip = new Map();   // npc entityId -> tick until which it is skipped (unreachable)
     this._autoLast = null;
     this.abilityCd = {};          // ability id -> ticks until usable again
@@ -779,7 +793,7 @@ export class Game {
       if (--this.player.respawnTimer <= 0) this.respawnPlayer();
     } else {
       if (this.playerStun > 0) this.playerStun--;
-      else { this.resolvePlayerAction(); this._autoBattleTick(); this._autoLifeTick(); }
+      else { this.resolvePlayerAction(); this._autoBattleTick(); this._autoLifeTick(); this._autoQuestTick(); }
       this._autoPickup();
     }
     this._resolveHazards();
@@ -1001,6 +1015,7 @@ export class Game {
       case 'openbank': return this._tickArrival(a, a.target, true, () => this.ui?.openBank());
       case 'openshop': return this._tickArrival(a, a.target, true, () => this.ui?.openShop(a.shop));
       case 'talk': return this._tickArrival(a, a.target, true, () => this.ui?.openDialogue(a.npc));
+      case 'questtalk': return this._tickArrival(a, a.target, true, () => this._autoQuestTalk(a.quest, a.npc));
       default: p.clearAction();
     }
   }
@@ -3298,6 +3313,7 @@ export class Game {
     this._dodging = false;
     this.killStreak = 0; this.bus.emit('xpbonus');
     if (this.autoBattle) this.toggleAutoBattle(false);
+    if (this.autoQuest) this.toggleAutoQuest(false, 'you died.');
     this.banner('<span class="big">Oh dear, you are dead!</span>Respawning in town...');
     const p = this.player;
     p.alive = false;
@@ -4579,7 +4595,125 @@ export class Game {
       }
     } finally { this._pathBudget = 0; }
     this.msg(ok ? `Quest: ${g.text}.` : `Quest: ${g.text}, but I can't find the way there.`, 'system');
+    if (ok && AUTO_QUEST_ACTIONS[id]) this.autoQuestId = id;   // auto quest works on the quest you last chose
     return ok;
+  }
+
+  // ---------------- Auto quest ----------------
+  /** The quest auto quest is on: the one you last sent it to, else the first
+   *  unfinished one in journal order that it knows how to do. The karma quests
+   *  are a moral choice, so they are always left to the player. */
+  autoQuestPick() {
+    const can = (id) => AUTO_QUEST_ACTIONS[id] && this.quests[id] && this.quests[id].state !== 'done' && this.questGuide(id).kind !== 'none';
+    if (this.autoQuestId && can(this.autoQuestId)) return this.autoQuestId;
+    return QUESTS.find((d) => can(d.id))?.id || null;
+  }
+
+  toggleAutoQuest(on = !this.autoQuest, why = '') {
+    this.autoQuest = !!on;
+    this._autoQuestStep = null;
+    this._autoQuestMark = null;
+    this._autoQuestStuck = 0;
+    if (!this.autoQuest && this._autoQuestFight) {
+      // Hand back a fight auto quest started for you.
+      this._autoQuestFight = false;
+      this._questTarget = null;
+      if (this.autoBattle) this.toggleAutoBattle(false);
+    }
+    this.msg(this.autoQuest
+      ? 'Auto quest on: you will start, work through and hand in your quests by yourself. Steer to pause.'
+      : `Auto quest off${why ? `: ${why}` : '.'}`, 'system');
+    this.bus.emit('autoquest');
+  }
+
+  /** A rough "has anything happened" mark (bag contents and total XP), so auto
+   *  quest can tell when it keeps trying the same step and getting nowhere. */
+  _autoQuestFingerprint() {
+    let n = 0;
+    for (const sl of this.inventory.slots) if (sl) n += sl.qty || 1;
+    let xp = 0;
+    for (const v of Object.values(this.skills.xp)) xp += v || 0;
+    return `${n}:${Math.floor(xp)}`;
+  }
+
+  // Runs each world tick while auto quest is on and you are idle: work out the
+  // quest's next step and do it, the same way the journal's "Go" does, but
+  // also talking to quest givers, running station menus and buying supplies.
+  _autoQuestTick() {
+    const p = this.player;
+    if (!this.autoQuest || !p.alive || this._driving) return;
+    const id = this.autoQuestPick();
+    if (!id) { this.toggleAutoQuest(false, 'no quests left that I can do for you.'); return; }
+    const g = this.questGuide(id);
+    const fighting = g.kind === 'hunt' || g.kind === 'boss';
+    // A fight auto quest started has done its job: stop it and move on.
+    if (this._autoQuestFight && !fighting) {
+      this._autoQuestFight = false;
+      this._questTarget = null;
+      if (this.autoBattle) this.toggleAutoBattle(false);
+    }
+    if (fighting && this.autoBattle) return;          // auto battle is on the job
+    if (p.action || p.isMoving) return;               // busy: wait until idle
+    const name = QUESTS.find((d) => d.id === id)?.name || id;
+    const step = `${id}:${g.text}`;
+    if (step !== this._autoQuestStep) {
+      this._autoQuestStep = step;
+      this._autoQuestStuck = 0;
+      this._autoQuestMark = null;
+      this.msg(`Auto quest — ${name}: ${g.text}.`, 'system');
+    }
+    // Same step, nothing gained since the last try: count it, and give up
+    // after a few rather than walking back and forth forever.
+    const mark = this._autoQuestFingerprint();
+    if (mark === this._autoQuestMark) {
+      if (++this._autoQuestStuck >= 3) { this.toggleAutoQuest(false, `I'm stuck on "${g.text}". You'll need to do this step yourself.`); return; }
+    } else this._autoQuestStuck = 0;
+    this._autoQuestMark = mark;
+    const here = this.playerTile();
+    const d2 = (o) => (o.x - here.x) ** 2 + (o.y - here.y) ** 2;
+    const nearest = (list) => list.reduce((b, o) => (!b || d2(o) < d2(b) ? o : b), null);
+    this._pathBudget = 150000;       // quest trips can cross the whole map
+    try {
+      if (g.kind === 'npc') {
+        const n = nearest(this.npcs.filter((x) => x.npcId === g.npcId));
+        if (!n) { this.toggleAutoQuest(false, `I can't find ${getNpc(g.npcId).name}.`); return; }
+        const tgt = { x: n.x, y: n.y };
+        this.beginAction({ type: 'questtalk', npc: n, quest: id, target: tgt }, tgt, true);
+      } else if (g.kind === 'obj') {
+        const o = nearest(this.world.objects.filter((x) => x.objId === g.objId && !x.depleted));
+        if (!o) { this.toggleAutoQuest(false, `I can't find anywhere to "${g.text}".`); return; }
+        const make = AUTO_QUEST_STATION[o.def.type];
+        if (make) {
+          if (!nextJob(this, make)) { this.toggleAutoQuest(false, `you don't have what you need to "${g.text}".`); return; }
+          this.startAll(make, o);
+        } else {
+          if (this.inventory.freeSlots() <= 0) { this.toggleAutoQuest(false, 'your bag is full. Bank or drop something and switch it back on.'); return; }
+          this.defaultObjectAction(o);
+        }
+      } else if (g.kind === 'light') {
+        const idx = this.inventory.slots.findIndex((sl) => sl && getItem(sl.id).tags?.includes('log'));
+        if (idx === -1 || !this.hasTool('tinderbox')) { this.toggleAutoQuest(false, 'you need logs and a tinderbox to light a fire.'); return; }
+        this.lightLogs(idx);
+      } else if (fighting) {
+        if (!this.questTravel(id)) { this.toggleAutoQuest(false, `there's nothing I can fight for "${g.text}" right now.`); return; }
+        this._autoQuestFight = true;
+      }
+    } finally { this._pathBudget = 0; }
+  }
+
+  /** Auto quest reached a quest NPC: start the quest, hand it in, or (for the
+   *  Mystic's Trial) buy the death runes it asks for. */
+  _autoQuestTalk(id, npc) {
+    const q = this.quests[id];
+    const acts = AUTO_QUEST_ACTIONS[id];
+    if (!q || !acts) return;
+    if (id === 'mystic_trial' && q.state === 'active' && npc.def.role === 'shop') {
+      const need = 25 - this.inventory.count('death_rune');
+      if (need > 0) this.buyItem(npc.def.shop, 'death_rune', need);
+      return;
+    }
+    const action = q.state === 'active' ? acts[1] : acts[0];
+    if (action) this.handleDialogueAction(action);
   }
 
   questPoints() {

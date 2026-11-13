@@ -4520,3 +4520,48 @@ test('Marks of grace trade for Agility XP (the whole stack, scaled to your level
   g.skills.xp.agility = (await import('../src/data/xp.js')).xpForLevel(300);
   assert.ok(g.markOfGraceXp() > each * 10);
 });
+
+test('auto quest: starts, works through and hands in a quest by itself, then moves on', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.ui = new Proxy({}, { get: () => () => {} });
+  const p = game.player;
+  // Pillars of the Island, from not started to done, with no clicks at all.
+  game.autoQuestId = 'pillars';
+  game.toggleAutoQuest(true);
+  for (let i = 0; i < 600 && game.quests.pillars.state !== 'done'; i++) game.update(600);
+  assert.equal(game.quests.pillars.state, 'done', 'talked to the guide, prayed, rested and handed in');
+  assert.ok(game.autoQuest, 'still on, ready for the next quest');
+  assert.notEqual(game.autoQuestPick(), 'pillars');
+  // The Mystic's Trial: buys the death runes it needs, then hands them in.
+  game.autoQuestId = 'mystic_trial';
+  game.quests.mystic_trial.state = 'active';
+  game.inventory.add('coins', 1e7);
+  for (let i = 0; i < 900 && game.quests.mystic_trial.state !== 'done'; i++) game.update(600);
+  assert.equal(game.quests.mystic_trial.state, 'done', 'bought runes from the Mystic Merchant and handed them in');
+  // The karma quests are never picked: that choice stays with the player.
+  for (const id of Object.keys(game.quests)) if (!['redemption', 'corruption'].includes(id)) game.quests[id].state = 'done';
+  assert.equal(game.autoQuestPick(), null);
+  game.update(600); game.update(600);
+  assert.equal(game.autoQuest, false, 'switches itself off with nothing left to do');
+  assert.ok(p.alive);
+});
+
+test('auto quest gives up on a step it cannot make progress on instead of looping', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.ui = new Proxy({}, { get: () => () => {} });
+  // The first life-skills lesson (chop logs) with no axe: every trip to a tree fails.
+  game.startLife('life_skills');
+  game.inventory.slots.forEach((sl, i) => { if (sl && /_axe$/.test(sl.id)) game.inventory.removeAt(i, sl.qty || 1); });
+  assert.equal(game.hasTool('axe'), false);
+  game.autoQuestId = 'life_skills';
+  game.toggleAutoQuest(true);
+  for (let i = 0; i < 600 && game.autoQuest; i++) game.update(600);
+  assert.ok(game.player.alive);
+  assert.equal(game.autoQuest, false, 'stopped after a few fruitless tries');
+});
