@@ -5104,11 +5104,16 @@ test('the Smithing lesson sends you to mine copper and tin before the furnace, a
   game.inventory.remove('tin_ore', 2);
   game.autoQuestId = 'life_skills';
   game.toggleAutoQuest(true);
-  // Real frame-sized steps: whole 600ms jumps can wedge the walker on a corner
-  // on the way into town, which a browser at any sensible frame rate never does.
-  for (let i = 0; i < 4000 * 12 && q.stage === 4 && game.autoQuest; i++) game.update(50);
+  // 250ms steps, the longest frame the browser runs: a long frame once slid
+  // the walker a whole tile per axis and wedged it on a corner into town.
+  for (let i = 0; i < 4000 * 3 && q.stage === 4 && game.autoQuest; i++) game.update(250);
   assert.ok(q.stage > 4, 'the Smithing lesson was handed in');
   assert.ok(game.player.alive);
+  // Fishing next: fishing spots never run dry, so auto quest has to stop
+  // fishing once it has enough and go and hand the lesson in.
+  for (let i = 0; i < 4000 * 3 && q.stage === 5 && game.autoQuest; i++) game.update(250);
+  assert.ok(q.stage > 5, 'the Fishing lesson was handed in');
+  assert.equal(game.autoQuest, true);
   // Herblore needs a vial too: the guide sends you to Farmer Lim to buy one.
   game.toggleAutoQuest(false);
   game.startLife('life_skills_wild');
@@ -5118,6 +5123,65 @@ test('the Smithing lesson sends you to mine copper and tin before the furnace, a
   const g = game.questGuide('life_skills_wild');
   assert.equal(g.npcId, 'farmer');
   assert.deepEqual(g.buy, { item: 'vial', qty: 1 });
+});
+
+test('auto quest sets aside an accepted quest it cannot do yet and gets on with the lessons', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.ui = new Proxy({}, { get: () => () => {} });
+  // Island Provisions needs Fishing 30: a new player can't catch salmon.
+  game.quests.island_provisions.state = 'active';
+  assert.equal(game.autoQuestPick(), 'island_provisions');
+  game.toggleAutoQuest(true);
+  for (let i = 0; i < 4000 && game.quests.life_skills.state !== 'active'; i++) game.update(250);
+  assert.equal(game.autoQuest, true, 'still on, not given up');
+  assert.equal(game.quests.life_skills.state, 'active', 'started Trades of the Island instead');
+  assert.equal(game.autoQuestPick(), 'life_skills');
+  // Switching it back on tries the set-aside quest again.
+  game.toggleAutoQuest(false);
+  game.toggleAutoQuest(true);
+  assert.equal(game.autoQuestPick(), 'life_skills', 'the quest under way still comes first in journal order');
+  assert.ok(!game._autoQuestSkip, 'nothing set aside any more');
+});
+
+test('the Farming and Herblore lessons grow a chilli: other crops do not count, and auto quest waits for it to grow', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.ui = new Proxy({}, { get: () => () => {} });
+  game.startLife('life_skills_wild');
+  const q = game.quests.life_skills_wild;
+  q.stage = 2;   // Herblore: an attack potion (a chilli and a vial)
+  game._beginLifeStage('life_skills_wild');
+  for (const id of ['chilli', 'chilli_seed']) game.inventory.remove(id, game.inventory.count(id));
+  const patches = game.world.objects.filter((o) => o.def.type === 'farm');
+  // A kangkong patch is no chilli: buy chilli seeds.
+  patches[0].crop = 'kangkong'; patches[0].growLeft = 50;
+  assert.deepEqual(game.questGuide('life_skills_wild').buy, { item: 'chilli_seed', qty: 1 });
+  // A chilli already growing: wait for it rather than buy another seed.
+  patches[1].crop = 'chilli'; patches[1].growLeft = 50;
+  const g = game.questGuide('life_skills_wild');
+  assert.equal(g.buy, undefined);
+  assert.equal(g.wait, true);
+  // Ripe: harvest it.
+  patches[1].growLeft = 0;
+  assert.equal(game.questGuide('life_skills_wild').objId, 'farm_patch');
+  // From nothing, auto quest buys a seed, plants it, waits and brews the potion.
+  patches[0].crop = null; patches[0].growLeft = 0;
+  patches[1].crop = null; patches[1].growLeft = 0;
+  game.inventory.add('coins', 500);
+  const seedsBought = [];
+  const buy = game.buyItem.bind(game);
+  game.buyItem = (shop, item, qty) => { if (item === 'chilli_seed') seedsBought.push(qty); return buy(shop, item, qty); };
+  game.autoQuestId = 'life_skills_wild';
+  game.toggleAutoQuest(true);
+  for (let i = 0; i < 4000 && q.stage === 2 && game.autoQuest; i++) game.update(250);
+  assert.ok(q.stage > 2, 'the Herblore lesson was handed in');
+  assert.equal(game.autoQuest, true, 'waiting for the crop did not count as stuck');
+  assert.equal(seedsBought.length, 1, 'one chilli seed, not a second while the first grew');
 });
 
 test('a fresh character on auto battle never picks a fight with a boss too strong for it', () => {

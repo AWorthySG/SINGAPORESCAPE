@@ -41,6 +41,9 @@ game.start();
 input.onLeftClick((x, y) => game.onLeftClick(x, y));
 input.onRightClick((x, y) => game.onRightClick(x, y));
 input.onKey((e) => {
+  // Typing in a search box (bank, bestiary) must not fire the shortcut keys.
+  const t = e.target;
+  if (e.key !== 'Escape' && t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
   const map = { '1': 'inventory', '2': 'equipment', '3': 'skills', '4': 'combat', '5': 'prayer', '6': 'quests', '7': 'achievements', '8': 'settings' };
   if (map[e.key]) {
     document.querySelector(`#panel-tabs .tab-btn[data-view="${map[e.key]}"]`)?.click();

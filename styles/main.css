@@ -1536,22 +1536,24 @@ body.boss-on #tip-toast { top: 132px; }
 .prayer-cell .pr-ic img { width: 28px; height: 28px; }
 .prayer-cell .pr-text b { overflow-wrap: normal; }
 
-/* ---------- Auto battle: one pill with a switch and a live status ---------- */
+/* ---------- Auto battle, gather and quest: a small card of switches, each with a live status ---------- */
+/* (Side by side, three switches ran into the chat, the side panel and, on
+   phones, the Interact button, so they stack.) */
 .auto-row {
-  pointer-events: auto; display: inline-flex; align-items: stretch; gap: 0; margin: 0 auto;
-  background: var(--aw-card); border: 2px solid var(--aw-ink); border-radius: 999px; box-shadow: var(--shadow-sticker-sm);
+  pointer-events: auto; display: inline-flex; flex-direction: column; align-items: stretch; gap: 0; margin: 0 auto;
+  background: var(--aw-card); border: 2px solid var(--aw-ink); border-radius: 14px; box-shadow: var(--shadow-sticker-sm);
   overflow: hidden;
 }
 .auto-row #auto-battle-btn, .auto-row .ab-btn {
-  display: flex; align-items: center; gap: 9px; padding: 5px 12px 5px 8px; min-width: 0;
+  display: flex; align-items: center; gap: 7px; padding: 3px 10px 3px 6px; min-width: 0;
   background: transparent; border: 0; border-radius: 0; box-shadow: none; color: var(--aw-text); cursor: pointer; font-family: inherit;
 }
 .auto-row #auto-battle-btn::before { display: none; }
 .auto-row #auto-battle-btn:active, .auto-row .ab-btn:active { transform: none; }
 .auto-row #auto-battle-btn:hover, .auto-row .ab-btn:hover, .auto-row #auto-battle-cfg:hover { background: var(--aw-hover); }
 .auto-row #auto-battle-btn.active { background: transparent; color: var(--aw-text); box-shadow: none; }
-/* Battle, Gather and Quest sit side by side in the one pill, split by dashed lines. */
-.auto-row .ab-btn + .ab-btn { border-left: 2px dashed var(--aw-ink-faint); }
+/* Battle, Gather and Quest are split by dashed lines. */
+.auto-row .ab-btn + .ab-btn { border-top: 2px dashed var(--aw-ink-faint); }
 .ab-label kbd { font-family: inherit; font-size: 9.5px; font-weight: 800; padding: 0 4px; margin-left: 2px; border: 1.5px solid var(--aw-ink-faint); border-radius: 4px; color: var(--aw-text-sec); vertical-align: 1px; }
 .ab-switch { position: relative; flex: none; width: 34px; height: 20px; border-radius: 999px; background: var(--aw-muted); border: 2px solid var(--aw-ink); transition: background .15s ease; }
 .ab-switch i { position: absolute; top: 1px; left: 1px; width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 1.5px solid var(--aw-ink); transition: transform .15s ease; }
@@ -1559,18 +1561,16 @@ body.boss-on #tip-toast { top: 132px; }
 .auto-row .on .ab-switch i { transform: translateX(14px); }
 .ab-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.1; min-width: 0; }
 .ab-label { font-size: 12px; font-weight: 900; }
-.ab-status { font-size: 10.5px; font-weight: 700; color: var(--aw-text-sec); max-width: 170px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ab-status { font-size: 10.5px; font-weight: 700; color: var(--aw-text-sec); max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .auto-row .on .ab-status { color: var(--aw-accent); }
 .auto-row #auto-battle-cfg {
-  width: auto; height: auto; padding: 0 12px; border: 0; border-left: 2px dashed var(--aw-ink-faint); border-radius: 0; box-shadow: none;
-  background: transparent; font-size: 15px;
+  width: auto; height: auto; padding: 2px 0; border: 0; border-top: 2px dashed var(--aw-ink-faint); border-radius: 0; box-shadow: none;
+  background: transparent; font-size: 12px;
 }
 .auto-row #auto-battle-cfg:active { transform: none; }
 @media (max-width: 540px) {
-  .auto-row #auto-battle-btn, .auto-row .ab-btn { padding: 4px 10px 4px 6px; gap: 7px; }
   .ab-switch { width: 30px; height: 18px; } .ab-switch i { width: 12px; height: 12px; } .auto-row .on .ab-switch i { transform: translateX(12px); }
-  .ab-label { font-size: 11px; } .ab-status { font-size: 10px; max-width: 110px; }
-  .auto-row #auto-battle-cfg { padding: 0 10px; font-size: 13px; }
+  .ab-label { font-size: 11px; }
 }
 /* Settings window */
 .auto-set { display: grid; gap: 10px; }
@@ -1586,12 +1586,11 @@ body.boss-on #tip-toast { top: 132px; }
 .as-opt:hover { background: var(--aw-hover); }
 .as-opt.active { background: var(--aw-ink); color: #fff; }
 .as-opt:focus-visible { outline: 3px solid var(--aw-sun); outline-offset: 2px; }
-/* Phones: three switches have to share the width, so each shows just its name
-   while off and its status while on, and keeps clear of the Interact button. */
-@media (max-width: 540px) {
-  .ab-btn.on .ab-label, .ab-btn:not(.on) .ab-status, .ab-label kbd { display: none; }
-  .ab-status { font-size: 11px; font-weight: 800; max-width: 84px; color: var(--aw-text); }
-  .auto-row #auto-battle-btn, .auto-row .ab-btn { padding: 4px 8px 4px 5px; gap: 5px; }
+/* Phones and touch screens: a narrower card, and no T / Y / U keys to show. */
+@media (max-width: 760px), (pointer: coarse) {
+  .auto-row #auto-battle-btn, .auto-row .ab-btn { padding: 3px 8px 3px 5px; gap: 6px; }
+  .ab-label kbd { display: none; }
+  .ab-status { font-size: 10px; max-width: 108px; }
 }
 @media (max-width: 540px) { #interact-btn { bottom: 104px; } }
 

@@ -156,7 +156,12 @@ export class Player extends Character {
         this.path.shift(); budget -= d; moved += d;
         continue;
       }
-      const got = this._slide(dx / d * budget, dy / d * budget);
+      // Taken in small steps, as the joystick is: one long frame (a slow phone,
+      // a tab coming back) slid a whole tile along x and then along y, so a
+      // diagonal that is clear could still bump a wall on each axis and stick.
+      const n = Math.min(4000, Math.ceil(budget / 0.2));
+      let got = 0;
+      for (let i = 0; i < n; i++) got += this._slide(dx / d * budget / n, dy / d * budget / n);
       moved += got;
       // Wedged on a corner (we started off-centre): head for the middle of our tile first.
       if (got < budget * 0.2) {

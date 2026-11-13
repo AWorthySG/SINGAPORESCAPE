@@ -4734,6 +4734,15 @@ export class Game {
         if (met) return npc(giver, 'Hand in to');
         const SOURCE = { logs: 'tree', oak_logs: 'oak', copper_ore: 'copper_rock', iron_ore: 'iron_rock', bronze_bar: 'furnace', steel_bar: 'furnace',
           raw_anchovy: 'fishing_spot', raw_trout: 'rod_spot', anchovy: 'range', trout: 'range', chilli: 'farm_patch', attack_potion: 'apothecary_table', arrow_shaft: 'fletching_bench' };
+        const buy = (item, what) => ({ ...npc('farmer', `${st.name}: buy ${what} from`), buy: { item, qty: 1 } });
+        // Chillies come from a patch: harvest one that is ripe, wait for one
+        // that is growing (other crops don't count), else plant or buy a seed.
+        const growChilli = () => {
+          const crop = (this._farms ||= this.world.objects.filter((o) => o.def.type === 'farm')).find((o) => o.crop === 'chilli');
+          if (inv('chilli_seed')) return obj('farm_patch', `${st.name}: plant a chilli seed`);
+          if (crop?.growLeft > 0) return { ...obj('farm_patch', `${st.name}: wait for your chilli to grow`), wait: true };
+          return crop ? obj('farm_patch', `${st.name}: harvest your chilli`) : buy('chilli_seed', 'chilli seeds');
+        };
         if (st.need.item) {
           // A made item needs its ingredients first: send the player to whichever
           // one is short (ore before the furnace, a catch before the range, logs
@@ -4742,7 +4751,6 @@ export class Game {
           const left = st.need.qty - inv(st.need.item);
           const lesson = `${st.name}: get ${st.need.qty} ${getItem(st.need.item).name.toLowerCase()}`;
           const short = (item, per = 1) => inv(item) < left * per;
-          const buy = (item, what) => ({ ...npc('farmer', `${st.name}: buy ${what} from`), buy: { item, qty: 1 } });
           switch (st.need.item) {
             case 'bronze_bar':
               if (short('copper_ore')) return obj('copper_rock', `${st.name}: mine copper ore (${inv('copper_ore')}/${left})`);
@@ -4752,13 +4760,13 @@ export class Game {
               if (short('iron_ore')) return obj('iron_rock', `${st.name}: mine iron ore (${inv('iron_ore')}/${left})`);
               if (short('coal', 2)) return obj('coal_rock', `${st.name}: mine coal (${inv('coal')}/${left * 2})`);
               break;
-            case 'anchovy': if (!inv('raw_anchovy')) return obj('fishing_spot', `${st.name}: catch some raw anchovies first`); break;
-            case 'trout': if (!inv('raw_trout')) return obj('rod_spot', `${st.name}: catch some raw trout first`); break;
+            case 'anchovy': if (short('raw_anchovy')) return obj('fishing_spot', `${st.name}: catch raw anchovies (${inv('raw_anchovy')}/${left})`); break;
+            case 'trout': if (short('raw_trout')) return obj('rod_spot', `${st.name}: catch raw trout (${inv('raw_trout')}/${left})`); break;
             case 'attack_potion':
-              if (!inv('chilli')) return inv('chilli_seed') ? obj('farm_patch', `${st.name}: grow a chilli first`) : buy('chilli_seed', 'chilli seeds');
+              if (!inv('chilli')) return growChilli();
               if (!inv('vial')) return buy('vial', 'a vial');
               break;
-            case 'chilli': if (!inv('chilli_seed') && !this.world.objects.some((o) => o.crop)) return buy('chilli_seed', 'chilli seeds'); break;
+            case 'chilli': return growChilli();
             case 'arrow_shaft':
               if (!this.hasTool('knife')) return buy('knife', 'a knife');
               if (!inv('logs')) return obj('tree', `${st.name}: chop some logs first`);
@@ -4770,7 +4778,7 @@ export class Game {
           const log = this.inventory.slots.find((sl) => sl && getItem(sl.id).tags?.includes('log'));
           return log ? { kind: 'light', text: 'Firemaking: light your logs' } : obj('tree', 'Firemaking: chop some logs first');
         }
-        if (st.skill === 'hunter') return obj('bird_snare', 'Hunter: check a bird snare');
+        if (st.skill === 'hunter') return this.hasTool('snare') ? obj('bird_snare', 'Hunter: check a bird snare') : buy('hunting_snare', 'a hunting snare');
         return npc(giver);
       }
       case 'bone_collector': return countBones(this.inventory) >= 10 ? npc('guide', 'Hand in to') : { kind: 'hunt', text: `Collect bones: ${countBones(this.inventory)}/10 (any kind of bones counts)` };
@@ -4850,7 +4858,8 @@ export class Game {
    *  unfinished one in journal order that it knows how to do. The karma quests
    *  are a moral choice, so they are always left to the player. */
   autoQuestPick() {
-    const can = (id) => AUTO_QUEST_ACTIONS[id] && this.quests[id] && this.quests[id].state !== 'done' && this.questGuide(id).kind !== 'none';
+    const can = (id) => AUTO_QUEST_ACTIONS[id] && this.quests[id] && this.quests[id].state !== 'done' && this.questGuide(id).kind !== 'none'
+      && (id === this.autoQuestId || !this._autoQuestSkip?.has(id));
     if (this.autoQuestId && can(this.autoQuestId)) return this.autoQuestId;
     // Finish what you have already started before taking on anything new.
     return QUESTS.find((d) => this.quests[d.id]?.state === 'active' && can(d.id))?.id
@@ -4862,6 +4871,7 @@ export class Game {
     this._autoQuestStep = null;
     this._autoQuestMark = null;
     this._autoQuestStuck = 0;
+    if (this.autoQuest) this._autoQuestSkip = null;   // switching it back on tries everything again
     if (!this.autoQuest && this._autoQuestFight) {
       // Hand back a fight auto quest started for you.
       this._autoQuestFight = false;
@@ -4908,6 +4918,10 @@ export class Game {
       if (this.autoBattle) this.toggleAutoBattle(false);
     }
     if (fighting && this.autoBattle) return;          // auto battle is on the job
+    // Fishing spots never run dry, so a catch would go on for ever once the
+    // lesson has enough: stop gathering as soon as the step wants something else.
+    const a = p.action;
+    if (a && (GATHER_ACTIONS.has(a.type) || a.type === 'hunt') && (g.kind !== 'obj' || a.obj?.objId !== g.objId)) { p.clearAction(); p.stop(); }
     if (p.action || p.isMoving) return;               // busy: wait until idle
     const name = QUESTS.find((d) => d.id === id)?.name || id;
     const step = `${id}:${g.text}`;
@@ -4917,11 +4931,25 @@ export class Game {
       this._autoQuestMark = null;
       this.msg(`Auto quest — ${name}: ${g.text}.`, 'system');
     }
+    if (g.wait) return;              // a crop is growing: waiting is not being stuck
     // Same step, nothing gained since the last try: count it, and give up
     // after a few rather than walking back and forth forever.
     const mark = this._autoQuestFingerprint();
     if (mark === this._autoQuestMark) {
-      if (++this._autoQuestStuck >= 3) { this.toggleAutoQuest(false, `I'm stuck on "${g.text}". You'll need to do this step yourself.`); return; }
+      if (++this._autoQuestStuck >= 3) {
+        // A quest you didn't send it to (one you merely accepted, say at too low
+        // a level) is set aside for this session so it can get on with others.
+        if (id !== this.autoQuestId) {
+          (this._autoQuestSkip ||= new Set()).add(id);
+          if (this.autoQuestPick()) {
+            this._autoQuestStep = null;
+            this.msg(`Auto quest: I can't do "${g.text}" yet, so I'll leave ${name} for now.`, 'system');
+            return;
+          }
+          this._autoQuestSkip.delete(id);   // nothing else to do: say where it got stuck
+        }
+        this.toggleAutoQuest(false, `I'm stuck on "${g.text}". You'll need to do this step yourself.`); return;
+      }
     } else this._autoQuestStuck = 0;
     this._autoQuestMark = mark;
     const here = this.playerTile();
@@ -4936,7 +4964,10 @@ export class Game {
         const tgt = { x: n.x, y: n.y };
         this.beginAction({ type: 'questtalk', npc: n, quest: id, target: tgt }, tgt, true);
       } else if (g.kind === 'obj') {
-        const o = nearest(this.world.objects.filter((x) => x.objId === g.objId && !x.depleted));
+        // A farm patch has to be one you can use now: ripe, or empty with a seed to plant.
+        const seed = this.inventory.slots.some((sl) => sl && CROP_BY_SEED[sl.id]);
+        const o = nearest(this.world.objects.filter((x) => x.objId === g.objId && !x.depleted
+          && (x.def.type !== 'farm' || (x.crop ? !(x.growLeft > 0) : seed))));
         if (!o) { this.toggleAutoQuest(false, `I can't find anywhere to "${g.text}".`); return; }
         const make = AUTO_QUEST_STATION[o.def.type];
         this._mrtHopToward(o);
