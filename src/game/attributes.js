@@ -31,3 +31,11 @@ export function attrSummary(a) {
     dex: `+${(a.dex * DMG_PER_POINT * 100).toFixed(1)}% ranged & whip damage, +${(a.dex * SPEED_PER_DEX).toFixed(1)}% attack speed`,
   };
 }
+
+// Holding a + button keeps adding points: the first repeat waits a moment (so a
+// plain tap adds exactly one), then each gap shrinks until it settles at about
+// twenty a second, so spending a hundred points takes seconds, not a hundred taps.
+export const REPEAT_FIRST_MS = 350;
+export const REPEAT_MIN_MS = 50;
+/** Milliseconds to wait before repeat number `n` (0 = the first) of a held button. */
+export const holdRepeatDelay = (n) => Math.max(REPEAT_MIN_MS, Math.round(REPEAT_FIRST_MS * 0.7 ** Math.max(0, n)));

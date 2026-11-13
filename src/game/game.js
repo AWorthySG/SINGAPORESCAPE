@@ -518,11 +518,15 @@ export class Game {
   /** Put a point into an attribute. */
   addStat(k, n = 1) {
     if (!ATTRS.includes(k)) return false;
-    const add = Math.min(n, this.unspentPoints());
+    const add = Math.min(Math.floor(n), this.unspentPoints());
     if (add <= 0) { this.msg('You have no stat points to spend. You earn more as your fighting skill grows.', 'system'); return false; }
     this.attrs[k] += add;
     this.bus.emit('hp'); this.bus.emit('stats');
     return true;
+  }
+  /** Put every free point into the stat your current fighting style uses. */
+  spendAllStats() {
+    return this.unspentPoints() > 0 && this.addStat(attrForMode(this.combatMode()), this.unspentPoints());
   }
   /** Refund every point, for coins. */
   resetStats() {

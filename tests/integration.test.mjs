@@ -2513,6 +2513,37 @@ test('Stats: Strength, Intelligence and Dexterity points from your fighting leve
   assert.equal(g.spentPoints(), 0); assert.equal(g.unspentPoints(), 20, 'every point back to spend');
 });
 
+test('Stats: +10 spends ten at once (capped by free points), Spend all fills the style stat, held buttons speed up', async () => {
+  const A = await import('../src/game/attributes.js');
+  const { xpForLevel } = await import('../src/data/xp.js');
+  // Hold-to-repeat: a pause before the first repeat (so a tap adds one), then
+  // ever-shorter gaps down to about twenty a second, never faster.
+  assert.equal(A.holdRepeatDelay(0), A.REPEAT_FIRST_MS);
+  for (let n = 1; n < 40; n++) assert.ok(A.holdRepeatDelay(n) <= A.holdRepeatDelay(n - 1), 'never slows down');
+  assert.equal(A.holdRepeatDelay(20), A.REPEAT_MIN_MS, 'settles at the floor');
+  let t = 0, n = 0; while (t < 2000) t += A.holdRepeatDelay(n++);
+  assert.ok(n >= 20, `a two-second hold adds plenty (${n})`);
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('swordsman');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.skills.xp.attack = xpForLevel(400);                  // 20 points
+  let stats = 0; g.bus.on('stats', () => stats++);
+  assert.ok(g.addStat('dex', 10)); assert.equal(g.attrs.dex, 10);
+  assert.equal(stats, 1, 'one spend, one stats event');
+  assert.ok(g.addStat('int', 10.7)); assert.equal(g.attrs.int, 10, 'whole points only');
+  assert.equal(g.unspentPoints(), 0);
+  assert.equal(g.spendAllStats(), false, 'nothing to spend');
+  g.inventory.add('coins', 1e6); g.resetStats();
+  assert.equal(g.unspentPoints(), 20);
+  g.addStat('dex', 3);
+  assert.ok(g.addStat('int', 50)); assert.equal(g.attrs.int, 17, '+N is capped by free points');
+  g.inventory.add('coins', 1e6); g.resetStats();
+  assert.equal(g.combatMode(), 'melee');
+  assert.ok(g.spendAllStats());
+  assert.deepEqual(g.attrs, { str: 20, int: 0, dex: 0 }, 'every point into Strength for a melee fighter');
+  assert.equal(g.unspentPoints(), 0);
+});
+
 test('Smaller numbers: big monsters show less life and take smaller hits in proportion, so fights and XP are unchanged', async () => {
   const { NPCS, hpScaleFor } = await import('../src/data/npcs.js');
   const { xpForLevel } = await import('../src/data/xp.js');

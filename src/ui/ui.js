@@ -34,7 +34,7 @@ import { streakMult } from '../game/bounty.js';
 import { itemCategory } from '../game/inventory.js';
 import { MAX_UPGRADE, upgradeCost, upgradeChance, upgradedName, RISKY_FROM, STONE as UP_STONE, WARD as UP_WARD } from '../game/upgrade.js';
 import { MAX_REFINE, refineCost, refineOdds, refineTag } from '../game/refine.js';
-import { ATTRS, ATTR_NAMES, attrSummary, attrForMode, MAX_STAT_POINTS, RESET_COST_PER_POINT } from '../game/attributes.js';
+import { ATTRS, ATTR_NAMES, attrSummary, attrForMode, MAX_STAT_POINTS, RESET_COST_PER_POINT, holdRepeatDelay } from '../game/attributes.js';
 import { STAT_LABELS, STAT_HELP, compareGear, deltaText, gearBySlot, gearRating, meetsReq, swingBeats, tierOf, weaponStyle } from '../game/gear.js';
 import { TILE, LEARNING_ENABLED } from '../config.js';
 import { TERRAIN, zoneLevel } from '../data/world.js';
@@ -201,7 +201,9 @@ export class UI {
     this.bus.on('learning', () => this._soon('skills', () => this.renderSkills()));   // Codex button shows Wisdom and cards
     this.bus.on('levelup', (p) => this.onLevelUp(p));
     // New stat points can come with a level, and spending them changes the Stats box.
-    this.bus.on('stats', () => this.renderCombatPanel());
+    // A stat spend only changes the stats box (and max life, via 'hp'): update
+    // it in place rather than rebuilding the whole Combat panel per point.
+    this.bus.on('stats', () => this._updateStats());
     this.bus.on('levelup', () => this._soon('combatStats', () => this.renderCombatPanel(), 400));
     this.bus.on('chat', (p) => this.addChat(p.text, p.cls));
     this.bus.on('hp', () => this._soon('hp', () => this.renderHp()));
@@ -1671,19 +1673,86 @@ export class UI {
   }
 
   // Combat panel adapts to the wielded weapon: melee styles, ranged styles, or spellbook.
-  /** Strength / Intelligence / Dexterity: spend stat points (see attributes.js). */
+  /** Strength / Intelligence / Dexterity: spend stat points (see attributes.js).
+   *  The box is built once and its buttons kept: a spend only rewrites the
+   *  numbers in place (via the 'stats' event), so taps land instantly and a
+   *  button is never swapped out from under the finger pressing it. */
   _renderStats(after, mode) {
     const g = this.game;
     let box = this.el.combat.querySelector('.cb-stats');
-    if (!box) { box = document.createElement('div'); box.className = 'cb-stats'; after.insertAdjacentElement('afterend', box); }
-    const free = g.unspentPoints(), sum = attrSummary(g.attrs), main = attrForMode(mode);
-    box.innerHTML = `<div class="st-head"><b>Stats</b><span>${free ? `<b>${free}</b> point${free > 1 ? 's' : ''} to spend` : `${g.statPoints()}/${MAX_STAT_POINTS} points`}</span></div>`
-      + ATTRS.map((k) => `<div class="st-row${k === main ? ' main' : ''}"><span class="st-name">${ATTR_NAMES[k]} <b>${g.attrs[k]}</b></span>`
-        + `<span class="st-eff">${sum[k]}</span><button type="button" class="st-add" data-k="${k}"${free ? '' : ' disabled'}>+</button></div>`).join('')
-      + `<div class="st-foot">Points come as your fighting skill grows (up to ${MAX_STAT_POINTS}).`
-      + (g.spentPoints() ? ` <button type="button" class="st-reset">Reset (${g.spentPoints() * RESET_COST_PER_POINT} coins)</button>` : '') + '</div>';
-    box.querySelectorAll('.st-add').forEach((b) => b.addEventListener('click', () => { g.addStat(b.dataset.k); this.renderCombatPanel(); }));
-    box.querySelector('.st-reset')?.addEventListener('click', () => { g.resetStats(); this.renderCombatPanel(); });
+    if (!box) {
+      box = document.createElement('div'); box.className = 'cb-stats'; after.insertAdjacentElement('afterend', box);
+      box.innerHTML = `<div class="st-head"><b>Stats</b><span class="st-free"></span>`
+        + `<button type="button" class="st-all">Spend all &rarr; <span></span></button></div>`
+        + ATTRS.map((k) => `<div class="st-row" data-k="${k}"><span class="st-name">${ATTR_NAMES[k]} <b class="st-val"></b></span>`
+          + `<span class="st-btns"><button type="button" class="st-add" data-n="1" aria-label="Add 1 point to ${ATTR_NAMES[k]}">+1</button>`
+          + `<button type="button" class="st-add" data-n="10" aria-label="Add 10 points to ${ATTR_NAMES[k]}">+10</button></span>`
+          + `<span class="st-eff"></span></div>`).join('')
+        + `<div class="st-foot">Points come as your fighting skill grows (up to ${MAX_STAT_POINTS}). Hold + to keep adding.`
+        + ` <button type="button" class="st-reset"></button></div>`;
+      const rows = {};
+      for (const k of ATTRS) {
+        const row = box.querySelector(`.st-row[data-k="${k}"]`);
+        rows[k] = { row, val: row.querySelector('.st-val'), eff: row.querySelector('.st-eff') };
+        // Only spend while points remain, so a held button stops quietly
+        // instead of printing "no stat points" every repeat.
+        row.querySelectorAll('.st-add').forEach((b) => this._holdToRepeat(b, () => g.unspentPoints() > 0 && g.addStat(k, +b.dataset.n) && g.unspentPoints() > 0));
+      }
+      const all = box.querySelector('.st-all');
+      all.addEventListener('click', () => g.spendAllStats());
+      box.querySelector('.st-reset').addEventListener('click', () => g.resetStats());
+      this._stats = { box, rows, free: box.querySelector('.st-free'), all, allName: all.querySelector('span'),
+        adds: [...box.querySelectorAll('.st-add')], reset: box.querySelector('.st-reset') };
+    }
+    this._updateStats(mode);
+  }
+
+  /** Rewrite the stats box's numbers and button states in place (cheap: no rebuild). */
+  _updateStats(mode = this.game.combatMode()) {
+    const s = this._stats;
+    if (!s) return;
+    const g = this.game, set = (el, t) => { if (el.textContent !== t) el.textContent = t; };
+    const free = g.unspentPoints(), sum = attrSummary(g.attrs), main = attrForMode(mode), spent = g.spentPoints();
+    set(s.free, free ? `${free} point${free > 1 ? 's' : ''} to spend` : `${g.statPoints()}/${MAX_STAT_POINTS} points`);
+    s.free.classList.toggle('has', free > 0);
+    for (const k of ATTRS) {
+      const r = s.rows[k];
+      r.row.classList.toggle('main', k === main);
+      set(r.val, String(g.attrs[k])); set(r.eff, sum[k]);
+    }
+    for (const b of s.adds) b.disabled = !free;
+    s.all.hidden = !free;
+    set(s.allName, ATTR_NAMES[main]);
+    s.reset.hidden = !spent;
+    set(s.reset, `Reset (${spent * RESET_COST_PER_POINT} coins)`);
+  }
+
+  /** Fire `fire` the moment a button is pressed (pointerdown, not click, so a
+   *  tap needs no release and no click delay), then keep firing while it is
+   *  held, faster and faster (holdRepeatDelay). `fire` returns false to stop.
+   *  Enter / Space add one each, as for any button. */
+  _holdToRepeat(btn, fire) {
+    let timer = 0, n = 0, fromPointer = false;
+    const stop = () => { clearTimeout(timer); timer = 0; };
+    const step = () => { timer = 0; if (fire()) timer = setTimeout(step, holdRepeatDelay(n++)); };
+    btn.addEventListener('pointerdown', (e) => {
+      if (e.button > 0 || btn.disabled) return;
+      e.preventDefault();          // no text selection or focus-scroll on a long press
+      fromPointer = true; stop(); n = 0;
+      if (fire()) timer = setTimeout(step, holdRepeatDelay(n++));
+    });
+    for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) btn.addEventListener(ev, stop);
+    // Enter / Space add one here (a held key repeats), and are kept from the
+    // game's Space shortcut, which would otherwise talk to a nearby NPC.
+    btn.addEventListener('keydown', (e) => {
+      fromPointer = false;
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault(); e.stopPropagation();
+      fire();
+    });
+    // The click that follows a press is already counted; only a click with no
+    // press before it (a screen reader's, say) adds a point here.
+    btn.addEventListener('click', () => { if (fromPointer) { fromPointer = false; return; } fire(); });
   }
 
   renderCombatPanel() {
