@@ -100,6 +100,11 @@ button, input, select, textarea { font-family: inherit; }
    drops double-tap zoom everywhere; the world itself takes no browser gestures
    at all, so a pinch or a quick second tap that lands on it can't zoom either. */
 html, body, #game-root { touch-action: manipulation; }
+/* WebKit resets touch-action to auto inside every scrolling box (the bag and
+   other panels, the tabs, the chat log, shop and bank windows), so the rule
+   above doesn't reach their contents: give every element manipulation. It
+   has no specificity, so the id/class 'none' rules below still win. */
+* { touch-action: manipulation; }
 body { -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
 #game-canvas { touch-action: none; }
 
@@ -1276,9 +1281,11 @@ button:focus-visible, .tab-btn:focus-visible, .chat-tab:focus-visible,
 }
 #joystick.active #joystick-knob { transition: none; box-shadow: 0 2px 0 #962D22; }
 /* Touch: the stick's touch area reaches past the drawn ring, so a thumb that
-   lands just outside it still steers (the stick floats to wherever it lands). */
+   lands just outside it (or jammed into the screen corner) still steers; the
+   stick floats to wherever it lands. Only 8px upwards, where the chat sits
+   just above the stick and must keep its taps. */
 @media (pointer: coarse) {
-  #joystick::after { content: ""; position: absolute; inset: -28px; border-radius: 50%; }
+  #joystick::after { content: ""; position: absolute; inset: -8px -28px -28px; border-radius: 36px; }
 }
 @media (max-width: 760px) {
   #joystick { left: 14px; bottom: 84px; width: 116px; height: 116px; }
@@ -1869,8 +1876,6 @@ body.boss-on #tip-toast { top: 132px; }
 @media (pointer: coarse) and (orientation: portrait) and (max-width: 540px) {
   #chatbox.collapsed { min-width: 0; max-width: 120px; }   /* clear of the ultimate */
 }
-/* Tablets: the chat stays clear of the button cluster, and the auto battle +
-   adrenaline block sits just above the cluster rather than on the joystick. */
 /* Tablets: the joystick sits in the bottom-left corner under the left thumb,
    a size up, rather than at the desktop offset with the chat below it; the
    chat moves up above it. bottom 184px = the stick's 24px offset + 148px + 12px. */
@@ -1879,6 +1884,8 @@ body.boss-on #tip-toast { top: 132px; }
   #joystick-knob { width: 62px; height: 62px; }
   #chatbox { bottom: calc(184px + env(safe-area-inset-bottom, 0px)); }
 }
+/* Tablets: the chat stays clear of the button cluster, and the auto battle +
+   adrenaline block sits just above the cluster rather than on the joystick. */
 @media (pointer: coarse) and (min-width: 541px) and (min-height: 501px) {
   #chatbox { width: min(320px, 38vw); }
   #ability-bar { left: auto; right: var(--pad-r); margin: 0; transform: none; align-items: flex-end; bottom: 300px; }

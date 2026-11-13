@@ -5595,5 +5595,42 @@ test('joystick: a light push walks, and letting go stops even after Attack was t
   game.attackNearest();
   game.setMoveInput(0, 0); game.update(16);
   assert.equal(p.action?.npc, foe, 'holding Attack keeps the target');
-  game.attackHeld = false;
+  // ...until Attack is let go too: with nothing held the far-off lock is dropped.
+  game.releaseAttack();
+  assert.equal(game.attackHeld, false);
+  assert.equal(p.action, null, 'letting go of Attack after the stick stops');
+  for (let i = 0; i < 20; i++) game.update(50);   // (a step under way may finish)
+  const stop2 = p.fx;
+  for (let i = 0; i < 20; i++) game.update(50);
+  assert.ok(Math.abs(p.fx - stop2) < 0.05, `and the player stays put (moved ${(p.fx - stop2).toFixed(2)})`);
+
+  // A plain tapped Attack (no stick involved) still chases its target.
+  game.attackHeld = true;
+  game.attackNearest();
+  game.releaseAttack();
+  assert.equal(p.action?.npc, foe, 'a tapped Attack keeps chasing');
+});
+
+test('touch: a quick second-finger tap clicks; play controls, long presses and moved fingers do not', async () => {
+  const { clickSecondFingerTaps } = await import('../src/engine/input.js');
+  const on = {};
+  const doc = { addEventListener: (type, fn) => { on[type] = fn; } };
+  clickSecondFingerTaps(doc);
+  let clicks = 0;
+  const tab = { isConnected: true, tagName: 'BUTTON', closest: () => null, click: () => { clicks++; } };
+  const atk = { ...tab, closest: () => ({}) };   // inside the play surface
+  const tap = (el, { primary = false, ms = 80, dx = 0, id = 7 } = {}) => {
+    on.pointerdown({ pointerType: 'touch', isPrimary: primary, pointerId: id, clientX: 10, clientY: 10, timeStamp: 1000, target: el });
+    on.pointerup({ pointerId: id, clientX: 10 + dx, clientY: 10, timeStamp: 1000 + ms });
+  };
+  tap(tab); assert.equal(clicks, 1, 'a second-finger tap clicks');
+  tap(tab, { primary: true }); assert.equal(clicks, 1, 'a lone tap is left to the browser');
+  tap(tab, { ms: 600 }); assert.equal(clicks, 1, 'a long press is left to the touch card');
+  tap(tab, { dx: 30 }); assert.equal(clicks, 1, 'a moved finger (a scroll) does not click');
+  tap(atk); assert.equal(clicks, 1, 'pointer-driven play controls are left alone');
+  // A real click the browser still sends for the same tap is dropped.
+  tap(tab);
+  let stopped = false;
+  on.click({ isTrusted: true, target: tab, timeStamp: 1100, stopImmediatePropagation: () => { stopped = true; }, preventDefault() {} });
+  assert.equal(clicks, 2); assert.ok(stopped, 'no double click');
 });

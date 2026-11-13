@@ -7,6 +7,7 @@ export class Input {
     this.my = 0;
     this.inside = false;
     this.handlers = { left: null, right: null, move: null, key: null };
+    this._touchAt = -1e9;
 
     canvas.addEventListener('mousemove', (e) => {
       this._setMouse(e);
@@ -16,6 +17,9 @@ export class Input {
     canvas.addEventListener('mouseleave', () => { this.inside = false; });
 
     canvas.addEventListener('mousedown', (e) => {
+      // A tap already ran the left handler on touchstart; skip the mousedown
+      // the browser makes up from it, so each tap acts once.
+      if (e.timeStamp - this._touchAt < 800) return;
       this._setMouse(e);
       if (e.button === 0) this.handlers.left?.(this.mx, this.my, e);
       else if (e.button === 2) this.handlers.right?.(this.mx, this.my, e);
@@ -30,6 +34,7 @@ export class Input {
     // Basic touch support: tap = left click.
     canvas.addEventListener('touchstart', (e) => {
       if (!e.touches.length) return;
+      this._touchAt = e.timeStamp;
       this._setMouse(e.touches[0]);
       this.handlers.left?.(this.mx, this.my, e);
     }, { passive: true });
@@ -75,4 +80,38 @@ export function guardTouchZoom(doc = globalThis.document) {
     lastEnd = e.timeStamp;
     if (quick && e.target?.closest?.(PLAY_SURFACE)) stop(e);
   }, active);
+}
+
+/** A tap only becomes a 'click' when it is the only touch on screen, so with a
+ *  thumb on the joystick (or Attack held) a second finger tapping a panel tab,
+ *  a bag slot or the special orb did nothing. Quick, still second-finger taps
+ *  are turned into clicks here. The play-surface controls act on pointer
+ *  events already; a long press is left to the touch card, and a real click
+ *  the browser might still send for the same tap is dropped. */
+export function clickSecondFingerTaps(doc = globalThis.document) {
+  if (!doc?.addEventListener) return;
+  const downs = new Map();
+  let made = null;
+  doc.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'touch' || e.isPrimary) return;
+    downs.set(e.pointerId, { x: e.clientX, y: e.clientY, t: e.timeStamp, el: e.target });
+  }, true);
+  doc.addEventListener('pointercancel', (e) => downs.delete(e.pointerId), true);
+  doc.addEventListener('pointerup', (e) => {
+    const d = downs.get(e.pointerId);
+    if (!d) return;
+    downs.delete(e.pointerId);
+    const el = d.el;
+    if (!el?.isConnected || typeof el.click !== 'function' || el.closest?.(PLAY_SURFACE)) return;
+    if (e.timeStamp - d.t > 400 || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 12) return;
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
+    made = { el, t: e.timeStamp };
+    el.click();
+  }, true);
+  doc.addEventListener('click', (e) => {
+    if (e.isTrusted && made && e.target === made.el && e.timeStamp - made.t < 500) {
+      e.stopImmediatePropagation(); e.preventDefault();
+    }
+    if (e.isTrusted) made = null;
+  }, true);
 }

@@ -159,7 +159,7 @@ export class UI {
     // moving straight on to the next foe as each one falls.
     const atk = document.getElementById('attack-btn');
     if (atk) {
-      const release = () => { this.game.attackHeld = false; atk.classList.remove('held'); };
+      const release = () => { this.game.releaseAttack(); atk.classList.remove('held'); };
       atk.addEventListener('pointerdown', (e) => {
         e.preventDefault();
         try { atk.setPointerCapture(e.pointerId); } catch { /* ignore */ }

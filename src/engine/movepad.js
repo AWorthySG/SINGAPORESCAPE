@@ -81,6 +81,9 @@ export class MovePad {
     // keeps steering if the thumb slides off it or pointer capture is lost,
     // and a second finger (Attack, a skill, a palm) never takes it over.
     let active = null, origin = null, reach = 1;
+    // A second touch that lands on the stick while it is steering (a thumb
+    // rolling or re-planting): it takes over when the old touch lifts.
+    let spare = null;
     const update = (e) => {
       const v = stickVector(e.clientX - origin.x, e.clientY - origin.y, reach);
       knob.style.transform = `translate(calc(-50% + ${v.kx}px), calc(-50% + ${v.ky}px))`;
@@ -88,6 +91,7 @@ export class MovePad {
       this._push();
     };
     const end = () => {
+      spare = null;
       if (active === null) return;
       active = null; origin = null;
       base.classList.remove('active');
@@ -102,7 +106,11 @@ export class MovePad {
       // Already steering: a second finger is ignored. A primary pointer means
       // no other touch is down, so a stale one (its lift was never seen) is
       // replaced rather than blocking the stick.
-      if (active !== null && !e.isPrimary) return;
+      if (active !== null && !e.isPrimary) {
+        if (spare === null) spare = { id: e.pointerId, x: e.clientX, y: e.clientY };
+        return;
+      }
+      spare = null;
       const r = base.getBoundingClientRect();
       // Rect and clientX share CSS pixels, so the maths holds under page zoom.
       reach = Math.max(24, r.width / 2 - 8);
@@ -118,9 +126,20 @@ export class MovePad {
       base.classList.add('active');
       update(e);
     });
-    window.addEventListener('pointermove', (e) => { if (e.pointerId === active) update(e); });
+    window.addEventListener('pointermove', (e) => {
+      if (e.pointerId === active) update(e);
+      else if (spare && e.pointerId === spare.id) { spare.x = e.clientX; spare.y = e.clientY; }
+    });
     // Only a real lift or a cancel ends the push; losing capture alone does not.
-    window.addEventListener('pointerup', (e) => { if (e.pointerId === active) end(); });
-    window.addEventListener('pointercancel', (e) => { if (e.pointerId === active) end(); });
+    const lift = (e) => {
+      if (spare && e.pointerId === spare.id) { spare = null; return; }
+      if (e.pointerId !== active) return;
+      if (!spare) { end(); return; }
+      // Hand over to the spare touch, starting still from where it is now.
+      active = spare.id; origin = { x: spare.x, y: spare.y }; spare = null;
+      update({ clientX: origin.x, clientY: origin.y });
+    };
+    window.addEventListener('pointerup', lift);
+    window.addEventListener('pointercancel', lift);
   }
 }
