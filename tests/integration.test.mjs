@@ -5508,3 +5508,92 @@ test('there is no save code before a class is picked', () => {
   g.start();
   assert.equal(exportSaveCode(g), null);
 });
+
+test('joystick response: small dead zone, smooth ramp, full speed before the rim', async () => {
+  const { stickSpeed, STICK_DEAD } = await import('../src/game/player.js');
+  const { stickVector } = await import('../src/engine/movepad.js');
+  assert.ok(STICK_DEAD <= 0.15, 'a light push already counts');
+  assert.equal(stickSpeed(0), 0);
+  assert.equal(stickSpeed(STICK_DEAD - 0.01), 0, 'a resting thumb does nothing');
+  // Just past the dead zone it walks slowly rather than lurching off.
+  const first = stickSpeed(STICK_DEAD + 0.01);
+  assert.ok(first > 0 && first < 0.5, `slow start (${first.toFixed(2)})`);
+  let prev = 0;
+  for (let m = 0; m <= 1.0001; m += 0.05) {
+    const k = stickSpeed(m);
+    assert.ok(k >= prev && k <= 1, 'speed never drops as the push grows');
+    prev = k;
+  }
+  assert.equal(stickSpeed(0.7), 1, 'full speed well before the rim');
+  assert.equal(stickSpeed(1), 1);
+  // Thumb maths: clamped to the reach, any angle, zero for a fresh touch.
+  assert.deepEqual(stickVector(0, 0, 60), { kx: 0, ky: 0, x: 0, y: 0 });
+  const half = stickVector(30, 0, 60);
+  assert.equal(half.x, 0.5); assert.equal(half.y, 0);
+  const out = stickVector(0, -300, 60);
+  assert.equal(out.ky, -60, 'the knob stops at the rim');
+  assert.equal(out.y, -1);
+  const diag = stickVector(100, 100, 60);
+  assert.ok(Math.abs(Math.hypot(diag.x, diag.y) - 1) < 1e-9 && Math.abs(diag.x - diag.y) < 1e-9);
+});
+
+test('joystick: a light push walks, and letting go stops even after Attack was tapped mid-run', async () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const { NPC } = await import('../src/game/npc.js');
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  game.ui = new Proxy({}, { get: () => () => {} });
+  const p = game.player;
+  game.npcs = [];
+  // A private patch of open ground, so the test doesn't depend on the map.
+  p.walkable = (x, y) => x >= 0 && y >= 0 && x < 60 && y < 60;
+  game.world.isBlocked = (x, y) => !p.walkable(x, y);
+  game.world.inBounds = (x, y) => x >= 0 && y >= 0 && x < 60 && y < 60;
+  p.x = p.tx = 20; p.y = p.ty = 20; game.update(0);
+
+  // A push of a fifth of the way (ignored by the old 30% dead zone) moves, slowly.
+  game.setMoveInput(0.2, 0);
+  for (let i = 0; i < 30; i++) game.update(16);
+  const light = p.fx - 20;
+  assert.ok(light > 0.3, `a light push walks (${light.toFixed(2)} tiles)`);
+  game.setMoveInput(0, 0); game.update(16);
+  p.x = p.tx = 20; p.y = p.ty = 20; game.update(0);
+  game.setMoveInput(1, 0);
+  for (let i = 0; i < 30; i++) game.update(16);
+  assert.ok(p.fx - 20 > light * 1.5, 'a full push runs faster');
+  // Below the dead zone nothing happens.
+  game.setMoveInput(0, 0); game.update(16);
+  const rest = p.fx;
+  game.setMoveInput(0.05, 0.05);
+  for (let i = 0; i < 20; i++) game.update(16);
+  assert.equal(p.fx, rest, 'a resting thumb does not creep');
+
+  // Attack tapped while running locks a foe; steering on past it and letting
+  // go must stop the player, not send them running back after it.
+  game.setMoveInput(0, 0); game.update(16);
+  p.x = p.tx = 20; p.y = p.ty = 20; game.update(0);
+  const foe = new NPC('goblin', 22, 20, 0, {});
+  foe.def = { ...foe.def, aggressive: false }; foe.maxHp = foe.hp = 9999;
+  game.npcs = [foe];
+  game.setMoveInput(-1, 0);
+  game.update(16);
+  assert.ok(game.attackNearest(), 'Attack locks on mid-run');
+  for (let i = 0; i < 40; i++) game.update(16);   // keep steering away
+  assert.ok(chebyshev(p.x, p.y, foe.x, foe.y) > game.attackRange() + 2, 'well clear of the foe');
+  game.setMoveInput(0, 0);
+  game.update(16);
+  const stopX = p.fx;
+  for (let i = 0; i < 20; i++) game.update(50);
+  assert.ok(Math.abs(p.fx - stopX) < 0.05, `stops on release (moved ${(p.fx - stopX).toFixed(2)})`);
+  assert.equal(p.action, null, 'the far-off lock is dropped');
+
+  // Holding Attack is a deliberate chase, so it carries on after release.
+  game.setMoveInput(-1, 0); game.update(16);
+  game.attackHeld = true;
+  game.attackNearest();
+  game.setMoveInput(0, 0); game.update(16);
+  assert.equal(p.action?.npc, foe, 'holding Attack keeps the target');
+  game.attackHeld = false;
+});

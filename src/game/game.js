@@ -18,7 +18,7 @@ import { Skills } from './skillset.js';
 import { Inventory } from './inventory.js';
 import { Equipment, canDualWield, canDualPair, EQUIP_SLOTS } from './equipment.js';
 import { Bank } from './bank.js';
-import { Player } from './player.js';
+import { Player, STICK_DEAD } from './player.js';
 import { NPC } from './npc.js';
 import { Camera } from '../engine/camera.js';
 import { findPath } from '../engine/pathfinding.js';
@@ -3945,10 +3945,20 @@ export class Game {
   // cancels whatever the player was doing (skilling, fighting, a clicked route).
   _driveMovement() {
     const p = this.player, v = this.moveInput;
-    const held = Math.hypot(v.x, v.y) >= 0.3;
+    const held = Math.hypot(v.x, v.y) >= STICK_DEAD;
     if (!held || !p.alive || this.playerStun > 0 || this.playerRoot > 0) {
       p.stick = null;
-      if (!held || !p.alive) this._driving = false;
+      if ((!held || !p.alive) && this._driving) {
+        this._driving = false;
+        // Letting go of the stick means stop. A close-range target picked up
+        // while steering (Attack tapped mid-run) that is now well out of reach
+        // would otherwise drag the player off after it the moment the thumb
+        // lifts. Holding Attack still chases, a foe close by is still fought,
+        // and bows and spells (range over 3) keep their target for kiting.
+        const a = p.action, range = this.attackRange();
+        if (a?.type === 'attack' && !this.attackHeld && range <= 3 && a.npc
+          && chebyshev(p.x, p.y, a.npc.x, a.npc.y) > range + 2) p.clearAction();
+      }
       return;
     }
     if (!this._driving) {

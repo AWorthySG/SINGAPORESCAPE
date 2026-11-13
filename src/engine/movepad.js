@@ -8,6 +8,17 @@ const KEY_DIRS = {
   d: [1, 0], arrowright: [1, 0],
 };
 
+/** Joystick maths: a thumb offset (dx, dy) in px from where the touch landed,
+ *  and the stick's reach in px, to the knob's offset (clamped to the reach) and
+ *  the analogue vector (-1..1 each way). Pure, so it can be tested headlessly. */
+export function stickVector(dx, dy, reach) {
+  const d = Math.hypot(dx, dy);
+  if (!(reach > 0) || d === 0) return { kx: 0, ky: 0, x: 0, y: 0 };
+  const s = d > reach ? reach / d : 1;
+  const kx = dx * s, ky = dy * s;
+  return { kx, ky, x: kx / reach, y: ky / reach };
+}
+
 export class MovePad {
   constructor(game, root = document.getElementById('game-root')) {
     this.game = game;
@@ -42,8 +53,13 @@ export class MovePad {
       const k = e.key.toLowerCase();
       if (this.keys.delete(k)) this._push();
     });
-    // Releasing keys while the window is unfocused would leave them "stuck".
-    window.addEventListener('blur', () => { this.keys.clear(); this.stick = { x: 0, y: 0 }; this._push(); });
+    // Releasing keys (or a thumb) while the page is unfocused or hidden (an
+    // iPad notification, Control Centre, the app switcher) would leave them
+    // "stuck"; the joystick also recentres its knob.
+    const reset = () => { this.keys.clear(); this._resetStick?.(); this.stick = { x: 0, y: 0 }; this._push(); };
+    window.addEventListener('blur', reset);
+    window.addEventListener('pagehide', reset);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) reset(); });
   }
 
   _buildJoystick(root) {
@@ -57,36 +73,54 @@ export class MovePad {
     root.appendChild(base);
     this.el = base;
 
-    let active = null;
+    // A floating stick: the vector is measured from where the thumb lands, not
+    // from the base's centre, so a fresh touch always starts still and a thumb
+    // landing off-centre doesn't send the player running. The base slides to
+    // sit under the thumb, and its touch area reaches past the drawn ring.
+    // Moves and lifts are followed on the window, by pointer id, so the stick
+    // keeps steering if the thumb slides off it or pointer capture is lost,
+    // and a second finger (Attack, a skill, a palm) never takes it over.
+    let active = null, origin = null, reach = 1;
     const update = (e) => {
-      const r = base.getBoundingClientRect();
-      const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-      const max = r.width / 2 - 8;
-      let dx = e.clientX - cx, dy = e.clientY - cy;
-      const d = Math.hypot(dx, dy);
-      if (d > max) { dx = dx / d * max; dy = dy / d * max; }
-      knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-      this.stick = { x: dx / max, y: dy / max };
+      const v = stickVector(e.clientX - origin.x, e.clientY - origin.y, reach);
+      knob.style.transform = `translate(calc(-50% + ${v.kx}px), calc(-50% + ${v.ky}px))`;
+      this.stick = { x: v.x, y: v.y };
       this._push();
     };
-    const end = (e) => {
-      if (active === null || (e && e.pointerId !== active)) return;
-      active = null;
+    const end = () => {
+      if (active === null) return;
+      active = null; origin = null;
       base.classList.remove('active');
+      base.style.transform = '';
       knob.style.transform = 'translate(-50%, -50%)';
       this.stick = { x: 0, y: 0 };
       this._push();
     };
+    this._resetStick = end;
     base.addEventListener('pointerdown', (e) => {
       e.preventDefault();
+      // Already steering: a second finger is ignored. A primary pointer means
+      // no other touch is down, so a stale one (its lift was never seen) is
+      // replaced rather than blocking the stick.
+      if (active !== null && !e.isPrimary) return;
+      const r = base.getBoundingClientRect();
+      // Rect and clientX share CSS pixels, so the maths holds under page zoom.
+      reach = Math.max(24, r.width / 2 - 8);
+      const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
       active = e.pointerId;
-      base.setPointerCapture?.(e.pointerId);
+      origin = { x: e.clientX, y: e.clientY };
+      // (The drawn base stays on screen even when the thumb lands at the edge.)
+      const vw = window.innerWidth, vh = window.innerHeight;
+      const tx = Math.min(vw - 4 - r.right, Math.max(4 - r.left, origin.x - cx));
+      const ty = Math.min(vh - 4 - r.bottom, Math.max(4 - r.top, origin.y - cy));
+      base.style.transform = `translate(${tx}px, ${ty}px)`;
+      try { base.setPointerCapture(e.pointerId); } catch { /* ignore */ }
       base.classList.add('active');
       update(e);
     });
-    base.addEventListener('pointermove', (e) => { if (e.pointerId === active) update(e); });
-    base.addEventListener('pointerup', end);
-    base.addEventListener('pointercancel', end);
-    base.addEventListener('lostpointercapture', end);
+    window.addEventListener('pointermove', (e) => { if (e.pointerId === active) update(e); });
+    // Only a real lift or a cancel ends the push; losing capture alone does not.
+    window.addEventListener('pointerup', (e) => { if (e.pointerId === active) end(); });
+    window.addEventListener('pointercancel', (e) => { if (e.pointerId === active) end(); });
   }
 }

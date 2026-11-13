@@ -48,3 +48,31 @@ export class Input {
   onMove(fn) { this.handlers.move = fn; }
   onKey(fn) { this.handlers.key = fn; }
 }
+
+// Controls you tap fast and often. A quick second tap on them must never zoom.
+const PLAY_SURFACE = '#game-canvas, #joystick, #attack-btn, #interact-btn, .ability-btn';
+
+/** iPad / iPhone Safari ignores user-scalable=no, so a quick double tap or a
+ *  two-finger press can zoom the whole game mid-fight. The CSS touch-action
+ *  rules do most of the work; this is the belt and braces for WebKit: no pinch
+ *  gestures, no double-click zoom, and a quick second tap on the play surface
+ *  is swallowed (those controls act on pointerdown, so nothing is lost; buttons
+ *  that act on click are left alone so a quick second tap still clicks). */
+export function guardTouchZoom(doc = globalThis.document) {
+  if (!doc?.addEventListener) return;
+  const stop = (e) => { if (e.cancelable) e.preventDefault(); };
+  const active = { passive: false };
+  doc.addEventListener('gesturestart', stop, active);
+  doc.addEventListener('gesturechange', stop, active);
+  doc.addEventListener('dblclick', stop, active);
+  // Safari reports a pinch's scale on touchmove; one-finger scrolls are untouched.
+  doc.addEventListener('touchmove', (e) => {
+    if (e.touches?.length > 1 && typeof e.scale === 'number' && e.scale !== 1) stop(e);
+  }, active);
+  let lastEnd = -1e9;
+  doc.addEventListener('touchend', (e) => {
+    const quick = e.timeStamp - lastEnd < 300;
+    lastEnd = e.timeStamp;
+    if (quick && e.target?.closest?.(PLAY_SURFACE)) stop(e);
+  }, active);
+}
