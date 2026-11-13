@@ -810,6 +810,7 @@ import { ABILITY_BY_ID } from '../data/abilities.js';
   // one as-is (BORROW_ID) until their art arrives.
   const BORROW = {};
   const BORROW_ID = {};   // single items borrowing a sticker
+  const BORROW_TINT = {};   // optional per-item tint for a BORROW_ID sticker
   // Family boots and gloves borrow the metal boots / gauntlets, the archer's
   // vambraces and the Dancer's slippers / bangles until their own art arrives.
   for (const t of ['bronze', 'iron', 'steel', 'mithril', 'adamant', 'rune', 'dragon', 'obsidian', 'orichalcum', 'jade', 'starmetal', 'celestial', 'eternal']) {
@@ -820,6 +821,14 @@ import { ABILITY_BY_ID } from '../data/abilities.js';
       [`${t}_rifle`]: `${t}_pistol`,   // sniper rifles borrow the pistol sticker until their own art arrives
     });
   }
+  // New bone kinds borrow the bones sticker, each tinted its own colour, until their art arrives.
+  for (const [id, tint] of Object.entries({
+    big_bones: 'sepia(.3) saturate(1.2) brightness(.97)', heavy_bones: 'sepia(.6) brightness(.85)',
+    ancient_bones: 'sepia(.9) hue-rotate(-15deg) brightness(.75)', spirit_bones: 'sepia(.8) hue-rotate(150deg) saturate(1.6) brightness(1.08)',
+    champion_bones: 'sepia(1) saturate(3) brightness(1.05)', titan_bones: 'sepia(.6) hue-rotate(230deg) saturate(1.5)',
+    dragon_bones: 'sepia(1) hue-rotate(-40deg) saturate(3)', fiend_bones: 'sepia(1) hue-rotate(250deg) saturate(2) brightness(.7)',
+    legend_bones: 'sepia(1) hue-rotate(10deg) saturate(4) brightness(1.15)',
+  })) { BORROW_ID[id] = 'bones'; BORROW_TINT[id] = tint; }
   function hueOf(hex) {
     const n = parseInt(hex.slice(1), 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
     const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
@@ -828,7 +837,7 @@ import { ABILITY_BY_ID } from '../data/abilities.js';
     return { h: (h * 60 + 360) % 360, s: d / (1 - Math.abs(mx + mn - 1) || 1) };
   }
   function borrowedArt(id) {
-    if (BORROW_ID[id]) return { file: BORROW_ID[id], tint: 'sepia(.4) saturate(1.3)' };
+    if (BORROW_ID[id]) return { file: BORROW_ID[id], tint: BORROW_TINT[id] || 'sepia(.4) saturate(1.3)' };
     const m = /^([a-z]+)_(scout_[a-z]+)$/.exec(id);
     if (!m || !BORROW[m[2]] || !METAL_PAL[m[1]]) return null;
     const { h, s } = hueOf(METAL_PAL[m[1]][0]);

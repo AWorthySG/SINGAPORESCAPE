@@ -1,6 +1,7 @@
 import { CROPS } from './trades.js';
 import { accessoriesFor } from './items.js';
 import { BOSS_ABILITIES } from './bossAbilities.js';
+import { boneForTier, bossBoneQty } from './bones.js';
 // NPC registry. Monsters are generated from archetype "bases" × rank tiers into a
 // 169-strong bestiary (scaled stats + level-tiered drops), plus 15 hand-authored
 // bosses and the townsfolk. Sprites are drawn from def.sprite + def.color.
@@ -153,7 +154,7 @@ function makeMob(id, name, sprite, color, level, zone, aggro, family) {
   return { name, level, attackable: true, sprite, color, zone, family, ...statsFor(level),
     aggressive: aggro, aggroRange: aggro ? 4 : 0, respawn: Math.min(18, Math.max(10, Math.round(10 + level / 40))), wander: 4,   // 6-11s, so high-level areas refill as fast as low ones
     examine: `A ${name.toLowerCase()} (level ${level}).`,
-    alwaysDrop: [{ id: 'bones' }], dropTable: dropsFor(level) };
+    alwaysDrop: [{ id: boneForTier(level) }], dropTable: dropsFor(level) };   // better bones from stronger bands (see bones.js)
 }
 
 // Archetype bases (Singapore-flavoured). [name, sprite, color, baseLevel, zone, aggressive]
@@ -362,7 +363,7 @@ function makeBoss(id, name, sprite, color, level, zone, scale, drops) {
     // Once engaged they still fight back and chase normally.
     aggressive: false, aggroRange: 0, respawn: Math.min(100, Math.round(60 + level / 8)), wander: 3,   // about 40-60s
     examine: `${name} — a fearsome boss (level ${level}).`,
-    alwaysDrop: [{ id: 'bones' }, { id: 'coins', min: level * 8, max: level * 32 }],
+    alwaysDrop: [{ id: 'titan_bones', ...bossBoneQty(level) }, { id: 'coins', min: level * 8, max: level * 32 }],
     dropTable: drops };
 }
 

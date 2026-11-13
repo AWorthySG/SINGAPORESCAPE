@@ -37,6 +37,7 @@ import { STYLE_TRACKS, sumPerks, perkAtLevel, rankName, PERK_SKILLS, PERK_CAPS }
 import { getSpell, SPELLS, ELEMENTS, AOE_RADIUS, elementMatchup } from '../data/magic.js';
 import { xpForLevel } from '../data/xp.js';
 import { PRAYERS, PRAYER_BY_ID, PRAYER_GROUPS } from '../data/prayers.js';
+import { isBone, boneXp, championBoneQty, RARE_BOSS_BONES, RARE_BONE_CHANCE, RARE_BONE_QTY, ALTAR_XP_MULT, ALTAR_RANGE } from '../data/bones.js';
 import {
   resolveWoodcut, resolveMine, resolveFish, resolveCook,
   resolveSmelt, resolveSmith, resolveFiremake, resolveCraft, resolveDish,
@@ -172,7 +173,7 @@ export const AGILITY_XP_MULT = 5;
 export const AGILITY_XP_DIV = 10;
 // A Mark of grace trades for this many zip-line crossings' worth of Agility XP.
 export const MARK_XP_CROSSINGS = 10;
-export const BONE_PRAYER_XP = 45;   // Prayer XP per bone buried (10x the old 4.5)
+export const BONE_PRAYER_XP = getItem('bones').prayerXp;   // plain bones; every kind's XP is its item's prayerXp (bones.js)
 export const SPLIT_SHOT_LEVEL = 300;  // Ranged level at which every bow shot splits
 const SPLIT_SHOT_TARGETS = 3;       // ...into this many arrows, one per target
 
@@ -999,6 +1000,7 @@ export class Game {
         this.bus.emit('hp'); this.bus.emit('prayer');
         this.spawnSparkle(this.player, '#9adcff', 16);
         this.msg('You kneel at the A-Worthy Monument. Your health and prayer are restored.', 'system');
+        if (this.inventory.slots.some((x) => x && isBone(x.id))) this.msg('You could offer your bones here for 2.5x Prayer XP (right-click them).', 'system');
         this.addGood(1); // devotion is a small good
         this.markPillar('monument');
       });
@@ -2556,6 +2558,14 @@ export class Game {
       const q = d.min ? randInt(d.min, d.max) : 1;
       loot.push([d.id, q, 'common']);
     }
+    // Champions add Champion bones (more from stronger bands); a few bosses add a named rare kind.
+    if (npc.champion) loot.push(['champion_bones', championBoneQty(def.tierLevel || def.level || 1), 'rare']);
+    const rareBone = def.boss && RARE_BOSS_BONES[npc.npcId];
+    if (rareBone && Math.random() < RARE_BONE_CHANCE) {
+      const [a, b] = RARE_BONE_QTY[rareBone];
+      loot.push([rareBone, randInt(a, b), 'epic']);
+      this.msg(`A rare drop! ${getItem(rareBone).name}.`, 'level');
+    }
     if (def.dropTable && def.dropTable.length) {
       // Champions roll their table eight times, bosses ten, and neither comes up empty.
       const rolls = def.boss ? 10 : npc.champion ? 4 : 1;
@@ -2702,17 +2712,34 @@ export class Game {
   _holdsClue() { return this.inventory.slots.some((s) => s && s.id.startsWith('clue_scroll_')); }
 
   // ---------------- New skills: Prayer, Thieving, Agility ----------------
-  /** Bury bones from a stack: 100 at a time by default, or `count` (Infinity = the whole stack). */
-  buryBones(index, count = BURY_BATCH) {
+  /** Bury bones from a stack (any kind): 100 at a time by default, or `count` (Infinity = the whole stack).
+   *  Offering at an A-Worthy Monument (`altar`) pays ALTAR_XP_MULT x. Each bone also restores a little prayer. */
+  buryBones(index, count = BURY_BATCH, altar = false) {
     const s = this.inventory.slotAt(index);
-    if (!s || s.id !== 'bones') { this.msg('You can only bury bones.'); return; }
-    const n = Math.min(s.qty, count);
+    if (!s || !isBone(s.id)) { this.msg('You can only bury bones.'); return 0; }
+    if (altar && !this.nearShrine()) { this.msg('You need to be at an A-Worthy Monument to offer bones.'); return 0; }
+    const it = getItem(s.id), n = Math.min(s.qty, count);
     this.inventory.removeAt(index, n);
-    this.skills.addXp('prayer', BONE_PRAYER_XP * n);
+    this.skills.addXp('prayer', boneXp(s.id) * n * (altar ? ALTAR_XP_MULT : 1));
+    this.prayerPoints = Math.min(this.maxPrayer(), this.prayerPoints + (it.prayerRestore || 1) * n);
+    this.bus.emit('prayer');
     this.addGood(Math.min(n, 10)); // honouring the dead is a small good
-    this.spawnSparkle(this.player, '#ffe89a', Math.min(24, 6 + n));
-    this.msg(n > 1 ? `You bury ${n} bones.` : 'You bury the bones.', 'system');
+    this.spawnSparkle(this.player, altar ? '#9adcff' : '#ffe89a', Math.min(24, 6 + n));
+    const what = n > 1 ? `${n} ${it.name.toLowerCase()}` : `the ${it.name.toLowerCase()}`;
+    this.msg(altar ? `You offer ${what} at the monument.` : `You bury ${what}.`, 'system');
+    return n;
   }
+  /** Bury (or offer) every kind of bone in the pack. Walks backwards: removeAt only nulls a slot
+   *  and _pad only trims trailing nulls, so lower indices stay valid. */
+  buryAllBones(altar = false) {
+    if (altar && !this.nearShrine()) { this.msg('You need to be at an A-Worthy Monument to offer bones.'); return 0; }
+    let total = 0;
+    for (let i = this.inventory.size - 1; i >= 0; i--) { const s = this.inventory.slotAt(i); if (s && isBone(s.id)) total += this.buryBones(i, Infinity, altar); }
+    if (!total) this.msg('You have no bones.');
+    return total;
+  }
+  /** Close enough to an A-Worthy Monument to offer bones there. */
+  nearShrine() { const p = this.player; return this.world.objects.some((o) => o.def.type === 'shrine' && chebyshev(p.x, p.y, o.x, o.y) <= ALTAR_RANGE); }
 
   startPickpocket(npc) {
     if (!npc.def.role) { this.msg("You can't pickpocket that."); return; }
@@ -4559,7 +4586,7 @@ export class Game {
         if (st.skill === 'hunter') return obj('bird_snare', 'Hunter: check a bird snare');
         return npc(giver);
       }
-      case 'bone_collector': return inv('bones') >= 10 ? npc('guide', 'Hand in to') : { kind: 'hunt', text: `Collect bones: ${inv('bones')}/10 (any monster drops them)` };
+      case 'bone_collector': return inv('bones') >= 10 ? npc('guide', 'Hand in to') : { kind: 'hunt', text: `Collect bones: ${inv('bones')}/10 (monsters in the early areas drop them)` };
       case 'pest_control': return { kind: 'hunt', target: 'rat', text: `Slay rats: ${q.kills}/8` };
       case 'pillars': return !q.monument ? obj('shrine', 'Pray at the A-Worthy Monument') : !q.obelisk ? obj('mascot_statue', 'Rest at the Mascot Statue') : npc('guide', 'Hand in to');
       case 'smith_apprentice':

@@ -2536,7 +2536,7 @@ test('bones bury 100 at a time, or a whole stack; daggers drop', async () => {
   const xp0 = game.skills.xp.prayer;
   game.buryBones(game.inventory.slots.findIndex((x) => x && x.id === 'bones'), Infinity);
   assert.equal(game.inventory.count('bones'), 0, 'the rest of the stack buried in one go');
-  assert.ok(game.skills.xp.prayer - xp0 >= 45 * 899, 'prayer xp for every bone (45 each)');
+  assert.ok(game.skills.xp.prayer - xp0 >= ITEMS.bones.prayerXp * 899, `prayer xp for every bone (${ITEMS.bones.prayerXp} each)`);
   game.inventory.add('bones', 5);
   game.buryBones(game.inventory.slots.findIndex((x) => x && x.id === 'bones'), 1);
   assert.equal(game.inventory.count('bones'), 4, 'or just one');
@@ -4564,4 +4564,84 @@ test('auto quest gives up on a step it cannot make progress on instead of loopin
   for (let i = 0; i < 600 && game.autoQuest; i++) game.update(600);
   assert.ok(game.player.alive);
   assert.equal(game.autoQuest, false, 'stopped after a few fruitless tries');
+});
+
+test('bones ladder: better bones by band, champion and boss bones, altar offering', async () => {
+  const { NPCS } = await import('../src/data/npcs.js');
+  const { boneForTier, championBoneQty, RARE_BOSS_BONES } = await import('../src/data/bones.js');
+  const { PRAYER_BY_ID } = await import('../src/data/prayers.js');
+  const { xpForLevel } = await import('../src/data/xp.js');
+  const { XP_RATE } = await import('../src/config.js');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.ui = new Proxy({}, { get: () => () => {} });
+  // (a) Ordinary monsters drop the bone of their band; the early ones still drop plain bones.
+  assert.equal(getNpc('chicken').alwaysDrop[0].id, 'bones');
+  for (const [id, d] of Object.entries(NPCS)) {
+    if (!d.attackable || d.boss) continue;
+    assert.equal(d.alwaysDrop[0].id, boneForTier(d.tierLevel), `${id} drops its band's bones`);
+  }
+  // (b) Every boss drops Titan bones; the rare kinds name real bosses and real bones.
+  for (const [id, d] of Object.entries(NPCS)) {
+    if (!d.boss) continue;
+    const t = d.alwaysDrop.find((x) => x.id === 'titan_bones');
+    assert.ok(t && t.min >= 2, `${id} drops at least two titan bones`);
+  }
+  for (const [id, bone] of Object.entries(RARE_BOSS_BONES)) {
+    assert.ok(NPCS[id]?.boss, `${id} is a boss`);
+    assert.ok(ITEMS[bone]?.prayerXp, `${bone} is a bone`);
+  }
+  // (c) Each rung is worth more than the last.
+  const xp = (id) => ITEMS[id].prayerXp;
+  const ladder = ['bones', 'big_bones', 'heavy_bones', 'ancient_bones', 'spirit_bones'];
+  for (let i = 1; i < ladder.length; i++) assert.ok(xp(ladder[i]) > xp(ladder[i - 1]), `${ladder[i]} > ${ladder[i - 1]}`);
+  const rare = ['spirit_bones', 'titan_bones', 'fiend_bones', 'dragon_bones', 'legend_bones'];
+  for (let i = 1; i < rare.length; i++) assert.ok(xp(rare[i]) > xp(rare[i - 1]), `${rare[i]} > ${rare[i - 1]}`);
+  assert.ok(xp('champion_bones') > xp('heavy_bones'));
+  // (d) Champions of stronger bands give more Champion bones.
+  assert.equal(championBoneQty(1), 1);
+  assert.ok(championBoneQty(300) > championBoneQty(30));
+  // (e) A champion's loot has Champion bones on top of its band's bones.
+  const mob = game.npcs.find((n) => n.def.attackable && !n.def.boss && !n.champion && (n.def.level || 1) >= 3);
+  mob.makeChampion();
+  let got = [];
+  game._autoLoot = (loot) => { got = loot.map((l) => l[0]); };
+  game.rollDrops(mob);
+  assert.ok(got.includes('champion_bones'), 'champion bones dropped');
+  assert.ok(got.includes(boneForTier(mob.def.tierLevel)), 'band bones dropped');
+  // (f) Burying a whole stack of big bones: exact XP, and prayer never overfills.
+  game.inventory.add('big_bones', 10);
+  let xp0 = game.skills.xp.prayer;
+  assert.equal(game.buryBones(game.inventory.slots.findIndex((x) => x && x.id === 'big_bones'), Infinity), 10);
+  assert.equal(game.skills.xp.prayer - xp0, 200 * 10 * XP_RATE);
+  assert.ok(game.prayerPoints <= game.maxPrayer(), 'prayer points capped');
+  // (g) Offering only works at a monument, and pays 2.5x.
+  const shrine = game.world.objects.find((o) => o.def.type === 'shrine');
+  game.player.x = shrine.x + 20; game.player.y = shrine.y + 20;
+  assert.ok(!game.nearShrine(), 'away from the monuments');
+  game.inventory.add('bones', 10);
+  const bi = () => game.inventory.slots.findIndex((x) => x && x.id === 'bones');
+  assert.equal(game.buryBones(bi(), Infinity, true), 0, 'no offering away from a monument');
+  assert.equal(game.inventory.count('bones'), 10, 'bones kept');
+  game.player.x = shrine.x + 1; game.player.y = shrine.y;
+  assert.ok(game.nearShrine());
+  xp0 = game.skills.xp.prayer;
+  assert.equal(game.buryBones(bi(), Infinity, true), 10);
+  assert.equal(game.skills.xp.prayer - xp0, 75 * 10 * 2.5 * XP_RATE);
+  // (h) Bury all bones clears every kind.
+  game.inventory.add('bones', 3); game.inventory.add('heavy_bones', 4); game.inventory.add('titan_bones', 2);
+  assert.equal(game.buryAllBones(), 9);
+  for (const id of ['bones', 'heavy_bones', 'titan_bones']) assert.equal(game.inventory.count(id), 0, `${id} buried`);
+  // (i) The new prayers, and the level-300 blessing replaces the melee prayers.
+  for (const id of ['deadeye', 'mystic_might', 'worthy_spirit']) assert.ok(PRAYER_BY_ID[id], id);
+  game.skills.xp.prayer = xpForLevel(300);
+  game.prayerPoints = game.maxPrayer();
+  game.togglePrayer('clarity');
+  assert.ok(game.activePrayers.has('clarity'));
+  game.togglePrayer('worthy_spirit');
+  assert.ok(!game.activePrayers.has('clarity'), 'clarity switched off');
+  const m = game.prayerMult();
+  for (const k of ['att', 'str', 'def']) assert.ok(Math.abs(m[k] - 1.6) < 1e-9, `${k} x1.6`);
 });

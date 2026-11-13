@@ -195,7 +195,8 @@ test('prayer and spell icons exist for every prayer and spell', async () => {
   const { PRAYERS } = await import('../src/data/prayers.js');
   const { SPELLS } = await import('../src/data/magic.js');
   const onDisk = new Set(readdirSync(fileURLToPath(new URL('../assets/icons/', import.meta.url))));
-  for (const p of PRAYERS) assert.ok(onDisk.has(`prayer-${p.id}.webp`), `prayer-${p.id}.webp`);
+  // (new prayers may borrow an existing icon via `art`)
+  for (const p of PRAYERS) assert.ok(onDisk.has(`prayer-${p.art || p.id}.webp`), `prayer-${p.art || p.id}.webp`);
   for (const s of SPELLS) assert.ok(onDisk.has(`spell-${s.id}.webp`), `spell-${s.id}.webp`);
 });
 
