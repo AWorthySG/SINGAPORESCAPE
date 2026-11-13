@@ -3,6 +3,7 @@
 // for region detection) plus a dangerous Wilderness. A fixed seed keeps it stable.
 
 import { NPCS, MONSTER_IDS, BOSS_IDS, EXTRA_MONSTER_IDS, EXTRA_BOSS_IDS } from './npcs.js';
+import { STATIONS } from './transport.js';
 
 // How many of each monster kind populate the world.
 export const MONSTER_COPIES = 5;
@@ -27,6 +28,23 @@ function mulberry32(seed) {
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
+}
+
+// Smooth value noise in 0..1 (three octaves), for natural shapes: coastlines,
+// river meanders and forest floors. Seeded by `s`; no randomness used.
+function hash2(ix, iy, s) {
+  let h = (Math.imul(ix, 374761393) ^ Math.imul(iy, 668265263) ^ Math.imul(s, 1442695041)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+function vnoise(x, y, s) {
+  const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy;
+  const u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy);
+  const a = hash2(ix, iy, s), b = hash2(ix + 1, iy, s), c = hash2(ix, iy + 1, s), d = hash2(ix + 1, iy + 1, s);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+function fbm(x, y, s) {
+  return vnoise(x, y, s) * 0.57 + vnoise(x * 2.1, y * 2.1, s + 1) * 0.29 + vnoise(x * 4.3, y * 4.3, s + 2) * 0.14;
 }
 
 export function buildWorld() {
@@ -58,24 +76,31 @@ export function buildWorld() {
     else if (rng() < 0.06) base = T.DARKGRASS;
     set(x, y, base);
   }
-  for (let y = 0; y < OPEN_H; y++) for (let x = 0; x < OPEN_W; x++) {
-    if (x < OLD_W && y < OLD_H) continue;
-    let base = T.GRASS;
-    if (x >= 200 && y >= 204) base = rng2() < 0.88 ? T.DARKGRASS : T.GRASS;            // the Shadow Rift
-    else if (x >= 225 && y >= 100) base = rng2() < 0.75 ? T.DARKGRASS : T.GRASS;       // Tekong Badlands
-    else if (x >= 75 && x < 159 && y >= 113) base = rng2() < 0.3 ? T.DARKGRASS : T.GRASS; // Jurong Forest
-    else if (rng2() < 0.06) base = T.DARKGRASS;
-    set(x, y, base);
-  }
+  // Beyond the first island the land is shaped by smooth noise rather than
+  // per-tile dice: forest floors come in broad groves and glades, coasts and
+  // rivers wander, so the regions read as one country rather than a grid of boxes.
+  const oldIsland = (x, y) => x < OLD_W && y < OLD_H;
+  const between = (v, lo, hi) => v >= lo && v < hi;
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    if (x < OPEN_W && y < OPEN_H) continue;
-    let base = T.GRASS;
-    if (x >= 400 && y >= 180 && y < 272) base = rng3() < 0.8 ? T.DARKGRASS : T.GRASS;        // Mandai Rainforest
-    // Rocky slopes and dockyard sand come in broad drifts, not speckles.
-    else if (y >= 280 && x >= 360) base = Math.sin(x / 9) + Math.cos(y / 6) + Math.sin((x + y) / 13) + (rng3() - 0.5) * 0.5 > 0.4 ? T.STONE : T.GRASS;   // the Celestial Peaks
-    else if (y >= 280 && x < 180) base = Math.sin(x / 11 + 1) + Math.cos(y / 8) + (rng3() - 0.5) * 0.4 > 0.5 ? T.SAND : T.GRASS;                     // Tuas Docklands
-    else if (y >= 280) base = rng3() < 0.3 ? T.DARKGRASS : T.GRASS;                          // Temasek Ruins
-    else if (rng3() < 0.06) base = T.DARKGRASS;
+    if (oldIsland(x, y)) continue;
+    // How much of the ground is dark forest floor, region by region. The point
+    // looked up is nudged up to 14 tiles by noise, so one region's woods fray
+    // into the next instead of stopping at a ruled line.
+    const ox = x, oy = y;
+    { const wx = x + (fbm(ox / 30, oy / 30, 14) - 0.5) * 28, wy = y + (fbm(ox / 30, oy / 30, 15) - 0.5) * 28; x = wx; y = wy; }
+    let dark = 0.2;
+    if (x < OPEN_W && y < OPEN_H) {
+      if (x >= 200 && y >= 204) dark = 0.82;                        // the Shadow Rift
+      else if (x >= 225 && y >= 100) dark = 0.68;                   // Tekong Badlands
+      else if (between(x, 75, 159) && y >= 113) dark = 0.42;        // Jurong Forest
+      else if (between(x, 300, 400) && y >= 100) dark = 0.38;       // Coney Island's woods
+    } else if (x >= 400 && between(y, 180, 280)) dark = 0.72;       // Mandai Rainforest
+    else if (y >= 280 && between(x, 180, 360)) dark = 0.36;         // Temasek Ruins
+    let base = fbm(ox / 16, oy / 16, 11) < dark ? T.DARKGRASS : T.GRASS;
+    // Rocky slopes and dockyard sand come in broad drifts.
+    if (y >= 280 && x >= 360 && fbm(ox / 20, oy / 14, 12) > 0.55) base = T.STONE;   // the Celestial Peaks
+    if (y >= 280 && x < 180 && fbm(ox / 18, oy / 12, 13) > 0.58) base = T.SAND;    // Tuas Docklands
+    x = ox; y = oy;
     set(x, y, base);
   }
 
@@ -93,15 +118,42 @@ export function buildWorld() {
     if (d + (rng() - 0.5) * 0.2 < 1) set(x, y, T.WATER);
   }
 
-  // --- The open world beyond the island ---
-  rect(0, 101, 158, 112, T.WATER);   // the southern strait (crossed by the Sentosa bridge)
-  rect(150, 0, 158, 112, T.WATER);   // the eastern channel past Pulau Hantu
-  rect(291, 0, 299, 203, T.WATER);   // the channel off Changi and Tekong
-  rect(0, 196, 399, 203, T.WATER);   // the south channel
-  rect(392, 0, 399, 279, T.WATER);   // the far east sea
-  rect(0, 272, 399, 279, T.WATER);   // the far south sea
-  // The Southern Islands: open sea dotted with islands.
-  rect(0, 204, 199, 271, T.WATER);
+  // --- The open world: one coastline round it all ---
+  // The sea laps in 5-14 tiles from the map's edge, more in coves, less on headlands.
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (oldIsland(x, y)) continue;
+    const edge = Math.min(x < OLD_W ? Infinity : x, y < OLD_H ? Infinity : y, W - 1 - x, H - 1 - y);
+    if (edge < 5 + 9 * fbm(x / 24, y / 24, 21)) set(x, y, T.WATER);
+  }
+  // Rivers wander between the regions instead of straight-ruled channels. Each
+  // runs from (x0, y0) to (x1, y1), swinging up to `amp` tiles either side, and
+  // is about `w` tiles across. Roads cross them on wooden bridges.
+  const river = (x0, y0, x1, y1, w, amp, s) => {
+    const len = Math.hypot(x1 - x0, y1 - y0), nx = -(y1 - y0) / len, ny = (x1 - x0) / len;
+    for (let i = 0; i <= len * 2; i++) {
+      const t = i / (len * 2), d = t * len;
+      const off = amp * (Math.sin(d / 19 + s) * 0.7 + Math.sin(d / 7 + s * 2) * 0.15 + (fbm(d / 30, s, 31) - 0.5) * 1.6);
+      const cx = x0 + (x1 - x0) * t + nx * off, cy = y0 + (y1 - y0) * t + ny * off;
+      const r = (w / 2) * (0.75 + 0.5 * fbm(d / 18, s, 32));
+      for (let dy = Math.floor(-r); dy <= Math.ceil(r); dy++) for (let dx = Math.floor(-r); dx <= Math.ceil(r); dx++) {
+        if (dx * dx + dy * dy <= r * r) set(Math.round(cx + dx), Math.round(cy + dy), T.WATER);
+      }
+    }
+  };
+  river(-4, 107, 162, 107, 9, 2, 1);      // the Strait, between the first island and the mainland
+  river(154, -4, 154, 108, 8, 1.5, 2);    // the channel past Pulau Hantu
+  river(295, -4, 295, 204, 6, 9, 3);      // the Serangoon, off Changi and Tekong
+  river(-4, 200, 404, 200, 7, 5, 4);      // the Kallang, along the south of the mainland
+  river(396, -4, 396, 280, 6, 9, 5);      // the Seletar, west of the far east lands
+  river(-4, 276, 544, 276, 7, 5, 6);      // the Jurong, along the far south
+  river(400, 89, 544, 89, 3, 7, 7);       // the Punggol-Kranji creek
+  river(400, 179, 544, 179, 3, 7, 8);     // the Kranji-Mandai creek
+  river(180, 276, 180, 384, 4, 7, 9);     // between Tuas and Temasek
+  river(360, 276, 360, 384, 4, 7, 10);    // the gorge below the Peaks
+  // The Southern Islands: open sea dotted with islands, its east shore ragged.
+  for (let y = 196; y < 280; y++) for (let x = 0; x < 216; x++) {
+    if (x < 199 - 14 * fbm(x / 12, y / 12, 41)) set(x, y, T.WATER);
+  }
   const island = (cx, cy, rx, ry) => { for (let y = cy - ry - 1; y <= cy + ry + 1; y++) for (let x = cx - rx - 1; x <= cx + rx + 1; x++) {
     if (((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 + (rng2() - 0.5) * 0.25 < 1) set(x, y, rng2() < 0.12 ? T.DARKGRASS : T.GRASS); } };
   island(40, 236, 17, 11);    // Kusu Island
@@ -125,9 +177,6 @@ export function buildWorld() {
   pond(230, 250, 8, 5); pond(330, 230, 10, 6); pond(370, 258, 7, 4);   // the Rift's dark pools
 
   // --- The far regions ---
-  rect(400, 272, 531, 279, T.WATER);   // the channel between the east lands and the south
-  rect(532, 0, 539, 379, T.WATER);     // the outer east sea
-  rect(0, 372, 539, 379, T.WATER);     // the outer south sea
   const pond3 = (cx, cy, rx, ry) => { for (let y = cy - ry - 1; y <= cy + ry + 1; y++) for (let x = cx - rx - 1; x <= cx + rx + 1; x++) {
     if (((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 + (rng3() - 0.5) * 0.2 < 1) set(x, y, T.WATER); } };
   // Punggol Waterway: a winding river with its own broad lagoon.
@@ -136,10 +185,8 @@ export function buildWorld() {
     for (let dy = -1; dy <= 1; dy++) set(x, ry + dy, T.WATER);
   }
   pond3(500, 22, 14, 8); pond3(415, 80, 6, 4);
-  rect(400, 88, 531, 89, T.WATER);     // the Punggol-Kranji canal
   // Kranji Farmlands: fish ponds and reservoir edges.
   pond3(510, 105, 9, 6); pond3(420, 165, 7, 5); pond3(505, 160, 8, 5);
-  rect(400, 178, 531, 179, T.WATER);   // the Kranji-Mandai canal
   // Mandai Rainforest: streams and the Upper Seletar shallows.
   for (let y = 180; y < 272; y++) {
     const rx = Math.round(440 + Math.sin(y / 10) * 10);
@@ -148,10 +195,8 @@ export function buildWorld() {
   pond3(505, 210, 10, 7);
   // Tuas Docklands: square harbour basins.
   rect(20, 296, 40, 306, T.WATER); rect(60, 330, 84, 342, T.WATER); rect(120, 296, 140, 310, T.WATER); rect(10, 350, 160, 352, T.WATER);
-  rect(178, 280, 181, 371, T.WATER);   // the Tuas-Temasek channel
   // Temasek Ruins: the old moat and a sunken palace pool.
   pond3(300, 300, 9, 6); pond3(220, 350, 8, 5);
-  rect(358, 280, 361, 371, T.WATER);   // the Temasek-Peaks gorge
   // The Celestial Peaks: mountain tarns.
   pond3(410, 300, 6, 4); pond3(500, 350, 7, 5);
 
@@ -169,39 +214,6 @@ export function buildWorld() {
   rect(75, 47, 92, 64, T.STONE);   // Chinatown market
   rect(66, 8, 86, 24, T.SAND);     // Bukit Timah mine hill
   rect(124, 46, 136, 60, T.STONE); // Pulau Hantu ruined plaza
-
-  // --- Paths ---
-  rect(57, 20, 58, 46, T.PATH);
-  rect(38, 54, 46, 55, T.PATH);
-  rect(70, 54, 75, 55, T.PATH);
-  rect(57, 64, 58, 95, T.PATH);
-  rect(57, 20, 76, 21, T.PATH);
-  rect(92, 40, 96, 41, T.PATH);
-  rect(110, 52, 124, 53, T.PATH);  // causeway into Pulau Hantu
-  // Roads across the open world. Where a road meets water it becomes a wooden bridge.
-  const road = (x0, y0, x1, y1) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) set(x, y, get(x, y) === T.WATER ? T.WOOD : T.PATH); };
-  road(57, 95, 58, 150);     // the Sentosa bridge south over the strait
-  road(8, 150, 236, 151);    // the great south road: Sungei Buloh - Jurong - Marina Bay
-  road(190, 8, 191, 150);    // north through Marina Bay into Pulau Ubin
-  road(159, 50, 286, 51);    // Pulau Ubin - Changi
-  road(262, 51, 263, 150);   // Changi down into the Tekong Badlands
-  road(236, 150, 262, 151);
-  road(286, 50, 341, 51);     // Changi over the channel into Gardens by the Bay
-  road(340, 51, 341, 151);    // south through the Gardens to Coney Island
-  road(262, 150, 341, 151);   // Tekong over the channel to Coney Island
-  road(262, 151, 263, 262);   // Tekong over the south channel into the Shadow Rift
-  road(190, 150, 191, 241);   // Marina Bay over the south channel to the islands
-  road(24, 240, 380, 241);    // the island bridges, on east through the Rift
-  road(58, 241, 59, 260);     // a bridge down to Pulau Semakau
-  road(168, 241, 169, 258);   // and to the Sisters' Islands
-  // Roads to the far regions.
-  road(341, 50, 470, 51);     // Gardens by the Bay east over the sea into Punggol
-  road(341, 150, 470, 151);   // Coney Island east into Kranji
-  road(380, 240, 470, 241);   // the Rift road east into Mandai
-  road(470, 50, 471, 331);    // north-south through the east lands, down to the Peaks
-  road(262, 262, 263, 331);   // the Rift south into the Temasek Ruins
-  road(96, 241, 97, 331);     // St John's Island south into Tuas
-  road(20, 330, 520, 331);    // the far south road
   // Floors for the far towns.
   rect(430, 30, 452, 46, T.STONE);     // Punggol Point
   rect(440, 120, 462, 138, T.STONE);   // Kranji Village square
@@ -209,14 +221,79 @@ export function buildWorld() {
   rect(196, 290, 340, 292, T.STONE); rect(196, 356, 340, 358, T.STONE);   // the old palace walls
   rect(24, 312, 160, 316, T.STONE);    // the Tuas wharf
   rect(250, 208, 274, 222, T.STONE);   // the Rift Outpost
-  rect(382, 100, 391, 195, T.SAND);    // Coney Island's east beach
-  rect(300, 2, 391, 4, T.SAND);
   // Floors for the new towns and the big quarries.
   rect(178, 128, 206, 147, T.STONE);   // Marina Bay plaza
   rect(182, 40, 198, 49, T.STONE);     // Pulau Ubin kampong square
-  rect(200, 8, 222, 28, T.SAND);       // Ubin granite quarry
-  rect(108, 160, 142, 188, T.SAND);    // Jurong quarry
-  rect(268, 4, 289, 98, T.SAND);       // Changi beach
+  // The quarries are rough pits, a blob of sand rather than a box.
+  const pit = (x0, y0, x1, y1, sd) => {
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, rx = (x1 - x0) / 2 + 2, ry = (y1 - y0) / 2 + 2;
+    for (let y = y0 - 3; y <= y1 + 3; y++) for (let x = x0 - 3; x <= x1 + 3; x++) {
+      const inner = x >= x0 && x <= x1 && y >= y0 && y <= y1 && ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 < 0.8;
+      if (inner || ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 < 0.55 + 0.6 * fbm(x / 6, y / 6, sd)) { if (get(x, y) !== T.WATER) set(x, y, T.SAND); }
+    }
+  };
+  pit(200, 8, 222, 28, 52);      // Ubin granite quarry
+  pit(108, 160, 142, 188, 53);   // Jurong quarry
+  // Changi's long beach and Coney Island's east shore, their landward edges ragged.
+  for (let y = 2; y < 98; y++) for (let x = 262; x < 292; x++) if (get(x, y) !== T.WATER && x > 266 + 10 * fbm(x / 9, y / 9, 51)) set(x, y, T.SAND);
+  for (let y = 100; y < 196; y++) for (let x = 376; x < 396; x++) if (get(x, y) !== T.WATER && x > 380 + 8 * fbm(x / 9, y / 9, 54)) set(x, y, T.SAND);
+
+  // --- Paths in the first island ---
+  rect(57, 20, 58, 46, T.PATH);
+  rect(38, 54, 46, 55, T.PATH);
+  rect(70, 54, 75, 55, T.PATH);
+  rect(57, 64, 58, 95, T.PATH);
+  rect(57, 20, 76, 21, T.PATH);
+  rect(92, 40, 96, 41, T.PATH);
+  rect(110, 52, 124, 53, T.PATH);  // causeway into Pulau Hantu
+  // --- The road network ---
+  // Every MRT station (and a few crossroads) is joined by a two-tile road that
+  // winds gently instead of running ruler-straight. Where a road meets water it
+  // becomes a wooden bridge; town squares keep their paving. Walking a road is
+  // quicker than open ground (see Game.playerStepMul), so the roads are the fast
+  // way about on foot, and the MRT the fast way across the map.
+  const HUB = { ...Object.fromEntries(STATIONS.map((s) => [s.id, s])),
+    tekong: { x: 262, y: 150 }, lazarus: { x: 150, y: 232 }, kusu: { x: 40, y: 236 }, semakau: { x: 58, y: 260 },
+    sisters: { x: 168, y: 258 }, buloh_west: { x: 8, y: 160 } };
+  const paint = (x, y) => {
+    for (let dy = 0; dy <= 1; dy++) for (let dx = 0; dx <= 1; dx++) {
+      const t = get(x + dx, y + dy);
+      if (!inB(x + dx, y + dy) || t === T.STONE || t === T.WOOD) continue;
+      set(x + dx, y + dy, t === T.WATER ? T.WOOD : T.PATH);
+    }
+  };
+  const trail = (a, b, s) => {
+    const A = HUB[a], B = HUB[b];
+    const len = Math.hypot(B.x - A.x, B.y - A.y), nx = -(B.y - A.y) / len, ny = (B.x - A.x) / len;
+    const bulge = (fbm(s, 3.3, 61) - 0.5) * 0.3 * len;   // the road's broad sweep one way or the other
+    let px = null, py = null;
+    for (let i = 0; i <= len * 3; i++) {
+      const t = i / (len * 3), arch = Math.sin(Math.PI * t);
+      const off = arch * (bulge + 4 * (fbm(t * len / 20, s, 62) - 0.5) * 2);
+      const x = Math.round(A.x + (B.x - A.x) * t + nx * off), y = Math.round(A.y + (B.y - A.y) * t + ny * off);
+      // Fill any diagonal gap so the road is always walkable in straight steps.
+      if (px !== null && x !== px && y !== py) paint(x, py);
+      paint(x, y);
+      px = x; py = y;
+    }
+  };
+  const ROADS = [
+    ['sentosa', 'sungei_buloh'], ['sentosa', 'jurong'], ['sungei_buloh', 'jurong'], ['sungei_buloh', 'buloh_west'],
+    ['jurong', 'marina_bay'], ['marina_bay', 'pulau_ubin'], ['pulau_ubin', 'changi'], ['changi', 'gardens'],
+    ['marina_bay', 'tekong'], ['changi', 'tekong'], ['tekong', 'coney'], ['gardens', 'coney'],
+    ['gardens', 'punggol'], ['coney', 'kranji'], ['punggol', 'kranji'], ['kranji', 'mandai'],
+    ['marina_bay', 'lazarus'], ['lazarus', 'southern_islands'], ['southern_islands', 'kusu'], ['kusu', 'semakau'], ['lazarus', 'sisters'],
+    ['tekong', 'rift_outpost'], ['lazarus', 'rift_outpost'], ['rift_outpost', 'mandai'], ['rift_outpost', 'temasek'],
+    ['southern_islands', 'tuas'], ['tuas', 'temasek'], ['temasek', 'celestial_peaks'], ['mandai', 'celestial_peaks'],
+  ];
+  ROADS.forEach(([a, b], i) => trail(a, b, i + 1));
+  // A little paved square round each station out in the country.
+  for (const st of STATIONS) {
+    if (oldIsland(st.x, st.y)) continue;
+    for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) {
+      if (dx * dx + dy * dy <= 10 && get(st.x + dx, st.y + dy) !== T.WATER && get(st.x + dx, st.y + dy) !== T.WOOD) set(st.x + dx, st.y + dy, T.STONE);
+    }
+  }
 
   const objects = [];
   const npcSpawns = [];
@@ -631,6 +708,65 @@ export function buildWorld() {
   for (const [x0, y0, x1, y1] of [[402, 2, 530, 176], [402, 182, 530, 270], [2, 282, 176, 370], [184, 282, 356, 370], [364, 282, 530, 370]]) {
     scatter('bush', x0, y0, x1, y1, 60, GRASSY);
     scatter('flower', x0, y0, x1, y1, 40, GRASSY);
+  }
+
+  // ================= Signposts =================
+  // A signpost by each station out in the country, naming where its roads go.
+  {
+    const ARROWS = ['\u2192', '\u2198', '\u2193', '\u2199', '\u2190', '\u2196', '\u2191', '\u2197'];
+    const nameOf = (id) => STATIONS.find((st) => st.id === id)?.name;
+    for (const st of STATIONS) {
+      if (oldIsland(st.x, st.y)) continue;
+      const parts = [];
+      for (const [a, b] of ROADS) {
+        const other = a === st.id ? b : b === st.id ? a : null;
+        if (!other) continue;
+        // A road to a crossroads is signed for the stations beyond it.
+        const ends = nameOf(other) ? [other] : ROADS.filter(([c, d]) => (c === other || d === other) && c !== st.id && d !== st.id)
+          .map(([c, d]) => (c === other ? d : c)).filter(nameOf);
+        const ang = Math.atan2(HUB[other].y - st.y, HUB[other].x - st.x);
+        const arrow = ARROWS[(Math.round(ang / (Math.PI / 4)) + 8) % 8];
+        for (const e of ends.slice(0, 2)) if (!parts.some((q) => q.endsWith(nameOf(e)))) parts.push(`${arrow} ${nameOf(e)}`);
+      }
+      const text = parts.join('  \u00b7  ');
+      for (const [dx, dy] of [[2, 2], [-2, 2], [2, -2], [-2, -2], [3, 0], [-3, 0]]) if (placeObj('sign', st.x + dx, st.y + dy, { sign: text })) break;
+    }
+  }
+
+  // ================= Woodland =================
+  // Real woods in the dark-forest patches of the open world and the far
+  // regions: each region's own trees, thickest at the heart of a wood and
+  // thinning to its edges, never so dense you can't walk through. Placed by
+  // noise rather than dice, so nothing generated earlier moves.
+  {
+    const WOODS = [
+      [0, 113, 74, 199, ['mangrove', 'willow', 'bamboo']],                       // Sungei Buloh
+      [75, 113, 158, 199, ['tree', 'oak', 'teak', 'mahogany', 'rain_tree']],     // Jurong Forest
+      [159, 0, 229, 99, ['rain_tree', 'angsana', 'tree', 'oak']],                // Pulau Ubin
+      [230, 0, 299, 99, ['tree', 'palm', 'angsana']],                            // Changi Coast
+      [159, 100, 229, 199, ['angsana', 'rain_tree', 'tree']],                    // Marina Bay
+      [230, 100, 299, 199, ['yew_tree', 'tree', 'mahogany']],                    // Tekong Badlands
+      [300, 0, 399, 99, ['rain_tree', 'tembusu', 'angsana', 'magic_tree']],      // Gardens by the Bay
+      [300, 100, 399, 203, ['tree', 'mahogany', 'yew_tree', 'bamboo']],          // Coney Island
+      [200, 204, 399, 279, ['yew_tree', 'magic_tree', 'mahogany']],              // The Shadow Rift
+      [400, 0, 539, 89, ['willow', 'mangrove', 'tree']],                         // Punggol
+      [400, 90, 539, 179, ['tree', 'bamboo', 'palm']],                           // Kranji
+      [400, 180, 539, 279, ['mahogany', 'tembusu', 'teak', 'yew_tree', 'bamboo']], // Mandai
+      [0, 280, 179, 379, ['palm', 'tree']],                                      // Tuas
+      [180, 280, 359, 379, ['magic_tree', 'yew_tree', 'tembusu']],               // Temasek
+      [360, 280, 539, 379, ['magic_tree', 'yew_tree']],                          // the Peaks
+    ];
+    for (const [x0, y0, x1, y1, kinds] of WOODS) {
+      for (let y = y0 + 1; y < y1; y++) for (let x = x0 + 1; x < x1; x++) {
+        if (get(x, y) !== T.DARKGRASS) continue;
+        const heart = fbm(x / 7, y / 7, 71);                 // how deep in the wood this is
+        if (hash2(x, y, 72) > (heart - 0.45) * 0.55) continue;   // at most ~1 tile in 4
+        // Keep a tile clear round roads, so the woods never crowd a path.
+        let byRoad = false;
+        for (let dy = -1; dy <= 1 && !byRoad; dy++) for (let dx = -1; dx <= 1; dx++) if (get(x + dx, y + dy) === T.PATH || get(x + dx, y + dy) === T.WOOD) { byRoad = true; break; }
+        if (!byRoad) placeObj(kinds[Math.floor(hash2(x, y, 73) * kinds.length)], x, y);
+      }
+    }
   }
 
   R = rng;
