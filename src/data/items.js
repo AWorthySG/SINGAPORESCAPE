@@ -142,6 +142,8 @@ const RAW = {
     equip: { slot: 'ring', req: {}, bonuses: { magic: 4, defence: 2 } } },
   sapphire_amulet: { name: 'Sapphire amulet', icon: '📿', value: 1400, examine: 'An amulet set with a sapphire.',
     equip: { slot: 'amulet', req: {}, bonuses: { magic: 8, magicStr: 1 } } },
+  pearl_ring: { name: 'Pearl ring', icon: '💍', value: 500, examine: 'A silver ring set with a Singapore river pearl.', equip: { slot: 'ring', req: {}, bonuses: {} } },
+  pearl_amulet: { name: 'Pearl amulet', icon: '📿', value: 800, examine: 'A string of pearls that steadies a caster.', equip: { slot: 'amulet', req: {}, bonuses: {} } },
   emerald_amulet: { name: 'Emerald amulet', icon: '📿', value: 2600, examine: 'An amulet set with an emerald.',
     equip: { slot: 'amulet', req: {}, bonuses: { attack: 5, strength: 5, defence: 5 } } },
   ruby_amulet: { name: 'Ruby amulet', icon: '📿', value: 6000, examine: 'An amulet set with a ruby.',
@@ -772,6 +774,28 @@ for (const M of _METALS) {
     equip: { slot: 'weapon', combatType: 'ranged', noAmmo: true, coins: true, req: { ranged: M.ra }, bonuses: { ranged: Math.round(8 * M.m), speed: 4 }, range: 8 } };
 }
 
+// ---- Secondary weapon types, one per metal tier (see SECONDARY_WEAPON in classes.js); quivers are a ranged off-hand ----
+for (const M of _METALS) {
+  const add = (id, def) => { if (!RAW[id]) RAW[id] = def; };
+  const { k, n, m, v } = M, r = M.ra, tag = n.toLowerCase(), R = Math.round;
+  add(`${k}_parang`, { name: `${n} parang`, icon: '🔪', value: R(30 * v), examine: `A heavy ${tag} jungle parang: wide, chopping sweeps.`,
+    equip: { slot: 'weapon', req: { attack: r }, bonuses: { attack: R(4 * m), strength: R(7 * m), speed: 5 }, range: MELEE_REACH } });
+  add(`${k}_kerambit`, { name: `${n} kerambit`, icon: '🗡️', value: R(30 * v), examine: `A curved ${tag} kerambit. Quick, and best in pairs.`,
+    equip: { slot: 'weapon', req: { attack: r }, bonuses: { attack: R(5 * m), strength: R(5 * m), speed: 4, crit: 5 }, range: MELEE_REACH } });
+  add(`${k}_toya`, { name: `${n}-capped toya`, icon: '🥢', value: R(34 * v), examine: `A silat fighting staff with ${tag} caps. Guards as well as it strikes.`,
+    equip: { slot: 'weapon', req: { attack: r }, bonuses: { attack: R(7 * m), strength: R(6 * m), defence: R(3 * m), speed: 5 }, range: MELEE_REACH } });
+  add(`${k}_crossbow`, { name: `${n} crossbow`, icon: '🏹', value: R(40 * v), examine: `A ${tag}-limbed crossbow. Its bolts punch through armour. No ammo needed.`,
+    equip: { slot: 'weapon', combatType: 'ranged', noAmmo: true, req: { ranged: r }, bonuses: { ranged: R(11 * m), speed: 5 }, range: 10 } });
+  add(`${k}_chakram`, { name: `${n} chakram`, icon: '⭕', value: R(32 * v), examine: `A ${tag} throwing ring that bounces between foes. No ammo needed.`,
+    equip: { slot: 'weapon', combatType: 'ranged', noAmmo: true, req: { ranged: r }, bonuses: { ranged: R(9 * m), speed: 4 }, range: 7 } });
+  add(`${k}_orb`, { name: `${n} orb`, icon: '🔮', value: R(36 * v), examine: `A crystal orb in a ${tag} cage. Slow, focused spells that hurt big foes.`,
+    equip: { slot: 'weapon', combatType: 'magic', req: { magic: r }, bonuses: { magic: R(4 * m + 2), ...(r >= 15 ? { magicStr: R(r / 15) } : {}), speed: 5 } } });
+  add(`${k}_fan`, { name: `${n} war fan`, icon: '🪭', value: R(30 * v), examine: `A dancer's kipas with ${tag} ribs: quick flicks up close.`,
+    equip: { slot: 'weapon', combatType: 'dance', req: { agility: r }, bonuses: { dance: R(5 * m + 1), crit: 2 + Math.floor(r / 60), speed: 4 }, range: 2 } });
+  add(`${k}_quiver`, { name: `${n}-studded quiver`, icon: '🎒', value: R(24 * v), examine: `A quiver with ${tag} studs: steadier, quicker shots.`,
+    equip: { slot: 'shield', style: 'ranged', req: { ranged: r }, bonuses: { ranged: R(3 * m), atkPct: 2 * (1 + Math.floor(r / 60)), haste: 1 + Math.floor(r / 100) } } });
+}
+
 // A first hide body for archers (the studded body needs Ranged 20).
 RAW.hide_vest = { name: 'Hide vest', icon: '🦺', value: 30, examine: 'A soft hide vest that leaves the arms free to draw a bow.',
   equip: { slot: 'body', req: { ranged: 1 }, bonuses: { ranged: 4, defence: 3 } } };
@@ -854,13 +878,18 @@ export const WEAPON_TYPES = ['dagger', 'sword', 'scimitar', 'mace', 'longsword',
   'shortbow', 'longbow', 'staff', 'wand', 'whip', 'pistol', 'shuriken', 'cane', 'rifle'];
 const UNIQUE_TYPE = { tiger_kris: 'dagger', merlion_blade: 'sword', cursed_cutlass: 'scimitar', seraph_blade: 'longsword', megalodon_jaw: 'battleaxe',
   granite_maul: 'warhammer', void_blade: 'katana', leviathan_trident: 'spear', tiger_fang: 'claws' };
-const MELEE_FAMILIES = WEAPON_TYPES.slice(0, 12).sort((a, b) => b.length - a.length);   // '2h_sword' before 'sword'
+// Secondary weapon types: no class of their own; each class wields one (SECONDARY_WEAPON in classes.js).
+export const SECONDARY_WEAPON_TYPES = ['parang', 'kerambit', 'toya', 'crossbow', 'chakram', 'orb', 'fan'];
+export const ALL_WEAPON_TYPES = [...WEAPON_TYPES, ...SECONDARY_WEAPON_TYPES];
+const MELEE_FAMILIES = [...WEAPON_TYPES.slice(0, 12), 'parang', 'kerambit', 'toya'].sort((a, b) => b.length - a.length);   // '2h_sword' before 'sword'
 function classifyWeapon(id, eq) {
   if (UNIQUE_TYPE[id]) return UNIQUE_TYPE[id];
-  if (eq.combatType === 'dance') return 'whip';
-  if (eq.combatType === 'magic') return /wand$/.test(id) ? 'wand' : 'staff';
+  if (eq.combatType === 'dance') return /_fan$/.test(id) ? 'fan' : 'whip';
+  if (eq.combatType === 'magic') return /_orb$/.test(id) ? 'orb' : /wand$/.test(id) ? 'wand' : 'staff';
   if (eq.combatType === 'ranged' && /_cane$/.test(id)) return 'cane';
   if (eq.combatType === 'ranged' && /_rifle$/.test(id)) return 'rifle';
+  if (eq.combatType === 'ranged' && /_crossbow$/.test(id)) return 'crossbow';
+  if (eq.combatType === 'ranged' && /_chakram$/.test(id)) return 'chakram';
   if (eq.combatType === 'ranged') return /_pistol$/.test(id) ? 'pistol' : /_shuriken$/.test(id) ? 'shuriken' : /longbow$/.test(id) ? 'longbow' : 'shortbow';
   if (/_cane$/.test(id)) return 'cane';
   return MELEE_FAMILIES.find((f) => id.endsWith('_' + f)) || null;
@@ -879,6 +908,7 @@ const WEAPON_STAT = {
   mace: 'pierce', warhammer: 'pierce', spear: 'pierce', longsword: 'pierce', longbow: 'pierce',
   '2h_sword': 'bossDmg', halberd: 'bossDmg', battleaxe: 'atkPct', staff: 'magPct', wand: 'magPct', sword: 'atkPct',
   scimitar: 'lifesteal', whip: 'lifesteal', cane: 'lifesteal',
+  parang: 'bossDmg', kerambit: 'critDmg', toya: 'pierce', crossbow: 'pierce', chakram: 'atkPct', orb: 'bossDmg', fan: 'critDmg',
 };
 // Size of one "step" of each stat (critDmg and bossDmg run bigger numbers).
 const STAT_STEP = { critDmg: 3, bossDmg: 2, pierce: 1, haste: 1, lifesteal: 1, atkPct: 2, magPct: 2 };
@@ -942,10 +972,12 @@ export const ACCESSORY_STYLE = {
   gold_amulet: ['melee', 3], amulet_of_power: ['melee', 6], amulet_of_strength: ['melee', 10], ruby_amulet: ['melee', 14], worthy_sigil: ['melee', 20],
   emerald_amulet: ['ranged', 3], merdeka_medallion: ['ranged', 6], boar_tusk: ['ranged', 10], amulet_of_glory: ['ranged', 14], merlion_amulet: ['ranged', 20],
   sapphire_amulet: ['magic', 6], diamond_amulet: ['magic', 10], djinn_lamp: ['magic', 14], occult_necklace: ['magic', 20],
+  pearl_amulet: ['magic', 3],
   // Rings
   gold_ring: ['melee', 2], ruby_ring: ['melee', 5], ring_of_might: ['melee', 8],
   emerald_ring: ['ranged', 2], ring_of_kampong: ['ranged', 5], slayer_ring: ['ranged', 8],
   sapphire_ring: ['magic', 5], diamond_ring: ['magic', 8],
+  pearl_ring: ['magic', 2],
   // Capes
   batik_cape: ['melee', 3], warlord_cape: ['melee', 6], fire_cape: ['melee', 10],
   trades_cape: ['ranged', 3], garuda_wings: ['ranged', 6], shadow_cloak: ['ranged', 10],
@@ -974,6 +1006,23 @@ for (const [id, [style, P]] of Object.entries(ACCESSORY_STYLE)) {
   for (const k of FIGHT_KEYS) delete b[k];
   eq.bonuses = { ...b, ...accessoryStats(style, P) };
   eq.style = style;
+}
+
+// ---- Prayer accessories: no fighting stats, but prayers last longer (bonus `prayer`, see Game.drainPrayer) ----
+export const PRAYER_GEAR = [
+  // id, name, slot, Prayer level, prayer, defence, hp, value, examine
+  ['holy_beads', 'Holy beads', 'amulet', 10, 4, 2, 0, 800, 'Pearl beads worn smooth by quiet prayer.'],
+  ['ring_of_devotion', 'Ring of devotion', 'ring', 20, 3, 0, 3, 1500, 'A gold band set with a single pearl.'],
+  ['pilgrim_cape', 'Pilgrim cape', 'cape', 30, 5, 4, 0, 4000, 'A plain travelling cape that keeps the spirit steady.'],
+  ['temple_pendant', 'Temple pendant', 'amulet', 45, 8, 5, 6, 20000, 'Warm to the touch, like incense smoke.'],
+  ['ring_of_serenity', 'Ring of serenity', 'ring', 60, 6, 0, 8, 45000, 'Calm settles over you while you wear it.'],
+  ['lantern_cape', 'Lantern cape', 'cape', 70, 10, 8, 10, 90000, 'Mid-Autumn lanterns glow along its hem.'],
+  ['starlit_pendant', 'Starlit pendant', 'amulet', 85, 14, 10, 15, 250000, 'A pendant holding a little piece of the night sky.'],
+];
+for (const [id, name, slot, lvl, prayer, defence, hp, value, examine] of PRAYER_GEAR) {
+  if (RAW[id]) continue;
+  const bonuses = { prayer }; if (defence) bonuses.defence = defence; if (hp) bonuses.hp = hp;
+  RAW[id] = { name, icon: slot === 'ring' ? '💍' : slot === 'cape' ? '🧣' : '📿', value, examine, equip: { slot, req: { prayer: lvl }, bonuses } };
 }
 
 export const ITEMS = Object.fromEntries(

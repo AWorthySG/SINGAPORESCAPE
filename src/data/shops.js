@@ -164,7 +164,8 @@ export const SHOPS = {
 // Every class can buy a starter weapon: bronze, iron and steel of each metal
 // weapon type, added to the General Store (bows, staves, wands and whips are
 // already sold by the Fletcher, the Mystic Merchant and the store).
-const CLASS_METAL_WEAPONS = ['dagger', 'sword', 'scimitar', 'mace', 'longsword', 'battleaxe', 'warhammer', '2h_sword', 'spear', 'claws', 'katana', 'halberd', 'cane', 'pistol', 'shuriken', 'rifle'];
+const CLASS_METAL_WEAPONS = ['dagger', 'sword', 'scimitar', 'mace', 'longsword', 'battleaxe', 'warhammer', '2h_sword', 'spear', 'claws', 'katana', 'halberd', 'cane', 'pistol', 'shuriken', 'rifle',
+  'parang', 'kerambit', 'toya', 'crossbow', 'chakram', 'orb', 'fan'];   // and every secondary type
 for (const [metal, qty] of [['bronze', 5], ['iron', 3], ['steel', 2]]) {
   for (const t of CLASS_METAL_WEAPONS) {
     const id = `${metal}_${t}`;
@@ -173,9 +174,12 @@ for (const [metal, qty] of [['bronze', 5], ['iron', 3], ['steel', 2]]) {
 }
 
 // Starter accessories for every style (the cheaper rungs of the ladder).
-for (const id of ['gold_amulet', 'emerald_amulet', 'gold_ring', 'emerald_ring', 'batik_cape', 'trades_cape', 'songket_cape', 'amulet_of_power', 'merdeka_medallion', 'sapphire_amulet', 'sapphire_ring', 'ruby_ring', 'ring_of_kampong', 'warlord_cape', 'garuda_wings', 'revenant_cape']) {
+for (const id of ['gold_amulet', 'emerald_amulet', 'gold_ring', 'emerald_ring', 'batik_cape', 'trades_cape', 'songket_cape', 'amulet_of_power', 'merdeka_medallion', 'sapphire_amulet', 'sapphire_ring', 'ruby_ring', 'ring_of_kampong', 'warlord_cape', 'garuda_wings', 'revenant_cape',
+  'pearl_ring', 'pearl_amulet', 'holy_beads', 'pilgrim_cape']) {
   if (!SHOPS.general.stock.some((s) => s.id === id)) SHOPS.general.stock.push({ id, qty: 3 });
 }
+// The Fletcher sells studded quivers, a ranged off-hand.
+for (const [metal, qty] of [['bronze', 5], ['iron', 3], ['steel', 2]]) { const id = `${metal}_quiver`; if (!SHOPS.archery.stock.some((s) => s.id === id)) SHOPS.archery.stock.push({ id, qty }); }
 
 // Every armour family can buy its first boots and gloves (bronze and iron).
 for (const [metal, qty] of [['bronze', 5], ['iron', 3]]) {

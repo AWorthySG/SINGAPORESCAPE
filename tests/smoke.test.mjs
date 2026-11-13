@@ -689,3 +689,24 @@ test('weapon balance: every weapon type has a damage scale, slow weapons hit har
   assert.equal(weaponDmgMult({ weaponType: () => null }), 1, 'unarmed is unscaled');
   assert.equal(weaponDmgMult({ bonuses: () => ({}) }), 1, 'and so is a bare test stub');
 });
+
+test('secondary weapon types: every type is fully described, and each class wields one of its own style', async () => {
+  const { ALL_WEAPON_TYPES, SECONDARY_WEAPON_TYPES } = await import('../src/data/items.js');
+  const { WEAPON_DMG_MULT } = await import('../src/game/combat.js');
+  const { WEAPON_VS_RACE } = await import('../src/data/races.js');
+  const { CLASSES, SECONDARY_WEAPON, WEAPON_TYPE_NAMES, weaponsOfType } = await import('../src/data/classes.js');
+  const { weaponStyle } = await import('../src/game/gear.js');
+  const { classPerks } = await import('../src/game/classperks.js');
+  for (const t of ALL_WEAPON_TYPES) {
+    assert.ok(WEAPON_DMG_MULT[t] > 0, `${t} has a damage scale`);
+    assert.ok(WEAPON_TYPE_NAMES[t], `${t} has a name`);
+    assert.ok(WEAPON_VS_RACE[t]?.strong.length >= 2, `${t} is strong against at least two races`);
+  }
+  for (const cls of CLASSES) {
+    const sec = SECONDARY_WEAPON[cls.id];
+    assert.ok(SECONDARY_WEAPON_TYPES.includes(sec), `${cls.id} has a secondary type`);
+    assert.notEqual(sec, cls.weapon, `${cls.id}'s secondary is not its main type`);
+    assert.equal(weaponStyle(weaponsOfType(sec)[0]), cls.style, `${cls.id}'s ${sec} suits its ${cls.style} style`);
+  }
+  assert.ok(classPerks('rogue').some((p) => p.label === 'Second weapon'), 'the class perks list the second weapon');
+});

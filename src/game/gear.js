@@ -1,5 +1,5 @@
 import { ITEMS, getItem } from '../data/items.js';
-import { EQUIP_SLOTS } from './equipment.js';
+import { EQUIP_SLOTS, QUICK_TYPES } from './equipment.js';
 
 // Gear guide: one comparable "rating" per piece of equipment, plus helpers to
 // compare a piece against what's worn and to rank everything in a slot.
@@ -8,7 +8,7 @@ export const STAT_LABELS = {
   attack: 'Attack', strength: 'Melee power', defence: 'Defence', ranged: 'Ranged',
   magic: 'Magic', magicStr: 'Magic dmg', dance: 'Dance', crit: 'Crit %', hp: 'Bonus HP',
   pierce: 'Armour pierce %', critDmg: 'Crit damage %', haste: 'Attack speed %', lifesteal: 'Lifesteal %', bossDmg: 'Boss damage %',
-  atkPct: 'Attack bonus %', magPct: 'Magic bonus %',
+  atkPct: 'Attack bonus %', magPct: 'Magic bonus %', prayer: 'Prayer',
 };
 const STAT_KEYS = Object.keys(STAT_LABELS);
 
@@ -26,6 +26,7 @@ export const STAT_HELP = [
   ['Magic bonus', 'more damage from spells (staves, wands, robes)'],
   ['Lifesteal', 'heals you by a share of the damage you deal (dancewear)'],
   ['Boss damage', 'extra damage against bosses and champions'],
+  ['Prayer', 'prayers drain more slowly: +30 halves the drain (prayer accessories)'],
 ];
 
 /** Weapon style: 'melee' | 'ranged' | 'magic' | 'dance'. */
@@ -35,7 +36,7 @@ export function weaponStyle(id) { return getItem(id).equip?.combatType || 'melee
 export function swingBeats(id) {
   const eq = getItem(id).equip;
   const melee = (eq?.combatType || 'melee') === 'melee' ? 0.5 : 1;   // melee swings twice as fast
-  if (eq?.weaponType === 'scimitar' || eq?.weaponType === 'claws') return 0.7 * melee;   // quick weapons
+  if (QUICK_TYPES.has(eq?.weaponType)) return 0.7 * melee;   // quick weapons
   if (eq?.weaponType === 'pistol') return 0.25;
   if (eq?.weaponType === 'shuriken' || eq?.weaponType === 'shortbow') return 0.5;
   return Math.max(1, (eq?.bonuses?.speed || 5) - 3) * melee;

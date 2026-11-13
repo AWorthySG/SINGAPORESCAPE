@@ -3485,7 +3485,7 @@ test('drops: rarer gear from normal monsters, quality rolls, and bosses always d
   game._autoLoot = (loot) => { got = loot.map((l) => l[0]); };
   const boss = game.npcs.find((n) => n.def.boss && !n.def.fixed);
   game.rollDrops(boss);
-  const gear = got.filter((id) => ITEMS[id].equip && (ITEMS[id].equip.weaponType === 'scimitar' || ITEMS[id].equip.family === 'leather'));
+  const gear = got.filter((id) => ITEMS[id].equip && (ITEMS[id].equip.weaponType === 'scimitar' || ITEMS[id].equip.weaponType === 'parang' || ITEMS[id].equip.family === 'leather'));
   assert.ok(gear.length >= 1, `a boss drops Corsair gear (${got.join(', ')})`);
   assert.ok(gear.some((id) => game.equipment.upgradeLevel(id) >= QUALITY.superior.level), 'of Superior quality or better');
   assert.ok(got.includes('upgrade_stone'), 'and upgrade stones');
@@ -4667,4 +4667,88 @@ test('bones ladder: better bones by band, champion and boss bones, altar offerin
   assert.ok(!game.activePrayers.has('clarity'), 'clarity switched off');
   const m = game.prayerMult();
   for (const k of ['att', 'str', 'def']) assert.ok(Math.abs(m[k] - 1.6) < 1e-9, `${k} x1.6`);
+});
+
+test('secondary weapon types: a weapon at every tier, wieldable by their classes only', async () => {
+  const { SECONDARY_WEAPON_TYPES } = await import('../src/data/items.js');
+  const { weaponsOfType } = await import('../src/data/classes.js');
+  const lvl = (id) => Math.max(0, ...Object.values(ITEMS[id].equip.req || {}));
+  for (const t of SECONDARY_WEAPON_TYPES) {
+    const levels = weaponsOfType(t).map(lvl);
+    for (const tier of [1, 20, 40, 60, 80, 100, 130, 170, 220, 300]) {
+      assert.ok(levels.some((l) => l <= tier && l > tier - 40), `${t} has a weapon around level ${tier}`);
+    }
+    for (const id of weaponsOfType(t)) assert.equal(ITEMS[id].equip.weaponType, t, `${id} has a weapon type`);
+  }
+  // A Rogue wields kerambits (in pairs) as well as daggers, but not parangs.
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const g = new Game(); g.start(); g.chooseClass('rogue');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  const idx = (id) => g.inventory.slots.findIndex((s) => s && s.id === id);
+  g.inventory.add('bronze_kerambit', 2); g.inventory.add('bronze_parang', 1);
+  g.equipItem(idx('bronze_kerambit'));
+  assert.equal(g.equipment.get('weapon'), 'bronze_kerambit', 'a Rogue can wield a kerambit');
+  g.equipItem(idx('bronze_parang'));
+  assert.equal(g.equipment.get('weapon'), 'bronze_kerambit', 'but not a parang');
+  g.equipOffhand(idx('bronze_kerambit'));
+  assert.ok(g.equipment.isDualWielding(), 'two kerambits are dual wielded');
+  assert.equal(g.unrelatedToClass('bronze_kerambit'), false);
+  assert.equal(g._classReward('iron_kerambit'), 'iron_kerambit', 'a kerambit reward stays a kerambit');
+  clearSave();
+  const sw = new Game(); sw.start(); sw.chooseClass('swordsman');
+  assert.equal(sw.unrelatedToClass('bronze_kerambit'), true, 'a kerambit is no use to a Swordsman');
+});
+
+test('secondary weapon types: a chakram bounces into two more foes', async () => {
+  const { NPC } = await import('../src/game/npc.js');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const g = new Game(); g.start(); g.chooseClass('ninja');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.inventory.add('bronze_chakram', 1);
+  g.equipItem(g.inventory.slots.findIndex((s) => s && s.id === 'bronze_chakram'));
+  assert.equal(g.equipment.get('weapon'), 'bronze_chakram');
+  const dummy = (dx, dy = 0) => {
+    const n = new NPC('goblin', g.player.x + dx, g.player.y + dy, 0, {});
+    n.hp = n.maxHp = 999999; n.def = { ...n.def, aggressive: false, maxHit: 0 };
+    return n;
+  };
+  const main = dummy(3), a = dummy(4), b = dummy(3, 1);
+  g.npcs = [main, a, b];
+  for (let i = 0; i < 60 && (a.hp === a.maxHp || b.hp === b.maxHp); i++) { g.player.attackCooldown = 0; g._rangedAttack(main); }
+  assert.ok(a.hp < a.maxHp && b.hp < b.maxHp, 'both side foes took a bounce');
+  const kinds = new Set(g.effects.filter((e) => e.type === 'projectile').map((e) => e.kind));
+  assert.deepEqual([...kinds], ['shuriken'], 'a chakram flies like a thrown star');
+});
+
+test('prayer accessories slow the prayer drain', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const g = new Game(); g.start();
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.skills.addXp('prayer', 40000);   // about Prayer 40
+  assert.ok(g.skills.level('prayer') >= 30, 'high enough Prayer for the gear');
+  const drainOver = (ticks) => {
+    g.prayerPoints = g.maxPrayer();
+    g.activePrayers.clear(); g.togglePrayer('clarity');
+    const before = g.prayerPoints;
+    for (let i = 0; i < ticks; i++) g.drainPrayer();
+    return before - g.prayerPoints;
+  };
+  const bare = drainOver(10);
+  g.equipment.set('amulet', 'holy_beads'); g.equipment.set('cape', 'pilgrim_cape');
+  assert.equal(g.equipment.bonuses().prayer, 9);
+  const geared = drainOver(10);
+  assert.ok(bare > 0 && geared < bare, `gear slows the drain (${geared} < ${bare})`);
+  assert.ok(Math.abs(geared / bare - 1 / (1 + 9 / 30)) < 1e-6, 'by 1 / (1 + prayer / 30)');
+});
+
+test('new gear enters the game: the Fletcher sells quivers, and every drop is a real item', async () => {
+  const { SHOPS } = await import('../src/data/shops.js');
+  const { NPCS } = await import('../src/data/npcs.js');
+  assert.ok(SHOPS.archery.stock.some((s) => s.id === 'bronze_quiver'), 'the Fletcher sells quivers');
+  for (const [nid, def] of Object.entries(NPCS)) {
+    for (const d of def.dropTable || []) if (!d.nothing) assert.ok(ITEMS[d.id], `${nid} drops a real item (${d.id})`);
+  }
 });

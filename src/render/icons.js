@@ -407,10 +407,12 @@ import { ABILITY_BY_ID } from '../data/abilities.js';
   // A long sniper rifle with a scope (Sniper).
   const rifle = (col, hi) => `<path d="M2 15.5 L8 13.2 L21.6 7.6 L22.4 9.2 L9.4 15 L8.6 18.6 L4.6 19.6 Z" fill="${C.wood}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M8 12.6 L22.2 6.8" stroke="${col}" stroke-width="1.8" stroke-linecap="round"/><path d="M8 12.6 L22.2 6.8" stroke="${OL}" stroke-width="0.5" opacity=".5"/><rect x="10.2" y="7.4" width="6.4" height="2.4" rx="1.1" transform="rotate(-22 13.4 8.6)" fill="${col}" stroke="${OL}" stroke-width="0.9"/><path d="M11.4 7.8 L15.2 6.3" stroke="${hi}" stroke-width="0.7"/>`;
   const WBUILD = { dagger: blade, sword: blade, scimitar: scim, mace, longsword, battleaxe, warhammer, '2h_sword': twohander, spear, claws, katana, halberd,
-    pistol, shuriken, cane, rifle };
+    pistol, shuriken, cane, rifle,
+    // Secondary weapon types: vector fallbacks borrowed from their nearest kin.
+    parang: scim, kerambit: blade, toya: spear, crossbow: rifle, chakram: shuriken, orb: (c, hi) => ringIcon(hi, c), fan: capeIcon };
   const ABUILD = { med_helm: helm, full_helm: helm, chainbody: plate, platebody: plate, platelegs: legs, sq_shield: shield, kiteshield: shield, gauntlets: gloves, boots, plateskirt, buckler,
     scout_hood: helm, scout_jerkin: plate, scout_breeches: legs,
-    scout_boots: boots, scout_gloves: gloves, hide_boots: boots, hide_vambraces: gloves, mage_boots: boots, mage_gloves: gloves };
+    scout_boots: boots, scout_gloves: gloves, hide_boots: boots, hide_vambraces: gloves, mage_boots: boots, mage_gloves: gloves, quiver: shield };
   for (const m of Object.keys(METAL_PAL)) {
     const [c, hi] = METAL_PAL[m];
     for (const t of Object.keys(WBUILD)) { const id = `${m}_${t}`; if (!I[id]) I[id] = WBUILD[t](c, hi); }
@@ -429,6 +431,10 @@ import { ABILITY_BY_ID } from '../data/abilities.js';
   I.emerald_amulet = I.amulet_of_power;
   I.ruby_amulet = I.amulet_of_power;
   I.diamond_amulet = I.amulet_of_power;
+  // Pearl jewellery and prayer accessories
+  I.holy_beads = I.temple_pendant = I.starlit_pendant = I.pearl_amulet = I.amulet_of_power;
+  I.ring_of_devotion = ringIcon(C.gold, '#ffffff'); I.ring_of_serenity = ringIcon('#2f9e6e', '#ffffff'); I.pearl_ring = ringIcon('#c8ccd4', '#ffffff');
+  I.pilgrim_cape = capeIcon('#8a6a3a', '#d8b878'); I.lantern_cape = capeIcon('#c0392b', '#f5b82e');
   I.granite_shield = shield('#9a948a', '#c4c0b8');
   I.emerald_ring = ringIcon('#2f9e6e', '#6fd0a0');
   I.ruby_ring = ringIcon('#c0392b', '#e87a6a');
@@ -819,8 +825,14 @@ import { ABILITY_BY_ID } from '../data/abilities.js';
       [`${t}_hide_boots`]: `${t}_boots`, [`${t}_hide_vambraces`]: 'dragonhide_vambraces',
       [`${t}_mage_boots`]: 'silk_slippers', [`${t}_mage_gloves`]: 'silk_bangles',
       [`${t}_rifle`]: `${t}_pistol`,   // sniper rifles borrow the pistol sticker until their own art arrives
+      // Secondary weapon types and quivers borrow their nearest kin's sticker until their own art arrives.
+      [`${t}_parang`]: `${t}_scimitar`, [`${t}_kerambit`]: `${t}_dagger`, [`${t}_toya`]: `${t}_spear`, [`${t}_crossbow`]: `${t}_pistol`, [`${t}_chakram`]: `${t}_shuriken`, [`${t}_orb`]: 'glass_orb',
+      [`${t}_fan`]: ['dragon', 'obsidian', 'orichalcum', 'jade', 'starmetal', 'celestial', 'eternal'].includes(t) ? 'golden_sash' : 'silk_sash',
+      [`${t}_quiver`]: ({ obsidian: 'dragon_arrow', orichalcum: 'jade_arrow', celestial: 'starmetal_arrow' })[t] || `${t}_arrow`,
     });
   }
+  Object.assign(BORROW_ID, { holy_beads: 'amulet_of_power', temple_pendant: 'emerald_amulet', starlit_pendant: 'diamond_amulet', pearl_amulet: 'sapphire_amulet', pearl_ring: 'sapphire_ring',
+    ring_of_devotion: 'gold_ring', ring_of_serenity: 'emerald_ring', pilgrim_cape: 'trades_cape', lantern_cape: 'revenant_cape' });
   // New bone kinds borrow the bones sticker, each tinted its own colour, until their art arrives.
   for (const [id, tint] of Object.entries({
     big_bones: 'sepia(.3) saturate(1.2) brightness(.97)', heavy_bones: 'sepia(.6) brightness(.85)',

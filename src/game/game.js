@@ -32,7 +32,7 @@ import { ABILITY_BY_ID, abilitiesFor, ADREN_PER_HIT, ADREN_PER_HURT, CLASS_ADREN
 import { classPassiveMods, CLASS_SKILL } from '../data/classPassives.js';
 import { RACES, raceOf, matchup, RACE_BONUS, RACE_PENALTY } from '../data/races.js';
 import { DOT_KINDS } from '../data/bossAbilities.js';
-import { CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, equivalentWeapon, CLEAVE_SHARE, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWear, equivalentArmour, classGearFor } from '../data/classes.js';
+import { CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, equivalentWeapon, CLEAVE_SHARE, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWear, equivalentArmour, classGearFor, canWield, classesForType, SECONDARY_WEAPON } from '../data/classes.js';
 import { STYLE_TRACKS, sumPerks, perkAtLevel, rankName, PERK_SKILLS, PERK_CAPS } from '../data/perks.js';
 import { getSpell, SPELLS, ELEMENTS, AOE_RADIUS, elementMatchup } from '../data/magic.js';
 import { xpForLevel } from '../data/xp.js';
@@ -124,6 +124,8 @@ const DANCE_RICOCHET = 2;
 const VOLLEY_MIN_BEATS = 0.05;
 const RICOCHET_SHARE = 0.6;
 const LONGBOW_DMG = 1.6;
+// Thrown weapons that bounce on: extra foes and the share of the hit each takes.
+const RICOCHET = { shuriken: { hits: 1, share: 0.6 }, chakram: { hits: 2, share: 0.45 } };
 // Sniper rifles fire only every 1.5s, but each round hits this many times as hard.
 const RIFLE_DMG = 5.5;
 // A sniper round carries on in a straight line through every
@@ -151,7 +153,7 @@ const CHAMPION_STACK_MULT = 10;
 // Share of fired arrows recovered after the shot.
 const ARROW_RECOVERY = 0.8;
 const CLASS_LOOT_SHARE = 0.75;   // chance another class's weapon drop becomes your class's equivalent
-const CLASS_FOR_TYPE = (t) => Object.values(CLASS_BY_ID).find((c) => c.weapon === t)?.name || 'different class';
+const CLASS_FOR_TYPE = (t) => classesForType(t).map((c) => c.name).join(' or ') || 'different class';
 // What a boss's ground attack says when it marks the ground.
 const HAZARD_TEXT = {
   blast: (n) => `${n} targets the ground under you. Move out of the red!`,
@@ -407,7 +409,7 @@ export class Game {
       // An existing character: put away a weapon it can no longer use, and hand over its class weapon.
       this.pendingClassChoice = false;
       const w = this.equipment.get('weapon');
-      if (w && getItem(w).equip?.weaponType && getItem(w).equip.weaponType !== cls.weapon && this.inventory.freeSlots?.() !== 0) {
+      if (w && getItem(w).equip?.weaponType && !canWield(classId, getItem(w).equip.weaponType) && this.inventory.freeSlots?.() !== 0) {
         this.equipment.clearSlot('weapon'); this.inventory.add(w, 1);
       }
       const starter = starterWeapon(classId);
@@ -861,7 +863,7 @@ export class Game {
     if (!this.activePrayers.size || this.prayerPoints <= 0) return;
     let drain = 0;
     for (const id of this.activePrayers) drain += PRAYER_BY_ID[id].drain;
-    this.prayerPoints = Math.max(0, this.prayerPoints - drain * 0.15);
+    this.prayerPoints = Math.max(0, this.prayerPoints - drain * 0.15 / (1 + (this.equipment.bonuses().prayer || 0) / 30));   // prayer gear slows the drain
     if (this.prayerPoints <= 0) { this.activePrayers.clear(); this.msg('You have run out of prayer points.', 'system'); }
     this.bus.emit('prayer');
   }
@@ -1959,7 +1961,7 @@ export class Game {
     // A Merchant's every throw may call up an A-Worthling (a mirror image).
     if (this.jobClass === 'merchant') Mercs.onMerchantAttack(this);
     const shot = this._shotKind(wpn);
-    const tint = wpn.coins ? '#f5b82e' : wpn.weaponType === 'pistol' ? '#ffe28a' : wpn.weaponType === 'shuriken' ? '#cfd8e6' : '#d9c45a';
+    const tint = wpn.coins ? '#f5b82e' : wpn.weaponType === 'pistol' ? '#ffe28a' : wpn.weaponType === 'shuriken' || wpn.weaponType === 'chakram' ? '#cfd8e6' : '#d9c45a';
     const style = this.player.rangedStyle;
     const { max } = playerRangedVsNpc(this.skills, this.equipment, style, npc.def, arrowStr);
     const pr = this.prayerMult().ranged;
@@ -1995,14 +1997,19 @@ export class Game {
       if (dmg > 0) for (const x of combatXpRanged(style, dmg)) this.skills.addXp(x.skill, x.xp * this.combatXpMult());
       total += dmg;
     }
-    // Shurikens ricochet off the target into one more foe nearby (60% of the hit).
-    if (wpn.weaponType === 'shuriken' && total > 0) {
+    // Shurikens ricochet off the target into one more foe nearby (60% of the hit);
+    // chakrams bounce on into two more (45% each).
+    const rc = RICOCHET[wpn.weaponType];
+    if (rc && total > 0) {
       const p = this.player;
-      const o = this.nearbyNpcs().find((n) => n !== npc && n.alive && n.attackable && !n.temporary && n.hp > 0
-        && chebyshev(n.x, n.y, npc.x, npc.y) <= 3 && chebyshev(n.x, n.y, p.x, p.y) <= this.attackRange() + 3
-        && !(n.def.fixed && n.target !== p));
-      if (o) {
-        const c = this._aoeCrit(Math.max(1, Math.round(raw * 0.6)));
+      const hit = new Set([npc]);
+      for (let k = 0; k < rc.hits; k++) {
+        const o = this.nearbyNpcs().find((n) => !hit.has(n) && n.alive && n.attackable && !n.temporary && n.hp > 0
+          && chebyshev(n.x, n.y, npc.x, npc.y) <= 3 && chebyshev(n.x, n.y, p.x, p.y) <= this.attackRange() + 3
+          && !(n.def.fixed && n.target !== p));
+        if (!o) break;
+        hit.add(o);
+        const c = this._aoeCrit(Math.max(1, Math.round(raw * rc.share)));
         const d = Math.min(o.hp, c.dmg);
         o.takeDamage(d);
         this.addHitsplat(o, d, { tint: '#cfd8e6', critX: c.critX });
@@ -2228,7 +2235,7 @@ export class Game {
   /** What a ranged weapon fires: only bows loose arrows; pistols fire bullets
    *  and Ninjas throw spinning shurikens. */
   _shotKind(wpn) {
-    return wpn?.coins ? 'coin' : wpn?.weaponType === 'pistol' || wpn?.weaponType === 'rifle' ? 'bullet' : wpn?.weaponType === 'shuriken' ? 'shuriken' : 'arrow';
+    return wpn?.coins ? 'coin' : wpn?.weaponType === 'pistol' || wpn?.weaponType === 'rifle' ? 'bullet' : wpn?.weaponType === 'shuriken' || wpn?.weaponType === 'chakram' ? 'shuriken' : 'arrow';
   }
 
   _projectile(npc, color, kind = 'bolt', spread = 0) {
@@ -2630,7 +2637,7 @@ export class Game {
     if (myType) {
       for (const l of loot) {
         const t = getItem(l[0]).equip?.weaponType;
-        if (t && t !== myType && Math.random() < CLASS_LOOT_SHARE) l[0] = equivalentWeapon(l[0], myType);
+        if (t && !canWield(this.jobClass, t) && Math.random() < CLASS_LOOT_SHARE) l[0] = equivalentWeapon(l[0], myType);
         // Armour of another class's kind mostly turns into your own kind.
         const fam = getItem(l[0]).equip?.family, mine = ARMOUR_FAMILY[this.jobClass];
         if (fam && mine && fam !== mine && Math.random() < CLASS_LOOT_SHARE) l[0] = equivalentArmour(l[0], mine);
@@ -3925,7 +3932,7 @@ export class Game {
     if (!eq || it.tool) return false;
     for (const [sk, lvl] of Object.entries(eq.req || {})) if (this.skills.level(sk) < lvl) return false;
     const cls = this.jobClass && CLASS_BY_ID[this.jobClass];
-    if (cls && eq.weaponType && eq.weaponType !== cls.weapon) return false;
+    if (cls && eq.weaponType && !canWield(cls.id, eq.weaponType)) return false;
     return !cls || canWear(cls.id, id);
   }
 
@@ -3948,6 +3955,8 @@ export class Game {
         const worn = this.equipment.get(eq.slot);
         // Keep to the weapon style you fight with (a staff won't replace a sword).
         if (eq.slot === 'weapon' && worn && weaponStyle(s.id) !== weaponStyle(worn)) return;
+        // Keep to the weapon type in hand: ratings can't compare a main and a secondary type fairly.
+        if (eq.slot === 'weapon' && worn && this.jobClass && getItem(s.id).equip.weaponType !== getItem(worn).equip.weaponType) return;
         const gain = score(s.id) - (worn ? score(worn) : 0);
         if (gain > 0 && (!best || gain > best.gain)) best = { i, gain };
       });
@@ -3979,7 +3988,7 @@ export class Game {
     let give = id;
     if (cls) {
       const eq = getItem(id).equip;
-      if (eq?.weaponType && eq.weaponType !== cls.weapon) give = equivalentWeapon(id, cls.weapon);
+      if (eq?.weaponType && !canWield(cls.id, eq.weaponType)) give = equivalentWeapon(id, cls.weapon);
       else if (eq?.family && !canWear(cls.id, id)) give = equivalentArmour(id, ARMOUR_FAMILY[cls.id]);
     }
     this.inventory.add(give, 1);
@@ -4009,8 +4018,8 @@ export class Game {
     }
     // Job classes: only your class's weapon type can be wielded (tools are fine).
     const cls = this.jobClass && CLASS_BY_ID[this.jobClass];
-    if (cls && eq.weaponType && eq.weaponType !== cls.weapon) {
-      this.msg(`Only a ${CLASS_FOR_TYPE(eq.weaponType)} can wield ${WEAPON_TYPE_NAMES[eq.weaponType]}. You are a ${cls.name}: you fight with ${WEAPON_TYPE_NAMES[cls.weapon]}.`);
+    if (cls && eq.weaponType && !canWield(cls.id, eq.weaponType)) {
+      this.msg(`Only a ${CLASS_FOR_TYPE(eq.weaponType)} can wield ${WEAPON_TYPE_NAMES[eq.weaponType]}. You are a ${cls.name}: you fight with ${WEAPON_TYPE_NAMES[cls.weapon]} and ${WEAPON_TYPE_NAMES[SECONDARY_WEAPON[cls.id]]}.`);
       return;
     }
     // ...and only your class's kind of helm, body and legs armour.
@@ -4946,7 +4955,7 @@ export class Game {
     if (it.tags?.includes('ammo')) return cls.weapon !== 'shortbow' && cls.weapon !== 'longbow';
     const eq = it.equip;
     if (!eq) return false;
-    if (eq.weaponType) return eq.weaponType !== cls.weapon;
+    if (eq.weaponType) return !canWield(cls.id, eq.weaponType);
     if (eq.family) return !canWear(cls.id, id);
     if (eq.style) return eq.style !== (cls.style === 'dance' ? 'melee' : cls.style);
     return false;

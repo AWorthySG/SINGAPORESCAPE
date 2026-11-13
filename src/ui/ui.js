@@ -1,4 +1,4 @@
-import { CLASSES, CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, canWear, ARMOUR_FAMILY, ARMOUR_FAMILIES } from '../data/classes.js';
+import { CLASSES, CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, canWear, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWield, SECONDARY_WEAPON } from '../data/classes.js';
 import { classPerks, classPerkSummary } from '../game/classperks.js';
 import * as Mercs from '../game/mercenary.js';
 import { PERK_SKILLS, PERK_TRACKS, PERK_EVERY, trackPerks, rankName } from '../data/perks.js';
@@ -1053,9 +1053,9 @@ export class UI {
         // A job class can only wield its own weapon type, so list just those.
         const note = document.createElement('div');
         note.className = 'modal-hint';
-        note.innerHTML = `As a <b>${myCls.name}</b> you can wield <b>${WEAPON_TYPE_NAMES[myCls.weapon]}</b>. Other weapons you find are worth selling.`;
+        note.innerHTML = `As a <b>${myCls.name}</b> you can wield <b>${WEAPON_TYPE_NAMES[myCls.weapon]}</b> and <b>${WEAPON_TYPE_NAMES[SECONDARY_WEAPON[myCls.id]]}</b>. Other weapons you find are worth selling.`;
         body.appendChild(note);
-        ids = ids.filter((id) => getItem(id).equip?.weaponType === myCls.weapon);
+        ids = ids.filter((id) => canWield(myCls.id, getItem(id).equip?.weaponType));
       } else if (slot === 'weapon') {
         // Weapons only compare fairly within a fighting style.
         const st = document.createElement('div');

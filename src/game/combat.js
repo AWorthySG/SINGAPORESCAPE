@@ -125,6 +125,14 @@ export const WEAPON_DMG_MULT = {
   dagger: 0.98, sword: 1.85, scimitar: 0.53, mace: 2.02, longsword: 1.55, battleaxe: 1.52, warhammer: 2.05,
   '2h_sword': 2.34, spear: 1.45, claws: 0.72, katana: 1.44, halberd: 2.34, cane: 1.82, shortbow: 0.81,
   longbow: 1.08, pistol: 0.57, rifle: 1.06, shuriken: 0.75, staff: 0.61, wand: 0.64, whip: 1.39,
+  // Secondary types (first estimates, pending the combat rescale): damage per beat
+  // matched to the nearest main type, 10% less for crowd hitters and 10% more
+  // for single-target ones. Parang from the sword (1.85 x 5/7, wider cleave);
+  // kerambit from the scimitar (x 6/5, less its crit); toya from the mace (x 7/6,
+  // less its Defence); crossbow about the cane's damage a beat; chakram about the
+  // shuriken's crowd total with two ricochets; orb a staff's damage over 2 beats;
+  // the quick fan about whip parity with less reach and more crit.
+  parang: 1.25, kerambit: 0.6, toya: 2.1, crossbow: 2.5, chakram: 1.15, orb: 1.3, fan: 1.2,
 };
 /** The target's number scale (see hpScaleFor in npcs.js): hits on a big monster are divided by it. */
 const numScale = (npc) => npc?.hpScale || 1;

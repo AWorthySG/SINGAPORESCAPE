@@ -2,7 +2,7 @@
 // the Combat tab: the class's signature trait, then its weapon's numbers (swing
 // speed, reach, cleave, dual wielding, crit) and its strong and weak matchups.
 // Built from the same data the combat code uses, so it stays true.
-import { CLASS_BY_ID, starterWeapon, WEAPON_TYPE_NAMES, CLEAVE_SHARE, ARMOUR_FAMILY, ARMOUR_FAMILIES } from '../data/classes.js';
+import { CLASS_BY_ID, starterWeapon, WEAPON_TYPE_NAMES, CLEAVE_SHARE, ARMOUR_FAMILY, ARMOUR_FAMILIES, SECONDARY_WEAPON } from '../data/classes.js';
 import { getItem } from '../data/items.js';
 import { WEAPON_VS_RACE, RACES, weaponTypeName } from '../data/races.js';
 import { swingBeats } from './gear.js';
@@ -61,6 +61,7 @@ export function classPerks(classId) {
       : { icon: '🌀', label: 'No cleave', text: 'quick weapons trade cleave for speed' });
   }
   if (canDualWield(w)) out.push({ icon: '⚔️', label: 'Dual wield', text: `hold a second ${weaponTypeName(type)} in the off-hand for an extra strike` });
+  const sec = SECONDARY_WEAPON[classId]; if (sec) out.push({ icon: '🔁', label: 'Second weapon', text: `can also wield ${WEAPON_TYPE_NAMES[sec]}` });
   if (eq.bonuses?.crit) out.push({ icon: '💥', label: 'Critical', text: `+${eq.bonuses.crit}% crit chance on every ${weaponTypeName(type)}` });
   const vs = WEAPON_VS_RACE[type];
   if (vs?.strong.length) out.push({ icon: '🎯', label: 'Strong against', text: raceList(vs.strong) });

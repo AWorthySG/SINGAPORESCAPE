@@ -1,5 +1,5 @@
 import { CROPS } from './trades.js';
-import { accessoriesFor } from './items.js';
+import { accessoriesFor, PRAYER_GEAR } from './items.js';
 import { BOSS_ABILITIES } from './bossAbilities.js';
 import { boneForTier, bossBoneQty } from './bones.js';
 // NPC registry. Monsters are generated from archetype "bases" × rank tiers into a
@@ -79,6 +79,10 @@ function dropsFor(level) {
   for (const id of dancerFor(level)) t.push({ id, weight: 2 });
   // Tier-appropriate gear pool — the main way to obtain combat equipment.
   for (const w of ['scimitar', 'sword', 'mace', 'longsword', 'dagger', 'spear', 'claws', 'katana']) t.push({ id: `${tier}_${w}`, weight: 4 });
+  // Secondary weapons and quivers of the area's tier (each class wields one secondary type).
+  for (const w of ['parang', 'kerambit', 'toya', 'crossbow', 'chakram', 'orb', 'fan', 'quiver']) t.push({ id: `${tier}_${w}`, weight: 1.5 });
+  // Prayer accessories of about the area's level, rarely.
+  { const pg = PRAYER_GEAR.filter(([, , , lvl]) => lvl <= level + 10 && lvl >= level - 40); for (const [id] of pg) t.push({ id, weight: 1.5 / pg.length }); }
   t.push({ id: `${tier}_dagger`, weight: 6 });       // daggers come in pairs for dual wielding: extra weight
   for (const a of ['med_helm', 'chainbody', 'platelegs', 'plateskirt', 'kiteshield', 'buckler', 'boots', 'gauntlets']) t.push({ id: `${tier}_${a}`, weight: 3 });
   if (level >= 30) t.push({ id: `${tier}_full_helm`, weight: 3 }, { id: `${tier}_platebody`, weight: 2 }, { id: `${tier}_battleaxe`, weight: 3 });
