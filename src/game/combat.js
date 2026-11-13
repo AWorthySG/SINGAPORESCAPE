@@ -126,6 +126,8 @@ export const WEAPON_DMG_MULT = {
   '2h_sword': 2.34, spear: 1.45, claws: 0.72, katana: 1.44, halberd: 2.34, cane: 1.82, shortbow: 0.81,
   longbow: 1.08, pistol: 0.57, rifle: 1.06, shuriken: 0.75, staff: 0.61, wand: 0.64, whip: 1.39,
 };
+/** The target's number scale (see hpScaleFor in npcs.js): hits on a big monster are divided by it. */
+const numScale = (npc) => npc?.hpScale || 1;
 /** The damage scale for the weapon in hand (1 when unarmed or for a test stub). */
 export const weaponDmgMult = (equip) => WEAPON_DMG_MULT[equip?.weaponType?.()] || 1;
 export const MELEE_BONUS = { dmg: 1.3 };
@@ -181,7 +183,7 @@ export function playerAttackVsNpc(skills, equip, styleId, npc) {
   // Melee is one skill now (Strength mirrors it); the extra fifth keeps damage where
   // it was for a player who had trained Attack and Strength evenly.
   const mh = Math.round(maxHit(skills.strength + Math.floor(skills.attack * ATTACK_TO_STRENGTH), style.str, bonuses.strength) * MELEE_BONUS.dmg * weaponDmgMult(equip)) + 1;
-  return { max: mh };
+  return { max: Math.max(1, Math.round(mh / numScale(npc))) };
 }
 
 export function npcAttackVsPlayer(npc, skills, equip, styleId) {
@@ -209,7 +211,7 @@ export function playerRangedVsNpc(skills, equip, styleId, npc, arrowStr) {
   // so a better bow hits harder.
   const str = arrowStr + Math.floor((b.ranged || 0) / 2);
   return {
-    max: Math.round(maxHit(skills.ranged, 0, str) * RANGED_BONUS.dmg * weaponDmgMult(equip)) + 1,
+    max: Math.max(1, Math.round((Math.round(maxHit(skills.ranged, 0, str) * RANGED_BONUS.dmg * weaponDmgMult(equip)) + 1) / numScale(npc))),
   };
 }
 
@@ -232,7 +234,7 @@ export function playerDanceVsNpc(skills, equip, styleId, npc, rhythm = 0) {
   // The whip's power comes from Agility and Ranged together (see Skills.danceLevel).
   const lvl = skills.dance ?? skills.agility;
   return {
-    max: Math.round(maxHit(lvl, st.str, b.dance) * DANCE_BONUS.dmg * weaponDmgMult(equip) * (1 + Math.min(RHYTHM_MAX, rhythm) * RHYTHM_DMG)) + 1,
+    max: Math.max(1, Math.round((Math.round(maxHit(lvl, st.str, b.dance) * DANCE_BONUS.dmg * weaponDmgMult(equip) * (1 + Math.min(RHYTHM_MAX, rhythm) * RHYTHM_DMG)) + 1) / numScale(npc))),
   };
 }
 
@@ -256,6 +258,6 @@ export function playerMagicVsNpc(skills, equip, spell, npc) {
     // level 50 mage hits ~1.6x the spell's base and a level 99 mage ~2.2x.
     // The spell's base grows with Magic too (see spellBaseHit). (A dmgMult on an element would scale it.)
     max: Math.max(1, Math.round((spellBaseHit(spell, skills.magic) + (b.magicStr || 0)) * (1 + skills.magic / MAGIC_LEVEL_DIV)
-      * (ELEMENTS[spell.element]?.dmgMult || 1) * weaponDmgMult(equip))),
+      * (ELEMENTS[spell.element]?.dmgMult || 1) * weaponDmgMult(equip) / numScale(npc))),
   };
 }
