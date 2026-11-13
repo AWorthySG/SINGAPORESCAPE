@@ -1132,20 +1132,69 @@ export function buildWorld() {
     placeObj('rod_spot', 65, 69);       // fished from the north bank
   }
 
+  // ================= Keep the Wilderness line clear =================
+  // Chinatown, Bukit Timah and Sentosa run straight into the Wilderness with no
+  // wall between, and a monster attacks anyone within its aggro range while it
+  // is up to wander + aggro range from its spawn. A level 400 crocodile camped on
+  // the Wilderness's first column could therefore reach into Chinatown and kill a
+  // new player at its bank. Anything that attacks on sight is moved east until
+  // its whole reach stays inside the Wilderness, keeping its pack's layout (each
+  // one shifts by the same margin). Bosses here don't attack on sight. No dice
+  // rolled, so nothing else moves.
+  {
+    const WZ = zones.find((z) => z.name === 'The Wilderness');
+    const npcAt = new Set(npcSpawns.map((s) => key(s.x, s.y)));
+    const open = (x, y) => x >= WZ.x0 && x <= WZ.x1 && y >= WZ.y0 && y <= WZ.y1
+      && LANDABLE.includes(get(x, y)) && isFree(x, y) && !npcAt.has(key(x, y));
+    for (const s of npcSpawns) {
+      const def = NPCS[s.npcId];
+      if (!def?.attackable || !def.aggressive || s.opts?.aggressive === false) continue;
+      if (s.x < WZ.x0 || s.x > WZ.x1 || s.y < WZ.y0 || s.y > WZ.y1) continue;
+      const margin = (s.wander || def.wander || 0) + (def.aggroRange || 4) + 1;
+      const minX = WZ.x0 + margin;
+      if (s.x >= minX) continue;
+      const tx = Math.min(WZ.x1, s.x + margin);
+      let spot = null;
+      for (let r = 0; r <= 8 && !spot; r++) {
+        for (let dy = -r; dy <= r && !spot; dy++) for (let dx = -r; dx <= r && !spot; dx++) {
+          const x = tx + dx, y = s.y + dy;
+          if (Math.max(Math.abs(dx), Math.abs(dy)) === r && x >= minX && open(x, y)) spot = [x, y];
+        }
+      }
+      // Boxed in (never seen): leave it be but stop it attacking on sight.
+      if (!spot) { s.opts = { ...(s.opts || {}), aggressive: false }; continue; }
+      npcAt.delete(key(s.x, s.y));
+      s.x = spot[0]; s.y = spot[1];
+      npcAt.add(key(s.x, s.y));
+    }
+  }
+
   // ================= Tame the starter ring =================
   // A level-1 character has 25 life, and the starter island's monsters hit far
   // harder than that. Anything that would attack on sight within 30 tiles of
-  // the respawn point (MacRitchie's lizards and dogs, Bukit Timah's bats) is
-  // made non-aggressive: it keeps its level and stats, so it is still a fair
-  // fight when you choose one, but no new player is ambushed on the way to a
-  // lesson. Weak monsters (level 20 and under) are left alone: they barely
-  // scratch, and anything under about level 9 ignores a new player anyway.
+  // the respawn point (MacRitchie's lizards, dogs and macaques, Bukit Timah's
+  // bats) or within 10 tiles of the nearest spot for each first lesson (the
+  // trees, copper and tin rocks, fishing spots) is made non-aggressive: it keeps
+  // its level and stats, so it is still a fair fight when you choose one, but no
+  // new player is ambushed on the way to a lesson. That goes for the weak ones
+  // too: a level 14 macaque that starts a fight gets its tamed level 68 packmates
+  // hit by the starter weapon's cleave, and they join in.
   {
-    const RESPAWN = { x: 58, y: 55 }, SAFE_RING = 30, SAFE_LEVEL = 20;
+    const RESPAWN = { x: 58, y: 55 }, SAFE_RING = 30, LESSON_RING = 10;
+    const safe = [{ x: RESPAWN.x, y: RESPAWN.y, r: SAFE_RING }];
+    for (const id of ['tree', 'copper_rock', 'tin_rock', 'fishing_spot', 'rod_spot']) {
+      let best = null, bd = Infinity;
+      for (const o of objects) {
+        if (o.objId !== id) continue;
+        const d = Math.max(Math.abs(o.x - RESPAWN.x), Math.abs(o.y - RESPAWN.y));
+        if (d < bd) { bd = d; best = o; }
+      }
+      if (best) safe.push({ x: best.x, y: best.y, r: LESSON_RING });
+    }
     for (const s of npcSpawns) {
       const def = NPCS[s.npcId];
-      if (!def?.attackable || !def.aggressive || s.opts?.aggressive === false || (def.level || 0) <= SAFE_LEVEL) continue;
-      if (Math.max(Math.abs(s.x - RESPAWN.x), Math.abs(s.y - RESPAWN.y)) > SAFE_RING) continue;
+      if (!def?.attackable || !def.aggressive || s.opts?.aggressive === false) continue;
+      if (!safe.some((c) => Math.max(Math.abs(s.x - c.x), Math.abs(s.y - c.y)) <= c.r)) continue;
       s.opts = { ...(s.opts || {}), aggressive: false };
     }
   }

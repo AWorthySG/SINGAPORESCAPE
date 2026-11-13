@@ -5164,9 +5164,13 @@ test('the starter ring is safe: no ambushers near spawn, no Wilderness spill-ove
   const game = new Game();
   game.start();
   const rp = game.world.respawnPoint;
-  // Nothing above level 20 attacks on sight within 30 tiles of the respawn point.
-  const ambushers = game.npcs.filter((n) => n.attackable && n.def.aggressive && (n.def.level || 0) > 20
-    && chebyshev(n.spawnX, n.spawnY, rp.x, rp.y) <= 30);
+  // Nothing attacks on sight within 30 tiles of the respawn point, nor within 10
+  // tiles of the nearest tree, copper and tin rocks and fishing spots.
+  const near = (id) => game.world.objects.filter((o) => o.objId === id)
+    .reduce((b, o) => (!b || chebyshev(o.x, o.y, rp.x, rp.y) < chebyshev(b.x, b.y, rp.x, rp.y) ? o : b), null);
+  const safe = [{ x: rp.x, y: rp.y, r: 30 }, ...['tree', 'copper_rock', 'tin_rock', 'fishing_spot', 'rod_spot'].map((id) => ({ ...near(id), r: 10 }))];
+  const ambushers = game.npcs.filter((n) => n.attackable && n.def.aggressive
+    && safe.some((c) => chebyshev(n.spawnX, n.spawnY, c.x, c.y) <= c.r));
   assert.deepEqual(ambushers.map((n) => `${n.npcId}@${n.spawnX},${n.spawnY}`), []);
   // The tamed ones keep their level: still there to fight, just not on sight.
   assert.ok(game.npcs.some((n) => n.attackable && !n.def.boss && (n.def.level || 0) > 20 && !n.def.aggressive
@@ -5180,6 +5184,36 @@ test('the starter ring is safe: no ambushers near spawn, no Wilderness spill-ove
     return z && !z.wilderness && !z.lo;
   });
   assert.deepEqual(leaks.map((n) => `${n.npcId}@${n.spawnX},${n.spawnY}`), []);
+  // ...and nothing that attacks on sight can reach over it: a monster notices you
+  // within its aggro range while up to wander + aggro range from its spawn.
+  const WZ = game.world.zones.find((z) => z.name === 'The Wilderness');
+  const reachers = game.npcs.filter((n) => n.attackable && n.def.aggressive
+    && n.spawnX >= WZ.x0 && n.spawnX <= WZ.x1 && n.spawnY >= WZ.y0 && n.spawnY <= WZ.y1
+    && n.spawnX - n.wander - (n.def.aggroRange || 4) <= WZ.x0);
+  assert.deepEqual(reachers.map((n) => `${n.npcId}@${n.spawnX},${n.spawnY}`), []);
+});
+
+test('a new player can stand at the Chinatown bank and the shops by the Wilderness', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  game.ui = new Proxy({}, { get: () => () => {} });
+  const p = game.player;
+  // The spots where Wilderness crocodiles, pythons and flying foxes used to kill
+  // a fresh character: the bank booth, beside the mage, the street by the line.
+  for (const [x, y] of [[88, 49], [89, 53], [88, 60], [91, 60], [92, 95]]) {
+    p.x = p.tx = x; p.y = p.ty = y; p.path = [];
+    p.hp = p.maxHp; p.alive = true;
+    for (const n of game.npcs) n.target = null;
+    game._aggroAttackers = 0;
+    for (let i = 0; i < 200; i++) {
+      game.update(600);
+      const wildFoe = game.npcs.find((n) => n.target === p && game.world.zoneAt(n.spawnX, n.spawnY)?.wilderness);
+      assert.equal(wildFoe, undefined, `${wildFoe?.npcId} from the Wilderness went for a new player at ${x},${y}`);
+    }
+  }
 });
 
 test("Cikgu Surya's fishing lesson points to the pond by town", async () => {
