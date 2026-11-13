@@ -84,7 +84,7 @@ export function saveGame(game) {
   }
 }
 
-/** Keep a copy of a save we could not use, in the first empty backup slot.
+/** Keep a copy of a save we could not use (or one an import is replacing), in the first empty backup slot.
  *  A copy already kept is never overwritten with yet another unusable save. */
 function backupBadSave(s, raw) {
   try {
@@ -93,6 +93,100 @@ function backupBadSave(s, raw) {
     s.setItem(key, raw);
     return true;
   } catch { return false; }
+}
+
+// ---------------- Save transfer ----------------
+// Saves live in localStorage, which belongs to one web address in one browser.
+// To move a character (to the game's new address, another browser or another
+// device) the player copies a save code out and pastes it in on the other side.
+// The code is one line: a prefix that says what it is, the save JSON as UTF-8
+// safe base64, and a checksum so a code cut short or edited while pasting is
+// caught before it replaces anything.
+const CODE_PREFIX = 'AWA1:';
+
+/** FNV-1a: a tiny 32-bit hash, plenty to catch a truncated or mistyped paste. */
+function checksum(text) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return (h >>> 0).toString(16).padStart(8, '0');
+}
+
+// btoa/atob only take Latin-1, and a player's name can hold any character,
+// so the JSON goes through UTF-8 bytes first.
+function toBase64(text) {
+  const bytes = new TextEncoder().encode(text);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+function fromBase64(b64) {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+}
+
+/** The current game as a save code, or null if there is nothing to export yet
+ *  (a brand-new player who has not picked a class). Saves first, so the code
+ *  matches where the player is standing now. */
+export function exportSaveCode(game) {
+  // Before a class is picked nothing is saved (see the autosave in game.js).
+  if (game.pendingStyleChoice) return null;
+  const s = storage();
+  let raw = null;
+  if (saveGame(game)) raw = s.getItem(SAVE_KEY);
+  // Storage full or blocked: the game in memory can still be carried out.
+  else if (!savesSuppressed) raw = JSON.stringify(snapshot(game));
+  if (!raw) return null;
+  const b64 = toBase64(raw);
+  return CODE_PREFIX + b64 + ':' + checksum(b64);
+}
+
+/** Replace the stored save with the one in a save code. Returns { ok, error }
+ *  and never throws: a bad code leaves the stored save exactly as it was.
+ *  The current save is kept in a backup slot first, and on success further
+ *  saves are stopped so the old game can't write itself back before the page
+ *  reloads into the imported one. */
+export function importSaveCode(code) {
+  try {
+    // Pasting can wrap a long line or add spaces: none belong in a code.
+    const text = String(code ?? '').replace(/\s+/g, '');
+    if (!text) return { ok: false, error: 'Paste a save code first.' };
+    if (!text.startsWith(CODE_PREFIX)) return { ok: false, error: `That is not an A-Worthy Adventure save code. A save code starts with ${CODE_PREFIX}` };
+    const body = text.slice(CODE_PREFIX.length);
+    const cut = body.lastIndexOf(':');
+    const b64 = cut > 0 ? body.slice(0, cut) : '';
+    if (!b64 || checksum(b64) !== body.slice(cut + 1).toLowerCase()) {
+      return { ok: false, error: 'This save code is incomplete or has been changed. Copy the whole code again and paste all of it.' };
+    }
+    let data;
+    try { data = JSON.parse(fromBase64(b64)); } catch { data = null; }
+    if (!data || typeof data !== 'object') return { ok: false, error: 'This save code could not be read.' };
+    // Same rule as loadGame: a save from another version would be thrown away on load.
+    if (data.version !== VERSION) return { ok: false, error: 'This save is from a different version of the game and cannot be loaded here.' };
+    const p = data.player;
+    if (!p || typeof p !== 'object' || typeof p.x !== 'number' || typeof p.y !== 'number' ||
+        !data.skills || typeof data.skills !== 'object' || !data.inventory || typeof data.inventory !== 'object') {
+      return { ok: false, error: 'This save code does not hold a complete save.' };
+    }
+    const s = storage();
+    if (!s) return { ok: false, error: 'This browser is not letting the game store anything, so the save cannot be imported.' };
+    const raw = JSON.stringify(data);
+    const current = s.getItem(SAVE_KEY);
+    if (current && current !== raw && !backupBadSave(s, current)) {
+      // Both slots taken: replace the newer one, so the oldest kept save (often
+      // an unreadable one waiting to be rescued) survives.
+      try { s.setItem(BACKUP_KEYS[BACKUP_KEYS.length - 1], current); } catch {
+        return { ok: false, error: 'Could not keep a backup of your current save, so nothing was changed.' };
+      }
+    }
+    s.setItem(SAVE_KEY, raw);
+    suppressSaves();
+    return { ok: true };
+  } catch (err) {
+    console.warn('Import failed:', err);
+    return { ok: false, error: 'Could not import: this browser\'s storage is full or blocked.' };
+  }
 }
 
 export function loadGame(game) {

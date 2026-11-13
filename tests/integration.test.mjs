@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { Game } from '../src/game/game.js';
-import { saveGame, loadGame, clearSave, suppressSaves, BACKUP_KEY } from '../src/game/save.js';
+import { saveGame, loadGame, clearSave, suppressSaves, BACKUP_KEY, snapshot, exportSaveCode, importSaveCode } from '../src/game/save.js';
 import { SAVE_KEY } from '../src/config.js';
 import { ITEMS } from '../src/data/items.js';
 import { getNpc, ALL_BOSS_IDS } from '../src/data/npcs.js';
@@ -5361,4 +5361,118 @@ test("Cikgu Surya's fishing lesson points to the pond by town", async () => {
   assert.ok(game.world.objects.some((o) => o.objId === 'rod_spot' && chebyshev(o.x, o.y, rp.x, rp.y) <= 25), 'a rod spot by town too');
   // Go walks there from the respawn point.
   assert.ok(game.questTravel('life_skills'), 'Go finds the way to the pond');
+});
+
+// ---------------- Save transfer (export / import a save code) ----------------
+// Everything a save holds, minus the moment it was written.
+const saveState = (g) => { const s = snapshot(g); delete s.savedAt; return s; };
+
+function playedGame() {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const g = new Game();
+  g.start();
+  g.chooseClass('rogue');
+  g.player.name = 'Ah Bèng 阿明';   // not Latin-1: the code must be UTF-8 safe
+  g.skills.addXp('woodcutting', 5000);
+  g.skills.addXp('mining', 12000);
+  g.inventory.add('coal', 7);
+  g.bank.deposit('coal', 3);
+  const qid = Object.keys(g.quests)[0];
+  g.quests[qid] = { ...g.quests[qid], state: 'active' };
+  // Stand somewhere other than the spawn, on a tile a save can load onto.
+  const { x, y } = g.player;
+  for (let d = 3; d < 20; d++) {
+    if (g.world.inBounds(x + d, y) && !g.world.isBlocked(x + d, y)) { g.player.x = g.player.tx = x + d; break; }
+  }
+  return g;
+}
+
+test('a save code round trip restores the same game in a fresh browser', () => {
+  const g1 = playedGame();
+  const code = exportSaveCode(g1);
+  assert.match(code, /^AWA1:[A-Za-z0-9+/=]+:[0-9a-f]{8}$/, 'one line, recognisable prefix, checksum');
+  const before = saveState(g1);
+
+  globalThis.localStorage = fakeStorage();   // the new web address starts empty
+  try {
+    // A paste that picked up line breaks and spaces still works.
+    const res = importSaveCode(' ' + code.slice(0, 40) + '\n' + code.slice(40) + ' \n');
+    assert.deepEqual(res, { ok: true });
+    const g2 = new Game();
+    assert.ok(loadGame(g2));
+    assert.deepEqual(saveState(g2), before, 'skills, inventory, bank, quests and position all match');
+    assert.equal(g2.player.name, 'Ah Bèng 阿明');
+    assert.equal(g2.bank.count('coal'), 3);
+  } finally { suppressSaves(false); }
+});
+
+test('a truncated or edited save code is rejected and leaves the stored save alone', () => {
+  const g = playedGame();
+  const code = exportSaveCode(g);
+  const stored = localStorage.getItem(SAVE_KEY);
+  const mid = code.length >> 1;
+  const edited = code.slice(0, mid) + (code[mid] === 'A' ? 'B' : 'A') + code.slice(mid + 1);
+  for (const bad of [code.slice(0, -20), code.slice(0, 30), edited, '', 'hello', 'AWA1:', 'AWA1:abc']) {
+    const res = importSaveCode(bad);
+    assert.equal(res.ok, false, `rejects ${JSON.stringify(bad.slice(0, 12))}`);
+    assert.ok(typeof res.error === 'string' && res.error.length > 10, 'with a readable reason');
+  }
+  assert.match(importSaveCode(code.slice(0, -20)).error, /incomplete or has been changed/);
+  assert.match(importSaveCode('{"version":1}').error, /not an A-Worthy Adventure save code/);
+  assert.equal(localStorage.getItem(SAVE_KEY), stored, 'the stored save is untouched');
+  assert.equal(localStorage.getItem(BACKUP_KEY), null, 'and nothing was backed up');
+  assert.ok(saveGame(g), 'saving still works after a failed import');
+});
+
+test('importing keeps the current save as a backup', () => {
+  const g = playedGame();
+  const code = exportSaveCode(g);
+  // A different character is saved here now.
+  const other = new Game();
+  other.start();
+  other.chooseClass('rogue');
+  other.player.name = 'Other';
+  assert.ok(saveGame(other));
+  const current = localStorage.getItem(SAVE_KEY);
+  try {
+    assert.ok(importSaveCode(code).ok);
+    assert.equal(localStorage.getItem(BACKUP_KEY), current, 'the replaced save is kept');
+    assert.equal(JSON.parse(localStorage.getItem(SAVE_KEY)).player.name, 'Ah Bèng 阿明');
+    assert.equal(saveGame(other), false, 'the old game cannot write itself back before the reload');
+  } finally { suppressSaves(false); }
+
+  // Both backup slots already full: the oldest is kept, the newer one replaced.
+  localStorage.setItem(BACKUP_KEY, 'oldest');
+  localStorage.setItem(BACKUP_KEY + '-2', 'newer');
+  const before = localStorage.getItem(SAVE_KEY);
+  localStorage.setItem(SAVE_KEY, current);
+  try {
+    assert.ok(importSaveCode(code).ok);
+    assert.equal(localStorage.getItem(BACKUP_KEY), 'oldest');
+    assert.equal(localStorage.getItem(BACKUP_KEY + '-2'), current);
+    assert.equal(localStorage.getItem(SAVE_KEY), before);
+  } finally { suppressSaves(false); }
+});
+
+test('a save code from another version is rejected', () => {
+  const g = playedGame();
+  assert.ok(exportSaveCode(g));   // saves, so there is a current save to protect
+  const stored = localStorage.getItem(SAVE_KEY);
+  const json = JSON.stringify({ ...JSON.parse(stored), version: 999 });
+  const b64 = Buffer.from(json, 'utf8').toString('base64');
+  // Re-sign it the way the game does, so only the version is wrong.
+  const fnv = (t) => { let h = 0x811c9dc5; for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193); } return (h >>> 0).toString(16).padStart(8, '0'); };
+  const res = importSaveCode(`AWA1:${b64}:${fnv(b64)}`);
+  assert.equal(res.ok, false);
+  assert.match(res.error, /different version/);
+  assert.equal(localStorage.getItem(SAVE_KEY), stored);
+});
+
+test('there is no save code before a class is picked', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const g = new Game();
+  g.start();
+  assert.equal(exportSaveCode(g), null);
 });

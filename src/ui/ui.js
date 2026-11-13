@@ -38,7 +38,7 @@ import { ATTRS, ATTR_NAMES, attrSummary, attrForMode, MAX_STAT_POINTS, RESET_COS
 import { STAT_LABELS, STAT_HELP, compareGear, deltaText, gearBySlot, gearRating, meetsReq, swingBeats, tierOf, weaponStyle } from '../game/gear.js';
 import { TILE, LEARNING_ENABLED } from '../config.js';
 import { TERRAIN, zoneLevel } from '../data/world.js';
-import { clearSave, suppressSaves } from '../game/save.js';
+import { clearSave, suppressSaves, exportSaveCode, importSaveCode } from '../game/save.js';
 import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG, abilityIconHTML, prayerIconHTML, spellIconHTML } from '../render/icons.js';
 import { weaknessOf } from '../game/combat.js';
 import { isBone } from '../data/bones.js';
@@ -1863,6 +1863,10 @@ export class UI {
       this._tipsSeen = new Set();
       this.game.msg('Tips will show again as you play.', 'system');
     });
+    // Carry a character to another browser, device or web address (saves live
+    // in one site's storage, so they don't follow the player on their own).
+    mk('Export save', () => this.openExportSave());
+    mk('Import save', () => this.openImportSave());
     mk('Delete save & restart', () => {
       if (confirm('Delete your saved character and start over?')) { suppressSaves(); clearSave(); location.reload(); }
     }, true);
@@ -1875,6 +1879,64 @@ export class UI {
       '(melee/ranged/magic) and <b>Brace</b> when a monster winds up a heavy blow (!).<br>' +
       'Eat food to heal. Bank your loot. Your progress auto-saves.';
     p.appendChild(hint);
+  }
+
+  /** The save as a code to copy out. Buttons and a plain textarea, so it works
+   *  the same with a mouse or a finger. */
+  openExportSave() {
+    const code = exportSaveCode(this.game);
+    this.openModal('Export save', (body) => {
+      if (!code) {
+        body.innerHTML = '<div class="modal-hint">There is nothing to export yet: pick a class first.</div>';
+        return;
+      }
+      body.innerHTML = '<p class="save-xfer-note">Copy this code and keep it somewhere safe. To carry on elsewhere, open the game there and paste it into <b>Settings → Import save</b>.</p>' +
+        '<textarea class="save-code" readonly rows="6" spellcheck="false"></textarea><div class="study-row save-xfer-actions"></div>';
+      const ta = body.querySelector('textarea');
+      ta.value = code;
+      // One tap selects the whole code, ready for the system Copy menu.
+      const selectAll = () => { ta.focus(); ta.setSelectionRange(0, ta.value.length); };
+      ta.addEventListener('focus', selectAll);
+      const copy = document.createElement('button');
+      copy.className = 'wm-go';
+      copy.textContent = 'Copy';
+      copy.addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(code); copy.textContent = 'Copied!'; return; } catch { /* fall back below */ }
+        // No clipboard access (older browsers, insecure pages): select it instead.
+        selectAll();
+        let ok = false;
+        try { ok = document.execCommand('copy'); } catch { /* ignore */ }
+        copy.textContent = ok ? 'Copied!' : 'Selected: copy it now';
+      });
+      body.querySelector('.save-xfer-actions').appendChild(copy);
+    });
+    this.modal.kind = 'saveExport';
+  }
+
+  /** Paste a save code to replace this browser's save. The current save is kept
+   *  as a backup, and the page reloads so the imported game starts cleanly. */
+  openImportSave() {
+    this.openModal('Import save', (body) => {
+      body.innerHTML = '<p class="save-xfer-note">Paste a save code from <b>Export save</b>. It replaces the character saved here; your current save is kept as a backup.</p>' +
+        '<textarea class="save-code" rows="6" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="AWA1:…"></textarea>' +
+        '<div class="save-xfer-msg" role="status"></div><div class="study-row save-xfer-actions"></div>';
+      const ta = body.querySelector('textarea'), msg = body.querySelector('.save-xfer-msg');
+      const go = document.createElement('button');
+      go.className = 'wm-go';
+      go.textContent = 'Import';
+      go.addEventListener('click', () => {
+        const res = importSaveCode(ta.value);
+        msg.textContent = res.ok ? 'Save imported! Loading your character…' : res.error;
+        msg.className = 'save-xfer-msg ' + (res.ok ? 'ok' : 'no');
+        if (!res.ok) return;
+        go.disabled = ta.disabled = true;
+        if (this.modal) this.modal.locked = true;   // nothing else to do now but reload
+        setTimeout(() => location.reload(), 900);
+      });
+      ta.addEventListener('input', () => { msg.textContent = ''; msg.className = 'save-xfer-msg'; });
+      body.querySelector('.save-xfer-actions').appendChild(go);
+    });
+    this.modal.kind = 'saveImport';
   }
 
   // ---------------- Boss battle bar ----------------
