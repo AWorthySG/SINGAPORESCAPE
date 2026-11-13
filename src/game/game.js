@@ -106,6 +106,11 @@ const WORLD_BOSS_EVERY = 200;      // ticks (0.6s each): 2 minutes
 const WORLD_BOSS_STAY = 500;       // ticks it lingers without a fight: 5 minutes
 const WORLD_BOSS_MULT = { hp: 5, hit: 2, stats: 1.5 };
 const WORLD_BOSS_LOOT_ROLLS = 3;   // its loot, three times over
+// New players are left alone: none rise until you've finished a couple of
+// quests and reached this fight level, never in the first island's towns, and
+// never within this many tiles of a bank (every town has one).
+const WORLD_BOSS_MIN_QUESTS = 2, WORLD_BOSS_MIN_LEVEL = 40, WORLD_BOSS_TOWN_GAP = 20;
+const WORLD_BOSS_SAFE_ZONES = ['Kampong Glam', 'Chinatown'];
 // Agility: every 10 levels give +1% movement speed, for every class, with no cap.
 // Its bonus to attack and casting speed starts at the same pace but tapers off
 // towards AGILITY_ATK_MAX (half of it at AGILITY_ATK_HALF levels): uncapped, it
@@ -2961,7 +2966,7 @@ export class Game {
   }
 
   /** World boss: every WORLD_BOSS_EVERY ticks, if none is about, a random boss
-   *  (one at or above your combat level where possible) rises 8-14 tiles away:
+   *  (one of the few nearest your fight level) rises 8-14 tiles away:
    *  5x its life, 2x its hits, 1.5x attack and defence, aggressive from far off
    *  at any level. It never respawns, and leaves after WORLD_BOSS_STAY ticks
    *  unless you're fighting it. */
@@ -2975,7 +2980,20 @@ export class Game {
     // Not for players who couldn't beat even an ordinary boss yet: it would only
     // hunt them down again and again (the same check auto battle uses).
     if (!this._worldBossFair()) return;
+    // Nor for new players (a couple of quests and some levels first), nor in town.
+    const done = QUESTS.filter((def) => this.quests[def.id]?.state === 'done').length;
+    if (done < WORLD_BOSS_MIN_QUESTS || this.fightLevel() < WORLD_BOSS_MIN_LEVEL) return;
+    if (this._worldBossTooNearTown(this.player.x, this.player.y)) return;
     return this.spawnWorldBoss();
+  }
+
+  /** True for tiles in the starting towns or within WORLD_BOSS_TOWN_GAP of a
+   *  bank: a World Boss never rises there (or near you while you stand there). */
+  _worldBossTooNearTown(x, y) {
+    if (WORLD_BOSS_SAFE_ZONES.includes(this.world.zoneAt(x, y)?.name)) return true;
+    this._bankSpots ??= this.world.objects.filter((o) => o.objId === 'bank_booth');
+    const g = WORLD_BOSS_TOWN_GAP;
+    return this._bankSpots.some((b) => Math.abs(b.x - x) <= g && Math.abs(b.y - y) <= g && Math.hypot(b.x - x, b.y - y) <= g);
   }
 
   /** True when you could beat at least one ordinary (non-story) boss. */
@@ -3008,16 +3026,17 @@ export class Game {
     const p = this.player, cl = this.fightLevel();
     const ids = ALL_BOSS_IDS.filter((id) => { try { const d = getNpc(id); return d.boss && !d.fixed && d.attackable; } catch { return false; } });
     if (!ids.length) return null;
+    // One of the three bosses nearest your level: picking from everything at or
+    // above it sent bosses thousands of levels too strong.
     const lvl = (id) => getNpc(id).level || 1;
-    const fit = ids.filter((id) => lvl(id) >= cl);
-    const pool = fit.length ? fit : [ids.reduce((a, b) => (lvl(b) > lvl(a) ? b : a))];
+    const pool = ids.slice().sort((a, b) => Math.abs(lvl(a) - cl) - Math.abs(lvl(b) - cl)).slice(0, 3);
     const id = pool[Math.floor(Math.random() * pool.length)];
-    // A walkable tile 8-14 tiles from you.
+    // A walkable tile 8-14 tiles from you, and not in or near a town.
     let spot = null;
     for (let tries = 0; tries < 60 && !spot; tries++) {
       const ang = Math.random() * Math.PI * 2, r = 8 + Math.random() * 6;
       const x = Math.round(p.x + Math.cos(ang) * r), y = Math.round(p.y + Math.sin(ang) * r);
-      if (this.world.inBounds(x, y) && !this.world.isBlocked(x, y)) spot = { x, y };
+      if (this.world.inBounds(x, y) && !this.world.isBlocked(x, y) && !this._worldBossTooNearTown(x, y)) spot = { x, y };
     }
     if (!spot) return null;
     const n = this.spawnNpc(id, spot.x, spot.y, { wander: 6 });

@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { Game } from '../src/game/game.js';
 import { saveGame, loadGame, clearSave } from '../src/game/save.js';
 import { ITEMS } from '../src/data/items.js';
-import { getNpc } from '../src/data/npcs.js';
+import { getNpc, ALL_BOSS_IDS } from '../src/data/npcs.js';
 import { chebyshev } from '../src/core/utils.js';
 import { CROP_BY_SEED, cropFor } from '../src/data/trades.js';
 import { playerAttackVsNpc } from '../src/game/combat.js';
@@ -4196,6 +4196,54 @@ test('no cap on hits per second: huge attack speed keeps adding damage (volleys)
   assert.ok(b.ms < 2000, 'and the game stays responsive');
 });
 
+// A walkable tile in Jurong Forest, well away from every town and bank.
+function wildSpot(g) {
+  for (let y = 150; y < 199; y++) for (let x = 90; x < 150; x++) {
+    if (g.world.isBlocked(x, y) || g._worldBossTooNearTown(x, y)) continue;
+    let open = 0;
+    for (let dy = -14; dy <= 14; dy++) for (let dx = -14; dx <= 14; dx++) if (g.world.inBounds(x + dx, y + dy) && !g.world.isBlocked(x + dx, y + dy)) open++;
+    if (open > 500) return { x, y };
+  }
+  throw new Error('no open wild spot');
+}
+
+test('world bosses leave new players alone: quests and level first, never in or near town, near your level', () => {
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseStartingStyle('melee');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g._worldBossFair = () => true;   // rule out the can-beat-a-boss check: this is about the new gates
+  // A fresh character idling at the respawn point for 20 minutes meets none.
+  step(g, 2000);
+  assert.ok(!g._worldBoss && !g.npcs.some((n) => n.worldBoss), 'no World Boss for a fresh character');
+  assert.ok(g.player.alive, 'and the new player is still alive');
+  const tryAt = (x, y) => { g._worldBoss = null; g.npcs = g.npcs.filter((n) => !n.worldBoss); g.player.x = g.player.tx = x; g.player.y = g.player.ty = y; g.tickCount = 2200; return g._tickWorldBoss(); };
+  const wild = wildSpot(g);
+  // Level alone is not enough: two quests are needed too, and the other way round.
+  g.fightLevel = () => 120;
+  assert.equal(tryAt(wild.x, wild.y), undefined, 'none before two quests are done');
+  const ids = Object.keys(g.quests).slice(0, 2);
+  for (const id of ids) g.quests[id].state = 'done';
+  g.fightLevel = () => 39;
+  assert.equal(tryAt(wild.x, wild.y), undefined, 'none below fight level 40');
+  g.fightLevel = () => 120;
+  // Never in Kampong Glam or Chinatown, nor beside an outer town's bank.
+  assert.equal(tryAt(58, 55), undefined, 'none in Kampong Glam');
+  assert.equal(tryAt(85, 60), undefined, 'none in Chinatown');
+  assert.equal(tryAt(183, 140), undefined, 'none beside the Marina Bay bank');
+  // Out in the wilds it rises, away from any town, and close to your level.
+  const wb = tryAt(wild.x, wild.y);
+  assert.ok(wb && wb.worldBoss, 'an established player in the wilds meets one');
+  assert.ok(!g._worldBossTooNearTown(wb.x, wb.y), 'it rose away from every town');
+  // One of the three World Boss candidates nearest fight level 120.
+  const gaps = ALL_BOSS_IDS.map((id) => getNpc(id)).filter((d) => d.boss && !d.fixed && d.attackable)
+    .map((d) => Math.abs((d.level || 1) - 120)).sort((a, b) => a - b);
+  const base = getNpc(wb.npcId).level;
+  assert.ok(Math.abs(base - 120) <= gaps[2], `a boss near your level (level ${base} for fight level 120)`);
+  // It leaves when it kills you.
+  g.playerDeath();
+  assert.ok(!g._worldBoss && !g.npcs.includes(wb), 'gone once the player dies');
+});
+
 test('a world boss rises every 2 minutes: much tougher, aggressive, triple loot, gone once slain', () => {
   globalThis.localStorage = fakeStorage(); clearSave();
   const g = new Game(); g.start(); g.chooseStartingStyle('melee');
@@ -4203,6 +4251,10 @@ test('a world boss rises every 2 minutes: much tougher, aggressive, triple loot,
   g.tickCount = 200;
   assert.equal(g._tickWorldBoss(), undefined, 'none for a fresh character who could beat no boss');
   g._worldBossFair = () => true;   // from here on, a character strong enough to face bosses
+  // ...and an established one (two quests done, fight level 120), out in the wilds.
+  g.fightLevel = () => 120;
+  for (const id of Object.keys(g.quests).slice(0, 2)) g.quests[id].state = 'done';
+  g.player.x = g.player.tx = wildSpot(g).x; g.player.y = g.player.ty = wildSpot(g).y;
   g.tickCount = 199;
   g._tickWorldBoss(); assert.equal(g._worldBoss, undefined, 'not before 2 minutes');
   g.tickCount = 200;
