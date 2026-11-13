@@ -125,11 +125,12 @@ const SPECIES_ART = new Set([
   'kancil', 'mangrove_terrapin', 'kunang_kunang',   // the first house-style creatures (sheet B1 of the art brief)
   'javan_myna', 'lumpur_slime', 'moon_jellyfish', 'colugo', 'slow_loris', 'shore_pit_viper',   // sheets B2 and B3
   'forest_scorpion', 'coconut_crab', 'estuarine_stingray',   // sheet B4
+  'pitcher_plant', 'polong', 'mambang_kuning', 'rift_wyvern',   // sheets B5 and B6
   'langsuir', 'black_panther', 'oarfish', 'jenglot',
 ]);
 // Newer species without painted art yet borrow a close relative's art until
 // theirs arrives (remove the line when the file is added).
-const SPECIES_ALIAS = { pitcher_plant: 'carnivorous_plant', polong: 'toyol', mambang_kuning: 'jinn', rift_wyvern: 'storm_drake' };
+const SPECIES_ALIAS = {};
 const speciesFile = (family) => (SPECIES_ART.has(family) ? family : SPECIES_ALIAS[family] || null);
 const _speciesImg = {};
 function speciesImage(family) {
@@ -156,9 +157,10 @@ const BOSS_ART = new Set([
   'celestial_garuda', 'jade_dragon',
   'nian_beast', 'kelong_king_crab', 'langsuir_matriarch', 'shadow_panther', 'abyssal_oarfish', 'jenglot_sovereign',
   'ubin_stone_frog',   // the first house-style boss (sheet B1 of the art brief)
+  'buaya_putih', 'hantu_tinggi',   // sheet B7
 ]);
 // Newer bosses borrow another boss's art until its own art arrives (remove the line when the file is added).
-const BOSS_ALIAS = { buaya_putih: 'mangrove_hydra', hantu_tinggi: 'changi_phantom' };
+const BOSS_ALIAS = {};
 const bossFile = (id) => (BOSS_ART.has(id) ? id : BOSS_ALIAS[id] || null);
 const _bossImg = {};
 function bossImage(id) {
