@@ -37,7 +37,7 @@ import { MAX_REFINE, refineCost, refineOdds, refineTag } from '../game/refine.js
 import { ATTRS, ATTR_NAMES, attrSummary, attrForMode, MAX_STAT_POINTS, RESET_COST_PER_POINT } from '../game/attributes.js';
 import { STAT_LABELS, STAT_HELP, compareGear, deltaText, gearBySlot, gearRating, meetsReq, swingBeats, tierOf, weaponStyle } from '../game/gear.js';
 import { TILE, LEARNING_ENABLED } from '../config.js';
-import { TERRAIN } from '../data/world.js';
+import { TERRAIN, zoneLevel } from '../data/world.js';
 import { clearSave, suppressSaves } from '../game/save.js';
 import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG, abilityIconHTML, prayerIconHTML, spellIconHTML } from '../render/icons.js';
 import { weaknessOf } from '../game/combat.js';
@@ -53,6 +53,9 @@ const EQUIP_LAYOUT = [
 ];
 
 // World map marker filters: id, chip label, marker colour.
+// A region recommends a level "well above" yours once it's past a quarter more
+// (plus a little, so the low levels aren't all flagged). Warns only; never blocks.
+const tooHigh = (rec, you) => rec > 0 && rec > you * 1.25 + 5;
 const MAP_FILTERS = [
   { id: 'mrt', name: 'MRT', col: '#ffffff' },
   { id: 'boss', name: 'Bosses', col: '#ff4a5a' },
@@ -2897,14 +2900,19 @@ export class UI {
       c.textAlign = 'center'; c.textBaseline = 'middle';
       // Nudge labels apart where neighbouring regions' names would overlap.
       const placed = [];
+      // Regions with a level band carry it, on the scale monsters show, and turn
+      // amber where it's well above you.
+      const you = game.fightLevel();
       for (const z of game.world.zones) {
+        const rec = zoneLevel(z);
+        const label = rec ? `${z.name} ${rec}+` : z.name;
         const cx = ((z.x0 + z.x1) / 2) * scale;
         let cy = ((z.y0 + z.y1) / 2) * scale;
-        const w2 = c.measureText(z.name).width / 2 + 3, h = Math.max(9, scale * 3) + 2;
+        const w2 = c.measureText(label).width / 2 + 3, h = Math.max(9, scale * 3) + 2;
         while (placed.some((b) => Math.abs(b.cx - cx) < b.w2 + w2 && Math.abs(b.cy - cy) < h)) cy += h;
         placed.push({ cx, cy, w2 });
-        c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillText(z.name, cx + 1, cy + 1);
-        c.fillStyle = z.wilderness ? '#ff8a7a' : '#fff3c8'; c.fillText(z.name, cx, cy);
+        c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillText(label, cx + 1, cy + 1);
+        c.fillStyle = z.wilderness ? '#ff8a7a' : tooHigh(rec, you) ? '#ffb347' : '#fff3c8'; c.fillText(label, cx, cy);
       }
       c.textAlign = 'start'; c.textBaseline = 'alphabetic';
       // The picked spot gets a gold ring.
@@ -2945,7 +2953,14 @@ export class UI {
           const b = document.createElement('button'); b.className = 'wm-go ' + cls; b.textContent = text;
           b.addEventListener('click', fn); info.appendChild(b);
         };
-        if (sel.station) btn(`Ride MRT (${MRT_FARE} coins)`, () => game.mrtFromMap(sel.station.id), 'ride');
+        if (sel.station) {
+          // Still rideable, but warn when the station's region is well above you.
+          const rec = zoneLevel(game.world.zoneAt(sel.station.x, sel.station.y)), you = game.fightLevel();
+          if (tooHigh(rec, you)) {
+            info.insertAdjacentHTML('beforeend', `<span class="wm-warn">Recommended level ${rec}+, you are ${you}</span>`);
+            btn(`Ride MRT anyway (${MRT_FARE} coins)`, () => game.mrtFromMap(sel.station.id), 'ride danger');
+          } else btn(`Ride MRT (${MRT_FARE} coins)`, () => game.mrtFromMap(sel.station.id), 'ride');
+        }
         if (sel.obj) btn('Go', () => game.goToObject(sel.obj));
         else btn('Travel here', () => { game.travelToTile({ x: sel.x, y: sel.y }); this.closeModal(); });
       }

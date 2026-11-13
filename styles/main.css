@@ -1943,6 +1943,8 @@ body.boss-on #tip-toast { top: 132px; }
   color: #fff; font: inherit; font-weight: 900; font-size: 12.5px; cursor: pointer; box-shadow: var(--shadow-sticker);
 }
 .wm-go.ride { background: #3a8fd8; }
+.wm-go.ride.danger { background: #e8902a; }
+.wm-warn { flex-basis: 100%; color: #b4570b; font-weight: 800; }
 .wm-go:active { transform: translateY(2px); box-shadow: none; }
 .skill-cell.has-guide { cursor: pointer; }
 .skill-cell.has-guide::after { content: '›'; font-weight: 900; font-size: 18px; color: var(--aw-text-sec); margin-left: 4px; }

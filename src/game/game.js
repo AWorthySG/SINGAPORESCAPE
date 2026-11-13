@@ -1,5 +1,5 @@
 import { EventBus } from '../core/events.js';
-import { buildWorld, TERRAIN } from '../data/world.js';
+import { buildWorld, TERRAIN, zoneLevel } from '../data/world.js';
 import { compareGear, deltaText, gearRating, effectiveRating, weaponStyle } from './gear.js';
 import { RARITY, dropRarity, lootDelay, rollUpgrade, qualityFor, NORMAL_GEAR_SKIP } from './loot.js';
 import { dayKey, prevDayKey, makeBounties, streakMult } from './bounty.js';
@@ -1201,9 +1201,12 @@ export class Game {
     return ok;
   }
 
-  /** World map: ride the MRT to any station (every station is open from the start). */
+  /** World map: ride the MRT to any station (every station is open from the start).
+   *  Not mid-fight: the map is no escape hatch. A station's own gates (openTransport,
+   *  then travelTo) still let you ride out while something attacks you, so arriving
+   *  somewhere too dangerous is never a trap. */
   mrtFromMap(stationId) {
-    if (this.npcs.some((n) => n.alive && n.target === this.player)) { this.msg("You can't take the MRT while something is attacking you.", 'system'); return false; }
+    if (this.npcs.some((n) => n.alive && n.target === this.player)) { this.msg("You can't ride from the map while something is attacking you: tap in at a station's gates instead.", 'system'); return false; }
     return this.travelTo(stationId);
   }
 
@@ -2580,7 +2583,9 @@ export class Game {
         this.banner('<span class="big">&#9888; The Wilderness</span>Lawless and deadly &mdash; no safe healing. Beware bosses!');
         this.msg('You enter the Wilderness: combat XP rises the deeper you go (up to x6), but fight or flee!', 'combat');
       } else {
-        this.msg(`You enter ${name}.`, 'system');
+        // Regions with a level band say so, on the scale their monsters show.
+        const rec = zoneLevel(z);
+        this.msg(rec ? `You enter ${name} (monsters level ${rec}+).` : `You enter ${name}.`, 'system');
       }
     }
     if (lvl !== this.wildLevel) this.bus.emit('xpbonus');
