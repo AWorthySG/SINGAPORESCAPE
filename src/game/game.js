@@ -414,7 +414,7 @@ export class Game {
       }
       const starter = starterWeapon(classId);
       if (!this.equipment.get('weapon')) this.equipment.set('weapon', starter); else this.inventory.add(starter, 1);
-      this.msg(`You are now a ${cls.name}. Only ${WEAPON_TYPE_NAMES[cls.weapon]} can be wielded, and the choice is permanent.`, 'level');
+      this.msg(`You are now a ${cls.name}. Only ${WEAPON_TYPE_NAMES[cls.weapon]} and ${WEAPON_TYPE_NAMES[SECONDARY_WEAPON[classId]]} can be wielded, and the choice is permanent.`, 'level');
       this.msg(`${cls.name} perk: ${classPerks(classId)[0].text} (see Class perks in the Combat tab)`, 'system');
       this.bus.emit('inventory'); this.bus.emit('equipment');
       return;
@@ -460,7 +460,7 @@ export class Game {
       this.equipment.set('body', ARMOUR_FAMILY[classId] === 'plate' ? 'bronze_chainbody' : 'leather_body');
     }
     this.player.hp = this.maxHp();
-    this.msg(`You are a ${cls.name}: you fight with ${WEAPON_TYPE_NAMES[cls.weapon]}. Talk to the Kampong Guide for tips.`, 'system');
+    this.msg(`You are a ${cls.name}: you fight with ${WEAPON_TYPE_NAMES[cls.weapon]} (or ${WEAPON_TYPE_NAMES[SECONDARY_WEAPON[classId]]}). Talk to the Kampong Guide for tips.`, 'system');
     this.msg(`${cls.name} perk: ${classPerks(classId)[0].text} (see Class perks in the Combat tab)`, 'system');
     this.bus.emit('inventory'); this.bus.emit('equipment'); this.bus.emit('hp');
   }
@@ -3956,7 +3956,9 @@ export class Game {
         // Keep to the weapon style you fight with (a staff won't replace a sword).
         if (eq.slot === 'weapon' && worn && weaponStyle(s.id) !== weaponStyle(worn)) return;
         // Keep to the weapon type in hand: ratings can't compare a main and a secondary type fairly.
-        if (eq.slot === 'weapon' && worn && this.jobClass && getItem(s.id).equip.weaponType !== getItem(worn).equip.weaponType) return;
+        // (A tool in hand, such as an axe, has no type and is always swapped for a weapon.)
+        const wornType = worn && getItem(worn).equip.weaponType;
+        if (eq.slot === 'weapon' && wornType && this.jobClass && getItem(s.id).equip.weaponType !== wornType) return;
         const gain = score(s.id) - (worn ? score(worn) : 0);
         if (gain > 0 && (!best || gain > best.gain)) best = { i, gain };
       });
@@ -4033,7 +4035,7 @@ export class Game {
     const main = this.equipment.get('weapon');
     const offhand = canDualPair(s.id, main)
       && (opts.offhand ?? !canDualPair(main, this.equipment.get('shield')));
-    if (opts.offhand && !offhand) { this.msg('Only a dagger or scimitar can go in your off-hand, alongside another of the same kind.'); return; }
+    if (opts.offhand && !offhand) { this.msg('Only a second weapon of the same dual-wield kind (daggers, scimitars, kerambits or pistols) can go in your off-hand.'); return; }
     const slot = offhand ? 'shield' : eq.slot;
     const cmp = offhand ? null : compareGear(s.id, this.equipment);
     this.inventory.removeAt(index, 1);

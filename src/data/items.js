@@ -788,8 +788,10 @@ for (const M of _METALS) {
     equip: { slot: 'weapon', combatType: 'ranged', noAmmo: true, req: { ranged: r }, bonuses: { ranged: R(11 * m), speed: 5 }, range: 10 } });
   add(`${k}_chakram`, { name: `${n} chakram`, icon: '⭕', value: R(32 * v), examine: `A ${tag} throwing ring that bounces between foes. No ammo needed.`,
     equip: { slot: 'weapon', combatType: 'ranged', noAmmo: true, req: { ranged: r }, bonuses: { ranged: R(9 * m), speed: 4 }, range: 7 } });
-  add(`${k}_orb`, { name: `${n} orb`, icon: '🔮', value: R(36 * v), examine: `A crystal orb in a ${tag} cage. Slow, focused spells that hurt big foes.`,
-    equip: { slot: 'weapon', combatType: 'magic', req: { magic: r }, bonuses: { magic: R(4 * m + 2), ...(r >= 15 ? { magicStr: R(r / 15) } : {}), speed: 5 } } });
+  add(`${k}_orb`, { name: `${n} orb`, icon: '🔮', value: R(36 * v), examine: `A crystal orb in a ${tag} cage. Focused spells that hurt big foes.`,
+    // Orbs cast at a staff's pace: slow below the dragon tier, quicker from it (as staves turn
+    // quicker from about level 50-65), so their damage scale can sit just under a staff's.
+    equip: { slot: 'weapon', combatType: 'magic', req: { magic: r }, bonuses: { magic: R(4 * m + 2), ...(r >= 15 ? { magicStr: R(r / 15) } : {}), speed: r >= 60 ? 4 : 5 } } });
   add(`${k}_fan`, { name: `${n} war fan`, icon: '🪭', value: R(30 * v), examine: `A dancer's kipas with ${tag} ribs: quick flicks up close.`,
     equip: { slot: 'weapon', combatType: 'dance', req: { agility: r }, bonuses: { dance: R(5 * m + 1), crit: 2 + Math.floor(r / 60), speed: 4 }, range: 2 } });
   add(`${k}_quiver`, { name: `${n}-studded quiver`, icon: '🎒', value: R(24 * v), examine: `A quiver with ${tag} studs: steadier, quicker shots.`,

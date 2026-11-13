@@ -4722,6 +4722,53 @@ test('secondary weapon types: a chakram bounces into two more foes', async () =>
   assert.deepEqual([...kinds], ['shuriken'], 'a chakram flies like a thrown star');
 });
 
+test('secondary weapon types sit a little under each class\'s main type', async () => {
+  // Measured, not derived: a maxed fighter hits a huge dummy for 100 ticks with each
+  // weapon (race matchups switched off), and the secondary must not beat the main
+  // type by much, nor be a dead pick. Orbs once did twice an early staff's damage.
+  const { NPC } = await import('../src/game/npc.js');
+  const { SPELLS } = await import('../src/data/magic.js');
+  const dmg = (cls, w, dual) => {
+    globalThis.localStorage = fakeStorage();
+    clearSave();
+    const g = new Game(); g.start(); g.chooseClass(cls);
+    g.ui = new Proxy({}, { get: () => () => {} });
+    g.raceMatchup = () => null;
+    for (const s of ['attack', 'strength', 'defence', 'ranged', 'magic', 'agility', 'hitpoints']) g.skills.addXp(s, 13034431);
+    // Plenty of runes: a caster that runs dry part way through would skew the measure.
+    for (const sp of SPELLS) for (const r of Object.keys(sp.runes)) g.inventory.add(r, 1e6);
+    g.equipment.set('weapon', w); g.equipment.set('shield', dual ? w : null);
+    const t = new NPC('goblin', g.player.x + 2, g.player.y, 0, {});
+    t.hp = t.maxHp = 1e9; t.def = { ...t.def, aggressive: false, maxHit: 0 };
+    g.npcs = [t]; g.attackNpc(t);
+    step(g, 100);
+    return t.maxHp - t.hp;
+  };
+  const pairs = [
+    ['wizard', 'mystic_staff', 'rune_orb'], ['wizard', 'jade_staff', 'orichalcum_orb'], ['sorcerer', 'orichalcum_wand', 'orichalcum_orb'],
+    ['lancer', 'rune_spear', 'rune_toya'], ['knight', 'rune_longsword', 'rune_toya'],
+    ['samurai', 'rune_katana', 'rune_parang'], ['dancer', 'serpent_whip', 'rune_fan'],
+    ['brawler', 'rune_claws', 'rune_kerambit', true],
+  ];
+  for (const [cls, main, sec, dual] of pairs) {
+    const a = dmg(cls, main, false), b = dmg(cls, sec, dual);
+    assert.ok(a > 0 && b > 0, `${cls} hits with both`);
+    assert.ok(b / a <= 1.2 && b / a >= 0.6, `${cls}: ${sec} vs ${main} = ${(b / a).toFixed(2)}`);
+  }
+});
+
+test('best in slot swaps a wielded tool for a weapon', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const g = new Game(); g.start(); g.chooseClass('rogue');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.inventory.slots.fill(null);
+  g.equipment.set('weapon', 'bronze_axe'); g.equipment.set('shield', null);
+  g.inventory.add('iron_dagger', 2);
+  g.equipBest();
+  assert.equal(g.equipment.get('weapon'), 'iron_dagger', 'the axe makes way for a dagger');
+});
+
 test('prayer accessories slow the prayer drain', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();

@@ -55,8 +55,10 @@ export function canWear(classId, id) {
 // Each class also wields one secondary weapon type of its own fighting style
 // (its main type stays its identity: starter weapon, perks, abilities).
 export const SECONDARY_WEAPON = {
-  swordsman: 'parang', corsair: 'parang', berserker: 'parang', gladiator: 'parang',
-  rogue: 'kerambit', brawler: 'kerambit', samurai: 'kerambit',
+  // The Samurai takes the parang, a short chopping blade like a wakizashi: two dual-wielded
+  // kerambits out-damaged a lone katana by half again.
+  swordsman: 'parang', corsair: 'parang', berserker: 'parang', gladiator: 'parang', samurai: 'parang',
+  rogue: 'kerambit', brawler: 'kerambit',
   paladin: 'toya', knight: 'toya', juggernaut: 'toya', lancer: 'toya', halberdier: 'toya',
   archer: 'crossbow', ranger: 'crossbow', sniper: 'crossbow',
   pistoler: 'chakram', ninja: 'chakram', merchant: 'chakram',

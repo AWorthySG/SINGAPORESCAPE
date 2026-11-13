@@ -1055,7 +1055,7 @@ export class UI {
         note.className = 'modal-hint';
         note.innerHTML = `As a <b>${myCls.name}</b> you can wield <b>${WEAPON_TYPE_NAMES[myCls.weapon]}</b> and <b>${WEAPON_TYPE_NAMES[SECONDARY_WEAPON[myCls.id]]}</b>. Other weapons you find are worth selling.`;
         body.appendChild(note);
-        ids = ids.filter((id) => canWield(myCls.id, getItem(id).equip?.weaponType));
+        ids = ids.filter((id) => { const t = getItem(id).equip?.weaponType; return t && canWield(myCls.id, t); });
       } else if (slot === 'weapon') {
         // Weapons only compare fairly within a fighting style.
         const st = document.createElement('div');

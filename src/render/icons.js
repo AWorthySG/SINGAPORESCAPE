@@ -848,14 +848,20 @@ import { ABILITY_BY_ID } from '../data/abilities.js';
     const h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
     return { h: (h * 60 + 360) % 360, s: d / (1 - Math.abs(mx + mn - 1) || 1) };
   }
+  // Sepia starts near 38 degrees; rotate it to the metal's hue, greys stay grey.
+  function metalTint(metal) {
+    const { h, s } = hueOf(METAL_PAL[metal][0]);
+    return s < 0.15 ? 'grayscale(.7) brightness(1.05)' : `sepia(.75) hue-rotate(${Math.round(h - 38)}deg) saturate(${(1 + s).toFixed(2)})`;
+  }
   function borrowedArt(id) {
-    if (BORROW_ID[id]) return { file: BORROW_ID[id], tint: BORROW_TINT[id] || 'sepia(.4) saturate(1.3)' };
+    if (BORROW_ID[id]) {
+      // Orbs and war fans borrow one sticker for many tiers, so tint it to the metal.
+      const mt = /^([a-z]+)_(orb|fan)$/.exec(id);
+      return { file: BORROW_ID[id], tint: BORROW_TINT[id] || (mt && METAL_PAL[mt[1]] ? metalTint(mt[1]) : 'sepia(.4) saturate(1.3)') };
+    }
     const m = /^([a-z]+)_(scout_[a-z]+)$/.exec(id);
     if (!m || !BORROW[m[2]] || !METAL_PAL[m[1]]) return null;
-    const { h, s } = hueOf(METAL_PAL[m[1]][0]);
-    // Sepia starts near 38 degrees; rotate it to the metal's hue, greys stay grey.
-    const tint = s < 0.15 ? 'grayscale(.7) brightness(1.05)' : `sepia(.75) hue-rotate(${Math.round(h - 38)}deg) saturate(${(1 + s).toFixed(2)})`;
-    return { file: BORROW[m[2]], tint };
+    return { file: BORROW[m[2]], tint: metalTint(m[1]) };
   }
   const SKILL_ART = new Set(['attack', 'strength', 'defence', 'hitpoints', 'ranged', 'magic', 'prayer', 'slayer',
     'woodcutting', 'mining', 'fishing', 'firemaking', 'cooking', 'smithing', 'crafting', 'thieving', 'agility',
