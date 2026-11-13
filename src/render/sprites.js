@@ -124,11 +124,12 @@ const SPECIES_ART = new Set([
   'malayan_tapir', 'wild_hornet', 'kelong_crab', 'dugong', 'merlion_whelp', 'weaver_ant', 'tiger_cub', 'orchid_mantis',
   'kancil', 'mangrove_terrapin', 'kunang_kunang',   // the first house-style creatures (sheet B1 of the art brief)
   'javan_myna', 'lumpur_slime', 'moon_jellyfish', 'colugo', 'slow_loris', 'shore_pit_viper',   // sheets B2 and B3
+  'forest_scorpion', 'coconut_crab', 'estuarine_stingray',   // sheet B4
   'langsuir', 'black_panther', 'oarfish', 'jenglot',
 ]);
 // Newer species without painted art yet borrow a close relative's art until
 // theirs arrives (remove the line when the file is added).
-const SPECIES_ALIAS = { forest_scorpion: 'sand_scorpion', estuarine_stingray: 'reef_shark', pitcher_plant: 'carnivorous_plant', polong: 'toyol', mambang_kuning: 'jinn', coconut_crab: 'kelong_crab', rift_wyvern: 'storm_drake' };
+const SPECIES_ALIAS = { pitcher_plant: 'carnivorous_plant', polong: 'toyol', mambang_kuning: 'jinn', rift_wyvern: 'storm_drake' };
 const speciesFile = (family) => (SPECIES_ART.has(family) ? family : SPECIES_ALIAS[family] || null);
 const _speciesImg = {};
 function speciesImage(family) {
