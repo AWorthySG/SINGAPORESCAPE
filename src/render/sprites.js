@@ -122,11 +122,12 @@ const SPECIES_ART = new Set([
   'house_crow', 'field_rat', 'banded_leaf_monkey', 'sun_bear', 'clouded_leopard', 'bunian', 'dock_rat', 'rust_golem',
   'smuggler', 'drowned_sailor', 'temasek_guardian', 'ancient_naga', 'ruin_wraith', 'celestial_qilin', 'jinn', 'garuda_fledgling',
   'malayan_tapir', 'wild_hornet', 'kelong_crab', 'dugong', 'merlion_whelp', 'weaver_ant', 'tiger_cub', 'orchid_mantis',
+  'kancil', 'mangrove_terrapin',   // the first house-style creatures (sheet B1 of the art brief)
   'langsuir', 'black_panther', 'oarfish', 'jenglot',
 ]);
 // Newer species without painted art yet borrow a close relative's art until
 // theirs arrives (remove the line when the file is added).
-const SPECIES_ALIAS = { kancil: 'sambar_deer', kunang_kunang: 'will_o_wisp', shore_pit_viper: 'king_cobra', mangrove_terrapin: 'sea_turtle', lumpur_slime: 'swamp_slime', colugo: 'flying_fox', forest_scorpion: 'sand_scorpion', estuarine_stingray: 'reef_shark', moon_jellyfish: 'box_jellyfish', javan_myna: 'house_crow', pitcher_plant: 'carnivorous_plant', slow_loris: 'banded_leaf_monkey', polong: 'toyol', mambang_kuning: 'jinn', coconut_crab: 'kelong_crab', rift_wyvern: 'storm_drake' };
+const SPECIES_ALIAS = { kunang_kunang: 'will_o_wisp', shore_pit_viper: 'king_cobra', lumpur_slime: 'swamp_slime', colugo: 'flying_fox', forest_scorpion: 'sand_scorpion', estuarine_stingray: 'reef_shark', moon_jellyfish: 'box_jellyfish', javan_myna: 'house_crow', pitcher_plant: 'carnivorous_plant', slow_loris: 'banded_leaf_monkey', polong: 'toyol', mambang_kuning: 'jinn', coconut_crab: 'kelong_crab', rift_wyvern: 'storm_drake' };
 const speciesFile = (family) => (SPECIES_ART.has(family) ? family : SPECIES_ALIAS[family] || null);
 const _speciesImg = {};
 function speciesImage(family) {
@@ -152,9 +153,10 @@ const BOSS_ART = new Set([
   'bandit_kingpin', 'coral_leviathan', 'rune_golem', 'sentosa_megalodon', 'bukit_brown_revenant', 'dragon_kiln_wyrm',
   'celestial_garuda', 'jade_dragon',
   'nian_beast', 'kelong_king_crab', 'langsuir_matriarch', 'shadow_panther', 'abyssal_oarfish', 'jenglot_sovereign',
+  'ubin_stone_frog',   // the first house-style boss (sheet B1 of the art brief)
 ]);
 // Newer bosses borrow another boss's art until its own art arrives (remove the line when the file is added).
-const BOSS_ALIAS = { ubin_stone_frog: 'kusu_tortoise', buaya_putih: 'mangrove_hydra', hantu_tinggi: 'changi_phantom' };
+const BOSS_ALIAS = { buaya_putih: 'mangrove_hydra', hantu_tinggi: 'changi_phantom' };
 const bossFile = (id) => (BOSS_ART.has(id) ? id : BOSS_ALIAS[id] || null);
 const _bossImg = {};
 function bossImage(id) {
