@@ -25,7 +25,7 @@ import { findPath } from '../engine/pathfinding.js';
 import {
   playerAttackVsNpc, npcAttackVsPlayer, rollAttack, rollGuaranteed, rollHit, combatXp, magicXp, killXp, DAMAGE_XP_SHARE, KILL_XP_SHARE,
   playerRangedVsNpc, combatXpRanged, playerMagicVsNpc, RANGED_STYLES,
-  weaknessOf, WEAKNESS_BONUS, critChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE,
+  weaknessOf, WEAKNESS_BONUS, critChance, hitChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE,
   playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX,
 } from './combat.js';
 import { ABILITY_BY_ID, abilitiesFor, ADREN_PER_HIT, ADREN_PER_HURT, CLASS_ADRENALINE, EXECUTE_BELOW } from '../data/abilities.js';
@@ -227,7 +227,9 @@ export class Game {
     this._lastKillTick = -1e9;
     // Auto battle settings: eat below this fraction of life (0 = never),
     // fight only one monster type (null = anything), use attack skills.
-    this.autoCfg = { eatAt: 0.4, target: null, abilities: true, bosses: true, champions: true, priority: true };
+    // Bosses start off for new games (auto battle used to walk new players into
+    // bosses far above them); saves keep whatever the player chose.
+    this.autoCfg = { eatAt: 0.4, target: null, abilities: true, bosses: false, champions: true, priority: true };
     this.particles = [];
     // Screen-shake state (big hits, boss slams). Decays over shakeDur ms.
     this.shakeT = 0;
@@ -302,6 +304,7 @@ export class Game {
     this.autoQuest = false;       // auto quest: work through quests by yourself (see _autoQuestTick)
     this.autoQuestId = null;      // the quest auto quest is on (the one you last pressed Go on)
     this._autoSkip = new Map();   // npc entityId -> tick until which it is skipped (unreachable)
+    this._autoSkipSaid = new Set();   // bosses auto battle has said it is skipping as too strong
     this._autoLast = null;
     this.abilityCd = {};          // ability id -> ticks until usable again
     this.braceTicks = 0;          // ticks of halved incoming damage left
@@ -3569,6 +3572,50 @@ export class Game {
     return (n.def.level || 1) < this._autoBandLo(inWild);
   }
 
+  /** Could you beat this boss, so auto battle (or a quest's boss step) may pick
+   *  the fight? First the quick check: no more than about a quarter above your
+   *  fight level. Then a rough time-to-kill from both sides: your average hits
+   *  must empty its life within about 15 minutes (boss fights are long), and its
+   *  average hits must take at least 20 seconds to empty yours, which healing,
+   *  lifesteal and food then hold off. Both sides are rough (specials and heals
+   *  are left out) and lean towards leaving a boss alone. */
+  _autoCanBeat(n) {
+    const cl = this.fightLevel(), def = n.def;
+    if ((def.level || 1) > Math.max(cl + 5, Math.round(cl * 1.25))) return false;
+    const mode = this.combatMode(), pm = this.prayerMult();
+    let max;
+    if (mode === 'magic') {
+      const chosen = getSpell(this.player.spell);
+      const sp = this.skills.magic >= chosen.level && this._hasRunes(chosen) ? chosen : this.bestSpell();
+      if (!sp) return false;
+      max = playerMagicVsNpc(this.skills, this.equipment, sp, def).max * pm.magic;
+    } else if (mode === 'ranged') {
+      const wpn = getItem(this.equipment.get('weapon'))?.equip || {};
+      const idx = wpn.noAmmo ? -1 : this._bestAmmoIdx();
+      const arrowStr = wpn.noAmmo ? Math.floor((wpn.bonuses?.ranged || 0) / 3) : idx === -1 ? 0 : getItem(this.inventory.slotAt(idx).id).arrowStr || 0;
+      max = playerRangedVsNpc(this.skills, this.equipment, this.player.rangedStyle, def, arrowStr).max * pm.ranged;
+    } else if (mode === 'dance') {
+      max = playerDanceVsNpc(this.skills, this.equipment, this.player.danceStyle, def, 0).max * pm.str;
+    } else max = playerAttackVsNpc(this.skills, this.equipment, this.player.style, def).max * pm.str;
+    // Your blows always land, for a quarter to all of the max hit (5/8 on average);
+    // crits, abilities and perks roughly treble that in a real fight.
+    // Your attack interval is in 0.3s beats; its attack speed is in 0.6s ticks.
+    const myDps = 3 * max * 0.625 / (Math.max(0.1, this.attackInterval()) * COMBAT_BEAT_MS / 1000);
+    const { atkRoll, defRoll, max: theirMax } = npcAttackVsPlayer(def, this.skills, this.equipment, this.player.style);
+    const theirDps = hitChance(atkRoll, defRoll * pm.def) * theirMax * 0.625 * (1 - this.protectFactor())
+      / (Math.max(2, (def.attackSpeed || 4) - 2) * TICK_MS / 1000);
+    const myTime = (n.hp || n.maxHp || 1) / Math.max(0.01, myDps);
+    const theirTime = this.maxHp() / Math.max(0.01, theirDps);
+    return myTime <= 900 && theirTime >= 20;
+  }
+
+  /** Auto battle says once per boss when it walks past one it can't beat. */
+  _autoSaySkip(n) {
+    if (this._autoSkipSaid.has(n.entityId)) return;
+    this._autoSkipSaid.add(n.entityId);
+    this.msg(`Skipping ${n.name}: too strong for now.`, 'system');
+  }
+
   /** Walk towards the nearest monster in your level band (up to 20 levels
    *  above you), outside the Wilderness unless you are in it. True if a route
    *  was found and the walk has started. */
@@ -3716,8 +3763,9 @@ export class Game {
     // Only monsters near you matter here, and pack counts only look at those (see nearbyNpcs).
     const near = this.nearbyNpcs();
     let packAt = null;
-    // Bosses and champions are fair game at any level now (they used to be
-    // skipped when well above you, which made auto battle look like it ignored them).
+    // Champions are fair game at any level now (they used to be skipped when
+    // well above you, which made auto battle look like it ignored them).
+    // Bosses must pass _autoCanBeat.
     const canTake = () => true;
     for (const n of near) {
       if (!n.alive || !n.attackable) continue;
@@ -3736,12 +3784,13 @@ export class Game {
       if ((this._autoSkip.get(n.entityId) || 0) > this.tickCount) continue;
       if (this.autoCfg.target && n.npcId !== this.autoCfg.target) continue;   // only the chosen monster type
       if (this._questTarget && n.npcId !== this._questTarget) continue;       // a quest hunt (e.g. rats for Pest Control)
-      // Bosses within reach are taken on whatever their level, ahead of everything else.
-      // Story bosses (fixed spawns like the Lion of Light) and bosses far beyond
-      // your level are left for you to take on yourself.
+      // Bosses within reach that you could beat are taken on ahead of everything else.
+      // Story bosses (fixed spawns like the Lion of Light) and bosses too strong
+      // for you are left for you to take on yourself.
       if (n.def.boss) {
-        if (n.def.fixed || !canTake(n.def.level || 1)) continue;   // story bosses are yours to start; only bosses you can realistically beat
+        if (n.def.fixed) continue;   // story bosses are yours to start
         if (!inWild && wildZone(n.x, n.y)) continue;
+        if (!this._autoCanBeat(n)) { this._autoSaySkip(n); continue; }
         // "Bosses & champions first": a boss outranks everything, even monsters already in reach.
         { const tier = this.autoCfg.priority !== false ? -3000 : -300 - (shootable(n, d) ? 1000 : 0); cands.push({ n, score: d + tier, tier }); }
         continue;
@@ -4629,7 +4678,7 @@ export class Game {
     if (!p.alive || g.kind === 'none') { if (g.text && g.text !== 'Complete') this.msg(g.text + '.', 'system'); return false; }
     this._questTarget = null;
     this._pathBudget = 150000;       // quest trips can cross the whole map
-    let ok = false;
+    let ok = false, tooStrong = false;
     try {
       if (g.kind === 'npc') {
         const n = nearest(this.npcs.filter((x) => x.npcId === g.npcId));
@@ -4643,7 +4692,7 @@ export class Game {
       } else if (g.kind === 'hunt' || g.kind === 'boss') {
         const cl = this.fightLevel();
         const fits = g.kind === 'boss'
-          ? (n) => n.def.boss && !n.def.fixed && (n.def.level || 1) <= Math.max(cl + 15, Math.round(cl * 1.2))
+          ? (n) => n.def.boss && !n.def.fixed && this._autoCanBeat(n)   // the same can-beat check as auto battle
           : g.target ? (n) => n.npcId === g.target : (n) => !n.def.boss && (n.def.level || 1) <= cl + 5;
         const mob = nearest(this.npcs.filter((n) => n.alive && n.attackable && !n.temporary && fits(n)
           && (!this.world.zoneAt(n.x, n.y)?.wilderness || this.world.zoneAt(here.x, here.y)?.wilderness)));
@@ -4655,10 +4704,11 @@ export class Game {
           else this.attackNpc(mob);
           if (!this.autoBattle) this.toggleAutoBattle(true);
           ok = true;
-        }
+        } else if (g.kind === 'boss') tooStrong = true;
       }
     } finally { this._pathBudget = 0; }
-    this.msg(ok ? `Quest: ${g.text}.` : `Quest: ${g.text}, but I can't find the way there.`, 'system');
+    this.msg(ok ? `Quest: ${g.text}.` : tooStrong ? `Quest: ${g.text}, but every boss is too strong for you for now. Train up first.`
+      : `Quest: ${g.text}, but I can't find the way there.`, 'system');
     if (ok && AUTO_QUEST_ACTIONS[id]) this.autoQuestId = id;   // auto quest works on the quest you last chose
     return ok;
   }

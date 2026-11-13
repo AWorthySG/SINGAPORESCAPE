@@ -26,6 +26,14 @@ function step(game, ticks) {
   for (let i = 0; i < ticks; i++) game.update(600);
 }
 
+// Make a boss one a fresh character can beat (auto battle only takes on bosses
+// that pass its can-beat check): the given level, a feeble hit and little life.
+function beatableBoss(boss, level) {
+  boss.def = { ...boss.def, level, maxHit: 1 };
+  boss.hp = boss.maxHp = 30;
+  return boss;
+}
+
 test('game boots with a populated world', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
@@ -1987,7 +1995,7 @@ test('magic: casters start at Magic 15 with plenty of runes, damage scales with 
   assert.ok(game.player.attackCooldown > 0);
 });
 
-test('auto battle takes on a nearby boss first (bosses on by default)', async () => {
+test('auto battle takes on a nearby boss it can beat first (bosses off by default)', async () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
   const { NPC } = await import('../src/game/npc.js');
@@ -1995,18 +2003,17 @@ test('auto battle takes on a nearby boss first (bosses on by default)', async ()
   game.start();
   game.chooseStartingStyle('melee');
   const p = game.player;
-  assert.equal(game.autoCfg.bosses, true);
+  assert.equal(game.autoCfg.bosses, false, 'new games start with bosses off');
+  game.autoCfg.bosses = true;
   const mob = new NPC('goblin', p.x + 2, p.y, 0, {});
-  // A boss near your level is chosen first; one far above it is left alone.
+  // A boss you can beat is chosen first; one far above you is left alone.
   const cl = game.skills.combatLevel();
-  const boss = game.npcs.find((n) => n.def.boss && !n.def.fixed && n.def.level <= cl + 10)
-    || Object.assign(game.npcs.find((n) => n.def.boss && !n.def.fixed), {});
-  boss.def = { ...boss.def, level: Math.min(boss.def.level, cl + 5) };
+  const boss = beatableBoss(game.npcs.find((n) => n.def.boss && !n.def.fixed), cl + 5);
   boss.x = boss.tx = boss.spawnX = p.x + 6; boss.y = boss.ty = boss.spawnY = p.y;
   game.npcs = [mob, boss];
   assert.equal(game._autoPickTarget(), boss, 'the boss is chosen ahead of a closer goblin');
-  boss.def = { ...boss.def, level: cl + 40 };
-  assert.equal(game._autoPickTarget(), boss, 'a boss far above your level is still taken on');
+  boss.def = { ...boss.def, level: cl * 2 + 40 };
+  assert.equal(game._autoPickTarget(), mob, 'a boss far above your level is skipped');
   game.autoCfg.bosses = false;
   assert.equal(game._autoPickTarget(), mob, 'with bosses switched off, it fights the goblin');
   game.autoCfg.bosses = true;
@@ -2460,10 +2467,10 @@ test('auto battle priority: bosses, then champions (mini-bosses), then ordinary 
   const cl = game.skills.combatLevel();
   const mob = new NPC('goblin', p.x + 1, p.y, 0, {});
   const champ = new NPC('goblin', p.x + 5, p.y, 0, {}); champ.makeChampion();
-  const boss = game.npcs.find((n) => n.def.boss && !n.def.fixed);
-  boss.def = { ...boss.def, level: Math.min(boss.def.level, cl + 5) };
+  const boss = beatableBoss(game.npcs.find((n) => n.def.boss && !n.def.fixed), cl + 5);
   boss.x = boss.tx = boss.spawnX = p.x + 9; boss.y = boss.ty = boss.spawnY = p.y;
   game.npcs = [mob, champ, boss];
+  game.autoCfg.bosses = true;
   assert.equal(game._autoPickTarget(), boss, 'boss first');
   game.npcs = [mob, champ];
   assert.equal(game._autoPickTarget(), champ, 'then the champion, over a closer ordinary goblin');
@@ -2523,10 +2530,10 @@ test('ranged auto battle clears everything in reach before moving; bows drop oft
   const p = game.player;
   const inReach = new NPC('goblin', p.x + 10, p.y, 0, {});
   const closerButOut = new NPC('goblin', p.x, p.y - 14, 0, {});
-  const boss = game.npcs.find((n) => n.def.boss && !n.def.fixed);
-  boss.def = { ...boss.def, level: game.skills.combatLevel() };
+  const boss = beatableBoss(game.npcs.find((n) => n.def.boss && !n.def.fixed), game.skills.combatLevel());
   boss.x = boss.tx = boss.spawnX = p.x - 13; boss.y = boss.ty = boss.spawnY = p.y;
   game.npcs = [inReach, closerButOut, boss];
+  game.autoCfg.bosses = true;
   game.autoCfg.priority = false;
   assert.equal(game._autoPickTarget(), inReach, '"Nearest first": a monster in reach beats even a boss out of reach');
   game.autoCfg.priority = true;
@@ -3017,7 +3024,7 @@ test('every open-world and far region is well stocked and refills quickly', asyn
   }
 });
 
-test('auto battle answers anything fighting you, takes on bosses a little above your level, and never gives up a long walk', () => {
+test('auto battle answers anything fighting you, takes on beatable bosses a little above your level, and never gives up a long walk', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
   const game = new Game();
@@ -3035,11 +3042,11 @@ test('auto battle answers anything fighting you, takes on bosses a little above 
   add.target = p;
   assert.equal(game._autoPickTarget(), add, 'summoned adds on you are fought');
   add.alive = false;
-  // A boss somewhat above your level, 20 tiles off, is sought out.
+  // A beatable boss a quarter above your level, 20 tiles off, is sought out.
+  game.autoCfg.bosses = true;
   const t = game._nearestFree(p.x + 20, p.y) || game._nearestFree(p.x, p.y + 20);
-  const boss = game.spawnNpc('goblin_warchief', t.x, t.y, { wander: 0 });
-  boss.def = { ...boss.def, level: cl + 12 };
-  assert.equal(game._autoPickTarget(), boss, 'a boss 12 levels up and 20 tiles away is fair game');
+  const boss = beatableBoss(game.spawnNpc('goblin_warchief', t.x, t.y, { wander: 0 }), Math.round(cl * 1.25));
+  assert.equal(game._autoPickTarget(), boss, 'a beatable boss a quarter above you and 20 tiles away is fair game');
   // Walking without run energy toward it, the chase is not abandoned while closing in.
   game.runEnergy = 0; game.running = false;
   game.toggleAutoBattle(true);
@@ -4859,4 +4866,41 @@ test('new gear enters the game: the Fletcher sells quivers, and every drop is a 
   for (const [nid, def] of Object.entries(NPCS)) {
     for (const d of def.dropTable || []) if (!d.nothing) assert.ok(ITEMS[d.id], `${nid} drops a real item (${d.id})`);
   }
+});
+
+test('a fresh character on auto battle never picks a fight with a boss too strong for it', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  const p = game.player;
+  const chat = [];
+  game.bus.on('chat', (c) => chat.push(c.text));
+  // Clear the area, then put the Reservoir Serpent a few tiles away. It is made
+  // peaceful so only auto battle's own choice can start the fight.
+  game.npcs = game.npcs.filter((n) => Math.max(Math.abs(n.x - p.x), Math.abs(n.y - p.y)) > 40);
+  const t = game._nearestFree(p.x + 5, p.y) || game._nearestFree(p.x, p.y + 5);
+  const boss = game.spawnNpc('reservoir_serpent', t.x, t.y, { wander: 0 });
+  boss.def = { ...boss.def, aggressive: false };
+  assert.equal(game.autoCfg.bosses, false, 'bosses are off for a new game');
+  assert.equal(game._autoCanBeat(boss), false, 'the can-beat check says no');
+  // Even with "take on bosses you can beat" switched on, it is left alone.
+  game.autoCfg.bosses = true;
+  game.toggleAutoBattle(true);
+  for (let i = 0; i < 60; i++) {
+    game.update(600);
+    assert.notEqual(p.action?.npc, boss, 'never heads for the boss');
+  }
+  assert.equal(boss.hp, boss.maxHp, 'the boss was never hit');
+  assert.ok(p.alive);
+  const said = chat.filter((m) => m === 'Skipping Reservoir Serpent: too strong for now.');
+  assert.equal(said.length, 1, 'says once that it is skipping the boss');
+  // A quest's boss step respects the same check: no beatable boss, no fight.
+  game.toggleAutoBattle(false);
+  game.npcs = [boss];
+  game.quests.island_defender.state = 'active';
+  assert.equal(game.questTravel('island_defender'), false);
+  assert.notEqual(p.action?.npc, boss);
+  assert.ok(chat.some((m) => /too strong for you for now/.test(m)), 'explains why');
 });
