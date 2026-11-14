@@ -12,7 +12,7 @@ const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g
 // base formulas, through extra health and a sturdier defence (fewer of your
 // hits land). Champions, ranks and special spawns all scale from these.
 export const MONSTER_TOUGHNESS = { hp: 22.4, defence: 1.25 };  // hp raised 1.5x twice (was 2.5, then 3.75, then 5.6), then 4x (owner's call)
-export const BOSS_TOUGHNESS = { hp: 3600, defence: 1.2 };       // hp 100x the old 9, then 4x again (owner's call): bosses are huge sieges, best fought with help
+export const BOSS_TOUGHNESS = { hp: 5400, defence: 1.2 };       // hp 100x the old 9, then 4x again, then 1.5x again (owner's call, with signature weapons to win): bosses are huge sieges, best fought with help
 // The first town monsters (level 5 and under: chickens, rats, goblins) stay
 // quick to beat so new players can find their feet; toughness then ramps in to
 // its full amount by level 15.
@@ -659,7 +659,7 @@ export const BOSS_TOP_LEVEL = 9999;
 // against a boss, so every boss hits BOSS_DAMAGE_MULT times harder to keep
 // boss fights as tense as they were. Signature moves follow (they're worked
 // out from the boss's max hit) but still never take more than 40% of your life.
-export const BOSS_DAMAGE_MULT = 1.3;
+export const BOSS_DAMAGE_MULT = 1.8;   // was 1.3: the owner wanted bosses to hit harder still
 for (const d of Object.values(NPCS)) {
   if (!d.boss || !d.attackable || !d.maxHit || d.bossDamageScaled) continue;
   d.bossDamageScaled = true;
