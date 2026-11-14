@@ -546,6 +546,7 @@ export class UI {
     const views = document.querySelectorAll('#panel-body .panel-view');
     tabs.forEach((btn) => {
       btn.addEventListener('click', () => {
+        this._dropTips();   // switching tabs never leaves an item's description behind
         // A folded panel opens on the tab you tap; tapping the open tab again folds it.
         const panel = document.getElementById('sidepanel');
         const folded = panel?.classList.contains('collapsed');
@@ -2369,6 +2370,7 @@ export class UI {
 
   // ---------------- Context menu ----------------
   showContextMenu(x, y, options) {
+    this._dropTips();   // the item's description never stays up beside its menu
     const menu = this.el.contextMenu;
     menu.innerHTML = '<div class="ctx-title">Choose Option</div>';
     for (const o of options) {
@@ -2387,11 +2389,29 @@ export class UI {
   hideContextMenu() { this.el.contextMenu.classList.add('hidden'); }
 
   // ---------------- Tooltip ----------------
-  showTooltip(e, html) {
+  showTooltip(e, html, owner = null) {
     const t = this.el.tooltip;
     t.innerHTML = html;
     t.classList.remove('hidden');
+    this._tipOwner = owner;
     this.moveTooltip(e);
+    if (!this._tipGuard) {
+      // A hover tip can outlive its item: the bag and equipment panels redraw
+      // as you fight, and a removed item never sends "mouse left". So any
+      // pointer movement away from the item (or onto a redrawn copy), a click,
+      // a scroll, a key press or the window losing focus closes the tip.
+      this._tipGuard = (ev) => {
+        const o = this._tipOwner;
+        if (this._cardOpen || t.classList.contains('hidden')) return;
+        if (ev.type !== 'mousemove' || !o || !o.isConnected || !o.contains(ev.target)) this.hideTooltip();
+      };
+      document.addEventListener('mousemove', this._tipGuard, { passive: true });
+      document.addEventListener('mousedown', this._tipGuard, { capture: true });
+      document.addEventListener('wheel', this._tipGuard, { passive: true });
+      document.addEventListener('keydown', this._tipGuard);
+      window.addEventListener('blur', this._tipGuard);
+      window.addEventListener('scroll', this._tipGuard, { passive: true, capture: true });
+    }
   }
 
   moveTooltip(e) {
@@ -2400,8 +2420,16 @@ export class UI {
     t.style.top = Math.min(e.clientY + 14, window.innerHeight - t.offsetHeight - 8) + 'px';
   }
 
+  /** Close every item pop-up: the hover tip and a held-open touch card. */
+  _dropTips() {
+    if (this._cardOpen) this.closeTouchCard();
+    this._tipOwner = null;
+    this.el.tooltip?.classList.add('hidden');
+  }
+
   hideTooltip() {
     if (this._cardOpen) return;            // a held-open touch card stays until you tap away
+    this._tipOwner = null;
     this.el.tooltip.classList.add('hidden');
   }
 
@@ -2409,12 +2437,12 @@ export class UI {
    *  as a card with the item's actions as buttons, since phones can't hover. */
   _tip(el, html, actions) {
     const get = () => (typeof html === 'function' ? html() : html);
-    el.addEventListener('mouseenter', (e) => { if (this._touchUsed) return; const h = get(); if (h) this.showTooltip(e, h); });
+    el.addEventListener('mouseenter', (e) => { if (this._touchUsed) return; const h = get(); if (h) this.showTooltip(e, h, el); });
     el.addEventListener('mousemove', (e) => { if (!this._touchUsed) this.moveTooltip(e); });
     el.addEventListener('mouseleave', () => this.hideTooltip());
     let timer = 0, sx = 0, sy = 0, fired = false, touching = false;
     const open = () => {
-      if (fired) return;
+      if (fired || !el.isConnected) return;   // the item was redrawn away mid-press
       fired = true; clearTimeout(timer);
       const h = get();
       if (!h) return;                         // nothing to show (an empty slot)
@@ -2478,6 +2506,7 @@ export class UI {
 
   // ---------------- Modals ----------------
   openModal(title, render) {
+    this._dropTips();
     this.modal = { title, render };
     this.el.modalTitle.textContent = title;
     this.el.modalOverlay.classList.remove('hidden');
@@ -2546,6 +2575,7 @@ export class UI {
 
   closeModal() {
     if (this.modal?.locked) return; // e.g. the starting-style choice — must pick one
+    this._dropTips();
     this.modal = null;
     this.el.modalOverlay.classList.add('hidden');
     this.el.modalBody.innerHTML = '';
