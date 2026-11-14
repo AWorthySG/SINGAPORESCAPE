@@ -25,7 +25,7 @@ import { findPath } from '../engine/pathfinding.js';
 import {
   playerAttackVsNpc, npcAttackVsPlayer, rollAttack, rollGuaranteed, rollHit, combatXp, magicXp, killXp, DAMAGE_XP_SHARE, KILL_XP_SHARE,
   playerRangedVsNpc, combatXpRanged, playerMagicVsNpc, RANGED_STYLES,
-  weaknessOf, WEAKNESS_BONUS, critChance, hitChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE,
+  weaknessOf, WEAKNESS_BONUS, armourOf, armourMult, critChance, hitChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE,
   playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX,
 } from './combat.js';
 import { ABILITY_BY_ID, abilitiesFor, ADREN_PER_HIT, ADREN_PER_HURT, CLASS_ADRENALINE, EXECUTE_BELOW } from '../data/abilities.js';
@@ -853,7 +853,7 @@ export class Game {
     for (const n of this.npcs) {
       if (n.alive && !n.temporary && n.target === this.player) this._aggroAttackers++;
     }
-    const cl = this.skills.combatLevel();
+    const cl = this.skills.squashedCombatLevel();   // bosses' scaling was tuned on the squashed level
     for (const n of this.npcs) {
       // Allies always tick, so they can catch up with a Merchant who travelled far.
       if (!n.ally && (Math.abs(n.x - px) > 46 || Math.abs(n.y - py) > 46)) continue;
@@ -1626,10 +1626,11 @@ export class Game {
     // champions), crit, and a chance of an extra hit (a spell echoes instead).
     const perk = this.perkMods(mode);
     this._perkCtx = perk;
-    // Your attacks always land, so gear's armour pierce adds its % as damage;
-    // boss damage from gear stacks with the perk's.
+    // Monster armour shrugs off a share of each hit (see armourOf); hitting its
+    // weakness gets past half of it, and gear's Armour pierce cancels it first,
+    // any pierce left over adding damage. Boss damage from gear stacks with the perk's.
     const gb = this.equipment.bonuses();
-    dmgM *= 1 + gb.pierce / 100;
+    dmgM *= armourMult(armourOf(npc.def, { champion: npc.champion, fightLevel: this.fightLevel() }), gb.pierce, weak);
     dmgM *= 1 + (this.attrs[attrForMode(mode)] || 0) * DMG_PER_POINT;   // Strength / Intelligence / Dexterity
     dmgM *= 1 + (perk.dmg || 0) + this.learning.perks().dmg +   // English mastery: Eloquence
       ((npc.def.boss || npc.champion) ? (perk.boss || 0) + gb.bossDmg / 100 : 0);
@@ -3773,6 +3774,7 @@ export class Game {
     // Your blows always land, for a quarter to all of the max hit (5/8 on average);
     // crits, abilities and perks roughly treble that in a real fight.
     // Your attack interval is in 0.3s beats; its attack speed is in 0.6s ticks.
+    max *= armourMult(armourOf(def, { champion: n.champion, fightLevel: cl }), this.equipment.bonuses().pierce, weaknessOf(def) === (mode === 'dance' ? 'melee' : mode));   // its armour
     const myDps = 3 * max * 0.625 / (Math.max(0.1, this.attackInterval()) * COMBAT_BEAT_MS / 1000);
     const { atkRoll, defRoll, max: theirMax } = npcAttackVsPlayer(def, this.skills, this.equipment, this.player.style);
     const theirDps = hitChance(atkRoll, defRoll * pm.def) * theirMax * 0.625 * (1 - this.protectFactor())

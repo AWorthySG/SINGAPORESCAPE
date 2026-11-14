@@ -32,7 +32,7 @@ test('OSRS xp table matches known values', () => {
   assert.ok(Number.isSafeInteger(XP_TABLE[99999]), 'the top of the table stays an exact number');
 });
 
-test('Melee, Ranged and Magic go to 99999; other skills stop at 9999; combat level climbs slowly past 100', async () => {
+test('Melee, Ranged and Magic go to 99999; other skills stop at 9999; combat level is shown as it is (the squashed figure stays for balance)', async () => {
   const { Skills } = await import('../src/game/skillset.js');
   const sk = new Skills(new EventBus());
   for (const id of ['attack', 'ranged', 'magic', 'defence', 'woodcutting']) sk.addXp(id, 1e15);
@@ -44,8 +44,9 @@ test('Melee, Ranged and Magic go to 99999; other skills stop at 9999; combat lev
   const s2 = new Skills(new EventBus());
   assert.ok(s2.combatLevel() <= 100 && s2.combatLevel() === s2.rawCombatLevel(), 'a new player is unchanged');
   const raw = sk.rawCombatLevel();
-  assert.equal(sk.combatLevel(), Math.floor(100 + 6 * Math.sqrt(raw - 100)));
-  assert.ok(sk.combatLevel() < raw / 20, `combat ${sk.combatLevel()} rises far slower than raw ${raw}`);
+  assert.equal(sk.combatLevel(), raw, 'combat level is no longer squashed');
+  assert.equal(sk.squashedCombatLevel(), Math.floor(100 + 6 * Math.sqrt(raw - 100)));
+  assert.ok(sk.squashedCombatLevel() < raw / 20, `the old squashed figure (${sk.squashedCombatLevel()}) rises far slower than raw ${raw}`);
 });
 
 test('levelForXp inverts the table', () => {

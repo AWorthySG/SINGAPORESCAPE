@@ -113,6 +113,42 @@ const WEAKNESS_BY_SPRITE = {
 
 export const WEAKNESS_BONUS = { dmg: 1.10 };
 
+// Monster armour: a share of every hit it shrugs off, by kind of creature, from
+// none (slimes, wisps, jellyfish) to armoured (golems, crabs, turtles). It rises
+// a little for a monster above your fighting level and falls for one below,
+// champions and bosses wear more, and hitting a monster's weakness gets past
+// half of it. Gear's Armour pierce cancels armour first; whatever pierce is
+// left over adds damage, as it did before armour existed.
+export const ARMOUR_TIERS = { none: 0, light: 0.1, medium: 0.2, heavy: 0.3, armoured: 0.4 };
+const ARMOUR_BY_SPRITE = {
+  slime: 'none', wisp: 'none', jellyfish: 'none',
+  fowl: 'light', bat: 'light', insect: 'light', rodent: 'light', plant: 'light', primate: 'light', hound: 'light', mantis: 'light', ghost: 'light',
+  beast: 'medium', humanoid: 'medium', greenman: 'medium', spider: 'medium', serpent: 'medium', seacreature: 'medium', undead: 'medium', demon: 'medium',
+  reptile: 'heavy', scorpion: 'heavy', drake: 'heavy',
+  golem: 'armoured', crab: 'armoured', turtle: 'armoured',
+};
+export const ARMOUR_CAP = 0.6;
+/** The armour tier name of a monster kind ('none' .. 'armoured'). */
+export const armourTierOf = (def) => ARMOUR_BY_SPRITE[def?.sprite] || 'medium';
+/** The share of a hit (0-ARMOUR_CAP) this monster's armour stops. */
+export function armourOf(def, { champion = false, fightLevel = 0 } = {}) {
+  let a = ARMOUR_TIERS[armourTierOf(def)];
+  if (def?.boss) a += 0.1;
+  if (champion || def?.champion) a += 0.1;
+  if (fightLevel > 0) a += Math.max(-0.1, Math.min(0.15, ((def?.level || 1) / fightLevel - 1) * 0.15));
+  return Math.max(0, Math.min(ARMOUR_CAP, a));
+}
+/** The damage multiplier after armour, weakness and Armour pierce (pierce in %). */
+export function armourMult(armour, piercePct = 0, weak = false) {
+  const a = weak ? armour / 2 : armour, p = (piercePct || 0) / 100;
+  return (1 - Math.max(0, a - p)) * (1 + Math.max(0, p - a));
+}
+
+// Every Melee, Ranged and Magic level adds this much to that style's max hit,
+// as a flat bonus on top of everything else (shown in the Equipment panel).
+export const LEVEL_FLAT_DMG = 0.5;
+export const levelFlatDmg = (level) => Math.floor((level || 0) * LEVEL_FLAT_DMG);
+
 // Weapon balance. Weapons attack at very different speeds (pistols and wands
 // ~16 times a second, greatswords twice, a rifle under once), and heavier hits
 // never made up for slower swings: best-in-slot damage per second varied about
@@ -137,7 +173,7 @@ export const WEAPON_DMG_MULT = {
   // at a staff's pace (see items.js), so they scale just under a staff per cast; a
   // Sorcerer's quicker wands stay ahead of an orb below the dragon tier. The crossbow
   // needs no ammo and pierces, so it stays just under the bows.
-  parang: 1.4, kerambit: 0.45, toya: 1.55, crossbow: 2.5, chakram: 1.35, orb: 0.6, fan: 1.0,
+  parang: 1.4, kerambit: 0.43, toya: 1.5, crossbow: 2.5, chakram: 1.35, orb: 0.6, fan: 1.0,
 };
 /** The target's number scale (see hpScaleFor in npcs.js): hits on a big monster are divided by it. */
 const numScale = (npc) => npc?.hpScale || 1;
@@ -195,7 +231,8 @@ export function playerAttackVsNpc(skills, equip, styleId, npc) {
   // there is no attack roll: only the max hit matters.)
   // Melee is one skill now (Strength mirrors it); the extra fifth keeps damage where
   // it was for a player who had trained Attack and Strength evenly.
-  const mh = Math.round(maxHit(skills.strength + Math.floor(skills.attack * ATTACK_TO_STRENGTH), style.str, bonuses.strength) * MELEE_BONUS.dmg * weaponDmgMult(equip)) + 1;
+  const mh = Math.round(maxHit(skills.strength + Math.floor(skills.attack * ATTACK_TO_STRENGTH), style.str, bonuses.strength) * MELEE_BONUS.dmg * weaponDmgMult(equip)) + 1
+    + levelFlatDmg(skills.attack || 0);   // the flat damage every Melee level adds
   return { max: Math.max(1, Math.round(mh / numScale(npc))) };
 }
 
@@ -224,7 +261,8 @@ export function playerRangedVsNpc(skills, equip, styleId, npc, arrowStr) {
   // so a better bow hits harder.
   const str = arrowStr + Math.floor((b.ranged || 0) / 2);
   return {
-    max: Math.max(1, Math.round((Math.round(maxHit(skills.ranged, 0, str) * RANGED_BONUS.dmg * weaponDmgMult(equip)) + 1) / numScale(npc))),
+    max: Math.max(1, Math.round((Math.round(maxHit(skills.ranged, 0, str) * RANGED_BONUS.dmg * weaponDmgMult(equip)) + 1
+      + levelFlatDmg(skills.ranged)) / numScale(npc))),   // plus the flat damage every Ranged level adds
   };
 }
 
@@ -270,7 +308,7 @@ export function playerMagicVsNpc(skills, equip, spell, npc) {
     // Melee and Ranged levels multiply weapon power: +1.25% per level, so a
     // level 50 mage hits ~1.6x the spell's base and a level 99 mage ~2.2x.
     // The spell's base grows with Magic too (see spellBaseHit). (A dmgMult on an element would scale it.)
-    max: Math.max(1, Math.round((spellBaseHit(spell, skills.magic) + (b.magicStr || 0)) * (1 + skills.magic / MAGIC_LEVEL_DIV)
-      * (ELEMENTS[spell.element]?.dmgMult || 1) * weaponDmgMult(equip) / numScale(npc))),
+    max: Math.max(1, Math.round(((spellBaseHit(spell, skills.magic) + (b.magicStr || 0)) * (1 + skills.magic / MAGIC_LEVEL_DIV)
+      * (ELEMENTS[spell.element]?.dmgMult || 1) * weaponDmgMult(equip) + levelFlatDmg(skills.magic)) / numScale(npc))),   // plus the flat damage every Magic level adds
   };
 }

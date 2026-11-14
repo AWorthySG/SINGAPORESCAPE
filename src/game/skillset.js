@@ -52,7 +52,14 @@ export class Skills {
    *  slowly (100 + 6 x the square root of the rest), so bosses that scale with
    *  it (see Game._scaleBoss) don't run away from you as your skills soar.
    *  E.g. a raw 1000 is combat 280, a raw 13000 (level ~9999 everything) 781. */
-  combatLevel() {
+  /** Your combat level, unsquashed (it used to be shown squashed past 100,
+   *  which made it look far below the monsters of your real level). */
+  combatLevel() { return this.rawCombatLevel(); }
+
+  /** The old squashed combat level (past 100: 100 + 6 x sqrt(the rest)). Kept
+   *  only where balance was tuned on it: how far bosses scale up to meet you,
+   *  and what a mercenary costs and how strong it is. */
+  squashedCombatLevel() {
     const raw = this.rawCombatLevel();
     return raw <= 100 ? raw : Math.floor(100 + 6 * Math.sqrt(raw - 100));
   }

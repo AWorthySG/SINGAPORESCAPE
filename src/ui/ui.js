@@ -40,7 +40,7 @@ import { TILE, LEARNING_ENABLED } from '../config.js';
 import { TERRAIN, zoneLevel } from '../data/world.js';
 import { clearSave, suppressSaves, exportSaveCode, importSaveCode } from '../game/save.js';
 import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG, abilityIconHTML, prayerIconHTML, spellIconHTML } from '../render/icons.js';
-import { weaknessOf } from '../game/combat.js';
+import { weaknessOf, armourTierOf, ARMOUR_TIERS, levelFlatDmg } from '../game/combat.js';
 import { isBone } from '../data/bones.js';
 import { RACES, raceOf, weaponsFor, weaponTypeName, WEAPON_VS_RACE } from '../data/races.js';
 
@@ -831,7 +831,9 @@ export class UI {
         .map(([k, l]) => (b[k] ? `<div class="row off-stat"><span>${l}</span><span>+${b[k]}%</span></div>` : '')).join('') +
       // What your fighting levels add on top of your gear (see levelBonuses).
       (() => { const lb = levelBonuses({ attack: this.game.skills.attack, ranged: this.game.skills.ranged, magic: this.game.skills.magic, agility: this.game.skills.agility, dance: this.game.skills.danceLevel() });
-        return `<div class="row lvl-bonus"><span>From your levels</span><span>+${lb.attack} Atk/Str · +${lb.ranged} Rng · +${lb.magic} Mag (+${lb.magicStr} dmg) · +${lb.dance} Dance</span></div>`; })() +
+        const sk = this.game.skills;
+        return `<div class="row lvl-bonus"><span>From your levels</span><span>+${lb.attack} Atk/Str · +${lb.ranged} Rng · +${lb.magic} Mag (+${lb.magicStr} dmg) · +${lb.dance} Dance</span></div>`
+          + `<div class="row lvl-bonus"><span>Level damage</span><span>+${levelFlatDmg(sk.attack)} melee · +${levelFlatDmg(sk.ranged)} ranged · +${levelFlatDmg(sk.magic)} magic max hit</span></div>`; })() +
       `<div class="row"><span>Time between attacks</span><span>${speed * 0.3 < 0.1 ? (speed * 0.3).toFixed(3) : speed * 0.3 < 0.3 ? (speed * 0.3).toFixed(2) : (speed * 0.3).toFixed(1)}s</span></div>` +
       specLine +
       (sets.length ? `<div class="row set-bonus"><span>Set bonus</span><span>${sets.join(', ')}</span></div>` : '');
@@ -2338,7 +2340,7 @@ export class UI {
           : '<span class="b-hidden">Defeat one to reveal its drops.</span>';
         const row = document.createElement('div');
         row.className = 'bestiary-row' + (k ? '' : ' undiscovered');
-        const weak = k ? `<span class="b-weak">weak: ${weaknessOf(d)}</span>` : '';
+        const weak = k ? `<span class="b-weak">weak: ${weaknessOf(d)} · armour: ${armourTierOf(d)} (${Math.round(ARMOUR_TIERS[armourTierOf(d)] * 100)}%)</span>` : '';
         // Its race is plain to see; which weapons bite or bounce off is learned by defeating one.
         const rid = raceOf(d, id), race = RACES[rid];
         const raceTag = `<span class="b-race" title="${escapeHtml(race.desc)}">${race.icon} ${escapeHtml(race.name)}</span>`;
