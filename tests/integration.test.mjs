@@ -2284,12 +2284,14 @@ test('Former accuracy stats now add damage: gear Attack and Magic bonus, and arm
   const game = new Game();
   game.start();
   game.chooseStartingStyle('melee');
+  // (On a monster with no armour, pierce has nothing to cancel, so it all adds damage.)
   const mob = game.npcs.find((n) => n.def.attackable && n.alive && !n.def.boss);
+  mob.def = { ...mob.def, sprite: 'slime', level: game.fightLevel() };
   const plain = game.equipment.bonuses.bind(game.equipment);
   const d0 = game._offensiveMods(mob, 'melee').dmgM;
   game.equipment.bonuses = () => ({ ...plain(), pierce: 20 });
   const d1 = game._offensiveMods(mob, 'melee').dmgM;
-  assert.ok(Math.abs(d1 / d0 - 1.2) < 1e-9, `20% armour pierce adds 20% damage (x${(d1 / d0).toFixed(3)})`);
+  assert.ok(Math.abs(d1 / d0 - 1.2) < 1e-9, `20% armour pierce adds 20% damage on an unarmoured foe (x${(d1 / d0).toFixed(3)})`);
 });
 
 test('Dodging a monster attack trains Agility; the boss ladder tops out at level 9999', async () => {
@@ -4735,7 +4737,7 @@ test('bosses scale up with the player: f x hits and defence, f^2 x life, never m
   // And the tick does it for bosses near the player.
   const g2 = new Game(); g2.start();
   const b2 = g2.npcs.find((n) => n.npcId === 'goblin_warchief');
-  g2.skills.combatLevel = () => b2.def.level * 2;
+  g2.skills.squashedCombatLevel = () => b2.def.level * 2;   // bosses scale on the (old) squashed level
   g2.player.x = g2.player.tx = b2.x + 30; g2.player.y = g2.player.ty = b2.y;
   const m0 = b2.maxHp; g2.doTick();
   assert.equal(b2.maxHp, Math.round(m0 * 4), 'a nearby boss is scaled during the tick');
@@ -4780,9 +4782,9 @@ test('Late-game players fight at their skill level: auto battle seeks, and monst
   g.ui = new Proxy({}, { get: () => () => {} });
   for (const s of ['attack', 'strength', 'defence', 'hitpoints']) g.skills.xp[s] = xpForLevel(5000);
   const cl = g.skills.combatLevel();
-  assert.ok(cl < 1500, `combat level is compressed (${cl})`);
-  assert.equal(g.fightLevel(), 5000, 'but you fight at your Melee level');
-  assert.ok(g._autoBandLo(false) > cl, 'auto battle looks for monsters around your Melee level');
+  assert.ok(g.skills.squashedCombatLevel() < 1500, `the old squashed level stays small (${g.skills.squashedCombatLevel()})`);
+  assert.equal(g.fightLevel(), Math.max(cl, 5000), 'you fight at your combat level or your Melee level, whichever is higher');
+  assert.ok(g._autoBandLo(false) > g.skills.squashedCombatLevel(), 'auto battle looks for monsters around your real level');
   // Monsters size you up by it too: a level-300 monster leaves a Melee-5000 hero
   // alone (by combat level it would have thought you its equal), a level-3000 one doesn't.
   const weak = new NPC('goblin', g.player.x + 2, g.player.y, 0, {});
@@ -4791,7 +4793,6 @@ test('Late-game players fight at their skill level: auto battle seeks, and monst
   strong.def = { ...strong.def, level: 3000, aggressive: true, aggroRange: 5 };
   g.npcs = [weak, strong];
   weak._combatAI(g); strong._combatAI(g);
-  assert.ok(cl <= 300 * 2 + 1, 'by combat level alone the weak one would have attacked');
   assert.equal(weak.target, null, 'a far weaker monster keeps its distance');
   assert.equal(strong.target, g.player, 'a monster of a comparable level still attacks');
   // Early on nothing changes: combat level leads while skills are low.
@@ -5881,4 +5882,38 @@ test('a champion drops about thirty normal kills of loot, stacked', async () => 
   }
   const ratio = champCoins / Math.max(1, normalCoins);
   assert.ok(ratio > 15 && ratio < 60, `a champion drops about thirty kills' coins (x${ratio.toFixed(1)})`);
+});
+
+test('monster armour: kinds differ, level and champions add some, weakness and pierce get past it', async () => {
+  const { armourOf, armourMult, ARMOUR_TIERS } = await import('../src/game/combat.js');
+  const at = (sprite, extra = {}, opts = {}) => armourOf({ sprite, level: 100, ...extra }, { fightLevel: 100, ...opts });
+  assert.equal(at('slime'), 0, 'slimes wear none');
+  assert.equal(at('golem'), ARMOUR_TIERS.armoured, 'golems are armoured');
+  assert.ok(at('crab') > at('beast') && at('beast') > at('bat'), 'crabs > beasts > bats');
+  assert.ok(at('beast', { level: 200 }) > at('beast'), 'a monster above you wears more');
+  assert.ok(at('beast', { level: 50 }) < at('beast'), 'one below you less');
+  assert.ok(at('beast', {}, { champion: true }) > at('beast'), 'champions more');
+  assert.ok(armourMult(0.4, 0, true) > armourMult(0.4, 0, false), 'hitting its weakness gets past half');
+  assert.equal(armourMult(0.2, 20), 1, 'pierce cancels armour first');
+  assert.ok(Math.abs(armourMult(0, 20) - 1.2) < 1e-9, 'leftover pierce adds damage');
+});
+
+test('combat level is no longer squashed; every fighting level adds flat damage', async () => {
+  const { levelFlatDmg, LEVEL_FLAT_DMG, playerRangedVsNpc } = await import('../src/game/combat.js');
+  const { xpForLevel } = await import('../src/data/xp.js');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const g = new Game();
+  g.start();
+  g.chooseStartingStyle('melee');
+  for (const s of ['attack', 'strength', 'defence', 'hitpoints', 'prayer']) g.skills.xp[s] = xpForLevel(1000);
+  assert.equal(g.skills.combatLevel(), g.skills.rawCombatLevel(), 'shown as it is');
+  assert.ok(g.skills.combatLevel() > 900, `a level-1000 fighter shows combat ${g.skills.combatLevel()}`);
+  assert.ok(g.skills.squashedCombatLevel() < 400, 'the old squashed figure is only used inside (boss scaling, mercenaries)');
+  assert.equal(levelFlatDmg(1000), 1000 * LEVEL_FLAT_DMG);
+  const gear = { bonuses: () => ({ attack: 0, strength: 0, ranged: 0, magic: 0 }), weaponType: () => null };
+  const at = (r) => playerRangedVsNpc({ ranged: r }, gear, 'balanced', {}, 0).max;
+  assert.ok(at(500) - at(499) >= 1, 'each Ranged level adds its flat damage');
+  assert.ok(playerAttackVsNpc({ attack: 400, strength: 400 }, gear, 'balanced', {}).max
+    - playerAttackVsNpc({ attack: 0, strength: 400 }, gear, 'balanced', {}).max >= levelFlatDmg(400), 'Melee levels add flat damage');
 });

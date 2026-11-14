@@ -32,10 +32,10 @@ const MERC_KINDS = ['mercenary_sellsword', 'mercenary_bruiser', 'mercenary_spear
 const MERC_NAMES = ['Ah Seng the Sellsword', 'Siti Steelhand', 'Big Raju', 'Old Tan', 'Mei the Blade', 'Kumar Ironjaw', 'Lim the Lancer', 'Farah Quickstep'];
 
 /** What one mercenary costs to hire: more as the Merchant grows. */
-export const hireCost = (game) => 80 + 15 * game.skills.combatLevel();
+export const hireCost = (game) => 80 + 15 * game.skills.squashedCombatLevel();   // tuned on the squashed level
 
 /** A mercenary's best hit: grows with the Merchant's level and gear Strength. */
-export const mercPower = (game) => Math.max(2, Math.round(2 + game.skills.combatLevel() * 0.4 + (game.equipment.bonuses().ranged || 0) * 0.15));
+export const mercPower = (game) => Math.max(2, Math.round(2 + game.skills.squashedCombatLevel() * 0.4 + (game.equipment.bonuses().ranged || 0) * 0.15));
 
 export const activeMercs = (game) => game.npcs.filter((n) => n.ally && n.alive && !n.follower);
 export const activeFollowers = (game) => game.npcs.filter((n) => n.ally && n.alive && n.follower);
