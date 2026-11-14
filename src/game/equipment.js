@@ -11,6 +11,7 @@ export const dualType = (id) => {
   if (!id) return null;
   if (/_dagger$/.test(id) || id === 'tiger_kris') return 'dagger';
   const t = getItem(id)?.equip?.weaponType;
+  if (t === 'dagger' && getItem(id).signature) return 'dagger';   // a boss's signature dagger pairs like any other
   return t === 'scimitar' || t === 'pistol' || t === 'kerambit' ? t : null;
 };
 export const canDualWield = (id) => !!dualType(id);

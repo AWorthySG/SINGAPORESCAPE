@@ -6101,3 +6101,105 @@ test('Equip best puts offensive stats first: a harder-hitting piece beats a stur
     assert.equal(g.equipment.get('ring'), 'test_hit_ring', 'the ring that hits harder is worn');
   } finally { delete ITEMS.test_tank_ring; delete ITEMS.test_hit_ring; }
 });
+
+test('boss signature weapons: one per boss, for one class, dealt fairly and fixed', async () => {
+  const { SIG_BOSSES, SIG_CLASSES, SIGNATURE_CLASS, sigIdFor } = await import('../src/data/bossWeapons.js');
+  const { CLASSES, CLASS_BY_ID, canWield } = await import('../src/data/classes.js');
+  const { NPCS } = await import('../src/data/npcs.js');
+  // The lists in bossWeapons.js (kept there to avoid an import cycle) match npcs.js and classes.js.
+  assert.deepEqual(SIG_BOSSES.map((b) => b[0]).sort(), [...ALL_BOSS_IDS].sort(), 'every boss is listed exactly once');
+  for (const [id, lvl, , full] of SIG_BOSSES) {
+    assert.equal(lvl, NPCS[id].tierLevel, `${id}'s level matches npcs.js`);
+    assert.equal(full, NPCS[id].name, `${id}'s name matches npcs.js`);
+  }
+  assert.deepEqual(SIG_CLASSES, CLASSES.map((c) => [c.id, c.name, c.weapon]), 'the class list matches classes.js');
+  // Exactly one weapon per boss, each id unique, for a real class.
+  const sigs = Object.values(ITEMS).filter((it) => it.signature);
+  assert.equal(sigs.length, ALL_BOSS_IDS.length);
+  assert.equal(new Set(sigs.map((it) => it.id)).size, sigs.length);
+  for (const boss of ALL_BOSS_IDS) {
+    const it = ITEMS[sigIdFor(boss)], cls = CLASS_BY_ID[SIGNATURE_CLASS[boss]];
+    assert.ok(it && cls, `${boss} has a signature weapon for a class`);
+    assert.equal(it.signature.boss, boss);
+    assert.equal(it.signature.classId, cls.id);
+    // It is that class's main weapon type, and that class can wield it.
+    assert.equal(it.equip.weaponType, cls.weapon, `${it.id} is a ${cls.weapon}`);
+    assert.ok(canWield(cls.id, it.equip.weaponType), `${cls.name} can wield ${it.name}`);
+    assert.ok(it.examine.startsWith('Signature weapon of') && it.examine.includes(cls.name), it.examine);
+  }
+  // Every class gets two to five, spread across early and late bosses.
+  for (const c of CLASSES) {
+    const mine = SIG_BOSSES.filter(([id]) => SIGNATURE_CLASS[id] === c.id).map((b) => b[1]);
+    assert.ok(mine.length >= 2 && mine.length <= 5, `${c.name} has ${mine.length} signature weapons`);
+    assert.ok(Math.max(...mine) - Math.min(...mine) >= 50, `${c.name}'s are spread out (${mine.join(', ')})`);
+  }
+  // The classes are dealt from the strongest boss down: each class has one of the top 21.
+  const top = [...SIG_BOSSES].sort((a, b) => b[1] - a[1]).slice(0, CLASSES.length).map(([id]) => SIGNATURE_CLASS[id]);
+  assert.equal(new Set(top).size, CLASSES.length, 'every class has an endgame signature weapon');
+  // Deterministic: a second, fresh import deals the same, and known picks never move.
+  const again = await import('../src/data/bossWeapons.js?again');
+  assert.deepEqual(again.SIGNATURE_CLASS, SIGNATURE_CLASS);
+  assert.equal(SIGNATURE_CLASS.jade_dragon, 'wizard');
+  assert.equal(SIGNATURE_CLASS.nian_beast, 'swordsman');
+  assert.equal(SIGNATURE_CLASS.merlion, 'knight');
+  assert.equal(SIGNATURE_CLASS.goblin_warchief, 'halberdier');
+});
+
+test('boss signature weapons: stronger than the plain weapon they are built on, with art', async () => {
+  const { itemIconSVG, hasIcon } = await import('../src/render/icons.js');
+  const { canDualWield } = await import('../src/game/equipment.js');
+  const FIGHT = ['attack', 'strength', 'ranged', 'magic', 'magicStr', 'dance'];
+  const OFF = ['crit', 'critDmg', 'pierce', 'lifesteal', 'haste', 'bossDmg', 'atkPct', 'magPct'];
+  const sum = (b, keys) => keys.reduce((t, k) => t + (b[k] || 0), 0);
+  for (const it of Object.values(ITEMS).filter((x) => x.signature)) {
+    const base = ITEMS[it.signature.base], b = base.equip.bonuses, s = it.equip.bonuses;
+    assert.equal(base.equip.weaponType, it.equip.weaponType, `${it.id} is built on a ${it.equip.weaponType}`);
+    assert.ok(!base.signature, `${it.id} is built on a plain weapon`);
+    assert.deepEqual(it.equip.req, base.equip.req, `${it.id} needs what its tier needs`);
+    assert.equal(s.speed, b.speed, `${it.id} keeps its speed`);
+    assert.equal(it.equip.range, base.equip.range, `${it.id} keeps its range`);
+    for (const k of FIGHT) assert.ok((s[k] || 0) >= (b[k] || 0), `${it.id} ${k}`);
+    assert.ok(sum(s, FIGHT) > sum(b, FIGHT) * 1.2, `${it.id} hits about 1.3x harder`);
+    assert.ok(sum(s, OFF) > sum(b, OFF), `${it.id} has extra offensive lines`);
+    // Its icon borrows a real sticker, tinted.
+    assert.ok(hasIcon(it.id));
+    const html = itemIconSVG(it.id, 24);
+    assert.ok(html.includes('assets/icons/item-') && html.includes('filter:'), `${it.id} borrows tinted art`);
+    if (it.equip.weaponType === 'dagger') assert.ok(canDualWield(it.id), 'signature daggers dual wield');
+  }
+});
+
+test('boss signature weapons: drop 1 kill in 10, for any class, and are never swapped for your own', async () => {
+  const { SIGNATURE_CLASS, SIGNATURE_DROP_CHANCE, sigIdFor } = await import('../src/data/bossWeapons.js');
+  const { canWield } = await import('../src/data/classes.js');
+  assert.equal(SIGNATURE_DROP_CHANCE, 0.1);
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseClass('corsair');
+  game.ui = new Proxy({}, { get: () => () => {} });
+  let got = [];
+  game._autoLoot = (loot) => { got = loot; };
+  const chat = [];
+  game.bus.on('chat', (m) => chat.push(m.text));
+  // A boss whose weapon is for another class (one a Corsair can't wield).
+  const boss = game.npcs.find((n) => n.def.boss && SIGNATURE_CLASS[n.npcId] && !canWield('corsair', ITEMS[sigIdFor(n.npcId)].equip.weaponType));
+  assert.ok(boss, 'found a boss whose signature weapon is for another class');
+  const sid = sigIdFor(boss.npcId);
+  // Force every roll low: the drop always happens, and any other class's weapon would be converted.
+  const rnd = Math.random;
+  try {
+    Math.random = () => 0.001;
+    game.rollDrops(boss);
+  } finally { Math.random = rnd; }
+  const sig = got.find((l) => l[0] === sid);
+  assert.ok(sig, `the boss drops ${sid} (${got.map((l) => l[0]).join(', ')})`);
+  assert.equal(sig[2], 'legendary');
+  assert.ok(chat.some((t) => t.startsWith(`Signature drop! ${ITEMS[sid].name} (for `)), 'with a chat line');
+  assert.ok(game.equipment.masteryRank(sid) >= 1, 'and a quality roll like other boss gear');
+  // With ordinary (seeded) luck it drops about 1 kill in 10.
+  let n = 0;
+  for (let i = 0; i < 300; i++) { game.rollDrops(boss); if (got.some((l) => l[0] === sid)) n++; }
+  assert.ok(n >= 12 && n <= 60, `dropped ${n} times in 300 kills`);
+});

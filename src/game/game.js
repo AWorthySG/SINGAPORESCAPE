@@ -46,6 +46,7 @@ import { CROP_BY_SEED, cropFor, POTIONS } from '../data/trades.js';
 import { saveGame, loadGame, hasSave } from './save.js';
 import { getShop } from '../data/shops.js';
 import { RARE_DROP_TABLE, getNpc, ALL_BOSS_IDS } from '../data/npcs.js';
+import { SIGNATURE_DROP_CHANCE, SIGNATURE_CLASS, sigIdFor } from '../data/bossWeapons.js';
 import { nextJob, jobKey } from './autoprocess.js';
 import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
 import { eligibleTasks, SLAYER_REWARDS } from '../data/slayer.js';
@@ -2796,6 +2797,14 @@ export class Game {
         if (g) loot.push([g, 1, 'epic', 'boss']);
       }
     }
+    // A boss's signature weapon (bossWeapons.js), 1 kill in 10 whatever your class:
+    // it is made for one class, so for the rest it's a trophy or something to trade.
+    if (def.boss && SIGNATURE_CLASS[npc.npcId] && Math.random() < SIGNATURE_DROP_CHANCE) {
+      const sid = sigIdFor(npc.npcId), nm = getItem(sid).name, who = CLASS_BY_ID[SIGNATURE_CLASS[npc.npcId]]?.name;
+      loot.push([sid, 1, 'legendary', 'sig']);
+      this.msg(`Signature drop! ${nm} (for ${who})`, 'level');
+      this.banner(`<span class="big">Signature drop!</span>${nm} (for ${who})`);
+    }
     // Upgrade materials: stones from anything (bosses and champions most), wards from bosses.
     if (def.boss) loot.push([UP_STONE, randInt(20, 50), 'rare']);
     else {
@@ -2820,6 +2829,7 @@ export class Game {
     const myType = this.jobClass && CLASS_BY_ID[this.jobClass]?.weapon;
     if (myType) {
       for (const l of loot) {
+        if (l[3] === 'sig') continue;   // a signature weapon stays itself, whoever it's for
         const t = getItem(l[0]).equip?.weaponType;
         if (t && !canWield(this.jobClass, t) && Math.random() < CLASS_LOOT_SHARE) l[0] = equivalentWeapon(l[0], myType);
         // Armour of another class's kind mostly turns into your own kind.
@@ -2845,7 +2855,7 @@ export class Game {
     for (const l of loot) {
       if (!getItem(l[0]).equip) continue;
       const q = rollQuality(l[3] === 'boss' || def.boss ? 'boss' : npc.champion ? 'champion' : 'normal');
-      if (q) { this._applyQuality(l[0], q); l[2] = QUALITY[q].rarity; }
+      if (q) { this._applyQuality(l[0], q); l[2] = l[3] === 'sig' ? 'legendary' : QUALITY[q].rarity; }
       l.length = 3;
     }
     this._autoLoot(loot, npc.x, npc.y);

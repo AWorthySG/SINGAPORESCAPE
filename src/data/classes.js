@@ -137,4 +137,6 @@ export function equivalentWeapon(id, type) {
   for (const w of list) if (Math.max(0, ...Object.values(ITEMS[w].equip.req || {})) <= lvl) best = w;
   return best;
 }
-const UNIQUES = new Set(['tiger_kris', 'merlion_blade', 'cursed_cutlass', 'seraph_blade', 'megalodon_jaw', 'granite_maul', 'void_blade', 'leviathan_trident', 'tiger_fang']);
+// Boss uniques and boss signature weapons (bossWeapons.js) only come from their own boss, never as stand-in loot.
+const UNIQUES = new Set(['tiger_kris', 'merlion_blade', 'cursed_cutlass', 'seraph_blade', 'megalodon_jaw', 'granite_maul', 'void_blade', 'leviathan_trident', 'tiger_fang',
+  ...Object.keys(ITEMS).filter((id) => ITEMS[id].signature)]);
