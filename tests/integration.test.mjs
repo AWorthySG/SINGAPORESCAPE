@@ -5823,3 +5823,62 @@ test('melee cleave: catches the crowd around you, attackers first, at the right 
   const share = Math.round(1000 * CLEAVE_SHARE.battleaxe);
   assert.equal(big.maxHp - big.hp, Math.round(share / 10), 'shown at its own scale');
 });
+
+test('cleaves move like their weapons: spears pierce a line, others catch the crowd; each has its own effect', async () => {
+  const { NPC } = await import('../src/game/npc.js');
+  const { CLEAVE_STYLE } = await import('../src/game/game.js');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  game._aoeCritCh = 0;
+  const p = game.player;
+  const mk = (dx, dy) => { const n = new NPC('goblin', p.x + dx, p.y + dy, 0, {}); n.maxHp = n.hp = 100000; return n; };
+  const hurt = (n) => n.hp < n.maxHp;
+  // A spear thrust east runs through the line: behind the target, not beside you.
+  game.equipment.set('weapon', 'bronze_spear');
+  assert.equal(CLEAVE_STYLE[game.weaponType()], 'pierce');
+  let target = mk(1, 0); const behind = mk(2, 0), further = mk(3, 0), beside = mk(0, 1), westOfYou = mk(-1, 0);
+  game.npcs = [beside, westOfYou, target, behind, further];
+  game.effects = [];
+  game._cleave(target, 100);
+  assert.ok(hurt(behind) && hurt(further), 'the thrust skewers the foes in line behind the target');
+  assert.ok(!hurt(beside) && !hurt(westOfYou), 'and not those beside or behind you');
+  const fx = game.effects.find((e) => e.type === 'cleave');
+  assert.equal(fx.style, 'pierce');
+  // A battleaxe sweeps the crowd instead.
+  game.equipment.set('weapon', 'bronze_battleaxe');
+  target = mk(1, 0); const crowd = mk(-1, 0);
+  game.npcs = [target, crowd];
+  game.effects = [];
+  game._cleave(target, 100);
+  assert.ok(hurt(crowd), 'the axe sweep catches the monster crowding you');
+  assert.equal(game.effects.find((e) => e.type === 'cleave').style, 'sweep');
+  // Each melee weapon kind has a style; maces slam, daggers flurry, swords slash.
+  assert.equal(CLEAVE_STYLE.mace, 'slam'); assert.equal(CLEAVE_STYLE.dagger, 'flurry'); assert.equal(CLEAVE_STYLE.sword, 'arc');
+});
+
+test('a champion drops about thirty normal kills of loot, stacked', async () => {
+  const { NPC } = await import('../src/game/npc.js');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  const p = game.player;
+  let got = [];
+  game._autoLoot = (loot) => { got = loot; };
+  let normalCoins = 0, champCoins = 0, champItems = 0;
+  for (let i = 0; i < 60; i++) {
+    const m = new NPC('goblin', p.x + 3, p.y, 0, {});
+    game.rollDrops(m); normalCoins += got.filter((l) => l[0] === 'coins').reduce((a, l) => a + l[1], 0);
+    const c = new NPC('goblin', p.x + 3, p.y, 0, {}); c.makeChampion();
+    game.rollDrops(c); champCoins += got.filter((l) => l[0] === 'coins').reduce((a, l) => a + l[1], 0); champItems += got.length;
+    const ids = got.map((l) => l[0]);
+    assert.equal(new Set(ids.filter((id) => id === 'coins')).size, ids.filter((id) => id === 'coins').length, 'coins come in one pile');
+    assert.ok(ids.includes('champion_bones'), 'champion bones every time');
+  }
+  const ratio = champCoins / Math.max(1, normalCoins);
+  assert.ok(ratio > 15 && ratio < 60, `a champion drops about thirty kills' coins (x${ratio.toFixed(1)})`);
+});

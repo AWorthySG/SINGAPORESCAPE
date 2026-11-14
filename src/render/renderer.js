@@ -440,6 +440,95 @@ export class Renderer {
     ctx.fillStyle = '#ffe88a'; ctx.fillText('✕', x, y - 18 - bob);
   }
 
+  /** A melee cleave, drawn the way its weapon moves (see CLEAVE_STYLE in game.js). */
+  _drawCleave(e, ox, oy) {
+    const { ctx } = this;
+    const t = 1 - e.life / e.maxLife, fade = 1 - t;
+    const x0 = e.x - ox, y0 = e.y - oy, tx = e.tx - ox, ty = e.ty - oy;
+    ctx.save();
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.globalCompositeOperation = 'lighter';
+    if (e.style === 'pierce') {
+      // A spear thrust: a bright streak that shoots out through the line, its
+      // point leading, then a fading trail with a burst on each foe skewered.
+      const ex = e.ex - ox, ey = e.ey - oy, dx = ex - x0, dy = ey - y0;
+      const len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
+      const head = Math.min(1, t * 3.2), tail = Math.max(0, t * 1.6 - 0.25);
+      const hx = x0 + dx * head + ux * 10, hy = y0 + dy * head + uy * 10;
+      const sx = x0 + dx * tail, sy = y0 + dy * tail;
+      ctx.globalAlpha = fade * 0.45; ctx.strokeStyle = e.color; ctx.lineWidth = 9;
+      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(hx, hy); ctx.stroke();
+      ctx.globalAlpha = fade; ctx.strokeStyle = '#fff6d8'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(hx, hy); ctx.stroke();
+      if (head < 1 || t < 0.5) {   // the spear point
+        const nx = -uy, ny = ux;
+        ctx.globalAlpha = fade; ctx.fillStyle = '#fff6d8';
+        ctx.beginPath(); ctx.moveTo(hx + ux * 8, hy + uy * 8); ctx.lineTo(hx + nx * 4, hy + ny * 4); ctx.lineTo(hx - nx * 4, hy - ny * 4); ctx.closePath(); ctx.fill();
+      }
+      for (const f of [{ x: e.tx, y: e.ty }, ...e.foes]) {
+        const along = ((f.x - e.x) * ux + (f.y - e.y) * uy) / len;
+        if (head < along) continue;   // the point hasn't reached it yet
+        ctx.globalAlpha = fade * 0.8; ctx.strokeStyle = e.color; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(f.x - ox, f.y - oy, 5 + t * 10, 0, Math.PI * 2); ctx.stroke();
+      }
+    } else if (e.style === 'sweep') {
+      // A heavy blade: one wide crescent swept around you, through the target
+      // and everything beside it, the leading edge brightest.
+      const mid = Math.atan2(ty - y0, tx - x0), spread = 1.25;
+      const a0 = mid - spread, a1 = mid - spread + 2 * spread * Math.min(1, t * 2.2);
+      const r = e.r * 0.9 + 6;
+      ctx.globalAlpha = fade * 0.35; ctx.strokeStyle = e.color; ctx.lineWidth = 14 * fade + 4;
+      ctx.beginPath(); ctx.arc(x0, y0, r, a0, a1); ctx.stroke();
+      ctx.globalAlpha = fade; ctx.strokeStyle = '#fff1c4'; ctx.lineWidth = 3.5;
+      ctx.beginPath(); ctx.arc(x0, y0, r, Math.max(a0, a1 - 0.6), a1); ctx.stroke();
+      ctx.globalAlpha = fade * 0.6; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(x0, y0, r - 7, a0, a1); ctx.stroke();
+    } else if (e.style === 'slam') {
+      // A blunt weapon: a shockwave ring bursting out from the target, with
+      // cracks shooting outwards, catching the foes around it.
+      const R = Math.max(28, e.foes.reduce((m, f) => Math.max(m, Math.hypot(f.x - e.tx, f.y - e.ty)), 0) + 12);
+      ctx.globalAlpha = fade * 0.9; ctx.strokeStyle = e.color; ctx.lineWidth = 6 * fade + 1;
+      ctx.beginPath(); ctx.ellipse(tx, ty + 8, R * (0.25 + t), R * (0.25 + t) * 0.55, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = fade * 0.25; ctx.fillStyle = '#ffd9a0';
+      ctx.beginPath(); ctx.ellipse(tx, ty + 8, R * (0.2 + t * 0.8), R * (0.2 + t * 0.8) * 0.55, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = fade; ctx.strokeStyle = '#fff1c4'; ctx.lineWidth = 2;
+      for (let i = 0; i < 6; i++) {
+        const a = i * Math.PI / 3 + 0.4, l = R * Math.min(1, t * 2.5) * 0.8;
+        ctx.beginPath(); ctx.moveTo(tx, ty + 8); ctx.lineTo(tx + Math.cos(a) * l, ty + 8 + Math.sin(a) * l * 0.55); ctx.stroke();
+      }
+    } else if (e.style === 'flurry') {
+      // Quick blades: a rapid criss-cross of short cuts on the target and on
+      // every foe caught, each cut snapping in after the last.
+      for (const [k, f] of [{ x: e.tx, y: e.ty }, ...e.foes].entries()) {
+        const fx = f.x - ox, fy = f.y - oy;
+        for (let i = 0; i < 3; i++) {
+          const d = Math.max(0, Math.min(1, (t - i * 0.12 - k * 0.05) / 0.2));
+          if (d <= 0) continue;
+          const a = (i % 2 ? 0.7 : -0.7) + k, len = 20;
+          const cx = Math.cos(a) * len / 2, cy = Math.sin(a) * len / 2;
+          ctx.globalAlpha = fade; ctx.strokeStyle = '#fff6d8'; ctx.lineWidth = 2.5;
+          ctx.beginPath(); ctx.moveTo(fx - cx, fy - cy); ctx.lineTo(fx - cx + 2 * cx * d, fy - cy + 2 * cy * d); ctx.stroke();
+          ctx.globalAlpha = fade * 0.4; ctx.strokeStyle = e.color; ctx.lineWidth = 6;
+          ctx.beginPath(); ctx.moveTo(fx - cx, fy - cy); ctx.lineTo(fx - cx + 2 * cx * d, fy - cy + 2 * cy * d); ctx.stroke();
+        }
+      }
+    } else {
+      // Swords: a crescent slash across the target and each foe caught.
+      for (const [k, f] of [{ x: e.tx, y: e.ty }, ...e.foes].entries()) {
+        ctx.save();
+        ctx.translate(f.x - ox, f.y - oy);
+        ctx.rotate(-0.6 + k * 0.9 + (t - 0.5) * 2.1);
+        ctx.globalAlpha = fade * 0.9; ctx.strokeStyle = e.color; ctx.lineWidth = 3.2 - t * 1.8;
+        ctx.beginPath(); ctx.arc(0, 0, 14, -0.8, 0.8); ctx.stroke();
+        ctx.globalAlpha = fade * 0.35; ctx.lineWidth = 7 - t * 4;
+        ctx.beginPath(); ctx.arc(0, 0, 14, -0.55, 0.55); ctx.stroke();
+        ctx.restore();
+      }
+    }
+    ctx.restore();
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+  }
+
   _drawProjectiles(ox, oy) {
     const { ctx, game } = this;
     for (const e of game.effects) {
@@ -462,6 +551,7 @@ export class Renderer {
         ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
         continue;
       }
+      if (e.type === 'cleave') { this._drawCleave(e, ox, oy); continue; }
       if (e.type === 'swipe') {
         // Brawler crit: three claw-like swipe marks raked across the monster,
         // drawn in quickly one after another, then fading.

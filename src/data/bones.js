@@ -22,7 +22,7 @@ export const boneXp = (id) => ITEMS[id]?.prayerXp || 0;
 export const BONE_IDS = Object.keys(ITEMS).filter(isBone).sort((a, b) => boneXp(a) - boneXp(b));
 export const countBones = (inv) => BONE_IDS.reduce((t, id) => t + inv.count(id), 0);
 
-export const CHAMPION_BONE_KILLS = 10;   // a champion is worth ~ten ordinary kills of its band
+export const CHAMPION_BONE_KILLS = 30;   // a champion is worth ~thirty ordinary kills of its band (its life is 30x)
 export const championBoneQty = (tier) => Math.max(1, Math.round(CHAMPION_BONE_KILLS * boneXp(boneForTier(tier)) / boneXp('champion_bones')));
 // Titan bones per boss kill: at least two, more for the bigger bosses.
 export function bossBoneQty(tier) { const min = Math.max(2, Math.round((tier || 1) / 30)); return { min, max: min + 2 }; }

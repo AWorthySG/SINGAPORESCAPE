@@ -158,10 +158,22 @@ const RIFLE_PIERCE_TILES = 10;
 // ...and the round's wake also catches anything within 1 tile to either side of
 // its path (and beside the target), not just monsters squarely on the line.
 const RIFLE_PIERCE_WIDTH = 1;
-// Champions have 10x the life they used to (30x a monster, down from 150x), so
-// their loot is trimmed to match: stackables x10, 4 table rolls, the rare table
-// once and a few upgrade stones.
-const CHAMPION_STACK_MULT = 10;
+const CHAMPION_STACK_MULT = 1;
+// How each melee weapon's cleave moves (and looks): spears pierce in a line
+// through the target, heavy blades sweep a wide arc, blunt weapons slam a
+// shockwave, quick blades flurry, and swords slash a crescent.
+export const CLEAVE_STYLE = {
+  spear: 'pierce',
+  battleaxe: 'sweep', '2h_sword': 'sweep', halberd: 'sweep', parang: 'sweep', longsword: 'sweep',
+  mace: 'slam', warhammer: 'slam', toya: 'slam', cane: 'slam',
+  dagger: 'flurry', claws: 'flurry', scimitar: 'flurry', kerambit: 'flurry',
+  sword: 'arc', katana: 'arc',
+};   // (was 10; champions now roll a normal kill's loot many times instead)
+// A champion has CHAMPION_HP_MULT (30) times a normal monster's life, so it drops
+// what that many normal kills of its kind would: it rolls the monster's own loot
+// (table, rare table, upgrade stones) this many times, as a normal kill would,
+// on top of its champion extras (champion bones, a 50% accessory, a 10% ward).
+const CHAMPION_LOOT_KILLS = 30;
 
 // Share of fired arrows recovered after the shot.
 const ARROW_RECOVERY = 0.8;
@@ -1956,17 +1968,29 @@ export class Game {
     this._abCleave = 1;
     if (!share) return;
     const p = this.player, reach = Math.max(1, this.attackRange());
+    const style = CLEAVE_STYLE[type] || 'arc';
+    // A spear's thrust runs in a line: from you through the target and up to
+    // two tiles past it, a tile wide (the line's direction, in tiles).
+    const vx = target.x - p.x, vy = target.y - p.y, vlen = Math.hypot(vx, vy) || 1;
     const caught = [];
     for (const o of this.nearbyNpcs()) {
       if (o === target || !o.alive || !o.attackable || o.ally || o.temporary || o.hp <= 0) continue;
       if (this._aoeSpares(o)) continue;     // bosses aren't dragged in
       const dt = chebyshev(o.x, o.y, target.x, target.y), dp = chebyshev(o.x, o.y, p.x, p.y);
+      if (style === 'pierce') {
+        const ux = o.x - p.x, uy = o.y - p.y;
+        const along = (ux * vx + uy * vy) / vlen, side = Math.abs(ux * vy - uy * vx) / vlen;
+        if (along <= 0 || along > vlen + 2.5 || side > 0.75) continue;
+        caught.push({ o, rank: along });   // nearest along the thrust first
+        continue;
+      }
       // Touching the target (the swing carries one tile past it), or crowding you.
       if (!((dt <= 1 && dp <= reach + 1) || dp <= 1)) continue;
       caught.push({ o, rank: (o.target === p ? 0 : 10) + dt });
     }
     caught.sort((a, b) => a.rank - b.rank);
     let n = 0;
+    const hitFoes = [];
     for (const { o } of caught.slice(0, 3)) {
       const c = this._aoeCrit(this._aoeShare(dmg * share, target, o));
       const d = Math.min(o.hp, c.dmg);
@@ -1975,13 +1999,30 @@ export class Game {
       for (const x of combatXp(this.player.style, d)) this.skills.addXp(x.skill, x.xp * this.combatXpMult());
       this.addHitsplat(o, d, { tint: '#ffb347', critX: c.critX });
       this.spawnHitSparks(o, '#ffd9a0');
-      this._slash(o, '#ffb347');   // the arc shows on each foe it catches
+      hitFoes.push(o);
       if (!o.target) o.target = this.player;
       if (o.hp <= 0) this.killNpc(o);
       n++;
     }
-    if (n) this._slash(target, '#ffb347');
+    if (n) this._cleaveFx(style, target, hitFoes);
     return n;
+  }
+
+  /** The cleave's look for its weapon kind (see CLEAVE_STYLE): a thrust streak
+   *  through the line, a wide arc swept around you, a shockwave slammed down on
+   *  the target, a flurry of cuts on every foe caught, or a crescent slash. */
+  _cleaveFx(style, target, foes) {
+    const pc = this.player.renderCenter(), tc = target.renderCenter();
+    const pts = foes.map((o) => o.renderCenter());
+    let ex = tc.x, ey = tc.y;
+    if (style === 'pierce') {   // the streak runs on to the furthest foe it skewered
+      for (const q of pts) if (Math.hypot(q.x - pc.x, q.y - pc.y) > Math.hypot(ex - pc.x, ey - pc.y)) { ex = q.x; ey = q.y; }
+    }
+    const reachPx = Math.max(TILE, ...[tc, ...pts].map((q) => Math.hypot(q.x - pc.x, q.y - pc.y)));
+    this.effects.push({ type: 'cleave', style, x: pc.x, y: pc.y - 6, tx: tc.x, ty: tc.y - 6, ex, ey: ey - 6,
+      r: reachPx, foes: pts.map((q) => ({ x: q.x, y: q.y - 6 })), color: '#ffb347',
+      life: style === 'slam' ? 340 : 260, maxLife: style === 'slam' ? 340 : 260 });
+    if (style === 'slam') this.addShake(2.5, 180);
   }
 
   _perkSplash(from, dmg) {
@@ -2625,13 +2666,16 @@ export class Game {
       loot.push([rareBone, q, 'epic']);
       this.msg(`A rare drop! ${q > 1 ? q + ' x ' : ''}${getItem(rareBone).name}.`, 'level');
     }
+    // A champion's loot is CHAMPION_LOOT_KILLS normal kills' worth of its monster.
+    const kills = npc.champion && !def.boss ? CHAMPION_LOOT_KILLS : 1;
     if (def.dropTable && def.dropTable.length) {
-      // Champions roll their table eight times, bosses ten, and neither comes up empty.
-      const rolls = def.boss ? 10 : npc.champion ? 4 : 1;
-      const normal = !def.boss && !npc.champion;
+      // Bosses roll their table ten times and never come up empty; champions roll
+      // it once per normal kill they're worth, by a normal monster's rules.
+      const rolls = def.boss ? 10 : kills;
+      const normal = !def.boss;
       for (let r = 0; r < rolls; r++) {
         let pick = weightedPick(def.dropTable);
-        if (npc.champion || def.boss) for (let k = 0; pick.nothing && k < 5; k++) pick = weightedPick(def.dropTable);
+        if (def.boss) for (let k = 0; pick.nothing && k < 5; k++) pick = weightedPick(def.dropTable);
         // Normal monsters drop gear much less often: most gear rolls become something else.
         // (Amulets, rings and capes are exempt, so accessories stay easy to find.)
         if (normal && !pick.nothing && getItem(pick.id).equip && !getItem(pick.id).equip.style && Math.random() < NORMAL_GEAR_SKIP) {
@@ -2646,9 +2690,9 @@ export class Game {
       }
     }
     // Rare drop table — small base chance, much higher for bosses, champions & high levels.
-    const rareChance = def.boss || npc.champion ? 1 : Math.min(0.5, (def.tierLevel || def.level || 1) / 1200 + 0.01);
-    // Bosses always hit the rare table five times, champions once.
-    for (let rr = 0; rr < (def.boss ? 5 : 1); rr++) if (Math.random() < rareChance) {
+    const rareChance = def.boss ? 1 : Math.min(0.5, (def.tierLevel || def.level || 1) / 1200 + 0.01);
+    // Bosses always hit the rare table five times; champions get a normal kill's chance per kill they're worth.
+    for (let rr = 0; rr < (def.boss ? 5 : kills); rr++) if (Math.random() < rareChance) {
       const pick = weightedPick(RARE_DROP_TABLE);
       const q = pick.min ? randInt(pick.min, pick.max) : 1;
       loot.push([pick.id, q, dropRarity(pick.id, 'rare')]);
@@ -2670,8 +2714,14 @@ export class Game {
       }
     }
     // Upgrade materials: stones from anything (bosses and champions most), wards from bosses.
-    const stoneChance = def.boss || npc.champion ? 1 : Math.min(0.12, 0.03 + (def.tierLevel || def.level || 1) / 2500);
-    if (Math.random() < stoneChance) loot.push([UP_STONE, def.boss ? randInt(20, 50) : npc.champion ? randInt(2, 5) : 1, def.boss || npc.champion ? 'rare' : 'common']);
+    if (def.boss) loot.push([UP_STONE, randInt(20, 50), 'rare']);
+    else {
+      const stoneChance = Math.min(0.12, 0.03 + (def.tierLevel || def.level || 1) / 2500);
+      let stones = 0;
+      for (let k = 0; k < kills; k++) if (Math.random() < stoneChance) stones++;
+      if (npc.champion) stones = Math.max(2, stones);   // a champion always leaves a couple
+      if (stones) loot.push([UP_STONE, stones, npc.champion ? 'rare' : 'common']);
+    }
     if (def.boss) loot.push([UP_WARD, randInt(1, 3), 'epic']);
     else if (Math.random() < (npc.champion ? 0.1 : 0)) loot.push([UP_WARD, 1, 'epic']);
     // Treasure trails: a rare clue scroll, if you aren't already carrying one.
@@ -2698,6 +2748,16 @@ export class Game {
     const stackMult = def.boss ? BOSS_STACK_MULT : npc.champion ? CHAMPION_STACK_MULT : 1;
     if (stackMult > 1) for (const l of loot) if (l[0] !== UP_STONE && getItem(l[0]).stackable) l[1] *= stackMult;
     for (const l of loot) if (l[0] === 'coins') l[1] = Math.round(l[1] * COIN_LOOT_MULT);
+    // A champion's many rolls: stack repeats of the same stackable into one pile.
+    if (kills > 1) {
+      const piles = new Map();
+      for (let i = loot.length - 1; i >= 0; i--) {
+        const l = loot[i];
+        if (!getItem(l[0]).stackable) continue;
+        const first = piles.get(l[0]);
+        if (first) { first[1] += l[1]; loot.splice(i, 1); } else piles.set(l[0], l);
+      }
+    }
     // Gear quality: a head start of upgrade levels for that item type.
     for (const l of loot) {
       if (!getItem(l[0]).equip) continue;
