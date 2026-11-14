@@ -1,6 +1,6 @@
 import { EventBus } from '../core/events.js';
 import { buildWorld, TERRAIN, zoneLevel } from '../data/world.js';
-import { compareGear, deltaText, gearRating, effectiveRating, weaponStyle } from './gear.js';
+import { compareGear, deltaText, gearRating, effectiveRating, offenceFirstScore, weaponStyle } from './gear.js';
 import { RARITY, dropRarity, lootDelay, rollQuality, QUALITY, NORMAL_GEAR_SKIP } from './loot.js';
 import { dayKey, prevDayKey, makeBounties, streakMult } from './bounty.js';
 import { ATTRS, ATTR_NAMES, statPointsAt, attrForMode, DMG_PER_POINT, LIFE_PER_STR, CRIT_PER_INT, SPEED_PER_DEX, RESET_COST_PER_POINT } from './attributes.js';
@@ -4295,7 +4295,8 @@ export class Game {
     // Scores include each piece's mastery and enchant lines and count only the
     // stats your fighting style uses, so a Legendary iron sword can beat a plain mithril one.
     const mode = this.combatMode();
-    const score = (id) => effectiveRating(id, this.equipment, mode);
+    // Offensive stats first: damage decides, Defence and HP only break a tie.
+    const score = (id) => offenceFirstScore(id, this.equipment, mode);
     for (let guard = 0; guard < 30; guard++) {
       let best = null;
       this.inventory.slots.forEach((s, i) => {

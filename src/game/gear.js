@@ -46,16 +46,32 @@ export function swingBeats(id) {
  *  counting only the attack stats your fighting style uses (a melee amulet is
  *  worth nothing to an archer but its Defence). Weapons count damage per beat. */
 export function effectiveRating(id, equipment, mode = 'melee') {
+  const { offence, support } = effectiveParts(id, equipment, mode);
+  return offence + support;
+}
+
+/** The two halves of effectiveRating: what a piece adds to your damage (for
+ *  your style: its attack stat, crit, pierce, speed, lifesteal and damage
+ *  bonuses; weapons per swing beat) and what it adds to staying alive
+ *  (Defence, bonus HP). Equip best ranks by offence first (see offenceFirstScore). */
+export function effectiveParts(id, equipment, mode = 'melee') {
   const eq = getItem(id).equip;
-  if (!eq) return 0;
+  if (!eq) return { offence: 0, support: 0 };
   const b = equipment.itemBonuses ? equipment.itemBonuses(id) : (eq.bonuses || {});
   const offence = mode === 'ranged' ? (b.ranged || 0) : mode === 'magic' ? (b.magic || 0) + (b.magicStr || 0) * 8
     : mode === 'dance' ? (b.dance || 0) * 2 : (b.attack || 0) + (b.strength || 0);
   const styleOk = !eq.style || eq.style === (mode === 'dance' ? 'melee' : mode);
   const extras = styleOk ? (b.crit || 0) * 2 + (b.pierce || 0) * 2 + (b.critDmg || 0) * 0.5 + (b.haste || 0) * 3 + (b.lifesteal || 0) * 3 + (b.bossDmg || 0) + (b.atkPct || 0) * 2 + (b.magPct || 0) * 2 : 0;
   const support = (b.defence || 0) + (b.hp || 0);
-  if (eq.slot === 'weapon') return Math.round((offence * 2) / swingBeats(id)) + support + extras;
-  return offence + support + extras;
+  if (eq.slot === 'weapon') return { offence: Math.round((offence * 2) / swingBeats(id)) + extras, support };
+  return { offence: offence + extras, support };
+}
+
+/** Equip best's score: offence decides, and Defence and HP only break a tie,
+ *  so a piece that hits harder always wins over a sturdier one. */
+export function offenceFirstScore(id, equipment, mode = 'melee') {
+  const { offence, support } = effectiveParts(id, equipment, mode);
+  return offence * 1e6 + support;
 }
 
 /** A single "how good is this" number. Weapons count damage per swing beat, so
