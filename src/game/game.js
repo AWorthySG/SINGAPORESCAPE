@@ -141,6 +141,10 @@ const BOSS_SCALE_MAX = 100;
 // Agility XP for slipping a monster's blow: this many times its max hit (about
 // what landing an average hit of that size would give a fighting skill).
 export const DODGE_AGILITY_XP = 2;
+// Shortbows fire this many arrows a shot, each at this share of a full arrow's
+// damage: about half as much again as one arrow, for half the old reach.
+export const SHORTBOW_ARROWS = 3;
+export const SHORTBOW_ARROW_DMG = 0.5;
 // ...or this share of what killing the monster pays (3 XP per point of its
 // life), whichever is more, so dodging keeps pace with kill XP as you climb.
 export const DODGE_KILL_SHARE = 0.04;
@@ -2089,19 +2093,24 @@ export class Game {
     const fancy = mods.spec || mods.ability;
     this._swingToward(this.player, npc.x, npc.y);
     let total = 0, raw = 0;   // raw: before crits, for the ricochet
-    for (let i = 0; i < mods.hits && npc.hp > 0; i++) {
+    // A shortbow looses a spread of three arrows each shot, each at SHORTBOW_ARROW_DMG
+    // of a full arrow (half its old reach is the trade, see items.js).
+    const spread = wpn.weaponType === 'shortbow' ? SHORTBOW_ARROWS : 1;
+    const arrowDmg = spread > 1 ? SHORTBOW_ARROW_DMG : 1;
+    const shots = mods.hits * spread;
+    for (let i = 0; i < shots && npc.hp > 0; i++) {
       if (noAmmo) { /* nothing to spend */ } else if (i > 0) { // extra shots consume extra arrows
         const ai = this._bestAmmoIdx();
         if (ai === -1) break;
         this._spendArrow(ai);
       } else { this._spendArrow(arrowIdx); }
-      const effMax = Math.max(1, Math.round(baseMax * mods.dmgM));
+      const effMax = Math.max(1, Math.round(baseMax * mods.dmgM * arrowDmg));
       let dmg = mods.guaranteed ? rollGuaranteed(effMax)
         : wpn.weaponType === 'rifle' ? randInt(Math.max(1, Math.floor(effMax / 4)), effMax)   // sniper rounds always land
         : rollHit(effMax);
       raw += dmg;
       const c = this._critHit(dmg, mods.critCh); dmg = c.dmg;
-      this._projectile(npc, (c.crit || fancy) ? '#ffd24a' : tint, shot, mods.hits > 1 ? i - (mods.hits - 1) / 2 : 0);
+      this._projectile(npc, (c.crit || fancy) ? '#ffd24a' : tint, shot, shots > 1 ? (i % (spread > 1 ? spread : shots)) - ((spread > 1 ? spread : shots) - 1) / 2 : 0);
       this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax) });
       if (dmg > 0) { this.spawnHitSparks(npc, (c.crit || fancy) ? '#ffd24a' : '#cfe0a0'); for (const x of combatXpRanged(style, dmg)) this.skills.addXp(x.skill, x.xp * this.combatXpMult()); }
       total += dmg;
