@@ -680,6 +680,10 @@ export class Game {
     let dx = (tx * TILE + TILE / 2) - c.x, dy = (ty * TILE + TILE / 2) - c.y;
     const m = Math.hypot(dx, dy) || 1;
     attacker.lungeDX = dx / m; attacker.lungeDY = dy / m;
+    // Your swing lasts about as long as the gap between your attacks (within
+    // 120-300ms), so each one finishes as the next begins instead of being cut
+    // off and restarted mid-lunge (fast attackers looked jittery).
+    if (attacker === this.player) attacker.swingDur = Math.max(120, Math.min(300, this.attackInterval() * COMBAT_BEAT_MS * 0.9));
     attacker.swing = attacker.swingDur || 240;
     // Turn to face the foe so the sprite isn't swinging backwards.
     if (Math.abs(dx) > 2) { attacker.facing = { dx: Math.sign(dx), dy: 0 }; attacker.noteFacing?.(); }
@@ -1384,7 +1388,7 @@ export class Game {
     const mods = this._offensiveMods(npc, 'melee');
     const fancy = mods.spec || mods.ability;
     this._slash(npc, fancy ? '#ffd24a' : '#eef2f6');
-    this.bus.emit('sfx', 'swish');
+    this.bus.emit('sfx', `atk:${this.weaponType() || 'unarmed'}`);   // each weapon kind has its own swing sound
     let total = 0, raw = 0;   // raw: before crits, so each cleaved foe rolls its own
     for (let i = 0; i < mods.hits && npc.hp > 0; i++) {
       const effMax = Math.max(1, Math.round(baseMax * mods.dmgM));
@@ -1843,7 +1847,7 @@ export class Game {
     const mods = this._offensiveMods(npc, 'dance');
     const fancy = mods.spec || mods.ability;
     this._swingToward(p, npc.x, npc.y);
-    this.bus.emit('sfx', 'swish');
+    this.bus.emit('sfx', `atk:${this.weaponType() || 'whip'}`);
     const range = this.attackRange();
     const targets = mods.ability?.sweep
       ? [npc, ...this.nearbyNpcs().filter((n) => n !== npc && n.alive && n.attackable && !n.temporary && n.hp > 0 && !this._aoeSpares(n) && chebyshev(p.x, p.y, n.x, n.y) <= range)]
@@ -2099,6 +2103,7 @@ export class Game {
     // A Merchant's every throw may call up an A-Worthling (a mirror image).
     if (this.jobClass === 'merchant') Mercs.onMerchantAttack(this);
     const shot = this._shotKind(wpn);
+    this.bus.emit('sfx', `atk:${wpn.weaponType || 'shortbow'}`);   // a twang, a crack, a pop, a whirr...
     const tint = wpn.coins ? '#f5b82e' : wpn.weaponType === 'pistol' ? '#ffe28a' : wpn.weaponType === 'shuriken' || wpn.weaponType === 'chakram' ? '#cfd8e6' : '#d9c45a';
     const style = this.player.rangedStyle;
     const { max } = playerRangedVsNpc(this.skills, this.equipment, style, npc.def, arrowStr);
@@ -2225,6 +2230,7 @@ export class Game {
     const c = this._critHit(dmg, mods.critCh); dmg = c.dmg;
     this._swingToward(this.player, npc.x, npc.y);
     this._projectile(npc, (c.crit || fancy) ? '#e0a0ff' : spell.tint, 'bolt');
+    this.bus.emit('sfx', `atk:${this.weaponType() || 'staff'}`);   // staves shimmer, wands sparkle, orbs hum
     this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax) });
     this.skills.addXp('magic', spell.xp * this.combatXpMult());
     if (dmg > 0) { const m = this.combatXpMult(); this.spawnHitSparks(npc, spell.tint); for (const x of magicXp(dmg)) this.skills.addXp(x.skill, x.xp * m); }
@@ -3493,14 +3499,7 @@ export class Game {
         case 'stun': this.playerStun = Math.max(this.playerStun, fx.ticks); break;
         case 'root': this.playerRoot = Math.max(this.playerRoot, fx.ticks); p.path = []; this.msg('You are held in place!', 'combat'); break;
         case 'pull': this._movePlayerNear(npc.x, npc.y, 1); break;
-        case 'knock': {
-          const dx = Math.sign(p.x - npc.x) || 1, dy = Math.sign(p.y - npc.y);
-          for (let d = fx.dist; d > 0; d--) {
-            const tx = p.x + dx * d, ty = p.y + dy * d;
-            if (this.world.inBounds(tx, ty) && !this.world.isBlocked(tx, ty)) { this._placePlayer(tx, ty); break; }
-          }
-          break;
-        }
+        case 'knock': break;   // bosses no longer throw you back (the owner asked for it gone); the rest of the move still lands
         case 'blink': {
           const t = this._nearestFree(p.x + (Math.sign(npc.x - p.x) || 1), p.y);
           if (t) { npc.x = npc.tx = t.x; npc.y = npc.ty = t.y; npc.path = []; this.spawnPoof(t.x * TILE + TILE / 2, t.y * TILE + TILE / 2, ab.color || '#ffffff'); }

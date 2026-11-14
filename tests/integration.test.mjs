@@ -3523,7 +3523,7 @@ test('MOBA attack and skill buttons: nearest lock-on, aimed skills, hold to keep
 test('races: every foe has one, weapons bite harder into some and are resisted by others', async () => {
   const { RACES, raceOf, WEAPON_VS_RACE, matchup } = await import('../src/data/races.js');
   const { NPCS } = await import('../src/data/npcs.js');
-  const { WEAPON_TYPES } = await import('../src/data/items.js');
+  const { ALL_WEAPON_TYPES: WEAPON_TYPES } = await import('../src/data/items.js');
   for (const [id, d] of Object.entries(NPCS)) if (d.attackable) assert.ok(RACES[raceOf(d, id)], `${id} has a race`);
   // Every weapon type has prey, and every race has at least two counters.
   for (const w of WEAPON_TYPES) assert.ok(WEAPON_VS_RACE[w]?.strong.length >= 2, `${w} is strong against two or more races`);
@@ -6054,4 +6054,33 @@ test('daggers poison and claws make foes bleed: stacks deal damage each second, 
   const mob = game.spawnNpc('goblin', p.x + 30, p.y + 2, { wander: 0 });
   Math.random = () => 0; game._woundFoe(mob, 1000); Math.random = rand;
   assert.ok(!mob.wounds, 'other weapons leave no wounds');
+});
+
+test('bosses no longer knock you back; every weapon kind has its own attack sound', async () => {
+  const { ALL_WEAPON_TYPES: WEAPON_TYPES } = await import('../src/data/items.js');
+  const { Sfx } = await import('../src/audio/sfx.js');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  const p = game.player;
+  const boss = game.spawnNpc('sand_scorpion_king', p.x + 1, p.y, { wander: 0 });
+  const x0 = p.x, y0 = p.y;
+  game._runBossAbility(boss, { name: 'Test', fx: [{ t: 'knock', dist: 4 }] });
+  assert.equal(p.x, x0); assert.equal(p.y, y0);
+  // Sounds: a stand-in audio context records every tone; each weapon kind plays something of its own.
+  const made = [];
+  const node = () => ({ connect() {}, start() {}, stop() {}, frequency: { setValueAtTime() {}, exponentialRampToValueAtTime() {} }, gain: { value: 0, setValueAtTime() {}, exponentialRampToValueAtTime() {} }, type: '' });
+  const ctx = { currentTime: 0, sampleRate: 8000, createOscillator: () => { const o = node(); made.push(o); return o; }, createGain: node,
+    createBuffer: (c, n) => ({ getChannelData: () => new Float32Array(n) }), createBufferSource: node };
+  const s = Object.create((Sfx || class {}).prototype);
+  s.ctx = ctx; s.master = node(); s.muted = false;
+  const sig = new Set();
+  for (const t of WEAPON_TYPES) {
+    made.length = 0; ctx.currentTime += 1;
+    s.play(`atk:${t}`);
+    assert.ok(made.length > 0, `${t} makes a sound`);
+    sig.add(made.map((o) => o.type).join(',') + made.length + t);
+  }
 });

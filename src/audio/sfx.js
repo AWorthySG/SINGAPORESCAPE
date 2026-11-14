@@ -124,7 +124,7 @@ export class Sfx {
     o.start(t); o.stop(t + dur + 0.03);
   }
 
-  _noise(dur, vol = 0.4) {
+  _noise(dur, vol = 0.4, t0 = 0) {
     if (!this.ctx) return;
     const n = Math.max(1, Math.floor(this.ctx.sampleRate * dur));
     const buf = this.ctx.createBuffer(1, n, this.ctx.sampleRate);
@@ -133,11 +133,58 @@ export class Sfx {
     const s = this.ctx.createBufferSource(); s.buffer = buf;
     const g = this.ctx.createGain(); g.gain.value = vol;
     s.connect(g); g.connect(this.master);
-    s.start(this.ctx.currentTime);
+    s.start(this.ctx.currentTime + t0);
+  }
+
+  /** Each weapon kind's attack sound, made from a few short tones and bursts
+   *  of noise (no sound files). Quick weapons are light and high, heavy ones low
+   *  and thumping, bows twang, guns pop and spells shimmer. */
+  _weapon(type) {
+    const T = (f, d, w, t0, v, s) => this._tone(f, d, w, t0, v, s), N = (d, v, t0) => this._noise(d, v, t0);
+    switch (type) {
+      case 'dagger': N(0.03, 0.12); T(1500, 0.05, 'sine', 0, 0.1, 700); break;
+      case 'kerambit': N(0.03, 0.12); T(1400, 0.04, 'sine', 0, 0.1, 700); T(1700, 0.04, 'sine', 0.05, 0.08, 800); break;
+      case 'claws': N(0.025, 0.14); N(0.025, 0.12, 0.045); N(0.025, 0.1, 0.09); T(2200, 0.03, 'triangle', 0, 0.05, 1400); break;
+      case 'scimitar': N(0.06, 0.14); T(1100, 0.07, 'sine', 0, 0.12, 450); break;
+      case 'sword': N(0.07, 0.15); T(900, 0.08, 'sine', 0, 0.12, 300); T(1900, 0.06, 'triangle', 0.03, 0.06); break;
+      case 'katana': N(0.04, 0.16); T(2100, 0.06, 'sine', 0, 0.12, 700); T(3000, 0.08, 'triangle', 0.02, 0.05); break;
+      case 'longsword': N(0.1, 0.16); T(700, 0.13, 'sine', 0, 0.13, 240); T(1500, 0.08, 'triangle', 0.05, 0.05); break;
+      case '2h_sword': N(0.15, 0.2); T(480, 0.18, 'sine', 0, 0.16, 140); break;
+      case 'parang': N(0.06, 0.2); T(320, 0.08, 'square', 0.02, 0.12, 110); break;
+      case 'battleaxe': N(0.08, 0.2); T(240, 0.1, 'square', 0.03, 0.16, 80); break;
+      case 'halberd': N(0.12, 0.17); T(520, 0.12, 'sine', 0, 0.12, 180); T(200, 0.08, 'square', 0.08, 0.12, 80); break;
+      case 'spear': N(0.05, 0.14); T(520, 0.08, 'triangle', 0, 0.14, 1200); break;
+      case 'mace': N(0.06, 0.22); T(140, 0.1, 'square', 0, 0.2, 60); break;
+      case 'warhammer': N(0.1, 0.26); T(95, 0.16, 'sawtooth', 0, 0.22, 40); break;
+      case 'toya': T(340, 0.06, 'triangle', 0, 0.2); T(260, 0.07, 'triangle', 0.05, 0.16); break;
+      case 'cane': T(760, 0.04, 'triangle', 0, 0.16); T(980, 0.05, 'triangle', 0.04, 0.12); break;
+      case 'whip': N(0.025, 0.3); T(2600, 0.04, 'sine', 0.02, 0.12, 900); break;
+      case 'fan': N(0.1, 0.08); T(600, 0.12, 'sine', 0, 0.1, 950); break;
+      case 'shortbow': T(460, 0.1, 'triangle', 0, 0.18, 320); N(0.03, 0.06); break;
+      case 'longbow': T(280, 0.18, 'triangle', 0, 0.2, 190); N(0.04, 0.07); break;
+      case 'crossbow': T(1300, 0.02, 'square', 0, 0.1); N(0.04, 0.16, 0.02); T(170, 0.08, 'square', 0.02, 0.14, 90); break;
+      case 'pistol': N(0.05, 0.3); T(320, 0.05, 'square', 0, 0.16, 90); break;
+      case 'rifle': N(0.13, 0.36); T(150, 0.13, 'sawtooth', 0, 0.2, 40); break;
+      case 'shuriken': T(1800, 0.06, 'sine', 0, 0.1, 2700); N(0.03, 0.06); break;
+      case 'chakram': T(700, 0.12, 'triangle', 0, 0.12, 1150); T(1150, 0.08, 'triangle', 0.06, 0.06, 700); break;
+      case 'staff': T(660, 0.14, 'sine', 0, 0.12, 990); T(1320, 0.1, 'triangle', 0.04, 0.05); break;
+      case 'wand': T(1200, 0.08, 'triangle', 0, 0.1, 1800); T(2400, 0.06, 'sine', 0.03, 0.04); break;
+      case 'orb': T(330, 0.18, 'sine', 0, 0.14, 440); T(660, 0.14, 'sine', 0.04, 0.05); break;
+      case 'unarmed': N(0.04, 0.18); T(200, 0.05, 'square', 0, 0.1, 100); break;
+      default: N(0.08, 0.16); T(900, 0.08, 'sine', 0, 0.12, 300);   // the old swish
+    }
   }
 
   play(name) {
     if (!this.ctx || this.muted) return;
+    if (name.startsWith('atk:')) {
+      // Very fast attackers would stack dozens of swings a second: one every 70ms is plenty.
+      const now = this.ctx.currentTime;
+      if (now - (this._lastAtk || 0) < 0.07) return;
+      this._lastAtk = now;
+      this._weapon(name.slice(4));
+      return;
+    }
     switch (name) {
       case 'hit': this._noise(0.05, 0.3); this._tone(190, 0.07, 'square', 0, 0.45, 90); break;
       case 'swish': this._noise(0.08, 0.16); this._tone(900, 0.08, 'sine', 0, 0.12, 300); break;
