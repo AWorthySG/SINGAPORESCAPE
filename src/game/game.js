@@ -164,7 +164,8 @@ export const HAZARD_DODGE_MULT = 3;
 // NPCs within this many tiles of the player (see nearbyNpcs): the world holds
 // thousands, and scanning them all on every hit was the main cause of lag.
 const NEAR_RADIUS = 60;
-const SPLAT_MERGE_MS = 120;   // hits on one foe this close together share one damage number
+const SPLAT_MERGE_MS = 200;   // hits on one foe this close together share one damage number (crits merge with crits)
+const SPLAT_MAX_PER = 5;      // damage numbers shown at once over one foe
 const RIFLE_PIERCE_TILES = 10;
 // ...and the round's wake also catches anything within 1 tile to either side of
 // its path (and beside the target), not just monsters squarely on the line.
@@ -638,8 +639,12 @@ export class Game {
       last.dmg += dmg;
       return;
     }
-    entity._splatN = ((entity._splatN || 0) + 1) % 3;
-    const fx = { type: 'hitsplat', entity, dmg, crit: !!opts.crit, critX: opts.critX || 0, text: opts.text, tint: opts.tint, aoe: !!opts.aoe, life: opts.critX ? 1400 : 1100, fan: entity._splatN - 1 };
+    // Five fan positions, so quick hits sit side by side instead of in a column,
+    // and at most SPLAT_MAX_PER numbers per foe: the oldest fades out early.
+    entity._splatN = ((entity._splatN || 0) + 1) % 5;
+    const mine = this.effects.filter((e) => e.type === 'hitsplat' && e.entity === entity);
+    if (mine.length >= SPLAT_MAX_PER) for (const e of mine.slice(0, mine.length - SPLAT_MAX_PER + 1)) e.life = Math.min(e.life, 120);
+    const fx = { type: 'hitsplat', entity, dmg, crit: !!opts.crit, critX: opts.critX || 0, text: opts.text, tint: opts.tint, aoe: !!opts.aoe, life: opts.critX ? 1000 : 800, fan: (entity._splatN - 2) * 0.8 };
     fx.maxLife = fx.life;
     entity._lastSplat = fx;
     this.effects.push(fx);
