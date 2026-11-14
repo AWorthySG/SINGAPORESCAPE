@@ -1439,6 +1439,7 @@ button:focus-visible, .tab-btn:focus-visible, .chat-tab:focus-visible,
   color: #fff; background: var(--aw-sun-deep); border: 1.5px solid var(--aw-ink); border-radius: 999px; padding: 2px 4px;
 }
 #tooltip .gt-up { color: var(--aw-sun-deep); font-weight: 900; margin-top: 3px; }
+#tooltip .gt-sig { color: #b8860b; font-weight: 900; margin-top: 3px; }   /* boss signature weapons */
 .gear-stats .short { color: var(--aw-accent); font-weight: 800; }
 .gear-row .gear-tab:disabled { opacity: 0.45; cursor: not-allowed; }
 
@@ -1734,6 +1735,9 @@ body.boss-on #tip-toast { top: 132px; }
 }
 .bestiary-row .b-ability { font-size: 12px; color: var(--aw-text-sec, #625d54); margin: 2px 0 4px; line-height: 1.35; }
 .bestiary-row .b-ability b { color: var(--aw-accent, #c0392b); }
+.bestiary-row .b-sig { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--aw-text-sec, #625d54); margin: 2px 0 4px; }
+.bestiary-row .b-sig b { color: #b8860b; }
+.bestiary-row .b-sig.mine b { color: var(--aw-accent, #c0392b); }
 
 /* ---------- Passive perks ---------- */
 .perks-open { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; width: 100%; margin-bottom: 6px; padding: 7px 10px; cursor: pointer;

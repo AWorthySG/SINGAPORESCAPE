@@ -7,6 +7,7 @@
    ============================================================================ */
 import { CROPS, POTIONS } from '../data/trades.js';
 import { ABILITY_BY_ID } from '../data/abilities.js';
+import { ITEMS } from '../data/items.js';
   const OL = '#22304A';                 // A-Worthy navy ink outline
   // palettes
   const C = {
@@ -841,6 +842,15 @@ import { ABILITY_BY_ID } from '../data/abilities.js';
     dragon_bones: 'sepia(1) hue-rotate(-40deg) saturate(3)', fiend_bones: 'sepia(1) hue-rotate(250deg) saturate(2) brightness(.7)',
     legend_bones: 'sepia(.7) hue-rotate(-50deg) saturate(2.2) brightness(1.2)',
   })) { BORROW_ID[id] = 'bones'; BORROW_TINT[id] = tint; }
+  // Boss signature weapons borrow their base weapon's sticker, gilded and tinted
+  // a hue of their own, so they stand out from the plain weapon they're built on.
+  for (const [id, it] of Object.entries(ITEMS)) {
+    if (!it.signature) continue;
+    const base = it.signature.base;
+    BORROW_ID[id] = ITEM_ART.has(base) ? base : BORROW_ID[base] || base;
+    BORROW_TINT[id] = `sepia(.35) saturate(1.8) hue-rotate(${it.signature.hue}deg) brightness(1.06) drop-shadow(0 0 1.5px #F5B82E)`;
+    if (!I[id]) I[id] = I[base];
+  }
   function hueOf(hex) {
     const n = parseInt(hex.slice(1), 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
     const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;

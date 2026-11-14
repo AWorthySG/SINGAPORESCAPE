@@ -12,6 +12,7 @@
 //   tags       misc tags (e.g. 'log' for firemaking, 'raw' for cooking)
 
 import { CROPS, POTIONS } from './trades.js';
+import { signatureWeapons } from './bossWeapons.js';
 
 const RAW = {
   // ---- Currency ----
@@ -896,6 +897,12 @@ function classifyWeapon(id, eq) {
   if (/_cane$/.test(id)) return 'cane';
   return MELEE_FAMILIES.find((f) => id.endsWith('_' + f)) || null;
 }
+// Boss signature weapons (see bossWeapons.js): one per boss, each a stronger
+// copy of its class's plain weapon at the boss's tier. Added before the weapons
+// are classified, so they get their type's usual stat and attack speed too.
+const _SIG = signatureWeapons(RAW, classifyWeapon, new Set(Object.keys(UNIQUE_TYPE)));
+Object.assign(RAW, _SIG.items);
+Object.assign(UNIQUE_TYPE, _SIG.types);
 // Shortbows are close-range bows: a quarter of the reach they had (the
 // longbow keeps its long reach), but every shot looses a spread of three
 // arrows (see SHORTBOW_ARROWS in game.js).
@@ -957,6 +964,7 @@ const OFFENCE_EXTRA = {
   slayer_helmet: { bossDmg: 6, critDmg: 4 }, champions_helm: { bossDmg: 4, pierce: 2 }, blessed_halo: { lifesteal: 1, bossDmg: 2 },
   kampong_gauntlets: { pierce: 2, critDmg: 3 }, island_aegis: { lifesteal: 1 },
 };
+Object.assign(OFFENCE_EXTRA, _SIG.extras);   // each signature weapon's two extras
 for (const [id, extra] of Object.entries(OFFENCE_EXTRA)) {
   const eq = RAW[id]?.equip;
   if (!eq) continue;

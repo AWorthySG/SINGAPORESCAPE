@@ -19,6 +19,7 @@ import * as Hawker from '../game/hawker.js';
 import { buildReport, verifyReport } from '../game/report.js';
 import { getDialogue } from '../data/dialogue.js';
 import { ALL_MONSTER_IDS as MONSTER_IDS, ALL_BOSS_IDS as BOSS_IDS, getNpc } from '../data/npcs.js';
+import { SIGNATURE_CLASS, sigIdFor } from '../data/bossWeapons.js';
 import { levelProgress, xpToNext, MAX_LEVEL, maxLevelFor } from '../data/xp.js';
 import { stackLabel, capitalize, formatNumber } from '../core/utils.js';
 import { RHYTHM_MAX, levelBonuses, playerMagicVsNpc } from '../game/combat.js';
@@ -900,7 +901,10 @@ export class UI {
     const req = meetsReq(id, this.game.skills);
     const reqTxt = Object.entries(eq.req || {}).filter(([, l]) => l > 1).map(([k, l]) => `${capitalize(k)} ${l}`).join(', ');
     const rk = this.game.equipment.masteryRank(id), lines = this.game.equipment.enchantLines(id);
-    let html = (rk ? `<div class="gt-up">${MASTERY_RANKS[rk].name} mastery</div>` : '')
+    // A boss's signature weapon: whose it is and which class it's made for.
+    const sig = getItem(id).signature;
+    let html = (sig ? `<div class="gt-sig">Signature weapon of ${escapeHtml(getNpc(sig.boss).name)} · for ${escapeHtml(CLASS_BY_ID[sig.classId].name)}</div>` : '')
+      + (rk ? `<div class="gt-up">${MASTERY_RANKS[rk].name} mastery</div>` : '')
       + (lines.length ? `<div class="gt-ench">Enchanted: ${lines.map(enchantLabel).join(' · ')}</div>` : '')
       + `<div class="gt-stats">${this._gearStats(id)}</div>`
       + `<div class="gt-tier">#${t.rank} of ${t.of} ${eq.slot === 'weapon' ? weaponStyle(id) + ' weapons' : eq.slot + ' items'}</div>`;
@@ -2322,7 +2326,10 @@ export class UI {
         const ws = weaponsFor(rid);
         const raceInfo = k ? `<div class="b-matchups"><span class="b-strong">Weak to: ${ws.strong.map(weaponTypeName).join(', ')}</span>${ws.weak.length ? `<span class="b-resist">Resists: ${ws.weak.map(weaponTypeName).join(', ')}</span>` : ''}</div>` : '';
         const abil = d.ability ? `<div class="b-ability"><b>${escapeHtml(d.ability.name)}:</b> ${escapeHtml(d.ability.desc)}</div>` : '';
-        row.innerHTML = `<div class="b-head"><b>${escapeHtml(d.name)}</b><span class="b-lvl">Lvl ${d.level}${d.boss ? ' · Boss' : ''}</span>${raceTag}${weak}<span class="b-kc">${k} kills</span></div>${raceInfo}${abil}<div class="b-drops">${dropHtml}</div>`;
+        // A boss's signature weapon, and the class it's made for (shown before the first kill, to hunt for).
+        const sigCls = SIGNATURE_CLASS[id] && CLASS_BY_ID[SIGNATURE_CLASS[id]], sid = sigIdFor(id);
+        const sig = sigCls ? `<div class="b-sig${sigCls.id === this.game.jobClass ? ' mine' : ''}">${itemIconSVG(sid, 20)}<b>${escapeHtml(getItem(sid).name)}</b> · signature weapon for ${escapeHtml(sigCls.name)}</div>` : '';
+        row.innerHTML = `<div class="b-head"><b>${escapeHtml(d.name)}</b><span class="b-lvl">Lvl ${d.level}${d.boss ? ' · Boss' : ''}</span>${raceTag}${weak}<span class="b-kc">${k} kills</span></div>${raceInfo}${abil}${sig}<div class="b-drops">${dropHtml}</div>`;
         list.appendChild(row);
       }
       if (!shown) { const e = document.createElement('div'); e.className = 'modal-hint'; e.textContent = 'No creatures match your search.'; list.appendChild(e); }
