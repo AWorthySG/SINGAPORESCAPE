@@ -1915,12 +1915,12 @@ test('night hunt boosts combat XP; big hits and kills trigger hit-stop', () => {
 test('gear mastery: kills train every worn item (1 a monster, 5 a champion, 25 a boss), ranks add stats, saved with the game', async () => {
   const M = await import('../src/game/mastery.js');
   // Rank thresholds and the stat gain at each rank.
-  assert.deepEqual(M.MASTERY_RANKS.map((r) => r.points), [0, 25, 100, 300, 800, 2000, 5000]);
+  assert.deepEqual(M.MASTERY_RANKS.map((r) => r.points), [0, 250, 1000, 3000, 8000, 20000, 50000]);
   assert.deepEqual(M.MASTERY_RANKS.map((r) => r.name), ['Novice', 'Adept', 'Skilled', 'Expert', 'Master', 'Grandmaster', 'Legendary']);
-  assert.equal(M.rankFor(0), 0); assert.equal(M.rankFor(24), 0); assert.equal(M.rankFor(25), 1);
-  assert.equal(M.rankFor(799), 3); assert.equal(M.rankFor(800), 4); assert.equal(M.rankFor(1e9), 6);
-  assert.deepEqual(M.rankProgress(50), { rank: 1, next: 2, need: 50, frac: 1 / 3 });
-  assert.equal(M.rankProgress(5000).next, null);
+  assert.equal(M.rankFor(0), 0); assert.equal(M.rankFor(249), 0); assert.equal(M.rankFor(250), 1);
+  assert.equal(M.rankFor(7999), 3); assert.equal(M.rankFor(8000), 4); assert.equal(M.rankFor(1e9), 6);
+  assert.deepEqual(M.rankProgress(500), { rank: 1, next: 2, need: 500, frac: 1 / 3 });
+  assert.equal(M.rankProgress(50000).next, null);
   assert.deepEqual(M.masteryBonuses({ attack: 100, speed: 4, haste: 3 }, 0), { attack: 100, speed: 4, haste: 3 });
   assert.equal(M.masteryBonuses({ attack: 100 }, 1).attack, 110);
   assert.equal(M.masteryBonuses({ attack: 100 }, 3).attack, 145);
@@ -1944,8 +1944,10 @@ test('gear mastery: kills train every worn item (1 a monster, 5 a champion, 25 a
   mob.champion = true; kill(mob); mob.champion = false;
   assert.equal(g.equipment.masteryPoints(w), 6, 'a champion is worth 5');
   const boss = g.npcs.find((n) => n.def.boss);
+  const adept = M.MASTERY_RANKS[1].points;
+  g.equipment.mastery[w] = adept - 25;   // a boss kill short of Adept
   kill(boss);
-  assert.equal(g.equipment.masteryPoints(w), 31, 'a boss is worth 25');
+  assert.equal(g.equipment.masteryPoints(w), adept, 'a boss is worth 25');
   assert.equal(g.equipment.masteryRank(w), 1);
   assert.ok(chat.includes(`${ITEMS[w].name} reached Adept mastery!`), 'ranking up is announced');
   assert.ok(g.equipment.bonuses().attack > atk0, 'a rank raises your bonuses');
@@ -1956,7 +1958,7 @@ test('gear mastery: kills train every worn item (1 a monster, 5 a champion, 25 a
   // Saved and loaded.
   saveGame(g);
   const g2 = new Game(); g2.start(); loadGame(g2);
-  assert.equal(g2.equipment.masteryPoints(w), 32, 'mastery survives save/load');
+  assert.equal(g2.equipment.masteryPoints(w), adept + 1, 'mastery survives save/load');
 });
 
 test('enchanting: up to 3 lines for stones and coins, pick one of three offers, replace when full, reroll with a ward', async () => {
@@ -2032,7 +2034,7 @@ test('mastery and enchantments add up in your bonuses, and an attack speed line 
   const w = g.equipment.get('weapon');
   const base = ITEMS[w].equip.bonuses;
   const b0 = g.equipment.bonuses(), speed0 = g.equipment.weaponSpeed();
-  g.equipment.mastery[w] = 2000;   // Grandmaster: +100%
+  g.equipment.mastery[w] = 20000;   // Grandmaster: +100%
   g.equipment.enchants[w] = [{ stat: 'crit', value: 4 }, { stat: 'haste', value: 50 }];
   const ib = g.equipment.itemBonuses(w);
   assert.equal(ib.attack, base.attack + Math.max(5, Math.round(base.attack * 1.0)));
@@ -2475,11 +2477,11 @@ test('Dancer: combat XP is split between Agility and Ranged, and both power the 
 test('old saves: upgrade levels and refine stars become mastery and free enchant lines', async () => {
   const M = await import('../src/game/mastery.js');
   // The old gains: +5 = 0.40 (Skilled, 0.25), +15 & ★15 = 2.94 (Legendary), +1 = 0.08 (at least Adept).
-  assert.deepEqual(M.migrateOld('bronze_scimitar', 5, 0), { points: 100, lines: [] });
-  assert.equal(M.migrateOld('bronze_scimitar', 1, 0).points, 25);
-  assert.equal(M.migrateOld('bronze_scimitar', 10, 0).points, 800, '+10 = 0.90: Master');
+  assert.deepEqual(M.migrateOld('bronze_scimitar', 5, 0), { points: 1000, lines: [] });
+  assert.equal(M.migrateOld('bronze_scimitar', 1, 0).points, 250);
+  assert.equal(M.migrateOld('bronze_scimitar', 10, 0).points, 8000, '+10 = 0.90: Master');
   const top = M.migrateOld('rune_scimitar', 15, 15);
-  assert.equal(top.points, 5000);
+  assert.equal(top.points, 50000);
   assert.equal(top.lines.length, 3, '★15 gives three lines');
   globalThis.localStorage = fakeStorage(); clearSave();
   const g = new Game(); g.start(); g.chooseClass('swordsman');
@@ -2495,7 +2497,7 @@ test('old saves: upgrade levels and refine stars become mastery and free enchant
   const g2 = new Game(); g2.start(); loadGame(g2);
   // +7 (0.60) and ★10 (0.64): 1.24 in all -> Grandmaster (1.00), and two lines for ten stars.
   assert.equal(g2.equipment.masteryRank(w), 5);
-  assert.equal(g2.equipment.masteryPoints(w), 2000);
+  assert.equal(g2.equipment.masteryPoints(w), 20000);
   assert.equal(g2.equipment.enchantLines(w).length, 2);
   for (const l of g2.equipment.enchantLines(w)) assert.ok(M.enchantPool(w).includes(l.stat) && l.value === M.enchantValue(w, l.stat));
   assert.equal(g2.equipment.masteryRank('iron_sword'), 1, 'any upgrade is at least Adept');
@@ -2506,14 +2508,14 @@ test('old saves: upgrade levels and refine stars become mastery and free enchant
   saveGame(g2);
   const after = JSON.parse(localStorage.getItem(SAVE_KEY)).equipment;
   assert.equal(after._upgrades, undefined); assert.equal(after._refines, undefined);
-  assert.equal(after._mastery[w], 2000);
+  assert.equal(after._mastery[w], 20000);
   const lines = g2.equipment.enchantLines(w).map((l) => ({ ...l }));
   const g3 = new Game(); g3.start(); loadGame(g3);
   assert.deepEqual(g3.equipment.enchantLines(w), lines);
   // An item that already has mastery is never converted again (mixed saves).
   const mixed = { ...after, _upgrades: { [w]: 15 }, _refines: { [w]: 15 } };
   g3.equipment.load(mixed);
-  assert.equal(g3.equipment.masteryPoints(w), 2000);
+  assert.equal(g3.equipment.masteryPoints(w), 20000);
 });
 
 test('Every monster drops twice the coins its table says', async () => {
@@ -4163,7 +4165,7 @@ test('Equip best in slot counts mastery and enchantments, and only the stats you
   g.inventory.add('iron_sword', 1); g.inventory.add('steel_sword', 1);
   g.equipBest();
   assert.equal(g.equipment.get('weapon'), 'steel_sword', 'plain for plain, the steel sword is better');
-  g.equipment.mastery.iron_sword = 5000;           // a Legendary iron sword beats a plain steel one
+  g.equipment.mastery.iron_sword = 50000;          // a Legendary iron sword beats a plain steel one
   g.equipBest();
   assert.equal(g.equipment.get('weapon'), 'iron_sword', 'the mastered sword wins');
   // Enchant lines count too: enough of them tip the steel sword back ahead.

@@ -22,14 +22,16 @@ const STATS = ['attack', 'strength', 'defence', 'ranged', 'magic', 'magicStr', '
 
 // gain: the total extra share of the item's base stats at that rank; abbr: the
 // short tag shown on item icons.
+// Auto battle racks up kills quickly (about 75 a minute at a good spot), so the
+// ranks are spread out: Adept in a few minutes, Legendary after many hours.
 export const MASTERY_RANKS = [
   { name: 'Novice', abbr: '', points: 0, gain: 0 },
-  { name: 'Adept', abbr: 'A', points: 25, gain: 0.10 },
-  { name: 'Skilled', abbr: 'S', points: 100, gain: 0.25 },
-  { name: 'Expert', abbr: 'E', points: 300, gain: 0.45 },
-  { name: 'Master', abbr: 'M', points: 800, gain: 0.70 },
-  { name: 'Grandmaster', abbr: 'GM', points: 2000, gain: 1.00 },
-  { name: 'Legendary', abbr: 'L', points: 5000, gain: 1.40 },
+  { name: 'Adept', abbr: 'A', points: 250, gain: 0.10 },
+  { name: 'Skilled', abbr: 'S', points: 1000, gain: 0.25 },
+  { name: 'Expert', abbr: 'E', points: 3000, gain: 0.45 },
+  { name: 'Master', abbr: 'M', points: 8000, gain: 0.70 },
+  { name: 'Grandmaster', abbr: 'GM', points: 20000, gain: 1.00 },
+  { name: 'Legendary', abbr: 'L', points: 50000, gain: 1.40 },
 ];
 export const MAX_RANK = MASTERY_RANKS.length - 1;
 /** From this rank up, ranking up earns a banner as well as a chat message. */
