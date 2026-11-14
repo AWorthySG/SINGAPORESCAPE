@@ -896,13 +896,13 @@ function classifyWeapon(id, eq) {
   if (/_cane$/.test(id)) return 'cane';
   return MELEE_FAMILIES.find((f) => id.endsWith('_' + f)) || null;
 }
-// Shortbows are close-range bows: half the reach they had (the longbow keeps
-// its long reach), but every shot looses a spread of three arrows (see
-// SHORTBOW_ARROWS in game.js).
-export const SHORTBOW_RANGE_MULT = 0.5;
+// Shortbows are close-range bows: a quarter of the reach they had (the
+// longbow keeps its long reach), but every shot looses a spread of three
+// arrows (see SHORTBOW_ARROWS in game.js).
+export const SHORTBOW_RANGE_MULT = 0.25;
 for (const [id, it] of Object.entries(RAW)) {
   if (it.equip?.slot === 'weapon' && !it.tool) it.equip.weaponType = classifyWeapon(id, it.equip);
-  if (it.equip?.weaponType === 'shortbow' && it.equip.range) it.equip.range = Math.max(4, Math.round(it.equip.range * SHORTBOW_RANGE_MULT));
+  if (it.equip?.weaponType === 'shortbow' && it.equip.range) it.equip.range = Math.max(3, Math.round(it.equip.range * SHORTBOW_RANGE_MULT));
 }
 
 // ---- Offensive stats on weapons, jewellery, capes and boss uniques ----
