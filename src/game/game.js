@@ -190,8 +190,6 @@ export const AGILITY_XP_DIV = 10;
 // A Mark of grace trades for this many zip-line crossings' worth of Agility XP.
 export const MARK_XP_CROSSINGS = 10;
 export const BONE_PRAYER_XP = getItem('bones').prayerXp;   // plain bones; every kind's XP is its item's prayerXp (bones.js)
-export const SPLIT_SHOT_LEVEL = 300;  // Ranged level at which every bow shot splits
-const SPLIT_SHOT_TARGETS = 3;       // ...into this many arrows, one per target
 
 // Alchemy: a utility spell cast on an inventory item.
 const ALCHEMY = { level: 21, xp: 65, runes: { nature_rune: 1, fire_rune: 5 } };
@@ -347,9 +345,6 @@ export class Game {
       if (perk) {
         this.msg(`New passive perk: ${perk.name}${perk.rank > 1 ? ` (Rank ${rankName(perk.rank)})` : ''}. ${perk.desc}.`, 'level');
         this.banner(`<span class="big">${perk.name}${perk.rank > 1 ? ' ' + rankName(perk.rank) : ''}</span>New passive perk: ${perk.desc}`);
-      }
-      if (p?.skill === 'ranged' && p.level === SPLIT_SHOT_LEVEL) {
-        this.msg('Split shot unlocked! Every bow shot now also fires at two more monsters in reach.', 'level');
       }
       // Advancing a combat skill invigorates you — restore some health.
       if (this.player.alive && COMBAT_SKILLS.has(p?.skill)) {
@@ -2077,40 +2072,9 @@ export class Game {
     if (mods.heal && total > 0) { this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.round(total * mods.heal * (npc.def?.hpScale || 1))); this.bus.emit('hp'); }
     this._abilityAoe(npc, raw, 'ranged');
     if (wpn.weaponType === 'rifle' && raw > 0) this._riflePierce(npc, raw, style);
-    this._mainCritCh = mods.critCh;   // split-shot arrows crit like the main shot
-    if (this.skills.ranged >= SPLIT_SHOT_LEVEL) this._splitShot(npc, style, pr);
     // Shots come as fast as the weapon and attack speed % allow (no floor).
     this._resetCooldown(this.attackInterval());
     this._postAttack(npc);
-  }
-
-  /** Split shot (Ranged 300+): each shot also looses an arrow at up to two other
-   *  monsters in reach, nearest first, so three targets are hit at once. */
-  _splitShot(main, style, pr) {
-    const p = this.player, range = this.attackRange();
-    const extra = this.nearbyNpcs()
-      .filter((n) => n !== main && n.alive && n.attackable && !n.temporary && n.hp > 0 && !this._aoeSpares(n) && chebyshev(p.x, p.y, n.x, n.y) <= range)
-      .sort((a, b) => chebyshev(p.x, p.y, a.x, a.y) - chebyshev(p.x, p.y, b.x, b.y))
-      .slice(0, SPLIT_SHOT_TARGETS - 1);
-    const wpn = getItem(this.equipment.get('weapon')).equip;
-    for (const n of extra) {
-      let arrowStr = Math.floor((wpn.bonuses.ranged || 0) / 3);
-      if (!wpn.noAmmo) {
-        const ai = this._bestAmmoIdx();
-        if (ai === -1) break;
-        arrowStr = getItem(this.inventory.slotAt(ai).id).arrowStr || 0;
-        this._spendArrow(ai);
-      }
-      const { max } = playerRangedVsNpc(this.skills, this.equipment, style, n.def, arrowStr);
-      const effMax = Math.max(1, Math.round(max * pr));
-      let dmg = rollHit(effMax);
-      const c = this._critHit(dmg, this._mainCritCh || 0); dmg = c.dmg;
-      this._projectile(n, '#9fe0ff', this._shotKind(wpn), 0);
-      this._applyPlayerHit(n, dmg, { crit: dmg > 0 && (c.crit || dmg >= effMax) });
-      if (dmg > 0) { this.spawnHitSparks(n, '#9fe0ff'); for (const x of combatXpRanged(style, dmg)) this.skills.addXp(x.skill, x.xp * this.combatXpMult()); }
-      if (!n.target) n.target = p;
-      if (n.hp <= 0) this.killNpc(n);
-    }
   }
 
   /** The strongest spell you can cast right now (level and runes), or null. */
