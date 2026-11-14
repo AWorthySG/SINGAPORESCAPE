@@ -900,9 +900,11 @@ function classifyWeapon(id, eq) {
 // longbow keeps its long reach), but every shot looses a spread of three
 // arrows (see SHORTBOW_ARROWS in game.js).
 export const SHORTBOW_RANGE_MULT = 0.25;
+// ...plus this many tiles (asked for 1.5; reach is counted in whole tiles, so 2).
+export const SHORTBOW_RANGE_ADD = 2;
 for (const [id, it] of Object.entries(RAW)) {
   if (it.equip?.slot === 'weapon' && !it.tool) it.equip.weaponType = classifyWeapon(id, it.equip);
-  if (it.equip?.weaponType === 'shortbow' && it.equip.range) it.equip.range = Math.max(3, Math.round(it.equip.range * SHORTBOW_RANGE_MULT));
+  if (it.equip?.weaponType === 'shortbow' && it.equip.range) it.equip.range = Math.max(3, Math.round(it.equip.range * SHORTBOW_RANGE_MULT)) + SHORTBOW_RANGE_ADD;
 }
 
 // ---- Offensive stats on weapons, jewellery, capes and boss uniques ----

@@ -143,6 +143,14 @@ export const DODGE_AGILITY_XP = 2;
 // Shortbows fire this many arrows a shot, each at this share of a full arrow's
 // damage: about half as much again as one arrow, for half the old reach.
 export const SHORTBOW_ARROWS = 3;
+// Wounds from blades: daggers poison, claws open bleeding wounds. On a blow,
+// `chance` to add a stack dealing `share` of that hit every second for `secs`
+// seconds, up to `stacks` at once.
+export const WOUNDS = {
+  poison: { chance: 0.35, share: 0.06, secs: 8, stacks: 5, color: '#6cc24a', label: 'Poisoned' },
+  bleed: { chance: 0.4, share: 0.1, secs: 4, stacks: 3, color: '#d23a3a', label: 'Bleeding' },
+};
+export const WOUND_BY_WEAPON = { dagger: 'poison', claws: 'bleed' };
 export const SHORTBOW_ARROW_DMG = 0.5;
 // ...or this share of what killing the monster pays (3 XP per point of its
 // life), whichever is more, so dodging keeps pace with kill XP as you climb.
@@ -844,6 +852,7 @@ export class Game {
     this.player.stepMul = this.playerStepMul() * (this._onRoad() ? ROAD_PACE : 1);   // Agility quickens your steps, and so do roads
     this._tickWorldBoss();
     this._tickIgnites();
+    this._tickWounds();
     if (this.killStreak && this.tickCount - this._lastKillTick > STREAK_WINDOW_TICKS) {
       this.msg(`Your kill streak of ${this.killStreak} ends.`, 'system');
       this.killStreak = 0; this.bus.emit('xpbonus');
@@ -1739,6 +1748,7 @@ export class Game {
   }
 
   _applyPlayerHit(npc, dmg, opts = {}) {
+    if (dmg > 0 && !opts.aoe) this._woundFoe(npc, dmg);   // daggers may poison, claws may make it bleed
     // A stunning class ability: the foe reels once the blow lands.
     if (this._abStun && dmg > 0) {
       const t = this._abStun; this._abStun = 0;
@@ -2261,6 +2271,53 @@ export class Game {
       }
     }
     if (xp) for (const x of magicXp(xp)) this.skills.addXp(x.skill, x.xp * m);
+  }
+
+  /** Daggers poison and claws open bleeding wounds: a chance on each blow
+   *  (WOUNDS) to add a stack that deals a share of that hit every second for a
+   *  while. Poison is slow and stacks deep; bleeding is shorter and sharper.
+   *  Both get past armour (the damage is already inside). */
+  _woundFoe(npc, hit) {
+    const kind = WOUND_BY_WEAPON[this.weaponType()];
+    if (!kind || !npc.alive || npc.hp <= 0) return;
+    const W = WOUNDS[kind];
+    if (Math.random() >= W.chance) return;
+    const w = npc.wounds || (npc.wounds = {});
+    const list = w[kind] || (w[kind] = []);
+    list.push({ perSec: Math.max(1, Math.round(hit * W.share)), left: W.secs });
+    if (list.length > W.stacks) list.sort((a, b) => b.perSec - a.perSec).length = W.stacks;   // keep the strongest
+    if (list.length === 1) this.spawnSparkle(npc, W.color, 5);
+  }
+
+  /** Poisoned and bleeding foes near the player take their wounds' damage once
+   *  a second (melee XP, like the blow that caused it) until the wounds run out. */
+  _tickWounds() {
+    const p = this.player, m = this.combatXpMult();
+    let xp = 0;
+    for (const n of this.nearbyNpcs()) {
+      const w = n.wounds;
+      if (!w) continue;
+      if (!n.alive || n.hp <= 0) { n.wounds = null; continue; }
+      w.acc = (w.acc || 0) + TICK_MS / 1000;
+      while (w.acc >= 1 && n.hp > 0) {
+        w.acc -= 1;
+        for (const kind of Object.keys(WOUNDS)) {
+          const list = w[kind];
+          if (!list?.length || n.hp <= 0) continue;
+          const d = Math.min(n.hp, list.reduce((t, s) => t + s.perSec, 0));
+          for (const s of list) s.left--;
+          w[kind] = list.filter((s) => s.left > 0);
+          n.takeDamage(d);
+          this.addHitsplat(n, d, { tint: WOUNDS[kind].color });
+          this.spawnSparkle(n, WOUNDS[kind].color, 2);
+          xp += d;
+          if (!n.target) n.target = p;
+          if (n.hp <= 0) { this.killNpc(n); n.wounds = null; }
+        }
+      }
+      if (n.wounds && !Object.keys(WOUNDS).some((k) => n.wounds[k]?.length)) n.wounds = null;
+    }
+    if (xp) for (const x of combatXp(p.style, xp)) this.skills.addXp(x.skill, x.xp * m);
   }
 
   /** Water's Tide: the foe moves and attacks slower for a few ticks (see NPC.slowTicks). */

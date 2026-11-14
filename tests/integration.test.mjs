@@ -2741,8 +2741,8 @@ test('bows shoot from far: each bow has its own reach, and arrows fly at a stead
   const game = new Game();
   game.start();
   game.chooseStartingStyle('ranged');
-  assert.equal(game.attackRange(), 3, 'a shortbow reaches 3 tiles (a quarter of its old 12)');
-  assert.equal(ITEMS.magic_shortbow.equip.range, 5);
+  assert.equal(game.attackRange(), 5, 'a shortbow reaches 5 tiles (a quarter of its old 12, plus 2)');
+  assert.equal(ITEMS.magic_shortbow.equip.range, 7);
   assert.ok(ITEMS.magic_longbow.equip.range > ITEMS.magic_shortbow.equip.range * 1.5, 'longbows keep their long reach');
   const near = game.spawnNpc('goblin', game.player.x + 2, game.player.y, { wander: 0 });
   const far = game.spawnNpc('goblin', game.player.x + 9, game.player.y, { wander: 0 });
@@ -6017,4 +6017,41 @@ test('a shortbow looses three arrows a shot; a longbow one', async () => {
   };
   assert.equal(count('shortbow'), SHORTBOW_ARROWS);
   assert.equal(count('longbow'), 1);
+});
+
+test('daggers poison and claws make foes bleed: stacks deal damage each second, then wear off', async () => {
+  const { WOUNDS } = await import('../src/game/game.js');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  game.ui = new Proxy({}, { get: () => () => {} });
+  const p = game.player;
+  const rand = Math.random;
+  const wound = (weapon, kind) => {
+    game.npcs = [];
+    game.equipment.set('weapon', weapon);
+    const mob = game.spawnNpc('goblin', p.x + 30, p.y, { wander: 0 }); mob.maxHp = mob.hp = 1e7; mob.def = { ...mob.def, aggressive: false };
+    Math.random = () => 0;   // every blow wounds
+    for (let i = 0; i < 10; i++) game._woundFoe(mob, 1000);
+    Math.random = rand;
+    assert.equal(mob.wounds[kind].length, WOUNDS[kind].stacks, `${kind} stacks up to ${WOUNDS[kind].stacks}`);
+    const hp0 = mob.hp;
+    for (let i = 0; i < 2; i++) game._tickWounds();
+    for (let i = 0; i < 3; i++) game._tickWounds();
+    assert.ok(mob.hp < hp0, `${kind} deals damage over time`);
+    const perSec = 1000 * WOUNDS[kind].share * WOUNDS[kind].stacks;
+    assert.ok(hp0 - mob.hp <= perSec * 2 + 1, 'about a second of wounds per two ticks');
+    for (let i = 0; i < 60; i++) game._tickWounds();
+    assert.equal(mob.wounds, null, `${kind} wears off`);
+    return mob;
+  };
+  wound('bronze_dagger', 'poison');
+  wound('bronze_claws', 'bleed');
+  // A sword wounds nothing.
+  game.equipment.set('weapon', 'bronze_sword');
+  const mob = game.spawnNpc('goblin', p.x + 30, p.y + 2, { wander: 0 });
+  Math.random = () => 0; game._woundFoe(mob, 1000); Math.random = rand;
+  assert.ok(!mob.wounds, 'other weapons leave no wounds');
 });

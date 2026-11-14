@@ -1258,7 +1258,9 @@ export class Renderer {
         ctx.font = '800 9px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
         // Race, how your weapon fares against it (▲ effective, ▼ resisted), and the style it's weak to.
         const r = RACES[raceOf(n.def, n.npcId)], m = game.raceMatchup(n);
-        const tag = `${r.name}${m === 'strong' ? ' ▲' : m === 'weak' ? ' ▼' : ''} · weak: ${weaknessOf(n.def)} · armour: ${armourTierOf(n.def)}`;
+        const wound = n.wounds?.poison?.length ? ` · poisoned ×${n.wounds.poison.length}` : '';
+        const bleed = n.wounds?.bleed?.length ? ` · bleeding ×${n.wounds.bleed.length}` : '';
+        const tag = `${r.name}${m === 'strong' ? ' ▲' : m === 'weak' ? ' ▼' : ''} · weak: ${weaknessOf(n.def)} · armour: ${armourTierOf(n.def)}${wound}${bleed}`;
         ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.lineWidth = 3; ctx.strokeText(tag, px, py);
         ctx.fillStyle = m === 'strong' ? '#ffd24a' : m === 'weak' ? '#c8ccd4' : '#9affd0'; ctx.fillText(tag, px, py);
       }
