@@ -5719,3 +5719,60 @@ test('touch: a quick second-finger tap clicks; play controls, long presses and m
   on.click({ isTrusted: true, target: tab, timeStamp: 1100, stopImmediatePropagation: () => { stopped = true; }, preventDefault() {} });
   assert.equal(clicks, 2); assert.ok(stopped, 'no double click');
 });
+
+test('auto battle "Targets: Nearest" really picks the closest; "Bosses & champions" switches mid-fight', async () => {
+  const { NPC } = await import('../src/game/npc.js');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  const p = game.player;
+  const mob = new NPC('goblin', p.x + 2, p.y, 0, {});
+  const champ = new NPC('goblin', p.x + 6, p.y, 0, {}); champ.makeChampion();
+  game.npcs = [mob, champ];
+  game.autoCfg.priority = false;
+  assert.equal(game._autoPickTarget(), mob, 'Nearest: the closer goblin, not the champion further off');
+  game.autoCfg.priority = true;
+  assert.equal(game._autoPickTarget(), champ, 'Bosses & champions: the champion');
+  // Mid-fight: fighting an ordinary goblin when a champion walks up switches to it.
+  game.npcs = [mob];
+  mob.maxHp = mob.hp = 99999; mob.def = { ...mob.def, aggressive: false, maxHit: 0 };
+  game.toggleAutoBattle(true);
+  step(game, 2);
+  assert.equal(p.action?.npc, mob, 'fighting the goblin');
+  champ.def = { ...champ.def, aggressive: false };
+  game.npcs.push(champ);
+  step(game, 4);
+  assert.equal(p.action?.npc, champ, 'switched to the champion that turned up');
+  // ...but "Nearest" keeps to the fight at hand.
+  game.toggleAutoBattle(false); p.clearAction();
+  game.autoCfg.priority = false;
+  game.toggleAutoBattle(true);
+  game.attackNpc(mob);
+  step(game, 4);
+  assert.equal(p.action?.npc, mob, 'Nearest: stays on the goblin');
+});
+
+test('dodging pays Agility XP in step with the monster; boss markers pay more', async () => {
+  const { DODGE_KILL_SHARE, HAZARD_DODGE_MULT } = await import('../src/game/game.js');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  game.isNight = () => false; game.killStreak = 0;
+  const p = game.player;
+  const weak = game.spawnNpc('goblin', p.x + 30, p.y, { wander: 0 });
+  const tough = game.spawnNpc('goblin', p.x + 31, p.y, { wander: 0 });
+  weak.maxHp = 100; tough.maxHp = 10000;
+  const gain = (fn) => { const x0 = game.skills.xp.agility || 0; fn(); return (game.skills.xp.agility || 0) - x0; };
+  const mult = game.combatXpMult();
+  const w = gain(() => game._dodgeXp(weak)), t = gain(() => game._dodgeXp(tough));
+  assert.ok(t > w * 20, `a tougher monster pays far more (${w} vs ${t})`);
+  // (the skill set applies the game's XP rate on top, so compare like with like)
+  const killShare = gain(() => game.skills.addXp('agility', Math.round(10000 * 3 * DODGE_KILL_SHARE * mult)));
+  assert.equal(t, killShare, 'a share of its kill XP');
+  const h = gain(() => game._dodgeXp(tough, HAZARD_DODGE_MULT));
+  assert.ok(Math.abs(h / t - HAZARD_DODGE_MULT) < 0.01, `a boss-marker dodge pays ${HAZARD_DODGE_MULT}x (${t} vs ${h})`);
+});
