@@ -2741,8 +2741,8 @@ test('bows shoot from far: each bow has its own reach, and arrows fly at a stead
   const game = new Game();
   game.start();
   game.chooseStartingStyle('ranged');
-  assert.equal(game.attackRange(), 6, 'a shortbow reaches 6 tiles (half its old 12)');
-  assert.equal(ITEMS.magic_shortbow.equip.range, 9);
+  assert.equal(game.attackRange(), 3, 'a shortbow reaches 3 tiles (a quarter of its old 12)');
+  assert.equal(ITEMS.magic_shortbow.equip.range, 5);
   assert.ok(ITEMS.magic_longbow.equip.range > ITEMS.magic_shortbow.equip.range * 1.5, 'longbows keep their long reach');
   const near = game.spawnNpc('goblin', game.player.x + 2, game.player.y, { wander: 0 });
   const far = game.spawnNpc('goblin', game.player.x + 9, game.player.y, { wander: 0 });
@@ -2761,20 +2761,20 @@ test('archers shoot from where they stand', () => {
   const p = game.player;
   game.npcs = game.npcs.filter((n) => Math.max(Math.abs(n.x - p.x), Math.abs(n.y - p.y)) > 25);
   const x0 = p.x, y0 = p.y;
-  const mob = game.spawnNpc('goblin', p.x + 5, p.y, { wander: 0 });
+  const mob = game.spawnNpc('goblin', p.x + 3, p.y, { wander: 0 });
   mob.def = { ...mob.def, aggressive: false }; mob.maxHp = mob.hp = 9999;
   game.attackNpc(mob);
   step(game, 6);
   assert.equal(p.x, x0, 'did not walk towards a target already in reach');
   assert.equal(p.y, y0);
-  assert.ok(mob.hp < 9999, 'and hit it from 5 tiles away');
+  assert.ok(mob.hp < 9999, 'and hit it from 3 tiles away');
   // Out of reach: walks only until in range, not right up to it.
-  const far = game.spawnNpc('goblin', p.x + 14, p.y, { wander: 0 });
+  const far = game.spawnNpc('goblin', p.x + 12, p.y, { wander: 0 });
   far.def = { ...far.def, aggressive: false }; far.maxHp = far.hp = 9999;
   game.attackNpc(far);
   // Measure where the archer stops (the goblin then ambles over to retaliate).
   for (let i = 0; i < 12 && (i < 1 || p.moving); i++) game.update(600);
-  assert.ok(Math.abs(far.x - p.x) >= 5, `stopped at range (${Math.abs(far.x - p.x)} tiles away)`);
+  assert.ok(Math.abs(far.x - p.x) >= 3, `stopped at range (${Math.abs(far.x - p.x)} tiles away)`);
 });
 
 test('ranged auto battle clears everything in reach before moving; bows drop often', async () => {

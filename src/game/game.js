@@ -622,14 +622,16 @@ export class Game {
     // Very fast attacks: hits landing on the same foe within 120ms of its last
     // number add into that number instead of each drawing its own, so a flurry
     // stays readable and cheap to draw. Text splats and crits keep their own.
+    // Area and splash hits (opts.aoe) are drawn apart from the main hit and
+    // never fold into it; a shortbow's three arrows (opts.noMerge) each show.
     const last = entity._lastSplat;
-    if (last && !opts.text && !last.text && dmg > 0 && last.dmg > 0 && !!opts.crit === last.crit && (opts.critX || 0) === last.critX
+    if (last && !opts.noMerge && !opts.text && !last.text && !!opts.aoe === !!last.aoe && dmg > 0 && last.dmg > 0 && !!opts.crit === last.crit && (opts.critX || 0) === last.critX
       && opts.tint === last.tint && last.life > last.maxLife - SPLAT_MERGE_MS && this.effects.includes(last)) {
       last.dmg += dmg;
       return;
     }
     entity._splatN = ((entity._splatN || 0) + 1) % 3;
-    const fx = { type: 'hitsplat', entity, dmg, crit: !!opts.crit, critX: opts.critX || 0, text: opts.text, tint: opts.tint, life: opts.critX ? 1400 : 1100, fan: entity._splatN - 1 };
+    const fx = { type: 'hitsplat', entity, dmg, crit: !!opts.crit, critX: opts.critX || 0, text: opts.text, tint: opts.tint, aoe: !!opts.aoe, life: opts.critX ? 1400 : 1100, fan: entity._splatN - 1 };
     fx.maxLife = fx.life;
     entity._lastSplat = fx;
     this.effects.push(fx);
@@ -1885,7 +1887,7 @@ export class Game {
       const c = this._aoeCrit(raw);
       const d = Math.min(o.hp, c.dmg);
       o.takeDamage(d);
-      this.addHitsplat(o, d, { tint: '#ffe28a', critX: c.critX });
+      this.addHitsplat(o, d, { aoe: true, tint: '#ffe28a', critX: c.critX });
       this.spawnHitSparks(o, '#ffe28a');
       for (const x of combatXpRanged(style, d)) this.skills.addXp(x.skill, x.xp * m);
       if (!o.target) o.target = p;
@@ -1911,7 +1913,7 @@ export class Game {
       const c = this._aoeCrit(this._aoeShare(raw, target, o));
       const d = Math.min(o.hp, c.dmg);
       o.takeDamage(d);
-      this.addHitsplat(o, d, { tint: '#ffb347', critX: c.critX });
+      this.addHitsplat(o, d, { aoe: true, tint: '#ffb347', critX: c.critX });
       this.spawnHitSparks(o, '#ffd9a0');
       const xp = mode === 'ranged' ? combatXpRanged(p.style, d) : mode === 'magic'
         ? magicXp(d) : mode === 'dance' ? combatXpDance(p.danceStyle, d) : combatXp(p.style, d);
@@ -1944,7 +1946,7 @@ export class Game {
       const d = Math.min(next.hp, c.dmg);
       this._lash(next, '#ff8ac0', prev);
       next.takeDamage(d);
-      this.addHitsplat(next, d, { tint: '#ff8ac0', critX: c.critX });
+      this.addHitsplat(next, d, { aoe: true, tint: '#ff8ac0', critX: c.critX });
       this.spawnHitSparks(next, '#ffb0d8');
       for (const x of combatXpDance(p.danceStyle, d)) this.skills.addXp(x.skill, x.xp * this.combatXpMult());
       if (stun && next.hp > 0) { next.windup = 0; next.attackCooldown = Math.max(next.attackCooldown || 0, stun * 2); this.addHitsplat(next, 0, { text: 'Stunned!' }); }
@@ -2001,7 +2003,7 @@ export class Game {
       o.takeDamage(d);
       // Cleave damage earns combat XP like any other hit.
       for (const x of combatXp(this.player.style, d)) this.skills.addXp(x.skill, x.xp * this.combatXpMult());
-      this.addHitsplat(o, d, { tint: '#ffb347', critX: c.critX });
+      this.addHitsplat(o, d, { aoe: true, tint: '#ffb347', critX: c.critX });
       this.spawnHitSparks(o, '#ffd9a0');
       hitFoes.push(o);
       if (!o.target) o.target = this.player;
@@ -2040,7 +2042,7 @@ export class Game {
     if (!other) return;
     const c = this._aoeCrit(this._aoeShare(dmg, from, other)); dmg = Math.min(other.hp, c.dmg);
     other.takeDamage(dmg);
-    this.addHitsplat(other, dmg, { tint: '#f5b82e', critX: c.critX });
+    this.addHitsplat(other, dmg, { aoe: true, tint: '#f5b82e', critX: c.critX });
     this.spawnHitSparks(other, '#ffe89a');
     if (!other.target) other.target = this.player;
     if (other.hp <= 0) this.killNpc(other);
@@ -2103,6 +2105,7 @@ export class Game {
         if (ai === -1) break;
         this._spendArrow(ai);
       } else { this._spendArrow(arrowIdx); }
+      this._shotAmmo = noAmmo ? null : this.inventory.slotAt(this._bestAmmoIdx())?.id || this._shotAmmo;   // the arrow being drawn
       const effMax = Math.max(1, Math.round(baseMax * mods.dmgM * arrowDmg));
       let dmg = mods.guaranteed ? rollGuaranteed(effMax)
         : wpn.weaponType === 'rifle' ? randInt(Math.max(1, Math.floor(effMax / 4)), effMax)   // sniper rounds always land
@@ -2110,7 +2113,7 @@ export class Game {
       raw += dmg;
       const c = this._critHit(dmg, mods.critCh); dmg = c.dmg;
       this._projectile(npc, (c.crit || fancy) ? '#ffd24a' : tint, shot, shots > 1 ? (i % (spread > 1 ? spread : shots)) - ((spread > 1 ? spread : shots) - 1) / 2 : 0);
-      this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax) });
+      this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax), noMerge: spread > 1 });   // each arrow of a spread shows its own number
       if (dmg > 0) { this.spawnHitSparks(npc, (c.crit || fancy) ? '#ffd24a' : '#cfe0a0'); for (const x of combatXpRanged(style, dmg)) this.skills.addXp(x.skill, x.xp * this.combatXpMult()); }
       total += dmg;
     }
@@ -2138,7 +2141,7 @@ export class Game {
         const c = this._aoeCrit(Math.max(1, Math.round(raw * rc.share)));
         const d = Math.min(o.hp, c.dmg);
         o.takeDamage(d);
-        this.addHitsplat(o, d, { tint: '#cfd8e6', critX: c.critX });
+        this.addHitsplat(o, d, { aoe: true, tint: '#cfd8e6', critX: c.critX });
         for (const x of combatXpRanged(style, d)) this.skills.addXp(x.skill, x.xp * this.combatXpMult());
         if (!o.target) o.target = p;
         if (o.hp <= 0) this.killNpc(o);
@@ -2174,7 +2177,7 @@ export class Game {
       const c = this._aoeCrit(dmg);
       const d = Math.min(o.hp, c.dmg);
       o.takeDamage(d);
-      this.addHitsplat(o, d, { tint: spell.tint, critX: c.critX });
+      this.addHitsplat(o, d, { aoe: true, tint: spell.tint, critX: c.critX });
       if (ELEMENTS[spell.element]?.slowTicks) this._slowFoe(o, ELEMENTS[spell.element].slowTicks);
       if (ELEMENTS[spell.element]?.ignite && d > 0) this._igniteFoe(o, d, ELEMENTS[spell.element].ignite);
       this.spawnHitSparks(o, spell.tint);
@@ -2348,7 +2351,9 @@ export class Game {
         : kind === 'shuriken' || kind === 'coin' ? Math.min(560, 120 + dist / 0.6) + Math.abs(spread) * 40
           : 240 + Math.abs(spread) * 40;
     this.effects.push({ type: 'projectile', kind, x: fx, y: from.y - 6 + off, ex: to.x, ey: to.y - 8 + off * 0.6, color, life, maxLife: life,
-      arc: kind === 'arrow' ? Math.min(22, dist * 0.09) : 0 });
+      arc: kind === 'arrow' ? Math.min(22, dist * 0.09) : 0,
+      // Which arrows were loosed (bronze ... eternal): the renderer draws each kind its own way.
+      ammo: kind === 'arrow' ? this._shotAmmo || null : null, crit: color === '#ffd24a' });
   }
 
   /** Dodging a monster's attack trains Agility, more for tougher foes: a share

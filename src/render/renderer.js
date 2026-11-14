@@ -3,6 +3,22 @@ import { TURN_MS } from '../game/character.js';
 import { TERRAIN } from '../data/world.js';
 import { getItem } from '../data/items.js';
 import { weaknessOf, armourTierOf } from '../game/combat.js';
+
+// How each kind of arrow looks in flight: its metal head, fletching, the trail
+// it leaves and, for the better arrows, a glow (and a larger, barbed head at the top).
+const ARROW_LOOK = {
+  default: { head: '#d9c45a', fletch: '#ffffff', shaft: '#b8874a', trail: '#ffffff', size: 1 },
+  bronze: { head: '#c9874a', fletch: '#ffffff', shaft: '#b8874a', trail: '#ffffff', size: 1 },
+  iron: { head: '#9aa3ad', fletch: '#e8ecf0', shaft: '#a8794a', trail: '#ffffff', size: 1 },
+  steel: { head: '#d6dde4', fletch: '#cfd8e6', shaft: '#a8794a', trail: '#eef3f8', size: 1 },
+  mithril: { head: '#6f8fe0', fletch: '#bcd0ff', shaft: '#8a6a4a', trail: '#cfdcff', size: 1.05 },
+  adamant: { head: '#4fae74', fletch: '#b8ebc8', shaft: '#7a5a3a', trail: '#c8f0d4', size: 1.05 },
+  rune: { head: '#4ec3e0', fletch: '#9fe6f5', shaft: '#6a4a3a', trail: '#9fe6f5', glow: '#4ec3e0', size: 1.1 },
+  dragon: { head: '#e0483a', fletch: '#ffb07a', shaft: '#5a3a2a', trail: '#ff9a6a', glow: '#ff6a3a', size: 1.15, barbed: true },
+  jade: { head: '#3fcf8e', fletch: '#c8f5dc', shaft: '#4a6a3a', trail: '#7ae8b0', glow: '#3fcf8e', size: 1.15, barbed: true },
+  starmetal: { head: '#ffd24a', fletch: '#fff2b0', shaft: '#4a4a6a', trail: '#ffe88a', glow: '#ffd24a', size: 1.2, barbed: true },
+  eternal: { head: '#c27bff', fletch: '#ecd6ff', shaft: '#3a2a5a', trail: '#d6a8ff', glow: '#a855ff', size: 1.25, barbed: true },
+};
 import { RACES, raceOf } from '../data/races.js';
 import { drawShadow, drawCreature, drawPlayer, drawObjectSprite, drawGroundItem } from './sprites.js';
 import { RARITY } from '../game/loot.js';
@@ -666,6 +682,7 @@ export class Renderer {
       const x = e.x + (e.ex - e.x) * t - ox;
       const y = e.y + (e.ey - e.y) * t - oy;
       if (e.kind === 'arrow') {
+        const look = ARROW_LOOK[(e.ammo || '').replace(/_arrow$/, '')] || ARROW_LOOK.default;
         // A fletched arrow arcing out of the bow to its target: it rises and
         // falls along a shallow parabola, tilting with its flight, with a
         // white streak behind it.
@@ -678,22 +695,29 @@ export class Renderer {
         ctx.lineCap = 'round';
         for (let i = 1; i <= 4; i++) {
           const a = at(Math.max(0, t - i * 0.05)), b = at(Math.max(0, t - (i - 1) * 0.05));
-          ctx.strokeStyle = `rgba(255,255,255,${(0.55 - i * 0.12).toFixed(2)})`; ctx.lineWidth = 3.2 - i * 0.55;
+          ctx.globalAlpha = Math.max(0, 0.55 - i * 0.12) / 0.55;
+          ctx.strokeStyle = look.trail; ctx.lineWidth = (3.2 - i * 0.55) * (look.glow ? 1.5 : 1);
           ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
         }
-        ctx.translate(pt.x, pt.y); ctx.rotate(ang); ctx.scale(1.5, 1.5);
+        ctx.globalAlpha = 1;
+        ctx.translate(pt.x, pt.y); ctx.rotate(ang); ctx.scale(1.5 * look.size, 1.5 * look.size);
+        if (look.glow || e.crit) {   // the better arrows (and crits) shine as they fly
+          ctx.globalAlpha = 0.35; ctx.fillStyle = e.crit ? '#ffd24a' : look.glow;
+          ctx.beginPath(); ctx.arc(3, 0, 5, 0, Math.PI * 2); ctx.fill();
+          ctx.globalAlpha = 1;
+        }
         // shaft (navy ink under a wood core, matching the sticker style)
         ctx.strokeStyle = '#22304A'; ctx.lineWidth = 2.4;
         ctx.beginPath(); ctx.moveTo(-9, 0); ctx.lineTo(3, 0); ctx.stroke();
-        ctx.strokeStyle = '#b8874a'; ctx.lineWidth = 1.2;
+        ctx.strokeStyle = look.shaft; ctx.lineWidth = 1.2;
         ctx.beginPath(); ctx.moveTo(-9, 0); ctx.lineTo(3, 0); ctx.stroke();
-        // fletching
-        ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#22304A'; ctx.lineWidth = 0.6;
+        // fletching, in the arrow's own colour
+        ctx.fillStyle = look.fletch; ctx.strokeStyle = '#22304A'; ctx.lineWidth = 0.6;
         path2(ctx, [[-10, 0], [-6.5, -3], [-5, 0]]); ctx.fill(); ctx.stroke();
         path2(ctx, [[-10, 0], [-6.5, 3], [-5, 0]]); ctx.fill(); ctx.stroke();
-        // head
-        ctx.fillStyle = e.color;
-        path2(ctx, [[7, 0], [1.5, -2.6], [1.5, 2.6]]); ctx.fill();
+        // head: the arrow's metal (gold on a crit)
+        ctx.fillStyle = e.crit ? '#ffd24a' : look.head;
+        path2(ctx, look.barbed ? [[7.5, 0], [1.5, -3.4], [3, 0], [1.5, 3.4]] : [[7, 0], [1.5, -2.6], [1.5, 2.6]]); ctx.fill();
         ctx.strokeStyle = '#22304A'; ctx.lineWidth = 0.7; ctx.stroke();
         ctx.restore();
         continue;
@@ -1309,6 +1333,26 @@ export class Renderer {
         ctx.fill(); ctx.stroke();
         ctx.fillStyle = '#1F7A3D'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(e.text, 0, 1);
+        ctx.textBaseline = 'alphabetic';
+        ctx.restore(); ctx.globalAlpha = 1;
+        continue;
+      }
+      if (e.aoe && hit) {
+        // Splash and area damage (cleaves, sweeps, ricochets, spell splash):
+        // set apart from the main hit. A small white tag outlined in the
+        // effect's colour, with the number in that colour, rising lower and
+        // to the side, so the big red disc always reads as your main blow.
+        const col = e.tint || '#ffb347';
+        const label = (e.critX ? '✦' : '') + String(e.dmg);
+        ctx.translate(10, 14);
+        ctx.font = `800 ${e.critX ? 11 : 9.5}px Nunito,"Trebuchet MS",sans-serif`;
+        const tw = ctx.measureText(label).width + 9;
+        ctx.fillStyle = '#ffffff'; ctx.strokeStyle = col; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.roundRect ? ctx.roundRect(-tw / 2, -6.5, tw, 13, 4) : ctx.rect(-tw / 2, -6.5, tw, 13);
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle = e.critX ? '#c81e1e' : '#22304A';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(label, 0, 0.5);
         ctx.textBaseline = 'alphabetic';
         ctx.restore(); ctx.globalAlpha = 1;
         continue;
