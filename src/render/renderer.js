@@ -6,6 +6,16 @@ import { weaknessOf, armourTierOf } from '../game/combat.js';
 
 // How each kind of arrow looks in flight: its metal head, fletching, the trail
 // it leaves and, for the better arrows, a glow (and a larger, barbed head at the top).
+// Hit numbers are drawn at this size (they were crowding the fight), and big
+// ones are shortened: 12,345 -> 12.3k, 1,234,567 -> 1.23M.
+const SPLAT_SCALE = 0.72;
+function splatNum(n) {
+  const a = Math.abs(n);
+  if (a >= 1e9) return `${+(n / 1e9).toPrecision(3)}B`;
+  if (a >= 1e6) return `${+(n / 1e6).toPrecision(3)}M`;
+  if (a >= 1e4) return `${+(n / 1e3).toPrecision(3)}k`;
+  return String(n);
+}
 const ARROW_LOOK = {
   default: { head: '#d9c45a', fletch: '#ffffff', shaft: '#b8874a', trail: '#ffffff', size: 1 },
   bronze: { head: '#c9874a', fletch: '#ffffff', shaft: '#b8874a', trail: '#ffffff', size: 1 },
@@ -1314,10 +1324,10 @@ export class Renderer {
     for (const e of game.effects) {
       if (e.type !== 'hitsplat') continue;
       const c = e.entity.renderCenter ? e.entity.renderCenter() : { x: e.entity.x * TILE, y: e.entity.y * TILE };
-      const age = (e.critX ? 1400 : 1100) - e.life;
+      const age = e.maxLife - e.life;
       // Rise from above the head and fan out sideways so rapid hits don't stack
       // into one blob over the face.
-      const px = c.x - ox + (e.fan || 0) * 9, py = c.y - oy - 26 - age * 0.022;
+      const px = c.x - ox + (e.fan || 0) * 13, py = c.y - oy - 26 - age * 0.03;
       const hit = e.dmg > 0;
       // Pop in: overshoot to ~1.15 then settle to 1.
       const pop = age < 90 ? 0.5 + 0.72 * (age / 90) : Math.max(1, 1.22 - (age - 90) / 260);
@@ -1325,7 +1335,7 @@ export class Renderer {
       const r = e.crit ? 10 : 8;
       ctx.save();
       ctx.globalAlpha = a;
-      ctx.translate(px, py); ctx.scale(pop, pop);
+      ctx.translate(px, py); ctx.scale(pop * SPLAT_SCALE, pop * SPLAT_SCALE);
       if (e.text) {
         // A word instead of a number (e.g. "Dodged!"): a white sticker label.
         ctx.font = '900 11px Nunito,"Trebuchet MS",sans-serif';
@@ -1345,7 +1355,7 @@ export class Renderer {
         // effect's colour, with the number in that colour, rising lower and
         // to the side, so the big red disc always reads as your main blow.
         const col = e.tint || '#ffb347';
-        const label = (e.critX ? '✦' : '') + String(e.dmg);
+        const label = (e.critX ? '✦' : '') + splatNum(e.dmg);
         ctx.translate(10, 14);
         ctx.font = `800 ${e.critX ? 11 : 9.5}px Nunito,"Trebuchet MS",sans-serif`;
         const tw = ctx.measureText(label).width + 9;
@@ -1367,22 +1377,26 @@ export class Renderer {
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.lineJoin = 'round';
         ctx.lineWidth = mega ? 6 : 5; ctx.strokeStyle = '#ffffff';
-        ctx.strokeText(String(e.dmg), 0, 0);
+        ctx.strokeText(splatNum(e.dmg), 0, 0);
         ctx.lineWidth = 2; ctx.strokeStyle = '#4a0606';
-        ctx.strokeText(String(e.dmg), 0, 0);
+        ctx.strokeText(splatNum(e.dmg), 0, 0);
         ctx.fillStyle = mega ? '#ff1a1a' : '#e01b1b';
-        ctx.fillText(String(e.dmg), 0, 0);
+        ctx.fillText(splatNum(e.dmg), 0, 0);
         ctx.textBaseline = 'alphabetic';
         ctx.restore(); ctx.globalAlpha = 1;
         continue;
       }
       // Splat body: gold for a max hit, red for a hit, blue for a block/miss.
       ctx.fillStyle = e.tint && hit ? e.tint : e.crit ? '#f2c029' : hit ? '#c81e1e' : '#39557d';
-      ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+      ctx.font = `800 ${e.crit ? 11 : 10}px Nunito,"Trebuchet MS",sans-serif`;
+      const nw = ctx.measureText(splatNum(e.dmg)).width;
+      if (nw > r * 1.6) {   // a long number gets a pill rather than a crowded disc
+        ctx.beginPath(); ctx.roundRect ? ctx.roundRect(-nw / 2 - 4, -r, nw + 8, r * 2, r) : ctx.rect(-nw / 2 - 4, -r, nw + 8, r * 2); ctx.fill();
+      } else { ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill(); }
       ctx.fillStyle = 'rgba(255,255,255,0.28)'; ctx.beginPath(); ctx.arc(0, -3, r - 1, Math.PI, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#fff'; ctx.font = `800 ${e.crit ? 11 : 10}px Nunito,"Trebuchet MS",sans-serif`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(String(e.dmg), 0, 1);
+      ctx.fillText(splatNum(e.dmg), 0, 1);
       ctx.textBaseline = 'alphabetic';
       ctx.restore();
       ctx.globalAlpha = 1;
