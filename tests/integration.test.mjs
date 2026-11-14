@@ -5917,3 +5917,27 @@ test('combat level is no longer squashed; every fighting level adds flat damage'
   assert.ok(playerAttackVsNpc({ attack: 400, strength: 400 }, gear, 'balanced', {}).max
     - playerAttackVsNpc({ attack: 0, strength: 400 }, gear, 'balanced', {}).max >= levelFlatDmg(400), 'Melee levels add flat damage');
 });
+
+test('runes and arrows can be bought a thousand at a time; you only pay for what you get', async () => {
+  const { SHOPS } = await import('../src/data/shops.js');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const g = new Game();
+  g.start();
+  g.chooseStartingStyle('ranged');
+  const shopId = Object.keys(SHOPS).find((id) => SHOPS[id].stock.some((e) => e.id === 'bronze_arrow'));
+  assert.ok(shopId, 'some shop sells bronze arrows');
+  const have = g.inventory.count('bronze_arrow');
+  g.inventory.add('coins', 1e7);
+  const c0 = g.inventory.count('coins');
+  g.buyItem(shopId, 'bronze_arrow', 1000);
+  assert.equal(g.inventory.count('bronze_arrow') - have, 1000, 'a thousand arrows');
+  const paid = c0 - g.inventory.count('coins');
+  assert.ok(paid > 0 && paid % 1000 === 0, 'paid a thousand times the price');
+  // Short of coins: buys as many as you can afford.
+  g.inventory.remove('coins', g.inventory.count('coins'));
+  g.inventory.add('coins', (paid / 1000) * 250);
+  g.buyItem(shopId, 'bronze_arrow', 1000);
+  assert.equal(g.inventory.count('bronze_arrow') - have, 1250, 'only what the coins cover');
+  assert.equal(g.inventory.count('coins'), 0);
+});
