@@ -1912,58 +1912,138 @@ test('night hunt boosts combat XP; big hits and kills trigger hit-stop', () => {
   assert.equal(game.hitStop, 0, 'and it is brief');
 });
 
-test('gear upgrades: +1..+15 with coins, bars and stones, stronger stats, saved with the game', async () => {
-  const { upgradeCost, upgradeChance, upgradedBonuses } = await import('../src/game/upgrade.js');
-  assert.equal(upgradeChance(5), 1);
-  assert.ok(upgradeChance(10) < upgradeChance(6));
-  assert.deepEqual(upgradeCost('bronze_scimitar', 3).bar, { id: 'bronze_bar', qty: 3 });
-  assert.ok(upgradedBonuses({ attack: 10 }, 2).attack > 10);
-  globalThis.localStorage = fakeStorage();
-  clearSave();
-  const game = new Game();
-  game.start();
-  game.chooseStartingStyle('melee');
-  const atk0 = game.equipment.bonuses().attack;
-  game.inventory.add('coins', 100000);
-  game.inventory.add('bronze_bar', 50);
-  // +4 and up also need upgrade stones.
-  game.upgradeItem('bronze_scimitar'); game.upgradeItem('bronze_scimitar'); game.upgradeItem('bronze_scimitar');
-  assert.equal(game.upgradeItem('bronze_scimitar'), false, 'no stones, no +4');
-  game.equipment.upgrades = {};
-  game.inventory.add('bronze_bar', 6);
-  game.inventory.add('upgrade_stone', 3);
-  const coins0 = game.inventory.count('coins'), bars0 = game.inventory.count('bronze_bar');
-  for (let i = 0; i < 5; i++) assert.ok(game.upgradeItem('bronze_scimitar'), `+${i + 1} always works`);
-  assert.equal(game.inventory.count('upgrade_stone'), 0, 'stones are spent (1 for +4, 2 for +5)');
-  assert.equal(game.equipment.upgradeLevel('bronze_scimitar'), 5);
-  assert.ok(game.equipment.bonuses().attack > atk0, 'upgrades raise your bonuses');
-  assert.equal(game.inventory.count('bronze_bar'), bars0 - 15, 'bars are spent (1+2+3+4+5)');
-  assert.ok(game.inventory.count('coins') < coins0, 'coins are spent');
-  saveGame(game);
-  const g2 = new Game();
-  g2.start();
-  assert.equal(g2.equipment.upgradeLevel('bronze_scimitar'), 5, 'upgrade levels survive save/load');
+test('gear mastery: kills train every worn item (1 a monster, 5 a champion, 25 a boss), ranks add stats, saved with the game', async () => {
+  const M = await import('../src/game/mastery.js');
+  // Rank thresholds and the stat gain at each rank.
+  assert.deepEqual(M.MASTERY_RANKS.map((r) => r.points), [0, 250, 1000, 3000, 8000, 20000, 50000]);
+  assert.deepEqual(M.MASTERY_RANKS.map((r) => r.name), ['Novice', 'Adept', 'Skilled', 'Expert', 'Master', 'Grandmaster', 'Legendary']);
+  assert.equal(M.rankFor(0), 0); assert.equal(M.rankFor(249), 0); assert.equal(M.rankFor(250), 1);
+  assert.equal(M.rankFor(7999), 3); assert.equal(M.rankFor(8000), 4); assert.equal(M.rankFor(1e9), 6);
+  assert.deepEqual(M.rankProgress(500), { rank: 1, next: 2, need: 500, frac: 1 / 3 });
+  assert.equal(M.rankProgress(50000).next, null);
+  assert.deepEqual(M.masteryBonuses({ attack: 100, speed: 4, haste: 3 }, 0), { attack: 100, speed: 4, haste: 3 });
+  assert.equal(M.masteryBonuses({ attack: 100 }, 1).attack, 110);
+  assert.equal(M.masteryBonuses({ attack: 100 }, 3).attack, 145);
+  assert.equal(M.masteryBonuses({ attack: 100 }, 6).attack, 240);
+  assert.equal(M.masteryBonuses({ attack: 2 }, 4).attack, 6, 'small stats gain at least +rank');
+  const mb = M.masteryBonuses({ attack: 10, speed: 4, haste: 3, pierce: 2 }, 6);
+  assert.equal(mb.speed, 4, 'speed is never changed'); assert.equal(mb.haste, 3); assert.equal(mb.pierce, 2);
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('swordsman');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.rollDrops = () => {};   // no quality drops muddying the count
+  const chat = []; const msg = g.msg.bind(g); g.msg = (t, ...r) => { chat.push(t); return msg(t, ...r); };
+  const w = g.equipment.get('weapon');
+  const worn = [...new Set(['weapon', 'body', 'legs', 'head'].map((s) => g.equipment.get(s)).filter(Boolean))];
+  assert.ok(w && worn.length >= 1);
+  const atk0 = g.equipment.bonuses().attack;
+  const mob = g.npcs.find((n) => n.def.attackable && !n.def.boss);
+  const kill = (n) => { n.alive = true; n.hp = 1; g.killNpc(n); };
+  kill(mob);
+  for (const id of worn) assert.equal(g.equipment.masteryPoints(id), 1, `${id} gains 1 for a monster`);
+  mob.champion = true; kill(mob); mob.champion = false;
+  assert.equal(g.equipment.masteryPoints(w), 6, 'a champion is worth 5');
+  const boss = g.npcs.find((n) => n.def.boss);
+  const adept = M.MASTERY_RANKS[1].points;
+  g.equipment.mastery[w] = adept - 25;   // a boss kill short of Adept
+  kill(boss);
+  assert.equal(g.equipment.masteryPoints(w), adept, 'a boss is worth 25');
+  assert.equal(g.equipment.masteryRank(w), 1);
+  assert.ok(chat.includes(`${ITEMS[w].name} reached Adept mastery!`), 'ranking up is announced');
+  assert.ok(g.equipment.bonuses().attack > atk0, 'a rank raises your bonuses');
+  // Carried gear doesn't train.
+  g.inventory.add('mithril_sword', 1);
+  kill(mob);
+  assert.equal(g.equipment.masteryPoints('mithril_sword'), 0, 'only worn gear gains mastery');
+  // Saved and loaded.
+  saveGame(g);
+  const g2 = new Game(); g2.start(); loadGame(g2);
+  assert.equal(g2.equipment.masteryPoints(w), adept + 1, 'mastery survives save/load');
+});
 
-  // Risky levels: from +8 a failure drops a level, unless a ward is carried.
-  assert.equal(upgradeChance(15), 0.2);
-  assert.ok(upgradedBonuses({ attack: 100 }, 15).attack - upgradedBonuses({ attack: 100 }, 14).attack
-    > upgradedBonuses({ attack: 100 }, 3).attack - upgradedBonuses({ attack: 100 }, 2).attack, 'late levels give bigger jumps');
-  game.inventory.add('bronze_bar', 500); game.inventory.add('upgrade_stone', 500); game.inventory.add('coins', 10_000_000);
-  game.equipment.upgrades.bronze_scimitar = 7;
-  const rnd = Math.random;
-  try {
-    Math.random = () => 0.999;                      // force a failure
-    game.upgradeItem('bronze_scimitar');
-    assert.equal(game.equipment.upgradeLevel('bronze_scimitar'), 6, 'failing +8 drops a level');
-    game.equipment.upgrades.bronze_scimitar = 7;
-    game.inventory.add('upgrade_ward', 1);
-    game.upgradeItem('bronze_scimitar');
-    assert.equal(game.equipment.upgradeLevel('bronze_scimitar'), 7, 'a ward keeps the level');
-    assert.equal(game.inventory.count('upgrade_ward'), 0, 'and is used up');
-    game.equipment.upgrades.bronze_scimitar = 5;
-    game.upgradeItem('bronze_scimitar');
-    assert.equal(game.equipment.upgradeLevel('bronze_scimitar'), 5, 'below +8 a failure keeps the level');
-  } finally { Math.random = rnd; }
+test('enchanting: up to 3 lines for stones and coins, pick one of three offers, replace when full, reroll with a ward', async () => {
+  const M = await import('../src/game/mastery.js');
+  // Costs: 10 / 25 / 50 stones; coins = half the item's value + 200; a full item pays the third price.
+  const v = ITEMS.rune_scimitar.value;
+  assert.deepEqual(M.enchantCost('rune_scimitar', 0), { stones: 10, coins: Math.round(v * 0.5) + 200 });
+  assert.equal(M.enchantCost('rune_scimitar', 1).stones, 25);
+  assert.equal(M.enchantCost('rune_scimitar', 2).stones, 50);
+  assert.equal(M.enchantCost('rune_scimitar', 3).stones, 50);
+  // Line sizes grow with the item's requirement level; casters roll Magic bonus %.
+  assert.equal(M.reqLevel('rune_scimitar'), 40);
+  assert.equal(M.enchantValue('rune_scimitar', 'critDmg'), 6);
+  assert.equal(M.enchantValue('bronze_scimitar', 'crit'), 1);
+  assert.ok(M.enchantPool('rune_scimitar').includes('atkPct') && !M.enchantPool('rune_scimitar').includes('magPct'));
+  const staff = Object.keys(ITEMS).find((id) => ITEMS[id].equip?.combatType === 'magic');
+  assert.ok(M.enchantPool(staff).includes('magPct') && !M.enchantPool(staff).includes('atkPct'));
+  assert.equal(M.enchantLabel({ stat: 'crit', value: 6 }), '+6% crit chance');
+  const offers = M.rollEnchantOffers('rune_scimitar');
+  assert.equal(offers.length, 3);
+  assert.equal(new Set(offers.map((o) => o.stat)).size, 3, 'three different lines');
+
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('swordsman');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  const w = g.equipment.get('weapon');
+  // Too poor: nothing is paid and nothing changes.
+  g.inventory.remove('coins', g.inventory.count('coins'));
+  assert.equal(g.pickEnchant(w, 0), null);
+  assert.equal(g.equipment.enchantLines(w).length, 0);
+  g.inventory.add('coins', 1e7); g.inventory.add('upgrade_stone', 200);
+  // The offer stays the same until you pick (closing the window isn't a free reroll).
+  const first = g.enchantOffers(w).map((o) => ({ ...o }));
+  assert.deepEqual(g.enchantOffers(w), first);
+  const b0 = g.equipment.itemBonuses(w);
+  const coins0 = g.inventory.count('coins');
+  const line = g.pickEnchant(w, 1);
+  assert.deepEqual(line, first[1]);
+  assert.equal(g.inventory.count('upgrade_stone'), 190, '10 stones for the first line');
+  assert.equal(g.inventory.count('coins'), coins0 - M.enchantCost(w, 0).coins);
+  assert.equal(g.equipment.itemBonuses(w)[line.stat], (b0[line.stat] || 0) + line.value, 'the line adds to the item');
+  g.pickEnchant(w, 0); g.pickEnchant(w, 2);
+  assert.equal(g.equipment.enchantLines(w).length, 3);
+  assert.equal(g.inventory.count('upgrade_stone'), 200 - 10 - 25 - 50);
+  // Full: a fourth needs a line to replace, at the third slot's price.
+  const offer = { ...g.enchantOffers(w)[0] };
+  assert.equal(g.pickEnchant(w, 0), null, 'must choose a line to replace');
+  g.inventory.add('upgrade_stone', 50);
+  const stones = g.inventory.count('upgrade_stone');
+  g.pickEnchant(w, 0, 1);
+  assert.equal(g.equipment.enchantLines(w).length, 3);
+  assert.deepEqual(g.equipment.enchantLines(w)[1], offer, 'the chosen line was replaced');
+  assert.equal(g.inventory.count('upgrade_stone'), stones - 50);
+  // A ward rerolls the offer (and is used up); without one, no reroll.
+  assert.equal(g.rerollEnchant(w), null);
+  g.inventory.add('upgrade_ward', 1);
+  g.enchantOffers(w);
+  const again = g.rerollEnchant(w);
+  assert.equal(again.length, 3);
+  assert.equal(g.inventory.count('upgrade_ward'), 0, 'the ward is used up');
+  assert.deepEqual(g.enchantOffers(w), again, 'the new offer is the one on the table');
+  // Saved and loaded.
+  const lines = g.equipment.enchantLines(w).map((l) => ({ ...l }));
+  saveGame(g);
+  const g2 = new Game(); g2.start(); loadGame(g2);
+  assert.deepEqual(g2.equipment.enchantLines(w), lines, 'enchantments survive save/load');
+});
+
+test('mastery and enchantments add up in your bonuses, and an attack speed line makes you swing faster', async () => {
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('swordsman');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  const w = g.equipment.get('weapon');
+  const base = ITEMS[w].equip.bonuses;
+  const b0 = g.equipment.bonuses(), speed0 = g.equipment.weaponSpeed();
+  g.equipment.mastery[w] = 20000;   // Grandmaster: +100%
+  g.equipment.enchants[w] = [{ stat: 'crit', value: 4 }, { stat: 'haste', value: 50 }];
+  const ib = g.equipment.itemBonuses(w);
+  assert.equal(ib.attack, base.attack + Math.max(5, Math.round(base.attack * 1.0)));
+  assert.equal(ib.crit, (base.crit ? base.crit + Math.max(5, Math.round(base.crit)) : 0) + 4);
+  assert.equal(ib.haste, (base.haste || 0) + 50);
+  const b1 = g.equipment.bonuses();
+  assert.equal(b1.attack - b0.attack, ib.attack - base.attack);
+  assert.equal(b1.crit - b0.crit, ib.crit - (base.crit || 0));
+  assert.ok(g.equipment.weaponSpeed() < speed0, 'the attack speed line shortens the swing');
 });
 
 test('auto battle settings: eat level, target filter, and they are saved', () => {
@@ -2394,81 +2474,48 @@ test('Dancer: combat XP is split between Agility and Ranged, and both power the 
   assert.equal(g.fightLevel(), Math.max(g.skills.combatLevel(), 500));
 });
 
-test('Auto-upgrade: raises every worn item, strongest upgrade first, and stops before risky levels without a ward', async () => {
-  const { RISKY_FROM, WARD } = await import('../src/game/upgrade.js');
-  const { EQUIP_SLOTS } = await import('../src/game/equipment.js');
+test('old saves: upgrade levels and refine stars become mastery and free enchant lines', async () => {
+  const M = await import('../src/game/mastery.js');
+  // The old gains: +5 = 0.40 (Skilled, 0.25), +15 & ★15 = 2.94 (Legendary), +1 = 0.08 (at least Adept).
+  assert.deepEqual(M.migrateOld('bronze_scimitar', 5, 0), { points: 1000, lines: [] });
+  assert.equal(M.migrateOld('bronze_scimitar', 1, 0).points, 250);
+  assert.equal(M.migrateOld('bronze_scimitar', 10, 0).points, 8000, '+10 = 0.90: Master');
+  const top = M.migrateOld('rune_scimitar', 15, 15);
+  assert.equal(top.points, 50000);
+  assert.equal(top.lines.length, 3, '★15 gives three lines');
   globalThis.localStorage = fakeStorage(); clearSave();
   const g = new Game(); g.start(); g.chooseClass('swordsman');
   g.ui = new Proxy({}, { get: () => () => {} });
-  const worn = [...new Set(EQUIP_SLOTS.map((s) => g.equipment.get(s)).filter(Boolean))];
-  assert.ok(worn.length >= 1);
-  // Strongest first: for a melee fighter a weapon's next level (Melee power) is
-  // worth more than a shield's (Defence only), so with money for one upgrade the weapon gets it.
-  const wpn = g.equipment.get('weapon'), shield = g.equipment.get('shield');
-  if (wpn && shield) {
-    assert.ok(g.upgradeValue(wpn) > g.upgradeValue(shield), 'the weapon upgrade is worth more');
-    g.inventory.remove('coins', g.inventory.count('coins'));
-    g.inventory.add('coins', 200); g.inventory.add('bronze_bar', 5);
-    const r1 = g.autoUpgradeEquipped({ maxTries: 1 });
-    assert.equal(r1.changes[0]?.id, wpn, 'the weapon went first');
-  }
-  // Plenty of everything, but no ward.
-  g.inventory.add('coins', 1e9); g.inventory.add('upgrade_stone', 5000);
-  for (const b of ['bronze_bar', 'iron_bar', 'steel_bar', 'mithril_bar', 'adamant_bar', 'rune_bar']) g.inventory.add(b, 5000);
-  const r = g.autoUpgradeEquipped();
-  assert.ok(r.tries > 0 && r.wins > 0, 'it upgraded');
-  for (const id of worn) assert.equal(g.equipment.upgradeLevel(id), RISKY_FROM - 1, `${id} climbed to +${RISKY_FROM - 1}, the last safe level`);
-  assert.ok(r.stoppedAtRisk, 'and stopped before the risky levels');
-  // With a ward, it carries on into the risky levels and never loses a level while the ward lasts.
-  g.inventory.add(WARD, 1);
-  const before = Object.fromEntries(worn.map((id) => [id, g.equipment.upgradeLevel(id)]));
-  g.autoUpgradeEquipped();
-  for (const id of worn) assert.ok(g.equipment.upgradeLevel(id) >= before[id], `${id} kept its level`);
-  // Nothing to pay with: nothing happens.
-  const g2 = new Game(); clearSave(); g2.start(); g2.chooseClass('swordsman'); g2.ui = g.ui;
-  g2.inventory.remove('coins', g2.inventory.count('coins'));
-  assert.equal(g2.autoUpgradeEquipped().tries, 0);
-});
-
-test('Refinement: a second ★1-★15 layer with success, failure, downgrade and broken (destroyed), saved with the game', async () => {
-  const R = await import('../src/game/refine.js');
-  const { WARD, STONE } = await import('../src/game/upgrade.js');
-  // Odds by tier: always works to ★5; can fail from ★6; downgrade from ★10; break from ★13.
-  for (let n = 1; n <= 15; n++) {
-    const o = R.refineOdds(n);
-    assert.ok(Math.abs(o.success + o.fail + o.downgrade + o.broken - 1) < 1e-9, `★${n} odds sum to 1`);
-    assert.equal(o.fail > 0, n >= 6); assert.equal(o.downgrade > 0, n >= 10); assert.equal(o.broken > 0, n >= 13);
-  }
-  assert.equal(R.rollRefine(14, 0.0), 'success'); assert.equal(R.rollRefine(14, 0.4), 'fail');
-  assert.equal(R.rollRefine(14, 0.7), 'downgrade'); assert.equal(R.rollRefine(14, 0.99), 'broken');
-  globalThis.localStorage = fakeStorage(); clearSave();
-  const g = new Game(); g.start(); g.chooseClass('swordsman');
-  g.ui = new Proxy({}, { get: () => () => {} });
-  g.inventory.add('coins', 1e9); g.inventory.add(STONE, 10000);
   const w = g.equipment.get('weapon');
-  const before = g.equipment.itemBonuses(w);
-  // Success adds stats on top of upgrades.
-  const roll = (r) => { const m = Math.random; Math.random = () => r; try { return g.refineItem(w); } finally { Math.random = m; } };
-  for (let i = 0; i < 5; i++) assert.equal(roll(0.99), 'success', '★1-★5 always succeed');
-  assert.equal(g.equipment.refineLevel(w), 5);
-  assert.ok(g.equipment.itemBonuses(w).strength > before.strength, 'refining adds stats');
-  g.equipment.refines[w] = 7;   // trying for ★8: success or failure only
-  assert.equal(roll(0.99), 'fail'); assert.equal(g.equipment.refineLevel(w), 7, 'a failure keeps the level');
-  g.equipment.refines[w] = 11;
-  assert.equal(roll(0.99), 'downgrade'); assert.equal(g.equipment.refineLevel(w), 10, 'a downgrade loses a level');
-  // A ward takes the blow.
-  g.inventory.add(WARD, 1);
-  assert.equal(roll(0.99), 'warded'); assert.equal(g.equipment.refineLevel(w), 10);
-  assert.equal(g.inventory.count(WARD), 0, 'and is used up');
-  // Saved and loaded.
   saveGame(g);
+  // Rewrite the save as an old one: upgrade and refine maps, no mastery.
+  const raw = JSON.parse(localStorage.getItem(SAVE_KEY));
+  delete raw.equipment._mastery; delete raw.equipment._enchants;
+  raw.equipment._upgrades = { [w]: 7, iron_sword: 1, no_such_item: 9 };
+  raw.equipment._refines = { [w]: 10, rune_scimitar: 4 };
+  localStorage.setItem(SAVE_KEY, JSON.stringify(raw));
   const g2 = new Game(); g2.start(); loadGame(g2);
-  assert.equal(g2.equipment.refineLevel(w), 10);
-  // Broken: from ★13 the worn item can be destroyed and the type's refine resets.
-  g.equipment.refines[w] = 14;
-  assert.equal(roll(0.995), 'broken');
-  assert.notEqual(g.equipment.get('weapon'), w, 'the weapon is gone');
-  assert.equal(g.equipment.refineLevel(w), 0);
+  // +7 (0.60) and ★10 (0.64): 1.24 in all -> Grandmaster (1.00), and two lines for ten stars.
+  assert.equal(g2.equipment.masteryRank(w), 5);
+  assert.equal(g2.equipment.masteryPoints(w), 20000);
+  assert.equal(g2.equipment.enchantLines(w).length, 2);
+  for (const l of g2.equipment.enchantLines(w)) assert.ok(M.enchantPool(w).includes(l.stat) && l.value === M.enchantValue(w, l.stat));
+  assert.equal(g2.equipment.masteryRank('iron_sword'), 1, 'any upgrade is at least Adept');
+  assert.equal(g2.equipment.masteryRank('rune_scimitar'), 1, '★4 (0.24): Adept');
+  assert.equal(g2.equipment.enchantLines('rune_scimitar').length, 0, 'under five stars, no line');
+  assert.equal(g2.equipment.masteryPoints('no_such_item'), 0);
+  // Once converted, the old fields are gone and loading again changes nothing.
+  saveGame(g2);
+  const after = JSON.parse(localStorage.getItem(SAVE_KEY)).equipment;
+  assert.equal(after._upgrades, undefined); assert.equal(after._refines, undefined);
+  assert.equal(after._mastery[w], 20000);
+  const lines = g2.equipment.enchantLines(w).map((l) => ({ ...l }));
+  const g3 = new Game(); g3.start(); loadGame(g3);
+  assert.deepEqual(g3.equipment.enchantLines(w), lines);
+  // An item that already has mastery is never converted again (mixed saves).
+  const mixed = { ...after, _upgrades: { [w]: 15 }, _refines: { [w]: 15 } };
+  g3.equipment.load(mixed);
+  assert.equal(g3.equipment.masteryPoints(w), 20000);
 });
 
 test('Every monster drops twice the coins its table says', async () => {
@@ -3693,16 +3740,18 @@ test('every class is catered for: a starter weapon in a shop, and quest rewards 
 
 test('drops: rarer gear from normal monsters, quality rolls, and bosses always drop class gear and stones', async () => {
   const { rollQuality, QUALITY } = await import('../src/game/loot.js');
-  const { rollUpgrade } = await import('../src/game/loot.js');
-  assert.equal(rollQuality('boss', () => 0.99), 'superior', 'bosses give at least Superior (+2)');
-  assert.equal(rollUpgrade('boss', () => 0.01), 15, 'a lucky boss roll is +15');
-  assert.equal(rollUpgrade('normal', () => 0.01), 15, 'even a normal monster can drop +15 (very rarely)');
+  const { MASTERY_RANKS } = await import('../src/game/mastery.js');
+  assert.equal(rollQuality('boss', () => 0.99), 'superior', 'bosses give at least Superior');
+  assert.equal(rollQuality('boss', () => 0.01), 'mythic', 'a lucky boss roll is Mythic');
+  assert.equal(rollQuality('normal', () => 0.01), 'mythic', 'even a normal monster can drop Mythic (very rarely)');
   assert.equal(rollQuality('normal', () => 0.9), null, 'most normal drops have no quality');
-  // Odds vary greatly by source: count how often +10 or better comes up.
+  assert.deepEqual(['fine', 'superior', 'epic', 'legendary', 'mythic'].map((k) => MASTERY_RANKS[QUALITY[k].rank].name),
+    ['Adept', 'Skilled', 'Expert', 'Master', 'Grandmaster'], 'each quality matches a mastery rank');
+  // Odds vary greatly by source: count how often Mythic comes up.
   let seed = 1; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-  const highShare = (src) => { let n = 0; for (let i = 0; i < 40000; i++) if (rollUpgrade(src, rnd) >= 10) n++; return n / 40000; };
+  const highShare = (src) => { let n = 0; for (let i = 0; i < 40000; i++) if (rollQuality(src, rnd) === 'mythic') n++; return n / 40000; };
   const nrm = highShare('normal'), ch = highShare('champion'), bs = highShare('boss');
-  assert.ok(nrm < ch && ch < bs, `+10 or better: normal ${nrm} < champion ${ch} < boss ${bs}`);
+  assert.ok(nrm < ch && ch < bs, `Mythic: normal ${nrm} < champion ${ch} < boss ${bs}`);
   assert.ok(bs > nrm * 50, 'bosses are far likelier than normal monsters to drop it');
   globalThis.localStorage = fakeStorage();
   clearSave();
@@ -3716,7 +3765,7 @@ test('drops: rarer gear from normal monsters, quality rolls, and bosses always d
   game.rollDrops(boss);
   const gear = got.filter((id) => ITEMS[id].equip && (ITEMS[id].equip.weaponType === 'scimitar' || ITEMS[id].equip.weaponType === 'parang' || ITEMS[id].equip.family === 'leather'));
   assert.ok(gear.length >= 1, `a boss drops Corsair gear (${got.join(', ')})`);
-  assert.ok(gear.some((id) => game.equipment.upgradeLevel(id) >= QUALITY.superior.level), 'of Superior quality or better');
+  assert.ok(gear.some((id) => game.equipment.masteryRank(id) >= QUALITY.superior.rank), 'of Superior quality or better (Skilled mastery)');
   assert.ok(got.includes('upgrade_stone'), 'and upgrade stones');
   // Normal monsters: a gear roll is usually turned into something else.
   const mob = game.npcs.find((n) => n.def.attackable && !n.def.boss && n.def.dropTable?.some((d) => d.id && ITEMS[d.id]?.equip));
@@ -4108,15 +4157,21 @@ test('every amulet, ring and cape can be found: monster drops by level, shops, a
   assert.ok(loot.some(([id]) => ACCESSORY_STYLE[id]?.[0] === 'ranged'), 'a ranged accessory for an archer');
 });
 
-test('Equip best in slot counts upgrade levels and only the stats your style uses', () => {
+test('Equip best in slot counts mastery and enchantments, and only the stats your style uses', () => {
   globalThis.localStorage = fakeStorage(); clearSave();
   const g = new Game(); g.start(); g.chooseClass('swordsman');
   g.ui = new Proxy({}, { get: () => () => {} });
   g.skills.xp.attack = 50000000; g.skills.xp.defence = 50000000;
-  g.inventory.add('iron_sword', 1); g.inventory.add('mithril_sword', 1);
-  g.equipment.upgrades.iron_sword = 15;            // a +15 iron sword beats a plain mithril one
+  g.inventory.add('iron_sword', 1); g.inventory.add('steel_sword', 1);
   g.equipBest();
-  assert.equal(g.equipment.get('weapon'), 'iron_sword', 'the upgraded sword wins');
+  assert.equal(g.equipment.get('weapon'), 'steel_sword', 'plain for plain, the steel sword is better');
+  g.equipment.mastery.iron_sword = 50000;          // a Legendary iron sword beats a plain steel one
+  g.equipBest();
+  assert.equal(g.equipment.get('weapon'), 'iron_sword', 'the mastered sword wins');
+  // Enchant lines count too: enough of them tip the steel sword back ahead.
+  g.equipment.enchants.steel_sword = [{ stat: 'haste', value: 10 }, { stat: 'atkPct', value: 10 }, { stat: 'crit', value: 10 }];
+  g.equipBest();
+  assert.equal(g.equipment.get('weapon'), 'steel_sword', 'the enchanted sword wins');
   // An archer's amulet slot ignores a melee amulet's attack stats.
   const a = new Game(); a.start(); a.chooseClass('archer');
   a.ui = new Proxy({}, { get: () => () => {} });

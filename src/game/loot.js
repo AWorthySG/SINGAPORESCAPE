@@ -25,48 +25,47 @@ export function dropRarity(id, source = 'table', { boss = false } = {}) {
 /** Ticks a drop sits on the ground before flying into the pack: rarer = longer, so you see it. */
 export function lootDelay(rarity) { return [1, 2, 3, 4][RARITY[rarity]?.rank ?? 0]; }
 
-// Gear quality: a dropped piece of gear can come out Fine, Superior, Epic or
-// Legendary. Quality is a head start on upgrades: the item type jumps straight
-// to that many upgrade levels (never lowering a level you already have).
-// Gear quality: a dropped piece can arrive already upgraded, anywhere from +1
-// to +15. Each level higher is much less likely than the one before, and the
-// odds depend on who dropped it:
-//   normal monster  28% get +1 or better, then each next level 1 in 2
-//                   (+5 ~1 in 60, +10 ~1 in 2,000, +15 ~1 in 60,000)
-//   champion        60% get +1 or better, then each next level 3 in 5
-//                   (+5 ~1 in 13, +10 ~1 in 170, +15 ~1 in 2,100)
-//   boss            always +2 or better, then each next level 7 in 10
-//                   (+5 ~1 in 3, +10 ~1 in 17, +15 ~1 in 100)
+// Gear quality: a dropped piece of gear can come out Fine, Superior, Epic,
+// Legendary or Mythic. Quality is a head start on mastery: the item type jumps
+// straight to the matching mastery rank (never lowering the rank you have).
+// Each tier is much less likely than the one before, and the odds depend on
+// who dropped it. The roll climbs a ladder of 15 steps, each next step less
+// likely; the step reached picks the tier:
+//   normal monster  28% climb at all, then each next step 1 in 2
+//   champion        60% climb at all, then each next step 3 in 5
+//   boss            always 2 steps or more, then each next step 7 in 10
 export const QUALITY_RULES = {
   normal: { start: 0.278, from: 1, step: 0.5 },
   champion: { start: 0.6, from: 1, step: 0.6 },
   boss: { start: 1, from: 2, step: 0.7 },
 };
-/** The named tier for an upgrade level (+1 Fine ... +10 and up Mythic). */
-export function qualityFor(level) {
-  if (level >= 10) return { key: 'mythic', label: 'Mythic', rarity: 'legendary' };
-  if (level >= 5) return { key: 'legendary', label: 'Legendary', rarity: 'legendary' };
-  if (level >= 3) return { key: 'epic', label: 'Epic', rarity: 'epic' };
-  if (level >= 2) return { key: 'superior', label: 'Superior', rarity: 'epic' };
-  return { key: 'fine', label: 'Fine', rarity: 'rare' };
-}
-// Kept for older callers: the lowest level of each named tier.
-export const QUALITY = { fine: { level: 1, label: 'Fine', rarity: 'rare' }, superior: { level: 2, label: 'Superior', rarity: 'epic' },
-  epic: { level: 3, label: 'Epic', rarity: 'epic' }, legendary: { level: 5, label: 'Legendary', rarity: 'legendary' }, mythic: { level: 10, label: 'Mythic', rarity: 'legendary' } };
+// Each tier: its label, drop rarity, the ladder step it starts at, and the
+// mastery rank it gives (1 Adept .. 5 Grandmaster, see mastery.js).
+export const QUALITY = {
+  fine: { label: 'Fine', rarity: 'rare', step: 1, rank: 1 },
+  superior: { label: 'Superior', rarity: 'epic', step: 2, rank: 2 },
+  epic: { label: 'Epic', rarity: 'epic', step: 3, rank: 3 },
+  legendary: { label: 'Legendary', rarity: 'legendary', step: 5, rank: 4 },
+  mythic: { label: 'Mythic', rarity: 'legendary', step: 10, rank: 5 },
+};
 
-/** Roll the upgrade level (0 = plain, up to 15) a gear drop arrives with.
- *  `source`: 'normal' | 'champion' | 'boss'. */
-export function rollUpgrade(source = 'normal', rand = Math.random) {
+/** How far up the quality ladder a drop climbs (0 = plain, up to 15). */
+export function rollQualityStep(source = 'normal', rand = Math.random) {
   const r = QUALITY_RULES[source] || QUALITY_RULES.normal;
   if (rand() >= r.start) return 0;
   let lvl = r.from;
   while (lvl < 15 && rand() < r.step) lvl++;
   return lvl;
 }
-/** Older name: the quality key for a roll, or null. */
+/** The quality tier key for a ladder step ('fine' .. 'mythic'), or null. */
+export function qualityKey(step) {
+  if (!step) return null;
+  return step >= 10 ? 'mythic' : step >= 5 ? 'legendary' : step >= 3 ? 'epic' : step >= 2 ? 'superior' : 'fine';
+}
+/** Roll the quality a gear drop arrives with: a QUALITY key, or null for a plain drop.
+ *  `source`: 'normal' | 'champion' | 'boss'. */
 export function rollQuality(source = 'normal', rand = Math.random) {
-  const lvl = rollUpgrade(source, rand);
-  return lvl ? qualityFor(lvl).key : null;
+  return qualityKey(rollQualityStep(source, rand));
 }
 
 // Normal monsters drop gear much less often than before (bosses and champions

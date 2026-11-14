@@ -42,7 +42,7 @@ export function swingBeats(id) {
   return Math.max(1, (eq?.bonuses?.speed || 5) - 3) * melee;
 }
 
-/** How good a piece is for YOU right now: its stats with its upgrade level,
+/** How good a piece is for YOU right now: its stats with its mastery and enchantments,
  *  counting only the attack stats your fighting style uses (a melee amulet is
  *  worth nothing to an archer but its Defence). Weapons count damage per beat. */
 export function effectiveRating(id, equipment, mode = 'melee') {
@@ -60,10 +60,9 @@ export function effectiveRating(id, equipment, mode = 'melee') {
 
 /** A single "how good is this" number. Weapons count damage per swing beat, so
  *  a fast sword can outrank a slow axe with bigger numbers. */
-export function gearRating(id) {
+export function gearRating(id, b = getItem(id).equip?.bonuses || {}) {
   const eq = getItem(id).equip;
   if (!eq) return 0;
-  const b = eq.bonuses || {};
   const offence = (b.attack || 0) + (b.strength || 0) + (b.ranged || 0) + (b.magic || 0) + (b.magicStr || 0) * 8 + (b.dance || 0) * 2;
   const support = (b.defence || 0) + (b.crit || 0) * 2 + (b.hp || 0)
     + (b.pierce || 0) * 2 + (b.critDmg || 0) * 0.5 + (b.haste || 0) * 3 + (b.lifesteal || 0) * 3 + (b.bossDmg || 0) + (b.atkPct || 0) * 2 + (b.magPct || 0) * 2;
@@ -71,15 +70,10 @@ export function gearRating(id) {
   return offence + support;
 }
 
-/** Rating including the item's upgrade level, so a +5 piece can beat a better base item. */
-function upgradedRating(id, equipment) {
-  const lv = equipment.upgradeLevel ? equipment.upgradeLevel(id) : 0;
-  if (!lv) return gearRating(id);
-  const base = getItem(id).equip.bonuses || {};
-  const up = equipment.itemBonuses(id);
-  let extra = 0;
-  for (const k of Object.keys(up)) if (k !== 'speed') extra += (up[k] || 0) - (base[k] || 0);
-  return gearRating(id) + (getItem(id).equip.slot === 'weapon' ? Math.round((extra * 2) / swingBeats(id)) : extra);
+/** Rating including the item's mastery and enchant lines, so a well-mastered
+ *  piece can beat a better base item. */
+function masteredRating(id, equipment) {
+  return gearRating(id, equipment.itemBonuses ? equipment.itemBonuses(id) : undefined);
 }
 
 /** Can the player wear it yet? Lists any skill levels still missing. */
@@ -114,7 +108,7 @@ export function compareGear(id, equipment) {
   if (eq.slot === 'weapon' && weaponStyle(id) !== weaponStyle(worn)) {
     return { worn, verdict: 'style', deltas, ratingDelta: gearRating(id) - gearRating(worn) };
   }
-  const ratingDelta = upgradedRating(id, equipment) - upgradedRating(worn, equipment);
+  const ratingDelta = masteredRating(id, equipment) - masteredRating(worn, equipment);
   return { worn, verdict: ratingDelta > 0 ? 'upgrade' : ratingDelta < 0 ? 'downgrade' : 'same', deltas, ratingDelta };
 }
 

@@ -2146,10 +2146,21 @@ body.boss-on #tip-toast { top: 132px; }
 .eq-remove { margin-top: 4px; padding: 2px 10px; border-radius: 99px; border: 1.5px solid var(--aw-ink); background: #fff6dc; font: inherit; font-size: 11px; font-weight: 800; cursor: pointer; }
 .eq-detail .gt-stats { display: none; }   /* the row already shows the stats */
 
-/* Auto-upgrade row in the Upgrade Gear window. */
-.gear-auto { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 4px 0 10px; }
-.gear-auto .gear-tab { padding: 8px 14px; }
-.gear-risk { font-size: 12px; opacity: .85; display: flex; align-items: center; gap: 6px; }
+/* Gear mastery & enchanting window. */
+.eq-mastery { font-size: 10.5px; font-weight: 800; color: var(--aw-sun-deep); }
+.mastery-tag { background: #fff6dc; }
+.mastery-bar { height: 7px; margin: 3px 0 2px; border: 1.5px solid var(--aw-ink); border-radius: 999px; background: #fff; overflow: hidden; }
+.mastery-bar span { display: block; height: 100%; background: var(--aw-sun-deep); }
+.ench-lines { font-size: 11.5px; margin-top: 2px; }
+.ench-chip { display: inline-block; padding: 0 6px; margin: 1px 0; border-radius: 999px; border: 1.5px solid #A66CFF; color: #6b3fc0; font-weight: 800; background: #f5eeff; }
+.mastery-row .ench-open { flex: 0 0 auto; font-size: 11.5px; line-height: 1.25; touch-action: manipulation; }
+.ench-choices { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.ench-head { font-weight: 800; font-size: 13px; }
+.ench-choices .gear-tab { padding: 10px 14px; font-size: 14px; text-align: center; touch-action: manipulation; }
+.ench-choices .gear-tab:disabled { opacity: 0.45; cursor: not-allowed; }
+.ench-choices .ench-cancel { background: var(--aw-card); }
+#tooltip .gt-ench { color: #6b3fc0; font-weight: 800; margin-top: 2px; }
+.ench-open .short, .gear-intro .short { color: var(--aw-accent); font-weight: 800; }
 
 /* Stats (Strength / Intelligence / Dexterity) in the Combat tab. */
 .cb-stats { margin: 8px 0; padding: 8px 10px; border: 2px solid var(--ink, #1f2a44); border-radius: 12px; background: #fff; font-size: 12px; }
