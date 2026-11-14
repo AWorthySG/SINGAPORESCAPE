@@ -32,8 +32,7 @@ import { STATIONS, MRT_FARE } from '../data/transport.js';
 import { EQUIP_SLOTS, canDualPair } from '../game/equipment.js';
 import { streakMult } from '../game/bounty.js';
 import { itemCategory } from '../game/inventory.js';
-import { MAX_UPGRADE, upgradeCost, upgradeChance, upgradedName, RISKY_FROM, STONE as UP_STONE, WARD as UP_WARD } from '../game/upgrade.js';
-import { MAX_REFINE, refineCost, refineOdds, refineTag } from '../game/refine.js';
+import { MASTERY_RANKS, MAX_ENCHANTS, rankProgress, enchantLabel, STONE as UP_STONE, WARD as UP_WARD } from '../game/mastery.js';
 import { ATTRS, ATTR_NAMES, attrSummary, attrForMode, MAX_STAT_POINTS, RESET_COST_PER_POINT, holdRepeatDelay } from '../game/attributes.js';
 import { STAT_LABELS, STAT_HELP, compareGear, deltaText, gearBySlot, gearRating, meetsReq, swingBeats, tierOf, weaponStyle } from '../game/gear.js';
 import { TILE, LEARNING_ENABLED } from '../config.js';
@@ -706,7 +705,7 @@ export class UI {
       if (s) {
         const item = getItem(s.id);
         if (item.equip) {
-          up = this.game.equipment.upgradeLevel(s.id);
+          up = this.game.equipment.masteryRank(s.id);
           const cmp = compareGear(s.id, this.game.equipment);
           better = (cmp.verdict === 'upgrade' || cmp.verdict === 'empty') && meetsReq(s.id, this.game.skills).ok;
         }
@@ -722,7 +721,7 @@ export class UI {
         const lbl = stackLabel(s.qty);
         html += `<span class="qty ${lbl.cls}">${lbl.text}</span>`;
       }
-      if (up) html += `<span class="up-badge">+${up}</span>`;
+      if (up) html += `<span class="up-badge" title="${MASTERY_RANKS[up].name} mastery">${MASTERY_RANKS[up].abbr}</span>`;
       // Green arrow on gear that beats what you're wearing (and you can wear it).
       if (better) html += '<span class="gear-up" title="Better than what you are wearing">▲</span>';
       cell.innerHTML = html;
@@ -800,9 +799,8 @@ export class UI {
         const item = getItem(id);
         cell.className = 'equip-slot filled';
         cell.innerHTML = itemIconSVG(id, 32);
-        const lv = this.game.equipment.upgradeLevel(id);
-        const rl = this.game.equipment.refineLevel(id);
-        if (lv || rl) cell.insertAdjacentHTML('beforeend', `<span class="up-badge">${lv ? `+${lv}` : ''}${rl ? `★${rl}` : ''}</span>`);
+        const rk = this.game.equipment.masteryRank(id);
+        if (rk) cell.insertAdjacentHTML('beforeend', `<span class="up-badge" title="${MASTERY_RANKS[rk].name} mastery">${MASTERY_RANKS[rk].abbr}</span>`);
         cell.addEventListener('click', () => this.game.unequip(slot));
         this._tip(cell, () => `<b>${item.name}</b>${this._gearTip(id)}<br><span style="opacity:.8">Tap to remove</span>`,
           () => [{ label: 'Remove', target: item.name, fn: () => this.game.unequip(slot) }]);
@@ -837,7 +835,7 @@ export class UI {
       `<div class="row"><span>Time between attacks</span><span>${speed * 0.3 < 0.1 ? (speed * 0.3).toFixed(3) : speed * 0.3 < 0.3 ? (speed * 0.3).toFixed(2) : (speed * 0.3).toFixed(1)}s</span></div>` +
       specLine +
       (sets.length ? `<div class="row set-bonus"><span>Set bonus</span><span>${sets.join(', ')}</span></div>` : '');
-    // What you're wearing, slot by slot: name, upgrade level and stats. Tap a
+    // What you're wearing, slot by slot: name, mastery rank and stats. Tap a
     // row to open its full details (tier, requirements, class armour note).
     const worn = EQUIP_SLOTS.filter((s) => this.game.equipment.get(s));
     const list = document.createElement('div');
@@ -847,13 +845,13 @@ export class UI {
     for (const slot of worn) {
       const id = this.game.equipment.get(slot);
       const eq = getItem(id).equip;
-      const lv = this.game.equipment.upgradeLevel(id);
+      const rk = this.game.equipment.masteryRank(id);
       const fam = eq.family ? `<span class="eq-fam">${ARMOUR_FAMILIES[eq.family].name}</span>` : '';
       const row = document.createElement('details');
       row.className = 'eq-row';
       row.innerHTML = `<summary><span class="eq-ic">${itemIconSVG(id, 26)}</span>`
         + `<span class="eq-txt"><span class="eq-slot">${slot === 'shield' && this.game.equipment.isDualWielding() ? 'Off-hand' : capitalize(slot)}</span>`
-        + `<b class="eq-name">${escapeHtml(upgradedName(id, lv))}${this.game.equipment.refineLevel(id) ? ' ' + refineTag(this.game.equipment.refineLevel(id)) : ''}</b>${fam}`
+        + `<b class="eq-name">${escapeHtml(getItem(id).name)}</b>${rk ? `<span class="eq-mastery">${MASTERY_RANKS[rk].name} mastery</span>` : ''}${fam}`
         + `<span class="eq-stats">${this._gearStats(id)}</span></span></summary>`
         + `<div class="eq-detail">${this._gearTip(id)}</div>`;
       const off = document.createElement('button');
@@ -875,16 +873,11 @@ export class UI {
     guide.textContent = 'Gear Guide: which equipment is better?';
     guide.addEventListener('click', () => this.openGearGuide());
     this.el.equipBonuses.appendChild(guide);
-    const up = document.createElement('button');
-    up.className = 'bestiary-open gear-guide-open';
-    up.textContent = `Upgrade gear (+1 to +${MAX_UPGRADE})`;
-    up.addEventListener('click', () => this.openUpgrade());
-    this.el.equipBonuses.appendChild(up);
-    const rf = document.createElement('button');
-    rf.className = 'bestiary-open gear-guide-open';
-    rf.textContent = `Refine gear (★1 to ★${MAX_REFINE})`;
-    rf.addEventListener('click', () => this.openRefine());
-    this.el.equipBonuses.appendChild(rf);
+    const ms = document.createElement('button');
+    ms.className = 'bestiary-open gear-guide-open';
+    ms.textContent = 'Gear mastery & enchanting';
+    ms.addEventListener('click', () => this.openMastery());
+    this.el.equipBonuses.appendChild(ms);
   }
 
   /** Stat chips for one piece of gear, e.g. "+12 Defence · 1.2s". */
@@ -905,8 +898,10 @@ export class UI {
     const t = tierOf(id);
     const req = meetsReq(id, this.game.skills);
     const reqTxt = Object.entries(eq.req || {}).filter(([, l]) => l > 1).map(([k, l]) => `${capitalize(k)} ${l}`).join(', ');
-    const lv = this.game.equipment.upgradeLevel(id);
-    let html = (lv ? `<div class="gt-up">Upgraded +${lv}</div>` : '') + `<div class="gt-stats">${this._gearStats(id)}</div>`
+    const rk = this.game.equipment.masteryRank(id), lines = this.game.equipment.enchantLines(id);
+    let html = (rk ? `<div class="gt-up">${MASTERY_RANKS[rk].name} mastery</div>` : '')
+      + (lines.length ? `<div class="gt-ench">Enchanted: ${lines.map(enchantLabel).join(' · ')}</div>` : '')
+      + `<div class="gt-stats">${this._gearStats(id)}</div>`
       + `<div class="gt-tier">#${t.rank} of ${t.of} ${eq.slot === 'weapon' ? weaponStyle(id) + ' weapons' : eq.slot + ' items'}</div>`;
     if (reqTxt) html += `<div class="gt-req ${req.ok ? 'ok' : 'no'}">Needs ${reqTxt}${req.ok ? ' ✓' : ''}</div>`;
     // Accessories suit one fighting style: say which, and whether it's yours.
@@ -933,112 +928,91 @@ export class UI {
     return html;
   }
 
-  // ---------------- Gear upgrades ----------------
-  openUpgrade() {
+  // ---------------- Gear mastery & enchanting ----------------
+  // Every piece you wear or carry: its mastery rank with a bar to the next,
+  // and its enchant lines with a button to add (or replace) one.
+  openMastery() {
     const g = this.game;
     const render = (body) => {
-      body.innerHTML = '<div class="gear-intro"><p>Spend coins (and metal bars, for metal gear) to make an item stronger: each level adds 8% to its stats, rising to 10% from +6 and 15% from +11. '
-        + 'Levels belong to the item type, so every copy you own shares them. Up to +5 always works; after that it can fail. '
-        + `From +4 you also need <b>upgrade stones</b> (monsters drop them). From +${RISKY_FROM}, a failure also <b>drops the item a level</b>, unless you carry an <b>upgrade ward</b>. `
-        + `Max +${MAX_UPGRADE}. You have ${g.inventory.count(UP_STONE)} stones and ${g.inventory.count(UP_WARD)} wards.</p></div>`;
-      // Auto-upgrade: spend what you have on everything you're wearing, lowest level first.
-      const auto = document.createElement('div');
-      auto.className = 'gear-auto';
-      auto.innerHTML = `<button type="button" class="gear-tab active">⚡ Auto-upgrade worn gear</button>`
-        + `<label class="gear-risk"><input type="checkbox"${this._autoUpRisk ? ' checked' : ''}> Also try +${RISKY_FROM} and up without a ward (a failure costs a level)</label>`;
-      const riskBox = auto.querySelector('input');
-      riskBox.addEventListener('change', () => { this._autoUpRisk = riskBox.checked; });
-      auto.querySelector('button').addEventListener('click', () => { g.autoUpgradeEquipped({ allowRisk: !!this._autoUpRisk }); render(body); });
-      body.appendChild(auto);
-      const ids = [...new Set([...EQUIP_SLOTS.map((s) => g.equipment.get(s)).filter(Boolean),
-        ...g.inventory.slots.filter((s) => s && getItem(s.id).equip).map((s) => s.id)])];
-      const list = document.createElement('div');
-      list.className = 'gear-list';
-      if (!ids.length) list.innerHTML = '<div class="modal-hint">Wear or carry some gear to upgrade it.</div>';
-      for (const id of ids) {
-        const lv = g.equipment.upgradeLevel(id);
-        const row = document.createElement('div');
-        row.className = 'gear-row';
-        let costHtml = '<b>Fully upgraded</b>';
-        let can = false;
-        if (lv < MAX_UPGRADE) {
-          const c = upgradeCost(id, lv + 1);
-          const okC = g.inventory.count('coins') >= c.coins;
-          const okB = !c.bar || g.inventory.count(c.bar.id) >= c.bar.qty;
-          const okS = !c.stones || g.inventory.count(UP_STONE) >= c.stones;
-          can = okC && okB && okS;
-          costHtml = `<span class="${okC ? '' : 'short'}">${formatNumber(c.coins)} coins</span>`
-            + (c.bar ? ` · <span class="${okB ? '' : 'short'}">${c.bar.qty} x ${escapeHtml(getItem(c.bar.id).name)}</span>` : '')
-            + (c.stones ? ` · <span class="${okS ? '' : 'short'}">${c.stones} stones</span>` : '')
-            + ` · ${Math.round(upgradeChance(lv + 1) * 100)}% success`
-            + (lv + 1 >= RISKY_FROM ? ' · <span class="short">fail = −1 level</span>' : '');
-        }
-        const worn = EQUIP_SLOTS.some((s) => g.equipment.get(s) === id);
-        row.innerHTML = `<span class="gear-ic">${itemIconSVG(id, 28)}</span>`
-          + `<div class="gear-info"><div class="gear-name"><b>${escapeHtml(upgradedName(id, lv))}</b>${worn ? '<span class="gear-tag worn">Wearing</span>' : ''}</div>`
-          + `<div class="gear-stats">${this._gearStats(id)}</div><div class="gear-stats">Next: ${costHtml}</div></div>`;
-        if (lv < MAX_UPGRADE) {
-          const b = document.createElement('button');
-          b.className = 'gear-tab' + (can ? ' active' : '');
-          b.textContent = `+${lv + 1}`;
-          b.disabled = !can;
-          b.addEventListener('click', () => { g.upgradeItem(id); render(body); });
-          row.appendChild(b);
-        }
-        list.appendChild(row);
-      }
-      body.appendChild(list);
-    };
-    this.openModal('Upgrade Gear', render);
-  }
-
-  // ---------------- Gear refinement ----------------
-  openRefine() {
-    const g = this.game;
-    const pct = (x) => `${Math.round(x * 100)}%`;
-    const render = (body) => {
-      body.innerHTML = '<div class="gear-intro"><p>Refining is a second layer on top of upgrades: each ★ adds 6% of an item\'s base stats, rising to 10% from ★10 and 15% from ★13. '
-        + 'Like upgrades, a refine level belongs to the item type. Every attempt costs coins and upgrade stones, and the higher you go the riskier it gets: '
-        + '★1–★5 always work; from ★6 an attempt can <b>fail</b> (materials lost); from ★10 it can also <b>downgrade</b> the item a level; '
-        + 'from ★13 it can <b>break</b> the item, destroying it for good. An <b>upgrade ward</b> in your pack takes a downgrade or a break instead. '
+      body.innerHTML = '<div class="gear-intro"><p>Gear grows stronger as you fight with it. Every kill gives each piece you wear <b>mastery</b> '
+        + '(1 for a monster, 5 for a champion, 25 for a boss), and each rank adds to its stats, up to <b>Legendary</b> (+140%). '
+        + `<b>Enchanting</b> adds up to ${MAX_ENCHANTS} bonus lines: choose one of three on offer, paid for with upgrade stones and coins. An <b>upgrade ward</b> rerolls the offer. `
+        + 'Mastery and enchantments belong to the item type, so every copy you own shares them. '
         + `You have ${formatNumber(g.inventory.count(UP_STONE))} stones and ${g.inventory.count(UP_WARD)} wards.</p></div>`;
       const ids = [...new Set([...EQUIP_SLOTS.map((s) => g.equipment.get(s)).filter(Boolean),
-        ...g.inventory.slots.filter((s) => s && getItem(s.id).equip).map((s) => s.id)])];
+        ...g.inventory.slots.filter((s) => s && getItem(s.id).equip?.bonuses).map((s) => s.id)])];
       const list = document.createElement('div');
       list.className = 'gear-list';
-      if (!ids.length) list.innerHTML = '<div class="modal-hint">Wear or carry some gear to refine it.</div>';
+      if (!ids.length) list.innerHTML = '<div class="modal-hint">Wear or carry some gear to see its mastery.</div>';
       for (const id of ids) {
-        const lv = g.equipment.refineLevel(id);
-        const row = document.createElement('div');
-        row.className = 'gear-row';
-        let costHtml = '<b>Fully refined</b>';
-        let can = false;
-        if (lv < MAX_REFINE) {
-          const c = refineCost(id, lv + 1), o = refineOdds(lv + 1);
-          const okC = g.inventory.count('coins') >= c.coins, okS = g.inventory.count(UP_STONE) >= c.stones;
-          can = okC && okS;
-          costHtml = `<span class="${okC ? '' : 'short'}">${formatNumber(c.coins)} coins</span> · <span class="${okS ? '' : 'short'}">${c.stones} stone${c.stones > 1 ? 's' : ''}</span>`
-            + ` · ${pct(o.success)} success` + (o.fail ? ` · ${pct(o.fail)} fail` : '')
-            + (o.downgrade ? ` · <span class="short">${pct(o.downgrade)} downgrade</span>` : '')
-            + (o.broken ? ` · <span class="short">${pct(o.broken)} break</span>` : '');
-        }
+        const p = rankProgress(g.equipment.masteryPoints(id));
+        const lines = g.equipment.enchantLines(id);
+        const c = g.enchantCostFor(id);
+        const okS = g.inventory.count(UP_STONE) >= c.stones, okC = g.inventory.count('coins') >= c.coins;
         const worn = EQUIP_SLOTS.some((s) => g.equipment.get(s) === id);
+        const row = document.createElement('div');
+        row.className = 'gear-row mastery-row';
         row.innerHTML = `<span class="gear-ic">${itemIconSVG(id, 28)}</span>`
-          + `<div class="gear-info"><div class="gear-name"><b>${escapeHtml(upgradedName(id, g.equipment.upgradeLevel(id)))}${lv ? ' ' + refineTag(lv) : ''}</b>${worn ? '<span class="gear-tag worn">Wearing</span>' : ''}</div>`
-          + `<div class="gear-stats">${this._gearStats(id)}</div><div class="gear-stats">Next: ${costHtml}</div></div>`;
-        if (lv < MAX_REFINE) {
-          const b = document.createElement('button');
-          b.className = 'gear-tab' + (can ? ' active' : '');
-          b.textContent = refineTag(lv + 1);
-          b.disabled = !can;
-          b.addEventListener('click', () => { g.refineItem(id); render(body); });
-          row.appendChild(b);
-        }
+          + `<div class="gear-info"><div class="gear-name"><b>${escapeHtml(getItem(id).name)}</b><span class="gear-tag mastery-tag">${MASTERY_RANKS[p.rank].name}</span>${worn ? '<span class="gear-tag worn">Wearing</span>' : ''}</div>`
+          + `<div class="mastery-bar"><span style="width:${Math.round(p.frac * 100)}%"></span></div>`
+          + `<div class="gear-stats">${p.next ? `${formatNumber(p.need)} more kill${p.need > 1 ? 's' : ''} to ${MASTERY_RANKS[p.next].name}` : 'Fully mastered'}</div>`
+          + `<div class="gear-stats">${this._gearStats(id)}</div>`
+          + `<div class="ench-lines">Enchantments ${lines.length}/${MAX_ENCHANTS}: ${lines.length ? lines.map((l) => `<span class="ench-chip">${enchantLabel(l)}</span>`).join(' ') : 'none yet'}</div></div>`;
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'gear-tab ench-open' + (okS && okC ? ' active' : '');
+        b.innerHTML = `${lines.length >= MAX_ENCHANTS ? 'Replace a line' : 'Enchant'}<br><span class="${okS ? '' : 'short'}">${c.stones} stones</span>, <span class="${okC ? '' : 'short'}">${formatNumber(c.coins)} coins</span>`;
+        b.addEventListener('click', () => this.openEnchant(id));
+        row.appendChild(b);
         list.appendChild(row);
       }
       body.appendChild(list);
     };
-    this.openModal('Refine Gear', render);
+    this.openModal('Gear Mastery', render);
+  }
+
+  /** Enchant one item type: three lines on offer, pick one (the cost is paid
+   *  then), reroll with a ward, or go back. A full item first asks which of its
+   *  lines to replace. */
+  openEnchant(id, replace = null) {
+    const g = this.game;
+    const name = escapeHtml(getItem(id).name);
+    const button = (html, fn, cls = '') => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'gear-tab ' + cls;
+      b.innerHTML = html;
+      b.addEventListener('click', fn);
+      return b;
+    };
+    const render = (body) => {
+      const lines = g.equipment.enchantLines(id);
+      const full = lines.length >= MAX_ENCHANTS;
+      const c = g.enchantCostFor(id);
+      const can = g.canAffordEnchant(id);
+      body.innerHTML = `<div class="gear-intro"><p>${name} has ${lines.length}/${MAX_ENCHANTS} enchantments${lines.length ? ': ' + lines.map(enchantLabel).join(', ') : ''}. `
+        + `Enchanting costs <b>${c.stones} upgrade stones</b> and <b>${formatNumber(c.coins)} coins</b>, paid when you pick a line. `
+        + `You have ${formatNumber(g.inventory.count(UP_STONE))} stones and ${formatNumber(g.inventory.count('coins'))} coins.`
+        + (can ? '' : ' <span class="short">You can\'t afford it yet.</span>') + '</p></div>';
+      const box = document.createElement('div');
+      box.className = 'ench-choices';
+      if (full && replace == null) {
+        box.insertAdjacentHTML('beforeend', '<div class="ench-head">All three lines are full. Which one should go?</div>');
+        lines.forEach((l, i) => box.appendChild(button(`Replace ${enchantLabel(l)}`, () => { replace = i; render(body); })));
+      } else {
+        box.insertAdjacentHTML('beforeend', `<div class="ench-head">${full ? `Replacing ${enchantLabel(lines[replace])}. ` : ''}Choose one:</div>`);
+        g.enchantOffers(id).forEach((o, i) => {
+          const b = button(enchantLabel(o), () => { if (g.pickEnchant(id, i, replace)) this.openMastery(); else render(body); }, 'active ench-offer');
+          b.disabled = !can;
+          box.appendChild(b);
+        });
+        const wards = g.inventory.count(UP_WARD);
+        if (wards > 0) box.appendChild(button(`Reroll (uses a ward, ${wards} left)`, () => { g.rerollEnchant(id); render(body); }));
+      }
+      box.appendChild(button('Cancel', () => this.openMastery(), 'ench-cancel'));
+      body.appendChild(box);
+    };
+    this.openModal(`Enchant ${getItem(id).name}`, render);
   }
 
   // ---------------- Gear guide ----------------
@@ -1889,7 +1863,7 @@ export class UI {
     else if (want('gear', () => g.tickCount % 5 === 0 && g.inventory.slots.some((s) => s && getItem(s.id).equip
       && compareGear(s.id, g.equipment).verdict === 'upgrade' && meetsReq(s.id, g.skills).ok && canWear(g.jobClass, s.id)))) id = 'gear';
     else if (want('bounty', () => g.tickCount > 150)) id = 'bounty';
-    else if (want('upgrade', () => g.inventory.count('coins') >= 3000)) id = 'upgrade';
+    else if (want('upgrade', () => g.inventory.count(UP_STONE) >= 10)) id = 'upgrade';
     if (id) this.showTip(id);
   }
 
@@ -3333,7 +3307,7 @@ const TIPS = {
   dodge: 'A boss marked the ground in <b>red</b>! Walk out before it fills up to dodge the hit.',
   champion: 'A gold-ringed <b>&#9733; Champion</b> is nearby: tougher than normal, with extra loot.',
   bounty: 'You have <b>daily bounties</b> in the Quest Journal: three kill targets that pay coins. The tracker on the left points the way.',
-  upgrade: 'Got coins to spare? <b>Upgrade</b> your gear up to +15 in Worn Equipment &gt; Upgrade gear.',
+  upgrade: 'Your gear gains <b>mastery</b> with every kill. Spend upgrade stones to <b>enchant</b> it in Worn Equipment &gt; Gear mastery &amp; enchanting.',
 };
 
 function escapeHtml(s) {

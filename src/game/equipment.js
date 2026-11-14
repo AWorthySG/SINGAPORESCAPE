@@ -1,7 +1,6 @@
 import { getItem } from '../data/items.js';
 import { ARMOUR_SETS } from '../data/sets.js';
-import { upgradedBonuses, MAX_UPGRADE } from './upgrade.js';
-import { refinedBonuses, MAX_REFINE } from './refine.js';
+import { masteryBonuses, enchantedBonuses, rankFor, migrateOld, MAX_ENCHANTS, ENCHANT_STEP } from './mastery.js';
 
 export const EQUIP_SLOTS = ['head', 'cape', 'amulet', 'weapon', 'body', 'shield', 'legs', 'hands', 'feet', 'ring'];
 export const DEFAULT_WEAPON_SPEED = 5; // ticks (unarmed)
@@ -42,17 +41,18 @@ export class Equipment {
     this.bus = bus;
     this.slots = {};
     for (const s of EQUIP_SLOTS) this.slots[s] = null;
-    this.upgrades = {};           // itemId -> upgrade level (+1..+15), shared by every copy
-    this.refines = {};            // itemId -> refine level (★1..★15), shared by every copy (see refine.js)
+    this.mastery = {};            // itemId -> mastery points, shared by every copy (see mastery.js)
+    this.enchants = {};           // itemId -> [{ stat, value }] (up to 3), shared by every copy
   }
 
-  upgradeLevel(id) { return this.upgrades[id] || 0; }
-  refineLevel(id) { return this.refines[id] || 0; }
+  masteryPoints(id) { return this.mastery[id] || 0; }
+  masteryRank(id) { return rankFor(this.masteryPoints(id)); }
+  enchantLines(id) { return this.enchants[id] || []; }
 
-  /** An item's bonuses including its upgrade and refine levels. */
+  /** An item's bonuses: its base stats, plus its mastery rank's gain, plus its enchant lines. */
   itemBonuses(id) {
     const base = getItem(id).equip?.bonuses || {};
-    return refinedBonuses(base, upgradedBonuses(base, this.upgradeLevel(id)), this.refineLevel(id));
+    return enchantedBonuses(masteryBonuses(base, this.masteryRank(id)), this.enchantLines(id));
   }
 
   _changed() { this.bus?.emit('equipment'); }
@@ -164,7 +164,7 @@ export class Equipment {
 
   _haste() {
     let h = 0;
-    for (const slot of EQUIP_SLOTS) { const id = this.slots[slot]; if (id && this.styleFits(id)) h += getItem(id).equip?.bonuses?.haste || 0; }
+    for (const slot of EQUIP_SLOTS) { const id = this.slots[slot]; if (id && this.styleFits(id)) h += this.itemBonuses(id).haste || 0; }
     return h;
   }
 
@@ -174,20 +174,35 @@ export class Equipment {
     return !!id && getItem(id).tool === tag;
   }
 
-  serialize() { return { ...this.slots, _upgrades: { ...this.upgrades }, _refines: { ...this.refines } }; }
+  serialize() {
+    return { ...this.slots, _mastery: { ...this.mastery }, _enchants: Object.fromEntries(Object.entries(this.enchants).map(([id, l]) => [id, l.map((x) => ({ ...x }))])) };
+  }
 
   load(data) {
     if (!data) return;
     for (const s of EQUIP_SLOTS) {
       this.slots[s] = data[s] && itemExists(data[s]) ? data[s] : null;
     }
-    this.upgrades = {};
-    for (const [id, lv] of Object.entries(data._upgrades || {})) {
-      if (itemExists(id) && lv > 0) this.upgrades[id] = Math.min(MAX_UPGRADE, Math.floor(lv));
+    this.mastery = {};   // older saves have none
+    for (const [id, pts] of Object.entries(data._mastery || {})) {
+      if (itemExists(id) && typeof pts === 'number' && pts > 0) this.mastery[id] = Math.floor(pts);
     }
-    this.refines = {};   // older saves have none
-    for (const [id, lv] of Object.entries(data._refines || {})) {
-      if (itemExists(id) && lv > 0) this.refines[id] = Math.min(MAX_REFINE, Math.floor(lv));
+    this.enchants = {};
+    for (const [id, lines] of Object.entries(data._enchants || {})) {
+      if (!itemExists(id) || !Array.isArray(lines)) continue;
+      const ok = lines.filter((l) => l && ENCHANT_STEP[l.stat] && typeof l.value === 'number' && l.value > 0).slice(0, MAX_ENCHANTS);
+      if (ok.length) this.enchants[id] = ok.map((l) => ({ stat: l.stat, value: Math.floor(l.value) }));
+    }
+    // Saves from before mastery had upgrade levels (+1..+15) and refine stars
+    // (★1..★15): turn them into mastery points and free enchant lines, once.
+    const ups = data._upgrades || {}, refs = data._refines || {};
+    for (const id of new Set([...Object.keys(ups), ...Object.keys(refs)])) {
+      if (!itemExists(id) || this.mastery[id] || this.enchants[id]) continue;
+      const up = Math.max(0, Math.min(15, Math.floor(ups[id]) || 0)), ref = Math.max(0, Math.min(15, Math.floor(refs[id]) || 0));
+      if (!up && !ref) continue;
+      const m = migrateOld(id, up, ref);
+      if (m.points) this.mastery[id] = m.points;
+      if (m.lines.length) this.enchants[id] = m.lines;
     }
     this._changed();
   }

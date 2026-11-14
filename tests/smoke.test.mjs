@@ -626,7 +626,7 @@ test('every source module parses and loads headlessly (catches syntax slips in b
 test('existing weapons, jewellery and boss uniques carry the new offensive stats, within the caps', async () => {
   const { ITEMS } = await import('../src/data/items.js');
   const { OFFENCE_KEYS, OFFENCE_CAPS } = await import('../src/game/equipment.js');
-  const { upgradedBonuses } = await import('../src/game/upgrade.js');
+  const { masteryBonuses } = await import('../src/game/mastery.js');
   const has = (id, k) => (ITEMS[id].equip.bonuses[k] || 0) > 0;
   assert.ok(has('bronze_dagger', 'critDmg') && has('rune_mace', 'pierce') && has('eternal_pistol', 'atkPct') && has('yew_longbow', 'pierce') && has('yew_shortbow', 'atkPct'));
   assert.ok(has('eternal_staff', 'magPct') && has('mystic_wand', 'magPct') && has('rune_sword', 'atkPct') && has('rune_scimitar', 'lifesteal'));
@@ -636,9 +636,9 @@ test('existing weapons, jewellery and boss uniques carry the new offensive stats
     for (const k of OFFENCE_KEYS) if (OFFENCE_CAPS[k] != null) assert.ok((it.equip?.bonuses?.[k] || 0) <= OFFENCE_CAPS[k] / 2, `${it.id} ${k} leaves room under the cap`);
   }
   const b = ITEMS.tiger_kris.equip.bonuses;
-  const up = upgradedBonuses(b, 15);
-  assert.ok(up.attack > b.attack, 'upgrades raise the flat stats');
-  for (const k of OFFENCE_KEYS) assert.equal(up[k], b[k], `upgrades leave ${k} alone`);
+  const up = masteryBonuses(b, 6);
+  assert.ok(up.attack > b.attack, 'mastery raises the flat stats');
+  for (const k of OFFENCE_KEYS) assert.equal(up[k], b[k], `mastery leaves ${k} alone`);
 });
 
 test('every amulet, ring and cape suits one style, and each style gets an equal ladder', async () => {

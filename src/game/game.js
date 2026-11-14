@@ -1,11 +1,10 @@
 import { EventBus } from '../core/events.js';
 import { buildWorld, TERRAIN, zoneLevel } from '../data/world.js';
 import { compareGear, deltaText, gearRating, effectiveRating, weaponStyle } from './gear.js';
-import { RARITY, dropRarity, lootDelay, rollUpgrade, qualityFor, NORMAL_GEAR_SKIP } from './loot.js';
+import { RARITY, dropRarity, lootDelay, rollQuality, QUALITY, NORMAL_GEAR_SKIP } from './loot.js';
 import { dayKey, prevDayKey, makeBounties, streakMult } from './bounty.js';
 import { ATTRS, ATTR_NAMES, statPointsAt, attrForMode, DMG_PER_POINT, LIFE_PER_STR, CRIT_PER_INT, SPEED_PER_DEX, RESET_COST_PER_POINT } from './attributes.js';
-import { MAX_REFINE, refineCost, rollRefine, refineTag } from './refine.js';
-import { MAX_UPGRADE, upgradeCost, upgradeChance, upgradedName, upgradedBonuses, RISKY_FROM, STONE as UP_STONE, WARD as UP_WARD } from './upgrade.js';
+import { MASTERY_RANKS, BANNER_RANK, MAX_ENCHANTS, killMastery, enchantCost, rollEnchantOffers, enchantLabel, STONE as UP_STONE, WARD as UP_WARD } from './mastery.js';
 import { getItem, MELEE_REACH, accessoriesFor } from '../data/items.js';
 import { chebyshev, randInt, weightedPick, capitalize } from '../core/utils.js';
 import {
@@ -2483,6 +2482,7 @@ export class Game {
       this.msg(`You have defeated the ${npc.name}.`, 'combat');
     }
     this.totalKills++;
+    this._gainMastery(npc);
     // Kill streak: chain kills (no more than ~30s apart) for a growing XP bonus.
     this.killStreak = (this.tickCount - this._lastKillTick <= STREAK_WINDOW_TICKS) ? this.killStreak + 1 : 1;
     this._lastKillTick = this.tickCount;
@@ -2768,30 +2768,49 @@ export class Game {
         if (first) { first[1] += l[1]; loot.splice(i, 1); } else piles.set(l[0], l);
       }
     }
-    // Gear quality: a head start of upgrade levels for that item type.
+    // Gear quality: a head start of mastery for that item type.
     for (const l of loot) {
       if (!getItem(l[0]).equip) continue;
-      const lv = rollUpgrade(l[3] === 'boss' || def.boss ? 'boss' : npc.champion ? 'champion' : 'normal');
-      if (lv) { this._applyQuality(l[0], lv); l[2] = qualityFor(lv).rarity; }
+      const q = rollQuality(l[3] === 'boss' || def.boss ? 'boss' : npc.champion ? 'champion' : 'normal');
+      if (q) { this._applyQuality(l[0], q); l[2] = QUALITY[q].rarity; }
       l.length = 3;
     }
     this._autoLoot(loot, npc.x, npc.y);
   }
 
-  /** A quality drop raises that item type's upgrade level (never lowers it). */
-  _applyQuality(id, level) {
-    const Q = qualityFor(level), lv = this.equipment.upgradeLevel(id);
+  /** A quality drop raises that item type's mastery to the matching rank (never lowers it). */
+  _applyQuality(id, key) {
+    const Q = QUALITY[key], R = MASTERY_RANKS[Q.rank];
     const name = getItem(id).name;
-    if (level > lv) {
-      this.equipment.upgrades[id] = level;
+    const had = this.equipment.masteryRank(id);
+    if (Q.rank > had) {
+      this.equipment.mastery[id] = Math.max(this.equipment.masteryPoints(id), R.points);
       this.equipment._changed();
-      this.msg(`${Q.label} ${name}! Your ${name.toLowerCase()} is now +${level}.`, 'level');
-      if (level >= 5) this.banner(`<span class="big">${Q.label} drop!</span>${name} +${level}`);
+      this.msg(`${Q.label} ${name}! Your ${name.toLowerCase()} is now ${R.name} mastery.`, 'level');
+      if (Q.rank >= BANNER_RANK) this.banner(`<span class="big">${Q.label} drop!</span>${name}: ${R.name} mastery`);
     } else {
-      this.msg(`${Q.label} ${name} +${level} (yours is already +${lv}).`, 'system');
+      this.msg(`${Q.label} ${name} (yours is already ${MASTERY_RANKS[had].name} mastery).`, 'system');
     }
   }
 
+  /** Every kill trains the gear you are wearing: each piece gains mastery
+   *  points (1 a monster, 5 a champion, 25 a boss), and may rank up. */
+  _gainMastery(npc) {
+    const pts = killMastery(npc);
+    const ids = new Set(EQUIP_SLOTS.map((s) => this.equipment.get(s)).filter((id) => id && getItem(id).equip?.bonuses));
+    if (!ids.size) return;
+    for (const id of ids) {
+      const before = this.equipment.masteryRank(id);
+      this.equipment.mastery[id] = this.equipment.masteryPoints(id) + pts;
+      const after = this.equipment.masteryRank(id);
+      if (after > before) {
+        const R = MASTERY_RANKS[after];
+        this.msg(`${getItem(id).name} reached ${R.name} mastery!`, 'level');
+        if (after >= BANNER_RANK) this.banner(`<span class="big">${R.name} mastery!</span>${getItem(id).name}`);
+      }
+    }
+    this.equipment._changed();
+  }
 
   /** Auto-loot: drops go straight into the pack; whatever won't fit falls to the ground. */
   // MapleStory-style loot: drops pop out onto the ground in a little fan,
@@ -4203,12 +4222,12 @@ export class Game {
   }
 
   /** Best in slot: put on the strongest piece in the backpack for every slot
-   *  (counting upgrade levels), keeping to your current weapon style, then fill
+   *  (counting mastery and enchantments), keeping to your current weapon style, then fill
    *  a dual-wield off-hand. Returns how many pieces were changed. */
   equipBest() {
     let changed = 0;
-    // Scores include each piece's upgrade level and count only the stats your
-    // fighting style uses, so a +10 iron sword can beat a plain rune one.
+    // Scores include each piece's mastery and enchant lines and count only the
+    // stats your fighting style uses, so a Legendary iron sword can beat a plain mithril one.
     const mode = this.combatMode();
     const score = (id) => effectiveRating(id, this.equipment, mode);
     for (let guard = 0; guard < 30; guard++) {
@@ -4326,162 +4345,64 @@ export class Game {
     }
   }
 
-  /** Spend coins (and bars, for metal gear) to raise an item type's upgrade level. */
-  upgradeItem(id, opts = {}) {
-    // Auto-upgrade runs many attempts in a row and sums them up itself, so it asks for quiet.
-    const say = opts.quiet ? () => {} : (...a) => this.msg(...a);
-    if (!getItem(id).equip) return false;
-    const lv = this.equipment.upgradeLevel(id);
-    if (lv >= MAX_UPGRADE) { say(`${upgradedName(id, lv)} is already fully upgraded.`); return false; }
-    const next = lv + 1;
-    const cost = upgradeCost(id, next);
-    if (this.inventory.count('coins') < cost.coins) { say(`You need ${cost.coins} coins to upgrade to +${next}.`); return false; }
-    if (cost.bar && this.inventory.count(cost.bar.id) < cost.bar.qty) {
-      say(`You need ${cost.bar.qty} x ${getItem(cost.bar.id).name} to upgrade to +${next}.`); return false;
-    }
-    if (cost.stones && this.inventory.count(UP_STONE) < cost.stones) {
-      say(`You need ${cost.stones} upgrade stones to upgrade to +${next}. Monsters drop them, bosses most of all.`); return false;
-    }
-    this.inventory.remove('coins', cost.coins);
-    if (cost.bar) this.inventory.remove(cost.bar.id, cost.bar.qty);
-    if (cost.stones) this.inventory.remove(UP_STONE, cost.stones);
-    if (Math.random() < upgradeChance(next)) {
-      this.equipment.upgrades[id] = next;
-      this.equipment._changed();
-      if (!opts.quiet) { this.spawnSparkle(this.player, '#F5B82E', 14); this.bus.emit('sfx', 'level'); }
-      say(`Success! Your ${upgradedName(id, next)} is stronger.`, 'level');
-      if (next === MAX_UPGRADE && !opts.quiet) this.banner(`<span class="big">+${MAX_UPGRADE}!</span>${getItem(id).name} is fully upgraded`);
-      return true;
-    }
-    if (!opts.quiet) this.bus.emit('sfx', 'hurt');
-    // Risky levels: a failure knocks the item down one level, unless a ward takes the blow.
-    if (next >= RISKY_FROM) {
-      if (this.inventory.count(UP_WARD) > 0) {
-        this.inventory.remove(UP_WARD, 1);
-        say(`The upgrade failed, but your upgrade ward crumbled instead: your ${upgradedName(id, lv)} keeps its level.`, 'system');
-      } else {
-        this.equipment.upgrades[id] = lv - 1;
-        if (!this.equipment.upgrades[id]) delete this.equipment.upgrades[id];
-        this.equipment._changed();
-        say(`The upgrade failed and your gear lost a level: it is now ${upgradedName(id, lv - 1)}. (An upgrade ward would have saved it.)`, 'combat');
-      }
-      return false;
-    }
-    say(`The upgrade failed. Your ${upgradedName(id, lv)} is unharmed, but the materials are used up.`, 'system');
-    return false;
+  // ---------------- Enchanting ----------------
+  // An item type holds up to three enchant lines. An attempt offers three
+  // random lines; the stones and coins are paid only when you pick one. The
+  // offer is kept until you pick, so closing the window can't be used as a
+  // free reroll: a reroll costs an upgrade ward.
+
+  /** What the next enchant of this item costs ({ stones, coins }). */
+  enchantCostFor(id) { return enchantCost(id, this.equipment.enchantLines(id).length); }
+
+  canAffordEnchant(id) {
+    const c = this.enchantCostFor(id);
+    return this.inventory.count(UP_STONE) >= c.stones && this.inventory.count('coins') >= c.coins;
   }
 
-  /** What the next upgrade of an item costs, and whether you can pay for it now. */
-  canAffordUpgrade(id) {
-    const lv = this.equipment.upgradeLevel(id);
-    if (lv >= MAX_UPGRADE) return false;
-    const c = upgradeCost(id, lv + 1);
-    return this.inventory.count('coins') >= c.coins && (!c.bar || this.inventory.count(c.bar.id) >= c.bar.qty)
-      && (!c.stones || this.inventory.count(UP_STONE) >= c.stones);
+  /** The three lines on offer for this item (rolled the first time you look). */
+  enchantOffers(id) {
+    if (!getItem(id).equip?.bonuses) return [];
+    this._enchantOffers ||= {};
+    if (!this._enchantOffers[id]) this._enchantOffers[id] = rollEnchantOffers(id);
+    return this._enchantOffers[id];
   }
 
-  /** How much stronger the next upgrade makes an item for the way you fight
-   *  now: the stats it gains, weighted by what they do for you (your style's
-   *  damage stat most, then crit, life and Defence), times the chance it works. */
-  upgradeValue(id) {
-    const lv = this.equipment.upgradeLevel(id);
-    if (lv >= MAX_UPGRADE) return 0;
-    const base = getItem(id).equip?.bonuses || {};
-    const now = upgradedBonuses(base, lv), next = upgradedBonuses(base, lv + 1);
-    const mode = this.combatMode();
-    const W = { defence: 0.5, hp: 1, crit: 2,
-      ...(mode === 'ranged' ? { ranged: 1 } : mode === 'magic' ? { magic: 0.5, magicStr: 8 } : mode === 'dance' ? { dance: 1 } : { strength: 1, attack: 0.25 }) };
-    let v = 0;
-    for (const [k, w] of Object.entries(W)) v += ((next[k] || 0) - (now[k] || 0)) * w;
-    return v * upgradeChance(lv + 1);
+  /** Use up an upgrade ward to swap the offer for three new lines. */
+  rerollEnchant(id) {
+    if (this.inventory.count(UP_WARD) < 1) { this.msg('You need an upgrade ward to reroll the offer.'); return null; }
+    this.inventory.remove(UP_WARD, 1);
+    this._enchantOffers ||= {};
+    this._enchantOffers[id] = rollEnchantOffers(id);
+    this.msg('Your upgrade ward crumbles, and three new enchantments shimmer into view.', 'system');
+    return this._enchantOffers[id];
   }
 
-  /** Auto-upgrade: keep upgrading the gear you're wearing for as long as your
-   *  coins, bars and stones last, always taking the upgrade that makes you
-   *  strongest first (see upgradeValue), so the money goes where it counts. Risky levels (+8 and up, where a failure costs a
-   *  level) are only tried while an upgrade ward can take the blow, unless
-   *  `allowRisk` is set. Returns { tries, wins, changes, stoppedAtRisk }. */
-  autoUpgradeEquipped({ allowRisk = false, maxTries = 2000 } = {}) {
-    const ids = [...new Set(EQUIP_SLOTS.map((s) => this.equipment.get(s)).filter((id) => id && getItem(id).equip))];
-    const start = Object.fromEntries(ids.map((id) => [id, this.equipment.upgradeLevel(id)]));
-    let tries = 0, wins = 0, stoppedAtRisk = false;
-    while (tries < maxTries) {
-      const ready = ids.filter((id) => this.canAffordUpgrade(id));
-      const safe = ready.filter((id) => allowRisk || this.equipment.upgradeLevel(id) + 1 < RISKY_FROM || this.inventory.count(UP_WARD) > 0);
-      if (ready.length > safe.length) stoppedAtRisk = true;
-      if (!safe.length) break;
-      // The upgrade that makes you strongest first (ties go to the earlier slot: weapon first).
-      const id = safe.reduce((a, b) => (this.upgradeValue(b) > this.upgradeValue(a) ? b : a));
-      tries++;
-      if (this.upgradeItem(id, { quiet: true })) wins++;
-    }
-    const changes = ids.filter((id) => this.equipment.upgradeLevel(id) !== start[id])
-      .map((id) => ({ id, from: start[id], to: this.equipment.upgradeLevel(id) }));
-    if (!tries) {
-      this.msg(stoppedAtRisk ? `Auto-upgrade: your gear is ready for +${RISKY_FROM} or higher, where a failure costs a level. Carry an upgrade ward, or allow risky upgrades.`
-        : 'Auto-upgrade: nothing you are wearing can be upgraded with what you have (coins, bars or stones).', 'system');
-    } else {
-      const list = changes.map((c) => `${upgradedName(c.id, c.to)} (from +${c.from})`).join(', ');
-      this.msg(`Auto-upgrade: ${tries} attempt${tries > 1 ? 's' : ''}, ${wins} succeeded.${list ? ' ' + list + '.' : ''}`
-        + (stoppedAtRisk ? ` Stopped before the risky levels (+${RISKY_FROM} and up) without a ward.` : ''), 'level');
-      this.spawnSparkle(this.player, '#F5B82E', 18);
-      this.bus.emit('sfx', wins ? 'level' : 'hurt');
-    }
-    return { tries, wins, changes, stoppedAtRisk };
-  }
-
-  /** Refine an item type one level (★1..★15), on top of its upgrades. The
-   *  attempt costs coins and upgrade stones, and ends in success, failure,
-   *  a downgrade or (from ★13) the item breaking, destroyed for good. An
-   *  upgrade ward in your pack takes a downgrade or a break instead. Returns
-   *  the outcome ('success' | 'fail' | 'downgrade' | 'broken' | 'warded'), or
-   *  null when the attempt couldn't be made. */
-  refineItem(id) {
-    if (!getItem(id).equip) return null;
-    const lv = this.equipment.refineLevel(id);
-    const name = (l) => `${getItem(id).name}${l ? ' ' + refineTag(l) : ''}`;
-    if (lv >= MAX_REFINE) { this.msg(`${name(lv)} is already fully refined.`); return null; }
-    const next = lv + 1;
-    const cost = refineCost(id, next);
-    if (this.inventory.count('coins') < cost.coins) { this.msg(`You need ${cost.coins} coins to refine to ${refineTag(next)}.`); return null; }
-    if (this.inventory.count(UP_STONE) < cost.stones) { this.msg(`You need ${cost.stones} upgrade stones to refine to ${refineTag(next)}.`); return null; }
-    this.inventory.remove('coins', cost.coins);
-    this.inventory.remove(UP_STONE, cost.stones);
-    let out = rollRefine(next);
-    // A ward takes a downgrade or a break instead (and is used up).
-    if ((out === 'downgrade' || out === 'broken') && this.inventory.count(UP_WARD) > 0) {
-      this.inventory.remove(UP_WARD, 1);
-      this.msg(`The refine went badly, but your upgrade ward crumbled instead: your ${name(lv)} is unharmed.`, 'system');
-      this.bus.emit('sfx', 'hurt');
-      return 'warded';
-    }
-    if (out === 'success') {
-      this.equipment.refines[id] = next;
-      this.equipment._changed();
-      this.spawnSparkle(this.player, '#9fd8ff', 16);
-      this.bus.emit('sfx', 'level');
-      this.msg(`Refine success! Your ${name(next)} shines brighter.`, 'level');
-      if (next === MAX_REFINE) this.banner(`<span class="big">${refineTag(MAX_REFINE)}!</span>${getItem(id).name} is fully refined`);
-    } else if (out === 'fail') {
-      this.bus.emit('sfx', 'hurt');
-      this.msg(`The refine failed. Your ${name(lv)} is unharmed, but the materials are used up.`, 'system');
-    } else if (out === 'downgrade') {
-      if (lv - 1 > 0) this.equipment.refines[id] = lv - 1; else delete this.equipment.refines[id];
-      this.equipment._changed();
-      this.bus.emit('sfx', 'hurt');
-      this.msg(`The refine failed and your gear lost a level: it is now ${name(lv - 1)}. (An upgrade ward would have saved it.)`, 'combat');
-    } else {
-      // Broken: one copy is destroyed (the worn one first) and the type's refine resets.
-      const slot = EQUIP_SLOTS.find((s) => this.equipment.get(s) === id);
-      if (slot) this.equipment.clearSlot(slot); else this.inventory.remove(id, 1);
-      delete this.equipment.refines[id];
-      this.equipment._changed();
-      this.bus.emit('sfx', 'hurt');
-      this.addShake(4, 300);
-      this.msg(`The refine shattered your ${name(lv)}! It is destroyed. (An upgrade ward would have saved it.)`, 'combat');
-      this.banner(`<span class="big">Broken!</span>${getItem(id).name} shattered`);
-    }
-    return out;
+  /** Take offer `pick` (0-2). When all three lines are full, `replace` (0-2)
+   *  says which line it takes the place of. Returns the new line, or null. */
+  pickEnchant(id, pick, replace = null) {
+    const offers = this.enchantOffers(id);
+    const line = offers[pick];
+    if (!line) return null;
+    const lines = this.equipment.enchantLines(id);
+    const full = lines.length >= MAX_ENCHANTS;
+    if (full && !(Number.isInteger(replace) && replace >= 0 && replace < lines.length)) { this.msg('Choose which enchantment to replace.'); return null; }
+    const c = this.enchantCostFor(id);
+    if (this.inventory.count(UP_STONE) < c.stones) { this.msg(`You need ${c.stones} upgrade stones to enchant this. Monsters drop them, bosses most of all.`); return null; }
+    if (this.inventory.count('coins') < c.coins) { this.msg(`You need ${c.coins} coins to enchant this.`); return null; }
+    this.inventory.remove(UP_STONE, c.stones);
+    this.inventory.remove('coins', c.coins);
+    const next = lines.slice();
+    const old = full ? next[replace] : null;
+    if (full) next[replace] = { ...line }; else next.push({ ...line });
+    this.equipment.enchants[id] = next;
+    delete this._enchantOffers[id];
+    this.equipment._changed();
+    this.spawnSparkle(this.player, '#A66CFF', 16);
+    this.bus.emit('sfx', 'level');
+    const name = getItem(id).name;
+    this.msg(old ? `Your ${name.toLowerCase()} trades ${enchantLabel(old)} for ${enchantLabel(line)}.`
+      : `Your ${name.toLowerCase()} is enchanted: ${enchantLabel(line)}.`, 'level');
+    return line;
   }
 
   unequip(slot) {

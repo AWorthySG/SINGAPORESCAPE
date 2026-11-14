@@ -16,9 +16,9 @@ import { CROPS, POTIONS } from './trades.js';
 const RAW = {
   // ---- Currency ----
   coins: { name: 'Coins', icon: '🪙', value: 1, stackable: true, maxStack: Infinity, examine: 'Lovely money!' },
-  // Gear upgrades: stones are needed from +4, a ward saves an item from losing a level on a failed risky upgrade.
-  upgrade_stone: { name: 'Upgrade stone', icon: '💎', value: 150, stackable: true, examine: 'A dense, glittering stone. Smiths use it to push gear past its limits.' },
-  upgrade_ward: { name: 'Upgrade ward', icon: '📜', value: 2500, stackable: true, examine: 'A blessed scroll. If an upgrade fails, it crumbles instead of your gear losing a level.' },
+  // Enchanting (see mastery.js): stones pay for an enchant, a ward rerolls the three lines on offer.
+  upgrade_stone: { name: 'Upgrade stone', icon: '💎', value: 150, stackable: true, examine: 'A dense, glittering stone. Enchanters use it to weave bonus powers into gear.' },
+  upgrade_ward: { name: 'Upgrade ward', icon: '📜', value: 2500, stackable: true, examine: 'A blessed scroll. When enchanting, it crumbles to reroll the three enchantments on offer.' },
 
   // ---- Tools ----
   bronze_axe: { name: 'Bronze axe', icon: '🪓', value: 16, tool: 'axe',
