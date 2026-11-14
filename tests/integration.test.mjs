@@ -2784,7 +2784,7 @@ test('stronger bows exist and drop from high-level monsters and bosses', async (
   }
 });
 
-test('split shot: at Ranged 300 a bow shot hits three targets at once', async () => {
+test('no split shot: a bow shot hits one target at any Ranged level', async () => {
   const { xpForLevel } = await import('../src/data/xp.js');
   const { NPC } = await import('../src/game/npc.js');
   globalThis.localStorage = fakeStorage();
@@ -2805,9 +2805,21 @@ test('split shot: at Ranged 300 a bow shot hits three targets at once', async ()
   game.skills.xp.ranged = xpForLevel(299);
   assert.equal(fire().arrows, 1, 'below 300: one arrow');
   game.skills.xp.ranged = xpForLevel(300);
-  const r = fire();
-  assert.equal(r.arrows, 3, 'at 300: three arrows');
-  assert.equal(r.far.hp, r.far.maxHp, 'out-of-range monsters are not hit');
+  assert.equal(fire().arrows, 1, 'at 300: still one arrow (the split shot passive is gone)');
+  game.skills.xp.ranged = xpForLevel(900);
+  assert.equal(fire().arrows, 1, 'and at 900');
+});
+
+test('bows hit harder (close to a longsword on one target) and arrows drop more often', async () => {
+  const { WEAPON_DMG_MULT } = await import('../src/game/combat.js');
+  const { NPCS } = await import('../src/data/npcs.js');
+  assert.ok(WEAPON_DMG_MULT.shortbow >= 1.1 && WEAPON_DMG_MULT.longbow >= 1.4, 'bow damage raised');
+  assert.ok(WEAPON_DMG_MULT.crossbow > WEAPON_DMG_MULT.longbow, 'the crossbow keeps its own (no-ammo) scale');
+  const mob = Object.values(NPCS).find((d) => d.attackable && !d.boss && d.dropTable?.length);
+  const tot = mob.dropTable.reduce((a, b) => a + (b.weight || 0), 0);
+  const arrows = mob.dropTable.filter((x) => /_arrow$/.test(x.id || ''));
+  assert.ok(arrows.reduce((a, b) => a + b.weight, 0) / tot >= 0.09, 'arrows drop about one kill in nine or better');
+  assert.ok(arrows.every((a) => a.min >= 20 && a.max >= 60), 'in bundles of 20-60');
 });
 
 test('the Dancer: whip kit, 3-tile reach, Agility XP, Rhythm and dodging', async () => {

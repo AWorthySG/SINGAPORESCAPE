@@ -121,10 +121,13 @@ export const WEAKNESS_BONUS = { dmg: 1.10 };
 // Weapons that also hit a crowd (heavy cleavers, whips, spells, rifles) sit
 // about 10% lower to pay for it. Measured with best-in-slot gear at levels 200
 // and 1000 (see the class balance PR); applies to both hands and every skill.
+// Bows were raised (shortbow 0.81 -> 1.1, longbow 1.08 -> 1.4) when the Ranged 300
+// split shot was removed: on one target they now land at about 85-105% of a
+// longsword's damage per second, the rest of the gap paid for by their reach.
 export const WEAPON_DMG_MULT = {
   dagger: 0.98, sword: 1.85, scimitar: 0.53, mace: 2.02, longsword: 1.55, battleaxe: 1.52, warhammer: 2.05,
-  '2h_sword': 2.34, spear: 1.45, claws: 0.72, katana: 1.44, halberd: 2.34, cane: 1.82, shortbow: 0.81,
-  longbow: 1.08, pistol: 0.57, rifle: 1.06, shuriken: 0.75, staff: 0.61, wand: 0.64, whip: 1.39,
+  '2h_sword': 2.34, spear: 1.45, claws: 0.72, katana: 1.44, halberd: 2.34, cane: 1.82, shortbow: 1.1,
+  longbow: 1.4, pistol: 0.57, rifle: 1.06, shuriken: 0.75, staff: 0.61, wand: 0.64, whip: 1.39,
   // Secondary types (first estimates, pending the combat rescale), tuned against measured
   // damage (a headless run of each class's best weapon at tiers 10-250, not a formula)
   // so that each sits a little under its classes' main types and the main type stays

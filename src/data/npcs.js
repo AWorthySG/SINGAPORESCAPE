@@ -56,8 +56,9 @@ function dropsFor(level) {
     // Coin piles are three times what they were (COIN_DROP_MULT).
     { id: 'coins', min: Math.max(2, Math.round(level * 0.7)) * COIN_DROP_MULT, max: Math.max(8, level * 9) * COIN_DROP_MULT, weight: 48 },
     { id: ore, min: 1, max: 3, weight: 12 },
-    // Arrows of the area's tier, so archers can keep hunting.
-    { id: ARROW_FOR[tier] || `${tier}_arrow`, min: 8, max: 25, weight: 10 },
+    // Arrows of the area's tier, so archers can keep hunting: about one kill in
+    // nine, in bundles of 20-60 (they were one kill in 33, 8-25 at a time).
+    { id: ARROW_FOR[tier] || `${tier}_arrow`, min: 20, max: 60, weight: 40 },
   ];
   // Farming: seeds that suit the area.
   t.push({ id: seedFor(level), min: 1, max: 3, weight: 4 }, { id: seedFor(level / 2), min: 1, max: 4, weight: 4 });
