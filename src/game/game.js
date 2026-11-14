@@ -5267,6 +5267,17 @@ export class Game {
     const shop = getShop(shopId);
     const price = Math.max(1, Math.round(getItem(itemId).value * shop.buyMul * this.priceFactor().buy));
     let bought = 0;
+    // Stackables (runes, arrows...) are bought in one go: as many as your coins
+    // cover, up to the amount asked for (a thousand at a time is common).
+    if (getItem(itemId).stackable) {
+      const n = Math.min(qty, Math.floor(this.inventory.count('coins') / price));
+      if (n <= 0) { this.msg("You don't have enough coins."); return; }
+      const got = this.inventory.add(itemId, n);   // you only pay for what fits
+      if (got <= 0) { this.msg('Your inventory is full.'); return; }
+      this.inventory.remove('coins', price * got);
+      this.msg(`You buy ${got} x ${getItem(itemId).name} for ${price * got} coins.${got < qty ? ' (That is all your coins cover.)' : ''}`);
+      return;
+    }
     for (let i = 0; i < qty; i++) {
       if (this.inventory.count('coins') < price) { if (i === 0) this.msg("You don't have enough coins."); break; }
       if (this.inventory.canAdd(itemId, 1) <= 0) { this.msg('Your inventory is full.'); break; }

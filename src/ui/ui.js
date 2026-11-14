@@ -2695,6 +2695,11 @@ export class UI {
             { label: `Buy 1 (${price})`, fn: () => this.game.buyItem(shopId, entry.id, 1) },
             { label: 'Buy 5', fn: () => this.game.buyItem(shopId, entry.id, 5) },
             { label: 'Buy 10', fn: () => this.game.buyItem(shopId, entry.id, 10) },
+            // Runes and arrows are used up by the hundred: buy them by the thousand too.
+            ...(/(^|,)(rune|ammo)(,|$)/.test((getItem(entry.id).tags || []).join(',')) ? [
+              { label: 'Buy 100', fn: () => this.game.buyItem(shopId, entry.id, 100) },
+              { label: `Buy 1000 (${(price * 1000).toLocaleString()})`, fn: () => this.game.buyItem(shopId, entry.id, 1000) },
+            ] : []),
             { label: 'Value', fn: () => this.game.msg(`${getItem(entry.id).name}: ${price} coins.`, 'system') },
           ],
         }));
