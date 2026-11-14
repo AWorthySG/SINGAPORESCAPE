@@ -1892,7 +1892,7 @@ export class Game {
       if (o === target || !o.alive || !o.attackable || o.ally || o.hp <= 0) continue;
       if (this._aoeSpares(o)) continue;   // bosses aren't dragged in
       if (chebyshev(o.x, o.y, target.x, target.y) > r) continue;
-      const c = this._aoeCrit(raw);
+      const c = this._aoeCrit(this._aoeShare(raw, target, o));
       const d = Math.min(o.hp, c.dmg);
       o.takeDamage(d);
       this.addHitsplat(o, d, { tint: '#ffb347', critX: c.critX });
@@ -1938,37 +1938,62 @@ export class Game {
     }
   }
 
-  /** Melee cleave: up to 3 other foes next to the target take a share of the hit. */
+  /** A share of a hit moved from one monster to another. Big monsters show
+   *  their life (and the hits on them) in smaller numbers (hpScale), so the
+   *  share is carried over at its real size, not in the first monster's numbers. */
+  _aoeShare(dmg, from, to) {
+    return Math.max(1, Math.round(dmg * (from?.def?.hpScale || 1) / (to?.def?.hpScale || 1)));
+  }
+
+  /** Melee cleave: the swing carries on into up to 3 other foes. It catches
+   *  anything touching the target (the swing carries a tile past it) and
+   *  anything crowding you (a sweep). Those already fighting you are hit first, then
+   *  the closest to the target, so the share lands where the crowd actually is. */
   _cleave(target, dmg) {
     const type = this.weaponType();
     // A class ability can widen the sweep for this one hit.
     const share = Math.min(1, (CLEAVE_SHARE[type] || 0) * (this._abCleave || 1));
     this._abCleave = 1;
     if (!share) return;
-    let n = 0;
+    const p = this.player, reach = Math.max(1, this.attackRange());
+    const caught = [];
     for (const o of this.nearbyNpcs()) {
-      if (n >= 3) break;
-      if (o === target || !o.alive || !o.attackable || o.temporary || o.hp <= 0) continue;
+      if (o === target || !o.alive || !o.attackable || o.ally || o.temporary || o.hp <= 0) continue;
       if (this._aoeSpares(o)) continue;     // bosses aren't dragged in
-      if (chebyshev(o.x, o.y, target.x, target.y) > 1 || chebyshev(o.x, o.y, this.player.x, this.player.y) > this.attackRange() + 1) continue;
-      const c = this._aoeCrit(Math.max(1, Math.round(dmg * share)));
+      const dt = chebyshev(o.x, o.y, target.x, target.y), dp = chebyshev(o.x, o.y, p.x, p.y);
+      // Touching the target (the swing carries one tile past it), or crowding you.
+      if (!((dt <= 1 && dp <= reach + 1) || dp <= 1)) continue;
+      caught.push({ o, rank: (o.target === p ? 0 : 10) + dt });
+    }
+    caught.sort((a, b) => a.rank - b.rank);
+    let n = 0;
+    for (const { o } of caught.slice(0, 3)) {
+      const c = this._aoeCrit(this._aoeShare(dmg * share, target, o));
       const d = Math.min(o.hp, c.dmg);
       o.takeDamage(d);
       // Cleave damage earns combat XP like any other hit.
       for (const x of combatXp(this.player.style, d)) this.skills.addXp(x.skill, x.xp * this.combatXpMult());
       this.addHitsplat(o, d, { tint: '#ffb347', critX: c.critX });
       this.spawnHitSparks(o, '#ffd9a0');
+      this._slash(o, '#ffb347');   // the arc shows on each foe it catches
       if (!o.target) o.target = this.player;
       if (o.hp <= 0) this.killNpc(o);
       n++;
     }
     if (n) this._slash(target, '#ffb347');
+    return n;
   }
 
   _perkSplash(from, dmg) {
-    const other = this.nearbyNpcs().find((n) => n !== from && n.alive && n.attackable && !n.temporary && n.hp > 0 && !this._aoeSpares(n) && chebyshev(n.x, n.y, from.x, from.y) <= 3);
+    // The closest other foe within 3 tiles (one already fighting you wins a tie).
+    let other = null, bd = Infinity;
+    for (const n of this.nearbyNpcs()) {
+      if (n === from || !n.alive || !n.attackable || n.ally || n.temporary || n.hp <= 0 || this._aoeSpares(n)) continue;
+      const d = chebyshev(n.x, n.y, from.x, from.y) - (n.target === this.player ? 0.5 : 0);
+      if (d <= 3 && d < bd) { bd = d; other = n; }
+    }
     if (!other) return;
-    const c = this._aoeCrit(dmg); dmg = c.dmg;
+    const c = this._aoeCrit(this._aoeShare(dmg, from, other)); dmg = Math.min(other.hp, c.dmg);
     other.takeDamage(dmg);
     this.addHitsplat(other, dmg, { tint: '#f5b82e', critX: c.critX });
     this.spawnHitSparks(other, '#ffe89a');

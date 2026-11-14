@@ -5788,3 +5788,38 @@ test('dodging pays Agility XP in step with the monster; boss markers pay more', 
   const h = gain(() => game._dodgeXp(tough, HAZARD_DODGE_MULT));
   assert.ok(Math.abs(h / t - HAZARD_DODGE_MULT) < 0.01, `a boss-marker dodge pays ${HAZARD_DODGE_MULT}x (${t} vs ${h})`);
 });
+
+test('melee cleave: catches the crowd around you, attackers first, at the right size on mixed packs', async () => {
+  const { NPC } = await import('../src/game/npc.js');
+  const { CLEAVE_SHARE } = await import('../src/data/classes.js');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  game.equipment.set('weapon', 'bronze_battleaxe');
+  game._aoeCritCh = 0;
+  const p = game.player;
+  const mk = (dx, dy) => { const n = new NPC('goblin', p.x + dx, p.y + dy, 0, {}); n.maxHp = n.hp = 100000; return n; };
+  const target = mk(1, 0);          // you swing east
+  const behindYou = mk(-1, 0);      // crowding you from the west: 2 tiles from the target
+  const farAway = mk(-3, 0);        // not touching you or the target
+  game.npcs = [farAway, behindYou, target];
+  game._cleave(target, 100);
+  assert.ok(behindYou.hp < behindYou.maxHp, 'a monster crowding you is caught by the sweep');
+  assert.equal(farAway.hp, farAway.maxHp, 'one out of reach is not');
+  // Up to three are caught: those fighting you first, whatever order the world lists them in.
+  const idle = [mk(1, 1), mk(1, -1), mk(2, 1)];
+  const fighting = [mk(0, 1), mk(0, -1), mk(-1, 1)];
+  for (const n of fighting) n.target = p;
+  game.npcs = [...idle, target, ...fighting];
+  game._cleave(target, 100);
+  assert.ok(fighting.every((n) => n.hp < n.maxHp), 'the three attacking you are hit');
+  assert.ok(idle.every((n) => n.hp === n.maxHp), 'ahead of three idle ones');
+  // Mixed pack: a big monster (life shown at a tenth) takes the same real damage.
+  const big = mk(1, 1); big.def = { ...big.def, hpScale: 10 };
+  game.npcs = [target, big];
+  game._cleave(target, 1000);
+  const share = Math.round(1000 * CLEAVE_SHARE.battleaxe);
+  assert.equal(big.maxHp - big.hp, Math.round(share / 10), 'shown at its own scale');
+});
