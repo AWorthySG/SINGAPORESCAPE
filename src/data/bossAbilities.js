@@ -7,7 +7,7 @@
 //   stun    { ticks }                   the player can't act
 //   root    { ticks }                   the player can't move
 //   pull                                drag the player next to the boss
-//   knock   { dist }                    throw the player away from the boss
+//   knock   { dist }                    (no longer moves the player: bosses don't knock you back)
 //   blink                               the boss appears beside the player
 //   heal    { frac }                    the boss heals a fraction of its max life
 //   shield  { ticks }                   the boss takes half damage
@@ -29,7 +29,7 @@ export const DOT_KINDS = {
 };
 
 export const BOSS_ABILITIES = {
-  boar_king: { name: 'Tusk Charge', desc: 'Charges you down, gores you and sends you flying.', color: '#a8743a',
+  boar_king: { name: 'Tusk Charge', desc: 'Charges you down, gores you and leaves you reeling.', color: '#a8743a',
     fx: [{ t: 'blink' }, { t: 'strike', mul: 1.8 }, { t: 'knock', dist: 3 }, { t: 'stun', ticks: 1 }], hazards: ['line', 'blast'] },
   goblin_warchief: { name: 'Rally the Horde', desc: 'Calls three goblins to the fight.', color: '#4f9a3f',
     fx: [{ t: 'summon', id: 'goblin', n: 3 }, { t: 'strike', mul: 1.1 }], hazards: ['blast', 'meteors'] },
@@ -43,7 +43,7 @@ export const BOSS_ABILITIES = {
     fx: [{ t: 'root', ticks: 3 }, { t: 'dot', kind: 'poison', per: 0.35, ticks: 6 }, { t: 'summon', id: 'jungle_spider', n: 2 }], hazards: ['meteors', 'ring'] },
   ancient_tembusu: { name: 'Deep Roots', desc: 'Roots bind your feet while bark hardens and the tree regrows.', color: '#3c8a3f',
     fx: [{ t: 'root', ticks: 2 }, { t: 'heal', frac: 0.12 }, { t: 'shield', ticks: 4 }], hazards: ['cross', 'nova'] },
-  merlion: { name: 'Tidal Spout', desc: 'A blast of water that knocks you back and leaves you reeling.', color: '#5faee3',
+  merlion: { name: 'Tidal Spout', desc: 'A blast of water that drenches you and leaves you reeling.', color: '#5faee3',
     fx: [{ t: 'strike', mul: 1.5 }, { t: 'knock', dist: 4 }, { t: 'stun', ticks: 1 }], hazards: ['line', 'ring'] },
   timah_drake: { name: 'Granite Breath', desc: 'Breathes searing grit, then hides behind granite plates.', color: '#3f8a5a',
     fx: [{ t: 'strike', mul: 1.6 }, { t: 'dot', kind: 'burn', per: 0.3, ticks: 3 }, { t: 'shield', ticks: 3 }], hazards: ['line', 'quake'] },
@@ -132,7 +132,7 @@ export const BOSS_ABILITIES = {
     fx: [{ t: 'root', ticks: 3 }, { t: 'drain', adrenaline: 50 }, { t: 'dot', kind: 'bleed', per: 0.4, ticks: 4 }], hazards: ['nova', 'ring'] },
   shadow_panther: { name: 'Shadow Pounce', desc: 'Vanishes, appears at your side and rakes you three times.', color: '#5a4a8a',
     fx: [{ t: 'blink' }, { t: 'strike', mul: 1.1, hits: 3 }, { t: 'dot', kind: 'bleed', per: 0.35, ticks: 4 }], hazards: ['chase', 'cross'] },
-  abyssal_oarfish: { name: 'Deep Current', desc: 'A freezing current from the deep throws you back while its scales harden.', color: '#8ab8d8',
+  abyssal_oarfish: { name: 'Deep Current', desc: 'A freezing current from the deep chills you while its scales harden.', color: '#8ab8d8',
     fx: [{ t: 'knock', dist: 3 }, { t: 'dot', kind: 'chill', per: 0.45, ticks: 5 }, { t: 'shield', ticks: 4 }], hazards: ['line', 'quake'] },
   jenglot_sovereign: { name: 'Blood Pact', desc: 'Drinks your life, calls its tiny jenglot kin and grows fierce.', color: '#8a2a2a',
     fx: [{ t: 'strike', mul: 2.0, steal: 0.5 }, { t: 'summon', id: 'jenglot', n: 2 }, { t: 'enrage' }], hazards: ['meteors', 'ring', 'chase'] },

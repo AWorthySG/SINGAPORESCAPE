@@ -5,6 +5,8 @@ export const TURN_MS = 150;   // how long the turn-around takes on screen
 
 // Shared movement for the player and NPCs. Movement is time-based and decoupled
 // from the combat tick: walking = 1 tile / 600ms, running = 1 tile / 300ms.
+const easeInOut = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+
 export class Character {
   constructor(x, y) {
     this.x = x;   // current tile
@@ -37,11 +39,16 @@ export class Character {
     this._fx = 1;
   }
 
-  /** Pixel lunge offset while mid-swing (out toward the target and back). */
-  renderOffset() {
+  /** Where the body should be pushed this instant: a swing's lunge (a small
+   *  wind-up back, a quick strike out toward the target, then an eased return)
+   *  plus any hit knockback easing home. */
+  _rawOffset() {
     let x = 0, y = 0;
     if (this.swing > 0) {
-      const amp = Math.sin((1 - this.swing / this.swingDur) * Math.PI) * 5;
+      const p = 1 - this.swing / this.swingDur;
+      const amp = p < 0.18 ? -1.2 * Math.sin((p / 0.18) * Math.PI / 2)                     // wind up
+        : p < 0.42 ? -1.2 + 6.2 * (1 - Math.pow(1 - (p - 0.18) / 0.24, 3))                  // strike (ease out)
+          : 5 * (1 - easeInOut((p - 0.42) / 0.58));                                          // settle back
       x += this.lungeDX * amp; y += this.lungeDY * amp;
     }
     if (this.knock > 0) {           // pushed back by a hit, easing home
@@ -49,6 +56,14 @@ export class Character {
       x += this.knockDX * 4 * k * k; y += this.knockDY * 4 * k * k;
     }
     return { x, y };
+  }
+
+  /** Pixel offset the body is drawn at. It glides toward _rawOffset over a few
+   *  frames, so a swing cut short by the next one (fast attackers) or a change
+   *  of target never makes the sprite jump. */
+  renderOffset() {
+    if (this._offX === undefined) { const r = this._rawOffset(); return { x: r.x, y: r.y }; }
+    return { x: this._offX, y: this._offY };
   }
 
   /** Swing progress 0..1 while an attack animation plays, else -1. */
@@ -122,6 +137,10 @@ export class Character {
     if (this.swing > 0) this.swing = Math.max(0, this.swing - dt);
     if (this.knock > 0) this.knock = Math.max(0, this.knock - dt);
     if (this.turnT > 0) this.turnT = Math.max(0, this.turnT - dt);
+    // Ease the drawn lunge/knockback offset toward where it should be (~35ms lag).
+    const r = this._rawOffset(), k = 1 - Math.exp(-dt / 35);
+    this._offX = (this._offX ?? r.x) + (r.x - (this._offX ?? r.x)) * k;
+    this._offY = (this._offY ?? r.y) + (r.y - (this._offY ?? r.y)) * k;
     this.animMove += ((this.moving ? 1 : 0) - this.animMove) * Math.min(1, dt / 90);
   }
 
