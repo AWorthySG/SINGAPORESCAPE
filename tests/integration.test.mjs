@@ -957,7 +957,8 @@ test('weapon-specific skills: a bow swaps in Snapshot, whose next shot looses tw
   game.activateAbilityKey('z');
   assert.equal(game.armedAbility, 'snapshot', 'Snapshot readies the next shot (a free skill is never an extra attack)');
   game.player.attackCooldown = 0; game.doPlayerAttack(target);
-  assert.equal(shots, 2, 'two arrows fired at once');
+  const { SHORTBOW_ARROWS } = await import('../src/game/game.js');
+  assert.equal(shots, 2 * SHORTBOW_ARROWS, 'two shots fired at once, each a shortbow spread of three arrows');
   assert.ok(game.abilityCd.snapshot > 0, 'Snapshot goes on cooldown');
   game.equipment.set('weapon', 'bronze_scimitar'); // the melee set comes back with a melee weapon
   assert.equal(game.currentAbilities()[0].id, 'power_strike');
@@ -2693,8 +2694,9 @@ test('bows shoot from far: each bow has its own reach, and arrows fly at a stead
   const game = new Game();
   game.start();
   game.chooseStartingStyle('ranged');
-  assert.equal(game.attackRange(), 12, 'a shortbow reaches 12 tiles');
-  assert.equal(ITEMS.magic_shortbow.equip.range, 18);
+  assert.equal(game.attackRange(), 6, 'a shortbow reaches 6 tiles (half its old 12)');
+  assert.equal(ITEMS.magic_shortbow.equip.range, 9);
+  assert.ok(ITEMS.magic_longbow.equip.range > ITEMS.magic_shortbow.equip.range * 1.5, 'longbows keep their long reach');
   const near = game.spawnNpc('goblin', game.player.x + 2, game.player.y, { wander: 0 });
   const far = game.spawnNpc('goblin', game.player.x + 9, game.player.y, { wander: 0 });
   game._projectile(near, '#fff', 'arrow'); game._projectile(far, '#fff', 'arrow');
@@ -2712,20 +2714,20 @@ test('archers shoot from where they stand', () => {
   const p = game.player;
   game.npcs = game.npcs.filter((n) => Math.max(Math.abs(n.x - p.x), Math.abs(n.y - p.y)) > 25);
   const x0 = p.x, y0 = p.y;
-  const mob = game.spawnNpc('goblin', p.x + 10, p.y, { wander: 0 });
+  const mob = game.spawnNpc('goblin', p.x + 5, p.y, { wander: 0 });
   mob.def = { ...mob.def, aggressive: false }; mob.maxHp = mob.hp = 9999;
   game.attackNpc(mob);
   step(game, 6);
   assert.equal(p.x, x0, 'did not walk towards a target already in reach');
   assert.equal(p.y, y0);
-  assert.ok(mob.hp < 9999, 'and hit it from 10 tiles away');
+  assert.ok(mob.hp < 9999, 'and hit it from 5 tiles away');
   // Out of reach: walks only until in range, not right up to it.
-  const far = game.spawnNpc('goblin', p.x + 18, p.y, { wander: 0 });
+  const far = game.spawnNpc('goblin', p.x + 14, p.y, { wander: 0 });
   far.def = { ...far.def, aggressive: false }; far.maxHp = far.hp = 9999;
   game.attackNpc(far);
   // Measure where the archer stops (the goblin then ambles over to retaliate).
   for (let i = 0; i < 12 && (i < 1 || p.moving); i++) game.update(600);
-  assert.ok(Math.abs(far.x - p.x) >= 10, `stopped at range (${Math.abs(far.x - p.x)} tiles away)`);
+  assert.ok(Math.abs(far.x - p.x) >= 5, `stopped at range (${Math.abs(far.x - p.x)} tiles away)`);
 });
 
 test('ranged auto battle clears everything in reach before moving; bows drop often', async () => {
@@ -5940,4 +5942,24 @@ test('runes and arrows can be bought a thousand at a time; you only pay for what
   g.buyItem(shopId, 'bronze_arrow', 1000);
   assert.equal(g.inventory.count('bronze_arrow') - have, 1250, 'only what the coins cover');
   assert.equal(g.inventory.count('coins'), 0);
+});
+
+test('a shortbow looses three arrows a shot; a longbow one', async () => {
+  const { SHORTBOW_ARROWS } = await import('../src/game/game.js');
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('ranged');
+  game.inventory.add('bronze_arrow', 1000);
+  const p = game.player;
+  const count = (weapon) => {
+    game.equipment.set('weapon', weapon);
+    const mob = game.spawnNpc('goblin', p.x + 3, p.y, { wander: 0 }); mob.maxHp = mob.hp = 1e9;
+    game.effects = [];
+    game._rangedAttack(mob);
+    return game.effects.filter((e) => e.type === 'projectile' && e.kind === 'arrow').length;
+  };
+  assert.equal(count('shortbow'), SHORTBOW_ARROWS);
+  assert.equal(count('longbow'), 1);
 });
