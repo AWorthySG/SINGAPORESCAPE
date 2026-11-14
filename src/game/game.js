@@ -141,6 +141,14 @@ const BOSS_SCALE_MAX = 100;
 // Agility XP for slipping a monster's blow: this many times its max hit (about
 // what landing an average hit of that size would give a fighting skill).
 export const DODGE_AGILITY_XP = 2;
+// ...or this share of what killing the monster pays (3 XP per point of its
+// life), whichever is more, so dodging keeps pace with kill XP as you climb.
+export const DODGE_KILL_SHARE = 0.04;
+// Bosses have huge life pools and long fights full of dodges, so each dodge is
+// a much smaller share of the kill (a whole fight's dodges add up to about one kill).
+export const DODGE_BOSS_SHARE = 0.001;
+// Stepping out of a boss's red ground marker pays this many ordinary dodges.
+export const HAZARD_DODGE_MULT = 3;
 // Every area attack, splash, ricochet and target search looks only at the
 // NPCs within this many tiles of the player (see nearbyNpcs): the world holds
 // thousands, and scanning them all on every hit was the main cause of lag.
@@ -2304,11 +2312,15 @@ export class Game {
       arc: kind === 'arrow' ? Math.min(22, dist * 0.09) : 0 });
   }
 
-  /** Dodging a monster's attack trains Agility, more for harder-hitting foes. */
-  _dodgeXp(npc) {
+  /** Dodging a monster's attack trains Agility, more for tougher foes: a share
+   *  of what killing it pays (DODGE_KILL_SHARE of its kill XP), and never less
+   *  than DODGE_AGILITY_XP x its max hit. Stepping out of a boss's ground
+   *  marker is the skilful kind of dodge and pays HAZARD_DODGE_MULT times that. */
+  _dodgeXp(npc, mult = 1) {
     if (!npc?.def) return;
     const { max } = npcAttackVsPlayer(npc.def, this.skills, this.equipment, this.player.style);
-    this.skills.addXp('agility', Math.max(1, max) * DODGE_AGILITY_XP * this.combatXpMult());
+    const share = (npc.maxHp || npc.def.hp || 1) * 3 * (npc.def.boss ? DODGE_BOSS_SHARE : DODGE_KILL_SHARE);
+    this.skills.addXp('agility', Math.round(Math.max(Math.max(1, max) * DODGE_AGILITY_XP, share) * mult * this.combatXpMult()));
   }
 
   resolveNpcAttack(npc, opts = {}) {
@@ -3457,7 +3469,7 @@ export class Game {
       } else {
         this.addHitsplat(p, 0, { text: 'Dodged!' });
         this._gainAdrenaline(8);                              // a clean dodge pays out
-        this._dodgeXp(h.npc);
+        this._dodgeXp(h.npc, HAZARD_DODGE_MULT);
         this.msg(`You dodge ${h.npc.name}'s attack!`, 'combat');
       }
     }
@@ -3612,6 +3624,17 @@ export class Game {
         this._autoLast = null; this._autoFight = null;
         p.clearAction();
         return;
+      }
+      // "Bosses & champions first" holds mid-fight too: when one you'd take on
+      // turns up within reach of an ordinary fight, switch to it (checked every
+      // few ticks, and only when one is actually near).
+      if (this.autoCfg.priority !== false && !tgt.def.boss && !tgt.champion && this.tickCount % 3 === 0
+        && this.nearbyNpcs().some((n) => n !== tgt && n.alive && n.attackable && (n.def.boss || n.champion)
+          && chebyshev(p.x, p.y, n.x, n.y) <= Math.max(12, this.attackRange() + 2))) {
+        const up = this._autoPickTarget();
+        if (up && up !== tgt && (up.def.boss || up.champion) && chebyshev(p.x, p.y, up.x, up.y) <= Math.max(12, this.attackRange() + 2)) {
+          this._autoFight = null; this._autoLast = up; this.attackNpc(up); return;
+        }
       }
       // Still chasing a target that isn't fighting back while something else is
       // already hitting you from within reach: turn and deal with that first.
@@ -3864,6 +3887,11 @@ export class Game {
     // Only monsters near you matter here, and pack counts only look at those (see nearbyNpcs).
     const near = this.nearbyNpcs();
     let packAt = null;
+    // "Targets": Bosses & champions first (the default), or Nearest, which is
+    // simply the closest monster by the walk there (ties go to one already
+    // fighting you). Either way a monster well below your level waits until
+    // nothing in your level band is around.
+    const first = this.autoCfg.priority !== false;
     // Champions are fair game at any level now (they used to be skipped when
     // well above you, which made auto battle look like it ignored them).
     // Bosses must pass _autoCanBeat.
@@ -3875,7 +3903,7 @@ export class Game {
       // Anything already fighting you (a boss, its summoned adds, a champion)
       // is always answered, whatever its level or where it stands.
       if (hunting) {
-        const tier = n.def.boss ? -3000 : n.champion ? -2000 : -200 - (shootable(n, d) ? 1000 : 0);
+        const tier = !first ? -0.5 : n.def.boss ? -3000 : n.champion ? -2000 : -200 - (shootable(n, d) ? 1000 : 0);
         cands.push({ n, score: d + tier, tier });
         continue;
       }
@@ -3892,14 +3920,14 @@ export class Game {
         if (!inWild && wildZone(n.x, n.y)) continue;
         if (!this._autoCanBeat(n)) { this._autoSaySkip(n); continue; }
         // "Bosses & champions first": a boss outranks everything, even monsters already in reach.
-        { const tier = this.autoCfg.priority !== false ? -3000 : -300 - (shootable(n, d) ? 1000 : 0); cands.push({ n, score: d + tier, tier }); }
+        { const tier = first ? -3000 : 0; cands.push({ n, score: d + tier, tier }); }
         continue;
       }
       // Then mini-bosses: gold-ringed champions within reach that you can take on.
       if (n.champion) {
         if (this.autoCfg.champions === false) continue;   // "Champions: Skip"
         if (!inWild && wildZone(n.x, n.y)) continue;
-        { const tier = this.autoCfg.priority !== false ? -2000 : -150 - (shootable(n, d) ? 1000 : 0); cands.push({ n, score: d + tier, tier }); }
+        { const tier = first ? -2000 : 0; cands.push({ n, score: d + tier, tier }); }
         continue;
       }
       const lvl = n.def.level || 1;
@@ -3909,6 +3937,7 @@ export class Game {
       // Monsters well below your level rank behind any in your level band.
       const weak = !this.autoCfg.target && !this._questTarget && lvl < this._autoBandLo(inWild);
       if (!inWild && wildZone(n.x, n.y)) continue;
+      if (!first) { cands.push({ n, score: d + (weak ? 2000 : 0), tier: weak ? 2000 : 0 }); continue; }
       // Anything within 8 tiles first, then the rest. Among those, a monster in
       // a pack (every hit cleaves or splashes into its neighbours) and one
       // already hurt (a quick kill) are worth a few tiles' extra walk.
