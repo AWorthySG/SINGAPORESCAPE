@@ -6084,3 +6084,20 @@ test('bosses no longer knock you back; every weapon kind has its own attack soun
     sig.add(made.map((o) => o.type).join(',') + made.length + t);
   }
 });
+
+test('Equip best puts offensive stats first: a harder-hitting piece beats a sturdier one', async () => {
+  const { ITEMS } = await import('../src/data/items.js');
+  const { offenceFirstScore } = await import('../src/game/gear.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('swordsman');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  // Two made-up rings: one all Defence and HP, one a little attack.
+  ITEMS.test_tank_ring = { name: 'Tank ring', value: 1, equip: { slot: 'ring', bonuses: { defence: 500, hp: 500 } } };
+  ITEMS.test_hit_ring = { name: 'Hit ring', value: 1, equip: { slot: 'ring', bonuses: { strength: 3 } } };
+  try {
+    assert.ok(offenceFirstScore('test_hit_ring', g.equipment, 'melee') > offenceFirstScore('test_tank_ring', g.equipment, 'melee'));
+    g.inventory.add('test_tank_ring', 1); g.inventory.add('test_hit_ring', 1);
+    g.equipBest();
+    assert.equal(g.equipment.get('ring'), 'test_hit_ring', 'the ring that hits harder is worn');
+  } finally { delete ITEMS.test_tank_ring; delete ITEMS.test_hit_ring; }
+});
