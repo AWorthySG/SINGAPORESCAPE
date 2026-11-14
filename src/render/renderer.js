@@ -583,7 +583,7 @@ export class Renderer {
         // drawn in quickly one after another, then fading.
         const c = e.entity.renderCenter ? e.entity.renderCenter() : { x: e.entity.x * TILE, y: e.entity.y * TILE };
         const t = 1 - e.life / e.maxLife;
-        const size = e.mega ? 1.35 : 1;
+        const size = e.mega ? 0.95 : 0.75;   // the Brawler's crit swipe marks, kept small too
         ctx.save();
         ctx.translate(c.x - ox, c.y - oy - 8);
         ctx.rotate(-0.75 + e.ang);
@@ -1372,13 +1372,14 @@ export class Renderer {
       if (e.critX) {
         // Critical hit: just a red number, a touch smaller for x2 and a touch bigger for x4 (a mega crit).
         const mega = e.critX >= 4;
-        const size = mega ? 26 : 20;
+        // Kept small (they used to dwarf the fight): a touch bigger than a plain hit, x4 a touch more.
+        const size = mega ? 16 : 13.5;
         ctx.font = `900 ${size}px Nunito,"Trebuchet MS",sans-serif`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.lineJoin = 'round';
-        ctx.lineWidth = mega ? 6 : 5; ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = mega ? 4.5 : 4; ctx.strokeStyle = '#ffffff';
         ctx.strokeText(splatNum(e.dmg), 0, 0);
-        ctx.lineWidth = 2; ctx.strokeStyle = '#4a0606';
+        ctx.lineWidth = 1.5; ctx.strokeStyle = '#4a0606';
         ctx.strokeText(splatNum(e.dmg), 0, 0);
         ctx.fillStyle = mega ? '#ff1a1a' : '#e01b1b';
         ctx.fillText(splatNum(e.dmg), 0, 0);
