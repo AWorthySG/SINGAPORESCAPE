@@ -69,6 +69,7 @@ export function snapshot(game) {
     attrs: game.attrs,
     clue: game.clue,
     specEnergy: game.specEnergy,
+    bossRecord: game.bossRecord,
     settings: { running: game.running, autoCfg: game.autoCfg, autoGather: game.autoGather, gatherPicks: [...(game.gatherPicks || [])], knowledgeStrikes: game.knowledgeStrikes },
     jobClass: game.jobClass,
     potions: game.potions,
@@ -334,6 +335,13 @@ function loadFields(game, data) {
     }
   }
   if (data.settings?.autoGather === true) game.autoGather = true;
+  // What auto battle learned about bosses (beaten / lost to at a fight level); older saves have none.
+  {
+    const br = data.bossRecord, ok = (o) => o && typeof o === 'object' && !Array.isArray(o);
+    game.bossRecord = { beat: {}, lost: {} };
+    if (ok(br?.beat)) for (const [k, v] of Object.entries(br.beat)) if (v === true) game.bossRecord.beat[k] = true;
+    if (ok(br?.lost)) for (const [k, v] of Object.entries(br.lost)) if (typeof v === 'number' && v > 0) game.bossRecord.lost[k] = Math.floor(v);
+  }
   if (Array.isArray(data.settings?.gatherPicks)) game.gatherPicks = new Set(data.settings.gatherPicks.filter((id) => typeof id === 'string'));
   if (data.learning) game.learning.load(data.learning);
   if (data.settings?.knowledgeStrikes === false) game.knowledgeStrikes = false;
