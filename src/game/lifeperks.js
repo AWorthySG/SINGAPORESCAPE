@@ -23,7 +23,7 @@ export const LIFE_PERKS = {
   fishing: { stat: 'power', max: 60, label: 'power (every style)', unit: '' },
   cooking: { stat: 'mobDmg', max: 15, label: 'damage vs normal monsters', unit: '%' },
   firemaking: { stat: 'magPct', max: 15, label: 'Magic bonus', unit: '%' },
-  woodcutting: { stat: 'atkPct', max: 15, label: 'Attack bonus (melee and ranged)', unit: '%' },
+  woodcutting: { stat: 'atkPct', max: 15, label: 'Physical damage bonus (melee and ranged)', unit: '%' },
   fletching: { stat: 'haste', max: 10, label: 'attack speed', unit: '%' },
   herblore: { stat: 'lifesteal', max: 5, label: 'lifesteal', unit: '%' },
   hunter: { stat: 'bossDmg', max: 15, label: 'boss and champion damage', unit: '%' },

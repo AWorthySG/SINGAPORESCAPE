@@ -16,7 +16,7 @@
 
 // id -> { name, per (the bonus each rank adds), label (shown per rank) }.
 export const SHRINE_TRACKS = {
-  might: { name: 'Might', per: { atkPct: 1, magPct: 1 }, label: '+1% Attack and Magic bonus (all damage)' },
+  might: { name: 'Might', per: { atkPct: 1, magPct: 1 }, label: '+1% Physical and Magic damage bonus (all damage)' },
   precision: { name: 'Precision', per: { crit: 0.5 }, label: '+0.5% crit chance' },
   ferocity: { name: 'Ferocity', per: { critDmg: 2 }, label: '+2% crit damage' },
   swiftness: { name: 'Swiftness', per: { haste: 1 }, label: '+1% attack speed' },
@@ -36,12 +36,12 @@ export function trackBonus(track, rank) {
   return out;
 }
 
-/** "+3% Attack and Magic bonus" style summary of a blessing at a rank. */
+/** "+3% Physical damage bonus, +3% Magic bonus" style summary of a blessing at a rank. */
 export function trackText(track, rank) {
   const t = SHRINE_TRACKS[track];
   if (!t) return '';
   const b = trackBonus(track, rank);
-  const names = { atkPct: 'Attack bonus', magPct: 'Magic bonus', crit: 'crit chance', critDmg: 'crit damage', haste: 'attack speed', bossDmg: 'boss damage' };
+  const names = { atkPct: 'Physical damage bonus', magPct: 'Magic bonus', crit: 'crit chance', critDmg: 'crit damage', haste: 'attack speed', bossDmg: 'boss damage' };
   return Object.entries(b).map(([k, v]) => `+${v}% ${names[k] || k}`).join(', ');
 }
 

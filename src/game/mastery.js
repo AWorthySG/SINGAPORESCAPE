@@ -74,7 +74,7 @@ const SLOT_STONES = [10, 25, 50];
 export const ENCHANT_STEP = { crit: 1, critDmg: 3, pierce: 1, lifesteal: 1, haste: 1, bossDmg: 2, atkPct: 2, magPct: 2 };
 export const ENCHANT_LABELS = {
   crit: 'crit chance', critDmg: 'crit damage', pierce: 'armour pierce', lifesteal: 'lifesteal',
-  haste: 'attack speed', bossDmg: 'boss damage', atkPct: 'attack bonus', magPct: 'magic bonus',
+  haste: 'attack speed', bossDmg: 'boss damage', atkPct: 'physical damage bonus', magPct: 'magic bonus',
 };
 
 /** The item's level: its highest skill requirement (1 if it has none). */
@@ -82,7 +82,7 @@ export function reqLevel(id) {
   return Math.max(1, ...Object.values(getItem(id).equip?.req || {}));
 }
 
-/** Is this a caster's item (it rolls Magic bonus % rather than Attack bonus %)? */
+/** Is this a caster's item (it rolls Magic bonus % rather than Physical damage bonus %)? */
 export function isMagicItem(id) {
   const eq = getItem(id).equip || {};
   return eq.combatType === 'magic' || eq.style === 'magic' || eq.family === 'robes';
