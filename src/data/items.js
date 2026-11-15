@@ -919,8 +919,8 @@ for (const [id, it] of Object.entries(RAW)) {
 // ---- Offensive stats on weapons, jewellery, capes and boss uniques ----
 // Each weapon type leans on the stat that suits it (daggers find gaps for
 // bigger crits, maces crack armour, bows and pistols fire faster...), growing
-// gently with the weapon's level. All in percent, kept well inside the caps
-// in equipment.js so armour, jewellery and weapon can stack together.
+// gently with the weapon's level. All in percent, kept modest so armour,
+// jewellery and weapon can stack together without any one piece dominating.
 const WEAPON_STAT = {
   dagger: 'critDmg', claws: 'critDmg', katana: 'critDmg', rifle: 'critDmg', shuriken: 'atkPct', shortbow: 'atkPct', pistol: 'atkPct',
   mace: 'pierce', warhammer: 'pierce', spear: 'pierce', longsword: 'pierce', longbow: 'pierce',

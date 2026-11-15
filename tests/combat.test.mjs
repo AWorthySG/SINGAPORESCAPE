@@ -172,7 +172,8 @@ test('the Onslaught ultimate is gated by combat level', () => {
 test('critChance scales with level and gear, capped at 50%', () => {
   assert.ok(critChance(1, 0) < critChance(99, 0), 'higher level crits more');
   assert.ok(critChance(50, 10) > critChance(50, 0), 'crit gear adds chance');
-  assert.ok(critChance(99, 1000) <= 0.5, 'crit chance is capped');
+  assert.ok(critChance(99, 1000) === 1, 'crit chance can reach 100%, and no further');
+  assert.ok(critChance(99, 60) > 0.5, 'no 50% cap any more');
 });
 
 test('_critHit multiplies damage on a crit, never on a miss', () => {
