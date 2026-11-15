@@ -20,6 +20,8 @@ const RAW = {
   // Enchanting (see mastery.js): stones pay for an enchant, a ward rerolls the three lines on offer.
   upgrade_stone: { name: 'Upgrade stone', icon: '💎', value: 150, stackable: true, examine: 'A dense, glittering stone. Enchanters use it to weave bonus powers into gear.' },
   upgrade_ward: { name: 'Upgrade ward', icon: '📜', value: 2500, stackable: true, examine: 'A blessed scroll. When enchanting, it crumbles to reroll the three enchantments on offer.' },
+  // Refining (see refine.js): scrolls are the only way to pay for a refine attempt.
+  refine_scroll: { name: 'Refine scroll', icon: '📘', value: 1200, stackable: true, examine: 'A shimmering scroll of smith-lore. The only way to refine gear from ★1 to ★15.' },
 
   // ---- Tools ----
   bronze_axe: { name: 'Bronze axe', icon: '🪓', value: 16, tool: 'axe',

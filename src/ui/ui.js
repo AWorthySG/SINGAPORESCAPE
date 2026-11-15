@@ -34,6 +34,7 @@ import { EQUIP_SLOTS, canDualPair, isTwoHanded } from '../game/equipment.js';
 import { streakMult } from '../game/bounty.js';
 import { itemCategory } from '../game/inventory.js';
 import { MASTERY_RANKS, MAX_ENCHANTS, rankProgress, enchantLabel, STONE as UP_STONE, WARD as UP_WARD } from '../game/mastery.js';
+import { MAX_REFINE, SCROLL as REFINE_SCROLL, refineCost, refineOdds, refineTag, refinedBonuses } from '../game/refine.js';
 import { ATTRS, ATTR_NAMES, attrSummary, attrForMode, MAX_STAT_POINTS, RESET_COST_PER_POINT, holdRepeatDelay } from '../game/attributes.js';
 import { STAT_LABELS, STAT_HELP, compareGear, deltaText, gearBySlot, gearRating, meetsReq, swingBeats, tierOf, weaponStyle } from '../game/gear.js';
 import { TILE, LEARNING_ENABLED } from '../config.js';
@@ -703,15 +704,16 @@ export class UI {
       const show = f === 'all' || (s && (itemCategory(s.id) === 'coins' ? 'other' : itemCategory(s.id)) === f);
       cell.style.display = show ? '' : 'none';
       let sig = 'empty';
-      let up = 0, better = false;
+      let up = 0, rl = 0, better = false;
       if (s) {
         const item = getItem(s.id);
         if (item.equip) {
           up = this.game.equipment.masteryRank(s.id);
+          rl = this.game.equipment.refineLevel(s.id);
           const cmp = compareGear(s.id, this.game.equipment);
           better = (cmp.verdict === 'upgrade' || cmp.verdict === 'empty') && meetsReq(s.id, this.game.skills).ok;
         }
-        sig = `${s.id}|${s.qty}|${up}|${better ? 1 : 0}`;
+        sig = `${s.id}|${s.qty}|${up}|${rl}|${better ? 1 : 0}`;
       }
       if (cell._sig === sig) continue;
       cell._sig = sig;
@@ -723,7 +725,7 @@ export class UI {
         const lbl = stackLabel(s.qty);
         html += `<span class="qty ${lbl.cls}">${lbl.text}</span>`;
       }
-      if (up) html += `<span class="up-badge" title="${MASTERY_RANKS[up].name} mastery">${MASTERY_RANKS[up].abbr}</span>`;
+      if (up || rl) html += this._gearBadge(s.id);
       // Green arrow on gear that beats what you're wearing (and you can wear it).
       if (better) html += '<span class="gear-up" title="Better than what you are wearing">▲</span>';
       cell.innerHTML = html;
@@ -801,8 +803,7 @@ export class UI {
         const item = getItem(id);
         cell.className = 'equip-slot filled';
         cell.innerHTML = itemIconSVG(id, 32);
-        const rk = this.game.equipment.masteryRank(id);
-        if (rk) cell.insertAdjacentHTML('beforeend', `<span class="up-badge" title="${MASTERY_RANKS[rk].name} mastery">${MASTERY_RANKS[rk].abbr}</span>`);
+        if (this.game.equipment.masteryRank(id) || this.game.equipment.refineLevel(id)) cell.insertAdjacentHTML('beforeend', this._gearBadge(id));
         cell.addEventListener('click', () => this.game.unequip(slot));
         this._tip(cell, () => `<b>${item.name}</b>${this._gearTip(id)}<br><span style="opacity:.8">Tap to remove</span>`,
           () => [{ label: 'Remove', target: item.name, fn: () => this.game.unequip(slot) }]);
@@ -853,7 +854,7 @@ export class UI {
       row.className = 'eq-row';
       row.innerHTML = `<summary><span class="eq-ic">${itemIconSVG(id, 26)}</span>`
         + `<span class="eq-txt"><span class="eq-slot">${slot === 'shield' && this.game.equipment.isDualWielding() ? 'Off-hand' : capitalize(slot)}</span>`
-        + `<b class="eq-name">${escapeHtml(getItem(id).name)}</b>${rk ? `<span class="eq-mastery">${MASTERY_RANKS[rk].name} mastery</span>` : ''}${fam}`
+        + `<b class="eq-name">${escapeHtml(getItem(id).name)}${this.game.equipment.refineLevel(id) ? ` <span class="refine-tag">${refineTag(this.game.equipment.refineLevel(id))}</span>` : ''}</b>${rk ? `<span class="eq-mastery">${MASTERY_RANKS[rk].name} mastery</span>` : ''}${fam}`
         + `<span class="eq-stats">${this._gearStats(id)}</span></span></summary>`
         + `<div class="eq-detail">${this._gearTip(id)}</div>`;
       const off = document.createElement('button');
@@ -880,6 +881,19 @@ export class UI {
     ms.textContent = 'Gear mastery & enchanting';
     ms.addEventListener('click', () => this.openMastery());
     this.el.equipBonuses.appendChild(ms);
+    // Refining lives in the same window, next to each piece's Enchant button.
+    const rf = document.createElement('button');
+    rf.className = 'bestiary-open gear-guide-open';
+    rf.textContent = `Refine gear (★1 to ★${MAX_REFINE})`;
+    rf.addEventListener('click', () => this.openMastery());
+    this.el.equipBonuses.appendChild(rf);
+  }
+
+  /** The little corner badge on a gear icon: its mastery rank and refine level ("M★7"). */
+  _gearBadge(id) {
+    const rk = this.game.equipment.masteryRank(id), rl = this.game.equipment.refineLevel(id);
+    const title = [rk ? `${MASTERY_RANKS[rk].name} mastery` : '', rl ? `Refined ${refineTag(rl)}` : ''].filter(Boolean).join(', ');
+    return `<span class="up-badge" title="${title}">${rk ? MASTERY_RANKS[rk].abbr : ''}${rl ? `<span class="refine-star">${refineTag(rl)}</span>` : ''}</span>`;
   }
 
   /** Stat chips for one piece of gear, e.g. "+12 Defence · 1.2s". */
@@ -905,6 +919,7 @@ export class UI {
     const sig = getItem(id).signature;
     let html = (sig ? `<div class="gt-sig">Signature weapon of ${escapeHtml(getNpc(sig.boss).name)} · for ${escapeHtml(CLASS_BY_ID[sig.classId].name)}</div>` : '')
       + (rk ? `<div class="gt-up">${MASTERY_RANKS[rk].name} mastery</div>` : '')
+      + (this.game.equipment.refineLevel(id) ? `<div class="gt-refine">Refined ${refineTag(this.game.equipment.refineLevel(id))}</div>` : '')
       + (lines.length ? `<div class="gt-ench">Enchanted: ${lines.map(enchantLabel).join(' · ')}</div>` : '')
       + `<div class="gt-stats">${this._gearStats(id)}</div>`
       + `<div class="gt-tier">#${t.rank} of ${t.of} ${eq.slot === 'weapon' ? weaponStyle(id) + ' weapons' : eq.slot + ' items'}</div>`;
@@ -944,8 +959,9 @@ export class UI {
       body.innerHTML = '<div class="gear-intro"><p>Gear grows stronger as you fight with it. Every kill gives each piece you wear <b>mastery</b> '
         + '(1 for a monster, 5 for a champion, 25 for a boss), and each rank adds to its stats, up to <b>Legendary</b> (+140%). '
         + `<b>Enchanting</b> adds up to ${MAX_ENCHANTS} bonus lines: choose one of three on offer, paid for with upgrade stones and coins. An <b>upgrade ward</b> rerolls the offer. `
-        + 'Mastery and enchantments belong to the item type, so every copy you own shares them. '
-        + `You have ${formatNumber(g.inventory.count(UP_STONE))} stones and ${g.inventory.count(UP_WARD)} wards.</p></div>`;
+        + `<b>Refining</b> (★1 to ★${MAX_REFINE}) adds a share of the base stats on top, paid for with <b>refine scrolls</b> only; the higher you go, the riskier it gets. `
+        + 'Mastery, enchantments and refining belong to the item type, so every copy you own shares them. '
+        + `You have ${formatNumber(g.inventory.count(UP_STONE))} stones, ${g.inventory.count(UP_WARD)} wards and ${formatNumber(g.inventory.count(REFINE_SCROLL))} refine scrolls.</p></div>`;
       const ids = [...new Set([...EQUIP_SLOTS.map((s) => g.equipment.get(s)).filter(Boolean),
         ...g.inventory.slots.filter((s) => s && getItem(s.id).equip?.bonuses).map((s) => s.id)])];
       const list = document.createElement('div');
@@ -957,10 +973,11 @@ export class UI {
         const c = g.enchantCostFor(id);
         const okS = g.inventory.count(UP_STONE) >= c.stones, okC = g.inventory.count('coins') >= c.coins;
         const worn = EQUIP_SLOTS.some((s) => g.equipment.get(s) === id);
+        const rl = g.equipment.refineLevel(id);
         const row = document.createElement('div');
         row.className = 'gear-row mastery-row';
         row.innerHTML = `<span class="gear-ic">${itemIconSVG(id, 28)}</span>`
-          + `<div class="gear-info"><div class="gear-name"><b>${escapeHtml(getItem(id).name)}</b><span class="gear-tag mastery-tag">${MASTERY_RANKS[p.rank].name}</span>${worn ? '<span class="gear-tag worn">Wearing</span>' : ''}</div>`
+          + `<div class="gear-info"><div class="gear-name"><b>${escapeHtml(getItem(id).name)}</b>${rl ? `<span class="gear-tag refine-tag">${refineTag(rl)}</span>` : ''}<span class="gear-tag mastery-tag">${MASTERY_RANKS[p.rank].name}</span>${worn ? '<span class="gear-tag worn">Wearing</span>' : ''}</div>`
           + `<div class="mastery-bar"><span style="width:${Math.round(p.frac * 100)}%"></span></div>`
           + `<div class="gear-stats">${p.next ? `${formatNumber(p.need)} more kill${p.need > 1 ? 's' : ''} to ${MASTERY_RANKS[p.next].name}` : 'Fully mastered'}</div>`
           + `<div class="gear-stats">${this._gearStats(id)}</div>`
@@ -970,7 +987,23 @@ export class UI {
         b.className = 'gear-tab ench-open' + (okS && okC ? ' active' : '');
         b.innerHTML = `${lines.length >= MAX_ENCHANTS ? 'Replace a line' : 'Enchant'}<br><span class="${okS ? '' : 'short'}">${c.stones} stones</span>, <span class="${okC ? '' : 'short'}">${formatNumber(c.coins)} coins</span>`;
         b.addEventListener('click', () => this.openEnchant(id));
-        row.appendChild(b);
+        // Refine sits next to Enchant: the next ★ and its scroll cost.
+        const btns = document.createElement('div');
+        btns.className = 'gear-btns';
+        btns.appendChild(b);
+        const rb = document.createElement('button');
+        rb.type = 'button';
+        if (rl >= MAX_REFINE) {
+          rb.className = 'gear-tab refine-open';
+          rb.innerHTML = `Refine<br>${refineTag(MAX_REFINE)} (max)`;
+        } else {
+          const rc = refineCost(id, rl + 1), okR = g.inventory.count(REFINE_SCROLL) >= rc.scrolls;
+          rb.className = 'gear-tab refine-open' + (okR ? ' active' : '');
+          rb.innerHTML = `Refine ${refineTag(rl + 1)}<br><span class="${okR ? '' : 'short'}">${rc.scrolls} scroll${rc.scrolls > 1 ? 's' : ''}</span>`;
+        }
+        rb.addEventListener('click', () => this.openRefine(id));
+        btns.appendChild(rb);
+        row.appendChild(btns);
         list.appendChild(row);
       }
       body.appendChild(list);
@@ -1020,6 +1053,69 @@ export class UI {
       body.appendChild(box);
     };
     this.openModal(`Enchant ${getItem(id).name}`, render);
+  }
+
+  /** Refine one item type: its ★ level, what the next level adds, the odds,
+   *  the scrolls it takes against the scrolls you have, and a button to try. */
+  openRefine(id) {
+    const g = this.game;
+    const name = escapeHtml(getItem(id).name);
+    const pct = (x) => `${Math.round(x * 100)}%`;
+    let last = null;   // the outcome of the attempt just made, shown at the top
+    const render = (body) => {
+      const lv = g.equipment.refineLevel(id);
+      const have = g.inventory.count(REFINE_SCROLL), wards = g.inventory.count(UP_WARD);
+      const said = { success: 'Success! It shines brighter.', fail: 'The refine failed; the scrolls are used up.', downgrade: 'The refine failed and the item lost a level.',
+        broken: 'The item shattered and is gone.', warded: 'It went badly, but your upgrade ward crumbled instead.' }[last];
+      let html = `<div class="gear-intro"><p>${said ? `<b class="refine-out ${last}">${said}</b><br>` : ''}`
+        + `${name} is ${lv ? `refined <b>${refineTag(lv)}</b>` : 'not refined yet'}. Each ★ adds a share of its base stats on top of mastery: 6% a level to ★9, 10% to ★12, 15% to ★${MAX_REFINE}. `
+        + '★1–★5 always work; from ★6 an attempt can <b>fail</b> (scrolls lost); from ★10 it can <b>downgrade</b> the item a level; from ★13 it can <b>break</b> the item, destroying it. '
+        + `An <b>upgrade ward</b> in your pack takes a downgrade or a break instead (you have ${wards}).</p></div>`;
+      if (lv >= MAX_REFINE) {
+        html += `<div class="ench-head">Fully refined: ${refineTag(MAX_REFINE)}.</div>`;
+      } else {
+        // What the next ★ adds: the gain at the next level less the gain now, both from the base stats.
+        const next = lv + 1, c = refineCost(id, next), o = refineOdds(next);
+        const base = getItem(id).equip?.bonuses || {};
+        const gain = refinedBonuses(base, {}, next), had = refinedBonuses(base, {}, lv);
+        const chips = Object.keys(STAT_LABELS).filter((k) => (gain[k] || 0) - (had[k] || 0) > 0)
+          .map((k) => `+${(gain[k] || 0) - (had[k] || 0)} ${STAT_LABELS[k]}`);
+        html += `<div class="ench-head">Next: ${refineTag(next)}</div>`
+          + `<div class="gear-stats">Now: ${this._gearStats(id)}</div>`
+          + `<div class="gear-stats refine-gain">${refineTag(next)} adds ${chips.join(' · ') || 'nothing (no combat stats)'}</div>`
+          + `<div class="gear-stats">${pct(o.success)} success` + (o.fail ? ` · ${pct(o.fail)} fail` : '')
+          + (o.downgrade ? ` · <span class="short">${pct(o.downgrade)} downgrade</span>` : '')
+          + (o.broken ? ` · <span class="short">${pct(o.broken)} break</span>` : '') + '</div>'
+          + `<div class="gear-stats">Costs <span class="${have >= c.scrolls ? '' : 'short'}"><b>${c.scrolls} refine scroll${c.scrolls > 1 ? 's' : ''}</b></span> (you have ${formatNumber(have)}). `
+          + `${o.downgrade || o.broken ? (wards ? 'A ward will take the blow if it goes badly.' : '<span class="short">No ward: a bad roll will cost you.</span>') : ''}</div>`;
+      }
+      body.innerHTML = html;
+      const box = document.createElement('div');
+      box.className = 'ench-choices refine-box';
+      if (lv < MAX_REFINE) {
+        const c = refineCost(id, lv + 1);
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'gear-tab active refine-go';
+        b.textContent = `Refine to ${refineTag(lv + 1)}`;
+        b.disabled = have < c.scrolls;
+        b.addEventListener('click', () => {
+          last = g.refineItem(id);
+          // A broken item may be gone for good: back to the list if no copy is left.
+          if (last === 'broken' && !EQUIP_SLOTS.some((s) => g.equipment.get(s) === id) && !g.inventory.count(id)) { this.openMastery(); return; }
+          render(body);
+        });
+        box.appendChild(b);
+      }
+      const back = document.createElement('button');
+      back.type = 'button';
+      back.className = 'gear-tab ench-cancel';
+      back.textContent = 'Back';
+      back.addEventListener('click', () => this.openMastery());
+      box.appendChild(back);
+      body.appendChild(box);
+    };
+    this.openModal(`Refine ${getItem(id).name}`, render);
   }
 
   // ---------------- Gear guide ----------------

@@ -2165,6 +2165,21 @@ body.boss-on #tip-toast { top: 132px; }
 .ench-choices .ench-cancel { background: var(--aw-card); }
 #tooltip .gt-ench { color: #6b3fc0; font-weight: 800; margin-top: 2px; }
 .ench-open .short, .gear-intro .short { color: var(--aw-accent); font-weight: 800; }
+/* Refining (★1-★15): sky blue, next to the purple enchanting. */
+.gear-btns { flex: 0 0 auto; display: flex; flex-direction: column; gap: 4px; }
+.mastery-row .refine-open { font-size: 11.5px; line-height: 1.25; touch-action: manipulation; }
+.mastery-row .refine-open.active { background: var(--aw-sky-deep); }
+.refine-open .short { color: var(--aw-accent); font-weight: 800; }
+.mastery-row .refine-open.active .short { color: #ffe3e3; }
+.refine-tag { background: var(--aw-sky-bg); color: var(--aw-sky-deep); font-weight: 900; }
+.eq-name .refine-tag { font-size: 11px; padding: 0 5px; border-radius: 999px; }
+.up-badge .refine-star { color: #dff3ff; margin-left: 1px; }
+#tooltip .gt-refine { color: var(--aw-sky-deep); font-weight: 900; margin-top: 2px; }
+.refine-gain { color: var(--aw-sky-deep); font-weight: 800; }
+.refine-out.success { color: var(--aw-grass); }
+.refine-out.fail, .refine-out.warded { color: var(--aw-text-sec); }
+.refine-out.downgrade, .refine-out.broken { color: var(--aw-accent); }
+.refine-box .refine-go { background: var(--aw-sky-deep); border-color: var(--aw-ink); }
 
 /* Stats (Strength / Intelligence / Dexterity) in the Combat tab. */
 .cb-stats { margin: 8px 0; padding: 8px 10px; border: 2px solid var(--ink, #1f2a44); border-radius: 12px; background: #fff; font-size: 12px; }
