@@ -176,6 +176,8 @@ const RIFLE_PIERCE_TILES = 10;
 // its path (and beside the target), not just monsters squarely on the line.
 const RIFLE_PIERCE_WIDTH = 1;
 const CHAMPION_STACK_MULT = 1;
+// Auto gather can take turns between up to this many kinds of node.
+const AUTO_GATHER_KINDS = 6;
 // How each melee weapon's cleave moves (and looks): spears pierce in a line
 // through the target, heavy blades sweep a wide arc, blunt weapons slam a
 // shockwave, quick blades flurry, and swords slash a crescent.
@@ -347,6 +349,7 @@ export class Game {
     this._stopOnAttackRelease = false;   // the stick was let go while Attack was held
     this.autoBattle = false;      // auto battle: hunt, fight, eat and use skills
     this.autoGather = false;      // auto gather: when a node runs dry, move on to the next one
+    this.autoGatherKinds = [];    // ...cycling through every kind of node you've gathered since turning it on
     this.autoQuest = false;       // auto quest: work through quests by yourself (see _autoQuestTick)
     this.autoQuestId = null;      // the quest auto quest is on (the one you last pressed Go on)
     this._autoSkip = new Map();   // npc entityId -> tick until which it is skipped (unreachable)
@@ -1166,7 +1169,10 @@ export class Game {
     }
     // Remember what we're gathering, so auto gather can pick it up again after
     // a fight, or once the mined-out rocks and felled trees grow back.
-    if (gather && this.autoGather && obj?.objId) this._autoLife = { kind: 'gather', objId: obj.objId };
+    if (gather && this.autoGather && obj?.objId) {
+      this._autoLife = { kind: 'gather', objId: obj.objId };
+      this._addAutoGatherKind(obj);
+    }
     // "Do all": when one recipe runs out, move straight on to the next one.
     if (!going && a.all) {
       a.done ||= new Set();
@@ -1200,22 +1206,46 @@ export class Game {
     return true;
   }
 
-  /** Where auto gather goes next: the nearest ready node of the same kind
-   *  within 30 tiles, or failing that the nearest ready node of the same skill
-   *  you have the level for (another kind of rock, tree or fishing spot). */
+  /** Auto gather does several kinds of node at once: every kind you gather
+   *  while it's on joins the round (copper and tin for bronze, or rocks and
+   *  trees together), up to AUTO_GATHER_KINDS of them, oldest dropped first. */
+  _addAutoGatherKind(obj) {
+    const list = this.autoGatherKinds;
+    if (list.includes(obj.objId)) return;
+    list.push(obj.objId);
+    if (list.length > AUTO_GATHER_KINDS) list.shift();
+    if (list.length > 1) this.msg(`Auto gather now takes turns at: ${list.map((id) => this._gatherKindName(id)).join(', ')}. Turn it off and on to start a new list.`, 'system');
+    this.bus.emit('autogather');
+  }
+
+  _gatherKindName(objId) {
+    return (this.world.objects.find((o) => o.objId === objId)?.def?.name || objId).toLowerCase();
+  }
+
+  /** Where auto gather goes next. With several kinds in the round, it takes
+   *  turns: the nearest ready node of the next kind after this one, then any
+   *  kind in the round. Failing those, the nearest ready node of the same kind,
+   *  or of the same skill you have the level for (another rock, tree or spot),
+   *  all within 30 tiles. */
   _nextGatherNode(objId, exclude = null) {
     const here = this.playerTile();
     const def = this.world.objects.find((o) => o.objId === objId)?.def;
-    let same = null, sd = Infinity, other = null, od = Infinity;
+    const kinds = this.autoGatherKinds || [];
+    const i = kinds.indexOf(objId);
+    const next = kinds.length > 1 && i >= 0 ? kinds[(i + 1) % kinds.length] : null;
+    let same = null, sd = Infinity, other = null, od = Infinity, turn = null, td = Infinity, round = null, rd = Infinity;
     for (const o of this.world.objects) {
       if (o === exclude || o.depleted) continue;
       const d = chebyshev(here.x, here.y, o.x, o.y);
       if (d > 30) continue;
+      const lvlOk = !o.def?.skill || (o.def.level || 1) <= this.skills.level(o.def.skill);
+      if (next && o.objId === next && lvlOk && d < td) { td = d; turn = o; }
+      if (kinds.length > 1 && kinds.includes(o.objId) && o.objId !== objId && lvlOk && d < rd) { rd = d; round = o; }
       if (o.objId === objId) { if (d < sd) { sd = d; same = o; } continue; }
       if (def?.skill && o.def?.skill === def.skill && o.def.type === def.type
         && (o.def.level || 1) <= this.skills.level(def.skill) && d < od) { od = d; other = o; }
     }
-    return same || other;
+    return turn || round || same || other;
   }
 
   /** Auto gather for Farming and Thieving: once you're idle, carry on by
@@ -1259,6 +1289,7 @@ export class Game {
 
   toggleAutoGather(on = !this.autoGather) {
     this.autoGather = !!on;
+    this.autoGatherKinds = [];   // a fresh round each time it's switched on
     if (!this.autoGather) this._autoLife = null;
     this.msg(this.autoGather ? 'Auto gather on: when a node runs dry you move on to the next one.' : 'Auto gather off.', 'system');
     this.bus.emit('autogather');
@@ -1268,6 +1299,8 @@ export class Game {
   autoGatherStatus() {
     if (!this.autoGather) return 'Off';
     const a = this.player.action;
+    const kinds = this.autoGatherKinds || [];
+    if (kinds.length > 1) return kinds.map((id) => capitalize(this._gatherKindName(id))).join(' + ');
     if (a && GATHER_ACTIONS.has(a.type) && a.obj?.def) return a.obj.def.name;
     if (a?.type === 'farm' || this._autoLife?.kind === 'farm') return 'Farming';
     if (a?.type === 'thieve' || this._autoLife?.kind === 'thieve') return 'Pickpocketing';
