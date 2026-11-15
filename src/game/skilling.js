@@ -140,7 +140,9 @@ export function resolveMine(game, action) {
   if (game.inventory.canAdd(yieldId, 1) <= 0) { game.msg('Your inventory is too full to hold any more.'); return false; }
 
   const lvl = game.skills.level('mining');
-  if (Math.random() < gatherChance(def.lowChance, def.highChance, lvl)) {
+  // Every swing at a rock you can mine now succeeds (the owner's call: no
+  // more swinging at nothing); level still decides which rocks you can mine.
+  {
     game.inventory.add(yieldId, 1);
     game.skills.addXp('mining', def.xp);
     const mc = objCenter(obj); game.spawnPoof(mc.x, mc.y, def.ore || '#cfcfcf');
@@ -167,7 +169,6 @@ export function resolveMine(game, action) {
     obj.respawnTimer = def.respawn;
     return false; // rock depletes; player must find another
   }
-  return true;
 }
 
 export function resolveFish(game, action) {
@@ -283,23 +284,40 @@ export function resolveSmelt(game, action) {
     game.msg(`You need a Smithing level of ${r.level} to smelt this.`); return false;
   }
   for (const inp of r.inputs) game.inventory.remove(inp.id, inp.qty);
+  // Smelting is instant: the furnace runs the whole batch at once (see
+  // smeltBatch), so each bar's outcome is tallied and told in one line.
+  const tally = action.tally || (action.tally = { made: 0, extra: 0, failed: 0 });
   if (r.successChance && Math.random() > r.successChance) {
-    game.msg('The ore is too impure and you fail to refine it.');
+    tally.failed++;
   } else {
     game.inventory.add(r.result, 1);
     game.skills.addXp('smithing', r.xp);
-    game.bus.emit('sfx', 'clang');
+    tally.made++;
     const lvl = game.skills.level('smithing');
-    const barName = getItem(r.result).name.toLowerCase();
     // A hot crucible occasionally yields an extra bar.
     if (Math.random() < 0.03 + lvl * 0.001 && game.inventory.canAdd(r.result, 1) > 0) {
       game.inventory.add(r.result, 1);
-      game.msg(`The crucible runs hot — an extra ${barName}!`);
-    } else {
-      game.msg(`You smelt a ${barName}.`);
+      tally.extra++;
     }
   }
   return r.inputs.every((inp) => game.inventory.has(inp.id, inp.qty));
+}
+
+/** Smelt every bar the materials in your pack allow, all at once, and say
+ *  what came out. Returns false (the furnace is done). */
+export function smeltBatch(game, action) {
+  action.tally = null;
+  let guard = 0;
+  while (resolveSmelt(game, action) && ++guard < 100000) { /* keep smelting */ }
+  const t = action.tally;
+  if (!t || (!t.made && !t.failed)) return false;
+  const name = getItem(action.recipe.result).name.toLowerCase();
+  const bars = t.made + t.extra;
+  game.bus.emit('sfx', 'clang');
+  game.msg(`You smelt ${bars} ${name}${bars === 1 ? '' : 's'}`
+    + (t.extra ? ` (${t.extra} extra from a hot crucible)` : '')
+    + (t.failed ? `; ${t.failed} lot${t.failed === 1 ? '' : 's'} of ore ${t.failed === 1 ? 'was' : 'were'} too impure` : '') + '.');
+  return false;
 }
 
 // Combination dishes (pies, stews) assembled at a fire/range. Never burn.

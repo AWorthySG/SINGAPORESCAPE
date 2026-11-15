@@ -42,7 +42,7 @@ import { PRAYERS, PRAYER_BY_ID, PRAYER_GROUPS } from '../data/prayers.js';
 import { isBone, boneXp, BONE_IDS, countBones, championBoneQty, RARE_BOSS_BONES, RARE_BONE_CHANCE, RARE_BONE_QTY, ALTAR_XP_MULT, ALTAR_RANGE } from '../data/bones.js';
 import {
   resolveWoodcut, resolveMine, resolveFish, resolveCook,
-  resolveSmelt, resolveSmith, resolveFiremake, resolveCraft, resolveDish,
+  resolveSmelt, smeltBatch, resolveSmith, resolveFiremake, resolveCraft, resolveDish,
   resolveHunt, resolveRecipe,
 } from './skilling.js';
 import { CROP_BY_SEED, cropFor, POTIONS } from '../data/trades.js';
@@ -350,6 +350,7 @@ export class Game {
     this.autoBattle = false;      // auto battle: hunt, fight, eat and use skills
     this.autoGather = false;      // auto gather: when a node runs dry, move on to the next one
     this.autoGatherKinds = [];    // ...cycling through every kind of node you've gathered since turning it on
+    this.gatherPicks = new Set(); // ...or exactly the kinds you ticked in a skill guide (kept between sessions)
     this.autoQuest = false;       // auto quest: work through quests by yourself (see _autoQuestTick)
     this.autoQuestId = null;      // the quest auto quest is on (the one you last pressed Go on)
     this._autoSkip = new Map();   // npc entityId -> tick until which it is skipped (unreachable)
@@ -1104,7 +1105,19 @@ export class Game {
       case 'fish': return this._tickContinuous(a, a.obj, () => resolveFish(this, a));
       case 'cook': return this._tickContinuous(a, a.obj, () => resolveCook(this, a));
       case 'cookdish': return this._tickContinuous(a, a.obj, () => resolveDish(this, a));
-      case 'smelt': return this._tickContinuous(a, a.obj, () => resolveSmelt(this, a));
+      // Smelting is instant: the whole batch at once, and with "Smelt all" every
+      // kind of bar your ores allow, one after another in the same moment.
+      case 'smelt': return this._tickContinuous(a, a.obj, () => {
+        smeltBatch(this, a);
+        while (a.all) {
+          (a.done ||= new Set()).add(jobKey(a));
+          const nxt = nextJob(this, a.all, a.done);
+          if (!nxt || nxt.type !== 'smelt') break;
+          Object.assign(a, { rawId: undefined, recipe: undefined, skill: undefined }, nxt);
+          smeltBatch(this, a);
+        }
+        return false;
+      });
       case 'smith': return this._tickContinuous(a, a.obj, () => resolveSmith(this, a));
       case 'craft': return this._tickContinuous(a, a.obj, () => resolveCraft(this, a));
       case 'hunt': return this._tickContinuous(a, a.obj, () => resolveHunt(this, a));
@@ -1217,12 +1230,44 @@ export class Game {
    *  while it's on joins the round (copper and tin for bronze, or rocks and
    *  trees together), up to AUTO_GATHER_KINDS of them, oldest dropped first. */
   _addAutoGatherKind(obj) {
+    if (this.gatherPicks.size) return;   // a ticked list decides the round instead
     const list = this.autoGatherKinds;
     if (list.includes(obj.objId)) return;
     list.push(obj.objId);
     if (list.length > AUTO_GATHER_KINDS) list.shift();
     if (list.length > 1) this.msg(`Auto gather now takes turns at: ${list.map((id) => this._gatherKindName(id)).join(', ')}. Turn it off and on to start a new list.`, 'system');
     this.bus.emit('autogather');
+  }
+
+  /** The kinds auto gather takes turns between: the ones ticked in a skill
+   *  guide, else every kind gathered since it was switched on. */
+  _gatherRound() {
+    return this.gatherPicks.size ? [...this.gatherPicks] : (this.autoGatherKinds || []);
+  }
+
+  /** Tick or untick a kind of node (its object ids) for auto gather's round. */
+  toggleGatherPick(objIds) {
+    const on = !objIds.every((id) => this.gatherPicks.has(id));
+    for (const id of objIds) { if (on) this.gatherPicks.add(id); else this.gatherPicks.delete(id); }
+    this.saveSoon = true;
+    this.bus.emit('autogather');
+    return on;
+  }
+
+  /** Auto gather with a ticked list and nothing to do: head for the nearest ticked node. */
+  startGatherPicks() {
+    if (!this.gatherPicks.size) return false;
+    const here = this.playerTile();
+    let best = null, bd = Infinity;
+    for (const o of this.world.objects) {
+      if (!this.gatherPicks.has(o.objId) || o.depleted) continue;
+      if (o.def?.skill && (o.def.level || 1) > this.skills.level(o.def.skill)) continue;
+      const d = chebyshev(here.x, here.y, o.x, o.y);
+      if (d < bd) { bd = d; best = o; }
+    }
+    if (!best) { this.msg('None of the kinds you ticked are ready nearby yet.', 'system'); return false; }
+    if (!this.autoGather) this.toggleAutoGather(true);
+    return this.goToObject(best);
   }
 
   _gatherKindName(objId) {
@@ -1237,7 +1282,7 @@ export class Game {
   _nextGatherNode(objId, exclude = null) {
     const here = this.playerTile();
     const def = this.world.objects.find((o) => o.objId === objId)?.def;
-    const kinds = this.autoGatherKinds || [];
+    const kinds = this._gatherRound();
     const i = kinds.indexOf(objId);
     const next = kinds.length > 1 && i >= 0 ? kinds[(i + 1) % kinds.length] : null;
     let same = null, sd = Infinity, other = null, od = Infinity, turn = null, td = Infinity, round = null, rd = Infinity;
@@ -1247,7 +1292,7 @@ export class Game {
       if (d > 30) continue;
       const lvlOk = !o.def?.skill || (o.def.level || 1) <= this.skills.level(o.def.skill);
       if (next && o.objId === next && lvlOk && d < td) { td = d; turn = o; }
-      if (kinds.length > 1 && kinds.includes(o.objId) && o.objId !== objId && lvlOk && d < rd) { rd = d; round = o; }
+      if (kinds.includes(o.objId) && o.objId !== objId && lvlOk && d < rd) { rd = d; round = o; }
       if (o.objId === objId) { if (d < sd) { sd = d; same = o; } continue; }
       if (def?.skill && o.def?.skill === def.skill && o.def.type === def.type
         && (o.def.level || 1) <= this.skills.level(def.skill) && d < od) { od = d; other = o; }
@@ -1306,8 +1351,8 @@ export class Game {
   autoGatherStatus() {
     if (!this.autoGather) return 'Off';
     const a = this.player.action;
-    const kinds = this.autoGatherKinds || [];
-    if (kinds.length > 1) return kinds.map((id) => capitalize(this._gatherKindName(id))).join(' + ');
+    const round = this._gatherRound();
+    if (round.length > 1) return round.map((id) => capitalize(this._gatherKindName(id))).join(' + ');
     if (a && GATHER_ACTIONS.has(a.type) && a.obj?.def) return a.obj.def.name;
     if (a?.type === 'farm' || this._autoLife?.kind === 'farm') return 'Farming';
     if (a?.type === 'thieve' || this._autoLife?.kind === 'thieve') return 'Pickpocketing';
