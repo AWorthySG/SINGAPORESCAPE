@@ -1,5 +1,5 @@
 import { SAVE_KEY } from '../config.js';
-import { hasSave, importSaveCode } from './save.js';
+import { hasSave, importSaveCode, storedSaveCode } from './save.js';
 
 // Moving house: the game used to run inside a-worthy.com (a-worthy.com/aworthyadventure/),
 // where each browser kept its save. For safety it now runs only on its own address,
@@ -29,7 +29,7 @@ export function receiveTransfer(loc = globalThis.location, ask = (m) => globalTh
   try { code = decodeURIComponent(m[1]); } catch { return false; }
   const sum = code.slice(code.lastIndexOf(':') + 1);
   if (!sum || doneList().includes(sum)) return false;   // already brought over once
-  if (hasSave() && !ask('You have A-Worthy Adventure progress saved at a-worthy.com. Bring it over and play it here?\n\n'
+  if (hasSave() && !ask('You have A-Worthy Adventure progress saved at the game\'s old address. Bring it over and play it here?\n\n'
     + 'Your current progress on this page is kept as a backup.')) {
     markDone(sum);
     return false;
@@ -38,5 +38,20 @@ export function receiveTransfer(loc = globalThis.location, ask = (m) => globalTh
   markDone(sum);
   if (!r.ok) { console.warn('Save transfer failed:', r.error); return false; }
   try { loc.reload(); } catch { /* tests */ }
+  return true;
+}
+
+// The game's home is now its own subdomain. The old github.io address forwards
+// each visitor there, carrying the save this browser holds for it in the same
+// #transfer= link (picked up by receiveTransfer above, once).
+export const NEW_HOME = 'https://adventure.a-worthy.com/';
+const OLD_HOST = 'aworthysg.github.io';
+
+/** On the old github.io address, send the player (and their save) to the new
+ *  home. Returns true when the page is navigating away. */
+export function forwardToNewHome(loc = globalThis.location) {
+  if (loc?.hostname !== OLD_HOST) return false;
+  const code = storedSaveCode();
+  try { loc.replace(NEW_HOME + (code ? '#transfer=' + encodeURIComponent(code) : '')); } catch { return false; }
   return true;
 }
