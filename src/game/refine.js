@@ -61,21 +61,22 @@ export function refineCost(id, next) {
   return { scrolls: next <= 5 ? 1 : next <= 9 ? 2 : next <= 12 ? 3 : 4 };
 }
 
-// Refine scroll drops, by who dropped them (`level` is the monster's level):
-//   normal monster  rarely: 0.15% at level 1, rising to 0.4% by level 500
-//   champion        one scroll 6% of the time at level 1, up to 20%
-//   boss            always 2-4, plus one more per 150 levels
-// At a steady 30 kills a minute that is roughly 15 scrolls an hour around level
-// 100, so ★9-★10 on a piece (about 18-25 scrolls) takes an hour or two, while
-// ★15 (about 90 scrolls and plenty of wards, or hundreds without) is a long goal.
+// Refine scroll drops, by who dropped them (`level` is the monster's level).
+// (Raised about fourfold at the owner's request: refining should feel reachable.)
+//   normal monster  0.6% at level 1, rising to 1.5% by level 450
+//   champion        one scroll 25% of the time at level 1, up to 60%
+//   boss            always 6-10, plus one more per 75 levels
+// At a steady 30 kills a minute that is roughly 15 scrolls every 15 minutes
+// around level 100, so ★9-★10 on a piece (about 18-25 scrolls) takes under half
+// an hour, while ★15 (about 90 scrolls and plenty of wards) stays a longer goal.
 export const SCROLL_DROP = {
-  normal: (lvl) => Math.min(0.004, 0.0015 + lvl / 200000),
-  champion: (lvl) => Math.min(0.2, 0.06 + lvl / 4000),
+  normal: (lvl) => Math.min(0.015, 0.006 + lvl / 50000),
+  champion: (lvl) => Math.min(0.6, 0.25 + lvl / 1000),
 };
 /** How many refine scrolls a kill drops (0 most of the time).
  *  `source`: 'normal' | 'champion' | 'boss'. */
 export function refineScrollDrop(level = 1, source = 'normal', rand = Math.random) {
-  if (source === 'boss') return 2 + Math.floor(rand() * 3) + Math.floor(level / 150);
+  if (source === 'boss') return 6 + Math.floor(rand() * 5) + Math.floor(level / 75);
   const chance = (SCROLL_DROP[source] || SCROLL_DROP.normal)(level);
   return rand() < chance ? 1 : 0;
 }
