@@ -8,10 +8,8 @@
 // Qilin trail, the Immortal elixir) and stops there, so level 99 gives about
 // half. The full values sit below what a top weapon gives (a level 170-300
 // weapon has +13-25% attack speed and 150-600 power) so life skills add to gear
-// rather than replace it. They count on top of the gear caps (OFFENCE_CAPS),
-// as set bonuses do, so a capped-out fighter still gains from training them:
-// pierce can reach 55%, lifesteal 20%, boss damage 75%. Crit chance is the
-// exception: it joins gear crit inside critChance's overall 50% cap.
+// rather than replace it. Offensive stats have no caps, so they simply add to
+// gear; crit chance joins gear crit inside critChance, which stops at 100%.
 
 export const LIFE_PERK_FULL_LEVEL = 200;
 

@@ -32,7 +32,9 @@ export const QUICK_WEAPON_SPEED = 0.7;
 // atkPct / magPct: 'Attack bonus %' (melee and ranged physical damage) and 'Magic bonus %' (spell damage).
 export const OFFENCE_KEYS = ['pierce', 'critDmg', 'haste', 'lifesteal', 'bossDmg', 'atkPct', 'magPct'];
 // Attack speed (haste) has no cap: see hasteMult().
-export const OFFENCE_CAPS = { pierce: 40, critDmg: 150, lifesteal: 15, bossDmg: 60 };
+// (No caps any more: the owner wants every offensive stat to keep paying off.
+// Crit chance stops at 100%, since a hit can't crit more than every time.)
+export const OFFENCE_CAPS = {};
 // Melee swing intervals are halved: every melee class attacks twice as fast.
 export const MELEE_SPEED_MULT = 0.5;
 export const QUICK_TYPES = new Set(['scimitar', 'claws', 'kerambit', 'fan']);
@@ -121,7 +123,7 @@ export class Equipment {
     // Full-set bonuses on top of individual pieces.
     const sb = this.setBonus();
     for (const k of Object.keys(total)) total[k] += sb[k] || 0;
-    // Life skill perks sit on top too, past the caps (see lifeperks.js).
+    // Life skill perks sit on top too (see lifeperks.js).
     const ex = this.extra?.();
     if (ex) for (const k of Object.keys(ex)) total[k] = (total[k] || 0) + ex[k];
     return total;

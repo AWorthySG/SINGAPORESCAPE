@@ -90,9 +90,10 @@ export const MEGA_CRIT_MULT = 4;
 export const MEGA_CRIT_CHANCE = 0.25;
 
 /** Critical-hit chance: scales with the attacking skill level, plus gear crit %.
- *  Level 99 alone gives ~15%; gear adds flat percent on top. Capped at 50%. */
+ *  Level 99 alone gives ~15%; gear adds flat percent on top. It can reach 100%
+ *  (every hit a crit). */
 export function critChance(level, equipCrit = 0) {
-  return Math.min(0.5, level * 0.0015 + (equipCrit || 0) / 100);
+  return Math.min(1, level * 0.0015 + (equipCrit || 0) / 100);
 }
 
 // ----- Combat weakness (rock-paper-scissors style triangle) -----
