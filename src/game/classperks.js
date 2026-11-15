@@ -17,7 +17,7 @@ const SIGNATURE = {
   knight: 'Longswords strike from 3 tiles away, and slay dragons and reptiles.',
   berserker: 'Heavy battleaxes with a wide cleave that mows down packs.',
   juggernaut: 'Warhammers hit harder than anything and cleave through crowds; they crack golems.',
-  gladiator: 'Two-handed swords: the widest cleave (70%) and 3-tile reach.',
+  gladiator: 'Two-handed swords: the widest cleave (70%), hitting every foe within 3 tiles, and 3-tile reach.',
   lancer: 'Long spears that strike from 3 tiles away.',
   brawler: 'Claws: the quickest swings in the game and extra critical hits, with a light cleave.',
   samurai: 'Keen katanas: quick, balanced and extra critical hits.',

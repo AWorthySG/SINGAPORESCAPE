@@ -6303,3 +6303,23 @@ test('bows, katanas, warhammers, longswords and 2h swords are two-handed: no shi
   assert.equal(again.equipment.get('shield'), null); assert.equal(again.inventory.count('wooden_shield'), 1);
   clearSave();
 });
+
+test('a two-handed sword’s sweep hits every foe within 3 tiles of the target, with no limit', () => {
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const game = new Game(); game.start(); game.chooseStartingStyle('melee'); game.jobClass = null;
+  const p = game.player;
+  const id = game.npcs.find((n) => n.def.attackable && !n.def.boss).npcId;
+  const mk = (dx, dy) => { const n = game.spawnNpc(id, p.x + dx, p.y + dy, { wander: 0 }); n.maxHp = n.hp = 99999; n.def = { ...n.def, aggressive: false, maxHit: 0 }; return n; };
+  const main = mk(1, 0);
+  // A crowd of eight foes 2-3 tiles from the target (beyond an ordinary cleave's 1), one far away.
+  const crowd = [mk(3, 0), mk(3, 1), mk(3, -1), mk(4, 2), mk(4, -2), mk(1, 3), mk(1, -3), mk(4, 0)], far = mk(8, 0);
+  game.npcs = [main, ...crowd, far];
+  const wield = (t) => { game.equipment.set('weapon', Object.keys(ITEMS).find((k) => ITEMS[k].equip?.weaponType === t && !ITEMS[k].signature)); game.equipment.clearSlot('shield'); };
+  wield('2h_sword');
+  assert.equal(game._cleave(main, 20), crowd.length, 'every foe in the crowd is caught');
+  assert.ok(crowd.every((n) => n.hp < 99999));
+  assert.equal(far.hp, 99999, 'but not one 7 tiles from the target');
+  for (const n of crowd) n.hp = 99999;
+  wield('battleaxe');
+  assert.equal(game._cleave(main, 20), 0, 'an ordinary sweep only reaches foes touching the target');
+});
