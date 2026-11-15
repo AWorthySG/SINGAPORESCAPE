@@ -17,6 +17,8 @@ const MIME = {
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
+  '.webp': 'image/webp',
+  '.webmanifest': 'application/manifest+json',
 };
 
 const server = createServer(async (req, res) => {

@@ -2176,6 +2176,22 @@ export class UI {
       p.appendChild(b);
       return b;
     };
+    // Install as an app: the browser's own install dialog where it offers one,
+    // or the Add to Home Screen steps on iPhone and iPad.
+    import('../pwa.js').then((pwa) => {
+      if (pwa.isInstalled()) return;
+      const btn = document.createElement('button');
+      btn.className = 'install-app';
+      const show = () => { btn.hidden = !pwa.canInstall() && !pwa.isIos(); btn.textContent = 'Install as an app'; };
+      btn.addEventListener('click', async () => {
+        if (pwa.canInstall()) { if (await pwa.promptInstall()) this.game.msg('A-Worthy Adventure is installed: open it from your home screen or app list.', 'level'); }
+        else this.game.msg('To install on iPhone or iPad: tap the Share button in Safari, then "Add to Home Screen".', 'system');
+        show();
+      });
+      pwa.onInstallChange(show);
+      show();
+      p.prepend(btn);
+    }).catch(() => {});
     mk('Save game now', () => { import('../game/save.js').then((m) => {
       const saved = m.saveGame(this.game);
       if (saved) this.game.msg('Game saved.', 'system');
