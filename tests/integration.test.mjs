@@ -2600,7 +2600,7 @@ test('Refine scrolls: rare from monsters, likelier from champions, always a few 
   assert.equal(R.refineScrollDrop(100, 'normal', () => 0), 1);
   assert.ok(R.SCROLL_DROP.normal(1) < R.SCROLL_DROP.normal(400), 'more from stronger monsters');
   assert.ok(R.SCROLL_DROP.champion(100) > 10 * R.SCROLL_DROP.normal(100), 'champions far likelier');
-  for (const r of [0, 0.5, 0.999]) assert.ok(R.refineScrollDrop(35, 'boss', () => r) >= 2, 'a boss always drops a few');
+  for (const r of [0, 0.5, 0.999]) assert.ok(R.refineScrollDrop(35, 'boss', () => r) >= 6, 'a boss always drops a handful');
   assert.ok(R.refineScrollDrop(450, 'boss', () => 0) > R.refineScrollDrop(35, 'boss', () => 0));
   // In the game: a boss kill always leaves scrolls, never multiplied by the boss hoard rule.
   globalThis.localStorage = fakeStorage(); clearSave();
@@ -2613,7 +2613,7 @@ test('Refine scrolls: rare from monsters, likelier from champions, always a few 
   g.rollDrops(boss);
   g._autoLoot = orig;
   const lvl = boss.def.tierLevel || boss.def.level || 1;
-  assert.ok(got >= 2 && got <= 4 + Math.floor(lvl / 150), `boss dropped ${got} refine scrolls`);
+  assert.ok(got >= 6 && got <= 10 + Math.floor(lvl / 75), `boss dropped ${got} refine scrolls`);
   // Upgrade wards (which protect a refine) are counted as dropped too, not 100x.
   assert.ok(wards >= 1 && wards <= 3, `boss dropped ${wards} upgrade wards`);
   // Refine scrolls are earned, never bought.
@@ -2621,9 +2621,9 @@ test('Refine scrolls: rare from monsters, likelier from champions, always a few 
   for (const sh of Object.values(SHOPS)) assert.ok(!(sh.stock || []).some((s) => s.id === R.SCROLL), 'not sold in shops');
 });
 
-test('Every monster drops twice the coins its table says', async () => {
+test('Every monster drops four times the coins its table says', async () => {
   const { COIN_LOOT_MULT } = await import('../src/game/game.js');
-  assert.equal(COIN_LOOT_MULT, 2);
+  assert.equal(COIN_LOOT_MULT, 4);
   globalThis.localStorage = fakeStorage(); clearSave();
   const g = new Game(); g.start();
   g.ui = new Proxy({}, { get: () => () => {} });
@@ -2635,7 +2635,7 @@ test('Every monster drops twice the coins its table says', async () => {
   g._autoLoot = (loot) => { got = loot.filter((l) => l[0] === 'coins').reduce((a, l) => a + l[1], 0); };
   g.rollDrops(n);
   g._autoLoot = orig;
-  assert.ok(got >= entry.min * 2 && got <= entry.max * 2, `coins doubled (${got} within ${entry.min * 2}-${entry.max * 2})`);
+  assert.ok(got >= entry.min * 4 && got <= entry.max * 4, `coins x4 (${got} within ${entry.min * 4}-${entry.max * 4})`);
 });
 
 test('Stats: Strength, Intelligence and Dexterity points from your fighting level, each boosting its style, saved', async () => {

@@ -99,7 +99,7 @@ const BOSS_XP_PER_LEVEL = 4000;
 const BOSS_STACK_MULT = 100;
 // Every coin drop, from any monster, boss or champion (and the rare table), is
 // this many times what its drop table says.
-export const COIN_LOOT_MULT = 2;
+export const COIN_LOOT_MULT = 4;
 // Whip ricochet: bounces after each landed lash (one more at full Rhythm), and their share of the hit.
 // World boss: every 2 minutes (if none is about) a random boss rises near you,
 // far tougher than usual, and hunts you down. It leaves after 5 minutes unfought.
