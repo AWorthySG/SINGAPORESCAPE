@@ -8,6 +8,7 @@ import { now } from './core/utils.js';
 import { TILE } from './config.js';
 import { saveGame, watchForImports } from './game/save.js';
 import { receiveTransfer, forwardToNewHome } from './game/transfer.js';
+import { initPwa } from './pwa.js';
 
 const VIEW_TILES = 15;        // tiles shown across the shorter side of the screen, at most
 const VIEW_TILES_LONG = 24;   // ...and along the longer side
@@ -25,6 +26,8 @@ receiveTransfer();
 // On the old github.io address: hand the player over to the new one, and don't
 // start a game here meanwhile (this await never finishes; the page is leaving).
 if (forwardToNewHome()) await new Promise(() => {});
+// Installable as an app, and playable offline once loaded (see pwa.js, sw.js).
+initPwa();
 
 const game = new Game();
 // Graphics quality: "low" renders at 1x and trims particles, for older phones.
