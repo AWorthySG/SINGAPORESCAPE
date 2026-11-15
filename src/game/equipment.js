@@ -50,6 +50,7 @@ export class Equipment {
     this.mastery = {};            // itemId -> mastery points, shared by every copy (see mastery.js)
     this.enchants = {};           // itemId -> [{ stat, value }] (up to 3), shared by every copy
     this.refines = {};            // itemId -> refine level (★1..★15), shared by every copy (see refine.js)
+    this.extra = null;            // () => bonuses from outside your gear (life skill perks, see lifeperks.js)
   }
 
   masteryPoints(id) { return this.mastery[id] || 0; }
@@ -120,6 +121,9 @@ export class Equipment {
     // Full-set bonuses on top of individual pieces.
     const sb = this.setBonus();
     for (const k of Object.keys(total)) total[k] += sb[k] || 0;
+    // Life skill perks sit on top too, past the caps (see lifeperks.js).
+    const ex = this.extra?.();
+    if (ex) for (const k of Object.keys(ex)) total[k] = (total[k] || 0) + ex[k];
     return total;
   }
 
@@ -174,7 +178,7 @@ export class Equipment {
   _haste() {
     let h = 0;
     for (const slot of EQUIP_SLOTS) { const id = this.slots[slot]; if (id && this.styleFits(id)) h += this.itemBonuses(id).haste || 0; }
-    return h;
+    return h + (this.extra?.().haste || 0);   // plus Fletching's life perk
   }
 
   /** Is a tool of `tag` currently wielded (e.g. an axe in the weapon slot)? */

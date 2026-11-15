@@ -1,5 +1,6 @@
 import { CLASSES, CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, canWear, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWield, SECONDARY_WEAPON } from '../data/classes.js';
 import { classPerks, classPerkSummary } from '../game/classperks.js';
+import { LIFE_PERKS, LIFE_PERK_SKILLS, LIFE_PERK_FULL_LEVEL, lifePerkText, lifePerkNext } from '../game/lifeperks.js';
 import * as Mercs from '../game/mercenary.js';
 import { PERK_SKILLS, PERK_TRACKS, PERK_EVERY, trackPerks, rankName } from '../data/perks.js';
 import { heroArtSrc, portraitFor } from '../render/sprites.js';
@@ -1205,6 +1206,12 @@ export class UI {
     perkBtn.innerHTML = '<b>Passive perks</b><span>A new perk every 20 levels in a fighting skill</span>';
     perkBtn.addEventListener('click', () => this.openPerks());
     grid.appendChild(perkBtn);
+    // Life skill perks: every life skill level adds a little to your fighting.
+    const lifeBtn = document.createElement('button');
+    lifeBtn.className = 'perks-open life-perks-open';
+    lifeBtn.innerHTML = '<b>Life skill perks</b><span>Every life skill level makes your fighter stronger</span>';
+    lifeBtn.addEventListener('click', () => this.openLifePerks());
+    grid.appendChild(lifeBtn);
     // Study: the Knowledge Codex, with Wisdom level and topic mastery (switched
     // off for now: see LEARNING_ENABLED in config.js).
     if (LEARNING_ENABLED) {
@@ -1230,12 +1237,13 @@ export class UI {
         cell.innerHTML =
           `<span class="skill-icon">${skillIconSVG(sk.id, 36)}</span>` +
           `<span class="skill-text"><b class="skill-name">${sk.name}</b><span class="skill-desc">${sk.desc || ''}</span>` +
-          (PERK_SKILLS.includes(sk.id) ? `<span class="skill-perks">${Math.min(10, Math.floor(lvl / PERK_EVERY))}/10 perks${lvl >= 220 ? ' · ranked up' : ''}</span>` : '') + `</span>` +
+          (PERK_SKILLS.includes(sk.id) ? `<span class="skill-perks">${Math.min(10, Math.floor(lvl / PERK_EVERY))}/10 perks${lvl >= 220 ? ' · ranked up' : ''}</span>` : '') +
+          (LIFE_PERKS[sk.id] ? `<span class="skill-perks life">Combat: ${lifePerkText(sk.id, lvl)}</span>` : '') + `</span>` +
           `<span class="skill-lvl"><span class="cur">${lvl}</span></span>` +
           `<div class="xp-bar" style="width:${Math.round(levelProgress(xp, maxLevelFor(sk.id)) * 100)}%"></div>`;
         const toNext = xpToNext(xp, maxLevelFor(sk.id));
         this._tip(cell, `<b>${sk.name}</b> &mdash; level ${lvl}<br>XP: ${formatNumber(Math.floor(xp))}<br>` +
-          (toNext > 0 ? `Next level: ${formatNumber(toNext)} xp` : 'Maxed!'));
+          (toNext > 0 ? `Next level: ${formatNumber(toNext)} xp` : 'Maxed!') + this._lifePerkTip(sk.id, lvl));
         // Life skills open a guide: what you can do now, what's next, and where.
         if (SKILL_GUIDES[sk.id]) {
           cell.classList.add('has-guide');
@@ -1725,6 +1733,36 @@ export class UI {
     };
     this.openModal('Passive Perks', render);
     this.modal.kind = 'perks';
+  }
+
+  /** A life skill's combat perk for its tooltip: now, and at the next milestone. */
+  _lifePerkTip(skill, lvl) {
+    if (!LIFE_PERKS[skill]) return '';
+    const next = lifePerkNext(skill, lvl);
+    return `<br>Combat perk: <b>${lifePerkText(skill, lvl)}</b>` +
+      (next ? `<br>At level ${next.level}: ${next.text}` : '<br>Full strength');
+  }
+
+  /** Every life skill's combat perk: what it gives now and at full strength. */
+  openLifePerks() {
+    const g = this.game;
+    const render = (body) => {
+      body.innerHTML = `<div class="modal-hint">Each life skill adds one combat stat that grows with every level, up to its full strength at level ${LIFE_PERK_FULL_LEVEL}. They work in every style and stack on top of your gear (they are counted in the Equipment panel's totals).</div>`;
+      const list = document.createElement('div'); list.className = 'perk-list';
+      for (const s of LIFE_PERK_SKILLS) {
+        const lvl = g.skills.level(s), next = lifePerkNext(s, lvl);
+        const row = document.createElement('div');
+        row.className = 'perk-row' + (lvl > 1 ? ' owned' : '');
+        row.innerHTML = `<span class="perk-rank">${lvl}</span>`
+          + `<span class="perk-text"><b>${escapeHtml(SKILLS.find((x) => x.id === s).name)}: ${escapeHtml(lifePerkText(s, lvl))}</b>`
+          + `<span>Full strength: ${escapeHtml(lifePerkText(s, LIFE_PERK_FULL_LEVEL))}</span></span>`
+          + `<span class="perk-next">${next ? `${escapeHtml(next.text.split(' ')[0])} at ${next.level}` : 'Full'}</span>`;
+        list.appendChild(row);
+      }
+      body.appendChild(list);
+    };
+    this.openModal('Life Skill Perks', render);
+    this.modal.kind = 'lifeperks';
   }
 
   // ---------------- Good / evil alignment ----------------
