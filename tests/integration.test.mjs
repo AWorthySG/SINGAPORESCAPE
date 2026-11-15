@@ -2607,12 +2607,15 @@ test('Refine scrolls: rare from monsters, likelier from champions, always a few 
   const g = new Game(); g.start(); g.chooseClass('swordsman');
   g.ui = new Proxy({}, { get: () => () => {} });
   const boss = g.npcs.find((n) => n.def.boss);
-  let got = null; const orig = g._autoLoot.bind(g);
-  g._autoLoot = (loot) => { got = loot.filter((l) => l[0] === R.SCROLL).reduce((a, l) => a + l[1], 0); };
+  let got = null, wards = null; const orig = g._autoLoot.bind(g);
+  const sum = (loot, id) => loot.filter((l) => l[0] === id).reduce((a, l) => a + l[1], 0);
+  g._autoLoot = (loot) => { got = sum(loot, R.SCROLL); wards = sum(loot, 'upgrade_ward'); };
   g.rollDrops(boss);
   g._autoLoot = orig;
   const lvl = boss.def.tierLevel || boss.def.level || 1;
   assert.ok(got >= 2 && got <= 4 + Math.floor(lvl / 150), `boss dropped ${got} refine scrolls`);
+  // Upgrade wards (which protect a refine) are counted as dropped too, not 100x.
+  assert.ok(wards >= 1 && wards <= 3, `boss dropped ${wards} upgrade wards`);
   // Refine scrolls are earned, never bought.
   const { SHOPS } = await import('../src/data/shops.js');
   for (const sh of Object.values(SHOPS)) assert.ok(!(sh.stock || []).some((s) => s.id === R.SCROLL), 'not sold in shops');

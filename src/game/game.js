@@ -2850,9 +2850,10 @@ export class Game {
         if (fam && mine && fam !== mine && Math.random() < CLASS_LOOT_SHARE) l[0] = equivalentArmour(l[0], mine);
       }
     }
-    // Boss hoards: stackables (coins, runes, arrows, seeds...) come in 100x the amount.
+    // Boss hoards: stackables (coins, runes, arrows, seeds...) come in 100x the amount
+    // (not upgrade stones, wards or refine scrolls: those are counted as dropped).
     const stackMult = def.boss ? BOSS_STACK_MULT : npc.champion ? CHAMPION_STACK_MULT : 1;
-    if (stackMult > 1) for (const l of loot) if (l[0] !== UP_STONE && l[0] !== REFINE_SCROLL && getItem(l[0]).stackable) l[1] *= stackMult;
+    if (stackMult > 1) for (const l of loot) if (l[0] !== UP_STONE && l[0] !== REFINE_SCROLL && l[0] !== UP_WARD && getItem(l[0]).stackable) l[1] *= stackMult;
     for (const l of loot) if (l[0] === 'coins') l[1] = Math.round(l[1] * COIN_LOOT_MULT);
     // A champion's many rolls: stack repeats of the same stackable into one pile.
     if (kills > 1) {
