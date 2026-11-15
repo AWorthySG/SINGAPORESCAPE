@@ -723,6 +723,13 @@ export class Game {
    *  hits, red for a monster's telegraphed heavy blow. */
   _slash(target, color) {
     const c = target.renderCenter ? target.renderCenter() : target;
+    // A spear doesn't sweep: its hit is a straight streak along the thrust,
+    // from you through the target.
+    if (this.weaponType() === 'spear' && target !== this.player) {
+      const pc = this.player.renderCenter();
+      this.effects.push({ type: 'slash', thrust: true, x: c.x, y: c.y - 6, ang: Math.atan2(c.y - pc.y, c.x - pc.x), color, life: 170, maxLife: 170 });
+      return;
+    }
     this.effects.push({
       type: 'slash', x: c.x, y: c.y - 6,
       ang: Math.random() * Math.PI * 2, dir: Math.random() < 0.5 ? -1 : 1,

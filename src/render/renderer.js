@@ -558,6 +558,25 @@ export class Renderer {
   _drawProjectiles(ox, oy) {
     const { ctx, game } = this;
     for (const e of game.effects) {
+      if (e.type === 'slash' && e.thrust) {
+        // A spear's thrust: a bright straight streak driving through the target
+        // along the line of the attack, shooting forward as it fades.
+        const t = 1 - e.life / e.maxLife;
+        ctx.save();
+        ctx.translate(e.x - ox, e.y - oy);
+        ctx.rotate(e.ang);
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = e.color;
+        const head = -10 + t * 26, tail = head - 22 * (1 - t * 0.6);
+        ctx.globalAlpha = (1 - t) * 0.9; ctx.lineWidth = 3 - t * 1.6;
+        ctx.beginPath(); ctx.moveTo(tail, 0); ctx.lineTo(head, 0); ctx.stroke();
+        ctx.globalAlpha = (1 - t) * 0.35; ctx.lineWidth = 7 - t * 4;
+        ctx.beginPath(); ctx.moveTo(tail + 6, 0); ctx.lineTo(head, 0); ctx.stroke();
+        ctx.restore();
+        ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+        continue;
+      }
       if (e.type === 'slash') {
         // A crescent arc sweeping through the swing, fading as it goes.
         const t = 1 - e.life / e.maxLife;
