@@ -2507,7 +2507,9 @@ test('old saves: upgrade levels and refine stars become mastery and free enchant
   // Once converted, the old fields are gone and loading again changes nothing.
   saveGame(g2);
   const after = JSON.parse(localStorage.getItem(SAVE_KEY)).equipment;
-  assert.equal(after._upgrades, undefined); assert.equal(after._refines, undefined);
+  // _refines is a live field again (refine.js), but the converted stars never come back as live levels.
+  assert.equal(after._upgrades, undefined); assert.deepEqual(after._refines, {});
+  assert.equal(g2.equipment.refineLevel(w), 0, 'old stars were converted, not kept');
   assert.equal(after._mastery[w], 20000);
   const lines = g2.equipment.enchantLines(w).map((l) => ({ ...l }));
   const g3 = new Game(); g3.start(); loadGame(g3);
@@ -2516,6 +2518,104 @@ test('old saves: upgrade levels and refine stars become mastery and free enchant
   const mixed = { ...after, _upgrades: { [w]: 15 }, _refines: { [w]: 15 } };
   g3.equipment.load(mixed);
   assert.equal(g3.equipment.masteryPoints(w), 20000);
+  assert.equal(g3.equipment.refineLevel(w), 15, 'a save with _mastery keeps its _refines as live refine levels');
+});
+
+test('Refining: ★1-★15 on top of mastery, paid for with refine scrolls only', async () => {
+  const R = await import('../src/game/refine.js');
+  const { WARD, STONE } = await import('../src/game/mastery.js');
+  // Odds by tier: always works to ★5; can fail from ★6; downgrade from ★10; break from ★13.
+  for (let n = 1; n <= 15; n++) {
+    const o = R.refineOdds(n);
+    assert.ok(Math.abs(o.success + o.fail + o.downgrade + o.broken - 1) < 1e-9, `★${n} odds sum to 1`);
+    assert.equal(o.fail > 0, n >= 6); assert.equal(o.downgrade > 0, n >= 10); assert.equal(o.broken > 0, n >= 13);
+  }
+  assert.equal(R.rollRefine(14, 0.0), 'success'); assert.equal(R.rollRefine(14, 0.4), 'fail');
+  assert.equal(R.rollRefine(14, 0.7), 'downgrade'); assert.equal(R.rollRefine(14, 0.99), 'broken');
+  // The cost is scrolls and nothing else: 1 for ★1-5, 2 for ★6-9, 3 for ★10-12, 4 for ★13-15.
+  const want = [1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 4, 4, 4];
+  for (let n = 1; n <= 15; n++) assert.deepEqual(R.refineCost('rune_scimitar', n), { scrolls: want[n - 1] });
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('swordsman');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  const w = g.equipment.get('weapon');
+  g.inventory.add('coins', 50000); g.inventory.add(STONE, 40);
+  const coins = g.inventory.count('coins');
+  // No scrolls: nothing happens.
+  assert.equal(g.refineItem(w, 0), null);
+  assert.equal(g.equipment.refineLevel(w), 0);
+  g.inventory.add(R.SCROLL, 100);
+  // A mastered, enchanted weapon: refining adds its share of the BASE stats on top.
+  g.equipment.mastery[w] = 1000;   // Skilled
+  g.equipment.enchants[w] = [{ stat: 'crit', value: 2 }];
+  const before = g.equipment.itemBonuses(w);
+  for (let i = 0; i < 5; i++) assert.equal(g.refineItem(w, 0.99), 'success', '★1-★5 always succeed');
+  assert.equal(g.equipment.refineLevel(w), 5);
+  assert.equal(g.inventory.count(R.SCROLL), 95, 'one scroll a level up to ★5');
+  assert.equal(g.inventory.count('coins'), coins, 'no coins spent');
+  assert.equal(g.inventory.count(STONE), 40, 'no upgrade stones spent');
+  const base = ITEMS[w].equip.bonuses;
+  const after = g.equipment.itemBonuses(w);
+  assert.equal(after.strength - before.strength, Math.max(5, Math.round(base.strength * R.refineGain(5))), 'the gain is a share of the base stats');
+  assert.equal(after.crit, before.crit + (base.crit ? Math.max(5, Math.round(base.crit * R.refineGain(5))) : 0), 'enchant lines still count');
+  // ★7 -> ★8: a failure keeps the level and costs 2 scrolls.
+  g.equipment.refines[w] = 7;
+  const s0 = g.inventory.count(R.SCROLL);
+  assert.equal(g.refineItem(w, 0.99), 'fail'); assert.equal(g.equipment.refineLevel(w), 7);
+  assert.equal(g.inventory.count(R.SCROLL), s0 - 2);
+  g.equipment.refines[w] = 11;
+  assert.equal(g.refineItem(w, 0.99), 'downgrade'); assert.equal(g.equipment.refineLevel(w), 10, 'a downgrade loses a level');
+  // A ward takes a break instead: used up, and the item and its level are safe.
+  g.equipment.refines[w] = 14;
+  g.inventory.add(WARD, 1);
+  assert.equal(g.refineItem(w, 0.995), 'warded');
+  assert.equal(g.equipment.refineLevel(w), 14); assert.equal(g.equipment.get('weapon'), w);
+  assert.equal(g.inventory.count(WARD), 0, 'and is used up');
+  // Saved and loaded.
+  saveGame(g);
+  assert.equal(JSON.parse(localStorage.getItem(SAVE_KEY)).equipment._refines[w], 14);
+  const g2 = new Game(); g2.start(); loadGame(g2);
+  assert.equal(g2.equipment.refineLevel(w), 14);
+  assert.equal(g2.equipment.masteryPoints(w), 1000, 'mastery untouched by the refine field');
+  assert.deepEqual(g2.equipment.enchantLines(w), [{ stat: 'crit', value: 2 }]);
+  // Without a ward, a break destroys the worn copy and resets the type's refine.
+  const s1 = g.inventory.count(R.SCROLL);
+  assert.equal(g.refineItem(w, 0.995), 'broken');
+  assert.equal(g.inventory.count(R.SCROLL), s1 - 4, '4 scrolls at ★13-★15');
+  assert.notEqual(g.equipment.get('weapon'), w, 'the weapon is gone');
+  assert.equal(g.equipment.refineLevel(w), 0);
+  assert.equal(g.equipment.masteryPoints(w), 1000, 'mastery survives a break');
+  // ★15 is the top.
+  g.equipment.refines.rune_scimitar = 15;
+  g.inventory.add('rune_scimitar', 1);
+  assert.equal(g.refineItem('rune_scimitar', 0), null);
+  // Loading clamps and validates: no unknown items, 1..15 whole numbers only.
+  g.equipment.load({ _mastery: {}, _refines: { [w]: 99, no_such_item: 3, iron_sword: -2, rune_scimitar: 'x', bronze_sword: 4.7 } });
+  assert.deepEqual(g.equipment.refines, { [w]: 15, bronze_sword: 4 });
+});
+
+test('Refine scrolls: rare from monsters, likelier from champions, always a few from bosses', async () => {
+  const R = await import('../src/game/refine.js');
+  assert.equal(R.refineScrollDrop(100, 'normal', () => 0.9), 0);
+  assert.equal(R.refineScrollDrop(100, 'normal', () => 0), 1);
+  assert.ok(R.SCROLL_DROP.normal(1) < R.SCROLL_DROP.normal(400), 'more from stronger monsters');
+  assert.ok(R.SCROLL_DROP.champion(100) > 10 * R.SCROLL_DROP.normal(100), 'champions far likelier');
+  for (const r of [0, 0.5, 0.999]) assert.ok(R.refineScrollDrop(35, 'boss', () => r) >= 2, 'a boss always drops a few');
+  assert.ok(R.refineScrollDrop(450, 'boss', () => 0) > R.refineScrollDrop(35, 'boss', () => 0));
+  // In the game: a boss kill always leaves scrolls, never multiplied by the boss hoard rule.
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('swordsman');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  const boss = g.npcs.find((n) => n.def.boss);
+  let got = null; const orig = g._autoLoot.bind(g);
+  g._autoLoot = (loot) => { got = loot.filter((l) => l[0] === R.SCROLL).reduce((a, l) => a + l[1], 0); };
+  g.rollDrops(boss);
+  g._autoLoot = orig;
+  const lvl = boss.def.tierLevel || boss.def.level || 1;
+  assert.ok(got >= 2 && got <= 4 + Math.floor(lvl / 150), `boss dropped ${got} refine scrolls`);
+  // Refine scrolls are earned, never bought.
+  const { SHOPS } = await import('../src/data/shops.js');
+  for (const sh of Object.values(SHOPS)) assert.ok(!(sh.stock || []).some((s) => s.id === R.SCROLL), 'not sold in shops');
 });
 
 test('Every monster drops twice the coins its table says', async () => {

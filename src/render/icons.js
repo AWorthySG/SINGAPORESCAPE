@@ -531,7 +531,7 @@ import { ITEMS } from '../data/items.js';
   I.bronze_arrow = arrowIcon(C.bronze); I.iron_arrow = arrowIcon(C.iron); I.steel_arrow = arrowIcon(C.steel); I.mithril_arrow = arrowIcon(mith); I.adamant_arrow = arrowIcon(adam); I.rune_arrow = arrowIcon(rune);
   I.staff = staffIcon(C.wood, '#cfd6dd'); I.magic_staff = staffIcon('#3a3a55', '#8a96e8'); I.mystic_staff = staffIcon('#2a2a44', mith); I.ancient_staff = staffIcon('#2a1a3a', '#c06ad0');
   I.hide_vest = plate('#8a6a3a', '#b08a5a');
-  I.upgrade_stone = I.sapphire; I.upgrade_ward = I.clue_scroll_hard || I.sapphire;
+  I.upgrade_stone = I.sapphire; I.upgrade_ward = I.clue_scroll_hard || I.sapphire; I.refine_scroll = I.upgrade_ward;
   I.dragonhide_coif = helm('#3f7a4a', '#5fa06a'); I.dragonhide_body = plate('#3f7a4a', '#5fa06a'); I.dragonhide_chaps = legs('#3f7a4a', '#5fa06a');
   I.air_staff = staffIcon(C.wood, '#bfe8d0'); I.water_staff = staffIcon('#3a4a66', '#6fb6e0'); I.earth_staff = staffIcon(C.wood, '#8a6a3a');
   I.fire_staff = staffIcon('#5a2a1a', '#ef7a23'); I.nature_staff = staffIcon('#4a5a2a', '#5fc06a'); I.chaos_staff = staffIcon('#2a1a3a', '#9a4ad0');
@@ -832,6 +832,8 @@ import { ITEMS } from '../data/items.js';
       [`${t}_quiver`]: ({ obsidian: 'dragon_arrow', orichalcum: 'jade_arrow', celestial: 'starmetal_arrow' })[t] || `${t}_arrow`,
     });
   }
+  // The refine scroll borrows the upgrade ward's scroll sticker, tinted blue, until its own art arrives.
+  BORROW_ID.refine_scroll = 'upgrade_ward'; BORROW_TINT.refine_scroll = 'hue-rotate(180deg) saturate(1.3)';
   Object.assign(BORROW_ID, { holy_beads: 'amulet_of_power', temple_pendant: 'emerald_amulet', starlit_pendant: 'diamond_amulet', pearl_amulet: 'sapphire_amulet', pearl_ring: 'sapphire_ring',
     ring_of_devotion: 'gold_ring', ring_of_serenity: 'emerald_ring', pilgrim_cape: 'trades_cape', lantern_cape: 'revenant_cape' });
   // New bone kinds borrow the bones sticker, each tinted its own colour, until their art arrives.

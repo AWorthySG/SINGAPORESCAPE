@@ -5,6 +5,7 @@ import { RARITY, dropRarity, lootDelay, rollQuality, QUALITY, NORMAL_GEAR_SKIP }
 import { dayKey, prevDayKey, makeBounties, streakMult } from './bounty.js';
 import { ATTRS, ATTR_NAMES, statPointsAt, attrForMode, DMG_PER_POINT, LIFE_PER_STR, CRIT_PER_INT, SPEED_PER_DEX, RESET_COST_PER_POINT } from './attributes.js';
 import { MASTERY_RANKS, BANNER_RANK, MAX_ENCHANTS, killMastery, enchantCost, rollEnchantOffers, enchantLabel, STONE as UP_STONE, WARD as UP_WARD } from './mastery.js';
+import { MAX_REFINE, SCROLL as REFINE_SCROLL, refineCost, rollRefine, refineTag, refineScrollDrop } from './refine.js';
 import { getItem, MELEE_REACH, accessoriesFor } from '../data/items.js';
 import { chebyshev, randInt, weightedPick, capitalize } from '../core/utils.js';
 import {
@@ -2825,6 +2826,9 @@ export class Game {
     }
     if (def.boss) loot.push([UP_WARD, randInt(1, 3), 'epic']);
     else if (Math.random() < (npc.champion ? 0.1 : 0)) loot.push([UP_WARD, 1, 'epic']);
+    // Refine scrolls: rare from monsters, likelier from champions, a few from every boss (see refine.js).
+    const scrolls = refineScrollDrop(def.tierLevel || def.level || 1, def.boss ? 'boss' : npc.champion ? 'champion' : 'normal');
+    if (scrolls) loot.push([REFINE_SCROLL, scrolls, def.boss ? 'epic' : 'rare']);
     // Treasure trails: a rare clue scroll, if you aren't already carrying one.
     if (!this.clue && !this._holdsClue()) {
       const clueChance = Math.min(0.05, (def.tierLevel || def.level || 1) / 3000 + (def.boss ? 0.04 : 0.006));
@@ -2848,7 +2852,7 @@ export class Game {
     }
     // Boss hoards: stackables (coins, runes, arrows, seeds...) come in 100x the amount.
     const stackMult = def.boss ? BOSS_STACK_MULT : npc.champion ? CHAMPION_STACK_MULT : 1;
-    if (stackMult > 1) for (const l of loot) if (l[0] !== UP_STONE && getItem(l[0]).stackable) l[1] *= stackMult;
+    if (stackMult > 1) for (const l of loot) if (l[0] !== UP_STONE && l[0] !== REFINE_SCROLL && getItem(l[0]).stackable) l[1] *= stackMult;
     for (const l of loot) if (l[0] === 'coins') l[1] = Math.round(l[1] * COIN_LOOT_MULT);
     // A champion's many rolls: stack repeats of the same stackable into one pile.
     if (kills > 1) {
@@ -4505,6 +4509,62 @@ export class Game {
     this.msg(old ? `Your ${name.toLowerCase()} trades ${enchantLabel(old)} for ${enchantLabel(line)}.`
       : `Your ${name.toLowerCase()} is enchanted: ${enchantLabel(line)}.`, 'level');
     return line;
+  }
+
+  // ---------------- Refining ----------------
+  /** Refine an item type one level (★1..★15), on top of its mastery. The
+   *  attempt costs refine scrolls only, and ends in success, failure, a
+   *  downgrade or (from ★13) the item breaking, destroyed for good. An
+   *  upgrade ward in your pack takes a downgrade or a break instead. Returns
+   *  the outcome ('success' | 'fail' | 'downgrade' | 'broken' | 'warded'), or
+   *  null when the attempt couldn't be made. `r` fixes the roll (for tests). */
+  refineItem(id, r = Math.random()) {
+    if (!getItem(id).equip?.bonuses) return null;
+    const lv = this.equipment.refineLevel(id);
+    const name = (l) => `${getItem(id).name}${l ? ' ' + refineTag(l) : ''}`;
+    if (lv >= MAX_REFINE) { this.msg(`${name(lv)} is already fully refined.`); return null; }
+    const next = lv + 1;
+    const cost = refineCost(id, next);
+    if (this.inventory.count(REFINE_SCROLL) < cost.scrolls) {
+      this.msg(`You need ${cost.scrolls} refine scroll${cost.scrolls > 1 ? 's' : ''} to refine to ${refineTag(next)}. Monsters drop them now and then, bosses always.`);
+      return null;
+    }
+    this.inventory.remove(REFINE_SCROLL, cost.scrolls);
+    const out = rollRefine(next, r);
+    // A ward takes a downgrade or a break instead (and is used up).
+    if ((out === 'downgrade' || out === 'broken') && this.inventory.count(UP_WARD) > 0) {
+      this.inventory.remove(UP_WARD, 1);
+      this.msg(`The refine went badly, but your upgrade ward crumbled instead: your ${name(lv)} is unharmed.`, 'system');
+      this.bus.emit('sfx', 'hurt');
+      return 'warded';
+    }
+    if (out === 'success') {
+      this.equipment.refines[id] = next;
+      this.equipment._changed();
+      this.spawnSparkle(this.player, '#9fd8ff', 16);
+      this.bus.emit('sfx', 'level');
+      this.msg(`Refine success! Your ${name(next)} shines brighter.`, 'level');
+      if (next === MAX_REFINE) this.banner(`<span class="big">${refineTag(MAX_REFINE)}!</span>${getItem(id).name} is fully refined`);
+    } else if (out === 'fail') {
+      this.bus.emit('sfx', 'hurt');
+      this.msg(`The refine failed. Your ${name(lv)} is unharmed, but the scrolls are used up.`, 'system');
+    } else if (out === 'downgrade') {
+      if (lv - 1 > 0) this.equipment.refines[id] = lv - 1; else delete this.equipment.refines[id];
+      this.equipment._changed();
+      this.bus.emit('sfx', 'hurt');
+      this.msg(`The refine failed and your gear lost a level: it is now ${name(lv - 1)}. (An upgrade ward would have saved it.)`, 'combat');
+    } else {
+      // Broken: one copy is destroyed (the worn one first) and the type's refine resets.
+      const slot = EQUIP_SLOTS.find((s) => this.equipment.get(s) === id);
+      if (slot) this.equipment.clearSlot(slot); else this.inventory.remove(id, 1);
+      delete this.equipment.refines[id];
+      this.equipment._changed();
+      this.bus.emit('sfx', 'hurt');
+      this.addShake(4, 300);
+      this.msg(`The refine shattered your ${name(lv)}! It is destroyed. (An upgrade ward would have saved it.)`, 'combat');
+      this.banner(`<span class="big">Broken!</span>${getItem(id).name} shattered`);
+    }
+    return out;
   }
 
   unequip(slot) {

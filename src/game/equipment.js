@@ -1,6 +1,7 @@
 import { getItem } from '../data/items.js';
 import { ARMOUR_SETS } from '../data/sets.js';
 import { masteryBonuses, enchantedBonuses, rankFor, migrateOld, MAX_ENCHANTS, ENCHANT_STEP } from './mastery.js';
+import { refinedBonuses, MAX_REFINE } from './refine.js';
 
 export const EQUIP_SLOTS = ['head', 'cape', 'amulet', 'weapon', 'body', 'shield', 'legs', 'hands', 'feet', 'ring'];
 export const DEFAULT_WEAPON_SPEED = 5; // ticks (unarmed)
@@ -48,16 +49,19 @@ export class Equipment {
     for (const s of EQUIP_SLOTS) this.slots[s] = null;
     this.mastery = {};            // itemId -> mastery points, shared by every copy (see mastery.js)
     this.enchants = {};           // itemId -> [{ stat, value }] (up to 3), shared by every copy
+    this.refines = {};            // itemId -> refine level (★1..★15), shared by every copy (see refine.js)
   }
 
   masteryPoints(id) { return this.mastery[id] || 0; }
   masteryRank(id) { return rankFor(this.masteryPoints(id)); }
   enchantLines(id) { return this.enchants[id] || []; }
+  refineLevel(id) { return this.refines[id] || 0; }
 
-  /** An item's bonuses: its base stats, plus its mastery rank's gain, plus its enchant lines. */
+  /** An item's bonuses: its base stats, plus its mastery rank's gain, plus its
+   *  refine level's share of the base stats, plus its enchant lines. */
   itemBonuses(id) {
     const base = getItem(id).equip?.bonuses || {};
-    return enchantedBonuses(masteryBonuses(base, this.masteryRank(id)), this.enchantLines(id));
+    return enchantedBonuses(refinedBonuses(base, masteryBonuses(base, this.masteryRank(id)), this.refineLevel(id)), this.enchantLines(id));
   }
 
   _changed() { this.bus?.emit('equipment'); }
@@ -180,7 +184,7 @@ export class Equipment {
   }
 
   serialize() {
-    return { ...this.slots, _mastery: { ...this.mastery }, _enchants: Object.fromEntries(Object.entries(this.enchants).map(([id, l]) => [id, l.map((x) => ({ ...x }))])) };
+    return { ...this.slots, _mastery: { ...this.mastery }, _enchants: Object.fromEntries(Object.entries(this.enchants).map(([id, l]) => [id, l.map((x) => ({ ...x }))])), _refines: { ...this.refines } };
   }
 
   load(data) {
@@ -198,9 +202,20 @@ export class Equipment {
       const ok = lines.filter((l) => l && ENCHANT_STEP[l.stat] && typeof l.value === 'number' && l.value > 0).slice(0, MAX_ENCHANTS);
       if (ok.length) this.enchants[id] = ok.map((l) => ({ stat: l.stat, value: Math.floor(l.value) }));
     }
+    // Refine stars are live again, saved as _refines. Every save written since
+    // mastery came in has a _mastery map, so that is how to tell the two apart:
+    // with _mastery, _refines are today's refine levels; without it, the save
+    // is from before mastery and its _refines are converted below as before.
+    const live = !!data._mastery && typeof data._mastery === 'object';
+    this.refines = {};
+    if (live) {
+      for (const [id, lv] of Object.entries(data._refines || {})) {
+        if (itemExists(id) && typeof lv === 'number' && lv >= 1) this.refines[id] = Math.min(MAX_REFINE, Math.floor(lv));
+      }
+    }
     // Saves from before mastery had upgrade levels (+1..+15) and refine stars
     // (★1..★15): turn them into mastery points and free enchant lines, once.
-    const ups = data._upgrades || {}, refs = data._refines || {};
+    const ups = data._upgrades || {}, refs = live ? {} : data._refines || {};
     for (const id of new Set([...Object.keys(ups), ...Object.keys(refs)])) {
       if (!itemExists(id) || this.mastery[id] || this.enchants[id]) continue;
       const up = Math.max(0, Math.min(15, Math.floor(ups[id]) || 0)), ref = Math.max(0, Math.min(15, Math.floor(refs[id]) || 0));
