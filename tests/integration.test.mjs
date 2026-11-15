@@ -3016,7 +3016,7 @@ test('new weapon families and gear exist across tiers and drop', async () => {
   for (const id of ['leather_whip', 'rattan_whip', 'bronze_katana', 'iron_claws', 'longbow', 'apprentice_wand', 'silk_slippers']) assert.ok(drops.has(id), `${id} drops`);
 });
 
-test('melee weapons strike from 2 tiles, long ones from 3', async () => {
+test('melee weapons strike from 2 tiles, long ones from 3, spears from 4', async () => {
   const { ITEMS } = await import('../src/data/items.js');
   globalThis.localStorage = fakeStorage();
   clearSave();
@@ -3025,7 +3025,9 @@ test('melee weapons strike from 2 tiles, long ones from 3', async () => {
   game.equipment.set('weapon', 'bronze_scimitar');
   assert.equal(game.attackRange(), 2);
   game.equipment.set('weapon', 'rune_spear');
-  assert.equal(game.attackRange(), 3);
+  assert.equal(game.attackRange(), 4, 'spears reach furthest: 4 tiles');
+  // Every spear, uniques and boss signatures included, reaches 4.
+  for (const [id, it] of Object.entries(ITEMS)) if (it.equip?.weaponType === 'spear') assert.equal(it.equip.range, 4, id);
   game.equipment.set('weapon', 'dragon_2h_sword');
   assert.equal(game.attackRange(), 3);
   game.equipment.set('weapon', null);

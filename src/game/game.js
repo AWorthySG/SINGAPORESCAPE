@@ -1507,7 +1507,7 @@ export class Game {
     if (m === 'ranged') { const w = this.equipment.get('weapon'); return ((w && getItem(w).equip?.range) || 12) + Math.floor(this.perkMods('ranged').range || 0); }
     if (m === 'dance') { const w = this.equipment.get('weapon'); return (w && getItem(w).equip?.range) || 3; }
     if (m === 'magic') return 8;
-    // Melee: 2 tiles for most weapons, 3 for long ones (spear, halberd, longsword, 2h).
+    // Melee: 2 tiles for most weapons, 3 for long ones (halberd, longsword, 2h), 4 for spears.
     const w = this.equipment.get('weapon');
     return (w && getItem(w).equip?.range) || MELEE_REACH;
   }

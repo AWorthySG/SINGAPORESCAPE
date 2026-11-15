@@ -547,9 +547,10 @@ const _ARMOURS = [
   ['plateskirt', 'plateskirt', 'legs', 9, 1, 60], ['buckler', 'buckler', 'shield', 4, 3, 36],
 ];
 // Melee reach in tiles: every melee weapon strikes from 2 tiles (less running
-// around); long weapons reach 3.
+// around); long weapons reach 3, and the Lancer's spears the furthest, 4.
 export const MELEE_REACH = 2;
-const _REACH = { spear: 3, halberd: 3, longsword: 3, '2h_sword': 3 };
+export const SPEAR_REACH = 4;
+const _REACH = { spear: SPEAR_REACH, halberd: 3, longsword: 3, '2h_sword': 3 };
 for (const M of _METALS) {
   for (const [t, label, att, str, spd, v, crit] of _WEAPONS) {
     const id = `${M.k}_${t}`;
@@ -914,6 +915,8 @@ export const SHORTBOW_RANGE_ADD = 2;
 for (const [id, it] of Object.entries(RAW)) {
   if (it.equip?.slot === 'weapon' && !it.tool) it.equip.weaponType = classifyWeapon(id, it.equip);
   if (it.equip?.weaponType === 'shortbow' && it.equip.range) it.equip.range = Math.max(3, Math.round(it.equip.range * SHORTBOW_RANGE_MULT)) + SHORTBOW_RANGE_ADD;
+  // Every spear (uniques and boss signatures too) reaches SPEAR_REACH tiles.
+  if (it.equip?.weaponType === 'spear') it.equip.range = Math.max(it.equip.range || 0, SPEAR_REACH);
 }
 
 // ---- Offensive stats on weapons, jewellery, capes and boss uniques ----
