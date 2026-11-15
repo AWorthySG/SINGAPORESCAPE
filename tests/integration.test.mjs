@@ -5182,7 +5182,8 @@ test('bones ladder: better bones by band, champion and boss bones, altar offerin
   game.togglePrayer('worthy_spirit');
   assert.ok(!game.activePrayers.has('clarity'), 'clarity switched off');
   const m = game.prayerMult();
-  for (const k of ['att', 'str', 'def']) assert.ok(Math.abs(m[k] - 1.6) < 1e-9, `${k} x1.6`);
+  for (const k of ['str', 'def']) assert.ok(Math.abs(m[k] - 1.6) < 1e-9, `${k} x1.6`);
+  assert.ok(Math.abs(game.prayerCrit() - 0.25) < 1e-9, '+25% crit chance');
 });
 
 test('secondary weapon types: a weapon at every tier, wieldable by their classes only', async () => {
@@ -6488,4 +6489,24 @@ test('auto quest can run Slayer tasks: fetch one, hunt only its monster kind, fe
   assert.ok(other, 'other kinds exist');
   g.toggleAutoQuest(false);
   assert.equal(g._questFamily, null);
+});
+
+test('Attack prayers give crit chance to every fighting style', async () => {
+  const { PRAYER_BY_ID } = await import('../src/data/prayers.js');
+  assert.deepEqual(['clarity', 'reflexes', 'incredible_reflexes', 'worthy_spirit'].map((id) => PRAYER_BY_ID[id].crit), [0.05, 0.10, 0.20, 0.25]);
+  for (const id of ['clarity', 'reflexes', 'incredible_reflexes']) assert.ok(!PRAYER_BY_ID[id].att, `${id} no longer an (unused) accuracy prayer`);
+  for (const cls of ['swordsman', 'archer', 'wizard']) {
+    globalThis.localStorage = fakeStorage(); clearSave();
+    const g = new Game(); g.start(); g.chooseClass(cls);
+    g.ui = new Proxy({}, { get: () => () => {} });
+    g.skills.addXp('prayer', 5e6);   // Prayer 60+ for Improved Reflexes
+    const npc = g.npcs.find((n) => n.def.attackable && !n.def.boss);
+    const mode = g.combatMode();
+    const base = g._offensiveMods(npc, mode).critCh;
+    g.prayerPoints = g.maxPrayer();
+    g.togglePrayer('reflexes');
+    assert.ok(g.activePrayers.has('reflexes'), `Prayer ${g.skills.prayer} unlocks Improved Reflexes`);
+    const prayed = g._offensiveMods(npc, mode).critCh;
+    assert.ok(Math.abs(prayed - base - 0.10) < 1e-9, `${cls} (${mode}): +10% crit chance (${base} -> ${prayed})`);
+  }
 });

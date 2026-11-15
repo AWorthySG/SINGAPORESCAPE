@@ -1004,6 +1004,13 @@ export class Game {
     return m;
   }
 
+  /** Extra crit chance (a fraction) from the Attack prayers, for every style. */
+  prayerCrit() {
+    let c = 0;
+    for (const id of this.activePrayers) c += PRAYER_BY_ID[id].crit || 0;
+    return c;
+  }
+
   protectFactor() {
     for (const id of this.activePrayers) { const p = PRAYER_BY_ID[id]; if (p.protect) return p.protect; }
     return 0;
@@ -1763,7 +1770,7 @@ export class Game {
     }
     const lvl = mode === 'ranged' ? this.skills.ranged : mode === 'magic' ? this.skills.magic : mode === 'dance' ? this.skills.agility : this.skills.attack;
     // A `crit` ability makes every one of its hits a critical.
-    const critCh = ab?.crit ? 1 : critChance(lvl, this.equipment.bonuses().crit) + (perk.crit || 0) + this.learning.perks().crit + this.buffMod('crit')
+    const critCh = ab?.crit ? 1 : critChance(lvl, this.equipment.bonuses().crit) + (perk.crit || 0) + this.learning.perks().crit + this.buffMod('crit') + this.prayerCrit()
       + (mode === 'magic' ? (this.attrs.int || 0) * CRIT_PER_INT : 0);   // Intelligence
     this._abAoe = ab?.aoe || 0;   // an ultimate's area: everything this close to the target is hit too
     return { dmgM, hits, guaranteed, heal, spec, ability: ab, weak, race, critCh };

@@ -2424,7 +2424,7 @@ export class UI {
   _buildPrayerPanel() {
     this.el.prayerPanel.innerHTML = '<div class="prayer-pts"></div><div class="prayer-grid"></div>';
     this._prayerGrid = this.el.prayerPanel.querySelector('.prayer-grid');
-    const labels = { att: 'Att', str: 'Str', def: 'Def', ranged: 'Rng', magic: 'Mag' };
+    const labels = { crit: 'crit', att: 'Att', str: 'Str', def: 'Def', ranged: 'Rng', magic: 'Mag' };
     for (const pr of PRAYERS) {
       const cell = document.createElement('div');
       cell.className = 'prayer-cell';
