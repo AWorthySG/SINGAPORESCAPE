@@ -174,7 +174,7 @@ export class UI {
 
     this.el.runOrb?.remove();   // no run energy any more: everyone always runs
     this.el.specOrb.addEventListener('click', () => this.game.toggleSpec());
-    if (this.el.minimap) { this.el.minimap.style.cursor = 'pointer'; this.el.minimap.title = 'Open world map (M)'; this.el.minimap.addEventListener('click', () => this.openWorldMap()); }
+    if (this.el.minimap) { this.el.minimap.style.cursor = 'var(--cur-pointer)'; this.el.minimap.title = 'Open world map (M)'; this.el.minimap.addEventListener('click', () => this.openWorldMap()); }
     if (this.el.mapBtn) this.el.mapBtn.addEventListener('click', () => this.openWorldMap());
     this.el.modalClose.addEventListener('click', () => this.closeModal());
     this.el.modalOverlay.addEventListener('mousedown', (e) => {
