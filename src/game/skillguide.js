@@ -20,8 +20,8 @@ export const SKILL_GUIDES = {
   hunter: { use: 'Pelts, skins and hides become armour; meat is cooked into food.' },
   farming: { use: 'Crops are herbs for Herblore and ingredients for hawker dishes.', where: ['farm_patch'] },
   cooking: { use: 'Food heals you in a fight; better food heals more.', where: ['range', 'fire'] },
-  smithing: { use: 'Smelt ore into bars at a furnace, then forge weapons and armour at an anvil.', where: ['furnace', 'anvil'] },
-  crafting: { use: 'Jewellery, pottery and leather armour.', where: ['crafting_table'] },
+  smithing: { use: 'Smelt ore into bars at a furnace, then forge weapons, armour and upgrade stones at an anvil.', where: ['furnace', 'anvil'] },
+  crafting: { use: 'Jewellery, pottery, leather armour, and refine scrolls and upgrade wards.', where: ['crafting_table'] },
   fletching: { use: 'Bows, arrows, staves and wands from logs (you need a knife).', where: ['fletching_bench'] },
   herblore: { use: 'Potions that boost you in a fight for several minutes.', where: ['apothecary_table'] },
   firemaking: { use: 'Light a fire anywhere to cook on (use logs from your bag; you need a tinderbox).' },
@@ -53,9 +53,9 @@ export function guideEntries(skill) {
     for (const d of DISHES) add(d.level, name(d.result), `Dish: ${d.inputs.map((i) => name(i.id)).join(', ')}`, ['range']);
   } else if (skill === 'smithing') {
     for (const s of SMELT) add(s.level, name(s.result), `Smelt ${s.inputs.map((i) => `${i.qty} ${name(i.id)}`).join(' + ')}`, ['furnace']);
-    for (const s of SMITH) add(s.level, name(s.result), `Forge from ${s.barCount} ${name(s.bar)}`, ['anvil']);
+    for (const s of SMITH) add(s.level, `${s.qty > 1 ? `${s.qty} ` : ''}${name(s.result)}`, `Forge from ${s.barCount} ${name(s.bar)}`, ['anvil']);
   } else if (skill === 'crafting') {
-    for (const r of [...CRAFT, ...HIDE_CRAFT]) add(r.level, name(r.result), `From ${r.inputs.map((i) => `${i.qty} ${name(i.id)}`).join(' + ')}`, ['crafting_table']);
+    for (const r of [...CRAFT, ...HIDE_CRAFT]) add(r.level, `${r.qty > 1 ? `${r.qty} ` : ''}${name(r.result)}`, `From ${r.inputs.map((i) => `${i.qty} ${name(i.id)}`).join(' + ')}`, ['crafting_table']);
   } else if (skill === 'fletching') {
     for (const r of FLETCH) add(r.level, `${r.qty > 1 ? `${r.qty} ` : ''}${name(r.result)}`, `From ${r.inputs.map(([id, q]) => `${q} ${name(id)}`).join(' + ')}`, ['fletching_bench']);
   } else if (skill === 'herblore') {

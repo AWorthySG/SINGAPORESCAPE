@@ -63,6 +63,7 @@ export function snapshot(game) {
     learning: game.learning.serialize(),
     kills: game.kills,
     slayer: game.slayer,
+    shrine: game.shrine.serialize(),
     bounties: game.bounties,
     karma: game.karma,
     attrs: game.attrs,
@@ -301,6 +302,8 @@ function loadFields(game, data) {
       completed: Number(data.slayer.completed) || 0,
     };
   }
+  // Offering Shrine points and blessings (older saves have none).
+  game.shrine.load(data.shrine);
   if (data.bounties && typeof data.bounties === 'object' && Array.isArray(data.bounties.list)) {
     const b = data.bounties;
     game.bounties = { day: typeof b.day === 'string' ? b.day : null, list: b.list.filter((t) => t && typeof t.id === 'string'),

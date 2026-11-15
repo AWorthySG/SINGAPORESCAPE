@@ -56,3 +56,21 @@ for (const M of _SMETALS) {
     _existing.add(result);
   }
 }
+
+// ---- Upgrade stones (for enchanting, see mastery.js) ----
+// Hammered from bars at an anvil; finer metal gives more stones per bar.
+// `qty` stones come out per make, and `upgrade` keeps these out of "Smith all"
+// so a player's bars are only turned into stones when they choose to.
+// Yield against combat: a good fight drops ~25 stones in ten minutes around
+// level 100 (3-12% a kill at ~30 kills a minute, plus champions and bosses).
+// Ten minutes of mining and smelting gives roughly 25 iron bars, ~10 mithril,
+// ~6 adamant or ~3 rune, which is 25-30 stones at every tier here: the same
+// pace as fighting, paid for in ore instead of kills.
+SMITH.push(
+  { result: 'upgrade_stone', qty: 1, bar: 'bronze_bar', barCount: 2, level: 5, xp: 12.5, upgrade: true },
+  { result: 'upgrade_stone', qty: 1, bar: 'iron_bar', barCount: 1, level: 18, xp: 25, upgrade: true },
+  { result: 'upgrade_stone', qty: 2, bar: 'steel_bar', barCount: 1, level: 33, xp: 37.5, upgrade: true },
+  { result: 'upgrade_stone', qty: 3, bar: 'mithril_bar', barCount: 1, level: 52, xp: 50, upgrade: true },
+  { result: 'upgrade_stone', qty: 5, bar: 'adamant_bar', barCount: 1, level: 72, xp: 62.5, upgrade: true },
+  { result: 'upgrade_stone', qty: 9, bar: 'rune_bar', barCount: 1, level: 88, xp: 75, upgrade: true },
+);

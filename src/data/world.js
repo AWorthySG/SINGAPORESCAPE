@@ -373,6 +373,7 @@ export function buildWorld() {
   placeObj('sign', 56, 46, { sign: 'Kampong Glam' });
   placeObj('furnace', 48, 58); placeObj('anvil', 50, 59); placeObj('range', 62, 58);
   placeObj('crafting_table', 52, 59); // pottery & jewelry
+  placeObj('offering_shrine', 54, 60); // donate life-skill materials for permanent blessings (shrine.js)
   placeNpc('hawker', 63, 59);
   placeNpc('shopkeeper', 64, 50);
   placeNpc('fletcher', 66, 51);

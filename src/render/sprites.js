@@ -2166,7 +2166,7 @@ function worldArtKey(obj, time = 0) {
   if (t === 'farm') return `obj-farm_patch-${farmStage(obj)}`;
   if (t === 'tree') return obj.depleted ? `stump-${obj.objId}` : `tree-${obj.objId}`;
   if (t === 'rock') return obj.depleted ? 'rock-empty' : `rock-${obj.objId}`;
-  return `obj-${obj.objId}`;
+  return obj.def.art || `obj-${obj.objId}`;   // an object may borrow another's picture (the Offering Shrine)
 }
 const _worldImg = {};
 function worldImage(key) {
@@ -2191,6 +2191,7 @@ function drawWorldArt(ctx, obj, img, key, cx, cy, time) {
   ctx.save();
   // Spent stalls, traps and fishing spots fade back; trees and rocks swap pictures instead.
   if (obj.depleted && t !== 'tree' && t !== 'rock') ctx.globalAlpha = 0.5;
+  if (obj.def.tint && 'filter' in ctx) ctx.filter = obj.def.tint;   // a borrowed picture, recoloured
   if (t === 'tree' && !obj.depleted) {
     // The canopy leans gently about the base of the trunk.
     const sway = Math.sin(time * 0.0012 + obj.x * 1.7 + obj.y) * 1.4;
@@ -2247,7 +2248,7 @@ function drawObjectRaw(ctx, obj, cx, cy, time) {
     case 'fletch': return fletchingBench(ctx, cx, cy);
     case 'hunt': return huntTrap(ctx, obj, cx, cy);
     case 'bank': return bank(ctx, cx, cy);
-    case 'shrine': return shrine(ctx, cx, cy, time);
+    case 'shrine': case 'offering': return shrine(ctx, cx, cy, time);
     case 'rest': return mascotStatue(ctx, cx, cy);
     case 'agility': return agilityCourse(ctx, cx, cy);
     case 'stall': return stall(ctx, obj.objId, obj.depleted, cx, cy);

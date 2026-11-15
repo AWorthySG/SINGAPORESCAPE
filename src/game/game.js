@@ -6,6 +6,8 @@ import { dayKey, prevDayKey, makeBounties, streakMult } from './bounty.js';
 import { ATTRS, ATTR_NAMES, statPointsAt, attrForMode, DMG_PER_POINT, LIFE_PER_STR, CRIT_PER_INT, SPEED_PER_DEX, RESET_COST_PER_POINT } from './attributes.js';
 import { MASTERY_RANKS, BANNER_RANK, MAX_ENCHANTS, killMastery, enchantCost, rollEnchantOffers, enchantLabel, STONE as UP_STONE, WARD as UP_WARD } from './mastery.js';
 import { MAX_REFINE, SCROLL as REFINE_SCROLL, refineCost, rollRefine, refineTag, refineScrollDrop } from './refine.js';
+import { materialKind, materialPoints, feedKind, feedPoints, FEED_CAP, FEED_CAP_RANK } from './materials.js';
+import { Shrine, SHRINE_TRACKS, trackText } from './shrine.js';
 import { getItem, MELEE_REACH, accessoriesFor } from '../data/items.js';
 import { chebyshev, randInt, weightedPick, capitalize } from '../core/utils.js';
 import {
@@ -225,7 +227,7 @@ export const BONE_PRAYER_XP = getItem('bones').prayerXp;   // plain bones; every
 const ALCHEMY = { level: 21, xp: 65, runes: { nature_rune: 1, fire_rune: 5 } };
 
 // Actions that can fire the instant you press (no random roll to exploit by spamming).
-const INSTANT_ACTIONS = new Set(['pickup', 'cookmenu', 'smeltmenu', 'smithmenu', 'craftmenu', 'fletchmenu', 'herbmenu', 'farm', 'pray', 'rest', 'transport', 'openbank', 'openshop', 'talk']);
+const INSTANT_ACTIONS = new Set(['pickup', 'cookmenu', 'smeltmenu', 'smithmenu', 'craftmenu', 'fletchmenu', 'herbmenu', 'farm', 'pray', 'rest', 'transport', 'openbank', 'openshop', 'talk', 'shrinemenu']);
 const GATHER_ACTIONS = new Set(['woodcut', 'mine', 'fish', 'stall']);
 // Ticks you get to answer a Knowledge Strike before the boss's special lands (~7s).
 const KS_TICKS = 12;
@@ -240,7 +242,8 @@ export class Game {
     this.skills = new Skills(this.bus);
     this.inventory = new Inventory(this.bus);
     this.equipment = new Equipment(this.bus);
-    this.equipment.extra = () => this.lifePerks();   // life skill perks count with your gear
+    this.shrine = new Shrine();   // the Offering Shrine's blessings (see shrine.js)
+    this.equipment.extra = () => this.outsideBonuses();   // life skill perks and shrine blessings count with your gear
     this.bank = new Bank(this.bus);
 
     this.player = new Player(data.spawnPoint.x, data.spawnPoint.y);
@@ -627,6 +630,17 @@ export class Game {
     if (c && LIFE_PERK_SKILLS.every((s, i) => c.xp[i] === xp[s])) return c.totals;
     const totals = lifePerkTotals((s) => this.skills.level(s));
     this._lifePerkCache = { xp: LIFE_PERK_SKILLS.map((s) => xp[s]), totals };
+    return totals;
+  }
+
+  /** Every bonus from outside your gear, merged once for Equipment.extra:
+   *  life skill perks plus the Offering Shrine's blessings. Kept until either changes. */
+  outsideBonuses() {
+    const lp = this.lifePerks(), rev = this.shrine.rev, c = this._outsideCache;
+    if (c && c.lp === lp && c.rev === rev) return c.totals;
+    const totals = { ...lp };
+    for (const [k, v] of Object.entries(this.shrine.bonuses())) totals[k] = (totals[k] || 0) + v;
+    this._outsideCache = { lp, rev, totals };
     return totals;
   }
 
@@ -1093,6 +1107,7 @@ export class Game {
       case 'smeltmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openSmeltMenu(a.obj));
       case 'smithmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openSmithMenu(a.obj));
       case 'craftmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openCraftMenu(a.obj));
+      case 'shrinemenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openOfferingShrine());
       case 'pray': return this._tickArrival(a, a.obj, true, () => {
         this.player.hp = this.maxHp();
         this.prayerPoints = this.skills.prayer;
@@ -2920,17 +2935,21 @@ export class Game {
     const pts = killMastery(npc);
     const ids = new Set(EQUIP_SLOTS.map((s) => this.equipment.get(s)).filter((id) => id && getItem(id).equip?.bonuses));
     if (!ids.size) return;
-    for (const id of ids) {
-      const before = this.equipment.masteryRank(id);
-      this.equipment.mastery[id] = this.equipment.masteryPoints(id) + pts;
-      const after = this.equipment.masteryRank(id);
-      if (after > before) {
-        const R = MASTERY_RANKS[after];
-        this.msg(`${getItem(id).name} reached ${R.name} mastery!`, 'level');
-        if (after >= BANNER_RANK) this.banner(`<span class="big">${R.name} mastery!</span>${getItem(id).name}`);
-      }
-    }
+    for (const id of ids) this._addMastery(id, pts);
     this.equipment._changed();
+  }
+
+  /** Add mastery points to an item type, announcing a new rank (with a
+   *  banner from Master up). Kills and fed materials both come through here. */
+  _addMastery(id, pts) {
+    const before = this.equipment.masteryRank(id);
+    this.equipment.mastery[id] = this.equipment.masteryPoints(id) + pts;
+    const after = this.equipment.masteryRank(id);
+    if (after > before) {
+      const R = MASTERY_RANKS[after];
+      this.msg(`${getItem(id).name} reached ${R.name} mastery!`, 'level');
+      if (after >= BANNER_RANK) this.banner(`<span class="big">${R.name} mastery!</span>${getItem(id).name}`);
+    }
   }
 
   /** Auto-loot: drops go straight into the pack; whatever won't fit falls to the ground. */
@@ -4281,6 +4300,7 @@ export class Game {
       case 'farm': return this.beginAction({ type: 'farm', obj, target: tgt }, tgt, true);
       case 'bank': return this.beginAction({ type: 'openbank', target: tgt }, tgt, true);
       case 'shrine': return this.beginAction({ type: 'pray', obj }, tgt, true);
+      case 'offering': return this.beginAction({ type: 'shrinemenu', obj, target: tgt }, tgt, true);
       case 'rest': return this.beginAction({ type: 'rest', obj }, tgt, true);
       case 'agility': return this.beginAction({ type: 'agility', obj }, tgt, true);
       case 'stall': return this.beginAction({ type: 'stall', obj }, tgt, true);
@@ -4534,6 +4554,90 @@ export class Game {
     this.msg(old ? `Your ${name.toLowerCase()} trades ${enchantLabel(old)} for ${enchantLabel(line)}.`
       : `Your ${name.toLowerCase()} is enchanted: ${enchantLabel(line)}.`, 'level');
     return line;
+  }
+
+  // ---------------- Feeding gear with materials ----------------
+  // Life-skill materials add mastery points to an item type, worn or in your
+  // pack: bars for metal gear, logs for bows and staves, hides for leather and
+  // hide, gems for jewellery, herbs for cloth (see materials.js). Materials
+  // stop at Master; the last two ranks are earned in battle.
+
+  /** The materials in your pack that can feed this item type, best first:
+   *  [{ id, count, points (each) }]. */
+  feedOptions(id) {
+    const out = [];
+    for (const s of this.inventory.slots) {
+      if (!s || out.some((o) => o.id === s.id)) continue;
+      const points = feedPoints(id, s.id);
+      if (points) out.push({ id: s.id, count: this.inventory.count(s.id), points });
+    }
+    return out.sort((a, b) => b.points - a.points);
+  }
+
+  /** Feed up to `qty` of material `matId` to item type `id` (worn or in your
+   *  pack). Only what it takes to reach Master is used up. Returns the
+   *  mastery points added (0 when nothing could be fed). */
+  feedMastery(id, matId, qty = 1) {
+    if (!getItem(id).equip?.bonuses) return 0;
+    if (!EQUIP_SLOTS.some((s) => this.equipment.get(s) === id) && !this.inventory.count(id)) { this.msg('Wear or carry the gear you want to feed.'); return 0; }
+    const per = feedPoints(id, matId);
+    const name = getItem(id).name;
+    if (!per) { this.msg(`${getItem(matId).name} can't feed your ${name.toLowerCase()}: it takes ${feedKind(id) || 'nothing'} materials.`); return 0; }
+    const have = this.inventory.count(matId);
+    if (!have) { this.msg(`You have no ${getItem(matId).name.toLowerCase()}.`); return 0; }
+    const pts = this.equipment.masteryPoints(id);
+    if (pts >= FEED_CAP) { this.msg(`Materials can take gear only to ${MASTERY_RANKS[FEED_CAP_RANK].name} mastery. Fight with your ${name.toLowerCase()} to go further.`); return 0; }
+    const n = Math.min(Math.max(1, Math.floor(qty)), have, Math.ceil((FEED_CAP - pts) / per));
+    this.inventory.remove(matId, n);
+    this._addMastery(id, n * per);
+    this.equipment._changed();
+    this.spawnSparkle(this.player, '#ffd24a', 8);
+    this.msg(`You work ${n} x ${getItem(matId).name} into your ${name.toLowerCase()}: +${n * per} mastery.`, 'system');
+    return n * per;
+  }
+
+  // ---------------- The Offering Shrine ----------------
+  // Donate any life-skill material for shrine points (a tenth of its value),
+  // then spend them on ranks in five permanent offensive blessings (shrine.js).
+
+  /** Every material in your pack the shrine accepts: [{ id, count, points (each) }], best first. */
+  shrineDonatables() {
+    const out = [];
+    for (const s of this.inventory.slots) {
+      if (!s || !materialKind(s.id) || out.some((o) => o.id === s.id)) continue;
+      out.push({ id: s.id, count: this.inventory.count(s.id), points: materialPoints(s.id) });
+    }
+    return out.sort((a, b) => b.points - a.points);
+  }
+
+  /** Donate up to `qty` of a material. Returns the shrine points gained. */
+  donateToShrine(matId, qty = 1) {
+    const per = materialPoints(matId);
+    if (!per) { this.msg('The shrine accepts only gathered materials: bars, ore, gems, logs, hides, herbs, fish and feathers.'); return 0; }
+    const n = Math.min(Math.max(1, Math.floor(qty)), this.inventory.count(matId));
+    if (n <= 0) return 0;
+    this.inventory.remove(matId, n);
+    this.shrine.points += n * per;
+    this.msg(`You offer ${n} x ${getItem(matId).name} at the shrine: +${n * per} shrine points.`, 'system');
+    this.bus.emit('shrine');
+    this.saveSoon = true;
+    return n * per;
+  }
+
+  /** Spend shrine points on the next rank of a blessing. True if it ranked up. */
+  shrineRankUp(track) {
+    const t = SHRINE_TRACKS[track];
+    if (!t) return false;
+    const cost = this.shrine.nextCost(track);
+    if (!this.shrine.rankUp(track)) { this.msg(`${t.name} rank ${this.shrine.rank(track) + 1} needs ${cost} shrine points.`); return false; }
+    const r = this.shrine.rank(track);
+    this.equipment._changed();   // the Equipment panel's totals now include it
+    this.spawnSparkle(this.player, '#ffe08a', 16);
+    this.bus.emit('sfx', 'level');
+    this.msg(`The shrine glows. ${t.name} rank ${r}: ${trackText(track, r)}.`, 'level');
+    if (r % 10 === 0) this.banner(`<span class="big">${t.name} ${r}!</span>${trackText(track, r)}`);
+    this.bus.emit('shrine');
+    return true;
   }
 
   // ---------------- Refining ----------------

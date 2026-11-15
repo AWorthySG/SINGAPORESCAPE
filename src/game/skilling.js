@@ -330,12 +330,13 @@ export function resolveCraft(game, action) {
   for (const inp of r.inputs) {
     if (!game.inventory.has(inp.id, inp.qty)) { game.msg('You have run out of materials.'); return false; }
   }
-  if (game.inventory.canAdd(r.result, 1) <= 0) { game.msg('Your inventory is too full.'); return false; }
+  const n = r.qty || 1;   // refine scrolls and wards come several to a craft
+  if (game.inventory.canAdd(r.result, n) <= 0) { game.msg('Your inventory is too full.'); return false; }
   for (const inp of r.inputs) game.inventory.remove(inp.id, inp.qty);
-  game.inventory.add(r.result, 1);
+  game.inventory.add(r.result, n);
   game.skills.addXp('crafting', r.xp);
   game.spawnSparkle(game.player, '#caa15a', 6);
-  game.msg(`You craft a ${getItem(r.result).name.toLowerCase()}.`);
+  game.msg(n > 1 ? `You craft ${n} ${getItem(r.result).name.toLowerCase()}s.` : `You craft a ${getItem(r.result).name.toLowerCase()}.`);
   return r.inputs.every((inp) => game.inventory.has(inp.id, inp.qty));
 }
 
@@ -347,7 +348,7 @@ export function resolveSmith(game, action) {
     game.msg(`You need a Smithing level of ${r.level} to make this.`); return false;
   }
   game.inventory.remove(r.bar, r.barCount);
-  game.inventory.add(r.result, 1);
+  game.inventory.add(r.result, r.qty || 1);   // upgrade stones come several to a bar
   game.skills.addXp('smithing', r.xp);
   game.bus.emit('sfx', 'clang');
   const lvl = game.skills.level('smithing');
@@ -358,7 +359,7 @@ export function resolveSmith(game, action) {
     game.spawnSparkle(game.player, '#ffd24a', 6);
     game.msg(`Flawless work — you forge an extra ${itemName}!`);
   } else {
-    game.msg(`You hammer the metal into a ${itemName}.`);
+    game.msg(r.qty > 1 ? `You hammer the metal into ${r.qty} ${itemName}s.` : `You hammer the metal into a ${itemName}.`);
   }
   return game.inventory.has(r.bar, r.barCount);
 }

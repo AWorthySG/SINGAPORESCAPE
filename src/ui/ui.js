@@ -36,6 +36,8 @@ import { streakMult } from '../game/bounty.js';
 import { itemCategory } from '../game/inventory.js';
 import { MASTERY_RANKS, MAX_ENCHANTS, rankProgress, enchantLabel, STONE as UP_STONE, WARD as UP_WARD } from '../game/mastery.js';
 import { MAX_REFINE, SCROLL as REFINE_SCROLL, refineCost, refineOdds, refineTag, refinedBonuses } from '../game/refine.js';
+import { MATERIAL_KINDS, feedKind, FEED_CAP, FEED_CAP_RANK } from '../game/materials.js';
+import { SHRINE_TRACKS, SHRINE_TRACK_IDS, trackText } from '../game/shrine.js';
 import { ATTRS, ATTR_NAMES, attrSummary, attrForMode, MAX_STAT_POINTS, RESET_COST_PER_POINT, holdRepeatDelay } from '../game/attributes.js';
 import { STAT_LABELS, STAT_HELP, compareGear, deltaText, gearBySlot, gearRating, meetsReq, swingBeats, tierOf, weaponStyle } from '../game/gear.js';
 import { TILE, LEARNING_ENABLED } from '../config.js';
@@ -961,6 +963,7 @@ export class UI {
         + '(1 for a monster, 5 for a champion, 25 for a boss), and each rank adds to its stats, up to <b>Legendary</b> (+140%). '
         + `<b>Enchanting</b> adds up to ${MAX_ENCHANTS} bonus lines: choose one of three on offer, paid for with upgrade stones and coins. An <b>upgrade ward</b> rerolls the offer. `
         + `<b>Refining</b> (★1 to ★${MAX_REFINE}) adds a share of the base stats on top, paid for with <b>refine scrolls</b> only; the higher you go, the riskier it gets. `
+        + `<b>Feed materials</b> from your life skills to add mastery too (bars for metal, logs for bows and staves, hides for leather, gems for jewellery, herbs for cloth), up to ${MASTERY_RANKS[FEED_CAP_RANK].name}. `
         + 'Mastery, enchantments and refining belong to the item type, so every copy you own shares them. '
         + `You have ${formatNumber(g.inventory.count(UP_STONE))} stones, ${g.inventory.count(UP_WARD)} wards and ${formatNumber(g.inventory.count(REFINE_SCROLL))} refine scrolls.</p></div>`;
       const ids = [...new Set([...EQUIP_SLOTS.map((s) => g.equipment.get(s)).filter(Boolean),
@@ -1004,6 +1007,14 @@ export class UI {
         }
         rb.addEventListener('click', () => this.openRefine(id));
         btns.appendChild(rb);
+        // Feed sits below: life-skill materials for mastery points, up to Master.
+        const fb = document.createElement('button');
+        fb.type = 'button';
+        const kind = feedKind(id), capped = g.equipment.masteryPoints(id) >= FEED_CAP;
+        fb.className = 'gear-tab feed-open' + (!capped && g.feedOptions(id).length ? ' active' : '');
+        fb.innerHTML = capped ? `Feed materials<br>${MASTERY_RANKS[FEED_CAP_RANK].name} reached` : `Feed materials<br>${MATERIAL_KINDS[kind] || ''}`;
+        fb.addEventListener('click', () => this.openFeed(id));
+        btns.appendChild(fb);
         row.appendChild(btns);
         list.appendChild(row);
       }
@@ -1117,6 +1128,110 @@ export class UI {
       body.appendChild(box);
     };
     this.openModal(`Refine ${getItem(id).name}`, render);
+  }
+
+  /** Feed one item type with materials: the ones in your pack that fit it,
+   *  the mastery each gives, and 1 / 10 / all buttons. */
+  openFeed(id) {
+    const g = this.game;
+    const name = escapeHtml(getItem(id).name);
+    const render = (body) => {
+      const pts = g.equipment.masteryPoints(id), p = rankProgress(pts);
+      const cap = MASTERY_RANKS[FEED_CAP_RANK].name, kind = MATERIAL_KINDS[feedKind(id)] || 'nothing';
+      body.innerHTML = `<div class="gear-intro"><p>${name} is <b>${MASTERY_RANKS[p.rank].name}</b> mastery (${formatNumber(pts)} points${p.next ? `, ${formatNumber(p.need)} to ${MASTERY_RANKS[p.next].name}` : ''}). `
+        + `It is fed with <b>${kind}</b>; finer materials give more. Materials can take it up to <b>${cap}</b> (${formatNumber(FEED_CAP)} points); after that, only battle trains it.</p></div>`;
+      const list = document.createElement('div');
+      list.className = 'gear-list feed-list';
+      const opts = g.feedOptions(id);
+      if (pts >= FEED_CAP) list.innerHTML = `<div class="modal-hint">Already ${MASTERY_RANKS[p.rank].name}: fight with it to go further.</div>`;
+      else if (!opts.length) list.innerHTML = `<div class="modal-hint">You carry no ${kind} to feed it. (Materials in the bank don't count: take some out first.)</div>`;
+      else for (const o of opts) {
+        const row = document.createElement('div');
+        row.className = 'gear-row feed-row';
+        row.innerHTML = `<span class="gear-ic">${itemIconSVG(o.id, 28)}</span>`
+          + `<div class="gear-info"><div class="gear-name"><b>${escapeHtml(getItem(o.id).name)}</b><span class="gear-tag">x${formatNumber(o.count)}</span></div>`
+          + `<div class="gear-stats">+${formatNumber(o.points)} mastery each</div></div>`;
+        const btns = document.createElement('div');
+        btns.className = 'qty-btns';
+        for (const [label, n] of [['1', 1], ['10', 10], ['All', Infinity]]) {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'gear-tab small';
+          b.textContent = label;
+          b.addEventListener('click', () => { g.feedMastery(id, o.id, n); render(body); });
+          btns.appendChild(b);
+        }
+        row.appendChild(btns);
+        list.appendChild(row);
+      }
+      body.appendChild(list);
+      const back = document.createElement('button');
+      back.type = 'button';
+      back.className = 'gear-tab ench-cancel feed-back';
+      back.textContent = 'Back';
+      back.addEventListener('click', () => this.openMastery());
+      body.appendChild(back);
+    };
+    this.openModal(`Feed ${getItem(id).name}`, render);
+  }
+
+  // ---------------- The Offering Shrine ----------------
+  // Donate life-skill materials for shrine points, then spend points on ranks
+  // in five permanent offensive blessings (see shrine.js).
+  openOfferingShrine() {
+    const g = this.game;
+    const render = (body) => {
+      const sh = g.shrine;
+      body.innerHTML = '<div class="gear-intro"><p>Offer the materials your life skills gather (bars, ore, gems, logs, hides, herbs, fish and feathers) for '
+        + '<b>shrine points</b>, a tenth of each one\'s value. Spend them on <b>blessings</b>: permanent bonuses to your fighting that never run out. '
+        + `Each rank costs a little more than the last.</p><p class="shrine-points">Shrine points: <b>${formatNumber(sh.points)}</b></p></div>`;
+      const tracks = document.createElement('div');
+      tracks.className = 'gear-list shrine-tracks';
+      for (const t of SHRINE_TRACK_IDS) {
+        const T = SHRINE_TRACKS[t], r = sh.rank(t), cost = sh.nextCost(t), ok = sh.points >= cost;
+        const row = document.createElement('div');
+        row.className = 'gear-row shrine-row';
+        row.innerHTML = `<div class="gear-info"><div class="gear-name"><b>${T.name}</b><span class="gear-tag mastery-tag">Rank ${r}</span></div>`
+          + `<div class="gear-stats">${r ? `Now ${trackText(t, r)}` : 'Not blessed yet'} &middot; each rank ${escapeHtml(T.label)}</div>`
+          + `<div class="mastery-bar"><span style="width:${Math.min(100, Math.round(sh.points / cost * 100))}%"></span></div></div>`;
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'gear-tab shrine-up' + (ok ? ' active' : '');
+        b.innerHTML = `Rank ${r + 1}<br><span class="${ok ? '' : 'short'}">${formatNumber(cost)} pts</span>`;
+        b.disabled = !ok;
+        b.addEventListener('click', () => { g.shrineRankUp(t); render(body); });
+        row.appendChild(b);
+        tracks.appendChild(row);
+      }
+      body.appendChild(tracks);
+      body.insertAdjacentHTML('beforeend', '<div class="ench-head shrine-head">Offer materials</div>');
+      const list = document.createElement('div');
+      list.className = 'gear-list feed-list';
+      const opts = g.shrineDonatables();
+      if (!opts.length) list.innerHTML = '<div class="modal-hint">You carry no materials to offer. Gather some, or take them out of the bank.</div>';
+      for (const o of opts) {
+        const row = document.createElement('div');
+        row.className = 'gear-row feed-row';
+        row.innerHTML = `<span class="gear-ic">${itemIconSVG(o.id, 28)}</span>`
+          + `<div class="gear-info"><div class="gear-name"><b>${escapeHtml(getItem(o.id).name)}</b><span class="gear-tag">x${formatNumber(o.count)}</span></div>`
+          + `<div class="gear-stats">${formatNumber(o.points)} point${o.points > 1 ? 's' : ''} each (${formatNumber(o.points * o.count)} for all)</div></div>`;
+        const btns = document.createElement('div');
+        btns.className = 'qty-btns';
+        for (const [label, n] of [['1', 1], ['10', 10], ['All', Infinity]]) {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'gear-tab small';
+          b.textContent = label;
+          b.addEventListener('click', () => { g.donateToShrine(o.id, n); render(body); });
+          btns.appendChild(b);
+        }
+        row.appendChild(btns);
+        list.appendChild(row);
+      }
+      body.appendChild(list);
+    };
+    this.openModal('Offering Shrine', render);
+    this.modal.kind = 'shrine';
   }
 
   // ---------------- Gear guide ----------------
@@ -2967,7 +3082,7 @@ export class UI {
   // Crafting -----------------------------------------------------------
   openCraftMenu(obj) {
     const render = (body) => {
-      body.innerHTML = '<div class="modal-hint">Craft pottery and jewelry from gathered materials.</div>';
+      body.innerHTML = '<div class="modal-hint">Craft pottery and jewellery from gathered materials, and refine scrolls and upgrade wards from gems and bars.</div>';
       const list = document.createElement('div');
       list.appendChild(this._doAllRow('craft', obj, 'Craft all'));
       for (const r of CRAFT) {
@@ -2977,7 +3092,7 @@ export class UI {
         row.className = 'dialogue-option';
         row.style.opacity = can ? '1' : '0.5';
         const needs = r.inputs.map((inp) => `${inp.qty} ${getItem(inp.id).name}`).join(' + ');
-        row.innerHTML = `<span class="row-ic">${itemIconSVG(r.result, 22)}</span> <b>${getItem(r.result).name}</b> <span style="opacity:.75">(lvl ${r.level} &mdash; ${needs}${r.tool ? ', chisel' : ''})</span>`;
+        row.innerHTML = `<span class="row-ic">${itemIconSVG(r.result, 22)}</span> <b>${r.qty > 1 ? r.qty + ' ' : ''}${getItem(r.result).name}</b> <span style="opacity:.75">(lvl ${r.level} &mdash; ${needs}${r.tool ? ', chisel' : ''})</span>`;
         row.addEventListener('click', () => { this.game.startCraft(r, obj); this.closeModal(); });
         list.appendChild(row);
       }
@@ -3038,7 +3153,7 @@ export class UI {
   // Smithing -----------------------------------------------------------
   openSmithMenu(obj) {
     const render = (body) => {
-      body.innerHTML = '<div class="modal-hint">Hammer bars into equipment.</div>';
+      body.innerHTML = '<div class="modal-hint">Hammer bars into equipment, or into upgrade stones for enchanting.</div>';
       const list = document.createElement('div');
       list.appendChild(this._doAllRow('smith', obj, 'Smith all'));
       for (const r of SMITH) {
@@ -3046,7 +3161,7 @@ export class UI {
         const row = document.createElement('div');
         row.className = 'dialogue-option';
         row.style.opacity = can ? '1' : '0.5';
-        row.innerHTML = `<span class="row-ic">${itemIconSVG(r.result, 22)}</span> <b>${getItem(r.result).name}</b> <span style="opacity:.75">(lvl ${r.level} &mdash; ${r.barCount} ${getItem(r.bar).name})</span>`;
+        row.innerHTML = `<span class="row-ic">${itemIconSVG(r.result, 22)}</span> <b>${r.qty > 1 ? r.qty + ' ' : ''}${getItem(r.result).name}</b> <span style="opacity:.75">(lvl ${r.level} &mdash; ${r.barCount} ${getItem(r.bar).name})</span>`;
         row.addEventListener('click', () => { this.game.startSmith(r, obj); this.closeModal(); });
         list.appendChild(row);
       }
