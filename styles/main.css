@@ -2187,6 +2187,19 @@ body.boss-on #tip-toast { top: 132px; }
 .refine-out.fail, .refine-out.warded { color: var(--aw-text-sec); }
 .refine-out.downgrade, .refine-out.broken { color: var(--aw-accent); }
 .refine-box .refine-go { background: var(--aw-sky-deep); border-color: var(--aw-ink); }
+/* Feeding gear with materials (gold, like mastery) and the Offering Shrine. */
+.mastery-row .feed-open { font-size: 11.5px; line-height: 1.25; touch-action: manipulation; }
+.mastery-row .feed-open.active { background: var(--aw-sun-deep); }
+.qty-btns { flex: 0 0 auto; display: flex; gap: 4px; }
+.qty-btns .gear-tab { min-width: 34px; touch-action: manipulation; }
+.feed-list { max-height: 34vh; }
+.feed-back { margin-top: 8px; }
+.shrine-points { font-size: 14px; }
+.shrine-head { margin: 10px 0 4px; }
+.shrine-row .shrine-up { flex: 0 0 auto; font-size: 11.5px; line-height: 1.25; touch-action: manipulation; }
+.shrine-row .shrine-up.active { background: var(--aw-sun-deep); }
+.shrine-row .shrine-up:disabled { opacity: 0.55; cursor: not-allowed; }
+.shrine-up .short { color: var(--aw-accent); font-weight: 800; }
 
 /* Stats (Strength / Intelligence / Dexterity) in the Combat tab. */
 .cb-stats { margin: 8px 0; padding: 8px 10px; border: 2px solid var(--ink, #1f2a44); border-radius: 12px; background: #fff; font-size: 12px; }

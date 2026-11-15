@@ -39,10 +39,11 @@ export function nextJob(game, kind, skip = new Set()) {
     job = r && { type: 'smelt', recipe: r };
   } else if (kind === 'smith') {
     if (!game.hasTool('hammer')) return null;
-    const r = best(SMITH.filter((x) => lvl('smithing') >= x.level && has(game, x.bar, x.barCount) && !skip.has(`smith:${x.result}`)));
+    // Upgrade stones, scrolls and wards are only made by choice (`upgrade`), never by "Do all".
+    const r = best(SMITH.filter((x) => !x.upgrade && lvl('smithing') >= x.level && has(game, x.bar, x.barCount) && !skip.has(`smith:${x.result}`)));
     job = r && { type: 'smith', recipe: r };
   } else if (kind === 'craft') {
-    const r = best(CRAFT.filter((x) => (!x.tool || game.hasTool(x.tool)) && lvl('crafting') >= x.level && x.inputs.every((i) => has(game, i.id, i.qty)) && !skip.has(`craft:${x.result}`)));
+    const r = best(CRAFT.filter((x) => !x.upgrade && (!x.tool || game.hasTool(x.tool)) && lvl('crafting') >= x.level && x.inputs.every((i) => has(game, i.id, i.qty)) && !skip.has(`craft:${x.result}`)));
     job = r && { type: 'craft', recipe: r };
   } else if (kind === 'fletching' || kind === 'herblore') {
     const r = best(tradeRecipes(kind).filter((x) => (!x.tool || game.hasTool(x.tool)) && lvl(kind) >= x.level

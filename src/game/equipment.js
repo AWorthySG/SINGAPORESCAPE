@@ -52,7 +52,7 @@ export class Equipment {
     this.mastery = {};            // itemId -> mastery points, shared by every copy (see mastery.js)
     this.enchants = {};           // itemId -> [{ stat, value }] (up to 3), shared by every copy
     this.refines = {};            // itemId -> refine level (★1..★15), shared by every copy (see refine.js)
-    this.extra = null;            // () => bonuses from outside your gear (life skill perks, see lifeperks.js)
+    this.extra = null;            // () => bonuses from outside your gear (life skill perks and shrine blessings, see Game.outsideBonuses)
   }
 
   masteryPoints(id) { return this.mastery[id] || 0; }

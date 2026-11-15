@@ -43,4 +43,31 @@ export const CRAFT = [
 
   // ---- Hunter hides into archer armour ----
   ...HIDE_CRAFT,
+
+  // ---- Refine scrolls and upgrade wards (see refine.js and mastery.js) ----
+  // Crafting, because it is already the trade that sets gems into metal with
+  // a chisel; the feathers are the quills the smith-lore is written with
+  // (Hunter's bird snares). `qty` come out per make; `upgrade` keeps these out
+  // of "Craft all", so gems and bars are only spent on them by choice.
+  //
+  // Scroll yield against combat: a good fight around level 100 drops about ten
+  // scrolls in ten minutes (0.8% a kill at ~30 kills a minute, a champion's
+  // 35%, a boss's 6-10). A gem rock gives a level-40+ miner roughly 8 gems in
+  // ten minutes (half sapphires, a quarter emeralds, then rubies and the odd
+  // diamond), and the bars take about as long again, so twenty minutes of
+  // gathering and crafting comes to about 12-16 scrolls for a crafter who can
+  // use every tier (fewer lower down): close to the pace of fighting. Each
+  // scroll costs some 420-890 coins of gem and bar, against 60-350 for a
+  // stone, so scrolls stay the dearer of the two; the higher tiers give more
+  // per craft, making the most of a rare gem.
+  { result: 'refine_scroll', qty: 1, inputs: [{ id: 'sapphire', qty: 1 }, { id: 'steel_bar', qty: 1 }, { id: 'feather', qty: 5 }], level: 35, xp: 60, tool: 'chisel', upgrade: true },
+  { result: 'refine_scroll', qty: 2, inputs: [{ id: 'emerald', qty: 1 }, { id: 'mithril_bar', qty: 1 }, { id: 'feather', qty: 5 }], level: 52, xp: 110, tool: 'chisel', upgrade: true },
+  { result: 'refine_scroll', qty: 4, inputs: [{ id: 'ruby', qty: 1 }, { id: 'adamant_bar', qty: 1 }, { id: 'feather', qty: 10 }], level: 70, xp: 200, tool: 'chisel', upgrade: true },
+  { result: 'refine_scroll', qty: 7, inputs: [{ id: 'diamond', qty: 1 }, { id: 'rune_bar', qty: 1 }, { id: 'feather', qty: 10 }], level: 90, xp: 340, tool: 'chisel', upgrade: true },
+  // Wards are rare: a boss drops 1-3, a champion one time in ten. Making one
+  // takes two top gems, a pearl and two adamant bars (some 6,400 coins of
+  // material for a 2,500-coin ward), and the hornbill casque recipe is for
+  // the very top end (Hunter 120 to catch one).
+  { result: 'upgrade_ward', qty: 1, inputs: [{ id: 'diamond', qty: 1 }, { id: 'ruby', qty: 1 }, { id: 'pearl', qty: 1 }, { id: 'adamant_bar', qty: 2 }], level: 80, xp: 400, tool: 'chisel', upgrade: true },
+  { result: 'upgrade_ward', qty: 3, inputs: [{ id: 'hornbill_casque', qty: 1 }, { id: 'diamond', qty: 1 }, { id: 'rune_bar', qty: 2 }], level: 120, xp: 900, tool: 'chisel', upgrade: true },
 ];

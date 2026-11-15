@@ -299,6 +299,14 @@ export const OBJECTS = {
     examine: 'A grand monument raised to those who proved worthy. Praying here mends your wounds.',
   },
 
+  // ---------------- Offering Shrine (material donations, see shrine.js) ----------------
+  // Borrows the Monument's painted art (art), tinted gold so the two read apart.
+  offering_shrine: {
+    name: 'Offering Shrine', type: 'offering', verb: 'Offer at', emoji: '⛩️', blocking: true,
+    art: 'obj-shrine', tint: 'sepia(0.6) saturate(1.6) brightness(1.05)',
+    examine: 'A crystal shrine heaped with ore, gems, logs and herbs. Offerings here bless your fighting for good.',
+  },
+
   // ---------------- A-Worthy Mascot Statue (rest point) ----------------
   mascot_statue: {
     name: 'A-Worthy Mascot Statue', type: 'rest', verb: 'Rest at', emoji: '🗿', blocking: true,
