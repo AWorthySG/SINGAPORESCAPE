@@ -52,10 +52,11 @@ import { nextJob, jobKey } from './autoprocess.js';
 import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
 import { eligibleTasks, SLAYER_REWARDS } from '../data/slayer.js';
 import { STATIONS, STATION_BY_ID, MRT_FARE } from '../data/transport.js';
-import { SKILLS } from '../data/skills.js';
+import { SKILLS, SKILL_BY_ID } from '../data/skills.js';
 import { Learning } from './learning.js';
 import * as Mercs from './mercenary.js';
 import { classPerks } from './classperks.js';
+import { LIFE_PERKS, LIFE_PERK_SKILLS, LIFE_PERK_FULL_LEVEL, LIFE_PERK_NOTE_EVERY, lifePerkTotals, lifePerkText } from './lifeperks.js';
 import { TOPIC_BY_ID } from '../data/questions.js';
 import { LIFE_STAGES, LIFE_GRAD, LIFE_STAGES_ADV, LIFE_GRAD_ADV, LIFE_STAGES_WILD, LIFE_GRAD_WILD } from '../data/lifeskills.js';
 import { QUESTS, CHAMPION_QP, REDEMPTION_GOAL, CORRUPTION_GOAL } from '../data/quests.js';
@@ -239,6 +240,7 @@ export class Game {
     this.skills = new Skills(this.bus);
     this.inventory = new Inventory(this.bus);
     this.equipment = new Equipment(this.bus);
+    this.equipment.extra = () => this.lifePerks();   // life skill perks count with your gear
     this.bank = new Bank(this.bus);
 
     this.player = new Player(data.spawnPoint.x, data.spawnPoint.y);
@@ -375,6 +377,7 @@ export class Game {
         this.msg(`New passive perk: ${perk.name}${perk.rank > 1 ? ` (Rank ${rankName(perk.rank)})` : ''}. ${perk.desc}.`, 'level');
         this.banner(`<span class="big">${perk.name}${perk.rank > 1 ? ' ' + rankName(perk.rank) : ''}</span>New passive perk: ${perk.desc}`);
       }
+      this._lifePerkNote(p);
       // Advancing a combat skill invigorates you — restore some health.
       if (this.player.alive && COMBAT_SKILLS.has(p?.skill)) {
         this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.ceil(this.maxHp() * 0.1));
@@ -386,7 +389,15 @@ export class Game {
     this._lvlLevelUpLight = (p) => {
       const perk = p?.skill && perkAtLevel(p.skill, p.level);
       if (perk) this.msg(`New passive perk: ${perk.name}${perk.rank > 1 ? ` (Rank ${rankName(perk.rank)})` : ''}. ${perk.desc}.`, 'level');
+      this._lifePerkNote(p);
       if (this.player.alive && COMBAT_SKILLS.has(p?.skill)) this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.ceil(this.maxHp() * 0.1));
+    };
+    // Every 10 life skill levels, say what that skill now adds in a fight, so
+    // players notice their gathering and making makes them stronger.
+    this._lifePerkNote = (p) => {
+      if (!LIFE_PERKS[p?.skill] || p.level % LIFE_PERK_NOTE_EVERY || p.level > LIFE_PERK_FULL_LEVEL) return;
+      const name = SKILL_BY_ID[p.skill]?.name || p.skill;
+      this.msg(`Life skill perk: your ${name} now gives ${lifePerkText(p.skill, p.level)} in combat${p.level === LIFE_PERK_FULL_LEVEL ? ' (its full strength)' : ''}.`, 'level');
     };
     this.bus.on('quest', () => { this.checkAchievements(); this.saveSoon = true; });
 
@@ -607,6 +618,16 @@ export class Game {
       return out;
     }
     return m;
+  }
+
+  /** Life skill perks (see lifeperks.js), as gear-style bonuses. Asked for on
+   *  every hit, so the totals are kept until a life skill's XP changes. */
+  lifePerks() {
+    const xp = this.skills.xp, c = this._lifePerkCache;
+    if (c && LIFE_PERK_SKILLS.every((s, i) => c.xp[i] === xp[s])) return c.totals;
+    const totals = lifePerkTotals((s) => this.skills.level(s));
+    this._lifePerkCache = { xp: LIFE_PERK_SKILLS.map((s) => xp[s]), totals };
+    return totals;
   }
 
   /** Damage taken after Defence perks (and Boss Ward against bosses). */
@@ -1666,12 +1687,12 @@ export class Game {
     dmgM *= armourMult(armourOf(npc.def, { champion: npc.champion, fightLevel: this.fightLevel() }), gb.pierce, weak);
     dmgM *= 1 + (this.attrs[attrForMode(mode)] || 0) * DMG_PER_POINT;   // Strength / Intelligence / Dexterity
     dmgM *= 1 + (perk.dmg || 0) + this.learning.perks().dmg +   // English mastery: Eloquence
-      ((npc.def.boss || npc.champion) ? (perk.boss || 0) + gb.bossDmg / 100 : 0);
+      ((npc.def.boss || npc.champion) ? (perk.boss || 0) + gb.bossDmg / 100 : (gb.mobDmg || 0) / 100);   // Cooking's perk: normal monsters
     // Attack bonus % boosts physical damage (melee, ranged, whips); Magic bonus % boosts spells.
     dmgM *= 1 + (mode === 'magic' ? gb.magPct : gb.atkPct) / 100;
     dmgM *= this._volley || 1;   // a volley of very fast attacks lands as one big hit
     dmgM *= 1 + this.buffMod('dmg');   // a class buff
-    const bonusHit = Math.random() < (perk.extra || 0);
+    const bonusHit = Math.random() < (perk.extra || 0) + (gb.extra || 0) / 100;   // Thieving's perk adds to the chance
     perk._echo = mode === 'magic' && bonusHit;
     const hits = Math.min(maxHits, Math.max(spec ? spec.hits || 1 : 1, ab ? ab.hits || 1 : 1)) + (bonusHit && mode !== 'magic' ? 1 : 0);
     const guaranteed = !!(ab && ab.guaranteed);
@@ -1750,7 +1771,10 @@ export class Game {
 
   /** An area hit (cleave, splash, ricochet) rolls its own crit at the main
    *  attack's crit chance: returns the damage and the hitsplat's ×2 / ×4 tag. */
-  _aoeCrit(dmg) {
+  _aoeCrit(dmg, area = true) {
+    // Farming's perk: area hits land harder (not a damage-over-time tick).
+    const aoe = area && dmg > 0 ? this.equipment.bonuses().aoe || 0 : 0;
+    if (aoe) dmg = Math.max(1, Math.round(dmg * (1 + aoe / 100)));
     if (dmg > 0 && Math.random() < (this._aoeCritCh || 0)) {
       const mult = Math.random() < MEGA_CRIT_CHANCE ? MEGA_CRIT_MULT : CRIT_MULT;
       return { dmg: Math.max(dmg + 1, Math.round(dmg * (mult + this.equipment.bonuses().critDmg / 100))), critX: mult };
@@ -2281,7 +2305,7 @@ export class Game {
         ig.acc -= 1;
         // Each tick rolls its own crit (x2, or x4 on a mega crit, plus gear crit damage).
         const saved = this._aoeCritCh; this._aoeCritCh = ig.critCh || 0;
-        const c = this._aoeCrit(ig.perSec);
+        const c = this._aoeCrit(ig.perSec, false);
         this._aoeCritCh = saved;
         const d = Math.min(n.hp, c.dmg);
         n.takeDamage(d);

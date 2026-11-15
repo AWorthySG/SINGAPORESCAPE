@@ -1745,6 +1745,7 @@ body.boss-on #tip-toast { top: 132px; }
 .perks-open b { font-size: 13px; font-weight: 900; }
 .perks-open span { font-size: 11px; color: var(--aw-text-sec, #625d54); }
 .skill-cell .skill-perks { font-size: 10.5px; font-weight: 800; color: var(--aw-accent, #c0392b); }
+.skill-cell .skill-perks.life { color: var(--aw-leaf, #2f7d3a); }
 .perk-list { display: grid; gap: 6px; margin-top: 8px; }
 .perk-row { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 12px; border: 1.5px dashed var(--aw-ink-faint, rgba(34,48,74,.25)); opacity: .62; }
 .perk-row.owned { opacity: 1; border-style: solid; border-color: var(--aw-ink, #22304a); background: var(--aw-card, #fff); box-shadow: var(--shadow-sticker-sm, 0 2px 0 rgba(34,48,74,.2)); }
