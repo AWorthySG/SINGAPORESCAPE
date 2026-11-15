@@ -15,7 +15,7 @@ import {
 import { World } from './world.js';
 import { Skills } from './skillset.js';
 import { Inventory } from './inventory.js';
-import { Equipment, canDualWield, canDualPair, EQUIP_SLOTS } from './equipment.js';
+import { Equipment, canDualWield, canDualPair, EQUIP_SLOTS, isTwoHanded } from './equipment.js';
 import { Bank } from './bank.js';
 import { Player, STICK_DEAD } from './player.js';
 import { NPC } from './npc.js';
@@ -400,6 +400,8 @@ export class Game {
     const loaded = hasSave() && loadGame(this);
     if (loaded) {
       this.starterGiven = true;
+      // Saves from before two-handed weapons may hold a shield with one.
+      if (isTwoHanded(this.equipment.get('weapon')) && this.equipment.get('shield')) this._stowShield();
       this.msg(`Welcome back to ${this.world.townName}, ${this.player.name}!`, 'system');
       if (LEARNING_ENABLED && !this.learning.dailyDone(this.todayKey())) this.msg('Your daily revision is ready in the Knowledge Codex (Skills tab).', 'level');
     } else {
@@ -456,6 +458,7 @@ export class Game {
       }
       const starter = starterWeapon(classId);
       if (!this.equipment.get('weapon')) this.equipment.set('weapon', starter); else this.inventory.add(starter, 1);
+      if (isTwoHanded(this.equipment.get('weapon')) && this.equipment.get('shield')) this._stowShield();
       this.msg(`You are now a ${cls.name}. Only ${WEAPON_TYPE_NAMES[cls.weapon]} and ${WEAPON_TYPE_NAMES[SECONDARY_WEAPON[classId]]} can be wielded, and the choice is permanent.`, 'level');
       this.msg(`${cls.name} perk: ${classPerks(classId)[0].text} (see Class perks in the Combat tab)`, 'system');
       this.bus.emit('inventory'); this.bus.emit('equipment');
@@ -496,8 +499,10 @@ export class Game {
       this.skills.xp.magic = Math.max(this.skills.xp.magic, xpForLevel(15));
     } else {
       this.equipment.set('weapon', starter);
-      // Rogues and Corsairs start dual wielding; every other melee class gets a shield.
-      this.equipment.set('shield', canDualWield(starter) ? starter : 'wooden_shield');
+      // Rogues and Corsairs start dual wielding; one-handed melee classes get a shield.
+      // (Two-handed weapons leave no hand free for a shield.)
+      if (canDualWield(starter)) this.equipment.set('shield', starter);
+      else if (!isTwoHanded(starter)) this.equipment.set('shield', 'wooden_shield');
       // Heavy melee starts in chainmail, agile melee in leather (each class has its own armour).
       this.equipment.set('body', ARMOUR_FAMILY[classId] === 'plate' ? 'bronze_chainbody' : 'leather_body');
     }
@@ -4288,6 +4293,14 @@ export class Game {
   }
 
   /** Can this piece be worn right now (levels, class weapon and class armour)? Silent. */
+  /** Take off the shield (a two-handed weapon is in hand) and put it in the pack. */
+  _stowShield() {
+    const sh = this.equipment.clearSlot('shield');
+    if (!sh) return;
+    this.inventory.add(sh, 1);
+    this.msg(`Your weapon needs both hands, so you put your ${getItem(sh).name.toLowerCase()} in your pack.`, 'system');
+  }
+
   _canEquipNow(id) {
     const it = getItem(id), eq = it.equip;
     if (!eq || it.tool) return false;
@@ -4314,6 +4327,8 @@ export class Game {
         const eq = getItem(s.id).equip;
         // Dual wielders keep their off-hand for a second weapon, not a shield.
         if (eq.slot === 'shield' && canDualWield(this.equipment.get('weapon'))) return;
+        // ...and a two-handed weapon leaves no hand for a shield at all.
+        if (eq.slot === 'shield' && isTwoHanded(this.equipment.get('weapon'))) return;
         const worn = this.equipment.get(eq.slot);
         // Keep to the weapon style you fight with (a staff won't replace a sword).
         if (eq.slot === 'weapon' && worn && weaponStyle(s.id) !== weaponStyle(worn)) return;
@@ -4399,6 +4414,10 @@ export class Game {
       && (opts.offhand ?? !canDualPair(main, this.equipment.get('shield')));
     if (opts.offhand && !offhand) { this.msg('Only a second weapon of the same dual-wield kind (daggers, scimitars, kerambits or pistols) can go in your off-hand.'); return; }
     const slot = offhand ? 'shield' : eq.slot;
+    if (slot === 'shield' && isTwoHanded(main)) {
+      this.msg(`Your ${getItem(main).name.toLowerCase()} needs both hands, so you can't hold a shield with it.`);
+      return;
+    }
     const cmp = offhand ? null : compareGear(s.id, this.equipment);
     this.inventory.removeAt(index, 1);
     const prev = this.equipment.get(slot);
@@ -4414,6 +4433,8 @@ export class Game {
       this.inventory.add(off, 1);
       this.msg(`You put away your off-hand ${getItem(off).name.toLowerCase()}.`, 'system');
     }
+    // A two-handed weapon needs both hands: the shield goes back in the pack.
+    if (slot === 'weapon' && isTwoHanded(s.id) && this.equipment.get('shield')) this._stowShield();
     this.msg(`You ${eq.slot === 'weapon' ? 'wield' : 'wear'} the ${item.name.toLowerCase()}.`);
     // Say plainly whether that was a step up, so players learn which gear is better.
     if (cmp && prev && cmp.verdict !== 'same' && cmp.verdict !== 'worn') {

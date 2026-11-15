@@ -6266,3 +6266,40 @@ test('the old github.io address forwards players, with their save, to adventure.
   assert.equal(forwardToNewHome(empty), true);
   assert.equal(empty.went, NEW_HOME);
 });
+
+test('bows, katanas, warhammers, longswords and 2h swords are two-handed: no shield with them', async () => {
+  const { isTwoHanded } = await import('../src/game/equipment.js');
+  const typeOf = (id) => ITEMS[id].equip.weaponType;
+  // The easiest weapon of each type (so level requirements never get in the way).
+  const lvl = (id) => Math.max(0, ...Object.values(ITEMS[id].equip.req || {}));
+  const pick = (t) => Object.keys(ITEMS).filter((id) => ITEMS[id].equip?.weaponType === t && !ITEMS[id].signature).sort((a, b) => lvl(a) - lvl(b))[0];
+  for (const t of ['longbow', 'shortbow', 'katana', 'warhammer', 'longsword', '2h_sword']) assert.ok(isTwoHanded(pick(t)), `${t} is two-handed`);
+  for (const t of ['sword', 'mace', 'dagger', 'parang', 'toya', 'crossbow', 'staff']) assert.ok(!isTwoHanded(pick(t)), `${t} is one-handed`);
+  globalThis.localStorage = fakeStorage(); clearSave();
+  // A two-handed class starts without a shield; a one-handed one still gets one.
+  const sam = new Game(); sam.start(); sam.chooseClass('samurai');
+  assert.equal(typeOf(sam.equipment.get('weapon')), 'katana'); assert.equal(sam.equipment.get('shield'), null);
+  const sw = new Game(); sw.start(); sw.chooseClass('swordsman');
+  assert.equal(sw.equipment.get('shield'), 'wooden_shield');
+  // A shield can't go on while a two-hander is held...
+  sam.inventory.add('wooden_shield', 1);
+  sam.equipItem(sam.inventory.slots.findIndex((s) => s?.id === 'wooden_shield'));
+  assert.equal(sam.equipment.get('shield'), null);
+  assert.ok(sam.inventory.count('wooden_shield') === 1);
+  // ...and equip-best leaves it in the pack.
+  sam.equipBest(); assert.equal(sam.equipment.get('shield'), null);
+  // A one-handed secondary (the parang) frees a hand for it; going back to the katana puts the shield away.
+  const parang = pick('parang');
+  sam.inventory.add(parang, 1); sam.equipment.set('weapon', parang);
+  sam.equipItem(sam.inventory.slots.findIndex((s) => s?.id === 'wooden_shield'));
+  assert.equal(sam.equipment.get('shield'), 'wooden_shield');
+  const katana = pick('katana'); sam.inventory.add(katana, 1);
+  sam.equipItem(sam.inventory.slots.findIndex((s) => s?.id === katana));
+  assert.equal(sam.equipment.get('weapon'), katana);
+  assert.equal(sam.equipment.get('shield'), null); assert.equal(sam.inventory.count('wooden_shield'), 1, 'back in the pack, not lost');
+  // An old save holding a shield with a two-hander loads with the shield in the pack.
+  sam.equipment.set('shield', 'wooden_shield'); sam.inventory.remove('wooden_shield', 1); saveGame(sam);
+  const again = new Game(); again.start();
+  assert.equal(again.equipment.get('shield'), null); assert.equal(again.inventory.count('wooden_shield'), 1);
+  clearSave();
+});
