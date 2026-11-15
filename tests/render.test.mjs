@@ -324,3 +324,22 @@ test('HUD orbs keep the sticker skin: no dark-skin neon colours in the orb code'
   }
   assert.match(orbCode, /setProperty\('--fill'/, 'orbs report their fill level to CSS');
 });
+
+test('the Lancer only pierces: the spear never swings in an arc, it draws back and thrusts straight', async () => {
+  const { heroRigPose } = await import('../src/render/heroRig.js');
+  const gait = { move: 0, phase: 0 };
+  const idle = heroRigPose('lancer', gait, 0, -1).sword;
+  let minReach = 0, maxReach = 0;
+  for (let k = 0; k <= 1.0001; k += 0.02) {
+    const p = heroRigPose('lancer', gait, 0, k);
+    assert.ok(Math.abs(p.sword - idle) < 1e-9, `no rotation at ${k.toFixed(2)}`);
+    minReach = Math.min(minReach, p.reach); maxReach = Math.max(maxReach, p.reach);
+  }
+  assert.ok(minReach < -1, 'draws back first');
+  assert.ok(maxReach > 10, 'then drives forward');
+  assert.ok(heroRigPose('lancer', gait, 0, 0.55).strike > 0.99, 'the spear stays levelled through the jab (no upright ghost)');
+  assert.ok(Math.abs(heroRigPose('lancer', gait, 0, 1).reach) < 0.5, 'and comes back to rest');
+  // Other polearms still swing.
+  const h = (k) => heroRigPose('halberdier', gait, 0, k).sword;
+  assert.ok(Math.abs(h(0.6) - h(0)) > 0.1, 'the halberd still swings');
+});

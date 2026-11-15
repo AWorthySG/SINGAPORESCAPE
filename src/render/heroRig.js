@@ -64,6 +64,17 @@ export function heroRigPose(classId, gait, time, swing = -1, dualWield = false) 
     pose.back = -cross * 1.3 - pose.step * 0.3;
     pose.strike = punch;
     pose.reach = punch * 5;
+  } else if (classId === 'lancer') {
+    // A spear only pierces: no swinging arc at all. The spear levels into the
+    // thrust at once, draws back a touch, drives straight forward, then returns.
+    // Levelled for the whole attack: in at once, out only at the very end.
+    const ready = active ? smooth(swing / 0.1) * (1 - smooth((swing - 0.82) / 0.18)) : 0;
+    const draw = pulse(0, 0.28, 0.46);        // a short draw-back...
+    const thrust = pulse(0.3, 0.5, 1);        // ...then the jab and recovery
+    pose.sword = pose.step * 0.05;            // the upright spear never rotates
+    pose.back = -pose.step * 0.2 + thrust * 0.25;
+    pose.strike = ready;
+    pose.reach = -draw * 4 + thrust * 13;     // toward the spear's point
   } else if (ATTACKS[classId]) {
     const profile = ATTACKS[classId];
     const wind = pulse(0, profile.wind, profile.hit);
