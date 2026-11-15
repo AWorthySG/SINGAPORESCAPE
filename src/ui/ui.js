@@ -195,7 +195,8 @@ export class UI {
     // Bus subscriptions.
     this.bus.on('tick', () => { this.renderAutoBattle(); this.updateBossBar(); this.updateDayNight(); this.renderTracker(); this._tipsTick(); });
     this.bus.on('inventory', () => this.scheduleInventory());
-    this.bus.on('equipment', () => { this.renderEquipment(); this.renderCombatPanel(); this.scheduleInventory(); });
+    // Gear changes come in bursts (every worn piece gains mastery on a kill), so redraw once a frame.
+    this.bus.on('equipment', () => { this._soon('equipment', () => this.renderEquipment()); this._soon('combat', () => this.renderCombatPanel()); this.scheduleInventory(); });
     // Busy events (every hit gives XP, adrenaline, rhythm) only mark a panel to
     // redraw; _soon redraws it once on the next frame (the Skills list at most
     // ~3 times a second), instead of rebuilding it for every single hit.
@@ -213,7 +214,7 @@ export class UI {
     this.bus.on('hp', () => this._soon('hp', () => this.renderHp()));
     this.bus.on('run', () => this.renderRun());
     this.bus.on('spec', () => this.renderSpec());
-    this.bus.on('equipment', () => { this.renderSpec(); this.renderAbilities(); });
+    this.bus.on('equipment', () => { this._soon('spec', () => this.renderSpec()); this._soon('abilities', () => this.renderAbilities()); });
     this.bus.on('adrenaline', () => this._soon('abilities', () => this.renderAbilities(), 100));
     this.bus.on('ability', () => this._soon('abilities', () => this.renderAbilities()));
     this.bus.on('autobattle', () => this.renderAutoBattle());
@@ -227,7 +228,7 @@ export class UI {
     this.bus.on('xpbonus', () => this.renderTracker());
     this.bus.on('spell', () => this.renderCombatPanel());
     this.bus.on('mercs', () => this.renderCombatPanel());
-    this.bus.on('achievement', () => this.renderAchievementPanel());
+    this.bus.on('achievement', () => this._soon('achievements', () => this.renderAchievementPanel()));
     this.bus.on('slayer', () => { this._refreshModalIfOpen(['slayer', 'slayerRewards']); this.renderTracker(); });
     this.bus.on('bank', () => this._refreshModalIfOpen(['bank']));
 
@@ -2612,11 +2613,33 @@ export class UI {
   }
 
   onLevelUp({ skill, level }) {
-    const sk = SKILLS.find((s) => s.id === skill);
-    this.addChat(`Congratulations, you just advanced a ${sk.name} level! You are now level ${level}.`, 'level');
-    this.showBanner(`<span class="big">Level up!</span>Your ${sk.name} is now level ${level}.`);
-    this.renderSkills();
+    // A big kill (a boss) can give dozens or hundreds of levels at once: gather
+    // them and announce each skill once a frame, rather than redrawing the
+    // Skills panel and posting a chat line for every single level (that froze
+    // the game for a moment on boss and champion kills).
+    const q = this._levelUps || (this._levelUps = new Map());
+    const e = q.get(skill);
+    q.set(skill, { from: e ? e.from : level - 1, to: level });
+    this._soon('levelups', () => this._flushLevelUps());
+    this._soon('skills', () => this.renderSkills());
     this.scheduleInventory();   // a new level can unlock gear (green upgrade arrows)
+  }
+
+  _flushLevelUps() {
+    const q = this._levelUps;
+    if (!q?.size) return;
+    let last = null;
+    for (const [skill, { from, to }] of q) {
+      const sk = SKILLS.find((s) => s.id === skill);
+      const n = to - from;
+      this.addChat(n > 1
+        ? `Congratulations, you just advanced ${n} ${sk.name} levels! You are now level ${to}.`
+        : `Congratulations, you just advanced a ${sk.name} level! You are now level ${to}.`, 'level');
+      last = { sk, n, to };
+    }
+    const more = q.size > 1 ? ` (and ${q.size - 1} more skill${q.size > 2 ? 's' : ''})` : '';
+    this.showBanner(`<span class="big">Level up!</span>Your ${last.sk.name} is now level ${last.to}${last.n > 1 ? ` (+${last.n})` : ''}${more}.`);
+    q.clear();
   }
 
   showBanner(html) {
