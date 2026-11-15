@@ -2779,6 +2779,22 @@ function scenery(ctx, objId, cx, cy, time) {
 }
 
 // ================= GROUND ITEMS =================
+const _groundIcons = new Map();
+function groundIcon(id, img, s) {
+  let c = _groundIcons.get(id);
+  if (c !== undefined) return c;
+  c = null;
+  if (typeof document !== 'undefined') {
+    const px = s * 2;   // twice the size, so it stays sharp on high-DPI screens
+    c = document.createElement('canvas'); c.width = c.height = px;
+    const g = c.getContext('2d');
+    if (img.tint) g.filter = img.tint;
+    g.imageSmoothingQuality = 'high';
+    g.drawImage(img, 0, 0, px, px);
+  }
+  _groundIcons.set(id, c);
+  return c;
+}
 export function drawGroundItem(ctx, id, cx, cy) {
   // soft pickup disc + hand-drawn vector icon (matches the inventory art)
   glow(ctx, cx, cy, 12, 'rgba(255,225,140,0.22)');
@@ -2793,9 +2809,15 @@ export function drawGroundItem(ctx, id, cx, cy) {
     const st = isSvg ? null : bakeSticker(`item|${id}`, ITEM_BOX, (g) => g.drawImage(img, -11, -11, 22, 22));
     if (st) ctx.drawImage(st, cx + ITEM_BOX.x0, cy + ITEM_BOX.y0 - 1, ITEM_BOX.w, ITEM_BOX.h);
     else {
-      if (img.tint) ctx.filter = img.tint;
-      ctx.drawImage(img, cx - s / 2, cy - s / 2 - 1, s, s);
-      if (img.tint) ctx.filter = 'none';
+      // Shrink the 160px art (and apply any tint) once into a small bitmap, so a
+      // pile of drops (a boss scatters 20+) doesn't rescale and filter every frame.
+      const small = groundIcon(id, img, s);
+      if (small) ctx.drawImage(small, cx - s / 2, cy - s / 2 - 1, s, s);
+      else {
+        if (img.tint) ctx.filter = img.tint;
+        ctx.drawImage(img, cx - s / 2, cy - s / 2 - 1, s, s);
+        if (img.tint) ctx.filter = 'none';
+      }
     }
   } else {
     ctx.fillStyle = 'rgba(255,235,170,0.6)'; circle(ctx, cx, cy, 5); ctx.fill();
