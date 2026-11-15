@@ -3212,6 +3212,9 @@ export class UI {
       const mk = (label, fn) => { const d = document.createElement('div'); d.className = 'dialogue-option'; d.textContent = label; d.addEventListener('click', fn); opts.appendChild(d); };
       if (!t) mk('Give me a Slayer task', () => g.assignSlayerTask());
       else mk('Cancel my current task', () => g.cancelSlayerTask());
+      // Auto quest can run Slayer tasks back to back by itself.
+      if (g.autoQuest && g.autoQuestId === 'slayer') mk('Stop doing Slayer tasks automatically', () => { g.toggleAutoQuest(false); render(body); });
+      else mk('Auto quest: do Slayer tasks for me', () => { g.autoSlayer(); this.closeModal(); });
       mk('Slayer rewards shop', () => this.openSlayerRewards());
       mk('Goodbye', () => this.closeModal());
       body.appendChild(opts);

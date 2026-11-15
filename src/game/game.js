@@ -3935,7 +3935,7 @@ export class Game {
    *  your level that isn't fighting you (bosses, champions, attackers, a chosen
    *  monster type or a quest hunt always count). */
   _autoIsWeak(n) {
-    if (n.def.boss || n.champion || n.target === this.player || this.autoCfg.target || this._questTarget) return false;
+    if (n.def.boss || n.champion || n.target === this.player || this.autoCfg.target || this._questTarget || this._questFamily) return false;
     const inWild = !!this.world.zoneAt(this.player.x, this.player.y)?.wilderness;
     return (n.def.level || 1) < this._autoBandLo(inWild);
   }
@@ -4157,6 +4157,7 @@ export class Game {
       if ((this._autoSkip.get(n.entityId) || 0) > this.tickCount) continue;
       if (this.autoCfg.target && n.npcId !== this.autoCfg.target) continue;   // only the chosen monster type
       if (this._questTarget && n.npcId !== this._questTarget) continue;       // a quest hunt (e.g. rats for Pest Control)
+      if (this._questFamily && n.def.family !== this._questFamily) continue;  // a Slayer task's monster kind
       // Bosses within reach that you could beat are taken on ahead of everything else.
       // Story bosses (fixed spawns like the Lion of Light) and bosses too strong
       // for you are left for you to take on yourself.
@@ -4180,7 +4181,7 @@ export class Game {
       // little above your level, so a hunt is worth the walk.
       if (d > 10 && lvl > cl + 20) continue;
       // Monsters well below your level rank behind any in your level band.
-      const weak = !this.autoCfg.target && !this._questTarget && lvl < this._autoBandLo(inWild);
+      const weak = !this.autoCfg.target && !this._questTarget && !this._questFamily && lvl < this._autoBandLo(inWild);
       if (!inWild && wildZone(n.x, n.y)) continue;
       if (!first) { cands.push({ n, score: d + (weak ? 2000 : 0), tier: weak ? 2000 : 0 }); continue; }
       // Anything within 8 tiles first, then the rest. Among those, a monster in
@@ -5081,6 +5082,13 @@ export class Game {
   // ---------------- Quest guide ----------------
   /** What a quest needs next, and where: { text, kind: 'npc'|'obj'|'hunt'|'boss'|'none', ... }. */
   questGuide(id) {
+    // Slayer isn't a quest in the journal, but auto quest can run tasks back to
+    // back: get one from the Slayer Master, hunt its monster kind, repeat.
+    if (id === 'slayer') {
+      const t = this.slayer.task;
+      return t ? { kind: 'hunt', family: t.family, text: `Slayer task: slay ${t.remaining} more ${t.name}` }
+        : { kind: 'npc', npcId: 'slayer_master', text: `Get a Slayer task from ${getNpc('slayer_master').name}` };
+    }
     const q = this.quests[id];
     if (!q) return { text: '', kind: 'none' };
     const inv = (item) => this.inventory.count(item);
@@ -5178,6 +5186,7 @@ export class Game {
     const nearest = (list) => list.reduce((b, o) => (!b || d2(o) < d2(b) ? o : b), null);
     if (!p.alive || g.kind === 'none') { if (g.text && g.text !== 'Complete') this.msg(g.text + '.', 'system'); return false; }
     this._questTarget = null;
+    this._questFamily = null;
     this._questBoss = false;
     this._pathBudget = 150000;       // quest trips can cross the whole map
     let ok = false, tooStrong = false, wildOnly = false;
@@ -5195,11 +5204,14 @@ export class Game {
         const cl = this.fightLevel();
         const fits = g.kind === 'boss'
           ? (n) => n.def.boss && !n.def.fixed && this._autoCanBeat(n)   // the same can-beat check as auto battle
-          : g.target ? (n) => n.npcId === g.target : (n) => !n.def.boss && (n.def.level || 1) <= cl + 5;
+          : g.target ? (n) => n.npcId === g.target
+          : g.family ? (n) => !n.def.boss && n.def.family === g.family
+          : (n) => !n.def.boss && (n.def.level || 1) <= cl + 5;
         const mob = nearest(this.npcs.filter((n) => n.alive && n.attackable && !n.temporary && fits(n)
           && (!this.world.zoneAt(n.x, n.y)?.wilderness || this.world.zoneAt(here.x, here.y)?.wilderness)));
         if (mob) {
           this._questTarget = g.target || null;
+          this._questFamily = g.family || null;
           // Bosses are taken on for this quest trip only, not switched on for good.
           this._questBoss = g.kind === 'boss';
           if (this._mrtHopToward(mob)) this.walkToFar({ x: mob.x, y: mob.y });
@@ -5217,7 +5229,7 @@ export class Game {
     this.msg(ok ? `Quest: ${g.text}.` : tooStrong ? `Quest: ${g.text}, but every boss is too strong for you for now. Train up first.`
       : wildOnly ? `Quest: ${g.text}, but the only boss you can beat roams the Wilderness. Head there yourself.`
       : `Quest: ${g.text}, but I can't find the way there.`, 'system');
-    if (ok && AUTO_QUEST_ACTIONS[id]) this.autoQuestId = id;   // auto quest works on the quest you last chose
+    if (ok && (AUTO_QUEST_ACTIONS[id] || id === 'slayer')) this.autoQuestId = id;   // auto quest works on the quest you last chose
     return ok;
   }
 
@@ -5228,10 +5240,20 @@ export class Game {
   autoQuestPick() {
     const can = (id) => AUTO_QUEST_ACTIONS[id] && this.quests[id] && this.quests[id].state !== 'done' && this.questGuide(id).kind !== 'none'
       && (id === this.autoQuestId || !this._autoQuestSkip?.has(id));
+    if (this.autoQuestId === 'slayer') return 'slayer';   // Slayer tasks never run out
     if (this.autoQuestId && can(this.autoQuestId)) return this.autoQuestId;
     // Finish what you have already started before taking on anything new.
     return QUESTS.find((d) => this.quests[d.id]?.state === 'active' && can(d.id))?.id
       || QUESTS.find((d) => can(d.id))?.id || null;
+  }
+
+  /** Put auto quest on Slayer: fetch a task, hunt it down, fetch the next. */
+  autoSlayer() {
+    this.autoQuestId = 'slayer';
+    this._autoQuestStep = null;
+    if (!this.autoQuest) this.toggleAutoQuest(true);
+    this.msg('Auto quest is on Slayer: it fetches a task from the Slayer Master, hunts it down and comes back for the next one.', 'system');
+    this.bus.emit('autoquest');
   }
 
   toggleAutoQuest(on = !this.autoQuest, why = '') {
@@ -5244,8 +5266,10 @@ export class Game {
       // Hand back a fight auto quest started for you.
       this._autoQuestFight = false;
       this._questTarget = null;
+      this._questFamily = null;
       if (this.autoBattle) this.toggleAutoBattle(false);
     }
+    if (!this.autoQuest) this._questFamily = null;   // auto battle goes back to fighting anything
     this.msg(this.autoQuest
       ? 'Auto quest on: you will start, work through and hand in your quests by yourself. Steer to pause.'
       : `Auto quest off${why ? `: ${why}` : '.'}`, 'system');
@@ -5256,6 +5280,7 @@ export class Game {
   autoQuestStatus() {
     if (!this.autoQuest) return 'Off';
     const id = this.autoQuestPick();
+    if (id === 'slayer') return this.slayer.task ? `Slayer: ${this.slayer.task.remaining} ${this.slayer.task.name}` : 'Slayer task';
     return id ? QUESTS.find((d) => d.id === id)?.name || id : 'No quest';
   }
 
@@ -5283,6 +5308,7 @@ export class Game {
     if (this._autoQuestFight && !fighting) {
       this._autoQuestFight = false;
       this._questTarget = null;
+      this._questFamily = null;
       if (this.autoBattle) this.toggleAutoBattle(false);
     }
     if (fighting && this.autoBattle) return;          // auto battle is on the job
@@ -5291,8 +5317,9 @@ export class Game {
     const a = p.action;
     if (a && (GATHER_ACTIONS.has(a.type) || a.type === 'hunt') && (g.kind !== 'obj' || a.obj?.objId !== g.objId)) { p.clearAction(); p.stop(); }
     if (p.action || p.isMoving) return;               // busy: wait until idle
-    const name = QUESTS.find((d) => d.id === id)?.name || id;
-    const step = `${id}:${g.text}`;
+    const name = id === 'slayer' ? 'Slayer' : QUESTS.find((d) => d.id === id)?.name || id;
+    // (A Slayer task's text counts down every kill; keep the step steady while hunting.)
+    const step = id === 'slayer' ? `slayer:${g.kind}:${g.family || ''}` : `${id}:${g.text}`;
     if (step !== this._autoQuestStep) {
       this._autoQuestStep = step;
       this._autoQuestStuck = 0;
@@ -5360,6 +5387,7 @@ export class Game {
   /** Auto quest reached a quest NPC: start the quest, hand it in, or (for the
    *  Mystic's Trial) buy the death runes it asks for. */
   _autoQuestTalk(id, npc) {
+    if (id === 'slayer') { if (!this.slayer.task && npc.npcId === 'slayer_master') this.assignSlayerTask(); return; }
     const q = this.quests[id];
     const acts = AUTO_QUEST_ACTIONS[id];
     if (!q || !acts) return;

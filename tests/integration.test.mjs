@@ -6458,3 +6458,34 @@ test('auto gather takes turns between several kinds of node (copper and tin toge
   g.toggleAutoGather(false); g.toggleAutoGather(true);
   assert.deepEqual(g.autoGatherKinds, []);
 });
+
+test('auto quest can run Slayer tasks: fetch one, hunt only its monster kind, fetch the next', () => {
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('swordsman');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  // No task yet: the guide sends you to the Slayer Master, and talking there gets one.
+  assert.equal(g.questGuide('slayer').kind, 'npc');
+  assert.equal(g.questGuide('slayer').npcId, 'slayer_master');
+  g.autoSlayer();
+  assert.ok(g.autoQuest); assert.equal(g.autoQuestPick(), 'slayer');
+  const master = g.npcs.find((n) => n.npcId === 'slayer_master');
+  g._autoQuestTalk('slayer', master);
+  const t = g.slayer.task;
+  assert.ok(t, 'a task was handed out');
+  // With a task, the guide is a hunt of that family, and auto battle keeps to it.
+  const guide = g.questGuide('slayer');
+  assert.equal(guide.kind, 'hunt'); assert.equal(guide.family, t.family);
+  assert.match(g.autoQuestStatus(), /Slayer/);
+  const mob = g.npcs.find((n) => n.alive && n.attackable && !n.def.boss && n.def.family === t.family);
+  assert.ok(mob, 'there is a monster of the task’s kind');
+  g._questFamily = t.family;
+  const other = g.npcs.find((n) => n.alive && n.attackable && !n.def.boss && n.def.family && n.def.family !== t.family);
+  // Finishing the task sends it back to the master for the next one.
+  for (let i = 0; i < t.amount; i++) g.progressSlayer(mob);
+  assert.equal(g.slayer.task, null);
+  assert.equal(g.questGuide('slayer').kind, 'npc');
+  assert.equal(g.autoQuestPick(), 'slayer', 'still on Slayer: tasks never run out');
+  assert.ok(other, 'other kinds exist');
+  g.toggleAutoQuest(false);
+  assert.equal(g._questFamily, null);
+});
