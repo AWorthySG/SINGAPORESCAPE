@@ -10,6 +10,7 @@ import { SAVE_KEY } from '../src/config.js';
 import { ITEMS } from '../src/data/items.js';
 import { getNpc, ALL_BOSS_IDS } from '../src/data/npcs.js';
 import { chebyshev } from '../src/core/utils.js';
+import { findPath } from '../src/engine/pathfinding.js';
 import { CROP_BY_SEED, cropFor } from '../src/data/trades.js';
 import { playerAttackVsNpc } from '../src/game/combat.js';
 
@@ -6561,4 +6562,52 @@ test('smelting is instant: the furnace turns every ore you carry into bars at on
   assert.equal(g.inventory.count('copper_ore'), 0, 'all the ore used at once');
   assert.ok(g.inventory.count('bronze_bar') >= 20, `${g.inventory.count('bronze_bar')} bronze bars in one go`);
   assert.equal(msgs.filter((t) => /^You smelt /.test(t)).length, 1, 'one summary line, not one per bar');
+});
+
+function findPathLen(g, t) {
+  return findPath(g.pathCfg(), g.playerTile(), t, { reachAdjacent: true, maxNodes: 150000 }).length;
+}
+
+test('auto battle travels to a boss across the map, and learns which bosses it can beat', () => {
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('swordsman');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.autoCfg.bosses = true;
+  const p = g.player;
+  // A beatable boss 60 tiles away, and nothing else to fight: auto battle sets off for it.
+  const boss = beatableBoss(g.npcs.find((n) => n.def.boss && !n.def.fixed && !g.world.zoneAt(n.x, n.y)?.wilderness), g.fightLevel());
+  // A free tile 50-70 tiles away, outside the Wilderness, that you can walk to.
+  let tile = null;
+  for (const [dx, dy] of [[0, 60], [0, -60], [-60, 0], [60, 0], [45, 45], [-45, 45], [45, -45], [-45, -45]]) {
+    const t = g._nearestFree(p.x + dx, p.y + dy);
+    if (t && !g.world.zoneAt(t.x, t.y)?.wilderness && findPathLen(g, t) > 0) { tile = t; break; }
+  }
+  assert.ok(tile, 'somewhere to put the boss');
+  boss.x = boss.tx = boss.spawnX = tile.x; boss.y = boss.ty = boss.spawnY = tile.y;
+  g.npcs = g.npcs.filter((n) => n === boss || !n.attackable);
+  g.inventory.remove('coins', g.inventory.count('coins'));   // walk, no MRT, to keep the test simple
+  g.toggleAutoBattle(true);
+  const d0 = chebyshev(p.x, p.y, boss.x, boss.y);
+  // (A boss heals back to full out of a fight, so keep this one weak for the test.)
+  for (let i = 0; i < 1500 && boss.alive; i++) { g.update(600); if (boss.alive) { boss.maxHp = 30; boss.hp = Math.min(boss.hp, 30); } }
+  assert.ok(!boss.alive || chebyshev(p.x, p.y, boss.x, boss.y) < d0 - 30, `it went after the boss (${chebyshev(p.x, p.y, boss.x, boss.y)} of ${d0} tiles left)`);
+  assert.ok(!boss.alive, 'and beat it');
+  assert.equal(g.bossRecord.beat[boss.npcId], true, 'a beaten boss is remembered');
+  // A boss that killed you is left alone until you are 10 fight levels stronger.
+  const other = g.npcs.find((n) => n !== boss) || boss;
+  const id = 'some_boss';
+  const fake = { ...boss, npcId: id, def: { ...boss.def, level: 1 }, hp: 30, maxHp: 30, entityId: 99999 };
+  g.bossRecord.lost[id] = g.fightLevel();
+  assert.equal(g._autoCanBeat(fake), false, 'skipped right after losing to it');
+  g.bossRecord.lost[id] = g.fightLevel() - 10;
+  assert.equal(g._autoCanBeat(fake), true, 'tried again 10 fight levels later');
+  // A beaten boss is taken on even if the quick guess would say no.
+  const strong = { ...boss, def: { ...boss.def, level: 99999, maxHit: 99999 }, hp: 1e12, maxHp: 1e12 };
+  assert.equal(g._autoCanBeat(strong), true);
+  // The record survives a save and reload.
+  saveGame(g);
+  const again = new Game(); again.start();
+  assert.equal(again.bossRecord.beat[boss.npcId], true);
+  assert.equal(typeof again.bossRecord.lost[id], 'number');
+  assert.ok(other);
 });

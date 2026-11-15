@@ -176,6 +176,10 @@ const RIFLE_PIERCE_TILES = 10;
 // its path (and beside the target), not just monsters squarely on the line.
 const RIFLE_PIERCE_WIDTH = 1;
 const CHAMPION_STACK_MULT = 1;
+// Auto battle: after a boss kills you, it is skipped until you are this many fight levels stronger.
+const BOSS_RETRY_LEVELS = 10;
+// Auto battle travels to bosses up to this far away (in tiles), using the MRT when it helps.
+const BOSS_SEEK_TILES = 220;
 // Auto gather can take turns between up to this many kinds of node.
 const AUTO_GATHER_KINDS = 6;
 // How each melee weapon's cleave moves (and looks): spears pierce in a line
@@ -355,6 +359,9 @@ export class Game {
     this.autoQuestId = null;      // the quest auto quest is on (the one you last pressed Go on)
     this._autoSkip = new Map();   // npc entityId -> tick until which it is skipped (unreachable)
     this._autoSkipSaid = new Set();   // bosses auto battle has said it is skipping as too strong
+    // What auto battle has learned about each kind of boss: beaten (take it on
+    // again any time) or lost to (at what fight level). Saved.
+    this.bossRecord = { beat: {}, lost: {} };
     this._questBoss = false;      // a quest boss step (journal "Go") lets auto battle take on bosses for that trip
     this._autoLast = null;
     this.abilityCd = {};          // ability id -> ticks until usable again
@@ -2709,6 +2716,8 @@ export class Game {
       for (const x of killXp(skill, owed)) this.skills.addXp(x.skill, x.xp * m); }
     if (npc.def.boss) {
       this.bossKills++;
+      this.bossRecord.beat[npc.npcId] = true;   // auto battle will take it on again
+      delete this.bossRecord.lost[npc.npcId];
       // A boss kill is a big payday: bonus XP in your combat style and Hitpoints.
       const xp = Math.round((npc.def.level || 1) * BOSS_XP_PER_LEVEL * this.combatXpMult());
       const mode = this.combatMode();
@@ -3774,9 +3783,19 @@ export class Game {
 
   playerDeath() {
     this.msg('Oh dear, you are dead!', 'combat');
+    // Killed by a boss you hadn't beaten yet: auto battle steers clear of it for a while.
+    {
+      const p0 = this.player, a = p0.action;
+      const boss = (a?.type === 'attack' && a.npc?.def.boss && a.npc) || this.nearbyNpcs().find((n) => n.alive && n.def.boss && n.target === p0);
+      if (boss && !this.bossRecord.beat[boss.npcId]) {
+        this.bossRecord.lost[boss.npcId] = this.fightLevel();
+        this.msg(`Auto battle will leave ${boss.name} alone until you are ${BOSS_RETRY_LEVELS} fight levels stronger.`, 'system');
+      }
+    }
     this._dodging = false;
     this.killStreak = 0; this.bus.emit('xpbonus');
     if (this.autoBattle) this.toggleAutoBattle(false);
+    this._autoBossTrip = null;
     if (this.autoQuest) this.toggleAutoQuest(false, 'you died.');
     this.banner('<span class="big">Oh dear, you are dead!</span>Respawning in town...');
     const p = this.player;
@@ -3950,7 +3969,17 @@ export class Game {
     //    when nothing in your level band can be reached: otherwise auto battle
     //    walks you to the nearest monsters of your level, fighting anything
     //    that attacks you on the way.
-    const target = this._autoPickTarget();
+    let target = this._autoPickTarget();
+    // On a trip to a boss: only stop for the boss, a champion or something
+    // attacking you, not every monster along the way.
+    const trip = this._autoBossTrip;
+    if (trip && (!trip.npc.alive || this.tickCount > trip.until)) this._autoBossTrip = null;
+    if (this._autoBossTrip && target && !target.def.boss && !target.champion && target.target !== p) {
+      if (p.isMoving) return;
+      target = null;
+    }
+    // "Bosses & champions first", and none in reach: go and find a boss on the map.
+    if (!(target && (target.def.boss || target.champion)) && this._autoSeekBoss()) return;
     const weakPick = target && this._autoIsWeak(target);
     if ((!target || weakPick) && this._autoTravel && p.isMoving) return;   // still on the way
     this._autoTravel = null;
@@ -4001,6 +4030,12 @@ export class Game {
    *  are left out) and lean towards leaving a boss alone. */
   _autoCanBeat(n) {
     const cl = this.fightLevel(), def = n.def;
+    // Learn from results: the quick guess below can't see a boss's signature
+    // moves, which do most of the killing. A boss you've beaten is fair game
+    // from then on; one that killed you waits until you're BOSS_RETRY_LEVELS stronger.
+    if (this.bossRecord.beat[n.npcId]) return true;
+    const lost = this.bossRecord.lost[n.npcId];
+    if (lost && cl < lost + BOSS_RETRY_LEVELS) return false;
     if ((def.level || 1) > Math.max(cl + 5, Math.round(cl * 1.25))) return false;
     const mode = this.combatMode(), pm = this.prayerMult();
     let max;
@@ -4020,7 +4055,20 @@ export class Game {
     // Your blows always land, for a quarter to all of the max hit (5/8 on average);
     // crits, abilities and perks roughly treble that in a real fight.
     // Your attack interval is in 0.3s beats; its attack speed is in 0.6s ticks.
-    max *= armourMult(armourOf(def, { champion: n.champion, fightLevel: cl }), this.equipment.bonuses().pierce, weaknessOf(def) === (mode === 'dance' ? 'melee' : mode));   // its armour
+    const weak = weaknessOf(def) === (mode === 'dance' ? 'melee' : mode);
+    max *= armourMult(armourOf(def, { champion: n.champion, fightLevel: cl }), this.equipment.bonuses().pierce, weak);   // its armour
+    // ...and every lasting damage bonus a real hit gets (see _offensiveMods): its
+    // weakness and your weapon's race match-up, stats, passive perks and boss
+    // damage, Physical / Magic damage bonus %, and any class buff running. Leaving
+    // these out made auto battle think it couldn't beat bosses it easily could.
+    const gb = this.equipment.bonuses(), perk = this.perkMods(mode);
+    if (weak) max *= WEAKNESS_BONUS.dmg;
+    const race = this.raceMatchup(n);
+    if (race === 'strong') max *= RACE_BONUS.dmg; else if (race === 'weak') max *= RACE_PENALTY.dmg;
+    max *= 1 + (this.attrs[attrForMode(mode)] || 0) * DMG_PER_POINT;
+    max *= 1 + (perk.dmg || 0) + this.learning.perks().dmg + (perk.boss || 0) + gb.bossDmg / 100;
+    max *= 1 + (mode === 'magic' ? gb.magPct : gb.atkPct) / 100;
+    max *= 1 + this.buffMod('dmg');
     const myDps = 3 * max * 0.625 / (Math.max(0.1, this.attackInterval()) * COMBAT_BEAT_MS / 1000);
     const { atkRoll, defRoll, max: theirMax } = npcAttackVsPlayer(def, this.skills, this.equipment, this.player.style);
     const theirDps = hitChance(atkRoll, defRoll * pm.def) * theirMax * 0.625 * (1 - this.protectFactor())
@@ -4028,6 +4076,46 @@ export class Game {
     const myTime = (n.hp || n.maxHp || 1) / Math.max(0.01, myDps);
     const theirTime = this.maxHp() / Math.max(0.01, theirDps);
     return myTime <= 1800 && theirTime >= 20;
+  }
+
+  /** Auto battle with Bosses on and "Bosses & champions first": head for the
+   *  nearest boss on the map it would take on (a story boss, one in the
+   *  Wilderness when you aren't, or one that beat you recently is left
+   *  alone), riding the MRT on long trips. True while a trip is under way. */
+  _autoSeekBoss() {
+    const p = this.player;
+    if (!this.autoCfg.bosses || this.autoCfg.priority === false || this.autoCfg.target || this._questTarget || this._questFamily) return false;
+    if (this._autoBossTrip) {
+      if (p.isMoving) return true;
+      // Arrived (or stopped short): within reach, the normal pick takes over.
+      const n = this._autoBossTrip.npc;
+      if (chebyshev(p.x, p.y, n.x, n.y) <= 20) { this._autoBossTrip = null; return false; }
+    }
+    if (this.tickCount < (this._autoBossNext || 0)) return false;
+    this._autoBossNext = this.tickCount + 15;   // a map-wide look, so not every tick
+    const inWild = !!this.world.zoneAt(p.x, p.y)?.wilderness;
+    let best = null, bd = Infinity;
+    for (const n of this.npcs) {
+      if (!n.alive || !n.def.boss || !n.attackable || n.def.fixed || n.temporary) continue;
+      const d = chebyshev(p.x, p.y, n.x, n.y);
+      if (d > BOSS_SEEK_TILES || d >= bd) continue;
+      if (!inWild && this.world.zoneAt(n.x, n.y)?.wilderness) continue;
+      if ((this._autoSkip.get(n.entityId) || 0) > this.tickCount) continue;
+      if (!this._autoCanBeat(n)) continue;
+      best = n; bd = d;
+    }
+    if (!best || bd <= 20) return false;   // none, or already close: the normal pick handles it
+    this._pathBudget = 150000;
+    let hopped = false;
+    try {
+      hopped = this._mrtHopToward(best);
+      if (!hopped) this.walkToFar({ x: best.x, y: best.y });
+    } finally { this._pathBudget = 0; }
+    if (!hopped && !p.isMoving) { this._autoSkip.set(best.entityId, this.tickCount + 200); return false; }   // no way there
+    if (hopped) this._autoBossNext = this.tickCount;   // off the train: walk the rest next tick
+    if (this._autoBossTrip?.npc !== best) this.msg(`Auto battle: heading for ${best.name} (level ${best.def.level}).`, 'system');
+    this._autoBossTrip = { npc: best, until: this._autoBossTrip?.npc === best ? this._autoBossTrip.until : this.tickCount + 1500 };
+    return true;
   }
 
   /** Auto battle says once per boss when it walks past one it can't beat. */
