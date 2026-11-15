@@ -6236,3 +6236,33 @@ test('a save handed over from a-worthy.com in the link is imported once (asking 
   assert.equal(receiveTransfer(loc(''), () => true), false);
   suppressSaves(false);
 });
+
+test('the old github.io address forwards players, with their save, to adventure.a-worthy.com', async () => {
+  const { forwardToNewHome, receiveTransfer, NEW_HOME } = await import('../src/game/transfer.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseStartingStyle('melee');
+  g.inventory.add('coins', 2468); saveGame(g);
+  const coins = g.inventory.count('coins');
+  const at = (hostname) => ({ hostname, went: null, replace(u) { this.went = u; } });
+  // Anywhere else (the new home, localhost, tests): stays put.
+  for (const h of ['adventure.a-worthy.com', 'localhost', undefined]) {
+    const l = at(h);
+    assert.equal(forwardToNewHome(l), false); assert.equal(l.went, null);
+  }
+  // On github.io: off to the new home with the save in the link.
+  const old = at('aworthysg.github.io');
+  assert.equal(forwardToNewHome(old), true);
+  assert.ok(old.went.startsWith(NEW_HOME + '#transfer='), old.went);
+  // ...which the new home imports.
+  globalThis.localStorage = fakeStorage();
+  const there = { hash: new URL(old.went).hash, pathname: '/', search: '', reload() {} };
+  assert.equal(receiveTransfer(there, () => true), true);
+  suppressSaves(false);
+  const g2 = new Game(); g2.start();
+  assert.equal(g2.inventory.count('coins'), coins);
+  // No save on github.io: still forwarded, just without one.
+  clearSave();
+  const empty = at('aworthysg.github.io');
+  assert.equal(forwardToNewHome(empty), true);
+  assert.equal(empty.went, NEW_HOME);
+});

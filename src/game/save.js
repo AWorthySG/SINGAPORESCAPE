@@ -155,6 +155,17 @@ export function exportSaveCode(game) {
   return CODE_PREFIX + b64 + ':' + checksum(b64);
 }
 
+/** The save stored in this browser as a save code, without loading a game,
+ *  or null if there is none. Used to carry a player's save to the game's new address. */
+export function storedSaveCode() {
+  try {
+    const raw = storage()?.getItem(SAVE_KEY);
+    if (!raw) return null;
+    const b64 = toBase64(raw);
+    return CODE_PREFIX + b64 + ':' + checksum(b64);
+  } catch { return null; }
+}
+
 /** Replace the stored save with the one in a save code. Returns { ok, error }
  *  and never throws: a bad code leaves the stored save exactly as it was.
  *  The current save is kept under IMPORT_BACKUP_KEY first, and on success
