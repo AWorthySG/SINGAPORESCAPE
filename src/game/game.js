@@ -1743,7 +1743,7 @@ export class Game {
     dmgM *= 1 + (this.attrs[attrForMode(mode)] || 0) * DMG_PER_POINT;   // Strength / Intelligence / Dexterity
     dmgM *= 1 + (perk.dmg || 0) + this.learning.perks().dmg +   // English mastery: Eloquence
       ((npc.def.boss || npc.champion) ? (perk.boss || 0) + gb.bossDmg / 100 : (gb.mobDmg || 0) / 100);   // Cooking's perk: normal monsters
-    // Attack bonus % boosts physical damage (melee, ranged, whips); Magic bonus % boosts spells.
+    // Physical damage bonus % (atkPct) boosts melee, ranged and whips; Magic bonus % boosts spells.
     dmgM *= 1 + (mode === 'magic' ? gb.magPct : gb.atkPct) / 100;
     dmgM *= this._volley || 1;   // a volley of very fast attacks lands as one big hit
     dmgM *= 1 + this.buffMod('dmg');   // a class buff

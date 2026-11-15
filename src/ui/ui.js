@@ -832,7 +832,7 @@ export class UI {
       (b.crit ? `<div class="row"><span>Crit chance</span><span>+${b.crit}%</span></div>` : '') +
       (b.hp ? `<div class="row"><span>Bonus HP</span><span>+${b.hp}</span></div>` : '') +
       // The extra offensive stats, from armour families and gear.
-      [['atkPct', 'Attack bonus'], ['magPct', 'Magic bonus'], ['pierce', 'Armour pierce'], ['critDmg', 'Crit damage'], ['haste', 'Attack speed'], ['lifesteal', 'Lifesteal'], ['bossDmg', 'Boss damage']]
+      [['atkPct', 'Physical damage bonus'], ['magPct', 'Magic bonus'], ['pierce', 'Armour pierce'], ['critDmg', 'Crit damage'], ['haste', 'Attack speed'], ['lifesteal', 'Lifesteal'], ['bossDmg', 'Boss damage']]
         .map(([k, l]) => (b[k] ? `<div class="row off-stat"><span>${l}</span><span>+${b[k]}%</span></div>` : '')).join('') +
       // What your fighting levels add on top of your gear (see levelBonuses).
       (() => { const lb = levelBonuses({ attack: this.game.skills.attack, ranged: this.game.skills.ranged, magic: this.game.skills.magic, agility: this.game.skills.agility, dance: this.game.skills.danceLevel() });

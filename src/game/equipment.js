@@ -29,7 +29,7 @@ export const QUICK_WEAPON_SPEED = 0.7;
 // pierce adds that much damage (player hits always land), critDmg adds to critical hits,
 // haste shortens the time between attacks, lifesteal heals you by a share of
 // the damage you deal, and bossDmg adds damage against bosses and champions.
-// atkPct / magPct: 'Attack bonus %' (melee and ranged physical damage) and 'Magic bonus %' (spell damage).
+// atkPct / magPct: 'Physical damage bonus %' (melee and ranged) and 'Magic bonus %' (spell damage).
 export const OFFENCE_KEYS = ['pierce', 'critDmg', 'haste', 'lifesteal', 'bossDmg', 'atkPct', 'magPct'];
 // Attack speed (haste) has no cap: see hasteMult().
 // (No caps any more: the owner wants every offensive stat to keep paying off.

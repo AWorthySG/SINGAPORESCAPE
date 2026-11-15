@@ -8,7 +8,7 @@ export const STAT_LABELS = {
   attack: 'Attack', strength: 'Melee power', defence: 'Defence', ranged: 'Ranged',
   magic: 'Magic', magicStr: 'Magic dmg', dance: 'Dance', crit: 'Crit %', hp: 'Bonus HP',
   pierce: 'Armour pierce %', critDmg: 'Crit damage %', haste: 'Attack speed %', lifesteal: 'Lifesteal %', bossDmg: 'Boss damage %',
-  atkPct: 'Attack bonus %', magPct: 'Magic bonus %', prayer: 'Prayer',
+  atkPct: 'Physical damage bonus %', magPct: 'Magic bonus %', prayer: 'Prayer',
 };
 const STAT_KEYS = Object.keys(STAT_LABELS);
 
@@ -22,7 +22,7 @@ export const STAT_HELP = [
   ['Armour pierce', 'extra damage on every hit, as a % (plate armour)'],
   ['Crit damage', 'makes critical hits (x2, or x4 on a mega crit) bigger still (scout leather)'],
   ['Attack speed', 'more attacks: +100% attacks twice as often, with no cap (every weapon, hide)'],
-  ['Attack bonus', 'more damage from melee and ranged hits (bows, pistols, shurikens, swords, hide)'],
+  ['Physical damage bonus', 'more damage from melee and ranged hits (bows, pistols, shurikens, swords, hide)'],
   ['Magic bonus', 'more damage from spells (staves, wands, robes)'],
   ['Lifesteal', 'heals you by a share of the damage you deal (dancewear)'],
   ['Boss damage', 'extra damage against bosses and champions'],

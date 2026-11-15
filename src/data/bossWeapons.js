@@ -146,7 +146,7 @@ export function signatureWeapons(RAW, classify, skip = new Set()) {
       signature: { boss: bossId, classId, base: baseId, hue: h % 360 },   // hue: its icon's tint
       equip: { ...base.equip, req: { ...(base.equip.req || {}) }, bonuses } };
     types[id] = type;
-    // Two different extras, picked by the hash; magic weapons take Magic bonus %, the rest Attack bonus %.
+    // Two different extras, picked by the hash; magic weapons take Magic bonus %, the rest Physical damage bonus %.
     const pool = ['crit', 'critDmg', 'pierce', 'lifesteal', 'haste', 'bossDmg', base.equip.combatType === 'magic' ? 'magPct' : 'atkPct'];
     const a = h % pool.length, b = (a + 1 + ((h >>> 8) % (pool.length - 1))) % pool.length;
     const f = 1 + Math.min(1, Math.max(0, (level - LVL_LO) / (LVL_HI - LVL_LO)));
