@@ -235,7 +235,7 @@ test('prayers are defined and well-formed', () => {
   assert.ok(PRAYERS.length >= 12);
   for (const p of PRAYERS) {
     assert.ok(p.level >= 1 && p.drain >= 1, `prayer ${p.id} well-formed`);
-    assert.ok(p.protect || p.att || p.str || p.def || p.ranged || p.magic, `prayer ${p.id} has an effect`);
+    assert.ok(p.protect || p.crit || p.str || p.def || p.ranged || p.magic, `prayer ${p.id} has an effect`);
   }
 });
 
