@@ -2005,6 +2005,9 @@ body.boss-on #tip-toast { top: 132px; }
 .sg-where { display: block; margin: 2px auto 8px; }
 .sg-row { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-bottom: 1px dashed rgba(34,48,74,.18); }
 .sg-row.locked { opacity: .6; }
+.sg-pick { display: flex; align-items: center; cursor: var(--cur-pointer); }
+.sg-pick input { width: 18px; height: 18px; margin: 0; accent-color: var(--teal-dk, #1f7a6a); cursor: var(--cur-pointer); }
+.sg-picks { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 6px 0; font-size: 12px; }
 .sg-lvl {
   flex: none; min-width: 34px; text-align: center; font-weight: 900; font-size: 12px; padding: 2px 4px;
   border-radius: 8px; background: #fff6dc; border: 1.5px solid var(--aw-ink);

@@ -1626,7 +1626,10 @@ test('artisan lucky finds: perfect cooks, bonus smelting/smithing, roaring fires
   for (let i = 0; i < 3000; i++) resolveCook(game, { rawId: 'raw_shark', obj: { def: { type: 'range' } } });
   const smelt = SMELT.find((r) => r.result === 'bronze_bar');
   const smith = SMITH.find((r) => r.bar === 'bronze_bar');
-  for (let i = 0; i < 3000; i++) { resolveSmelt(game, { recipe: smelt }); resolveSmith(game, { recipe: smith }); }
+  const smeltAct = { recipe: smelt };
+  for (let i = 0; i < 3000; i++) { resolveSmelt(game, smeltAct); resolveSmith(game, { recipe: smith }); }
+  // Smelting is tallied for its one summary line: a hot crucible shows as extra bars.
+  if (smeltAct.tally.extra > 0) hits.crucible = smeltAct.tally.extra;
   for (let i = 0; i < 3000; i++) resolveFiremake(game, { tile: { x: 5, y: 5 }, logId: 'logs' });
   assert.ok(hits.Perfectly > 0, 'cooking has perfect dishes');
   assert.ok(hits.crucible > 0 && hits.Flawless > 0, 'smelting and smithing have bonus output');
@@ -6509,4 +6512,53 @@ test('Attack prayers give crit chance to every fighting style', async () => {
     const prayed = g._offensiveMods(npc, mode).critCh;
     assert.ok(Math.abs(prayed - base - 0.10) < 1e-9, `${cls} (${mode}): +10% crit chance (${base} -> ${prayed})`);
   }
+});
+
+test('mining always succeeds, and ticked rock kinds set auto gather’s round (kept in the save)', async () => {
+  const { resolveMine } = await import('../src/game/skilling.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('swordsman');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  // Every swing at a rock you can mine gives ore, even at level 1 with bad luck.
+  const orig = Math.random; Math.random = () => 0.999999;
+  try {
+    for (let i = 0; i < 5; i++) {
+      const rock = g.world.objects.find((o) => o.objId === 'copper_rock' && !o.depleted);
+      const before = g.inventory.count('copper_ore');
+      resolveMine(g, { obj: rock });
+      assert.equal(g.inventory.count('copper_ore'), before + 1, 'ore on the first swing');
+      assert.ok(rock.depleted);
+    }
+  } finally { Math.random = orig; }
+  // Tick copper and tin: the round is exactly those, whatever you start on.
+  assert.equal(g.toggleGatherPick(['copper_rock']), true);
+  g.toggleGatherPick(['tin_rock']);
+  assert.deepEqual([...g.gatherPicks].sort(), ['copper_rock', 'tin_rock']);
+  g.toggleAutoGather(true);
+  g._addAutoGatherKind({ objId: 'iron_rock' });
+  assert.deepEqual(g._gatherRound().sort(), ['copper_rock', 'tin_rock'], 'a ticked list isn’t added to by what you mine');
+  const tin = g.world.objects.find((o) => o.objId === 'tin_rock' && !o.depleted);
+  g.player.x = g.player.tx = tin.x; g.player.y = g.player.ty = tin.y + 1;
+  assert.ok(['copper_rock', 'tin_rock'].includes(g._nextGatherNode('iron_rock')?.objId), 'from anything else it heads to a ticked kind');
+  // Unticking removes it; the ticks survive a save and reload.
+  assert.equal(g.toggleGatherPick(['tin_rock']), false);
+  saveGame(g);
+  const again = new Game(); again.start();
+  assert.deepEqual([...again.gatherPicks], ['copper_rock']);
+});
+
+test('smelting is instant: the furnace turns every ore you carry into bars at once', () => {
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('swordsman');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  const furnace = g.world.objects.find((o) => o.def?.type === 'furnace');
+  g.player.x = g.player.tx = furnace.x; g.player.y = g.player.ty = furnace.y + 1;
+  g.inventory.add('copper_ore', 20); g.inventory.add('tin_ore', 20);
+  const msgs = []; const om = g.msg.bind(g); g.msg = (t, c) => { msgs.push(t); return om(t, c); };
+  const recipe = { inputs: [{ id: 'copper_ore', qty: 1 }, { id: 'tin_ore', qty: 1 }], result: 'bronze_bar', level: 1, xp: 6 };
+  g.startSmelt(recipe, furnace);
+  g.update(600); g.update(600);
+  assert.equal(g.inventory.count('copper_ore'), 0, 'all the ore used at once');
+  assert.ok(g.inventory.count('bronze_bar') >= 20, `${g.inventory.count('bronze_bar')} bronze bars in one go`);
+  assert.equal(msgs.filter((t) => /^You smelt /.test(t)).length, 1, 'one summary line, not one per bar');
 });

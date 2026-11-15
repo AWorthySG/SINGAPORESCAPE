@@ -72,6 +72,9 @@ const MAP_FILTERS = [
   { id: 'station', name: 'Crafting', col: '#f5a623' },
 ];
 
+// Skill guides with a tick-list for auto gather's round.
+const PICK_SKILLS = new Set(['mining', 'woodcutting', 'fishing']);
+
 export class UI {
   constructor(game) {
     this.game = game;
@@ -1406,10 +1409,28 @@ export class UI {
         body.appendChild(ag);
       }
       const where = guide.where || [...new Set(can.flatMap((e) => e.objIds || []))];
+      // Mining, Woodcutting and Fishing: tick the kinds you want and auto gather
+      // works through exactly those, taking turns between them.
+      const picking = PICK_SKILLS.has(skill);
+      if (picking) {
+        const n = can.filter((e) => e.objIds?.every((id) => g.gatherPicks.has(id))).length;
+        const bar = document.createElement('div');
+        bar.className = 'sg-picks';
+        bar.innerHTML = `<span>Tick what auto gather should do${n ? ` (<b>${n}</b> ticked)` : ' (none ticked: it does whatever you start on)'}.</span>`;
+        if (n) {
+          const go = document.createElement('button'); go.className = 'wm-go'; go.textContent = 'Start';
+          go.addEventListener('click', () => { g.startGatherPicks(); this.closeModal(); });
+          bar.appendChild(go);
+        }
+        body.appendChild(bar);
+      }
       const row = (e, ok) => {
         const r = document.createElement('div');
         r.className = 'sg-row' + (ok ? '' : ' locked');
-        r.innerHTML = `<span class="sg-lvl">${e.level}</span><span class="sg-text"><b>${e.label}</b><span>${e.detail || ''}</span></span>`;
+        const ticked = picking && ok && e.objIds?.every((id) => g.gatherPicks.has(id));
+        r.innerHTML = (picking && ok && e.objIds ? `<label class="sg-pick" title="Auto gather this"><input type="checkbox"${ticked ? ' checked' : ''}></label>` : '')
+          + `<span class="sg-lvl">${e.level}</span><span class="sg-text"><b>${e.label}</b><span>${e.detail || ''}</span></span>`;
+        r.querySelector('.sg-pick input')?.addEventListener('change', () => { g.toggleGatherPick(e.objIds); render(body); });
         // Go: walk to the nearest place you can do this (only for things you can do now).
         if (ok && e.objIds && !guide.where) {
           const b = document.createElement('button'); b.className = 'wm-go'; b.textContent = 'Go';
