@@ -181,7 +181,10 @@ export const CLEAVE_STYLE = {
   mace: 'slam', warhammer: 'slam', toya: 'slam', cane: 'slam',
   dagger: 'flurry', claws: 'flurry', scimitar: 'flurry', kerambit: 'flurry',
   sword: 'arc', katana: 'arc',
-};   // (was 10; champions now roll a normal kill's loot many times instead)
+};
+// Two-handed swords' great upward sweep reaches further than other cleaves:
+// every foe within 3 tiles of the target or of you, with no limit on how many.
+const CLEAVE_WIDE = { '2h_sword': { around: 3, max: Infinity } };   // (was 10; champions now roll a normal kill's loot many times instead)
 // A champion has CHAMPION_HP_MULT (30) times a normal monster's life, so it drops
 // what that many normal kills of its kind would: it rolls the monster's own loot
 // (table, rare table, upgrade stones) this many times, as a normal kill would,
@@ -2016,13 +2019,14 @@ export class Game {
         continue;
       }
       // Touching the target (the swing carries one tile past it), or crowding you.
-      if (!((dt <= 1 && dp <= reach + 1) || dp <= 1)) continue;
+      const wide = CLEAVE_WIDE[type]?.around || 1;
+      if (!((dt <= wide && dp <= reach + wide) || dp <= wide)) continue;
       caught.push({ o, rank: (o.target === p ? 0 : 10) + dt });
     }
     caught.sort((a, b) => a.rank - b.rank);
     let n = 0;
     const hitFoes = [];
-    for (const { o } of caught.slice(0, 3)) {
+    for (const { o } of caught.slice(0, CLEAVE_WIDE[type]?.max || 3)) {
       const c = this._aoeCrit(this._aoeShare(dmg * share, target, o));
       const d = Math.min(o.hp, c.dmg);
       o.takeDamage(d);
