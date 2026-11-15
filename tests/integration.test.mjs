@@ -6203,3 +6203,36 @@ test('boss signature weapons: drop 1 kill in 10, for any class, and are never sw
   for (let i = 0; i < 300; i++) { game.rollDrops(boss); if (got.some((l) => l[0] === sid)) n++; }
   assert.ok(n >= 12 && n <= 60, `dropped ${n} times in 300 kills`);
 });
+
+test('a save handed over from a-worthy.com in the link is imported once (asking first if there is a game here)', async () => {
+  const { receiveTransfer } = await import('../src/game/transfer.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  // A real save code from a played game.
+  const g = new Game(); g.start(); g.chooseStartingStyle('melee');
+  g.inventory.add('coins', 4321);
+  const code = exportSaveCode(g);
+  const coins = g.inventory.count('coins');
+  clearSave();
+  globalThis.localStorage = fakeStorage();
+  const loc = (h) => ({ hash: h, pathname: '/SINGAPORESCAPE/', search: '', reloaded: 0, reload() { this.reloaded++; } });
+  // Nothing here yet: imported without asking, and the page reloads.
+  const l1 = loc('#transfer=' + encodeURIComponent(code));
+  let asked = 0;
+  assert.equal(receiveTransfer(l1, () => { asked++; return true; }), true);
+  assert.equal(asked, 0); assert.equal(l1.reloaded, 1);
+  suppressSaves(false);
+  const g2 = new Game(); g2.start();
+  assert.equal(g2.inventory.count('coins'), coins, 'the transferred character is the one that loads');
+  // The same code again (the old page sends it on every visit): ignored.
+  assert.equal(receiveTransfer(loc('#transfer=' + encodeURIComponent(code)), () => { asked++; return true; }), false);
+  assert.equal(asked, 0);
+  // A different save arriving while a game is here: asked first, and "no" keeps this one.
+  g2.inventory.add('coins', 1); saveGame(g2);
+  const other = exportSaveCode(g2);
+  g2.inventory.add('coins', 1); saveGame(g2);
+  assert.equal(receiveTransfer(loc('#transfer=' + encodeURIComponent(other)), () => { asked++; return false; }), false);
+  assert.equal(asked, 1);
+  // No transfer in the link: nothing happens.
+  assert.equal(receiveTransfer(loc(''), () => true), false);
+  suppressSaves(false);
+});
