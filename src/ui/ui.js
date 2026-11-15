@@ -1390,9 +1390,9 @@ export class UI {
       body.appendChild(head);
       // Gathering skills can run on their own: auto gather moves you to the next node.
       const AUTO_TEXT = {
-        woodcutting: 'when a tree, rock or spot runs dry, move on to the next one nearby',
-        mining: 'when a tree, rock or spot runs dry, move on to the next one nearby',
-        fishing: 'when a tree, rock or spot runs dry, move on to the next one nearby',
+        woodcutting: 'when a tree, rock or spot runs dry, move on to the next one nearby. Gather more than one kind (say copper and tin) and it takes turns between them',
+        mining: 'when a tree, rock or spot runs dry, move on to the next one nearby. Gather more than one kind (say copper and tin) and it takes turns between them',
+        fishing: 'when a tree, rock or spot runs dry, move on to the next one nearby. Gather more than one kind (say copper and tin) and it takes turns between them',
         hunter: 'when a trap or trail runs dry, move on to the next one nearby',
         farming: 'harvest ripe patches and replant with your best seed, patch after patch',
         thieving: 'keep picking the same pocket after each try',

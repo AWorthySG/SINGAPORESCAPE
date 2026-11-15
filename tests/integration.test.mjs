@@ -6426,3 +6426,35 @@ test('a two-handed sword’s sweep hits every foe within 3 tiles of the target, 
   wield('battleaxe');
   assert.equal(game._cleave(main, 20), 0, 'an ordinary sweep only reaches foes touching the target');
 });
+
+test('auto gather takes turns between several kinds of node (copper and tin together)', () => {
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start();
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.npcs = [];
+  // A copper rock with a tin rock close by.
+  const coppers = g.world.objects.filter((o) => o.objId === 'copper_rock');
+  const tins = g.world.objects.filter((o) => o.objId === 'tin_rock');
+  let copper = null, tin = null;
+  for (const c of coppers) { tin = tins.find((t) => Math.max(Math.abs(t.x - c.x), Math.abs(t.y - c.y)) <= 12); if (tin) { copper = c; break; } }
+  assert.ok(copper && tin, 'copper and tin rocks near each other');
+  g.toggleAutoGather(true);
+  g.player.x = g.player.tx = copper.x; g.player.y = g.player.ty = copper.y + 1;
+  g.defaultObjectAction(copper);
+  for (let i = 0; i < 10; i++) g.update(600);
+  // Clicking a tin rock adds it to the round instead of replacing copper.
+  g.defaultObjectAction(tin);
+  for (let i = 0; i < 10; i++) g.update(600);
+  assert.deepEqual([...g.autoGatherKinds].sort(), ['copper_rock', 'tin_rock']);
+  assert.match(g.autoGatherStatus(), /Copper rock \+ Tin rock|Tin rock \+ Copper rock/);
+  // From a copper rock, the next node is a tin rock (its turn), and back.
+  assert.equal(g._nextGatherNode('copper_rock')?.objId, 'tin_rock');
+  assert.equal(g._nextGatherNode('tin_rock')?.objId, 'copper_rock');
+  const cu0 = g.inventory.count('copper_ore'), sn0 = g.inventory.count('tin_ore');
+  for (let i = 0; i < 400; i++) g.update(600);
+  assert.ok(g.inventory.count('copper_ore') > cu0 && g.inventory.count('tin_ore') > sn0,
+    `both kept coming: +${g.inventory.count('copper_ore') - cu0} copper, +${g.inventory.count('tin_ore') - sn0} tin`);
+  // Switching it off and on starts a fresh round.
+  g.toggleAutoGather(false); g.toggleAutoGather(true);
+  assert.deepEqual(g.autoGatherKinds, []);
+});
