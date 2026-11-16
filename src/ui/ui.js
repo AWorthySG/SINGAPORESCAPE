@@ -19,6 +19,7 @@ import { DAILY_COUNT } from '../game/learning.js';
 import * as Hawker from '../game/hawker.js';
 import { buildReport, verifyReport } from '../game/report.js';
 import { getDialogue } from '../data/dialogue.js';
+import { moralDialogue, MORAL_BY_ID, MORAL_EVENTS, moralCoins } from '../data/moralEvents.js';
 import { ALL_MONSTER_IDS as MONSTER_IDS, ALL_BOSS_IDS as BOSS_IDS, getNpc } from '../data/npcs.js';
 import { SIGNATURE_CLASS, sigIdFor } from '../data/bossWeapons.js';
 import { levelProgress, xpToNext, MAX_LEVEL, maxLevelFor } from '../data/xp.js';
@@ -464,6 +465,7 @@ export class UI {
       if (xb.wildLevel) parts.push(`Wild lvl ${xb.wildLevel}`);
       if (xb.streakKills > 1) parts.push(`streak ${xb.streakKills}`);
       if (xb.night > 1) parts.push('night');
+      if (xb.blessed > 1) parts.push('blessed');
       rows.push(`<div class="trk-row trk-xp"><span class="trk-ic">&#10022;</span><b>XP &times;${xb.total.toFixed(2)}</b> <span class="trk-prog">${parts.join(' · ')}</span></div>`);
     }
     if (g.slayer && g.slayer.task) {
@@ -1915,7 +1917,8 @@ export class UI {
       `<div class="align-head">Alignment: <b>${title}</b> <span class="align-net">(${g.alignment() >= 0 ? '+' : ''}${g.alignment()})</span></div>` +
       `<div class="align-bar"><span class="align-good" style="width:${goodPct}%"></span></div>` +
       `<div class="align-legend"><span class="ag-good">Good ${good}</span><span class="ag-evil">Evil ${evil}</span></div>` +
-      `<div class="align-combat">${this._karmaCombatText(g.karmaCombat())}</div>`;
+      `<div class="align-combat">${this._karmaCombatText(g.karmaCombat())}</div>` +
+      `<div class="align-hint">Make choices around the island to shape your path (${Object.keys(g.moral?.choices || {}).length}/${MORAL_EVENTS.length} met).</div>`;
   }
 
   /** One line on what your alignment does in a fight. */
@@ -3330,7 +3333,7 @@ export class UI {
   // Dialogue -----------------------------------------------------------
   openDialogue(npc) {
     if (npc.def.dialogue === 'slayer') return this.openSlayerMaster(npc);
-    const tree = getDialogue(npc.def.dialogue);
+    const tree = npc.def.moral ? this._moralTree(npc.def.moral) : getDialogue(npc.def.dialogue);
     if (!tree) { this.game.msg(`${npc.name} has nothing to say.`); return; }
     const show = (nodeId) => {
       const node = tree[nodeId];
@@ -3357,6 +3360,13 @@ export class UI {
     this.openModal(npc.name, () => {});
     this.modal.kind = 'dialogue';
     show('start');
+  }
+
+  /** A moral encounter's dialogue: its two choices, or a parting line once answered. */
+  _moralTree(id) {
+    const g = this.game, ev = MORAL_BY_ID[id];
+    const cost = ev?.good.cost ? moralCoins(ev.good.cost, g.fightLevel()) : 0;
+    return moralDialogue(id, { chosen: g.moral.choices[id], cost, canAfford: g.inventory.count('coins') >= cost });
   }
 
   // Shared item cell ---------------------------------------------------
@@ -3628,6 +3638,7 @@ export class UI {
       else if (n.def.role === 'bank') col = '#ffd24a';
       else if (n.def.role === 'shop') col = '#ff9a3a';
       else if (n.def.dialogue === 'slayer') col = '#ff5a5a';
+      else if (game.moralPending(n)) { col = '#ff9ae0'; r = 3; }      // a moral choice waiting for you
       else if (n.def.role === 'dialogue') { col = '#7CFC00'; r = 3; } // quest-givers stand out
       else col = '#5ad1ff';
       ctx.fillStyle = col;

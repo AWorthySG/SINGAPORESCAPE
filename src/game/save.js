@@ -66,6 +66,7 @@ export function snapshot(game) {
     shrine: game.shrine.serialize(),
     bounties: game.bounties,
     karma: game.karma,
+    moral: game.moral,
     attrs: game.attrs,
     clue: game.clue,
     specEnergy: game.specEnergy,
@@ -317,6 +318,11 @@ function loadFields(game, data) {
   if (data.karma && typeof data.karma === 'object') {
     game.karma = { good: Number(data.karma.good) || 0, evil: Number(data.karma.evil) || 0 };
   }
+  // Moral choice encounters answered, aggressive kills towards the next good
+  // point, and the Paragon's last gift day (older saves have none of these).
+  { const m = data.moral && typeof data.moral === 'object' ? data.moral : {}, choices = {};
+    if (m.choices && typeof m.choices === 'object') for (const [id, side] of Object.entries(m.choices)) if (side === 'good' || side === 'evil') choices[id] = side;
+    game.moral = { choices, heroKills: Math.max(0, Math.floor(Number(m.heroKills) || 0)), giftDay: typeof m.giftDay === 'string' ? m.giftDay : null }; }
   if (data.clue && typeof data.clue === 'object' && Array.isArray(data.clue.spots)) game.clue = data.clue;
   if (typeof data.specEnergy === 'number') game.specEnergy = Math.max(0, Math.min(100, data.specEnergy));
   game.running = data.settings?.running ?? game.running;

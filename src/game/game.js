@@ -48,7 +48,9 @@ import {
 import { CROP_BY_SEED, cropFor, POTIONS } from '../data/trades.js';
 import { saveGame, loadGame, hasSave } from './save.js';
 import { getShop } from '../data/shops.js';
-import { RARE_DROP_TABLE, getNpc, ALL_BOSS_IDS } from '../data/npcs.js';
+import { RARE_DROP_TABLE, getNpc, ALL_BOSS_IDS, ALL_MONSTER_IDS } from '../data/npcs.js';
+import { MORAL_EVENTS, MORAL_BY_ID, moralCoins, BLESS_MS, BLESS_XP } from '../data/moralEvents.js';
+import { alignmentTier, alignmentStyle, greetingFor } from '../data/alignment.js';
 import { SIGNATURE_DROP_CHANCE, SIGNATURE_CLASS, sigIdFor } from '../data/bossWeapons.js';
 import { nextJob, jobKey } from './autoprocess.js';
 import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
@@ -115,6 +117,28 @@ const WORLD_BOSS_LOOT_ROLLS = 3;   // its loot, three times over
 // never within this many tiles of a bank (every town has one).
 const WORLD_BOSS_MIN_QUESTS = 2, WORLD_BOSS_MIN_LEVEL = 40, WORLD_BOSS_TOWN_GAP = 20;
 const WORLD_BOSS_SAFE_ZONES = ['Kampong Glam', 'Chinatown'];
+// Alignment out in the world (see moralEvents.js and alignment.js).
+// Killing aggressive monsters is only a little heroic now: +1 good karma for
+// every HERO_KILLS_PER_GOOD of them. It used to be every kill, which made
+// grinding the main way to turn good and drowned out the moral choices.
+// Bosses stay +5 good each, and harmless creatures +1 evil each.
+const HERO_KILLS_PER_GOOD = 10;
+// Town guards challenge a Villain who walks into a town: one guard (two once
+// you are a byword for evil, GUARD_PAIR_AT), with an ordinary monster's stats
+// at your fight level but GUARD_HP_MULT of its life and GUARD_HIT_MULT of its
+// hits, at most once every GUARD_COOLDOWN ticks. Never below GUARD_MIN_LEVEL,
+// nor in Kampong Glam (the starter town) below GUARD_STARTER_LEVEL. Each guard
+// slain pays coins and GUARD_EVIL more evil karma.
+const GUARD_COOLDOWN = 300;   // ticks: 3 minutes
+const GUARD_MIN_LEVEL = 20, GUARD_STARTER_LEVEL = 40;
+const GUARD_PAIR_AT = -100;
+const GUARD_HP_MULT = 0.8, GUARD_HIT_MULT = 0.8;
+const GUARD_EVIL = 3;
+const GUARD_STAY = 150;       // ticks a guard waits about without a fight before leaving
+// Townsfolk call out as you pass (one within GREET_RANGE tiles every
+// GREET_EVERY ticks), warmly or nervously by your alignment. A Paragon also
+// gets one small gift a day from a grateful local.
+const GREET_EVERY = 8, GREET_RANGE = 6;
 // Agility: every 10 levels give +1% movement speed, for every class, with no cap.
 // Its bonus to attack and casting speed starts at the same pace but tapers off
 // towards AGILITY_ATK_MAX (half of it at AGILITY_ATK_HALF levels): uncapped, it
@@ -265,6 +289,7 @@ export class Game {
     this.player.hp = this.maxHp();
 
     this.npcs = data.npcSpawns.map((s) => new NPC(s.npcId, s.x, s.y, s.wander, s.opts));
+    this._placeMoralNpcs();
 
     this.camera = new Camera();
     this.ui = null;     // set by main
@@ -347,6 +372,11 @@ export class Game {
 
     // Good / evil alignment. Heroic deeds raise good; theft & cruelty raise evil.
     this.karma = { good: 0, evil: 0 };
+    // Moral choice encounters you have answered (id -> 'good' | 'evil'), aggressive
+    // kills towards the next good point, and the day a Paragon's gift was given.
+    this.moral = { choices: {}, heroKills: 0, giftDay: null };
+    this.blessedMs = 0;           // the Blessed buff from a good choice (not saved)
+    this._guardReadyAt = 0;       // tick from which town guards may challenge a Villain again
     this.attrs = { str: 0, int: 0, dex: 0 };   // spent stat points (see attributes.js)
 
     // Special-attack energy (spec bar).
@@ -934,6 +964,8 @@ export class Game {
     this._resolveHazards();
     this.player.stepMul = this.playerStepMul() * (this._onRoad() ? ROAD_PACE : 1);   // Agility quickens your steps, and so do roads
     this._tickWorldBoss();
+    this._tickTownGuards();
+    this._tickGreetings();
     this._tickIgnites();
     this._tickWounds();
     if (this.killStreak && this.tickCount - this._lastKillTick > STREAK_WINDOW_TICKS) {
@@ -2659,14 +2691,14 @@ export class Game {
 
   /** Title + css class for the current alignment. */
   alignmentTitle() {
-    const a = this.alignment();
-    if (a >= 60) return { title: 'Paragon', cls: 'good' };
-    if (a >= 25) return { title: 'Virtuous', cls: 'good' };
-    if (a >= 8) return { title: 'Kind-hearted', cls: 'good' };
-    if (a <= -60) return { title: 'Villain', cls: 'evil' };
-    if (a <= -25) return { title: 'Wicked', cls: 'evil' };
-    if (a <= -8) return { title: 'Mischievous', cls: 'evil' };
-    return { title: 'Neutral', cls: 'neutral' };
+    const t = alignmentTier(this.alignment());   // the tiers live in alignment.js
+    return { title: t.title, cls: t.cls };
+  }
+  /** Overhead title, colour and aura for the current alignment (alignment.js). */
+  alignmentStyle() {
+    const a = this.alignment();   // asked every frame by the renderer: kept until alignment changes
+    if (this._alStyle?.a !== a) this._alStyle = { a, ...alignmentStyle(a) };
+    return this._alStyle;
   }
 
   /** Shop price modifiers: the virtuous are trusted (cheaper), the wicked gouged. */
@@ -2683,6 +2715,187 @@ export class Game {
   priceFactor() {
     const k = this.karmaFactor(), t = this.learning.perks().shop;
     return { buy: k.buy * (1 - t), sell: k.sell * (1 + t) };
+  }
+
+  // ---------------- Moral choice encounters (moralEvents.js) ----------------
+  /** Put each encounter's person on their spot (the nearest free walkable
+   *  tile). They wear an existing NPC's art (artId) but have their own npcId,
+   *  so nothing that looks NPCs up by id (quest givers, shops, bounties) can
+   *  mistake them for the real hawker or a huntable dog. */
+  _placeMoralNpcs() {
+    const taken = new Set(this.npcs.map((n) => n.x * 4096 + n.y));
+    for (const ev of MORAL_EVENTS) {
+      let spot = null;
+      for (let r = 0; r <= 6 && !spot; r++) {
+        for (let dy = -r; dy <= r && !spot; dy++) for (let dx = -r; dx <= r && !spot; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          const x = ev.x + dx, y = ev.y + dy;
+          if (this.world.inBounds(x, y) && !this.world.isBlocked(x, y) && !taken.has(x * 4096 + y)) spot = { x, y };
+        }
+      }
+      if (!spot) continue;
+      taken.add(spot.x * 4096 + spot.y);
+      // Spawn options keep a monster's art (the stray dog) from rolling champion.
+      const n = new NPC(ev.art, spot.x, spot.y, 0, { aggressive: false });
+      n.npcId = `moral_${ev.id}`;
+      n.artId = ev.art;
+      n.wander = 0;
+      n.def = { ...n.def, name: ev.name, attackable: false, aggressive: false, aggroRange: 0, role: 'dialogue', dialogue: null, shop: null,
+        moral: ev.id, examine: 'Someone who could use a hand... or be taken advantage of.' };
+      this.npcs.push(n);
+    }
+  }
+
+  /** Answer a moral encounter with 'good' or 'evil'. Only the dialogue box
+   *  calls this: auto quest and auto battle never choose for you. Each
+   *  encounter can be answered once. Returns true if the choice was made. */
+  moralChoose(id, side) {
+    const ev = MORAL_BY_ID[id];
+    if (!ev || (side !== 'good' && side !== 'evil') || this.moral.choices[id]) return false;
+    const c = ev[side], fl = this.fightLevel();
+    if (c.cost) {
+      const cost = moralCoins(c.cost, fl);
+      if (this.inventory.count('coins') < cost) { this.msg(`You need ${cost} coins for that.`, 'system'); return false; }
+      this.inventory.remove('coins', cost);
+    }
+    this.moral.choices[id] = side;
+    if (side === 'good') this.addGood(c.karma); else this.addEvil(c.karma);
+    const gains = [`${c.karma} ${side} karma`];
+    if (c.skill && c.xp) {
+      // A share of the XP to the skill's next level, so it matters at any level.
+      const lvl = this.skills.level(c.skill), need = xpForLevel(lvl + 1) - xpForLevel(lvl);
+      const xp = Math.max(1, Math.round(need * c.xp / XP_RATE));
+      this.skills.addXp(c.skill, xp);
+      gains.push(`${xp * XP_RATE} ${SKILL_BY_ID[c.skill]?.name || c.skill} XP`);
+    }
+    if (c.coins) { const n = moralCoins(c.coins, fl); this.inventory.add('coins', n); gains.push(`${n} coins`); }
+    for (const [item, q] of c.items || []) { this.inventory.add(item, q); gains.push(`${q} ${getItem(item).name}`); }
+    if (c.shrine) { this.shrine.points += c.shrine; this.bus.emit('shrine'); gains.push(`${c.shrine} shrine points`); }
+    if (c.bless) { this.blessedMs = BLESS_MS; this.bus.emit('xpbonus'); gains.push(`Blessed (+${Math.round((BLESS_XP - 1) * 100)}% combat XP for ${BLESS_MS / 60000} minutes)`); }
+    this.msg(`${ev.name}: ${side === 'good' ? 'a good deed' : 'an evil deed'}. +${gains.join(', +')}.`, 'level');
+    this.spawnSparkle(this.player, side === 'good' ? '#ffd24a' : '#9a5ad8', 14);
+    this.bus.emit('sfx', side === 'good' ? 'level' : 'hurt');
+    // They thank or curse you out loud.
+    const n = this.npcs.find((x) => x.def.moral === id);
+    if (n) { n.chatText = side === 'good' ? 'Thank you!' : 'How could you?!'; n.chatTimer = 4; }
+    return true;
+  }
+
+  /** True while an encounter's person is still waiting for your choice. */
+  moralPending(npc) { return !!(npc?.def.moral && !this.moral.choices[npc.def.moral]); }
+
+  // ---------------- Alignment in town: greetings and guards ----------------
+  /** Townsfolk near you call out now and then: warmly if you are good,
+   *  nervously if you are wicked. A Paragon also gets one gift a day. */
+  _tickGreetings() {
+    const p = this.player;
+    if (this.tickCount % GREET_EVERY !== 0 || !p.alive) return;
+    let best = null, bd = Infinity;
+    for (const n of this.nearbyNpcs()) {
+      if (!n.alive || n.attackable || n.ally || !n.def.role || n.def.moral || n.chatTimer > 0) continue;
+      if (n._greetedAt && this.tickCount - n._greetedAt < GREET_EVERY * 8) continue;   // not the same face every time
+      const d = chebyshev(p.x, p.y, n.x, n.y);
+      if (d <= GREET_RANGE && d < bd) { bd = d; best = n; }
+    }
+    if (!best) return;
+    const a = this.alignment();
+    best._greetedAt = this.tickCount;
+    best.chatText = greetingFor(a, ((this.tickCount / GREET_EVERY) * 0.618) % 1);   // varied, without using up random rolls
+    best.chatTimer = 4;
+    if (alignmentTier(a).id === 'paragon' && this.moral.giftDay !== dayKey()) {
+      this.moral.giftDay = dayKey();
+      const coins = moralCoins(40, this.fightLevel());
+      this.inventory.add('coins', coins);
+      this.inventory.add('chicken_rice', 2);
+      best.chatText = 'For you, hero! Terima kasih!';
+      this.msg(`${best.name} presses a thank-you gift into your hands: ${coins} coins and 2 chicken rice.`, 'level');
+    }
+  }
+
+  /** Would the town watch challenge you here? Only a Villain, only inside a
+   *  town, never a low-level player, and in the starter area (within 30 tiles
+   *  of the respawn point, the starter ring) only from GUARD_STARTER_LEVEL. */
+  guardsWouldChallenge(x = this.player.x, y = this.player.y) {
+    if (alignmentTier(this.alignment()).id !== 'villain') return false;
+    const fl = this.fightLevel();
+    if (fl < GUARD_MIN_LEVEL || !this._worldBossInTown(x, y)) return false;
+    const rp = this.world.respawnPoint;
+    if (rp && chebyshev(x, y, rp.x, rp.y) <= 30 && fl < GUARD_STARTER_LEVEL) return false;
+    return true;
+  }
+
+  _tickTownGuards() {
+    const p = this.player;
+    // Guards that lost you (you fled or fell) or found nobody to fight go back on patrol.
+    if (this._guards?.length) {
+      this._guards = this._guards.filter((g) => {
+        if (!g.alive) return false;
+        if (p.alive && g.target === p) { g.guardUntil = this.tickCount + GUARD_STAY; return true; }
+        if (p.alive && this.tickCount < g.guardUntil && chebyshev(p.x, p.y, g.x, g.y) <= 20) return true;
+        this.npcs = this.npcs.filter((n) => n !== g);
+        if (p.target === g) p.target = null;
+        return false;
+      });
+    }
+    if (!p.alive || this.tickCount < this._guardReadyAt || this._guards?.length) return;
+    if (this.guardsWouldChallenge()) this.spawnTownGuards();
+  }
+
+  /** The town watch comes for a Villain: one or two guards with an ordinary
+   *  monster's stats at your fight level (a humanoid if one is near it), a
+   *  little softer, who go straight for you. */
+  spawnTownGuards() {
+    const p = this.player, fl = this.fightLevel();
+    let base = null, bd = Infinity;
+    for (const id of ALL_MONSTER_IDS) {
+      const d = getNpc(id);
+      if (!d.attackable || d.boss) continue;
+      const score = Math.abs((d.level || 1) - fl) * (d.sprite === 'humanoid' ? 0.5 : 1);
+      if (score < bd) { bd = score; base = d; }
+    }
+    if (!base) return [];
+    const out = [];
+    for (let i = 0, n = this.alignment() <= GUARD_PAIR_AT ? 2 : 1; i < n; i++) {
+      let spot = null;
+      for (let tries = 0; tries < 40 && !spot; tries++) {
+        const ang = Math.random() * Math.PI * 2, r = 4 + Math.random() * 3;
+        const x = Math.round(p.x + Math.cos(ang) * r), y = Math.round(p.y + Math.sin(ang) * r);
+        if (this.world.inBounds(x, y) && !this.world.isBlocked(x, y)) spot = { x, y };
+      }
+      if (!spot) continue;
+      const g = new NPC('mercenary_spear_guard', spot.x, spot.y, 0);
+      g.npcId = 'town_guard';
+      g.artId = 'mercenary_spear_guard';   // the spear guard's painted art
+      g.def = { name: 'Town Guard', examine: 'The town watch. They know your face.', attackable: true, aggressive: true, aggroRange: 16,
+        ignoreLevelGate: true, family: 'town_guard', level: base.level, tierLevel: base.tierLevel, hpScale: base.hpScale,
+        attack: base.attack, strength: base.strength, defence: base.defence, attackSpeed: base.attackSpeed || 4,
+        maxHp: Math.max(2, Math.round(base.maxHp * GUARD_HP_MULT)), maxHit: Math.max(1, Math.round(base.maxHit * GUARD_HIT_MULT)),
+        alwaysDrop: [], dropTable: [] };
+      g.maxHp = g.hp = g.def.maxHp;
+      g.temporary = true;
+      g.townGuard = true;
+      g.stepMul = 1.8;   // a monster's pace
+      g.target = p;
+      g.guardUntil = this.tickCount + GUARD_STAY;
+      this.npcs.push(g);
+      out.push(g);
+    }
+    if (!out.length) return out;
+    this.hasTemps = true;
+    this._guards = out;
+    this._guardReadyAt = this.tickCount + GUARD_COOLDOWN;
+    out[0].chatText = 'Halt, villain!'; out[0].chatTimer = 4;
+    this.msg(`The town watch knows your face: ${out.length > 1 ? 'two guards close' : 'a guard closes'} in!`, 'combat');
+    this.bus.emit('sfx', 'spec');
+    return out;
+  }
+
+  /** A town guard cut down: their purse is yours, and your name grows darker. */
+  _guardSlain(npc) {
+    const coins = moralCoins(30, this.fightLevel());
+    this.inventory.add('coins', coins);
+    this.addEvil(GUARD_EVIL);
+    this.msg(`You cut down the ${npc.name} and take ${coins} coins from their purse. (+${GUARD_EVIL} evil karma)`, 'combat');
   }
 
   /** A study question answered (from the Codex or a study session). Grants Wisdom
@@ -2711,11 +2924,15 @@ export class Game {
   }
 
   killNpc(npc, { byAlly = false } = {}) {
-    // Alignment: heroism vs cruelty. Bosses & aggressive foes are heroic to slay;
-    // cutting down harmless creatures is a small evil.
-    if (npc.def.boss) this.addGood(5);
-    else if (npc.def.aggressive) this.addGood(1);
-    else this.addEvil(1);
+    // Alignment: heroism vs cruelty. Bosses are heroic to slay (+5 good) and
+    // aggressive foes a little (+1 good per HERO_KILLS_PER_GOOD, so the moral
+    // choice encounters, not grinding, decide your path); cutting down harmless
+    // creatures is a small evil, and so is cutting down the town watch.
+    if (npc.townGuard) this._guardSlain(npc);
+    else if (npc.def.boss) this.addGood(5);
+    else if (npc.def.aggressive) {
+      if (++this.moral.heroKills >= HERO_KILLS_PER_GOOD) { this.moral.heroKills = 0; this.addGood(1); }
+    } else this.addEvil(1);
     this.hitStop = Math.max(this.hitStop, npc.def.boss ? 180 : npc.champion ? 120 : 70);
     if (npc.def.boss) {
       this.msg(`You have slain ${npc.name}!`, 'combat');
@@ -2862,7 +3079,8 @@ export class Game {
     const wl = this.wildernessLevel();
     const wild = wl ? 1 + WILD_XP_PER_LEVEL * wl : 1;
     const streak = 1 + Math.min(STREAK_MAX_BONUS, this.killStreak * STREAK_XP_PER_KILL);
-    return { night, wild, wildLevel: wl, streak, streakKills: this.killStreak, total: night * wild * streak };
+    const blessed = this.blessedMs > 0 ? BLESS_XP : 1;   // a good deed's blessing (moralEvents.js)
+    return { night, wild, wildLevel: wl, streak, streakKills: this.killStreak, blessed, total: night * wild * streak * blessed };
   }
   inWilderness() { return this.wildernessLevel() > 0; }
   /** 0 outside the Wilderness; 1 at its western edge rising to 10 deep in the east (Pulau Hantu). */
@@ -3163,7 +3381,7 @@ export class Game {
   nearShrine() { const p = this.player; return this.world.objects.some((o) => o.def.type === 'shrine' && chebyshev(p.x, p.y, o.x, o.y) <= ALTAR_RANGE); }
 
   startPickpocket(npc) {
-    if (!npc.def.role) { this.msg("You can't pickpocket that."); return; }
+    if (!npc.def.role || npc.def.moral) { this.msg("You can't pickpocket that."); return; }   // an encounter is a choice, not a mark
     this.beginAction({ type: 'thieve', npc, target: { x: npc.x, y: npc.y } }, { x: npc.x, y: npc.y }, true);
   }
 
@@ -5062,6 +5280,11 @@ export class Game {
 
   _tickPotions(dt) {
     let changed = false;
+    if (this.blessedMs > 0 && (this.blessedMs -= dt) <= 0) {
+      this.blessedMs = 0;
+      this.msg('Your blessing fades.', 'system');
+      this.bus.emit('xpbonus');
+    }
     for (const id of Object.keys(this.potions)) {
       this.potions[id] -= dt;
       if (this.potions[id] <= 0) { delete this.potions[id]; changed = true; this.msg(`Your ${POTIONS[id].name.toLowerCase()} has worn off.`, 'system'); }
@@ -5130,6 +5353,7 @@ export class Game {
     else if (action === 'corruptionStart') this.startCorruption();
     else if (action === 'corruptionTurnIn') this.turnInCorruption();
     else if (action === 'corruptionRemind') this.remindCorruption();
+    else if (action.startsWith('moral:')) { const [, id, side] = action.split(':'); this.moralChoose(id, side); }
     this.bus.emit('quest');
   }
 
@@ -5935,7 +6159,7 @@ export class Game {
     const at = this.playerTile();
     let best = null, bd = Infinity;
     for (const n of this.npcs) {
-      if (!n.alive || n.attackable || !n.def.role) continue;
+      if (!n.alive || n.attackable || !n.def.role || n.def.moral) continue;
       const d = chebyshev(at.x, at.y, n.x, n.y);
       if (d <= 2 && d < bd) { bd = d; best = n; }
     }

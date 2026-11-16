@@ -419,6 +419,7 @@ body { -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
 .align-combat { font-size: 12px; margin-top: 4px; opacity: .9; }
 .align-legend { display: flex; justify-content: space-between; font-size: 10px; }
 .align-legend .ag-good { color: #6fffae; } .align-legend .ag-evil { color: #ff7a7a; }
+.align-hint { font-size: 10px; opacity: 0.8; margin-top: 3px; }
 
 /* ---------- Combat panel ---------- */
 #combat-panel .style-row { display: flex; gap: 5px; margin-bottom: 8px; }

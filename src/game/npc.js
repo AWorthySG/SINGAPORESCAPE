@@ -150,9 +150,11 @@ export class NPC extends Character {
     if (this.specialCooldown > 0) this.specialCooldown--;
     if (this.telegraph > 0) this.telegraph--;
     if (this.aoeCooldown > 0) this.aoeCooldown--;
-    if (this.chatter) {
-      if (this.chatTimer > 0) this.chatTimer--;
-      else if (--this.chatCooldown <= 0) {
+    // A bubble counts down on anyone (townsfolk greet you too, see Game._tickGreetings);
+    // only chatty NPCs pick new lines by themselves.
+    if (this.chatTimer > 0) this.chatTimer--;
+    else if (this.chatter) {
+      if (--this.chatCooldown <= 0) {
         this.chatText = this.chatter[randInt(0, this.chatter.length - 1)];
         this.chatTimer = 2;                 // ~1.2s on screen
         this.chatCooldown = randInt(4, 9);  // ~2.4-5.4s until the next line
