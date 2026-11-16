@@ -267,15 +267,17 @@ export class Renderer {
         // Death animation: keel over about the feet while fading out.
         if (cx < -40 || cy < -40 || cx > vw + 40 || cy > vh + 40) continue;
         const k = 1 - n.deathT / 420; // 0 -> 1 over the fall
-        const dir = (n.facing && n.facing.dx < 0) ? -1 : 1;
+        const dir = (n.faceX ?? ((n.facing && n.facing.dx < 0) ? -1 : 1)) < 0 ? -1 : 1;
+        // Topple like a falling body: slow to tip, quick to land, then fade.
+        const fall = k * k * (3 - 2 * k), fade = Math.max(0, Math.min(1, (k - 0.35) / 0.65));
         drawables.push({ sortY: c.y / TILE - 0.01, z: 1, draw: () => {
           ctx.save();
-          ctx.globalAlpha = Math.max(0, 1 - k * k);
+          ctx.globalAlpha = 1 - fade * fade;
           ctx.translate(cx, cy + 11 * sc);
-          ctx.rotate(dir * k * Math.PI * 0.5);
+          ctx.rotate(dir * fall * Math.PI * 0.5);
           ctx.translate(-cx, -(cy + 11 * sc));
           drawCreature(ctx, n.npcId, cx, cy - 2, {
-            time: timeMs, facing: n.facing, moving: false,
+            time: timeMs, facing: n.facing, fx: n.faceX, moving: false, hurt: n.hurt,
             scale: sc, sprite: n.def.sprite, color: n.def.color, boss: n.def.boss, family: n.def.family,
           });
           ctx.restore();
@@ -288,7 +290,10 @@ export class Renderer {
       const pad = 48 * sc;
       if (cx < -pad || cy < -pad || cx > vw + pad || cy > vh + pad) continue;
       const off = n.renderOffset ? n.renderOffset() : { x: 0, y: 0 };
+      // A fresh respawn fades in and settles down from a small hop.
+      const spawn = n.spawnT > 0 ? n.spawnT / 350 : 0;
       drawables.push({ sortY: c.y / TILE, z: 2, draw: () => {
+        if (spawn > 0) { ctx.save(); ctx.globalAlpha = 1 - spawn; }
         drawShadow(ctx, cx, cy + 12 * sc, 10 * sc, 4.5 * sc);
         if (n === game.player.target) this._lockOn(cx, cy + 12 * sc, sc, timeMs);
         if (n.shieldTicks > 0 || n.reflectTicks > 0) {
@@ -317,12 +322,14 @@ export class Renderer {
           ctx.setLineDash([]);
           ctx.restore();
         }
-        drawCreature(ctx, n.npcId, cx + off.x, cy - 2 + off.y, {
-          time: timeMs, facing: n.facing, moving: n.isMoving, walk: n.walkPhase, move: n.animMove,
+        drawCreature(ctx, n.npcId, cx + off.x, cy - 2 + off.y - spawn * spawn * 6 * sc, {
+          time: timeMs, facing: n.facing, fx: n.faceX, turn: (n.turnT || 0) / TURN_MS, entity: n,
+          moving: n.isMoving, walk: n.walkPhase, move: n.animMove,
           scale: sc, sprite: n.def.sprite, color: n.def.color, boss: n.def.boss, family: n.def.family,
           attackK: n.swingProgress ? n.swingProgress() : -1,
           hurt: n.hurt, windup: n.windup > 0, castK: n.castT > 0 ? 1 - n.castT / 700 : 0, castCol: n.castCol,
         });
+        if (spawn > 0) ctx.restore();
       } });
     }
     if (game.player.alive) {
@@ -334,7 +341,8 @@ export class Renderer {
         const sk = game.player.swingProgress();
         if (sk >= 0 && game.combatMode() === 'magic') this._castRing(cx, cy + 12, sk);
         drawPlayer(ctx, cx + off.x, cy - 2 + off.y, {
-          time: timeMs, facing: game.player.facing, moving: game.player.isMoving, swingK: sk,
+          time: timeMs, facing: game.player.facing, fx: game.player.faceX, entity: game.player, hurt: game.player.hurt,
+          moving: game.player.isMoving, swingK: sk,
           hasBody: !!game.equipment.get('body'), hasWeapon: !!game.equipment.get('weapon'), weaponType: game.combatMode(),
           hasCape: !!game.equipment.get('cape'), hasHelm: !!game.equipment.get('head'),
           hasShield: !!game.equipment.get('shield') && !game.equipment.isDualWielding(),

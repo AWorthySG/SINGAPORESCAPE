@@ -1,3 +1,5 @@
+import { poseBlender, swapOpacity } from './poseBlend.js';
+
 // Painted hero rigs use separate limbs. Keep loading and animation
 // here so the shared sprite library only needs one optional drawing hook.
 export const HERO_RIG_PARTS = ['body', 'sword', 'back', 'left', 'right', 'strike'];
@@ -17,6 +19,9 @@ const ATTACKS = {
   ninja: { wind: 0.15, hit: 0.35, angle: 0.6, swing: 1.6, reach: 4 },
 };
 const images = new Map();
+// Limb angles and reach ease across a restarted swing (see poseBlend.js).
+const blendRig = poseBlender();
+const RIG_BLEND = ['sword', 'back', 'strike', 'reach'];
 export const heroRigSrc = (part, classId = 'swordsman') => `assets/creatures/hero/rig/${classId}-${part}.webp`;
 
 export function swordsmanPose(gait = {}, time = 0, swing = -1) {
@@ -100,7 +105,8 @@ export function drawHeroRig(ctx, opts = {}) {
   }
   // Never show a partially assembled character, including on a failed load.
   if (HERO_RIG_PARTS.some((part) => !images.get(key(part)).complete || !images.get(key(part)).naturalWidth)) return false;
-  const pose = heroRigPose(classId, opts.gait, opts.time || 0, opts.swingK ?? -1, opts.dualWield);
+  const pose = blendRig(opts.entity, heroRigPose(classId, opts.gait, opts.time || 0, opts.swingK ?? -1, opts.dualWield), opts.time || 0, opts.swingK ?? -1, RIG_BLEND);
+  const shown = swapOpacity(pose.strike);
   const draw = (part, x, y, w, h, angle = 0, px = 0, py = 0, opacity = 1) => {
     ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
     ctx.globalAlpha *= opacity;
@@ -128,17 +134,17 @@ export function drawHeroRig(ctx, opts = {}) {
   // Rotate around the shoulder, rather than rotating the whole portrait.
   // Short daggers sit outside the hood; the katana keeps its longer reach.
   if (rogue) {
-    draw('sword', 15, -8 + pose.breathe, 17, 30, pose.sword + 0.7, 14, 27, 1 - pose.strike);
-    draw('strike', 15, -8 + pose.breathe, 26, 10, (pose.sword - 1.2) * 0.3, 4, 4, pose.strike);
+    draw('sword', 15, -8 + pose.breathe, 17, 30, pose.sword + 0.7, 14, 27, 1 - shown);
+    draw('strike', 15, -8 + pose.breathe, 26, 10, (pose.sword - 1.2) * 0.3, 4, 4, shown);
   } else if (brawler) {
-    draw('sword', 14, -9 + pose.breathe, 17, 26, pose.sword + 0.5, 13, 23, 1 - pose.strike);
-    draw('strike', 14 + pose.reach, -9 + pose.breathe, 27, 12, 0, 4, 4, pose.strike);
+    draw('sword', 14, -9 + pose.breathe, 17, 26, pose.sword + 0.5, 13, 23, 1 - shown);
+    draw('strike', 14 + pose.reach, -9 + pose.breathe, 27, 12, 0, 4, 4, shown);
   } else {
     const w = broad ? 29 : polearm ? 24 : dancer ? 26 : 23;
     const h = polearm ? 57 : broad ? 46 : dancer ? 44 : 42;
-    draw('sword', 11, -10 + pose.breathe, w, h, pose.sword + (samurai ? 0.25 : 0), pilot || samurai ? 19 : w * 0.83, pilot || samurai ? 37 : h * 0.88, 1 - pose.strike);
+    draw('sword', 11, -10 + pose.breathe, w, h, pose.sword + (samurai ? 0.25 : 0), pilot || samurai ? 19 : w * 0.83, pilot || samurai ? 37 : h * 0.88, 1 - shown);
     const reach = pose.reach || 0;
-    draw('strike', 11 + reach, -10 + pose.breathe, dancer ? 52 : polearm ? 55 : broad ? 44 : 37, dancer ? 19 : broad ? 16 : 13, polearm ? -0.08 : (pose.sword - 1.25) * 0.3, 4, 5, pose.strike);
+    draw('strike', 11 + reach, -10 + pose.breathe, dancer ? 52 : polearm ? 55 : broad ? 44 : 37, dancer ? 19 : broad ? 16 : 13, polearm ? -0.08 : (pose.sword - 1.25) * 0.3, 4, 5, shown);
   }
   return true;
 }

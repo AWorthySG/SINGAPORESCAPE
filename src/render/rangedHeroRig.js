@@ -1,3 +1,5 @@
+import { poseBlender, swapOpacity } from './poseBlend.js';
+
 // Ranged and magic limbs are separate from the melee pilot so each batch can
 // be reviewed independently. All parts must load before replacing a portrait.
 // The Sniper borrows the Pistoler's parts until its own art arrives (same file names, sniper-*).
@@ -5,6 +7,9 @@ export const RANGED_HERO_CLASSES = ['ranger', 'archer', 'sorcerer', 'wizard', 'p
 export const RANGED_HERO_PARTS = ['body', 'weapon', 'back', 'left', 'right', 'action'];
 export const rangedHeroSrc = (classId, part) => `assets/creatures/hero/rig/${classId}-${part}.webp`;
 const images = new Map();
+// Draw, release and cast ease across a restarted shot (see poseBlend.js).
+const blendRanged = poseBlender();
+const RANGED_BLEND = ['draw', 'release', 'charge', 'cast'];
 const smooth = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
 
 export function rangedHeroPose(classId, gait = {}, time = 0, swing = -1) {
@@ -43,7 +48,7 @@ export function drawRangedHeroRig(ctx, opts = {}) {
   }
   const image = (part) => images.get(`${classId}-${part}`);
   if (RANGED_HERO_PARTS.some((part) => !image(part).complete || !image(part).naturalWidth)) return false;
-  const pose = rangedHeroPose(classId, opts.gait, opts.time || 0, opts.swingK ?? -1);
+  const pose = blendRanged(opts.entity, rangedHeroPose(classId, opts.gait, opts.time || 0, opts.swingK ?? -1), opts.time || 0, opts.swingK ?? -1, RANGED_BLEND);
   const draw = (part, x, y, w, h, angle = 0, px = 0, py = 0, opacity = 1) => {
     if (opacity <= 0) return;
     ctx.save(); ctx.translate(x, y); ctx.rotate(angle); ctx.globalAlpha *= opacity;
@@ -80,12 +85,15 @@ export function drawRangedHeroRig(ctx, opts = {}) {
       ctx.moveTo(nock + 28, y); ctx.lineTo(nock + 23, y - 2); ctx.lineTo(nock + 23, y + 2); ctx.closePath(); ctx.fill();
     }
     ctx.restore();
-    draw('back', -10, y, 34, 11, 0, 0, 5, 1 - pose.draw);
-    draw('action', -10, y, 29, 16, 0, 0, 3, pose.draw);
+    // The relaxed hand and the drawing hand swap rather than overlap.
+    const drawn = swapOpacity(pose.draw);
+    draw('back', -10, y, 34, 11, 0, 0, 5, 1 - drawn);
+    draw('action', -10, y, 29, 16, 0, 0, 3, drawn);
   } else {
     const angle = -pose.charge * 0.2 + pose.cast * 1.1 + pose.step * 0.12;
-    draw('weapon', 14, -10 + pose.breathe, 20, classId === 'wizard' ? 54 : 39, angle + 0.3, classId === 'wizard' ? 18 : 5, classId === 'wizard' ? 45 : 33, 1 - pose.cast);
-    draw('action', 14, -10 + pose.breathe, classId === 'wizard' ? 48 : 35, classId === 'wizard' ? 16 : 13, (angle - 1.1) * 0.3, 4, 5, pose.cast);
+    const cast = swapOpacity(pose.cast);
+    draw('weapon', 14, -10 + pose.breathe, 20, classId === 'wizard' ? 54 : 39, angle + 0.3, classId === 'wizard' ? 18 : 5, classId === 'wizard' ? 45 : 33, 1 - cast);
+    draw('action', 14, -10 + pose.breathe, classId === 'wizard' ? 48 : 35, classId === 'wizard' ? 16 : 13, (angle - 1.1) * 0.3, 4, 5, cast);
   }
   return true;
 }

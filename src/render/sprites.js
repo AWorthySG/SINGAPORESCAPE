@@ -5,6 +5,7 @@ import { itemIconImage } from './icons.js';
 import { CROPS } from '../data/trades.js';
 import { drawHeroRig } from './heroRig.js';
 import { drawRangedHeroRig } from './rangedHeroRig.js';
+import { poseBlender } from './poseBlend.js';
 
 const CROP_COLORS = Object.fromEntries(CROPS.map((c) => [c[0], c[9]]));
 const CROP_GROW = Object.fromEntries(CROPS.map((c) => [c[0], c[3]]));
@@ -49,22 +50,31 @@ const _anim = { stride: 0 };
 // without drawn legs pass opts.rock to get a gait-suggesting body rock instead.
 function staged(ctx, cx, cy, opts, draw) {
   const t = opts.time || 0;
-  let bob = opts.moving ? Math.abs(Math.sin(t * 0.018 + cx)) * 1.8 : Math.sin(t * 0.004 + cx) * 0.6;
+  // Walking blends in and out with the character's eased walk weight (opts.move),
+  // so the hop, bob and rock fade rather than switching on and off as it
+  // starts and stops. Callers without one fall back to the moving flag.
+  const m = opts.move ?? (opts.moving ? 1 : 0);
+  let bob = Math.abs(Math.sin(t * 0.018 + cx)) * 1.8 * m + Math.sin(t * 0.004 + cx) * 0.6 * (1 - m);
   _anim.stride = opts.moving ? Math.sin(t * 0.018 + cx) : 0;
   const s = opts.scale || 1;
-  let fx = (opts.facing && opts.facing.dx < 0) ? -1 : 1;
+  // Moving straight up or down keeps the last left/right facing (opts.fx)
+  // rather than flipping to face right for the length of the climb.
+  let fx = opts.fx ? (opts.fx < 0 ? -1 : 1) : (opts.facing && opts.facing.dx < 0) ? -1 : 1;
   const g = opts.gait;
   if (g) {
     // Step-synced: the body rises as a foot swings through and dips as it
     // lands, easing in and out as walking starts and stops.
     bob = -Math.abs(Math.sin(g.phase * Math.PI)) * 1.7 * g.move;
-    // Turning round: squash through edge-on rather than snapping to the mirror image.
-    if (g.turn > 0) fx *= Math.max(0.12, Math.abs(1 - 2 * g.turn)) * (g.turn > 0.5 ? -1 : 1);
   }
+  // Turning round: squash through edge-on rather than snapping to the mirror
+  // image. A cosine, like a card spun about its edge: full width for longer,
+  // and only a moment edge-on.
+  const turn = g ? g.turn : opts.turn;
+  if (turn > 0) fx *= Math.max(0.12, Math.abs(Math.cos(Math.PI * turn))) * (turn > 0.5 ? -1 : 1);
   ctx.save();
   ctx.translate(cx, cy + bob);
   ctx.scale(fx * s, s);
-  if (opts.rock && opts.moving) ctx.rotate(Math.sin(t * 0.018 + cx) * 0.055);
+  if (opts.rock && m > 0.001) ctx.rotate(Math.sin(t * 0.018 + cx) * 0.055 * m);
   draw(ctx);
   ctx.restore();
 }
@@ -198,26 +208,33 @@ export const townArt = () => new Set(TOWN_ART);
 // life by moving and stretching the whole sticker about its feet (y = 13).
 const FLOATERS = new Set(['ghost', 'wisp', 'bat', 'jellyfish', 'insect']);
 const FEET = 13;
+// The attack lunge eases across a swing that restarts part-way (poseBlend.js).
+const blendCreature = poseBlender();
+const CREATURE_BLEND = ['dx', 'rot', 'sx', 'sy'];
+const _lunge = { dx: 0, rot: 0, sx: 0, sy: 0 };
 function creaturePose(c, opts, t, seed) {
   const ph = seed * 0.37;                       // every creature on its own rhythm
   const ak = opts.attackK ?? -1;
   let dx = 0, dy = 0, rot = 0, sx = 1, sy = 1;
   if (FLOATERS.has(opts.sprite)) dy -= 2 + Math.sin(t * 0.0032 + ph) * 2.2;   // ghosts and fliers hover
+  // A springy hop while walking (squash as the feet land, stretch at the top
+  // of the stride) and breathing at rest, crossfaded by the eased walk weight
+  // so starting and stopping never jolt. An attack plays on top of either.
+  const m = opts.move ?? (opts.moving ? 1 : 0);
+  const hop = Math.abs(Math.sin(t * 0.018 + seed)) * 0.06 - 0.03;
+  const br = Math.sin(t * 0.0028 + ph);
+  sy = 1 + hop * m + br * 0.035 * (1 - m); sx = 1 - hop * m - br * 0.018 * (1 - m);
+  const a = _lunge;
+  a.dx = 0; a.rot = 0; a.sx = 0; a.sy = 0;
   if (ak >= 0) {
     // Wind up (lean back and crouch), lunge into the strike, then recover.
     const e = (x) => 1 - (1 - x) * (1 - x);
-    if (ak < 0.35) { const k = e(ak / 0.35); dx = -2.5 * k; rot = -0.09 * k; sy = 1 - 0.1 * k; sx = 1 + 0.06 * k; }
-    else if (ak < 0.6) { const k = Math.sin(((ak - 0.35) / 0.25) * Math.PI / 2); dx = -2.5 + 8 * k; rot = -0.09 + 0.2 * k; sy = 0.9 + 0.24 * k; sx = 1.06 - 0.14 * k; }
-    else { const k = e((ak - 0.6) / 0.4); dx = 5.5 * (1 - k); rot = 0.11 * (1 - k); sy = 1.14 - 0.14 * k; sx = 0.92 + 0.08 * k; }
-  } else if (opts.moving) {
-    // A springy hop: squash as the feet land, stretch at the top of the stride.
-    const st = Math.sin(t * 0.018 + seed);
-    sy = 1 + Math.abs(st) * 0.06 - 0.03; sx = 2 - sy;
-  } else {
-    // Idle breathing.
-    const br = Math.sin(t * 0.0028 + ph);
-    sy = 1 + br * 0.035; sx = 1 - br * 0.018;
+    if (ak < 0.35) { const k = e(ak / 0.35); a.dx = -2.5 * k; a.rot = -0.09 * k; a.sy = -0.1 * k; a.sx = 0.06 * k; }
+    else if (ak < 0.6) { const k = Math.sin(((ak - 0.35) / 0.25) * Math.PI / 2); a.dx = -2.5 + 8 * k; a.rot = -0.09 + 0.2 * k; a.sy = -0.1 + 0.24 * k; a.sx = 0.06 - 0.14 * k; }
+    else { const k = e((ak - 0.6) / 0.4); a.dx = 5.5 * (1 - k); a.rot = 0.11 * (1 - k); a.sy = 0.14 * (1 - k); a.sx = -0.08 * (1 - k); }
   }
+  blendCreature(opts.entity, a, t, ak, CREATURE_BLEND);
+  dx += a.dx; rot += a.rot; sx += a.sx; sy += a.sy;
   if (opts.windup) dx += Math.sin(t * 0.09) * 0.9;                 // trembling as a heavy blow charges
   if (opts.hurt > 0) {   // flinch when struck: a shudder and a stagger back
     const hk = Math.min(1, opts.hurt / 200);
@@ -1896,6 +1913,19 @@ function heroAttackPose(style, k) {
   return P;
 }
 
+// The whole-body attack pose eases across a restarted swing (poseBlend.js).
+const blendHero = poseBlender();
+const HERO_BLEND = ['dx', 'dy', 'rot', 'sx', 'sy'];
+const _heroBody = { dx: 0, dy: 0, rot: 0, sx: 1, sy: 1 };
+// A hit recoil: a quick lean back away from the blow, then an eased return,
+// over the 200ms the hit flash lasts. 0 when not hurt.
+export function heroFlinch(hurt) {
+  if (!(hurt > 0)) return 0;
+  const u = 1 - Math.min(1, hurt / 200);
+  return u < 0.15 ? easeOut(u / 0.15) : 1 - smoothstep01((u - 0.15) / 0.85);
+}
+const smoothstep01 = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
+
 export function drawPlayer(ctx, cx, cy, opts = {}) {
   const style = opts.hasWeapon && (opts.weaponType === 'ranged' || opts.weaponType === 'magic' || opts.weaponType === 'dance') ? opts.weaponType : 'melee';
   // The Dancer has no painted art yet, so it uses the drawn mascot in a silk outfit.
@@ -1924,9 +1954,13 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
       const t = opts.time || 0;
       if (pose && pose.behind) pose.behind(c, k, t);
       c.save();
-      if (pose) {
-        c.translate(pose.dx, pose.dy);
-        c.translate(0, HERO_ART_FEET); c.rotate(pose.rot); c.scale(pose.sx, pose.sy); c.translate(0, -HERO_ART_FEET);
+      const b = _heroBody;
+      b.dx = pose ? pose.dx : 0; b.dy = pose ? pose.dy : 0; b.rot = pose ? pose.rot : 0; b.sx = pose ? pose.sx : 1; b.sy = pose ? pose.sy : 1;
+      blendHero(opts.entity, b, t, k, HERO_BLEND);
+      const fl = heroFlinch(opts.hurt);
+      if (pose || fl > 0 || b.dx || b.rot) {
+        c.translate(b.dx - fl * 2.5, b.dy);
+        c.translate(0, HERO_ART_FEET); c.rotate(b.rot - fl * 0.12); c.scale(b.sx + fl * 0.04, b.sy - fl * 0.05); c.translate(0, -HERO_ART_FEET);
       }
       const s = Math.min(HERO_ART_H / himg.naturalHeight, HERO_ART_W / himg.naturalWidth);
       const w = himg.naturalWidth * s, h = himg.naturalHeight * s;
@@ -1936,7 +1970,8 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
         if (g && !pose) heroPuppet(c, himg, w, h, g, t);
         else {
           // A side-to-side rock while walking, as the monsters do (a gait cue).
-          if (opts.moving) c.rotate(Math.sin(t * 0.018 + cx) * 0.06);
+          const mv = g ? g.move : opts.moving ? 1 : 0;
+          if (mv > 0.001) c.rotate(Math.sin(t * 0.018 + cx) * 0.06 * mv);
           c.drawImage(himg, -w / 2, HERO_ART_FEET - h, w, h);
         }
       }

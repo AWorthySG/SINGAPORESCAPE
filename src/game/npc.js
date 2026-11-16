@@ -283,6 +283,7 @@ export class NPC extends Character {
 
   update(dt) {
     if (!this.alive && this.deathT > 0) this.deathT = Math.max(0, this.deathT - dt);
+    if (this.spawnT > 0) this.spawnT = Math.max(0, this.spawnT - dt);
     if (this.castT > 0) this.castT = Math.max(0, this.castT - dt);   // a boss's signature-move flourish
     super.update(dt);
   }
@@ -290,6 +291,7 @@ export class NPC extends Character {
   respawn() {
     this.alive = true;
     this.deathT = 0;
+    this.spawnT = 350; // ms of fade-in, so a respawn doesn't pop into view
     // Restore any enrage-mutated stats, re-applying this spawn's overrides so
     // tamed/weakened monsters stay tamed after they come back.
     this.def = this._spawnOpts ? applySpawnOpts(getNpc(this.npcId), this._spawnOpts) : getNpc(this.npcId);
