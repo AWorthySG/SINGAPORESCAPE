@@ -91,7 +91,9 @@ export function resolveWoodcut(game, action) {
   if (game.inventory.canAdd(def.gives, 1) <= 0) { game.msg('Your inventory is too full to hold any more logs.'); return false; }
 
   const lvl = game.skills.level('woodcutting');
-  if (Math.random() < gatherChance(def.lowChance, def.highChance, lvl)) {
+  // Life skills never fail (the owner's call): every swing at a tree you can
+  // chop gives logs. Level still decides which trees you can chop.
+  {
     game.inventory.add(def.gives, 1);
     game.skills.addXp('woodcutting', def.xp);
     const wc = objCenter(obj); game.spawnPoof(wc.x, wc.y, '#caa15a');
@@ -183,13 +185,13 @@ export function resolveFish(game, action) {
   if (!eligible.some((c) => game.inventory.canAdd(c.id, 1) > 0)) {
     game.msg('Your inventory is too full to hold any more fish.'); return false;
   }
-  // Now and then you snag something other than a fish.
-  if (Math.random() < 0.03) return fishOddity(game, obj);
+  // Now and then you snag something else as well (never instead of a fish).
+  if (Math.random() < 0.03) fishOddity(game, obj);
 
   const baited = game.inventory.count('fishing_bait') > 0;
   const pick = weightedPick(eligible);
-  const chance = gatherChance(pick.lowChance, pick.highChance, lvl) + (baited ? 0.12 : 0);
-  if (Math.random() < chance) {
+  // Every cast catches a fish (life skills never fail).
+  {
     if (baited) game.inventory.remove('fishing_bait', 1);
     const fc = objCenter(obj);
     const nm = getItem(pick.id).name.replace(/^Raw /, '').toLowerCase();
@@ -253,11 +255,10 @@ export function resolveCook(game, action) {
   const lvl = game.skills.level('cooking');
   const onRange = action.obj?.def.type === 'range';
   const effLevel = lvl + (onRange ? 5 : 0);
-  let burnChance = 0;
-  if (effLevel < cook.burnStop) {
-    burnChance = clamp(0.55 * (cook.burnStop - effLevel) / Math.max(1, cook.burnStop - cook.level), 0, 0.9);
-  }
-  if (Math.random() < burnChance) {
+  // Food never burns any more (life skills never fail); the old burn levels in
+  // COOKABLE (burnStop) are kept only as data.
+  const burnChance = 0;
+  if (burnChance > 0 && Math.random() < burnChance) {
     game.inventory.add('burnt_fish', 1);
     game.msg(`Oops! You accidentally burn the ${getItem(action.rawId).name.replace(/^Raw /, '').toLowerCase()}.`);
   } else {
@@ -287,9 +288,9 @@ export function resolveSmelt(game, action) {
   // Smelting is instant: the furnace runs the whole batch at once (see
   // smeltBatch), so each bar's outcome is tallied and told in one line.
   const tally = action.tally || (action.tally = { made: 0, extra: 0, failed: 0 });
-  if (r.successChance && Math.random() > r.successChance) {
-    tally.failed++;
-  } else {
+  // Ore is never too impure any more (life skills never fail): recipes' old
+  // successChance is ignored, so every lot of ore makes a bar.
+  {
     game.inventory.add(r.result, 1);
     game.skills.addXp('smithing', r.xp);
     tally.made++;
@@ -440,10 +441,11 @@ export function resolveHunt(game, action) {
   if (!game.hasTool('snare')) { game.msg('You need a hunting snare to work traps.'); return false; }
   if (def.gives.some((g) => game.inventory.canAdd(g.id, g.max || 1) <= 0)) { game.msg('Your inventory is too full.'); return false; }
   const lvl = game.skills.level('hunter');
-  if (Math.random() >= gatherChance(def.lowChance, def.highChance, lvl)) return true;   // nothing yet: keep watching
+  // The trap always springs (life skills never fail), and its main catch is certain;
+  // anything after the first is a bonus with its own chance.
   const got = [];
-  for (const g of def.gives) {
-    if (Math.random() >= (g.chance ?? 1)) continue;
+  for (const [gi, g] of def.gives.entries()) {
+    if (gi > 0 && Math.random() >= (g.chance ?? 1)) continue;
     const n = g.max ? randInt(g.min, g.max) : 1;
     game.inventory.add(g.id, n);
     got.push(n > 1 ? `${n} ${getItem(g.id).name.toLowerCase()}s` : getItem(g.id).name.toLowerCase());

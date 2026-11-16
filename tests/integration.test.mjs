@@ -6650,3 +6650,48 @@ test('auto battle steps out of a boss ground marker and keeps attacking (melee i
   g.toggleAutoBattle(false);
   assert.equal(g._dodging, false);
 });
+
+test('life skills never fail: woodcutting, fishing, mining, hunting, cooking, smelting and pickpocketing always succeed', async () => {
+  const S = await import('../src/game/skilling.js');
+  const { SMELT } = await import('../src/data/smithing.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('swordsman');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.skills.addXp('hunter', 5e6); g.skills.addXp('smithing', 5e6);
+  g.inventory.add('hunting_snare', 1);
+  const orig = Math.random; Math.random = () => 0.999999;   // the worst luck on every roll
+  try {
+    const bag = () => g.inventory.slots.reduce((n, s) => n + (s ? s.qty : 0), 0);
+    const find = (pred) => g.world.objects.find((o) => !o.depleted && pred(o));
+    for (const [label, obj, fn] of [
+      ['woodcutting', find((o) => o.objId === 'tree'), S.resolveWoodcut],
+      ['mining', find((o) => o.objId === 'copper_rock'), S.resolveMine],
+      ['fishing', find((o) => o.objId === 'fishing_spot'), S.resolveFish],
+      ['hunting', find((o) => o.def?.type === 'hunt' && (o.def.level || 1) <= g.skills.level('hunter')), S.resolveHunt],
+    ]) {
+      assert.ok(obj, `a ${label} spot exists`);
+      const n0 = bag();
+      fn(g, { obj });
+      assert.ok(bag() > n0, `${label} gave something on the very first try`);
+    }
+    // Cooking: never burnt.
+    g.inventory.add('raw_shark', 1); g.skills.xp.cooking = 0;
+    const range = find((o) => o.def?.type === 'range');
+    g.skills.addXp('cooking', 5e5);   // enough to cook it, far below the old no-burn level
+    S.resolveCook(g, { rawId: 'raw_shark', obj: range });
+    assert.equal(g.inventory.count('burnt_fish'), 0, 'nothing burnt');
+    assert.equal(g.inventory.count('shark'), 1);
+    // Smelting: every lot of ore makes a bar, even the ones that used to fail.
+    const risky = SMELT.find((r) => r.successChance && r.successChance < 1) || SMELT[0];
+    for (const inp of risky.inputs) g.inventory.add(inp.id, inp.qty * 5);
+    const act = { recipe: risky };
+    S.smeltBatch(g, act);
+    assert.equal(act.tally.failed, 0); assert.equal(g.inventory.count(risky.result) >= 5, true);
+    // Pickpocketing: never caught.
+    const npc = g.npcs.find((n) => n.def.role);
+    const c0 = g.inventory.count('coins'), hp0 = g.player.hp;
+    g.pickpocket(npc);
+    assert.ok(g.inventory.count('coins') > c0, 'coins stolen');
+    assert.equal(g.player.hp, hp0); assert.ok(!(g.playerStun > 0), 'never stunned');
+  } finally { Math.random = orig; }
+});
