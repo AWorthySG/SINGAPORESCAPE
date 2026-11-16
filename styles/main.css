@@ -1506,7 +1506,12 @@ button:focus-visible, .tab-btn:focus-visible, .chat-tab:focus-visible,
   background: var(--aw-card); color: var(--aw-text); border: 2.5px solid var(--aw-ink); border-radius: 16px;
   box-shadow: var(--shadow-sticker); padding: 9px 10px 9px 12px; font-size: 13px; line-height: 1.4;
   animation: bossIn .25s ease-out;
+  /* Taps go straight through the tip (only "Got it" catches them): on phones
+     it can sit over the auto battle / gather / quest switches, and a tip over
+     a button must never stop that button working. */
+  pointer-events: none;
 }
+#tip-toast button { pointer-events: auto; }
 #tip-toast .tip-badge {
   flex: none; font-size: 10px; font-weight: 900; text-transform: uppercase; color: #fff;
   background: var(--aw-sky-deep); border-radius: 999px; padding: 3px 8px; border: 1.5px solid var(--aw-ink);
