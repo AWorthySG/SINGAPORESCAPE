@@ -1852,7 +1852,7 @@ test('boss area attacks: red ground marker first, then it hits only if you stay 
   assert.ok(game.effects.some((e) => e.type === 'hitsplat' && e.text === 'Dodged!'));
 });
 
-test('auto battle no longer steps out of a boss marker by itself', () => {
+test('auto battle steps out of a boss marker even with nothing else to do', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
   const game = new Game();
@@ -1867,9 +1867,10 @@ test('auto battle no longer steps out of a boss marker by itself', () => {
   game._autoPickTarget = () => null; game._autoHeadToLevel = () => false;   // nothing else to walk to
   game.bossHazard(boss);
   const x0 = p.x, y0 = p.y;
+  assert.ok(game.hazardAt(x0, y0), 'the marker is on you');
   step(game, 4);
-  assert.ok(p.x === x0 && p.y === y0, 'auto battle stays put: dodging is up to the player');
-  assert.ok(!game._dodging);
+  assert.ok(!game.hazardAt(p.x, p.y), 'auto battle walked you out of it');
+  assert.ok(p.x !== x0 || p.y !== y0);
 });
 
 test('champion monsters: tougher, gold-ringed, and drop much more', () => {
@@ -6612,4 +6613,40 @@ test('auto battle travels to a boss across the map, and learns which bosses it c
   assert.equal(again.bossRecord.beat[boss.npcId], true);
   assert.equal(typeof again.bossRecord.lost[id], 'number');
   assert.ok(other);
+});
+
+test('auto battle steps out of a boss ground marker and keeps attacking (melee included)', () => {
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('swordsman');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  const p = g.player;
+  const boss = beatableBoss(g.npcs.find((n) => n.def.boss && !n.def.fixed), g.fightLevel());
+  boss.hp = boss.maxHp = 1e9;   // a long fight: it must not die mid-test
+  // An open patch of ground: the boss, and you right beside it.
+  let spot = null;
+  for (let y = 20; y < 260 && !spot; y += 3) for (let x = 20; x < 380 && !spot; x += 3) {
+    let ok = true;
+    for (let dy = -4; dy <= 4 && ok; dy++) for (let dx = -4; dx <= 4 && ok; dx++) if (!g.world.inBounds(x + dx, y + dy) || g.world.isBlocked(x + dx, y + dy)) ok = false;
+    if (ok && !g.world.zoneAt(x, y)?.wilderness) spot = { x, y };
+  }
+  boss.x = boss.tx = boss.spawnX = spot.x; boss.y = boss.ty = boss.spawnY = spot.y;
+  boss.def = { ...boss.def, wander: 0, maxHit: 0, abilities: [] };
+  p.x = p.tx = spot.x + 1; p.y = p.ty = spot.y;
+  g.npcs = [boss];
+  g.autoCfg.bosses = true;
+  g.toggleAutoBattle(true);
+  g.attackNpc(boss);
+  // A marker on you (and around you), landing in 3 ticks.
+  g.hazards.push({ cx: p.x, cy: p.y, r: 1, npc: boss, kind: 'blast', sign: true, fireTick: g.tickCount + 3, start: performance.now(), dur: 1800 });
+  const hp0 = boss.hp, me0 = p.hp;
+  for (let i = 0; i < 12; i++) g.update(300);
+  const at = g.playerTile();
+  assert.ok(!(Math.abs(at.x - (spot.x + 1)) <= 1 && Math.abs(at.y - spot.y) <= 1), `stepped out of the marker (now at ${at.x - spot.x},${at.y - spot.y})`);
+  assert.equal(p.action?.type, 'attack', 'still attacking');
+  assert.equal(p.action.npc, boss, 'the same boss');
+  assert.ok(chebyshev(at.x, at.y, boss.x, boss.y) <= g.attackRange(), 'and still within reach of it');
+  assert.ok(boss.hp < hp0, 'it kept hitting the boss through the dodge');
+  assert.equal(p.hp, me0, 'and the blast missed');
+  g.toggleAutoBattle(false);
+  assert.equal(g._dodging, false);
 });
