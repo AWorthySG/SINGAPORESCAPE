@@ -3139,19 +3139,14 @@ export class Game {
   pickpocket(npc) {
     if (!npc || !npc.def.role) return;
     const lvl = this.skills.level('thieving');
-    if (Math.random() < Math.min(0.92, 0.45 + lvl * 0.006)) {
+    // Pickpocketing never fails any more (life skills never fail).
+    {
       const coins = randInt(3, 12) + Math.floor(lvl * 1.5);
       this.inventory.add('coins', coins);
       this.skills.addXp('thieving', 8 + lvl);
       this.addEvil(1); // theft tips you toward evil
       this.spawnSparkle(this.player, '#ffe24a', 6);
       this.msg(`You pick the ${npc.name}'s pocket and steal ${coins} coins.`, 'system');
-    } else {
-      const dmg = randInt(1, 2);
-      this.player.takeDamage(dmg); this.addHitsplat(this.player, dmg); this.bus.emit('hp');
-      this.playerStun = 3;
-      this.msg(`You fail to pick the ${npc.name}'s pocket and are stunned!`, 'combat');
-      if (this.player.hp <= 0) this.playerDeath();
     }
   }
 
