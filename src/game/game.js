@@ -176,6 +176,14 @@ const RIFLE_PIERCE_TILES = 10;
 // its path (and beside the target), not just monsters squarely on the line.
 const RIFLE_PIERCE_WIDTH = 1;
 const CHAMPION_STACK_MULT = 1;
+// Good and evil in combat (see karmaCombat). The bonus grows through the three
+// alignment tiers (Kind-hearted / Virtuous / Paragon, Mischievous / Wicked / Villain).
+const KARMA_TIERS = [8, 25, 60];
+// Holy (good): more damage against the unholy, and each kill heals a share of your life.
+const HOLY_DMG = [0.12, 0.22, 0.35], HOLY_HEAL = [0.03, 0.06, 0.1];
+const UNHOLY_RACES = new Set(['undead', 'spirit', 'demon']);
+// Dark (evil): extra crit damage and lifesteal against everything (in %).
+const DARK_CRITDMG = [15, 30, 50], DARK_LIFESTEAL = [2, 4, 7];
 // Auto battle: after a boss kills you, it is skipped until you are this many fight levels stronger.
 const BOSS_RETRY_LEVELS = 10;
 // Auto battle travels to bosses up to this far away (in tiles), using the MRT when it helps.
@@ -648,10 +656,13 @@ export class Game {
    *  life skill perks plus the Offering Shrine's blessings. Kept until either changes. */
   outsideBonuses() {
     const lp = this.lifePerks(), rev = this.shrine.rev, c = this._outsideCache;
-    if (c && c.lp === lp && c.rev === rev) return c.totals;
+    const kc = this.karmaCombat(), kKey = `${kc.side}${kc.tier}`;
+    if (c && c.lp === lp && c.rev === rev && c.kKey === kKey) return c.totals;
     const totals = { ...lp };
     for (const [k, v] of Object.entries(this.shrine.bonuses())) totals[k] = (totals[k] || 0) + v;
-    this._outsideCache = { lp, rev, totals };
+    // The Dark path's crit damage and lifesteal count like gear's.
+    if (kc.side === 'dark') { totals.critDmg = (totals.critDmg || 0) + kc.critDmg; totals.lifesteal = (totals.lifesteal || 0) + kc.lifesteal; }
+    this._outsideCache = { lp, rev, kKey, totals };
     return totals;
   }
 
@@ -1788,6 +1799,8 @@ export class Game {
     const race = this.raceMatchup(npc);
     if (race === 'strong') dmgM *= RACE_BONUS.dmg;
     else if (race === 'weak') dmgM *= RACE_PENALTY.dmg;
+    // The Holy path (good alignment) smites the unholy: undead, spirits and demons.
+    { const kc = this.karmaCombat(); if (kc.side === 'holy' && UNHOLY_RACES.has(raceOf(npc.def, npc.npcId))) dmgM *= 1 + kc.holyDmg; }
     // Magic casts once (rune cost), so its extra hits are ignored.
     const maxHits = mode === 'magic' ? 1 : Infinity;
     // Passive perks: damage (more against bosses and
@@ -2632,7 +2645,17 @@ export class Game {
   // ---------------- Good / evil alignment ----------------
   addGood(n) { if (n > 0) { this.karma.good += n; this.bus.emit('karma'); } }
   addEvil(n) { if (n > 0) { this.karma.evil += n; this.bus.emit('karma'); } }
-  alignment() { return this.karma.good - this.karma.evil; }
+  alignment() { const k = this.karma; return k ? k.good - k.evil : 0; }   // (gear bonuses can be asked for before karma exists)
+
+  /** What your alignment does in a fight: the Holy path (good) or the Dark
+   *  path (evil), stronger at each alignment tier; Neutral gives nothing. */
+  karmaCombat() {
+    const a = this.alignment();
+    const tier = KARMA_TIERS.filter((t) => Math.abs(a) >= t).length;
+    if (!tier) return { side: 'neutral', tier: 0 };
+    if (a > 0) return { side: 'holy', tier, holyDmg: HOLY_DMG[tier - 1], killHeal: HOLY_HEAL[tier - 1] };
+    return { side: 'dark', tier, critDmg: DARK_CRITDMG[tier - 1], lifesteal: DARK_LIFESTEAL[tier - 1] };
+  }
 
   /** Title + css class for the current alignment. */
   alignmentTitle() {
@@ -2712,6 +2735,14 @@ export class Game {
     this.bus.emit('xpbonus');
     this.kills[npc.npcId] = (this.kills[npc.npcId] || 0) + 1;
     if (!byAlly) this._gainAdrenaline(this._adrenTrait('kill'));   // Gladiators, Berserkers, Sorcerers
+    // The Holy path: each of your kills heals you a little.
+    if (!byAlly && this.player.alive) {
+      const kc = this.karmaCombat();
+      if (kc.side === 'holy') {
+        const heal = Math.min(this.maxHp() - this.player.hp, Math.ceil(this.maxHp() * kc.killHeal));
+        if (heal > 0) { this.player.hp += heal; this.bus.emit('hp'); }
+      }
+    }
     // The kill reward: most of a monster's combat XP comes when it dies, worth
     // its full life, in the style you fight with (see killXp in combat.js).
     { const mode = this.combatMode(), m = this.combatXpMult();

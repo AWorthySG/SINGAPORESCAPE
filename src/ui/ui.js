@@ -1914,7 +1914,15 @@ export class UI {
     el.innerHTML =
       `<div class="align-head">Alignment: <b>${title}</b> <span class="align-net">(${g.alignment() >= 0 ? '+' : ''}${g.alignment()})</span></div>` +
       `<div class="align-bar"><span class="align-good" style="width:${goodPct}%"></span></div>` +
-      `<div class="align-legend"><span class="ag-good">Good ${good}</span><span class="ag-evil">Evil ${evil}</span></div>`;
+      `<div class="align-legend"><span class="ag-good">Good ${good}</span><span class="ag-evil">Evil ${evil}</span></div>` +
+      `<div class="align-combat">${this._karmaCombatText(g.karmaCombat())}</div>`;
+  }
+
+  /** One line on what your alignment does in a fight. */
+  _karmaCombatText(kc) {
+    if (kc.side === 'holy') return `Holy path: +${Math.round(kc.holyDmg * 100)}% damage to Undead, Spirits and Demons; each kill heals ${Math.round(kc.killHeal * 100)}% of your life.`;
+    if (kc.side === 'dark') return `Dark path: +${kc.critDmg}% crit damage and +${kc.lifesteal}% lifesteal against everything.`;
+    return 'Neutral: lean good (Holy path) or evil (Dark path) for a combat bonus.';
   }
 
   // ---------------- Combat panel ----------------
