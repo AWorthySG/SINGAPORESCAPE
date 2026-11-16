@@ -42,6 +42,8 @@ clickSecondFingerTaps();
 game.ui = ui;
 game.input = input;
 game.audio = new Sfx(game.bus);
+// The ambience beds follow the region you're in and the hour.
+game.audio.ambienceSource = () => ({ zone: game.currentZoneName, night: 1 - game.daylightFactor() });
 // Web Audio needs a user gesture to start; unlock on the first interaction.
 const unlockAudio = () => game.audio.unlock();
 window.addEventListener('pointerdown', unlockAudio, { once: true });
@@ -107,7 +109,7 @@ function resize() {
   // the shorter side and VIEW_TILES_LONG along the longer one.
   const zoom = Math.max(1, Math.min(2.2, Math.max(Math.min(w, h) / (VIEW_TILES * TILE), Math.max(w, h) / (VIEW_TILES_LONG * TILE))));
   ctx.setTransform(dpr * zoom, 0, 0, dpr * zoom, 0, 0);
-  game.camera.resize(w, h, zoom);
+  game.camera.resize(w, h, zoom, dpr);
 }
 window.addEventListener('resize', resize);
 resize();

@@ -33,6 +33,9 @@ import { RACES, raceOf } from '../data/races.js';
 import { drawShadow, drawCreature, drawPlayer, drawObjectSprite, drawGroundItem } from './sprites.js';
 import { RARITY } from '../game/loot.js';
 import { itemIconImage } from './icons.js';
+import { moodFor, blendMood, composeWashes, dayNightWashes, buildVignette, ObjectReactions } from './ambience.js';
+import { Critters } from './critters.js';
+import { introCurve, titleAlpha, DEATH_FLASH_MS } from '../game/cinematics.js';
 
 // Gathering actions that show a progress ring over the node, and its colour.
 const GATHER_RING = { woodcut: '#4fa04f', mine: '#8a8fa0', fish: '#3a8fd8', hunt: '#d08a3a' };
@@ -52,30 +55,6 @@ const TERRAIN_RGB = {
 const TILE_POPS = [
   ['#FDF3DE', '#F5B82E'], ['#FDE8EE', '#EF476F'], ['#E6F1FB', '#5FAEE3'], ['#E5F5E9', '#3DAA5C'],
 ];
-
-// Per-region atmospheric colour grade [r,g,b,alpha] — smoothly blended as you travel.
-// Bright regions need no grade (saves a full-screen paint per frame); only the
-// Wilderness and the haunted island carry a mood tint.
-const ZONE_TINT = {
-  'Kampong Glam': [255, 236, 214, 0],
-  Chinatown: [255, 222, 214, 0],
-  'Bukit Timah': [214, 245, 200, 0],
-  'MacRitchie Reservoir': [200, 230, 250, 0],
-  'Sentosa Beach': [255, 240, 205, 0],
-  'The Wilderness': [170, 120, 170, 0.12],
-  'Pulau Hantu': [150, 125, 200, 0.14],
-  'Sungei Buloh Wetlands': [200, 240, 210, 0],
-  'Jurong Forest': [200, 235, 190, 0],
-  'Pulau Ubin': [235, 245, 205, 0],
-  'Changi Coast': [255, 240, 205, 0],
-  'Marina Bay': [255, 232, 214, 0],
-  'Tekong Badlands': [170, 110, 100, 0.12],
-  'Gardens by the Bay': [220, 250, 215, 0],
-  'Coney Island': [225, 245, 205, 0],
-  'Southern Islands': [210, 240, 250, 0],
-  'The Shadow Rift': [110, 70, 140, 0.18],
-  Singapore: [255, 236, 214, 0],
-};
 
 function hash(x, y) {
   let h = (x * 374761393 + y * 668265263) | 0;
@@ -117,7 +96,17 @@ export class Renderer {
     // is too big for one canvas (phones cap canvas size), so it's baked in
     // chunks of TERRAIN_CHUNK tiles, built as they come into view.
     this.terrainCanvas = this._buildTerrainCache();
-    this._vig = null; // cached vignette gradients (rebuilt on resize)
+    this._vig = null; // cached vignette (rebuilt on resize)
+    // Atmosphere and life (see ambience.js / critters.js): the region's colour
+    // mood easing toward the current one, objects reacting to you, critters.
+    this._mood = moodFor('Singapore').slice();
+    this._dn = dayNightWashes(0);
+    this._washes = [this._mood, this._dn[0], this._dn[1]];
+    this._grade = [0, 0, 0, 0];
+    this.react = new ObjectReactions();
+    this.critters = new Critters();
+    this._critEnv = { world: null, zone: '', night: 0, px: 0, py: 0, low: false };
+    this._lastT = 0;
     this.groundTex = this._loadGroundTextures();
   }
 
@@ -153,6 +142,10 @@ export class Renderer {
   render(timeMs) {
     const { ctx, game } = this;
     const cam = game.camera;
+    const fdt = this._lastT ? Math.max(0, Math.min(100, timeMs - this._lastT)) : 16;
+    this._lastT = timeMs;
+    // The camera's zoom eases a little in fights (cinematics.js): draw at it.
+    if (cam.screenW) ctx.setTransform(cam.dpr * cam.zoom, 0, 0, cam.dpr * cam.zoom, 0, 0);
     // Snap the camera origin to whole pixels. The camera still tracks the player
     // at sub-pixel precision, but drawing the baked terrain (and the sprites laid
     // over it) at fractional offsets makes everything shimmer/crawl as you walk.
@@ -191,6 +184,14 @@ export class Renderer {
     }
     this._drawGroundDecals(ox, oy);
     this._drawHazards(ox, oy, timeMs);
+    // Critters move on and objects near you react (bushes sway, tall things fade).
+    this.react.update(game, fdt);
+    {
+      const env = this._critEnv, pc = game.player.renderCenter();
+      env.world = game.world; env.zone = game.currentZoneName; env.night = night; env.px = pc.x; env.py = pc.y; env.low = !!game.lowFx;
+      this.critters.update(fdt, env, ox, oy, vw, vh);
+      this.critters.drawGround(ctx, ox, oy);
+    }
 
     // Depth-sorted drawables.
     const drawables = [];
@@ -202,6 +203,7 @@ export class Renderer {
       const jx = o.shakeT > 0 ? Math.sin(o.shakeT * 0.09) * 1.7 * (o.shakeT / 280) : 0;
       const cx = o.x * TILE + TILE / 2 - ox + jx, cy = o.y * TILE + TILE / 2 - oy;
       const lit = night > 0.12 && isLightSource(o);
+      const fade = this.react.alpha(o), lean = this.react.skew(o, timeMs);
       drawables.push({ sortY: o.y + 0.4, z: 1, draw: () => {
         if (lit) {
           // A warm light pool blooms outward after dark — fires, furnaces,
@@ -217,7 +219,14 @@ export class Renderer {
           ctx.beginPath(); ctx.arc(cx, cy - 4, r, 0, Math.PI * 2); ctx.fill();
           ctx.restore();
         }
-        drawObjectSprite(ctx, o, cx, cy, timeMs);
+        if (fade < 1 || lean) {
+          // See-through while you're behind it; a brushed bush leans about its base.
+          ctx.save();
+          ctx.globalAlpha = fade;
+          if (lean) { ctx.translate(cx, cy + 13); ctx.transform(1, 0, lean, 1, 0, 0); ctx.translate(-cx, -(cy + 13)); }
+          drawObjectSprite(ctx, o, cx, cy, timeMs);
+          ctx.restore();
+        } else drawObjectSprite(ctx, o, cx, cy, timeMs);
       } });
     }
     for (const g of game.world.groundItems) {
@@ -360,43 +369,27 @@ export class Renderer {
     for (const d of drawables) d.draw();
 
     this._drawClueMarker(ox, oy, vw, vh, timeMs);
-    this._drawVignette(vw, vh);
-    this._drawAtmosphere(vw, vh);
-    this._drawDayNight(vw, vh, night);
+    this._drawDayNight(vw, vh, night, fdt);
+    this._drawVignette(vw, vh, night);
+    this.critters.drawAir(ctx, ox, oy, timeMs);
     this._drawParticles(ox, oy);
     this._drawProjectiles(ox, oy);
     this._drawOverheads(ox, oy);
     this._drawHurtFlash(vw, vh);
+    this._drawCinematics(vw, vh);
   }
 
-  // Day/night colour wash: a warm dawn/dusk glow that peaks at mid-brightness
-  // (sun near the horizon) and fades at both full noon and full night, plus a
-  // cool navy night wash capped so the world stays readable at "midnight".
+  // The whole colour grade in ONE full-screen fill: the region's mood (eased
+  // toward the current region's over about a second), a warm dawn/dusk glow
+  // that peaks with the sun on the horizon, and a lavender night wash capped so
+  // the world stays readable at midnight. Painted one over another they'd be
+  // three fills; composeWashes folds them into one that looks the same.
   // Drawn under particles/hitsplats so embers and fireflies still pop at night.
-  _drawDayNight(vw, vh, night) {
-    const { ctx } = this;
-    const day = 1 - night;
-    const duskiness = 4 * day * night; // 0 at day=0 or day=1, peaks at day=0.5
-    // Pastel lighting: a soft peach-pink dusk and a gentle lavender night that
-    // never drops the world into murk.
-    if (duskiness > 0.02) {
-      ctx.fillStyle = `rgba(255,170,160,${(duskiness * 0.12).toFixed(3)})`;
-      ctx.fillRect(0, 0, vw, vh);
-    }
-    if (night > 0.05) {
-      const a = Math.min(0.18, night * night * 0.24);
-      ctx.fillStyle = `rgba(104,96,170,${a.toFixed(3)})`;
-      ctx.fillRect(0, 0, vw, vh);
-    }
-  }
-
-  // Smoothly-blended colour grade per region for atmosphere (warm towns, cool
-  // reservoir, ominous wilderness). Tints the world but not the HUD on top.
-  _drawAtmosphere(vw, vh) {
-    const t = ZONE_TINT[this.game.currentZoneName] || ZONE_TINT.Singapore;
-    if (!this._grade) this._grade = t.slice();
-    const g = this._grade;
-    for (let i = 0; i < 4; i++) g[i] += (t[i] - g[i]) * 0.05;
+  _drawDayNight(vw, vh, night, dt) {
+    // Low graphics keeps just the day/night light (the mood eases away).
+    blendMood(this._mood, this.game.lowFx ? moodFor('Singapore') : moodFor(this.game.currentZoneName), dt);
+    dayNightWashes(night, this._dn);
+    const g = composeWashes(this._washes, this._grade);
     if (g[3] <= 0.004) return;
     this.ctx.fillStyle = `rgba(${g[0] | 0},${g[1] | 0},${g[2] | 0},${g[3].toFixed(3)})`;
     this.ctx.fillRect(0, 0, vw, vh);
@@ -482,6 +475,65 @@ export class Renderer {
       for (const ex of [-4.2, 4.2]) { ctx.beginPath(); ctx.arc(cx + ex, ey, 1.6, 0, Math.PI * 2); ctx.fill(); }
     }
     ctx.restore();
+  }
+
+  // Cinematic overlays in screen space: a boss's entrance banner (its name and
+  // level sliding in), a new region's title card, and a boss death's flash.
+  _drawCinematics(vw, vh) {
+    const cine = this.game.cine;
+    if (!cine) return;
+    const { ctx } = this;
+    if (cine.flash > 0) {
+      ctx.fillStyle = `rgba(255,252,240,${(0.5 * cine.flash / DEATH_FLASH_MS).toFixed(3)})`;
+      ctx.fillRect(0, 0, vw, vh);
+    }
+    const size = Math.max(16, Math.min(30, vw * 0.042));
+    if (cine.intro) {
+      const { banner } = introCurve(cine.intro.t);
+      if (banner > 0) {
+        const y = vh * 0.29, h = size * 1.95;   // below the boss bar and tips at the top, above the fight
+        // It slides in from the left, then fades away at the end.
+        const entering = cine.intro.t < 400;
+        const slide = entering ? (1 - banner) * -vw : 0;
+        ctx.save();
+        ctx.globalAlpha = entering ? 1 : banner;
+        ctx.translate(slide, 0);
+        // A navy ribbon with a gold rule, the boss's name and level on it.
+        ctx.fillStyle = 'rgba(34,48,74,0.86)';
+        ctx.fillRect(0, y - h / 2, vw, h);
+        ctx.fillStyle = '#F5B82E';
+        ctx.fillRect(0, y - h / 2, vw, 2.5); ctx.fillRect(0, y + h / 2 - 2.5, vw, 2.5);
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+        ctx.font = `900 ${size.toFixed(1)}px Nunito,"Trebuchet MS",sans-serif`;
+        const name = cine.intro.name.toUpperCase();
+        ctx.strokeStyle = '#22304A'; ctx.lineWidth = size * 0.22; ctx.strokeText(name, vw / 2, y - size * 0.22);
+        ctx.fillStyle = '#FFE38A'; ctx.fillText(name, vw / 2, y - size * 0.22);
+        ctx.font = `800 ${(size * 0.48).toFixed(1)}px Nunito,"Trebuchet MS",sans-serif`;
+        ctx.fillStyle = '#FAF6EE'; ctx.fillText(`Level ${cine.intro.level}`, vw / 2, y + size * 0.62);
+        ctx.restore();
+      }
+    }
+    const tc = cine.title;
+    if (tc) {
+      const a = titleAlpha(tc.t);
+      if (a > 0) {
+        const y = vh * 0.3 - (1 - a) * 6;   // clear of the region label and tips
+        ctx.save();
+        ctx.globalAlpha = a;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+        // Sticker lettering: a white border round navy ink round the colour.
+        ctx.font = `900 ${(size * 1.25).toFixed(1)}px Nunito,"Trebuchet MS",sans-serif`;
+        ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = size * 0.5; ctx.strokeText(tc.name, vw / 2, y);
+        ctx.strokeStyle = '#22304A'; ctx.lineWidth = size * 0.22; ctx.strokeText(tc.name, vw / 2, y);
+        ctx.fillStyle = '#F5B82E'; ctx.fillText(tc.name, vw / 2, y);
+        if (tc.sub) {
+          ctx.font = `800 ${(size * 0.5).toFixed(1)}px Nunito,"Trebuchet MS",sans-serif`;
+          ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = size * 0.2; ctx.strokeText(tc.sub, vw / 2, y + size * 1.05);
+          ctx.fillStyle = '#22304A'; ctx.fillText(tc.sub, vw / 2, y + size * 1.05);
+        }
+        ctx.restore();
+      }
+    }
   }
 
   // A glowing rune circle under the caster's feet while a spell goes off.
@@ -1289,22 +1341,15 @@ export class Renderer {
     }
   }
 
-  _drawVignette(vw, vh) {
+  _drawVignette(vw, vh, night = 0) {
+    // Baked once per viewport size (a small canvas stretched to fit), and a
+    // little deeper after dark.
+    if (!this._vig || this._vig.vw !== vw || this._vig.vh !== vh) this._vig = { vw, vh, img: buildVignette(vw, vh) };
+    if (!this._vig.img) return;
     const { ctx } = this;
-    // Gradients are static per viewport size — cache them instead of rebuilding each frame.
-    if (!this._vig || this._vig.vw !== vw || this._vig.vh !== vh) {
-      const warm = ctx.createLinearGradient(0, 0, vw * 0.55, vh);
-      warm.addColorStop(0, 'rgba(255,236,214,0.10)');
-      warm.addColorStop(0.45, 'rgba(255,226,236,0.03)');
-      warm.addColorStop(1, 'rgba(200,220,255,0.05)');
-      const edge = ctx.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * 0.36, vw / 2, vh / 2, Math.max(vw, vh) * 0.74);
-      edge.addColorStop(0, 'rgba(0,0,0,0)');
-      edge.addColorStop(1, 'rgba(60,70,110,0.12)');
-      this._vig = { vw, vh, warm, edge };
-    }
-    // One soft edge vignette only: the old warm wash cost a full-screen paint
-    // every frame for an effect the pastel palette no longer needs.
-    ctx.fillStyle = this._vig.edge; ctx.fillRect(0, 0, vw, vh);
+    ctx.globalAlpha = 0.5 + 0.45 * night;
+    ctx.drawImage(this._vig.img, 0, 0, vw, vh);
+    ctx.globalAlpha = 1;
   }
 
   // ---------------- Overhead UI (bars, hitsplats, name) ----------------

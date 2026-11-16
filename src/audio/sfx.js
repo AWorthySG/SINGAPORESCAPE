@@ -2,9 +2,12 @@
 // first user gesture (browser autoplay policy). Fully guarded so it no-ops in
 // headless/no-Web-Audio environments. Listens on the EventBus for 'sfx' names
 // plus 'levelup'/'achievement'.
+import { AmbienceBed, ambienceMix } from './ambience.js';
+
 const MUTE_KEY = 'singaporescape:muted';
 const MUSIC_KEY = 'singaporescape:music';
 const VOLUME_KEY = 'singaporescape:volume';
+const AMBIENCE_KEY = 'singaporescape:ambience';
 const MASTER = 0.16;
 const MUSIC_VOL = 0.5; // relative to master
 // Gentle A-minor pentatonic — kampong evening kalimba.
@@ -20,6 +23,9 @@ export class Sfx {
     this.muted = this._loadMuted();
     this.volume = this._loadVolume();   // 0..1, scales everything
     this.musicOn = this._loadMusic();
+    this.ambienceOn = this._loadAmbience();
+    this.amb = null;               // the region sound beds (ambience.js), made on unlock
+    this.ambienceSource = null;    // set by main: () => ({ zone, night })
     bus.on('sfx', (n) => this.play(n));
     bus.on('levelup', () => this.play('level'));
     bus.on('achievement', () => this.play('achievement'));
@@ -39,8 +45,32 @@ export class Sfx {
       this.musicGain.gain.value = this.musicOn ? MUSIC_VOL : 0;
       this.musicGain.connect(this.master);
       this._startMusic();
+      this._startAmbience();
     } catch { this.ctx = null; }
   }
+
+  // ---------------- Region ambience (see ambience.js) ----------------
+  _startAmbience() {
+    if (!this.ctx || this.amb) return;
+    try { this.amb = new AmbienceBed(this.ctx, this.master); } catch { this.amb = null; return; }
+    // Once a second is plenty: the beds glide between levels on their own.
+    this._ambTick();
+    setInterval(() => this._ambTick(), 1000);
+  }
+
+  _ambTick() {
+    const src = this.amb && this.ambienceSource && this.ambienceSource();
+    if (!src) return;
+    this.amb.set(ambienceMix(src.zone, src.night), this.ambienceOn ? 1 : 0);
+  }
+
+  toggleAmbience() {
+    this.ambienceOn = !this.ambienceOn;
+    try { localStorage.setItem(AMBIENCE_KEY, this.ambienceOn ? '1' : '0'); } catch { /* ignore */ }
+    this._ambTick();
+    return this.ambienceOn;
+  }
+  _loadAmbience() { try { return localStorage.getItem(AMBIENCE_KEY) !== '0'; } catch { return true; } }
 
   // ---------------- Ambient music (generative, very sparse) ----------------
   _startMusic() {
@@ -194,6 +224,9 @@ export class Sfx {
         [392, 523, 659].forEach((f, i) => this._tone(f, 0.2, 'triangle', 0.18 + i * 0.11, 0.4));
         break;
       case 'hurt': this._tone(210, 0.2, 'sawtooth', 0, 0.55, 70); break;
+      case 'roar':   // a boss's entrance: a low growl rising into a bellow
+        this._noise(0.5, 0.3); this._tone(70, 0.6, 'sawtooth', 0, 0.45, 150); this._tone(105, 0.5, 'square', 0.05, 0.2, 60);
+        break;
       case 'eat': this._tone(300, 0.13, 'sine', 0, 0.5, 540); break;
       case 'droprare': [880, 1175].forEach((f, i) => this._tone(f, 0.12, 'triangle', i * 0.07, 0.4)); break;
       case 'dropepic': [784, 1047, 1319, 1568].forEach((f, i) => this._tone(f, 0.16, 'triangle', i * 0.07, 0.45)); this._tone(2093, 0.3, 'sine', 0.3, 0.2); break;
