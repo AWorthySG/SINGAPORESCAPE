@@ -276,7 +276,7 @@ export class Renderer {
           ctx.translate(cx, cy + 11 * sc);
           ctx.rotate(dir * fall * Math.PI * 0.5);
           ctx.translate(-cx, -(cy + 11 * sc));
-          drawCreature(ctx, n.npcId, cx, cy - 2, {
+          drawCreature(ctx, n.artId || n.npcId, cx, cy - 2, {
             time: timeMs, facing: n.facing, fx: n.faceX, moving: false, hurt: n.hurt,
             scale: sc, sprite: n.def.sprite, color: n.def.color, boss: n.def.boss, family: n.def.family,
           });
@@ -322,7 +322,7 @@ export class Renderer {
           ctx.setLineDash([]);
           ctx.restore();
         }
-        drawCreature(ctx, n.npcId, cx + off.x, cy - 2 + off.y - spawn * spawn * 6 * sc, {
+        drawCreature(ctx, n.artId || n.npcId, cx + off.x, cy - 2 + off.y - spawn * spawn * 6 * sc, {
           time: timeMs, facing: n.facing, fx: n.faceX, turn: (n.turnT || 0) / TURN_MS, entity: n,
           moving: n.isMoving, walk: n.walkPhase, move: n.animMove,
           scale: sc, sprite: n.def.sprite, color: n.def.color, boss: n.def.boss, family: n.def.family,
@@ -336,8 +336,10 @@ export class Renderer {
       const c = game.player.renderCenter();
       const cx = c.x - ox, cy = c.y - oy;
       const off = game.player.renderOffset ? game.player.renderOffset() : { x: 0, y: 0 };
+      const al = game.alignmentStyle ? game.alignmentStyle() : null;
       drawables.push({ sortY: c.y / TILE, z: 2, draw: () => {
         drawShadow(ctx, cx, cy + 13, 10, 4.5);
+        if (al?.aura) this._auraBack(cx + off.x, cy + off.y, al, timeMs);
         const sk = game.player.swingProgress();
         if (sk >= 0 && game.combatMode() === 'magic') this._castRing(cx, cy + 12, sk);
         drawPlayer(ctx, cx + off.x, cy - 2 + off.y, {
@@ -351,6 +353,7 @@ export class Renderer {
             turn: game.player.turnT / TURN_MS },
         });
         if (game.player.hurt > 0) this._hurtFlash(cx + off.x, cy - 2 + off.y, 1, game.player.hurt);
+        if (al?.halo || al?.eyes) this._auraFront(cx + off.x, cy + off.y, al, timeMs);
       } });
     }
     drawables.sort((a, b) => (a.sortY - b.sortY) || (a.z - b.z));
@@ -397,6 +400,88 @@ export class Renderer {
     if (g[3] <= 0.004) return;
     this.ctx.fillStyle = `rgba(${g[0] | 0},${g[1] | 0},${g[2] | 0},${g[3].toFixed(3)})`;
     this.ctx.fillRect(0, 0, vw, vh);
+  }
+
+  // ---------------- Alignment aura (alignment.js) ----------------
+  // A soft gold glow for the good (a halo too from Virtuous), dark purple smoke
+  // for the wicked (and a faint red glint of eyes for a Villain), nothing at
+  // Neutral. The glows are painted once into small canvases and stamped each
+  // frame with a gentle pulse, so the aura costs a couple of drawImage calls.
+  _auraSprite(kind, strength) {
+    const cache = this._auraCache || (this._auraCache = {});
+    const key = kind + strength;
+    if (key in cache) return cache[key];
+    if (typeof document === 'undefined') return (cache[key] = null);   // headless: no aura
+    const cv = document.createElement('canvas');
+    cv.width = 64; cv.height = 80;
+    const g = cv.getContext('2d');
+    if (!g) return (cache[key] = null);
+    const a = 0.18 + strength * 0.12;
+    if (kind === 'holy') {
+      const grd = g.createRadialGradient(32, 46, 2, 32, 46, 31);
+      grd.addColorStop(0, `rgba(255,226,110,${a})`);
+      grd.addColorStop(0.55, `rgba(255,200,60,${a * 0.6})`);
+      grd.addColorStop(1, 'rgba(255,210,74,0)');
+      g.fillStyle = grd; g.beginPath(); g.ellipse(32, 46, 31, 34, 0, 0, Math.PI * 2); g.fill();
+    } else {
+      // A few overlapping dark puffs read as smoke.
+      for (const [x, y, r] of [[32, 56, 24], [21, 42, 16], [43, 40, 16], [32, 28, 15]]) {
+        const grd = g.createRadialGradient(x, y, 1, x, y, r);
+        grd.addColorStop(0, `rgba(60,16,96,${a})`);
+        grd.addColorStop(0.6, `rgba(96,44,150,${a * 0.5})`);
+        grd.addColorStop(1, 'rgba(60,16,96,0)');
+        g.fillStyle = grd; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+      }
+    }
+    return (cache[key] = cv);
+  }
+
+  /** The glow or smoke behind the hero (cx, cy: the hero's tile centre). */
+  _auraBack(cx, cy, al, t) {
+    const img = this._auraSprite(al.aura, al.strength);
+    if (!img) return;
+    const { ctx } = this, low = this.game.lowFx;
+    ctx.save();
+    if (low) {   // low graphics: one still, fainter stamp
+      ctx.globalAlpha = 0.6;
+      ctx.drawImage(img, cx - 32, cy - 56);
+    } else if (al.aura === 'dark') {
+      // Two stamps sway apart and back, so the smoke seems to drift.
+      const sway = Math.sin(t * 0.0025) * 3;
+      ctx.globalAlpha = 0.85 + Math.sin(t * 0.004) * 0.15;
+      ctx.drawImage(img, cx - 32 + sway, cy - 56);
+      ctx.globalAlpha *= 0.55;
+      ctx.drawImage(img, cx - 32 - sway, cy - 59 + Math.cos(t * 0.003) * 2);
+    } else {
+      ctx.globalAlpha = 0.8 + Math.sin(t * 0.004) * 0.2;
+      ctx.drawImage(img, cx - 32, cy - 56);
+    }
+    ctx.restore();
+  }
+
+  /** In front of the hero: a halo over the head (Virtuous, Paragon) or a
+   *  Villain's faint red eyes. */
+  _auraFront(cx, cy, al, t) {
+    const { ctx } = this, low = this.game.lowFx;
+    ctx.save();
+    if (al.halo) {
+      const hy = cy - 46 + (low ? 0 : Math.sin(t * 0.003) * 1.2);   // just over the hero's head
+      ctx.globalAlpha = al.strength >= 3 ? 0.95 : 0.75;
+      ctx.strokeStyle = '#8A6205'; ctx.lineWidth = 3.5;
+      ctx.beginPath(); ctx.ellipse(cx, hy, 8, 2.6, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = al.strength >= 3 ? '#FFF2A8' : '#FFD24A'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(cx, hy, 8, 2.6, 0, 0, Math.PI * 2); ctx.stroke();
+    }
+    if (al.eyes && !low) {
+      // Roughly where the hero's eyes are: the painted heroes all face front.
+      const k = 0.5 + Math.max(0, Math.sin(t * 0.002)) * 0.4, ey = cy - 21;
+      ctx.fillStyle = '#FF2A3A';
+      ctx.globalAlpha = k * 0.3;
+      for (const ex of [-4.2, 4.2]) { ctx.beginPath(); ctx.arc(cx + ex, ey, 3.4, 0, Math.PI * 2); ctx.fill(); }
+      ctx.globalAlpha = k;
+      for (const ex of [-4.2, 4.2]) { ctx.beginPath(); ctx.arc(cx + ex, ey, 1.6, 0, Math.PI * 2); ctx.fill(); }
+    }
+    ctx.restore();
   }
 
   // A glowing rune circle under the caster's feet while a spell goes off.
@@ -1270,7 +1355,8 @@ export class Renderer {
       if (!n.alive) continue;
       const boss = n.def.boss;
       const targeted = n === game.player.target;
-      if (!boss && !n.champion && n.combatLatch <= 0 && n.telegraph <= 0 && !targeted && n.chatTimer <= 0) continue;
+      const moral = n.def.moral && game.moralPending(n);   // a moral choice still waiting for you
+      if (!boss && !n.champion && n.combatLatch <= 0 && n.telegraph <= 0 && !targeted && n.chatTimer <= 0 && !moral) continue;
       const c = n.renderCenter();
       // Labels and bars for monsters off screen were the biggest drawing cost
       // (every champion and boss in range drew its name each frame): skip them.
@@ -1300,6 +1386,13 @@ export class Renderer {
         const tag = `${r.name}${m === 'strong' ? ' ▲' : m === 'weak' ? ' ▼' : ''} · weak: ${weaknessOf(n.def)} · armour: ${armourTierOf(n.def)}${wound}${bleed}`;
         ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.lineWidth = 3; ctx.strokeText(tag, px, py);
         ctx.fillStyle = m === 'strong' ? '#ffd24a' : m === 'weak' ? '#c8ccd4' : '#9affd0'; ctx.fillText(tag, px, py);
+      }
+      if (moral && !(n.chatTimer > 0)) {
+        // A small gold "!" bobbing over their head until you have chosen.
+        const px = c.x - ox, py = c.y - oy + yo - 8 + Math.sin(performance.now() * 0.005) * 1.5;
+        ctx.font = '900 14px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+        ctx.strokeStyle = '#22304A'; ctx.lineWidth = 3.5; ctx.strokeText('!', px, py);
+        ctx.fillStyle = '#FFD24A'; ctx.fillText('!', px, py);
       }
       if (n.telegraph > 0) {
         const px = c.x - ox, py = c.y - oy + yo - 12;
@@ -1337,14 +1430,26 @@ export class Renderer {
       ctx.strokeText(game.player.name, px, py - 53);
       ctx.fillStyle = '#FFFFFF';
       ctx.fillText(game.player.name, px, py - 53);
+      // Your alignment title ("the Paragon", "the Villain") sits just above the
+      // name in its tier's colour; nothing while you are Neutral.
+      const al = game.alignmentStyle ? game.alignmentStyle() : null;
+      let ty = py - 65;
+      if (al?.label && !status) {
+        ctx.font = '900 9px Nunito,"Trebuchet MS",sans-serif';
+        ctx.strokeStyle = '#22304A'; ctx.lineWidth = 3;
+        ctx.strokeText(al.label, px, py - 64);
+        ctx.fillStyle = al.color;
+        ctx.fillText(al.label, px, py - 64);
+        ty = py - 75;
+      }
       // A Codex title (from a mastered topic) sits above the name, in gold.
       const title = game.learning?.titleText();
       if (title && !status) {   // a status badge takes that spot while it lasts
         ctx.font = '900 9.5px Nunito,"Trebuchet MS",sans-serif';
         ctx.strokeStyle = '#22304A'; ctx.lineWidth = 3;
-        ctx.strokeText(`« ${title} »`, px, py - 65);
+        ctx.strokeText(`« ${title} »`, px, ty);
         ctx.fillStyle = '#FFD24A';
-        ctx.fillText(`« ${title} »`, px, py - 65);
+        ctx.fillText(`« ${title} »`, px, ty);
       }
     }
     this._drawGatherRing(ox, oy);

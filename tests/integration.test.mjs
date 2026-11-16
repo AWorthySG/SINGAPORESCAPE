@@ -1282,9 +1282,14 @@ test('good/evil alignment rises with heroism and cruelty', () => {
   const passive = game.npcs.find((n) => n.attackable && !n.def.aggressive && !n.def.boss);
   assert.ok(agg && passive, 'both an aggressive and a harmless creature exist');
 
+  // Aggressive foes are only a little heroic: one good point per 10 slain.
   const good0 = game.karma.good;
-  game.killNpc(agg);
-  assert.ok(game.karma.good > good0, 'slaying an aggressive foe is good');
+  for (let i = 0; i < 9; i++) { game.killNpc(agg); agg.alive = true; }
+  assert.equal(game.karma.good, good0, 'nine aggressive kills are not yet a good deed');
+  game.killNpc(agg); agg.alive = true;
+  assert.equal(game.karma.good, good0 + 1, 'the tenth slain aggressive foe is +1 good');
+  for (let i = 0; i < 10; i++) { game.killNpc(agg); agg.alive = true; }
+  assert.equal(game.karma.good, good0 + 2, 'and every tenth after that');
 
   const evil0 = game.karma.evil;
   game.killNpc(passive);
@@ -1334,6 +1339,221 @@ test('alignment survives save/load', () => {
   const g2 = new Game();
   assert.ok(loadGame(g2));
   assert.deepEqual(g2.karma, { good: 17, evil: 4 });
+});
+
+test('moral encounters: a dozen across the island, in existing art, each with a good and an evil choice', async () => {
+  const { MORAL_EVENTS, moralDialogue } = await import('../src/data/moralEvents.js');
+  const { townArt } = await import('../src/render/sprites.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start();
+  assert.ok(MORAL_EVENTS.length >= 12, 'about a dozen encounters');
+  const zones = new Set();
+  for (const ev of MORAL_EVENTS) {
+    const n = g.npcs.find((x) => x.npcId === `moral_${ev.id}`);
+    assert.ok(n, `${ev.id} stands in the world`);
+    assert.ok(!n.attackable && n.def.role === 'dialogue' && n.def.moral === ev.id, `${ev.id} is talked to, never fought`);
+    assert.ok(townArt().has(ev.art) || getNpc(ev.art).sprite, `${ev.id} wears existing art`);
+    assert.ok(g.moralPending(n), 'waiting for your choice');
+    zones.add(g.world.zoneAt(n.x, n.y)?.name);
+    for (const side of ['good', 'evil']) assert.ok(ev[side].karma >= 8 && ev[side].karma <= 15, `${ev.id} ${side} karma is meaningful`);
+    assert.ok(ev.evil.coins > 0, 'evil pays coins now');
+    assert.ok(!ev.good.coins && (ev.good.xp || ev.good.shrine || ev.good.bless), 'good pays in other ways');
+    const tree = moralDialogue(ev.id);
+    assert.deepEqual(tree.start.options.filter((o) => o.action).map((o) => o.action), [`moral:${ev.id}:good`, `moral:${ev.id}:evil`]);
+  }
+  assert.ok(zones.size >= 10, 'spread across the regions');
+  // Nothing that finds NPCs by id can mistake them for the real hawker or a huntable dog.
+  assert.ok(!g.npcs.some((n) => n.def.moral && (n.npcId === 'hawker' || n.npcId === 'stray_dog')));
+});
+
+test('a good choice: karma, skill XP, shrine points and the Blessed buff, and only once', async () => {
+  const { moralCoins, BLESS_XP } = await import('../src/data/moralEvents.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start();
+  const herb0 = g.skills.xp.herblore, shrine0 = g.shrine.points, coins0 = g.inventory.count('coins');
+  g.handleDialogueAction('moral:beaten_bandit:good');   // the dialogue box's option
+  assert.equal(g.moral.choices.beaten_bandit, 'good');
+  assert.equal(g.karma.good, 12);
+  assert.ok(g.skills.xp.herblore > herb0, 'herblore XP');
+  assert.equal(g.shrine.points, shrine0 + 80, 'shrine points');
+  assert.equal(g.inventory.count('coins'), coins0, 'no coins for a good deed');
+  assert.equal(g.moralChoose('beaten_bandit', 'evil'), false, 'answered once only');
+  assert.equal(g.karma.evil, 0);
+  assert.ok(!g.moralPending(g.npcs.find((n) => n.def.moral === 'beaten_bandit')), 'no longer waiting');
+  // A good choice that costs coins: refused when you can't pay, blessed when you can.
+  g.inventory.remove('coins', g.inventory.count('coins'));
+  assert.equal(g.moralChoose('temple_box', 'good'), false, 'too poor to donate');
+  const cost = moralCoins(15, g.fightLevel());
+  g.inventory.add('coins', cost + 5);
+  assert.ok(g.moralChoose('temple_box', 'good'));
+  assert.equal(g.inventory.count('coins'), 5, 'the donation is paid');
+  assert.ok(g.blessedMs > 0 && g.xpBreakdown().blessed === BLESS_XP, 'Blessed: more combat XP');
+  g._tickPotions(11 * 60 * 1000);
+  assert.equal(g.blessedMs, 0, 'the blessing fades');
+});
+
+test('an evil choice pays coins (and loot) now, and auto battle / auto quest never choose for you', async () => {
+  const { moralCoins } = await import('../src/data/moralEvents.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('swordsman');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  const coins0 = g.inventory.count('coins'), runes0 = g.inventory.count('death_rune');
+  assert.ok(g.moralChoose('wounded_scout', 'evil'));
+  assert.equal(g.karma.evil, 15);
+  assert.equal(g.inventory.count('coins'), coins0 + moralCoins(160, g.fightLevel()));
+  assert.equal(g.inventory.count('death_rune'), runes0 + 60);
+  assert.equal(g.moralChoose('nobody', 'evil'), false, 'unknown encounters do nothing');
+  assert.equal(g.moralChoose('lost_child', 'maybe'), false, 'only good or evil');
+  // Stand by the stray dog with auto battle and auto quest on: nothing is chosen.
+  const dog = g.npcs.find((n) => n.def.moral === 'stray_dog');
+  g.player.x = g.player.tx = dog.x + 1; g.player.y = g.player.ty = dog.y;
+  g.toggleAutoBattle(true); g.toggleAutoQuest(true);
+  step(g, 30);
+  assert.equal(g.moral.choices.stray_dog, undefined, 'the choice stays with the player');
+  assert.ok(dog.alive && g.player.target !== dog);
+});
+
+test('aggressive kills give good karma only every tenth kill; bosses +5; harmless +1 evil', () => {
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start();
+  const agg = g.npcs.find((n) => n.attackable && n.def.aggressive && !n.def.boss);
+  const boss = g.npcs.find((n) => n.attackable && n.def.boss);
+  const harmless = g.npcs.find((n) => n.attackable && !n.def.aggressive && !n.def.boss);
+  for (let i = 0; i < 25; i++) { g.killNpc(agg); agg.alive = true; }
+  assert.equal(g.karma.good, 2, '25 aggressive kills: +2 good');
+  assert.equal(g.moral.heroKills, 5, 'five towards the next');
+  g.killNpc(boss);
+  assert.equal(g.karma.good, 7, 'a boss is still +5');
+  g.killNpc(harmless);
+  assert.equal(g.karma.evil, 1);
+});
+
+test('moral choices and the kill counter survive save/load; older saves load without them', () => {
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g1 = new Game(); g1.start();
+  g1.moralChoose('lost_child', 'good'); g1.moralChoose('smuggler', 'evil');
+  g1.moral.heroKills = 7; g1.moral.giftDay = '2026-11-16';
+  assert.ok(saveGame(g1));
+  const g2 = new Game();
+  assert.ok(loadGame(g2));
+  assert.deepEqual(g2.moral, { choices: { lost_child: 'good', smuggler: 'evil' }, heroKills: 7, giftDay: '2026-11-16' });
+  assert.ok(!g2.moralPending(g2.npcs.find((n) => n.def.moral === 'lost_child')));
+  // An older save (no moral field, or a broken one) starts with none answered.
+  const raw = JSON.parse(localStorage.getItem(SAVE_KEY));
+  delete raw.moral;
+  localStorage.setItem(SAVE_KEY, JSON.stringify(raw));
+  const g3 = new Game(); g3.moralChoose('lost_child', 'evil');
+  assert.ok(loadGame(g3));
+  assert.deepEqual(g3.moral, { choices: {}, heroKills: 0, giftDay: null });
+  raw.moral = { choices: { lost_child: 'sideways', x: 5 }, heroKills: 'lots' };
+  localStorage.setItem(SAVE_KEY, JSON.stringify(raw));
+  const g4 = new Game();
+  assert.ok(loadGame(g4));
+  assert.deepEqual(g4.moral, { choices: {}, heroKills: 0, giftDay: null });
+});
+
+test('town guards challenge a Villain in town, but never the good, the neutral or a new player', async () => {
+  const { raceOf } = await import('../src/data/races.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('swordsman');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  const p = g.player;
+  p.hp = 1e6;
+  const put = (x, y) => { p.x = p.tx = x; p.y = p.ty = y; p.path = []; };
+  // A brand-new villain in the starter town: left alone.
+  g.karma = { good: 0, evil: 80 };
+  put(58, 55);
+  assert.ok(g.fightLevel() < 20);
+  step(g, 3);
+  assert.ok(!g.npcs.some((n) => n.townGuard), 'no guards for a new player');
+  g.skills.addXp('attack', 500);
+  const fl = g.fightLevel();
+  assert.ok(fl >= 20 && fl < 40, `fight level ${fl}`);
+  assert.equal(g.guardsWouldChallenge(58, 55), false, 'the starter area stays safe below level 40');
+  assert.equal(g.guardsWouldChallenge(192, 138), true, 'but Marina Bay\'s watch knows your face');
+  assert.equal(g.guardsWouldChallenge(150, 160), false, 'only inside a town');
+  // Good and neutral (and merely wicked) players are never challenged.
+  for (const k of [{ good: 80, evil: 0 }, { good: 0, evil: 0 }, { good: 0, evil: 50 }]) {
+    g.karma = k;
+    assert.equal(g.guardsWouldChallenge(192, 138), false, `not at ${k.good - k.evil}`);
+  }
+  // A Villain walks into Marina Bay: a guard comes for them.
+  g.karma = { good: 0, evil: 80 };
+  put(192, 138);
+  step(g, 1);
+  const guards = g.npcs.filter((n) => n.townGuard && n.alive);
+  assert.equal(guards.length, 1, 'one guard');
+  const gd = guards[0];
+  assert.ok(gd.attackable && gd.target === p, 'it attacks');
+  assert.equal(raceOf(gd.def, gd.npcId), 'humanoid');
+  assert.ok(Math.abs(gd.def.level - fl) <= 15, `about your fight level (${gd.def.level} vs ${fl})`);
+  { const all = g.npcs; g.npcs = [gd];   // on its own (a champion nearby would still come first)
+    assert.equal(g._autoPickTarget(), gd, 'auto battle answers it');
+    g.npcs = all; }
+  // Cut it down: coins and more evil.
+  const coins0 = g.inventory.count('coins'), evil0 = g.karma.evil;
+  g.killNpc(gd);
+  assert.ok(g.inventory.count('coins') > coins0, 'their purse');
+  assert.equal(g.karma.evil, evil0 + 3);
+  // A cooldown: no new guards straight away.
+  step(g, 20);
+  assert.ok(!g.npcs.some((n) => n.townGuard && n.alive), 'the watch waits a few minutes');
+  g._guardReadyAt = g.tickCount;
+  g.karma = { good: 0, evil: 150 };
+  step(g, 1);
+  assert.equal(g.npcs.filter((n) => n.townGuard && n.alive).length, 2, 'two for a notorious villain');
+  // Run away: they give up and go back on patrol.
+  put(150, 160);
+  for (let i = 0; i < 400 && g.npcs.some((n) => n.townGuard); i++) step(g, 1);
+  assert.ok(!g.npcs.some((n) => n.townGuard), 'guards leave once you are gone');
+});
+
+test('townsfolk greet you by your alignment; a Paragon gets a daily gift', async () => {
+  const { GREETINGS } = await import('../src/data/alignment.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start();
+  const p = g.player;
+  const banker = g.npcs.find((n) => n.npcId === 'banker');
+  g.npcs = [banker];
+  p.x = p.tx = banker.x; p.y = p.ty = banker.y + 2;
+  const greet = (karma) => {
+    g.karma = karma; banker.chatTimer = 0; banker._greetedAt = 0;
+    g.tickCount = (Math.floor(g.tickCount / 8) + 1) * 8;   // greetings come every 8 ticks
+    g._tickGreetings();
+    return banker.chatText;
+  };
+  assert.ok(GREETINGS.villain.includes(greet({ good: 0, evil: 90 })), 'fear for a Villain');
+  assert.ok(GREETINGS.wicked.includes(greet({ good: 0, evil: 30 })), 'nerves for the Wicked');
+  assert.ok(GREETINGS.neutral.includes(greet({ good: 0, evil: 0 })));
+  assert.ok(GREETINGS.virtuous.includes(greet({ good: 30, evil: 0 })), 'warmth for the Virtuous');
+  const coins0 = g.inventory.count('coins');
+  assert.match(greet({ good: 90, evil: 0 }), /hero/, 'a Paragon is thanked...');
+  assert.ok(g.inventory.count('coins') > coins0 && g.inventory.has('chicken_rice', 2), '...with a gift');
+  const coins1 = g.inventory.count('coins');
+  assert.ok(GREETINGS.paragon.includes(greet({ good: 90, evil: 0 })), 'then just warm words');
+  assert.equal(g.inventory.count('coins'), coins1, 'one gift a day');
+});
+
+test('alignment style: title, colour and aura per tier', async () => {
+  const { alignmentStyle, alignmentTier } = await import('../src/data/alignment.js');
+  assert.deepEqual(alignmentStyle(0), { tier: 'neutral', title: 'Neutral', cls: 'neutral', color: '#FFFFFF', label: null, aura: null, strength: 0, halo: false, eyes: false });
+  const k = alignmentStyle(8), v = alignmentStyle(25), pg = alignmentStyle(60);
+  assert.equal(k.label, 'the Kind-hearted'); assert.equal(k.aura, 'holy'); assert.equal(k.halo, false);
+  assert.equal(v.label, 'the Virtuous'); assert.ok(v.halo);
+  assert.equal(pg.label, 'the Paragon'); assert.ok(pg.halo && pg.strength > v.strength && v.strength > k.strength, 'stronger at higher tiers');
+  const m = alignmentStyle(-8), w = alignmentStyle(-25), vl = alignmentStyle(-60);
+  assert.equal(m.aura, 'dark'); assert.equal(m.eyes, false);
+  assert.equal(w.label, 'the Wicked'); assert.equal(w.eyes, false);
+  assert.equal(vl.label, 'the Villain'); assert.ok(vl.eyes && !vl.halo);
+  assert.equal(alignmentStyle(7).aura, null); assert.equal(alignmentStyle(-7).aura, null);
+  // The game's title agrees with the shared tiers.
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game();
+  for (const a of [-80, -30, -10, 0, 10, 30, 80]) {
+    g.karma = a >= 0 ? { good: a, evil: 0 } : { good: 0, evil: -a };
+    assert.equal(g.alignmentTitle().title, alignmentTier(a).title);
+    assert.equal(g.alignmentStyle().label, alignmentStyle(a).label);
+  }
 });
 
 test('redemption arc: atone to cleanse evil and earn the Blessed halo', async () => {
@@ -6646,7 +6866,7 @@ test('auto battle steps out of a boss ground marker and keeps attacking (melee i
   assert.equal(p.action.npc, boss, 'the same boss');
   assert.ok(chebyshev(at.x, at.y, boss.x, boss.y) <= g.attackRange(), 'and still within reach of it');
   assert.ok(boss.hp < hp0, 'it kept hitting the boss through the dodge');
-  assert.equal(p.hp, me0, 'and the blast missed');
+  assert.ok(p.hp >= me0, 'and the blast missed (a heal on hit may top you up)');
   g.toggleAutoBattle(false);
   assert.equal(g._dodging, false);
 });

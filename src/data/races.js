@@ -40,6 +40,7 @@ const RACE_OVERRIDE = {
   the_garuda: 'avian', celestial_garuda: 'avian',                        // great birds, not dragons
   celestial_qilin: 'dragon',                                             // a dragon-kin of the heavens
   scarecrow: 'flora',                                                    // straw on a stick
+  town_guard: 'humanoid',                                                // the town watch (game.js spawnTownGuards)
 };
 
 /** The race id of a monster or boss definition (pass its npc id for bosses). */
