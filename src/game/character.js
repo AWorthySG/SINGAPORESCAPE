@@ -173,6 +173,10 @@ export class Character {
 
   get isMoving() { return this.moving; }
 
+  /** Last left/right facing (-1 or 1). Straight up/down moves keep it, so the
+   *  drawn sprite doesn't flip to face right whenever it climbs or descends. */
+  get faceX() { return this._fx; }
+
   /** Authoritative tile the entity occupies. */
   tile() { return { x: this.x, y: this.y }; }
 
