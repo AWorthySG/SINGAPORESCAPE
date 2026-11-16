@@ -3881,7 +3881,7 @@ export class Game {
     this._autoSkip.clear();
     this._autoLast = null;
     if (this.autoBattle) this._autoRetarget = true;   // start at once, not on the next tick
-    else this._questBoss = false;                     // a quest's boss hunt ends with auto battle
+    else { this._questBoss = false; this._dodging = false; }   // a quest's boss hunt (and any dodge) ends with auto battle
     this.msg(this.autoBattle
       ? 'Auto battle on: you will hunt nearby monsters, eat when hurt and use your skills. Steer to pause.'
       : 'Auto battle off.', 'system');
@@ -3907,7 +3907,6 @@ export class Game {
     //     limit, as long as a reserve of three hires' worth of coins is left.
     if (this.jobClass === 'merchant' && p.action?.type === 'attack' && p.action.npc?.alive
       && this.inventory.count('coins') >= Mercs.hireCost(this) * 3) this.hireMercenary();
-    // (Auto battle no longer steps out of boss ground markers: dodging is yours to do.)
     if (this._autoResume) {
       const n = this._autoResume;
       this._autoResume = null;
@@ -3919,6 +3918,8 @@ export class Game {
       if (idx !== -1) this.eatItem(idx);
       else this._autoAbility((ab) => ab.kind === 'heal');
     }
+    // 1b. Step out of a boss's ground marker, still fighting (see _autoDodge).
+    this._autoDodge();
     const a = p.action;
     const fighting = a && a.type === 'attack' && a.npc && a.npc.alive;
     // A target we just sent you at that cleared itself without dying was
@@ -4195,19 +4196,52 @@ export class Game {
   }
 
   /** Nearest walkable tile (within 4) that no boss attack is about to hit. */
-  _safeTileNear(at) {
-    for (let r = 1; r <= 4; r++) {
-      let best = null, bd = Infinity;
+  /** The nearest tile outside every boss ground marker. With a `target`, one
+   *  still within `range` of it is preferred (up to 5 tiles away), so a dodge
+   *  never takes you out of reach when it doesn't have to. */
+  _safeTileNear(at, target = null, range = 0) {
+    let best = null, bd = Infinity, inReach = false;
+    for (let r = 1; r <= 5; r++) {
       for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
         if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
         const x = at.x + dx, y = at.y + dy;
         if (!this.world.inBounds(x, y) || this.world.isBlocked(x, y) || this.hazardAt(x, y)) continue;
+        const reach = !!target && chebyshev(x, y, target.x, target.y) <= range && (x !== target.x || y !== target.y);
         const d = dx * dx + dy * dy;
-        if (d < bd) { bd = d; best = { x, y }; }
+        // A tile in reach always beats one out of reach; otherwise the nearest.
+        if ((reach && !inReach) || (reach === inReach && d < bd)) { bd = d; best = { x, y }; inReach = reach; }
       }
-      if (best) return best;
+      if (best && (inReach || !target)) return best;   // found one that keeps you fighting
     }
-    return null;
+    return best;
+  }
+
+  /** Auto battle steps out of a boss's red ground marker before it lands. The
+   *  fight carries on: the attack is kept (every style, melee included), so
+   *  you swing or shoot on the move whenever the target is in reach, and the
+   *  dodge heads for a safe tile still within your weapon's reach if there is
+   *  one. True while a dodge is under way. */
+  _autoDodge() {
+    const p = this.player;
+    if (!this.hazards.length || this.playerRoot > 0 || this.playerStun > 0) {
+      if (this._dodging && !p.isMoving) this._dodging = false;
+      return false;
+    }
+    const at = this.playerTile();
+    if (!this.hazardAt(at.x, at.y)) {
+      if (this._dodging && !p.isMoving) this._dodging = false;
+      return this._dodging;
+    }
+    if (this._dodging && p.isMoving && this._dodgeTo && !this.hazardAt(this._dodgeTo.x, this._dodgeTo.y)) return true;   // already on the way out
+    const a = p.action;
+    const tgt = a?.type === 'attack' && a.npc?.alive ? a.npc : null;
+    const safe = this._safeTileNear(at, tgt, this.attackRange());
+    if (!safe) return false;
+    const path = findPath(this.pathCfg(), at, safe, { maxNodes: 2000 });
+    if (!path.length) return false;
+    p.setPath(path, this.canRun());   // the attack action stays: no clearAction
+    this._dodging = true; this._dodgeTo = safe;
+    return true;
   }
 
   /** Auto battle's skill rotation, run each tick of a fight:
