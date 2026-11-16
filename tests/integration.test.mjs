@@ -6695,3 +6695,40 @@ test('life skills never fail: woodcutting, fishing, mining, hunting, cooking, sm
     assert.equal(g.player.hp, hp0); assert.ok(!(g.playerStun > 0), 'never stunned');
   } finally { Math.random = orig; }
 });
+
+test('good and evil in combat: the Holy path smites the unholy and heals on kills; the Dark path adds crit damage and lifesteal', async () => {
+  const { raceOf } = await import('../src/data/races.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('swordsman');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  const unholy = g.npcs.find((n) => n.def.attackable && !n.def.boss && ['undead', 'spirit', 'demon'].includes(raceOf(n.def, n.npcId)));
+  const beast = g.npcs.find((n) => n.def.attackable && !n.def.boss && raceOf(n.def, n.npcId) === 'beast');
+  assert.ok(unholy && beast);
+  const dmg = (n) => g._offensiveMods(n, 'melee').dmgM;
+  const set = (good, evil) => { g.karma = { good, evil }; };
+  // Neutral: nothing.
+  set(0, 0);
+  assert.equal(g.karmaCombat().side, 'neutral');
+  const base = { u: dmg(unholy), b: dmg(beast), cd: g.equipment.bonuses().critDmg, ls: g.equipment.bonuses().lifesteal };
+  // Holy (Paragon): +35% only against the unholy, no crit/lifesteal.
+  set(100, 0);
+  const holy = g.karmaCombat();
+  assert.deepEqual([holy.side, holy.tier], ['holy', 3]);
+  assert.ok(Math.abs(dmg(unholy) / base.u - 1.35) < 1e-9, 'smites the unholy');
+  assert.ok(Math.abs(dmg(beast) / base.b - 1) < 1e-9, 'no bonus against a beast');
+  assert.equal(g.equipment.bonuses().critDmg, base.cd);
+  // ...and each kill heals 10% of your life.
+  g.player.hp = 1; const max = g.maxHp();
+  beast.hp = 0; g.killNpc(beast);
+  assert.equal(g.player.hp, Math.min(max, 1 + Math.ceil(max * 0.1)));
+  // Dark (Wicked, tier 2): +30% crit damage and +4% lifesteal, no smiting.
+  set(0, 30);
+  const dark = g.karmaCombat();
+  assert.deepEqual([dark.side, dark.tier], ['dark', 2]);
+  assert.equal(g.equipment.bonuses().critDmg, base.cd + 30);
+  assert.equal(g.equipment.bonuses().lifesteal, base.ls + 4);
+  assert.ok(Math.abs(dmg(unholy) / base.u - 1) < 1e-9);
+  // The lowest tier needs 8 points of alignment either way.
+  set(7, 0); assert.equal(g.karmaCombat().side, 'neutral');
+  set(8, 0); assert.equal(g.karmaCombat().tier, 1);
+});
