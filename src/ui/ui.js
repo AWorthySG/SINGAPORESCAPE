@@ -198,6 +198,7 @@ export class UI {
 
     // Bus subscriptions.
     this.bus.on('tick', () => { this.renderAutoBattle(); this.updateBossBar(); this.updateDayNight(); this.renderTracker(); this._tipsTick(); });
+    this._initMinimalHud();
     this.bus.on('inventory', () => this.scheduleInventory());
     // Gear changes come in bursts (every worn piece gains mastery on a kill), so redraw once a frame.
     this.bus.on('equipment', () => { this._soon('equipment', () => this.renderEquipment()); this._soon('combat', () => this.renderCombatPanel()); this.scheduleInventory(); });
@@ -2175,6 +2176,31 @@ export class UI {
     this._tipTimer = setTimeout(() => { if (this._tipEl === el) done(); }, id === 'dodge' ? 6000 : 14000);
   }
 
+  // ---------------- Minimal HUD ----------------
+  // With the setting on, the side panel, chat log, objectives and labels tuck
+  // away while you're exploring (out of combat, nothing open), leaving the
+  // orbs, minimap, adrenaline and action buttons. Hovering or tapping where a
+  // panel was brings everything back for a few seconds (see .hud-min in main.css).
+  _initMinimalHud() {
+    const peek = () => { this._hudPeekUntil = this._now() + 8000; this._minimalHudTick(); };
+    for (const id of ['sidepanel', 'chatbox']) {
+      const el = document.getElementById(id);
+      el?.addEventListener('pointerdown', peek, true);
+      el?.addEventListener('click', peek, true);   // the number keys "click" the tabs
+    }
+    this.bus.on('tick', () => this._minimalHudTick());
+  }
+
+  _now() { return typeof performance !== 'undefined' ? performance.now() : Date.now(); }
+
+  _minimalHudTick() {
+    const root = this._hudRoot || (this._hudRoot = document.getElementById('game-root'));
+    if (!root) return;
+    const g = this.game;
+    const on = !!g.minimalHud && g.player.alive && !g.cine?.inFight && !this.modal && this._now() > (this._hudPeekUntil || 0);
+    root.classList.toggle('hud-min', on);
+  }
+
   // ---------------- Settings ----------------
   _buildSettingsPanel() {
     const p = this.el.settings;
@@ -2225,6 +2251,14 @@ export class UI {
       musicBtn.textContent = `Music: ${on ? 'On' : 'Off'}`;
     });
     musicBtn.textContent = `Music: ${this.game.audio && this.game.audio.musicOn ? 'On' : 'Off'}`;
+    const ambBtn = mk('', () => {
+      const a = this.game.audio;
+      if (!a) return;
+      a.unlock();
+      const on = a.toggleAmbience();
+      ambBtn.textContent = `Ambience: ${on ? 'On' : 'Off'}`;
+    });
+    ambBtn.textContent = `Ambience: ${this.game.audio && this.game.audio.ambienceOn === false ? 'Off' : 'On'}`;
     // Volume slider.
     const vol = document.createElement('label');
     vol.className = 'set-slider';
@@ -2245,6 +2279,15 @@ export class UI {
       window.dispatchEvent(new Event('resize'));   // re-size the canvas for the new quality
     });
     gfxBtn.textContent = `Graphics: ${this.game.lowFx ? 'Low (faster)' : 'High'}`;
+    const hudBtn = mk('', () => {
+      this.game.minimalHud = !this.game.minimalHud;
+      this.game.saveSoon = true;
+      hudBtn.textContent = `Minimal HUD: ${this.game.minimalHud ? 'On' : 'Off'}`;
+      if (this.game.minimalHud) this.game.msg('Minimal HUD: panels tuck away while you explore. Hover or tap where they were to bring them back.', 'system');
+      this._hudPeekUntil = this._now() + 4000;   // don't vanish the button you just pressed
+      this._minimalHudTick();
+    });
+    hudBtn.textContent = `Minimal HUD: ${this.game.minimalHud ? 'On' : 'Off'}`;
     mk('Show tips again', () => {
       try { localStorage.removeItem(TIPS_KEY); } catch {}
       this._tipsSeen = new Set();

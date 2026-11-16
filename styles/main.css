@@ -2482,3 +2482,15 @@ body.boss-on #tip-toast { top: 132px; }
 .save-xfer-msg.no { color: var(--danger); }
 .save-xfer-actions .wm-go { padding: 8px 22px; font-size: var(--fs-md); }
 .save-xfer-actions .wm-go:disabled { opacity: .6; cursor: var(--cur-default); }
+
+/* Minimal HUD (Settings): while exploring, the side panel, chat log, objectives
+   and labels tuck away, leaving the orbs, minimap, adrenaline and the action
+   buttons. Hovering or tapping where a panel sits brings it all back. */
+#sidepanel, #chatbox, #quest-tracker, #hover-text, #region-label { transition: opacity .35s ease; }
+#game-root.hud-min #sidepanel:not(:hover) { opacity: 0; }
+#game-root.hud-min #chatbox:not(:hover) #chat-log,
+#game-root.hud-min #chatbox:not(:hover) #chat-tabs { display: none; }
+#game-root.hud-min #chatbox:not(:hover) { height: auto; opacity: .7; }
+#game-root.hud-min #quest-tracker,
+#game-root.hud-min #hover-text,
+#game-root.hud-min #region-label { opacity: 0; pointer-events: none; }

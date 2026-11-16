@@ -23,6 +23,8 @@ import { Bank } from './bank.js';
 import { Player, STICK_DEAD } from './player.js';
 import { NPC } from './npc.js';
 import { Camera } from '../engine/camera.js';
+import { Cinematics } from './cinematics.js';
+import { footFx } from './footfx.js';
 import { findPath } from '../engine/pathfinding.js';
 import {
   playerAttackVsNpc, npcAttackVsPlayer, rollAttack, rollGuaranteed, rollHit, combatXp, magicXp, killXp, DAMAGE_XP_SHARE, KILL_XP_SHARE,
@@ -315,6 +317,9 @@ export class Game {
     // bosses far above them); saves keep whatever the player chose.
     this.autoCfg = { eatAt: 0.4, target: null, abilities: true, bosses: false, champions: true, priority: true };
     this.particles = [];
+    this.cine = new Cinematics();   // camera lead/push-in, boss entrances, region title cards
+    this.minimalHud = false;        // Settings > Minimal HUD (saved with the settings)
+    this._footSt = {};              // footFx's memory of your last step and turn
     // Screen-shake state (big hits, boss slams). Decays over shakeDur ms.
     this.shakeT = 0;
     this.shakeDur = 1;
@@ -801,6 +806,7 @@ export class Game {
     // frames (game ticks carry on), which makes impacts feel weighty.
     let adt = dt;
     if (this.hitStop > 0) { this.hitStop = Math.max(0, this.hitStop - dt); adt = dt * 0.12; }
+    adt *= this.cine.timeScale();   // a boss's death plays out in slow motion
     // Your own walking never freezes, though: stalling mid-stride on every kill
     // made moving between fights (auto battle above all) stutter.
     this.player.update(this.player.moving ? dt : adt);
@@ -827,7 +833,8 @@ export class Game {
     }
     if (this._autoRetarget) { this._autoRetarget = false; if (this.autoBattle && this.player.alive) this._autoBattleTick(); }
 
-    const c = this.player.renderCenter();
+    // The camera follows a little ahead of you (and toward a boss making its entrance).
+    const c = this.cine.update(this, dt);
     this.camera.follow(c.x, c.y, 0.22, { width: this.world.width, height: this.world.height }, dt);
 
     for (const e of this.effects) e.life -= adt;
@@ -843,6 +850,7 @@ export class Game {
       if (p.sway !== undefined) { p.sway += adt * 0.004; p.vx = Math.sin(p.sway) * 0.025; }   // leaves rock side to side as they fall
     }
     if (this.particles.length) this.particles = this.particles.filter((p) => p.life > 0);
+    footFx(this, this._footSt);   // dust at your feet, leaves from trees you pass
 
     this.updateHover();
   }
@@ -966,6 +974,7 @@ export class Game {
     this._tickWorldBoss();
     this._tickTownGuards();
     this._tickGreetings();
+    this.cine.tick(this);   // fight push-in, and a boss's entrance the first time it engages
     this._tickIgnites();
     this._tickWounds();
     if (this.killStreak && this.tickCount - this._lastKillTick > STREAK_WINDOW_TICKS) {
@@ -2937,6 +2946,7 @@ export class Game {
     if (npc.def.boss) {
       this.msg(`You have slain ${npc.name}!`, 'combat');
       this.banner(`<span class="big">${npc.name} defeated!</span>The spoils are yours.`);
+      this.cine.bossDown(this);   // slow motion and a flash as it falls
     } else if (npc.champion) {
       this.msg(`You have defeated the ${npc.name}! Champions drop extra loot.`, 'level');
       this.addShake(3.5, 260);
@@ -3127,6 +3137,7 @@ export class Game {
         // Regions with a level band say so, on the scale their monsters show.
         const rec = zoneLevel(z);
         this.msg(rec ? `You enter ${name} (monsters level ${rec}+).` : `You enter ${name}.`, 'system');
+        this.cine.enterRegion(name, { sub: rec ? `Monsters level ${rec}+` : '' });
       }
     }
     if (lvl !== this.wildLevel) this.bus.emit('xpbonus');

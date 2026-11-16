@@ -71,7 +71,7 @@ export function snapshot(game) {
     clue: game.clue,
     specEnergy: game.specEnergy,
     bossRecord: game.bossRecord,
-    settings: { running: game.running, autoCfg: game.autoCfg, autoGather: game.autoGather, gatherPicks: [...(game.gatherPicks || [])], knowledgeStrikes: game.knowledgeStrikes },
+    settings: { running: game.running, autoCfg: game.autoCfg, autoGather: game.autoGather, gatherPicks: [...(game.gatherPicks || [])], knowledgeStrikes: game.knowledgeStrikes, minimalHud: !!game.minimalHud },
     jobClass: game.jobClass,
     potions: game.potions,
     farms: game.world.objects.filter((o) => o.def.type === 'farm' && o.crop).map((o) => ({ x: o.x, y: o.y, crop: o.crop, left: o.growLeft })),
@@ -351,6 +351,7 @@ function loadFields(game, data) {
   if (Array.isArray(data.settings?.gatherPicks)) game.gatherPicks = new Set(data.settings.gatherPicks.filter((id) => typeof id === 'string'));
   if (data.learning) game.learning.load(data.learning);
   if (data.settings?.knowledgeStrikes === false) game.knowledgeStrikes = false;
+  game.minimalHud = data.settings?.minimalHud === true;   // Settings > Minimal HUD (older saves: off)
   const ac = data.settings?.autoCfg;
   if (ac && typeof ac === 'object') {
     game.autoCfg = {
