@@ -44,6 +44,8 @@ import { STAT_LABELS, STAT_HELP, compareGear, deltaText, gearBySlot, gearRating,
 import { TILE, LEARNING_ENABLED } from '../config.js';
 import { TERRAIN, zoneLevel } from '../data/world.js';
 import { clearSave, suppressSaves, exportSaveCode, importSaveCode } from '../game/save.js';
+import { statSheet } from '../game/statsheet.js';
+import { statsPanelHTML } from './statspanel.js';
 import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG, abilityIconHTML, prayerIconHTML, spellIconHTML } from '../render/icons.js';
 import { weaknessOf, armourTierOf, ARMOUR_TIERS, levelFlatDmg } from '../game/combat.js';
 import { isBone } from '../data/bones.js';
@@ -105,6 +107,7 @@ export class UI {
       prayerPanel: id('prayer-panel'),
       questPanel: id('quest-panel'),
       achievementPanel: id('achievement-panel'),
+      statsPanel: id('stats-panel'),
       settings: id('settings-panel'),
       contextMenu: id('context-menu'),
       tooltip: id('tooltip'),
@@ -134,7 +137,7 @@ export class UI {
     this.minimapCtx = this.el.minimap.getContext('2d');
 
     // Tab buttons: the mascot icon plus a short label, so each tab is easy to find.
-    const TAB_LABELS = { inventory: 'Bag', equipment: 'Gear', skills: 'Skills', combat: 'Combat', prayer: 'Prayer', quests: 'Quests', achievements: 'Awards', settings: 'Settings' };
+    const TAB_LABELS = { inventory: 'Bag', equipment: 'Gear', skills: 'Skills', combat: 'Combat', prayer: 'Prayer', quests: 'Quests', stats: 'Stats', achievements: 'Awards', settings: 'Settings' };
     document.querySelectorAll('#panel-tabs .tab-btn').forEach((b) => {
       b.innerHTML = tabIconSVG(b.dataset.view, 32) + `<span class="tab-label">${TAB_LABELS[b.dataset.view] || ''}</span>`;
       b.setAttribute('aria-label', b.title || TAB_LABELS[b.dataset.view] || b.dataset.view);
@@ -234,6 +237,11 @@ export class UI {
     this.bus.on('spell', () => this.renderCombatPanel());
     this.bus.on('mercs', () => this.renderCombatPanel());
     this.bus.on('achievement', () => this._soon('achievements', () => this.renderAchievementPanel()));
+    // The Stats tab: anything that changes a final stat redraws it (a few times a second at most),
+    // and the tick keeps its potion and buff timers counting down.
+    for (const ev of ['equipment', 'skills', 'stats', 'potions', 'prayer', 'ability', 'karma', 'slayer', 'spell', 'xpbonus', 'hp', 'tick', 'rhythm']) {
+      this.bus.on(ev, () => this._soon('statsTab', () => this.renderStatsPanel(), 300));
+    }
     this.bus.on('slayer', () => { this._refreshModalIfOpen(['slayer', 'slayerRewards']); this.renderTracker(); });
     this.bus.on('bank', () => this._refreshModalIfOpen(['bank']));
 
@@ -508,7 +516,7 @@ export class UI {
   _setPanelTitle(view) {
     const el = this.el.panelTitle || this.el.panelHead;
     if (!el) return;
-    const titles = { inventory: 'Inventory', equipment: 'Worn Equipment', skills: 'Skills', combat: 'Combat', prayer: 'Prayers', quests: 'Quest Journal', achievements: 'Achievements', settings: 'Settings' };
+    const titles = { inventory: 'Inventory', equipment: 'Worn Equipment', skills: 'Skills', combat: 'Combat', prayer: 'Prayers', quests: 'Quest Journal', stats: 'Final Stats', achievements: 'Achievements', settings: 'Settings' };
     el.textContent = titles[view] || '';
   }
 
@@ -568,6 +576,7 @@ export class UI {
         const view = btn.dataset.view;
         this._setPanelTitle(view);
         views.forEach((v) => v.classList.toggle('hidden', v.dataset.view !== view));
+        if (view === 'stats') this.renderStatsPanel();   // it only redraws while showing, so bring it up to date
         // The skills list carries a name + description per row, so it gets more room.
         document.getElementById('sidepanel')?.classList.toggle('wide', view === 'skills');
       });
@@ -2610,6 +2619,18 @@ export class UI {
   }
 
   // ---------------- Achievements / collection log ----------------
+  // ---------------- Stats tab (final values, everything combined) ----------------
+  /** Redraw the Stats tab, only while it is showing (opening the tab draws it).
+   *  Open breakdowns stay open, and an unchanged sheet leaves the page alone. */
+  renderStatsPanel() {
+    const el = this.el.statsPanel;
+    if (!el || el.closest('.panel-view')?.classList.contains('hidden')) return;
+    const open = new Set([...el.querySelectorAll('details[open]')].map((d) => d.dataset.row));
+    let html;
+    try { html = statsPanelHTML(statSheet(this.game), open); } catch (e) { console.warn('Stats tab:', e); return; }
+    if (html !== this._statsHTML) { el.innerHTML = html; this._statsHTML = html; }
+  }
+
   renderAchievementPanel() {
     const panel = this.el.achievementPanel;
     if (!panel) return;
