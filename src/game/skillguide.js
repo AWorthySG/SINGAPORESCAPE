@@ -21,7 +21,7 @@ export const SKILL_GUIDES = {
   farming: { use: 'Crops are herbs for Herblore and ingredients for hawker dishes.', where: ['farm_patch'] },
   cooking: { use: 'Food heals you in a fight; better food heals more. From level 100 the endgame fish cook into dishes that heal a share of your life, and some boost you too.', where: ['range', 'fire'] },
   smithing: { use: 'Smelt ore into bars at a furnace, then forge weapons, armour and upgrade stones at an anvil. From level 100 you can forge the obsidian to eternal gear.', where: ['furnace', 'anvil'] },
-  crafting: { use: 'Jewellery, pottery, leather armour, and refine scrolls and upgrade wards.', where: ['crafting_table'] },
+  crafting: { use: 'Jewellery, pottery, leather armour, and refine scrolls and upgrade wards. From level 100 the endgame ores and bars make jewellery for every fighting style, and the Dancer\'s war fans and whips.', where: ['crafting_table'] },
   fletching: { use: 'Bows, arrows, staves and wands from logs (you need a knife). From level 100 the endgame logs make the obsidian to eternal bows, staves, wands, rifles and crossbows.', where: ['fletching_bench'] },
   herblore: { use: 'Potions that boost you in a fight for several minutes.', where: ['apothecary_table'] },
   firemaking: { use: 'Light a fire anywhere to cook on (use logs from your bag; you need a tinderbox). The endgame logs leave ashes, which the Offering Shrine takes.' },

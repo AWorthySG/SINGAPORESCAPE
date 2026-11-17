@@ -869,6 +869,14 @@ import { ITEMS } from '../data/items.js';
     BORROW_ID[raw] = rawFrom; BORROW_TINT[raw] = tint; I[raw] = rawFish(c, hi);
     BORROW_ID[dish] = dishFrom; BORROW_TINT[dish] = dishTint || tint; I[dish] = cookedFish(c);
   }
+  // Endgame jewellery (Crafting 100-300) borrows a gem ring or amulet sticker,
+  // tinted to its metal, until its own art arrives.
+  for (const [id, from, m] of [['obsidian_ring', 'diamond_ring', 'obsidian'], ['orichalcum_amulet', 'ruby_amulet', 'orichalcum'],
+    ['jade_ring', 'emerald_ring', 'jade'], ['star_amulet', 'sapphire_amulet', 'starmetal'], ['celestial_ring', 'diamond_ring', 'celestial'],
+    ['eternal_amulet', 'amulet_of_glory', 'eternal']]) {
+    const [c, hi] = METAL_PAL[m];
+    BORROW_ID[id] = from; BORROW_TINT[id] = metalTint(m); I[id] = id.endsWith('_ring') ? ringIcon(c, hi) : I.amulet_of_power;
+  }
   // The refine scroll borrows the upgrade ward's scroll sticker, tinted blue, until its own art arrives.
   BORROW_ID.refine_scroll = 'upgrade_ward'; BORROW_TINT.refine_scroll = 'hue-rotate(180deg) saturate(1.3)';
   Object.assign(BORROW_ID, { holy_beads: 'amulet_of_power', temple_pendant: 'emerald_amulet', starlit_pendant: 'diamond_amulet', pearl_amulet: 'sapphire_amulet', pearl_ring: 'sapphire_ring',

@@ -71,3 +71,32 @@ export const CRAFT = [
   { result: 'upgrade_ward', qty: 1, inputs: [{ id: 'diamond', qty: 1 }, { id: 'ruby', qty: 1 }, { id: 'pearl', qty: 1 }, { id: 'adamant_bar', qty: 2 }], level: 80, xp: 400, tool: 'chisel', upgrade: true },
   { result: 'upgrade_ward', qty: 3, inputs: [{ id: 'hornbill_casque', qty: 1 }, { id: 'diamond', qty: 1 }, { id: 'rune_bar', qty: 2 }], level: 120, xp: 900, tool: 'chisel', upgrade: true },
 ];
+
+// ---- Endgame crafting (Crafting 100-300) ----
+// The endgame jewellery (items.js ENDGAME_JEWELLERY), cut from the tier's ore
+// or bar with a chisel, and the Dancer's war fans and later whips, which
+// otherwise only drop: a fan is the tier's bar beaten into ribs and fletched
+// with feathers, a whip the bar drawn into links over a braided crocodile-hide
+// core. Levels are the tier's level plus small per-piece offsets. `xp` is the
+// tier's best make (its jewellery, or its whip), each tier about 35% more than
+// the last, starting from the upgrade ward (400), the best make below level
+// 100 that needs no rare Hunter trophy: one make is a tick whatever it is, so
+// that is also ~35% more XP an hour. (The casque ward, 900 at level 120, sits
+// above the 100 tier; its hornbill casques are too rare to train on.)
+// Crafted gear is always plain: quality is only rolled for monster drops.
+// Robes, hide and dancewear stay drop-only: the game has no cloth, silk or
+// endgame hide to make them from.
+const _CRAFT_TIERS = [
+  { k: 'obsidian', base: 100, xp: 540, jewel: 'obsidian_ring', from: ['obsidian_shard', 2] },
+  { k: 'orichalcum', base: 130, xp: 729, jewel: 'orichalcum_amulet', from: ['orichalcum_bar', 2] },
+  { k: 'jade', base: 160, xp: 985, jewel: 'jade_ring', from: ['raw_jade', 2], whip: 'jade_whip' },
+  { k: 'starmetal', base: 200, xp: 1330, jewel: 'star_amulet', from: ['starmetal_ore', 2], whip: 'starmetal_whip' },
+  { k: 'celestial', base: 250, xp: 1796, jewel: 'celestial_ring', from: ['celestial_crystal', 2], whip: 'astral_whip' },
+  { k: 'eternal', base: 300, xp: 2425, jewel: 'eternal_amulet', from: ['eternal_ore', 2], whip: 'eternal_whip' },
+];
+for (const T of _CRAFT_TIERS) {
+  const bar = `${T.k}_bar`;
+  CRAFT.push({ result: T.jewel, inputs: [{ id: T.from[0], qty: T.from[1] }], level: T.base, xp: T.xp, tool: 'chisel' });
+  CRAFT.push({ result: `${T.k}_fan`, inputs: [{ id: bar, qty: 1 }, { id: 'feather', qty: 20 }], level: T.base + 4, xp: Math.round(T.xp * 0.75) });
+  if (T.whip) CRAFT.push({ result: T.whip, inputs: [{ id: bar, qty: 2 }, { id: 'croc_hide', qty: 2 }], level: T.base + 8, xp: T.xp });
+}

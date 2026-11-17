@@ -1084,6 +1084,26 @@ for (const [id, [style, P]] of Object.entries(ACCESSORY_STYLE)) {
   eq.style = style;
 }
 
+// ---- Endgame jewellery (Crafting 100-300) ----
+// Crafted from the endgame ores and bars (crafting.js), never dropped (so they
+// stay out of ACCESSORY_STYLE and the loot tables). Each suits every fighting
+// style: it carries all three styles' stats at power P, a little above the
+// best styled piece (P 20 amulets, P 8 rings), plus one offensive stat of its
+// own, kept below the boss uniques'. Worn from the Defence level of its tier.
+// id, name, slot, level, P, its own stat, value, examine
+export const ENDGAME_JEWELLERY = [
+  ['obsidian_ring', 'Obsidian ring', 'ring', 100, 9, { critDmg: 9 }, 400000, 'A band of polished obsidian, edged like a blade. Its crits cut deeper.'],
+  ['orichalcum_amulet', 'Orichalcum amulet', 'amulet', 130, 22, { pierce: 5 }, 800000, 'A coppery-gold torc. Blows struck by its wearer split armour.'],
+  ['jade_ring', 'Jade ring', 'ring', 160, 10, { lifesteal: 3 }, 1500000, 'An imperial jade ring, cool against the skin. It drinks a little of every wound.'],
+  ['star_amulet', 'Star amulet', 'amulet', 200, 24, { crit: 4 }, 3000000, 'A star sapphire cut from fallen starmetal. It finds the weak spot for you.'],
+  ['celestial_ring', 'Celestial ring', 'ring', 250, 11, { haste: 4 }, 6000000, 'A skyglass ring, light as air. Your hands move quicker for it.'],
+  ['eternal_amulet', 'Eternal amulet', 'amulet', 300, 26, { atkPct: 6, magPct: 6 }, 12000000, 'Eternal gold that never tarnishes. Every blow and spell lands harder.'],
+];
+for (const [id, name, slot, lvl, P, extra, value, examine] of ENDGAME_JEWELLERY) {
+  RAW[id] = { name, icon: slot === 'ring' ? '💍' : '📿', value, examine,
+    equip: { slot, req: { defence: lvl }, bonuses: { ...accessoryStats('melee', P), ...accessoryStats('ranged', P), ...accessoryStats('magic', P), ...extra } } };
+}
+
 // ---- Prayer accessories: no fighting stats, but prayers last longer (bonus `prayer`, see Game.drainPrayer) ----
 export const PRAYER_GEAR = [
   // id, name, slot, Prayer level, prayer, defence, hp, value, examine
