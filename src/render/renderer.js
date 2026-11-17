@@ -31,6 +31,7 @@ const ARROW_LOOK = {
 };
 import { RACES, raceOf } from '../data/races.js';
 import { drawShadow, drawCreature, drawPlayer, drawObjectSprite, drawGroundItem } from './sprites.js';
+import { heroAnimFrame } from './heroanim.js';
 import { RARITY } from '../game/loot.js';
 import { itemIconImage } from './icons.js';
 import { moodFor, blendMood, composeWashes, dayNightWashes, buildVignette, ObjectReactions } from './ambience.js';
@@ -351,7 +352,10 @@ export class Renderer {
         if (al?.aura) this._auraBack(cx + off.x, cy + off.y, al, timeMs);
         const sk = game.player.swingProgress();
         if (sk >= 0 && game.combatMode() === 'magic') this._castRing(cx, cy + 12, sk);
+        // The hero's clip this frame (life skill, weapon swing, idle), blended.
+        const anim = heroAnimFrame(game, timeMs);
         drawPlayer(ctx, cx + off.x, cy - 2 + off.y, {
+          anim,
           time: timeMs, facing: game.player.facing, fx: game.player.faceX, entity: game.player, hurt: game.player.hurt,
           moving: game.player.isMoving, swingK: sk,
           hasBody: !!game.equipment.get('body'), hasWeapon: !!game.equipment.get('weapon'), weaponType: game.combatMode(),
