@@ -142,13 +142,14 @@ const GUARD_STAY = 150;       // ticks a guard waits about without a fight befor
 // GREET_EVERY ticks), warmly or nervously by your alignment. A Paragon also
 // gets one small gift a day from a grateful local.
 const GREET_EVERY = 8, GREET_RANGE = 6;
-// Agility: every 10 levels give +1% movement speed, for every class, with no cap.
-// Its bonus to attack and casting speed starts at the same pace but tapers off
-// towards AGILITY_ATK_MAX (half of it at AGILITY_ATK_HALF levels): uncapped, it
-// made level 9999 attack 11 times as often, which on top of damage growing with
-// level made late-game damage soar.
-const AGILITY_SPEED_PER = 10;
-export const AGILITY_ATK_MAX = 100, AGILITY_ATK_HALF = 1000;
+// Agility quickens every class's movement and attacks. Both bonuses taper
+// towards a cap (half of it at the _HALF level), in line with the life-skill
+// perks: movement used to grow without limit (+1000% at 9999, crossing the map
+// in seconds) and attack speed tapered to +100%, ten times Fletching's full perk.
+// Movement: about +12% at 99, +38% at 1000, +49% at 9999.
+// Attacks:  about +3% at 99, +15% at 1000, +27% at 9999.
+export const AGILITY_MOVE_MAX = 50, AGILITY_MOVE_HALF = 300;
+export const AGILITY_ATK_MAX = 30, AGILITY_ATK_HALF = 1000;
 // Merchant: every coin throw costs 1 coin + 1 per 10 Ranged levels, and skills
 // cost coins instead of adrenaline (the adrenaline cost x this, x2 per 100 Ranged).
 const COIN_SKILL_MULT = 20;
@@ -259,15 +260,19 @@ export const BURY_RESTORE_CAP = 3; // at most this many bones per bury restore p
 // per Agility level up to 99 (11x the multiplier there). Past 99 the growth
 // stops and the usual life-skill rate takes over (pastCapXpMult in xp.js), so
 // each level past 99 takes about as long as 98->99 did: it used to keep
-// growing, which put Agility 9999 about 15 hours away.
-export const AGILITY_XP_MULT = 5;
+// growing, which put Agility 9999 about 15 hours away. Even then a course
+// reached 99 in about 4 minutes (its obstacles sit close together), so all
+// course XP is divided by AGILITY_SLOWDOWN: 99 in about an hour, and the levels
+// past it at the same pace as the other life skills.
+export const AGILITY_SLOWDOWN = 16;
+export const AGILITY_XP_MULT = 5 / AGILITY_SLOWDOWN;
 export const AGILITY_XP_DIV = 10;
 export const AGILITY_XP_LEVEL_CAP = 99;
 // A Mark of grace trades for this many zip-line crossings' worth of Agility XP,
 // at the zip-line's listed XP: a fixed amount, not scaled to your level (it used
 // to scale, which roughly doubled course XP).
 export const MARK_XP_CROSSINGS = 10;
-export const MARK_XP = MARK_XP_CROSSINGS * 60;
+export const MARK_XP = MARK_XP_CROSSINGS * 60 / AGILITY_SLOWDOWN;
 export const BONE_PRAYER_XP = getItem('bones').prayerXp;   // plain bones; every kind's XP is its item's prayerXp (bones.js)
 
 // Alchemy: a utility spell cast on an inventory item.
@@ -1803,8 +1808,8 @@ export class Game {
     this.bus.emit('ability');
   }
 
-  /** Agility's bonus to movement speed, in % (uncapped). */
-  agilitySpeed() { return this.skills.agility / AGILITY_SPEED_PER; }
+  /** Agility's bonus to movement speed, in %: tapers towards AGILITY_MOVE_MAX. */
+  agilitySpeed() { const a = this.skills.agility; return AGILITY_MOVE_MAX * a / (a + AGILITY_MOVE_HALF); }
   /** Agility's bonus to attack and casting speed, in %: tapers towards AGILITY_ATK_MAX. */
   agilityAttackSpeed() { const a = this.skills.agility; return AGILITY_ATK_MAX * a / (a + AGILITY_ATK_HALF); }
   /** The player's step time multiplier: the base pace, quickened by Agility. */

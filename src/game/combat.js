@@ -316,8 +316,13 @@ export function playerDanceVsNpc(skills, equip, styleId, npc, rhythm = 0) {
 }
 
 /** Chance (0-1) a Dancer slips an incoming blow entirely. */
+// The Dancer's dodge chance: rises quickly to 40% by Agility 160 (as before),
+// then keeps creeping up towards 50% instead of stopping there.
+export const DANCE_EVADE_MAX = 0.5;
 export function danceEvade(agility, styleId) {
-  return Math.min(0.4, 0.08 + agility / 500 + DANCE_STYLES.balanced.evade);
+  const early = 0.08 + Math.min(agility, 160) / 500 + DANCE_STYLES.balanced.evade;
+  const late = agility > 160 ? (DANCE_EVADE_MAX - 0.4) * (agility - 160) / (agility - 160 + 1000) : 0;
+  return Math.min(DANCE_EVADE_MAX, Math.min(0.4, early) + late);
 }
 
 export function combatXpDance(styleId, damage) { return fightXp('dance', damage); }

@@ -3274,7 +3274,8 @@ test('the Dancer: whip kit, 3-tile reach, Agility XP, Rhythm and dodging', async
   assert.ok(game.danceRhythm > 0, 'landed lashes build Rhythm');
   assert.ok(game.effects.some((e) => e.type === 'lash'), 'a whip crack is drawn');
   assert.ok(danceEvade(99) > danceEvade(1), 'higher Agility dodges more');
-  assert.ok(danceEvade(999, 'twirl') <= 0.4, 'dodging is capped');
+  assert.ok(danceEvade(999, 'twirl') > danceEvade(160) && danceEvade(160) <= 0.4 + 1e-9, 'past 160 it keeps creeping up');
+  assert.ok(danceEvade(1e9) <= 0.5, 'dodging is capped at 50%');
 });
 
 test('new weapon families and gear exist across tiers and drop', async () => {
@@ -4967,23 +4968,23 @@ test('a world boss rises every 2 minutes: much tougher, aggressive, triple loot,
   assert.ok(!g.npcs.includes(w2), 'an unfought world boss leaves');
 });
 
-test('Agility speeds up attacks and casting (tapering off) and movement (uncapped) for every class', async () => {
+test('Agility speeds up attacks and movement for every class, both tapering to a cap', async () => {
   const { xpForLevel } = await import('../src/data/xp.js');
+  const { AGILITY_MOVE_MAX, AGILITY_ATK_MAX } = await import('../src/game/game.js');
   globalThis.localStorage = fakeStorage(); clearSave();
   for (const cls of ['swordsman', 'archer', 'wizard', 'dancer']) {
     clearSave();
     const g = new Game(); g.start(); g.chooseClass(cls);
     g.skills.xp.agility = 0;
     const iv = g.attackInterval(), step = g.playerStepMul();
-    g.skills.xp.agility = xpForLevel(100);   // +~9%, close to the old +10%
-    assert.ok(g.attackInterval() < iv / 1.08 && g.attackInterval() > iv / 1.1, `${cls}: a little quicker at Agility 100`);
-    g.skills.xp.agility = xpForLevel(1000);   // +50% attack speed, +100% movement
-    assert.ok(Math.abs(g.attackInterval() - iv * (100 + 100 / 1001) / 150) < 1e-6,   // (Agility starts at level 1)
-      `${cls}: attacks/casts half again as often at Agility 1000`);
-    assert.ok(g.playerStepMul() < step * 0.51, `${cls}: and moves twice as fast`);
+    g.skills.xp.agility = xpForLevel(99);   // about +3% attacks, +12% movement
+    assert.ok(g.attackInterval() < iv / 1.02 && g.attackInterval() > iv / 1.04, `${cls}: a little quicker at Agility 99`);
+    assert.ok(g.playerStepMul() < step / 1.1 && g.playerStepMul() > step / 1.14, `${cls}: and walks a bit faster`);
+    g.skills.xp.agility = xpForLevel(1000);   // about +15% attacks, +38% movement
+    assert.ok(g.attackInterval() < iv / 1.13 && g.attackInterval() > iv / 1.17, `${cls}: about +15% attack speed at 1000`);
     g.skills.xp.agility = xpForLevel(9999);
-    assert.ok(g.attackInterval() > iv / 2, 'attack speed tapers off: never even double from Agility alone');
-    assert.ok(Math.abs(g.playerStepMul() - 0.7 * 100 / (100 + 999.9)) < 1e-9, 'movement has no cap either');
+    assert.ok(g.attackInterval() > iv / (1 + AGILITY_ATK_MAX / 100), 'attack speed never passes its cap');
+    assert.ok(g.playerStepMul() > step / (1 + AGILITY_MOVE_MAX / 100), 'nor does movement');
     g.doTick();
     assert.equal(g.player.stepMul, g.playerStepMul(), 'the player really walks at that pace');
   }
@@ -5365,7 +5366,8 @@ test('Marks of grace trade for Agility XP (the whole stack, a fixed amount each)
   g.inventory.add('mark_of_grace', 5);
   const idx = g.inventory.slots.findIndex((sl) => sl && sl.id === 'mark_of_grace');
   const each = g.markOfGraceXp();
-  assert.equal(each, 10 * 60, 'a mark is worth ten zip-line crossings\' listed XP');
+  const { AGILITY_SLOWDOWN } = await import('../src/game/game.js');
+  assert.equal(each, 10 * 60 / AGILITY_SLOWDOWN, 'a mark is worth ten zip-line crossings\' listed XP (with the course slowdown)');
   const x0 = g.skills.xp.agility;
   g.useMarkOfGrace(idx);
   assert.equal(g.inventory.count('mark_of_grace'), 0, 'the whole stack is traded');
