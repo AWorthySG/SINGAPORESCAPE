@@ -20,7 +20,8 @@
 // squash (+ squashes down), crouch (px the body sinks over planted feet),
 // liftF/liftB (px each foot lifts). Mitten arms (life skills): hand and off
 // (arm angle from hanging straight down, + swinging forward, ~pi overhead),
-// prop (the tool's wrist turn). Painted rig arms (combat, added to the class's
+// prop (the tool's wrist turn), bend (a fishing rod's bow under a fish's
+// pull, 0..1; negative whips it back on the cast). Painted rig arms (combat, added to the class's
 // rest pose): sword, back, strike, reach for the melee rigs, and strike2,
 // reach2 for the off hand's own lunge (dual wielding, the claws' second paw);
 // draw, release, charge, cast, kick2 for the bow, gun and staff rigs. trail
@@ -44,7 +45,7 @@ const EASE = {
 };
 
 export const HERO_CHANNELS = ['bx', 'by', 'lean', 'squash', 'crouch', 'liftF', 'liftB', 'hand', 'off', 'prop',
-  'sword', 'back', 'strike', 'reach', 'strike2', 'reach2', 'draw', 'release', 'charge', 'cast', 'kick2', 'trail', 'trail2', 'impact'];
+  'sword', 'back', 'strike', 'reach', 'strike2', 'reach2', 'draw', 'release', 'charge', 'cast', 'kick2', 'trail', 'trail2', 'impact', 'bend'];
 
 /** Value of one channel's keys at time u (0..1). */
 function sampleTrack(keys, u) {
@@ -65,63 +66,152 @@ function sampleTrack(keys, u) {
 // Mitten-arm angles: 0 hangs down, ~1.5 points at the target, ~3 is overhead.
 // Looping clips end where they start; the strike is the 'snap' key at `beat`.
 const skill = (beat, fx, tracks, more = {}) => ({ dur: 'tick', loop: true, beat, hands: true, fx, tracks, ...more });
+/** A tool's impact spark: a pulse at each beat (strength 0..1), drawn at the tool's head. */
+function sparkAt(...hits) {
+  const keys = [[0, 0]];
+  for (const [h, v = 1] of hits) keys.push([h - 0.012, 0, 'lin'], [h, v, 'snap'], [h + 0.05, v * 0.8], [h + 0.13, 0]);
+  keys.push([1, 0]);
+  return keys;
+}
 const CLIPS = {
-  // An overhead axe chop into the trunk at chest height.
+  // An overhead axe chop into the trunk at chest height: a lift onto the
+  // toes, a beat held at the top, the snap down, and a jolt back off the wood
+  // as it bites (the spark marks the bite; the tree shakes on the tick).
   woodcut: skill(0.72, 'chips', {
-    hand: [[0, 1.3], [0.5, 2.75], [0.62, 2.85, 'out'], [0.72, 1.45, 'snap'], [0.8, 1.25, 'out'], [1, 1.3]],
-    prop: [[0, 0.2], [0.5, -0.5], [0.72, 0.35, 'snap'], [1, 0.2]],
+    hand: [[0, 1.3], [0.48, 2.75], [0.62, 2.9, 'out'], [0.72, 1.4, 'snap'], [0.78, 1.62, 'out'], [0.88, 1.3], [1, 1.3]],
+    prop: [[0, 0.2], [0.5, -0.5], [0.62, -0.6], [0.72, 0.35, 'snap'], [0.8, 0.1], [1, 0.2]],
     off: [[0, 1.0], [0.5, 2.2], [0.72, 1.2, 'snap'], [1, 1.0]],
-    lean: [[0, 0.02], [0.55, -0.1], [0.72, 0.12, 'snap'], [1, 0.02]],
-    bx: [[0, 0], [0.55, -1.2], [0.72, 1.5, 'snap'], [1, 0]],
-    squash: [[0, 0], [0.6, -0.04], [0.74, 0.06, 'snap'], [0.86, 0], [1, 0]],
-    liftF: [[0, 0], [0.5, 2], [0.7, 0, 'in'], [1, 0]],
+    lean: [[0, 0.02], [0.55, -0.12], [0.62, -0.13], [0.72, 0.14, 'snap'], [0.8, 0.06], [1, 0.02]],
+    bx: [[0, 0], [0.55, -1.4], [0.72, 1.6, 'snap'], [0.8, 0.6], [1, 0]],
+    by: [[0, 0], [0.5, -1], [0.62, -1.2], [0.72, 0, 'in'], [1, 0]],
+    squash: [[0, 0], [0.6, -0.05], [0.73, 0.08, 'snap'], [0.86, 0], [1, 0]],
+    liftF: [[0, 0], [0.5, 2.5], [0.7, 0, 'in'], [1, 0]],
+    impact: sparkAt([0.72]),
   }),
-  // A pickaxe brought right over the head and down into the rock.
+  // A pickaxe brought right over the head and down into the rock, the body
+  // following it through; the pick rings off the stone with a jolt.
   mine: skill(0.72, 'sparks', {
-    hand: [[0, 1.1], [0.52, 3.0], [0.62, 3.1, 'out'], [0.72, 1.05, 'snap'], [0.82, 1.0, 'out'], [1, 1.1]],
-    prop: [[0, 0.3], [0.52, -0.3], [0.72, 0.5, 'snap'], [1, 0.3]],
+    hand: [[0, 1.1], [0.5, 3.0], [0.62, 3.15, 'out'], [0.72, 1.05, 'snap'], [0.77, 1.3, 'out'], [0.86, 1.05], [1, 1.1]],
+    prop: [[0, 0.3], [0.52, -0.3], [0.72, 0.5, 'snap'], [0.8, 0.3], [1, 0.3]],
     off: [[0, 0.7], [0.52, 2.4], [0.72, 0.8, 'snap'], [1, 0.7]],
-    lean: [[0, 0.06], [0.55, -0.14], [0.72, 0.2, 'snap'], [1, 0.06]],
-    crouch: [[0, 1], [0.55, -1.5], [0.74, 2.5, 'snap'], [1, 1]],
-    squash: [[0, 0], [0.6, -0.05], [0.74, 0.08, 'snap'], [0.9, 0], [1, 0]],
+    lean: [[0, 0.06], [0.55, -0.15], [0.62, -0.16], [0.72, 0.22, 'snap'], [0.8, 0.12], [1, 0.06]],
+    crouch: [[0, 1], [0.55, -1.5], [0.62, -1.8], [0.74, 2.8, 'snap'], [0.85, 1.5], [1, 1]],
+    squash: [[0, 0], [0.6, -0.05], [0.74, 0.1, 'snap'], [0.9, 0], [1, 0]],
+    bx: [[0, 0], [0.62, -1], [0.72, 1.2, 'snap'], [0.78, 0.4], [1, 0]],
     liftF: [[0, 0], [0.5, 2], [0.7, 0, 'in'], [1, 0]],
+    impact: sparkAt([0.72]),
   }),
-  // Rod held out, tip up; a tug on the line as the fish bites.
-  fish_rod: skill(0.7, 'splash', {
-    hand: [[0, 1.35], [0.6, 1.5], [0.7, 1.05, 'snap'], [0.85, 1.2, 'out'], [1, 1.35]],
-    prop: [[0, -0.75], [0.6, -0.6], [0.7, -1.1, 'snap'], [1, -0.75]],
-    off: [[0, 1.1], [0.6, 1.2], [0.7, 0.9, 'snap'], [1, 1.1]],
-    lean: [[0, 0], [0.6, 0.05], [0.72, -0.1, 'snap'], [1, 0]],
-  }),
-  // A small net swept down and scooped up out of the water.
-  fish_net: skill(0.7, 'splash', {
-    hand: [[0, 1.7], [0.55, 2.0], [0.7, 0.7, 'snap'], [0.85, 1.2, 'out'], [1, 1.7]],
-    prop: [[0, 0.2], [0.7, 0.6, 'snap'], [1, 0.2]],
-    off: [[0, 1.2], [0.7, 0.6, 'snap'], [1, 1.2]],
-    lean: [[0, 0], [0.55, -0.06], [0.7, 0.16, 'snap'], [1, 0]],
-    crouch: [[0, 0], [0.7, 2, 'snap'], [1, 0]],
-  }),
-  // Harpoon raised high, then stabbed down into the swell.
-  fish_harpoon: skill(0.7, 'splash', {
-    hand: [[0, 1.6], [0.55, 2.7], [0.7, 0.85, 'snap'], [0.82, 0.95], [1, 1.6]],
-    prop: [[0, 0.1], [0.55, -0.2], [0.7, 0.15, 'snap'], [1, 0.1]],
-    off: [[0, 1.3], [0.55, 2.2], [0.7, 0.8, 'snap'], [1, 1.3]],
-    lean: [[0, 0], [0.55, -0.1], [0.7, 0.18, 'snap'], [1, 0]],
-    crouch: [[0, 0], [0.7, 2, 'snap'], [1, 0]],
-  }),
-  // A lobster pot lowered on its rope, then hauled up.
-  fish_cage: skill(0.7, 'splash', {
-    hand: [[0, 1.2], [0.5, 0.6], [0.7, 1.6, 'snap'], [1, 1.2]],
-    off: [[0, 1.0], [0.5, 0.5], [0.7, 1.4, 'snap'], [1, 1.0]],
-    crouch: [[0, 1], [0.5, 4], [0.7, 0, 'snap'], [1, 1]],
-    lean: [[0, 0.06], [0.5, 0.14], [0.7, -0.06, 'snap'], [1, 0.06]],
-  }, { upright: true }),
-  // Food held out over the flames and flipped as it cooks.
+  // Fishing is acted in three parts (see fishFrame): a cast, a wait at the
+  // water, and a haul that brings the catch in when the game lands a fish.
+  // Each wait pose is where its cast ends and its haul starts and ends, so the
+  // parts join without a jump. The line, bobber, net, pot and harpoon in flight
+  // are drawn by drawFishingGear, timed by the same 0..1 through each part.
+  // Rod: the rod swung back over the shoulder, flicked forward to cast (the
+  // bobber leaves the tip at 0.47 and lands at 0.8)...
+  fish_rod_cast: skill(0.47, null, {
+    hand: [[0, 1.35], [0.3, 2.65], [0.36, 2.7], [0.47, 1.55, 'snap'], [0.6, 1.45, 'out'], [1, 1.35]],
+    prop: [[0, -0.75], [0.3, -1.45], [0.36, -1.5], [0.47, -0.35, 'snap'], [0.6, -0.5], [1, -0.75]],
+    off: [[0, 1.1], [0.3, 1.6], [0.47, 1.0, 'snap'], [1, 1.1]],
+    bend: [[0, 0], [0.36, -0.25], [0.47, 0.35, 'snap'], [0.6, -0.1], [0.75, 0], [1, 0]],
+    lean: [[0, 0], [0.3, -0.12], [0.47, 0.12, 'snap'], [0.6, 0.08], [1, 0]],
+    bx: [[0, 0], [0.3, -1.5], [0.47, 1.5, 'snap'], [1, 0]],
+    squash: [[0, 0], [0.3, -0.03], [0.5, 0.05, 'snap'], [0.7, 0], [1, 0]],
+    liftF: [[0, 0], [0.25, 2.5], [0.45, 0, 'in'], [1, 0]],
+  }, { dur: 800, loop: false }),
+  // ...the wait, rod held out with the tip twitching now and then...
+  fish_rod: skill(0.33, null, {
+    hand: [[0, 1.35], [0.3, 1.37], [0.33, 1.31, 'snap'], [0.4, 1.35], [0.7, 1.38], [1, 1.35]],
+    prop: [[0, -0.75], [0.3, -0.75], [0.33, -0.68, 'snap'], [0.42, -0.75], [0.72, -0.72], [0.75, -0.78, 'snap'], [0.85, -0.75], [1, -0.75]],
+    bend: [[0, 0], [0.3, 0], [0.33, 0.12, 'snap'], [0.45, 0], [1, 0]],
+    off: [[0, 1.1], [1, 1.1]],
+    squash: [[0, 0], [0.5, 0.015], [1, 0]],
+  }, { dur: 1600 }),
+  // ...and the bite: the rod is dragged down and bows (0.08), the hero
+  // strikes, yanking it up (0.26), reels in, and the fish flips out (0.42-0.82).
+  fish_rod_reel: skill(0.26, null, {
+    hand: [[0, 1.35], [0.08, 1.15, 'snap'], [0.16, 1.2], [0.26, 2.05, 'snap'], [0.36, 1.85], [0.42, 1.95], [0.5, 1.8], [0.62, 1.9], [1, 1.35]],
+    prop: [[0, -0.75], [0.08, -0.55, 'snap'], [0.26, -1.25, 'snap'], [0.62, -1.1], [1, -0.75]],
+    bend: [[0, 0], [0.08, 0.8, 'snap'], [0.18, 0.7], [0.26, 1, 'snap'], [0.45, 0.8], [0.55, 0.15, 'out'], [0.7, 0], [1, 0]],
+    off: [[0, 1.1], [0.08, 1.0], [0.26, 1.7, 'snap'], [0.36, 1.3], [0.42, 1.6], [0.5, 1.3], [0.62, 1.5], [1, 1.1]],
+    lean: [[0, 0], [0.08, 0.14, 'snap'], [0.18, 0.1], [0.26, -0.16, 'snap'], [0.55, -0.1], [1, 0]],
+    bx: [[0, 0], [0.08, 1.5, 'snap'], [0.26, -2, 'snap'], [0.55, -1], [1, 0]],
+    crouch: [[0, 0], [0.08, 1.5], [0.26, -0.5, 'snap'], [0.6, 0], [1, 0]],
+    liftF: [[0, 0], [0.22, 0], [0.3, 2, 'snap'], [0.45, 0], [1, 0]],
+  }, { dur: 1000, loop: false }),
+  // Net: swung back low and flung out (it leaves the hand at 0.5, opening in
+  // the air, and lands spread on the water at 0.8)...
+  fish_net_cast: skill(0.5, null, {
+    hand: [[0, 1.4], [0.38, -0.5], [0.42, -0.55], [0.52, 2.1, 'snap'], [0.62, 1.9, 'out'], [1, 1.4]],
+    off: [[0, 1.1], [0.38, 0.6], [0.52, 1.7, 'snap'], [1, 1.1]],
+    lean: [[0, 0], [0.38, -0.14], [0.52, 0.16, 'snap'], [0.65, 0.08], [1, 0.02]],
+    bx: [[0, 0], [0.38, -2], [0.52, 2, 'snap'], [1, 0]],
+    crouch: [[0, 0], [0.38, 2], [0.52, -0.5, 'snap'], [1, 1]],
+    liftB: [[0, 0], [0.45, 0], [0.55, 2.5, 'snap'], [0.7, 0], [1, 0]],
+  }, { dur: 900, loop: false }),
+  // ...the wait, holding the rope while it sinks...
+  fish_net: skill(0.5, null, {
+    hand: [[0, 1.4], [0.5, 1.48], [1, 1.4]], off: [[0, 1.1], [0.5, 1.05], [1, 1.1]],
+    crouch: [[0, 1], [1, 1]], lean: [[0, 0.02], [1, 0.02]],
+  }, { dur: 1400 }),
+  // ...and the haul: hand over hand as it closes (to 0.45), then heaved out
+  // and back into the hands (0.78), the fish flipping out of it.
+  fish_net_haul: skill(0.48, null, {
+    hand: [[0, 1.4], [0.12, 1.0, 'snap'], [0.2, 1.6], [0.3, 1.0, 'snap'], [0.38, 1.6], [0.48, 2.4, 'snap'], [0.62, 2.2], [0.8, 1.6], [1, 1.4]],
+    off: [[0, 1.1], [0.12, 1.6], [0.2, 0.9, 'snap'], [0.3, 1.6], [0.38, 0.9, 'snap'], [0.48, 2.1, 'snap'], [0.8, 1.3], [1, 1.1]],
+    lean: [[0, 0.02], [0.12, -0.1, 'snap'], [0.38, -0.08], [0.48, -0.16, 'snap'], [0.7, -0.05], [1, 0]],
+    crouch: [[0, 1], [0.38, 2], [0.48, -1, 'snap'], [0.75, 0.5], [1, 0]],
+    by: [[0, 0], [0.45, 0], [0.52, -1.5, 'out'], [0.65, 0, 'in'], [1, 0]],
+  }, { dur: 1000, loop: false }),
+  // Lobster pot: swung out on its rope (it leaves the hands at 0.42, hits the
+  // water at 0.62) and let down...
+  fish_cage_lower: skill(0.42, null, {
+    hand: [[0, 1.3], [0.3, 1.4], [0.42, 1.9, 'snap'], [0.6, 1.3], [1, 1.05]],
+    off: [[0, 1.2], [0.3, 1.3], [0.42, 1.7, 'snap'], [0.6, 1.0], [1, 0.9]],
+    lean: [[0, 0], [0.3, -0.06], [0.42, 0.14, 'snap'], [1, 0.08]],
+    bx: [[0, 0], [0.3, -1], [0.42, 1.5, 'snap'], [1, 0]],
+    crouch: [[0, 0], [0.3, 1], [0.42, -0.5, 'snap'], [1, 2]],
+  }, { dur: 1000, loop: false }),
+  // ...the wait, crouched with the rope in hand...
+  fish_cage: skill(0.5, null, {
+    hand: [[0, 1.05], [0.5, 1.12], [1, 1.05]], off: [[0, 0.9], [0.5, 0.95], [1, 0.9]],
+    crouch: [[0, 2], [1, 2]], lean: [[0, 0.08], [1, 0.08]],
+  }, { dur: 1600 }),
+  // ...and hauled up hand over hand (it breaks the surface by 0.5), heaved
+  // out and back into the hands by 0.82.
+  fish_cage_raise: skill(0.62, null, {
+    hand: [[0, 1.05], [0.1, 1.9, 'snap'], [0.2, 1.0], [0.3, 1.9, 'snap'], [0.4, 1.0], [0.5, 1.9, 'snap'], [0.62, 2.3], [0.78, 1.5], [1, 1.3]],
+    off: [[0, 0.9], [0.1, 1.0], [0.2, 1.9, 'snap'], [0.3, 1.0], [0.4, 1.9, 'snap'], [0.5, 1.1], [0.62, 2.1], [0.78, 1.4], [1, 1.2]],
+    crouch: [[0, 2], [0.5, 1], [0.62, -1, 'snap'], [0.8, 0], [1, 0]],
+    lean: [[0, 0.08], [0.5, -0.06], [0.62, -0.14, 'snap'], [1, 0]],
+    by: [[0, 0], [0.58, 0], [0.65, -1.5, 'out'], [0.78, 0, 'in'], [1, 0]],
+  }, { dur: 1000, loop: false }),
+  // Harpoon: raised high and aimed down at the water, swaying with the swell...
+  fish_harpoon: skill(0.5, null, {
+    hand: [[0, 2.5], [0.5, 2.56], [1, 2.5]], prop: [[0, 1.45], [0.5, 1.4], [1, 1.45]],
+    off: [[0, 1.6], [0.5, 1.55], [1, 1.6]],
+    crouch: [[0, 1], [0.5, 1.4], [1, 1]], lean: [[0, -0.03], [1, -0.03]],
+  }, { dur: 1500 }),
+  // ...then drawn back and thrown (it leaves the hand at 0.3 and strikes at
+  // 0.4), and pulled back in on its line with the catch (0.6-0.86).
+  fish_harpoon_throw: skill(0.3, null, {
+    hand: [[0, 2.5], [0.22, 2.95], [0.3, 1.5, 'snap'], [0.45, 1.35], [0.55, 1.4], [0.62, 0.8, 'snap'], [0.7, 1.3], [0.76, 0.8, 'snap'], [0.88, 2.3], [1, 2.5]],
+    prop: [[0, 1.45], [0.22, 1.25], [0.3, 0.3, 'snap'], [0.85, 0.6], [0.9, 1.4], [1, 1.45]],
+    off: [[0, 1.6], [0.22, 1.9], [0.3, 1.0, 'snap'], [0.55, 1.2], [0.62, 1.7, 'snap'], [0.7, 1.0], [0.76, 1.7, 'snap'], [0.88, 1.5], [1, 1.6]],
+    lean: [[0, -0.03], [0.22, -0.15], [0.3, 0.2, 'snap'], [0.45, 0.12], [0.62, -0.1, 'snap'], [0.8, -0.08], [1, -0.03]],
+    bx: [[0, 0], [0.22, -2], [0.3, 3, 'snap'], [0.45, 2], [0.62, -1], [1, 0]],
+    crouch: [[0, 1], [0.22, 1.5], [0.3, -0.5, 'snap'], [0.5, 0.5], [1, 1]],
+    liftF: [[0, 0], [0.2, 2.5], [0.3, 0, 'in'], [1, 0]],
+    liftB: [[0, 0], [0.28, 0], [0.34, 2, 'snap'], [0.5, 0], [1, 0]],
+  }, { dur: 1000, loop: false }),
+  // Food held out over the flames, given a little shake, then tossed up and
+  // flipped right over as it cooks (the turn wraps a full circle, so it lands
+  // the right way up).
   cook: skill(0.7, 'puff', {
-    hand: [[0, 1.4], [0.6, 1.25], [0.7, 1.65, 'snap'], [0.85, 1.45], [1, 1.4]],
-    prop: [[0, 0], [0.6, 0.2], [0.7, -0.6, 'snap'], [0.9, 0.05], [1, 0]],
+    hand: [[0, 1.4], [0.2, 1.45], [0.3, 1.35], [0.4, 1.45], [0.6, 1.25], [0.7, 1.75, 'snap'], [0.8, 1.55], [0.9, 1.4], [1, 1.4]],
+    prop: [[0, 0], [0.2, 0.15], [0.3, -0.1], [0.4, 0.15], [0.6, 0.25], [0.7, -1.2, 'snap'], [0.82, -3.1, 'out'], [0.83, 3.18, 'lin'], [0.95, 0.05], [1, 0]],
     off: [[0, 0.8], [1, 0.8]],
-    crouch: [[0, 2], [1, 2]],
+    crouch: [[0, 2], [0.6, 2.5], [0.7, 1.2, 'snap'], [0.85, 2], [1, 2]],
+    by: [[0, 0], [0.65, 0], [0.72, -1, 'out'], [0.85, 0, 'in'], [1, 0]],
     lean: [[0, 0.08], [1, 0.08]],
   }, { upright: true }),
   // A dish stirred round the pot.
@@ -132,13 +222,16 @@ const CLIPS = {
     crouch: [[0, 1], [1, 1]],
     lean: [[0, 0.08], [1, 0.08]],
   }),
-  // A hammer brought down on the anvil.
+  // The smith's rhythm on the anvil: a light tap to set the piece, then the
+  // heavy blow on the tick, each throwing sparks off the hot metal.
   smith: skill(0.72, 'anvil', {
-    hand: [[0, 1.0], [0.55, 2.5], [0.72, 0.95, 'snap'], [0.8, 1.1, 'out'], [1, 1.0]],
-    prop: [[0, 0.2], [0.55, -0.4], [0.72, 0.4, 'snap'], [1, 0.2]],
-    off: [[0, 1.2], [1, 1.2]],
-    lean: [[0, 0.05], [0.55, -0.06], [0.72, 0.12, 'snap'], [1, 0.05]],
-    squash: [[0, 0], [0.74, 0.05, 'snap'], [0.88, 0], [1, 0]],
+    hand: [[0, 1.0], [0.18, 1.75], [0.3, 1.0, 'snap'], [0.35, 1.2, 'out'], [0.55, 2.6], [0.6, 2.65], [0.72, 0.95, 'snap'], [0.78, 1.2, 'out'], [1, 1.0]],
+    prop: [[0, 0.2], [0.18, -0.1], [0.3, 0.3, 'snap'], [0.55, -0.45], [0.72, 0.4, 'snap'], [1, 0.2]],
+    off: [[0, 1.2], [0.3, 1.15], [0.72, 1.1], [0.78, 1.25], [1, 1.2]],
+    lean: [[0, 0.05], [0.3, 0.08, 'snap'], [0.55, -0.08], [0.72, 0.14, 'snap'], [1, 0.05]],
+    by: [[0, 0], [0.55, -1], [0.72, 0, 'in'], [1, 0]],
+    squash: [[0, 0], [0.31, 0.02, 'snap'], [0.4, 0], [0.74, 0.07, 'snap'], [0.88, 0], [1, 0]],
+    impact: sparkAt([0.3, 0.5], [0.72]),
   }),
   // Ore pushed into the furnace mouth (smelting is one batch, so one push).
   smelt: skill(0.6, 'puff', {
@@ -151,9 +244,10 @@ const CLIPS = {
   craft: skill(0.7, 'glint', {
     hand: [[0, 1.15], [0.55, 1.45], [0.7, 1.0, 'snap'], [1, 1.15]],
     prop: [[0, 0.1], [0.7, 0.3, 'snap'], [1, 0.1]],
-    off: [[0, 1.3], [1, 1.3]],
+    off: [[0, 1.3], [0.7, 1.25], [0.76, 1.35, 'out'], [1, 1.3]],
     crouch: [[0, 1], [1, 1]],
-    lean: [[0, 0.1], [1, 0.1]],
+    lean: [[0, 0.1], [0.55, 0.06], [0.7, 0.14, 'snap'], [1, 0.1]],
+    impact: sparkAt([0.7, 0.6]),
   }),
   // A knife drawn along the stave, shavings curling off.
   fletch: skill(0.7, 'shavings', {
@@ -163,12 +257,16 @@ const CLIPS = {
     crouch: [[0, 1], [1, 1]],
     lean: [[0, 0.06], [1, 0.06]],
   }),
-  // Crouched low, striking the tinderbox over the logs.
+  // Crouched low over the logs, striking the tinderbox twice (a spark each
+  // time; the second catches), then leaning in to blow the flame up.
   firemake: skill(0.7, 'embers', {
-    hand: [[0, 0.9], [0.55, 1.2], [0.7, 0.6, 'snap'], [1, 0.9]],
-    off: [[0, 0.7], [0.7, 0.9], [1, 0.7]],
-    crouch: [[0, 5], [1, 5]],
-    lean: [[0, 0.15], [1, 0.15]],
+    hand: [[0, 0.9], [0.18, 1.3], [0.28, 0.6, 'snap'], [0.4, 1.1], [0.58, 1.3], [0.7, 0.55, 'snap'], [0.85, 0.8], [1, 0.9]],
+    prop: [[0, 0], [0.28, 0.3, 'snap'], [0.4, 0], [0.7, 0.35, 'snap'], [1, 0]],
+    off: [[0, 0.7], [0.28, 0.85], [0.4, 0.7], [0.7, 0.9], [1, 0.7]],
+    crouch: [[0, 5], [0.7, 5], [0.82, 6], [1, 5]],
+    lean: [[0, 0.15], [0.7, 0.15], [0.82, 0.26], [0.92, 0.22], [1, 0.15]],
+    squash: [[0, 0], [0.75, 0], [0.82, -0.05], [0.92, 0.03], [1, 0]],
+    impact: sparkAt([0.28, 0.6], [0.7]),
   }, { upright: true }),
   // Herbs ground round the mortar, then a tip of the vial.
   herb: skill(0.7, 'leafbits', {
@@ -178,12 +276,15 @@ const CLIPS = {
     off: [[0, 1.0], [1, 1.0]],
     crouch: [[0, 1], [1, 1]],
   }, { upright: true }),
-  // Crouched by a trap, reaching in to check the snare.
+  // Crouched by a trap, edging in on tiptoe, a hand lifted for quiet, then
+  // reaching in to check the snare.
   hunt: skill(0.7, 'grass', {
     hand: [[0, 0.6], [0.5, 1.1], [0.7, 0.4, 'snap'], [1, 0.6]],
-    off: [[0, 0.5], [1, 0.5]],
-    crouch: [[0, 5], [1, 5]],
-    lean: [[0, 0.15], [1, 0.15]],
+    off: [[0, 0.5], [0.3, 1.6], [0.55, 1.5], [0.7, 0.6], [1, 0.5]],
+    crouch: [[0, 5], [0.3, 4], [0.55, 4.5], [0.7, 6, 'snap'], [1, 5]],
+    lean: [[0, 0.15], [0.3, 0.08], [0.55, 0.1], [0.7, 0.22, 'snap'], [1, 0.15]],
+    bx: [[0, 0], [0.3, -0.8], [0.55, -0.6], [0.7, 1.2, 'snap'], [1, 0]],
+    liftF: [[0, 0], [0.15, 1.5], [0.3, 0], [1, 0]], liftB: [[0, 0], [0.35, 0], [0.45, 1.5], [0.55, 0], [1, 0]],
   }, { upright: true }),
   // A quick dart of the hand at the stall, then tucked away.
   stall: skill(0.7, 'coin', {
@@ -201,11 +302,12 @@ const CLIPS = {
     bx: [[0, 0], [0.45, 2.5, 'snap'], [0.7, 0], [1, 0]],
   }, { dur: 800, loop: false }),
   // Farming: dig a hole, plant a seed in it, or pull the crop up.
+  // (Digging is two scoops, hands taking turns, the soil flung back.)
   farm_dig: skill(0.6, 'clods', {
-    hand: [[0, 0.4], [0.35, 1.2], [0.6, 0.3, 'snap'], [1, 0.4]],
-    off: [[0, 0.3], [0.35, 1.0], [0.6, 0.4, 'snap'], [1, 0.3]],
-    crouch: [[0, 0], [0.25, 5], [0.85, 5], [1, 0]],
-    lean: [[0, 0], [0.25, 0.15], [0.85, 0.15], [1, 0]],
+    hand: [[0, 0.4], [0.25, 1.3], [0.38, 0.2, 'snap'], [0.48, 1.2], [0.6, 0.1, 'snap'], [0.72, -0.4, 'out'], [1, 0.4]],
+    off: [[0, 0.3], [0.25, 0.4], [0.32, 1.3], [0.45, 0.2, 'snap'], [0.6, 1.0], [1, 0.3]],
+    crouch: [[0, 0], [0.2, 5], [0.38, 6, 'snap'], [0.48, 5], [0.6, 6, 'snap'], [0.85, 5], [1, 0]],
+    lean: [[0, 0], [0.2, 0.15], [0.38, 0.22, 'snap'], [0.48, 0.15], [0.6, 0.22, 'snap'], [0.85, 0.15], [1, 0]],
   }, { dur: 900, loop: false }),
   farm_plant: skill(0.6, 'clods', {
     hand: [[0, 0.5], [0.4, 1.0], [0.6, 0.2, 'snap'], [1, 0.5]],
@@ -213,15 +315,18 @@ const CLIPS = {
     crouch: [[0, 0], [0.25, 6], [0.85, 6], [1, 0]],
     lean: [[0, 0], [0.25, 0.18], [0.85, 0.18], [1, 0]],
   }, { dur: 900, loop: false, upright: true }),
+  // (Harvesting: two tugs on the stalk, then it gives and is lifted high.)
   farm_harvest: skill(0.7, 'leafbits', {
-    hand: [[0, 0.3], [0.5, 0.2], [0.7, 2.4, 'snap'], [1, 1.2]],
-    off: [[0, 0.3], [0.5, 0.25], [0.7, 2.0, 'snap'], [1, 1.0]],
-    crouch: [[0, 0], [0.3, 5], [0.55, 6], [0.7, 1, 'snap'], [1, 0]],
-    lean: [[0, 0], [0.3, 0.16], [0.7, -0.15, 'snap'], [1, 0]],
+    hand: [[0, 0.3], [0.3, 0.2], [0.4, 0.55, 'snap'], [0.48, 0.2], [0.56, 0.6, 'snap'], [0.62, 0.2], [0.7, 2.4, 'snap'], [1, 1.2]],
+    off: [[0, 0.3], [0.3, 0.25], [0.4, 0.5, 'snap'], [0.48, 0.25], [0.56, 0.55, 'snap'], [0.62, 0.25], [0.7, 2.0, 'snap'], [1, 1.0]],
+    crouch: [[0, 0], [0.3, 5], [0.4, 4, 'snap'], [0.48, 5.5], [0.56, 4, 'snap'], [0.62, 6], [0.7, 1, 'snap'], [1, 0]],
+    lean: [[0, 0], [0.3, 0.16], [0.4, 0.05, 'snap'], [0.48, 0.16], [0.56, 0.04, 'snap'], [0.62, 0.18], [0.7, -0.15, 'snap'], [1, 0]],
+    by: [[0, 0], [0.66, 0], [0.74, -2, 'out'], [0.86, 0, 'in'], [1, 0]],
   }, { dur: 900, loop: false }),
   // Agility, by kind of obstacle.
   agility_balance: skill(0.5, null, {
-    hand: [[0, 1.7], [1, 1.7]], off: [[0, -1.5], [1, -1.5]],
+    // Arms out wide, see-sawing against the wobble.
+    hand: [[0, 1.7], [0.25, 1.95], [0.5, 1.5], [0.75, 1.85], [1, 1.7]], off: [[0, -1.5], [0.25, -1.25], [0.5, -1.75], [0.75, -1.35], [1, -1.5]],
     lean: [[0, 0.1], [0.5, -0.1], [1, 0.1]],
     liftF: [[0, 0], [0.25, 2], [0.5, 0], [1, 0]], liftB: [[0, 0], [0.5, 0], [0.75, 2], [1, 0]],
   }, { dur: 1200 }),
@@ -248,9 +353,13 @@ const CLIPS = {
   agility_jump: skill(0.55, null, {
     hand: [[0, 0.5], [0.4, 0.2], [0.6, 2.6, 'snap'], [0.9, 0.6], [1, 0.5]],
     off: [[0, 0.4], [0.4, 0.1], [0.6, 2.4, 'snap'], [0.9, 0.5], [1, 0.4]],
-    crouch: [[0, 0], [0.4, 4], [0.55, -2, 'snap'], [0.9, 0], [1, 0]],
-    by: [[0, 0], [0.55, 0], [0.7, -8, 'out'], [0.9, 0, 'in'], [1, 0]],
-    liftF: [[0, 0], [0.6, 3], [0.85, 0], [1, 0]], liftB: [[0, 0], [0.6, 3], [0.85, 0], [1, 0]],
+    // A deep crouch, a spring off both feet, feet tucked at the top of the
+    // arc, and a squash on landing.
+    crouch: [[0, 0], [0.4, 5], [0.55, -2, 'snap'], [0.86, -1], [0.9, 3, 'snap'], [1, 0]],
+    by: [[0, 0], [0.55, 0], [0.71, -11, 'out'], [0.88, 0, 'in'], [1, 0]],
+    squash: [[0, 0], [0.4, 0.08], [0.55, -0.1, 'snap'], [0.7, 0], [0.9, 0.12, 'snap'], [1, 0]],
+    lean: [[0, 0], [0.4, 0.12], [0.55, -0.05], [0.72, 0.08], [0.9, 0.12], [1, 0]],
+    liftF: [[0, 0], [0.55, 1], [0.68, 5], [0.85, 0], [1, 0]], liftB: [[0, 0], [0.55, 1], [0.68, 5], [0.85, 0], [1, 0]],
   }, { dur: 1200 }),
   // Kneeling at the monument (or the statue) with hands together.
   pray: skill(0.5, 'holy', {
@@ -599,6 +708,17 @@ export function weaponClipId(type, dualWield = false, variant = 0) {
 
 // ---------------- Life-skill actions -> clips ----------------
 const FISH_CLIP = { net: 'fish_net', rod: 'fish_rod', lobster_pot: 'fish_cage', harpoon: 'fish_harpoon' };
+// Each fishing tool's three parts (see fishFrame): the cast (none for the
+// harpoon, which is simply raised and aimed), the wait, and the haul played
+// when the game lands a fish; waitMin is the least time the wait is shown.
+export const FISHING = {
+  rod: { cast: 'fish_rod_cast', wait: 'fish_rod', haul: 'fish_rod_reel', waitMin: 700 },
+  net: { cast: 'fish_net_cast', wait: 'fish_net', haul: 'fish_net_haul', waitMin: 600 },
+  lobster_pot: { cast: 'fish_cage_lower', wait: 'fish_cage', haul: 'fish_cage_raise', waitMin: 600 },
+  harpoon: { cast: null, wait: 'fish_harpoon', haul: 'fish_harpoon_throw', waitMin: 500 },
+};
+// With no catch reported (the bus missing), the haul plays after this anyway.
+const FISH_WAIT_MAX = 2600;
 const AGILITY_CLIP = { agility_balance: 'agility_balance', agility_net: 'agility_climb', agility_rope: 'agility_rope', agility_ledge: 'agility_ledge', agility_zip: 'agility_zip' };
 // Every player action that is a life skill (the rest: walking, talking, shops).
 export const SKILL_ACTION_TYPES = ['woodcut', 'mine', 'fish', 'cook', 'cookdish', 'smelt', 'smith', 'craft', 'hunt',
@@ -689,7 +809,7 @@ function stateOf(p) {
   let st = _states.get(p);
   if (!st) {
     st = { id: null, u: 0, t0: 0, from: null, out: null, one: null, pending: null, prevAction: null, prevClip: null, prevAt: false, prop: null, propFor: null,
-      swings: 0, lastSk: -1 };
+      swings: 0, lastSk: -1, fish: null, caught: null };
     _states.set(p, st);
   }
   return st;
@@ -731,8 +851,11 @@ function watch(game) {
     // Bones buried (or offered) from the pack: there's no action to follow, so
     // the clip starts part-way in (already stooping) and lands just after.
     if (e?.skill === 'prayer' && !p.action) st.pending = { id: 'bury', at: 0.35, prop: 'bones' };
-    beatFx(game, e?.skill, p.action || st.prevAction);
+    // Fishing draws its own splashes, timed to the line (drawFishingGear).
+    if (e?.skill !== 'fishing') beatFx(game, e?.skill, p.action || st.prevAction);
   });
+  // A fish landed (skilling.js resolveFish): the next haul brings this one in.
+  game.bus.on('fishcatch', (e) => { stateOf(game.player).caught = { id: e?.id || null }; });
 }
 
 /** This frame's animation for the player: which clip, how far through, blended. */
@@ -760,7 +883,7 @@ export function heroAnimFrame(game, now) {
     st.pending = null;
   }
   // Remember what the action was (and whether the hero had got to it).
-  if (a !== st.prevAction) { st.prevAction = a; st.prevClip = actionClipId(a); st.prevAt = false; }
+  if (a !== st.prevAction) { st.prevAction = a; st.prevClip = actionClipId(a); st.prevAt = false; st.fish = null; }
   if (a && a !== st.propFor) { st.propFor = a; st.prop = actionPropId(game, a); }
   const sk = p.swingProgress ? p.swingProgress() : -1;
   // What's in each hand: the rigs draw the off-hand weapon and a second hand
@@ -778,10 +901,13 @@ export function heroAnimFrame(game, now) {
     st.one = null;
   } else if (a && st.prevClip && atWork(p, a) && !ARRIVAL.has(a.type)) {
     st.prevAt = true;
-    const clip = CLIPS[st.prevClip];
     faceWork(p, a);
-    const u = clip.dur === 'tick' ? ((game.tickAcc || 0) / TICK_MS + clip.beat) % 1 : (now % clip.dur) / clip.dur;
-    frame = sampleHeroClip(st.prevClip, u, { kind: 'skill', tool: st.prop, ...held });
+    if (a.type === 'fish' && FISHING[a.obj?.def?.tool || 'net']) frame = fishFrame(p, st, a, now, held);
+    else {
+      const clip = CLIPS[st.prevClip];
+      const u = clip.dur === 'tick' ? ((game.tickAcc || 0) / TICK_MS + clip.beat) % 1 : (now % clip.dur) / clip.dur;
+      frame = sampleHeroClip(st.prevClip, u, { kind: 'skill', tool: st.prop, ...held });
+    }
     st.one = null;
   } else if (st.one && !p.isMoving && now - st.one.start < dur(CLIPS[st.one.id])) {
     const clip = CLIPS[st.one.id];
@@ -794,6 +920,45 @@ export function heroAnimFrame(game, now) {
   return blendHeroFrame(st, frame, now);
 }
 const dur = (clip) => (clip.dur === 'tick' ? TICK_MS : clip.dur || 1000);
+
+/** Fishing at a spot: cast, wait, then haul in each fish the game lands.
+ *  The game lands a fish every tick, far quicker than a cast and a reel can
+ *  be shown, so the wait lasts at least waitMin and the first catch after
+ *  that starts the haul, with that catch's own fish on the line; the catches
+ *  in between still pop up over the hero as usual. */
+function fishFrame(p, st, a, now, held) {
+  const tool = a.obj?.def?.tool || 'net', P = FISHING[tool];
+  let f = st.fish;
+  if (!f || f.obj !== a.obj) { f = st.fish = { obj: a.obj, phase: P.cast ? 'cast' : 'wait', t0: now, id: null, n: 0 }; st.caught = null; }
+  for (let i = 0; i < 4; i++) {
+    const el = now - f.t0;
+    if (f.phase === 'cast' && el >= dur(CLIPS[P.cast])) { f.phase = 'wait'; f.t0 += dur(CLIPS[P.cast]); st.caught = null; }
+    else if (f.phase === 'haul' && el >= dur(CLIPS[P.haul])) {
+      f.phase = P.cast ? 'cast' : 'wait'; f.t0 += dur(CLIPS[P.haul]); f.n++; f.id = null; st.caught = null;
+    } else if (f.phase === 'wait' && el < P.waitMin) { st.caught = null; break; }   // too soon: let it bob a while
+    else if (f.phase === 'wait' && (st.caught || el >= FISH_WAIT_MAX)) { f.phase = 'haul'; f.t0 = now; f.id = st.caught?.id || null; st.caught = null; }
+    else break;
+  }
+  const id = f.phase === 'cast' ? P.cast : f.phase === 'haul' ? P.haul : P.wait;
+  const clip = CLIPS[id], el = Math.max(0, now - f.t0);
+  const u = clip.loop ? (el % dur(clip)) / dur(clip) : Math.min(1, el / dur(clip));
+  const frame = sampleHeroClip(id, u, { kind: 'skill', tool: st.prop, ...held });
+  const o = a.obj, pc = p.renderCenter ? p.renderCenter() : { x: p.x * TILE + TILE / 2, y: p.y * TILE + TILE / 2 };
+  return attachFishing(frame, { tool, phase: f.phase, k: u, t: now, n: f.n, id: f.id, face: p.faceX || 1,
+    tx: o.x * TILE + TILE / 2 - pc.x, ty: o.y * TILE + TILE / 2 - pc.y, oy: o.y });
+}
+
+/** Give an animation frame its fishing gear: which tool, which part (cast,
+ *  wait, haul) and how far through it (k), the water spot (tx, ty, px from
+ *  the hero's centre), the fish being landed, and a little scatter so each
+ *  cast lands somewhere new. The hand and rod tip are filled in as it draws. */
+export function attachFishing(anim, o) {
+  const n = o.n || 0;
+  anim.fish = { tool: o.tool, phase: o.phase, k: o.k, t: o.t || 0, id: o.id || null, n,
+    face: o.face || (o.tx < 0 ? -1 : 1), tx: o.tx, ty: o.ty, oy: o.oy ?? null,
+    jx: ((n * 37) % 9 - 4) * 0.8, jy: ((n * 53) % 7 - 3) * 0.5, hand: null, tip: null };
+  return anim;
+}
 
 /** Turn to face the thing being worked (left/right only), with the usual turn. */
 function faceWork(p, a) {
@@ -887,8 +1052,10 @@ function drawProp(c, id, dir, wrist, upright) {
   c.restore();
 }
 
-/** One stubby mitten arm from a shoulder, at angle phi (0 down, + forward). */
-function mittenArm(c, sx, sy, phi, sleeve, tool, wrist, upright) {
+/** One stubby mitten arm from a shoulder, at angle phi (0 down, + forward).
+ *  With `anim` (the front arm), fishing gear replaces the tool, and a tool's
+ *  impact spark is drawn at its head. */
+function mittenArm(c, sx, sy, phi, sleeve, tool, wrist, upright, anim = null) {
   const L = 8.5;
   const hx = sx + Math.sin(phi) * L, hy = sy + Math.cos(phi) * L;
   c.lineCap = 'round';
@@ -896,13 +1063,36 @@ function mittenArm(c, sx, sy, phi, sleeve, tool, wrist, upright) {
   c.beginPath(); c.moveTo(sx, sy); c.lineTo(hx, hy); c.stroke();
   c.strokeStyle = sleeve; c.lineWidth = 5;
   c.beginPath(); c.moveTo(sx, sy); c.lineTo(hx, hy); c.stroke();
-  if (tool) {
-    c.save(); c.translate(hx, hy);
-    drawProp(c, tool, Math.atan2(Math.cos(phi), Math.sin(phi)), wrist, upright);
-    c.restore();
-  }
+  toolInHand(c, anim, tool, hx, hy, phi, wrist, upright);
   c.fillStyle = MITTEN; c.strokeStyle = INK; c.lineWidth = 1.1;
   c.beginPath(); c.arc(hx, hy, 3.1, 0, Math.PI * 2); c.fill(); c.stroke();
+}
+
+/** The tool in the front hand at (hx, hy): fishing gear while fishing, else
+ *  the tool's sticker, with its impact spark on a struck beat. */
+function toolInHand(c, anim, tool, hx, hy, phi, wrist, upright) {
+  const dir = Math.atan2(Math.cos(phi), Math.sin(phi));
+  if (anim?.fish) { heldGear(c, anim, hx, hy, dir + wrist); return; }
+  if (!tool) return;
+  c.save(); c.translate(hx, hy);
+  drawProp(c, tool, dir, wrist, upright);
+  c.restore();
+  const k = anim?.ch?.impact;
+  if (k > 0.05 && !anim.low) {
+    // The head is where the sticker's tip lies from the grip, along the turn drawProp gave it.
+    const P = PROPS[tool] || HELD;
+    const want = (upright || !PROPS[tool] ? -Math.PI / 2 : dir) + wrist;
+    const reach = Math.hypot(P.tip[0] - P.grip[0], P.tip[1] - P.grip[1]) * P.size * 0.85;
+    star(c, hx + Math.cos(want) * reach, hy + Math.sin(want) * reach, 1.5 + k * 4, k);
+  }
+}
+
+/** A little four-point spark (an impact), ink-edged so it reads on any ground. */
+function star(c, x, y, r, k) {
+  c.fillStyle = `rgba(255,240,180,${Math.min(1, k).toFixed(3)})`; c.strokeStyle = `rgba(34,48,74,${(0.8 * Math.min(1, k)).toFixed(3)})`; c.lineWidth = 0.9;
+  c.beginPath();
+  for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, rr = i % 2 ? r * 0.35 : r; c.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); }
+  c.closePath(); c.fill(); c.stroke();
 }
 
 /** The life-skill arms for a painted rig: the back one before the body, the
@@ -914,7 +1104,7 @@ export function drawHeroArm(c, anim, side, y = -11) {
   const prev = c.globalAlpha;
   c.globalAlpha = prev * Math.min(1, a);
   if (side === 'back') mittenArm(c, -7, y, ch.off, sleeve, null, 0, false);
-  else mittenArm(c, 8, y, ch.hand, sleeve, anim.tool, ch.prop, anim.upright);
+  else mittenArm(c, 8, y, ch.hand, sleeve, anim.tool, ch.prop, anim.upright, anim);
   c.globalAlpha = prev;
 }
 
@@ -943,13 +1133,11 @@ export function drawGripHand(c, jobClass, part, sx, sy, hx, hy, alpha = 1) {
  *  tool are added, at the picture's front side. */
 export function drawPictureTool(c, anim) {
   const ch = anim.ch;
-  if (!(ch.mix > 0.01) || !anim.tool) return;
+  if (!(ch.mix > 0.01) || (!anim.tool && !anim.fish)) return;
   const prev = c.globalAlpha;
   c.globalAlpha = prev * Math.min(1, ch.mix);
   const phi = ch.hand, hx = 10 + Math.sin(phi) * 6, hy = -6 + Math.cos(phi) * 6;
-  c.save(); c.translate(hx, hy);
-  drawProp(c, anim.tool, Math.atan2(Math.cos(phi), Math.sin(phi)), ch.prop, anim.upright);
-  c.restore();
+  toolInHand(c, anim, anim.tool, hx, hy, phi, ch.prop, anim.upright);
   c.fillStyle = MITTEN; c.strokeStyle = INK; c.lineWidth = 1.1;
   c.beginPath(); c.arc(hx, hy, 3.1, 0, Math.PI * 2); c.fill(); c.stroke();
   c.globalAlpha = prev;
@@ -1022,4 +1210,355 @@ function trail(c, tr, t, dust) {
   }
   c.restore();
   return end;
+}
+
+// ---------------- Fishing gear ----------------
+// The rod, net, pot and harpoon in the hand are drawn with the arm (heldGear);
+// everything out at the water (line, bobber, the net in flight, the pot on its
+// rope, the thrown harpoon, the fish flipping in) by drawFishingGear, which the
+// renderer calls after the hero so it sits over the spot. The two meet at the
+// hand and rod tip: heldGear notes where they landed on the canvas, and
+// drawFishingGear maps them back. A dozen strokes a frame at most; low
+// graphics drops the ripples, splashes, bubbles and sparkles.
+const ROPE = '#a8743a', LINE = 'rgba(250,248,235,0.95)', LINE_INK = 'rgba(34,48,74,0.5)';
+
+/** Where (x, y) in the current drawing space lands on the canvas, or null
+ *  where the context can't say (the headless tests' stand-in). */
+function devicePoint(c, x, y) {
+  if (!c.getTransform) return null;
+  const m = c.getTransform();
+  return [m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f];
+}
+/** The reverse: a canvas point in the current drawing space. */
+function toLocal(c, p) {
+  if (!p || !c.getTransform) return null;
+  const m = c.getTransform(), det = m.a * m.d - m.b * m.c;
+  if (!det) return null;
+  const x = p[0] - m.e, y = p[1] - m.f;
+  return [(m.d * x - m.c * y) / det, (-m.b * x + m.a * y) / det];
+}
+const lerp2 = (a, b, s) => [a[0] + (b[0] - a[0]) * s, a[1] + (b[1] - a[1]) * s];
+/** A point thrown from a to b, s of the way, rising h px at the middle. */
+const arc2 = (a, b, s, h) => [a[0] + (b[0] - a[0]) * s, a[1] + (b[1] - a[1]) * s - Math.sin(Math.PI * s) * h];
+
+// Is the gear in the hand (rather than out on the water) at this point?
+const netInHand = (f) => (f.phase === 'cast' && f.k < 0.5) || (f.phase === 'haul' && f.k > 0.78);
+const potInHand = (f) => (f.phase === 'cast' && f.k < 0.42) || (f.phase === 'haul' && f.k > 0.82);
+const harpoonInHand = (f) => !(f.phase === 'haul' && f.k >= 0.3 && f.k < 0.86);
+
+/** The gear in the front hand (at hx, hy, pointing along ang). */
+function heldGear(c, anim, hx, hy, ang) {
+  const f = anim.fish;
+  f.hand = devicePoint(c, hx, hy);
+  f.tip = f.hand;
+  if (f.tool === 'rod') {
+    const tip = drawRod(c, hx, hy, ang, anim.ch.bend);
+    f.tip = devicePoint(c, tip[0], tip[1]);
+  } else if (f.tool === 'net') {
+    if (netInHand(f)) drawNetBundle(c, hx, hy + 3);
+  } else if (f.tool === 'lobster_pot') {
+    if (potInHand(f)) drawIcon(c, anim.tool || 'lobster_pot', hx + 1, hy + 6, 15);
+  } else if (harpoonInHand(f)) {
+    c.save(); c.translate(hx, hy);
+    drawProp(c, anim.tool || 'harpoon', ang, 0, false);
+    c.restore();
+  }
+}
+
+/** A fishing rod drawn as a springy cane, so it can bow under a fish: cork
+ *  grip, reel and a tapering pole. Returns its tip. */
+function drawRod(c, hx, hy, ang, bend = 0) {
+  const ca = Math.cos(ang), sa = Math.sin(ang);
+  const bx = hx - ca * 6, by = hy - sa * 6, L = 32;
+  const b = Math.max(-0.4, Math.min(1.2, bend)) * 0.45, reach = L - Math.abs(b) * 3;
+  const tx = bx + Math.cos(ang + b) * reach, ty = by + Math.sin(ang + b) * reach;
+  const qx = bx + ca * L * 0.55, qy = by + sa * L * 0.55;
+  c.lineCap = 'round';
+  c.beginPath(); c.moveTo(bx, by); c.quadraticCurveTo(qx, qy, tx, ty);
+  c.strokeStyle = INK; c.lineWidth = 2.6; c.stroke();
+  c.strokeStyle = '#d39a4c'; c.lineWidth = 1.2; c.stroke();
+  c.beginPath(); c.moveTo(bx, by); c.lineTo(hx + ca * 2, hy + sa * 2);
+  c.strokeStyle = INK; c.lineWidth = 4; c.stroke();
+  c.strokeStyle = '#7a4a22'; c.lineWidth = 2.4; c.stroke();
+  // The reel hangs under the rod just ahead of the hand.
+  c.fillStyle = '#cdd3dc'; c.strokeStyle = INK; c.lineWidth = 0.9;
+  c.beginPath(); c.arc(hx + ca * 3 - sa * 3, hy + sa * 3 + ca * 3, 2, 0, Math.PI * 2); c.fill(); c.stroke();
+  return [tx, ty];
+}
+
+/** The cast net gathered up in the hand, weights dangling. */
+function drawNetBundle(c, x, y) {
+  c.fillStyle = 'rgba(240,240,228,0.9)'; c.strokeStyle = INK; c.lineWidth = 1;
+  c.beginPath(); c.moveTo(x - 2, y - 3); c.quadraticCurveTo(x - 6, y + 5, x, y + 8); c.quadraticCurveTo(x + 6, y + 5, x + 2, y - 3); c.closePath();
+  c.fill(); c.stroke();
+  c.strokeStyle = 'rgba(34,48,74,0.45)'; c.lineWidth = 0.6;
+  c.beginPath(); c.moveTo(x - 3, y + 1); c.lineTo(x + 3, y + 5); c.moveTo(x + 3, y + 1); c.lineTo(x - 3, y + 5); c.stroke();
+  c.fillStyle = INK;
+  for (const dx of [-3, 0, 3]) { c.beginPath(); c.arc(x + dx, y + 8.5, 0.9, 0, Math.PI * 2); c.fill(); }
+}
+
+/** An item's sticker centred at (x, y), size px, turned by rot. */
+function drawIcon(c, id, x, y, size, rot = 0) {
+  const img = id ? itemIconImage(id) : null;
+  if (!img || !img.complete || !img.naturalWidth) return false;
+  if (rot) { c.save(); c.translate(x, y); c.rotate(rot); c.drawImage(img, -size / 2, -size / 2, size, size); c.restore(); }
+  else c.drawImage(img, x - size / 2, y - size / 2, size, size);
+  return true;
+}
+
+/** Fishing line (or rope) from a to b, sagging by sag px at the middle. */
+function line(c, a, b, sag, rope = false) {
+  c.beginPath(); c.moveTo(a[0], a[1]);
+  c.quadraticCurveTo((a[0] + b[0]) / 2, (a[1] + b[1]) / 2 + sag, b[0], b[1]);
+  c.strokeStyle = rope ? INK : LINE_INK; c.lineWidth = rope ? 2.2 : 1.7; c.stroke();
+  c.strokeStyle = rope ? ROPE : LINE; c.lineWidth = rope ? 1.1 : 0.8; c.stroke();
+}
+/** A ring spreading on the water, s 0..1 through it. */
+function ripple(c, x, y, s, size = 1) {
+  if (!(s > 0 && s < 1)) return;
+  const rx = (3 + s * 11) * size;
+  c.strokeStyle = `rgba(255,255,255,${(0.85 * (1 - s)).toFixed(3)})`; c.lineWidth = 1.1;
+  c.beginPath(); c.ellipse(x, y, rx, rx * 0.38, 0, 0, Math.PI * 2); c.stroke();
+}
+/** Drops thrown up from the water and falling back, s 0..1. */
+function splash(c, x, y, s, n = 5) {
+  if (!(s > 0 && s < 1)) return;
+  c.fillStyle = `rgba(228,245,255,${(1 - s * 0.8).toFixed(3)})`; c.strokeStyle = `rgba(34,48,74,${(0.5 * (1 - s)).toFixed(3)})`; c.lineWidth = 0.6;
+  c.beginPath();
+  for (let i = 0; i < n; i++) {
+    const a = -Math.PI / 2 + (i - (n - 1) / 2) * 0.5, d = 3 + s * 9, r = 1.3 * (1 - s * 0.5);
+    const px = x + Math.cos(a) * d, py = y + Math.sin(a) * d * 1.3 + s * s * 16;
+    c.moveTo(px + r, py); c.arc(px, py, r, 0, Math.PI * 2);
+  }
+  c.fill(); c.stroke();
+}
+/** A few bubbles rising and popping over something under the water. */
+function bubbles(c, x, y, t) {
+  c.strokeStyle = 'rgba(255,255,255,0.75)'; c.lineWidth = 0.7;
+  c.beginPath();
+  for (let i = 0; i < 3; i++) {
+    const s = (t * 0.0011 + i * 0.37) % 1, bx = x + (i - 1) * 5 + Math.sin(t * 0.005 + i) * 1, by = y - s * 6, r = 0.7 + s * 0.7;
+    c.moveTo(bx + r, by); c.arc(bx, by, r, 0, Math.PI * 2);
+  }
+  c.stroke();
+}
+/** Water dripping off something just lifted out. */
+function drips(c, x, y, t) {
+  c.fillStyle = 'rgba(200,232,255,0.9)';
+  c.beginPath();
+  for (let i = 0; i < 3; i++) { const s = (t * 0.003 + i * 0.33) % 1; c.moveTo(x + (i - 1) * 4 + 0.8, y + s * 7); c.arc(x + (i - 1) * 4, y + s * 7, 0.8, 0, Math.PI * 2); }
+  c.fill();
+}
+/** The red-and-white float, dip 0..1 pulling it under. */
+function bobber(c, x, y, dip = 0) {
+  const r = 2.3;
+  y += dip * 2.5;
+  c.strokeStyle = INK; c.lineWidth = 0.8;
+  c.beginPath(); c.moveTo(x, y - r); c.lineTo(x, y - r - 1.8); c.stroke();
+  c.fillStyle = '#e8473b';
+  c.beginPath(); c.arc(x, y, r, Math.PI, 0); c.fill();
+  if (dip < 0.5) { c.fillStyle = '#ffffff'; c.beginPath(); c.arc(x, y, r, 0, Math.PI); c.fill(); }
+  c.beginPath(); c.arc(x, y, r, dip < 0.5 ? 0 : Math.PI, Math.PI * 2); c.stroke();
+}
+/** A spread (or flying, opening) cast net seen from above at an angle. */
+function drawNet(c, x, y, rx, ry, alpha, low) {
+  c.save(); c.globalAlpha *= alpha;
+  c.fillStyle = 'rgba(235,242,236,0.25)'; c.strokeStyle = INK; c.lineWidth = 1.1;
+  c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); c.fill(); c.stroke();
+  c.strokeStyle = 'rgba(250,250,240,0.9)'; c.lineWidth = 0.6;
+  c.beginPath();
+  for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3; c.moveTo(x, y); c.lineTo(x + Math.cos(a) * rx, y + Math.sin(a) * ry); }
+  c.moveTo(x + rx * 0.55, y); c.ellipse(x, y, rx * 0.55, ry * 0.55, 0, 0, Math.PI * 2);
+  c.stroke();
+  if (!low) {
+    c.fillStyle = INK; c.beginPath();
+    for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, px = x + Math.cos(a) * rx, py = y + Math.sin(a) * ry; c.moveTo(px + 0.9, py); c.arc(px, py, 0.9, 0, Math.PI * 2); }
+    c.fill();
+  }
+  c.restore();
+}
+/** The net drawn shut round the catch, hauled out like a sack. */
+function drawBag(c, x, y) {
+  c.fillStyle = 'rgba(235,242,236,0.55)'; c.strokeStyle = INK; c.lineWidth = 1;
+  c.beginPath(); c.moveTo(x, y - 6); c.quadraticCurveTo(x - 8, y + 2, x, y + 6); c.quadraticCurveTo(x + 8, y + 2, x, y - 6); c.fill(); c.stroke();
+  c.strokeStyle = 'rgba(34,48,74,0.4)'; c.lineWidth = 0.6;
+  c.beginPath(); c.moveTo(x - 4, y - 1); c.lineTo(x + 3, y + 4); c.moveTo(x + 4, y - 1); c.lineTo(x - 3, y + 4); c.stroke();
+}
+/** The pot let down d px under the surface at (x, y): only what's above the water shows. */
+function sunkPot(c, id, x, y, d) {
+  c.save();
+  c.beginPath(); c.rect(x - 14, y - 30, 28, 33); c.clip();
+  drawIcon(c, id, x, y - 3 + d, 15);
+  c.restore();
+  c.strokeStyle = 'rgba(255,255,255,0.7)'; c.lineWidth = 1;
+  c.beginPath(); c.ellipse(x, y + 3, 8, 2, 0, 0, Math.PI * 2); c.stroke();
+}
+/** The harpoon in flight (or stuck in the water), its point at (x, y), aimed along ang. */
+function flyingHarpoon(c, id, x, y, ang) {
+  const img = itemIconImage(id);
+  if (img && img.complete && img.naturalWidth) {
+    const P = PROPS.harpoon, size = 26;
+    c.save(); c.translate(x, y);
+    c.rotate(ang - Math.atan2(P.tip[1] - P.grip[1], P.tip[0] - P.grip[0]));
+    c.drawImage(img, -P.tip[0] * size, -P.tip[1] * size, size, size);
+    c.restore();
+    return;
+  }
+  c.strokeStyle = INK; c.lineWidth = 2;
+  c.beginPath(); c.moveTo(x, y); c.lineTo(x - Math.cos(ang) * 18, y - Math.sin(ang) * 18); c.stroke();
+}
+/** The caught fish (its own sticker, else a little silver fish) flipping
+ *  from the water at a into the hero at b, s 0..1. Returns where it is. */
+function fishFlip(c, id, a, b, s, face, low) {
+  const mx = (a[0] + b[0]) / 2, my = Math.min(a[1], b[1]) - 40, u = 1 - s;
+  const x = u * u * a[0] + 2 * u * s * mx + s * s * b[0], y = u * u * a[1] + 2 * u * s * my + s * s * b[1];
+  const sc = s > 0.8 ? 1 - (s - 0.8) * 3 : 1;
+  c.save(); c.translate(x, y);
+  c.rotate(low ? 0 : -face * s * Math.PI * 2.5);
+  c.scale(sc, sc);
+  if (!drawIcon(c, id, 0, 0, 16)) {
+    c.fillStyle = '#bcd6e8'; c.strokeStyle = INK; c.lineWidth = 0.9;
+    c.beginPath(); c.ellipse(0, 0, 5, 2.6, 0, 0, Math.PI * 2); c.moveTo(-4, 0); c.lineTo(-8, -3); c.lineTo(-8, 3); c.closePath(); c.fill(); c.stroke();
+  }
+  c.restore();
+  return [x, y];
+}
+
+/** Everything out at the water for a fishing hero: call after the hero (so
+ *  heldGear has marked the hand and rod tip), with the hero's centre (hx, hy)
+ *  in the same drawing space. Driven by anim.fish (see fishFrame). */
+export function drawFishingGear(c, anim, hx, hy) {
+  const f = anim?.fish;
+  if (!f) return;
+  const low = !!anim.low, k = f.k, t = f.t, face = f.face;
+  const hand = toLocal(c, f.hand) || [hx + face * 10, hy - 6];
+  const tip = toLocal(c, f.tip) || (f.tool === 'rod' ? [hx + face * 20, hy - 26] : hand);
+  // The line lands a little beyond the middle of the spot (so it reads clear of
+  // the spot's own painted ripples); the net and pot nearer the bank.
+  const W = [hx + f.tx + f.jx + face * (f.tool === 'rod' ? 7 : 2), hy + f.ty + f.jy + 2];
+  const chest = [hx, hy - 6];
+  const fx = !low;   // the water's extras: ripples, splashes, bubbles, sparkles
+  c.save(); c.lineCap = 'round'; c.lineJoin = 'round';
+  const sparkle = (s) => { if (fx && s > 0 && s < 1) star(c, chest[0], chest[1] - 8, 1.5 + 4 * (1 - s), 1 - s); };
+  if (f.tool === 'rod') {
+    if (f.phase === 'cast') {
+      if (k < 0.47) { const B = [tip[0], tip[1] + 6]; line(c, tip, B, 0); bobber(c, B[0], B[1]); }
+      else if (k < 0.8) { const s = (k - 0.47) / 0.33, B = arc2(tip, W, s, 18); line(c, tip, B, 3 * (1 - s)); bobber(c, B[0], B[1]); }
+      else {
+        const s = (k - 0.8) / 0.2;
+        if (fx) { ripple(c, W[0], W[1], s); splash(c, W[0], W[1], s); }
+        line(c, tip, W, 7 * s); bobber(c, W[0], W[1] + Math.sin(s * Math.PI) * 1.5);
+      }
+    } else if (f.phase === 'wait') {
+      const B = [W[0], W[1] + Math.sin(t * 0.006) * 0.8];
+      if (fx) { ripple(c, W[0], W[1], (t % 1500) / 1500, 0.8); ripple(c, W[0], W[1], ((t + 750) % 1500) / 1500, 0.8); }
+      line(c, tip, B, 7 + Math.sin(t * 0.0021) * 2); bobber(c, B[0], B[1]);
+    } else {
+      const out = lerp2(W, hand, 0.2);
+      if (fx && k < 0.3) { splash(c, W[0], W[1], k / 0.3); ripple(c, W[0], W[1], k / 0.3, 1.3); }
+      if (k < 0.08) { const s = k / 0.08; line(c, tip, [W[0], W[1] + s * 2], 7 * (1 - s)); bobber(c, W[0], W[1], s); }
+      else if (k < 0.42) {
+        // Hooked: the fish fights under the surface, the line taut and dragged in.
+        const s = (k - 0.08) / 0.34, P = lerp2(W, out, s);
+        P[0] += Math.sin(t * 0.05) * 1.5;
+        c.fillStyle = 'rgba(20,40,60,0.35)'; c.beginPath(); c.ellipse(P[0], P[1] + 1, 5, 2, Math.sin(t * 0.05) * 0.3, 0, Math.PI * 2); c.fill();
+        if (fx) ripple(c, P[0], P[1], (t % 400) / 400, 0.7);
+        line(c, tip, P, 0);
+      } else if (k < 0.82) {
+        const s = (k - 0.42) / 0.4;
+        if (fx) splash(c, out[0], out[1], s * 2);
+        line(c, tip, fishFlip(c, f.id, out, chest, s, face, low), 0);
+      } else {
+        const s = (k - 0.82) / 0.18, B = [tip[0], tip[1] + 6 * s];
+        line(c, tip, B, 0); bobber(c, B[0], B[1]); sparkle(s);
+      }
+    }
+  } else if (f.tool === 'net') {
+    const rim = [W[0] - face * 11, W[1]], out = lerp2(W, hand, 0.25);
+    if (f.phase === 'cast') {
+      if (k >= 0.5 && k < 0.8) {
+        // Flung out, the net spins open in the air and flattens as it lands.
+        const s = (k - 0.5) / 0.3, C = arc2(hand, W, s, 16), r = 3 + 10 * EASE.out(s);
+        line(c, hand, C, 2, true); drawNet(c, C[0], C[1], r, r * (0.85 - 0.45 * s), 1, low);
+      } else if (k >= 0.8) {
+        const s = (k - 0.8) / 0.2;
+        if (fx) { ripple(c, W[0], W[1], s, 1.4); splash(c, W[0], W[1], s, 7); }
+        line(c, hand, rim, 5 * s, true); drawNet(c, W[0], W[1], 13, 5, 1 - 0.35 * s, low);
+      }
+    } else if (f.phase === 'wait') {
+      drawNet(c, W[0], W[1], 13 + Math.sin(t * 0.004) * 0.6, 5, 0.65, low);
+      if (fx) bubbles(c, W[0], W[1], t);
+      line(c, hand, rim, 5 + Math.sin(t * 0.002) * 1.5, true);
+    } else {
+      if (k < 0.45) {
+        // Drawn in hand over hand, the net closing round the catch.
+        const s = k / 0.45, C = lerp2(W, out, s);
+        if (fx) splash(c, W[0], W[1], s * 2);
+        drawNet(c, C[0], C[1], 13 - 8 * s, 5 - s, 0.65 + 0.35 * s, low); line(c, hand, [C[0] - face * (13 - 8 * s), C[1]], 0, true);
+      } else if (k < 0.78) {
+        const s = (k - 0.45) / 0.33, C = arc2(out, hand, s, 14);
+        line(c, hand, [C[0], C[1] - 6], 0, true); drawBag(c, C[0], C[1]);
+        if (fx) drips(c, C[0], C[1] + 5, t);
+      }
+      if (k >= 0.5 && k < 0.85) fishFlip(c, f.id, out, chest, (k - 0.5) / 0.35, face, low);
+      sparkle((k - 0.85) / 0.15);
+    }
+  } else if (f.tool === 'lobster_pot') {
+    const pot = anim.tool || 'lobster_pot', out = lerp2(W, hand, 0.2);
+    if (f.phase === 'cast') {
+      if (k >= 0.42 && k < 0.62) { const s = (k - 0.42) / 0.2, C = arc2(hand, W, s, 12); line(c, hand, [C[0], C[1] - 6], 2, true); drawIcon(c, pot, C[0], C[1], 15); }
+      else if (k >= 0.62) {
+        // Let down on its rope, sinking out of sight.
+        const s = (k - 0.62) / 0.38, d = s * 14;
+        if (fx) { ripple(c, W[0], W[1] + 3, s, 1.2); splash(c, W[0], W[1], s * 1.4); }
+        line(c, hand, [W[0], W[1] - 6 + d], 3, true); sunkPot(c, pot, W[0], W[1], d);
+      }
+    } else if (f.phase === 'wait') {
+      if (fx) { ripple(c, W[0], W[1] + 3, (t % 1600) / 1600); bubbles(c, W[0], W[1] + 2, t); }
+      line(c, hand, [W[0], W[1] + 2], 5 + Math.sin(t * 0.002) * 1.5, true);
+      // A cork float marks where the pot lies.
+      c.fillStyle = '#f08a3a'; c.strokeStyle = INK; c.lineWidth = 0.8;
+      c.beginPath(); c.ellipse(W[0], W[1] + 1 + Math.sin(t * 0.005) * 0.7, 2.2, 1.5, 0, 0, Math.PI * 2); c.fill(); c.stroke();
+    } else {
+      if (k < 0.5) {
+        const s = k / 0.5, d = 14 * (1 - s);
+        if (fx) ripple(c, W[0], W[1] + 3, (t % 500) / 500);
+        line(c, hand, [W[0], W[1] - 6 + d], 0, true); sunkPot(c, pot, W[0], W[1], d);
+        if (fx && s > 0.6) drips(c, W[0], W[1] - 2, t);
+      } else if (k < 0.82) {
+        const s = (k - 0.5) / 0.32, C = arc2(W, hand, s, 10);
+        line(c, hand, [C[0], C[1] - 6], 0, true); drawIcon(c, pot, C[0], C[1], 15);
+        if (fx) drips(c, C[0], C[1] + 6, t);
+      }
+      if (k >= 0.6 && k < 0.9) fishFlip(c, f.id, out, chest, (k - 0.6) / 0.3, face, low);
+      sparkle((k - 0.9) / 0.1);
+    }
+  } else {
+    // The harpoon: a fish's shadow circles below while the hero takes aim.
+    const id = anim.tool || 'harpoon', aim = Math.atan2(W[1] - hand[1], W[0] - hand[0]);
+    if (f.phase !== 'haul' || k < 0.4) {
+      const a = t * 0.003, sx = W[0] + Math.cos(a) * 5, sy = W[1] + Math.sin(a) * 2;
+      c.fillStyle = 'rgba(20,40,60,0.3)'; c.beginPath(); c.ellipse(sx, sy, 5, 1.8, Math.cos(a) * 0.3, 0, Math.PI * 2); c.fill();
+    }
+    if (f.phase === 'haul') {
+      if (k >= 0.3 && k < 0.4) {
+        const s = (k - 0.3) / 0.1, P = arc2(hand, W, s, 6);
+        line(c, hand, P, 2, true); flyingHarpoon(c, id, P[0], P[1], aim + (s - 0.5) * 0.5 * face);
+      } else if (k >= 0.4 && k < 0.62) {
+        // Struck home: it stands quivering in the water.
+        const s = (k - 0.4) / 0.22;
+        if (fx) { ripple(c, W[0], W[1], s, 1.2); splash(c, W[0], W[1], s * 1.4, 6); }
+        line(c, hand, W, 1, true);
+        c.save(); c.beginPath(); c.rect(W[0] - 30, W[1] - 40, 60, 41); c.clip();
+        flyingHarpoon(c, id, W[0], W[1] + 4, aim + Math.sin(t * 0.08) * 0.08 * (1 - s));
+        c.restore();
+      } else if (k >= 0.62 && k < 0.86) {
+        const s = (k - 0.62) / 0.24, P = arc2(W, hand, s, 8);
+        line(c, hand, P, 3 * (1 - s), true); flyingHarpoon(c, id, P[0], P[1], aim);
+      }
+      if (k >= 0.62 && k < 0.9) fishFlip(c, f.id, W, chest, (k - 0.62) / 0.28, face, low);
+      sparkle((k - 0.9) / 0.1);
+    }
+  }
+  c.restore();
 }
