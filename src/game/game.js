@@ -1944,6 +1944,7 @@ export class Game {
     dmgM *= this._volley || 1;   // a volley of very fast attacks lands as one big hit
     dmgM *= 1 + this.buffMod('dmg');   // a class buff
     if (this.onSlayerTask(npc)) dmgM *= 1 + this.slayerBonus().dmg / 100;   // Slayer: hit task monsters harder
+    dmgM *= Mercs.merchantPower(this);   // the strongest class (see mercenary.js)
     const sharedM = dmgM;   // what both hands share
     dmgM *= abM * gearM(gb);
     const bonusHit = Math.random() < (perk.extra || 0) + (gb.extra || 0) / 100;   // Thieving's perk adds to the chance
@@ -2467,6 +2468,8 @@ export class Game {
       }
     }
     if (mods.heal && total > 0) { this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.round(total * mods.heal * (npc.def?.hpScale || 1))); this.bus.emit('hp'); }
+    // A Merchant's thrown coins scatter into the foes beside the target, as its allies' do.
+    if (wpn.coins && raw > 0) Mercs.allyCleave(this, npc, raw);
     this._abilityAoe(npc, raw, 'ranged');
     if (wpn.weaponType === 'rifle' && raw > 0) this._riflePierce(npc, raw, style);
     // Shots come as fast as the weapon and attack speed % allow (no floor).
@@ -4530,6 +4533,7 @@ export class Game {
     max *= 1 + (perk.dmg || 0) + this.learning.perks().dmg + (perk.boss || 0) + gb.bossDmg / 100;
     max *= 1 + (mode === 'magic' ? gb.magPct : gb.atkPct) / 100;
     max *= 1 + this.buffMod('dmg');
+    max *= Mercs.merchantPower(this);   // 1 for every class but the Merchant
     const myDps = 3 * max * 0.625 / (Math.max(0.1, this.attackInterval()) * COMBAT_BEAT_MS / 1000);
     const { atkRoll, defRoll, max: theirMax } = npcAttackVsPlayer(def, this.skills, this.equipment, this.player.style);
     const theirDps = hitChance(atkRoll, defRoll * pm.def) * theirMax * 0.625 * (1 - this.protectFactor())
