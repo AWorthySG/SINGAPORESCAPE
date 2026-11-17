@@ -642,10 +642,12 @@ test('existing weapons, jewellery and boss uniques carry the new offensive stats
 });
 
 test('every amulet, ring and cape suits one style, and each style gets an equal ladder', async () => {
-  const { ITEMS, ACCESSORY_SLOTS, ACCESSORY_STYLE, accessoryStats } = await import('../src/data/items.js');
+  const { ITEMS, ACCESSORY_SLOTS, ACCESSORY_STYLE, ENDGAME_JEWELLERY, accessoryStats } = await import('../src/data/items.js');
+  // The crafted endgame jewellery suits every style at once (tests/crafting-tiers.test.mjs).
+  const allStyle = new Set(ENDGAME_JEWELLERY.map(([id]) => id));
   for (const [id, it] of Object.entries(ITEMS)) {
     const eq = it.equip;
-    if (!eq || !ACCESSORY_SLOTS.includes(eq.slot) || /_sash$/.test(id)) continue;
+    if (!eq || !ACCESSORY_SLOTS.includes(eq.slot) || /_sash$/.test(id) || allStyle.has(id)) continue;
     const b = eq.bonuses || {};
     if (!['attack', 'strength', 'ranged', 'magic', 'dance'].some((k) => b[k])) continue;
     assert.ok(ACCESSORY_STYLE[id], `${id} has a style`);

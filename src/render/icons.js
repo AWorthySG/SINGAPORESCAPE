@@ -856,6 +856,27 @@ import { ITEMS } from '../data/items.js';
     ['star_ash', 'grayscale(1) brightness(2.2) sepia(0.5) saturate(2) hue-rotate(180deg)', '#9aaaf0'], ['ghost_ash', 'grayscale(1) brightness(2.8)', '#eef2fa'],
     ['eternal_ash', 'grayscale(1) brightness(2.2) sepia(0.9) saturate(2.5)', '#f5c84a'],
   ]) { BORROW_ID[id] = 'coal'; BORROW_TINT[id] = tint; I[id] = oreIcon(fleck); }
+  // Endgame fish (Fishing 100-300) borrow an older fish sticker, and their
+  // dishes a cooked fish or bowl, tinted to suit, until their own art arrives.
+  for (const [raw, rawFrom, dish, dishFrom, tint, c, hi, dishTint] of [
+    ['raw_dorado', 'raw_giant_trevally', 'grilled_dorado', 'giant_trevally', 'sepia(0.5) saturate(2) hue-rotate(15deg)', '#c8b02a', '#7ac04a'],
+    ['raw_bluefin_tuna', 'raw_tuna', 'tuna_sashimi', 'tuna', 'hue-rotate(15deg) saturate(1.5) brightness(0.9)', '#2a4a8a', '#7a9ad8'],
+    ['raw_sailfish', 'raw_swordfish', 'sambal_sailfish', 'swordfish', 'hue-rotate(40deg) saturate(1.5)', '#3a3a9a', '#8a8ae0'],
+    ['raw_moonfish', 'raw_white_pomfret', 'moonfish_curry', 'laksa', 'saturate(0.5) brightness(1.2)', '#b8c0d0', '#eef2fa', 'sepia(0.3) saturate(1.4) hue-rotate(-10deg)'],
+    ['raw_rift_eel', 'raw_eel', 'rift_eel_claypot', 'seafood_stew', 'hue-rotate(230deg) saturate(1.6)', '#6a3a9a', '#b08ae0'],
+    ['raw_dragon_arowana', 'raw_arowana', 'arowana_feast', 'seafood_platter', 'sepia(0.8) saturate(2.4) hue-rotate(-20deg) brightness(1.05)', '#d8a02a', '#f5d070'],
+  ]) {
+    BORROW_ID[raw] = rawFrom; BORROW_TINT[raw] = tint; I[raw] = rawFish(c, hi);
+    BORROW_ID[dish] = dishFrom; BORROW_TINT[dish] = dishTint || tint; I[dish] = cookedFish(c);
+  }
+  // Endgame jewellery (Crafting 100-300) borrows a gem ring or amulet sticker,
+  // tinted to its metal, until its own art arrives.
+  for (const [id, from, m] of [['obsidian_ring', 'diamond_ring', 'obsidian'], ['orichalcum_amulet', 'ruby_amulet', 'orichalcum'],
+    ['jade_ring', 'emerald_ring', 'jade'], ['star_amulet', 'sapphire_amulet', 'starmetal'], ['celestial_ring', 'diamond_ring', 'celestial'],
+    ['eternal_amulet', 'amulet_of_glory', 'eternal']]) {
+    const [c, hi] = METAL_PAL[m];
+    BORROW_ID[id] = from; BORROW_TINT[id] = metalTint(m); I[id] = id.endsWith('_ring') ? ringIcon(c, hi) : I.amulet_of_power;
+  }
   // The refine scroll borrows the upgrade ward's scroll sticker, tinted blue, until its own art arrives.
   BORROW_ID.refine_scroll = 'upgrade_ward'; BORROW_TINT.refine_scroll = 'hue-rotate(180deg) saturate(1.3)';
   Object.assign(BORROW_ID, { holy_beads: 'amulet_of_power', temple_pendant: 'emerald_amulet', starlit_pendant: 'diamond_amulet', pearl_amulet: 'sapphire_amulet', pearl_ring: 'sapphire_ring',

@@ -1242,6 +1242,38 @@ export function buildWorld() {
     vein('skyglass_crystal', 456, 300, 530, 370, [T.STONE]);                 // the Peaks' summit, on bare rock
     vein('eternal_lode', 278, 226, 390, 270, GRASSY);                        // deep in the Shadow Rift
 
+    // Endgame fishing spots (Fishing 100-300): one stretch of five per tier,
+    // on shore water in its region, each with land beside it to stand on. Own
+    // random stream again, and only water tiles are taken, so the veins above
+    // and the groves below stay exactly where they were.
+    rng4 = mulberry32(20261119);
+    const N8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]];
+    const shore = (x, y) => inB(x, y) && get(x, y) === T.WATER && isFree(x, y) && !byStation(x, y)
+      // two free land tiles beside it, so a tree or rock placed later can't cut it off
+      && N8.filter(([dx, dy]) => inB(x + dx, y + dy) && get(x + dx, y + dy) !== T.WATER && isFree(x + dx, y + dy)
+        && !inTown(x + dx, y + dy) && !inNewTown(x + dx, y + dy)).length >= 2;
+    const fishery = (objId, x0, y0, x1, y1, count = 5) => {
+      const all = [];
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (shore(x, y)) all.push([x, y]);
+      for (let tries = 0; tries < 200 && all.length; tries++) {
+        const [cx, cy] = all[Math.floor(rng4() * all.length)];
+        const near = all.filter(([x, y]) => Math.max(Math.abs(x - cx), Math.abs(y - cy)) <= 5);
+        if (near.length < count * 2) continue;   // too short a shore: look elsewhere
+        let placed = 0;
+        while (placed < count && near.length) {
+          const [x, y] = near.splice(Math.floor(rng4() * near.length), 1)[0];
+          if (shore(x, y) && placeObj(objId, x, y)) placed++;
+        }
+        return;
+      }
+    };
+    fishery('dorado_spot', 2, 206, 197, 277);                                // Southern Islands
+    fishery('bluefin_spot', 232, 2, 297, 97);                                // Changi Coast
+    fishery('sailfish_spot', 2, 85, 92, 103);                                // Sentosa Beach, past the reef
+    fishery('moonfish_spot', 402, 2, 536, 87);                               // Punggol Waterway
+    fishery('rift_eel_spot', 121, 2, 148, 102);                              // Pulau Hantu's haunted shallows
+    fishery('arowana_pool', 202, 206, 396, 277);                             // The Shadow Rift
+
     // Endgame trees (Woodcutting 100-300): one grove of eight per tier, laid
     // out the same way as the veins but from their own random stream, so the
     // veins above stay exactly where they were.

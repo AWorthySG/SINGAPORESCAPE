@@ -315,6 +315,7 @@ export class Game {
     this.jobClass = null;            // permanent job class (one per weapon type), see classes.js
     this.pendingClassChoice = false; // an older save that hasn't picked a class yet
     this.potions = {};               // active potion id -> ms left (see trades.js POTIONS)
+    this.meal = null;                // an endgame dish's short boost: { id, ms, fx } (see eatItem)
 
     this.running = true;    // everyone always runs (the run toggle was removed)
     this.runEnergy = 100;
@@ -689,8 +690,10 @@ export class Game {
       if (this._perkCache.size > 64) this._perkCache.clear();
       this._perkCache.set(key, m);
     }
-    // Potions add on top of the perks (a fresh object, so the cache stays clean).
-    for (const _ in this.potions) {
+    // Potions and a meal's boost add on top of the perks (a fresh object, so the cache stays clean).
+    let boosted = !!this.meal;
+    for (const _ in this.potions) { boosted = true; break; }
+    if (boosted) {
       const pm = this.potionMods(mode === 'defence' ? this.combatMode() : mode);
       const out = { ...m };
       for (const [k, v] of Object.entries(pm)) out[k] = (out[k] || 0) + v;
@@ -4955,10 +4958,24 @@ export class Game {
     const item = getItem(s.id);
     if (!item.heal) { this.msg(`You can't eat the ${item.name.toLowerCase()}.`); return; }
     this.inventory.removeAt(index, 1);
-    this.player.hp = Math.min(this.maxHp(), this.player.hp + item.heal);
+    // Endgame dishes heal a share of your life (healPct), so they keep up as it grows.
+    const heal = item.healPct ? Math.max(item.heal, Math.round(this.maxHp() * item.healPct)) : item.heal;
+    this.player.hp = Math.min(this.maxHp(), this.player.hp + heal);
     this.msg(`You eat the ${item.name.toLowerCase()}.`);
+    if (item.meal) this._eatMeal(item);
     this.bus.emit('sfx', 'eat');
     this.bus.emit('hp');
+  }
+
+  /** A dish with a `meal` boost: its damage boost, or its healing over time
+   *  (regenPct of your life spread over its ticks, counted like the Regeneration
+   *  perk), for a short while. A new meal replaces the last one. Not saved. */
+  _eatMeal(item) {
+    const m = item.meal, fx = { ...(m.fx || {}) };
+    // (Spread over one tick fewer than it lasts: it wears off just before its last tick.)
+    if (m.regenPct) fx.regen = this.maxHp() * m.regenPct / Math.max(1, Math.round(m.ms / TICK_MS) - 1);
+    this.meal = { id: item.id, ms: m.ms, fx };
+    if (fx.dmg) this.msg(`You feel fired up: +${Math.round(fx.dmg * 100)}% damage for ${Math.round(m.ms / 1000)} seconds.`, 'system');
   }
 
   /** Can this piece be worn right now (levels, class weapon and class armour)? Silent. */
@@ -5446,6 +5463,10 @@ export class Game {
       this.potions[id] -= dt;
       if (this.potions[id] <= 0) { delete this.potions[id]; changed = true; this.msg(`Your ${POTIONS[id].name.toLowerCase()} has worn off.`, 'system'); }
     }
+    if (this.meal && (this.meal.ms -= dt) <= 0) {
+      if (this.meal.fx.dmg) this.msg(`The ${getItem(this.meal.id).name.toLowerCase()} wears off.`, 'system');
+      this.meal = null;
+    }
     if (changed) this.bus.emit('potions');
   }
 
@@ -5457,6 +5478,7 @@ export class Game {
       if (pot.style && pot.style !== mode) continue;
       for (const [k, v] of Object.entries(pot.fx)) if (k !== 'heal') out[k] = (out[k] || 0) + v;
     }
+    if (this.meal) for (const [k, v] of Object.entries(this.meal.fx)) out[k] = (out[k] || 0) + v;   // any style
     return out;
   }
 

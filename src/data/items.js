@@ -316,6 +316,27 @@ const RAW = {
   raw_cobia: { name: 'Raw cobia', icon: '🐟', value: 120, tags: ['raw'], examine: 'A muscular cobia. Cook it first.' },
   cobia: { name: 'Cobia', icon: '🐟', value: 215, heal: 17, examine: 'Grilled cobia steak.' },
 
+  // ---- Endgame fish (Fishing 100-300) and their dishes (Cooking 100-300) ----
+  // Life at these levels runs to hundreds, so these dishes heal a share of your
+  // maximum life (healPct; `heal` is the least they give) instead of a fixed
+  // amount. Two also lend a short damage boost and one heals over time (`meal`,
+  // see Game.eatItem); a new meal replaces the last one's boost.
+  raw_dorado: { name: 'Raw dorado', icon: '🐟', value: 400, tags: ['raw'], examine: 'A blunt-headed mahi-mahi, gold and green. Cook it first.' },
+  grilled_dorado: { name: 'Grilled dorado', icon: '🐟', value: 700, heal: 40, healPct: 0.4, examine: 'Charred dorado with lime. Heals 40% of your life.' },
+  raw_bluefin_tuna: { name: 'Raw bluefin tuna', icon: '🐟', value: 650, tags: ['raw'], examine: 'A huge, deep-bodied bluefin. Cook it first.' },
+  tuna_sashimi: { name: 'Tuna sashimi', icon: '🍣', value: 1100, heal: 58, healPct: 0.45, examine: 'Thick slices of bluefin belly. Heals 45% of your life.' },
+  raw_sailfish: { name: 'Raw sailfish', icon: '🐟', value: 1000, tags: ['raw'], examine: 'A sailfish, its great fin folded. Cook it first.' },
+  sambal_sailfish: { name: 'Sambal sailfish', icon: '🌶️', value: 1700, heal: 80, healPct: 0.5, meal: { ms: 60000, fx: { dmg: 0.05 } },
+    examine: 'Sailfish grilled in fiery sambal. Heals 50% of your life and fires you up: +5% damage for 60 seconds.' },
+  raw_moonfish: { name: 'Raw moonfish', icon: '🐟', value: 1500, tags: ['raw'], examine: 'A round, silver moonfish that glows faintly. Cook it first.' },
+  moonfish_curry: { name: 'Moonfish curry', icon: '🍛', value: 2500, heal: 60, healPct: 0.3, meal: { ms: 12000, regenPct: 0.25 },
+    examine: 'A slow-cooked fish head curry. Heals 30% of your life at once and 25% more over 12 seconds.' },
+  raw_rift_eel: { name: 'Raw rift eel', icon: '🐍', value: 2200, tags: ['raw'], examine: 'A long eel that glows violet from within. Cook it first.' },
+  rift_eel_claypot: { name: 'Rift eel claypot', icon: '🍲', value: 3600, heal: 150, healPct: 0.6, examine: 'Eel braised in a sizzling claypot. Heals 60% of your life.' },
+  raw_dragon_arowana: { name: 'Raw dragon arowana', icon: '🐉', value: 3500, tags: ['raw'], examine: 'A golden dragonfish from the Shadow Rift. Cook it first.' },
+  arowana_feast: { name: 'Arowana feast', icon: '🐉', value: 6000, heal: 300, healPct: 1, meal: { ms: 60000, fx: { dmg: 0.1 } },
+    examine: 'A banquet fit for an emperor. Heals all of your life and fills you with strength: +10% damage for 60 seconds.' },
+
   // ---- Fishing bait, junk & treasure ----
   fishing_bait: { name: 'Fishing bait', icon: '🪱', value: 2, stackable: true, tags: ['bait'], examine: 'Improves your catch rate when fishing.' },
   old_boot: { name: 'Old boot', icon: '🥾', value: 1, examine: 'You fished up someone\'s old boot. Charming.' },
@@ -1061,6 +1082,26 @@ for (const [id, [style, P]] of Object.entries(ACCESSORY_STYLE)) {
   for (const k of FIGHT_KEYS) delete b[k];
   eq.bonuses = { ...b, ...accessoryStats(style, P) };
   eq.style = style;
+}
+
+// ---- Endgame jewellery (Crafting 100-300) ----
+// Crafted from the endgame ores and bars (crafting.js), never dropped (so they
+// stay out of ACCESSORY_STYLE and the loot tables). Each suits every fighting
+// style: it carries all three styles' stats at power P, a little above the
+// best styled piece (P 20 amulets, P 8 rings), plus one offensive stat of its
+// own, kept below the boss uniques'. Worn from the Defence level of its tier.
+// id, name, slot, level, P, its own stat, value, examine
+export const ENDGAME_JEWELLERY = [
+  ['obsidian_ring', 'Obsidian ring', 'ring', 100, 9, { critDmg: 9 }, 400000, 'A band of polished obsidian, edged like a blade. Its crits cut deeper.'],
+  ['orichalcum_amulet', 'Orichalcum amulet', 'amulet', 130, 22, { pierce: 5 }, 800000, 'A coppery-gold torc. Blows struck by its wearer split armour.'],
+  ['jade_ring', 'Jade ring', 'ring', 160, 10, { lifesteal: 3 }, 1500000, 'An imperial jade ring, cool against the skin. It drinks a little of every wound.'],
+  ['star_amulet', 'Star amulet', 'amulet', 200, 24, { crit: 4 }, 3000000, 'A star sapphire cut from fallen starmetal. It finds the weak spot for you.'],
+  ['celestial_ring', 'Celestial ring', 'ring', 250, 11, { haste: 4 }, 6000000, 'A skyglass ring, light as air. Your hands move quicker for it.'],
+  ['eternal_amulet', 'Eternal amulet', 'amulet', 300, 26, { atkPct: 6, magPct: 6 }, 12000000, 'Eternal gold that never tarnishes. Every blow and spell lands harder.'],
+];
+for (const [id, name, slot, lvl, P, extra, value, examine] of ENDGAME_JEWELLERY) {
+  RAW[id] = { name, icon: slot === 'ring' ? '💍' : '📿', value, examine,
+    equip: { slot, req: { defence: lvl }, bonuses: { ...accessoryStats('melee', P), ...accessoryStats('ranged', P), ...accessoryStats('magic', P), ...extra } } };
 }
 
 // ---- Prayer accessories: no fighting stats, but prayers last longer (bonus `prayer`, see Game.drainPrayer) ----
