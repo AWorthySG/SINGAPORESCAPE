@@ -1,10 +1,14 @@
 // Achievement / collection-log definitions. Each has a test(game) predicate and
 // an optional progress(game) label. Unlocks are tracked + persisted by the game.
 import { SKILL_IDS } from './skills.js';
+import { ALL_MONSTER_IDS, ALL_BOSS_IDS } from './npcs.js';
 
 const own = (g, id) => g.inventory.count(id) > 0 || g.bank.count(id) > 0;
 const coins = (g) => g.inventory.count('coins') + g.bank.count('coins');
 const anyLvl = (g, n) => SKILL_IDS.some((id) => g.skills.level(id) >= n);
+// Monster Codex: a creature counts as discovered once you've defeated one.
+const CODEX = new Set([...ALL_MONSTER_IDS, ...ALL_BOSS_IDS]);
+const codexSeen = (g) => { let n = 0; for (const id in g.kills || {}) if (CODEX.has(id) && g.kills[id] > 0) n++; return n; };
 const questsDone = (g) => Object.values(g.quests).filter((q) => q && q.state === 'done').length;
 const UNIQUES = ['merlion_blade', 'warlord_cape', 'merlion_amulet', 'boar_tusk', 'tiger_fang', 'leviathan_trident', 'garuda_wings', 'hydra_leather', 'treant_shield', 'megalodon_jaw', 'phantom_robe', 'djinn_lamp', 'revenant_cape'];
 const DRAGON_GEAR = ['dragon_scimitar', 'dragon_2h_sword', 'dragon_longsword', 'dragon_battleaxe', 'dragon_platebody', 'dragon_platelegs', 'dragon_kiteshield', 'dragon_dagger', 'dragon_full_helm'];
@@ -49,6 +53,10 @@ export const ACHIEVEMENTS = [
   { id: 'lumberjack', cat: 'Skills', name: 'Lumberjack', desc: 'Chop magic logs.', test: (g) => own(g, 'magic_logs') },
   { id: 'wave_10', cat: 'Combat', name: 'Through the Gate', desc: 'Reach wave 10 of the Endless Gate.', test: (g) => (g.waves?.best || 0) >= 10, progress: (g) => `${Math.min(g.waves?.best || 0, 10)}/10` },
   { id: 'wave_25', cat: 'Combat', name: 'Endless', desc: 'Reach wave 25 of the Endless Gate.', test: (g) => (g.waves?.best || 0) >= 25, progress: (g) => `${Math.min(g.waves?.best || 0, 25)}/25` },
+  { id: 'codex_10', cat: 'Codex', name: 'Field Notes', desc: 'Discover 10 creatures in the Monster Codex.', test: (g) => codexSeen(g) >= 10, progress: (g) => `${Math.min(codexSeen(g), 10)}/10` },
+  { id: 'codex_50', cat: 'Codex', name: 'Naturalist', desc: 'Discover 50 creatures in the Monster Codex.', test: (g) => codexSeen(g) >= 50, progress: (g) => `${Math.min(codexSeen(g), 50)}/50` },
+  { id: 'codex_150', cat: 'Codex', name: 'Creature Scholar', desc: 'Discover 150 creatures in the Monster Codex.', test: (g) => codexSeen(g) >= 150, progress: (g) => `${Math.min(codexSeen(g), 150)}/150` },
+  { id: 'codex_all', cat: 'Codex', name: 'Living Encyclopaedia', desc: 'Discover every creature in the Monster Codex.', test: (g) => codexSeen(g) >= CODEX.size, progress: (g) => `${codexSeen(g)}/${CODEX.size}` },
 ];
 
 // Coin reward granted the first time each achievement is unlocked.
@@ -62,5 +70,6 @@ export const ACH_REWARDS = {
   first_task: 300, task_master: 3000, slayer_50: 5000,
   angler: 500, lumberjack: 1000,
   wave_10: 5000, wave_25: 25000,
+  codex_10: 500, codex_50: 5000, codex_150: 25000, codex_all: 250000,
 };
 export const rewardFor = (id) => ACH_REWARDS[id] || 250;

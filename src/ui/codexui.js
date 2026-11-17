@@ -1,0 +1,254 @@
+// The Monster Codex window: browse every monster and boss, filter and sort
+// them, and open an entry for the full story (art, stats, matchups, where it
+// lives, drops, a boss's signature move). The facts come from src/game/codex.js;
+// this file only turns them into HTML and wires the controls. ui.js just opens
+// it: from the Bestiary button, by right-clicking a monster in the world, and
+// by tapping the portrait on the battle bar.
+//
+// The list is drawn a page at a time ("Show more"), never all ~600 rows at
+// once, so it stays quick on phones. The page-building functions return plain
+// strings, so the tests can render them without a DOM.
+import { getNpc } from '../data/npcs.js';
+import { getItem } from '../data/items.js';
+import { RACES, raceOf } from '../data/races.js';
+import { formatNumber } from '../core/utils.js';
+import { itemIconSVG } from '../render/icons.js';
+import { portraitFor } from '../render/sprites.js';
+import {
+  CODEX_IDS, TYPE_FILTERS, SORTS, codexList, codexEntry, codexProgress, codexRegions, codexHabitats,
+  isDiscovered, killsOf, championCapable, chanceText, nearestSpawn,
+} from '../game/codex.js';
+
+export const PAGE_SIZE = 40;
+
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+// Stats in full ("2,700,000"), as the battle bar shows them, not shortened to "2.7M".
+const full = (n) => Number(n || 0).toLocaleString('en-GB');
+const pct = (a, b) => (b ? Math.floor((a / b) * 100) : 0);
+
+/** The filters the window opens with (remembered on the UI between openings). */
+export function defaultCodexState() {
+  return { search: '', region: 'all', race: 'all', type: 'all', disc: 'all', sort: 'level', minLevel: null, maxLevel: null, shown: PAGE_SIZE, id: null };
+}
+
+/** The creature's painted art (the same file the world draws), or null. */
+function artSrc(id) {
+  try { return portraitFor(id, getNpc(id))?.src || null; } catch { return null; }
+}
+
+/** A picture of the creature; an undiscovered one is a dark silhouette. Falls
+ *  back to its race's emoji when there's no art. */
+function artHTML(id, cls, seen) {
+  const src = artSrc(id);
+  const d = getNpc(id);
+  if (!src) return `<span class="${cls} cx-noart">${seen ? RACES[codexRaceId(id)]?.icon || '?' : '?'}</span>`;
+  return `<img class="${cls}${seen ? '' : ' cx-silhouette'}" src="${esc(src)}" alt="${seen ? esc(d.name) : 'Unknown creature'}" loading="lazy" decoding="async" />`;
+}
+const codexRaceId = (id) => raceOf(getNpc(id), id);
+const CODEX_SET = new Set(CODEX_IDS);
+
+/** A progress bar: "12 / 593". */
+function barHTML(seen, total, label = '') {
+  return `<div class="cx-prog"><span class="cx-prog-label">${label}<b>${formatNumber(seen)} / ${formatNumber(total)}</b> · ${pct(seen, total)}%</span>` +
+    `<span class="cx-bar"><i style="width:${pct(seen, total)}%"></i></span></div>`;
+}
+
+/** The completion counter at the top of the list, with every region's own. */
+export function codexProgressHTML(game) {
+  const p = codexProgress(game);
+  const regions = p.regions.map((r) => `<div class="cx-reg${r.seen === r.total ? ' done' : ''}"><span>${esc(r.name)}</span>` +
+    `<span class="cx-bar"><i style="width:${pct(r.seen, r.total)}%"></i></span><b>${r.seen}/${r.total}</b></div>`).join('');
+  return `<div class="cx-head">${barHTML(p.seen, p.total, 'Discovered ')}` +
+    `<details class="cx-regions"><summary>By region</summary><div class="cx-reg-grid">${regions}</div></details></div>`;
+}
+
+/** One row of the list. */
+export function codexRowHTML(game, id) {
+  const d = getNpc(id), seen = isDiscovered(game, id), k = killsOf(game, id);
+  const zones = codexHabitats(game).get(id) || [];
+  const where = zones.length > 2 ? `${esc(zones[0])} +${zones.length - 1} more` : zones.map(esc).join(', ');
+  const tags = (d.boss ? '<span class="cx-tag boss">Boss</span>' : '') +
+    (seen && championCapable(d) ? '<span class="cx-tag champ" title="Can turn up as a champion">★</span>' : '');
+  return `<button type="button" class="cx-row${seen ? '' : ' unseen'}${d.boss ? ' is-boss' : ''}" data-id="${esc(id)}">` +
+    artHTML(id, 'cx-thumb', seen) +
+    `<span class="cx-row-main"><span class="cx-row-top"><b>${seen ? esc(d.name) : '???'}</b>${tags}</span>` +
+    `<span class="cx-row-sub">Lvl ${formatNumber(d.level)} · ${where || 'Unknown'}</span></span>` +
+    `<span class="cx-kc">${seen ? `${formatNumber(k)} kill${k === 1 ? '' : 's'}` : 'Undiscovered'}</span></button>`;
+}
+
+/** The list page: a count, the first `st.shown` matches, and Show more. */
+export function codexListHTML(game, st) {
+  const ids = codexList(game, st);
+  const shown = ids.slice(0, Math.max(PAGE_SIZE, st.shown || PAGE_SIZE));
+  let html = `<div class="cx-count">${ids.length === CODEX_IDS.length ? `All ${formatNumber(ids.length)} creatures` : `${formatNumber(ids.length)} of ${formatNumber(CODEX_IDS.length)} creatures`}</div>`;
+  if (!ids.length) return html + '<div class="modal-hint">No creatures match these filters.</div>';
+  html += `<div class="cx-list">${shown.map((id) => codexRowHTML(game, id)).join('')}</div>`;
+  if (shown.length < ids.length) html += `<button type="button" class="cx-more">Show ${Math.min(PAGE_SIZE, ids.length - shown.length)} more (${formatNumber(ids.length - shown.length)} left)</button>`;
+  return html;
+}
+
+const stat = (label, value, hint = '') => `<div class="cx-stat"${hint ? ` title="${esc(hint)}"` : ''}><span>${label}</span><b>${value}</b></div>`;
+
+/** The entry page for one creature. Undiscovered: a silhouette, its level and
+ *  where it lives, and a hint to defeat one. */
+export function codexEntryHTML(game, id) {
+  const e = codexEntry(game, id);
+  const where = e.zones.length ? e.zones.map((z) => `<span class="cx-zone">${esc(z)}</span>`).join('') : '<span class="cx-zone">Unknown</span>';
+  const head = `<div class="cx-entry-top">${artHTML(id, 'cx-art', e.discovered)}<div class="cx-entry-id">` +
+    `<div class="cx-entry-name">${e.discovered ? esc(e.name) : '???'}${e.boss ? ' <span class="cx-tag boss">Boss</span>' : ''}</div>` +
+    `<div class="cx-entry-lvl">Level ${formatNumber(e.level)}` +
+    (e.discovered ? ` · <span title="${esc(e.race.desc)}">${e.race.icon} ${esc(e.race.name)}</span>` : '') + '</div>' +
+    (e.discovered && e.examine ? `<div class="cx-examine">${esc(e.examine)}</div>` : '') +
+    `<div class="cx-entry-kc">${e.discovered ? `You've defeated ${formatNumber(e.kills)}.` : 'Not yet discovered.'}</div>` +
+    '</div></div>';
+  const whereHTML = `<div class="cx-sec"><h4>Where it lives</h4><div class="cx-zones">${where}</div><div class="cx-go-row"></div></div>`;
+  if (!e.discovered) {
+    return head + whereHTML + '<div class="cx-sec cx-locked">Defeat one to reveal its stats, matchups and drops.</div>';
+  }
+  const scaleNote = e.numberScale > 1 ? `<div class="cx-note">Numbers ×1/${e.numberScale} scale: its life, and every hit you land on it, are shown ${e.numberScale} times smaller.</div>` : '';
+  const stats = '<div class="cx-sec"><h4>Stats</h4><div class="cx-stats">' +
+    stat('Life', full(e.life)) +
+    stat('Attack', full(e.attack)) +
+    stat('Defence', full(e.defence)) +
+    stat('Max hit', full(e.maxHit), 'The most one of its ordinary hits can take from you') +
+    stat('Armour', `${esc(e.armour.tier)} (${e.armour.pct}%)`, 'The share of each hit its armour stops (half as much when you hit its weakness)') +
+    stat('Aggressive', e.aggressive ? 'Yes' : 'No', e.aggressive ? 'Attacks you on sight' : 'Only fights back') +
+    '</div>' + scaleNote +
+    (e.championLife ? `<div class="cx-note">★ Can turn up as a champion: ${full(e.championLife)} life, harder hits and much better loot.</div>` : '') + '</div>';
+  const strong = `<div class="cx-sec"><h4>Strong against it</h4><div class="cx-weapons">${e.strongWeapons.map((w) => `<span class="cx-weapon">${esc(w)}</span>`).join('') || '<i>No weapon type in particular.</i>'}</div></div>`;
+  let boss = '';
+  if (e.signature) {
+    const mine = e.signature.classId === game?.jobClass;
+    boss += `<div class="cx-sec cx-sig${mine ? ' mine' : ''}"><h4>Signature weapon</h4>${itemIconSVG(e.signature.item, 28)}` +
+      `<span><b>${esc(getItem(e.signature.item).name)}</b> for ${esc(e.signature.className)}${mine ? ' (your class!)' : ''} · drops 1 kill in ${Math.round(1 / e.signature.chance)}</span></div>`;
+  }
+  if (e.ability) {
+    boss += `<div class="cx-sec"><h4>Signature move</h4><div class="cx-ability"><b>${esc(e.ability.name)}:</b> ${esc(e.ability.desc)}</div>` +
+      (e.ability.hazards.length ? `<div class="cx-hazards">Ground attacks: ${e.ability.hazards.map((h) => `<span class="cx-hazard" title="${esc(h.desc)}"><b>${esc(h.name)}</b> ${esc(h.desc)}</span>`).join('')}</div>` : '') +
+      '</div>';
+  }
+  const drops = e.drops.map((dr) => {
+    const it = getItem(dr.id);
+    const qty = dr.max > 1 ? (dr.min === dr.max ? `${formatNumber(dr.min)} × ` : `${formatNumber(dr.min)}–${formatNumber(dr.max)} × `) : '';
+    return `<div class="cx-drop" title="${esc(it.name)}">${itemIconSVG(dr.id, 24)}<span class="cx-drop-name">${qty}${esc(it.name)}</span><span class="cx-drop-chance${dr.always ? ' always' : ''}">${chanceText(dr.chance)}</span></div>`;
+  }).join('');
+  const dropsHTML = `<div class="cx-sec"><h4>Drops <small>(rough chances per kill${e.boss ? '; bosses roll ten times' : ''})</small></h4><div class="cx-drops">${drops || '<i>No notable drops.</i>'}</div></div>`;
+  return head + stats + strong + boss + whereHTML + dropsHTML;
+}
+
+/** Open the codex; with an id, straight to that creature's entry. */
+export function openCodex(ui, id = null) {
+  const game = ui.game;
+  const st = ui._codex || (ui._codex = defaultCodexState());
+  st.id = id && CODEX_SET.has(id) ? id : null;
+  let listEl = null;
+
+  const drawList = () => {
+    if (!listEl) return;
+    listEl.innerHTML = codexListHTML(game, st);
+    listEl.querySelector('.cx-more')?.addEventListener('click', () => {
+      // Keep the scroll where it is and just add the next page underneath.
+      st.shown = (st.shown || PAGE_SIZE) + PAGE_SIZE; drawList();
+    });
+  };
+
+  const control = (tag, cls, attrs = {}) => {
+    const el = document.createElement(tag);
+    el.className = cls;
+    Object.assign(el, attrs);
+    return el;
+  };
+  const select = (key, options, label) => {
+    const s = control('select', 'cx-select', { title: label });
+    s.setAttribute('aria-label', label);
+    s.innerHTML = options.map((o) => `<option value="${esc(o.id)}"${String(st[key]) === String(o.id) ? ' selected' : ''}>${esc(o.name)}</option>`).join('');
+    s.addEventListener('change', () => { st[key] = s.value; st.shown = PAGE_SIZE; drawList(); });
+    return s;
+  };
+
+  const renderList = (body) => {
+    body.innerHTML = codexProgressHTML(game);
+    const bar = control('div', 'cx-filters');
+    const search = control('input', 'bank-search cx-search', { placeholder: 'Search creatures…', value: st.search || '', type: 'search' });
+    search.addEventListener('input', () => { st.search = search.value; st.shown = PAGE_SIZE; drawList(); });
+    bar.appendChild(search);
+    bar.appendChild(select('region', [{ id: 'all', name: 'All regions' }, ...codexRegions(game).map((n) => ({ id: n, name: n }))], 'Region'));
+    bar.appendChild(select('race', [{ id: 'all', name: 'All races' }, ...Object.entries(RACES).map(([rid, r]) => ({ id: rid, name: `${r.icon} ${r.name}` }))], 'Race'));
+    bar.appendChild(select('type', TYPE_FILTERS, 'Type'));
+    bar.appendChild(select('disc', [{ id: 'all', name: 'Seen and unseen' }, { id: 'seen', name: 'Discovered' }, { id: 'unseen', name: 'Undiscovered' }], 'Discovered'));
+    bar.appendChild(select('sort', SORTS.map((s) => ({ id: s.id, name: `Sort: ${s.name}` })), 'Sort'));
+    const lv = control('span', 'cx-levels');
+    lv.innerHTML = '<span>Lvl</span>';
+    for (const key of ['minLevel', 'maxLevel']) {
+      const inp = control('input', 'bank-search cx-lvl', { type: 'number', min: 1, inputMode: 'numeric', placeholder: key === 'minLevel' ? 'min' : 'max', value: st[key] ?? '' });
+      inp.setAttribute('aria-label', key === 'minLevel' ? 'Lowest level' : 'Highest level');
+      inp.addEventListener('input', () => { const v = parseInt(inp.value, 10); st[key] = Number.isFinite(v) ? v : null; st.shown = PAGE_SIZE; drawList(); });
+      lv.appendChild(inp);
+      if (key === 'minLevel') lv.insertAdjacentHTML('beforeend', '<span>–</span>');
+    }
+    bar.appendChild(lv);
+    const reset = control('button', 'cx-reset', { type: 'button', textContent: 'Clear' });
+    reset.addEventListener('click', () => { const keep = st.sort; Object.assign(st, defaultCodexState(), { sort: keep }); renderList(body); });
+    bar.appendChild(reset);
+    body.appendChild(bar);
+    listEl = control('div', 'cx-results');
+    // One listener for every row (rows come and go as the filters change).
+    listEl.addEventListener('click', (ev) => {
+      const row = ev.target.closest?.('.cx-row');
+      if (row) { st.id = row.dataset.id; st.listScroll = body.scrollTop; render(body); body.scrollTop = 0; }
+    });
+    body.appendChild(listEl);
+    drawList();
+  };
+
+  const renderEntry = (body) => {
+    const id = st.id;
+    body.innerHTML = '';
+    const back = control('button', 'cx-back', { type: 'button', innerHTML: '&#8592; All creatures' });
+    back.addEventListener('click', () => { st.id = null; render(body); body.scrollTop = st.listScroll || 0; });
+    body.appendChild(back);
+    const page = control('div', 'cx-entry');
+    page.innerHTML = codexEntryHTML(game, id);
+    body.appendChild(page);
+    // Go / Show on map: to the nearest place it lives (works before you've
+    // met one too, so the codex can send you hunting).
+    const row = page.querySelector('.cx-go-row');
+    const spot = nearestSpawn(game, id);
+    if (row && spot) {
+      const label = isDiscovered(game, id) ? getNpc(id).name : 'An undiscovered creature';
+      row.insertAdjacentHTML('beforeend', `<span class="cx-dist">Nearest: ${formatNumber(spot.dist)} tiles away</span>`);
+      const go = control('button', 'wm-go', { type: 'button', textContent: 'Go', title: 'Travel to the nearest one (by MRT and on foot)' });
+      go.addEventListener('click', () => { ui.closeModal(); game.travelToTile({ x: spot.x, y: spot.y }); });
+      const map = control('button', 'wm-go cx-map', { type: 'button', textContent: 'Show on map' });
+      map.addEventListener('click', () => ui.openWorldMap({ x: spot.x, y: spot.y, label }));
+      row.appendChild(map);
+      row.appendChild(go);
+    }
+  };
+
+  const render = (body) => {
+    ui.modal.title = 'Monster Codex';
+    if (st.id) renderEntry(body); else renderList(body);
+  };
+  ui.openModal('Monster Codex', render);
+  ui.modal.kind = 'codex';
+}
+
+/** The monster drawn under a point on the game screen (CSS pixels), if any:
+ *  its sticker stands on its tile and reaches up about a tile, more for big ones. */
+export function monsterAtScreen(game, sx, sy, tile = 32) {
+  const cam = game?.camera;
+  if (!cam?.screenToWorld) return null;
+  const w = cam.screenToWorld(sx, sy);
+  let best = null, bd = Infinity;
+  for (const n of game.npcs) {
+    if (!n.alive || !n.def?.attackable || !CODEX_SET.has(n.npcId)) continue;
+    const k = n.moving ? n.progress || 0 : 0;
+    const fx = n.x + ((n.tx ?? n.x) - n.x) * k, fy = n.y + ((n.ty ?? n.y) - n.y) * k;
+    const size = Math.max(1, n.def.scale || 1);
+    const cx = (fx + 0.5) * tile, cy = (fy + 0.5) * tile - tile * 0.35 * size;
+    const d = Math.hypot(w.x - cx, (w.y - cy) * 0.8);
+    if (d < tile * 0.75 * size && d < bd) { bd = d; best = n; }
+  }
+  return best;
+}
