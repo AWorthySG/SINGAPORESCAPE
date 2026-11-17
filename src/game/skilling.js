@@ -80,6 +80,9 @@ const GEM_TABLE = [
   { id: 'ruby', weight: 16 }, { id: 'diamond', weight: 6 },
 ];
 
+// The moonlit kapok's Woodcutting XP at night (it can be chopped any time).
+export const NIGHT_TREE_BONUS = 1.25;
+
 export function resolveWoodcut(game, action) {
   const { obj } = action;
   const def = obj.def;
@@ -88,6 +91,7 @@ export function resolveWoodcut(game, action) {
     game.msg(`You need a Woodcutting level of ${def.level} to chop this.`); return false;
   }
   if (!game.hasTool('axe')) { game.msg('You need an axe to chop this tree.'); return false; }
+  // The moonlit kapok only gives its wood after dark.
   if (game.inventory.canAdd(def.gives, 1) <= 0) { game.msg('Your inventory is too full to hold any more logs.'); return false; }
 
   const lvl = game.skills.level('woodcutting');
@@ -95,7 +99,8 @@ export function resolveWoodcut(game, action) {
   // chop gives logs. Level still decides which trees you can chop.
   {
     game.inventory.add(def.gives, 1);
-    game.skills.addXp('woodcutting', def.xp);
+    // A moonlit tree gives more under the moon (a bonus for night chopping, never a lock).
+    game.skills.addXp('woodcutting', def.night && game.isNight() ? def.xp * NIGHT_TREE_BONUS : def.xp);
     const wc = objCenter(obj); game.spawnPoof(wc.x, wc.y, '#caa15a');
     obj.shakeT = 280; game.bus.emit('sfx', 'gather'); // the tree judders as the log falls
     const logName = getItem(def.gives).name.toLowerCase();
@@ -409,6 +414,11 @@ export function resolveFiremake(game, action) {
   } else {
     game.skills.addXp('firemaking', baseFm);
     game.msg('The fire catches and the logs begin to burn.');
+  }
+  // The endgame logs leave an ash behind (a shrine material, and later a Herblore one).
+  if (logDef.ash) {
+    if (game.inventory.canAdd(logDef.ash, 1) > 0) game.inventory.add(logDef.ash, 1);
+    else game.world.addGroundItem(logDef.ash, 1, p.x, p.y);
   }
   // Rarely, something glints in the embers.
   if (Math.random() < 0.012) {

@@ -840,6 +840,22 @@ import { ITEMS } from '../data/items.js';
     BORROW_ID[ore] = from; BORROW_TINT[ore] = metalTint(m); I[ore] = oreIcon(hi);
     BORROW_ID[`${m}_bar`] = 'steel_bar'; BORROW_TINT[`${m}_bar`] = metalTint(m); I[`${m}_bar`] = barIcon(c, hi);
   }
+  // Endgame logs (Woodcutting 100-300) borrow an older log sticker, tinted like
+  // their tree (objects.js), and their ashes borrow the coal sticker, lightened
+  // to ash grey and tinted, until their own art arrives.
+  for (const [id, from, tint, c, hi] of [
+    ['seraya_logs', 'mahogany_logs', 'hue-rotate(-20deg) saturate(1.15) brightness(1.05)', '#b88a5a', '#dcb488'],
+    ['meranti_logs', 'teak_logs', 'hue-rotate(25deg) saturate(1.2) brightness(0.92)', '#9a4a32', '#c06a4a'],
+    ['chengal_logs', 'yew_logs', 'sepia(0.35) saturate(1.3) hue-rotate(-10deg)', '#7a5a2a', '#a07a40'],
+    ['starwood_logs', 'magic_logs', 'hue-rotate(20deg) saturate(1.2) brightness(1.08)', '#4a5ac8', '#9aaaf0'],
+    ['moonwood_logs', 'magic_logs', 'saturate(0.4) brightness(1.2)', '#a8b0c8', '#e0e6f4'],
+    ['eternal_heartwood', 'tembusu_logs', 'sepia(0.7) saturate(1.8) hue-rotate(-12deg) brightness(1.05)', '#c8962a', '#f5c84a'],
+  ]) { BORROW_ID[id] = from; BORROW_TINT[id] = tint; I[id] = logIcon(c, hi); }
+  for (const [id, tint, fleck] of [
+    ['fine_ash', 'grayscale(1) brightness(2.4)', '#c8c8c8'], ['ember_ash', 'grayscale(1) brightness(2) sepia(0.8) saturate(3) hue-rotate(-20deg)', '#ff8a3a'],
+    ['star_ash', 'grayscale(1) brightness(2.2) sepia(0.5) saturate(2) hue-rotate(180deg)', '#9aaaf0'], ['ghost_ash', 'grayscale(1) brightness(2.8)', '#eef2fa'],
+    ['eternal_ash', 'grayscale(1) brightness(2.2) sepia(0.9) saturate(2.5)', '#f5c84a'],
+  ]) { BORROW_ID[id] = 'coal'; BORROW_TINT[id] = tint; I[id] = oreIcon(fleck); }
   // The refine scroll borrows the upgrade ward's scroll sticker, tinted blue, until its own art arrives.
   BORROW_ID.refine_scroll = 'upgrade_ward'; BORROW_TINT.refine_scroll = 'hue-rotate(180deg) saturate(1.3)';
   Object.assign(BORROW_ID, { holy_beads: 'amulet_of_power', temple_pendant: 'emerald_amulet', starlit_pendant: 'diamond_amulet', pearl_amulet: 'sapphire_amulet', pearl_ring: 'sapphire_ring',

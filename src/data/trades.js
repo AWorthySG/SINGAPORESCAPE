@@ -90,6 +90,40 @@ export const FLETCH = [
   { result: 'magic_longbow', qty: 1, inputs: [['magic_logs', 3]], level: 85, xp: 250, tool: 'knife' },
 ];
 
+// ---- Endgame fletching (Fletching 100-300): the bows, staves, wands, rifles
+// and crossbows that otherwise only drop, carved from the endgame logs ----
+// Rifles and crossbows also take the tier's bar (smithing.js), as do arrows.
+// Levels are the tier's level plus small per-piece offsets, as above. `xp` is
+// the tier's best make (a longbow or rifle), each tier about 35% more than the
+// last, starting from the magic longbow's 250: one make is a tick whatever
+// it is, so that is also ~35% more XP an hour. Other pieces earn a share of it.
+// Fletched gear is always plain: quality is only rolled for monster drops.
+// Signature and boss weapons stay drop-only.
+const _FLETCH_TIERS = [
+  { k: 'obsidian', log: 'seraya_logs', base: 100, xp: 340, shafts: 45 },
+  { k: 'orichalcum', log: 'meranti_logs', base: 130, xp: 460, shafts: 50 },
+  { k: 'jade', log: 'chengal_logs', base: 160, xp: 625, shafts: 55, arrow: true },
+  { k: 'starmetal', log: 'starwood_logs', base: 200, xp: 845, shafts: 60, arrow: true },
+  { k: 'celestial', log: 'moonwood_logs', base: 250, xp: 1145, shafts: 65 },
+  { k: 'eternal', log: 'eternal_heartwood', base: 300, xp: 1550, shafts: 70, arrow: true },
+];
+// [piece, logs, bars, level offset, share of the tier's xp]
+const _FLETCH_PIECES = [['wand', 1, 0, 0, 0.4], ['staff', 2, 0, 3, 0.65], ['bow', 2, 0, 5, 0.65],
+  ['crossbow', 2, 1, 8, 0.9], ['longbow', 3, 0, 10, 1], ['rifle', 2, 2, 12, 1]];
+const _NO_SUCH = new Set(['obsidian_bow', 'orichalcum_bow', 'orichalcum_staff']);   // never made at these tiers
+for (const T of _FLETCH_TIERS) {
+  FLETCH.push({ result: 'arrow_shaft', qty: T.shafts, inputs: [[T.log, 1]], level: T.base, xp: Math.round(T.xp * 0.1), tool: 'knife' });
+  for (const [p, logs, bars, off, share] of _FLETCH_PIECES) {
+    const result = `${T.k}_${p}`;
+    if (_NO_SUCH.has(result)) continue;
+    const inputs = [[T.log, logs]];
+    if (bars) inputs.push([`${T.k}_bar`, bars]);
+    FLETCH.push({ result, qty: 1, inputs, level: T.base + off, xp: Math.round(T.xp * share), tool: 'knife' });
+  }
+  // Fifteen arrows from shafts, feathers and one bar, like the older arrows.
+  if (T.arrow) FLETCH.push({ result: `${T.k}_arrow`, qty: 15, inputs: [['arrow_shaft', 15], ['feather', 15], [`${T.k}_bar`, 1]], level: T.base + 4, xp: Math.round(T.xp * 0.75) });
+}
+
 // Hunter grounds: work a trap until it springs. `gives` are rolled on each catch
 // (`chance` defaults to 1). They reset after `respawn` ticks once they run dry.
 export const HUNT = {

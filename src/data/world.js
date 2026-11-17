@@ -1207,7 +1207,7 @@ export function buildWorld() {
   // towns, roads, MRT stations and monster spawns, and every rock keeps an open
   // side to stand on.
   {
-    const rng4 = mulberry32(20261117);
+    let rng4 = mulberry32(20261117);   // the endgame trees below swap in a stream of their own
     const npcAt = new Set(npcSpawns.map((s) => key(s.x, s.y)));
     const stations = objects.filter((o) => o.objId === 'mrt_station');
     const byStation = (x, y) => stations.some((o) => Math.max(Math.abs(o.x - x), Math.abs(o.y - y)) < 8);
@@ -1241,6 +1241,17 @@ export function buildWorld() {
     vein('fallen_star', 364, 282, 450, 370, [T.STONE, T.GRASS]);             // The Celestial Peaks
     vein('skyglass_crystal', 456, 300, 530, 370, [T.STONE]);                 // the Peaks' summit, on bare rock
     vein('eternal_lode', 278, 226, 390, 270, GRASSY);                        // deep in the Shadow Rift
+
+    // Endgame trees (Woodcutting 100-300): one grove of eight per tier, laid
+    // out the same way as the veins but from their own random stream, so the
+    // veins above stay exactly where they were.
+    rng4 = mulberry32(20261118);
+    vein('seraya_tree', 2, 2, 92, 42, GRASSY);                               // Bukit Timah
+    vein('meranti_tree', 402, 182, 536, 276, GRASSY);                        // Mandai Rainforest
+    vein('chengal_tree', 2, 46, 42, 81, GRASSY);                             // MacRitchie Reservoir
+    vein('starfall_banyan', 364, 282, 536, 376, GRASSY);                     // The Celestial Peaks
+    vein('moonlit_kapok', 121, 2, 148, 102, GRASSY);                         // Pulau Hantu
+    vein('keramat_tree', 202, 206, 396, 276, GRASSY);                        // The Shadow Rift
   }
 
   // --- Border fence ---
