@@ -105,11 +105,14 @@ export const HUNT = {
     gives: [{ id: 'raw_boar_meat' }, { id: 'boar_tusk', chance: 0.15 }], color: '#7a5a3a', examine: 'A covered pit on a wild boar run.' },
   python_trap: { name: 'Python trap', level: 70, xp: 230, lowChance: 0.18, highChance: 0.7, depleteChance: 0.15, respawn: 18,
     gives: [{ id: 'python_skin' }], color: '#8a7a4a', examine: 'A sturdy cage by the riverbank.' },
-  crocodile_trap: { name: 'Crocodile trap', level: 90, xp: 320, lowChance: 0.15, highChance: 0.65, depleteChance: 0.15, respawn: 22,
+  // Crocodile, hornbill and qilin spring more often and reset faster than the
+  // traps below them, so each tier out-earns the last an hour (the qilin trail
+  // used to earn less than a crocodile trap).
+  crocodile_trap: { name: 'Crocodile trap', level: 90, xp: 320, lowChance: 0.15, highChance: 0.65, depleteChance: 0.12, respawn: 18,
     gives: [{ id: 'croc_hide' }], color: '#4a6a3a', examine: 'A heavy log trap at the water\'s edge. Careful.' },
-  hornbill_nest: { name: 'Hornbill nest', level: 120, xp: 450, lowChance: 0.12, highChance: 0.6, depleteChance: 0.2, respawn: 30,
+  hornbill_nest: { name: 'Hornbill nest', level: 120, xp: 500, lowChance: 0.12, highChance: 0.6, depleteChance: 0.12, respawn: 20,
     gives: [{ id: 'hornbill_casque' }, { id: 'feather', min: 10, max: 20 }], color: '#e0b040', examine: 'High in a tualang tree: a hornbill nest.' },
-  qilin_trail: { name: 'Qilin trail', level: 200, xp: 900, lowChance: 0.08, highChance: 0.5, depleteChance: 0.25, respawn: 45,
+  qilin_trail: { name: 'Qilin trail', level: 200, xp: 900, lowChance: 0.08, highChance: 0.5, depleteChance: 0.15, respawn: 22,
     gives: [{ id: 'qilin_mane' }], color: '#f0d070', examine: 'Golden hoofprints that glow faintly on the stone.' },
 };
 

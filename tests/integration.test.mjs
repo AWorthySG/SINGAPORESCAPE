@@ -1176,8 +1176,8 @@ test('agility obstacles grant XP/run energy, and finishing a lap yields a Mark o
   const find = (id) => game.world.objects.find((o) => o.objId === id);
   const xp0 = game.skills.xp.agility;
   game.runEnergy = 0;
-  // Touch three distinct obstacles, then ride the zip-line (the finish).
-  for (const id of ['agility_balance', 'agility_net', 'agility_rope']) game.resolveAgility(find(id));
+  // A lap is every obstacle of the course once; the zip-line rounds it off.
+  for (const id of ['agility_balance', 'agility_net', 'agility_rope', 'agility_ledge']) game.resolveAgility(find(id));
   game.resolveAgility(find('agility_zip'));
   assert.ok(game.skills.xp.agility > xp0, 'agility xp increased');
   assert.ok(game.runEnergy > 0, 'run energy recovered on the course');
@@ -5289,24 +5289,29 @@ test('boss heals are capped by recent damage: at most 30% of what it took lately
   assert.ok(b.hp - before <= 300, `the signature move healed at most 30% of 1000 (${b.hp - before})`);
 });
 
-test('agility obstacles give 5x their XP, growing with Agility level, so 999 is reachable', async () => {
+test('agility obstacles give 5x their XP, growing with Agility level up to 99, then at the life-skill rate', async () => {
   const { AGILITY_XP_MULT, AGILITY_XP_DIV } = await import('../src/game/game.js');
+  const { pastCapXpMult } = await import('../src/data/xp.js');
   const { XP_RATE } = await import('../src/config.js');
   globalThis.localStorage = fakeStorage(); clearSave();
   const g = new Game(); g.start();
   g.ui = new Proxy({}, { get: () => () => {} });
   const beam = g.world.objects.find((o) => o.objId === 'agility_balance');
   assert.ok(beam, 'a balance beam exists');
-  const gain = () => { const x0 = g.skills.xp.agility; g.resolveAgility(beam); return g.skills.xp.agility - x0; };
+  // A fresh lap each time, so the beam can be crossed again.
+  const gain = () => { g._agilityLap.clear(); const x0 = g.skills.xp.agility; g.resolveAgility(beam); return g.skills.xp.agility - x0; };
   const lvl = g.skills.level('agility');
-  const expect = (L) => 22 * AGILITY_XP_MULT * (1 + L / AGILITY_XP_DIV) * XP_RATE;
+  const expect = (L) => 22 * AGILITY_XP_MULT * (1 + Math.min(L, 99) / AGILITY_XP_DIV) * pastCapXpMult(L) * XP_RATE;
   assert.ok(Math.abs(gain() - expect(lvl)) < 1, 'a low-level beam crossing gives 5x+ its listed XP');
+  g.skills.xp.agility = (await import('../src/data/xp.js')).xpForLevel(99);
+  assert.ok(Math.abs(gain() - expect(99)) < 1, 'and about 11x at level 99');
+  assert.ok(expect(99) / expect(1) > 9, 'XP grows strongly with level up to 99');
   g.skills.xp.agility = (await import('../src/data/xp.js')).xpForLevel(500);
-  assert.ok(Math.abs(gain() - expect(500)) < 1, 'and far more at level 500');
-  assert.ok(expect(500) / expect(1) > 40, 'XP grows strongly with level');
+  assert.ok(Math.abs(gain() - expect(500)) < 1, 'past 99 only the life-skill rate adds to it');
+  assert.ok(Math.abs(expect(500) / expect(99) - pastCapXpMult(500)) < 1e-9);
 });
 
-test('Marks of grace trade for Agility XP (the whole stack, scaled to your level)', async () => {
+test('Marks of grace trade for Agility XP (the whole stack, a fixed amount each)', async () => {
   const { XP_RATE } = await import('../src/config.js');
   globalThis.localStorage = fakeStorage(); clearSave();
   const g = new Game(); g.start();
@@ -5314,14 +5319,14 @@ test('Marks of grace trade for Agility XP (the whole stack, scaled to your level
   g.inventory.add('mark_of_grace', 5);
   const idx = g.inventory.slots.findIndex((sl) => sl && sl.id === 'mark_of_grace');
   const each = g.markOfGraceXp();
-  assert.ok(each >= 10 * 60 * 5, 'a mark is worth ten zip-line crossings');
+  assert.equal(each, 10 * 60, 'a mark is worth ten zip-line crossings\' listed XP');
   const x0 = g.skills.xp.agility;
   g.useMarkOfGrace(idx);
   assert.equal(g.inventory.count('mark_of_grace'), 0, 'the whole stack is traded');
   assert.ok(Math.abs(g.skills.xp.agility - x0 - each * 5 * XP_RATE) < 1, 'for Agility XP');
-  // Worth more at a higher Agility level.
+  // The same at any Agility level (scaling it with level used to double course XP).
   g.skills.xp.agility = (await import('../src/data/xp.js')).xpForLevel(300);
-  assert.ok(g.markOfGraceXp() > each * 10);
+  assert.equal(g.markOfGraceXp(), each);
 });
 
 test('auto quest: starts, works through and hands in a quest by itself, then moves on', () => {

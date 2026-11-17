@@ -39,7 +39,7 @@ import { DOT_KINDS } from '../data/bossAbilities.js';
 import { CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, equivalentWeapon, CLEAVE_SHARE, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWear, equivalentArmour, classGearFor, canWield, classesForType, SECONDARY_WEAPON } from '../data/classes.js';
 import { STYLE_TRACKS, sumPerks, perkAtLevel, rankName, PERK_SKILLS, PERK_CAPS } from '../data/perks.js';
 import { getSpell, SPELLS, ELEMENTS, AOE_RADIUS, elementMatchup } from '../data/magic.js';
-import { xpForLevel } from '../data/xp.js';
+import { xpForLevel, pastCapXpMult } from '../data/xp.js';
 import { PRAYERS, PRAYER_BY_ID, PRAYER_GROUPS } from '../data/prayers.js';
 import { isBone, boneXp, BONE_IDS, countBones, championBoneQty, RARE_BOSS_BONES, RARE_BONE_CHANCE, RARE_BONE_QTY, ALTAR_XP_MULT, ALTAR_RANGE } from '../data/bones.js';
 import {
@@ -256,12 +256,18 @@ const HAZARD_TEXT = {
 export const BURY_BATCH = 100; // bones buried per click
 export const BURY_RESTORE_CAP = 3; // at most this many bones per bury restore prayer
 // Agility obstacles give AGILITY_XP_MULT x their listed XP, growing by 1/AGILITY_XP_DIV
-// per Agility level (level 100 -> 11x the multiplier), so level 999 is a
-// reachable goal (~12 hours of courses) rather than a lifetime.
+// per Agility level up to 99 (11x the multiplier there). Past 99 the growth
+// stops and the usual life-skill rate takes over (pastCapXpMult in xp.js), so
+// each level past 99 takes about as long as 98->99 did: it used to keep
+// growing, which put Agility 9999 about 15 hours away.
 export const AGILITY_XP_MULT = 5;
 export const AGILITY_XP_DIV = 10;
-// A Mark of grace trades for this many zip-line crossings' worth of Agility XP.
+export const AGILITY_XP_LEVEL_CAP = 99;
+// A Mark of grace trades for this many zip-line crossings' worth of Agility XP,
+// at the zip-line's listed XP: a fixed amount, not scaled to your level (it used
+// to scale, which roughly doubled course XP).
 export const MARK_XP_CROSSINGS = 10;
+export const MARK_XP = MARK_XP_CROSSINGS * 60;
 export const BONE_PRAYER_XP = getItem('bones').prayerXp;   // plain bones; every kind's XP is its item's prayerXp (bones.js)
 
 // Alchemy: a utility spell cast on an inventory item.
@@ -1242,7 +1248,7 @@ export class Game {
       });
       case 'thieve': return this._tickArrival(a, a.target, true, () => { this.pickpocket(a.npc); if (this.autoGather) this._autoLife = { kind: 'thieve', npc: a.npc }; });
       case 'agility': return this._tickContinuous(a, a.obj, () => this.resolveAgility(a.obj));
-      case 'stall': return this._tickContinuous(a, a.obj, () => this.stealFromStall(a.obj));
+      case 'stall': return this._tickContinuous(a, a.obj, () => this.stealFromStall(a.obj, a));
       case 'transport': return this._tickArrival(a, a.target, true, () => this.ui?.openTransport(a.obj));
       case 'openbank': return this._tickArrival(a, a.target, true, () => this.ui?.openBank());
       case 'openshop': return this._tickArrival(a, a.target, true, () => this.ui?.openShop(a.shop));
@@ -2804,7 +2810,7 @@ export class Game {
     if (c.skill && c.xp) {
       // A share of the XP to the skill's next level, so it matters at any level.
       const lvl = this.skills.level(c.skill), need = xpForLevel(lvl + 1) - xpForLevel(lvl);
-      const xp = Math.max(1, Math.round(need * c.xp / XP_RATE));
+      const xp = Math.max(1, Math.round(need * c.xp / XP_RATE / this.skills.lifeXpMult(c.skill)));
       this.skills.addXp(c.skill, xp);
       gains.push(`${xp * XP_RATE} ${SKILL_BY_ID[c.skill]?.name || c.skill} XP`);
     }
@@ -3438,7 +3444,9 @@ export class Game {
     {
       const coins = randInt(3, 12) + Math.floor(lvl * 1.5);
       this.inventory.add('coins', coins);
-      this.skills.addXp('thieving', 8 + lvl);
+      // XP grows with level only up to 99; past that the life-skill rate in
+      // addXp takes over (it used to keep growing, on top of the steeper curve).
+      this.skills.addXp('thieving', 8 + Math.min(lvl, 99));
       this.addEvil(1); // theft tips you toward evil
       this.spawnSparkle(this.player, '#ffe24a', 6);
       this.msg(`You pick the ${npc.name}'s pocket and steal ${coins} coins.`, 'system');
@@ -3451,35 +3459,68 @@ export class Game {
       this.msg(`You need Agility level ${d.level} for the ${d.name}.`, 'system');
       return false;
     }
-    const xpScale = AGILITY_XP_MULT * (1 + this.skills.level('agility') / AGILITY_XP_DIV);
+    // A course obstacle can't be crossed again until the rest of the lap is
+    // done (standing on one used to repeat it every tick).
+    const course = d.markChance !== undefined ? this._agilityCourse(obj) : null;
+    if (course && this._agilityLap.has(obj.uid)) {
+      this.msg(`You've done the ${d.name.toLowerCase()} this lap. Run the rest of the course first.`, 'system');
+      return false;
+    }
+    const lvl = this.skills.level('agility');
+    const xpScale = this.agilityXpScale(lvl);
     this.skills.addXp('agility', (d.xp || 18) * xpScale);
     this.runEnergy = Math.min(100, this.runEnergy + 8);
     this.bus.emit('run');
     this.spawnPoof(obj.x * TILE + TILE / 2, obj.y * TILE + TILE / 2 - 6, '#8fd6ff');
+    if (!course) return true;   // a lone obstacle is a lap of its own: keep training
 
-    // Course lap tracking: touching every distinct obstacle once = a lap.
-    if (d.markChance !== undefined) {
-      this._agilityLap.add(obj.uid);
-      let mark = Math.random() < d.markChance;
-      if (d.finish && this._agilityLap.size >= 3) {
-        // Completing the loop at the finish line: lap bonus + a guaranteed mark.
+    // Course lap tracking: a lap is every obstacle of the course you have the
+    // level for, once each, in any order.
+    this._agilityLap.add(obj.uid);
+    let mark = Math.random() < d.markChance;
+    const usable = course.filter((o) => !o.def.level || lvl >= o.def.level);
+    const left = usable.filter((o) => !this._agilityLap.has(o.uid));
+    if (!left.length) {
+      this._agilityLap.clear();
+      if (usable.length === course.length) {
+        // A full lap: a bonus worth 60% of the last obstacle, and a guaranteed
+        // mark. (Below the level for every obstacle you just go round again.)
         this.skills.addXp('agility', Math.round((d.xp || 30) * 0.6 * xpScale));
-        this._agilityLap.clear();
         mark = true;
         this.msg('You complete a lap of the course!', 'system');
       }
-      if (mark) {
-        this.inventory.add('mark_of_grace', 1);
-        this.spawnSparkle(this.player, '#5fd0a0', 8);
-        this.msg('You find a Mark of grace.', 'system');
-      }
     }
-    return d.finish ? false : true; // pause after the finish line; otherwise keep training
+    if (mark) {
+      this.inventory.add('mark_of_grace', 1);
+      this.spawnSparkle(this.player, '#5fd0a0', 8);
+      this.msg('You find a Mark of grace.', 'system');
+    }
+    // Head on to the nearest obstacle still to do (with auto gather on, start
+    // the next lap too); otherwise stop here.
+    const next = left.length ? left : (this.autoGather ? usable : []);
+    const p = this.player;
+    const to = next.reduce((a, o) => (!a || chebyshev(p.x, p.y, o.x, o.y) < chebyshev(p.x, p.y, a.x, a.y) ? o : a), null);
+    if (to === obj) return true;   // a new lap starts right here
+    return to ? this.beginAction({ type: 'agility', obj: to }, { x: to.x, y: to.y }, true) : false;
+  }
+
+  /** The XP multiplier on an obstacle's listed XP at an Agility level: grows
+   *  with level up to 99, then follows the life-skill rate past 99. */
+  agilityXpScale(lvl) {
+    return AGILITY_XP_MULT * (1 + Math.min(lvl, AGILITY_XP_LEVEL_CAP) / AGILITY_XP_DIV) * pastCapXpMult(lvl);
+  }
+
+  /** The obstacles of the course `obj` belongs to: every Mark-of-grace obstacle
+   *  near it (worked out once per obstacle; the world's objects never move). */
+  _agilityCourse(obj) {
+    const m = (this._courses ||= new Map());
+    if (!m.has(obj.uid)) m.set(obj.uid, this.world.objects.filter((o) => o.def.type === 'agility' &&
+      o.def.markChance !== undefined && chebyshev(o.x, o.y, obj.x, obj.y) <= 12));
+    return m.get(obj.uid);
   }
 
   /** Trade Marks of grace for Agility XP: each is worth MARK_XP_CROSSINGS zip-line
-   *  crossings at your current Agility level (so it keeps pace as you level).
-   *  Trades the whole stack by default. */
+   *  crossings' listed XP (a fixed amount). Trades the whole stack by default. */
   useMarkOfGrace(index, count = Infinity) {
     const s = this.inventory.slotAt(index);
     if (!s || s.id !== 'mark_of_grace') return;
@@ -3494,13 +3535,19 @@ export class Game {
 
   /** Agility XP (before the global XP rate) one Mark of grace is worth right now. */
   markOfGraceXp() {
-    return MARK_XP_CROSSINGS * 60 * AGILITY_XP_MULT * (1 + this.skills.level('agility') / AGILITY_XP_DIV);
+    return MARK_XP;
   }
 
   // ---------------- Thieving: market stalls ----------------
-  stealFromStall(obj) {
+  /** One attempt at a stall. Given the stall action `a`, a success keeps you
+   *  at the stall, waiting quietly for it to restock and stealing again, until
+   *  you're caught or move off. */
+  stealFromStall(obj, a = null) {
     const d = obj.def;
-    if (obj.depleted) { this.msg('The stall has nothing left — wait for it to restock.', 'system'); return false; }
+    if (obj.depleted) {
+      if (a?.stealing) return true;   // wait for the restock
+      this.msg('The stall has nothing left — wait for it to restock.', 'system'); return false;
+    }
     const lvl = this.skills.level('thieving');
     if (d.level && lvl < d.level) { this.msg(`You need Thieving level ${d.level} to steal from the ${d.name}.`, 'system'); return false; }
     // Success scales with level over the stall's requirement.
@@ -3516,6 +3563,7 @@ export class Game {
       this.msg(`You steal ${qty > 1 ? qty + ' x ' : ''}${name} from the ${d.name}.`, 'system');
       obj.depleted = true; obj.respawnTimer = d.respawn || 5; // the stall is emptied briefly
       this.bus.emit('sfx', 'pickup');
+      if (a) { a.stealing = true; return true; }
     } else {
       const dmg = randInt(1, 3);
       this.player.takeDamage(dmg); this.addHitsplat(this.player, dmg); this.bus.emit('hp');
@@ -3523,7 +3571,7 @@ export class Game {
       this.msg(`You're caught stealing from the ${d.name} and are stunned!`, 'combat');
       if (this.player.hp <= 0) this.playerDeath();
     }
-    return false; // one attempt per click
+    return false; // caught (or a one-off attempt): stop
   }
 
   // ---------------- Treasure trails (clue scrolls) ----------------

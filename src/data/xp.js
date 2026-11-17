@@ -29,6 +29,11 @@ export const MAX_XP = XP_TABLE[MAX_LEVEL];
 /** The most xp a skill can hold (its cap's xp). */
 export const maxXpFor = (id) => XP_TABLE[maxLevelFor(id)];
 
+/** Life-skill XP multiplier at a level: 1 up to 99, then 1 + (L-99)/150, the
+ *  same slope as the cost of a level past 99 (XP_TABLE above), so every level
+ *  past 99 takes about as long at the same activity as 98->99 did. */
+export const pastCapXpMult = (level) => 1 + Math.max(0, level - RS_MAX) / 150;
+
 /** Level (1..cap) for a given total xp (binary search: skills ask this a lot). */
 export function levelForXp(xp, cap = MAX_LEVEL) {
   let lo = 1, hi = cap;

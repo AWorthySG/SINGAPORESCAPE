@@ -64,10 +64,13 @@ export function materialPoints(id) {
 //
 // Kills give 1 point a monster (5 a champion, 25 a boss) to EVERY piece you
 // wear, so ten minutes of auto battle (~300-750 kills) is ~300-750 points per
-// piece. Materials give a tenth of their value to ONE piece: ten minutes of
-// level-appropriate gathering is roughly 6 adamant bars (480 points), 3 rune
-// bars (960) or 60 yew logs (480), so feeding is about as quick as fighting
-// for the piece you choose, and lets a skiller catch a new piece up.
+// piece. Materials feed ONE piece, with diminishing returns on value: twice
+// the square root of a tenth of the value (never more than a tenth). A tenth
+// of the value outright made the endgame bars absurd (an eternal bar worth
+// 3,200 points, three of them to Master); now a rune bar is 36, an eternal
+// bar 113, a diamond 35, magic logs 9, so taking one piece to Master is about
+// an hour of gathering and smelting: kills, which feed every piece, stay the
+// main road, and feeding lets a skiller catch a new piece up.
 //
 // The cap: materials raise mastery only as far as Master (8,000 points);
 // Grandmaster and Legendary must be earned in battle. The last material fed
@@ -96,8 +99,11 @@ export function feedKind(id) {
   return 'bar';
 }
 
-/** Mastery points one `matId` gives item type `gearId` (0 if it doesn't fit). */
+/** Mastery points one `matId` gives item type `gearId` (0 if it doesn't fit):
+ *  2 x the square root of its shrine worth, capped at that worth. */
 export function feedPoints(gearId, matId) {
   const k = feedKind(gearId);
-  return k && materialKind(matId) === k ? materialPoints(matId) : 0;
+  if (!k || materialKind(matId) !== k) return 0;
+  const p = materialPoints(matId);
+  return Math.min(p, Math.round(2 * Math.sqrt(p)));
 }

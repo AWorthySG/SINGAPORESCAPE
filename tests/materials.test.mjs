@@ -129,7 +129,8 @@ test('feeding: each kind of gear takes its own material', () => {
   assert.equal(feedKind('wizard_robe_top'), 'herb');
   assert.equal(feedKind('batik_cape'), 'herb');
   assert.equal(feedKind('logs'), null, 'not gear');
-  assert.equal(feedPoints('rune_scimitar', 'mithril_bar'), 32);
+  assert.equal(feedPoints('rune_scimitar', 'mithril_bar'), 11, '2 x the square root of its worth (32)');
+  assert.equal(feedPoints('rune_scimitar', 'bronze_bar'), 3, 'never more than its worth');
   assert.equal(feedPoints('rune_scimitar', 'yew_logs'), 0, 'logs do not feed a sword');
 });
 
@@ -138,24 +139,24 @@ test('feeding: bars add mastery to a sword, wrong materials are refused, rank-up
   const said = chat(g);
   const w = g.equipment.get('weapon');
   assert.equal(feedKind(w), 'bar');
-  g.inventory.add('mithril_bar', 10); g.inventory.add('yew_logs', 5);
+  g.inventory.add('mithril_bar', 25); g.inventory.add('yew_logs', 5);
   // The wrong material: nothing happens.
   assert.equal(g.feedMastery(w, 'yew_logs', 5), 0);
   assert.equal(g.inventory.count('yew_logs'), 5);
   assert.equal(g.equipment.masteryPoints(w), 0);
   // The pack's options list only bars, best first.
   assert.deepEqual(g.feedOptions(w).map((o) => o.id), ['mithril_bar']);
-  // Ten mithril bars: 32 points each.
+  // Twenty-five mithril bars: 11 points each.
   g.equipment.mastery[w] = 0;
-  assert.equal(g.feedMastery(w, 'mithril_bar', 10), 320);
+  assert.equal(g.feedMastery(w, 'mithril_bar', 25), 275);
   assert.equal(g.inventory.count('mithril_bar'), 0);
-  assert.equal(g.equipment.masteryPoints(w), 320);
+  assert.equal(g.equipment.masteryPoints(w), 275);
   assert.equal(g.equipment.masteryRank(w), 1, 'Adept');
   assert.ok(said.some((t) => /reached Adept mastery/.test(t)), 'the rank-up is announced as a kill would');
   // The cap: from 7,990 one rune bar is enough to reach Master; the rest stay in the pack.
   g.equipment.mastery[w] = FEED_CAP - 10;
   g.inventory.add('rune_bar', 5);
-  assert.equal(g.feedMastery(w, 'rune_bar', Infinity), 320);
+  assert.equal(g.feedMastery(w, 'rune_bar', Infinity), 36);
   assert.equal(g.inventory.count('rune_bar'), 4, 'only what it took');
   assert.equal(g.equipment.masteryRank(w), 4, 'Master');
   assert.ok(said.some((t) => /reached Master mastery/.test(t)));
@@ -170,7 +171,7 @@ test('feeding: bars add mastery to a sword, wrong materials are refused, rank-up
   assert.equal(g.feedMastery('rune_platebody', 'mithril_bar', 1), 0);
   // Gear in the pack can.
   g.inventory.add('rune_platebody', 1);
-  assert.equal(g.feedMastery('rune_platebody', 'mithril_bar', 1), 32);
+  assert.equal(g.feedMastery('rune_platebody', 'mithril_bar', 1), 11);
   assert.ok(MASTERY_RANKS[4].points === FEED_CAP);
 });
 
