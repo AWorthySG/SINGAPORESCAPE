@@ -7197,9 +7197,6 @@ test('auto quest leads when auto battle is on too: no detours to "monsters of yo
   const detours = [];
   const msg = game.msg.bind(game);
   game.msg = (t, c) => { if (/monsters of your level/.test(t) && game.autoQuest) detours.push(t); return msg(t, c); };
-  // Champions off: they are a detour you opt into (30x life each), and with
-  // them twice as common a fresh character could spend the whole run on two.
-  game.autoCfg.champions = false;
   game.toggleAutoBattle(true);
   step(game, 1);
   game.toggleAutoQuest(true);

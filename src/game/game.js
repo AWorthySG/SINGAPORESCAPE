@@ -4854,6 +4854,9 @@ export class Game {
       // Then mini-bosses: gold-ringed champions within reach that you can take on.
       if (n.champion) {
         if (this.autoCfg.champions === false) continue;   // "Champions: Skip"
+        // Auto quest leads: a champion's 30x-life fight would stall the quest, so one
+        // that isn't attacking you is left alone while a quest is being followed.
+        if (this.autoQuest) continue;
         if (!inWild && wildZone(n.x, n.y)) continue;
         { const tier = first ? -2000 : 0; cands.push({ n, score: d + tier, tier }); }
         continue;
