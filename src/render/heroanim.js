@@ -75,7 +75,7 @@ const CLIPS = {
   }),
   // A pickaxe brought right over the head and down into the rock.
   mine: skill(0.72, 'sparks', {
-    hand: [[0, 0.9], [0.52, 3.0], [0.62, 3.1, 'out'], [0.72, 0.75, 'snap'], [0.82, 0.85, 'out'], [1, 0.9]],
+    hand: [[0, 1.1], [0.52, 3.0], [0.62, 3.1, 'out'], [0.72, 1.05, 'snap'], [0.82, 1.0, 'out'], [1, 1.1]],
     prop: [[0, 0.3], [0.52, -0.3], [0.72, 0.5, 'snap'], [1, 0.3]],
     off: [[0, 0.7], [0.52, 2.4], [0.72, 0.8, 'snap'], [1, 0.7]],
     lean: [[0, 0.06], [0.55, -0.14], [0.72, 0.2, 'snap'], [1, 0.06]],
@@ -506,7 +506,7 @@ export function actionClipId(a) {
   }
 }
 // Actions the game resolves on arrival in one go; their clip plays once after.
-const ARRIVAL = new Set(['farm', 'thieve', 'pray', 'rest']);
+const ARRIVAL = new Set(['farm', 'thieve', 'pray', 'rest', 'bury', 'offer']);
 
 /** The item drawn in the hero's hand for an action: their own tool where one
  *  is needed (the one wielded, else the one in the pack), else what they work. */
@@ -599,8 +599,9 @@ function watch(game) {
   game.bus.on('levelup', () => { stateOf(game.player).pending = { id: 'cheer', at: 0 }; });
   game.bus.on('xp', (e) => {
     const p = game.player, st = stateOf(p);
-    // Bones buried (or offered) from the pack: there's no action to follow.
-    if (e?.skill === 'prayer' && !p.action) st.pending = { id: st.prevAction?.type === 'offer' ? 'offer' : 'bury', at: 0.6, prop: 'bones' };
+    // Bones buried (or offered) from the pack: there's no action to follow, so
+    // the clip starts part-way in (already stooping) and lands just after.
+    if (e?.skill === 'prayer' && !p.action) st.pending = { id: 'bury', at: 0.35, prop: 'bones' };
     beatFx(game, e?.skill, p.action || st.prevAction);
   });
 }
@@ -735,7 +736,7 @@ const PROPS = {
   chisel: { grip: [0.8, 0.15], tip: [0.15, 0.85], size: 14 },
   knife: { grip: [0.78, 0.78], tip: [0.2, 0.22], size: 14 },
 };
-const HELD = { grip: [0.5, 0.62], tip: [0.5, 0.1], size: 13 };   // anything else: held up in the fist
+const HELD = { grip: [0.5, 0.62], tip: [0.5, 0.1], size: 16 };   // anything else: held up in the fist
 
 /** Draw the tool in hand. The hand is at the origin; `dir` is the arm's direction. */
 function drawProp(c, id, dir, wrist, upright) {
