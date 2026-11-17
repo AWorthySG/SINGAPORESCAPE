@@ -15,9 +15,9 @@ import { isSalvageable } from './salvage.js';
 // coins, so they must never beat gathering. Measured with tools/balance/shrine.mjs
 // (an hour of auto battle drops, everything "Offer all" takes with its default
 // settings; enchanting supplies and tools are never in bulk):
-//   level  50: goods ~3,100 points   gear ~5,700    woodcutting ~6,200    mining ~78,000
-//   level 150: goods ~6,100          gear ~52,000   woodcutting ~106,000  mining ~408,000
-//   level 250: goods ~13,000         gear ~174,000  woodcutting ~347,000  mining ~1,180,000
+//   level  50: goods ~3,000 points   gear ~5,700    woodcutting ~6,200    mining ~78,000
+//   level 150: goods ~5,800          gear ~52,000   woodcutting ~106,000  mining ~408,000
+//   level 250: goods ~11,000         gear ~174,000  woodcutting ~347,000  mining ~1,180,000
 // so loot is a handy top-up early on and small change later. It also makes
 // coins a poor road to blessings: shop goods give a point per 250 coins, and
 // cooking a raw fish (a material, a tenth of its value) only lowers its worth.
