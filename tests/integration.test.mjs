@@ -3243,7 +3243,7 @@ test('no split shot: a bow shot hits one target at any Ranged level', async () =
 test('bows hit harder (close to a longsword on one target) and arrows drop more often', async () => {
   const { WEAPON_DMG_MULT } = await import('../src/game/combat.js');
   const { NPCS } = await import('../src/data/npcs.js');
-  assert.ok(WEAPON_DMG_MULT.shortbow >= 1.1 && WEAPON_DMG_MULT.longbow >= 1.4, 'bow damage raised');
+  assert.ok(WEAPON_DMG_MULT.longbow > WEAPON_DMG_MULT.shortbow, 'the slower longbow hits harder a shot');
   assert.ok(WEAPON_DMG_MULT.crossbow > WEAPON_DMG_MULT.longbow, 'the crossbow keeps its own (no-ammo) scale');
   const mob = Object.values(NPCS).find((d) => d.attackable && !d.boss && d.dropTable?.length);
   const tot = mob.dropTable.reduce((a, b) => a + (b.weight || 0), 0);

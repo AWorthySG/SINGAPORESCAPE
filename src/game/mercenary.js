@@ -12,7 +12,7 @@
 // its hit like the Merchant does, between a quarter of and its full 25% share of the Merchant's max hit.
 import { chebyshev, randInt } from '../core/utils.js';
 import { TICK_MS, COMBAT_BEAT_MS } from '../config.js';
-import { combatXpRanged, playerAttackVsNpc, playerRangedVsNpc, critChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE } from './combat.js';
+import { combatXpRanged, playerAttackVsNpc, playerRangedVsNpc, critChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE, WEAPON_DMG_MULT, weaponDmgMult } from './combat.js';
 import { CLEAVE_SHARE } from '../data/classes.js';
 import { getItem } from '../data/items.js';
 
@@ -259,7 +259,13 @@ function merchantMax(game, def) {
   // damage, so without them Merchants slipped from ~125% of the median class at
   // level 50 to ~85% at level 300.
   const gb = game.equipment.bonuses(), perk = game.perkMods?.(game.combatMode()) || {};
-  const pct = (1 + (gb.atkPct || 0) / 100) * (1 + (perk.dmg || 0) + (def?.boss ? (perk.boss || 0) + (gb.bossDmg || 0) / 100 : 0));
+  // The cane's own scale is set low to leave room for the allies (about two
+  // thirds of a Merchant's damage). A chakram, scaled for the Pistoler and Ninja,
+  // hits about twice as hard, so with full-strength allies too a Merchant did
+  // nearly twice the damage with one. So allies hit for the cane's scale, cut
+  // again by how much harder the weapon in hand hits (no change with a cane).
+  const k = WEAPON_DMG_MULT.cane / weaponDmgMult(game.equipment);
+  const pct = (1 + (gb.atkPct || 0) / 100) * (1 + (perk.dmg || 0) + (def?.boss ? (perk.boss || 0) + (gb.bossDmg || 0) / 100 : 0)) * k * k;
   if (game.combatMode() === 'ranged') {
     const w = game.equipment.get('weapon');
     const str = w ? Math.floor((getItem(w).equip?.bonuses?.ranged || 0) / 3) : 0;

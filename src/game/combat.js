@@ -161,7 +161,8 @@ export const FLAT_DMG_BEATS = 1;
 // or a rifle got its flat damage 5.5 times over.
 export const RANGED_TYPE_DMG = { longbow: 1.6, rifle: 5.5 };
 /** The flat level damage's scale for the weapon in hand (`castMult`: a spell's
- *  share of the swing time). 1 for a test stub with no weapon speed. */
+ *  share of the swing time; an element's own cast speed is left out, so Wind
+ *  really does deal twice the damage per second). 1 for a test stub with no weapon speed. */
 export function flatDmgScale(equip, castMult = 1) {
   const ws = equip?.weaponSpeed?.(), h = equip?.hasteMult?.();
   if (!(ws > 0) || !(h > 0)) return 1;
@@ -195,7 +196,7 @@ export const WEAPON_DMG_MULT = {
   // at a staff's pace (see items.js), so they scale just under a staff per cast; a
   // Sorcerer's quicker wands stay ahead of an orb below the dragon tier. The crossbow
   // needs no ammo and pierces, so it stays just under the bows.
-  parang: 1.4, kerambit: 0.29, toya: 1.95, crossbow: 1.7, chakram: 1.0, orb: 0.38, fan: 1.45,
+  parang: 1.75, kerambit: 0.27, toya: 2.35, crossbow: 2.8, chakram: 1.3, orb: 0.34, fan: 1.45,
 };
 /** The target's number scale (see hpScaleFor in npcs.js): hits on a big monster are divided by it. */
 const numScale = (npc) => npc?.hpScale || 1;
@@ -337,6 +338,6 @@ export function playerMagicVsNpc(skills, equip, spell, npc) {
     // level 50 mage hits ~1.6x the spell's base and a level 99 mage ~2.2x.
     // The spell's base grows with Magic too (see spellBaseHit). (A dmgMult on an element would scale it.)
     max: Math.max(1, Math.round(((spellBaseHit(spell, skills.magic) + magicLevelBase(skills.magic) + (b.magicStr || 0)) * (1 + skills.magic / MAGIC_LEVEL_DIV)
-      * (ELEMENTS[spell.element]?.dmgMult || 1) * weaponDmgMult(equip) + scaledFlat(skills.magic, equip, 0.5 * (ELEMENTS[spell.element]?.castSpeed || 1))) / numScale(npc))),   // plus the flat damage every Magic level adds
+      * (ELEMENTS[spell.element]?.dmgMult || 1) * weaponDmgMult(equip) + scaledFlat(skills.magic, equip, 0.5)) / numScale(npc))),   // plus the flat damage every Magic level adds
   };
 }
