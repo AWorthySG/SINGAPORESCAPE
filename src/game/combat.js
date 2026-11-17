@@ -185,7 +185,7 @@ const scaledFlat = (level, equip, castMult) => Math.round(levelFlatDmg(level) * 
 export const WEAPON_DMG_MULT = {
   dagger: 0.65, sword: 2.1, scimitar: 0.37, mace: 2.62, longsword: 2.14, battleaxe: 1.72, warhammer: 2.88,
   '2h_sword': 2.5, spear: 2.05, claws: 0.47, katana: 1.48, halberd: 3.02, cane: 0.8, shortbow: 0.54,
-  longbow: 1.25, pistol: 0.38, rifle: 0.74, shuriken: 1.3, staff: 0.39, wand: 0.38, whip: 2.0,
+  longbow: 1.25, pistol: 0.38, rifle: 0.93, shuriken: 1.3, staff: 0.39, wand: 0.38, whip: 2.0,
   // Secondary types (first estimates, pending the combat rescale), tuned against measured
   // damage (a headless run of each class's best weapon at tiers 10-250, not a formula)
   // so that each sits a little under its classes' main types and the main type stays
@@ -320,6 +320,12 @@ export function combatXpDance(styleId, damage) { return fightXp('dance', damage)
 
 // ----- Magic -----
 export const MAGIC_LEVEL_DIV = 80;
+// Spells reach their hit cap by about Magic 75, after which a mage's hit grew
+// only with Magic level x gear, while Melee and Ranged hits grow with level x
+// (gear + level bonus) up to LEVEL_BONUS_CAP: casters fell from ~120% of the
+// median class at level 100 to ~80% at 200. So from Magic 100 up to the bonus
+// cap, every 4 levels add a point to the spell's base as well.
+export const magicLevelBase = (magic) => Math.floor(Math.max(0, Math.min(LEVEL_BONUS_CAP, magic || 0) - 100) / 4);
 export function playerMagicVsNpc(skills, equip, spell, npc) {
   const gear = equip.bonuses();
   const b = withLevelBonus(gear, skills);
@@ -330,7 +336,7 @@ export function playerMagicVsNpc(skills, equip, spell, npc) {
     // Melee and Ranged levels multiply weapon power: +1.25% per level, so a
     // level 50 mage hits ~1.6x the spell's base and a level 99 mage ~2.2x.
     // The spell's base grows with Magic too (see spellBaseHit). (A dmgMult on an element would scale it.)
-    max: Math.max(1, Math.round(((spellBaseHit(spell, skills.magic) + (b.magicStr || 0)) * (1 + skills.magic / MAGIC_LEVEL_DIV)
+    max: Math.max(1, Math.round(((spellBaseHit(spell, skills.magic) + magicLevelBase(skills.magic) + (b.magicStr || 0)) * (1 + skills.magic / MAGIC_LEVEL_DIV)
       * (ELEMENTS[spell.element]?.dmgMult || 1) * weaponDmgMult(equip) + scaledFlat(skills.magic, equip, 0.5 * (ELEMENTS[spell.element]?.castSpeed || 1))) / numScale(npc))),   // plus the flat damage every Magic level adds
   };
 }

@@ -43,9 +43,9 @@ export const hireCost = (game) => 80 + 15 * game.skills.squashedCombatLevel();  
 
 /** A mercenary's best hit: grows with the Merchant's level and gear Strength.
  *  Only a floor for a fresh Merchant: past the first levels a mercenary hits for
- *  MERC_SHARE of the Merchant's own hit. (At twice this it outgrew that share
+ *  MERC_SHARE of the Merchant's own hit. (At three times this it outgrew that share
  *  around level 50, where Merchants did half again the median class's damage.) */
-export const mercPower = (game) => Math.max(2, Math.round(2 + game.skills.squashedCombatLevel() * 0.2 + (game.equipment.bonuses().ranged || 0) * 0.075));
+export const mercPower = (game) => Math.max(2, Math.round(2 + game.skills.squashedCombatLevel() * 0.12 + (game.equipment.bonuses().ranged || 0) * 0.045));
 
 export const activeMercs = (game) => game.npcs.filter((n) => n.ally && n.alive && !n.follower);
 export const activeFollowers = (game) => game.npcs.filter((n) => n.ally && n.alive && n.follower);
