@@ -1,7 +1,8 @@
 // The sacrifice and dismantle windows (rules in src/game/salvage.js). Kept out
 // of ui.js, which only opens them: from a piece's row in the Gear Mastery
 // window, from the pack's item menu (or a touch card), and from the
-// "Dismantle spare gear" button at the top of Gear Mastery.
+// "Dismantle spare gear" button at the top of Gear Mastery. The Offering
+// Shrine's "Offer gear" section is drawn here too (shrineGearSection).
 //
 // Nothing is used up without a second tap: every action first shows what it
 // will give (and any warning) in a box inside the window, with Confirm and
