@@ -30,7 +30,7 @@ import { ELEMENTS, SPELLS, getSpell } from '../data/magic.js';
 import { PRAYERS } from '../data/prayers.js';
 import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
 import { QUESTS } from '../data/quests.js';
-import { SLAYER_REWARDS } from '../data/slayer.js';
+import { SLAYER_REWARDS, SLAYER_FULL_LEVEL, SLAYER_HELM_DMG, slayerBuffs, nextSlayerUnlock } from '../data/slayer.js';
 import { STATIONS, MRT_FARE } from '../data/transport.js';
 import { EQUIP_SLOTS, canDualPair, isTwoHanded } from '../game/equipment.js';
 import { streakMult } from '../game/bounty.js';
@@ -471,7 +471,7 @@ export class UI {
     }
     if (g.slayer && g.slayer.task) {
       const t = g.slayer.task;
-      rows.push(`<div class="trk-row"><span class="trk-ic trk-slayer">&#9760;</span>${Number(t.remaining) || 0} ${escapeHtml(t.name)}${this._trkPointer((n) => n.def.family === t.family)}</div>`);
+      rows.push(`<div class="trk-row"><span class="trk-ic trk-slayer">&#9760;</span>${Number(t.remaining) || 0} ${escapeHtml(t.name)} <span class="trk-buff" title="Slayer bonus against your task">+${g.slayerBonus().dmg}% dmg</span>${this._trkPointer((n) => n.def.family === t.family)}</div>`);
     }
     // Today's unfinished bounties (up to two), each with a pointer to the nearest target.
     for (const t of (g.bounties?.list || []).filter((x) => !x.done).slice(0, 2)) {
@@ -1360,12 +1360,13 @@ export class UI {
           `<span class="skill-icon">${skillIconSVG(sk.id, 36)}</span>` +
           `<span class="skill-text"><b class="skill-name">${sk.name}</b><span class="skill-desc">${sk.desc || ''}</span>` +
           (PERK_SKILLS.includes(sk.id) ? `<span class="skill-perks">${Math.min(10, Math.floor(lvl / PERK_EVERY))}/10 perks${lvl >= 220 ? ' · ranked up' : ''}</span>` : '') +
-          (LIFE_PERKS[sk.id] ? `<span class="skill-perks life">Combat: ${lifePerkText(sk.id, lvl)}</span>` : '') + `</span>` +
+          (LIFE_PERKS[sk.id] ? `<span class="skill-perks life">Combat: ${lifePerkText(sk.id, lvl)}</span>` : '') +
+          (sk.id === 'slayer' ? `<span class="skill-perks life">On task: +${slayerBuffs(lvl).dmg}% damage, ${slayerBuffs(lvl).loot}% extra loot</span>` : '') + `</span>` +
           `<span class="skill-lvl"><span class="cur">${lvl}</span></span>` +
           `<div class="xp-bar" style="width:${Math.round(levelProgress(xp, maxLevelFor(sk.id)) * 100)}%"></div>`;
         const toNext = xpToNext(xp, maxLevelFor(sk.id));
         this._tip(cell, `<b>${sk.name}</b> &mdash; level ${lvl}<br>XP: ${formatNumber(Math.floor(xp))}<br>` +
-          (toNext > 0 ? `Next level: ${formatNumber(toNext)} xp` : 'Maxed!') + this._lifePerkTip(sk.id, lvl));
+          (toNext > 0 ? `Next level: ${formatNumber(toNext)} xp` : 'Maxed!') + this._lifePerkTip(sk.id, lvl) + this._slayerTip(sk.id, lvl));
         // Life skills open a guide: what you can do now, what's next, and where.
         if (SKILL_GUIDES[sk.id]) {
           cell.classList.add('has-guide');
@@ -1881,6 +1882,16 @@ export class UI {
     const next = lifePerkNext(skill, lvl);
     return `<br>Combat perk: <b>${lifePerkText(skill, lvl)}</b>` +
       (next ? `<br>At level ${next.level}: ${next.text}` : '<br>Full strength');
+  }
+
+  /** Slayer's tooltip: the on-task bonuses now and at full strength, and the next unlock. */
+  _slayerTip(skill, lvl) {
+    if (skill !== 'slayer') return '';
+    const b = slayerBuffs(lvl), full = slayerBuffs(SLAYER_FULL_LEVEL), next = nextSlayerUnlock(lvl);
+    return `<br>Against your Slayer task: <b>+${b.dmg}% damage</b>, <b>${b.loot}% chance of extra loot</b>` +
+      `<br>At level ${SLAYER_FULL_LEVEL}: +${full.dmg}% damage, ${full.loot}% extra loot` +
+      `<br>Slayer helmet worn: +${SLAYER_HELM_DMG}% more on-task damage` +
+      (next ? `<br>Level ${next.level} unlocks: ${escapeHtml(next.names.slice(0, 3).join(', '))}${next.names.length > 3 ? '…' : ''}` : '');
   }
 
   /** Every life skill's combat perk: what it gives now and at full strength. */
@@ -3298,6 +3309,18 @@ export class UI {
           : 'You have no task, lah. Want one?') +
         `<div class="slayer-stats">Slayer level ${g.skills.slayer} &middot; <b>${g.slayer.points}</b> points &middot; ${g.slayer.completed} tasks done</div>`;
       body.appendChild(info);
+      // What Slayer gives you, spelled out: the on-task bonuses, the helmet,
+      // the next unlock and what points are for.
+      const sb = g.slayerBonus(), next = nextSlayerUnlock(g.skills.slayer);
+      const buffs = document.createElement('div');
+      buffs.className = 'slayer-buffs';
+      buffs.innerHTML = '<b>Your Slayer bonuses</b> (against monsters on your task)<ul>' +
+        `<li><b>+${sb.dmg}% damage</b>${sb.helm ? ` (includes +${sb.helm}% from your Slayer helmet)` : ` &middot; wear a Slayer helmet for +${SLAYER_HELM_DMG}% more`}</li>` +
+        `<li><b>${sb.loot}% chance of extra loot</b> from each kill</li>` +
+        '<li>Both grow with your Slayer level</li>' +
+        (next ? `<li>Level ${next.level} unlocks tougher tasks: ${escapeHtml(next.names.slice(0, 3).join(', '))}${next.names.length > 3 ? '…' : ''}</li>` : '<li>Every task monster is unlocked</li>') +
+        '<li>Finish tasks for points: 10 each, 25 every 5th, 50 every 10th. Spend them in the rewards shop.</li></ul>';
+      body.appendChild(buffs);
       const opts = document.createElement('div');
       opts.className = 'dialogue-options';
       const mk = (label, fn) => { const d = document.createElement('div'); d.className = 'dialogue-option'; d.textContent = label; d.addEventListener('click', fn); opts.appendChild(d); };

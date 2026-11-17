@@ -56,7 +56,7 @@ import { alignmentTier, alignmentStyle, greetingFor } from '../data/alignment.js
 import { SIGNATURE_DROP_CHANCE, SIGNATURE_CLASS, sigIdFor } from '../data/bossWeapons.js';
 import { nextJob, jobKey } from './autoprocess.js';
 import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
-import { eligibleTasks, SLAYER_REWARDS } from '../data/slayer.js';
+import { eligibleTasks, SLAYER_REWARDS, SLAYER_TASKS, SLAYER_HELM_DMG, slayerBuffs, slayerBuffText } from '../data/slayer.js';
 import { STATIONS, STATION_BY_ID, MRT_FARE } from '../data/transport.js';
 import { SKILLS, SKILL_BY_ID } from '../data/skills.js';
 import { Learning } from './learning.js';
@@ -435,6 +435,7 @@ export class Game {
         this.banner(`<span class="big">${perk.name}${perk.rank > 1 ? ' ' + rankName(perk.rank) : ''}</span>New passive perk: ${perk.desc}`);
       }
       this._lifePerkNote(p);
+      this._slayerNote(p);
       // Advancing a combat skill invigorates you — restore some health.
       if (this.player.alive && COMBAT_SKILLS.has(p?.skill)) {
         this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.ceil(this.maxHp() * 0.1));
@@ -447,6 +448,7 @@ export class Game {
       const perk = p?.skill && perkAtLevel(p.skill, p.level);
       if (perk) this.msg(`New passive perk: ${perk.name}${perk.rank > 1 ? ` (Rank ${rankName(perk.rank)})` : ''}. ${perk.desc}.`, 'level');
       this._lifePerkNote(p);
+      this._slayerNote(p);
       if (this.player.alive && COMBAT_SKILLS.has(p?.skill)) this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.ceil(this.maxHp() * 0.1));
     };
     // Every 10 life skill levels, say what that skill now adds in a fight, so
@@ -455,6 +457,14 @@ export class Game {
       if (!LIFE_PERKS[p?.skill] || p.level % LIFE_PERK_NOTE_EVERY || p.level > LIFE_PERK_FULL_LEVEL) return;
       const name = SKILL_BY_ID[p.skill]?.name || p.skill;
       this.msg(`Life skill perk: your ${name} now gives ${lifePerkText(p.skill, p.level)} in combat${p.level === LIFE_PERK_FULL_LEVEL ? ' (its full strength)' : ''}.`, 'level');
+    };
+    // Slayer level-ups: new task monsters when a tier opens, and the on-task
+    // bonuses every 10 levels.
+    this._slayerNote = (p) => {
+      if (p?.skill !== 'slayer') return;
+      const opened = SLAYER_TASKS.filter((t) => t.req === p.level).map((t) => t.name);
+      if (opened.length) this.msg(`Slayer ${p.level}: the Slayer Master can now give you ${opened.slice(0, 4).join(', ')}${opened.length > 4 ? ` and ${opened.length - 4} more` : ''}.`, 'level');
+      if (p.level % 10 === 0) this.msg(`Slayer bonus: ${slayerBuffText(p.level)}.`, 'level');
     };
     this.bus.on('quest', () => { this.checkAchievements(); this.saveSoon = true; });
 
@@ -1122,6 +1132,20 @@ export class Game {
     this.msg(`You abandon your task to slay ${this.slayer.task.name}.`, 'system');
     this.slayer.task = null;
     this.bus.emit('slayer');
+  }
+
+  /** Is this monster one your current Slayer task counts? */
+  onSlayerTask(npc) {
+    const t = this.slayer?.task;
+    return !!(t && npc?.def?.family && npc.def.family === t.family);
+  }
+
+  /** Your Slayer bonuses against task monsters right now: { dmg, loot, helm }
+   *  in percent (dmg already includes the Slayer helmet's share, helm). */
+  slayerBonus() {
+    const b = slayerBuffs(this.skills.level('slayer'));
+    const helm = this.equipment.get('head') === 'slayer_helmet' ? SLAYER_HELM_DMG : 0;
+    return { dmg: b.dmg + helm, loot: b.loot, helm };
   }
 
   progressSlayer(npc) {
@@ -1860,6 +1884,7 @@ export class Game {
     dmgM *= 1 + (mode === 'magic' ? gb.magPct : gb.atkPct) / 100;
     dmgM *= this._volley || 1;   // a volley of very fast attacks lands as one big hit
     dmgM *= 1 + this.buffMod('dmg');   // a class buff
+    if (this.onSlayerTask(npc)) dmgM *= 1 + this.slayerBonus().dmg / 100;   // Slayer: hit task monsters harder
     const bonusHit = Math.random() < (perk.extra || 0) + (gb.extra || 0) / 100;   // Thieving's perk adds to the chance
     perk._echo = mode === 'magic' && bonusHit;
     const hits = Math.min(maxHits, Math.max(spec ? spec.hits || 1 : 1, ab ? ab.hits || 1 : 1)) + (bonusHit && mode !== 'magic' ? 1 : 0);
@@ -2997,11 +3022,14 @@ export class Game {
     }
     if ((npc.def.boss && this.quests.island_defender.state === 'active') ||
         this.quests.big_game_hunter.state === 'active') this.bus.emit('quest');
+    const onTask = this.onSlayerTask(npc);   // (the last kill ends the task, so ask first)
     this.progressSlayer(npc);
     this.progressBounties(npc);
     this.checkAchievements();
     this._deathBurst(npc);
     this.rollDrops(npc);
+    // Slayer: a task monster sometimes drops a second helping of loot.
+    if (onTask && Math.random() < this.slayerBonus().loot / 100) { this.rollDrops(npc); this.msg('Slayer bonus: extra loot!', 'system'); }
     if (npc.worldBoss) { for (let k = 1; k < WORLD_BOSS_LOOT_ROLLS; k++) this.rollDrops(npc); this.msg('World Boss slain! Triple loot.', 'level'); }
     this._refundRunes(npc);
     npc.die();
@@ -4247,7 +4275,9 @@ export class Game {
     if ((!target || weakPick) && this._autoTravel && p.isMoving) return;   // still on the way
     this._autoTravel = null;
     if ((!target || weakPick) && this.tickCount >= (this._autoHeadNext || 0)) {
-      if (this._autoHeadToLevel()) return;
+      // A quest or Slayer hunt goes after its own monsters, wherever they are;
+      // "monsters of your level" would be ones the hunt won't let you fight.
+      if (this._questFamily || this._questTarget ? this._autoHeadToQuestHunt() : this._autoHeadToLevel()) return;
       this._autoHeadNext = this.tickCount + 10;   // no route found: look again in a few seconds, not every tick
     }
     if (target) { this._autoLast = target; this._autoIdleSaid = false; this.attackNpc(target); }
@@ -4391,6 +4421,32 @@ export class Game {
   /** Walk towards the nearest monster in your level band (up to 20 levels
    *  above you), outside the Wilderness unless you are in it. True if a route
    *  was found and the walk has started. */
+  /** On a quest or Slayer hunt with none of its monsters within reach: go to
+   *  the nearest one anywhere on the map (by MRT when that's quicker). */
+  _autoHeadToQuestHunt() {
+    const p = this.player, here = this.playerTile();
+    const inWild = !!this.world.zoneAt(here.x, here.y)?.wilderness;
+    let best = null, bd = Infinity;
+    for (const n of this.npcs) {
+      if (!n.alive || !n.attackable || n.def.boss || n.temporary || n.ally || n.def.fixed) continue;
+      if (this._questTarget && n.npcId !== this._questTarget) continue;
+      if (this._questFamily && n.def.family !== this._questFamily) continue;
+      if ((this._autoSkip.get(n.entityId) || 0) > this.tickCount) continue;
+      if (!inWild && this.world.zoneAt(n.x, n.y)?.wilderness) continue;
+      const d = (n.x - here.x) ** 2 + (n.y - here.y) ** 2;
+      if (d < bd) { bd = d; best = n; }
+    }
+    if (!best) return false;
+    this._mrtHopToward(best);
+    const t = this._nearestFree(best.x, best.y);
+    const path = t && findPath(this.pathCfg(), this.playerTile(), t, { maxNodes: 150000 });
+    if (!path || !path.length) { this._autoSkip.set(best.entityId, this.tickCount + 100); return false; }
+    p.setPath(path, this.canRun()); p.clearAction();
+    this._autoTravel = { x: t.x, y: t.y };
+    this.msg(`Auto battle: heading to ${best.name} for your ${this._questFamily ? 'Slayer task' : 'quest'}.`, 'system');
+    return true;
+  }
+
   _autoHeadToLevel() {
     const p = this.player, cl = this.fightLevel();
     const inWild = !!this.world.zoneAt(p.x, p.y)?.wilderness;

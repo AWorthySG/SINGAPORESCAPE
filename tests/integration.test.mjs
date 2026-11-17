@@ -6952,3 +6952,55 @@ test('good and evil in combat: the Holy path smites the unholy and heals on kill
   set(7, 0); assert.equal(g.karmaCombat().side, 'neutral');
   set(8, 0); assert.equal(g.karmaCombat().tier, 1);
 });
+
+test('Slayer bonuses: grow with level, count only against the task, helmet adds more', async () => {
+  const { slayerBuffs, nextSlayerUnlock, SLAYER_FULL_LEVEL, SLAYER_HELM_DMG } = await import('../src/data/slayer.js');
+  assert.deepEqual(slayerBuffs(1), { dmg: 5, loot: 5 });
+  assert.deepEqual(slayerBuffs(SLAYER_FULL_LEVEL), { dmg: 35, loot: 25 });
+  assert.deepEqual(slayerBuffs(999), slayerBuffs(SLAYER_FULL_LEVEL), 'stops at full strength');
+  assert.ok(slayerBuffs(99).dmg > slayerBuffs(50).dmg);
+  assert.equal(nextSlayerUnlock(1).level, 5, 'level 5 opens the next tier');
+
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  const mob = game.npcs.find((n) => n.attackable && n.def.family && !n.def.boss);
+  const other = game.npcs.find((n) => n.attackable && n.def.family && n.def.family !== mob.def.family && !n.def.boss);
+  game.slayer.task = { family: mob.def.family, name: 'Test', amount: 5, remaining: 5 };
+  assert.ok(game.onSlayerTask(mob));
+  assert.ok(!game.onSlayerTask(other), 'another family is not on task');
+  const plain = game.slayerBonus().dmg;
+  game.equipment.slots.head = 'slayer_helmet';
+  assert.equal(game.slayerBonus().dmg, plain + SLAYER_HELM_DMG, 'the Slayer helmet adds its share');
+});
+
+test('auto battle on a Slayer hunt heads for the task monsters, not "monsters of your level"', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  // Strong enough that auto battle would otherwise pick a level band of its own.
+  for (const s of ['attack', 'strength', 'defence', 'hitpoints']) game.skills.addXp(s, 5e6);
+  game.player.hp = game.maxHp();
+  // A task family with no member within reach of the start.
+  const p = game.player;
+  const far = game.npcs.find((n) => n.alive && n.attackable && n.def.family && !n.def.boss && !n.def.fixed && !n.temporary
+    && !game.world.zoneAt(n.x, n.y)?.wilderness && chebyshev(p.x, p.y, n.x, n.y) > 40
+    && !game.npcs.some((o) => o.alive && o.def.family === n.def.family && chebyshev(p.x, p.y, o.x, o.y) <= 30));
+  assert.ok(far, 'a far-off family exists');
+  const fam = far.def.family;
+  const said = [];
+  const msg = game.msg.bind(game);
+  game.msg = (t, c) => { said.push(t); return msg(t, c); };
+  game.coins = 0; game.inventory.remove('coins', game.inventory.count('coins'));   // walk, no MRT
+  game._questFamily = fam;
+  game.toggleAutoBattle(true);
+  step(game, 2);
+  assert.ok(said.some((t) => /for your Slayer task/.test(t)), 'sets off for the task monsters');
+  assert.ok(!said.some((t) => /monsters of your level/.test(t)), 'not to any monster of your level');
+  const dest = game._autoTravel;
+  assert.ok(dest && game.npcs.some((n) => n.def.family === fam && chebyshev(dest.x, dest.y, n.x, n.y) <= 2), 'the walk ends by one of them');
+});

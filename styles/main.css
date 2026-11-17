@@ -877,6 +877,10 @@ body { -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
 
 /* ---------- Slayer ---------- */
 .slayer-stats { margin-top: 8px; font-size: 11px; opacity: 0.85; color: var(--gold-hi); }
+.slayer-buffs { margin: 8px 0 4px; padding: 8px 10px; font-size: 12px; line-height: 1.45; color: var(--aw-text); background: var(--aw-card, #FAF6EE); border: 2px solid var(--aw-ink-faint, rgba(34,48,74,.2)); border-radius: 12px; }
+.slayer-buffs ul { margin: 4px 0 0; padding-left: 18px; }
+.slayer-buffs li b { color: var(--aw-accent); }
+#quest-tracker .trk-buff { margin-left: 3px; font-size: 10px; font-weight: 900; color: var(--aw-accent); }
 .item-cell { position: relative; }
 .slayer-cost { position: absolute; bottom: 1px; right: 2px; font-size: 10px; font-weight: bold; color: #ffd24a; }
 .slayer-cost.short { color: #ff6a6a; }

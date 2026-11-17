@@ -36,7 +36,7 @@ export const SKILLS = [
   { id: 'agility', name: 'Agility', icon: '🏃', color: '#3a8a9a',
     group: 'other', desc: 'Obstacle courses. Faster movement, and attack speed that tapers to +100%.' },
   { id: 'slayer', name: 'Slayer', icon: '💀', color: '#5a5a5a',
-    group: 'combat', desc: 'Hunt monsters on tasks from Slayer Master Rajan.' },
+    group: 'combat', desc: 'Tasks from Slayer Master Rajan. Hit task monsters harder and get extra loot.' },
   { id: 'farming', name: 'Farming', icon: '🌱', color: '#4a9a3a',
     group: 'gathering', desc: 'Plant seeds in farm patches and harvest the crops when they are grown.' },
   { id: 'hunter', name: 'Hunter', icon: '🪤', color: '#8a6a3a',
