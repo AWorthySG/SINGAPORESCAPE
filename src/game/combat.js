@@ -128,9 +128,10 @@ const WEAKNESS_BY_SPRITE = {
 export const WEAKNESS_BONUS = { dmg: 1.10 };
 
 // Monster armour: a share of every hit it shrugs off, by kind of creature, from
-// none (slimes, wisps, jellyfish) to armoured (golems, crabs, turtles). It rises
-// a little for a monster above your fighting level and falls for one below,
-// champions and bosses wear more, and hitting a monster's weakness gets past
+// none (slimes, wisps, jellyfish) to armoured (golems, crabs, turtles). Champions
+// and bosses wear more, and only theirs rises a little when they are above your
+// fighting level and falls when below (an ordinary monster's armour is just its
+// kind's: the owner asked for it not to scale), and hitting a monster's weakness gets past
 // half of it. Gear's Armour pierce cancels armour first; whatever pierce is
 // left over adds damage, as it did before armour existed.
 export const ARMOUR_TIERS = { none: 0, light: 0.1, medium: 0.2, heavy: 0.3, armoured: 0.4 };
@@ -149,7 +150,7 @@ export function armourOf(def, { champion = false, fightLevel = 0 } = {}) {
   let a = ARMOUR_TIERS[armourTierOf(def)];
   if (def?.boss) a += 0.1;
   if (champion || def?.champion) a += 0.1;
-  if (fightLevel > 0) a += Math.max(-0.1, Math.min(0.15, ((def?.level || 1) / fightLevel - 1) * 0.15));
+  if (fightLevel > 0 && (def?.boss || champion || def?.champion)) a += Math.max(-0.1, Math.min(0.15, ((def?.level || 1) / fightLevel - 1) * 0.15));
   return Math.max(0, Math.min(ARMOUR_CAP, a));
 }
 /** The damage multiplier after armour, weakness and Armour pierce (pierce in %). */
