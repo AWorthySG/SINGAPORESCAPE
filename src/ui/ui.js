@@ -39,6 +39,8 @@ import { MASTERY_RANKS, MAX_ENCHANTS, rankProgress, enchantLabel, STONE as UP_ST
 import { MAX_REFINE, SCROLL as REFINE_SCROLL, refineCost, refineOdds, refineTag, refinedBonuses } from '../game/refine.js';
 import { MATERIAL_KINDS, feedKind, FEED_CAP, FEED_CAP_RANK } from '../game/materials.js';
 import { SHRINE_TRACKS, SHRINE_TRACK_IDS, trackText } from '../game/shrine.js';
+import { isSalvageable, QUALITY_KEYS } from '../game/salvage.js';
+import { openSacrifice, openSacrificeFrom, openDismantle } from './salvageui.js';
 import { ATTRS, ATTR_NAMES, attrSummary, attrForMode, MAX_STAT_POINTS, RESET_COST_PER_POINT, holdRepeatDelay } from '../game/attributes.js';
 import { STAT_LABELS, STAT_HELP, compareGear, deltaText, gearBySlot, gearRating, meetsReq, swingBeats, tierOf, weaponStyle } from '../game/gear.js';
 import { TILE, LEARNING_ENABLED } from '../config.js';
@@ -804,6 +806,11 @@ export class UI {
       && (this.game.inventory.count('nature_rune') > 0 || this.game.freeRune() === 'nature_rune')) {
       opts.push({ label: 'Alchemise', target: `${item.name} (${this.game.alchemyValue(s.id)} coins)`, fn: () => this.game.alchemise(i) });
     }
+    // Spare gear: sacrifice it to another piece's mastery, or break it down (salvage.js).
+    if (isSalvageable(s.id)) {
+      opts.push({ label: 'Sacrifice…', target: item.name, fn: () => openSacrificeFrom(this, s.id) });
+      opts.push({ label: 'Dismantle', target: item.name, fn: () => openDismantle(this, s.id) });
+    }
     opts.push({ label: 'Drop', target: item.name, fn: () => this.game.dropItem(i) });
     opts.push({ label: 'Examine', target: item.name, fn: () => this.game.msg(item.examine, 'system') });
     return opts;
@@ -941,6 +948,7 @@ export class UI {
       + (rk ? `<div class="gt-up">${MASTERY_RANKS[rk].name} mastery</div>` : '')
       + (this.game.equipment.refineLevel(id) ? `<div class="gt-refine">Refined ${refineTag(this.game.equipment.refineLevel(id))}</div>` : '')
       + (lines.length ? `<div class="gt-ench">Enchanted: ${lines.map(enchantLabel).join(' · ')}</div>` : '')
+      + (() => { const q = this.game.equipment.quality[id]; return q ? `<div class="gt-qual">Quality copies: ${QUALITY_KEYS.map((k, i) => (q[i] ? `${q[i]} ${capitalize(k)}` : '')).filter(Boolean).join(', ')}</div>` : ''; })()
       + `<div class="gt-stats">${this._gearStats(id)}</div>`
       + `<div class="gt-tier">#${t.rank} of ${t.of} ${eq.slot === 'weapon' ? weaponStyle(id) + ' weapons' : eq.slot + ' items'}</div>`;
     if (reqTxt) html += `<div class="gt-req ${req.ok ? 'ok' : 'no'}">Needs ${reqTxt}${req.ok ? ' ✓' : ''}</div>`;
@@ -987,8 +995,16 @@ export class UI {
         + `<b>Enchanting</b> adds up to ${MAX_ENCHANTS} bonus lines: choose one of three on offer, paid for with upgrade stones and coins. An <b>upgrade ward</b> rerolls the offer. `
         + `<b>Refining</b> (★1 to ★${MAX_REFINE}) adds a share of the base stats on top, paid for with <b>refine scrolls</b> only; the higher you go, the riskier it gets. `
         + `<b>Feed materials</b> from your life skills to add mastery too (bars for metal, logs for bows and staves, hides for leather, gems for jewellery, herbs for cloth), up to ${MASTERY_RANKS[FEED_CAP_RANK].name}. `
+        + '<b>Sacrifice</b> spare gear of any class to a piece for mastery as well, or <b>dismantle</b> it for upgrade stones and refine scrolls. '
         + 'Mastery, enchantments and refining belong to the item type, so every copy you own shares them. '
         + `You have ${formatNumber(g.inventory.count(UP_STONE))} stones, ${g.inventory.count(UP_WARD)} wards and ${formatNumber(g.inventory.count(REFINE_SCROLL))} refine scrolls.</p></div>`;
+      // Spare gear can be broken down for stones and scrolls (salvage.js).
+      const dis = document.createElement('button');
+      dis.type = 'button';
+      dis.className = 'gear-tab salvage-open';
+      dis.textContent = 'Dismantle spare gear…';
+      dis.addEventListener('click', () => openDismantle(this));
+      body.appendChild(dis);
       const ids = [...new Set([...EQUIP_SLOTS.map((s) => g.equipment.get(s)).filter(Boolean),
         ...g.inventory.slots.filter((s) => s && getItem(s.id).equip?.bonuses).map((s) => s.id)])];
       const list = document.createElement('div');
@@ -1038,6 +1054,13 @@ export class UI {
         fb.innerHTML = capped ? `Feed materials<br>${MASTERY_RANKS[FEED_CAP_RANK].name} reached` : `Feed materials<br>${MATERIAL_KINDS[kind] || ''}`;
         fb.addEventListener('click', () => this.openFeed(id));
         btns.appendChild(fb);
+        // ...and spare gear (any class, any slot) can be sacrificed to it.
+        const sb = document.createElement('button');
+        sb.type = 'button';
+        sb.className = 'gear-tab sacrifice-open' + (!capped && g.inventory.slots.some((x) => x && x.id !== id && isSalvageable(x.id)) ? ' active' : '');
+        sb.innerHTML = capped ? `Sacrifice gear<br>${MASTERY_RANKS[FEED_CAP_RANK].name} reached` : 'Sacrifice gear<br>spare equipment';
+        sb.addEventListener('click', () => openSacrifice(this, id));
+        btns.appendChild(sb);
         row.appendChild(btns);
         list.appendChild(row);
       }
