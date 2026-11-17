@@ -17,13 +17,13 @@ export const SKILL_GUIDES = {
   woodcutting: { use: 'Logs feed Firemaking and Fletching (bows, arrows, staves). From level 100, groves of rare trees in the far regions give the endgame logs.' },
   mining: { use: 'Ore is smelted into bars for Smithing, and gems and gold go to Crafting. From level 100, rare veins in the far regions give the endgame ores.' },
   fishing: { use: 'Raw fish are cooked into food that heals you in a fight. From level 100, rare spots in the far regions give the endgame fish.' },
-  hunter: { use: 'Pelts, skins and hides become armour; meat is cooked into food.' },
-  farming: { use: 'Crops are herbs for Herblore and ingredients for hawker dishes.', where: ['farm_patch'] },
+  hunter: { use: 'Pelts, skins and hides become armour; meat is cooked into food. From level 100, hunting grounds in the far regions give the catches for the endgame brews.' },
+  farming: { use: 'Crops are herbs for Herblore and ingredients for hawker dishes. The farm shop sells every seed, the endgame ones too; Gardens by the Bay has more patches.', where: ['farm_patch'] },
   cooking: { use: 'Food heals you in a fight; better food heals more. From level 100 the endgame fish cook into dishes that heal a share of your life, and some boost you too.', where: ['range', 'fire'] },
   smithing: { use: 'Smelt ore into bars at a furnace, then forge weapons, armour and upgrade stones at an anvil. From level 100 you can forge the obsidian to eternal gear.', where: ['furnace', 'anvil'] },
   crafting: { use: 'Jewellery, pottery, leather armour, and refine scrolls and upgrade wards. From level 100 the endgame ores and bars make jewellery for every fighting style, and the Dancer\'s war fans and whips.', where: ['crafting_table'] },
   fletching: { use: 'Bows, arrows, staves and wands from logs (you need a knife). From level 100 the endgame logs make the obsidian to eternal bows, staves, wands, rifles and crossbows.', where: ['fletching_bench'] },
-  herblore: { use: 'Potions that boost you in a fight for several minutes.', where: ['apothecary_table'] },
+  herblore: { use: 'Potions that boost you in a fight for several minutes. From level 100, endgame crops, Hunter catches and ashes brew far stronger ones.', where: ['apothecary_table'] },
   firemaking: { use: 'Light a fire anywhere to cook on (use logs from your bag; you need a tinderbox). The endgame logs leave ashes, which the Offering Shrine takes.' },
   thieving: { use: 'Coins, food and gems, stolen from market stalls (and pockets).' },
   agility: { use: 'Obstacle courses for XP and Marks of grace; powers the Dancer.' },
@@ -45,7 +45,7 @@ export function guideEntries(skill) {
       for (const c of d.catches || []) add(c.level, name(c.id), `${d.name}${d.night ? ' (+25% XP at night)' : ''}`, [id]);
     }
   } else if (skill === 'hunter') {
-    for (const [id, h] of Object.entries(HUNT)) add(h.level, h.name, `Catches ${(h.gives || []).map((g) => name(g.id)).join(', ')}`, [id]);
+    for (const [id, h] of Object.entries(HUNT)) add(h.level, h.name, `Catches ${(h.gives || []).map((g) => name(g.id)).join(', ')}${h.night ? ' (+25% XP at night)' : ''}`, [id]);
   } else if (skill === 'farming') {
     for (const c of CROPS) add(c[2], c[1], `Plant ${name(`${c[0]}_seed`)} in a farm patch`, ['farm_patch']);
   } else if (skill === 'cooking') {

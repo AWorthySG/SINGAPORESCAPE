@@ -889,6 +889,32 @@ import { ITEMS } from '../data/items.js';
     dragon_bones: 'sepia(1) hue-rotate(-40deg) saturate(3)', fiend_bones: 'sepia(1) hue-rotate(250deg) saturate(2) brightness(.7)',
     legend_bones: 'sepia(.7) hue-rotate(-50deg) saturate(2.2) brightness(1.2)',
   })) { BORROW_ID[id] = 'bones'; BORROW_TINT[id] = tint; }
+  // Endgame Hunter catches, crops, seeds and brews (Hunter, Farming and
+  // Herblore 100-300) borrow an older sticker, tinted, until their own art
+  // arrives. (Crops, seeds and brews already have vector fallbacks from the
+  // CROPS and POTIONS loops above.)
+  for (const [id, from, tint] of [
+    ['pangolin_scales', 'python_skin', 'sepia(0.6) saturate(1.1) brightness(0.9)'],
+    ['colugo_fur', 'squirrel_pelt', 'grayscale(0.7) brightness(1.1)'],
+    ['tiger_whisker', 'feather', 'sepia(0.8) saturate(2.5) hue-rotate(-15deg)'],
+    ['garuda_plume', 'feather', 'hue-rotate(190deg) saturate(1.6) brightness(1.05)'],
+    ['naga_scale', 'croc_hide', 'hue-rotate(60deg) saturate(1.3) brightness(1.1)'],
+    ['phoenix_ember', 'hornbill_casque', 'saturate(2.2) hue-rotate(-20deg) brightness(1.1)'],
+    ['torch_ginger', 'lingzhi', 'hue-rotate(-20deg) saturate(1.6) brightness(1.1)'], ['torch_ginger_seed', 'lingzhi_seed', 'hue-rotate(-20deg) saturate(1.6)'],
+    ['black_nutmeg', 'mangosteen', 'grayscale(0.6) brightness(0.8)'], ['black_nutmeg_seed', 'mangosteen_seed', 'grayscale(0.6) brightness(0.85)'],
+    ['golden_durian', 'durian', 'sepia(0.7) saturate(2.2) brightness(1.1)'], ['golden_durian_seed', 'durian_seed', 'sepia(0.7) saturate(2.2)'],
+    ['starbloom', 'snow_lotus', 'sepia(0.5) hue-rotate(190deg) saturate(2)'], ['starbloom_seed', 'snow_lotus_seed', 'sepia(0.5) hue-rotate(190deg) saturate(2)'],
+    ['moon_orchid', 'misai_kucing', 'saturate(0.5) brightness(1.2)'], ['moon_orchid_seed', 'misai_kucing_seed', 'saturate(0.5) brightness(1.2)'],
+    ['eternal_lotus', 'snow_lotus', 'sepia(0.9) saturate(2.5) hue-rotate(-10deg)'], ['eternal_lotus_seed', 'snow_lotus_seed', 'sepia(0.9) saturate(2.5) hue-rotate(-10deg)'],
+    ['super_might_potion', 'super_strength', 'hue-rotate(-120deg) saturate(1.3)'],
+    ['super_haste_potion', 'super_ranging', 'hue-rotate(30deg) brightness(1.15)'],
+    ['tigers_focus', 'super_attack', 'hue-rotate(30deg) saturate(1.4) brightness(1.15)'],
+    ['garuda_draught', 'super_magic', 'hue-rotate(-20deg) brightness(1.2)'],
+    ['naga_elixir', 'super_defence', 'hue-rotate(-60deg) saturate(1.2)'],
+    ['phoenix_elixir', 'immortal_elixir', 'sepia(0.6) saturate(3) hue-rotate(-25deg)'],
+  ]) { BORROW_ID[id] = from; BORROW_TINT[id] = tint; }
+  I.pangolin_scales = hideIcon('#a8743a'); I.colugo_fur = hideIcon('#9a9a8a'); I.naga_scale = hideIcon('#3ab08a');
+  I.tiger_whisker = I.feather; I.garuda_plume = I.feather; I.phoenix_ember = I.hornbill_casque;
   // Boss signature weapons borrow their base weapon's sticker, gilded and tinted
   // a hue of their own, so they stand out from the plain weapon they're built on.
   for (const [id, it] of Object.entries(ITEMS)) {

@@ -23,9 +23,19 @@ export const CROPS = [
   ['ginseng', 'Ginseng', 70, 240, 72, 56, [2, 4], 0, 130, '#e0c080'],
   ['mangosteen', 'Mangosteen', 80, 270, 85, 66, [3, 6], 20, 120, '#7a2a5a'],
   ['durian', 'Durian', 95, 320, 105, 82, [2, 4], 30, 220, '#b8a83a'],
+  // Endgame crops (Farming 100-300), slotted in level order (seedFor in npcs.js
+  // takes the last crop at or under a monster's level). Every seed is sold at
+  // the farm shop. Each tier earns about 35% more XP a patch an hour than the
+  // best crop you could grow before it (tests/hunt-farm-herb.test.mjs).
+  ['torch_ginger', 'Torch ginger', 100, 300, 130, 104, [3, 6], 0, 600, '#e8405a'],
   ['lingzhi', 'Lingzhi', 120, 380, 140, 110, [2, 4], 0, 420, '#a0402a'],
+  ['black_nutmeg', 'Black nutmeg', 130, 360, 245, 196, [3, 5], 0, 900, '#4a3a3a'],
   ['snow_lotus', 'Snow lotus', 160, 450, 200, 160, [1, 3], 0, 900, '#f0f0ff'],
+  ['golden_durian', 'Golden durian', 160, 420, 454, 363, [2, 5], 45, 1300, '#f0c030'],
+  ['starbloom', 'Starbloom', 200, 480, 855, 684, [2, 4], 0, 1900, '#7a8af0'],
   ['peach_of_immortality', 'Peach of immortality', 220, 540, 300, 240, [1, 3], 60, 2400, '#f8a0a0'],
+  ['moon_orchid', 'Moon orchid', 250, 540, 1462, 1170, [2, 4], 0, 2800, '#d8d0f8'],
+  ['eternal_lotus', 'Eternal lotus', 300, 600, 3230, 2584, [1, 3], 0, 4000, '#f5c84a'],
 ];
 export const CROP_BY_ID = Object.fromEntries(CROPS.map((c) => [c[0], c]));
 export const CROP_BY_SEED = Object.fromEntries(CROPS.map((c) => [`${c[0]}_seed`, c]));
@@ -58,6 +68,30 @@ export const POTIONS = {
   immortal_elixir: { name: 'Immortal elixir', level: 180, xp: 950,
     inputs: [['elixir_of_temasek', 1], ['snow_lotus', 1], ['peach_of_immortality', 1], ['qilin_mane', 1]],
     group: 'elixir', fx: { dmg: 0.3, reduce: 0.2, crit: 0.12, heal: 0.5 }, ms: 10 * MIN, color: '#fff0a0' },
+  // ---- Endgame brews (Herblore 100-300): an endgame crop, a Hunter catch and
+  // an ash from the endgame logs. Each has a group of its own, so it stacks
+  // with the older potions (as the elixirs do). New effect keys, all read by
+  // the combat code through perkMods: haste (attack speed, a fraction), boss
+  // (damage to bosses and champions), lifesteal (share of damage dealt
+  // healed) and maxhp (max life). Each brew pays about 35% more XP than the
+  // best brew before it (one brew a tick, so that is XP an hour too). ----
+  super_might_potion: { name: 'Super might potion', level: 100, xp: 300, inputs: [['torch_ginger', 1], ['pangolin_scales', 1], ['fine_ash', 1]],
+    group: 'might', fx: { dmg: 0.15 }, ms: 6 * MIN, color: '#e8405a' },
+  super_haste_potion: { name: 'Super haste potion', level: 130, xp: 570, inputs: [['black_nutmeg', 1], ['colugo_fur', 1], ['fine_ash', 1]],
+    group: 'haste', fx: { haste: 0.15 }, ms: 6 * MIN, color: '#5ad0e0' },
+  tigers_focus: { name: "Tiger's focus", level: 160, xp: 770, inputs: [['golden_durian', 1], ['tiger_whisker', 1], ['ember_ash', 1]],
+    group: 'focus', fx: { crit: 0.10 }, ms: 6 * MIN, color: '#f08a2a' },
+  garuda_draught: { name: 'Garuda draught', level: 200, xp: 1290, inputs: [['starbloom', 1], ['garuda_plume', 1], ['star_ash', 1]],
+    group: 'garuda', fx: { boss: 0.25 }, ms: 8 * MIN, color: '#7a8af0' },
+  naga_elixir: { name: 'Naga elixir', level: 250, xp: 1745, inputs: [['moon_orchid', 1], ['naga_scale', 1], ['ghost_ash', 1]],
+    group: 'naga', fx: { lifesteal: 0.05, maxhp: 0.2 }, ms: 8 * MIN, color: '#3ab08a' },
+  // Everything the five above give, in one, and while it runs it saves you
+  // once from death (Game.playerDeath: back on your feet at `revive` of your
+  // life, and the elixir is used up). It stands in for the five (`covers`):
+  // drinking one of them as well adds nothing.
+  phoenix_elixir: { name: 'Phoenix elixir', level: 300, xp: 2360, inputs: [['eternal_lotus', 1], ['phoenix_ember', 1], ['eternal_ash', 1]],
+    group: 'phoenix', covers: ['might', 'haste', 'focus', 'garuda', 'naga'], revive: 0.5,
+    fx: { dmg: 0.15, haste: 0.15, crit: 0.10, boss: 0.25, lifesteal: 0.05, maxhp: 0.2 }, ms: 10 * MIN, color: '#ff7a2a' },
 };
 export const POTION_IDS = Object.keys(POTIONS);
 
@@ -148,6 +182,33 @@ export const HUNT = {
     gives: [{ id: 'hornbill_casque' }, { id: 'feather', min: 10, max: 20 }], color: '#e0b040', examine: 'High in a tualang tree: a hornbill nest.' },
   qilin_trail: { name: 'Qilin trail', level: 200, xp: 900, lowChance: 0.08, highChance: 0.5, depleteChance: 0.15, respawn: 22,
     gives: [{ id: 'qilin_mane' }], color: '#f0d070', examine: 'Golden hoofprints that glow faintly on the stone.' },
+  // ---- Endgame Hunter (100-300) ----
+  // Each catch goes into that tier's Herblore brew (POTIONS). They lie in
+  // grounds of five (world.js) that run dry quicker and take longer to reset
+  // than the traps above, so a round of the five has some waiting in it. The
+  // xp was set by timing auto gather at each ground: each tier earns about
+  // 35% more an hour than the best before it, at the same level (the qilin
+  // trail among them; tests/hunt-farm-herb.test.mjs). Until their own art
+  // arrives they borrow an older trap's picture (`art`), recoloured (`tint`).
+  // The tiger trail is the Night Safari's: +25% XP at night (`night`), never a lock.
+  pangolin_burrow: { name: 'Pangolin burrow', level: 100, xp: 500, lowChance: 0.2, highChance: 0.6, depleteChance: 0.35, respawn: 45,
+    gives: [{ id: 'pangolin_scales' }], color: '#a8743a', art: 'obj-boar_pit', tint: 'sepia(0.4) saturate(1.2) brightness(1.05)',
+    examine: 'A burrow dug under a fig tree. Something scaly snuffles inside.' },
+  colugo_trap: { name: 'Colugo trap', level: 130, xp: 700, lowChance: 0.2, highChance: 0.6, depleteChance: 0.35, respawn: 45,
+    gives: [{ id: 'colugo_fur' }], color: '#8a8a7a', art: 'obj-squirrel_trap', tint: 'saturate(0.6) brightness(0.95)',
+    examine: 'A padded box trap on a tree trunk, where colugos glide in to land.' },
+  tiger_trail: { name: 'Tiger trail', level: 160, xp: 960, night: true, lowChance: 0.2, highChance: 0.6, depleteChance: 0.35, respawn: 45,
+    gives: [{ id: 'tiger_whisker' }], color: '#f08a2a', art: 'obj-mousedeer_trail', tint: 'sepia(0.6) saturate(2) hue-rotate(-15deg)',
+    examine: 'Huge pawprints on the Night Safari track. Best followed after dark.' },
+  garuda_nest: { name: 'Garuda nest', level: 200, xp: 1300, lowChance: 0.2, highChance: 0.6, depleteChance: 0.35, respawn: 45,
+    gives: [{ id: 'garuda_plume' }], color: '#7a8af0', art: 'obj-hornbill_nest', tint: 'hue-rotate(180deg) saturate(1.3) brightness(1.08)',
+    examine: 'A great nest on a crag, lined with feathers that shimmer like the sky.' },
+  naga_track: { name: 'Naga track', level: 250, xp: 1770, lowChance: 0.2, highChance: 0.6, depleteChance: 0.35, respawn: 45,
+    gives: [{ id: 'naga_scale' }], color: '#3ab08a', art: 'obj-python_trap', tint: 'hue-rotate(90deg) saturate(1.2) brightness(0.95)',
+    examine: 'A wide, winding track in the sand, leading down to the haunted shore.' },
+  phoenix_roost: { name: 'Phoenix roost', level: 300, xp: 2400, lowChance: 0.2, highChance: 0.6, depleteChance: 0.35, respawn: 45,
+    gives: [{ id: 'phoenix_ember' }], color: '#ff7a2a', art: 'obj-qilin_trail', tint: 'sepia(0.8) saturate(3) hue-rotate(-30deg)',
+    examine: 'A scorched ring of stones where a phoenix comes to rest. Still warm.' },
 };
 
 // Hunter goods worked into archer armour at a crafting table.

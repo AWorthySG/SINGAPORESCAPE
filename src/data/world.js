@@ -1284,6 +1284,24 @@ export function buildWorld() {
     vein('starfall_banyan', 364, 282, 536, 376, GRASSY);                     // The Celestial Peaks
     vein('moonlit_kapok', 121, 2, 148, 102, GRASSY);                         // Pulau Hantu
     vein('keramat_tree', 202, 206, 396, 276, GRASSY);                        // The Shadow Rift
+
+    // Endgame Hunter grounds (Hunter 100-300): five traps of a kind together,
+    // laid out like the groves from a stream of their own, so nothing above moves.
+    // Each ground is more than 30 tiles from the older traps, so auto gather
+    // waits for its own traps to reset instead of wandering off to those.
+    rng4 = mulberry32(20261121);
+    vein('pangolin_burrow', 207, 61, 219, 97, GRASSY, 5);                    // Pulau Ubin
+    vein('colugo_trap', 402, 261, 470, 278, GRASSY, 5);                      // Mandai Rainforest
+    vein('tiger_trail', 521, 261, 537, 269, GRASSY, 5);                      // Mandai's Night Safari, in the far corner
+    vein('garuda_nest', 412, 282, 469, 309, [T.STONE, T.GRASS], 5);          // The Celestial Peaks
+    vein('naga_track', 121, 2, 144, 102, GRASSY, 5);                         // Pulau Hantu
+    vein('phoenix_roost', 202, 206, 396, 276, GRASSY, 5);                    // The Shadow Rift
+    // More farm patches (Farming 100-300): eight in Gardens by the Bay, south of
+    // the MRT, and four by the Shadow Rift's great dark pool, where the eternal
+    // lotus is meant to grow (any patch will grow it). Fixed spots, like the
+    // allotments in the towns.
+    patches(350, 60, 8);
+    patches(324, 239, 4);
   }
 
   // --- Border fence ---

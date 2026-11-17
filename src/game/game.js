@@ -1952,7 +1952,8 @@ export class Game {
   attackInterval(spell = null) {
     // A class buff's attack speed and Agility's speed bonus, on top of gear.
     const ws = this.equipment.weaponSpeed() * 100 / (100 + this.buffMod('haste')) * 100 / (100 + this.agilityAttackSpeed())
-      * 100 / (100 + (this.attrs?.dex || 0) * SPEED_PER_DEX);   // Dexterity
+      * 100 / (100 + (this.attrs?.dex || 0) * SPEED_PER_DEX)   // Dexterity
+      / (1 + (this.perkMods().haste || 0));   // a haste brew (Herblore)
     if (this.combatMode() !== 'magic') return ws;
     const sp = spell || getSpell(this.player.spell);
     return ws * 0.5 * (ELEMENTS[sp.element]?.castSpeed || 1);
@@ -4141,6 +4142,17 @@ export class Game {
   }
 
   playerDeath() {
+    // A brew that saves you from death (the phoenix elixir), while it runs:
+    // back on your feet with part of your life, and the brew is used up.
+    const saver = Object.keys(this.potions).find((id) => POTIONS[id].revive);
+    if (saver && this.player.alive) {
+      delete this.potions[saver];
+      this.player.hp = Math.max(1, Math.round(this.maxHp() * POTIONS[saver].revive));
+      this.msg(`Your ${POTIONS[saver].name.toLowerCase()} flares up and you rise from the ashes!`, 'level');
+      this.spawnSparkle(this.player, POTIONS[saver].color, 18);
+      this.bus.emit('hp'); this.bus.emit('potions');
+      return;
+    }
     this.msg('Oh dear, you are dead!', 'combat');
     // Killed by a boss you hadn't beaten yet: auto battle steers clear of it for a while.
     {
@@ -5467,15 +5479,22 @@ export class Game {
       if (this.meal.fx.dmg) this.msg(`The ${getItem(this.meal.id).name.toLowerCase()} wears off.`, 'system');
       this.meal = null;
     }
-    if (changed) this.bus.emit('potions');
+    if (changed) {
+      // A max-life brew (the naga elixir) wearing off takes its extra life with it.
+      if (this.player.hp > this.maxHp()) { this.player.hp = this.maxHp(); this.bus.emit('hp'); }
+      this.bus.emit('potions');
+    }
   }
 
   /** Combined combat boosts from the potions you have active, for a fighting style. */
   potionMods(mode = this.combatMode()) {
     const out = {};
+    // A potion that stands in for others (the phoenix elixir) leaves them out.
+    const covered = new Set(Object.keys(this.potions).flatMap((id) => POTIONS[id].covers || []));
     for (const id of Object.keys(this.potions)) {
       const pot = POTIONS[id];
       if (pot.style && pot.style !== mode) continue;
+      if (covered.has(pot.group)) continue;
       for (const [k, v] of Object.entries(pot.fx)) if (k !== 'heal') out[k] = (out[k] || 0) + v;
     }
     if (this.meal) for (const [k, v] of Object.entries(this.meal.fx)) out[k] = (out[k] || 0) + v;   // any style
