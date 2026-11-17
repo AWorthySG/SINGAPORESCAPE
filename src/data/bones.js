@@ -33,5 +33,5 @@ export const RARE_BOSS_BONES = {
   demon_lord: 'fiend_bones', pulau_hantu_djinn: 'fiend_bones', shadow_sovereign: 'fiend_bones', rift_tyrant: 'fiend_bones',
   drowned_admiral: 'legend_bones', jenglot_sovereign: 'legend_bones', singa_of_temasek: 'legend_bones', spirit_of_badang: 'legend_bones',
 };
-export const RARE_BONE_CHANCE = 0.35;
+export const RARE_BONE_CHANCE = 0.6;   // (was 0.35; held short of doubling so it stays a treat, not a given)
 export const RARE_BONE_QTY = { dragon_bones: [1, 3], fiend_bones: [1, 3], legend_bones: [1, 2] };

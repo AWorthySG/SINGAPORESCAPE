@@ -236,8 +236,10 @@ const CLEAVE_WIDE = { '2h_sword': { around: 3, max: Infinity } };   // (was 10; 
 // A champion has CHAMPION_HP_MULT (30) times a normal monster's life, so it drops
 // what that many normal kills of its kind would: it rolls the monster's own loot
 // (table, rare table, upgrade stones) this many times, as a normal kill would,
-// on top of its champion extras (champion bones, a 50% accessory, a 10% ward).
+// on top of its champion extras (champion bones, a 50% accessory, a 20% ward).
 const CHAMPION_LOOT_KILLS = 30;
+// A champion's chance of an upgrade ward (was 10%, doubled with champion rates).
+export const CHAMPION_WARD_CHANCE = 0.2;
 
 // Share of fired arrows recovered after the shot.
 const ARROW_RECOVERY = 0.8;
@@ -3322,7 +3324,7 @@ export class Game {
         if (g) loot.push([g, 1, 'epic', 'boss']);
       }
     }
-    // A boss's signature weapon (bossWeapons.js), 1 kill in 10 whatever your class:
+    // A boss's signature weapon (bossWeapons.js), 1 kill in 5 whatever your class:
     // it is made for one class, so for the rest it's a trophy or something to trade.
     if (def.boss && SIGNATURE_CLASS[npc.npcId] && Math.random() < SIGNATURE_DROP_CHANCE) {
       const sid = sigIdFor(npc.npcId), nm = getItem(sid).name, who = CLASS_BY_ID[SIGNATURE_CLASS[npc.npcId]]?.name;
@@ -3340,7 +3342,7 @@ export class Game {
       if (stones) loot.push([UP_STONE, stones, npc.champion ? 'rare' : 'common']);
     }
     if (def.boss) loot.push([UP_WARD, randInt(1, 3), 'epic']);
-    else if (Math.random() < (npc.champion ? 0.1 : 0)) loot.push([UP_WARD, 1, 'epic']);
+    else if (Math.random() < (npc.champion ? CHAMPION_WARD_CHANCE : 0)) loot.push([UP_WARD, 1, 'epic']);
     // Refine scrolls: rare from monsters, likelier from champions, a few from every boss (see refine.js).
     const scrolls = refineScrollDrop(def.tierLevel || def.level || 1, def.boss ? 'boss' : npc.champion ? 'champion' : 'normal');
     if (scrolls) loot.push([REFINE_SCROLL, scrolls, def.boss ? 'epic' : 'rare']);
@@ -4853,6 +4855,9 @@ export class Game {
       // Then mini-bosses: gold-ringed champions within reach that you can take on.
       if (n.champion) {
         if (this.autoCfg.champions === false) continue;   // "Champions: Skip"
+        // Auto quest leads: a champion's 30x-life fight would stall the quest, so one
+        // that isn't attacking you is left alone while a quest is being followed.
+        if (this.autoQuest) continue;
         if (!inWild && wildZone(n.x, n.y)) continue;
         { const tier = first ? -2000 : 0; cands.push({ n, score: d + tier, tier }); }
         continue;

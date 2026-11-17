@@ -30,7 +30,9 @@ function applySpawnOpts(base, opts) {
 
 // Champions: a rare, gold-outlined, tougher version of a normal monster with
 // better loot. Ghostly monsters turn champion far more often after dark.
-export const CHAMPION_CHANCE = 0.04;
+// (Doubled from 4% at the owner's request once levelling was slowed, so
+// champions turn up about twice as often.)
+export const CHAMPION_CHANCE = 0.08;
 // A champion has 30x a normal monster's life (10x the old 3x): a mini-boss of a
 // few minutes, not the ~20-minute slog the old 150x made it. Its loot is unchanged.
 export const CHAMPION_HP_MULT = 30;

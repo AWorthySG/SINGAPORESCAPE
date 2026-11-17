@@ -21,7 +21,7 @@ import { buildReport, verifyReport } from '../game/report.js';
 import { getDialogue } from '../data/dialogue.js';
 import { moralDialogue, MORAL_BY_ID, MORAL_EVENTS, moralCoins } from '../data/moralEvents.js';
 import { ALL_MONSTER_IDS as MONSTER_IDS, ALL_BOSS_IDS as BOSS_IDS, getNpc } from '../data/npcs.js';
-import { SIGNATURE_CLASS, sigIdFor } from '../data/bossWeapons.js';
+import { SIGNATURE_CLASS, SIGNATURE_DROP_CHANCE, sigIdFor } from '../data/bossWeapons.js';
 import { levelProgress, xpToNext, MAX_LEVEL, maxLevelFor } from '../data/xp.js';
 import { stackLabel, capitalize, formatNumber } from '../core/utils.js';
 import { RHYTHM_MAX, levelBonuses, playerMagicVsNpc } from '../game/combat.js';
@@ -2758,9 +2758,10 @@ export class UI {
         const ws = weaponsFor(rid);
         const raceInfo = k ? `<div class="b-matchups"><span class="b-strong">Weak to: ${ws.strong.map(weaponTypeName).join(', ')}</span>${ws.weak.length ? `<span class="b-resist">Resists: ${ws.weak.map(weaponTypeName).join(', ')}</span>` : ''}</div>` : '';
         const abil = d.ability ? `<div class="b-ability"><b>${escapeHtml(d.ability.name)}:</b> ${escapeHtml(d.ability.desc)}</div>` : '';
-        // A boss's signature weapon, and the class it's made for (shown before the first kill, to hunt for).
+        // A boss's signature weapon, the class it's made for and how often it drops
+        // (shown before the first kill, to hunt for).
         const sigCls = SIGNATURE_CLASS[id] && CLASS_BY_ID[SIGNATURE_CLASS[id]], sid = sigIdFor(id);
-        const sig = sigCls ? `<div class="b-sig${sigCls.id === this.game.jobClass ? ' mine' : ''}">${itemIconSVG(sid, 20)}<b>${escapeHtml(getItem(sid).name)}</b> · signature weapon for ${escapeHtml(sigCls.name)}</div>` : '';
+        const sig = sigCls ? `<div class="b-sig${sigCls.id === this.game.jobClass ? ' mine' : ''}">${itemIconSVG(sid, 20)}<b>${escapeHtml(getItem(sid).name)}</b> · signature weapon for ${escapeHtml(sigCls.name)} · drops 1 kill in ${Math.round(1 / SIGNATURE_DROP_CHANCE)}</div>` : '';
         row.innerHTML = `<div class="b-head"><b>${escapeHtml(d.name)}</b><span class="b-lvl">Lvl ${d.level}${d.boss ? ' · Boss' : ''}</span>${raceTag}${weak}<span class="b-kc">${k} kills</span></div>${raceInfo}${abil}${sig}<div class="b-drops">${dropHtml}</div>`;
         list.appendChild(row);
       }
