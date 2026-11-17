@@ -12,7 +12,7 @@ import { TICK_MS, COMBAT_BEAT_MS } from '../config.js';
 import {
   playerAttackVsNpc, playerRangedVsNpc, playerMagicVsNpc, playerDanceVsNpc, levelBonuses,
   critChance, danceEvade, weaknessOf, armourOf, armourMult, WEAKNESS_BONUS, RANGED_TYPE_DMG,
-  CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE, RHYTHM_MAX, RHYTHM_DMG,
+  CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE, RHYTHM_MAX, RHYTHM_DMG, OFFHAND_SHARE,
 } from './combat.js';
 import { attrForMode, ATTR_NAMES, DMG_PER_POINT, LIFE_PER_STR, CRIT_PER_INT, SPEED_PER_DEX } from './attributes.js';
 import { getItem } from '../data/items.js';
@@ -27,8 +27,6 @@ import { classPassiveMods, CLASS_SKILL } from '../data/classPassives.js';
 const UNHOLY_RACES = new Set(['undead', 'spirit', 'demon']);
 // Shortbows loose a spread of 3 arrows, each at half an arrow's damage (game.js).
 const SHORTBOW_ARROWS = 3, SHORTBOW_ARROW_DMG = 0.5;
-// A dual wielder's off-hand blow is this share of the main hand's (before damage bonuses).
-const OFF_HAND_SHARE = 0.6;
 const MODE_NAMES = { melee: 'Melee', ranged: 'Ranged', magic: 'Magic', dance: 'Whip (Dance)' };
 
 // ---- Small formatters (plain text; the panel escapes nothing it doesn't need to) ----
@@ -92,8 +90,10 @@ const perkLines = (s, f = fracPct) => [['Combat skill perks', s.skill], ['Class 
  *  does (without a special attack or ability, which are one-off). With `npc`,
  *  its weakness, race match-up, armour, alignment and Slayer task count too;
  *  without, it is the multiplier against a normal monster (or a boss, with
- *  `boss`) before its armour. Returns { m, parts }. */
-export function damageMult(game, mode = game.combatMode(), { npc = null, boss = false, spell = null } = {}) {
+ *  `boss`) before its armour. `hand` ('main' / 'off'): a dual wielder's hand,
+ *  whose own weapon's stats count (see Equipment.bonuses); the same as no hand
+ *  when not dual wielding. Returns { m, parts }. */
+export function damageMult(game, mode = game.combatMode(), { npc = null, boss = false, spell = null, hand = 'main' } = {}) {
   const parts = [];
   let m = 1;
   const mul = (f, label) => { m *= f; if (label && f !== 1) parts.push([label, times(f)]); };
@@ -108,7 +108,7 @@ export function damageMult(game, mode = game.combatMode(), { npc = null, boss = 
     const kc = game.karmaCombat();
     if (kc.side === 'holy' && UNHOLY_RACES.has(race)) mul(1 + kc.holyDmg, 'Holy path vs unholy');
   }
-  const gb = game.equipment.bonuses();
+  const gb = game.equipment.bonuses(hand);
   if (def) mul(armourMult(armourOf(def, { champion: npc.champion, fightLevel: game.fightLevel() }), gb.pierce, weak), 'Monster armour / pierce');
   const attr = attrForMode(mode);
   mul(1 + (game.attrs?.[attr] || 0) * DMG_PER_POINT, ATTR_NAMES[attr]);
@@ -147,24 +147,33 @@ export function maxHitNow(game, { npc = null, boss = false, rhythm = 0 } = {}) {
     const idx = wpn.noAmmo ? -1 : game._bestAmmoIdx();
     const arrowStr = wpn.noAmmo ? Math.floor((wpn.bonuses.ranged || 0) / 3) : idx === -1 ? 0 : getItem(game.inventory.slotAt(idx).id).arrowStr || 0;
     const typeMult = wpn.weaponType === 'longbow' || wpn.weaponType === 'rifle' ? RANGED_TYPE_DMG[wpn.weaponType] : 1;
-    baseMax = Math.round(playerRangedVsNpc(sk, eq, game.player.rangedStyle, def, arrowStr).max * pm.ranged * typeMult);
+    baseMax = Math.round(playerRangedVsNpc(sk, eq, game.player.rangedStyle, def, arrowStr, 'main').max * pm.ranged * typeMult);
     if (pm.ranged !== 1) parts.unshift(['Prayer', times(pm.ranged)]);
     if (wpn.weaponType === 'shortbow') { out.arrows = SHORTBOW_ARROWS; arrowDmg = SHORTBOW_ARROW_DMG; parts.push(['Each arrow of the spread', times(arrowDmg)]); }
   } else {
-    baseMax = Math.round(playerAttackVsNpc(sk, eq, game.player.style, def).max * pm.str);
+    baseMax = Math.round(playerAttackVsNpc(sk, eq, game.player.style, def, 'main').max * pm.str);
     if (pm.str !== 1) parts.unshift(['Prayer', times(pm.str)]);
   }
   out.base = baseMax;
   out.max = Math.max(1, Math.round(baseMax * m * arrowDmg));
-  // The off-hand's blow is a share of the main hand's before damage bonuses.
-  if (eq.isDualWielding()) out.off = Math.max(1, Math.round(baseMax * OFF_HAND_SHARE));
+  // The off-hand's blow comes from the off-hand weapon's own stats, at
+  // OFFHAND_SHARE of its hit (as _offHandBlow in game.js).
+  if (eq.isDualWielding()) {
+    let offBase;
+    if (mode === 'ranged') {
+      const ow = getItem(eq.get('shield')).equip;   // pistols: no ammo, the gun's own power
+      offBase = playerRangedVsNpc(sk, eq, game.player.rangedStyle, def, Math.floor((ow.bonuses.ranged || 0) / 3), 'off').max * pm.ranged;
+    } else offBase = playerAttackVsNpc(sk, eq, game.player.style, def, 'off').max * pm.str;
+    out.offBase = Math.round(offBase);
+    out.off = Math.max(1, Math.round(offBase * OFFHAND_SHARE * damageMult(game, mode, { npc, boss, hand: 'off' }).m));
+  }
   return out;
 }
 
 /** Crit chance (a fraction, may pass 1 before the display caps it) as the
- *  attack code adds it up, with its parts. */
-export function critNow(game, mode = game.combatMode()) {
-  const sk = game.skills, b = game.equipment.bonuses(), perk = game.perkMods(mode);
+ *  attack code adds it up, with its parts (`hand`: a dual wielder's hand, see damageMult). */
+export function critNow(game, mode = game.combatMode(), hand = 'main') {
+  const sk = game.skills, b = game.equipment.bonuses(hand), perk = game.perkMods(mode);
   const lvl = mode === 'ranged' ? sk.ranged : mode === 'magic' ? sk.magic : mode === 'dance' ? sk.agility : sk.attack;
   const base = critChance(lvl, b.crit);
   const learn = game.learning.perks().crit, buff = game.buffMod('crit'), pray = game.prayerCrit();
@@ -208,8 +217,8 @@ export function statSheet(game) {
   offence.push(row('maxhit', `Max hit${unit}`, num(mh.max),
     [['Base hit (levels, gear, weapon)', num(mh.base)], ...mh.parts],
     `Against a normal monster, before its armour.${mh.arrows > 1 ? ` Each shot looses ${mh.arrows} arrows.` : ''} Weakness, race and Slayer tasks add more.`));
-  if (mh.off) offence.push(row('offhand', 'Off-hand max hit', num(mh.off), [['Main hand base hit', num(mh.base)], ['Off-hand share', `${OFF_HAND_SHARE * 100}%`]],
-    'Dual wielding: the off-hand strikes again after every swing.'));
+  if (mh.off) offence.push(row('offhand', 'Off-hand max hit', num(mh.off), [['Off-hand weapon base hit', num(mh.offBase)], ['Off-hand share', `${OFFHAND_SHARE * 100}%`]],
+    'Dual wielding: the off-hand strikes again after every swing, with its own weapon\'s stats and its own crit roll.'));
   if (mhBoss.max !== mh.max) offence.push(row('maxhitboss', 'Max hit vs bosses & champions', num(mhBoss.max), mhBoss.parts));
   if (mode === 'dance') {
     const full = maxHitNow(game, { rhythm: RHYTHM_MAX });

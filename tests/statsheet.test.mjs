@@ -70,8 +70,10 @@ for (const style of ['melee', 'ranged', 'magic']) {
       const want = maxHitNow(g, { npc });
       const { pre, landed } = attackOnce(g, npc);
       assert.ok(pre.length >= 1, 'the attack landed');
-      for (const p of pre) assert.equal(p.dmg, want.max, `${style} max hit vs ${npc.def.name || npc.npcId}`);
-      assert.equal(pre.length, want.arrows, 'one blow per arrow of the spread');
+      // A dual wielder's off-hand rolls its own crit too: its blow comes last.
+      const main = want.off ? pre.slice(0, -1) : pre;
+      for (const p of main) assert.equal(p.dmg, want.max, `${style} max hit vs ${npc.def.name || npc.npcId}`);
+      assert.equal(main.length, want.arrows, 'one blow per arrow of the spread');
       assert.ok(Math.abs(pre[0].critCh - critNow(g).total) < 1e-12, `${style} crit chance`);
       if (want.off) assert.equal(landed[landed.length - 1], want.off, 'the off-hand blow');
     }
