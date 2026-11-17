@@ -146,6 +146,11 @@ export function armourMult(armour, piercePct = 0, weak = false) {
   return (1 - Math.max(0, a - p)) * (1 + Math.max(0, p - a));
 }
 
+// Dual wielding: each hand strikes with its own weapon (see Equipment.bonuses
+// with a hand), and the off-hand's blow lands at this share of what that weapon
+// would hit for in the main hand, so a matched pair stays as strong as before.
+export const OFFHAND_SHARE = 0.6;
+
 // Every Melee, Ranged and Magic level adds this much to that style's max hit,
 // as a flat bonus on top of everything else (shown in the Equipment panel).
 export const LEVEL_FLAT_DMG = 0.5;
@@ -166,8 +171,9 @@ export const RANGED_TYPE_DMG = { longbow: 1.6, rifle: 5.5 };
 export function flatDmgScale(equip, castMult = 1) {
   const ws = equip?.weaponSpeed?.(), h = equip?.hasteMult?.();
   if (!(ws > 0) || !(h > 0)) return 1;
-  // Dual wielders land an off-hand blow at 60% with each swing.
-  return (ws / h) * castMult / FLAT_DMG_BEATS / (equip.isDualWielding?.() ? 1.6 : 1)
+  // Dual wielders land an off-hand blow (OFFHAND_SHARE of its own hit) with each
+  // swing, so both hands share the flat damage instead of each getting it whole.
+  return (ws / h) * castMult / FLAT_DMG_BEATS / (equip.isDualWielding?.() ? 1 + OFFHAND_SHARE : 1)
     / (RANGED_TYPE_DMG[equip.weaponType?.()] || 1);
 }
 const scaledFlat = (level, equip, castMult) => Math.round(levelFlatDmg(level) * flatDmgScale(equip, castMult));
@@ -190,10 +196,14 @@ const scaledFlat = (level, equip, castMult) => Math.round(levelFlatDmg(level) * 
 // Halberds, rifles, crossbows and claws later became two-handed too, losing their
 // buckler or quiver, so the halberd, rifle and claws went up to stay in the band
 // and the crossbow went up to stay at about 80-100% of the bows and rifle.
+// When each dual-wield hand began hitting with its own weapon (the main hand no
+// longer counting the off-hand weapon's stats, the off-hand gaining crits, armour
+// pierce and the other per-hit boosts), daggers came down a little and scimitars
+// went up a little to keep Rogues and Corsairs where they were; pistols barely moved.
 export const WEAPON_DMG_MULT = {
-  dagger: 0.65, sword: 2.2, scimitar: 0.37, mace: 2.62, longsword: 2.13, battleaxe: 1.72, warhammer: 2.88,
+  dagger: 0.6, sword: 2.2, scimitar: 0.39, mace: 2.62, longsword: 2.13, battleaxe: 1.72, warhammer: 2.88,
   '2h_sword': 2.7, spear: 2.05, claws: 0.5, katana: 1.48, halberd: 3.2, cane: 0.71, shortbow: 0.54,
-  longbow: 1.25, pistol: 0.38, rifle: 1.22, shuriken: 1.3, staff: 0.32, wand: 0.31, whip: 2.0,
+  longbow: 1.25, pistol: 0.37, rifle: 1.22, shuriken: 1.3, staff: 0.32, wand: 0.31, whip: 2.0,
   // Secondary types (first estimates, pending the combat rescale), tuned against measured
   // damage (a headless run of each class's best weapon at tiers 10-250, not a formula)
   // so that each sits a little under its classes' main types and the main type stays
@@ -251,9 +261,10 @@ function withLevelBonus(b, skills) {
   return out;
 }
 
-export function playerAttackVsNpc(skills, equip, styleId, npc) {
+/** `hand` ('main' / 'off'): one dual-wield hand's blow, from that hand's own weapon. */
+export function playerAttackVsNpc(skills, equip, styleId, npc, hand = null) {
   const style = BAL;
-  const gear = equip.bonuses();
+  const gear = equip.bonuses(hand);
   const bonuses = withLevelBonus(gear, skills);
   // Player hits always land, so gear's melee Attack bonus (once accuracy) now
   // adds a quarter of itself to melee power.
@@ -287,8 +298,8 @@ export const RANGED_STYLES = {
 export const RANGED_STYLE_ORDER = ['balanced'];
 export const RANGED_BONUS = { dmg: 1.5 };
 
-export function playerRangedVsNpc(skills, equip, styleId, npc, arrowStr) {
-  const b = withLevelBonus(equip.bonuses(), skills);
+export function playerRangedVsNpc(skills, equip, styleId, npc, arrowStr, hand = null) {
+  const b = withLevelBonus(equip.bonuses(hand), skills);
   // Arrows set the base; half the bow/armour Ranged bonus adds to damage too,
   // so a better bow hits harder.
   const str = arrowStr + Math.floor((b.ranged || 0) / 2);
