@@ -2561,3 +2561,7 @@ body.boss-on #tip-toast { top: 132px; }
 .salvage-bulk:disabled { opacity: 0.45; cursor: not-allowed; }
 .salvage-list { max-height: 30vh; }
 #tooltip .gt-qual { color: var(--aw-sun-deep); font-weight: 800; margin-top: 2px; }
+/* The shrine's "Offer all…" buttons, one per kind of item (shrineui.js). */
+.shrine-bulk { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 4px; }
+.shrine-bulk .gear-tab { flex: 1 1 120px; line-height: 1.25; }
+.shrine-bulk .gear-tab span { font-size: 11px; font-weight: 600; }

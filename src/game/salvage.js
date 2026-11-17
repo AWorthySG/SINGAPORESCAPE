@@ -13,6 +13,8 @@ import { tierOf, compareGear } from './gear.js';
 //   sacrifice  feed it to another item type's mastery, as materials are fed;
 //   dismantle  break it down into upgrade stones, sometimes a refine scroll,
 //              and (from the best qualities and the boss uniques) a ward.
+// (It can also be offered at the Offering Shrine for shrine points: see the
+// end of this file.)
 //
 // What a piece is worth: its WORTH, the same for both.
 //   level     its highest requirement, with diminishing returns: the square
@@ -355,6 +357,112 @@ export function sacrificeAll(game, targetId, filters = {}) {
   if (sum.pieces) {
     game.spawnSparkle?.(game.player, '#ffd24a', 14);
     game.msg(`You sacrifice ${sum.pieces} piece${sum.pieces > 1 ? 's' : ''} of gear to your ${getItem(targetId).name.toLowerCase()}: +${sum.points} mastery.`, 'level');
+  } else game.msg('No spare gear matches.');
+  return sum;
+}
+
+// ---------------- Offering at the shrine ----------------
+// The Offering Shrine (shrine.js) takes spare gear as well as materials: any
+// class, any slot, from your pack (never what you wear), plainest copies first.
+// A piece's shrine points are its worth, scaled by your combat level:
+//   points = worth x (1 + (combat level / 36)^2), at least 1
+// Why your level and not the piece's: material values climb steeply with
+// level (a magic log is 20 points, a moonwood log 280, an eternal ore 1,600),
+// but the gear that drops stays mostly low (median level 5, 20 and 30 at
+// combat 50, 150 and 250), so a piece-level scale would leave gear worthless
+// late on. Gear drops with kills, so scaling by the level you fight at keeps an
+// hour of drops in step with an hour of gathering at every stage.
+// Measured with tools/balance/shrine.mjs: an hour of auto battle drops (1,800
+// kills, all spare gear offered) against an hour at the best tree or rock the
+// level can work, banking a full pack each trip:
+//   level  50 (combat  63): gear ~5,700    woodcutting ~6,200    mining ~78,000
+//   level 150 (combat 191): gear ~52,000   woodcutting ~106,000  mining ~408,000
+//   level 250 (combat 318): gear ~174,000  woodcutting ~347,000  mining ~1,180,000
+// so a fighter's spare gear comes to about half (early on, nearly all) of a
+// woodcutting hour and a tenth of a mining hour: a useful complement to
+// gathering, not a replacement.
+export const SHRINE_GEAR_LEVEL = 36;
+
+/** How much your combat level scales gear offered at the shrine. */
+export function shrineLevelFactor(level) {
+  return 1 + (Math.max(1, level) / SHRINE_GEAR_LEVEL) ** 2;
+}
+
+/** Shrine points one copy of `id` at quality `q` gives, offered at combat level `level`. */
+export function shrineGearPoints(id, q = 'plain', level = 1) {
+  const w = gearWorth(id, q);
+  return w ? Math.max(1, Math.round(w * shrineLevelFactor(level))) : 0;
+}
+
+const offerLevel = (game) => game.skills.combatLevel();
+
+/** Is the Offering Shrine within reach (for the pack's "Offer at shrine")? */
+export function nearOfferingShrine(game, range = 3) {
+  const p = game.player;
+  return game.world.objects.some((o) => o.def.type === 'offering' && Math.max(Math.abs(p.x - o.x), Math.abs(p.y - o.y)) <= range);
+}
+
+/** The gear in your pack the shrine would take, best first:
+ *  [{ id, count, qualities, points (the next copy), total (all copies), warn }]. */
+export function shrineGearOptions(game) {
+  const lvl = offerLevel(game), out = [];
+  for (const s of game.inventory.slots) {
+    if (!s || !isSalvageable(s.id) || out.some((o) => o.id === s.id)) continue;
+    const qs = packQualities(game, s.id);
+    out.push({ id: s.id, count: qs.length, qualities: qs, points: shrineGearPoints(s.id, qs[0], lvl),
+      total: qs.reduce((t, q) => t + shrineGearPoints(s.id, q, lvl), 0), warn: salvageWarning(game, s.id, qs[qs.length - 1]) });
+  }
+  return out.sort((a, b) => b.points - a.points || b.total - a.total);
+}
+
+/** What offering up to `qty` copies of `id` would give: { n, points, copies }. */
+export function previewOffer(game, id, qty = 1) {
+  const lvl = offerLevel(game);
+  const copies = isSalvageable(id) ? packQualities(game, id).slice(0, Math.max(0, Math.floor(qty))) : [];
+  return { n: copies.length, points: copies.reduce((t, q) => t + shrineGearPoints(id, q, lvl), 0), copies };
+}
+
+/** Offer up to `qty` copies of `id` from your pack (plainest first) for shrine
+ *  points. Returns the points gained (0 when refused). */
+export function offerGear(game, id, qty = 1, { quiet = false } = {}) {
+  if (!isSalvageable(id)) { if (!quiet) game.msg(`The shrine won't take ${getItem(id).name.toLowerCase()} as gear.`); return 0; }
+  const pv = previewOffer(game, id, qty);
+  if (!pv.n) {
+    if (!quiet) game.msg(EQUIP_SLOTS.some((s) => game.equipment.get(s) === id) ? 'You can\'t offer gear you are wearing: take it off first.' : `You have no ${getItem(id).name.toLowerCase()} in your pack.`);
+    return 0;
+  }
+  game.inventory.remove(id, pv.n);
+  for (const q of pv.copies) useCopy(game, id, q);
+  game.shrine.points += pv.points;
+  game.equipment._changed();
+  game.saveSoon = true;
+  game.bus.emit('shrine');
+  if (!quiet) {
+    game.spawnSparkle?.(game.player, '#ffe08a', 10);
+    game.msg(`You offer ${pv.n} x ${getItem(id).name} at the shrine: +${pv.points} shrine points.`, 'system');
+  }
+  return pv.points;
+}
+
+/** What "Offer all spare gear" would give: { pieces, points }. */
+export function previewOfferAll(game, filters = {}) {
+  const lvl = offerLevel(game);
+  let pieces = 0, points = 0;
+  for (const p of bulkPicks(game, filters)) for (const q of p.qualities) { pieces++; points += shrineGearPoints(p.id, q, lvl); }
+  return { pieces, points };
+}
+
+/** Offer everything the filters pick (the same picks as "Dismantle all"). Returns { pieces, points }. */
+export function offerAll(game, filters = {}) {
+  const sum = { pieces: 0, points: 0 };
+  for (const p of bulkPicks(game, filters)) {
+    const before = game.inventory.count(p.id);
+    sum.points += offerGear(game, p.id, p.qualities.length, { quiet: true });
+    sum.pieces += before - game.inventory.count(p.id);
+  }
+  if (sum.pieces) {
+    game.spawnSparkle?.(game.player, '#ffe08a', 14);
+    game.msg(`You offer ${sum.pieces} piece${sum.pieces > 1 ? 's' : ''} of gear at the shrine: +${sum.points} shrine points.`, 'level');
   } else game.msg('No spare gear matches.');
   return sum;
 }

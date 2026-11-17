@@ -1,7 +1,8 @@
 // The sacrifice and dismantle windows (rules in src/game/salvage.js). Kept out
 // of ui.js, which only opens them: from a piece's row in the Gear Mastery
 // window, from the pack's item menu (or a touch card), and from the
-// "Dismantle spare gear" button at the top of Gear Mastery.
+// "Dismantle spare gear" button at the top of Gear Mastery. The Offering
+// Shrine's "Offer gear" section is drawn here too (shrineGearSection).
 //
 // Nothing is used up without a second tap: every action first shows what it
 // will give (and any warning) in a box inside the window, with Confirm and
@@ -17,6 +18,7 @@ import { EQUIP_SLOTS } from '../game/equipment.js';
 import {
   QUALITY_KEYS, isSalvageable, sacrificePoints, sacrificeOptions, previewSacrifice, sacrificeGear, salvageWarning,
   packQualities, dismantleYield, dismantleGear, bulkPicks, dismantleAll, previewSacrificeAll, sacrificeAll, yieldText,
+  shrineGearOptions, previewOffer, offerGear, previewOfferAll, offerAll,
 } from '../game/salvage.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -47,7 +49,7 @@ function expectFor(id, qs) {
   return t;
 }
 
-function button(html, fn, cls = '') {
+export function button(html, fn, cls = '') {
   const b = document.createElement('button');
   b.type = 'button';
   b.className = 'gear-tab ' + cls;
@@ -58,7 +60,7 @@ function button(html, fn, cls = '') {
 
 /** The in-page confirmation (or the result of the last action), shown at the
  *  top of the window. `st.pending`: { html, warn, go: () => resultHtml, label }. */
-function confirmBox(body, st, rerender) {
+export function confirmBox(body, st, rerender) {
   if (st.result) {
     const r = document.createElement('div');
     r.className = 'salvage-result';
@@ -273,4 +275,62 @@ export function openDismantle(ui, focus = null) {
   };
   ui.openModal('Dismantle gear', render);
   ui.modal.kind = 'salvage';
+}
+
+// ---------------- Offering gear at the shrine ----------------
+// The "Offer gear" part of the Offering Shrine window (ui.openOfferingShrine
+// draws the rest). `st` is the window's { pending, result }, kept while it is open.
+
+/** Ask (in the window) to offer up to `qty` copies of `id` at the shrine. */
+export function askOffer(ui, st, id, qty) {
+  const g = ui.game;
+  const pv = previewOffer(g, id, qty);
+  if (!pv.n) { st.result = 'You can\'t offer gear you are wearing: take it off first.'; return; }
+  st.pending = {
+    html: `Offer ${pv.n} x <b>${name(id)}</b> (${qualityText(pv.copies)}) at the shrine: <b>+${formatNumber(pv.points)} shrine points</b>.`,
+    warn: salvageWarning(g, id, pv.copies[pv.copies.length - 1]),
+    label: 'Offer',
+    go: () => { const pts = offerGear(g, id, qty); return pts ? `Offered ${pv.n} x ${name(id)}: <b>+${formatNumber(pts)} shrine points</b>.` : 'Nothing was offered.'; },
+  };
+}
+
+/** Draw the gear list, its confirmation and "Offer all spare gear…" into `body`. */
+export function shrineGearSection(ui, body, st, rerender) {
+  const g = ui.game;
+  body.insertAdjacentHTML('beforeend', '<div class="ench-head shrine-head">Offer gear</div>'
+    + `<div class="modal-hint">Spare gear of any class or slot, from your pack: higher level, better ranked and better quality pieces give more, boss uniques a great deal, and everything more as your combat level (${g.skills.combatLevel()}) grows. Plain copies go before quality ones.</div>`);
+  confirmBox(body, st, rerender);
+  const list = document.createElement('div');
+  list.className = 'gear-list feed-list salvage-list';
+  const opts = shrineGearOptions(g);
+  if (!opts.length) list.innerHTML = '<div class="modal-hint">You carry no spare gear. (Gear you wear, and gear in the bank, can\'t be offered.)</div>';
+  for (const o of opts) {
+    const row = document.createElement('div');
+    row.className = 'gear-row feed-row salvage-row';
+    row.innerHTML = `<span class="gear-ic">${itemIconSVG(o.id, 28)}</span>`
+      + `<div class="gear-info"><div class="gear-name"><b>${name(o.id)}</b><span class="gear-tag">x${formatNumber(o.count)}</span>${o.warn ? '<span class="gear-tag lock">!</span>' : ''}</div>`
+      + `<div class="gear-stats">${formatNumber(o.points)} point${o.points > 1 ? 's' : ''} for the next (${formatNumber(o.total)} for all) · ${qualityText(o.qualities)}</div></div>`;
+    const btns = document.createElement('div');
+    btns.className = 'qty-btns';
+    btns.appendChild(button('1', () => { askOffer(ui, st, o.id, 1); rerender(); }, 'small'));
+    if (o.count > 1) btns.appendChild(button('All', () => { askOffer(ui, st, o.id, o.count); rerender(); }, 'small'));
+    row.appendChild(btns);
+    list.appendChild(row);
+  }
+  body.appendChild(list);
+  body.insertAdjacentHTML('beforeend', '<div class="ench-head salvage-head">Offer all spare gear…</div>');
+  const { box, f } = filterBox(ui, rerender);
+  body.appendChild(box);
+  const pv = previewOfferAll(g, f);
+  const go = button(pv.pieces ? `Offer ${formatNumber(pv.pieces)} piece${pv.pieces > 1 ? 's' : ''}: +${formatNumber(pv.points)} points` : 'No spare gear matches', () => {
+    st.pending = {
+      html: `Offer <b>${formatNumber(pv.pieces)} piece${pv.pieces > 1 ? 's' : ''}</b> of spare gear at the shrine: <b>+${formatNumber(pv.points)} shrine points</b>.`,
+      warn: f.below === 'any' || f.below === 'mythic' || f.below === 'legendary' ? 'this includes Epic copies or better' : '',
+      label: 'Offer all',
+      go: () => { const r = offerAll(g, f); return `Offered <b>${formatNumber(r.pieces)}</b> pieces: <b>+${formatNumber(r.points)} shrine points</b>.`; },
+    };
+    rerender();
+  }, 'salvage-bulk');
+  go.disabled = !pv.pieces;
+  body.appendChild(go);
 }
