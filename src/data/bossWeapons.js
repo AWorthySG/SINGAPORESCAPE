@@ -9,8 +9,8 @@
 // classes it needs are listed below, and tests/integration.test.mjs checks
 // both lists against npcs.js and classes.js so they can't drift apart.
 
-/** Chance that a boss drops its signature weapon on each kill. */
-export const SIGNATURE_DROP_CHANCE = 0.1;
+/** Chance that a boss drops its signature weapon on each kill (1 in 5; was 1 in 10). */
+export const SIGNATURE_DROP_CHANCE = 0.2;
 
 // The job classes: id, name and main weapon type (as in CLASSES in classes.js).
 export const SIG_CLASSES = [

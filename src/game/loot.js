@@ -32,11 +32,14 @@ export function lootDelay(rarity) { return [1, 2, 3, 4][RARITY[rarity]?.rank ?? 
 // who dropped it. The roll climbs a ladder of 15 steps, each next step less
 // likely; the step reached picks the tier:
 //   normal monster  28% climb at all, then each next step 1 in 2
-//   champion        60% climb at all, then each next step 3 in 5
+//   champion        60% climb at all, then each next step 13 in 20
 //   boss            always 2 steps or more, then each next step 7 in 10
+// (The champion step was 3 in 5: 13 in 20 about doubles its Mythic odds, to
+// roughly 1 in 80 a piece, while Fine..Epic barely move. Bosses are unchanged:
+// with a dozen gear pieces a kill, half of all boss kills already bring a Mythic.)
 export const QUALITY_RULES = {
   normal: { start: 0.278, from: 1, step: 0.5 },
-  champion: { start: 0.6, from: 1, step: 0.6 },
+  champion: { start: 0.6, from: 1, step: 0.65 },
   boss: { start: 1, from: 2, step: 0.7 },
 };
 // Each tier: its label, drop rarity, the ladder step it starts at, and the

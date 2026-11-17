@@ -395,6 +395,9 @@ for (const [bn, sprite, color, zone, aggro, levels, extra] of MORE_BASES) {
 }
 
 // ---------------- Bosses (15) ----------------
+// Bosses come back in a little over half the time they used to (about 20-33s,
+// down from 40-60s) at the owner's request, so camping one pays more often.
+export const BOSS_RESPAWN_MULT = 0.55;
 function makeBoss(id, name, sprite, color, level, zone, scale, drops) {
   return { name, level, attackable: true, boss: true, sprite, color, scale, zone,
     maxHp: Math.round((level * 4.5 + 30) * BOSS_TOUGHNESS.hp),
@@ -402,7 +405,7 @@ function makeBoss(id, name, sprite, color, level, zone, scale, drops) {
     maxHit: Math.ceil(level / 7) + 3, attackSpeed: 5,
     // Bosses never ambush — you have to walk up and start the fight yourself.
     // Once engaged they still fight back and chase normally.
-    aggressive: false, aggroRange: 0, respawn: Math.min(100, Math.round(60 + level / 8)), wander: 3,   // about 40-60s
+    aggressive: false, aggroRange: 0, respawn: Math.round(Math.min(100, 60 + level / 8) * BOSS_RESPAWN_MULT), wander: 3,   // about 20-33s
     examine: `${name} — a fearsome boss (level ${level}).`,
     alwaysDrop: [{ id: 'titan_bones', ...bossBoneQty(level) }, { id: 'coins', min: level * 8, max: level * 32 }],
     dropTable: drops };

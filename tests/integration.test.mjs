@@ -6607,10 +6607,10 @@ test('boss signature weapons: stronger than the plain weapon they are built on, 
   }
 });
 
-test('boss signature weapons: drop 1 kill in 10, for any class, and are never swapped for your own', async () => {
+test('boss signature weapons: drop 1 kill in 5, for any class, and are never swapped for your own', async () => {
   const { SIGNATURE_CLASS, SIGNATURE_DROP_CHANCE, sigIdFor } = await import('../src/data/bossWeapons.js');
   const { canWield } = await import('../src/data/classes.js');
-  assert.equal(SIGNATURE_DROP_CHANCE, 0.1);
+  assert.equal(SIGNATURE_DROP_CHANCE, 0.2);
   globalThis.localStorage = fakeStorage();
   clearSave();
   const game = new Game();
