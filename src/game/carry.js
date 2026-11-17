@@ -74,6 +74,19 @@ export function planCarry(equipment, newId, slot) {
   return { from: oldId, to: newId, slot, refine, enchants };
 }
 
+/** How `score(newId)` would come out once the upgrades a swap into `slot`
+ *  carries have moved across (Equip best weighs a piece as it will be worn).
+ *  The move is tried and undone on the spot; nothing is announced or saved. */
+export function scoreAfterCarry(equipment, newId, slot, score) {
+  const plan = planCarry(equipment, newId, slot);
+  if (!plan) return score(newId);
+  const { refines, enchants } = equipment, keep = { r: { ...refines }, e: { ...enchants } };
+  const { from, to } = plan;
+  if (plan.refine) { refines[to] = plan.refine.carried; if (plan.refine.oldLeft) refines[from] = plan.refine.oldLeft; else delete refines[from]; }
+  if (plan.enchants) { enchants[to] = plan.enchants.moved; if (plan.enchants.oldLeft.length) enchants[from] = plan.enchants.oldLeft; else delete enchants[from]; }
+  try { return score(newId); } finally { equipment.refines = keep.r; equipment.enchants = keep.e; }
+}
+
 /** Move the upgrades a plan describes. */
 export function applyCarry(equipment, plan) {
   if (!plan) return;
