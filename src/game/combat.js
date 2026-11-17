@@ -196,6 +196,10 @@ const scaledFlat = (level, equip, castMult) => Math.round(levelFlatDmg(level) * 
 // Halberds, rifles, crossbows and claws later became two-handed too, losing their
 // buckler or quiver, so the halberd, rifle and claws went up to stay in the band
 // and the crossbow went up to stay at about 80-100% of the bows and rifle.
+// When each dual-wield hand began hitting with its own weapon (the main hand no
+// longer counting the off-hand weapon's stats, the off-hand gaining crits, armour
+// pierce and the other per-hit boosts), daggers came down a little and scimitars
+// went up a little to keep Rogues and Corsairs where they were; pistols barely moved.
 export const WEAPON_DMG_MULT = {
   dagger: 0.61, sword: 2.2, scimitar: 0.39, mace: 2.62, longsword: 2.13, battleaxe: 1.72, warhammer: 2.88,
   '2h_sword': 2.7, spear: 2.05, claws: 0.5, katana: 1.48, halberd: 3.2, cane: 0.71, shortbow: 0.54,
