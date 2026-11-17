@@ -9,6 +9,7 @@ import { saveGame, clearSave } from '../src/game/save.js';
 import { findPath } from '../src/engine/pathfinding.js';
 import { ARENA, GATE, START, NEXT_WAVE_TICKS, MAX_ALIVE, BOSS_EVERY, inArena, wavePlan, waveCount, waveLevel } from '../src/game/waves.js';
 import { RESPAWN_TICKS } from '../src/config.js';
+import { ITEMS } from '../src/data/items.js';
 
 function fakeStorage() {
   const m = new Map();
@@ -141,7 +142,6 @@ test('every 5th wave adds a champion and every 10th is a boss wave with its sign
   assert.equal(g.waves.wave, 10);
   const boss = waveMobs(g).find((n) => n.def.boss);
   assert.ok(boss, 'wave 10 has a boss');
-  assert.ok(boss.def.specialEvery || boss.def.abilities || true, 'a real boss def');
   assert.equal(boss.def.level, g.waves.level, 'scaled to the wave');
   assert.ok(inArena(boss.x, boss.y));
   // The boss lays its ground markers in the arena like any boss.
@@ -171,13 +171,13 @@ test('your best wave is saved, loads back, and shows; a save made inside stores 
   assert.ok(!inArena(h.player.x, h.player.y), 'a save made inside the arena loads you outside it');
   assert.deepEqual({ x: h.player.x, y: h.player.y }, { x: GATE.x - 1, y: GATE.y + 1 });
   // Older saves have no record: it starts at 0.
-  const raw = JSON.parse(storage.getItem([...Array(1)].map(() => null)[0] ?? '') || 'null');
-  assert.equal(raw, null);
+  const fresh = newGame();
+  assert.equal(fresh.waves.best, 0);
 });
 
 test('death inside keeps every item and puts you back outside the gate', () => {
   const g = newGame();
-  g.inventory.add('shrimp', 5);
+  g.inventory.add('trout', 5);
   placeAt(g, GATE.x - 1, GATE.y + 1);
   g.waves.enter();
   nextWave(g);
@@ -208,7 +208,9 @@ test('auto battle clears waves inside, eats, and never wanders out to quests or 
   // A strong fighter against wave 1, which starts below your level anyway.
   for (const n of waveMobs(g)) { n.hp = Math.min(n.hp, 3); n.maxHp = Math.max(n.maxHp, 3); }
   tame(g);
-  g.inventory.add('shrimp', 3);
+  g.inventory.add('trout', 3);
+  const food = () => g.inventory.slots.reduce((t, sl) => t + (sl && ITEMS[sl.id]?.heal ? sl.qty : 0), 0);
+  const meals = food();
   g.player.hp = Math.floor(g.maxHp() * 0.2);
   let left = false;
   for (let t = 0; t < 300 && g.waves.wave < 2; t++) {
@@ -218,7 +220,7 @@ test('auto battle clears waves inside, eats, and never wanders out to quests or 
   }
   assert.ok(!left, 'auto battle never walked out of the arena');
   assert.ok(g.waves.wave >= 2, `auto battle cleared wave 1 (on wave ${g.waves.wave}, ${g.waves.left()} left)`);
-  assert.ok(g.inventory.count('shrimp') < 3, 'it ate when hurt');
+  assert.ok(food() < meals, 'it ate when hurt');
   assert.ok(g.autoBattle, 'auto battle is still on');
   // Its level band never skips a wave monster, even one far below you.
   g.skills.addXp('attack', 5e7);
@@ -238,8 +240,8 @@ test('auto battle dodges a wave boss\'s ground markers inside the arena', () => 
   tame(g);
   g.toggleAutoBattle(true);
   const at = g.playerTile();
-  g.hazards.push({ cx: at.x, cy: at.y, r: 1, ticks: 3, dmg: 1, npc: boss, squares: null });
-  if (!g.hazardAt(at.x, at.y)) return;   // a different marker shape: nothing to check here
+  g.hazards.push({ cx: at.x, cy: at.y, r: 1, npc: boss, fireTick: g.tickCount + 5 });
+  assert.ok(g.hazardAt(at.x, at.y));
   g._autoBattleTick();
   assert.ok(g._dodging, 'auto battle steps out of the marker');
   g.autoCfg.dodge = false;
