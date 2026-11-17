@@ -1,4 +1,4 @@
-import { getItem } from '../data/items.js';
+import { getItem, TWO_HANDED_TYPES } from '../data/items.js';
 import { ARMOUR_SETS } from '../data/sets.js';
 import { masteryBonuses, enchantedBonuses, rankFor, migrateOld, MAX_ENCHANTS, ENCHANT_STEP } from './mastery.js';
 import { refinedBonuses, MAX_REFINE } from './refine.js';
@@ -22,7 +22,9 @@ export const canDualPair = (a, b) => !!dualType(a) && dualType(a) === dualType(b
 // quiver or tome) can be held with them: bows, crossbows, rifles, katanas,
 // warhammers, two-handed swords, halberds and claws (a claw on each hand). A
 // Knight's longsword and the toya are held in one hand, so they keep a shield.
-export const TWO_HANDED = new Set(['longbow', 'shortbow', 'crossbow', 'rifle', 'katana', 'warhammer', '2h_sword', 'halberd', 'claws']);
+// (The list lives in items.js, which gives each of these a "two-handed grip"
+// bonus in place of the off-hand they can't hold.)
+export const TWO_HANDED = TWO_HANDED_TYPES;
 export const isTwoHanded = (id) => !!id && TWO_HANDED.has(getItem(id)?.equip?.weaponType);
 // Quick weapons swing faster than one combat beat: scimitars, claws, kerambits and war fans swing
 // about 1.4 times a beat (a fractional cooldown carries over between beats).

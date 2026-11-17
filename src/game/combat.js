@@ -201,9 +201,11 @@ const scaledFlat = (level, equip, castMult) => Math.round(levelFlatDmg(level) * 
 // pierce and the other per-hit boosts), daggers came down a little and scimitars
 // went up a little to keep Rogues and Corsairs where they were; pistols barely moved.
 export const WEAPON_DMG_MULT = {
-  dagger: 0.6, sword: 2.2, scimitar: 0.39, mace: 2.62, longsword: 2.13, battleaxe: 1.72, warhammer: 2.88,
-  '2h_sword': 2.7, spear: 2.05, claws: 0.5, katana: 1.48, halberd: 3.2, cane: 0.71, shortbow: 0.54,
-  longbow: 1.25, pistol: 0.37, rifle: 1.22, shuriken: 1.3, staff: 0.32, wand: 0.31, whip: 2.0,
+  // (The two-handed types, the crossbow too, were trimmed by up to 12% when they gained the two-handed grip, the
+  // off-hand's atkPct, haste and Ranged built into the weapon: see items.js.)
+  dagger: 0.6, sword: 2.2, scimitar: 0.39, mace: 2.62, longsword: 2.13, battleaxe: 1.72, warhammer: 2.8,
+  '2h_sword': 2.55, spear: 2.05, claws: 0.48, katana: 1.41, halberd: 3.18, cane: 0.71, shortbow: 0.445,
+  longbow: 1.15, pistol: 0.37, rifle: 1.07, shuriken: 1.3, staff: 0.32, wand: 0.31, whip: 2.0,
   // Secondary types (first estimates, pending the combat rescale), tuned against measured
   // damage (a headless run of each class's best weapon at tiers 10-250, not a formula)
   // so that each sits a little under its classes' main types and the main type stays
@@ -215,7 +217,7 @@ export const WEAPON_DMG_MULT = {
   // needs no ammo and pierces, so it stays just under the bows. (Retuned with the
   // main types: each now lands at about 80-105% of its class's main weapon, the
   // chakram 60-105% as it serves three quite different classes.)
-  parang: 1.75, kerambit: 0.27, toya: 2.35, crossbow: 3.25, chakram: 1.3, orb: 0.3, fan: 1.45,
+  parang: 1.75, kerambit: 0.27, toya: 2.35, crossbow: 2.92, chakram: 1.3, orb: 0.3, fan: 1.45,
 };
 /** The target's number scale (see hpScaleFor in npcs.js): hits on a big monster are divided by it. */
 const numScale = (npc) => npc?.hpScale || 1;
