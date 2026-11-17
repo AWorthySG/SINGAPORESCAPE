@@ -6650,5 +6650,6 @@ export class Game {
   // Clicking or tapping the world does nothing: you move with the joystick /
   // WASD and act with Interact. (The HUD panels are still clickable.)
   onLeftClick() { this.ui?.hideContextMenu(); }
-  onRightClick() { this.ui?.hideContextMenu(); }
+  // Right-clicking a monster offers Examine, which opens its Monster Codex entry.
+  onRightClick(x, y) { this.ui?.hideContextMenu(); if (x !== undefined) this.ui?.worldRightClick?.(x, y); }
 }

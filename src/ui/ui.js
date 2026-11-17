@@ -51,6 +51,7 @@ import { TERRAIN, zoneLevel } from '../data/world.js';
 import { clearSave, suppressSaves, exportSaveCode, importSaveCode } from '../game/save.js';
 import { statSheet } from '../game/statsheet.js';
 import { statsPanelHTML } from './statspanel.js';
+import { openCodex, monsterAtScreen } from './codexui.js';
 import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG, abilityIconHTML, prayerIconHTML, spellIconHTML } from '../render/icons.js';
 import { weaknessOf, armourTierOf, ARMOUR_TIERS, levelFlatDmg } from '../game/combat.js';
 import { isBone } from '../data/bones.js';
@@ -191,6 +192,13 @@ export class UI {
     this.el.specOrb.addEventListener('click', () => this.game.toggleSpec());
     if (this.el.minimap) { this.el.minimap.style.cursor = 'var(--cur-pointer)'; this.el.minimap.title = 'Open world map (M)'; this.el.minimap.addEventListener('click', () => this.openWorldMap()); }
     if (this.el.mapBtn) this.el.mapBtn.addEventListener('click', () => this.openWorldMap());
+    // Tap the foe's portrait on the battle bar to look it up in the Monster Codex
+    // (the phone-friendly way to examine a monster; right-click works on desktop).
+    const portrait = this.el.bossBar?.querySelector?.('#boss-bar-portrait');
+    if (portrait) {
+      portrait.title = 'Look it up in the Monster Codex';
+      portrait.addEventListener('click', () => { if (this._bossPortraitFor) this.openBestiary(this._bossPortraitFor.npcId); });
+    }
     this.el.modalClose.addEventListener('click', () => this.closeModal());
     this.el.modalOverlay.addEventListener('mousedown', (e) => {
       if (e.target === this.el.modalOverlay) this.closeModal();
@@ -2757,57 +2765,24 @@ export class UI {
     btn.className = 'bestiary-open';
     const ids = MONSTER_IDS.length + BOSS_IDS.length;
     const seen = [...MONSTER_IDS, ...BOSS_IDS].filter((id) => (game.kills[id] || 0) > 0).length;
-    btn.textContent = `Open Bestiary (${seen}/${ids})`;
+    btn.textContent = `Open Monster Codex (${seen}/${ids})`;
     btn.addEventListener('click', () => this.openBestiary());
     panel.insertBefore(btn, panel.firstChild);
   }
 
-  // ---------------- Bestiary / collection log ----------------
-  openBestiary() {
-    const ids = [...BOSS_IDS, ...MONSTER_IDS];
-    const render = (body) => {
-      const seen = ids.filter((id) => (this.game.kills[id] || 0) > 0).length;
-      body.innerHTML = `<div class="modal-hint">Discovered ${seen} / ${ids.length} creatures.</div>`;
-      const search = document.createElement('input');
-      search.className = 'bank-search'; search.placeholder = 'Search creatures…'; search.value = this._bestSearch || '';
-      search.addEventListener('input', () => {
-        this._bestSearch = search.value; render(body);
-        const n = body.querySelector('.bank-search'); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); }
-      });
-      body.appendChild(search);
-      const list = document.createElement('div'); list.className = 'bestiary-list';
-      const term = (this._bestSearch || '').trim().toLowerCase();
-      let shown = 0;
-      for (const id of ids) {
-        const d = getNpc(id);
-        if (term && !d.name.toLowerCase().includes(term)) continue;
-        if (++shown > 120) break; // cap rows for performance; narrow via search
-        const k = this.game.kills[id] || 0;
-        const drops = (d.dropTable || []).filter((x) => !x.nothing).map((x) => x.id);
-        const dropHtml = k
-          ? (drops.length ? drops.slice(0, 10).map((did) => `<span class="b-drop" title="${escapeHtml(getItem(did).name)}">${itemIconSVG(did, 20)}</span>`).join('') : '<span class="b-hidden">No notable drops.</span>')
-          : '<span class="b-hidden">Defeat one to reveal its drops.</span>';
-        const row = document.createElement('div');
-        row.className = 'bestiary-row' + (k ? '' : ' undiscovered');
-        const weak = k ? `<span class="b-weak">weak: ${weaknessOf(d)} · armour: ${armourTierOf(d)} (${Math.round(ARMOUR_TIERS[armourTierOf(d)] * 100)}%)</span>` : '';
-        // Its race is plain to see; which weapons bite or bounce off is learned by defeating one.
-        const rid = raceOf(d, id), race = RACES[rid];
-        const raceTag = `<span class="b-race" title="${escapeHtml(race.desc)}">${race.icon} ${escapeHtml(race.name)}</span>`;
-        const ws = weaponsFor(rid);
-        const raceInfo = k ? `<div class="b-matchups"><span class="b-strong">Weak to: ${ws.strong.map(weaponTypeName).join(', ')}</span>${ws.weak.length ? `<span class="b-resist">Resists: ${ws.weak.map(weaponTypeName).join(', ')}</span>` : ''}</div>` : '';
-        const abil = d.ability ? `<div class="b-ability"><b>${escapeHtml(d.ability.name)}:</b> ${escapeHtml(d.ability.desc)}</div>` : '';
-        // A boss's signature weapon, the class it's made for and how often it drops
-        // (shown before the first kill, to hunt for).
-        const sigCls = SIGNATURE_CLASS[id] && CLASS_BY_ID[SIGNATURE_CLASS[id]], sid = sigIdFor(id);
-        const sig = sigCls ? `<div class="b-sig${sigCls.id === this.game.jobClass ? ' mine' : ''}">${itemIconSVG(sid, 20)}<b>${escapeHtml(getItem(sid).name)}</b> · signature weapon for ${escapeHtml(sigCls.name)} · drops 1 kill in ${Math.round(1 / SIGNATURE_DROP_CHANCE)}</div>` : '';
-        row.innerHTML = `<div class="b-head"><b>${escapeHtml(d.name)}</b><span class="b-lvl">Lvl ${d.level}${d.boss ? ' · Boss' : ''}</span>${raceTag}${weak}<span class="b-kc">${k} kills</span></div>${raceInfo}${abil}${sig}<div class="b-drops">${dropHtml}</div>`;
-        list.appendChild(row);
-      }
-      if (!shown) { const e = document.createElement('div'); e.className = 'modal-hint'; e.textContent = 'No creatures match your search.'; list.appendChild(e); }
-      body.appendChild(list);
-    };
-    this.openModal('Bestiary', render);
-    this.modal.kind = 'bestiary';
+  // ---------------- Bestiary / Monster Codex ----------------
+  /** The old Bestiary entry point now opens the Monster Codex (codexui.js);
+   *  with an npc id it opens straight on that creature's entry. */
+  openBestiary(id = null) { openCodex(this, id); }
+
+  /** Right-click on the game screen: over a monster, offer to look it up in the codex. */
+  worldRightClick(x, y) {
+    const n = monsterAtScreen(this.game, x, y, TILE);
+    if (!n) return;
+    const r = this.game.input?.canvas?.getBoundingClientRect?.() || { left: 0, top: 0 };
+    this.showContextMenu(r.left + x, r.top + y, [
+      { label: 'Examine', target: n.name, fn: () => { this.game.msg(n.def.examine || n.name, 'system'); this.openBestiary(n.npcId); } },
+    ]);
   }
 
   // ---------------- XP drops / level up ----------------
@@ -3575,12 +3550,13 @@ export class UI {
   }
 
   // ---------------- World map (full overview) ----------------
-  openWorldMap() {
+  openWorldMap(focus = null) {
     const game = this.game;
     const W = game.world.width, H = game.world.mapHeight || game.world.height;   // not the Endless Gate's sea
     // Which markers show; remembered between openings.
     const on = this._mapFilters || (this._mapFilters = new Set(['mrt', 'boss', 'bank']));
-    let sel = null;
+    // `focus` ({ x, y, label }) opens with that spot picked (the Monster Codex's Show on map).
+    let sel = focus && Number.isFinite(focus.x) ? focus : null;
     // The terrain never changes, so paint it once (one pixel per tile) and scale it up.
     if (!this._mapBase) {
       const b = document.createElement('canvas');
