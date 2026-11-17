@@ -7218,3 +7218,22 @@ test('auto quest leads when auto battle is on too: no detours to "monsters of yo
   assert.ok(Object.values(game.quests).some((q) => q.state === 'done'), 'quests still get done with both on');
   assert.ok(game.autoBattle, 'auto battle you switched on yourself stays on');
 });
+
+test('being attacked doesn\'t pull you off a life skill; idle, you still hit back', async () => {
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('swordsman');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  const p = g.player;
+  p.hp = 1e6;   // the blows mustn't end the test
+  const mob = g.spawnNpc('goblin', p.x + 1, p.y, { wander: 0 });
+  const tree = { x: p.x - 1, y: p.y, objId: 'tree', def: {} };
+  for (const type of ['woodcut', 'mine', 'fish', 'cook', 'smith']) {
+    p.action = { type, obj: tree };
+    for (let i = 0; i < 5; i++) g.resolveNpcAttack(mob);
+    assert.equal(p.action?.type, type, `still ${type} after being attacked`);
+  }
+  p.action = null;
+  assert.ok(g._shouldRetaliate(), 'with nothing to do, auto retaliate still fights back');
+  p.action = { type: 'woodcut', obj: tree };
+  assert.ok(!g._shouldRetaliate(), 'but not mid-chop');
+});

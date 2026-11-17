@@ -172,6 +172,8 @@ const RIFLE_DMG = RANGED_TYPE_DMG.rifle;
 // Bosses scale up to the player's combat level (see _scaleBoss), up to this
 // many times their own level.
 const BOSS_SCALE_MAX = 100;
+// Actions that are a life skill at work: being attacked doesn't pull you off them.
+const LIFE_SKILL_ACTIONS = new Set(['woodcut', 'mine', 'fish', 'hunt', 'farm', 'cook', 'cookdish', 'craft', 'smelt', 'smith', 'agility', 'thieve', 'stall']);
 // Agility XP for slipping a monster's blow: this many times its max hit (about
 // what landing an average hit of that size would give a fighting skill).
 export const DODGE_AGILITY_XP = 2;
@@ -2701,6 +2703,16 @@ export class Game {
   }
 
   /** Knock a struck entity briefly away from whoever hit it. */
+  /** Auto retaliate answers a blow, except while you're working a life skill:
+   *  chopping, mining, fishing and the rest carry on when something attacks you
+   *  (the owner asked for it). Click the monster, or stop, to fight back. */
+  _shouldRetaliate() {
+    const p = this.player;
+    if (!p.autoRetaliate) return false;
+    const t = p.action?.type;
+    return !t || (t !== 'attack' && !LIFE_SKILL_ACTIONS.has(t));
+  }
+
   _knock(victim, from) {
     const a = victim.renderCenter(), b = from.renderCenter();
     const dx = a.x - b.x, dy = a.y - b.y, m = Math.hypot(dx, dy) || 1;
@@ -2755,7 +2767,7 @@ export class Game {
       this.addHitsplat(p, 0, { text: 'Dodged!' });
       this.spawnSparkle(p, '#ff8ac0', 5);
       this._dodgeXp(npc);
-      if (p.autoRetaliate && (!p.action || p.action.type !== 'attack')) this.attackNpc(npc);
+      if (this._shouldRetaliate()) this.attackNpc(npc);
       return;
     }
     const perk = this.perkMods();
@@ -2763,7 +2775,7 @@ export class Game {
     if (dodge && Math.random() < dodge * (heavy ? 0.5 : 1)) {   // Evasion / Graceful perks
       this.addHitsplat(p, 0, { text: 'Dodged!' });
       this._dodgeXp(npc);
-      if (p.autoRetaliate && (!p.action || p.action.type !== 'attack')) this.attackNpc(npc);
+      if (this._shouldRetaliate()) this.attackNpc(npc);
       return;
     }
     const { atkRoll, defRoll, max } = npcAttackVsPlayer(npc.def, this.skills, this.equipment, p.style);
@@ -2786,7 +2798,7 @@ export class Game {
     if (dmg > 0) { this.spawnHitSparks(p, heavy ? '#ff5a5a' : '#ff8a8a'); this.bus.emit('sfx', 'hurt'); this._gainAdrenaline((heavy ? 2 : 1) * ADREN_PER_HURT + this._adrenTrait('hurt')); }
     if (heavy) this.msg(`${npc.name} unleashes a heavy blow${this.braceTicks > 0 ? ' — you brace and soften it!' : '!'}`, 'combat');
     this.bus.emit('hp');
-    if (p.autoRetaliate && (!p.action || p.action.type !== 'attack')) this.attackNpc(npc);
+    if (this._shouldRetaliate()) this.attackNpc(npc);
     if (p.hp <= 0) this.playerDeath();
   }
 
