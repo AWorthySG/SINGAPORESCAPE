@@ -18,11 +18,10 @@ const BAL = STYLES.balanced;
 export const DAMAGE_XP_SHARE = 0.25;
 export const KILL_XP_SHARE = 1 - DAMAGE_XP_SHARE;
 // XP per point of damage (or of a monster's life, for the kill reward), before
-// the shares: the fighting skill (Magic earns 3.5, as spells also give XP per
-// cast; at half it levelled about twice as slowly as Melee, and at 3 a geared
-// mage still took ~1.5x as long as Melee to reach 99 and 300), plus Defence and
-// Hitpoints.
-const RATES = { skill: 4, magic: 3.5, defence: 1.33, hitpoints: 1.33 };
+// the shares: the fighting skill (Magic earns three quarters, as spells also give
+// XP per cast; at half it levelled about twice as slowly as Melee), plus Defence
+// and Hitpoints.
+const RATES = { skill: 4, magic: 3, defence: 1.33, hitpoints: 1.33 };
 // Combat XP grows with your fighting level: x1 up to level 40, rising evenly to
 // x2.5 by level 80 and staying there. Monster XP keeps up with the levels before
 // 40 (Melee 50 came in about five minutes), but from the 70s the curve's cost
