@@ -20,11 +20,11 @@ const TROPHIES = new Set(['hornbill_casque', 'qilin_mane']);   // Hunter's rares
 
 export const MATERIAL_KINDS = {
   bar: 'metal bars', gem: 'gems and pearls', log: 'logs', hide: 'pelts and hides', herb: 'herbs and crops',
-  ore: 'ores and stone', raw: 'raw fish and meat', feather: 'feathers',
+  ore: 'ores and stone', raw: 'raw fish and meat', feather: 'feathers', ash: 'ashes',
 };
 
 /** The kind of material an item is ('bar', 'gem', 'log', 'hide', 'herb',
- *  'ore', 'raw', 'feather'), or null when it isn't one. */
+ *  'ore', 'raw', 'feather', 'ash'), or null when it isn't one. */
 export function materialKind(id) {
   let it;
   try { it = getItem(id); } catch { return null; }
@@ -38,6 +38,7 @@ export function materialKind(id) {
   if (ORES.has(id)) return 'ore';
   if (tags.includes('raw')) return 'raw';
   if (id === 'feather') return 'feather';
+  if (tags.includes('ash')) return 'ash';   // left by burning the endgame logs
   return null;
 }
 
@@ -60,7 +61,7 @@ export function materialPoints(id) {
 //   herbs  robes, dancewear and capes: the game has no cloth or silk, so cloth
 //          gear is fed with farmed herbs and crops, as the plant dyes and
 //          charms woven into it (batik is dyed with plants, after all)
-// Ores, raw fish and feathers feed no gear; they go to the shrine.
+// Ores, raw fish, feathers and ashes feed no gear; they go to the shrine.
 //
 // Kills give 1 point a monster (5 a champion, 25 a boss) to EVERY piece you
 // wear, so ten minutes of auto battle (~300-750 kills) is ~300-750 points per

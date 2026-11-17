@@ -14,7 +14,7 @@ const objsOf = (pred) => Object.entries(OBJECTS).filter(([, d]) => pred(d)).map(
 
 // One line on why each life skill matters, and the objects to walk to.
 export const SKILL_GUIDES = {
-  woodcutting: { use: 'Logs feed Firemaking and Fletching (bows, arrows, staves).' },
+  woodcutting: { use: 'Logs feed Firemaking and Fletching (bows, arrows, staves). From level 100, groves of rare trees in the far regions give the endgame logs.' },
   mining: { use: 'Ore is smelted into bars for Smithing, and gems and gold go to Crafting. From level 100, rare veins in the far regions give the endgame ores.' },
   fishing: { use: 'Raw fish are cooked into food that heals you in a fight.' },
   hunter: { use: 'Pelts, skins and hides become armour; meat is cooked into food.' },
@@ -22,9 +22,9 @@ export const SKILL_GUIDES = {
   cooking: { use: 'Food heals you in a fight; better food heals more.', where: ['range', 'fire'] },
   smithing: { use: 'Smelt ore into bars at a furnace, then forge weapons, armour and upgrade stones at an anvil. From level 100 you can forge the obsidian to eternal gear.', where: ['furnace', 'anvil'] },
   crafting: { use: 'Jewellery, pottery, leather armour, and refine scrolls and upgrade wards.', where: ['crafting_table'] },
-  fletching: { use: 'Bows, arrows, staves and wands from logs (you need a knife).', where: ['fletching_bench'] },
+  fletching: { use: 'Bows, arrows, staves and wands from logs (you need a knife). From level 100 the endgame logs make the obsidian to eternal bows, staves, wands, rifles and crossbows.', where: ['fletching_bench'] },
   herblore: { use: 'Potions that boost you in a fight for several minutes.', where: ['apothecary_table'] },
-  firemaking: { use: 'Light a fire anywhere to cook on (use logs from your bag; you need a tinderbox).' },
+  firemaking: { use: 'Light a fire anywhere to cook on (use logs from your bag; you need a tinderbox). The endgame logs leave ashes, which the Offering Shrine takes.' },
   thieving: { use: 'Coins, food and gems, stolen from market stalls (and pockets).' },
   agility: { use: 'Obstacle courses for XP and Marks of grace; powers the Dancer.' },
 };
@@ -37,7 +37,7 @@ export function guideEntries(skill) {
   if (skill === 'woodcutting' || skill === 'mining' || skill === 'thieving') {
     for (const [id, d] of Object.entries(OBJECTS)) {
       if (d.skill !== skill || d.type === 'hunt') continue;
-      add(d.level, d.name, d.gives ? `Gives ${name(d.gives)}` : d.loot ? `Loot: ${d.loot.filter((l) => l.id !== 'coins').map((l) => name(l.id)).slice(0, 3).join(', ')}, coins` : '', [id]);
+      add(d.level, d.name, d.gives ? `Gives ${name(d.gives)}${d.night ? ' (only at night)' : ''}` : d.loot ? `Loot: ${d.loot.filter((l) => l.id !== 'coins').map((l) => name(l.id)).slice(0, 3).join(', ')}, coins` : '', [id]);
     }
   } else if (skill === 'fishing') {
     for (const [id, d] of Object.entries(OBJECTS)) {
@@ -61,7 +61,7 @@ export function guideEntries(skill) {
   } else if (skill === 'herblore') {
     for (const [id, p] of Object.entries(POTIONS)) add(p.level, p.name, `From ${p.inputs.map(([i, q]) => `${q} ${name(i)}`).join(' + ')}`, ['apothecary_table']);
   } else if (skill === 'firemaking') {
-    for (const [id, it] of Object.entries(ITEMS)) if (it.tags?.includes('log')) add(it.firemaking, it.name, `Burn for ${it.fmXp || 0} xp`);
+    for (const [id, it] of Object.entries(ITEMS)) if (it.tags?.includes('log')) add(it.firemaking, it.name, `Burn for ${it.fmXp || 0} xp${it.ash ? `, leaves ${name(it.ash)}` : ''}`);
   } else if (skill === 'agility') {
     for (const id of objsOf((d) => d.type === 'agility')) add(OBJECTS[id].level, OBJECTS[id].name, OBJECTS[id].verb, [id]);
   }

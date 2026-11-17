@@ -88,6 +88,8 @@ export function resolveWoodcut(game, action) {
     game.msg(`You need a Woodcutting level of ${def.level} to chop this.`); return false;
   }
   if (!game.hasTool('axe')) { game.msg('You need an axe to chop this tree.'); return false; }
+  // The moonlit kapok only gives its wood after dark.
+  if (def.night && !game.isNight()) { game.msg(`The ${def.label.toLowerCase()}'s wood is hard as stone by day. Come back at night.`); return false; }
   if (game.inventory.canAdd(def.gives, 1) <= 0) { game.msg('Your inventory is too full to hold any more logs.'); return false; }
 
   const lvl = game.skills.level('woodcutting');
@@ -409,6 +411,11 @@ export function resolveFiremake(game, action) {
   } else {
     game.skills.addXp('firemaking', baseFm);
     game.msg('The fire catches and the logs begin to burn.');
+  }
+  // The endgame logs leave an ash behind (a shrine material, and later a Herblore one).
+  if (logDef.ash) {
+    if (game.inventory.canAdd(logDef.ash, 1) > 0) game.inventory.add(logDef.ash, 1);
+    else game.world.addGroundItem(logDef.ash, 1, p.x, p.y);
   }
   // Rarely, something glints in the embers.
   if (Math.random() < 0.012) {
