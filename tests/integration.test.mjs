@@ -4076,7 +4076,7 @@ test('new classes: Pistoler (dual pistols, no ammo, very fast), Ninja (ricochet)
   const beside = dummy(mc, 0); beside.x = beside.tx = foe.x; beside.y = beside.ty = foe.y + 1; mc.npcs.push(beside);
   mc._allyFoes = null;   // the nearby-foe list is cached per tick
   Mercs.allyCleave(mc, foe, 10);
-  assert.equal(beside.hp, beside.maxHp - 4, 'ally hits cleave 40% (cane) into the foe beside the target');
+  assert.equal(beside.hp, beside.maxHp - Math.round(10 * Mercs.ALLY_SCATTER), 'ally coins scatter (ALLY_SCATTER, 90%) into the foe beside the target');
   // Left far behind (a teleport): they jump back to the Merchant.
   // (A-Worthlings merge once there are many of them, so take one that's still about.)
   const aw2 = Mercs.activeFollowers(mc)[0];

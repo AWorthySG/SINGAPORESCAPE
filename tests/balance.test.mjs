@@ -29,13 +29,37 @@ const rows = (() => {
 })();
 const med = Object.fromEntries(['kill', 'single', 'boss', 'crowd'].map((m) => [m, median(rows.map((r) => r[m]))]));
 const rel = (r, m) => r[m] / med[m];
+// The Merchant is the strongest class by design (MERCHANT_POWER, mercenary.js), so
+// the other classes are also held against the median of the rest, which the
+// Merchant can't pull about.
+const others = rows.filter((r) => r.cls !== 'merchant');
+const medOthers = Object.fromEntries(['kill', 'single', 'boss', 'crowd'].map((m) => [m, median(others.map((r) => r[m]))]));
+const relOthers = (r, m) => r[m] / medOthers[m];
+const merchant = rows.find((r) => r.cls === 'merchant');
 
 // The class rebalance brought every class's single-target damage to 85-115% of
 // the median at levels 50-300 (tools/balance/classes.mjs, 180 s fights on three
-// targets); these 60 s fights are noisier, hence the wider band.
-test('every class hits one target at 70-140% of the median class', () => {
-  for (const r of rows) {
-    assert.ok(rel(r, 'single') >= 0.7 && rel(r, 'single') <= 1.4, `${r.cls}: ${Math.round(rel(r, 'single') * 100)}% of the median single-target damage`);
+// targets); these 60 s fights are noisier, hence the wider band. The Merchant is
+// left out: it is meant to stand well above the rest (see the next test).
+test('every class but the Merchant hits one target at 70-140% of the median class', () => {
+  for (const r of others) {
+    for (const [name, x] of [['all classes', rel(r, 'single')], ['the other classes', relOthers(r, 'single')]]) {
+      assert.ok(x >= 0.7 && x <= 1.4, `${r.cls}: ${Math.round(x * 100)}% of the median single-target damage of ${name}`);
+    }
+  }
+});
+
+// The owner asked for the Merchant to be much stronger than every other class:
+// about twice the median (tools/balance/classes.mjs puts it at ~190-210% single
+// and ~185-230% boss at levels 50-300), top of the table, crowds included.
+test('the Merchant is the strongest class: 170-250% of the median of the other classes, and top', () => {
+  for (const m of ['single', 'boss']) {
+    const x = relOthers(merchant, m);
+    assert.ok(x >= 1.7 && x <= 2.5, `merchant: ${Math.round(x * 100)}% of the other classes' median ${m} damage`);
+  }
+  for (const m of ['single', 'boss', 'crowd']) {
+    const best = others.reduce((a, b) => (b[m] > a[m] ? b : a));
+    assert.ok(merchant[m] > best[m], `merchant ${m} ${merchant[m].toFixed(0)} beats the best other class (${best.cls}, ${best[m].toFixed(0)})`);
   }
 });
 
@@ -66,4 +90,13 @@ test('a fresh melee character on auto battle is nowhere near Melee 99 after ten 
   assert.ok(g.totalKills >= 20, `it was fighting (${g.totalKills} kills)`);
   assert.ok(g.skills.attack < 85, `Melee ${g.skills.attack} after ten minutes`);
   assert.ok(g.skills.attack >= 50, `but it still levels up at a fair pace (Melee ${g.skills.attack})`);
+});
+
+test('the Merchant\'s power: only Merchants get it, it grows a little with Ranged, and it is capped', async () => {
+  const { merchantPower, MERCHANT_POWER, MERCHANT_POWER_MAX } = await import('../src/game/mercenary.js');
+  assert.equal(merchantPower({ jobClass: 'pistoler', skills: { ranged: 300 } }), 1, 'no other class gets it (the chakram is shared)');
+  assert.equal(merchantPower({ jobClass: 'merchant', skills: { ranged: 1 } }), MERCHANT_POWER);
+  const at = (lv) => merchantPower({ jobClass: 'merchant', skills: { ranged: lv } });
+  assert.ok(at(300) > at(100) && at(100) > at(50), 'a gentle rise with Ranged');
+  assert.equal(at(99999), MERCHANT_POWER_MAX, 'capped: no runaway at very high levels');
 });

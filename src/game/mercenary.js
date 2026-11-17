@@ -13,7 +13,6 @@
 import { chebyshev, randInt } from '../core/utils.js';
 import { TICK_MS, COMBAT_BEAT_MS } from '../config.js';
 import { combatXpRanged, playerAttackVsNpc, playerRangedVsNpc, critChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE, WEAPON_DMG_MULT, weaponDmgMult } from './combat.js';
-import { CLEAVE_SHARE } from '../data/classes.js';
 import { getItem } from '../data/items.js';
 
 export const MERC_TICKS = 150;            // 90 seconds at 0.6s a tick
@@ -30,6 +29,25 @@ export const MAX_MERCS = 3;               // hired mercenaries on contract at on
 export const SPLIT_CHANCE = 0.25;         // per A-Worthling swing: a smaller A-Worthling splits off
 export const FOLLOWER_SHARE = 0.25;       // of the Merchant's melee damage
 export const MERC_SHARE = 0.5;            // a mercenary hits for half the Merchant's melee damage (at least its hired power)
+// The Merchant is the strongest class by design (the owner's call): money talks.
+// Every hit the Merchant and its allies land is multiplied by merchantPower(),
+// which puts it at about twice the median class's single-target and boss damage
+// at levels 50-300 (tools/balance/classes.mjs). A factor on the Merchant alone,
+// rather than a change to the cane or chakram scales, so the shared weapon tables
+// (and the Pistoler and Ninja's chakrams) are untouched. It stays coin-hungry:
+// every throw and skill still costs coins, and allies are still capped.
+// It grows a little with Ranged level (MERCHANT_POWER at level 50, up to
+// MERCHANT_POWER_MAX): a flat x2 came out at 220% of the median at level 50
+// but only 180% at level 300, where the other classes' gear and perks catch up.
+// Capped, so it can't run away at very high levels.
+export const MERCHANT_POWER = 1.9, MERCHANT_POWER_PER_LEVEL = 0.0014, MERCHANT_POWER_MAX = 2.4;
+export const merchantPower = (game) => (game.jobClass !== 'merchant' ? 1
+  : Math.min(MERCHANT_POWER_MAX, MERCHANT_POWER + MERCHANT_POWER_PER_LEVEL * Math.max(0, game.skills.ranged - 50)));
+// The coins the Merchant and its allies throw scatter into up to ALLY_SCATTER_FOES
+// foes beside the target, each taking ALLY_SCATTER of the hit (melee cleaves take
+// 25-70% into 3): the Merchant's crowd damage was among the lowest of any class,
+// and now tops the Gladiator's, Sniper's and Wizard's.
+export const ALLY_SCATTER = 0.9, ALLY_SCATTER_FOES = 4;
 const SEEK = 10;                          // how far an ally looks for a monster
 const ALLY_RANGE = SEEK;                  // allies throw coins at anything they can see
 const STAY_NEAR = 3;                      // they stand within this of the Merchant (no walking)
@@ -149,13 +167,12 @@ function pickTarget(game, m) {
   return best;
 }
 
-/** Ally cleave: a share of the hit sweeps into up to 3 foes beside the target,
- *  the same share as the Merchant's weapon (canes 40%). */
+/** Ally cleave: a share of the hit (ALLY_SCATTER) sweeps into up to ALLY_SCATTER_FOES foes beside the target. */
 export function allyCleave(game, target, dmg) {
-  const share = CLEAVE_SHARE[game.weaponType()] || CLEAVE_SHARE.cane;
+  const share = ALLY_SCATTER;
   let hit = 0;
   for (const o of nearbyFoes(game)) {
-    if (hit >= 3) break;
+    if (hit >= ALLY_SCATTER_FOES) break;
     if (o === target || o.hp <= 0 || o.temporary || !o.alive) continue;
     if ((o.def.fixed || o.def.boss) && o.target !== game.player) continue;   // bosses aren't dragged in
     if (chebyshev(o.x, o.y, target.x, target.y) > 1) continue;
@@ -265,7 +282,8 @@ function merchantMax(game, def) {
   // nearly twice the damage with one. So allies hit for the cane's scale, cut
   // again by how much harder the weapon in hand hits (no change with a cane).
   const k = WEAPON_DMG_MULT.cane / weaponDmgMult(game.equipment);
-  const pct = (1 + (gb.atkPct || 0) / 100) * (1 + (perk.dmg || 0) + (def?.boss ? (perk.boss || 0) + (gb.bossDmg || 0) / 100 : 0)) * k * k;
+  const pct = (1 + (gb.atkPct || 0) / 100) * (1 + (perk.dmg || 0) + (def?.boss ? (perk.boss || 0) + (gb.bossDmg || 0) / 100 : 0)) * k * k
+    * merchantPower(game);   // allies share the Merchant's class power
   if (game.combatMode() === 'ranged') {
     const w = game.equipment.get('weapon');
     const str = w ? Math.floor((getItem(w).equip?.bonuses?.ranged || 0) / 3) : 0;
