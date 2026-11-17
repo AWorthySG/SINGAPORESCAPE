@@ -915,6 +915,8 @@ import { ITEMS } from '../data/items.js';
   ]) { BORROW_ID[id] = from; BORROW_TINT[id] = tint; }
   I.pangolin_scales = hideIcon('#a8743a'); I.colugo_fur = hideIcon('#9a9a8a'); I.naga_scale = hideIcon('#3ab08a');
   I.tiger_whisker = I.feather; I.garuda_plume = I.feather; I.phoenix_ember = I.hornbill_casque;
+  // The casino chip (Thieving 100) borrows the coins sticker, tinted red.
+  BORROW_ID.casino_chip = 'coins'; BORROW_TINT.casino_chip = 'hue-rotate(-40deg) saturate(1.8)'; I.casino_chip = I.coins;
   // Boss signature weapons borrow their base weapon's sticker, gilded and tinted
   // a hue of their own, so they stand out from the plain weapon they're built on.
   for (const [id, it] of Object.entries(ITEMS)) {

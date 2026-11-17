@@ -193,13 +193,18 @@ const TOWN_ART = new Set([
   'mercenary_sellsword', 'mercenary_bruiser', 'mercenary_spear_guard', 'mercenary_duellist',
   'aworthling',   // the Merchant's mirror-image follower (a copy of the Merchant hero art)
 ]);
+// Newer townsfolk borrow another's picture, recoloured, until their own art
+// arrives (remove the line when the file is added).
+const TOWN_ALIAS = { marina_high_roller: 'banker', jade_merchant: 'mage' };
+const TOWN_TINT = { marina_high_roller: 'hue-rotate(150deg) saturate(1.3)', jade_merchant: 'hue-rotate(-120deg) saturate(1.2)' };
+const townFile = (id) => (TOWN_ART.has(id) ? id : TOWN_ALIAS[id] || null);
 const _townImg = {};
 function townImage(id) {
-  if (!id || !TOWN_ART.has(id)) return null;
+  if (!id || !townFile(id)) return null;
   if (_townImg[id] !== undefined) return _townImg[id];
   if (typeof Image === 'undefined') { _townImg[id] = null; return null; }
   const img = new Image();
-  img.src = `assets/creatures/townsfolk/${id}.webp`;
+  img.src = `assets/creatures/townsfolk/${townFile(id)}.webp`;
   _townImg[id] = img;
   return img;
 }
@@ -766,7 +771,9 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
       const w = timg.naturalWidth * s, h = timg.naturalHeight * s;
       // An A-Worthling is a mirror image of the Merchant, a little see-through.
       if (npcId === 'aworthling') c.globalAlpha *= 0.8;
+      if (TOWN_TINT[npcId] && 'filter' in c) c.filter = TOWN_TINT[npcId];   // a borrowed picture, recoloured
       c.drawImage(timg, -w / 2, TOWN_ART_FEET - h, w, h);
+      if (TOWN_TINT[npcId] && 'filter' in c) c.filter = 'none';
     });
   }
   return staged(ctx, cx, cy, opts, (c) => {

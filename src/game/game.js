@@ -3449,6 +3449,20 @@ export class Game {
   pickpocket(npc) {
     if (!npc || !npc.def.role) return;
     const lvl = this.skills.level('thieving');
+    // A mark (the endgame marks: def.thieving) has a level and a loot table of
+    // its own, rolled once a pick like a stall's; its XP is fixed, not by level.
+    const t = npc.def.thieving;
+    if (t) {
+      if (lvl < t.level) { this.msg(`You need Thieving level ${t.level} to pick the ${npc.name}'s pocket.`, 'system'); return; }
+      const pick = weightedPick(t.loot);
+      const qty = pick.min ? randInt(pick.min, pick.max) : 1;
+      this.inventory.add(pick.id, qty);
+      this.skills.addXp('thieving', t.xp);
+      this.addEvil(1); // theft tips you toward evil
+      this.spawnSparkle(this.player, '#ffe24a', 6);
+      this.msg(`You pick the ${npc.name}'s pocket and steal ${qty > 1 ? qty + ' x ' : ''}${getItem(pick.id).name}.`, 'system');
+      return;
+    }
     // Pickpocketing never fails any more (life skills never fail).
     {
       const coins = randInt(3, 12) + Math.floor(lvl * 1.5);
@@ -3559,8 +3573,10 @@ export class Game {
     }
     const lvl = this.skills.level('thieving');
     if (d.level && lvl < d.level) { this.msg(`You need Thieving level ${d.level} to steal from the ${d.name}.`, 'system'); return false; }
-    // Success scales with level over the stall's requirement.
-    const chance = Math.min(0.95, 0.5 + (lvl - (d.level || 1)) * 0.012);
+    // Success scales with level over the stall's requirement, from a half at
+    // that level (or the stall's own `sure`: the endgame chests are surer, so
+    // a new tier doesn't start far behind the one before it).
+    const chance = Math.min(0.95, (d.sure || 0.5) + (lvl - (d.level || 1)) * 0.012);
     if (Math.random() < chance) {
       const pick = weightedPick(d.loot);
       const qty = pick.min ? randInt(pick.min, pick.max) : 1;
@@ -4911,6 +4927,7 @@ export class Game {
     if (npc.attackable) return this.attackNpc(npc);
     if (npc.def.role === 'shop') return this.beginAction({ type: 'openshop', shop: npc.def.shop, target: { x: npc.x, y: npc.y } }, { x: npc.x, y: npc.y }, true);
     if (npc.def.role === 'bank') return this.beginAction({ type: 'openbank', target: { x: npc.x, y: npc.y } }, { x: npc.x, y: npc.y }, true);
+    if (npc.def.role === 'mark') return this.startPickpocket(npc);   // a Thieving mark has nothing to say
     return this.beginAction({ type: 'talk', npc, target: { x: npc.x, y: npc.y } }, { x: npc.x, y: npc.y }, true);
   }
 
@@ -6356,6 +6373,7 @@ export class Game {
       }
       if (n.def.role === 'shop') return ['Trade with', n.name];
       if (n.def.role === 'bank') return ['Bank', n.name];
+      if (n.def.role === 'mark') return ['Pickpocket', n.name];
       return ['Talk to', n.name];
     }
     const d = t.ref.def;

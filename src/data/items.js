@@ -815,6 +815,8 @@ Object.assign(RAW, {
   garuda_plume: { name: 'Garuda plume', icon: '🪶', value: 2200, stackable: true, examine: 'A sky-blue plume from a garuda\'s nest.' },
   naga_scale: { name: 'Naga scale', icon: '🟢', value: 3200, stackable: true, examine: 'A jade-green scale as big as your palm, from a sea naga.' },
   phoenix_ember: { name: 'Phoenix ember', icon: '🔥', value: 4600, stackable: true, examine: 'A glowing ember from a phoenix roost. It never goes out.' },
+  // Lifted from Marina Bay's high rollers (Thieving 100). Any shop that buys everything changes them for coins.
+  casino_chip: { name: 'Casino chip', icon: '🪙', value: 250, stackable: true, examine: 'A heavy chip from the Marina Bay casino. Worth 250 coins to the right shopkeeper.' },
 });
 
 // ---- Weapons for the newer classes, one per metal tier ----
