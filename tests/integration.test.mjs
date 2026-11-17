@@ -2700,6 +2700,52 @@ test('Dancer: combat XP is split between Agility and Ranged, and both power the 
   assert.equal(g.fightLevel(), Math.max(g.skills.combatLevel(), 500));
 });
 
+test('Dancer gear and class passives go by the pooled dance level, not Agility alone', async () => {
+  const { xpForLevel } = await import('../src/data/xp.js');
+  const { meetsReq } = await import('../src/game/gear.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('dancer');
+  g.ui = new Proxy({}, { get: () => () => {} }); g.msg = () => {};
+  // Half the XP of level 50 in each: Agility alone is in the 30s, the pool is 50.
+  g.skills.xp.agility = g.skills.xp.ranged = xpForLevel(50) / 2;
+  assert.ok(g.skills.level('agility') < 50 && g.skills.danceLevel() === 50);
+  assert.ok(meetsReq('coral_whip', g.skills).ok, 'an Agility 50 whip is wearable at dance level 50');
+  assert.ok(g._canEquipNow('coral_whip'));
+  assert.ok(!meetsReq('orchid_whip', g.skills).ok, 'but not an Agility 65 one');
+  // Other Agility gear (no Dance bonus) still asks for Agility itself.
+  assert.ok(!meetsReq('coral_whip', { level: (k) => (k === 'agility' ? 40 : 1) }).ok);
+  // Class passives: the first unlocks at dance level 100.
+  g.skills.xp.agility = g.skills.xp.ranged = xpForLevel(100) / 2;
+  assert.ok(g.skills.level('agility') < 100);
+  const { classPassiveMods, CLASS_SKILL } = await import('../src/data/classPassives.js');
+  assert.equal(g.skills.level(CLASS_SKILL.dance), 100);
+  assert.ok(classPassiveMods('dancer', g.skills.level(CLASS_SKILL.dance)).dmg > 0, 'Dance 100 unlocks the first passive (Grace)');
+});
+
+test('Merchant allies share the Merchant\'s damage perks: allies hit harder as perks grow', async () => {
+  const Mercs = await import('../src/game/mercenary.js');
+  const { NPC } = await import('../src/game/npc.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('merchant');
+  g.ui = new Proxy({}, { get: () => () => {} }); g.msg = () => {};
+  g.inventory.add('coins', 1e6);
+  const t = new NPC('goblin', g.player.x + 2, g.player.y, 0, { aggressive: false });
+  t.maxHp = t.hp = 1e9; t.tick = () => {};
+  g.npcs.push(t);
+  const f = Mercs.spawnFollower(g);
+  assert.ok(f, 'an A-Worthling is called up');
+  const hitWith = (dmgPerk) => {
+    g.perkMods = () => ({ dmg: dmgPerk });
+    let total = 0;
+    for (let i = 0; i < 400; i++) { const before = t.hp; f.swingAcc = 1; Mercs.mercTick(g, f); total += before - t.hp; }
+    g.npcs = g.npcs.filter((n) => n === t || n === f);
+    return total;
+  };
+  const plain = hitWith(0), boosted = hitWith(1);
+  // (Not quite double: a fresh Merchant's ally hits are small and rounded.)
+  assert.ok(boosted > plain * 1.3, `a +100% damage perk makes an ally hit much harder (${plain} -> ${boosted})`);
+});
+
 test('old saves: upgrade levels and refine stars become mastery and free enchant lines', async () => {
   const M = await import('../src/game/mastery.js');
   // The old gains: +5 = 0.40 (Skilled, 0.25), +15 & ★15 = 2.94 (Legendary), +1 = 0.08 (at least Adept).
