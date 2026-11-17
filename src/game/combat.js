@@ -184,10 +184,13 @@ const scaledFlat = (level, equip, castMult) => Math.round(levelFlatDmg(level) * 
 // time (see flatDmgScale): every class's single-target damage now sits at 85-115%
 // of the median class at levels 50, 100, 200 and 300 (tools/balance/classes.mjs).
 // The Merchant's cane is low because its allies deal about two thirds of its damage.
+// Retuned again when Knights took up shields and bucklers gained a damage bonus and
+// attack speed: the one-handed melee classes rose, so the longsword came down a little
+// and the two-handed sword and rifle (no off-hand) went up to stay in the 85-115% band.
 export const WEAPON_DMG_MULT = {
-  dagger: 0.65, sword: 2.2, scimitar: 0.37, mace: 2.62, longsword: 2.22, battleaxe: 1.72, warhammer: 2.88,
-  '2h_sword': 2.5, spear: 2.05, claws: 0.47, katana: 1.48, halberd: 3.02, cane: 0.71, shortbow: 0.54,
-  longbow: 1.25, pistol: 0.38, rifle: 1.0, shuriken: 1.3, staff: 0.32, wand: 0.31, whip: 2.0,
+  dagger: 0.65, sword: 2.2, scimitar: 0.37, mace: 2.62, longsword: 2.13, battleaxe: 1.72, warhammer: 2.88,
+  '2h_sword': 2.7, spear: 2.05, claws: 0.47, katana: 1.48, halberd: 3.02, cane: 0.71, shortbow: 0.54,
+  longbow: 1.25, pistol: 0.38, rifle: 1.03, shuriken: 1.3, staff: 0.32, wand: 0.31, whip: 2.0,
   // Secondary types (first estimates, pending the combat rescale), tuned against measured
   // damage (a headless run of each class's best weapon at tiers 10-250, not a formula)
   // so that each sits a little under its classes' main types and the main type stays

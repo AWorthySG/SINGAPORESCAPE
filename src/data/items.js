@@ -602,6 +602,18 @@ const _ARMOURS = [
 export const MELEE_REACH = 2;
 export const SPEAR_REACH = 4;
 const _REACH = { spear: SPEAR_REACH, halberd: 3, longsword: 3, '2h_sword': 3 };
+// Each metal shield has its own role, so none is simply a weaker kiteshield:
+//  - kiteshield: the tank's shield, the most Defence plus bonus life;
+//  - sq shield: balanced, about 70% of a kite's Defence and a little Armour pierce (plate's theme);
+//  - buckler: the duellist's parry shield, the melee counterpart of the quiver: under half a
+//    kite's Defence, but a Physical damage bonus and Attack speed that grow with the tier.
+// (The old buckler's flat +3 Attack meant nothing past the first few tiers.)
+const _SHIELD_ROLES = {
+  kiteshield: (M) => ({ bonuses: { defence: Math.round(9 * M.m), hp: Math.round(1.5 * M.m) }, examine: `A ${M.n.toLowerCase()} kiteshield: the most Defence and extra life, for holding the line.` }),
+  sq_shield: (M) => ({ bonuses: { defence: Math.round(6.3 * M.m), pierce: 1 + Math.floor(M.rd / 75) }, examine: `A ${M.n.toLowerCase()} square shield: solid Defence, and its rim bites through armour.` }),
+  buckler: (M) => ({ bonuses: { defence: Math.round(4 * M.m), atkPct: 2 + 2 * Math.floor(M.rd / 75), haste: 1 + Math.floor(M.rd / 120) },
+    examine: `A small ${M.n.toLowerCase()} buckler for parrying: light Defence, but quicker, harder strikes.` }),
+};
 for (const M of _METALS) {
   for (const [t, label, att, str, spd, v, crit] of _WEAPONS) {
     const id = `${M.k}_${t}`;
@@ -612,11 +624,12 @@ for (const M of _METALS) {
       equip: { slot: 'weapon', req: { attack: M.ra }, bonuses, range: _REACH[t] || MELEE_REACH } };
   }
   for (const [t, label, slot, def, att, v] of _ARMOURS) {
-    const id = `${M.k}_${t}`;
-    if (RAW[id]) continue;
-    const bonuses = { defence: Math.round(def * M.m) };
-    if (att) bonuses.attack = att;
-    RAW[id] = { name: `${M.n} ${label}`, icon: '🛡️', value: Math.round(v * M.v), examine: `${M.n} ${label}.`,
+    const id = `${M.k}_${t}`, role = _SHIELD_ROLES[t]?.(M);
+    // The hand-authored kiteshields (bronze, steel, rune) take their role's stats too.
+    if (RAW[id]) { if (role) RAW[id] = { ...RAW[id], examine: role.examine, equip: { ...RAW[id].equip, bonuses: role.bonuses } }; continue; }
+    const bonuses = role ? role.bonuses : { defence: Math.round(def * M.m) };
+    if (att && !role) bonuses.attack = att;
+    RAW[id] = { name: `${M.n} ${label}`, icon: '🛡️', value: Math.round(v * M.v), examine: role ? role.examine : `${M.n} ${label}.`,
       equip: { slot, req: { defence: M.rd }, bonuses } };
   }
 }
