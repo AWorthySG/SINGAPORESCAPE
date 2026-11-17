@@ -203,6 +203,8 @@ export class Waves {
     const g = this.game, spot = (ret && g._nearestFree(ret.x, ret.y)) || g.world.respawnPoint;
     g._placePlayer(spot.x, spot.y);
     g.updateRegion();
+    // Auto battle stops at the door, or it would march you straight off into town.
+    if (g.autoBattle) g.toggleAutoBattle(false);
     g.msg(`You leave ${GATE_NAME}.`, 'system');
     g.bus.emit('sfx', 'travel');
     return true;

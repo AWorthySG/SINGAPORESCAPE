@@ -2570,7 +2570,8 @@ body.boss-on #tip-toast { top: 132px; }
 .shrine-bulk .gear-tab { flex: 1 1 120px; line-height: 1.25; }
 .shrine-bulk .gear-tab span { font-size: 11px; font-weight: 600; }
 /* The Endless Gate's run panel (wavehud.js): top left, where the quest tracker
-   sits, which steps aside while a run is on. */
+   sits, which steps aside while a run is on. On phones it drops below the
+   boss bar, which shares the top of the narrow screen. */
 #wave-hud {
   position: absolute; top: 44px; left: 10px; z-index: 22; min-width: 150px;
   background: var(--aw-card); color: var(--aw-text); border: 2px solid var(--aw-ink); border-left: 6px solid #8b5cf6;
@@ -2588,4 +2589,4 @@ body.boss-on #tip-toast { top: 132px; }
   background: var(--aw-muted); color: var(--aw-text); border: 2px solid var(--aw-ink); border-radius: 999px; padding: 2px 10px;
 }
 #wave-hud .wv-leave:hover { background: #ede4ff; }
-@media (max-width: 760px) { #wave-hud { top: 34px; left: 6px; font-size: 11px; min-width: 128px; padding: 4px 8px 6px; } #wave-hud .wv-wave { font-size: 13px; } }
+@media (max-width: 760px) { #wave-hud { top: 100px; left: 6px; font-size: 11px; min-width: 128px; padding: 4px 8px 6px; } #wave-hud .wv-wave { font-size: 13px; } }
