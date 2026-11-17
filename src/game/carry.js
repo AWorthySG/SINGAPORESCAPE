@@ -32,8 +32,13 @@ import { compareGear, gearRating, weaponStyle } from './gear.js';
 //              Legendary and make mastery meaningless); quality is a record of
 //              which copies dropped, not an upgrade at all.
 // Upgrades belong to an item type (every copy shares them), so nothing moves
-// while the old type is still worn in another slot, such as a dual wielder's
-// other hand: its upgrades are still in use there.
+// while the old type's record is still in use in another slot, such as a dual
+// wielder's other hand. The one exception is a twin pair (the same weapon in
+// both hands): its off-hand copy has a record of its own (Equipment.offRefines),
+// so replacing that copy carries from the off-hand record, and a twin of the
+// main weapon going into the off-hand takes the carry into its off-hand record.
+// Replacing the main copy of a twin carries nothing, since the copy left in the
+// off-hand goes on reading the main record (see Equipment.copyIn).
 
 /** The most refine levels that move to a new piece. */
 export const CARRY_CAP = 10;
@@ -59,19 +64,22 @@ const linesWorth = (lines) => lines.reduce((s, l) => s + l.value / (ENCHANT_STEP
 export function planCarry(equipment, newId, slot) {
   const oldId = equipment.get(slot);
   if (!isBetterPiece(newId, oldId, equipment, slot)) return null;
-  if (EQUIP_SLOTS.some((s) => s !== slot && equipment.get(s) === oldId)) return null;   // still worn in the other hand
+  // Which record each side reads: the old piece as worn now, the new one once worn there.
+  const fromCopy = equipment.copyIn?.(slot) || 'main', toCopy = equipment.copyFor?.(newId, slot) || 'main';
+  // The main record stays in use while the type is worn in the other hand.
+  if (fromCopy === 'main' && EQUIP_SLOTS.some((s) => s !== slot && equipment.get(s) === oldId)) return null;
   let refine = null, enchants = null;
-  const from = equipment.refineLevel(oldId), own = equipment.refineLevel(newId);
+  const from = equipment.refineLevel(oldId, fromCopy), own = equipment.refineLevel(newId, toCopy);
   const carried = Math.min(from, CARRY_CAP);
   if (carried > own) refine = { carried, oldLeft: Math.min(MAX_REFINE, own + from - carried) };
-  const oldLines = equipment.enchantLines(oldId), newLines = equipment.enchantLines(newId);
+  const oldLines = equipment.enchantLines(oldId, fromCopy), newLines = equipment.enchantLines(newId, toCopy);
   const pool = new Set(enchantPool(newId));
   const fit = oldLines.filter((l) => pool.has(l.stat)), skipped = oldLines.filter((l) => !pool.has(l.stat));
   if (fit.length && (!newLines.length || linesWorth(fit) > linesWorth(newLines))) {
     enchants = { moved: fit.slice(0, MAX_ENCHANTS), skipped, oldLeft: [...skipped, ...newLines].slice(0, MAX_ENCHANTS) };
   }
   if (!refine && !enchants) return null;
-  return { from: oldId, to: newId, slot, refine, enchants };
+  return { from: oldId, to: newId, slot, fromCopy, toCopy, refine, enchants };
 }
 
 /** How `score(newId)` would come out once the upgrades a swap into `slot`
@@ -80,26 +88,31 @@ export function planCarry(equipment, newId, slot) {
 export function scoreAfterCarry(equipment, newId, slot, score) {
   const plan = planCarry(equipment, newId, slot);
   if (!plan) return score(newId);
-  const { refines, enchants } = equipment, keep = { r: { ...refines }, e: { ...enchants } };
-  const { from, to } = plan;
-  if (plan.refine) { refines[to] = plan.refine.carried; if (plan.refine.oldLeft) refines[from] = plan.refine.oldLeft; else delete refines[from]; }
-  if (plan.enchants) { enchants[to] = plan.enchants.moved; if (plan.enchants.oldLeft.length) enchants[from] = plan.enchants.oldLeft; else delete enchants[from]; }
-  try { return score(newId); } finally { equipment.refines = keep.r; equipment.enchants = keep.e; }
+  const keep = { r: { ...equipment.refines }, e: { ...equipment.enchants }, or: { ...equipment.offRefines }, oe: { ...equipment.offEnchants } };
+  applyCarry(equipment, plan, { quiet: true });
+  try { return score(newId); } finally {
+    equipment.refines = keep.r; equipment.enchants = keep.e;
+    if (equipment.offRefines) { equipment.offRefines = keep.or; equipment.offEnchants = keep.oe; }
+  }
 }
 
 /** Move the upgrades a plan describes. */
-export function applyCarry(equipment, plan) {
+export function applyCarry(equipment, plan, { quiet = false } = {}) {
   if (!plan) return;
   const { from, to, refine, enchants } = plan;
+  // Each side's own record (a twin pair's off-hand copy has one of its own).
+  const map = (kind, copy) => (equipment[`${kind}Map`] ? equipment[`${kind}Map`](copy) : equipment[`${kind}s`]);
   if (refine) {
-    equipment.refines[to] = refine.carried;
-    if (refine.oldLeft) equipment.refines[from] = refine.oldLeft; else delete equipment.refines[from];
+    const rt = map('refine', plan.toCopy), rf = map('refine', plan.fromCopy);
+    rt[to] = refine.carried;
+    if (refine.oldLeft) rf[from] = refine.oldLeft; else delete rf[from];
   }
   if (enchants) {
-    equipment.enchants[to] = enchants.moved.map((l) => ({ ...l }));
-    if (enchants.oldLeft.length) equipment.enchants[from] = enchants.oldLeft.map((l) => ({ ...l })); else delete equipment.enchants[from];
+    const et = map('enchant', plan.toCopy), ef = map('enchant', plan.fromCopy);
+    et[to] = enchants.moved.map((l) => ({ ...l }));
+    if (enchants.oldLeft.length) ef[from] = enchants.oldLeft.map((l) => ({ ...l })); else delete ef[from];
   }
-  equipment._changed();
+  if (!quiet) equipment._changed();
 }
 
 /** "★8 refine and +6% crit chance enchant" (what moves, for the chat and the tooltip). */

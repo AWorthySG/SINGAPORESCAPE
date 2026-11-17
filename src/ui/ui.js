@@ -836,9 +836,10 @@ export class UI {
         const item = getItem(id);
         cell.className = 'equip-slot filled';
         cell.innerHTML = itemIconSVG(id, 32);
-        if (this.game.equipment.masteryRank(id) || this.game.equipment.refineLevel(id)) cell.insertAdjacentHTML('beforeend', this._gearBadge(id));
+        const copy = this.game.equipment.copyIn(slot);   // a twin pair's off-hand copy has its own ★ and lines
+        if (this.game.equipment.masteryRank(id) || this.game.equipment.refineLevel(id, copy)) cell.insertAdjacentHTML('beforeend', this._gearBadge(id, copy));
         cell.addEventListener('click', () => this.game.unequip(slot));
-        this._tip(cell, () => `<b>${item.name}</b>${this._gearTip(id)}<br><span style="opacity:.8">Tap to remove</span>`,
+        this._tip(cell, () => `<b>${item.name}</b>${this._gearTip(id, copy)}<br><span style="opacity:.8">Tap to remove</span>`,
           () => [{ label: 'Remove', target: item.name, fn: () => this.game.unequip(slot) }]);
       } else {
         cell.className = 'equip-slot empty';
@@ -883,15 +884,15 @@ export class UI {
     for (const slot of worn) {
       const id = this.game.equipment.get(slot);
       const eq = getItem(id).equip;
-      const rk = this.game.equipment.masteryRank(id);
+      const rk = this.game.equipment.masteryRank(id), copy = this.game.equipment.copyIn(slot), rl = this.game.equipment.refineLevel(id, copy);
       const fam = eq.family ? `<span class="eq-fam">${ARMOUR_FAMILIES[eq.family].name}</span>` : '';
       const row = document.createElement('details');
       row.className = 'eq-row';
       row.innerHTML = `<summary><span class="eq-ic">${itemIconSVG(id, 26)}</span>`
         + `<span class="eq-txt"><span class="eq-slot">${slot === 'shield' && this.game.equipment.isDualWielding() ? 'Off-hand' : capitalize(slot)}</span>`
-        + `<b class="eq-name">${escapeHtml(getItem(id).name)}${this.game.equipment.refineLevel(id) ? ` <span class="refine-tag">${refineTag(this.game.equipment.refineLevel(id))}</span>` : ''}</b>${rk ? `<span class="eq-mastery">${MASTERY_RANKS[rk].name} mastery</span>` : ''}${fam}`
-        + `<span class="eq-stats">${this._gearStats(id)}</span></span></summary>`
-        + `<div class="eq-detail">${this._gearTip(id)}</div>`;
+        + `<b class="eq-name">${escapeHtml(getItem(id).name)}${rl ? ` <span class="refine-tag">${refineTag(rl)}</span>` : ''}</b>${rk ? `<span class="eq-mastery">${MASTERY_RANKS[rk].name} mastery</span>` : ''}${fam}`
+        + `<span class="eq-stats">${this._gearStats(id, false, copy)}</span></span></summary>`
+        + `<div class="eq-detail">${this._gearTip(id, copy)}</div>`;
       const off = document.createElement('button');
       off.className = 'eq-remove'; off.type = 'button'; off.textContent = 'Remove';
       off.addEventListener('click', () => this.game.unequip(slot));
@@ -925,16 +926,16 @@ export class UI {
   }
 
   /** The little corner badge on a gear icon: its mastery rank and refine level ("M★7"). */
-  _gearBadge(id) {
-    const rk = this.game.equipment.masteryRank(id), rl = this.game.equipment.refineLevel(id);
+  _gearBadge(id, copy = 'main') {
+    const rk = this.game.equipment.masteryRank(id), rl = this.game.equipment.refineLevel(id, copy);
     const title = [rk ? `${MASTERY_RANKS[rk].name} mastery` : '', rl ? `Refined ${refineTag(rl)}` : ''].filter(Boolean).join(', ');
     return `<span class="up-badge" title="${title}">${rk ? MASTERY_RANKS[rk].abbr : ''}${rl ? `<span class="refine-star">${refineTag(rl)}</span>` : ''}</span>`;
   }
 
   /** Stat chips for one piece of gear, e.g. "+12 Defence · 1.2s". */
-  _gearStats(id, base = false) {
+  _gearStats(id, base = false, copy = 'main') {
     const eq = getItem(id).equip;
-    const b = base ? (eq.bonuses || {}) : this.game.equipment.itemBonuses(id);
+    const b = base ? (eq.bonuses || {}) : this.game.equipment.itemBonuses(id, copy);
     const chips = Object.keys(STAT_LABELS).filter((k) => b[k]).map((k) => `+${Math.round(b[k] * 10) / 10} ${STAT_LABELS[k]}`);
     if (eq.slot === 'weapon') chips.push(`${capitalize(weaponStyle(id))}, ${(swingBeats(id) * 0.3).toFixed(1)}s swing`);
     if (eq.range) chips.push(`${eq.range}-tile range`);
@@ -943,21 +944,23 @@ export class UI {
   }
 
   /** Tooltip block for equipment: stats, tier in its slot, requirements and
-   *  how it compares with what's worn. */
-  _gearTip(id) {
+   *  how it compares with what's worn. `copy` 'off': the worn off-hand copy of
+   *  a twin pair, which has its own refine and enchant lines. */
+  _gearTip(id, copy = 'main') {
     const eq = getItem(id).equip;
     const t = tierOf(id);
     const req = meetsReq(id, this.game.skills);
     const reqTxt = Object.entries(eq.req || {}).filter(([, l]) => l > 1).map(([k, l]) => `${capitalize(k)} ${l}`).join(', ');
-    const rk = this.game.equipment.masteryRank(id), lines = this.game.equipment.enchantLines(id);
+    const rk = this.game.equipment.masteryRank(id), lines = this.game.equipment.enchantLines(id, copy), rl = this.game.equipment.refineLevel(id, copy);
     // A boss's signature weapon: whose it is and which class it's made for.
     const sig = getItem(id).signature;
     let html = (sig ? `<div class="gt-sig">Signature weapon of ${escapeHtml(getNpc(sig.boss).name)} · for ${escapeHtml(CLASS_BY_ID[sig.classId].name)}</div>` : '')
       + (rk ? `<div class="gt-up">${MASTERY_RANKS[rk].name} mastery</div>` : '')
-      + (this.game.equipment.refineLevel(id) ? `<div class="gt-refine">Refined ${refineTag(this.game.equipment.refineLevel(id))}</div>` : '')
+      + (copy === 'off' ? '<div class="gt-up">Off-hand copy: its own refine and enchantments</div>' : '')
+      + (rl ? `<div class="gt-refine">Refined ${refineTag(rl)}</div>` : '')
       + (lines.length ? `<div class="gt-ench">Enchanted: ${lines.map(enchantLabel).join(' · ')}</div>` : '')
       + (() => { const q = this.game.equipment.quality[id]; return q ? `<div class="gt-qual">Quality copies: ${QUALITY_KEYS.map((k, i) => (q[i] ? `${q[i]} ${capitalize(k)}` : '')).filter(Boolean).join(', ')}</div>` : ''; })()
-      + `<div class="gt-stats">${this._gearStats(id)}</div>`
+      + `<div class="gt-stats">${this._gearStats(id, false, copy)}</div>`
       + `<div class="gt-tier">#${t.rank} of ${t.of} ${eq.slot === 'weapon' ? weaponStyle(id) + ' weapons' : eq.slot + ' items'}</div>`;
     if (reqTxt) html += `<div class="gt-req ${req.ok ? 'ok' : 'no'}">Needs ${reqTxt}${req.ok ? ' ✓' : ''}</div>`;
     if (isTwoHanded(id)) {
@@ -982,7 +985,7 @@ export class UI {
     const eqp = this.game.equipment;
     // A dual wielder's spare weapon is weighed against the off-hand too (each hand hits with its own weapon).
     const dualOff = eqp.isDualWielding() && canDualPair(id, eqp.get('weapon'));
-    if (dualOff && eqp.get('shield') === id && eqp.get('weapon') !== id) return html + '<div class="gt-verdict same">Currently worn (off-hand)</div>';
+    if (copy === 'off' || (dualOff && eqp.get('shield') === id && eqp.get('weapon') !== id)) return html + '<div class="gt-verdict same">Currently worn (off-hand)</div>';
     const cmp = compareGear(id, eqp);
     if (cmp.verdict === 'worn') return html + '<div class="gt-verdict same">Currently worn</div>';
     const offCmp = dualOff && eqp.get('shield') !== id ? compareGear(id, eqp, 'shield') : null;
@@ -1016,7 +1019,7 @@ export class UI {
         + `<b>Refining</b> (★1 to ★${MAX_REFINE}) adds a share of the base stats on top, paid for with <b>refine scrolls</b> only; the higher you go, the riskier it gets. `
         + `<b>Feed materials</b> from your life skills to add mastery too (bars for metal, logs for bows and staves, hides for leather, gems for jewellery, herbs for cloth), up to ${MASTERY_RANKS[FEED_CAP_RANK].name}. `
         + '<b>Sacrifice</b> spare gear of any class to a piece for mastery as well, or <b>dismantle</b> it for upgrade stones and refine scrolls. '
-        + 'Mastery, enchantments and refining belong to the item type, so every copy you own shares them. '
+        + 'Mastery, enchantments and refining belong to the item type, so every copy you own shares them; a weapon worn in both hands is the one exception, as its off-hand copy has its own refine and enchantments. '
         + `You have ${formatNumber(g.inventory.count(UP_STONE))} stones, ${g.inventory.count(UP_WARD)} wards and ${formatNumber(g.inventory.count(REFINE_SCROLL))} refine scrolls.</p></div>`;
       // Spare gear can be broken down for stones and scrolls (salvage.js).
       const dis = document.createElement('button');
@@ -1044,7 +1047,13 @@ export class UI {
           + `<div class="mastery-bar"><span style="width:${Math.round(p.frac * 100)}%"></span></div>`
           + `<div class="gear-stats">${p.next ? `${formatNumber(p.need)} more kill${p.need > 1 ? 's' : ''} to ${MASTERY_RANKS[p.next].name}` : 'Fully mastered'}</div>`
           + `<div class="gear-stats">${this._gearStats(id)}</div>`
-          + `<div class="ench-lines">Enchantments ${lines.length}/${MAX_ENCHANTS}: ${lines.length ? lines.map((l) => `<span class="ench-chip">${enchantLabel(l)}</span>`).join(' ') : 'none yet'}</div></div>`;
+          + `<div class="ench-lines">Enchantments ${lines.length}/${MAX_ENCHANTS}: ${lines.length ? lines.map((l) => `<span class="ench-chip">${enchantLabel(l)}</span>`).join(' ') : 'none yet'}</div>`
+          + (g.equipment.twinWorn(id) ? (() => {
+            // One in each hand: the off-hand copy has its own ★ and lines (Enchant and Refine ask which hand).
+            const ol = g.equipment.enchantLines(id, 'off'), orl = g.equipment.refineLevel(id, 'off');
+            return `<div class="ench-lines off-copy">Off-hand copy: ${orl ? `<span class="gear-tag refine-tag">${refineTag(orl)}</span>` : 'not refined'} · ${ol.length}/${MAX_ENCHANTS}: ${ol.length ? ol.map((l) => `<span class="ench-chip">${enchantLabel(l)}</span>`).join(' ') : 'none yet'}</div>`;
+          })() : '')
+          + '</div>';
         const b = document.createElement('button');
         b.type = 'button';
         b.className = 'gear-tab ench-open' + (okS && okC ? ' active' : '');
@@ -1089,11 +1098,31 @@ export class UI {
     this.openModal('Gear Mastery', render);
   }
 
+  /** "Main hand | Off-hand" tabs for a weapon worn in both hands: each copy
+   *  of a twin pair is refined and enchanted on its own. Null otherwise. */
+  _handPicker(id, copy, pick) {
+    if (!this.game.equipment.twinWorn(id)) return null;
+    const box = document.createElement('div');
+    box.className = 'hand-pick';
+    box.insertAdjacentHTML('beforeend', '<span class="hand-pick-label">Which copy?</span>');
+    for (const [c, label] of [['main', 'Main hand'], ['off', 'Off-hand']]) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'gear-tab hand-tab' + (c === copy ? ' active' : '');
+      b.dataset.hand = c;
+      b.textContent = `${label} ${refineTag(this.game.equipment.refineLevel(id, c)) || '★0'}`;
+      b.addEventListener('click', () => pick(c));
+      box.appendChild(b);
+    }
+    return box;
+  }
+
   /** Enchant one item type: three lines on offer, pick one (the cost is paid
    *  then), reroll with a ward, or go back. A full item first asks which of its
-   *  lines to replace. */
-  openEnchant(id, replace = null) {
+   *  lines to replace. `copy` 'off': a twin pair's off-hand copy. */
+  openEnchant(id, replace = null, copy = 'main') {
     const g = this.game;
+    if (!g.equipment.twinWorn(id)) copy = 'main';
     const name = escapeHtml(getItem(id).name);
     const button = (html, fn, cls = '') => {
       const b = document.createElement('button');
@@ -1104,14 +1133,16 @@ export class UI {
       return b;
     };
     const render = (body) => {
-      const lines = g.equipment.enchantLines(id);
+      const lines = g.equipment.enchantLines(id, copy);
       const full = lines.length >= MAX_ENCHANTS;
-      const c = g.enchantCostFor(id);
-      const can = g.canAffordEnchant(id);
-      body.innerHTML = `<div class="gear-intro"><p>${name} has ${lines.length}/${MAX_ENCHANTS} enchantments${lines.length ? ': ' + lines.map(enchantLabel).join(', ') : ''}. `
+      const c = g.enchantCostFor(id, copy);
+      const can = g.canAffordEnchant(id, copy);
+      body.innerHTML = `<div class="gear-intro"><p>${copy === 'off' ? 'Your off-hand ' : ''}${name} has ${lines.length}/${MAX_ENCHANTS} enchantments${lines.length ? ': ' + lines.map(enchantLabel).join(', ') : ''}. `
         + `Enchanting costs <b>${c.stones} upgrade stones</b> and <b>${formatNumber(c.coins)} coins</b>, paid when you pick a line. `
         + `You have ${formatNumber(g.inventory.count(UP_STONE))} stones and ${formatNumber(g.inventory.count('coins'))} coins.`
         + (can ? '' : ' <span class="short">You can\'t afford it yet.</span>') + '</p></div>';
+      const hands = this._handPicker(id, copy, (c2) => { copy = c2; replace = null; render(body); });
+      if (hands) body.prepend(hands);
       const box = document.createElement('div');
       box.className = 'ench-choices';
       if (full && replace == null) {
@@ -1119,13 +1150,13 @@ export class UI {
         lines.forEach((l, i) => box.appendChild(button(`Replace ${enchantLabel(l)}`, () => { replace = i; render(body); })));
       } else {
         box.insertAdjacentHTML('beforeend', `<div class="ench-head">${full ? `Replacing ${enchantLabel(lines[replace])}. ` : ''}Choose one:</div>`);
-        g.enchantOffers(id).forEach((o, i) => {
-          const b = button(enchantLabel(o), () => { if (g.pickEnchant(id, i, replace)) this.openMastery(); else render(body); }, 'active ench-offer');
+        g.enchantOffers(id, copy).forEach((o, i) => {
+          const b = button(enchantLabel(o), () => { if (g.pickEnchant(id, i, replace, copy)) this.openMastery(); else render(body); }, 'active ench-offer');
           b.disabled = !can;
           box.appendChild(b);
         });
         const wards = g.inventory.count(UP_WARD);
-        if (wards > 0) box.appendChild(button(`Reroll (uses a ward, ${wards} left)`, () => { g.rerollEnchant(id); render(body); }));
+        if (wards > 0) box.appendChild(button(`Reroll (uses a ward, ${wards} left)`, () => { g.rerollEnchant(id, copy); render(body); }));
       }
       box.appendChild(button('Cancel', () => this.openMastery(), 'ench-cancel'));
       body.appendChild(box);
@@ -1134,19 +1165,21 @@ export class UI {
   }
 
   /** Refine one item type: its ★ level, what the next level adds, the odds,
-   *  the scrolls it takes against the scrolls you have, and a button to try. */
-  openRefine(id) {
+   *  the scrolls it takes against the scrolls you have, and a button to try.
+   *  `copy` 'off': a twin pair's off-hand copy, refined on its own. */
+  openRefine(id, copy = 'main') {
     const g = this.game;
+    if (!g.equipment.twinWorn(id)) copy = 'main';
     const name = escapeHtml(getItem(id).name);
     const pct = (x) => `${Math.round(x * 100)}%`;
     let last = null;   // the outcome of the attempt just made, shown at the top
     const render = (body) => {
-      const lv = g.equipment.refineLevel(id);
+      const lv = g.equipment.refineLevel(id, copy);
       const have = g.inventory.count(REFINE_SCROLL), wards = g.inventory.count(UP_WARD);
       const said = { success: 'Success! It shines brighter.', fail: 'The refine failed; the scrolls are used up.', downgrade: 'The refine failed and the item lost a level.',
         broken: 'The item shattered and is gone.', warded: 'It went badly, but your upgrade ward crumbled instead.' }[last];
       let html = `<div class="gear-intro"><p>${said ? `<b class="refine-out ${last}">${said}</b><br>` : ''}`
-        + `${name} is ${lv ? `refined <b>${refineTag(lv)}</b>` : 'not refined yet'}. Each ★ adds a share of <i>this item's own</i> base stats (stronger gear gains more) on top of mastery: 6% a level to ★9, 10% to ★12, 15% to ★${MAX_REFINE}. `
+        + `${copy === 'off' ? 'Your off-hand ' : ''}${name} is ${lv ? `refined <b>${refineTag(lv)}</b>` : 'not refined yet'}. Each ★ adds a share of <i>this item's own</i> base stats (stronger gear gains more) on top of mastery: 6% a level to ★9, 10% to ★12, 15% to ★${MAX_REFINE}. `
         + '★1–★5 always work; from ★6 an attempt can <b>fail</b> (scrolls lost); from ★10 it can <b>downgrade</b> the item a level; from ★13 it can <b>break</b> the item, destroying it. '
         + `An <b>upgrade ward</b> in your pack takes a downgrade or a break instead (you have ${wards}).</p></div>`;
       if (lv >= MAX_REFINE) {
@@ -1159,7 +1192,7 @@ export class UI {
         const add = (k) => Math.round(((gain[k] || 0) - (had[k] || 0)) * 10) / 10;
         const chips = Object.keys(STAT_LABELS).filter((k) => add(k) > 0).map((k) => `+${add(k)} ${STAT_LABELS[k]}`);
         html += `<div class="ench-head">Next: ${refineTag(next)}</div>`
-          + `<div class="gear-stats">Now: ${this._gearStats(id)}</div>`
+          + `<div class="gear-stats">Now: ${this._gearStats(id, false, copy)}</div>`
           + `<div class="gear-stats refine-gain">${refineTag(next)} adds ${chips.join(' · ') || 'nothing (no combat stats)'}</div>`
           + `<div class="gear-stats">${pct(o.success)} success` + (o.fail ? ` · ${pct(o.fail)} fail` : '')
           + (o.downgrade ? ` · <span class="short">${pct(o.downgrade)} downgrade</span>` : '')
@@ -1168,6 +1201,8 @@ export class UI {
           + `${o.downgrade || o.broken ? (wards ? 'A ward will take the blow if it goes badly.' : '<span class="short">No ward: a bad roll will cost you.</span>') : ''}</div>`;
       }
       body.innerHTML = html;
+      const hands = this._handPicker(id, copy, (c2) => { copy = c2; last = null; render(body); });
+      if (hands) body.prepend(hands);
       const box = document.createElement('div');
       box.className = 'ench-choices refine-box';
       if (lv < MAX_REFINE) {
@@ -1178,9 +1213,10 @@ export class UI {
         b.textContent = `Refine to ${refineTag(lv + 1)}`;
         b.disabled = have < c.scrolls;
         b.addEventListener('click', () => {
-          last = g.refineItem(id);
+          last = g.refineItem(id, Math.random(), copy);
           // A broken item may be gone for good: back to the list if no copy is left.
           if (last === 'broken' && !EQUIP_SLOTS.some((s) => g.equipment.get(s) === id) && !g.inventory.count(id)) { this.openMastery(); return; }
+          if (!g.equipment.twinWorn(id)) copy = 'main';   // a broken twin leaves one copy, on the main record
           render(body);
         });
         box.appendChild(b);
