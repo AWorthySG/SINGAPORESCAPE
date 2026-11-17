@@ -4089,7 +4089,7 @@ export class Game {
           this.msg(`You are ${DOT_KINDS[fx.kind]?.name || 'hurt'}!`, 'combat');
           break;
         }
-        case 'stun': this.playerStun = Math.max(this.playerStun, fx.ticks); break;
+        case 'stun': break;   // bosses never stun you (the owner asked for it gone), even from an old move list
         case 'root': this.playerRoot = Math.max(this.playerRoot, fx.ticks); p.path = []; this.msg('You are held in place!', 'combat'); break;
         case 'pull': this._movePlayerNear(npc.x, npc.y, 1); break;
         case 'knock': break;   // bosses no longer throw you back (the owner asked for it gone); the rest of the move still lands

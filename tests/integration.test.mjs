@@ -6479,6 +6479,22 @@ test('daggers poison and claws make foes bleed: stacks deal damage each second, 
   assert.ok(!mob.wounds, 'other weapons leave no wounds');
 });
 
+test('bosses never stun you: no signature move carries a stun, and an old stun effect does nothing', async () => {
+  const { BOSS_ABILITIES } = await import('../src/data/bossAbilities.js');
+  for (const [id, ab] of Object.entries(BOSS_ABILITIES)) {
+    assert.ok(!ab.fx.some((f) => f.t === 'stun'), `${id} has no stun`);
+    assert.ok(!/stun/i.test(ab.desc), `${id}'s description doesn't promise a stun`);
+  }
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  const boss = game.spawnNpc('sand_scorpion_king', game.player.x + 1, game.player.y, { wander: 0 });
+  game._runBossAbility(boss, { name: 'Test', fx: [{ t: 'stun', ticks: 3 }] });
+  assert.ok(!(game.playerStun > 0), 'not stunned');
+});
+
 test('bosses no longer knock you back; every weapon kind has its own attack sound', async () => {
   const { ALL_WEAPON_TYPES: WEAPON_TYPES } = await import('../src/data/items.js');
   const { Sfx } = await import('../src/audio/sfx.js');
