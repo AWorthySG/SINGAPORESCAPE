@@ -20,14 +20,27 @@ const rows = (() => {
     return {
       cls,
       kill: killDps(cls, LEVEL, weakToMelee, TICKS, { game }).dps,
+      // One target weak to each style in turn, so no style is favoured.
+      single: all.reduce((s, id) => s + dummyDps(cls, LEVEL, [id], [[1, 0]], TICKS, { game }), 0) / all.length,
       boss: dummyDps(cls, LEVEL, [weakToMelee], [[1, 0]], TICKS, { game, boss: true }),
       crowd: dummyDps(cls, LEVEL, all, CROWD, TICKS, { game }),
     };
   });
 })();
-const med = Object.fromEntries(['kill', 'boss', 'crowd'].map((m) => [m, median(rows.map((r) => r[m]))]));
+const med = Object.fromEntries(['kill', 'single', 'boss', 'crowd'].map((m) => [m, median(rows.map((r) => r[m]))]));
 const rel = (r, m) => r[m] / med[m];
 
+// The class rebalance brought every class's single-target damage to 85-115% of
+// the median at levels 50-300 (tools/balance/classes.mjs, 180 s fights on three
+// targets); these 60 s fights are noisier, hence the wider band.
+test('every class hits one target at 70-140% of the median class', () => {
+  for (const r of rows) {
+    assert.ok(rel(r, 'single') >= 0.7 && rel(r, 'single') <= 1.4, `${r.cls}: ${Math.round(rel(r, 'single') * 100)}% of the median single-target damage`);
+  }
+});
+
+// Kill speed stays looser: a Sniper's huge shots waste the overkill on a monster
+// with a level-matched life (fine on bosses and crowds, its strengths).
 test('every class kills a level-matched monster at 25-400% of the median class', () => {
   for (const r of rows) {
     assert.ok(rel(r, 'kill') >= 0.25 && rel(r, 'kill') <= 4, `${r.cls}: ${Math.round(rel(r, 'kill') * 100)}% of the median kill speed`);

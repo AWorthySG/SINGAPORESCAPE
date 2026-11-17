@@ -2138,7 +2138,7 @@ export class UI {
         + (() => {
           const skill = CLASS_SKILL[cls.style] || 'attack';
           const lvl = classId === this.game.jobClass ? this.game.skills.level(skill) : 0;
-          const skName = { attack: 'Melee', ranged: 'Ranged', magic: 'Magic', agility: 'Agility' }[skill];
+          const skName = { attack: 'Melee', ranged: 'Ranged', magic: 'Magic', agility: 'Agility', dance: 'Dance' }[skill];
           return `<div class="cp-head"><b>Class passives</b> · one every 100 ${skName} levels${lvl ? ` (you: ${lvl})` : ''}</div><div class="cp-list">`
             + classPassives(cls.id, lvl).map((p) => `<div class="cp-row${p.rank ? '' : ' locked'}"><span class="cp-ic">${p.rank ? '🏅' : '🔒'}</span><span><b>${escapeHtml(p.name)}${p.rank > 1 ? ` (Rank ${p.rank})` : ''}</b> ${escapeHtml(p.desc)} · <i>${skName} ${p.unlockAt}${p.rank ? '' : ' to unlock'}, ranks up every 300 levels after</i></span></div>`).join('')
             + '</div>';

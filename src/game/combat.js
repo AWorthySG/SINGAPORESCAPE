@@ -150,6 +150,27 @@ export function armourMult(armour, piercePct = 0, weak = false) {
 // as a flat bonus on top of everything else (shown in the Equipment panel).
 export const LEVEL_FLAT_DMG = 0.5;
 export const levelFlatDmg = (level) => Math.floor((level || 0) * LEVEL_FLAT_DMG);
+// The flat level damage is sized for a FLAT_DMG_BEATS swing and scaled by the
+// weapon's own swing time (before attack speed), so it adds the same damage per
+// second whatever the weapon. Added whole to every hit, a pistol firing several
+// shots a beat got it many times a second (63% of its hit at level 200) while a
+// halberd got it once every two beats (13%).
+export const FLAT_DMG_BEATS = 1;
+// Longbow arrows and sniper rounds hit this many times as hard as the max hit
+// below (applied in game.js). The flat level damage is divided back out of it,
+// or a rifle got its flat damage 5.5 times over.
+export const RANGED_TYPE_DMG = { longbow: 1.6, rifle: 5.5 };
+/** The flat level damage's scale for the weapon in hand (`castMult`: a spell's
+ *  share of the swing time; an element's own cast speed is left out, so Wind
+ *  really does deal twice the damage per second). 1 for a test stub with no weapon speed. */
+export function flatDmgScale(equip, castMult = 1) {
+  const ws = equip?.weaponSpeed?.(), h = equip?.hasteMult?.();
+  if (!(ws > 0) || !(h > 0)) return 1;
+  // Dual wielders land an off-hand blow at 60% with each swing.
+  return (ws / h) * castMult / FLAT_DMG_BEATS / (equip.isDualWielding?.() ? 1.6 : 1)
+    / (RANGED_TYPE_DMG[equip.weaponType?.()] || 1);
+}
+const scaledFlat = (level, equip, castMult) => Math.round(levelFlatDmg(level) * flatDmgScale(equip, castMult));
 
 // Weapon balance. Weapons attack at very different speeds (pistols and wands
 // ~16 times a second, greatswords twice, a rifle under once), and heavier hits
@@ -159,13 +180,14 @@ export const levelFlatDmg = (level) => Math.floor((level || 0) * LEVEL_FLAT_DMG)
 // Weapons that also hit a crowd (heavy cleavers, whips, spells, rifles) sit
 // about 10% lower to pay for it. Measured with best-in-slot gear at levels 200
 // and 1000 (see the class balance PR); applies to both hands and every skill.
-// Bows were raised (shortbow 0.81 -> 1.1, longbow 1.08 -> 1.4) when the Ranged 300
-// split shot was removed: on one target they now land at about 85-105% of a
-// longsword's damage per second, the rest of the gap paid for by their reach.
+// Retuned (class balance, Phase 3) once the flat level damage was scaled by swing
+// time (see flatDmgScale): every class's single-target damage now sits at 85-115%
+// of the median class at levels 50, 100, 200 and 300 (tools/balance/classes.mjs).
+// The Merchant's cane is low because its allies deal about two thirds of its damage.
 export const WEAPON_DMG_MULT = {
-  dagger: 0.98, sword: 1.85, scimitar: 0.53, mace: 2.02, longsword: 1.55, battleaxe: 1.52, warhammer: 2.05,
-  '2h_sword': 2.34, spear: 1.45, claws: 0.72, katana: 1.44, halberd: 2.34, cane: 1.82, shortbow: 1.1,
-  longbow: 1.4, pistol: 0.57, rifle: 1.06, shuriken: 0.75, staff: 0.61, wand: 0.64, whip: 1.39,
+  dagger: 0.65, sword: 2.2, scimitar: 0.37, mace: 2.62, longsword: 2.22, battleaxe: 1.72, warhammer: 2.88,
+  '2h_sword': 2.5, spear: 2.05, claws: 0.47, katana: 1.48, halberd: 3.02, cane: 0.71, shortbow: 0.54,
+  longbow: 1.25, pistol: 0.38, rifle: 1.0, shuriken: 1.3, staff: 0.32, wand: 0.31, whip: 2.0,
   // Secondary types (first estimates, pending the combat rescale), tuned against measured
   // damage (a headless run of each class's best weapon at tiers 10-250, not a formula)
   // so that each sits a little under its classes' main types and the main type stays
@@ -174,8 +196,10 @@ export const WEAPON_DMG_MULT = {
   // Kerambits are dual wielded (two strikes a swing), hence the low scale. Orbs cast
   // at a staff's pace (see items.js), so they scale just under a staff per cast; a
   // Sorcerer's quicker wands stay ahead of an orb below the dragon tier. The crossbow
-  // needs no ammo and pierces, so it stays just under the bows.
-  parang: 1.4, kerambit: 0.43, toya: 1.5, crossbow: 2.5, chakram: 1.35, orb: 0.6, fan: 1.0,
+  // needs no ammo and pierces, so it stays just under the bows. (Retuned with the
+  // main types: each now lands at about 80-105% of its class's main weapon, the
+  // chakram 60-105% as it serves three quite different classes.)
+  parang: 1.75, kerambit: 0.27, toya: 2.35, crossbow: 3.0, chakram: 1.3, orb: 0.3, fan: 1.45,
 };
 /** The target's number scale (see hpScaleFor in npcs.js): hits on a big monster are divided by it. */
 const numScale = (npc) => npc?.hpScale || 1;
@@ -234,7 +258,7 @@ export function playerAttackVsNpc(skills, equip, styleId, npc) {
   // Melee is one skill now (Strength mirrors it); the extra fifth keeps damage where
   // it was for a player who had trained Attack and Strength evenly.
   const mh = Math.round(maxHit(skills.strength + Math.floor(skills.attack * ATTACK_TO_STRENGTH), style.str, bonuses.strength) * MELEE_BONUS.dmg * weaponDmgMult(equip)) + 1
-    + levelFlatDmg(skills.attack || 0);   // the flat damage every Melee level adds
+    + scaledFlat(skills.attack || 0, equip);   // the flat damage every Melee level adds
   return { max: Math.max(1, Math.round(mh / numScale(npc))) };
 }
 
@@ -264,7 +288,7 @@ export function playerRangedVsNpc(skills, equip, styleId, npc, arrowStr) {
   const str = arrowStr + Math.floor((b.ranged || 0) / 2);
   return {
     max: Math.max(1, Math.round((Math.round(maxHit(skills.ranged, 0, str) * RANGED_BONUS.dmg * weaponDmgMult(equip)) + 1
-      + levelFlatDmg(skills.ranged)) / numScale(npc))),   // plus the flat damage every Ranged level adds
+      + scaledFlat(skills.ranged, equip)) / numScale(npc))),   // plus the flat damage every Ranged level adds
   };
 }
 
@@ -300,6 +324,12 @@ export function combatXpDance(styleId, damage) { return fightXp('dance', damage)
 
 // ----- Magic -----
 export const MAGIC_LEVEL_DIV = 80;
+// Spells reach their hit cap by about Magic 75, after which a mage's hit grew
+// only with Magic level x gear, while Melee and Ranged hits grow with level x
+// (gear + level bonus) up to LEVEL_BONUS_CAP: casters fell from ~120% of the
+// median class at level 100 to ~80% at 200. So from Magic 100 up to the bonus
+// cap, every 2 levels add a point to the spell's base as well.
+export const magicLevelBase = (magic) => Math.floor(Math.max(0, Math.min(LEVEL_BONUS_CAP, magic || 0) - 100) / 2);
 export function playerMagicVsNpc(skills, equip, spell, npc) {
   const gear = equip.bonuses();
   const b = withLevelBonus(gear, skills);
@@ -310,7 +340,7 @@ export function playerMagicVsNpc(skills, equip, spell, npc) {
     // Melee and Ranged levels multiply weapon power: +1.25% per level, so a
     // level 50 mage hits ~1.6x the spell's base and a level 99 mage ~2.2x.
     // The spell's base grows with Magic too (see spellBaseHit). (A dmgMult on an element would scale it.)
-    max: Math.max(1, Math.round(((spellBaseHit(spell, skills.magic) + (b.magicStr || 0)) * (1 + skills.magic / MAGIC_LEVEL_DIV)
-      * (ELEMENTS[spell.element]?.dmgMult || 1) * weaponDmgMult(equip) + levelFlatDmg(skills.magic)) / numScale(npc))),   // plus the flat damage every Magic level adds
+    max: Math.max(1, Math.round(((spellBaseHit(spell, skills.magic) + magicLevelBase(skills.magic) + (b.magicStr || 0)) * (1 + skills.magic / MAGIC_LEVEL_DIV)
+      * (ELEMENTS[spell.element]?.dmgMult || 1) * weaponDmgMult(equip) + scaledFlat(skills.magic, equip, 0.5)) / numScale(npc))),   // plus the flat damage every Magic level adds
   };
 }

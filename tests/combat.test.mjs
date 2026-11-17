@@ -220,3 +220,21 @@ test('Magic level multiplies spell damage, like Melee and Ranged levels do', asy
   assert.ok(lo < mid && mid < hi, 'higher Magic hits harder');
   assert.ok(hi >= spell.maxHit * 2, 'a level 99 mage more than doubles the spell\'s base');
 });
+
+test('flat level damage adds the same per second whatever the weapon speed', async () => {
+  const { flatDmgScale, levelFlatDmg } = await import('../src/game/combat.js');
+  // A stub with weapon speed (beats a swing) and no haste.
+  const eq = (ws, type = 'sword', dual = false) => ({ weaponSpeed: () => ws, hasteMult: () => 1, weaponType: () => type, isDualWielding: () => dual });
+  const perBeat = (ws, type, dual) => levelFlatDmg(200) * flatDmgScale(eq(ws, type, dual)) / ws * (dual ? 1.6 : 1);
+  assert.ok(Math.abs(perBeat(0.25) - perBeat(2)) < 1e-9, 'a quick weapon gets a small share per hit, a slow one a big one');
+  assert.ok(Math.abs(perBeat(0.5, 'dagger', true) - perBeat(2)) < 1e-9, 'dual wielders count both hands');
+  assert.equal(flatDmgScale({}), 1, 'a stub without speeds keeps the whole flat damage');
+});
+
+test('past Magic 100 a spell\'s base keeps growing, up to the level bonus cap', async () => {
+  const { magicLevelBase, LEVEL_BONUS_CAP } = await import('../src/game/combat.js');
+  assert.equal(magicLevelBase(80), 0);
+  assert.equal(magicLevelBase(100), 0);
+  assert.ok(magicLevelBase(150) > 0 && magicLevelBase(150) < magicLevelBase(LEVEL_BONUS_CAP));
+  assert.equal(magicLevelBase(LEVEL_BONUS_CAP + 500), magicLevelBase(LEVEL_BONUS_CAP), 'no growth past the cap');
+});

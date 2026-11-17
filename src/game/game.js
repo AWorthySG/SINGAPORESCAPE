@@ -1,6 +1,6 @@
 import { EventBus } from '../core/events.js';
 import { buildWorld, TERRAIN, zoneLevel } from '../data/world.js';
-import { compareGear, deltaText, gearRating, effectiveRating, offenceFirstScore, weaponStyle } from './gear.js';
+import { compareGear, deltaText, gearRating, effectiveRating, offenceFirstScore, weaponStyle, reqLevel } from './gear.js';
 import { RARITY, dropRarity, lootDelay, rollQuality, QUALITY, NORMAL_GEAR_SKIP } from './loot.js';
 import { dayKey, prevDayKey, makeBounties, streakMult } from './bounty.js';
 import { ATTRS, ATTR_NAMES, statPointsAt, attrForMode, DMG_PER_POINT, LIFE_PER_STR, CRIT_PER_INT, SPEED_PER_DEX, RESET_COST_PER_POINT } from './attributes.js';
@@ -30,7 +30,7 @@ import {
   playerAttackVsNpc, npcAttackVsPlayer, rollAttack, rollGuaranteed, rollHit, combatXp, magicXp, killXp, DAMAGE_XP_SHARE, KILL_XP_SHARE,
   playerRangedVsNpc, combatXpRanged, playerMagicVsNpc, RANGED_STYLES,
   weaknessOf, WEAKNESS_BONUS, armourOf, armourMult, critChance, hitChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE,
-  playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX,
+  playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX, RANGED_TYPE_DMG,
 } from './combat.js';
 import { ABILITY_BY_ID, abilitiesFor, ADREN_PER_HIT, ADREN_PER_HURT, CLASS_ADRENALINE, EXECUTE_BELOW } from '../data/abilities.js';
 import { classPassiveMods, CLASS_SKILL } from '../data/classPassives.js';
@@ -159,11 +159,11 @@ const DANCE_RICOCHET = 2;
 // Above this many attacks a beat (1/0.05 = 20), attacks are grouped into volleys.
 const VOLLEY_MIN_BEATS = 0.05;
 const RICOCHET_SHARE = 0.6;
-const LONGBOW_DMG = 1.6;
+const LONGBOW_DMG = RANGED_TYPE_DMG.longbow;
 // Thrown weapons that bounce on: extra foes and the share of the hit each takes.
 const RICOCHET = { shuriken: { hits: 1, share: 0.6 }, chakram: { hits: 2, share: 0.45 } };
 // Sniper rifles fire only every 1.5s, but each round hits this many times as hard.
-const RIFLE_DMG = 5.5;
+const RIFLE_DMG = RANGED_TYPE_DMG.rifle;
 // A sniper round carries on in a straight line through every
 // monster up to this many tiles past the target (each takes the full hit).
 // Bosses scale up to the player's combat level (see _scaleBoss), up to this
@@ -4968,7 +4968,7 @@ export class Game {
   _canEquipNow(id) {
     const it = getItem(id), eq = it.equip;
     if (!eq || it.tool) return false;
-    for (const [sk, lvl] of Object.entries(eq.req || {})) if (this.skills.level(sk) < lvl) return false;
+    for (const [sk, lvl] of Object.entries(eq.req || {})) if (reqLevel(id, sk, this.skills) < lvl) return false;   // a Dancer's gear: its pooled dance level
     const cls = this.jobClass && CLASS_BY_ID[this.jobClass];
     if (cls && eq.weaponType && !canWield(cls.id, eq.weaponType)) return false;
     return !cls || canWear(cls.id, id);
@@ -5054,7 +5054,7 @@ export class Game {
     const eq = item.equip;
     if (!eq) { this.msg(`You can't wield the ${item.name.toLowerCase()}.`); return; }
     for (const [sk, lvl] of Object.entries(eq.req || {})) {
-      if (this.skills.level(sk) < lvl) {
+      if (reqLevel(s.id, sk, this.skills) < lvl) {
         this.msg(`You need ${capitalize(sk)} level ${lvl} to wear this.`);
         return;
       }

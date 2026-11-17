@@ -12,7 +12,7 @@
 // its hit like the Merchant does, between a quarter of and its full 25% share of the Merchant's max hit.
 import { chebyshev, randInt } from '../core/utils.js';
 import { TICK_MS, COMBAT_BEAT_MS } from '../config.js';
-import { combatXpRanged, playerAttackVsNpc, playerRangedVsNpc, critChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE } from './combat.js';
+import { combatXpRanged, playerAttackVsNpc, playerRangedVsNpc, critChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE, WEAPON_DMG_MULT, weaponDmgMult } from './combat.js';
 import { CLEAVE_SHARE } from '../data/classes.js';
 import { getItem } from '../data/items.js';
 
@@ -41,8 +41,11 @@ const MERC_NAMES = ['Ah Seng the Sellsword', 'Siti Steelhand', 'Big Raju', 'Old 
 /** What one mercenary costs to hire: more as the Merchant grows. */
 export const hireCost = (game) => 80 + 15 * game.skills.squashedCombatLevel();   // tuned on the squashed level
 
-/** A mercenary's best hit: grows with the Merchant's level and gear Strength. */
-export const mercPower = (game) => Math.max(2, Math.round(2 + game.skills.squashedCombatLevel() * 0.4 + (game.equipment.bonuses().ranged || 0) * 0.15));
+/** A mercenary's best hit: grows with the Merchant's level and gear Strength.
+ *  Only a floor for a fresh Merchant: past the first levels a mercenary hits for
+ *  MERC_SHARE of the Merchant's own hit. (At three times this it outgrew that share
+ *  around level 50, where Merchants did half again the median class's damage.) */
+export const mercPower = (game) => Math.max(2, Math.round(2 + game.skills.squashedCombatLevel() * 0.12 + (game.equipment.bonuses().ranged || 0) * 0.045));
 
 export const activeMercs = (game) => game.npcs.filter((n) => n.ally && n.alive && !n.follower);
 export const activeFollowers = (game) => game.npcs.filter((n) => n.ally && n.alive && n.follower);
@@ -248,12 +251,27 @@ function allyCoin(game, m, target) {
 /** The Merchant's own max hit against a foe, in the style they fight in (coin
  *  throws are ranged now; a melee weapon in hand still counts as melee). */
 function merchantMax(game, def) {
+  // Gear's Physical damage bonus % counts for allies too: without it their share
+  // of the Merchant's damage shrank as its gear grew (about 130% of the median
+  // class at level 50, 85% at level 300).
+  // So do the Merchant's damage perks and class passives (and boss damage on a
+  // boss): they grow with level, and allies deal about two thirds of a Merchant's
+  // damage, so without them Merchants slipped from ~125% of the median class at
+  // level 50 to ~85% at level 300.
+  const gb = game.equipment.bonuses(), perk = game.perkMods?.(game.combatMode()) || {};
+  // The cane's own scale is set low to leave room for the allies (about two
+  // thirds of a Merchant's damage). A chakram, scaled for the Pistoler and Ninja,
+  // hits about twice as hard, so with full-strength allies too a Merchant did
+  // nearly twice the damage with one. So allies hit for the cane's scale, cut
+  // again by how much harder the weapon in hand hits (no change with a cane).
+  const k = WEAPON_DMG_MULT.cane / weaponDmgMult(game.equipment);
+  const pct = (1 + (gb.atkPct || 0) / 100) * (1 + (perk.dmg || 0) + (def?.boss ? (perk.boss || 0) + (gb.bossDmg || 0) / 100 : 0)) * k * k;
   if (game.combatMode() === 'ranged') {
     const w = game.equipment.get('weapon');
     const str = w ? Math.floor((getItem(w).equip?.bonuses?.ranged || 0) / 3) : 0;
-    return playerRangedVsNpc(game.skills, game.equipment, game.player.rangedStyle, def, str).max;
+    return Math.round(playerRangedVsNpc(game.skills, game.equipment, game.player.rangedStyle, def, str).max * pct);
   }
-  return playerAttackVsNpc(game.skills, game.equipment, game.player.style, def).max;
+  return Math.round(playerAttackVsNpc(game.skills, game.equipment, game.player.style, def).max * pct);
 }
 
 /** The Merchant's own crit chance (level, gear and perks), shared by their allies. */

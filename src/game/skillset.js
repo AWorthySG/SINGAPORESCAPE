@@ -18,7 +18,8 @@ export class Skills {
 
   // Melee is one skill: Strength mirrors Attack (shown as "Melee"), so every
   // Strength requirement, perk and formula reads the Melee level.
-  level(id) { const k = id === 'strength' ? 'attack' : id; return levelForXp(this.xp[k] ?? 0, maxLevelFor(k)); }
+  // 'dance' is the Dancer's pooled level (see danceLevel), e.g. for its class passives.
+  level(id) { if (id === 'dance') return this.danceLevel(); const k = id === 'strength' ? 'attack' : id; return levelForXp(this.xp[k] ?? 0, maxLevelFor(k)); }
 
   /** Life skills (everything outside the Combat group) earn more past 99, at the
    *  rate each level's cost grows, so a level past 99 takes about as long as

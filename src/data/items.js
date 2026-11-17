@@ -874,10 +874,13 @@ function armourFamily(id, eq) {
 // Each family's own offensive stat, on every helm, body and legs piece, growing
 // with the piece's level: plate pierces armour, scout leather sharpens crits,
 // hide quickens your shots, robes hurt bosses, and dancewear steals life.
+// (Class balance: hide's power step was halved, as five pieces gave archers
+// +60% damage on top of their haste at level 200; plate pierces a little more,
+// since monster armour ate most of it; scout leather gained a little speed.)
 const FAMILY_STAT = {
-  plate: (r) => ({ pierce: 1 + Math.floor(r / 30) }),
-  leather: (r) => ({ critDmg: 3 * (1 + Math.floor(r / 30)) }),
-  hide: (r) => ({ atkPct: 2 * (1 + Math.floor(r / 30)), haste: 1 + Math.floor(r / 40) }),   // archers' power and quick hands
+  plate: (r) => ({ pierce: 1 + Math.floor(r / 25) }),
+  leather: (r) => ({ critDmg: 3 * (1 + Math.floor(r / 30)), haste: Math.floor(r / 75) }),
+  hide: (r) => ({ atkPct: 1 + Math.floor(r / 40), haste: 1 + Math.floor(r / 60) }),   // archers' power and quick hands
   robes: (r) => ({ magPct: 2 * (1 + Math.floor(r / 30)) }),   // casters' Magic bonus %
   dancewear: (r) => ({ lifesteal: 1 + Math.floor(r / 60) }),
 };
