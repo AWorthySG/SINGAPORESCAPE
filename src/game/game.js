@@ -5150,9 +5150,11 @@ export class Game {
     const main = this.equipment.get('weapon');
     if (canDualWield(main)) {
       const off = this.equipment.get('shield');
-      let bi = -1, br = canDualPair(off, main) ? score(off) : -1;
+      // Each candidate as it would be worn there: a twin of the main weapon reads its off-hand copy's upgrades.
+      const offScore = (id) => offenceFirstScore(id, this.equipment, mode, this.equipment.copyFor(id, 'shield'));
+      let bi = -1, br = canDualPair(off, main) ? offScore(off) : -1;
       this.inventory.slots.forEach((s, i) => {
-        if (s && canDualPair(s.id, main) && this._canEquipNow(s.id) && score(s.id) > br) { bi = i; br = score(s.id); }
+        if (s && canDualPair(s.id, main) && this._canEquipNow(s.id) && offScore(s.id) > br) { bi = i; br = offScore(s.id); }
       });
       if (bi >= 0) { this.equipItem(bi, { offhand: true }); changed++; }
     }
@@ -5263,43 +5265,55 @@ export class Game {
   // random lines; the stones and coins are paid only when you pick one. The
   // offer is kept until you pick, so closing the window can't be used as a
   // free reroll: a reroll costs an upgrade ward.
+  // `copy` 'off' works on the off-hand copy of a twin pair (the same weapon in
+  // both hands, see Equipment.offRefines), which has its own lines, costs and offer.
 
   /** What the next enchant of this item costs ({ stones, coins }). */
-  enchantCostFor(id) { return enchantCost(id, this.equipment.enchantLines(id).length); }
+  enchantCostFor(id, copy = 'main') { return enchantCost(id, this.equipment.enchantLines(id, copy).length); }
 
-  canAffordEnchant(id) {
-    const c = this.enchantCostFor(id);
+  canAffordEnchant(id, copy = 'main') {
+    const c = this.enchantCostFor(id, copy);
     return this.inventory.count(UP_STONE) >= c.stones && this.inventory.count('coins') >= c.coins;
   }
 
+  /** The off-hand copy can only be worked on while the pair is worn. */
+  _offCopyOk(id, copy) {
+    if (copy !== 'off' || this.equipment.twinWorn(id)) return true;
+    this.msg(`Wield a ${getItem(id).name.toLowerCase()} in each hand to upgrade the off-hand one.`);
+    return false;
+  }
+
   /** The three lines on offer for this item (rolled the first time you look). */
-  enchantOffers(id) {
+  enchantOffers(id, copy = 'main') {
     if (!getItem(id).equip?.bonuses) return [];
     this._enchantOffers ||= {};
-    if (!this._enchantOffers[id]) this._enchantOffers[id] = rollEnchantOffers(id);
-    return this._enchantOffers[id];
+    const key = copy === 'off' ? `${id}#off` : id;
+    if (!this._enchantOffers[key]) this._enchantOffers[key] = rollEnchantOffers(id);
+    return this._enchantOffers[key];
   }
 
   /** Use up an upgrade ward to swap the offer for three new lines. */
-  rerollEnchant(id) {
+  rerollEnchant(id, copy = 'main') {
     if (this.inventory.count(UP_WARD) < 1) { this.msg('You need an upgrade ward to reroll the offer.'); return null; }
     this.inventory.remove(UP_WARD, 1);
     this._enchantOffers ||= {};
-    this._enchantOffers[id] = rollEnchantOffers(id);
+    const key = copy === 'off' ? `${id}#off` : id;
+    this._enchantOffers[key] = rollEnchantOffers(id);
     this.msg('Your upgrade ward crumbles, and three new enchantments shimmer into view.', 'system');
-    return this._enchantOffers[id];
+    return this._enchantOffers[key];
   }
 
   /** Take offer `pick` (0-2). When all three lines are full, `replace` (0-2)
    *  says which line it takes the place of. Returns the new line, or null. */
-  pickEnchant(id, pick, replace = null) {
-    const offers = this.enchantOffers(id);
+  pickEnchant(id, pick, replace = null, copy = 'main') {
+    if (!this._offCopyOk(id, copy)) return null;
+    const offers = this.enchantOffers(id, copy);
     const line = offers[pick];
     if (!line) return null;
-    const lines = this.equipment.enchantLines(id);
+    const lines = this.equipment.enchantLines(id, copy);
     const full = lines.length >= MAX_ENCHANTS;
     if (full && !(Number.isInteger(replace) && replace >= 0 && replace < lines.length)) { this.msg('Choose which enchantment to replace.'); return null; }
-    const c = this.enchantCostFor(id);
+    const c = this.enchantCostFor(id, copy);
     if (this.inventory.count(UP_STONE) < c.stones) { this.msg(`You need ${c.stones} upgrade stones to enchant this. Monsters drop them, bosses most of all.`); return null; }
     if (this.inventory.count('coins') < c.coins) { this.msg(`You need ${c.coins} coins to enchant this.`); return null; }
     this.inventory.remove(UP_STONE, c.stones);
@@ -5307,12 +5321,12 @@ export class Game {
     const next = lines.slice();
     const old = full ? next[replace] : null;
     if (full) next[replace] = { ...line }; else next.push({ ...line });
-    this.equipment.enchants[id] = next;
-    delete this._enchantOffers[id];
+    this.equipment.enchantMap(copy)[id] = next;
+    delete this._enchantOffers[copy === 'off' ? `${id}#off` : id];
     this.equipment._changed();
     this.spawnSparkle(this.player, '#A66CFF', 16);
     this.bus.emit('sfx', 'level');
-    const name = getItem(id).name;
+    const name = (copy === 'off' ? 'off-hand ' : '') + getItem(id).name;
     this.msg(old ? `Your ${name.toLowerCase()} trades ${enchantLabel(old)} for ${enchantLabel(line)}.`
       : `Your ${name.toLowerCase()} is enchanted: ${enchantLabel(line)}.`, 'level');
     return line;
@@ -5408,11 +5422,15 @@ export class Game {
    *  downgrade or (from ★13) the item breaking, destroyed for good. An
    *  upgrade ward in your pack takes a downgrade or a break instead. Returns
    *  the outcome ('success' | 'fail' | 'downgrade' | 'broken' | 'warded'), or
-   *  null when the attempt couldn't be made. `r` fixes the roll (for tests). */
-  refineItem(id, r = Math.random()) {
+   *  null when the attempt couldn't be made. `r` fixes the roll (for tests).
+   *  `copy` 'off' refines the off-hand copy of a twin pair on its own: it
+   *  pays its own scrolls and takes its own risks (see Equipment.offRefines). */
+  refineItem(id, r = Math.random(), copy = 'main') {
     if (!getItem(id).equip?.bonuses) return null;
-    const lv = this.equipment.refineLevel(id);
-    const name = (l) => `${getItem(id).name}${l ? ' ' + refineTag(l) : ''}`;
+    if (!this._offCopyOk(id, copy)) return null;
+    const refines = this.equipment.refineMap(copy);
+    const lv = this.equipment.refineLevel(id, copy);
+    const name = (l) => `${copy === 'off' ? 'off-hand ' : ''}${getItem(id).name}${l ? ' ' + refineTag(l) : ''}`;
     if (lv >= MAX_REFINE) { this.msg(`${name(lv)} is already fully refined.`); return null; }
     const next = lv + 1;
     const cost = refineCost(id, next);
@@ -5430,7 +5448,7 @@ export class Game {
       return 'warded';
     }
     if (out === 'success') {
-      this.equipment.refines[id] = next;
+      refines[id] = next;
       this.equipment._changed();
       this.spawnSparkle(this.player, '#9fd8ff', 16);
       this.bus.emit('sfx', 'level');
@@ -5440,15 +5458,32 @@ export class Game {
       this.bus.emit('sfx', 'hurt');
       this.msg(`The refine failed. Your ${name(lv)} is unharmed, but the scrolls are used up.`, 'system');
     } else if (out === 'downgrade') {
-      if (lv - 1 > 0) this.equipment.refines[id] = lv - 1; else delete this.equipment.refines[id];
+      if (lv - 1 > 0) refines[id] = lv - 1; else delete refines[id];
       this.equipment._changed();
       this.bus.emit('sfx', 'hurt');
       this.msg(`The refine failed and your gear lost a level: it is now ${name(lv - 1)}. (An upgrade ward would have saved it.)`, 'combat');
     } else {
       // Broken: one copy is destroyed (the worn one first) and the type's refine resets.
-      const slot = EQUIP_SLOTS.find((s) => this.equipment.get(s) === id);
-      if (slot) this.equipment.clearSlot(slot); else this.inventory.remove(id, 1);
-      delete this.equipment.refines[id];
+      const eqp = this.equipment;
+      if (eqp.twinWorn(id)) {
+        // One of a twin pair: the off-hand copy goes and its own refine resets.
+        // When the main copy breaks, the off-hand copy survives and moves to the
+        // main hand with its own upgrades: its refine and lines become the main
+        // record, and the broken copy's lines wait in the second copy's record
+        // (a break never takes enchant lines). Moved, so nothing is doubled.
+        eqp.clearSlot('shield');
+        if (copy === 'main') {
+          const lines = eqp.enchants[id];
+          if (eqp.offRefines[id]) eqp.refines[id] = eqp.offRefines[id]; else delete eqp.refines[id];
+          if (eqp.offEnchants[id]) eqp.enchants[id] = eqp.offEnchants[id]; else delete eqp.enchants[id];
+          if (lines) eqp.offEnchants[id] = lines; else delete eqp.offEnchants[id];
+        }
+        delete eqp.offRefines[id];
+      } else {
+        const slot = EQUIP_SLOTS.find((s) => eqp.get(s) === id);
+        if (slot) eqp.clearSlot(slot); else this.inventory.remove(id, 1);
+        delete eqp.refines[id];
+      }
       this.equipment._changed();
       this.bus.emit('sfx', 'hurt');
       this.addShake(4, 300);

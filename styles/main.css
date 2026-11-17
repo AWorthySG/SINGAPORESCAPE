@@ -1435,6 +1435,9 @@ button:focus-visible, .tab-btn:focus-visible, .chat-tab:focus-visible,
 .gear-styles { margin-top: -2px; }
 .gear-tab.small { font-size: 11px; padding: 3px 9px; border-width: 1.5px; }
 .gear-tab.small.active { background: var(--aw-accent); border-color: var(--aw-ink); }
+/* Main hand / off-hand choice when the same weapon is worn in both hands. */
+.hand-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 8px; }
+.hand-pick-label { font-size: 12px; font-weight: 800; color: var(--aw-text-sec); }
 
 /* ---------- Press-and-hold details card (touch) ---------- */
 #tooltip.touch-card { pointer-events: auto; max-width: min(300px, calc(100vw - 16px)); padding: 10px 12px; font-size: 13px; z-index: 90; }
