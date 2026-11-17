@@ -2286,11 +2286,11 @@ test('auto battle settings: eat level, target filter, and they are saved', () =>
     const t = game._autoPickTarget();
     assert.ok(!t || t.npcId === kinds[0] || t.target === p, 'only the chosen monster type is hunted');
   }
-  game.autoCfg = { eatAt: 0.6, target: 'chicken', abilities: false, bosses: false, champions: false, priority: false };
+  game.autoCfg = { eatAt: 0.6, target: 'chicken', abilities: false, bosses: false, champions: false, priority: false, dodge: false };
   saveGame(game);
   const g2 = new Game();
   g2.start();
-  assert.deepEqual(g2.autoCfg, { eatAt: 0.6, target: 'chicken', abilities: false, bosses: false, champions: false, priority: false });
+  assert.deepEqual(g2.autoCfg, { eatAt: 0.6, target: 'chicken', abilities: false, bosses: false, champions: false, priority: false, dodge: false });
 });
 
 test('daily bounties: three targets a day that pay out, with a streak', async () => {
@@ -7036,6 +7036,19 @@ test('auto battle steps out of a boss ground marker and keeps attacking (melee i
   assert.ok(p.hp >= me0, 'and the blast missed (a heal on hit may top you up)');
   g.toggleAutoBattle(false);
   assert.equal(g._dodging, false);
+  // "Boss attacks: Off" in the settings: auto battle stands its ground and leaves the marker to you.
+  g.autoCfg.dodge = false;
+  g.hazards.length = 0;
+  g.toggleAutoBattle(true);
+  g.attackNpc(boss);
+  for (let i = 0; i < 4; i++) g.update(300);
+  const here = g.playerTile();
+  g.hazards.push({ cx: here.x, cy: here.y, r: 1, npc: boss, kind: 'blast', sign: true, fireTick: g.tickCount + 3, start: performance.now(), dur: 1800 });
+  for (let i = 0; i < 2; i++) g.update(300);
+  assert.equal(g._dodging, false, 'no dodge with it switched off');
+  const still = g.playerTile();
+  assert.equal(still.x, here.x); assert.equal(still.y, here.y);
+  g.toggleAutoBattle(false);
 });
 
 test('life skills never fail: woodcutting, fishing, mining, hunting, cooking, smelting and pickpocketing always succeed', async () => {
