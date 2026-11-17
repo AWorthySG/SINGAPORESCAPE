@@ -4225,6 +4225,11 @@ export class Game {
       // walk to a far target (or a walk without run energy) never gives up early.
       if (inRange || dist < f.best) { f.chase = this.tickCount; f.best = Math.min(f.best, dist); }
       if (tgt.hp < f.hp) { f.hp = tgt.hp; f.since = this.tickCount; }
+      // Auto quest leads: on its hunt, drop a monster it doesn't want (unless
+      // it is attacking you); on any other step, only fight back.
+      if (this.autoQuest && tgt.target !== p && !this._questWants(tgt)) {
+        this._autoLast = null; this._autoFight = null; p.clearAction(); return;
+      }
       if (this.tickCount - f.since > 20 || this.tickCount - f.chase > 25) {
         this._autoSkip.set(tgt.entityId, this.tickCount + 60);
         this._autoLast = null; this._autoFight = null;
@@ -4260,6 +4265,15 @@ export class Game {
     //    when nothing in your level band can be reached: otherwise auto battle
     //    walks you to the nearest monsters of your level, fighting anything
     //    that attacks you on the way.
+    // Auto quest leads. On a step that isn't a fight (talking, gathering,
+    // crafting, walking somewhere) auto battle only answers monsters attacking
+    // you, and never wanders off to "monsters of your level" or to bosses.
+    if (this.autoQuest && !this._autoQuestFight) {
+      const att = this.nearbyNpcs().find((n) => n.alive && n.attackable && !n.ally && n.target === p
+        && chebyshev(p.x, p.y, n.x, n.y) <= Math.max(2, this.attackRange() + 1));
+      if (att) { this._autoLast = att; this.attackNpc(att); }
+      return;
+    }
     let target = this._autoPickTarget();
     // On a trip to a boss: only stop for the boss, a champion or something
     // attacking you, not every monster along the way.
@@ -4277,7 +4291,10 @@ export class Game {
     if ((!target || weakPick) && this.tickCount >= (this._autoHeadNext || 0)) {
       // A quest or Slayer hunt goes after its own monsters, wherever they are;
       // "monsters of your level" would be ones the hunt won't let you fight.
-      if (this._questFamily || this._questTarget ? this._autoHeadToQuestHunt() : this._autoHeadToLevel()) return;
+      // (On auto quest's other fight steps, the nearest monster of any kind;
+      // its boss trips find their own way.)
+      if (this._questFamily || this._questTarget || (this.autoQuest && !this._questBoss) ? this._autoHeadToQuestHunt()
+        : !this.autoQuest && this._autoHeadToLevel()) return;   // (auto quest's boss trips find their own way)
       this._autoHeadNext = this.tickCount + 10;   // no route found: look again in a few seconds, not every tick
     }
     if (target) { this._autoLast = target; this._autoIdleSaid = false; this.attackNpc(target); }
@@ -4421,6 +4438,14 @@ export class Game {
   /** Walk towards the nearest monster in your level band (up to 20 levels
    *  above you), outside the Wilderness unless you are in it. True if a route
    *  was found and the walk has started. */
+  /** Is this monster one auto quest's current fight step wants? */
+  _questWants(n) {
+    if (this._questTarget) return n.npcId === this._questTarget;
+    if (this._questFamily) return n.def.family === this._questFamily;
+    if (this._questBoss) return !!n.def.boss;
+    return !!this._autoQuestFight;   // "defeat any creatures": anything will do
+  }
+
   /** On a quest or Slayer hunt with none of its monsters within reach: go to
    *  the nearest one anywhere on the map (by MRT when that's quicker). */
   _autoHeadToQuestHunt() {
@@ -5765,7 +5790,8 @@ export class Game {
       this._autoQuestFight = false;
       this._questTarget = null;
       this._questFamily = null;
-      if (this.autoBattle) this.toggleAutoBattle(false);
+      this._questBoss = false;
+      if (this.autoBattle && !this._autoQuestKeepBattle) this.toggleAutoBattle(false);   // you had it on yourself: leave it on
     }
     if (!this.autoQuest) this._questFamily = null;   // auto battle goes back to fighting anything
     this.msg(this.autoQuest
@@ -5807,9 +5833,22 @@ export class Game {
       this._autoQuestFight = false;
       this._questTarget = null;
       this._questFamily = null;
-      if (this.autoBattle) this.toggleAutoBattle(false);
+      this._questBoss = false;
+      if (this.autoBattle && !this._autoQuestKeepBattle) this.toggleAutoBattle(false);
     }
-    if (fighting && this.autoBattle) return;          // auto battle is on the job
+    if (fighting && this.autoBattle) {
+      // Auto battle was already on: point it at the quest's monsters (it would
+      // otherwise go on fighting whatever it liked), and leave it on afterwards.
+      if (!this._autoQuestFight) {
+        this._pathBudget = 150000;
+        let ok;
+        try { ok = this.questTravel(id); } finally { this._pathBudget = 0; }
+        if (!ok) { this.toggleAutoQuest(false, `there's nothing I can fight for "${g.text}" right now.`); return; }
+        this._autoQuestFight = true;
+        this._autoQuestKeepBattle = true;
+      }
+      return;                                         // auto battle is on the job
+    }
     // Fishing spots never run dry, so a catch would go on for ever once the
     // lesson has enough: stop gathering as soon as the step wants something else.
     const a = p.action;
@@ -5878,6 +5917,7 @@ export class Game {
       } else if (fighting) {
         if (!this.questTravel(id)) { this.toggleAutoQuest(false, `there's nothing I can fight for "${g.text}" right now.`); return; }
         this._autoQuestFight = true;
+        this._autoQuestKeepBattle = false;   // auto quest switched auto battle on, so it switches it off again
       }
     } finally { this._pathBudget = 0; }
   }
