@@ -363,7 +363,7 @@ export function sacrificeAll(game, targetId, filters = {}) {
 // The Offering Shrine (shrine.js) takes spare gear as well as materials: any
 // class, any slot, from your pack (never what you wear), plainest copies first.
 // A piece's shrine points are its worth, scaled by your combat level:
-//   points = worth x (1 + (combat level / 33)^2), at least 1
+//   points = worth x (1 + (combat level / 36)^2), at least 1
 // Why your level and not the piece's: material values climb steeply with
 // level (a magic log is 20 points, a moonwood log 280, an eternal ore 1,600),
 // but the gear that drops stays mostly low (median level 5, 20 and 30 at
@@ -371,7 +371,7 @@ export function sacrificeAll(game, targetId, filters = {}) {
 // late on. Gear drops with kills, so scaling by the level you fight at keeps an
 // hour of drops in step with an hour of gathering at every stage.
 // MEASURED
-export const SHRINE_GEAR_LEVEL = 33;
+export const SHRINE_GEAR_LEVEL = 36;
 
 /** How much your combat level scales gear offered at the shrine. */
 export function shrineLevelFactor(level) {
