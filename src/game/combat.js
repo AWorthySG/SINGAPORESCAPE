@@ -183,9 +183,9 @@ const scaledFlat = (level, equip, castMult) => Math.round(levelFlatDmg(level) * 
 // split shot was removed: on one target they now land at about 85-105% of a
 // longsword's damage per second, the rest of the gap paid for by their reach.
 export const WEAPON_DMG_MULT = {
-  dagger: 0.65, sword: 2.1, scimitar: 0.37, mace: 2.62, longsword: 2.14, battleaxe: 1.72, warhammer: 2.88,
-  '2h_sword': 2.5, spear: 2.05, claws: 0.47, katana: 1.48, halberd: 3.02, cane: 0.73, shortbow: 0.54,
-  longbow: 1.25, pistol: 0.38, rifle: 0.93, shuriken: 1.3, staff: 0.36, wand: 0.35, whip: 2.0,
+  dagger: 0.65, sword: 2.2, scimitar: 0.37, mace: 2.62, longsword: 2.22, battleaxe: 1.72, warhammer: 2.88,
+  '2h_sword': 2.5, spear: 2.05, claws: 0.47, katana: 1.48, halberd: 3.02, cane: 0.71, shortbow: 0.54,
+  longbow: 1.25, pistol: 0.38, rifle: 1.0, shuriken: 1.3, staff: 0.36, wand: 0.35, whip: 2.0,
   // Secondary types (first estimates, pending the combat rescale), tuned against measured
   // damage (a headless run of each class's best weapon at tiers 10-250, not a formula)
   // so that each sits a little under its classes' main types and the main type stays
