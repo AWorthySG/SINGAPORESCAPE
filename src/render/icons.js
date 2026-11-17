@@ -814,7 +814,20 @@ import { ITEMS } from '../data/items.js';
   ITEM_ART.add('upgrade_stone'); ITEM_ART.add('upgrade_ward');
   for (const t of ['bronze', 'iron', 'steel', 'mithril', 'adamant', 'rune', 'dragon', 'obsidian', 'orichalcum', 'jade', 'starmetal', 'celestial', 'eternal']) {
     for (const w of ['pistol', 'shuriken', 'cane', 'scout_hood', 'scout_jerkin', 'scout_breeches']) ITEM_ART.add(`${t}_${w}`);
+    // Art batch 1: the secondary weapon types, quivers and the scout, hide and mage gloves and boots.
+    for (const w of ['parang', 'kerambit', 'toya', 'crossbow', 'chakram', 'orb', 'fan', 'rifle', 'quiver',
+      'scout_gloves', 'scout_boots', 'hide_vambraces', 'hide_boots', 'mage_gloves', 'mage_boots']) ITEM_ART.add(`${t}_${w}`);
   }
+  // Art batch 1: endgame ores, bars, logs and ashes, the bone kinds, the refine
+  // scroll, prayer trinkets and capes, and every boss signature weapon.
+  for (const id of ['obsidian_shard', 'orichalcum_ore', 'raw_jade', 'starmetal_ore', 'celestial_crystal', 'eternal_ore',
+    ...['obsidian', 'orichalcum', 'jade', 'starmetal', 'celestial', 'eternal'].map((m) => `${m}_bar`),
+    'seraya_logs', 'meranti_logs', 'chengal_logs', 'starwood_logs', 'moonwood_logs', 'eternal_heartwood',
+    'fine_ash', 'ember_ash', 'star_ash', 'ghost_ash', 'eternal_ash',
+    'big_bones', 'heavy_bones', 'ancient_bones', 'spirit_bones', 'champion_bones', 'titan_bones', 'dragon_bones', 'fiend_bones', 'legend_bones',
+    'refine_scroll', 'pearl_ring', 'pearl_amulet', 'holy_beads', 'ring_of_devotion', 'pilgrim_cape', 'temple_pendant', 'ring_of_serenity',
+    'lantern_cape', 'starlit_pendant']) ITEM_ART.add(id);
+  for (const [id, it] of Object.entries(ITEMS)) if (it.signature) ITEM_ART.add(id);
   export const itemArtSrc = (id) => (ITEM_ART.has(id) ? `assets/icons/item-${id}.webp` : borrowedArt(id) ? `assets/icons/item-${borrowedArt(id).file}.webp` : null);
   const artImg = (file, size, cls, filter) => `<img class="${cls || ''}" width="${size}" height="${size}" src="assets/icons/${file}.webp" alt="" style="display:block;object-fit:contain${filter ? `;filter:${filter}` : ''}" />`;
   // Metal-tier items without stickers of their own can borrow another sticker,
@@ -823,44 +836,18 @@ import { ITEMS } from '../data/items.js';
   const BORROW = {};
   const BORROW_ID = {};   // single items borrowing a sticker
   const BORROW_TINT = {};   // optional per-item tint for a BORROW_ID sticker
-  // Family boots and gloves borrow the metal boots / gauntlets, the archer's
-  // vambraces and the Dancer's slippers / bangles until their own art arrives.
-  for (const t of ['bronze', 'iron', 'steel', 'mithril', 'adamant', 'rune', 'dragon', 'obsidian', 'orichalcum', 'jade', 'starmetal', 'celestial', 'eternal']) {
-    Object.assign(BORROW_ID, {
-      [`${t}_scout_boots`]: `${t}_boots`, [`${t}_scout_gloves`]: `${t}_gauntlets`,
-      [`${t}_hide_boots`]: `${t}_boots`, [`${t}_hide_vambraces`]: 'dragonhide_vambraces',
-      [`${t}_mage_boots`]: 'silk_slippers', [`${t}_mage_gloves`]: 'silk_bangles',
-      [`${t}_rifle`]: `${t}_pistol`,   // sniper rifles borrow the pistol sticker until their own art arrives
-      // Secondary weapon types and quivers borrow their nearest kin's sticker until their own art arrives.
-      [`${t}_parang`]: `${t}_scimitar`, [`${t}_kerambit`]: `${t}_dagger`, [`${t}_toya`]: `${t}_spear`, [`${t}_crossbow`]: `${t}_pistol`, [`${t}_chakram`]: `${t}_shuriken`, [`${t}_orb`]: 'glass_orb',
-      [`${t}_fan`]: ['dragon', 'obsidian', 'orichalcum', 'jade', 'starmetal', 'celestial', 'eternal'].includes(t) ? 'golden_sash' : 'silk_sash',
-      [`${t}_quiver`]: ({ obsidian: 'dragon_arrow', orichalcum: 'jade_arrow', celestial: 'starmetal_arrow' })[t] || `${t}_arrow`,
-    });
-  }
-  // Endgame ores and bars (Mining and Smithing 100-300) borrow the silver ore,
-  // diamond, emerald and steel bar stickers, tinted to their metal, until their own art arrives.
-  for (const [m, ore, from] of [['obsidian', 'obsidian_shard', 'silver_ore'], ['orichalcum', 'orichalcum_ore', 'silver_ore'], ['jade', 'raw_jade', 'emerald'],
-    ['starmetal', 'starmetal_ore', 'silver_ore'], ['celestial', 'celestial_crystal', 'diamond'], ['eternal', 'eternal_ore', 'silver_ore']]) {
+  // Endgame ores, bars, logs and ashes have painted stickers (ITEM_ART); these
+  // vectors stay as their fallback.
+  for (const [m, ore] of [['obsidian', 'obsidian_shard'], ['orichalcum', 'orichalcum_ore'], ['jade', 'raw_jade'],
+    ['starmetal', 'starmetal_ore'], ['celestial', 'celestial_crystal'], ['eternal', 'eternal_ore']]) {
     const [c, hi] = METAL_PAL[m];
-    BORROW_ID[ore] = from; BORROW_TINT[ore] = metalTint(m); I[ore] = oreIcon(hi);
-    BORROW_ID[`${m}_bar`] = 'steel_bar'; BORROW_TINT[`${m}_bar`] = metalTint(m); I[`${m}_bar`] = barIcon(c, hi);
+    I[ore] = oreIcon(hi); I[`${m}_bar`] = barIcon(c, hi);
   }
-  // Endgame logs (Woodcutting 100-300) borrow an older log sticker, tinted like
-  // their tree (objects.js), and their ashes borrow the coal sticker, lightened
-  // to ash grey and tinted, until their own art arrives.
-  for (const [id, from, tint, c, hi] of [
-    ['seraya_logs', 'mahogany_logs', 'hue-rotate(-20deg) saturate(1.15) brightness(1.05)', '#b88a5a', '#dcb488'],
-    ['meranti_logs', 'teak_logs', 'hue-rotate(25deg) saturate(1.2) brightness(0.92)', '#9a4a32', '#c06a4a'],
-    ['chengal_logs', 'yew_logs', 'sepia(0.35) saturate(1.3) hue-rotate(-10deg)', '#7a5a2a', '#a07a40'],
-    ['starwood_logs', 'magic_logs', 'hue-rotate(20deg) saturate(1.2) brightness(1.08)', '#4a5ac8', '#9aaaf0'],
-    ['moonwood_logs', 'magic_logs', 'saturate(0.4) brightness(1.2)', '#a8b0c8', '#e0e6f4'],
-    ['eternal_heartwood', 'tembusu_logs', 'sepia(0.7) saturate(1.8) hue-rotate(-12deg) brightness(1.05)', '#c8962a', '#f5c84a'],
-  ]) { BORROW_ID[id] = from; BORROW_TINT[id] = tint; I[id] = logIcon(c, hi); }
-  for (const [id, tint, fleck] of [
-    ['fine_ash', 'grayscale(1) brightness(2.4)', '#c8c8c8'], ['ember_ash', 'grayscale(1) brightness(2) sepia(0.8) saturate(3) hue-rotate(-20deg)', '#ff8a3a'],
-    ['star_ash', 'grayscale(1) brightness(2.2) sepia(0.5) saturate(2) hue-rotate(180deg)', '#9aaaf0'], ['ghost_ash', 'grayscale(1) brightness(2.8)', '#eef2fa'],
-    ['eternal_ash', 'grayscale(1) brightness(2.2) sepia(0.9) saturate(2.5)', '#f5c84a'],
-  ]) { BORROW_ID[id] = 'coal'; BORROW_TINT[id] = tint; I[id] = oreIcon(fleck); }
+  for (const [id, c, hi] of [
+    ['seraya_logs', '#b88a5a', '#dcb488'], ['meranti_logs', '#9a4a32', '#c06a4a'], ['chengal_logs', '#7a5a2a', '#a07a40'],
+    ['starwood_logs', '#4a5ac8', '#9aaaf0'], ['moonwood_logs', '#a8b0c8', '#e0e6f4'], ['eternal_heartwood', '#c8962a', '#f5c84a'],
+  ]) I[id] = logIcon(c, hi);
+  for (const [id, fleck] of [['fine_ash', '#c8c8c8'], ['ember_ash', '#ff8a3a'], ['star_ash', '#9aaaf0'], ['ghost_ash', '#eef2fa'], ['eternal_ash', '#f5c84a']]) I[id] = oreIcon(fleck);
   // Endgame fish (Fishing 100-300) borrow an older fish sticker, and their
   // dishes a cooked fish or bowl, tinted to suit, until their own art arrives.
   for (const [raw, rawFrom, dish, dishFrom, tint, c, hi, dishTint] of [
@@ -882,18 +869,6 @@ import { ITEMS } from '../data/items.js';
     const [c, hi] = METAL_PAL[m];
     BORROW_ID[id] = from; BORROW_TINT[id] = metalTint(m); I[id] = id.endsWith('_ring') ? ringIcon(c, hi) : I.amulet_of_power;
   }
-  // The refine scroll borrows the upgrade ward's scroll sticker, tinted blue, until its own art arrives.
-  BORROW_ID.refine_scroll = 'upgrade_ward'; BORROW_TINT.refine_scroll = 'hue-rotate(180deg) saturate(1.3)';
-  Object.assign(BORROW_ID, { holy_beads: 'amulet_of_power', temple_pendant: 'emerald_amulet', starlit_pendant: 'diamond_amulet', pearl_amulet: 'sapphire_amulet', pearl_ring: 'sapphire_ring',
-    ring_of_devotion: 'gold_ring', ring_of_serenity: 'emerald_ring', pilgrim_cape: 'trades_cape', lantern_cape: 'revenant_cape' });
-  // New bone kinds borrow the bones sticker, each tinted its own colour, until their art arrives.
-  for (const [id, tint] of Object.entries({
-    big_bones: 'sepia(.3) saturate(1.2) brightness(.97)', heavy_bones: 'sepia(.6) brightness(.85)',
-    ancient_bones: 'sepia(.9) hue-rotate(-15deg) brightness(.75)', spirit_bones: 'sepia(.8) hue-rotate(150deg) saturate(1.6) brightness(1.08)',
-    champion_bones: 'sepia(1) saturate(3) brightness(1.05)', titan_bones: 'sepia(.6) hue-rotate(230deg) saturate(1.5)',
-    dragon_bones: 'sepia(1) hue-rotate(-40deg) saturate(3)', fiend_bones: 'sepia(1) hue-rotate(250deg) saturate(2) brightness(.7)',
-    legend_bones: 'sepia(.7) hue-rotate(-50deg) saturate(2.2) brightness(1.2)',
-  })) { BORROW_ID[id] = 'bones'; BORROW_TINT[id] = tint; }
   // Endgame Hunter catches, crops, seeds and brews (Hunter, Farming and
   // Herblore 100-300) borrow an older sticker, tinted, until their own art
   // arrives. (Crops, seeds and brews already have vector fallbacks from the
@@ -922,15 +897,8 @@ import { ITEMS } from '../data/items.js';
   I.tiger_whisker = I.feather; I.garuda_plume = I.feather; I.phoenix_ember = I.hornbill_casque;
   // The casino chip (Thieving 100) borrows the coins sticker, tinted red.
   BORROW_ID.casino_chip = 'coins'; BORROW_TINT.casino_chip = 'hue-rotate(-40deg) saturate(1.8)'; I.casino_chip = I.coins;
-  // Boss signature weapons borrow their base weapon's sticker, gilded and tinted
-  // a hue of their own, so they stand out from the plain weapon they're built on.
-  for (const [id, it] of Object.entries(ITEMS)) {
-    if (!it.signature) continue;
-    const base = it.signature.base;
-    BORROW_ID[id] = ITEM_ART.has(base) ? base : BORROW_ID[base] || base;
-    BORROW_TINT[id] = `sepia(.35) saturate(1.8) hue-rotate(${it.signature.hue}deg) brightness(1.06) drop-shadow(0 0 1.5px #F5B82E)`;
-    if (!I[id]) I[id] = I[base];
-  }
+  // Boss signature weapons have painted stickers (ITEM_ART); their base weapon's vector is the fallback.
+  for (const [id, it] of Object.entries(ITEMS)) if (it.signature && !I[id]) I[id] = I[it.signature.base];
   function hueOf(hex) {
     const n = parseInt(hex.slice(1), 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
     const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
@@ -944,11 +912,7 @@ import { ITEMS } from '../data/items.js';
     return s < 0.15 ? 'grayscale(.7) brightness(1.05)' : `sepia(.75) hue-rotate(${Math.round(h - 38)}deg) saturate(${(1 + s).toFixed(2)})`;
   }
   function borrowedArt(id) {
-    if (BORROW_ID[id]) {
-      // Orbs and war fans borrow one sticker for many tiers, so tint it to the metal.
-      const mt = /^([a-z]+)_(orb|fan)$/.exec(id);
-      return { file: BORROW_ID[id], tint: BORROW_TINT[id] || (mt && METAL_PAL[mt[1]] ? metalTint(mt[1]) : 'sepia(.4) saturate(1.3)') };
-    }
+    if (BORROW_ID[id]) return { file: BORROW_ID[id], tint: BORROW_TINT[id] || 'sepia(.4) saturate(1.3)' };
     const m = /^([a-z]+)_(scout_[a-z]+)$/.exec(id);
     if (!m || !BORROW[m[2]] || !METAL_PAL[m[1]]) return null;
     return { file: BORROW[m[2]], tint: metalTint(m[1]) };

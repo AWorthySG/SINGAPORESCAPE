@@ -253,13 +253,11 @@ test('fletched endgame gear comes out plain (no quality roll, no mastery head st
   assert.ok(!said.some((m) => /^(Fine|Superior|Epic|Legendary|Mythic) /.test(m)), 'no quality message');
 });
 
-test('endgame logs and ashes borrow tinted sticker art until their own arrives', () => {
+test('endgame logs, ashes and trees have their own art', async () => {
+  const { worldArt } = await import('../src/render/sprites.js');
   for (const t of TIERS) {
-    for (const id of [t.log, t.ash]) {
-      const html = itemIconSVG(id, 24);
-      assert.ok(html.includes('assets/icons/item-') && html.includes('filter:'), `${id} borrows tinted art`);
-    }
-    assert.ok(OBJECTS[OBJECTS[t.tree].borrow] && OBJECTS[t.tree].tint, `${t.tree} borrows a tinted tree picture`);
+    for (const id of [t.log, t.ash]) assert.ok(itemIconSVG(id, 24).includes(`assets/icons/item-${id}.webp`), `${id} has its own art`);
+    assert.ok(worldArt().has(`tree-${t.tree}`) && worldArt().has(`stump-${t.tree}`) && !OBJECTS[t.tree].borrow, `${t.tree} has its own tree and stump`);
   }
 });
 
