@@ -140,9 +140,11 @@ test('balance: an hour of drops: gear is worth thousands of points early and gro
   // tools/balance/shrine.mjs compares these with an hour of gathering: gear
   // about half to all of a woodcutting hour, other loot a small top-up.
   const rows = [50, 150, 250].map((L) => gearHour(L, { kills: 1800 }));
-  assert.ok(rows[0].points > 3000 && rows[0].points < 10000, `level 50: ${rows[0].points}`);
-  assert.ok(rows[1].points > 30000 && rows[1].points < 90000, `level 150: ${rows[1].points}`);
-  assert.ok(rows[2].points > 100000 && rows[2].points < 300000, `level 250: ${rows[2].points}`);
+  // (Upper bounds raised about 40% when champions, each thirty kills' worth of
+  // loot, became twice as common: an hour now brings half as much gear again.)
+  assert.ok(rows[0].points > 3000 && rows[0].points < 14000, `level 50: ${rows[0].points}`);
+  assert.ok(rows[1].points > 30000 && rows[1].points < 125000, `level 150: ${rows[1].points}`);
+  assert.ok(rows[2].points > 100000 && rows[2].points < 420000, `level 250: ${rows[2].points}`);
   for (const r of rows) assert.ok(r.goods > 500 && r.goods < 20000, `loot at combat ${r.combat}: ${r.goods}`);
   assert.ok(rows[2].goods < rows[2].points / 5, 'late on, loot is small change next to gear');
 });
