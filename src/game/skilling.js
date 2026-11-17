@@ -59,6 +59,16 @@ export const COOKING = {
   // Hunter game
   raw_venison: { result: 'venison', level: 35, xp: 105, burnStop: 66 },
   raw_boar_meat: { result: 'boar_steak', level: 50, xp: 145, burnStop: 78 },
+  // Endgame fish (Cooking 100-300). One cook a tick, and an occasional perfect
+  // dish pays half again (about 4% more on average), so each tier's xp is set
+  // for ~35% more an hour than the tier before, starting from the seafood
+  // platter (270), the best below level 100 (tests/fish-cook.test.mjs).
+  raw_dorado: { result: 'grilled_dorado', level: 100, xp: 352, burnStop: 100 },
+  raw_bluefin_tuna: { result: 'tuna_sashimi', level: 130, xp: 476, burnStop: 130 },
+  raw_sailfish: { result: 'sambal_sailfish', level: 160, xp: 643, burnStop: 160 },
+  raw_moonfish: { result: 'moonfish_curry', level: 200, xp: 869, burnStop: 200 },
+  raw_rift_eel: { result: 'rift_eel_claypot', level: 250, xp: 1174, burnStop: 250 },
+  raw_dragon_arowana: { result: 'arowana_feast', level: 300, xp: 1585, burnStop: 300 },
 };
 
 // Display names for the fishing tool each spot requires.
@@ -80,7 +90,8 @@ const GEM_TABLE = [
   { id: 'ruby', weight: 16 }, { id: 'diamond', weight: 6 },
 ];
 
-// The moonlit kapok's Woodcutting XP at night (it can be chopped any time).
+// The moonlit kapok's Woodcutting XP at night (it can be chopped any time),
+// and the moonfish spot's Fishing XP.
 export const NIGHT_TREE_BONUS = 1.25;
 
 export function resolveWoodcut(game, action) {
@@ -195,6 +206,8 @@ export function resolveFish(game, action) {
 
   const baited = game.inventory.count('fishing_bait') > 0;
   const pick = weightedPick(eligible);
+  // Moonfish rise by moonlight: more XP at night (a bonus, never a lock).
+  const xpEach = def.night && game.isNight() ? pick.xp * NIGHT_TREE_BONUS : pick.xp;
   // Every cast catches a fish (life skills never fail).
   {
     if (baited) game.inventory.remove('fishing_bait', 1);
@@ -203,7 +216,7 @@ export function resolveFish(game, action) {
     // Rare trophy catch: triple XP + a coin bonus.
     if (Math.random() < 0.02) {
       game.inventory.add(pick.id, 1);
-      game.skills.addXp('fishing', pick.xp * 3);
+      game.skills.addXp('fishing', xpEach * 3);
       game.inventory.add('coins', 50 + Math.round(pick.xp));
       game.spawnSparkle(game.player, '#ffd24a', 14); game.spawnPoof(fc.x, fc.y, '#ffe79a');
       game.msg(`A TROPHY catch! A magnificent ${nm}!`, 'level');
@@ -213,7 +226,7 @@ export function resolveFish(game, action) {
     const big = Math.random() < 0.05 + lvl * 0.0015 + (baited ? 0.05 : 0) && game.inventory.canAdd(pick.id, 2) >= 2;
     const n = big ? 2 : 1;
     game.inventory.add(pick.id, n);
-    game.skills.addXp('fishing', pick.xp * n);
+    game.skills.addXp('fishing', xpEach * n);
     game.spawnPoof(fc.x, fc.y, '#bfe3ff');
     game.bus.emit('sfx', 'gather');
     game.msg(big ? `A big catch! You haul in two ${nm}.` : `You catch a ${nm}.`);

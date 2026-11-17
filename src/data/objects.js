@@ -352,6 +352,57 @@ export const OBJECTS = {
     ],
     examine: 'Big shadows circle in the deep water. Bring a harpoon. (Fishing 35)',
   },
+  // ---- Endgame fishing spots (Fishing 100-300) ----
+  // One fish each, cooked into that tier's dish (skilling.js COOKING). Every
+  // cast catches, so XP an hour is just xp a cast: each tier gives about 35%
+  // more than the one before, starting from the harpoon spot's average catch
+  // (~134 xp once all five of its fish are open), the best below level 100
+  // (tests/fish-cook.test.mjs times them). Until their own art arrives they
+  // borrow an older spot's picture (`art`), recoloured (`tint`).
+  dorado_spot: {
+    name: 'Dorado fishing spot', label: 'Dorado', type: 'fishing', verb: 'Cast', emoji: '🎣', blocking: false,
+    skill: 'fishing', tool: 'rod', depleteChance: 0, respawn: 0,
+    catches: [{ id: 'raw_dorado', level: 100, xp: 184, weight: 1 }],
+    art: 'obj-sea_rod_spot', tint: 'sepia(0.6) saturate(2.2) hue-rotate(10deg) brightness(1.08)',
+    examine: 'Flashes of gold and green chase bait round the islands. (Fishing 100)',
+  },
+  bluefin_spot: {
+    name: 'Bluefin fishing spot', label: 'Bluefin', type: 'fishing', verb: 'Harpoon', emoji: '🦈', blocking: false,
+    skill: 'fishing', tool: 'harpoon', depleteChance: 0, respawn: 0,
+    catches: [{ id: 'raw_bluefin_tuna', level: 130, xp: 249, weight: 1 }],
+    art: 'obj-harpoon_spot', tint: 'hue-rotate(20deg) saturate(1.4) brightness(0.92)',
+    examine: 'A school of giant bluefin boils the water off Changi. (Fishing 130)',
+  },
+  sailfish_spot: {
+    name: 'Sailfish fishing spot', label: 'Sailfish', type: 'fishing', verb: 'Cast', emoji: '🎣', blocking: false,
+    skill: 'fishing', tool: 'rod', depleteChance: 0, respawn: 0,
+    catches: [{ id: 'raw_sailfish', level: 160, xp: 337, weight: 1 }],
+    art: 'obj-sea_rod_spot', tint: 'hue-rotate(60deg) saturate(1.5)',
+    examine: 'Deep blue water past the Sentosa reef. A sail cuts the surface. (Fishing 160)',
+  },
+  // Moonfish rise to the surface by moonlight: +25% Fishing XP at night
+  // (game.isNight(); see NIGHT_TREE_BONUS), never a lock.
+  moonfish_spot: {
+    name: 'Moonfish fishing spot', label: 'Moonfish', type: 'fishing', verb: 'Net', emoji: '🎣', blocking: false,
+    skill: 'fishing', tool: 'net', depleteChance: 0, respawn: 0, night: true,
+    catches: [{ id: 'raw_moonfish', level: 200, xp: 455, weight: 1 }],
+    art: 'obj-fishing_spot', tint: 'saturate(0.4) brightness(1.25)',
+    examine: 'Round silver fish drift up the waterway when the moon is out. (Fishing 200)',
+  },
+  rift_eel_spot: {
+    name: 'Rift eel fishing spot', label: 'Rift eel', type: 'fishing', verb: 'Cage', emoji: '🦞', blocking: false,
+    skill: 'fishing', tool: 'lobster_pot', depleteChance: 0, respawn: 0,
+    catches: [{ id: 'raw_rift_eel', level: 250, xp: 615, weight: 1 }],
+    art: 'obj-fishing_cage', tint: 'hue-rotate(230deg) saturate(1.6) brightness(0.9)',
+    examine: 'Something long and glowing coils in the haunted shallows. (Fishing 250)',
+  },
+  arowana_pool: {
+    name: 'Arowana pool', label: 'Arowana', type: 'fishing', verb: 'Lure', emoji: '🐉', blocking: false,
+    skill: 'fishing', tool: 'rod', depleteChance: 0, respawn: 0,
+    catches: [{ id: 'raw_dragon_arowana', level: 300, xp: 831, weight: 1 }],
+    art: 'obj-rod_spot', tint: 'sepia(0.8) saturate(2.6) hue-rotate(-25deg) brightness(1.05)',
+    examine: 'A still black pool in the Rift. A golden dragonfish circles below. (Fishing 300)',
+  },
 
   // ---------------- Processing ----------------
   fire: {

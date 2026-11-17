@@ -316,6 +316,27 @@ const RAW = {
   raw_cobia: { name: 'Raw cobia', icon: '🐟', value: 120, tags: ['raw'], examine: 'A muscular cobia. Cook it first.' },
   cobia: { name: 'Cobia', icon: '🐟', value: 215, heal: 17, examine: 'Grilled cobia steak.' },
 
+  // ---- Endgame fish (Fishing 100-300) and their dishes (Cooking 100-300) ----
+  // Life at these levels runs to hundreds, so these dishes heal a share of your
+  // maximum life (healPct; `heal` is the least they give) instead of a fixed
+  // amount. Two also lend a short damage boost and one heals over time (`meal`,
+  // see Game.eatItem); a new meal replaces the last one's boost.
+  raw_dorado: { name: 'Raw dorado', icon: '🐟', value: 400, tags: ['raw'], examine: 'A blunt-headed mahi-mahi, gold and green. Cook it first.' },
+  grilled_dorado: { name: 'Grilled dorado', icon: '🐟', value: 700, heal: 40, healPct: 0.4, examine: 'Charred dorado with lime. Heals 40% of your life.' },
+  raw_bluefin_tuna: { name: 'Raw bluefin tuna', icon: '🐟', value: 650, tags: ['raw'], examine: 'A huge, deep-bodied bluefin. Cook it first.' },
+  tuna_sashimi: { name: 'Tuna sashimi', icon: '🍣', value: 1100, heal: 58, healPct: 0.45, examine: 'Thick slices of bluefin belly. Heals 45% of your life.' },
+  raw_sailfish: { name: 'Raw sailfish', icon: '🐟', value: 1000, tags: ['raw'], examine: 'A sailfish, its great fin folded. Cook it first.' },
+  sambal_sailfish: { name: 'Sambal sailfish', icon: '🌶️', value: 1700, heal: 80, healPct: 0.5, meal: { ms: 60000, fx: { dmg: 0.05 } },
+    examine: 'Sailfish grilled in fiery sambal. Heals 50% of your life and fires you up: +5% damage for 60 seconds.' },
+  raw_moonfish: { name: 'Raw moonfish', icon: '🐟', value: 1500, tags: ['raw'], examine: 'A round, silver moonfish that glows faintly. Cook it first.' },
+  moonfish_curry: { name: 'Moonfish curry', icon: '🍛', value: 2500, heal: 60, healPct: 0.3, meal: { ms: 12000, regenPct: 0.25 },
+    examine: 'A slow-cooked fish head curry. Heals 30% of your life at once and 25% more over 12 seconds.' },
+  raw_rift_eel: { name: 'Raw rift eel', icon: '🐍', value: 2200, tags: ['raw'], examine: 'A long eel that glows violet from within. Cook it first.' },
+  rift_eel_claypot: { name: 'Rift eel claypot', icon: '🍲', value: 3600, heal: 150, healPct: 0.6, examine: 'Eel braised in a sizzling claypot. Heals 60% of your life.' },
+  raw_dragon_arowana: { name: 'Raw dragon arowana', icon: '🐉', value: 3500, tags: ['raw'], examine: 'A golden dragonfish from the Shadow Rift. Cook it first.' },
+  arowana_feast: { name: 'Arowana feast', icon: '🐉', value: 6000, heal: 300, healPct: 1, meal: { ms: 60000, fx: { dmg: 0.1 } },
+    examine: 'A banquet fit for an emperor. Heals all of your life and fills you with strength: +10% damage for 60 seconds.' },
+
   // ---- Fishing bait, junk & treasure ----
   fishing_bait: { name: 'Fishing bait', icon: '🪱', value: 2, stackable: true, tags: ['bait'], examine: 'Improves your catch rate when fishing.' },
   old_boot: { name: 'Old boot', icon: '🥾', value: 1, examine: 'You fished up someone\'s old boot. Charming.' },

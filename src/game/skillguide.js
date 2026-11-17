@@ -16,10 +16,10 @@ const objsOf = (pred) => Object.entries(OBJECTS).filter(([, d]) => pred(d)).map(
 export const SKILL_GUIDES = {
   woodcutting: { use: 'Logs feed Firemaking and Fletching (bows, arrows, staves). From level 100, groves of rare trees in the far regions give the endgame logs.' },
   mining: { use: 'Ore is smelted into bars for Smithing, and gems and gold go to Crafting. From level 100, rare veins in the far regions give the endgame ores.' },
-  fishing: { use: 'Raw fish are cooked into food that heals you in a fight.' },
+  fishing: { use: 'Raw fish are cooked into food that heals you in a fight. From level 100, rare spots in the far regions give the endgame fish.' },
   hunter: { use: 'Pelts, skins and hides become armour; meat is cooked into food.' },
   farming: { use: 'Crops are herbs for Herblore and ingredients for hawker dishes.', where: ['farm_patch'] },
-  cooking: { use: 'Food heals you in a fight; better food heals more.', where: ['range', 'fire'] },
+  cooking: { use: 'Food heals you in a fight; better food heals more. From level 100 the endgame fish cook into dishes that heal a share of your life, and some boost you too.', where: ['range', 'fire'] },
   smithing: { use: 'Smelt ore into bars at a furnace, then forge weapons, armour and upgrade stones at an anvil. From level 100 you can forge the obsidian to eternal gear.', where: ['furnace', 'anvil'] },
   crafting: { use: 'Jewellery, pottery, leather armour, and refine scrolls and upgrade wards.', where: ['crafting_table'] },
   fletching: { use: 'Bows, arrows, staves and wands from logs (you need a knife). From level 100 the endgame logs make the obsidian to eternal bows, staves, wands, rifles and crossbows.', where: ['fletching_bench'] },
@@ -42,14 +42,14 @@ export function guideEntries(skill) {
   } else if (skill === 'fishing') {
     for (const [id, d] of Object.entries(OBJECTS)) {
       if (d.type !== 'fishing') continue;
-      for (const c of d.catches || []) add(c.level, name(c.id), `${d.name}`, [id]);
+      for (const c of d.catches || []) add(c.level, name(c.id), `${d.name}${d.night ? ' (+25% XP at night)' : ''}`, [id]);
     }
   } else if (skill === 'hunter') {
     for (const [id, h] of Object.entries(HUNT)) add(h.level, h.name, `Catches ${(h.gives || []).map((g) => name(g.id)).join(', ')}`, [id]);
   } else if (skill === 'farming') {
     for (const c of CROPS) add(c[2], c[1], `Plant ${name(`${c[0]}_seed`)} in a farm patch`, ['farm_patch']);
   } else if (skill === 'cooking') {
-    for (const [raw, c] of Object.entries(COOKING)) add(c.level, name(c.result), `From ${name(raw)}`, ['range', 'fire']);
+    for (const [raw, c] of Object.entries(COOKING)) add(c.level, name(c.result), `From ${name(raw)}${ITEMS[c.result]?.healPct ? `, heals ${Math.round(ITEMS[c.result].healPct * 100)}% of your life` : ''}`, ['range', 'fire']);
     for (const d of DISHES) add(d.level, name(d.result), `Dish: ${d.inputs.map((i) => name(i.id)).join(', ')}`, ['range']);
   } else if (skill === 'smithing') {
     for (const s of SMELT) add(s.level, name(s.result), `Smelt ${s.inputs.map((i) => `${i.qty} ${name(i.id)}`).join(' + ')}`, ['furnace']);
