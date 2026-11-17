@@ -27,7 +27,7 @@ import { Cinematics } from './cinematics.js';
 import { footFx } from './footfx.js';
 import { findPath } from '../engine/pathfinding.js';
 import {
-  playerAttackVsNpc, npcAttackVsPlayer, rollAttack, rollGuaranteed, rollHit, combatXp, magicXp, killXp, DAMAGE_XP_SHARE, KILL_XP_SHARE,
+  playerAttackVsNpc, npcAttackVsPlayer, OFFHAND_SHARE, rollAttack, rollGuaranteed, rollHit, combatXp, magicXp, killXp, DAMAGE_XP_SHARE, KILL_XP_SHARE,
   playerRangedVsNpc, combatXpRanged, playerMagicVsNpc, RANGED_STYLES,
   weaknessOf, WEAKNESS_BONUS, armourOf, armourMult, critChance, hitChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE,
   playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX, RANGED_TYPE_DMG,
@@ -1615,7 +1615,9 @@ export class Game {
     if (mode === 'ranged') return this._rangedAttack(npc);
     if (mode === 'magic') return this._magicAttack(npc);
     if (mode === 'dance') return this._danceAttack(npc);
-    const { max } = playerAttackVsNpc(this.skills, this.equipment, this.player.style, npc.def);
+    // Dual wielding: each hand strikes with its own weapon's stats (see _offHandBlow).
+    this._hand = 'main';
+    const { max } = playerAttackVsNpc(this.skills, this.equipment, this.player.style, npc.def, 'main');
     const pm = this.prayerMult();
     const baseMax = Math.round(max * pm.str);
     this._swingToward(this.player, npc.x, npc.y);
@@ -1635,15 +1637,13 @@ export class Game {
       if (dmg > 0) { this.spawnHitSparks(npc, (c.crit || fancy) ? '#ffd24a' : '#fff2b0'); for (const x of combatXp(this.player.style, dmg)) this.skills.addXp(x.skill, x.xp * this.combatXpMult()); }
       total += dmg;
     }
-    // Dual wielding: the off-hand dagger follows up with its own strike (60% max hit).
-    if (this.equipment.isDualWielding() && npc.hp > 0) {
-      const offMax = Math.max(1, Math.round(baseMax * 0.6));
-      const dmg = rollHit(offMax);
-      this._slash(npc, '#cfe8ff');
-      this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && dmg >= offMax });
-      if (dmg > 0) { this.spawnHitSparks(npc, '#e6f2ff'); for (const x of combatXp(this.player.style, dmg)) this.skills.addXp(x.skill, x.xp * this.combatXpMult()); }
-      total += dmg; raw += dmg;
+    // Dual wielding: the off-hand weapon follows up with its own strike.
+    if (mods.off && npc.hp > 0) {
+      const max = playerAttackVsNpc(this.skills, this.equipment, this.player.style, npc.def, 'off').max * pm.str;
+      const r = this._offHandBlow(npc, max, mods, () => this._slash(npc, '#cfe8ff'));
+      total += r.dmg; raw += r.raw;
     }
+    this._hand = null;
     // Cleave: every melee weapon but the quick ones (scimitars, claws) sweeps
     // through the foes crowding the target, heavy weapons hardest.
     if (total > 0) this._cleave(npc, raw);
@@ -1655,6 +1655,43 @@ export class Game {
     // A sub-beat cooldown keeps what's left over (never banking more than one swing).
     this._resetCooldown(this.attackInterval());
     this._postAttack(npc);
+  }
+
+  /** A dual wielder's off-hand blow, from the off-hand weapon's own max hit
+   *  (`max`, prayers included): OFFHAND_SHARE of it, with that weapon's damage
+   *  stats and crit chance (mods.off), its own crit roll, hitsplat, sparks and
+   *  XP, and the on-hit effects every blow gets (wounds, lifesteal, perks).
+   *  `fx` draws the swing or shot. Returns the damage and its pre-crit roll. */
+  _offHandBlow(npc, max, mods, fx) {
+    this._hand = 'off';
+    const offMax = Math.max(1, Math.round(max * OFFHAND_SHARE * mods.off.dmgM));
+    let dmg = rollHit(offMax);
+    const raw = dmg;
+    const c = this._critHit(dmg, mods.off.critCh); dmg = c.dmg;
+    fx(c.crit);
+    this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (c.crit || dmg >= offMax) });
+    const ranged = this.combatMode() === 'ranged';
+    if (dmg > 0) {
+      this.spawnHitSparks(npc, c.crit ? '#ffd24a' : '#e6f2ff');
+      for (const x of (ranged ? combatXpRanged : combatXp)(ranged ? this.player.rangedStyle : this.player.style, dmg)) this.skills.addXp(x.skill, x.xp * this.combatXpMult());
+    }
+    // Area hits that follow (cleave, ricochet) stay with the main hand's crit chance.
+    this._aoeCritCh = mods.critCh;
+    this._hand = 'main';
+    return { dmg, raw };
+  }
+
+  /** A dual wielder's max hit with each hand (prayers included; before crits,
+   *  armour and per-hit boosts), for the Equipment panel; null when not dual wielding. */
+  dualMaxHits() {
+    if (!this.equipment.isDualWielding()) return null;
+    const pm = this.prayerMult(), ranged = this.combatMode() === 'ranged';
+    const one = (slot, hand) => {
+      if (!ranged) return playerAttackVsNpc(this.skills, this.equipment, this.player.style, null, hand).max * pm.str;
+      const w = getItem(this.equipment.get(slot)).equip;   // pistols: no ammo, the gun's own power
+      return playerRangedVsNpc(this.skills, this.equipment, this.player.rangedStyle, null, Math.floor((w.bonuses.ranged || 0) / 3), hand).max * pm.ranged;
+    };
+    return { main: Math.round(one('weapon', 'main')), off: Math.max(1, Math.round(one('shield', 'off') * OFFHAND_SHARE)) };
   }
 
   /** If a melee special is armed and affordable, consume the energy and return it. */
@@ -1872,9 +1909,12 @@ export class Game {
     const spec = this._takeSpec();
     const ab = this._takeAbility();
     const weak = weaknessOf(npc.def) === (mode === 'dance' ? 'melee' : mode);   // whips count as melee for weaknesses
-    let dmgM = (spec ? spec.dmg || 1 : 1) * (ab ? ab.dmgMul || 1 : 1) * (weak ? WEAKNESS_BONUS.dmg : 1);
+    // The special attack's and ability's own boosts belong to the main hand's
+    // blow alone (abM); everything else below lands on a dual wielder's off-hand too.
+    let abM = (spec ? spec.dmg || 1 : 1) * (ab ? ab.dmgMul || 1 : 1);
+    let dmgM = weak ? WEAKNESS_BONUS.dmg : 1;
     // Finishers: more damage against a foe already under EXECUTE_BELOW life.
-    if (ab?.execute && npc.hp < npc.maxHp * EXECUTE_BELOW) dmgM *= 1 + ab.execute;
+    if (ab?.execute && npc.hp < npc.maxHp * EXECUTE_BELOW) abM *= 1 + ab.execute;
     // Race: the weapon in hand bites harder into some races and is shrugged off by others.
     const race = this.raceMatchup(npc);
     if (race === 'strong') dmgM *= RACE_BONUS.dmg;
@@ -1890,16 +1930,21 @@ export class Game {
     // Monster armour shrugs off a share of each hit (see armourOf); hitting its
     // weakness gets past half of it, and gear's Armour pierce cancels it first,
     // any pierce left over adding damage. Boss damage from gear stacks with the perk's.
-    const gb = this.equipment.bonuses();
-    dmgM *= armourMult(armourOf(npc.def, { champion: npc.champion, fightLevel: this.fightLevel() }), gb.pierce, weak);
+    // A dual wielder's hands each use their own weapon's stats (this._hand, see
+    // Equipment.bonuses), so the gear-driven part is worked out per hand.
+    const armour = armourOf(npc.def, { champion: npc.champion, fightLevel: this.fightLevel() });
+    const gearM = (g) => armourMult(armour, g.pierce, weak)
+      * (1 + (perk.dmg || 0) + this.learning.perks().dmg +   // English mastery: Eloquence
+        ((npc.def.boss || npc.champion) ? (perk.boss || 0) + g.bossDmg / 100 : (g.mobDmg || 0) / 100))   // Cooking's perk: normal monsters
+      // Physical damage bonus % (atkPct) boosts melee, ranged and whips; Magic bonus % boosts spells.
+      * (1 + (mode === 'magic' ? g.magPct : g.atkPct) / 100);
+    const gb = this.equipment.bonuses(this._hand);
     dmgM *= 1 + (this.attrs[attrForMode(mode)] || 0) * DMG_PER_POINT;   // Strength / Intelligence / Dexterity
-    dmgM *= 1 + (perk.dmg || 0) + this.learning.perks().dmg +   // English mastery: Eloquence
-      ((npc.def.boss || npc.champion) ? (perk.boss || 0) + gb.bossDmg / 100 : (gb.mobDmg || 0) / 100);   // Cooking's perk: normal monsters
-    // Physical damage bonus % (atkPct) boosts melee, ranged and whips; Magic bonus % boosts spells.
-    dmgM *= 1 + (mode === 'magic' ? gb.magPct : gb.atkPct) / 100;
     dmgM *= this._volley || 1;   // a volley of very fast attacks lands as one big hit
     dmgM *= 1 + this.buffMod('dmg');   // a class buff
     if (this.onSlayerTask(npc)) dmgM *= 1 + this.slayerBonus().dmg / 100;   // Slayer: hit task monsters harder
+    const sharedM = dmgM;   // what both hands share
+    dmgM *= abM * gearM(gb);
     const bonusHit = Math.random() < (perk.extra || 0) + (gb.extra || 0) / 100;   // Thieving's perk adds to the chance
     perk._echo = mode === 'magic' && bonusHit;
     const hits = Math.min(maxHits, Math.max(spec ? spec.hits || 1 : 1, ab ? ab.hits || 1 : 1)) + (bonusHit && mode !== 'magic' ? 1 : 0);
@@ -1923,10 +1968,18 @@ export class Game {
     }
     const lvl = mode === 'ranged' ? this.skills.ranged : mode === 'magic' ? this.skills.magic : mode === 'dance' ? this.skills.agility : this.skills.attack;
     // A `crit` ability makes every one of its hits a critical.
-    const critCh = ab?.crit ? 1 : critChance(lvl, this.equipment.bonuses().crit) + (perk.crit || 0) + this.learning.perks().crit + this.buffMod('crit') + this.prayerCrit()
+    const critRest = (perk.crit || 0) + this.learning.perks().crit + this.buffMod('crit') + this.prayerCrit()
       + (mode === 'magic' ? (this.attrs.int || 0) * CRIT_PER_INT : 0);   // Intelligence
+    const critCh = ab?.crit ? 1 : critChance(lvl, gb.crit) + critRest;
     this._abAoe = ab?.aoe || 0;   // an ultimate's area: everything this close to the target is hit too
-    return { dmgM, hits, guaranteed, heal, spec, ability: ab, weak, race, critCh };
+    // A dual wielder's off-hand blow: its own weapon's damage stats and crit
+    // chance, everything shared, but none of the special attack's or ability's boosts.
+    let off = null;
+    if ((mode === 'melee' || mode === 'ranged') && this.equipment.isDualWielding()) {
+      const go = this.equipment.bonuses('off');
+      off = { dmgM: sharedM * gearM(go), critCh: critChance(lvl, go.crit) + critRest };
+    }
+    return { dmgM, hits, guaranteed, heal, spec, ability: ab, weak, race, critCh, off };
   }
 
   /** The type of the weapon in hand ('dagger', 'longbow', ...), or null bare-handed. */
@@ -1973,7 +2026,7 @@ export class Game {
     if (dmg > 0 && Math.random() < critCh) {
       const mult = Math.random() < MEGA_CRIT_CHANCE ? MEGA_CRIT_MULT : CRIT_MULT;
       this._pendingCrit = mult;
-      return { dmg: Math.max(dmg + 1, Math.round(dmg * (mult + this.equipment.bonuses().critDmg / 100))), crit: true, mult };
+      return { dmg: Math.max(dmg + 1, Math.round(dmg * (mult + this.equipment.bonuses(this._hand).critDmg / 100))), crit: true, mult };
     }
     return { dmg, crit: false, mult: 1 };
   }
@@ -2027,7 +2080,7 @@ export class Game {
     // Lifesteal from gear: heal a share of the damage dealt.
     // Lifesteal heals in your own life's units: a hit on a big monster counts at its real size.
     const realDmg = dmg * (npc.def?.hpScale || 1);
-    const ls = dmg > 0 ? this.equipment.bonuses().lifesteal + this.buffMod('lifesteal') * 100 : 0;
+    const ls = dmg > 0 ? this.equipment.bonuses(this._hand).lifesteal + this.buffMod('lifesteal') * 100 : 0;   // the striking hand's weapon's own
     if (ls && this.player.alive && this.player.hp < this.maxHp()) {
       this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.max(1, Math.round(realDmg * ls / 100)));
       this.bus.emit('hp');
@@ -2350,7 +2403,8 @@ export class Game {
     this.bus.emit('sfx', `atk:${wpn.weaponType || 'shortbow'}`);   // a twang, a crack, a pop, a whirr...
     const tint = wpn.coins ? '#f5b82e' : wpn.weaponType === 'pistol' ? '#ffe28a' : wpn.weaponType === 'shuriken' || wpn.weaponType === 'chakram' ? '#cfd8e6' : '#d9c45a';
     const style = this.player.rangedStyle;
-    const { max } = playerRangedVsNpc(this.skills, this.equipment, style, npc.def, arrowStr);
+    this._hand = 'main';   // dual pistols: each fires with its own stats (see _offHandBlow)
+    const { max } = playerRangedVsNpc(this.skills, this.equipment, style, npc.def, arrowStr, 'main');
     const pr = this.prayerMult().ranged;
     // Longbows fire half as often as shortbows but each arrow hits 60% harder.
     const baseMax = Math.round(max * pr * (wpn.weaponType === 'longbow' ? LONGBOW_DMG : wpn.weaponType === 'rifle' ? RIFLE_DMG : 1));
@@ -2381,15 +2435,15 @@ export class Game {
       if (dmg > 0) { this.spawnHitSparks(npc, (c.crit || fancy) ? '#ffd24a' : '#cfe0a0'); for (const x of combatXpRanged(style, dmg)) this.skills.addXp(x.skill, x.xp * this.combatXpMult()); }
       total += dmg;
     }
-    // Dual pistols: the off-hand fires too (60% power).
-    if (this.equipment.isDualWielding() && npc.hp > 0) {
-      const offMax = Math.max(1, Math.round(baseMax * 0.6));
-      let dmg = rollHit(offMax);
-      this._projectile(npc, '#fff2b0', shot, 0.6);
-      this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && dmg >= offMax });
-      if (dmg > 0) for (const x of combatXpRanged(style, dmg)) this.skills.addXp(x.skill, x.xp * this.combatXpMult());
-      total += dmg;
+    // Dual pistols: the off-hand gun fires its own shot, with its own power.
+    if (mods.off && npc.hp > 0) {
+      const ow = getItem(this.equipment.get('shield')).equip;
+      const oStr = ow.noAmmo ? Math.floor((ow.bonuses.ranged || 0) / 3) : arrowStr;
+      const max = playerRangedVsNpc(this.skills, this.equipment, style, npc.def, oStr, 'off').max * pr;
+      const r = this._offHandBlow(npc, max, mods, (crit) => this._projectile(npc, crit ? '#ffd24a' : '#fff2b0', shot, 0.6));
+      total += r.dmg;
     }
+    this._hand = null;
     // Shurikens ricochet off the target into one more foe nearby (60% of the hit);
     // chakrams bounce on into two more (45% each).
     const rc = RICOCHET[wpn.weaponType];
@@ -5133,13 +5187,23 @@ export class Game {
       this.msg(`Your ${getItem(main).name.toLowerCase()} needs both hands, so you can't hold a shield with it.`);
       return;
     }
-    const cmp = offhand ? null : compareGear(s.id, this.equipment);
+    // An off-hand weapon is weighed against the one already in the off-hand (each
+    // hand hits with its own weapon's stats), not against a shield.
+    const cmp = !offhand ? compareGear(s.id, this.equipment)
+      : canDualPair(this.equipment.get('shield'), main) ? compareGear(s.id, this.equipment, 'shield') : null;
     this.inventory.removeAt(index, 1);
     const prev = this.equipment.get(slot);
     this.equipment.set(slot, s.id);
     if (prev) this.inventory.add(prev, 1);
+    // Say plainly whether that was a step up, so players learn which gear is better.
+    const verdict = () => {
+      if (!cmp || !prev || cmp.verdict === 'same' || cmp.verdict === 'worn' || !cmp.deltas.length) return;
+      const head = { upgrade: 'Upgrade!', downgrade: 'Downgrade:', style: 'New style:' }[cmp.verdict];
+      this.msg(`${head} ${deltaText(cmp.deltas)} vs your ${offhand ? 'off-hand ' : ''}${getItem(prev).name.toLowerCase()}.`, cmp.verdict === 'upgrade' ? 'level' : 'system');
+    };
     if (offhand) {
-      this.msg(`You wield the ${item.name.toLowerCase()} in your off-hand. Dual wielding: every melee swing strikes twice.`, 'level');
+      this.msg(`You wield the ${item.name.toLowerCase()} in your off-hand. Dual wielding: each hand strikes with its own weapon's stats.`, 'level');
+      verdict();
       return;
     }
     // Swapping the main hand off daggers sends an off-hand dagger back to the pack.
@@ -5151,11 +5215,7 @@ export class Game {
     // A two-handed weapon needs both hands: the shield goes back in the pack.
     if (slot === 'weapon' && isTwoHanded(s.id) && this.equipment.get('shield')) this._stowShield();
     this.msg(`You ${eq.slot === 'weapon' ? 'wield' : 'wear'} the ${item.name.toLowerCase()}.`);
-    // Say plainly whether that was a step up, so players learn which gear is better.
-    if (cmp && prev && cmp.verdict !== 'same' && cmp.verdict !== 'worn') {
-      const head = { upgrade: 'Upgrade!', downgrade: 'Downgrade:', style: 'New style:' }[cmp.verdict];
-      if (cmp.deltas.length) this.msg(`${head} ${deltaText(cmp.deltas)} vs your ${getItem(prev).name.toLowerCase()}.`, cmp.verdict === 'upgrade' ? 'level' : 'system');
-    }
+    verdict();
   }
 
   // ---------------- Enchanting ----------------

@@ -842,6 +842,8 @@ export class UI {
       `<div class="row"><span>Melee attack</span><span>+${b.attack}</span></div>` +
       `<div class="row"><span>Melee power</span><span>+${b.strength}</span></div>` +
       `<div class="row"><span>Defence bonus</span><span>+${b.defence}</span></div>` +
+      // Dual wielding: both weapons' stats count above, and each hand hits with its own weapon.
+      (() => { const dm = this.game.dualMaxHits?.(); return dm ? `<div class="row dual-hits"><span>Max hit (each weapon its own)</span><span>Main hand ${dm.main} · Off-hand ${dm.off}</span></div>` : ''; })() +
       (b.ranged ? `<div class="row"><span>Ranged bonus</span><span>+${b.ranged}</span></div>` : '') +
       (b.magic ? `<div class="row"><span>Magic attack</span><span>+${b.magic}</span></div>` : '') +
       (b.crit ? `<div class="row"><span>Crit chance</span><span>+${b.crit}%</span></div>` : '') +
@@ -957,8 +959,13 @@ export class UI {
       html += `<div class="gt-req ${ok ? 'ok' : 'no'}">${ARMOUR_FAMILIES[eq.family].name} armour: ${who}${ok ? '' : ' (not your class)'}</div>`;
       if (!ok) return html;
     }
-    const cmp = compareGear(id, this.game.equipment);
+    const eqp = this.game.equipment;
+    // A dual wielder's spare weapon is weighed against the off-hand too (each hand hits with its own weapon).
+    const dualOff = eqp.isDualWielding() && canDualPair(id, eqp.get('weapon'));
+    if (dualOff && eqp.get('shield') === id && eqp.get('weapon') !== id) return html + '<div class="gt-verdict same">Currently worn (off-hand)</div>';
+    const cmp = compareGear(id, eqp);
     if (cmp.verdict === 'worn') return html + '<div class="gt-verdict same">Currently worn</div>';
+    const offCmp = dualOff && eqp.get('shield') !== id ? compareGear(id, eqp, 'shield') : null;
     const vs = cmp.worn ? ` vs ${escapeHtml(getItem(cmp.worn).name)}` : '';
     const label = { upgrade: '▲ Upgrade', downgrade: '▼ Downgrade', same: '= Same strength', empty: '▲ Fills an empty slot', style: '⇄ Different fighting style' }[cmp.verdict];
     html += `<div class="gt-verdict ${cmp.verdict}">${label}${vs}</div>`;
@@ -966,6 +973,7 @@ export class UI {
       const good = d.lowerIsBetter ? d.delta < 0 : d.delta > 0;
       return `<span class="${good ? 'pos' : 'neg'}">${deltaText([d])}</span>`;
     }).join(' ')}</div>`;
+    if (offCmp?.worn) html += `<div class="gt-verdict ${offCmp.verdict}">Off-hand: ${{ upgrade: '▲ Upgrade', downgrade: '▼ Downgrade', same: '= Same strength' }[offCmp.verdict] || ''} vs ${escapeHtml(getItem(offCmp.worn).name)}</div>`;
     return html;
   }
 

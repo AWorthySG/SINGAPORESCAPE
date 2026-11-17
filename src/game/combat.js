@@ -146,6 +146,11 @@ export function armourMult(armour, piercePct = 0, weak = false) {
   return (1 - Math.max(0, a - p)) * (1 + Math.max(0, p - a));
 }
 
+// Dual wielding: each hand strikes with its own weapon (see Equipment.bonuses
+// with a hand), and the off-hand's blow lands at this share of what that weapon
+// would hit for in the main hand, so a matched pair stays as strong as before.
+export const OFFHAND_SHARE = 0.6;
+
 // Every Melee, Ranged and Magic level adds this much to that style's max hit,
 // as a flat bonus on top of everything else (shown in the Equipment panel).
 export const LEVEL_FLAT_DMG = 0.5;
@@ -166,8 +171,9 @@ export const RANGED_TYPE_DMG = { longbow: 1.6, rifle: 5.5 };
 export function flatDmgScale(equip, castMult = 1) {
   const ws = equip?.weaponSpeed?.(), h = equip?.hasteMult?.();
   if (!(ws > 0) || !(h > 0)) return 1;
-  // Dual wielders land an off-hand blow at 60% with each swing.
-  return (ws / h) * castMult / FLAT_DMG_BEATS / (equip.isDualWielding?.() ? 1.6 : 1)
+  // Dual wielders land an off-hand blow (OFFHAND_SHARE of its own hit) with each
+  // swing, so both hands share the flat damage instead of each getting it whole.
+  return (ws / h) * castMult / FLAT_DMG_BEATS / (equip.isDualWielding?.() ? 1 + OFFHAND_SHARE : 1)
     / (RANGED_TYPE_DMG[equip.weaponType?.()] || 1);
 }
 const scaledFlat = (level, equip, castMult) => Math.round(levelFlatDmg(level) * flatDmgScale(equip, castMult));
@@ -251,9 +257,10 @@ function withLevelBonus(b, skills) {
   return out;
 }
 
-export function playerAttackVsNpc(skills, equip, styleId, npc) {
+/** `hand` ('main' / 'off'): one dual-wield hand's blow, from that hand's own weapon. */
+export function playerAttackVsNpc(skills, equip, styleId, npc, hand = null) {
   const style = BAL;
-  const gear = equip.bonuses();
+  const gear = equip.bonuses(hand);
   const bonuses = withLevelBonus(gear, skills);
   // Player hits always land, so gear's melee Attack bonus (once accuracy) now
   // adds a quarter of itself to melee power.
@@ -287,8 +294,8 @@ export const RANGED_STYLES = {
 export const RANGED_STYLE_ORDER = ['balanced'];
 export const RANGED_BONUS = { dmg: 1.5 };
 
-export function playerRangedVsNpc(skills, equip, styleId, npc, arrowStr) {
-  const b = withLevelBonus(equip.bonuses(), skills);
+export function playerRangedVsNpc(skills, equip, styleId, npc, arrowStr, hand = null) {
+  const b = withLevelBonus(equip.bonuses(hand), skills);
   // Arrows set the base; half the bow/armour Ranged bonus adds to damage too,
   // so a better bow hits harder.
   const str = arrowStr + Math.floor((b.ranged || 0) / 2);

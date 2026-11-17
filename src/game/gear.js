@@ -110,13 +110,14 @@ export function meetsReq(id, skills) {
   return { ok: missing.length === 0, missing };
 }
 
-/** Compare a piece against whatever is worn in its slot.
+/** Compare a piece against whatever is worn in its slot (or in `slot`: a
+ *  dual wielder's off-hand weapon is weighed against the off-hand, 'shield').
  *  verdict: 'empty' (slot is bare) | 'style' (a weapon of another style) |
  *           'upgrade' | 'downgrade' | 'same' | 'worn' (it IS the worn piece). */
-export function compareGear(id, equipment) {
+export function compareGear(id, equipment, slot = null) {
   const eq = getItem(id).equip;
   if (!eq) return null;
-  const worn = equipment.get(eq.slot);
+  const worn = equipment.get(slot || eq.slot);
   if (worn === id) return { worn, verdict: 'worn', deltas: [], ratingDelta: 0 };
   const mine = equipment.itemBonuses ? equipment.itemBonuses(id) : (eq.bonuses || {});
   const theirs = worn ? (equipment.itemBonuses ? equipment.itemBonuses(worn) : getItem(worn).equip?.bonuses || {}) : {};

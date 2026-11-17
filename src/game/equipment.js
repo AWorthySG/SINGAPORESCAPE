@@ -97,12 +97,21 @@ export class Equipment {
     return st === (mode === 'dance' ? 'melee' : mode);
   }
 
-  bonuses() {
+  /** Every bonus your gear gives. With `hand` ('main' or 'off') while dual
+   *  wielding, the bonuses behind one hand's blow: each hand hits with its own
+   *  weapon, so the other hand's weapon is left out (the main hand's blow uses
+   *  the main weapon and no off-hand, the off-hand's uses the off-hand weapon and
+   *  no main weapon), while armour, accessories, set bonuses and life perks count
+   *  for both. Without `hand` (or when not dual wielding) every slot counts, both
+   *  weapons included: that is the whole character's Defence and HP, and the
+   *  totals the Equipment panel shows. */
+  bonuses(hand = null) {
+    const skip = hand && this.isDualWielding() ? (hand === 'off' ? 'weapon' : 'shield') : null;
     const total = { attack: 0, strength: 0, defence: 0, ranged: 0, magic: 0, magicStr: 0, dance: 0, crit: 0, hp: 0,
       pierce: 0, critDmg: 0, haste: 0, lifesteal: 0, bossDmg: 0, atkPct: 0, magPct: 0, prayer: 0 };
     for (const slot of EQUIP_SLOTS) {
       const id = this.slots[slot];
-      if (!id) continue;
+      if (!id || slot === skip) continue;
       if (!getItem(id).equip?.bonuses) continue;
       let b = this.itemBonuses(id);
       // A melee, ranged or magic accessory only lends its crit and offensive
@@ -180,6 +189,8 @@ export class Equipment {
   hasteMult() { return 100 / (100 + this._haste()); }
 
   _haste() {
+    // Both hands swing on the same beat, so attack speed is the whole
+    // character's: a dual wielder's two weapons both add theirs.
     let h = 0;
     for (const slot of EQUIP_SLOTS) { const id = this.slots[slot]; if (id && this.styleFits(id)) h += this.itemBonuses(id).haste || 0; }
     return h + (this.extra?.().haste || 0);   // plus Fletching's life perk
