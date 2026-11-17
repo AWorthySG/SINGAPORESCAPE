@@ -57,12 +57,12 @@ export const championCapable = (def) => !!def.attackable && !def.boss && (def.le
 /** Which regions each creature lives in, read from where the world actually
  *  placed them (the open-world regions borrow creatures from all over, so a
  *  def's own `zone` alone would miss most of them). Worked out once per game:
- *  the world's spawns never move. Summons and other temporary spawns are left out. */
+ *  the world's spawns never move. Summons, Endless Gate waves and other temporary spawns are left out. */
 export function codexHabitats(game) {
   if (game?._codexHabitat) return game._codexHabitat;
   const hab = new Map();
   for (const n of game?.npcs || []) {
-    if (n.temporary || !CODEX_SET.has(n.npcId)) continue;
+    if (n.temporary || n.wave || !CODEX_SET.has(n.npcId)) continue;
     const z = game.world?.zoneAt?.(n.spawnX ?? n.x, n.spawnY ?? n.y)?.name;
     if (!z) continue;
     if (!hab.has(n.npcId)) hab.set(n.npcId, new Set());
@@ -205,7 +205,7 @@ export function nearestSpawn(game, id) {
   if (!p) return null;
   let best = null, bd = Infinity;
   for (const n of game.npcs || []) {
-    if (n.npcId !== id || n.temporary) continue;
+    if (n.npcId !== id || n.temporary || n.wave) continue;
     const x = n.spawnX ?? n.x, y = n.spawnY ?? n.y;
     const dd = chebyshev(p.x, p.y, x, y);
     if (dd < bd) { bd = dd; best = { x, y, dist: dd }; }
