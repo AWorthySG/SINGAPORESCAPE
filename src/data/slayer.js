@@ -69,3 +69,34 @@ export const SLAYER_REWARDS = [
   { id: 'coins', cost: 10, qty: 5000 },
   { id: 'nasi_lemak', cost: 5, qty: 5 },
 ];
+
+// ---------------- Slayer bonuses ----------------
+// Slayer level pays off against the monsters on your current task: you hit
+// them harder and they sometimes drop a second helping of loot. Both grow in a
+// straight line from level 1 to SLAYER_FULL_LEVEL (the same scale as the life
+// skill perks) and stop there. A worn Slayer helmet adds a flat bonus on top.
+export const SLAYER_FULL_LEVEL = 200;
+export const SLAYER_DMG = [5, 35];     // % more damage on task: at level 1, at full level
+export const SLAYER_LOOT = [5, 25];    // % chance of an extra loot roll on task
+export const SLAYER_HELM_DMG = 10;     // % more on-task damage while wearing the Slayer helmet
+
+/** The on-task bonuses at a Slayer level: { dmg, loot } in percent (one decimal). */
+export function slayerBuffs(level) {
+  const t = Math.max(0, Math.min(1, ((level || 1) - 1) / (SLAYER_FULL_LEVEL - 1)));
+  const at = ([lo, hi]) => Math.round((lo + (hi - lo) * t) * 10) / 10;
+  return { dmg: at(SLAYER_DMG), loot: at(SLAYER_LOOT) };
+}
+
+/** "+12.3% damage and 8.1% chance of extra loot" at a Slayer level. */
+export function slayerBuffText(level) {
+  const b = slayerBuffs(level);
+  return `+${b.dmg}% damage and ${b.loot}% chance of extra loot against your task`;
+}
+
+/** The next Slayer level that unlocks tougher task monsters, and which, or null. */
+export function nextSlayerUnlock(level) {
+  const lv = SLAYER_TASKS.map((t) => t.req).filter((r) => r > level);
+  if (!lv.length) return null;
+  const at = Math.min(...lv);
+  return { level: at, names: SLAYER_TASKS.filter((t) => t.req === at).map((t) => t.name) };
+}
