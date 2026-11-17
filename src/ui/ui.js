@@ -910,7 +910,7 @@ export class UI {
   _gearStats(id, base = false) {
     const eq = getItem(id).equip;
     const b = base ? (eq.bonuses || {}) : this.game.equipment.itemBonuses(id);
-    const chips = Object.keys(STAT_LABELS).filter((k) => b[k]).map((k) => `+${b[k]} ${STAT_LABELS[k]}`);
+    const chips = Object.keys(STAT_LABELS).filter((k) => b[k]).map((k) => `+${Math.round(b[k] * 10) / 10} ${STAT_LABELS[k]}`);
     if (eq.slot === 'weapon') chips.push(`${capitalize(weaponStyle(id))}, ${(swingBeats(id) * 0.3).toFixed(1)}s swing`);
     if (eq.range) chips.push(`${eq.range}-tile range`);
     if (eq.runes) chips.push(`Unlimited ${getItem(eq.runes).name.toLowerCase()}s`);
@@ -1087,7 +1087,7 @@ export class UI {
       const said = { success: 'Success! It shines brighter.', fail: 'The refine failed; the scrolls are used up.', downgrade: 'The refine failed and the item lost a level.',
         broken: 'The item shattered and is gone.', warded: 'It went badly, but your upgrade ward crumbled instead.' }[last];
       let html = `<div class="gear-intro"><p>${said ? `<b class="refine-out ${last}">${said}</b><br>` : ''}`
-        + `${name} is ${lv ? `refined <b>${refineTag(lv)}</b>` : 'not refined yet'}. Each ★ adds a share of its base stats on top of mastery: 6% a level to ★9, 10% to ★12, 15% to ★${MAX_REFINE}. `
+        + `${name} is ${lv ? `refined <b>${refineTag(lv)}</b>` : 'not refined yet'}. Each ★ adds a share of <i>this item's own</i> base stats (stronger gear gains more) on top of mastery: 6% a level to ★9, 10% to ★12, 15% to ★${MAX_REFINE}. `
         + '★1–★5 always work; from ★6 an attempt can <b>fail</b> (scrolls lost); from ★10 it can <b>downgrade</b> the item a level; from ★13 it can <b>break</b> the item, destroying it. '
         + `An <b>upgrade ward</b> in your pack takes a downgrade or a break instead (you have ${wards}).</p></div>`;
       if (lv >= MAX_REFINE) {
@@ -1097,8 +1097,8 @@ export class UI {
         const next = lv + 1, c = refineCost(id, next), o = refineOdds(next);
         const base = getItem(id).equip?.bonuses || {};
         const gain = refinedBonuses(base, {}, next), had = refinedBonuses(base, {}, lv);
-        const chips = Object.keys(STAT_LABELS).filter((k) => (gain[k] || 0) - (had[k] || 0) > 0)
-          .map((k) => `+${(gain[k] || 0) - (had[k] || 0)} ${STAT_LABELS[k]}`);
+        const add = (k) => Math.round(((gain[k] || 0) - (had[k] || 0)) * 10) / 10;
+        const chips = Object.keys(STAT_LABELS).filter((k) => add(k) > 0).map((k) => `+${add(k)} ${STAT_LABELS[k]}`);
         html += `<div class="ench-head">Next: ${refineTag(next)}</div>`
           + `<div class="gear-stats">Now: ${this._gearStats(id)}</div>`
           + `<div class="gear-stats refine-gain">${refineTag(next)} adds ${chips.join(' · ') || 'nothing (no combat stats)'}</div>`

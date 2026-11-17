@@ -2,7 +2,9 @@
 // those, a refine level belongs to the item type, so every copy shares it.
 // Each level adds a share of the item's BASE combat stats, on top of whatever
 // its mastery rank gives: 6% a level up to ★9, 10% from ★10 to ★12 and 15%
-// from ★13 to ★15. Every attempt costs refine scrolls (nothing else), and has
+// from ★13 to ★15. The share is of THIS item's stats, so a strong piece gains
+// far more than a weak one, and its % stats (crit damage, pierce, attack
+// speed...) grow too. Every attempt costs refine scrolls (nothing else), and has
 // one of four outcomes, riskier the higher you go:
 //   success    the item gains a level
 //   failure    the scrolls are used up, nothing else happens  (from ★6)
@@ -13,7 +15,10 @@
 
 export const MAX_REFINE = 15;
 export const SCROLL = 'refine_scroll';
-const STATS = ['attack', 'strength', 'defence', 'ranged', 'magic', 'magicStr', 'dance', 'crit', 'hp'];
+// Flat stats gain whole points (at least 1 on a stat the item has); % stats
+// gain to one decimal.
+const FLAT = ['attack', 'strength', 'defence', 'ranged', 'magic', 'magicStr', 'dance', 'hp'];
+const PCT = ['crit', 'critDmg', 'pierce', 'haste', 'lifesteal', 'bossDmg', 'atkPct', 'magPct', 'mobDmg', 'aoe', 'extra'];
 
 /** Total stat gain at a refine level, as a fraction of the base stat. */
 export function refineGain(level) {
@@ -28,7 +33,13 @@ export function refinedBonuses(base = {}, current = base, level = 0) {
   if (!level) return current;
   const out = { ...current };
   const g = refineGain(level);
-  for (const k of STATS) if (base[k]) out[k] = (out[k] || 0) + Math.max(level, Math.round(base[k] * g));
+  // (It used to add at least +1 per level to every stat, which swamped the
+  // share on all but the strongest gear: nearly every item refined the same.)
+  for (const k of FLAT) if (base[k] > 0) out[k] = (out[k] || 0) + Math.max(1, Math.round(base[k] * g));
+  for (const k of PCT) {
+    const add = Math.round(base[k] * g * 10) / 10;
+    if (base[k] > 0 && add > 0) out[k] = Math.round(((out[k] || 0) + add) * 10) / 10;
+  }
   return out;
 }
 
