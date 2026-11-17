@@ -1,7 +1,7 @@
 import { EventBus } from '../core/events.js';
 import { buildWorld, TERRAIN, zoneLevel } from '../data/world.js';
 import { compareGear, deltaText, gearRating, effectiveRating, offenceFirstScore, weaponStyle, reqLevel } from './gear.js';
-import { planCarry, applyCarry, carryMessages } from './carry.js';
+import { planCarry, applyCarry, carryMessages, scoreAfterCarry } from './carry.js';
 import { RARITY, dropRarity, lootDelay, rollQuality, QUALITY, NORMAL_GEAR_SKIP } from './loot.js';
 import { recordQuality } from './salvage.js';
 import { dayKey, prevDayKey, makeBounties, streakMult } from './bounty.js';
@@ -5124,7 +5124,22 @@ export class Game {
         // (A tool in hand, such as an axe, has no type and is always swapped for a weapon.)
         const wornType = worn && getItem(worn).equip.weaponType;
         if (eq.slot === 'weapon' && wornType && this.jobClass && getItem(s.id).equip.weaponType !== wornType) return;
-        const gain = score(s.id) - (worn ? score(worn) : 0);
+        // Refine and enchantments carry over to a better piece (carry.js), so a
+        // higher tier of the same line (the same weapon type, or the same armour
+        // family) always goes on first, the highest tier first; it takes the old
+        // piece's upgrades with it. A lower tier of that line never replaces it.
+        // Anything else is weighed as it will be worn, after the carry.
+        const sameLine = worn && (eq.slot === 'weapon' ? !!wornType : !!eq.family && eq.family === getItem(worn).equip.family);
+        if (sameLine) {
+          const base = gearRating(s.id), wornBase = gearRating(worn);
+          if (base < wornBase) return;
+          if (base > wornBase) {
+            const rank = 1e15 + base;
+            if (!best || rank > best.gain) best = { i, gain: rank };
+            return;
+          }
+        }
+        const gain = (worn ? scoreAfterCarry(this.equipment, s.id, eq.slot, score) : score(s.id)) - (worn ? score(worn) : 0);
         if (gain > 0 && (!best || gain > best.gain)) best = { i, gain };
       });
       if (!best) break;

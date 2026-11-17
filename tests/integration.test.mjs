@@ -4552,13 +4552,24 @@ test('Equip best in slot counts mastery and enchantments, and only the stats you
   g.inventory.add('iron_sword', 1); g.inventory.add('steel_sword', 1);
   g.equipBest();
   assert.equal(g.equipment.get('weapon'), 'steel_sword', 'plain for plain, the steel sword is better');
-  g.equipment.mastery.iron_sword = 50000;          // a Legendary iron sword beats a plain steel one
+  // Refine and enchantments carry over to a better piece, so the higher tier of
+  // the same line always stays on: a Legendary iron sword no longer pulls it off.
+  g.equipment.mastery.iron_sword = 50000;
   g.equipBest();
-  assert.equal(g.equipment.get('weapon'), 'iron_sword', 'the mastered sword wins');
-  // Enchant lines count too: enough of them tip the steel sword back ahead.
-  g.equipment.enchants.steel_sword = [{ stat: 'haste', value: 10 }, { stat: 'atkPct', value: 10 }, { stat: 'crit', value: 10 }];
-  g.equipBest();
-  assert.equal(g.equipment.get('weapon'), 'steel_sword', 'the enchanted sword wins');
+  assert.equal(g.equipment.get('weapon'), 'steel_sword', 'the higher tier stays on');
+  // ...and goes on first, whatever the worn piece has had spent on it.
+  const h = new Game(); h.start(); h.chooseClass('swordsman');
+  h.ui = new Proxy({}, { get: () => () => {} });
+  h.skills.xp.attack = 50000000; h.skills.xp.defence = 50000000;
+  h.inventory.add('iron_sword', 1); h.equipItem(h.inventory.slots.findIndex((x) => x?.id === 'iron_sword'));
+  h.equipment.mastery.iron_sword = 50000; h.equipment.refines.iron_sword = 12;
+  h.equipment.enchants.iron_sword = [{ stat: 'haste', value: 10 }, { stat: 'atkPct', value: 10 }];
+  h.inventory.add('mithril_sword', 1); h.inventory.add('steel_sword', 1);
+  h.equipBest();
+  assert.equal(h.equipment.get('weapon'), 'mithril_sword', 'the highest tier, straight away');
+  assert.equal(h.equipment.refineLevel('mithril_sword'), 10, 'carrying up to ★10');
+  assert.equal(h.equipment.enchantLines('mithril_sword').length, 2, 'and the enchantments');
+  assert.equal(h.equipBest(), 0, 'and nothing swaps back');
   // An archer's amulet slot ignores a melee amulet's attack stats.
   const a = new Game(); a.start(); a.chooseClass('archer');
   a.ui = new Proxy({}, { get: () => () => {} });
