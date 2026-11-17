@@ -31,7 +31,7 @@ import {
   playerAttackVsNpc, npcAttackVsPlayer, OFFHAND_SHARE, rollAttack, rollGuaranteed, rollHit, combatXp, magicXp, killXp, DAMAGE_XP_SHARE, KILL_XP_SHARE,
   playerRangedVsNpc, combatXpRanged, playerMagicVsNpc, RANGED_STYLES,
   weaknessOf, WEAKNESS_BONUS, armourOf, armourMult, critChance, hitChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE,
-  playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX, RANGED_TYPE_DMG,
+  playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX, RANGED_TYPE_DMG, combatLevelXpMult,
 } from './combat.js';
 import { ABILITY_BY_ID, abilitiesFor, ADREN_PER_HIT, ADREN_PER_HURT, CLASS_ADRENALINE, EXECUTE_BELOW } from '../data/abilities.js';
 import { classPassiveMods, CLASS_SKILL } from '../data/classPassives.js';
@@ -3190,8 +3190,14 @@ export class Game {
   /** Night hunt: combat XP is worth 25% more after dark. */
   // Combat XP multipliers, all stacking: night hunt x1.5, Wilderness level
   // (x1.5 at level 1 up to x6 at level 10), and kill streak (+10% per kill, up to +50%).
-  // On top, every combat XP gain is paid at COMBAT_XP_RATE (xpBreakdown shows only the bonuses).
-  combatXpMult() { return this.xpBreakdown().total * COMBAT_XP_RATE; }
+  // On top, every combat XP gain is paid at COMBAT_XP_RATE (xpBreakdown shows only the bonuses),
+  // grown by your fighting level so the climb past the 70s doesn't stall (combatLevelXpMult).
+  combatXpMult() { return this.xpBreakdown().total * COMBAT_XP_RATE * combatLevelXpMult(this.fightingLevel()); }
+  /** The level of the fighting skill your weapon trains (Melee, Ranged, Magic or the Dancer's pooled level). */
+  fightingLevel() {
+    const m = this.combatMode();
+    return m === 'ranged' ? this.skills.ranged : m === 'magic' ? this.skills.magic : m === 'dance' ? this.skills.danceLevel() : this.skills.attack;
+  }
   xpBreakdown() {
     const night = this.isNight() ? 1.5 : 1;
     const wl = this.wildernessLevel();

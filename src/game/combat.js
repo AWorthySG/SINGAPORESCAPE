@@ -18,10 +18,23 @@ const BAL = STYLES.balanced;
 export const DAMAGE_XP_SHARE = 0.25;
 export const KILL_XP_SHARE = 1 - DAMAGE_XP_SHARE;
 // XP per point of damage (or of a monster's life, for the kill reward), before
-// the shares: the fighting skill (Magic earns three quarters, as spells also give
-// XP per cast; at half it levelled about twice as slowly as Melee), plus Defence
-// and Hitpoints.
-const RATES = { skill: 4, magic: 3, defence: 1.33, hitpoints: 1.33 };
+// the shares: the fighting skill (Magic earns 3.5, as spells also give XP per
+// cast; at half it levelled about twice as slowly as Melee, and at 3 a geared
+// mage still took ~1.5x as long as Melee to reach 99 and 300), plus Defence and
+// Hitpoints.
+const RATES = { skill: 4, magic: 3.5, defence: 1.33, hitpoints: 1.33 };
+// Combat XP grows with your fighting level: x1 up to level 40, rising evenly to
+// x2.5 by level 80 and staying there. Monster XP keeps up with the levels before
+// 40 (Melee 50 came in about five minutes), but from the 70s the curve's cost
+// per level outran it: 50 -> 99 took most of two hours of auto battle and
+// 99 -> 200 another five. The boost goes on the whole gain, so Defence and
+// Hitpoints keep in step with the fighting skill (tools/balance/xp.mjs).
+export const COMBAT_LEVEL_XP = { from: 40, to: 80, max: 2.5 };
+/** Combat XP multiplier at fighting level `level` (see COMBAT_LEVEL_XP). */
+export function combatLevelXpMult(level) {
+  const { from, to, max } = COMBAT_LEVEL_XP;
+  return 1 + (max - 1) * Math.min(1, Math.max(0, ((level || 1) - from) / (to - from)));
+}
 // The Dancer ('dance') fights with a whip that reaches like a short bow: its
 // fighting-skill XP is split evenly between Agility and Ranged.
 const spread = (skill, amount) => [
