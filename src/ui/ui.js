@@ -345,8 +345,7 @@ export class UI {
     const m = WEAPON_VS_RACE[wt];
     const list = (ids) => ids.map((r) => `${RACES[r].icon} ${escapeHtml(RACES[r].name)}`).join(', ');
     el.innerHTML = `<b>Your ${escapeHtml(weaponTypeName(wt))} against races</b>`
-      + `<span class="rh-strong">Strong vs ${list(m.strong)}: +30% damage</span>`
-      + (m.weak.length ? `<span class="rh-weak">Weak vs ${list(m.weak)}: -25% damage</span>` : '');
+      + `<span class="rh-strong">Strong vs ${list(m.strong)}: +30% damage</span>`;   // (no race resists a weapon any more)
   }
 
   /** Label the Interact button with what it will do right now. */

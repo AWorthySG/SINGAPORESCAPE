@@ -65,7 +65,6 @@ export function classPerks(classId) {
   if (eq.bonuses?.crit) out.push({ icon: '💥', label: 'Critical', text: `+${eq.bonuses.crit}% crit chance on every ${weaponTypeName(type)}` });
   const vs = WEAPON_VS_RACE[type];
   if (vs?.strong.length) out.push({ icon: '🎯', label: 'Strong against', text: raceList(vs.strong) });
-  if (vs?.weak.length) out.push({ icon: '🛡️', label: 'Weak against', text: raceList(vs.weak) });
   const fam = ARMOUR_FAMILIES[ARMOUR_FAMILY[classId]];
   if (fam) out.push({ icon: '🧥', label: 'Armour', text: `${fam.name}. ${fam.desc}` });
   out.push({ icon: '📈', label: 'Passive perks', text: `a new perk every 20 levels in ${TRACKS[cls.style]}` });
