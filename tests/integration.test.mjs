@@ -6698,14 +6698,14 @@ test('the old github.io address forwards players, with their save, to adventure.
   assert.equal(empty.went, NEW_HOME);
 });
 
-test('bows, katanas, warhammers and 2h swords are two-handed: no shield with them', async () => {
+test('bows, katanas, warhammers, 2h swords, halberds, rifles, crossbows and claws are two-handed: no shield with them', async () => {
   const { isTwoHanded } = await import('../src/game/equipment.js');
   const typeOf = (id) => ITEMS[id].equip.weaponType;
   // The easiest weapon of each type (so level requirements never get in the way).
   const lvl = (id) => Math.max(0, ...Object.values(ITEMS[id].equip.req || {}));
   const pick = (t) => Object.keys(ITEMS).filter((id) => ITEMS[id].equip?.weaponType === t && !ITEMS[id].signature).sort((a, b) => lvl(a) - lvl(b))[0];
-  for (const t of ['longbow', 'shortbow', 'katana', 'warhammer', '2h_sword']) assert.ok(isTwoHanded(pick(t)), `${t} is two-handed`);
-  for (const t of ['sword', 'mace', 'longsword', 'dagger', 'parang', 'toya', 'crossbow', 'staff']) assert.ok(!isTwoHanded(pick(t)), `${t} is one-handed`);
+  for (const t of ['longbow', 'shortbow', 'katana', 'warhammer', '2h_sword', 'halberd', 'rifle', 'crossbow', 'claws']) assert.ok(isTwoHanded(pick(t)), `${t} is two-handed`);
+  for (const t of ['sword', 'mace', 'longsword', 'dagger', 'parang', 'toya', 'kerambit', 'staff']) assert.ok(!isTwoHanded(pick(t)), `${t} is one-handed`);
   globalThis.localStorage = fakeStorage(); clearSave();
   // A two-handed class starts without a shield; a one-handed one still gets one.
   const sam = new Game(); sam.start(); sam.chooseClass('samurai');
@@ -6735,6 +6735,41 @@ test('bows, katanas, warhammers and 2h swords are two-handed: no shield with the
   sam.equipment.set('shield', 'wooden_shield'); sam.inventory.remove('wooden_shield', 1); saveGame(sam);
   const again = new Game(); again.start();
   assert.equal(again.equipment.get('shield'), null); assert.equal(again.inventory.count('wooden_shield'), 1);
+  clearSave();
+  // The Halberdier, Brawler and Sniper start empty-handed in the off-hand too, and
+  // can't take up a buckler or quiver with the halberd, claws, rifle or crossbow.
+  const tryOff = (g, id) => { g.inventory.add(id, 1); g.equipItem(g.inventory.slots.findIndex((s) => s?.id === id)); return g.equipment.get('shield'); };
+  for (const [cls, type, off] of [['halberdier', 'halberd', 'bronze_buckler'], ['brawler', 'claws', 'bronze_buckler'], ['sniper', 'rifle', 'bronze_quiver'], ['archer', 'shortbow', 'bronze_quiver']]) {
+    const g = new Game(); g.start(); g.chooseClass(cls);
+    assert.equal(typeOf(g.equipment.get('weapon')), type); assert.equal(g.equipment.get('shield'), null, `${cls} starts without a shield`);
+    assert.equal(tryOff(g, off), null, `${cls}: no ${off} with a ${type}`);
+    if (cls === 'sniper' || cls === 'archer') {
+      const xb = pick('crossbow'); g.inventory.add(xb, 1);
+      g.equipItem(g.inventory.slots.findIndex((s) => s?.id === xb));
+      assert.equal(g.equipment.get('weapon'), xb); assert.equal(tryOff(g, off), null, `${cls}: no ${off} with a crossbow`);
+    }
+  }
+  // The toya stays one-handed: a Halberdier switching to one can hold the buckler.
+  const hal = new Game(); hal.start(); hal.chooseClass('halberdier');
+  const toya = pick('toya'); hal.inventory.add(toya, 1);
+  hal.equipItem(hal.inventory.slots.findIndex((s) => s?.id === toya));
+  assert.equal(tryOff(hal, 'bronze_buckler'), 'bronze_buckler');
+  // Back to the halberd: the buckler goes back in the pack.
+  const halberd = pick('halberd'); hal.inventory.add(halberd, 1);
+  hal.equipItem(hal.inventory.slots.findIndex((s) => s?.id === halberd));
+  assert.equal(hal.equipment.get('shield'), null); assert.equal(hal.inventory.count('bronze_buckler'), 1);
+  // A Brawler dual wielding kerambits who takes up claws puts the off-hand kerambit away.
+  const br = new Game(); br.start(); br.chooseClass('brawler');
+  const claws = br.equipment.get('weapon');   // the starter claws go to the pack when the kerambit goes on
+  const ker = pick('kerambit'); br.inventory.add(ker, 2);
+  br.equipItem(br.inventory.slots.findIndex((s) => s?.id === ker));
+  br.equipItem(br.inventory.slots.findIndex((s) => s?.id === ker), { offhand: true });
+  assert.equal(br.equipment.get('weapon'), ker); assert.equal(br.equipment.get('shield'), ker);
+  assert.equal(br.inventory.count(claws), 1);
+  const kBefore = br.inventory.count(ker);
+  br.equipItem(br.inventory.slots.findIndex((s) => s?.id === claws));
+  assert.equal(br.equipment.get('weapon'), claws); assert.equal(br.equipment.get('shield'), null);
+  assert.equal(br.inventory.count(ker), kBefore + 2, 'both kerambits back in the pack');
   clearSave();
 });
 

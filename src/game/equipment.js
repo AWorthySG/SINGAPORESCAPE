@@ -18,10 +18,11 @@ export const dualType = (id) => {
 export const canDualWield = (id) => !!dualType(id);
 /** Can these two be held together (main hand and off-hand)? */
 export const canDualPair = (a, b) => !!dualType(a) && dualType(a) === dualType(b);
-// Two-handed weapons need both hands, so no shield can be held with them
-// (bows, katanas, warhammers and two-handed swords). A Knight's longsword is
-// held in one hand, so the Knight fights with a shield like the Swordsman.
-export const TWO_HANDED = new Set(['longbow', 'shortbow', 'katana', 'warhammer', '2h_sword']);
+// Two-handed weapons need both hands, so no shield-slot item (shield, buckler,
+// quiver or tome) can be held with them: bows, crossbows, rifles, katanas,
+// warhammers, two-handed swords, halberds and claws (a claw on each hand). A
+// Knight's longsword and the toya are held in one hand, so they keep a shield.
+export const TWO_HANDED = new Set(['longbow', 'shortbow', 'crossbow', 'rifle', 'katana', 'warhammer', '2h_sword', 'halberd', 'claws']);
 export const isTwoHanded = (id) => !!id && TWO_HANDED.has(getItem(id)?.equip?.weaponType);
 // Quick weapons swing faster than one combat beat: scimitars, claws, kerambits and war fans swing
 // about 1.4 times a beat (a fractional cooldown carries over between beats).

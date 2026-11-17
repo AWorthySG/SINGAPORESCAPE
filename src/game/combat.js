@@ -187,10 +187,13 @@ const scaledFlat = (level, equip, castMult) => Math.round(levelFlatDmg(level) * 
 // Retuned again when Knights took up shields and bucklers gained a damage bonus and
 // attack speed: the one-handed melee classes rose, so the longsword came down a little
 // and the two-handed sword and rifle (no off-hand) went up to stay in the 85-115% band.
+// Halberds, rifles, crossbows and claws later became two-handed too, losing their
+// buckler or quiver, so the halberd, rifle and claws went up to stay in the band
+// and the crossbow went up to stay at about 80-100% of the bows and rifle.
 export const WEAPON_DMG_MULT = {
   dagger: 0.65, sword: 2.2, scimitar: 0.37, mace: 2.62, longsword: 2.13, battleaxe: 1.72, warhammer: 2.88,
-  '2h_sword': 2.7, spear: 2.05, claws: 0.47, katana: 1.48, halberd: 3.02, cane: 0.71, shortbow: 0.54,
-  longbow: 1.25, pistol: 0.38, rifle: 1.03, shuriken: 1.3, staff: 0.32, wand: 0.31, whip: 2.0,
+  '2h_sword': 2.7, spear: 2.05, claws: 0.5, katana: 1.48, halberd: 3.2, cane: 0.71, shortbow: 0.54,
+  longbow: 1.25, pistol: 0.38, rifle: 1.22, shuriken: 1.3, staff: 0.32, wand: 0.31, whip: 2.0,
   // Secondary types (first estimates, pending the combat rescale), tuned against measured
   // damage (a headless run of each class's best weapon at tiers 10-250, not a formula)
   // so that each sits a little under its classes' main types and the main type stays
@@ -202,7 +205,7 @@ export const WEAPON_DMG_MULT = {
   // needs no ammo and pierces, so it stays just under the bows. (Retuned with the
   // main types: each now lands at about 80-105% of its class's main weapon, the
   // chakram 60-105% as it serves three quite different classes.)
-  parang: 1.75, kerambit: 0.27, toya: 2.35, crossbow: 3.0, chakram: 1.3, orb: 0.3, fan: 1.45,
+  parang: 1.75, kerambit: 0.27, toya: 2.35, crossbow: 3.25, chakram: 1.3, orb: 0.3, fan: 1.45,
 };
 /** The target's number scale (see hpScaleFor in npcs.js): hits on a big monster are divided by it. */
 const numScale = (npc) => npc?.hpScale || 1;
