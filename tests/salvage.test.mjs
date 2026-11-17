@@ -199,7 +199,9 @@ test('balance: an hour of drops, dismantled, adds 30-60% to stone and scroll inc
   const rows = [50, 150, 250].map((L) => salvageHour(L, { kills: 2400 }));
   for (const r of rows) {
     const sac = r.sacPoints / r.killMastery;
-    assert.ok(sac > 0.55 && sac < 1.6, `level ${r.level}: sacrifice gives ${Math.round(sac * 100)}% of the kills' mastery`);
+    // (Up to about twice: champions, each worth thirty kills of loot, are twice
+    // as common as they were, so an hour now brings half as much gear again.)
+    assert.ok(sac > 0.55 && sac < 2.3, `level ${r.level}: sacrifice gives ${Math.round(sac * 100)}% of the kills' mastery`);
   }
   const sum = (k) => rows.reduce((t, r) => t + r[k], 0);
   const stones = sum('disStones') / sum('dropStones'), scrolls = sum('disScrolls') / sum('dropScrolls');

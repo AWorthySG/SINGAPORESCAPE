@@ -7,7 +7,7 @@
 //
 // "An hour" is 1,800 kills (30 a minute; the comparisons are per kill, so the
 // pace doesn't change them) of the monsters within 15% of the level, each spawn
-// a champion as often as in the game (4%), loot rolled by the game's own
+// a champion as often as in the game (8%), loot rolled by the game's own
 // rollDrops (quality, class conversion and all) and put in the pack. Bosses are
 // left out: auto battle doesn't seek them.
 import { seedRandom, parseArgs, printTable } from './common.mjs';
