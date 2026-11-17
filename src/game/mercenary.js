@@ -254,7 +254,12 @@ function merchantMax(game, def) {
   // Gear's Physical damage bonus % counts for allies too: without it their share
   // of the Merchant's damage shrank as its gear grew (about 130% of the median
   // class at level 50, 85% at level 300).
-  const pct = 1 + (game.equipment.bonuses().atkPct || 0) / 100;
+  // So do the Merchant's damage perks and class passives (and boss damage on a
+  // boss): they grow with level, and allies deal about two thirds of a Merchant's
+  // damage, so without them Merchants slipped from ~125% of the median class at
+  // level 50 to ~85% at level 300.
+  const gb = game.equipment.bonuses(), perk = game.perkMods?.(game.combatMode()) || {};
+  const pct = (1 + (gb.atkPct || 0) / 100) * (1 + (perk.dmg || 0) + (def?.boss ? (perk.boss || 0) + (gb.bossDmg || 0) / 100 : 0));
   if (game.combatMode() === 'ranged') {
     const w = game.equipment.get('weapon');
     const str = w ? Math.floor((getItem(w).equip?.bonuses?.ranged || 0) / 3) : 0;

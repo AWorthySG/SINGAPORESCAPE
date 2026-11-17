@@ -184,8 +184,8 @@ const scaledFlat = (level, equip, castMult) => Math.round(levelFlatDmg(level) * 
 // longsword's damage per second, the rest of the gap paid for by their reach.
 export const WEAPON_DMG_MULT = {
   dagger: 0.65, sword: 2.1, scimitar: 0.37, mace: 2.62, longsword: 2.14, battleaxe: 1.72, warhammer: 2.88,
-  '2h_sword': 2.5, spear: 2.05, claws: 0.47, katana: 1.48, halberd: 3.02, cane: 0.8, shortbow: 0.54,
-  longbow: 1.25, pistol: 0.38, rifle: 0.93, shuriken: 1.3, staff: 0.39, wand: 0.38, whip: 2.0,
+  '2h_sword': 2.5, spear: 2.05, claws: 0.47, katana: 1.48, halberd: 3.02, cane: 0.73, shortbow: 0.54,
+  longbow: 1.25, pistol: 0.38, rifle: 0.93, shuriken: 1.3, staff: 0.36, wand: 0.35, whip: 2.0,
   // Secondary types (first estimates, pending the combat rescale), tuned against measured
   // damage (a headless run of each class's best weapon at tiers 10-250, not a formula)
   // so that each sits a little under its classes' main types and the main type stays
@@ -324,8 +324,8 @@ export const MAGIC_LEVEL_DIV = 80;
 // only with Magic level x gear, while Melee and Ranged hits grow with level x
 // (gear + level bonus) up to LEVEL_BONUS_CAP: casters fell from ~120% of the
 // median class at level 100 to ~80% at 200. So from Magic 100 up to the bonus
-// cap, every 4 levels add a point to the spell's base as well.
-export const magicLevelBase = (magic) => Math.floor(Math.max(0, Math.min(LEVEL_BONUS_CAP, magic || 0) - 100) / 4);
+// cap, every 2 levels add a point to the spell's base as well.
+export const magicLevelBase = (magic) => Math.floor(Math.max(0, Math.min(LEVEL_BONUS_CAP, magic || 0) - 100) / 2);
 export function playerMagicVsNpc(skills, equip, spell, npc) {
   const gear = equip.bonuses();
   const b = withLevelBonus(gear, skills);
