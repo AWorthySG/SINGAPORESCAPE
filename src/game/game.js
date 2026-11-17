@@ -329,7 +329,7 @@ export class Game {
     // fight only one monster type (null = anything), use attack skills.
     // Bosses start off for new games (auto battle used to walk new players into
     // bosses far above them); saves keep whatever the player chose.
-    this.autoCfg = { eatAt: 0.4, target: null, abilities: true, bosses: false, champions: true, priority: true };
+    this.autoCfg = { eatAt: 0.4, target: null, abilities: true, bosses: false, champions: true, priority: true, dodge: true };
     this.particles = [];
     this.cine = new Cinematics();   // camera lead/push-in, boss entrances, region title cards
     this.minimalHud = false;        // Settings > Minimal HUD (saved with the settings)
@@ -4715,7 +4715,8 @@ export class Game {
    *  one. True while a dodge is under way. */
   _autoDodge() {
     const p = this.player;
-    if (!this.hazards.length || this.playerRoot > 0 || this.playerStun > 0) {
+    // "Dodge boss attacks: Off" in the auto battle settings leaves the red markers to you.
+    if (!this.hazards.length || this.autoCfg.dodge === false || this.playerRoot > 0 || this.playerStun > 0) {
       if (this._dodging && !p.isMoving) this._dodging = false;
       return false;
     }

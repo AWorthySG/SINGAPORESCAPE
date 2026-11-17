@@ -361,6 +361,7 @@ function loadFields(game, data) {
       bosses: ac.bosses !== false,
       champions: ac.champions !== false,
       priority: ac.priority !== false,
+      dodge: ac.dodge !== false,   // older saves: auto dodge stays on
     };
   }
 }
