@@ -62,7 +62,7 @@ function confirmBox(body, st, rerender) {
   if (st.result) {
     const r = document.createElement('div');
     r.className = 'salvage-result';
-    r.innerHTML = st.result;
+    r.innerHTML = `<span>${st.result}</span>`;
     r.appendChild(button('OK', () => { st.result = null; rerender(); }, 'small'));
     body.appendChild(r);
   }
