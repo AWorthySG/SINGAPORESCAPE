@@ -6698,20 +6698,23 @@ test('the old github.io address forwards players, with their save, to adventure.
   assert.equal(empty.went, NEW_HOME);
 });
 
-test('bows, katanas, warhammers, longswords and 2h swords are two-handed: no shield with them', async () => {
+test('bows, katanas, warhammers and 2h swords are two-handed: no shield with them', async () => {
   const { isTwoHanded } = await import('../src/game/equipment.js');
   const typeOf = (id) => ITEMS[id].equip.weaponType;
   // The easiest weapon of each type (so level requirements never get in the way).
   const lvl = (id) => Math.max(0, ...Object.values(ITEMS[id].equip.req || {}));
   const pick = (t) => Object.keys(ITEMS).filter((id) => ITEMS[id].equip?.weaponType === t && !ITEMS[id].signature).sort((a, b) => lvl(a) - lvl(b))[0];
-  for (const t of ['longbow', 'shortbow', 'katana', 'warhammer', 'longsword', '2h_sword']) assert.ok(isTwoHanded(pick(t)), `${t} is two-handed`);
-  for (const t of ['sword', 'mace', 'dagger', 'parang', 'toya', 'crossbow', 'staff']) assert.ok(!isTwoHanded(pick(t)), `${t} is one-handed`);
+  for (const t of ['longbow', 'shortbow', 'katana', 'warhammer', '2h_sword']) assert.ok(isTwoHanded(pick(t)), `${t} is two-handed`);
+  for (const t of ['sword', 'mace', 'longsword', 'dagger', 'parang', 'toya', 'crossbow', 'staff']) assert.ok(!isTwoHanded(pick(t)), `${t} is one-handed`);
   globalThis.localStorage = fakeStorage(); clearSave();
   // A two-handed class starts without a shield; a one-handed one still gets one.
   const sam = new Game(); sam.start(); sam.chooseClass('samurai');
   assert.equal(typeOf(sam.equipment.get('weapon')), 'katana'); assert.equal(sam.equipment.get('shield'), null);
   const sw = new Game(); sw.start(); sw.chooseClass('swordsman');
   assert.equal(sw.equipment.get('shield'), 'wooden_shield');
+  // The Knight's longsword is one-handed: a new Knight starts with a shield too.
+  const kn = new Game(); kn.start(); kn.chooseClass('knight');
+  assert.equal(typeOf(kn.equipment.get('weapon')), 'longsword'); assert.equal(kn.equipment.get('shield'), 'wooden_shield');
   // A shield can't go on while a two-hander is held...
   sam.inventory.add('wooden_shield', 1);
   sam.equipItem(sam.inventory.slots.findIndex((s) => s?.id === 'wooden_shield'));
