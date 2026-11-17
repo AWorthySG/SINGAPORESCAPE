@@ -149,7 +149,7 @@ export function maxHitNow(game, { npc = null, boss = false, rhythm = 0 } = {}) {
     const typeMult = wpn.weaponType === 'longbow' || wpn.weaponType === 'rifle' ? RANGED_TYPE_DMG[wpn.weaponType] : 1;
     baseMax = Math.round(playerRangedVsNpc(sk, eq, game.player.rangedStyle, def, arrowStr).max * pm.ranged * typeMult);
     if (pm.ranged !== 1) parts.unshift(['Prayer', times(pm.ranged)]);
-    if (wpn.weaponType === 'shortbow') { out.arrows = SHORTBOW_ARROWS; arrowDmg = SHORTBOW_ARROW_DMG; }
+    if (wpn.weaponType === 'shortbow') { out.arrows = SHORTBOW_ARROWS; arrowDmg = SHORTBOW_ARROW_DMG; parts.push(['Each arrow of the spread', times(arrowDmg)]); }
   } else {
     baseMax = Math.round(playerAttackVsNpc(sk, eq, game.player.style, def).max * pm.str);
     if (pm.str !== 1) parts.unshift(['Prayer', times(pm.str)]);
@@ -219,11 +219,11 @@ export function statSheet(game) {
   offence.push(row('interval', 'Time between attacks', `${sp.secs < 0.1 ? sp.secs.toFixed(3) : sp.secs.toFixed(2)}s`,
     [['Attacks per second', r1(sp.perSec).toString()]], mode === 'magic' ? 'Spells come off at half a swing, times the element\'s cast speed.' : ''));
   offence.push(row('aps', 'Attacks per second', r1(sp.perSec).toString()));
-  if (Math.abs(sp.combined) > 0.05) offence.push(row('haste', 'Attack speed bonus %', pct(sp.combined), sp.factors.filter(([, v]) => v).map(([l, v]) => [l, pct(v)]), 'The factors multiply together.'));
+  if (Math.abs(sp.combined) > 0.05) offence.push(row('haste', 'Attack speed bonus %', pct(sp.combined), sp.factors.filter(([, v]) => Math.abs(v) >= 0.05).map(([l, v]) => [l, pct(v)]), 'The factors multiply together.'));
 
   // Accuracy / power: the style's gear bonus plus what your levels add (combat.js levelBonuses).
   const lb = levelBonuses(sk);
-  const styleStat = mode === 'ranged' ? [['ranged', 'Ranged bonus']] : mode === 'magic' ? [['magic', 'Magic attack bonus'], ['magicStr', 'Magic damage bonus']]
+  const styleStat = mode === 'ranged' ? [['ranged', 'Ranged bonus']] : mode === 'magic' ? [['magic', 'Magic attack bonus'], ['magicStr', 'Magic power (flat)']]
     : mode === 'dance' ? [['dance', 'Dance bonus']] : [['attack', 'Melee attack bonus'], ['strength', 'Melee power bonus']];
   for (const [k, label] of styleStat) {
     const p = part(k), lv = lb[k] || 0;
