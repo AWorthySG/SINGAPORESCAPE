@@ -60,7 +60,7 @@ export function shrineGoodsSection(ui, body, st, rerender) {
 
   // Offer all of a kind, keeping back a few of each if asked.
   body.insertAdjacentHTML('beforeend', '<div class="ench-head salvage-head">Offer all…</div>');
-  const f = ui._shrineGoodsFilter || (ui._shrineGoodsFilter = { keep: 0 });
+  const f = ui._shrineGoodsFilter || (ui._shrineGoodsFilter = { keep: 5 });
   const box = document.createElement('div');
   box.className = 'salvage-filters';
   box.innerHTML = 'Keep back <select>' + [[0, 'none'], [1, '1 of each'], [5, '5 of each'], [28, '28 of each'], [100, '100 of each']]
