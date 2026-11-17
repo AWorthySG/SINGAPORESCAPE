@@ -621,6 +621,11 @@ import { ITEMS } from '../data/items.js';
   S.hunter = `<ellipse cx="12" cy="15" rx="8" ry="5" fill="none" stroke="#c8a870" stroke-width="2.2"/>${[[5, 16], [19, 16], [12, 20]].map(([x, y]) => `<rect x="${x - 1.1}" y="${y - 5}" width="2.2" height="7" rx="0.9" fill="${C.wood}" stroke="${OL}" stroke-width="0.8"/>`).join('')}<path d="M9 7 C9 4 15 4 15 7 C15 9 12 11 12 11 C12 11 9 9 9 7 Z" fill="${C.coral}" stroke="${OL}" stroke-width="0.9"/>`;
   T.prayer = S.prayer;
   T.quests = `<path d="M6 3 L18 3 L18 21 L6 21 Z" fill="${C.cream}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M8 7 L16 7 M8 10 L16 10 M8 13 L14 13" stroke="${C.stoneDk}" stroke-width="1"/><circle cx="17" cy="18" r="3" fill="${C.gold}" stroke="${OL}" stroke-width="1"/>`;
+  // Stats tab: a pentagon stat chart (no painted art yet, so this SVG is what shows).
+  T.stats = `<path d="M12 2.8 L21 9.3 L17.6 20 L6.4 20 L3 9.3 Z" fill="${C.cream}" stroke="${OL}" stroke-width="1.2" stroke-linejoin="round"/>
+    <path d="M12 2.8 L12 12 M21 9.3 L12 12 M17.6 20 L12 12 M6.4 20 L12 12 M3 9.3 L12 12" stroke="${C.stoneHi}" stroke-width=".8"/>
+    <path d="M12 5.5 L18.2 10.2 L15.2 17 L8.6 16.4 L7.4 10.6 Z" fill="${C.coral}" fill-opacity=".85" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/>
+    <circle cx="12" cy="5.5" r="1.1" fill="${C.goldHi}" stroke="${OL}" stroke-width=".7"/><circle cx="18.2" cy="10.2" r="1.1" fill="${C.goldHi}" stroke="${OL}" stroke-width=".7"/>`;
   T.achievements = `<path d="M7 4 L17 4 L17 8 C17 12 14 13 12 13 C10 13 7 12 7 8 Z" fill="${C.gold}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M7 5 C4 5 4 9 7 9 M17 5 C20 5 20 9 17 9" fill="none" stroke="${OL}" stroke-width="1.1"/><rect x="10.6" y="13" width="2.8" height="4" fill="${C.goldDk}" stroke="${OL}" stroke-width="1"/><rect x="8" y="17" width="8" height="3" rx="1" fill="${C.stone}" stroke="${OL}" stroke-width="1.1"/>`;
 
   // Items shipped as hand-drawn PNG sprites (assets/items/<id>.png). When an id
