@@ -2520,8 +2520,8 @@ body.boss-on #tip-toast { top: 132px; }
 .st-row > summary { list-style: none; cursor: var(--cur-pointer); }
 .st-row > summary::-webkit-details-marker { display: none; }
 .st-label { min-width: 0; }
-.st-more > summary .st-label::after { content: ' \25BE'; font-size: 9px; color: var(--aw-text-sec); }
-.st-more[open] > summary .st-label::after { content: ' \25B4'; }
+.st-more > summary .st-label::after { content: '\00a0\25BE'; font-size: 9px; color: var(--aw-text-sec); }
+.st-more[open] > summary .st-label::after { content: '\00a0\25B4'; }
 .st-val { flex: none; font-weight: 900; text-align: right; white-space: nowrap; }
 .st-parts { margin: 0 0 5px; padding: 4px 7px; border-radius: var(--r1); background: var(--aw-muted); font-size: 11px; color: var(--aw-text-sec); }
 .st-part { display: flex; justify-content: space-between; gap: 8px; }
@@ -2533,3 +2533,6 @@ body.boss-on #tip-toast { top: 132px; }
 .st-fx-detail { font-size: 11px; color: var(--aw-text-sec); }
 .st-fx.off { opacity: .6; }
 .st-empty { font-size: 11px; color: var(--aw-text-sec); padding: 2px 0; }
+/* Phones: the panel is narrow, so the cards hug the edges a little more. */
+#sidepanel.compact-ui .st-sec { padding: 5px 7px; }
+#sidepanel.compact-ui .st-row > summary, #sidepanel.compact-ui div.st-row { gap: 6px; }

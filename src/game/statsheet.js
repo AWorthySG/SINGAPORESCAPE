@@ -217,7 +217,7 @@ export function statSheet(game) {
   }
   const sp = speedNow(game);
   offence.push(row('interval', 'Time between attacks', `${sp.secs < 0.1 ? sp.secs.toFixed(3) : sp.secs.toFixed(2)}s`,
-    [['Attacks per second', r1(sp.perSec).toString()]], mode === 'magic' ? 'Spells come off at half a swing, times the element\'s cast speed.' : ''));
+    [], mode === 'magic' ? 'Spells come off at half a swing, times the element\'s cast speed.' : ''));
   offence.push(row('aps', 'Attacks per second', r1(sp.perSec).toString()));
   if (Math.abs(sp.combined) > 0.05) offence.push(row('haste', 'Attack speed bonus %', pct(sp.combined), sp.factors.filter(([, v]) => Math.abs(v) >= 0.05).map(([l, v]) => [l, pct(v)]), 'The factors multiply together.'));
 
