@@ -400,7 +400,7 @@ Object.assign(CLIPS, {
   // The katana's draw-cut: a low, still coil, then one long horizontal cut and a lunge.
   iai: swingClip({ w: 0.4, h: 0.56, wind: 0.95, swing: 1.5, lunge: 10, hop: 1, hold: 0.08, over: 0.18, arc: { kind: 'arc', cx: 10, cy: -14, r: 30, a0: -1.6, a1: 1.3 } }),
   stab: swingClip({ w: 0.14, h: 0.28, wind: 0.3, swing: 1.2, reach: 5, lunge: 5, hop: 1, hold: 0.05, over: 0.05, arc: { kind: 'line', x0: 16, x1: 42, y: -12 } }),
-  hook: swingClip({ w: 0.15, h: 0.32, wind: 0.5, swing: 1.35, reach: 3, lunge: 4, hop: 1, arc: { kind: 'arc', cx: 18, cy: -12, r: 16, a0: -2.4, a1: 0.6 } }),
+  hook: swingClip({ w: 0.15, h: 0.32, wind: 0.5, swing: 1.35, reach: 3, lunge: 4, hop: 1, arc: { kind: 'arc', cx: 24, cy: -10, r: 15, a0: -2.0, a1: 0.8 } }),
   smash_light: smashClip({ w: 0.35, h: 0.56, wind: 0.7, swing: 1.45, hold: 0.06 }),
   smash: smashClip({ w: 0.48, h: 0.68, wind: 1.05, swing: 1.95, hold: 0.1 }),
   smash_axe: smashClip({ w: 0.42, h: 0.64, wind: 0.95, swing: 1.75, reach: 3 }),
@@ -483,11 +483,11 @@ Object.assign(CLIPS, {
   // Kerambits, A: hooked rips, raised high and torn down, one hand then the other.
   rip_dual: dualClip([blow(0.1, 0.24, 0.46, { wind: 0.8, swing: 1.55, reach: 3 })], [blow(0.42, 0.58, 0.84, { wind: 0.6, swing: 1.7, reach: 4 })],
     { ...lunges([0.24, 0.58], { push: 4, lean: 0.18 }), crouch: T([[0, 0], [0.1, 2], [0.58, 2], [1, 0]]), impact: impacts(0.24, 0.58) },
-    { trail: { kind: 'arc', cx: 20, cy: -14, r: 14, a0: -2.4, a1: 0.9 }, trail2: { kind: 'arc', cx: 22, cy: -8, r: 13, a0: -2.2, a1: 1.1 } }),
+    { trail: { kind: 'arc', cx: 26, cy: -10, r: 14, a0: -2.0, a1: 0.9 }, trail2: { kind: 'arc', cx: 22, cy: -8, r: 13, a0: -2.2, a1: 1.1 } }),
   // Kerambits, B: the off hand hooks in first, then the main hand rips through with a hop.
   rip_dual_b: dualClip([blow(0.42, 0.6, 0.86, { wind: 0.9, swing: 1.7, reach: 5, hold: 0.07 })], [blow(0.08, 0.24, 0.48, { wind: 0.5, swing: 1.5, reach: 3 })],
     { ...lunges([0.24, 0.6], { push: 5, lean: 0.18, hop: 2 }), crouch: T([[0, 0], [0.08, 2], [0.45, 2.5], [0.6, -0.5, 'snap'], [1, 0]]), impact: impacts(0.24, 0.6) },
-    { trail: { kind: 'arc', cx: 20, cy: -16, r: 16, a0: -2.5, a1: 1.0 }, trail2: { kind: 'arc', cx: 22, cy: -8, r: 13, a0: -2.2, a1: 1.1 } }),
+    { trail: { kind: 'arc', cx: 26, cy: -12, r: 16, a0: -2.0, a1: 1.0 }, trail2: { kind: 'arc', cx: 22, cy: -8, r: 13, a0: -2.2, a1: 1.1 } }),
 });
 // Clips that don't fit a family are written out in full.
 Object.assign(CLIPS, {
