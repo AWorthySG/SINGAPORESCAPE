@@ -2781,8 +2781,12 @@ test('Refining: ★1-★15 on top of mastery, paid for with refine scrolls only'
   assert.equal(g.inventory.count(STONE), 40, 'no upgrade stones spent');
   const base = ITEMS[w].equip.bonuses;
   const after = g.equipment.itemBonuses(w);
-  assert.equal(after.strength - before.strength, Math.max(5, Math.round(base.strength * R.refineGain(5))), 'the gain is a share of the base stats');
-  assert.equal(after.crit, before.crit + (base.crit ? Math.max(5, Math.round(base.crit * R.refineGain(5))) : 0), 'enchant lines still count');
+  assert.equal(after.strength - before.strength, Math.max(1, Math.round(base.strength * R.refineGain(5))), 'the gain is a share of the base stats');
+  assert.ok(Math.abs(after.crit - (before.crit + (base.crit ? Math.round(base.crit * R.refineGain(5) * 10) / 10 : 0))) < 1e-9, 'enchant lines still count');
+  // The share is of each item's own stats: a strong weapon gains far more than a weak one.
+  const weak = R.refinedBonuses(ITEMS.bronze_scimitar.equip.bonuses, {}, 9), strong = R.refinedBonuses(ITEMS.dragon_longsword.equip.bonuses, {}, 9);
+  assert.ok(strong.attack > weak.attack * 5, `dragon ★9 (+${strong.attack}) far above bronze ★9 (+${weak.attack})`);
+  assert.ok(strong.haste > 0 && strong.pierce > 0, '% stats are refined too');
   // ★7 -> ★8: a failure keeps the level and costs 2 scrolls.
   g.equipment.refines[w] = 7;
   const s0 = g.inventory.count(R.SCROLL);
