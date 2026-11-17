@@ -191,22 +191,22 @@ export const HUNT = {
   // trail among them; tests/hunt-farm-herb.test.mjs). Until their own art
   // arrives they borrow an older trap's picture (`art`), recoloured (`tint`).
   // The tiger trail is the Night Safari's: +25% XP at night (`night`), never a lock.
-  pangolin_burrow: { name: 'Pangolin burrow', level: 100, xp: 500, lowChance: 0.2, highChance: 0.6, depleteChance: 0.35, respawn: 45,
+  pangolin_burrow: { name: 'Pangolin burrow', level: 100, xp: 520, lowChance: 0.2, highChance: 0.6, depleteChance: 0.35, respawn: 45,
     gives: [{ id: 'pangolin_scales' }], color: '#a8743a', art: 'obj-boar_pit', tint: 'sepia(0.4) saturate(1.2) brightness(1.05)',
     examine: 'A burrow dug under a fig tree. Something scaly snuffles inside.' },
-  colugo_trap: { name: 'Colugo trap', level: 130, xp: 700, lowChance: 0.2, highChance: 0.6, depleteChance: 0.35, respawn: 45,
+  colugo_trap: { name: 'Colugo trap', level: 130, xp: 720, lowChance: 0.2, highChance: 0.6, depleteChance: 0.35, respawn: 45,
     gives: [{ id: 'colugo_fur' }], color: '#8a8a7a', art: 'obj-squirrel_trap', tint: 'saturate(0.6) brightness(0.95)',
     examine: 'A padded box trap on a tree trunk, where colugos glide in to land.' },
   tiger_trail: { name: 'Tiger trail', level: 160, xp: 960, night: true, lowChance: 0.2, highChance: 0.6, depleteChance: 0.35, respawn: 45,
     gives: [{ id: 'tiger_whisker' }], color: '#f08a2a', art: 'obj-mousedeer_trail', tint: 'sepia(0.6) saturate(2) hue-rotate(-15deg)',
     examine: 'Huge pawprints on the Night Safari track. Best followed after dark.' },
-  garuda_nest: { name: 'Garuda nest', level: 200, xp: 1300, lowChance: 0.2, highChance: 0.6, depleteChance: 0.35, respawn: 45,
+  garuda_nest: { name: 'Garuda nest', level: 200, xp: 1340, lowChance: 0.2, highChance: 0.6, depleteChance: 0.35, respawn: 45,
     gives: [{ id: 'garuda_plume' }], color: '#7a8af0', art: 'obj-hornbill_nest', tint: 'hue-rotate(180deg) saturate(1.3) brightness(1.08)',
     examine: 'A great nest on a crag, lined with feathers that shimmer like the sky.' },
-  naga_track: { name: 'Naga track', level: 250, xp: 1770, lowChance: 0.2, highChance: 0.6, depleteChance: 0.35, respawn: 45,
+  naga_track: { name: 'Naga track', level: 250, xp: 1830, lowChance: 0.2, highChance: 0.6, depleteChance: 0.35, respawn: 45,
     gives: [{ id: 'naga_scale' }], color: '#3ab08a', art: 'obj-python_trap', tint: 'hue-rotate(90deg) saturate(1.2) brightness(0.95)',
     examine: 'A wide, winding track in the sand, leading down to the haunted shore.' },
-  phoenix_roost: { name: 'Phoenix roost', level: 300, xp: 2400, lowChance: 0.2, highChance: 0.6, depleteChance: 0.35, respawn: 45,
+  phoenix_roost: { name: 'Phoenix roost', level: 300, xp: 2450, lowChance: 0.2, highChance: 0.6, depleteChance: 0.35, respawn: 45,
     gives: [{ id: 'phoenix_ember' }], color: '#ff7a2a', art: 'obj-qilin_trail', tint: 'sepia(0.8) saturate(3) hue-rotate(-30deg)',
     examine: 'A scorched ring of stones where a phoenix comes to rest. Still warm.' },
 };
