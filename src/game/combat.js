@@ -201,7 +201,7 @@ const scaledFlat = (level, equip, castMult) => Math.round(levelFlatDmg(level) * 
 // pierce and the other per-hit boosts), daggers came down a little and scimitars
 // went up a little to keep Rogues and Corsairs where they were; pistols barely moved.
 export const WEAPON_DMG_MULT = {
-  // (The two-handed types were trimmed 3-12% when they gained the two-handed grip, the
+  // (The two-handed types, the crossbow too, were trimmed by up to 12% when they gained the two-handed grip, the
   // off-hand's atkPct, haste and Ranged built into the weapon: see items.js.)
   dagger: 0.6, sword: 2.2, scimitar: 0.39, mace: 2.62, longsword: 2.13, battleaxe: 1.72, warhammer: 2.8,
   '2h_sword': 2.55, spear: 2.05, claws: 0.48, katana: 1.41, halberd: 3.18, cane: 0.71, shortbow: 0.48,
