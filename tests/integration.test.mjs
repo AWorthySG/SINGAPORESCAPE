@@ -6738,6 +6738,28 @@ test('bows, katanas, warhammers and 2h swords are two-handed: no shield with the
   clearSave();
 });
 
+test('metal shields have distinct roles: tank kiteshield, balanced sq shield, duellist buckler', async () => {
+  const { offenceFirstScore } = await import('../src/game/gear.js');
+  const b = (id) => ITEMS[id].equip.bonuses;
+  for (const m of ['bronze', 'steel', 'rune', 'dragon', 'jade', 'eternal']) {
+    const kite = b(`${m}_kiteshield`), sq = b(`${m}_sq_shield`), buck = b(`${m}_buckler`);
+    // The kiteshield has the most Defence and bonus life; the others trade Defence for something else.
+    assert.ok(kite.defence > sq.defence && sq.defence > buck.defence, m);
+    assert.ok(kite.hp > 0 && sq.pierce > 0 && buck.atkPct > 0 && buck.haste > 0, m);
+    assert.ok(!buck.attack, `${m} buckler: no flat Attack any more`);
+  }
+  // Their extras grow with the tier.
+  assert.ok(b('eternal_kiteshield').hp > b('rune_kiteshield').hp);
+  assert.ok(b('eternal_sq_shield').pierce > b('bronze_sq_shield').pierce);
+  assert.ok(b('eternal_buckler').atkPct > b('bronze_buckler').atkPct && b('eternal_buckler').haste > b('bronze_buckler').haste);
+  // Equip best (offence first) picks the buckler for a melee fighter; a ranged one still prefers its quiver.
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('knight');
+  const score = (id, mode) => offenceFirstScore(id, g.equipment, mode);
+  assert.ok(score('rune_buckler', 'melee') > score('rune_sq_shield', 'melee') && score('rune_sq_shield', 'melee') > score('rune_kiteshield', 'melee'));
+  assert.ok(score('rune_quiver', 'ranged') > score('rune_buckler', 'ranged'));
+});
+
 test('a two-handed sword’s sweep hits every foe within 3 tiles of the target, with no limit', () => {
   globalThis.localStorage = fakeStorage(); clearSave();
   const game = new Game(); game.start(); game.chooseStartingStyle('melee'); game.jobClass = null;
