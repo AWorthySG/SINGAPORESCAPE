@@ -201,7 +201,7 @@ const scaledFlat = (level, equip, castMult) => Math.round(levelFlatDmg(level) * 
 // pierce and the other per-hit boosts), daggers came down a little and scimitars
 // went up a little to keep Rogues and Corsairs where they were; pistols barely moved.
 export const WEAPON_DMG_MULT = {
-  dagger: 0.61, sword: 2.2, scimitar: 0.39, mace: 2.62, longsword: 2.13, battleaxe: 1.72, warhammer: 2.88,
+  dagger: 0.6, sword: 2.2, scimitar: 0.39, mace: 2.62, longsword: 2.13, battleaxe: 1.72, warhammer: 2.88,
   '2h_sword': 2.7, spear: 2.05, claws: 0.5, katana: 1.48, halberd: 3.2, cane: 0.71, shortbow: 0.54,
   longbow: 1.25, pistol: 0.37, rifle: 1.22, shuriken: 1.3, staff: 0.32, wand: 0.31, whip: 2.0,
   // Secondary types (first estimates, pending the combat rescale), tuned against measured
