@@ -1054,6 +1054,38 @@ for (const [id, extra] of Object.entries(OFFENCE_EXTRA)) {
   eq.bonuses = b;
 }
 
+// ---- The two-handed grip ----
+// Two-handed weapons need both hands, so their wielders can never hold a shield,
+// buckler or quiver (see isTwoHanded in equipment.js). To make up for the empty
+// off-hand, each one carries what a same-tier off-hand would give: the
+// kiteshield's Defence and bonus life, plus the buckler's offensive extras
+// (melee) or the quiver's (bows, crossbows and rifles). The tier is the
+// weapon's metal; wooden bows, boss uniques and signature weapons take the
+// metal whose level is closest to theirs. Read straight from those shield-slot
+// items, so the grip keeps in step if they are retuned. The grip is part of the
+// weapon's bonuses (tooltips, Equip best and the Stats tab all see it) and is
+// also kept as `grip` so the tooltip can name it.
+export const TWO_HANDED_TYPES = new Set(['longbow', 'shortbow', 'crossbow', 'rifle', 'katana', 'warhammer', '2h_sword', 'halberd', 'claws']);
+const _metalOf = (id, eq) => _METALS.find((M) => id.startsWith(M.k + '_'))
+  || _METALS.reduce((best, M) => (Math.abs(M.rd - reqOf(eq)) < Math.abs(best.rd - reqOf(eq)) ? M : best));
+/** The grip bonus a two-handed weapon of metal tier M gets. */
+export function gripBonus(M, ranged) {
+  const kite = RAW[`${M.k}_kiteshield`].equip.bonuses;
+  const off = ranged ? RAW[`${M.k}_quiver`].equip.bonuses : RAW[`${M.k}_buckler`].equip.bonuses;
+  const g = { defence: kite.defence, hp: kite.hp, atkPct: off.atkPct, haste: off.haste };
+  if (ranged) g.ranged = off.ranged;
+  return g;
+}
+for (const [id, it] of Object.entries(RAW)) {
+  const eq = it.equip;
+  if (!eq || eq.slot !== 'weapon' || it.tool || !TWO_HANDED_TYPES.has(eq.weaponType)) continue;
+  const grip = gripBonus(_metalOf(id, eq), eq.combatType === 'ranged');
+  const b = { ...eq.bonuses };
+  for (const [k, v] of Object.entries(grip)) b[k] = (b[k] || 0) + v;
+  eq.bonuses = b;
+  eq.grip = { ...grip, tier: _metalOf(id, eq).k };
+}
+
 // ---- Accessories: each one suits a single fighting style ----
 // Every amulet, ring and cape now belongs to melee, ranged or magic, and each
 // style gets a matching ladder of power P (3, 6, 10, 14, 20 for amulets;

@@ -952,7 +952,12 @@ export class UI {
       + `<div class="gt-stats">${this._gearStats(id)}</div>`
       + `<div class="gt-tier">#${t.rank} of ${t.of} ${eq.slot === 'weapon' ? weaponStyle(id) + ' weapons' : eq.slot + ' items'}</div>`;
     if (reqTxt) html += `<div class="gt-req ${req.ok ? 'ok' : 'no'}">Needs ${reqTxt}${req.ok ? ' ✓' : ''}</div>`;
-    if (isTwoHanded(id)) html += `<div class="gt-req">Two-handed: no shield</div>`;
+    if (isTwoHanded(id)) {
+      html += `<div class="gt-req">Two-handed: no shield</div>`;
+      // The grip bonus that stands in for the off-hand (already counted in the stats above).
+      const g = eq.grip;
+      if (g) html += `<div class="gt-grip">Two-handed grip: +${g.defence} Defence, +${g.hp} life${g.ranged ? `, +${g.ranged} Ranged` : ''}, +${g.atkPct}% damage, +${g.haste}% attack speed (makes up for having no off-hand)</div>`;
+    }
     else if (eq.slot === 'shield' && isTwoHanded(this.game.equipment.get('weapon'))) html += `<div class="gt-req no">Your weapon is two-handed: no shield</div>`;
     // Accessories suit one fighting style: say which, and whether it's yours.
     if (eq.style) {
