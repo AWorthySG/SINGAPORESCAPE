@@ -167,12 +167,9 @@ test('smithed endgame gear needs the level and comes out plain (no quality, no m
   assert.ok(!said.some((m) => /^(Fine|Superior|Epic|Legendary|Mythic) /.test(m)), 'no quality message');
 });
 
-test('endgame ores and bars borrow tinted sticker art until their own arrives', () => {
+test('endgame ores and bars have their own sticker art', () => {
   for (const t of TIERS) {
-    for (const id of [t.ore, t.bar]) {
-      const html = itemIconSVG(id, 24);
-      assert.ok(html.includes('assets/icons/item-') && html.includes('filter:'), `${id} borrows tinted art`);
-    }
+    for (const id of [t.ore, t.bar]) assert.ok(itemIconSVG(id, 24).includes(`assets/icons/item-${id}.webp`), `${id} has its own art`);
   }
 });
 

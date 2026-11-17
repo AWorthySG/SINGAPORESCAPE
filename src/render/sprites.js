@@ -2183,15 +2183,17 @@ const CACHED_OBJECTS = new Set(['tree', 'rock', 'anvil', 'craft', 'bank', 'rest'
 // traps. Each entry is [max width, max height, feet below the tile centre] in
 // pixels; the picture is fitted inside and stood on that line. Anything
 // without art (fires, farm patches) keeps its drawn sprite.
-const TREE_IDS = ['tree', 'oak', 'willow', 'rain_tree', 'yew_tree', 'magic_tree', 'bamboo', 'angsana', 'teak', 'mangrove', 'mahogany', 'tembusu'];
-const ROCK_IDS = ['copper', 'tin', 'iron', 'coal', 'mithril', 'adamantite', 'runite', 'gold', 'clay', 'limestone', 'silver', 'sandstone', 'gem', 'granite'].map((o) => `${o}_rock`);
+const TREE_IDS = ['tree', 'oak', 'willow', 'rain_tree', 'yew_tree', 'magic_tree', 'bamboo', 'angsana', 'teak', 'mangrove', 'mahogany', 'tembusu',
+  'seraya_tree', 'meranti_tree', 'chengal_tree', 'starfall_banyan', 'moonlit_kapok', 'keramat_tree'];
+const ROCK_IDS = [...['copper', 'tin', 'iron', 'coal', 'mithril', 'adamantite', 'runite', 'gold', 'clay', 'limestone', 'silver', 'sandstone', 'gem', 'granite'].map((o) => `${o}_rock`),
+  'obsidian_vein', 'orichalcum_rock', 'jade_seam', 'fallen_star', 'skyglass_crystal', 'eternal_lode'];
 const WORLD_ART = {
   ...Object.fromEntries(TREE_IDS.flatMap((t) => [[`tree-${t}`, [66, 74, 15]], [`stump-${t}`, [34, 28, 14]]])),
   ...Object.fromEntries(ROCK_IDS.map((r) => [`rock-${r}`, [38, 34, 14]])),
   'rock-empty': [36, 32, 14],
   'obj-furnace': [50, 50, 16], 'obj-anvil': [40, 38, 15], 'obj-range': [50, 46, 16], 'obj-crafting_table': [52, 42, 16],
   'obj-apothecary_table': [52, 42, 16], 'obj-fletching_bench': [52, 42, 16], 'obj-bank_booth': [56, 54, 16],
-  'obj-shrine': [54, 56, 16], 'obj-mascot_statue': [48, 54, 16], 'obj-mrt_station': [66, 50, 16],
+  'obj-shrine': [54, 56, 16], 'obj-offering_shrine': [54, 56, 16], 'obj-mascot_statue': [48, 54, 16], 'obj-mrt_station': [66, 50, 16],
   'obj-stall_food': [56, 50, 16], 'obj-stall_market': [56, 50, 16], 'obj-stall_gem': [56, 50, 16],
   'obj-agility_course': [60, 48, 16], 'obj-agility_balance': [50, 34, 15], 'obj-agility_net': [46, 46, 16],
   'obj-agility_rope': [44, 46, 16], 'obj-agility_ledge': [44, 42, 16], 'obj-agility_zip': [48, 46, 16],

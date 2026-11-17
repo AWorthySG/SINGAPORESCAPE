@@ -354,3 +354,24 @@ test('tip toast never blocks the buttons under it', async () => {
   assert.match(block, /pointer-events:\s*none/, 'the tip itself lets taps through');
   assert.match(css, /#tip-toast button \{\s*pointer-events:\s*auto/, '"Got it" stays tappable');
 });
+
+test('art batch 1: weapon and armour types, signature weapons, bones and trinkets use their own stickers', async () => {
+  const { itemIconSVG } = await import('../src/render/icons.js');
+  const { ITEMS } = await import('../src/data/items.js');
+  const { worldArt } = await import('../src/render/sprites.js');
+  const tiers = ['bronze', 'iron', 'steel', 'mithril', 'adamant', 'rune', 'dragon', 'obsidian', 'orichalcum', 'jade', 'starmetal', 'celestial', 'eternal'];
+  const ids = [
+    ...tiers.flatMap((t) => ['parang', 'kerambit', 'toya', 'crossbow', 'chakram', 'orb', 'fan', 'rifle', 'quiver',
+      'scout_gloves', 'scout_boots', 'hide_vambraces', 'hide_boots', 'mage_gloves', 'mage_boots'].map((w) => `${t}_${w}`)),
+    ...Object.keys(ITEMS).filter((id) => ITEMS[id].signature),
+    'big_bones', 'legend_bones', 'refine_scroll', 'pearl_ring', 'pearl_amulet', 'holy_beads', 'lantern_cape', 'starlit_pendant',
+  ];
+  for (const id of ids) {
+    assert.ok(ITEMS[id], `${id} is an item`);
+    const html = itemIconSVG(id, 24);
+    assert.ok(html.includes(`assets/icons/item-${id}.webp`) && !html.includes('filter:'), `${id} has its own untinted sticker`);
+  }
+  // The endgame rocks and the Offering Shrine have their own pictures too.
+  for (const id of ['obsidian_vein', 'orichalcum_rock', 'jade_seam', 'fallen_star', 'skyglass_crystal', 'eternal_lode']) assert.ok(worldArt().has(`rock-${id}`), id);
+  assert.ok(worldArt().has('obj-offering_shrine') && !OBJECTS.offering_shrine.art && !OBJECTS.offering_shrine.tint, 'offering shrine');
+});

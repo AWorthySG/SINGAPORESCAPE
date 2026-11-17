@@ -6592,10 +6592,9 @@ test('boss signature weapons: stronger than the plain weapon they are built on, 
     for (const k of FIGHT) assert.ok((s[k] || 0) >= (b[k] || 0), `${it.id} ${k}`);
     assert.ok(sum(s, FIGHT) > sum(b, FIGHT) * 1.2, `${it.id} hits about 1.3x harder`);
     assert.ok(sum(s, OFF) > sum(b, OFF), `${it.id} has extra offensive lines`);
-    // Its icon borrows a real sticker, tinted.
+    // It has its own painted sticker.
     assert.ok(hasIcon(it.id));
-    const html = itemIconSVG(it.id, 24);
-    assert.ok(html.includes('assets/icons/item-') && html.includes('filter:'), `${it.id} borrows tinted art`);
+    assert.ok(itemIconSVG(it.id, 24).includes(`assets/icons/item-${it.id}.webp`), `${it.id} has its own art`);
     if (it.equip.weaponType === 'dagger') assert.ok(canDualWield(it.id), 'signature daggers dual wield');
   }
 });
