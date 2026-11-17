@@ -1253,7 +1253,7 @@ button:focus-visible, .tab-btn:focus-visible, .chat-tab:focus-visible,
   border-radius: var(--r5, 32px); box-shadow: var(--shadow-sticker-lg); color: var(--aw-text);
 }
 .splash-mascot { width: 168px; height: auto; display: block; margin: -4px auto 4px; animation: none; }
-.splash-logo { display: block; height: 46px; width: auto; margin: 2px auto 18px; filter: none; animation: none; }
+.splash-logo { display: block; height: 64px; width: auto; margin: 2px auto 16px; filter: none; animation: none; }
 .splash-title {
   font-size: 44px; font-weight: 900; letter-spacing: -0.02em; line-height: 1.05;
   background: none; color: var(--aw-text); -webkit-text-fill-color: var(--aw-text); filter: none;
