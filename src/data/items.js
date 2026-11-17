@@ -120,6 +120,22 @@ const RAW = {
   mangrove_logs: { name: 'Mangrove logs', icon: '🪵', value: 40, tags: ['log'], firemaking: 40, fmXp: 125, examine: 'Salt-hardened mangrove wood.' },
   mahogany_logs: { name: 'Mahogany logs', icon: '🪵', value: 60, tags: ['log'], firemaking: 50, fmXp: 160, examine: 'Rich red mahogany.' },
   tembusu_logs: { name: 'Tembusu logs', icon: '🪵', value: 120, tags: ['log'], firemaking: 68, fmXp: 220, examine: 'Dense wood from a heritage tembusu.' },
+  // ---- Endgame logs (Woodcutting 100-300) ----
+  // They fletch the obsidian to eternal bows, staves, wands, rifles and
+  // crossbows (trades.js FLETCH). Each burns for about 35% more Firemaking XP
+  // than the tier before (magic logs 250 -> 340 ...), and leaves an ash behind.
+  seraya_logs: { name: 'Seraya logs', icon: '🪵', value: 600, tags: ['log'], firemaking: 100, fmXp: 340, ash: 'fine_ash', examine: 'Pale, straight-grained logs from a towering seraya.' },
+  meranti_logs: { name: 'Meranti logs', icon: '🪵', value: 900, tags: ['log'], firemaking: 130, fmXp: 460, ash: 'fine_ash', examine: 'Red meranti from deep in the Mandai rainforest.' },
+  chengal_logs: { name: 'Chengal logs', icon: '🪵', value: 1300, tags: ['log'], firemaking: 160, fmXp: 625, ash: 'ember_ash', examine: 'Chengal: so hard it was once used for temple beams.' },
+  starwood_logs: { name: 'Starwood logs', icon: '🪵', value: 1900, tags: ['log'], firemaking: 200, fmXp: 845, ash: 'star_ash', examine: 'Wood from a banyan that grew where a star fell. It twinkles.' },
+  moonwood_logs: { name: 'Moonwood logs', icon: '🪵', value: 2800, tags: ['log'], firemaking: 250, fmXp: 1145, ash: 'ghost_ash', examine: 'Silvery kapok wood, cut by moonlight on Pulau Hantu.' },
+  eternal_heartwood: { name: 'Eternal heartwood', icon: '🪵', value: 4000, tags: ['log'], firemaking: 300, fmXp: 1550, ash: 'eternal_ash', examine: 'The golden heart of a keramat tree. It is warm to the touch.' },
+  // Ashes left by burning the endgame logs. Shrine materials for now; Herblore will use them later.
+  fine_ash: { name: 'Fine ash', icon: '🩶', value: 150, stackable: true, tags: ['ash'], examine: 'Soft grey ash from seraya or meranti logs.' },
+  ember_ash: { name: 'Ember ash', icon: '🟠', value: 300, stackable: true, tags: ['ash'], examine: 'Chengal ash that still glows with tiny embers.' },
+  star_ash: { name: 'Star ash', icon: '✨', value: 600, stackable: true, tags: ['ash'], examine: 'Ash from starwood, flecked with glittering motes.' },
+  ghost_ash: { name: 'Ghost ash', icon: '🌫️', value: 900, stackable: true, tags: ['ash'], examine: 'Pale moonwood ash. It drifts upwards when you are not looking.' },
+  eternal_ash: { name: 'Eternal ash', icon: '🟡', value: 1500, stackable: true, tags: ['ash'], examine: 'Golden ash from eternal heartwood. It never cools.' },
 
   // ---- Higher ores & bars ----
   mithril_ore: { name: 'Mithril ore', icon: '🔷', value: 162, examine: 'This needs refining.' },

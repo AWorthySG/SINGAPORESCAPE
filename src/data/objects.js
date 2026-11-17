@@ -84,6 +84,59 @@ export const OBJECTS = {
     lowChance: 0.09, highChance: 0.44, depleteChance: 0.07, respawn: 55,
     examine: 'A majestic heritage tembusu. (Woodcutting 68)',
   },
+  // ---- Endgame trees (Woodcutting 100-300) ----
+  // Each tier's logs fletch that tier's bows, staves and wands (trades.js).
+  // Every swing gives logs, so XP an hour is set by xp, how many trees share a
+  // cluster (world.js places eight) and how fast felled ones grow back (quick
+  // enough that a cluster never runs dry). Each tier gives about 35% more an
+  // hour than the one before, starting from the magic tree, the best below
+  // level 100; the xp was set by timing auto gather at each cluster, at the
+  // same level for both trees so the past-99 XP bonus cancels out
+  // (tests/wood-fletch-fire.test.mjs checks it). Until their own art arrives
+  // they borrow an older tree's picture (`borrow`), recoloured (`tint`).
+  seraya_tree: {
+    name: 'Seraya tree', label: 'Seraya', type: 'tree', verb: 'Chop down', emoji: '🌳', blocking: true,
+    skill: 'woodcutting', level: 100, tool: 'axe', gives: 'seraya_logs', xp: 340,
+    lowChance: 0.2, highChance: 0.6, depleteChance: 0.1, respawn: 12,
+    borrow: 'mahogany', tint: 'hue-rotate(-20deg) saturate(1.15) brightness(1.05)',
+    examine: 'A towering seraya, its trunk straight as a mast. (Woodcutting 100)',
+  },
+  meranti_tree: {
+    name: 'Meranti tree', label: 'Meranti', type: 'tree', verb: 'Chop down', emoji: '🌳', blocking: true,
+    skill: 'woodcutting', level: 130, tool: 'axe', gives: 'meranti_logs', xp: 460,
+    lowChance: 0.2, highChance: 0.6, depleteChance: 0.1, respawn: 12,
+    borrow: 'teak', tint: 'hue-rotate(25deg) saturate(1.2) brightness(0.92)',
+    examine: 'A red meranti, rising over the rainforest canopy. (Woodcutting 130)',
+  },
+  chengal_tree: {
+    name: 'Chengal tree', label: 'Chengal', type: 'tree', verb: 'Chop down', emoji: '🌳', blocking: true,
+    skill: 'woodcutting', level: 160, tool: 'axe', gives: 'chengal_logs', xp: 625,
+    lowChance: 0.2, highChance: 0.6, depleteChance: 0.1, respawn: 12,
+    borrow: 'yew_tree', tint: 'sepia(0.35) saturate(1.3) hue-rotate(-10deg)',
+    examine: 'An old chengal by the reservoir, its wood hard as iron. (Woodcutting 160)',
+  },
+  starfall_banyan: {
+    name: 'Starfall banyan', label: 'Starfall banyan', type: 'tree', verb: 'Chop down', emoji: '🌳', blocking: true,
+    skill: 'woodcutting', level: 200, tool: 'axe', gives: 'starwood_logs', xp: 845,
+    lowChance: 0.2, highChance: 0.6, depleteChance: 0.1, respawn: 12,
+    borrow: 'rain_tree', tint: 'hue-rotate(170deg) saturate(1.3) brightness(1.08)',
+    examine: 'A banyan that grew where a star fell. Its leaves glitter. (Woodcutting 200)',
+  },
+  // Night only: its wood can only be cut while the moon is up (game.isNight()).
+  moonlit_kapok: {
+    name: 'Moonlit kapok', label: 'Moonlit kapok', type: 'tree', verb: 'Chop down', emoji: '🌳', blocking: true,
+    skill: 'woodcutting', level: 250, tool: 'axe', gives: 'moonwood_logs', xp: 1145, night: true,
+    lowChance: 0.2, highChance: 0.6, depleteChance: 0.1, respawn: 12,
+    borrow: 'magic_tree', tint: 'hue-rotate(50deg) saturate(0.7) brightness(1.12)',
+    examine: 'A pale kapok that only gives its wood by moonlight. (Woodcutting 250)',
+  },
+  keramat_tree: {
+    name: 'Keramat tree', label: 'Keramat', type: 'tree', verb: 'Chop down', emoji: '🌳', blocking: true,
+    skill: 'woodcutting', level: 300, tool: 'axe', gives: 'eternal_heartwood', xp: 1550,
+    lowChance: 0.2, highChance: 0.6, depleteChance: 0.1, respawn: 12,
+    borrow: 'tembusu', tint: 'sepia(0.7) saturate(1.8) hue-rotate(-12deg) brightness(1.05)',
+    examine: 'A sacred keramat tree, hung with offerings. Its heart is eternal. (Woodcutting 300)',
+  },
 
   // ---------------- Rocks ----------------
   copper_rock: {

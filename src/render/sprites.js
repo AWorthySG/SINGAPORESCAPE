@@ -2212,7 +2212,8 @@ function worldArtKey(obj, time = 0) {
   const t = obj.def.type;
   if (t === 'fire') return `obj-fire-${Math.floor(time / FIRE_FRAME_MS + obj.x * 3 + obj.y) % 4}`;   // each fire on its own beat
   if (t === 'farm') return `obj-farm_patch-${farmStage(obj)}`;
-  if (t === 'tree') return obj.depleted ? `stump-${obj.objId}` : `tree-${obj.objId}`;
+  // A tree without its own picture yet may borrow another's (`borrow`), recoloured by its `tint`.
+  if (t === 'tree') return obj.depleted ? `stump-${obj.def.borrow || obj.objId}` : `tree-${obj.def.borrow || obj.objId}`;
   if (t === 'rock') return obj.depleted ? 'rock-empty' : `rock-${obj.objId}`;
   return obj.def.art || `obj-${obj.objId}`;   // an object may borrow another's picture (the Offering Shrine)
 }
