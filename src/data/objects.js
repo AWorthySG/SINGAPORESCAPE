@@ -718,6 +718,20 @@ export const OBJECTS = {
     ],
   },
 
+  // ---------------- The Endless Gate (waves.js) ----------------
+  // The way into the wave dungeon and the portal back out. Until their own art
+  // arrives they borrow the ruined arch, recoloured.
+  wave_gate: {
+    name: 'The Endless Gate', label: 'Gate', type: 'gate', verb: 'Enter', emoji: '🌀', blocking: true, art: 'obj-ruin',
+    tint: 'hue-rotate(230deg) saturate(1.8) brightness(0.9)',
+    examine: 'An ancient arch humming with violet light. Beyond it, monsters come in endless waves.',
+  },
+  wave_exit: {
+    name: 'Exit portal', label: 'Portal', type: 'gate', verb: 'Leave by', emoji: '🌀', blocking: true, art: 'obj-ruin',
+    tint: 'hue-rotate(150deg) saturate(1.6) brightness(1.05)',
+    examine: 'The way back out, to where you came in.',
+  },
+
   // ---------------- Scenery (blocking decor) ----------------
   wall: { name: 'Wall', type: 'scenery', emoji: '🧱', blocking: true, examine: 'A stone wall.' },
   ruin: { name: 'Ruins', type: 'scenery', emoji: '🏚️', blocking: true, examine: 'Crumbling ruins from a forgotten age.' },

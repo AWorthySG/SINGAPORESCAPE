@@ -13,6 +13,7 @@ export class World {
   build(data) {
     this.width = data.width;
     this.height = data.height;
+    this.mapHeight = data.mapHeight || data.height;   // the country, without the sea the Endless Gate floats in
     this.terrain = data.terrain;
     this.townName = data.townName;
     this.spawnPoint = data.spawnPoint;

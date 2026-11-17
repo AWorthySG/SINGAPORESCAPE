@@ -47,6 +47,8 @@ export const ACHIEVEMENTS = [
   { id: 'slayer_helm', cat: 'Collection', name: 'Helm of the Hunt', desc: 'Own a Slayer helmet.', test: (g) => own(g, 'slayer_helmet') },
   { id: 'angler', cat: 'Skills', name: 'Master Angler', desc: 'Catch a shark.', test: (g) => own(g, 'raw_shark') || own(g, 'shark') },
   { id: 'lumberjack', cat: 'Skills', name: 'Lumberjack', desc: 'Chop magic logs.', test: (g) => own(g, 'magic_logs') },
+  { id: 'wave_10', cat: 'Combat', name: 'Through the Gate', desc: 'Reach wave 10 of the Endless Gate.', test: (g) => (g.waves?.best || 0) >= 10, progress: (g) => `${Math.min(g.waves?.best || 0, 10)}/10` },
+  { id: 'wave_25', cat: 'Combat', name: 'Endless', desc: 'Reach wave 25 of the Endless Gate.', test: (g) => (g.waves?.best || 0) >= 25, progress: (g) => `${Math.min(g.waves?.best || 0, 25)}/25` },
 ];
 
 // Coin reward granted the first time each achievement is unlocked.
@@ -59,5 +61,6 @@ export const ACH_REWARDS = {
   armed: 500, dragonkin: 5000, legendary: 5000, slayer_helm: 3000,
   first_task: 300, task_master: 3000, slayer_50: 5000,
   angler: 500, lumberjack: 1000,
+  wave_10: 5000, wave_25: 25000,
 };
 export const rewardFor = (id) => ACH_REWARDS[id] || 250;

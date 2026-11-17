@@ -55,6 +55,7 @@ import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG, ability
 import { weaknessOf, armourTierOf, ARMOUR_TIERS, levelFlatDmg } from '../game/combat.js';
 import { isBone } from '../data/bones.js';
 import { RACES, raceOf, weaponsFor, weaponTypeName, WEAPON_VS_RACE } from '../data/races.js';
+import { WaveHud } from './wavehud.js';
 
 const EQUIP_LAYOUT = [
   null, 'head', null,
@@ -207,6 +208,7 @@ export class UI {
     // Bus subscriptions.
     this.bus.on('tick', () => { this.renderAutoBattle(); this.updateBossBar(); this.updateDayNight(); this.renderTracker(); this._tipsTick(); });
     this._initMinimalHud();
+    this.waveHud = new WaveHud(this);   // the Endless Gate's run panel
     this.bus.on('inventory', () => this.scheduleInventory());
     // Gear changes come in bursts (every worn piece gains mastery on a kill), so redraw once a frame.
     this.bus.on('equipment', () => { this._soon('equipment', () => this.renderEquipment()); this._soon('combat', () => this.renderCombatPanel()); this.scheduleInventory(); });
@@ -3482,6 +3484,9 @@ export class UI {
     this.modal.kind = 'slayerRewards';
   }
 
+  // The Endless Gate (wavehud.js) ----------------------------------------
+  openWaveGate() { (this.waveHud ||= new WaveHud(this)).openGate(); }
+
   // MRT fast travel ----------------------------------------------------
   openTransport(obj) {
     const render = (body) => {
@@ -3572,7 +3577,7 @@ export class UI {
   // ---------------- World map (full overview) ----------------
   openWorldMap() {
     const game = this.game;
-    const W = game.world.width, H = game.world.height;
+    const W = game.world.width, H = game.world.mapHeight || game.world.height;   // not the Endless Gate's sea
     // Which markers show; remembered between openings.
     const on = this._mapFilters || (this._mapFilters = new Set(['mrt', 'boss', 'bank']));
     let sel = null;
@@ -3797,6 +3802,7 @@ export class UI {
       else if (o.def.type === 'bank') col = '#ffd24a';
       else if (o.def.type === 'fishing') col = '#7fd8ff';
       else if (o.def.type === 'transport') col = '#ffffff';
+      else if (o.def.type === 'gate') col = '#b58cff';
       if (!col) continue;
       const big = o.def.type === 'bank' || o.def.type === 'transport';
       ctx.fillStyle = col;

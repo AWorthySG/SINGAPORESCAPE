@@ -1,6 +1,7 @@
 import { POTIONS, CROP_BY_ID } from '../data/trades.js';
 import { SAVE_KEY } from '../config.js';
 import { STATION_BY_ID } from '../data/transport.js';
+import { inArena } from './waves.js';
 
 const VERSION = 1;
 // An unreadable save is copied here before a new game replaces it, so a bug or
@@ -35,12 +36,14 @@ export function snapshot(game) {
   // respawn spot and full health, so reloading can't skip the trip back to town.
   const dead = !game.player.alive;
   const rp = game.world.respawnPoint;
+  // Saved mid-run in the Endless Gate: the run isn't kept, so store the way back out.
+  const at = game.waves?.active && game.waves.ret ? game.waves.ret : game.player;
   return {
     version: VERSION,
     savedAt: Date.now(),
     player: {
-      x: dead ? rp.x : game.player.x,
-      y: dead ? rp.y : game.player.y,
+      x: dead ? rp.x : at.x,
+      y: dead ? rp.y : at.y,
       hp: dead ? game.maxHp() : game.player.hp,
       style: game.player.style,
       rangedStyle: game.player.rangedStyle,
@@ -71,6 +74,7 @@ export function snapshot(game) {
     clue: game.clue,
     specEnergy: game.specEnergy,
     bossRecord: game.bossRecord,
+    waveBest: game.waves?.best || 0,
     settings: { running: game.running, autoCfg: game.autoCfg, autoGather: game.autoGather, gatherPicks: [...(game.gatherPicks || [])], knowledgeStrikes: game.knowledgeStrikes, minimalHud: !!game.minimalHud },
     jobClass: game.jobClass,
     potions: game.potions,
@@ -269,7 +273,8 @@ function loadFields(game, data) {
   game.bank.load(data.bank);
 
   const p = data.player || {};
-  if (game.world.inBounds(p.x, p.y) && !game.world.isBlocked(p.x, p.y)) {
+  // (Never into the Endless Gate's arena: a run isn't saved, and there's no walking out.)
+  if (game.world.inBounds(p.x, p.y) && !game.world.isBlocked(p.x, p.y) && !inArena(p.x, p.y)) {
     game.player.x = game.player.tx = p.x;
     game.player.y = game.player.ty = p.y;
   }
@@ -348,6 +353,8 @@ function loadFields(game, data) {
     if (ok(br?.beat)) for (const [k, v] of Object.entries(br.beat)) if (v === true) game.bossRecord.beat[k] = true;
     if (ok(br?.lost)) for (const [k, v] of Object.entries(br.lost)) if (typeof v === 'number' && v > 0) game.bossRecord.lost[k] = Math.floor(v);
   }
+  // The Endless Gate: your best wave (older saves: none yet).
+  if (game.waves) game.waves.best = typeof data.waveBest === 'number' && data.waveBest > 0 ? Math.floor(data.waveBest) : 0;
   if (Array.isArray(data.settings?.gatherPicks)) game.gatherPicks = new Set(data.settings.gatherPicks.filter((id) => typeof id === 'string'));
   if (data.learning) game.learning.load(data.learning);
   if (data.settings?.knowledgeStrikes === false) game.knowledgeStrikes = false;

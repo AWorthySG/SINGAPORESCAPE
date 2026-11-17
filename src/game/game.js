@@ -62,6 +62,7 @@ import { eligibleTasks, SLAYER_REWARDS, SLAYER_TASKS, SLAYER_HELM_DMG, slayerBuf
 import { STATIONS, STATION_BY_ID, MRT_FARE } from '../data/transport.js';
 import { SKILLS, SKILL_BY_ID } from '../data/skills.js';
 import { Learning } from './learning.js';
+import { Waves, addArena } from './waves.js';
 import * as Mercs from './mercenary.js';
 import { classPerks } from './classperks.js';
 import { LIFE_PERKS, LIFE_PERK_SKILLS, LIFE_PERK_FULL_LEVEL, LIFE_PERK_NOTE_EVERY, lifePerkTotals, lifePerkText } from './lifeperks.js';
@@ -293,7 +294,7 @@ const KS_TICKS = 12;
 export class Game {
   constructor() {
     this.bus = new EventBus();
-    const data = buildWorld();
+    const data = addArena(buildWorld());   // the Endless Gate's arena, below the map (waves.js)
     this.world = new World(this.bus);
     this.world.build(data);
 
@@ -377,6 +378,7 @@ export class Game {
     this.zonesVisited = new Set();
     this.stationsFound = new Set(['kampong_glam']);   // MRT stations you can ride to from the world map
     this.learning = new Learning();   // Wisdom, topic mastery, Codex cards and titles
+    this.waves = new Waves(this);     // the Endless Gate: a run of monster waves, and your best wave
     // Knowledge Strikes: bosses' specials can be interrupted by answering a question.
     // On by default in the browser; headless runs (tests) leave bosses as they were.
     this.knowledgeStrikes = LEARNING_ENABLED && typeof document !== 'undefined';
@@ -1003,6 +1005,7 @@ export class Game {
     this._resolveHazards();
     this.player.stepMul = this.playerStepMul() * (this._onRoad() ? ROAD_PACE : 1);   // Agility quickens your steps, and so do roads
     this._tickWorldBoss();
+    this.waves.tick();
     this._tickTownGuards();
     this._tickGreetings();
     this.cine.tick(this);   // fight push-in, and a boss's entrance the first time it engages
@@ -1026,7 +1029,7 @@ export class Game {
     for (const n of this.npcs) {
       // Allies always tick, so they can catch up with a Merchant who travelled far.
       if (!n.ally && (Math.abs(n.x - px) > 46 || Math.abs(n.y - py) > 46)) continue;
-      if (n.def.boss) this._scaleBoss(n, cl);
+      if (n.def.boss && !n.wave) this._scaleBoss(n, cl);   // a wave boss is already scaled to its wave
       n.tick(this);
     }
     Mercs.flushAllies(this);
@@ -1264,6 +1267,8 @@ export class Game {
       case 'agility': return this._tickContinuous(a, a.obj, () => this.resolveAgility(a.obj));
       case 'stall': return this._tickContinuous(a, a.obj, () => this.stealFromStall(a.obj, a));
       case 'transport': return this._tickArrival(a, a.target, true, () => this.ui?.openTransport(a.obj));
+      // The Endless Gate asks first (its panel shows your best wave); its exit portal just takes you out.
+      case 'gate': return this._tickArrival(a, a.target, true, () => (a.obj.objId === 'wave_exit' ? this.waves.leave() : this.ui ? this.ui.openWaveGate?.(a.obj) : this.waves.enter()));
       case 'openbank': return this._tickArrival(a, a.target, true, () => this.ui?.openBank());
       case 'openshop': return this._tickArrival(a, a.target, true, () => this.ui?.openShop(a.shop));
       case 'talk': return this._tickArrival(a, a.target, true, () => this.ui?.openDialogue(a.npc));
@@ -1418,7 +1423,7 @@ export class Game {
   _autoLifeTick() {
     const job = this._autoLife;
     const p = this.player;
-    if (!job || !this.autoGather || p.action || p.isMoving || this.autoBattle) return;
+    if (!job || !this.autoGather || p.action || p.isMoving || this.autoBattle || this.waves.active) return;
     if (job.kind === 'gather') {
       // Back to the nearest node of the same kind that's ready again.
       if (this.inventory.freeSlots() <= 0) return;
@@ -3256,7 +3261,7 @@ export class Game {
     const name = z ? z.name : 'Singapore';
     const wild = !!(z && z.wilderness);
     const lvl = this.wildernessLevel();   // same level the XP bonus uses
-    if (z && !this.zonesVisited.has(name)) { this.zonesVisited.add(name); this.checkAchievements(); }
+    if (z && !z.instance && !this.zonesVisited.has(name)) { this.zonesVisited.add(name); this.checkAchievements(); }
     if (name !== this.currentZoneName) {
       this.currentZoneName = name;
       if (wild) {
@@ -3788,7 +3793,7 @@ export class Game {
       if (this.player.target === wb) this.player.target = null;
       this.npcs = this.npcs.filter((n) => n !== wb); this._worldBoss = null;
     }
-    if (this.tickCount % WORLD_BOSS_EVERY !== 0 || this._worldBoss || !this.player.alive) return;
+    if (this.tickCount % WORLD_BOSS_EVERY !== 0 || this._worldBoss || !this.player.alive || this.waves.active) return;
     // Not for players who couldn't beat even an ordinary boss yet: it would only
     // hunt them down again and again (the same check auto battle uses).
     if (!this._worldBossFair()) return;
@@ -4277,12 +4282,16 @@ export class Game {
       if (wb.alive) this.msg(`${wb.name} fades back into the wilds.`, 'system');
       this.npcs = this.npcs.filter((n) => n !== wb); this._worldBoss = null;
     }
+    // Falling in the Endless Gate ends the run (nothing is lost) and you wake by its gate.
+    this._respawnAt = this.waves.onDeath();
     this.ui?.closeModal();
   }
 
   respawnPlayer() {
     const p = this.player;
-    const rp = this.world.respawnPoint;
+    const back = this._respawnAt && this._nearestFree(this._respawnAt.x, this._respawnAt.y);
+    this._respawnAt = null;
+    const rp = back || this.world.respawnPoint;
     p.alive = true;
     p.hp = this.maxHp();
     p.x = p.tx = rp.x;
@@ -4291,7 +4300,7 @@ export class Game {
     p.moving = false;
     p.path = [];
     this.regenCounter = 0;
-    this.msg(`You wake up back in ${this.world.townName}.`, 'system');
+    this.msg(back ? 'You wake up outside the Endless Gate.' : `You wake up back in ${this.world.townName}.`, 'system');
     this.bus.emit('hp');
   }
 
@@ -4443,6 +4452,13 @@ export class Game {
     // Auto quest leads. On a step that isn't a fight (talking, gathering,
     // crafting, walking somewhere) auto battle only answers monsters attacking
     // you, and never wanders off to "monsters of your level" or to bosses.
+    // In the Endless Gate: fight the wave, and nothing else. There is no way out
+    // on foot, so no trips to quests, bosses or monsters of your level elsewhere.
+    if (this.waves.active) {
+      const t = this._autoPickTarget();
+      if (t) { this._autoLast = t; this._autoIdleSaid = false; this.attackNpc(t); }
+      return;
+    }
     if (this.autoQuest && !this._autoQuestFight) {
       const att = this.nearbyNpcs().find((n) => n.alive && n.attackable && !n.ally && n.target === p
         && chebyshev(p.x, p.y, n.x, n.y) <= Math.max(2, this.attackRange() + 1));
@@ -4501,7 +4517,7 @@ export class Game {
    *  your level that isn't fighting you (bosses, champions, attackers, a chosen
    *  monster type or a quest hunt always count). */
   _autoIsWeak(n) {
-    if (n.def.boss || n.champion || n.target === this.player || this.autoCfg.target || this._questTarget || this._questFamily) return false;
+    if (n.wave || n.def.boss || n.champion || n.target === this.player || this.autoCfg.target || this._questTarget || this._questFamily) return false;
     const inWild = !!this.world.zoneAt(this.player.x, this.player.y)?.wilderness;
     return (n.def.level || 1) < this._autoBandLo(inWild);
   }
@@ -4839,7 +4855,7 @@ export class Game {
       if (!n.alive || !n.attackable) continue;
       const d = chebyshev(p.x, p.y, n.x, n.y);
       if (d > Math.max(25, range + 2)) continue;   // a Sniper picks off monsters from further still
-      const hunting = n.target === p;
+      const hunting = n.target === p || !!n.wave;   // a wave monster is coming for you, whatever its level
       // Anything already fighting you (a boss, its summoned adds, a champion)
       // is always answered, whatever its level or where it stands.
       if (hunting) {
@@ -5038,6 +5054,7 @@ export class Game {
       case 'agility': return this.beginAction({ type: 'agility', obj }, tgt, true);
       case 'stall': return this.beginAction({ type: 'stall', obj }, tgt, true);
       case 'transport': return this.beginAction({ type: 'transport', obj, target: tgt }, tgt, true);
+      case 'gate': return this.beginAction({ type: 'gate', obj, target: tgt }, tgt, true);
       default: return this.walkTo(tgt);
     }
   }
@@ -6093,7 +6110,7 @@ export class Game {
   // also talking to quest givers, running station menus and buying supplies.
   _autoQuestTick() {
     const p = this.player;
-    if (!this.autoQuest || !p.alive || this._driving) return;
+    if (!this.autoQuest || !p.alive || this._driving || this.waves.active) return;   // paused in the Endless Gate
     const id = this.autoQuestPick();
     if (!id) { this.toggleAutoQuest(false, 'no quests left that I can do for you.'); return; }
     const g = this.questGuide(id);

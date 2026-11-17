@@ -3315,7 +3315,7 @@ test('the open world: 540x380 with ten open-world regions, all reachable on foot
   const game = new Game();
   game.start();
   const w = game.world;
-  assert.equal(w.width, 540); assert.equal(w.height, 380);
+  assert.equal(w.width, 540); assert.equal(w.mapHeight, 380);   // (the Endless Gate's arena sits in rows added below)
   const NEW = ['Sungei Buloh Wetlands', 'Jurong Forest', 'Pulau Ubin', 'Changi Coast', 'Marina Bay', 'Tekong Badlands',
     'Gardens by the Bay', 'Coney Island', 'Southern Islands', 'The Shadow Rift'];
   for (const n of NEW) assert.ok(w.zones.some((z) => z.name === n && !z.wilderness), `${n} exists and is not Wilderness`);
