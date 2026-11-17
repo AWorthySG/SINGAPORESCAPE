@@ -8,6 +8,14 @@ export const SMELT = [
   { result: 'mithril_bar', inputs: [{ id: 'mithril_ore', qty: 1 }, { id: 'coal', qty: 4 }], level: 50, xp: 30 },
   { result: 'adamant_bar', inputs: [{ id: 'adamantite_ore', qty: 1 }, { id: 'coal', qty: 6 }], level: 70, xp: 37.5 },
   { result: 'rune_bar', inputs: [{ id: 'runite_ore', qty: 1 }, { id: 'coal', qty: 8 }], level: 85, xp: 50 },
+  // Endgame bars, one per endgame ore (Mining 100-300). Each bar's xp is about
+  // 35% more than the tier before (rune 50 -> 68 -> 92 ...).
+  { result: 'obsidian_bar', inputs: [{ id: 'obsidian_shard', qty: 1 }, { id: 'coal', qty: 4 }], level: 100, xp: 68 },
+  { result: 'orichalcum_bar', inputs: [{ id: 'orichalcum_ore', qty: 1 }, { id: 'coal', qty: 6 }], level: 130, xp: 92 },
+  { result: 'jade_bar', inputs: [{ id: 'raw_jade', qty: 1 }, { id: 'coal', qty: 6 }], level: 160, xp: 124 },
+  { result: 'starmetal_bar', inputs: [{ id: 'starmetal_ore', qty: 1 }, { id: 'coal', qty: 8 }], level: 200, xp: 167 },
+  { result: 'celestial_bar', inputs: [{ id: 'celestial_crystal', qty: 1 }, { id: 'coal', qty: 8 }], level: 250, xp: 226 },
+  { result: 'eternal_bar', inputs: [{ id: 'eternal_ore', qty: 1 }, { id: 'coal', qty: 10 }], level: 300, xp: 305 },
 ];
 
 export const SMITH = [
@@ -53,6 +61,30 @@ for (const M of _SMETALS) {
     const result = `${M.k}_${t}`;
     if (_existing.has(result)) continue;
     SMITH.push({ result, bar: `${M.k}_bar`, barCount, level: Math.min(99, M.base + off), xp: +(barCount * M.xp).toFixed(1) });
+    _existing.add(result);
+  }
+}
+
+// ---- Endgame metals (Smithing 100-300): the gear that otherwise only drops ----
+// Every metal melee weapon and plate armour piece of the obsidian to eternal
+// tiers. Levels are the tier's level plus the same small per-piece offsets as
+// above (no cap at 99 here). `xp` is per bar, each tier about 35% more than the
+// last, starting from rune's 75: one piece is forged a tick whatever its size,
+// so the best piece (a 5-bar platebody) out-earns the tier before's by 35% too.
+// Smithed gear is always plain: the quality ladder (loot.js) is only rolled
+// for monster drops, which stay the way to a head start on mastery.
+const _ENDGAME = [
+  { k: 'obsidian', base: 100, xp: 102 }, { k: 'orichalcum', base: 130, xp: 138 }, { k: 'jade', base: 160, xp: 187 },
+  { k: 'starmetal', base: 200, xp: 253 }, { k: 'celestial', base: 250, xp: 342 }, { k: 'eternal', base: 300, xp: 462 },
+];
+// The weapon and armour families the older tiers lack a recipe for, fitted into the same ladder.
+const _ENDGAME_PIECES = [..._PIECES, ['claws', 2, 5], ['buckler', 2, 5], ['spear', 2, 6], ['katana', 2, 8],
+  ['plateskirt', 3, 12], ['halberd', 3, 13]];
+for (const M of _ENDGAME) {
+  for (const [t, barCount, off] of _ENDGAME_PIECES) {
+    const result = `${M.k}_${t}`;
+    if (_existing.has(result)) continue;
+    SMITH.push({ result, bar: `${M.k}_bar`, barCount, level: M.base + off, xp: barCount * M.xp });
     _existing.add(result);
   }
 }

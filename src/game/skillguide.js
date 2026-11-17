@@ -15,12 +15,12 @@ const objsOf = (pred) => Object.entries(OBJECTS).filter(([, d]) => pred(d)).map(
 // One line on why each life skill matters, and the objects to walk to.
 export const SKILL_GUIDES = {
   woodcutting: { use: 'Logs feed Firemaking and Fletching (bows, arrows, staves).' },
-  mining: { use: 'Ore is smelted into bars for Smithing, and gems and gold go to Crafting.' },
+  mining: { use: 'Ore is smelted into bars for Smithing, and gems and gold go to Crafting. From level 100, rare veins in the far regions give the endgame ores.' },
   fishing: { use: 'Raw fish are cooked into food that heals you in a fight.' },
   hunter: { use: 'Pelts, skins and hides become armour; meat is cooked into food.' },
   farming: { use: 'Crops are herbs for Herblore and ingredients for hawker dishes.', where: ['farm_patch'] },
   cooking: { use: 'Food heals you in a fight; better food heals more.', where: ['range', 'fire'] },
-  smithing: { use: 'Smelt ore into bars at a furnace, then forge weapons, armour and upgrade stones at an anvil.', where: ['furnace', 'anvil'] },
+  smithing: { use: 'Smelt ore into bars at a furnace, then forge weapons, armour and upgrade stones at an anvil. From level 100 you can forge the obsidian to eternal gear.', where: ['furnace', 'anvil'] },
   crafting: { use: 'Jewellery, pottery, leather armour, and refine scrolls and upgrade wards.', where: ['crafting_table'] },
   fletching: { use: 'Bows, arrows, staves and wands from logs (you need a knife).', where: ['fletching_bench'] },
   herblore: { use: 'Potions that boost you in a fight for several minutes.', where: ['apothecary_table'] },

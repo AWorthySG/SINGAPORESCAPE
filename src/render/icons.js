@@ -832,6 +832,14 @@ import { ITEMS } from '../data/items.js';
       [`${t}_quiver`]: ({ obsidian: 'dragon_arrow', orichalcum: 'jade_arrow', celestial: 'starmetal_arrow' })[t] || `${t}_arrow`,
     });
   }
+  // Endgame ores and bars (Mining and Smithing 100-300) borrow the silver ore,
+  // diamond, emerald and steel bar stickers, tinted to their metal, until their own art arrives.
+  for (const [m, ore, from] of [['obsidian', 'obsidian_shard', 'silver_ore'], ['orichalcum', 'orichalcum_ore', 'silver_ore'], ['jade', 'raw_jade', 'emerald'],
+    ['starmetal', 'starmetal_ore', 'silver_ore'], ['celestial', 'celestial_crystal', 'diamond'], ['eternal', 'eternal_ore', 'silver_ore']]) {
+    const [c, hi] = METAL_PAL[m];
+    BORROW_ID[ore] = from; BORROW_TINT[ore] = metalTint(m); I[ore] = oreIcon(hi);
+    BORROW_ID[`${m}_bar`] = 'steel_bar'; BORROW_TINT[`${m}_bar`] = metalTint(m); I[`${m}_bar`] = barIcon(c, hi);
+  }
   // The refine scroll borrows the upgrade ward's scroll sticker, tinted blue, until its own art arrives.
   BORROW_ID.refine_scroll = 'upgrade_ward'; BORROW_TINT.refine_scroll = 'hue-rotate(180deg) saturate(1.3)';
   Object.assign(BORROW_ID, { holy_beads: 'amulet_of_power', temple_pendant: 'emerald_amulet', starlit_pendant: 'diamond_amulet', pearl_amulet: 'sapphire_amulet', pearl_ring: 'sapphire_ring',
