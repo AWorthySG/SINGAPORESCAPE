@@ -54,6 +54,7 @@ export class Equipment {
     this.mastery = {};            // itemId -> mastery points, shared by every copy (see mastery.js)
     this.enchants = {};           // itemId -> [{ stat, value }] (up to 3), shared by every copy
     this.refines = {};            // itemId -> refine level (★1..★15), shared by every copy (see refine.js)
+    this.quality = {};            // itemId -> [fine, superior, epic, legendary, mythic] copies that dropped at that quality (see salvage.js)
     this.extra = null;            // () => bonuses from outside your gear (life skill perks and shrine blessings, see Game.outsideBonuses)
   }
 
@@ -203,7 +204,8 @@ export class Equipment {
   }
 
   serialize() {
-    return { ...this.slots, _mastery: { ...this.mastery }, _enchants: Object.fromEntries(Object.entries(this.enchants).map(([id, l]) => [id, l.map((x) => ({ ...x }))])), _refines: { ...this.refines } };
+    return { ...this.slots, _mastery: { ...this.mastery }, _enchants: Object.fromEntries(Object.entries(this.enchants).map(([id, l]) => [id, l.map((x) => ({ ...x }))])), _refines: { ...this.refines },
+      _quality: Object.fromEntries(Object.entries(this.quality).map(([id, r]) => [id, r.slice()])) };
   }
 
   load(data) {
@@ -231,6 +233,13 @@ export class Equipment {
       for (const [id, lv] of Object.entries(data._refines || {})) {
         if (itemExists(id) && typeof lv === 'number' && lv >= 1) this.refines[id] = Math.min(MAX_REFINE, Math.floor(lv));
       }
+    }
+    // The tally of quality copies (salvage.js) came later: optional, and only sane rows kept.
+    this.quality = {};
+    for (const [id, row] of Object.entries(data._quality || {})) {
+      if (!itemExists(id) || !Array.isArray(row)) continue;
+      const r = [0, 1, 2, 3, 4].map((i) => (typeof row[i] === 'number' && row[i] > 0 ? Math.floor(row[i]) : 0));
+      if (r.some((x) => x)) this.quality[id] = r;
     }
     // Saves from before mastery had upgrade levels (+1..+15) and refine stars
     // (★1..★15): turn them into mastery points and free enchant lines, once.
