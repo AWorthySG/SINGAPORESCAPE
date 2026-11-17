@@ -40,13 +40,14 @@ export const MERC_SHARE = 0.5;            // a mercenary hits for half the Merch
 // MERCHANT_POWER_MAX): a flat x2 came out at 220% of the median at level 50
 // but only 180% at level 300, where the other classes' gear and perks catch up.
 // Capped, so it can't run away at very high levels.
-export const MERCHANT_POWER = 1.85, MERCHANT_POWER_PER_LEVEL = 0.0014, MERCHANT_POWER_MAX = 2.4;
+export const MERCHANT_POWER = 1.9, MERCHANT_POWER_PER_LEVEL = 0.0014, MERCHANT_POWER_MAX = 2.4;
 export const merchantPower = (game) => (game.jobClass !== 'merchant' ? 1
   : Math.min(MERCHANT_POWER_MAX, MERCHANT_POWER + MERCHANT_POWER_PER_LEVEL * Math.max(0, game.skills.ranged - 50)));
-// Allies' coins scatter into up to 3 foes beside their target, each taking this
-// share of the hit (other classes' cleaves take 25-70%): the Merchant's crowd
-// damage, which was the lowest of the melee-and-thrown classes.
-export const ALLY_SCATTER = 0.9;
+// The coins the Merchant and its allies throw scatter into up to ALLY_SCATTER_FOES
+// foes beside the target, each taking ALLY_SCATTER of the hit (melee cleaves take
+// 25-70% into 3): the Merchant's crowd damage was among the lowest of any class,
+// and now tops the Gladiator's, Sniper's and Wizard's.
+export const ALLY_SCATTER = 0.9, ALLY_SCATTER_FOES = 4;
 const SEEK = 10;                          // how far an ally looks for a monster
 const ALLY_RANGE = SEEK;                  // allies throw coins at anything they can see
 const STAY_NEAR = 3;                      // they stand within this of the Merchant (no walking)
@@ -166,12 +167,12 @@ function pickTarget(game, m) {
   return best;
 }
 
-/** Ally cleave: a share of the hit (ALLY_SCATTER) sweeps into up to 3 foes beside the target. */
+/** Ally cleave: a share of the hit (ALLY_SCATTER) sweeps into up to ALLY_SCATTER_FOES foes beside the target. */
 export function allyCleave(game, target, dmg) {
   const share = ALLY_SCATTER;
   let hit = 0;
   for (const o of nearbyFoes(game)) {
-    if (hit >= 3) break;
+    if (hit >= ALLY_SCATTER_FOES) break;
     if (o === target || o.hp <= 0 || o.temporary || !o.alive) continue;
     if ((o.def.fixed || o.def.boss) && o.target !== game.player) continue;   // bosses aren't dragged in
     if (chebyshev(o.x, o.y, target.x, target.y) > 1) continue;
