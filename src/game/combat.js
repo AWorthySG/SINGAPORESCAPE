@@ -180,9 +180,10 @@ const scaledFlat = (level, equip, castMult) => Math.round(levelFlatDmg(level) * 
 // Weapons that also hit a crowd (heavy cleavers, whips, spells, rifles) sit
 // about 10% lower to pay for it. Measured with best-in-slot gear at levels 200
 // and 1000 (see the class balance PR); applies to both hands and every skill.
-// Bows were raised (shortbow 0.81 -> 1.1, longbow 1.08 -> 1.4) when the Ranged 300
-// split shot was removed: on one target they now land at about 85-105% of a
-// longsword's damage per second, the rest of the gap paid for by their reach.
+// Retuned (class balance, Phase 3) once the flat level damage was scaled by swing
+// time (see flatDmgScale): every class's single-target damage now sits at 85-115%
+// of the median class at levels 50, 100, 200 and 300 (tools/balance/classes.mjs).
+// The Merchant's cane is low because its allies deal about two thirds of its damage.
 export const WEAPON_DMG_MULT = {
   dagger: 0.65, sword: 2.2, scimitar: 0.37, mace: 2.62, longsword: 2.22, battleaxe: 1.72, warhammer: 2.88,
   '2h_sword': 2.5, spear: 2.05, claws: 0.47, katana: 1.48, halberd: 3.02, cane: 0.71, shortbow: 0.54,
@@ -195,8 +196,10 @@ export const WEAPON_DMG_MULT = {
   // Kerambits are dual wielded (two strikes a swing), hence the low scale. Orbs cast
   // at a staff's pace (see items.js), so they scale just under a staff per cast; a
   // Sorcerer's quicker wands stay ahead of an orb below the dragon tier. The crossbow
-  // needs no ammo and pierces, so it stays just under the bows.
-  parang: 1.75, kerambit: 0.27, toya: 2.35, crossbow: 2.8, chakram: 1.3, orb: 0.3, fan: 1.45,
+  // needs no ammo and pierces, so it stays just under the bows. (Retuned with the
+  // main types: each now lands at about 80-105% of its class's main weapon, the
+  // chakram 60-105% as it serves three quite different classes.)
+  parang: 1.75, kerambit: 0.27, toya: 2.35, crossbow: 3.0, chakram: 1.3, orb: 0.3, fan: 1.45,
 };
 /** The target's number scale (see hpScaleFor in npcs.js): hits on a big monster are divided by it. */
 const numScale = (npc) => npc?.hpScale || 1;
