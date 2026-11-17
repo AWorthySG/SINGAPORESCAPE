@@ -37,10 +37,12 @@ import { streakMult } from '../game/bounty.js';
 import { itemCategory } from '../game/inventory.js';
 import { MASTERY_RANKS, MAX_ENCHANTS, rankProgress, enchantLabel, STONE as UP_STONE, WARD as UP_WARD } from '../game/mastery.js';
 import { MAX_REFINE, SCROLL as REFINE_SCROLL, refineCost, refineOdds, refineTag, refinedBonuses } from '../game/refine.js';
-import { MATERIAL_KINDS, feedKind, FEED_CAP, FEED_CAP_RANK } from '../game/materials.js';
+import { MATERIAL_KINDS, feedKind, FEED_CAP, FEED_CAP_RANK, materialKind } from '../game/materials.js';
 import { SHRINE_TRACKS, SHRINE_TRACK_IDS, trackText } from '../game/shrine.js';
 import { isSalvageable, QUALITY_KEYS, nearOfferingShrine } from '../game/salvage.js';
 import { openSacrifice, openSacrificeFrom, openDismantle, shrineGearSection, askOffer } from './salvageui.js';
+import { shrineGoodsSection, askGoods } from './shrineui.js';
+import { goodsKind } from '../game/offerings.js';
 import { ATTRS, ATTR_NAMES, attrSummary, attrForMode, MAX_STAT_POINTS, RESET_COST_PER_POINT, holdRepeatDelay } from '../game/attributes.js';
 import { STAT_LABELS, STAT_HELP, compareGear, deltaText, gearBySlot, gearRating, meetsReq, swingBeats, tierOf, weaponStyle } from '../game/gear.js';
 import { TILE, LEARNING_ENABLED } from '../config.js';
@@ -810,7 +812,10 @@ export class UI {
     if (isSalvageable(s.id)) {
       opts.push({ label: 'Sacrifice…', target: item.name, fn: () => openSacrificeFrom(this, s.id) });
       opts.push({ label: 'Dismantle', target: item.name, fn: () => openDismantle(this, s.id) });
-      if (nearOfferingShrine(this.game)) opts.push({ label: 'Offer at shrine', target: item.name, fn: () => this.openOfferingShrine(s.id) });
+    }
+    // Beside the Offering Shrine, anything it takes can be offered from here.
+    if ((isSalvageable(s.id) || goodsKind(s.id) || materialKind(s.id)) && nearOfferingShrine(this.game)) {
+      opts.push({ label: 'Offer at shrine', target: item.name, fn: () => this.openOfferingShrine(s.id) });
     }
     opts.push({ label: 'Drop', target: item.name, fn: () => this.game.dropItem(i) });
     opts.push({ label: 'Examine', target: item.name, fn: () => this.game.msg(item.examine, 'system') });
@@ -1228,17 +1233,19 @@ export class UI {
   }
 
   // ---------------- The Offering Shrine ----------------
-  // Donate life-skill materials (and spare gear, salvageui.js) for shrine points,
-  // then spend points on ranks in five permanent offensive blessings (see
-  // shrine.js). `gearId`: a piece from the pack to offer straight away.
-  openOfferingShrine(gearId = null) {
+  // Donate life-skill materials, spare gear (salvageui.js) and any other item
+  // (shrineui.js) for shrine points, then spend points on ranks in five
+  // permanent offensive blessings (see shrine.js). `itemId`: something from
+  // the pack to offer straight away (from its item menu).
+  openOfferingShrine(itemId = null) {
     const g = this.game;
-    const st = { pending: null, result: null };   // the gear offer awaiting a second tap
-    if (gearId) askOffer(this, st, gearId, 1);
+    const st = { pending: null, result: null }, stGoods = { pending: null, result: null };   // offers awaiting a second tap
+    if (itemId && isSalvageable(itemId)) askOffer(this, st, itemId, 1);
+    else if (itemId && goodsKind(itemId)) askGoods(this, stGoods, itemId, 1);
     const render = (body) => {
       const sh = g.shrine;
-      body.innerHTML = '<div class="gear-intro"><p>Offer the materials your life skills gather (bars, ore, gems, logs, hides, herbs, fish and feathers), or spare gear, for '
-        + '<b>shrine points</b> (a material gives a tenth of its value). Spend them on <b>blessings</b>: permanent bonuses to your fighting that never run out. '
+      body.innerHTML = '<div class="gear-intro"><p>Offer the materials your life skills gather (bars, ore, gems, logs, hides, herbs, fish and feathers), spare gear, or anything else, for '
+        + '<b>shrine points</b> (a material gives a tenth of its value; gear and other items less). Spend them on <b>blessings</b>: permanent bonuses to your fighting that never run out. '
         + `Each rank costs a little more than the last.</p><p class="shrine-points">Shrine points: <b>${formatNumber(sh.points)}</b></p></div>`;
       const tracks = document.createElement('div');
       tracks.className = 'gear-list shrine-tracks';
@@ -1285,6 +1292,7 @@ export class UI {
       }
       body.appendChild(list);
       shrineGearSection(this, body, st, () => render(body));
+      shrineGoodsSection(this, body, stGoods, () => render(body));
     };
     this.openModal('Offering Shrine', render);
     this.modal.kind = 'shrine';

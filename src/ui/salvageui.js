@@ -49,7 +49,7 @@ function expectFor(id, qs) {
   return t;
 }
 
-function button(html, fn, cls = '') {
+export function button(html, fn, cls = '') {
   const b = document.createElement('button');
   b.type = 'button';
   b.className = 'gear-tab ' + cls;
@@ -60,7 +60,7 @@ function button(html, fn, cls = '') {
 
 /** The in-page confirmation (or the result of the last action), shown at the
  *  top of the window. `st.pending`: { html, warn, go: () => resultHtml, label }. */
-function confirmBox(body, st, rerender) {
+export function confirmBox(body, st, rerender) {
   if (st.result) {
     const r = document.createElement('div');
     r.className = 'salvage-result';
