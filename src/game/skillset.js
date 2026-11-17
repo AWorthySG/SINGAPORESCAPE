@@ -1,5 +1,5 @@
-import { SKILL_IDS, startLevel } from '../data/skills.js';
-import { levelForXp, xpForLevel, maxLevelFor, maxXpFor } from '../data/xp.js';
+import { SKILL_IDS, SKILL_BY_ID, startLevel } from '../data/skills.js';
+import { levelForXp, xpForLevel, maxLevelFor, maxXpFor, pastCapXpMult } from '../data/xp.js';
 import { XP_RATE } from '../config.js';
 
 // Tracks XP per skill and derives levels. Emits 'xp' and 'levelup' on the bus.
@@ -20,12 +20,22 @@ export class Skills {
   // Strength requirement, perk and formula reads the Melee level.
   level(id) { const k = id === 'strength' ? 'attack' : id; return levelForXp(this.xp[k] ?? 0, maxLevelFor(k)); }
 
+  /** Life skills (everything outside the Combat group) earn more past 99, at the
+   *  rate each level's cost grows, so a level past 99 takes about as long as
+   *  98->99 did. Combat skills, Prayer and Slayer keep their combat pace.
+   *  Agility is left out: the Dancer's combat XP goes into it, so its courses
+   *  and Marks of grace apply pastCapXpMult themselves (Game.resolveAgility). */
+  lifeXpMult(id) {
+    return SKILL_BY_ID[id]?.group !== 'combat' && id !== 'agility' ? pastCapXpMult(this.level(id)) : 1;
+  }
+
   /** Add experience; fires events; returns number of levels gained. */
   addXp(id, amount) {
     if (id === 'strength') id = 'attack';
     if (!(id in this.xp) || amount <= 0) return 0;
     amount *= XP_RATE;
     const before = this.level(id);
+    amount *= this.lifeXpMult(id);
     this.xp[id] = Math.min(maxXpFor(id), this.xp[id] + amount);
     if (id === 'attack' && 'strength' in this.xp) this.xp.strength = this.xp.attack;
     const after = this.level(id);

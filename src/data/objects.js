@@ -110,22 +110,25 @@ export const OBJECTS = {
     lowChance: 0.25, highChance: 0.80, depleteChance: 1, respawn: 10, ore: '#2a2a2a',
     examine: 'A rock containing coal. (Mining 30)',
   },
+  // Mithril, adamantite and runite are sparse and slow to grow back, so their
+  // xp (and respawn) are set so each beats granite and the tier below it an
+  // hour, with runite still under obsidian (tests/levelling.test.mjs).
   mithril_rock: {
     name: 'Mithril rock', label: 'Mithril', type: 'rock', verb: 'Mine', emoji: '🪨', blocking: true,
-    skill: 'mining', level: 50, tool: 'pickaxe', gives: 'mithril_ore', xp: 80,
+    skill: 'mining', level: 50, tool: 'pickaxe', gives: 'mithril_ore', xp: 150,
     lowChance: 0.16, highChance: 0.60, depleteChance: 1, respawn: 30, ore: '#5b6bd6',
     examine: 'A rock streaked with mithril. (Mining 50)',
   },
   adamantite_rock: {
     name: 'Adamantite rock', label: 'Adamant', type: 'rock', verb: 'Mine', emoji: '🪨', blocking: true,
-    skill: 'mining', level: 70, tool: 'pickaxe', gives: 'adamantite_ore', xp: 95,
-    lowChance: 0.12, highChance: 0.48, depleteChance: 1, respawn: 50, ore: '#3fa06a',
+    skill: 'mining', level: 70, tool: 'pickaxe', gives: 'adamantite_ore', xp: 152,
+    lowChance: 0.12, highChance: 0.48, depleteChance: 1, respawn: 30, ore: '#3fa06a',
     examine: 'A rock streaked with adamantite. (Mining 70)',
   },
   runite_rock: {
     name: 'Runite rock', label: 'Runite', type: 'rock', verb: 'Mine', emoji: '🪨', blocking: true,
-    skill: 'mining', level: 85, tool: 'pickaxe', gives: 'runite_ore', xp: 125,
-    lowChance: 0.08, highChance: 0.38, depleteChance: 1, respawn: 90, ore: '#46b3c4',
+    skill: 'mining', level: 85, tool: 'pickaxe', gives: 'runite_ore', xp: 210,
+    lowChance: 0.08, highChance: 0.38, depleteChance: 1, respawn: 14, ore: '#46b3c4',
     examine: 'A rock glittering with rune. (Mining 85)',
   },
   gold_rock: {
@@ -276,9 +279,11 @@ export const OBJECTS = {
   fishing_cage: {
     name: 'Cage fishing spot', label: 'Cage', type: 'fishing', verb: 'Cage', emoji: '🦞', blocking: false,
     skill: 'fishing', tool: 'lobster_pot', depleteChance: 0, respawn: 0,
+    // Cage and harpoon fish pay more than the coastal rod spot's, so the
+    // higher spots out-earn it at every level, sharks and manta rays most.
     catches: [
-      { id: 'raw_grouper', level: 55, xp: 110, lowChance: 0.20, highChance: 0.62, weight: 40 },
-      { id: 'raw_lobster', level: 40, xp: 90, lowChance: 0.25, highChance: 0.70, weight: 100 },
+      { id: 'raw_grouper', level: 55, xp: 135, lowChance: 0.20, highChance: 0.62, weight: 40 },
+      { id: 'raw_lobster', level: 40, xp: 105, lowChance: 0.25, highChance: 0.70, weight: 100 },
     ],
     examine: 'Bubbles rise where shellfish lurk. Set a lobster pot. (Fishing 40)',
   },
@@ -286,11 +291,11 @@ export const OBJECTS = {
     name: 'Harpoon fishing spot', label: 'Harpoon', type: 'fishing', verb: 'Harpoon', emoji: '🦈', blocking: false,
     skill: 'fishing', tool: 'harpoon', depleteChance: 0, respawn: 0,
     catches: [
-      { id: 'raw_manta_ray', level: 84, xp: 130, lowChance: 0.08, highChance: 0.40, weight: 18 },
-      { id: 'raw_shark', level: 76, xp: 110, lowChance: 0.10, highChance: 0.45, weight: 30 },
-      { id: 'raw_stingray', level: 68, xp: 100, lowChance: 0.14, highChance: 0.52, weight: 40 },
-      { id: 'raw_swordfish', level: 50, xp: 100, lowChance: 0.20, highChance: 0.60, weight: 60 },
-      { id: 'raw_tuna', level: 35, xp: 80, lowChance: 0.25, highChance: 0.72, weight: 100 },
+      { id: 'raw_manta_ray', level: 84, xp: 215, lowChance: 0.08, highChance: 0.40, weight: 18 },
+      { id: 'raw_shark', level: 76, xp: 185, lowChance: 0.10, highChance: 0.45, weight: 30 },
+      { id: 'raw_stingray', level: 68, xp: 150, lowChance: 0.14, highChance: 0.52, weight: 40 },
+      { id: 'raw_swordfish', level: 50, xp: 130, lowChance: 0.20, highChance: 0.60, weight: 60 },
+      { id: 'raw_tuna', level: 35, xp: 100, lowChance: 0.25, highChance: 0.72, weight: 100 },
     ],
     examine: 'Big shadows circle in the deep water. Bring a harpoon. (Fishing 35)',
   },
@@ -393,10 +398,13 @@ export const OBJECTS = {
 
   // ---------------- Thieving stalls ----------------
   // Steal from a stall: success yields loot + XP and empties the stall briefly;
-  // failure stuns you. Loot is one weighted pick per successful theft.
+  // failure stuns you. Loot is one weighted pick per successful theft. A stall
+  // restocks every few ticks where a pocket can be picked every tick, so each
+  // theft is worth a lot more XP: enough that a stall beats pickpocketing for a
+  // good stretch of levels after it unlocks.
   stall_food: {
     name: 'Hawker stall', label: 'Hawker stall', type: 'stall', verb: 'Steal-from', emoji: '🍢', blocking: true,
-    skill: 'thieving', level: 1, xp: 16, respawn: 4, examine: 'A food stall, ripe for a cheeky steal. (Thieving 1)',
+    skill: 'thieving', level: 1, xp: 150, respawn: 4, examine: 'A food stall, ripe for a cheeky steal. (Thieving 1)',
     loot: [
       { id: 'coins', min: 5, max: 25, weight: 50 },
       { id: 'kaya_toast', weight: 20 }, { id: 'roti_prata', weight: 14 }, { id: 'chicken_rice', weight: 8 },
@@ -404,7 +412,7 @@ export const OBJECTS = {
   },
   stall_market: {
     name: 'Market stall', label: 'Market stall', type: 'stall', verb: 'Steal-from', emoji: '🛍️', blocking: true,
-    skill: 'thieving', level: 12, xp: 40, respawn: 6, examine: 'A bric-a-brac stall. (Thieving 12)',
+    skill: 'thieving', level: 12, xp: 280, respawn: 6, examine: 'A bric-a-brac stall. (Thieving 12)',
     loot: [
       { id: 'coins', min: 25, max: 90, weight: 50 },
       { id: 'sapphire', weight: 10 }, { id: 'emerald', weight: 5 }, { id: 'gold_ore', weight: 14 },
@@ -412,7 +420,7 @@ export const OBJECTS = {
   },
   stall_gem: {
     name: 'Gem stall', label: 'Gem stall', type: 'stall', verb: 'Steal-from', emoji: '💎', blocking: true,
-    skill: 'thieving', level: 25, xp: 75, respawn: 9, examine: 'Glittering gems, lightly guarded. (Thieving 25)',
+    skill: 'thieving', level: 25, xp: 700, respawn: 9, examine: 'Glittering gems, lightly guarded. (Thieving 25)',
     loot: [
       { id: 'coins', min: 60, max: 200, weight: 40 },
       { id: 'sapphire', weight: 16 }, { id: 'emerald', weight: 12 }, { id: 'ruby', weight: 7 }, { id: 'diamond', weight: 2 },
