@@ -81,7 +81,7 @@ export function drawRangedHeroRig(ctx, opts = {}) {
   const guns = classId === 'pistoler';
   if (anim) drawHeroArm(ctx, anim, 'back', -11 + pose.breathe);
   // The rifle is held in both hands, so the Sniper's back hand steadies it (below).
-  const rifle = classId === 'sniper';
+  const rifle = classId === 'sniper' && anim?.weapon === 'rifle';
   if (!bow && !guns && !rifle) draw('back', -15, -10 + pose.breathe, 16, 12, -pose.step * 0.2 - pose.charge * 0.35, 12, 3, arms);
   draw('body', -21, -38 + pose.breathe, 42, 44);
   if (anim) drawHeroArm(ctx, anim, 'front', -11 + pose.breathe);
@@ -130,9 +130,9 @@ export function drawRangedHeroRig(ctx, opts = {}) {
     // The back hand reaches across to the fore-end, under the barrel.
     const c = Math.cos(angle), s = Math.sin(angle), fx = 0.55 * 20 - 5, fy = 0.74 * 39 - 33;
     const hx = 14 + fx * c - fy * s, hy = y + fx * s + fy * c + 1.5;
-    drawGripHand(ctx, classId, 'arm', -4, y - 2, hx, hy);
+    if (rifle) drawGripHand(ctx, classId, 'arm', -4, y - 2, hx, hy);
     draw('weapon', 14, y, 20, 39, angle, 5, 33);
-    drawGripHand(ctx, classId, 'fist', 0, 0, hx, hy);
+    if (rifle) drawGripHand(ctx, classId, 'fist', 0, 0, hx, hy);
     draw('action', 30, y - 9, 16, 10, 0, 2, 5, pose.release);
   } else {
     const angle = -pose.charge * 0.2 + pose.cast * 1.1 + pose.step * 0.12;

@@ -7,10 +7,12 @@ import assert from 'node:assert/strict';
 import { ALL_WEAPON_TYPES } from '../src/data/items.js';
 import { CLASSES } from '../src/data/classes.js';
 import {
-  HERO_CLIPS, HERO_CHANNELS, SKILL_ACTION_TYPES, WEAPON_CLIP, actionClipId, actionPropId, weaponClipId,
+  HERO_CLIPS, HERO_CHANNELS, SKILL_ACTION_TYPES, WEAPON_CLIP, DUAL_CLIPS, actionClipId, actionPropId, weaponClipId,
   sampleHeroClip, heroAnimFrame, blendHeroFrame, CLIP_BLEND_MS,
 } from '../src/render/heroanim.js';
 import { drawPlayer } from '../src/render/sprites.js';
+import { ITEMS } from '../src/data/items.js';
+import { dualType } from '../src/game/equipment.js';
 
 // One representative action of each kind (and each variant a clip depends on).
 const ACTIONS = [
@@ -76,10 +78,10 @@ test('clips stay finite; attacks start and end at rest; loops close', () => {
       for (const ch of HERO_CHANNELS) assert.ok(Math.abs(a[ch] - b[ch]) < 1e-9, `${id}/${ch} loops without a jump`);
     }
   }
-  for (const id of new Set([...Object.values(WEAPON_CLIP), 'stab_dual', 'punch'])) {
+  for (const id of new Set([...Object.values(WEAPON_CLIP), ...Object.values(DUAL_CLIPS).flat(), 'punch'])) {
     for (const u of [0, 1]) {
       const f = sampleHeroClip(id, u).ch;
-      for (const ch of HERO_CHANNELS) if (ch !== 'trail') assert.ok(Math.abs(f[ch]) < 1e-9, `${id}/${ch} rests at ${u}`);
+      for (const ch of HERO_CHANNELS) if (ch !== 'trail' && ch !== 'trail2') assert.ok(Math.abs(f[ch]) < 1e-9, `${id}/${ch} rests at ${u}`);
     }
     const moves = Array.from({ length: 21 }, (_, i) => sampleHeroClip(id, i / 20).ch)
       .some((c) => HERO_CHANNELS.some((ch) => ch !== 'trail' && Math.abs(c[ch]) > 0.3));
@@ -186,6 +188,110 @@ test('drawing every class in every clip works, rigs and pictures alike', () => {
     for (const id of clipIds) {
       drawPlayer(ctx, 50, 50, { time: 0, entity: {}, jobClass: 'nobody', hasWeapon: true, weaponType: 'magic', anim: sampleHeroClip(id, 0.5, { tool: 'harpoon' }) });
       assert.equal(ctx.depth, 0);
+    }
+  } finally { if (previous === undefined) delete globalThis.Image; else globalThis.Image = previous; }
+});
+
+// ---------------- Dual wielding and two-handed grips ----------------
+const peakAt = (id, ch) => {
+  let best = 0, at = -1;
+  for (let i = 0; i <= 200; i++) { const v = Math.abs(sampleHeroClip(id, i / 200).ch[ch]); if (v > best) { best = v; at = i / 200; } }
+  return { best, at };
+};
+
+test('every dual-wield kind has two dual clips, played in turn', () => {
+  const kinds = new Set(Object.keys(ITEMS).map(dualType).filter(Boolean));
+  assert.deepEqual([...kinds].sort(), Object.keys(DUAL_CLIPS).sort(), 'each kind of weapon that pairs has its own clips');
+  for (const kind of kinds) {
+    const [a, b] = [weaponClipId(kind, true, 0), weaponClipId(kind, true, 1)];
+    assert.ok(HERO_CLIPS[a] && HERO_CLIPS[b] && a !== b, `${kind}: two variants (${a}, ${b})`);
+    assert.equal(weaponClipId(kind, true, 2), a, `${kind}: the variants alternate`);
+    assert.notEqual(weaponClipId(kind, false), a, `${kind}: a single weapon strikes with one hand`);
+  }
+});
+
+test('every dual clip strikes with both hands, the off hand landing second', () => {
+  for (const [kind, ids] of Object.entries(DUAL_CLIPS)) {
+    for (const id of ids) {
+      // Guns fire in turn (release is the front gun, kick2 the back one); blades
+      // swing the weapon arm (sword) and the back arm, each lunging out on its strike.
+      const [main, off] = kind === 'pistol' ? ['release', 'kick2'] : ['strike', 'strike2'];
+      assert.ok(peakAt(id, main).best > 0.9, `${id}: the main hand strikes`);
+      assert.ok(peakAt(id, off).best > 0.9, `${id}: the off hand strikes`);
+      if (kind !== 'pistol') {
+        assert.ok(peakAt(id, 'back').best > 1.2, `${id}: the back arm swings through`);
+        assert.ok(peakAt(id, 'reach2').best > 2, `${id}: the off hand lunges forward`);
+        assert.ok(HERO_CLIPS[id].trail && HERO_CLIPS[id].trail2, `${id}: each blade leaves its swoosh`);
+      }
+    }
+    // The first clip of each pair is main hand then off hand (the order the game deals the hits).
+    const [main, off] = kind === 'pistol' ? ['release', 'kick2'] : ['strike', 'strike2'];
+    assert.ok(peakAt(ids[0], off).at > peakAt(ids[0], main).at, `${ids[0]}: the off-hand blow lands second`);
+  }
+  // Claws are a pair too: the back paw has its own strike in the flurry.
+  assert.ok(peakAt('flurry', 'strike2').best > 0.9 && peakAt('flurry', 'strike').best > 0.9);
+});
+
+test('a dual wielder alternates clips from one attack to the next', () => {
+  let sk = -1;
+  const game = {
+    player: { swingProgress: () => sk, isMoving: false, animMove: 0, action: null },
+    equipment: { get: (slot) => (slot === 'weapon' || slot === 'shield' ? 'iron_scimitar' : null), isDualWielding: () => true },
+    jobClass: 'corsair',
+  };
+  const seen = [];
+  let t = 1000;
+  for (let swing = 0; swing < 4; swing++) {
+    for (const k of [0, 0.3, 0.6, 0.9]) { sk = k; const f = heroAnimFrame(game, (t += 16)); if (k === 0.3) seen.push(f.id); }
+    sk = -1; heroAnimFrame(game, (t += 16));
+  }
+  assert.deepEqual(seen, ['scim_dual', 'scim_x', 'scim_dual', 'scim_x']);
+  const idle = heroAnimFrame(game, (t += 500));
+  assert.equal(idle.offhand, 'iron_scimitar', 'the off-hand weapon is known between attacks too (drawn at rest)');
+  assert.equal(idle.weapon, 'scimitar');
+});
+
+test('two-handed weapons are gripped by the back hand too', () => {
+  const previous = globalThis.Image;
+  globalThis.Image = class { constructor() { this.complete = true; this.naturalWidth = 100; this.naturalHeight = 100; } };
+  try {
+    const fists = (jobClass, weapon, u) => {
+      const ctx = stubCtx();
+      let arcs = 0;
+      ctx.arc = () => { arcs++; };
+      const anim = sampleHeroClip(weaponClipId(weapon), u, { jobClass, weapon, low: true });   // no swooshes: count only fists
+      drawPlayer(ctx, 50, 50, { time: 1000, entity: {}, jobClass, hasWeapon: true, weaponType: 'melee', swingK: u, anim,
+        gait: { phase: 0, move: 0, run: false, turn: 0 }, facing: { dx: 1, dy: 0 } });
+      return arcs;
+    };
+    for (const [jobClass, weapon] of [['samurai', 'katana'], ['juggernaut', 'warhammer'], ['gladiator', '2h_sword'], ['halberdier', 'halberd']]) {
+      for (const u of [0, 0.5, 0.7]) assert.ok(fists(jobClass, weapon, u) > 0, `${jobClass}: both hands on the ${weapon} at ${u}`);
+    }
+    // A one-handed secondary weapon leaves the back hand free.
+    assert.equal(fists('samurai', 'parang', 0.5), 0);
+  } finally { if (previous === undefined) delete globalThis.Image; else globalThis.Image = previous; }
+});
+
+test('drawing every class in every attack clip, dual wielding or not, works', () => {
+  const previous = globalThis.Image;
+  globalThis.Image = class { constructor() { this.complete = true; this.naturalWidth = 100; this.naturalHeight = 100; } };
+  try {
+    const ctx = stubCtx();
+    const attacks = [...new Set([...Object.values(WEAPON_CLIP), ...Object.values(DUAL_CLIPS).flat(), 'punch'])];
+    for (const { id: jobClass, weapon, style } of CLASSES) {
+      for (const id of attacks) {
+        for (const dual of [false, true]) {
+          for (const u of [0, 0.25, 0.5, 0.62, 0.8, 1]) {
+            for (const low of [false, true]) {
+              const anim = sampleHeroClip(id, u, { kind: 'combat', jobClass, low, weapon, offhand: dual ? 'iron_dagger' : null });
+              drawPlayer(ctx, 50, 50, { time: 1000, entity: {}, jobClass, hasWeapon: true, weaponType: style, swingK: u, anim, dualWield: dual,
+                gait: { phase: 0.3, move: 0.5, run: false, turn: 0 }, facing: { dx: 1, dy: 0 } });
+              assert.equal(ctx.depth, 0, `${jobClass}/${id}: save/restore balanced`);
+              assert.equal(ctx.globalAlpha, 1, `${jobClass}/${id}: opacity restored`);
+            }
+          }
+        }
+      }
     }
   } finally { if (previous === undefined) delete globalThis.Image; else globalThis.Image = previous; }
 });
