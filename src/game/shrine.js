@@ -48,11 +48,21 @@ export function trackText(track, rank) {
 export class Shrine {
   constructor() {
     this.points = 0;   // shrine points donated and not yet spent
+    this.frac = 0;     // a part point left over from goods (offerings.js), kept for the next
     this.ranks = {};   // track id -> rank
     this.rev = 0;      // bumped when the bonuses change, so cached totals know
   }
 
   rank(track) { return this.ranks[track] || 0; }
+
+  /** Add points that may be fractional (goods are worth part of a point): the
+   *  whole points go on, the part is kept for next time. Returns the whole points added. */
+  addPoints(p) {
+    const t = this.frac + Math.max(0, p), whole = Math.floor(t + 1e-9);
+    this.frac = Math.max(0, t - whole);
+    this.points += whole;
+    return whole;
+  }
   nextCost(track) { return shrineCost(this.rank(track) + 1); }
 
   /** Every blessing's bonuses added together. */
@@ -77,13 +87,14 @@ export class Shrine {
     return true;
   }
 
-  serialize() { return { points: this.points, ranks: { ...this.ranks } }; }
+  serialize() { return { points: this.points, ranks: { ...this.ranks }, frac: this.frac }; }
 
   /** Older saves have no shrine: everything starts at nothing. */
   load(data) {
-    this.points = 0; this.ranks = {};
+    this.points = 0; this.ranks = {}; this.frac = 0;
     if (data && typeof data === 'object') {
       if (typeof data.points === 'number' && data.points > 0) this.points = Math.floor(data.points);
+      if (typeof data.frac === 'number' && data.frac > 0 && data.frac < 1) this.frac = data.frac;
       for (const t of SHRINE_TRACK_IDS) {
         const r = data.ranks?.[t];
         if (typeof r === 'number' && r > 0) this.ranks[t] = Math.floor(r);
