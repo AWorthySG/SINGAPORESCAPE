@@ -1357,7 +1357,7 @@ export class Game {
     const here = this.playerTile();
     let best = null, bd = Infinity;
     for (const o of this.world.objects) {
-      if (!this.gatherPicks.has(o.objId) || o.depleted || (o.def?.night && !this.isNight())) continue;
+      if (!this.gatherPicks.has(o.objId) || o.depleted) continue;
       if (o.def?.skill && (o.def.level || 1) > this.skills.level(o.def.skill)) continue;
       const d = chebyshev(here.x, here.y, o.x, o.y);
       if (d < bd) { bd = d; best = o; }
@@ -1384,7 +1384,7 @@ export class Game {
     const next = kinds.length > 1 && i >= 0 ? kinds[(i + 1) % kinds.length] : null;
     let same = null, sd = Infinity, other = null, od = Infinity, turn = null, td = Infinity, round = null, rd = Infinity;
     for (const o of this.world.objects) {
-      if (o === exclude || o.depleted || (o.def?.night && !this.isNight())) continue;   // a night-only tree isn't ready by day
+      if (o === exclude || o.depleted) continue;
       const d = chebyshev(here.x, here.y, o.x, o.y);
       if (d > 30) continue;
       const lvlOk = !o.def?.skill || (o.def.level || 1) <= this.skills.level(o.def.skill);

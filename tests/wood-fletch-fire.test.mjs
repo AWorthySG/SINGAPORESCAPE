@@ -36,6 +36,7 @@ function newGame() {
 const setLevel = (g, skill, lvl) => { g.skills.xp[skill] = xpForLevel(lvl); };
 const step = (g, n) => { for (let i = 0; i < n; i++) g.update(600); };
 const night = (g) => { g.playMs = 0; };   // midnight
+const noon = (g) => { g.playMs = 0.5 * 10 * 60 * 1000; };   // high noon
 const ADJ = [[0, 1], [1, 0], [-1, 0], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]];
 // Stand the player on a free tile next to an object.
 function standBy(g, obj) {
@@ -121,25 +122,27 @@ test('endgame trees: chopped at their level for their logs (with the axe clip), 
   }
 });
 
-test('the moonlit kapok only gives its wood at night', () => {
+test('the moonlit kapok chops any time, with bonus XP at night', () => {
   const g = newGame();
   if (!g.inventory.has('bronze_axe')) g.inventory.add('bronze_axe', 1);
-  const said = listen(g);
   setLevel(g, 'woodcutting', 250);
   const tree = g.world.objects.find((o) => o.objId === 'moonlit_kapok');
   standBy(g, tree);
   g.playMs = 0.5 * 10 * 60 * 1000;   // high noon
   assert.ok(!g.isNight());
+  assert.equal(g._nextGatherNode('moonlit_kapok')?.objId, 'moonlit_kapok', 'auto gather counts it by day too');
+  const xp0 = g.skills.xp.woodcutting;
   g.defaultObjectAction(tree);
-  step(g, 4);
-  assert.equal(g.inventory.count('moonwood_logs'), 0, 'nothing by day');
-  assert.ok(said.some((m) => m.includes('Come back at night')), 'and told why');
-  // Auto gather waits instead of trying it every tick by day.
-  assert.equal(g._nextGatherNode('moonlit_kapok')?.objId === 'moonlit_kapok', false);
+  for (let i = 0; i < 40 && g.inventory.count('moonwood_logs') < 1; i++) step(g, 1);
+  assert.ok(g.inventory.count('moonwood_logs') >= 1, 'chops fine by day');
+  const day = g.skills.xp.woodcutting - xp0;
+  tree.depleted = false; g.player.clearAction();
   night(g);
+  const xp1 = g.skills.xp.woodcutting, logs = g.inventory.count('moonwood_logs');
   g.defaultObjectAction(tree);
-  step(g, 4);
-  assert.ok(g.inventory.count('moonwood_logs') >= 1, 'but chops fine at night');
+  for (let i = 0; i < 40 && g.inventory.count('moonwood_logs') <= logs; i++) step(g, 1);
+  const nightXp = g.skills.xp.woodcutting - xp1;
+  assert.ok(nightXp > day * 1.2, `more XP at night (${nightXp} vs ${day})`);
 });
 
 test('burning endgame logs: the Firemaking level, XP, and the right ash, which the shrine takes', () => {
@@ -269,7 +272,7 @@ test('endgame Woodcutting XP an hour: each tier well ahead of the best before it
     const g = newGame();
     if (!g.inventory.has('bronze_axe')) g.inventory.add('bronze_axe', 1);
     setLevel(g, 'woodcutting', lvl);
-    night(g);   // the moonlit kapok needs it, and it changes nothing for the rest
+    noon(g);   // base rates: the moonlit kapok's night bonus is on top of these
     const all = g.world.objects.filter((o) => o.objId === treeId);
     const near = (o) => all.filter((p) => chebyshev(p.x, p.y, o.x, o.y) <= 15).length;
     const start = all.reduce((a, b) => (near(b) > near(a) ? b : a));
@@ -280,7 +283,7 @@ test('endgame Woodcutting XP an hour: each tier well ahead of the best before it
     let gain = 0;
     for (let i = 0; i < TICKS; i++) {
       g.update(600);
-      night(g);
+      noon(g);
       gain += g.skills.xp.woodcutting - base; g.skills.xp.woodcutting = base;
       // An endless bag: drop what was chopped so the run never stops for space.
       for (const id of ['magic_logs', ...TIERS.map((t) => t.log), 'birds_nest']) g.inventory.remove(id, g.inventory.count(id));

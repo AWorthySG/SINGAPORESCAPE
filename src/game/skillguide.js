@@ -37,7 +37,7 @@ export function guideEntries(skill) {
   if (skill === 'woodcutting' || skill === 'mining' || skill === 'thieving') {
     for (const [id, d] of Object.entries(OBJECTS)) {
       if (d.skill !== skill || d.type === 'hunt') continue;
-      add(d.level, d.name, d.gives ? `Gives ${name(d.gives)}${d.night ? ' (only at night)' : ''}` : d.loot ? `Loot: ${d.loot.filter((l) => l.id !== 'coins').map((l) => name(l.id)).slice(0, 3).join(', ')}, coins` : '', [id]);
+      add(d.level, d.name, d.gives ? `Gives ${name(d.gives)}${d.night ? ' (+25% XP at night)' : ''}` : d.loot ? `Loot: ${d.loot.filter((l) => l.id !== 'coins').map((l) => name(l.id)).slice(0, 3).join(', ')}, coins` : '', [id]);
     }
   } else if (skill === 'fishing') {
     for (const [id, d] of Object.entries(OBJECTS)) {
