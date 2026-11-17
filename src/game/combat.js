@@ -186,7 +186,7 @@ const scaledFlat = (level, equip, castMult) => Math.round(levelFlatDmg(level) * 
 export const WEAPON_DMG_MULT = {
   dagger: 0.65, sword: 2.2, scimitar: 0.37, mace: 2.62, longsword: 2.22, battleaxe: 1.72, warhammer: 2.88,
   '2h_sword': 2.5, spear: 2.05, claws: 0.47, katana: 1.48, halberd: 3.02, cane: 0.71, shortbow: 0.54,
-  longbow: 1.25, pistol: 0.38, rifle: 1.0, shuriken: 1.3, staff: 0.36, wand: 0.35, whip: 2.0,
+  longbow: 1.25, pistol: 0.38, rifle: 1.0, shuriken: 1.3, staff: 0.32, wand: 0.31, whip: 2.0,
   // Secondary types (first estimates, pending the combat rescale), tuned against measured
   // damage (a headless run of each class's best weapon at tiers 10-250, not a formula)
   // so that each sits a little under its classes' main types and the main type stays
@@ -196,7 +196,7 @@ export const WEAPON_DMG_MULT = {
   // at a staff's pace (see items.js), so they scale just under a staff per cast; a
   // Sorcerer's quicker wands stay ahead of an orb below the dragon tier. The crossbow
   // needs no ammo and pierces, so it stays just under the bows.
-  parang: 1.75, kerambit: 0.27, toya: 2.35, crossbow: 2.8, chakram: 1.3, orb: 0.34, fan: 1.45,
+  parang: 1.75, kerambit: 0.27, toya: 2.35, crossbow: 2.8, chakram: 1.3, orb: 0.3, fan: 1.45,
 };
 /** The target's number scale (see hpScaleFor in npcs.js): hits on a big monster are divided by it. */
 const numScale = (npc) => npc?.hpScale || 1;
