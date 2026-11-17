@@ -83,17 +83,17 @@ export const WEAPON_VS_RACE = {
   fan:       { strong: ['spirit', 'avian'],              weak: [] },
 };
 
-// Effective: harder hitting. Resisted: noticeably softer.
+// Effective: harder hitting. A weapon is never WEAKER against a race (the
+// owner's rule: matchups only ever help), so the old 'resisted' penalty is
+// gone; the `weak` lists above are kept only as data and no longer apply.
 export const RACE_BONUS = { dmg: 1.3 };
-export const RACE_PENALTY = { dmg: 0.75 };
+export const RACE_PENALTY = { dmg: 1 };   // kept for old imports: no penalty any more
 
-/** 'strong' | 'weak' | null: how a weapon type fares against a race. */
+/** 'strong' | null: how a weapon type fares against a race (never 'weak'). */
 export function matchup(weaponType, race) {
   const m = WEAPON_VS_RACE[weaponType];
   if (!m) return null;
-  if (m.strong.includes(race)) return 'strong';
-  if (m.weak.includes(race)) return 'weak';
-  return null;
+  return m.strong.includes(race) ? 'strong' : null;
 }
 
 /** Weapon types that are strong (and weak) against a race, for the bestiary. */
@@ -101,9 +101,8 @@ export function weaponsFor(race) {
   const strong = [], weak = [];
   for (const [w, m] of Object.entries(WEAPON_VS_RACE)) {
     if (m.strong.includes(race)) strong.push(w);
-    if (m.weak.includes(race)) weak.push(w);
   }
-  return { strong, weak };
+  return { strong, weak };   // nothing resists any more, so `weak` stays empty
 }
 
 /** A friendly name for a weapon type id. */

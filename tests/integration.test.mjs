@@ -3918,7 +3918,7 @@ test('races: every foe has one, weapons bite harder into some and are resisted b
   assert.equal(raceOf(NPCS.celestial_garuda, 'celestial_garuda'), 'avian');
   assert.equal(raceOf(NPCS.stone_golem, 'stone_golem'), 'construct');
 
-  // In a fight: a dagger is effective on a bandit and resisted by a golem.
+  // In a fight: a dagger is effective on a bandit; a golem doesn't resist it (no weapon is ever weaker).
   globalThis.localStorage = fakeStorage();
   clearSave();
   const { NPC } = await import('../src/game/npc.js');
@@ -3930,9 +3930,9 @@ test('races: every foe has one, weapons bite harder into some and are resisted b
   const bandit = new NPC('bandit', p.x + 1, p.y, 0, {});
   const golem = new NPC('stone_golem', p.x + 1, p.y + 1, 0, {});
   assert.equal(game.raceMatchup(bandit), 'strong');
-  assert.equal(game.raceMatchup(golem), 'weak');
+  assert.equal(game.raceMatchup(golem), null, 'no race resists a weapon any more');
   const eff = game._offensiveMods(bandit, 'melee'), res = game._offensiveMods(golem, 'melee');
-  assert.ok(eff.dmgM / res.dmgM > 1.6, `effective vs resisted damage (${eff.dmgM.toFixed(2)} vs ${res.dmgM.toFixed(2)})`);
+  assert.ok(eff.dmgM / res.dmgM > 1.25, `effective vs plain damage (${eff.dmgM.toFixed(2)} vs ${res.dmgM.toFixed(2)})`);
   // Swapping to a warhammer turns the tables on the golem.
   game.equipment.set('weapon', 'bronze_warhammer');
   assert.equal(game.raceMatchup(golem), 'strong');
@@ -4404,7 +4404,7 @@ test('spells: every spell hits the area for 100% damage (with XP), and elements 
   const { NPC } = await import('../src/game/npc.js');
   const { elementMatchup, SPELLS } = await import('../src/data/magic.js');
   assert.equal(elementMatchup('fire', 'flora'), 'strong');
-  assert.equal(elementMatchup('fire', 'aquatic'), 'weak');
+  assert.equal(elementMatchup('fire', 'aquatic'), null, 'elements are never resisted');
   assert.ok(SPELLS.every((s) => ['wind', 'water', 'earth', 'fire'].includes(s.element)), 'every spell has an element');
   globalThis.localStorage = fakeStorage(); clearSave();
   const g = new Game(); g.start(); g.chooseClass('wizard');
@@ -4733,14 +4733,6 @@ test('auto battle casters pick the element that suits the target', async () => {
   game.skills.xp.magic = 50000000;
   for (const r of ['fire_rune', 'water_rune', 'earth_rune', 'air_rune', 'mind_rune']) game.inventory.add(r, 500);
   const p = game.player;
-  // A lone monster that resists fire: not Fire.
-  const ids = game.npcs.filter((n) => n.def.attackable && !n.def.boss).map((n) => n.npcId);
-  const fireProof = ids.find((id) => ELEMENTS.fire.weak.includes(raceOf(game.npcs.find((n) => n.npcId === id).def, id)));
-  if (fireProof) {
-    const t = new NPC(fireProof, p.x + 3, p.y, 0, {});
-    game.npcs = [t];
-    assert.notEqual(game._autoSpellFor(t).element, 'fire', 'a fire-resistant target gets another element');
-  }
   // A crowd spread around the target: Earth reaches them all.
   const t = new NPC('goblin', p.x + 3, p.y, 0, {});
   const crowd = [[3, 0], [-3, 0], [0, 4], [0, -4], [4, 4]].map(([dx, dy]) => new NPC('goblin', t.x + dx, t.y + dy, 0, {}));

@@ -33,11 +33,12 @@ export const ELEMENTS = {
 };
 for (const s of SPELLS) s.element = s.id.split('_')[0];
 export const AOE_RADIUS = 2;   // tiles around the target that every spell also hits
-/** 'strong' | 'weak' | null: how a spell's element fares against a race. */
+/** 'strong' | null: how a spell's element fares against a race. Elements only
+ *  ever help: a race no longer resists a spell (the `weak` lists are unused). */
 export function elementMatchup(element, race) {
   const e = ELEMENTS[element];
   if (!e) return null;
-  return e.strong.includes(race) ? 'strong' : e.weak.includes(race) ? 'weak' : null;
+  return e.strong.includes(race) ? 'strong' : null;
 }
 
 export const SPELL_BY_ID = Object.fromEntries(SPELLS.map((s) => [s.id, s]));
