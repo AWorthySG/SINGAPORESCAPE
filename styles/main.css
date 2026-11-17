@@ -2197,6 +2197,7 @@ body.boss-on #tip-toast { top: 132px; }
 .eq-name .refine-tag { font-size: 11px; padding: 0 5px; border-radius: 999px; }
 .up-badge .refine-star { color: #dff3ff; margin-left: 1px; }
 #tooltip .gt-refine { color: var(--aw-sky-deep); font-weight: 900; margin-top: 2px; }
+#tooltip .gt-carry { color: #1f8a4c; font-weight: 800; margin-top: 2px; }
 .refine-gain { color: var(--aw-sky-deep); font-weight: 800; }
 .refine-out.success { color: var(--aw-grass); }
 .refine-out.fail, .refine-out.warded { color: var(--aw-text-sec); }

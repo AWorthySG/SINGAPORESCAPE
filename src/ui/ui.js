@@ -37,6 +37,7 @@ import { streakMult } from '../game/bounty.js';
 import { itemCategory } from '../game/inventory.js';
 import { MASTERY_RANKS, MAX_ENCHANTS, rankProgress, enchantLabel, STONE as UP_STONE, WARD as UP_WARD } from '../game/mastery.js';
 import { MAX_REFINE, SCROLL as REFINE_SCROLL, refineCost, refineOdds, refineTag, refinedBonuses } from '../game/refine.js';
+import { planCarry, carrySummary } from '../game/carry.js';
 import { MATERIAL_KINDS, feedKind, FEED_CAP, FEED_CAP_RANK, materialKind } from '../game/materials.js';
 import { SHRINE_TRACKS, SHRINE_TRACK_IDS, trackText } from '../game/shrine.js';
 import { isSalvageable, QUALITY_KEYS, nearOfferingShrine } from '../game/salvage.js';
@@ -993,6 +994,13 @@ export class UI {
       return `<span class="${good ? 'pos' : 'neg'}">${deltaText([d])}</span>`;
     }).join(' ')}</div>`;
     if (offCmp?.worn) html += `<div class="gt-verdict ${offCmp.verdict}">Off-hand: ${{ upgrade: '▲ Upgrade', downgrade: '▼ Downgrade', same: '= Same strength' }[offCmp.verdict] || ''} vs ${escapeHtml(getItem(offCmp.worn).name)}</div>`;
+    // Say what a better piece would take over from the worn one (carry.js). A
+    // matching weapon goes in a free off-hand first, as equipItem does.
+    const slot = canDualPair(id, eqp.get('weapon')) && !dualOff ? 'shield' : eq.slot;
+    for (const [s, pre] of [[slot, ''], ...(dualOff ? [['shield', 'Off-hand: ']] : [])]) {
+      const plan = planCarry(eqp, id, s);
+      if (plan) html += `<div class="gt-carry">${pre}Equipping carries over ${escapeHtml(carrySummary(plan))}</div>`;
+    }
     return html;
   }
 

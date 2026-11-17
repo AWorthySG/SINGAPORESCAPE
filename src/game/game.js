@@ -1,6 +1,7 @@
 import { EventBus } from '../core/events.js';
 import { buildWorld, TERRAIN, zoneLevel } from '../data/world.js';
 import { compareGear, deltaText, gearRating, effectiveRating, offenceFirstScore, weaponStyle, reqLevel } from './gear.js';
+import { planCarry, applyCarry, carryMessages } from './carry.js';
 import { RARITY, dropRarity, lootDelay, rollQuality, QUALITY, NORMAL_GEAR_SKIP } from './loot.js';
 import { recordQuality } from './salvage.js';
 import { dayKey, prevDayKey, makeBounties, streakMult } from './bounty.js';
@@ -5204,15 +5205,21 @@ export class Game {
     // hand hits with its own weapon's stats), not against a shield.
     const cmp = !offhand ? compareGear(s.id, this.equipment)
       : canDualPair(this.equipment.get('shield'), main) ? compareGear(s.id, this.equipment, 'shield') : null;
+    // A better piece takes over the old one's refine and enchantments (carry.js),
+    // worked out before the swap while the old piece is still the one worn.
+    const carry = planCarry(this.equipment, s.id, slot);
     this.inventory.removeAt(index, 1);
     const prev = this.equipment.get(slot);
     this.equipment.set(slot, s.id);
     if (prev) this.inventory.add(prev, 1);
+    if (carry) applyCarry(this.equipment, carry);
     // Say plainly whether that was a step up, so players learn which gear is better.
     const verdict = () => {
-      if (!cmp || !prev || cmp.verdict === 'same' || cmp.verdict === 'worn' || !cmp.deltas.length) return;
-      const head = { upgrade: 'Upgrade!', downgrade: 'Downgrade:', style: 'New style:' }[cmp.verdict];
-      this.msg(`${head} ${deltaText(cmp.deltas)} vs your ${offhand ? 'off-hand ' : ''}${getItem(prev).name.toLowerCase()}.`, cmp.verdict === 'upgrade' ? 'level' : 'system');
+      if (cmp && prev && cmp.verdict !== 'same' && cmp.verdict !== 'worn' && cmp.deltas.length) {
+        const head = { upgrade: 'Upgrade!', downgrade: 'Downgrade:', style: 'New style:' }[cmp.verdict];
+        this.msg(`${head} ${deltaText(cmp.deltas)} vs your ${offhand ? 'off-hand ' : ''}${getItem(prev).name.toLowerCase()}.`, cmp.verdict === 'upgrade' ? 'level' : 'system');
+      }
+      for (const m of carryMessages(carry)) this.msg(m, 'level');   // what came across from the old piece
     };
     if (offhand) {
       this.msg(`You wield the ${item.name.toLowerCase()} in your off-hand. Dual wielding: each hand strikes with its own weapon's stats.`, 'level');
