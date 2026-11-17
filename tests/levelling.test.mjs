@@ -132,11 +132,17 @@ test('thieving: a stall keeps you stealing as it restocks', () => {
   g.player.hp = 1e6;
   const stall = g.world.objects.find((o) => o.objId === 'stall_food');
   standBy(g, stall);
-  g.defaultObjectAction(stall);
   const x0 = g.skills.xp.thieving;
-  for (let i = 0; i < 60; i++) { g.player.hp = 1e6; g.update(600); }
+  // Click again only when caught (one roll in twenty at this level, so a
+  // change in the dice upstream could catch you on the very first try).
+  let clicks = 0;
+  for (let i = 0; i < 60; i++) {
+    g.player.hp = 1e6;
+    if (!g.player.action && !g.player.isMoving && !g.playerStun) { g.defaultObjectAction(stall); clicks++; }
+    g.update(600);
+  }
   const steals = (g.skills.xp.thieving - x0) / (OBJECTS.stall_food.xp * XP_RATE);
-  assert.ok(steals >= 5, `one click, ${steals} steals`);
+  assert.ok(steals >= 5 && steals >= clicks * 2, `${clicks} clicks, ${steals} steals`);
 });
 
 // Mean XP a cast at a fishing spot at a level (catch rolls are weighted).

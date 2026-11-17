@@ -1284,7 +1284,64 @@ export function buildWorld() {
     vein('starfall_banyan', 364, 282, 536, 376, GRASSY);                     // The Celestial Peaks
     vein('moonlit_kapok', 121, 2, 148, 102, GRASSY);                         // Pulau Hantu
     vein('keramat_tree', 202, 206, 396, 276, GRASSY);                        // The Shadow Rift
+
+    // Endgame Hunter grounds (Hunter 100-300): five traps of a kind together,
+    // laid out like the groves from a stream of their own, so nothing above moves.
+    // Each ground is more than 30 tiles from the older traps, so auto gather
+    // waits for its own traps to reset instead of wandering off to those.
+    rng4 = mulberry32(20261121);
+    vein('pangolin_burrow', 207, 61, 219, 97, GRASSY, 5);                    // Pulau Ubin
+    vein('colugo_trap', 402, 261, 470, 278, GRASSY, 5);                      // Mandai Rainforest
+    vein('tiger_trail', 521, 261, 537, 269, GRASSY, 5);                      // Mandai's Night Safari, in the far corner
+    vein('garuda_nest', 412, 282, 469, 309, [T.STONE, T.GRASS], 5);          // The Celestial Peaks
+    vein('naga_track', 121, 2, 144, 102, GRASSY, 5);                         // Pulau Hantu
+    vein('phoenix_roost', 202, 206, 396, 276, GRASSY, 5);                    // The Shadow Rift
+    // More farm patches (Farming 100-300): eight in Gardens by the Bay, south of
+    // the MRT, and four by the Shadow Rift's great dark pool, where the eternal
+    // lotus is meant to grow (any patch will grow it). Fixed spots, like the
+    // allotments in the towns.
+    patches(350, 60, 8);
+    patches(324, 239, 4);
+
+    // Endgame Thieving and Agility (100-300), from a stream of their own again.
+    rng4 = mulberry32(20261122);
+    // Two chests of each kind, a few tiles apart.
+    vein('temple_vault', 184, 282, 356, 370, GRASSY, 2);                     // Temasek Ruins
+    vein('observatory_chest', 364, 282, 536, 376, [T.STONE, T.GRASS], 2);    // The Celestial Peaks
+    vein('smugglers_hold', 2, 282, 176, 370, [T.SAND, T.STONE], 2);          // Tuas Docklands
+    vein('rift_treasury', 202, 206, 396, 276, GRASSY, 2);                    // The Shadow Rift
+    // Obstacle courses: a loop round the corners of a square ten tiles across
+    // (a fifth obstacle halfway along the last side), so a lap is a run of
+    // about forty tiles. Every obstacle stays within 12 tiles of the others,
+    // which is how the game tells one course from another.
+    const course = (prefix, ids, x0, y0, x1, y1, allowed) => {
+      const at = [[0, 0], [10, 0], [10, 10], [0, 10], [0, 5]];
+      for (let tries = 0; tries < 400; tries++) {
+        const cx = x0 + Math.floor(rng4() * (x1 - x0 - 10)), cy = y0 + Math.floor(rng4() * (y1 - y0 - 10));
+        // Each obstacle on the open tile nearest its corner (at most one step off).
+        const spots = ids.map((_, i) => {
+          for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]]) {
+            const x = cx + at[i][0] + dx, y = cy + at[i][1] + dy;
+            if (open(x, y, allowed)) return [x, y];
+          }
+          return null;
+        });
+        if (spots.some((p) => !p)) continue;
+        ids.forEach((id, i) => placeObj(`${prefix}_${id}`, spots[i][0], spots[i][1]));
+        return;
+      }
+    };
+    course('supertree_skyway', ['stairs', 'bridge', 'vines', 'zipline'], 302, 6, 396, 96, GRASSY);               // Gardens by the Bay
+    course('container_yard_run', ['stack', 'gap', 'crane', 'ropes', 'chute'], 2, 282, 176, 376, [T.SAND, T.STONE]);   // Tuas Docklands
+    course('canopy_course', ['rope_bridge', 'vine_swing', 'treetop_walk', 'log_slide'], 402, 182, 536, 276, GRASSY);    // Mandai Rainforest
+    course('cloud_steps', ['ledge', 'stepping_stones', 'rock_climb', 'cloud_bridge', 'glide'], 364, 282, 536, 376, [T.STONE, T.GRASS]);   // The Celestial Peaks
+    course('wraith_run', ['gravestones', 'broken_pier', 'lantern_swing', 'ghost_bridge'], 121, 2, 148, 102, GRASSY);    // Pulau Hantu
+    course('rift_leap', ['chasm', 'floating_rocks', 'chain_climb', 'void_bridge', 'portal_dive'], 202, 206, 396, 276, GRASSY);   // The Shadow Rift
   }
+  // Thieving marks (Thieving 100 and 130): high rollers on the Marina Bay
+  // plaza and jade merchants in the Chinatown market.
+  placeNpc('marina_high_roller', 186, 140, 3); placeNpc('marina_high_roller', 200, 134, 3);
+  placeNpc('jade_merchant', 79, 56, 3); placeNpc('jade_merchant', 88, 55, 3);
 
   // --- Border fence ---
   for (let x = 0; x < W; x++) { placeObj('fence', x, 0); placeObj('fence', x, H - 1); }

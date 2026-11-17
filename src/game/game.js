@@ -1952,7 +1952,8 @@ export class Game {
   attackInterval(spell = null) {
     // A class buff's attack speed and Agility's speed bonus, on top of gear.
     const ws = this.equipment.weaponSpeed() * 100 / (100 + this.buffMod('haste')) * 100 / (100 + this.agilityAttackSpeed())
-      * 100 / (100 + (this.attrs?.dex || 0) * SPEED_PER_DEX);   // Dexterity
+      * 100 / (100 + (this.attrs?.dex || 0) * SPEED_PER_DEX)   // Dexterity
+      / (1 + (this.perkMods().haste || 0));   // a haste brew (Herblore)
     if (this.combatMode() !== 'magic') return ws;
     const sp = spell || getSpell(this.player.spell);
     return ws * 0.5 * (ELEMENTS[sp.element]?.castSpeed || 1);
@@ -3448,6 +3449,20 @@ export class Game {
   pickpocket(npc) {
     if (!npc || !npc.def.role) return;
     const lvl = this.skills.level('thieving');
+    // A mark (the endgame marks: def.thieving) has a level and a loot table of
+    // its own, rolled once a pick like a stall's; its XP is fixed, not by level.
+    const t = npc.def.thieving;
+    if (t) {
+      if (lvl < t.level) { this.msg(`You need Thieving level ${t.level} to pick the ${npc.name}'s pocket.`, 'system'); return; }
+      const pick = weightedPick(t.loot);
+      const qty = pick.min ? randInt(pick.min, pick.max) : 1;
+      this.inventory.add(pick.id, qty);
+      this.skills.addXp('thieving', t.xp);
+      this.addEvil(1); // theft tips you toward evil
+      this.spawnSparkle(this.player, '#ffe24a', 6);
+      this.msg(`You pick the ${npc.name}'s pocket and steal ${qty > 1 ? qty + ' x ' : ''}${getItem(pick.id).name}.`, 'system');
+      return;
+    }
     // Pickpocketing never fails any more (life skills never fail).
     {
       const coins = randInt(3, 12) + Math.floor(lvl * 1.5);
@@ -3558,8 +3573,10 @@ export class Game {
     }
     const lvl = this.skills.level('thieving');
     if (d.level && lvl < d.level) { this.msg(`You need Thieving level ${d.level} to steal from the ${d.name}.`, 'system'); return false; }
-    // Success scales with level over the stall's requirement.
-    const chance = Math.min(0.95, 0.5 + (lvl - (d.level || 1)) * 0.012);
+    // Success scales with level over the stall's requirement, from a half at
+    // that level (or the stall's own `sure`: the endgame chests are surer, so
+    // a new tier doesn't start far behind the one before it).
+    const chance = Math.min(0.95, (d.sure || 0.5) + (lvl - (d.level || 1)) * 0.012);
     if (Math.random() < chance) {
       const pick = weightedPick(d.loot);
       const qty = pick.min ? randInt(pick.min, pick.max) : 1;
@@ -4141,6 +4158,17 @@ export class Game {
   }
 
   playerDeath() {
+    // A brew that saves you from death (the phoenix elixir), while it runs:
+    // back on your feet with part of your life, and the brew is used up.
+    const saver = Object.keys(this.potions).find((id) => POTIONS[id].revive);
+    if (saver && this.player.alive) {
+      delete this.potions[saver];
+      this.player.hp = Math.max(1, Math.round(this.maxHp() * POTIONS[saver].revive));
+      this.msg(`Your ${POTIONS[saver].name.toLowerCase()} flares up and you rise from the ashes!`, 'level');
+      this.spawnSparkle(this.player, POTIONS[saver].color, 18);
+      this.bus.emit('hp'); this.bus.emit('potions');
+      return;
+    }
     this.msg('Oh dear, you are dead!', 'combat');
     // Killed by a boss you hadn't beaten yet: auto battle steers clear of it for a while.
     {
@@ -4899,6 +4927,7 @@ export class Game {
     if (npc.attackable) return this.attackNpc(npc);
     if (npc.def.role === 'shop') return this.beginAction({ type: 'openshop', shop: npc.def.shop, target: { x: npc.x, y: npc.y } }, { x: npc.x, y: npc.y }, true);
     if (npc.def.role === 'bank') return this.beginAction({ type: 'openbank', target: { x: npc.x, y: npc.y } }, { x: npc.x, y: npc.y }, true);
+    if (npc.def.role === 'mark') return this.startPickpocket(npc);   // a Thieving mark has nothing to say
     return this.beginAction({ type: 'talk', npc, target: { x: npc.x, y: npc.y } }, { x: npc.x, y: npc.y }, true);
   }
 
@@ -5467,15 +5496,22 @@ export class Game {
       if (this.meal.fx.dmg) this.msg(`The ${getItem(this.meal.id).name.toLowerCase()} wears off.`, 'system');
       this.meal = null;
     }
-    if (changed) this.bus.emit('potions');
+    if (changed) {
+      // A max-life brew (the naga elixir) wearing off takes its extra life with it.
+      if (this.player.hp > this.maxHp()) { this.player.hp = this.maxHp(); this.bus.emit('hp'); }
+      this.bus.emit('potions');
+    }
   }
 
   /** Combined combat boosts from the potions you have active, for a fighting style. */
   potionMods(mode = this.combatMode()) {
     const out = {};
+    // A potion that stands in for others (the phoenix elixir) leaves them out.
+    const covered = new Set(Object.keys(this.potions).flatMap((id) => POTIONS[id].covers || []));
     for (const id of Object.keys(this.potions)) {
       const pot = POTIONS[id];
       if (pot.style && pot.style !== mode) continue;
+      if (covered.has(pot.group)) continue;
       for (const [k, v] of Object.entries(pot.fx)) if (k !== 'heal') out[k] = (out[k] || 0) + v;
     }
     if (this.meal) for (const [k, v] of Object.entries(this.meal.fx)) out[k] = (out[k] || 0) + v;   // any style
@@ -6337,6 +6373,7 @@ export class Game {
       }
       if (n.def.role === 'shop') return ['Trade with', n.name];
       if (n.def.role === 'bank') return ['Bank', n.name];
+      if (n.def.role === 'mark') return ['Pickpocket', n.name];
       return ['Talk to', n.name];
     }
     const d = t.ref.def;

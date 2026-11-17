@@ -16,7 +16,8 @@ const ORES = new Set(['copper_ore', 'tin_ore', 'iron_ore', 'coal', 'mithril_ore'
   'gold_ore', 'silver_ore', 'clay', 'limestone', 'sandstone', 'granite',
   'obsidian_shard', 'orichalcum_ore', 'raw_jade', 'starmetal_ore', 'celestial_crystal', 'eternal_ore']);
 const GEMS = new Set(['sapphire', 'emerald', 'ruby', 'diamond', 'pearl']);
-const TROPHIES = new Set(['hornbill_casque', 'qilin_mane']);   // Hunter's rarest catches count as hides
+const TROPHIES = new Set(['hornbill_casque', 'qilin_mane',   // Hunter's rarest catches count as hides
+  'pangolin_scales', 'colugo_fur', 'tiger_whisker', 'garuda_plume', 'naga_scale', 'phoenix_ember']);   // and the endgame ones (Hunter 100-300)
 
 export const MATERIAL_KINDS = {
   bar: 'metal bars', gem: 'gems and pearls', log: 'logs', hide: 'pelts and hides', herb: 'herbs and crops',

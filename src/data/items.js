@@ -808,6 +808,15 @@ Object.assign(RAW, {
   croc_hide: { name: 'Crocodile hide', icon: '🟢', value: 300, stackable: true, tags: ['hide'], examine: 'Tough as armour. Craft it into dragonhide.' },
   hornbill_casque: { name: 'Hornbill casque', icon: '🟠', value: 1500, stackable: true, examine: 'A rare casque, prized by herbalists.' },
   qilin_mane: { name: 'Qilin mane', icon: '✨', value: 6000, stackable: true, examine: 'A lock of golden mane from a celestial qilin.' },
+  // Endgame Hunter catches (Hunter 100-300); each goes into its tier's Herblore brew (trades.js POTIONS).
+  pangolin_scales: { name: 'Pangolin scales', icon: '🟤', value: 700, stackable: true, examine: 'Overlapping scales shed by a Sunda pangolin. Herbalists grind them.' },
+  colugo_fur: { name: 'Colugo fur', icon: '🩶', value: 1000, stackable: true, examine: 'Soft grey fur from a gliding colugo.' },
+  tiger_whisker: { name: 'Tiger whisker', icon: '〰️', value: 1500, stackable: true, examine: 'A stiff whisker from a Malayan tiger. Said to sharpen the eye.' },
+  garuda_plume: { name: 'Garuda plume', icon: '🪶', value: 2200, stackable: true, examine: 'A sky-blue plume from a garuda\'s nest.' },
+  naga_scale: { name: 'Naga scale', icon: '🟢', value: 3200, stackable: true, examine: 'A jade-green scale as big as your palm, from a sea naga.' },
+  phoenix_ember: { name: 'Phoenix ember', icon: '🔥', value: 4600, stackable: true, examine: 'A glowing ember from a phoenix roost. It never goes out.' },
+  // Lifted from Marina Bay's high rollers (Thieving 100). Any shop that buys everything changes them for coins.
+  casino_chip: { name: 'Casino chip', icon: '🪙', value: 250, stackable: true, examine: 'A heavy chip from the Marina Bay casino. Worth 250 coins to the right shopkeeper.' },
 });
 
 // ---- Weapons for the newer classes, one per metal tier ----

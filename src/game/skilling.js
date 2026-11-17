@@ -91,7 +91,7 @@ const GEM_TABLE = [
 ];
 
 // The moonlit kapok's Woodcutting XP at night (it can be chopped any time),
-// and the moonfish spot's Fishing XP.
+// the moonfish spot's Fishing XP, and the tiger trail's Hunter XP.
 export const NIGHT_TREE_BONUS = 1.25;
 
 export function resolveWoodcut(game, action) {
@@ -473,7 +473,8 @@ export function resolveHunt(game, action) {
     game.inventory.add(g.id, n);
     got.push(n > 1 ? `${n} ${getItem(g.id).name.toLowerCase()}s` : getItem(g.id).name.toLowerCase());
   }
-  game.skills.addXp('hunter', def.xp);
+  // The Night Safari's tiger trail pays more after dark (a bonus, never a lock), as the moonlit kapok does.
+  game.skills.addXp('hunter', def.night && game.isNight() ? def.xp * NIGHT_TREE_BONUS : def.xp);
   const c = objCenter(obj); game.spawnPoof(c.x, c.y, def.color || '#caa15a');
   obj.shakeT = 280; game.bus.emit('sfx', 'gather');
   game.msg(`The trap springs! You catch ${got.join(' and ')}.`);

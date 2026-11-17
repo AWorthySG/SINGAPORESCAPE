@@ -2,6 +2,7 @@
 // thing you can gather or make with the level it needs. Built from the game
 // data, so a new tree, recipe or crop shows up here on its own.
 import { OBJECTS } from '../data/objects.js';
+import { NPCS } from '../data/npcs.js';
 import { ITEMS, getItem } from '../data/items.js';
 import { SMELT, SMITH } from '../data/smithing.js';
 import { DISHES } from '../data/cooking.js';
@@ -17,16 +18,16 @@ export const SKILL_GUIDES = {
   woodcutting: { use: 'Logs feed Firemaking and Fletching (bows, arrows, staves). From level 100, groves of rare trees in the far regions give the endgame logs.' },
   mining: { use: 'Ore is smelted into bars for Smithing, and gems and gold go to Crafting. From level 100, rare veins in the far regions give the endgame ores.' },
   fishing: { use: 'Raw fish are cooked into food that heals you in a fight. From level 100, rare spots in the far regions give the endgame fish.' },
-  hunter: { use: 'Pelts, skins and hides become armour; meat is cooked into food.' },
-  farming: { use: 'Crops are herbs for Herblore and ingredients for hawker dishes.', where: ['farm_patch'] },
+  hunter: { use: 'Pelts, skins and hides become armour; meat is cooked into food. From level 100, hunting grounds in the far regions give the catches for the endgame brews.' },
+  farming: { use: 'Crops are herbs for Herblore and ingredients for hawker dishes. The farm shop sells every seed, the endgame ones too; Gardens by the Bay has more patches.', where: ['farm_patch'] },
   cooking: { use: 'Food heals you in a fight; better food heals more. From level 100 the endgame fish cook into dishes that heal a share of your life, and some boost you too.', where: ['range', 'fire'] },
   smithing: { use: 'Smelt ore into bars at a furnace, then forge weapons, armour and upgrade stones at an anvil. From level 100 you can forge the obsidian to eternal gear.', where: ['furnace', 'anvil'] },
   crafting: { use: 'Jewellery, pottery, leather armour, and refine scrolls and upgrade wards. From level 100 the endgame ores and bars make jewellery for every fighting style, and the Dancer\'s war fans and whips.', where: ['crafting_table'] },
   fletching: { use: 'Bows, arrows, staves and wands from logs (you need a knife). From level 100 the endgame logs make the obsidian to eternal bows, staves, wands, rifles and crossbows.', where: ['fletching_bench'] },
-  herblore: { use: 'Potions that boost you in a fight for several minutes.', where: ['apothecary_table'] },
+  herblore: { use: 'Potions that boost you in a fight for several minutes. From level 100, endgame crops, Hunter catches and ashes brew far stronger ones.', where: ['apothecary_table'] },
   firemaking: { use: 'Light a fire anywhere to cook on (use logs from your bag; you need a tinderbox). The endgame logs leave ashes, which the Offering Shrine takes.' },
-  thieving: { use: 'Coins, food and gems, stolen from market stalls (and pockets).' },
-  agility: { use: 'Obstacle courses for XP and Marks of grace; powers the Dancer.' },
+  thieving: { use: 'Coins, food and gems, stolen from market stalls (and pockets). From level 100, rich marks and then locked chests in the far regions.' },
+  agility: { use: 'Obstacle courses for XP and Marks of grace; powers the Dancer. From level 100, six long courses in the far regions.' },
 };
 export const GUIDE_SKILLS = Object.keys(SKILL_GUIDES);
 
@@ -39,13 +40,15 @@ export function guideEntries(skill) {
       if (d.skill !== skill || d.type === 'hunt') continue;
       add(d.level, d.name, d.gives ? `Gives ${name(d.gives)}${d.night ? ' (+25% XP at night)' : ''}` : d.loot ? `Loot: ${d.loot.filter((l) => l.id !== 'coins').map((l) => name(l.id)).slice(0, 3).join(', ')}, coins` : '', [id]);
     }
+    // The endgame marks: townsfolk with pockets worth picking.
+    if (skill === 'thieving') for (const n of Object.values(NPCS)) if (n.thieving) add(n.thieving.level, n.name, `Pickpocket: ${n.thieving.loot.map((l) => name(l.id)).join(', ')}`);
   } else if (skill === 'fishing') {
     for (const [id, d] of Object.entries(OBJECTS)) {
       if (d.type !== 'fishing') continue;
       for (const c of d.catches || []) add(c.level, name(c.id), `${d.name}${d.night ? ' (+25% XP at night)' : ''}`, [id]);
     }
   } else if (skill === 'hunter') {
-    for (const [id, h] of Object.entries(HUNT)) add(h.level, h.name, `Catches ${(h.gives || []).map((g) => name(g.id)).join(', ')}`, [id]);
+    for (const [id, h] of Object.entries(HUNT)) add(h.level, h.name, `Catches ${(h.gives || []).map((g) => name(g.id)).join(', ')}${h.night ? ' (+25% XP at night)' : ''}`, [id]);
   } else if (skill === 'farming') {
     for (const c of CROPS) add(c[2], c[1], `Plant ${name(`${c[0]}_seed`)} in a farm patch`, ['farm_patch']);
   } else if (skill === 'cooking') {

@@ -66,6 +66,15 @@ export const SHOPS = {
       { id: 'butterfly_pea_seed', qty: 50 },
       { id: 'rambutan_seed', qty: 40 },
       { id: 'ginseng_seed', qty: 20 },
+      // The endgame seeds (Farming 100-300), priced by their crop (a third of its
+      // value). Otherwise only the strongest monsters drop them, which left
+      // Farming the slowest skill to train past 99.
+      { id: 'torch_ginger_seed', qty: 200 },
+      { id: 'black_nutmeg_seed', qty: 200 },
+      { id: 'golden_durian_seed', qty: 150 },
+      { id: 'starbloom_seed', qty: 150 },
+      { id: 'moon_orchid_seed', qty: 100 },
+      { id: 'eternal_lotus_seed', qty: 100 },
       { id: 'vial', qty: 500 },
       { id: 'knife', qty: 10 },
       { id: 'hunting_snare', qty: 10 },
