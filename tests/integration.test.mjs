@@ -6378,14 +6378,16 @@ test('a champion drops about thirty normal kills of loot, stacked', async () => 
   assert.ok(ratio > 15 && ratio < 100, `a champion drops about thirty kills' coins (x${ratio.toFixed(1)})`);
 });
 
-test('monster armour: kinds differ, level and champions add some, weakness and pierce get past it', async () => {
+test('monster armour: kinds differ, champions and bosses add some (and scale with level), weakness and pierce get past it', async () => {
   const { armourOf, armourMult, ARMOUR_TIERS } = await import('../src/game/combat.js');
   const at = (sprite, extra = {}, opts = {}) => armourOf({ sprite, level: 100, ...extra }, { fightLevel: 100, ...opts });
   assert.equal(at('slime'), 0, 'slimes wear none');
   assert.equal(at('golem'), ARMOUR_TIERS.armoured, 'golems are armoured');
   assert.ok(at('crab') > at('beast') && at('beast') > at('bat'), 'crabs > beasts > bats');
-  assert.ok(at('beast', { level: 200 }) > at('beast'), 'a monster above you wears more');
-  assert.ok(at('beast', { level: 50 }) < at('beast'), 'one below you less');
+  assert.equal(at('beast', { level: 200 }), at('beast'), 'an ordinary monster above you wears no more');
+  assert.equal(at('beast', { level: 50 }), at('beast'), 'nor one below you less');
+  assert.ok(at('beast', { level: 200, boss: true }) > at('beast', { boss: true }), 'a boss above you still wears more');
+  assert.ok(at('beast', { level: 200 }, { champion: true }) > at('beast', {}, { champion: true }), 'and a champion');
   assert.ok(at('beast', {}, { champion: true }) > at('beast'), 'champions more');
   assert.ok(armourMult(0.4, 0, true) > armourMult(0.4, 0, false), 'hitting its weakness gets past half');
   assert.equal(armourMult(0.2, 20), 1, 'pierce cancels armour first');
