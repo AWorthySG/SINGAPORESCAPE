@@ -8,8 +8,9 @@ import { ALL_WEAPON_TYPES } from '../src/data/items.js';
 import { CLASSES } from '../src/data/classes.js';
 import {
   HERO_CLIPS, HERO_CHANNELS, SKILL_ACTION_TYPES, WEAPON_CLIP, DUAL_CLIPS, actionClipId, actionPropId, weaponClipId,
-  sampleHeroClip, heroAnimFrame, blendHeroFrame, CLIP_BLEND_MS,
+  sampleHeroClip, heroAnimFrame, blendHeroFrame, CLIP_BLEND_MS, FISHING, attachFishing, drawFishingGear,
 } from '../src/render/heroanim.js';
+import { OBJECTS } from '../src/data/objects.js';
 import { drawPlayer } from '../src/render/sprites.js';
 import { ITEMS } from '../src/data/items.js';
 import { dualType } from '../src/game/equipment.js';
@@ -156,7 +157,7 @@ function stubCtx() {
   const ctx = {
     fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, globalAlpha: 1, globalCompositeOperation: 'source-over', lineCap: '', lineJoin: '',
     save() { stack.push(ctx.globalAlpha); }, restore() { ctx.globalAlpha = stack.pop(); }, translate: noop, scale: noop, rotate: noop, setLineDash: noop,
-    beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop, arc: noop, ellipse: noop, rect: noop, quadraticCurveTo: noop,
+    beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop, arc: noop, ellipse: noop, rect: noop, clip: noop, quadraticCurveTo: noop,
     fill: noop, stroke: noop, fillRect: noop, drawImage(img) { if (!img) throw new Error('drawImage without an image'); ctx.images++; },
     createRadialGradient: () => grad, createLinearGradient: () => grad, images: 0,
     get depth() { return stack.length; },
@@ -294,4 +295,106 @@ test('drawing every class in every attack clip, dual wielding or not, works', ()
       }
     }
   } finally { if (previous === undefined) delete globalThis.Image; else globalThis.Image = previous; }
+});
+
+// ---------------- Fishing: cast, wait, haul ----------------
+test('every fishing spot\'s tool has its cast, wait and haul clips', () => {
+  const tools = new Set(Object.values(OBJECTS).filter((o) => o.type === 'fishing').map((o) => o.tool || 'net'));
+  for (const tool of tools) {
+    const P = FISHING[tool];
+    assert.ok(P, `${tool} is animated`);
+    assert.equal(actionClipId({ type: 'fish', obj: { def: { tool } } }), P.wait, `${tool}: the action's clip is its wait`);
+    for (const part of ['cast', 'wait', 'haul']) {
+      if (part === 'cast' && P.cast === null) continue;   // the harpoon is simply raised and aimed
+      const clip = HERO_CLIPS[P[part]];
+      assert.ok(clip && clip.hands, `${tool}/${part}: ${P[part]}`);
+      assert.equal(clip.loop, part === 'wait', `${tool}/${part}: only the wait loops`);
+      assert.ok(typeof clip.dur === 'number' && clip.dur >= 500, `${tool}/${part}: long enough to read`);
+    }
+    // The parts join without a jump: the wait starts where the cast ends and the haul starts and ends.
+    const a = (id, u) => sampleHeroClip(id, u).ch;
+    for (const ch of ['hand', 'off', 'prop', 'lean', 'crouch']) {
+      assert.ok(Math.abs(a(P.wait, 0)[ch] - a(P.haul, 0)[ch]) < 0.05, `${tool}/${ch}: wait -> haul`);
+      const next = P.cast || P.wait;
+      assert.ok(Math.abs(a(P.haul, 1)[ch] - a(next, 0)[ch]) < 0.05, `${tool}/${ch}: haul -> ${P.cast ? 'cast' : 'wait'}`);
+      if (P.cast) assert.ok(Math.abs(a(P.cast, 1)[ch] - a(P.wait, 0)[ch]) < 0.05, `${tool}/${ch}: cast -> wait`);
+    }
+  }
+  // The rod bows under the fish and strikes up.
+  assert.ok(sampleHeroClip('fish_rod_reel', 0.26).ch.bend > 0.8, 'the rod bends on the strike');
+});
+
+test('fishing line, bobber, net, pot and harpoon draw for every part, headless or not', () => {
+  const previous = globalThis.Image;
+  globalThis.Image = class { constructor() { this.complete = true; this.naturalWidth = 100; this.naturalHeight = 100; } };
+  try {
+    for (const withTransform of [false, true]) {
+      const ctx = stubCtx();
+      // A real canvas reports its transform, so the line meets the rod tip exactly.
+      if (withTransform) ctx.getTransform = () => ({ a: 2, b: 0, c: 0, d: 2, e: 10, f: 20 });
+      for (const [tool, P] of Object.entries(FISHING)) {
+        for (const phase of ['cast', 'wait', 'haul']) {
+          const clipId = phase === 'cast' ? P.cast || P.wait : P[phase];
+          for (let i = 0; i <= 20; i++) {
+            for (const low of [false, true]) {
+              for (const jobClass of ['swordsman', 'archer', 'nobody']) {
+                const k = i / 20;
+                const anim = attachFishing(sampleHeroClip(clipId, k, { tool: 'harpoon', jobClass, low }),
+                  { tool, phase, k, t: i * 97, tx: -32, ty: 0, id: i % 2 ? 'raw_pike' : null, n: i });
+                drawPlayer(ctx, 50, 50, { time: 1000, entity: {}, jobClass, hasWeapon: true, weaponType: 'melee', swingK: -1, anim,
+                  gait: { phase: 0, move: 0, run: false, turn: 0 }, facing: { dx: -1, dy: 0 }, fx: -1 });
+                drawFishingGear(ctx, anim, 50, 52);
+                assert.equal(ctx.depth, 0, `${tool}/${phase}/${k}: save/restore balanced`);
+                assert.equal(ctx.globalAlpha, 1, `${tool}/${phase}/${k}: opacity restored`);
+                if (withTransform) assert.ok(anim.fish.hand && anim.fish.tip, `${jobClass}: the hand and tip are marked for the line`);
+              }
+            }
+          }
+        }
+      }
+      drawFishingGear(ctx, sampleHeroClip('idle', 0), 0, 0);   // not fishing: nothing to draw
+    }
+  } finally { if (previous === undefined) delete globalThis.Image; else globalThis.Image = previous; }
+});
+
+test('a catch from the game starts the haul with that very fish, then the hero casts again', async () => {
+  const { Game } = await import('../src/game/game.js');
+  const { resolveFish } = await import('../src/game/skilling.js');
+  globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+  const g = new Game(); g.start();
+  const p = g.player;
+  const spot = g.world.objects.find((o) => o.objId === 'rod_spot');
+  g.skills.addXp('fishing', 2e6);   // every fish here is in reach
+  const caught = [];
+  g.bus.on('fishcatch', (e) => caught.push(e.id));
+  heroAnimFrame(g, 0);   // starts listening
+  p.x = spot.x - 1; p.y = spot.y; p.stopNow(); p.fx = p.x; p.fy = p.y;
+  const action = { type: 'fish', obj: spot };
+  p.setAction(action);
+  const T = 1000, castMs = HERO_CLIPS.fish_rod_cast.dur, waitMin = FISHING.rod.waitMin;
+  let f = heroAnimFrame(g, T);
+  assert.equal(f.id, 'fish_rod_cast'); assert.equal(f.fish.phase, 'cast'); assert.equal(f.fish.tool, 'rod');
+  assert.ok(f.fish.tx > 0, 'the line goes out to the spot on the right');
+  f = heroAnimFrame(g, T + castMs + 50);
+  assert.equal(f.fish.phase, 'wait', 'the bobber settles after the cast');
+  // A fish caught at once is too soon: the bobber is shown floating a while first.
+  assert.ok(resolveFish(g, action));
+  assert.equal(caught.length, 1, 'resolveFish reports the catch');
+  f = heroAnimFrame(g, T + castMs + 100);
+  assert.equal(f.fish.phase, 'wait');
+  // The next catch, once the wait has shown, brings in the fish it reported.
+  const t1 = T + castMs + waitMin + 50;
+  heroAnimFrame(g, t1 - 10);
+  assert.ok(resolveFish(g, action));
+  f = heroAnimFrame(g, t1);
+  assert.equal(f.fish.phase, 'haul'); assert.equal(f.id, 'fish_rod_reel');
+  assert.equal(f.fish.id, caught[1], 'the fish on the line is the one caught');
+  assert.ok(heroAnimFrame(g, t1 + 260).ch.bend > 0.5, 'the rod bows under it');
+  f = heroAnimFrame(g, t1 + HERO_CLIPS.fish_rod_reel.dur + 20);
+  assert.equal(f.fish.phase, 'cast', 'then casts again');
+  assert.equal(f.fish.n, 1, 'a fresh cast lands somewhere new');
+  // Stopping clears the session: the next trip starts with a cast.
+  p.clearAction(); heroAnimFrame(g, t1 + 3000);
+  p.setAction({ type: 'fish', obj: spot });
+  assert.equal(heroAnimFrame(g, t1 + 3100).fish.phase, 'cast');
 });

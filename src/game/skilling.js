@@ -208,6 +208,8 @@ export function resolveFish(game, action) {
   const pick = weightedPick(eligible);
   // Moonfish rise by moonlight: more XP at night (a bonus, never a lock).
   const xpEach = def.night && game.isNight() ? pick.xp * NIGHT_TREE_BONUS : pick.xp;
+  // Purely cosmetic: the hero's haul animation lands this very fish (heroanim.js).
+  game.bus.emit('fishcatch', { id: pick.id, objId: obj.objId });
   // Every cast catches a fish (life skills never fail).
   {
     if (baited) game.inventory.remove('fishing_bait', 1);

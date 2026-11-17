@@ -31,7 +31,7 @@ const ARROW_LOOK = {
 };
 import { RACES, raceOf } from '../data/races.js';
 import { drawShadow, drawCreature, drawPlayer, drawObjectSprite, drawGroundItem } from './sprites.js';
-import { heroAnimFrame } from './heroanim.js';
+import { heroAnimFrame, drawFishingGear } from './heroanim.js';
 import { RARITY } from '../game/loot.js';
 import { itemIconImage } from './icons.js';
 import { moodFor, blendMood, composeWashes, dayNightWashes, buildVignette, ObjectReactions } from './ambience.js';
@@ -347,13 +347,19 @@ export class Renderer {
       const cx = c.x - ox, cy = c.y - oy;
       const off = game.player.renderOffset ? game.player.renderOffset() : { x: 0, y: 0 };
       const al = game.alignmentStyle ? game.alignmentStyle() : null;
+      // The hero's clip this frame (life skill, weapon swing, idle), blended.
+      const anim = heroAnimFrame(game, timeMs);
+      // Fishing gear out on the water (line, bobber, net, pot, harpoon, the
+      // fish flipping in) goes over the hero and over the spot, whichever is nearer.
+      if (anim?.fish) {
+        const sy = Math.max(c.y / TILE, (anim.fish.oy ?? 0) + 0.4) + 0.001;
+        drawables.push({ sortY: sy, z: 3, draw: () => drawFishingGear(ctx, anim, cx + off.x, cy + off.y) });
+      }
       drawables.push({ sortY: c.y / TILE, z: 2, draw: () => {
         drawShadow(ctx, cx, cy + 13, 10, 4.5);
         if (al?.aura) this._auraBack(cx + off.x, cy + off.y, al, timeMs);
         const sk = game.player.swingProgress();
         if (sk >= 0 && game.combatMode() === 'magic') this._castRing(cx, cy + 12, sk);
-        // The hero's clip this frame (life skill, weapon swing, idle), blended.
-        const anim = heroAnimFrame(game, timeMs);
         drawPlayer(ctx, cx + off.x, cy - 2 + off.y, {
           anim,
           time: timeMs, facing: game.player.facing, fx: game.player.faceX, entity: game.player, hurt: game.player.hurt,
