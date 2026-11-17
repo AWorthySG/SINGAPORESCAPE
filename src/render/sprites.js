@@ -5,6 +5,7 @@ import { itemIconImage } from './icons.js';
 import { CROPS } from '../data/trades.js';
 import { drawHeroRig } from './heroRig.js';
 import { drawRangedHeroRig } from './rangedHeroRig.js';
+import { drawPictureTool, drawWeaponTrail } from './heroanim.js';
 import { poseBlender } from './poseBlend.js';
 
 const CROP_COLORS = Object.fromEntries(CROPS.map((c) => [c[0], c[9]]));
@@ -1955,10 +1956,18 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
       if (pose && pose.behind) pose.behind(c, k, t);
       c.save();
       const b = _heroBody;
-      b.dx = pose ? pose.dx : 0; b.dy = pose ? pose.dy : 0; b.rot = pose ? pose.rot : 0; b.sx = pose ? pose.sx : 1; b.sy = pose ? pose.sy : 1;
-      blendHero(opts.entity, b, t, k, HERO_BLEND);
+      // An animation clip (heroanim.js: per weapon type, life skill, idle)
+      // moves the whole body; it blends itself, so it skips blendHero.
+      const anim = opts.anim;
+      if (anim) {
+        const ch = anim.ch;
+        b.dx = ch.bx; b.dy = ch.by; b.rot = ch.lean; b.sy = 1 - ch.squash; b.sx = 1 + ch.squash * 0.6;
+      } else {
+        b.dx = pose ? pose.dx : 0; b.dy = pose ? pose.dy : 0; b.rot = pose ? pose.rot : 0; b.sx = pose ? pose.sx : 1; b.sy = pose ? pose.sy : 1;
+        blendHero(opts.entity, b, t, k, HERO_BLEND);
+      }
       const fl = heroFlinch(opts.hurt);
-      if (pose || fl > 0 || b.dx || b.rot) {
+      if (pose || anim || fl > 0 || b.dx || b.rot) {
         c.translate(b.dx - fl * 2.5, b.dy);
         c.translate(0, HERO_ART_FEET); c.rotate(b.rot - fl * 0.12); c.scale(b.sx + fl * 0.04, b.sy - fl * 0.05); c.translate(0, -HERO_ART_FEET);
       }
@@ -1974,6 +1983,8 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
           if (mv > 0.001) c.rotate(Math.sin(t * 0.018 + cx) * 0.06 * mv);
           c.drawImage(himg, -w / 2, HERO_ART_FEET - h, w, h);
         }
+        // A single picture can't move its arms: it just bobs and leans, with the tool in a fist.
+        if (anim) drawPictureTool(c, anim);
       }
       if (!layered && pose && pose.flash > 0) {   // a white flash over the body on the strike frame
         c.globalAlpha = pose.flash * 0.35; c.globalCompositeOperation = 'lighter';
@@ -1981,7 +1992,9 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
         c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
       }
       c.restore();
-      if (pose && pose.front) pose.front(c, k, t);
+      // A melee clip draws its own weapon's swoosh in place of the generic crescent.
+      if (anim && anim.trail && style !== 'ranged' && style !== 'magic') drawWeaponTrail(c, anim);
+      else if (pose && pose.front) pose.front(c, k, t);
       return;
     }
     // The hero is the A-Worthy mascot. Unarmoured, it wears a tunic in the
