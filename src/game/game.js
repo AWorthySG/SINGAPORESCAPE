@@ -2,6 +2,7 @@ import { EventBus } from '../core/events.js';
 import { buildWorld, TERRAIN, zoneLevel } from '../data/world.js';
 import { compareGear, deltaText, gearRating, effectiveRating, offenceFirstScore, weaponStyle, reqLevel } from './gear.js';
 import { RARITY, dropRarity, lootDelay, rollQuality, QUALITY, NORMAL_GEAR_SKIP } from './loot.js';
+import { recordQuality } from './salvage.js';
 import { dayKey, prevDayKey, makeBounties, streakMult } from './bounty.js';
 import { ATTRS, ATTR_NAMES, statPointsAt, attrForMode, DMG_PER_POINT, LIFE_PER_STR, CRIT_PER_INT, SPEED_PER_DEX, RESET_COST_PER_POINT } from './attributes.js';
 import { MASTERY_RANKS, BANNER_RANK, MAX_ENCHANTS, killMastery, enchantCost, rollEnchantOffers, enchantLabel, STONE as UP_STONE, WARD as UP_WARD } from './mastery.js';
@@ -3374,6 +3375,7 @@ export class Game {
       if (!getItem(l[0]).equip) continue;
       const q = rollQuality(l[3] === 'boss' || def.boss ? 'boss' : npc.champion ? 'champion' : 'normal');
       if (q) { this._applyQuality(l[0], q); l[2] = l[3] === 'sig' ? 'legendary' : QUALITY[q].rarity; }
+      if (q) recordQuality(this.equipment, l[0], q);   // remembered per copy, for sacrifice and dismantle (salvage.js)
       l.length = 3;
     }
     this._autoLoot(loot, npc.x, npc.y);
