@@ -13,7 +13,8 @@ import { MASTERY_RANKS } from './mastery.js';
 // The kinds of material, and which items are which. Only things gathered or
 // smelted count: no gear, food, potions, seeds or bones (Prayer has those).
 const ORES = new Set(['copper_ore', 'tin_ore', 'iron_ore', 'coal', 'mithril_ore', 'adamantite_ore', 'runite_ore',
-  'gold_ore', 'silver_ore', 'clay', 'limestone', 'sandstone', 'granite']);
+  'gold_ore', 'silver_ore', 'clay', 'limestone', 'sandstone', 'granite',
+  'obsidian_shard', 'orichalcum_ore', 'raw_jade', 'starmetal_ore', 'celestial_crystal', 'eternal_ore']);
 const GEMS = new Set(['sapphire', 'emerald', 'ruby', 'diamond', 'pearl']);
 const TROPHIES = new Set(['hornbill_casque', 'qilin_mane']);   // Hunter's rarest catches count as hides
 

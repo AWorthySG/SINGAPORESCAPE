@@ -170,6 +170,50 @@ export const OBJECTS = {
     lowChance: 0.18, highChance: 0.64, depleteChance: 1, respawn: 12, ore: '#9a948a',
     examine: 'A heavy slab of speckled granite. (Mining 45)',
   },
+  // ---- Endgame rocks (Mining 100-300) ----
+  // Each tier's ore smelts into the bar for that tier's gear (smithing.js).
+  // Every swing succeeds, so XP an hour is set by xp, how many rocks share a
+  // cluster (world.js places eight) and how fast they grow back (quick enough
+  // that a cluster never runs dry). Each tier gives about 35% more an hour than
+  // the one before, starting from granite, the best rock below level 100; the
+  // xp was set by timing auto gather at each cluster, whose layout changes the
+  // walking, hence the uneven steps (tests/mining-smithing.test.mjs checks it).
+  obsidian_vein: {
+    name: 'Obsidian vein', label: 'Obsidian', type: 'rock', verb: 'Mine', emoji: '⬛', blocking: true,
+    skill: 'mining', level: 100, tool: 'pickaxe', gives: 'obsidian_shard', xp: 82,
+    lowChance: 0.2, highChance: 0.6, depleteChance: 1, respawn: 12, ore: '#4a3f5e',
+    examine: 'A seam of glassy black obsidian, split by old fires. (Mining 100)',
+  },
+  orichalcum_rock: {
+    name: 'Orichalcum rock', label: 'Orichalcum', type: 'rock', verb: 'Mine', emoji: '🪨', blocking: true,
+    skill: 'mining', level: 130, tool: 'pickaxe', gives: 'orichalcum_ore', xp: 109,
+    lowChance: 0.2, highChance: 0.6, depleteChance: 1, respawn: 12, ore: '#d08a3a',
+    examine: 'A quarry face streaked with coppery-gold orichalcum. (Mining 130)',
+  },
+  jade_seam: {
+    name: 'Jade seam', label: 'Jade', type: 'rock', verb: 'Mine', emoji: '🟢', blocking: true,
+    skill: 'mining', level: 160, tool: 'pickaxe', gives: 'raw_jade', xp: 131,
+    lowChance: 0.2, highChance: 0.6, depleteChance: 1, respawn: 12, ore: '#2f9a6a',
+    examine: 'A seam of imperial jade under the old palace stones. (Mining 160)',
+  },
+  fallen_star: {
+    name: 'Fallen star', label: 'Starmetal', type: 'rock', verb: 'Mine', emoji: '🌠', blocking: true,
+    skill: 'mining', level: 200, tool: 'pickaxe', gives: 'starmetal_ore', xp: 202,
+    lowChance: 0.2, highChance: 0.6, depleteChance: 1, respawn: 12, ore: '#6a7ad8',
+    examine: 'A star that fell to earth, crusted with starmetal. (Mining 200)',
+  },
+  skyglass_crystal: {
+    name: 'Skyglass crystal', label: 'Skyglass', type: 'rock', verb: 'Mine', emoji: '💠', blocking: true,
+    skill: 'mining', level: 250, tool: 'pickaxe', gives: 'celestial_crystal', xp: 232,
+    lowChance: 0.2, highChance: 0.6, depleteChance: 1, respawn: 12, ore: '#e8e2ff',
+    examine: 'A spire of skyglass on the roof of the world. (Mining 250)',
+  },
+  eternal_lode: {
+    name: 'Eternal lode', label: 'Eternal', type: 'rock', verb: 'Mine', emoji: '🟨', blocking: true,
+    skill: 'mining', level: 300, tool: 'pickaxe', gives: 'eternal_ore', xp: 342,
+    lowChance: 0.2, highChance: 0.6, depleteChance: 1, respawn: 12, ore: '#f5b82e',
+    examine: 'A lode of golden eternal ore deep in the Shadow Rift. (Mining 300)',
+  },
 
   // ---------------- Fishing ----------------
   fishing_spot: {

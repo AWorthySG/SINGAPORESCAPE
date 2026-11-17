@@ -132,6 +132,13 @@ const RAW = {
   silver_ore: { name: 'Silver ore', icon: '⚪', value: 60, examine: 'Refines into shining silver.' },
   sandstone: { name: 'Sandstone', icon: '🟨', value: 14, examine: 'A gritty block of sandstone.' },
   granite: { name: 'Granite', icon: '🪨', value: 50, examine: 'A heavy slab of speckled granite.' },
+  // ---- Endgame ores (Mining 100-300), smelted into the endgame bars ----
+  obsidian_shard: { name: 'Obsidian shard', icon: '⬛', value: 2400, examine: 'Glassy black rock from the Tekong Badlands. It smelts into obsidian.' },
+  orichalcum_ore: { name: 'Orichalcum ore', icon: '🟠', value: 3600, examine: 'Coppery-gold ore hauled out of the Tuas quarries.' },
+  raw_jade: { name: 'Raw jade', icon: '🟢', value: 5200, examine: 'A rough lump of imperial jade from the Temasek Ruins.' },
+  starmetal_ore: { name: 'Starmetal ore', icon: '🌠', value: 7600, examine: 'A shard of a fallen star, still faintly warm.' },
+  celestial_crystal: { name: 'Celestial crystal', icon: '💠', value: 11000, examine: 'Skyglass from the summit of the Celestial Peaks. It hums softly.' },
+  eternal_ore: { name: 'Eternal ore', icon: '🟨', value: 16000, examine: 'Golden ore from the Shadow Rift that never tarnishes.' },
 
   // ---- Crafting: tool, pottery & jewelry ----
   chisel: { name: 'Chisel', icon: '🔧', value: 1, tool: 'chisel', examine: 'For cutting gems and shaping jewelry.' },
@@ -201,6 +208,13 @@ const RAW = {
   mithril_bar: { name: 'Mithril bar', icon: '🟦', value: 324, examine: 'A bar of mithril.' },
   adamant_bar: { name: 'Adamant bar', icon: '🟩', value: 800, examine: 'A bar of adamantite.' },
   rune_bar: { name: 'Runite bar', icon: '🟦', value: 3200, examine: 'A bar of runite.' },
+  // Endgame bars (Smithing 100-300): they forge the obsidian to eternal gear.
+  obsidian_bar: { name: 'Obsidian bar', icon: '⬛', value: 4800, examine: 'A bar of tempered obsidian.' },
+  orichalcum_bar: { name: 'Orichalcum bar', icon: '🟧', value: 7200, examine: 'A bar of orichalcum.' },
+  jade_bar: { name: 'Jade bar', icon: '🟩', value: 10400, examine: 'Jade, fired hard as steel.' },
+  starmetal_bar: { name: 'Starmetal bar', icon: '🟦', value: 15200, examine: 'A bar of starmetal. Its surface glitters like the night sky.' },
+  celestial_bar: { name: 'Celestial bar', icon: '⬜', value: 22000, examine: 'A bar of celestial skyglass, light as a feather.' },
+  eternal_bar: { name: 'Eternal bar', icon: '🟨', value: 32000, examine: 'A bar of eternal gold. Nothing marks it.' },
 
   // ---- Higher fishing / cooking ----
   raw_lobster: { name: 'Raw lobster', icon: '🦞', value: 70, tags: ['raw'], examine: 'I should cook this first.' },

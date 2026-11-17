@@ -1200,6 +1200,49 @@ export function buildWorld() {
     }
   }
 
+  // ================= Endgame ore veins (Mining 100-300) =================
+  // One cluster of eight rocks per endgame ore, each in the region its ore is
+  // named for. Placed last, on free open ground with their own random stream,
+  // so nothing generated earlier moves. A cluster sits in a 9x9 patch away from
+  // towns, roads, MRT stations and monster spawns, and every rock keeps an open
+  // side to stand on.
+  {
+    const rng4 = mulberry32(20261117);
+    const npcAt = new Set(npcSpawns.map((s) => key(s.x, s.y)));
+    const stations = objects.filter((o) => o.objId === 'mrt_station');
+    const byStation = (x, y) => stations.some((o) => Math.max(Math.abs(o.x - x), Math.abs(o.y - y)) < 8);
+    const byRoad = (x, y) => { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (get(x + dx, y + dy) === T.PATH || get(x + dx, y + dy) === T.WOOD) return true; return false; };
+    const open = (x, y, allowed) => inB(x, y) && allowed.includes(get(x, y)) && isFree(x, y) && !npcAt.has(key(x, y))
+      && !inTown(x, y) && !inNewTown(x, y) && !byRoad(x, y) && !byStation(x, y);
+    const vein = (objId, x0, y0, x1, y1, allowed, count = 8) => {
+      for (let tries = 0; tries < 400; tries++) {
+        const cx = x0 + 4 + Math.floor(rng4() * (x1 - x0 - 7)), cy = y0 + 4 + Math.floor(rng4() * (y1 - y0 - 7));
+        const spots = [];
+        for (let y = cy - 4; y <= cy + 4; y++) for (let x = cx - 4; x <= cx + 4; x++) if (open(x, y, allowed)) spots.push([x, y]);
+        if (spots.length < count * 3) continue;   // too cramped: look elsewhere
+        let placed = 0;
+        while (placed < count && spots.length) {
+          const [x, y] = spots.splice(Math.floor(rng4() * spots.length), 1)[0];
+          // Keep a free side on each rock, and never wall in a rock already placed.
+          const sides = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+          const freeSide = (px, py) => sides.some(([dx, dy]) => (px + dx !== x || py + dy !== y) && open(px + dx, py + dy, allowed));
+          if (!freeSide(x, y)) continue;
+          occupied.add(key(x, y));
+          const ok = objects.filter((o) => o.objId === objId && Math.abs(o.x - x) + Math.abs(o.y - y) === 1).every((o) => freeSide(o.x, o.y));
+          occupied.delete(key(x, y));
+          if (ok && placeObj(objId, x, y)) placed++;
+        }
+        return;
+      }
+    };
+    vein('obsidian_vein', 232, 102, 289, 194, GRASSY);                       // Tekong Badlands
+    vein('orichalcum_rock', 2, 282, 176, 370, [T.SAND]);                     // Tuas Docklands' quarries
+    vein('jade_seam', 184, 282, 356, 370, GRASSY);                           // Temasek Ruins
+    vein('fallen_star', 364, 282, 450, 370, [T.STONE, T.GRASS]);             // The Celestial Peaks
+    vein('skyglass_crystal', 456, 300, 530, 370, [T.STONE]);                 // the Peaks' summit, on bare rock
+    vein('eternal_lode', 278, 226, 390, 270, GRASSY);                        // deep in the Shadow Rift
+  }
+
   // --- Border fence ---
   for (let x = 0; x < W; x++) { placeObj('fence', x, 0); placeObj('fence', x, H - 1); }
   for (let y = 0; y < H; y++) { placeObj('fence', 0, y); placeObj('fence', W - 1, y); }
