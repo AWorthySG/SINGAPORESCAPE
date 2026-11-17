@@ -41,8 +41,11 @@ const MERC_NAMES = ['Ah Seng the Sellsword', 'Siti Steelhand', 'Big Raju', 'Old 
 /** What one mercenary costs to hire: more as the Merchant grows. */
 export const hireCost = (game) => 80 + 15 * game.skills.squashedCombatLevel();   // tuned on the squashed level
 
-/** A mercenary's best hit: grows with the Merchant's level and gear Strength. */
-export const mercPower = (game) => Math.max(2, Math.round(2 + game.skills.squashedCombatLevel() * 0.4 + (game.equipment.bonuses().ranged || 0) * 0.15));
+/** A mercenary's best hit: grows with the Merchant's level and gear Strength.
+ *  Only a floor for a fresh Merchant: past the first levels a mercenary hits for
+ *  MERC_SHARE of the Merchant's own hit. (At twice this it outgrew that share
+ *  around level 50, where Merchants did half again the median class's damage.) */
+export const mercPower = (game) => Math.max(2, Math.round(2 + game.skills.squashedCombatLevel() * 0.2 + (game.equipment.bonuses().ranged || 0) * 0.075));
 
 export const activeMercs = (game) => game.npcs.filter((n) => n.ally && n.alive && !n.follower);
 export const activeFollowers = (game) => game.npcs.filter((n) => n.ally && n.alive && n.follower);
@@ -248,12 +251,16 @@ function allyCoin(game, m, target) {
 /** The Merchant's own max hit against a foe, in the style they fight in (coin
  *  throws are ranged now; a melee weapon in hand still counts as melee). */
 function merchantMax(game, def) {
+  // Gear's Physical damage bonus % counts for allies too: without it their share
+  // of the Merchant's damage shrank as its gear grew (about 130% of the median
+  // class at level 50, 85% at level 300).
+  const pct = 1 + (game.equipment.bonuses().atkPct || 0) / 100;
   if (game.combatMode() === 'ranged') {
     const w = game.equipment.get('weapon');
     const str = w ? Math.floor((getItem(w).equip?.bonuses?.ranged || 0) / 3) : 0;
-    return playerRangedVsNpc(game.skills, game.equipment, game.player.rangedStyle, def, str).max;
+    return Math.round(playerRangedVsNpc(game.skills, game.equipment, game.player.rangedStyle, def, str).max * pct);
   }
-  return playerAttackVsNpc(game.skills, game.equipment, game.player.style, def).max;
+  return Math.round(playerAttackVsNpc(game.skills, game.equipment, game.player.style, def).max * pct);
 }
 
 /** The Merchant's own crit chance (level, gear and perks), shared by their allies. */

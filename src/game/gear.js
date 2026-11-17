@@ -92,11 +92,20 @@ function masteredRating(id, equipment) {
   return gearRating(id, equipment.itemBonuses ? equipment.itemBonuses(id) : undefined);
 }
 
+/** The level a piece's `skill` requirement is checked against. The Dancer's
+ *  gear (whips, fans and dancewear: anything with a Dance bonus) asks for
+ *  Agility, but the Dancer's combat XP is split between Agility and Ranged, so
+ *  its pooled dance level counts (it is never below Agility). */
+export function reqLevel(id, skill, skills) {
+  if (skill === 'agility' && getItem(id).equip?.bonuses?.dance && skills.danceLevel) return Math.max(skills.level(skill), skills.danceLevel());
+  return skills.level(skill);
+}
+
 /** Can the player wear it yet? Lists any skill levels still missing. */
 export function meetsReq(id, skills) {
   const missing = [];
   for (const [skill, lvl] of Object.entries(getItem(id).equip?.req || {})) {
-    if (skills.level(skill) < lvl) missing.push({ skill, lvl });
+    if (reqLevel(id, skill, skills) < lvl) missing.push({ skill, lvl });
   }
   return { ok: missing.length === 0, missing };
 }
