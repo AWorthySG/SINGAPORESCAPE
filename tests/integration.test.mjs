@@ -7008,3 +7008,21 @@ test('auto battle on a Slayer hunt heads for the task monsters, not "monsters of
   const dest = game._autoTravel;
   assert.ok(dest && game.npcs.some((n) => n.def.family === fam && chebyshev(dest.x, dest.y, n.x, n.y) <= 2), 'the walk ends by one of them');
 });
+
+test('auto quest leads when auto battle is on too: no detours to "monsters of your level"', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  game.chooseStartingStyle('melee');
+  const detours = [];
+  const msg = game.msg.bind(game);
+  game.msg = (t, c) => { if (/monsters of your level/.test(t) && game.autoQuest) detours.push(t); return msg(t, c); };
+  game.toggleAutoBattle(true);
+  step(game, 1);
+  game.toggleAutoQuest(true);
+  step(game, 900);
+  assert.equal(detours.length, 0, 'auto battle never pulls you off to monsters of your level while auto quest runs');
+  assert.ok(Object.values(game.quests).some((q) => q.state === 'done'), 'quests still get done with both on');
+  assert.ok(game.autoBattle, 'auto battle you switched on yourself stays on');
+});
