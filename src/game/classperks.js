@@ -10,7 +10,7 @@ import { canDualWield } from './equipment.js';
 
 // One signature line per class: the thing to remember it by.
 const SIGNATURE = {
-  rogue: 'Dual wields daggers: a second dagger in the off-hand strikes again (60% power) after every swing.',
+  rogue: 'Dual wields daggers: a second dagger in the off-hand strikes again after every swing, with its own stats (60% of its hit).',
   swordsman: 'The all-rounder: steady damage, sturdy defence, and a solid cleave.',
   corsair: 'Dual wields scimitars and swings faster than any other blade, with a light cleave.',
   paladin: 'Holy maces that crush the undead, demons and armoured sea creatures.',
