@@ -18,9 +18,10 @@ const BAL = STYLES.balanced;
 export const DAMAGE_XP_SHARE = 0.25;
 export const KILL_XP_SHARE = 1 - DAMAGE_XP_SHARE;
 // XP per point of damage (or of a monster's life, for the kill reward), before
-// the shares: the fighting skill (Magic earns half, as spells also give XP per
-// cast), plus Defence and Hitpoints.
-const RATES = { skill: 4, magic: 2, defence: 1.33, hitpoints: 1.33 };
+// the shares: the fighting skill (Magic earns three quarters, as spells also give
+// XP per cast; at half it levelled about twice as slowly as Melee), plus Defence
+// and Hitpoints.
+const RATES = { skill: 4, magic: 3, defence: 1.33, hitpoints: 1.33 };
 // The Dancer ('dance') fights with a whip that reaches like a short bow: its
 // fighting-skill XP is split evenly between Agility and Ranged.
 const spread = (skill, amount) => [

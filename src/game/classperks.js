@@ -30,7 +30,7 @@ const SIGNATURE = {
   sniper: 'Sniper rifles: the furthest reach in the game (32+ tiles) and each round hits about 5.5x as hard and pierces every monster within 1 tile of its path, up to 10 tiles past the target, but fires only every 1.5s. No ammo to buy.',
   pistoler: 'Dual pistols: by far the fastest attacks in the game, each hand firing, and no ammo to buy.',
   ninja: 'Shurikens ricochet off your target into a second foe nearby (60% damage), and need no ammo.',
-  merchant: 'Throws money: every coin flick from your cane costs coins (1 + 1 per 10 Ranged levels), and your skills cost coins instead of adrenaline. Hire as many mercenaries as you can pay for (Combat tab): each runs at the closest monster for 90 seconds, swings as fast as you, hits for half your damage, and earns you full XP. Every attack has a 25% chance to call up an A-Worthling, a mirror image of you that fights the same way for 25% of your damage and stays for good. Each A-Worthling swing has a 25% chance to split off a smaller one. Every A-Worthling hits for a fixed 25% of your max hit (up to 200 in all).',
+  merchant: 'Throws money: every coin flick from your cane costs coins (1 + 1 per 10 Ranged levels), and your skills cost coins instead of adrenaline. Hire up to 3 mercenaries at a time (Combat tab): each runs at the closest monster for 90 seconds, swings as fast as you, hits for half your damage, and earns you full XP. Every attack has a 25% chance to call up an A-Worthling, a mirror image of you that fights the same way for 25% of your damage and stays for good. Each A-Worthling swing has a 25% chance to split off a smaller one, up to 6 in all.',
 };
 
 // The passive perk tracks each style levels up (a perk every 20 levels).

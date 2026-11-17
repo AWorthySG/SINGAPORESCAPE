@@ -2116,7 +2116,7 @@ export class UI {
       hire.type = 'button';
       hire.className = 'wm-go merc-hire';
       const f = Mercs.activeFollowers(this.game).length;
-      hire.textContent = `Hire mercenary (${Mercs.hireCost(this.game)} coins) · ${n} on contract${f ? ` · ${f} A-Worthling${f > 1 ? 's' : ''}` : ''}`;
+      hire.textContent = `Hire mercenary (${Mercs.hireCost(this.game)} coins) · ${n}/${Mercs.MAX_MERCS} on contract${f ? ` · ${f} A-Worthling${f > 1 ? 's' : ''}` : ''}`;
       hire.addEventListener('click', () => { this.game.hireMercenary(); this.renderCombatPanel(); });
       lvlEl.prepend(hire);
     }
