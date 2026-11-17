@@ -204,8 +204,8 @@ export const WEAPON_DMG_MULT = {
   // (The two-handed types, the crossbow too, were trimmed by up to 12% when they gained the two-handed grip, the
   // off-hand's atkPct, haste and Ranged built into the weapon: see items.js.)
   dagger: 0.6, sword: 2.2, scimitar: 0.39, mace: 2.62, longsword: 2.13, battleaxe: 1.72, warhammer: 2.8,
-  '2h_sword': 2.55, spear: 2.05, claws: 0.48, katana: 1.41, halberd: 3.18, cane: 0.71, shortbow: 0.48,
-  longbow: 1.15, pistol: 0.37, rifle: 1.1, shuriken: 1.3, staff: 0.32, wand: 0.31, whip: 2.0,
+  '2h_sword': 2.55, spear: 2.05, claws: 0.48, katana: 1.41, halberd: 3.18, cane: 0.71, shortbow: 0.445,
+  longbow: 1.15, pistol: 0.37, rifle: 1.07, shuriken: 1.3, staff: 0.32, wand: 0.31, whip: 2.0,
   // Secondary types (first estimates, pending the combat rescale), tuned against measured
   // damage (a headless run of each class's best weapon at tiers 10-250, not a formula)
   // so that each sits a little under its classes' main types and the main type stays
