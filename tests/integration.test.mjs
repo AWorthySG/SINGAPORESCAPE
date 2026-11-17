@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 
 import { Game } from '../src/game/game.js';
 import { saveGame, loadGame, clearSave, suppressSaves, BACKUP_KEY, IMPORT_BACKUP_KEY, snapshot, exportSaveCode, importSaveCode } from '../src/game/save.js';
-import { SAVE_KEY } from '../src/config.js';
+import { SAVE_KEY, XP_RATE, COMBAT_XP_RATE } from '../src/config.js';
 import { ITEMS } from '../src/data/items.js';
 import { getNpc, ALL_BOSS_IDS } from '../src/data/npcs.js';
 import { chebyshev } from '../src/core/utils.js';
@@ -2121,10 +2121,11 @@ test('night hunt boosts combat XP; big hits and kills trigger hit-stop', () => {
   clearSave();
   const game = new Game();
   game.start();
-  assert.equal(game.combatXpMult(), 1, 'no bonus by day');
+  assert.equal(game.xpBreakdown().total, 1, 'no bonus by day');
+  assert.equal(game.combatXpMult(), COMBAT_XP_RATE, 'combat XP at its own rate');
   game.playMs = 0;                           // midnight
   assert.ok(game.isNight());
-  assert.equal(game.combatXpMult(), 1.5);
+  assert.equal(game.combatXpMult(), 1.5 * COMBAT_XP_RATE);
   const chat = [];
   game.bus.on('chat', (c) => chat.push(c.text));
   game._wasNight = false;
@@ -2623,7 +2624,7 @@ test('Hybrid combat XP: a trickle per hit, most of it as a kill reward worth the
   const { killXp, DAMAGE_XP_SHARE, KILL_XP_SHARE } = await import('../src/game/combat.js');
   assert.equal(DAMAGE_XP_SHARE + KILL_XP_SHARE, 1);
   assert.equal(killXp('attack', 100).find((x) => x.skill === 'attack').xp, 300, '3 XP per point of life on the kill');
-  assert.equal(killXp('magic', 100).find((x) => x.skill === 'magic').xp, 150, 'Magic earns half (spells also pay per cast)');
+  assert.equal(killXp('magic', 100).find((x) => x.skill === 'magic').xp, 225, 'Magic earns three quarters (spells also pay per cast)');
   globalThis.localStorage = fakeStorage();
   clearSave();
   const game = new Game();
@@ -3001,7 +3002,7 @@ test('Smaller numbers: big monsters show less life and take smaller hits in prop
   const { NPC } = await import('../src/game/npc.js');
   const n = new NPC(Object.keys(NPCS).find((id) => NPCS[id] === big), g.player.x + 1, g.player.y, 0, {});
   const xp0 = g.skills.xp.attack; g.killNpc(n);
-  assert.ok(g.skills.xp.attack - xp0 >= big.maxHp * big.hpScale * 3 * XP_RATE * 0.99, 'XP is worked out on its real life');
+  assert.ok(g.skills.xp.attack - xp0 >= big.maxHp * big.hpScale * 3 * XP_RATE * COMBAT_XP_RATE * 0.99, 'XP is worked out on its real life');
 });
 
 test('XP bonus stacks: Wilderness level and kill streak; bosses drop much more and give bonus XP', () => {
@@ -3021,7 +3022,7 @@ test('XP bonus stacks: Wilderness level and kill streak; bosses drop much more a
   p.x = p.tx = 148;
   assert.equal(game.wildernessLevel(), 10);
   assert.ok(Math.abs(game.combatXpMult() - day * 6) < 1e-9, 'level 10: x6');
-  // Kill streak stacks on top: +5% per chained kill.
+  // Kill streak stacks on top: +10% per chained kill.
   const deep = game.combatXpMult();
   const mobs = game.npcs.filter((n) => n.def.attackable && !n.def.boss).slice(0, 4);
   for (const m of mobs) game.killNpc(m);
@@ -3974,16 +3975,21 @@ test('new classes: Pistoler (dual pistols, no ammo, very fast), Ninja (ricochet)
   mc.npcs.push(foe);
   const merc = mc.hireMercenary();
   assert.ok(merc && merc.ally && !merc.attackable, 'a mercenary joins');
-  for (let i = 0; i < 5; i++) assert.ok(mc.hireMercenary(), 'no limit on how many mercenaries');
-  assert.equal(Mercs.activeMercs(mc).length, 6);
-  // Auto battle hires without a limit too, keeping three hires' worth of coins.
+  assert.equal(Mercs.MAX_MERCS, 3);
+  for (let i = 0; i < 2; i++) assert.ok(mc.hireMercenary(), 'up to three mercenaries');
+  const coins0 = mc.inventory.count('coins');
+  assert.equal(mc.hireMercenary(), null, 'but no fourth while three are on contract');
+  assert.equal(mc.inventory.count('coins'), coins0, 'and no coins taken for it');
+  assert.equal(Mercs.activeMercs(mc).length, 3);
+  // Auto battle only hires to keep the contracts filled, not every tick.
+  Mercs.activeMercs(mc)[2].alive = false; mc.npcs = mc.npcs.filter((n) => n.alive);
   mc.autoBattle = true; mc.autoCfg.abilities = false;   // (its coin-paid skills would summon A-Worthlings)
   mc.player.setAction({ type: 'attack', npc: foe });
+  const coins1 = mc.inventory.count('coins');
   for (let i = 0; i < 4; i++) mc._autoBattleTick();
-  assert.ok(Mercs.activeMercs(mc).length >= 10, 'auto battle keeps hiring past three');
+  assert.equal(Mercs.activeMercs(mc).length, 3, 'auto battle tops up to three and stops');
+  assert.equal(coins1 - mc.inventory.count('coins'), Mercs.hireCost(mc), 'paying for one hire');
   mc.autoBattle = false; mc.player.clearAction();
-  for (const m of Mercs.activeMercs(mc).slice(6)) m.alive = false;
-  mc.npcs = mc.npcs.filter((n) => n.alive);
   // They go after the nearest monster by themselves: the Merchant isn't fighting.
   mc.player.autoRetaliate = false;
   const hp0 = foe.hp;
@@ -4011,7 +4017,7 @@ test('new classes: Pistoler (dual pistols, no ammo, very fast), Ninja (ricochet)
   assert.ok(aw.ally && aw.follower && !aw.attackable && aw.npcId === 'aworthling');
   // A-Worthlings split off smaller, weaker A-Worthlings.
   const kid = Mercs.spawnFollower(mc, aw);
-  assert.ok(kid && kid.def.scale < 1 && kid.share === 0.25 && aw.share === 0.25, 'a smaller A-Worthling, still at a fixed 25%');
+  assert.ok(kid && kid.def.scale < 1 && kid.share === 0.25 && aw.share === 0.25, 'a smaller A-Worthling, still at a 25% share');
   kid.alive = false; mc.npcs = mc.npcs.filter((n) => n !== kid);
   const hp1 = foe.hp;
   for (let i = 0; i < 30; i++) { mc.player.attackCooldown = 99; mc.update(600); }
@@ -4229,7 +4235,7 @@ test('boss rewards scale with their 100x health: big kill bonus, hoards of loot'
   const xp0 = g.skills.xp.attack;
   boss.hp = 0; g.npcs.push(boss);
   g.killNpc(boss);
-  assert.ok(g.skills.xp.attack - xp0 >= 35 * 4000, 'the kill bonus is 100x what it was');
+  assert.ok(g.skills.xp.attack - xp0 >= 35 * 4000 * XP_RATE * COMBAT_XP_RATE, 'the kill bonus is 100x what it was (at the combat XP rate)');
 });
 
 test('auto gather for Farming: plants and harvests patch after patch by itself', () => {
@@ -4536,7 +4542,7 @@ test('Sell gear for other classes: sells other weapons, armour, accessories and 
 
 test('one spell per element: wind casts 2x faster, water slows and casts 30% faster, earth hits 5 tiles, fire 50% harder', async () => {
   const { NPC } = await import('../src/game/npc.js');
-  const { getSpell, SPELLS } = await import('../src/data/magic.js');
+  const { getSpell, SPELLS, ELEMENTS } = await import('../src/data/magic.js');
   const { playerMagicVsNpc } = await import('../src/game/combat.js');
   globalThis.localStorage = fakeStorage(); clearSave();
   const g = new Game(); g.start(); g.chooseStartingStyle('magic');
@@ -4557,35 +4563,37 @@ test('one spell per element: wind casts 2x faster, water slows and casts 30% fas
   const earthCd = cast('earth_strike', t), windCd = cast('wind_strike', t), waterCd = cast('water_strike', t);
   assert.ok(Math.abs(windCd - earthCd * 0.5) < 0.01, `wind ${windCd} vs earth ${earthCd}`);
   assert.ok(Math.abs(waterCd - earthCd / 1.3) < 0.01, `water ${waterCd} vs earth ${earthCd}`);
-  // Fire hits like the others, and ignites: 25% of the hit every second for 5 seconds.
+  // Fire hits like the others, and ignites: 12% of the hit every second for 5 seconds.
   const max = (id) => playerMagicVsNpc(g.skills, g.equipment, getSpell(id), { defence: 1 }).max;
   assert.equal(max('fire_strike'), max('wind_strike'), 'no flat fire bonus any more');
+  const IG = ELEMENTS.fire.ignite;
+  assert.deepEqual([IG.share, IG.secs], [0.12, 5]);
   const f = foe(2); g.npcs = [f];
   g._critHit = (d) => ({ dmg: d, crit: false }); g._aoeCrit = (d) => ({ dmg: d, critX: 0 });
   cast('fire_strike', f);
-  const hit = 1e7 - f.hp, per = Math.max(1, Math.round(hit * 0.25));
-  assert.equal(f.ignite.perSec, per, 'set alight');
+  const hit = 1e7 - f.hp, per = Math.max(1, Math.round(hit * 0.12));
+  assert.equal(f.ignite.burns.length, 1, 'set alight');
+  assert.equal(f.ignite.burns[0].perSec, per);
   const burning = f.hp; f.ignite.acc = 0;
-  for (let i = 0; i < 51; i++) g._tickIgnites();   // 30.6 seconds of ticks: 30 burns
-  assert.equal(burning - f.hp, per * 30, 'still burning at 25% of the hit every second: no time limit');
-  assert.ok(f.ignite, 'never goes out on its own');
-  // Burns stack without limit: three more hits add three more burns.
-  for (let k = 0; k < 3; k++) g._igniteFoe(f, 100, { share: 0.25 });
+  for (let i = 0; i < 51; i++) g._tickIgnites();   // 30.6 seconds of ticks
+  assert.equal(burning - f.hp, per * 5, 'burns for 5 seconds at 12% of the hit, then stops');
+  assert.equal(f.ignite, null, 'and goes out on its own');
+  // Burns stack while they last: three hits burn together, each for its own 5 seconds.
+  for (let k = 0; k < 3; k++) g._igniteFoe(f, 100, IG);
   const h2 = f.hp;
   g._tickIgnites(); g._tickIgnites();
-  assert.equal(h2 - f.hp, per + 75, 'all the stacks burn together');
-  // A thousand stacks still just burn, stored as one total.
-  for (let k = 0; k < 1000; k++) g._igniteFoe(f, 100, { share: 0.25 });
-  assert.equal(f.ignite.perSec, per + 25 * 1003);
-  // Out only when the foe dies.
+  assert.equal(h2 - f.hp, 36, 'all the stacks burn together');
+  for (let i = 0; i < 20; i++) g._tickIgnites();
+  assert.equal(h2 - f.hp, 36 * 5, 'a burn adds 60% of its hit in all, however many are stacked');
+  // Out when the foe dies.
   const small = foe(3); small.maxHp = small.hp = 100; g.npcs = [f, small];
-  g._igniteFoe(small, 400, { share: 0.25 });
+  for (let k = 0; k < 3; k++) g._igniteFoe(small, 400, IG);
   for (let i = 0; i < 4; i++) g._tickIgnites();
   assert.ok(!small.alive || small.hp <= 0, 'burned to death');
   assert.equal(small.ignite, null, 'and the burn ends with it');
   // Every burn tick can crit, at the crit chance of the cast that lit it.
   const c1 = foe(4); g.npcs = [c1];
-  g._aoeCritCh = 1; g._igniteFoe(c1, 400, { share: 0.25 }); g._aoeCritCh = 0;
+  g._aoeCritCh = 1; g._igniteFoe(c1, 400, { share: 0.25, secs: 5 }); g._aoeCritCh = 0;
   assert.equal(c1.ignite.critCh, 1);
   delete g._aoeCrit;   // the real crit roll from here on
   const hc = c1.hp; g.effects = [];
@@ -4691,15 +4699,22 @@ test('auto battle casters pick the element that suits the target', async () => {
   const crowd = [[3, 0], [-3, 0], [0, 4], [0, -4], [4, 4]].map(([dx, dy]) => new NPC('goblin', t.x + dx, t.y + dy, 0, {}));
   game.npcs = [t, ...crowd];
   assert.equal(game._autoSpellFor(t).element, 'earth');
-  // A lone foe: a quick kill favours Wind (casts twice as fast); a long fight
-  // (a boss's worth of life) favours Fire, whose stacking burns keep growing.
+  // A lone foe: Wind (casts twice as fast) beats Fire's burns, which add at most
+  // 60% of each hit (12% a second for 5 s) and no longer stack for ever...
   const solo = new NPC('goblin', p.x + 3, p.y, 0, {});
   solo.def = { ...solo.def, sprite: 'none', race: 'humanoid' };
   game.npcs = [solo];
   solo.maxHp = solo.hp = 500;
   assert.equal(game._autoSpellFor(solo).element, 'wind', 'Wind on a quick kill');
   solo.maxHp = solo.hp = 5e7;
-  assert.equal(game._autoSpellFor(solo).element, 'fire', 'Fire on a long fight');
+  assert.equal(game._autoSpellFor(solo).element, 'wind', 'and on a long fight against a foe Fire is not strong against');
+  // ...but against a race Fire bites into, its burns tip a long fight its way, not a quick kill.
+  solo.def = { ...solo.def, sprite: 'undead', family: 'undead_test' };
+  assert.equal(raceOf(solo.def, solo.npcId), 'undead');
+  assert.equal(ELEMENTS.fire.strong.includes('undead') && !ELEMENTS.wind.strong.includes('undead'), true);
+  assert.equal(game._autoSpellFor(solo).element, 'fire', 'Fire on a long fight it is strong in');
+  solo.maxHp = solo.hp = 50;
+  assert.equal(game._autoSpellFor(solo).element, 'wind', 'Wind still on a quick kill');
 });
 
 test('attack speed % has no cap; wands cast faster than staves; spells halve the swing time', () => {
@@ -5008,25 +5023,50 @@ test('mercenaries and A-Worthlings throw coins from range and give Ranged XP', a
   assert.equal(g.skills.xp.attack, xp0.attack, 'not Melee');
 });
 
-test('A-Worthlings merge past 40: fewer on screen, the same total damage and power cap', async () => {
+test('A-Worthlings are capped at 6 and merging keeps the same total damage', async () => {
   const Mercs = await import('../src/game/mercenary.js');
   globalThis.localStorage = fakeStorage(); clearSave();
   const g = new Game(); g.start(); g.chooseClass('merchant');
   g.ui = new Proxy({}, { get: () => () => {} });
-  for (let i = 0; i < 90; i++) { g.tickCount = i; Mercs.spawnFollower(g); }
+  assert.equal(Mercs.MAX_FOLLOWERS, 6);
   const power = (list) => list.reduce((s, f) => s + (f.share || Mercs.FOLLOWER_SHARE), 0);
-  const before = Mercs.activeFollowers(g);
-  const p0 = power(before);
-  assert.equal(before.length, 90);
-  Mercs.mergeFollowers(g);   // (it runs once a tick; called directly so no fight changes the numbers)
+  // The cap holds whether they are called up in one tick or over many.
+  for (let i = 0; i < 20; i++) Mercs.spawnFollower(g);
+  assert.equal(Mercs.activeFollowers(g).length, 6, 'no more than 6 in one tick');
+  for (let i = 0; i < 40; i++) { g.tickCount = 10 + i; Mercs.spawnFollower(g); }
+  assert.equal(Mercs.activeFollowers(g).length, 6, 'nor over many ticks');
+  // Merging (a safety net now the cap is small) still keeps the same total damage share.
+  const p0 = power(Mercs.activeFollowers(g));
+  Mercs.mergeFollowers(g, 4, 2);
   const after = Mercs.activeFollowers(g);
-  assert.ok(after.length <= Mercs.MERGE_TO, `merged down to ${after.length}`);
+  assert.equal(after.length, 2, 'merged down');
   assert.ok(Math.abs(power(after) - p0) < 1e-9, 'the same total damage share');
   assert.ok(after.some((f) => f.share > Mercs.FOLLOWER_SHARE && f.def.scale > 1), 'merged ones hit harder and look bigger');
-  // The power cap still counts merged ones: 200 A-Worthlings' worth at most.
-  for (let i = 0; i < 400; i++) { g.tickCount = 1000 + i; Mercs.spawnFollower(g); g.doTick(); }
+  // The cap counts merged ones by their share: still 6 A-Worthlings' worth at most.
+  for (let i = 0; i < 40; i++) { g.tickCount = 100 + i; Mercs.spawnFollower(g); g.doTick(); }
   assert.ok(power(Mercs.activeFollowers(g)) <= Mercs.MAX_FOLLOWERS * Mercs.FOLLOWER_SHARE + 1e-9, 'total power still capped');
-  assert.ok(Mercs.activeFollowers(g).length <= Mercs.MERGE_AT, 'and never more than 40 on screen after a tick');
+});
+
+test('A-Worthling hits are rolled like the Merchant\'s, not always the max', async () => {
+  const Mercs = await import('../src/game/mercenary.js');
+  const { NPC } = await import('../src/game/npc.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('merchant');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.skills.xp.ranged = 5e6;   // a big enough max hit to see the spread
+  const t = new NPC('goblin', g.player.x + 2, g.player.y, 0, {});
+  t.hp = t.maxHp = 1e9; t.def = { ...t.def, aggressive: false, maxHit: 0 };
+  g.npcs = [t];
+  g.equipment.bonuses = ((orig) => () => ({ ...orig.call(g.equipment), crit: -1000 }))(g.equipment.bonuses);   // no crits
+  const aw = Mercs.spawnFollower(g);
+  const hits = [];
+  const take = t.takeDamage.bind(t);
+  t.takeDamage = (d) => { hits.push(d); return take(d); };
+  for (let i = 0; i < 40; i++) { g.tickCount++; g._followerTick = -1; Mercs.mercTick(g, aw); for (const f of Mercs.activeFollowers(g)) if (f !== aw) f.alive = false; g.npcs = g.npcs.filter((n) => n.alive); }
+  assert.ok(hits.length >= 20, `it swung (${hits.length})`);
+  const hi = Math.max(...hits), lo = Math.min(...hits);
+  assert.ok(lo < hi, `hits vary (${lo}..${hi})`);
+  assert.ok(lo >= Math.ceil(hi / 4) - 1, 'never below a quarter of the max');
 });
 
 test('very fast movement never passes through walls', async () => {
@@ -5819,9 +5859,12 @@ test('a new player can stand at the Chinatown bank and the shops by the Wilderne
   const p = game.player;
   // The spots where Wilderness crocodiles, pythons and flying foxes used to kill
   // a fresh character: the bank booth, beside the mage, the street by the line.
+  // The player doesn't hit back, so only an unprovoked Wilderness attack counts
+  // (a cleave from fighting a town monster would draw in one that wandered close).
+  p.autoRetaliate = false;
   for (const [x, y] of [[88, 49], [89, 53], [88, 60], [91, 60], [92, 95]]) {
     p.x = p.tx = x; p.y = p.ty = y; p.path = [];
-    p.hp = p.maxHp; p.alive = true;
+    p.hp = game.maxHp(); p.alive = true;
     for (const n of game.npcs) n.target = null;
     game._aggroAttackers = 0;
     for (let i = 0; i < 200; i++) {
@@ -6176,8 +6219,8 @@ test('dodging pays Agility XP in step with the monster; boss markers pay more', 
   const w = gain(() => game._dodgeXp(weak)), t = gain(() => game._dodgeXp(tough));
   assert.ok(t > w * 20, `a tougher monster pays far more (${w} vs ${t})`);
   // (the skill set applies the game's XP rate on top, so compare like with like)
-  const killShare = gain(() => game.skills.addXp('agility', Math.round(10000 * 3 * DODGE_KILL_SHARE * mult)));
-  assert.equal(t, killShare, 'a share of its kill XP');
+  const killShare = gain(() => game.skills.addXp('agility', 10000 * 3 * DODGE_KILL_SHARE * mult));
+  assert.ok(Math.abs(t - killShare) < 1e-6, 'a share of its kill XP');
   const h = gain(() => game._dodgeXp(tough, HAZARD_DODGE_MULT));
   assert.ok(Math.abs(h / t - HAZARD_DODGE_MULT) < 0.01, `a boss-marker dodge pays ${HAZARD_DODGE_MULT}x (${t} vs ${h})`);
 });

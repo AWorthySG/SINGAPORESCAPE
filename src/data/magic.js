@@ -20,7 +20,7 @@ export function spellBaseHit(spell, magic) {
 // area around its target (see AOE_RADIUS) for the same damage.
 // Each element also has its own effect, so the choice matters beyond damage:
 //   wind casts twice as fast, water slows foes and casts a little faster,
-//   earth blasts a wide area, fire hits 50% harder.
+//   earth blasts a wide area, fire sets foes alight for a few seconds.
 export const ELEMENTS = {
   wind:  { name: 'Wind',  icon: '🌪️', strong: ['avian', 'spirit', 'bug'], weak: ['construct', 'dragon'],
     effect: 'Gale: casts twice as fast', castSpeed: 0.5 },
@@ -29,7 +29,7 @@ export const ELEMENTS = {
   earth: { name: 'Earth', icon: '🪨', strong: ['beast', 'reptile', 'humanoid', 'aquatic'], weak: ['avian', 'spirit'],
     effect: 'Quake: blasts everything within 5 tiles', aoeRadius: 5 },
   fire:  { name: 'Fire',  icon: '🔥', strong: ['flora', 'undead', 'bug'], weak: ['aquatic', 'dragon', 'demon'],
-    effect: 'Ignite: every hit adds a burn of 25% of the hit every second until the foe dies; burns stack without limit and every burn tick can crit', ignite: { share: 0.25 } },
+    effect: 'Ignite: every hit adds a burn of 12% of the hit every second for 5s; burns stack while they last and every burn tick can crit', ignite: { share: 0.12, secs: 5 } },
 };
 for (const s of SPELLS) s.element = s.id.split('_')[0];
 export const AOE_RADIUS = 2;   // tiles around the target that every spell also hits

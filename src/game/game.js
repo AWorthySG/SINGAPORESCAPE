@@ -12,7 +12,7 @@ import { getItem, MELEE_REACH, accessoriesFor } from '../data/items.js';
 import { chebyshev, randInt, weightedPick, capitalize } from '../core/utils.js';
 import {
   TILE, TICK_MS, COMBAT_BEAT_MS, RESPAWN_TICKS, AUTOSAVE_TICKS, DAY_CYCLE_MS,
-  XP_RATE, LEARNING_ENABLED,
+  XP_RATE, COMBAT_XP_RATE, LEARNING_ENABLED,
 } from '../config.js';
 
 import { World } from './world.js';
@@ -91,12 +91,13 @@ const COMBAT_SKILLS = new Set(['attack', 'strength', 'defence', 'hitpoints', 'ra
 // day/night cycle from there.
 const MORNING_PHASE = 0.3;
 
-// Combat XP: +25% per Wilderness level (1-10, deeper = higher), and a kill
-// streak bonus of +5% per chained kill (up to +100%, kills within ~30s).
+// Combat XP: +50% per Wilderness level (1-10, deeper = higher), and a kill
+// streak bonus of +10% per chained kill (up to +50%, kills within ~30s; it was
+// up to +200%, which tripled the XP of any steady auto battle).
 const WILD_EDGE_X = 95;
 const WILD_XP_PER_LEVEL = 0.5;
 const STREAK_XP_PER_KILL = 0.1;
-const STREAK_MAX_BONUS = 2;
+export const STREAK_MAX_BONUS = 0.5;
 const STREAK_WINDOW_TICKS = 50;
 // Bonus XP per boss level on a boss kill.
 // Bosses are 100x tankier (BOSS_TOUGHNESS), so their rewards scale with them:
@@ -2473,17 +2474,18 @@ export class Game {
   }
 
   /** Fire's Ignite: every hit adds its own burn, `share` of that hit every
-   *  second, for as long as the foe lives. Burns stack without limit, so they
-   *  are kept as one running total per foe: any number of stacks costs the same. */
-  _igniteFoe(npc, hit, { share }) {
+   *  second for `secs` seconds (like the blades' WOUNDS). Burns used to last
+   *  until the foe died and stacked without limit, which let Fire's damage
+   *  climb for ever in a long fight; now a burn adds a fixed share of its hit. */
+  _igniteFoe(npc, hit, { share, secs = 5 }) {
     if (!npc.alive || npc.hp <= 0) return;
-    const ig = npc.ignite || (npc.ignite = { acc: 0, perSec: 0, critCh: 0 });
-    ig.perSec += Math.max(1, Math.round(hit * share));
+    const ig = npc.ignite || (npc.ignite = { acc: 0, burns: [], critCh: 0 });
+    ig.burns.push({ perSec: Math.max(1, Math.round(hit * share)), left: secs });
     ig.critCh = this._aoeCritCh || 0;   // every burn tick can crit, at the casting spell's crit chance
   }
 
   /** Burning foes near the player take all their burns' damage once a second
-   *  (with Magic XP, like any spell damage) until they die. Called every tick. */
+   *  (with Magic XP, like any spell damage) until the burns run out. Called every tick. */
   _tickIgnites() {
     const p = this.player, m = this.combatXpMult();
     let xp = 0;
@@ -2498,8 +2500,10 @@ export class Game {
         ig.acc -= 1;
         // Each tick rolls its own crit (x2, or x4 on a mega crit, plus gear crit damage).
         const saved = this._aoeCritCh; this._aoeCritCh = ig.critCh || 0;
-        const c = this._aoeCrit(ig.perSec, false);
+        const c = this._aoeCrit(ig.burns.reduce((t, b) => t + b.perSec, 0), false);
         this._aoeCritCh = saved;
+        for (const b of ig.burns) b.left--;
+        ig.burns = ig.burns.filter((b) => b.left > 0);
         const d = Math.min(n.hp, c.dmg);
         n.takeDamage(d);
         this.addHitsplat(n, d, { tint: '#ff8a3d', critX: c.critX });
@@ -2507,6 +2511,7 @@ export class Game {
         xp += d;
         if (!n.target) n.target = p;
         if (n.hp <= 0) { this.killNpc(n); n.ignite = null; }
+        else if (!ig.burns.length) { n.ignite = null; break; }   // burnt out
       }
     }
     if (xp) for (const x of magicXp(xp)) this.skills.addXp(x.skill, x.xp * m);
@@ -2660,7 +2665,8 @@ export class Game {
     if (!npc?.def) return;
     const { max } = npcAttackVsPlayer(npc.def, this.skills, this.equipment, this.player.style);
     const share = (npc.maxHp || npc.def.hp || 1) * 3 * (npc.def.boss ? DODGE_BOSS_SHARE : DODGE_KILL_SHARE);
-    this.skills.addXp('agility', Math.round(Math.max(Math.max(1, max) * DODGE_AGILITY_XP, share) * mult * this.combatXpMult()));
+    // (Not rounded: at the combat XP rate one small dodge is a fraction of a point.)
+    this.skills.addXp('agility', Math.max(Math.max(1, max) * DODGE_AGILITY_XP, share) * mult * this.combatXpMult());
   }
 
   resolveNpcAttack(npc, opts = {}) {
@@ -3110,8 +3116,9 @@ export class Game {
 
   /** Night hunt: combat XP is worth 25% more after dark. */
   // Combat XP multipliers, all stacking: night hunt x1.5, Wilderness level
-  // (x1.5 at level 1 up to x6 at level 10), and kill streak (+10% per kill, up to +200%).
-  combatXpMult() { return this.xpBreakdown().total; }
+  // (x1.5 at level 1 up to x6 at level 10), and kill streak (+10% per kill, up to +50%).
+  // On top, every combat XP gain is paid at COMBAT_XP_RATE (xpBreakdown shows only the bonuses).
+  combatXpMult() { return this.xpBreakdown().total * COMBAT_XP_RATE; }
   xpBreakdown() {
     const night = this.isNight() ? 1.5 : 1;
     const wl = this.wildernessLevel();
@@ -3726,6 +3733,12 @@ export class Game {
 
   /** Merchant: hire a mercenary for coins (see mercenary.js). */
   hireMercenary() { return Mercs.hire(this); }
+  /** Auto battle's hiring: only to keep the contracts filled up to the cap, and
+   *  only while a reserve of three hires' worth of coins is left. */
+  _autoHire() {
+    if (Mercs.activeMercs(this).length >= Mercs.MAX_MERCS || this.inventory.count('coins') < Mercs.hireCost(this) * 3) return null;
+    return this.hireMercenary();
+  }
 
   /** A boss winds up its special. With Knowledge Strikes on, a study question
    *  pops up first: answer it right in time to interrupt the move. */
@@ -4186,10 +4199,8 @@ export class Game {
       this.toggleAutoBattle(false);
       return;
     }
-    // 0a. A Merchant in a fight hires one more mercenary every tick, with no
-    //     limit, as long as a reserve of three hires' worth of coins is left.
-    if (this.jobClass === 'merchant' && p.action?.type === 'attack' && p.action.npc?.alive
-      && this.inventory.count('coins') >= Mercs.hireCost(this) * 3) this.hireMercenary();
+    // 0a. A Merchant in a fight keeps their mercenaries topped up (see _autoHire).
+    if (this.jobClass === 'merchant' && p.action?.type === 'attack' && p.action.npc?.alive) this._autoHire();
     if (this._autoResume) {
       const n = this._autoResume;
       this._autoResume = null;
@@ -4512,16 +4523,17 @@ export class Game {
       const hit = playerMagicVsNpc(this.skills, this.equipment, sp, tgt.def).max * 0.625;
       const d = Math.max(1, hit * (m === 'strong' ? RACE_BONUS.dmg : m === 'weak' ? RACE_PENALTY.dmg : 1)
         / (this.attackInterval(sp) * COMBAT_BEAT_MS / 1000));
-      // Fire's Ignite: every cast adds a burn of share x its hit every second until
-      // the foe dies, so it pays off more the longer the fight. Work out how long
-      // the kill takes: with burns the damage dealt by time T is d*T*(1 + share*T/2),
-      // so a foe with hp life falls at T = (sqrt(1 + 2*share*hp/d) - 1) / share, and
-      // the spell is worth hp/T. On a quick kill Wind's double cast speed wins;
-      // on a long fight (a boss, a champion) Fire pulls far ahead.
+      // Fire's Ignite: every cast adds a burn of share x its hit every second for
+      // `secs` seconds, so once the first burns are going Fire deals share x secs
+      // more per second. Burns still running when the foe dies are wasted, so by
+      // time T the burns have added share x (T^2/2) x d inside the first `secs`
+      // seconds, and share x secs x (T - secs/2) x d after (T worked out on the
+      // casts alone, hp/d): a quick kill favours Wind's double cast speed, a
+      // longer fight Fire's burns.
       let v = d;
       if (el.ignite) {
-        const s = el.ignite.share, hp = Math.max(1, tgt.hp);
-        v = hp / ((Math.sqrt(1 + 2 * s * hp / d) - 1) / s);
+        const s = el.ignite.share, secs = el.ignite.secs || 5, T = Math.max(1, tgt.hp) / d;
+        v = d * (1 + s * (T <= secs ? T / 2 : secs * (1 - secs / (2 * T))));
       }
       // Area damage: Earth reaches everyone within 5 tiles, the rest only within 2.
       const near = el.aoeRadius ? crowd : this.nearbyNpcs().filter((n) => n !== tgt && n.alive && n.attackable && !n.ally && !n.def.fixed

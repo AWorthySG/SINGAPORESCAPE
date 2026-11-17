@@ -1,5 +1,6 @@
-// Mercenaries: the Merchant hires fighters with coins, as many as they can pay
-// for. Each one follows the Merchant for a contract of 90 seconds, closes to
+// Mercenaries: the Merchant hires fighters with coins, up to MAX_MERCS at a
+// time (an unlimited crowd let a rich Merchant out-damage every other class
+// many times over). Each one follows the Merchant for a contract of 90 seconds, closes to
 // within ALLY_RANGE of the closest monster and pelts it with coins, like the
 // Merchant does, and then heads home. All their XP goes to Ranged.
 // Monsters don't fight back against mercenaries: the Merchant pays them to
@@ -7,8 +8,8 @@
 // A-Worthlings: every time the Merchant attacks there is a 25% chance a
 // mirror image of the Merchant appears. It throws coins like a mercenary, hitting
 // for a quarter of the Merchant's own damage, and stays for good. Each of its
-// swings has a 25% chance to split off a smaller A-Worthling (up to MAX_FOLLOWERS). Every A-Worthling, big or small, never misses and always hits
-// for a fixed 25% of the Merchant's max melee hit.
+// swings has a 25% chance to split off a smaller A-Worthling (up to MAX_FOLLOWERS). Every A-Worthling, big or small, never misses and rolls
+// its hit like the Merchant does, between a quarter of and its full 25% share of the Merchant's max hit.
 import { chebyshev, randInt } from '../core/utils.js';
 import { TICK_MS, COMBAT_BEAT_MS } from '../config.js';
 import { combatXpRanged, playerAttackVsNpc, playerRangedVsNpc, critChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE } from './combat.js';
@@ -17,9 +18,15 @@ import { getItem } from '../data/items.js';
 
 export const MERC_TICKS = 150;            // 90 seconds at 0.6s a tick
 export const FOLLOWER_CHANCE = 0.25;      // per Merchant attack
-export const MAX_FOLLOWERS = 200;         // the most A-Worthling power, counted in 25% A-Worthlings (merged ones count for more)
-export const MERGE_AT = 40;               // past this many on screen, the smallest A-Worthlings merge in pairs (less lag)
-export const MERGE_TO = 30;               // ...until this many are left
+// The most A-Worthling power, counted in 25% A-Worthlings (merged ones count for
+// more). It was 200, which made a Merchant's damage run away with long fights.
+export const MAX_FOLLOWERS = 6;
+// Past this many on screen, the smallest A-Worthlings merge in pairs (less lag).
+// With the small cap above this is only a safety net: the power cap already keeps
+// them to MAX_FOLLOWERS at most.
+export const MERGE_AT = MAX_FOLLOWERS;
+export const MERGE_TO = MAX_FOLLOWERS / 2;  // ...until this many are left
+export const MAX_MERCS = 3;               // hired mercenaries on contract at once
 export const SPLIT_CHANCE = 0.25;         // per A-Worthling swing: a smaller A-Worthling splits off
 export const FOLLOWER_SHARE = 0.25;       // of the Merchant's melee damage
 export const MERC_SHARE = 0.5;            // a mercenary hits for half the Merchant's melee damage (at least its hired power)
@@ -45,6 +52,7 @@ export function hire(game) {
   const p = game.player;
   if (game.jobClass !== 'merchant') { game.msg('Only a Merchant can hire mercenaries.', 'system'); return null; }
   if (!p.alive) return null;
+  if (activeMercs(game).length >= MAX_MERCS) { game.msg(`You can only keep ${MAX_MERCS} mercenaries on contract at once.`, 'system'); return null; }
   const cost = hireCost(game);
   if (game.inventory.count('coins') < cost) { game.msg(`A mercenary costs ${cost} coins.`, 'system'); return null; }
   const spot = game._nearestFree(p.x + 1, p.y);
@@ -201,8 +209,9 @@ export function mercTick(game, m) {
       while (m.swingAcc >= 1 && target.hp > 0) {
         m.swingAcc--;
         if (m.follower && Math.random() < SPLIT_CHANCE) spawnFollower(game, m);
-        // A-Worthlings hit a fixed 25% of the Merchant's max hit; mercenaries roll.
-        let raw = m.follower ? max : Math.random() < 0.85 ? randInt(Math.ceil(max / 4), max) : 0;
+        // A-Worthlings roll like the Merchant (never missing, between a quarter of
+        // their max and the max); mercenaries roll the same but can miss.
+        let raw = m.follower ? randInt(Math.ceil(max / 4), max) : Math.random() < 0.85 ? randInt(Math.ceil(max / 4), max) : 0;
         // Allies crit like the Merchant does (same crit chance, x2 or x4 on a mega crit).
         let critX = 0;
         if (raw > 0 && Math.random() < allyCritChance(game)) {
@@ -273,11 +282,11 @@ function allyXp(game, dmg) {
 /** Merging: past MERGE_AT A-Worthlings, the two smallest join into one that hits
  *  as hard as both together (and looks a little bigger), until MERGE_TO are
  *  left. The same total damage, far fewer of them to move, path and draw. */
-export function mergeFollowers(game) {
+export function mergeFollowers(game, at = MERGE_AT, to = MERGE_TO) {
   const fs = activeFollowers(game);
-  if (fs.length <= MERGE_AT) return 0;
+  if (fs.length <= at) return 0;
   let merged = 0;
-  while (fs.length > MERGE_TO) {
+  while (fs.length > to) {
     // Always the two smallest (a merged one can merge again, growing bigger still).
     fs.sort((x, y) => (x.share || FOLLOWER_SHARE) - (y.share || FOLLOWER_SHARE));
     const a = fs.shift(), b = fs[0];
