@@ -34,8 +34,7 @@ import {
   playerAttackVsNpc, npcAttackVsPlayer, OFFHAND_SHARE, rollAttack, rollGuaranteed, rollHit, combatXp, magicXp, killXp, DAMAGE_XP_SHARE, KILL_XP_SHARE,
   playerRangedVsNpc, combatXpRanged, playerMagicVsNpc, RANGED_STYLES,
   weaknessOf, WEAKNESS_BONUS, armourOf, armourMult, critChance, hitChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE,
-  playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX, RANGED_TYPE_DMG, combatLevelXpMult,
-} from './combat.js';
+  playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX, RANGED_TYPE_DMG, combatLevelXpMult, CLASS_POWER } from './combat.js';
 import { ABILITY_BY_ID, abilitiesFor, ADREN_PER_HIT, ADREN_PER_HURT, CLASS_ADRENALINE, EXECUTE_BELOW } from '../data/abilities.js';
 import { classPassiveMods, CLASS_SKILL } from '../data/classPassives.js';
 import { RACES, raceOf, matchup, RACE_BONUS, RACE_PENALTY } from '../data/races.js';
@@ -296,16 +295,13 @@ const CHAMPION_LOOT_KILLS = 30;
 // Elder and Dire monsters (the tougher ranks of the common species) are worth
 // more loot: their drop table and rare-table chances roll this many times.
 // Ancient, the rank above Dire, matches Dire so the strongest never drops less.
+export { CLASS_POWER };
 export const RANK_LOOT_ROLLS = { Elder: 2, Dire: 3, Ancient: 3 };
 /** Loot rolls for a normal monster's rank (from its name: "Elder sea snake"). */
 export function rankLootRolls(def) {
   const p = (def?.name || '').split(' ')[0];
   return RANK_LOOT_ROLLS[p] || 1;
 }
-// Every class hits this much harder (the owner asked for all classes to be 20%
-// stronger). It sits with the other shared damage multipliers, so both hands,
-// specials and abilities all get it, and class balance is unchanged.
-export const CLASS_POWER = 1.2;
 // A champion's chance of an upgrade ward (was 10%, doubled with champion rates).
 export const CHAMPION_WARD_CHANCE = 0.2;
 

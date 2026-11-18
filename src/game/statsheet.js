@@ -12,8 +12,7 @@ import { TICK_MS, COMBAT_BEAT_MS } from '../config.js';
 import {
   playerAttackVsNpc, playerRangedVsNpc, playerMagicVsNpc, playerDanceVsNpc, levelBonuses,
   critChance, danceEvade, weaknessOf, armourOf, armourMult, WEAKNESS_BONUS, RANGED_TYPE_DMG,
-  CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE, RHYTHM_MAX, RHYTHM_DMG, OFFHAND_SHARE,
-} from './combat.js';
+  CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE, RHYTHM_MAX, RHYTHM_DMG, OFFHAND_SHARE, CLASS_POWER } from './combat.js';
 import { attrForMode, ATTR_NAMES, DMG_PER_POINT, LIFE_PER_STR, CRIT_PER_INT, SPEED_PER_DEX } from './attributes.js';
 import { getItem } from '../data/items.js';
 import { getSpell, ELEMENTS, elementMatchup } from '../data/magic.js';
@@ -119,6 +118,7 @@ export function damageMult(game, mode = game.combatMode(), { npc = null, boss = 
     isBoss ? 'Perks, potions & boss damage' : 'Perks, potions & monster damage');
   mul(1 + (mode === 'magic' ? gb.magPct : gb.atkPct) / 100, mode === 'magic' ? 'Magic damage bonus' : 'Physical damage bonus');
   mul(1 + game.buffMod('dmg'), 'Class buff');
+  mul(CLASS_POWER, 'Class power');
   if (npc && game.onSlayerTask(npc)) mul(1 + game.slayerBonus().dmg / 100, 'Slayer task');
   if (npc) { const cm = masteryDamage(game, npc); mul(1 + cm.species, 'Codex mastery (species)'); mul(1 + cm.race, 'Codex mastery (race)'); }
   return { m, parts };
