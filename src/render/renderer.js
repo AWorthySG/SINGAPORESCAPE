@@ -1135,11 +1135,25 @@ export class Renderer {
     }
     // Soft edges between grounds, small ground details, contact shadows and
     // the water's extras (terrainfx.js), baked into the chunk once.
+    // It runs a few rows at a time over the next frames (see _polishChunk).
     const fx = this.tfx || (this.tfx = new TerrainFx());
-    try {
-      cnv.fx = fx.bake(g, w, tx0, ty0, tx1, ty1, (sg, t, x, y) => this._paintGround(sg, t, x, y), { low: !!this.game.lowFx });
-    } catch (err) { cnv.fx = null; console.warn('terrain polish skipped', err); }
+    cnv.fx = null;
+    cnv.fxJob = fx.bakeSteps(g, w, tx0, ty0, tx1, ty1, (sg, t, x, y) => this._paintGround(sg, t, x, y), { low: !!this.game.lowFx });
     return cnv;
+  }
+
+  /** Carry on a chunk's polish bake for up to `ms` milliseconds; true once it's done. */
+  _polishChunk(cv, ms) {
+    if (!cv.fxJob) return true;
+    const end = performance.now() + ms;
+    try {
+      let r;
+      do r = cv.fxJob.next(); while (!r.done && performance.now() < end);
+      if (!r.done) return false;
+      cv.fx = r.value;
+    } catch (err) { console.warn('terrain polish skipped', err); }
+    cv.fxJob = null;
+    return true;
   }
 
   /** Paint one tile of ground type t at (0, 0) of `g`: its texture, or its plain colour. */
@@ -1190,11 +1204,18 @@ export class Renderer {
         if (sw > 0 && sh > 0) ctx.drawImage(cv, sx, sy, sw, sh, wx + sx - ox, wy + sy - oy, sw, sh);
       }
     }
+    // Polish within a small time budget per frame: chunks on screen first,
+    // then the ring around the view (low graphics gets less time per frame).
+    const budget = game.lowFx ? 3 : 5, end = performance.now() + budget;
+    let left = true;
+    for (const cv of vis) if (cv.fxJob && !(left = this._polishChunk(cv, end - performance.now()))) break;
     // Pre-bake the first missing chunk in a ring around the view (one per frame).
     for (let cy = c0y - 1; cy <= c1y + 1; cy++) {
       for (let cx = c0x - 1; cx <= c1x + 1; cx++) {
         if (cx < 0 || cy < 0 || cx > maxCx || cy > maxCy) continue;
-        if (!this.terrainCanvas.chunks.has(cx + ',' + cy)) { this._chunk(cx, cy); return; }
+        const cv = this.terrainCanvas.chunks.get(cx + ',' + cy);
+        if (!cv) { this._chunk(cx, cy); return; }
+        if (left && cv.fxJob && performance.now() < end) left = this._polishChunk(cv, end - performance.now());
       }
     }
   }

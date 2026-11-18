@@ -193,8 +193,11 @@ test('the renderer bakes chunks with the polish and draws the water extras', asy
     game.camera.follow(game.player.x * 32, game.player.y * 32);
     const ctx = make(800, 600).getContext('2d');
     const r = new Renderer(game, {}, ctx);
-    r.render(1000);
-    r.render(1100);
+    // The polish is spread over frames, a few ms at a time: keep drawing until it's in.
+    let t = 1000;
+    r.render(t);
+    for (let i = 0; i < 400 && r._visChunks.some((c) => c.fxJob); i++) r.render(t += 16);
+    assert.ok(r._visChunks.every((c) => !c.fxJob), 'every visible chunk finished its polish');
     assert.ok(r.tfx, 'the polish baker was made');
     assert.ok(r._visChunks.some((c) => c.fx && c.fx.foam), 'a visible chunk carries foam');
     // Switching to low graphics re-bakes.

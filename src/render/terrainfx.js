@@ -468,6 +468,18 @@ export class TerrainFx {
    * reeds, reflection spots), or null when there are none.
    */
   bake(g, world, tx0, ty0, tx1, ty1, paint, opts = {}) {
+    const job = this.bakeSteps(g, world, tx0, ty0, tx1, ty1, paint, opts);
+    let r;
+    do r = job.next(); while (!r.done);
+    return r.value;
+  }
+
+  /**
+   * The same bake as a generator that pauses after each row of tiles, so the
+   * renderer can spread a chunk's polish over a few frames (a few ms each)
+   * instead of stalling one frame as a new chunk comes into view.
+   */
+  *bakeSteps(g, world, tx0, ty0, tx1, ty1, paint, opts = {}) {
     const ox = tx0 * TILE, oy = ty0 * TILE;
     let foam = null;
     // 1. Soft edges: each neighbour's ground, masked, laid over the tile.
@@ -501,10 +513,12 @@ export class TerrainFx {
             }
           }
         }
+        yield;
       }
     }
     // 2. Small details on the ground.
     for (const d of scatterPlan(world, tx0, ty0, tx1, ty1, opts)) this._stamp(g, d, d.px - ox, d.py - oy);
+    yield;
     // 3. Contact shadows, and a little darkening of the ground beside walls and buildings.
     const sh = this._shadowSprite();
     const shadows = shadowPlan(world, tx0, ty0, tx1, ty1);
