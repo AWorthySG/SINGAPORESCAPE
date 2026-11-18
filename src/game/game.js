@@ -129,7 +129,8 @@ const WORLD_BOSS_SAFE_ZONES = ['Kampong Glam', 'Chinatown'];
 // Killing aggressive monsters is only a little heroic now: +1 good karma for
 // every HERO_KILLS_PER_GOOD of them. It used to be every kill, which made
 // grinding the main way to turn good and drowned out the moral choices.
-// Bosses stay +5 good each, and harmless creatures +1 evil each.
+// Bosses stay +5 good each. Harmless creatures are neutral now (they were +1
+// evil each, which turned every auto-battler Villain within minutes).
 const HERO_KILLS_PER_GOOD = 10;
 // Town guards challenge a Villain who walks into a town: one guard (two once
 // you are a byword for evil, GUARD_PAIR_AT), with an ordinary monster's stats
@@ -3144,8 +3145,9 @@ export class Game {
   killNpc(npc, { byAlly = false } = {}) {
     // Alignment: heroism vs cruelty. Bosses are heroic to slay (+5 good) and
     // aggressive foes a little (+1 good per HERO_KILLS_PER_GOOD, so the moral
-    // choice encounters, not grinding, decide your path); cutting down harmless
-    // creatures is a small evil, and so is cutting down the town watch.
+    // choice encounters, not grinding, decide your path). Cutting down harmless
+    // creatures is neutral (the owner's call: it made grinding a road to Villainy);
+    // cutting down the town watch is still evil.
     if (npc.townGuard) this._guardSlain(npc);
     else if (npc.def.boss) this.addGood(5);
     // A spawn tamed for new players (see world.js) is judged by its species'
@@ -3154,7 +3156,7 @@ export class Game {
     // town watch then set on them each time they woke at the respawn point).
     else if (npc.def.aggressive || npc._spawnOpts?.tamed) {
       if (++this.moral.heroKills >= HERO_KILLS_PER_GOOD) { this.moral.heroKills = 0; this.addGood(1); }
-    } else this.addEvil(1);
+    }
     this.hitStop = Math.max(this.hitStop, npc.def.boss ? 180 : npc.champion ? 120 : 70);
     if (npc.def.boss) {
       this.msg(`You have slain ${npc.name}!`, 'combat');

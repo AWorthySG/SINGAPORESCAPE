@@ -1293,7 +1293,7 @@ test('good/evil alignment rises with heroism and cruelty', () => {
 
   const evil0 = game.karma.evil;
   game.killNpc(passive);
-  assert.ok(game.karma.evil > evil0, 'cutting down a harmless creature is evil');
+  assert.equal(game.karma.evil, evil0, 'cutting down a harmless creature is neutral');
 });
 
 test('thieving is evil; honouring the dead is good', () => {
@@ -1413,7 +1413,7 @@ test('an evil choice pays coins (and loot) now, and auto battle / auto quest nev
   assert.ok(dog.alive && g.player.target !== dog);
 });
 
-test('aggressive kills give good karma only every tenth kill; bosses +5; harmless +1 evil', () => {
+test('aggressive kills give good karma only every tenth kill; bosses +5; harmless kills neutral', () => {
   globalThis.localStorage = fakeStorage(); clearSave();
   const g = new Game(); g.start();
   const agg = g.npcs.find((n) => n.attackable && n.def.aggressive && !n.def.boss);
@@ -1425,7 +1425,8 @@ test('aggressive kills give good karma only every tenth kill; bosses +5; harmles
   g.killNpc(boss);
   assert.equal(g.karma.good, 7, 'a boss is still +5');
   g.killNpc(harmless);
-  assert.equal(g.karma.evil, 1);
+  assert.equal(g.karma.evil, 0, 'a harmless creature is neutral');
+  assert.equal(g.karma.good, 7, 'and no good either');
 });
 
 test('moral choices and the kill counter survive save/load; older saves load without them', () => {
