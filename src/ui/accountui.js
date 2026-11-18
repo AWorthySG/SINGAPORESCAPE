@@ -94,7 +94,7 @@ const VIEWS = {
     <p class="acct-lead">${GUEST_COPY}</p>${unavailable(c)}
     <div class="acct-actions"><button class="acct-primary" data-go="login" ${c.available === false ? 'disabled' : ''}>Log in</button>
     <button data-go="signup" ${c.available === false ? 'disabled' : ''}>Create an account</button></div>
-    <p class="acct-small"><a href="#" data-go="recover">Forgot your password?</a></p>
+    ${c.available === false ? '' : '<p class="acct-small"><a href="#" data-go="recover">Forgot your password?</a></p>'}
     <p class="acct-small">${c.status === 'signedOut' ? esc(STATUS_TEXT.signedOut) : ''}</p>`,
 
   login: () => `<h2 id="acct-title">Log in</h2>

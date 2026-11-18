@@ -76,6 +76,8 @@ test('log in with the right password; a wrong one or an unknown user is the same
   assert.equal(me.status, 200);
   assert.equal(me.json.username, 'ah_boy');
 
+  assert.deepEqual((await call(h.auth, { body: { action: 'ping' } })).json, { ok: true });
+  assert.equal((await call(h.auth, { body: { action: 'me' } })).status, 401);
   const bad = await call(h.auth, { body: { action: 'login', username: 'ah_boy', password: 'wrong-password' } });
   const none = await call(h.auth, { body: { action: 'login', username: 'nobody_here', password: 'wrong-password' } });
   assert.equal(bad.status, 401);

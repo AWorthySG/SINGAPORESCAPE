@@ -164,7 +164,7 @@ export class CloudSync {
   // ---- Accounts ----
   /** Is there an accounts API here? (A plain static server has none.) */
   async probe() {
-    const r = await this.api.call('auth', { method: 'POST', body: { action: 'me' }, token: this.account?.token });
+    const r = await this.api.call('auth', { method: 'POST', body: { action: 'ping' } });
     this.available = !r.unavailable && !r.offline ? true : r.unavailable ? false : this.available;
     if (r.unavailable) this.unavailableReason = r.error;
     return r;

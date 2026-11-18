@@ -87,6 +87,7 @@ export function makeAuthHandler(getDeps = envDeps) {
         case 'login': return send(res, 200, await login(deps, body, ip));
         case 'recover': return send(res, 200, await recover(deps, body, ip));
         case 'me': return send(res, 200, publicUser(await requireUser(req, deps)));
+        case 'ping': return send(res, 200, { ok: true });   // "are accounts working here?"
         default: throw new HttpError(400, 'Unknown action.', 'bad_action');
       }
     } catch (err) { sendError(res, err); }
