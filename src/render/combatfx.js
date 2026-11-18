@@ -1,0 +1,620 @@
+import { SPELLS } from '../data/magic.js';
+import { RARITY } from '../game/loot.js';
+
+// Combat "feel" effects: an impact for each kind of weapon (slash arcs, blunt
+// rings and dust, arrow punctures, bullet tracers, elemental spell bursts, a
+// whip's crack), cartoon stars on crits, a sticker "poof" when a monster dies,
+// a sparkle as coins land, a ring of light on milestone levels, and a soft
+// pulse at the screen's edges on big hits.
+//
+// Everything lives in one fixed pool of particle slots made up front, so a big
+// fight allocates nothing per frame, and there is a hard cap on how many can
+// be alive at once: when the pool is full the oldest effect is reused. The
+// game spawns them (headless-safe: nothing here touches the DOM until drawn);
+// the renderer ages and draws them each frame.
+
+export const MAX_FX = 240;       // live effect slots on high graphics
+export const MAX_FX_LOW = 90;    // ...and on low graphics
+export const MAX_EFFECTS = 400;  // cap on the game's own effects list (hitsplats, projectiles...)
+
+const INK = '#22304A';           // the sticker style's navy outline
+const GOLD = '#ffd24a';
+
+// ---------------- Which impact a weapon makes ----------------
+// Blades cut (slash arcs), blunt weapons and bare fists thump (a ring and
+// dust), bows, crossbows, thrown blades and the spear's thrust puncture
+// (sparks along the line of the shot), guns fire a tracer, magic bursts in its
+// element and whips crack.
+const IMPACT_BY_WEAPON = {
+  dagger: 'blade', sword: 'blade', scimitar: 'blade', longsword: 'blade', battleaxe: 'blade', '2h_sword': 'blade',
+  claws: 'blade', katana: 'blade', halberd: 'blade', parang: 'blade', kerambit: 'blade', fan: 'blade',
+  mace: 'blunt', warhammer: 'blunt', toya: 'blunt',
+  spear: 'pierce', shortbow: 'pierce', longbow: 'pierce', crossbow: 'pierce', shuriken: 'pierce', chakram: 'pierce',
+  pistol: 'bullet', rifle: 'bullet',
+  staff: 'magic', wand: 'magic', orb: 'magic',
+  whip: 'whip',
+  cane: 'coin',   // a Merchant throws money
+};
+export const IMPACT_KINDS = ['blade', 'blunt', 'pierce', 'bullet', 'magic', 'whip', 'coin'];
+
+/** The impact a weapon type makes. `mode` (the combat mode) decides for an
+ *  unknown type: magic bursts, ranged punctures, anything else thumps. */
+export function impactKind(weaponType, mode = 'melee') {
+  const k = weaponType && IMPACT_BY_WEAPON[weaponType];
+  if (k) return k;
+  return mode === 'magic' ? 'magic' : mode === 'ranged' ? 'pierce' : mode === 'dance' ? 'whip' : 'blunt';
+}
+
+/** A spell's element from the colour its sparks are drawn in (each spell has
+ *  its own tint), or null. Lets the hit hook tell fire from water for free. */
+export function elementForTint(color) {
+  for (const s of SPELLS) if (s.tint === color) return s.element;
+  return null;
+}
+
+/** How long a shot takes to reach its target (ms): the same speeds the game's
+ *  projectiles fly at (game.js _projectile), so a ranged impact lands with it. */
+export function flightMs(kind, dist) {
+  if (kind === 'pierce') return Math.min(650, 140 + dist / 0.55);
+  if (kind === 'bullet') return 110 + dist / 2.2;
+  if (kind === 'coin') return Math.min(560, 120 + dist / 0.6);
+  if (kind === 'magic') return 240;
+  return 0;
+}
+
+/** True for drops rare enough to stand in a glowing column of light: Epic and above. */
+export function hasLightColumn(rarity) {
+  return (RARITY[rarity]?.rank ?? 0) >= RARITY.epic.rank;
+}
+
+/** Milestone levels get the big celebration: every tenth level (10, 20 ... 50
+ *  ... 100s) and 99. Everything else stays modest. */
+export function isMilestoneLevel(level) {
+  return level > 1 && (level % 10 === 0 || level === 99);
+}
+
+/** Where a fresh drop is in its bounce out of the body, `ms` after it fell:
+ *  `k` how far along to its resting spot (0..1), `h` its height off the
+ *  ground in px (it starts at the body's middle), and `land` a squash for the
+ *  moment it touches down. One arc, one small bounce, then it settles. */
+export const DROP_ARC_MS = 360, DROP_BOUNCE_MS = 200;
+export function dropArc(ms, out = {}) {
+  if (ms < DROP_ARC_MS) {
+    const u = ms / DROP_ARC_MS;
+    out.k = 1 - (1 - u) * (1 - u);              // quick out, easing into the landing
+    out.h = 14 * (1 - u) + 76 * u * (1 - u);    // from the body's middle, up and over
+  } else if (ms < DROP_ARC_MS + DROP_BOUNCE_MS) {
+    const v = (ms - DROP_ARC_MS) / DROP_BOUNCE_MS;
+    out.k = 1; out.h = 24 * v * (1 - v);
+  } else { out.k = 1; out.h = 0; }
+  const d1 = Math.abs(ms - DROP_ARC_MS), d2 = Math.abs(ms - DROP_ARC_MS - DROP_BOUNCE_MS);
+  out.land = Math.max(0, 1 - Math.min(d1, d2 * 1.6) / 70);
+  return out;
+}
+
+/** Tidy a list of effects or particles in place (no new array each frame):
+ *  drop the spent ones, and past `cap` the oldest. */
+export function keepLive(arr, cap = Infinity) {
+  let w = 0;
+  for (let i = 0; i < arr.length; i++) { const e = arr[i]; if (e.life > 0) arr[w++] = e; }
+  arr.length = w;
+  if (w > cap) arr.splice(0, w - cap);
+  return arr;
+}
+
+// ---------------- The effect pool ----------------
+// Slot kinds (numbers, so drawing is a cheap switch).
+const RING = 1, SPARK = 2, DOT = 3, CHIP = 4, SWIRL = 5, STAR = 6, ARC = 7, TRACER = 8, POOF = 9, CLOUD = 10, GLOW = 11, RAY = 12, TWINKLE = 13;
+/** The slot kinds by name (for the tests and anyone inspecting the pool). */
+export const FX_KIND = { RING, SPARK, DOT, CHIP, SWIRL, STAR, ARC, TRACER, POOF, CLOUD, GLOW, RAY, TWINKLE };
+
+function newSlot() {
+  return { k: 0, x: 0, y: 0, vx: 0, vy: 0, g: 0, drag: 1, life: 0, max: 1, delay: 0, size: 1, a: 0, b: 0, sq: 1,
+    rot: 0, spin: 0, ex: 0, ey: 0, col: '#fff', add: false, fresh: false };
+}
+
+// Cosmetic randomness from its own little generator, so effects never shift
+// the game's Math.random sequence (fights and drops stay exactly as they were).
+let seed = 0x2545f491;
+function rnd() {
+  seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5;
+  return (seed >>> 0) / 4294967296;
+}
+
+export class CombatFx {
+  constructor(size = MAX_FX) {
+    this.slots = [];
+    for (let i = 0; i < size; i++) this.slots.push(newSlot());
+    this.live = 0;          // slots[0 .. live) are in use
+    this.low = false;       // low graphics: fewer pieces and a lower cap
+    this.pulseT = 0;        // screen-edge pulse: ms left, its length, strength and colour
+    this.pulseMax = 1;
+    this.pulseK = 0;
+    this.pulseCol = 'big';
+    this._vig = {};         // baked edge-glow pictures, one per colour
+    this._glow = {};        // baked soft glows, one per colour
+    this._sp = [];          // the slots the current spawner has handed out
+  }
+
+  get cap() { return Math.min(this.slots.length, this.low ? MAX_FX_LOW : MAX_FX); }
+
+  /** A free slot, reset to defaults. When full, the oldest live one is reused. */
+  _take(k, x, y, life, col) {
+    let s;
+    if (this.live < this.cap) s = this.slots[this.live++];
+    else {
+      // Full: recycle the slot nearest the end of its life (the oldest).
+      let best = 0, bl = Infinity;
+      for (let i = 0; i < this.live; i++) { const t = this.slots[i].life + this.slots[i].delay; if (t < bl) { bl = t; best = i; } }
+      s = this.slots[best];
+    }
+    s.k = k; s.x = x; s.y = y; s.vx = 0; s.vy = 0; s.g = 0; s.drag = 1; s.life = life; s.max = life; s.delay = 0;
+    s.size = 1; s.a = 0; s.b = 0; s.sq = 1; s.rot = 0; s.spin = 0; s.ex = x; s.ey = y; s.col = col; s.add = false; s.fresh = false;
+    this._sp.push(s);
+    return s;
+  }
+
+  // Every slot one spawner hands out is noted, so the whole group can be
+  // delayed together (a shot's flight) or held for the hero's swing.
+  _begin() { this._sp.length = 0; }
+  _end(delay = 0, melee = false) {
+    for (const s of this._sp) {
+      if (s.k === TRACER) continue;   // a tracer streaks out at once
+      s.delay += delay; s.fresh = melee;
+    }
+    this._sp.length = 0;
+  }
+
+  _n(n) { return this.low ? Math.max(1, n >> 1) : n; }
+
+  // --- spawners ---
+  ring(x, y, r0, r1, life, col, width = 2.5, sq = 1) {
+    const s = this._take(RING, x, y, life, col); s.a = r0; s.b = r1; s.size = width; s.sq = sq; return s;
+  }
+  _burst(k, x, y, n, speed, life, col, opts = {}) {
+    for (let i = 0; i < n; i++) {
+      const ang = (opts.ang ?? 0) + (opts.spread ?? Math.PI * 2) * (n > 1 ? (i / n - 0.5 + (rnd() - 0.5) / n) : 0) + (opts.spread ? 0 : rnd() * 6.283);
+      const sp = speed * (0.6 + rnd() * 0.7);
+      const s = this._take(k, x, y, life * (0.75 + rnd() * 0.5), col);
+      s.vx = Math.cos(ang) * sp; s.vy = Math.sin(ang) * sp + (opts.up || 0);
+      s.g = opts.g || 0; s.drag = opts.drag ?? 0.992; s.size = (opts.size || 2) * (0.7 + rnd() * 0.6);
+      s.rot = rnd() * 6.283; s.spin = opts.spin ? (rnd() - 0.5) * opts.spin : 0; s.add = !!opts.add;
+    }
+  }
+
+  /** The hit of one blow. `kind` from impactKind; opts: from {x,y} (the
+   *  attacker, for the line of a shot), delay (ms until it lands), element
+   *  (magic), crit, melee (wait for the hero's weapon to land, see armFresh). */
+  impact(kind, x, y, opts = {}) {
+    this._begin();
+    const crit = !!opts.crit;
+    const dx = opts.from ? x - opts.from.x : 1, dy = opts.from ? y - opts.from.y : 0;
+    const ang = Math.atan2(dy, dx);
+    switch (kind) {
+      case 'blade': {
+        // A bold sticker crescent (white with a coloured edge) cutting across.
+        const a = this._take(ARC, x, y, 230, crit ? GOLD : '#ffffff');
+        a.rot = rnd() * 6.283; a.spin = (rnd() < 0.5 ? -1 : 1) * 0.009; a.size = crit ? 19 : 15;
+        this._burst(SPARK, x, y, this._n(4), 0.16, 220, crit ? GOLD : '#fff6cf', { add: true, size: 1.6 });
+        break;
+      }
+      case 'blunt': {
+        this.ring(x, y, 4, crit ? 26 : 20, 260, '#ffffff', 3.5);
+        this.ring(x, y + 12, 3, 22, 340, '#e9d7ad', 2.5, 0.42);   // a shock ring on the ground
+        this._burst(CLOUD, x, y + 10, this._n(5), 0.035, 520, '#efe4cc', { size: 4, up: -0.02, drag: 0.985 });
+        break;
+      }
+      case 'pierce': {
+        // Puncture: a tight spray of sparks out the far side of the hit.
+        this._burst(SPARK, x, y, this._n(6), 0.2, 200, crit ? GOLD : '#fff2b0', { ang, spread: 1.1, add: true, size: 1.5 });
+        this.ring(x, y, 2, 9, 160, '#ffffff', 2);
+        break;
+      }
+      case 'bullet': {
+        // The tracer streaks muzzle to target at once; the pop waits for the shot.
+        if (opts.from) {
+          const t = this._take(TRACER, opts.from.x, opts.from.y - 4, 120, '#fff4c2');
+          t.ex = x; t.ey = y;
+        }
+        this.ring(x, y, 3, 14, 180, '#ffffff', 3);
+        this._burst(SPARK, x, y, this._n(5), 0.22, 160, '#ffe28a', { ang, spread: 2.2, add: true, size: 1.4 });
+        this._burst(CLOUD, x, y, this._n(2), 0.02, 360, '#d8d8d8', { size: 3 });
+        break;
+      }
+      case 'magic': this._spell(x, y, opts.element, crit); break;
+      case 'whip': {
+        // The crack: two quick thin rings, one just after the other, and a snap of sparks.
+        this.ring(x, y, 2, 18, 200, '#ff8ac0', 2);
+        this.ring(x, y, 2, 12, 200, '#ffffff', 1.5).delay = 50;
+        this._burst(SPARK, x, y, this._n(3), 0.18, 160, '#ffd0e6', { add: true, size: 1.4 });
+        break;
+      }
+      case 'coin': {
+        this.ring(x, y, 3, 14, 220, GOLD, 2.5);
+        this._burst(TWINKLE, x, y, this._n(4), 0.07, 420, GOLD, { size: 3, up: -0.03 });
+        break;
+      }
+    }
+    // The pieces of this hit land together, after the shot's flight.
+    this._end(opts.delay || 0, !!opts.melee);
+  }
+
+  /** A spell's burst by element, and an enchanted glow behind it. */
+  _spell(x, y, element, crit) {
+    const col = { fire: '#ff8a3d', water: '#6fc3ff', earth: '#a87b4a', wind: '#a8f0c8' }[element] || '#c890f0';
+    if (!this.low) { const g = this._take(GLOW, x, y, 380, col); g.size = crit ? 30 : 22; }
+    switch (element) {
+      case 'fire':   // embers that float up and wink out
+        this._burst(DOT, x, y, this._n(9), 0.08, 520, '#ffae3a', { g: -0.00012, up: -0.03, add: true, size: 1.8 });
+        this.ring(x, y, 4, 18, 240, '#ffcf6a', 3);
+        break;
+      case 'water':  // droplets thrown up that fall back, and a flat splash ring
+        this._burst(DOT, x, y, this._n(9), 0.11, 520, '#9fdcff', { g: 0.0007, up: -0.12, size: 1.9 });
+        this.ring(x, y + 8, 4, 22, 320, '#bfe8ff', 2.5, 0.45);
+        break;
+      case 'earth':  // tumbling chips of stone and a puff of dust
+        this._burst(CHIP, x, y, this._n(7), 0.12, 560, '#9a6f40', { g: 0.0008, up: -0.12, spin: 0.03, size: 2.6 });
+        this._burst(CLOUD, x, y + 8, this._n(3), 0.03, 460, '#d9c3a0', { size: 4 });
+        break;
+      case 'wind': { // little swirls spinning out
+        for (let i = 0; i < this._n(3); i++) {
+          const s = this._take(SWIRL, x, y, 420, i ? '#d8fff0' : '#8fe0b8');
+          s.a = 4; s.b = 16 + i * 4; s.rot = i * 2.1; s.spin = 0.014 * (i % 2 ? -1 : 1);
+        }
+        this._burst(SPARK, x, y, this._n(4), 0.12, 220, '#e8fff6', { add: true, size: 1.3 });
+        break;
+      }
+      default: this.ring(x, y, 4, 18, 260, col, 2.5);
+    }
+  }
+
+  /** Cartoon impact stars bursting off a crit (no blood: this is a cosy game). */
+  critStars(x, y, opts = {}) {
+    this._begin();
+    const big = !!opts.big;
+    this._burst(STAR, x, y, this._n(big ? 6 : 4), big ? 0.13 : 0.1, 560, GOLD, { up: -0.04, g: 0.0002, spin: 0.02, size: big ? 8 : 6.5 });
+    this.ring(x, y, 4, big ? 24 : 16, 200, '#ffffff', 3);
+    this._end(opts.delay || 0, !!opts.melee);
+  }
+
+  /** A monster pops: a puff of sticker clouds and stars, and a little "POOF!". */
+  deathPoof(x, y, scale = 1, delay = 0) {
+    this._begin();
+    this._burst(CLOUD, x, y, this._n(6), 0.05 * scale, 520, '#ffffff', { size: 5 * scale, up: -0.015, drag: 0.98 });
+    this._burst(STAR, x, y, this._n(5), 0.11 * scale, 620, GOLD, { up: -0.05, g: 0.0002, spin: 0.02, size: 4.5 * scale });
+    const p = this._take(POOF, x, y - 10 * scale, 760, INK);
+    p.size = Math.min(1.8, scale); p.vy = -0.02;
+    this._end(delay);
+  }
+
+  /** Coins landing burst in a twinkling sparkle. */
+  coinSparkle(x, y, delay = 0) {
+    this._begin();
+    this._burst(TWINKLE, x, y, this._n(7), 0.06, 560, GOLD, { up: -0.04, size: 3.2 });
+    this.ring(x, y + 2, 2, 12, 260, '#fff2a0', 2, 0.5);
+    this._end(delay);
+  }
+
+  /** A milestone level: a ring of light, rays and twinkles (the game adds the
+   *  confetti and the sound as for any level). */
+  levelBurst(x, y) {
+    this._begin();
+    this.ring(x, y, 8, 70, 760, '#fff3b0', 6);
+    this.ring(x, y, 6, 52, 700, GOLD, 3).delay = 140;
+    this.ring(x, y + 14, 6, 46, 820, '#ffe680', 3, 0.42);
+    if (!this.low) { const g = this._take(GLOW, x, y, 900, GOLD); g.size = 46; }
+    const n = this._n(12);
+    for (let i = 0; i < n; i++) {
+      const r = this._take(RAY, x, y, 820, i % 2 ? '#fff6c8' : GOLD);
+      r.rot = (i / n) * Math.PI * 2; r.spin = 0.0012; r.size = 56 + (i % 3) * 10;
+    }
+    this._burst(TWINKLE, x, y, this._n(10), 0.09, 900, '#fff6c8', { up: -0.04, size: 3.5 });
+    this._end();
+  }
+
+  /** A soft pulse at the screen's edges: 'big' (gold, a huge hit you dealt)
+   *  or 'hurt' (red, you were hit hard). `k` 0..1 sets its strength. */
+  pulse(col, k = 1) {
+    if (this.pulseT > 0 && this.pulseK * (this.pulseT / this.pulseMax) > k) return;   // a stronger one is already showing
+    this.pulseCol = col; this.pulseK = Math.max(0.2, Math.min(1, k)); this.pulseT = this.pulseMax = 420;
+  }
+
+  /** Impacts of a melee blow wait for the hero's weapon to land (the game deals
+   *  the blow as the swing starts): the renderer passes how long until then. */
+  armFresh(delayMs) {
+    for (let i = 0; i < this.live; i++) {
+      const s = this.slots[i];
+      if (!s.fresh) continue;
+      s.fresh = false;
+      if (delayMs > 0) s.delay += delayMs;
+    }
+  }
+
+  /** Age everything by `dt` ms and free the spent slots (swap-remove, no allocation). */
+  update(dt) {
+    if (this.pulseT > 0) this.pulseT = Math.max(0, this.pulseT - dt);
+    let i = 0;
+    while (i < this.live) {
+      const s = this.slots[i];
+      if (s.delay > 0) { s.delay -= dt; if (s.delay > 0) { i++; continue; } }
+      s.life -= dt;
+      if (s.life <= 0) {
+        // Swap the last live slot into this place.
+        const last = this.slots[--this.live];
+        this.slots[this.live] = s; this.slots[i] = last;
+        continue;
+      }
+      if (s.drag !== 1) { const d = s.drag ** (dt / 16); s.vx *= d; s.vy *= d; }
+      s.vy += s.g * dt;
+      s.x += s.vx * dt; s.y += s.vy * dt;
+      s.rot += s.spin * dt;
+      i++;
+    }
+  }
+
+  clear() { this.live = 0; this.pulseT = 0; }
+
+  // ---------------- Drawing ----------------
+  draw(ctx, ox, oy) {
+    if (!this.live) return;
+    for (let i = 0; i < this.live; i++) {
+      const s = this.slots[i];
+      if (s.delay > 0) continue;
+      const t = 1 - s.life / s.max, fade = 1 - t;
+      const x = s.x - ox, y = s.y - oy;
+      ctx.globalCompositeOperation = s.add ? 'lighter' : 'source-over';
+      switch (s.k) {
+        case RING: {
+          const r = s.a + (s.b - s.a) * (1 - (1 - t) * (1 - t));
+          ctx.globalAlpha = fade; ctx.strokeStyle = s.col; ctx.lineWidth = Math.max(0.5, s.size * fade);
+          ctx.beginPath(); ctx.ellipse(x, y, r, r * s.sq, 0, 0, 6.2832); ctx.stroke();
+          break;
+        }
+        case SPARK: {
+          ctx.globalAlpha = fade; ctx.strokeStyle = s.col; ctx.lineWidth = s.size; ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - s.vx * 28, y - s.vy * 28); ctx.stroke();
+          break;
+        }
+        case DOT: {
+          ctx.globalAlpha = fade; ctx.fillStyle = s.col;
+          ctx.beginPath(); ctx.arc(x, y, s.size * (0.5 + 0.5 * fade), 0, 6.2832); ctx.fill();
+          break;
+        }
+        case CHIP: {
+          ctx.globalAlpha = Math.min(1, fade * 2);
+          ctx.save(); ctx.translate(x, y); ctx.rotate(s.rot);
+          ctx.fillStyle = s.col; ctx.strokeStyle = INK; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(-s.size, -s.size * 0.6); ctx.lineTo(s.size, -s.size); ctx.lineTo(s.size * 0.7, s.size * 0.8); ctx.lineTo(-s.size * 0.8, s.size * 0.6); ctx.closePath();
+          ctx.fill(); ctx.stroke(); ctx.restore();
+          break;
+        }
+        case SWIRL: {
+          const r = s.a + (s.b - s.a) * t;
+          ctx.globalAlpha = fade; ctx.strokeStyle = s.col; ctx.lineWidth = 2.2 * fade + 0.5; ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.arc(x, y, r, s.rot, s.rot + 3.6); ctx.stroke();
+          break;
+        }
+        case STAR: {
+          // Pops in big, then shrinks away as it flies.
+          const pop = t < 0.15 ? t / 0.15 : 1 - (t - 0.15) * 0.6;
+          ctx.globalAlpha = Math.min(1, fade * 2.2);
+          ctx.save(); ctx.translate(x, y); ctx.rotate(s.rot); drawStar(ctx, s.size * pop, s.col); ctx.restore();
+          break;
+        }
+        case ARC: {
+          // A sticker crescent: white body, coloured edge, navy outline, sweeping round.
+          ctx.save(); ctx.translate(x, y); ctx.rotate(s.rot + s.spin * s.max * (t - 0.5));
+          const r = s.size * (0.8 + t * 0.35);
+          ctx.globalAlpha = fade;
+          ctx.lineCap = 'round';
+          ctx.strokeStyle = INK; ctx.lineWidth = 7 * fade + 1.5; ctx.beginPath(); ctx.arc(0, 0, r, -0.9, 0.9); ctx.stroke();
+          ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 5 * fade + 0.8; ctx.beginPath(); ctx.arc(0, 0, r, -0.9, 0.9); ctx.stroke();
+          ctx.strokeStyle = s.col; ctx.lineWidth = 2 * fade + 0.4; ctx.beginPath(); ctx.arc(0, 0, r + 1.5, -0.6, 0.6); ctx.stroke();
+          ctx.restore();
+          break;
+        }
+        case TRACER: {
+          const ex = s.ex - ox, ey = s.ey - oy;
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.globalAlpha = fade * 0.9; ctx.strokeStyle = s.col; ctx.lineWidth = 2.2 * fade + 0.4; ctx.lineCap = 'round';
+          // The streak's tail catches up with its head as it fades.
+          ctx.beginPath(); ctx.moveTo(x + (ex - x) * t * 0.85, y + (ey - y) * t * 0.85); ctx.lineTo(ex, ey); ctx.stroke();
+          break;
+        }
+        case CLOUD: {
+          const r = s.size * (0.6 + t * 0.9);
+          ctx.globalAlpha = fade * 0.95;
+          ctx.fillStyle = s.col; ctx.strokeStyle = INK; ctx.lineWidth = 1.2;
+          ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill(); ctx.stroke();
+          break;
+        }
+        case POOF: {
+          // A white sticker label: pops up big, settles, then fades.
+          const pop = t < 0.18 ? 0.4 + (t / 0.18) * 0.75 : t < 0.3 ? 1.15 - (t - 0.18) / 0.12 * 0.15 : 1;
+          ctx.globalAlpha = t > 0.7 ? (1 - t) / 0.3 : 1;
+          ctx.save(); ctx.translate(x, y); ctx.scale(pop * s.size, pop * s.size); ctx.rotate(-0.12);
+          ctx.fillStyle = '#ffffff'; ctx.strokeStyle = INK; ctx.lineWidth = 1.6;
+          ctx.beginPath();
+          if (ctx.roundRect) ctx.roundRect(-17, -7.5, 34, 15, 7.5); else ctx.rect(-17, -7.5, 34, 15);
+          ctx.fill(); ctx.stroke();
+          ctx.fillStyle = INK; ctx.font = 'bold 10px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText('POOF!', 0, 0.5);
+          ctx.restore();
+          break;
+        }
+        case GLOW: {
+          const img = this._glowImg(s.col);
+          if (!img) break;
+          const r = s.size * (0.7 + t * 0.5);
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.globalAlpha = fade * 0.8;
+          ctx.drawImage(img, x - r, y - r, r * 2, r * 2);
+          break;
+        }
+        case RAY: {
+          const len = s.size * (0.35 + t * 0.8), w = 0.07 * fade + 0.02;
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.globalAlpha = fade * 0.7; ctx.fillStyle = s.col;
+          ctx.beginPath(); ctx.moveTo(x, y);
+          ctx.lineTo(x + Math.cos(s.rot - w) * len, y + Math.sin(s.rot - w) * len);
+          ctx.lineTo(x + Math.cos(s.rot + w) * len, y + Math.sin(s.rot + w) * len);
+          ctx.closePath(); ctx.fill();
+          break;
+        }
+        case TWINKLE: {
+          // A four-pointed glint that grows then shrinks.
+          const r = s.size * Math.sin(Math.min(1, t * 1.2) * Math.PI);
+          if (r <= 0.2) break;
+          ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 1; ctx.fillStyle = s.col;
+          ctx.beginPath();
+          ctx.moveTo(x, y - r * 2); ctx.lineTo(x + r * 0.45, y - r * 0.45); ctx.lineTo(x + r * 2, y); ctx.lineTo(x + r * 0.45, y + r * 0.45);
+          ctx.lineTo(x, y + r * 2); ctx.lineTo(x - r * 0.45, y + r * 0.45); ctx.lineTo(x - r * 2, y); ctx.lineTo(x - r * 0.45, y - r * 0.45);
+          ctx.closePath(); ctx.fill();
+          break;
+        }
+      }
+    }
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.lineCap = 'butt';
+  }
+
+  /** The screen-edge pulse, drawn over the world (a baked picture, stretched). */
+  drawPulse(ctx, vw, vh) {
+    if (this.pulseT <= 0) return;
+    const img = this._vigImg(this.pulseCol);
+    if (!img) return;
+    const t = 1 - this.pulseT / this.pulseMax;
+    // Swells quickly, then ebbs away.
+    ctx.globalAlpha = this.pulseK * (t < 0.2 ? t / 0.2 : (1 - t) / 0.8) * 0.8;
+    ctx.drawImage(img, 0, 0, vw, vh);
+    ctx.globalAlpha = 1;
+  }
+
+  _canvas(w, h) {
+    if (typeof document === 'undefined') return null;
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    return c;
+  }
+  _glowImg(col) {
+    if (this._glow[col] !== undefined) return this._glow[col];
+    const c = this._canvas(64, 64);
+    if (c) {
+      const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+      gr.addColorStop(0, col + 'cc'); gr.addColorStop(0.45, col + '55'); gr.addColorStop(1, col + '00');
+      g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+    }
+    return (this._glow[col] = c);
+  }
+  _vigImg(kind) {
+    if (this._vig[kind] !== undefined) return this._vig[kind];
+    const c = this._canvas(128, 96);
+    if (c) {
+      const g = c.getContext('2d'), gr = g.createRadialGradient(64, 48, 30, 64, 48, 84);
+      const rgb = kind === 'hurt' ? '200,30,40' : '255,200,70';
+      gr.addColorStop(0, `rgba(${rgb},0)`); gr.addColorStop(0.7, `rgba(${rgb},0.25)`); gr.addColorStop(1, `rgba(${rgb},0.75)`);
+      g.fillStyle = gr; g.fillRect(0, 0, 128, 96);
+    }
+    return (this._vig[kind] = c);
+  }
+}
+
+// The soft glowing column an Epic+ drop stands in: baked once per colour (a
+// bright core fading out to the sides and up to the top), then stretched.
+const _columns = {};
+export function columnImage(col) {
+  if (_columns[col] !== undefined) return _columns[col];
+  let c = null;
+  if (typeof document !== 'undefined') {
+    c = document.createElement('canvas'); c.width = 32; c.height = 64;
+    const g = c.getContext('2d');
+    const side = g.createLinearGradient(0, 0, 32, 0);
+    side.addColorStop(0, col + '00'); side.addColorStop(0.35, col + '66'); side.addColorStop(0.5, '#ffffffcc');
+    side.addColorStop(0.65, col + '66'); side.addColorStop(1, col + '00');
+    g.fillStyle = side; g.fillRect(0, 0, 32, 64);
+    g.globalCompositeOperation = 'destination-in';
+    const up = g.createLinearGradient(0, 0, 0, 64);
+    up.addColorStop(0, 'rgba(0,0,0,0)'); up.addColorStop(0.55, 'rgba(0,0,0,0.8)'); up.addColorStop(1, 'rgba(0,0,0,1)');
+    g.fillStyle = up; g.fillRect(0, 0, 32, 64);
+  }
+  return (_columns[col] = c);
+}
+
+/** A chunky five-pointed sticker star: white border, gold fill, navy ink. */
+function drawStar(ctx, r, col) {
+  if (r <= 0.3) return;
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.48 : r;
+    if (i) ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); else ctx.moveTo(Math.cos(a) * rr, Math.sin(a) * rr);
+  }
+  ctx.closePath();
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = INK; ctx.lineWidth = 3.4; ctx.stroke();
+  ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = col; ctx.fill();
+}
+
+// ---------------- Hooks the game calls ----------------
+// Small functions so game.js only needs a one-line call at each spot.
+
+/** Where and when a blow by the player lands on `npc`: its impact point, the
+ *  attacker's position, the shot's flight time, and whether it is a melee
+ *  blow (which waits for the hero's swing, see CombatFx.armFresh). */
+function blowAt(game, npc, kind) {
+  const c = npc.renderCenter(), p = game.player.renderCenter();
+  const dist = Math.hypot(c.x - p.x, c.y - p.y);
+  return { x: c.x, y: c.y - 8, from: p, delay: flightMs(kind, dist), melee: kind === 'blade' || kind === 'blunt' || kind === 'whip' || (kind === 'pierce' && game.combatMode() === 'melee') };
+}
+
+/** The impact for a blow the player (or their side) landed on `npc`.
+ *  `color`: the sparks' colour, which tells a spell's element and a crit. */
+export function hitImpact(game, npc, color) {
+  const fx = game.cfx;
+  if (!fx || !npc?.renderCenter) return;
+  fx.low = !!game.lowFx;
+  const kind = impactKind(game.weaponType?.(), game.combatMode?.());
+  const b = blowAt(game, npc, kind);
+  // A spear's thrust has no flight time; its puncture lands with the swing.
+  if (b.melee) b.delay = 0;
+  fx.impact(kind, b.x, b.y, { from: b.from, delay: b.delay, melee: b.melee, crit: color === GOLD, element: kind === 'magic' ? elementForTint(color) : null });
+}
+
+// A hit this share of the foe's life (or of yours) counts as a big one.
+export const BIG_HIT_SHARE = 0.25, HURT_HARD_SHARE = 0.15;
+
+/** Crit stars and the screen-edge pulse for a hitsplat (from addHitsplat). */
+export function hitsplatFx(game, entity, dmg, opts = {}) {
+  const fx = game.cfx;
+  if (!fx || !(dmg > 0) || !entity?.renderCenter) return;
+  fx.low = !!game.lowFx;
+  if (entity === game.player) {
+    const share = dmg / Math.max(1, game.maxHp());
+    if (share >= HURT_HARD_SHARE && !game.reduceMotion) fx.pulse('hurt', share / 0.4);
+    return;
+  }
+  if (opts.text) return;
+  const crit = opts.crit || opts.critX > 0;
+  const big = !opts.aoe && dmg >= (entity.maxHp || Infinity) * BIG_HIT_SHARE;
+  if (crit && !(opts.aoe && fx.low)) {
+    const kind = impactKind(game.weaponType?.(), game.combatMode?.());
+    const b = blowAt(game, entity, kind);
+    fx.critStars(b.x, b.y - 6, { big: big || game._pendingCrit >= 4, delay: b.melee ? 0 : b.delay, melee: b.melee });
+  }
+  if ((big || (opts.crit && game._pendingCrit >= 4)) && !game.reduceMotion) fx.pulse('big', big ? 0.9 : 0.6);
+}
+
+/** A monster's death: the sticker poof as its fall ends (from _deathBurst). */
+export function deathFx(game, npc) {
+  const fx = game.cfx;
+  if (!fx || !npc?.renderCenter) return;
+  fx.low = !!game.lowFx;
+  const c = npc.renderCenter(), sc = npc.def?.scale || 1;
+  fx.deathPoof(c.x, c.y - 6 * sc, Math.min(2, 0.85 + sc * 0.25 + (npc.def?.boss ? 0.4 : 0)), 260);
+}
+
+/** First sight of a fresh drop (from the renderer): coins sparkle as they land. */
+export function dropFx(game, gi, x, y, wait = 0) {
+  const fx = game.cfx;
+  if (!fx || gi.id !== 'coins') return;
+  fx.low = !!game.lowFx;
+  fx.coinSparkle(x, y, Math.max(0, wait) + DROP_ARC_MS);
+}

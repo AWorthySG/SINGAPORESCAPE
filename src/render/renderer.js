@@ -29,7 +29,7 @@ const ARROW_LOOK = {
   eternal: { head: '#c27bff', fletch: '#ecd6ff', shaft: '#3a2a5a', trail: '#d6a8ff', glow: '#a855ff', size: 1.25, barbed: true },
 };
 import { labelMode, objectLabelAlpha, npcNameVisible, targetTag } from './worldlabels.js';
-import { drawShadow, drawCreature, drawPlayer, drawObjectSprite, drawGroundItem } from './sprites.js';
+import { drawCreature, drawPlayer, drawObjectSprite, drawGroundItem } from './sprites.js';
 import { heroAnimFrame, drawFishingGear, strikeClock } from './heroanim.js';
 import { RARITY } from '../game/loot.js';
 // The effects a melee blow spawns that wait for its strike (see _holdForStrike).
@@ -42,6 +42,8 @@ import { Weather } from './weather.js';
 import { fxImage, fxTinted, drawFx, drawStrip, badgeKey, preloadFx, DARK_REGIONS } from './fxart.js';
 import { introCurve, titleAlpha, DEATH_FLASH_MS } from '../game/cinematics.js';
 import { TerrainFx } from './terrainfx.js';
+import { sunShadow, drawSunShadow, footfall } from './shadows.js';
+import { hasLightColumn, columnImage, dropArc, dropFx } from './combatfx.js';
 
 // Gathering actions that show a progress ring over the node, and its colour.
 const GATHER_RING = { woodcut: '#4fa04f', mine: '#8a8fa0', fish: '#3a8fd8', hunt: '#d08a3a' };
@@ -174,6 +176,9 @@ export class Renderer {
     const ox = Math.round((cam.originX + shx) * dpr) / dpr, oy = Math.round((cam.originY + shy) * dpr) / dpr;
     const vw = cam.viewW, vh = cam.viewH;
     const night = 1 - game.daylightFactor(); // 0 (noon) .. 1 (midnight) — lights, fireflies
+    // Shadows lean and stretch with the sun (shadows.js); low graphics keeps the plain ones.
+    const sun = sunShadow(game.dayPhase(), this._sun || (this._sun = {}));
+    sun.low = !!game.lowFx;
 
     ctx.fillStyle = '#FAF6EE'; ctx.fillRect(0, 0, vw, vh);   // opaque canvas: paint, don't clear
     ctx.fillStyle = '#16241a';
@@ -249,20 +254,35 @@ export class Renderer {
     }
     for (const g of game.world.groundItems) {
       if (g.x < x0 || g.x > x1 || g.y < y0 || g.y > y1) continue;
-      // Fresh drops pop out in a little hop to their scatter spot.
-      const age = g.born ? Math.min(1, (performance.now() - g.born) / 260) : 1;
-      const hop = g.born ? Math.sin(age * Math.PI) * 10 : 0;
-      const cx = g.x * TILE + TILE / 2 - ox + (g.ox || 0) * age, cy = g.y * TILE + TILE * 0.62 - oy + (g.oy || 0) * age - hop;
-      const rar = RARITY[g.rarity] || RARITY.common;
+      const rar = RARITY[g.rarity] || RARITY.common, column = hasLightColumn(g.rarity);
       drawables.push({ sortY: g.y - 0.3, z: 0, draw: () => {
+        // (Worked out at draw time, after the hero's clip has noted this frame's blow.)
+        if (g.born && !g._fx) {
+          // First sight: a drop from a blow still being swung waits for the strike; coins sparkle as they land.
+          g._fx = true;
+          const clk = strikeClock(game);
+          if (clk && Math.abs(g.born - clk.blowAt) < 80 && clk.hitTimes[0] > g.born) g.born = clk.hitTimes[0];
+          dropFx(game, g, g.x * TILE + TILE / 2 + (g.ox || 0), g.y * TILE + TILE * 0.62 + (g.oy || 0), g.born - performance.now());
+        }
+        // Fresh drops bounce out of the body in an arc and settle (combatfx.js dropArc).
+        const ms = g.born ? performance.now() - g.born : 1e9;
+        if (ms < 0) return;   // still waiting for the blow that dropped it to land
+        const arc = dropArc(ms, this._arc || (this._arc = {}));
+        const cx = g.x * TILE + TILE / 2 - ox + (g.ox || 0) * arc.k, cy = g.y * TILE + TILE * 0.62 - oy + (g.oy || 0) * arc.k - arc.h;
         // Soft glow so loot on the ground is easy to spot, tinted by rarity.
         ctx.save();
         // Additive light vanishes on the pale pastel ground, so rare beams paint solid colour.
         ctx.globalCompositeOperation = rar.rank ? 'source-over' : 'lighter';
-        if (rar.rank > 0) {
-          // Rare+ drops shoot a pillar of light and pulse a ring at their base.
-          const grow = Math.min(1, age * 1.6);
+        if (column) {
+          // Epic and Legendary drops stand in a glowing column of light (a soft
+          // wide glow behind a bright core) once they've landed.
+          const grow = Math.min(1, Math.max(0, ms - 300) / 260);
           const bh = (34 + rar.rank * 14) * grow, bw = 5 + rar.rank * 2;
+          const glow = columnImage(rar.color);
+          if (glow) {
+            ctx.globalAlpha = 0.6 + Math.sin(timeMs * 0.006) * 0.15;
+            ctx.drawImage(glow, cx - bw * 2.4, cy - bh * 1.2, bw * 4.8, bh * 1.2 + 4);
+          }
           const beam = ctx.createLinearGradient(0, cy - bh, 0, cy);
           beam.addColorStop(0, rar.color + '00');
           beam.addColorStop(0.6, rar.color + 'AA');
@@ -274,6 +294,12 @@ export class Renderer {
           ctx.globalAlpha = 1 - ring;
           ctx.strokeStyle = rar.color; ctx.lineWidth = 2.5;
           ctx.beginPath(); ctx.ellipse(cx, cy + 3, 6 + ring * 10, 3 + ring * 5, 0, 0, Math.PI * 2); ctx.stroke();
+        } else if (rar.rank > 0) {
+          // Rare drops just pulse a ring at their base.
+          const ring = (timeMs % 900) / 900;
+          ctx.globalAlpha = 1 - ring;
+          ctx.strokeStyle = rar.color; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.ellipse(cx, cy + 3, 6 + ring * 8, 3 + ring * 4, 0, 0, Math.PI * 2); ctx.stroke();
         }
         ctx.globalAlpha = rar.rank ? 0.35 : 0.22 + Math.sin(timeMs * 0.005 + g.x + g.y) * 0.06;
         ctx.fillStyle = rar.color;
@@ -321,7 +347,9 @@ export class Renderer {
       const spawn = n.spawnT > 0 ? n.spawnT / 350 : 0;
       drawables.push({ sortY: c.y / TILE, z: 2, draw: () => {
         if (spawn > 0) { ctx.save(); ctx.globalAlpha = 1 - spawn; }
-        drawShadow(ctx, cx, cy + 12 * sc, 10 * sc, 4.5 * sc);
+        // A footfall or the end of a respawn's hop squashes the shadow a touch.
+        const land = spawn > 0 && spawn < 0.3 ? Math.sin(spawn / 0.3 * Math.PI) : 0;
+        drawSunShadow(ctx, cx, cy + 12 * sc, 10 * sc, 4.5 * sc, sun, Math.max(footfall(n.walkPhase, n.isMoving) * 0.6, land), spawn * spawn * 6 * sc);
         if (n === game.player.target) this._lockOn(cx, cy + 12 * sc, sc, timeMs);
         if (n.shieldTicks > 0 || n.reflectTicks > 0) {
           // Boss buffs: a blue bubble while shielded, a spiky gold ring while reflecting.
@@ -374,7 +402,7 @@ export class Renderer {
         drawables.push({ sortY: sy, z: 3, draw: () => drawFishingGear(ctx, anim, cx + off.x, cy + off.y) });
       }
       drawables.push({ sortY: c.y / TILE, z: 2, draw: () => {
-        drawShadow(ctx, cx, cy + 13, 10, 4.5);
+        drawSunShadow(ctx, cx, cy + 13, 10, 4.5, sun, footfall(game.player.walkPhase, game.player.isMoving) * (game.player.running ? 0.8 : 0.5));
         if (al?.aura) this._auraBack(cx + off.x, cy + off.y, al, timeMs);
         const sk = game.player.swingProgress();
         if (sk >= 0 && game.combatMode() === 'magic') this._castRing(cx, cy + 12, sk);
@@ -394,6 +422,8 @@ export class Renderer {
       } });
     }
     this._holdForStrike(timeMs);
+    // A melee blow's impact waits for the weapon to land, like its hitsplat.
+    { const clk = strikeClock(game); game.cfx.armFresh(clk && timeMs - clk.blowAt < 60 ? clk.hitTimes[0] - timeMs : 0); }
     drawables.sort((a, b) => (a.sortY - b.sortY) || (a.z - b.z));
     for (const d of drawables) d.draw();
 
@@ -407,8 +437,12 @@ export class Renderer {
     this.critters.drawAir(ctx, ox, oy, timeMs);
     this._drawParticles(ox, oy);
     this._drawProjectiles(ox, oy);
+    // Impacts, crit stars, death poofs, coin sparkles, level-up light (combatfx.js).
+    game.cfx.update(game.hitStop > 0 ? fdt * 0.12 : fdt);
+    game.cfx.draw(ctx, ox, oy);
     this._drawOverheads(ox, oy);
     this._drawHurtFlash(vw, vh);
+    if (!game.reduceMotion) game.cfx.drawPulse(ctx, vw, vh);
     this._drawCinematics(vw, vh);
   }
 
@@ -521,7 +555,7 @@ export class Renderer {
     const cine = this.game.cine;
     if (!cine) return;
     const { ctx } = this;
-    if (cine.flash > 0) {
+    if (cine.flash > 0 && !this.game.reduceMotion) {
       ctx.fillStyle = `rgba(255,252,240,${(0.5 * cine.flash / DEATH_FLASH_MS).toFixed(3)})`;
       ctx.fillRect(0, 0, vw, vh);
     }
@@ -652,7 +686,7 @@ export class Renderer {
       ctx.fillRect(0, 0, vw, vh);
     }
     const h = game.player.hurt;
-    if (!h || !game.player.alive) return;
+    if (!h || !game.player.alive || game.reduceMotion) return;   // Reduce motion: no flashes
     const a = Math.min(0.45, (h / 200) * 0.45);
     const g = ctx.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * 0.32, vw / 2, vh / 2, Math.max(vw, vh) * 0.72);
     g.addColorStop(0, 'rgba(180,0,0,0)');
