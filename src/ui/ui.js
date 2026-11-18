@@ -62,6 +62,7 @@ import { isBone } from '../data/bones.js';
 import { RACES, raceOf, weaponsFor, weaponTypeName, WEAPON_VS_RACE } from '../data/races.js';
 import { WaveHud } from './wavehud.js';
 import { PlayHud } from './playhud.js';
+import { addCollectionButton } from './collectionui.js';
 import { TIPS, TIPS_KEY, nextTip, markTipSeen, tipsSeen } from './tips.js';
 import { foeDetails, labelMode, nextLabelMode, LABEL_MODE_NAMES } from '../render/worldlabels.js';
 import { applyAccessibility, countUp, playCloseGhost, inlineIcon, nextTextSize, TEXT_SIZE_NAMES } from './uifx.js';
@@ -2945,6 +2946,7 @@ export class UI {
     btn.textContent = `Open Monster Codex (${seen}/${ids})`;
     btn.addEventListener('click', () => this.openBestiary());
     panel.insertBefore(btn, panel.firstChild);
+    addCollectionButton(this, panel);   // the Collection log and pets (collectionui.js)
   }
 
   // ---------------- Bestiary / Monster Codex ----------------

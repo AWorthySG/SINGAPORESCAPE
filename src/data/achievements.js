@@ -57,6 +57,11 @@ export const ACHIEVEMENTS = [
   { id: 'codex_50', cat: 'Codex', name: 'Naturalist', desc: 'Discover 50 creatures in the Monster Codex.', test: (g) => codexSeen(g) >= 50, progress: (g) => `${Math.min(codexSeen(g), 50)}/50` },
   { id: 'codex_150', cat: 'Codex', name: 'Creature Scholar', desc: 'Discover 150 creatures in the Monster Codex.', test: (g) => codexSeen(g) >= 150, progress: (g) => `${Math.min(codexSeen(g), 150)}/150` },
   { id: 'codex_all', cat: 'Codex', name: 'Living Encyclopaedia', desc: 'Discover every creature in the Monster Codex.', test: (g) => codexSeen(g) >= CODEX.size, progress: (g) => `${codexSeen(g)}/${CODEX.size}` },
+  // The Collection log (src/game/collection.js) and pets (src/game/pets.js).
+  { id: 'col_page', cat: 'Collection', name: 'Collector', desc: 'Complete a page of the Collection log.', test: (g) => (g.collection?.pagesDone() || 0) >= 1 },
+  { id: 'col_10', cat: 'Collection', name: 'Curator', desc: 'Complete 10 pages of the Collection log.', test: (g) => (g.collection?.pagesDone() || 0) >= 10, progress: (g) => `${Math.min(g.collection?.pagesDone() || 0, 10)}/10` },
+  { id: 'pet_first', cat: 'Collection', name: 'Best Friend', desc: 'Find a pet.', test: (g) => Object.keys(g.pets?.owned || {}).length >= 1 },
+  { id: 'pet_5', cat: 'Collection', name: 'Menagerie', desc: 'Find 5 different pets.', test: (g) => Object.keys(g.pets?.owned || {}).length >= 5, progress: (g) => `${Math.min(Object.keys(g.pets?.owned || {}).length, 5)}/5` },
 ];
 
 // Coin reward granted the first time each achievement is unlocked.
@@ -71,5 +76,6 @@ export const ACH_REWARDS = {
   angler: 500, lumberjack: 1000,
   wave_10: 5000, wave_25: 25000,
   codex_10: 500, codex_50: 5000, codex_150: 25000, codex_all: 250000,
+  col_page: 5000, col_10: 50000, pet_first: 10000, pet_5: 100000,
 };
 export const rewardFor = (id) => ACH_REWARDS[id] || 250;

@@ -710,7 +710,7 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
     const col = opts.color || '#8a8a8a';
     opts.rock = true; // monsters rock side-to-side as they move (a gait cue)
     return staged(ctx, cx, cy, opts, (c) => {
-      if (opts.boss) bossAura(c, opts.time || 0, col);
+      if (opts.boss && !opts.pet) bossAura(c, opts.time || 0, col);   // a pet (pets.js) is a boss in miniature, without the menace
       const t = opts.time || 0;
       if (opts.castK > 0) castBurst(c, opts.castK, opts.castCol || col);
       creaturePose(c, opts, t, cx);
@@ -753,7 +753,7 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
           if (tint) { c.globalAlpha = flash; put(tint); c.globalAlpha = 1; }
         }
       } else drawBody(c);              // headless (no DOM canvas) or art still loading
-      if (opts.boss && !bimg) bossCrown(c, opts.time || 0);  // insignia unless the boss art has its own crown
+      if (opts.boss && !bimg && !opts.pet) bossCrown(c, opts.time || 0);  // insignia unless the boss art has its own crown
     });
   }
   // Townsfolk are all A-Worthy mascots; shirts come from the design system's

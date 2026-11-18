@@ -32,6 +32,7 @@ const ARROW_LOOK = {
 import { labelMode, objectLabelAlpha, npcNameVisible, targetTag } from './worldlabels.js';
 import { drawCreature, drawPlayer, drawObjectSprite, drawGroundItem } from './sprites.js';
 import { heroAnimFrame, drawFishingGear, strikeClock } from './heroanim.js';
+import { petDrawable } from './petsprite.js';
 import { RARITY } from '../game/loot.js';
 // The effects a melee blow spawns that wait for its strike (see _holdForStrike).
 const HELD_FX = new Set(['slash', 'cleave', 'swipe']);
@@ -426,6 +427,7 @@ export class Renderer {
         if (al?.halo || al?.eyes) this._auraFront(cx + off.x, cy + off.y, al, timeMs);
       } });
     }
+    { const pet = petDrawable(game, ctx, ox, oy, vw, vh, timeMs); if (pet) drawables.push(pet); }   // your pet (petsprite.js)
     this._holdForStrike(timeMs);
     // A melee blow's impact waits for the weapon to land, like its hitsplat.
     { const clk = strikeClock(game); game.cfx.armFresh(clk && timeMs - clk.blowAt < 60 ? clk.hitTimes[0] - timeMs : 0); }
@@ -1741,7 +1743,7 @@ export class Renderer {
         ty = py - 75;
       }
       // A Codex title (from a mastered topic) sits above the name, in gold.
-      const title = game.learning?.titleText();
+      const title = game.learning?.titleText() || game.collection?.titleText();   // or a Collection log title
       if (title && !status) {   // a status badge takes that spot while it lasts
         ctx.font = '900 9.5px Nunito,"Trebuchet MS",sans-serif';
         ctx.strokeStyle = '#22304A'; ctx.lineWidth = 3;
