@@ -1079,11 +1079,17 @@ for (const [id, extra] of Object.entries(OFFENCE_EXTRA)) {
 // weapon's bonuses (tooltips, Equip best and the Stats tab all see it) and is
 // also kept as `grip` so the tooltip can name it.
 export const TWO_HANDED_TYPES = new Set(['longbow', 'shortbow', 'crossbow', 'rifle', 'katana', 'warhammer', '2h_sword', 'halberd', 'claws']);
+// The Archer's shortbow and the Ranger's longbow are drawn from a quiver at the
+// hip, so a quiver (and nothing else) may sit in the off-hand with them. Their
+// grip keeps only the kiteshield's share (Defence and life): the quiver's share
+// now comes from a real quiver instead of being built in.
+export const QUIVER_BOW_TYPES = new Set(['shortbow', 'longbow']);
 const _metalOf = (id, eq) => _METALS.find((M) => id.startsWith(M.k + '_'))
   || _METALS.reduce((best, M) => (Math.abs(M.rd - reqOf(eq)) < Math.abs(best.rd - reqOf(eq)) ? M : best));
 /** The grip bonus a two-handed weapon of metal tier M gets. */
-export function gripBonus(M, ranged) {
+export function gripBonus(M, ranged, quiverBow = false) {
   const kite = RAW[`${M.k}_kiteshield`].equip.bonuses;
+  if (quiverBow) return { defence: kite.defence, hp: kite.hp };
   const off = ranged ? RAW[`${M.k}_quiver`].equip.bonuses : RAW[`${M.k}_buckler`].equip.bonuses;
   const g = { defence: kite.defence, hp: kite.hp, atkPct: off.atkPct, haste: off.haste };
   if (ranged) g.ranged = off.ranged;
@@ -1092,7 +1098,7 @@ export function gripBonus(M, ranged) {
 for (const [id, it] of Object.entries(RAW)) {
   const eq = it.equip;
   if (!eq || eq.slot !== 'weapon' || it.tool || !TWO_HANDED_TYPES.has(eq.weaponType)) continue;
-  const grip = gripBonus(_metalOf(id, eq), eq.combatType === 'ranged');
+  const grip = gripBonus(_metalOf(id, eq), eq.combatType === 'ranged', QUIVER_BOW_TYPES.has(eq.weaponType));
   const b = { ...eq.bonuses };
   for (const [k, v] of Object.entries(grip)) b[k] = (b[k] || 0) + v;
   eq.bonuses = b;

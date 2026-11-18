@@ -10,7 +10,7 @@ import { MASTERY_RANKS, BANNER_RANK, MAX_ENCHANTS, killMastery, masteryType, mas
 import { MAX_REFINE, SCROLL as REFINE_SCROLL, refineCost, rollRefine, refineTag, refineScrollDrop } from './refine.js';
 import { materialKind, materialPoints, feedKind, feedPoints, FEED_CAP, FEED_CAP_RANK } from './materials.js';
 import { Shrine, SHRINE_TRACKS, trackText } from './shrine.js';
-import { getItem, MELEE_REACH, accessoriesFor } from '../data/items.js';
+import { getItem, ITEMS, MELEE_REACH, accessoriesFor } from '../data/items.js';
 import { chebyshev, randInt, weightedPick, capitalize } from '../core/utils.js';
 import {
   TILE, TICK_MS, COMBAT_BEAT_MS, RESPAWN_TICKS, AUTOSAVE_TICKS, DAY_CYCLE_MS,
@@ -20,7 +20,7 @@ import {
 import { World } from './world.js';
 import { Skills } from './skillset.js';
 import { Inventory } from './inventory.js';
-import { Equipment, canDualWield, canDualPair, EQUIP_SLOTS, isTwoHanded } from './equipment.js';
+import { Equipment, canDualWield, canDualPair, EQUIP_SLOTS, isTwoHanded, offhandBlocked, takesQuiver } from './equipment.js';
 import { Bank } from './bank.js';
 import { Player, STICK_DEAD } from './player.js';
 import { NPC } from './npc.js';
@@ -587,7 +587,8 @@ export class Game {
     if (loaded) {
       this.starterGiven = true;
       // Saves from before two-handed weapons may hold a shield with one.
-      if (isTwoHanded(this.equipment.get('weapon')) && this.equipment.get('shield')) this._stowShield();
+      if (this.equipment.get('shield') && offhandBlocked(this.equipment.get('weapon'), this.equipment.get('shield'))) this._stowShield();
+      this._giveBowQuiver();
       this.msg(`Welcome back to ${this.world.townName}, ${this.player.name}!`, 'system');
       if (this.play.welcome) { this.msg(this.play.welcome, 'level'); this.play.welcome = null; }
       if (LEARNING_ENABLED && !this.learning.dailyDone(this.todayKey())) this.msg('Your daily revision is ready in the Knowledge Codex (Skills tab).', 'level');
@@ -646,7 +647,7 @@ export class Game {
       }
       const starter = starterWeapon(classId);
       if (!this.equipment.get('weapon')) this.equipment.set('weapon', starter); else this.inventory.add(starter, 1);
-      if (isTwoHanded(this.equipment.get('weapon')) && this.equipment.get('shield')) this._stowShield();
+      if (this.equipment.get('shield') && offhandBlocked(this.equipment.get('weapon'), this.equipment.get('shield'))) this._stowShield();
       this.msg(`You are now a ${cls.name}. Only ${WEAPON_TYPE_NAMES[cls.weapon]} and ${WEAPON_TYPE_NAMES[SECONDARY_WEAPON[classId]]} can be wielded, and the choice is permanent.`, 'level');
       this.msg(`${cls.name} perk: ${classPerks(classId)[0].text} (see Class perks in the Combat tab)`, 'system');
       this.bus.emit('inventory'); this.bus.emit('equipment');
@@ -691,6 +692,7 @@ export class Game {
       // (Two-handed weapons leave no hand free for a shield.)
       if (canDualWield(starter)) this.equipment.set('shield', starter);
       else if (!isTwoHanded(starter)) this.equipment.set('shield', 'wooden_shield');
+      else if (takesQuiver(starter)) this.equipment.set('shield', 'bronze_quiver');   // Archers and Rangers start with a quiver
       // Heavy melee starts in chainmail, agile melee in leather (each class has its own armour).
       this.equipment.set('body', ARMOUR_FAMILY[classId] === 'plate' ? 'bronze_chainbody' : 'leather_body');
     }
@@ -5488,6 +5490,22 @@ export class Game {
   }
 
   /** Can this piece be worn right now (levels, class weapon and class armour)? Silent. */
+  /** Bows used to carry a quiver's bonus built into their grip; now the quiver is
+   *  a real off-hand. An Archer or Ranger from before that, holding a bow with an
+   *  empty off-hand and no quiver anywhere, is handed one of the bow's own tier
+   *  (once), so nobody comes back weaker. */
+  _giveBowQuiver() {
+    const w = this.equipment.get('weapon');
+    if (!takesQuiver(w) || this.equipment.get('shield') || this.bowQuiverGiven) return;
+    this.bowQuiverGiven = true;
+    const owns = (id) => this.inventory.has(id) || this.bank?.count?.(id) > 0;
+    if (Object.keys(ITEMS).some((id) => /_quiver$/.test(id) && owns(id))) return;
+    const tier = getItem(w).equip.grip?.tier || 'bronze';
+    const q = ITEMS[`${tier}_quiver`] ? `${tier}_quiver` : 'bronze_quiver';
+    this.equipment.set('shield', q);
+    this.msg(`Bows now take a real quiver in the off-hand: you sling on a ${getItem(q).name.toLowerCase()}.`, 'level');
+  }
+
   /** Take off the shield (a two-handed weapon is in hand) and put it in the pack. */
   _stowShield() {
     const shQ = this.equipment.qualityIn('shield');
@@ -5524,8 +5542,8 @@ export class Game {
         const eq = getItem(s.id).equip;
         // Dual wielders keep their off-hand for a second weapon, not a shield.
         if (eq.slot === 'shield' && canDualWield(this.equipment.get('weapon'))) return;
-        // ...and a two-handed weapon leaves no hand for a shield at all.
-        if (eq.slot === 'shield' && isTwoHanded(this.equipment.get('weapon'))) return;
+        // ...and a two-handed weapon leaves no hand for a shield at all (a bow still takes a quiver).
+        if (eq.slot === 'shield' && offhandBlocked(this.equipment.get('weapon'), s.id)) return;
         const worn = this.equipment.get(eq.slot);
         // Keep to the weapon style you fight with (a staff won't replace a sword).
         if (eq.slot === 'weapon' && worn && weaponStyle(s.id) !== weaponStyle(worn)) return;
@@ -5632,8 +5650,9 @@ export class Game {
       && (opts.offhand ?? !canDualPair(main, this.equipment.get('shield')));
     if (opts.offhand && !offhand) { this.msg('Only a second weapon of the same dual-wield kind (daggers, scimitars, kerambits or pistols) can go in your off-hand.'); return; }
     const slot = offhand ? 'shield' : eq.slot;
-    if (slot === 'shield' && isTwoHanded(main)) {
-      this.msg(`Your ${getItem(main).name.toLowerCase()} needs both hands, so you can't hold a shield with it.`);
+    if (slot === 'shield' && offhandBlocked(main, s.id)) {
+      this.msg(takesQuiver(main) ? `Your ${getItem(main).name.toLowerCase()} needs both hands: only a quiver can go with it.`
+        : `Your ${getItem(main).name.toLowerCase()} needs both hands, so you can't hold a shield with it.`);
       return;
     }
     // An off-hand weapon is weighed against the one already in the off-hand (each
@@ -5670,7 +5689,7 @@ export class Game {
       this.msg(`You put away your off-hand ${getItem(off).name.toLowerCase()}.`, 'system');
     }
     // A two-handed weapon needs both hands: the shield goes back in the pack.
-    if (slot === 'weapon' && isTwoHanded(s.id) && this.equipment.get('shield')) this._stowShield();
+    if (slot === 'weapon' && this.equipment.get('shield') && offhandBlocked(s.id, this.equipment.get('shield'))) this._stowShield();
     this.msg(`You ${eq.slot === 'weapon' ? 'wield' : 'wear'} the ${item.name.toLowerCase()}.`);
     verdict();
   }
