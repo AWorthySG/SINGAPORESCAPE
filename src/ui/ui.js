@@ -2392,13 +2392,35 @@ export class UI {
     };
     const tr = box('quest-tracker');
     const narrow = window.innerWidth <= 600;
+    // A phone on its side has no room under the top-left strip (the Auto
+    // button and joystick are right below it), so the tip waits bottom-centre,
+    // between the joystick and the skill arc.
+    const flat = !narrow && typeof matchMedia === 'function' && matchMedia('(pointer: coarse) and (max-height: 500px)').matches;
     let top = tr ? tr.bottom + 6 : 44, left = tr ? tr.left : 10;
     let width = Math.min(340, window.innerWidth - left - 10);
+    if (narrow) left = 6, width = window.innerWidth - 12;
+    // On touch screens the boss bar and the Endless Gate panel stack in the same
+    // top-left strip as the tracker: go below whichever of them is lowest.
+    for (const id of ['boss-bar', 'wave-hud']) {
+      const r = box(id);
+      if (r && r.left < left + width && r.right > left) top = Math.max(top, r.bottom + 6);
+    }
     if (narrow) {
-      // Below the minimap and its orbs (+14 leaves room for the orbs' caption pills).
-      const mm = box('minimap-panel'), hp = box('hp-orb');
+      // Below the minimap and its orbs (+14 leaves room for the orbs' caption pills),
+      // and short of the panel launcher when it sits beside the strip.
+      const mm = box('minimap-panel'), hp = box('hp-orb'), dock = box('sidepanel');
       top = Math.max(top, mm ? mm.bottom + 6 : 0, hp ? hp.bottom + 14 : 0);
-      left = 6; width = window.innerWidth - 12;
+      if (dock && dock.width < 100 && dock.bottom > top && dock.left > left) width = Math.min(width, dock.left - 6 - left);
+    } else if (flat) {
+      const joy = box('joystick');
+      let right = window.innerWidth - 10;
+      for (const e of document.querySelectorAll('#ability-buttons .ability-btn, #attack-btn')) {
+        const r = e.getBoundingClientRect();
+        if (r.width) right = Math.min(right, r.left - 8);
+      }
+      left = joy ? joy.right + 8 : 140;
+      width = Math.max(160, Math.min(400, right - left));
+      top = window.innerHeight - el.offsetHeight - 8;
     }
     const key = `${Math.round(top)}|${Math.round(left)}|${Math.round(width)}`;
     if (el._at === key) return;

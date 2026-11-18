@@ -2894,15 +2894,9 @@ body #tip-toast.tip-strip { font-size: 11px; padding: 4px 6px 4px 7px; border-ra
   .orb::before { inset: -6px; }
   #minimap-collapse::before { inset: -13px -12px -9px -10px; }
   #sidepanel.collapsed { top: calc(222px + var(--sa-t)); right: calc(6px + var(--sa-r)); }
-  /* The first-run tip: under the strip, beside the launcher, clear of the thumbs.
-     (Still centred with translateX(-50%), so its pop-in lines up.) */
-  #tip-toast, body.boss-on #tip-toast, body:has(#sidepanel:not(.collapsed)) #tip-toast {
-    top: calc(222px + var(--sa-t)); bottom: auto;
-    width: calc(100vw - 80px - var(--sa-l) - var(--sa-r));
-    left: calc(6px + var(--sa-l) + (100vw - 80px - var(--sa-l) - var(--sa-r)) / 2);
-    font-size: 12px; line-height: 1.35; padding: 6px 8px 6px 10px;
-  }
-  #tip-toast .tip-badge { display: none; }   /* the words get the width instead */
+  /* The first-run tip is placed by ui.js (_placeTip): under the strip and the
+     minimap, short of the launcher. Its words get the badge's width. */
+  #tip-toast .tip-badge { display: none; }
   /* Chat, unfolded: above the Auto button, clear of the skill arc. */
   #chatbox:not(.collapsed) {
     left: calc(6px + var(--sa-l)); right: auto; top: auto; bottom: calc(var(--auto-b) + 74px);
@@ -2971,12 +2965,8 @@ body #tip-toast.tip-strip { font-size: 11px; padding: 4px 6px 4px 7px; border-ra
   .auto-row .ab-btn + .ab-btn, .auto-row #auto-battle-cfg { border-top: 0; border-left: 2px dashed var(--aw-ink-faint); }
   .auto-row #auto-battle-cfg { min-width: 44px; }
   .ab-status { max-width: 64px; }
-  /* The tip waits bottom-centre, between the joystick and Interact. */
-  #tip-toast, body.boss-on #tip-toast, body:has(#sidepanel:not(.collapsed)) #tip-toast {
-    top: auto; bottom: calc(8px + var(--sa-b)); font-size: 12px; padding: 6px 8px;
-    width: min(400px, calc(100vw - 420px - var(--sa-l) - var(--sa-r)));
-    left: calc(140px + var(--sa-l) + min(400px, calc(100vw - 420px - var(--sa-l) - var(--sa-r))) / 2);
-  }
+  /* The tip waits bottom-centre, between the joystick and the skill arc
+     (ui.js _placeTip); no badge, so it stays one or two lines. */
   #tip-toast .tip-badge { display: none; }
   /* Chat, unfolded: bottom-centre between the joystick and Interact. */
   #chatbox:not(.collapsed) {
@@ -3005,7 +2995,7 @@ body #tip-toast.tip-strip { font-size: 11px; padding: 4px 6px 4px 7px; border-ra
 /* ---------- Tablets (768-1180 wide, touch) ---------- */
 @media (pointer: coarse) and (min-width: 541px) and (min-height: 501px) {
   :root { --panel-w: 284px; --rail-w: 60px; --boss-h: 0px; }
-  body.boss-on { --boss-h: 66px; }
+  body.boss-on { --boss-h: 70px; }   /* room for the foe read-out row */
   /* The docked panel's body fills the height of its tab rail, so the bag
      shows its full grid instead of ending in a blank strip. */
   #sidepanel:not(.collapsed) { grid-template-rows: auto minmax(0, 1fr); }
@@ -3023,8 +3013,6 @@ body #tip-toast.tip-strip { font-size: 11px; padding: 4px 6px 4px 7px; border-ra
   #boss-bar-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
   #boss-bar #boss-bar-portrait { width: 48px; height: 48px; margin: -6px 0 -6px -4px; }
   #wave-hud, #quest-tracker, body.boss-on #quest-tracker { top: calc(44px + var(--boss-h)); left: 10px; max-width: 340px; }
-  /* The tip sits below the strip and the minimap, over open ground. */
-  #tip-toast, body.boss-on #tip-toast { top: 262px; bottom: auto; }
 }
 /* Tablet portrait: the strip takes the top-left, so the minimap's caption
    names the area instead of a label in the middle. */
