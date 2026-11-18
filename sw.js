@@ -26,6 +26,7 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
   const path = url.pathname.slice(new URL(self.registration.scope).pathname.length);
+  if (path.startsWith('api/')) return;   // accounts and cloud saves: always live, never cached
   const put = (res) => { if (res && res.ok && res.type === 'basic') { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); } return res; };
   if (path.startsWith('assets/')) {
     // Cache first; refresh in the background.

@@ -2,6 +2,7 @@ import { getItem } from '../data/items.js';
 import { clamp, weightedPick, randInt } from '../core/utils.js';
 import { TILE } from '../config.js';
 import { yieldBonus, huntExtras } from './culling.js';
+import { afterFireLit } from './skillunlocks.js';
 
 const objCenter = (obj) => ({ x: obj.x * TILE + TILE / 2, y: obj.y * TILE + TILE / 2 - 6 });
 
@@ -421,7 +422,7 @@ export function resolveFiremake(game, action) {
   }
 
   game.inventory.remove(action.logId, 1);
-  game.world.lightFire(p.x, p.y);
+  afterFireLit(game, game.world.lightFire(p.x, p.y), action.logId);   // Firemaking unlocks (skillunlocks.js)
   // A fire occasionally roars up for bonus XP.
   const baseFm = logDef.fmXp || 40;
   if (Math.random() < 0.10) {

@@ -147,19 +147,19 @@ test('feeding: bars add mastery to a sword, wrong materials are refused, rank-up
   // The pack's options list only bars, best first.
   assert.deepEqual(g.feedOptions(w).map((o) => o.id), ['mithril_bar']);
   // Twenty-five mithril bars: 11 points each.
-  g.equipment.mastery[w] = 0;
+  g.equipment.setMastery(w, 0);
   assert.equal(g.feedMastery(w, 'mithril_bar', 25), 275);
   assert.equal(g.inventory.count('mithril_bar'), 0);
   assert.equal(g.equipment.masteryPoints(w), 275);
   assert.equal(g.equipment.masteryRank(w), 1, 'Adept');
-  assert.ok(said.some((t) => /reached Adept mastery/.test(t)), 'the rank-up is announced as a kill would');
+  assert.ok(said.some((t) => /mastery reached Adept/.test(t)), 'the rank-up is announced as a kill would');
   // The cap: from 7,990 one rune bar is enough to reach Master; the rest stay in the pack.
-  g.equipment.mastery[w] = FEED_CAP - 10;
+  g.equipment.setMastery(w, FEED_CAP - 10);
   g.inventory.add('rune_bar', 5);
   assert.equal(g.feedMastery(w, 'rune_bar', Infinity), 36);
   assert.equal(g.inventory.count('rune_bar'), 4, 'only what it took');
   assert.equal(g.equipment.masteryRank(w), 4, 'Master');
-  assert.ok(said.some((t) => /reached Master mastery/.test(t)));
+  assert.ok(said.some((t) => /mastery reached Master/.test(t)));
   assert.equal(g.feedMastery(w, 'rune_bar', 1), 0, 'no further with materials');
   assert.equal(g.inventory.count('rune_bar'), 4);
   // Kills still carry it on past the cap.
@@ -234,7 +234,7 @@ test('shrine: donations become points, points buy ranks, and the blessings reach
 
 test('saves from before the shrine load fine and start with no blessings', () => {
   const g = newGame();
-  g.equipment.mastery[g.equipment.get('weapon')] = 500;
+  g.equipment.setMastery(g.equipment.get('weapon'), 500);
   const data = snapshot(g);
   delete data.shrine;
   localStorage.setItem(SAVE_KEY, JSON.stringify(data));

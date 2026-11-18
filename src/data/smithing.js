@@ -105,4 +105,7 @@ SMITH.push(
   { result: 'upgrade_stone', qty: 3, bar: 'mithril_bar', barCount: 1, level: 52, xp: 50, upgrade: true },
   { result: 'upgrade_stone', qty: 5, bar: 'adamant_bar', barCount: 1, level: 72, xp: 62.5, upgrade: true },
   { result: 'upgrade_stone', qty: 9, bar: 'rune_bar', barCount: 1, level: 88, xp: 75, upgrade: true },
+  // Skill chains: hooks for Crafting's fishing lures, and refine scrolls hammered from adamant (refine.js).
+  { result: 'barbed_hooks', qty: 10, bar: 'iron_bar', barCount: 1, level: 25, xp: 30 },
+  { result: 'refine_scroll', qty: 1, bar: 'adamant_bar', barCount: 2, level: 75, xp: 110, upgrade: true },
 );

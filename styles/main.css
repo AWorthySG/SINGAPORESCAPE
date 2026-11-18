@@ -3349,3 +3349,100 @@ body.cb-safe #hp-orb.low::after {
 }
 .sgx-picked { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; margin: 6px 0; padding: 6px 8px;
   font-size: 12px; background: #e6f7df; border: 2px solid var(--aw-ink); border-radius: var(--r1); }
+
+/* ---------- Play balance: Focus bar, Rested tag and Grave button (playhud.js) ---------- */
+#play-hud { display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-top: 2px dashed var(--aw-ink-faint); flex-wrap: wrap; }
+#play-hud button { font-family: inherit; cursor: var(--cur-pointer); }
+#play-hud .ph-focus { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; padding: 0; background: transparent; border: 0; box-shadow: none; color: var(--aw-text); }
+#play-hud .ph-label { font-size: 10.5px; font-weight: 800; }
+#play-hud .ph-bar { position: relative; flex: 1 1 auto; min-width: 48px; height: 8px; border-radius: 999px; background: var(--aw-muted); border: 1.5px solid var(--aw-ink); overflow: hidden; }
+#play-hud .ph-bar i { position: absolute; top: 0; bottom: 0; left: 0; width: 100%; background: #7cc7f2; transition: width .4s ease; }
+#play-hud .ph-focus.low .ph-bar i { background: #f2b84b; }
+#play-hud .ph-focus.tired .ph-label { color: #b4471f; }
+#play-hud .ph-rested, #play-hud .ph-grave { font-size: 10px; font-weight: 800; padding: 1px 7px; border-radius: 999px; border: 1.5px solid var(--aw-ink); box-shadow: none; }
+#play-hud .ph-rested { background: #dff3d4; color: #1F7A3D; }
+#play-hud .ph-grave { background: #e7eaf0; color: var(--aw-text); }
+#play-hud .hidden { display: none; }
+@media (hover: none) and (pointer: coarse) {   /* not plain (pointer: coarse): layout.test reads the last block of that name */
+  #play-hud .ph-focus, #play-hud .ph-rested, #play-hud .ph-grave { min-height: 44px; }
+}
+/* ---------------- Boss mechanics (src/game/bossmech.js) ---------------- */
+.cx-mech { border-left: 4px solid #9a6ae8; padding-left: 8px; }
+.cx-mech-styles { font-weight: 800; }
+/* ---------------- Collection log, pets and Endless Gate modifiers ---------------- */
+.collection-open { margin-top: 6px; }
+.cl-head { font-size: 13px; margin-bottom: 8px; }
+.cl-bar { display: block; height: 6px; margin-top: 4px; border-radius: 999px; background: var(--aw-muted); border: 1.5px solid var(--aw-ink-faint); overflow: hidden; }
+.cl-bar i { display: block; height: 100%; background: var(--aw-sun); }
+.cl-pick { display: flex; align-items: center; gap: 8px; margin: 8px 0; font-size: 13px; font-weight: 800; }
+.cl-pick select { flex: 1; min-width: 0; min-height: 40px; font: inherit; font-weight: 700; padding: 4px 8px; border: 2px solid var(--aw-ink); border-radius: var(--r1); background: var(--aw-card); }
+.cl-page { background: var(--aw-sidebar); border: 2px solid var(--aw-ink); border-radius: var(--r2); padding: 8px; }
+.cl-page-head { font-size: 13px; margin-bottom: 8px; }
+.cl-count { float: right; font-weight: 900; }
+.cl-reward { display: block; margin-top: 4px; font-size: 11px; color: var(--aw-text-sec); }
+.cl-reward.done { color: var(--aw-grass-deep); font-weight: 800; }
+.cl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 6px; }
+.cl-cell { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 76px; padding: 6px 4px;
+  background: var(--aw-card); border: 2px solid var(--aw-ink-faint); border-radius: var(--r1); text-align: center; }
+.cl-cell.got { border-color: var(--aw-ink); box-shadow: 0 2px 0 var(--aw-ink-shadow); }
+.cl-cell.got.pet { background: var(--aw-sun-bg); }
+.cl-cell:not(.got) .cl-pic { filter: brightness(0) opacity(0.3); }
+.cl-pic { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; }
+.cl-pic img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.cl-name { font-size: 10px; font-weight: 800; line-height: 1.15; overflow-wrap: anywhere; }
+.cl-n { position: absolute; top: 2px; right: 4px; font-size: 10px; font-weight: 900; color: var(--aw-sky-deep); }
+.cl-pets { display: flex; flex-direction: column; gap: 6px; }
+.cl-pet { display: flex; align-items: center; gap: 8px; padding: 4px 8px; background: var(--aw-card); border: 2px solid var(--aw-ink-faint); border-radius: var(--r1); }
+.cl-pet.on { border-color: var(--aw-ink); background: var(--aw-sun-bg); }
+.cl-pet-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 13px; }
+.cl-pet-txt small { font-size: 11px; color: var(--aw-text-sec); }
+.cl-pet-btn { min-height: 40px; min-width: 84px; font: inherit; font-weight: 800; border: 2px solid var(--aw-ink); border-radius: 999px; background: var(--aw-card); cursor: pointer; }
+.cl-pet.on .cl-pet-btn { background: var(--aw-accent-bg); }
+.cl-empty { font-size: 12px; color: var(--aw-text-sec); padding: 6px 0; }
+.wv-modlist { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.wv-modhead { font-size: 13px; font-weight: 900; }
+.wv-modhead small { font-weight: 600; color: var(--aw-text-sec); }
+.wv-mod { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; min-height: 44px; padding: 6px 10px; text-align: left; font: inherit; font-size: 12px;
+  background: var(--aw-card); border: 2px solid var(--aw-ink-faint); border-radius: var(--r1); cursor: pointer; }
+.wv-mod b { width: 100%; font-size: 13px; }
+.wv-mod.on { border-color: #6d3fd6; background: #f1eaff; }
+.wv-risk { color: var(--aw-accent-dk); }
+.wv-reward { color: var(--aw-grass-deep); font-weight: 800; }
+#wave-hud .wv-mods { font-size: 10px; font-weight: 800; color: #6d3fd6; }
+/* ---------------- World events and weekly region challenges (worldeventsui.js) ---------------- */
+.quest-row.we-row { border-left: 5px solid var(--we-col, var(--aw-accent)); cursor: var(--cur-pointer, pointer); }
+.quest-row.we-row .q-go { min-height: 40px; min-width: 52px; }
+.quest-row.we-task .q-top b { font-size: 13px; }
+#quest-tracker .trk-event .trk-ic { font-size: 13px; }
+/* ---------- Skill unlocks and the kampong home (skillunlocks.js, homeui.js) ---------- */
+.sgx-unlocks { margin: 6px 0 8px; padding: 6px 8px; border: 1px solid rgba(34,48,74,.25); border-radius: 10px; background: rgba(255,255,255,.35); }
+.sgx-unlock { display: flex; align-items: center; gap: 8px; padding: 3px 0; opacity: .6; }
+.sgx-unlock.on { opacity: 1; }
+.sgx-unlock small { display: block; font-size: 11px; }
+.sgx-tp { margin-top: 6px; min-height: 40px; }
+.sgx-howto { margin: 6px 0; padding: 6px 8px; border-radius: 10px; background: rgba(245,184,46,.18); font-size: 13px; }
+#home-btn {
+  position: absolute; bottom: 1px; left: 1px; z-index: 22; cursor: var(--cur-pointer);
+  font-size: 9px; font-weight: 800; letter-spacing: .5px; color: #06201c;
+  background: linear-gradient(180deg, #bfe8a6, #7cc65a); border: 1px solid var(--ink);
+  border-radius: 5px; padding: 2px 6px;
+}
+#home-btn.hidden, #minimap-panel.collapsed #home-btn { display: none; }
+.home-intro { margin-bottom: 10px; }
+.home-buy { min-height: 40px; }
+.home-sub { margin: 10px 0 4px; font-weight: 700; }
+.home-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 4px; border-bottom: 1px dashed rgba(34,48,74,.18); }
+.home-row small { display: block; font-size: 11px; }
+.home-row .wm-go { min-height: 40px; flex: none; }
+.home-grid { display: flex; flex-wrap: wrap; gap: 4px; }
+.home-cell { position: relative; width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(34,48,74,.25); border-radius: 8px; background: rgba(255,255,255,.4); padding: 0; }
+.home-cell span { position: absolute; right: 2px; bottom: 0; font-size: 10px; font-weight: 700; }
+/* ---------------- Gear quality per copy (src/game/loot.js QUALITY) ---------------- */
+/* A quality copy: a dot in its colour at the icon's bottom left, and its drop named in that colour in the chat. */
+.q-pip { position: absolute; left: 3px; bottom: 3px; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #fff; box-shadow: 0 0 0 1px var(--aw-ink); pointer-events: none; }
+.q-word { font-weight: 800; }
+#chat-log .msg.qual-fine { color: #2e9e4f; font-weight: 800; }
+#chat-log .msg.qual-superior { color: #3a7bd5; font-weight: 800; }
+#chat-log .msg.qual-epic { color: #8b4fe0; font-weight: 800; }
+#chat-log .msg.qual-legendary { color: #d08a00; font-weight: 800; }
+#chat-log .msg.qual-mythic { color: #d6336c; font-weight: 800; }

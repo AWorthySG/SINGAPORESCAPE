@@ -4,6 +4,9 @@
   "installCommand": "echo 'No dependencies to install'",
   "buildCommand": "mkdir -p _site && cp -r index.html manifest.webmanifest sw.js styles src assets _site/",
   "outputDirectory": "_site",
+  "functions": {
+    "api/*.js": { "maxDuration": 10 }
+  },
   "headers": [
     {
       "source": "/(.*)",

@@ -1,8 +1,11 @@
 import { POTIONS, CROP_BY_ID } from '../data/trades.js';
 import { SAVE_KEY } from '../config.js';
 import { STATION_BY_ID } from '../data/transport.js';
-import { inArena } from './waves.js';
+import { inArena, GATE_MODS } from './waves.js';
+import { assignLegacyQuality } from './quality.js';
 import { loadCulling } from './culling.js';
+import { serializePlay, loadPlay } from './playbalance.js';
+import { ensureHunterSnare } from './onboarding.js';
 
 const VERSION = 1;
 // An unreadable save is copied here before a new game replaces it, so a bug or
@@ -77,12 +80,21 @@ export function snapshot(game) {
     specEnergy: game.specEnergy,
     bossRecord: game.bossRecord,
     waveBest: game.waves?.best || 0,
+    play: serializePlay(game),   // Focus, rested pool and gravestone (playbalance.js)
+    waveBestByClass: game.waves?.bestByClass || {},
+    waveMods: [...(game.waves?.mods || [])],
+    collection: game.collection?.serialize(),
+    pets: game.pets?.serialize(),
+    worldEvents: game.worldEvents?.serialize(),
+    playMs: Math.floor(game.playMs || 0),   // time played, shown when choosing between a cloud and a device save
     settings: { running: game.running, autoCfg: game.autoCfg, autoGather: game.autoGather, gatherPicks: [...(game.gatherPicks || [])], knowledgeStrikes: game.knowledgeStrikes, minimalHud: !!game.minimalHud,
       worldLabels: game.worldLabels || 'smart', tips: game.tipsOn !== false, tipsSeen: [...(game.tipsSeen || [])],
       textSize: game.textSize || 'normal', colourBlind: !!game.colourBlind, reduceMotion: !!game.reduceMotion },
     jobClass: game.jobClass,
     potions: game.potions,
     farms: game.world.objects.filter((o) => o.def.type === 'farm' && o.crop).map((o) => ({ x: o.x, y: o.y, crop: o.crop, left: o.growLeft })),
+    home: game.home?.serialize(),   // the kampong home (home.js)
+    snareGiven: !!game.snareGiven,  // the one-off Hunter snare for older saves (onboarding.js)
   };
 }
 
@@ -171,10 +183,14 @@ export function exportSaveCode(game) {
 export function storedSaveCode() {
   try {
     const raw = storage()?.getItem(SAVE_KEY);
-    if (!raw) return null;
-    const b64 = toBase64(raw);
-    return CODE_PREFIX + b64 + ':' + checksum(b64);
+    return raw ? saveCodeFromRaw(raw) : null;
   } catch { return null; }
+}
+
+/** A save's JSON text as a save code (cloud.js hands a cloud save to importSaveCode this way). */
+export function saveCodeFromRaw(raw) {
+  const b64 = toBase64(raw);
+  return CODE_PREFIX + b64 + ':' + checksum(b64);
 }
 
 /** Replace the stored save with the one in a save code. Returns { ok, error }
@@ -275,6 +291,7 @@ function loadFields(game, data) {
   game.inventory.load(data.inventory);
   game.equipment.load(data.equipment);
   game.bank.load(data.bank);
+  assignLegacyQuality(game);   // old saves' per-item quality tally goes onto the copies you own
 
   const p = data.player || {};
   // (Never into the Endless Gate's arena: a run isn't saved, and there's no walking out.)
@@ -345,6 +362,8 @@ function loadFields(game, data) {
   if (data.potions && typeof data.potions === 'object') {
     for (const [id, ms] of Object.entries(data.potions)) if (POTIONS[id] && ms > 0) game.potions[id] = Math.min(ms, POTIONS[id].ms || 0);
   }
+  // The kampong home goes up before the crops are put back: some of them grow in its patches.
+  game.home?.load(data.home);
   if (Array.isArray(data.farms)) {
     for (const f of data.farms) {
       const o = game.world.objectAt(f.x, f.y);
@@ -359,8 +378,24 @@ function loadFields(game, data) {
     if (ok(br?.beat)) for (const [k, v] of Object.entries(br.beat)) if (v === true) game.bossRecord.beat[k] = true;
     if (ok(br?.lost)) for (const [k, v] of Object.entries(br.lost)) if (typeof v === 'number' && v > 0) game.bossRecord.lost[k] = Math.floor(v);
   }
+  // Focus, Rested XP and the gravestone; older saves start with a full bar. Time since the save counts as time away.
+  loadPlay(game, data.play, data.savedAt);
   // The Endless Gate: your best wave (older saves: none yet).
+  // Time played (older saves: not counted yet).
+  game.playMs = typeof data.playMs === 'number' && data.playMs > 0 ? data.playMs : 0;
   if (game.waves) game.waves.best = typeof data.waveBest === 'number' && data.waveBest > 0 ? Math.floor(data.waveBest) : 0;
+  // ...and per class, and the modifiers last picked (older saves: none).
+  if (game.waves) {
+    game.waves.bestByClass = {};
+    const bc = data.waveBestByClass;
+    if (bc && typeof bc === 'object') for (const [k, v] of Object.entries(bc)) if (typeof v === 'number' && v > 0) game.waves.bestByClass[k] = Math.floor(v);
+    game.waves.mods = new Set(Array.isArray(data.waveMods) ? data.waveMods.filter((id) => GATE_MODS[id]) : []);
+  }
+  // The Collection log and pets (older saves: empty).
+  game.collection?.load(data.collection);
+  game.pets?.load(data.pets);
+  // World events' schedule and the weekly region challenge (older saves: none yet).
+  game.worldEvents?.load(data.worldEvents);
   if (Array.isArray(data.settings?.gatherPicks)) game.gatherPicks = new Set(data.settings.gatherPicks.filter((id) => typeof id === 'string'));
   if (data.learning) game.learning.load(data.learning);
   if (data.settings?.knowledgeStrikes === false) game.knowledgeStrikes = false;
@@ -390,4 +425,7 @@ function loadFields(game, data) {
       dodge: ac.dodge !== false,   // older saves: auto dodge stays on
     };
   }
+  // Hunter onboarding: a snare for characters that never got one, once per save.
+  game.snareGiven = data.snareGiven === true;
+  ensureHunterSnare(game);
 }

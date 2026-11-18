@@ -1,4 +1,5 @@
 import { TILE, TICK_MS } from '../config.js';
+import { drawBossMech, drawSafeZone } from './bossmechfx.js';
 import { TURN_MS } from '../game/character.js';
 import { TERRAIN } from '../data/world.js';
 import { getItem } from '../data/items.js';
@@ -31,6 +32,7 @@ const ARROW_LOOK = {
 import { labelMode, objectLabelAlpha, npcNameVisible, targetTag } from './worldlabels.js';
 import { drawCreature, drawPlayer, drawObjectSprite, drawGroundItem } from './sprites.js';
 import { heroAnimFrame, drawFishingGear, strikeClock } from './heroanim.js';
+import { petDrawable } from './petsprite.js';
 import { RARITY } from '../game/loot.js';
 // The effects a melee blow spawns that wait for its strike (see _holdForStrike).
 const HELD_FX = new Set(['slash', 'cleave', 'swipe']);
@@ -44,6 +46,7 @@ import { introCurve, titleAlpha, DEATH_FLASH_MS } from '../game/cinematics.js';
 import { TerrainFx } from './terrainfx.js';
 import { sunShadow, drawSunShadow, footfall } from './shadows.js';
 import { hasLightColumn, columnImage, dropArc, dropFx } from './combatfx.js';
+import { drawGrave } from './grave.js';
 
 // Gathering actions that show a progress ring over the node, and its colour.
 const GATHER_RING = { woodcut: '#4fa04f', mine: '#8a8fa0', fish: '#3a8fd8', hunt: '#d08a3a' };
@@ -252,6 +255,8 @@ export class Renderer {
         } else drawObjectSprite(ctx, o, cx, cy, timeMs);
       } });
     }
+    { const gr = game.play?.grave;   // your gravestone, where you last fell (playbalance.js)
+      if (gr && gr.x >= x0 && gr.x <= x1 && gr.y >= y0 && gr.y <= y1) drawables.push({ sortY: gr.y + 0.3, z: 1, draw: () => drawGrave(ctx, gr.x * TILE + TILE / 2 - ox, gr.y * TILE + TILE * 0.8 - oy, timeMs) }); }
     for (const g of game.world.groundItems) {
       if (g.x < x0 || g.x > x1 || g.y < y0 || g.y > y1) continue;
       const rar = RARITY[g.rarity] || RARITY.common, column = hasLightColumn(g.rarity);
@@ -385,6 +390,7 @@ export class Renderer {
           hurt: this._heldHurt(n, timeMs), windup: n.windup > 0, castK: n.castT > 0 ? 1 - n.castT / 700 : 0, castCol: n.castCol,
           low: game.lowFx,   // low graphics: monsters and townsfolk skip their moving parts
         });
+        if (n.mech || n.mechHealer) drawBossMech(ctx, n, cx, cy, sc, timeMs, ox, oy);   // boss mechanics (bossmech.js)
         if (spawn > 0) ctx.restore();
       } });
     }
@@ -421,6 +427,7 @@ export class Renderer {
         if (al?.halo || al?.eyes) this._auraFront(cx + off.x, cy + off.y, al, timeMs);
       } });
     }
+    { const pet = petDrawable(game, ctx, ox, oy, vw, vh, timeMs); if (pet) drawables.push(pet); }   // your pet (petsprite.js)
     this._holdForStrike(timeMs);
     // A melee blow's impact waits for the weapon to land, like its hitsplat.
     { const clk = strikeClock(game); game.cfx.armFresh(clk && timeMs - clk.blowAt < 60 ? clk.hitTimes[0] - timeMs : 0); }
@@ -1459,6 +1466,7 @@ export class Renderer {
       ctx.strokeStyle = '#C0392B'; ctx.lineWidth = 2.5;
       ctx.strokeRect(x + 1.5, y + 1.5, w - 3, w - 3);
       ctx.setLineDash([]);
+      if (h.safe) drawSafeZone(ctx, h, ox, oy, timeMs, TILE);   // a safe circle's green hole
       // Warning sign in the middle (once per pattern piece, not on every single tile).
       if (h.sign === false) { ctx.restore(); continue; }
       const cx = x + w / 2, cy = y + w / 2;
@@ -1735,7 +1743,7 @@ export class Renderer {
         ty = py - 75;
       }
       // A Codex title (from a mastered topic) sits above the name, in gold.
-      const title = game.learning?.titleText();
+      const title = game.learning?.titleText() || game.collection?.titleText();   // or a Collection log title
       if (title && !status) {   // a status badge takes that spot while it lasts
         ctx.font = '900 9.5px Nunito,"Trebuchet MS",sans-serif';
         ctx.strokeStyle = '#22304A'; ctx.lineWidth = 3;
@@ -1793,6 +1801,12 @@ export class Renderer {
         ctx.textBaseline = 'alphabetic';
         ctx.restore(); ctx.globalAlpha = 1;
         continue;
+      }
+      if (e.weak && hit) {
+        // Hit the monster's weakness: a small green "weak!" tag over the number.
+        ctx.font = '900 8px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+        ctx.lineWidth = 3; ctx.strokeStyle = '#ffffff'; ctx.strokeText('weak!', 0, -r - 4);
+        ctx.fillStyle = '#1F7A3D'; ctx.fillText('weak!', 0, -r - 4);
       }
       if (e.critX) {
         // Critical hit: just a red number, a touch smaller for x2 and a touch bigger for x4 (a mega crit).

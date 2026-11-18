@@ -7,9 +7,11 @@ import { Sfx } from './audio/sfx.js';
 import { now } from './core/utils.js';
 import { TILE } from './config.js';
 import { saveGame, watchForImports } from './game/save.js';
+import { handsOn } from './game/playbalance.js';
 import { receiveTransfer, forwardToNewHome } from './game/transfer.js';
 import { initPwa } from './pwa.js';
 import { TitleScreen } from './ui/title.js';
+import { cloud } from './game/cloud.js';
 
 const VIEW_TILES = 15;        // tiles shown across the shorter side of the screen, at most
 const VIEW_TILES_LONG = 24;   // ...and along the longer side
@@ -36,6 +38,9 @@ let lowGfx = false;
 try { lowGfx = localStorage.getItem('singaporescape:gfx') === 'low'; } catch { /* ignore */ }
 const title = new TitleScreen(document.getElementById('splash'), { lowFx: lowGfx });
 title.trackImages();
+// Signed in: settle the cloud save first (a newer one from another device loads
+// straight in). Gives up after a couple of seconds offline (see cloud.js).
+await cloud().boot();
 
 const game = new Game();
 // Graphics quality: "low" renders at 1x and trims particles, for older phones.
@@ -60,10 +65,14 @@ window.addEventListener('keydown', unlockAudio, { once: true });
 ui.init();
 game.start();
 title.attach(game);
+// Accounts: background cloud uploads, the Account button on the title, the cloud toast.
+cloud().attach(game);
+import('./ui/accountui.js').then((m) => m.initAccountUi(document.getElementById('splash'))).catch(() => {});
 
 // Input wiring.
-input.onLeftClick((x, y) => game.onLeftClick(x, y));
-input.onRightClick((x, y) => game.onRightClick(x, y));
+// Clicks and the action keys count as hands-on play, which refills Focus (playbalance.js).
+input.onLeftClick((x, y) => { handsOn(game); game.onLeftClick(x, y); });
+input.onRightClick((x, y) => { handsOn(game); game.onRightClick(x, y); });
 input.onKey((e) => {
   // On the title screen the keys belong to it: Enter goes in (as does Space or
   // Enter on its focused button), and nothing reaches the game behind it.
@@ -71,6 +80,7 @@ input.onKey((e) => {
   // Typing in a search box (bank, bestiary) must not fire the shortcut keys.
   const t = e.target;
   if (e.key !== 'Escape' && t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+  if ('fgqepzxcvb '.includes(e.key?.toLowerCase() || '-')) handsOn(game);
   const map = { '1': 'inventory', '2': 'equipment', '3': 'skills', '4': 'combat', '5': 'prayer', '6': 'quests', '7': 'achievements', '8': 'settings' };
   if (map[e.key]) {
     document.querySelector(`#panel-tabs .tab-btn[data-view="${map[e.key]}"]`)?.click();
@@ -145,6 +155,7 @@ function frame() {
   // freeze for good. Log the first error and carry on with the next frame.
   try {
     game.update(dt);
+    if (!title.active) game.playMs = (game.playMs || 0) + dt;   // time played (saved; shown when choosing a cloud save)
     title.frame(dt);   // on the title: tours the camera, runs the loading bar
     renderer.render(t);
     ui.renderMinimap();

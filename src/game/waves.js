@@ -10,8 +10,9 @@
 import { NPC } from './npc.js';
 import { getNpc, ALL_MONSTER_IDS, ALL_BOSS_IDS } from '../data/npcs.js';
 import { TERRAIN } from '../data/world.js';
-import { chebyshev } from '../core/utils.js';
+import { chebyshev, weightedPick, randInt } from '../core/utils.js';
 import { TILE } from '../config.js';
+import { getItem } from '../data/items.js';
 
 export const GATE_NAME = 'The Endless Gate';
 // Rows of open sea added below the map; the arena floats in them, far enough
@@ -66,6 +67,37 @@ export function bossChest(n, level) {
   return [['coins', Math.round((50 + 5 * level) * n * 3)], ['refine_scroll', 2 + Math.floor(n / 20)],
     ['upgrade_stone', 5 + Math.floor(n / 2)], ['upgrade_ward', 1 + Math.floor(n / 30)]];
 }
+
+// ---------------- Gate modifiers ----------------
+// Picked at the gate before a run, they stack: each makes the run harder and
+// pays for it. Speeds and multipliers multiply, extra reward rolls add up.
+export const GATE_MODS = {
+  swift: { name: 'Swift foes', risk: 'Monsters move 50% faster', reward: 'Wave bonuses x2', speed: 1.5, loot: 2 },
+  fasting: { name: 'Fasting', risk: 'No healing food', reward: '+75% combat XP', noFood: true, xp: 1.75 },
+  elite: { name: 'Elite waves', risk: 'Monsters have +50% life and hit 25% harder', reward: '+1 reward roll each wave', hp: 1.5, hit: 1.25, rolls: 1 },
+};
+export const GATE_MOD_IDS = Object.keys(GATE_MODS);
+/** The combined effect of a set of modifier ids. */
+export function modEffects(ids) {
+  const fx = { speed: 1, loot: 1, xp: 1, hp: 1, hit: 1, rolls: 0, noFood: false };
+  for (const id of ids || []) {
+    const m = GATE_MODS[id];
+    if (!m) continue;
+    fx.speed *= m.speed || 1; fx.loot *= m.loot || 1; fx.xp *= m.xp || 1;
+    fx.hp *= m.hp || 1; fx.hit *= m.hit || 1; fx.rolls += m.rolls || 0;
+    if (m.noFood) fx.noFood = true;
+  }
+  return fx;
+}
+// A reward roll (Elite waves) draws one prize from the gate's cache.
+export const GATE_CACHE = [
+  { id: 'upgrade_stone', min: 3, max: 8, weight: 40 }, { id: 'refine_scroll', min: 1, max: 2, weight: 25 },
+  { id: 'upgrade_ward', weight: 12 }, { id: 'diamond', weight: 12 }, { id: 'amulet_of_glory', weight: 10 },
+  { id: 'merlion_amulet', weight: 1 },
+];
+/** Everything a run can pay out (bar coins), for the Collection log's gate page. */
+export const GATE_LOOT = [...new Set([...waveBonus(30, 100), ...bossChest(30, 100)].map(([id]) => id)
+  .concat(GATE_CACHE.map((e) => e.id)).filter((id) => id !== 'coins'))];
 
 /** Grow the built world by ARENA_ROWS rows of sea and raise the walled arena in
  *  them, then put the gate in Kampong Glam. Called on buildWorld()'s result
@@ -153,11 +185,35 @@ export class Waves {
   constructor(game) {
     this.game = game;
     this.best = 0;          // the deepest wave you have reached (saved)
+    this.bestByClass = {};  // ...and with each job class (saved)
+    this.mods = new Set();  // modifiers picked for the next run (saved, so the choice sticks)
     this._reset();
+  }
+
+  /** Your best wave as a class (the one you are now, by default). */
+  classBest(cls = this.game.jobClass) { return this.bestByClass[cls || 'none'] || 0; }
+  /** Pick or drop a modifier for the next run (not once a run is under way). */
+  toggleMod(id) {
+    if (this.active || !GATE_MODS[id]) return false;
+    if (this.mods.has(id)) this.mods.delete(id); else this.mods.add(id);
+    this.game.saveSoon = true;
+    this.game.bus.emit('waves');
+    return true;
+  }
+  /** Combat XP multiplier from this run's modifiers (1 outside a run). */
+  xpMult() { return this.active ? this.fx.xp : 1; }
+  /** Does this run forbid healing food? */
+  blocksFood() { return this.active && this.fx.noFood; }
+  /** Say no to a meal (at most every few ticks: auto-eat asks every tick). */
+  foodRefused() {
+    const g = this.game;
+    if ((g.tickCount || 0) - (this._foodMsgAt ?? -99) >= 5) { this._foodMsgAt = g.tickCount || 0; g.msg('Fasting: no food in the Endless Gate this run.', 'system'); }
   }
 
   _reset() {
     this.active = false;
+    this.runMods = [];      // the modifiers this run was entered with
+    this.fx = modEffects([]);
     this.wave = 0;          // the wave under way (0 before the first)
     this.level = 0;         // its monsters' level
     this.mobs = [];         // its monsters still standing
@@ -184,10 +240,13 @@ export class Waves {
     p.clearAction();
     g._placePlayer(START.x, START.y);
     this.active = true;
+    this.runMods = GATE_MOD_IDS.filter((id) => this.mods.has(id));
+    this.fx = modEffects(this.runMods);
     this.nextAt = g.tickCount + NEXT_WAVE_TICKS;
     g.spawnSparkle(p, '#b58cff', 16);
     g.msg(`You step through ${GATE_NAME}. Monsters come in waves, each stronger than the last. Leave by the portal, or with Leave; if you fall you keep everything and wake outside.`, 'system');
-    if (this.best) g.msg(`Your best: wave ${this.best}.`, 'system');
+    if (this.runMods.length) g.msg(`Modifiers: ${this.runMods.map((id) => GATE_MODS[id].name).join(', ')}.`, 'system');
+    if (this.best) g.msg(`Your best: wave ${this.best}${this.classBest() ? ` (as this class: wave ${this.classBest()})` : ''}.`, 'system');
     g.bus.emit('sfx', 'travel');
     g.updateRegion();
     g.ui?.closeModal?.();
@@ -231,7 +290,7 @@ export class Waves {
     // Any loot still on the floor comes with you.
     for (const gi of [...g.world.groundItems]) {
       if (!inArena(gi.x, gi.y)) continue;
-      g.inventory.add(gi.id, gi.qty);
+      g.inventory.add(gi.id, gi.qty, gi.q);
       g.world.removeGroundItem(gi);
     }
     if (p.action?.type === 'attack') p.clearAction();
@@ -263,6 +322,12 @@ export class Waves {
     const g = this.game;
     const plan = wavePlan(n, g.fightLevel());
     const count = plan.length;   // counted now: spawning empties the queue (the plan itself)
+    // Elite waves: tougher monsters (a fresh def each, so nothing shared is changed).
+    if (this.fx.hp !== 1 || this.fx.hit !== 1) {
+      for (const e of plan) e.def = { ...e.def, maxHp: Math.max(1, Math.round(e.def.maxHp * this.fx.hp)), maxHit: Math.max(1, Math.round(e.def.maxHit * this.fx.hit)) };
+    }
+    const cls = g.jobClass || 'none';
+    if (n > (this.bestByClass[cls] || 0)) { this.bestByClass[cls] = n; g.saveSoon = true; }
     this.wave = n;
     this.level = plan[0].def.level;
     this.queue = plan;
@@ -299,6 +364,7 @@ export class Waves {
     n.def = entry.def;
     n.maxHp = n.hp = n.def.maxHp;
     if (entry.champion) n.makeChampion();
+    if (this.fx.speed !== 1) n.stepMul /= this.fx.speed;   // Swift foes
     // Home is the middle of the hall, with room to roam all of it, so it never
     // gives up the chase and walks "home" while you stand in a corner.
     n.spawnX = Math.round(MID.x); n.spawnY = Math.round(MID.y); n.wander = 14;
@@ -320,11 +386,15 @@ export class Waves {
     g.npcs = g.npcs.filter((m) => !(m.temporary && !m.ally && m.alive && inArena(m.x, m.y)));
     const got = waveBonus(n, L);
     if (n % BOSS_EVERY === 0) got.push(...bossChest(n, L));
+    // Modifiers: Swift foes doubles the bonus, each extra reward roll adds a cache prize.
+    const fx = this.fx;
+    if (fx.loot !== 1) for (const e of got) e[1] = Math.round(e[1] * fx.loot);
+    for (let r = 0; r < fx.rolls; r++) { const pick = weightedPick(GATE_CACHE); got.push([pick.id, pick.min ? randInt(pick.min, pick.max) : 1]); }
     const sum = new Map();
     for (const [id, q] of got) if (q > 0) sum.set(id, (sum.get(id) || 0) + q);
-    for (const [id, q] of sum) g.inventory.add(id, q);
+    for (const [id, q] of sum) { g.inventory.add(id, q); g.collection?.record('gate', id, q); }
     const names = { coins: 'coins', upgrade_stone: 'enhancement stones', refine_scroll: 'refine scrolls', upgrade_ward: 'upgrade wards' };
-    const list = [...sum].map(([id, q]) => `${q.toLocaleString('en-GB')} ${names[id] || id}`).join(', ');
+    const list = [...sum].map(([id, q]) => `${q.toLocaleString('en-GB')} ${names[id] || getItem(id).name}`).join(', ');
     g.msg(`Wave ${n} cleared! ${n % BOSS_EVERY === 0 ? 'Boss chest' : 'Bonus'}: ${list}.`, 'level');
     g.banner(`<span class="big">Wave ${n} cleared!</span>${n % BOSS_EVERY === 0 ? 'Boss chest opened. ' : ''}Next wave in ${Math.round(NEXT_WAVE_TICKS * 0.6)}s`, 'waves');
     g.bus.emit('sfx', n % BOSS_EVERY === 0 ? 'dropepic' : 'droprare');

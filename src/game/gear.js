@@ -45,8 +45,8 @@ export function swingBeats(id) {
 /** How good a piece is for YOU right now: its stats with its mastery and enchantments,
  *  counting only the attack stats your fighting style uses (a melee amulet is
  *  worth nothing to an archer but its Defence). Weapons count damage per beat. */
-export function effectiveRating(id, equipment, mode = 'melee') {
-  const { offence, support } = effectiveParts(id, equipment, mode);
+export function effectiveRating(id, equipment, mode = 'melee', q = null) {
+  const { offence, support } = effectiveParts(id, equipment, mode, 'main', q);
   return offence + support;
 }
 
@@ -55,11 +55,11 @@ export function effectiveRating(id, equipment, mode = 'melee') {
  *  bonuses; weapons per swing beat) and what it adds to staying alive
  *  (Defence, bonus HP). Equip best ranks by offence first (see offenceFirstScore). */
 // (`copy`: which record's upgrades to count, 'off' for a twin pair's off-hand
-// copy; see Equipment.copyIn.)
-export function effectiveParts(id, equipment, mode = 'melee', copy = 'main') {
+// copy; see Equipment.copyIn. `q`: the copy's quality, null for plain.)
+export function effectiveParts(id, equipment, mode = 'melee', copy = 'main', q = null) {
   const eq = getItem(id).equip;
   if (!eq) return { offence: 0, support: 0 };
-  const b = equipment.itemBonuses ? equipment.itemBonuses(id, copy) : (eq.bonuses || {});
+  const b = equipment.itemBonuses ? equipment.itemBonuses(id, copy, q) : (eq.bonuses || {});
   const offence = mode === 'ranged' ? (b.ranged || 0) : mode === 'magic' ? (b.magic || 0) + (b.magicStr || 0) * 8
     : mode === 'dance' ? (b.dance || 0) * 2 : (b.attack || 0) + (b.strength || 0);
   const styleOk = !eq.style || eq.style === (mode === 'dance' ? 'melee' : mode);
@@ -71,8 +71,8 @@ export function effectiveParts(id, equipment, mode = 'melee', copy = 'main') {
 
 /** Equip best's score: offence decides, and Defence and HP only break a tie,
  *  so a piece that hits harder always wins over a sturdier one. */
-export function offenceFirstScore(id, equipment, mode = 'melee', copy = 'main') {
-  const { offence, support } = effectiveParts(id, equipment, mode, copy);
+export function offenceFirstScore(id, equipment, mode = 'melee', copy = 'main', q = null) {
+  const { offence, support } = effectiveParts(id, equipment, mode, copy, q);
   return offence * 1e6 + support;
 }
 
@@ -88,10 +88,10 @@ export function gearRating(id, b = getItem(id).equip?.bonuses || {}) {
   return offence + support;
 }
 
-/** Rating including the item's mastery and enchant lines, so a well-mastered
- *  piece can beat a better base item. */
-function masteredRating(id, equipment, copy = 'main') {
-  return gearRating(id, equipment.itemBonuses ? equipment.itemBonuses(id, copy) : undefined);
+/** Rating including the item's mastery, the copy's quality and its enchant
+ *  lines, so a fine copy can beat a better base item. */
+function masteredRating(id, equipment, copy = 'main', q = null) {
+  return gearRating(id, equipment.itemBonuses ? equipment.itemBonuses(id, copy, q) : undefined);
 }
 
 /** The level a piece's `skill` requirement is checked against. The Dancer's
@@ -112,19 +112,21 @@ export function meetsReq(id, skills) {
   return { ok: missing.length === 0, missing };
 }
 
-/** Compare a piece against whatever is worn in its slot (or in `slot`: a
- *  dual wielder's off-hand weapon is weighed against the off-hand, 'shield').
+/** Compare a piece (a copy of quality `q`, null for plain) against whatever
+ *  is worn in its slot (or in `slot`: a dual wielder's off-hand weapon is
+ *  weighed against the off-hand, 'shield'). The worn piece counts its own quality.
  *  verdict: 'empty' (slot is bare) | 'style' (a weapon of another style) |
  *           'upgrade' | 'downgrade' | 'same' | 'worn' (it IS the worn piece). */
-export function compareGear(id, equipment, slot = null) {
+export function compareGear(id, equipment, slot = null, q = null) {
   const eq = getItem(id).equip;
   if (!eq) return null;
   const worn = equipment.get(slot || eq.slot);
-  if (worn === id) return { worn, verdict: 'worn', deltas: [], ratingDelta: 0 };
+  const wornQ = equipment.qualityIn?.(slot || eq.slot) || null;
+  if (worn === id && wornQ === (q || null)) return { worn, verdict: 'worn', deltas: [], ratingDelta: 0 };
   // Each side as it is (or would be) worn: a twin pair's off-hand copy has its own upgrades.
   const myCopy = equipment.copyFor?.(id, slot || eq.slot) || 'main', theirCopy = equipment.copyIn?.(slot || eq.slot) || 'main';
-  const mine = equipment.itemBonuses ? equipment.itemBonuses(id, myCopy) : (eq.bonuses || {});
-  const theirs = worn ? (equipment.itemBonuses ? equipment.itemBonuses(worn, theirCopy) : getItem(worn).equip?.bonuses || {}) : {};
+  const mine = equipment.itemBonuses ? equipment.itemBonuses(id, myCopy, q) : (eq.bonuses || {});
+  const theirs = worn ? (equipment.itemBonuses ? equipment.itemBonuses(worn, theirCopy, wornQ) : getItem(worn).equip?.bonuses || {}) : {};
   const deltas = [];
   for (const k of STAT_KEYS) {
     const d = (mine[k] || 0) - (theirs[k] || 0);
@@ -138,7 +140,7 @@ export function compareGear(id, equipment, slot = null) {
   if (eq.slot === 'weapon' && weaponStyle(id) !== weaponStyle(worn)) {
     return { worn, verdict: 'style', deltas, ratingDelta: gearRating(id) - gearRating(worn) };
   }
-  const ratingDelta = masteredRating(id, equipment, myCopy) - masteredRating(worn, equipment, theirCopy);
+  const ratingDelta = masteredRating(id, equipment, myCopy, q) - masteredRating(worn, equipment, theirCopy, wornQ);
   return { worn, verdict: ratingDelta > 0 ? 'upgrade' : ratingDelta < 0 ? 'downgrade' : 'same', deltas, ratingDelta };
 }
 

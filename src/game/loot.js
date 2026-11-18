@@ -26,8 +26,11 @@ export function dropRarity(id, source = 'table', { boss = false } = {}) {
 export function lootDelay(rarity) { return [1, 2, 3, 4][RARITY[rarity]?.rank ?? 0]; }
 
 // Gear quality: a dropped piece of gear can come out Fine, Superior, Epic,
-// Legendary or Mythic. Quality is a head start on mastery: the item type jumps
-// straight to the matching mastery rank (never lowering the rank you have).
+// Legendary or Mythic. Quality belongs to that one copy (it is kept on the
+// pack, bank and worn slot that holds it, see Inventory and Equipment) and
+// multiplies the copy's stats: Fine +8%, Superior +16%, Epic +25%, Legendary
+// +40%, Mythic +60%, on top of its gear type's mastery (see mastery.js). It
+// has nothing to do with mastery itself.
 // Each tier is much less likely than the one before, and the odds depend on
 // who dropped it. The roll climbs a ladder of 15 steps, each next step less
 // likely; the step reached picks the tier:
@@ -42,15 +45,31 @@ export const QUALITY_RULES = {
   champion: { start: 0.6, from: 1, step: 0.65 },
   boss: { start: 1, from: 2, step: 0.7 },
 };
-// Each tier: its label, drop rarity, the ladder step it starts at, and the
-// mastery rank it gives (1 Adept .. 5 Grandmaster, see mastery.js).
+// Each tier: its label, drop rarity, the ladder step it starts at, the share
+// it adds to the copy's stats (gain) and its colour in names and the chat.
 export const QUALITY = {
-  fine: { label: 'Fine', rarity: 'rare', step: 1, rank: 1 },
-  superior: { label: 'Superior', rarity: 'epic', step: 2, rank: 2 },
-  epic: { label: 'Epic', rarity: 'epic', step: 3, rank: 3 },
-  legendary: { label: 'Legendary', rarity: 'legendary', step: 5, rank: 4 },
-  mythic: { label: 'Mythic', rarity: 'legendary', step: 10, rank: 5 },
+  fine: { label: 'Fine', rarity: 'rare', step: 1, gain: 0.08, color: '#2e9e4f' },
+  superior: { label: 'Superior', rarity: 'epic', step: 2, gain: 0.16, color: '#3a7bd5' },
+  epic: { label: 'Epic', rarity: 'epic', step: 3, gain: 0.25, color: '#8b4fe0' },
+  legendary: { label: 'Legendary', rarity: 'legendary', step: 5, gain: 0.40, color: '#d08a00' },
+  mythic: { label: 'Mythic', rarity: 'legendary', step: 10, gain: 0.60, color: '#d6336c' },
 };
+/** The quality keys from the plainest up. */
+export const QUALITY_ORDER = ['fine', 'superior', 'epic', 'legendary', 'mythic'];
+/** A quality's place: -1 plain, 0 Fine .. 4 Mythic (for sorting copies, plainest first). */
+export const qualityRank = (q) => QUALITY_ORDER.indexOf(q);
+/** A saved quality, checked: a QUALITY key or null. */
+export const validQuality = (q) => (typeof q === 'string' && QUALITY[q] ? q : null);
+/** "Legendary Iron sword" (just the name for a plain copy). */
+export function qualityName(id, q) {
+  const name = getItem(id).name;
+  return QUALITY[q] ? `${QUALITY[q].label} ${name}` : name;
+}
+/** The same, with the quality word in its colour (for tooltips; `esc` escapes the name). */
+export function qualityNameHTML(id, q, esc = (s) => s) {
+  const name = esc(getItem(id).name);
+  return QUALITY[q] ? `<span class="q-word q-${q}" style="color:${QUALITY[q].color}">${QUALITY[q].label}</span> ${name}` : name;
+}
 
 /** How far up the quality ladder a drop climbs (0 = plain, up to 15). */
 export function rollQualityStep(source = 'normal', rand = Math.random) {

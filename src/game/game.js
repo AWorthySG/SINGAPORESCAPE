@@ -3,11 +3,10 @@ import { goldenMult, goldenSkills, GOLDEN_HOUR_XP, SKILL_HOURS } from '../data/s
 import { buildWorld, TERRAIN, zoneLevel } from '../data/world.js';
 import { compareGear, deltaText, gearRating, effectiveRating, offenceFirstScore, weaponStyle, reqLevel } from './gear.js';
 import { planCarry, applyCarry, carryMessages, scoreAfterCarry } from './carry.js';
-import { RARITY, dropRarity, lootDelay, rollQuality, QUALITY, NORMAL_GEAR_SKIP } from './loot.js';
-import { recordQuality } from './salvage.js';
+import { RARITY, dropRarity, lootDelay, rollQuality, QUALITY, NORMAL_GEAR_SKIP, qualityName } from './loot.js';
 import { dayKey, prevDayKey, makeBounties, streakMult } from './bounty.js';
 import { ATTRS, ATTR_NAMES, statPointsAt, attrForMode, DMG_PER_POINT, LIFE_PER_STR, CRIT_PER_INT, SPEED_PER_DEX, RESET_COST_PER_POINT } from './attributes.js';
-import { MASTERY_RANKS, BANNER_RANK, MAX_ENCHANTS, killMastery, enchantCost, rollEnchantOffers, enchantLabel, STONE as UP_STONE, WARD as UP_WARD } from './mastery.js';
+import { MASTERY_RANKS, BANNER_RANK, MAX_ENCHANTS, killMastery, masteryType, masteryTypeName, enchantCost, rollEnchantOffers, enchantLabel, STONE as UP_STONE, WARD as UP_WARD } from './mastery.js';
 import { MAX_REFINE, SCROLL as REFINE_SCROLL, refineCost, rollRefine, refineTag, refineScrollDrop } from './refine.js';
 import { materialKind, materialPoints, feedKind, feedPoints, FEED_CAP, FEED_CAP_RANK } from './materials.js';
 import { Shrine, SHRINE_TRACKS, trackText } from './shrine.js';
@@ -52,12 +51,16 @@ import {
   resolveSmelt, smeltBatch, resolveSmith, resolveFiremake, resolveCraft, resolveDish,
   resolveHunt, resolveRecipe,
 } from './skilling.js';
+import { installSkillUnlocks, runSkillAction, extraCrop, growTicks } from './skillunlocks.js';
+import { Home } from './home.js';
 import { CROP_BY_SEED, cropFor, POTIONS } from '../data/trades.js';
 import { saveGame, loadGame, hasSave } from './save.js';
+import * as Play from './playbalance.js';
 import { getShop } from '../data/shops.js';
 import { RARE_DROP_TABLE, getNpc, ALL_BOSS_IDS, ALL_MONSTER_IDS } from '../data/npcs.js';
 import { MORAL_EVENTS, MORAL_BY_ID, moralCoins, BLESS_MS, BLESS_XP } from '../data/moralEvents.js';
 import { alignmentTier, alignmentStyle, greetingFor } from '../data/alignment.js';
+import { tickBossMechanics, mechOnPlayerHit, mechAbilityUsed, mechAutoFight, inHazard } from './bossmech.js';
 import { SIGNATURE_DROP_CHANCE, SIGNATURE_CLASS, sigIdFor } from '../data/bossWeapons.js';
 import { nextJob, jobKey } from './autoprocess.js';
 import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
@@ -66,6 +69,9 @@ import { STATIONS, STATION_BY_ID, MRT_FARE } from '../data/transport.js';
 import { SKILLS, SKILL_BY_ID } from '../data/skills.js';
 import { Learning } from './learning.js';
 import { Waves, addArena } from './waves.js';
+import { Collection } from './collection.js';
+import { Pets } from './pets.js';
+import { WorldEvents } from './worldevents.js';
 import * as Mercs from './mercenary.js';
 import * as Culling from './culling.js';
 import { classPerks } from './classperks.js';
@@ -74,6 +80,7 @@ import { TOPIC_BY_ID } from '../data/questions.js';
 import { LIFE_STAGES, LIFE_GRAD, LIFE_STAGES_ADV, LIFE_GRAD_ADV, LIFE_STAGES_WILD, LIFE_GRAD_WILD } from '../data/lifeskills.js';
 import { QUESTS, CHAMPION_QP, REDEMPTION_GOAL, CORRUPTION_GOAL } from '../data/quests.js';
 import { CLUE_TIERS, CLUE_SPOTS, clueTierForLevel } from '../data/clues.js';
+import * as RQ from './regionquests.js';   // region story quests
 
 // Auto quest: the dialogue actions that start and hand in each quest it can
 // do ([start, hand-in]; Pest Control completes itself on the last rat). The
@@ -83,6 +90,7 @@ const AUTO_QUEST_ACTIONS = {
   bone_collector: ['questStart', 'questTurnIn'], pest_control: ['pestStart', null], pillars: ['pillarsStart', 'pillarsTurnIn'],
   smith_apprentice: ['smithStart', 'smithTurnIn'], island_defender: ['defenderStart', 'defenderTurnIn'], big_game_hunter: ['bigGameStart', 'bigGameTurnIn'],
   mystic_trial: ['mysticStart', 'mysticTurnIn'], island_provisions: ['provisionsStart', 'provisionsTurnIn'], champion: ['championStart', 'championTurnIn'],
+  ...RQ.REGION_AUTO_ACTIONS,
 };
 // Stations whose menu auto quest runs with "make everything" (autoprocess.js kinds).
 const AUTO_QUEST_STATION = { furnace: 'smelt', range: 'cook', fire: 'cook', anvil: 'smith', craft: 'craft', fletch: 'fletching', herblore: 'herblore' };
@@ -330,7 +338,7 @@ export const BONE_PRAYER_XP = getItem('bones').prayerXp;   // plain bones; every
 const ALCHEMY = { level: 21, xp: 65, runes: { nature_rune: 1, fire_rune: 5 } };
 
 // Actions that can fire the instant you press (no random roll to exploit by spamming).
-const INSTANT_ACTIONS = new Set(['pickup', 'cookmenu', 'smeltmenu', 'smithmenu', 'craftmenu', 'fletchmenu', 'herbmenu', 'farm', 'pray', 'rest', 'transport', 'openbank', 'openshop', 'talk', 'shrinemenu']);
+const INSTANT_ACTIONS = new Set(['pickup', 'cookmenu', 'smeltmenu', 'smithmenu', 'craftmenu', 'fletchmenu', 'herbmenu', 'farm', 'pray', 'rest', 'transport', 'openbank', 'openshop', 'talk', 'shrinemenu', 'homemenu']);
 const GATHER_ACTIONS = new Set(['woodcut', 'mine', 'fish', 'stall']);
 // Ticks you get to answer a Knowledge Strike before the boss's special lands (~7s).
 const KS_TICKS = 12;
@@ -343,7 +351,8 @@ export class Game {
     this.world.build(data);
 
     this.skills = new Skills(this.bus);
-    this.skills.timeMult = (id) => goldenMult(id, this.gameHour());   // golden hours (skillhours.js)
+    Play.initPlay(this);   // Focus, Rested XP and the gravestone (playbalance.js)
+    this.skills.timeMult = (id) => goldenMult(id, this.gameHour()) * Play.xpMult(this);   // golden hours (skillhours.js), rested and tired
     this.inventory = new Inventory(this.bus);
     this.equipment = new Equipment(this.bus);
     this.shrine = new Shrine();   // the Offering Shrine's blessings (see shrine.js)
@@ -356,6 +365,7 @@ export class Game {
 
     this.npcs = data.npcSpawns.map((s) => new NPC(s.npcId, s.x, s.y, s.wander, s.opts));
     this._placeMoralNpcs();
+    RQ.placeRegionGivers(this);   // one quest giver per region (regionquests.js)
 
     this.camera = new Camera();
     this.ui = null;     // set by main
@@ -420,6 +430,7 @@ export class Game {
       champion: { state: 'notStarted', startBoss: 0 },
       redemption: { state: 'notStarted', baseGood: 0 },
       corruption: { state: 'notStarted', baseEvil: 0 },
+      ...RQ.regionQuestState(),
     };
 
     // Achievement / collection-log progress.
@@ -429,6 +440,12 @@ export class Game {
     this.stationsFound = new Set(['kampong_glam']);   // MRT stations you can ride to from the world map
     this.learning = new Learning();   // Wisdom, topic mastery, Codex cards and titles
     this.waves = new Waves(this);     // the Endless Gate: a run of monster waves, and your best wave
+    this.collection = new Collection(this);   // the Collection log: every source's unique drops (collection.js)
+    this.pets = new Pets(this);       // rare boss and life-skill pets, and the one following you (pets.js)
+    this.worldEvents = new WorldEvents(this);   // roaming world events and weekly region challenges (worldevents.js)
+    installSkillUnlocks(this);        // life skill unlocks at 10/25/50/75/99 (skillunlocks.js)
+    this.home = new Home(this);       // the kampong home plot in Kranji (home.js)
+    this.snareGiven = true;           // a new character has the starter snare; older saves get one on load (onboarding.js)
     // Knowledge Strikes: bosses' specials can be interrupted by answering a question.
     // On by default in the browser; headless runs (tests) leave bosses as they were.
     this.knowledgeStrikes = LEARNING_ENABLED && typeof document !== 'undefined';
@@ -559,6 +576,7 @@ export class Game {
       // Saves from before two-handed weapons may hold a shield with one.
       if (isTwoHanded(this.equipment.get('weapon')) && this.equipment.get('shield')) this._stowShield();
       this.msg(`Welcome back to ${this.world.townName}, ${this.player.name}!`, 'system');
+      if (this.play.welcome) { this.msg(this.play.welcome, 'level'); this.play.welcome = null; }
       if (LEARNING_ENABLED && !this.learning.dailyDone(this.todayKey())) this.msg('Your daily revision is ready in the Knowledge Codex (Skills tab).', 'level');
     } else {
       this.newGame();
@@ -573,6 +591,7 @@ export class Game {
     this.prayerPoints = this.skills.prayer;
     this.bus.emit('prayer');
     this.updateRegion();
+    RQ.syncRegionQuests(this);
     this.ensureBounties();
     this.checkAchievements(true);
     this.bus.emit('achievement');
@@ -610,7 +629,7 @@ export class Game {
       this.pendingClassChoice = false;
       const w = this.equipment.get('weapon');
       if (w && getItem(w).equip?.weaponType && !canWield(classId, getItem(w).equip.weaponType) && this.inventory.freeSlots?.() !== 0) {
-        this.equipment.clearSlot('weapon'); this.inventory.add(w, 1);
+        const wq = this.equipment.qualityIn('weapon'); this.equipment.clearSlot('weapon'); this.inventory.add(w, 1, wq);
       }
       const starter = starterWeapon(classId);
       if (!this.equipment.get('weapon')) this.equipment.set('weapon', starter); else this.inventory.add(starter, 1);
@@ -777,13 +796,14 @@ export class Game {
    *  life skill perks plus the Offering Shrine's blessings. Kept until either changes. */
   outsideBonuses() {
     const lp = this.lifePerks(), rev = this.shrine.rev, c = this._outsideCache;
-    const kc = this.karmaCombat(), kKey = `${kc.side}${kc.tier}`;
-    if (c && c.lp === lp && c.rev === rev && c.kKey === kKey) return c.totals;
+    const kc = this.karmaCombat(), kKey = `${kc.side}${kc.tier}`, rq = RQ.regionPerks(this);
+    if (c && c.lp === lp && c.rev === rev && c.kKey === kKey && c.rq === rq) return c.totals;
     const totals = { ...lp };
     for (const [k, v] of Object.entries(this.shrine.bonuses())) totals[k] = (totals[k] || 0) + v;
+    for (const [k, v] of Object.entries(rq)) totals[k] = (totals[k] || 0) + v;   // region quest perks
     // The Dark path's crit damage and lifesteal count like gear's.
     if (kc.side === 'dark') { totals.critDmg = (totals.critDmg || 0) + kc.critDmg; totals.lifesteal = (totals.lifesteal || 0) + kc.lifesteal; }
-    this._outsideCache = { lp, rev, kKey, totals };
+    this._outsideCache = { lp, rev, kKey, rq, totals };
     return totals;
   }
 
@@ -827,7 +847,7 @@ export class Game {
     const tinyCap = Math.max(2, (entity.maxHp || (entity === this.player ? this.maxHp() : 0)) * SPLAT_TINY_SHARE);
     const tiny = !opts.crit && !opts.critX && dmg <= tinyCap && last && last.dmg <= tinyCap * 3;
     const mergeMs = tiny ? SPLAT_TINY_MERGE_MS : SPLAT_MERGE_MS;
-    if (last && !opts.noMerge && !opts.text && !last.text && !!opts.aoe === !!last.aoe && dmg > 0 && last.dmg > 0 && !!opts.crit === last.crit && (opts.critX || 0) === last.critX
+    if (last && !opts.noMerge && !opts.text && !last.text && !!opts.aoe === !!last.aoe && dmg > 0 && last.dmg > 0 && !!opts.crit === last.crit && (opts.critX || 0) === last.critX && !!opts.weak === !!last.weak
       && opts.tint === last.tint && last.life > last.maxLife - mergeMs && this.effects.includes(last)) {
       last.dmg += dmg;
       return;
@@ -840,7 +860,7 @@ export class Game {
     entity._splatRow = entity._splatRow ? 0 : 1;
     const mine = this.effects.filter((e) => e.type === 'hitsplat' && e.entity === entity);
     if (mine.length >= SPLAT_MAX_PER) for (const e of mine.slice(0, mine.length - SPLAT_MAX_PER + 1)) e.life = Math.min(e.life, 120);
-    const fx = { type: 'hitsplat', entity, dmg, crit: !!opts.crit, critX: opts.critX || 0, text: opts.text, tint: opts.tint, aoe: !!opts.aoe, life: opts.critX ? 1000 : 800, fan: (entity._splatN - 2) * 0.8, row: entity._splatRow };
+    const fx = { type: 'hitsplat', entity, dmg, crit: !!opts.crit, critX: opts.critX || 0, text: opts.text, tint: opts.tint, aoe: !!opts.aoe, weak: !!opts.weak, life: opts.critX ? 1000 : 800, fan: (entity._splatN - 2) * 0.8, row: entity._splatRow };
     fx.maxLife = fx.life;
     entity._lastSplat = fx;
     this.effects.push(fx);
@@ -1069,9 +1089,12 @@ export class Game {
       this._autoPickup();
     }
     this._resolveHazards();
+    Play.tickPlay(this);
+    tickBossMechanics(this);   // each boss's interactive mechanic (bossmech.js)
     this.player.stepMul = this.playerStepMul() * (this._onRoad() ? ROAD_PACE : 1);   // Agility quickens your steps, and so do roads
     this._tickWorldBoss();
     this.waves.tick();
+    this.worldEvents.tick();
     this._tickTownGuards();
     this._tickGreetings();
     this.cine.tick(this);   // fight push-in, and a boss's entrance the first time it engages
@@ -1263,6 +1286,7 @@ export class Game {
     if (this.inventory.canAdd(id, r.qty) <= 0) { this.msg('You need more inventory space.', 'system'); return; }
     this.slayer.points -= r.cost;
     this.inventory.add(id, r.qty);
+    this.collection.record('slayer', id, r.qty);
     this.msg(`You redeem ${r.qty > 1 ? r.qty + ' x ' : ''}${getItem(id).name} for ${r.cost} Slayer points.`, 'system');
     this.bus.emit('slayer');
   }
@@ -1337,6 +1361,7 @@ export class Game {
       // The Endless Gate asks first (its panel shows your best wave); its exit portal just takes you out.
       case 'gate': return this._tickArrival(a, a.target, true, () => (a.obj.objId === 'wave_exit' ? this.waves.leave() : this.ui ? this.ui.openWaveGate?.(a.obj) : this.waves.enter()));
       case 'openbank': return this._tickArrival(a, a.target, true, () => this.ui?.openBank());
+      case 'homemenu': return this._tickArrival(a, a.target, true, () => this.bus.emit('homeopen', a.obj.def.homeTab));   // homeui.js
       case 'openshop': return this._tickArrival(a, a.target, true, () => this.ui?.openShop(a.shop));
       case 'talk': return this._tickArrival(a, a.target, true, () => this.ui?.openDialogue(a.npc));
       case 'questtalk': return this._tickArrival(a, a.target, true, () => this._autoQuestTalk(a.quest, a.npc));
@@ -1362,13 +1387,15 @@ export class Game {
     // Count the bag before and after so every item gathered pops up over you.
     const gather = GATHER_ACTIONS.has(a.type) || a.type === 'hunt';
     const before = gather ? this._bagCounts() : null;
-    const going = resolver();
+    const going = runSkillAction(this, a, resolver);   // with the skill's unlocks (skillunlocks.js)
     if (gather) {
       const after = this._bagCounts();
       for (const [id, n] of after) {
         const got = n - (before.get(id) || 0);
         if (got > 0 && id !== 'coins') this.addHitsplat(this.player, 0, { text: `+${got} ${getItem(id).name}` });
+        if (got > 0) this.collection.onGather(a.type, id, got);   // rare finds for the Collection log
       }
+      this.worldEvents.onGather(obj, before, after);   // event nodes' bonus, weekly region challenge
     }
     // Remember what we're gathering, so auto gather can pick it up again after
     // a fight, or once the mined-out rocks and felled trees grow back.
@@ -1825,6 +1852,7 @@ export class Game {
     this.specEnergy -= spec.cost;
     this.specArmed = false;
     this.bus.emit('spec');
+    mechAbilityUsed(this);   // a special interrupts a boss's cast
     return spec;
   }
 
@@ -1943,6 +1971,7 @@ export class Game {
     // Immediate abilities (guard / heal) resolve right away.
     this._payAbility(ab);
     this.abilityCd[id] = ab.cd;
+    mechAbilityUsed(this);
     if (ab.build) this._gainAdrenaline(ab.build);
     if (ab.kind === 'guard') {
       this.braceTicks = ab.guardTicks;
@@ -2020,6 +2049,7 @@ export class Game {
     }
     this._payAbility(ab);
     this.abilityCd[ab.id] = ab.cd;
+    mechAbilityUsed(this);   // any skill interrupts a boss's cast
     if (ab.build) this._gainAdrenaline(ab.build);   // a basic skill builds adrenaline
     this.bus.emit('adrenaline');
     this.bus.emit('ability');
@@ -2031,6 +2061,7 @@ export class Game {
     const spec = this._takeSpec();
     const ab = this._takeAbility();
     const weak = weaknessOf(npc.def) === (mode === 'dance' ? 'melee' : mode);   // whips count as melee for weaknesses
+    this._hitMode = mode === 'dance' ? 'melee' : mode;   // tags each blow that hits a weakness (_applyPlayerHit)
     // The special attack's and ability's own boosts belong to the main hand's
     // blow alone (abM); everything else below lands on a dual wielder's off-hand too.
     let abM = (spec ? spec.dmg || 1 : 1) * (ab ? ab.dmgMul || 1 : 1);
@@ -2248,6 +2279,7 @@ export class Game {
     const wasCrit = this._pendingCrit > 0 && dmg > 0;
     this._pendingCrit = 0;
     if (npc.shieldTicks > 0 && dmg > 0) dmg = Math.max(1, Math.floor(dmg / 2));   // a boss shield halves the blow
+    dmg = mechOnPlayerHit(this, npc, dmg);   // a style shield soaks it; an exposed boss takes more
     if (npc.reflectTicks > 0 && dmg > 0 && this.player.alive) {
       const back = Math.min(this.player.hp, Math.max(1, Math.round(dmg * (npc.reflectFrac || 0.2))), Math.ceil(this.maxHp() * 0.1));
       this.player.takeDamage(back);
@@ -2274,6 +2306,7 @@ export class Game {
     // Effective blows land in gold, resisted ones in grey (unless something else tints them).
     const rm = dmg > 0 && !opts.tint ? this.raceMatchup(npc) : null;
     if (rm) opts = { ...opts, tint: rm === 'strong' ? '#f5b82e' : '#9aa3b2' };
+    if (dmg > 0 && !opts.aoe && this._hitMode && weaknessOf(npc.def) === this._hitMode) opts = { ...opts, weak: true };   // a "weak!" tag on the number
     this.addHitsplat(npc, dmg, opts);
     if (dmg > 0) {
       this.bus.emit('sfx', 'hit'); this._hitAdrenaline(wasCrit);
@@ -3307,16 +3340,19 @@ export class Game {
     this.checkAchievements();
     this._deathBurst(npc);
     this.rollDrops(npc);
+    this.pets.onKill(npc);   // a boss's very rare pet (pets.js)
     // Slayer: a task monster sometimes drops a second helping of loot.
     if (onTask && Math.random() < this.slayerBonus().loot / 100) { this.rollDrops(npc); this.msg('Slayer bonus: extra loot!', 'system'); }
     if (npc.worldBoss) { for (let k = 1; k < WORLD_BOSS_LOOT_ROLLS; k++) this.rollDrops(npc); this.msg('World Boss slain! Triple loot.', 'level'); }
     Culling.onKill(this, npc);   // codex mastery, Pest Control contracts, Stewardship, Hunter
+    this.worldEvents.onKill(npc, byAlly);   // world event credit, weekly region challenge
     this._refundRunes(npc);
     npc.die();
     if (this.player.target === npc) this.player.target = null;
     // Auto battle moves straight on to the next fight (right after this attack
     // resolves) instead of idling until the next world tick.
     if (this.autoBattle) { this._autoLast = null; this._autoRetarget = true; }
+    RQ.onRegionKill(this, npc);
     const pc = this.quests.pest_control;
     if (pc.state === 'active' && npc.npcId === 'rat') {
       pc.kills++;
@@ -3393,7 +3429,7 @@ export class Game {
   // (x1.5 at level 1 up to x6 at level 10), and kill streak (+10% per kill, up to +50%).
   // On top, every combat XP gain is paid at COMBAT_XP_RATE (xpBreakdown shows only the bonuses),
   // grown by your fighting level so the climb past the 70s doesn't stall (combatLevelXpMult).
-  combatXpMult() { return this.xpBreakdown().total * COMBAT_XP_RATE * combatLevelXpMult(this.fightingLevel()); }
+  combatXpMult() { return this.xpBreakdown().total * COMBAT_XP_RATE * combatLevelXpMult(this.fightingLevel()) * this.waves.xpMult(); }
   /** The level of the fighting skill your weapon trains (Melee, Ranged, Magic or the Dancer's pooled level). */
   fightingLevel() {
     const m = this.combatMode();
@@ -3598,52 +3634,51 @@ export class Game {
         if (first) { first[1] += l[1]; loot.splice(i, 1); } else piles.set(l[0], l);
       }
     }
-    // Gear quality: a head start of mastery for that item type.
+    // Gear quality: the copy that drops keeps it (loot.js), and it multiplies that copy's stats.
     for (const l of loot) {
       if (!getItem(l[0]).equip) continue;
       const q = rollQuality(l[3] === 'boss' || def.boss ? 'boss' : npc.champion ? 'champion' : 'normal');
-      if (q) { this._applyQuality(l[0], q); l[2] = l[3] === 'sig' ? 'legendary' : QUALITY[q].rarity; }
-      if (q) recordQuality(this.equipment, l[0], q);   // remembered per copy, for sacrifice and dismantle (salvage.js)
+      const sig = l[3] === 'sig';
       l.length = 3;
+      if (!q) continue;
+      l[2] = sig ? 'legendary' : QUALITY[q].rarity;
+      l[3] = q;
+      this._announceQuality(l[0], q);
     }
+    Play.trimLoot(this, loot);   // automatic play with no Focus left: a lighter haul
+    this.collection.onDrops(npc, loot);   // tick off the Collection log
     this._autoLoot(loot, npc.x, npc.y);
   }
 
-  /** A quality drop raises that item type's mastery to the matching rank (never lowers it). */
-  _applyQuality(id, key) {
-    const Q = QUALITY[key], R = MASTERY_RANKS[Q.rank];
-    const name = getItem(id).name;
-    const had = this.equipment.masteryRank(id);
-    if (Q.rank > had) {
-      this.equipment.mastery[id] = Math.max(this.equipment.masteryPoints(id), R.points);
-      this.equipment._changed();
-      this.msg(`${Q.label} ${name}! Your ${name.toLowerCase()} is now ${R.name} mastery.`, 'level');
-      if (Q.rank >= BANNER_RANK) this.banner(`<span class="big">${Q.label} drop!</span>${name}: ${R.name} mastery`);
-    } else {
-      this.msg(`${Q.label} ${name} (yours is already ${MASTERY_RANKS[had].name} mastery).`, 'system');
-    }
+  /** A quality drop is named in its colour (a banner from Legendary up). */
+  _announceQuality(id, q) {
+    const Q = QUALITY[q];
+    this.msg(`${qualityName(id, q)}! A ${Q.label} copy: +${Math.round(Q.gain * 100)}% to its stats.`, `qual-${q}`);
+    if (Q.step >= QUALITY.legendary.step) this.banner(`<span class="big">${Q.label} drop!</span>${getItem(id).name}`);
   }
 
-  /** Every kill trains the gear you are wearing: each piece gains mastery
-   *  points (1 a monster, 5 a champion, 25 a boss), and may rank up. */
+  /** Every kill trains the gear you are wearing: each gear type worn gains
+   *  mastery points (1 a monster, 5 a champion, 25 a boss), and may rank up.
+   *  (Two pieces of one type, such as a pair of daggers, train it once.) */
   _gainMastery(npc) {
     const pts = killMastery(npc);
-    const ids = new Set(EQUIP_SLOTS.map((s) => this.equipment.get(s)).filter((id) => id && getItem(id).equip?.bonuses));
-    if (!ids.size) return;
-    for (const id of ids) this._addMastery(id, pts);
+    const types = new Map();
+    for (const s of EQUIP_SLOTS) { const id = this.equipment.get(s); if (id && getItem(id).equip?.bonuses && !types.has(masteryType(id))) types.set(masteryType(id), id); }
+    if (!types.size) return;
+    for (const id of types.values()) this._addMastery(id, pts);
     this.equipment._changed();
   }
 
-  /** Add mastery points to an item type, announcing a new rank (with a
-   *  banner from Master up). Kills and fed materials both come through here. */
+  /** Add mastery points to `id`'s gear type, announcing a new rank (with a
+   *  banner from Master up). Kills, sacrifices and fed materials all come through here. */
   _addMastery(id, pts) {
     const before = this.equipment.masteryRank(id);
-    this.equipment.mastery[id] = this.equipment.masteryPoints(id) + pts;
+    this.equipment.setMastery(id, this.equipment.masteryPoints(id) + pts);
     const after = this.equipment.masteryRank(id);
     if (after > before) {
-      const R = MASTERY_RANKS[after];
-      this.msg(`${getItem(id).name} reached ${R.name} mastery!`, 'level');
-      if (after >= BANNER_RANK) this.banner(`<span class="big">${R.name} mastery!</span>${getItem(id).name}`);
+      const R = MASTERY_RANKS[after], type = masteryTypeName(id);
+      this.msg(`${type} mastery reached ${R.name}!`, 'level');
+      if (after >= BANNER_RANK) this.banner(`<span class="big">${R.name} mastery!</span>${type}`);
     }
   }
 
@@ -3652,8 +3687,9 @@ export class Game {
   // then (next tick) fly into your pack wherever you are.
   _autoLoot(loot, x, y) {
     let best = 'common';
-    loot.forEach(([id, qty, rarity = 'common'], i) => {
+    loot.forEach(([id, qty, rarity = 'common', q], i) => {
       const gi = this.world.addGroundItem(id, qty, x, y);
+      if (q) gi.q = q;   // a quality copy keeps its quality all the way into the pack
       const a = (i / Math.max(1, loot.length)) * Math.PI * 2 + Math.random();
       gi.ox = Math.cos(a) * 9; gi.oy = Math.sin(a) * 5;     // pixel scatter
       gi.born = performance.now();
@@ -3680,11 +3716,11 @@ export class Game {
       // Kill drops fly in once their (rarity-based) delay is up, wherever you are;
       // anything else is swept up when you're within 2 tiles.
       if (gi.fromKill ? this.tickCount < gi.lootAt : chebyshev(at.x, at.y, gi.x, gi.y) > 2) continue;
-      const added = this.inventory.add(gi.id, gi.qty);
+      const added = this.inventory.add(gi.id, gi.qty, gi.q);
       if (added <= 0) continue;
       const rar = RARITY[gi.rarity];
       if (rar && rar.rank > 0) special = true;
-      got.push(`${added > 1 ? added + ' x ' : ''}${getItem(gi.id).name}${rar && rar.rank > 0 ? ` (${rar.label})` : ''}`);
+      got.push(`${added > 1 ? added + ' x ' : ''}${qualityName(gi.id, gi.q)}${rar && rar.rank > 0 && !gi.q ? ` (${rar.label})` : ''}`);
       const c = p.renderCenter();
       this.effects.push({ type: 'lootfly', id: gi.id, rarity: gi.rarity, x: gi.x * TILE + TILE / 2 + (gi.ox || 0), y: gi.y * TILE + TILE * 0.62 + (gi.oy || 0), ex: c.x, ey: c.y - 10, life: 420, maxLife: 420 });
       this.world.removeGroundItem(gi);
@@ -3741,6 +3777,7 @@ export class Game {
       const pick = weightedPick(t.loot);
       const qty = pick.min ? randInt(pick.min, pick.max) : 1;
       this.inventory.add(pick.id, qty);
+      this.collection.onGather('thieve', pick.id, qty);
       this.skills.addXp('thieving', t.xp);
       this.addEvil(1); // theft tips you toward evil
       this.spawnSparkle(this.player, '#ffe24a', 6);
@@ -3941,6 +3978,7 @@ export class Game {
       const pick = weightedPick(tier.reward);
       const q = pick.min ? randInt(pick.min, pick.max) : 1;
       this.inventory.add(pick.id, q);
+      this.collection.record(`clue:${s.id.replace('reward_casket_', '')}`, pick.id, q);
       won.push(`${q > 1 ? q + ' x ' : ''}${getItem(pick.id).name}`);
     }
     this.spawnSparkle(this.player, '#ffd24a', 16);
@@ -4402,7 +4440,7 @@ export class Game {
 
   /** Is this tile inside any pending boss attack? */
   hazardAt(x, y) {
-    return this.hazards.some((h) => Math.abs(x - h.cx) <= h.r && Math.abs(y - h.cy) <= h.r);
+    return this.hazards.some((h) => inHazard(h, x, y));
   }
 
   _resolveHazards() {
@@ -4420,7 +4458,7 @@ export class Game {
       this.effects.push({ type: 'blast', x: h.cx * TILE + TILE / 2, y: h.cy * TILE + TILE / 2, r: (h.r + 0.5) * TILE, life: 380, maxLife: 380 });
       this.addShake(3.5, 260);
       const t = this.playerTile();
-      if (Math.abs(t.x - h.cx) <= h.r && Math.abs(t.y - h.cy) <= h.r) {
+      if (inHazard(h, t.x, t.y)) {   // (a safe circle's green hole is safe)
         const { max } = npcAttackVsPlayer(h.npc.def, this.skills, this.equipment, p.style);
         let dmg = Math.min(Math.round(max * 1.8) + 2, Math.ceil(this.maxHp() * 0.45));  // hurts, never one-shots
         const prot = this.protectFactor();
@@ -4481,8 +4519,10 @@ export class Game {
       if (wb.alive) this.msg(`${wb.name} fades back into the wilds.`, 'system');
       this.npcs = this.npcs.filter((n) => n !== wb); this._worldBoss = null;
     }
+    Play.onDeath(this);   // a gravestone holds part of your pack until you walk back for it
     // Falling in the Endless Gate ends the run (nothing is lost) and you wake by its gate.
     this._respawnAt = this.waves.onDeath();
+    this.worldEvents.onDeath();   // a world event is called off (and packed away)
     this.ui?.closeModal();
   }
 
@@ -4636,10 +4676,13 @@ export class Game {
         p.clearAction();
         return;
       }
+      // A boss mechanic: interrupt its cast, turn on its healers (bossmech.js).
+      const heal = mechAutoFight(this, tgt, f);
+      if (heal) { this._autoFight = null; this._autoLast = heal; this.attackNpc(heal); return; }
       // "Bosses & champions first" holds mid-fight too: when one you'd take on
       // turns up within reach of an ordinary fight, switch to it (checked every
       // few ticks, and only when one is actually near).
-      if (this.autoCfg.priority !== false && !tgt.def.boss && !tgt.champion && this.tickCount % 3 === 0
+      if (this.autoCfg.priority !== false && !tgt.def.boss && !tgt.champion && !tgt.mechHealer && this.tickCount % 3 === 0
         && this.nearbyNpcs().some((n) => n !== tgt && n.alive && n.attackable && (n.def.boss || n.champion)
           && chebyshev(p.x, p.y, n.x, n.y) <= Math.max(12, this.attackRange() + 2))) {
         const up = this._autoPickTarget();
@@ -5161,7 +5204,7 @@ export class Game {
       if (!n.alive || !n.attackable) continue;
       const d = chebyshev(p.x, p.y, n.x, n.y);
       if (d > Math.max(25, range + 2)) continue;   // a Sniper picks off monsters from further still
-      const hunting = n.target === p || !!n.wave;   // a wave monster is coming for you, whatever its level
+      const hunting = n.target === p || !!n.wave || !!n.worldEvent;   // a wave or world event monster is coming for you, whatever its level
       // One auto battle has just run from is left alone until it catches up:
       // a pack that stayed by its home, still set on you, drew a Rogue back
       // into the fight it had fled, again and again until it died.
@@ -5367,6 +5410,7 @@ export class Game {
       case 'stall': return this.beginAction({ type: 'stall', obj }, tgt, true);
       case 'transport': return this.beginAction({ type: 'transport', obj, target: tgt }, tgt, true);
       case 'gate': return this.beginAction({ type: 'gate', obj, target: tgt }, tgt, true);
+      case 'home': return this.beginAction({ type: 'homemenu', obj, target: tgt }, tgt, true);
       default: return this.walkTo(tgt);
     }
   }
@@ -5375,9 +5419,9 @@ export class Game {
     if (!this.world.groundItems.includes(gi)) return;
     const space = this.inventory.canAdd(gi.id, gi.qty);
     if (space <= 0) { this.msg("You don't have enough inventory space."); return; }
-    const added = this.inventory.add(gi.id, Math.min(space, gi.qty));
+    const added = this.inventory.add(gi.id, Math.min(space, gi.qty), gi.q);
     gi.qty -= added;
-    this.msg(`You pick up ${added > 1 ? added + ' x ' : ''}${getItem(gi.id).name}.`);
+    this.msg(`You pick up ${added > 1 ? added + ' x ' : ''}${qualityName(gi.id, gi.q)}.`);
     this.bus.emit('sfx', 'pickup');
     if (gi.qty <= 0) this.world.removeGroundItem(gi);
     else this.bus.emit('grounditems');
@@ -5400,6 +5444,7 @@ export class Game {
     if (!s) return;
     const item = getItem(s.id);
     if (!item.heal) { this.msg(`You can't eat the ${item.name.toLowerCase()}.`); return; }
+    if (this.waves.blocksFood()) { this.waves.foodRefused(); return; }   // the Endless Gate's Fasting modifier
     this.inventory.removeAt(index, 1);
     // Endgame dishes heal a share of your life (healPct), so they keep up as it grows.
     // (Stewardship's food perk adds a share on top, see culling.js.)
@@ -5425,9 +5470,10 @@ export class Game {
   /** Can this piece be worn right now (levels, class weapon and class armour)? Silent. */
   /** Take off the shield (a two-handed weapon is in hand) and put it in the pack. */
   _stowShield() {
+    const shQ = this.equipment.qualityIn('shield');
     const sh = this.equipment.clearSlot('shield');
     if (!sh) return;
-    this.inventory.add(sh, 1);
+    this.inventory.add(sh, 1, shQ);
     this.msg(`Your weapon needs both hands, so you put your ${getItem(sh).name.toLowerCase()} in your pack.`, 'system');
   }
 
@@ -5449,7 +5495,8 @@ export class Game {
     // stats your fighting style uses, so a Legendary iron sword can beat a plain mithril one.
     const mode = this.combatMode();
     // Offensive stats first: damage decides, Defence and HP only break a tie.
-    const score = (id) => offenceFirstScore(id, this.equipment, mode);
+    // Each copy is weighed with its own quality (`q`), the worn piece with its own.
+    const score = (id, q = null) => offenceFirstScore(id, this.equipment, mode, 'main', q);
     for (let guard = 0; guard < 30; guard++) {
       let best = null;
       this.inventory.slots.forEach((s, i) => {
@@ -5466,22 +5513,26 @@ export class Game {
         // (A tool in hand, such as an axe, has no type and is always swapped for a weapon.)
         const wornType = worn && getItem(worn).equip.weaponType;
         if (eq.slot === 'weapon' && wornType && this.jobClass && getItem(s.id).equip.weaponType !== wornType) return;
-        // Refine and enchantments carry over to a better piece (carry.js), so a
-        // higher tier of the same line (the same weapon type, or the same armour
-        // family) always goes on first, the highest tier first; it takes the old
-        // piece's upgrades with it. A lower tier of that line never replaces it.
-        // Anything else is weighed as it will be worn, after the carry.
+        // Refine and enchantments carry over to a better piece (carry.js), and
+        // mastery belongs to the gear type, so a higher tier of the same line
+        // (the same weapon type, or the same armour family) goes on first, the
+        // highest tier first, as long as it is at least as strong as the worn
+        // piece once the carry is done (a plain higher tier won't replace a
+        // Mythic copy that is still stronger). Anything else is weighed as it
+        // will be worn, after the carry, and must be stronger.
+        const wornQ = worn ? this.equipment.qualityIn(eq.slot) : null;
+        const after = () => (worn ? scoreAfterCarry(this.equipment, s.id, eq.slot, (id) => score(id, s.q || null), s.q || null) : score(s.id, s.q || null)) - (worn ? score(worn, wornQ) : 0);
         const sameLine = worn && (eq.slot === 'weapon' ? !!wornType : !!eq.family && eq.family === getItem(worn).equip.family);
         if (sameLine) {
           const base = gearRating(s.id), wornBase = gearRating(worn);
-          if (base < wornBase) return;
           if (base > wornBase) {
+            if (after() < 0) return;
             const rank = 1e15 + base;
             if (!best || rank > best.gain) best = { i, gain: rank };
             return;
           }
         }
-        const gain = (worn ? scoreAfterCarry(this.equipment, s.id, eq.slot, score) : score(s.id)) - (worn ? score(worn) : 0);
+        const gain = after();
         if (gain > 0 && (!best || gain > best.gain)) best = { i, gain };
       });
       if (!best) break;
@@ -5493,10 +5544,10 @@ export class Game {
     if (canDualWield(main)) {
       const off = this.equipment.get('shield');
       // Each candidate as it would be worn there: a twin of the main weapon reads its off-hand copy's upgrades.
-      const offScore = (id) => offenceFirstScore(id, this.equipment, mode, this.equipment.copyFor(id, 'shield'));
-      let bi = -1, br = canDualPair(off, main) ? offScore(off) : -1;
+      const offScore = (id, q = null) => offenceFirstScore(id, this.equipment, mode, this.equipment.copyFor(id, 'shield'), q);
+      let bi = -1, br = canDualPair(off, main) ? offScore(off, this.equipment.qualityIn('shield')) : -1;
       this.inventory.slots.forEach((s, i) => {
-        if (s && canDualPair(s.id, main) && this._canEquipNow(s.id) && offScore(s.id) > br) { bi = i; br = offScore(s.id); }
+        if (s && canDualPair(s.id, main) && this._canEquipNow(s.id) && offScore(s.id, s.q || null) > br) { bi = i; br = offScore(s.id, s.q || null); }
       });
       if (bi >= 0) { this.equipItem(bi, { offhand: true }); changed++; }
     }
@@ -5567,15 +5618,16 @@ export class Game {
     }
     // An off-hand weapon is weighed against the one already in the off-hand (each
     // hand hits with its own weapon's stats), not against a shield.
-    const cmp = !offhand ? compareGear(s.id, this.equipment)
-      : canDualPair(this.equipment.get('shield'), main) ? compareGear(s.id, this.equipment, 'shield') : null;
+    const q = s.q || null;   // this copy's quality goes on with it
+    const cmp = !offhand ? compareGear(s.id, this.equipment, null, q)
+      : canDualPair(this.equipment.get('shield'), main) ? compareGear(s.id, this.equipment, 'shield', q) : null;
     // A better piece takes over the old one's refine and enchantments (carry.js),
     // worked out before the swap while the old piece is still the one worn.
-    const carry = planCarry(this.equipment, s.id, slot);
+    const carry = planCarry(this.equipment, s.id, slot, q);
     this.inventory.removeAt(index, 1);
-    const prev = this.equipment.get(slot);
-    this.equipment.set(slot, s.id);
-    if (prev) this.inventory.add(prev, 1);
+    const prev = this.equipment.get(slot), prevQ = this.equipment.qualityIn(slot);
+    this.equipment.set(slot, s.id, q);
+    if (prev) this.inventory.add(prev, 1, prevQ);
     if (carry) applyCarry(this.equipment, carry);
     // Say plainly whether that was a step up, so players learn which gear is better.
     const verdict = () => {
@@ -5592,8 +5644,9 @@ export class Game {
     }
     // Swapping the main hand off daggers sends an off-hand dagger back to the pack.
     if (slot === 'weapon' && canDualWield(this.equipment.get('shield')) && !canDualPair(s.id, this.equipment.get('shield'))) {
+      const offQ = this.equipment.qualityIn('shield');
       const off = this.equipment.clearSlot('shield');
-      this.inventory.add(off, 1);
+      this.inventory.add(off, 1, offQ);
       this.msg(`You put away your off-hand ${getItem(off).name.toLowerCase()}.`, 'system');
     }
     // A two-handed weapon needs both hands: the shield goes back in the pack.
@@ -5813,8 +5866,10 @@ export class Game {
         // main hand with its own upgrades: its refine and lines become the main
         // record, and the broken copy's lines wait in the second copy's record
         // (a break never takes enchant lines). Moved, so nothing is doubled.
+        const offQ = eqp.qualityIn('shield');
         eqp.clearSlot('shield');
         if (copy === 'main') {
+          eqp.set('weapon', id, offQ);   // the surviving copy keeps its own quality
           const lines = eqp.enchants[id];
           if (eqp.offRefines[id]) eqp.refines[id] = eqp.offRefines[id]; else delete eqp.refines[id];
           if (eqp.offEnchants[id]) eqp.enchants[id] = eqp.offEnchants[id]; else delete eqp.enchants[id];
@@ -5839,8 +5894,9 @@ export class Game {
     const id = this.equipment.get(slot);
     if (!id) return;
     if (this.inventory.canAdd(id, 1) <= 0) { this.msg("You don't have enough inventory space."); return; }
+    const q = this.equipment.qualityIn(slot);
     this.equipment.clearSlot(slot);
-    this.inventory.add(id, 1);
+    this.inventory.add(id, 1, q);
     this.msg(`You remove the ${getItem(id).name.toLowerCase()}.`);
   }
 
@@ -5850,6 +5906,7 @@ export class Game {
     const { id, qty } = s;
     this.inventory.removeAt(index, qty);
     const gi = this.world.addGroundItem(id, qty, this.player.x, this.player.y);
+    if (s.q) gi.q = s.q;   // the copy keeps its quality on the ground
     gi.playerDropped = true;   // auto-loot leaves things you drop on purpose
     this.msg(`You drop the ${getItem(id).name.toLowerCase()}.`);
   }
@@ -5906,7 +5963,7 @@ export class Game {
     if (!c || obj.crop || !this.inventory.has(seedId)) return false;
     if (this.skills.level('farming') < c.level) { this.msg(`You need a Farming level of ${c.level} to plant this.`); return false; }
     this.inventory.remove(seedId, 1);
-    obj.crop = c.id; obj.growLeft = c.grow;
+    obj.crop = c.id; obj.growLeft = growTicks(this, c.grow);   // Farming unlocks grow it faster
     this.skills.addXp('farming', c.plantXp);
     this.spawnPoof(obj.x * TILE + TILE / 2, obj.y * TILE + TILE / 2, '#8a6a3a');
     this.msg(`You plant the ${c.name.toLowerCase()} seed. It will be ready in about ${Math.ceil(c.grow * TICK_MS / 1000)}s.`);
@@ -5918,7 +5975,7 @@ export class Game {
     const c = cropFor(obj.crop);
     const lvl = this.skills.level('farming');
     // Green fingers: higher levels coax a little more from each patch.
-    const n = randInt(c.yield[0], c.yield[1]) + (Math.random() < Math.min(0.5, (lvl - c.level) / 100) ? 1 : 0);
+    const n = randInt(c.yield[0], c.yield[1]) + (Math.random() < Math.min(0.5, (lvl - c.level) / 100) ? 1 : 0) + extraCrop(this);
     if (this.inventory.canAdd(c.id, n) <= 0) { this.msg('Your inventory is too full to harvest.'); return false; }
     this.inventory.add(c.id, n);
     this.skills.addXp('farming', c.harvestXp * n);
@@ -6045,6 +6102,7 @@ export class Game {
     else if (action === 'corruptionStart') this.startCorruption();
     else if (action === 'corruptionTurnIn') this.turnInCorruption();
     else if (action === 'corruptionRemind') this.remindCorruption();
+    else if (action.startsWith('rq:')) RQ.regionAction(this, action);
     else if (action.startsWith('moral:')) { const [, id, side] = action.split(':'); this.moralChoose(id, side); }
     this.bus.emit('quest');
   }
@@ -6212,6 +6270,7 @@ export class Game {
       return t ? { kind: 'hunt', family: t.family, text: `Slayer task: slay ${t.remaining} more ${t.name}` }
         : { kind: 'npc', npcId: 'slayer_master', text: `Get a Slayer task from ${getNpc('slayer_master').name}` };
     }
+    if (RQ.isRegionQuest(id)) return RQ.regionGuide(this, id);
     const q = this.quests[id];
     if (!q) return { text: '', kind: 'none' };
     const inv = (item) => this.inventory.count(item);
@@ -6330,7 +6389,7 @@ export class Game {
           : g.target ? (n) => n.npcId === g.target
           : g.family ? (n) => !n.def.boss && n.def.family === g.family
           : (n) => !n.def.boss && (n.def.level || 1) <= cl + 5;
-        const mob = nearest(this.npcs.filter((n) => n.alive && n.attackable && !n.temporary && fits(n)
+        const mob = g.npc?.alive ? g.npc : nearest(this.npcs.filter((n) => n.alive && n.attackable && !n.temporary && fits(n)
           && (!this.world.zoneAt(n.x, n.y)?.wilderness || this.world.zoneAt(here.x, here.y)?.wilderness)));
         if (mob) {
           this._questTarget = g.target || null;
@@ -6748,12 +6807,13 @@ export class Game {
   }
 
   // ---------------- Banking ----------------
-  deposit(itemId, qty) {
-    const have = this.inventory.count(itemId);
+  // Gear copies keep their quality both ways: `q` (null for plain) picks the
+  // copies of one quality, and without it the plainest go first.
+  deposit(itemId, qty, q) {
+    const have = q === undefined ? this.inventory.count(itemId) : this.inventory.qualities(itemId).filter((x) => x === q).length;
     const amount = Math.min(qty, have);
     if (amount <= 0) return;
-    this.inventory.remove(itemId, amount);
-    this.bank.deposit(itemId, amount);
+    for (const p of this.inventory.take(itemId, amount, q)) this.bank.deposit(itemId, p.n, p.q);
   }
 
   depositAll() {
@@ -6762,17 +6822,17 @@ export class Game {
     let moved = 0;
     for (const id of ids) {
       const n = this.inventory.count(id);
-      if (n > 0) { this.inventory.remove(id, n); this.bank.deposit(id, n); moved += n; }
+      if (n > 0) { for (const p of this.inventory.take(id, n)) this.bank.deposit(id, p.n, p.q); moved += n; }
     }
     if (moved) this.msg('You deposit your inventory.', 'system');
   }
 
-  withdraw(itemId, qty) {
-    const want = Math.min(qty, this.bank.count(itemId));
+  withdraw(itemId, qty, q) {
+    const banked = q === undefined ? this.bank.count(itemId) : this.bank.items.filter((e) => e.id === itemId && (e.q || null) === q).reduce((n, e) => n + e.qty, 0);
+    const want = Math.min(qty, banked);
     const amount = this.inventory.canAdd(itemId, want);
     if (amount <= 0) { this.msg('Your inventory is full.'); return; }
-    this.bank.withdraw(itemId, amount);
-    this.inventory.add(itemId, amount);
+    for (const p of this.bank.take(itemId, amount, q)) this.inventory.add(itemId, p.n, p.q);
   }
 
   // ---------------- MRT fast travel ----------------

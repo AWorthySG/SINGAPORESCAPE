@@ -2,6 +2,7 @@ import { CROPS } from './trades.js';
 import { accessoriesFor, PRAYER_GEAR } from './items.js';
 import { BOSS_ABILITIES } from './bossAbilities.js';
 import { boneForTier, bossBoneQty } from './bones.js';
+import { REGION_GIVER_DEFS } from './regionQuests.js';
 // NPC registry. Monsters are generated from archetype "bases" × rank tiers into a
 // 169-strong bestiary (scaled stats + level-tiered drops), plus 15 hand-authored
 // bosses and the townsfolk. Sprites are drawn from def.sprite + def.color.
@@ -628,6 +629,7 @@ for (const id of [...BOSS_IDS, ...EXTRA_BOSS_IDS, ...MORE_BOSS_IDS]) {
 }
 for (const id of [...BOSS_IDS, ...EXTRA_BOSS_IDS, ...MORE_BOSS_IDS]) NPCS[id] = BOSS_DEFS[id];
 Object.assign(NPCS, TOWNSFOLK);
+Object.assign(NPCS, REGION_GIVER_DEFS);   // the region quest givers (regionQuests.js)
 
 // Stretched levels: the old ladder (1 to ~450) packed neighbouring areas only a
 // few levels apart. Above level 15 a monster's level now climbs much faster,
