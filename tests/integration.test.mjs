@@ -6836,6 +6836,9 @@ test('a two-handed sword’s sweep hits every foe within 3 tiles of the target, 
   const main = mk(1, 0);
   // A crowd of eight foes 2-3 tiles from the target (beyond an ordinary cleave's 1), one far away.
   const crowd = [mk(3, 0), mk(3, 1), mk(3, -1), mk(4, 2), mk(4, -2), mk(1, 3), mk(1, -3), mk(4, 0)], far = mk(8, 0);
+  // Already fighting you, so the crowd rule (area hits wake no more idle
+  // monsters than your life allows) doesn't come into it: this is about reach.
+  for (const n of crowd) n.target = p;
   game.npcs = [main, ...crowd, far];
   const wield = (t) => { game.equipment.set('weapon', Object.keys(ITEMS).find((k) => ITEMS[k].equip?.weaponType === t && !ITEMS[k].signature)); game.equipment.clearSlot('shield'); };
   wield('2h_sword');

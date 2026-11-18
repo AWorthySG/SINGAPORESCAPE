@@ -14,7 +14,7 @@ import { getItem, MELEE_REACH, accessoriesFor } from '../data/items.js';
 import { chebyshev, randInt, weightedPick, capitalize } from '../core/utils.js';
 import {
   TILE, TICK_MS, COMBAT_BEAT_MS, RESPAWN_TICKS, AUTOSAVE_TICKS, DAY_CYCLE_MS,
-  XP_RATE, COMBAT_XP_RATE, LEARNING_ENABLED,
+  XP_RATE, COMBAT_XP_RATE, LEARNING_ENABLED, AGGRO_FORGET_TILES,
 } from '../config.js';
 
 import { World } from './world.js';
@@ -246,8 +246,21 @@ const CHAMPION_AMMO_SPARE = 3;
 // never picks such a monster unless it is fighting you, and area hits leave it alone.
 const FAR_ABOVE_LEVELS = 20;
 // Area hits stop waking idle monsters once this many (plus one per
-// CROWD_PER_LEVELS fight levels) are already fighting you.
-const CROWD_BASE = 3, CROWD_PER_LEVELS = 5;
+// CROWD_PER_LIFE Hitpoints levels) are already fighting you, and wake none
+// while you're below CROWD_HURT of your life. Scaled by Hitpoints, not fight
+// level: a melee character's Attack runs well ahead of its life (a level 45
+// Lancer had 37 life), and 3 + 1 per 5 fight levels buried it under a dozen
+// monsters once the Dark path's lifesteal no longer came free with every kill.
+const CROWD_BASE = 1, CROWD_PER_LIFE = 8, CROWD_HURT = 0.7;
+// Auto battle eats early enough to outlast the crowd's blows together, but never
+// above this share of your life (see _autoBattleTick).
+const EAT_CROWD_CAP = 0.75;
+// Auto battle runs from a monster far above you when its rough time to empty
+// your life is under this many times yours to empty its (the estimate of your
+// side is hopeful, see _autoFightTimes).
+const FLEE_MARGIN = 2, FLEE_HURT = 0.5;
+// Auto battle tops up to this share of your life between fights.
+const REST_AT = 0.5;
 // Auto gather can take turns between up to this many kinds of node.
 const AUTO_GATHER_KINDS = 6;
 // How each melee weapon's cleave moves (and looks): spears pierce in a line
@@ -453,6 +466,7 @@ export class Game {
     this.autoQuest = false;       // auto quest: work through quests by yourself (see _autoQuestTick)
     this.autoQuestId = null;      // the quest auto quest is on (the one you last pressed Go on)
     this._autoSkip = new Map();   // npc entityId -> tick until which it is skipped (unreachable)
+    this._autoFled = new Map();   // npc entityId -> tick until which it is only answered once it catches up (see _autoFlee)
     this._autoSkipSaid = new Set();   // bosses auto battle has said it is skipping as too strong
     // What auto battle has learned about each kind of boss: beaten (take it on
     // again any time) or lost to (at what fight level). Saved.
@@ -2107,16 +2121,24 @@ export class Game {
     // Dire and level 111 Elder packmates, which then killed them.
     if (o.def.fixed || o.def.boss || o.champion || this._farAbove(o)) return true;
     // Nor does it wake more of the crowd once enough are on you already (see
-    // CROWD_BASE): in the first minute a cleave into MacRitchie's packed camps
-    // used to pull in fifteen at once, which killed a new character. (Counted
-    // once a tick, so one swing can still overshoot by what it catches.)
-    const p = this.player, c = this._crowd;
-    if (!c || c.tick !== this.tickCount) {
+    // CROWD_BASE), or while you're hurt (CROWD_HURT): in the first minute a
+    // cleave into MacRitchie's packed camps used to pull in fifteen at once,
+    // which killed a new character.
+    const p = this.player;
+    if (p.hp < this.maxHp() * CROWD_HURT) return true;
+    // Counted once a tick, plus whatever this tick's area hits have woken since:
+    // counting once a tick alone let one ultimate or cleave wake a whole camp.
+    if (!this._crowd || this._crowd.tick !== this.tickCount) {
       let n = 0;
       for (const x of this.nearbyNpcs()) if (x.alive && x.target === p) n++;
-      this._crowd = { tick: this.tickCount, n };
+      this._crowd = { tick: this.tickCount, n, woken: new Set() };
     }
-    return this._crowd.n >= CROWD_BASE + Math.floor(this.fightLevel() / CROWD_PER_LEVELS);
+    const c = this._crowd;
+    let crowd = c.n;
+    for (const x of c.woken) if (x.target === p) crowd++;   // let through earlier this tick, and hit since
+    if (crowd >= CROWD_BASE + Math.floor(this.skills.hitpoints / CROWD_PER_LIFE)) return true;
+    c.woken.add(o);
+    return false;
   }
 
   /** Is this monster far above your fight level (see FAR_ABOVE_LEVELS)? */
@@ -2129,7 +2151,12 @@ export class Game {
    *  when a rough time-to-kill says it's a short fight you'd survive. */
   _autoChampionOk(n) {
     const t = this._autoFightTimes(n);
-    if (!t || t.myTime > CHAMPION_HUNT_SECS || t.theirTime < CHAMPION_SAFE_SECS) return false;
+    if (!t || t.myTime > CHAMPION_HUNT_SECS) return false;
+    // You'd survive it counting everything already hitting you too: a Lancer
+    // with seven monsters on it used to turn to a 15,000-life champion and die.
+    let dps = t.theirDps;
+    for (const x of this.nearbyNpcs()) if (x !== n && x.alive && x.target === this.player) dps += this._autoFightTimes(x)?.theirDps || 0;
+    if (this.maxHp() / Math.max(0.01, dps) < CHAMPION_SAFE_SECS) return false;
     // Casters and archers must also carry the runes or arrows for the whole
     // fight, with plenty to spare (the estimate is hopeful): running dry
     // halfway strands you beside a champion with auto battle switched off.
@@ -2240,7 +2267,7 @@ export class Game {
     this.bus.emit('sfx', `atk:${this.weaponType() || 'whip'}`);
     const range = this.attackRange();
     const targets = mods.ability?.sweep
-      ? [npc, ...this.nearbyNpcs().filter((n) => n !== npc && n.alive && n.attackable && !n.temporary && n.hp > 0 && !this._aoeSpares(n) && chebyshev(p.x, p.y, n.x, n.y) <= range)]
+      ? [npc, ...this.nearbyNpcs().filter((n) => n !== npc && n.alive && n.attackable && !n.temporary && n.hp > 0 && chebyshev(p.x, p.y, n.x, n.y) <= range && !this._aoeSpares(n))]
       : [npc];
     let total = 0, raw = 0;   // raw: the main target's damage before crits, for the ricochet
     for (const t of targets) {
@@ -2288,11 +2315,11 @@ export class Game {
     const m = this.combatXpMult();
     for (const o of this.nearbyNpcs()) {
       if (o === target || !o.alive || !o.attackable || o.ally || o.hp <= 0) continue;
-      if (this._aoeSpares(o)) continue;   // bosses aren't dragged in
       const ox = o.x - p.x, oy = o.y - p.y;
       const along = ox * ux + oy * uy;                // how far down the line
       const off = Math.abs(ox * uy - oy * ux);        // how far to the side of it
       if (along < len - RIFLE_PIERCE_WIDTH || along > len + RIFLE_PIERCE_TILES || off > RIFLE_PIERCE_WIDTH + 0.5) continue;
+      if (this._aoeSpares(o)) continue;   // bosses aren't dragged in
       const c = this._aoeCrit(raw);
       const d = Math.min(o.hp, c.dmg);
       o.takeDamage(d);
@@ -2317,8 +2344,8 @@ export class Game {
     const p = this.player, m = this.combatXpMult();
     for (const o of this.nearbyNpcs()) {
       if (o === target || !o.alive || !o.attackable || o.ally || o.hp <= 0) continue;
-      if (this._aoeSpares(o)) continue;   // bosses aren't dragged in
       if (chebyshev(o.x, o.y, target.x, target.y) > r) continue;
+      if (this._aoeSpares(o)) continue;   // bosses aren't dragged in
       const c = this._aoeCrit(this._aoeShare(raw, target, o));
       const d = Math.min(o.hp, c.dmg);
       o.takeDamage(d);
@@ -2345,9 +2372,9 @@ export class Game {
       let next = null, bd = Infinity;
       for (const n of this.nearbyNpcs()) {
         if (hit.has(n) || !n.alive || !n.attackable || n.ally || n.temporary || n.hp <= 0) continue;
-        if (this._aoeSpares(n)) continue;   // bosses aren't dragged in
         const d = chebyshev(n.x, n.y, prev.x, prev.y);
-        if (d <= 3 && d < bd) { bd = d; next = n; }
+        if (d > 3 || d >= bd || this._aoeSpares(n)) continue;   // bosses aren't dragged in
+        bd = d; next = n;
       }
       if (!next) break;
       hit.add(next);
@@ -2390,7 +2417,6 @@ export class Game {
     const caught = [];
     for (const o of this.nearbyNpcs()) {
       if (o === target || !o.alive || !o.attackable || o.ally || o.temporary || o.hp <= 0) continue;
-      if (this._aoeSpares(o)) continue;     // bosses aren't dragged in
       const dt = chebyshev(o.x, o.y, target.x, target.y), dp = chebyshev(o.x, o.y, p.x, p.y);
       if (style === 'pierce') {
         const ux = o.x - p.x, uy = o.y - p.y;
@@ -2407,7 +2433,10 @@ export class Game {
     caught.sort((a, b) => a.rank - b.rank);
     let n = 0;
     const hitFoes = [];
-    for (const { o } of caught.slice(0, CLEAVE_WIDE[type]?.max || 3)) {
+    for (const { o } of caught) {
+      if (n >= (CLEAVE_WIDE[type]?.max || 3)) break;
+      // Checked as each foe is hit, so the swing's own wakes count towards the crowd.
+      if (this._aoeSpares(o)) continue;     // bosses aren't dragged in
       const c = this._aoeCrit(this._aoeShare(dmg * share, target, o));
       const d = Math.min(o.hp, c.dmg);
       o.takeDamage(d);
@@ -2445,9 +2474,10 @@ export class Game {
     // The closest other foe within 3 tiles (one already fighting you wins a tie).
     let other = null, bd = Infinity;
     for (const n of this.nearbyNpcs()) {
-      if (n === from || !n.alive || !n.attackable || n.ally || n.temporary || n.hp <= 0 || this._aoeSpares(n)) continue;
+      if (n === from || !n.alive || !n.attackable || n.ally || n.temporary || n.hp <= 0) continue;
       const d = chebyshev(n.x, n.y, from.x, from.y) - (n.target === this.player ? 0.5 : 0);
-      if (d <= 3 && d < bd) { bd = d; other = n; }
+      if (d > 3 || d >= bd || this._aoeSpares(n)) continue;
+      bd = d; other = n;
     }
     if (!other) return;
     const c = this._aoeCrit(this._aoeShare(dmg, from, other)); dmg = Math.min(other.hp, c.dmg);
@@ -2589,8 +2619,8 @@ export class Game {
     let xp = 0;
     for (const o of this.nearbyNpcs()) {
       if (o === target || !o.alive || !o.attackable || o.ally || o.hp <= 0) continue;
-      if (this._aoeSpares(o)) continue;   // bosses aren't dragged in
       if (chebyshev(o.x, o.y, target.x, target.y) > radius) continue;
+      if (this._aoeSpares(o)) continue;   // bosses aren't dragged in
       const c = this._aoeCrit(dmg);
       const d = Math.min(o.hp, c.dmg);
       o.takeDamage(d);
@@ -2799,6 +2829,7 @@ export class Game {
   _shouldRetaliate() {
     const p = this.player;
     if (!p.autoRetaliate) return false;
+    if (this._fleeing) return false;   // auto battle is running from a fight it would lose (see _autoFlee)
     const t = p.action?.type;
     return !t || (t !== 'attack' && !LIFE_SKILL_ACTIONS.has(t));
   }
@@ -4472,11 +4503,28 @@ export class Game {
       if (n.alive) { this.attackNpc(n); return; }
     }
     // 1. Stay alive: eat below the chosen life level, or Second Wind when out of food.
-    if (this.autoCfg.eatAt > 0 && p.hp <= this.maxHp() * this.autoCfg.eatAt) {
-      const idx = this.inventory.slots.findIndex((sl) => sl && getItem(sl.id).heal);
+    //    With a crowd on you, eat sooner: once their blows together could take
+    //    what you have left (up to EAT_CROWD_CAP of your life). A fresh Rogue on
+    //    30 life with four level 35-40 monsters on it went from 13 to dead in one
+    //    tick, its food untouched.
+    if (this.autoCfg.eatAt > 0 && p.hp <= Math.max(this.maxHp() * this.autoCfg.eatAt,
+      Math.min(this.maxHp() * EAT_CROWD_CAP, this._autoCrowdBlow()))) {
+      // The biggest dish that the missing life can take whole (else the smallest):
+      // eating the first slot meant a kaya toast (3 life) mid-crowd with chicken
+      // rice (9) still in the bag.
+      const miss = this.maxHp() - p.hp;
+      let idx = -1, best = 0;
+      this.inventory.slots.forEach((sl, i) => {
+        const h = sl && getItem(sl.id).heal;
+        if (!h) return;
+        const score = h <= miss ? h : -h;   // fits: bigger is better; overheals: smaller is better
+        if (idx === -1 || score > best) { idx = i; best = score; }
+      });
       if (idx !== -1) this.eatItem(idx);
       else this._autoAbility((ab) => ab.kind === 'heal');
     }
+    // 1a. Run from a monster far above you that you'd lose to (see _autoFlee).
+    if (this._autoFlee()) return;
     // 1b. Step out of a boss's ground marker, still fighting (see _autoDodge).
     this._autoDodge();
     const a = p.action;
@@ -4557,6 +4605,18 @@ export class Game {
       if (att) { this._autoLast = att; this.attackNpc(att); }
       return;
     }
+    // Between fights, hurt and with nothing on you: patch up before the next one
+    // (food, else a healing skill as it comes off cooldown) instead of starting
+    // it hurt. Without this a level 40 Archer took on lizard after lizard, each
+    // costing it more life than it had won back, until one killed it.
+    if (this.autoCfg.eatAt > 0 && p.hp < this.maxHp() * REST_AT
+      && !this.nearbyNpcs().some((n) => n.alive && n.target === p && !(this._autoRanFrom(n) && chebyshev(p.x, p.y, n.x, n.y) > 2))) {
+      const miss = this.maxHp() - p.hp;
+      const idx = this.inventory.slots.findIndex((sl) => sl && getItem(sl.id).heal && getItem(sl.id).heal <= miss);
+      if (idx !== -1) { this.eatItem(idx); return; }
+      if (this._autoAbility((ab) => ab.kind === 'heal')) return;
+      if (this.currentAbilities().some((ab) => ab.kind === 'heal' && this.abilityUnlocked(ab))) return;   // wait for it
+    }
     let target = this._autoPickTarget();
     // On a trip to a boss: only stop for the boss, a champion or something
     // attacking you, not every monster along the way.
@@ -4585,6 +4645,72 @@ export class Game {
       this._autoIdleSaid = true;
       this.msg('Auto battle: nothing to fight nearby. Walk somewhere wilder and it will pick up again.', 'system');
     }
+  }
+
+  /** Auto battle runs from a fight it would lose: the monsters on you would
+   *  empty your life (food included) well before you could kill them all. A
+   *  champion or a monster far above you (see _farAbove) is run from whenever
+   *  that is so; ordinary ones only once you're below FLEE_HURT of your life.
+   *  You run out past their leash, where they give up and go home. Fighting on
+   *  got a level 51 Archer killed by a level 111 tarantula that came for it
+   *  unprovoked, and a level 40 one by a level 40 lizard it couldn't outlast.
+   *  True while running. */
+  _autoFlee() {
+    const p = this.player, f = this._fleeing;
+    if (f && this.tickCount < f.until && p.isMoving && f.foes.some((n) => n.alive && n.target === p)) return true;
+    this._fleeing = null;
+    const foes = this.nearbyNpcs().filter((n) => n.alive && n.target === p && !n.def.boss && !n.wave && !n.temporary
+      && chebyshev(p.x, p.y, n.x, n.y) <= 8);
+    if (!foes.length) return false;
+    const strong = foes.some((n) => n.champion || this._farAbove(n));
+    if (!strong && p.hp >= this.maxHp() * FLEE_HURT) return false;
+    let dps = 0, kill = 0;
+    for (const n of foes) {
+      const t = this._autoFightTimes(n);
+      if (!t) return false;
+      dps += t.theirDps; kill += t.myTime;
+    }
+    let food = 0;
+    for (const sl of this.inventory.slots) if (sl && getItem(sl.id).heal) food += getItem(sl.id).heal * (sl.qty || 1);
+    if ((p.hp + food) / Math.max(0.01, dps) >= kill * FLEE_MARGIN) return false;
+    // Away from their homes, to just past where the last stops chasing: straight
+    // away if it can, else bending off to the side (backed against the sea at
+    // the map's edge, running straight on found nowhere to go, and a Berserker
+    // stood and died to a level 101 jellyfish).
+    let sx = 0, sy = 0, far = 0;
+    for (const n of foes) { sx += n.spawnX / foes.length; sy += n.spawnY / foes.length; far = Math.max(far, (n.wander || 0) + AGGRO_FORGET_TILES + 3); }
+    const away = Math.atan2(p.y - sy, p.x - sx);
+    let path = null;
+    for (const turn of [0, 1, -1, 2, -2, 3, -3]) {
+      const a = away + turn * Math.PI / 4;
+      const tx = Math.max(0, Math.min(this.world.width - 1, Math.round(sx + Math.cos(a) * far)));
+      const ty = Math.max(0, Math.min(this.world.height - 1, Math.round(sy + Math.sin(a) * far)));
+      const to = this._nearestFree(tx, ty);
+      // Clamped to the map, it may no longer be past their leash.
+      if (!to || foes.some((n) => chebyshev(to.x, to.y, n.spawnX, n.spawnY) <= (n.wander || 0) + AGGRO_FORGET_TILES)) continue;
+      path = findPath(this.pathCfg(), this.playerTile(), to, { maxNodes: 20000 });
+      if (path?.length) break;
+    }
+    if (!path?.length) return false;
+    p.setPath(path, this.canRun()); p.clearAction();
+    for (const n of foes) { this._autoSkip.set(n.entityId, this.tickCount + 200); this._autoFled.set(n.entityId, this.tickCount + 200); }
+    this._fleeing = { foes, until: this.tickCount + 60 };
+    this.msg(`Auto battle: ${foes.length > 1 ? 'that fight is' : `${foes[0].name} is`} too much for you, so you run for it.`, 'system');
+    return true;
+  }
+
+  /** Has auto battle run from this monster lately (see _autoFlee)? */
+  _autoRanFrom(n) { return (this._autoFled.get(n.entityId) || 0) > this.tickCount; }
+
+  /** The biggest blows the monsters on you could land together (their max
+   *  hits), counting those close enough to strike. */
+  _autoCrowdBlow() {
+    const p = this.player;
+    let sum = 0;
+    for (const n of this.nearbyNpcs()) {
+      if (n.alive && n.target === p && chebyshev(p.x, p.y, n.x, n.y) <= 2) sum += n.def.maxHit || 0;
+    }
+    return sum;
   }
 
   /** The lowest monster level auto battle counts as "your level": three
@@ -4681,7 +4807,7 @@ export class Game {
     const theirTime = this.maxHp() / Math.max(0.01, theirDps);
     // Spells come off quicker than the weapon's swing (see _magicAttack).
     const castSecs = sp ? Math.max(0.1, this.attackInterval(sp)) * COMBAT_BEAT_MS / 1000 : swingSecs;
-    return { myTime, theirTime, attacks: myTime / castSecs, spell: sp };
+    return { myTime, theirTime, theirDps, attacks: myTime / castSecs, spell: sp };
   }
 
   /** Auto battle with Bosses on and "Bosses & champions first": head for the
@@ -4960,6 +5086,10 @@ export class Game {
       const d = chebyshev(p.x, p.y, n.x, n.y);
       if (d > Math.max(25, range + 2)) continue;   // a Sniper picks off monsters from further still
       const hunting = n.target === p || !!n.wave;   // a wave monster is coming for you, whatever its level
+      // One auto battle has just run from is left alone until it catches up:
+      // a pack that stayed by its home, still set on you, drew a Rogue back
+      // into the fight it had fled, again and again until it died.
+      if (hunting && d > 2 && this._autoRanFrom(n)) continue;
       // Anything already fighting you (a boss, its summoned adds, a champion)
       // is always answered, whatever its level or where it stands.
       if (hunting) {
