@@ -2445,10 +2445,13 @@ test('auto battle takes on a nearby boss it can beat first (bosses off by defaul
   game.autoCfg.bosses = false;
   assert.equal(game._autoPickTarget(), mob, 'with bosses switched off, it fights the goblin');
   game.autoCfg.bosses = true;
-  // A monster far above your level right next to you is fought too.
-  const big = new NPC('goblin', p.x + 1, p.y, 0, {}); big.def = { ...big.def, level: cl * 3 + 20 };
+  // A monster far above your level is left alone even right next to you (a new
+  // character picked a level 111 boar that way and died), until it attacks.
+  const big = new NPC('goblin', p.x + 1, p.y, 0, {}); big.def = { ...big.def, level: cl * 3 + 20, aggressive: false };
   game.npcs = [big];
-  assert.equal(game._autoPickTarget(), big, 'a strong monster beside you is not ignored');
+  assert.equal(game._autoPickTarget(), null, 'a far stronger monster beside you is not picked');
+  big.target = p;
+  assert.equal(game._autoPickTarget(), big, 'but it is fought once it attacks');
 });
 
 test('daggers can be dual wielded in place of a shield, striking twice per swing', () => {
@@ -5572,7 +5575,12 @@ test('secondary weapon types sit a little under each class\'s main type', async 
   // type by much, nor be a dead pick. Orbs once did twice an early staff's damage.
   const { NPC } = await import('../src/game/npc.js');
   const { SPELLS } = await import('../src/data/magic.js');
+  const { seedRandom } = await import('./seed.mjs');
   const dmg = (cls, w, dual) => {
+    // Each weapon's fight starts from the same rolls, so the pair is compared
+    // like for like (from wherever the stream had got to, a ratio near the
+    // bounds passed or failed with any change to the world's spawns).
+    seedRandom();
     globalThis.localStorage = fakeStorage();
     clearSave();
     const g = new Game(); g.start(); g.chooseClass(cls);
