@@ -39,14 +39,15 @@ export const TITLE_ART = new Set([]);
 export const titleArtSrc = (slot) => (TITLE_ART.has(slot) ? `assets/title/${slot}.webp` : null);
 
 // ---------------- The camera's shots ----------------
-// Tile coordinates: each shot pans from `from` to `to` while pushing in a touch
-// (zoom), then the next one fades in. Picked for life on screen at the start
+// Tile coordinates: each shot pans from `from` to `to` while easing its zoom
+// (a little wider than in play, to show more of the island), then the next
+// one fades in. Picked for life on screen at the start
 // of the game: the town square, the market, the shore and the bay.
 export const TITLE_SHOTS = [
-  { name: 'Kampong Glam', from: [52.5, 53.5], to: [63, 57], zoom: [1.04, 1.12] },
-  { name: 'Chinatown', from: [79, 55], to: [88, 52], zoom: [1.08, 1.02] },
-  { name: 'Sentosa Beach', from: [36, 99], to: [50, 100.5], zoom: [1.02, 1.1] },
-  { name: 'Marina Bay', from: [186, 168], to: [196, 163], zoom: [1.1, 1.03] },
+  { name: 'Kampong Glam', from: [52.5, 54], to: [63, 57], zoom: [0.84, 0.92] },
+  { name: 'Chinatown', from: [79, 55], to: [88, 52], zoom: [0.9, 0.84] },
+  { name: 'Sentosa Beach', from: [36, 99], to: [50, 100.5], zoom: [0.84, 0.9] },
+  { name: 'Marina Bay', from: [186, 168], to: [196, 163], zoom: [0.92, 0.85] },
 ];
 export const SHOT_MS = 11000;   // each shot's length
 export const CUT_MS = 900;      // the fade out of one shot (and into the next)
@@ -63,7 +64,7 @@ export function titleCameraAt(ms, shots = TITLE_SHOTS, still = false) {
   if (still || !shots.length) {
     const s = shots[0];
     const x = (s.from[0] + s.to[0]) / 2, y = (s.from[1] + s.to[1]) / 2;
-    return { shot: 0, name: s.name, x: x * TILE, y: y * TILE, zoom: 1, fade: 0 };
+    return { shot: 0, name: s.name, x: x * TILE, y: y * TILE, zoom: s.zoom ? s.zoom[0] : 1, fade: 0 };
   }
   const t = ((ms % (SHOT_MS * shots.length)) + SHOT_MS * shots.length) % (SHOT_MS * shots.length);
   const i = Math.floor(t / SHOT_MS);
@@ -382,7 +383,6 @@ export class TitleScreen {
     this.splash.classList.remove('loading');
     this._startHeroes();
     if (!this.still && !this.lowFx) this._startPetals();
-    try { this.el.enter?.focus({ preventScroll: true }); } catch { /* ignore */ }
     // Now that the player can come in, fetch the rest of the swings quietly.
     const g = this.game;
     if (g && (g.pendingStyleChoice || g.pendingClassChoice) && typeof setTimeout === 'function') {
