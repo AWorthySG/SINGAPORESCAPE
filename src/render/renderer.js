@@ -533,7 +533,7 @@ export class Renderer {
       }
     }
     const tc = cine.title;
-    if (tc) {
+    if (tc && !cine.intro) {   // a boss entrance takes the stage over a title card
       const a = titleAlpha(tc.t);
       if (a > 0) {
         const y = vh * 0.3 - (1 - a) * 6;   // clear of the region label and tips
@@ -1011,8 +1011,11 @@ export class Renderer {
           // Tumbling: turn with the spin and squash one axis to fake a flip.
           ctx.rotate(p.rot || 0);
           ctx.scale(1, Math.abs(Math.cos((p.rot || 0) * 1.7)) * 0.8 + 0.2);
-          drawFx(ctx, art, 0, 0, p.size * 4);
-        } else drawFx(ctx, art, 0, 0, p.size * (p.art.startsWith('dust') ? 4 + (1 - a) * 2 : 3));   // dust swells as it fades
+          drawFx(ctx, art, 0, 0, p.size * 5);
+        } else if (p.art.startsWith('dust')) {
+          ctx.globalAlpha = a * 0.7;   // soft, and swelling as it fades
+          drawFx(ctx, art, 0, 0, p.size * (4 + (1 - a) * 2));
+        } else drawFx(ctx, art, 0, 0, p.size * 3);
         ctx.restore();
         continue;
       }

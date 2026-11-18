@@ -225,7 +225,7 @@ function artButterfly(ctx, c, x, y, t) {
     const img = fxImage('critter-dragonfly');
     if (!img) return false;
     ctx.save(); ctx.translate(x, y); ctx.rotate(Math.atan2(c.vy, c.vx) + Math.PI / 2);
-    drawFx(ctx, img, 0, 0, 11);
+    drawFx(ctx, img, 0, 0, 13);
     ctx.restore();
     return true;
   }
@@ -235,14 +235,14 @@ function artButterfly(ctx, c, x, y, t) {
     const img = fxImage('critter-swallowtail');
     if (!img) return false;
     ctx.save(); ctx.translate(x, y); ctx.scale(0.25 + flap * 0.75, 1);
-    drawFx(ctx, img, 0, 0, 12);
+    drawFx(ctx, img, 0, 0, 14);
     ctx.restore();
     return true;
   }
   // The plain one, tinted its wing colour: open, half shut and edge-on as the wings beat.
   const img = fxTinted(flap > 0.66 ? 'critter-butterfly' : flap > 0.3 ? 'critter-butterfly_half' : 'critter-butterfly_shut', c.col);
   if (!img) return false;
-  drawFx(ctx, img, x, y, 11);
+  drawFx(ctx, img, x, y, 13);
   return true;
 }
 
@@ -252,7 +252,7 @@ function artSitting(ctx, c, x, y) {
   if (!img) return false;
   ctx.fillStyle = 'rgba(34,48,74,0.18)';
   ctx.beginPath(); ctx.ellipse(x, y + 2.5, 4, 1.3, 0, 0, 6.283); ctx.fill();
-  drawFx(ctx, img, x, y - 3, c.sp === 'kingfisher' ? 12 : 10, c.ax < 0);   // painted facing right
+  drawFx(ctx, img, x, y - 3, c.sp === 'kingfisher' ? 14 : 12, c.ax < 0);   // painted facing right
   return true;
 }
 
@@ -261,7 +261,7 @@ function artFlying(ctx, c, x, y, t) {
   const up = Math.sin(t * 0.05 + c.phase) > 0;
   const img = fxImage(c.sp === 'kingfisher' ? 'critter-kingfisher' : `critter-${c.sp}_${up ? 'up' : 'down'}`);
   if (!img) return false;
-  drawFx(ctx, img, x, y, 11, c.ax < 0);
+  drawFx(ctx, img, x, y, 13, c.ax < 0);
   return true;
 }
 
@@ -270,7 +270,7 @@ function artGecko(ctx, c, x, y) {
   if (!img) return false;
   // Painted lying flat with its head to the right: stand it up the wall.
   ctx.save(); ctx.translate(x, y); ctx.rotate(-Math.PI / 2);
-  drawFx(ctx, img, 0, 0, 7);
+  drawFx(ctx, img, 0, 0, 9);
   ctx.restore();
   return true;
 }
