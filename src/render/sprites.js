@@ -6,6 +6,7 @@ import { CROPS } from '../data/trades.js';
 import { drawHeroRig } from './heroRig.js';
 import { drawRangedHeroRig } from './rangedHeroRig.js';
 import { drawPictureTool, drawWeaponTrail } from './heroanim.js';
+import { drawHeroBack } from './heroAnimArt.js';
 import { poseBlender } from './poseBlend.js';
 import { CREATURE_RIGS, TOWN_IDLE } from './creatureRigs.js';
 
@@ -2054,7 +2055,8 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
       const s = Math.min(HERO_ART_H / himg.naturalHeight, HERO_ART_W / himg.naturalWidth);
       const w = himg.naturalWidth * s, h = himg.naturalHeight * s;
       const g = opts.gait;
-      const layered = drawHeroRig(c, opts) || drawRangedHeroRig(c, opts);
+      // Walking up the screen shows the painted back view where a class has one.
+      const layered = drawHeroBack(c, opts) || drawHeroRig(c, opts) || drawRangedHeroRig(c, opts);
       if (!layered) {
         if (g && !pose) heroPuppet(c, himg, w, h, g, t);
         else {

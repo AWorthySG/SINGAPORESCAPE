@@ -1,5 +1,6 @@
 import { poseBlender, swapOpacity } from './poseBlend.js';
 import { drawHeroArm, drawGripHand } from './heroanim.js';
+import { drawAnimBody, drawSwingArm, drawEmptyArm, hasSwingArt, swingPhase } from './heroAnimArt.js';
 
 // Ranged and magic limbs are separate from the melee pilot so each batch can
 // be reviewed independently. All parts must load before replacing a portrait.
@@ -7,6 +8,8 @@ import { drawHeroArm, drawGripHand } from './heroanim.js';
 export const RANGED_HERO_CLASSES = ['ranger', 'archer', 'sorcerer', 'wizard', 'pistoler', 'sniper'];
 export const RANGED_HERO_PARTS = ['body', 'weapon', 'back', 'left', 'right', 'action'];
 export const rangedHeroSrc = (classId, part) => `assets/creatures/hero/rig/${classId}-${part}.webp`;
+// The weapon arm's shoulder, where the painted attack arms (heroAnimArt.js) hang.
+const SHOULDER = { archer: [4, -11], ranger: [4, -11], pistoler: [10, -10], sniper: [6, -10], wizard: [9, -11], sorcerer: [9, -11] };
 const images = new Map();
 // Draw, release and cast ease across a restarted shot (see poseBlend.js).
 const blendRanged = poseBlender();
@@ -83,11 +86,20 @@ export function drawRangedHeroRig(ctx, opts = {}) {
   // The rifle is held in both hands, so the Sniper's back hand steadies it (below).
   const rifle = classId === 'sniper' && anim?.weapon === 'rifle';
   if (!bow && !guns && !rifle) draw('back', -15, -10 + pose.breathe, 16, 12, -pose.step * 0.2 - pose.charge * 0.35, 12, 3, arms);
-  draw('body', -21, -38 + pose.breathe, 42, 44);
+  // The painted body can blink, flinch and cheer (heroAnimArt.js).
+  if (!drawAnimBody(ctx, classId, opts, -21, -38 + pose.breathe, 42, 44)) draw('body', -21, -38 + pose.breathe, 42, 44);
   if (anim) drawHeroArm(ctx, anim, 'front', -11 + pose.breathe);
   if (arms <= 0.001) return true;
   if (arms < 1) { ctx.save(); ctx.globalAlpha *= arms; }
-  if (guns) {
+  // An attack plays the painted wind-up, mid and follow-through arms in place
+  // of the bow, the front pistol, the rifle or the staff.
+  const kind = bow ? 'bow' : guns || classId === 'sniper' ? 'gun' : 'staff';
+  const frame = anim && anim.kind === 'combat' && hasSwingArt(classId) ? swingPhase(anim.ch, 'main', kind) : null;
+  const sh = SHOULDER[classId];
+  if (frame && !guns) drawSwingArm(ctx, classId, anim.ch, 'main', kind, sh[0], sh[1] + pose.breathe);
+  // With no weapon equipped the hand is empty: the painted bare arm.
+  else if (opts.hasWeapon === false && drawEmptyArm(ctx, classId, sh[0] + 2, sh[1] + 1 + pose.breathe, 0.25 + pose.step * 0.3, 10)) { /* drawn */ }
+  else if (guns) {
     // Two pistols: the back hand aims level from the shoulder and kicks up on
     // each shot; the front hand swings its pistol from upright to level, and a
     // muzzle flash blooms at the front barrel on release.
@@ -99,8 +111,11 @@ export function drawRangedHeroRig(ctx, opts = {}) {
     const by = y + 3;
     draw('back', -7 - backKick * 2, by, 31, 13, -backKick * 0.3 + pose.step * 0.05, 2, 6);
     if (backKick > 0) draw('action', 24 - backKick * 2, by - 7 - backKick * 2, 14, 9, -backKick * 0.3, 2, 4, anim ? backKick : 0);
-    draw('weapon', 14 - pose.release * 1.5, y + 2, 14, 23, pose.draw * 1.25 - pose.release * 0.35, 3, 21);
-    draw('action', 27, y - 6, 16, 10, 0, 2, 5, pose.release);
+    if (frame) drawSwingArm(ctx, classId, anim.ch, 'main', kind, sh[0], sh[1] + pose.breathe);
+    else {
+      draw('weapon', 14 - pose.release * 1.5, y + 2, 14, 23, pose.draw * 1.25 - pose.release * 0.35, 3, 21);
+      draw('action', 27, y - 6, 16, 10, 0, 2, 5, pose.release);
+    }
   } else if (bow) {
     const y = -11 + pose.breathe;
     const shortbow = classId === 'archer';

@@ -1,5 +1,6 @@
 import { poseBlender, swapOpacity } from './poseBlend.js';
 import { drawHeroArm, drawGripHand } from './heroanim.js';
+import { drawAnimBody, drawSwingArm, drawEmptyArm, hasSwingArt, swingPhase } from './heroAnimArt.js';
 
 // Painted hero rigs use separate limbs. Keep loading and animation
 // here so the shared sprite library only needs one optional drawing hook.
@@ -30,6 +31,10 @@ const GRIP = {
   gladiator: { weapon: '2h_sword', sword: [0.55, 0.62, 0.05, 0.03], strike: [0.33, 0.55, 0.98, 0.4], slide: 5 },
   halberdier: { weapon: 'halberd', sword: [0.3, 0.62, 0.35, 0.02], strike: [0.3, 0.55, 0.98, 0.4], slide: 20 },
 };
+// Where the weapon arm's shoulder is (the painted attack arms hang from it),
+// and the off hand's for the dual wielders' second set.
+const SHOULDER = { rogue: [15, -8], brawler: [14, -9] };
+const OFF_SHOULDER = { corsair: [-9, -10], rogue: [-11, -9] };
 const images = new Map();
 // Limb angles and reach ease across a restarted swing (see poseBlend.js).
 const blendRig = poseBlender();
@@ -179,10 +184,17 @@ export function drawHeroRig(ctx, opts = {}) {
   const ka = polearm ? -0.08 : (pose.sword - 1.25) * 0.3;
   // On a two-handed grip the back arm runs behind the body to the handle,
   // so only its fist shows, on the grip below the front hand.
-  const hand = grip ? gripPoint(grip, shown, [11, y, w, h, sa, spx, spy], [11 + reach, y, kw, kh, ka, 4, 5], -4, -9 + pose.breathe) : null;
+  // Painted attack arms (heroAnimArt.js): this moment's wind-up, mid-swing or
+  // follow-through picture replaces the turning arm, for either hand.
+  const combat = anim && anim.kind === 'combat';
+  const frame = combat && hasSwingArt(classId) ? swingPhase(anim.ch, 'main') : null;
+  const offFrame = combat && OFF_SHOULDER[classId] && (classId !== 'corsair' || corsairPair) && hasSwingArt(classId, 'off') ? swingPhase(anim.ch, 'off') : null;
+  const sh = SHOULDER[classId] || [11, -10], osh = OFF_SHOULDER[classId];
+  const hand = grip && !frame ? gripPoint(grip, shown, [11, y, w, h, sa, spx, spy], [11 + reach, y, kw, kh, ka, 4, 5], -4, -9 + pose.breathe) : null;
   if (hand) drawGripHand(ctx, classId, 'arm', -4, -9 + pose.breathe, hand[0], hand[1], arms);
   if (anim) drawHeroArm(ctx, anim, 'back', -11 + pose.breathe);
-  if (dancer) draw('back', -17, -9 + pose.breathe, 19, 25, pose.back, 16, 7, arms);
+  if (offFrame && classId === 'corsair') drawSwingArm(ctx, classId, anim.ch, 'off', 'melee', osh[0] + (pose.reach2 || 0) * 0.4, osh[1] + pose.breathe, arms);
+  else if (dancer) draw('back', -17, -9 + pose.breathe, 19, 25, pose.back, 16, 7, arms);
   else if (corsairPair) {
     // The second scimitar is the weapon arm drawn again on the back shoulder,
     // half behind the body, its blade tipped back; it swings forward over the
@@ -193,11 +205,13 @@ export function drawHeroRig(ctx, opts = {}) {
   // The Ninja and Merchant are slimmer, so their back hand sits closer in, half behind the body.
   // On a two-handed grip the back hand is on the handle instead (drawn below).
   else if (!rogue && !brawler) draw('back', pilot ? -12 : slim ? -5 : -17, -9 + pose.breathe, shield ? 20 : pilot ? 12 : 15, shield ? 29 : pilot ? 14 : 18, pose.back, shield ? 17 : pilot || samurai ? 5 : 10, shield ? 8 : 3, grip ? 0 : arms);
-  draw('body', -21, -38 + pose.breathe, 42, 44);
+  // The painted body can blink, flinch and cheer (heroAnimArt.js).
+  if (!drawAnimBody(ctx, classId, opts, -21, -38 + pose.breathe, 42, 44)) draw('body', -21, -38 + pose.breathe, 42, 44);
   // The Rogue's and the Brawler's back hands hold their own dagger and claw,
   // in front of the tunic; on an off-hand strike that arm swaps for its
   // extended drawing, lunging forward across the body.
-  if (rogue) {
+  if (rogue && offFrame) drawSwingArm(ctx, classId, anim.ch, 'off', 'melee', osh[0] + (pose.reach2 || 0) * 0.4, osh[1] + pose.breathe, arms);
+  else if (rogue) {
     draw('back', -14, -9 + pose.breathe, 22, 18, pose.back, 18, 3, (1 - shown2) * arms);
     drawIf('strike', -6 + (pose.reach2 || 0), -8 + pose.breathe, 26, 10, (-pose.back - 1.7) * 0.2, 4, 4, shown2 * arms);
   }
@@ -209,7 +223,10 @@ export function drawHeroRig(ctx, opts = {}) {
   if (arms <= 0.001) return true;
   // Rotate around the shoulder, rather than rotating the whole portrait.
   // Short daggers sit outside the hood; the katana keeps its longer reach.
-  if (rogue) {
+  if (frame) drawSwingArm(ctx, classId, anim.ch, 'main', 'melee', sh[0] + reach * 0.4, sh[1] + pose.breathe, arms);
+  // With no weapon equipped the hand is empty: the painted bare arm, punching on a strike.
+  else if (opts.hasWeapon === false && drawEmptyArm(ctx, classId, sh[0] + reach * 0.5, sh[1] + 1 + pose.breathe, 0.25 + pose.step * 0.3 + pose.strike * 1.3, 10)) { /* drawn */ }
+  else if (rogue) {
     draw('sword', 15, -8 + pose.breathe, 17, 30, pose.sword + 0.7, 14, 27, (1 - shown) * arms);
     draw('strike', 15 + (pose.reach || 0), -8 + pose.breathe, 26, 10, (pose.sword - 1.2) * 0.3, 4, 4, shown * arms);
   } else if (brawler) {
