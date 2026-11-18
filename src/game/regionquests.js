@@ -99,7 +99,7 @@ function ensureFoe(game, l, st) {
   const gx = giver ? giver.x : game.player.x, gy = giver ? giver.y : game.player.y;
   let base = null, bd = Infinity;
   for (const n of game.npcs) {
-    if (n.npcId !== st.npc || n.rqFoe || n.temporary || game.world.zoneAt(n.spawnX, n.spawnY)?.name !== l.region) continue;
+    if (n.npcId !== st.npc || n.rqFoe || n.temporary || game.world.zoneAt(n.spawnX, n.spawnY)?.name !== (st.where || l.region)) continue;
     const d = (n.spawnX - gx) ** 2 + (n.spawnY - gy) ** 2;
     if (d < bd) { bd = d; base = n; }
   }

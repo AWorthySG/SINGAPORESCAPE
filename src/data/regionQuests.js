@@ -12,8 +12,8 @@
 //       `via` says where they come from, first match wins:
 //       { need: item, obj } go to that object while short of `need`,
 //       { obj } gather or work at that object, { shop: npcId } buy them there
-//   { kind: 'foe', npc, name, text }      a named, tougher one of that monster
-//       turns up beside its kind in the region: defeat it
+//   { kind: 'foe', npc, name, where?, text }  a named, tougher one of that monster
+//       turns up beside its kind in the region (or `where`): defeat it
 //   { kind: 'talk', to?, text, say, reply }  talk to the giver (or `to`)
 // Unlocks, given when the line is handed in:
 //   { type: 'teleport' }                  Teleport to the giver from the quest journal
@@ -50,7 +50,7 @@ export const REGION_LINES = [
       { kind: 'kill', npc: 'goblin', qty: 5, text: 'Defeat goblins on Bukit Timah' },
       { kind: 'give', item: 'copper_ore', qty: 4, via: [{ obj: 'copper_rock' }], text: 'Bring Madam Tan 4 copper ore for new lantern hooks',
         say: 'Good copper. My nephew will bend these into hooks tonight.' },
-      { kind: 'foe', npc: 'goblin', name: 'Goblin Lantern-Snatcher', text: 'Defeat the Goblin Lantern-Snatcher' },
+      { kind: 'foe', npc: 'goblin', name: 'Goblin Lantern-Snatcher', where: 'Bukit Timah', text: 'Defeat the Goblin Lantern-Snatcher on Bukit Timah' },
       { kind: 'talk', text: 'Bring the lanterns home to Madam Tan', reply: 'Here are your lanterns.',
         say: 'All of them, and not one torn! For this, you may buy from my own shelves.' },
     ],
@@ -64,7 +64,7 @@ export const REGION_LINES = [
     thanks: 'The trail is calm again. You have a ranger’s eye now, I can tell.',
     steps: [
       { kind: 'kill', npc: 'macaque', qty: 6, text: 'Shoo away macaques by the reservoir' },
-      { kind: 'give', item: 'kaya_toast', qty: 3, via: [{ shop: 'hawker' }], text: 'Buy 3 kaya toast as decoy snacks for Ranger Siti',
+      { kind: 'give', item: 'roti_prata', qty: 3, via: [{ shop: 'hawker' }], text: 'Buy 3 roti prata as decoy snacks for Ranger Siti',
         say: 'Perfect. We leave these far from the trail and the monkeys follow.' },
       { kind: 'foe', npc: 'macaque', name: 'Ah Kow the Bin Raider', text: 'Defeat Ah Kow, the macaque gang’s leader' },
       { kind: 'talk', text: 'Report back to Ranger Siti', reply: 'Ah Kow has gone quiet.',
@@ -322,8 +322,8 @@ export const REGION_LINES = [
     thanks: 'The pilgrims crossed safely. Our stall is open to you, friend.',
     steps: [
       { kind: 'kill', npc: 'mythic_sea_snake', qty: 6, text: 'Clear mythic sea snakes from the lagoon' },
-      { kind: 'give', item: 'roti_prata', qty: 5, via: [{ shop: 'hawker' }], text: 'Bring Ah Peng 5 roti prata for the pilgrims',
-        say: 'Still warm! The pilgrims will be very grateful.' },
+      { kind: 'give', item: 'nasi_lemak', qty: 5, via: [{ shop: 'hawker' }], text: 'Bring Ah Peng 5 nasi lemak for the pilgrims',
+        say: 'Still warm, and extra sambal! The pilgrims will be very grateful.' },
       { kind: 'foe', npc: 'mythic_reef_shark', name: 'Jerung Hantu', text: 'Defeat Jerung Hantu, the ghost shark' },
       { kind: 'talk', text: 'Return to Temple Keeper Ah Peng', reply: 'The jetty is safe.',
         say: 'The tortoise would be proud. Our pilgrims’ stall is yours to use.' },
@@ -386,7 +386,7 @@ export const REGION_LINES = [
     thanks: 'The sky is whole again. A little starlight stays with you, I think.',
     steps: [
       { kind: 'kill', npc: 'divine_imp', qty: 8, text: 'Chase divine imps away from the fallen stars' },
-      { kind: 'give', item: 'chicken_rice', qty: 3, via: [{ shop: 'hawker' }], text: 'Bring Stargazer Lin 3 chicken rice',
+      { kind: 'give', item: 'laksa', qty: 3, via: [{ shop: 'hawker' }], text: 'Bring Stargazer Lin 3 bowls of laksa',
         say: 'Oh, I was starving. Thank you!' },
       { kind: 'foe', npc: 'jinn', name: 'The Star-Eating Jinn', text: 'Defeat the Star-Eating Jinn' },
       { kind: 'talk', text: 'Return to Stargazer Lin', reply: 'The jinn won’t eat any more stars.',
