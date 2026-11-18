@@ -9,6 +9,7 @@ import { TILE } from './config.js';
 import { saveGame, watchForImports } from './game/save.js';
 import { receiveTransfer, forwardToNewHome } from './game/transfer.js';
 import { initPwa } from './pwa.js';
+import { TitleScreen } from './ui/title.js';
 
 const VIEW_TILES = 15;        // tiles shown across the shorter side of the screen, at most
 const VIEW_TILES_LONG = 24;   // ...and along the longer side
@@ -29,9 +30,16 @@ if (forwardToNewHome()) await new Promise(() => {});
 // Installable as an app, and playable offline once loaded (see pwa.js, sw.js).
 initPwa();
 
+// The title screen and its loading bar (title.js): it counts every picture the
+// game asks for from here on, so it has to start before the game is built.
+let lowGfx = false;
+try { lowGfx = localStorage.getItem('singaporescape:gfx') === 'low'; } catch { /* ignore */ }
+const title = new TitleScreen(document.getElementById('splash'), { lowFx: lowGfx });
+title.trackImages();
+
 const game = new Game();
 // Graphics quality: "low" renders at 1x and trims particles, for older phones.
-try { game.lowFx = localStorage.getItem('singaporescape:gfx') === 'low'; } catch { /* ignore */ }
+game.lowFx = lowGfx;
 const ui = new UI(game);
 const renderer = new Renderer(game, canvas, ctx);
 const input = new Input(canvas);
@@ -51,11 +59,15 @@ window.addEventListener('keydown', unlockAudio, { once: true });
 
 ui.init();
 game.start();
+title.attach(game);
 
 // Input wiring.
 input.onLeftClick((x, y) => game.onLeftClick(x, y));
 input.onRightClick((x, y) => game.onRightClick(x, y));
 input.onKey((e) => {
+  // On the title screen the keys belong to it: Enter goes in (as does Space or
+  // Enter on its focused button), and nothing reaches the game behind it.
+  if (title.active) { if (e.key === 'Enter' && document.activeElement?.id !== 'splash-enter') hideSplash(); return; }
   // Typing in a search box (bank, bestiary) must not fire the shortcut keys.
   const t = e.target;
   if (e.key !== 'Escape' && t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
@@ -133,6 +145,7 @@ function frame() {
   // freeze for good. Log the first error and carry on with the next frame.
   try {
     game.update(dt);
+    title.frame(dt);   // on the title: tours the camera, runs the loading bar
     renderer.render(t);
     ui.renderMinimap();
   } catch (err) {
@@ -156,12 +169,13 @@ watchForImports(() => ui.showSaveReplacedElsewhere());
 const splash = document.getElementById('splash');
 const splashEnter = document.getElementById('splash-enter');
 function hideSplash() {
+  if (!title.ready) return;   // still loading (the button only shows once it's done)
   game.audio.unlock();
-  splash && splash.classList.add('hidden');
-  if (game.pendingStyleChoice || game.pendingClassChoice) ui.openStyleChoice();
+  // Dip to cream, hand the camera back, open the class picker, fade the title away.
+  title.exit(() => { if (game.pendingStyleChoice || game.pendingClassChoice) ui.openStyleChoice(); });
 }
 splashEnter && splashEnter.addEventListener('click', hideSplash);
 splash && splash.addEventListener('click', (e) => { if (e.target === splash) hideSplash(); });
 
 // Expose for debugging in the console.
-window.SS = { game, ui, renderer, movepad };
+window.SS = { game, ui, renderer, movepad, title };

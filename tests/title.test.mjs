@@ -1,0 +1,162 @@
+// The title screen, loading bar and class-picker heroes (src/ui/title.js):
+// the parts that run without a browser, plus the splash markup the Playwright
+// scripts rely on (#splash-enter, the class names on the picker's cards).
+import './seed.mjs';
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+import {
+  TITLE_SHOTS, SHOT_MS, CUT_MS, titleCameraAt, LoadTracker, trackImages, LOADING_TIPS, TIP_MS, tipAt,
+  drawClassHero, swingActor, attackClipFor, previewAttackMs, titleSkylineSvg, TitleScreen,
+} from '../src/ui/title.js';
+import { CLASSES } from '../src/data/classes.js';
+import { HERO_CLIPS } from '../src/render/heroanim.js';
+import { Game } from '../src/game/game.js';
+import { TILE } from '../src/config.js';
+
+function makeCtx() {
+  const grad = { addColorStop() {} };
+  const noop = () => {};
+  let draws = 0;
+  return {
+    get draws() { return draws; },
+    fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, globalAlpha: 1, globalCompositeOperation: 'source-over',
+    save: noop, restore: noop, translate: noop, scale: noop, rotate: noop, clip: noop, setTransform: noop, setLineDash: noop, transform: noop,
+    beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop, arc: noop, ellipse: noop, rect: noop, roundRect: noop,
+    quadraticCurveTo: noop, bezierCurveTo: noop, fill: () => { draws++; }, stroke: noop, fillRect: noop, strokeRect: noop, clearRect: noop,
+    fillText: noop, strokeText: noop, drawImage: () => { draws++; }, measureText: () => ({ width: 10 }),
+    createRadialGradient: () => grad, createLinearGradient: () => grad,
+  };
+}
+
+test('the title camera tours each shot in turn, dipping to cream over every cut', () => {
+  for (let i = 0; i < TITLE_SHOTS.length; i++) {
+    const s = TITLE_SHOTS[i];
+    const mid = titleCameraAt(i * SHOT_MS + SHOT_MS / 2);
+    assert.equal(mid.shot, i);
+    assert.equal(mid.name, s.name);
+    assert.equal(mid.fade, 0, 'clear mid-shot');
+    // Mid-shot, the camera is between the shot's two ends.
+    const between = (v, a, b) => v >= Math.min(a, b) * TILE - 1e-6 && v <= Math.max(a, b) * TILE + 1e-6;
+    assert.ok(between(mid.x, s.from[0], s.to[0]) && between(mid.y, s.from[1], s.to[1]), `${s.name} pans from its start to its end`);
+    assert.ok(titleCameraAt(i * SHOT_MS + 1).fade > 0.95, 'each shot fades in from cream');
+    assert.ok(titleCameraAt((i + 1) * SHOT_MS - 1).fade > 0.95, 'and out to cream at its cut');
+    assert.ok(titleCameraAt(i * SHOT_MS + CUT_MS + 10).fade < 0.05);
+  }
+  // It loops, and the camera keeps moving through a shot.
+  assert.deepEqual(titleCameraAt(SHOT_MS * TITLE_SHOTS.length + 1234), titleCameraAt(1234));
+  assert.notEqual(titleCameraAt(3000).x, titleCameraAt(6000).x);
+  // Reduced motion: one held view of the first shot, no cuts.
+  const a = titleCameraAt(0, TITLE_SHOTS, true), b = titleCameraAt(50000, TITLE_SHOTS, true);
+  assert.deepEqual(a, b);
+  assert.equal(a.fade, 0);
+  assert.equal(a.name, TITLE_SHOTS[0].name);
+});
+
+test('every title shot looks at the world: on the map and not out at sea', () => {
+  globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+  const g = new Game();
+  for (const s of TITLE_SHOTS) {
+    for (const [x, y] of [s.from, s.to]) {
+      assert.ok(x >= 0 && y >= 0 && x < g.world.width && y < g.world.height, `${s.name} is on the map`);
+    }
+    // At least some land in a few tiles of the centre (a beach shot may be half sea).
+    const [cx, cy] = s.from.map(Math.round);
+    let land = 0;
+    for (let dy = -4; dy <= 4; dy++) for (let dx = -6; dx <= 6; dx++) if (g.world.inBounds(cx + dx, cy + dy) && !g.world.isBlocked(cx + dx, cy + dy)) land++;
+    assert.ok(land > 10, `${s.name} shows land`);
+  }
+});
+
+test('the load counter settles every picture, failed or never started, so the bar always finishes', () => {
+  const t = new LoadTracker();
+  assert.deepEqual(t.status(), { loaded: 0, total: 0, ratio: 0, idle: true });
+  const a = t.add({ complete: false }), b = t.add({ complete: false });
+  t.job('fonts');
+  let s = t.status();
+  assert.equal(s.total, 3);
+  assert.equal(s.loaded, 0);
+  assert.equal(s.idle, false);
+  a.complete = true;          // loaded
+  b.complete = true;          // ...or failed: the browser marks it complete too
+  assert.equal(t.status().ratio, 2 / 3);
+  t.done('fonts');
+  s = t.status();
+  assert.equal(s.idle, true);
+  assert.equal(s.ratio, 1);
+});
+
+test('while loading, every new Image is counted, and the real Image comes back after', () => {
+  class FakeImage { constructor() { this.complete = false; } }
+  const scope = { Image: FakeImage };
+  const t = new LoadTracker();
+  const restore = trackImages(t, scope);
+  const img = new scope.Image();
+  assert.ok(img instanceof FakeImage, 'still an Image');
+  assert.ok(img instanceof scope.Image, 'instanceof the tracked constructor too');
+  new scope.Image(32, 32);
+  assert.equal(t.status().total, 2);
+  restore();
+  assert.equal(scope.Image, FakeImage);
+  new scope.Image();
+  assert.equal(t.status().total, 2, 'no longer counted');
+  // No Image at all (as in these tests): nothing to do.
+  assert.doesNotThrow(() => trackImages(t, {})());
+});
+
+test('loading tips rotate through the list', () => {
+  assert.ok(LOADING_TIPS.length >= 6);
+  assert.equal(tipAt(0), LOADING_TIPS[0]);
+  assert.equal(tipAt(TIP_MS + 1), LOADING_TIPS[1]);
+  assert.equal(tipAt(TIP_MS * LOADING_TIPS.length), LOADING_TIPS[0]);
+  assert.equal(tipAt(0, 3), LOADING_TIPS[3]);
+  for (const tip of LOADING_TIPS) assert.doesNotMatch(tip, /color|armor/i, 'British spelling');
+});
+
+test('every class hero draws on a stage, idling and through its whole attack preview', () => {
+  for (const c of CLASSES) {
+    const clip = attackClipFor(c.id);
+    assert.ok(HERO_CLIPS[clip], `${c.id} has an attack clip (${clip})`);
+    const ctx = makeCtx();
+    const actor = { classId: c.id, fx: -1 };
+    drawClassHero(ctx, actor, 30, 60, 1000);
+    const ms = previewAttackMs(clip);
+    swingActor(actor, 2000);
+    for (const dt of [0, ms * 0.25, ms * 0.5, ms * 0.75, ms * 0.99]) drawClassHero(ctx, actor, 30, 60, 2000 + dt);
+    assert.ok(actor.attackAt != null, 'still swinging just before the end');
+    drawClassHero(ctx, actor, 30, 60, 2000 + ms + 1);
+    assert.equal(actor.attackAt, null, `${c.id}'s swing ends and it goes back to idling`);
+    assert.ok(ctx.draws > 0, `${c.id} drew something`);
+  }
+  // Unknown classes are ignored rather than throwing.
+  assert.doesNotThrow(() => drawClassHero(makeCtx(), { classId: 'nobody' }, 0, 0, 0));
+});
+
+test('the title is headless-safe: no splash, no browser, nothing breaks', () => {
+  const t = new TitleScreen(null);
+  assert.equal(t.active, false);
+  assert.doesNotThrow(() => t.frame(16));
+  assert.doesNotThrow(() => t.exit());
+  assert.match(titleSkylineSvg(), /^<svg [^>]*viewBox="0 0 1200 140"/);
+});
+
+test('the splash keeps #splash-enter and the loading bar, and the picker keeps class names clickable', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const splash = html.slice(html.indexOf('<div id="splash"'), html.indexOf('<script type="module"'));
+  assert.match(splash, /<button id="splash-enter">/);
+  assert.match(splash, /id="splash-loader" role="progressbar"[^>]*aria-valuenow="0"/);
+  for (const cls of ['title-skyline', 'title-heroes', 'title-particles', 'title-fade', 'sl-fill', 'sl-tip']) assert.ok(splash.includes(`class="${cls}"`), cls);
+  assert.match(html, /<link rel="stylesheet" href="styles\/title.css" \/>/);
+  const ui = readFileSync(new URL('../src/ui/ui.js', import.meta.url), 'utf8');
+  const pick = ui.slice(ui.indexOf('  openStyleChoice() {'), ui.indexOf('  closeModal() {'));
+  // The card shows the class's name in a <b> and choosing happens on clicking the card.
+  assert.match(pick, /<b>\$\{c\.name\}<\/b>/);
+  assert.match(pick, /div\.addEventListener\('click', \(\) => choose\(c, div\)\)/);
+  // The spotlight (which also names a class) is added after the cards, so a
+  // search for the name finds the card first.
+  assert.ok(pick.indexOf('picker.appendChild(sec)') < pick.indexOf('this._classSpotlight(picker'), 'spotlight after the cards');
+  const css = readFileSync(new URL('../styles/title.css', import.meta.url), 'utf8');
+  assert.match(css, /\.class-spot \{\s*order: -1;/, 'but shown above them');
+  assert.match(css, /#splash\.loading #splash-enter \{ display: none; \}/);
+});

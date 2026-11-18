@@ -5,6 +5,7 @@ import { LIFE_PERKS, LIFE_PERK_SKILLS, LIFE_PERK_FULL_LEVEL, lifePerkText, lifeP
 import * as Mercs from '../game/mercenary.js';
 import { PERK_SKILLS, PERK_TRACKS, PERK_EVERY, trackPerks, rankName } from '../data/perks.js';
 import { heroArtSrc, portraitFor } from '../render/sprites.js';
+import { HeroStage, swingActor, prefersReducedMotion } from './title.js';
 import { getItem } from '../data/items.js';
 import { SHOPS, getShop } from '../data/shops.js';
 import { SMELT, SMITH } from '../data/smithing.js';
@@ -3197,6 +3198,28 @@ export class UI {
         imp.appendChild(b);
         body.appendChild(imp);
       }
+      // The cards, and above them a spotlight playing the class's attack beside
+      // its perks (title.js draws the heroes). Pointing at a card, or its
+      // Preview button on a touch screen, puts that class in the spotlight;
+      // clicking the card picks it.
+      const picker = document.createElement('div');
+      picker.className = 'class-picker';
+      body.appendChild(picker);
+      const still = prefersReducedMotion();
+      let chosen = false;
+      const choose = (c, card) => {
+        if (chosen) return;
+        chosen = true;
+        g.chooseClass(c.id);
+        if (this.modal) this.modal.locked = false; // a choice has been made — safe to close now
+        this.renderCombatPanel();
+        // A moment to see the new hero swing before the picker closes.
+        card?.classList.add('chosen');
+        spot.show(c.id, true, true);
+        const close = () => { if (this.modal?.kind === 'classpick') this.closeModal(); };
+        if (still) close(); else setTimeout(close, 900);
+      };
+      let n = 0;
       for (const st of STYLES) {
         const sec = document.createElement('div');
         sec.className = 'class-section';
@@ -3209,28 +3232,71 @@ export class UI {
           div.className = 'dialogue-option class-card';
           div.tabIndex = 0;
           div.dataset.cls = c.id;
-          const art = heroArtSrc(c.id);
-          div.innerHTML = `<span class="class-pic">${art ? `<img src="${art}" alt="" width="40" height="40">` : itemIconSVG(starterWeapon(c.id), 34)}</span><span class="class-text"><b>${c.name}</b>`
+          div.innerHTML = `<span class="class-pic has-stage"><canvas class="class-stage"></canvas></span><span class="class-text"><b>${c.name}</b>`
             + `<span class="class-weapon">${WEAPON_TYPE_NAMES[c.weapon]}</span><span class="class-desc">${c.desc}</span>`
-            + `<span class="class-perks">${classPerkSummary(c.id)}</span></span>`;
+            + `<span class="class-perks">${classPerkSummary(c.id)}</span></span>`
+            + '<button class="class-peek" type="button" title="Preview" aria-label="Preview">&#128065;</button>';
+          // The card's hero idles on its little stage (each a step out of time with the next).
+          const actor = { classId: c.id, phase: (n++) * 431 };
+          new HeroStage(div.querySelector('canvas'), (w, h) => [{ actor, x: w / 2, y: h - 7, scale: Math.min(w / 64, h / 62) }], { fps: 24, still });
           div.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); div.click(); } });
-          div.addEventListener('click', () => {
-            g.chooseClass(c.id);
-            if (this.modal) this.modal.locked = false; // a choice has been made — safe to close now
-            this.closeModal();
-            this.renderCombatPanel();
-          });
+          div.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') spot.show(c.id, true); });
+          div.addEventListener('focus', () => spot.show(c.id, true));
+          div.querySelector('.class-peek').addEventListener('click', (e) => { e.stopPropagation(); spot.show(c.id, true); });
+          div.addEventListener('click', () => choose(c, div));
           grid.appendChild(div);
         }
         sec.appendChild(grid);
-        body.appendChild(sec);
+        picker.appendChild(sec);
       }
+      const spot = this._classSpotlight(picker, still, (id) => choose(CLASS_BY_ID[id], picker.querySelector(`.class-card[data-cls="${id}"]`)));
     };
     this.openModal('Choose Your Class', render);
+    this.modal.kind = 'classpick';
     this.modal.locked = true;
     if (this.el.modalClose) this.el.modalClose.classList.add('hidden');
   }
 
+
+  /** The class picker's spotlight: a bigger stage where the class shown swings
+   *  its weapon every couple of seconds, with its signature and perks and a
+   *  button to choose it. Placed after the cards (so a search for a class's
+   *  name finds its card first) and shown above them by CSS. */
+  _classSpotlight(parent, still, onChoose) {
+    const el = document.createElement('div');
+    el.className = 'class-spot';
+    el.innerHTML = '<canvas class="class-spot-stage"></canvas><div class="class-spot-info"><div class="class-spot-name"><b></b><span></span></div>'
+      + '<p class="class-spot-sig"></p><ul class="class-spot-perks"></ul></div><button class="class-spot-go" type="button"></button>';
+    parent.appendChild(el);
+    const actor = { classId: null };
+    let next = 0;
+    new HeroStage(el.querySelector('canvas'), (w, h, now) => {
+      if (!still && now > next) { swingActor(actor, now); next = now + 2300; }
+      return [{ actor, x: w * 0.44, y: h - 12, scale: Math.min(w / 72, h / 66) }];
+    }, { fps: 40, still });
+    const show = (id, swing = false, picked = false) => {
+      const c = CLASS_BY_ID[id];
+      if (!c) return;
+      if (actor.classId !== id) {
+        actor.classId = id; actor.blend = null;
+        el.querySelector('.class-spot-name b').textContent = c.name;
+        el.querySelector('.class-spot-name span').textContent = WEAPON_TYPE_NAMES[c.weapon];
+        const perks = classPerks(id);
+        el.querySelector('.class-spot-sig').textContent = perks[0]?.text || c.desc;
+        el.querySelector('.class-spot-perks').innerHTML = perks.slice(1)
+          .map((p) => `<li><b>${p.icon} ${p.label}</b> ${p.label === 'Armour' ? p.text.split('.')[0] : p.text}</li>`).join('');
+        el.querySelector('.class-spot-go').textContent = `Choose ${c.name} \u25B6`;
+        parent.querySelectorAll('.class-card.previewing').forEach((d) => d.classList.remove('previewing'));
+        parent.querySelector(`.class-card[data-cls="${id}"]`)?.classList.add('previewing');
+        el.classList.remove('swap'); void el.offsetWidth; el.classList.add('swap');
+      }
+      if (picked) { el.classList.add('chosen'); el.querySelector('.class-spot-sig').textContent = `You are a ${c.name}! ${el.querySelector('.class-spot-sig').textContent}`; }
+      if (swing && !still) { swingActor(actor, performance.now()); next = performance.now() + 2300; }
+    };
+    el.querySelector('.class-spot-go').addEventListener('click', () => onChoose(actor.classId));
+    show(CLASSES[0].id);
+    return { el, show };
+  }
 
   closeModal() {
     if (this.modal?.locked) return; // e.g. the starting-style choice — must pick one
