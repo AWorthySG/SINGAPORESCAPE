@@ -43,6 +43,7 @@ const AUTO_TEXT = {
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const iname = (id) => (ITEMS[id] ? getItem(id).name : id);
+const aOrAn = (w) => `${/^[aeiou]/i.test(w) ? 'an' : 'a'} ${w}`;
 const skillName = (id) => SKILLS.find((s) => s.id === id)?.name || id;
 const qtyText = (min, max) => (max > min ? `${formatNumber(min)}-${formatNumber(max)} × ` : min > 1 ? `${formatNumber(min)} × ` : '');
 /** A tappable item: icon and name, opening its Resources page. */
@@ -83,7 +84,7 @@ function recipeRowHTML(game, r, { showSkill = false } = {}) {
     : c.okWithBank ? '<span class="sgx-st bank">Inputs in the bank</span>' : '<span class="sgx-st short">Need inputs</span>';
   const out = r.output ? itemBtn(r.output.id, r.output.max ? qtyText(r.output.qty, r.output.max) : r.output.qty > 1 ? `${r.output.qty} × ` : '', 24) : `<b>${esc(recipeLabel(r))}</b>`;
   const facts = [showSkill && `${skillName(r.skill)} ${r.level}`, `${formatNumber(r.xp)} xp`, recipeKindTitle(r.kind) !== skillName(r.skill) && recipeKindTitle(r.kind),
-    r.stations.length ? `at a ${r.stations.map((o) => OBJECTS[o]?.name.toLowerCase() || o).join(' or ')}` : '', r.tool && `needs ${TOOL_NAMES[r.tool]}`, r.note].filter(Boolean).join(' · ');
+    r.stations.length ? `at ${r.stations.map((o) => aOrAn(OBJECTS[o]?.name.toLowerCase() || o)).join(' or ')}` : '', r.tool && `needs ${TOOL_NAMES[r.tool]}`, r.note].filter(Boolean).join(' · ');
   return `<div class="sg-row sgx-row${c.levelOk ? '' : ' locked'}"><span class="sg-lvl">${r.level}</span>`
     + `<span class="sg-text sgx-text"><span class="sgx-out">${out}${status}</span><span>${esc(facts)}</span>`
     + `<span class="sgx-ins">${r.kind === 'farm' || r.kind === 'burn' || r.kind === 'bury' ? '' : '<small>From</small>'}${ins}</span></span></div>`;
@@ -217,14 +218,18 @@ export function itemPageHTML(game, id, st = {}) {
   }
   const made = by('recipe');
   if (made.length) from += `<h4>Made</h4>` + made.map((s) => recipeRowHTML(game, s.recipe, { showSkill: true })).join('');
-  const drops = by('drop');
-  if (drops.length) {
-    const hab = codexHabitats(game);
-    const n = st.allDrops ? drops.length : 8;
-    from += `<h4>Monster drops <small>(${formatNumber(drops.length)} creatures; rough chance a kill)</small></h4><div class="sgx-drops">`
-      + drops.slice(0, n).map((d) => `<div class="sgx-drop"><span><b>${esc(d.name)}</b> <small>lvl ${formatNumber(d.level)}${d.boss ? ' boss' : ''} · ${esc((hab.get(d.npcId) || []).slice(0, 2).join(', '))}</small></span><i>${d.max > 1 ? `${formatNumber(d.min)}-${formatNumber(d.max)} · ` : ''}${chanceText(d.chance)}</i><button type="button" class="wm-go" data-npc="${esc(d.npcId)}">Go</button></div>`).join('')
-      + '</div>' + (drops.length > n ? `<button type="button" class="cx-more" data-alldrops="1">Show all ${formatNumber(drops.length)}</button>` : '');
-  }
+  // Monsters and bosses apart: a boss's ten rolls a kill would otherwise bury
+  // the everyday creatures you can farm.
+  const hab = codexHabitats(game);
+  const dropList = (title, list, key, n) => {
+    if (!list.length) return '';
+    const shownN = st[key] ? list.length : n;
+    return `<h4>${title} <small>(${formatNumber(list.length)}; rough chance a kill)</small></h4><div class="sgx-drops">`
+      + list.slice(0, shownN).map((d) => `<div class="sgx-drop"><span><b>${esc(d.name)}</b> <small>lvl ${formatNumber(d.level)} · ${esc((hab.get(d.npcId) || []).slice(0, 2).join(', '))}</small></span><i>${d.max > 1 ? `${formatNumber(d.min)}-${formatNumber(d.max)} · ` : ''}${chanceText(d.chance)}</i><button type="button" class="wm-go" data-npc="${esc(d.npcId)}">Go</button></div>`).join('')
+      + '</div>' + (list.length > shownN ? `<button type="button" class="cx-more" data-all="${key}">Show all ${formatNumber(list.length)}</button>` : '');
+  };
+  from += dropList('Monster drops', by('drop').filter((d) => !d.boss), 'allDrops', 8);
+  from += dropList('Boss drops', by('drop').filter((d) => d.boss), 'allBoss', 4);
   const misc = [];
   for (const s of by('raredrop')) misc.push(`The rare drop table: a small chance on any kill (${chanceText(s.chance)} of its rolls)`);
   for (const s of by('shop')) misc.push(`Bought at ${esc(s.name)} for ${formatNumber(s.price)} coins`);
@@ -308,11 +313,11 @@ export function openSkillGuide(ui, skill, { itemId = null } = {}) {
       const n = gatherSources().filter((s) => s.skill === sk && s.level <= lvl && s.objIds?.every((id) => game.gatherPicks.has(id))).length;
       body.insertAdjacentHTML('beforeend', `<div class="sg-picks"><span>Tick what auto gather should do${n ? ` (<b>${n}</b> ticked)` : ' (none ticked: it does whatever you start on)'}.</span>${n ? '<button type="button" class="wm-go" data-start="1">Start</button>' : ''}</div>`);
     }
-    const where = SKILL_GUIDES[sk].where;
-    if (where) {
-      const zs = regionsOf(game, where);
-      body.insertAdjacentHTML('beforeend', `<div class="sgx-station"><span>${where.map((o) => esc(OBJECTS[o]?.name || o)).join(' or ')}: ${regionsText(zs, 6)}</span>`
-        + `<button type="button" class="wm-go sg-where" data-go="${esc(where.join(','))}">Go to the nearest</button></div>`);
+    // Each station on its own line: the regions that have one, Go and Map.
+    for (const o of SKILL_GUIDES[sk].where || []) {
+      const zs = regionsOf(game, [o]);
+      body.insertAdjacentHTML('beforeend', `<div class="sgx-station"><span><b>${esc(OBJECTS[o]?.name || o)}</b>: ${zs.length ? regionsText(zs, 6) : 'light one anywhere'}</span>`
+        + (zs.length ? `<span class="sgx-btns"><button type="button" class="wm-go" data-go="${esc(o)}">Go</button><button type="button" class="wm-go cx-map" data-map="${esc(o)}" data-label="${esc(OBJECTS[o]?.name || o)}">Map</button></span>` : '') + '</div>');
     }
     if (COMBAT_SKILLS.includes(sk)) {
       body.insertAdjacentHTML('beforeend', `<div class="cx-filters sgx-bar"><button type="button" class="wm-go sgx-res" data-resources="1">Resources</button></div>`);
@@ -328,7 +333,7 @@ export function openSkillGuide(ui, skill, { itemId = null } = {}) {
       const kinds = [...new Set(recipesFor(sk).map((r) => r.kind))];
       if (kinds.length > 1) for (const k of kinds) chips.push({ id: `kind:${k}`, name: recipeKindTitle(k) });
     }
-    body.insertAdjacentHTML('beforeend', toolbarHTML(v, chips, GATHER_SKILLS.includes(sk) && sk !== 'farming' ? 'Search nodes, items, regions…' : 'Search recipes and inputs…'));
+    body.insertAdjacentHTML('beforeend', toolbarHTML(v, chips, GATHER_SKILLS.includes(sk) && sk !== 'farming' ? 'Search nodes, items…' : 'Search recipes…'));
     listEl = document.createElement('div');
     listEl.className = 'sgx-list';
     body.appendChild(listEl);
@@ -352,7 +357,7 @@ export function openSkillGuide(ui, skill, { itemId = null } = {}) {
     else if (d.item) push({ view: 'item', id: d.item }, body);
     else if (d.resources) push({ view: 'resources', cat: 'all', search: '', shown: PAGE }, body);
     else if (d.more) { v.shown = (v.shown || PAGE) + PAGE; drawList(); }
-    else if (d.alldrops) { v.allDrops = true; render(body); }
+    else if (d.all) { v[d.all] = true; const sc = body.scrollTop; render(body); body.scrollTop = sc; }
     else if (d.allthen) { v.allThen = true; render(body); }
     else if (d.filter) { v.filter = d.filter; v.shown = PAGE; render(body); }
     else if (d.cat) { v.cat = d.cat; v.shown = PAGE; render(body); }
@@ -369,6 +374,7 @@ export function openSkillGuide(ui, skill, { itemId = null } = {}) {
 
   ui.openModal(skill ? `${skillName(skill)} guide` : 'Resources', render);
   ui.modal.kind = 'skillguide';
+  if (ui.el?.modalBody) ui.el.modalBody.scrollTop = 0;   // the body is shared: don't open where the last window was scrolled to
   // The modal body outlives this window, so the listener is set once and checks which window is open.
   const body = ui.el?.modalBody;
   if (body && !body._sgxWired) { body._sgxWired = true; body.addEventListener('click', (ev) => ui._sgxClick?.(ev)); }
