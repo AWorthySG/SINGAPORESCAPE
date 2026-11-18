@@ -6,7 +6,7 @@
 //
 // The rolls use a small generator of their own (as culling.js does), so an
 // unlock never shifts the game's Math.random sequence that seeded tests replay.
-import { SKILL_UNLOCKS, UNLOCK_LEVELS, SKILL_TELEPORT_TICKS, ACTION_SKILL, GATHER_KINDS, MAKE_KINDS,
+import { SKILL_UNLOCKS, UNLOCKS, UNLOCK_LEVELS, SKILL_TELEPORT_TICKS, ACTION_SKILL, GATHER_KINDS, MAKE_KINDS,
   GATHER_CONSUMABLES, GATHER_BREW_KEYS } from '../data/unlocks.js';
 import { POTIONS } from '../data/trades.js';
 import { STATION_BY_ID } from '../data/transport.js';
@@ -41,6 +41,7 @@ export function nextUnlock(skill, level) {
 /** Summed effects of every rung unlocked at `level`: { double, quick, save, keep, grow, burn }. */
 export function unlockFxAt(skill, level) {
   const out = {};
+  if (!UNLOCKS.on) return out;
   for (const u of SKILL_UNLOCKS[skill] || []) {
     if (level < u.level || !u.fx) continue;
     for (const [k, v] of Object.entries(u.fx)) out[k] = (out[k] || 0) + v;

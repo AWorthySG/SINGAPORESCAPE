@@ -12,6 +12,10 @@
 // (an MRT station, from the skill guide); a rung with `recipe` names the new
 // recipe that opens at that level (the recipe's own level gates it).
 export const UNLOCK_LEVELS = [10, 25, 50, 75, 99];
+// The tests switch the level-based effects off (tests/seed.mjs), as they do
+// golden hours, so the XP-an-hour balance checks measure the base rates;
+// tests/skillshome.test.mjs switches them back on for itself.
+export const UNLOCKS = { on: true };
 // Skill teleports share one cooldown, in game ticks (600ms each): 5 minutes.
 export const SKILL_TELEPORT_TICKS = 500;
 

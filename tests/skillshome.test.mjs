@@ -1,13 +1,13 @@
 // Skill unlocks (10/25/50/75/99), the skill chains between life skills, the
 // kampong home in Kranji, and the Hunter snare for older saves.
 import './seed.mjs';
-import { test } from 'node:test';
+import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { Game } from '../src/game/game.js';
 import { saveGame, loadGame, clearSave } from '../src/game/save.js';
 import { xpForLevel } from '../src/data/xp.js';
-import { SKILL_UNLOCKS, UNLOCK_LEVELS } from '../src/data/unlocks.js';
+import { SKILL_UNLOCKS, UNLOCK_LEVELS, UNLOCKS } from '../src/data/unlocks.js';
 import { LIFE_PERK_SKILLS } from '../src/game/lifeperks.js';
 import { unlockFxAt, unlockLadder, runSkillAction, skillTeleport, growTicks, afterFireLit, unlockTipText } from '../src/game/skillunlocks.js';
 import { STATION_BY_ID } from '../src/data/transport.js';
@@ -39,6 +39,7 @@ function newGame() {
   return g;
 }
 const setLevel = (g, s, l) => { g.skills.xp[s] = xpForLevel(l); };
+beforeEach(() => { UNLOCKS.on = true; });   // seed.mjs switches them off for the other test files
 
 // ---------------- Unlocks ----------------
 
@@ -279,6 +280,7 @@ test('loading a save with no hunting snare gives one, once', () => {
   strip(g);
   assert.equal(g.hasTool('snare'), false);
   // A save from before the flag: no snare anywhere, and snareGiven unset.
+  g.snareGiven = false;
   assert.ok(saveGame(g));
   const g2 = new Game();
   const lines = [];

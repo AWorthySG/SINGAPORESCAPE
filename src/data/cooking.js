@@ -13,5 +13,5 @@ export const DISHES = [
   { result: 'seafood_platter', inputs: [{ id: 'bowl', qty: 1 }, { id: 'shark', qty: 1 }, { id: 'lobster', qty: 1 }], level: 60, xp: 270 },
   // Skill chains: boss-fight meals (a `meal` boost, see Game._eatMeal) from Hunter meat, farmed herbs and fish.
   { result: 'boar_rendang', inputs: [{ id: 'bowl', qty: 1 }, { id: 'boar_steak', qty: 1 }, { id: 'chilli', qty: 1 }, { id: 'lemongrass', qty: 1 }], level: 25, xp: 140 },
-  { result: 'fish_head_curry', inputs: [{ id: 'bowl', qty: 1 }, { id: 'tuna', qty: 1 }, { id: 'tongkat_ali', qty: 1 }, { id: 'chilli', qty: 2 }], level: 75, xp: 320 },
+  { result: 'fish_head_curry', inputs: [{ id: 'bowl', qty: 1 }, { id: 'tuna', qty: 1 }, { id: 'tongkat_ali', qty: 1 }, { id: 'chilli', qty: 2 }], level: 75, xp: 250 },
 ];

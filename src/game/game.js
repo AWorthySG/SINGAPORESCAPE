@@ -433,6 +433,7 @@ export class Game {
     this.waves = new Waves(this);     // the Endless Gate: a run of monster waves, and your best wave
     installSkillUnlocks(this);        // life skill unlocks at 10/25/50/75/99 (skillunlocks.js)
     this.home = new Home(this);       // the kampong home plot in Kranji (home.js)
+    this.snareGiven = true;           // a new character has the starter snare; older saves get one on load (onboarding.js)
     // Knowledge Strikes: bosses' specials can be interrupted by answering a question.
     // On by default in the browser; headless runs (tests) leave bosses as they were.
     this.knowledgeStrikes = LEARNING_ENABLED && typeof document !== 'undefined';
