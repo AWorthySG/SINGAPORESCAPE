@@ -1,0 +1,189 @@
+/* ======================================================================
+   Title screen, loading bar and class picker stages (src/ui/title.js)
+   ----------------------------------------------------------------------
+   Loaded after main.css and kept apart from it. The splash starts as cream
+   paper with a loading bar under the title; once everything has loaded
+   (#splash.ready) the paper fades away to show the live world touring behind
+   it, with a painted skyline, a row of heroes and drifting petals in front.
+   Layers, back to front: the paper (::before), a soft vignette (::after), the
+   skyline, the heroes, the petals, the card and place caption, and the cream
+   dip that covers each camera cut (.title-fade).
+   ====================================================================== */
+
+/* While the title shows, the HUD and its toasts stay out of the way. */
+body.title-on #game-root > :not(#game-canvas),
+body.title-on > :not(#splash):not(#game-root):not(script) { visibility: hidden !important; }
+
+#splash { background: transparent; }
+#splash::before, #splash::after {
+  content: ""; display: block; position: fixed; inset: 0; pointer-events: none;
+}
+#splash::before {
+  z-index: 0; opacity: 1; transition: opacity 1.1s ease .1s;
+  background: var(--aw-bg) radial-gradient(circle at 1px 1px, rgba(70,50,20,0.05) 1px, transparent 0) 0 0 / 22px 22px;
+}
+/* Cream at the edges and along the ground, so the card and heroes read over a busy map. */
+#splash::after {
+  z-index: 1; opacity: 0; transition: opacity 1.1s ease;
+  background:
+    linear-gradient(to top, rgba(250,246,238,0.92), rgba(250,246,238,0.5) 16%, rgba(250,246,238,0) 34%),
+    radial-gradient(120% 90% at 50% 42%, rgba(250,246,238,0) 46%, rgba(250,246,238,0.6) 100%);
+}
+#splash.ready::before { opacity: 0; }
+#splash.ready::after { opacity: 1; }
+/* A touch of blur on desktops; phones skip it (it would cost every frame). */
+@media (hover: hover) and (pointer: fine) {
+  #splash.ready { -webkit-backdrop-filter: blur(1.2px); backdrop-filter: blur(1.2px); }
+}
+
+/* ---- Skyline band (painted art slot "skyline"; an SVG stand-in for now) ---- */
+.title-skyline {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 2; pointer-events: none;
+  height: clamp(96px, 13vw, 170px); opacity: 0; transform: translateY(24px);
+  transition: opacity .9s ease .25s, transform 1.1s cubic-bezier(.2,.8,.3,1) .25s;
+}
+.title-skyline svg, .title-skyline img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 100%; }
+.title-skyline svg { opacity: .9; }
+#splash.ready .title-skyline { opacity: 1; transform: none; }
+
+/* ---- The heroes (one canvas, drawn by HeroStage) ---- */
+.title-heroes {
+  position: fixed; left: 0; bottom: 0; z-index: 3; pointer-events: none;
+  width: 100%; height: 150px; opacity: 0; transform: translateY(30px);
+  transition: opacity .7s ease .45s, transform .9s cubic-bezier(.2,.9,.3,1.15) .45s;
+}
+#splash.ready .title-heroes { opacity: 1; transform: none; }
+@media (max-width: 540px), (max-height: 560px) { .title-heroes { height: 118px; } }
+
+/* ---- Drifting petals and leaves (assets/fx particles) ---- */
+.title-particles { position: fixed; inset: 0; z-index: 4; pointer-events: none; overflow: hidden; }
+.title-particles .tp {
+  position: absolute; top: 0; width: var(--s, 18px); height: auto; opacity: .92;
+  animation: titleDrift 14s linear infinite; will-change: transform;
+}
+@keyframes titleDrift {
+  from { transform: translate3d(0, -12vh, 0) rotate(0deg); }
+  to { transform: translate3d(var(--dx, 0), 112vh, 0) rotate(var(--rot, 360deg)); }
+}
+
+/* ---- Where the camera is: a sticker caption, top-left ---- */
+.title-place {
+  position: fixed; z-index: 5; pointer-events: none; opacity: 0;
+  top: max(14px, env(safe-area-inset-top)); left: max(14px, env(safe-area-inset-left));
+  padding: 6px 13px 6px 11px; border-radius: 999px; font-size: 13px; font-weight: 800; color: var(--aw-text);
+  background: var(--aw-card); border: 2px solid var(--aw-ink); box-shadow: var(--shadow-sticker-sm);
+}
+.title-place::before { content: "\1F4CD"; margin-right: 5px; }
+.title-place:empty { display: none; }
+#splash.ready .title-place.show { animation: titlePlace 11s ease both; }
+@keyframes titlePlace {
+  0%, 6% { opacity: 0; transform: translateY(-6px); }
+  12%, 88% { opacity: 1; transform: none; }
+  96%, 100% { opacity: 0; transform: none; }
+}
+
+/* ---- The cream dip over each cut (opacity set by title.js) ---- */
+.title-fade { position: fixed; inset: 0; z-index: 6; pointer-events: none; opacity: 0; background: var(--aw-bg); }
+
+/* ---- The card ---- */
+#splash .splash-inner { z-index: 5; }
+.splash-mascot { width: clamp(88px, 17vh, 140px); }
+#splash.ready .splash-inner { animation: titleCardIn .7s cubic-bezier(.2,.9,.3,1.1) both; }
+@keyframes titleCardIn { from { transform: translateY(10px) scale(.985); } to { transform: none; } }
+#splash.leaving { opacity: 0; transition: opacity .55s ease; }
+
+/* ---- Loading bar and tips (shown in place of the Enter button) ---- */
+#splash-loader { width: min(300px, 100%); margin: 2px auto 0; }
+.sl-track {
+  position: relative; height: 14px; border-radius: 999px; overflow: hidden;
+  background: var(--aw-muted); border: 2px solid var(--aw-ink); box-shadow: var(--shadow-sticker-sm);
+}
+.sl-fill {
+  position: absolute; inset: 0; transform-origin: 0 50%; transform: scaleX(0.04); transition: transform .3s ease;
+  background: linear-gradient(90deg, var(--aw-sun), var(--aw-accent));
+}
+/* Soft moving stripes, so the bar looks alive even while one big file loads. */
+.sl-fill::after {
+  content: ""; position: absolute; inset: 0; opacity: .28;
+  background: repeating-linear-gradient(-45deg, #fff 0 6px, transparent 6px 14px);
+  animation: slStripes 1s linear infinite;
+}
+@keyframes slStripes { from { background-position: 0 0; } to { background-position: 28px 0; } }
+.sl-status { margin: 7px 0 2px; font-size: 12px; font-weight: 800; color: var(--aw-text-sec); font-variant-numeric: tabular-nums; }
+.sl-tip { margin: 0 auto; max-width: 320px; min-height: 3.2em; font-size: 12.5px; line-height: 1.35; color: var(--aw-text-sec); }
+.sl-tip b { color: var(--aw-text); }
+#splash.loading #splash-enter { display: none; }
+#splash.ready #splash-loader { display: none; }
+#splash.ready #splash-enter { animation: titlePop .55s cubic-bezier(.2,.9,.3,1.35) .15s both; }
+@keyframes titlePop { from { opacity: 0; transform: scale(.8); } to { opacity: 1; transform: none; } }
+
+/* Reduced motion: no petals, and nothing slides (main.css also stills transitions). */
+#splash.title-still .title-particles { display: none; }
+
+/* ======================================================================
+   Class picker: hero stages and the spotlight (ui.js openStyleChoice)
+   ====================================================================== */
+.class-picker { display: flex; flex-direction: column; }
+/* The spotlight comes after the cards in the page (so "Rogue" first finds the
+   card) but is shown above them, and stays in view while the list scrolls. */
+.class-spot {
+  order: -1; position: sticky; top: -2px; z-index: 2;
+  display: flex; align-items: center; gap: 14px; margin: 10px 0 2px; padding: 10px 14px 10px 8px;
+  background: var(--aw-card); border: 2px solid var(--aw-ink); border-radius: var(--r3, 20px); box-shadow: var(--shadow-sticker);
+}
+.class-spot-stage {
+  flex: none; width: 150px; height: 128px; border-radius: 16px;
+  background: radial-gradient(70% 26% at 50% 86%, rgba(61,170,92,0.22), transparent 70%), var(--aw-muted);
+}
+.class-spot-info { min-width: 0; flex: 1; }
+.class-spot-name { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.class-spot-name b { font-size: 19px; font-weight: 900; color: var(--aw-text); }
+.class-spot-name span { font-size: 10.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--aw-accent); }
+.class-spot-sig { margin: 3px 0 6px; font-size: 12.5px; color: var(--aw-text); line-height: 1.35; }
+.class-spot-perks { display: flex; flex-wrap: wrap; gap: 5px; margin: 0; padding: 0; list-style: none; }
+.class-spot-perks li {
+  font-size: 11px; font-weight: 700; color: var(--aw-text-sec); line-height: 1.25;
+  padding: 3px 8px; border-radius: 999px; background: var(--aw-muted); border: 1.5px solid var(--aw-ink-faint);
+}
+.class-spot-perks li b { color: var(--aw-text); font-weight: 900; }
+.class-spot-go {
+  flex: none; align-self: center; font-size: 14px; font-weight: 800; color: #fff; cursor: var(--cur-pointer, pointer);
+  padding: 10px 16px; border-radius: 999px; background: var(--aw-accent); border: 2px solid var(--aw-ink); box-shadow: var(--shadow-primary);
+}
+.class-spot-go:hover { background: var(--aw-accent-dk); }
+.class-spot.chosen { border-color: var(--aw-accent); box-shadow: 0 0 0 3px var(--aw-accent-bg), var(--shadow-sticker); }
+.class-spot.chosen .class-spot-go { display: none; }
+.class-spot.chosen .class-spot-sig { font-weight: 800; }
+.class-spot.swap .class-spot-info { animation: spotIn .28s ease both; }
+@keyframes spotIn { from { opacity: 0; transform: translateX(6px); } to { opacity: 1; transform: none; } }
+
+/* Each card's hero stands on a little stage in place of the round portrait. */
+.class-card .class-pic.has-stage {
+  width: 58px; height: 64px; border-radius: 14px; overflow: visible; border: none;
+  background: radial-gradient(60% 22% at 50% 88%, rgba(34,48,74,0.12), transparent 70%);
+}
+.class-card .class-pic canvas.class-stage { width: 58px; height: 64px; display: block; }
+.class-card { position: relative; }
+.class-card.previewing { border-color: var(--aw-accent); }
+.class-card.chosen { background: var(--aw-accent-bg); border-color: var(--aw-accent); }
+.class-peek {
+  position: absolute; top: 5px; right: 5px; width: 30px; height: 30px; padding: 0; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; font-size: 14px; line-height: 1; cursor: var(--cur-pointer, pointer);
+  background: var(--aw-card); border: 1.5px solid var(--aw-ink-faint); color: var(--aw-text-sec);
+}
+.class-peek:hover, .class-peek:focus-visible { border-color: var(--aw-ink); color: var(--aw-text); }
+/* With a mouse, hovering previews: the button is only needed on touch. */
+@media (hover: hover) and (pointer: fine) { .class-peek { display: none; } }
+
+@media (max-width: 540px), (max-height: 560px) {
+  .class-spot { gap: 9px; padding: 6px 8px 6px 4px; margin-top: 6px; }
+  .class-spot-stage { width: 92px; height: 88px; }
+  .class-spot-name b { font-size: 16px; }
+  .class-spot-sig { font-size: 11.5px; margin-bottom: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .class-spot-perks { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .class-spot-perks li { white-space: nowrap; }
+  .class-spot-go { padding: 8px 12px; font-size: 13px; }
+  .class-spot { flex-wrap: wrap; }
+  .class-spot-info { flex-basis: calc(100% - 110px); }
+  .class-spot-go { width: 100%; margin-top: 2px; }
+}
