@@ -12,7 +12,7 @@
 // its hit like the Merchant does, between a quarter of and its full 25% share of the Merchant's max hit.
 import { chebyshev, randInt } from '../core/utils.js';
 import { TICK_MS, COMBAT_BEAT_MS } from '../config.js';
-import { combatXpRanged, playerAttackVsNpc, playerRangedVsNpc, critChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE, WEAPON_DMG_MULT, weaponDmgMult } from './combat.js';
+import { combatXpRanged, playerAttackVsNpc, playerRangedVsNpc, critChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE, WEAPON_DMG_MULT, weaponDmgMult, CLASS_POWER } from './combat.js';
 import { getItem } from '../data/items.js';
 
 export const MERC_TICKS = 150;            // 90 seconds at 0.6s a tick
@@ -288,7 +288,7 @@ function merchantMax(game, def) {
   // again by how much harder the weapon in hand hits (no change with a cane).
   const k = WEAPON_DMG_MULT.cane / weaponDmgMult(game.equipment);
   const pct = (1 + (gb.atkPct || 0) / 100) * (1 + (perk.dmg || 0) + (def?.boss ? (perk.boss || 0) + (gb.bossDmg || 0) / 100 : 0)) * k * k
-    * merchantPower(game);   // allies share the Merchant's class power
+    * merchantPower(game) * CLASS_POWER;   // allies share the Merchant's class power (and every class's x1.2)
   if (game.combatMode() === 'ranged') {
     const w = game.equipment.get('weapon');
     const str = w ? Math.floor((getItem(w).equip?.bonuses?.ranged || 0) / 3) : 0;

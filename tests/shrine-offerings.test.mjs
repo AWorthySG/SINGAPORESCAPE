@@ -144,7 +144,8 @@ test('balance: an hour of drops: gear is worth thousands of points early and gro
   assert.ok(rows[0].points > 3000 && rows[0].points < 14000, `level 50: ${rows[0].points}`);
   assert.ok(rows[1].points > 30000 && rows[1].points < 125000, `level 150: ${rows[1].points}`);
   assert.ok(rows[2].points > 100000 && rows[2].points < 420000, `level 250: ${rows[2].points}`);
-  for (const r of rows) assert.ok(r.goods > 500 && r.goods < 20000, `loot at combat ${r.combat}: ${r.goods}`);
+  // (Raised from 20000 when Elder, Dire and Ancient monsters began rolling their loot two or three times.)
+  for (const r of rows) assert.ok(r.goods > 500 && r.goods < 30000, `loot at combat ${r.combat}: ${r.goods}`);
   assert.ok(rows[2].goods < rows[2].points / 5, 'late on, loot is small change next to gear');
 });
 
