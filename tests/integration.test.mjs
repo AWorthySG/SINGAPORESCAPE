@@ -1900,6 +1900,7 @@ test('crafting skill: table exists, recipes consume materials and yield products
   game.start();
   assert.ok(game.world.objects.some((o) => o.objId === 'crafting_table'), 'a crafting table is placed');
   assert.ok(game.hasTool('chisel'), 'starter kit includes a chisel');
+  assert.ok(game.hasTool('snare'), 'and a hunting snare (traps did nothing without one)');
   game.skills.addXp('crafting', 2_000_000);
   game.inventory.add('silver_ore', 3); game.inventory.add('sapphire', 3);
   game.inventory.add('clay', 3); game.inventory.add('granite', 4);
@@ -3606,6 +3607,7 @@ test('hunter, fletching and herblore: traps catch, benches make, potions brew, b
   const game = new Game();
   game.start();
   const trap = game.world.objects.find((o) => o.objId === 'bird_snare');
+  game.inventory.remove('hunting_snare', game.inventory.count('hunting_snare'));   // the starter kit includes one now
   assert.equal(resolveHunt(game, { obj: trap }), false, 'a snare is needed');
   game.inventory.add('hunting_snare', 1);
   for (let i = 0; i < 200 && !game.skills.xp.hunter; i++) { trap.depleted = false; resolveHunt(game, { obj: trap }); }
