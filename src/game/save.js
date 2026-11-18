@@ -2,6 +2,7 @@ import { POTIONS, CROP_BY_ID } from '../data/trades.js';
 import { SAVE_KEY } from '../config.js';
 import { STATION_BY_ID } from '../data/transport.js';
 import { inArena } from './waves.js';
+import { loadCulling } from './culling.js';
 
 const VERSION = 1;
 // An unreadable save is copied here before a new game replaces it, so a bug or
@@ -68,6 +69,7 @@ export function snapshot(game) {
     slayer: game.slayer,
     shrine: game.shrine.serialize(),
     bounties: game.bounties,
+    culling: game.culling,
     karma: game.karma,
     moral: game.moral,
     attrs: game.attrs,
@@ -317,6 +319,8 @@ function loadFields(game, data) {
     game.bounties = { day: typeof b.day === 'string' ? b.day : null, list: b.list.filter((t) => t && typeof t.id === 'string'),
       streak: Number(b.streak) || 0, lastFull: typeof b.lastFull === 'string' ? b.lastFull : null };
   }
+  // Codex mastery extras, Pest Control contracts and Stewardship (older saves have none).
+  game.culling = loadCulling(data.culling);
   // Spent stat points (older saves have none).
   if (data.attrs && typeof data.attrs === 'object') {
     for (const k of ['str', 'int', 'dex']) game.attrs[k] = Math.max(0, Math.floor(Number(data.attrs[k]) || 0));

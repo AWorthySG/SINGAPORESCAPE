@@ -52,6 +52,7 @@ import { clearSave, suppressSaves, exportSaveCode, importSaveCode } from '../gam
 import { statSheet } from '../game/statsheet.js';
 import { statsPanelHTML } from './statspanel.js';
 import { openCodex, monsterAtScreen } from './codexui.js';
+import { openPestOfficer, contractTrackerRows, stewardLineHTML, cullingInvOptions } from './cullingui.js';
 import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG, abilityIconHTML, prayerIconHTML, spellIconHTML } from '../render/icons.js';
 import { weaknessOf, armourTierOf, ARMOUR_TIERS, levelFlatDmg } from '../game/combat.js';
 import { isBone } from '../data/bones.js';
@@ -256,11 +257,13 @@ export class UI {
     this.bus.on('achievement', () => this._soon('achievements', () => this.renderAchievementPanel()));
     // The Stats tab: anything that changes a final stat redraws it (a few times a second at most),
     // and the tick keeps its potion and buff timers counting down.
-    for (const ev of ['equipment', 'skills', 'stats', 'potions', 'prayer', 'ability', 'karma', 'slayer', 'spell', 'xpbonus', 'hp', 'tick', 'rhythm']) {
+    for (const ev of ['equipment', 'skills', 'stats', 'potions', 'prayer', 'ability', 'karma', 'slayer', 'spell', 'xpbonus', 'hp', 'tick', 'rhythm', 'culling']) {
       this.bus.on(ev, () => this._soon('statsTab', () => this.renderStatsPanel(), 300));
     }
     this.bus.on('slayer', () => { this._refreshModalIfOpen(['slayer', 'slayerRewards']); this.renderTracker(); });
     this.bus.on('bank', () => this._refreshModalIfOpen(['bank']));
+    // Culling (culling.js): contracts, Stewardship and the token shop, a few times a second at most.
+    this.bus.on('culling', () => this._soon('culling', () => { this._refreshModalIfOpen(['pest', 'pestShop']); this.renderTracker(); this.renderAlignment(); }, 250));
 
     this.renderInventory();
     this.renderEquipment();
@@ -502,6 +505,7 @@ export class UI {
     for (const t of (g.bounties?.list || []).filter((x) => !x.done).slice(0, 2)) {
       rows.push(`<div class="trk-row"><span class="trk-ic trk-bounty">&#9733;</span>${escapeHtml(t.name)} <span class="trk-prog">${Number(t.have) || 0}/${Number(t.need) || 0}</span>${this._trkPointer((n) => n.npcId === t.id)}</div>`);
     }
+    rows.push(...contractTrackerRows(this));   // today's Pest Control contracts
     for (const q of QUESTS) {
       const st = g.quests[q.id];
       if (st && st.state === 'active') {
@@ -820,6 +824,7 @@ export class UI {
     }
     if (s.id === 'mark_of_grace') opts.push({ label: 'Trade for XP', target: item.name, fn: () => this.game.useMarkOfGrace(i) });
     if (s.id.startsWith('clue_scroll_')) opts.push({ label: 'Read', target: item.name, fn: () => this.game.readClue(i) });
+    opts.push(...cullingInvOptions(this, s, i));   // a forager's lamp or a Codex quill
     if (s.id.startsWith('reward_casket_')) opts.push({ label: 'Open', target: item.name, fn: () => this.game.openCasket(i) });
     if (s.id === 'birds_nest') opts.push({ label: 'Open', target: item.name, fn: () => this.game.openNest(i) });
     // Alchemy, once you can cast it and carry (or wield the staff for) nature runes.
@@ -2048,7 +2053,7 @@ export class UI {
       `<div class="align-head">Alignment: <b>${title}</b> <span class="align-net">(${g.alignment() >= 0 ? '+' : ''}${g.alignment()})</span></div>` +
       `<div class="align-bar"><span class="align-good" style="width:${goodPct}%"></span></div>` +
       `<div class="align-legend"><span class="ag-good">Good ${good}</span><span class="ag-evil">Evil ${evil}</span></div>` +
-      `<div class="align-combat">${this._karmaCombatText(g.karmaCombat())}</div>` +
+      `<div class="align-combat">${this._karmaCombatText(g.karmaCombat())}</div>` + stewardLineHTML(g) +
       `<div class="align-hint">Make choices around the island to shape your path (${Object.keys(g.moral?.choices || {}).length}/${MORAL_EVENTS.length} met).</div>`;
   }
 
@@ -3556,6 +3561,7 @@ export class UI {
   // Dialogue -----------------------------------------------------------
   openDialogue(npc) {
     if (npc.def.dialogue === 'slayer') return this.openSlayerMaster(npc);
+    if (npc.def.dialogue === 'pest') return openPestOfficer(this, npc);   // Pest Control contracts (cullingui.js)
     const tree = npc.def.moral ? this._moralTree(npc.def.moral) : getDialogue(npc.def.dialogue);
     if (!tree) { this.game.msg(`${npc.name} has nothing to say.`); return; }
     const show = (nodeId) => {

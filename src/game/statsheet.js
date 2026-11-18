@@ -22,6 +22,7 @@ import { POTIONS } from '../data/trades.js';
 import { PRAYER_BY_ID } from '../data/prayers.js';
 import { CLASS_BY_ID } from '../data/classes.js';
 import { classPassiveMods, CLASS_SKILL } from '../data/classPassives.js';
+import { masteryDamage, stewardship, masterySummary, titleText, MASTERY_TIERS } from './culling.js';
 
 // The same set as game.js (not exported there): the Holy path smites these races.
 const UNHOLY_RACES = new Set(['undead', 'spirit', 'demon']);
@@ -119,6 +120,7 @@ export function damageMult(game, mode = game.combatMode(), { npc = null, boss = 
   mul(1 + (mode === 'magic' ? gb.magPct : gb.atkPct) / 100, mode === 'magic' ? 'Magic damage bonus' : 'Physical damage bonus');
   mul(1 + game.buffMod('dmg'), 'Class buff');
   if (npc && game.onSlayerTask(npc)) mul(1 + game.slayerBonus().dmg / 100, 'Slayer task');
+  if (npc) { const cm = masteryDamage(game, npc); mul(1 + cm.species, 'Codex mastery (species)'); mul(1 + cm.race, 'Codex mastery (race)'); }
   return { m, parts };
 }
 
@@ -344,6 +346,19 @@ export function statSheet(game) {
     utility.push(row('xp', 'Combat XP bonus', times(x.total), parts));
   }
   if (sk.level('slayer') > 1 || game.slayer?.task) utility.push(row('slayerloot', 'Slayer task loot bonus %', pct(game.slayerBonus().loot)));
+  // Culling (culling.js): codex mastery so far, and Stewardship's gentle perks.
+  {
+    const [t1, t2, t3] = masterySummary(game);
+    if (t1 + t2 + t3) utility.push(row('mastery', 'Codex mastery', `${t1 + t2 + t3} species`,
+      [[`${MASTERY_TIERS[0].name} (tier 1)`, String(t1)], [`${MASTERY_TIERS[1].name} (tier 2)`, String(t2)], [`${MASTERY_TIERS[2].name} (tier 3)`, String(t3)],
+        ...(titleText(game) ? [['Title worn', titleText(game)]] : [])].filter(([, v]) => v !== '0'),
+      'Each species you master is hit harder and drops more; tier 2 adds a little against its whole race (at most +10% a race).'));
+    const st = stewardship(game);
+    if (st.points > 0) utility.push(row('steward', 'Stewardship', st.rank ? `${st.name} (rank ${st.rank})` : `${num(st.points)} points`,
+      [['Points', `${num(st.points)}${st.next ? ` / ${num(st.next)}` : ''}`], ['Gathering double yield', fracPct(st.perkYield)],
+        ['Food healing', fracPct(st.perkFood)], ['Hunter XP', fracPct(st.perkHunter)]],
+      st.active ? 'Active: you are Neutral.' : st.rank ? 'Resting: the perks only work while you are Neutral.' : 'Cull harmless creatures while Neutral to reach rank 1.'));
+  }
   if (kc.side !== 'neutral') utility.push(row('karma', 'Alignment', `${kc.side === 'holy' ? 'Holy' : 'Dark'} path, tier ${kc.tier}`,
     kc.side === 'holy' ? [['Damage vs undead, spirits & demons', fracPct(kc.holyDmg)]] : [['Crit damage', pct(kc.critDmg)], ['Lifesteal', pct(kc.lifesteal)]]));
 

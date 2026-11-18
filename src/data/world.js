@@ -383,6 +383,7 @@ export function buildWorld() {
   placeNpc('light_priestess', 60, 49); // by the Monument — the path of redemption
   placeNpc('shadow_broker', 48, 47);   // lurking near the bank — the path of corruption
   placeNpc('villager', 60, 54, 3);
+  placeNpc('pest_officer', 58, 56);   // Pest Control: daily culling contracts (culling.js), by the town's chickens
   // A few little chickens right at spawn: harmless and killable. They waddle
   // about clucking, but never attack.
   const CHATTY_CHICKEN = { statMul: 0.5, aggressive: false, chatter: ['Cluck cluck!', 'Bawk bawk!', 'Cluck!'] };
