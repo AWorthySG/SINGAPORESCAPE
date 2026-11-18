@@ -293,6 +293,19 @@ const CLEAVE_WIDE = { '2h_sword': { around: 3, max: Infinity } };   // (was 10; 
 // (table, rare table, upgrade stones) this many times, as a normal kill would,
 // on top of its champion extras (champion bones, a 50% accessory, a 20% ward).
 const CHAMPION_LOOT_KILLS = 30;
+// Elder and Dire monsters (the tougher ranks of the common species) are worth
+// more loot: their drop table and rare-table chances roll this many times.
+// Ancient, the rank above Dire, matches Dire so the strongest never drops less.
+export const RANK_LOOT_ROLLS = { Elder: 2, Dire: 3, Ancient: 3 };
+/** Loot rolls for a normal monster's rank (from its name: "Elder sea snake"). */
+export function rankLootRolls(def) {
+  const p = (def?.name || '').split(' ')[0];
+  return RANK_LOOT_ROLLS[p] || 1;
+}
+// Every class hits this much harder (the owner asked for all classes to be 20%
+// stronger). It sits with the other shared damage multipliers, so both hands,
+// specials and abilities all get it, and class balance is unchanged.
+export const CLASS_POWER = 1.2;
 // A champion's chance of an upgrade ward (was 10%, doubled with champion rates).
 export const CHAMPION_WARD_CHANCE = 0.2;
 
@@ -2098,6 +2111,7 @@ export class Game {
     if (this.onSlayerTask(npc)) dmgM *= 1 + this.slayerBonus().dmg / 100;   // Slayer: hit task monsters harder
     dmgM *= Culling.masteryDamage(this, npc).mult;   // codex mastery of its species and race
     dmgM *= Mercs.merchantPower(this);   // the strongest class (see mercenary.js)
+    dmgM *= CLASS_POWER;   // every class 20% stronger
     const sharedM = dmgM;   // what both hands share
     dmgM *= abM * gearM(gb);
     const bonusHit = Math.random() < (perk.extra || 0) + (gb.extra || 0) / 100;   // Thieving's perk adds to the chance
@@ -3535,7 +3549,8 @@ export class Game {
       this.msg(`A rare drop! ${q > 1 ? q + ' x ' : ''}${getItem(rareBone).name}.`, 'level');
     }
     // A champion's loot is CHAMPION_LOOT_KILLS normal kills' worth of its monster.
-    const kills = npc.champion && !def.boss ? CHAMPION_LOOT_KILLS : 1;
+    // An Elder or Dire monster rolls more times too (rankLootRolls).
+    const kills = npc.champion && !def.boss ? CHAMPION_LOOT_KILLS : def.boss ? 1 : rankLootRolls(def);
     if (def.dropTable && def.dropTable.length) {
       // Bosses roll their table ten times and never come up empty; champions roll
       // it once per normal kill they're worth, by a normal monster's rules.
