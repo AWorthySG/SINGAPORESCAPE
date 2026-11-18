@@ -2420,6 +2420,7 @@ export class UI {
       }
       left = joy ? joy.right + 8 : 140;
       width = Math.max(160, Math.min(400, right - left));
+      el.style.width = `${Math.round(width)}px`;   // so its height is measured at this width
       top = window.innerHeight - el.offsetHeight - 8;
     }
     const key = `${Math.round(top)}|${Math.round(left)}|${Math.round(width)}`;
