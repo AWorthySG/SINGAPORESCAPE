@@ -221,6 +221,18 @@ const DARK_CRITDMG = [15, 30, 50], DARK_LIFESTEAL = [2, 4, 7];
 const BOSS_RETRY_LEVELS = 10;
 // Auto battle travels to bosses up to this far away (in tiles), using the MRT when it helps.
 const BOSS_SEEK_TILES = 220;
+// Auto battle only goes looking for a champion (30x life) it could kill in
+// about this many seconds, and that couldn't kill you in under CHAMPION_SAFE_SECS.
+// (The estimate is rough and hopeful: it counts any buff running, and a real
+// fight took about half as long again.)
+// Without this a fresh character walked straight to the nearest champion and
+// spent minutes on it (a fresh Archer burned all 999 arrows on one, a fresh
+// Wizard sat on an 80,000-life one for six minutes) while its pack mauled them.
+const CHAMPION_HUNT_SECS = 30, CHAMPION_SAFE_SECS = 40;
+// "Far above you": more than this many levels (or a quarter of your fight level,
+// whichever is more) over your fight level. Auto battle never picks such a
+// monster unless it is fighting you, and area hits leave it alone.
+const FAR_ABOVE_LEVELS = 20;
 // Auto gather can take turns between up to this many kinds of node.
 const AUTO_GATHER_KINDS = 6;
 // How each melee weapon's cleave moves (and looks): spears pierce in a line
@@ -2061,7 +2073,24 @@ export class Game {
    *  it would wake a boss you never chose to fight (or that auto battle judged
    *  too strong), and it would then hunt you down. */
   _aoeSpares(o) {
-    return !!(o.def.fixed || o.def.boss) && o.target !== this.player;
+    if (o.target === this.player) return false;
+    // A champion, or a monster far above your level, isn't dragged in either:
+    // a new character's cleave into a starter pack used to wake its level 59
+    // Dire and level 111 Elder packmates, which then killed them.
+    return !!(o.def.fixed || o.def.boss || o.champion) || this._farAbove(o);
+  }
+
+  /** Is this monster far above your fight level (see FAR_ABOVE_LEVELS)? */
+  _farAbove(n) {
+    const cl = this.fightLevel();
+    return (n.def.level || 1) > cl + Math.max(FAR_ABOVE_LEVELS, Math.round(cl / 4));
+  }
+
+  /** Would auto battle take on this champion that isn't fighting you yet? Only
+   *  when a rough time-to-kill says it's a short fight you'd survive. */
+  _autoChampionOk(n) {
+    const t = this._autoFightTimes(n);
+    return !!t && t.myTime <= CHAMPION_HUNT_SECS && t.theirTime >= CHAMPION_SAFE_SECS;
   }
 
   _applyPlayerHit(npc, dmg, opts = {}) {
@@ -2430,7 +2459,10 @@ export class Game {
     const arrowDmg = spread > 1 ? SHORTBOW_ARROW_DMG : 1;
     const shots = mods.hits * spread;
     for (let i = 0; i < shots && npc.hp > 0; i++) {
-      if (noAmmo) { /* nothing to spend */ } else if (i > 0) { // extra shots consume extra arrows
+      // A shortbow's spread of three costs one arrow, as a single shot did before
+      // spreads: paying for all three ran a new Archer's 999 arrows dry within
+      // a few minutes, and auto battle then stopped for good.
+      if (noAmmo || i % spread) { /* nothing to spend */ } else if (i > 0) { // extra shots consume extra arrows
         const ai = this._bestAmmoIdx();
         if (ai === -1) break;
         this._spendArrow(ai);
@@ -4538,12 +4570,21 @@ export class Game {
     const lost = this.bossRecord.lost[n.npcId];
     if (lost && cl < lost + BOSS_RETRY_LEVELS) return false;
     if ((def.level || 1) > Math.max(cl + 5, Math.round(cl * 1.25))) return false;
+    const t = this._autoFightTimes(n);
+    return !!t && t.myTime <= 1800 && t.theirTime >= 20;
+  }
+
+  /** Rough seconds for you to empty this monster's life, and for its average
+   *  hits to empty yours (see _autoCanBeat), or null when you can't attack it
+   *  at all (a caster out of runes). */
+  _autoFightTimes(n) {
+    const cl = this.fightLevel(), def = n.def;
     const mode = this.combatMode(), pm = this.prayerMult();
     let max;
     if (mode === 'magic') {
       const chosen = getSpell(this.player.spell);
       const sp = this.skills.magic >= chosen.level && this._hasRunes(chosen) ? chosen : this.bestSpell();
-      if (!sp) return false;
+      if (!sp) return null;
       max = playerMagicVsNpc(this.skills, this.equipment, sp, def).max * pm.magic;
     } else if (mode === 'ranged') {
       const wpn = getItem(this.equipment.get('weapon'))?.equip || {};
@@ -4577,7 +4618,7 @@ export class Game {
       / (Math.max(2, (def.attackSpeed || 4) - 2) * TICK_MS / 1000);
     const myTime = (n.hp || n.maxHp || 1) / Math.max(0.01, myDps);
     const theirTime = this.maxHp() / Math.max(0.01, theirDps);
-    return myTime <= 1800 && theirTime >= 20;
+    return { myTime, theirTime };
   }
 
   /** Auto battle with Bosses on and "Bosses & champions first": head for the
@@ -4887,13 +4928,15 @@ export class Game {
         // that isn't attacking you is left alone while a quest is being followed.
         if (this.autoQuest) continue;
         if (!inWild && wildZone(n.x, n.y)) continue;
+        if (!this._autoChampionOk(n)) continue;   // a slog you'd likely lose: leave it until you're stronger
         { const tier = first ? -2000 : 0; cands.push({ n, score: d + tier, tier }); }
         continue;
       }
       const lvl = n.def.level || 1;
-      // Close by: fight anything. Further out: only walk to monsters up to a
-      // little above your level, so a hunt is worth the walk.
-      if (d > 10 && lvl > cl + 20) continue;
+      // Only monsters up to a little above your level, near or far. (Close by
+      // it used to fight anything, so a new character beside a pack's level 59
+      // Dire or level 111 Elder picked that and died.)
+      if (this._farAbove(n)) continue;
       // Monsters well below your level rank behind any in your level band.
       const weak = !this.autoCfg.target && !this._questTarget && !this._questFamily && lvl < this._autoBandLo(inWild);
       if (!inWild && wildZone(n.x, n.y)) continue;
