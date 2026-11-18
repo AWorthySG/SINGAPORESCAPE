@@ -3091,7 +3091,8 @@ body #tip-toast.tip-strip { font-size: 11px; padding: 4px 6px 4px 7px; border-ra
 .sgx-ul { margin: 2px 0; padding-left: 18px; font-size: 12.5px; }
 .sgx-nouse { padding: 8px 10px; border-radius: var(--r1); background: var(--aw-muted); border: 2px dashed var(--aw-ink-faint); font-weight: 700; font-size: 13px; }
 .sgx-intro { margin: 2px 0 4px; }
-@media (pointer: coarse) {
+/* (Its own prelude: tests/layout.test.mjs reads the last plain (pointer: coarse) block.) */
+@media (pointer: coarse) and (hover: none) {
   /* Finger-sized: 16px text stops iOS zooming into the search box. */
   .sgx-search { font-size: 16px; }
   .sgx-chip { padding: 6px 12px; font-size: 13px; }
