@@ -37,7 +37,7 @@ import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
 import { QUESTS } from '../data/quests.js';
 import { SLAYER_REWARDS, SLAYER_FULL_LEVEL, SLAYER_HELM_DMG, slayerBuffs, nextSlayerUnlock } from '../data/slayer.js';
 import { STATIONS, MRT_FARE } from '../data/transport.js';
-import { EQUIP_SLOTS, canDualPair, isTwoHanded } from '../game/equipment.js';
+import { EQUIP_SLOTS, canDualPair, isTwoHanded, offhandBlocked, takesQuiver } from '../game/equipment.js';
 import { streakMult } from '../game/bounty.js';
 import { itemCategory } from '../game/inventory.js';
 import { MASTERY_RANKS, MAX_ENCHANTS, rankProgress, enchantLabel, masteryTypeName, STONE as UP_STONE, WARD as UP_WARD } from '../game/mastery.js';
@@ -1148,12 +1148,12 @@ export class UI {
       + `<div class="gt-tier">#${t.rank} of ${t.of} ${eq.slot === 'weapon' ? weaponStyle(id) + ' weapons' : eq.slot + ' items'}</div>`;
     if (reqTxt) html += `<div class="gt-req ${req.ok ? 'ok' : 'no'}">Needs ${reqTxt}${req.ok ? ' ✓' : ''}</div>`;
     if (isTwoHanded(id)) {
-      html += `<div class="gt-req">Two-handed: no shield</div>`;
+      html += `<div class="gt-req">Two-handed: no shield${takesQuiver(id) ? ' (a quiver fits)' : ''}</div>`;
       // The grip bonus that stands in for the off-hand (already counted in the stats above).
       const g = eq.grip;
-      if (g) html += `<div class="gt-grip">Two-handed grip: +${g.defence} Defence, +${g.hp} life${g.ranged ? `, +${g.ranged} Ranged` : ''}, +${g.atkPct}% damage, +${g.haste}% attack speed (makes up for having no off-hand)</div>`;
+      if (g) html += `<div class="gt-grip">Two-handed grip: +${g.defence} Defence, +${g.hp} life${g.ranged ? `, +${g.ranged} Ranged` : ''}${g.atkPct != null ? `, +${g.atkPct}% damage, +${g.haste}% attack speed` : ''} (makes up for having no ${takesQuiver(id) ? 'shield' : 'off-hand'})</div>`;
     }
-    else if (eq.slot === 'shield' && isTwoHanded(this.game.equipment.get('weapon'))) html += `<div class="gt-req no">Your weapon is two-handed: no shield</div>`;
+    else if (eq.slot === 'shield' && offhandBlocked(this.game.equipment.get('weapon'), id)) html += `<div class="gt-req no">Your weapon is two-handed: no shield</div>`;
     // Accessories suit one fighting style: say which, and whether it's yours.
     if (eq.style) {
       const mine = this.game.combatMode() === 'dance' ? 'melee' : this.game.combatMode();

@@ -86,6 +86,7 @@ export function snapshot(game) {
     collection: game.collection?.serialize(),
     pets: game.pets?.serialize(),
     worldEvents: game.worldEvents?.serialize(),
+    bowQuiverGiven: !!game.bowQuiverGiven,   // the one-off quiver for bows from before quivers (game._giveBowQuiver)
     playMs: Math.floor(game.playMs || 0),   // time played, shown when choosing between a cloud and a device save
     settings: { running: game.running, autoCfg: game.autoCfg, autoGather: game.autoGather, gatherPicks: [...(game.gatherPicks || [])], knowledgeStrikes: game.knowledgeStrikes, minimalHud: !!game.minimalHud,
       worldLabels: game.worldLabels || 'smart', tips: game.tipsOn !== false, tipsSeen: [...(game.tipsSeen || [])],
@@ -383,6 +384,7 @@ function loadFields(game, data) {
   // The Endless Gate: your best wave (older saves: none yet).
   // Time played (older saves: not counted yet).
   game.playMs = typeof data.playMs === 'number' && data.playMs > 0 ? data.playMs : 0;
+  game.bowQuiverGiven = data.bowQuiverGiven === true;
   if (game.waves) game.waves.best = typeof data.waveBest === 'number' && data.waveBest > 0 ? Math.floor(data.waveBest) : 0;
   // ...and per class, and the modifiers last picked (older saves: none).
   if (game.waves) {

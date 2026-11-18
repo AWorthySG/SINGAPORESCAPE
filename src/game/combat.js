@@ -129,6 +129,10 @@ const WEAKNESS_BY_SPRITE = {
 // on top of getting past half its armour (see armourMult). The hit's number
 // carries a small "weak!" tag so you can see the switch paying off.
 export const WEAKNESS_BONUS = { dmg: 1.25 };
+// Every class hits this much harder (the owner asked for all classes to be 20%
+// stronger). It sits with the other shared damage multipliers (game.js
+// _offensiveMods, the Stats tab, the Merchant's allies), so class balance is unchanged.
+export const CLASS_POWER = 1.2;
 
 // Monster armour: a share of every hit it shrugs off, by kind of creature, from
 // none (slimes, wisps, jellyfish) to armoured (golems, crabs, turtles). Champions

@@ -10,7 +10,7 @@ import { MASTERY_RANKS, BANNER_RANK, MAX_ENCHANTS, killMastery, masteryType, mas
 import { MAX_REFINE, SCROLL as REFINE_SCROLL, refineCost, rollRefine, refineTag, refineScrollDrop } from './refine.js';
 import { materialKind, materialPoints, feedKind, feedPoints, FEED_CAP, FEED_CAP_RANK } from './materials.js';
 import { Shrine, SHRINE_TRACKS, trackText } from './shrine.js';
-import { getItem, MELEE_REACH, accessoriesFor } from '../data/items.js';
+import { getItem, ITEMS, MELEE_REACH, accessoriesFor } from '../data/items.js';
 import { chebyshev, randInt, weightedPick, capitalize } from '../core/utils.js';
 import {
   TILE, TICK_MS, COMBAT_BEAT_MS, RESPAWN_TICKS, AUTOSAVE_TICKS, DAY_CYCLE_MS,
@@ -20,7 +20,7 @@ import {
 import { World } from './world.js';
 import { Skills } from './skillset.js';
 import { Inventory } from './inventory.js';
-import { Equipment, canDualWield, canDualPair, EQUIP_SLOTS, isTwoHanded } from './equipment.js';
+import { Equipment, canDualWield, canDualPair, EQUIP_SLOTS, isTwoHanded, offhandBlocked, takesQuiver } from './equipment.js';
 import { Bank } from './bank.js';
 import { Player, STICK_DEAD } from './player.js';
 import { NPC } from './npc.js';
@@ -34,8 +34,7 @@ import {
   playerAttackVsNpc, npcAttackVsPlayer, OFFHAND_SHARE, rollAttack, rollGuaranteed, rollHit, combatXp, magicXp, killXp, DAMAGE_XP_SHARE, KILL_XP_SHARE,
   playerRangedVsNpc, combatXpRanged, playerMagicVsNpc, RANGED_STYLES,
   weaknessOf, WEAKNESS_BONUS, armourOf, armourMult, critChance, hitChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE,
-  playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX, RANGED_TYPE_DMG, combatLevelXpMult,
-} from './combat.js';
+  playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX, RANGED_TYPE_DMG, combatLevelXpMult, CLASS_POWER } from './combat.js';
 import { ABILITY_BY_ID, abilitiesFor, ADREN_PER_HIT, ADREN_PER_HURT, CLASS_ADRENALINE, EXECUTE_BELOW } from '../data/abilities.js';
 import { classPassiveMods, CLASS_SKILL } from '../data/classPassives.js';
 import { RACES, raceOf, matchup, RACE_BONUS, RACE_PENALTY } from '../data/races.js';
@@ -293,6 +292,16 @@ const CLEAVE_WIDE = { '2h_sword': { around: 3, max: Infinity } };   // (was 10; 
 // (table, rare table, upgrade stones) this many times, as a normal kill would,
 // on top of its champion extras (champion bones, a 50% accessory, a 20% ward).
 const CHAMPION_LOOT_KILLS = 30;
+// Elder and Dire monsters (the tougher ranks of the common species) are worth
+// more loot: their drop table and rare-table chances roll this many times.
+// Ancient, the rank above Dire, matches Dire so the strongest never drops less.
+export { CLASS_POWER };
+export const RANK_LOOT_ROLLS = { Elder: 2, Dire: 3, Ancient: 3 };
+/** Loot rolls for a normal monster's rank (from its name: "Elder sea snake"). */
+export function rankLootRolls(def) {
+  const p = (def?.name || '').split(' ')[0];
+  return RANK_LOOT_ROLLS[p] || 1;
+}
 // A champion's chance of an upgrade ward (was 10%, doubled with champion rates).
 export const CHAMPION_WARD_CHANCE = 0.2;
 
@@ -574,7 +583,8 @@ export class Game {
     if (loaded) {
       this.starterGiven = true;
       // Saves from before two-handed weapons may hold a shield with one.
-      if (isTwoHanded(this.equipment.get('weapon')) && this.equipment.get('shield')) this._stowShield();
+      if (this.equipment.get('shield') && offhandBlocked(this.equipment.get('weapon'), this.equipment.get('shield'))) this._stowShield();
+      this._giveBowQuiver();
       this.msg(`Welcome back to ${this.world.townName}, ${this.player.name}!`, 'system');
       if (this.play.welcome) { this.msg(this.play.welcome, 'level'); this.play.welcome = null; }
       if (LEARNING_ENABLED && !this.learning.dailyDone(this.todayKey())) this.msg('Your daily revision is ready in the Knowledge Codex (Skills tab).', 'level');
@@ -633,7 +643,8 @@ export class Game {
       }
       const starter = starterWeapon(classId);
       if (!this.equipment.get('weapon')) this.equipment.set('weapon', starter); else this.inventory.add(starter, 1);
-      if (isTwoHanded(this.equipment.get('weapon')) && this.equipment.get('shield')) this._stowShield();
+      if (this.equipment.get('shield') && offhandBlocked(this.equipment.get('weapon'), this.equipment.get('shield'))) this._stowShield();
+      this._giveBowQuiver();
       this.msg(`You are now a ${cls.name}. Only ${WEAPON_TYPE_NAMES[cls.weapon]} and ${WEAPON_TYPE_NAMES[SECONDARY_WEAPON[classId]]} can be wielded, and the choice is permanent.`, 'level');
       this.msg(`${cls.name} perk: ${classPerks(classId)[0].text} (see Class perks in the Combat tab)`, 'system');
       this.bus.emit('inventory'); this.bus.emit('equipment');
@@ -645,6 +656,7 @@ export class Game {
     if (style === 'ranged') {
       this.equipment.set('weapon', starter);
       if (canDualWield(starter)) this.equipment.set('shield', starter);   // Pistolers start with a pair
+      else if (takesQuiver(starter)) this.equipment.set('shield', 'bronze_quiver');   // Archers and Rangers start with a quiver
       if (ARMOUR_FAMILY[classId] === 'leather') {   // the Ninja wears scout leather, not hide
         this.equipment.set('head', 'bronze_scout_hood');
         this.equipment.set('body', 'bronze_scout_jerkin');
@@ -2098,6 +2110,7 @@ export class Game {
     if (this.onSlayerTask(npc)) dmgM *= 1 + this.slayerBonus().dmg / 100;   // Slayer: hit task monsters harder
     dmgM *= Culling.masteryDamage(this, npc).mult;   // codex mastery of its species and race
     dmgM *= Mercs.merchantPower(this);   // the strongest class (see mercenary.js)
+    dmgM *= CLASS_POWER;   // every class 20% stronger
     const sharedM = dmgM;   // what both hands share
     dmgM *= abM * gearM(gb);
     const bonusHit = Math.random() < (perk.extra || 0) + (gb.extra || 0) / 100;   // Thieving's perk adds to the chance
@@ -3535,7 +3548,8 @@ export class Game {
       this.msg(`A rare drop! ${q > 1 ? q + ' x ' : ''}${getItem(rareBone).name}.`, 'level');
     }
     // A champion's loot is CHAMPION_LOOT_KILLS normal kills' worth of its monster.
-    const kills = npc.champion && !def.boss ? CHAMPION_LOOT_KILLS : 1;
+    // An Elder or Dire monster rolls more times too (rankLootRolls).
+    const kills = npc.champion && !def.boss ? CHAMPION_LOOT_KILLS : def.boss ? 1 : rankLootRolls(def);
     if (def.dropTable && def.dropTable.length) {
       // Bosses roll their table ten times and never come up empty; champions roll
       // it once per normal kill they're worth, by a normal monster's rules.
@@ -5473,6 +5487,22 @@ export class Game {
   }
 
   /** Can this piece be worn right now (levels, class weapon and class armour)? Silent. */
+  /** Bows used to carry a quiver's bonus built into their grip; now the quiver is
+   *  a real off-hand. An Archer or Ranger from before that, holding a bow with an
+   *  empty off-hand and no quiver anywhere, is handed one of the bow's own tier
+   *  (once), so nobody comes back weaker. */
+  _giveBowQuiver() {
+    const w = this.equipment.get('weapon');
+    if (!takesQuiver(w) || this.equipment.get('shield') || this.bowQuiverGiven) return;
+    this.bowQuiverGiven = true;
+    const owns = (id) => this.inventory.has(id) || this.bank?.count?.(id) > 0;
+    if (Object.keys(ITEMS).some((id) => /_quiver$/.test(id) && owns(id))) return;
+    const tier = getItem(w).equip.grip?.tier || 'bronze';
+    const q = ITEMS[`${tier}_quiver`] ? `${tier}_quiver` : 'bronze_quiver';
+    this.equipment.set('shield', q);
+    this.msg(`Bows now take a real quiver in the off-hand: you sling on a ${getItem(q).name.toLowerCase()}.`, 'level');
+  }
+
   /** Take off the shield (a two-handed weapon is in hand) and put it in the pack. */
   _stowShield() {
     const shQ = this.equipment.qualityIn('shield');
@@ -5509,8 +5539,8 @@ export class Game {
         const eq = getItem(s.id).equip;
         // Dual wielders keep their off-hand for a second weapon, not a shield.
         if (eq.slot === 'shield' && canDualWield(this.equipment.get('weapon'))) return;
-        // ...and a two-handed weapon leaves no hand for a shield at all.
-        if (eq.slot === 'shield' && isTwoHanded(this.equipment.get('weapon'))) return;
+        // ...and a two-handed weapon leaves no hand for a shield at all (a bow still takes a quiver).
+        if (eq.slot === 'shield' && offhandBlocked(this.equipment.get('weapon'), s.id)) return;
         const worn = this.equipment.get(eq.slot);
         // Keep to the weapon style you fight with (a staff won't replace a sword).
         if (eq.slot === 'weapon' && worn && weaponStyle(s.id) !== weaponStyle(worn)) return;
@@ -5617,8 +5647,9 @@ export class Game {
       && (opts.offhand ?? !canDualPair(main, this.equipment.get('shield')));
     if (opts.offhand && !offhand) { this.msg('Only a second weapon of the same dual-wield kind (daggers, scimitars, kerambits or pistols) can go in your off-hand.'); return; }
     const slot = offhand ? 'shield' : eq.slot;
-    if (slot === 'shield' && isTwoHanded(main)) {
-      this.msg(`Your ${getItem(main).name.toLowerCase()} needs both hands, so you can't hold a shield with it.`);
+    if (slot === 'shield' && offhandBlocked(main, s.id)) {
+      this.msg(takesQuiver(main) ? `Your ${getItem(main).name.toLowerCase()} needs both hands: only a quiver can go with it.`
+        : `Your ${getItem(main).name.toLowerCase()} needs both hands, so you can't hold a shield with it.`);
       return;
     }
     // An off-hand weapon is weighed against the one already in the off-hand (each
@@ -5655,7 +5686,7 @@ export class Game {
       this.msg(`You put away your off-hand ${getItem(off).name.toLowerCase()}.`, 'system');
     }
     // A two-handed weapon needs both hands: the shield goes back in the pack.
-    if (slot === 'weapon' && isTwoHanded(s.id) && this.equipment.get('shield')) this._stowShield();
+    if (slot === 'weapon' && this.equipment.get('shield') && offhandBlocked(s.id, this.equipment.get('shield'))) this._stowShield();
     this.msg(`You ${eq.slot === 'weapon' ? 'wield' : 'wear'} the ${item.name.toLowerCase()}.`);
     verdict();
   }

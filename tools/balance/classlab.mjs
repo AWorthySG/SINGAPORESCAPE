@@ -22,7 +22,7 @@ import { ITEMS, getItem } from '../../src/data/items.js';
 import { getNpc, ALL_MONSTER_IDS } from '../../src/data/npcs.js';
 import { CLASSES, CLASS_BY_ID } from '../../src/data/classes.js';
 import { offenceFirstScore } from '../../src/game/gear.js';
-import { EQUIP_SLOTS, canDualWield, isTwoHanded } from '../../src/game/equipment.js';
+import { EQUIP_SLOTS, canDualWield, isTwoHanded, takesQuiver, isQuiver } from '../../src/game/equipment.js';
 import { xpForLevel } from '../../src/data/xp.js';
 import { SPELLS } from '../../src/data/magic.js';
 import * as Mercs from '../../src/game/mercenary.js';
@@ -94,6 +94,7 @@ export function setupClass(cls, L, seed = 20261112) {
   const w = eq.slots.weapon;
   if (canDualWield(w)) eq.slots.shield = w;
   else if (!isTwoHanded(w)) eq.slots.shield = best('shield');
+  else if (takesQuiver(w)) eq.slots.shield = (cands.shield || []).filter(isQuiver).sort((a, b) => offenceFirstScore(b, eq, style) - offenceFirstScore(a, eq, style))[0] || null;   // bows take a quiver
   g.inventory.slots = g.inventory.slots.map(() => null);
   // Enough for a few minutes' fighting. (Not millions: slots hold 999 each, and
   // counting runes across thousands of slots every cast made casters crawl.)

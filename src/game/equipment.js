@@ -1,4 +1,4 @@
-import { getItem, TWO_HANDED_TYPES } from '../data/items.js';
+import { getItem, TWO_HANDED_TYPES, QUIVER_BOW_TYPES } from '../data/items.js';
 import { ARMOUR_SETS } from '../data/sets.js';
 import { masteryBonuses, qualityBonuses, masteryType, enchantedBonuses, rankFor, migrateOld, MAX_ENCHANTS, ENCHANT_STEP } from './mastery.js';
 import { validQuality, QUALITY_ORDER } from './loot.js';
@@ -27,6 +27,12 @@ export const canDualPair = (a, b) => !!dualType(a) && dualType(a) === dualType(b
 // bonus in place of the off-hand they can't hold.)
 export const TWO_HANDED = TWO_HANDED_TYPES;
 export const isTwoHanded = (id) => !!id && TWO_HANDED.has(getItem(id)?.equip?.weaponType);
+/** A quiver (a shield-slot item for archers). */
+export const isQuiver = (id) => !!id && /_quiver$/.test(id) && getItem(id)?.equip?.slot === 'shield';
+/** Shortbows and longbows take a quiver in the off-hand (but still no shield). */
+export const takesQuiver = (weaponId) => !!weaponId && QUIVER_BOW_TYPES.has(getItem(weaponId)?.equip?.weaponType);
+/** Does the weapon in hand leave no room for this off-hand item? */
+export const offhandBlocked = (weaponId, offId) => isTwoHanded(weaponId) && !(takesQuiver(weaponId) && isQuiver(offId));
 // Quick weapons swing faster than one combat beat: scimitars, claws, kerambits and war fans swing
 // about 1.4 times a beat (a fractional cooldown carries over between beats).
 export const QUICK_WEAPON_SPEED = 0.7;
