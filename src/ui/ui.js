@@ -2482,6 +2482,9 @@ export class UI {
       else if (saved === null) this.game.msg('Saving is paused: reload the page to carry on.', 'system');
       else this.game.msg('Could not save: this browser\'s storage is full or blocked. Your progress is not being kept.', 'system');
     }); });
+    // Account and cloud save (accountui.js fills this in).
+    const acct = p.appendChild(document.createElement('div'));
+    import('./accountui.js').then((m) => m.accountSettings(acct)).catch(() => {});
     sec('Sound');
     const soundBtn = mk('', () => {
       const a = this.game.audio;
