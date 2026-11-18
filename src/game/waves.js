@@ -237,6 +237,8 @@ export class Waves {
     if (p.action?.type === 'attack') p.clearAction();
     p.target = null;
     g._dodging = false;
+    // A wave's banner stays up a few seconds; it must not follow you out into town.
+    g.ui?.hideBanner?.('waves');
     this._reset();
     this.wave = reached;   // kept for the summary messages
     g.saveSoon = true;
@@ -260,6 +262,7 @@ export class Waves {
   _startWave(n) {
     const g = this.game;
     const plan = wavePlan(n, g.fightLevel());
+    const count = plan.length;   // counted now: spawning empties the queue (the plan itself)
     this.wave = n;
     this.level = plan[0].def.level;
     this.queue = plan;
@@ -267,10 +270,10 @@ export class Waves {
     if (n > this.best) { this.best = n; g.saveSoon = true; }
     const boss = n % BOSS_EVERY === 0 ? plan.find((e) => e.def.boss) : null;
     if (boss) {
-      g.banner(`<span class="big">Wave ${n}: boss!</span>${boss.def.name} (level ${this.level})`);
+      g.banner(`<span class="big">Wave ${n}: boss!</span>${boss.def.name} (level ${this.level})`, 'waves');
       g.addShake(4, 320);
-    } else g.banner(`<span class="big">Wave ${n}</span>${plan.length} monsters, level ${this.level}${n % CHAMPION_EVERY === 0 ? ', with a champion' : ''}`);
-    g.msg(`Wave ${n} begins: ${plan.length} monsters of level ${this.level}.`, 'combat');
+    } else g.banner(`<span class="big">Wave ${n}</span>${count} monsters, level ${this.level}${n % CHAMPION_EVERY === 0 ? ', with a champion' : ''}`, 'waves');
+    g.msg(`Wave ${n} begins: ${count} monsters of level ${this.level}.`, 'combat');
     g.bus.emit('sfx', 'spec');
     g.checkAchievements();
     g.bus.emit('waves');
@@ -323,7 +326,7 @@ export class Waves {
     const names = { coins: 'coins', upgrade_stone: 'enhancement stones', refine_scroll: 'refine scrolls', upgrade_ward: 'upgrade wards' };
     const list = [...sum].map(([id, q]) => `${q.toLocaleString('en-GB')} ${names[id] || id}`).join(', ');
     g.msg(`Wave ${n} cleared! ${n % BOSS_EVERY === 0 ? 'Boss chest' : 'Bonus'}: ${list}.`, 'level');
-    g.banner(`<span class="big">Wave ${n} cleared!</span>${n % BOSS_EVERY === 0 ? 'Boss chest opened. ' : ''}Next wave in ${Math.round(NEXT_WAVE_TICKS * 0.6)}s`);
+    g.banner(`<span class="big">Wave ${n} cleared!</span>${n % BOSS_EVERY === 0 ? 'Boss chest opened. ' : ''}Next wave in ${Math.round(NEXT_WAVE_TICKS * 0.6)}s`, 'waves');
     g.bus.emit('sfx', n % BOSS_EVERY === 0 ? 'dropepic' : 'droprare');
     g.spawnConfetti?.(g.player.renderCenter().x, g.player.renderCenter().y - 18, n % BOSS_EVERY === 0 ? 46 : 22);
     this.nextAt = g.tickCount + NEXT_WAVE_TICKS;

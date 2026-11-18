@@ -790,7 +790,7 @@ export class Game {
   }
 
   msg(text, cls = 'game') { this.bus.emit('chat', { text, cls }); }
-  banner(html) { this.ui?.showBanner(html); this.saveSoon = true; }
+  banner(html, tag) { this.ui?.showBanner(html, tag); this.saveSoon = true; }
   addHitsplat(entity, dmg, opts = {}) {
     if (entity && dmg > 0) entity.hurt = 200; // flash the struck entity
     // Very fast attacks: hits landing on the same foe within 120ms of its last

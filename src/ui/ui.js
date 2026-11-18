@@ -175,6 +175,8 @@ export class UI {
     document.getElementById('auto-gather-btn')?.addEventListener('click', () => this.game.toggleAutoGather());
     document.getElementById('auto-quest-btn')?.addEventListener('click', () => this.game.toggleAutoQuest());
     document.getElementById('auto-battle-cfg')?.addEventListener('click', () => this.openAutoSettings());
+    this._initAutoMenu();
+    this._initSheets();
     document.getElementById('interact-btn')?.addEventListener('pointerdown', (e) => { e.preventDefault(); this.game.interact(); });
     // Attack: a tap locks onto the nearest enemy; holding it keeps fighting,
     // moving straight on to the next foe as each one falls.
@@ -376,6 +378,9 @@ export class UI {
     if (key === this._interactKey) return;
     this._interactKey = key;
     btn.classList.toggle('idle', !label);
+    // Touch screens already have the big Attack button, so an "Attack" here
+    // would be a second one; main.css hides it then (see .is-attack).
+    btn.classList.toggle('is-attack', !!(label && label[0] === 'Attack'));
     // Gathering spots show their skill's icon, and turn amber when your level is too low.
     const skill = label && label[2];
     btn.classList.toggle('warn', !!(label && label[3]));
@@ -572,6 +577,69 @@ export class UI {
       apply(this._collapse[key]);
       this._saveCollapse();
     });
+  }
+
+  // Phones fold the Battle / Gather / Quest switches into one "Auto" button
+  // (the CSS hides the card unless #ability-bar has .auto-open). A tap anywhere
+  // else folds it again, so the card never sits over the game for long.
+  _initAutoMenu() {
+    if (typeof document === 'undefined') return;
+    const bar = document.getElementById('ability-bar');
+    const btn = document.getElementById('auto-menu-btn');
+    if (!bar || !btn) return;
+    const set = (open) => { bar.classList.toggle('auto-open', open); btn.setAttribute('aria-expanded', open ? 'true' : 'false'); };
+    btn.addEventListener('click', (e) => { e.stopPropagation(); set(!bar.classList.contains('auto-open')); });
+    document.addEventListener('pointerdown', (e) => {
+      if (bar.classList.contains('auto-open') && !bar.contains(e.target)) set(false);
+    }, true);
+  }
+
+  // Phones show the side panel and the big windows as sheets (see "Responsive
+  // layout" in main.css). Dragging the handle or header down (or sideways to
+  // the right for the landscape side sheet) past a short distance closes the
+  // sheet; a plain tap on the handle closes it too. Only runs while the sheet
+  // layout is in force, so desktop and tablets are untouched.
+  _initSheets() {
+    if (typeof document === 'undefined' || typeof matchMedia !== 'function') return;
+    const phone = matchMedia('(pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px)');
+    const side = () => matchMedia('(max-height: 500px)').matches;   // landscape: the sheet slides in from the right
+    const wire = (sheet, grips, close, isOpen) => {
+      if (!sheet) return;
+      let start = null, d = 0;
+      const move = (e) => {
+        if (!start) return;
+        d = Math.max(0, side() ? e.clientX - start.x : e.clientY - start.y);
+        sheet.style.transform = side() ? `translateX(${d}px)` : `translateY(${d}px)`;
+      };
+      const end = () => {
+        if (!start) return;
+        const tap = d < 6 && start.handle;
+        start = null;
+        sheet.style.transition = ''; sheet.style.transform = '';
+        if (d > 70 || tap) close();
+        d = 0;
+      };
+      for (const g of grips) {
+        if (!g) continue;
+        g.addEventListener('pointerdown', (e) => {
+          // Buttons in the header (fold, close) keep their own taps.
+          if (!phone.matches || !isOpen() || e.target.closest?.('button')) return;
+          start = { x: e.clientX, y: e.clientY, handle: g.classList.contains('sheet-handle') };
+          d = 0;
+          sheet.style.transition = 'none';
+          g.setPointerCapture?.(e.pointerId);
+        });
+        g.addEventListener('pointermove', move);
+        g.addEventListener('pointerup', end);
+        g.addEventListener('pointercancel', () => { d = 0; end(); });
+      }
+    };
+    const panel = this.el.sidepanel;
+    wire(panel, [panel?.querySelector('.sheet-handle'), this.el.panelHead],
+      () => this._collapseApply?.panel?.(true), () => !panel.classList.contains('collapsed'));
+    const win = document.getElementById('modal-window');
+    wire(win, [win?.querySelector('.sheet-handle'), this.el.modalTitle],
+      () => this.closeModal(), () => !!this.modal);
   }
 
   _loadCollapse() {
@@ -2324,13 +2392,58 @@ export class UI {
     };
     const tr = box('quest-tracker');
     const narrow = window.innerWidth <= 600;
+    // A phone on its side has no room under the top-left strip (the Auto
+    // button and joystick are right below it), and the bottom belongs to the
+    // thumbs, so the tip sits along the top, between the strip and the Bag.
+    const flat = !narrow && typeof matchMedia === 'function' && matchMedia('(pointer: coarse) and (max-height: 500px)').matches;
     let top = tr ? tr.bottom + 6 : 44, left = tr ? tr.left : 10;
     let width = Math.min(340, window.innerWidth - left - 10);
+    if (narrow) left = 6, width = window.innerWidth - 12;
+    // On touch screens the boss bar and the Endless Gate panel stack in the same
+    // top-left strip as the tracker: go below whichever of them is lowest.
+    for (const id of ['boss-bar', 'wave-hud']) {
+      const r = box(id);
+      if (r && r.left < left + width && r.right > left) top = Math.max(top, r.bottom + 6);
+    }
     if (narrow) {
-      // Below the minimap and its orbs (+14 leaves room for the orbs' caption pills).
-      const mm = box('minimap-panel'), hp = box('hp-orb');
+      // Below the minimap and its orbs (+14 leaves room for the orbs' caption pills),
+      // and short of the panel launcher when it sits beside the strip.
+      const mm = box('minimap-panel'), hp = box('hp-orb'), dock = box('sidepanel');
       top = Math.max(top, mm ? mm.bottom + 6 : 0, hp ? hp.bottom + 14 : 0);
-      left = 6; width = window.innerWidth - 12;
+      if (dock && dock.width < 100 && dock.bottom > top && dock.left > left) width = Math.min(width, dock.left - 6 - left);
+    } else if (flat) {
+      // Right of the strip (objectives, boss bar, gate panel), left of the Bag
+      // launcher, the orbs and the minimap; it wraps to a few lines instead.
+      const rectOf = (id) => {
+        const e = document.getElementById(id);
+        const r = e && !e.classList.contains('hidden') ? e.getBoundingClientRect() : null;
+        return r && r.width && r.height ? r : null;
+      };
+      let lo = 6, hi = window.innerWidth - 6;
+      top = Infinity;   // level with the top of the strip
+      for (const id of ['quest-tracker', 'boss-bar', 'wave-hud']) {
+        const r = rectOf(id);
+        if (r && r.left < window.innerWidth / 2) { lo = Math.max(lo, r.right + 8); top = Math.min(top, r.top); }
+      }
+      for (const id of ['minimap-panel', 'spec-orb', 'prayer-orb', 'hp-orb']) {
+        const r = rectOf(id);
+        if (r && r.left > window.innerWidth / 2) hi = Math.min(hi, r.left - 8);
+      }
+      for (const e of document.querySelectorAll('#minimap-panel .orb-cap')) {   // the orbs' caption pills stick out left
+        const r = e.getBoundingClientRect();
+        if (r.width && r.left > window.innerWidth / 2) hi = Math.min(hi, r.left - 8);
+      }
+      if (top === Infinity) top = 6;
+      left = lo;
+      width = Math.min(360, hi - lo);
+      // The Bag launcher sits in that gap. Beside it when there's room for a
+      // few lines; when the boss bar widens the strip, just below it instead.
+      const bag = rectOf('sidepanel');
+      if (bag && bag.width < 100 && bag.right > lo && bag.left < hi) {
+        if (bag.left - 8 - lo >= 240) width = Math.min(width, bag.left - 8 - lo);
+        else top = Math.max(top, bag.bottom + 6);
+      }
+      width = Math.max(120, width);
     }
     const key = `${Math.round(top)}|${Math.round(left)}|${Math.round(width)}`;
     if (el._at === key) return;
@@ -2903,11 +3016,21 @@ export class UI {
     q.clear();
   }
 
-  showBanner(html) {
+  showBanner(html, tag = null) {
     this.el.banner.innerHTML = html;
     this.el.banner.classList.remove('hidden');
+    this._bannerTag = tag;   // who put it up, so they alone can take it down early
     clearTimeout(this._bannerTimer);
     this._bannerTimer = setTimeout(() => this.el.banner.classList.add('hidden'), 3200);
+  }
+
+  /** Take the banner down early, but only if it is still the one `tag` put up
+   *  (leaving the Endless Gate clears its wave banner, never a level-up). */
+  hideBanner(tag) {
+    if (this._bannerTag !== tag) return;
+    clearTimeout(this._bannerTimer);
+    this.el.banner.classList.add('hidden');
+    this._bannerTag = null;
   }
 
   // ---------------- Context menu ----------------

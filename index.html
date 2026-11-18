@@ -79,6 +79,8 @@
 
     <!-- Side panel with tabs (bottom-right) -->
     <div id="sidepanel">
+      <!-- Phones: drag handle of the bottom sheet (swipe down or tap to fold) -->
+      <div class="sheet-handle" aria-hidden="true"></div>
       <div id="panel-head"><span id="panel-title">Inventory</span><button id="panel-collapse" title="Collapse panel" aria-label="Collapse panel">&#9662;</button></div>
       <div id="panel-body">
         <section class="panel-view" data-view="inventory">
@@ -131,7 +133,9 @@
 
     <!-- Active-combat ability bar (bottom-centre) -->
     <div id="ability-bar">
-      <div class="auto-row">
+      <!-- Phones: the three auto switches fold into this one button (see "Responsive layout" in main.css) -->
+      <button id="auto-menu-btn" aria-expanded="false" aria-controls="auto-row" title="Auto battle, gather and quest"><span class="am-dot" aria-hidden="true"></span>Auto</button>
+      <div class="auto-row" id="auto-row">
         <button id="auto-battle-btn" class="ab-btn" aria-pressed="false" title="Auto battle (T): hunt monsters, eat when hurt and use your skills">
           <span class="ab-switch" aria-hidden="true"><i></i></span>
           <span class="ab-text"><b class="ab-label">Battle <kbd>T</kbd></b><span class="ab-status">Off</span></span>
@@ -171,6 +175,7 @@
     <!-- Modal interface (bank, shop, dialogue) -->
     <div id="modal-overlay" class="hidden">
       <div id="modal-window">
+        <div class="sheet-handle" aria-hidden="true"></div>
         <div id="modal-title"></div>
         <button id="modal-close" title="Close">✕</button>
         <div id="modal-body"></div>
