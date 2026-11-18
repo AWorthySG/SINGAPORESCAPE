@@ -36,6 +36,7 @@ import { RARITY } from '../game/loot.js';
 import { itemIconImage } from './icons.js';
 import { moodFor, blendMood, composeWashes, dayNightWashes, buildVignette, ObjectReactions } from './ambience.js';
 import { Critters } from './critters.js';
+import { fxImage, fxTinted, drawFx, drawStrip, badgeKey, preloadFx, DARK_REGIONS } from './fxart.js';
 import { introCurve, titleAlpha, DEATH_FLASH_MS } from '../game/cinematics.js';
 
 // Gathering actions that show a progress ring over the node, and its colour.
@@ -106,6 +107,7 @@ export class Renderer {
     this._grade = [0, 0, 0, 0];
     this.react = new ObjectReactions();
     this.critters = new Critters();
+    preloadFx();   // painted critters, particles, banner and plaques (fxart.js)
     this._critEnv = { world: null, zone: '', night: 0, px: 0, py: 0, low: false };
     this._lastT = 0;
     this.groundTex = this._loadGroundTextures();
@@ -508,14 +510,21 @@ export class Renderer {
         ctx.save();
         ctx.globalAlpha = entering ? 1 : banner;
         ctx.translate(slide, 0);
-        // A navy ribbon with a gold rule, the boss's name and level on it.
-        ctx.fillStyle = 'rgba(34,48,74,0.86)';
-        ctx.fillRect(0, y - h / 2, vw, h);
-        ctx.fillStyle = '#F5B82E';
-        ctx.fillRect(0, y - h / 2, vw, 2.5); ctx.fillRect(0, y + h / 2 - 2.5, vw, 2.5);
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
         ctx.font = `900 ${size.toFixed(1)}px Nunito,"Trebuchet MS",sans-serif`;
         const name = cine.intro.name.toUpperCase();
+        // The painted banner (dark in the grim lands) with its crest on top,
+        // sized to the name; a plain navy ribbon with gold rules until it loads.
+        const bh = h * 1.4, tone = DARK_REGIONS.has(this.game.currentZoneName) ? 'dark' : 'normal';
+        if (drawStrip(ctx, 'banner', tone, vw / 2, y, Math.min(vw * 0.98, ctx.measureText(name).width + bh * 2.4), bh)) {
+          const crest = fxImage('banner-crest');
+          if (crest) drawFx(ctx, crest, vw / 2, y - bh * 0.5 - size * 0.25, size * 1.5);
+        } else {
+          ctx.fillStyle = 'rgba(34,48,74,0.86)';
+          ctx.fillRect(0, y - h / 2, vw, h);
+          ctx.fillStyle = '#F5B82E';
+          ctx.fillRect(0, y - h / 2, vw, 2.5); ctx.fillRect(0, y + h / 2 - 2.5, vw, 2.5);
+        }
         ctx.strokeStyle = '#22304A'; ctx.lineWidth = size * 0.22; ctx.strokeText(name, vw / 2, y - size * 0.22);
         ctx.fillStyle = '#FFE38A'; ctx.fillText(name, vw / 2, y - size * 0.22);
         ctx.font = `800 ${(size * 0.48).toFixed(1)}px Nunito,"Trebuchet MS",sans-serif`;
@@ -531,6 +540,7 @@ export class Renderer {
         ctx.save();
         ctx.globalAlpha = a;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+        if (this._titlePlaque(tc, vw, y, size)) { ctx.restore(); return; }
         // Sticker lettering: a white border round navy ink round the colour.
         ctx.font = `900 ${(size * 1.25).toFixed(1)}px Nunito,"Trebuchet MS",sans-serif`;
         ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = size * 0.5; ctx.strokeText(tc.name, vw / 2, y);
@@ -544,6 +554,33 @@ export class Renderer {
         ctx.restore();
       }
     }
+  }
+
+  // A region's title card on its painted plaque (dark in the grim lands), the
+  // region's round badge pinned to its left end. False until the art loads.
+  _titlePlaque(tc, vw, y, size) {
+    const { ctx } = this;
+    const dark = DARK_REGIONS.has(tc.name);
+    const ph = size * (tc.sub ? 2.9 : 2.4);
+    const nameFont = `900 ${(size * 1.1).toFixed(1)}px Nunito,"Trebuchet MS",sans-serif`;
+    const subFont = `800 ${(size * 0.5).toFixed(1)}px Nunito,"Trebuchet MS",sans-serif`;
+    ctx.font = nameFont;
+    let tw = ctx.measureText(tc.name).width;
+    if (tc.sub) { ctx.font = subFont; tw = Math.max(tw, ctx.measureText(tc.sub).width); }
+    const badge = fxImage(badgeKey(tc.name));
+    const bw = badge ? ph * 1.2 : 0;   // the badge overhangs the plaque's left end
+    const w = Math.min(vw * 0.96, tw + ph * 1.5 + bw * 0.55);
+    const cx = vw / 2 + bw * 0.22;
+    if (!drawStrip(ctx, 'plaque', dark ? 'dark' : 'normal', cx, y, w, ph)) return false;
+    if (badge) drawFx(ctx, badge, cx - w / 2 + bw * 0.1, y, bw);
+    const tx = cx + bw * 0.2, ny = tc.sub ? y - size * 0.32 : y;
+    ctx.font = nameFont;
+    ctx.fillStyle = dark ? '#F3E6FF' : '#22304A'; ctx.fillText(tc.name, tx, ny);
+    if (tc.sub) {
+      ctx.font = subFont;
+      ctx.fillStyle = dark ? '#C9A8E8' : '#8A5A1E'; ctx.fillText(tc.sub, tx, y + size * 0.62);
+    }
+    return true;
   }
 
   // A glowing rune circle under the caster's feet while a spell goes off.
@@ -965,6 +1002,20 @@ export class Renderer {
       ctx.globalAlpha = a;
       if (p.add) ctx.globalCompositeOperation = 'lighter';
       ctx.fillStyle = p.color;
+      // Painted leaves, petals, dust puffs and embers (fxart.js), once loaded.
+      const art = p.art && (p.art.startsWith('dust') ? fxTinted(`particle-${p.art}`, p.color) : fxImage(`particle-${p.art}`));
+      if (art) {
+        if (p.add) ctx.globalCompositeOperation = 'source-over';   // the sticker carries its own glow
+        ctx.save(); ctx.translate(p.x - ox, p.y - oy);
+        if (p.shape === 'leaf') {
+          // Tumbling: turn with the spin and squash one axis to fake a flip.
+          ctx.rotate(p.rot || 0);
+          ctx.scale(1, Math.abs(Math.cos((p.rot || 0) * 1.7)) * 0.8 + 0.2);
+          drawFx(ctx, art, 0, 0, p.size * 4);
+        } else drawFx(ctx, art, 0, 0, p.size * (p.art.startsWith('dust') ? 4 + (1 - a) * 2 : 3));   // dust swells as it fades
+        ctx.restore();
+        continue;
+      }
       if (p.shape === 'confetti' || p.shape === 'leaf') {
         // Flat pieces that tumble: squash one axis with the spin to fake a flip.
         ctx.save(); ctx.translate(p.x - ox, p.y - oy); ctx.rotate(p.rot || 0);
