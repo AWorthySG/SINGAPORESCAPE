@@ -61,6 +61,7 @@ import { RACES, raceOf, weaponsFor, weaponTypeName, WEAPON_VS_RACE } from '../da
 import { WaveHud } from './wavehud.js';
 import { TIPS, TIPS_KEY, nextTip, markTipSeen, tipsSeen } from './tips.js';
 import { foeDetails, labelMode, nextLabelMode, LABEL_MODE_NAMES } from '../render/worldlabels.js';
+import { applyAccessibility, countUp, playCloseGhost, inlineIcon, nextTextSize, TEXT_SIZE_NAMES } from './uifx.js';
 
 const EQUIP_LAYOUT = [
   null, 'head', null,
@@ -182,6 +183,13 @@ export class UI {
     this._buildCombatPanel();
     this._buildPrayerPanel();
     this._buildSettingsPanel();
+    // Text size, colour-blind colours and reduced motion live on <body>. A save
+    // loads after the UI is built, so check again each tick (a cheap string compare).
+    this._accessSig = applyAccessibility(this.game);
+    this.bus.on('tick', () => {
+      const sig = applyAccessibility(this.game);
+      if (sig !== this._accessSig) { this._accessSig = sig; this._buildSettingsPanel(); }
+    });
     this._buildAbilityBar();
     document.getElementById('auto-battle-btn')?.addEventListener('click', () => this.game.toggleAutoBattle());
     document.getElementById('auto-gather-btn')?.addEventListener('click', () => this.game.toggleAutoGather());
@@ -314,7 +322,7 @@ export class UI {
       btn.innerHTML =
         `<span class="ab-key">${ab.key}</span>` +
         `<span class="ab-icon">${abilityIconHTML(ab.id, 36)}</span>` +
-        `<span class="ab-cost">${this.game.abilityCoinCost(ab) ? '🪙' : ab.cost || (ab.build ? `+${ab.build}` : '·')}</span>` +
+        `<span class="ab-cost">${this.game.abilityCoinCost(ab) ? inlineIcon(itemIconSVG('coins', 12)) : ab.cost || (ab.build ? `+${ab.build}` : '·')}</span>` +
         `<span class="ab-cd"></span>`;
       this._bindSkillAim(btn, ab);
       wrap.appendChild(btn);
@@ -1013,7 +1021,7 @@ export class UI {
     const bis = document.createElement('button');
     bis.className = 'bestiary-open gear-guide-open eq-best';
     bis.type = 'button';
-    bis.textContent = '✨ Equip best in slot';
+    bis.innerHTML = `${inlineIcon(tabIconSVG('equipment', 18))} Equip best in slot`;
     bis.addEventListener('click', () => this.game.equipBest());
     this.el.equipBonuses.prepend(bis);
     const guide = document.createElement('button');
@@ -1553,7 +1561,7 @@ export class UI {
       codexBtn.className = 'perks-open codex-open';
       const dailyReady = !L.dailyDone(this.game.todayKey());
       codexBtn.classList.toggle('daily', dailyReady);
-      codexBtn.innerHTML = `<b>📖 Knowledge Codex · Wisdom ${L.level}${dailyReady ? ' · ✨ daily revision ready' : ''}</b><span>Study topics to master them: ${L.masteredCount()}/${TOPICS.length} cards collected</span>`;
+      codexBtn.innerHTML = `<b>${inlineIcon(itemIconSVG('arcane_tome', 18))} Knowledge Codex · Wisdom ${L.level}${dailyReady ? ' · ✨ daily revision ready' : ''}</b><span>Study topics to master them: ${L.masteredCount()}/${TOPICS.length} cards collected</span>`;
       codexBtn.addEventListener('click', () => this.openCodex());
       grid.appendChild(codexBtn);
     }
@@ -1705,7 +1713,7 @@ export class UI {
       const done = L.dailyDone(g.todayKey());
       const daily = document.createElement('button');
       daily.className = 'wm-go' + (done ? ' ride' : '');
-      daily.textContent = done ? `Daily done · 🔥 ${L.daily.streak}-day streak` : `✨ Daily revision (${DAILY_COUNT} questions)${L.daily.streak ? ` · 🔥 ${L.daily.streak}` : ''}`;
+      daily.innerHTML = done ? `Daily done · ${inlineIcon(skillIconSVG('firemaking', 16))} ${L.daily.streak}-day streak` : `✨ Daily revision (${DAILY_COUNT} questions)${L.daily.streak ? ` · ${inlineIcon(skillIconSVG('firemaking', 16))} ${L.daily.streak}` : ''}`;
       daily.disabled = done;
       daily.addEventListener('click', () => this.openStudy({ queue: L.dailySet(), daily: true }));
       habits.appendChild(daily);
@@ -1750,7 +1758,7 @@ export class UI {
           // Learn by doing: run a chicken rice stall for five days.
           const hk = document.createElement('button');
           hk.className = 'perks-open hawker-open';
-          hk.innerHTML = `<b>🍗 Run a hawker stall</b><span>Set prices for five days of news, see demand and supply at work${L.hawker.best ? ` · best $${L.hawker.best.toFixed(2)}` : ''}</span>`;
+          hk.innerHTML = `<b>${inlineIcon(skillIconSVG('cooking', 18))} Run a hawker stall</b><span>Set prices for five days of news, see demand and supply at work${L.hawker.best ? ` · best $${L.hawker.best.toFixed(2)}` : ''}</span>`;
           hk.addEventListener('click', () => this.openHawker());
           body.appendChild(hk);
         }
@@ -1986,7 +1994,7 @@ export class UI {
         // End of a daily set or of the bounty list: a short summary.
         const sum = document.createElement('div');
         sum.className = 'study-summary';
-        sum.innerHTML = opts.daily ? `<b>Daily revision done!</b><span>${right}/${answered} right · 🔥 ${reward.streak}-day streak${reward.coins ? ` · +${reward.coins} coins` : ''}</span><span>Come back tomorrow to keep the streak going.</span>`
+        sum.innerHTML = opts.daily ? `<b>Daily revision done!</b><span>${right}/${answered} right · ${inlineIcon(skillIconSVG('firemaking', 16))} ${reward.streak}-day streak${reward.coins ? ` · +${reward.coins} coins` : ''}</span><span>Come back tomorrow to keep the streak going.</span>`
           : opts.mistakes ? `<b>All mistake bounties cleared!</b><span>${right}/${answered} right this session.</span>`
           : '<b>No questions here yet.</b>';
         body.appendChild(sum);
@@ -2304,7 +2312,7 @@ export class UI {
       // Auto: auto battle chooses the element that suits each target.
       const auto = document.createElement('div');
       auto.className = 'style-btn spell spell-auto' + (p.spellAuto ? ' active' : '');
-      auto.innerHTML = `<span class="sp-ic">🤖</span><span class="sp-text">Auto element<span class="style-skill">Auto battle picks the best element for each monster${p.spellAuto ? ` (now: ${escapeHtml(getSpell(p.spell).name)})` : ''}</span></span>`;
+      auto.innerHTML = `<span class="sp-ic">${skillIconSVG('magic', 28)}</span><span class="sp-text">Auto element<span class="style-skill">Auto battle picks the best element for each monster${p.spellAuto ? ` (now: ${escapeHtml(getSpell(p.spell).name)})` : ''}</span></span>`;
       auto.addEventListener('click', () => { p.spellAuto = true; this.renderCombatPanel(); });
       row.appendChild(auto);
     } else {
@@ -2354,7 +2362,7 @@ export class UI {
           const lvl = classId === this.game.jobClass ? this.game.skills.level(skill) : 0;
           const skName = { attack: 'Melee', ranged: 'Ranged', magic: 'Magic', agility: 'Agility', dance: 'Dance' }[skill];
           return `<div class="cp-head"><b>Class passives</b> · one every 100 ${skName} levels${lvl ? ` (you: ${lvl})` : ''}</div><div class="cp-list">`
-            + classPassives(cls.id, lvl).map((p) => `<div class="cp-row${p.rank ? '' : ' locked'}"><span class="cp-ic">${p.rank ? '🏅' : '🔒'}</span><span><b>${escapeHtml(p.name)}${p.rank > 1 ? ` (Rank ${p.rank})` : ''}</b> ${escapeHtml(p.desc)} · <i>${skName} ${p.unlockAt}${p.rank ? '' : ' to unlock'}, ranks up every 300 levels after</i></span></div>`).join('')
+            + classPassives(cls.id, lvl).map((p) => `<div class="cp-row${p.rank ? '' : ' locked'}"><span class="cp-ic">${p.rank ? tabIconSVG('achievements', 20) : '🔒'}</span><span><b>${escapeHtml(p.name)}${p.rank > 1 ? ` (Rank ${p.rank})` : ''}</b> ${escapeHtml(p.desc)} · <i>${skName} ${p.unlockAt}${p.rank ? '' : ' to unlock'}, ranks up every 300 levels after</i></span></div>`).join('')
             + '</div>';
         })()
         + '<div class="modal-hint">Every class can use any armour, tools and the learning perks in the Knowledge Codex.</div>';
@@ -2513,10 +2521,17 @@ export class UI {
       p.appendChild(b);
       return b;
     };
+    // A small heading over each group of settings.
+    const sec = (label) => {
+      const h = document.createElement('div');
+      h.className = 'set-section';
+      h.textContent = label;
+      p.appendChild(h);
+    };
     // Install as an app: the browser's own install dialog where it offers one,
     // or the Add to Home Screen steps on iPhone and iPad.
     import('../pwa.js').then((pwa) => {
-      if (pwa.isInstalled()) return;
+      if (pwa.isInstalled() || p.querySelector('.install-app')) return;   // the panel can be rebuilt before this resolves
       const btn = document.createElement('button');
       btn.className = 'install-app';
       const show = () => { btn.hidden = !pwa.canInstall() && !pwa.isIos(); btn.textContent = 'Install as an app'; };
@@ -2535,6 +2550,7 @@ export class UI {
       else if (saved === null) this.game.msg('Saving is paused: reload the page to carry on.', 'system');
       else this.game.msg('Could not save: this browser\'s storage is full or blocked. Your progress is not being kept.', 'system');
     }); });
+    sec('Sound');
     const soundBtn = mk('', () => {
       const a = this.game.audio;
       if (!a) return;
@@ -2572,6 +2588,7 @@ export class UI {
     });
     vol.querySelector('input').addEventListener('change', () => this.game.audio?.play('pickup'));
     p.appendChild(vol);
+    sec('Display');
     const gfxBtn = mk('', () => {
       this.game.lowFx = !this.game.lowFx;
       try { localStorage.setItem('singaporescape:gfx', this.game.lowFx ? 'low' : 'high'); } catch {}
@@ -2610,6 +2627,28 @@ export class UI {
       tipsBtn.textContent = 'Tips: On';
       this.game.msg('Tips will show again as you play.', 'system');
     });
+    // Accessibility: saved with the other settings; uifx.js puts them on <body>.
+    sec('Accessibility');
+    const access = () => { this._accessSig = applyAccessibility(this.game); this.game.saveSoon = true; };
+    const sizeBtn = mk('', () => {
+      this.game.textSize = nextTextSize(this.game.textSize || 'normal');
+      access();
+      sizeBtn.textContent = `Text size: ${TEXT_SIZE_NAMES[this.game.textSize]}`;
+    });
+    sizeBtn.textContent = `Text size: ${TEXT_SIZE_NAMES[this.game.textSize] || 'Normal'}`;
+    const cbBtn = mk('', () => {
+      this.game.colourBlind = !this.game.colourBlind;
+      access();
+      cbBtn.textContent = `Colour-blind friendly: ${this.game.colourBlind ? 'On' : 'Off'}`;
+    });
+    cbBtn.textContent = `Colour-blind friendly: ${this.game.colourBlind ? 'On' : 'Off'}`;
+    const motionBtn = mk('', () => {
+      this.game.reduceMotion = !this.game.reduceMotion;
+      access();
+      motionBtn.textContent = `Reduce motion: ${this.game.reduceMotion ? 'On' : 'Off'}`;
+    });
+    motionBtn.textContent = `Reduce motion: ${this.game.reduceMotion ? 'On' : 'Off'}`;
+    sec('Your save');
     // Carry a character to another browser, device or web address (saves live
     // in one site's storage, so they don't follow the player on their own).
     mk('Export save', () => this.openExportSave());
@@ -2995,14 +3034,16 @@ export class UI {
     const now = performance.now();
     const live = this._xpLive[skill];
     if (live && now - live.t < 800 && live.div.isConnected) {
+      const was = Math.round(live.total);
       live.total += amount;
-      live.div.querySelector('.xp-amt').textContent = `+${Math.round(live.total)}`;
+      countUp(live.div.querySelector('.xp-amt'), `xp:${skill}`, Math.round(live.total), (n) => `+${n}`, was);
       return;
     }
     const div = document.createElement('div');
     div.className = 'xp-drop';
     div.innerHTML = `<span class="xp-ic">${skillIconSVG(skill, 20)}</span><span class="xp-amt">+${Math.round(amount)}</span>`;
     this.el.xpDrops.appendChild(div);
+    countUp(div.querySelector('.xp-amt'), `xp:${skill}`, Math.round(amount), (n) => `+${n}`, 0);
     this._xpLive[skill] = { div, total: amount, t: now };
     while (this.el.xpDrops.children.length > 4) this.el.xpDrops.firstElementChild.remove();
     setTimeout(() => div.remove(), 2300);
@@ -3263,6 +3304,7 @@ export class UI {
   closeModal() {
     if (this.modal?.locked) return; // e.g. the starting-style choice — must pick one
     this._dropTips();
+    if (this.modal && typeof document !== 'undefined') playCloseGhost(this.el.modalOverlay);
     this.modal = null;
     this.el.modalOverlay.classList.add('hidden');
     this.el.modalBody.innerHTML = '';
@@ -3280,6 +3322,16 @@ export class UI {
   openBank() {
     const render = (body) => {
       body.innerHTML = '';
+      // Totals at the top: coins in the bank and what everything in it is worth.
+      const coinsIn = this.game.bank.items.find((e) => e.id === 'coins')?.qty || 0;
+      const worth = this.game.bank.items.reduce((t, e) => t + (getItem(e.id)?.value || 0) * e.qty, 0);
+      const stats = document.createElement('div');
+      stats.className = 'ui-stats';
+      stats.innerHTML = `<div class="ui-stat">${inlineIcon(itemIconSVG('coins', 22))}<span class="ui-stat-label">Coins banked</span><b class="ui-stat-num bank-coins"></b></div>`
+        + `<div class="ui-stat"><span class="ui-stat-label">Bank value</span><b class="ui-stat-num bank-total"></b></div>`;
+      body.appendChild(stats);
+      countUp(stats.querySelector('.bank-coins'), 'bank-coins', coinsIn, formatNumber);
+      countUp(stats.querySelector('.bank-total'), 'bank-total', worth, formatNumber);
       const cols = document.createElement('div');
       cols.className = 'modal-cols';
       // Bank side
@@ -3369,7 +3421,8 @@ export class UI {
   openShop(shopId) {
     const shop = getShop(shopId);
     const render = (body) => {
-      body.innerHTML = `<div class="modal-hint">Coins: ${formatNumber(this.game.inventory.count('coins'))}</div>`;
+      body.innerHTML = `<div class="ui-stats"><div class="ui-stat">${inlineIcon(itemIconSVG('coins', 22))}<span class="ui-stat-label">Coins</span><b class="ui-stat-num shop-coins"></b></div></div>`;
+      countUp(body.querySelector('.shop-coins'), 'coins', this.game.inventory.count('coins'), formatNumber);
       const cols = document.createElement('div');
       cols.className = 'modal-cols';
       // Shop stock
@@ -3405,7 +3458,7 @@ export class UI {
         const n = this.game.inventory.slots.filter((s) => s && this.game.unrelatedToClass(s.id)).length;
         const btn = document.createElement('button');
         btn.className = 'bestiary-open gear-guide-open sell-unrelated'; btn.type = 'button';
-        btn.textContent = `💰 Sell gear not for ${cls.name}s (${n})`;
+        btn.innerHTML = `${inlineIcon(itemIconSVG('coins', 18))} Sell gear not for ${cls.name}s (${n})`;
         btn.title = 'Sells weapons, armour, accessories and arrows your class can\'t use';
         btn.disabled = !n;
         btn.onclick = () => this.game.sellUnrelated(shopId);
