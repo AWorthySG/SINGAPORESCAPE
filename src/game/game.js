@@ -5950,11 +5950,51 @@ export class Game {
   lightLogs(index) {
     const s = this.inventory.slotAt(index);
     if (!s) return;
-    const item = getItem(s.id);
-    if (!item.tags?.includes('log')) { this.msg("You can't light that."); return; }
-    if (!this.hasTool('tinderbox')) { this.msg('You need a tinderbox to light a fire.'); return; }
-    this.beginAction({ type: 'firemake', logId: s.id, tile: { x: this.player.x, y: this.player.y } },
-      { x: this.player.x, y: this.player.y }, false);
+    if (!getItem(s.id).tags?.includes('log')) { this.msg("You can't light that."); return; }
+    this.startFiremaking(s.id);
+  }
+
+  /** The logs you can burn, best (highest Firemaking level) first. */
+  burnableLogs() {
+    const lvl = this.skills.level('firemaking');
+    const ids = [...new Set(this.inventory.slots.filter((sl) => sl && getItem(sl.id).tags?.includes('log')).map((sl) => sl.id))];
+    return ids.filter((id) => (getItem(id).firemaking || 1) <= lvl)
+      .sort((a, b) => (getItem(b).firemaking || 1) - (getItem(a).firemaking || 1));
+  }
+
+  /** Light fires (the Skills menu's "Light a fire", or a log tapped in the bag).
+   *  With no `logId` it burns your best logs first and moves on to the next kind
+   *  when one runs out. It lights where you stand, or on the nearest free tile
+   *  beside you when something is already there (a fire, a tree, a stall).
+   *  (It used to aim at player.x/y even mid-step, so a tap while walking waited
+   *  for a tile it had already left and nothing ever caught.) */
+  startFiremaking(logId = null) {
+    if (!this.hasTool('tinderbox')) { this.msg('You need a tinderbox to light a fire. The Kampong Guide hands one out, and the General Store sells them.'); return false; }
+    const all = !logId;
+    const id = logId || this.burnableLogs()[0];
+    if (!id) {
+      const any = this.inventory.slots.some((sl) => sl && getItem(sl.id).tags?.includes('log'));
+      this.msg(any ? 'Your Firemaking level is too low to burn any of the logs you carry.' : 'You have no logs to burn. Chop some trees first.');
+      return false;
+    }
+    const lvl = getItem(id).firemaking || 1;
+    if (this.skills.level('firemaking') < lvl) { this.msg(`You need a Firemaking level of ${lvl} to burn these logs.`); return false; }
+    const tile = this._fireTile();
+    if (!tile) { this.msg("There's no room to light a fire here. Step into the open."); return false; }
+    return this.beginAction({ type: 'firemake', logId: id, all, tile }, tile, false);
+  }
+
+  /** Where a fire can go: your own tile, else the nearest free tile within 2. */
+  _fireTile() {
+    const here = this.playerTile();
+    const free = (x, y) => !this.world.isBlocked(x, y) && !this.world.objectAt(x, y);
+    if (free(here.x, here.y)) return here;
+    for (let r = 1; r <= 2; r++) {
+      for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) === r && free(here.x + dx, here.y + dy)) return { x: here.x + dx, y: here.y + dy };
+      }
+    }
+    return null;
   }
 
   // ---------------- Processing started from UI menus ----------------
@@ -6416,8 +6456,7 @@ export class Game {
         const o = nearest(this.world.objects.filter((x) => x.objId === g.objId && !x.depleted));
         if (o) { this._mrtHopToward(o); this.defaultObjectAction(o); ok = !!p.action || p.isMoving; }
       } else if (g.kind === 'light') {
-        const idx = this.inventory.slots.findIndex((sl) => sl && getItem(sl.id).tags?.includes('log'));
-        if (idx !== -1) { this.lightLogs(idx); ok = true; }
+        if (this.burnableLogs().length) ok = this.startFiremaking() !== false;
       } else if (g.kind === 'hunt' || g.kind === 'boss') {
         const cl = this.fightLevel();
         const fits = g.kind === 'boss'
@@ -6606,9 +6645,8 @@ export class Game {
           this.defaultObjectAction(o);
         }
       } else if (g.kind === 'light') {
-        const idx = this.inventory.slots.findIndex((sl) => sl && getItem(sl.id).tags?.includes('log'));
-        if (idx === -1 || !this.hasTool('tinderbox')) { this.toggleAutoQuest(false, 'you need logs and a tinderbox to light a fire.'); return; }
-        this.lightLogs(idx);
+        if (!this.burnableLogs().length || !this.hasTool('tinderbox')) { this.toggleAutoQuest(false, 'you need logs and a tinderbox to light a fire.'); return; }
+        this.startFiremaking();
       } else if (fighting) {
         if (!this.questTravel(id)) { this.toggleAutoQuest(false, `there's nothing I can fight for "${g.text}" right now.`); return; }
         this._autoQuestFight = true;

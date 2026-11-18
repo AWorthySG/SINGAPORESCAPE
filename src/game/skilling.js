@@ -407,9 +407,14 @@ export function resolveSmith(game, action) {
 }
 
 export function resolveFiremake(game, action) {
-  // Wait until the player is standing on the target tile.
+  // Wait until the player is standing on the target tile. If the walk there was
+  // cut short, light where they stopped instead of waiting for ever.
   const p = game.player;
-  if (p.isMoving || p.x !== action.tile.x || p.y !== action.tile.y) return true;
+  if (p.isMoving) return true;
+  if (p.x !== action.tile.x || p.y !== action.tile.y) {
+    if (game.world.isBlocked(p.x, p.y) || game.world.objectAt(p.x, p.y)) { game.msg("You can't light a fire here."); return false; }
+    action.tile = { x: p.x, y: p.y };
+  }
 
   if (!game.hasTool('tinderbox')) { game.msg('You need a tinderbox to light a fire.'); return false; }
   if (!game.inventory.has(action.logId)) return false;
@@ -445,6 +450,11 @@ export function resolveFiremake(game, action) {
     game.msg(`You spot ${c} coins glinting in the ashes.`);
   }
 
+  // Out of this kind: "burn everything" (the Skills menu) moves on to the next best logs.
+  if (!game.inventory.has(action.logId) && action.all) {
+    const next = game.burnableLogs?.()[0];
+    if (next) action.logId = next;
+  }
   // Try to step to an adjacent free tile (west preferred) and keep going.
   if (game.inventory.has(action.logId)) {
     const candidates = [[-1, 0], [1, 0], [0, -1], [0, 1]];
