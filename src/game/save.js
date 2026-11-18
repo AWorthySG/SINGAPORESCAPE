@@ -77,6 +77,7 @@ export function snapshot(game) {
     specEnergy: game.specEnergy,
     bossRecord: game.bossRecord,
     waveBest: game.waves?.best || 0,
+    playMs: Math.floor(game.playMs || 0),   // time played, shown when choosing between a cloud and a device save
     settings: { running: game.running, autoCfg: game.autoCfg, autoGather: game.autoGather, gatherPicks: [...(game.gatherPicks || [])], knowledgeStrikes: game.knowledgeStrikes, minimalHud: !!game.minimalHud,
       worldLabels: game.worldLabels || 'smart', tips: game.tipsOn !== false, tipsSeen: [...(game.tipsSeen || [])],
       textSize: game.textSize || 'normal', colourBlind: !!game.colourBlind, reduceMotion: !!game.reduceMotion },
@@ -171,10 +172,14 @@ export function exportSaveCode(game) {
 export function storedSaveCode() {
   try {
     const raw = storage()?.getItem(SAVE_KEY);
-    if (!raw) return null;
-    const b64 = toBase64(raw);
-    return CODE_PREFIX + b64 + ':' + checksum(b64);
+    return raw ? saveCodeFromRaw(raw) : null;
   } catch { return null; }
+}
+
+/** A save's JSON text as a save code (cloud.js hands a cloud save to importSaveCode this way). */
+export function saveCodeFromRaw(raw) {
+  const b64 = toBase64(raw);
+  return CODE_PREFIX + b64 + ':' + checksum(b64);
 }
 
 /** Replace the stored save with the one in a save code. Returns { ok, error }
@@ -360,6 +365,8 @@ function loadFields(game, data) {
     if (ok(br?.lost)) for (const [k, v] of Object.entries(br.lost)) if (typeof v === 'number' && v > 0) game.bossRecord.lost[k] = Math.floor(v);
   }
   // The Endless Gate: your best wave (older saves: none yet).
+  // Time played (older saves: not counted yet).
+  game.playMs = typeof data.playMs === 'number' && data.playMs > 0 ? data.playMs : 0;
   if (game.waves) game.waves.best = typeof data.waveBest === 'number' && data.waveBest > 0 ? Math.floor(data.waveBest) : 0;
   if (Array.isArray(data.settings?.gatherPicks)) game.gatherPicks = new Set(data.settings.gatherPicks.filter((id) => typeof id === 'string'));
   if (data.learning) game.learning.load(data.learning);
