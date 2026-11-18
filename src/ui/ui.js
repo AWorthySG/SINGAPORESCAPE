@@ -629,7 +629,8 @@ export class UI {
     // A foe under the cursor also lists its weakness, armour and wounds (the
     // overhead tag only has room for an icon or two).
     const hn = this.game.hover?.npc;
-    if (verb && !extra && hn?.attackable) extra = foeDetails(this.game, hn);
+    // (Its race is already in the target text, so that part is left off.)
+    if (verb && !extra && hn?.attackable) extra = foeDetails(this.game, hn).split(' · ').slice(1).join(' · ');
     const str = verb ? `${verb}|${target}|${extra}` : '';
     if (str === this._lastHover) return;
     this._lastHover = str;

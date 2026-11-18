@@ -1524,10 +1524,11 @@ export class Renderer {
         ctx.strokeStyle = n.champion ? '#22304A' : 'rgba(0,0,0,0.85)'; ctx.lineWidth = 3; ctx.strokeText(label, px, py);
         ctx.fillStyle = n.champion ? '#F5B82E' : '#ff7a5a'; ctx.fillText(label, px, py);
       } else if (named && !(n.chatTimer > 0)) {
-        // Everyone else: a smaller name, coral for a foe and white for townsfolk
-        // (lifted above the health bar when there is one).
+        // Everyone else: a smaller name, coral for a foe and white for townsfolk.
+        // A foe in a fight wears it under its feet, leaving the space over its
+        // head to the health bar, tag and damage numbers.
         const bar = n.combatLatch > 0 || targeted;
-        const px = c.x - ox, py = c.y - oy + yo - (bar ? 4 : -2) - (moral ? 14 : 0);
+        const px = c.x - ox, py = bar ? c.y - oy + 16 * sc + 12 : c.y - oy + yo + 2 - (moral ? 14 : 0);
         ctx.font = '800 10px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
         ctx.strokeStyle = '#22304A'; ctx.lineWidth = 3; ctx.strokeText(n.name, px, py);
         ctx.fillStyle = n.attackable ? '#ffb39a' : '#FFFFFF'; ctx.fillText(n.name, px, py);
