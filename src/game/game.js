@@ -70,6 +70,7 @@ import { Learning } from './learning.js';
 import { Waves, addArena } from './waves.js';
 import { Collection } from './collection.js';
 import { Pets } from './pets.js';
+import { WorldEvents } from './worldevents.js';
 import * as Mercs from './mercenary.js';
 import * as Culling from './culling.js';
 import { classPerks } from './classperks.js';
@@ -436,6 +437,7 @@ export class Game {
     this.waves = new Waves(this);     // the Endless Gate: a run of monster waves, and your best wave
     this.collection = new Collection(this);   // the Collection log: every source's unique drops (collection.js)
     this.pets = new Pets(this);       // rare boss and life-skill pets, and the one following you (pets.js)
+    this.worldEvents = new WorldEvents(this);   // roaming world events and weekly region challenges (worldevents.js)
     // Knowledge Strikes: bosses' specials can be interrupted by answering a question.
     // On by default in the browser; headless runs (tests) leave bosses as they were.
     this.knowledgeStrikes = LEARNING_ENABLED && typeof document !== 'undefined';
@@ -1082,6 +1084,7 @@ export class Game {
     this.player.stepMul = this.playerStepMul() * (this._onRoad() ? ROAD_PACE : 1);   // Agility quickens your steps, and so do roads
     this._tickWorldBoss();
     this.waves.tick();
+    this.worldEvents.tick();
     this._tickTownGuards();
     this._tickGreetings();
     this.cine.tick(this);   // fight push-in, and a boss's entrance the first time it engages
@@ -1381,6 +1384,7 @@ export class Game {
         if (got > 0 && id !== 'coins') this.addHitsplat(this.player, 0, { text: `+${got} ${getItem(id).name}` });
         if (got > 0) this.collection.onGather(a.type, id, got);   // rare finds for the Collection log
       }
+      this.worldEvents.onGather(obj, before, after);   // event nodes' bonus, weekly region challenge
     }
     // Remember what we're gathering, so auto gather can pick it up again after
     // a fight, or once the mined-out rocks and felled trees grow back.
@@ -3330,6 +3334,7 @@ export class Game {
     if (onTask && Math.random() < this.slayerBonus().loot / 100) { this.rollDrops(npc); this.msg('Slayer bonus: extra loot!', 'system'); }
     if (npc.worldBoss) { for (let k = 1; k < WORLD_BOSS_LOOT_ROLLS; k++) this.rollDrops(npc); this.msg('World Boss slain! Triple loot.', 'level'); }
     Culling.onKill(this, npc);   // codex mastery, Pest Control contracts, Stewardship, Hunter
+    this.worldEvents.onKill(npc, byAlly);   // world event credit, weekly region challenge
     this._refundRunes(npc);
     npc.die();
     if (this.player.target === npc) this.player.target = null;
@@ -4507,6 +4512,7 @@ export class Game {
     Play.onDeath(this);   // a gravestone holds part of your pack until you walk back for it
     // Falling in the Endless Gate ends the run (nothing is lost) and you wake by its gate.
     this._respawnAt = this.waves.onDeath();
+    this.worldEvents.onDeath();   // a world event is called off (and packed away)
     this.ui?.closeModal();
   }
 
@@ -5188,7 +5194,7 @@ export class Game {
       if (!n.alive || !n.attackable) continue;
       const d = chebyshev(p.x, p.y, n.x, n.y);
       if (d > Math.max(25, range + 2)) continue;   // a Sniper picks off monsters from further still
-      const hunting = n.target === p || !!n.wave;   // a wave monster is coming for you, whatever its level
+      const hunting = n.target === p || !!n.wave || !!n.worldEvent;   // a wave or world event monster is coming for you, whatever its level
       // One auto battle has just run from is left alone until it catches up:
       // a pack that stayed by its home, still set on you, drew a Rogue back
       // into the fight it had fled, again and again until it died.
