@@ -197,8 +197,8 @@ const TOWN_ART = new Set([
 ]);
 // Newer townsfolk borrow another's picture, recoloured, until their own art
 // arrives (remove the line when the file is added).
-const TOWN_ALIAS = { marina_high_roller: 'banker', jade_merchant: 'mage' };
-const TOWN_TINT = { marina_high_roller: 'hue-rotate(150deg) saturate(1.3)', jade_merchant: 'hue-rotate(-120deg) saturate(1.2)' };
+const TOWN_ALIAS = { marina_high_roller: 'banker', jade_merchant: 'mage', pest_officer: 'farmer' };
+const TOWN_TINT = { marina_high_roller: 'hue-rotate(150deg) saturate(1.3)', jade_merchant: 'hue-rotate(-120deg) saturate(1.2)', pest_officer: 'hue-rotate(70deg) saturate(1.2)' };
 const townFile = (id) => (TOWN_ART.has(id) ? id : TOWN_ALIAS[id] || null);
 const _townImg = {};
 function townImage(id) {

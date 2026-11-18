@@ -65,6 +65,7 @@ import { SKILLS, SKILL_BY_ID } from '../data/skills.js';
 import { Learning } from './learning.js';
 import { Waves, addArena } from './waves.js';
 import * as Mercs from './mercenary.js';
+import * as Culling from './culling.js';
 import { classPerks } from './classperks.js';
 import { LIFE_PERKS, LIFE_PERK_SKILLS, LIFE_PERK_FULL_LEVEL, LIFE_PERK_NOTE_EVERY, lifePerkTotals, lifePerkText } from './lifeperks.js';
 import { TOPIC_BY_ID } from '../data/questions.js';
@@ -417,6 +418,7 @@ export class Game {
     // Slayer task system.
     this.slayer = { task: null, points: 0, completed: 0 };
     this.bounties = { day: null, list: [], streak: 0, lastFull: null };   // daily bounty board
+    this.culling = Culling.defaultCulling();   // codex mastery, Pest Control contracts, Stewardship (culling.js)
 
     // Agility course: distinct obstacles touched this lap.
     this._agilityLap = new Set();
@@ -1990,6 +1992,7 @@ export class Game {
     dmgM *= this._volley || 1;   // a volley of very fast attacks lands as one big hit
     dmgM *= 1 + this.buffMod('dmg');   // a class buff
     if (this.onSlayerTask(npc)) dmgM *= 1 + this.slayerBonus().dmg / 100;   // Slayer: hit task monsters harder
+    dmgM *= Culling.masteryDamage(this, npc).mult;   // codex mastery of its species and race
     dmgM *= Mercs.merchantPower(this);   // the strongest class (see mercenary.js)
     const sharedM = dmgM;   // what both hands share
     dmgM *= abM * gearM(gb);
@@ -2910,8 +2913,9 @@ export class Game {
   }
   /** Overhead title, colour and aura for the current alignment (alignment.js). */
   alignmentStyle() {
-    const a = this.alignment();   // asked every frame by the renderer: kept until alignment changes
-    if (this._alStyle?.a !== a) this._alStyle = { a, ...alignmentStyle(a) };
+    const a = this.alignment(), t = Culling.titleText(this);   // asked every frame by the renderer: kept until either changes
+    // A Neutral hero has no alignment title, so a codex title they wear shows instead.
+    if (this._alStyle?.a !== a || this._alStyle.t !== t) { const st = alignmentStyle(a); this._alStyle = { a, t, ...st, label: st.label || t }; }
     return this._alStyle;
   }
 
@@ -3215,6 +3219,7 @@ export class Game {
     // Slayer: a task monster sometimes drops a second helping of loot.
     if (onTask && Math.random() < this.slayerBonus().loot / 100) { this.rollDrops(npc); this.msg('Slayer bonus: extra loot!', 'system'); }
     if (npc.worldBoss) { for (let k = 1; k < WORLD_BOSS_LOOT_ROLLS; k++) this.rollDrops(npc); this.msg('World Boss slain! Triple loot.', 'level'); }
+    Culling.onKill(this, npc);   // codex mastery, Pest Control contracts, Stewardship, Hunter
     this._refundRunes(npc);
     npc.die();
     if (this.player.target === npc) this.player.target = null;
@@ -5189,7 +5194,8 @@ export class Game {
     if (!item.heal) { this.msg(`You can't eat the ${item.name.toLowerCase()}.`); return; }
     this.inventory.removeAt(index, 1);
     // Endgame dishes heal a share of your life (healPct), so they keep up as it grows.
-    const heal = item.healPct ? Math.max(item.heal, Math.round(this.maxHp() * item.healPct)) : item.heal;
+    // (Stewardship's food perk adds a share on top, see culling.js.)
+    const heal = Math.round((item.healPct ? Math.max(item.heal, Math.round(this.maxHp() * item.healPct)) : item.heal) * Culling.foodMult(this));
     this.player.hp = Math.min(this.maxHp(), this.player.hp + heal);
     this.msg(`You eat the ${item.name.toLowerCase()}.`);
     if (item.meal) this._eatMeal(item);

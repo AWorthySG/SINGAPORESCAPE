@@ -1175,6 +1175,17 @@ for (const [id, name, slot, lvl, prayer, defence, hp, value, examine] of PRAYER_
   RAW[id] = { name, icon: slot === 'ring' ? '💍' : slot === 'cape' ? '🧣' : '📿', value, examine, equip: { slot, req: { prayer: lvl }, bonuses } };
 }
 
+// ---- Pest Control (src/game/culling.js): its tokens, and the token shop's own goods ----
+Object.assign(RAW, {
+  pest_token: { name: 'Pest Control token', icon: '🪙', value: 1, stackable: true, examine: 'Paid by Officer Aziz for clearing pests. Spend them at his token shop.' },
+  hunter_bait: { name: 'Hunter bait', icon: '🪱', value: 3, stackable: true, examine: 'A smelly lure. One is used per trap catch: more Hunter XP, and sometimes a second catch.' },
+  forager_lamp: { name: 'Forager\'s lamp', icon: '🪔', value: 1, examine: 'Rub it for experience in a gathering skill of your choice.' },
+  codex_quill: { name: 'Codex quill', icon: '🪶', value: 1, examine: 'Read it and your next 200 kills count double towards codex mastery.' },
+  // No fighting stats, so it suits every style: it keeps the bugs off while you hunt.
+  mosquito_net_cape: { name: 'Mosquito-net cape', icon: '🧣', value: 1, examine: 'Fine netting worn as a cape. +5% Hunter XP while worn.',
+    equip: { slot: 'cape', req: {}, bonuses: { defence: 3, hp: 2 } } },
+});
+
 export const ITEMS = Object.fromEntries(
   Object.entries(RAW).map(([id, def]) => [id, Object.freeze({ id, ...def })])
 );

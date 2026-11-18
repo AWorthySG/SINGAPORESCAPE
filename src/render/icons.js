@@ -897,6 +897,14 @@ import { ITEMS } from '../data/items.js';
   I.tiger_whisker = I.feather; I.garuda_plume = I.feather; I.phoenix_ember = I.hornbill_casque;
   // The casino chip (Thieving 100) borrows the coins sticker, tinted red.
   BORROW_ID.casino_chip = 'coins'; BORROW_TINT.casino_chip = 'hue-rotate(-40deg) saturate(1.8)'; I.casino_chip = I.coins;
+  // Pest Control's goods (culling.js) borrow older stickers, tinted, until their own art arrives.
+  for (const [id, from, tint] of [
+    ['pest_token', 'coins', 'hue-rotate(80deg) saturate(1.4)'],
+    ['hunter_bait', 'fishing_bait', 'hue-rotate(-30deg) saturate(1.5)'],
+    ['forager_lamp', 'djinn_lamp', 'hue-rotate(60deg) saturate(1.2) brightness(1.1)'],
+    ['codex_quill', 'feather', 'hue-rotate(200deg) saturate(1.6)'],
+    ['mosquito_net_cape', 'pilgrim_cape', 'grayscale(0.6) brightness(1.25)'],
+  ]) { BORROW_ID[id] = from; BORROW_TINT[id] = tint; I[id] = I[from] || I.coins; }
   // Boss signature weapons have painted stickers (ITEM_ART); their base weapon's vector is the fallback.
   for (const [id, it] of Object.entries(ITEMS)) if (it.signature && !I[id]) I[id] = I[it.signature.base];
   function hueOf(hex) {

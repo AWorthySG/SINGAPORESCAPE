@@ -12,8 +12,9 @@ export function prevDayKey(key) {
   return dayKey(new Date(y, m - 1, d - 1));
 }
 
-// Small deterministic RNG so one day's board doesn't change on reload.
-function seeded(str) {
+// Small deterministic RNG so one day's board doesn't change on reload
+// (Pest Control contracts use it too, see culling.js).
+export function seeded(str) {
   let h = 2166136261;
   for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
   return () => { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return ((h >>> 0) % 100000) / 100000; };

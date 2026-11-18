@@ -1,6 +1,7 @@
 import { getItem } from '../data/items.js';
 import { clamp, weightedPick, randInt } from '../core/utils.js';
 import { TILE } from '../config.js';
+import { yieldBonus, huntExtras } from './culling.js';
 
 const objCenter = (obj) => ({ x: obj.x * TILE + TILE / 2, y: obj.y * TILE + TILE / 2 - 6 });
 
@@ -116,7 +117,8 @@ export function resolveWoodcut(game, action) {
     obj.shakeT = 280; game.bus.emit('sfx', 'gather'); // the tree judders as the log falls
     const logName = getItem(def.gives).name.toLowerCase();
     // Double logs: a sturdy bough sometimes drops an extra.
-    if (Math.random() < 0.04 + lvl * 0.001 && game.inventory.canAdd(def.gives, 1) > 0) {
+    // (Stewardship adds to the chance while you are Neutral, see culling.js.)
+    if (Math.random() < 0.04 + lvl * 0.001 + yieldBonus(game) && game.inventory.canAdd(def.gives, 1) > 0) {
       game.inventory.add(def.gives, 1);
       game.msg(`A second branch falls — double ${logName}!`);
     } else {
@@ -167,7 +169,7 @@ export function resolveMine(game, action) {
     obj.shakeT = 280; game.bus.emit('sfx', 'gather'); // the rock judders as ore breaks free
     const oreName = getItem(yieldId).name.toLowerCase();
     // Rich seam: a chance at a second yield.
-    if (Math.random() < 0.04 + lvl * 0.001 && game.inventory.canAdd(yieldId, 1) > 0) {
+    if (Math.random() < 0.04 + lvl * 0.001 + yieldBonus(game) && game.inventory.canAdd(yieldId, 1) > 0) {
       game.inventory.add(yieldId, 1);
       game.msg(`A rich seam — double ${oreName}!`);
     } else {
@@ -225,7 +227,7 @@ export function resolveFish(game, action) {
       return true;
     }
     // A "big catch" reels in two at once — more likely at higher levels / with bait.
-    const big = Math.random() < 0.05 + lvl * 0.0015 + (baited ? 0.05 : 0) && game.inventory.canAdd(pick.id, 2) >= 2;
+    const big = Math.random() < 0.05 + lvl * 0.0015 + (baited ? 0.05 : 0) + yieldBonus(game) && game.inventory.canAdd(pick.id, 2) >= 2;
     const n = big ? 2 : 1;
     game.inventory.add(pick.id, n);
     game.skills.addXp('fishing', xpEach * n);
@@ -475,8 +477,12 @@ export function resolveHunt(game, action) {
     game.inventory.add(g.id, n);
     got.push(n > 1 ? `${n} ${getItem(g.id).name.toLowerCase()}s` : getItem(g.id).name.toLowerCase());
   }
+  // Hunter bait, Stewardship and the mosquito-net cape (culling.js): more XP, and
+  // bait now and then lands a second main catch.
+  const hx = huntExtras(game), main = def.gives[0];
+  if (hx.double && game.inventory.canAdd(main.id, 1) > 0) { game.inventory.add(main.id, 1); got.push(`a second ${getItem(main.id).name.toLowerCase()}`); }
   // The Night Safari's tiger trail pays more after dark (a bonus, never a lock), as the moonlit kapok does.
-  game.skills.addXp('hunter', def.night && game.isNight() ? def.xp * NIGHT_TREE_BONUS : def.xp);
+  game.skills.addXp('hunter', (def.night && game.isNight() ? def.xp * NIGHT_TREE_BONUS : def.xp) * hx.xpMult);
   const c = objCenter(obj); game.spawnPoof(c.x, c.y, def.color || '#caa15a');
   obj.shakeT = 280; game.bus.emit('sfx', 'gather');
   game.msg(`The trap springs! You catch ${got.join(' and ')}.`);
