@@ -2414,7 +2414,7 @@ export class UI {
     } else if (flat) {
       const joy = box('joystick');
       let right = window.innerWidth - 10;
-      for (const e of document.querySelectorAll('#ability-buttons .ability-btn, #attack-btn')) {
+      for (const e of document.querySelectorAll('#ability-buttons .ability-btn, #attack-btn, #interact-btn')) {
         const r = e.getBoundingClientRect();
         if (r.width) right = Math.min(right, r.left - 8);
       }
