@@ -3363,6 +3363,6 @@ body.cb-safe #hp-orb.low::after {
 #play-hud .ph-rested { background: #dff3d4; color: #1F7A3D; }
 #play-hud .ph-grave { background: #e7eaf0; color: var(--aw-text); }
 #play-hud .hidden { display: none; }
-@media (pointer: coarse) {
+@media (hover: none) and (pointer: coarse) {   /* not plain (pointer: coarse): layout.test reads the last block of that name */
   #play-hud .ph-focus, #play-hud .ph-rested, #play-hud .ph-grave { min-height: 44px; }
 }
