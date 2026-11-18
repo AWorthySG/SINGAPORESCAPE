@@ -29,6 +29,7 @@ import { Camera } from '../engine/camera.js';
 import { Cinematics } from './cinematics.js';
 import { leafArt } from '../render/fxart.js';
 import { footFx } from './footfx.js';
+import { CombatFx, MAX_EFFECTS, keepLive, hitImpact, hitsplatFx, deathFx, isMilestoneLevel } from '../render/combatfx.js';
 import { findPath } from '../engine/pathfinding.js';
 import {
   playerAttackVsNpc, npcAttackVsPlayer, OFFHAND_SHARE, rollAttack, rollGuaranteed, rollHit, combatXp, magicXp, killXp, DAMAGE_XP_SHARE, KILL_XP_SHARE,
@@ -388,6 +389,7 @@ export class Game {
     this.tipsOn = true;             // Settings > Tips: On / Off
     this.tipsSeen = new Set();      // first-time tips this save has shown (ui/tips.js)
     this._footSt = {};              // footFx's memory of your last step and turn
+    this.cfx = new CombatFx();      // pooled impact, crit, death and level-up effects (render/combatfx.js)
     // Screen-shake state (big hits, boss slams). Decays over shakeDur ms.
     this.shakeT = 0;
     this.shakeDur = 1;
@@ -496,8 +498,9 @@ export class Game {
       this.spawnSparkle(this.player, '#ffe24a', 18);
       this.spawnPoof(c.x, c.y - 6, '#fff3a0');
       // Confetti and a burst ring; round-number levels get a bigger celebration.
-      const big = p?.level && (p.level % 10 === 0 || p.level === 99);
+      const big = isMilestoneLevel(p?.level);
       this.spawnConfetti(c.x, c.y - 18, big ? 46 : 22);
+      if (big) this.cfx.levelBurst(c.x, c.y - 10);   // milestones: a ring of light and rays as well
       this.effects.push({ type: 'ring', x: c.x, y: c.y - 8, color: '#F5B82E', life: 520, maxLife: 520, r0: 6, r1: big ? 52 : 34 });
       if (big) this.addShake(2, 160);
       const perk = p?.skill && perkAtLevel(p.skill, p.level);
@@ -841,6 +844,7 @@ export class Game {
     fx.maxLife = fx.life;
     entity._lastSplat = fx;
     this.effects.push(fx);
+    hitsplatFx(this, entity, dmg, opts);   // crit stars and the screen-edge pulse on big hits
     if (opts.crit && dmg > 0) {
       this.addShake(2.5, 180);                 // crits thump the screen a little...
       if (entity !== this.player) this.hitStop = Math.max(this.hitStop, 55);   // ...and freeze for a beat
@@ -849,6 +853,7 @@ export class Game {
 
   /** Kick off a decaying screen shake (kept subtle; the strongest is a boss kill). */
   addShake(mag = 3, ms = 220) {
+    if (this.reduceMotion) return;
     if (mag >= this.shakeMag * (this.shakeT / this.shakeDur)) {
       this.shakeMag = Math.min(6, mag);
       this.shakeDur = ms;
@@ -896,6 +901,7 @@ export class Game {
     // Hit-stop: on big hits and kills, animation all but freezes for a few
     // frames (game ticks carry on), which makes impacts feel weighty.
     let adt = dt;
+    if (this.reduceMotion) this.hitStop = 0;
     if (this.hitStop > 0) { this.hitStop = Math.max(0, this.hitStop - dt); adt = dt * 0.12; }
     adt *= this.cine.timeScale();   // a boss's death plays out in slow motion
     // Your own walking never freezes, though: stalling mid-stride on every kill
@@ -929,7 +935,7 @@ export class Game {
     this.camera.follow(c.x, c.y, 0.22, { width: this.world.width, height: this.world.height }, dt);
 
     for (const e of this.effects) e.life -= adt;
-    this.effects = this.effects.filter((e) => e.life > 0);
+    keepLive(this.effects, MAX_EFFECTS);   // in place, and capped
     if (this.shakeT > 0) this.shakeT = Math.max(0, this.shakeT - dt);
     // Harvest-judder timers on world objects (trees/rocks being worked).
     for (const o of this.world.objects) if (o.shakeT > 0) o.shakeT = Math.max(0, o.shakeT - dt);
@@ -940,7 +946,7 @@ export class Game {
       if (p.spin) p.rot += p.spin * adt;
       if (p.sway !== undefined) { p.sway += adt * 0.004; p.vx = Math.sin(p.sway) * 0.025; }   // leaves rock side to side as they fall
     }
-    if (this.particles.length) this.particles = this.particles.filter((p) => p.life > 0);
+    if (this.particles.length) keepLive(this.particles);
     footFx(this, this._footSt);   // dust at your feet, leaves from trees you pass
 
     this.updateHover();
@@ -954,6 +960,7 @@ export class Game {
   }
 
   spawnHitSparks(entity, color) {
+    if (entity !== this.player) hitImpact(this, entity, color);   // the weapon's own impact (render/combatfx.js)
     const c = entity.renderCenter();
     for (let i = 0; i < 7; i++) {
       const a = Math.random() * Math.PI * 2, s = 0.04 + Math.random() * 0.08;
@@ -973,6 +980,7 @@ export class Game {
     this.spawnHitSparks(npc, '#ffd9b0');
     this.spawnPoof(c.x, c.y - 4, npc.def.color || '#caa15a');
     this.bus.emit('sfx', npc.def.boss ? 'bossdie' : 'die');
+    deathFx(this, npc);   // a puff of stars and a sticker "poof" as it falls
     if (npc.def.boss) { this.spawnSparkle(npc, '#ffd24a', 20); this.spawnPoof(c.x, c.y - 8, '#ff7a3a'); this.addShake(5, 340); }
   }
 
