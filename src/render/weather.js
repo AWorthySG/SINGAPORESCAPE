@@ -101,6 +101,15 @@ export class Weather {
     this.state = { rain: 0, snow: 0, embers: 0, storm: 0, flash: 0, gloom: 0,
       washes: [this._rainWash, this._mistWash, this._sky], flashWash: [236, 242, 255, 0] };
     this._mistImg = null;
+    // Phones and small screens get half the rain and no puddle sheen.
+    this._coarse = null;
+    try { this._coarse = typeof matchMedia === 'function' ? matchMedia('(pointer: coarse)') : null; } catch { this._coarse = null; }
+  }
+
+  /** A touch or small screen (checked live, so a rotated tablet follows). */
+  small() {
+    if (this._coarse && this._coarse.matches) return true;
+    return typeof innerWidth === 'number' && innerWidth < 900;
   }
 
   /** Per frame: work out the sky for the region and time, and ease the ground's wetness. */
@@ -132,7 +141,7 @@ export class Weather {
     const world = game.world;
     const x0 = Math.max(0, Math.floor(ox / TILE)), y0 = Math.max(0, Math.floor(oy / TILE));
     const x1 = Math.min(world.width - 1, Math.ceil((ox + vw) / TILE)), y1 = Math.min(world.height - 1, Math.ceil((oy + vh) / TILE));
-    if (this.wet > 0.03) {
+    if (this.wet > 0.03 && !this.small()) {
       // Puddles: a pale sky-blue sheen on some path and paving tiles (picked
       // by the tile's spot, so they stay put), all filled in one go.
       ctx.save();
@@ -220,7 +229,7 @@ export class Weather {
 
   _rain(ctx, vw, vh, dt, low) {
     const s = this.state, drops = this._drops;
-    const want = Math.round((low ? RAIN_CAP_LOW : RAIN_CAP) * s.rain * Math.min(1.4, (vw * vh) / (1100 * 620)));
+    const want = Math.round((low ? RAIN_CAP_LOW : RAIN_CAP) * (this.small() ? 0.5 : 1) * s.rain * Math.min(1.4, (vw * vh) / (1100 * 620)));
     while (drops.length < want) drops.push({ x: Math.random() * (vw + 80), y: Math.random() * vh, v: 0.75 + Math.random() * 0.5 });
     if (drops.length > want) drops.length = want;
     if (!drops.length) return;

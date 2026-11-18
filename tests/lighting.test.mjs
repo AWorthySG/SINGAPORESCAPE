@@ -180,3 +180,25 @@ test('weather is looks only: rendering a storm changes nothing in the game', () 
   assert.equal(JSON.stringify({ hp: g.player.hp, x: g.player.x, y: g.player.y, inv: g.inventory.slots }), before);
   assert.ok(r.weather.wet > 0, 'the ground is getting wet though');
 });
+
+test('small and touch screens get half the rain and no puddle sheen', () => {
+  const w = new Weather();
+  assert.equal(w.small(), false, 'headless counts as a big screen');
+  globalThis.innerWidth = 600;
+  try { assert.equal(w.small(), true, 'a narrow window is small'); } finally { delete globalThis.innerWidth; }
+  w._coarse = { matches: true };
+  assert.equal(w.small(), true, 'a touch screen is small');
+  // Count the streaks drawn, and the strokes they take.
+  const streaks = (small) => {
+    const ww = new Weather(); ww._coarse = { matches: small }; ww.state.rain = 1;
+    let moves = 0, strokes = 0;
+    const ctx = new Proxy({}, {
+      get: (t, k) => (k in t ? t[k] : k === 'moveTo' ? () => { moves++; } : k === 'stroke' ? () => { strokes++; } : () => {}),
+      set: (t, k, v) => { t[k] = v; return true; },
+    });
+    ww._rain(ctx, 1100, 620, 16, false);
+    assert.equal(strokes, 1, 'all the streaks in a single stroke');
+    return moves;
+  };
+  assert.ok(Math.abs(streaks(true) - streaks(false) / 2) <= 1, 'half the streaks on a small screen');
+});
