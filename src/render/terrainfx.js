@@ -34,7 +34,7 @@ export function tileHash(x, y, s = 0) {
 export const BLEND_RANK = {
   [TERRAIN.GRASS]: 1, [TERRAIN.DARKGRASS]: 2, [TERRAIN.SAND]: 3, [TERRAIN.PATH]: 4, [TERRAIN.WATER]: 5,
 };
-export const FEATHER = 13;    // how far (px) a neighbour's ground reaches into a tile
+export const FEATHER = 14;    // how far (px) a neighbour's ground reaches into a tile
 const WOBBLE = 4.5;           // how far (px) the edge wanders either way
 const VARIANTS = 4;           // wobble patterns per edge shape, picked per tile
 // Neighbours as bits: the four sides, then the four corners.
@@ -90,15 +90,18 @@ export function blendMask(bits, v) {
   for (let py = 0; py < TILE; py++) {
     for (let px = 0; px < TILE; px++) {
       const fx = px + 0.5, fy = py + 0.5;
-      let a = 0;
-      if (bits & 1) a = Math.max(a, ramp(fy - wobble(fx, v, 0)));
-      if (bits & 2) a = Math.max(a, ramp(TILE - fx - wobble(fy, v, 1)));
-      if (bits & 4) a = Math.max(a, ramp(TILE - fy - wobble(fx, v, 2)));
-      if (bits & 8) a = Math.max(a, ramp(fx - wobble(fy, v, 3)));
-      if (bits & 16) a = Math.max(a, ramp(Math.hypot(TILE - fx, fy) - 2));
-      if (bits & 32) a = Math.max(a, ramp(Math.hypot(TILE - fx, TILE - fy) - 2));
-      if (bits & 64) a = Math.max(a, ramp(Math.hypot(fx, TILE - fy) - 2));
-      if (bits & 128) a = Math.max(a, ramp(Math.hypot(fx, fy) - 2));
+      // Sides and corners combine as a soft union rather than the greater of
+      // the two, so where two sides meet the ground's corner comes out rounded.
+      let k = 1;
+      if (bits & 1) k *= 1 - ramp(fy - wobble(fx, v, 0));
+      if (bits & 2) k *= 1 - ramp(TILE - fx - wobble(fy, v, 1));
+      if (bits & 4) k *= 1 - ramp(TILE - fy - wobble(fx, v, 2));
+      if (bits & 8) k *= 1 - ramp(fx - wobble(fy, v, 3));
+      if (bits & 16) k *= 1 - ramp(Math.hypot(TILE - fx, fy) - 2);
+      if (bits & 32) k *= 1 - ramp(Math.hypot(TILE - fx, TILE - fy) - 2);
+      if (bits & 64) k *= 1 - ramp(Math.hypot(fx, TILE - fy) - 2);
+      if (bits & 128) k *= 1 - ramp(Math.hypot(fx, fy) - 2);
+      let a = 1 - k;
       if (a > 0.02 && a < 0.98) a = Math.max(0, Math.min(1, a + (tileHash(px, py, 97 + v) - 0.5) * 0.16));
       m[py * TILE + px] = a;
     }
@@ -248,7 +251,7 @@ export function waterDetailPlan(world, tx0, ty0, tx1, ty1) {
 // the tile centre, strength]. Fires, farm patches and fishing spots get none
 // (they flicker, grow or float).
 const SHADOW = {
-  tree: [21, 8, 14, 0.4], rock: [16, 6, 12, 0.32], bush: [13, 5, 11, 0.22], flower: [8, 3.2, 10, 0.16],
+  tree: [24, 9, 15, 0.42], rock: [16, 6, 12, 0.32], bush: [13, 5, 11, 0.22], flower: [8, 3.2, 10, 0.16],
   palm: [14, 5.5, 13, 0.26], lamp: [7, 3, 13, 0.2], sign: [8, 3, 12, 0.18], fence: [18, 5, 12, 0.18],
   wall: [20, 7, 12, 0.34], ruin: [21, 8, 12, 0.34], building: [26, 9.5, 14, 0.36], small: [13, 5, 11, 0.2],
 };

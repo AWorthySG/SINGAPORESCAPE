@@ -1356,7 +1356,7 @@ export class Renderer {
     const shore = dry(w.terrainAt(x, y - 1)) || dry(w.terrainAt(x, y + 1)) || dry(w.terrainAt(x - 1, y)) || dry(w.terrainAt(x + 1, y));
     const wave = Math.sin((x + y) * 0.7 + timeMs * 0.0016) * 8 + Math.sin((x - y) * 0.5 + timeMs * 0.0011) * 6;
     // Deeper water reads darker/greener; shallows near shore are brighter teal.
-    const d = shore ? 18 : 0;
+    const d = shore && !soft ? 18 : 0;   // soft shores: no brighter rim to give the tile's square away
     if (this._groundTile(ctx, TERRAIN.WATER, x, y, sx, sy)) {
       // Painted water: the swell rides on top as a soft light/dark wash.
       const k = (wave + d * 0.6) / 14;
