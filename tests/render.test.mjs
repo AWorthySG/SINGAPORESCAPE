@@ -257,6 +257,52 @@ test('hero art exists for every combat style', async () => {
   }
 });
 
+test('hero animation parts stay in lock-step with assets/creatures/hero/anim/ and name real classes', async () => {
+  const { readdirSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const { ANIM_ART, heroAnimFiles } = await import('../src/render/heroAnimArt.js');
+  const { CLASS_BY_ID } = await import('../src/data/classes.js');
+  const dir = fileURLToPath(new URL('../assets/creatures/hero/anim/', import.meta.url));
+  const onDisk = new Set(readdirSync(dir).filter((f) => f.endsWith('.webp')).map((f) => f.slice(0, -5)));
+  const listed = new Set(heroAnimFiles());
+  for (const f of listed) assert.ok(onDisk.has(f), `anim/${f}.webp is registered but missing`);
+  for (const f of onDisk) assert.ok(listed.has(f), `anim/${f}.webp is on disk but not registered`);
+  for (const id of Object.keys(ANIM_ART)) assert.ok(CLASS_BY_ID[id], `${id} is a class`);
+  // Every arm ([w, h, pivot]) and back-view part ([x, y, w, h]) has a real size.
+  for (const [id, a] of Object.entries(ANIM_ART)) {
+    for (const arm of [a.swing, a.off].filter(Boolean).flatMap(Object.values)) assert.ok(arm.length === 4 && arm.every(Number.isFinite) && arm[0] > 0 && arm[1] > 0, `${id} arm size`);
+    for (const r of Object.values(a.back || {})) assert.ok((r.length === 4 || r.length === 8) && r.every(Number.isFinite) && r[2] > 0 && r[3] > 0, `${id} back part size`);
+  }
+});
+
+test('painted attack arms follow the clip: wind-up, mid-swing, follow-through, then rest', async () => {
+  const { swingPhase, faceState, facingAway } = await import('../src/render/heroAnimArt.js');
+  const { sampleHeroClip } = await import('../src/render/heroanim.js');
+  const seen = [];
+  for (let u = 0; u <= 1.0001; u += 0.01) {
+    const p = swingPhase(sampleHeroClip('slash', u).ch, 'main');
+    if (p !== seen[seen.length - 1]) seen.push(p);
+  }
+  assert.deepEqual(seen.filter(Boolean), ['wind', 'mid', 'follow'], `slash plays the three arms in order (${seen})`);
+  assert.equal(swingPhase(sampleHeroClip('slash', 0).ch, 'main'), null, 'at rest before the swing');
+  assert.equal(swingPhase(sampleHeroClip('slash', 1).ch, 'main'), null, 'back at rest after it');
+  // A dual wielder's off hand plays its own set in its own turn.
+  const off = new Set();
+  for (let u = 0; u <= 1; u += 0.01) off.add(swingPhase(sampleHeroClip('scim_dual', u).ch, 'off'));
+  for (const p of ['wind', 'mid', 'follow']) assert.ok(off.has(p), `off hand reaches ${p}`);
+  // The bow and the staff run through all three too.
+  for (const [clip, kind] of [['bow', 'bow'], ['cast', 'staff'], ['rifle', 'gun']]) {
+    const ps = new Set();
+    for (let u = 0; u <= 1; u += 0.01) ps.add(swingPhase(sampleHeroClip(clip, u).ch, 'main', kind));
+    for (const p of ['wind', 'mid', 'follow']) assert.ok(ps.has(p), `${clip} reaches ${p}`);
+  }
+  assert.equal(faceState({ hurt: 120, time: 0 }), 'hurt');
+  assert.equal(faceState({ anim: { id: 'cheer', ch: {} }, time: 500 }), 'victory');
+  assert.equal(faceState({ time: 10 }), 'blink');
+  assert.equal(faceState({ time: 1000 }), 'body');
+  assert.ok(facingAway({ facing: { dx: 0, dy: -1 } }) && !facingAway({ facing: { dx: 1, dy: -1 } }) && !facingAway({ facing: { dx: 0, dy: 1 } }));
+});
+
 test('rigged bosses and species ship every layer they animate', async () => {
   const { rigIds, rigParts, rigKind } = await import('../src/render/sprites.js');
   const { NPCS } = await import('../src/data/npcs.js');

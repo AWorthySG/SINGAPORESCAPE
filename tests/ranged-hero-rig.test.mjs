@@ -61,6 +61,8 @@ test('rig loading stays per class and never draws incomplete or broken parts', (
   const previous = globalThis.Image;
   const loaded = [];
   globalThis.Image = class { constructor() { this.complete = false; this.naturalWidth = 0; loaded.push(this); } };
+  // The painted animation art (heroAnimArt.js) loads alongside; count only the rig's parts.
+  const rigParts = () => loaded.filter((img) => !String(img.src).includes('/anim/'));
   try {
     const c = context();
     assert.equal(drawRangedHeroRig(c, { jobClass: 'swordsman' }), false);
@@ -80,9 +82,9 @@ test('rig loading stays per class and never draws incomplete or broken parts', (
       }
       assert.ok(c.draws.slice(drawsBefore).every((src) => src.includes(`/${classId}-`)));
     }
-    assert.equal(loaded.length, RANGED_HERO_CLASSES.length * 6);
+    assert.equal(rigParts().length, RANGED_HERO_CLASSES.length * 6);
     assert.equal(drawRangedHeroRig(c, { jobClass: 'ranger' }), true);
-    assert.equal(loaded.length, RANGED_HERO_CLASSES.length * 6, 'already loaded parts are reused');
+    assert.equal(rigParts().length, RANGED_HERO_CLASSES.length * 6, 'already loaded parts are reused');
     const rest = context(), drawn = context(), shot = context();
     drawRangedHeroRig(rest, { jobClass: 'ranger' });
     drawRangedHeroRig(drawn, { jobClass: 'ranger', swingK: 0.5 });

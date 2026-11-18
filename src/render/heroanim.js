@@ -34,6 +34,7 @@
 import { TICK_MS, TILE } from '../config.js';
 import { ITEMS } from '../data/items.js';
 import { itemIconImage } from './icons.js';
+import { drawEmptyArm, hasEmptyArm } from './heroAnimArt.js';
 
 const EASE = {
   lin: (x) => x,
@@ -846,6 +847,8 @@ function watch(game) {
   if (_watched.has(game) || !game.bus?.on) return;
   _watched.add(game);
   game.bus.on('levelup', () => { stateOf(game.player).pending = { id: 'cheer', at: 0 }; });
+  // A boss falling earns the same cheer (and the painted victory face).
+  game.bus.on('sfx', (e) => { if (e === 'bossdie') stateOf(game.player).pending = { id: 'cheer', at: 0 }; });
   game.bus.on('xp', (e) => {
     const p = game.player, st = stateOf(p);
     // Bones buried (or offered) from the pack: there's no action to follow, so
@@ -1055,7 +1058,15 @@ function drawProp(c, id, dir, wrist, upright) {
 /** One stubby mitten arm from a shoulder, at angle phi (0 down, + forward).
  *  With `anim` (the front arm), fishing gear replaces the tool, and a tool's
  *  impact spark is drawn at its head. */
-function mittenArm(c, sx, sy, phi, sleeve, tool, wrist, upright, anim = null) {
+function mittenArm(c, sx, sy, phi, sleeve, tool, wrist, upright, anim = null, jobClass = null) {
+  // The class's painted empty-hand arm when it has one, the tool in its fist.
+  // The tool goes first, so the fist closes over its handle as the mitten does.
+  if (jobClass && hasEmptyArm(jobClass)) {
+    const len = anim ? 10 : 9;
+    toolInHand(c, anim, tool, sx + Math.sin(phi) * len, sy + Math.cos(phi) * len, phi, wrist, upright);
+    drawEmptyArm(c, jobClass, sx, sy, phi, len);
+    return;
+  }
   const L = 8.5;
   const hx = sx + Math.sin(phi) * L, hy = sy + Math.cos(phi) * L;
   c.lineCap = 'round';
@@ -1103,8 +1114,8 @@ export function drawHeroArm(c, anim, side, y = -11) {
   const sleeve = SLEEVE[anim.jobClass] || '#C0392B';
   const prev = c.globalAlpha;
   c.globalAlpha = prev * Math.min(1, a);
-  if (side === 'back') mittenArm(c, -7, y, ch.off, sleeve, null, 0, false);
-  else mittenArm(c, 8, y, ch.hand, sleeve, anim.tool, ch.prop, anim.upright, anim);
+  if (side === 'back') mittenArm(c, -7, y, ch.off, sleeve, null, 0, false, null, anim.jobClass);
+  else mittenArm(c, 8, y, ch.hand, sleeve, anim.tool, ch.prop, anim.upright, anim, anim.jobClass);
   c.globalAlpha = prev;
 }
 
