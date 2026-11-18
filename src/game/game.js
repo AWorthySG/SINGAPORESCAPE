@@ -1447,7 +1447,8 @@ export class Game {
    *  turns: the nearest ready node of the next kind after this one, then any
    *  kind in the round. Failing those, the nearest ready node of the same kind,
    *  or of the same skill you have the level for (another rock, tree or spot),
-   *  all within 30 tiles. With kinds ticked in a skill guide, only those. */
+   *  anywhere in your current region (or within 30 tiles outside one). With
+   *  kinds ticked in a skill guide, only those. */
   _nextGatherNode(objId, exclude = null) {
     const here = this.playerTile();
     const def = this.world.objects.find((o) => o.objId === objId)?.def;
@@ -1459,11 +1460,15 @@ export class Game {
     // nearby rock or tree of the same skill (that sent auto mining to tin when
     // the ticked adamantite and runite rocks were all mined out).
     const picked = this.gatherPicks.size ? this.gatherPicks : null;
+    const zone = this.world.zoneAt(here.x, here.y);
     for (const o of this.world.objects) {
       if (o === exclude || o.depleted) continue;
       if (picked && !picked.has(o.objId)) continue;
       const d = chebyshev(here.x, here.y, o.x, o.y);
-      if (d > 30) continue;
+      // Anywhere in the region you're in (the owner asked for the whole region,
+      // so auto mining walks on to the next cluster of runite by itself), or
+      // within 30 tiles out in the open where there's no region.
+      if (d > 30 && (!zone || this.world.zoneAt(o.x, o.y) !== zone)) continue;
       const lvlOk = !o.def?.skill || (o.def.level || 1) <= this.skills.level(o.def.skill);
       if (next && o.objId === next && lvlOk && d < td) { td = d; turn = o; }
       if (kinds.includes(o.objId) && o.objId !== objId && lvlOk && d < rd) { rd = d; round = o; }

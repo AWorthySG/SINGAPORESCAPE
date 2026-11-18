@@ -7258,3 +7258,35 @@ test('being attacked doesn\'t pull you off a life skill; idle, you still hit bac
   p.action = { type: 'woodcut', obj: tree };
   assert.ok(!g._shouldRetaliate(), 'but not mid-chop');
 });
+
+test('auto gather reaches ticked rocks anywhere in your region, but not in the next region', async () => {
+  const { xpForLevel } = await import('../src/data/xp.js');
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('swordsman');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.skills.xp.mining = xpForLevel(99);
+  const zoneOf = (o) => g.world.zoneAt(o.x, o.y);
+  const runite = g.world.objects.filter((o) => o.objId === 'runite_rock');
+  // A region with a runite rock, and a walkable spot in that region over 30 tiles from every one of them.
+  let found = null;
+  for (const rock of runite) {
+    const z = zoneOf(rock);
+    if (!z) continue;
+    const mine = runite.filter((o) => zoneOf(o) === z);
+    for (let y = z.y0; y <= z.y1 && !found; y += 2) for (let x = z.x0; x <= z.x1 && !found; x += 2) {
+      if (g.world.isBlocked(x, y) || g.world.zoneAt(x, y) !== z) continue;   // regions overlap: the game's own answer
+      if (runite.every((o) => Math.max(Math.abs(o.x - x), Math.abs(o.y - y)) > 30)) found = { x, y, z };   // no runite of any region within 30
+    }
+    if (found) break;
+  }
+  assert.ok(found, 'test setup: a region with runite and a spot over 30 tiles from all of it');
+  g.player.x = g.player.tx = found.x; g.player.y = g.player.ty = found.y;
+  g.toggleGatherPick(['runite_rock']);
+  const next = g._nextGatherNode('runite_rock');
+  assert.ok(next, 'a ticked rock over 30 tiles away is still found');
+  assert.equal(zoneOf(next), found.z, 'and it is in your region');
+  // With every runite rock in this region mined out, it doesn't cross into another region.
+  for (const o of runite) if (zoneOf(o) === found.z) o.depleted = true;
+  const other = g._nextGatherNode('runite_rock');
+  assert.ok(!other || Math.max(Math.abs(other.x - found.x), Math.abs(other.y - found.y)) <= 30, 'nothing past 30 tiles outside your region');
+});
