@@ -275,6 +275,49 @@ test('rigged bosses and species ship every layer they animate', async () => {
   }
 });
 
+test('rig folders hold only the layers the rigs declare', async () => {
+  const { rigIds, rigParts, rigKind } = await import('../src/render/sprites.js');
+  const { readdirSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  for (const dir of ['species', 'bosses']) {
+    const declared = new Set(rigIds().filter((id) => (rigKind(id) === 'species') === (dir === 'species')).flatMap((id) => rigParts(id).map((p) => `${id}_${p}`)));
+    const onDisk = readdirSync(fileURLToPath(new URL(`../assets/creatures/${dir}/rig/`, import.meta.url))).filter((f) => f.endsWith('.webp')).map((f) => f.slice(0, -5));
+    assert.deepEqual(onDisk.filter((f) => !declared.has(f)), [], `${dir}/rig file not used by any rig`);
+  }
+});
+
+test('townsfolk idle parts stay in lock-step with assets/creatures/townsfolk/idle/', async () => {
+  const { townIdleIds, townIdleParts, townArt } = await import('../src/render/sprites.js');
+  const { getNpc } = await import('../src/data/npcs.js');
+  const { readdirSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const onDisk = new Set(readdirSync(fileURLToPath(new URL('../assets/creatures/townsfolk/idle/', import.meta.url))).filter((f) => f.endsWith('.webp')).map((f) => f.slice(0, -5)));
+  const declared = new Set(townIdleIds().flatMap((id) => townIdleParts(id).map((p) => `${id}_${p}`)));
+  assert.ok(townIdleIds().length > 0);
+  assert.deepEqual([...declared].filter((f) => !onDisk.has(f)), [], 'declared idle part has no file');
+  assert.deepEqual([...onDisk].filter((f) => !declared.has(f)), [], 'idle part file not declared');
+  for (const id of townIdleIds()) {
+    assert.ok(getNpc(id) && !getNpc(id).attackable, `${id} is a real townsfolk NPC`);
+    assert.ok(townArt().has(id), `${id} also has its still picture (idle parts are sized against it)`);
+    for (const p of ['body', 'body_blink']) assert.ok(townIdleParts(id).includes(p), `${id} has ${p}`);
+  }
+});
+
+test('creature rigs from the parts sheets have joints on their canvas and a motion for each part', async () => {
+  const { CREATURE_RIGS } = await import('../src/render/creatureRigs.js');
+  assert.ok(Object.keys(CREATURE_RIGS).length > 0);
+  for (const [id, rig] of Object.entries(CREATURE_RIGS)) {
+    assert.ok(rig.fit > 0.3 && rig.fit < 2, `${id} is sized like its still art`);
+    for (const n of rig.order) {
+      const p = rig.parts[n];
+      assert.ok(p.piv.every((v) => v >= -0.05 && v <= 1.05), `${id} ${n} joint on the canvas`);
+      if (p.alt) assert.ok(rig.files.includes(p.alt), `${id} ${n} alternate ships`);
+      const a = p.swing ? p.swing(1234, { moving: true, attackK: 0.5, castK: 0.4 }) : 0;
+      assert.ok(Number.isFinite(a) && Math.abs(a) < 1.6, `${id} ${n} swings sensibly`);
+    }
+  }
+});
+
 test('every monster body type has an automatic animation style', async () => {
   const { puppetKinds } = await import('../src/render/sprites.js');
   const { NPCS } = await import('../src/data/npcs.js');

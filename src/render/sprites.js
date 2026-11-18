@@ -817,10 +817,12 @@ function townFrame(id, d, imgs, h, blink, arm, ang) {
   if (!a) return null;
   a.translate(rim, rim); a.scale(q, q);
   a.drawImage(imgs[blink ? 'body_blink' : 'body'], 0, 0, d.W, d.H);
-  const [px, py] = d.piv[arm];
-  a.save(); a.translate(px * d.W, py * d.H); a.rotate(ang); a.translate(-px * d.W, -py * d.H);
-  a.drawImage(imgs[arm], 0, 0, d.W, d.H);
-  a.restore();
+  if (arm) {   // some townsfolk hold everything in their body picture and have no loose arm
+    const [px, py] = d.piv[arm];
+    a.save(); a.translate(px * d.W, py * d.H); a.rotate(ang); a.translate(-px * d.W, -py * d.H);
+    a.drawImage(imgs[arm], 0, 0, d.W, d.H);
+    a.restore();
+  }
   // White rim: the silhouette stamped in a ring under the art.
   const white = document.createElement('canvas'); white.width = W; white.height = H;
   const wg = white.getContext('2d');
@@ -838,15 +840,18 @@ function drawTownIdle(c, id, imgs, h, t, seed) {
   const d = TOWN_IDLE[id];
   const ph = Math.abs(seed * 37) % 10000;   // each townsperson on their own rhythm
   const blink = (t + ph) % 4300 < 150;
-  // Every so often a friendly wave; otherwise the arm hangs, stirring a little.
-  const w = ((t + ph * 1.3) % 12000) / 1800;
-  const waving = w < 1 && d.piv.arm_wave;
-  const ang = waving ? Math.round(Math.sin(w * Math.PI * 4) * Math.sin(w * Math.PI) * 0.24 / 0.04) * 0.04
+  // Every so often a friendly wave (or, without a loose arm, a little nod of
+  // the whole body); otherwise the arm hangs, stirring a little.
+  const w = ((t + ph * 1.3) % 12000) / 1800, greet = w < 1 ? Math.sin(w * Math.PI) : 0;
+  const waving = greet > 0 && d.piv.arm_wave;
+  const ang = waving ? Math.round(Math.sin(w * Math.PI * 4) * greet * 0.24 / 0.04) * 0.04
     : Math.round(Math.sin(t * 0.0021 + ph) * 0.05 / 0.025) * 0.025;
-  const f = townFrame(id, d, imgs, Math.round(h * 4) / 4, blink, waving ? 'arm_wave' : 'arm', ang);
+  const arm = waving ? 'arm_wave' : d.piv.arm ? 'arm' : null;
+  const f = townFrame(id, d, imgs, Math.round(h * 4) / 4, blink, arm, arm ? ang : 0);
   if (!f) return false;
   const b = Math.sin(t * 0.0026 + ph) * 0.012;   // breathing
-  c.save(); c.translate(0, TOWN_ART_FEET); c.scale(1 - b * 0.5, 1 + b); c.translate(0, -TOWN_ART_FEET);
+  const nod = d.piv.arm_wave ? 0 : Math.sin(w * Math.PI * 2) * greet * 0.05;
+  c.save(); c.translate(0, TOWN_ART_FEET); c.rotate(nod); c.scale(1 - b * 0.5, 1 + b); c.translate(0, -TOWN_ART_FEET);
   c.drawImage(f.img, f.x, f.y, f.w, f.h);
   c.restore();
   return true;
