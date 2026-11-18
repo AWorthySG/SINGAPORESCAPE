@@ -3,6 +3,7 @@ import { SAVE_KEY } from '../config.js';
 import { STATION_BY_ID } from '../data/transport.js';
 import { inArena } from './waves.js';
 import { loadCulling } from './culling.js';
+import { ensureHunterSnare } from './onboarding.js';
 
 const VERSION = 1;
 // An unreadable save is copied here before a new game replaces it, so a bug or
@@ -83,6 +84,8 @@ export function snapshot(game) {
     jobClass: game.jobClass,
     potions: game.potions,
     farms: game.world.objects.filter((o) => o.def.type === 'farm' && o.crop).map((o) => ({ x: o.x, y: o.y, crop: o.crop, left: o.growLeft })),
+    home: game.home?.serialize(),   // the kampong home (home.js)
+    snareGiven: !!game.snareGiven,  // the one-off Hunter snare for older saves (onboarding.js)
   };
 }
 
@@ -345,6 +348,8 @@ function loadFields(game, data) {
   if (data.potions && typeof data.potions === 'object') {
     for (const [id, ms] of Object.entries(data.potions)) if (POTIONS[id] && ms > 0) game.potions[id] = Math.min(ms, POTIONS[id].ms || 0);
   }
+  // The kampong home goes up before the crops are put back: some of them grow in its patches.
+  game.home?.load(data.home);
   if (Array.isArray(data.farms)) {
     for (const f of data.farms) {
       const o = game.world.objectAt(f.x, f.y);
@@ -390,4 +395,7 @@ function loadFields(game, data) {
       dodge: ac.dodge !== false,   // older saves: auto dodge stays on
     };
   }
+  // Hunter onboarding: a snare for characters that never got one, once per save.
+  game.snareGiven = data.snareGiven === true;
+  ensureHunterSnare(game);
 }

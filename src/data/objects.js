@@ -741,6 +741,15 @@ export const OBJECTS = {
   palm: { name: 'Palm tree', type: 'scenery', emoji: '🌴', blocking: true, examine: 'A tall palm.' },
   lamp: { name: 'Lamp post', type: 'scenery', emoji: '🏮', blocking: true, examine: 'It lights the path.' },
   sign: { name: 'Signpost', type: 'scenery', emoji: '🪧', blocking: false, examine: 'Welcome to Kampong Glam!' },
+
+  // ---------------- Kampong home (home.js) ----------------
+  // Borrowed pictures until their own art arrives; `homeTab` is the panel each opens.
+  home_plot: { name: 'Kampong plot', label: 'Home', type: 'home', homeTab: 'plot', verb: 'Visit', emoji: '🏡', blocking: false, art: 'obj-sign',
+    tint: 'sepia(0.5) saturate(1.6) hue-rotate(-10deg)', examine: 'A plot of land in Kranji. Buy it and make it your kampong home.' },
+  home_chest: { name: 'Storage chest', label: 'Chest', type: 'home', homeTab: 'chest', verb: 'Open', emoji: '🧰', blocking: true, art: 'obj-bank_booth',
+    tint: 'sepia(0.7) saturate(1.4) brightness(0.95)', examine: 'Your own storage chest. Only you have the key.' },
+  home_trophy: { name: 'Trophy wall', label: 'Trophies', type: 'home', homeTab: 'trophy', verb: 'Admire', emoji: '🏆', blocking: true, art: 'obj-shrine',
+    tint: 'sepia(0.8) saturate(2.2) hue-rotate(-12deg) brightness(1.08)', examine: 'Your boss kills and rare finds, on show.' },
 };
 
 // Hunter traps and trails (definitions in trades.js).
