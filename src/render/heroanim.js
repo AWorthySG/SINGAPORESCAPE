@@ -26,12 +26,15 @@
 // reach2 for the off hand's own lunge (dual wielding, the claws' second paw);
 // draw, release, charge, cast, kick2 for the bow, gun and staff rigs. trail
 // and trail2 sweep 0..1; impact pulses 0..1 as a blow lands (the spark).
+// arc/arc2 walk the painted attack arms through their pictures, whip/whip2
+// turn them past (overshoot, a gun's kick), smear/smear2 are the weapon tip's
+// smear, spin turns the whole body round (the Dancer), flash is a muzzle flash.
 //
 // To add a clip: write its tracks in CLIPS (or with one of the factories for
 // a weapon family), then map an action in actionClipId or a weapon type in
 // WEAPON_CLIP. tests/hero-anim.test.mjs checks every action and weapon type
 // has a clip and that every clip draws.
-import { TICK_MS, TILE } from '../config.js';
+import { TICK_MS, TILE, COMBAT_BEAT_MS } from '../config.js';
 import { ITEMS } from '../data/items.js';
 import { itemIconImage } from './icons.js';
 import { drawEmptyArm, hasEmptyArm } from './heroAnimArt.js';
@@ -43,10 +46,13 @@ const EASE = {
   io: (x) => x * x * (3 - 2 * x),
   snap: (x) => 1 - (1 - x) ** 4,
   back: (x) => { const c = 1.7, y = x - 1; return 1 + (c + 1) * y * y * y + c * y * y; },
+  // Hold the last value and jump on the key (the painted arm back at rest).
+  step: (x) => (x < 1 ? 0 : 1),
 };
 
 export const HERO_CHANNELS = ['bx', 'by', 'lean', 'squash', 'crouch', 'liftF', 'liftB', 'hand', 'off', 'prop',
-  'sword', 'back', 'strike', 'reach', 'strike2', 'reach2', 'draw', 'release', 'charge', 'cast', 'kick2', 'trail', 'trail2', 'impact', 'bend'];
+  'sword', 'back', 'strike', 'reach', 'strike2', 'reach2', 'draw', 'release', 'charge', 'cast', 'kick2', 'trail', 'trail2', 'impact', 'bend',
+  'arc', 'arc2', 'whip', 'whip2', 'smear', 'smear2', 'spin', 'flash'];
 
 /** Value of one channel's keys at time u (0..1). */
 function sampleTrack(keys, u) {
@@ -399,287 +405,346 @@ const CLIPS = {
 };
 
 // ---------------- Combat clips, one per weapon family ----------------
-// Each runs over one attack (the swing progress 0..1; a swing lasts 120-300ms),
-// starts and ends at the class's rest pose, and acts out anticipation (a coil
-// back), the strike (a 'snap' key), a short impact hold (a frame or two with
-// the weapon parked where it lands, so the blow reads; the game's own hit-stop
-// freezes the whole swing on a crit on top of this), follow-through and a
-// settle back to rest. Factories keep families consistent; their numbers are
-// the knobs: weight shows as a longer wind-up, a later strike and a longer hold.
+// Each runs over one attack and starts and ends at the class's rest pose. A
+// blow is timed like a hand-drawn one rather than evenly: the coil comes
+// quickly and is then held and crept on (the anticipation, about 35-45% of the
+// clip), the strike itself takes a frame or two (w -> h), the blow lands at h
+// with a short hold and a little recoil, the arm overshoots past its
+// follow-through, and everything eases back to guard. Factories keep families
+// consistent; their numbers are the knobs: weight shows as a longer wind-up,
+// a later strike, a bigger overshoot and more body in it.
+//
+// `arc` (and `arc2` for the off hand) walks the painted attack arms
+// (heroAnimArt.js) through their pictures: 0 rest, 1 wind-up, 2 mid-swing,
+// 3 follow-through, 4 back at guard (it drops straight to 0 after, with a
+// 'step' key, so it never plays the swing backwards). Between whole numbers
+// the arm is turned about its shoulder toward the next picture, so the weapon
+// travels a smooth arc rather than snapping. `whip` (rad) is the overshoot
+// and kick on top; `smear` the strength of the weapon tip's smear.
+// `hits` lists when each blow lands (0..1), in the order the game deals them
+// (main hand, then off hand): the renderer holds the hitsplats, sparks and the
+// hit-stop back to these moments (strikeClock). `shot` marks ranged and magic
+// clips, whose projectiles carry their own timing: those are not held back.
 const T = (keys) => keys;
 /** A pulse 0 -> 1 -> 0 landing at `at` (the impact spark, a muzzle flash). */
 const pulse = (at, hold = 0.06, fade = 0.1) => [[0, 0], [at - 0.015, 0, 'lin'], [at, 1, 'snap'], [at + hold, 1], [at + hold + fade, 0], [1, 0]];
+/** One painted arm's walk through its pictures for a blow: most of the coil
+ *  by c, held and crept on to w, a constant-speed strike to h, held through
+ *  f, back to guard by r, then (a step) at rest. */
+const arcKeys = (c, w, h, f, r) => [[c, 0.85, 'out'], [w, 1, 'io'], [h, 3, 'lin'], [f, 3, 'lin'], [r - 0.004, 4, 'io'], [r, 0, 'step']];
 /** A swung blade or axe: coil back to w, cut through by h, hold, follow through. */
-function swingClip({ w, h, wind, swing, reach = 3, lunge = 6, hop = 3, arc, back = 0.35, hold = 0.06, over = 0.12 }) {
-  const f = Math.min(0.9, h + hold + 0.14);   // the follow-through peak
-  return { trail: arc, tracks: {
-    sword: T([[0, 0], [w * 0.4, -wind * 0.3, 'out'], [w, -wind], [h, swing, 'snap'], [h + hold, swing * 0.98, 'lin'], [f, swing * (1 + over), 'out'], [1, 0]]),
-    back: T([[0, 0], [w, -0.2], [h, back, 'snap'], [f, back * 0.8], [1, 0]]),
-    strike: T([[0, 0], [h - 0.07, 0, 'lin'], [h - 0.02, 1], [f, 1], [Math.min(0.97, f + 0.08), 0], [1, 0]]),
-    reach: T([[0, 0], [w, -1.5], [h, reach, 'snap'], [h + hold, reach], [f, reach * 0.7], [1, 0]]),
-    bx: T([[0, 0], [w, -3], [h, lunge, 'snap'], [h + hold, lunge], [1, 0]]),
-    by: T([[0, 0], [h - 0.08, 0], [h, -hop, 'out'], [Math.min(0.97, h + 0.14), 0, 'in'], [1, 0]]),
-    crouch: T([[0, 0], [w, 1.5], [h, -0.5, 'snap'], [f, 0.5], [1, 0]]),
-    lean: T([[0, 0], [w, -0.18], [h, 0.22, 'snap'], [h + hold, 0.22], [1, 0]]),
-    squash: T([[0, 0], [w, 0.07], [h, -0.08, 'snap'], [Math.min(0.97, h + 0.25), 0], [1, 0]]),
-    liftB: T([[0, 0], [w, 0], [h, 2, 'snap'], [f, 0], [1, 0]]),
+function swingClip({ w, h, wind, swing, reach = 3, lunge = 6, hop = 3, arc, back = 0.35, hold = 0.06, over = 0.16, twist = 0, spin = 0 }) {
+  const c = w * 0.55, f = h + hold, o = f + 0.1, r = Math.min(0.95, o + 0.22);
+  const tracks = {
+    arc: T([[0, 0], ...arcKeys(c, w, h, f, r), [1, 0]]),
+    whip: T([[0, 0], [f, 0, 'lin'], [o, over, 'out'], [r - 0.02, 0, 'io'], [1, 0]]),
+    smear: T([[0, 0], [w, 0, 'lin'], [h, 1, 'in'], [f + 0.03, 0.55], [o + 0.04, 0], [1, 0]]),
+    sword: T([[0, 0], [c, -wind * 0.85, 'out'], [w, -wind, 'io'], [h, swing, 'in'], [f, swing * 0.98, 'lin'], [o, swing * (1 + over), 'out'], [1, 0, 'io']]),
+    back: T([[0, 0], [w, -0.2], [h, back, 'in'], [o, back * 0.8], [1, 0, 'io']]),
+    strike: T([[0, 0], [h - 0.04, 0, 'lin'], [h - 0.015, 1], [o, 1], [Math.min(0.97, o + 0.1), 0], [1, 0]]),
+    reach: T([[0, 0], [w, -1.5], [h, reach, 'in'], [f, reach], [o, reach * 0.7], [1, 0, 'io']]),
+    // The lunge: back onto the heels, drive in, a little bounce off the target.
+    bx: T([[0, 0], [c, -2.5, 'out'], [w, -3, 'io'], [h, lunge, 'in'], [h + 0.035, lunge - 1.3, 'out'], [f + 0.05, lunge - 0.5, 'io'], [1, 0, 'io']]),
+    by: T([[0, 0], [w, 0], [h, -hop, 'out'], [Math.min(0.97, h + 0.14), 0, 'in'], [1, 0]]),
+    crouch: T([[0, 0], [c, 1.6, 'out'], [w, 2, 'io'], [h, -0.5, 'in'], [o, 0.8], [1, 0, 'io']]),
+    lean: T([[0, 0], [c, -0.15, 'out'], [w, -0.19, 'io'], [h, 0.22, 'in'], [f, 0.22], [o, 0.26 + twist], [1, 0, 'io']]),
+    // Stretch into the strike, squash as it lands.
+    squash: T([[0, 0], [c, 0.06], [w, 0.08], [h - 0.02, -0.1, 'in'], [h + 0.03, 0.08, 'snap'], [h + 0.18, 0], [1, 0]]),
+    // The front foot steps in and plants on the blow; the back heel pushes off.
+    liftF: T([[0, 0], [w, 0], [h - 0.035, 2.5, 'out'], [h, 0, 'in'], [1, 0]]),
+    liftB: T([[0, 0], [h, 0], [h + 0.05, 1.5, 'snap'], [o + 0.08, 0], [1, 0]]),
     impact: T(pulse(h, hold)),
-    trail: T([[0, 0], [h - 0.12, 0, 'lin'], [Math.min(0.97, h + 0.12), 1, 'out'], [1, 1]]),
-  } };
+    trail: T([[0, 0], [w, 0, 'lin'], [h + 0.02, 0.8, 'in'], [o + 0.05, 1, 'out'], [1, 1]]),
+  };
+  // The Dancer turns a full circle on the wind-up, coming round into the crack.
+  if (spin) tracks.spin = T([[0, 0], [0.05, 0, 'lin'], [w - 0.02, 1, 'io'], [w - 0.019, 0, 'step'], [1, 0]]);
+  return { trail: arc, hits: [h], tracks };
 }
-/** A heavy overhead blow: a slow lift onto the toes, a hop, and a slam that
- *  squashes the body on landing, parks the head in the ground and kicks up dust. */
+/** A heavy overhead blow: a dip, then a slow lift onto the toes, held, a slam
+ *  that squashes the body on landing and turns it through, dust kicked up. */
 function smashClip({ w, h, wind, swing, reach = 2, hold = 0.08 }) {
-  return { trail: { kind: 'arc', cx: 10, cy: -14, r: 27, a0: -2.7, a1: 0.9 }, dust: true, tracks: {
-    sword: T([[0, 0], [w * 0.5, -wind * 0.6, 'io'], [w, -wind], [w + 0.05, -wind - 0.1, 'out'], [h, swing, 'snap'], [h + hold, swing * 1.02, 'lin'], [h + hold + 0.08, swing * 0.92], [1, 0]]),
-    back: T([[0, 0], [w, -0.3], [h, 0.35, 'snap'], [1, 0]]),
-    strike: T([[0, 0], [h - 0.06, 0, 'lin'], [h - 0.01, 1], [h + hold + 0.1, 1], [0.92, 0], [1, 0]]),
-    reach: T([[0, 0], [h, reach, 'snap'], [h + hold, reach], [0.9, 0], [1, 0]]),
-    by: T([[0, 0], [w, -4, 'out'], [h, 0, 'in'], [1, 0]]),
-    crouch: T([[0, 0], [w * 0.5, 1], [w, -1.5], [h, 3, 'snap'], [h + hold + 0.1, 2.5], [1, 0]]),
-    squash: T([[0, 0], [w * 0.4, 0.05], [w, -0.06], [h + 0.02, 0.14, 'snap'], [h + hold + 0.1, 0.02], [1, 0]]),
-    lean: T([[0, 0], [w, -0.22], [h, 0.26, 'snap'], [h + hold, 0.26], [1, 0]]),
-    bx: T([[0, 0], [w, -2], [h, 5, 'snap'], [h + hold, 5], [1, 0]]),
-    liftF: T([[0, 0], [w, 2], [h, 0, 'in'], [1, 0]]),
+  const c = w * 0.5, f = h + hold, o = f + 0.1, r = Math.min(0.95, o + 0.24);
+  return { trail: { kind: 'arc', cx: 10, cy: -14, r: 27, a0: -2.7, a1: 0.9, spark: [44, 4] }, dust: true, hits: [h], tracks: {
+    arc: T([[0, 0], ...arcKeys(c, w, h, f, r), [1, 0]]),
+    whip: T([[0, 0], [f, 0, 'lin'], [o, 0.22, 'out'], [r - 0.02, 0, 'io'], [1, 0]]),
+    smear: T([[0, 0], [w, 0, 'lin'], [h, 1, 'in'], [f + 0.04, 0.6], [o + 0.06, 0], [1, 0]]),
+    sword: T([[0, 0], [c, -wind * 0.8, 'out'], [w, -wind - 0.1, 'io'], [h, swing, 'in'], [f, swing * 1.02, 'lin'], [o, swing * 0.92], [1, 0, 'io']]),
+    back: T([[0, 0], [w, -0.3], [h, 0.35, 'in'], [1, 0, 'io']]),
+    strike: T([[0, 0], [h - 0.04, 0, 'lin'], [h - 0.01, 1], [o + 0.05, 1], [0.92, 0], [1, 0]]),
+    reach: T([[0, 0], [h, reach, 'in'], [f, reach], [0.9, 0], [1, 0]]),
+    by: T([[0, 0], [c, -2.5, 'out'], [w, -4, 'io'], [h, 0, 'in'], [1, 0]]),
+    crouch: T([[0, 0], [c * 0.5, 1.2], [w, -1.5, 'io'], [h, 3.2, 'in'], [f + 0.1, 2.5], [1, 0, 'io']]),
+    squash: T([[0, 0], [c * 0.5, 0.06], [w, -0.07], [h - 0.01, -0.08, 'in'], [h + 0.02, 0.16, 'snap'], [f + 0.1, 0.02], [1, 0]]),
+    // The whole body turns through the blow and past it.
+    lean: T([[0, 0], [c, -0.2, 'out'], [w, -0.26, 'io'], [h, 0.3, 'in'], [f, 0.3], [o, 0.36, 'out'], [1, 0, 'io']]),
+    bx: T([[0, 0], [c, -1.5], [w, -2.5], [h, 5, 'in'], [h + 0.035, 3.8, 'out'], [f + 0.05, 4.4], [1, 0, 'io']]),
+    liftF: T([[0, 0], [c, 1], [w, 2.5], [h, 0, 'in'], [1, 0]]),
     impact: T(pulse(h, hold, 0.14)),
-    trail: T([[0, 0], [h - 0.1, 0, 'lin'], [h + 0.06, 1, 'out'], [1, 1]]),
+    trail: T([[0, 0], [w, 0, 'lin'], [h, 0.75, 'in'], [h + 0.08, 1, 'out'], [1, 1]]),
   } };
 }
-/** A straight jab: draw back, drive the point out along the ground, no arc at all. */
-function thrustClip({ draw = 0.28, hit = 0.48, reach = 13, pull = 4, hold = 0.07 }) {
-  return { trail: { kind: 'line', x0: 16, x1: 56, y: -10 }, tracks: {
+/** A straight jab: draw back and hold, then drive the point out along the
+ *  ground with a lunge, no arc at all (the arm barely turns: tween 0.25).
+ *  The spear is lowered from its upright guard into the aim (guardIn) rather
+ *  than flicking from upright to level in a frame. */
+function thrustClip({ draw = 0.38, hit = 0.47, reach = 13, pull = 4, hold = 0.07 }) {
+  const f = hit + hold, r = Math.min(0.95, f + 0.3);
+  return { trail: { kind: 'line', x0: 24, x1: 58, y: -5 }, tween: 0.25, guardIn: true, hits: [hit], tracks: {
+    arc: T([[0, 0], [0.2, 1, 'io'], [draw, 1], [hit, 3, 'lin'], [f, 3], [r - 0.004, 4, 'io'], [r, 0, 'step'], [1, 0]]),
     strike: T([[0, 0], [0.1, 1], [0.82, 1], [1, 0]]),
-    reach: T([[0, 0], [draw, -pull], [hit, reach, 'snap'], [hit + hold, reach], [hit + hold + 0.12, reach * 0.8], [1, 0]]),
-    back: T([[0, 0], [draw, -0.15], [hit, 0.3, 'snap'], [1, 0]]),
-    bx: T([[0, 0], [draw, -2.5], [hit, 7, 'snap'], [hit + hold, 7], [1, 0]]),
-    lean: T([[0, 0], [draw, -0.1], [hit, 0.14, 'snap'], [hit + hold, 0.14], [1, 0]]),
-    crouch: T([[0, 0], [draw, 1.5], [hit, 1, 'snap'], [1, 0]]),
-    squash: T([[0, 0], [draw, 0.05], [hit, -0.06, 'snap'], [0.8, 0], [1, 0]]),
-    liftB: T([[0, 0], [draw, 0], [hit, 2.5, 'snap'], [hit + 0.2, 0], [1, 0]]),
+    reach: T([[0, 0], [0.12, -1], [draw, -pull, 'io'], [hit, reach, 'in'], [f, reach], [f + 0.1, reach * 0.8], [1, 0, 'io']]),
+    back: T([[0, 0], [draw, -0.15], [hit, 0.3, 'in'], [1, 0, 'io']]),
+    bx: T([[0, 0], [draw, -2.5, 'io'], [hit, 8, 'in'], [hit + 0.035, 6.8, 'out'], [f + 0.05, 7.2], [1, 0, 'io']]),
+    lean: T([[0, 0], [draw, -0.1, 'io'], [hit, 0.16, 'in'], [f, 0.14], [1, 0, 'io']]),
+    crouch: T([[0, 0], [draw, 1.8, 'io'], [hit, 1.2, 'in'], [1, 0, 'io']]),
+    squash: T([[0, 0], [draw, 0.06], [hit - 0.01, -0.08, 'in'], [hit + 0.03, 0.05, 'snap'], [0.8, 0], [1, 0]]),
+    liftF: T([[0, 0], [draw, 0], [hit - 0.03, 2.5, 'out'], [hit, 0, 'in'], [1, 0]]),
+    liftB: T([[0, 0], [hit, 0], [hit + 0.05, 1.5, 'snap'], [hit + 0.25, 0], [1, 0]]),
     impact: T(pulse(hit, hold)),
     trail: T([[0, 0], [hit - 0.1, 0, 'lin'], [hit + 0.14, 1, 'out'], [1, 1]]),
   } };
 }
-/** A bow: the back hand draws to full and holds the aim, looses with a snap,
- *  and the body is kicked back. */
+/** A bow: the back hand draws to full and holds the aim, looses with a snap
+ *  (the bow arm shivers with the string), and the body is kicked back. */
 function bowClip({ full, loose }) {
-  return { tracks: {
-    draw: T([[0, 0], [full * 0.25, 0.15, 'in'], [full, 1, 'out'], [loose - 0.01, 1], [loose + 0.04, 0, 'snap'], [1, 0]]),
-    release: T([[0, 0], [loose - 0.01, 0, 'lin'], [loose + 0.04, 1, 'snap'], [loose + 0.3, 0], [1, 0]]),
-    lean: T([[0, 0], [full, -0.08], [loose + 0.04, -0.18, 'snap'], [1, 0]]),
-    bx: T([[0, 0], [full, -1], [loose, -1], [loose + 0.04, -3.5, 'snap'], [1, 0]]),
-    crouch: T([[0, 0], [full, 1], [loose, 1], [loose + 0.1, 0], [1, 0]]),
-    squash: T([[0, 0], [full, 0.03], [loose + 0.04, -0.05, 'snap'], [0.85, 0], [1, 0]]),
+  return { shot: true, tween: 0.15, hits: [loose], tracks: {
+    arc: T([[0, 0], [0.05, 0.6, 'lin'], [full * 0.5, 1, 'out'], [full, 2, 'io'], [loose, 2], [loose + 0.02, 3, 'snap'], [loose + 0.2, 3], [0.9, 4, 'io'], [0.902, 0, 'step'], [1, 0]]),
+    draw: T([[0, 0], [0.08, 0.1, 'in'], [full, 1, 'out'], [loose - 0.005, 1], [loose + 0.02, 0, 'snap'], [1, 0]]),
+    release: T([[0, 0], [loose - 0.005, 0, 'lin'], [loose + 0.02, 1, 'snap'], [loose + 0.3, 0], [1, 0]]),
+    // The string snap: a quick decaying shiver of the bow arm.
+    whip: T([[0, 0], [loose, 0, 'lin'], [loose + 0.03, -0.12, 'snap'], [loose + 0.07, 0.08], [loose + 0.11, -0.05], [loose + 0.16, 0.02], [loose + 0.22, 0], [1, 0]]),
+    lean: T([[0, 0], [full, -0.08, 'io'], [loose, -0.08], [loose + 0.03, -0.2, 'snap'], [1, 0, 'io']]),
+    bx: T([[0, 0], [full, -1], [loose, -1], [loose + 0.03, -3.5, 'snap'], [1, 0, 'io']]),
+    crouch: T([[0, 0], [full, 1.2], [loose, 1.2], [loose + 0.12, 0], [1, 0]]),
+    squash: T([[0, 0], [full, 0.03], [loose + 0.03, -0.05, 'snap'], [0.85, 0], [1, 0]]),
   } };
 }
-/** A thrown star or ring: wind back, whip the arm through, let go, follow through. */
-function throwClip({ w = 0.3, h = 0.45, wide = false }) {
-  return { trail: { kind: 'line', x0: 18, x1: 46, y: -14 }, tracks: {
-    sword: T([[0, 0], [w, wide ? -1.2 : -1.0], [h, 1.2, 'snap'], [h + 0.05, 1.25], [1, 0]]),
-    back: T([[0, 0], [w, 0.5], [h, wide ? -0.7 : -0.4, 'snap'], [1, 0]]),
-    strike: T([[0, 0], [h - 0.07, 0, 'lin'], [h - 0.02, 1], [h + 0.15, 1], [h + 0.3, 0], [1, 0]]),
-    reach: T([[0, 0], [w, -1], [h, 5, 'snap'], [h + 0.05, 5], [h + 0.35, 0], [1, 0]]),
-    draw: T([[0, 0], [w, 1], [h, 0, 'snap'], [1, 0]]),
+/** A thrown star or ring: wind back and hold, whip the arm through, let go, follow through. */
+function throwClip({ w = 0.38, h = 0.46, wide = false }) {
+  const f = h + 0.05, r = Math.min(0.95, f + 0.3);
+  return { shot: true, hits: [h], trail: { kind: 'line', x0: 18, x1: 46, y: -14 }, tracks: {
+    arc: T([[0, 0], ...arcKeys(w * 0.55, w, h, f, r), [1, 0]]),
+    whip: T([[0, 0], [f, 0, 'lin'], [f + 0.1, 0.2, 'out'], [r - 0.02, 0, 'io'], [1, 0]]),
+    smear: T([[0, 0], [w, 0, 'lin'], [h, 1, 'in'], [h + 0.15, 0], [1, 0]]),
+    sword: T([[0, 0], [w * 0.55, wide ? -1.0 : -0.85, 'out'], [w, wide ? -1.2 : -1.0, 'io'], [h, 1.2, 'in'], [f, 1.25], [1, 0, 'io']]),
+    back: T([[0, 0], [w, 0.5, 'io'], [h, wide ? -0.7 : -0.4, 'in'], [1, 0, 'io']]),
+    strike: T([[0, 0], [h - 0.04, 0, 'lin'], [h - 0.015, 1], [h + 0.15, 1], [h + 0.3, 0], [1, 0]]),
+    reach: T([[0, 0], [w, -1], [h, 5, 'in'], [f, 5], [h + 0.35, 0], [1, 0]]),
+    draw: T([[0, 0], [w, 1, 'io'], [h, 0, 'in'], [1, 0]]),
     release: T([[0, 0], [h - 0.04, 0, 'lin'], [h, 1, 'snap'], [h + 0.4, 0], [1, 0]]),
-    lean: T([[0, 0], [w, -0.16], [h, 0.2, 'snap'], [h + 0.05, 0.2], [1, 0]]),
-    bx: T([[0, 0], [w, -2.5], [h, 3.5, 'snap'], [1, 0]]),
-    crouch: T([[0, 0], [w, 1], [h, -0.5, 'snap'], [1, 0]]),
-    liftF: T([[0, 0], [w, 2.5], [h, 0, 'in'], [1, 0]]),
+    lean: T([[0, 0], [w, -0.16, 'io'], [h, 0.2, 'in'], [f, 0.2], [1, 0, 'io']]),
+    bx: T([[0, 0], [w, -2.5, 'io'], [h, 3.5, 'in'], [1, 0, 'io']]),
+    crouch: T([[0, 0], [w, 1, 'io'], [h, -0.5, 'in'], [1, 0, 'io']]),
+    squash: T([[0, 0], [w, 0.06], [h - 0.01, -0.07, 'in'], [h + 0.03, 0.05, 'snap'], [h + 0.2, 0], [1, 0]]),
+    liftF: T([[0, 0], [w * 0.6, 2.5], [h, 0, 'in'], [1, 0]]),
     liftB: T([[0, 0], [h, 0], [h + 0.06, 2, 'snap'], [h + 0.25, 0], [1, 0]]),
     trail: T([[0, 0], [h - 0.06, 0, 'lin'], [h + 0.12, 1, 'out'], [1, 1]]),
   } };
 }
-/** A spell: gather (charge, rising a little), fling (cast), settle. */
+/** A spell: gather (charge, rising a little) and hold it, then thrust the
+ *  staff or wand forward (cast) with an overshoot, and settle. */
 function castClip({ gather, fling, rise = 8, settle = 1 }) {
-  return { tracks: {
-    charge: T([[0, 0], [gather, 1], [fling + 0.02, 1], [Math.min(0.98, fling + 0.25), 0], [1, 0]]),
-    cast: T([[0, 0], [gather, 0, 'lin'], [fling, 1, 'back'], [Math.min(0.99, fling + 0.25 * settle), 0], [1, 0]]),
+  const end = Math.min(0.98, fling + 0.25 * settle);
+  return { shot: true, hits: [fling], tracks: {
+    arc: T([[0, 0], [gather * 0.6, 1, 'out'], [gather, 2, 'io'], [fling, 3, 'in'], [fling + 0.12, 3], [Math.min(0.95, end + 0.04), 4, 'io'], [Math.min(0.952, end + 0.042), 0, 'step'], [1, 0]]),
+    whip: T([[0, 0], [fling, 0, 'lin'], [fling + 0.08, 0.25, 'out'], [Math.min(0.95, fling + 0.3), 0, 'io'], [1, 0]]),
+    smear: T([[0, 0], [gather, 0, 'lin'], [fling, 1, 'in'], [Math.min(0.95, fling + 0.2), 0], [1, 0]]),
+    charge: T([[0, 0], [gather * 0.6, 0.85, 'out'], [gather, 1, 'io'], [fling + 0.02, 1], [Math.min(0.98, fling + 0.25), 0], [1, 0]]),
+    cast: T([[0, 0], [gather, 0, 'lin'], [fling, 1, 'in'], [end, 0], [1, 0]]),
     by: T([[0, 0], [gather, -rise, 'out'], [fling, -rise], [1, 0, 'in']]),
-    bx: T([[0, 0], [gather, -1], [fling, 5, 'snap'], [1, 0]]),
-    lean: T([[0, 0], [gather, -0.06], [fling, 0.16, 'snap'], [1, 0]]),
-    squash: T([[0, 0], [gather, -0.05], [fling, -0.08, 'snap'], [0.9, 0], [1, 0]]),
-    sword: T([[0, 0], [gather, -0.35], [fling, 0.6, 'snap'], [1, 0]]),
+    bx: T([[0, 0], [gather, -1.2, 'io'], [fling, 5, 'in'], [fling + 0.035, 4, 'out'], [1, 0, 'io']]),
+    lean: T([[0, 0], [gather, -0.08, 'io'], [fling, 0.18, 'in'], [1, 0, 'io']]),
+    squash: T([[0, 0], [gather, -0.05], [fling - 0.01, -0.08, 'in'], [fling + 0.03, 0.04, 'snap'], [0.9, 0], [1, 0]]),
+    sword: T([[0, 0], [gather, -0.35, 'io'], [fling, 0.6, 'in'], [fling + 0.08, 0.7, 'out'], [1, 0, 'io']]),
     strike: T([[0, 0], [fling - 0.06, 0, 'lin'], [fling, 1], [fling + 0.12, 1], [Math.min(0.98, fling + 0.3), 0], [1, 0]]),
   } };
 }
+/** A gun: up and level (the aim, held), one shot with a kick of the arm and
+ *  the body, a muzzle flash on the shot frame, and back down. */
+function gunTracks(up, aim, shot, { kick = 0.3, push = 3.5, lean = 0.14, hold = 0.2 } = {}) {
+  const r = Math.min(0.93, shot + hold + 0.2);
+  return {
+    arc: T([[0, 0], [up, 1, 'out'], [aim, 2, 'io'], [shot - 0.005, 2], [shot + 0.01, 3, 'snap'], [shot + hold, 3], [r, 4, 'io'], [r + 0.002, 0, 'step'], [1, 0]]),
+    whip: T([[0, 0], [shot, 0, 'lin'], [shot + 0.02, -kick, 'snap'], [shot + hold, 0, 'io'], [1, 0]]),
+    flash: T([[0, 0], [shot - 0.005, 0, 'lin'], [shot, 1, 'snap'], [shot + 0.05, 0.7], [shot + 0.12, 0], [1, 0]]),
+    bx: T([[0, 0], [shot, 0], [shot + 0.03, -push, 'snap'], [shot + hold + 0.1, 0, 'io'], [1, 0]]),
+    lean: T([[0, 0], [aim, 0.04, 'io'], [shot, 0.04], [shot + 0.03, -lean, 'snap'], [shot + hold + 0.1, 0, 'io'], [1, 0]]),
+    squash: T([[0, 0], [shot, 0], [shot + 0.03, 0.05, 'snap'], [shot + hold, 0], [1, 0]]),
+  };
+}
 const SLASH_ARC = { kind: 'arc', cx: 12, cy: -16, r: 27, a0: -2.2, a1: 1.0 };
 Object.assign(CLIPS, {
-  slash: swingClip({ w: 0.28, h: 0.48, wind: 0.65, swing: 1.75, arc: SLASH_ARC }),
-  slash_quick: swingClip({ w: 0.2, h: 0.38, wind: 0.4, swing: 1.45, lunge: 4, hop: 2, hold: 0.05, arc: SLASH_ARC }),
-  chop: swingClip({ w: 0.3, h: 0.5, wind: 0.8, swing: 1.6, reach: 2, arc: { kind: 'arc', cx: 12, cy: -16, r: 24, a0: -2.5, a1: 0.8 } }),
+  slash: swingClip({ w: 0.37, h: 0.47, wind: 0.65, swing: 1.75, arc: SLASH_ARC }),
+  slash_quick: swingClip({ w: 0.34, h: 0.43, wind: 0.45, swing: 1.5, lunge: 4, hop: 2, hold: 0.05, arc: SLASH_ARC }),
+  chop: swingClip({ w: 0.39, h: 0.49, wind: 0.8, swing: 1.6, reach: 2, arc: { kind: 'arc', cx: 12, cy: -16, r: 24, a0: -2.5, a1: 0.8 } }),
   // The katana's draw-cut: a low, still coil, then one long horizontal cut and a lunge.
-  iai: swingClip({ w: 0.4, h: 0.56, wind: 0.95, swing: 1.5, lunge: 10, hop: 1, hold: 0.08, over: 0.18, arc: { kind: 'arc', cx: 10, cy: -14, r: 30, a0: -1.6, a1: 1.3 } }),
-  stab: swingClip({ w: 0.14, h: 0.28, wind: 0.3, swing: 1.2, reach: 5, lunge: 5, hop: 1, hold: 0.05, over: 0.05, arc: { kind: 'line', x0: 16, x1: 42, y: -12 } }),
-  hook: swingClip({ w: 0.15, h: 0.32, wind: 0.5, swing: 1.35, reach: 3, lunge: 4, hop: 1, arc: { kind: 'arc', cx: 24, cy: -10, r: 15, a0: -2.0, a1: 0.8 } }),
-  smash_light: smashClip({ w: 0.35, h: 0.56, wind: 0.7, swing: 1.45, hold: 0.06 }),
-  smash: smashClip({ w: 0.48, h: 0.68, wind: 1.05, swing: 1.95, hold: 0.1 }),
-  smash_axe: smashClip({ w: 0.42, h: 0.64, wind: 0.95, swing: 1.75, reach: 3 }),
-  sweep: swingClip({ w: 0.38, h: 0.6, wind: 0.85, swing: 2.0, reach: 4, lunge: 7, hop: 2, back: 0.5, hold: 0.08, over: 0.1, arc: { kind: 'arc', cx: 4, cy: -10, r: 33, a0: -1.9, a1: 1.6 } }),
+  iai: swingClip({ w: 0.43, h: 0.52, wind: 0.95, swing: 1.5, lunge: 10, hop: 1, hold: 0.08, over: 0.2, arc: { kind: 'arc', cx: 10, cy: -14, r: 30, a0: -1.6, a1: 1.3 } }),
+  stab: swingClip({ w: 0.35, h: 0.43, wind: 0.3, swing: 1.2, reach: 5, lunge: 5, hop: 1, hold: 0.05, over: 0.06, arc: { kind: 'line', x0: 16, x1: 42, y: -12 } }),
+  hook: swingClip({ w: 0.35, h: 0.43, wind: 0.5, swing: 1.35, reach: 3, lunge: 4, hop: 1, arc: { kind: 'arc', cx: 24, cy: -10, r: 15, a0: -2.0, a1: 0.8 } }),
+  smash_light: smashClip({ w: 0.4, h: 0.49, wind: 0.75, swing: 1.5, hold: 0.06 }),
+  smash: smashClip({ w: 0.44, h: 0.54, wind: 1.1, swing: 2.0, hold: 0.08 }),
+  smash_axe: smashClip({ w: 0.43, h: 0.53, wind: 1.0, swing: 1.8, reach: 3 }),
+  // The two-handed sword: a big low wind-up, a wide sweep and the body turned right through it.
+  sweep: swingClip({ w: 0.43, h: 0.53, wind: 1.0, swing: 2.1, reach: 4, lunge: 7, hop: 2, back: 0.6, hold: 0.08, over: 0.24, twist: 0.12, arc: { kind: 'arc', cx: 4, cy: -10, r: 33, a0: -1.9, a1: 1.6 } }),
   thrust: thrustClip({}),
   // The halberd: a heavy two-handed chop that reaches out over the foe.
-  reach_chop: swingClip({ w: 0.42, h: 0.64, wind: 0.8, swing: 1.45, reach: 8, lunge: 6, back: 0.5, hold: 0.08, arc: { kind: 'arc', cx: 14, cy: -18, r: 36, a0: -2.3, a1: 0.7 } }),
-  reach_thrust: swingClip({ w: 0.3, h: 0.52, wind: 0.45, swing: 0.8, reach: 9, lunge: 7, hop: 1, over: 0, arc: { kind: 'line', x0: 18, x1: 56, y: -10 } }),
-  staff_spin: swingClip({ w: 0.25, h: 0.55, wind: 0.85, swing: 2.4, reach: 4, lunge: 5, arc: { kind: 'arc', cx: 8, cy: -14, r: 24, a0: -3.0, a1: 1.5 } }),
-  // The whip: a wide wind-up, then a lash that cracks far out in front.
-  lash: swingClip({ w: 0.27, h: 0.52, wind: 0.75, swing: 1.8, reach: 8, lunge: 4, hop: 2, hold: 0.07, arc: { kind: 'arc', cx: 14, cy: -12, r: 40, a0: -1.7, a1: 0.9 } }),
+  reach_chop: swingClip({ w: 0.44, h: 0.54, wind: 0.9, swing: 1.5, reach: 8, lunge: 6, back: 0.5, hold: 0.08, over: 0.2, twist: 0.1, arc: { kind: 'arc', cx: 14, cy: -18, r: 36, a0: -2.3, a1: 0.7 } }),
+  reach_thrust: { ...swingClip({ w: 0.38, h: 0.47, wind: 0.45, swing: 0.8, reach: 9, lunge: 7, hop: 1, over: 0.05, arc: { kind: 'line', x0: 18, x1: 56, y: -10 } }), tween: 0.4 },
+  staff_spin: swingClip({ w: 0.38, h: 0.47, wind: 0.85, swing: 2.4, reach: 4, lunge: 5, arc: { kind: 'arc', cx: 8, cy: -14, r: 24, a0: -3.0, a1: 1.5 } }),
+  // The whip: a spin on the wind-up, then a lash that cracks far out in front.
+  lash: swingClip({ w: 0.42, h: 0.51, wind: 0.75, swing: 1.8, reach: 8, lunge: 4, hop: 2, hold: 0.07, over: 0.28, spin: 1, arc: { kind: 'arc', cx: 14, cy: -12, r: 40, a0: -1.7, a1: 0.9 } }),
   // The fan: a light flick of the wrist, quick and wide.
-  fan_sweep: swingClip({ w: 0.2, h: 0.4, wind: 0.5, swing: 1.6, reach: 4, lunge: 4, hop: 2, hold: 0.04, over: 0.2, arc: { kind: 'arc', cx: 8, cy: -14, r: 26, a0: -2.6, a1: 1.2 } }),
+  fan_sweep: swingClip({ w: 0.35, h: 0.43, wind: 0.5, swing: 1.6, reach: 4, lunge: 4, hop: 2, hold: 0.04, over: 0.24, arc: { kind: 'arc', cx: 8, cy: -14, r: 26, a0: -2.6, a1: 1.2 } }),
   throw: throwClip({}),
-  throw_wide: throwClip({ w: 0.32, h: 0.5, wide: true }),
-  bow_quick: bowClip({ full: 0.4, loose: 0.46 }),
-  bow: bowClip({ full: 0.5, loose: 0.58 }),
-  cast: castClip({ gather: 0.6, fling: 0.74 }),
-  flick: castClip({ gather: 0.3, fling: 0.42, rise: 3, settle: 1.4 }),
-  orb: castClip({ gather: 0.55, fling: 0.68, rise: 10 }),
+  throw_wide: throwClip({ w: 0.4, h: 0.48, wide: true }),
+  bow_quick: bowClip({ full: 0.36, loose: 0.44 }),
+  bow: bowClip({ full: 0.4, loose: 0.55 }),
+  cast: castClip({ gather: 0.4, fling: 0.48 }),
+  flick: castClip({ gather: 0.34, fling: 0.41, rise: 3, settle: 1.4 }),
+  orb: castClip({ gather: 0.4, fling: 0.48, rise: 10 }),
 });
 
 // ---------------- Dual wielding: both hands strike ----------------
-// The main hand acts on sword/strike/reach, the off hand on back (the back
-// arm's swing; negative is forward), strike2 (its extended drawing) and reach2.
-// The game deals a dual-wield attack as a main-hand hit plus an off-hand hit
-// together, so each clip lands both blows within the one swing, the off hand's
-// second; every dual weapon kind has two clips, played in turn.
-/** One hand's blow: coil at c, land at h, hold, recover by r. */
-function blow(c, h, r, { wind = 0.5, swing = 1.4, reach = 5, hold = 0.06 } = {}) {
+// The main hand acts on sword/strike/reach/arc, the off hand on back (the back
+// arm's swing; negative is forward), strike2, reach2 and arc2. The game deals
+// a dual-wield attack as a main-hand hit plus an off-hand hit together, so each
+// clip lands both blows within the one swing, the off hand's second: one hand
+// coils while the other cuts, a real left-right flurry. Every dual weapon
+// kind has two clips, played in turn.
+/** One hand's blow: coil from c, held to w, land at h, hold, back to guard by r. */
+function blow(c, w, h, r, { wind = 0.5, swing = 1.4, reach = 5, hold = 0.05, over = 0.14 } = {}) {
+  const f = h + hold, o = Math.min(r - 0.06, f + 0.08);
   return {
     at: h,
-    rot: [[c, -wind], [h, swing, 'snap'], [h + hold, swing * 0.97, 'lin'], [r, 0]],
-    swap: [[h - 0.06, 0, 'lin'], [h - 0.015, 1], [h + hold + 0.06, 1], [r - 0.03, 0]],
-    reach: [[c, -2], [h, reach, 'snap'], [h + hold, reach * 0.95], [r, 0]],
+    rot: [[c, -wind * 0.85, 'out'], [w, -wind, 'io'], [h, swing, 'in'], [f, swing * 0.97, 'lin'], [r, 0, 'io']],
+    swap: [[h - 0.04, 0, 'lin'], [h - 0.015, 1], [f + 0.05, 1], [r - 0.03, 0]],
+    reach: [[c, -1.5], [w, -2], [h, reach, 'in'], [f, reach * 0.95], [r, 0, 'io']],
+    arc: [[c, 0.85, 'out'], [w, 1, 'io'], [h, 3, 'lin'], [f, 3, 'lin'], [r - 0.004, 4, 'io'], [r, 0, 'step']],
+    whip: [[f, 0, 'lin'], [o, over, 'out'], [r - 0.01, 0, 'io']],
+    smear: [[w, 0, 'lin'], [h, 1, 'in'], [f + 0.02, 0.5], [o + 0.03, 0]],
   };
 }
-/** A dual-wield clip from its main-hand and off-hand blows (each null, one or
- *  two) plus whole-body tracks. Off-hand angles are mirrored (negative is forward). */
+/** A dual-wield clip from its main-hand and off-hand blows (each one or more)
+ *  plus whole-body tracks. Off-hand angles are mirrored (negative is forward). */
 function dualClip(main, off, body, trails) {
   const join = (list, key, sign = 1) => T([[0, 0], ...list.flatMap((b) => b[key].map(([t, v, e]) => [t, v * sign, e])), [1, 0]]);
-  return { ...trails, tracks: {
+  return { ...trails, hits: [...main.map((b) => b.at), ...off.map((b) => b.at)], tracks: {
     sword: join(main, 'rot'), strike: join(main, 'swap'), reach: join(main, 'reach'),
+    arc: join(main, 'arc'), whip: join(main, 'whip'), smear: join(main, 'smear'),
     back: join(off, 'rot', -1.35), strike2: join(off, 'swap'), reach2: join(off, 'reach'),
+    arc2: join(off, 'arc'), whip2: join(off, 'whip'), smear2: join(off, 'smear'),
     trail: trailAt(main[0].at), trail2: trailAt(off[0].at),
     ...body,
   } };
 }
-/** The body's lunge for a run of blows landing at the given times. */
+/** The body's lunge for a run of blows landing at the given times: a coil
+ *  back, the drive in, a small bounce off each, the front foot stepping in. */
 function lunges(hits, { push = 4, lean = 0.14, hop = 0 } = {}) {
-  const bx = [[0, 0]], ln = [[0, 0]], sq = [[0, 0]], by = [[0, 0]];
+  const bx = [[0, 0]], ln = [[0, 0]], sq = [[0, 0]], by = [[0, 0]], lf = [[0, 0]];
   for (const h of hits) {
-    bx.push([h - 0.1, -1.5], [h, push, 'snap'], [h + 0.06, push]);
-    ln.push([h - 0.1, -0.08], [h, lean, 'snap'], [h + 0.06, lean]);
-    sq.push([h - 0.1, 0.05], [h, -0.06, 'snap']);
+    bx.push([h - 0.09, -1.5, 'io'], [h, push, 'in'], [h + 0.035, push - 1.2, 'out'], [h + 0.08, push - 0.6]);
+    ln.push([h - 0.09, -0.1, 'io'], [h, lean, 'in'], [h + 0.08, lean * 0.8]);
+    sq.push([h - 0.09, 0.05], [h - 0.01, -0.07, 'in'], [h + 0.03, 0.06, 'snap'], [h + 0.08, 0]);
+    lf.push([h - 0.07, 0], [h - 0.035, 2, 'out'], [h, 0, 'in']);
     if (hop) by.push([h - 0.06, 0], [h, -hop, 'out'], [h + 0.08, 0, 'in']);
   }
-  for (const k of [bx, ln, sq, by]) k.push([1, 0]);
-  return { bx: T(bx), lean: T(ln), squash: T(sq), by: T(by) };
+  for (const k of [bx, ln, sq, by, lf]) k.push([1, 0, 'io']);
+  return { bx: T(bx), lean: T(ln), squash: T(sq), by: T(by), liftF: T(lf) };
 }
 const trailAt = (h, hold = 0.06) => T([[0, 0], [h - 0.1, 0, 'lin'], [h + hold + 0.06, 1, 'out'], [1, 1]]);
 const impacts = (...hits) => T([[0, 0], ...hits.flatMap((h) => [[h - 0.015, 0, 'lin'], [h, 1, 'snap'], [h + 0.05, 1], [h + 0.12, 0]]), [1, 0]]);
 Object.assign(CLIPS, {
   // Daggers, A: quick alternating stabs, the main hand then the off hand.
-  stab_dual: dualClip([blow(0.1, 0.22, 0.42, { wind: 0.4, swing: 1.25, reach: 6 })], [blow(0.42, 0.56, 0.8, { wind: 0.3, swing: 1.45, reach: 6 })],
-    { ...lunges([0.22, 0.56]), impact: impacts(0.22, 0.56) },
+  stab_dual: dualClip([blow(0.12, 0.33, 0.41, 0.66, { wind: 0.4, swing: 1.25, reach: 6 })], [blow(0.42, 0.61, 0.69, 0.94, { wind: 0.35, swing: 1.45, reach: 6 })],
+    { ...lunges([0.41, 0.69]), impact: impacts(0.41, 0.69) },
     { trail: { kind: 'line', x0: 16, x1: 44, y: -12 }, trail2: { kind: 'line', x0: 12, x1: 40, y: -6 } }),
-  // Daggers, B: both blades raised crossed, then a cross-cut through the foe.
-  cross_dual: dualClip([blow(0.3, 0.46, 0.78, { wind: 0.9, swing: 1.6, reach: 5, hold: 0.08 })], [blow(0.3, 0.48, 0.8, { wind: 0.9, swing: 1.6, reach: 4, hold: 0.08 })],
-    { ...lunges([0.47], { push: 6, lean: 0.2, hop: 3 }), crouch: T([[0, 0], [0.3, 2], [0.47, -0.5, 'snap'], [1, 0]]), impact: impacts(0.47) },
+  // Daggers, B: both blades raised crossed and held, then a cross-cut through the foe.
+  cross_dual: dualClip([blow(0.14, 0.38, 0.46, 0.8, { wind: 0.9, swing: 1.6, reach: 5, hold: 0.08 })], [blow(0.14, 0.4, 0.48, 0.82, { wind: 0.9, swing: 1.6, reach: 4, hold: 0.08 })],
+    { ...lunges([0.47], { push: 6, lean: 0.2, hop: 3 }), crouch: T([[0, 0], [0.2, 1.8, 'out'], [0.38, 2.2, 'io'], [0.47, -0.5, 'in'], [1, 0, 'io']]), impact: impacts(0.47) },
     { trail: { kind: 'seg', x0: 14, y0: -32, x1: 42, y1: -2 }, trail2: { kind: 'seg', x0: 14, y0: -2, x1: 42, y1: -32 } }),
-  // Scimitars, A: a two-blade flurry, a main-hand slash then an off-hand backslash.
-  scim_dual: dualClip([blow(0.12, 0.28, 0.5, { wind: 0.55, swing: 1.6, reach: 3 })], [blow(0.46, 0.62, 0.86, { wind: 0.4, swing: 1.6, reach: 5 })],
-    { ...lunges([0.28, 0.62], { push: 5, lean: 0.17, hop: 2 }), impact: impacts(0.28, 0.62) },
+  // Scimitars, A: a two-blade flurry, a main-hand slash then an off-hand
+  // backslash, the off hand coiling while the main hand cuts.
+  scim_dual: dualClip([blow(0.1, 0.33, 0.42, 0.68, { wind: 0.55, swing: 1.6, reach: 3 })], [blow(0.4, 0.61, 0.7, 0.95, { wind: 0.45, swing: 1.6, reach: 5 })],
+    { ...lunges([0.42, 0.7], { push: 5, lean: 0.17, hop: 2 }), impact: impacts(0.42, 0.7) },
     { trail: SLASH_ARC, trail2: { kind: 'arc', cx: 8, cy: -12, r: 24, a0: 1.3, a1: -1.4 } }),
-  // Scimitars, B: both blades swept wide, then crossed in an X slash.
-  scim_x: dualClip([blow(0.32, 0.5, 0.82, { wind: 1.0, swing: 1.75, reach: 4, hold: 0.08 })], [blow(0.32, 0.5, 0.84, { wind: 0.9, swing: 1.75, reach: 5, hold: 0.08 })],
-    { ...lunges([0.5], { push: 7, lean: 0.22, hop: 3 }), crouch: T([[0, 0], [0.32, 2.5], [0.5, -0.5, 'snap'], [1, 0]]), impact: impacts(0.5) },
-    { trail: { kind: 'seg', x0: 12, y0: -36, x1: 46, y1: 0 }, trail2: { kind: 'seg', x0: 12, y0: 0, x1: 46, y1: -36 } }),
+  // Scimitars, B: the same left-right rhythm cut lower and harder, a hop into the second blade.
+  scim_dual_b: dualClip([blow(0.12, 0.34, 0.43, 0.68, { wind: 0.7, swing: 1.75, reach: 4 })], [blow(0.42, 0.62, 0.71, 0.95, { wind: 0.6, swing: 1.75, reach: 6 })],
+    { ...lunges([0.43, 0.71], { push: 6, lean: 0.2, hop: 3 }), crouch: T([[0, 0], [0.34, 1.5, 'io'], [0.43, 0, 'in'], [0.62, 1.8, 'io'], [0.71, -0.5, 'in'], [1, 0, 'io']]), impact: impacts(0.43, 0.71) },
+    { trail: { kind: 'arc', cx: 12, cy: -12, r: 26, a0: -1.8, a1: 1.2 }, trail2: { kind: 'arc', cx: 8, cy: -10, r: 24, a0: 1.5, a1: -1.2 } }),
   // Kerambits, A: hooked rips, raised high and torn down, one hand then the other.
-  rip_dual: dualClip([blow(0.1, 0.24, 0.46, { wind: 0.8, swing: 1.55, reach: 3 })], [blow(0.42, 0.58, 0.84, { wind: 0.6, swing: 1.7, reach: 4 })],
-    { ...lunges([0.24, 0.58], { push: 4, lean: 0.18 }), crouch: T([[0, 0], [0.1, 2], [0.58, 2], [1, 0]]), impact: impacts(0.24, 0.58) },
+  rip_dual: dualClip([blow(0.1, 0.33, 0.41, 0.66, { wind: 0.8, swing: 1.55, reach: 3 })], [blow(0.42, 0.61, 0.69, 0.94, { wind: 0.6, swing: 1.7, reach: 4 })],
+    { ...lunges([0.41, 0.69], { push: 4, lean: 0.18 }), crouch: T([[0, 0], [0.1, 2], [0.69, 2], [1, 0]]), impact: impacts(0.41, 0.69) },
     { trail: { kind: 'arc', cx: 26, cy: -10, r: 14, a0: -2.0, a1: 0.9 }, trail2: { kind: 'arc', cx: 22, cy: -8, r: 13, a0: -2.2, a1: 1.1 } }),
-  // Kerambits, B: the off hand hooks in first, then the main hand rips through with a hop.
-  rip_dual_b: dualClip([blow(0.42, 0.6, 0.86, { wind: 0.9, swing: 1.7, reach: 5, hold: 0.07 })], [blow(0.08, 0.24, 0.48, { wind: 0.5, swing: 1.5, reach: 3 })],
-    { ...lunges([0.24, 0.6], { push: 5, lean: 0.18, hop: 2 }), crouch: T([[0, 0], [0.08, 2], [0.45, 2.5], [0.6, -0.5, 'snap'], [1, 0]]), impact: impacts(0.24, 0.6) },
+  // Kerambits, B: a low crouch and a quick hook, then a hop into the off hand's rip.
+  rip_dual_b: dualClip([blow(0.08, 0.32, 0.4, 0.62, { wind: 0.5, swing: 1.5, reach: 3 })], [blow(0.4, 0.62, 0.71, 0.95, { wind: 0.9, swing: 1.7, reach: 5, hold: 0.07 })],
+    { ...lunges([0.4, 0.71], { push: 5, lean: 0.18, hop: 2 }), crouch: T([[0, 0], [0.08, 2], [0.6, 2.5], [0.71, -0.5, 'in'], [1, 0, 'io']]), impact: impacts(0.4, 0.71) },
     { trail: { kind: 'arc', cx: 26, cy: -12, r: 16, a0: -2.0, a1: 1.0 }, trail2: { kind: 'arc', cx: 22, cy: -8, r: 13, a0: -2.2, a1: 1.1 } }),
 });
 // Clips that don't fit a family are written out in full.
 Object.assign(CLIPS, {
-  // Claws: a three-hit flurry, a paw on each hand taking turns (front, back, front).
-  flurry: { trail: { kind: 'claw', x: 30, y: -14 }, trail2: { kind: 'claw', x: 26, y: -6 }, tracks: {
-    strike: T([[0, 0], [0.08, 0, 'lin'], [0.13, 1, 'snap'], [0.24, 1], [0.3, 0], [0.56, 0, 'lin'], [0.62, 1, 'snap'], [0.76, 1], [0.84, 0], [1, 0]]),
-    reach: T([[0, 0], [0.06, -1.5], [0.14, 6, 'snap'], [0.22, 5], [0.32, 0], [0.54, -1.5], [0.63, 7, 'snap'], [0.72, 6.5], [0.86, 0], [1, 0]]),
-    sword: T([[0, 0], [0.06, -0.3], [0.14, 0.6, 'snap'], [0.3, 0], [0.54, -0.4], [0.63, 0.7, 'snap'], [0.86, 0], [1, 0]]),
-    back: T([[0, 0], [0.26, 0.4], [0.38, -1.3, 'snap'], [0.46, -1.25], [0.56, 0], [1, 0]]),
-    strike2: T([[0, 0], [0.32, 0, 'lin'], [0.37, 1, 'snap'], [0.48, 1], [0.54, 0], [1, 0]]),
-    reach2: T([[0, 0], [0.28, -1.5], [0.38, 6, 'snap'], [0.46, 5], [0.56, 0], [1, 0]]),
-    bx: T([[0, 0], [0.14, 2.5, 'snap'], [0.3, 1.5], [0.38, 4, 'snap'], [0.54, 3], [0.63, 7, 'snap'], [0.72, 7], [1, 0]]),
-    lean: T([[0, 0], [0.14, 0.1, 'snap'], [0.26, -0.02], [0.38, 0.12, 'snap'], [0.52, 0], [0.63, 0.18, 'snap'], [0.72, 0.18], [1, 0]]),
-    crouch: T([[0, 0], [0.1, 1.5], [0.6, 2], [0.63, 0, 'snap'], [1, 0]]),
-    impact: impacts(0.14, 0.38, 0.63),
-    trail: T([[0, 0], [0.06, 0, 'lin'], [0.22, 1, 'out'], [0.54, 1], [0.55, 0, 'lin'], [0.72, 1, 'out'], [1, 1]]),
-    trail2: trailAt(0.38, 0.04),
-  } },
-  // The Merchant's cane: a flourish while the off hand flips a coin at the foe.
-  coin_toss: { tracks: {
-    sword: T([[0, 0], [0.3, -0.45], [0.5, 0.65, 'snap'], [0.56, 0.65], [1, 0]]),
-    back: T([[0, 0], [0.3, 0.4], [0.48, -1.9, 'snap'], [0.54, -1.85], [0.72, -0.4], [1, 0]]),
-    by: T([[0, 0], [0.4, 0], [0.5, -2, 'out'], [0.65, 0, 'in'], [1, 0]]),
-    lean: T([[0, 0], [0.3, -0.1], [0.5, 0.12, 'snap'], [1, 0]]),
-    squash: T([[0, 0], [0.3, 0.05], [0.5, -0.05], [0.8, 0], [1, 0]]),
-    liftF: T([[0, 0], [0.3, 2], [0.48, 0, 'in'], [1, 0]]),
+  // Claws: a jab with the front paw, then a cross from the back one, the hips
+  // turning into it (the second blow is the bigger one).
+  flurry: dualClip([blow(0.1, 0.3, 0.38, 0.62, { wind: 0.3, swing: 0.6, reach: 6, over: 0.08 })], [blow(0.36, 0.58, 0.66, 0.93, { wind: 0.4, swing: 1.3, reach: 7 })],
+    { ...lunges([0.38, 0.66], { push: 4, lean: 0.14 }), crouch: T([[0, 0], [0.1, 1.5], [0.58, 2], [0.66, 0, 'in'], [1, 0, 'io']]), impact: impacts(0.38, 0.66) },
+    { trail: { kind: 'claw', x: 30, y: -14 }, trail2: { kind: 'claw', x: 26, y: -6 } }),
+  // The Merchant's cane: a flick of the cane while the off hand flips a coin at the foe.
+  coin_toss: { shot: true, hits: [0.44], tracks: {
+    arc: T([[0, 0], ...arcKeys(0.2, 0.36, 0.43, 0.5, 0.82), [1, 0]]),
+    whip: T([[0, 0], [0.5, 0, 'lin'], [0.58, 0.2, 'out'], [0.78, 0, 'io'], [1, 0]]),
+    smear: T([[0, 0], [0.36, 0, 'lin'], [0.43, 0.8, 'in'], [0.55, 0], [1, 0]]),
+    sword: T([[0, 0], [0.2, -0.38, 'out'], [0.36, -0.45, 'io'], [0.43, 0.65, 'in'], [0.5, 0.65], [1, 0, 'io']]),
+    back: T([[0, 0], [0.3, 0.4, 'io'], [0.44, -1.9, 'in'], [0.5, -1.85], [0.72, -0.4], [1, 0, 'io']]),
+    by: T([[0, 0], [0.36, 0], [0.44, -2, 'out'], [0.6, 0, 'in'], [1, 0]]),
+    lean: T([[0, 0], [0.36, -0.1, 'io'], [0.44, 0.12, 'in'], [1, 0, 'io']]),
+    squash: T([[0, 0], [0.36, 0.05], [0.43, -0.05, 'in'], [0.47, 0.03, 'snap'], [0.8, 0], [1, 0]]),
+    liftF: T([[0, 0], [0.3, 2], [0.43, 0, 'in'], [1, 0]]),
   } },
   // Two pistols, A: the front gun swings up level and fires, then the back gun,
   // each with its own kick, flash and a step back.
-  pistols: { tracks: {
+  pistols: { shot: true, tween: 0.2, hits: [0.32, 0.62], tracks: {
+    ...gunTracks(0.1, 0.22, 0.32, { hold: 0.45 }),
     draw: T([[0, 0], [0.12, 1, 'out'], [0.78, 1], [1, 0]]),
-    release: T([[0, 0], [0.17, 0, 'lin'], [0.2, 1, 'snap'], [0.26, 1], [0.42, 0], [1, 0]]),
-    kick2: T([[0, 0], [0.5, 0, 'lin'], [0.53, 1, 'snap'], [0.59, 1], [0.75, 0], [1, 0]]),
-    bx: T([[0, 0], [0.2, 0], [0.24, -2.5, 'snap'], [0.4, -0.5], [0.53, -0.5], [0.57, -3, 'snap'], [0.75, 0], [1, 0]]),
-    lean: T([[0, 0], [0.12, 0.04], [0.24, -0.1, 'snap'], [0.4, 0], [0.57, -0.1, 'snap'], [0.75, 0], [1, 0]]),
-    squash: T([[0, 0], [0.2, 0], [0.24, 0.04, 'snap'], [0.4, 0], [0.57, 0.04, 'snap'], [0.75, 0], [1, 0]]),
+    release: T([[0, 0], [0.3, 0, 'lin'], [0.32, 1, 'snap'], [0.38, 1], [0.54, 0], [1, 0]]),
+    kick2: T([[0, 0], [0.6, 0, 'lin'], [0.62, 1, 'snap'], [0.68, 1], [0.84, 0], [1, 0]]),
+    bx: T([[0, 0], [0.32, 0], [0.35, -2.5, 'snap'], [0.5, -0.5], [0.62, -0.5], [0.65, -3, 'snap'], [0.85, 0, 'io'], [1, 0]]),
+    lean: T([[0, 0], [0.22, 0.04], [0.35, -0.1, 'snap'], [0.5, 0], [0.65, -0.1, 'snap'], [0.85, 0, 'io'], [1, 0]]),
+    squash: T([[0, 0], [0.32, 0], [0.35, 0.04, 'snap'], [0.5, 0], [0.65, 0.04, 'snap'], [0.85, 0], [1, 0]]),
   } },
   // Two pistols, B: the back gun opens up first, then the front gun snaps up for the second shot.
-  pistols_b: { tracks: {
-    draw: T([[0, 0], [0.3, 0.2], [0.44, 1, 'out'], [0.8, 1], [1, 0]]),
-    kick2: T([[0, 0], [0.15, 0, 'lin'], [0.18, 1, 'snap'], [0.24, 1], [0.4, 0], [1, 0]]),
-    release: T([[0, 0], [0.5, 0, 'lin'], [0.53, 1, 'snap'], [0.59, 1], [0.75, 0], [1, 0]]),
-    bx: T([[0, 0], [0.18, 0], [0.22, -2.5, 'snap'], [0.4, 0], [0.53, 0], [0.57, -3, 'snap'], [0.75, 0], [1, 0]]),
-    lean: T([[0, 0], [0.22, -0.1, 'snap'], [0.4, 0.04], [0.57, -0.12, 'snap'], [0.75, 0], [1, 0]]),
-    squash: T([[0, 0], [0.18, 0], [0.22, 0.04, 'snap'], [0.4, 0], [0.57, 0.04, 'snap'], [0.75, 0], [1, 0]]),
+  pistols_b: { shot: true, tween: 0.2, hits: [0.6, 0.3], tracks: {
+    ...gunTracks(0.36, 0.5, 0.6, { hold: 0.18 }),
+    draw: T([[0, 0], [0.36, 0.2], [0.5, 1, 'out'], [0.84, 1], [1, 0]]),
+    kick2: T([[0, 0], [0.28, 0, 'lin'], [0.3, 1, 'snap'], [0.36, 1], [0.52, 0], [1, 0]]),
+    release: T([[0, 0], [0.58, 0, 'lin'], [0.6, 1, 'snap'], [0.66, 1], [0.82, 0], [1, 0]]),
+    bx: T([[0, 0], [0.3, 0], [0.33, -2.5, 'snap'], [0.48, 0], [0.6, 0], [0.63, -3, 'snap'], [0.85, 0, 'io'], [1, 0]]),
+    lean: T([[0, 0], [0.33, -0.1, 'snap'], [0.48, 0.04], [0.63, -0.12, 'snap'], [0.85, 0, 'io'], [1, 0]]),
+    squash: T([[0, 0], [0.3, 0], [0.33, 0.04, 'snap'], [0.48, 0], [0.63, 0.04, 'snap'], [0.85, 0], [1, 0]]),
   } },
-  // One pistol: up level, one shot, a bigger kick.
-  pistol_one: { tracks: {
+  // One pistol: up and level, a held aim, one shot, a bigger kick.
+  pistol_one: { shot: true, tween: 0.2, hits: [0.42], tracks: {
+    ...gunTracks(0.14, 0.28, 0.42, { push: 3.5, lean: 0.14 }),
     draw: T([[0, 0], [0.18, 1, 'out'], [0.7, 1], [1, 0]]),
-    release: T([[0, 0], [0.27, 0, 'lin'], [0.3, 1, 'snap'], [0.36, 1], [0.55, 0], [1, 0]]),
-    bx: T([[0, 0], [0.3, 0], [0.34, -3.5, 'snap'], [0.6, 0], [1, 0]]),
-    lean: T([[0, 0], [0.18, 0.04], [0.34, -0.14, 'snap'], [0.6, 0], [1, 0]]),
-    squash: T([[0, 0], [0.3, 0], [0.34, 0.05, 'snap'], [0.6, 0], [1, 0]]),
+    release: T([[0, 0], [0.4, 0, 'lin'], [0.42, 1, 'snap'], [0.48, 1], [0.65, 0], [1, 0]]),
   } },
   // The rifle: crouch and brace, a long still aim, one heavy kick that rocks the body.
-  rifle: { tracks: {
-    draw: T([[0, 0], [0.45, 1, 'out'], [0.62, 1], [0.66, 0.7, 'snap'], [0.85, 1], [1, 0]]),
-    release: T([[0, 0], [0.62, 0, 'lin'], [0.65, 1, 'snap'], [0.72, 1], [1, 0]]),
-    crouch: T([[0, 0], [0.4, 2.5], [0.62, 2.5], [0.66, 1], [1, 0]]),
-    bx: T([[0, 0], [0.62, 0], [0.66, -6, 'snap'], [0.8, -4], [1, 0]]),
-    lean: T([[0, 0], [0.5, -0.04], [0.62, -0.04], [0.66, -0.26, 'snap'], [1, 0]]),
-    squash: T([[0, 0], [0.4, 0.03], [0.66, 0.07, 'snap'], [0.85, 0], [1, 0]]),
-    liftF: T([[0, 0], [0.62, 0], [0.66, 2.5, 'snap'], [0.85, 0], [1, 0]]),
+  rifle: { shot: true, tween: 0.2, hits: [0.6], tracks: {
+    ...gunTracks(0.25, 0.42, 0.6, { kick: 0.25, push: 5, lean: 0.16, hold: 0.18 }),
+    draw: T([[0, 0], [0.42, 1, 'out'], [0.6, 1], [0.64, 0.7, 'snap'], [0.85, 1], [1, 0]]),
+    release: T([[0, 0], [0.59, 0, 'lin'], [0.61, 1, 'snap'], [0.68, 1], [0.8, 0], [1, 0]]),
+    crouch: T([[0, 0], [0.4, 2.5, 'io'], [0.6, 2.5], [0.64, 1, 'snap'], [1, 0, 'io']]),
+    liftF: T([[0, 0], [0.6, 0], [0.64, 2.5, 'snap'], [0.85, 0], [1, 0]]),
   } },
   // The crossbow: crank it quickly, settle the aim, then loose with a sharp kick.
-  crossbow: { tracks: {
+  crossbow: { shot: true, tween: 0.2, hits: [0.6], tracks: {
+    ...gunTracks(0.18, 0.36, 0.6, { kick: 0.25, push: 4.5, lean: 0.22, hold: 0.2 }),
     draw: T([[0, 0], [0.18, 1], [0.6, 1], [0.63, 0, 'snap'], [1, 0]]),
-    release: T([[0, 0], [0.6, 0, 'lin'], [0.64, 1, 'snap'], [0.95, 0], [1, 0]]),
+    release: T([[0, 0], [0.6, 0, 'lin'], [0.63, 1, 'snap'], [0.95, 0], [1, 0]]),
     crouch: T([[0, 0], [0.18, -1], [0.3, 1], [0.6, 1], [0.7, 0], [1, 0]]),
-    bx: T([[0, 0], [0.6, 0], [0.65, -4.5, 'snap'], [1, 0]]),
-    lean: T([[0, 0], [0.18, 0.06], [0.6, 0], [0.65, -0.22, 'snap'], [1, 0]]),
   } },
   // Bare fists: a jab, then a cross from the other hand.
-  punch: { trail: { kind: 'line', x0: 16, x1: 34, y: -12 }, tracks: {
-    strike: T([[0, 0], [0.2, 0, 'lin'], [0.25, 1, 'snap'], [0.36, 1], [0.48, 0], [1, 0]]),
-    reach: T([[0, 0], [0.1, -1.5], [0.25, 5, 'snap'], [0.32, 5], [0.48, 0], [1, 0]]),
-    back: T([[0, 0], [0.4, 0.3], [0.6, -1.3, 'snap'], [0.66, -1.25], [0.85, 0], [1, 0]]),
-    bx: T([[0, 0], [0.1, -1], [0.25, 3, 'snap'], [0.45, 0], [0.6, 2.5, 'snap'], [1, 0]]),
-    lean: T([[0, 0], [0.1, -0.05], [0.25, 0.1, 'snap'], [0.45, 0], [0.6, 0.1, 'snap'], [1, 0]]),
-    impact: impacts(0.25, 0.6),
-    trail: T([[0, 0], [0.15, 0, 'lin'], [0.3, 1, 'out'], [1, 1]]),
-  } },
+  punch: dualClip([blow(0.1, 0.3, 0.38, 0.6, { wind: 0.3, swing: 0.7, reach: 5, over: 0.06 })], [blow(0.36, 0.58, 0.66, 0.92, { wind: 0.3, swing: 1.0, reach: 6, over: 0.1 })],
+    { ...lunges([0.38, 0.66], { push: 3, lean: 0.1 }), impact: impacts(0.38, 0.66) },
+    { trail: { kind: 'line', x0: 16, x1: 34, y: -12 }, trail2: null }),
 });
 for (const c of Object.values(CLIPS)) { c.dur ??= 0; c.loop ??= false; c.beat ??= 0; }
 export const HERO_CLIPS = CLIPS;
@@ -696,7 +761,7 @@ export const WEAPON_CLIP = {
 };
 // Dual-wield kinds (equipment.js dualType) -> their two clips, played in turn.
 export const DUAL_CLIPS = {
-  dagger: ['stab_dual', 'cross_dual'], scimitar: ['scim_dual', 'scim_x'],
+  dagger: ['stab_dual', 'cross_dual'], scimitar: ['scim_dual', 'scim_dual_b'],
   kerambit: ['rip_dual', 'rip_dual_b'], pistol: ['pistols', 'pistols_b'],
 };
 /** The clip for an attack with this weapon type; `variant` counts attacks, so
@@ -793,8 +858,10 @@ export function sampleHeroClip(id, u, info = {}) {
   const ch = {};
   for (const name of HERO_CHANNELS) ch[name] = sampleTrack(clip.tracks[name], u);
   ch.mix = clip.hands ? 1 : 0;
+  // The clip walks the painted attack arms through their pictures (arc).
+  ch.paint = clip.tracks.arc || clip.tracks.arc2 ? 1 : 0;
   return { id, u, kind: info.kind || (clip.hands ? 'skill' : 'combat'), ch, tool: info.tool || null,
-    upright: !!clip.upright, trail: clip.trail || null, trail2: clip.trail2 || null, dust: !!clip.dust,
+    upright: !!clip.upright, trail: clip.trail || null, trail2: clip.trail2 || null, dust: !!clip.dust, tween: clip.tween ?? 1, guardIn: !!clip.guardIn,
     jobClass: info.jobClass, low: !!info.low, weapon: info.weapon || null, offhand: info.offhand || null };
 }
 
@@ -804,13 +871,15 @@ export function sampleHeroClip(id, u, info = {}) {
 // 120-300ms, so they blend in far quicker, or the wind-up would be lost.
 export const CLIP_BLEND_MS = 160;
 const COMBAT_BLEND_MS = 50;
+const NO_BLEND = new Set(['arc', 'arc2', 'spin', 'trail', 'trail2', 'paint']);
 const _states = new WeakMap();
 const _watched = new WeakSet();
 function stateOf(p) {
   let st = _states.get(p);
   if (!st) {
     st = { id: null, u: 0, t0: 0, from: null, out: null, one: null, pending: null, prevAction: null, prevClip: null, prevAt: false, prop: null, propFor: null,
-      swings: 0, lastSk: -1, fish: null, caught: null };
+      swings: 0, lastSk: -1, fish: null, caught: null,
+      blowAt: -1, blowId: null, blowMs: 0, blowShot: false, stopMs: 0, hitTimes: [] };
     _states.set(p, st);
   }
   return st;
@@ -828,7 +897,9 @@ export function blendHeroFrame(st, frame, now) {
   const k = st.from ? Math.min(1, Math.max(0, (now - st.t0) / ms)) : 1;
   if (k < 1) {
     const w = EASE.io(k), ch = frame.ch, f = st.from;
-    for (const name in ch) ch[name] = f[name] + (ch[name] - f[name]) * w;
+    // The painted arms' picture walk, the spin and the swooshes jump rather than blend: an
+    // eased arc from follow-through back to rest would replay the swing backwards.
+    for (const name in ch) if (!NO_BLEND.has(name)) ch[name] = f[name] + (ch[name] - f[name]) * w;
   } else st.from = null;
   st.out = frame.ch;
   return frame;
@@ -895,12 +966,17 @@ export function heroAnimFrame(game, now) {
   const type = w ? ITEMS[w]?.equip?.weaponType || null : null;
   const dual = !!game.equipment?.isDualWielding?.();
   const held = { jobClass, low, weapon: type, offhand: dual ? game.equipment.get('shield') : null };
-  // Count attacks (a new swing starts over from 0), so dual wielders alternate clips.
-  if (sk >= 0 && (st.lastSk < 0 || sk < st.lastSk - 0.05)) st.swings++;
+  // Count attacks (a new swing starts over from 0), so dual wielders alternate
+  // clips; each attack's clip then runs on its own clock (blowU).
+  if (sk >= 0 && (st.lastSk < 0 || sk < st.lastSk - 0.05)) {
+    st.swings++;
+    startBlow(game, st, weaponClipId(type, dual, st.swings - 1), now);
+  }
   st.lastSk = sk;
+  const bu = blowU(game, st, now);
   let frame;
-  if (sk >= 0) {
-    frame = sampleHeroClip(weaponClipId(type, dual, st.swings - 1), sk, { kind: 'combat', ...held });
+  if (bu >= 0) {
+    frame = sampleHeroClip(st.blowId, bu, { kind: 'combat', ...held });
     st.one = null;
   } else if (a && st.prevClip && atWork(p, a) && !ARRIVAL.has(a.type)) {
     st.prevAt = true;
@@ -923,6 +999,64 @@ export function heroAnimFrame(game, now) {
   return blendHeroFrame(st, frame, now);
 }
 const dur = (clip) => (clip.dur === 'tick' ? TICK_MS : clip.dur || 1000);
+
+// ---------------- The attack clock ----------------
+// The game deals a blow's damage the moment the swing starts, and its swing
+// lasts at most 300ms. A blow drawn that way has no time to wind up, and its
+// hitsplat lands before the weapon does. So each attack's clip runs on its own
+// clock: a melee blow is given up to the time until the next attack can come
+// (attacks fall on 300ms combat beats, so never less than one beat; at most
+// BLOW_MAX_MS), and the renderer holds the hitsplat, the sparks and the target's
+// flash back to the clip's strike (strikeClock). The game's hit-stop, which
+// fires as the damage is dealt, is played at the strike instead: the clip all
+// but freezes there for as long. Damage and attack speed are untouched.
+// Ranged and magic clips (`shot`) keep the game's swing time, as their
+// arrows, bullets and spells leave as it starts.
+const BLOW_MAX_MS = 520;
+/** How long this attack's clip lasts (ms). */
+export function blowMs(game, clip) {
+  const base = game?.player?.swingDur || 240;
+  if (!clip || clip.shot) return base;
+  const iv = typeof game.attackInterval === 'function' ? game.attackInterval() : NaN;
+  if (!(iv > 0)) return base;
+  return Math.max(base, Math.min(BLOW_MAX_MS, Math.max(1, iv) * COMBAT_BEAT_MS * 0.9));
+}
+function startBlow(game, st, id, now) {
+  const clip = CLIPS[id] || CLIPS.punch;
+  st.blowAt = now; st.blowId = id; st.blowShot = !!clip.shot;
+  st.blowMs = blowMs(game, clip);
+  st.stopMs = 0;
+  st.hitTimes.length = 0;
+  for (const h of clip.hits || []) st.hitTimes.push(now + h * st.blowMs);
+}
+/** How far through its clip the current attack is (0..1), or -1 with none. */
+function blowU(game, st, now) {
+  if (st.blowAt < 0) return -1;
+  const clip = CLIPS[st.blowId];
+  const e = now - st.blowAt, s = (clip.hits?.[0] ?? 0.5) * st.blowMs;
+  // A hit-stop that starts during the wind-up is saved for the strike.
+  if (!st.blowShot && e < s && game.hitStop > st.stopMs) {
+    st.stopMs = Math.min(250, game.hitStop);
+    for (let i = 1; i < st.hitTimes.length; i++) st.hitTimes[i] = st.blowAt + clip.hits[i] * st.blowMs + st.stopMs * 0.88;
+  }
+  const F = st.stopMs;
+  const t = e <= s || !F ? e : e < s + F ? s + (e - s) * 0.12 : e - F * 0.88;
+  const u = t / st.blowMs;
+  if (u >= 1) { st.blowAt = -1; return -1; }
+  return u;
+}
+/** The player's current melee blow, for holding its hit feedback back to the
+ *  strike: { blowAt, hitTimes } (absolute ms, in the order the game deals the
+ *  hits), or null between blows and for ranged and magic attacks. */
+export function strikeClock(game) {
+  const st = game?.player && _states.get(game.player);
+  return st && st.blowAt >= 0 && !st.blowShot && st.hitTimes.length ? st : null;
+}
+/** Ms since the current blow's first strike landed, or -1 before it (or with no blow). */
+export function strikeGate(game, now) {
+  const st = strikeClock(game);
+  return st ? (now >= st.hitTimes[0] ? now - st.hitTimes[0] : -1) : -1;
+}
 
 /** Fishing at a spot: cast, wait, then haul in each fish the game lands.
  *  The game lands a fish every tick, far quicker than a cast and a reel can
@@ -1160,11 +1294,14 @@ export function drawPictureTool(c, anim) {
 export function drawWeaponTrail(c, anim) {
   if (!anim || anim.low) return;
   const ch = anim.ch || {};
-  const hit = trail(c, anim.trail, ch.trail, anim.dust);
-  trail(c, anim.trail2, ch.trail2, false);
-  // The impact spark: a little four-point star at the end of the main swoosh.
+  // A painted arm draws its own smear along the tip's path (heroAnimArt.js);
+  // these fixed swooshes stand in for the turning rig arms (and keep the dust).
+  const hit = trail(c, anim.trail, ch.trail, anim.dust, anim.smeared);
+  trail(c, anim.trail2, ch.trail2, false, anim.smeared2);
+  // The impact spark: a little four-point star at the end of the main swoosh
+  // (a painted arm puts its own at the weapon's tip).
   const k = ch.impact;
-  if (hit && k > 0.05) {
+  if (hit && k > 0.05 && !anim.sparked) {
     const r = 2 + k * 5;
     c.save();
     c.fillStyle = `rgba(255,240,180,${Math.min(1, k).toFixed(3)})`; c.strokeStyle = `rgba(34,48,74,${(0.85 * Math.min(1, k)).toFixed(3)})`; c.lineWidth = 1;
@@ -1175,13 +1312,14 @@ export function drawWeaponTrail(c, anim) {
   }
 }
 /** One swoosh at t (0..1 through it). Returns where its blow lands, for the spark. */
-function trail(c, tr, t, dust) {
+function trail(c, tr, t, dust, smeared = false) {
   if (!tr) return null;
   // An arc's blow lands three-quarters of the way round (its tail is the follow-through).
   const ha = tr.a0 + (tr.a1 - tr.a0) * 0.75;
-  const end = tr.kind === 'arc' ? [tr.cx + Math.cos(ha) * tr.r, tr.cy + Math.sin(ha) * tr.r]
+  // (A heavy head lands on the ground, ahead of where its swoosh ends: `spark`.)
+  const end = tr.spark ? tr.spark : tr.kind === 'arc' ? [tr.cx + Math.cos(ha) * tr.r, tr.cy + Math.sin(ha) * tr.r]
     : tr.kind === 'line' ? [tr.x1, tr.y] : tr.kind === 'seg' ? [(tr.x0 + tr.x1) / 2, (tr.y0 + tr.y1) / 2] : [tr.x, tr.y];
-  if (!(t > 0.02 && t < 0.98)) return end;
+  if (!(t > 0.02 && t < 0.98) || (smeared && !dust)) return end;
   const fade = Math.sin(t * Math.PI);
   c.save(); c.lineCap = 'round';
   const stroke = (col, w) => { c.strokeStyle = col; c.lineWidth = w; c.stroke(); };
@@ -1191,10 +1329,9 @@ function trail(c, tr, t, dust) {
     const dir = tr.a1 >= tr.a0 ? 1 : -1;
     const head = tr.a0 + (tr.a1 - tr.a0) * t, tail = head - dir * Math.min(1.3, Math.abs(head - tr.a0));
     const lo = Math.min(head, tail), hi = Math.max(head, tail);
-    c.beginPath(); c.arc(tr.cx, tr.cy, tr.r, lo, hi);
-    stroke(ink, 7); stroke(white, 4.5);
+    if (!smeared) { c.beginPath(); c.arc(tr.cx, tr.cy, tr.r, lo, hi); stroke(ink, 7); stroke(white, 4.5); }
     // (Only once the swoosh is long enough: a reversed arc would draw the whole circle.)
-    if (hi - lo > 0.35) {
+    if (!smeared && hi - lo > 0.35) {
       c.beginPath(); c.arc(tr.cx, tr.cy, tr.r + 4, dir > 0 ? lo + 0.3 : lo, dir > 0 ? hi : hi - 0.3);
       stroke(`rgba(245,184,46,${fade.toFixed(3)})`, 2);
     }

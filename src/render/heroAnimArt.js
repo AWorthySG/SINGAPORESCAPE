@@ -101,13 +101,14 @@ export function faceState(opts = {}) {
   if (!opts.anim?.low && t % BLINK_EVERY < BLINK_MS) return 'blink';
   return 'body';
 }
+const _faces = {};   // each class's loaded faces, kept once all are in (drawn every frame)
 /** Draw the class's painted body for this moment in place of the rig body
  *  (drawn at x, y, w, h). False when the class has no faces, or they aren't loaded. */
 export function drawAnimBody(ctx, classId, opts, x, y, w, h) {
   const a = ANIM_ART[classId];
   if (!a || !a.faces) return false;
   warm(classId);
-  const pics = set(a.faces.map((f) => `${classId}_${f}`));
+  const pics = _faces[classId] || (_faces[classId] = set(a.faces.map((f) => `${classId}_${f}`)));
   if (!pics) return false;
   let i = a.faces.indexOf(faceState(opts));
   // The Merchant has no neutral picture of its own: its rig body stands in.
@@ -121,6 +122,13 @@ export function drawAnimBody(ctx, classId, opts, x, y, w, h) {
  *  `hand` is 'main' or 'off'; `kind` the rig's weapon family. */
 export function swingPhase(ch, hand = 'main', kind = 'melee') {
   if (!ch) return null;
+  // Clips with a picture walk (arc, heroanim.js) say outright which picture
+  // shows: rest, then wind-up, mid-swing and follow-through, then rest again.
+  if (ch.paint) {
+    const a = hand === 'off' ? ch.arc2 : ch.arc;
+    if (!(a > ARC_REST && a < ARC_GUARD)) return null;
+    return a < 1.5 ? 'wind' : a < 2.5 ? 'mid' : 'follow';
+  }
   if (kind === 'bow') {
     if (ch.release > 0.05) return 'follow';
     if (ch.draw > 0.05) return ch.draw < 0.55 ? 'wind' : 'mid';
@@ -151,29 +159,175 @@ export function swingPhase(ch, hand = 'main', kind = 'melee') {
   if (coil > 0.12) return 'wind';
   return null;
 }
-/** Draw this attack's painted arm with its shoulder at (sx, sy). False when
- *  there is no frame for this moment (rest) or the set hasn't loaded. */
-export function drawSwingArm(ctx, classId, ch, hand, kind, sx, sy, alpha = 1) {
+// The picture walk (arc) has the rig's own resting arm before ARC_REST and
+// from ARC_GUARD on: close enough to rest to swap without a jump.
+const ARC_REST = 0.4, ARC_GUARD = 3.6;
+const PHASES = ['wind', 'mid', 'follow'];
+// Where each painted arm points: from the shoulder to the picture's corner
+// farthest from it (the weapon's tip, near enough), as an angle and a length,
+// unwrapped so wind-up -> mid -> follow-through runs one way round.
+// (Worked out once per arm and kept, like the loaded pictures in armPics:
+// these are looked up every frame of a swing, so nothing is built per frame.)
+const _geo = {}, _pics = {};
+function armGeo(classId, hand) {
+  const c = _geo[classId] || (_geo[classId] = {});
+  let g = c[hand];
+  if (g) return g;
+  const frames = hand === 'off' ? ANIM_ART[classId].off : ANIM_ART[classId].swing;
+  g = { dir: [0, 0, 0], len: [0, 0, 0], sense: 1 };
+  PHASES.forEach((k, i) => {
+    const [w, h, px, py] = frames[k];
+    let best = -1;
+    for (const [x, y] of [[0, 0], [w, 0], [0, h], [w, h]]) {
+      const d = Math.hypot(x - px, y - py);
+      if (d > best) { best = d; g.dir[i] = Math.atan2(y - py, x - px); }
+    }
+    g.len[i] = best;
+    if (i) g.dir[i] = g.dir[i - 1] + wrap(g.dir[i] - g.dir[i - 1]);
+  });
+  // Which way round the swing travels (+1 forward and down, the usual).
+  g.sense = Math.sign(g.dir[2] - g.dir[0]) || 1;
+  c[hand] = g;
+  return g;
+}
+/** The class's three attack pictures for one hand, or null until all have loaded. */
+function armPics(classId, hand) {
+  const c = _pics[classId] || (_pics[classId] = {});
+  if (c[hand]) return c[hand];
+  const pre = hand === 'off' ? 'off' : '';
+  return (c[hand] = set(PHASES.map((k) => `${classId}_${pre}${k}`)));
+}
+const wrap = (a) => a - Math.PI * 2 * Math.round(a / (Math.PI * 2));
+// Per class, a turn (rad) added to a picture to keep the blade clear of the face.
+// The wind-ups are painted raised over the head, so they are tipped forward too:
+// the guard and fist sit above the hat or hood rather than over the eyes.
+const CLEAR = { corsair: { wind: 0.5, mid: 0.35 }, rogue: { wind: 0.55, mid: 0.15 } };
+const CLEAR_OFF = { corsair: { mid: 0.2 } };
+/** The direction the weapon points at picture-walk position a (1..3). */
+function arcDir(g, a) {
+  const k = Math.max(1, Math.min(3, a)) - 1, i = Math.min(1, Math.floor(k));
+  return g.dir[i] + (g.dir[i + 1] - g.dir[i]) * (k - i);
+}
+/** How far (rad) the shown picture is turned about the shoulder at picture-walk
+ *  position a: toward the next picture as the weapon travels its arc, coiled
+ *  less on the way in, turned back up toward guard on the way out. */
+function armTurn(g, a, phase) {
+  const i = PHASES.indexOf(phase);
+  let t;
+  if (a < 1) t = (1 - a) * 0.75;
+  else if (a <= 3) t = Math.max(-0.8, Math.min(0.8, (arcDir(g, a) - g.dir[i]) * 0.85 * g.sense));
+  else t = -(a - 3) * 1.1;
+  return t * g.sense;
+}
+// Held weapons rest upright in the rigs' guard (the blade, cane or staff
+// raised): pointing about this way from the shoulder.
+const GUARD_DIR = -1.45;
+/** On the way back from the follow-through (a 3 -> ARC_GUARD), the turn that
+ *  brings the weapon up to point where the rig's guard holds it, so the swap
+ *  back to the rig doesn't jump. Not for bows and guns (aimed level at rest). */
+function guardTurn(g, a) {
+  if (a <= 3 || g.sense < 0) return 0;
+  const k = Math.min(1, (a - 3) / (ARC_GUARD - 3));
+  return -k * k * (3 - 2 * k) * Math.max(0.66, Math.min(2, g.dir[2] - GUARD_DIR));
+}
+/** The way in for a clip that asks for it (guardIn, the Lancer's thrust): the
+ *  wind-up picture starts turned to point where the rig's guard holds the
+ *  weapon and comes down into its own aim by a 1, so the swap from the rig's
+ *  upright spear doesn't jump. */
+function guardInTurn(g, a) {
+  const k = Math.max(0, Math.min(1, (1 - a) / (1 - ARC_REST)));
+  return k * k * (3 - 2 * k) * (GUARD_DIR - g.dir[0]);
+}
+// The tip smear's colours: steel for blades, warm for heavy heads, a glow for
+// magic, pink silk for the Dancer's whip and fan, gold for the cane.
+const SMEAR_TINT = { warhammer: '#fff1d6', mace: '#fff1d6', battleaxe: '#fff1d6', staff: '#d9c4ff', wand: '#d9c4ff', orb: '#d9c4ff',
+  whip: '#ffd0e6', fan: '#ffd0e6', cane: '#ffe9a8', claws: '#ffffff' };
+const SMEAR_INK = '#22304A', SMEAR_STEEL = '#eef5fb';
+/** Draw this attack's painted arm with its shoulder at (sx, sy), turned about
+ *  the shoulder along the weapon's arc (see armTurn), with the tip's smear
+ *  behind it through a strike and the spark or muzzle flash at the tip.
+ *  `anim` is the clip frame (heroanim.js). False when there is no frame for
+ *  this moment (rest) or the set hasn't loaded. */
+export function drawSwingArm(ctx, classId, anim, hand, kind, sx, sy, alpha = 1) {
   const a = ANIM_ART[classId];
   const frames = a && (hand === 'off' ? a.off : a.swing);
   if (!frames) return false;
+  const ch = anim.ch;
   const phase = swingPhase(ch, hand, kind);
   if (!phase) return false;
-  const pre = hand === 'off' ? 'off' : '';
-  const pics = set(['wind', 'mid', 'follow'].map((k) => `${classId}_${pre}${k}`));
+  const pics = armPics(classId, hand);
   if (!pics) return false;
   const [w, h, px, py] = frames[phase];
+  const i = PHASES.indexOf(phase);
+  const off = hand === 'off';
+  const arc = off ? ch.arc2 : ch.arc;
+  const g = armGeo(classId, hand);
+  let turn = 0;
+  if (arc > 0) {
+    const aimed = kind === 'bow' || kind === 'gun';
+    turn = (arc > 3 && !aimed ? guardTurn(g, arc) : arc < 1 && anim.guardIn ? guardInTurn(g, arc) : armTurn(g, arc, phase) * (anim.tween ?? 1)) + ((off ? ch.whip2 : ch.whip) || 0) * g.sense;
+    const clear = (off ? CLEAR_OFF : CLEAR)[classId]?.[phase];
+    if (clear) turn += clear * g.sense;
+  }
   if (alpha < 1) { ctx.save(); ctx.globalAlpha *= alpha; }
-  ctx.drawImage(pics[['wind', 'mid', 'follow'].indexOf(phase)], sx - px, sy - py, w, h);
+  const low = !!anim.low;
+  // The smear: a fading crescent the tip has just swept, a few strokes.
+  const sm = (off ? ch.smear2 : ch.smear) || 0;
+  if (!low && sm > 0.03 && arc >= 1) {
+    // (The off hand's is shorter: it sweeps up past the face.)
+    const head = g.dir[i] + turn, tail = arcDir(g, Math.min(arc, 3) - (off ? 0.9 : 1.6));
+    if (Math.abs(head - tail) > 0.15) {
+      const R = g.len[i] * 0.88, lo = Math.min(head, tail), hi = Math.max(head, tail);
+      const prev = ctx.globalAlpha;
+      ctx.lineCap = 'round';
+      ctx.globalAlpha = prev * sm * 0.55;
+      ctx.strokeStyle = SMEAR_INK; ctx.lineWidth = 6.5;
+      ctx.beginPath(); ctx.arc(sx, sy, R - 2.5, lo, hi); ctx.stroke();
+      ctx.globalAlpha = prev * sm * 0.9;
+      ctx.strokeStyle = SMEAR_TINT[anim.weapon] || SMEAR_STEEL; ctx.lineWidth = 4.5;
+      ctx.beginPath(); ctx.arc(sx, sy, R - 2.5, lo, hi); ctx.stroke();
+      // A thin white streak at the leading edge: the fastest part of the swing.
+      const n0 = g.sense > 0 ? Math.max(lo, hi - 0.6) : lo, n1 = g.sense > 0 ? hi : Math.min(hi, lo + 0.6);
+      ctx.globalAlpha = prev * sm;
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(sx, sy, R, n0, n1); ctx.stroke();
+      ctx.globalAlpha = prev;
+      anim[off ? 'smeared2' : 'smeared'] = true;
+    }
+  }
+  if (turn) { ctx.save(); ctx.translate(sx, sy); ctx.rotate(turn); ctx.drawImage(pics[i], -px, -py, w, h); ctx.restore(); }
+  else ctx.drawImage(pics[i], sx - px, sy - py, w, h);
+  // The spark where the blow lands, or a gun's muzzle flash, at the tip.
+  const fl = ch.flash || 0, k = Math.max(phase === 'follow' ? ch.impact || 0 : 0, fl);
+  if (!low && k > 0.05 && phase !== 'wind') {
+    const d = g.dir[i] + turn, r = g.len[i] * 0.92;
+    tipStar(ctx, sx + Math.cos(d) * r, sy + Math.sin(d) * r, 2 + k * (fl > 0.05 ? 6 : 5), k, fl > 0.05);
+    anim.sparked = true;
+  }
   if (alpha < 1) ctx.restore();
   return true;
+}
+/** A four-point spark (or a gold muzzle flash), ink-edged so it reads on any ground. */
+function tipStar(ctx, x, y, r, k, fire) {
+  const prev = ctx.globalAlpha;
+  ctx.globalAlpha = prev * Math.min(1, k);
+  ctx.fillStyle = fire ? '#ffd24a' : '#fff0b4'; ctx.strokeStyle = SMEAR_INK; ctx.lineWidth = 0.9;
+  ctx.beginPath();
+  for (let j = 0; j < 8; j++) { const t = j * Math.PI / 4, rr = j % 2 ? r * 0.35 : r; ctx.lineTo(x + Math.cos(t) * rr, y + Math.sin(t) * rr); }
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.globalAlpha = prev;
+}
+/** The painted off arm is behind the body (its blade clear of the face) except
+ *  through its follow-through, when it has come round in front (and goes back
+ *  behind before it turns up to guard, past the face). */
+export function offArmInFront(ch) {
+  return ch.arc2 > 2.5 && ch.arc2 < 3.12;
 }
 /** Does this class have painted attack arms ready (for the off hand too)? */
 export function hasSwingArt(classId, hand = 'main') {
   const a = ANIM_ART[classId];
   if (!a || !(hand === 'off' ? a.off : a.swing)) return false;
-  const pre = hand === 'off' ? 'off' : '';
-  return !!set(['wind', 'mid', 'follow'].map((k) => `${classId}_${pre}${k}`));
+  return !!armPics(classId, hand);
 }
 
 // ---------------- Back view ----------------

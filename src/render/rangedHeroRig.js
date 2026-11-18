@@ -48,9 +48,16 @@ export function rangedAnimPose(classId, opts, ch) {
   pose.draw = unit(ch.draw); pose.release = unit(ch.release);
   pose.charge = unit(ch.charge); pose.cast = unit(ch.cast);
   pose.kick2 = unit(ch.kick2);
+  // Once the painted attack arm has handed back to the rig (arc, heroAnimArt.js)
+  // the bow, rifle or staff is at rest, not left mid-aim (a rifle swung down).
+  // The Pistoler's back gun is still the rig's, so it keeps its aim and kick.
+  if (ch.paint && classId !== 'pistoler' && hasSwingArt(classId)) pose.draw = pose.release = pose.charge = pose.cast = 0;
   pose.breathe += ch.crouch || 0;
   pose.liftF = Math.max(0, ch.liftF || 0);
   pose.liftB = Math.max(0, ch.liftB || 0);
+  // Feet stay planted as the body is kicked back (see heroRig.js rigAnimPose).
+  pose.plantB = Math.max(0, ch.bx || 0) * 0.6;
+  pose.plantF = Math.min(0, ch.bx || 0) * 0.6;
   return pose;
 }
 
@@ -78,8 +85,8 @@ export function drawRangedHeroRig(ctx, opts = {}) {
     ctx.drawImage(image(part), -px, -py, w, h);
     ctx.restore();
   };
-  draw('left', -10 - pose.step * 1.5, -1 - Math.max(0, pose.step) * 3 - (pose.liftB || 0), 13, 16);
-  draw('right', 1 + pose.step * 1.5, -1 - Math.max(0, -pose.step) * 3 - (pose.liftF || 0), 13, 16);
+  draw('left', -10 - pose.step * 1.5 - (pose.plantB || 0), -1 - Math.max(0, pose.step) * 3 - (pose.liftB || 0), 13, 16);
+  draw('right', 1 + pose.step * 1.5 - (pose.plantF || 0), -1 - Math.max(0, -pose.step) * 3 - (pose.liftF || 0), 13, 16);
   const bow = classId === 'ranger' || classId === 'archer';
   const guns = classId === 'pistoler';
   if (anim) drawHeroArm(ctx, anim, 'back', -11 + pose.breathe);
@@ -96,7 +103,7 @@ export function drawRangedHeroRig(ctx, opts = {}) {
   const kind = bow ? 'bow' : guns || classId === 'sniper' ? 'gun' : 'staff';
   const frame = anim && anim.kind === 'combat' && hasSwingArt(classId) ? swingPhase(anim.ch, 'main', kind) : null;
   const sh = SHOULDER[classId];
-  if (frame && !guns) drawSwingArm(ctx, classId, anim.ch, 'main', kind, sh[0], sh[1] + pose.breathe);
+  if (frame && !guns) drawSwingArm(ctx, classId, anim, 'main', kind, sh[0], sh[1] + pose.breathe);
   // With no weapon equipped the hand is empty: the painted bare arm.
   else if (opts.hasWeapon === false && drawEmptyArm(ctx, classId, 8, -12 + pose.breathe, 0.25 + pose.step * 0.3, 12)) { /* drawn */ }
   else if (guns) {
@@ -111,7 +118,7 @@ export function drawRangedHeroRig(ctx, opts = {}) {
     const by = y + 3;
     draw('back', -7 - backKick * 2, by, 31, 13, -backKick * 0.3 + pose.step * 0.05, 2, 6);
     if (backKick > 0) draw('action', 24 - backKick * 2, by - 7 - backKick * 2, 14, 9, -backKick * 0.3, 2, 4, anim ? backKick : 0);
-    if (frame) drawSwingArm(ctx, classId, anim.ch, 'main', kind, sh[0], sh[1] + pose.breathe);
+    if (frame) drawSwingArm(ctx, classId, anim, 'main', kind, sh[0], sh[1] + pose.breathe);
     else {
       draw('weapon', 14 - pose.release * 1.5, y + 2, 14, 23, pose.draw * 1.25 - pose.release * 0.35, 3, 21);
       draw('action', 27, y - 6, 16, 10, 0, 2, 5, pose.release);

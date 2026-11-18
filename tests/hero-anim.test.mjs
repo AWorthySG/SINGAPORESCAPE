@@ -8,12 +8,13 @@ import { ALL_WEAPON_TYPES } from '../src/data/items.js';
 import { CLASSES } from '../src/data/classes.js';
 import {
   HERO_CLIPS, HERO_CHANNELS, SKILL_ACTION_TYPES, WEAPON_CLIP, DUAL_CLIPS, actionClipId, actionPropId, weaponClipId,
-  sampleHeroClip, heroAnimFrame, blendHeroFrame, CLIP_BLEND_MS, FISHING, attachFishing, drawFishingGear,
+  sampleHeroClip, heroAnimFrame, blendHeroFrame, CLIP_BLEND_MS, FISHING, attachFishing, drawFishingGear, blowMs, strikeClock,
 } from '../src/render/heroanim.js';
 import { OBJECTS } from '../src/data/objects.js';
 import { drawPlayer } from '../src/render/sprites.js';
 import { ITEMS } from '../src/data/items.js';
 import { dualType } from '../src/game/equipment.js';
+import { COMBAT_BEAT_MS } from '../src/config.js';
 
 // One representative action of each kind (and each variant a clip depends on).
 const ACTIONS = [
@@ -99,8 +100,8 @@ test('the spear thrust only pierces (no arc) while the warhammer comes down hard
   }
   assert.ok(minReach < -1 && maxReach > 10, 'draws back, then drives forward');
   const hammer = (u) => sampleHeroClip('smash', u).ch;
-  assert.ok(hammer(0.45).sword < -0.9 && hammer(0.68).sword > 1.8, 'a long lift, then the slam');
-  assert.ok(hammer(0.7).squash > 0.08, 'the body squashes as it lands');
+  assert.ok(hammer(0.42).sword < -0.9 && hammer(0.6).sword > 1.8, 'a long lift, held, then the slam');
+  assert.ok(hammer(0.56).squash > 0.08, 'the body squashes as it lands');
 });
 
 test('a life-skill strike lands on the game tick that pays out', async () => {
@@ -246,7 +247,7 @@ test('a dual wielder alternates clips from one attack to the next', () => {
     for (const k of [0, 0.3, 0.6, 0.9]) { sk = k; const f = heroAnimFrame(game, (t += 16)); if (k === 0.3) seen.push(f.id); }
     sk = -1; heroAnimFrame(game, (t += 16));
   }
-  assert.deepEqual(seen, ['scim_dual', 'scim_x', 'scim_dual', 'scim_x']);
+  assert.deepEqual(seen, ['scim_dual', 'scim_dual_b', 'scim_dual', 'scim_dual_b']);
   const idle = heroAnimFrame(game, (t += 500));
   assert.equal(idle.offhand, 'iron_scimitar', 'the off-hand weapon is known between attacks too (drawn at rest)');
   assert.equal(idle.weapon, 'scimitar');
@@ -397,4 +398,96 @@ test('a catch from the game starts the haul with that very fish, then the hero c
   p.clearAction(); heroAnimFrame(g, t1 + 3000);
   p.setAction({ type: 'fish', obj: spot });
   assert.equal(heroAnimFrame(g, t1 + 3100).fish.phase, 'cast');
+});
+
+// ---------------- Attack timing: the clip fits the swing, the strike meets the hit ----------------
+/** A headless game swinging this weapon type (dual wielding or not) every `iv` beats. */
+function swingingGame(type, iv, dual = false) {
+  const item = Object.keys(ITEMS).find((id) => ITEMS[id].equip?.weaponType === type);
+  let sk = -1;
+  const player = { isMoving: false, animMove: 0, action: null, swingDur: Math.max(120, Math.min(300, iv * COMBAT_BEAT_MS * 0.9)), swingProgress: () => sk };
+  const game = { player, jobClass: 'swordsman', hitStop: 0, attackInterval: () => iv,
+    equipment: { get: (slot) => (slot === 'weapon' || (dual && slot === 'shield') ? item : null), isDualWielding: () => dual } };
+  return { game, swing: (k) => { sk = k; } };
+}
+
+test('every attack clip fits inside its weapon\'s swing interval, wind-up held and strike quick', () => {
+  const ids = new Set([...Object.values(WEAPON_CLIP), ...Object.values(DUAL_CLIPS).flat()]);
+  for (const id of ids) {
+    const clip = HERO_CLIPS[id];
+    assert.ok(clip.hits?.length, `${id}: says when its blows land`);
+    for (const h of clip.hits) assert.ok(h > 0.25 && h < 0.8, `${id}: a blow lands after a wind-up and before the recovery (${h})`);
+    // Fast weapons compress the clip into one combat beat; slow ones take
+    // longer, but the clip always ends before the next attack can begin.
+    for (const iv of [0.25, 0.34, 0.5, 1, 1.5, 2, 4.7]) {
+      const { game } = swingingGame('sword', iv);
+      const ms = blowMs(game, clip);
+      if (clip.shot) assert.equal(ms, game.player.swingDur, `${id}: a shot keeps the game's swing time`);
+      else {
+        assert.ok(ms >= game.player.swingDur, `${id} @${iv}: never shorter than the game's swing`);
+        assert.ok(ms <= Math.max(1, iv) * COMBAT_BEAT_MS, `${id} @${iv}: ends before the next attack (${ms}ms)`);
+      }
+    }
+    // Melee blows: the painted arm holds its wind-up (arc 0.85..1) for a good
+    // part of the clip, then the strike itself (arc 1 -> 3) is over in a flash.
+    if (clip.shot || !clip.tracks.arc) continue;
+    let held = 0, strike = 0;
+    for (let i = 0; i < 400; i++) {
+      const a = sampleHeroClip(id, i / 400).ch.arc;
+      if (a >= 0.85 && a <= 1) held++;
+      else if (a > 1 && a < 3) strike++;
+    }
+    assert.ok(held / 400 >= 0.15, `${id}: the wind-up is held (${held / 4}% of the clip)`);
+    assert.ok(strike / 400 <= 0.12, `${id}: the strike is quick (${strike / 4}% of the clip)`);
+  }
+});
+
+test('each blow strikes at the moment its hit feedback is shown, and a hit-stop freezes the strike', () => {
+  for (const [type, dual] of [['sword', false], ['warhammer', false], ['spear', false], ['scimitar', true], ['dagger', true], ['claws', false]]) {
+    for (const stop of [0, 70]) {
+      const { game, swing } = swingingGame(type, 1, dual);
+      const t0 = 5000;
+      swing(0); heroAnimFrame(game, t0);
+      const clock = strikeClock(game);
+      assert.ok(clock, `${type}: a melee blow holds its hit feedback back`);
+      const hits = clock.hitTimes, first = hits[0];
+      // A crit's hit-stop is dealt with the damage, as the swing starts.
+      game.hitStop = stop;
+      const peaks = [];
+      let was = 0, uAtHit = -1, uAfter = -1;
+      for (let t = t0 + 2; t < t0 + 800; t += 2) {
+        swing(t - t0 < game.player.swingDur ? (t - t0) / game.player.swingDur : -1);
+        const f = heroAnimFrame(game, t);
+        if (f.kind !== 'combat') break;
+        game.hitStop = Math.max(0, game.hitStop - 2);
+        if (f.ch.impact >= 0.99 && was < 0.99) peaks.push(t);
+        was = f.ch.impact;
+        if (uAtHit < 0 && t >= first) uAtHit = f.u;
+        if (uAfter < 0 && t >= first + 40) uAfter = f.u;
+      }
+      // (hitTimes is the renderer's live clock: a hit-stop pushes the later blows back.)
+      assert.equal(peaks.length, hits.length, `${type}: one strike frame per blow`);
+      peaks.forEach((p, i) => assert.ok(Math.abs(p - hits[i]) <= 6, `${type} (hit-stop ${stop}): blow ${i + 1} strikes at ${p - t0}ms, its hit shows at ${hits[i] - t0}ms`));
+      assert.equal(hits[0], first, `${type}: the first blow is never moved by the hit-stop`);
+      // The hit-stop is played on the strike: the clip all but freezes there.
+      const crawl = uAfter - uAtHit;
+      if (stop) assert.ok(crawl < 0.04, `${type}: frozen on the strike for the hit-stop (${crawl.toFixed(3)})`);
+      else assert.ok(crawl > 0.05, `${type}: without one it carries on through (${crawl.toFixed(3)})`);
+    }
+  }
+});
+
+test('the Lancer lowers the spear from its upright guard into the thrust, not in one frame', () => {
+  assert.equal(weaponClipId('spear'), 'thrust');
+  assert.equal(sampleHeroClip('thrust', 0.1).guardIn, true, 'the thrust starts from the guard');
+  // The painted wind-up shows from arc 0.4: it takes a good part of the coil
+  // (not a frame or two of a 270ms clip) to come down to its own aim at arc 1.
+  let shown = -1, aimed = -1;
+  for (let u = 0; u <= 0.4; u += 0.005) {
+    const a = sampleHeroClip('thrust', u).ch.arc;
+    if (shown < 0 && a > 0.4) shown = u;
+    if (aimed < 0 && a >= 0.99) aimed = u;
+  }
+  assert.ok(aimed - shown >= 0.08, `lowered over ${(aimed - shown).toFixed(3)} of the clip`);
+  assert.equal(sampleHeroClip('slash', 0.1).guardIn, false, 'other clips coil as before');
 });

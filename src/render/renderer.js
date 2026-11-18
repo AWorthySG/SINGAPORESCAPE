@@ -30,8 +30,10 @@ const ARROW_LOOK = {
 };
 import { labelMode, objectLabelAlpha, npcNameVisible, targetTag } from './worldlabels.js';
 import { drawShadow, drawCreature, drawPlayer, drawObjectSprite, drawGroundItem } from './sprites.js';
-import { heroAnimFrame, drawFishingGear } from './heroanim.js';
+import { heroAnimFrame, drawFishingGear, strikeClock } from './heroanim.js';
 import { RARITY } from '../game/loot.js';
+// The effects a melee blow spawns that wait for its strike (see _holdForStrike).
+const HELD_FX = new Set(['slash', 'cleave', 'swipe']);
 import { itemIconImage } from './icons.js';
 import { moodFor, blendMood, composeWashes, dayNightWashes, buildVignette, ObjectReactions } from './ambience.js';
 import { Critters } from './critters.js';
@@ -338,7 +340,7 @@ export class Renderer {
           moving: n.isMoving, walk: n.walkPhase, move: n.animMove,
           scale: sc, sprite: n.def.sprite, color: n.def.color, boss: n.def.boss, family: n.def.family,
           attackK: n.swingProgress ? n.swingProgress() : -1,
-          hurt: n.hurt, windup: n.windup > 0, castK: n.castT > 0 ? 1 - n.castT / 700 : 0, castCol: n.castCol,
+          hurt: this._heldHurt(n, timeMs), windup: n.windup > 0, castK: n.castT > 0 ? 1 - n.castT / 700 : 0, castCol: n.castCol,
           low: game.lowFx,   // low graphics: monsters and townsfolk skip their moving parts
         });
         if (spawn > 0) ctx.restore();
@@ -377,6 +379,7 @@ export class Renderer {
         if (al?.halo || al?.eyes) this._auraFront(cx + off.x, cy + off.y, al, timeMs);
       } });
     }
+    this._holdForStrike(timeMs);
     drawables.sort((a, b) => (a.sortY - b.sortY) || (a.z - b.z));
     for (const d of drawables) d.draw();
 
@@ -747,9 +750,52 @@ export class Renderer {
     ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
   }
 
+  // ---------------- Hit feedback on the strike ----------------
+  // The game deals a melee blow's damage (its hitsplat, slash, sparks and the
+  // foe's flash) the moment the swing starts, but the hero's clip winds up
+  // first and lands the weapon later (heroanim.js strikeClock). So the
+  // feedback born with a blow waits, unaged, for that blow's strike: the
+  // first hitsplat for the main hand's, the second for the off hand's.
+  // Effects and particles are throwaway, so the wait is noted on them.
+  _holdForStrike(now) {
+    const game = this.game;
+    this._now = now;
+    const clock = strikeClock(game);
+    if (clock && clock.blowAt !== this._blowSeen) { this._blowSeen = clock.blowAt; this._splatN = 0; this._slashN = 0; }
+    // Only what appears with the blow itself (the game deals it as the swing starts).
+    const fresh = !!clock && now - clock.blowAt < 60;
+    const hits = clock && clock.hitTimes, last = hits ? hits.length - 1 : 0;
+    for (const e of game.effects) {
+      if (e._showAt === undefined) {
+        e._showAt = 0;
+        if (fresh && (e.type === 'hitsplat' ? e.entity !== game.player : HELD_FX.has(e.type))) {
+          const n = e.type === 'hitsplat' ? this._splatN++ : e.type === 'slash' ? this._slashN++ : 0;
+          e._showAt = hits[Math.min(n, last)];
+          e._life0 = e.life;
+        }
+      }
+      if (e._showAt > now) e.life = e._life0;   // held: it doesn't age until shown
+    }
+    for (const p of game.particles) {
+      if (p._showAt === undefined) {
+        p._showAt = fresh ? hits[0] : 0;
+        if (fresh) { p._life0 = p.life; p._x0 = p.x; p._y0 = p.y; p._vy0 = p.vy; }
+      }
+      if (p._showAt > now) { p.life = p._life0; p.x = p._x0; p.y = p._y0; p.vy = p._vy0; }
+    }
+  }
+  /** A foe's hit flash, held back to the strike of the blow that dealt it. */
+  _heldHurt(n, now) {
+    const clock = n.hurt > 0 && n === this.game.player.action?.npc ? strikeClock(this.game) : null;
+    if (!clock) return n.hurt;
+    const t = clock.hitTimes[0];
+    return now < t ? 0 : Math.min(200, n.hurt + (t - clock.blowAt));
+  }
+
   _drawProjectiles(ox, oy) {
     const { ctx, game } = this;
     for (const e of game.effects) {
+      if (e._showAt > this._now) continue;   // waiting for the weapon to land
       if (e.type === 'slash' && e.thrust) {
         // A spear's thrust: a bright straight streak driving through the target
         // along the line of the attack, shooting forward as it fades.
@@ -998,6 +1044,7 @@ export class Renderer {
     const { ctx, game } = this;
     if (!game.particles || !game.particles.length) return;
     for (const p of game.particles) {
+      if (p._showAt > this._now) continue;   // waiting for the weapon to land
       const a = Math.max(0, Math.min(1, p.life / p.maxLife));
       ctx.globalAlpha = a;
       if (p.add) ctx.globalCompositeOperation = 'lighter';
@@ -1594,7 +1641,7 @@ export class Renderer {
     }
     this._drawGatherRing(ox, oy);
     for (const e of game.effects) {
-      if (e.type !== 'hitsplat') continue;
+      if (e.type !== 'hitsplat' || e._showAt > this._now) continue;
       const c = e.entity.renderCenter ? e.entity.renderCenter() : { x: e.entity.x * TILE, y: e.entity.y * TILE };
       const age = e.maxLife - e.life;
       // Rise from above the head and fan out sideways so rapid hits don't stack
