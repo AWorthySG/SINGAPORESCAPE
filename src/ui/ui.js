@@ -175,6 +175,8 @@ export class UI {
     document.getElementById('auto-gather-btn')?.addEventListener('click', () => this.game.toggleAutoGather());
     document.getElementById('auto-quest-btn')?.addEventListener('click', () => this.game.toggleAutoQuest());
     document.getElementById('auto-battle-cfg')?.addEventListener('click', () => this.openAutoSettings());
+    this._initAutoMenu();
+    this._initSheets();
     document.getElementById('interact-btn')?.addEventListener('pointerdown', (e) => { e.preventDefault(); this.game.interact(); });
     // Attack: a tap locks onto the nearest enemy; holding it keeps fighting,
     // moving straight on to the next foe as each one falls.
@@ -572,6 +574,69 @@ export class UI {
       apply(this._collapse[key]);
       this._saveCollapse();
     });
+  }
+
+  // Phones fold the Battle / Gather / Quest switches into one "Auto" button
+  // (the CSS hides the card unless #ability-bar has .auto-open). A tap anywhere
+  // else folds it again, so the card never sits over the game for long.
+  _initAutoMenu() {
+    if (typeof document === 'undefined') return;
+    const bar = document.getElementById('ability-bar');
+    const btn = document.getElementById('auto-menu-btn');
+    if (!bar || !btn) return;
+    const set = (open) => { bar.classList.toggle('auto-open', open); btn.setAttribute('aria-expanded', open ? 'true' : 'false'); };
+    btn.addEventListener('click', (e) => { e.stopPropagation(); set(!bar.classList.contains('auto-open')); });
+    document.addEventListener('pointerdown', (e) => {
+      if (bar.classList.contains('auto-open') && !bar.contains(e.target)) set(false);
+    }, true);
+  }
+
+  // Phones show the side panel and the big windows as sheets (see "Responsive
+  // layout" in main.css). Dragging the handle or header down (or sideways to
+  // the right for the landscape side sheet) past a short distance closes the
+  // sheet; a plain tap on the handle closes it too. Only runs while the sheet
+  // layout is in force, so desktop and tablets are untouched.
+  _initSheets() {
+    if (typeof document === 'undefined' || typeof matchMedia !== 'function') return;
+    const phone = matchMedia('(pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px)');
+    const side = () => matchMedia('(max-height: 500px)').matches;   // landscape: the sheet slides in from the right
+    const wire = (sheet, grips, close, isOpen) => {
+      if (!sheet) return;
+      let start = null, d = 0;
+      const move = (e) => {
+        if (!start) return;
+        d = Math.max(0, side() ? e.clientX - start.x : e.clientY - start.y);
+        sheet.style.transform = side() ? `translateX(${d}px)` : `translateY(${d}px)`;
+      };
+      const end = () => {
+        if (!start) return;
+        const tap = d < 6 && start.handle;
+        start = null;
+        sheet.style.transition = ''; sheet.style.transform = '';
+        if (d > 70 || tap) close();
+        d = 0;
+      };
+      for (const g of grips) {
+        if (!g) continue;
+        g.addEventListener('pointerdown', (e) => {
+          // Buttons in the header (fold, close) keep their own taps.
+          if (!phone.matches || !isOpen() || e.target.closest?.('button')) return;
+          start = { x: e.clientX, y: e.clientY, handle: g.classList.contains('sheet-handle') };
+          d = 0;
+          sheet.style.transition = 'none';
+          g.setPointerCapture?.(e.pointerId);
+        });
+        g.addEventListener('pointermove', move);
+        g.addEventListener('pointerup', end);
+        g.addEventListener('pointercancel', () => { d = 0; end(); });
+      }
+    };
+    const panel = this.el.sidepanel;
+    wire(panel, [panel?.querySelector('.sheet-handle'), this.el.panelHead],
+      () => this._collapseApply?.panel?.(true), () => !panel.classList.contains('collapsed'));
+    const win = document.getElementById('modal-window');
+    wire(win, [win?.querySelector('.sheet-handle'), this.el.modalTitle],
+      () => this.closeModal(), () => !!this.modal);
   }
 
   _loadCollapse() {

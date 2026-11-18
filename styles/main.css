@@ -2736,3 +2736,280 @@ body #tip-toast.tip-strip { font-size: 11px; padding: 4px 6px 4px 7px; border-ra
 .align-steward { font-size: 12px; margin-top: 3px; opacity: .85; }
 .align-steward.active b { color: var(--aw-grass, #3a9a4a); }
 #quest-tracker .trk-pest { color: var(--aw-grass, #3a9a4a); }
+/* ======================================================================
+   Responsive layout: phones, landscape phones and tablets (touch only).
+   One plan per device, written last so it settles the older layers above.
+   Desktop (a fine pointer) never matches any of this.
+   - Phone portrait: joystick bottom-left with the Auto button and chat pill
+     above it; Attack, the skill arc and Interact bottom-right; an info strip
+     top-left (boss bar, Endless Gate panel, objectives, stacked, never
+     overlapping); minimap top-right with the panel launcher under it.
+   - Phone landscape: the same controls along both sides; the panel opens as
+     a side sheet from the right.
+   - Phones: the side panel and the big windows open as bottom sheets.
+   - Tablets: a docked, narrower side panel; the info strip top-left.
+   ====================================================================== */
+/* Only phones show these (see ui.js: _initAutoMenu, _initSheets). */
+.sheet-handle { display: none; }
+#auto-menu-btn { display: none; }
+@keyframes sheetUp { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes sheetIn { from { transform: translateX(100%); } to { transform: none; } }
+
+/* ---------- Touch targets: 44px on every touch screen ---------- */
+@media (pointer: coarse) {
+  .tab-btn { min-width: 44px; min-height: 44px; }
+  #panel-tabs { gap: 3px; }
+  .inv-slot, .equip-slot, .item-cell { min-width: 44px; min-height: 44px; }
+  .inv-tab, #inv-sort, .chat-tab, .as-opt, .wm-chip { min-height: 44px; }
+  .auto-row #auto-battle-btn, .auto-row .ab-btn, .auto-row #auto-battle-cfg { min-height: 44px; }
+  #wave-hud .wv-leave { min-height: 44px; }
+  #modal-close { width: 44px; height: 44px; font-size: 16px; }
+  #modal-body button, .dialogue-option { min-height: 44px; }
+}
+
+/* ---------- Phones, both ways up: Auto button, chat pill, sheets ---------- */
+@media (pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px) {
+  :root {
+    --sa-t: env(safe-area-inset-top, 0px); --sa-r: env(safe-area-inset-right, 0px);
+    --sa-b: env(safe-area-inset-bottom, 0px); --sa-l: env(safe-area-inset-left, 0px);
+    --boss-h: 0px; --wave-h: 0px;
+  }
+  /* Rows of the info strip that are showing; the rows below step down. */
+  body.boss-on { --boss-h: 54px; }
+  body:has(#wave-hud:not(.hidden)) { --wave-h: 56px; }
+
+  /* The auto switches fold into one Auto button above the joystick; it turns
+     rust while any of the three is on, and opens the card of switches + gear. */
+  #ability-bar {
+    left: calc(12px + var(--sa-l)); right: auto; bottom: var(--auto-b); top: auto;
+    width: auto; margin: 0; padding: 0; transform: none; background: none; display: block;
+  }
+  #auto-menu-btn {
+    display: flex; align-items: center; gap: 6px; height: 44px; min-width: 64px; padding: 0 12px;
+    pointer-events: auto; cursor: var(--cur-pointer); font-family: inherit; font-size: 13px; font-weight: 900;
+    background: var(--aw-card); color: var(--aw-text); border: 2px solid var(--aw-ink); border-radius: 999px;
+    box-shadow: var(--shadow-sticker-sm);
+  }
+  #auto-menu-btn .am-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--aw-muted); border: 1.5px solid var(--aw-ink); }
+  #ability-bar:has(.ab-btn.on) #auto-menu-btn { background: var(--aw-accent); color: #fff; }
+  #ability-bar:has(.ab-btn.on) #auto-menu-btn .am-dot { background: var(--aw-sun); }
+  /* Open, the card rises above the tip (60) but stays under the sheets (70). */
+  #ability-bar.auto-open { z-index: 65; }
+  #ability-bar.auto-open #auto-menu-btn { box-shadow: 0 0 0 3px var(--aw-sun), var(--shadow-sticker-sm); }
+  #ability-bar .auto-row { display: none; position: absolute; left: 0; bottom: 74px; z-index: 31; width: max-content; }
+  #ability-bar.auto-open .auto-row { display: flex; }
+  #adrenaline { position: absolute; left: 0; bottom: 52px; width: 160px; height: 14px; }
+
+  /* Chat folds to a small pill beside the Auto button. */
+  #chatbox.collapsed {
+    left: calc(84px + var(--sa-l)); right: auto; bottom: var(--auto-b); top: auto;
+    width: auto; min-width: 0; max-width: 84px; height: 44px; justify-content: center;
+  }
+  #chatbox.collapsed #chat-head { height: 100%; padding: 0 8px 0 12px; box-sizing: border-box; }
+
+  /* The panel launcher: the folded side panel shows just its current tab;
+     a tap opens the sheet on it, where every tab is one tap away. */
+  #sidepanel.collapsed {
+    left: auto; bottom: auto; transform: none; width: 56px; z-index: 24;
+    grid-template-columns: 1fr; grid-template-areas: "tabs"; border-radius: 14px; overflow: hidden;
+  }
+  #sidepanel.collapsed #panel-tabs { display: flex; border-left: 0; }
+  #sidepanel.collapsed .tab-btn:not(.active) { display: none; }
+  #sidepanel.collapsed .tab-btn { min-height: 52px; padding: 3px 1px; }
+  #sidepanel.collapsed .tab-btn .tab-label { display: block; }
+
+  /* Open: a sheet with a drag handle, its tabs in one scrolling row above
+     the body. Above the touch controls (27) and the tip (60), under menus. */
+  #sidepanel:not(.collapsed), #sidepanel.wide:not(.collapsed) {
+    position: fixed; z-index: 70; max-width: none; transform: none;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+    grid-template-areas: "handle" "head" "tabs" "body";
+  }
+  #sidepanel .sheet-handle { grid-area: handle; }
+  .sheet-handle { position: relative; flex: none; height: 22px; cursor: grab; touch-action: none; }
+  .sheet-handle::before {
+    content: ""; position: absolute; left: 50%; top: 8px; width: 44px; height: 5px; margin-left: -22px;
+    border-radius: 999px; background: var(--aw-ink-faint);
+  }
+  #sidepanel:not(.collapsed) .sheet-handle { display: block; }
+  #panel-head, #modal-title { touch-action: none; }
+  #sidepanel:not(.collapsed) #panel-tabs {
+    flex-direction: row; gap: 6px; overflow-x: auto; overflow-y: hidden; padding: 6px 8px;
+    border-left: 0; border-bottom: 2px dashed var(--aw-ink-faint);
+  }
+  #sidepanel:not(.collapsed) .tab-btn { flex: 0 0 auto; min-width: 58px; min-height: 52px; padding: 3px 4px; border-radius: 12px; }
+  #sidepanel:not(.collapsed) .tab-btn .tab-label { display: block; font-size: 10px; }
+  #sidepanel:not(.collapsed) #panel-body { height: auto; max-height: none; min-height: 0; contain: size; overflow-y: auto; }
+  #sidepanel:not(.collapsed) #inventory-grid { grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); }
+  /* Shop and bank grids fill the sheet's width rather than a fixed 8 or 6. */
+  #modal-body .item-grid, #modal-body .item-grid.shop { grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); }
+
+  /* Big windows (bank, shop, codex, shrine, quest journal...) slide up as
+     sheets too; a tap on the dimmed game above, or a swipe down, closes them. */
+  #modal-window .sheet-handle { display: block; }
+  #modal-close { top: 18px; right: 8px; }
+  #modal-title { padding: 2px 56px 10px; }
+}
+
+/* ---------- Phone portrait ---------- */
+@media (pointer: coarse) and (max-width: 540px) {
+  :root {
+    --pad-r: calc(14px + var(--sa-r)); --pad-b: calc(14px + var(--sa-b));
+    --auto-b: calc(154px + var(--sa-b));
+    --strip-t: calc(6px + var(--sa-t)); --strip-l: calc(6px + var(--sa-l));
+    --strip-w: calc(100vw - 150px - var(--sa-l) - var(--sa-r));
+  }
+  #joystick { left: calc(14px + var(--sa-l)); bottom: calc(14px + var(--sa-b)); width: 128px; height: 128px; }
+  #joystick-knob { width: 54px; height: 54px; }
+
+  /* Info strip, top-left: boss bar, then the Endless Gate panel, then objectives. */
+  #boss-bar, #boss-bar.normal {
+    top: var(--strip-t); left: var(--strip-l); width: var(--strip-w); max-width: none; height: 48px;
+    box-sizing: border-box; transform: none; animation: none; margin: 0; padding: 4px 8px 4px 6px; gap: 6px;
+  }
+  #boss-bar #boss-bar-portrait, #boss-bar.normal #boss-bar-portrait { width: 36px; height: 36px; margin: 0; }
+  #boss-bar-name, #boss-bar.normal #boss-bar-name { font-size: 11px; letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
+  #wave-hud {
+    top: calc(var(--strip-t) + var(--boss-h)); left: var(--strip-l); width: var(--strip-w); min-width: 0; height: 50px;
+    box-sizing: border-box; display: flex; align-items: center; gap: 6px; padding: 2px 3px 2px 8px; font-size: 11px; line-height: 1.25;
+  }
+  #wave-hud .wv-title, #wave-hud .wv-best { display: none; }
+  #wave-hud .wv-body { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #wave-hud .wv-wave { font-size: 13px; }
+  #wave-hud .wv-leave { flex: none; width: auto; margin: 0; padding: 0 12px; }
+  #quest-tracker, body.boss-on #quest-tracker {
+    top: calc(var(--strip-t) + var(--boss-h) + var(--wave-h)); left: var(--strip-l); max-width: var(--strip-w);
+    max-height: calc(212px - var(--boss-h) - var(--wave-h)); overflow: hidden; box-sizing: border-box;
+  }
+  /* Minimap top-right; the panel launcher sits under its row of orbs. */
+  #minimap-panel { top: calc(6px + var(--sa-t)); right: calc(6px + var(--sa-r)); }
+  #sidepanel.collapsed { top: calc(222px + var(--sa-t)); right: calc(6px + var(--sa-r)); }
+  /* The first-run tip: under the strip, beside the launcher, clear of the thumbs.
+     (Still centred with translateX(-50%), so its pop-in lines up.) */
+  #tip-toast, body.boss-on #tip-toast, body:has(#sidepanel:not(.collapsed)) #tip-toast {
+    top: calc(222px + var(--sa-t)); bottom: auto;
+    width: calc(100vw - 80px - var(--sa-l) - var(--sa-r));
+    left: calc(6px + var(--sa-l) + (100vw - 80px - var(--sa-l) - var(--sa-r)) / 2);
+    font-size: 12px; line-height: 1.35; padding: 6px 8px 6px 10px;
+  }
+  /* Chat, unfolded: above the Auto button, clear of the skill arc. */
+  #chatbox:not(.collapsed) {
+    left: calc(6px + var(--sa-l)); right: auto; top: auto; bottom: calc(var(--auto-b) + 74px);
+    width: min(236px, calc(100vw - 160px)); height: 130px;
+  }
+  /* The bottom sheets, at most 85% of the height, the game showing above. */
+  #sidepanel:not(.collapsed), #sidepanel.wide:not(.collapsed) {
+    left: 0; right: 0; top: auto; bottom: 0; width: auto; height: 60dvh; max-height: 85dvh;
+    border-radius: 20px 20px 0 0; border-bottom: 0; padding-bottom: var(--sa-b); box-sizing: border-box;
+    animation: sheetUp .22s ease-out;
+  }
+  #modal-overlay { align-items: flex-end; }
+  #modal-window, #modal-window:has(.worldmap-canvas), #modal-window:has(.cx-head), #modal-window:has(.cx-entry) {
+    width: 100vw; max-width: none; max-height: 85dvh; border-width: 2px; border-bottom: 0;
+    border-radius: 20px 20px 0 0; padding-bottom: var(--sa-b); box-sizing: border-box; animation: sheetUp .22s ease-out;
+  }
+}
+
+/* ---------- Phone landscape ---------- */
+@media (pointer: coarse) and (max-height: 500px) {
+  :root {
+    --pad-r: calc(14px + var(--sa-r)); --pad-b: calc(10px + var(--sa-b));
+    --auto-b: calc(134px + var(--sa-b));
+    --strip-t: calc(6px + var(--sa-t)); --strip-l: calc(6px + var(--sa-l)); --strip-w: 300px;
+  }
+  #joystick { left: calc(16px + var(--sa-l)); bottom: calc(12px + var(--sa-b)); }
+  #boss-bar, #boss-bar.normal {
+    top: var(--strip-t); left: var(--strip-l); width: var(--strip-w); max-width: none; height: 48px;
+    box-sizing: border-box; transform: none; animation: none; margin: 0; padding: 4px 8px 4px 6px; gap: 6px;
+  }
+  #boss-bar #boss-bar-portrait, #boss-bar.normal #boss-bar-portrait { width: 36px; height: 36px; margin: 0; }
+  #boss-bar-name, #boss-bar.normal #boss-bar-name { font-size: 11px; letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
+  #wave-hud {
+    top: calc(var(--strip-t) + var(--boss-h)); left: var(--strip-l); width: var(--strip-w); min-width: 0; height: 50px;
+    box-sizing: border-box; display: flex; align-items: center; gap: 6px; padding: 2px 3px 2px 8px; font-size: 11px; line-height: 1.25;
+  }
+  #wave-hud .wv-title, #wave-hud .wv-best { display: none; }
+  #wave-hud .wv-body { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #wave-hud .wv-leave { flex: none; width: auto; margin: 0; padding: 0 12px; }
+  #quest-tracker, body.boss-on #quest-tracker {
+    top: calc(var(--strip-t) + var(--boss-h) + var(--wave-h)); left: var(--strip-l); max-width: var(--strip-w);
+    max-height: calc(100dvh - 222px - var(--sa-t) - var(--sa-b) - var(--boss-h) - var(--wave-h)); overflow: hidden; box-sizing: border-box;
+  }
+  /* Minimap in the top-right corner (no rail beside it now), a touch smaller
+     so the skill arc fits under it; the launcher sits left of its orb column. */
+  #minimap-panel { top: calc(6px + var(--sa-t)); right: calc(6px + var(--sa-r)); transform: scale(0.72); }
+  #sidepanel.collapsed { top: calc(6px + var(--sa-t)); right: calc(176px + var(--sa-r)); }
+  /* A smaller Attack button and a tighter skill arc: the short screen has to
+     hold the arc under the minimap. (Offsets are the portrait ones x0.8.) */
+  :root { --atk: 70px; --sk: 48px; }
+  #ability-buttons .ability-btn:nth-child(1) { --ax: -84px; --ay: 0px; }
+  #ability-buttons .ability-btn:nth-child(2) { --ax: -70px; --ay: -46px; }
+  #ability-buttons .ability-btn:nth-child(3) { --ax: -34px; --ay: -76px; }
+  #ability-buttons .ability-btn:nth-child(4) { --ax: 13px;  --ay: -83px; }
+  #ability-buttons .ability-btn:nth-child(5) { --ax: -83px; --ay: -99px; --sk: 54px; }
+  #ability-buttons .ability-btn .ab-icon img, #ability-buttons .ability-btn .ab-icon svg { width: 30px; height: 30px; }
+  #attack-btn .atk-icon { font-size: 24px; }
+  /* The auto card opens sideways, to the right of the Auto button: a short
+     screen has no height for a column of three switches. */
+  #ability-bar .auto-row { left: 72px; bottom: 0; flex-direction: row; }
+  .auto-row .ab-btn + .ab-btn, .auto-row #auto-battle-cfg { border-top: 0; border-left: 2px dashed var(--aw-ink-faint); }
+  .auto-row #auto-battle-cfg { min-width: 44px; }
+  .ab-status { max-width: 64px; }
+  /* The tip waits bottom-centre, between the joystick and Interact. */
+  #tip-toast, body.boss-on #tip-toast, body:has(#sidepanel:not(.collapsed)) #tip-toast {
+    top: auto; bottom: calc(8px + var(--sa-b)); font-size: 12px; padding: 6px 8px;
+    width: min(400px, calc(100vw - 420px - var(--sa-l) - var(--sa-r)));
+    left: calc(140px + var(--sa-l) + min(400px, calc(100vw - 420px - var(--sa-l) - var(--sa-r))) / 2);
+  }
+  #tip-toast .tip-badge { display: none; }
+  /* Chat, unfolded: bottom-centre between the joystick and Interact. */
+  #chatbox:not(.collapsed) {
+    left: calc(140px + var(--sa-l)); right: auto; top: auto; bottom: calc(10px + var(--sa-b));
+    width: min(360px, calc(100vw - 430px - var(--sa-l) - var(--sa-r))); height: min(130px, calc(100dvh - 40px));
+  }
+  /* The side panel opens as a side sheet from the right, handle on its left edge. */
+  #sidepanel:not(.collapsed), #sidepanel.wide:not(.collapsed) {
+    left: auto; right: 0; top: 0; bottom: 0; width: min(420px, 60vw); height: auto; max-height: none;
+    grid-template-columns: 22px minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-areas: "handle head" "handle tabs" "handle body";
+    border-radius: 20px 0 0 20px; border-right: 0; padding-right: var(--sa-r); box-sizing: border-box;
+    animation: sheetIn .22s ease-out;
+  }
+  #sidepanel:not(.collapsed) .sheet-handle { height: auto; }
+  #sidepanel:not(.collapsed) .sheet-handle::before { top: 50%; left: 9px; width: 5px; height: 44px; margin: -22px 0 0; }
+  #sidepanel:not(.collapsed) .tab-btn { min-height: 48px; }
+  #sidepanel:not(.collapsed) .tab-btn .tab-label { display: none; }
+  /* Windows stay centred (there's no height for a sheet), with room to close. */
+  #modal-window .sheet-handle { display: none; }
+  #modal-close { top: 5px; }
+  #modal-title { padding: 10px 56px; }
+}
+
+/* ---------- Tablets (768-1180 wide, touch) ---------- */
+@media (pointer: coarse) and (min-width: 541px) and (min-height: 501px) {
+  :root { --panel-w: 284px; --rail-w: 60px; --boss-h: 0px; }
+  body.boss-on { --boss-h: 66px; }
+  /* The docked panel's body fills the height of its tab rail, so the bag
+     shows its full grid instead of ending in a blank strip. */
+  #sidepanel:not(.collapsed) { grid-template-rows: auto minmax(0, 1fr); }
+  #panel-body { height: auto; min-height: 0; contain: size; font-size: 13px; }
+  .tab-btn .tab-label { font-size: 11px; }
+  /* Info strip, top-left under the hover text: boss bar, then the Endless
+     Gate panel or the objectives (they never show together). */
+  #hover-text { max-width: calc(50vw - 120px); }
+  #boss-bar, #boss-bar.normal {
+    top: 44px; left: 10px; width: 340px; max-width: calc(100vw - 260px); transform: none; animation: none; margin: 0; box-sizing: border-box;
+  }
+  #boss-bar-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
+  #boss-bar #boss-bar-portrait { width: 48px; height: 48px; margin: -6px 0 -6px -4px; }
+  #wave-hud, #quest-tracker, body.boss-on #quest-tracker { top: calc(44px + var(--boss-h)); left: 10px; max-width: 340px; }
+  /* The tip sits below the strip and the minimap, over open ground. */
+  #tip-toast, body.boss-on #tip-toast { top: 262px; bottom: auto; }
+}
+/* Tablet portrait: the strip takes the top-left, so the minimap's caption
+   names the area instead of a label in the middle. */
+@media (pointer: coarse) and (min-width: 541px) and (min-height: 501px) and (orientation: portrait) {
+  #region-label { display: none; }
+}
