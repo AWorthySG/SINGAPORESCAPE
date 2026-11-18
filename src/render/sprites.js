@@ -2043,6 +2043,8 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
       if (anim) {
         const ch = anim.ch;
         b.dx = ch.bx; b.dy = ch.by; b.rot = ch.lean; b.sy = 1 - ch.squash; b.sx = 1 + ch.squash * 0.6;
+        // A spin (the Dancer's whip) turns the body round like a card on its edge.
+        if (ch.spin) { const k = Math.cos(ch.spin * Math.PI * 2); b.sx *= Math.sign(k || 1) * Math.max(0.12, Math.abs(k)); }
       } else {
         b.dx = pose ? pose.dx : 0; b.dy = pose ? pose.dy : 0; b.rot = pose ? pose.rot : 0; b.sx = pose ? pose.sx : 1; b.sy = pose ? pose.sy : 1;
         blendHero(opts.entity, b, t, k, HERO_BLEND);

@@ -99,8 +99,8 @@ test('the spear thrust only pierces (no arc) while the warhammer comes down hard
   }
   assert.ok(minReach < -1 && maxReach > 10, 'draws back, then drives forward');
   const hammer = (u) => sampleHeroClip('smash', u).ch;
-  assert.ok(hammer(0.45).sword < -0.9 && hammer(0.68).sword > 1.8, 'a long lift, then the slam');
-  assert.ok(hammer(0.7).squash > 0.08, 'the body squashes as it lands');
+  assert.ok(hammer(0.42).sword < -0.9 && hammer(0.6).sword > 1.8, 'a long lift, held, then the slam');
+  assert.ok(hammer(0.56).squash > 0.08, 'the body squashes as it lands');
 });
 
 test('a life-skill strike lands on the game tick that pays out', async () => {
@@ -246,7 +246,7 @@ test('a dual wielder alternates clips from one attack to the next', () => {
     for (const k of [0, 0.3, 0.6, 0.9]) { sk = k; const f = heroAnimFrame(game, (t += 16)); if (k === 0.3) seen.push(f.id); }
     sk = -1; heroAnimFrame(game, (t += 16));
   }
-  assert.deepEqual(seen, ['scim_dual', 'scim_x', 'scim_dual', 'scim_x']);
+  assert.deepEqual(seen, ['scim_dual', 'scim_dual_b', 'scim_dual', 'scim_dual_b']);
   const idle = heroAnimFrame(game, (t += 500));
   assert.equal(idle.offhand, 'iron_scimitar', 'the off-hand weapon is known between attacks too (drawn at rest)');
   assert.equal(idle.weapon, 'scimitar');
