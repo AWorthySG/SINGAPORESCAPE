@@ -346,7 +346,7 @@ export class TitleScreen {
         this._preload++;
         return;
       }
-      this._updateBar();
+      this._updateBar(dt);
     }
     if (this.leaving) return;   // the camera returns to the player
     this.t += this.ready && !this.still ? dt : 0;
@@ -362,10 +362,11 @@ export class TitleScreen {
     }
   }
 
-  _updateBar() {
+  _updateBar(dt) {
     const st = this.tracker.status();
     const target = 0.1 + 0.9 * st.ratio;
-    this.shown = Math.max(this.shown, Math.min(target, this.shown + 0.04));
+    // Eases toward the real figure (at most the whole bar in ~0.6s), never back.
+    this.shown = Math.max(this.shown, Math.min(target, this.shown + Math.min(dt, 100) / 600));
     if (this.el.fill) this.el.fill.style.transform = `scaleX(${this.shown.toFixed(3)})`;
     this.el.bar?.setAttribute('aria-valuenow', String(Math.round(this.shown * 100)));
     if (this.el.status) this.el.status.textContent = st.total ? `Painting the island… ${st.loaded} / ${st.total}` : 'Painting the island…';
