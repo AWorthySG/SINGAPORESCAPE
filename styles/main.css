@@ -88,6 +88,9 @@
 html, body {
   width: 100%; height: 100%;
   overflow: hidden;
+  /* The page itself never scrolls or bounces (iPhone Safari would leave it
+     shifted after the keyboard, and taps then landed off their buttons). */
+  overscroll-behavior: none;
   background: var(--aw-bg);
   color: var(--text);
   font-family: var(--font);

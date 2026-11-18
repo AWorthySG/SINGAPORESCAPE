@@ -87,3 +87,22 @@ test('camera zoom shows less of the world and maps the screen back to the right 
   const s = cam.worldToScreen(1000 + 16, 1000);
   assert.ok(Math.abs(s.x - (640 + 16 * 1.6)) < 1e-9, 'world distances are scaled up on screen');
 });
+
+test('the page is put back (top, 100% zoom) once no text box is in use', async () => {
+  const { guardPageShift } = await import('../src/engine/input.js');
+  const L = {}; const on = (k) => (t, f) => { (L[k + t] ||= []).push(f); };
+  let scrolled = 0, active = null;
+  const vv = { scale: 1, offsetTop: 0, offsetLeft: 0, addEventListener: on('vv') };
+  const meta = { c: 'width=device-width, maximum-scale=1.0', getAttribute() { return this.c; }, setAttribute(_, v) { this.c = v; } };
+  const doc = { addEventListener: on('doc'), get activeElement() { return active; }, querySelector: () => meta, scrollingElement: null, documentElement: null, body: null, hidden: false };
+  const win = { document: doc, scrollX: 0, scrollY: 0, visualViewport: vv, addEventListener: on('win'), scrollTo: () => { scrolled++; win.scrollY = 0; vv.offsetTop = 0; } };
+  const reset = guardPageShift(win);
+  // The keyboard left the page shifted: put back.
+  vv.offsetTop = 40; reset();
+  assert.equal(scrolled, 1); assert.equal(vv.offsetTop, 0);
+  // While typing, it's left alone (the keyboard needs the room).
+  active = { tagName: 'INPUT' }; win.scrollY = 50; reset();
+  assert.equal(scrolled, 1);
+  active = null; reset();
+  assert.equal(scrolled, 2);
+});
