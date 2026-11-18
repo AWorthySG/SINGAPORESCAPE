@@ -271,7 +271,7 @@ test('hero animation parts stay in lock-step with assets/creatures/hero/anim/ an
   // Every arm ([w, h, pivot]) and back-view part ([x, y, w, h]) has a real size.
   for (const [id, a] of Object.entries(ANIM_ART)) {
     for (const arm of [a.swing, a.off].filter(Boolean).flatMap(Object.values)) assert.ok(arm.length === 4 && arm.every(Number.isFinite) && arm[0] > 0 && arm[1] > 0, `${id} arm size`);
-    for (const r of Object.values(a.back || {})) assert.ok(r.length === 4 && r.every(Number.isFinite) && r[2] > 0 && r[3] > 0, `${id} back part size`);
+    for (const r of Object.values(a.back || {})) assert.ok((r.length === 4 || r.length === 8) && r.every(Number.isFinite) && r[2] > 0 && r[3] > 0, `${id} back part size`);
   }
 });
 

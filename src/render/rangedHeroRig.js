@@ -98,7 +98,7 @@ export function drawRangedHeroRig(ctx, opts = {}) {
   const sh = SHOULDER[classId];
   if (frame && !guns) drawSwingArm(ctx, classId, anim.ch, 'main', kind, sh[0], sh[1] + pose.breathe);
   // With no weapon equipped the hand is empty: the painted bare arm.
-  else if (opts.hasWeapon === false && drawEmptyArm(ctx, classId, sh[0] + 2, sh[1] + 1 + pose.breathe, 0.25 + pose.step * 0.3, 10)) { /* drawn */ }
+  else if (opts.hasWeapon === false && drawEmptyArm(ctx, classId, 8, -12 + pose.breathe, 0.25 + pose.step * 0.3, 12)) { /* drawn */ }
   else if (guns) {
     // Two pistols: the back hand aims level from the shoulder and kicks up on
     // each shot; the front hand swings its pistol from upright to level, and a

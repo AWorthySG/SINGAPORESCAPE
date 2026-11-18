@@ -187,7 +187,8 @@ export function drawHeroRig(ctx, opts = {}) {
   // Painted attack arms (heroAnimArt.js): this moment's wind-up, mid-swing or
   // follow-through picture replaces the turning arm, for either hand.
   const combat = anim && anim.kind === 'combat';
-  const frame = combat && hasSwingArt(classId) ? swingPhase(anim.ch, 'main') : null;
+  const mk = combat && !anim.trail ? 'flourish' : 'melee';
+  const frame = combat && hasSwingArt(classId) ? swingPhase(anim.ch, 'main', mk) : null;
   const offFrame = combat && OFF_SHOULDER[classId] && (classId !== 'corsair' || corsairPair) && hasSwingArt(classId, 'off') ? swingPhase(anim.ch, 'off') : null;
   const sh = SHOULDER[classId] || [11, -10], osh = OFF_SHOULDER[classId];
   const hand = grip && !frame ? gripPoint(grip, shown, [11, y, w, h, sa, spx, spy], [11 + reach, y, kw, kh, ka, 4, 5], -4, -9 + pose.breathe) : null;
@@ -223,9 +224,9 @@ export function drawHeroRig(ctx, opts = {}) {
   if (arms <= 0.001) return true;
   // Rotate around the shoulder, rather than rotating the whole portrait.
   // Short daggers sit outside the hood; the katana keeps its longer reach.
-  if (frame) drawSwingArm(ctx, classId, anim.ch, 'main', 'melee', sh[0] + reach * 0.4, sh[1] + pose.breathe, arms);
+  if (frame) drawSwingArm(ctx, classId, anim.ch, 'main', mk, sh[0] + reach * 0.4, sh[1] + pose.breathe, arms);
   // With no weapon equipped the hand is empty: the painted bare arm, punching on a strike.
-  else if (opts.hasWeapon === false && drawEmptyArm(ctx, classId, sh[0] + reach * 0.5, sh[1] + 1 + pose.breathe, 0.25 + pose.step * 0.3 + pose.strike * 1.3, 10)) { /* drawn */ }
+  else if (opts.hasWeapon === false && drawEmptyArm(ctx, classId, sh[0] - 3 + reach * 0.5, sh[1] - 1 + pose.breathe, 0.25 + pose.step * 0.3 + pose.strike * 1.3, 12)) { /* drawn */ }
   else if (rogue) {
     draw('sword', 15, -8 + pose.breathe, 17, 30, pose.sword + 0.7, 14, 27, (1 - shown) * arms);
     draw('strike', 15 + (pose.reach || 0), -8 + pose.breathe, 26, 10, (pose.sword - 1.2) * 0.3, 4, 4, shown * arms);
