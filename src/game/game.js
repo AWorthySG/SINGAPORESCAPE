@@ -74,6 +74,7 @@ import { TOPIC_BY_ID } from '../data/questions.js';
 import { LIFE_STAGES, LIFE_GRAD, LIFE_STAGES_ADV, LIFE_GRAD_ADV, LIFE_STAGES_WILD, LIFE_GRAD_WILD } from '../data/lifeskills.js';
 import { QUESTS, CHAMPION_QP, REDEMPTION_GOAL, CORRUPTION_GOAL } from '../data/quests.js';
 import { CLUE_TIERS, CLUE_SPOTS, clueTierForLevel } from '../data/clues.js';
+import * as RQ from './regionquests.js';   // region story quests
 
 // Auto quest: the dialogue actions that start and hand in each quest it can
 // do ([start, hand-in]; Pest Control completes itself on the last rat). The
@@ -83,6 +84,7 @@ const AUTO_QUEST_ACTIONS = {
   bone_collector: ['questStart', 'questTurnIn'], pest_control: ['pestStart', null], pillars: ['pillarsStart', 'pillarsTurnIn'],
   smith_apprentice: ['smithStart', 'smithTurnIn'], island_defender: ['defenderStart', 'defenderTurnIn'], big_game_hunter: ['bigGameStart', 'bigGameTurnIn'],
   mystic_trial: ['mysticStart', 'mysticTurnIn'], island_provisions: ['provisionsStart', 'provisionsTurnIn'], champion: ['championStart', 'championTurnIn'],
+  ...RQ.REGION_AUTO_ACTIONS,
 };
 // Stations whose menu auto quest runs with "make everything" (autoprocess.js kinds).
 const AUTO_QUEST_STATION = { furnace: 'smelt', range: 'cook', fire: 'cook', anvil: 'smith', craft: 'craft', fletch: 'fletching', herblore: 'herblore' };
@@ -356,6 +358,7 @@ export class Game {
 
     this.npcs = data.npcSpawns.map((s) => new NPC(s.npcId, s.x, s.y, s.wander, s.opts));
     this._placeMoralNpcs();
+    RQ.placeRegionGivers(this);   // one quest giver per region (regionquests.js)
 
     this.camera = new Camera();
     this.ui = null;     // set by main
@@ -420,6 +423,7 @@ export class Game {
       champion: { state: 'notStarted', startBoss: 0 },
       redemption: { state: 'notStarted', baseGood: 0 },
       corruption: { state: 'notStarted', baseEvil: 0 },
+      ...RQ.regionQuestState(),
     };
 
     // Achievement / collection-log progress.
@@ -573,6 +577,7 @@ export class Game {
     this.prayerPoints = this.skills.prayer;
     this.bus.emit('prayer');
     this.updateRegion();
+    RQ.syncRegionQuests(this);
     this.ensureBounties();
     this.checkAchievements(true);
     this.bus.emit('achievement');
@@ -777,13 +782,14 @@ export class Game {
    *  life skill perks plus the Offering Shrine's blessings. Kept until either changes. */
   outsideBonuses() {
     const lp = this.lifePerks(), rev = this.shrine.rev, c = this._outsideCache;
-    const kc = this.karmaCombat(), kKey = `${kc.side}${kc.tier}`;
-    if (c && c.lp === lp && c.rev === rev && c.kKey === kKey) return c.totals;
+    const kc = this.karmaCombat(), kKey = `${kc.side}${kc.tier}`, rq = RQ.regionPerks(this);
+    if (c && c.lp === lp && c.rev === rev && c.kKey === kKey && c.rq === rq) return c.totals;
     const totals = { ...lp };
     for (const [k, v] of Object.entries(this.shrine.bonuses())) totals[k] = (totals[k] || 0) + v;
+    for (const [k, v] of Object.entries(rq)) totals[k] = (totals[k] || 0) + v;   // region quest perks
     // The Dark path's crit damage and lifesteal count like gear's.
     if (kc.side === 'dark') { totals.critDmg = (totals.critDmg || 0) + kc.critDmg; totals.lifesteal = (totals.lifesteal || 0) + kc.lifesteal; }
-    this._outsideCache = { lp, rev, kKey, totals };
+    this._outsideCache = { lp, rev, kKey, rq, totals };
     return totals;
   }
 
@@ -3301,6 +3307,7 @@ export class Game {
     // Auto battle moves straight on to the next fight (right after this attack
     // resolves) instead of idling until the next world tick.
     if (this.autoBattle) { this._autoLast = null; this._autoRetarget = true; }
+    RQ.onRegionKill(this, npc);
     const pc = this.quests.pest_control;
     if (pc.state === 'active' && npc.npcId === 'rat') {
       pc.kills++;
@@ -6029,6 +6036,7 @@ export class Game {
     else if (action === 'corruptionStart') this.startCorruption();
     else if (action === 'corruptionTurnIn') this.turnInCorruption();
     else if (action === 'corruptionRemind') this.remindCorruption();
+    else if (action.startsWith('rq:')) RQ.regionAction(this, action);
     else if (action.startsWith('moral:')) { const [, id, side] = action.split(':'); this.moralChoose(id, side); }
     this.bus.emit('quest');
   }
@@ -6196,6 +6204,7 @@ export class Game {
       return t ? { kind: 'hunt', family: t.family, text: `Slayer task: slay ${t.remaining} more ${t.name}` }
         : { kind: 'npc', npcId: 'slayer_master', text: `Get a Slayer task from ${getNpc('slayer_master').name}` };
     }
+    if (RQ.isRegionQuest(id)) return RQ.regionGuide(this, id);
     const q = this.quests[id];
     if (!q) return { text: '', kind: 'none' };
     const inv = (item) => this.inventory.count(item);
@@ -6314,7 +6323,7 @@ export class Game {
           : g.target ? (n) => n.npcId === g.target
           : g.family ? (n) => !n.def.boss && n.def.family === g.family
           : (n) => !n.def.boss && (n.def.level || 1) <= cl + 5;
-        const mob = nearest(this.npcs.filter((n) => n.alive && n.attackable && !n.temporary && fits(n)
+        const mob = g.npc?.alive ? g.npc : nearest(this.npcs.filter((n) => n.alive && n.attackable && !n.temporary && fits(n)
           && (!this.world.zoneAt(n.x, n.y)?.wilderness || this.world.zoneAt(here.x, here.y)?.wilderness)));
         if (mob) {
           this._questTarget = g.target || null;

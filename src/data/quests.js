@@ -4,6 +4,7 @@
 // quest-point value awarded on completion (see game.questPoints()).
 import { LIFE_STAGES, LIFE_STAGES_ADV, LIFE_STAGES_WILD } from './lifeskills.js';
 import { countBones } from './bones.js';
+import { REGION_QUEST_META } from './regionQuests.js';
 
 // Quest points needed before the Kampong Guide offers the grandmaster capstone.
 export const CHAMPION_QP = 6;
@@ -111,5 +112,8 @@ export const QUESTS = [
     },
   },
 ];
+
+// The region story quests, one line per region (regionQuests.js).
+QUESTS.push(...REGION_QUEST_META);
 
 export const QUEST_IDS = QUESTS.map((q) => q.id);

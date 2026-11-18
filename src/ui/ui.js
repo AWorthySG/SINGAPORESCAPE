@@ -64,6 +64,7 @@ import { WaveHud } from './wavehud.js';
 import { TIPS, TIPS_KEY, nextTip, markTipSeen, tipsSeen } from './tips.js';
 import { foeDetails, labelMode, nextLabelMode, LABEL_MODE_NAMES } from '../render/worldlabels.js';
 import { applyAccessibility, countUp, playCloseGhost, inlineIcon, nextTextSize, TEXT_SIZE_NAMES } from './uifx.js';
+import { regionDialogue, canRegionTeleport, regionTeleport } from '../game/regionquests.js';
 
 const EQUIP_LAYOUT = [
   null, 'head', null,
@@ -2879,18 +2880,21 @@ export class UI {
       if (d.progress) { try { prog = d.progress(game); } catch { prog = ''; } }
       const guide = game.questGuide(d.id);
       const canGo = guide.kind !== 'none';
+      const tp = canRegionTeleport(game, d.id);   // a finished region quest's teleport
       const next = st !== 'done' && guide.text ? `<span class="q-next">${canGo ? '&#10148; ' : ''}${escapeHtml(guide.text)}</span>` : '';
       html += `<div class="quest-row${canGo ? ' can-go' : ''}" data-quest="${d.id}"><div class="q-top"><b>${escapeHtml(d.name)}</b>${status(st)}</div>` +
         `<span class="q-desc">${escapeHtml(d.desc)}${prog ? ` <span class="q-prog">(${escapeHtml(prog)})</span>` : ''}</span>` +
         // The next step and its Go button share the card's foot, so Go never squeezes the text.
-        (next || canGo ? `<div class="q-foot">${next}` +
-          (canGo ? `<button class="q-go" data-quest="${d.id}" title="Walk there and start on it">Go</button>` : '') + '</div>' : '') + `</div>`;
+        (next || canGo || tp ? `<div class="q-foot">${next}` +
+          (canGo ? `<button class="q-go" data-quest="${d.id}" title="Walk there and start on it">Go</button>` : '')
+          + (tp ? `<button class="q-go q-tp" data-tp="${d.id}" title="Teleport there">Teleport</button>` : '') + '</div>' : '') + `</div>`;
     }
     this.el.questPanel.innerHTML = html;
     // Tap a quest (or its Go button) to travel to wherever it needs you next.
     for (const row of this.el.questPanel.querySelectorAll('.quest-row.can-go')) {
       row.addEventListener('click', () => { game.questTravel(row.dataset.quest); this.renderQuestPanel(); });
     }
+    for (const b of this.el.questPanel.querySelectorAll('.q-tp')) b.addEventListener('click', (e) => { e.stopPropagation(); regionTeleport(game, b.dataset.tp); });
     this.el.questPanel.querySelector('.q-auto')?.addEventListener('click', () => { game.toggleAutoQuest(); });
   }
 
@@ -3757,7 +3761,7 @@ export class UI {
   openDialogue(npc) {
     if (npc.def.dialogue === 'slayer') return this.openSlayerMaster(npc);
     if (npc.def.dialogue === 'pest') return openPestOfficer(this, npc);   // Pest Control contracts (cullingui.js)
-    const tree = npc.def.moral ? this._moralTree(npc.def.moral) : getDialogue(npc.def.dialogue);
+    const tree = npc.def.moral ? this._moralTree(npc.def.moral) : npc.def.dialogue === 'region' ? regionDialogue(this.game, npc) : getDialogue(npc.def.dialogue);
     if (!tree) { this.game.msg(`${npc.name} has nothing to say.`); return; }
     const show = (nodeId) => {
       const node = tree[nodeId];

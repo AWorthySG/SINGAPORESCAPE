@@ -9,6 +9,7 @@ import { drawPictureTool, drawWeaponTrail } from './heroanim.js';
 import { drawHeroBack } from './heroAnimArt.js';
 import { poseBlender } from './poseBlend.js';
 import { CREATURE_RIGS, TOWN_IDLE } from './creatureRigs.js';
+import { REGION_GIVERS } from '../data/regionQuests.js';
 
 const CROP_COLORS = Object.fromEntries(CROPS.map((c) => [c[0], c[9]]));
 const CROP_GROW = Object.fromEntries(CROPS.map((c) => [c[0], c[3]]));
@@ -199,6 +200,8 @@ const TOWN_ART = new Set([
 // arrives (remove the line when the file is added).
 const TOWN_ALIAS = { marina_high_roller: 'banker', jade_merchant: 'mage', pest_officer: 'farmer' };
 const TOWN_TINT = { marina_high_roller: 'hue-rotate(150deg) saturate(1.3)', jade_merchant: 'hue-rotate(-120deg) saturate(1.2)', pest_officer: 'hue-rotate(70deg) saturate(1.2)' };
+// The region quest givers borrow pictures the same way (regionQuests.js).
+for (const [id, g] of Object.entries(REGION_GIVERS)) { TOWN_ALIAS[id] = g.art; TOWN_TINT[id] = g.tint; }
 const townFile = (id) => (TOWN_ART.has(id) ? id : TOWN_ALIAS[id] || null);
 const _townImg = {};
 function townImage(id) {
