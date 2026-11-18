@@ -6776,7 +6776,17 @@ test('bows, katanas, warhammers, 2h swords, halberds, rifles, crossbows and claw
   // The Halberdier, Brawler and Sniper start empty-handed in the off-hand too, and
   // can't take up a buckler or quiver with the halberd, claws, rifle or crossbow.
   const tryOff = (g, id) => { g.inventory.add(id, 1); g.equipItem(g.inventory.slots.findIndex((s) => s?.id === id)); return g.equipment.get('shield'); };
-  for (const [cls, type, off] of [['halberdier', 'halberd', 'bronze_buckler'], ['brawler', 'claws', 'bronze_buckler'], ['sniper', 'rifle', 'bronze_quiver'], ['archer', 'shortbow', 'bronze_quiver']]) {
+  // (The Archer's shortbow and Ranger's longbow are the exception: they take a quiver, see tests/bowquiver.test.mjs.)
+  {
+    const ar = new Game(); ar.start(); ar.chooseClass('archer');
+    assert.equal(ar.equipment.get('shield'), 'bronze_quiver', 'an Archer starts with a quiver');
+    const xb = pick('crossbow'); ar.inventory.add(xb, 1);
+    ar.equipItem(ar.inventory.slots.findIndex((s) => s?.id === xb));
+    assert.equal(ar.equipment.get('weapon'), xb); assert.equal(ar.equipment.get('shield'), null, 'a crossbow puts the quiver away');
+    assert.equal(ar.inventory.count('bronze_quiver'), 1);
+    assert.equal(tryOff(ar, 'bronze_quiver'), null, 'and takes no quiver');
+  }
+  for (const [cls, type, off] of [['halberdier', 'halberd', 'bronze_buckler'], ['brawler', 'claws', 'bronze_buckler'], ['sniper', 'rifle', 'bronze_quiver']]) {
     const g = new Game(); g.start(); g.chooseClass(cls);
     assert.equal(typeOf(g.equipment.get('weapon')), type); assert.equal(g.equipment.get('shield'), null, `${cls} starts without a shield`);
     assert.equal(tryOff(g, off), null, `${cls}: no ${off} with a ${type}`);
