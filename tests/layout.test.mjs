@@ -162,3 +162,35 @@ test('touch screens show one Attack button: Interact steps aside when it would s
   UI.prototype.setInteractLabel.call(ui, null);
   assert.ok(!cls.has('is-attack'));
 });
+
+test('the tip sits under the whole info strip, short of the launcher, and bottom-centre on a phone on its side', async () => {
+  const { UI } = await import('../src/ui/ui.js');
+  const rect = (left, top, width, height) => ({ left, top, width, height, right: left + width, bottom: top + height });
+  const at = (r) => ({ classList: { contains: () => false }, offsetParent: {}, getBoundingClientRect: () => r });
+  const place = ({ w, h, flat = false, els, arc = [] }) => {
+    const prev = { window: globalThis.window, document: globalThis.document, matchMedia: globalThis.matchMedia };
+    globalThis.window = { innerWidth: w, innerHeight: h };
+    globalThis.document = { getElementById: (id) => els[id] || null, querySelectorAll: () => arc.map((r) => ({ getBoundingClientRect: () => r })) };
+    globalThis.matchMedia = () => ({ matches: flat });
+    const cls = new Set();
+    const el = { style: {}, offsetHeight: 60, classList: { toggle: (c, on) => (on ? cls.add(c) : cls.delete(c)) } };
+    try { UI.prototype._placeTip.call({ _tipEl: el }); } finally { Object.assign(globalThis, prev); }
+    return { top: parseInt(el.style.top, 10), left: parseInt(el.style.left, 10), width: parseInt(el.style.width, 10) };
+  };
+  // Phone portrait in a fight: boss bar, then the Endless Gate panel, then the minimap; the launcher on the right.
+  const phone = place({ w: 390, h: 664, els: {
+    'boss-bar': at(rect(6, 6, 250, 50)), 'wave-hud': at(rect(6, 60, 250, 50)),
+    'minimap-panel': at(rect(262, 6, 122, 150)), 'hp-orb': at(rect(340, 160, 36, 36)),
+    sidepanel: at(rect(328, 222, 56, 56)),
+  } });
+  assert.ok(phone.top >= 210, 'below the minimap and its orbs');
+  assert.ok(phone.left + phone.width <= 328 - 6, 'stops short of the launcher');
+  // Tablet: the boss bar and gate panel push it down the strip.
+  const tab = place({ w: 810, h: 1080, els: { 'boss-bar': at(rect(10, 44, 340, 70)), 'wave-hud': at(rect(10, 114, 165, 136)) } });
+  assert.equal(tab.top, 256, 'under the Endless Gate panel, not over it');
+  // A phone on its side: between the joystick and the skill arc, along the bottom.
+  const flat = place({ w: 750, h: 342, flat: true, els: { joystick: at(rect(16, 216, 112, 112)) }, arc: [rect(590, 170, 50, 50), rect(664, 262, 70, 70)] });
+  assert.equal(flat.left, 136);
+  assert.ok(flat.left + flat.width <= 582, 'clear of the skill arc');
+  assert.equal(flat.top, 342 - 60 - 8, 'along the bottom edge');
+});
