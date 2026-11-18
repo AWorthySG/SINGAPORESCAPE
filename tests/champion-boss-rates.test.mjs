@@ -79,7 +79,7 @@ test('champion kills: an upgrade ward one kill in 5 (was 1 in 10)', () => {
   const g = newGame();
   let got = [];
   g._autoLoot = (loot) => { got = loot; };
-  g._applyQuality = () => {};
+  g._announceQuality = () => {};
   const champ = g.npcs.find((n) => n.attackable && !n.def.boss && (n.def.level || 1) >= 10 && !n._spawnOpts && !n.temporary);
   if (!champ.champion) champ.makeChampion();
   const N = 1500;
@@ -96,7 +96,7 @@ test('boss kills: the signature weapon 1 in 5 and the rare bones 60% of the time
   const g = newGame();
   let got = [];
   g._autoLoot = (loot) => { got = loot; };
-  g._applyQuality = () => {};
+  g._announceQuality = () => {};
   const boss = g.npcs.find((n) => n.def.boss && SIGNATURE_CLASS[n.npcId] && RARE_BOSS_BONES[n.npcId]);
   assert.ok(boss, 'found a boss with both a signature weapon and a rare bone');
   const sid = sigIdFor(boss.npcId), bone = RARE_BOSS_BONES[boss.npcId];

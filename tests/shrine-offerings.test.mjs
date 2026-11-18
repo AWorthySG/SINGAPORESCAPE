@@ -11,7 +11,7 @@ import { clearSave } from '../src/game/save.js';
 import { xpForLevel } from '../src/data/xp.js';
 import { materialPoints } from '../src/game/materials.js';
 import {
-  gearWorth, recordQuality, packQualities, bulkPicks, shrineGearPoints, shrineLevelFactor, shrineGearOptions,
+  gearWorth, packQualities, bulkPicks, shrineGearPoints, shrineLevelFactor, shrineGearOptions,
   previewOffer, offerGear, previewOfferAll, offerAll, nearOfferingShrine,
 } from '../src/game/salvage.js';
 import { gearHour } from '../tools/balance/shrine.mjs';
@@ -69,20 +69,19 @@ test('offering gear adds shrine points; worn gear is refused', () => {
   assert.equal(offerGear(g, 'rune_bar', 1), 0, 'not gear');
 });
 
-test('offering uses the plain copies first and keeps the quality tally right', () => {
+test('offering uses the plain copies first, each copy worth its own quality', () => {
   const g = newGame('swordsman');
   const lvl = g.skills.combatLevel();
-  g.inventory.add('rune_platebody', 3);
-  recordQuality(g.equipment, 'rune_platebody', 'epic');
+  g.inventory.add('rune_platebody', 2);
+  g.inventory.add('rune_platebody', 1, 'epic');
   const opt = shrineGearOptions(g).find((o) => o.id === 'rune_platebody');
   assert.equal(opt.points, shrineGearPoints('rune_platebody', 'plain', lvl), 'the next copy is a plain one');
   assert.equal(opt.total, 2 * shrineGearPoints('rune_platebody', 'plain', lvl) + shrineGearPoints('rune_platebody', 'epic', lvl));
   assert.ok(opt.warn, 'an Epic copy among them is flagged');
   assert.equal(offerGear(g, 'rune_platebody', 2), 2 * shrineGearPoints('rune_platebody', 'plain', lvl));
   assert.deepEqual(packQualities(g, 'rune_platebody'), ['epic']);
-  assert.deepEqual(g.equipment.quality.rune_platebody, [0, 0, 1, 0, 0]);
   assert.equal(offerGear(g, 'rune_platebody', 1), shrineGearPoints('rune_platebody', 'epic', lvl));
-  assert.equal(g.equipment.quality.rune_platebody, undefined, 'the tally is used up');
+  assert.equal(g.inventory.count('rune_platebody'), 0, 'all three offered');
 });
 
 test('"Offer all spare gear" takes the same picks as Dismantle all: filters, never upgrades or boss uniques', () => {
@@ -92,11 +91,11 @@ test('"Offer all spare gear" takes the same picks as Dismantle all: filters, nev
   g.skills.xp.attack = g.skills.xp.defence = xpForLevel(300);
   g.inventory.slots = g.inventory.slots.map(() => null);
   g.inventory.add('eternal_staff', 2);     // not my class
-  g.inventory.add('bronze_sword', 2);      // below my worn tier
+  g.inventory.add('bronze_sword', 1);      // below my worn tier
+  g.inventory.add('bronze_sword', 1, 'epic');
   g.inventory.add('bronze_platebody', 1);  // below my worn tier
   g.inventory.add('merlion_blade', 1);     // a boss unique: never in bulk
   g.inventory.add('eternal_platebody', 1); // an upgrade: never in bulk
-  recordQuality(g.equipment, 'bronze_sword', 'epic');
   const lvl = g.skills.combatLevel();
   const f = { belowTier: true, below: 'epic' };
   const want = bulkPicks(g, f).reduce((t, p) => t + p.qualities.reduce((s, q) => s + shrineGearPoints(p.id, q, lvl), 0), 0);

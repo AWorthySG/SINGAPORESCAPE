@@ -11,12 +11,12 @@
 import { getItem } from '../data/items.js';
 import { formatNumber } from '../core/utils.js';
 import { itemIconSVG } from '../render/icons.js';
-import { MASTERY_RANKS, rankProgress } from '../game/mastery.js';
+import { MASTERY_RANKS, rankProgress, masteryTypeName } from '../game/mastery.js';
 import { FEED_CAP, FEED_CAP_RANK } from '../game/materials.js';
 import { QUALITY } from '../game/loot.js';
 import { EQUIP_SLOTS } from '../game/equipment.js';
 import {
-  QUALITY_KEYS, isSalvageable, sacrificePoints, sacrificeOptions, previewSacrifice, sacrificeGear, salvageWarning,
+  QUALITY_KEYS, isSalvageable, sameKind, sacrificePoints, sacrificeOptions, previewSacrifice, sacrificeGear, salvageWarning,
   packQualities, dismantleYield, dismantleGear, bulkPicks, dismantleAll, previewSacrificeAll, sacrificeAll, yieldText,
   shrineGearOptions, previewOffer, offerGear, previewOfferAll, offerAll,
 } from '../game/salvage.js';
@@ -116,9 +116,11 @@ function masteryLine(g, id, gain = 0) {
 
 // ---------------- Sacrifice ----------------
 
-/** Sacrifice spare gear to one item type's mastery. `src`: an item to offer straight away. */
+/** Sacrifice spare gear to the mastery of `targetId`'s gear type (gear of
+ *  that type only). `src`: an item to offer straight away. */
 export function openSacrifice(ui, targetId, { src = null } = {}) {
   const g = ui.game;
+  const type = esc(masteryTypeName(targetId));
   const st = { pending: null, result: null };
   const ask = (srcId, qty) => {
     // A piece can't be fed its own last copy (unless that copy is being worn).
@@ -126,7 +128,7 @@ export function openSacrifice(ui, targetId, { src = null } = {}) {
     const pv = previewSacrifice(g, targetId, srcId, qty);
     if (!pv.n) { st.result = 'Nothing to sacrifice: the piece is already at Master, or you have none of that to spare.'; return; }
     st.pending = {
-      html: `Sacrifice ${pv.n} x <b>${name(srcId)}</b> (${qualityText(pv.copies)}) to your <b>${name(targetId)}</b>: <b>+${formatNumber(pv.points)} mastery</b> (${masteryLine(g, targetId, pv.points)}).`,
+      html: `Sacrifice ${pv.n} x <b>${name(srcId)}</b> (${qualityText(pv.copies)}) to your <b>${type} mastery</b>: <b>+${formatNumber(pv.points)} mastery</b> (${masteryLine(g, targetId, pv.points)}).`,
       warn: salvageWarning(g, srcId, pv.copies[pv.copies.length - 1]),
       label: 'Sacrifice',
       go: () => { const pts = sacrificeGear(g, targetId, srcId, qty); return pts ? `Sacrificed ${pv.n} x ${name(srcId)}: <b>+${formatNumber(pts)} mastery</b>.` : 'Nothing was sacrificed.'; },
@@ -135,15 +137,15 @@ export function openSacrifice(ui, targetId, { src = null } = {}) {
   if (src) ask(src, 1);
   const render = (body) => {
     const pts = g.equipment.masteryPoints(targetId), capped = pts >= FEED_CAP;
-    body.innerHTML = `<div class="gear-intro"><p><b>${name(targetId)}</b>: ${masteryLine(g, targetId)}. Sacrifice spare gear from your pack (any class, any slot) to add mastery. `
-      + 'Higher level, better ranked and better quality pieces give more, the same kind of gear half as much again, and boss uniques a great deal. '
+    body.innerHTML = `<div class="gear-intro"><p><b>${type} mastery</b>: ${masteryLine(g, targetId)}. Sacrifice spare ${type.toLowerCase()} gear from your pack to add mastery: only gear of the same type counts. `
+      + 'Higher level, better ranked and better quality pieces give more, and boss uniques a great deal. '
       + `Like materials, sacrifice takes gear up to <b>${MASTERY_RANKS[FEED_CAP_RANK].name}</b>; after that only battle trains it. Plain copies go before quality ones.</p></div>`;
     confirmBox(body, st, () => render(body));
     const list = document.createElement('div');
     list.className = 'gear-list feed-list salvage-list';
     const opts = sacrificeOptions(g, targetId).filter((o) => o.id !== targetId || o.count > 1 || EQUIP_SLOTS.some((s) => g.equipment.get(s) === targetId));
     if (capped) list.innerHTML = `<div class="modal-hint">Already ${MASTERY_RANKS[rankProgress(pts).rank].name}: fight with it to go further.</div>`;
-    else if (!opts.length) list.innerHTML = '<div class="modal-hint">You carry no spare gear. (Gear you wear, and gear in the bank, can\'t be sacrificed.)</div>';
+    else if (!opts.length) list.innerHTML = `<div class="modal-hint">You carry no spare ${type.toLowerCase()} gear. (Gear you wear, and gear in the bank, can't be sacrificed.)</div>`;
     else for (const o of opts) {
       const row = document.createElement('div');
       row.className = 'gear-row feed-row salvage-row';
@@ -165,10 +167,10 @@ export function openSacrifice(ui, targetId, { src = null } = {}) {
       const pv = previewSacrificeAll(g, targetId, f);
       const go = button(pv.pieces ? `Sacrifice ${formatNumber(pv.pieces)} piece${pv.pieces > 1 ? 's' : ''}: +${formatNumber(pv.points)} mastery` : 'No spare gear matches', () => {
         st.pending = {
-          html: `Sacrifice <b>${formatNumber(pv.pieces)} pieces</b> of spare gear to your <b>${name(targetId)}</b>: <b>+${formatNumber(pv.points)} mastery</b> (${masteryLine(g, targetId, pv.points)}).`,
+          html: `Sacrifice <b>${formatNumber(pv.pieces)} pieces</b> of spare ${type.toLowerCase()} gear to your <b>${type} mastery</b>: <b>+${formatNumber(pv.points)} mastery</b> (${masteryLine(g, targetId, pv.points)}).`,
           warn: f.below === 'any' || f.below === 'mythic' || f.below === 'legendary' ? 'this includes Epic copies or better' : '',
           label: 'Sacrifice all',
-          go: () => { const r = sacrificeAll(g, targetId, f); return `Sacrificed <b>${formatNumber(r.pieces)}</b> pieces: <b>+${formatNumber(r.points)} mastery</b>. Your ${name(targetId)} is now ${masteryLine(g, targetId)}.`; },
+          go: () => { const r = sacrificeAll(g, targetId, f); return `Sacrificed <b>${formatNumber(r.pieces)}</b> pieces: <b>+${formatNumber(r.points)} mastery</b>. Your ${type} mastery is now ${masteryLine(g, targetId)}.`; },
         };
         render(body);
       }, 'salvage-bulk');
@@ -177,21 +179,22 @@ export function openSacrifice(ui, targetId, { src = null } = {}) {
     }
     body.appendChild(button('Back', () => ui.openMastery(), 'ench-cancel feed-back'));
   };
-  ui.openModal(`Sacrifice to ${getItem(targetId).name}`, render);
+  ui.openModal(`Sacrifice to ${masteryTypeName(targetId)} mastery`, render);
   ui.modal.kind = 'salvage';
 }
 
-/** From the pack: choose which piece to sacrifice `srcId` to (what you wear first). */
+/** From the pack: choose which piece of the same gear type to sacrifice `srcId` to (what you wear first). */
 export function openSacrificeFrom(ui, srcId) {
   const g = ui.game;
   const render = (body) => {
     const qs = packQualities(g, srcId);
-    body.innerHTML = `<div class="gear-intro"><p>Sacrifice your <b>${name(srcId)}</b> (${qs.length ? qualityText(qs) : 'none in your pack'}) to which piece? It gives the mastery shown, up to ${MASTERY_RANKS[FEED_CAP_RANK].name}.</p></div>`;
-    const worn = [...new Set(EQUIP_SLOTS.map((s) => g.equipment.get(s)).filter((id) => id && isSalvageable(id)))];
-    const carried = [...new Set(g.inventory.slots.filter((s) => s && isSalvageable(s.id) && !worn.includes(s.id) && (s.id !== srcId || g.inventory.count(srcId) > 1)).map((s) => s.id))];
+    body.innerHTML = `<div class="gear-intro"><p>Sacrifice your <b>${name(srcId)}</b> (${qs.length ? qualityText(qs) : 'none in your pack'}) to ${esc(masteryTypeName(srcId))} mastery? Only gear of the same type can take it. It gives the mastery shown, up to ${MASTERY_RANKS[FEED_CAP_RANK].name}.</p></div>`;
+    const worn = [...new Set(EQUIP_SLOTS.map((s) => g.equipment.get(s)).filter((id) => id && isSalvageable(id) && sameKind(id, srcId)))];
+    const carried = [...new Set(g.inventory.slots.filter((s) => s && isSalvageable(s.id) && sameKind(s.id, srcId) && !worn.includes(s.id) && (s.id !== srcId || g.inventory.count(srcId) > 1)).map((s) => s.id))];
     const list = document.createElement('div');
     list.className = 'gear-list feed-list salvage-list';
     if (!qs.length) list.innerHTML = '<div class="modal-hint">You can\'t sacrifice gear you are wearing: take it off first.</div>';
+    else if (!worn.length && !carried.length) list.innerHTML = `<div class="modal-hint">Wear or carry another piece of ${esc(masteryTypeName(srcId).toLowerCase())} gear to sacrifice this to.</div>`;
     else for (const id of [...worn, ...carried]) {
       const capped = g.equipment.masteryPoints(id) >= FEED_CAP;
       const row = document.createElement('div');

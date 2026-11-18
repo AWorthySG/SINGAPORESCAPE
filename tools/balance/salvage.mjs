@@ -28,11 +28,11 @@ export function salvageHour(L, { kills = 1800, cls = 'swordsman', seed = 2026111
   });
   const got = { stones: 0, scrolls: 0, wards: 0, gear: 0 };
   g._autoLoot = (loot) => {
-    for (const [id, qty] of loot) {
+    for (const [id, qty, , q] of loot) {
       if (id === 'upgrade_stone') got.stones += qty;
       else if (id === 'refine_scroll') got.scrolls += qty;
       else if (id === 'upgrade_ward') got.wards += qty;
-      if (getItem(id).equip) { got.gear += qty; g.inventory.add(id, qty); }
+      if (getItem(id).equip) { got.gear += qty; g.inventory.add(id, qty, q); }
     }
   };
   let mastery = 0, champs = 0;
@@ -42,9 +42,10 @@ export function salvageHour(L, { kills = 1800, cls = 'swordsman', seed = 2026111
     mastery += killMastery(n);
     g.rollDrops(n);
   }
-  // Sacrifice everything into the weapon (from no mastery), then dismantle it all instead.
+  // Sacrifice all the spare weapons of its type into the weapon (from no mastery: only the
+  // same gear type can be sacrificed), then dismantle it all instead.
   const target = g.equipment.get('weapon');
-  g.equipment.mastery[target] = 0;
+  g.equipment.setMastery(target, 0);
   const sac = previewSacrificeAll(g, target);
   const dis = dismantleAll(g, {}, { rand: Math.random });
   return { level: L, mons: mons.length, kills, champs, gear: got.gear, killMastery: mastery, sacPieces: sac.pieces, sacPoints: sac.points,
@@ -57,7 +58,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const kills = Number(args.kills) || 1800, seed = Number(args.seed) || 20261112;
   const rows = levels.map((L) => salvageHour(L, { kills, seed }));
   const pct = (a, b) => (b ? Math.round((a / b) * 100) + '%' : '-');
-  console.log(`An hour (${kills} kills) of auto battle drops; sacrifice = all spare gear into the weapon, dismantle = all of it instead (seed ${seed}).`);
+  console.log(`An hour (${kills} kills) of auto battle drops; sacrifice = all spare gear of its type into the weapon, dismantle = all of it instead (seed ${seed}).`);
   printTable(rows, [
     { key: 'level', label: 'level', w: 5 },
     { key: 'champs', label: 'champs', w: 6 },

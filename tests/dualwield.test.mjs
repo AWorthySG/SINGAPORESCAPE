@@ -1,7 +1,7 @@
 // Dual wielding: each hand strikes with its own weapon. The main hand's blow
 // uses the main weapon's stats, the off-hand's the off-hand weapon's (at
 // OFFHAND_SHARE), each with its own crit roll and on-hit effects; armour,
-// accessories and perks count for both, and both weapons gain mastery.
+// accessories and perks count for both, and both weapons share their type's mastery.
 import './seed.mjs';   // seeded Math.random: no test fails on an unlucky roll
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -66,14 +66,17 @@ test('a better off-hand weapon hits harder, and the main hand is untouched by it
   assert.ok(ratio > 0.45 && ratio < 0.75, `off-hand at ${ratio.toFixed(2)} of the main hand`);
 });
 
-test('the off-hand weapon\'s own mastery and refining raise its hit', () => {
+test('the off-hand weapon\'s own refining raises its hit; Scimitar mastery raises both', () => {
   const { g } = duel('corsair', 'rune_scimitar', 'adamant_scimitar');
   const before = g.dualMaxHits();
   g.equipment.refines.adamant_scimitar = 10;
-  g.equipment.mastery.adamant_scimitar = 1e6;
+  const refined = g.dualMaxHits();
+  assert.ok(refined.off > before.off, `refined off-hand ${refined.off} vs plain ${before.off}`);
+  assert.equal(refined.main, before.main);
+  // Mastery belongs to the gear type: both scimitars share it.
+  g.equipment.setMastery('adamant_scimitar', 1e6);
   const after = g.dualMaxHits();
-  assert.ok(after.off > before.off, `refined + mastered off-hand ${after.off} vs plain ${before.off}`);
-  assert.equal(after.main, before.main);
+  assert.ok(after.off > refined.off && after.main > refined.main, JSON.stringify({ refined, after }));
 });
 
 test('the off-hand rolls its own crits', () => {
@@ -100,7 +103,8 @@ test('both weapons gain mastery from a kill', () => {
   g._gainMastery(t);
   assert.ok(g.equipment.masteryPoints('rune_scimitar') > 0, 'main hand');
   assert.ok(g.equipment.masteryPoints('iron_scimitar') > 0, 'off-hand');
-  assert.equal(g.equipment.masteryPoints('rune_scimitar'), g.equipment.masteryPoints('iron_scimitar'), 'each gets the full share');
+  assert.equal(g.equipment.masteryPoints('rune_scimitar'), g.equipment.masteryPoints('iron_scimitar'), 'one Scimitar mastery');
+  assert.equal(g.equipment.masteryPoints('rune_scimitar'), 1, 'trained once for the pair, not twice');
 });
 
 test('a better off-hand says Upgrade, and Equip best fills the off-hand by its own stats', () => {

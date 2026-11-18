@@ -1,6 +1,7 @@
 import { getItem, TWO_HANDED_TYPES } from '../data/items.js';
 import { ARMOUR_SETS } from '../data/sets.js';
-import { masteryBonuses, enchantedBonuses, rankFor, migrateOld, MAX_ENCHANTS, ENCHANT_STEP } from './mastery.js';
+import { masteryBonuses, qualityBonuses, masteryType, enchantedBonuses, rankFor, migrateOld, MAX_ENCHANTS, ENCHANT_STEP } from './mastery.js';
+import { validQuality, QUALITY_ORDER } from './loot.js';
 import { refinedBonuses, MAX_REFINE } from './refine.js';
 
 export const EQUIP_SLOTS = ['head', 'cape', 'amulet', 'weapon', 'body', 'shield', 'legs', 'hands', 'feet', 'ring'];
@@ -53,7 +54,7 @@ export class Equipment {
     this.bus = bus;
     this.slots = {};
     for (const s of EQUIP_SLOTS) this.slots[s] = null;
-    this.mastery = {};            // itemId -> mastery points, shared by every copy (see mastery.js)
+    this.mastery = {};            // gear type (masteryType: 'weapon:sword', 'body:plate'...) -> mastery points (see mastery.js)
     this.enchants = {};           // itemId -> [{ stat, value }] (up to 3), shared by every copy
     this.refines = {};            // itemId -> refine level (★1..★15), shared by every copy (see refine.js)
     // A twin pair (the same dual-wield weapon in both hands) has a second copy
@@ -63,12 +64,21 @@ export class Equipment {
     // Mastery stays shared: it is earned by fighting with the item type.
     this.offRefines = {};         // itemId -> the off-hand copy's refine level
     this.offEnchants = {};        // itemId -> the off-hand copy's enchant lines
-    this.quality = {};            // itemId -> [fine, superior, epic, legendary, mythic] copies that dropped at that quality (see salvage.js)
+    // The quality of the copy worn in each slot (loot.js): slot -> 'fine' .. 'mythic',
+    // absent for a plain copy. It goes back to the pack with the copy.
+    this.slotQuality = {};
+    // Old saves kept quality as a tally per item id; save.js hands those
+    // copies out to the copies you own once everything is loaded (then clears this).
+    this.legacyQuality = null;
     this.extra = null;            // () => bonuses from outside your gear (life skill perks and shrine blessings, see Game.outsideBonuses)
   }
 
-  masteryPoints(id) { return this.mastery[id] || 0; }
+  // Mastery is read and written through any item of the type.
+  masteryPoints(id) { return this.mastery[masteryType(id)] || 0; }
   masteryRank(id) { return rankFor(this.masteryPoints(id)); }
+  setMastery(id, pts) { this.mastery[masteryType(id)] = Math.max(0, Math.floor(pts)); }
+  /** The quality of the copy worn in `slot` (null when plain or empty). */
+  qualityIn(slot) { return this.slots[slot] ? this.slotQuality[slot] || null : null; }
   // `copy` is 'main' (every copy you own, the usual record) or 'off' (the
   // off-hand copy of a twin pair, see offRefines).
   enchantLines(id, copy = 'main') { return this.enchantMap(copy)[id] || []; }
@@ -92,11 +102,13 @@ export class Equipment {
    *  when it would make a twin pair with the main weapon. */
   copyFor(id, slot) { return slot === 'shield' && this.slots.weapon === id && canDualWield(id) ? 'off' : 'main'; }
 
-  /** An item's bonuses: its base stats, plus its mastery rank's gain, plus its
-   *  refine level's share of the base stats, plus its enchant lines. */
-  itemBonuses(id, copy = 'main') {
+  /** An item's bonuses: its base stats, plus its gear type's mastery gain,
+   *  times the copy's quality (`q`, null for a plain copy), plus its refine
+   *  level's share of the base stats, plus its enchant lines. */
+  itemBonuses(id, copy = 'main', q = null) {
     const base = getItem(id).equip?.bonuses || {};
-    return enchantedBonuses(refinedBonuses(base, masteryBonuses(base, this.masteryRank(id)), this.refineLevel(id, copy)), this.enchantLines(id, copy));
+    const mastered = qualityBonuses(base, masteryBonuses(base, this.masteryRank(id)), q);
+    return enchantedBonuses(refinedBonuses(base, mastered, this.refineLevel(id, copy)), this.enchantLines(id, copy));
   }
 
   _changed() { this.bus?.emit('equipment'); }
@@ -106,14 +118,18 @@ export class Equipment {
   /** The weapon in hand's type ('sword', 'staff', 'whip'…), or null when unarmed. */
   weaponType() { const id = this.slots.weapon; return id ? getItem(id).equip?.weaponType || null : null; }
 
-  set(slot, itemId) {
+  /** Put a copy of `itemId` (of quality `q`, null for plain) into `slot`. */
+  set(slot, itemId, q = null) {
     this.slots[slot] = itemId;
+    if (itemId && validQuality(q)) this.slotQuality[slot] = q; else delete this.slotQuality[slot];
     this._changed();
   }
 
+  /** Empty a slot; returns the item id that was there (read qualityIn(slot) first to keep its quality). */
   clearSlot(slot) {
     const prev = this.slots[slot];
     this.slots[slot] = null;
+    delete this.slotQuality[slot];
     this._changed();
     return prev;
   }
@@ -143,7 +159,7 @@ export class Equipment {
       const id = this.slots[slot];
       if (!id || slot === skip) continue;
       if (!getItem(id).equip?.bonuses) continue;
-      let b = this.itemBonuses(id, this.copyIn(slot));
+      let b = this.itemBonuses(id, this.copyIn(slot), this.qualityIn(slot));
       // A melee, ranged or magic accessory only lends its crit and offensive
       // stats (pierce, crit damage, haste, lifesteal, boss damage) when you fight
       // in that style; its Defence and HP help whatever you fight with.
@@ -222,7 +238,7 @@ export class Equipment {
     // Both hands swing on the same beat, so attack speed is the whole
     // character's: a dual wielder's two weapons both add theirs.
     let h = 0;
-    for (const slot of EQUIP_SLOTS) { const id = this.slots[slot]; if (id && this.styleFits(id)) h += this.itemBonuses(id, this.copyIn(slot)).haste || 0; }
+    for (const slot of EQUIP_SLOTS) { const id = this.slots[slot]; if (id && this.styleFits(id)) h += this.itemBonuses(id, this.copyIn(slot), this.qualityIn(slot)).haste || 0; }
     return h + (this.extra?.().haste || 0);   // plus Fletching's life perk
   }
 
@@ -236,7 +252,7 @@ export class Equipment {
     const lines = (m) => Object.fromEntries(Object.entries(m).map(([id, l]) => [id, l.map((x) => ({ ...x }))]));
     return { ...this.slots, _mastery: { ...this.mastery }, _enchants: lines(this.enchants), _refines: { ...this.refines },
       _offEnchants: lines(this.offEnchants), _offRefines: { ...this.offRefines },
-      _quality: Object.fromEntries(Object.entries(this.quality).map(([id, r]) => [id, r.slice()])) };
+      _slotQuality: { ...this.slotQuality } };
   }
 
   load(data) {
@@ -245,9 +261,17 @@ export class Equipment {
       this.slots[s] = data[s] && itemExists(data[s]) ? data[s] : null;
     }
     this.mastery = {};   // older saves have none
-    for (const [id, pts] of Object.entries(data._mastery || {})) {
-      if (itemExists(id) && typeof pts === 'number' && pts > 0) this.mastery[id] = Math.floor(pts);
+    // Mastery is kept per gear type (keys with a colon). Saves from before
+    // that kept it per item id: each type takes the most points any of its
+    // items had, so nobody loses a rank.
+    for (const [key, pts] of Object.entries(data._mastery || {})) {
+      if (typeof pts !== 'number' || !(pts > 0)) continue;
+      const type = key.includes(':') ? key : itemExists(key) ? masteryType(key) : null;
+      if (type) this.mastery[type] = Math.max(this.mastery[type] || 0, Math.floor(pts));
     }
+    // Each worn copy's quality came later: optional.
+    this.slotQuality = {};
+    for (const s of EQUIP_SLOTS) { const q = validQuality(data._slotQuality?.[s]); if (q && this.slots[s]) this.slotQuality[s] = q; }
     const readLines = (src) => {
       const out = {};
       for (const [id, lines] of Object.entries(src || {})) {
@@ -274,22 +298,24 @@ export class Equipment {
     const live = !!data._mastery && typeof data._mastery === 'object';
     this.refines = live ? readRefines(data._refines) : {};
     this.offRefines = readRefines(data._offRefines);
-    // The tally of quality copies (salvage.js) came later: optional, and only sane rows kept.
-    this.quality = {};
+    // Saves from before quality lived on each copy kept a tally of quality
+    // copies per item id ([fine, superior, epic, legendary, mythic]): kept
+    // here until save.js hands them out to the copies you own (assignLegacyQuality).
+    this.legacyQuality = null;
     for (const [id, row] of Object.entries(data._quality || {})) {
       if (!itemExists(id) || !Array.isArray(row)) continue;
-      const r = [0, 1, 2, 3, 4].map((i) => (typeof row[i] === 'number' && row[i] > 0 ? Math.floor(row[i]) : 0));
-      if (r.some((x) => x)) this.quality[id] = r;
+      const r = QUALITY_ORDER.map((_, i) => (typeof row[i] === 'number' && row[i] > 0 ? Math.floor(row[i]) : 0));
+      if (r.some((x) => x)) (this.legacyQuality || (this.legacyQuality = {}))[id] = r;
     }
     // Saves from before mastery had upgrade levels (+1..+15) and refine stars
     // (★1..★15): turn them into mastery points and free enchant lines, once.
     const ups = data._upgrades || {}, refs = live ? {} : data._refines || {};
     for (const id of new Set([...Object.keys(ups), ...Object.keys(refs)])) {
-      if (!itemExists(id) || this.mastery[id] || this.enchants[id]) continue;
+      if (!itemExists(id) || (data._mastery && id in data._mastery) || this.enchants[id]) continue;   // never converted twice
       const up = Math.max(0, Math.min(15, Math.floor(ups[id]) || 0)), ref = Math.max(0, Math.min(15, Math.floor(refs[id]) || 0));
       if (!up && !ref) continue;
       const m = migrateOld(id, up, ref);
-      if (m.points) this.mastery[id] = m.points;
+      if (m.points) this.mastery[masteryType(id)] = Math.max(this.masteryPoints(id), m.points);
       if (m.lines.length) this.enchants[id] = m.lines;
     }
     this._changed();

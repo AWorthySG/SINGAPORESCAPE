@@ -27,11 +27,11 @@ import { compareGear, gearRating, weaponStyle } from './gear.js';
 //              the new piece can't roll (a Magic bonus line on a sword) stays
 //              behind, and the new piece's own lines go to the old one: a swap
 //              again. At most three lines on either piece.
-//   not moved  mastery is earned by fighting with that very item type, so it
-//              stays put (moving it would make a fresh drop instantly
-//              Legendary and make mastery meaningless); quality is a record of
-//              which copies dropped, not an upgrade at all.
-// Upgrades belong to an item type (every copy shares them), so nothing moves
+//   not moved  mastery belongs to the gear type (every sword shares Sword
+//              mastery, see mastery.js), so a new piece of the same type
+//              already has it and there is nothing to move; quality belongs to
+//              the copy that dropped with it and stays with that copy.
+// Refine and enchant lines belong to an item id (every copy shares them), so nothing moves
 // while the old type's record is still in use in another slot, such as a dual
 // wielder's other hand. The one exception is a twin pair (the same weapon in
 // both hands): its off-hand copy has a record of its own (Equipment.offRefines),
@@ -43,27 +43,27 @@ import { compareGear, gearRating, weaponStyle } from './gear.js';
 /** The most refine levels that move to a new piece. */
 export const CARRY_CAP = 10;
 
-/** Is `newId` a better piece than `oldId` worn in `slot`, so it should take its upgrades? */
-export function isBetterPiece(newId, oldId, equipment, slot) {
+/** Is `newId` (a copy of quality `q`) a better piece than `oldId` worn in `slot`, so it should take its upgrades? */
+export function isBetterPiece(newId, oldId, equipment, slot, q = null) {
   if (!newId || !oldId || newId === oldId) return false;
   const a = getItem(newId).equip, b = getItem(oldId).equip;
   if (!a?.bonuses || !b?.bonuses) return false;
   if ((a.slot === 'weapon' || b.slot === 'weapon') && (a.slot !== b.slot || weaponStyle(newId) !== weaponStyle(oldId))) return false;
   if (a.slot !== 'weapon' && a.slot !== b.slot) return false;
   if (gearRating(newId) > gearRating(oldId)) return true;   // a higher tier
-  return compareGear(newId, equipment, slot)?.verdict === 'upgrade';
+  return compareGear(newId, equipment, slot, q)?.verdict === 'upgrade';
 }
 
 // How much a set of enchant lines is worth: each line as a multiple of its stat's base step.
 const linesWorth = (lines) => lines.reduce((s, l) => s + l.value / (ENCHANT_STEP[l.stat] || 1), 0);
 
-/** What would move if `newId` went into `slot` now (call it before the swap).
+/** What would move if `newId` (a copy of quality `q`) went into `slot` now (call it before the swap).
  *  Returns null when nothing would, or { from, to, slot, refine, enchants }:
  *  refine { carried, oldLeft } and enchants { moved, skipped, oldLeft }, each
  *  null when that part doesn't move. */
-export function planCarry(equipment, newId, slot) {
+export function planCarry(equipment, newId, slot, q = null) {
   const oldId = equipment.get(slot);
-  if (!isBetterPiece(newId, oldId, equipment, slot)) return null;
+  if (!isBetterPiece(newId, oldId, equipment, slot, q)) return null;
   // Which record each side reads: the old piece as worn now, the new one once worn there.
   const fromCopy = equipment.copyIn?.(slot) || 'main', toCopy = equipment.copyFor?.(newId, slot) || 'main';
   // The main record stays in use while the type is worn in the other hand.
@@ -85,8 +85,8 @@ export function planCarry(equipment, newId, slot) {
 /** How `score(newId)` would come out once the upgrades a swap into `slot`
  *  carries have moved across (Equip best weighs a piece as it will be worn).
  *  The move is tried and undone on the spot; nothing is announced or saved. */
-export function scoreAfterCarry(equipment, newId, slot, score) {
-  const plan = planCarry(equipment, newId, slot);
+export function scoreAfterCarry(equipment, newId, slot, score, q = null) {
+  const plan = planCarry(equipment, newId, slot, q);
   if (!plan) return score(newId);
   const keep = { r: { ...equipment.refines }, e: { ...equipment.enchants }, or: { ...equipment.offRefines }, oe: { ...equipment.offEnchants } };
   applyCarry(equipment, plan, { quiet: true });
