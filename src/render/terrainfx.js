@@ -108,11 +108,11 @@ export function blendMask(bits, v) {
 
 // Shoreline foam sits along the soft waterline (where the water's coverage is
 // about half), in two frames a little apart that cross-fade, so it laps.
-const FOAM_AT = [0.5, 0.7];
+const FOAM_AT = [0.52, 0.74];
 function foamAlpha(a, frame) {
   if (a <= 0.03) return 0;
   const d = (a - FOAM_AT[frame]) / 0.11;
-  return Math.exp(-d * d) * 0.85;
+  return Math.min(1, Math.exp(-d * d) * 1.1);
 }
 
 // ---------------- Ground details ----------------
@@ -248,9 +248,9 @@ export function waterDetailPlan(world, tx0, ty0, tx1, ty1) {
 // the tile centre, strength]. Fires, farm patches and fishing spots get none
 // (they flicker, grow or float).
 const SHADOW = {
-  tree: [19, 7.5, 13, 0.3], rock: [15, 5.5, 11, 0.26], bush: [13, 5, 11, 0.22], flower: [8, 3.2, 10, 0.16],
+  tree: [21, 8, 14, 0.4], rock: [16, 6, 12, 0.32], bush: [13, 5, 11, 0.22], flower: [8, 3.2, 10, 0.16],
   palm: [14, 5.5, 13, 0.26], lamp: [7, 3, 13, 0.2], sign: [8, 3, 12, 0.18], fence: [18, 5, 12, 0.18],
-  wall: [20, 7, 12, 0.3], ruin: [21, 8, 12, 0.3], building: [25, 9, 13, 0.3], small: [13, 5, 11, 0.2],
+  wall: [20, 7, 12, 0.34], ruin: [21, 8, 12, 0.34], building: [26, 9.5, 14, 0.36], small: [13, 5, 11, 0.2],
 };
 const NO_SHADOW = new Set(['fire', 'farm', 'fishing']);
 // Objects that are walls or buildings darken the ground beside them a little.
@@ -326,14 +326,16 @@ function drawDetail(g, id) {
       break;
     }
     case 'shell': {
-      blob('#FBD3C2', () => { g.moveTo(0, 0); g.arc(0, -1, 3.2, Math.PI * 1.08, Math.PI * 1.92); g.closePath(); });
-      g.strokeStyle = 'rgba(34,48,74,0.35)';
+      g.strokeStyle = 'rgba(150,80,70,0.7)';
+      blob('#FFC2AE', () => { g.moveTo(0, 0); g.arc(0, -0.6, 3.6, Math.PI * 1.05, Math.PI * 1.95); g.closePath(); });
+      g.strokeStyle = 'rgba(200,110,90,0.55)';
       for (const a of [-0.55, -0.2, 0.2, 0.55]) { g.beginPath(); g.moveTo(0, -0.3); g.lineTo(Math.sin(a) * 3, -1 - Math.cos(a) * 3); g.stroke(); }
       break;
     }
     case 'shell_spiral': {
-      blob('#F6E3C4', () => g.arc(0, -2.6, 2.5, 0, 6.3));
-      g.strokeStyle = 'rgba(34,48,74,0.45)'; g.beginPath();
+      g.strokeStyle = 'rgba(150,100,60,0.7)';
+      blob('#FFE6B8', () => g.arc(0, -2.6, 2.6, 0, 6.3));
+      g.strokeStyle = 'rgba(190,120,70,0.7)'; g.beginPath();
       for (let i = 0; i <= 14; i++) { const a = i * 0.7, r = 2.3 - i * 0.15; g.lineTo(Math.cos(a) * r, -2.6 + Math.sin(a) * r); }
       g.stroke();
       break;
