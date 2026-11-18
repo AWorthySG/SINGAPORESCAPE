@@ -29,6 +29,8 @@ test('rig falls back headlessly and waits for every part before drawing', () => 
   const previous = globalThis.Image;
   const loaded = [];
   globalThis.Image = class { constructor() { this.complete = false; this.naturalWidth = 0; loaded.push(this); } };
+  // The painted animation art (heroAnimArt.js) loads alongside; count only the rig's parts.
+  const rigParts = () => loaded.filter((img) => !String(img.src).includes('/anim/'));
   try {
     const drawn = [];
     const ctx = { globalAlpha: 1, save() {}, restore() {}, translate() {}, rotate() {}, drawImage(img) { drawn.push(img); } };
@@ -42,7 +44,7 @@ test('rig falls back headlessly and waits for every part before drawing', () => 
       assert.equal(drawHeroRig(ctx, { jobClass: 'swordsman', swingK }), true);
     }
     assert.equal(drawn.length, 30);
-    assert.equal(loaded.length, 6, 'images are reused across frames');
+    assert.equal(rigParts().length, 6, 'images are reused across frames');
   } finally { if (previous === undefined) delete globalThis.Image; else globalThis.Image = previous; }
 });
 
@@ -77,6 +79,8 @@ test('Rogue and Samurai caches are isolated and preserve canvas opacity', () => 
   const previous = globalThis.Image;
   const loaded = [];
   globalThis.Image = class { constructor() { this.complete = false; this.naturalWidth = 0; loaded.push(this); } };
+  // The painted animation art (heroAnimArt.js) loads alongside; count only the rig's parts.
+  const rigParts = () => loaded.filter((img) => !String(img.src).includes('/anim/'));
   try {
     const drawn = [], stack = [];
     const ctx = {
@@ -90,8 +94,8 @@ test('Rogue and Samurai caches are isolated and preserve canvas opacity', () => 
     assert.equal(ctx.globalAlpha, 0.65);
     assert.ok(drawn.every((src) => src.includes('/rogue-')));
     assert.equal(drawHeroRig(ctx, { jobClass: 'samurai' }), false);
-    assert.equal(loaded.length, 12, 'each class loads six distinct parts');
-    const samurai = loaded.slice(6);
+    assert.equal(rigParts().length, 12, 'each class loads six distinct parts');
+    const samurai = rigParts().slice(6);
     for (const img of samurai) { img.complete = true; img.naturalWidth = 100; }
     samurai[2].naturalWidth = 0; // A completed request can still be a broken image.
     assert.equal(drawHeroRig(ctx, { jobClass: 'samurai' }), false);
@@ -102,6 +106,6 @@ test('Rogue and Samurai caches are isolated and preserve canvas opacity', () => 
     assert.equal(ctx.globalAlpha, 0.65);
     assert.equal(stack.length, 0, 'transforms and opacity are balanced');
     assert.equal(drawHeroRig(ctx, { jobClass: 'rogue' }), true);
-    assert.equal(loaded.length, 12, 'returning to an already loaded class reuses images');
+    assert.equal(rigParts().length, 12, 'returning to an already loaded class reuses images');
   } finally { if (previous === undefined) delete globalThis.Image; else globalThis.Image = previous; }
 });

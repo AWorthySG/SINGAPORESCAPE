@@ -172,7 +172,7 @@ test('the drawn rig swaps weapon drawings rather than ghosting them', () => {
         const alpha = {};
         let a = 1;
         const ctx = { get globalAlpha() { return a; }, set globalAlpha(v) { a = v; }, save() {}, restore() { a = 1; }, translate() {}, rotate() {},
-          drawImage(img) { const part = img.src.match(/-(\w+)\.webp$/)[1]; alpha[part] = a; } };
+          drawImage(img) { const m = img.src.match(/-(\w+)\.webp$/); if (m) alpha[m[1]] = a; } };   // painted animation art (anim/) aside
         assert.equal(drawHeroRig(ctx, { jobClass: classId, swingK: i / 100 }), true);
         if (Math.min(alpha.sword, alpha.strike) > 0.25) ghosted++;
       }

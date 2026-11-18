@@ -188,10 +188,11 @@ export function drawHeroRig(ctx, opts = {}) {
   // follow-through picture replaces the turning arm, for either hand.
   const combat = anim && anim.kind === 'combat';
   const mk = combat && !anim.trail ? 'flourish' : 'melee';
-  const frame = combat && hasSwingArt(classId) ? swingPhase(anim.ch, 'main', mk) : null;
+  // A two-handed grip keeps the turning arm, so the back hand stays on the handle.
+  const frame = combat && !grip && hasSwingArt(classId) ? swingPhase(anim.ch, 'main', mk) : null;
   const offFrame = combat && OFF_SHOULDER[classId] && (classId !== 'corsair' || corsairPair) && hasSwingArt(classId, 'off') ? swingPhase(anim.ch, 'off') : null;
   const sh = SHOULDER[classId] || [11, -10], osh = OFF_SHOULDER[classId];
-  const hand = grip && !frame ? gripPoint(grip, shown, [11, y, w, h, sa, spx, spy], [11 + reach, y, kw, kh, ka, 4, 5], -4, -9 + pose.breathe) : null;
+  const hand = grip ? gripPoint(grip, shown, [11, y, w, h, sa, spx, spy], [11 + reach, y, kw, kh, ka, 4, 5], -4, -9 + pose.breathe) : null;
   if (hand) drawGripHand(ctx, classId, 'arm', -4, -9 + pose.breathe, hand[0], hand[1], arms);
   if (anim) drawHeroArm(ctx, anim, 'back', -11 + pose.breathe);
   if (offFrame && classId === 'corsair') drawSwingArm(ctx, classId, anim.ch, 'off', 'melee', osh[0] + (pose.reach2 || 0) * 0.4, osh[1] + pose.breathe, arms);
