@@ -5167,7 +5167,7 @@ export class Game {
       if (!n.alive || !n.attackable) continue;
       const d = chebyshev(p.x, p.y, n.x, n.y);
       if (d > Math.max(25, range + 2)) continue;   // a Sniper picks off monsters from further still
-      const hunting = n.target === p || !!n.wave;   // a wave monster is coming for you, whatever its level
+      const hunting = n.target === p || !!n.wave || !!n.worldEvent;   // a wave or world event monster is coming for you, whatever its level
       // One auto battle has just run from is left alone until it catches up:
       // a pack that stayed by its home, still set on you, drew a Rogue back
       // into the fight it had fled, again and again until it died.

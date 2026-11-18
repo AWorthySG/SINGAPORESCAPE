@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 
 import { Game } from '../src/game/game.js';
 import { saveGame, loadGame, clearSave } from '../src/game/save.js';
+import { chebyshev } from '../src/core/utils.js';
 import { EVENT_IDS, EVENT_GAP, FIRST_GAP, GATHER_GOAL, WEEKLY_TASKS, isoWeekKey, eventReward, weeklyCrate } from '../src/data/worldevents.js';
 
 function fakeStorage() {
@@ -339,4 +340,15 @@ test('falling after taking part in a gathering event still pays for what you gat
   assert.equal(g.worldEvents.active, null);
   assert.equal(g.worldEvents.done, 1);
   noneLeft(g, 'gathering death');
+});
+
+test('auto battle takes on event monsters nearby', () => {
+  const g = newGame();
+  const ev = g.worldEvents.start('rampage', { region: 'Bukit Timah' });
+  const n = ev.mobs[0];
+  placeAt(g, n.x + 2, n.y);
+  n.target = null;
+  g.npcs = g.npcs.filter((m) => m === n || !m.def.attackable || chebyshev(m.x, m.y, n.x, n.y) > 30);
+  g.toggleAutoBattle(true);
+  assert.equal(g._autoPickTarget(), n);
 });
