@@ -1447,26 +1447,44 @@ export class Game {
    *  turns: the nearest ready node of the next kind after this one, then any
    *  kind in the round. Failing those, the nearest ready node of the same kind,
    *  or of the same skill you have the level for (another rock, tree or spot),
-   *  all within 30 tiles. */
+   *  anywhere in your current region (or within 30 tiles outside one). With
+   *  kinds ticked in a skill guide, only those. */
   _nextGatherNode(objId, exclude = null) {
     const here = this.playerTile();
     const def = this.world.objects.find((o) => o.objId === objId)?.def;
     const kinds = this._gatherRound();
     const i = kinds.indexOf(objId);
     const next = kinds.length > 1 && i >= 0 ? kinds[(i + 1) % kinds.length] : null;
-    let same = null, sd = Infinity, other = null, od = Infinity, turn = null, td = Infinity, round = null, rd = Infinity;
+    // A ticked list (skill guide) is strict: only the kinds you ticked, never a
+    // nearby rock or tree of the same skill (that sent auto mining to tin when
+    // the ticked adamantite and runite rocks were all mined out).
+    const picked = this.gatherPicks.size ? this.gatherPicks : null;
+    const zone = this.world.zoneAt(here.x, here.y);
+    // Two reaches: within 30 tiles first, exactly as before; only when there are
+    // no nodes of the kind nearby at all does it look across the region you're in (the
+    // owner asked for the whole region, so auto mining walks on to the next
+    // cluster of runite by itself) and then only for the kinds in the round,
+    // never a stand-in rock of the same skill.
+    const best = () => ({ turn: null, td: Infinity, round: null, rd: Infinity, same: null, sd: Infinity, other: null, od: Infinity });
+    const near = best(), far = best();
+    // Kinds in the round that have nodes nearby at all (ready or not): those
+    // grow back in seconds, so waiting beats a long walk to another cluster.
+    let nearAny = false;
     for (const o of this.world.objects) {
-      if (o === exclude || o.depleted) continue;
+      if (picked && !picked.has(o.objId)) continue;
       const d = chebyshev(here.x, here.y, o.x, o.y);
-      if (d > 30) continue;
+      if (d <= 30 && (o.objId === objId || kinds.includes(o.objId))) nearAny = true;
+      if (o === exclude || o.depleted) continue;
+      const b = d <= 30 ? near : (zone && this.world.zoneAt(o.x, o.y) === zone ? far : null);
+      if (!b) continue;
       const lvlOk = !o.def?.skill || (o.def.level || 1) <= this.skills.level(o.def.skill);
-      if (next && o.objId === next && lvlOk && d < td) { td = d; turn = o; }
-      if (kinds.includes(o.objId) && o.objId !== objId && lvlOk && d < rd) { rd = d; round = o; }
-      if (o.objId === objId) { if (d < sd) { sd = d; same = o; } continue; }
-      if (def?.skill && o.def?.skill === def.skill && o.def.type === def.type
-        && (o.def.level || 1) <= this.skills.level(def.skill) && d < od) { od = d; other = o; }
+      if (next && o.objId === next && lvlOk && d < b.td) { b.td = d; b.turn = o; }
+      if (kinds.includes(o.objId) && o.objId !== objId && lvlOk && d < b.rd) { b.rd = d; b.round = o; }
+      if (o.objId === objId) { if (d < b.sd) { b.sd = d; b.same = o; } continue; }
+      if (b === near && def?.skill && o.def?.skill === def.skill && o.def.type === def.type
+        && (o.def.level || 1) <= this.skills.level(def.skill) && d < b.od) { b.od = d; b.other = o; }
     }
-    return turn || round || same || other;
+    return near.turn || near.round || near.same || near.other || (nearAny ? null : far.turn || far.round || far.same);
   }
 
   /** Auto gather for Farming and Thieving: once you're idle, carry on by
