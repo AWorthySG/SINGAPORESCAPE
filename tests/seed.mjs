@@ -5,6 +5,7 @@
 // same seed before every test, so each test sees the same rolls on every run
 // whatever order or company it runs in. Set TEST_SEED to try other seeds.
 import { beforeEach } from 'node:test';
+import { GOLDEN } from '../src/data/skillhours.js';
 
 export const SEED = Number(process.env.TEST_SEED) || 20261112;
 
@@ -20,4 +21,6 @@ export function seedRandom(seed = SEED) {
 }
 
 seedRandom();
-beforeEach(() => seedRandom());
+// Golden hours off too: XP amounts in tests mustn't depend on the in-game clock
+// (tests/skillhours.test.mjs switches them back on for itself).
+beforeEach(() => { seedRandom(); GOLDEN.on = false; });

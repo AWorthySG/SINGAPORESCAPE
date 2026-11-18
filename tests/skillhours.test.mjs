@@ -2,7 +2,7 @@
 import './seed.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SKILL_HOURS, goldenMult, goldenSkills, inWindow, GOLDEN_HOUR_XP, windowLabel } from '../src/data/skillhours.js';
+import { SKILL_HOURS, goldenMult, goldenSkills, inWindow, GOLDEN_HOUR_XP, windowLabel, GOLDEN } from '../src/data/skillhours.js';
 import { Game } from '../src/game/game.js';
 import { clearSave } from '../src/game/save.js';
 import { DAY_CYCLE_MS } from '../src/config.js';
@@ -10,6 +10,7 @@ import { DAY_CYCLE_MS } from '../src/config.js';
 const fakeStorage = () => { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k) }; };
 
 test('every life skill has a six-hour window, and windows wrap past midnight', () => {
+  GOLDEN.on = true;
   for (const s of ['fishing', 'woodcutting', 'mining', 'smithing', 'cooking', 'crafting', 'fletching', 'herblore', 'firemaking', 'hunter', 'farming', 'thieving', 'agility']) {
     const w = SKILL_HOURS[s];
     assert.ok(w, `${s} has golden hours`);
@@ -24,6 +25,7 @@ test('every life skill has a six-hour window, and windows wrap past midnight', (
 });
 
 test('life skill XP is worth +50% in its golden hours, and the change is announced', () => {
+  GOLDEN.on = true;
   globalThis.localStorage = fakeStorage(); clearSave();
   const g = new Game(); g.start(); g.chooseClass('swordsman');
   const msgs = []; g.ui = new Proxy({}, { get: () => () => {} });

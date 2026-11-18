@@ -6,6 +6,9 @@
 // has from > to. The reasons are flavour for the guide and the banner.
 
 export const GOLDEN_HOUR_XP = 1.5;
+// A switch for the test suite: tests that pin exact XP amounts turn golden
+// hours off (tests/seed.mjs) so the in-game clock can't shift their numbers.
+export const GOLDEN = { on: true };
 
 export const SKILL_HOURS = {
   fishing:     { from: 4,  to: 10, when: 'Dawn',      why: 'the fish bite best at first light' },
@@ -36,7 +39,7 @@ export function goldenSkills(hour) {
 /** XP multiplier for `skill` at `hour`: GOLDEN_HOUR_XP in its window, else 1. */
 export function goldenMult(skill, hour) {
   const w = SKILL_HOURS[skill];
-  return w && inWindow(hour, w) ? GOLDEN_HOUR_XP : 1;
+  return GOLDEN.on && w && inWindow(hour, w) ? GOLDEN_HOUR_XP : 1;
 }
 
 const fmt = (h) => { const hh = ((h % 24) + 24) % 24; const s = hh >= 12 ? 'PM' : 'AM'; const h12 = hh % 12 || 12; return `${h12} ${s}`; };
