@@ -644,6 +644,7 @@ export class Game {
       const starter = starterWeapon(classId);
       if (!this.equipment.get('weapon')) this.equipment.set('weapon', starter); else this.inventory.add(starter, 1);
       if (this.equipment.get('shield') && offhandBlocked(this.equipment.get('weapon'), this.equipment.get('shield'))) this._stowShield();
+      this._giveBowQuiver();
       this.msg(`You are now a ${cls.name}. Only ${WEAPON_TYPE_NAMES[cls.weapon]} and ${WEAPON_TYPE_NAMES[SECONDARY_WEAPON[classId]]} can be wielded, and the choice is permanent.`, 'level');
       this.msg(`${cls.name} perk: ${classPerks(classId)[0].text} (see Class perks in the Combat tab)`, 'system');
       this.bus.emit('inventory'); this.bus.emit('equipment');
@@ -655,6 +656,7 @@ export class Game {
     if (style === 'ranged') {
       this.equipment.set('weapon', starter);
       if (canDualWield(starter)) this.equipment.set('shield', starter);   // Pistolers start with a pair
+      else if (takesQuiver(starter)) this.equipment.set('shield', 'bronze_quiver');   // Archers and Rangers start with a quiver
       if (ARMOUR_FAMILY[classId] === 'leather') {   // the Ninja wears scout leather, not hide
         this.equipment.set('head', 'bronze_scout_hood');
         this.equipment.set('body', 'bronze_scout_jerkin');
@@ -688,7 +690,6 @@ export class Game {
       // (Two-handed weapons leave no hand free for a shield.)
       if (canDualWield(starter)) this.equipment.set('shield', starter);
       else if (!isTwoHanded(starter)) this.equipment.set('shield', 'wooden_shield');
-      else if (takesQuiver(starter)) this.equipment.set('shield', 'bronze_quiver');   // Archers and Rangers start with a quiver
       // Heavy melee starts in chainmail, agile melee in leather (each class has its own armour).
       this.equipment.set('body', ARMOUR_FAMILY[classId] === 'plate' ? 'bronze_chainbody' : 'leather_body');
     }
