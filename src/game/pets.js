@@ -22,6 +22,18 @@ export const SKILL_PET_RATE = 15000; // 1 in this many life-skill actions (~2,00
 export const bossPetChance = (kc) => 1 / Math.max(BOSS_PET_FLOOR, BOSS_PET_RATE - Math.max(0, kc || 0));
 export const skillPetChance = () => 1 / SKILL_PET_RATE;
 
+/** A small seeded random generator (0 <= x < 1). */
+export function mulberry32(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 /** One roll of a 1-in-`1 / chance` drop (rand injectable for tests). */
 export const rollPet = (chance, rand = Math.random) => rand() < chance;
 
@@ -63,7 +75,9 @@ export class Pets {
     this.follower = null;   // where it is: { id, x, y } in tiles (not saved)
     this._trail = [];       // your last few tiles, for it to walk in
     this._rolled = {};      // skill -> tick of its last roll (one roll a tick at most)
-    this.rand = Math.random;
+    // Pets roll on their own generator, so these extra rolls never shift the
+    // run of Math.random the rest of the game (and its seeded tests) depends on.
+    this.rand = mulberry32((Date.now() ^ 0x9e3779b9) >>> 0);
     game.bus.on('tick', () => this.tick());
     // Every life-skill action pays XP, so the XP event is the roll: no hook in
     // each skill. Bonus XP from the same action (a pearl, say) doesn't roll again.

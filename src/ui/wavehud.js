@@ -3,7 +3,8 @@
 // wave, monsters left, the countdown to the next wave, your best and a Leave
 // button. Kept out of ui.js, which only creates this and forwards to it.
 
-import { GATE_NAME, BOSS_EVERY, CHAMPION_EVERY, waveLevel } from '../game/waves.js';
+import { GATE_NAME, BOSS_EVERY, CHAMPION_EVERY, GATE_MODS, GATE_MOD_IDS, waveLevel } from '../game/waves.js';
+import { CLASS_BY_ID } from '../data/classes.js';
 
 export class WaveHud {
   constructor(ui) {
@@ -42,7 +43,8 @@ export class WaveHud {
       `<div class="wv-wave">${w.wave ? `Wave <b>${w.wave}</b>` : 'Get ready'}${w.wave && w.wave % BOSS_EVERY === 0 ? ' <span class="wv-tag">boss</span>' : ''}</div>`,
       cd ? `<div class="wv-next">${next % BOSS_EVERY === 0 ? 'Boss wave' : `Wave ${next}`} in <b>${cd}s</b></div>`
         : `<div class="wv-left">Monsters left: <b>${w.left()}</b>${w.level ? ` <span class="wv-dim">(level ${w.level})</span>` : ''}</div>`,
-      `<div class="wv-best">Best: wave <b>${w.best || 0}</b></div>`,
+      `<div class="wv-best">Best: wave <b>${w.best || 0}</b>${w.classBest() ? ` · class <b>${w.classBest()}</b>` : ''}</div>`,
+      w.runMods?.length ? `<div class="wv-mods">${w.runMods.map((id) => GATE_MODS[id].name).join(' · ')}</div>` : '',
     ];
     const html = rows.join('');
     if (html !== this._last) { el.querySelector('.wv-body').innerHTML = html; this._last = html; }
@@ -57,7 +59,11 @@ export class WaveHud {
         + 'Beyond the arch lies a sealed hall where monsters come in endless waves, each stronger than the last. '
         + `Every ${CHAMPION_EVERY}th wave brings a champion and every ${BOSS_EVERY}th a boss. Clearing a wave pays a bonus that grows the deeper you go. `
         + 'If you fall, you keep everything you earned and wake back here.</div>'
-        + `<div class="modal-hint">Your best: <b>${w.best ? `wave ${w.best}` : 'not yet tried'}</b> &middot; Wave 1 for you: level ${waveLevel(1, lvl)} monsters</div>`;
+        + `<div class="modal-hint">Your best: <b>${w.best ? `wave ${w.best}` : 'not yet tried'}</b>`
+        + ` &middot; as ${CLASS_BY_ID[g.jobClass]?.name || 'your class'}: <b>${w.classBest() ? `wave ${w.classBest()}` : 'not yet tried'}</b>`
+        + ` &middot; Wave 1 for you: level ${waveLevel(1, lvl)} monsters</div>`
+        + this._modsHTML(w);
+      for (const b of body.querySelectorAll('.wv-mod')) b.addEventListener('click', () => { w.toggleMod(b.dataset.mod); this.openGate(); });
       const opts = document.createElement('div');
       opts.className = 'dialogue-options';
       const go = document.createElement('div');
@@ -72,5 +78,13 @@ export class WaveHud {
       body.appendChild(opts);
     });
     this.ui.modal.kind = 'waveGate';
+  }
+
+  /** The modifier toggles: pick any to stack their risk and reward. */
+  _modsHTML(w) {
+    return '<div class="wv-modlist"><div class="wv-modhead">Modifiers <small>(stack: more risk, more reward)</small></div>'
+      + GATE_MOD_IDS.map((id) => { const m = GATE_MODS[id], on = w.mods.has(id);
+        return `<button class="wv-mod${on ? ' on' : ''}" data-mod="${id}" aria-pressed="${on}"><b>${on ? '&#10003; ' : ''}${m.name}</b>`
+          + `<span class="wv-risk">${m.risk}</span><span class="wv-reward">${m.reward}</span></button>`; }).join('') + '</div>';
   }
 }
