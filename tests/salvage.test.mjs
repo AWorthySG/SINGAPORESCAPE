@@ -1,6 +1,6 @@
 // Sacrifice and dismantle (src/game/salvage.js): spare gear, of any class and
-// slot, fed to another piece's mastery or broken down into upgrade stones,
-// refine scrolls and wards.
+// slot, fed to the mastery of its own gear type or broken down into upgrade
+// stones, refine scrolls and wards. Each copy keeps its own quality.
 import './seed.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -12,7 +12,7 @@ import { ALL_BOSS_IDS } from '../src/data/npcs.js';
 import { FEED_CAP } from '../src/game/materials.js';
 import { xpForLevel } from '../src/data/xp.js';
 import {
-  gearWorth, sacrificePoints, dismantleYield, sacrificeGear, dismantleGear, packQualities, recordQuality,
+  gearWorth, sacrificePoints, dismantleYield, sacrificeGear, dismantleGear, packQualities,
   bulkPicks, dismantleAll, sacrificeAll, previewSacrifice, sacrificeOptions, salvageWarning, QUALITY_MULT, UNIQUE_MULT,
 } from '../src/game/salvage.js';
 import { salvageHour } from '../tools/balance/salvage.mjs';
@@ -48,27 +48,36 @@ test('worth grows with level (with diminishing returns), tier, quality and boss 
   assert.equal(gearWorth('coins'), 0);
 });
 
-test('sacrifice points: worth, a bonus for the same kind of gear, at least 1', () => {
-  // A plate body into a sword vs into another plate body.
-  const other = sacrificePoints('rune_sword', 'rune_platebody'), same = sacrificePoints('adamant_platebody', 'rune_platebody');
-  assert.ok(same > other, `same kind ${same} > other kind ${other}`);
+test('sacrifice points: worth x1.5, at least 1, and only into the same gear type', () => {
+  // A plate body into a sword gives nothing; into another plate body, its worth.
+  assert.equal(sacrificePoints('rune_sword', 'rune_platebody'), 0, 'another type: refused');
+  assert.equal(sacrificePoints('rune_sword', 'iron_scimitar'), 0, 'a scimitar is not a sword');
+  assert.equal(sacrificePoints('rune_platebody', 'leather_body'), 0, 'scout leather is not plate');
+  assert.equal(sacrificePoints('adamant_platebody', 'rune_platebody'), Math.round(gearWorth('rune_platebody') * 1.5));
   assert.equal(sacrificePoints('rune_sword', 'mithril_sword'), Math.round(gearWorth('mithril_sword') * 1.5));
-  assert.equal(sacrificePoints('rune_platebody', 'bronze_dagger'), 1, 'the humblest piece still gives 1');
+  assert.ok(sacrificePoints('rune_dagger', 'bronze_dagger') >= 1, 'the humblest piece still gives 1');
 });
 
-test('sacrificing gear adds mastery to the target, even gear of another class', () => {
+test('sacrificing gear adds mastery to its gear type, and only gear of that type can go', () => {
   const g = newGame('swordsman');
+  const out = chat(g);
   const target = g.equipment.get('weapon');
   assert.ok(target, 'the swordsman holds a sword');
-  g.inventory.add('fire_staff', 3);   // a wizard's staff: a swordsman can't wield it
-  const each = sacrificePoints(target, 'fire_staff');
+  g.inventory.add('fire_staff', 3);   // a wizard's staff: not a sword
+  assert.equal(sacrificeGear(g, target, 'fire_staff', 2), 0, 'refused: another gear type');
+  assert.ok(out.some((t) => /Only sword gear/.test(t)), out.join('\n'));
+  assert.equal(g.inventory.count('fire_staff'), 3, 'nothing used up');
+  assert.ok(!sacrificeOptions(g, target).some((o) => o.id === 'fire_staff'), 'not offered either');
+  g.inventory.add('mithril_sword', 3);
+  const each = sacrificePoints(target, 'mithril_sword');
   const before = g.equipment.masteryPoints(target);
-  const pv = previewSacrifice(g, target, 'fire_staff', 2);
+  const pv = previewSacrifice(g, target, 'mithril_sword', 2);
   assert.deepEqual([pv.n, pv.points], [2, each * 2], 'the preview matches');
-  assert.equal(sacrificeGear(g, target, 'fire_staff', 2), each * 2);
+  assert.equal(sacrificeGear(g, target, 'mithril_sword', 2), each * 2);
   assert.equal(g.equipment.masteryPoints(target), before + each * 2);
-  assert.equal(g.inventory.count('fire_staff'), 1, 'two used up, one left');
-  assert.ok(sacrificeOptions(g, target).some((o) => o.id === 'fire_staff' && o.count === 1));
+  assert.equal(g.equipment.masteryPoints('rune_sword'), before + each * 2, 'every sword shares Sword mastery');
+  assert.equal(g.inventory.count('mithril_sword'), 1, 'two used up, one left');
+  assert.ok(sacrificeOptions(g, target).some((o) => o.id === 'mithril_sword' && o.count === 1));
 });
 
 test('worn gear can\'t be sacrificed or dismantled; spare copies in the pack can', () => {
@@ -80,7 +89,8 @@ test('worn gear can\'t be sacrificed or dismantled; spare copies in the pack can
   g.equipItem(g.inventory.slots.findIndex((s) => s?.id === body));
   assert.equal(g.equipment.get('body'), body);
   assert.equal(g.inventory.count(body), 0);
-  assert.equal(sacrificeGear(g, worn, body, 1), 0, 'refused: it is being worn');
+  assert.ok(worn);
+  assert.equal(sacrificeGear(g, body, body, 1), 0, 'refused: it is being worn');
   assert.ok(out.some((t) => /wearing/.test(t)));
   assert.equal(dismantleGear(g, body, 1).n, 0);
   assert.equal(g.equipment.get('body'), body, 'still worn');
@@ -97,46 +107,46 @@ test('worn gear can\'t be sacrificed or dismantled; spare copies in the pack can
 test('sacrifice stops at Master, like feeding materials', () => {
   const g = newGame('swordsman');
   const target = g.equipment.get('weapon');
-  g.equipment.mastery[target] = FEED_CAP - 2;
-  g.inventory.add('rune_platebody', 10);
-  const pts = sacrificeGear(g, target, 'rune_platebody', 10);
+  g.equipment.setMastery(target, FEED_CAP - 2);
+  g.inventory.add('rune_sword', 10);
+  const pts = sacrificeGear(g, target, 'rune_sword', 10);
   assert.ok(pts > 0);
-  assert.equal(g.inventory.count('rune_platebody'), 9, 'only one piece was needed to reach Master');
-  assert.equal(sacrificeGear(g, target, 'rune_platebody', 1), 0, 'and no more');
+  assert.equal(g.inventory.count('rune_sword'), 9, 'only one piece was needed to reach Master');
+  assert.equal(sacrificeGear(g, target, 'rune_sword', 1), 0, 'and no more');
 });
 
-test('quality copies are remembered, saved, and the plainest copy goes first', () => {
+test('each copy keeps its quality, saved, and the plainest copy goes first', () => {
   const g = newGame('swordsman');
-  g.inventory.add('rune_platebody', 3);
-  recordQuality(g.equipment, 'rune_platebody', 'epic');
+  g.inventory.add('rune_platebody', 2);
+  g.inventory.add('rune_platebody', 1, 'epic');
   assert.deepEqual(packQualities(g, 'rune_platebody'), ['plain', 'plain', 'epic']);
   assert.ok(/Epic/.test(salvageWarning(g, 'rune_platebody', 'epic')), 'an Epic copy gets a warning');
-  // Saved and loaded.
+  // Saved and loaded with the pack.
   const data = snapshot(g);
   const g2 = newGame('swordsman');
-  g2.equipment.load(data.equipment);
-  assert.deepEqual(g2.equipment.quality.rune_platebody, [0, 0, 1, 0, 0]);
-  // An old save without the tally loads fine.
-  const old = { ...data.equipment }; delete old._quality;
-  g2.equipment.load(old);
-  assert.deepEqual(g2.equipment.quality, {});
-  // Sacrificing two uses the plain ones and keeps the Epic.
-  const target = g.equipment.get('weapon');
+  g2.inventory.load(data.inventory);
+  assert.deepEqual(packQualities(g2, 'rune_platebody'), ['plain', 'plain', 'epic']);
+  // Sacrificing two (to plate body mastery) uses the plain ones and keeps the Epic.
+  g.inventory.add('adamant_platebody', 1);
+  const target = 'adamant_platebody';
   const plain = sacrificePoints(target, 'rune_platebody', 'plain');
   assert.equal(sacrificeGear(g, target, 'rune_platebody', 2), plain * 2);
   assert.deepEqual(packQualities(g, 'rune_platebody'), ['epic']);
   assert.equal(sacrificeGear(g, target, 'rune_platebody', 1), sacrificePoints(target, 'rune_platebody', 'epic'));
-  assert.equal(g.equipment.quality.rune_platebody, undefined, 'the tally is used up');
+  assert.equal(g.inventory.count('rune_platebody'), 0);
 });
 
-test('quality drops are tallied by rollDrops (a boss always drops Superior gear or better)', () => {
+test('quality drops keep their quality on the drop (a boss always drops Superior gear or better)', () => {
   const g = newGame('swordsman');
-  g._autoLoot = () => {};
+  let loot = [];
+  g._autoLoot = (l) => { loot = l; };
   const boss = new NPC(ALL_BOSS_IDS[0], 10, 10, 0);
+  const before = g.equipment.masteryPoints(g.equipment.get('weapon'));
   g.rollDrops(boss);
-  const total = Object.values(g.equipment.quality).flat().reduce((a, b) => a + b, 0);
-  assert.ok(total >= 3, `three quality pieces tallied (${total})`);
-  assert.ok(Object.values(g.equipment.quality).every((r) => r[0] === 0), 'none of them merely Fine');
+  const q = loot.filter((l) => l[3]).map((l) => l[3]);
+  assert.ok(q.length >= 3, `three quality pieces (${q.length})`);
+  assert.ok(q.every((k) => k !== 'fine'), 'none of them merely Fine');
+  assert.equal(g.equipment.masteryPoints(g.equipment.get('weapon')), before, 'quality no longer touches mastery');
 });
 
 test('dismantling gives stones, sometimes scrolls, within the expected ranges', () => {
@@ -170,11 +180,11 @@ test('bulk picks: not my class, below my worn tier, below a quality; never upgra
   g.skills.xp.attack = g.skills.xp.defence = xpForLevel(300);   // can wear anything
   g.inventory.slots = g.inventory.slots.map(() => null);
   g.inventory.add('eternal_staff', 2);     // not my class (and not below my tier)
-  g.inventory.add('bronze_sword', 2);      // my class, below my worn tier
+  g.inventory.add('bronze_sword', 1);      // my class, below my worn tier
+  g.inventory.add('bronze_sword', 1, 'epic');   // ...and an Epic copy of it
   g.inventory.add('bronze_platebody', 1);  // below my worn tier
   g.inventory.add('merlion_blade', 1);     // a boss unique: never in bulk
   g.inventory.add('eternal_platebody', 1); // better than what I wear: never in bulk
-  recordQuality(g.equipment, 'bronze_sword', 'epic');
   const ids = (f) => bulkPicks(g, f).map((p) => p.id).sort();
   assert.deepEqual(ids({ offClass: true }), ['eternal_staff']);
   assert.deepEqual(ids({ belowTier: true }), ['bronze_platebody', 'bronze_sword']);
@@ -187,15 +197,16 @@ test('bulk picks: not my class, below my worn tier, below a quality; never upgra
   assert.equal(g.inventory.count('eternal_staff'), 2, 'the staff did not match');
   assert.equal(g.inventory.count('merlion_blade'), 1);
   assert.equal(g.inventory.count('eternal_platebody'), 1);
-  // Sacrifice all the rest into the worn sword.
+  // Sacrifice all the rest into the worn sword: only swords go (not the staves).
   const pts = g.equipment.masteryPoints('rune_sword');
   const res = sacrificeAll(g, 'rune_sword', {});
-  assert.equal(res.pieces, 3, 'the staves and the Epic sword');
+  assert.equal(res.pieces, 1, 'the Epic sword');
+  assert.equal(g.inventory.count('eternal_staff'), 2, 'the staves are another type');
   assert.equal(g.equipment.masteryPoints('rune_sword'), pts + res.points);
   assert.equal(g.inventory.count('merlion_blade'), 1);
 });
 
-test('balance: an hour of drops, dismantled, adds 30-60% to stone and scroll income; sacrificed, about an hour of kills', () => {
+test('balance: an hour of drops, dismantled, adds 30-60% to stone and scroll income; the same type sacrificed, about an hour of kills', () => {
   const rows = [50, 150, 250].map((L) => salvageHour(L, { kills: 2400 }));
   for (const r of rows) {
     const sac = r.sacPoints / r.killMastery;

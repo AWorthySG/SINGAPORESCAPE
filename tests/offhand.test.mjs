@@ -77,7 +77,7 @@ test('twin scimitars refined differently hit differently, and the Stats tab agre
   assert.equal(dm.main, offUp.base, 'the Equipment panel\'s main-hand max hit');
   // Mastery stays shared by both copies (it is earned per item type).
   e.offRefines = {};
-  e.mastery[SCIM] = 5000;
+  e.setMastery(SCIM, 5000);
   assert.ok(e.masteryRank(SCIM) > 0);
   assert.deepEqual(e.itemBonuses(SCIM, 'off'), e.itemBonuses(SCIM, 'main'));
 });

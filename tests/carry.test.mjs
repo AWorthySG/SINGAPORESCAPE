@@ -133,12 +133,16 @@ test('enchant lines the new piece can\'t roll stay behind, and the move is named
   applyCarry(f, planCarry(f, 'ruby_amulet', 'amulet'));
   assert.deepEqual(f.enchantLines('ruby_amulet'), [{ stat: 'crit', value: 9 }]);
   assert.deepEqual(f.enchantLines('sapphire_amulet'), [{ stat: 'crit', value: 5 }]);
-  // Mastery and quality never move.
+  // Mastery belongs to the gear type (every amulet shares Amulet mastery), so
+  // there is nothing to move; quality stays with its own copy.
   const m = new Equipment();
-  m.slots.amulet = 'sapphire_amulet'; m.mastery.sapphire_amulet = 9000; m.refines.sapphire_amulet = 3;
-  applyCarry(m, planCarry(m, 'ruby_amulet', 'amulet'));
-  assert.equal(m.masteryPoints('ruby_amulet'), 0);
+  m.set('amulet', 'sapphire_amulet', 'epic'); m.setMastery('sapphire_amulet', 9000); m.refines.sapphire_amulet = 3;
+  const mp = planCarry(m, 'ruby_amulet', 'amulet');
+  assert.ok(mp?.refine, 'the refine still carries');
+  applyCarry(m, mp);
+  assert.equal(m.masteryPoints('ruby_amulet'), 9000, 'one Amulet mastery for both');
   assert.equal(m.masteryPoints('sapphire_amulet'), 9000);
+  assert.equal(m.qualityIn('amulet'), 'epic', 'the carry never moves quality');
 });
 
 test('the tooltip preview names what would carry over', () => {

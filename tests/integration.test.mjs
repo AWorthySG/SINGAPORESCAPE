@@ -2173,7 +2173,7 @@ test('gear mastery: kills train every worn item (1 a monster, 5 a champion, 25 a
   assert.equal(g.equipment.masteryPoints(w), 6, 'a champion is worth 5');
   const boss = g.npcs.find((n) => n.def.boss);
   const adept = M.MASTERY_RANKS[1].points;
-  g.equipment.mastery[w] = adept - 25;   // a boss kill short of Adept
+  g.equipment.setMastery(w, adept - 25);   // a boss kill short of Adept
   kill(boss);
   assert.equal(g.equipment.masteryPoints(w), adept, 'a boss is worth 25');
   assert.equal(g.equipment.masteryRank(w), 1);
@@ -2262,7 +2262,7 @@ test('mastery and enchantments add up in your bonuses, and an attack speed line 
   const w = g.equipment.get('weapon');
   const base = ITEMS[w].equip.bonuses;
   const b0 = g.equipment.bonuses(), speed0 = g.equipment.weaponSpeed();
-  g.equipment.mastery[w] = 20000;   // Grandmaster: +100%
+  g.equipment.setMastery(w, 20000);   // Grandmaster: +100%
   g.equipment.enchants[w] = [{ stat: 'crit', value: 4 }, { stat: 'haste', value: 50 }];
   const ib = g.equipment.itemBonuses(w);
   assert.equal(ib.attack, base.attack + Math.max(5, Math.round(base.attack * 1.0)));
@@ -2823,7 +2823,7 @@ test('Refining: ★1-★15 on top of mastery, paid for with refine scrolls only'
   assert.equal(g.equipment.refineLevel(w), 0);
   g.inventory.add(R.SCROLL, 100);
   // A mastered, enchanted weapon: refining adds its share of the BASE stats on top.
-  g.equipment.mastery[w] = 1000;   // Skilled
+  g.equipment.setMastery(w, 1000);   // Skilled
   g.equipment.enchants[w] = [{ stat: 'crit', value: 2 }];
   const before = g.equipment.itemBonuses(w);
   for (let i = 0; i < 5; i++) assert.equal(g.refineItem(w, 0.99), 'success', '★1-★5 always succeed');
@@ -4560,7 +4560,7 @@ test('Equip best in slot counts mastery and enchantments, and only the stats you
   assert.equal(g.equipment.get('weapon'), 'steel_sword', 'plain for plain, the steel sword is better');
   // Refine and enchantments carry over to a better piece, so the higher tier of
   // the same line always stays on: a Legendary iron sword no longer pulls it off.
-  g.equipment.mastery.iron_sword = 50000;
+  g.equipment.setMastery('iron_sword', 50000);
   g.equipBest();
   assert.equal(g.equipment.get('weapon'), 'steel_sword', 'the higher tier stays on');
   // ...and goes on first, whatever the worn piece has had spent on it.
@@ -4568,7 +4568,7 @@ test('Equip best in slot counts mastery and enchantments, and only the stats you
   h.ui = new Proxy({}, { get: () => () => {} });
   h.skills.xp.attack = 50000000; h.skills.xp.defence = 50000000;
   h.inventory.add('iron_sword', 1); h.equipItem(h.inventory.slots.findIndex((x) => x?.id === 'iron_sword'));
-  h.equipment.mastery.iron_sword = 50000; h.equipment.refines.iron_sword = 12;
+  h.equipment.setMastery('iron_sword', 50000); h.equipment.refines.iron_sword = 12;
   h.equipment.enchants.iron_sword = [{ stat: 'haste', value: 10 }, { stat: 'atkPct', value: 10 }];
   h.inventory.add('mithril_sword', 1); h.inventory.add('steel_sword', 1);
   h.equipBest();
