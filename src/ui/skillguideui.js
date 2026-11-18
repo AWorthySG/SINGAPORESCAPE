@@ -51,6 +51,16 @@ const itemBtn = (id, extra = '', size = 20) => `<button type="button" class="sgx
 const regionsText = (zs, n = 4) => (zs.length ? esc(zs.slice(0, n).join(', ')) + (zs.length > n ? ` and ${zs.length - n} more` : '') : 'nowhere on the map yet');
 const pagedMore = (shown, total) => (total > shown ? `<button type="button" class="cx-more sgx-more" data-more="1">Show more (${formatNumber(total - shown)} left)</button>` : '');
 
+/** "Auto gather: 3 picked (Runite, Adamantite, Magic tree) · Untick all (3)", across
+ *  every skill, or '' when nothing is ticked. The button carries data-untick. */
+export function gatherPicksHTML(game) {
+  const ids = [...(game.gatherPicks || [])];
+  if (!ids.length) return '';
+  const names = ids.map((id) => OBJECTS[id]?.name || id);
+  return `<div class="sgx-picked"><span><b>Auto gather:</b> ${ids.length} picked (${esc(names.slice(0, 6).join(', '))}${names.length > 6 ? ` and ${names.length - 6} more` : ''})</span>`
+    + `<button type="button" class="wm-go" data-untick="1">Untick all (${ids.length})</button></div>`;
+}
+
 // ---------------- Rows ----------------
 
 function sourceRowHTML(game, s, st) {
@@ -308,6 +318,7 @@ export function openSkillGuide(ui, skill, { itemId = null } = {}) {
     if (AUTO_TEXT[sk]) {
       body.insertAdjacentHTML('beforeend', `<button type="button" class="sg-auto${game.autoGather ? ' on' : ''}" data-auto="1"><span class="ab-switch" aria-hidden="true"><i></i></span><span><b>Auto gather</b> ${game.autoGather ? 'On' : 'Off'}: ${AUTO_TEXT[sk]}</span></button>`);
     }
+    if (GATHER_SKILLS.includes(sk)) body.insertAdjacentHTML('beforeend', gatherPicksHTML(game));
     if (PICK_SKILLS.has(sk)) {
       const lvl = game.skills.level(sk);
       const n = gatherSources().filter((s) => s.skill === sk && s.level <= lvl && s.objIds?.every((id) => game.gatherPicks.has(id))).length;
@@ -362,6 +373,7 @@ export function openSkillGuide(ui, skill, { itemId = null } = {}) {
     else if (d.filter) { v.filter = d.filter; v.shown = PAGE; render(body); }
     else if (d.cat) { v.cat = d.cat; v.shown = PAGE; render(body); }
     else if (d.auto) { game.toggleAutoGather(); render(body); }
+    else if (d.untick) { game.clearGatherPicks(); const sc = body.scrollTop; render(body); body.scrollTop = sc; }
     else if (d.start) { game.startGatherPicks(); ui.closeModal(); }
     else if (d.pick) { game.toggleGatherPick(d.pick.split(',')); const sc = body.scrollTop; render(body); body.scrollTop = sc; }
     else if (d.go) game.goToNearest(d.go.split(','));

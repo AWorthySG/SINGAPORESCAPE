@@ -3104,3 +3104,5 @@ body #tip-toast.tip-strip { font-size: 11px; padding: 4px 6px 4px 7px; border-ra
   .sgx-row { flex-wrap: wrap; }
   .sgx-row .sgx-btns { width: 100%; justify-content: flex-end; }
 }
+.sgx-picked { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; margin: 6px 0; padding: 6px 8px;
+  font-size: 12px; background: #e6f7df; border: 2px solid var(--aw-ink); border-radius: var(--r1); }

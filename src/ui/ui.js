@@ -13,7 +13,7 @@ import { COOKING } from '../game/skilling.js';
 import { DISHES } from '../data/cooking.js';
 import { SKILLS, SKILL_GROUPS } from '../data/skills.js';
 import { SKILL_GUIDES } from '../game/skillguide.js';
-import { openSkillGuide as openGuide } from './skillguideui.js';
+import { openSkillGuide as openGuide, gatherPicksHTML } from './skillguideui.js';
 import { OBJECTS } from '../data/objects.js';
 import { SUBJECTS, SUBJECT_BY_ID, TOPICS, TOPIC_BY_ID } from '../data/questions.js';
 import { DAILY_COUNT } from '../game/learning.js';
@@ -463,6 +463,11 @@ export class UI {
       row('Boss attacks', cfg.dodge !== false ? 'step out of the red ground markers for you' : 'stand your ground: dodging is left to you', [[true, 'Auto dodge'], [false, 'Off']], cfg.dodge !== false, (v) => { cfg.dodge = v; });
       row('Attack skills', 'spend adrenaline on your skills', [[true, 'Use them'], [false, 'Save adrenaline']], cfg.abilities, (v) => { cfg.abilities = v; });
       body.appendChild(list);
+      // Auto gather: the kinds ticked in the skill guides, and a way to untick them all.
+      if (g.gatherPicks.size) {
+        body.insertAdjacentHTML('beforeend', `<div class="skill-group">Auto gather</div>${gatherPicksHTML(g)}`);
+        body.querySelector('[data-untick]')?.addEventListener('click', () => { g.clearGatherPicks(); render(body); });
+      }
       const hint = document.createElement('div'); hint.className = 'modal-hint';
       hint.textContent = 'Auto battle braces against heavy blows, picks your strongest spell and (unless you turn it off above) steps out of boss attack markers for you; each dodge trains Agility. Steering pauses it; press T to switch it on or off.';
       body.appendChild(hint);

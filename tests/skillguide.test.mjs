@@ -185,3 +185,29 @@ test('the old flat list still sorts by level and points at real objects', () => 
     for (const x of e) for (const id of x.objIds || []) assert.ok(OBJECTS[id], `${s}: ${id}`);
   }
 });
+
+test('Untick all: clears every auto gather pick, says so, and the save still loads', async () => {
+  const { saveGame, loadGame } = await import('../src/game/save.js');
+  const { gatherPicksHTML } = await import('../src/ui/skillguideui.js');
+  const g = newGame();
+  assert.equal(gatherPicksHTML(g), '', 'no bar while nothing is ticked');
+  g.toggleGatherPick(['runite_rock']); g.toggleGatherPick(['adamantite_rock']); g.toggleGatherPick(['magic_tree']);
+  assert.equal(g.gatherPicks.size, 3);
+  assert.match(gatherPicksHTML(g), /3 picked \(Runite rock, Adamantite rock, Magic tree\)[\s\S]*Untick all \(3\)/);
+  const said = [];
+  const msg = g.msg.bind(g);
+  g.msg = (t, k) => { said.push(t); return msg(t, k); };
+  assert.equal(g.clearGatherPicks(), 3);
+  assert.equal(g.gatherPicks.size, 0);
+  assert.ok(g.saveSoon);
+  assert.ok(said.some((t) => /Cleared your auto gather picks/.test(t)));
+  assert.equal(gatherPicksHTML(g), '');
+  // A round trip: the empty list saves and loads, and a fresh tick still survives one.
+  saveGame(g);
+  const g2 = new Game(); g2.start(); assert.ok(loadGame(g2), 'loads');
+  assert.equal(g2.gatherPicks.size, 0);
+  g2.toggleGatherPick(['copper_rock']);
+  saveGame(g2);
+  const g3 = new Game(); g3.start(); assert.ok(loadGame(g3));
+  assert.deepEqual([...g3.gatherPicks], ['copper_rock']);
+});
