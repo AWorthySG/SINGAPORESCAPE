@@ -7,6 +7,7 @@ import { drawHeroRig } from './heroRig.js';
 import { drawRangedHeroRig } from './rangedHeroRig.js';
 import { drawPictureTool, drawWeaponTrail } from './heroanim.js';
 import { poseBlender } from './poseBlend.js';
+import { CREATURE_RIGS, TOWN_IDLE } from './creatureRigs.js';
 
 const CROP_COLORS = Object.fromEntries(CROPS.map((c) => [c[0], c[9]]));
 const CROP_GROW = Object.fromEntries(CROPS.map((c) => [c[0], c[3]]));
@@ -315,20 +316,26 @@ const RIGS = {
       } },
     },
   },
+  // The species and bosses cut from the animation-parts sheets (see creatureRigs.js).
+  ...CREATURE_RIGS,
 };
 const _rigImg = {};
-function rigLayers(id) {
-  const rig = RIGS[id];
+const rigDir = (kind) => (kind === 'species' ? 'species/rig' : kind === 'town' ? 'townsfolk/idle' : 'bosses/rig');
+// Every layer file a rig uses: its drawn parts plus alternate pictures (open mouth, blink...).
+const rigFiles = (rig) => rig.files || rig.order;
+function rigLayers(id, rig = RIGS[id]) {
   if (!rig || typeof Image === 'undefined') return null;
-  const dir = rig.kind === 'species' ? 'species' : 'bosses';
-  const imgs = _rigImg[id] || (_rigImg[id] = Object.fromEntries(rig.order.map((n) => {
-    const img = new Image(); img.src = `assets/creatures/${dir}/rig/${id}_${n}.webp`; return [n, img];
+  const imgs = _rigImg[id] || (_rigImg[id] = Object.fromEntries(rigFiles(rig).map((n) => {
+    const img = new Image(); img.src = `assets/creatures/${rigDir(rig.kind)}/${id}_${n}.webp`; return [n, img];
   })));
-  return rig.order.every((n) => imgs[n].complete && imgs[n].naturalWidth) ? imgs : null;
+  return rigFiles(rig).every((n) => imgs[n].complete && imgs[n].naturalWidth) ? imgs : null;
 }
 export const rigIds = () => Object.keys(RIGS);
-export const rigParts = (id) => RIGS[id] && [...RIGS[id].order];
+export const rigParts = (id) => RIGS[id] && [...rigFiles(RIGS[id])];
 export const rigKind = (id) => RIGS[id] && (RIGS[id].kind || 'boss');
+// Townsfolk with idle parts, and the layer files each one ships.
+export const townIdleIds = () => Object.keys(TOWN_IDLE);
+export const townIdleParts = (id) => TOWN_IDLE[id] && Object.keys(TOWN_IDLE[id].piv);
 let _rigCv = null, _rigTint = null, _spCv = null, _spTint = null;
 const RIG_RES = 6;   // one showpiece boss at a time, so it can afford a sharper canvas than the cached stickers
 const SPECIES_RIG_RES = 3;   // a pack of monsters can be on screen at once, so theirs is lighter
@@ -352,9 +359,15 @@ function drawRig(c, id, imgs, opts, t, flash, flashCol) {
     g.save();
     if (part) {
       const px = x0 + part.piv[0] * w, py = y0 + part.piv[1] * h;
-      g.translate(px, py); g.rotate(part.swing(t, opts)); g.translate(-px, -py);
+      const gr = part.grow ? part.grow(t, opts) : 1;   // a crown or gem pulsing
+      g.translate(px, py);
+      if (part.swing) g.rotate(part.swing(t, opts));
+      if (gr !== 1) g.scale(gr, gr);
+      g.translate(-px, -py);
     }
-    g.drawImage(imgs[n], x0, y0, w, h);
+    // Some parts swap to another picture for a moment (a mouth opening to bite, a claw opening).
+    const img = part && part.alt && part.swap(opts) ? imgs[part.alt] : imgs[n];
+    g.drawImage(img, x0, y0, w, h);
     g.restore();
   }
   // A tinted copy of this frame, for the hit flash. (Species rigs no longer get a
@@ -703,7 +716,8 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
       const flash = Math.max(Math.min(1, (opts.hurt || 0) / 200) * 0.55, opts.windup ? 0.18 + Math.sin(t * 0.03) * 0.12 : 0);
       const flashCol = opts.windup && !(opts.hurt > 0) ? '#ff5040' : '#ffffff';
       // A showpiece boss with moving parts, or a species whose parts sheet is in.
-      const rigId = opts.boss ? (RIGS[npcId] ? npcId : null) : (RIGS[opts.family]?.kind === 'species' ? opts.family : null);
+      // Low graphics keeps monster packs on the cheaper single-sticker path.
+      const rigId = opts.boss ? (RIGS[npcId] ? npcId : null) : (!opts.low && RIGS[opts.family]?.kind === 'species' ? opts.family : null);
       const rig = rigId ? rigLayers(rigId) : null;
       if (rig) { drawRig(c, rigId, rig, opts, t, flash, flashCol); return; }
       const drawBody = (g) => {
@@ -760,10 +774,13 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
   const p = TOWN[npcId] || TOWN.villager;
   const timg = townImage(npcId);
   if (timg && timg.complete && timg.naturalWidth) {
+    // Townsfolk with idle parts blink, breathe and now and then wave (not in low graphics).
+    const idle = !opts.low && TOWN_IDLE[npcId] ? rigLayers(npcId, townRig(npcId)) : null;
     return staged(ctx, cx, cy, opts, (c) => {
       // Same footprint as the drawn mascot: feet on the tile, about mascot height.
       const s = Math.min(TOWN_ART_H / timg.naturalHeight, MASCOT_BOX.w / timg.naturalWidth);
       const w = timg.naturalWidth * s, h = timg.naturalHeight * s;
+      if (idle && drawTownIdle(c, npcId, idle, h, opts.time || 0, cx)) return;
       // An A-Worthling is a mirror image of the Merchant, a little see-through.
       if (npcId === 'aworthling') c.globalAlpha *= 0.8;
       if (TOWN_TINT[npcId] && 'filter' in c) c.filter = TOWN_TINT[npcId];   // a borrowed picture, recoloured
@@ -777,6 +794,67 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
     drawCached(c, `town|${TOWN[npcId] ? npcId : 'villager'}|${q}`, MASCOT_BOX, (g) => human(g, p));
     _anim.stride = was;
   });
+}
+
+// ---- Townsfolk idle ----
+// The body (eyes open or shut) and near arm (hanging, or raised to wave) are
+// composed into a frame with the townsfolk's white sticker rim, and each frame
+// is cached, so a frame costs one blit; breathing is a gentle stretch at draw time.
+const _townRigs = {};
+const townRig = (id) => _townRigs[id] || (_townRigs[id] = { kind: 'town', files: Object.keys(TOWN_IDLE[id].piv) });
+const _townFrames = new Map();
+const TOWN_RIM = 0.03;   // the painted townsfolk's white rim, as a share of their height
+function townFrame(id, d, imgs, h, blink, arm, ang) {
+  const key = `${id}|${h}|${blink}|${arm}|${ang}`;
+  const hit = _townFrames.get(key);
+  if (hit) return hit;
+  if (typeof document === 'undefined') return null;
+  const u = (h * (1 - 2 * TOWN_RIM)) / (d.ref[3] - d.ref[1]);   // local units per layer pixel
+  const q = u * BMP_RES, rim = Math.max(1, Math.round(h * TOWN_RIM * BMP_RES));
+  const W = Math.ceil(d.W * q) + rim * 2, H = Math.ceil(d.H * q) + rim * 2;
+  const art = document.createElement('canvas'); art.width = W; art.height = H;
+  const a = art.getContext('2d');
+  if (!a) return null;
+  a.translate(rim, rim); a.scale(q, q);
+  a.drawImage(imgs[blink ? 'body_blink' : 'body'], 0, 0, d.W, d.H);
+  if (arm) {   // some townsfolk hold everything in their body picture and have no loose arm
+    const [px, py] = d.piv[arm];
+    a.save(); a.translate(px * d.W, py * d.H); a.rotate(ang); a.translate(-px * d.W, -py * d.H);
+    a.drawImage(imgs[arm], 0, 0, d.W, d.H);
+    a.restore();
+  }
+  // White rim: the silhouette stamped in a ring under the art.
+  const white = document.createElement('canvas'); white.width = W; white.height = H;
+  const wg = white.getContext('2d');
+  wg.drawImage(art, 0, 0); wg.globalCompositeOperation = 'source-in'; wg.fillStyle = '#FFFFFF'; wg.fillRect(0, 0, W, H);
+  const out = document.createElement('canvas'); out.width = W; out.height = H;
+  const o = out.getContext('2d');
+  for (let i = 0; i < 12; i++) { const t2 = (i / 12) * Math.PI * 2; o.drawImage(white, Math.cos(t2) * rim, Math.sin(t2) * rim); }
+  o.drawImage(art, 0, 0);
+  const entry = { img: out, x: (-d.ref[0] - (d.ref[2] - d.ref[0]) / 2) * u - rim / BMP_RES, y: TOWN_ART_FEET - h * TOWN_RIM - d.ref[3] * u - rim / BMP_RES, w: W / BMP_RES, h: H / BMP_RES };
+  if (typeof createImageBitmap === 'function') createImageBitmap(out).then((bm) => { entry.img = bm; }).catch(() => {});
+  _townFrames.set(key, entry);
+  return entry;
+}
+function drawTownIdle(c, id, imgs, h, t, seed) {
+  const d = TOWN_IDLE[id];
+  const ph = Math.abs(seed * 37) % 10000;   // each townsperson on their own rhythm
+  const blink = (t + ph) % 4300 < 150;
+  // Every so often a friendly wave (or, without a loose arm, a little nod of
+  // the whole body); otherwise the arm hangs, stirring a little.
+  const w = ((t + ph * 1.3) % 12000) / 1800, greet = w < 1 ? Math.sin(w * Math.PI) : 0;
+  const waving = greet > 0 && d.piv.arm_wave;
+  const ang = waving ? Math.round(Math.sin(w * Math.PI * 4) * greet * 0.24 / 0.04) * 0.04
+    : Math.round(Math.sin(t * 0.0021 + ph) * 0.05 / 0.025) * 0.025;
+  const arm = waving ? 'arm_wave' : d.piv.arm ? 'arm' : null;
+  const f = townFrame(id, d, imgs, Math.round(h * 4) / 4, blink, arm, arm ? ang : 0);
+  if (!f) return false;
+  const b = Math.sin(t * 0.0026 + ph) * 0.012;   // breathing
+  const nod = d.piv.arm_wave ? 0 : Math.sin(w * Math.PI * 2) * greet * 0.05;
+  c.save(); c.translate(0, TOWN_ART_FEET); c.rotate(nod); c.scale(1 - b * 0.5, 1 + b); c.translate(0, -TOWN_ART_FEET);
+  c.drawImage(f.img, f.x, f.y, f.w, f.h);
+  c.restore();
+  return true;
 }
 
 // Tint helper: k in [-1,1] darkens/lightens a #rrggbb colour.
