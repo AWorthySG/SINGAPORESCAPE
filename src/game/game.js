@@ -1460,17 +1460,21 @@ export class Game {
     // the ticked adamantite and runite rocks were all mined out).
     const picked = this.gatherPicks.size ? this.gatherPicks : null;
     const zone = this.world.zoneAt(here.x, here.y);
-    // Two reaches: within 30 tiles first, exactly as before; only when nothing
-    // there is ready does it look across the rest of the region you're in (the
+    // Two reaches: within 30 tiles first, exactly as before; only when there are
+    // no nodes of the kind nearby at all does it look across the region you're in (the
     // owner asked for the whole region, so auto mining walks on to the next
     // cluster of runite by itself) and then only for the kinds in the round,
     // never a stand-in rock of the same skill.
     const best = () => ({ turn: null, td: Infinity, round: null, rd: Infinity, same: null, sd: Infinity, other: null, od: Infinity });
     const near = best(), far = best();
+    // Kinds in the round that have nodes nearby at all (ready or not): those
+    // grow back in seconds, so waiting beats a long walk to another cluster.
+    let nearAny = false;
     for (const o of this.world.objects) {
-      if (o === exclude || o.depleted) continue;
       if (picked && !picked.has(o.objId)) continue;
       const d = chebyshev(here.x, here.y, o.x, o.y);
+      if (d <= 30 && (o.objId === objId || kinds.includes(o.objId))) nearAny = true;
+      if (o === exclude || o.depleted) continue;
       const b = d <= 30 ? near : (zone && this.world.zoneAt(o.x, o.y) === zone ? far : null);
       if (!b) continue;
       const lvlOk = !o.def?.skill || (o.def.level || 1) <= this.skills.level(o.def.skill);
@@ -1480,7 +1484,7 @@ export class Game {
       if (b === near && def?.skill && o.def?.skill === def.skill && o.def.type === def.type
         && (o.def.level || 1) <= this.skills.level(def.skill) && d < b.od) { b.od = d; b.other = o; }
     }
-    return near.turn || near.round || near.same || near.other || far.turn || far.round || far.same;
+    return near.turn || near.round || near.same || near.other || (nearAny ? null : far.turn || far.round || far.same);
   }
 
   /** Auto gather for Farming and Thieving: once you're idle, carry on by
