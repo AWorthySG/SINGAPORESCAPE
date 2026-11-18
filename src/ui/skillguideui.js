@@ -23,6 +23,8 @@ import { OBJECTS } from '../data/objects.js';
 import { formatNumber } from '../core/utils.js';
 import { itemIconSVG, skillIconSVG } from '../render/icons.js';
 import { chanceText, codexHabitats } from '../game/codex.js';
+import { unlockLadder, skillTeleportOf, skillTeleportWait, skillTeleport } from '../game/skillunlocks.js';
+import { STATION_BY_ID } from '../data/transport.js';
 import {
   SKILL_GUIDES, GATHER_SKILLS, COMBAT_SKILLS, TOOL_NAMES, gatherSources, recipesFor, recipeLabel, recipeKindTitle, canMake,
   regionsOf, nearestObject, itemEntry, searchResources, RESOURCE_CATS, resourceIndex, perkLadder, gearTiers, trainingSpots, bestSpotsFor, combatExtras,
@@ -124,6 +126,23 @@ function headHTML(game, skill) {
   const lvl = game.skills.level(skill);
   return `<div class="sg-head"><span class="skill-icon">${skillIconSVG(skill, 44)}</span><div><b>${esc(skillName(skill))} · level ${lvl}</b><span>${esc(SKILL_GUIDES[skill].use)}</span></div></div>`;
 }
+
+/** A life skill's unlock ladder (10/25/50/75/99), each rung locked or unlocked,
+ *  with the skill's teleport button once it's open. '' for other skills. */
+export function unlockLadderHTML(game, skill) {
+  const lvl = game.skills.level(skill);
+  const ladder = unlockLadder(skill, lvl);
+  if (!ladder.length) return '';
+  const tp = skillTeleportOf(game, skill), wait = skillTeleportWait(game);
+  return `<div class="sgx-unlocks"><b>Unlocks</b>${ladder.map((u) => `<div class="sgx-unlock${u.unlocked ? ' on' : ''}">`
+    + `<span class="sg-lvl">${u.level}</span><span><b>${u.unlocked ? '&#10003; ' : '&#128274; '}${esc(u.name)}</b><small>${esc(u.desc)}</small></span></div>`).join('')}`
+    + (tp ? `<button type="button" class="wm-go sgx-tp" data-skilltp="${esc(skill)}"${wait ? ' disabled' : ''}>Teleport to ${esc(STATION_BY_ID[tp]?.name || tp)}${wait ? ` (${Math.ceil(wait * 0.6)}s)` : ''}</button>` : '')
+    + '</div>';
+}
+
+// How to start Hunter: the snare, where to get another, the first traps and bait.
+const HUNTER_START = '<div class="sgx-howto"><b>How to start:</b> you begin with a hunting snare (a spare costs 10 coins at the Kampong General Store or Kranji Farm Supplies). '
+  + 'The first traps are the bird snares just north of Kampong Glam. Carry hunter bait for more XP and a chance of double catches.</div>';
 
 function toolbarHTML(st, chips, placeholder) {
   return `<div class="cx-filters sgx-bar"><input class="bank-search cx-search sgx-search" type="search" placeholder="${esc(placeholder)}" value="${esc(st.search || '')}" aria-label="Search">`
@@ -315,6 +334,8 @@ export function openSkillGuide(ui, skill, { itemId = null } = {}) {
   const renderSkill = (body, v) => {
     const sk = v.skill;
     body.insertAdjacentHTML('beforeend', headHTML(game, sk));
+    if (sk === 'hunter') body.insertAdjacentHTML('beforeend', HUNTER_START);
+    body.insertAdjacentHTML('beforeend', unlockLadderHTML(game, sk));
     if (AUTO_TEXT[sk]) {
       body.insertAdjacentHTML('beforeend', `<button type="button" class="sg-auto${game.autoGather ? ' on' : ''}" data-auto="1"><span class="ab-switch" aria-hidden="true"><i></i></span><span><b>Auto gather</b> ${game.autoGather ? 'On' : 'Off'}: ${AUTO_TEXT[sk]}</span></button>`);
     }
@@ -376,6 +397,7 @@ export function openSkillGuide(ui, skill, { itemId = null } = {}) {
     else if (d.untick) { game.clearGatherPicks(); const sc = body.scrollTop; render(body); body.scrollTop = sc; }
     else if (d.start) { game.startGatherPicks(); ui.closeModal(); }
     else if (d.pick) { game.toggleGatherPick(d.pick.split(',')); const sc = body.scrollTop; render(body); body.scrollTop = sc; }
+    else if (d.skilltp) { if (skillTeleport(game, d.skilltp)) ui.closeModal(); }
     else if (d.go) game.goToNearest(d.go.split(','));
     else if (d.map) { const spot = nearestObject(game, d.map.split(',')); if (spot) ui.openWorldMap({ x: spot.x, y: spot.y, label: d.label || '' }); }
     else if (d.npc) {

@@ -64,6 +64,8 @@ export const CRAFT = [
   { result: 'refine_scroll', qty: 2, inputs: [{ id: 'emerald', qty: 1 }, { id: 'mithril_bar', qty: 1 }, { id: 'feather', qty: 5 }], level: 52, xp: 110, tool: 'chisel', upgrade: true },
   { result: 'refine_scroll', qty: 4, inputs: [{ id: 'ruby', qty: 1 }, { id: 'adamant_bar', qty: 1 }, { id: 'feather', qty: 10 }], level: 70, xp: 200, tool: 'chisel', upgrade: true },
   { result: 'refine_scroll', qty: 7, inputs: [{ id: 'diamond', qty: 1 }, { id: 'rune_bar', qty: 1 }, { id: 'feather', qty: 10 }], level: 90, xp: 340, tool: 'chisel', upgrade: true },
+  // Skill chain: Smithing's hooks and Hunter's feathers make lures that help Fishing.
+  { result: 'feather_lure', qty: 10, inputs: [{ id: 'barbed_hooks', qty: 10 }, { id: 'feather', qty: 10 }], level: 25, xp: 40 },
   // Wards are rare: a boss drops 1-3, a champion one time in ten. Making one
   // takes two top gems, a pearl and two adamant bars (some 6,400 coins of
   // material for a 2,500-coin ward), and the hornbill casque recipe is for

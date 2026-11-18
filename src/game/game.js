@@ -52,6 +52,8 @@ import {
   resolveSmelt, smeltBatch, resolveSmith, resolveFiremake, resolveCraft, resolveDish,
   resolveHunt, resolveRecipe,
 } from './skilling.js';
+import { installSkillUnlocks, runSkillAction, extraCrop, growTicks } from './skillunlocks.js';
+import { Home } from './home.js';
 import { CROP_BY_SEED, cropFor, POTIONS } from '../data/trades.js';
 import { saveGame, loadGame, hasSave } from './save.js';
 import * as Play from './playbalance.js';
@@ -335,7 +337,7 @@ export const BONE_PRAYER_XP = getItem('bones').prayerXp;   // plain bones; every
 const ALCHEMY = { level: 21, xp: 65, runes: { nature_rune: 1, fire_rune: 5 } };
 
 // Actions that can fire the instant you press (no random roll to exploit by spamming).
-const INSTANT_ACTIONS = new Set(['pickup', 'cookmenu', 'smeltmenu', 'smithmenu', 'craftmenu', 'fletchmenu', 'herbmenu', 'farm', 'pray', 'rest', 'transport', 'openbank', 'openshop', 'talk', 'shrinemenu']);
+const INSTANT_ACTIONS = new Set(['pickup', 'cookmenu', 'smeltmenu', 'smithmenu', 'craftmenu', 'fletchmenu', 'herbmenu', 'farm', 'pray', 'rest', 'transport', 'openbank', 'openshop', 'talk', 'shrinemenu', 'homemenu']);
 const GATHER_ACTIONS = new Set(['woodcut', 'mine', 'fish', 'stall']);
 // Ticks you get to answer a Knowledge Strike before the boss's special lands (~7s).
 const KS_TICKS = 12;
@@ -438,6 +440,9 @@ export class Game {
     this.collection = new Collection(this);   // the Collection log: every source's unique drops (collection.js)
     this.pets = new Pets(this);       // rare boss and life-skill pets, and the one following you (pets.js)
     this.worldEvents = new WorldEvents(this);   // roaming world events and weekly region challenges (worldevents.js)
+    installSkillUnlocks(this);        // life skill unlocks at 10/25/50/75/99 (skillunlocks.js)
+    this.home = new Home(this);       // the kampong home plot in Kranji (home.js)
+    this.snareGiven = true;           // a new character has the starter snare; older saves get one on load (onboarding.js)
     // Knowledge Strikes: bosses' specials can be interrupted by answering a question.
     // On by default in the browser; headless runs (tests) leave bosses as they were.
     this.knowledgeStrikes = LEARNING_ENABLED && typeof document !== 'undefined';
@@ -1351,6 +1356,7 @@ export class Game {
       // The Endless Gate asks first (its panel shows your best wave); its exit portal just takes you out.
       case 'gate': return this._tickArrival(a, a.target, true, () => (a.obj.objId === 'wave_exit' ? this.waves.leave() : this.ui ? this.ui.openWaveGate?.(a.obj) : this.waves.enter()));
       case 'openbank': return this._tickArrival(a, a.target, true, () => this.ui?.openBank());
+      case 'homemenu': return this._tickArrival(a, a.target, true, () => this.bus.emit('homeopen', a.obj.def.homeTab));   // homeui.js
       case 'openshop': return this._tickArrival(a, a.target, true, () => this.ui?.openShop(a.shop));
       case 'talk': return this._tickArrival(a, a.target, true, () => this.ui?.openDialogue(a.npc));
       case 'questtalk': return this._tickArrival(a, a.target, true, () => this._autoQuestTalk(a.quest, a.npc));
@@ -1376,7 +1382,7 @@ export class Game {
     // Count the bag before and after so every item gathered pops up over you.
     const gather = GATHER_ACTIONS.has(a.type) || a.type === 'hunt';
     const before = gather ? this._bagCounts() : null;
-    const going = resolver();
+    const going = runSkillAction(this, a, resolver);   // with the skill's unlocks (skillunlocks.js)
     if (gather) {
       const after = this._bagCounts();
       for (const [id, n] of after) {
@@ -5400,6 +5406,7 @@ export class Game {
       case 'stall': return this.beginAction({ type: 'stall', obj }, tgt, true);
       case 'transport': return this.beginAction({ type: 'transport', obj, target: tgt }, tgt, true);
       case 'gate': return this.beginAction({ type: 'gate', obj, target: tgt }, tgt, true);
+      case 'home': return this.beginAction({ type: 'homemenu', obj, target: tgt }, tgt, true);
       default: return this.walkTo(tgt);
     }
   }
@@ -5940,7 +5947,7 @@ export class Game {
     if (!c || obj.crop || !this.inventory.has(seedId)) return false;
     if (this.skills.level('farming') < c.level) { this.msg(`You need a Farming level of ${c.level} to plant this.`); return false; }
     this.inventory.remove(seedId, 1);
-    obj.crop = c.id; obj.growLeft = c.grow;
+    obj.crop = c.id; obj.growLeft = growTicks(this, c.grow);   // Farming unlocks grow it faster
     this.skills.addXp('farming', c.plantXp);
     this.spawnPoof(obj.x * TILE + TILE / 2, obj.y * TILE + TILE / 2, '#8a6a3a');
     this.msg(`You plant the ${c.name.toLowerCase()} seed. It will be ready in about ${Math.ceil(c.grow * TICK_MS / 1000)}s.`);
@@ -5952,7 +5959,7 @@ export class Game {
     const c = cropFor(obj.crop);
     const lvl = this.skills.level('farming');
     // Green fingers: higher levels coax a little more from each patch.
-    const n = randInt(c.yield[0], c.yield[1]) + (Math.random() < Math.min(0.5, (lvl - c.level) / 100) ? 1 : 0);
+    const n = randInt(c.yield[0], c.yield[1]) + (Math.random() < Math.min(0.5, (lvl - c.level) / 100) ? 1 : 0) + extraCrop(this);
     if (this.inventory.canAdd(c.id, n) <= 0) { this.msg('Your inventory is too full to harvest.'); return false; }
     this.inventory.add(c.id, n);
     this.skills.addXp('farming', c.harvestXp * n);
