@@ -144,6 +144,19 @@ export function unlockLadderHTML(game, skill) {
 const HUNTER_START = '<div class="sgx-howto"><b>How to start:</b> you begin with a hunting snare (a spare costs 10 coins at the Kampong General Store or Kranji Farm Supplies). '
   + 'The first traps are the bird snares just north of Kampong Glam. Carry hunter bait for more XP and a chance of double catches.</div>';
 
+/** Firemaking's own start button: light a fire right here, best logs first
+ *  (game.startFiremaking), with what you'd burn and what you're missing. */
+export function fireStartHTML(game) {
+  const tinder = game.hasTool('tinderbox');
+  const logs = game.burnableLogs();
+  const n = logs.reduce((t, id) => t + game.inventory.count(id), 0);
+  const ok = tinder && logs.length > 0;
+  const why = !tinder ? 'You need a tinderbox (the Kampong Guide hands one out).'
+    : logs.length ? `Burns your best logs first: ${esc(iname(logs[0]))}${logs.length > 1 ? ` then ${logs.length - 1} more kind${logs.length > 2 ? 's' : ''}` : ''} (${formatNumber(n)} in your bag).`
+      : 'No logs you can burn in your bag: chop some trees first.';
+  return `<div class="sgx-howto sg-fire"><button type="button" class="wm-go sg-fire-btn" data-fire="1"${ok ? '' : ' disabled'}>Light a fire here</button><span>${why}</span></div>`;
+}
+
 function toolbarHTML(st, chips, placeholder) {
   return `<div class="cx-filters sgx-bar"><input class="bank-search cx-search sgx-search" type="search" placeholder="${esc(placeholder)}" value="${esc(st.search || '')}" aria-label="Search">`
     + `<button type="button" class="wm-go sgx-res" data-resources="1">Resources</button></div>`
@@ -335,6 +348,7 @@ export function openSkillGuide(ui, skill, { itemId = null } = {}) {
     const sk = v.skill;
     body.insertAdjacentHTML('beforeend', headHTML(game, sk));
     if (sk === 'hunter') body.insertAdjacentHTML('beforeend', HUNTER_START);
+    if (sk === 'firemaking') body.insertAdjacentHTML('beforeend', fireStartHTML(game));
     body.insertAdjacentHTML('beforeend', unlockLadderHTML(game, sk));
     if (AUTO_TEXT[sk]) {
       body.insertAdjacentHTML('beforeend', `<button type="button" class="sg-auto${game.autoGather ? ' on' : ''}" data-auto="1"><span class="ab-switch" aria-hidden="true"><i></i></span><span><b>Auto gather</b> ${game.autoGather ? 'On' : 'Off'}: ${AUTO_TEXT[sk]}</span></button>`);
@@ -396,6 +410,7 @@ export function openSkillGuide(ui, skill, { itemId = null } = {}) {
     else if (d.auto) { game.toggleAutoGather(); render(body); }
     else if (d.untick) { game.clearGatherPicks(); const sc = body.scrollTop; render(body); body.scrollTop = sc; }
     else if (d.start) { game.startGatherPicks(); ui.closeModal(); }
+    else if (d.fire) { ui.closeModal(); game.startFiremaking(); }
     else if (d.pick) { game.toggleGatherPick(d.pick.split(',')); const sc = body.scrollTop; render(body); body.scrollTop = sc; }
     else if (d.skilltp) { if (skillTeleport(game, d.skilltp)) ui.closeModal(); }
     else if (d.go) game.goToNearest(d.go.split(','));

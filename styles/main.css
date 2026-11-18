@@ -3446,3 +3446,9 @@ body.cb-safe #hp-orb.low::after {
 #chat-log .msg.qual-epic { color: #8b4fe0; font-weight: 800; }
 #chat-log .msg.qual-legendary { color: #d08a00; font-weight: 800; }
 #chat-log .msg.qual-mythic { color: #d6336c; font-weight: 800; }
+
+/* ---- Firemaking: "Light a fire here" in the Firemaking guide (Skills menu) ---- */
+.sg-fire { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sg-fire .sg-fire-btn { min-height: 40px; padding: 0 14px; font-weight: 700; }
+.sg-fire .sg-fire-btn[disabled] { opacity: .5; }
+.sg-fire span { flex: 1 1 180px; }
