@@ -54,6 +54,7 @@ import {
 } from './skilling.js';
 import { CROP_BY_SEED, cropFor, POTIONS } from '../data/trades.js';
 import { saveGame, loadGame, hasSave } from './save.js';
+import * as Play from './playbalance.js';
 import { getShop } from '../data/shops.js';
 import { RARE_DROP_TABLE, getNpc, ALL_BOSS_IDS, ALL_MONSTER_IDS } from '../data/npcs.js';
 import { MORAL_EVENTS, MORAL_BY_ID, moralCoins, BLESS_MS, BLESS_XP } from '../data/moralEvents.js';
@@ -343,7 +344,8 @@ export class Game {
     this.world.build(data);
 
     this.skills = new Skills(this.bus);
-    this.skills.timeMult = (id) => goldenMult(id, this.gameHour());   // golden hours (skillhours.js)
+    Play.initPlay(this);   // Focus, Rested XP and the gravestone (playbalance.js)
+    this.skills.timeMult = (id) => goldenMult(id, this.gameHour()) * Play.xpMult(this);   // golden hours (skillhours.js), rested and tired
     this.inventory = new Inventory(this.bus);
     this.equipment = new Equipment(this.bus);
     this.shrine = new Shrine();   // the Offering Shrine's blessings (see shrine.js)
@@ -559,6 +561,7 @@ export class Game {
       // Saves from before two-handed weapons may hold a shield with one.
       if (isTwoHanded(this.equipment.get('weapon')) && this.equipment.get('shield')) this._stowShield();
       this.msg(`Welcome back to ${this.world.townName}, ${this.player.name}!`, 'system');
+      if (this.play.welcome) { this.msg(this.play.welcome, 'level'); this.play.welcome = null; }
       if (LEARNING_ENABLED && !this.learning.dailyDone(this.todayKey())) this.msg('Your daily revision is ready in the Knowledge Codex (Skills tab).', 'level');
     } else {
       this.newGame();
@@ -827,7 +830,7 @@ export class Game {
     const tinyCap = Math.max(2, (entity.maxHp || (entity === this.player ? this.maxHp() : 0)) * SPLAT_TINY_SHARE);
     const tiny = !opts.crit && !opts.critX && dmg <= tinyCap && last && last.dmg <= tinyCap * 3;
     const mergeMs = tiny ? SPLAT_TINY_MERGE_MS : SPLAT_MERGE_MS;
-    if (last && !opts.noMerge && !opts.text && !last.text && !!opts.aoe === !!last.aoe && dmg > 0 && last.dmg > 0 && !!opts.crit === last.crit && (opts.critX || 0) === last.critX
+    if (last && !opts.noMerge && !opts.text && !last.text && !!opts.aoe === !!last.aoe && dmg > 0 && last.dmg > 0 && !!opts.crit === last.crit && (opts.critX || 0) === last.critX && !!opts.weak === !!last.weak
       && opts.tint === last.tint && last.life > last.maxLife - mergeMs && this.effects.includes(last)) {
       last.dmg += dmg;
       return;
@@ -840,7 +843,7 @@ export class Game {
     entity._splatRow = entity._splatRow ? 0 : 1;
     const mine = this.effects.filter((e) => e.type === 'hitsplat' && e.entity === entity);
     if (mine.length >= SPLAT_MAX_PER) for (const e of mine.slice(0, mine.length - SPLAT_MAX_PER + 1)) e.life = Math.min(e.life, 120);
-    const fx = { type: 'hitsplat', entity, dmg, crit: !!opts.crit, critX: opts.critX || 0, text: opts.text, tint: opts.tint, aoe: !!opts.aoe, life: opts.critX ? 1000 : 800, fan: (entity._splatN - 2) * 0.8, row: entity._splatRow };
+    const fx = { type: 'hitsplat', entity, dmg, crit: !!opts.crit, critX: opts.critX || 0, text: opts.text, tint: opts.tint, aoe: !!opts.aoe, weak: !!opts.weak, life: opts.critX ? 1000 : 800, fan: (entity._splatN - 2) * 0.8, row: entity._splatRow };
     fx.maxLife = fx.life;
     entity._lastSplat = fx;
     this.effects.push(fx);
@@ -1069,6 +1072,7 @@ export class Game {
       this._autoPickup();
     }
     this._resolveHazards();
+    Play.tickPlay(this);
     this.player.stepMul = this.playerStepMul() * (this._onRoad() ? ROAD_PACE : 1);   // Agility quickens your steps, and so do roads
     this._tickWorldBoss();
     this.waves.tick();
@@ -2031,6 +2035,7 @@ export class Game {
     const spec = this._takeSpec();
     const ab = this._takeAbility();
     const weak = weaknessOf(npc.def) === (mode === 'dance' ? 'melee' : mode);   // whips count as melee for weaknesses
+    this._hitMode = mode === 'dance' ? 'melee' : mode;   // tags each blow that hits a weakness (_applyPlayerHit)
     // The special attack's and ability's own boosts belong to the main hand's
     // blow alone (abM); everything else below lands on a dual wielder's off-hand too.
     let abM = (spec ? spec.dmg || 1 : 1) * (ab ? ab.dmgMul || 1 : 1);
@@ -2274,6 +2279,7 @@ export class Game {
     // Effective blows land in gold, resisted ones in grey (unless something else tints them).
     const rm = dmg > 0 && !opts.tint ? this.raceMatchup(npc) : null;
     if (rm) opts = { ...opts, tint: rm === 'strong' ? '#f5b82e' : '#9aa3b2' };
+    if (dmg > 0 && !opts.aoe && this._hitMode && weaknessOf(npc.def) === this._hitMode) opts = { ...opts, weak: true };   // a "weak!" tag on the number
     this.addHitsplat(npc, dmg, opts);
     if (dmg > 0) {
       this.bus.emit('sfx', 'hit'); this._hitAdrenaline(wasCrit);
@@ -3606,6 +3612,7 @@ export class Game {
       if (q) recordQuality(this.equipment, l[0], q);   // remembered per copy, for sacrifice and dismantle (salvage.js)
       l.length = 3;
     }
+    Play.trimLoot(this, loot);   // automatic play with no Focus left: a lighter haul
     this._autoLoot(loot, npc.x, npc.y);
   }
 
@@ -4481,6 +4488,7 @@ export class Game {
       if (wb.alive) this.msg(`${wb.name} fades back into the wilds.`, 'system');
       this.npcs = this.npcs.filter((n) => n !== wb); this._worldBoss = null;
     }
+    Play.onDeath(this);   // a gravestone holds part of your pack until you walk back for it
     // Falling in the Endless Gate ends the run (nothing is lost) and you wake by its gate.
     this._respawnAt = this.waves.onDeath();
     this.ui?.closeModal();

@@ -61,6 +61,7 @@ import { weaknessOf, armourTierOf, ARMOUR_TIERS, levelFlatDmg } from '../game/co
 import { isBone } from '../data/bones.js';
 import { RACES, raceOf, weaponsFor, weaponTypeName, WEAPON_VS_RACE } from '../data/races.js';
 import { WaveHud } from './wavehud.js';
+import { PlayHud } from './playhud.js';
 import { TIPS, TIPS_KEY, nextTip, markTipSeen, tipsSeen } from './tips.js';
 import { foeDetails, labelMode, nextLabelMode, LABEL_MODE_NAMES } from '../render/worldlabels.js';
 import { applyAccessibility, countUp, playCloseGhost, inlineIcon, nextTextSize, TEXT_SIZE_NAMES } from './uifx.js';
@@ -241,6 +242,7 @@ export class UI {
     this.bus.on('tick', () => { this.renderAutoBattle(); this.updateBossBar(); this.updateDayNight(); this.renderTracker(); this._tipsTick(); });
     this._initMinimalHud();
     this.waveHud = new WaveHud(this);   // the Endless Gate's run panel
+    this.playHud = new PlayHud(this);   // Focus, Rested and the Grave button (playhud.js)
     this.bus.on('inventory', () => this.scheduleInventory());
     // Gear changes come in bursts (every worn piece gains mastery on a kill), so redraw once a frame.
     this.bus.on('equipment', () => { this._soon('equipment', () => this.renderEquipment()); this._soon('combat', () => this.renderCombatPanel()); this.scheduleInventory(); });
@@ -2594,7 +2596,7 @@ export class UI {
       'Stand by a tree to chop, a rock to mine, the water to fish, or a monster to fight, then press Interact.<br>' +
       'In combat, build <b>Adrenaline</b> and spend it on abilities (Z/X/C/V): ' +
       'Power Strike, Flurry, Brace and Second Wind. Hit each foe\'s <b>weakness</b> ' +
-      '(melee/ranged/magic) and <b>Brace</b> when a monster winds up a heavy blow (!).<br>' +
+      '(melee/ranged/magic) for +25% damage and <b>Brace</b> when a monster winds up a heavy blow (!).<br>' +
       'Eat food to heal. Bank your loot. Your progress auto-saves.';
     p.appendChild(hint);
   }

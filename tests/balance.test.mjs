@@ -22,7 +22,9 @@ const rows = (() => {
       kill: killDps(cls, LEVEL, weakToMelee, TICKS, { game }).dps,
       // One target weak to each style in turn, so no style is favoured.
       single: all.reduce((s, id) => s + dummyDps(cls, LEVEL, [id], [[1, 0]], TICKS, { game }), 0) / all.length,
-      boss: dummyDps(cls, LEVEL, [weakToMelee], [[1, 0]], TICKS, { game, boss: true }),
+      // Bosses too, one weak to each style: with a target weak to melee alone, the
+      // +25% weakness bonus (combat.js) lifted the melee classes past the rest.
+      boss: all.reduce((s, id) => s + dummyDps(cls, LEVEL, [id], [[1, 0]], TICKS, { game, boss: true }), 0) / all.length,
       crowd: dummyDps(cls, LEVEL, all, CROWD, TICKS, { game }),
     };
   });
