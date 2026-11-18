@@ -58,6 +58,7 @@ import { getShop } from '../data/shops.js';
 import { RARE_DROP_TABLE, getNpc, ALL_BOSS_IDS, ALL_MONSTER_IDS } from '../data/npcs.js';
 import { MORAL_EVENTS, MORAL_BY_ID, moralCoins, BLESS_MS, BLESS_XP } from '../data/moralEvents.js';
 import { alignmentTier, alignmentStyle, greetingFor } from '../data/alignment.js';
+import { tickBossMechanics, mechOnPlayerHit, mechAbilityUsed, mechAutoFight, inHazard } from './bossmech.js';
 import { SIGNATURE_DROP_CHANCE, SIGNATURE_CLASS, sigIdFor } from '../data/bossWeapons.js';
 import { nextJob, jobKey } from './autoprocess.js';
 import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
@@ -1069,6 +1070,7 @@ export class Game {
       this._autoPickup();
     }
     this._resolveHazards();
+    tickBossMechanics(this);   // each boss's interactive mechanic (bossmech.js)
     this.player.stepMul = this.playerStepMul() * (this._onRoad() ? ROAD_PACE : 1);   // Agility quickens your steps, and so do roads
     this._tickWorldBoss();
     this.waves.tick();
@@ -1809,6 +1811,7 @@ export class Game {
     this.specEnergy -= spec.cost;
     this.specArmed = false;
     this.bus.emit('spec');
+    mechAbilityUsed(this);   // a special interrupts a boss's cast
     return spec;
   }
 
@@ -1927,6 +1930,7 @@ export class Game {
     // Immediate abilities (guard / heal) resolve right away.
     this._payAbility(ab);
     this.abilityCd[id] = ab.cd;
+    mechAbilityUsed(this);
     if (ab.build) this._gainAdrenaline(ab.build);
     if (ab.kind === 'guard') {
       this.braceTicks = ab.guardTicks;
@@ -2004,6 +2008,7 @@ export class Game {
     }
     this._payAbility(ab);
     this.abilityCd[ab.id] = ab.cd;
+    mechAbilityUsed(this);   // any skill interrupts a boss's cast
     if (ab.build) this._gainAdrenaline(ab.build);   // a basic skill builds adrenaline
     this.bus.emit('adrenaline');
     this.bus.emit('ability');
@@ -2232,6 +2237,7 @@ export class Game {
     const wasCrit = this._pendingCrit > 0 && dmg > 0;
     this._pendingCrit = 0;
     if (npc.shieldTicks > 0 && dmg > 0) dmg = Math.max(1, Math.floor(dmg / 2));   // a boss shield halves the blow
+    dmg = mechOnPlayerHit(this, npc, dmg);   // a style shield soaks it; an exposed boss takes more
     if (npc.reflectTicks > 0 && dmg > 0 && this.player.alive) {
       const back = Math.min(this.player.hp, Math.max(1, Math.round(dmg * (npc.reflectFrac || 0.2))), Math.ceil(this.maxHp() * 0.1));
       this.player.takeDamage(back);
@@ -4386,7 +4392,7 @@ export class Game {
 
   /** Is this tile inside any pending boss attack? */
   hazardAt(x, y) {
-    return this.hazards.some((h) => Math.abs(x - h.cx) <= h.r && Math.abs(y - h.cy) <= h.r);
+    return this.hazards.some((h) => inHazard(h, x, y));
   }
 
   _resolveHazards() {
@@ -4404,7 +4410,7 @@ export class Game {
       this.effects.push({ type: 'blast', x: h.cx * TILE + TILE / 2, y: h.cy * TILE + TILE / 2, r: (h.r + 0.5) * TILE, life: 380, maxLife: 380 });
       this.addShake(3.5, 260);
       const t = this.playerTile();
-      if (Math.abs(t.x - h.cx) <= h.r && Math.abs(t.y - h.cy) <= h.r) {
+      if (inHazard(h, t.x, t.y)) {   // (a safe circle's green hole is safe)
         const { max } = npcAttackVsPlayer(h.npc.def, this.skills, this.equipment, p.style);
         let dmg = Math.min(Math.round(max * 1.8) + 2, Math.ceil(this.maxHp() * 0.45));  // hurts, never one-shots
         const prot = this.protectFactor();
@@ -4620,10 +4626,13 @@ export class Game {
         p.clearAction();
         return;
       }
+      // A boss mechanic: interrupt its cast, turn on its healers (bossmech.js).
+      const heal = mechAutoFight(this, tgt, f);
+      if (heal) { this._autoFight = null; this._autoLast = heal; this.attackNpc(heal); return; }
       // "Bosses & champions first" holds mid-fight too: when one you'd take on
       // turns up within reach of an ordinary fight, switch to it (checked every
       // few ticks, and only when one is actually near).
-      if (this.autoCfg.priority !== false && !tgt.def.boss && !tgt.champion && this.tickCount % 3 === 0
+      if (this.autoCfg.priority !== false && !tgt.def.boss && !tgt.champion && !tgt.mechHealer && this.tickCount % 3 === 0
         && this.nearbyNpcs().some((n) => n !== tgt && n.alive && n.attackable && (n.def.boss || n.champion)
           && chebyshev(p.x, p.y, n.x, n.y) <= Math.max(12, this.attackRange() + 2))) {
         const up = this._autoPickTarget();
