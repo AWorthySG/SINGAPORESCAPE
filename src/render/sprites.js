@@ -357,8 +357,8 @@ function drawRig(c, id, imgs, opts, t, flash, flashCol) {
     g.drawImage(imgs[n], x0, y0, w, h);
     g.restore();
   }
-  // A tinted copy of this frame: the hit flash, and for species the white
-  // sticker border (the parts come without one, so it's traced round the whole animal).
+  // A tinted copy of this frame, for the hit flash. (Species rigs no longer get a
+  // white border traced round them: monsters go without one, see MONSTER_BOX.)
   const tinted = (col) => {
     let tc = species ? _spTint : _rigTint;
     if (!tc) {
@@ -370,12 +370,6 @@ function drawRig(c, id, imgs, opts, t, flash, flashCol) {
     tg.drawImage(cv, 0, 0); tg.globalCompositeOperation = 'source-in'; tg.fillStyle = col; tg.fillRect(0, 0, tc.width, tc.height);
     return tc;
   };
-  if (species) {
-    const rim = tinted('#ffffff'), d = 1.3;
-    for (const [dx, dy] of [[d, 0], [-d, 0], [0, d], [0, -d], [d * 0.7, d * 0.7], [-d * 0.7, d * 0.7], [d * 0.7, -d * 0.7], [-d * 0.7, -d * 0.7]]) {
-      c.drawImage(rim, ST_X0 + dx, ST_Y0 + dy, ST_W, ST_H);
-    }
-  }
   c.drawImage(cv, ST_X0, ST_Y0, ST_W, ST_H);
   if (flash > 0.01) { c.globalAlpha = flash; c.drawImage(tinted(flashCol), ST_X0, ST_Y0, ST_W, ST_H); c.globalAlpha = 1; }
 }
@@ -396,7 +390,8 @@ function drawCreaturePng(c, img) {
 const ST_X0 = -40, ST_Y0 = -50, ST_W = 80, ST_H = 76;   // local box monster art fits in
 const ST_RES = 2;                                       // offscreen pixels per local unit
 const ST_INK = '#22304A';
-const MONSTER_BOX = { x0: ST_X0, y0: ST_Y0, w: ST_W, h: ST_H, ink: 1.3, cut: 3.2 };
+// Monsters have no white die-cut border (the owner found it goofy in the world): just the navy ink line.
+const MONSTER_BOX = { x0: ST_X0, y0: ST_Y0, w: ST_W, h: ST_H, ink: 1.3, cut: 0 };
 const ITEM_BOX = { x0: -14, y0: -14, w: 28, h: 28, ink: 0.8, cut: 1.9 };
 const _stickers = new Map();
 const _stScratch = {};
@@ -437,7 +432,7 @@ function bakeSticker(key, box, drawBody) {
   }
   const out = stCanvas(box);
   const o = out.getContext('2d');
-  stRing(o, white, box.cut);   // white die-cut border
+  if (box.cut > 0) stRing(o, white, box.cut);   // white die-cut border (items keep theirs)
   stRing(o, ink, box.ink);     // navy ink line
   o.drawImage(art, 0, 0);
   // Canvas-to-canvas draws are slow on many GPUs/phones; an ImageBitmap is
