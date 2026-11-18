@@ -2893,6 +2893,7 @@ body #tip-toast.tip-strip { font-size: 11px; padding: 4px 6px 4px 7px; border-ra
     left: calc(6px + var(--sa-l) + (100vw - 80px - var(--sa-l) - var(--sa-r)) / 2);
     font-size: 12px; line-height: 1.35; padding: 6px 8px 6px 10px;
   }
+  #tip-toast .tip-badge { display: none; }   /* the words get the width instead */
   /* Chat, unfolded: above the Auto button, clear of the skill arc. */
   #chatbox:not(.collapsed) {
     left: calc(6px + var(--sa-l)); right: auto; top: auto; bottom: calc(var(--auto-b) + 74px);
@@ -2998,7 +2999,8 @@ body #tip-toast.tip-strip { font-size: 11px; padding: 4px 6px 4px 7px; border-ra
   .tab-btn .tab-label { font-size: 11px; }
   /* Info strip, top-left under the hover text: boss bar, then the Endless
      Gate panel or the objectives (they never show together). */
-  #hover-text { max-width: calc(50vw - 120px); }
+  /* One line, so it never runs down into the boss bar below it. */
+  #hover-text { max-width: calc(50vw - 120px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #boss-bar, #boss-bar.normal {
     top: 44px; left: 10px; width: 340px; max-width: calc(100vw - 260px); transform: none; animation: none; margin: 0; box-sizing: border-box;
   }
@@ -3012,4 +3014,5 @@ body #tip-toast.tip-strip { font-size: 11px; padding: 4px 6px 4px 7px; border-ra
    names the area instead of a label in the middle. */
 @media (pointer: coarse) and (min-width: 541px) and (min-height: 501px) and (orientation: portrait) {
   #region-label { display: none; }
+  #hover-text { max-width: calc(100vw - 240px); }
 }
