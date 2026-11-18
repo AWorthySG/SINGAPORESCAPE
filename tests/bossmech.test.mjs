@@ -11,7 +11,7 @@ import { clearSave } from '../src/game/save.js';
 import { ALL_BOSS_IDS, NPCS } from '../src/data/npcs.js';
 import { BOSS_MECHANICS, MECH_STYLES, mechanicHowTo } from '../src/data/bossMechanics.js';
 import {
-  startMechanic, tickBossMechanics, mechAutoFight, mechLabel, inHazard,
+  startMechanic, clearMechanic, tickBossMechanics, mechAutoFight, mechLabel, inHazard,
   MECH_FIRST_TICKS, SHIELD_TICKS, SHIELD_POOL, SHIELD_BURST, SHIELD_MEND, CIRCLE_TICKS, HEAL_EVERY, HEAL_CAP, ADDS_TICKS, CAST_TICKS, CAST_HIT,
 } from '../src/game/bossmech.js';
 import { codexEntry } from '../src/game/codex.js';
@@ -292,4 +292,20 @@ test('only one mechanic at a time per boss, none for ordinary monsters, and no s
   step(game, CIRCLE_TICKS + 2);
   assert.equal(game.playerStun || 0, 0); assert.equal(game.playerRoot || 0, 0);
   tickBossMechanics(game);
+});
+
+test('the mechanic drawings run on a canvas without errors (shield, cast bar, healer beam, safe circle)', async () => {
+  const { drawBossMech, drawSafeZone } = await import('../src/render/bossmechfx.js');
+  const ctx = new Proxy({}, { get: (t, k) => (k in t ? t[k] : () => {}), set: (t, k, v) => { t[k] = v; return true; } });
+  for (const id of ['jade_dragon', 'kusu_tortoise', 'durian_behemoth', 'demon_lord', 'tualang_treant', 'the_garuda']) {
+    const { game, boss } = setup(id, { gap: 3 });
+    for (let i = 0; i < 3; i++) {
+      const m = startMechanic(game, boss);
+      assert.doesNotThrow(() => drawBossMech(ctx, boss, 100, 100, 1.4, 1234, 0, 0), id);
+      for (const a of m.adds || []) assert.doesNotThrow(() => drawBossMech(ctx, a, 80, 120, 1, 1234, 0, 0));
+      if (m.hz) assert.doesNotThrow(() => drawSafeZone(ctx, m.hz, 0, 0, 1234, 32));
+      boss._mechN = i + 1;
+      clearMechanic(game, boss);
+    }
+  }
 });
