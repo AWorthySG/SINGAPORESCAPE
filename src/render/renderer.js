@@ -37,6 +37,8 @@ const HELD_FX = new Set(['slash', 'cleave', 'swipe']);
 import { itemIconImage } from './icons.js';
 import { moodFor, blendMood, composeWashes, dayNightWashes, buildVignette, ObjectReactions } from './ambience.js';
 import { Critters } from './critters.js';
+import { LightPass } from './lighting.js';
+import { Weather } from './weather.js';
 import { fxImage, fxTinted, drawFx, drawStrip, badgeKey, preloadFx, DARK_REGIONS } from './fxart.js';
 import { introCurve, titleAlpha, DEATH_FLASH_MS } from '../game/cinematics.js';
 
@@ -108,6 +110,8 @@ export class Renderer {
     this._grade = [0, 0, 0, 0];
     this.react = new ObjectReactions();
     this.critters = new Critters();
+    this.lights = new LightPass();   // night lighting and the colour grade (lighting.js)
+    this.weather = new Weather();    // rain, snow, mist, embers (weather.js)
     preloadFx();   // painted critters, particles, banner and plaques (fxart.js)
     this._critEnv = { world: null, zone: '', night: 0, px: 0, py: 0, low: false };
     this._lastT = 0;
@@ -188,6 +192,10 @@ export class Renderer {
     }
     this._drawGroundDecals(ox, oy);
     this._drawHazards(ox, oy, timeMs);
+    // Weather (weather.js): the sky for this region and moment, then puddles and
+    // ripples on the ground, under everyone. Looks only; never gameplay.
+    this.weather.update(game, fdt);
+    this.weather.drawGround(ctx, game, ox, oy, vw, vh, timeMs, fdt, !!game.lowFx);
     // Critters move on and objects near you react (bushes sway, tall things fade).
     this.react.update(game, fdt);
     {
@@ -384,7 +392,11 @@ export class Renderer {
     for (const d of drawables) d.draw();
 
     this._drawClueMarker(ox, oy, vw, vh, timeMs);
-    this._drawDayNight(vw, vh, night, fdt);
+    // The light pass (lighting.js) paints the grade and the night's darkness
+    // with lamps, fires and spells cut out of it, then the weather in the air;
+    // low graphics (and headless runs) keep the old flat fill.
+    if (game.lowFx || !this.lights.ok || !this.lights.draw(ctx, game, this._blendMood(fdt), night, this.weather.state, ox, oy, vw, vh, timeMs)) this._drawDayNight(vw, vh, night, fdt);
+    this.weather.drawAir(ctx, ox, oy, vw, vh, timeMs, fdt, !!game.lowFx);
     this._drawVignette(vw, vh, night);
     this.critters.drawAir(ctx, ox, oy, timeMs);
     this._drawParticles(ox, oy);
@@ -401,13 +413,18 @@ export class Renderer {
   // three fills; composeWashes folds them into one that looks the same.
   // Drawn under particles/hitsplats so embers and fireflies still pop at night.
   _drawDayNight(vw, vh, night, dt) {
-    // Low graphics keeps just the day/night light (the mood eases away).
-    blendMood(this._mood, this.game.lowFx ? moodFor('Singapore') : moodFor(this.game.currentZoneName), dt);
+    this._blendMood(dt);
     dayNightWashes(night, this._dn);
     const g = composeWashes(this._washes, this._grade);
     if (g[3] <= 0.004) return;
     this.ctx.fillStyle = `rgba(${g[0] | 0},${g[1] | 0},${g[2] | 0},${g[3].toFixed(3)})`;
     this.ctx.fillRect(0, 0, vw, vh);
+  }
+
+  /** Ease the region's mood toward where you are (low graphics keeps just the
+   *  day/night light, so the mood eases away). */
+  _blendMood(dt) {
+    return blendMood(this._mood, this.game.lowFx ? moodFor('Singapore') : moodFor(this.game.currentZoneName), dt);
   }
 
   // ---------------- Alignment aura (alignment.js) ----------------
