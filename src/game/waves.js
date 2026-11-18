@@ -231,7 +231,7 @@ export class Waves {
     // Any loot still on the floor comes with you.
     for (const gi of [...g.world.groundItems]) {
       if (!inArena(gi.x, gi.y)) continue;
-      g.inventory.add(gi.id, gi.qty);
+      g.inventory.add(gi.id, gi.qty, gi.q);
       g.world.removeGroundItem(gi);
     }
     if (p.action?.type === 'attack') p.clearAction();

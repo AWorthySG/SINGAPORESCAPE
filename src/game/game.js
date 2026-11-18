@@ -3,11 +3,10 @@ import { goldenMult, goldenSkills, GOLDEN_HOUR_XP, SKILL_HOURS } from '../data/s
 import { buildWorld, TERRAIN, zoneLevel } from '../data/world.js';
 import { compareGear, deltaText, gearRating, effectiveRating, offenceFirstScore, weaponStyle, reqLevel } from './gear.js';
 import { planCarry, applyCarry, carryMessages, scoreAfterCarry } from './carry.js';
-import { RARITY, dropRarity, lootDelay, rollQuality, QUALITY, NORMAL_GEAR_SKIP } from './loot.js';
-import { recordQuality } from './salvage.js';
+import { RARITY, dropRarity, lootDelay, rollQuality, QUALITY, NORMAL_GEAR_SKIP, qualityName } from './loot.js';
 import { dayKey, prevDayKey, makeBounties, streakMult } from './bounty.js';
 import { ATTRS, ATTR_NAMES, statPointsAt, attrForMode, DMG_PER_POINT, LIFE_PER_STR, CRIT_PER_INT, SPEED_PER_DEX, RESET_COST_PER_POINT } from './attributes.js';
-import { MASTERY_RANKS, BANNER_RANK, MAX_ENCHANTS, killMastery, enchantCost, rollEnchantOffers, enchantLabel, STONE as UP_STONE, WARD as UP_WARD } from './mastery.js';
+import { MASTERY_RANKS, BANNER_RANK, MAX_ENCHANTS, killMastery, masteryType, masteryTypeName, enchantCost, rollEnchantOffers, enchantLabel, STONE as UP_STONE, WARD as UP_WARD } from './mastery.js';
 import { MAX_REFINE, SCROLL as REFINE_SCROLL, refineCost, rollRefine, refineTag, refineScrollDrop } from './refine.js';
 import { materialKind, materialPoints, feedKind, feedPoints, FEED_CAP, FEED_CAP_RANK } from './materials.js';
 import { Shrine, SHRINE_TRACKS, trackText } from './shrine.js';
@@ -610,7 +609,7 @@ export class Game {
       this.pendingClassChoice = false;
       const w = this.equipment.get('weapon');
       if (w && getItem(w).equip?.weaponType && !canWield(classId, getItem(w).equip.weaponType) && this.inventory.freeSlots?.() !== 0) {
-        this.equipment.clearSlot('weapon'); this.inventory.add(w, 1);
+        const wq = this.equipment.qualityIn('weapon'); this.equipment.clearSlot('weapon'); this.inventory.add(w, 1, wq);
       }
       const starter = starterWeapon(classId);
       if (!this.equipment.get('weapon')) this.equipment.set('weapon', starter); else this.inventory.add(starter, 1);
@@ -3598,52 +3597,48 @@ export class Game {
         if (first) { first[1] += l[1]; loot.splice(i, 1); } else piles.set(l[0], l);
       }
     }
-    // Gear quality: a head start of mastery for that item type.
+    // Gear quality: the copy that drops keeps it (loot.js), and it multiplies that copy's stats.
     for (const l of loot) {
       if (!getItem(l[0]).equip) continue;
       const q = rollQuality(l[3] === 'boss' || def.boss ? 'boss' : npc.champion ? 'champion' : 'normal');
-      if (q) { this._applyQuality(l[0], q); l[2] = l[3] === 'sig' ? 'legendary' : QUALITY[q].rarity; }
-      if (q) recordQuality(this.equipment, l[0], q);   // remembered per copy, for sacrifice and dismantle (salvage.js)
       l.length = 3;
+      if (!q) continue;
+      l[2] = l[3] === 'sig' ? 'legendary' : QUALITY[q].rarity;
+      l[3] = q;
+      this._announceQuality(l[0], q);
     }
     this._autoLoot(loot, npc.x, npc.y);
   }
 
-  /** A quality drop raises that item type's mastery to the matching rank (never lowers it). */
-  _applyQuality(id, key) {
-    const Q = QUALITY[key], R = MASTERY_RANKS[Q.rank];
-    const name = getItem(id).name;
-    const had = this.equipment.masteryRank(id);
-    if (Q.rank > had) {
-      this.equipment.mastery[id] = Math.max(this.equipment.masteryPoints(id), R.points);
-      this.equipment._changed();
-      this.msg(`${Q.label} ${name}! Your ${name.toLowerCase()} is now ${R.name} mastery.`, 'level');
-      if (Q.rank >= BANNER_RANK) this.banner(`<span class="big">${Q.label} drop!</span>${name}: ${R.name} mastery`);
-    } else {
-      this.msg(`${Q.label} ${name} (yours is already ${MASTERY_RANKS[had].name} mastery).`, 'system');
-    }
+  /** A quality drop is named in its colour (a banner from Legendary up). */
+  _announceQuality(id, q) {
+    const Q = QUALITY[q];
+    this.msg(`${qualityName(id, q)}! A ${Q.label} copy: +${Math.round(Q.gain * 100)}% to its stats.`, `qual-${q}`);
+    if (Q.step >= QUALITY.legendary.step) this.banner(`<span class="big">${Q.label} drop!</span>${getItem(id).name}`);
   }
 
-  /** Every kill trains the gear you are wearing: each piece gains mastery
-   *  points (1 a monster, 5 a champion, 25 a boss), and may rank up. */
+  /** Every kill trains the gear you are wearing: each gear type worn gains
+   *  mastery points (1 a monster, 5 a champion, 25 a boss), and may rank up.
+   *  (Two pieces of one type, such as a pair of daggers, train it once.) */
   _gainMastery(npc) {
     const pts = killMastery(npc);
-    const ids = new Set(EQUIP_SLOTS.map((s) => this.equipment.get(s)).filter((id) => id && getItem(id).equip?.bonuses));
-    if (!ids.size) return;
-    for (const id of ids) this._addMastery(id, pts);
+    const types = new Map();
+    for (const s of EQUIP_SLOTS) { const id = this.equipment.get(s); if (id && getItem(id).equip?.bonuses && !types.has(masteryType(id))) types.set(masteryType(id), id); }
+    if (!types.size) return;
+    for (const id of types.values()) this._addMastery(id, pts);
     this.equipment._changed();
   }
 
-  /** Add mastery points to an item type, announcing a new rank (with a
-   *  banner from Master up). Kills and fed materials both come through here. */
+  /** Add mastery points to `id`'s gear type, announcing a new rank (with a
+   *  banner from Master up). Kills, sacrifices and fed materials all come through here. */
   _addMastery(id, pts) {
     const before = this.equipment.masteryRank(id);
-    this.equipment.mastery[id] = this.equipment.masteryPoints(id) + pts;
+    this.equipment.setMastery(id, this.equipment.masteryPoints(id) + pts);
     const after = this.equipment.masteryRank(id);
     if (after > before) {
-      const R = MASTERY_RANKS[after];
-      this.msg(`${getItem(id).name} reached ${R.name} mastery!`, 'level');
-      if (after >= BANNER_RANK) this.banner(`<span class="big">${R.name} mastery!</span>${getItem(id).name}`);
+      const R = MASTERY_RANKS[after], type = masteryTypeName(id);
+      this.msg(`${type} mastery reached ${R.name}!`, 'level');
+      if (after >= BANNER_RANK) this.banner(`<span class="big">${R.name} mastery!</span>${type}`);
     }
   }
 
@@ -3652,8 +3647,9 @@ export class Game {
   // then (next tick) fly into your pack wherever you are.
   _autoLoot(loot, x, y) {
     let best = 'common';
-    loot.forEach(([id, qty, rarity = 'common'], i) => {
+    loot.forEach(([id, qty, rarity = 'common', q], i) => {
       const gi = this.world.addGroundItem(id, qty, x, y);
+      if (q) gi.q = q;   // a quality copy keeps its quality all the way into the pack
       const a = (i / Math.max(1, loot.length)) * Math.PI * 2 + Math.random();
       gi.ox = Math.cos(a) * 9; gi.oy = Math.sin(a) * 5;     // pixel scatter
       gi.born = performance.now();
@@ -3680,11 +3676,11 @@ export class Game {
       // Kill drops fly in once their (rarity-based) delay is up, wherever you are;
       // anything else is swept up when you're within 2 tiles.
       if (gi.fromKill ? this.tickCount < gi.lootAt : chebyshev(at.x, at.y, gi.x, gi.y) > 2) continue;
-      const added = this.inventory.add(gi.id, gi.qty);
+      const added = this.inventory.add(gi.id, gi.qty, gi.q);
       if (added <= 0) continue;
       const rar = RARITY[gi.rarity];
       if (rar && rar.rank > 0) special = true;
-      got.push(`${added > 1 ? added + ' x ' : ''}${getItem(gi.id).name}${rar && rar.rank > 0 ? ` (${rar.label})` : ''}`);
+      got.push(`${added > 1 ? added + ' x ' : ''}${qualityName(gi.id, gi.q)}${rar && rar.rank > 0 && !gi.q ? ` (${rar.label})` : ''}`);
       const c = p.renderCenter();
       this.effects.push({ type: 'lootfly', id: gi.id, rarity: gi.rarity, x: gi.x * TILE + TILE / 2 + (gi.ox || 0), y: gi.y * TILE + TILE * 0.62 + (gi.oy || 0), ex: c.x, ey: c.y - 10, life: 420, maxLife: 420 });
       this.world.removeGroundItem(gi);
@@ -5375,9 +5371,9 @@ export class Game {
     if (!this.world.groundItems.includes(gi)) return;
     const space = this.inventory.canAdd(gi.id, gi.qty);
     if (space <= 0) { this.msg("You don't have enough inventory space."); return; }
-    const added = this.inventory.add(gi.id, Math.min(space, gi.qty));
+    const added = this.inventory.add(gi.id, Math.min(space, gi.qty), gi.q);
     gi.qty -= added;
-    this.msg(`You pick up ${added > 1 ? added + ' x ' : ''}${getItem(gi.id).name}.`);
+    this.msg(`You pick up ${added > 1 ? added + ' x ' : ''}${qualityName(gi.id, gi.q)}.`);
     this.bus.emit('sfx', 'pickup');
     if (gi.qty <= 0) this.world.removeGroundItem(gi);
     else this.bus.emit('grounditems');
@@ -5425,9 +5421,10 @@ export class Game {
   /** Can this piece be worn right now (levels, class weapon and class armour)? Silent. */
   /** Take off the shield (a two-handed weapon is in hand) and put it in the pack. */
   _stowShield() {
+    const shQ = this.equipment.qualityIn('shield');
     const sh = this.equipment.clearSlot('shield');
     if (!sh) return;
-    this.inventory.add(sh, 1);
+    this.inventory.add(sh, 1, shQ);
     this.msg(`Your weapon needs both hands, so you put your ${getItem(sh).name.toLowerCase()} in your pack.`, 'system');
   }
 
@@ -5449,7 +5446,8 @@ export class Game {
     // stats your fighting style uses, so a Legendary iron sword can beat a plain mithril one.
     const mode = this.combatMode();
     // Offensive stats first: damage decides, Defence and HP only break a tie.
-    const score = (id) => offenceFirstScore(id, this.equipment, mode);
+    // Each copy is weighed with its own quality (`q`), the worn piece with its own.
+    const score = (id, q = null) => offenceFirstScore(id, this.equipment, mode, 'main', q);
     for (let guard = 0; guard < 30; guard++) {
       let best = null;
       this.inventory.slots.forEach((s, i) => {
@@ -5466,22 +5464,26 @@ export class Game {
         // (A tool in hand, such as an axe, has no type and is always swapped for a weapon.)
         const wornType = worn && getItem(worn).equip.weaponType;
         if (eq.slot === 'weapon' && wornType && this.jobClass && getItem(s.id).equip.weaponType !== wornType) return;
-        // Refine and enchantments carry over to a better piece (carry.js), so a
-        // higher tier of the same line (the same weapon type, or the same armour
-        // family) always goes on first, the highest tier first; it takes the old
-        // piece's upgrades with it. A lower tier of that line never replaces it.
-        // Anything else is weighed as it will be worn, after the carry.
+        // Refine and enchantments carry over to a better piece (carry.js), and
+        // mastery belongs to the gear type, so a higher tier of the same line
+        // (the same weapon type, or the same armour family) goes on first, the
+        // highest tier first, as long as it is at least as strong as the worn
+        // piece once the carry is done (a plain higher tier won't replace a
+        // Mythic copy that is still stronger). Anything else is weighed as it
+        // will be worn, after the carry, and must be stronger.
+        const wornQ = worn ? this.equipment.qualityIn(eq.slot) : null;
+        const after = () => (worn ? scoreAfterCarry(this.equipment, s.id, eq.slot, (id) => score(id, s.q || null), s.q || null) : score(s.id, s.q || null)) - (worn ? score(worn, wornQ) : 0);
         const sameLine = worn && (eq.slot === 'weapon' ? !!wornType : !!eq.family && eq.family === getItem(worn).equip.family);
         if (sameLine) {
           const base = gearRating(s.id), wornBase = gearRating(worn);
-          if (base < wornBase) return;
           if (base > wornBase) {
+            if (after() < 0) return;
             const rank = 1e15 + base;
             if (!best || rank > best.gain) best = { i, gain: rank };
             return;
           }
         }
-        const gain = (worn ? scoreAfterCarry(this.equipment, s.id, eq.slot, score) : score(s.id)) - (worn ? score(worn) : 0);
+        const gain = after();
         if (gain > 0 && (!best || gain > best.gain)) best = { i, gain };
       });
       if (!best) break;
@@ -5493,10 +5495,10 @@ export class Game {
     if (canDualWield(main)) {
       const off = this.equipment.get('shield');
       // Each candidate as it would be worn there: a twin of the main weapon reads its off-hand copy's upgrades.
-      const offScore = (id) => offenceFirstScore(id, this.equipment, mode, this.equipment.copyFor(id, 'shield'));
-      let bi = -1, br = canDualPair(off, main) ? offScore(off) : -1;
+      const offScore = (id, q = null) => offenceFirstScore(id, this.equipment, mode, this.equipment.copyFor(id, 'shield'), q);
+      let bi = -1, br = canDualPair(off, main) ? offScore(off, this.equipment.qualityIn('shield')) : -1;
       this.inventory.slots.forEach((s, i) => {
-        if (s && canDualPair(s.id, main) && this._canEquipNow(s.id) && offScore(s.id) > br) { bi = i; br = offScore(s.id); }
+        if (s && canDualPair(s.id, main) && this._canEquipNow(s.id) && offScore(s.id, s.q || null) > br) { bi = i; br = offScore(s.id, s.q || null); }
       });
       if (bi >= 0) { this.equipItem(bi, { offhand: true }); changed++; }
     }
@@ -5567,15 +5569,16 @@ export class Game {
     }
     // An off-hand weapon is weighed against the one already in the off-hand (each
     // hand hits with its own weapon's stats), not against a shield.
-    const cmp = !offhand ? compareGear(s.id, this.equipment)
-      : canDualPair(this.equipment.get('shield'), main) ? compareGear(s.id, this.equipment, 'shield') : null;
+    const q = s.q || null;   // this copy's quality goes on with it
+    const cmp = !offhand ? compareGear(s.id, this.equipment, null, q)
+      : canDualPair(this.equipment.get('shield'), main) ? compareGear(s.id, this.equipment, 'shield', q) : null;
     // A better piece takes over the old one's refine and enchantments (carry.js),
     // worked out before the swap while the old piece is still the one worn.
-    const carry = planCarry(this.equipment, s.id, slot);
+    const carry = planCarry(this.equipment, s.id, slot, q);
     this.inventory.removeAt(index, 1);
-    const prev = this.equipment.get(slot);
-    this.equipment.set(slot, s.id);
-    if (prev) this.inventory.add(prev, 1);
+    const prev = this.equipment.get(slot), prevQ = this.equipment.qualityIn(slot);
+    this.equipment.set(slot, s.id, q);
+    if (prev) this.inventory.add(prev, 1, prevQ);
     if (carry) applyCarry(this.equipment, carry);
     // Say plainly whether that was a step up, so players learn which gear is better.
     const verdict = () => {
@@ -5592,8 +5595,9 @@ export class Game {
     }
     // Swapping the main hand off daggers sends an off-hand dagger back to the pack.
     if (slot === 'weapon' && canDualWield(this.equipment.get('shield')) && !canDualPair(s.id, this.equipment.get('shield'))) {
+      const offQ = this.equipment.qualityIn('shield');
       const off = this.equipment.clearSlot('shield');
-      this.inventory.add(off, 1);
+      this.inventory.add(off, 1, offQ);
       this.msg(`You put away your off-hand ${getItem(off).name.toLowerCase()}.`, 'system');
     }
     // A two-handed weapon needs both hands: the shield goes back in the pack.
@@ -5813,8 +5817,10 @@ export class Game {
         // main hand with its own upgrades: its refine and lines become the main
         // record, and the broken copy's lines wait in the second copy's record
         // (a break never takes enchant lines). Moved, so nothing is doubled.
+        const offQ = eqp.qualityIn('shield');
         eqp.clearSlot('shield');
         if (copy === 'main') {
+          eqp.set('weapon', id, offQ);   // the surviving copy keeps its own quality
           const lines = eqp.enchants[id];
           if (eqp.offRefines[id]) eqp.refines[id] = eqp.offRefines[id]; else delete eqp.refines[id];
           if (eqp.offEnchants[id]) eqp.enchants[id] = eqp.offEnchants[id]; else delete eqp.enchants[id];
@@ -5839,8 +5845,9 @@ export class Game {
     const id = this.equipment.get(slot);
     if (!id) return;
     if (this.inventory.canAdd(id, 1) <= 0) { this.msg("You don't have enough inventory space."); return; }
+    const q = this.equipment.qualityIn(slot);
     this.equipment.clearSlot(slot);
-    this.inventory.add(id, 1);
+    this.inventory.add(id, 1, q);
     this.msg(`You remove the ${getItem(id).name.toLowerCase()}.`);
   }
 
@@ -5850,6 +5857,7 @@ export class Game {
     const { id, qty } = s;
     this.inventory.removeAt(index, qty);
     const gi = this.world.addGroundItem(id, qty, this.player.x, this.player.y);
+    if (s.q) gi.q = s.q;   // the copy keeps its quality on the ground
     gi.playerDropped = true;   // auto-loot leaves things you drop on purpose
     this.msg(`You drop the ${getItem(id).name.toLowerCase()}.`);
   }
@@ -6748,12 +6756,13 @@ export class Game {
   }
 
   // ---------------- Banking ----------------
-  deposit(itemId, qty) {
-    const have = this.inventory.count(itemId);
+  // Gear copies keep their quality both ways: `q` (null for plain) picks the
+  // copies of one quality, and without it the plainest go first.
+  deposit(itemId, qty, q) {
+    const have = q === undefined ? this.inventory.count(itemId) : this.inventory.qualities(itemId).filter((x) => x === q).length;
     const amount = Math.min(qty, have);
     if (amount <= 0) return;
-    this.inventory.remove(itemId, amount);
-    this.bank.deposit(itemId, amount);
+    for (const p of this.inventory.take(itemId, amount, q)) this.bank.deposit(itemId, p.n, p.q);
   }
 
   depositAll() {
@@ -6762,17 +6771,17 @@ export class Game {
     let moved = 0;
     for (const id of ids) {
       const n = this.inventory.count(id);
-      if (n > 0) { this.inventory.remove(id, n); this.bank.deposit(id, n); moved += n; }
+      if (n > 0) { for (const p of this.inventory.take(id, n)) this.bank.deposit(id, p.n, p.q); moved += n; }
     }
     if (moved) this.msg('You deposit your inventory.', 'system');
   }
 
-  withdraw(itemId, qty) {
-    const want = Math.min(qty, this.bank.count(itemId));
+  withdraw(itemId, qty, q) {
+    const banked = q === undefined ? this.bank.count(itemId) : this.bank.items.filter((e) => e.id === itemId && (e.q || null) === q).reduce((n, e) => n + e.qty, 0);
+    const want = Math.min(qty, banked);
     const amount = this.inventory.canAdd(itemId, want);
     if (amount <= 0) { this.msg('Your inventory is full.'); return; }
-    this.bank.withdraw(itemId, amount);
-    this.inventory.add(itemId, amount);
+    for (const p of this.bank.take(itemId, amount, q)) this.inventory.add(itemId, p.n, p.q);
   }
 
   // ---------------- MRT fast travel ----------------

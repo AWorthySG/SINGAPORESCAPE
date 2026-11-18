@@ -39,7 +39,7 @@ export function nextTip(game) {
   if (want('champion', () => game.npcs.some((n) => n.alive && n.champion && Math.abs(n.x - p.x) <= 10 && Math.abs(n.y - p.y) <= 10))) return 'champion';
   if (want('auto', () => game.totalKills >= 1)) return 'auto';
   if (want('gear', () => game.tickCount % 5 === 0 && game.inventory.slots.some((s) => s && getItem(s.id).equip
-    && compareGear(s.id, game.equipment).verdict === 'upgrade' && meetsReq(s.id, game.skills).ok && canWear(game.jobClass, s.id)))) return 'gear';
+    && compareGear(s.id, game.equipment, null, s.q || null).verdict === 'upgrade' && meetsReq(s.id, game.skills).ok && canWear(game.jobClass, s.id)))) return 'gear';
   if (want('bounty', () => game.tickCount > 150)) return 'bounty';
   if (want('upgrade', () => game.inventory.count(UP_STONE) >= 10)) return 'upgrade';
   return null;

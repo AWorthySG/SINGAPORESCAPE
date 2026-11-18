@@ -38,12 +38,13 @@ import { STATIONS, MRT_FARE } from '../data/transport.js';
 import { EQUIP_SLOTS, canDualPair, isTwoHanded } from '../game/equipment.js';
 import { streakMult } from '../game/bounty.js';
 import { itemCategory } from '../game/inventory.js';
-import { MASTERY_RANKS, MAX_ENCHANTS, rankProgress, enchantLabel, STONE as UP_STONE, WARD as UP_WARD } from '../game/mastery.js';
+import { MASTERY_RANKS, MAX_ENCHANTS, rankProgress, enchantLabel, masteryTypeName, STONE as UP_STONE, WARD as UP_WARD } from '../game/mastery.js';
 import { MAX_REFINE, SCROLL as REFINE_SCROLL, refineCost, refineOdds, refineTag, refinedBonuses } from '../game/refine.js';
 import { planCarry, carrySummary } from '../game/carry.js';
 import { MATERIAL_KINDS, feedKind, FEED_CAP, FEED_CAP_RANK, materialKind } from '../game/materials.js';
 import { SHRINE_TRACKS, SHRINE_TRACK_IDS, trackText } from '../game/shrine.js';
-import { isSalvageable, QUALITY_KEYS, nearOfferingShrine } from '../game/salvage.js';
+import { isSalvageable, sameKind, nearOfferingShrine } from '../game/salvage.js';
+import { QUALITY, qualityNameHTML } from '../game/loot.js';
 import { openSacrifice, openSacrificeFrom, openDismantle, shrineGearSection, askOffer } from './salvageui.js';
 import { shrineGoodsSection, askGoods } from './shrineui.js';
 import { goodsKind } from '../game/offerings.js';
@@ -834,7 +835,7 @@ export class UI {
         const sl = this.game.inventory.slotAt(i);
         if (!sl) return '';
         const item = getItem(sl.id);
-        return `<b>${item.name}</b><br><span style="opacity:.8">${item.examine}</span>` + (item.equip ? this._gearTip(sl.id) : '');
+        return `<b>${qualityNameHTML(sl.id, sl.q)}</b><br><span style="opacity:.8">${item.examine}</span>` + (item.equip ? this._gearTip(sl.id, 'main', sl.q || null) : '');
       }, () => this._invOptions(i));
       cell._sig = null;
       grid.appendChild(cell);
@@ -854,10 +855,10 @@ export class UI {
         if (item.equip) {
           up = this.game.equipment.masteryRank(s.id);
           rl = this.game.equipment.refineLevel(s.id);
-          const cmp = compareGear(s.id, this.game.equipment);
+          const cmp = compareGear(s.id, this.game.equipment, null, s.q || null);
           better = (cmp.verdict === 'upgrade' || cmp.verdict === 'empty') && meetsReq(s.id, this.game.skills).ok;
         }
-        sig = `${s.id}|${s.qty}|${up}|${rl}|${better ? 1 : 0}`;
+        sig = `${s.id}|${s.qty}|${up}|${rl}|${better ? 1 : 0}|${s.q || ''}`;
       }
       if (cell._sig === sig) continue;
       cell._sig = sig;
@@ -870,6 +871,7 @@ export class UI {
         html += `<span class="qty ${lbl.cls}">${lbl.text}</span>`;
       }
       if (up || rl) html += this._gearBadge(s.id);
+      if (s.q) html += this._qualityPip(s.q);   // a quality copy: a dot in its colour
       // Green arrow on gear that beats what you're wearing (and you can wear it).
       if (better) html += '<span class="gear-up" title="Better than what you are wearing">▲</span>';
       cell.innerHTML = html;
@@ -958,9 +960,11 @@ export class UI {
         cell.className = 'equip-slot filled';
         cell.innerHTML = itemIconSVG(id, 32);
         const copy = this.game.equipment.copyIn(slot);   // a twin pair's off-hand copy has its own ★ and lines
+        const q = this.game.equipment.qualityIn(slot);   // the worn copy's own quality
         if (this.game.equipment.masteryRank(id) || this.game.equipment.refineLevel(id, copy)) cell.insertAdjacentHTML('beforeend', this._gearBadge(id, copy));
+        if (q) cell.insertAdjacentHTML('beforeend', this._qualityPip(q));
         cell.addEventListener('click', () => this.game.unequip(slot));
-        this._tip(cell, () => `<b>${item.name}</b>${this._gearTip(id, copy)}<br><span style="opacity:.8">Tap to remove</span>`,
+        this._tip(cell, () => `<b>${qualityNameHTML(id, q)}</b>${this._gearTip(id, copy, q)}<br><span style="opacity:.8">Tap to remove</span>`,
           () => [{ label: 'Remove', target: item.name, fn: () => this.game.unequip(slot) }]);
       } else {
         cell.className = 'equip-slot empty';
@@ -1006,14 +1010,15 @@ export class UI {
       const id = this.game.equipment.get(slot);
       const eq = getItem(id).equip;
       const rk = this.game.equipment.masteryRank(id), copy = this.game.equipment.copyIn(slot), rl = this.game.equipment.refineLevel(id, copy);
+      const q = this.game.equipment.qualityIn(slot);
       const fam = eq.family ? `<span class="eq-fam">${ARMOUR_FAMILIES[eq.family].name}</span>` : '';
       const row = document.createElement('details');
       row.className = 'eq-row';
       row.innerHTML = `<summary><span class="eq-ic">${itemIconSVG(id, 26)}</span>`
         + `<span class="eq-txt"><span class="eq-slot">${slot === 'shield' && this.game.equipment.isDualWielding() ? 'Off-hand' : capitalize(slot)}</span>`
-        + `<b class="eq-name">${escapeHtml(getItem(id).name)}${rl ? ` <span class="refine-tag">${refineTag(rl)}</span>` : ''}</b>${rk ? `<span class="eq-mastery">${MASTERY_RANKS[rk].name} mastery</span>` : ''}${fam}`
-        + `<span class="eq-stats">${this._gearStats(id, false, copy)}</span></span></summary>`
-        + `<div class="eq-detail">${this._gearTip(id, copy)}</div>`;
+        + `<b class="eq-name">${qualityNameHTML(id, q, escapeHtml)}${rl ? ` <span class="refine-tag">${refineTag(rl)}</span>` : ''}</b>${rk ? `<span class="eq-mastery">${masteryTypeName(id)} mastery: ${MASTERY_RANKS[rk].name}</span>` : ''}${fam}`
+        + `<span class="eq-stats">${this._gearStats(id, false, copy, q)}</span></span></summary>`
+        + `<div class="eq-detail">${this._gearTip(id, copy, q)}</div>`;
       const off = document.createElement('button');
       off.className = 'eq-remove'; off.type = 'button'; off.textContent = 'Remove';
       off.addEventListener('click', () => this.game.unequip(slot));
@@ -1049,14 +1054,19 @@ export class UI {
   /** The little corner badge on a gear icon: its mastery rank and refine level ("M★7"). */
   _gearBadge(id, copy = 'main') {
     const rk = this.game.equipment.masteryRank(id), rl = this.game.equipment.refineLevel(id, copy);
-    const title = [rk ? `${MASTERY_RANKS[rk].name} mastery` : '', rl ? `Refined ${refineTag(rl)}` : ''].filter(Boolean).join(', ');
+    const title = [rk ? `${masteryTypeName(id)} mastery: ${MASTERY_RANKS[rk].name}` : '', rl ? `Refined ${refineTag(rl)}` : ''].filter(Boolean).join(', ');
     return `<span class="up-badge" title="${title}">${rk ? MASTERY_RANKS[rk].abbr : ''}${rl ? `<span class="refine-star">${refineTag(rl)}</span>` : ''}</span>`;
   }
 
-  /** Stat chips for one piece of gear, e.g. "+12 Defence · 1.2s". */
-  _gearStats(id, base = false, copy = 'main') {
+  /** A quality copy's dot, in the quality's colour (on its icon). */
+  _qualityPip(q) {
+    return QUALITY[q] ? `<span class="q-pip q-${q}" style="background:${QUALITY[q].color}" title="${QUALITY[q].label} quality"></span>` : '';
+  }
+
+  /** Stat chips for one piece of gear, e.g. "+12 Defence · 1.2s" (`q`: the copy's quality). */
+  _gearStats(id, base = false, copy = 'main', q = null) {
     const eq = getItem(id).equip;
-    const b = base ? (eq.bonuses || {}) : this.game.equipment.itemBonuses(id, copy);
+    const b = base ? (eq.bonuses || {}) : this.game.equipment.itemBonuses(id, copy, q);
     const chips = Object.keys(STAT_LABELS).filter((k) => b[k]).map((k) => `+${Math.round(b[k] * 10) / 10} ${STAT_LABELS[k]}`);
     if (eq.slot === 'weapon') chips.push(`${capitalize(weaponStyle(id))}, ${(swingBeats(id) * 0.3).toFixed(1)}s swing`);
     if (eq.range) chips.push(`${eq.range}-tile range`);
@@ -1067,7 +1077,7 @@ export class UI {
   /** Tooltip block for equipment: stats, tier in its slot, requirements and
    *  how it compares with what's worn. `copy` 'off': the worn off-hand copy of
    *  a twin pair, which has its own refine and enchant lines. */
-  _gearTip(id, copy = 'main') {
+  _gearTip(id, copy = 'main', q = null) {
     const eq = getItem(id).equip;
     const t = tierOf(id);
     const req = meetsReq(id, this.game.skills);
@@ -1076,12 +1086,12 @@ export class UI {
     // A boss's signature weapon: whose it is and which class it's made for.
     const sig = getItem(id).signature;
     let html = (sig ? `<div class="gt-sig">Signature weapon of ${escapeHtml(getNpc(sig.boss).name)} · for ${escapeHtml(CLASS_BY_ID[sig.classId].name)}</div>` : '')
-      + (rk ? `<div class="gt-up">${MASTERY_RANKS[rk].name} mastery</div>` : '')
+      + (QUALITY[q] ? `<div class="gt-qual"><span class="q-word" style="color:${QUALITY[q].color}">${QUALITY[q].label}</span> quality: +${Math.round(QUALITY[q].gain * 100)}% to this copy's stats</div>` : '')
+      + (rk ? `<div class="gt-up">${masteryTypeName(id)} mastery: ${MASTERY_RANKS[rk].name}</div>` : '')
       + (copy === 'off' ? '<div class="gt-up">Off-hand copy: its own refine and enchantments</div>' : '')
       + (rl ? `<div class="gt-refine">Refined ${refineTag(rl)}</div>` : '')
       + (lines.length ? `<div class="gt-ench">Enchanted: ${lines.map(enchantLabel).join(' · ')}</div>` : '')
-      + (() => { const q = this.game.equipment.quality[id]; return q ? `<div class="gt-qual">Quality copies: ${QUALITY_KEYS.map((k, i) => (q[i] ? `${q[i]} ${capitalize(k)}` : '')).filter(Boolean).join(', ')}</div>` : ''; })()
-      + `<div class="gt-stats">${this._gearStats(id, false, copy)}</div>`
+      + `<div class="gt-stats">${this._gearStats(id, false, copy, q)}</div>`
       + `<div class="gt-tier">#${t.rank} of ${t.of} ${eq.slot === 'weapon' ? weaponStyle(id) + ' weapons' : eq.slot + ' items'}</div>`;
     if (reqTxt) html += `<div class="gt-req ${req.ok ? 'ok' : 'no'}">Needs ${reqTxt}${req.ok ? ' ✓' : ''}</div>`;
     if (isTwoHanded(id)) {
@@ -1107,9 +1117,9 @@ export class UI {
     // A dual wielder's spare weapon is weighed against the off-hand too (each hand hits with its own weapon).
     const dualOff = eqp.isDualWielding() && canDualPair(id, eqp.get('weapon'));
     if (copy === 'off' || (dualOff && eqp.get('shield') === id && eqp.get('weapon') !== id)) return html + '<div class="gt-verdict same">Currently worn (off-hand)</div>';
-    const cmp = compareGear(id, eqp);
+    const cmp = compareGear(id, eqp, null, q);
     if (cmp.verdict === 'worn') return html + '<div class="gt-verdict same">Currently worn</div>';
-    const offCmp = dualOff && eqp.get('shield') !== id ? compareGear(id, eqp, 'shield') : null;
+    const offCmp = dualOff && eqp.get('shield') !== id ? compareGear(id, eqp, 'shield', q) : null;
     const vs = cmp.worn ? ` vs ${escapeHtml(getItem(cmp.worn).name)}` : '';
     const label = { upgrade: '▲ Upgrade', downgrade: '▼ Downgrade', same: '= Same strength', empty: '▲ Fills an empty slot', style: '⇄ Different fighting style' }[cmp.verdict];
     html += `<div class="gt-verdict ${cmp.verdict}">${label}${vs}</div>`;
@@ -1122,7 +1132,7 @@ export class UI {
     // matching weapon goes in a free off-hand first, as equipItem does.
     const slot = canDualPair(id, eqp.get('weapon')) && !dualOff ? 'shield' : eq.slot;
     for (const [s, pre] of [[slot, ''], ...(dualOff ? [['shield', 'Off-hand: ']] : [])]) {
-      const plan = planCarry(eqp, id, s);
+      const plan = planCarry(eqp, id, s, q);
       if (plan) html += `<div class="gt-carry">${pre}Equipping carries over ${escapeHtml(carrySummary(plan))}</div>`;
     }
     return html;
@@ -1134,13 +1144,14 @@ export class UI {
   openMastery() {
     const g = this.game;
     const render = (body) => {
-      body.innerHTML = '<div class="gear-intro"><p>Gear grows stronger as you fight with it. Every kill gives each piece you wear <b>mastery</b> '
+      body.innerHTML = '<div class="gear-intro"><p>Gear grows stronger as you fight with it. <b>Mastery</b> belongs to a gear type (every sword shares Sword mastery, every plate body Plate body mastery), so it stays when you move up a tier. Every kill gives each type you wear mastery '
         + '(1 for a monster, 5 for a champion, 25 for a boss), and each rank adds to its stats, up to <b>Legendary</b> (+140%). '
+        + '<b>Quality</b> belongs to one copy: a Fine, Superior, Epic, Legendary or Mythic drop has +8%, +16%, +25%, +40% or +60% on its stats, mastery included. '
         + `<b>Enchanting</b> adds up to ${MAX_ENCHANTS} bonus lines: choose one of three on offer, paid for with upgrade stones and coins. An <b>upgrade ward</b> rerolls the offer. `
         + `<b>Refining</b> (★1 to ★${MAX_REFINE}) adds a share of the base stats on top, paid for with <b>refine scrolls</b> only; the higher you go, the riskier it gets. `
         + `<b>Feed materials</b> from your life skills to add mastery too (bars for metal, logs for bows and staves, hides for leather, gems for jewellery, herbs for cloth), up to ${MASTERY_RANKS[FEED_CAP_RANK].name}. `
-        + '<b>Sacrifice</b> spare gear of any class to a piece for mastery as well, or <b>dismantle</b> it for upgrade stones and refine scrolls. '
-        + 'Mastery, enchantments and refining belong to the item type, so every copy you own shares them; a weapon worn in both hands is the one exception, as its off-hand copy has its own refine and enchantments. '
+        + '<b>Sacrifice</b> spare gear of the same type for mastery as well, or <b>dismantle</b> it for upgrade stones and refine scrolls. '
+        + 'Enchantments and refining belong to the item, so every copy you own shares them; a weapon worn in both hands is the one exception, as its off-hand copy has its own refine and enchantments. '
         + `You have ${formatNumber(g.inventory.count(UP_STONE))} stones, ${g.inventory.count(UP_WARD)} wards and ${formatNumber(g.inventory.count(REFINE_SCROLL))} refine scrolls.</p></div>`;
       // Spare gear can be broken down for stones and scrolls (salvage.js).
       const dis = document.createElement('button');
@@ -1164,7 +1175,7 @@ export class UI {
         const row = document.createElement('div');
         row.className = 'gear-row mastery-row';
         row.innerHTML = `<span class="gear-ic">${itemIconSVG(id, 28)}</span>`
-          + `<div class="gear-info"><div class="gear-name"><b>${escapeHtml(getItem(id).name)}</b>${rl ? `<span class="gear-tag refine-tag">${refineTag(rl)}</span>` : ''}<span class="gear-tag mastery-tag">${MASTERY_RANKS[p.rank].name}</span>${worn ? '<span class="gear-tag worn">Wearing</span>' : ''}</div>`
+          + `<div class="gear-info"><div class="gear-name"><b>${escapeHtml(getItem(id).name)}</b>${rl ? `<span class="gear-tag refine-tag">${refineTag(rl)}</span>` : ''}<span class="gear-tag mastery-tag">${masteryTypeName(id)}: ${MASTERY_RANKS[p.rank].name}</span>${worn ? '<span class="gear-tag worn">Wearing</span>' : ''}</div>`
           + `<div class="mastery-bar"><span style="width:${Math.round(p.frac * 100)}%"></span></div>`
           + `<div class="gear-stats">${p.next ? `${formatNumber(p.need)} more kill${p.need > 1 ? 's' : ''} to ${MASTERY_RANKS[p.next].name}` : 'Fully mastered'}</div>`
           + `<div class="gear-stats">${this._gearStats(id)}</div>`
@@ -1207,8 +1218,8 @@ export class UI {
         // ...and spare gear (any class, any slot) can be sacrificed to it.
         const sb = document.createElement('button');
         sb.type = 'button';
-        sb.className = 'gear-tab sacrifice-open' + (!capped && g.inventory.slots.some((x) => x && x.id !== id && isSalvageable(x.id)) ? ' active' : '');
-        sb.innerHTML = capped ? `Sacrifice gear<br>${MASTERY_RANKS[FEED_CAP_RANK].name} reached` : 'Sacrifice gear<br>spare equipment';
+        sb.className = 'gear-tab sacrifice-open' + (!capped && g.inventory.slots.some((x) => x && x.id !== id && isSalvageable(x.id) && sameKind(id, x.id)) ? ' active' : '');
+        sb.innerHTML = capped ? `Sacrifice gear<br>${MASTERY_RANKS[FEED_CAP_RANK].name} reached` : `Sacrifice gear<br>spare ${masteryTypeName(id).toLowerCase()} gear`;
         sb.addEventListener('click', () => openSacrifice(this, id));
         btns.appendChild(sb);
         row.appendChild(btns);
@@ -3356,14 +3367,16 @@ export class UI {
         ? this.game.bank.items.filter((e) => getItem(e.id).name.toLowerCase().includes(term))
         : this.game.bank.items;
       for (const e of shown) {
+        const q = e.q || null;   // each quality of an item is its own entry
         bankGrid.appendChild(this._cell(e.id, e.qty, {
-          onClick: () => this.game.withdraw(e.id, 1),
+          onClick: () => this.game.withdraw(e.id, 1, q),
           menu: () => [
-            { label: 'Withdraw 1', fn: () => this.game.withdraw(e.id, 1) },
-            { label: 'Withdraw 5', fn: () => this.game.withdraw(e.id, 5) },
-            { label: 'Withdraw 10', fn: () => this.game.withdraw(e.id, 10) },
-            { label: 'Withdraw All', fn: () => this.game.withdraw(e.id, e.qty) },
+            { label: 'Withdraw 1', fn: () => this.game.withdraw(e.id, 1, q) },
+            { label: 'Withdraw 5', fn: () => this.game.withdraw(e.id, 5, q) },
+            { label: 'Withdraw 10', fn: () => this.game.withdraw(e.id, 10, q) },
+            { label: 'Withdraw All', fn: () => this.game.withdraw(e.id, e.qty, q) },
           ],
+          q,
         }));
       }
       bankSide.appendChild(bankGrid);
@@ -3388,13 +3401,15 @@ export class UI {
       invGrid.className = 'item-grid';
       this.game.inventory.slots.forEach((s, i) => {
         if (!s) return;
+        const q = s.q || null;
         invGrid.appendChild(this._cell(s.id, s.qty, {
-          onClick: () => this.game.deposit(s.id, s.qty),
+          onClick: () => this.game.deposit(s.id, s.qty, q),
           menu: () => [
-            { label: 'Deposit 1', fn: () => this.game.deposit(s.id, 1) },
-            { label: 'Deposit 5', fn: () => this.game.deposit(s.id, 5) },
+            { label: 'Deposit 1', fn: () => this.game.deposit(s.id, 1, q) },
+            { label: 'Deposit 5', fn: () => this.game.deposit(s.id, 5, q) },
             { label: 'Deposit All', fn: () => this.game.deposit(s.id, this.game.inventory.count(s.id)) },
           ],
+          q,
         }));
       });
       invSide.appendChild(invGrid);
@@ -3796,11 +3811,11 @@ export class UI {
   // Shared item cell ---------------------------------------------------
   // `menu` lists the amount choices (Buy 5, Withdraw all ...): a right-click menu on
   // desktop, and buttons on the press-and-hold card on phones, which have no right-click.
-  _cell(id, qty, { onClick, menu, tooltip } = {}) {
+  _cell(id, qty, { onClick, menu, tooltip, q = null } = {}) {
     const item = getItem(id);
     const cell = document.createElement('div');
     cell.className = 'item-cell';
-    cell.innerHTML = `<span>${itemIconSVG(id, 30)}</span>`;
+    cell.innerHTML = `<span>${itemIconSVG(id, 30)}</span>${q ? this._qualityPip(q) : ''}`;
     if (item.stackable || qty > 1) {
       const lbl = stackLabel(qty);
       const q = document.createElement('span'); q.className = 'qty'; q.textContent = lbl.text;
@@ -3808,7 +3823,7 @@ export class UI {
     }
     if (onClick) cell.addEventListener('click', onClick);
     if (menu) cell.addEventListener('contextmenu', (e) => { e.preventDefault(); this.showContextMenu(e.clientX, e.clientY, menu()); });
-    this._tip(cell, tooltip || `<b>${item.name}</b><br><span style="opacity:.8">${item.examine || ''}</span>`, menu);
+    this._tip(cell, tooltip || `<b>${qualityNameHTML(id, q)}</b><br><span style="opacity:.8">${item.examine || ''}</span>${q && item.equip ? this._gearTip(id, 'main', q) : ''}`, menu);
     return cell;
   }
 

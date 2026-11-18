@@ -3349,3 +3349,13 @@ body.cb-safe #hp-orb.low::after {
 }
 .sgx-picked { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; margin: 6px 0; padding: 6px 8px;
   font-size: 12px; background: #e6f7df; border: 2px solid var(--aw-ink); border-radius: var(--r1); }
+
+/* ---------------- Gear quality per copy (src/game/loot.js QUALITY) ---------------- */
+/* A quality copy: a dot in its colour at the icon's bottom left, and its drop named in that colour in the chat. */
+.q-pip { position: absolute; left: 3px; bottom: 3px; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #fff; box-shadow: 0 0 0 1px var(--aw-ink); pointer-events: none; }
+.q-word { font-weight: 800; }
+#chat-log .msg.qual-fine { color: #2e9e4f; font-weight: 800; }
+#chat-log .msg.qual-superior { color: #3a7bd5; font-weight: 800; }
+#chat-log .msg.qual-epic { color: #8b4fe0; font-weight: 800; }
+#chat-log .msg.qual-legendary { color: #d08a00; font-weight: 800; }
+#chat-log .msg.qual-mythic { color: #d6336c; font-weight: 800; }
