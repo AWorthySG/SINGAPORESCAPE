@@ -3131,7 +3131,7 @@ export class Game {
     // nature: otherwise every kill around the starter town was a harmless one,
     // and a new character on auto battle turned Villain within minutes (and the
     // town watch then set on them each time they woke at the respawn point).
-    else if (npc.def.aggressive || (npc._spawnOpts?.aggressive === false && getNpc(npc.npcId).aggressive)) {
+    else if (npc.def.aggressive || npc._spawnOpts?.tamed) {
       if (++this.moral.heroKills >= HERO_KILLS_PER_GOOD) { this.moral.heroKills = 0; this.addGood(1); }
     } else this.addEvil(1);
     this.hitStop = Math.max(this.hitStop, npc.def.boss ? 180 : npc.champion ? 120 : 70);

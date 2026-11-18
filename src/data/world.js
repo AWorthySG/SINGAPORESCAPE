@@ -1222,7 +1222,8 @@ export function buildWorld() {
       const def = NPCS[s.npcId];
       if (!def?.attackable || !def.aggressive || s.opts?.aggressive === false) continue;
       if (!safe.some((c) => Math.max(Math.abs(s.x - c.x), Math.abs(s.y - c.y)) <= c.r)) continue;
-      s.opts = { ...(s.opts || {}), aggressive: false };
+      // (tamed: still a fierce beast at heart, so killing one is no evil deed; see Game.killNpc)
+      s.opts = { ...(s.opts || {}), aggressive: false, tamed: true };
     }
   }
 
