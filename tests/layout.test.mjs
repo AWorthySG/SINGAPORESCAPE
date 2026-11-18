@@ -188,9 +188,18 @@ test('the tip sits under the whole info strip, short of the launcher, and bottom
   // Tablet: the boss bar and gate panel push it down the strip.
   const tab = place({ w: 810, h: 1080, els: { 'boss-bar': at(rect(10, 44, 340, 70)), 'wave-hud': at(rect(10, 114, 165, 136)) } });
   assert.equal(tab.top, 256, 'under the Endless Gate panel, not over it');
-  // A phone on its side: between the joystick and the skill arc, along the bottom.
-  const flat = place({ w: 750, h: 342, flat: true, els: { joystick: at(rect(16, 216, 112, 112)) }, arc: [rect(590, 170, 50, 50), rect(664, 262, 70, 70)] });
-  assert.equal(flat.left, 136);
-  assert.ok(flat.left + flat.width <= 582, 'clear of the skill arc');
-  assert.equal(flat.top, 342 - 60 - 8, 'along the bottom edge');
+  // A phone on its side: along the top, between the objectives and the Bag,
+  // never down where the thumbs are (joystick, Auto, Interact, the skill arc).
+  const sideEls = (extra = {}) => ({
+    'quest-tracker': at(rect(6, 6, 186, 58)), sidepanel: at(rect(472, 6, 56, 56)),
+    'minimap-panel': at(rect(616, 6, 128, 130)), 'spec-orb': at(rect(560, 36, 30, 30)), ...extra,
+  });
+  const flat = place({ w: 750, h: 342, flat: true, els: sideEls() });
+  assert.deepEqual([flat.top, flat.left], [6, 200], 'level with the objectives, just right of them');
+  assert.ok(flat.left + flat.width <= 472 - 8, 'stops short of the Bag launcher');
+  // With the boss bar and gate panel showing, it moves right of the wider of them.
+  const fight = place({ w: 750, h: 342, flat: true, els: sideEls({ 'boss-bar': at(rect(6, 6, 300, 50)), 'wave-hud': at(rect(6, 60, 300, 50)) }) });
+  assert.equal(fight.left, 314);
+  assert.equal(fight.top, 68, 'too little room beside the Bag, so just below it');
+  assert.ok(fight.left + fight.width <= 560 - 8 && fight.width >= 200, 'wide enough for a few lines, clear of the orbs');
 });

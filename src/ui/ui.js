@@ -2393,8 +2393,8 @@ export class UI {
     const tr = box('quest-tracker');
     const narrow = window.innerWidth <= 600;
     // A phone on its side has no room under the top-left strip (the Auto
-    // button and joystick are right below it), so the tip waits bottom-centre,
-    // between the joystick and the skill arc.
+    // button and joystick are right below it), and the bottom belongs to the
+    // thumbs, so the tip sits along the top, between the strip and the Bag.
     const flat = !narrow && typeof matchMedia === 'function' && matchMedia('(pointer: coarse) and (max-height: 500px)').matches;
     let top = tr ? tr.bottom + 6 : 44, left = tr ? tr.left : 10;
     let width = Math.min(340, window.innerWidth - left - 10);
@@ -2412,16 +2412,38 @@ export class UI {
       top = Math.max(top, mm ? mm.bottom + 6 : 0, hp ? hp.bottom + 14 : 0);
       if (dock && dock.width < 100 && dock.bottom > top && dock.left > left) width = Math.min(width, dock.left - 6 - left);
     } else if (flat) {
-      const joy = box('joystick');
-      let right = window.innerWidth - 10;
-      for (const e of document.querySelectorAll('#ability-buttons .ability-btn, #attack-btn, #interact-btn')) {
-        const r = e.getBoundingClientRect();
-        if (r.width) right = Math.min(right, r.left - 8);
+      // Right of the strip (objectives, boss bar, gate panel), left of the Bag
+      // launcher, the orbs and the minimap; it wraps to a few lines instead.
+      const rectOf = (id) => {
+        const e = document.getElementById(id);
+        const r = e && !e.classList.contains('hidden') ? e.getBoundingClientRect() : null;
+        return r && r.width && r.height ? r : null;
+      };
+      let lo = 6, hi = window.innerWidth - 6;
+      top = Infinity;   // level with the top of the strip
+      for (const id of ['quest-tracker', 'boss-bar', 'wave-hud']) {
+        const r = rectOf(id);
+        if (r && r.left < window.innerWidth / 2) { lo = Math.max(lo, r.right + 8); top = Math.min(top, r.top); }
       }
-      left = joy ? joy.right + 8 : 140;
-      width = Math.max(160, Math.min(400, right - left));
-      el.style.width = `${Math.round(width)}px`;   // so its height is measured at this width
-      top = window.innerHeight - el.offsetHeight - 8;
+      for (const id of ['minimap-panel', 'spec-orb', 'prayer-orb', 'hp-orb']) {
+        const r = rectOf(id);
+        if (r && r.left > window.innerWidth / 2) hi = Math.min(hi, r.left - 8);
+      }
+      for (const e of document.querySelectorAll('#minimap-panel .orb-cap')) {   // the orbs' caption pills stick out left
+        const r = e.getBoundingClientRect();
+        if (r.width && r.left > window.innerWidth / 2) hi = Math.min(hi, r.left - 8);
+      }
+      if (top === Infinity) top = 6;
+      left = lo;
+      width = Math.min(360, hi - lo);
+      // The Bag launcher sits in that gap. Beside it when there's room for a
+      // few lines; when the boss bar widens the strip, just below it instead.
+      const bag = rectOf('sidepanel');
+      if (bag && bag.width < 100 && bag.right > lo && bag.left < hi) {
+        if (bag.left - 8 - lo >= 240) width = Math.min(width, bag.left - 8 - lo);
+        else top = Math.max(top, bag.bottom + 6);
+      }
+      width = Math.max(120, width);
     }
     const key = `${Math.round(top)}|${Math.round(left)}|${Math.round(width)}`;
     if (el._at === key) return;
