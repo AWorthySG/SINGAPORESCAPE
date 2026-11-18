@@ -1414,8 +1414,14 @@ export class Game {
    *  trees together), up to AUTO_GATHER_KINDS of them, oldest dropped first. */
   _addAutoGatherKind(obj) {
     if (this.gatherPicks.size) return;   // a ticked list decides the round instead
-    const list = this.autoGatherKinds;
+    let list = this.autoGatherKinds;
     if (list.includes(obj.objId)) return;
+    // Moving on to another skill (fishing, then off to chop trees) starts a new
+    // round: only kinds of the same skill take turns, or auto gather kept
+    // walking back to the old fishing spots between trees.
+    const skillOf = (id) => this.world.objects.find((o) => o.objId === id)?.def?.skill;
+    const skill = obj.def?.skill ?? skillOf(obj.objId);
+    if (skill && list.some((id) => skillOf(id) !== skill)) list = this.autoGatherKinds = [];
     list.push(obj.objId);
     if (list.length > AUTO_GATHER_KINDS) list.shift();
     if (list.length > 1) this.msg(`Auto gather now takes turns at: ${list.map((id) => this._gatherKindName(id)).join(', ')}. Turn it off and on to start a new list.`, 'system');
@@ -1432,6 +1438,7 @@ export class Game {
   toggleGatherPick(objIds) {
     const on = !objIds.every((id) => this.gatherPicks.has(id));
     for (const id of objIds) { if (on) this.gatherPicks.add(id); else this.gatherPicks.delete(id); }
+    if (!on) this._forgetGatherKinds(objIds);
     this.saveSoon = true;
     this.bus.emit('autogather');
     return on;
@@ -1440,11 +1447,20 @@ export class Game {
   /** Untick every kind at once (skill guides and the Auto menu). Returns how many were cleared. */
   clearGatherPicks() {
     const n = this.gatherPicks.size;
+    this._forgetGatherKinds([...this.gatherPicks]);
     this.gatherPicks.clear();
     this.saveSoon = true;
     this.bus.emit('autogather');
     this.msg('Cleared your auto gather picks: it goes back to whatever you gather.', 'system');
     return n;
+  }
+
+  /** An unticked kind leaves auto gather altogether: out of the round it built
+   *  up by itself, and no longer the node it goes back to once idle (unticking
+   *  fishing used to leave it walking back to a fishing spot). */
+  _forgetGatherKinds(objIds) {
+    this.autoGatherKinds = (this.autoGatherKinds || []).filter((id) => !objIds.includes(id));
+    if (this._autoLife?.kind === 'gather' && objIds.includes(this._autoLife.objId)) this._autoLife = null;
   }
 
   /** Auto gather with a ticked list and nothing to do: head for the nearest ticked node. */

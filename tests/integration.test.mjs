@@ -6884,6 +6884,42 @@ test('auto gather takes turns between several kinds of node (copper and tin toge
   assert.deepEqual(g.autoGatherKinds, []);
 });
 
+test('auto gather: moving on to another skill or unticking a kind never sends you back to the old nodes', () => {
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('swordsman');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  g.npcs = [];
+  const fish = g.world.objects.find((o) => o.objId === 'fishing_spot');
+  const tree = g.world.objects.find((o) => o.objId === 'tree');
+  g.toggleAutoGather(true);
+  // Fishing, then off to chop trees: the round restarts with trees only.
+  g._addAutoGatherKind(fish);
+  assert.deepEqual(g.autoGatherKinds, ['fishing_spot']);
+  g._addAutoGatherKind(tree);
+  assert.deepEqual(g.autoGatherKinds, ['tree'], 'another skill starts a new round');
+  g.player.x = g.player.tx = tree.x; g.player.y = g.player.ty = tree.y + 1;
+  for (let i = 0; i < 20; i++) assert.notEqual(g._nextGatherNode('tree')?.def?.skill, 'fishing', 'never back to a fishing spot');
+  // Same skill still takes turns (copper and tin).
+  g.toggleAutoGather(false); g.toggleAutoGather(true);
+  g._addAutoGatherKind(g.world.objects.find((o) => o.objId === 'copper_rock'));
+  g._addAutoGatherKind(g.world.objects.find((o) => o.objId === 'tin_rock'));
+  assert.deepEqual(g.autoGatherKinds, ['copper_rock', 'tin_rock']);
+  // Unticking fishing drops it from the round and from the job auto gather returns to.
+  g.toggleAutoGather(false); g.toggleAutoGather(true);
+  g.toggleGatherPick(['fishing_spot']);
+  g._autoLife = { kind: 'gather', objId: 'fishing_spot' };
+  g.autoGatherKinds = ['fishing_spot'];
+  g.toggleGatherPick(['fishing_spot']);
+  assert.equal(g.gatherPicks.size, 0);
+  assert.deepEqual(g.autoGatherKinds, []);
+  assert.equal(g._autoLife, null, 'no longer heads back to a fishing spot when idle');
+  // "Untick all" does the same.
+  g.toggleGatherPick(['fishing_spot']); g.toggleGatherPick(['tree']);
+  g._autoLife = { kind: 'gather', objId: 'fishing_spot' };
+  g.clearGatherPicks();
+  assert.equal(g._autoLife, null);
+});
+
 test('auto quest can run Slayer tasks: fetch one, hunt only its monster kind, fetch the next', () => {
   globalThis.localStorage = fakeStorage(); clearSave();
   const g = new Game(); g.start(); g.chooseClass('swordsman');
