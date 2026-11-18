@@ -290,7 +290,11 @@ export function mechAutoFight(game, tgt, fight) {
   const m = boss.mech;
   if (!m) return null;
   if (fight) fight.since = game.tickCount;   // a shield or healers aren't a stalled fight
-  if (m.type === 'cast' && game.autoCfg?.abilities !== false && !game.armedAbility) game._autoAbility(() => true);
+  // A skill that goes off at once (a guard, heal or buff, or an instant strike)
+  // interrupts straight away; an armed strike only when its hit lands.
+  if (m.type === 'cast' && game.autoCfg?.abilities !== false && !game.armedAbility) {
+    game._autoAbility((ab) => ab.kind !== 'attack' || ab.instant) || game._autoAbility(() => true);
+  }
   if (m.type === 'adds' && !tgt.mechHealer) {
     const p = game.player;
     const h = m.adds.filter((a) => a.alive && a.hp > 0).sort((a, b) => chebyshev(p.x, p.y, a.x, a.y) - chebyshev(p.x, p.y, b.x, b.y))[0];
