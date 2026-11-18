@@ -3120,6 +3120,8 @@ body #tip-toast.tip-strip { font-size: 11px; padding: 4px 6px 4px 7px; border-ra
   background: var(--ui-card); border: var(--stroke) solid var(--ui-line); border-radius: var(--ui-radius); box-shadow: var(--ui-shadow);
 }
 .ui-stat > .ui-ic { grid-row: 1 / span 2; }
+.ui-stat-label, .ui-stat-num { grid-column: -2; }   /* the right-hand column, with or without an icon */
+.ui-stat:not(:has(> .ui-ic)) { column-gap: 0; }
 .ui-stat-label { font-size: var(--fs-cap); font-weight: var(--fw-label); letter-spacing: .06em; text-transform: uppercase; color: var(--aw-text-sec); }
 .ui-stat-num { font-size: var(--fs-lg); font-weight: var(--fw-title); font-variant-numeric: tabular-nums; color: var(--aw-text); }
 .ui-stat-num.counting { color: var(--aw-sun-deep); }
@@ -3142,6 +3144,12 @@ button .ui-ic { margin-right: 2px; }
 #modal-body .modal-cols > div > .item-grid {
   padding: var(--sp-3); background: var(--ui-well); border: var(--stroke-hair) dashed var(--ui-line-soft); border-radius: var(--ui-radius);
 }
+/* As many cells per row as fit, so neither side spills past the window (on
+   touch screens the cells are at least 44px wide). */
+#modal-body .modal-cols > div { min-width: 0; }
+#modal-body .modal-cols > div > .item-grid:empty { display: none; }   /* an empty bank says so in words instead */
+#modal-body .modal-cols > div > .item-grid { grid-template-columns: repeat(auto-fill, minmax(var(--cell-min, 36px), 1fr)); }
+@media (hover: none) and (pointer: coarse) { :root { --cell-min: 44px; } }
 .bank-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-top: 0; }
 .bank-head > span { flex: none; }
 .bank-search { min-width: 0; flex: 1; max-width: 180px; font-size: var(--fs-sm); font-weight: var(--fw-read); }
