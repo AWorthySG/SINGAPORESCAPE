@@ -1429,6 +1429,16 @@ export class Game {
     return on;
   }
 
+  /** Untick every kind at once (skill guides and the Auto menu). Returns how many were cleared. */
+  clearGatherPicks() {
+    const n = this.gatherPicks.size;
+    this.gatherPicks.clear();
+    this.saveSoon = true;
+    this.bus.emit('autogather');
+    this.msg('Cleared your auto gather picks: it goes back to whatever you gather.', 'system');
+    return n;
+  }
+
   /** Auto gather with a ticked list and nothing to do: head for the nearest ticked node. */
   startGatherPicks() {
     if (!this.gatherPicks.size) return false;
