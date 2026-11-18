@@ -6665,7 +6665,7 @@ test('boss signature weapons: drop 1 kill in 5, for any class, and are never swa
   assert.ok(sig, `the boss drops ${sid} (${got.map((l) => l[0]).join(', ')})`);
   assert.equal(sig[2], 'legendary');
   assert.ok(chat.some((t) => t.startsWith(`Signature drop! ${ITEMS[sid].name} (for `)), 'with a chat line');
-  assert.ok(game.equipment.masteryRank(sid) >= 1, 'and a quality roll like other boss gear');
+  assert.ok(sig[3] && sig[3] !== 'fine', 'and a quality roll like other boss gear (kept on the copy)');
   // With ordinary (seeded) luck it drops about 1 kill in 5 (60 of 300, sd ~7).
   let n = 0;
   for (let i = 0; i < 300; i++) { game.rollDrops(boss); if (got.some((l) => l[0] === sid)) n++; }

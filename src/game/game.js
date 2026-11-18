@@ -3601,9 +3601,10 @@ export class Game {
     for (const l of loot) {
       if (!getItem(l[0]).equip) continue;
       const q = rollQuality(l[3] === 'boss' || def.boss ? 'boss' : npc.champion ? 'champion' : 'normal');
+      const sig = l[3] === 'sig';
       l.length = 3;
       if (!q) continue;
-      l[2] = l[3] === 'sig' ? 'legendary' : QUALITY[q].rarity;
+      l[2] = sig ? 'legendary' : QUALITY[q].rarity;
       l[3] = q;
       this._announceQuality(l[0], q);
     }
