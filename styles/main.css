@@ -3037,3 +3037,8 @@ body #tip-toast.tip-strip { font-size: 11px; padding: 4px 6px 4px 7px; border-ra
   #region-label { display: none; }
   #hover-text { max-width: calc(100vw - 240px); }
 }
+
+/* Golden hours (skillhours.js): a skill's line in the Skills tab lights up gold
+   while its time of day gives +50% XP. */
+.skill-perks.golden { color: var(--aw-text-sec, #6b5a3a); }
+.skill-perks.golden.on { color: #8a5a00; font-weight: 800; background: #ffe9a8; border-radius: 6px; padding: 0 5px; }
