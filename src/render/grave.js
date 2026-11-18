@@ -1,6 +1,6 @@
 // The gravestone left where you last fell (see game/playbalance.js), drawn
 // procedurally in the sticker style: a rounded grey headstone with a navy ink
-// outline and white border, a little cross, a grassy mound, and a soft pulse
+// outline (no white border), a little cross, a grassy mound, and a soft pulse
 // so it is easy to spot on the way back. (No painted art for it yet.)
 
 const INK = '#22304A';
@@ -18,7 +18,7 @@ export function drawGrave(ctx, x, y, timeMs = 0) {
   // Mound.
   ctx.fillStyle = '#8fbf6a'; ctx.strokeStyle = INK; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.ellipse(x, y - 1, 12, 4.5, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  // Headstone: white sticker border first, then the stone.
+  // Headstone: just the stone and its navy ink line (no white border, like all world art).
   const stone = (pad) => {
     const w = 16 + pad * 2, h = 20 + pad, l = x - w / 2, t = y - 2 - h;
     ctx.beginPath();
@@ -26,7 +26,6 @@ export function drawGrave(ctx, x, y, timeMs = 0) {
     ctx.arc(x, t + w / 2, w / 2, Math.PI, 0);
     ctx.lineTo(l + w, y - 2); ctx.closePath();
   };
-  ctx.fillStyle = '#ffffff'; stone(2.5); ctx.fill();
   ctx.fillStyle = '#b9c2cf'; stone(0); ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = INK; ctx.stroke();
   ctx.fillStyle = 'rgba(255,255,255,0.35)';
   ctx.beginPath(); ctx.arc(x - 3, y - 15, 3.5, 0, Math.PI * 2); ctx.fill();
