@@ -62,6 +62,15 @@ export const POTIONS = {
   super_ranging: { name: 'Super ranging', level: 78, xp: 185, inputs: [['ranging_potion', 1], ['butterfly_pea', 1]], group: 'ranging', style: 'ranged', fx: { crit: 0.06, dmg: 0.14 }, ms: 6 * MIN, color: '#2a9a7a' },
   super_magic: { name: 'Super magic', level: 84, xp: 200, inputs: [['magic_potion', 1], ['butterfly_pea', 1]], group: 'magic', style: 'magic', fx: { crit: 0.06, dmg: 0.14 }, ms: 6 * MIN, color: '#4a2ac0' },
   super_healing: { name: 'Super healing', level: 90, xp: 220, inputs: [['healing_potion', 1], ['ginseng', 1]], fx: { heal: 0.6 }, color: '#d84a80' },
+  // Skill chains: brews for gathering, not fighting. Their fx keys (fishYield,
+  // huntYield, mineYield) add to that skill's double-yield chance
+  // (skillunlocks.js); the combat code ignores them. `artFrom` borrows a sticker.
+  anglers_brew: { name: "Angler's brew", level: 25, xp: 60, inputs: [['kangkong', 1], ['fishing_bait', 5], ['vial', 1]], group: 'angler', fx: { fishYield: 0.15 }, ms: 10 * MIN, color: '#4ab0e0',
+    desc: '+15% chance of a double catch when fishing, for 10 minutes.', artFrom: ['defence_potion', 'hue-rotate(-20deg) brightness(1.15)'] },
+  trackers_brew: { name: "Tracker's brew", level: 50, xp: 110, inputs: [['sireh_leaf', 1], ['squirrel_pelt', 1], ['vial', 1]], group: 'tracker', fx: { huntYield: 0.15 }, ms: 10 * MIN, color: '#b08050',
+    desc: '+15% chance of a second Hunter catch, for 10 minutes.', artFrom: ['strength_potion', 'sepia(0.7) saturate(1.2)'] },
+  prospectors_brew: { name: "Prospector's brew", level: 75, xp: 170, inputs: [['ginseng', 1], ['granite', 1], ['vial', 1]], group: 'prospector', fx: { mineYield: 0.15 }, ms: 10 * MIN, color: '#c0a060',
+    desc: '+15% chance of double ore when mining, for 10 minutes.', artFrom: ['attack_potion', 'sepia(0.8) saturate(1.4) hue-rotate(10deg)'] },
   elixir_of_temasek: { name: 'Elixir of Temasek', level: 110, xp: 420,
     inputs: [['super_attack', 1], ['super_strength', 1], ['super_defence', 1], ['lingzhi', 1], ['hornbill_casque', 1]],
     group: 'elixir', fx: { crit: 0.08, dmg: 0.2, reduce: 0.14 }, ms: 10 * MIN, color: '#f0c040' },
@@ -122,6 +131,8 @@ export const FLETCH = [
   { result: 'rune_arrow', qty: 15, inputs: [['arrow_shaft', 15], ['feather', 15], ['rune_bar', 1]], level: 75, xp: 188 },
   { result: 'magic_shortbow', qty: 1, inputs: [['magic_logs', 2]], level: 80, xp: 166, tool: 'knife' },
   { result: 'magic_longbow', qty: 1, inputs: [['magic_logs', 3]], level: 85, xp: 250, tool: 'knife' },
+  // Skill chain: decoys that help Hunter (unlocks.js GATHER_CONSUMABLES).
+  { result: 'bamboo_decoy', qty: 5, inputs: [['bamboo', 1], ['feather', 5]], level: 25, xp: 35, tool: 'knife' },
 ];
 
 // ---- Endgame fletching (Fletching 100-300): the bows, staves, wands, rifles

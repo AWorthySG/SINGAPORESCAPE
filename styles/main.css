@@ -3349,3 +3349,27 @@ body.cb-safe #hp-orb.low::after {
 }
 .sgx-picked { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; margin: 6px 0; padding: 6px 8px;
   font-size: 12px; background: #e6f7df; border: 2px solid var(--aw-ink); border-radius: var(--r1); }
+
+/* ---------- Skill unlocks and the kampong home (skillunlocks.js, homeui.js) ---------- */
+.sgx-unlocks { margin: 6px 0 8px; padding: 6px 8px; border: 1px solid rgba(34,48,74,.25); border-radius: 10px; background: rgba(255,255,255,.35); }
+.sgx-unlock { display: flex; align-items: center; gap: 8px; padding: 3px 0; opacity: .6; }
+.sgx-unlock.on { opacity: 1; }
+.sgx-unlock small { display: block; font-size: 11px; }
+.sgx-tp { margin-top: 6px; min-height: 40px; }
+.sgx-howto { margin: 6px 0; padding: 6px 8px; border-radius: 10px; background: rgba(245,184,46,.18); font-size: 13px; }
+#home-btn {
+  position: absolute; bottom: 1px; left: 1px; z-index: 22; cursor: var(--cur-pointer);
+  font-size: 9px; font-weight: 800; letter-spacing: .5px; color: #06201c;
+  background: linear-gradient(180deg, #bfe8a6, #7cc65a); border: 1px solid var(--ink);
+  border-radius: 5px; padding: 2px 6px;
+}
+#home-btn.hidden, #minimap-panel.collapsed #home-btn { display: none; }
+.home-intro { margin-bottom: 10px; }
+.home-buy { min-height: 40px; }
+.home-sub { margin: 10px 0 4px; font-weight: 700; }
+.home-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 4px; border-bottom: 1px dashed rgba(34,48,74,.18); }
+.home-row small { display: block; font-size: 11px; }
+.home-row .wm-go { min-height: 40px; flex: none; }
+.home-grid { display: flex; flex-wrap: wrap; gap: 4px; }
+.home-cell { position: relative; width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(34,48,74,.25); border-radius: 8px; background: rgba(255,255,255,.4); padding: 0; }
+.home-cell span { position: absolute; right: 2px; bottom: 0; font-size: 10px; font-weight: 700; }

@@ -905,6 +905,8 @@ import { ITEMS } from '../data/items.js';
     ['codex_quill', 'feather', 'hue-rotate(200deg) saturate(1.6)'],
     ['mosquito_net_cape', 'pilgrim_cape', 'grayscale(0.6) brightness(1.25)'],
   ]) { BORROW_ID[id] = from; BORROW_TINT[id] = tint; I[id] = I[from] || I.coins; }
+  // Items that name a sticker to borrow (`artFrom: [from, tint]`, e.g. the skill-chain goods) borrow it, tinted.
+  for (const [id, it] of Object.entries(ITEMS)) if (it.artFrom && !ITEM_ART.has(id)) { BORROW_ID[id] = it.artFrom[0]; BORROW_TINT[id] = it.artFrom[1]; I[id] ||= I[it.artFrom[0]] || I.coins; }
   // Boss signature weapons have painted stickers (ITEM_ART); their base weapon's vector is the fallback.
   for (const [id, it] of Object.entries(ITEMS)) if (it.signature && !I[id]) I[id] = I[it.signature.base];
   function hueOf(hex) {

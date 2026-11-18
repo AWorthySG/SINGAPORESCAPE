@@ -164,6 +164,15 @@ export function afterFireLit(game, fire, logId) {
   if (roll(game, fx.save)) { game.inventory.add(logId, 1); game.msg('Skill unlock: the log catches without burning away.'); }
 }
 
+/** The skill tooltip's unlock lines (HTML-safe: the data has no markup): how
+ *  many rungs are open, and the next one. '' for skills without unlocks. */
+export function unlockTipText(skill, level) {
+  const all = SKILL_UNLOCKS[skill];
+  if (!all) return '';
+  const open = all.filter((u) => level >= u.level).length, next = nextUnlock(skill, level);
+  return `<br>Unlocks: <b>${open} of ${all.length}</b>` + (next ? `<br>At level ${next.level}: ${next.name} (${next.desc})` : '<br>Every unlock open');
+}
+
 /** The level-up banner for a new unlock (and its chat line). */
 export function announceUnlocks(game, skill, level) {
   for (const u of unlocksAt(skill, level)) {

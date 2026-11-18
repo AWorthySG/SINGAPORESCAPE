@@ -2,6 +2,8 @@ import { CLASSES, CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, canWear, ARMOUR
 import { SKILL_HOURS, windowLabel } from '../data/skillhours.js';
 import { classPerks, classPerkSummary } from '../game/classperks.js';
 import { LIFE_PERKS, LIFE_PERK_SKILLS, LIFE_PERK_FULL_LEVEL, lifePerkText, lifePerkNext } from '../game/lifeperks.js';
+import { unlockTipText } from '../game/skillunlocks.js';
+import { installHomeUI } from './homeui.js';
 import * as Mercs from '../game/mercenary.js';
 import { PERK_SKILLS, PERK_TRACKS, PERK_EVERY, trackPerks, rankName } from '../data/perks.js';
 import { heroArtSrc, portraitFor } from '../render/sprites.js';
@@ -299,6 +301,7 @@ export class UI {
     this.renderSpec();
     this.renderAbilities();
     this.renderTracker();
+    installHomeUI(this);   // the kampong home's panel and its button by the map (homeui.js)
   }
 
   // ---------------- Active-combat ability bar ----------------
@@ -2035,7 +2038,7 @@ export class UI {
     if (!LIFE_PERKS[skill]) return '';
     const next = lifePerkNext(skill, lvl);
     return `<br>Combat perk: <b>${lifePerkText(skill, lvl)}</b>` +
-      (next ? `<br>At level ${next.level}: ${next.text}` : '<br>Full strength');
+      (next ? `<br>At level ${next.level}: ${next.text}` : '<br>Full strength') + unlockTipText(skill, lvl);
   }
 
   /** Slayer's tooltip: the on-task bonuses now and at full strength, and the next unlock. */

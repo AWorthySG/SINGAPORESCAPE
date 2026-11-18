@@ -256,5 +256,6 @@ export class Home {
     this.chest = Array.isArray(data.chest) ? data.chest.filter((e) => e && ITEMS[e.id] && e.qty > 0).map((e) => ({ id: e.id, qty: Math.floor(e.qty) })) : [];
     this.tpReady = (this.game.tickCount || 0) + (typeof data.tpWait === 'number' && data.tpWait > 0 ? Math.floor(data.tpWait) : 0);
     this.refresh();
+    this.game.bus.emit('home');
   }
 }

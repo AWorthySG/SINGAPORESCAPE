@@ -336,6 +336,12 @@ const RAW = {
   raw_dragon_arowana: { name: 'Raw dragon arowana', icon: '🐉', value: 3500, tags: ['raw'], examine: 'A golden dragonfish from the Shadow Rift. Cook it first.' },
   arowana_feast: { name: 'Arowana feast', icon: '🐉', value: 6000, heal: 300, healPct: 1, meal: { ms: 60000, fx: { dmg: 0.1 } },
     examine: 'A banquet fit for an emperor. Heals all of your life and fills you with strength: +10% damage for 60 seconds.' },
+  // Skill-chain dishes (cooking.js DISHES): boss-fight meals from Hunter, Farming and Fishing goods.
+  // `artFrom` borrows another item's sticker, tinted, until their own art arrives (icons.js).
+  boar_rendang: { name: 'Boar rendang', icon: '🍛', value: 450, heal: 24, meal: { ms: 120000, fx: { boss: 0.08 } }, artFrom: ['laksa', 'sepia(0.6) saturate(1.8) hue-rotate(-20deg) brightness(0.9)'],
+    examine: 'Wild boar slow-cooked in spiced coconut. Heals 24 and steels you for a boss: +8% damage to bosses and champions for 2 minutes.' },
+  fish_head_curry: { name: 'Fish head curry', icon: '🍛', value: 1200, heal: 34, meal: { ms: 180000, fx: { boss: 0.12, reduce: 0.05 } }, artFrom: ['seafood_stew', 'sepia(0.5) saturate(2) hue-rotate(-25deg)'],
+    examine: 'A whole fish head in a fiery curry. Heals 34; for 3 minutes +12% damage to bosses and champions and 5% less damage taken.' },
 
   // ---- Fishing bait, junk & treasure ----
   fishing_bait: { name: 'Fishing bait', icon: '🪱', value: 2, stackable: true, tags: ['bait'], examine: 'Improves your catch rate when fishing.' },
@@ -804,8 +810,8 @@ for (const [id, name, lvl, , , , , heal, value] of CROPS) {
     examine: heal ? `Fresh ${name.toLowerCase()} from the farm. Heals ${heal}.` : `A farmed herb, ready for Herblore.` };
 }
 for (const [id, p] of Object.entries(POTIONS)) {
-  const what = p.fx.heal && !p.fx.dmg && !p.fx.crit ? `Restores ${Math.round(p.fx.heal * 100)}% of your life.` : `Boosts you in a fight for ${Math.round(p.ms / 60000)} minutes.`;
-  RAW[id] = { name: p.name, icon: '🧪', value: Math.round(20 + p.level * p.level * 0.6), stackable: true, potion: true, tags: ['potion'], examine: `${what} (Herblore ${p.level})` };
+  const what = p.desc || (p.fx.heal && !p.fx.dmg && !p.fx.crit ? `Restores ${Math.round(p.fx.heal * 100)}% of your life.` : `Boosts you in a fight for ${Math.round(p.ms / 60000)} minutes.`);
+  RAW[id] = { name: p.name, icon: '🧪', value: Math.round(20 + p.level * p.level * 0.6), stackable: true, potion: true, tags: ['potion'], examine: `${what} (Herblore ${p.level})`, ...(p.artFrom ? { artFrom: p.artFrom } : {}) };
 }
 Object.assign(RAW, {
   knife: { name: 'Knife', icon: '🔪', value: 6, tool: 'knife', examine: 'For fletching logs into shafts, bows, staves and wands.' },
@@ -817,6 +823,13 @@ Object.assign(RAW, {
   venison: { name: 'Venison', icon: '🍖', value: 80, heal: 13, examine: 'Roast venison.' },
   raw_boar_meat: { name: 'Raw boar meat', icon: '🥩', value: 70, tags: ['raw'], examine: 'Wild boar. Cook it first.' },
   boar_steak: { name: 'Boar steak', icon: '🍖', value: 130, heal: 17, examine: 'A thick, smoky boar steak.' },
+  // Skill-chain tools (smithing, crafting and fletching feed Fishing and Hunter; see unlocks.js GATHER_CONSUMABLES).
+  barbed_hooks: { name: 'Barbed hooks', icon: '🪝', value: 6, stackable: true, artFrom: ['arrow_shaft', 'grayscale(0.8) brightness(1.1)'],
+    examine: 'Little iron hooks. Craft them with feathers into fishing lures. (Smithing 25)' },
+  feather_lure: { name: 'Feather lure', icon: '🪶', value: 12, stackable: true, artFrom: ['fishing_bait', 'hue-rotate(160deg) saturate(1.6)'],
+    examine: 'A bright lure. One is used on each catch while you carry them: +10% chance of a double catch. (Crafting 25)' },
+  bamboo_decoy: { name: 'Bamboo decoy', icon: '🎋', value: 15, stackable: true, artFrom: ['arrow_shaft', 'hue-rotate(60deg) saturate(1.5)'],
+    examine: 'A carved bird decoy. One is used on each Hunter catch while you carry them: +10% chance of a second catch. (Fletching 25)' },
   python_skin: { name: 'Python skin', icon: '🟨', value: 120, stackable: true, tags: ['hide'], examine: 'A patterned skin. Craft four into a studded body.' },
   croc_hide: { name: 'Crocodile hide', icon: '🟢', value: 300, stackable: true, tags: ['hide'], examine: 'Tough as armour. Craft it into dragonhide.' },
   hornbill_casque: { name: 'Hornbill casque', icon: '🟠', value: 1500, stackable: true, examine: 'A rare casque, prized by herbalists.' },
