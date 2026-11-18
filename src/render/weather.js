@@ -23,7 +23,7 @@ export const MIST_REGIONS = new Set(['Bukit Timah', 'MacRitchie Reservoir', 'Man
 // Regions with a sky of their own, layered over their colour mood: the Rift's
 // blood-red sky, the Peaks' thin cold air.
 export const REGION_SKY = {
-  'The Shadow Rift': [190, 40, 56, 0.12],
+  'The Shadow Rift': [200, 36, 50, 0.16],
   'The Celestial Peaks': [196, 222, 255, 0.1],
   'Pulau Hantu': [120, 150, 200, 0.06],
 };
@@ -85,7 +85,7 @@ export function regionWeather(zone, base) {
   return { rain: base.rain, snow: 0, embers: 0, storm: base.storm, flash: base.flash };
 }
 
-const RAIN_CAP = 170, RAIN_CAP_LOW = 50, SNOW_CAP = 110, EMBER_CAP = 26, RIPPLE_CAP = 26;
+const RAIN_CAP = 170, RAIN_CAP_LOW = 50, SNOW_CAP = 110, EMBER_CAP = 26, RIPPLE_CAP = 40;
 
 export class Weather {
   constructor() {
@@ -97,7 +97,7 @@ export class Weather {
     this._sky = [0, 0, 0, 0];
     // The washes handed to the light pass: rain's grey, mist's pale veil, the region's sky.
     this._rainWash = [70, 82, 108, 0];
-    this._mistWash = [228, 236, 240, 0];
+    this._mistWash = [214, 224, 234, 0];
     this.state = { rain: 0, snow: 0, embers: 0, storm: 0, flash: 0, gloom: 0,
       washes: [this._rainWash, this._mistWash, this._sky], flashWash: [236, 242, 255, 0] };
     this._mistImg = null;
@@ -111,10 +111,10 @@ export class Weather {
     const s = this.state;
     s.rain = w.rain; s.snow = w.snow; s.embers = w.embers; s.storm = w.storm; s.flash = w.flash;
     s.gloom = Math.max(w.rain * 0.45, w.storm * 0.75, w.snow * 0.2);
-    this._rainWash[3] = w.rain * 0.08 + w.storm * 0.1;
+    this._rainWash[3] = w.rain * 0.1 + w.storm * 0.16;
     const phase = game.dayPhase ? game.dayPhase() : 0.5;
     this.mist = MIST_REGIONS.has(zone) ? Math.max(mistAt(phase), w.rain * 0.35) : 0;
-    this._mistWash[3] = this.mist * 0.1;
+    this._mistWash[3] = this.mist * 0.16;
     s.flashWash[3] = w.flash * 0.32;
     blendMood(this._sky, REGION_SKY[zone] || NO_SKY, dt);
     // Puddles come up over ~20s of rain and dry over a minute after.
@@ -154,8 +154,9 @@ export class Weather {
     // Ripples: rain landing on water tiles in view.
     const rp = this._ripples;
     if (s.rain > 0.05) {
-      const spawn = s.rain * dt * 0.06;
-      for (let i = 0; i < spawn && rp.length < RIPPLE_CAP; i++) {
+      // A few random tiles are tried each frame; only those on water ripple.
+      const tries = Math.ceil(s.rain * dt * 0.4);
+      for (let i = 0; i < tries && rp.length < RIPPLE_CAP; i++) {
         const tx = x0 + Math.floor(Math.random() * (x1 - x0 + 1)), ty = y0 + Math.floor(Math.random() * (y1 - y0 + 1));
         if (world.terrainAt(tx, ty) !== TERRAIN.WATER) continue;
         rp.push({ x: tx * TILE + Math.random() * TILE, y: ty * TILE + Math.random() * TILE, life: 0 });
@@ -163,14 +164,14 @@ export class Weather {
     }
     if (rp.length) {
       ctx.save();
-      ctx.strokeStyle = '#eef6ff'; ctx.lineWidth = 1.2;
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5;
       for (let i = rp.length - 1; i >= 0; i--) {
         const r = rp[i];
         r.life += dt;
         if (r.life >= 650) { rp.splice(i, 1); continue; }
         const k = r.life / 650;
-        ctx.globalAlpha = (1 - k) * 0.7;
-        ctx.beginPath(); ctx.ellipse(r.x - ox, r.y - oy, 2 + k * 9, 1 + k * 4, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.globalAlpha = (1 - k) * 0.85;
+        ctx.beginPath(); ctx.ellipse(r.x - ox, r.y - oy, 2 + k * 11, 1 + k * 5, 0, 0, Math.PI * 2); ctx.stroke();
       }
       ctx.restore();
     }
@@ -184,7 +185,7 @@ export class Weather {
     const g = cv.getContext('2d');
     if (!g) return (this._mistImg = false);
     const grd = g.createRadialGradient(64, 32, 0, 64, 32, 64);
-    grd.addColorStop(0, 'rgba(240,244,246,0.9)'); grd.addColorStop(0.5, 'rgba(240,244,246,0.45)'); grd.addColorStop(1, 'rgba(240,244,246,0)');
+    grd.addColorStop(0, 'rgba(226,234,242,0.95)'); grd.addColorStop(0.5, 'rgba(226,234,242,0.55)'); grd.addColorStop(1, 'rgba(226,234,242,0)');
     g.setTransform(1, 0, 0, 0.5, 0, 16); g.fillStyle = grd; g.fillRect(0, -32, 128, 128);
     return (this._mistImg = cv);
   }
@@ -198,7 +199,7 @@ export class Weather {
       const img = this._mist();
       if (img) {
         ctx.save();
-        ctx.globalAlpha = Math.min(0.55, this.mist * 0.5);
+        ctx.globalAlpha = Math.min(0.8, this.mist * 0.8);
         const bw = Math.max(vw, vh) * 0.75, bh = bw * 0.38;
         const spanX = vw + bw, spanY = vh + bh;
         const wrap = (v, m) => ((v % m) + m) % m;
@@ -225,7 +226,7 @@ export class Weather {
     if (!drops.length) return;
     const slant = 0.22 + s.storm * 0.25, len = 13 + s.storm * 6, fall = 0.9 + s.storm * 0.3;
     ctx.save();
-    ctx.strokeStyle = 'rgba(214,226,246,0.55)'; ctx.lineWidth = 1.1; ctx.lineCap = 'round';
+    ctx.strokeStyle = 'rgba(226,236,252,0.7)'; ctx.lineWidth = 1.3; ctx.lineCap = 'round';
     ctx.beginPath();
     for (const d of drops) {
       d.y += fall * d.v * dt; d.x -= slant * fall * d.v * dt;

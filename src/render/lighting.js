@@ -60,12 +60,12 @@ export function lightFor(o) {
   return L;
 }
 
-/** How dark the night layer is (0 by day .. ~0.52 at midnight), from the
+/** How dark the night layer is (0 by day .. 0.58 at midnight), from the
  *  renderer's darkness level (0 noon .. 1 midnight). Eased in so dusk stays
  *  golden rather than grey. */
 export function nightDarkness(night) {
   const k = Math.max(0, Math.min(1, (night - 0.4) / 0.55));
-  return k * k * (3 - 2 * k) * 0.52;
+  return k * k * (3 - 2 * k) * 0.58;
 }
 
 /**
@@ -75,8 +75,8 @@ export function nightDarkness(night) {
  */
 export function skyWashes(phase, out = [[255, 176, 150, 0], [255, 128, 64, 0], [236, 214, 178, 0]]) {
   const bump = (c, w) => { const d = (phase - c) / w; return Math.exp(-d * d); };
-  out[0][3] = 0.13 * bump(0.255, 0.045);
-  out[1][3] = 0.17 * bump(0.745, 0.05);
+  out[0][3] = 0.15 * bump(0.255, 0.045);
+  out[1][3] = 0.22 * bump(0.745, 0.05);
   out[2][3] = 0.1 * bump(0.63, 0.06);
   return out;
 }
