@@ -464,3 +464,19 @@ test('art batch 1: weapon and armour types, signature weapons, bones and trinket
   for (const id of ['obsidian_vein', 'orichalcum_rock', 'jade_seam', 'fallen_star', 'skyglass_crystal', 'eternal_lode']) assert.ok(worldArt().has(`rock-${id}`), id);
   assert.ok(worldArt().has('obj-offering_shrine') && !OBJECTS.offering_shrine.art && !OBJECTS.offering_shrine.tint, 'offering shrine');
 });
+
+test('title art stays in lock-step with assets/title/ and fills a declared slot', async () => {
+  const { readdirSync, existsSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const { TITLE_ART, TITLE_ART_SLOTS, titleArtSrc } = await import('../src/ui/title.js');
+  const dir = fileURLToPath(new URL('../assets/title/', import.meta.url));
+  // The folder only exists once the first painted picture arrives.
+  const onDisk = new Set(existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.webp')).map((f) => f.slice(0, -5)) : []);
+  assert.deepEqual([...TITLE_ART].filter((s) => !onDisk.has(s)), [], 'declared title art has no file');
+  assert.deepEqual([...onDisk].filter((s) => !TITLE_ART.has(s)), [], 'title art file not declared in TITLE_ART');
+  for (const s of TITLE_ART) assert.ok(TITLE_ART_SLOTS[s], `${s} is a known slot`);
+  for (const [s, slot] of Object.entries(TITLE_ART_SLOTS)) {
+    assert.ok(slot.size && slot.use && slot.placeholder, `${s} says its size, use and stand-in`);
+    assert.equal(titleArtSrc(s), TITLE_ART.has(s) ? `assets/title/${s}.webp` : null);
+  }
+});

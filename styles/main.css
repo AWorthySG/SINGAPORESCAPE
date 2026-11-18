@@ -3042,3 +3042,310 @@ body #tip-toast.tip-strip { font-size: 11px; padding: 4px 6px 4px 7px; border-ra
    while its time of day gives +50% XP. */
 .skill-perks.golden { color: var(--aw-text-sec, #6b5a3a); }
 .skill-perks.golden.on { color: #8a5a00; font-weight: 800; background: #ffe9a8; border-radius: 6px; padding: 0 5px; }
+
+/* ============================================================================
+   One visual language for every window (vis-ui polish)
+   The newer windows (Monster Codex, shrine, Endless Gate) set the look: cream
+   paper, white sticker cards in navy ink, soft offset shadows, pill buttons.
+   This block names those pieces once (tokens, then components) and points
+   the older windows at them: bank, shops, settings, skills, gear, combat,
+   the quest journal, dialogue and the context menu. It only adds classes
+   and restyles; no ids or classes the code relies on are renamed.
+   ============================================================================ */
+:root {
+  /* Type: one display face for titles (Nunito at its heaviest, set a touch
+     tighter) and the same family at a readable weight for body text. */
+  --font-display: var(--font);
+  --fw-display: 900; --ls-display: -0.015em;
+  --fw-read: 600;   /* running text: descriptions, hints, dialogue */
+  /* Cards and rows */
+  --ui-card: var(--aw-card);
+  --ui-well: var(--aw-muted);
+  --ui-line: var(--aw-ink);
+  --ui-line-soft: var(--aw-ink-faint);
+  --ui-radius: var(--r2);
+  --ui-radius-sm: var(--r1);
+  --ui-shadow: var(--shadow-sticker-sm);
+  --ui-shadow-up: var(--shadow-sticker);
+  --ui-pad: var(--sp-4);
+  --ui-gap: var(--sp-3);
+  /* Motion */
+  --ui-ease: cubic-bezier(.2, .9, .35, 1.12);
+  --ui-ease-out: cubic-bezier(.25, .8, .3, 1);
+  --ui-fast: .12s; --ui-med: .2s;
+  /* Settings > Text size scales the words inside panels and windows. */
+  --ui-zoom: 1;
+  /* Status colours, so "good" and "bad" are set in one place (swapped by
+     Settings > Colour-blind friendly below). */
+  --st-good: var(--aw-grass-deep); --st-good-fill: var(--aw-grass); --st-good-bg: var(--aw-grass-bg);
+  --st-bad: var(--aw-accent);      --st-bad-fill: var(--aw-bloom);  --st-bad-bg: var(--aw-accent-bg);
+}
+
+/* ---------- Components ---------- */
+/* Card: a white sticker on the paper. */
+.ui-card {
+  background: var(--ui-card); border: var(--stroke) solid var(--ui-line); border-radius: var(--ui-radius);
+  box-shadow: var(--ui-shadow); padding: var(--ui-pad); color: var(--aw-text);
+}
+/* Section title: small capitals in the secondary ink, never shouting. */
+.ui-section-title, .modal-section-title, .set-section, .ach-cat {
+  font-size: var(--fs-xs); font-weight: var(--fw-label); letter-spacing: .07em; text-transform: uppercase;
+  color: var(--aw-text-sec);
+}
+/* Pill button (secondary) and primary button. */
+.ui-pill {
+  font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-label); color: var(--aw-text); cursor: var(--cur-pointer);
+  background: var(--ui-card); border: var(--stroke) solid var(--ui-line); border-radius: var(--r-pill);
+  box-shadow: var(--ui-shadow); padding: 6px 14px;
+}
+.ui-pill:hover { background: var(--aw-hover); }
+.ui-btn-primary {
+  font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-title); color: #fff; cursor: var(--cur-pointer);
+  background: var(--aw-accent); border: var(--stroke) solid var(--ui-line); border-radius: var(--r-pill);
+  box-shadow: var(--shadow-primary); padding: 6px 16px;
+}
+.ui-btn-primary:hover { background: var(--aw-accent-dk); }
+/* List row: one choice per line, lifting a little under the pointer. */
+.ui-row {
+  display: flex; align-items: center; gap: var(--ui-gap); padding: 8px 12px;
+  background: var(--ui-card); border: var(--stroke) solid var(--ui-line); border-radius: var(--ui-radius);
+  box-shadow: var(--ui-shadow); color: var(--aw-text);
+}
+/* Badge: a small inked chip with a word or number. */
+.ui-badge {
+  display: inline-flex; align-items: center; gap: 3px; font-size: var(--fs-cap); font-weight: var(--fw-title);
+  line-height: 1.2; padding: 2px 7px; border-radius: var(--r-pill); border: var(--stroke-hair) solid var(--ui-line);
+  background: var(--ui-well); color: var(--aw-text-sec);
+}
+/* Stat tile: a label over a big number (shop coins, bank totals). */
+.ui-stats { display: flex; flex-wrap: wrap; gap: var(--ui-gap); margin-bottom: var(--sp-4); }
+.ui-stat {
+  display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; align-items: center; column-gap: 8px;
+  min-width: 120px; padding: 6px 14px 7px 10px;
+  background: var(--ui-card); border: var(--stroke) solid var(--ui-line); border-radius: var(--ui-radius); box-shadow: var(--ui-shadow);
+}
+.ui-stat > .ui-ic { grid-row: 1 / span 2; }
+.ui-stat-label, .ui-stat-num { grid-column: -2; }   /* the right-hand column, with or without an icon */
+.ui-stat:not(:has(> .ui-ic)) { column-gap: 0; }
+.ui-stat-label { font-size: var(--fs-cap); font-weight: var(--fw-label); letter-spacing: .06em; text-transform: uppercase; color: var(--aw-text-sec); }
+.ui-stat-num { font-size: var(--fs-lg); font-weight: var(--fw-title); font-variant-numeric: tabular-nums; color: var(--aw-text); }
+.ui-stat-num.counting { color: var(--aw-sun-deep); }
+/* A painted icon inside a line of words. */
+.ui-ic { display: inline-flex; vertical-align: -0.28em; line-height: 0; }
+.ui-ic img, .ui-ic svg { display: block; }
+button .ui-ic { margin-right: 2px; }
+
+/* ---------- Window frame: title bar and body ---------- */
+#modal-title, #panel-head #panel-title {
+  font-family: var(--font-display); font-weight: var(--fw-display); letter-spacing: var(--ls-display);
+}
+#modal-title { font-size: var(--fs-xl); background: var(--aw-sidebar); padding: 12px 52px; }
+#modal-body { padding: 14px 16px 16px; }
+.modal-section-title { margin: 12px 0 8px; }
+.modal-hint, #settings-panel .hint { font-weight: var(--fw-read); line-height: 1.5; }
+
+/* ---------- Bank and shops ---------- */
+/* Each item grid sits in a soft well, so the two sides read as two cards. */
+#modal-body .modal-cols > div > .item-grid {
+  padding: var(--sp-3); background: var(--ui-well); border: var(--stroke-hair) dashed var(--ui-line-soft); border-radius: var(--ui-radius);
+}
+/* As many cells per row as fit, so neither side spills past the window (on
+   touch screens the cells are at least 44px wide). */
+#modal-body .modal-cols > div { min-width: 0; }
+#modal-body .modal-cols > div > .item-grid:empty { display: none; }   /* an empty bank says so in words instead */
+#modal-body .modal-cols > div > .item-grid { grid-template-columns: repeat(auto-fill, minmax(var(--cell-min, 36px), 1fr)); }
+@media (hover: none) and (pointer: coarse) { :root { --cell-min: 44px; } }
+.bank-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-top: 0; }
+.bank-head > span { flex: none; }
+.bank-search { min-width: 0; flex: 1; max-width: 180px; font-size: var(--fs-sm); font-weight: var(--fw-read); }
+.bank-deposit-all, .sell-unrelated { font-size: var(--fs-sm); padding: 5px 12px; }
+.sell-unrelated { display: flex; align-items: center; justify-content: center; gap: 4px; width: 100%; margin-bottom: var(--sp-3); }
+.item-cell .qty { font-size: var(--fs-cap); }
+
+/* ---------- Settings: grouped, lighter buttons ---------- */
+.set-section { margin: 14px 2px 4px; }
+#settings-panel button { font-size: var(--fs-sm); font-weight: var(--fw-label); margin: 6px 0; padding: 8px 12px; }
+#settings-panel .set-slider { margin: 6px 2px; }
+
+/* ---------- Skills, gear and combat ---------- */
+.skill-group { font-size: var(--fs-xs); }
+.skill-cell .skill-desc { font-weight: var(--fw-read); }
+.equip-slot.empty { border-style: dashed; font-weight: var(--fw-read); }
+.eq-best { display: flex; align-items: center; justify-content: center; gap: 4px; }
+#equipment-bonuses { font-weight: var(--fw-read); }
+.style-btn { font-weight: var(--fw-label); }
+.style-note { font-weight: var(--fw-read); color: var(--aw-text-sec); opacity: 1; }
+
+/* ---------- Quest journal ---------- */
+.quest-row { padding: 8px 10px; margin-bottom: var(--sp-3); transition: transform var(--ui-fast) ease, box-shadow var(--ui-fast) ease; }
+.quest-row .q-desc { font-weight: var(--fw-read); }
+.quest-row.can-go:hover { background: var(--ui-card); transform: translateY(-2px); box-shadow: var(--ui-shadow-up); }
+
+/* ---------- Dialogue ---------- */
+/* The speaker wears a name badge; the words are set at a reading weight. */
+.dialogue { font-weight: var(--fw-read); }
+.dialogue .speaker {
+  display: block; width: fit-content; font-size: var(--fs-sm); font-weight: var(--fw-title); letter-spacing: .02em;
+  padding: 2px 12px; border: var(--stroke-hair) solid var(--ui-line); border-radius: var(--r-pill);
+  background: var(--aw-accent-bg); color: var(--aw-accent-dk); margin-bottom: 8px;
+}
+.dialogue-option { font-size: var(--fs-md); font-weight: var(--fw-read); padding: 9px 14px; }
+.dialogue-option::after { content: "›"; margin-left: auto; font-size: 18px; line-height: 1; font-weight: var(--fw-title); color: var(--aw-text-sec); transition: transform var(--ui-fast) ease; }
+.dialogue-option:hover::after { transform: translateX(3px); color: var(--aw-accent); }
+
+/* ---------- Context menu: a small card of choices ---------- */
+#context-menu { padding: 0 4px 4px; min-width: 170px; }
+#context-menu .ctx-title {
+  margin: 0 -4px 4px; padding: 6px 10px; font-size: var(--fs-cap); letter-spacing: .07em; text-transform: uppercase; text-align: left;
+}
+#context-menu .ctx-item { border-radius: var(--ui-radius-sm); padding: 6px 10px; font-weight: var(--fw-read); }
+#context-menu .ctx-item .ctx-target { font-weight: var(--fw-label); }
+
+/* ---------- Motion ---------- */
+/* Tab switches cross-fade with a short slide; windows pop in and, through a
+   still copy made by uifx.js, sink and fade away when closed. */
+.panel-view { animation: uiViewIn var(--ui-med) var(--ui-ease-out); }
+@keyframes uiViewIn { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
+.modal-ghost {
+  position: absolute; inset: 0; z-index: 81; display: flex; align-items: center; justify-content: center;
+  background: rgba(28,27,25,0.35); pointer-events: none; animation: uiFadeOut .18s ease-in forwards;
+}
+.modal-ghost #modal-window { animation: uiWindowOut .18s ease-in forwards; }
+@keyframes uiFadeOut { to { opacity: 0; } }
+@keyframes uiWindowOut { to { opacity: 0; transform: translateY(8px) scale(.96); } }
+/* Phones show windows as bottom sheets: the copy slides back down. (Written
+   in a different order from the phone block's own media line on purpose:
+   tests/layout.test.mjs reads that block by its exact text.) */
+@media (max-width: 540px) and (pointer: coarse) {
+  .modal-ghost { align-items: flex-end; }
+  .modal-ghost #modal-window { animation: uiSheetDown .2s ease-in forwards; }
+}
+@keyframes uiSheetDown { to { transform: translateY(100%); } }
+/* Press feedback for every button in a panel or window (the older rules
+   above cover the rail, the action bar and the chat tabs). */
+#panel-body button, #modal-body button, .ui-pill, .ui-btn-primary, .dialogue-option, #modal-close, .quest-row.can-go {
+  transition: transform .07s ease, box-shadow .07s ease, background var(--ui-fast) ease, filter var(--ui-fast) ease;
+}
+#panel-body button:active:not(:disabled), #modal-body button:active:not(:disabled), .ui-pill:active, .dialogue-option:active, #modal-close:active {
+  transform: translateY(2px) scale(.98); box-shadow: none;
+}
+.ui-btn-primary:active { transform: translateY(3px); box-shadow: none; }
+/* Settings > Reduce motion does what the system setting does. */
+body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after {
+  transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
+}
+
+/* ---------- Visible keyboard focus everywhere ---------- */
+:where(button, [role="button"], a, input, select, textarea, summary, [tabindex]):focus-visible,
+.quest-row:focus-visible, .skill-cell:focus-visible, .cx-row:focus-visible {
+  outline: 3px solid var(--aw-accent); outline-offset: 2px;
+}
+.bank-search:focus-visible, .cx-search:focus-visible, input[type="text"]:focus-visible, textarea:focus-visible {
+  outline: 3px solid var(--aw-sky); outline-offset: 1px;
+}
+
+/* ---------- Settings > Text size ---------- */
+body[data-text-size="large"]  { --ui-zoom: 1.12; }
+body[data-text-size="larger"] { --ui-zoom: 1.25; }
+/* Scale what's inside the scroll boxes, not the boxes themselves, so the
+   panels keep their place and size and the words reflow inside them. */
+#panel-body > .panel-view, #modal-body > *, #chat-log, #context-menu > *, #tooltip, #quest-tracker {
+  zoom: var(--ui-zoom);
+}
+
+/* ---------- Settings > Colour-blind friendly ---------- */
+/* Good and bad move off green and red to blue and orange (the Okabe-Ito
+   pair), and the marks that only had colour gain a shape or word too. */
+body.cb-safe {
+  --st-good: #005A9C; --st-good-fill: #0072B2; --st-good-bg: #E3EFF8;
+  --st-bad: #A64500;  --st-bad-fill: #D55E00;  --st-bad-bg: #FBEBDD;
+  --aw-grass: #0072B2; --aw-grass-deep: #005A9C; --aw-grass-bg: #E3EFF8;
+  --ok: #005A9C; --ok-bg: #E3EFF8; --danger: #A64500; --danger-bg: #FBEBDD;
+}
+body.cb-safe #tooltip .gt-verdict.downgrade, body.cb-safe #tooltip .gt-deltas .neg,
+body.cb-safe #tooltip .gt-req.no, body.cb-safe .gear-stats .short, body.cb-safe .shrine-up .short,
+body.cb-safe .refine-out.downgrade, body.cb-safe .refine-out.broken, body.cb-safe .slayer-cost.short,
+body.cb-safe .hk-nums .neg, body.cb-safe .hk-table .neg { color: var(--st-bad); }
+body.cb-safe .hk-nums .pos { color: var(--st-good); }
+body.cb-safe #tooltip .gt-req.no::before { content: "✗ "; }
+body.cb-safe #tooltip .gt-deltas .neg::before { content: "▼"; font-size: .8em; margin-right: 1px; }
+body.cb-safe #tooltip .gt-deltas .pos::before { content: "▲"; font-size: .8em; margin-right: 1px; }
+body.cb-safe #alignment-readout.align-evil .align-head b, body.cb-safe .align-legend .ag-evil { color: var(--st-bad); }
+body.cb-safe .align-bar { background: var(--st-bad-fill); }
+/* Low health: the orb gains a "!" as well as its red pulse. */
+body.cb-safe #hp-orb.low::after {
+  content: "!"; position: absolute; top: -6px; right: -4px; width: 16px; height: 16px; line-height: 14px;
+  font-size: 11px; font-weight: 900; text-align: center; color: #fff; background: var(--st-bad-fill);
+  border: 1.5px solid var(--aw-ink); border-radius: 50%;
+}
+
+/* ---- Skill guides and the Resources index (src/ui/skillguideui.js) ---- */
+.sgx-bar { margin: 6px 0; }
+.sgx-chips { display: flex; flex-wrap: wrap; gap: 5px; margin: 0 0 8px; }
+.sgx-chip { font-family: inherit; font-size: 12px; font-weight: 800; color: var(--aw-text); background: var(--aw-card);
+  border: 2px solid var(--aw-ink); border-radius: 999px; padding: 3px 10px; cursor: var(--cur-pointer); }
+.sgx-chip.on { background: var(--aw-accent); color: #fff; }
+.sgx-station { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; margin: 4px 0 6px; font-size: 12px; }
+.sgx-station .sg-where { margin: 0; }
+.sgx-row { align-items: flex-start; }
+.sgx-row .sg-lvl, .sgx-row .sg-pick { margin-top: 2px; }
+.sgx-text { gap: 3px; }
+.sgx-text small { font-weight: 600; color: var(--aw-text-sec); }
+.sgx-gives, .sgx-ins { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.sgx-ins > small { font-size: 11px; color: var(--aw-text-sec); }
+.sgx-give, .sgx-in { display: inline-flex; align-items: center; gap: 3px; }
+.sgx-give i, .sgx-in i { font-style: normal; font-size: 11px; font-weight: 800; color: var(--aw-text-sec); }
+.sgx-give.rare { opacity: .8; }
+.sgx-in.have i { color: #2f8a3a; }
+.sgx-in.bank i { color: #b07a10; }
+.sgx-in.short i { color: #b8402a; }
+.sgx-item { display: inline-flex; align-items: center; gap: 3px; padding: 1px 4px 1px 1px; font-family: inherit; font-size: 12px; font-weight: 700;
+  color: var(--aw-text); background: transparent; border: 0; border-radius: 6px; cursor: var(--cur-pointer); text-align: left; }
+.sgx-item:hover { background: var(--aw-muted); }
+.sgx-item svg, .sgx-item img { flex: none; }
+.sg-text .sgx-item span { color: var(--aw-text); font-size: 12px; }
+.sgx-out { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.sgx-out .sgx-item { font-size: 13px; font-weight: 900; }
+.sgx-st { font-size: 10.5px; font-weight: 900; padding: 0 7px; border-radius: 999px; border: 1.5px solid var(--aw-ink); white-space: nowrap; }
+.sgx-st.ok { background: #d9f3cf; }
+.sgx-st.bank { background: #fbe9b8; }
+.sgx-st.short { background: #f6d6cf; }
+.sgx-st.lock { background: #eee; }
+.sgx-where { font-size: 11px; color: var(--aw-text-sec); }
+.sgx-btns { display: flex; flex-direction: column; gap: 4px; flex: none; }
+.sgx-btns .wm-go { min-width: 52px; }
+.sgx-got .sg-lvl { background: #d9f3cf; }
+.sgx-list .cx-more { margin-bottom: 6px; }
+.sgx-res-row svg, .sgx-res-row img { flex: none; }
+.sgx-item-head { display: flex; gap: 12px; align-items: center; }
+.sgx-item-head > div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.sgx-item-head b { font-size: 18px; font-weight: 900; }
+.sgx-h3 { margin: 6px 0 4px; font-size: 15px; font-weight: 900; }
+.sgx-page h4 { margin: 10px 0 4px; font-size: 13px; }
+.sgx-drops { display: flex; flex-direction: column; gap: 3px; }
+.sgx-drop { display: flex; align-items: center; gap: 8px; font-size: 12.5px; padding: 3px 4px; border-bottom: 1px dashed rgba(34,48,74,.18); }
+.sgx-drop > span { flex: 1; min-width: 0; }
+.sgx-drop small { color: var(--aw-text-sec); }
+.sgx-drop i { font-style: normal; font-weight: 800; font-size: 12px; white-space: nowrap; }
+.sgx-then { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; margin: -2px 0 4px 40px; padding: 4px 6px; border-left: 3px solid var(--aw-accent); font-size: 12px; }
+.sgx-then small { color: var(--aw-text-sec); font-weight: 700; margin-right: 2px; }
+.sgx-ul { margin: 2px 0; padding-left: 18px; font-size: 12.5px; }
+.sgx-nouse { padding: 8px 10px; border-radius: var(--r1); background: var(--aw-muted); border: 2px dashed var(--aw-ink-faint); font-weight: 700; font-size: 13px; }
+.sgx-intro { margin: 2px 0 4px; }
+/* (Its own prelude: tests/layout.test.mjs reads the last plain (pointer: coarse) block.) */
+@media (pointer: coarse) and (hover: none) {
+  /* Finger-sized: 16px text stops iOS zooming into the search box. */
+  .sgx-search { font-size: 16px; }
+  .sgx-chip { padding: 6px 12px; font-size: 13px; }
+  .sgx-item { min-height: 32px; }
+  .sgx-btns .wm-go { min-height: 36px; }
+}
+@media (max-width: 540px) {
+  .sgx-then { margin-left: 8px; }
+  .sgx-btns { flex-direction: row; }
+  .sgx-row { flex-wrap: wrap; }
+  .sgx-row .sgx-btns { width: 100%; justify-content: flex-end; }
+}
+.sgx-picked { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; margin: 6px 0; padding: 6px 8px;
+  font-size: 12px; background: #e6f7df; border: 2px solid var(--aw-ink); border-radius: var(--r1); }

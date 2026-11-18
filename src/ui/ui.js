@@ -5,6 +5,7 @@ import { LIFE_PERKS, LIFE_PERK_SKILLS, LIFE_PERK_FULL_LEVEL, lifePerkText, lifeP
 import * as Mercs from '../game/mercenary.js';
 import { PERK_SKILLS, PERK_TRACKS, PERK_EVERY, trackPerks, rankName } from '../data/perks.js';
 import { heroArtSrc, portraitFor } from '../render/sprites.js';
+import { HeroStage, swingActor, prefersReducedMotion } from './title.js';
 import { getItem } from '../data/items.js';
 import { SHOPS, getShop } from '../data/shops.js';
 import { SMELT, SMITH } from '../data/smithing.js';
@@ -13,7 +14,8 @@ import { POTIONS, FLETCH, CROP_BY_SEED } from '../data/trades.js';
 import { COOKING } from '../game/skilling.js';
 import { DISHES } from '../data/cooking.js';
 import { SKILLS, SKILL_GROUPS } from '../data/skills.js';
-import { SKILL_GUIDES, guideEntries } from '../game/skillguide.js';
+import { SKILL_GUIDES } from '../game/skillguide.js';
+import { openSkillGuide as openGuide, gatherPicksHTML } from './skillguideui.js';
 import { OBJECTS } from '../data/objects.js';
 import { SUBJECTS, SUBJECT_BY_ID, TOPICS, TOPIC_BY_ID } from '../data/questions.js';
 import { DAILY_COUNT } from '../game/learning.js';
@@ -61,6 +63,7 @@ import { RACES, raceOf, weaponsFor, weaponTypeName, WEAPON_VS_RACE } from '../da
 import { WaveHud } from './wavehud.js';
 import { TIPS, TIPS_KEY, nextTip, markTipSeen, tipsSeen } from './tips.js';
 import { foeDetails, labelMode, nextLabelMode, LABEL_MODE_NAMES } from '../render/worldlabels.js';
+import { applyAccessibility, countUp, playCloseGhost, inlineIcon, nextTextSize, TEXT_SIZE_NAMES } from './uifx.js';
 
 const EQUIP_LAYOUT = [
   null, 'head', null,
@@ -85,9 +88,6 @@ const MAP_FILTERS = [
   { id: 'farm', name: 'Farms', col: '#c9e26a' },
   { id: 'station', name: 'Crafting', col: '#f5a623' },
 ];
-
-// Skill guides with a tick-list for auto gather's round.
-const PICK_SKILLS = new Set(['mining', 'woodcutting', 'fishing']);
 
 // Everything a finger means to press rather than drag. A phone sheet's drag
 // (see _initSheets) never starts on one of these, so it never captures the
@@ -182,6 +182,13 @@ export class UI {
     this._buildCombatPanel();
     this._buildPrayerPanel();
     this._buildSettingsPanel();
+    // Text size, colour-blind colours and reduced motion live on <body>. A save
+    // loads after the UI is built, so check again each tick (a cheap string compare).
+    this._accessSig = applyAccessibility(this.game);
+    this.bus.on('tick', () => {
+      const sig = applyAccessibility(this.game);
+      if (sig !== this._accessSig) { this._accessSig = sig; this._buildSettingsPanel(); }
+    });
     this._buildAbilityBar();
     document.getElementById('auto-battle-btn')?.addEventListener('click', () => this.game.toggleAutoBattle());
     document.getElementById('auto-gather-btn')?.addEventListener('click', () => this.game.toggleAutoGather());
@@ -314,7 +321,7 @@ export class UI {
       btn.innerHTML =
         `<span class="ab-key">${ab.key}</span>` +
         `<span class="ab-icon">${abilityIconHTML(ab.id, 36)}</span>` +
-        `<span class="ab-cost">${this.game.abilityCoinCost(ab) ? '🪙' : ab.cost || (ab.build ? `+${ab.build}` : '·')}</span>` +
+        `<span class="ab-cost">${this.game.abilityCoinCost(ab) ? inlineIcon(itemIconSVG('coins', 12)) : ab.cost || (ab.build ? `+${ab.build}` : '·')}</span>` +
         `<span class="ab-cd"></span>`;
       this._bindSkillAim(btn, ab);
       wrap.appendChild(btn);
@@ -466,6 +473,11 @@ export class UI {
       row('Boss attacks', cfg.dodge !== false ? 'step out of the red ground markers for you' : 'stand your ground: dodging is left to you', [[true, 'Auto dodge'], [false, 'Off']], cfg.dodge !== false, (v) => { cfg.dodge = v; });
       row('Attack skills', 'spend adrenaline on your skills', [[true, 'Use them'], [false, 'Save adrenaline']], cfg.abilities, (v) => { cfg.abilities = v; });
       body.appendChild(list);
+      // Auto gather: the kinds ticked in the skill guides, and a way to untick them all.
+      if (g.gatherPicks.size) {
+        body.insertAdjacentHTML('beforeend', `<div class="skill-group">Auto gather</div>${gatherPicksHTML(g)}`);
+        body.querySelector('[data-untick]')?.addEventListener('click', () => { g.clearGatherPicks(); render(body); });
+      }
       const hint = document.createElement('div'); hint.className = 'modal-hint';
       hint.textContent = 'Auto battle braces against heavy blows, picks your strongest spell and (unless you turn it off above) steps out of boss attack markers for you; each dodge trains Agility. Steering pauses it; press T to switch it on or off.';
       body.appendChild(hint);
@@ -1013,7 +1025,7 @@ export class UI {
     const bis = document.createElement('button');
     bis.className = 'bestiary-open gear-guide-open eq-best';
     bis.type = 'button';
-    bis.textContent = '✨ Equip best in slot';
+    bis.innerHTML = `${inlineIcon(tabIconSVG('equipment', 18))} Equip best in slot`;
     bis.addEventListener('click', () => this.game.equipBest());
     this.el.equipBonuses.prepend(bis);
     const guide = document.createElement('button');
@@ -1545,6 +1557,12 @@ export class UI {
     lifeBtn.innerHTML = '<b>Life skill perks</b><span>Every life skill level makes your fighter stronger</span>';
     lifeBtn.addEventListener('click', () => this.openLifePerks());
     grid.appendChild(lifeBtn);
+    // Resources: where every material comes from and what it goes into.
+    const resBtn = document.createElement('button');
+    resBtn.className = 'perks-open resources-open';
+    resBtn.innerHTML = '<b>Resources</b><span>Where every material comes from, and what it makes</span>';
+    resBtn.addEventListener('click', () => this.openSkillGuide(null));
+    grid.appendChild(resBtn);
     // Study: the Knowledge Codex, with Wisdom level and topic mastery (switched
     // off for now: see LEARNING_ENABLED in config.js).
     if (LEARNING_ENABLED) {
@@ -1553,7 +1571,7 @@ export class UI {
       codexBtn.className = 'perks-open codex-open';
       const dailyReady = !L.dailyDone(this.game.todayKey());
       codexBtn.classList.toggle('daily', dailyReady);
-      codexBtn.innerHTML = `<b>📖 Knowledge Codex · Wisdom ${L.level}${dailyReady ? ' · ✨ daily revision ready' : ''}</b><span>Study topics to master them: ${L.masteredCount()}/${TOPICS.length} cards collected</span>`;
+      codexBtn.innerHTML = `<b>${inlineIcon(itemIconSVG('arcane_tome', 18))} Knowledge Codex · Wisdom ${L.level}${dailyReady ? ' · ✨ daily revision ready' : ''}</b><span>Study topics to master them: ${L.masteredCount()}/${TOPICS.length} cards collected</span>`;
       codexBtn.addEventListener('click', () => this.openCodex());
       grid.appendChild(codexBtn);
     }
@@ -1581,7 +1599,7 @@ export class UI {
         const toNext = xpToNext(xp, maxLevelFor(sk.id));
         this._tip(cell, `<b>${sk.name}</b> &mdash; level ${lvl}<br>XP: ${formatNumber(Math.floor(xp))}<br>` +
           (toNext > 0 ? `Next level: ${formatNumber(toNext)} xp` : 'Maxed!') + this._lifePerkTip(sk.id, lvl) + this._slayerTip(sk.id, lvl));
-        // Life skills open a guide: what you can do now, what's next, and where.
+        // Every skill opens a guide: what you can gather, make or unlock, and where.
         if (SKILL_GUIDES[sk.id]) {
           cell.classList.add('has-guide');
           cell.addEventListener('click', () => this.openSkillGuide(sk.id));
@@ -1593,89 +1611,11 @@ export class UI {
     this.renderAlignment();
   }
 
-  /** A life skill's guide: what it's for, everything you can gather or make
-   *  at your level, what unlocks next, and a Go button to the nearest spot. */
-  openSkillGuide(skill) {
-    const g = this.game;
-    const sk = SKILLS.find((x) => x.id === skill);
-    const guide = SKILL_GUIDES[skill];
-    const render = (body) => {
-      const lvl = g.skills.level(skill);
-      const all = guideEntries(skill);
-      const can = all.filter((e) => e.level <= lvl);
-      const next = all.filter((e) => e.level > lvl).slice(0, 3);
-      body.innerHTML = '';
-      const head = document.createElement('div');
-      head.className = 'sg-head';
-      head.innerHTML = `<span class="skill-icon">${skillIconSVG(skill, 44)}</span>` +
-        `<div><b>${sk.name} · level ${lvl}</b><span>${guide.use}</span></div>`;
-      body.appendChild(head);
-      // Gathering skills can run on their own: auto gather moves you to the next node.
-      const AUTO_TEXT = {
-        woodcutting: 'when a tree, rock or spot runs dry, move on to the next one nearby. Gather more than one kind (say copper and tin) and it takes turns between them',
-        mining: 'when a tree, rock or spot runs dry, move on to the next one nearby. Gather more than one kind (say copper and tin) and it takes turns between them',
-        fishing: 'when a tree, rock or spot runs dry, move on to the next one nearby. Gather more than one kind (say copper and tin) and it takes turns between them',
-        hunter: 'when a trap or trail runs dry, move on to the next one nearby',
-        farming: 'harvest ripe patches and replant with your best seed, patch after patch',
-        thieving: 'keep picking the same pocket after each try',
-      };
-      if (AUTO_TEXT[skill]) {
-        const ag = document.createElement('button');
-        ag.className = 'sg-auto' + (g.autoGather ? ' on' : '');
-        ag.innerHTML = `<span class="ab-switch" aria-hidden="true"><i></i></span><span><b>Auto gather</b> ${g.autoGather ? 'On' : 'Off'}: ${AUTO_TEXT[skill]}</span>`;
-        ag.addEventListener('click', () => { g.toggleAutoGather(); render(body); });
-        body.appendChild(ag);
-      }
-      const where = guide.where || [...new Set(can.flatMap((e) => e.objIds || []))];
-      // Mining, Woodcutting and Fishing: tick the kinds you want and auto gather
-      // works through exactly those, taking turns between them.
-      const picking = PICK_SKILLS.has(skill);
-      if (picking) {
-        const n = can.filter((e) => e.objIds?.every((id) => g.gatherPicks.has(id))).length;
-        const bar = document.createElement('div');
-        bar.className = 'sg-picks';
-        bar.innerHTML = `<span>Tick what auto gather should do${n ? ` (<b>${n}</b> ticked)` : ' (none ticked: it does whatever you start on)'}.</span>`;
-        if (n) {
-          const go = document.createElement('button'); go.className = 'wm-go'; go.textContent = 'Start';
-          go.addEventListener('click', () => { g.startGatherPicks(); this.closeModal(); });
-          bar.appendChild(go);
-        }
-        body.appendChild(bar);
-      }
-      const row = (e, ok) => {
-        const r = document.createElement('div');
-        r.className = 'sg-row' + (ok ? '' : ' locked');
-        const ticked = picking && ok && e.objIds?.every((id) => g.gatherPicks.has(id));
-        r.innerHTML = (picking && ok && e.objIds ? `<label class="sg-pick" title="Auto gather this"><input type="checkbox"${ticked ? ' checked' : ''}></label>` : '')
-          + `<span class="sg-lvl">${e.level}</span><span class="sg-text"><b>${e.label}</b><span>${e.detail || ''}</span></span>`;
-        r.querySelector('.sg-pick input')?.addEventListener('change', () => { g.toggleGatherPick(e.objIds); render(body); });
-        // Go: walk to the nearest place you can do this (only for things you can do now).
-        if (ok && e.objIds && !guide.where) {
-          const b = document.createElement('button'); b.className = 'wm-go'; b.textContent = 'Go';
-          b.addEventListener('click', () => g.goToNearest(e.objIds));
-          r.appendChild(b);
-        }
-        return r;
-      };
-      if (guide.where) {
-        const go = document.createElement('button');
-        go.className = 'wm-go sg-where';
-        go.textContent = `Go to the nearest ${guide.where.map((id) => OBJECTS[id]?.name.toLowerCase() || id).join(' or ')}`;
-        go.addEventListener('click', () => g.goToNearest(where));
-        body.appendChild(go);
-      }
-      const sect = (title, items, ok) => {
-        if (!items.length) return;
-        const h = document.createElement('div'); h.className = 'skill-group'; h.textContent = title;
-        body.appendChild(h);
-        for (const e of items) body.appendChild(row(e, ok));
-      };
-      sect('Coming up next', next, false);
-      sect(`You can do now (${can.length})`, can.slice().reverse(), true);
-      if (!can.length && !next.length) body.insertAdjacentHTML('beforeend', '<div class="modal-hint">Nothing listed for this skill yet.</div>');
-    };
-    this.openModal(`${sk.name} guide`, render);
-    this.modal.kind = 'skillguide';
+  /** A skill's guide (skillguideui.js): every node or recipe with its level,
+   *  XP, inputs and outputs and where to go; for a fighting skill its perks,
+   *  gear and training spots. With no skill, the Resources index. */
+  openSkillGuide(skill, opts) {
+    openGuide(this, skill, opts);
   }
 
   /** The Knowledge Codex: Wisdom level, subject perks, your title, and a card
@@ -1705,7 +1645,7 @@ export class UI {
       const done = L.dailyDone(g.todayKey());
       const daily = document.createElement('button');
       daily.className = 'wm-go' + (done ? ' ride' : '');
-      daily.textContent = done ? `Daily done · 🔥 ${L.daily.streak}-day streak` : `✨ Daily revision (${DAILY_COUNT} questions)${L.daily.streak ? ` · 🔥 ${L.daily.streak}` : ''}`;
+      daily.innerHTML = done ? `Daily done · ${inlineIcon(skillIconSVG('firemaking', 16))} ${L.daily.streak}-day streak` : `✨ Daily revision (${DAILY_COUNT} questions)${L.daily.streak ? ` · ${inlineIcon(skillIconSVG('firemaking', 16))} ${L.daily.streak}` : ''}`;
       daily.disabled = done;
       daily.addEventListener('click', () => this.openStudy({ queue: L.dailySet(), daily: true }));
       habits.appendChild(daily);
@@ -1750,7 +1690,7 @@ export class UI {
           // Learn by doing: run a chicken rice stall for five days.
           const hk = document.createElement('button');
           hk.className = 'perks-open hawker-open';
-          hk.innerHTML = `<b>🍗 Run a hawker stall</b><span>Set prices for five days of news, see demand and supply at work${L.hawker.best ? ` · best $${L.hawker.best.toFixed(2)}` : ''}</span>`;
+          hk.innerHTML = `<b>${inlineIcon(skillIconSVG('cooking', 18))} Run a hawker stall</b><span>Set prices for five days of news, see demand and supply at work${L.hawker.best ? ` · best $${L.hawker.best.toFixed(2)}` : ''}</span>`;
           hk.addEventListener('click', () => this.openHawker());
           body.appendChild(hk);
         }
@@ -1986,7 +1926,7 @@ export class UI {
         // End of a daily set or of the bounty list: a short summary.
         const sum = document.createElement('div');
         sum.className = 'study-summary';
-        sum.innerHTML = opts.daily ? `<b>Daily revision done!</b><span>${right}/${answered} right · 🔥 ${reward.streak}-day streak${reward.coins ? ` · +${reward.coins} coins` : ''}</span><span>Come back tomorrow to keep the streak going.</span>`
+        sum.innerHTML = opts.daily ? `<b>Daily revision done!</b><span>${right}/${answered} right · ${inlineIcon(skillIconSVG('firemaking', 16))} ${reward.streak}-day streak${reward.coins ? ` · +${reward.coins} coins` : ''}</span><span>Come back tomorrow to keep the streak going.</span>`
           : opts.mistakes ? `<b>All mistake bounties cleared!</b><span>${right}/${answered} right this session.</span>`
           : '<b>No questions here yet.</b>';
         body.appendChild(sum);
@@ -2304,7 +2244,7 @@ export class UI {
       // Auto: auto battle chooses the element that suits each target.
       const auto = document.createElement('div');
       auto.className = 'style-btn spell spell-auto' + (p.spellAuto ? ' active' : '');
-      auto.innerHTML = `<span class="sp-ic">🤖</span><span class="sp-text">Auto element<span class="style-skill">Auto battle picks the best element for each monster${p.spellAuto ? ` (now: ${escapeHtml(getSpell(p.spell).name)})` : ''}</span></span>`;
+      auto.innerHTML = `<span class="sp-ic">${skillIconSVG('magic', 28)}</span><span class="sp-text">Auto element<span class="style-skill">Auto battle picks the best element for each monster${p.spellAuto ? ` (now: ${escapeHtml(getSpell(p.spell).name)})` : ''}</span></span>`;
       auto.addEventListener('click', () => { p.spellAuto = true; this.renderCombatPanel(); });
       row.appendChild(auto);
     } else {
@@ -2354,7 +2294,7 @@ export class UI {
           const lvl = classId === this.game.jobClass ? this.game.skills.level(skill) : 0;
           const skName = { attack: 'Melee', ranged: 'Ranged', magic: 'Magic', agility: 'Agility', dance: 'Dance' }[skill];
           return `<div class="cp-head"><b>Class passives</b> · one every 100 ${skName} levels${lvl ? ` (you: ${lvl})` : ''}</div><div class="cp-list">`
-            + classPassives(cls.id, lvl).map((p) => `<div class="cp-row${p.rank ? '' : ' locked'}"><span class="cp-ic">${p.rank ? '🏅' : '🔒'}</span><span><b>${escapeHtml(p.name)}${p.rank > 1 ? ` (Rank ${p.rank})` : ''}</b> ${escapeHtml(p.desc)} · <i>${skName} ${p.unlockAt}${p.rank ? '' : ' to unlock'}, ranks up every 300 levels after</i></span></div>`).join('')
+            + classPassives(cls.id, lvl).map((p) => `<div class="cp-row${p.rank ? '' : ' locked'}"><span class="cp-ic">${p.rank ? tabIconSVG('achievements', 20) : '🔒'}</span><span><b>${escapeHtml(p.name)}${p.rank > 1 ? ` (Rank ${p.rank})` : ''}</b> ${escapeHtml(p.desc)} · <i>${skName} ${p.unlockAt}${p.rank ? '' : ' to unlock'}, ranks up every 300 levels after</i></span></div>`).join('')
             + '</div>';
         })()
         + '<div class="modal-hint">Every class can use any armour, tools and the learning perks in the Knowledge Codex.</div>';
@@ -2513,10 +2453,17 @@ export class UI {
       p.appendChild(b);
       return b;
     };
+    // A small heading over each group of settings.
+    const sec = (label) => {
+      const h = document.createElement('div');
+      h.className = 'set-section';
+      h.textContent = label;
+      p.appendChild(h);
+    };
     // Install as an app: the browser's own install dialog where it offers one,
     // or the Add to Home Screen steps on iPhone and iPad.
     import('../pwa.js').then((pwa) => {
-      if (pwa.isInstalled()) return;
+      if (pwa.isInstalled() || p.querySelector('.install-app')) return;   // the panel can be rebuilt before this resolves
       const btn = document.createElement('button');
       btn.className = 'install-app';
       const show = () => { btn.hidden = !pwa.canInstall() && !pwa.isIos(); btn.textContent = 'Install as an app'; };
@@ -2535,6 +2482,7 @@ export class UI {
       else if (saved === null) this.game.msg('Saving is paused: reload the page to carry on.', 'system');
       else this.game.msg('Could not save: this browser\'s storage is full or blocked. Your progress is not being kept.', 'system');
     }); });
+    sec('Sound');
     const soundBtn = mk('', () => {
       const a = this.game.audio;
       if (!a) return;
@@ -2572,6 +2520,7 @@ export class UI {
     });
     vol.querySelector('input').addEventListener('change', () => this.game.audio?.play('pickup'));
     p.appendChild(vol);
+    sec('Display');
     const gfxBtn = mk('', () => {
       this.game.lowFx = !this.game.lowFx;
       try { localStorage.setItem('singaporescape:gfx', this.game.lowFx ? 'low' : 'high'); } catch {}
@@ -2610,6 +2559,28 @@ export class UI {
       tipsBtn.textContent = 'Tips: On';
       this.game.msg('Tips will show again as you play.', 'system');
     });
+    // Accessibility: saved with the other settings; uifx.js puts them on <body>.
+    sec('Accessibility');
+    const access = () => { this._accessSig = applyAccessibility(this.game); this.game.saveSoon = true; };
+    const sizeBtn = mk('', () => {
+      this.game.textSize = nextTextSize(this.game.textSize || 'normal');
+      access();
+      sizeBtn.textContent = `Text size: ${TEXT_SIZE_NAMES[this.game.textSize]}`;
+    });
+    sizeBtn.textContent = `Text size: ${TEXT_SIZE_NAMES[this.game.textSize] || 'Normal'}`;
+    const cbBtn = mk('', () => {
+      this.game.colourBlind = !this.game.colourBlind;
+      access();
+      cbBtn.textContent = `Colour-blind friendly: ${this.game.colourBlind ? 'On' : 'Off'}`;
+    });
+    cbBtn.textContent = `Colour-blind friendly: ${this.game.colourBlind ? 'On' : 'Off'}`;
+    const motionBtn = mk('', () => {
+      this.game.reduceMotion = !this.game.reduceMotion;
+      access();
+      motionBtn.textContent = `Reduce motion: ${this.game.reduceMotion ? 'On' : 'Off'}`;
+    });
+    motionBtn.textContent = `Reduce motion: ${this.game.reduceMotion ? 'On' : 'Off'}`;
+    sec('Your save');
     // Carry a character to another browser, device or web address (saves live
     // in one site's storage, so they don't follow the player on their own).
     mk('Export save', () => this.openExportSave());
@@ -2995,14 +2966,16 @@ export class UI {
     const now = performance.now();
     const live = this._xpLive[skill];
     if (live && now - live.t < 800 && live.div.isConnected) {
+      const was = Math.round(live.total);
       live.total += amount;
-      live.div.querySelector('.xp-amt').textContent = `+${Math.round(live.total)}`;
+      countUp(live.div.querySelector('.xp-amt'), `xp:${skill}`, Math.round(live.total), (n) => `+${n}`, was);
       return;
     }
     const div = document.createElement('div');
     div.className = 'xp-drop';
     div.innerHTML = `<span class="xp-ic">${skillIconSVG(skill, 20)}</span><span class="xp-amt">+${Math.round(amount)}</span>`;
     this.el.xpDrops.appendChild(div);
+    countUp(div.querySelector('.xp-amt'), `xp:${skill}`, Math.round(amount), (n) => `+${n}`, 0);
     this._xpLive[skill] = { div, total: amount, t: now };
     while (this.el.xpDrops.children.length > 4) this.el.xpDrops.firstElementChild.remove();
     setTimeout(() => div.remove(), 2300);
@@ -3225,6 +3198,28 @@ export class UI {
         imp.appendChild(b);
         body.appendChild(imp);
       }
+      // The cards, and above them a spotlight playing the class's attack beside
+      // its perks (title.js draws the heroes). Pointing at a card, or its
+      // Preview button on a touch screen, puts that class in the spotlight;
+      // clicking the card picks it.
+      const picker = document.createElement('div');
+      picker.className = 'class-picker';
+      body.appendChild(picker);
+      const still = prefersReducedMotion();
+      let chosen = false;
+      const choose = (c, card) => {
+        if (chosen) return;
+        chosen = true;
+        g.chooseClass(c.id);
+        if (this.modal) this.modal.locked = false; // a choice has been made — safe to close now
+        this.renderCombatPanel();
+        // A moment to see the new hero swing before the picker closes.
+        card?.classList.add('chosen');
+        spot.show(c.id, true, true);
+        const close = () => { if (this.modal?.kind === 'classpick') this.closeModal(); };
+        if (still) close(); else setTimeout(close, 900);
+      };
+      let n = 0;
       for (const st of STYLES) {
         const sec = document.createElement('div');
         sec.className = 'class-section';
@@ -3237,32 +3232,76 @@ export class UI {
           div.className = 'dialogue-option class-card';
           div.tabIndex = 0;
           div.dataset.cls = c.id;
-          const art = heroArtSrc(c.id);
-          div.innerHTML = `<span class="class-pic">${art ? `<img src="${art}" alt="" width="40" height="40">` : itemIconSVG(starterWeapon(c.id), 34)}</span><span class="class-text"><b>${c.name}</b>`
+          div.innerHTML = `<span class="class-pic has-stage"><canvas class="class-stage"></canvas></span><span class="class-text"><b>${c.name}</b>`
             + `<span class="class-weapon">${WEAPON_TYPE_NAMES[c.weapon]}</span><span class="class-desc">${c.desc}</span>`
-            + `<span class="class-perks">${classPerkSummary(c.id)}</span></span>`;
+            + `<span class="class-perks">${classPerkSummary(c.id)}</span></span>`
+            + '<button class="class-peek" type="button" title="Preview" aria-label="Preview">&#128065;</button>';
+          // The card's hero idles on its little stage (each a step out of time with the next).
+          const actor = { classId: c.id, phase: (n++) * 431 };
+          new HeroStage(div.querySelector('canvas'), (w, h) => [{ actor, x: w / 2, y: h - 7, scale: Math.min(w / 64, h / 62) }], { fps: 24, still });
           div.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); div.click(); } });
-          div.addEventListener('click', () => {
-            g.chooseClass(c.id);
-            if (this.modal) this.modal.locked = false; // a choice has been made — safe to close now
-            this.closeModal();
-            this.renderCombatPanel();
-          });
+          div.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') spot.show(c.id, true); });
+          div.addEventListener('focus', () => spot.show(c.id, true));
+          div.querySelector('.class-peek').addEventListener('click', (e) => { e.stopPropagation(); spot.show(c.id, true); });
+          div.addEventListener('click', () => choose(c, div));
           grid.appendChild(div);
         }
         sec.appendChild(grid);
-        body.appendChild(sec);
+        picker.appendChild(sec);
       }
+      const spot = this._classSpotlight(picker, still, (id) => choose(CLASS_BY_ID[id], picker.querySelector(`.class-card[data-cls="${id}"]`)));
     };
     this.openModal('Choose Your Class', render);
+    this.modal.kind = 'classpick';
     this.modal.locked = true;
     if (this.el.modalClose) this.el.modalClose.classList.add('hidden');
   }
 
 
+  /** The class picker's spotlight: a bigger stage where the class shown swings
+   *  its weapon every couple of seconds, with its signature and perks and a
+   *  button to choose it. Placed after the cards (so a search for a class's
+   *  name finds its card first) and shown above them by CSS. */
+  _classSpotlight(parent, still, onChoose) {
+    const el = document.createElement('div');
+    el.className = 'class-spot';
+    el.innerHTML = '<canvas class="class-spot-stage"></canvas><div class="class-spot-info"><div class="class-spot-name"><b></b><span></span></div>'
+      + '<p class="class-spot-sig"></p><ul class="class-spot-perks"></ul></div><button class="class-spot-go" type="button"></button>';
+    parent.appendChild(el);
+    const actor = { classId: null };
+    let next = 0;
+    new HeroStage(el.querySelector('canvas'), (w, h, now) => {
+      if (!still && now > next) { swingActor(actor, now); next = now + 2300; }
+      return [{ actor, x: w * 0.44, y: h - 12, scale: Math.min(w / 72, h / 66) }];
+    }, { fps: 40, still });
+    const show = (id, swing = false, picked = false) => {
+      const c = CLASS_BY_ID[id];
+      if (!c) return;
+      if (actor.classId !== id) {
+        actor.classId = id; actor.blend = null;
+        el.querySelector('.class-spot-name b').textContent = c.name;
+        el.querySelector('.class-spot-name span').textContent = WEAPON_TYPE_NAMES[c.weapon];
+        const perks = classPerks(id);
+        el.querySelector('.class-spot-sig').textContent = perks[0]?.text || c.desc;
+        el.querySelector('.class-spot-perks').innerHTML = perks.slice(1)
+          .map((p) => `<li><b>${p.icon} ${p.label}</b> ${p.label === 'Armour' ? p.text.split('.')[0] : p.text}</li>`).join('');
+        el.querySelector('.class-spot-go').textContent = `Choose ${c.name} \u25B6`;
+        parent.querySelectorAll('.class-card.previewing').forEach((d) => d.classList.remove('previewing'));
+        parent.querySelector(`.class-card[data-cls="${id}"]`)?.classList.add('previewing');
+        el.classList.remove('swap'); void el.offsetWidth; el.classList.add('swap');
+      }
+      if (picked) { el.classList.add('chosen'); el.querySelector('.class-spot-sig').textContent = `You are a ${c.name}! ${el.querySelector('.class-spot-sig').textContent}`; }
+      if (swing && !still) { swingActor(actor, performance.now()); next = performance.now() + 2300; }
+    };
+    el.querySelector('.class-spot-go').addEventListener('click', () => onChoose(actor.classId));
+    show(CLASSES[0].id);
+    return { el, show };
+  }
+
   closeModal() {
     if (this.modal?.locked) return; // e.g. the starting-style choice — must pick one
     this._dropTips();
+    if (this.modal && typeof document !== 'undefined') playCloseGhost(this.el.modalOverlay);
     this.modal = null;
     this.el.modalOverlay.classList.add('hidden');
     this.el.modalBody.innerHTML = '';
@@ -3280,6 +3319,16 @@ export class UI {
   openBank() {
     const render = (body) => {
       body.innerHTML = '';
+      // Totals at the top: coins in the bank and what everything in it is worth.
+      const coinsIn = this.game.bank.items.find((e) => e.id === 'coins')?.qty || 0;
+      const worth = this.game.bank.items.reduce((t, e) => t + (getItem(e.id)?.value || 0) * e.qty, 0);
+      const stats = document.createElement('div');
+      stats.className = 'ui-stats';
+      stats.innerHTML = `<div class="ui-stat">${inlineIcon(itemIconSVG('coins', 22))}<span class="ui-stat-label">Coins banked</span><b class="ui-stat-num bank-coins"></b></div>`
+        + `<div class="ui-stat"><span class="ui-stat-label">Bank value</span><b class="ui-stat-num bank-total"></b></div>`;
+      body.appendChild(stats);
+      countUp(stats.querySelector('.bank-coins'), 'bank-coins', coinsIn, formatNumber);
+      countUp(stats.querySelector('.bank-total'), 'bank-total', worth, formatNumber);
       const cols = document.createElement('div');
       cols.className = 'modal-cols';
       // Bank side
@@ -3369,7 +3418,8 @@ export class UI {
   openShop(shopId) {
     const shop = getShop(shopId);
     const render = (body) => {
-      body.innerHTML = `<div class="modal-hint">Coins: ${formatNumber(this.game.inventory.count('coins'))}</div>`;
+      body.innerHTML = `<div class="ui-stats"><div class="ui-stat">${inlineIcon(itemIconSVG('coins', 22))}<span class="ui-stat-label">Coins</span><b class="ui-stat-num shop-coins"></b></div></div>`;
+      countUp(body.querySelector('.shop-coins'), 'coins', this.game.inventory.count('coins'), formatNumber);
       const cols = document.createElement('div');
       cols.className = 'modal-cols';
       // Shop stock
@@ -3405,7 +3455,7 @@ export class UI {
         const n = this.game.inventory.slots.filter((s) => s && this.game.unrelatedToClass(s.id)).length;
         const btn = document.createElement('button');
         btn.className = 'bestiary-open gear-guide-open sell-unrelated'; btn.type = 'button';
-        btn.textContent = `💰 Sell gear not for ${cls.name}s (${n})`;
+        btn.innerHTML = `${inlineIcon(itemIconSVG('coins', 18))} Sell gear not for ${cls.name}s (${n})`;
         btn.title = 'Sells weapons, armour, accessories and arrows your class can\'t use';
         btn.disabled = !n;
         btn.onclick = () => this.game.sellUnrelated(shopId);

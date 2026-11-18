@@ -7,7 +7,7 @@ const objCenter = (obj) => ({ x: obj.x * TILE + TILE / 2, y: obj.y * TILE + TILE
 
 // Aromatic herbs foraged from the undergrowth while woodcutting — feed the
 // local hawker-dish recipes (see DISHES) and are also sold at the Hawker Centre.
-const HERB_FORAGE = ['chilli', 'galangal', 'lemongrass', 'pandan_leaves', 'turmeric'];
+export const HERB_FORAGE = ['chilli', 'galangal', 'lemongrass', 'pandan_leaves', 'turmeric'];
 
 // Cooking definitions: raw item -> result, level, xp, and the level at which it
 // stops burning. Range cooking is more forgiving than a fire.
@@ -86,7 +86,7 @@ export function gatherChance(low, high, level) {
 // All resolvers return true to keep the action going next tick, false to stop.
 
 // Weighted gems unearthed while mining (better gems are rarer).
-const GEM_TABLE = [
+export const GEM_TABLE = [
   { id: 'sapphire', weight: 50 }, { id: 'emerald', weight: 28 },
   { id: 'ruby', weight: 16 }, { id: 'diamond', weight: 6 },
 ];

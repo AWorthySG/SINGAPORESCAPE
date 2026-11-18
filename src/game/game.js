@@ -383,6 +383,7 @@ export class Game {
     this.particles = [];
     this.cine = new Cinematics();   // camera lead/push-in, boss entrances, region title cards
     this.minimalHud = false;        // Settings > Minimal HUD (saved with the settings)
+    this.textSize = 'normal'; this.colourBlind = false; this.reduceMotion = false;   // Settings > Accessibility (saved too)
     this.worldLabels = 'smart';     // Settings > World labels: smart / all / off (render/worldlabels.js)
     this.tipsOn = true;             // Settings > Tips: On / Off
     this.tipsSeen = new Set();      // first-time tips this save has shown (ui/tips.js)
@@ -1426,6 +1427,16 @@ export class Game {
     this.saveSoon = true;
     this.bus.emit('autogather');
     return on;
+  }
+
+  /** Untick every kind at once (skill guides and the Auto menu). Returns how many were cleared. */
+  clearGatherPicks() {
+    const n = this.gatherPicks.size;
+    this.gatherPicks.clear();
+    this.saveSoon = true;
+    this.bus.emit('autogather');
+    this.msg('Cleared your auto gather picks: it goes back to whatever you gather.', 'system');
+    return n;
   }
 
   /** Auto gather with a ticked list and nothing to do: head for the nearest ticked node. */
