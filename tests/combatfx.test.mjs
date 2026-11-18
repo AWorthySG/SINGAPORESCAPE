@@ -8,8 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { Game } from '../src/game/game.js';
-import { saveGame, clearSave } from '../src/game/save.js';
-import { SAVE_KEY } from '../src/config.js';
+import { clearSave } from '../src/game/save.js';
 import { ALL_WEAPON_TYPES } from '../src/data/items.js';
 import { SPELLS } from '../src/data/magic.js';
 import { RARITY, QUALITY } from '../src/game/loot.js';
@@ -209,7 +208,7 @@ test('shadows are long at dawn and dusk (leaning opposite ways), short at noon, 
 });
 
 // ---------------- Reduce motion ----------------
-test('Reduce motion turns off shake, hit-stop and pulses, and is saved (older saves keep the default)', () => {
+test('game.reduceMotion turns off shake, hit-stop and the screen-edge pulse', () => {
   const g = freshGame('swordsman');
   g.reduceMotion = true;
   g.addShake(5, 300);
@@ -219,16 +218,5 @@ test('Reduce motion turns off shake, hit-stop and pulses, and is saved (older sa
   const npc = g.spawnNpc('goblin', g.player.x + 1, g.player.y, { temporary: true, wander: 0 });
   hitsplatFx(g, npc, npc.maxHp, {});
   assert.equal(g.cfx.pulseT, 0, 'no edge pulse');
-  saveGame(g);
-  const again = new Game(); again.start();
-  assert.equal(again.reduceMotion, true, 'kept across a reload');
-  again.reduceMotion = false; saveGame(again);
-  const third = new Game(); third.start();
-  assert.equal(third.reduceMotion, false);
-  // A save from before the setting keeps the default (the device's preference).
-  const data = JSON.parse(localStorage.getItem(SAVE_KEY));
-  delete data.settings.reduceMotion;
-  localStorage.setItem(SAVE_KEY, JSON.stringify(data));
-  const old = new Game(); old.reduceMotion = true; old.start();
-  assert.equal(old.reduceMotion, true, 'an older save doesn\'t override the default');
+  // (The setting itself, and saving it, belong to Settings > Accessibility: see the UI polish work.)
 });
