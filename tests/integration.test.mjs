@@ -2140,7 +2140,7 @@ test('night hunt boosts combat XP; big hits and kills trigger hit-stop', () => {
   assert.equal(game.hitStop, 0, 'and it is brief');
 });
 
-test('gear mastery: kills train every worn item (1 a monster, 5 a champion, 25 a boss), ranks add stats, saved with the game', async () => {
+test('gear mastery: kills train every worn gear type (1 a monster, 5 a champion, 25 a boss), ranks add stats, saved with the game', async () => {
   const M = await import('../src/game/mastery.js');
   // Rank thresholds and the stat gain at each rank.
   assert.deepEqual(M.MASTERY_RANKS.map((r) => r.points), [0, 250, 1000, 3000, 8000, 20000, 50000]);
@@ -2177,12 +2177,13 @@ test('gear mastery: kills train every worn item (1 a monster, 5 a champion, 25 a
   kill(boss);
   assert.equal(g.equipment.masteryPoints(w), adept, 'a boss is worth 25');
   assert.equal(g.equipment.masteryRank(w), 1);
-  assert.ok(chat.includes(`${ITEMS[w].name} reached Adept mastery!`), 'ranking up is announced');
+  assert.ok(chat.includes(`${M.masteryTypeName(w)} mastery reached Adept!`), 'ranking up is announced');
   assert.ok(g.equipment.bonuses().attack > atk0, 'a rank raises your bonuses');
-  // Carried gear doesn't train.
-  g.inventory.add('mithril_sword', 1);
+  // Carried gear of a type you don't wear doesn't train; another sword shares the worn one's.
+  g.inventory.add('gold_ring', 1);
   kill(mob);
-  assert.equal(g.equipment.masteryPoints('mithril_sword'), 0, 'only worn gear gains mastery');
+  assert.equal(g.equipment.masteryPoints('gold_ring'), 0, 'only worn gear types gain mastery');
+  assert.equal(g.equipment.masteryPoints('mithril_sword'), adept + 1, 'every sword shares Sword mastery');
   // Saved and loaded.
   saveGame(g);
   const g2 = new Game(); g2.start(); loadGame(g2);
@@ -2768,7 +2769,7 @@ test('old saves: upgrade levels and refine stars become mastery and free enchant
   // Rewrite the save as an old one: upgrade and refine maps, no mastery.
   const raw = JSON.parse(localStorage.getItem(SAVE_KEY));
   delete raw.equipment._mastery; delete raw.equipment._enchants;
-  raw.equipment._upgrades = { [w]: 7, iron_sword: 1, no_such_item: 9 };
+  raw.equipment._upgrades = { [w]: 7, iron_platebody: 1, no_such_item: 9 };
   raw.equipment._refines = { [w]: 10, rune_scimitar: 4 };
   localStorage.setItem(SAVE_KEY, JSON.stringify(raw));
   const g2 = new Game(); g2.start(); loadGame(g2);
@@ -2777,7 +2778,8 @@ test('old saves: upgrade levels and refine stars become mastery and free enchant
   assert.equal(g2.equipment.masteryPoints(w), 20000);
   assert.equal(g2.equipment.enchantLines(w).length, 2);
   for (const l of g2.equipment.enchantLines(w)) assert.ok(M.enchantPool(w).includes(l.stat) && l.value === M.enchantValue(w, l.stat));
-  assert.equal(g2.equipment.masteryRank('iron_sword'), 1, 'any upgrade is at least Adept');
+  assert.equal(g2.equipment.masteryRank('iron_platebody'), 1, 'any upgrade is at least Adept');
+  assert.equal(g2.equipment.masteryRank('iron_sword'), 5, 'and it is the gear type\'s now: every sword shares it');
   assert.equal(g2.equipment.masteryRank('rune_scimitar'), 1, '★4 (0.24): Adept');
   assert.equal(g2.equipment.enchantLines('rune_scimitar').length, 0, 'under five stars, no line');
   assert.equal(g2.equipment.masteryPoints('no_such_item'), 0);
@@ -2787,7 +2789,7 @@ test('old saves: upgrade levels and refine stars become mastery and free enchant
   // _refines is a live field again (refine.js), but the converted stars never come back as live levels.
   assert.equal(after._upgrades, undefined); assert.deepEqual(after._refines, {});
   assert.equal(g2.equipment.refineLevel(w), 0, 'old stars were converted, not kept');
-  assert.equal(after._mastery[w], 20000);
+  assert.equal(after._mastery[M.masteryType(w)], 20000);
   const lines = g2.equipment.enchantLines(w).map((l) => ({ ...l }));
   const g3 = new Game(); g3.start(); loadGame(g3);
   assert.deepEqual(g3.equipment.enchantLines(w), lines);
@@ -4138,8 +4140,9 @@ test('drops: rarer gear from normal monsters, quality rolls, and bosses always d
   assert.equal(rollQuality('boss', () => 0.01), 'mythic', 'a lucky boss roll is Mythic');
   assert.equal(rollQuality('normal', () => 0.01), 'mythic', 'even a normal monster can drop Mythic (very rarely)');
   assert.equal(rollQuality('normal', () => 0.9), null, 'most normal drops have no quality');
-  assert.deepEqual(['fine', 'superior', 'epic', 'legendary', 'mythic'].map((k) => MASTERY_RANKS[QUALITY[k].rank].name),
-    ['Adept', 'Skilled', 'Expert', 'Master', 'Grandmaster'], 'each quality matches a mastery rank');
+  assert.deepEqual(['fine', 'superior', 'epic', 'legendary', 'mythic'].map((k) => QUALITY[k].gain),
+    [0.08, 0.16, 0.25, 0.40, 0.60], 'each quality adds a share to its copy\'s stats');
+  assert.ok(MASTERY_RANKS.length === 7);
   // Odds vary greatly by source: count how often Mythic comes up.
   let seed = 1; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
   const highShare = (src) => { let n = 0; for (let i = 0; i < 40000; i++) if (rollQuality(src, rnd) === 'mythic') n++; return n / 40000; };
@@ -4152,13 +4155,13 @@ test('drops: rarer gear from normal monsters, quality rolls, and bosses always d
   game.start();
   game.chooseClass('corsair');
   game.ui = new Proxy({}, { get: () => () => {} });
-  let got = [];
-  game._autoLoot = (loot) => { got = loot.map((l) => l[0]); };
+  let got = [], quals = [];
+  game._autoLoot = (loot) => { got = loot.map((l) => l[0]); quals = loot.map((l) => l[3] || null); };
   const boss = game.npcs.find((n) => n.def.boss && !n.def.fixed);
   game.rollDrops(boss);
   const gear = got.filter((id) => ITEMS[id].equip && (ITEMS[id].equip.weaponType === 'scimitar' || ITEMS[id].equip.weaponType === 'parang' || ITEMS[id].equip.family === 'leather'));
   assert.ok(gear.length >= 1, `a boss drops Corsair gear (${got.join(', ')})`);
-  assert.ok(gear.some((id) => game.equipment.masteryRank(id) >= QUALITY.superior.rank), 'of Superior quality or better (Skilled mastery)');
+  assert.ok(got.every((id, i) => !ITEMS[id].equip || (quals[i] && quals[i] !== 'fine')), 'every gear copy a boss drops is Superior quality or better');
   assert.ok(got.includes('upgrade_stone'), 'and upgrade stones');
   // Normal monsters: a gear roll is usually turned into something else.
   const mob = game.npcs.find((n) => n.def.attackable && !n.def.boss && n.def.dropTable?.some((d) => d.id && ITEMS[d.id]?.equip));
