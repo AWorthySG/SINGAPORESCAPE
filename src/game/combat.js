@@ -125,7 +125,10 @@ const WEAKNESS_BY_SPRITE = {
   spider: 'melee', hound: 'melee', rodent: 'melee', demon: 'melee', plant: 'melee',
 };
 
-export const WEAKNESS_BONUS = { dmg: 1.10 };
+// Hitting a monster's weakness: +25% damage (it was +10%, too small to notice),
+// on top of getting past half its armour (see armourMult). The hit's number
+// carries a small "weak!" tag so you can see the switch paying off.
+export const WEAKNESS_BONUS = { dmg: 1.25 };
 
 // Monster armour: a share of every hit it shrugs off, by kind of creature, from
 // none (slimes, wisps, jellyfish) to armoured (golems, crabs, turtles). Champions

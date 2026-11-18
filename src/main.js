@@ -7,6 +7,7 @@ import { Sfx } from './audio/sfx.js';
 import { now } from './core/utils.js';
 import { TILE } from './config.js';
 import { saveGame, watchForImports } from './game/save.js';
+import { handsOn } from './game/playbalance.js';
 import { receiveTransfer, forwardToNewHome } from './game/transfer.js';
 import { initPwa } from './pwa.js';
 import { TitleScreen } from './ui/title.js';
@@ -62,8 +63,9 @@ game.start();
 title.attach(game);
 
 // Input wiring.
-input.onLeftClick((x, y) => game.onLeftClick(x, y));
-input.onRightClick((x, y) => game.onRightClick(x, y));
+// Clicks and the action keys count as hands-on play, which refills Focus (playbalance.js).
+input.onLeftClick((x, y) => { handsOn(game); game.onLeftClick(x, y); });
+input.onRightClick((x, y) => { handsOn(game); game.onRightClick(x, y); });
 input.onKey((e) => {
   // On the title screen the keys belong to it: Enter goes in (as does Space or
   // Enter on its focused button), and nothing reaches the game behind it.
@@ -71,6 +73,7 @@ input.onKey((e) => {
   // Typing in a search box (bank, bestiary) must not fire the shortcut keys.
   const t = e.target;
   if (e.key !== 'Escape' && t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+  if ('fgqepzxcvb '.includes(e.key?.toLowerCase() || '-')) handsOn(game);
   const map = { '1': 'inventory', '2': 'equipment', '3': 'skills', '4': 'combat', '5': 'prayer', '6': 'quests', '7': 'achievements', '8': 'settings' };
   if (map[e.key]) {
     document.querySelector(`#panel-tabs .tab-btn[data-view="${map[e.key]}"]`)?.click();

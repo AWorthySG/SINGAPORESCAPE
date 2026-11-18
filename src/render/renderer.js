@@ -44,6 +44,7 @@ import { introCurve, titleAlpha, DEATH_FLASH_MS } from '../game/cinematics.js';
 import { TerrainFx } from './terrainfx.js';
 import { sunShadow, drawSunShadow, footfall } from './shadows.js';
 import { hasLightColumn, columnImage, dropArc, dropFx } from './combatfx.js';
+import { drawGrave } from './grave.js';
 
 // Gathering actions that show a progress ring over the node, and its colour.
 const GATHER_RING = { woodcut: '#4fa04f', mine: '#8a8fa0', fish: '#3a8fd8', hunt: '#d08a3a' };
@@ -252,6 +253,8 @@ export class Renderer {
         } else drawObjectSprite(ctx, o, cx, cy, timeMs);
       } });
     }
+    { const gr = game.play?.grave;   // your gravestone, where you last fell (playbalance.js)
+      if (gr && gr.x >= x0 && gr.x <= x1 && gr.y >= y0 && gr.y <= y1) drawables.push({ sortY: gr.y + 0.3, z: 1, draw: () => drawGrave(ctx, gr.x * TILE + TILE / 2 - ox, gr.y * TILE + TILE * 0.8 - oy, timeMs) }); }
     for (const g of game.world.groundItems) {
       if (g.x < x0 || g.x > x1 || g.y < y0 || g.y > y1) continue;
       const rar = RARITY[g.rarity] || RARITY.common, column = hasLightColumn(g.rarity);
@@ -1793,6 +1796,12 @@ export class Renderer {
         ctx.textBaseline = 'alphabetic';
         ctx.restore(); ctx.globalAlpha = 1;
         continue;
+      }
+      if (e.weak && hit) {
+        // Hit the monster's weakness: a small green "weak!" tag over the number.
+        ctx.font = '900 8px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+        ctx.lineWidth = 3; ctx.strokeStyle = '#ffffff'; ctx.strokeText('weak!', 0, -r - 4);
+        ctx.fillStyle = '#1F7A3D'; ctx.fillText('weak!', 0, -r - 4);
       }
       if (e.critX) {
         // Critical hit: just a red number, a touch smaller for x2 and a touch bigger for x4 (a mega crit).

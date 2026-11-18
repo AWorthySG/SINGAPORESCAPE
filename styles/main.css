@@ -3349,3 +3349,20 @@ body.cb-safe #hp-orb.low::after {
 }
 .sgx-picked { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; margin: 6px 0; padding: 6px 8px;
   font-size: 12px; background: #e6f7df; border: 2px solid var(--aw-ink); border-radius: var(--r1); }
+
+/* ---------- Play balance: Focus bar, Rested tag and Grave button (playhud.js) ---------- */
+#play-hud { display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-top: 2px dashed var(--aw-ink-faint); flex-wrap: wrap; }
+#play-hud button { font-family: inherit; cursor: var(--cur-pointer); }
+#play-hud .ph-focus { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; padding: 0; background: transparent; border: 0; box-shadow: none; color: var(--aw-text); }
+#play-hud .ph-label { font-size: 10.5px; font-weight: 800; }
+#play-hud .ph-bar { position: relative; flex: 1 1 auto; min-width: 48px; height: 8px; border-radius: 999px; background: var(--aw-muted); border: 1.5px solid var(--aw-ink); overflow: hidden; }
+#play-hud .ph-bar i { position: absolute; top: 0; bottom: 0; left: 0; width: 100%; background: #7cc7f2; transition: width .4s ease; }
+#play-hud .ph-focus.low .ph-bar i { background: #f2b84b; }
+#play-hud .ph-focus.tired .ph-label { color: #b4471f; }
+#play-hud .ph-rested, #play-hud .ph-grave { font-size: 10px; font-weight: 800; padding: 1px 7px; border-radius: 999px; border: 1.5px solid var(--aw-ink); box-shadow: none; }
+#play-hud .ph-rested { background: #dff3d4; color: #1F7A3D; }
+#play-hud .ph-grave { background: #e7eaf0; color: var(--aw-text); }
+#play-hud .hidden { display: none; }
+@media (pointer: coarse) {
+  #play-hud .ph-focus, #play-hud .ph-rested, #play-hud .ph-grave { min-height: 44px; }
+}
