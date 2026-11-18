@@ -144,3 +144,21 @@ test('sheets: a swipe down or a tap on the handle closes; a short drag snaps bac
     globalThis.matchMedia = prev.matchMedia;
   }
 });
+
+test('touch screens show one Attack button: Interact steps aside when it would say Attack', async () => {
+  const touch = mediaBlock('(pointer: coarse)');
+  assert.match(touch, /#interact-btn\.is-attack \{ display: none; \}/);
+  assert.ok(!/^#interact-btn\.is-attack/m.test(css.slice(0, css.indexOf('@media (pointer: coarse) {'))), 'desktop keeps its Interact button as it was');
+  const { UI } = await import('../src/ui/ui.js');
+  const cls = new Set();
+  const verb = { innerHTML: '' };
+  const btn = { classList: { toggle: (c, on) => (on ? cls.add(c) : cls.delete(c)) }, querySelector: (s) => (s === '.ib-verb' ? verb : null), prepend() {}, title: '' };
+  const ui = { el: { interact: btn } };
+  UI.prototype.setInteractLabel.call(ui, ['Attack', 'Goblin (level 2)']);
+  assert.ok(cls.has('is-attack'), 'next to a foe it is the second Attack button, so it hides');
+  UI.prototype.setInteractLabel.call(ui, ['Talk to', 'Auntie Mei']);
+  assert.ok(!cls.has('is-attack'), 'it comes back for anything else');
+  assert.equal(verb.innerHTML, 'Talk to', 'still naming the action');
+  UI.prototype.setInteractLabel.call(ui, null);
+  assert.ok(!cls.has('is-attack'));
+});

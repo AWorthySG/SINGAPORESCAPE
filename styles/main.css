@@ -2766,6 +2766,10 @@ body #tip-toast.tip-strip { font-size: 11px; padding: 4px 6px 4px 7px; border-ra
   #wave-hud .wv-leave { min-height: 44px; }
   #modal-close { width: 44px; height: 44px; font-size: 16px; }
   #modal-body button, .dialogue-option { min-height: 44px; }
+  /* One Attack button: next to a foe the Interact button would say "Attack"
+     too, so it steps aside for the big one (which also holds to keep fighting).
+     It comes back as Talk to / Chop / Take for everything else. */
+  #interact-btn.is-attack { display: none; }
 }
 
 /* ---------- Phones, both ways up: Auto button, chat pill, sheets ---------- */
