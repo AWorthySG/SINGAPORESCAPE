@@ -1,10 +1,13 @@
 import { TILE } from '../config.js';
 import { TERRAIN } from '../data/world.js';
+import { fxImage, fxTinted, drawFx } from './fxart.js';
 
 // Ambient critters: butterflies over grass and flowers by day, fireflies near
 // water and jungle at night, birds that sit on the ground and flutter off when
-// you come close, and the odd gecko on a wall. Drawn with a few canvas strokes
-// (no images), purely cosmetic: not entities, never saved, no effect on play.
+// you come close, and the odd gecko on a wall. By the water, dragonflies dart
+// about and now and then a kingfisher perches on the bank. Painted stickers
+// (fxart.js), with a few canvas strokes standing in until they load; purely
+// cosmetic: not entities, never saved, no effect on play.
 // A fixed pool of objects is reused (nothing is allocated per frame), they only
 // spawn inside the view and vanish once they leave it.
 
@@ -24,7 +27,7 @@ export class Critters {
   constructor(cap = CRITTER_CAP) {
     this.pool = [];
     for (let i = 0; i < cap; i++) {
-      this.pool.push({ on: false, kind: 0, x: 0, y: 0, vx: 0, vy: 0, t: 0, life: 0, max: 1, phase: 0, flee: false, col: '', ax: 0, ay: 0, next: 0 });
+      this.pool.push({ on: false, kind: 0, x: 0, y: 0, vx: 0, vy: 0, t: 0, life: 0, max: 1, phase: 0, flee: false, col: '', sp: '', ax: 0, ay: 0, next: 0 });
     }
     this._spawnIn = 0;
     // Its own random source, so critters never shift the game's Math.random rolls.
@@ -75,18 +78,18 @@ export class Critters {
     const wx = tx * TILE + TILE / 2, wy = ty * TILE + TILE / 2;
     const far = Math.hypot(wx - env.px, wy - env.py) > BIRD_FLEE * 1.4;
     const r = this.rnd();
+    const W = TERRAIN.WATER;
+    const wet = w.terrainAt(tx + 1, ty) === W || w.terrainAt(tx - 1, ty) === W || w.terrainAt(tx, ty + 1) === W || w.terrainAt(tx, ty - 1) === W;
     let kind = -1;
     if (o && PERCH.has(o.def.type === 'scenery' ? o.objId : o.def.type)) {
       if (r < (env.night > 0.5 ? 0.6 : 0.3) && far) kind = GECKO;
     } else if (env.night > 0.5) {
-      const W = TERRAIN.WATER;
-      const wet = w.terrainAt(tx + 1, ty) === W || w.terrainAt(tx - 1, ty) === W || w.terrainAt(tx, ty + 1) === W || w.terrainAt(tx, ty - 1) === W;
       if (grassy && (wet || JUNGLE.has(env.zone)) && r < 0.75) kind = FIREFLY;
       else if (grassy && r < 0.2) kind = FIREFLY;
     } else if (o && (o.objId === 'flower' || o.objId === 'bush')) {
       if (r < 0.8) kind = BUTTERFLY;
     } else if (!o && grassy && r < 0.3) {
-      kind = BUTTERFLY;
+      kind = BUTTERFLY;   // a dragonfly, if it's by the water (below)
     } else if (!o && far && !w.isBlocked(tx, ty) && t !== TERRAIN.WATER && r < 0.35 && this._countKind(BIRD) < 4) {
       kind = BIRD;
     }
@@ -94,10 +97,13 @@ export class Critters {
     const c = this._free();
     if (!c) return null;
     c.on = true; c.kind = kind; c.t = 0; c.flee = false; c.phase = this.rnd() * 6.28; c.next = 0;
-    c.vx = 0; c.vy = 0;
+    c.vx = 0; c.vy = 0; c.sp = '';
     if (kind === BUTTERFLY) {
       c.x = wx + (this.rnd() - 0.5) * 16; c.y = wy - 10; c.max = c.life = 9000 + this.rnd() * 6000;
       c.col = WINGS[Math.floor(this.rnd() * WINGS.length)];
+      // Dragonflies by the water; the odd swallowtail in the jungle.
+      if (wet) c.sp = 'dragonfly';
+      else if (JUNGLE.has(env.zone) && this.rnd() < 0.25) c.sp = 'swallowtail';
       const a = this.rnd() * 6.28; c.vx = Math.cos(a) * 0.022; c.vy = Math.sin(a) * 0.012;
     } else if (kind === FIREFLY) {
       c.x = wx + (this.rnd() - 0.5) * 24; c.y = wy - 6 - this.rnd() * 10; c.max = c.life = 6000 + this.rnd() * 5000;
@@ -105,10 +111,12 @@ export class Critters {
       c.x = wx + (this.rnd() - 0.5) * 16; c.y = wy + 6; c.max = c.life = 16000 + this.rnd() * 8000;
       c.col = this.rnd() < 0.5 ? '#6b5440' : '#4f5d74';   // a sparrow brown or a myna grey
       c.ax = this.rnd() < 0.5 ? -1 : 1;                   // which way it faces
+      c.sp = wet && this.rnd() < 0.6 ? 'kingfisher' : c.col === '#6b5440' ? 'sparrow' : 'myna';
     } else {
       // On the object's front face, partway up.
       c.x = wx + (this.rnd() - 0.5) * 14; c.y = wy - 4 - this.rnd() * 14; c.max = c.life = 12000 + this.rnd() * 6000;
       c.col = this.rnd() < 0.6 ? '#86c46e' : '#cbb38a';
+      c.sp = c.col === '#86c46e' ? 'cicak_green' : 'cicak_sand';
       c.ax = c.x; c.ay = c.y;
     }
     return c;
@@ -161,7 +169,7 @@ export class Critters {
       ctx.globalAlpha = this._alpha(c);
       const x = c.x - ox, y = c.y - oy;
       if (c.kind === BIRD) drawSitting(ctx, c, x, y);
-      else drawGecko(ctx, c, x, y);
+      else if (!artGecko(ctx, c, x, y)) drawGecko(ctx, c, x, y);
     }
     ctx.globalAlpha = 1;
   }
@@ -175,6 +183,13 @@ export class Critters {
       if (c.kind === FIREFLY) {
         if (!glow) { ctx.globalCompositeOperation = 'lighter'; glow = true; }
         const pulse = 0.35 + 0.65 * Math.max(0, Math.sin(timeMs * 0.0035 + c.phase));
+        const body = fxImage('critter-firefly');
+        if (body) {
+          // The little beetle itself, then its glow added on top.
+          ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = a * 0.9;
+          drawFx(ctx, body, x, y, 5);
+          ctx.globalCompositeOperation = 'lighter';
+        }
         ctx.globalAlpha = a * pulse * 0.35; ctx.fillStyle = '#d8ff6a';
         ctx.beginPath(); ctx.arc(x, y, 4.5, 0, 6.283); ctx.fill();
         ctx.globalAlpha = a * pulse; ctx.fillStyle = '#fbffc8';
@@ -183,8 +198,8 @@ export class Critters {
       }
       if (glow) { ctx.globalCompositeOperation = 'source-over'; glow = false; }
       ctx.globalAlpha = a;
-      if (c.kind === BUTTERFLY) drawButterfly(ctx, c, x, y, timeMs);
-      else drawFlying(ctx, c, x, y, timeMs);
+      if (c.kind === BUTTERFLY) { if (!artButterfly(ctx, c, x, y, timeMs)) drawButterfly(ctx, c, x, y, timeMs); }
+      else if (!artFlying(ctx, c, x, y, timeMs)) drawFlying(ctx, c, x, y, timeMs);
     }
     if (glow) ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = 1;
@@ -202,7 +217,66 @@ function drawButterfly(ctx, c, x, y, t) {
   ctx.fillStyle = INK; ctx.fillRect(x - 0.6, y - 3.5, 1.2, 5.5);
 }
 
+// ---- The painted versions (false until the picture has loaded) ----
+
+function artButterfly(ctx, c, x, y, t) {
+  if (c.sp === 'dragonfly') {
+    // Seen from above, facing the way it flies.
+    const img = fxImage('critter-dragonfly');
+    if (!img) return false;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(Math.atan2(c.vy, c.vx) + Math.PI / 2);
+    drawFx(ctx, img, 0, 0, 13);
+    ctx.restore();
+    return true;
+  }
+  const flap = Math.abs(Math.sin(t * 0.03 + c.phase));
+  if (c.sp === 'swallowtail') {
+    // In its own colours, so its one picture squashes sideways to flap.
+    const img = fxImage('critter-swallowtail');
+    if (!img) return false;
+    ctx.save(); ctx.translate(x, y); ctx.scale(0.25 + flap * 0.75, 1);
+    drawFx(ctx, img, 0, 0, 14);
+    ctx.restore();
+    return true;
+  }
+  // The plain one, tinted its wing colour: open, half shut and edge-on as the wings beat.
+  const img = fxTinted(flap > 0.66 ? 'critter-butterfly' : flap > 0.3 ? 'critter-butterfly_half' : 'critter-butterfly_shut', c.col);
+  if (!img) return false;
+  drawFx(ctx, img, x, y, 13);
+  return true;
+}
+
+function artSitting(ctx, c, x, y) {
+  const peck = c.sp !== 'kingfisher' && Math.max(0, Math.sin(c.t * 0.008 + c.phase)) > 0.92;
+  const img = fxImage(`critter-${c.sp}${peck ? '_peck' : ''}`);
+  if (!img) return false;
+  ctx.fillStyle = 'rgba(34,48,74,0.18)';
+  ctx.beginPath(); ctx.ellipse(x, y + 2.5, 4, 1.3, 0, 0, 6.283); ctx.fill();
+  drawFx(ctx, img, x, y - 3, c.sp === 'kingfisher' ? 14 : 12, c.ax < 0);   // painted facing right
+  return true;
+}
+
+function artFlying(ctx, c, x, y, t) {
+  // Wings up and wings down in turn (the kingfisher has the one picture).
+  const up = Math.sin(t * 0.05 + c.phase) > 0;
+  const img = fxImage(c.sp === 'kingfisher' ? 'critter-kingfisher' : `critter-${c.sp}_${up ? 'up' : 'down'}`);
+  if (!img) return false;
+  drawFx(ctx, img, x, y, 13, c.ax < 0);
+  return true;
+}
+
+function artGecko(ctx, c, x, y) {
+  const img = fxImage(`critter-${c.sp}`);
+  if (!img) return false;
+  // Painted lying flat with its head to the right: stand it up the wall.
+  ctx.save(); ctx.translate(x, y); ctx.rotate(-Math.PI / 2);
+  drawFx(ctx, img, 0, 0, 9);
+  ctx.restore();
+  return true;
+}
+
 function drawSitting(ctx, c, x, y) {
+  if (artSitting(ctx, c, x, y)) return;
   // A plump little bird pecking about: body, head, a beak and a tail.
   const peck = Math.max(0, Math.sin(c.t * 0.008 + c.phase)) > 0.92 ? 1.2 : 0;
   const f = c.ax;

@@ -337,3 +337,43 @@ test('tall things you walk behind turn see-through; bushes sway as you brush pas
   assert.equal(r.skew(bush, 1234), 0, 'and the bush settles');
   assert.equal(r.fade.size + r.brush.size, 0, 'nothing kept once settled');
 });
+
+// ---------------- Painted critters, particles, banner and plaques ----------------
+test('painted fx art stays in lock-step with assets/fx/ and every badge names a real region', async () => {
+  const { readdirSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const { fxArt, REGION_BADGES, DARK_REGIONS } = await import('../src/render/fxart.js');
+  const { buildWorld } = await import('../src/data/world.js');
+  const onDisk = new Set(readdirSync(fileURLToPath(new URL('../assets/fx/', import.meta.url))).filter((f) => f.endsWith('.webp')).map((f) => f.slice(0, -5)));
+  const declared = fxArt();
+  assert.deepEqual([...declared].filter((k) => !onDisk.has(k)), [], 'declared fx art has no file');
+  assert.deepEqual([...onDisk].filter((k) => !declared.has(k)), [], 'fx art file not declared');
+  const zones = buildWorld().zones;
+  const regions = new Set(zones.map((z) => z.name));
+  for (const r of [...REGION_BADGES, ...DARK_REGIONS]) assert.ok(regions.has(r), `${r} is a real region`);
+  for (const z of zones) if (!z.instance) assert.ok(REGION_BADGES.includes(z.name), `${z.name} has a badge`);
+});
+
+test('falling leaves pick a painted leaf or petal to suit the tree, without a random roll', async () => {
+  const { leafArt, PARTICLE_ART } = await import('../src/render/fxart.js');
+  assert.equal(leafArt({ objId: 'angsana', x: 1, y: 2 }, false), 'petal_red');
+  assert.equal(leafArt({ objId: 'tembusu', x: 1, y: 2 }, false), 'frangipani');
+  assert.equal(leafArt({ objId: 'oak', x: 1, y: 2 }, true), 'leaf_dry');
+  const a = leafArt({ objId: 'oak', x: 1, y: 2 }, false), b = leafArt({ objId: 'oak', x: 1, y: 2 }, false, 1);
+  assert.notEqual(a, b, 'two leaves from one tree differ');
+  for (const k of [a, b]) assert.ok(PARTICLE_ART.includes(k));
+});
+
+test('critters by the water are dragonflies and kingfishers; drawing them is safe headless', () => {
+  const W = TERRAIN.WATER;
+  // Rows of water, grass and sand in turn: every grass and sand tile is by the water.
+  const bank = { inBounds: () => true, terrainAt: (x, y) => [W, TERRAIN.GRASS, TERRAIN.SAND][y % 3], objectAt: () => null, isBlocked: (x, y) => y % 3 === 0 };
+  const c = new Critters();
+  const env = { world: bank, zone: 'Kampong Glam', night: 0, px: -5000, py: -5000, low: false };
+  const seen = new Set();
+  for (let i = 0; i < 6000; i++) { c.update(16, env, 0, 0, 800, 600); for (const k of c.pool) if (k.on) seen.add(k.sp); }
+  assert.ok(seen.has('dragonfly') && seen.has('kingfisher'), `by the water (${[...seen]})`);
+  // No Image in the tests: the canvas-stroke versions draw instead.
+  const ctx = new Proxy({}, { get: (t, k) => (k in t ? t[k] : () => {}), set: (t, k, v) => { t[k] = v; return true; } });
+  c.drawGround(ctx, 0, 0); c.drawAir(ctx, 0, 0, 1000);
+});

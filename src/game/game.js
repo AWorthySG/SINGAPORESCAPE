@@ -26,6 +26,7 @@ import { Player, STICK_DEAD } from './player.js';
 import { NPC } from './npc.js';
 import { Camera } from '../engine/camera.js';
 import { Cinematics } from './cinematics.js';
+import { leafArt } from '../render/fxart.js';
 import { footFx } from './footfx.js';
 import { findPath } from '../engine/pathfinding.js';
 import {
@@ -961,7 +962,7 @@ export class Game {
       if (Math.random() < 0.45) {
         const wx = o.x * TILE + TILE / 2 + (Math.random() - 0.5) * 8;
         const wy = o.y * TILE + TILE / 2 - 6;
-        this._pushParticle({ x: wx, y: wy, vx: (Math.random() - 0.5) * 0.01, vy: -0.03 - Math.random() * 0.02, g: -0.00002, life: 620, maxLife: 620, size: 1.4 + Math.random() * 1.4, color: '#ffae3a', add: true });
+        this._pushParticle({ x: wx, y: wy, vx: (Math.random() - 0.5) * 0.01, vy: -0.03 - Math.random() * 0.02, g: -0.00002, life: 620, maxLife: 620, size: 1.4 + Math.random() * 1.4, color: '#ffae3a', add: true, art: 'ember' });
       }
     }
   }
@@ -990,7 +991,7 @@ export class Game {
       // Ash and grit gusting sideways across the Wilderness.
       for (let i = 0; i < 2; i++) this._pushParticle({
         x: c.x - 200 + Math.random() * 60, y: c.y + (Math.random() - 0.5) * 260, vx: 0.05 + Math.random() * 0.04, vy: (Math.random() - 0.5) * 0.008, g: 0,
-        life: 5200, maxLife: 5200, size: 0.8 + Math.random() * 1.2, color: Math.random() < 0.5 ? '#8a7a6a' : '#b5a48f', add: false,
+        life: 5200, maxLife: 5200, size: 0.8 + Math.random() * 1.2, color: Math.random() < 0.5 ? '#8a7a6a' : '#b5a48f', add: false, art: 'dust_l',
       });
     } else {
       // A leaf now and then, tumbling down from a nearby tree.
@@ -1001,7 +1002,7 @@ export class Game {
         this._pushParticle({
           x: t.x * TILE + TILE / 2 + (Math.random() - 0.5) * 18, y: t.y * TILE - 6, vx: (Math.random() - 0.5) * 0.02, vy: 0.012 + Math.random() * 0.01, g: 0,
           life: 2600, maxLife: 2600, size: 1.6 + Math.random() * 0.8, color: autumn ? '#e0a63a' : '#5fb05a', add: false,
-          shape: 'leaf', rot: Math.random() * 6.28, spin: (Math.random() - 0.5) * 0.006, sway: Math.random() * 6.28,
+          shape: 'leaf', art: leafArt(t, autumn), rot: Math.random() * 6.28, spin: (Math.random() - 0.5) * 0.006, sway: Math.random() * 6.28,
         });
       }
     }

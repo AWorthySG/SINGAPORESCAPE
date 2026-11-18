@@ -1,5 +1,6 @@
 import { TILE } from '../config.js';
 import { TERRAIN } from '../data/world.js';
+import { leafArt } from '../render/fxart.js';
 
 // Little reactions to the player moving through the world, made from the game's
 // own particles (so they share its cap): dust kicked up at your feet as you run
@@ -43,12 +44,15 @@ export function footFx(game, st) {
       if (!o || o.def.type !== 'tree' || o.depleted || rnd() > LEAF_CHANCE) continue;
       o.shakeT = Math.max(o.shakeT || 0, 140);
       const n = 1 + (rnd() < 0.4 ? 1 : 0);
-      for (let i = 0; i < n; i++) game._pushParticle({
+      for (let i = 0; i < n; i++) {
+        const autumn = rnd() < 0.25;
+        game._pushParticle({
         x: o.x * TILE + TILE / 2 + (rnd() - 0.5) * 22, y: o.y * TILE - 8 - rnd() * 10,
         vx: (rnd() - 0.5) * 0.02, vy: 0.014 + rnd() * 0.01, g: 0,
-        life: 2000, maxLife: 2000, size: 1.6 + rnd() * 0.8, color: rnd() < 0.25 ? '#e0a63a' : '#5fb05a', add: false,
-        shape: 'leaf', rot: rnd() * 6.28, spin: (rnd() - 0.5) * 0.006, sway: rnd() * 6.28,
-      });
+        life: 2000, maxLife: 2000, size: 1.6 + rnd() * 0.8, color: autumn ? '#e0a63a' : '#5fb05a', add: false,
+        shape: 'leaf', art: leafArt(o, autumn, i), rot: rnd() * 6.28, spin: (rnd() - 0.5) * 0.006, sway: rnd() * 6.28,
+        });
+      }
       return;   // one tree per step is plenty
     }
   }
@@ -61,6 +65,6 @@ function dust(game, x, y, n) {
   for (let i = 0; i < n; i++) {
     const a = rnd() * Math.PI * 2, s = 0.006 + rnd() * 0.014;
     game._pushParticle({ x: x + Math.cos(a) * 3, y, vx: Math.cos(a) * s, vy: -0.008 - rnd() * 0.01, g: 0.00001, drag: 0.97,
-      life: 340 + rnd() * 120, maxLife: 460, size: 1.8 + rnd() * 1.4, color, add: false });
+      life: 340 + rnd() * 120, maxLife: 460, size: 1.8 + rnd() * 1.4, color, add: false, art: n >= 4 ? 'dust_m' : 'dust_s' });
   }
 }
