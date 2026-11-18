@@ -1,7 +1,7 @@
 import { Game } from './game/game.js';
 import { UI } from './ui/ui.js';
 import { Renderer } from './render/renderer.js';
-import { Input, guardTouchZoom, clickSecondFingerTaps } from './engine/input.js';
+import { Input, guardTouchZoom, guardPageShift, clickSecondFingerTaps } from './engine/input.js';
 import { MovePad } from './engine/movepad.js';
 import { Sfx } from './audio/sfx.js';
 import { now } from './core/utils.js';
@@ -50,6 +50,7 @@ const renderer = new Renderer(game, canvas, ctx);
 const input = new Input(canvas);
 const movepad = new MovePad(game);
 guardTouchZoom();
+guardPageShift();   // taps landing off-target after the iPhone keyboard (see input.js)
 clickSecondFingerTaps();
 
 game.ui = ui;

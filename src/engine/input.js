@@ -54,6 +54,44 @@ export class Input {
   onKey(fn) { this.handlers.key = fn; }
 }
 
+/** iPhone Safari scrolls the whole page up when the keyboard opens for a text
+ *  box (the account form, a search box) and sometimes leaves it there after the
+ *  keyboard closes, or keeps a slight zoom from a pinch that slipped through.
+ *  The game still looks right, but every tap then lands a few pixels off, so
+ *  buttons only answered a press just above them. Whenever no text box is in
+ *  use, put the page back: scrolled to the top and at 100% zoom. */
+export function guardPageShift(win = globalThis.window) {
+  const doc = win?.document;
+  if (!doc?.addEventListener || typeof win.scrollTo !== 'function') return;
+  const typing = () => { const el = doc.activeElement; return !!el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName); };
+  let busy = false;
+  const reset = () => {
+    if (typing() || busy) return;
+    busy = true;
+    try {
+      // (Safari may report no scroll at all and still hold the visual viewport
+      // off the top after the keyboard, so this runs whenever it's called.)
+      const vv0 = win.visualViewport;
+      if (win.scrollX || win.scrollY || (vv0 && (vv0.offsetTop || vv0.offsetLeft))) win.scrollTo(0, 0);
+      for (const el of [doc.scrollingElement, doc.documentElement, doc.body]) if (el && (el.scrollTop || el.scrollLeft)) { el.scrollTop = 0; el.scrollLeft = 0; }
+      // A leftover pinch zoom: nudging the viewport tag makes Safari snap back to 100%.
+      const vv = win.visualViewport, meta = doc.querySelector('meta[name="viewport"]');
+      if (vv && vv.scale > 1.01 && meta) {
+        const c = meta.getAttribute('content');
+        meta.setAttribute('content', c.replace(/maximum-scale=[\d.]+/, 'maximum-scale=1.01'));
+        setTimeout(() => meta.setAttribute('content', c), 50);
+      }
+    } finally { busy = false; }
+  };
+  doc.addEventListener('focusout', () => setTimeout(reset, 80), true);   // the keyboard has closed (unless focus moved to another box)
+  win.addEventListener('scroll', reset, { passive: true });
+  win.visualViewport?.addEventListener?.('resize', () => setTimeout(reset, 80));
+  win.visualViewport?.addEventListener?.('scroll', () => setTimeout(reset, 80));
+  win.addEventListener('orientationchange', () => setTimeout(reset, 300));
+  doc.addEventListener('visibilitychange', () => { if (!doc.hidden) reset(); });
+  return reset;
+}
+
 // Controls you tap fast and often. A quick second tap on them must never zoom.
 const PLAY_SURFACE = '#game-canvas, #joystick, #attack-btn, #interact-btn, .ability-btn';
 
