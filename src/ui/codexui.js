@@ -18,6 +18,7 @@ import {
   CODEX_IDS, TYPE_FILTERS, SORTS, codexList, codexEntry, codexProgress, codexRegions, codexHabitats,
   isDiscovered, killsOf, championCapable, chanceText, nearestSpawn,
 } from '../game/codex.js';
+import { masteryProgress, masterySummary, earnedTitles, setTitle, MASTERY_TIERS, RACE_MASTERY_CAP, raceMastery } from '../game/culling.js';
 
 export const PAGE_SIZE = 40;
 
@@ -59,7 +60,22 @@ export function codexProgressHTML(game) {
   const regions = p.regions.map((r) => `<div class="cx-reg${r.seen === r.total ? ' done' : ''}"><span>${esc(r.name)}</span>` +
     `<span class="cx-bar"><i style="width:${pct(r.seen, r.total)}%"></i></span><b>${r.seen}/${r.total}</b></div>`).join('');
   return `<div class="cx-head">${barHTML(p.seen, p.total, 'Discovered ')}` +
-    `<details class="cx-regions"><summary>By region</summary><div class="cx-reg-grid">${regions}</div></details></div>`;
+    `<details class="cx-regions"><summary>By region</summary><div class="cx-reg-grid">${regions}</div></details>${masteryHeadHTML(game)}</div>`;
+}
+
+// Roman numerals for the mastery badge, coloured bronze, silver and gold.
+const TIER_MARK = ['', 'I', 'II', 'III'];
+const tierBadge = (t) => (t ? `<span class="cx-tag mastery t${t}" title="${MASTERY_TIERS[t - 1].name} codex mastery">${TIER_MARK[t]}</span>` : '');
+
+/** Codex mastery at a glance (culling.js), and the titles you've earned with
+ *  a button each to wear one (shown over your head while you are Neutral). */
+function masteryHeadHTML(game) {
+  const [t1, t2, t3] = masterySummary(game);
+  const titles = earnedTitles(game), worn = game?.culling?.title;
+  const list = titles.map((t) => `<button type="button" class="cx-title-btn${worn === t.id ? ' worn' : ''}" data-title="${esc(t.id)}">${esc(t.title)}${worn === t.id ? ' (worn)' : ''}</button>`).join('');
+  return `<div class="cx-mastery-sum">Mastery: ${tierBadge(1)} ${t1} · ${tierBadge(2)} ${t2} · ${tierBadge(3)} ${t3}` +
+    (titles.length ? `<details class="cx-titles"><summary>Titles (${titles.length})</summary><div>${list}` +
+      (worn ? '<button type="button" class="cx-title-btn" data-title="">Wear none</button>' : '') + '</div></details>' : '') + '</div>';
 }
 
 /** One row of the list. */
@@ -68,7 +84,8 @@ export function codexRowHTML(game, id) {
   const zones = codexHabitats(game).get(id) || [];
   const where = zones.length > 2 ? `${esc(zones[0])} +${zones.length - 1} more` : zones.map(esc).join(', ');
   const tags = (d.boss ? '<span class="cx-tag boss">Boss</span>' : '') +
-    (seen && championCapable(d) ? '<span class="cx-tag champ" title="Can turn up as a champion">★</span>' : '');
+    (seen && championCapable(d) ? '<span class="cx-tag champ" title="Can turn up as a champion">★</span>' : '') +
+    (seen ? tierBadge(masteryProgress(game, id).tier) : '');
   return `<button type="button" class="cx-row${seen ? '' : ' unseen'}${d.boss ? ' is-boss' : ''}" data-id="${esc(id)}">` +
     artHTML(id, 'cx-thumb', seen) +
     `<span class="cx-row-main"><span class="cx-row-top"><b>${seen ? esc(d.name) : '???'}</b>${tags}</span>` +
@@ -133,7 +150,24 @@ export function codexEntryHTML(game, id) {
     return `<div class="cx-drop" title="${esc(it.name)}">${itemIconSVG(dr.id, 24)}<span class="cx-drop-name">${qty}${esc(it.name)}</span><span class="cx-drop-chance${dr.always ? ' always' : ''}">${chanceText(dr.chance)}</span></div>`;
   }).join('');
   const dropsHTML = `<div class="cx-sec"><h4>Drops <small>(rough chances per kill${e.boss ? '; bosses roll ten times' : ''})</small></h4><div class="cx-drops">${drops || '<i>No notable drops.</i>'}</div></div>`;
-  return head + stats + strong + boss + whereHTML + dropsHTML;
+  return head + masteryHTML(game, id, e) + stats + strong + boss + whereHTML + dropsHTML;
+}
+
+/** The entry's mastery section: its tier, progress to the next, and what each tier gives. */
+function masteryHTML(game, id, e) {
+  const m = masteryProgress(game, id);
+  const race = raceMastery(game, e.race.id);
+  const tiers = MASTERY_TIERS.map((t) => `<li class="${m.tier >= t.tier ? 'got' : ''}">${tierBadge(t.tier)} <b>${t.name}</b> at ${formatNumber(t.kills)}: ` +
+    `+${Math.round(t.dmg * 100)}% damage, +${Math.round(t.loot * 100)}% loot` + (t.race ? `, +${Math.round(t.race * 100)}% vs all ${esc(e.race.name)}` : '') +
+    (t.tier === 3 ? ', and a title' : '') + '</li>').join('');
+  return `<div class="cx-sec cx-mastery"><h4>Codex mastery ${tierBadge(m.tier)}</h4>` +
+    `<div class="cx-prog"><span class="cx-prog-label">${m.tier ? `<b>${m.name}</b>` : 'No tier yet'} · ` +
+    (m.next ? `${formatNumber(m.count)} / ${formatNumber(m.next)} to the next tier` : `${formatNumber(m.count)} kills · mastered`) +
+    `</span><span class="cx-bar"><i style="width:${m.pct}%"></i></span></div>` +
+    `<ul class="cx-tiers">${tiers}</ul>` +
+    (m.title ? `<div class="cx-note">Title earned: <b>${esc(m.title)}</b> (wear it from the list's Titles).</div>` : '') +
+    (race ? `<div class="cx-note">All your ${esc(e.race.name)} mastery together: +${Math.round(race * 100)}% damage to every ${esc(e.race.name)} creature (at most +${Math.round(RACE_MASTERY_CAP * 100)}%).</div>` : '') +
+    '</div>';
 }
 
 /** Open the codex; with an id, straight to that creature's entry. */
@@ -168,6 +202,7 @@ export function openCodex(ui, id = null) {
 
   const renderList = (body) => {
     body.innerHTML = codexProgressHTML(game);
+    body.querySelectorAll('.cx-title-btn').forEach((b) => b.addEventListener('click', () => { setTitle(game, b.dataset.title || null); renderList(body); }));
     const bar = control('div', 'cx-filters');
     const search = control('input', 'bank-search cx-search', { placeholder: 'Search creatures…', value: st.search || '', type: 'search' });
     search.addEventListener('input', () => { st.search = search.value; st.shown = PAGE_SIZE; drawList(); });

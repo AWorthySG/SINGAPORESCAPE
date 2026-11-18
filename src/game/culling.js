@@ -262,11 +262,20 @@ export function plural(name) {
   return n + 's';
 }
 
+// A contract only sends you to a region whose strongest monsters are at most
+// this many levels above you: harmless prey is no use if the walk there is
+// through packs that kill a new character (a fresh Rogue sent to Sungei
+// Buloh's toyols died on the way).
+export const CONTRACT_SAFE_ABOVE = 15;
+
 /** Pick a day's contracts: harmless species near your fight level that live
- *  outside the Wilderness. `pool` = [{ id, name, level, zone }]. Seeded by the
- *  date (and your level band), so a day's board doesn't change on reload. */
+ *  outside the Wilderness, in a region safe for you. `pool` = [{ id, name,
+ *  level, zone, zoneHi }]. Seeded by the date (and your level band), so a
+ *  day's board doesn't change on reload. */
 export function makeContracts(day, level, pool) {
   const rnd = seeded('pest:' + day + ':' + Math.floor(level / 5));
+  const safe = pool.filter((m) => !m.zoneHi || m.zoneHi <= level + CONTRACT_SAFE_ABOVE);
+  if (safe.length >= CONTRACT_COUNT) pool = safe;
   let lo = Math.max(1, level - 10), hi = level + 5;
   let picks = [];
   while (picks.length < CONTRACT_COUNT && hi < 20000) {
@@ -292,15 +301,19 @@ export function makeContracts(day, level, pool) {
   return out;
 }
 
-/** The harmless species living in the world outside the Wilderness. */
+/** The harmless species living in the world outside the Wilderness, each in
+ *  its safest region (the one with the weakest strongest monsters; the
+ *  starter regions have no level range and count as safest). */
 export function contractPool(game) {
   const seen = new Map();
   for (const n of game.npcs || []) {
-    if (!isHarmless(n) || seen.has(n.npcId) || !CODEX_SET.has(n.npcId)) continue;
+    if (!isHarmless(n) || !CODEX_SET.has(n.npcId)) continue;
     const z = game.world?.zoneAt?.(n.spawnX ?? n.x, n.spawnY ?? n.y);
     if (!z || z.wilderness) continue;
+    const old = seen.get(n.npcId), hi = z.hi || 0;
+    if (old && old.zoneHi <= hi) continue;
     const d = getNpc(n.npcId);
-    seen.set(n.npcId, { id: n.npcId, name: d.name, level: d.level || 1, zone: z.name });
+    seen.set(n.npcId, { id: n.npcId, name: d.name, level: d.level || 1, zone: z.name, zoneHi: hi });
   }
   return [...seen.values()];
 }
