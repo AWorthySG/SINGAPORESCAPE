@@ -38,3 +38,21 @@ test('life skill XP is worth +50% in its golden hours, and the change is announc
   at(3.9); g._checkGoldenHours(); at(4.1); g._checkGoldenHours();
   assert.ok(msgs.some((t) => /Golden hours: .*Fishing/.test(t)), 'dawn announces fishing');
 });
+
+test('golden hours only redraw the Skills tab when the set of skills changes, not every tick', () => {
+  GOLDEN.on = true;
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('swordsman');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  const at = (hour) => { g.playMs = Math.round((hour / 24) * DAY_CYCLE_MS); };
+  let n = 0; g.bus.on('skills', () => n++);
+  // Mid-morning: several windows are open and stay open. Redrawing every tick
+  // here replaced the panel's buttons under phone taps.
+  at(9); g._checkGoldenHours();
+  n = 0;
+  for (let h = 9.01; h < 9.5; h += 0.01) { at(h); g._checkGoldenHours(); }
+  assert.equal(n, 0, 'no redraws while nothing opens or closes');
+  // A window opening (woodcutting at 8) or closing (fishing at 10) still redraws.
+  at(10.05); g._checkGoldenHours();
+  assert.ok(n >= 1, 'a window closing redraws');
+});
