@@ -57,6 +57,8 @@ import { weaknessOf, armourTierOf, ARMOUR_TIERS, levelFlatDmg } from '../game/co
 import { isBone } from '../data/bones.js';
 import { RACES, raceOf, weaponsFor, weaponTypeName, WEAPON_VS_RACE } from '../data/races.js';
 import { WaveHud } from './wavehud.js';
+import { TIPS, TIPS_KEY, nextTip, markTipSeen, tipsSeen } from './tips.js';
+import { foeDetails, labelMode, nextLabelMode, LABEL_MODE_NAMES } from '../render/worldlabels.js';
 
 const EQUIP_LAYOUT = [
   null, 'head', null,
@@ -624,6 +626,10 @@ export class UI {
 
   // ---------------- Hover text ----------------
   setHoverText(verb, target = '', extra = '') {
+    // A foe under the cursor also lists its weakness, armour and wounds (the
+    // overhead tag only has room for an icon or two).
+    const hn = this.game.hover?.npc;
+    if (verb && !extra && hn?.attackable) extra = foeDetails(this.game, hn);
     const str = verb ? `${verb}|${target}|${extra}` : '';
     if (str === this._lastHover) return;
     this._lastHover = str;
@@ -2261,42 +2267,72 @@ export class UI {
   }
 
   // ---------------- First-time tips ----------------
-  // One small, dismissible tip at a time, each shown once (remembered on this device).
+  // One small, dismissible tip at a time, each shown once per save (ui/tips.js),
+  // tucked into a corner: under the objectives on a desktop, a slim strip along
+  // the top on a phone, never over the joystick, Attack button or ability bar.
   _tipsTick() {
     const g = this.game;
-    if (this._tipEl || this.modal || g.pendingStyleChoice || g.pendingClassChoice || !g.player.alive) return;
-    if (!this._tipsSeen) { try { this._tipsSeen = new Set(JSON.parse(localStorage.getItem(TIPS_KEY) || '[]')); } catch { this._tipsSeen = new Set(); } }
-    const p = g.player;
-    const want = (id, cond) => !this._tipsSeen.has(id) && cond();
-    let id = null;
-    if (want('dodge', () => g.hazards.length > 0)) id = 'dodge';
-    else if (want('move', () => g.tickCount > 3)) id = 'move';
-    else if (want('champion', () => g.npcs.some((n) => n.alive && n.champion && Math.abs(n.x - p.x) <= 10 && Math.abs(n.y - p.y) <= 10))) id = 'champion';
-    else if (want('auto', () => g.totalKills >= 1)) id = 'auto';
-    else if (want('gear', () => g.tickCount % 5 === 0 && g.inventory.slots.some((s) => s && getItem(s.id).equip
-      && compareGear(s.id, g.equipment).verdict === 'upgrade' && meetsReq(s.id, g.skills).ok && canWear(g.jobClass, s.id)))) id = 'gear';
-    else if (want('bounty', () => g.tickCount > 150)) id = 'bounty';
-    else if (want('upgrade', () => g.inventory.count(UP_STONE) >= 10)) id = 'upgrade';
+    if (this._tipEl) { this._placeTip(); return; }
+    if (this.modal || g.pendingStyleChoice || g.pendingClassChoice || !g.player.alive) return;
+    if (g.tipsFromDevice) {
+      // A save from before tips were saved: carry over what this device had
+      // already dismissed, once, so a returning player isn't shown them again.
+      g.tipsFromDevice = false;
+      try { for (const id of JSON.parse(localStorage.getItem(TIPS_KEY) || '[]')) if (TIPS[id]) tipsSeen(g).add(id); } catch { /* ignore */ }
+    }
+    const id = nextTip(g);
     if (id) this.showTip(id);
   }
 
   showTip(id) {
+    if (this._tipEl) { this._tipEl.remove(); this._tipEl = null; }
+    markTipSeen(this.game, id);   // seen as soon as it shows: a reload can't repeat it
     const el = document.createElement('div');
     el.id = 'tip-toast';
+    el.className = 'tip-corner';
     el.innerHTML = `<span class="tip-badge">Tip</span><div class="tip-text">${TIPS[id]}</div>`;
     const ok = document.createElement('button');
     ok.textContent = 'Got it';
-    const done = () => {
-      this._tipsSeen.add(id);
-      try { localStorage.setItem(TIPS_KEY, JSON.stringify([...this._tipsSeen])); } catch {}
-      el.remove(); this._tipEl = null;
-    };
+    const done = () => { el.remove(); if (this._tipEl === el) this._tipEl = null; };
     ok.addEventListener('click', done);
     el.appendChild(ok);
     document.body.appendChild(el);
     this._tipEl = el;
+    this._placeTip();
     clearTimeout(this._tipTimer);
     this._tipTimer = setTimeout(() => { if (this._tipEl === el) done(); }, id === 'dodge' ? 6000 : 14000);
+  }
+
+  /** Sit the tip just under the objectives tracker (or the top-left corner
+   *  when it's hidden). On a phone it is a slim strip across the top of the
+   *  playfield, below the tracker and the minimap, so the joystick, Attack
+   *  button and ability bar at the bottom are never covered. */
+  _placeTip() {
+    const el = this._tipEl;
+    if (!el || typeof window === 'undefined') return;
+    const box = (id) => {
+      const e = document.getElementById(id);
+      if (!e || e.classList.contains('hidden') || !e.offsetParent) return null;
+      const r = e.getBoundingClientRect();
+      return r.height ? r : null;
+    };
+    const tr = box('quest-tracker');
+    const narrow = window.innerWidth <= 600;
+    let top = tr ? tr.bottom + 6 : 44, left = tr ? tr.left : 10;
+    let width = Math.min(340, window.innerWidth - left - 10);
+    if (narrow) {
+      // Below the minimap and its orbs (+14 leaves room for the orbs' caption pills).
+      const mm = box('minimap-panel'), hp = box('hp-orb');
+      top = Math.max(top, mm ? mm.bottom + 6 : 0, hp ? hp.bottom + 14 : 0);
+      left = 6; width = window.innerWidth - 12;
+    }
+    const key = `${Math.round(top)}|${Math.round(left)}|${Math.round(width)}`;
+    if (el._at === key) return;
+    el._at = key;
+    el.style.top = `${Math.round(top)}px`;
+    el.style.left = `${Math.round(left)}px`;
+    el.style.width = `${Math.round(width)}px`;
+    el.classList.toggle('tip-strip', narrow);
   }
 
   // ---------------- Minimal HUD ----------------
@@ -2411,9 +2447,26 @@ export class UI {
       this._minimalHudTick();
     });
     hudBtn.textContent = `Minimal HUD: ${this.game.minimalHud ? 'On' : 'Off'}`;
+    // World labels: Smart (only what matters now), All, or Off. See render/worldlabels.js.
+    const lblBtn = mk('', () => {
+      this.game.worldLabels = nextLabelMode(labelMode(this.game));
+      this.game.saveSoon = true;
+      lblBtn.textContent = `World labels: ${LABEL_MODE_NAMES[labelMode(this.game)]}`;
+    });
+    lblBtn.textContent = `World labels: ${LABEL_MODE_NAMES[labelMode(this.game)]}`;
+    const tipsBtn = mk('', () => {
+      this.game.tipsOn = this.game.tipsOn === false;
+      this.game.saveSoon = true;
+      tipsBtn.textContent = `Tips: ${this.game.tipsOn ? 'On' : 'Off'}`;
+      if (!this.game.tipsOn && this._tipEl) { this._tipEl.remove(); this._tipEl = null; }
+    });
+    tipsBtn.textContent = `Tips: ${this.game.tipsOn === false ? 'Off' : 'On'}`;
     mk('Show tips again', () => {
       try { localStorage.removeItem(TIPS_KEY); } catch {}
-      this._tipsSeen = new Set();
+      this.game.tipsSeen = new Set();
+      this.game.tipsOn = true;
+      this.game.saveSoon = true;
+      tipsBtn.textContent = 'Tips: On';
       this.game.msg('Tips will show again as you play.', 'system');
     });
     // Carry a character to another browser, device or web address (saves live
@@ -2553,6 +2606,14 @@ export class UI {
     this.el.bossBarName.textContent = warn ? '⚠ Get out of the red!'
       : `${boss.champion ? '★ ' : ''}${boss.name} — level ${boss.def.level} · ${Math.ceil(boss.hp)}/${boss.maxHp}`;
     this.el.bossBarFill.style.width = `${Math.max(0, Math.min(100, (boss.hp / boss.maxHp) * 100))}%`;
+    // Race, weakness, armour and wounds: the long read-out the overhead tag left out.
+    if (!this._bossInfoEl) {
+      this._bossInfoEl = document.createElement('div');
+      this._bossInfoEl.id = 'boss-bar-info';
+      this.el.bossBarName.after(this._bossInfoEl);
+    }
+    const info = boss.attackable ? foeDetails(g, boss) : '';
+    if (this._bossInfoEl.textContent !== info) this._bossInfoEl.textContent = info;
     this.el.bossBar.classList.toggle('enraged', !!boss.enraged);
     // The portrait: set once per foe (it only changes when the foe does).
     if (this._bossPortraitFor !== boss) {
@@ -3831,17 +3892,6 @@ export class UI {
     ctx.restore();
   }
 }
-
-const TIPS_KEY = 'singaporescape:tips';
-const TIPS = {
-  move: 'Move with the <b>joystick</b> (or W A S D). Walk up to something and press <b>Interact</b> (E / Space) to chop, mine, fish, talk or fight.',
-  auto: 'Tap <b>Auto battle</b> to hunt monsters for you. The &#9881; next to it sets when to eat and what to fight.',
-  gear: 'A green <b>&#9650;</b> on an item means it beats what you wear. <b>Hold</b> (or hover) an item for details, or open Worn Equipment &gt; <b>Gear Guide</b>.',
-  dodge: 'A boss marked the ground in <b>red</b>! Walk out before it fills up to dodge the hit.',
-  champion: 'A gold-ringed <b>&#9733; Champion</b> is nearby: tougher than normal, with extra loot.',
-  bounty: 'You have <b>daily bounties</b> in the Quest Journal: three kill targets that pay coins. The tracker on the left points the way.',
-  upgrade: 'Your gear gains <b>mastery</b> with every kill. Spend upgrade stones to <b>enchant</b> it in Worn Equipment &gt; Gear mastery &amp; enchanting.',
-};
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

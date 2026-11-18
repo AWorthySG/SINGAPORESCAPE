@@ -2,7 +2,6 @@ import { TILE, TICK_MS } from '../config.js';
 import { TURN_MS } from '../game/character.js';
 import { TERRAIN } from '../data/world.js';
 import { getItem } from '../data/items.js';
-import { weaknessOf, armourTierOf } from '../game/combat.js';
 
 // How each kind of arrow looks in flight: its metal head, fletching, the trail
 // it leaves and, for the better arrows, a glow (and a larger, barbed head at the top).
@@ -29,7 +28,7 @@ const ARROW_LOOK = {
   starmetal: { head: '#ffd24a', fletch: '#fff2b0', shaft: '#4a4a6a', trail: '#ffe88a', glow: '#ffd24a', size: 1.2, barbed: true },
   eternal: { head: '#c27bff', fletch: '#ecd6ff', shaft: '#3a2a5a', trail: '#d6a8ff', glow: '#a855ff', size: 1.25, barbed: true },
 };
-import { RACES, raceOf } from '../data/races.js';
+import { labelMode, objectLabelVisible, npcNameVisible, targetTag } from './worldlabels.js';
 import { drawShadow, drawCreature, drawPlayer, drawObjectSprite, drawGroundItem } from './sprites.js';
 import { heroAnimFrame, drawFishingGear } from './heroanim.js';
 import { RARITY } from '../game/loot.js';
@@ -1422,13 +1421,17 @@ export class Renderer {
     const { ctx, game } = this;
     const vw = game.camera.viewW, vh = game.camera.viewH;
     ctx.font = '10px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-    for (const o of game.world.objects) {
+    // Settings > World labels: in Smart mode only the hovered, worked and
+    // nearest workable nodes get a pill (see worldlabels.js); Off draws none.
+    const mode = labelMode(game);
+    for (const o of mode === 'off' ? [] : game.world.objects) {
       const t = o.def.type;
       if (t !== 'tree' && t !== 'rock' && t !== 'fishing') continue;
       if (o.depleted || !o.def.label) continue;
       const cx = o.x * TILE + TILE / 2 - ox;
       const cy = o.y * TILE + TILE / 2 - oy;
       if (cx < -30 || cx > vw + 30 || cy < -20 || cy > vh + 20) continue;
+      if (!objectLabelVisible(game, o, mode)) continue;
       const yy = cy - (t === 'tree' ? 30 : t === 'rock' ? 18 : 16);
       const label = o.def.label;
       const wpx = ctx.measureText(label).width + 8;
@@ -1461,12 +1464,16 @@ export class Renderer {
     const { ctx, game } = this;
     this._drawNodeLabels(ox, oy);
     const vw = game.camera.viewW, vh = game.camera.viewH;
+    const mode = labelMode(game);
     for (const n of (game.nearbyNpcs ? game.nearbyNpcs() : game.npcs)) {
       if (!n.alive) continue;
       const boss = n.def.boss;
       const targeted = n === game.player.target;
       const moral = n.def.moral && game.moralPending(n);   // a moral choice still waiting for you
-      if (!boss && !n.champion && n.combatLatch <= 0 && n.telegraph <= 0 && !targeted && n.chatTimer <= 0 && !moral) continue;
+      // Name over the head (Settings > World labels): bosses, champions, your
+      // target, whatever is attacking you, quest NPCs and the hovered one.
+      const named = npcNameVisible(game, n, mode);
+      if (!boss && !n.champion && n.combatLatch <= 0 && n.telegraph <= 0 && !targeted && n.chatTimer <= 0 && !moral && !named) continue;
       const c = n.renderCenter();
       // Labels and bars for monsters off screen were the biggest drawing cost
       // (every champion and boss in range drew its name each frame): skip them.
@@ -1489,11 +1496,11 @@ export class Renderer {
       if (targeted) {
         const px = c.x - ox, py = c.y - oy + yo + 12;
         ctx.font = '800 9px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
-        // Race, how your weapon fares against it (▲ effective, ▼ resisted), and the style it's weak to.
-        const r = RACES[raceOf(n.def, n.npcId)], m = game.raceMatchup(n);
-        const wound = n.wounds?.poison?.length ? ` · poisoned ×${n.wounds.poison.length}` : '';
-        const bleed = n.wounds?.bleed?.length ? ` · bleeding ×${n.wounds.bleed.length}` : '';
-        const tag = `${r.name}${m === 'strong' ? ' ▲' : m === 'weak' ? ' ▼' : ''} · weak: ${weaknessOf(n.def)} · armour: ${armourTierOf(n.def)}${wound}${bleed}`;
+        // A compact tag: race icon, ▲ effective / ▼ resisted, and one status
+        // count. The weakness, armour and every wound are spelt out in the
+        // battle bar and the hover text instead (worldlabels.js foeDetails).
+        const m = game.raceMatchup(n);
+        const tag = targetTag(game, n);
         ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.lineWidth = 3; ctx.strokeText(tag, px, py);
         ctx.fillStyle = m === 'strong' ? '#ffd24a' : m === 'weak' ? '#c8ccd4' : '#9affd0'; ctx.fillText(tag, px, py);
       }
@@ -1510,12 +1517,20 @@ export class Renderer {
         ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.lineWidth = 4; ctx.strokeText('!', px, py);
         ctx.fillStyle = '#ff5a5a'; ctx.fillText('!', px, py);
       }
-      if (boss || n.champion) {
+      if (named && (boss || n.champion)) {
         const px = c.x - ox, py = c.y - oy + yo - 6;
         const label = n.champion ? `★ ${n.name}` : n.name;
         ctx.font = '800 11px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
         ctx.strokeStyle = n.champion ? '#22304A' : 'rgba(0,0,0,0.85)'; ctx.lineWidth = 3; ctx.strokeText(label, px, py);
         ctx.fillStyle = n.champion ? '#F5B82E' : '#ff7a5a'; ctx.fillText(label, px, py);
+      } else if (named && !(n.chatTimer > 0)) {
+        // Everyone else: a smaller name, coral for a foe and white for townsfolk
+        // (lifted above the health bar when there is one).
+        const bar = n.combatLatch > 0 || targeted;
+        const px = c.x - ox, py = c.y - oy + yo - (bar ? 4 : -2) - (moral ? 14 : 0);
+        ctx.font = '800 10px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+        ctx.strokeStyle = '#22304A'; ctx.lineWidth = 3; ctx.strokeText(n.name, px, py);
+        ctx.fillStyle = n.attackable ? '#ffb39a' : '#FFFFFF'; ctx.fillText(n.name, px, py);
       }
     }
     if (game.player.alive) {
@@ -1568,8 +1583,10 @@ export class Renderer {
       const c = e.entity.renderCenter ? e.entity.renderCenter() : { x: e.entity.x * TILE, y: e.entity.y * TILE };
       const age = e.maxLife - e.life;
       // Rise from above the head and fan out sideways so rapid hits don't stack
-      // into one blob over the face.
-      const px = c.x - ox + (e.fan || 0) * 13, py = c.y - oy - 26 - age * 0.03;
+      // into one blob over the face. Neighbouring fan slots also sit on two
+      // rows, so back-to-back numbers never overlap even before they rise apart.
+      const row = Math.round((e.fan || 0) / 0.8 + 2) % 2;
+      const px = c.x - ox + (e.fan || 0) * 13, py = c.y - oy - 26 - row * 11 - age * 0.03;
       const hit = e.dmg > 0;
       // Pop in: overshoot to ~1.15 then settle to 1.
       const pop = age < 90 ? 0.5 + 0.72 * (age / 90) : Math.max(1, 1.22 - (age - 90) / 260);

@@ -2678,3 +2678,25 @@ body.boss-on #tip-toast { top: 132px; }
   .cx-drops { grid-template-columns: 1fr; }
   .cx-reg-grid { grid-template-columns: 1fr; }
 }
+
+/* ==========================================================================
+   Playfield declutter (Claude, ui-declutter): tips in a corner.
+   The first-time tip used to pop up mid-screen over the action. It now sits
+   top-left under the objectives (ui.js _placeTip sets top/left/width), and on
+   phones it is a slim strip below the tracker and minimap, well clear of the
+   joystick, Attack button and ability bar. "body …" outranks the older
+   centred rules above (including the boss-on and phone overrides).
+   ========================================================================== */
+body #tip-toast.tip-corner {
+  transform: none; bottom: auto; max-width: none; z-index: 23;
+  padding: 6px 8px 6px 9px; gap: 8px; font-size: 12px; line-height: 1.35; border-width: 2px; border-radius: 12px;
+  animation: tipCornerIn .25s ease-out;
+}
+body #tip-toast.tip-corner .tip-badge { font-size: 9px; padding: 2px 6px; }
+body #tip-toast.tip-corner button { font-size: 11px; padding: 4px 9px; }
+body #tip-toast.tip-strip { font-size: 11px; padding: 4px 6px 4px 7px; border-radius: 10px; }
+@keyframes tipCornerIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+/* The foe read-out under the battle bar's name: race, weakness, armour, wounds. */
+#boss-bar-info { text-align: center; font-size: 11px; font-weight: 700; color: var(--aw-text-sec, #c8ccd4); margin: -2px 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#boss-bar-info:empty { display: none; }
+@media (max-width: 540px) { #boss-bar-info { font-size: 10px; } }
