@@ -64,6 +64,7 @@ import { WaveHud } from './wavehud.js';
 import { TIPS, TIPS_KEY, nextTip, markTipSeen, tipsSeen } from './tips.js';
 import { foeDetails, labelMode, nextLabelMode, LABEL_MODE_NAMES } from '../render/worldlabels.js';
 import { applyAccessibility, countUp, playCloseGhost, inlineIcon, nextTextSize, TEXT_SIZE_NAMES } from './uifx.js';
+import { mechLabel } from '../game/bossmech.js';
 
 const EQUIP_LAYOUT = [
   null, 'head', null,
@@ -2713,10 +2714,11 @@ export class UI {
     this.el.bossBar.classList.remove('hidden');
     this.el.bossBar.classList.toggle('champion', !!boss.champion);
     this.el.bossBar.classList.toggle('normal', !boss.def.boss && !boss.champion);
-    const warn = g.hazards.some((h) => h.npc === boss);
+    const mech = mechLabel(g, boss);   // a boss mechanic's prompt (bossmech.js) comes first
+    const warn = !!mech || g.hazards.some((h) => h.npc === boss);
     this.el.bossBar.classList.toggle('warn', warn);
-    this.el.bossBarName.textContent = warn ? '⚠ Get out of the red!'
-      : `${boss.champion ? '★ ' : ''}${boss.name} — level ${boss.def.level} · ${Math.ceil(boss.hp)}/${boss.maxHp}`;
+    this.el.bossBarName.textContent = mech || (warn ? '⚠ Get out of the red!'
+      : `${boss.champion ? '★ ' : ''}${boss.name} — level ${boss.def.level} · ${Math.ceil(boss.hp)}/${boss.maxHp}`);
     this.el.bossBarFill.style.width = `${Math.max(0, Math.min(100, (boss.hp / boss.maxHp) * 100))}%`;
     // Race, weakness, armour and wounds: the long read-out the overhead tag left out.
     if (!this._bossInfoEl) {

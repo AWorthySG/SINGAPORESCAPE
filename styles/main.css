@@ -3349,3 +3349,7 @@ body.cb-safe #hp-orb.low::after {
 }
 .sgx-picked { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; margin: 6px 0; padding: 6px 8px;
   font-size: 12px; background: #e6f7df; border: 2px solid var(--aw-ink); border-radius: var(--r1); }
+
+/* ---------------- Boss mechanics (src/game/bossmech.js) ---------------- */
+.cx-mech { border-left: 4px solid #9a6ae8; padding-left: 8px; }
+.cx-mech-styles { font-weight: 800; }

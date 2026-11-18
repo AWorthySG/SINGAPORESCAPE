@@ -119,8 +119,11 @@ export function codexEntryHTML(game, id) {
     `<div class="cx-entry-kc">${e.discovered ? `You've defeated ${formatNumber(e.kills)}.` : 'Not yet discovered.'}</div>` +
     '</div></div>';
   const whereHTML = `<div class="cx-sec"><h4>Where it lives</h4><div class="cx-zones">${where}</div><div class="cx-go-row"></div></div>`;
+  // A boss's mechanic (bossMechanics.js): shown from the start, so you can learn it before the fight.
+  const m = e.mechanic;
+  const mechHTML = m ? `<div class="cx-sec cx-mech"><h4>Mechanic: ${m.icon} ${esc(m.kind)}</h4><div class="cx-ability"><b>${esc(m.name)}${m.styles.length ? ` <span class="cx-mech-styles">(breaks to ${m.styles.map((s) => `<span style="color:${s.color}">${esc(s.label)}</span>`).join(', ')})</span>` : ''}:</b> ${esc(m.how)}</div></div>` : '';
   if (!e.discovered) {
-    return head + whereHTML + '<div class="cx-sec cx-locked">Defeat one to reveal its stats, matchups and drops.</div>';
+    return head + whereHTML + mechHTML + '<div class="cx-sec cx-locked">Defeat one to reveal its stats, matchups and drops.</div>';
   }
   const scaleNote = e.numberScale > 1 ? `<div class="cx-note">Numbers ×1/${e.numberScale} scale: its life, and every hit you land on it, are shown ${e.numberScale} times smaller.</div>` : '';
   const stats = '<div class="cx-sec"><h4>Stats</h4><div class="cx-stats">' +
@@ -144,6 +147,7 @@ export function codexEntryHTML(game, id) {
       (e.ability.hazards.length ? `<div class="cx-hazards">Ground attacks: ${e.ability.hazards.map((h) => `<span class="cx-hazard" title="${esc(h.desc)}"><b>${esc(h.name)}</b> ${esc(h.desc)}</span>`).join('')}</div>` : '') +
       '</div>';
   }
+  boss += mechHTML;
   const drops = e.drops.map((dr) => {
     const it = getItem(dr.id);
     const qty = dr.max > 1 ? (dr.min === dr.max ? `${formatNumber(dr.min)} × ` : `${formatNumber(dr.min)}–${formatNumber(dr.max)} × `) : '';
