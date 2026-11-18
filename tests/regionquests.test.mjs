@@ -292,6 +292,14 @@ test('region quest progress and unlocks survive a save and load', () => {
   h.start();
   assert.equal(h.quests[ubin.id].state, 'done');
   assert.deepEqual({ ...h.quests[jur.id] }, { state: 'active', step: 0, n: 3 });
+  // A line saved while waiting on its foe has the foe back after loading.
+  assert.ok(!h.npcs.some((n) => n.rqFoe));
+  clearSave();
+  const k = new Game();
+  Object.assign(k.quests[jur.id], { step: 2 });
+  k.quests[jur.id].state = 'active';
+  k.start();
+  assert.ok(k.npcs.some((n) => n.rqFoe === jur.id && n.alive), 'the foe is waiting');
   const giver = h.npcs.find((n) => n.npcId === ubin.giver);
   const near = h.world.objects.filter((o) => ubin.unlock.objs.includes(o.objId) && Math.abs(o.x - giver.x) <= 12 && Math.abs(o.y - giver.y) <= 12);
   assert.ok(near.length >= ubin.unlock.objs.length, 'the quarry seam is back after loading');

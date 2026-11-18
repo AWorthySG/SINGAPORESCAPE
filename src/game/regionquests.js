@@ -60,9 +60,15 @@ export function placeRegionGivers(game) {
 
 const giverNpc = (game, id) => game._rqGivers?.[id] || game.npcs.find((n) => n.npcId === id) || null;
 
-/** After a new game or a load: put back the gathering spots of finished lines. */
+/** After a new game or a load: put back the gathering spots of finished lines,
+ *  and the foe of any line that was waiting on one. */
 export function syncRegionQuests(game) {
-  for (const l of REGION_LINES) if (game.quests[l.id]?.state === 'done' && l.unlock.type === 'spot') addSpots(game, l);
+  for (const l of REGION_LINES) {
+    const q = game.quests[l.id];
+    if (q?.state === 'done' && l.unlock.type === 'spot') addSpots(game, l);
+    const st = q?.state === 'active' && l.steps[q.step];
+    if (st?.kind === 'foe') ensureFoe(game, l, st);
+  }
 }
 
 // Gathering spots beside the giver: free tiles with nothing blocked or built
