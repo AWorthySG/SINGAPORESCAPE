@@ -30,7 +30,8 @@ import { TILE } from '../config.js';
 // in lock-step with the folder). Until then each slot has a placeholder.
 export const TITLE_ART_SLOTS = {
   skyline: { size: '2400x280, transparent, seamless left-right', use: 'the Singapore skyline band behind the title heroes', placeholder: 'an inline SVG silhouette (titleSkylineSvg)' },
-  backdrop: { size: '1920x1080 (and a 1080x1920 crop for phones), opaque', use: 'a painted key-art scene shown under the live world while it loads, and for reduced motion', placeholder: 'the cream paper background' },
+  backdrop: { size: '1920x1080, opaque', use: 'a painted key-art scene shown while the game loads (before the live world fades in)', placeholder: 'the cream paper background' },
+  'backdrop-portrait': { size: '1080x1920, opaque', use: 'the same key art cropped for phones held upright', placeholder: 'the cream paper background' },
   'loading-hero': { size: '512x512, transparent', use: 'a mascot illustration beside the loading bar (e.g. the A-Worthy mascot carrying a map)', placeholder: 'assets/mascot-login.webp' },
   ground: { size: '2400x160, transparent, seamless left-right', use: 'the grassy verge the title heroes stand on', placeholder: 'a CSS cream-to-green gradient' },
 };
@@ -325,6 +326,10 @@ export class TitleScreen {
     // The drifting petals (fxImage's own Image is counted like any other).
     if (!this.still && !this.lowFx) for (const k of PETALS) fxImage(`particle-${k}`);
     if (this.el.sky) this.el.sky.innerHTML = titleArtSrc('skyline') ? `<img src="${titleArtSrc('skyline')}" alt="">` : titleSkylineSvg();
+    // The other painted slots, where they have arrived (title.css picks them up).
+    for (const slot of ['backdrop', 'backdrop-portrait', 'ground']) if (titleArtSrc(slot)) this.splash.style.setProperty(`--title-${slot}`, `url("${titleArtSrc(slot)}")`);
+    const mascot = this.splash.querySelector('.splash-mascot');
+    if (mascot && titleArtSrc('loading-hero')) mascot.src = titleArtSrc('loading-hero');
   }
 
   /** Called by the game loop after game.update: steer the camera and run the bar. */
