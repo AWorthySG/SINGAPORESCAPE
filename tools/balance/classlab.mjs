@@ -109,6 +109,9 @@ export function setupClass(cls, L, seed = 20261112) {
   g._perkCache?.clear();
   const spot = wildSpot(g);
   g.player.x = g.player.tx = spot.x; g.player.y = g.player.ty = spot.y; g.player.path = [];
+  // Seed the dice again now the world is built, so the fights don't depend on how
+  // many rolls building it took (one new townsperson used to reshuffle every fight).
+  seedRandom(seed);
   return g;
 }
 
@@ -142,6 +145,11 @@ export function resetFight(g) {
   g.npcs = []; g.effects = []; g.hazards = [];
   g.buff = null; g.abilityCd = {}; g.adrenaline = 0; g.danceRhythm = 0; g.braceTicks = 0;
   g.killStreak = 0; g.armedAbility = null;
+  // The lab measures the classes alone: forget earlier scenarios' kills, so codex
+  // mastery (culling.js) earned in a kill-speed run doesn't add to the next
+  // scenario's damage, and switch culling off so its extra loot rolls don't
+  // shift the seeded dice between runs.
+  g.kills = {}; g.culling = null;
   g.player.clearAction(); g.player.attackCooldown = 0;
   g.player.hp = g.maxHp();
   return g;
