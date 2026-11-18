@@ -66,6 +66,8 @@ import { STATIONS, STATION_BY_ID, MRT_FARE } from '../data/transport.js';
 import { SKILLS, SKILL_BY_ID } from '../data/skills.js';
 import { Learning } from './learning.js';
 import { Waves, addArena } from './waves.js';
+import { Collection } from './collection.js';
+import { Pets } from './pets.js';
 import * as Mercs from './mercenary.js';
 import * as Culling from './culling.js';
 import { classPerks } from './classperks.js';
@@ -429,6 +431,8 @@ export class Game {
     this.stationsFound = new Set(['kampong_glam']);   // MRT stations you can ride to from the world map
     this.learning = new Learning();   // Wisdom, topic mastery, Codex cards and titles
     this.waves = new Waves(this);     // the Endless Gate: a run of monster waves, and your best wave
+    this.collection = new Collection(this);   // the Collection log: every source's unique drops (collection.js)
+    this.pets = new Pets(this);       // rare boss and life-skill pets, and the one following you (pets.js)
     // Knowledge Strikes: bosses' specials can be interrupted by answering a question.
     // On by default in the browser; headless runs (tests) leave bosses as they were.
     this.knowledgeStrikes = LEARNING_ENABLED && typeof document !== 'undefined';
@@ -1263,6 +1267,7 @@ export class Game {
     if (this.inventory.canAdd(id, r.qty) <= 0) { this.msg('You need more inventory space.', 'system'); return; }
     this.slayer.points -= r.cost;
     this.inventory.add(id, r.qty);
+    this.collection.record('slayer', id, r.qty);
     this.msg(`You redeem ${r.qty > 1 ? r.qty + ' x ' : ''}${getItem(id).name} for ${r.cost} Slayer points.`, 'system');
     this.bus.emit('slayer');
   }
@@ -1368,6 +1373,7 @@ export class Game {
       for (const [id, n] of after) {
         const got = n - (before.get(id) || 0);
         if (got > 0 && id !== 'coins') this.addHitsplat(this.player, 0, { text: `+${got} ${getItem(id).name}` });
+        if (got > 0) this.collection.onGather(a.type, id, got);   // rare finds for the Collection log
       }
     }
     // Remember what we're gathering, so auto gather can pick it up again after
@@ -3291,6 +3297,7 @@ export class Game {
     this.checkAchievements();
     this._deathBurst(npc);
     this.rollDrops(npc);
+    this.pets.onKill(npc);   // a boss's very rare pet (pets.js)
     // Slayer: a task monster sometimes drops a second helping of loot.
     if (onTask && Math.random() < this.slayerBonus().loot / 100) { this.rollDrops(npc); this.msg('Slayer bonus: extra loot!', 'system'); }
     if (npc.worldBoss) { for (let k = 1; k < WORLD_BOSS_LOOT_ROLLS; k++) this.rollDrops(npc); this.msg('World Boss slain! Triple loot.', 'level'); }
@@ -3377,7 +3384,7 @@ export class Game {
   // (x1.5 at level 1 up to x6 at level 10), and kill streak (+10% per kill, up to +50%).
   // On top, every combat XP gain is paid at COMBAT_XP_RATE (xpBreakdown shows only the bonuses),
   // grown by your fighting level so the climb past the 70s doesn't stall (combatLevelXpMult).
-  combatXpMult() { return this.xpBreakdown().total * COMBAT_XP_RATE * combatLevelXpMult(this.fightingLevel()); }
+  combatXpMult() { return this.xpBreakdown().total * COMBAT_XP_RATE * combatLevelXpMult(this.fightingLevel()) * this.waves.xpMult(); }
   /** The level of the fighting skill your weapon trains (Melee, Ranged, Magic or the Dancer's pooled level). */
   fightingLevel() {
     const m = this.combatMode();
@@ -3590,6 +3597,7 @@ export class Game {
       if (q) recordQuality(this.equipment, l[0], q);   // remembered per copy, for sacrifice and dismantle (salvage.js)
       l.length = 3;
     }
+    this.collection.onDrops(npc, loot);   // tick off the Collection log
     this._autoLoot(loot, npc.x, npc.y);
   }
 
@@ -3725,6 +3733,7 @@ export class Game {
       const pick = weightedPick(t.loot);
       const qty = pick.min ? randInt(pick.min, pick.max) : 1;
       this.inventory.add(pick.id, qty);
+      this.collection.onGather('thieve', pick.id, qty);
       this.skills.addXp('thieving', t.xp);
       this.addEvil(1); // theft tips you toward evil
       this.spawnSparkle(this.player, '#ffe24a', 6);
@@ -3925,6 +3934,7 @@ export class Game {
       const pick = weightedPick(tier.reward);
       const q = pick.min ? randInt(pick.min, pick.max) : 1;
       this.inventory.add(pick.id, q);
+      this.collection.record(`clue:${s.id.replace('reward_casket_', '')}`, pick.id, q);
       won.push(`${q > 1 ? q + ' x ' : ''}${getItem(pick.id).name}`);
     }
     this.spawnSparkle(this.player, '#ffd24a', 16);
@@ -5384,6 +5394,7 @@ export class Game {
     if (!s) return;
     const item = getItem(s.id);
     if (!item.heal) { this.msg(`You can't eat the ${item.name.toLowerCase()}.`); return; }
+    if (this.waves.blocksFood()) { this.waves.foodRefused(); return; }   // the Endless Gate's Fasting modifier
     this.inventory.removeAt(index, 1);
     // Endgame dishes heal a share of your life (healPct), so they keep up as it grows.
     // (Stewardship's food perk adds a share on top, see culling.js.)

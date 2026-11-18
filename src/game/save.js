@@ -1,7 +1,7 @@
 import { POTIONS, CROP_BY_ID } from '../data/trades.js';
 import { SAVE_KEY } from '../config.js';
 import { STATION_BY_ID } from '../data/transport.js';
-import { inArena } from './waves.js';
+import { inArena, GATE_MODS } from './waves.js';
 import { loadCulling } from './culling.js';
 
 const VERSION = 1;
@@ -77,6 +77,10 @@ export function snapshot(game) {
     specEnergy: game.specEnergy,
     bossRecord: game.bossRecord,
     waveBest: game.waves?.best || 0,
+    waveBestByClass: game.waves?.bestByClass || {},
+    waveMods: [...(game.waves?.mods || [])],
+    collection: game.collection?.serialize(),
+    pets: game.pets?.serialize(),
     settings: { running: game.running, autoCfg: game.autoCfg, autoGather: game.autoGather, gatherPicks: [...(game.gatherPicks || [])], knowledgeStrikes: game.knowledgeStrikes, minimalHud: !!game.minimalHud,
       worldLabels: game.worldLabels || 'smart', tips: game.tipsOn !== false, tipsSeen: [...(game.tipsSeen || [])],
       textSize: game.textSize || 'normal', colourBlind: !!game.colourBlind, reduceMotion: !!game.reduceMotion },
@@ -361,6 +365,16 @@ function loadFields(game, data) {
   }
   // The Endless Gate: your best wave (older saves: none yet).
   if (game.waves) game.waves.best = typeof data.waveBest === 'number' && data.waveBest > 0 ? Math.floor(data.waveBest) : 0;
+  // ...and per class, and the modifiers last picked (older saves: none).
+  if (game.waves) {
+    game.waves.bestByClass = {};
+    const bc = data.waveBestByClass;
+    if (bc && typeof bc === 'object') for (const [k, v] of Object.entries(bc)) if (typeof v === 'number' && v > 0) game.waves.bestByClass[k] = Math.floor(v);
+    game.waves.mods = new Set(Array.isArray(data.waveMods) ? data.waveMods.filter((id) => GATE_MODS[id]) : []);
+  }
+  // The Collection log and pets (older saves: empty).
+  game.collection?.load(data.collection);
+  game.pets?.load(data.pets);
   if (Array.isArray(data.settings?.gatherPicks)) game.gatherPicks = new Set(data.settings.gatherPicks.filter((id) => typeof id === 'string'));
   if (data.learning) game.learning.load(data.learning);
   if (data.settings?.knowledgeStrikes === false) game.knowledgeStrikes = false;
