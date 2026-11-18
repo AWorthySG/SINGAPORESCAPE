@@ -55,7 +55,7 @@ export function drawSunShadow(ctx, cx, cy, rx, ry, sun, squash = 0, lift = 0) {
   // The cast shadow: stretched along the sun's line and slid that way.
   if (sun.day > 0.02) {
     const ext = sun.stretch - 1, srx = rx * (0.9 + ext * 0.85), sry = ry * (1 + ext * 0.12);
-    ctx.globalAlpha = a0 * sun.alpha * (0.55 + 0.25 * sun.day) * (lift > 0 ? Math.max(0.4, 1 - lift / 20) : 1);
+    ctx.globalAlpha = a0 * Math.min(1, sun.alpha * (0.7 + 0.35 * sun.day)) * (lift > 0 ? Math.max(0.4, 1 - lift / 20) : 1);
     drawShadow(ctx, cx + sun.dx * (srx - rx * 0.6), cy + sun.dy * ry * (1 + ext), srx, sry);
   }
   ctx.globalAlpha = a0;

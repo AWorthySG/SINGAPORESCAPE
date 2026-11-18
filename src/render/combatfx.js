@@ -82,10 +82,10 @@ export function dropArc(ms, out = {}) {
   if (ms < DROP_ARC_MS) {
     const u = ms / DROP_ARC_MS;
     out.k = 1 - (1 - u) * (1 - u);              // quick out, easing into the landing
-    out.h = 14 * (1 - u) + 48 * u * (1 - u);    // from the body's middle, up and over
+    out.h = 14 * (1 - u) + 76 * u * (1 - u);    // from the body's middle, up and over
   } else if (ms < DROP_ARC_MS + DROP_BOUNCE_MS) {
     const v = (ms - DROP_ARC_MS) / DROP_BOUNCE_MS;
-    out.k = 1; out.h = 20 * v * (1 - v);
+    out.k = 1; out.h = 24 * v * (1 - v);
   } else { out.k = 1; out.h = 0; }
   const d1 = Math.abs(ms - DROP_ARC_MS), d2 = Math.abs(ms - DROP_ARC_MS - DROP_BOUNCE_MS);
   out.land = Math.max(0, 1 - Math.min(d1, d2 * 1.6) / 70);
@@ -272,7 +272,7 @@ export class CombatFx {
   critStars(x, y, opts = {}) {
     this._begin();
     const big = !!opts.big;
-    this._burst(STAR, x, y, this._n(big ? 6 : 4), big ? 0.13 : 0.1, 520, GOLD, { up: -0.04, g: 0.0002, spin: 0.02, size: big ? 6.5 : 5 });
+    this._burst(STAR, x, y, this._n(big ? 6 : 4), big ? 0.13 : 0.1, 560, GOLD, { up: -0.04, g: 0.0002, spin: 0.02, size: big ? 8 : 6.5 });
     this.ring(x, y, 4, big ? 24 : 16, 200, '#ffffff', 3);
     this._end(opts.delay || 0, !!opts.melee);
   }
@@ -517,6 +517,27 @@ export class CombatFx {
   }
 }
 
+// The soft glowing column an Epic+ drop stands in: baked once per colour (a
+// bright core fading out to the sides and up to the top), then stretched.
+const _columns = {};
+export function columnImage(col) {
+  if (_columns[col] !== undefined) return _columns[col];
+  let c = null;
+  if (typeof document !== 'undefined') {
+    c = document.createElement('canvas'); c.width = 32; c.height = 64;
+    const g = c.getContext('2d');
+    const side = g.createLinearGradient(0, 0, 32, 0);
+    side.addColorStop(0, col + '00'); side.addColorStop(0.35, col + '66'); side.addColorStop(0.5, '#ffffffcc');
+    side.addColorStop(0.65, col + '66'); side.addColorStop(1, col + '00');
+    g.fillStyle = side; g.fillRect(0, 0, 32, 64);
+    g.globalCompositeOperation = 'destination-in';
+    const up = g.createLinearGradient(0, 0, 0, 64);
+    up.addColorStop(0, 'rgba(0,0,0,0)'); up.addColorStop(0.55, 'rgba(0,0,0,0.8)'); up.addColorStop(1, 'rgba(0,0,0,1)');
+    g.fillStyle = up; g.fillRect(0, 0, 32, 64);
+  }
+  return (_columns[col] = c);
+}
+
 /** A chunky five-pointed sticker star: white border, gold fill, navy ink. */
 function drawStar(ctx, r, col) {
   if (r <= 0.3) return;
@@ -591,9 +612,9 @@ export function deathFx(game, npc) {
 }
 
 /** First sight of a fresh drop (from the renderer): coins sparkle as they land. */
-export function dropFx(game, gi, x, y) {
+export function dropFx(game, gi, x, y, wait = 0) {
   const fx = game.cfx;
   if (!fx || gi.id !== 'coins') return;
   fx.low = !!game.lowFx;
-  fx.coinSparkle(x, y, DROP_ARC_MS);
+  fx.coinSparkle(x, y, Math.max(0, wait) + DROP_ARC_MS);
 }

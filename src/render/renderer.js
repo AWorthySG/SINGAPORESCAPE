@@ -43,7 +43,7 @@ import { fxImage, fxTinted, drawFx, drawStrip, badgeKey, preloadFx, DARK_REGIONS
 import { introCurve, titleAlpha, DEATH_FLASH_MS } from '../game/cinematics.js';
 import { TerrainFx } from './terrainfx.js';
 import { sunShadow, drawSunShadow, footfall } from './shadows.js';
-import { hasLightColumn, dropArc, dropFx } from './combatfx.js';
+import { hasLightColumn, columnImage, dropArc, dropFx } from './combatfx.js';
 
 // Gathering actions that show a progress ring over the node, and its colour.
 const GATHER_RING = { woodcut: '#4fa04f', mine: '#8a8fa0', fish: '#3a8fd8', hunt: '#d08a3a' };
@@ -254,14 +254,21 @@ export class Renderer {
     }
     for (const g of game.world.groundItems) {
       if (g.x < x0 || g.x > x1 || g.y < y0 || g.y > y1) continue;
-      // Fresh drops bounce out of the body in an arc and settle (combatfx.js dropArc).
-      const ms = g.born ? performance.now() - g.born : 1e9;
-      const arc = dropArc(ms, this._arc || (this._arc = {}));
-      const hop = arc.h;
-      const cx = g.x * TILE + TILE / 2 - ox + (g.ox || 0) * arc.k, cy = g.y * TILE + TILE * 0.62 - oy + (g.oy || 0) * arc.k - hop;
-      if (g.born && !g._fx) { g._fx = true; dropFx(game, g, g.x * TILE + TILE / 2 + (g.ox || 0), g.y * TILE + TILE * 0.62 + (g.oy || 0)); }
       const rar = RARITY[g.rarity] || RARITY.common, column = hasLightColumn(g.rarity);
       drawables.push({ sortY: g.y - 0.3, z: 0, draw: () => {
+        // (Worked out at draw time, after the hero's clip has noted this frame's blow.)
+        if (g.born && !g._fx) {
+          // First sight: a drop from a blow still being swung waits for the strike; coins sparkle as they land.
+          g._fx = true;
+          const clk = strikeClock(game);
+          if (clk && Math.abs(g.born - clk.blowAt) < 80 && clk.hitTimes[0] > g.born) g.born = clk.hitTimes[0];
+          dropFx(game, g, g.x * TILE + TILE / 2 + (g.ox || 0), g.y * TILE + TILE * 0.62 + (g.oy || 0), g.born - performance.now());
+        }
+        // Fresh drops bounce out of the body in an arc and settle (combatfx.js dropArc).
+        const ms = g.born ? performance.now() - g.born : 1e9;
+        if (ms < 0) return;   // still waiting for the blow that dropped it to land
+        const arc = dropArc(ms, this._arc || (this._arc = {}));
+        const cx = g.x * TILE + TILE / 2 - ox + (g.ox || 0) * arc.k, cy = g.y * TILE + TILE * 0.62 - oy + (g.oy || 0) * arc.k - arc.h;
         // Soft glow so loot on the ground is easy to spot, tinted by rarity.
         ctx.save();
         // Additive light vanishes on the pale pastel ground, so rare beams paint solid colour.
@@ -271,9 +278,11 @@ export class Renderer {
           // wide glow behind a bright core) once they've landed.
           const grow = Math.min(1, Math.max(0, ms - 300) / 260);
           const bh = (34 + rar.rank * 14) * grow, bw = 5 + rar.rank * 2;
-          ctx.globalAlpha = 0.28 + Math.sin(timeMs * 0.006) * 0.08;
-          ctx.fillStyle = rar.color;
-          ctx.fillRect(cx - bw * 1.6, cy - bh * 1.1, bw * 3.2, bh * 1.1);
+          const glow = columnImage(rar.color);
+          if (glow) {
+            ctx.globalAlpha = 0.6 + Math.sin(timeMs * 0.006) * 0.15;
+            ctx.drawImage(glow, cx - bw * 2.4, cy - bh * 1.2, bw * 4.8, bh * 1.2 + 4);
+          }
           const beam = ctx.createLinearGradient(0, cy - bh, 0, cy);
           beam.addColorStop(0, rar.color + '00');
           beam.addColorStop(0.6, rar.color + 'AA');
