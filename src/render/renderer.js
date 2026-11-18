@@ -37,8 +37,11 @@ const HELD_FX = new Set(['slash', 'cleave', 'swipe']);
 import { itemIconImage } from './icons.js';
 import { moodFor, blendMood, composeWashes, dayNightWashes, buildVignette, ObjectReactions } from './ambience.js';
 import { Critters } from './critters.js';
+import { LightPass } from './lighting.js';
+import { Weather } from './weather.js';
 import { fxImage, fxTinted, drawFx, drawStrip, badgeKey, preloadFx, DARK_REGIONS } from './fxart.js';
 import { introCurve, titleAlpha, DEATH_FLASH_MS } from '../game/cinematics.js';
+import { TerrainFx } from './terrainfx.js';
 
 // Gathering actions that show a progress ring over the node, and its colour.
 const GATHER_RING = { woodcut: '#4fa04f', mine: '#8a8fa0', fish: '#3a8fd8', hunt: '#d08a3a' };
@@ -108,6 +111,8 @@ export class Renderer {
     this._grade = [0, 0, 0, 0];
     this.react = new ObjectReactions();
     this.critters = new Critters();
+    this.lights = new LightPass();   // night lighting and the colour grade (lighting.js)
+    this.weather = new Weather();    // rain, snow, mist, embers (weather.js)
     preloadFx();   // painted critters, particles, banner and plaques (fxart.js)
     this._critEnv = { world: null, zone: '', night: 0, px: 0, py: 0, low: false };
     this._lastT = 0;
@@ -183,11 +188,20 @@ export class Renderer {
       // Blit the cached static terrain chunks for the visible slice, then animate water.
       this._drawTerrainChunks(ox, oy, vw, vh);
       this._drawWaterOverlay(x0, y0, x1, y1, ox, oy, timeMs);
+      // Shoreline foam, lily pads and reeds, and reflections (terrainfx.js).
+      if (this.tfx && this._visChunks) {
+        this.tfx.drawWater(ctx, this._visChunks, ox, oy, vw, vh, timeMs, game.lowFx);
+        this.tfx.drawReflections(ctx, game, this._visChunks, ox, oy, vw, vh, timeMs);
+      }
     } else {
       this._drawTerrain(x0, y0, x1, y1, ox, oy, timeMs);
     }
     this._drawGroundDecals(ox, oy);
     this._drawHazards(ox, oy, timeMs);
+    // Weather (weather.js): the sky for this region and moment, then puddles and
+    // ripples on the ground, under everyone. Looks only; never gameplay.
+    this.weather.update(game, fdt);
+    this.weather.drawGround(ctx, game, ox, oy, vw, vh, timeMs, fdt, !!game.lowFx);
     // Critters move on and objects near you react (bushes sway, tall things fade).
     this.react.update(game, fdt);
     {
@@ -384,7 +398,11 @@ export class Renderer {
     for (const d of drawables) d.draw();
 
     this._drawClueMarker(ox, oy, vw, vh, timeMs);
-    this._drawDayNight(vw, vh, night, fdt);
+    // The light pass (lighting.js) paints the grade and the night's darkness
+    // with lamps, fires and spells cut out of it, then the weather in the air;
+    // low graphics (and headless runs) keep the old flat fill.
+    if (game.lowFx || !this.lights.ok || !this.lights.draw(ctx, game, this._blendMood(fdt), night, this.weather.state, ox, oy, vw, vh, timeMs)) this._drawDayNight(vw, vh, night, fdt);
+    this.weather.drawAir(ctx, ox, oy, vw, vh, timeMs, fdt, !!game.lowFx);
     this._drawVignette(vw, vh, night);
     this.critters.drawAir(ctx, ox, oy, timeMs);
     this._drawParticles(ox, oy);
@@ -401,13 +419,18 @@ export class Renderer {
   // three fills; composeWashes folds them into one that looks the same.
   // Drawn under particles/hitsplats so embers and fireflies still pop at night.
   _drawDayNight(vw, vh, night, dt) {
-    // Low graphics keeps just the day/night light (the mood eases away).
-    blendMood(this._mood, this.game.lowFx ? moodFor('Singapore') : moodFor(this.game.currentZoneName), dt);
+    this._blendMood(dt);
     dayNightWashes(night, this._dn);
     const g = composeWashes(this._washes, this._grade);
     if (g[3] <= 0.004) return;
     this.ctx.fillStyle = `rgba(${g[0] | 0},${g[1] | 0},${g[2] | 0},${g[3].toFixed(3)})`;
     this.ctx.fillRect(0, 0, vw, vh);
+  }
+
+  /** Ease the region's mood toward where you are (low graphics keeps just the
+   *  day/night light, so the mood eases away). */
+  _blendMood(dt) {
+    return blendMood(this._mood, this.game.lowFx ? moodFor('Singapore') : moodFor(this.game.currentZoneName), dt);
   }
 
   // ---------------- Alignment aura (alignment.js) ----------------
@@ -1116,7 +1139,7 @@ export class Renderer {
             g.fillStyle = ['#EF476F', '#F5B82E', '#5FAEE3', '#FFFFFF'][Math.floor(h * 97) % 4];
             g.beginPath(); g.arc(sx + 8 + h * 12, sy + 10, 1.6, 0, 6.3); g.fill();
           }
-          this._tileEdges(g, w, t, x, y, sx, sy);
+          if (t === TERRAIN.STONE) this._tileEdges(g, w, t, x, y, sx, sy);   // paths blend softly instead
           continue;
         }
         const base = TERRAIN_RGB[t] || TERRAIN_RGB[TERRAIN.GRASS];
@@ -1124,14 +1147,49 @@ export class Renderer {
         g.fillStyle = `rgb(${clamp8(base[0] + j)},${clamp8(base[1] + j)},${clamp8(base[2] + j)})`;
         g.fillRect(sx, sy, TILE + 1, TILE + 1);
         this._tileDetail(g, t, x, y, sx, sy, h);
-        this._tileEdges(g, w, t, x, y, sx, sy);
+        if (t === TERRAIN.STONE) this._tileEdges(g, w, t, x, y, sx, sy);
       }
     }
+    // Soft edges between grounds, small ground details, contact shadows and
+    // the water's extras (terrainfx.js), baked into the chunk once.
+    // It runs a few rows at a time over the next frames (see _polishChunk).
+    const fx = this.tfx || (this.tfx = new TerrainFx());
+    cnv.fx = null;
+    cnv.fxJob = fx.bakeSteps(g, w, tx0, ty0, tx1, ty1, (sg, t) => this._groundFill(sg, t), { low: !!this.game.lowFx });
     return cnv;
+  }
+
+  /** Carry on a chunk's polish bake for up to `ms` milliseconds; true once it's done. */
+  _polishChunk(cv, ms) {
+    if (!cv.fxJob) return true;
+    const end = performance.now() + ms;
+    try {
+      let r;
+      do r = cv.fxJob.next(); while (!r.done && performance.now() < end);
+      if (!r.done) return false;
+      cv.fx = r.value;
+    } catch (err) { console.warn('terrain polish skipped', err); }
+    cv.fxJob = null;
+    return true;
+  }
+
+  /** The fill for ground type t: its painted texture as a repeating pattern, or its plain colour. */
+  _groundFill(g, t) {
+    const tex = this.groundTex;
+    if (tex && tex.ready && tex[t] && g.createPattern) {
+      const pats = this._groundPats || (this._groundPats = {});
+      const p = pats[t] || (pats[t] = g.createPattern(tex[t], 'repeat'));
+      if (p) return p;
+    }
+    const c = t === TERRAIN.WATER ? [122, 190, 232] : TERRAIN_RGB[t] || TERRAIN_RGB[TERRAIN.GRASS];
+    return `rgb(${c[0]},${c[1]},${c[2]})`;
   }
 
   _chunk(cx, cy) {
     const cache = this.terrainCanvas;
+    // Low graphics bakes a lighter scatter: re-bake when it's switched (or new ground art arrives).
+    const sig = this.tfx ? this.tfx.signature(this.game.lowFx) : '';
+    if (cache.sig !== sig) { if (cache.sig !== undefined) { cache.chunks.clear(); cache.order.length = 0; } cache.sig = sig; }
     const k = cx + ',' + cy;
     let cv = cache.chunks.get(k);
     if (!cv) {
@@ -1153,10 +1211,13 @@ export class Renderer {
     const maxCx = Math.ceil(game.world.width / TERRAIN_CHUNK) - 1, maxCy = Math.ceil(game.world.height / TERRAIN_CHUNK) - 1;
     const c0x = Math.max(0, Math.floor(ox / span)), c1x = Math.min(maxCx, Math.floor((ox + vw) / span));
     const c0y = Math.max(0, Math.floor(oy / span)), c1y = Math.min(maxCy, Math.floor((oy + vh) / span));
+    const vis = this._visChunks || (this._visChunks = []);
+    vis.length = 0;
     for (let cy = c0y; cy <= c1y; cy++) {
       for (let cx = c0x; cx <= c1x; cx++) {
         const cv = this._chunk(cx, cy);
         if (!cv) continue;
+        vis.push(cv);
         // Copy only the part of the chunk that's on screen.
         const wx = cx * span, wy = cy * span;
         const sx = Math.max(0, ox - wx), sy = Math.max(0, oy - wy);
@@ -1164,11 +1225,18 @@ export class Renderer {
         if (sw > 0 && sh > 0) ctx.drawImage(cv, sx, sy, sw, sh, wx + sx - ox, wy + sy - oy, sw, sh);
       }
     }
+    // Polish within a small time budget per frame: chunks on screen first,
+    // then the ring around the view (low graphics gets less time per frame).
+    const budget = game.lowFx ? 3 : 5, end = performance.now() + budget;
+    let left = true;
+    for (const cv of vis) if (cv.fxJob && !(left = this._polishChunk(cv, end - performance.now()))) break;
     // Pre-bake the first missing chunk in a ring around the view (one per frame).
     for (let cy = c0y - 1; cy <= c1y + 1; cy++) {
       for (let cx = c0x - 1; cx <= c1x + 1; cx++) {
         if (cx < 0 || cy < 0 || cx > maxCx || cy > maxCy) continue;
-        if (!this.terrainCanvas.chunks.has(cx + ',' + cy)) { this._chunk(cx, cy); return; }
+        const cv = this.terrainCanvas.chunks.get(cx + ',' + cy);
+        if (!cv) { this._chunk(cx, cy); return; }
+        if (left && cv.fxJob && performance.now() < end) left = this._polishChunk(cv, end - performance.now());
       }
     }
   }
@@ -1193,7 +1261,7 @@ export class Renderer {
           for (let y = y0; y <= y1; y++) {
             for (let x = x0; x <= x1; x++) {
               if (w.terrainAt(x, y) !== TERRAIN.WATER) continue;
-              this._water(g, w, x, y, (x - x0) * TILE, (y - y0) * TILE, timeMs);
+              this._water(g, w, x, y, (x - x0) * TILE, (y - y0) * TILE, timeMs, true);
               wc.any = true;
             }
           }
@@ -1297,12 +1365,15 @@ export class Renderer {
     if (grassy(w.terrainAt(x + 1, y))) ctx.fillRect(sx + TILE - 1, sy, 2, TILE + 1);
   }
 
-  _water(ctx, w, x, y, sx, sy, timeMs) {
-    const land = (tt) => tt !== TERRAIN.WATER;
-    const shore = land(w.terrainAt(x, y - 1)) || land(w.terrainAt(x, y + 1)) || land(w.terrainAt(x - 1, y)) || land(w.terrainAt(x + 1, y));
+  _water(ctx, w, x, y, sx, sy, timeMs, soft = false) {
+    // With soft shores (terrainfx.js) the baked waterline and foam meet sand and
+    // grass; only quays and bridges (stone, wood) keep a crisp foam line.
+    const land = soft ? (tt) => tt === TERRAIN.STONE || tt === TERRAIN.WOOD : (tt) => tt !== TERRAIN.WATER;
+    const dry = (tt) => tt !== TERRAIN.WATER;
+    const shore = dry(w.terrainAt(x, y - 1)) || dry(w.terrainAt(x, y + 1)) || dry(w.terrainAt(x - 1, y)) || dry(w.terrainAt(x + 1, y));
     const wave = Math.sin((x + y) * 0.7 + timeMs * 0.0016) * 8 + Math.sin((x - y) * 0.5 + timeMs * 0.0011) * 6;
     // Deeper water reads darker/greener; shallows near shore are brighter teal.
-    const d = shore ? 18 : 0;
+    const d = shore && !soft ? 18 : 0;   // soft shores: no brighter rim to give the tile's square away
     if (this._groundTile(ctx, TERRAIN.WATER, x, y, sx, sy)) {
       // Painted water: the swell rides on top as a soft light/dark wash.
       const k = (wave + d * 0.6) / 14;

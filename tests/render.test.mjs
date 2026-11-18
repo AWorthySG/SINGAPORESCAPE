@@ -231,9 +231,10 @@ test('world art stays in lock-step with assets/world/ and names real objects', a
   const { fileURLToPath } = await import('node:url');
   const { worldArt } = await import('../src/render/sprites.js');
   const { groundTextures } = await import('../src/render/renderer.js');
+  const { groundDetailArt } = await import('../src/render/terrainfx.js');
   const dir = fileURLToPath(new URL('../assets/world/', import.meta.url));
   const onDisk = new Set(readdirSync(dir).filter((f) => f.endsWith('.webp')).map((f) => f.slice(0, -5)));
-  const declared = new Set([...worldArt(), ...[...groundTextures()].map((g) => `ground-${g}`)]);
+  const declared = new Set([...worldArt(), ...[...groundTextures()].map((g) => `ground-${g}`), ...groundDetailArt()]);
   assert.deepEqual([...declared].filter((s) => !onDisk.has(s)), [], 'declared world art has no file');
   assert.deepEqual([...onDisk].filter((s) => !declared.has(s)), [], 'world art file not declared');
   // Every object picture names a real object (trees and rocks by their id).
