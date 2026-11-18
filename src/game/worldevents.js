@@ -37,6 +37,7 @@ import {
 const SECS_TO_TICKS = 1 / 0.6;
 const between = ([a, b]) => a + Math.floor(Math.random() * (b - a + 1));
 const BANNER = 'worldevent';
+const GATHER_KINDS = new Set(['shoal', 'meteor', 'grove']);
 
 /** A fresh weekly challenge record (no week yet). */
 export const defaultWeekly = () => ({ week: null, region: null, kills: 0, gathers: 0, events: 0, claimed: false });
@@ -421,9 +422,8 @@ export class WorldEvents {
   }
 
   _timeUp(ev) {
-    const gather = ev.kind === 'shoal' || ev.kind === 'meteor' || ev.kind === 'grove';
     // A gathering event ends well for anyone who took part; the fights end in failure.
-    return this.end(gather && ev.gathers >= GATHER_MIN, 'time');
+    return this.end(GATHER_KINDS.has(ev.kind) && ev.gathers >= GATHER_MIN, 'time');
   }
 
   // ---------------- Credit ----------------
@@ -450,7 +450,7 @@ export class WorldEvents {
       ev.gathers++;
       ev.have = Math.min(ev.need, ev.gathers);
       if (ev.charges !== undefined) ev.charges--;
-      if (Math.random() < BONUS_CATCH) { g.inventory.add(first, 1); g.msg(`Event bonus: an extra ${getItem(first).name.toLowerCase()}!`, 'level'); }
+      if (Math.random() < BONUS_CATCH) { g.inventory.add(first, 1); g.msg(`Event bonus: +1 ${getItem(first).name}!`, 'level'); }
       if (ev.kind === 'meteor') { obj.depleted = false; obj.respawnTimer = 0; ev.remine = ev.charges > 0; }
       g.bus.emit('worldevents');
     }
@@ -460,8 +460,10 @@ export class WorldEvents {
 
   /** You fell: the event (if any) is called off and packed away. */
   onDeath() {
-    if (!this.active) return;
-    this.end(false, 'death');
+    const ev = this.active;
+    if (!ev) return;
+    // What you gathered before you fell still counts; a fight is lost.
+    this.end(GATHER_KINDS.has(ev.kind) && ev.gathers >= GATHER_MIN, 'death');
   }
 
   // ---------------- Ending ----------------
@@ -492,7 +494,7 @@ export class WorldEvents {
   /** How much of the event was yours (0-1). */
   _share(ev) {
     if (ev.kind === 'invasion') return ev.mine > 0 ? Math.min(1, 0.3 + (1.4 * ev.mine) / ev.need) : 0;
-    if (ev.kind === 'shoal' || ev.kind === 'meteor' || ev.kind === 'grove') return ev.gathers >= GATHER_MIN ? Math.min(1, ev.gathers / GATHER_GOAL) : 0;
+    if (GATHER_KINDS.has(ev.kind)) return ev.gathers >= GATHER_MIN ? Math.min(1, ev.gathers / GATHER_GOAL) : 0;
     if (ev.kind === 'rampage') return ev.byYou ? 1 : 0;   // put down by you (or your mercenaries)
     return 1;   // an escort you saw home
   }
