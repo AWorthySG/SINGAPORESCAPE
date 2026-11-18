@@ -340,6 +340,7 @@ export class Renderer {
           scale: sc, sprite: n.def.sprite, color: n.def.color, boss: n.def.boss, family: n.def.family,
           attackK: n.swingProgress ? n.swingProgress() : -1,
           hurt: n.hurt, windup: n.windup > 0, castK: n.castT > 0 ? 1 - n.castT / 700 : 0, castCol: n.castCol,
+          low: game.lowFx,   // low graphics: monsters and townsfolk skip their moving parts
         });
         if (spawn > 0) ctx.restore();
       } });
