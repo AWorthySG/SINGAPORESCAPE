@@ -810,9 +810,12 @@ export class Game {
     // Five fan positions, so quick hits sit side by side instead of in a column,
     // and at most SPLAT_MAX_PER numbers per foe: the oldest fades out early.
     entity._splatN = ((entity._splatN || 0) + 1) % 5;
+    // ...and each new number takes the other of two rows, so back-to-back
+    // numbers never overlap even where the fan wraps round.
+    entity._splatRow = entity._splatRow ? 0 : 1;
     const mine = this.effects.filter((e) => e.type === 'hitsplat' && e.entity === entity);
     if (mine.length >= SPLAT_MAX_PER) for (const e of mine.slice(0, mine.length - SPLAT_MAX_PER + 1)) e.life = Math.min(e.life, 120);
-    const fx = { type: 'hitsplat', entity, dmg, crit: !!opts.crit, critX: opts.critX || 0, text: opts.text, tint: opts.tint, aoe: !!opts.aoe, life: opts.critX ? 1000 : 800, fan: (entity._splatN - 2) * 0.8 };
+    const fx = { type: 'hitsplat', entity, dmg, crit: !!opts.crit, critX: opts.critX || 0, text: opts.text, tint: opts.tint, aoe: !!opts.aoe, life: opts.critX ? 1000 : 800, fan: (entity._splatN - 2) * 0.8, row: entity._splatRow };
     fx.maxLife = fx.life;
     entity._lastSplat = fx;
     this.effects.push(fx);

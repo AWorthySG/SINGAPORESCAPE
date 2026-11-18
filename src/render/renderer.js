@@ -1583,10 +1583,9 @@ export class Renderer {
       const c = e.entity.renderCenter ? e.entity.renderCenter() : { x: e.entity.x * TILE, y: e.entity.y * TILE };
       const age = e.maxLife - e.life;
       // Rise from above the head and fan out sideways so rapid hits don't stack
-      // into one blob over the face. Neighbouring fan slots also sit on two
-      // rows, so back-to-back numbers never overlap even before they rise apart.
-      const row = Math.round((e.fan || 0) / 0.8 + 2) % 2;
-      const px = c.x - ox + (e.fan || 0) * 13, py = c.y - oy - 26 - row * 11 - age * 0.03;
+      // into one blob over the face. Back-to-back numbers also alternate
+      // between two rows (e.row), so they never overlap before rising apart.
+      const px = c.x - ox + (e.fan || 0) * 13, py = c.y - oy - 26 - (e.row || 0) * 11 - age * 0.03;
       const hit = e.dmg > 0;
       // Pop in: overshoot to ~1.15 then settle to 1.
       const pop = age < 90 ? 0.5 + 0.72 * (age / 90) : Math.max(1, 1.22 - (age - 90) / 260);
