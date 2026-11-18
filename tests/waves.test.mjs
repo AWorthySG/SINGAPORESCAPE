@@ -58,6 +58,32 @@ test('the gate stands in Kampong Glam; entering and leaving puts you back where 
   assert.ok(!g.npcs.some((n) => n.wave), 'no wave monster is left behind');
 });
 
+test('a wave banner names the real count and goes when you leave the gate', async () => {
+  // A stray "Wave 1 · 0 monsters" banner once followed a player who left right
+  // after a wave began: the count was read after spawning had emptied the plan,
+  // and the 3s banner outlived the run. Uses the real banner methods from ui.js.
+  const { UI } = await import('../src/ui/ui.js');
+  const g = newGame();
+  const cls = new Set(['hidden']);
+  const banner = { innerHTML: '', classList: { add: (c) => cls.add(c), remove: (c) => cls.delete(c) } };
+  const fake = { el: { banner } };
+  g.ui = new Proxy(fake, { get: (t, k) => (k in t ? t[k] : typeof UI.prototype[k] === 'function' && /Banner$/.test(k) ? UI.prototype[k].bind(t) : () => {}) });
+  try {
+    placeAt(g, GATE.x - 1, GATE.y + 1);
+    g.waves.enter();
+    nextWave(g);
+    assert.equal(g.waves.wave, 1);
+    assert.ok(!cls.has('hidden'), 'the wave banner is up');
+    assert.match(banner.innerHTML, new RegExp(`${waveCount(1)} monsters`), 'it counts the wave, not what is left in the queue');
+    assert.ok(g.waves.leave());
+    assert.ok(cls.has('hidden'), 'leaving takes the wave banner down at once');
+    // Someone else's banner (a level-up, say) is left alone.
+    g.ui.showBanner('Level up!');
+    g.ui.hideBanner('waves');
+    assert.ok(!cls.has('hidden'), 'only the gate\'s own banner is cleared');
+  } finally { clearTimeout(fake._bannerTimer); }
+});
+
 test('the exit portal and the gate work through the normal interact routing', () => {
   const g = newGame();
   let opened = 0;

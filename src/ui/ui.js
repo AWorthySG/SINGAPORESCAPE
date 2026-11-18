@@ -2968,11 +2968,21 @@ export class UI {
     q.clear();
   }
 
-  showBanner(html) {
+  showBanner(html, tag = null) {
     this.el.banner.innerHTML = html;
     this.el.banner.classList.remove('hidden');
+    this._bannerTag = tag;   // who put it up, so they alone can take it down early
     clearTimeout(this._bannerTimer);
     this._bannerTimer = setTimeout(() => this.el.banner.classList.add('hidden'), 3200);
+  }
+
+  /** Take the banner down early, but only if it is still the one `tag` put up
+   *  (leaving the Endless Gate clears its wave banner, never a level-up). */
+  hideBanner(tag) {
+    if (this._bannerTag !== tag) return;
+    clearTimeout(this._bannerTimer);
+    this.el.banner.classList.add('hidden');
+    this._bannerTag = null;
   }
 
   // ---------------- Context menu ----------------
