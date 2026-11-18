@@ -1447,7 +1447,7 @@ export class Game {
    *  turns: the nearest ready node of the next kind after this one, then any
    *  kind in the round. Failing those, the nearest ready node of the same kind,
    *  or of the same skill you have the level for (another rock, tree or spot),
-   *  all within 30 tiles. */
+   *  all within 30 tiles. With kinds ticked in a skill guide, only those. */
   _nextGatherNode(objId, exclude = null) {
     const here = this.playerTile();
     const def = this.world.objects.find((o) => o.objId === objId)?.def;
@@ -1455,8 +1455,13 @@ export class Game {
     const i = kinds.indexOf(objId);
     const next = kinds.length > 1 && i >= 0 ? kinds[(i + 1) % kinds.length] : null;
     let same = null, sd = Infinity, other = null, od = Infinity, turn = null, td = Infinity, round = null, rd = Infinity;
+    // A ticked list (skill guide) is strict: only the kinds you ticked, never a
+    // nearby rock or tree of the same skill (that sent auto mining to tin when
+    // the ticked adamantite and runite rocks were all mined out).
+    const picked = this.gatherPicks.size ? this.gatherPicks : null;
     for (const o of this.world.objects) {
       if (o === exclude || o.depleted) continue;
+      if (picked && !picked.has(o.objId)) continue;
       const d = chebyshev(here.x, here.y, o.x, o.y);
       if (d > 30) continue;
       const lvlOk = !o.def?.skill || (o.def.level || 1) <= this.skills.level(o.def.skill);

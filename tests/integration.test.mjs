@@ -6959,6 +6959,15 @@ test('mining always succeeds, and ticked rock kinds set auto gather’s round (k
   const tin = g.world.objects.find((o) => o.objId === 'tin_rock' && !o.depleted);
   g.player.x = g.player.tx = tin.x; g.player.y = g.player.ty = tin.y + 1;
   assert.ok(['copper_rock', 'tin_rock'].includes(g._nextGatherNode('iron_rock')?.objId), 'from anything else it heads to a ticked kind');
+  // Strict: with every ticked rock mined out, it waits rather than wandering
+  // to another rock of the same skill (it used to fall back to tin or iron).
+  const ticked = g.world.objects.filter((o) => g.gatherPicks.has(o.objId));
+  for (const o of ticked) o.depleted = true;
+  const tinNear = g.world.objects.some((o) => !o.depleted && !g.gatherPicks.has(o.objId) && o.def?.skill === 'mining'
+    && Math.max(Math.abs(o.x - g.player.x), Math.abs(o.y - g.player.y)) <= 30);
+  assert.ok(tinNear, 'test setup: other rocks are in reach');
+  assert.equal(g._nextGatherNode('copper_rock'), null, 'no ticked rock ready: no other rock is chosen');
+  for (const o of ticked) o.depleted = false;
   // Unticking removes it; the ticks survive a save and reload.
   assert.equal(g.toggleGatherPick(['tin_rock']), false);
   saveGame(g);
