@@ -2,6 +2,7 @@ import { POTIONS, CROP_BY_ID } from '../data/trades.js';
 import { SAVE_KEY } from '../config.js';
 import { STATION_BY_ID } from '../data/transport.js';
 import { inArena } from './waves.js';
+import { assignLegacyQuality } from './quality.js';
 import { loadCulling } from './culling.js';
 
 const VERSION = 1;
@@ -275,6 +276,7 @@ function loadFields(game, data) {
   game.inventory.load(data.inventory);
   game.equipment.load(data.equipment);
   game.bank.load(data.bank);
+  assignLegacyQuality(game);   // old saves' per-item quality tally goes onto the copies you own
 
   const p = data.player || {};
   // (Never into the Endless Gate's arena: a run isn't saved, and there's no walking out.)

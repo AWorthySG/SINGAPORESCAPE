@@ -1,6 +1,6 @@
 import { getItem } from '../data/items.js';
 import { CLASS_BY_ID, canWear, canWield } from '../data/classes.js';
-import { reqLevel, MASTERY_RANKS, STONE, WARD } from './mastery.js';
+import { reqLevel, MASTERY_RANKS, STONE, WARD, masteryType, masteryTypeName } from './mastery.js';
 import { SCROLL } from './refine.js';
 import { FEED_CAP, FEED_CAP_RANK } from './materials.js';
 import { QUALITY } from './loot.js';
@@ -10,7 +10,8 @@ import { tierOf, compareGear } from './gear.js';
 // Spare gear as a road to progression. Two things to do with a piece you won't
 // wear (any class's, any slot), both in the Gear Mastery window and on the
 // pack's item menu:
-//   sacrifice  feed it to another item type's mastery, as materials are fed;
+//   sacrifice  feed it to the mastery of its own gear type (a sword to Sword
+//              mastery, a plate body to Plate body mastery), as materials are fed;
 //   dismantle  break it down into upgrade stones, sometimes a refine scroll,
 //              and (from the best qualities and the boss uniques) a ward.
 // (It can also be offered at the Offering Shrine for shrine points: see the
@@ -28,8 +29,9 @@ import { tierOf, compareGear } from './gear.js';
 // at levels 50, 150 and 250: about 0.5 pieces of gear drop per kill (champions'
 // thirty rolls are most of them), mostly well below your level, at an average
 // worth of about 2-3. So:
-//   sacrifice: worth x1 mastery points (x1.5 when it's the same kind of gear:
-//     same weapon type, or same slot and armour family), at least 1. An hour's
+//   sacrifice: worth x1.5 mastery points, at least 1. Only gear of the same
+//     type can be sacrificed to a type (same weapon type, or same slot and
+//     armour family: the gear type mastery belongs to). An hour's
 //     drops, all sacrificed into one piece, come to roughly the mastery that
 //     hour's kills gave each piece you wore (about 0.75, 1.1 and 1.3 times as
 //     much at levels 50, 150 and 250). Kills feed every worn piece, sacrifice
@@ -43,11 +45,9 @@ import { tierOf, compareGear } from './gear.js';
 //     (about 40% more wards in all); a boss unique always gives at least one
 //     scroll and has a 50% chance of a ward.
 //
-// Quality: a quality drop raises the item type's mastery (loot.js), but every
-// copy shares the type's mastery, so to tell copies apart the game also keeps a
-// tally of how many copies of each type dropped at each quality
-// (Equipment.quality, saved). Copies of a type look the same in the pack, so
-// when one goes, the plainest goes first: the good ones are kept until the last.
+// Quality belongs to each copy (loot.js): the pack keeps it on the copy, so
+// each copy is worth what its own quality says. When copies go, the plainest
+// go first: the good ones are kept until the last.
 
 export const QUALITY_KEYS = ['fine', 'superior', 'epic', 'legendary', 'mythic'];
 export const QUALITY_MULT = { plain: 1, fine: 1.25, superior: 1.6, epic: 2.2, legendary: 3.5, mythic: 6 };
@@ -86,19 +86,19 @@ export function gearWorth(id, q = 'plain') {
   return Math.sqrt(1 + lvl / 10) * tier * (QUALITY_MULT[q] || 1) * (uniq ? UNIQUE_MULT : 1);
 }
 
-/** Same kind of gear: the same weapon type, or the same slot (and armour family, if either has one). */
+/** Same kind of gear: the same gear type, the one mastery belongs to (the
+ *  same weapon type, or the same slot and armour family). */
 export function sameKind(a, b) {
-  const ea = getItem(a).equip, eb = getItem(b).equip;
-  if (!ea || !eb || ea.slot !== eb.slot) return false;
-  if (ea.slot === 'weapon') return ea.weaponType === eb.weaponType;
-  return (ea.family || null) === (eb.family || null);
+  if (!getItem(a).equip || !getItem(b).equip) return false;
+  return masteryType(a) === masteryType(b);
 }
 
-/** Mastery points one copy of `srcId` at quality `q` gives item type `targetId`. */
+/** Mastery points one copy of `srcId` at quality `q` gives the gear type of
+ *  `targetId` (0 when it is another type: only the same type can be sacrificed). */
 export function sacrificePoints(targetId, srcId, q = 'plain') {
   const w = gearWorth(srcId, q);
-  if (!w || !isSalvageable(targetId)) return 0;
-  return Math.max(1, Math.round(SACRIFICE_RATE * w * (sameKind(targetId, srcId) ? SAME_KIND_MULT : 1)));
+  if (!w || !isSalvageable(targetId) || !sameKind(targetId, srcId)) return 0;
+  return Math.max(1, Math.round(SACRIFICE_RATE * w * SAME_KIND_MULT));
 }
 
 /** What dismantling one copy is expected to give: { stones, scrolls, ward } (averages; ward is a chance). */
@@ -124,48 +124,17 @@ export function rollDismantle(id, q = 'plain', rand = Math.random) {
 
 // ---------------- Copies and their quality ----------------
 
-/** How many copies of `id` you own: pack, bank and worn. */
-function ownedCount(game, id) {
-  let n = game.inventory.count(id) + (game.bank?.count(id) || 0);
-  for (const s of EQUIP_SLOTS) if (game.equipment.get(s) === id) n++;
-  return n;
-}
-
-/** Record a quality drop of `id` (called from rollDrops). */
-export function recordQuality(equipment, id, q) {
-  const i = QUALITY_KEYS.indexOf(q);
-  if (i < 0) return;
-  const row = equipment.quality[id] || (equipment.quality[id] = [0, 0, 0, 0, 0]);
-  row[i]++;
-}
-
 /** The qualities of the copies of `id` in your pack, plainest first, e.g.
- *  ['plain', 'plain', 'fine', 'epic']. Quality copies are counted as in the
- *  pack (they arrive there), and the tally never counts more copies than you own. */
+ *  ['plain', 'plain', 'fine', 'epic'] (each copy keeps its own, see Inventory). */
 export function packQualities(game, id) {
-  const n = game.inventory.count(id);
-  const row = game.equipment.quality[id] || [];
-  const tally = [];
-  for (let i = QUALITY_KEYS.length - 1; i >= 0; i--) for (let k = 0; k < (row[i] || 0); k++) tally.push(QUALITY_KEYS[i]);
-  const owned = ownedCount(game, id);
-  const best = tally.slice(0, Math.min(owned, n));   // best first
-  const out = new Array(n - best.length).fill('plain');
-  return out.concat(best.reverse());
-}
-
-/** One copy of `id` at quality `q` is gone: take it off the tally. */
-function useCopy(game, id, q) {
-  const i = QUALITY_KEYS.indexOf(q), row = game.equipment.quality[id];
-  if (i < 0 || !row) return;
-  row[i] = Math.max(0, row[i] - 1);
-  if (row.every((x) => !x)) delete game.equipment.quality[id];
+  return game.inventory.qualities(id).map((q) => q || 'plain');
 }
 
 /** Why `id` should be thought about twice before it goes ('' if not):
  *  it is better than what you wear, a boss unique, or of high quality. */
 export function salvageWarning(game, id, q = 'plain') {
   const out = [];
-  const cmp = compareGear(id, game.equipment);
+  const cmp = compareGear(id, game.equipment, null, q === 'plain' ? null : q);
   if (cmp && (cmp.verdict === 'upgrade' || cmp.verdict === 'empty') && game._canEquipNow?.(id)) out.push('it is better than what you wear');
   if (isUniqueGear(id)) out.push(getItem(id).signature ? 'it is a boss\'s signature weapon' : 'it is a boss unique');
   if (QUALITY_KEYS.indexOf(q) >= QUALITY_KEYS.indexOf('epic')) out.push(`it is ${QUALITY[q].label} quality`);
@@ -174,7 +143,7 @@ export function salvageWarning(game, id, q = 'plain') {
 
 // ---------------- Sacrifice ----------------
 
-/** Can `id` take sacrifices right now? '' if so, else why not. */
+/** Can `id`'s gear type take sacrifices right now? '' if so, else why not. */
 function targetProblem(game, id) {
   if (!isSalvageable(id)) return 'That has no stats to master.';
   if (!EQUIP_SLOTS.some((s) => game.equipment.get(s) === id) && !game.inventory.count(id)) return 'Wear or carry the gear you want to strengthen.';
@@ -182,12 +151,13 @@ function targetProblem(game, id) {
   return '';
 }
 
-/** The gear in your pack that could be sacrificed to `targetId`, best first:
+/** The gear in your pack that could be sacrificed to `targetId`'s gear type
+ *  (gear of that same type only), best first:
  *  [{ id, count, qualities, points (the next copy), total (all copies), warn }]. */
 export function sacrificeOptions(game, targetId) {
   const out = [];
   for (const s of game.inventory.slots) {
-    if (!s || !isSalvageable(s.id) || out.some((o) => o.id === s.id)) continue;
+    if (!s || !isSalvageable(s.id) || !sameKind(targetId, s.id) || out.some((o) => o.id === s.id)) continue;
     const qs = packQualities(game, s.id);
     out.push({ id: s.id, count: qs.length, qualities: qs, points: sacrificePoints(targetId, s.id, qs[0]),
       total: qs.reduce((t, q) => t + sacrificePoints(targetId, s.id, q), 0), warn: salvageWarning(game, s.id, qs[qs.length - 1]) });
@@ -209,13 +179,18 @@ export function previewSacrifice(game, targetId, srcId, qty = 1) {
   return { n: copies.length, points, copies };
 }
 
-/** Sacrifice up to `qty` copies of `srcId` (from your pack) to item type
- *  `targetId`'s mastery. Plainest copies go first; only what it takes to reach
- *  Master is used. Returns the mastery points added (0 when refused). */
+/** Sacrifice up to `qty` copies of `srcId` (from your pack) to the mastery of
+ *  `targetId`'s gear type, which must be `srcId`'s type too. Plainest copies go
+ *  first; only what it takes to reach Master is used. Returns the mastery
+ *  points added (0 when refused). */
 export function sacrificeGear(game, targetId, srcId, qty = 1, { quiet = false } = {}) {
   const why = targetProblem(game, targetId);
   if (why) { if (!quiet) game.msg(why); return 0; }
   if (!isSalvageable(srcId)) { if (!quiet) game.msg(`${getItem(srcId).name} can't be sacrificed.`); return 0; }
+  if (!sameKind(targetId, srcId)) {
+    if (!quiet) game.msg(`Only ${masteryTypeName(targetId).toLowerCase()} gear can be sacrificed to ${masteryTypeName(targetId)} mastery.`);
+    return 0;
+  }
   if (!game.inventory.count(srcId)) {
     if (!quiet) game.msg(EQUIP_SLOTS.some((s) => game.equipment.get(s) === srcId) ? 'You can\'t sacrifice gear you are wearing: take it off first.' : `You have no ${getItem(srcId).name.toLowerCase()} in your pack.`);
     return 0;
@@ -227,13 +202,12 @@ export function sacrificeGear(game, targetId, srcId, qty = 1, { quiet = false } 
   if (limit <= 0) { if (!quiet) game.msg('Keep at least one to strengthen.'); return 0; }
   const pv = previewSacrifice(game, targetId, srcId, limit);
   if (!pv.n) return 0;
-  game.inventory.remove(srcId, pv.n);
-  for (const q of pv.copies) useCopy(game, srcId, q);
+  game.inventory.remove(srcId, pv.n);   // the plainest first, the copies previewed
   game._addMastery(targetId, pv.points);
   game.equipment._changed();
   if (!quiet) {
     game.spawnSparkle?.(game.player, '#ffd24a', 10);
-    game.msg(`You sacrifice ${pv.n} x ${getItem(srcId).name} to your ${getItem(targetId).name.toLowerCase()}: +${pv.points} mastery.`, 'system');
+    game.msg(`You sacrifice ${pv.n} x ${getItem(srcId).name} to your ${masteryTypeName(targetId)} mastery: +${pv.points} mastery.`, 'system');
   }
   return pv.points;
 }
@@ -254,9 +228,8 @@ export function dismantleGear(game, id, qty = 1, { quiet = false, rand = Math.ra
   for (const q of qs) {
     const r = rollDismantle(id, q, rand);
     got.stones += r.stones; got.scrolls += r.scrolls; got.wards += r.wards;
-    useCopy(game, id, q);
   }
-  game.inventory.remove(id, qs.length);
+  game.inventory.remove(id, qs.length);   // the plainest first, the copies rolled
   if (got.stones) game.inventory.add(STONE, got.stones);
   if (got.scrolls) game.inventory.add(SCROLL, got.scrolls);
   if (got.wards) game.inventory.add(WARD, got.wards);
@@ -300,18 +273,27 @@ export function belowWornTier(game, id) {
   return !!worn && worn !== id && reqLevel(id) < reqLevel(worn);
 }
 
-/** The copies a bulk action would take: [{ id, qualities }]. */
+/** The copies a bulk action would take: [{ id, qualities }]. With `exclude`
+ *  (a sacrifice's target) only gear of the target's own type is picked. */
 export function bulkPicks(game, filters = {}, exclude = null) {
   const { offClass: oc = false, belowTier: bt = false, below = 'any' } = filters;
   const cut = below === 'any' ? Infinity : QUALITY_KEYS.indexOf(below);
   const out = [];
   for (const s of game.inventory.slots) {
     if (!s || s.id === exclude || !isSalvageable(s.id) || out.some((o) => o.id === s.id)) continue;
+    if (exclude && !sameKind(exclude, s.id)) continue;
     if (isUniqueGear(s.id)) continue;
-    const cmp = compareGear(s.id, game.equipment);
-    if (cmp && (cmp.verdict === 'upgrade' || cmp.verdict === 'empty') && game._canEquipNow?.(s.id)) continue;
     if ((oc || bt) && !((oc && offClass(game, s.id)) || (bt && belowWornTier(game, s.id)))) continue;
-    const qs = packQualities(game, s.id).filter((q) => QUALITY_KEYS.indexOf(q) < cut);
+    // Never a copy better than what you wear: each copy is weighed with its
+    // own quality, and only the plainest copies up to the first such one are
+    // picked (copies always go plainest first).
+    const qs = [];
+    for (const q of packQualities(game, s.id)) {
+      if (QUALITY_KEYS.indexOf(q) >= cut) break;
+      const cmp = game._canEquipNow?.(s.id) && compareGear(s.id, game.equipment, null, q === 'plain' ? null : q);
+      if (cmp && (cmp.verdict === 'upgrade' || cmp.verdict === 'empty')) break;
+      qs.push(q);
+    }
     if (qs.length) out.push({ id: s.id, qualities: qs });
   }
   return out;
@@ -356,7 +338,7 @@ export function sacrificeAll(game, targetId, filters = {}) {
   }
   if (sum.pieces) {
     game.spawnSparkle?.(game.player, '#ffd24a', 14);
-    game.msg(`You sacrifice ${sum.pieces} piece${sum.pieces > 1 ? 's' : ''} of gear to your ${getItem(targetId).name.toLowerCase()}: +${sum.points} mastery.`, 'level');
+    game.msg(`You sacrifice ${sum.pieces} piece${sum.pieces > 1 ? 's' : ''} of gear to your ${masteryTypeName(targetId)} mastery: +${sum.points} mastery.`, 'level');
   } else game.msg('No spare gear matches.');
   return sum;
 }
@@ -431,8 +413,7 @@ export function offerGear(game, id, qty = 1, { quiet = false } = {}) {
     if (!quiet) game.msg(EQUIP_SLOTS.some((s) => game.equipment.get(s) === id) ? 'You can\'t offer gear you are wearing: take it off first.' : `You have no ${getItem(id).name.toLowerCase()} in your pack.`);
     return 0;
   }
-  game.inventory.remove(id, pv.n);
-  for (const q of pv.copies) useCopy(game, id, q);
+  game.inventory.remove(id, pv.n);   // the plainest first, the copies previewed
   game.shrine.points += pv.points;
   game.equipment._changed();
   game.saveSoon = true;

@@ -1,18 +1,29 @@
 import { getItem } from '../data/items.js';
+import { WEAPON_TYPE_NAMES } from '../data/classes.js';
+import { QUALITY } from './loot.js';
 
-// Gear mastery and enchanting. Both belong to an item TYPE (keyed by item id),
-// so every copy you own shares them.
+// Gear mastery and enchanting.
 //
-// Mastery is earned by fighting: every kill gives each piece you are wearing
-// mastery points (1 for a monster, 5 for a champion, 25 for a boss). Points
-// climb through seven ranks, and each rank adds a share of the item's base
-// combat stats. There is no risk and nothing to pay: using your gear is what
-// makes it better.
+// Mastery belongs to a GEAR TYPE: a weapon's type (every sword shares Sword
+// mastery, every bow of a kind its bow mastery) or, for other gear, its slot
+// and armour family (every plate body shares Plate body mastery), or the slot
+// alone when it has no family (every ring shares Ring mastery). So moving up a
+// tier keeps the mastery you earned, and there is nothing to carry across.
+// Mastery is earned by fighting: every kill gives each gear type you are
+// wearing mastery points (1 for a monster, 5 for a champion, 25 for a boss).
+// Points climb through seven ranks, and each rank adds a share of the item's
+// base combat stats. There is no risk and nothing to pay: using your gear is
+// what makes it better. (Spare gear of the same type can be sacrificed to it
+// too, see salvage.js.)
 //
-// Enchanting adds up to three bonus lines to an item type (crit chance, crit
-// damage, armour pierce, lifesteal, attack speed, boss damage, attack or magic
-// bonus %). Each attempt costs upgrade stones and coins, offers three random
-// lines and you keep the one you pick. An upgrade ward lets you reroll the offer.
+// Quality (loot.js) is something else: it belongs to one copy, and multiplies
+// that copy's stats, mastery included (see qualityBonuses).
+//
+// Enchanting adds up to three bonus lines to an item (keyed by item id, so
+// every copy shares them): crit chance, crit damage, armour pierce, lifesteal,
+// attack speed, boss damage, attack or magic bonus %. Each attempt costs
+// upgrade stones and coins, offers three random lines and you keep the one you
+// pick. An upgrade ward lets you reroll the offer.
 
 export const STONE = 'upgrade_stone';
 export const WARD = 'upgrade_ward';
@@ -36,6 +47,36 @@ export const MASTERY_RANKS = [
 export const MAX_RANK = MASTERY_RANKS.length - 1;
 /** From this rank up, ranking up earns a banner as well as a chat message. */
 export const BANNER_RANK = 4;   // Master
+
+// Short names for a slot in a gear type's name ("Plate helm", "Ring").
+const SLOT_WORDS = { head: 'helm', body: 'body', legs: 'legs', hands: 'gloves', feet: 'boots', shield: 'shield', cape: 'cape', amulet: 'amulet', ring: 'ring' };
+const FAMILY_WORDS = { plate: 'Plate', leather: 'Scout leather', hide: 'Hide', robes: 'Robe', dancewear: 'Dancewear' };
+
+/** The gear type an item's mastery belongs to: 'weapon:sword', 'body:plate',
+ *  'ring:any' (a slot with no family), 'weapon:tool' (an axe or pickaxe in hand).
+ *  Always has a colon, so it can never be mistaken for an item id (old saves
+ *  kept mastery by item id: see Equipment.load). */
+export function masteryType(id) {
+  let eq;
+  try { eq = getItem(id).equip; } catch { return `item:${id}`; }
+  if (!eq) return `item:${id}`;
+  if (eq.slot === 'weapon') return `weapon:${eq.weaponType || 'tool'}`;
+  return `${eq.slot}:${eq.family || 'any'}`;
+}
+
+/** A gear type's name for the player: "Sword", "Plate body", "Ring". */
+export function masteryTypeName(id) {
+  const [slot, kind] = masteryType(id).split(':');
+  if (slot === 'weapon') {
+    if (kind === 'tool') return 'Tool';
+    const plural = WEAPON_TYPE_NAMES[kind] || kind;
+    const one = plural.replace(/staves$/, 'staff').replace(/s$/, '');
+    return one.charAt(0).toUpperCase() + one.slice(1);
+  }
+  const word = SLOT_WORDS[slot] || slot;
+  if (kind === 'any' || !FAMILY_WORDS[kind]) return word.charAt(0).toUpperCase() + word.slice(1);
+  return `${FAMILY_WORDS[kind]} ${word}`;
+}
 
 /** Mastery points a kill is worth to each piece you wear. */
 export function killMastery(npc) {
@@ -64,6 +105,17 @@ export function masteryBonuses(base = {}, rank = 0) {
   const out = { ...base };
   const g = MASTERY_RANKS[rank].gain;
   for (const k of STATS) if (base[k]) out[k] = base[k] + Math.max(rank, Math.round(base[k] * g));
+  return out;
+}
+
+/** One copy's bonuses at its quality: each stat the mastered bonuses have
+ *  (from the item's base stats) grows by the quality's share, at least +1, so
+ *  quality multiplies with mastery. A plain copy is unchanged. */
+export function qualityBonuses(base = {}, current = base, q = null) {
+  const Q = QUALITY[q];
+  if (!Q) return current;
+  const out = { ...current };
+  for (const k of STATS) if (base[k] > 0 && current[k] > 0) out[k] = Math.max(current[k] + 1, Math.round(current[k] * (1 + Q.gain)));
   return out;
 }
 

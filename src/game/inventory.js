@@ -1,4 +1,5 @@
 import { getItem } from '../data/items.js';
+import { validQuality, qualityRank } from './loot.js';
 
 export const INV_SIZE = 28;
 export const STACK_LIMIT = 999; // max quantity of one item per inventory slot
@@ -7,6 +8,9 @@ export const STACK_LIMIT = 999; // max quantity of one item per inventory slot
 // always keeping a row of empty slots open. Every item stacks up to
 // STACK_LIMIT per slot; items with an explicit `maxStack` (e.g. coins =
 // Infinity) override that limit.
+// A slot is { id, qty } plus `q` for gear copies of a quality ('fine' ..
+// 'mythic', see loot.js). Copies only stack with copies of the same quality,
+// and when no quality is asked for, the plainest copies go first.
 const SPARE = 4;
 
 export const CATEGORY_ORDER = ['coins', 'gear', 'food', 'materials', 'other'];
@@ -61,13 +65,16 @@ export class Inventory {
   /** How many of `id` could be added right now: always all of it. */
   canAdd(id, qty) { return qty; }
 
-  /** Add up to `qty`; tops up partial stacks first, then fills empty slots. Returns amount added. */
-  add(id, qty = 1) {
+  /** Add up to `qty` (copies of quality `q`, null for plain); tops up partial
+   *  stacks first, then fills empty slots. Returns amount added. */
+  add(id, qty = 1, q = null) {
     const max = this.maxStackOf(id);
+    q = validQuality(q);
+    const mk = (n) => (q ? { id, qty: n, q } : { id, qty: n });
     let remaining = qty;
     for (let i = 0; i < this.size && remaining > 0; i++) {
       const s = this.slots[i];
-      if (s && s.id === id && s.qty < max) {
+      if (s && s.id === id && (s.q || null) === q && s.qty < max) {
         const put = Math.min(max - s.qty, remaining);
         s.qty += put; remaining -= put;
       }
@@ -75,32 +82,51 @@ export class Inventory {
     for (let i = 0; i < this.size && remaining > 0; i++) {
       if (this.slots[i] === null) {
         const put = Math.min(max, remaining);
-        this.slots[i] = { id, qty: put }; remaining -= put;
+        this.slots[i] = mk(put); remaining -= put;
       }
     }
     while (remaining > 0) {           // out of empty slots: grow
       const put = Math.min(max, remaining);
-      this.slots.push({ id, qty: put }); remaining -= put;
+      this.slots.push(mk(put)); remaining -= put;
     }
     const added = qty - remaining;
     if (added > 0) this._changed();
     return added;
   }
 
-  /** Remove up to `qty` of `id` across slots; returns amount removed. */
-  remove(id, qty = 1) {
+  /** Remove up to `qty` of `id` across slots; returns amount removed. With
+   *  `q` (null for plain) only copies of that quality go; without it the
+   *  plainest go first. */
+  remove(id, qty = 1, q) {
+    return this.take(id, qty, q).reduce((n, p) => n + p.n, 0);
+  }
+
+  /** Remove like remove(), saying which copies went: [{ q, n }], plainest first. */
+  take(id, qty = 1, q) {
+    const order = [];
+    this.slots.forEach((s, i) => { if (s && s.id === id && (q === undefined || (s.q || null) === validQuality(q))) order.push(i); });
+    order.sort((a, b) => qualityRank(this.slots[a].q) - qualityRank(this.slots[b].q) || a - b);
+    const out = [];
     let toRemove = qty;
-    for (let i = 0; i < this.size && toRemove > 0; i++) {
+    for (const i of order) {
+      if (toRemove <= 0) break;
       const s = this.slots[i];
-      if (!s || s.id !== id) continue;
       const take = Math.min(s.qty, toRemove);
       s.qty -= take;
       toRemove -= take;
+      const last = out[out.length - 1], sq = s.q || null;
+      if (last && last.q === sq) last.n += take; else out.push({ q: sq, n: take });
       if (s.qty <= 0) this.slots[i] = null;
     }
-    const removed = qty - toRemove;
-    if (removed > 0) this._changed();
-    return removed;
+    if (toRemove < qty) this._changed();
+    return out;
+  }
+
+  /** The quality of every copy of `id` in the pack, plainest first: [null, null, 'fine', 'epic']. */
+  qualities(id) {
+    const out = [];
+    for (const s of this.slots) if (s && s.id === id) for (let k = 0; k < s.qty; k++) out.push(s.q || null);
+    return out.sort((a, b) => qualityRank(a) - qualityRank(b));
   }
 
   removeAt(index, qty = 1) {
@@ -118,17 +144,18 @@ export class Inventory {
   /** Tidy up: merge split stacks and order by category (coins, gear, food,
    *  materials, other), then by name. */
   sort() {
+    // (Copies of each quality stay apart, the best first.)
     const totals = new Map();
-    for (const s of this.slots) if (s) totals.set(s.id, (totals.get(s.id) || 0) + s.qty);
-    const ids = [...totals.keys()].sort((a, b) => {
-      const ca = CATEGORY_ORDER.indexOf(itemCategory(a)), cb = CATEGORY_ORDER.indexOf(itemCategory(b));
-      return ca - cb || getItem(a).name.localeCompare(getItem(b).name);
+    for (const s of this.slots) if (s) { const k = `${s.id}|${s.q || ''}`; totals.set(k, (totals.get(k) || 0) + s.qty); }
+    const keys = [...totals.keys()].map((k) => { const [id, q] = k.split('|'); return { k, id, q: q || null }; }).sort((a, b) => {
+      const ca = CATEGORY_ORDER.indexOf(itemCategory(a.id)), cb = CATEGORY_ORDER.indexOf(itemCategory(b.id));
+      return ca - cb || getItem(a.id).name.localeCompare(getItem(b.id).name) || qualityRank(b.q) - qualityRank(a.q);
     });
     const out = [];
-    for (const id of ids) {
-      let left = totals.get(id);
+    for (const { k, id, q } of keys) {
+      let left = totals.get(k);
       const max = this.maxStackOf(id);
-      while (left > 0) { const put = Math.min(max, left); out.push({ id, qty: put }); left -= put; }
+      while (left > 0) { const put = Math.min(max, left); out.push(q ? { id, qty: put, q } : { id, qty: put }); left -= put; }
     }
     this.slots = out;
     this._changed();
@@ -145,7 +172,7 @@ export class Inventory {
   }
 
   serialize() {
-    return this.slots.map((s) => (s ? { id: s.id, qty: s.qty } : null));
+    return this.slots.map((s) => (s ? (s.q ? { id: s.id, qty: s.qty, q: s.q } : { id: s.id, qty: s.qty }) : null));
   }
 
   load(data) {
@@ -153,7 +180,9 @@ export class Inventory {
     this.slots = new Array(Math.max(this.minSize, data.length)).fill(null);
     for (let i = 0; i < data.length; i++) {
       const s = data[i];
-      if (s && s.id && getItemSafe(s.id)) this.slots[i] = { id: s.id, qty: s.qty };
+      if (!s || !s.id || !getItemSafe(s.id)) continue;
+      const q = validQuality(s.q);   // a copy's quality came later: optional
+      this.slots[i] = q ? { id: s.id, qty: s.qty, q } : { id: s.id, qty: s.qty };
     }
     this._changed();
   }
