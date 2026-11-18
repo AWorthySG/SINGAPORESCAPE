@@ -1,4 +1,5 @@
 import { CLASSES, CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, canWear, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWield, SECONDARY_WEAPON } from '../data/classes.js';
+import { SKILL_HOURS, windowLabel } from '../data/skillhours.js';
 import { classPerks, classPerkSummary } from '../game/classperks.js';
 import { LIFE_PERKS, LIFE_PERK_SKILLS, LIFE_PERK_FULL_LEVEL, lifePerkText, lifePerkNext } from '../game/lifeperks.js';
 import * as Mercs from '../game/mercenary.js';
@@ -1561,6 +1562,7 @@ export class UI {
       head.className = 'skill-group';
       head.textContent = grp.name;
       grid.appendChild(head);
+      const golden = new Set(this.game.goldenSkills?.() || []);
       for (const sk of SKILLS.filter((x) => x.group === grp.id && !x.hidden)) {
         const lvl = this.game.skills.level(sk.id);
         const xp = this.game.skills.xp[sk.id];
@@ -1571,7 +1573,9 @@ export class UI {
           `<span class="skill-text"><b class="skill-name">${sk.name}</b><span class="skill-desc">${sk.desc || ''}</span>` +
           (PERK_SKILLS.includes(sk.id) ? `<span class="skill-perks">${Math.min(10, Math.floor(lvl / PERK_EVERY))}/10 perks${lvl >= 220 ? ' · ranked up' : ''}</span>` : '') +
           (LIFE_PERKS[sk.id] ? `<span class="skill-perks life">Combat: ${lifePerkText(sk.id, lvl)}</span>` : '') +
-          (sk.id === 'slayer' ? `<span class="skill-perks life">On task: +${slayerBuffs(lvl).dmg}% damage, ${slayerBuffs(lvl).loot}% extra loot</span>` : '') + `</span>` +
+          (sk.id === 'slayer' ? `<span class="skill-perks life">On task: +${slayerBuffs(lvl).dmg}% damage, ${slayerBuffs(lvl).loot}% extra loot</span>` : '') +
+          // Golden hours (skillhours.js): lit up while this skill's time of day is on.
+          (SKILL_HOURS[sk.id] ? `<span class="skill-perks golden${golden.has(sk.id) ? ' on' : ''}">${golden.has(sk.id) ? '✨ Golden hours now: +50% XP' : `Golden hours: ${windowLabel(sk.id)}`}</span>` : '') + `</span>` +
           `<span class="skill-lvl"><span class="cur">${lvl}</span></span>` +
           `<div class="xp-bar" style="width:${Math.round(levelProgress(xp, maxLevelFor(sk.id)) * 100)}%"></div>`;
         const toNext = xpToNext(xp, maxLevelFor(sk.id));

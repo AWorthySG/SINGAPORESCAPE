@@ -1,4 +1,5 @@
 import { EventBus } from '../core/events.js';
+import { goldenMult, goldenSkills, GOLDEN_HOUR_XP, SKILL_HOURS } from '../data/skillhours.js';
 import { buildWorld, TERRAIN, zoneLevel } from '../data/world.js';
 import { compareGear, deltaText, gearRating, effectiveRating, offenceFirstScore, weaponStyle, reqLevel } from './gear.js';
 import { planCarry, applyCarry, carryMessages, scoreAfterCarry } from './carry.js';
@@ -339,6 +340,7 @@ export class Game {
     this.world.build(data);
 
     this.skills = new Skills(this.bus);
+    this.skills.timeMult = (id) => goldenMult(id, this.gameHour());   // golden hours (skillhours.js)
     this.inventory = new Inventory(this.bus);
     this.equipment = new Equipment(this.bus);
     this.shrine = new Shrine();   // the Offering Shrine's blessings (see shrine.js)
@@ -1069,6 +1071,7 @@ export class Game {
       this.killStreak = 0; this.bus.emit('xpbonus');
     }
     this._checkNightfall();
+    this._checkGoldenHours();
     // Only tick NPCs near the player (the bestiary is large).
     const px = this.player.x, py = this.player.y;
     // Cached so every aggressive NPC's _combatAI can cheaply see how many
@@ -3386,6 +3389,24 @@ export class Game {
       this.banner('<span class="big">Night hunt</span>+50% combat XP until dawn');
     } else this.msg('Dawn breaks. The night hunt bonus fades.', 'system');
     this.bus.emit('night', night);
+  }
+  /** The in-game hour, 0-24 (fractional). */
+  gameHour() { return this.dayPhase() * 24; }
+  /** Life skills whose golden hours are on now (skillhours.js): +50% XP. */
+  goldenSkills() { return goldenSkills(this.gameHour()); }
+  /** Announce a life skill's golden hours as they begin (one line for several). */
+  _checkGoldenHours() {
+    const now = goldenSkills(this.gameHour());
+    const was = this._goldenWas;
+    this._goldenWas = now;
+    if (!was) return;   // the first tick only notes what's on
+    const opened = now.filter((s) => !was.includes(s));
+    if (opened.length !== now.length || was.length !== now.length) this.bus.emit('skills');   // the Skills tab badges follow the clock
+    if (!opened.length) return;
+    const names = opened.map((s) => SKILL_BY_ID[s]?.name || s).join(' and ');
+    this.msg(`Golden hours: ${names} XP +${Math.round((GOLDEN_HOUR_XP - 1) * 100)}% for the next six hours of the day (${opened.map((s) => SKILL_HOURS[s].why).join('; ')}).`, 'level');
+    this.banner(`<span class="big">Golden hours</span>${names} XP +${Math.round((GOLDEN_HOUR_XP - 1) * 100)}%`);
+    this.bus.emit('skills');
   }
   /** Flavour clock text, e.g. "11:42 PM" — purely cosmetic. */
   clockLabel() {

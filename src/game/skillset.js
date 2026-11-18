@@ -37,6 +37,9 @@ export class Skills {
     amount *= XP_RATE;
     const before = this.level(id);
     amount *= this.lifeXpMult(id);
+    // Golden hours (skillhours.js): the game sets timeMult, so each life skill
+    // earns more at its own time of day. Absent (tests, headless helpers), it's 1.
+    amount *= this.timeMult ? this.timeMult(id) : 1;
     this.xp[id] = Math.min(maxXpFor(id), this.xp[id] + amount);
     if (id === 'attack' && 'strength' in this.xp) this.xp.strength = this.xp.attack;
     const after = this.level(id);
