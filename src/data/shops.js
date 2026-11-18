@@ -1,3 +1,5 @@
+import { REGION_SHOPS } from './regionQuests.js';
+
 // Shop stock definitions.
 //   buyMul:  multiplier on item value for the price the PLAYER pays to buy.
 //   sellMul: multiplier on item value for the price the player RECEIVES when selling.
@@ -201,6 +203,9 @@ for (const [metal, qty] of [['bronze', 5], ['iron', 3]]) {
     if (!SHOPS.general.stock.some((s) => s.id === id)) SHOPS.general.stock.push({ id, qty });
   }
 }
+
+// The shops region story quests open (regionQuests.js).
+Object.assign(SHOPS, REGION_SHOPS);
 
 export function getShop(id) {
   const shop = SHOPS[id];
