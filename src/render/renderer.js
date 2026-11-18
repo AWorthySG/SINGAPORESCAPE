@@ -1,4 +1,5 @@
 import { TILE, TICK_MS } from '../config.js';
+import { drawBossMech, drawSafeZone } from './bossmechfx.js';
 import { TURN_MS } from '../game/character.js';
 import { TERRAIN } from '../data/world.js';
 import { getItem } from '../data/items.js';
@@ -388,6 +389,7 @@ export class Renderer {
           hurt: this._heldHurt(n, timeMs), windup: n.windup > 0, castK: n.castT > 0 ? 1 - n.castT / 700 : 0, castCol: n.castCol,
           low: game.lowFx,   // low graphics: monsters and townsfolk skip their moving parts
         });
+        if (n.mech || n.mechHealer) drawBossMech(ctx, n, cx, cy, sc, timeMs, ox, oy);   // boss mechanics (bossmech.js)
         if (spawn > 0) ctx.restore();
       } });
     }
@@ -1462,6 +1464,7 @@ export class Renderer {
       ctx.strokeStyle = '#C0392B'; ctx.lineWidth = 2.5;
       ctx.strokeRect(x + 1.5, y + 1.5, w - 3, w - 3);
       ctx.setLineDash([]);
+      if (h.safe) drawSafeZone(ctx, h, ox, oy, timeMs, TILE);   // a safe circle's green hole
       // Warning sign in the middle (once per pattern piece, not on every single tile).
       if (h.sign === false) { ctx.restore(); continue; }
       const cx = x + w / 2, cy = y + w / 2;

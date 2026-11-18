@@ -3366,3 +3366,6 @@ body.cb-safe #hp-orb.low::after {
 @media (hover: none) and (pointer: coarse) {   /* not plain (pointer: coarse): layout.test reads the last block of that name */
   #play-hud .ph-focus, #play-hud .ph-rested, #play-hud .ph-grave { min-height: 44px; }
 }
+/* ---------------- Boss mechanics (src/game/bossmech.js) ---------------- */
+.cx-mech { border-left: 4px solid #9a6ae8; padding-left: 8px; }
+.cx-mech-styles { font-weight: 800; }
