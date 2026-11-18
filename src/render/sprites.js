@@ -802,12 +802,12 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
 
 // ---- Townsfolk idle ----
 // The body (eyes open or shut) and near arm (hanging, or raised to wave) are
-// composed into a frame with the townsfolk's white sticker rim, and each frame
+// composed into a frame (no white sticker rim: just the navy ink line), and each frame
 // is cached, so a frame costs one blit; breathing is a gentle stretch at draw time.
 const _townRigs = {};
 const townRig = (id) => _townRigs[id] || (_townRigs[id] = { kind: 'town', files: Object.keys(TOWN_IDLE[id].piv) });
 const _townFrames = new Map();
-const TOWN_RIM = 0.03;   // the painted townsfolk's white rim, as a share of their height
+const TOWN_RIM = 0.03;   // margin round a townsfolk frame (once their white rim), as a share of their height
 function townFrame(id, d, imgs, h, blink, arm, ang) {
   const key = `${id}|${h}|${blink}|${arm}|${ang}`;
   const hit = _townFrames.get(key);
@@ -827,14 +827,9 @@ function townFrame(id, d, imgs, h, blink, arm, ang) {
     a.drawImage(imgs[arm], 0, 0, d.W, d.H);
     a.restore();
   }
-  // White rim: the silhouette stamped in a ring under the art.
-  const white = document.createElement('canvas'); white.width = W; white.height = H;
-  const wg = white.getContext('2d');
-  wg.drawImage(art, 0, 0); wg.globalCompositeOperation = 'source-in'; wg.fillStyle = '#FFFFFF'; wg.fillRect(0, 0, W, H);
-  const out = document.createElement('canvas'); out.width = W; out.height = H;
-  const o = out.getContext('2d');
-  for (let i = 0; i < 12; i++) { const t2 = (i / 12) * Math.PI * 2; o.drawImage(white, Math.cos(t2) * rim, Math.sin(t2) * rim); }
-  o.drawImage(art, 0, 0);
+  // No white rim any more (the owner removed the white border from everything
+  // in the world): the frame is the art alone, with the old margin kept round it.
+  const out = art;
   const entry = { img: out, x: (-d.ref[0] - (d.ref[2] - d.ref[0]) / 2) * u - rim / BMP_RES, y: TOWN_ART_FEET - h * TOWN_RIM - d.ref[3] * u - rim / BMP_RES, w: W / BMP_RES, h: H / BMP_RES };
   if (typeof createImageBitmap === 'function') createImageBitmap(out).then((bm) => { entry.img = bm; }).catch(() => {});
   _townFrames.set(key, entry);
