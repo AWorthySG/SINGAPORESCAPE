@@ -66,6 +66,7 @@ import { STATIONS, STATION_BY_ID, MRT_FARE } from '../data/transport.js';
 import { SKILLS, SKILL_BY_ID } from '../data/skills.js';
 import { Learning } from './learning.js';
 import { Waves, addArena } from './waves.js';
+import { WorldEvents } from './worldevents.js';
 import * as Mercs from './mercenary.js';
 import * as Culling from './culling.js';
 import { classPerks } from './classperks.js';
@@ -429,6 +430,7 @@ export class Game {
     this.stationsFound = new Set(['kampong_glam']);   // MRT stations you can ride to from the world map
     this.learning = new Learning();   // Wisdom, topic mastery, Codex cards and titles
     this.waves = new Waves(this);     // the Endless Gate: a run of monster waves, and your best wave
+    this.worldEvents = new WorldEvents(this);   // roaming world events and weekly region challenges (worldevents.js)
     // Knowledge Strikes: bosses' specials can be interrupted by answering a question.
     // On by default in the browser; headless runs (tests) leave bosses as they were.
     this.knowledgeStrikes = LEARNING_ENABLED && typeof document !== 'undefined';
@@ -1072,6 +1074,7 @@ export class Game {
     this.player.stepMul = this.playerStepMul() * (this._onRoad() ? ROAD_PACE : 1);   // Agility quickens your steps, and so do roads
     this._tickWorldBoss();
     this.waves.tick();
+    this.worldEvents.tick();
     this._tickTownGuards();
     this._tickGreetings();
     this.cine.tick(this);   // fight push-in, and a boss's entrance the first time it engages
@@ -1369,6 +1372,7 @@ export class Game {
         const got = n - (before.get(id) || 0);
         if (got > 0 && id !== 'coins') this.addHitsplat(this.player, 0, { text: `+${got} ${getItem(id).name}` });
       }
+      this.worldEvents.onGather(obj, before, after);   // event nodes' bonus, weekly region challenge
     }
     // Remember what we're gathering, so auto gather can pick it up again after
     // a fight, or once the mined-out rocks and felled trees grow back.
@@ -3311,6 +3315,7 @@ export class Game {
     if (onTask && Math.random() < this.slayerBonus().loot / 100) { this.rollDrops(npc); this.msg('Slayer bonus: extra loot!', 'system'); }
     if (npc.worldBoss) { for (let k = 1; k < WORLD_BOSS_LOOT_ROLLS; k++) this.rollDrops(npc); this.msg('World Boss slain! Triple loot.', 'level'); }
     Culling.onKill(this, npc);   // codex mastery, Pest Control contracts, Stewardship, Hunter
+    this.worldEvents.onKill(npc, byAlly);   // world event credit, weekly region challenge
     this._refundRunes(npc);
     npc.die();
     if (this.player.target === npc) this.player.target = null;
@@ -4483,6 +4488,7 @@ export class Game {
     }
     // Falling in the Endless Gate ends the run (nothing is lost) and you wake by its gate.
     this._respawnAt = this.waves.onDeath();
+    this.worldEvents.onDeath();   // a world event is called off (and packed away)
     this.ui?.closeModal();
   }
 
