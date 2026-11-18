@@ -2854,7 +2854,7 @@ body #tip-toast.tip-strip { font-size: 11px; padding: 4px 6px 4px 7px; border-ra
     display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 2px; overflow: visible; padding: 4px 6px;
     border-left: 0; border-bottom: 2px dashed var(--aw-ink-faint);
   }
-  #sidepanel:not(.collapsed) .tab-btn { min-width: 0; min-height: 48px; padding: 2px 0; border-radius: 12px; }
+  #sidepanel:not(.collapsed) .tab-btn { min-width: 0; min-height: 48px; padding: 2px 0; border-radius: 12px; border-bottom: 0; }
   #sidepanel:not(.collapsed) .tab-btn .tab-label { display: none; }
   /* No contain: size here (desktop and tablets keep it): the sheet has a
      fixed height and the body sits in a minmax(0, 1fr) row, so it can't grow
