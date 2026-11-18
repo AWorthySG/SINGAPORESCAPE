@@ -54,7 +54,11 @@ export function placeRegionGivers(game) {
     }
     if (!spot) continue;
     taken.add(spot.x * 4096 + spot.y);
-    game._rqGivers[id] = game.spawnNpc(id, spot.x, spot.y, { wander: 0 });
+    // Givers stand still, so their idle timers needn't be random: leaving the
+    // random stream untouched keeps every other spawn rolling as it did before.
+    const roll = Math.random;
+    Math.random = () => 0.5;
+    try { game._rqGivers[id] = game.spawnNpc(id, spot.x, spot.y, { wander: 0 }); } finally { Math.random = roll; }
   }
 }
 
