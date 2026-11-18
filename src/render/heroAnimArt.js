@@ -101,13 +101,14 @@ export function faceState(opts = {}) {
   if (!opts.anim?.low && t % BLINK_EVERY < BLINK_MS) return 'blink';
   return 'body';
 }
+const _faces = {};   // each class's loaded faces, kept once all are in (drawn every frame)
 /** Draw the class's painted body for this moment in place of the rig body
  *  (drawn at x, y, w, h). False when the class has no faces, or they aren't loaded. */
 export function drawAnimBody(ctx, classId, opts, x, y, w, h) {
   const a = ANIM_ART[classId];
   if (!a || !a.faces) return false;
   warm(classId);
-  const pics = set(a.faces.map((f) => `${classId}_${f}`));
+  const pics = _faces[classId] || (_faces[classId] = set(a.faces.map((f) => `${classId}_${f}`)));
   if (!pics) return false;
   let i = a.faces.indexOf(faceState(opts));
   // The Merchant has no neutral picture of its own: its rig body stands in.
@@ -165,10 +166,12 @@ const PHASES = ['wind', 'mid', 'follow'];
 // Where each painted arm points: from the shoulder to the picture's corner
 // farthest from it (the weapon's tip, near enough), as an angle and a length,
 // unwrapped so wind-up -> mid -> follow-through runs one way round.
-const _geo = new Map();
+// (Worked out once per arm and kept, like the loaded pictures in armPics:
+// these are looked up every frame of a swing, so nothing is built per frame.)
+const _geo = {}, _pics = {};
 function armGeo(classId, hand) {
-  const key = hand === 'off' ? `${classId}_off` : classId;
-  let g = _geo.get(key);
+  const c = _geo[classId] || (_geo[classId] = {});
+  let g = c[hand];
   if (g) return g;
   const frames = hand === 'off' ? ANIM_ART[classId].off : ANIM_ART[classId].swing;
   g = { dir: [0, 0, 0], len: [0, 0, 0], sense: 1 };
@@ -184,12 +187,22 @@ function armGeo(classId, hand) {
   });
   // Which way round the swing travels (+1 forward and down, the usual).
   g.sense = Math.sign(g.dir[2] - g.dir[0]) || 1;
-  _geo.set(key, g);
+  c[hand] = g;
   return g;
+}
+/** The class's three attack pictures for one hand, or null until all have loaded. */
+function armPics(classId, hand) {
+  const c = _pics[classId] || (_pics[classId] = {});
+  if (c[hand]) return c[hand];
+  const pre = hand === 'off' ? 'off' : '';
+  return (c[hand] = set(PHASES.map((k) => `${classId}_${pre}${k}`)));
 }
 const wrap = (a) => a - Math.PI * 2 * Math.round(a / (Math.PI * 2));
 // Per class, a turn (rad) added to a picture to keep the blade clear of the face.
-const CLEAR = { corsair: { mid: 0.35, offmid: 0.2 }, rogue: { mid: 0.15 } };
+// The wind-ups are painted raised over the head, so they are tipped forward too:
+// the guard and fist sit above the hat or hood rather than over the eyes.
+const CLEAR = { corsair: { wind: 0.5, mid: 0.35 }, rogue: { wind: 0.55, mid: 0.15 } };
+const CLEAR_OFF = { corsair: { mid: 0.2 } };
 /** The direction the weapon points at picture-walk position a (1..3). */
 function arcDir(g, a) {
   const k = Math.max(1, Math.min(3, a)) - 1, i = Math.min(1, Math.floor(k));
@@ -223,8 +236,7 @@ export function drawSwingArm(ctx, classId, anim, hand, kind, sx, sy, alpha = 1) 
   const ch = anim.ch;
   const phase = swingPhase(ch, hand, kind);
   if (!phase) return false;
-  const pre = hand === 'off' ? 'off' : '';
-  const pics = set(PHASES.map((k) => `${classId}_${pre}${k}`));
+  const pics = armPics(classId, hand);
   if (!pics) return false;
   const [w, h, px, py] = frames[phase];
   const i = PHASES.indexOf(phase);
@@ -234,7 +246,7 @@ export function drawSwingArm(ctx, classId, anim, hand, kind, sx, sy, alpha = 1) 
   let turn = 0;
   if (arc > 0) {
     turn = armTurn(g, arc, phase) * (anim.tween ?? 1) + ((off ? ch.whip2 : ch.whip) || 0) * g.sense;
-    const clear = CLEAR[classId]?.[(off ? 'off' : '') + phase];
+    const clear = (off ? CLEAR_OFF : CLEAR)[classId]?.[phase];
     if (clear) turn += clear * g.sense;
   }
   if (alpha < 1) { ctx.save(); ctx.globalAlpha *= alpha; }
@@ -255,10 +267,10 @@ export function drawSwingArm(ctx, classId, anim, hand, kind, sx, sy, alpha = 1) 
       ctx.strokeStyle = SMEAR_TINT[anim.weapon] || SMEAR_STEEL; ctx.lineWidth = 4.5;
       ctx.beginPath(); ctx.arc(sx, sy, R - 2.5, lo, hi); ctx.stroke();
       // A thin white streak at the leading edge: the fastest part of the swing.
-      const near = g.sense > 0 ? [Math.max(lo, hi - 0.6), hi] : [lo, Math.min(hi, lo + 0.6)];
+      const n0 = g.sense > 0 ? Math.max(lo, hi - 0.6) : lo, n1 = g.sense > 0 ? hi : Math.min(hi, lo + 0.6);
       ctx.globalAlpha = prev * sm;
       ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(sx, sy, R, near[0], near[1]); ctx.stroke();
+      ctx.beginPath(); ctx.arc(sx, sy, R, n0, n1); ctx.stroke();
       ctx.globalAlpha = prev;
       anim[off ? 'smeared2' : 'smeared'] = true;
     }
@@ -294,8 +306,7 @@ export function offArmInFront(ch) {
 export function hasSwingArt(classId, hand = 'main') {
   const a = ANIM_ART[classId];
   if (!a || !(hand === 'off' ? a.off : a.swing)) return false;
-  const pre = hand === 'off' ? 'off' : '';
-  return !!set(['wind', 'mid', 'follow'].map((k) => `${classId}_${pre}${k}`));
+  return !!armPics(classId, hand);
 }
 
 // ---------------- Back view ----------------

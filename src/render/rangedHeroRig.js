@@ -48,6 +48,10 @@ export function rangedAnimPose(classId, opts, ch) {
   pose.draw = unit(ch.draw); pose.release = unit(ch.release);
   pose.charge = unit(ch.charge); pose.cast = unit(ch.cast);
   pose.kick2 = unit(ch.kick2);
+  // Once the painted attack arm has handed back to the rig (arc, heroAnimArt.js)
+  // the bow, rifle or staff is at rest, not left mid-aim (a rifle swung down).
+  // The Pistoler's back gun is still the rig's, so it keeps its aim and kick.
+  if (ch.paint && classId !== 'pistoler' && hasSwingArt(classId)) pose.draw = pose.release = pose.charge = pose.cast = 0;
   pose.breathe += ch.crouch || 0;
   pose.liftF = Math.max(0, ch.liftF || 0);
   pose.liftB = Math.max(0, ch.liftB || 0);
