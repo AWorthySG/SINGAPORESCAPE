@@ -1170,6 +1170,32 @@ export function buildWorld() {
     }
   }
 
+  // ================= Gentle starter packs =================
+  // Packs mix every form of their species, so a MacRitchie camp 20 tiles from
+  // the respawn point held Dire monitor lizards (level 116), Feral sambar deer
+  // (86) and Dire smooth otters (59) beside the level 6-14 ones a new character
+  // fights. One cleave or a stray shot woke them, and they killed new players
+  // in their first minutes. Within the starter ring, any form above
+  // STARTER_MAX_LEVEL becomes the strongest form of its species at or below it;
+  // nothing moves, and the region keeps its mix of species.
+  {
+    const RESPAWN = { x: 58, y: 55 }, RING = 30, STARTER_MAX_LEVEL = 40;
+    const best = new Map();   // family -> its strongest ordinary form at or below the cap
+    for (const id of MONSTER_IDS) {
+      const d = NPCS[id];
+      if (!d.attackable || d.boss || !d.family || d.level > STARTER_MAX_LEVEL) continue;
+      const b = best.get(d.family);
+      if (!b || NPCS[b].level < d.level) best.set(d.family, id);
+    }
+    for (const s of npcSpawns) {
+      const def = NPCS[s.npcId];
+      if (!def?.attackable || def.boss || s.opts || def.level <= STARTER_MAX_LEVEL) continue;
+      if (Math.max(Math.abs(s.x - RESPAWN.x), Math.abs(s.y - RESPAWN.y)) > RING) continue;
+      const to = best.get(def.family);
+      if (to) s.npcId = to;
+    }
+  }
+
   // ================= Tame the starter ring =================
   // A level-1 character has 25 life, and the starter island's monsters hit far
   // harder than that. Anything that would attack on sight within 30 tiles of

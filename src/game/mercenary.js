@@ -133,12 +133,15 @@ export function spawnFollower(game, parent = null) {
 /** Allies keep the Merchant's pace and run when they move (townsfolk amble otherwise). */
 function allyPace(m) { m.stepMul = 0.7; m.runMul = 0.4; }
 
-/** Is this monster fair game for an ally? Bosses only once the fight with them has started. */
+/** Is this monster fair game for an ally? Bosses, champions and monsters far
+ *  above the Merchant's level (the ones area hits leave alone, see
+ *  Game._aoeSpares) only once the fight with them has started: allies used to
+ *  pelt a level 59 packmate beside a new Merchant's target, and it killed them. */
 function fairGame(game, n) {
   if (!n.alive || !n.attackable || n.ally) return false;
-  if (!n.def.boss) return true;
   const a = game.player.action;
-  return n.target === game.player || (a && a.type === 'attack' && a.npc === n);
+  if (n.target === game.player || (a && a.type === 'attack' && a.npc === n)) return true;
+  return !game._aoeSpares(n);
 }
 
 /** Monsters near the Merchant that allies may fight, found once a tick and

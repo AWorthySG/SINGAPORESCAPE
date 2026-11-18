@@ -224,15 +224,22 @@ const BOSS_SEEK_TILES = 220;
 // Auto battle only goes looking for a champion (30x life) it could kill in
 // about this many seconds, and that couldn't kill you in under CHAMPION_SAFE_SECS.
 // (The estimate is rough and hopeful: it counts any buff running, and a real
-// fight took about half as long again.)
+// fight took about twice as long.)
 // Without this a fresh character walked straight to the nearest champion and
 // spent minutes on it (a fresh Archer burned all 999 arrows on one, a fresh
 // Wizard sat on an 80,000-life one for six minutes) while its pack mauled them.
-const CHAMPION_HUNT_SECS = 30, CHAMPION_SAFE_SECS = 40;
+const CHAMPION_HUNT_SECS = 15, CHAMPION_SAFE_SECS = 40;
+// ...and only with this many times the estimated runes or arrows for it.
+const CHAMPION_AMMO_SPARE = 3;
 // "Far above you": more than this many levels (or a quarter of your fight level,
-// whichever is more) over your fight level. Auto battle never picks such a
-// monster unless it is fighting you, and area hits leave it alone.
+// whichever is more) over your fight level; below fight level 40, more than
+// half your level over it (a fresh character, fight level 19 with 25 life, was
+// being worn down by the heavy blows of level 33-40 packmates). Auto battle
+// never picks such a monster unless it is fighting you, and area hits leave it alone.
 const FAR_ABOVE_LEVELS = 20;
+// Area hits stop waking idle monsters once this many (plus one per
+// CROWD_PER_LEVELS fight levels) are already fighting you.
+const CROWD_BASE = 3, CROWD_PER_LEVELS = 5;
 // Auto gather can take turns between up to this many kinds of node.
 const AUTO_GATHER_KINDS = 6;
 // How each melee weapon's cleave moves (and looks): spears pierce in a line
@@ -2077,20 +2084,45 @@ export class Game {
     // A champion, or a monster far above your level, isn't dragged in either:
     // a new character's cleave into a starter pack used to wake its level 59
     // Dire and level 111 Elder packmates, which then killed them.
-    return !!(o.def.fixed || o.def.boss || o.champion) || this._farAbove(o);
+    if (o.def.fixed || o.def.boss || o.champion || this._farAbove(o)) return true;
+    // Nor does it wake more of the crowd once enough are on you already (see
+    // CROWD_BASE): in the first minute a cleave into MacRitchie's packed camps
+    // used to pull in fifteen at once, which killed a new character. (Counted
+    // once a tick, so one swing can still overshoot by what it catches.)
+    const p = this.player, c = this._crowd;
+    if (!c || c.tick !== this.tickCount) {
+      let n = 0;
+      for (const x of this.nearbyNpcs()) if (x.alive && x.target === p) n++;
+      this._crowd = { tick: this.tickCount, n };
+    }
+    return this._crowd.n >= CROWD_BASE + Math.floor(this.fightLevel() / CROWD_PER_LEVELS);
   }
 
   /** Is this monster far above your fight level (see FAR_ABOVE_LEVELS)? */
   _farAbove(n) {
     const cl = this.fightLevel();
-    return (n.def.level || 1) > cl + Math.max(FAR_ABOVE_LEVELS, Math.round(cl / 4));
+    return (n.def.level || 1) > cl + Math.max(Math.min(FAR_ABOVE_LEVELS, Math.round(cl / 2)), Math.round(cl / 4));
   }
 
   /** Would auto battle take on this champion that isn't fighting you yet? Only
    *  when a rough time-to-kill says it's a short fight you'd survive. */
   _autoChampionOk(n) {
     const t = this._autoFightTimes(n);
-    return !!t && t.myTime <= CHAMPION_HUNT_SECS && t.theirTime >= CHAMPION_SAFE_SECS;
+    if (!t || t.myTime > CHAMPION_HUNT_SECS || t.theirTime < CHAMPION_SAFE_SECS) return false;
+    // Casters and archers must also carry the runes or arrows for the whole
+    // fight, with plenty to spare (the estimate is hopeful): running dry
+    // halfway strands you beside a champion with auto battle switched off.
+    const need = t.attacks * CHAMPION_AMMO_SPARE;
+    if (t.spell) {
+      const free = this.freeRune();
+      return Object.entries(t.spell.runes).every(([id, q]) => id === free || this.inventory.count(id) >= need * q);
+    }
+    const wpn = getItem(this.equipment.get('weapon') || 'coins').equip;
+    if (this.combatMode() === 'ranged' && !wpn?.noAmmo && !wpn?.coins) {
+      const arrows = this.inventory.slots.reduce((a, sl) => a + (sl && getItem(sl.id).tags?.includes('ammo') ? sl.qty || 1 : 0), 0);
+      return arrows >= need * (1 - ARROW_RECOVERY);
+    }
+    return true;
   }
 
   _applyPlayerHit(npc, dmg, opts = {}) {
@@ -3095,7 +3127,11 @@ export class Game {
     // creatures is a small evil, and so is cutting down the town watch.
     if (npc.townGuard) this._guardSlain(npc);
     else if (npc.def.boss) this.addGood(5);
-    else if (npc.def.aggressive) {
+    // A spawn tamed for new players (see world.js) is judged by its species'
+    // nature: otherwise every kill around the starter town was a harmless one,
+    // and a new character on auto battle turned Villain within minutes (and the
+    // town watch then set on them each time they woke at the respawn point).
+    else if (npc.def.aggressive || (npc._spawnOpts?.aggressive === false && getNpc(npc.npcId).aggressive)) {
       if (++this.moral.heroKills >= HERO_KILLS_PER_GOOD) { this.moral.heroKills = 0; this.addGood(1); }
     } else this.addEvil(1);
     this.hitStop = Math.max(this.hitStop, npc.def.boss ? 180 : npc.champion ? 120 : 70);
@@ -4575,15 +4611,15 @@ export class Game {
   }
 
   /** Rough seconds for you to empty this monster's life, and for its average
-   *  hits to empty yours (see _autoCanBeat), or null when you can't attack it
-   *  at all (a caster out of runes). */
+   *  hits to empty yours (see _autoCanBeat), plus about how many attacks that
+   *  takes; or null when you can't attack it at all (a caster out of runes). */
   _autoFightTimes(n) {
     const cl = this.fightLevel(), def = n.def;
     const mode = this.combatMode(), pm = this.prayerMult();
-    let max;
+    let max, sp = null;
     if (mode === 'magic') {
       const chosen = getSpell(this.player.spell);
-      const sp = this.skills.magic >= chosen.level && this._hasRunes(chosen) ? chosen : this.bestSpell();
+      sp = this.skills.magic >= chosen.level && this._hasRunes(chosen) ? chosen : this.bestSpell();
       if (!sp) return null;
       max = playerMagicVsNpc(this.skills, this.equipment, sp, def).max * pm.magic;
     } else if (mode === 'ranged') {
@@ -4612,13 +4648,16 @@ export class Game {
     max *= 1 + (mode === 'magic' ? gb.magPct : gb.atkPct) / 100;
     max *= 1 + this.buffMod('dmg');
     max *= Mercs.merchantPower(this);   // 1 for every class but the Merchant
-    const myDps = 3 * max * 0.625 / (Math.max(0.1, this.attackInterval()) * COMBAT_BEAT_MS / 1000);
+    const swingSecs = Math.max(0.1, this.attackInterval()) * COMBAT_BEAT_MS / 1000;
+    const myDps = 3 * max * 0.625 / swingSecs;
     const { atkRoll, defRoll, max: theirMax } = npcAttackVsPlayer(def, this.skills, this.equipment, this.player.style);
     const theirDps = hitChance(atkRoll, defRoll * pm.def) * theirMax * 0.625 * (1 - this.protectFactor())
       / (Math.max(2, (def.attackSpeed || 4) - 2) * TICK_MS / 1000);
     const myTime = (n.hp || n.maxHp || 1) / Math.max(0.01, myDps);
     const theirTime = this.maxHp() / Math.max(0.01, theirDps);
-    return { myTime, theirTime };
+    // Spells come off quicker than the weapon's swing (see _magicAttack).
+    const castSecs = sp ? Math.max(0.1, this.attackInterval(sp)) * COMBAT_BEAT_MS / 1000 : swingSecs;
+    return { myTime, theirTime, attacks: myTime / castSecs, spell: sp };
   }
 
   /** Auto battle with Bosses on and "Bosses & champions first": head for the
