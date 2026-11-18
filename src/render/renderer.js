@@ -28,7 +28,7 @@ const ARROW_LOOK = {
   starmetal: { head: '#ffd24a', fletch: '#fff2b0', shaft: '#4a4a6a', trail: '#ffe88a', glow: '#ffd24a', size: 1.2, barbed: true },
   eternal: { head: '#c27bff', fletch: '#ecd6ff', shaft: '#3a2a5a', trail: '#d6a8ff', glow: '#a855ff', size: 1.25, barbed: true },
 };
-import { labelMode, objectLabelVisible, npcNameVisible, targetTag } from './worldlabels.js';
+import { labelMode, objectLabelAlpha, npcNameVisible, targetTag } from './worldlabels.js';
 import { drawShadow, drawCreature, drawPlayer, drawObjectSprite, drawGroundItem } from './sprites.js';
 import { heroAnimFrame, drawFishingGear } from './heroanim.js';
 import { RARITY } from '../game/loot.js';
@@ -1431,7 +1431,9 @@ export class Renderer {
       const cx = o.x * TILE + TILE / 2 - ox;
       const cy = o.y * TILE + TILE / 2 - oy;
       if (cx < -30 || cx > vw + 30 || cy < -20 || cy > vh + 20) continue;
-      if (!objectLabelVisible(game, o, mode)) continue;
+      const alpha = objectLabelAlpha(game, o, mode);
+      if (alpha <= 0) continue;
+      ctx.globalAlpha = alpha;
       const yy = cy - (t === 'tree' ? 30 : t === 'rock' ? 18 : 16);
       const label = o.def.label;
       const wpx = ctx.measureText(label).width + 8;
@@ -1443,6 +1445,7 @@ export class Renderer {
       if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(cx - wpx / 2, yy - 10, wpx, 13, 6.5); ctx.stroke(); }
       ctx.fillStyle = t === 'tree' ? '#1F7A3D' : t === 'fishing' ? '#1F6FA8' : '#5E594F';
       ctx.fillText(label, cx, yy);
+      ctx.globalAlpha = 1;
     }
     // Directional signposts (which way to each area).
     ctx.font = '800 11px Nunito,"Trebuchet MS",sans-serif';

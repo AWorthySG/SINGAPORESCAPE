@@ -4,8 +4,9 @@
 // busy forest or mine hill became a wall of text. The "World labels" setting
 // (Settings panel, saved with the game) now picks one of three modes:
 //   smart (the default): only what matters right now: the thing under the
-//         mouse or Interact focus, the thing you're working, and the nearest
-//         few nodes you could work with the tools you carry; for creatures,
+//         mouse or Interact focus, the thing you're working, and, for a few
+//         seconds as you reach them, the nearest few nodes you could work
+//         with the tools you carry; for creatures,
 //         your target, whatever is attacking you, bosses, champions, quest
 //         NPCs and the hovered one.
 //   all:  every label, as before (and every creature's name).
@@ -21,6 +22,10 @@ export const LABEL_MODE_NAMES = { smart: 'Smart', all: 'All', off: 'Off' };
 // label for a moment, at most this many of them (nearest first).
 export const NEAR_LABEL_TILES = 3;
 export const NEAR_LABEL_MAX = 3;
+// ...and only briefly: a nearby node's pill shows for this long after you come
+// within reach, then fades away until you walk off and come back (hovering or
+// working it still shows it).
+export const NEAR_LABEL_MS = 3500;
 const LABELLED_TYPES = new Set(['tree', 'rock', 'fishing']);
 
 /** The current mode, falling back to smart for a missing or unknown value. */
@@ -63,17 +68,36 @@ export function nearbyWorkable(game) {
   }
   near.sort((a, b) => a[0] - b[0]);
   const set = new Set(near.slice(0, NEAR_LABEL_MAX).map((e) => e[1]));
+  // When each one came within reach (dropped once it leaves, so it shows again next time).
+  const since = game._nearSince instanceof Map ? game._nearSince : (game._nearSince = new Map());
+  const now = game.playMs || 0;
+  for (const o of since.keys()) if (!set.has(o)) since.delete(o);
+  for (const o of set) if (!since.has(o)) since.set(o, now);
   game._nearLabels = { key, set };
   return set;
 }
 
+/** How visible a nearby node's brief label is now: 1 while fresh, fading to 0
+ *  over its last half second, 0 once its moment has passed. */
+export function nearLabelAlpha(game, o) {
+  if (!nearbyWorkable(game).has(o)) return 0;
+  const left = NEAR_LABEL_MS - ((game.playMs || 0) - (game._nearSince?.get(o) ?? 0));
+  return left <= 0 ? 0 : Math.min(1, left / 500);
+}
+
+/** How strongly this tree / rock / fishing spot shows its name pill, 0 to 1
+ *  (0 = no pill; a brief nearby label fades out at the end). */
+export function objectLabelAlpha(game, o, mode = labelMode(game)) {
+  if (!isLabelledObject(o) || mode === 'off') return 0;
+  if (mode === 'all') return 1;
+  if (game.hover?.obj === o) return 1;
+  if (game.player?.action?.obj === o) return 1;
+  return nearLabelAlpha(game, o);
+}
+
 /** Should this tree / rock / fishing spot show its name pill? */
 export function objectLabelVisible(game, o, mode = labelMode(game)) {
-  if (!isLabelledObject(o) || mode === 'off') return false;
-  if (mode === 'all') return true;
-  if (game.hover?.obj === o) return true;
-  if (game.player?.action?.obj === o) return true;
-  return nearbyWorkable(game).has(o);
+  return objectLabelAlpha(game, o, mode) > 0;
 }
 
 /** NPC ids that a quest in progress is sending you to talk to, refreshed once

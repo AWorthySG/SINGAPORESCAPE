@@ -12,7 +12,7 @@ import { NPC } from '../src/game/npc.js';
 import { Renderer } from '../src/render/renderer.js';
 import {
   labelMode, nextLabelMode, objectLabelVisible, npcNameVisible, isLabelledObject,
-  targetTag, foeDetails, NEAR_LABEL_TILES, NEAR_LABEL_MAX,
+  targetTag, foeDetails, NEAR_LABEL_TILES, NEAR_LABEL_MAX, NEAR_LABEL_MS, objectLabelAlpha,
 } from '../src/render/worldlabels.js';
 import { TIPS, nextTip, markTipSeen, markAllTipsSeen } from '../src/ui/tips.js';
 
@@ -70,6 +70,28 @@ test('world labels: Smart shows only the hovered, worked and nearest workable no
   // No tools at all: no nearby labels, but hover still works.
   g.hasTool = () => false; g.tickCount++;
   assert.equal(g.world.objects.filter((o) => objectLabelVisible(g, o)).length, 0, 'nothing to chop with: no labels');
+});
+
+test('world labels: Smart shows a nearby node only briefly, then again when you come back', () => {
+  const g = freshGame();
+  const tree = standByNodes(g, 'tree');
+  g.hasTool = () => true;
+  g.skills.level = () => 99;
+  g.tickCount++;
+  assert.equal(objectLabelVisible(g, tree), true, 'labelled as you reach it');
+  g.playMs += NEAR_LABEL_MS - 200;
+  assert.ok(objectLabelAlpha(g, tree) > 0 && objectLabelAlpha(g, tree) < 1, 'fading near the end');
+  g.playMs += 400;
+  assert.equal(objectLabelVisible(g, tree), false, 'gone after a few seconds');
+  g.hover = { obj: tree };
+  assert.equal(objectLabelAlpha(g, tree), 1, 'hovering still shows it');
+  g.hover = null;
+  // Walk away and back: it shows again.
+  const p = g.player, hx = p.x, hy = p.y;
+  p.x = p.tx = hx + 40; g.tickCount++;
+  assert.equal(objectLabelVisible(g, tree), false);
+  p.x = p.tx = hx; p.y = p.ty = hy; g.tickCount++;
+  assert.equal(objectLabelVisible(g, tree), true, 'shown again on return');
 });
 
 test('world labels: All shows every node and creature name, Off shows none', () => {
