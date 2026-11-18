@@ -75,7 +75,8 @@ export function snapshot(game) {
     specEnergy: game.specEnergy,
     bossRecord: game.bossRecord,
     waveBest: game.waves?.best || 0,
-    settings: { running: game.running, autoCfg: game.autoCfg, autoGather: game.autoGather, gatherPicks: [...(game.gatherPicks || [])], knowledgeStrikes: game.knowledgeStrikes, minimalHud: !!game.minimalHud },
+    settings: { running: game.running, autoCfg: game.autoCfg, autoGather: game.autoGather, gatherPicks: [...(game.gatherPicks || [])], knowledgeStrikes: game.knowledgeStrikes, minimalHud: !!game.minimalHud,
+      worldLabels: game.worldLabels || 'smart', tips: game.tipsOn !== false, tipsSeen: [...(game.tipsSeen || [])] },
     jobClass: game.jobClass,
     potions: game.potions,
     farms: game.world.objects.filter((o) => o.def.type === 'farm' && o.crop).map((o) => ({ x: o.x, y: o.y, crop: o.crop, left: o.growLeft })),
@@ -359,6 +360,15 @@ function loadFields(game, data) {
   if (data.learning) game.learning.load(data.learning);
   if (data.settings?.knowledgeStrikes === false) game.knowledgeStrikes = false;
   game.minimalHud = data.settings?.minimalHud === true;   // Settings > Minimal HUD (older saves: off)
+  // Settings > World labels and Tips, and the tips this save has seen. Older
+  // saves have none: labels go Smart, tips stay on, and the tips this device
+  // already dismissed are carried over once by the UI (tipsFromDevice).
+  game.worldLabels = ['smart', 'all', 'off'].includes(data.settings?.worldLabels) ? data.settings.worldLabels : 'smart';
+  game.tipsOn = data.settings?.tips !== false;
+  if (Array.isArray(data.settings?.tipsSeen)) {
+    game.tipsSeen = new Set(data.settings.tipsSeen.filter((id) => typeof id === 'string'));
+    game.tipsFromDevice = false;
+  } else { game.tipsSeen = new Set(); game.tipsFromDevice = true; }
   const ac = data.settings?.autoCfg;
   if (ac && typeof ac === 'object') {
     game.autoCfg = {

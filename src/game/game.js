@@ -205,6 +205,11 @@ export const HAZARD_DODGE_MULT = 3;
 const NEAR_RADIUS = 60;
 const SPLAT_MERGE_MS = 200;   // hits on one foe this close together share one damage number (crits merge with crits)
 const SPLAT_MAX_PER = 5;      // damage numbers shown at once over one foe
+// Tiny hits (a sliver of the target's life, like poison and burn ticks or a
+// flurry of chip damage) from the same source fold together over a longer
+// window, so a stream of 1s and 2s reads as one growing number.
+const SPLAT_TINY_MERGE_MS = 550;
+const SPLAT_TINY_SHARE = 0.03;
 const RIFLE_PIERCE_TILES = 10;
 // ...and the round's wake also catches anything within 1 tile to either side of
 // its path (and beside the target), not just monsters squarely on the line.
@@ -359,6 +364,9 @@ export class Game {
     this.particles = [];
     this.cine = new Cinematics();   // camera lead/push-in, boss entrances, region title cards
     this.minimalHud = false;        // Settings > Minimal HUD (saved with the settings)
+    this.worldLabels = 'smart';     // Settings > World labels: smart / all / off (render/worldlabels.js)
+    this.tipsOn = true;             // Settings > Tips: On / Off
+    this.tipsSeen = new Set();      // first-time tips this save has shown (ui/tips.js)
     this._footSt = {};              // footFx's memory of your last step and turn
     // Screen-shake state (big hits, boss slams). Decays over shakeDur ms.
     this.shakeT = 0;
@@ -789,17 +797,25 @@ export class Game {
     // Area and splash hits (opts.aoe) are drawn apart from the main hit and
     // never fold into it; a shortbow's three arrows (opts.noMerge) each show.
     const last = entity._lastSplat;
+    // Same source = same tint and kind; crits never merge with plain hits, so
+    // they keep their own look. Tiny hits get the longer window (see above).
+    const tinyCap = Math.max(2, (entity.maxHp || (entity === this.player ? this.maxHp() : 0)) * SPLAT_TINY_SHARE);
+    const tiny = !opts.crit && !opts.critX && dmg <= tinyCap && last && last.dmg <= tinyCap * 3;
+    const mergeMs = tiny ? SPLAT_TINY_MERGE_MS : SPLAT_MERGE_MS;
     if (last && !opts.noMerge && !opts.text && !last.text && !!opts.aoe === !!last.aoe && dmg > 0 && last.dmg > 0 && !!opts.crit === last.crit && (opts.critX || 0) === last.critX
-      && opts.tint === last.tint && last.life > last.maxLife - SPLAT_MERGE_MS && this.effects.includes(last)) {
+      && opts.tint === last.tint && last.life > last.maxLife - mergeMs && this.effects.includes(last)) {
       last.dmg += dmg;
       return;
     }
     // Five fan positions, so quick hits sit side by side instead of in a column,
     // and at most SPLAT_MAX_PER numbers per foe: the oldest fades out early.
     entity._splatN = ((entity._splatN || 0) + 1) % 5;
+    // ...and each new number takes the other of two rows, so back-to-back
+    // numbers never overlap even where the fan wraps round.
+    entity._splatRow = entity._splatRow ? 0 : 1;
     const mine = this.effects.filter((e) => e.type === 'hitsplat' && e.entity === entity);
     if (mine.length >= SPLAT_MAX_PER) for (const e of mine.slice(0, mine.length - SPLAT_MAX_PER + 1)) e.life = Math.min(e.life, 120);
-    const fx = { type: 'hitsplat', entity, dmg, crit: !!opts.crit, critX: opts.critX || 0, text: opts.text, tint: opts.tint, aoe: !!opts.aoe, life: opts.critX ? 1000 : 800, fan: (entity._splatN - 2) * 0.8 };
+    const fx = { type: 'hitsplat', entity, dmg, crit: !!opts.crit, critX: opts.critX || 0, text: opts.text, tint: opts.tint, aoe: !!opts.aoe, life: opts.critX ? 1000 : 800, fan: (entity._splatN - 2) * 0.8, row: entity._splatRow };
     fx.maxLife = fx.life;
     entity._lastSplat = fx;
     this.effects.push(fx);
