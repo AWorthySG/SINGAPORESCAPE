@@ -465,7 +465,12 @@ export function resolveHunt(game, action) {
   const def = obj.def;
   if (obj.depleted || game.world.objectAt(obj.x, obj.y) !== obj) return false;
   if (game.skills.level('hunter') < def.level) { game.msg(`You need a Hunter level of ${def.level} to use this.`); return false; }
-  if (!game.hasTool('snare')) { game.msg('You need a hunting snare to work traps.'); return false; }
+  if (!game.hasTool('snare')) {
+    // Said over your head too: a chat line alone was easy to miss, so the trap looked broken.
+    game.msg('You need a hunting snare to work traps: buy one at the Kampong General Store, or ask the Kampong Guide for starter tools.');
+    game.addHitsplat?.(game.player, 0, { text: 'Need a hunting snare' });
+    return false;
+  }
   if (def.gives.some((g) => game.inventory.canAdd(g.id, g.max || 1) <= 0)) { game.msg('Your inventory is too full.'); return false; }
   const lvl = game.skills.level('hunter');
   // The trap always springs (life skills never fail), and its main catch is certain;

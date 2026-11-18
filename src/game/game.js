@@ -86,7 +86,9 @@ const AUTO_QUEST_ACTIONS = {
 // Stations whose menu auto quest runs with "make everything" (autoprocess.js kinds).
 const AUTO_QUEST_STATION = { furnace: 'smelt', range: 'cook', fire: 'cook', anvil: 'smith', craft: 'craft', fletch: 'fletching', herblore: 'herblore' };
 
-const STARTER_TOOLS = ['bronze_axe', 'bronze_pickaxe', 'small_net', 'fishing_rod', 'tinderbox', 'hammer', 'chisel', 'bronze_dagger'];
+// The hunting snare joined the kit late: traps did nothing without one, and new
+// players took the trap for broken. (Anyone without one gets it from the Kampong Guide.)
+const STARTER_TOOLS = ['bronze_axe', 'bronze_pickaxe', 'small_net', 'fishing_rod', 'tinderbox', 'hammer', 'chisel', 'hunting_snare', 'bronze_dagger'];
 const COMBAT_SKILLS = new Set(['attack', 'strength', 'defence', 'hitpoints', 'ranged', 'magic']);
 
 // Where the in-game day/night clock starts: the equivalent point in
