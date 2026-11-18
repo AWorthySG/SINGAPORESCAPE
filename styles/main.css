@@ -3007,6 +3007,8 @@ body #tip-toast.tip-strip { font-size: 11px; padding: 4px 6px 4px 7px; border-ra
   #sidepanel:not(.collapsed) { grid-template-rows: auto minmax(0, 1fr); }
   #panel-body { height: auto; min-height: 0; contain: size; font-size: 13px; }
   .tab-btn .tab-label { font-size: 11px; }
+  /* The minimap's fold button: a full 44px tap area, out towards the edge. */
+  #minimap-collapse::before { inset: -13px -12px -9px -10px; }
   /* Info strip, top-left under the hover text: boss bar, then the Endless
      Gate panel or the objectives (they never show together). */
   /* One line, so it never runs down into the boss bar below it. */
