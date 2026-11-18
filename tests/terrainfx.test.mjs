@@ -162,8 +162,7 @@ test('the bake runs headless against a stand-in canvas and is deterministic', ()
     const fx = new TerrainFx(stubFactory(log));
     const make = stubFactory(log);
     const g = make(1024, 1024).getContext('2d');
-    const paint = (sg, t, x, y) => { sg.fillRect(0, 0, TILE, TILE); };
-    const out = fx.bake(g, w, 0, 32, 32, 64, paint, { low });   // MacRitchie's chunk
+    const out = fx.bake(g, w, 0, 32, 32, 64, () => '#ffffff', { low });   // MacRitchie's chunk
     return { log, out };
   };
   const a = bakeOnce(false), b = bakeOnce(false);
@@ -175,7 +174,7 @@ test('the bake runs headless against a stand-in canvas and is deterministic', ()
   // No canvas at all (plain node): the baker draws nothing but still plans the water.
   const none = new TerrainFx(() => null);
   const calls = [];
-  const out = none.bake(stubFactory(calls)(32, 32).getContext('2d'), w, 0, 32, 32, 64, () => {}, {});
+  const out = none.bake(stubFactory(calls)(32, 32).getContext('2d'), w, 0, 32, 32, 64, () => '#fff', {});
   assert.ok(out && out.water.length > 0);
 });
 

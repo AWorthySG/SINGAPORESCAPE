@@ -414,18 +414,20 @@ export class TerrainFx {
     return m;
   }
 
-  _sprite(id) {
-    let s = this._sprites.get(id);
+  // A drawn detail's sprite, mirrored or not (both are cached, so stamping needs no transform).
+  _sprite(id, flip) {
+    const key = flip ? id + '|f' : id;
+    let s = this._sprites.get(key);
     if (s !== undefined) return s;
     const [w, h] = GROUND_DETAILS[id];
     const cv = makeCanvas((w + 4) * DETAIL_SCALE, (h + 4) * DETAIL_SCALE, this.factory);
     s = null;
     if (cv) {
-      cv.g.setTransform(DETAIL_SCALE, 0, 0, DETAIL_SCALE, (w / 2 + 2) * DETAIL_SCALE, (h + 2) * DETAIL_SCALE);
+      cv.g.setTransform(flip ? -DETAIL_SCALE : DETAIL_SCALE, 0, 0, DETAIL_SCALE, (w / 2 + 2) * DETAIL_SCALE, (h + 2) * DETAIL_SCALE);
       drawDetail(cv.g, id);
       s = { c: cv.c, w: w + 4, h: h + 4, ax: w / 2 + 2, ay: h + 2 };
     }
-    this._sprites.set(id, s);
+    this._sprites.set(key, s);
     return s;
   }
 
@@ -440,11 +442,8 @@ export class TerrainFx {
       else g.drawImage(art, x - dw / 2, y - dh, dw, dh);
       return;
     }
-    const sp = this._sprite(d.id);
-    if (!sp) return;
-    const w = sp.w * d.s, h = sp.h * d.s;
-    if (d.flip) { g.save(); g.translate(x, y); g.scale(-1, 1); g.drawImage(sp.c, -sp.ax * d.s, -sp.ay * d.s, w, h); g.restore(); }
-    else g.drawImage(sp.c, x - sp.ax * d.s, y - sp.ay * d.s, w, h);
+    const sp = this._sprite(d.id, d.flip);
+    if (sp) g.drawImage(sp.c, x - sp.ax * d.s, y - sp.ay * d.s, sp.w * d.s, sp.h * d.s);
   }
 
   _shadowSprite() {
@@ -463,12 +462,12 @@ export class TerrainFx {
 
   /**
    * Bake the polish into one chunk canvas `g`, whose top-left is tile (tx0, ty0).
-   * `paint(g, t, x, y)` paints one tile of ground type t, for world tile (x, y),
-   * at (0, 0). Returns the chunk's per-frame extras (foam layers, lily pads and
+   * `fill(g, t)` gives the fill style for ground type t: its texture as a
+   * repeating pattern (anchored at the chunk's corner), or its plain colour. Returns the chunk's per-frame extras (foam layers, lily pads and
    * reeds, reflection spots), or null when there are none.
    */
-  bake(g, world, tx0, ty0, tx1, ty1, paint, opts = {}) {
-    const job = this.bakeSteps(g, world, tx0, ty0, tx1, ty1, paint, opts);
+  bake(g, world, tx0, ty0, tx1, ty1, fill, opts = {}) {
+    const job = this.bakeSteps(g, world, tx0, ty0, tx1, ty1, fill, opts);
     let r;
     do r = job.next(); while (!r.done);
     return r.value;
@@ -479,32 +478,39 @@ export class TerrainFx {
    * renderer can spread a chunk's polish over a few frames (a few ms each)
    * instead of stalling one frame as a new chunk comes into view.
    */
-  *bakeSteps(g, world, tx0, ty0, tx1, ty1, paint, opts = {}) {
+  *bakeSteps(g, world, tx0, ty0, tx1, ty1, fill, opts = {}) {
     const ox = tx0 * TILE, oy = ty0 * TILE;
     let foam = null;
-    // 1. Soft edges: each neighbour's ground, masked, laid over the tile.
-    const sc = this._scratch || (this._scratch = makeCanvas(TILE, TILE, this.factory));
-    if (sc) {
+    // 1. Soft edges. A row of tiles at a time: the masks of every tile in the
+    //    row that takes a given neighbouring ground are gathered into one strip,
+    //    that ground is filled across the strip and cut to the masks, and the
+    //    strip is laid over the row. A handful of draws per row, not per tile.
+    const W = (tx1 - tx0) * TILE;
+    const strip = this._strip && this._strip.c.width === W ? this._strip : (this._strip = makeCanvas(W, TILE, this.factory));
+    const mrow = this._mrow && this._mrow.c.width === W ? this._mrow : (this._mrow = makeCanvas(W, TILE, this.factory));
+    if (strip && mrow) {
       for (let y = ty0; y < ty1; y++) {
-        for (let x = tx0; x < tx1; x++) {
-          const plan = blendPlan(world, x, y);
-          if (!plan.length) continue;
-          const sx = x * TILE - ox, sy = y * TILE - oy;
-          for (const p of plan) {
+        const sy = y * TILE - oy;
+        const row = [];
+        for (let x = tx0; x < tx1; x++) for (const p of blendPlan(world, x, y)) row.push([x, p]);
+        if (!row.length) continue;
+        const layers = [...new Set(row.map(([, p]) => p.t))].sort((a, b) => BLEND_RANK[a] - BLEND_RANK[b]);
+        for (const t of layers) {
+          // Only the stretch of the row between the first and last tile that takes this ground.
+          let a = W, b = 0;
+          for (const [x, p] of row) if (p.t === t) { a = Math.min(a, x * TILE - ox); b = Math.max(b, x * TILE - ox + TILE); }
+          const sw = b - a;
+          mrow.g.clearRect(a, 0, sw, TILE);
+          for (const [x, p] of row) {
+            if (p.t !== t) continue;
             const m = this._mask(p.bits, p.v, 'b');
-            if (!m) continue;
-            sc.g.globalCompositeOperation = 'source-over';
-            sc.g.clearRect(0, 0, TILE, TILE);
-            paint(sc.g, p.t, x, y);
-            sc.g.globalCompositeOperation = 'destination-in';
-            sc.g.drawImage(m, 0, 0);
-            sc.g.globalCompositeOperation = 'source-over';
-            g.drawImage(sc.c, sx, sy);
-            if (p.t === TERRAIN.WATER) {
+            const sx = x * TILE - ox;
+            if (m) mrow.g.drawImage(m, sx, 0);
+            if (t === TERRAIN.WATER) {
               // Foam goes on its own half-resolution layers (it's soft anyway), two frames to cross-fade.
               if (!foam) {
-                const W = Math.ceil((tx1 - tx0) * TILE / 2), H = Math.ceil((ty1 - ty0) * TILE / 2);
-                foam = [makeCanvas(W, H, this.factory), opts.low ? null : makeCanvas(W, H, this.factory)];
+                const FW = Math.ceil(W / 2), FH = Math.ceil((ty1 - ty0) * TILE / 2);
+                foam = [makeCanvas(FW, FH, this.factory), opts.low ? null : makeCanvas(FW, FH, this.factory)];
               }
               for (let f = 0; f < 2; f++) {
                 const fm = foam[f] && this._mask(p.bits, p.v, 'f' + f);
@@ -512,6 +518,18 @@ export class TerrainFx {
               }
             }
           }
+          const sg = strip.g;
+          sg.globalCompositeOperation = 'source-over';
+          sg.clearRect(a, 0, sw, TILE);
+          // The ground is filled in chunk coordinates, so a texture lines up with the tiles it spills from.
+          sg.fillStyle = fill(sg, t);
+          sg.setTransform(1, 0, 0, 1, 0, -sy);
+          sg.fillRect(a, sy, sw, TILE);
+          sg.setTransform(1, 0, 0, 1, 0, 0);
+          sg.globalCompositeOperation = 'destination-in';
+          sg.drawImage(mrow.c, a, 0, sw, TILE, a, 0, sw, TILE);
+          sg.globalCompositeOperation = 'source-over';
+          g.drawImage(strip.c, a, 0, sw, TILE, a, sy, sw, TILE);
         }
         yield;
       }

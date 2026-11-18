@@ -1138,7 +1138,7 @@ export class Renderer {
     // It runs a few rows at a time over the next frames (see _polishChunk).
     const fx = this.tfx || (this.tfx = new TerrainFx());
     cnv.fx = null;
-    cnv.fxJob = fx.bakeSteps(g, w, tx0, ty0, tx1, ty1, (sg, t, x, y) => this._paintGround(sg, t, x, y), { low: !!this.game.lowFx });
+    cnv.fxJob = fx.bakeSteps(g, w, tx0, ty0, tx1, ty1, (sg, t) => this._groundFill(sg, t), { low: !!this.game.lowFx });
     return cnv;
   }
 
@@ -1156,12 +1156,16 @@ export class Renderer {
     return true;
   }
 
-  /** Paint one tile of ground type t at (0, 0) of `g`: its texture, or its plain colour. */
-  _paintGround(g, t, x, y) {
-    if (this._groundTile(g, t, x, y, 0, 0)) return;
+  /** The fill for ground type t: its painted texture as a repeating pattern, or its plain colour. */
+  _groundFill(g, t) {
+    const tex = this.groundTex;
+    if (tex && tex.ready && tex[t] && g.createPattern) {
+      const pats = this._groundPats || (this._groundPats = {});
+      const p = pats[t] || (pats[t] = g.createPattern(tex[t], 'repeat'));
+      if (p) return p;
+    }
     const c = t === TERRAIN.WATER ? [122, 190, 232] : TERRAIN_RGB[t] || TERRAIN_RGB[TERRAIN.GRASS];
-    g.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
-    g.fillRect(0, 0, TILE, TILE);
+    return `rgb(${c[0]},${c[1]},${c[2]})`;
   }
 
   _chunk(cx, cy) {
