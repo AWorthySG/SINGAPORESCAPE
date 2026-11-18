@@ -3349,3 +3349,9 @@ body.cb-safe #hp-orb.low::after {
 }
 .sgx-picked { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; margin: 6px 0; padding: 6px 8px;
   font-size: 12px; background: #e6f7df; border: 2px solid var(--aw-ink); border-radius: var(--r1); }
+
+/* ---------------- World events and weekly region challenges (worldeventsui.js) ---------------- */
+.quest-row.we-row { border-left: 5px solid var(--we-col, var(--aw-accent)); cursor: var(--cur-pointer, pointer); }
+.quest-row.we-row .q-go { min-height: 40px; min-width: 52px; }
+.quest-row.we-task .q-top b { font-size: 13px; }
+#quest-tracker .trk-event .trk-ic { font-size: 13px; }

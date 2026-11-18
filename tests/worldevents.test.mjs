@@ -216,7 +216,7 @@ test('save and load: no event survives, but the schedule and the week do', () =>
   const store = fakeStorage();
   const g = newGame(store);
   step(g, 1);
-  g.worldEvents.ensureWeek('2026-W47');
+  g.worldEvents.ensureWeek(isoWeekKey());
   g.worldEvents.weekly.kills = 12;
   g.worldEvents.done = 3;
   g.worldEvents.nextAt = g.tickCount + 500;
@@ -229,7 +229,7 @@ test('save and load: no event survives, but the schedule and the week do', () =>
   assert.equal(h.worldEvents.active, null);
   noneLeft(h, 'loaded');
   assert.equal(h.worldEvents.done, 3);
-  assert.equal(h.worldEvents.weekly.week, '2026-W47');
+  assert.equal(h.worldEvents.weekly.week, isoWeekKey());
   assert.equal(h.worldEvents.weekly.kills, 12);
   assert.equal(h.worldEvents.weekly.region, g.worldEvents.weekly.region);
   // Loading into a game with an event running clears it too.
@@ -278,7 +278,7 @@ test('weekly challenge: a seeded region per ISO week, progress in it, and a crat
 
 test('an event in the featured region counts for the weekly task', () => {
   const g = newGame();
-  g.worldEvents.ensureWeek('2026-W47');
+  g.worldEvents.ensureWeek(isoWeekKey());
   g.worldEvents.weekly.region = 'Bukit Timah';
   const ev = g.worldEvents.start('rampage', { region: 'Bukit Timah' });
   kill(g, ev.mobs[0]);
@@ -304,4 +304,39 @@ test('an idle game with no event costs one comparison a tick', () => {
   const t0 = performance.now();
   for (let i = 0; i < 100000; i++) g.worldEvents.tick();
   assert.ok(performance.now() - t0 < 200);
+});
+
+test('the journal card shows the running event with a Go button, and the week\'s three tasks', async () => {
+  const { eventsPanelHTML, eventTrackerRows, drawEventMarker } = await import('../src/ui/worldeventsui.js');
+  const g = newGame();
+  let html = eventsPanelHTML(g);
+  assert.ok(html.includes('Weekly challenge'), 'the weekly card is always there');
+  assert.equal((html.match(/we-task/g) || []).length, 3);
+  assert.ok(!html.includes('we-go'), 'no Go without an event');
+  g.worldEvents.start('invasion', { town: 'Kampong Glam' });
+  html = eventsPanelHTML(g);
+  assert.ok(html.includes('Monster invasion') && html.includes('we-go') && html.includes('Kampong Glam'));
+  assert.equal(eventTrackerRows({ game: g }).length, 1);
+  // The minimap marker draws on a stub canvas, near and far.
+  const calls = [];
+  const ctx = new Proxy({}, { get: (t, k) => (k in t ? t[k] : () => calls.push(k)), set: (t, k, v) => { t[k] = v; return true; } });
+  drawEventMarker(ctx, g, 120, 120, g.worldEvents.active.x, g.worldEvents.active.y, 15, 4);
+  drawEventMarker(ctx, g, 120, 120, g.worldEvents.active.x + 100, g.worldEvents.active.y, 15, 4);
+  assert.ok(calls.includes('arc') && calls.includes('lineTo'));
+  // Go walks you there.
+  placeAt(g, 30, 20);
+  assert.ok(g.worldEvents.travel());
+  assert.ok(g.player.isMoving || g.player.path.length > 0, 'on the way');
+});
+
+test('falling after taking part in a gathering event still pays for what you gathered', () => {
+  const g = newGame();
+  equip(g);
+  const ev = g.worldEvents.start('grove', { region: 'Bukit Timah' });
+  ev.gathers = 6;
+  g.player.hp = 0;
+  g.playerDeath();
+  assert.equal(g.worldEvents.active, null);
+  assert.equal(g.worldEvents.done, 1);
+  noneLeft(g, 'gathering death');
 });

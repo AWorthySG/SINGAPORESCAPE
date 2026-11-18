@@ -58,11 +58,9 @@ export class WorldEvents {
   tick() {
     const g = this.game;
     if (this.active) { this._tickActive(); return; }
-    if (this.nextAt === null) { this.nextAt = g.tickCount + between(FIRST_GAP); return; }
+    if (this.nextAt === null) { this.nextAt = g.tickCount + between(FIRST_GAP); this.ensureWeek(); return; }
+    if (g.tickCount % 500 === 0) this.ensureWeek();   // a week can turn while the game is open
     if (g.tickCount < this.nextAt) return;
-    // Due: roll the weekly board over now and then too (it's cheap, and a week
-    // can turn while the game is open).
-    this.ensureWeek();
     if (!this.auto || !this.startRandom()) this.nextAt = g.tickCount + RETRY_TICKS;
   }
 

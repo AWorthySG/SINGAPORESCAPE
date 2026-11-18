@@ -56,6 +56,7 @@ import { statSheet } from '../game/statsheet.js';
 import { statsPanelHTML } from './statspanel.js';
 import { openCodex, monsterAtScreen } from './codexui.js';
 import { openPestOfficer, contractTrackerRows, stewardLineHTML, cullingInvOptions } from './cullingui.js';
+import { eventsPanelHTML, wireEventsPanel, eventTrackerRows, drawEventMarker } from './worldeventsui.js';
 import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG, abilityIconHTML, prayerIconHTML, spellIconHTML } from '../render/icons.js';
 import { weaknessOf, armourTierOf, ARMOUR_TIERS, levelFlatDmg } from '../game/combat.js';
 import { isBone } from '../data/bones.js';
@@ -272,6 +273,7 @@ export class UI {
     this.bus.on('skills', () => this.renderPrayerPanel());
     this.bus.on('quest', () => { this.renderQuestPanel(); this.renderTracker(); });
     this.bus.on('bounties', () => { this.renderQuestPanel(); this.renderTracker(); });
+    this.bus.on('worldevents', () => this._soon('worldevents', () => { this.renderQuestPanel(); this.renderTracker(); }, 1000));   // world events (worldeventsui.js)
     this.bus.on('xpbonus', () => this.renderTracker());
     this.bus.on('spell', () => this.renderCombatPanel());
     this.bus.on('mercs', () => this.renderCombatPanel());
@@ -534,6 +536,7 @@ export class UI {
     for (const t of (g.bounties?.list || []).filter((x) => !x.done).slice(0, 2)) {
       rows.push(`<div class="trk-row"><span class="trk-ic trk-bounty">&#9733;</span>${escapeHtml(t.name)} <span class="trk-prog">${Number(t.have) || 0}/${Number(t.need) || 0}</span>${this._trkPointer((n) => n.npcId === t.id)}</div>`);
     }
+    rows.push(...eventTrackerRows(this));      // a world event under way
     rows.push(...contractTrackerRows(this));   // today's Pest Control contracts
     for (const q of QUESTS) {
       const st = g.quests[q.id];
@@ -2865,6 +2868,7 @@ export class UI {
       }
       html += '<div class="modal-hint">New bounties every day. Finish all three for a bonus, and on back-to-back days to grow your streak.</div>';
     }
+    html += eventsPanelHTML(game);   // the running world event and the weekly region challenge
     html += `<div class="quest-head">Quests complete: ${done} / ${QUESTS.length} &middot; Quest points: ${game.questPoints()}</div>`;
     // Auto quest: works on the quest you last pressed Go on, else the next one.
     const aq = game.autoQuestPick();
@@ -2892,6 +2896,7 @@ export class UI {
       row.addEventListener('click', () => { game.questTravel(row.dataset.quest); this.renderQuestPanel(); });
     }
     this.el.questPanel.querySelector('.q-auto')?.addEventListener('click', () => { game.toggleAutoQuest(); });
+    wireEventsPanel(this, this.el.questPanel);
   }
 
   // ---------------- Achievements / collection log ----------------
@@ -4082,6 +4087,7 @@ export class UI {
         }
       }
     }
+    drawEventMarker(ctx, game, W, H, px, py, radius, scale);   // a world event: here, or which way
     // Player.
     ctx.fillStyle = '#fff';
     ctx.beginPath(); ctx.arc(W / 2, H / 2, 3, 0, Math.PI * 2); ctx.fill();
