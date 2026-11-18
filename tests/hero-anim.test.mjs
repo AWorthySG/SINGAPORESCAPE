@@ -476,3 +476,18 @@ test('each blow strikes at the moment its hit feedback is shown, and a hit-stop 
     }
   }
 });
+
+test('the Lancer lowers the spear from its upright guard into the thrust, not in one frame', () => {
+  assert.equal(weaponClipId('spear'), 'thrust');
+  assert.equal(sampleHeroClip('thrust', 0.1).guardIn, true, 'the thrust starts from the guard');
+  // The painted wind-up shows from arc 0.4: it takes a good part of the coil
+  // (not a frame or two of a 270ms clip) to come down to its own aim at arc 1.
+  let shown = -1, aimed = -1;
+  for (let u = 0; u <= 0.4; u += 0.005) {
+    const a = sampleHeroClip('thrust', u).ch.arc;
+    if (shown < 0 && a > 0.4) shown = u;
+    if (aimed < 0 && a >= 0.99) aimed = u;
+  }
+  assert.ok(aimed - shown >= 0.08, `lowered over ${(aimed - shown).toFixed(3)} of the clip`);
+  assert.equal(sampleHeroClip('slash', 0.1).guardIn, false, 'other clips coil as before');
+});

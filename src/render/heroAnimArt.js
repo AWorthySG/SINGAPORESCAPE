@@ -230,6 +230,14 @@ function guardTurn(g, a) {
   const k = Math.min(1, (a - 3) / (ARC_GUARD - 3));
   return -k * k * (3 - 2 * k) * Math.max(0.66, Math.min(2, g.dir[2] - GUARD_DIR));
 }
+/** The way in for a clip that asks for it (guardIn, the Lancer's thrust): the
+ *  wind-up picture starts turned to point where the rig's guard holds the
+ *  weapon and comes down into its own aim by a 1, so the swap from the rig's
+ *  upright spear doesn't jump. */
+function guardInTurn(g, a) {
+  const k = Math.max(0, Math.min(1, (1 - a) / (1 - ARC_REST)));
+  return k * k * (3 - 2 * k) * (GUARD_DIR - g.dir[0]);
+}
 // The tip smear's colours: steel for blades, warm for heavy heads, a glow for
 // magic, pink silk for the Dancer's whip and fan, gold for the cane.
 const SMEAR_TINT = { warhammer: '#fff1d6', mace: '#fff1d6', battleaxe: '#fff1d6', staff: '#d9c4ff', wand: '#d9c4ff', orb: '#d9c4ff',
@@ -257,7 +265,7 @@ export function drawSwingArm(ctx, classId, anim, hand, kind, sx, sy, alpha = 1) 
   let turn = 0;
   if (arc > 0) {
     const aimed = kind === 'bow' || kind === 'gun';
-    turn = (arc > 3 && !aimed ? guardTurn(g, arc) : armTurn(g, arc, phase) * (anim.tween ?? 1)) + ((off ? ch.whip2 : ch.whip) || 0) * g.sense;
+    turn = (arc > 3 && !aimed ? guardTurn(g, arc) : arc < 1 && anim.guardIn ? guardInTurn(g, arc) : armTurn(g, arc, phase) * (anim.tween ?? 1)) + ((off ? ch.whip2 : ch.whip) || 0) * g.sense;
     const clear = (off ? CLEAR_OFF : CLEAR)[classId]?.[phase];
     if (clear) turn += clear * g.sense;
   }

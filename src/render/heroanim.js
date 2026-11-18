@@ -484,11 +484,13 @@ function smashClip({ w, h, wind, swing, reach = 2, hold = 0.08 }) {
   } };
 }
 /** A straight jab: draw back and hold, then drive the point out along the
- *  ground with a lunge, no arc at all (the arm barely turns: tween 0.25). */
+ *  ground with a lunge, no arc at all (the arm barely turns: tween 0.25).
+ *  The spear is lowered from its upright guard into the aim (guardIn) rather
+ *  than flicking from upright to level in a frame. */
 function thrustClip({ draw = 0.38, hit = 0.47, reach = 13, pull = 4, hold = 0.07 }) {
   const f = hit + hold, r = Math.min(0.95, f + 0.3);
-  return { trail: { kind: 'line', x0: 24, x1: 58, y: -5 }, tween: 0.25, hits: [hit], tracks: {
-    arc: T([[0, 0], [0.1, 1, 'out'], [draw, 1], [hit, 3, 'lin'], [f, 3], [r - 0.004, 4, 'io'], [r, 0, 'step'], [1, 0]]),
+  return { trail: { kind: 'line', x0: 24, x1: 58, y: -5 }, tween: 0.25, guardIn: true, hits: [hit], tracks: {
+    arc: T([[0, 0], [0.2, 1, 'io'], [draw, 1], [hit, 3, 'lin'], [f, 3], [r - 0.004, 4, 'io'], [r, 0, 'step'], [1, 0]]),
     strike: T([[0, 0], [0.1, 1], [0.82, 1], [1, 0]]),
     reach: T([[0, 0], [0.12, -1], [draw, -pull, 'io'], [hit, reach, 'in'], [f, reach], [f + 0.1, reach * 0.8], [1, 0, 'io']]),
     back: T([[0, 0], [draw, -0.15], [hit, 0.3, 'in'], [1, 0, 'io']]),
@@ -859,7 +861,7 @@ export function sampleHeroClip(id, u, info = {}) {
   // The clip walks the painted attack arms through their pictures (arc).
   ch.paint = clip.tracks.arc || clip.tracks.arc2 ? 1 : 0;
   return { id, u, kind: info.kind || (clip.hands ? 'skill' : 'combat'), ch, tool: info.tool || null,
-    upright: !!clip.upright, trail: clip.trail || null, trail2: clip.trail2 || null, dust: !!clip.dust, tween: clip.tween ?? 1,
+    upright: !!clip.upright, trail: clip.trail || null, trail2: clip.trail2 || null, dust: !!clip.dust, tween: clip.tween ?? 1, guardIn: !!clip.guardIn,
     jobClass: info.jobClass, low: !!info.low, weapon: info.weapon || null, offhand: info.offhand || null };
 }
 
