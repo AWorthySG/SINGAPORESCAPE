@@ -176,3 +176,40 @@ test("a Merchant's allies leave alone monsters far above the Merchant until the 
   for (let i = 0; i < 20; i++) { p.attackCooldown = 99; game.update(600); }
   assert.ok(strong.hp < strong.maxHp, 'allies join the Merchant\'s own fight');
 });
+
+test('auto battle runs from a monster far above it, and leaves it be until it catches up', () => {
+  const game = freshGame('swordsman');
+  const p = game.player;
+  const strong = new NPC('goblin', p.x + 1, p.y, 0, {});
+  strong.def = { ...strong.def, level: game.fightLevel() + 40, aggressive: false, maxHit: 20 };
+  strong.maxHp = strong.hp = 1e6;
+  strong.target = p;
+  game.npcs = [strong];
+  assert.ok(game._autoFlee(), 'it runs');
+  assert.ok(p.isMoving && game._autoRanFrom(strong));
+  // Still set on you but standing off (stuck by its home, say): not walked back to.
+  strong.x = p.x + 6;
+  assert.equal(game._autoPickTarget(), null, 'a monster it ran from is left alone at a distance');
+  strong.x = p.x + 1;
+  assert.equal(game._autoPickTarget(), strong, 'but answered once it catches up');
+});
+
+test("a flight backed against the map's edge bends off to the side", () => {
+  const game = freshGame('swordsman');
+  const p = game.player, w = game.world;
+  // A free tile on the western edge with open ground to the north and south,
+  // and a strong monster whose home lies to its north-east: straight away is off the map.
+  let spot = null;
+  for (let y = 20; y < w.height - 20 && !spot; y++) {
+    if ([-12, -6, 0, 6, 12].every((dy) => !w.isBlocked(1, y + dy))) spot = { x: 1, y };
+  }
+  assert.ok(spot, 'there is open ground on the western edge');
+  p.x = p.tx = spot.x; p.y = p.ty = spot.y;
+  const strong = new NPC('goblin', spot.x + 1, spot.y, 0, {});
+  strong.def = { ...strong.def, level: game.fightLevel() + 40, aggressive: false, maxHit: 20 };
+  strong.maxHp = strong.hp = 1e6;
+  strong.spawnX = spot.x + 6; strong.spawnY = spot.y - 6;
+  strong.target = p;
+  game.npcs = [strong];
+  assert.ok(game._autoFlee(), 'it still finds somewhere to run');
+});
