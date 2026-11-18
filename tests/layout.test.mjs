@@ -47,6 +47,7 @@ test('touch screens get 44px targets, safe areas and an 85% sheet cap', () => {
     assert.ok(touch.includes(sel), `${sel} is sized for fingers`);
   }
   assert.match(touch, /#modal-close \{ width: 44px; height: 44px;/);
+  assert.match(touch, /#inv-sort \{ min-width: 44px; \}/);
   const phones = mediaBlock('(pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px)');
   for (const side of ['top', 'right', 'bottom', 'left']) assert.ok(phones.includes(`env(safe-area-inset-${side}`), `respects the ${side} safe area`);
   const portrait = mediaBlock('(pointer: coarse) and (max-width: 540px)');
@@ -54,6 +55,11 @@ test('touch screens get 44px targets, safe areas and an 85% sheet cap', () => {
   assert.match(portrait, /animation: sheetUp/, 'sheets slide up');
   const landscape = mediaBlock('(pointer: coarse) and (max-height: 500px)');
   assert.match(landscape, /animation: sheetIn/, 'landscape: the panel is a side sheet');
+  // The minimap is drawn at 0.72 there, so its small buttons' tap areas reach
+  // 62px to stay 44px on screen (22px fold button + 40, 36px orb + 28).
+  assert.match(landscape, /#minimap-collapse::before \{ inset: -22px -18px -18px -22px; \}/);
+  assert.match(landscape, /\.orb::before \{ inset: -14px; \}/);
+  assert.match(portrait, /\.orb::before \{ inset: -6px; \}/, 'portrait: 46px orb tap areas in their row');
   // The info strip stacks by measured rows, so the boss bar, the Endless Gate
   // panel and the objectives can't overlap.
   assert.match(portrait, /#wave-hud \{\s*top: calc\(var\(--strip-t\) \+ var\(--boss-h\)\)/);

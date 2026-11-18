@@ -2761,6 +2761,7 @@ body #tip-toast.tip-strip { font-size: 11px; padding: 4px 6px 4px 7px; border-ra
   #panel-tabs { gap: 3px; }
   .inv-slot, .equip-slot, .item-cell { min-width: 44px; min-height: 44px; }
   .inv-tab, #inv-sort, .chat-tab, .as-opt, .wm-chip { min-height: 44px; }
+  #inv-sort { min-width: 44px; }
   .auto-row #auto-battle-btn, .auto-row .ab-btn, .auto-row #auto-battle-cfg { min-height: 44px; }
   #wave-hud .wv-leave { min-height: 44px; }
   #modal-close { width: 44px; height: 44px; font-size: 16px; }
@@ -2884,6 +2885,10 @@ body #tip-toast.tip-strip { font-size: 11px; padding: 4px 6px 4px 7px; border-ra
   }
   /* Minimap top-right; the panel launcher sits under its row of orbs. */
   #minimap-panel { top: calc(6px + var(--sa-t)); right: calc(6px + var(--sa-r)); }
+  /* The orbs sit in a row 48px apart here, so their tap areas can be a full
+     44px each way; the fold button's reaches out to the screen edge. */
+  .orb::before { inset: -6px; }
+  #minimap-collapse::before { inset: -13px -12px -9px -10px; }
   #sidepanel.collapsed { top: calc(222px + var(--sa-t)); right: calc(6px + var(--sa-r)); }
   /* The first-run tip: under the strip, beside the launcher, clear of the thumbs.
      (Still centred with translateX(-50%), so its pop-in lines up.) */
@@ -2940,7 +2945,12 @@ body #tip-toast.tip-strip { font-size: 11px; padding: 4px 6px 4px 7px; border-ra
   /* Minimap in the top-right corner (no rail beside it now), a touch smaller
      so the skill arc fits under it; the launcher sits left of its orb column. */
   #minimap-panel { top: calc(6px + var(--sa-t)); right: calc(6px + var(--sa-r)); transform: scale(0.72); }
-  #sidepanel.collapsed { top: calc(6px + var(--sa-t)); right: calc(176px + var(--sa-r)); }
+  /* At 0.72 the tap areas have to reach 62px to stay 44px on screen. */
+  #minimap-collapse::before { inset: -22px -18px -18px -22px; }
+  #map-btn::before { inset: -14px -10px -30px; }
+  .orb::before { inset: -14px; }
+  /* Far enough left that the Special orb's caption stays in view. */
+  #sidepanel.collapsed { top: calc(6px + var(--sa-t)); right: calc(222px + var(--sa-r)); }
   /* A smaller Attack button and a tighter skill arc: the short screen has to
      hold the arc under the minimap. (Offsets are the portrait ones x0.8.) */
   :root { --atk: 70px; --sk: 48px; }
