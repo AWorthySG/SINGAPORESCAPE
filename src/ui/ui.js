@@ -204,6 +204,7 @@ export class UI {
     document.getElementById('auto-battle-cfg')?.addEventListener('click', () => this.openAutoSettings());
     this._initAutoMenu();
     this._initSheets();
+    this._initPressHold();
     document.getElementById('interact-btn')?.addEventListener('pointerdown', (e) => { e.preventDefault(); this.game.interact(); });
     // Attack: a tap locks onto the nearest enemy; holding it keeps fighting,
     // moving straight on to the next foe as each one falls.
@@ -628,6 +629,47 @@ export class UI {
     document.addEventListener('pointerdown', (e) => {
       if (bar.classList.contains('auto-open') && !bar.contains(e.target)) set(false);
     }, true);
+  }
+
+  // While a finger (or the mouse) is down on a panel or window, its redraws
+  // wait until the press is over. A panel rebuilt mid-tap replaces the very
+  // button under the finger, and the phone's click then lands on nothing, so
+  // taps "did nothing" whenever the game was busy (gathering, fighting, a
+  // world event ticking). Held redraws run once, right after the click.
+  _initPressHold() {
+    if (typeof document === 'undefined') return;
+    const HELD = ['renderInventory', 'renderEquipment', 'renderSkills', 'renderCombatPanel', 'renderPrayerPanel',
+      'renderQuestPanel', 'renderStatsPanel', 'renderAchievementPanel', '_refreshModalIfOpen'];
+    const held = new Map();
+    let pressing = false, timer = 0, since = 0;
+    for (const name of HELD) {
+      const orig = this[name];
+      if (typeof orig !== 'function') continue;
+      this[name] = (...args) => {
+        // A press held for seconds (a slow scroll) doesn't freeze the panel for good.
+        if (pressing && performance.now() - since < 3000) { held.set(name, args); return undefined; }
+        return orig.apply(this, args);
+      };
+    }
+    const flush = () => {
+      clearTimeout(timer); timer = 0;
+      if (!pressing) return;
+      pressing = false;
+      const jobs = [...held]; held.clear();
+      for (const [name, args] of jobs) this[name](...args);
+    };
+    const AREAS = '#sidepanel, #modal-overlay, #chatbox, #tooltip';
+    document.addEventListener('pointerdown', (e) => {
+      if (!e.target?.closest?.(AREAS)) return;
+      pressing = true; since = performance.now(); clearTimeout(timer); timer = 0;
+    }, true);
+    // The click comes after the finger lifts: let it reach its button first
+    // (bubble phase, after the button's own handler), then catch up.
+    document.addEventListener('click', () => { if (pressing) setTimeout(flush, 0); });
+    // A press that became a scroll, or a click that never came.
+    const later = () => { if (pressing && !timer) timer = setTimeout(flush, 350); };
+    document.addEventListener('pointerup', later, true);
+    document.addEventListener('pointercancel', later, true);
   }
 
   // Phones show the side panel and the big windows as sheets (see "Responsive

@@ -3474,7 +3474,12 @@ export class Game {
     this._goldenWas = now;
     if (!was) return;   // the first tick only notes what's on
     const opened = now.filter((s) => !was.includes(s));
-    if (opened.length !== now.length || was.length !== now.length) this.bus.emit('skills');   // the Skills tab badges follow the clock
+    // The Skills tab badges follow the clock, but only when the set of skills
+    // changes: this used to fire every tick while any golden hour was on,
+    // redrawing the Skills and Combat panels so often phone taps landed on
+    // buttons that had just been replaced.
+    const changed = was.length !== now.length || now.some((s) => !was.includes(s));
+    if (changed && !opened.length) this.bus.emit('skills');
     if (!opened.length) return;
     const names = opened.map((s) => SKILL_BY_ID[s]?.name || s).join(' and ');
     this.msg(`Golden hours: ${names} XP +${Math.round((GOLDEN_HOUR_XP - 1) * 100)}% for the next six hours of the day (${opened.map((s) => SKILL_HOURS[s].why).join('; ')}).`, 'level');
