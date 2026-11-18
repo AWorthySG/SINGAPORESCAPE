@@ -93,6 +93,11 @@ export function clickSecondFingerTaps(doc = globalThis.document) {
   const downs = new Map();
   let made = null;
   doc.addEventListener('pointerdown', (e) => {
+    // A new touch means any click after this belongs to it, not to the tap we
+    // clicked for: forget that one, so a quick ordinary tap on the same tab or
+    // slot (the browser never sent a click for the second-finger tap) isn't
+    // taken for its duplicate and dropped.
+    made = null;
     if (e.pointerType !== 'touch' || e.isPrimary) return;
     downs.set(e.pointerId, { x: e.clientX, y: e.clientY, t: e.timeStamp, el: e.target });
   }, true);
@@ -101,15 +106,19 @@ export function clickSecondFingerTaps(doc = globalThis.document) {
     const d = downs.get(e.pointerId);
     if (!d) return;
     downs.delete(e.pointerId);
-    const el = d.el;
-    if (!el?.isConnected || typeof el.click !== 'function' || el.closest?.(PLAY_SURFACE)) return;
+    // The finger often lands on a tab's SVG icon (or a path in it), which has
+    // no click(): click the nearest HTML element around it instead, so the
+    // click still bubbles up to the tab's listener.
+    let el = d.el;
+    while (el && typeof el.click !== 'function') el = el.parentElement;
+    if (!el?.isConnected || el.closest?.(PLAY_SURFACE)) return;
     if (e.timeStamp - d.t > 400 || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 12) return;
     if (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
     made = { el, t: e.timeStamp };
     el.click();
   }, true);
   doc.addEventListener('click', (e) => {
-    if (e.isTrusted && made && e.target === made.el && e.timeStamp - made.t < 500) {
+    if (e.isTrusted && made && (e.target === made.el || made.el.contains?.(e.target)) && e.timeStamp - made.t < 500) {
       e.stopImmediatePropagation(); e.preventDefault();
     }
     if (e.isTrusted) made = null;

@@ -203,3 +203,123 @@ test('the tip sits under the whole info strip, short of the launcher, and bottom
   assert.equal(fight.top, 68, 'too little room beside the Bag, so just below it');
   assert.ok(fight.left + fight.width <= 560 - 8 && fight.width >= 200, 'wide enough for a few lines, clear of the orbs');
 });
+
+test('phone sheet: all nine tabs share one row, and the body is not size-contained', () => {
+  const phones = mediaBlock('(pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px)');
+  const tabs = (html.match(/<button class="tab-btn[^"]*" data-view=/g) || []).length;
+  assert.equal(tabs, 9, 'nine panel tabs');
+  // Equal columns, one per tab, instead of a row that scrolls Stats, Awards
+  // and Settings off the edge of a 390px phone.
+  assert.match(phones, /#sidepanel:not\(\.collapsed\) #panel-tabs \{\s*display: grid; grid-template-columns: repeat\(9, minmax\(0, 1fr\)\);/);
+  assert.ok(!/#sidepanel:not\(\.collapsed\) #panel-tabs \{[^}]*overflow-x: auto/.test(phones), 'the tab row no longer scrolls');
+  assert.match(phones, /#sidepanel:not\(\.collapsed\) \.tab-btn \{ min-width: 0;/, 'tabs may shrink below the 44px min-width to fit');
+  const body = phones.match(/#sidepanel:not\(\.collapsed\) #panel-body \{[^}]*\}/)?.[0] || '';
+  assert.match(body, /contain: none/, 'no size containment on the sheet body');
+  assert.match(body, /overflow-y: auto/);
+  // Minimal HUD never fades an open sheet.
+  assert.match(phones, /#game-root\.hud-min #sidepanel:not\(\.collapsed\) \{ opacity: 1; \}/);
+});
+
+test('touch screens: tapped divs and rows show the pointer cursor (iOS only clicks "clickable" things)', () => {
+  const touch = mediaBlock('(pointer: coarse)');
+  const rule = touch.replace(/\/\*[^]*?\*\//g, '').match(/([^{}]+)\{ cursor: pointer; \}/)?.[1] || '';
+  for (const sel of ['.inv-slot', '.equip-slot.filled', '.prayer-cell', '.quest-row.can-go', '.skill-cell', '.ctx-item', 'summary']) {
+    assert.ok(rule.split(',').map((s) => s.trim()).includes(sel), `${sel} has cursor: pointer`);
+  }
+});
+
+test('sheets never start a drag (or capture the pointer) on a tab, slot, row or button', async () => {
+  const { UI, sheetDragStarts } = await import('../src/ui/ui.js');
+  // closest() stand-in: the element "matches" when the selector list names its tag or one of its classes.
+  const el = (tag, cls = '') => ({ closest: (sel) => (sel.split(',').map((s) => s.trim()).some((s) => s === tag || cls.split(' ').some((c) => c && s === `.${c}`)) ? {} : null) });
+  for (const [tag, cls] of [['button', ''], ['a', ''], ['input', ''], ['summary', ''], ['label', ''], ['div', 'inv-slot filled'], ['button', 'tab-btn'],
+    ['div', 'equip-slot'], ['div', 'prayer-cell'], ['div', 'quest-row can-go'], ['div', 'item-cell'], ['div', 'ctx-item']]) {
+    assert.equal(sheetDragStarts(el(tag, cls)), false, `${tag}.${cls} keeps its tap`);
+  }
+  assert.equal(sheetDragStarts(el('span', 'panel-title')), true, 'the header text drags');
+  assert.equal(sheetDragStarts(el('div', 'sheet-handle')), true, 'the handle drags');
+  assert.equal(sheetDragStarts(null), true);
+
+  // Wired up: a pointerdown on a button inside the header does nothing, and a
+  // plain tap on the header never takes the pointer; only a real drag does.
+  const listeners = {};
+  let captured = 0;
+  const head = { classList: { contains: () => false }, addEventListener: (t, fn) => { (listeners[t] ||= []).push(fn); }, setPointerCapture: () => { captured++; } };
+  const panel = { classList: { contains: () => false }, style: {}, querySelector: () => null };
+  const fire = (t, e) => { for (const fn of listeners[t] || []) fn(e); };
+  let folded = 0;
+  const prev = { document: globalThis.document, matchMedia: globalThis.matchMedia };
+  globalThis.document = { getElementById: () => null };
+  globalThis.matchMedia = (q) => ({ matches: !q.includes('max-height: 500px)') || q.includes('pointer'), addEventListener() {} });
+  try {
+    UI.prototype._initSheets.call({ el: { sidepanel: panel, panelHead: head, modalTitle: null }, _collapseApply: { panel: () => { folded++; } } });
+    fire('pointerdown', { clientX: 10, clientY: 100, pointerId: 1, target: el('button') });
+    fire('pointermove', { clientX: 10, clientY: 300, pointerId: 1 });
+    fire('pointerup', {});
+    assert.equal(folded, 0, 'a press on the fold button is not a drag');
+    assert.equal(panel.style.transform, undefined, 'and the sheet did not move');
+    fire('pointerdown', { clientX: 10, clientY: 100, pointerId: 1, target: el('span') });
+    fire('pointermove', { clientX: 10, clientY: 102, pointerId: 1 });
+    fire('pointerup', {});
+    assert.equal(captured, 0, 'a tap on the header takes no pointer capture');
+    fire('pointerdown', { clientX: 10, clientY: 100, pointerId: 1, target: el('span') });
+    fire('pointermove', { clientX: 10, clientY: 200, pointerId: 1 });
+    assert.equal(captured, 1, 'a drag does');
+    fire('pointerup', {});
+    assert.equal(folded, 1, 'and a long one closes the sheet');
+  } finally {
+    globalThis.document = prev.document;
+    globalThis.matchMedia = prev.matchMedia;
+  }
+});
+
+test('second-finger taps on a tab icon still click the tab, and never eat the next ordinary tap', async () => {
+  const { clickSecondFingerTaps } = await import('../src/engine/input.js');
+  const on = {};
+  clickSecondFingerTaps({ addEventListener: (type, fn) => { on[type] = fn; } });
+  let clicks = 0;
+  const tab = { isConnected: true, tagName: 'BUTTON', closest: () => null, click: () => { clicks++; } };
+  const icon = { parentElement: tab };                 // an <svg> inside the tab: no click()
+  tab.contains = (x) => x === tab || x === icon;
+  on.pointerdown({ pointerType: 'touch', isPrimary: false, pointerId: 3, clientX: 5, clientY: 5, timeStamp: 1000, target: icon });
+  on.pointerup({ pointerId: 3, clientX: 5, clientY: 5, timeStamp: 1080 });
+  assert.equal(clicks, 1, 'the tab around the icon is clicked');
+  // The browser's own click for that tap, aimed at the icon, is the duplicate.
+  let stopped = false;
+  on.click({ isTrusted: true, target: icon, timeStamp: 1100, stopImmediatePropagation: () => { stopped = true; }, preventDefault() {} });
+  assert.ok(stopped, 'its duplicate is dropped');
+  // Second-finger tap with no browser click, then a quick ordinary tap on the same tab.
+  on.pointerdown({ pointerType: 'touch', isPrimary: false, pointerId: 4, clientX: 5, clientY: 5, timeStamp: 2000, target: tab });
+  on.pointerup({ pointerId: 4, clientX: 5, clientY: 5, timeStamp: 2060 });
+  assert.equal(clicks, 2);
+  on.pointerdown({ pointerType: 'touch', isPrimary: true, pointerId: 5, clientX: 5, clientY: 5, timeStamp: 2200, target: tab });
+  stopped = false;
+  on.click({ isTrusted: true, target: tab, timeStamp: 2280, stopImmediatePropagation: () => { stopped = true; }, preventDefault() {} });
+  assert.ok(!stopped, 'the ordinary tap that followed keeps its click');
+});
+
+test('a quick second tap on the tab just opened does not fold the phone sheet', async () => {
+  const { UI } = await import('../src/ui/ui.js');
+  const mkCls = (init = []) => { const s = new Set(init); return { contains: (c) => s.has(c), toggle: (c, on) => { if (on ?? !s.has(c)) s.add(c); else s.delete(c); } }; };
+  const panel = { classList: mkCls(['compact-ui']) };
+  const tabs = ['inventory', 'skills'].map((view) => {
+    const l = [];
+    return { dataset: { view }, classList: mkCls(view === 'inventory' ? ['active'] : []), addEventListener: (t, fn) => l.push(fn), click() { l.forEach((fn) => fn()); } };
+  });
+  const prev = { document: globalThis.document, performance: Object.getOwnPropertyDescriptor(globalThis, 'performance') };
+  let now = 1000;
+  globalThis.document = { querySelectorAll: (s) => (s.includes('tab-btn') ? tabs : []), getElementById: (id) => (id === 'sidepanel' ? panel : null) };
+  Object.defineProperty(globalThis, 'performance', { value: { now: () => now }, configurable: true, writable: true });
+  let folds = 0;
+  const ui = { _dropTips() {}, _setPanelTitle() {}, renderStatsPanel() {}, _collapseApply: { panel: (c) => { if (c) folds++; } } };
+  try {
+    UI.prototype._bindTabs.call(ui);
+    tabs[1].click(); now += 150; tabs[1].click();
+    assert.equal(folds, 0, 'a double tap on Skills leaves the sheet open');
+    now += 1000; tabs[1].click();
+    assert.equal(folds, 1, 'a later tap on the open tab still folds it');
+  } finally {
+    globalThis.document = prev.document;
+    Object.defineProperty(globalThis, 'performance', prev.performance);
+  }
+});
