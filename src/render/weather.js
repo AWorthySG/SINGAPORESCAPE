@@ -24,7 +24,7 @@ export const MIST_REGIONS = new Set(['Bukit Timah', 'MacRitchie Reservoir', 'Man
 // blood-red sky, the Peaks' thin cold air.
 export const REGION_SKY = {
   'The Shadow Rift': [200, 36, 50, 0.16],
-  'The Celestial Peaks': [196, 222, 255, 0.1],
+  'The Celestial Peaks': [190, 218, 255, 0.14],
   'Pulau Hantu': [120, 150, 200, 0.06],
 };
 const NO_SKY = [0, 0, 0, 0];

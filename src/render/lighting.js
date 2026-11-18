@@ -225,7 +225,7 @@ export class LightPass {
     g.globalCompositeOperation = 'source-over';
     for (const L of lights) {
       const r = L.r * L.k * 0.8;
-      g.globalAlpha = 0.34 * strength * L.k;
+      g.globalAlpha = 0.42 * strength * L.k;
       g.drawImage(this._sprite(L.rgb), (L.x - r) * sx, (L.y - r) * sy, 2 * r * sx, 2 * r * sy);
     }
     g.globalAlpha = 1;
