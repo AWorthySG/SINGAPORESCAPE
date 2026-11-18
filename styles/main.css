@@ -2770,6 +2770,12 @@ body #tip-toast.tip-strip { font-size: 11px; padding: 4px 6px 4px 7px; border-ra
      too, so it steps aside for the big one (which also holds to keep fighting).
      It comes back as Talk to / Chop / Take for everything else. */
   #interact-btn.is-attack { display: none; }
+  /* iOS Safari only sends a click to an element it thinks is clickable: a
+     button or link, one with its own click listener, or one showing the
+     pointer cursor. These divs and rows are tapped like buttons, so they say
+     so with a plain pointer (no cursor shows on a touch screen anyway). */
+  .inv-slot, .equip-slot.filled, .item-cell, .prayer-cell, .quest-row.can-go, .skill-cell,
+  .ctx-item, .dialogue-option, .orb, summary, .tc-actions button { cursor: pointer; }
 }
 
 /* ---------- Phones, both ways up: Auto button, chat pill, sheets ---------- */
@@ -2839,13 +2845,26 @@ body #tip-toast.tip-strip { font-size: 11px; padding: 4px 6px 4px 7px; border-ra
   }
   #sidepanel:not(.collapsed) .sheet-handle { display: block; }
   #panel-head, #modal-title { touch-action: none; }
+  /* All nine tabs share one row in equal columns, so none hides off the edge
+     of a 375-390px phone (a scrolling row only showed six, with no hint that
+     Stats, Awards and Settings were there). They are icons only; the header
+     above names the open tab. Each is about 38px wide and 48px tall and they
+     sit 2px apart, so the row is one continuous strip of tap area. */
   #sidepanel:not(.collapsed) #panel-tabs {
-    flex-direction: row; gap: 6px; overflow-x: auto; overflow-y: hidden; padding: 6px 8px;
+    display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 2px; overflow: visible; padding: 4px 6px;
     border-left: 0; border-bottom: 2px dashed var(--aw-ink-faint);
   }
-  #sidepanel:not(.collapsed) .tab-btn { flex: 0 0 auto; min-width: 58px; min-height: 52px; padding: 3px 4px; border-radius: 12px; }
-  #sidepanel:not(.collapsed) .tab-btn .tab-label { display: block; font-size: 10px; }
-  #sidepanel:not(.collapsed) #panel-body { height: auto; max-height: none; min-height: 0; contain: size; overflow-y: auto; }
+  #sidepanel:not(.collapsed) .tab-btn { min-width: 0; min-height: 48px; padding: 2px 0; border-radius: 12px; }
+  #sidepanel:not(.collapsed) .tab-btn .tab-label { display: none; }
+  /* No contain: size here (desktop and tablets keep it): the sheet has a
+     fixed height and the body sits in a minmax(0, 1fr) row, so it can't grow
+     the sheet anyway, and size containment on a scroller inside a transformed,
+     animated fixed sheet is the kind of thing iOS Safari has hit-tested wrongly. */
+  #sidepanel:not(.collapsed) #panel-body { height: auto; max-height: none; min-height: 0; contain: none; overflow-y: auto; }
+  /* Minimal HUD fades the panel while you explore; an open sheet is something
+     you asked for, so it stays solid. (Faded to nothing, a tap on it only
+     brought it back: iOS treats a tap that reveals content as a hover.) */
+  #game-root.hud-min #sidepanel:not(.collapsed) { opacity: 1; }
   #sidepanel:not(.collapsed) #inventory-grid { grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); }
   /* Shop and bank grids fill the sheet's width rather than a fixed 8 or 6. */
   #modal-body .item-grid, #modal-body .item-grid.shop { grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); }
@@ -2984,8 +3003,6 @@ body #tip-toast.tip-strip { font-size: 11px; padding: 4px 6px 4px 7px; border-ra
   }
   #sidepanel:not(.collapsed) .sheet-handle { height: auto; }
   #sidepanel:not(.collapsed) .sheet-handle::before { top: 50%; left: 9px; width: 5px; height: 44px; margin: -22px 0 0; }
-  #sidepanel:not(.collapsed) .tab-btn { min-height: 48px; }
-  #sidepanel:not(.collapsed) .tab-btn .tab-label { display: none; }
   /* Windows stay centred (there's no height for a sheet), with room to close. */
   #modal-window .sheet-handle { display: none; }
   #modal-close { top: 5px; }

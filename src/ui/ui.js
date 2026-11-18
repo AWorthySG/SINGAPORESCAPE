@@ -88,6 +88,17 @@ const MAP_FILTERS = [
 // Skill guides with a tick-list for auto gather's round.
 const PICK_SKILLS = new Set(['mining', 'woodcutting', 'fishing']);
 
+// Everything a finger means to press rather than drag. A phone sheet's drag
+// (see _initSheets) never starts on one of these, so it never captures the
+// pointer away from a tab, slot, row or button and eats its tap.
+const PRESSABLE = 'button, a, input, select, textarea, label, summary, [role="button"], '
+  + '.tab-btn, .inv-slot, .equip-slot, .item-cell, .prayer-cell, .quest-row, .ctx-item, .dialogue-option';
+
+/** Whether a pointerdown on this element may start dragging a sheet. */
+export function sheetDragStarts(target) {
+  return !target?.closest?.(PRESSABLE);
+}
+
 export class UI {
   constructor(game) {
     this.game = game;
@@ -609,6 +620,9 @@ export class UI {
       const move = (e) => {
         if (!start) return;
         d = Math.max(0, side() ? e.clientX - start.x : e.clientY - start.y);
+        // Only a real drag takes the pointer: capturing it on pointerdown
+        // would steer a plain tap's events to the grip as well.
+        if (d >= 6 && !start.captured) { start.captured = true; start.grip.setPointerCapture?.(e.pointerId); }
         sheet.style.transform = side() ? `translateX(${d}px)` : `translateY(${d}px)`;
       };
       const end = () => {
@@ -622,12 +636,11 @@ export class UI {
       for (const g of grips) {
         if (!g) continue;
         g.addEventListener('pointerdown', (e) => {
-          // Buttons in the header (fold, close) keep their own taps.
-          if (!phone.matches || !isOpen() || e.target.closest?.('button')) return;
-          start = { x: e.clientX, y: e.clientY, handle: g.classList.contains('sheet-handle') };
+          // Anything pressable in the header (fold, close) keeps its own taps.
+          if (!phone.matches || !isOpen() || !sheetDragStarts(e.target)) return;
+          start = { x: e.clientX, y: e.clientY, handle: g.classList.contains('sheet-handle'), grip: g, captured: false };
           d = 0;
           sheet.style.transition = 'none';
-          g.setPointerCapture?.(e.pointerId);
         });
         g.addEventListener('pointermove', move);
         g.addEventListener('pointerup', end);
@@ -659,8 +672,13 @@ export class UI {
         // A folded panel opens on the tab you tap; tapping the open tab again folds it.
         const panel = document.getElementById('sidepanel');
         const folded = panel?.classList.contains('collapsed');
+        // A quick second tap (a double tap, or a tap the phone sent twice) on
+        // the tab just chosen is not a request to fold the panel again.
+        const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+        const quick = this._tabTap?.btn === btn && now - this._tabTap.t < 450;
+        this._tabTap = { btn, t: now };
         if (folded) this._collapseApply?.panel?.(false);
-        else if (btn.classList.contains('active') && panel?.classList.contains('compact-ui')) { this._collapseApply?.panel?.(true); return; }
+        else if (btn.classList.contains('active') && panel?.classList.contains('compact-ui')) { if (!quick) this._collapseApply?.panel?.(true); return; }
         tabs.forEach((b) => b.classList.toggle('active', b === btn));
         const view = btn.dataset.view;
         this._setPanelTitle(view);
