@@ -444,8 +444,21 @@ export function trainingSpots(game) {
       e.lo = Math.min(e.lo, d.level); e.hi = Math.max(e.hi, d.level); e.ids.push(id);
     }
   }
-  for (const e of by.values()) e.ids.sort((a, b) => getNpc(a).level - getNpc(b).level);
-  return [...by.values()].sort((a, b) => a.lo - b.lo || a.hi - b.hi);
+  // Most regions hold a few strays far from their usual band, so the middle
+  // half of their monsters' levels (p25-p75) says more than the extremes.
+  for (const e of by.values()) {
+    e.ids.sort((a, b) => getNpc(a).level - getNpc(b).level);
+    const lv = e.ids.map((id) => getNpc(id).level);
+    e.p25 = lv[Math.floor((lv.length - 1) * 0.25)]; e.p75 = lv[Math.ceil((lv.length - 1) * 0.75)];
+  }
+  return [...by.values()].sort((a, b) => a.p25 - b.p25 || a.p75 - b.p75);
+}
+/** The regions with the most monsters a fighter of this combat level can take
+ *  on well (from a little under to a little over it), best first. */
+export function bestSpotsFor(game, level, n = 5) {
+  const near = (id) => { const l = getNpc(id).level; return l >= level - 8 && l <= level + 8; };
+  return trainingSpots(game).map((s) => ({ ...s, near: s.ids.filter(near) }))
+    .filter((s) => s.near.length).sort((a, b) => b.near.length - a.near.length).slice(0, n);
 }
 /** The extra lists a fighting skill's guide shows: spells, prayers, Slayer tasks and rewards, food. */
 export function combatExtras(skill) {

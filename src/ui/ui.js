@@ -12,7 +12,8 @@ import { POTIONS, FLETCH, CROP_BY_SEED } from '../data/trades.js';
 import { COOKING } from '../game/skilling.js';
 import { DISHES } from '../data/cooking.js';
 import { SKILLS, SKILL_GROUPS } from '../data/skills.js';
-import { SKILL_GUIDES, guideEntries } from '../game/skillguide.js';
+import { SKILL_GUIDES } from '../game/skillguide.js';
+import { openSkillGuide as openGuide } from './skillguideui.js';
 import { OBJECTS } from '../data/objects.js';
 import { SUBJECTS, SUBJECT_BY_ID, TOPICS, TOPIC_BY_ID } from '../data/questions.js';
 import { DAILY_COUNT } from '../game/learning.js';
@@ -84,9 +85,6 @@ const MAP_FILTERS = [
   { id: 'farm', name: 'Farms', col: '#c9e26a' },
   { id: 'station', name: 'Crafting', col: '#f5a623' },
 ];
-
-// Skill guides with a tick-list for auto gather's round.
-const PICK_SKILLS = new Set(['mining', 'woodcutting', 'fishing']);
 
 // Everything a finger means to press rather than drag. A phone sheet's drag
 // (see _initSheets) never starts on one of these, so it never captures the
@@ -1544,6 +1542,12 @@ export class UI {
     lifeBtn.innerHTML = '<b>Life skill perks</b><span>Every life skill level makes your fighter stronger</span>';
     lifeBtn.addEventListener('click', () => this.openLifePerks());
     grid.appendChild(lifeBtn);
+    // Resources: where every material comes from and what it goes into.
+    const resBtn = document.createElement('button');
+    resBtn.className = 'perks-open resources-open';
+    resBtn.innerHTML = '<b>Resources</b><span>Where every material comes from, and what it makes</span>';
+    resBtn.addEventListener('click', () => this.openSkillGuide(null));
+    grid.appendChild(resBtn);
     // Study: the Knowledge Codex, with Wisdom level and topic mastery (switched
     // off for now: see LEARNING_ENABLED in config.js).
     if (LEARNING_ENABLED) {
@@ -1577,7 +1581,7 @@ export class UI {
         const toNext = xpToNext(xp, maxLevelFor(sk.id));
         this._tip(cell, `<b>${sk.name}</b> &mdash; level ${lvl}<br>XP: ${formatNumber(Math.floor(xp))}<br>` +
           (toNext > 0 ? `Next level: ${formatNumber(toNext)} xp` : 'Maxed!') + this._lifePerkTip(sk.id, lvl) + this._slayerTip(sk.id, lvl));
-        // Life skills open a guide: what you can do now, what's next, and where.
+        // Every skill opens a guide: what you can gather, make or unlock, and where.
         if (SKILL_GUIDES[sk.id]) {
           cell.classList.add('has-guide');
           cell.addEventListener('click', () => this.openSkillGuide(sk.id));
@@ -1589,89 +1593,11 @@ export class UI {
     this.renderAlignment();
   }
 
-  /** A life skill's guide: what it's for, everything you can gather or make
-   *  at your level, what unlocks next, and a Go button to the nearest spot. */
-  openSkillGuide(skill) {
-    const g = this.game;
-    const sk = SKILLS.find((x) => x.id === skill);
-    const guide = SKILL_GUIDES[skill];
-    const render = (body) => {
-      const lvl = g.skills.level(skill);
-      const all = guideEntries(skill);
-      const can = all.filter((e) => e.level <= lvl);
-      const next = all.filter((e) => e.level > lvl).slice(0, 3);
-      body.innerHTML = '';
-      const head = document.createElement('div');
-      head.className = 'sg-head';
-      head.innerHTML = `<span class="skill-icon">${skillIconSVG(skill, 44)}</span>` +
-        `<div><b>${sk.name} · level ${lvl}</b><span>${guide.use}</span></div>`;
-      body.appendChild(head);
-      // Gathering skills can run on their own: auto gather moves you to the next node.
-      const AUTO_TEXT = {
-        woodcutting: 'when a tree, rock or spot runs dry, move on to the next one nearby. Gather more than one kind (say copper and tin) and it takes turns between them',
-        mining: 'when a tree, rock or spot runs dry, move on to the next one nearby. Gather more than one kind (say copper and tin) and it takes turns between them',
-        fishing: 'when a tree, rock or spot runs dry, move on to the next one nearby. Gather more than one kind (say copper and tin) and it takes turns between them',
-        hunter: 'when a trap or trail runs dry, move on to the next one nearby',
-        farming: 'harvest ripe patches and replant with your best seed, patch after patch',
-        thieving: 'keep picking the same pocket after each try',
-      };
-      if (AUTO_TEXT[skill]) {
-        const ag = document.createElement('button');
-        ag.className = 'sg-auto' + (g.autoGather ? ' on' : '');
-        ag.innerHTML = `<span class="ab-switch" aria-hidden="true"><i></i></span><span><b>Auto gather</b> ${g.autoGather ? 'On' : 'Off'}: ${AUTO_TEXT[skill]}</span>`;
-        ag.addEventListener('click', () => { g.toggleAutoGather(); render(body); });
-        body.appendChild(ag);
-      }
-      const where = guide.where || [...new Set(can.flatMap((e) => e.objIds || []))];
-      // Mining, Woodcutting and Fishing: tick the kinds you want and auto gather
-      // works through exactly those, taking turns between them.
-      const picking = PICK_SKILLS.has(skill);
-      if (picking) {
-        const n = can.filter((e) => e.objIds?.every((id) => g.gatherPicks.has(id))).length;
-        const bar = document.createElement('div');
-        bar.className = 'sg-picks';
-        bar.innerHTML = `<span>Tick what auto gather should do${n ? ` (<b>${n}</b> ticked)` : ' (none ticked: it does whatever you start on)'}.</span>`;
-        if (n) {
-          const go = document.createElement('button'); go.className = 'wm-go'; go.textContent = 'Start';
-          go.addEventListener('click', () => { g.startGatherPicks(); this.closeModal(); });
-          bar.appendChild(go);
-        }
-        body.appendChild(bar);
-      }
-      const row = (e, ok) => {
-        const r = document.createElement('div');
-        r.className = 'sg-row' + (ok ? '' : ' locked');
-        const ticked = picking && ok && e.objIds?.every((id) => g.gatherPicks.has(id));
-        r.innerHTML = (picking && ok && e.objIds ? `<label class="sg-pick" title="Auto gather this"><input type="checkbox"${ticked ? ' checked' : ''}></label>` : '')
-          + `<span class="sg-lvl">${e.level}</span><span class="sg-text"><b>${e.label}</b><span>${e.detail || ''}</span></span>`;
-        r.querySelector('.sg-pick input')?.addEventListener('change', () => { g.toggleGatherPick(e.objIds); render(body); });
-        // Go: walk to the nearest place you can do this (only for things you can do now).
-        if (ok && e.objIds && !guide.where) {
-          const b = document.createElement('button'); b.className = 'wm-go'; b.textContent = 'Go';
-          b.addEventListener('click', () => g.goToNearest(e.objIds));
-          r.appendChild(b);
-        }
-        return r;
-      };
-      if (guide.where) {
-        const go = document.createElement('button');
-        go.className = 'wm-go sg-where';
-        go.textContent = `Go to the nearest ${guide.where.map((id) => OBJECTS[id]?.name.toLowerCase() || id).join(' or ')}`;
-        go.addEventListener('click', () => g.goToNearest(where));
-        body.appendChild(go);
-      }
-      const sect = (title, items, ok) => {
-        if (!items.length) return;
-        const h = document.createElement('div'); h.className = 'skill-group'; h.textContent = title;
-        body.appendChild(h);
-        for (const e of items) body.appendChild(row(e, ok));
-      };
-      sect('Coming up next', next, false);
-      sect(`You can do now (${can.length})`, can.slice().reverse(), true);
-      if (!can.length && !next.length) body.insertAdjacentHTML('beforeend', '<div class="modal-hint">Nothing listed for this skill yet.</div>');
-    };
-    this.openModal(`${sk.name} guide`, render);
-    this.modal.kind = 'skillguide';
+  /** A skill's guide (skillguideui.js): every node or recipe with its level,
+   *  XP, inputs and outputs and where to go; for a fighting skill its perks,
+   *  gear and training spots. With no skill, the Resources index. */
+  openSkillGuide(skill, opts) {
+    openGuide(this, skill, opts);
   }
 
   /** The Knowledge Codex: Wisdom level, subject perks, your title, and a card
