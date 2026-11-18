@@ -77,6 +77,12 @@ const FLAP = { mosquito: 0.06, fruit_bat: 0.024, forest_drake: 0.013 };
 
 // --- measured from the sheets (tools: cut, fit against the assembled picture, bake) ---
 const RIG_DATA = {
+  imp: { plan: 'biped', kind: 'species', fit: 0.793,
+    order: ['tail', 'cape', 'arm_far', 'leg_far', 'leg_near', 'body', 'head', 'arm_near'],
+    piv: { body: [0.5334, 0.5476], head: [0.5456, 0.5207], cape: [0.4594, 0.4612], arm_near: [0.541, 0.5501], leg_near: [0.3784, 0.6442], leg_far: [0.5272, 0.6715], arm_far: [0.5072, 0.5161], tail: [0.5615, 0.4552], head_attack: [0.5456, 0.5207] } },
+  chicken: { plan: 'biped', kind: 'species', fit: 0.949,
+    order: ['cape', 'arm_far', 'leg_far', 'leg_near', 'body', 'head', 'arm_near'],
+    piv: { body: [0.5698, 0.613], head: [0.6166, 0.557], arm_far: [0.5491, 0.5997], leg_near: [0.4416, 0.7369], leg_far: [0.7512, 0.7326], cape: [0.4489, 0.6064], arm_near: [0.3629, 0.4681], head_attack: [0.6166, 0.557] } },
   wild_boar: { plan: 'quad', kind: 'species', fit: 0.802,
     order: ['tail', 'back_far', 'front_far', 'back_near', 'front_near', 'body', 'head'],
     piv: { body: [0.518, 0.5219], head: [0.5447, 0.4975], front_far: [0.7316, 0.632], front_near: [0.2744, 0.6498], back_far: [0.5603, 0.6377], tail: [0.2111, 0.5511], back_near: [0.4117, 0.6995], head_open: [0.5447, 0.4975] } },
