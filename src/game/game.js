@@ -4775,13 +4775,14 @@ export class Game {
       // (On auto quest's other fight steps, the nearest monster of any kind;
       // its boss trips find their own way.)
       if (this._questFamily || this._questTarget || (this.autoQuest && !this._questBoss) ? this._autoHeadToQuestHunt()
-        : !this.autoQuest && this._autoHeadToLevel()) return;   // (auto quest's boss trips find their own way)
+        : !this.autoQuest && this.autoCfg.priority !== 'only' && this._autoHeadToLevel()) return;   // (auto quest's boss trips find their own way; "only" doesn't wander to ordinary monsters)
       this._autoHeadNext = this.tickCount + 10;   // no route found: look again in a few seconds, not every tick
     }
     if (target) { this._autoLast = target; this._autoIdleSaid = false; this.attackNpc(target); }
     else if (!this._autoIdleSaid) {
       this._autoIdleSaid = true;
-      this.msg('Auto battle: nothing to fight nearby. Walk somewhere wilder and it will pick up again.', 'system');
+      this.msg(this.autoCfg.priority === 'only' ? 'Auto battle: no champions or bosses you can take on nearby. It waits here and picks up when one appears.'
+        : 'Auto battle: nothing to fight nearby. Walk somewhere wilder and it will pick up again.', 'system');
     }
   }
 
@@ -4954,7 +4955,8 @@ export class Game {
    *  alone), riding the MRT on long trips. True while a trip is under way. */
   _autoSeekBoss() {
     const p = this.player;
-    if (!this.autoCfg.bosses || this.autoCfg.priority === false || this.autoCfg.target || this._questTarget || this._questFamily) return false;
+    const only = this.autoCfg.priority === 'only';   // "Champions & bosses only" also seeks out champions
+    if ((!this.autoCfg.bosses && !only) || this.autoCfg.priority === false || this.autoCfg.target || this._questTarget || this._questFamily) return false;
     if (this._autoBossTrip) {
       if (p.isMoving) return true;
       // Arrived (or stopped short): within reach, the normal pick takes over.
@@ -4966,12 +4968,14 @@ export class Game {
     const inWild = !!this.world.zoneAt(p.x, p.y)?.wilderness;
     let best = null, bd = Infinity;
     for (const n of this.npcs) {
-      if (!n.alive || !n.def.boss || !n.attackable || n.def.fixed || n.temporary) continue;
+      const champ = only && n.champion && !n.def.boss && !this.autoQuest;
+      if (!n.alive || !(n.def.boss || champ) || !n.attackable || n.def.fixed || n.temporary) continue;
+      if (n.def.boss && !this.autoCfg.bosses && !only) continue;
       const d = chebyshev(p.x, p.y, n.x, n.y);
       if (d > BOSS_SEEK_TILES || d >= bd) continue;
       if (!inWild && this.world.zoneAt(n.x, n.y)?.wilderness) continue;
       if ((this._autoSkip.get(n.entityId) || 0) > this.tickCount) continue;
-      if (!this._autoCanBeat(n)) continue;
+      if (champ ? !this._autoChampionOk(n) : !this._autoCanBeat(n)) continue;
       best = n; bd = d;
     }
     if (!best || bd <= 20) return false;   // none, or already close: the normal pick handles it
@@ -5216,6 +5220,9 @@ export class Game {
     // fighting you). Either way a monster well below your level waits until
     // nothing in your level band is around.
     const first = this.autoCfg.priority !== false;
+    // "Champions & bosses only": ordinary monsters are left alone unless they
+    // attack you (or a quest or Slayer hunt, or a chosen monster type, asks for them).
+    const only = this.autoCfg.priority === 'only' && !this.autoCfg.target && !this._questTarget && !this._questFamily;
     // Champions are fair game at any level now (they used to be skipped when
     // well above you, which made auto battle look like it ignored them).
     // Bosses must pass _autoCanBeat.
@@ -5236,7 +5243,7 @@ export class Game {
         continue;
       }
       if (n.temporary) continue;
-      if (n.def.boss && !this.autoCfg.bosses && !this._questBoss) continue;
+      if (n.def.boss && !this.autoCfg.bosses && !this._questBoss && !only) continue;
       if ((this._autoSkip.get(n.entityId) || 0) > this.tickCount) continue;
       if (this.autoCfg.target && n.npcId !== this.autoCfg.target) continue;   // only the chosen monster type
       if (this._questTarget && n.npcId !== this._questTarget) continue;       // a quest hunt (e.g. rats for Pest Control)
@@ -5254,7 +5261,7 @@ export class Game {
       }
       // Then mini-bosses: gold-ringed champions within reach that you can take on.
       if (n.champion) {
-        if (this.autoCfg.champions === false) continue;   // "Champions: Skip"
+        if (this.autoCfg.champions === false && !only) continue;   // "Champions: Skip"
         // Auto quest leads: a champion's 30x-life fight would stall the quest, so one
         // that isn't attacking you is left alone while a quest is being followed.
         if (this.autoQuest) continue;
@@ -5263,6 +5270,7 @@ export class Game {
         { const tier = first ? -2000 : 0; cands.push({ n, score: d + tier, tier }); }
         continue;
       }
+      if (only) continue;   // "Champions & bosses only"
       const lvl = n.def.level || 1;
       // Only monsters up to a little above your level, near or far. (Close by
       // it used to fight anything, so a new character beside a pack's level 59
@@ -5271,7 +5279,8 @@ export class Game {
       // Monsters well below your level rank behind any in your level band.
       const weak = !this.autoCfg.target && !this._questTarget && !this._questFamily && lvl < this._autoBandLo(inWild);
       if (!inWild && wildZone(n.x, n.y)) continue;
-      if (!first) { cands.push({ n, score: d + (weak ? 2000 : 0), tier: weak ? 2000 : 0 }); continue; }
+      // "Nearest" really is the nearest: no ranking by level band, pack or wounds.
+      if (!first) { cands.push({ n, score: d, tier: 0 }); continue; }
       // Anything within 8 tiles first, then the rest. Among those, a monster in
       // a pack (every hit cleaves or splashes into its neighbours) and one
       // already hurt (a quick kill) are worth a few tiles' extra walk.

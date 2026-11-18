@@ -423,7 +423,7 @@ function loadFields(game, data) {
       abilities: ac.abilities !== false,
       bosses: ac.bosses !== false,
       champions: ac.champions !== false,
-      priority: ac.priority !== false,
+      priority: ac.priority === 'only' ? 'only' : ac.priority !== false,   // true: champions & bosses first; 'only'; false: nearest
       dodge: ac.dodge !== false,   // older saves: auto dodge stays on
     };
   }

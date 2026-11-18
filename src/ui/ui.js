@@ -481,7 +481,10 @@ export class UI {
         cfg.target, (v) => { cfg.target = v; });
       row('Bosses', 'take on bosses you can beat', [[true, 'Fight them'], [false, 'Skip']], cfg.bosses !== false, (v) => { cfg.bosses = v; });
       row('Champions', 'gold-ringed mini-bosses (one attacking you is always fought)', [[true, 'Fight them'], [false, 'Skip']], cfg.champions !== false, (v) => { cfg.champions = v; });
-      row('Targets', cfg.priority !== false ? 'bosses and champions first, even mid-fight' : 'the closest monster, by the walk there', [[true, 'Bosses & champions'], [false, 'Nearest']], cfg.priority !== false, (v) => { cfg.priority = v; });
+      const tHelp = cfg.priority === 'only' ? 'only champions and bosses (it goes looking for them); others only if they attack you'
+        : cfg.priority !== false ? 'bosses and champions first, even mid-fight, then anything else' : 'the closest monster, by the walk there';
+      row('Targets', tHelp, [[true, 'Champs & bosses first'], ['only', 'Champs & bosses only'], [false, 'Nearest']],
+        cfg.priority === 'only' ? 'only' : cfg.priority !== false, (v) => { cfg.priority = v; });
       row('Boss attacks', cfg.dodge !== false ? 'step out of the red ground markers for you' : 'stand your ground: dodging is left to you', [[true, 'Auto dodge'], [false, 'Off']], cfg.dodge !== false, (v) => { cfg.dodge = v; });
       row('Attack skills', 'spend adrenaline on your skills', [[true, 'Use them'], [false, 'Save adrenaline']], cfg.abilities, (v) => { cfg.abilities = v; });
       body.appendChild(list);
