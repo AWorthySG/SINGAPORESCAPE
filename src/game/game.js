@@ -379,6 +379,7 @@ export class Game {
     this.particles = [];
     this.cine = new Cinematics();   // camera lead/push-in, boss entrances, region title cards
     this.minimalHud = false;        // Settings > Minimal HUD (saved with the settings)
+    this.textSize = 'normal'; this.colourBlind = false; this.reduceMotion = false;   // Settings > Accessibility (saved too)
     this.worldLabels = 'smart';     // Settings > World labels: smart / all / off (render/worldlabels.js)
     this.tipsOn = true;             // Settings > Tips: On / Off
     this.tipsSeen = new Set();      // first-time tips this save has shown (ui/tips.js)
