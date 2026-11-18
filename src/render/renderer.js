@@ -1468,6 +1468,7 @@ export class Renderer {
     this._drawNodeLabels(ox, oy);
     const vw = game.camera.viewW, vh = game.camera.viewH;
     const mode = labelMode(game);
+    const placed = [];   // small names drawn so far this frame (to keep them apart)
     for (const n of (game.nearbyNpcs ? game.nearbyNpcs() : game.npcs)) {
       if (!n.alive) continue;
       const boss = n.def.boss;
@@ -1528,11 +1529,21 @@ export class Renderer {
         ctx.fillStyle = n.champion ? '#F5B82E' : '#ff7a5a'; ctx.fillText(label, px, py);
       } else if (named && !(n.chatTimer > 0)) {
         // Everyone else: a smaller name, coral for a foe and white for townsfolk.
-        // A foe in a fight wears it under its feet, leaving the space over its
-        // head to the health bar, tag and damage numbers.
-        const bar = n.combatLatch > 0 || targeted;
-        const px = c.x - ox, py = bar ? c.y - oy + 16 * sc + 12 : c.y - oy + yo + 2 - (moral ? 14 : 0);
+        // A foe wears it under its feet, leaving the space over its head (and
+        // over yours, when it stands beside you) to health bars, the tag and
+        // damage numbers.
+        const feet = n.attackable || n.combatLatch > 0 || targeted;
+        const px = c.x - ox;
+        let py = feet ? c.y - oy + 16 * sc + 12 : c.y - oy + yo + 2 - (moral ? 14 : 0);
         ctx.font = '800 10px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+        // Two foes side by side would print their names over each other: step
+        // this one down a line (twice at most), or leave it off if still crowded.
+        const hw = ctx.measureText(n.name).width / 2 + 2;
+        const hits = (y) => placed.some((r) => Math.abs(r.x - px) < r.hw + hw && Math.abs(r.y - y) < 11);
+        let tries = 0;
+        while (hits(py) && tries < 2) { py += 11; tries++; }
+        if (hits(py) && !targeted) continue;   // (your target's name always shows)
+        placed.push({ x: px, y: py, hw });
         ctx.strokeStyle = '#22304A'; ctx.lineWidth = 3; ctx.strokeText(n.name, px, py);
         ctx.fillStyle = n.attackable ? '#ffb39a' : '#FFFFFF'; ctx.fillText(n.name, px, py);
       }
