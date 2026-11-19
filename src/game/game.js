@@ -81,6 +81,9 @@ import { QUESTS, CHAMPION_QP, REDEMPTION_GOAL, CORRUPTION_GOAL } from '../data/q
 import { CLUE_TIERS, CLUE_SPOTS, clueTierForLevel } from '../data/clues.js';
 import * as RQ from './regionquests.js';   // region story quests
 import { Story } from './story.js';   // the main story, lore pages, story events and scenes
+import * as Life from './npclife.js';   // living NPCs, region reputation, consequences (npclife.js)
+import { repPriceMult, repTitleText } from './reputation.js';
+import { consequencePriceMult } from './consequences.js';
 
 // Auto quest: the dialogue actions that start and hand in each quest it can
 // do ([start, hand-in]; Pest Control completes itself on the last rat). The
@@ -1125,6 +1128,7 @@ export class Game {
     this.worldEvents.tick();
     this._tickTownGuards();
     this._tickGreetings();
+    Life.tickLife(this);   // routines, chats, remarks, reputation (npclife.js)
     this.cine.tick(this);   // fight push-in, and a boss's entrance the first time it engages
     this._tickIgnites();
     this._tickWounds();
@@ -3068,7 +3072,7 @@ export class Game {
   }
   /** Overhead title, colour and aura for the current alignment (alignment.js). */
   alignmentStyle() {
-    const a = this.alignment(), t = Culling.titleText(this);   // asked every frame by the renderer: kept until either changes
+    const a = this.alignment(), t = Culling.titleText(this) || repTitleText(this);   // asked every frame by the renderer: kept until either changes
     // A Neutral hero has no alignment title, so a codex title they wear shows instead.
     if (this._alStyle?.a !== a || this._alStyle.t !== t) { const st = alignmentStyle(a); this._alStyle = { a, t, ...st, label: st.label || t }; }
     return this._alStyle;
@@ -3084,10 +3088,12 @@ export class Game {
     return { buy: 1, sell: 1 };
   }
 
-  /** Shop prices: karma, then the Economics Trader perk from mastered topics. */
-  priceFactor() {
+  /** Shop prices: karma, then the Economics Trader perk from mastered topics,
+   *  then (buying at `shopId`) your standing in the region and your choices. */
+  priceFactor(shopId = null) {
     const k = this.karmaFactor(), t = this.learning.perks().shop;
-    return { buy: k.buy * (1 - t), sell: k.sell * (1 + t) };
+    const local = shopId ? repPriceMult(this, this.currentZoneName) * consequencePriceMult(this, shopId) : 1;
+    return { buy: k.buy * (1 - t) * local, sell: k.sell * (1 + t) };
   }
 
   // ---------------- Moral choice encounters (moralEvents.js) ----------------
@@ -3373,6 +3379,7 @@ export class Game {
     this._deathBurst(npc);
     this.rollDrops(npc);
     this.pets.onKill(npc);   // a boss's very rare pet (pets.js)
+    Life.lifeOnKill(this, npc, onTask);   // region reputation and the deeds townsfolk talk about
     // Slayer: a task monster sometimes drops a second helping of loot.
     if (onTask && Math.random() < this.slayerBonus().loot / 100) { this.rollDrops(npc); this.msg('Slayer bonus: extra loot!', 'system'); }
     if (npc.worldBoss) { for (let k = 1; k < WORLD_BOSS_LOOT_ROLLS; k++) this.rollDrops(npc); this.msg('World Boss slain! Triple loot.', 'level'); }
@@ -5430,10 +5437,11 @@ export class Game {
 
   defaultNpcAction(npc) {
     if (npc.attackable) return this.attackNpc(npc);
-    if (npc.def.role === 'shop') return this.beginAction({ type: 'openshop', shop: npc.def.shop, target: { x: npc.x, y: npc.y } }, { x: npc.x, y: npc.y }, true);
-    if (npc.def.role === 'bank') return this.beginAction({ type: 'openbank', target: { x: npc.x, y: npc.y } }, { x: npc.x, y: npc.y }, true);
     if (npc.def.role === 'mark') return this.startPickpocket(npc);   // a Thieving mark has nothing to say
-    return this.beginAction({ type: 'talk', npc, target: { x: npc.x, y: npc.y } }, { x: npc.x, y: npc.y }, true);
+    const at = Life.holdNpc(this, npc);   // they stop and turn to you (npclife.js)
+    if (npc.def.role === 'shop') return this.beginAction({ type: 'openshop', shop: npc.def.shop, target: at }, at, true);
+    if (npc.def.role === 'bank') return this.beginAction({ type: 'openbank', target: at }, at, true);
+    return this.beginAction({ type: 'talk', npc, target: at }, at, true);
   }
 
   defaultObjectAction(obj) {
@@ -6849,7 +6857,7 @@ export class Game {
   // ---------------- Shop trading ----------------
   buyItem(shopId, itemId, qty = 1) {
     const shop = getShop(shopId);
-    const price = Math.max(1, Math.round(getItem(itemId).value * shop.buyMul * this.priceFactor().buy));
+    const price = Math.max(1, Math.round(getItem(itemId).value * shop.buyMul * this.priceFactor(shopId).buy));
     let bought = 0;
     // Stackables (runes, arrows...) are bought in one go: as many as your coins
     // cover, up to the amount asked for (a thousand at a time is common).
