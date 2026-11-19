@@ -148,6 +148,11 @@ export function resolveWoodcut(game, action) {
   return true;
 }
 
+// Each rock holds a random 10-20 ores (the owner's call), rolled when it is
+// first struck and again after it regrows; it is mined out when they run dry.
+export const ROCK_ORES_MIN = 10, ROCK_ORES_MAX = 20;
+export const rollRockOres = (rand = Math.random) => ROCK_ORES_MIN + Math.floor(rand() * (ROCK_ORES_MAX - ROCK_ORES_MIN + 1));
+
 export function resolveMine(game, action) {
   const { obj } = action;
   const def = obj.def;
@@ -164,14 +169,16 @@ export function resolveMine(game, action) {
   // Every swing at a rock you can mine now succeeds (the owner's call: no
   // more swinging at nothing); level still decides which rocks you can mine.
   {
+    if (typeof obj.oresLeft !== 'number') obj.oresLeft = rollRockOres();
     game.inventory.add(yieldId, 1);
     game.skills.addXp('mining', def.xp);
     const mc = objCenter(obj); game.spawnPoof(mc.x, mc.y, def.ore || '#cfcfcf');
     game.world.shake(obj, 280); game.bus.emit('sfx', 'gather'); // the rock judders as ore breaks free
     const oreName = getItem(yieldId).name.toLowerCase();
     // Rich seam: a chance at a second yield.
-    if (Math.random() < 0.04 + lvl * 0.001 + yieldBonus(game) && game.inventory.canAdd(yieldId, 1) > 0) {
+    if (obj.oresLeft > 1 && Math.random() < 0.04 + lvl * 0.001 + yieldBonus(game) && game.inventory.canAdd(yieldId, 1) > 0) {
       game.inventory.add(yieldId, 1);
+      obj.oresLeft--;   // the bonus ore comes out of the rock's 10-20
       game.msg(`A rich seam — double ${oreName}!`);
     } else {
       game.msg(def.gemRock ? `You chip out a ${oreName}!` : `You manage to mine some ${oreName}.`);
@@ -186,8 +193,11 @@ export function resolveMine(game, action) {
         game.msg(`You unearth a ${getItem(gem.id).name.toLowerCase()}!`, 'level');
       }
     }
+    if (--obj.oresLeft > 0) return true;   // ore left in the seam: keep swinging
+    obj.oresLeft = undefined;              // a fresh amount is rolled once it regrows
     obj.depleted = true;
     obj.respawnTimer = def.respawn;
+    game.msg('The rock is mined out.');
     return false; // rock depletes; player must find another
   }
 }
