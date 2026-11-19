@@ -16,9 +16,9 @@
 // Codex's description.
 
 // Level bands (old loot-tier levels) of the starting island's regions, which
-// have none of their own in world.js. The new monsters keep inside them.
+// have none of their own in world.js. The new monsters and bosses keep inside them.
 export const ISLAND_BANDS = {
-  'Bukit Timah': [5, 45], 'MacRitchie Reservoir': [5, 45], 'Sentosa Beach': [8, 48],
+  'Bukit Timah': [5, 60], 'MacRitchie Reservoir': [5, 45], 'Sentosa Beach': [8, 48],
   'The Wilderness': [30, 124], 'Pulau Hantu': [40, 124],
 };
 
