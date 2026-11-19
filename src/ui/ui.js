@@ -43,7 +43,7 @@ import { STATIONS, MRT_FARE } from '../data/transport.js';
 import { EQUIP_SLOTS, canDualPair, isTwoHanded, offhandBlocked, takesQuiver } from '../game/equipment.js';
 import { streakMult } from '../game/bounty.js';
 import { itemCategory } from '../game/inventory.js';
-import { MASTERY_RANKS, MAX_ENCHANTS, rankProgress, enchantLabel, masteryTypeName, STONE as UP_STONE, WARD as UP_WARD } from '../game/mastery.js';
+import { MASTERY_RANKS, MAX_ENCHANTS, rankProgress, enchantLabel, compareEnchantOffer, masteryTypeName, STONE as UP_STONE, WARD as UP_WARD } from '../game/mastery.js';
 import { MAX_REFINE, SCROLL as REFINE_SCROLL, refineCost, refineOdds, refineTag, refinedBonuses } from '../game/refine.js';
 import { planCarry, carrySummary } from '../game/carry.js';
 import { MATERIAL_KINDS, feedKind, FEED_CAP, FEED_CAP_RANK, materialKind } from '../game/materials.js';
@@ -1509,7 +1509,9 @@ export class UI {
         box.insertAdjacentHTML('beforeend', `<div class="ench-head">${full ? `Replacing ${enchantLabel(lines[replace])}. ` : ''}Choose one:</div>`);
         g.enchantOffers(id, copy).forEach((o, i) => {
           // Picking a line stays on this piece (the owner found jumping back to the list clunky).
-          const b = button(enchantLabel(o), () => { if (g.pickEnchant(id, i, replace, copy)) { done = o; replace = null; } redraw(body, render); }, 'active ench-offer');
+          // Each offer says how it measures up against the lines the piece already has.
+          const v = compareEnchantOffer(o, lines, replace);
+          const b = button(`${enchantLabel(o)}<span class="ench-verdict ${v.kind}">${escapeHtml(v.text)}</span>`, () => { if (g.pickEnchant(id, i, replace, copy)) { done = o; replace = null; } redraw(body, render); }, 'active ench-offer');
           b.disabled = !can;
           box.appendChild(b);
         });

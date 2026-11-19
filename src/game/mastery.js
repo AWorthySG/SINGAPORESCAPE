@@ -175,6 +175,43 @@ export function enchantLabel(line) {
   return `+${line.value}% ${ENCHANT_LABELS[line.stat] || line.stat}`;
 }
 
+/** How an offered line compares with the lines the item already has, for the
+ *  tag on each offer in the Enchant window: { kind, text }. The rules: lines
+ *  stack (two crit chance lines add up, see enchantedBonuses), a line of one
+ *  stat is the same size wherever it lands on an item (only lines from an old
+ *  save can differ), and a full item's pick takes the place of the line chosen
+ *  (`replace`). So:
+ *   - a free slot and no line of that stat: 'new', it adds a line;
+ *   - a free slot and a line of that stat: 'stack', with the total;
+ *   - replacing a line of the same stat: 'better', 'weaker' or 'same';
+ *   - replacing a line of another stat: 'stack' if another line has the
+ *     offer's stat, else 'swap' (a new stat in place of the old one). */
+export function compareEnchantOffer(offer, lines = [], replace = null) {
+  const same = (l) => l.stat === offer.stat;
+  const name = ENCHANT_LABELS[offer.stat] || offer.stat;
+  const full = lines.length >= MAX_ENCHANTS;
+  // Full with no line chosen yet: measure against a line of the same stat, if any.
+  if (full && !(Number.isInteger(replace) && lines[replace])) {
+    const i = lines.findIndex(same);
+    replace = i >= 0 ? i : null;
+    if (replace == null) return { kind: 'swap', text: 'A new stat, in place of one of your lines' };
+  }
+  if (full) {
+    const old = lines[replace];
+    if (same(old)) {
+      if (offer.value > old.value) return { kind: 'better', text: `▲ Better than your current ${enchantLabel(old)}` };
+      if (offer.value < old.value) return { kind: 'weaker', text: `▼ Weaker than your current ${enchantLabel(old)}` };
+      return { kind: 'same', text: `= Same as the ${enchantLabel(old)} it replaces` };
+    }
+    const kept = lines.filter((l, i) => i !== replace && same(l));
+    if (kept.length) return { kind: 'stack', text: `Stacks with your ${name}: +${kept.reduce((t, l) => t + l.value, offer.value)}% in all` };
+    return { kind: 'swap', text: `New stat, in place of ${enchantLabel(old)}` };
+  }
+  const have = lines.filter(same);
+  if (!have.length) return { kind: 'new', text: 'New: adds a line' };
+  return { kind: 'stack', text: `Stacks with your ${name}: +${have.reduce((t, l) => t + l.value, offer.value)}% in all` };
+}
+
 /** Add an item's enchant lines to its bonuses. */
 export function enchantedBonuses(current = {}, lines = []) {
   if (!lines.length) return current;
