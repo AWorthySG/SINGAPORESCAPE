@@ -42,7 +42,10 @@ export const MERC_SHARE = 0.5;            // a mercenary hits for half the Merch
 // Capped, so it can't run away at very high levels. Raised a touch (from 1.9 +
 // 0.0014 a level, capped at 2.4) once harmless kills stopped turning auto
 // battlers to the Dark path, whose crits had flattered the Merchant's boss damage.
-export const MERCHANT_POWER = 2.0, MERCHANT_POWER_PER_LEVEL = 0.0017, MERCHANT_POWER_MAX = 2.6;
+// Raised by about 30% (from 2.0 + 0.0017 a level, capped at 2.6) when the
+// Brawler's Open Wounds made it a stronger boss killer: the owner wants the
+// Merchant on top, without weakening the Brawler.
+export const MERCHANT_POWER = 2.6, MERCHANT_POWER_PER_LEVEL = 0.0022, MERCHANT_POWER_MAX = 3.4;
 export const merchantPower = (game) => (game.jobClass !== 'merchant' ? 1
   : Math.min(MERCHANT_POWER_MAX, MERCHANT_POWER + MERCHANT_POWER_PER_LEVEL * Math.max(0, game.skills.ranged - 50)));
 // The coins the Merchant and its allies throw scatter into up to ALLY_SCATTER_FOES
