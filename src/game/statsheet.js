@@ -9,6 +9,7 @@
 // same way, step for step; tests/statsheet.test.mjs checks them against real
 // attacks so the two can't drift apart unnoticed.
 import { TICK_MS, COMBAT_BEAT_MS } from '../config.js';
+import { shortNumber } from '../core/utils.js';
 import {
   playerAttackVsNpc, playerRangedVsNpc, playerMagicVsNpc, playerDanceVsNpc, levelBonuses,
   critChance, danceEvade, weaknessOf, armourOf, armourMult, WEAKNESS_BONUS, RANGED_TYPE_DMG,
@@ -31,7 +32,8 @@ const MODE_NAMES = { melee: 'Melee', ranged: 'Ranged', magic: 'Magic', dance: 'W
 
 // ---- Small formatters (plain text; the panel escapes nothing it doesn't need to) ----
 const r1 = (v) => Math.round(v * 10) / 10;
-const num = (v) => (Math.abs(v) >= 1000 ? Math.round(v).toLocaleString('en-GB') : String(r1(v)));
+// (Big values shorten, "12.3K", so the column stays narrow on a phone.)
+const num = (v) => (Math.abs(v) >= 1000 ? shortNumber(Math.round(v)) : String(r1(v)));
 const pct = (v, sign = true) => `${sign && v > 0 ? '+' : ''}${r1(v)}%`;   // v already in percent
 const fracPct = (f, sign = true) => pct(f * 100, sign);                  // f a fraction
 const times = (m) => `×${Math.round(m * 1000) / 1000}`;

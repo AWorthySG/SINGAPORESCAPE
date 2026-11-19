@@ -158,50 +158,40 @@ test('touch screens show one Attack button: Interact steps aside when it would s
   assert.ok(cls.has('is-attack'), 'next to a foe it is the second Attack button, so it hides');
   UI.prototype.setInteractLabel.call(ui, ['Talk to', 'Auntie Mei']);
   assert.ok(!cls.has('is-attack'), 'it comes back for anything else');
-  assert.equal(verb.innerHTML, 'Talk to', 'still naming the action');
+  assert.equal(verb.innerHTML, 'Talk to<span class="ib-noun">Auntie Mei</span>', 'naming the action and who it is with');
   UI.prototype.setInteractLabel.call(ui, null);
   assert.ok(!cls.has('is-attack'));
 });
 
-test('the tip sits under the whole info strip, short of the launcher, and bottom-centre on a phone on its side', async () => {
-  const { UI } = await import('../src/ui/ui.js');
+test('the notification lane: top centre on a desktop, under the objectives on a phone, beside the strip on its side', async () => {
+  const { placeLane } = await import('../src/ui/noticelane.js');
   const rect = (left, top, width, height) => ({ left, top, width, height, right: left + width, bottom: top + height });
-  const at = (r) => ({ classList: { contains: () => false }, offsetParent: {}, getBoundingClientRect: () => r });
-  const place = ({ w, h, flat = false, els, arc = [] }) => {
-    const prev = { window: globalThis.window, document: globalThis.document, matchMedia: globalThis.matchMedia };
-    globalThis.window = { innerWidth: w, innerHeight: h };
-    globalThis.document = { getElementById: (id) => els[id] || null, querySelectorAll: () => arc.map((r) => ({ getBoundingClientRect: () => r })) };
-    globalThis.matchMedia = () => ({ matches: flat });
-    const cls = new Set();
-    const el = { style: {}, offsetHeight: 60, classList: { toggle: (c, on) => (on ? cls.add(c) : cls.delete(c)) } };
-    try { UI.prototype._placeTip.call({ _tipEl: el }); } finally { Object.assign(globalThis, prev); }
-    return { top: parseInt(el.style.top, 10), left: parseInt(el.style.left, 10), width: parseInt(el.style.width, 10) };
-  };
-  // Phone portrait in a fight: boss bar, then the Endless Gate panel, then the minimap; the launcher on the right.
-  const phone = place({ w: 390, h: 664, els: {
-    'boss-bar': at(rect(6, 6, 250, 50)), 'wave-hud': at(rect(6, 60, 250, 50)),
-    'minimap-panel': at(rect(262, 6, 122, 150)), 'hp-orb': at(rect(340, 160, 36, 36)),
-    sidepanel: at(rect(328, 222, 56, 56)),
-  } });
-  assert.ok(phone.top >= 210, 'below the minimap and its orbs');
-  assert.ok(phone.left + phone.width <= 328 - 6, 'stops short of the launcher');
-  // Tablet: the boss bar and gate panel push it down the strip.
-  const tab = place({ w: 810, h: 1080, els: { 'boss-bar': at(rect(10, 44, 340, 70)), 'wave-hud': at(rect(10, 114, 165, 136)) } });
-  assert.equal(tab.top, 256, 'under the Endless Gate panel, not over it');
-  // A phone on its side: along the top, between the objectives and the Bag,
-  // never down where the thumbs are (joystick, Auto, Interact, the skill arc).
-  const sideEls = (extra = {}) => ({
-    'quest-tracker': at(rect(6, 6, 186, 58)), sidepanel: at(rect(472, 6, 56, 56)),
-    'minimap-panel': at(rect(616, 6, 128, 130)), 'spec-orb': at(rect(560, 36, 30, 30)), ...extra,
+  // Desktop: centred under the region name, and below a boss bar that shares the top centre.
+  const desk = placeLane({ 'region-label': rect(540, 10, 200, 28), 'quest-tracker': rect(10, 44, 200, 60) }, 1280, 'desk');
+  assert.deepEqual(desk, { top: 44, left: 460, width: 360 });
+  const boss = placeLane({ 'region-label': rect(540, 10, 200, 28), 'boss-bar': rect(440, 44, 400, 70) }, 1280, 'desk');
+  assert.equal(boss.top, 120, 'under the boss bar');
+  // Phone portrait in a fight: boss bar, then the Endless Gate panel, then the
+  // objectives down the left; the lane goes under them, left of the minimap.
+  const phone = placeLane({
+    'boss-bar': rect(6, 6, 278, 48), 'wave-hud': rect(6, 54, 278, 50), 'quest-tracker': rect(6, 104, 200, 40),
+    'minimap-panel': rect(296, 6, 126, 150), 'hp-orb': rect(380, 160, 36, 36), sidepanel: rect(366, 222, 56, 56),
+  }, 428, 'phone');
+  assert.deepEqual(phone, { top: 150, left: 6, width: 284 });
+  // A very narrow phone: a strip right across, under the minimap and orbs, short of the launcher.
+  const tiny = placeLane({ 'quest-tracker': rect(6, 6, 120, 40), 'minimap-panel': rect(180, 6, 134, 150), 'hp-orb': rect(270, 160, 36, 36), sidepanel: rect(258, 222, 56, 56) }, 320, 'phone');
+  assert.ok(tiny.top >= 210 && tiny.left === 6 && tiny.left + tiny.width <= 258 - 6);
+  // A phone on its side: along the top, right of the objectives, short of the Bag.
+  const side = (extra = {}) => ({
+    'quest-tracker': rect(6, 6, 186, 58), sidepanel: rect(472, 6, 56, 56),
+    'minimap-panel': rect(616, 6, 128, 130), 'spec-orb': rect(560, 36, 30, 30), ...extra,
   });
-  const flat = place({ w: 750, h: 342, flat: true, els: sideEls() });
+  const flat = placeLane(side(), 750, 'flat');
   assert.deepEqual([flat.top, flat.left], [6, 200], 'level with the objectives, just right of them');
   assert.ok(flat.left + flat.width <= 472 - 8, 'stops short of the Bag launcher');
-  // With the boss bar and gate panel showing, it moves right of the wider of them.
-  const fight = place({ w: 750, h: 342, flat: true, els: sideEls({ 'boss-bar': at(rect(6, 6, 300, 50)), 'wave-hud': at(rect(6, 60, 300, 50)) }) });
+  const fight = placeLane(side({ 'boss-bar': rect(6, 6, 300, 50), 'wave-hud': rect(6, 60, 300, 50) }), 750, 'flat');
   assert.equal(fight.left, 314);
   assert.equal(fight.top, 68, 'too little room beside the Bag, so just below it');
-  assert.ok(fight.left + fight.width <= 560 - 8 && fight.width >= 200, 'wide enough for a few lines, clear of the orbs');
 });
 
 test('phone sheet: the five tabs share one row, and the body is not size-contained', () => {

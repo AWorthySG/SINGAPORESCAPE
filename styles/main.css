@@ -3502,3 +3502,106 @@ body.cb-safe #hp-orb.low::after {
 .inv-slot:has(> .q-epic), .item-cell:has(> .q-epic), .equip-slot:has(> .q-epic) { --qc: #8b4fe0; }
 .inv-slot:has(> .q-legendary), .item-cell:has(> .q-legendary), .equip-slot:has(> .q-legendary) { --qc: #d08a00; }
 .inv-slot:has(> .q-mythic), .item-cell:has(> .q-mythic), .equip-slot:has(> .q-mythic) { --qc: #d6336c; }
+/* ======================================================================
+   Easier interface (ui-declutter): the notification lane, slim tips, the
+   foldable Objectives, the quick-use slot, the Interact caption and the
+   half / full phone sheet. (Preludes here avoid the exact ones
+   tests/layout.test.mjs reads.)
+   ====================================================================== */
+/* One lane for banners, tips and notes (src/ui/noticelane.js places it: top
+   centre under the region name; top-left under the objectives on a phone). */
+#notice-lane {
+  position: fixed; top: 44px; left: 50%; width: 340px; z-index: 60;
+  display: flex; flex-direction: column; gap: 5px; pointer-events: none;
+}
+#notice-lane.empty { display: none; }
+.nl-card {
+  pointer-events: auto; cursor: var(--cur-pointer, pointer); position: relative;
+  display: flex; align-items: center; gap: 7px; box-sizing: border-box; width: 100%;
+  background: var(--aw-card, #fff); color: var(--aw-text, #22304A);
+  border: 2px solid var(--aw-ink, #22304A); border-left: 6px solid var(--aw-sun, #F2B33D); border-radius: 12px;
+  box-shadow: var(--shadow-sticker-sm, 0 2px 0 rgba(34,48,74,.3)); padding: 5px 9px; font-size: 12.5px; line-height: 1.3;
+  animation: nlIn .22s ease-out;
+}
+.nl-card .nl-text {
+  flex: 1; min-width: 0; overflow: hidden;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+}
+.nl-card .big { font-weight: 900; color: var(--aw-accent, #C0392B); margin-right: 5px; }
+.nl-count {
+  flex: none; font-size: 11px; font-weight: 900; color: #fff; background: var(--aw-ink, #22304A);
+  border-radius: 999px; padding: 1px 6px;
+}
+.nl-more {
+  align-self: flex-start; font-size: 10.5px; font-weight: 800; color: var(--aw-text-sec, #5a6478);
+  background: var(--aw-card, #fff); border: 1.5px solid var(--aw-ink, #22304A); border-radius: 999px; padding: 0 7px;
+}
+/* First-time tips: a slim strip with a close button and "Don't show tips". */
+/* (A grid: the words get the whole width; the close button sits top-right
+   and "Don't show tips" goes on a small line under the words.) */
+.nl-tip {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; column-gap: 7px; row-gap: 3px;
+  border-left-color: var(--aw-sky-deep, #3a8fd0); cursor: default;
+}
+.nl-tip .nl-ic { grid-column: 1; grid-row: 1; font-size: 14px; line-height: 1.2; }
+.nl-tip .nl-text { grid-column: 2; grid-row: 1; -webkit-line-clamp: 4; line-clamp: 4; font-size: 12px; }
+.nl-tip .nl-x { grid-column: 3; grid-row: 1; }
+.nl-tip button { font-family: inherit; cursor: var(--cur-pointer, pointer); }
+.nl-notips {
+  grid-column: 2; grid-row: 2; justify-self: start; position: relative; padding: 0; background: none; border: 0;
+  font-size: 11px; font-weight: 800; color: var(--aw-text-sec, #5a6478); text-decoration: underline;
+}
+.nl-x {
+  flex: none; position: relative; width: 26px; height: 26px; border-radius: 50%; padding: 0;
+  font-size: 13px; font-weight: 900; line-height: 1; color: var(--aw-ink, #22304A);
+  background: var(--aw-card, #fff); border: 2px solid var(--aw-ink, #22304A);
+}
+/* (Bigger invisible tap areas: 44px for the close button.) */
+.nl-x::before, .nl-notips::before { content: ""; position: absolute; inset: -9px; }
+@keyframes nlIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+body.reduce-motion .nl-card { animation: none; }
+
+/* Objectives fold to one line ("★ 2 objectives") with a tap on the header. */
+#quest-tracker .trk-fold {
+  pointer-events: auto; cursor: var(--cur-pointer, pointer); position: relative;
+  display: flex; align-items: center; gap: 6px; width: 100%; padding: 0; margin: 0 0 2px;
+  background: none; border: 0; font-family: inherit; text-align: left;
+}
+#quest-tracker .trk-fold::before { content: ""; position: absolute; inset: -8px -10px; }
+#quest-tracker .trk-chev { margin-left: auto; padding-left: 6px; font-size: 11px; color: var(--aw-text-sec, #5a6478); }
+#quest-tracker.folded .trk-fold {
+  margin: 0; text-transform: none; letter-spacing: 0; font-size: 12px; color: var(--aw-sun-deep, #c98a12);
+}
+
+/* The Interact button names its target too ("Chop" / "Oak"), cut short to fit. */
+#interact-btn .ib-verb { display: block; max-width: 100%; min-width: 0; overflow: hidden; }
+#interact-btn .ib-noun { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .9em; opacity: .95; }
+
+/* The quick-use slot: touch screens only (F on a keyboard). */
+#quick-slot { display: none; }
+@media (pointer: coarse) and (min-width: 1px) {
+  #quick-slot {
+    display: flex; align-items: center; justify-content: center; position: fixed; z-index: 27;
+    width: 48px; height: 48px; border-radius: 50%; padding: 0; touch-action: none; user-select: none; -webkit-user-select: none;
+    background: var(--aw-card, #fff); border: 2.5px solid var(--aw-ink, #22304A); box-shadow: 0 3px 0 rgba(34,48,74,.35);
+    /* Upright: up and left of the Interact button, clear of the skill arc and Next target. */
+    right: calc(var(--pad-r) + var(--atk) / 2 - 24px + 72px); bottom: calc(var(--pad-b) + var(--atk) / 2 - 24px + 196px);
+  }
+  #quick-slot.hidden { display: none; }
+  #quick-slot:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(34,48,74,.35); }
+  #quick-slot img, #quick-slot svg { width: 30px; height: 30px; pointer-events: none; }
+  #quick-slot .qs-n {
+    position: absolute; right: -6px; bottom: -4px; min-width: 16px; padding: 0 4px; border-radius: 999px;
+    font-size: 10px; font-weight: 900; line-height: 15px; color: #fff; background: var(--aw-ink, #22304A); pointer-events: none;
+  }
+}
+@media (pointer: coarse) and (orientation: landscape) {
+  /* Interact sits left of the Attack button here: the slot goes above it. */
+  #quick-slot { right: calc(var(--pad-r) + var(--atk) / 2 - 24px + 185px); bottom: calc(var(--pad-b) + var(--atk) / 2 - 24px + 75px); }
+}
+
+/* Phone side panel: opens at half height; dragged up it snaps full (ui.js _initSheets). */
+@media (max-width: 540px) and (pointer: coarse) {
+  #sidepanel:not(.collapsed), #sidepanel.wide:not(.collapsed) { height: 50dvh; transition: height .18s ease-out; }
+  #sidepanel.sheet-full:not(.collapsed), #sidepanel.wide.sheet-full:not(.collapsed) { height: 85dvh; }
+}

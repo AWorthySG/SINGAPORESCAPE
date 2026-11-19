@@ -64,24 +64,21 @@ test('a wave banner names the real count and goes when you leave the gate', asyn
   // and the 3s banner outlived the run. Uses the real banner methods from ui.js.
   const { UI } = await import('../src/ui/ui.js');
   const g = newGame();
-  const cls = new Set(['hidden']);
-  const banner = { innerHTML: '', classList: { add: (c) => cls.add(c), remove: (c) => cls.delete(c) } };
-  const fake = { el: { banner } };
+  const fake = { el: {} };
   g.ui = new Proxy(fake, { get: (t, k) => (k in t ? t[k] : typeof UI.prototype[k] === 'function' && /Banner$/.test(k) ? UI.prototype[k].bind(t) : () => {}) });
-  try {
-    placeAt(g, GATE.x - 1, GATE.y + 1);
-    g.waves.enter();
-    nextWave(g);
-    assert.equal(g.waves.wave, 1);
-    assert.ok(!cls.has('hidden'), 'the wave banner is up');
-    assert.match(banner.innerHTML, new RegExp(`${waveCount(1)} monsters`), 'it counts the wave, not what is left in the queue');
-    assert.ok(g.waves.leave());
-    assert.ok(cls.has('hidden'), 'leaving takes the wave banner down at once');
-    // Someone else's banner (a level-up, say) is left alone.
-    g.ui.showBanner('Level up!');
-    g.ui.hideBanner('waves');
-    assert.ok(!cls.has('hidden'), 'only the gate\'s own banner is cleared');
-  } finally { clearTimeout(fake._bannerTimer); }
+  // (Banners go to the notification lane: headless it keeps the queue and draws nothing.)
+  const shown = () => fake.lane.queue.items.map((x) => x.html).join(' | ');
+  placeAt(g, GATE.x - 1, GATE.y + 1);
+  g.waves.enter();
+  nextWave(g);
+  assert.equal(g.waves.wave, 1);
+  assert.match(shown(), new RegExp(`${waveCount(1)} monsters`), 'the wave banner is up, counting the wave, not what is left in the queue');
+  assert.ok(g.waves.leave());
+  assert.doesNotMatch(shown(), /Wave 1/, 'leaving takes the wave banner down at once');
+  // Someone else's banner (a level-up, say) is left alone.
+  g.ui.showBanner('Level up!');
+  g.ui.hideBanner('waves');
+  assert.match(shown(), /Level up!/, 'only the gate\'s own banner is cleared');
 });
 
 test('the exit portal and the gate work through the normal interact routing', () => {
