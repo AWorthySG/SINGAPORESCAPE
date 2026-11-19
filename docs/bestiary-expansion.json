@@ -1,0 +1,3254 @@
+{
+  "title": "Bestiary expansion (Nov 2026): art brief manifest",
+  "style": "A-Worthy cute chibi sticker style: navy ink outlines, bright but soft colours, big expressive eyes, gentle shading. Deliver on a plain white background with NO white sticker border (the game adds its own die-cut border). One creature per picture, full body, feet or base at the bottom, three-quarter view facing right.",
+  "howToRegister": "Save the file named in artNeeded and add the family (species) or boss id to SPECIES_ART or BOSS_ART in src/render/sprites.js; the borrowed picture and tint from src/data/bestiary.js then stop being used automatically. tests/render.test.mjs keeps the registries in lock-step with the files on disk. A species shares one picture across its three forms (the Elder and Ancient forms are drawn larger in game).",
+  "counts": {
+    "species": 67,
+    "monsters": 201,
+    "bosses": 20
+  },
+  "species": [
+    {
+      "family": "plantain_squirrel",
+      "name": "Plantain squirrel",
+      "forms": [
+        {
+          "id": "plantain_squirrel",
+          "name": "Plantain squirrel",
+          "tierLevel": 6,
+          "level": 6
+        },
+        {
+          "id": "elder_plantain_squirrel",
+          "name": "Elder Plantain squirrel",
+          "tierLevel": 18,
+          "level": 20
+        },
+        {
+          "id": "ancient_plantain_squirrel",
+          "name": "Ancient Plantain squirrel",
+          "tierLevel": 32,
+          "level": 68
+        }
+      ],
+      "bodyPlan": "rodent",
+      "race": "Beast",
+      "region": "Bukit Timah",
+      "aggressive": "Elder and Ancient forms only",
+      "colour": "#a0704a",
+      "lore": "A bushy-tailed squirrel that chatters at hikers from the rain trees and pelts them with seeds.",
+      "visualDescription": "Chubby chestnut-brown squirrel with a cream belly and rust-orange underside, a huge fluffy tail curled over its back and cheeks stuffed with seeds; cheeky buck-toothed grin.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/field_rat.webp",
+        "tint": "hue-rotate(-15deg) saturate(1.3) brightness(1.1)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/plantain_squirrel.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "red_junglefowl",
+      "name": "Red junglefowl",
+      "forms": [
+        {
+          "id": "red_junglefowl",
+          "name": "Red junglefowl",
+          "tierLevel": 8,
+          "level": 8
+        },
+        {
+          "id": "elder_red_junglefowl",
+          "name": "Elder Red junglefowl",
+          "tierLevel": 22,
+          "level": 30
+        },
+        {
+          "id": "ancient_red_junglefowl",
+          "name": "Ancient Red junglefowl",
+          "tierLevel": 38,
+          "level": 96
+        }
+      ],
+      "bodyPlan": "fowl",
+      "race": "Flyer",
+      "region": "Bukit Timah",
+      "aggressive": "all forms",
+      "colour": "#c0402a",
+      "lore": "The wild ancestor of every kampong chicken: all fiery hackles and spurs, and it crows to start a fight.",
+      "visualDescription": "Proud wild rooster with flame-orange neck feathers, a glossy green-black arching tail, red comb and wattles, a white ear patch and sharp little spurs; puffed-up chest, ready to brawl.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/chicken.webp",
+        "tint": "hue-rotate(-20deg) saturate(1.6) brightness(0.9)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/red_junglefowl.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "strangler_fig",
+      "name": "Strangler fig",
+      "forms": [
+        {
+          "id": "strangler_fig",
+          "name": "Strangler fig",
+          "tierLevel": 14,
+          "level": 14
+        },
+        {
+          "id": "elder_strangler_fig",
+          "name": "Elder Strangler fig",
+          "tierLevel": 28,
+          "level": 51
+        },
+        {
+          "id": "ancient_strangler_fig",
+          "name": "Ancient Strangler fig",
+          "tierLevel": 44,
+          "level": 127
+        }
+      ],
+      "bodyPlan": "plant",
+      "race": "Plant",
+      "region": "Bukit Timah",
+      "aggressive": "all forms",
+      "colour": "#6a7a4a",
+      "lore": "It starts as a seed in a bird dropping and ends as a hollow cage of roots where a tree used to be. Now it wants you.",
+      "visualDescription": "A knot of twisting grey-brown aerial roots wrapped round a hollow, two glowing amber eyes peering from the gap, fig leaves on top and small red figs hanging like baubles.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/carnivorous_plant.webp",
+        "tint": "hue-rotate(30deg) saturate(0.8) brightness(0.95)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/strangler_fig.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "paradise_tree_snake",
+      "name": "Paradise tree snake",
+      "forms": [
+        {
+          "id": "paradise_tree_snake",
+          "name": "Paradise tree snake",
+          "tierLevel": 10,
+          "level": 10
+        },
+        {
+          "id": "elder_paradise_tree_snake",
+          "name": "Elder Paradise tree snake",
+          "tierLevel": 24,
+          "level": 37
+        },
+        {
+          "id": "ancient_paradise_tree_snake",
+          "name": "Ancient Paradise tree snake",
+          "tierLevel": 40,
+          "level": 106
+        }
+      ],
+      "bodyPlan": "serpent",
+      "race": "Reptile",
+      "region": "MacRitchie Reservoir",
+      "aggressive": "all forms",
+      "colour": "#4a9a3a",
+      "lore": "It flattens its body and glides from tree to tree; walkers on the treetop walk have felt one land on their hat.",
+      "visualDescription": "Slender lime-green snake patterned with black scale edges and a row of red-orange spots down its back, body flattened into a wavy ribbon as if mid-glide; big curious eyes.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/king_cobra.webp",
+        "tint": "hue-rotate(40deg) saturate(1.4) brightness(1.1)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/paradise_tree_snake.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "toman_snakehead",
+      "name": "Toman snakehead",
+      "forms": [
+        {
+          "id": "toman_snakehead",
+          "name": "Toman snakehead",
+          "tierLevel": 9,
+          "level": 9
+        },
+        {
+          "id": "elder_toman_snakehead",
+          "name": "Elder Toman snakehead",
+          "tierLevel": 22,
+          "level": 30
+        },
+        {
+          "id": "ancient_toman_snakehead",
+          "name": "Ancient Toman snakehead",
+          "tierLevel": 38,
+          "level": 96
+        }
+      ],
+      "bodyPlan": "seacreature",
+      "race": "Sea creature",
+      "region": "MacRitchie Reservoir",
+      "aggressive": "all forms",
+      "colour": "#4a5a3a",
+      "lore": "The reservoir's bully fish: it guards its fry with a snap of needle teeth and can wriggle overland between ponds.",
+      "visualDescription": "Long torpedo-shaped fish with dark olive-black blotches, a flat snake-like head, a toothy underbite and orange-rimmed eyes; propped up on its fins in a grumpy pose.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/mudskipper.webp",
+        "tint": "hue-rotate(-30deg) saturate(0.9) brightness(0.85)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/toman_snakehead.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "hantu_air",
+      "name": "Hantu air",
+      "forms": [
+        {
+          "id": "hantu_air",
+          "name": "Hantu air",
+          "tierLevel": 16,
+          "level": 16
+        },
+        {
+          "id": "elder_hantu_air",
+          "name": "Elder Hantu air",
+          "tierLevel": 30,
+          "level": 59
+        },
+        {
+          "id": "ancient_hantu_air",
+          "name": "Ancient Hantu air",
+          "tierLevel": 45,
+          "level": 132
+        }
+      ],
+      "bodyPlan": "ghost",
+      "race": "Spirit",
+      "region": "MacRitchie Reservoir",
+      "aggressive": "all forms",
+      "colour": "#6ab0c0",
+      "lore": "A water spirit that rises from the reservoir mist. Old folk say never to whistle by the water at dusk.",
+      "visualDescription": "A wispy figure made of reservoir water and mist, translucent teal with ripples for a face, lily pads and duckweed stuck to its flowing tail and droplets falling off its hands.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/wraith.webp",
+        "tint": "hue-rotate(-20deg) saturate(1.5)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/hantu_air.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "fiddler_crab",
+      "name": "Fiddler crab",
+      "forms": [
+        {
+          "id": "fiddler_crab",
+          "name": "Fiddler crab",
+          "tierLevel": 8,
+          "level": 8
+        },
+        {
+          "id": "elder_fiddler_crab",
+          "name": "Elder Fiddler crab",
+          "tierLevel": 20,
+          "level": 25
+        },
+        {
+          "id": "ancient_fiddler_crab",
+          "name": "Ancient Fiddler crab",
+          "tierLevel": 34,
+          "level": 77
+        }
+      ],
+      "bodyPlan": "crab",
+      "race": "Sea creature",
+      "region": "Sentosa Beach",
+      "aggressive": "Elder and Ancient forms only",
+      "colour": "#e0a040",
+      "lore": "It waves its one giant claw to impress, or to warn you off its burrow. Mostly to warn you off.",
+      "visualDescription": "Tiny sand-coloured crab with a blue-and-orange shell and ONE enormous bright orange claw held up proudly (the other claw tiny), tall stalk eyes and a smug little face.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/mud_crab.webp",
+        "tint": "hue-rotate(15deg) saturate(1.6) brightness(1.15)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/fiddler_crab.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "sentosa_peafowl",
+      "name": "Sentosa peafowl",
+      "forms": [
+        {
+          "id": "sentosa_peafowl",
+          "name": "Sentosa peafowl",
+          "tierLevel": 12,
+          "level": 12
+        },
+        {
+          "id": "elder_sentosa_peafowl",
+          "name": "Elder Sentosa peafowl",
+          "tierLevel": 26,
+          "level": 44
+        },
+        {
+          "id": "ancient_sentosa_peafowl",
+          "name": "Ancient Sentosa peafowl",
+          "tierLevel": 42,
+          "level": 116
+        }
+      ],
+      "bodyPlan": "fowl",
+      "race": "Flyer",
+      "region": "Sentosa Beach",
+      "aggressive": "all forms",
+      "colour": "#2a7ab0",
+      "lore": "Sentosa's peacocks strut as if they own the island. Step on a tail feather and they will let you know.",
+      "visualDescription": "Strutting peacock with an iridescent cobalt-blue neck, a little crest of feather fans and a spread tail of green eye-feathers behind it; nose in the air, haughty.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/kingfisher.webp",
+        "tint": "hue-rotate(20deg) saturate(1.3)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/sentosa_peafowl.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "sandcastle_golem",
+      "name": "Sandcastle golem",
+      "forms": [
+        {
+          "id": "sandcastle_golem",
+          "name": "Sandcastle golem",
+          "tierLevel": 18,
+          "level": 20
+        },
+        {
+          "id": "elder_sandcastle_golem",
+          "name": "Elder Sandcastle golem",
+          "tierLevel": 32,
+          "level": 68
+        },
+        {
+          "id": "ancient_sandcastle_golem",
+          "name": "Ancient Sandcastle golem",
+          "tierLevel": 48,
+          "level": 149
+        }
+      ],
+      "bodyPlan": "golem",
+      "race": "Construct",
+      "region": "Sentosa Beach",
+      "aggressive": "all forms",
+      "colour": "#e0c080",
+      "lore": "Built by children, left to the tide, and somehow still standing. Angrily.",
+      "visualDescription": "A chunky golem of packed beach sand with crenellated turret shoulders, a seashell eye, a bucket-shaped head with a little paper flag on top and sand crumbling off its fists.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/stone_golem.webp",
+        "tint": "sepia(0.6) saturate(1.6) brightness(1.2)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/sandcastle_golem.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "bajang",
+      "name": "Bajang",
+      "forms": [
+        {
+          "id": "bajang",
+          "name": "Bajang",
+          "tierLevel": 40,
+          "level": 106
+        },
+        {
+          "id": "elder_bajang",
+          "name": "Elder Bajang",
+          "tierLevel": 75,
+          "level": 324
+        },
+        {
+          "id": "ancient_bajang",
+          "name": "Ancient Bajang",
+          "tierLevel": 110,
+          "level": 602
+        }
+      ],
+      "bodyPlan": "beast",
+      "race": "Beast",
+      "region": "The Wilderness",
+      "aggressive": "all forms",
+      "colour": "#5a3a6a",
+      "lore": "A bomoh's familiar in the shape of a polecat. It slips into houses to spread sickness and mischief at its master's word.",
+      "visualDescription": "Slinky polecat-like familiar with smoky purple fur, glowing yellow eyes, a ragged black tail trailing wisps of shadow and a tiny charm-bead necklace.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/civet.webp",
+        "tint": "hue-rotate(250deg) saturate(1.3) brightness(0.8)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/bajang.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "pelesit",
+      "name": "Pelesit",
+      "forms": [
+        {
+          "id": "pelesit",
+          "name": "Pelesit",
+          "tierLevel": 35,
+          "level": 81
+        },
+        {
+          "id": "elder_pelesit",
+          "name": "Elder Pelesit",
+          "tierLevel": 65,
+          "level": 254
+        },
+        {
+          "id": "ancient_pelesit",
+          "name": "Ancient Pelesit",
+          "tierLevel": 100,
+          "level": 518
+        }
+      ],
+      "bodyPlan": "insect",
+      "race": "Bug",
+      "region": "The Wilderness",
+      "aggressive": "all forms",
+      "colour": "#7a5a2a",
+      "lore": "A cricket spirit kept in a bottle by its master and sent out to bite. Its chirp is the last thing its victims hear.",
+      "visualDescription": "A spooky brown cricket spirit with long antennae, glowing red eyes and a cork-stoppered glass bottle strapped to its back, a faint ghostly glow round its legs.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/wild_hornet.webp",
+        "tint": "hue-rotate(-40deg) saturate(0.8) brightness(0.8)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/pelesit.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "blackwater_ghoul",
+      "name": "Blackwater ghoul",
+      "forms": [
+        {
+          "id": "blackwater_ghoul",
+          "name": "Blackwater ghoul",
+          "tierLevel": 50,
+          "level": 160
+        },
+        {
+          "id": "elder_blackwater_ghoul",
+          "name": "Elder Blackwater ghoul",
+          "tierLevel": 85,
+          "level": 398
+        },
+        {
+          "id": "ancient_blackwater_ghoul",
+          "name": "Ancient Blackwater ghoul",
+          "tierLevel": 120,
+          "level": 691
+        }
+      ],
+      "bodyPlan": "undead",
+      "race": "Undead",
+      "region": "The Wilderness",
+      "aggressive": "all forms",
+      "colour": "#4a5a5a",
+      "lore": "A drowned corpse that crawls out of the Wilderness's black ponds, still dripping, still hungry.",
+      "visualDescription": "Hunched ghoul with grey-green waterlogged skin, a ragged sarong, pondweed in its long hair, black water dripping from its claws and hollow white eyes.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/skeleton.webp",
+        "tint": "hue-rotate(140deg) saturate(0.6) brightness(0.7)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/blackwater_ghoul.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "hantu_laut",
+      "name": "Hantu laut",
+      "forms": [
+        {
+          "id": "hantu_laut",
+          "name": "Hantu laut",
+          "tierLevel": 55,
+          "level": 190
+        },
+        {
+          "id": "elder_hantu_laut",
+          "name": "Elder Hantu laut",
+          "tierLevel": 85,
+          "level": 398
+        },
+        {
+          "id": "ancient_hantu_laut",
+          "name": "Ancient Hantu laut",
+          "tierLevel": 118,
+          "level": 673
+        }
+      ],
+      "bodyPlan": "ghost",
+      "race": "Spirit",
+      "region": "Pulau Hantu",
+      "aggressive": "all forms",
+      "colour": "#2a6a8a",
+      "lore": "The sea ghost fishermen offered rice to before a voyage. Forget the offering, and it comes aboard.",
+      "visualDescription": "A tall sea ghost made of foaming waves, deep blue with white surf for hair, a tattered fishing net over its shoulders and barnacles for teeth.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/jungle_wraith.webp",
+        "tint": "hue-rotate(160deg) saturate(1.4)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/hantu_laut.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "ghost_crab",
+      "name": "Ghost crab",
+      "forms": [
+        {
+          "id": "ghost_crab",
+          "name": "Ghost crab",
+          "tierLevel": 45,
+          "level": 132
+        },
+        {
+          "id": "elder_ghost_crab",
+          "name": "Elder Ghost crab",
+          "tierLevel": 72,
+          "level": 302
+        },
+        {
+          "id": "ancient_ghost_crab",
+          "name": "Ancient Ghost crab",
+          "tierLevel": 104,
+          "level": 551
+        }
+      ],
+      "bodyPlan": "crab",
+      "race": "Sea creature",
+      "region": "Pulau Hantu",
+      "aggressive": "all forms",
+      "colour": "#e8e0d0",
+      "lore": "Pale as moonlight and quick as a rumour, it vanishes into the sand the moment you look straight at it.",
+      "visualDescription": "Pale ivory crab with a square body, tall black periscope eyes on stalks, long running legs and one slightly bigger claw, sand sparkling on its back; mischievous.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/horseshoe_crab.webp",
+        "tint": "grayscale(0.7) brightness(1.4)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/ghost_crab.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "hantu_kum_kum",
+      "name": "Hantu kum-kum",
+      "forms": [
+        {
+          "id": "hantu_kum_kum",
+          "name": "Hantu kum-kum",
+          "tierLevel": 60,
+          "level": 221
+        },
+        {
+          "id": "elder_hantu_kum_kum",
+          "name": "Elder Hantu kum-kum",
+          "tierLevel": 92,
+          "level": 453
+        },
+        {
+          "id": "ancient_hantu_kum_kum",
+          "name": "Ancient Hantu kum-kum",
+          "tierLevel": 124,
+          "level": 727
+        }
+      ],
+      "bodyPlan": "ghost",
+      "race": "Spirit",
+      "region": "Pulau Hantu",
+      "aggressive": "all forms",
+      "colour": "#a08aa0",
+      "lore": "A woman who stole her youth with dark magic and now wanders the island, knocking on doors for the blood that keeps her young.",
+      "visualDescription": "Hunched old-woman spirit in a faded kebaya and veil, wrinkled lavender skin, long silver hair down to the ground and a gnarled walking stick hung with a little bell; eerie smile.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/pontianak.webp",
+        "tint": "hue-rotate(-60deg) saturate(0.7)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/hantu_kum_kum.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "archerfish",
+      "name": "Archerfish",
+      "forms": [
+        {
+          "id": "archerfish",
+          "name": "Archerfish",
+          "tierLevel": 12,
+          "level": 12
+        },
+        {
+          "id": "elder_archerfish",
+          "name": "Elder Archerfish",
+          "tierLevel": 30,
+          "level": 59
+        },
+        {
+          "id": "ancient_archerfish",
+          "name": "Ancient Archerfish",
+          "tierLevel": 52,
+          "level": 172
+        }
+      ],
+      "bodyPlan": "seacreature",
+      "race": "Sea creature",
+      "region": "Sungei Buloh Wetlands",
+      "aggressive": "all forms",
+      "colour": "#c0c060",
+      "lore": "It spits a jet of water to knock insects off the leaves. It has decided that you are an insect.",
+      "visualDescription": "Silver-yellow fish with bold black bars down its sides, a pointed upturned mouth mid-spit with a little water jet and big narrowed targeting eyes.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/mudskipper.webp",
+        "tint": "hue-rotate(30deg) saturate(1.5) brightness(1.2)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/archerfish.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "mud_lobster",
+      "name": "Mud lobster",
+      "forms": [
+        {
+          "id": "mud_lobster",
+          "name": "Mud lobster",
+          "tierLevel": 14,
+          "level": 14
+        },
+        {
+          "id": "elder_mud_lobster",
+          "name": "Elder Mud lobster",
+          "tierLevel": 32,
+          "level": 68
+        },
+        {
+          "id": "ancient_mud_lobster",
+          "name": "Ancient Mud lobster",
+          "tierLevel": 54,
+          "level": 184
+        }
+      ],
+      "bodyPlan": "crab",
+      "race": "Sea creature",
+      "region": "Sungei Buloh Wetlands",
+      "aggressive": "Elder and Ancient forms only",
+      "colour": "#6a4a3a",
+      "lore": "It builds the tall mud volcanoes of the mangroves. Rarely seen, and grumpy when it is.",
+      "visualDescription": "Muddy reddish-brown burrowing lobster with stubby shovel claws, a curled tail and clumps of mud on its back, standing beside a little mud-volcano mound.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/kelong_crab.webp",
+        "tint": "hue-rotate(-20deg) saturate(0.7) brightness(0.75)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/mud_lobster.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "milky_stork",
+      "name": "Milky stork",
+      "forms": [
+        {
+          "id": "milky_stork",
+          "name": "Milky stork",
+          "tierLevel": 16,
+          "level": 16
+        },
+        {
+          "id": "elder_milky_stork",
+          "name": "Elder Milky stork",
+          "tierLevel": 36,
+          "level": 86
+        },
+        {
+          "id": "ancient_milky_stork",
+          "name": "Ancient Milky stork",
+          "tierLevel": 58,
+          "level": 209
+        }
+      ],
+      "bodyPlan": "fowl",
+      "race": "Flyer",
+      "region": "Sungei Buloh Wetlands",
+      "aggressive": "Elder and Ancient forms only",
+      "colour": "#f0f0e8",
+      "lore": "A rare white stork that stalks the mudflats with a pink face and a very long patience. Its beak is longer than its patience with you.",
+      "visualDescription": "Tall white stork with long pink legs, a bare rosy-pink face, a long yellow bill and black flight feathers at its wing tips; calm, dignified stance.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/grey_heron.webp",
+        "tint": "grayscale(0.8) brightness(1.3)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/milky_stork.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "runaway_cassowary",
+      "name": "Runaway cassowary",
+      "forms": [
+        {
+          "id": "runaway_cassowary",
+          "name": "Runaway cassowary",
+          "tierLevel": 30,
+          "level": 59
+        },
+        {
+          "id": "elder_runaway_cassowary",
+          "name": "Elder Runaway cassowary",
+          "tierLevel": 52,
+          "level": 172
+        },
+        {
+          "id": "ancient_runaway_cassowary",
+          "name": "Ancient Runaway cassowary",
+          "tierLevel": 74,
+          "level": 316
+        }
+      ],
+      "bodyPlan": "fowl",
+      "race": "Flyer",
+      "region": "Jurong Forest",
+      "aggressive": "all forms",
+      "colour": "#2a2a4a",
+      "lore": "Its grandparents escaped from the old Jurong Bird Park. Their descendants kick first and ask nothing.",
+      "visualDescription": "Big flightless bird with shaggy black feathers, a bright blue neck, red wattles and a tall horn casque on its head; thick legs with dagger toe claws and a fierce stare.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/garuda_fledgling.webp",
+        "tint": "hue-rotate(200deg) saturate(1.2) brightness(0.6)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/runaway_cassowary.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "malayan_porcupine",
+      "name": "Malayan porcupine",
+      "forms": [
+        {
+          "id": "malayan_porcupine",
+          "name": "Malayan porcupine",
+          "tierLevel": 22,
+          "level": 30
+        },
+        {
+          "id": "elder_malayan_porcupine",
+          "name": "Elder Malayan porcupine",
+          "tierLevel": 42,
+          "level": 116
+        },
+        {
+          "id": "ancient_malayan_porcupine",
+          "name": "Ancient Malayan porcupine",
+          "tierLevel": 64,
+          "level": 247
+        }
+      ],
+      "bodyPlan": "beast",
+      "race": "Beast",
+      "region": "Jurong Forest",
+      "aggressive": "Elder and Ancient forms only",
+      "colour": "#5a4a3a",
+      "lore": "Its quills rattle like a warning drum. Anyone who does not listen spends a week pulling them out.",
+      "visualDescription": "Round dark-brown porcupine with a crest of long black-and-white striped quills raised in alarm, a small pink nose and beady eyes.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/pangolin.webp",
+        "tint": "hue-rotate(-10deg) saturate(0.6) brightness(0.9)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/malayan_porcupine.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "slag_slime",
+      "name": "Slag slime",
+      "forms": [
+        {
+          "id": "slag_slime",
+          "name": "Slag slime",
+          "tierLevel": 24,
+          "level": 37
+        },
+        {
+          "id": "elder_slag_slime",
+          "name": "Elder Slag slime",
+          "tierLevel": 46,
+          "level": 137
+        },
+        {
+          "id": "ancient_slag_slime",
+          "name": "Ancient Slag slime",
+          "tierLevel": 70,
+          "level": 288
+        }
+      ],
+      "bodyPlan": "slime",
+      "race": "Plant",
+      "region": "Jurong Forest",
+      "aggressive": "all forms",
+      "colour": "#c05a2a",
+      "lore": "Runoff from Jurong's old smelters that learnt to crawl. It is still warm, and so is its temper.",
+      "visualDescription": "A glowing orange-and-charcoal blob of molten slag with a cracked cooling black crust, embers floating up and bolts and pipe bits stuck in it; grumpy face.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/swamp_slime.webp",
+        "tint": "hue-rotate(-90deg) saturate(1.5)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/slag_slime.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "common_birdwing",
+      "name": "Common birdwing",
+      "forms": [
+        {
+          "id": "common_birdwing",
+          "name": "Common birdwing",
+          "tierLevel": 5,
+          "level": 5
+        },
+        {
+          "id": "elder_common_birdwing",
+          "name": "Elder Common birdwing",
+          "tierLevel": 16,
+          "level": 16
+        },
+        {
+          "id": "ancient_common_birdwing",
+          "name": "Ancient Common birdwing",
+          "tierLevel": 30,
+          "level": 59
+        }
+      ],
+      "bodyPlan": "insect",
+      "race": "Bug",
+      "region": "Pulau Ubin",
+      "aggressive": "Elder and Ancient forms only",
+      "colour": "#e0c020",
+      "lore": "Singapore's biggest butterfly drifts over Ubin's kampong gardens, its gold wings flashing.",
+      "visualDescription": "A large butterfly with velvety black forewings and glowing golden-yellow hindwings edged with black spots, a fuzzy red-headed body and curly antennae.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/wild_hornet.webp",
+        "tint": "hue-rotate(10deg) saturate(1.4) brightness(1.2)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/common_birdwing.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "oriental_whip_snake",
+      "name": "Oriental whip snake",
+      "forms": [
+        {
+          "id": "oriental_whip_snake",
+          "name": "Oriental whip snake",
+          "tierLevel": 7,
+          "level": 7
+        },
+        {
+          "id": "elder_oriental_whip_snake",
+          "name": "Elder Oriental whip snake",
+          "tierLevel": 18,
+          "level": 20
+        },
+        {
+          "id": "ancient_oriental_whip_snake",
+          "name": "Ancient Oriental whip snake",
+          "tierLevel": 34,
+          "level": 77
+        }
+      ],
+      "bodyPlan": "serpent",
+      "race": "Reptile",
+      "region": "Pulau Ubin",
+      "aggressive": "all forms",
+      "colour": "#7ac040",
+      "lore": "Thin as a vine and the same green. You only notice it when it is already looking at you.",
+      "visualDescription": "Very long, very thin vine-green snake with a pointed nose, keyhole-shaped pupils and a yellow stripe down its side, coiled round itself like a spring.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/shore_pit_viper.webp",
+        "tint": "hue-rotate(15deg) saturate(1.3) brightness(1.2)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/oriental_whip_snake.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "changeable_lizard",
+      "name": "Changeable lizard",
+      "forms": [
+        {
+          "id": "changeable_lizard",
+          "name": "Changeable lizard",
+          "tierLevel": 10,
+          "level": 10
+        },
+        {
+          "id": "elder_changeable_lizard",
+          "name": "Elder Changeable lizard",
+          "tierLevel": 24,
+          "level": 37
+        },
+        {
+          "id": "ancient_changeable_lizard",
+          "name": "Ancient Changeable lizard",
+          "tierLevel": 42,
+          "level": 116
+        }
+      ],
+      "bodyPlan": "reptile",
+      "race": "Reptile",
+      "region": "Pulau Ubin",
+      "aggressive": "all forms",
+      "colour": "#a0a040",
+      "lore": "Its head flushes red when it is angry, which is most of the time.",
+      "visualDescription": "Small crested garden lizard with a tan-green body, a fiery red head and throat, a spiky crest down its back and a very long thin tail.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/monitor_lizard.webp",
+        "tint": "hue-rotate(30deg) saturate(1.2) brightness(1.15)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/changeable_lizard.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "hermit_crab",
+      "name": "Hermit crab",
+      "forms": [
+        {
+          "id": "hermit_crab",
+          "name": "Hermit crab",
+          "tierLevel": 14,
+          "level": 14
+        },
+        {
+          "id": "elder_hermit_crab",
+          "name": "Elder Hermit crab",
+          "tierLevel": 34,
+          "level": 77
+        },
+        {
+          "id": "ancient_hermit_crab",
+          "name": "Ancient Hermit crab",
+          "tierLevel": 58,
+          "level": 209
+        }
+      ],
+      "bodyPlan": "crab",
+      "race": "Sea creature",
+      "region": "Changi Coast",
+      "aggressive": "Elder and Ancient forms only",
+      "colour": "#c08060",
+      "lore": "It carries a borrowed home: sometimes a whelk shell, sometimes a dented kopi tin.",
+      "visualDescription": "Orange-red hermit crab peeking out of a spiral seashell (a dented kopi tin for the elder form), one big purple claw, stalk eyes and hairy legs.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/coconut_crab.webp",
+        "tint": "hue-rotate(-30deg) saturate(1.2) brightness(1.2)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/hermit_crab.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "spotted_seahorse",
+      "name": "Spotted seahorse",
+      "forms": [
+        {
+          "id": "spotted_seahorse",
+          "name": "Spotted seahorse",
+          "tierLevel": 18,
+          "level": 20
+        },
+        {
+          "id": "elder_spotted_seahorse",
+          "name": "Elder Spotted seahorse",
+          "tierLevel": 40,
+          "level": 106
+        },
+        {
+          "id": "ancient_spotted_seahorse",
+          "name": "Ancient Spotted seahorse",
+          "tierLevel": 64,
+          "level": 247
+        }
+      ],
+      "bodyPlan": "seacreature",
+      "race": "Sea creature",
+      "region": "Changi Coast",
+      "aggressive": "Elder and Ancient forms only",
+      "colour": "#e0a050",
+      "lore": "It bobs upright among the seagrass and never seems to be in any kind of hurry, even while it bites you.",
+      "visualDescription": "Upright golden-orange seahorse with dark spots, a curled tail, a long snout, a little crown of bumps on its head and a fluttering back fin.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/pink_dolphin.webp",
+        "tint": "hue-rotate(40deg) saturate(1.4)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/spotted_seahorse.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "white_bellied_sea_eagle",
+      "name": "White-bellied sea eagle",
+      "forms": [
+        {
+          "id": "white_bellied_sea_eagle",
+          "name": "White-bellied sea eagle",
+          "tierLevel": 24,
+          "level": 37
+        },
+        {
+          "id": "elder_white_bellied_sea_eagle",
+          "name": "Elder White-bellied sea eagle",
+          "tierLevel": 46,
+          "level": 137
+        },
+        {
+          "id": "ancient_white_bellied_sea_eagle",
+          "name": "Ancient White-bellied sea eagle",
+          "tierLevel": 68,
+          "level": 274
+        }
+      ],
+      "bodyPlan": "fowl",
+      "race": "Flyer",
+      "region": "Changi Coast",
+      "aggressive": "all forms",
+      "colour": "#e8e8e8",
+      "lore": "It patrols the Changi shore from a casuarina branch, and anything shiny is fair game.",
+      "visualDescription": "Proud sea eagle with a snow-white head and belly, slate-grey wings, a hooked grey bill and yellow talons gripping a fish; sharp, steady eyes.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/garuda_fledgling.webp",
+        "tint": "grayscale(0.9) brightness(1.3)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/white_bellied_sea_eagle.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "rock_pigeon",
+      "name": "Rock pigeon",
+      "forms": [
+        {
+          "id": "rock_pigeon",
+          "name": "Rock pigeon",
+          "tierLevel": 15,
+          "level": 15
+        },
+        {
+          "id": "elder_rock_pigeon",
+          "name": "Elder Rock pigeon",
+          "tierLevel": 28,
+          "level": 51
+        },
+        {
+          "id": "ancient_rock_pigeon",
+          "name": "Ancient Rock pigeon",
+          "tierLevel": 44,
+          "level": 127
+        }
+      ],
+      "bodyPlan": "fowl",
+      "race": "Flyer",
+      "region": "Marina Bay",
+      "aggressive": "all forms",
+      "colour": "#8a90a0",
+      "lore": "The hawker centre's most loyal customer. It has never once paid for a meal.",
+      "visualDescription": "Plump grey city pigeon with a shimmering green-purple neck, orange eyes, pink feet and a stolen chip in its beak; bold attitude.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/house_crow.webp",
+        "tint": "grayscale(0.4) brightness(1.5) hue-rotate(180deg)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/rock_pigeon.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "kopitiam_cockroach",
+      "name": "Kopitiam cockroach",
+      "forms": [
+        {
+          "id": "kopitiam_cockroach",
+          "name": "Kopitiam cockroach",
+          "tierLevel": 18,
+          "level": 20
+        },
+        {
+          "id": "elder_kopitiam_cockroach",
+          "name": "Elder Kopitiam cockroach",
+          "tierLevel": 34,
+          "level": 77
+        },
+        {
+          "id": "ancient_kopitiam_cockroach",
+          "name": "Ancient Kopitiam cockroach",
+          "tierLevel": 52,
+          "level": 172
+        }
+      ],
+      "bodyPlan": "insect",
+      "race": "Bug",
+      "region": "Marina Bay",
+      "aggressive": "all forms",
+      "colour": "#7a3a1a",
+      "lore": "It has survived every fogging, every slipper and every auntie. It can also fly, which is the worst part.",
+      "visualDescription": "Glossy chestnut-brown cockroach standing on its hind legs with long twitchy antennae and wings half open, hugging a sugar cube; smug.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/weaver_ant.webp",
+        "tint": "hue-rotate(-20deg) saturate(0.9) brightness(0.7)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/kopitiam_cockroach.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "laksa_slime",
+      "name": "Laksa slime",
+      "forms": [
+        {
+          "id": "laksa_slime",
+          "name": "Laksa slime",
+          "tierLevel": 16,
+          "level": 16
+        },
+        {
+          "id": "elder_laksa_slime",
+          "name": "Elder Laksa slime",
+          "tierLevel": 32,
+          "level": 68
+        },
+        {
+          "id": "ancient_laksa_slime",
+          "name": "Ancient Laksa slime",
+          "tierLevel": 50,
+          "level": 160
+        }
+      ],
+      "bodyPlan": "slime",
+      "race": "Plant",
+      "region": "Marina Bay",
+      "aggressive": "Elder and Ancient forms only",
+      "colour": "#e0802a",
+      "lore": "A bowl of laksa left out too long in the Marina heat. It is still rather spicy.",
+      "visualDescription": "A wobbly orange-red slime of laksa broth with noodles, a prawn, tofu puffs and half an egg floating in it, chilli oil glistening on top; happy face.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/swamp_slime.webp",
+        "tint": "hue-rotate(-70deg) saturate(1.8) brightness(1.2)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/laksa_slime.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "tunnel_centipede",
+      "name": "Tunnel centipede",
+      "forms": [
+        {
+          "id": "tunnel_centipede",
+          "name": "Tunnel centipede",
+          "tierLevel": 22,
+          "level": 30
+        },
+        {
+          "id": "elder_tunnel_centipede",
+          "name": "Elder Tunnel centipede",
+          "tierLevel": 40,
+          "level": 106
+        },
+        {
+          "id": "ancient_tunnel_centipede",
+          "name": "Ancient Tunnel centipede",
+          "tierLevel": 58,
+          "level": 209
+        }
+      ],
+      "bodyPlan": "serpent",
+      "race": "Reptile",
+      "region": "Marina Bay",
+      "aggressive": "all forms",
+      "colour": "#8a3a2a",
+      "lore": "It lives in the MRT tunnels under the bay and rides the warm wind of every passing train.",
+      "visualDescription": "Long segmented centipede in deep red and black bands with dozens of yellow legs, forked feelers, a pair of curved fangs and a reflective safety stripe across its back.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/shore_pit_viper.webp",
+        "tint": "hue-rotate(-110deg) saturate(1.4) brightness(0.8)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/tunnel_centipede.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "mud_golem",
+      "name": "Mud golem",
+      "forms": [
+        {
+          "id": "mud_golem",
+          "name": "Mud golem",
+          "tierLevel": 75,
+          "level": 324
+        },
+        {
+          "id": "elder_mud_golem",
+          "name": "Elder Mud golem",
+          "tierLevel": 110,
+          "level": 602
+        },
+        {
+          "id": "ancient_mud_golem",
+          "name": "Ancient Mud golem",
+          "tierLevel": 150,
+          "level": 975
+        }
+      ],
+      "bodyPlan": "golem",
+      "race": "Construct",
+      "region": "Tekong Badlands",
+      "aggressive": "all forms",
+      "colour": "#7a5a3a",
+      "lore": "Shaped from the Badlands' churned mud by countless marching boots. It marches when nobody is watching.",
+      "visualDescription": "A lumpy golem of wet brown mud and gravel with bootprints pressed into its chest, puddle eyes and grass tufts on its shoulders; dripping.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/rust_golem.webp",
+        "tint": "hue-rotate(10deg) saturate(0.5) brightness(0.8)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/mud_golem.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "bunker_bat",
+      "name": "Bunker bat",
+      "forms": [
+        {
+          "id": "bunker_bat",
+          "name": "Bunker bat",
+          "tierLevel": 80,
+          "level": 360
+        },
+        {
+          "id": "elder_bunker_bat",
+          "name": "Elder Bunker bat",
+          "tierLevel": 115,
+          "level": 646
+        },
+        {
+          "id": "ancient_bunker_bat",
+          "name": "Ancient Bunker bat",
+          "tierLevel": 155,
+          "level": 1026
+        }
+      ],
+      "bodyPlan": "bat",
+      "race": "Flyer",
+      "region": "Tekong Badlands",
+      "aggressive": "all forms",
+      "colour": "#4a4a3a",
+      "lore": "They roost by the thousand in Tekong's abandoned bunkers and pour out at dusk in a living cloud.",
+      "visualDescription": "Leathery khaki-grey bat with huge ears, a squashed pug nose, camouflage-patterned wing membranes and a tiny dog tag on its neck.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/vampire_bat.webp",
+        "tint": "hue-rotate(60deg) saturate(0.4) brightness(0.9)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/bunker_bat.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "jembalang",
+      "name": "Jembalang",
+      "forms": [
+        {
+          "id": "jembalang",
+          "name": "Jembalang",
+          "tierLevel": 90,
+          "level": 437
+        },
+        {
+          "id": "elder_jembalang",
+          "name": "Elder Jembalang",
+          "tierLevel": 125,
+          "level": 736
+        },
+        {
+          "id": "ancient_jembalang",
+          "name": "Ancient Jembalang",
+          "tierLevel": 160,
+          "level": 1076
+        }
+      ],
+      "bodyPlan": "demon",
+      "race": "Demon",
+      "region": "Tekong Badlands",
+      "aggressive": "all forms",
+      "colour": "#6a4a2a",
+      "lore": "An earth demon that owns the ground it squats on. Farmers once paid it before they dug.",
+      "visualDescription": "A squat horned earth demon with cracked clay-brown skin, roots growing from its shoulders, glowing ember eyes and a mouth of pebble teeth, holding a clod of earth.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/jinn.webp",
+        "tint": "hue-rotate(-140deg) saturate(1.2) brightness(0.8)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/jembalang.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "spitting_cobra",
+      "name": "Spitting cobra",
+      "forms": [
+        {
+          "id": "spitting_cobra",
+          "name": "Spitting cobra",
+          "tierLevel": 72,
+          "level": 302
+        },
+        {
+          "id": "elder_spitting_cobra",
+          "name": "Elder Spitting cobra",
+          "tierLevel": 108,
+          "level": 585
+        },
+        {
+          "id": "ancient_spitting_cobra",
+          "name": "Ancient Spitting cobra",
+          "tierLevel": 145,
+          "level": 926
+        }
+      ],
+      "bodyPlan": "serpent",
+      "race": "Reptile",
+      "region": "Tekong Badlands",
+      "aggressive": "all forms",
+      "colour": "#3a3a2a",
+      "lore": "It rears, spreads its hood and spits venom straight at your eyes from three paces.",
+      "visualDescription": "Black-brown cobra reared up with its hood flared, a pale throat band and venom droplets spraying from its fangs; narrowed, glaring eyes.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/king_cobra.webp",
+        "tint": "grayscale(0.7) brightness(0.7)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/spitting_cobra.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "supertree_vine",
+      "name": "Supertree vine",
+      "forms": [
+        {
+          "id": "supertree_vine",
+          "name": "Supertree vine",
+          "tierLevel": 62,
+          "level": 234
+        },
+        {
+          "id": "elder_supertree_vine",
+          "name": "Elder Supertree vine",
+          "tierLevel": 90,
+          "level": 437
+        },
+        {
+          "id": "ancient_supertree_vine",
+          "name": "Ancient Supertree vine",
+          "tierLevel": 118,
+          "level": 673
+        }
+      ],
+      "bodyPlan": "plant",
+      "race": "Plant",
+      "region": "Gardens by the Bay",
+      "aggressive": "all forms",
+      "colour": "#3aaa6a",
+      "lore": "Grown wild from the Supertrees' living walls, it lassos visitors with flowering tendrils.",
+      "visualDescription": "A tangle of bright green vines with purple orchid and bromeliad flowers, curling tendril arms, glowing fairy-light bulbs woven through it and a leafy grin.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/pitcher_plant.webp",
+        "tint": "hue-rotate(80deg) saturate(1.2)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/supertree_vine.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "atlas_moth",
+      "name": "Atlas moth",
+      "forms": [
+        {
+          "id": "atlas_moth",
+          "name": "Atlas moth",
+          "tierLevel": 65,
+          "level": 254
+        },
+        {
+          "id": "elder_atlas_moth",
+          "name": "Elder Atlas moth",
+          "tierLevel": 92,
+          "level": 453
+        },
+        {
+          "id": "ancient_atlas_moth",
+          "name": "Ancient Atlas moth",
+          "tierLevel": 120,
+          "level": 691
+        }
+      ],
+      "bodyPlan": "insect",
+      "race": "Bug",
+      "region": "Gardens by the Bay",
+      "aggressive": "all forms",
+      "colour": "#c06a3a",
+      "lore": "As big as a dinner plate, with wing tips shaped like snake heads to scare off anything that hunts it.",
+      "visualDescription": "A giant moth with broad rust-red and cream wings, little see-through triangle windows, wing tips shaped like cobra heads, feathery antennae and a fluffy body.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/wild_hornet.webp",
+        "tint": "hue-rotate(-30deg) saturate(1.5) brightness(0.9)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/atlas_moth.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "crimson_sunbird",
+      "name": "Crimson sunbird",
+      "forms": [
+        {
+          "id": "crimson_sunbird",
+          "name": "Crimson sunbird",
+          "tierLevel": 60,
+          "level": 221
+        },
+        {
+          "id": "elder_crimson_sunbird",
+          "name": "Elder Crimson sunbird",
+          "tierLevel": 85,
+          "level": 398
+        },
+        {
+          "id": "ancient_crimson_sunbird",
+          "name": "Ancient Crimson sunbird",
+          "tierLevel": 112,
+          "level": 620
+        }
+      ],
+      "bodyPlan": "fowl",
+      "race": "Flyer",
+      "region": "Gardens by the Bay",
+      "aggressive": "Elder and Ancient forms only",
+      "colour": "#d02a3a",
+      "lore": "A flicker of red that sips nectar in the Flower Dome and defends every bloom as if it were the last.",
+      "visualDescription": "Tiny jewel-like bird with a scarlet head and chest, a curved needle beak, olive-green wings and a long thin tail, hovering beside a flower.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/kingfisher.webp",
+        "tint": "hue-rotate(-170deg) saturate(1.6)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/crimson_sunbird.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "coney_island_cow",
+      "name": "Coney Island cow",
+      "forms": [
+        {
+          "id": "coney_island_cow",
+          "name": "Coney Island cow",
+          "tierLevel": 92,
+          "level": 453
+        },
+        {
+          "id": "elder_coney_island_cow",
+          "name": "Elder Coney Island cow",
+          "tierLevel": 120,
+          "level": 691
+        },
+        {
+          "id": "ancient_coney_island_cow",
+          "name": "Ancient Coney Island cow",
+          "tierLevel": 148,
+          "level": 956
+        }
+      ],
+      "bodyPlan": "beast",
+      "race": "Beast",
+      "region": "Coney Island",
+      "aggressive": "Elder and Ancient forms only",
+      "colour": "#e8e0d0",
+      "lore": "Nobody knows how the cow got to Coney Island. It has wandered the beach trails ever since, and it does not like being stared at.",
+      "visualDescription": "A gentle white cow with brown patches, a bell on a red collar, sand on its hooves and a sprig of grass in its mouth; puzzled but stubborn expression.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/water_buffalo.webp",
+        "tint": "grayscale(0.9) brightness(1.5)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/coney_island_cow.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "spotted_wood_owl",
+      "name": "Spotted wood owl",
+      "forms": [
+        {
+          "id": "spotted_wood_owl",
+          "name": "Spotted wood owl",
+          "tierLevel": 95,
+          "level": 477
+        },
+        {
+          "id": "elder_spotted_wood_owl",
+          "name": "Elder Spotted wood owl",
+          "tierLevel": 125,
+          "level": 736
+        },
+        {
+          "id": "ancient_spotted_wood_owl",
+          "name": "Ancient Spotted wood owl",
+          "tierLevel": 150,
+          "level": 975
+        }
+      ],
+      "bodyPlan": "fowl",
+      "race": "Flyer",
+      "region": "Coney Island",
+      "aggressive": "all forms",
+      "colour": "#8a6a4a",
+      "lore": "Its deep hoot carries across the casuarinas at night. By the time you hear the wings, it is too late.",
+      "visualDescription": "Round brown owl with a white-spotted back, a pale barred chest, a dark heart-shaped face disc, huge black eyes and fluffy feathered talons.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/house_crow.webp",
+        "tint": "sepia(0.9) saturate(1.2) brightness(1.4)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/spotted_wood_owl.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "casuarina_dryad",
+      "name": "Casuarina dryad",
+      "forms": [
+        {
+          "id": "casuarina_dryad",
+          "name": "Casuarina dryad",
+          "tierLevel": 100,
+          "level": 518
+        },
+        {
+          "id": "elder_casuarina_dryad",
+          "name": "Elder Casuarina dryad",
+          "tierLevel": 128,
+          "level": 764
+        },
+        {
+          "id": "ancient_casuarina_dryad",
+          "name": "Ancient Casuarina dryad",
+          "tierLevel": 150,
+          "level": 975
+        }
+      ],
+      "bodyPlan": "ghost",
+      "race": "Spirit",
+      "region": "Coney Island",
+      "aggressive": "all forms",
+      "colour": "#7aa06a",
+      "lore": "The spirit of the island's whispering casuarina pines. It sighs with the wind, and lashes out when they are cut.",
+      "visualDescription": "A slender tree spirit with needle-like pine hair, bark skin, glowing pale green eyes and a skirt of dangling casuarina cones; swaying gently.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/bunian.webp",
+        "tint": "hue-rotate(40deg) saturate(0.8)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/casuarina_dryad.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "banded_krait",
+      "name": "Banded krait",
+      "forms": [
+        {
+          "id": "banded_krait",
+          "name": "Banded krait",
+          "tierLevel": 96,
+          "level": 485
+        },
+        {
+          "id": "elder_banded_krait",
+          "name": "Elder Banded krait",
+          "tierLevel": 124,
+          "level": 727
+        },
+        {
+          "id": "ancient_banded_krait",
+          "name": "Ancient Banded krait",
+          "tierLevel": 149,
+          "level": 965
+        }
+      ],
+      "bodyPlan": "serpent",
+      "race": "Reptile",
+      "region": "Coney Island",
+      "aggressive": "all forms",
+      "colour": "#e0d020",
+      "lore": "Bold yellow and black bands, a shy temper and one of the strongest venoms in the region. Do not step on it.",
+      "visualDescription": "Thick-bodied snake in bold yellow and black rings with a ridged back and a blunt black head; sleepy-looking but clearly dangerous.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/sea_snake.webp",
+        "tint": "hue-rotate(30deg) saturate(1.8) brightness(1.2)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/banded_krait.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "giant_clam",
+      "name": "Giant clam",
+      "forms": [
+        {
+          "id": "giant_clam",
+          "name": "Giant clam",
+          "tierLevel": 125,
+          "level": 736
+        },
+        {
+          "id": "elder_giant_clam",
+          "name": "Elder Giant clam",
+          "tierLevel": 165,
+          "level": 1128
+        },
+        {
+          "id": "ancient_giant_clam",
+          "name": "Ancient Giant clam",
+          "tierLevel": 210,
+          "level": 1622
+        }
+      ],
+      "bodyPlan": "crab",
+      "race": "Sea creature",
+      "region": "Southern Islands",
+      "aggressive": "Elder and Ancient forms only",
+      "colour": "#4aa0c0",
+      "lore": "It has sat on the same reef for a hundred years, and its jagged shell snaps shut on careless ankles.",
+      "visualDescription": "A huge scalloped clam with wavy ridged shell edges, a gleaming iridescent blue-and-turquoise mantle peeking out, a big pearl inside and two sleepy eyes.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/horseshoe_crab.webp",
+        "tint": "hue-rotate(150deg) saturate(1.6) brightness(1.1)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/giant_clam.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "hawksbill_turtle",
+      "name": "Hawksbill turtle",
+      "forms": [
+        {
+          "id": "hawksbill_turtle",
+          "name": "Hawksbill turtle",
+          "tierLevel": 130,
+          "level": 782
+        },
+        {
+          "id": "elder_hawksbill_turtle",
+          "name": "Elder Hawksbill turtle",
+          "tierLevel": 170,
+          "level": 1180
+        },
+        {
+          "id": "ancient_hawksbill_turtle",
+          "name": "Ancient Hawksbill turtle",
+          "tierLevel": 212,
+          "level": 1645
+        }
+      ],
+      "bodyPlan": "turtle",
+      "race": "Sea creature",
+      "region": "Southern Islands",
+      "aggressive": "Elder and Ancient forms only",
+      "colour": "#8a6a3a",
+      "lore": "It nests on the quieter beaches of the Southern Islands. Its beak is sharp and it remembers every rude visitor.",
+      "visualDescription": "Sea turtle with a gorgeous amber-and-brown tortoiseshell pattern, a narrow pointed hawk-like beak, overlapping shell plates and flippers mid-swim.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/sea_turtle.webp",
+        "tint": "hue-rotate(-40deg) saturate(1.3)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/hawksbill_turtle.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "duyung",
+      "name": "Duyung",
+      "forms": [
+        {
+          "id": "duyung",
+          "name": "Duyung",
+          "tierLevel": 140,
+          "level": 877
+        },
+        {
+          "id": "elder_duyung",
+          "name": "Elder Duyung",
+          "tierLevel": 180,
+          "level": 1287
+        },
+        {
+          "id": "ancient_duyung",
+          "name": "Ancient Duyung",
+          "tierLevel": 215,
+          "level": 1680
+        }
+      ],
+      "bodyPlan": "seacreature",
+      "race": "Sea creature",
+      "region": "Southern Islands",
+      "aggressive": "all forms",
+      "colour": "#9ab0c0",
+      "lore": "The mermaid of the old Malay sea tales. Sailors who heard its song mistook it for a woman; it was not.",
+      "visualDescription": "A sea-cow mermaid with a gentle dugong face, a crown of seagrass and shells, long flowing teal hair and a shimmering fluked tail, holding a conch.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/dugong.webp",
+        "tint": "hue-rotate(120deg) saturate(1.3) brightness(1.1)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/duyung.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "rift_toyol",
+      "name": "Rift toyol",
+      "forms": [
+        {
+          "id": "rift_toyol",
+          "name": "Rift toyol",
+          "tierLevel": 205,
+          "level": 1565
+        },
+        {
+          "id": "elder_rift_toyol",
+          "name": "Elder Rift toyol",
+          "tierLevel": 250,
+          "level": 2102
+        },
+        {
+          "id": "ancient_rift_toyol",
+          "name": "Ancient Rift toyol",
+          "tierLevel": 300,
+          "level": 2749
+        }
+      ],
+      "bodyPlan": "greenman",
+      "race": "Humanoid",
+      "region": "The Shadow Rift",
+      "aggressive": "all forms",
+      "colour": "#4a2a6a",
+      "lore": "Toyol that slipped through the Rift and came back changed. They steal souls now, not just coins.",
+      "visualDescription": "Tiny bald baby-like goblin spirit with violet void skin, glowing white eyes, a cracked rift scar across its chest and a pouch of stolen glowing orbs.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/toyol.webp",
+        "tint": "hue-rotate(220deg) saturate(1.4) brightness(0.8)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/rift_toyol.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "minyak_shade",
+      "name": "Minyak shade",
+      "forms": [
+        {
+          "id": "minyak_shade",
+          "name": "Minyak shade",
+          "tierLevel": 215,
+          "level": 1680
+        },
+        {
+          "id": "elder_minyak_shade",
+          "name": "Elder Minyak shade",
+          "tierLevel": 265,
+          "level": 2291
+        },
+        {
+          "id": "ancient_minyak_shade",
+          "name": "Ancient Minyak shade",
+          "tierLevel": 315,
+          "level": 2952
+        }
+      ],
+      "bodyPlan": "ghost",
+      "race": "Spirit",
+      "region": "The Shadow Rift",
+      "aggressive": "all forms",
+      "colour": "#1a1a2a",
+      "lore": "Scraps of the Orang Minyak's curse given shape: oily shadows that slip out of any grip.",
+      "visualDescription": "A glossy pitch-black oily shadow figure with a slick rainbow sheen, glowing red eyes and dripping tendrils of oil instead of legs.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/hantu_raya.webp",
+        "tint": "grayscale(1) brightness(0.45) contrast(1.4)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/minyak_shade.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "void_eel",
+      "name": "Void eel",
+      "forms": [
+        {
+          "id": "void_eel",
+          "name": "Void eel",
+          "tierLevel": 210,
+          "level": 1622
+        },
+        {
+          "id": "elder_void_eel",
+          "name": "Elder Void eel",
+          "tierLevel": 260,
+          "level": 2227
+        },
+        {
+          "id": "ancient_void_eel",
+          "name": "Ancient Void eel",
+          "tierLevel": 310,
+          "level": 2884
+        }
+      ],
+      "bodyPlan": "serpent",
+      "race": "Reptile",
+      "region": "The Shadow Rift",
+      "aggressive": "all forms",
+      "colour": "#3a1a5a",
+      "lore": "It swims through the Rift's air as though it were water, crackling with stolen starlight.",
+      "visualDescription": "Long sinuous eel with a deep indigo body speckled with stars, a glowing purple fin ridge, a wide toothy grin and crackling violet sparks.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/sea_snake.webp",
+        "tint": "hue-rotate(240deg) saturate(1.5) brightness(0.8)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/void_eel.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "wild_arowana",
+      "name": "Wild arowana",
+      "forms": [
+        {
+          "id": "wild_arowana",
+          "name": "Wild arowana",
+          "tierLevel": 45,
+          "level": 132
+        },
+        {
+          "id": "elder_wild_arowana",
+          "name": "Elder Wild arowana",
+          "tierLevel": 75,
+          "level": 324
+        },
+        {
+          "id": "ancient_wild_arowana",
+          "name": "Ancient Wild arowana",
+          "tierLevel": 108,
+          "level": 585
+        }
+      ],
+      "bodyPlan": "seacreature",
+      "race": "Sea creature",
+      "region": "Punggol Waterway",
+      "aggressive": "Elder and Ancient forms only",
+      "colour": "#e0b040",
+      "lore": "A golden dragon fish, said to bring luck. Catching one brings mostly a great deal of thrashing.",
+      "visualDescription": "Long golden arowana with large metallic coin-like scales, two chin barbels, an upturned mouth and flowing fins; regal and shiny.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/mudskipper.webp",
+        "tint": "hue-rotate(20deg) saturate(1.8) brightness(1.3)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/wild_arowana.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "asian_koel",
+      "name": "Asian koel",
+      "forms": [
+        {
+          "id": "asian_koel",
+          "name": "Asian koel",
+          "tierLevel": 42,
+          "level": 116
+        },
+        {
+          "id": "elder_asian_koel",
+          "name": "Elder Asian koel",
+          "tierLevel": 70,
+          "level": 288
+        },
+        {
+          "id": "ancient_asian_koel",
+          "name": "Ancient Asian koel",
+          "tierLevel": 100,
+          "level": 518
+        }
+      ],
+      "bodyPlan": "fowl",
+      "race": "Flyer",
+      "region": "Punggol Waterway",
+      "aggressive": "all forms",
+      "colour": "#1a1a2a",
+      "lore": "Its \"ko-EL! ko-EL!\" starts at five in the morning and never stops. People have been driven to violence.",
+      "visualDescription": "Glossy blue-black bird with piercing red eyes, a pale green beak and a long tail, beak wide open mid-shout; very loud energy.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/house_crow.webp",
+        "tint": "hue-rotate(200deg) saturate(1.5)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/asian_koel.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "hyacinth_tangle",
+      "name": "Hyacinth tangle",
+      "forms": [
+        {
+          "id": "hyacinth_tangle",
+          "name": "Hyacinth tangle",
+          "tierLevel": 50,
+          "level": 160
+        },
+        {
+          "id": "elder_hyacinth_tangle",
+          "name": "Elder Hyacinth tangle",
+          "tierLevel": 82,
+          "level": 375
+        },
+        {
+          "id": "ancient_hyacinth_tangle",
+          "name": "Ancient Hyacinth tangle",
+          "tierLevel": 110,
+          "level": 602
+        }
+      ],
+      "bodyPlan": "plant",
+      "race": "Plant",
+      "region": "Punggol Waterway",
+      "aggressive": "all forms",
+      "colour": "#6a5ac0",
+      "lore": "A raft of water hyacinth that drifted down the waterway and woke up hungry.",
+      "visualDescription": "A floating clump of glossy green bulb-leaves topped with pale lilac hyacinth flowers, dangling purple roots for legs and a mouth hidden in the leaves.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/pitcher_plant.webp",
+        "tint": "hue-rotate(200deg) saturate(1.2)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/hyacinth_tangle.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "dairy_goat",
+      "name": "Dairy goat",
+      "forms": [
+        {
+          "id": "dairy_goat",
+          "name": "Dairy goat",
+          "tierLevel": 16,
+          "level": 16
+        },
+        {
+          "id": "elder_dairy_goat",
+          "name": "Elder Dairy goat",
+          "tierLevel": 40,
+          "level": 106
+        },
+        {
+          "id": "ancient_dairy_goat",
+          "name": "Ancient Dairy goat",
+          "tierLevel": 70,
+          "level": 288
+        }
+      ],
+      "bodyPlan": "beast",
+      "race": "Beast",
+      "region": "Kranji Farmlands",
+      "aggressive": "Elder and Ancient forms only",
+      "colour": "#f0ead8",
+      "lore": "From the farms of Kranji. It eats anything: signposts, sandals, adventurers' maps.",
+      "visualDescription": "Cheerful white goat with floppy ears, a little beard, small curved horns, a bell collar and a half-eaten map hanging out of its mouth.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/sambar_deer.webp",
+        "tint": "grayscale(0.8) brightness(1.4)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/dairy_goat.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "bullfrog",
+      "name": "Bullfrog",
+      "forms": [
+        {
+          "id": "bullfrog",
+          "name": "Bullfrog",
+          "tierLevel": 18,
+          "level": 20
+        },
+        {
+          "id": "elder_bullfrog",
+          "name": "Elder Bullfrog",
+          "tierLevel": 44,
+          "level": 127
+        },
+        {
+          "id": "ancient_bullfrog",
+          "name": "Ancient Bullfrog",
+          "tierLevel": 74,
+          "level": 316
+        }
+      ],
+      "bodyPlan": "slime",
+      "race": "Plant",
+      "region": "Kranji Farmlands",
+      "aggressive": "Elder and Ancient forms only",
+      "colour": "#6a8a3a",
+      "lore": "It escaped from the frog farm and grew fat on paddy-field insects. Its croak shakes the water.",
+      "visualDescription": "Big round olive-green bullfrog with a pale yellow throat sac puffed out, bumpy skin, gold eyes and webbed feet, sitting like a contented blob.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/lumpur_slime.webp",
+        "tint": "hue-rotate(60deg) saturate(1.4)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/bullfrog.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "paddy_locust",
+      "name": "Paddy locust",
+      "forms": [
+        {
+          "id": "paddy_locust",
+          "name": "Paddy locust",
+          "tierLevel": 22,
+          "level": 30
+        },
+        {
+          "id": "elder_paddy_locust",
+          "name": "Elder Paddy locust",
+          "tierLevel": 50,
+          "level": 160
+        },
+        {
+          "id": "ancient_paddy_locust",
+          "name": "Ancient Paddy locust",
+          "tierLevel": 78,
+          "level": 345
+        }
+      ],
+      "bodyPlan": "insect",
+      "race": "Bug",
+      "region": "Kranji Farmlands",
+      "aggressive": "all forms",
+      "colour": "#a0a03a",
+      "lore": "One locust is a curiosity. Kranji's paddies have never had just one.",
+      "visualDescription": "A big green-and-straw-yellow grasshopper with powerful folded hind legs, see-through wings, chomping mandibles and a rice stalk in its grip.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/weaver_ant.webp",
+        "tint": "hue-rotate(40deg) brightness(1.1)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/paddy_locust.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "binturong",
+      "name": "Binturong",
+      "forms": [
+        {
+          "id": "binturong",
+          "name": "Binturong",
+          "tierLevel": 155,
+          "level": 1026
+        },
+        {
+          "id": "elder_binturong",
+          "name": "Elder Binturong",
+          "tierLevel": 195,
+          "level": 1452
+        },
+        {
+          "id": "ancient_binturong",
+          "name": "Ancient Binturong",
+          "tierLevel": 235,
+          "level": 1918
+        }
+      ],
+      "bodyPlan": "beast",
+      "race": "Beast",
+      "region": "Mandai Rainforest",
+      "aggressive": "Elder and Ancient forms only",
+      "colour": "#3a3a3a",
+      "lore": "The bearcat smells of buttered popcorn and hangs by its tail. It is neither a bear nor a cat, and it is annoyed you asked.",
+      "visualDescription": "Shaggy black bearcat with long white-tipped whiskers, tufted ears, a sleepy face and a thick tail curled round a branch; a popcorn kernel stuck in its fur.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/civet.webp",
+        "tint": "grayscale(0.7) brightness(0.6)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/binturong.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "orangutan",
+      "name": "Orangutan",
+      "forms": [
+        {
+          "id": "orangutan",
+          "name": "Orangutan",
+          "tierLevel": 160,
+          "level": 1076
+        },
+        {
+          "id": "elder_orangutan",
+          "name": "Elder Orangutan",
+          "tierLevel": 200,
+          "level": 1508
+        },
+        {
+          "id": "ancient_orangutan",
+          "name": "Ancient Orangutan",
+          "tierLevel": 238,
+          "level": 1954
+        }
+      ],
+      "bodyPlan": "primate",
+      "race": "Beast",
+      "region": "Mandai Rainforest",
+      "aggressive": "Elder and Ancient forms only",
+      "colour": "#c05a2a",
+      "lore": "The forest's wise old person. It has watched the Mandai trees grow and will defend them with very long, very strong arms.",
+      "visualDescription": "Shaggy rust-orange ape with very long arms, wide cheek pads (on the elder forms), a thoughtful face and a big leaf held up as an umbrella.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/banded_leaf_monkey.webp",
+        "tint": "sepia(1) saturate(3) hue-rotate(-20deg) brightness(1.1)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/orangutan.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "great_argus",
+      "name": "Great argus",
+      "forms": [
+        {
+          "id": "great_argus",
+          "name": "Great argus",
+          "tierLevel": 165,
+          "level": 1128
+        },
+        {
+          "id": "elder_great_argus",
+          "name": "Elder Great argus",
+          "tierLevel": 205,
+          "level": 1565
+        },
+        {
+          "id": "ancient_great_argus",
+          "name": "Ancient Great argus",
+          "tierLevel": 240,
+          "level": 1979
+        }
+      ],
+      "bodyPlan": "fowl",
+      "race": "Flyer",
+      "region": "Mandai Rainforest",
+      "aggressive": "all forms",
+      "colour": "#8a6a4a",
+      "lore": "A pheasant with wing feathers a metre long, covered in hundreds of eye-spots that all seem to watch you.",
+      "visualDescription": "Brown pheasant with an enormous fan of wing feathers covered in golden eye-spots, a blue bare face, a long tail and a showy dancing pose.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/garuda_fledgling.webp",
+        "tint": "sepia(0.8) brightness(0.9)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/great_argus.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "rebar_golem",
+      "name": "Rebar golem",
+      "forms": [
+        {
+          "id": "rebar_golem",
+          "name": "Rebar golem",
+          "tierLevel": 222,
+          "level": 1762
+        },
+        {
+          "id": "elder_rebar_golem",
+          "name": "Elder Rebar golem",
+          "tierLevel": 262,
+          "level": 2253
+        },
+        {
+          "id": "ancient_rebar_golem",
+          "name": "Ancient Rebar golem",
+          "tierLevel": 298,
+          "level": 2722
+        }
+      ],
+      "bodyPlan": "golem",
+      "race": "Construct",
+      "region": "Tuas Docklands",
+      "aggressive": "all forms",
+      "colour": "#8a5a3a",
+      "lore": "A construction-site golem of twisted rebar and wet concrete. It keeps building things, mostly walls around you.",
+      "visualDescription": "A tall golem of bent rusty rebar-cage limbs filled with grey concrete chunks, wearing a yellow hard hat and a hazard-stripe sash; glowing orange eyes.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/rust_golem.webp",
+        "tint": "saturate(1.3) brightness(1.1)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/rebar_golem.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "concrete_golem",
+      "name": "Concrete golem",
+      "forms": [
+        {
+          "id": "concrete_golem",
+          "name": "Concrete golem",
+          "tierLevel": 228,
+          "level": 1834
+        },
+        {
+          "id": "elder_concrete_golem",
+          "name": "Elder Concrete golem",
+          "tierLevel": 268,
+          "level": 2329
+        },
+        {
+          "id": "ancient_concrete_golem",
+          "name": "Ancient Concrete golem",
+          "tierLevel": 300,
+          "level": 2749
+        }
+      ],
+      "bodyPlan": "golem",
+      "race": "Construct",
+      "region": "Tuas Docklands",
+      "aggressive": "all forms",
+      "colour": "#a0a0a0",
+      "lore": "Poured, set and very cross about it. Its footsteps crack the dock.",
+      "visualDescription": "Blocky smooth grey concrete golem with a slowly turning cement-mixer drum for a belly, safety-orange cones on its shoulders and a cracked face.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/stone_golem.webp",
+        "tint": "grayscale(0.8) brightness(1.2)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/concrete_golem.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "excavator_crab",
+      "name": "Excavator crab",
+      "forms": [
+        {
+          "id": "excavator_crab",
+          "name": "Excavator crab",
+          "tierLevel": 225,
+          "level": 1798
+        },
+        {
+          "id": "elder_excavator_crab",
+          "name": "Elder Excavator crab",
+          "tierLevel": 260,
+          "level": 2227
+        },
+        {
+          "id": "ancient_excavator_crab",
+          "name": "Ancient Excavator crab",
+          "tierLevel": 296,
+          "level": 2695
+        }
+      ],
+      "bodyPlan": "crab",
+      "race": "Sea creature",
+      "region": "Tuas Docklands",
+      "aggressive": "all forms",
+      "colour": "#e0b020",
+      "lore": "Part crab, part dockyard digger. Its claws are hydraulic, and so is its temper.",
+      "visualDescription": "A big crab with a safety-yellow armoured shell, one claw shaped like an excavator bucket, hazard stripes, hydraulic piston joints and a flashing amber light on top.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/coconut_crab.webp",
+        "tint": "hue-rotate(150deg) saturate(1.8) brightness(1.4)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/excavator_crab.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "typhoon_wisp",
+      "name": "Typhoon wisp",
+      "forms": [
+        {
+          "id": "typhoon_wisp",
+          "name": "Typhoon wisp",
+          "tierLevel": 230,
+          "level": 1858
+        },
+        {
+          "id": "elder_typhoon_wisp",
+          "name": "Elder Typhoon wisp",
+          "tierLevel": 270,
+          "level": 2355
+        },
+        {
+          "id": "ancient_typhoon_wisp",
+          "name": "Ancient Typhoon wisp",
+          "tierLevel": 300,
+          "level": 2749
+        }
+      ],
+      "bodyPlan": "wisp",
+      "race": "Spirit",
+      "region": "Tuas Docklands",
+      "aggressive": "all forms",
+      "colour": "#8ab8e0",
+      "lore": "A scrap of a South China Sea typhoon that blew ashore and never left. It whips up rain wherever it goes.",
+      "visualDescription": "A spinning swirl of storm cloud and rain with a bright eye at its centre, little lightning sparks, raindrops whipping round it and a cheeky gusty face.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/will_o_wisp.webp",
+        "tint": "hue-rotate(10deg) saturate(1.2) brightness(1.1)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/typhoon_wisp.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "majapahit_revenant",
+      "name": "Majapahit revenant",
+      "forms": [
+        {
+          "id": "majapahit_revenant",
+          "name": "Majapahit revenant",
+          "tierLevel": 292,
+          "level": 2642
+        },
+        {
+          "id": "elder_majapahit_revenant",
+          "name": "Elder Majapahit revenant",
+          "tierLevel": 335,
+          "level": 3230
+        },
+        {
+          "id": "ancient_majapahit_revenant",
+          "name": "Ancient Majapahit revenant",
+          "tierLevel": 378,
+          "level": 3851
+        }
+      ],
+      "bodyPlan": "undead",
+      "race": "Undead",
+      "region": "Temasek Ruins",
+      "aggressive": "all forms",
+      "colour": "#a08a4a",
+      "lore": "A raider from the fleet that sacked old Temasek, still marching on a city that fell six hundred years ago.",
+      "visualDescription": "Skeletal warrior in gilded scale armour and a tall winged helm, a kris in one hand and a round rattan shield in the other; tattered red sash.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/bronze_warrior.webp",
+        "tint": "hue-rotate(20deg) saturate(0.7) brightness(0.9)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/majapahit_revenant.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "todak",
+      "name": "Todak",
+      "forms": [
+        {
+          "id": "todak",
+          "name": "Todak",
+          "tierLevel": 295,
+          "level": 2682
+        },
+        {
+          "id": "elder_todak",
+          "name": "Elder Todak",
+          "tierLevel": 340,
+          "level": 3301
+        },
+        {
+          "id": "ancient_todak",
+          "name": "Ancient Todak",
+          "tierLevel": 380,
+          "level": 3881
+        }
+      ],
+      "bodyPlan": "seacreature",
+      "race": "Sea creature",
+      "region": "Temasek Ruins",
+      "aggressive": "all forms",
+      "colour": "#4a7ab0",
+      "lore": "The swordfish of the Malay Annals, that leapt from the sea to spear Singapura's people until a clever boy built walls of banana trunks.",
+      "visualDescription": "Sleek blue-and-silver swordfish with a long sharp bill, a tall sail-like back fin and an angry glare, leaping in a burst of sea spray.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/reef_shark.webp",
+        "tint": "hue-rotate(20deg) saturate(1.2)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/todak.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "keris_spirit",
+      "name": "Keris spirit",
+      "forms": [
+        {
+          "id": "keris_spirit",
+          "name": "Keris spirit",
+          "tierLevel": 300,
+          "level": 2749
+        },
+        {
+          "id": "elder_keris_spirit",
+          "name": "Elder Keris spirit",
+          "tierLevel": 345,
+          "level": 3372
+        },
+        {
+          "id": "ancient_keris_spirit",
+          "name": "Ancient Keris spirit",
+          "tierLevel": 380,
+          "level": 3881
+        }
+      ],
+      "bodyPlan": "ghost",
+      "race": "Spirit",
+      "region": "Temasek Ruins",
+      "aggressive": "all forms",
+      "colour": "#d0b060",
+      "lore": "A pusaka keris with a soul of its own. It chooses its wielder, and cuts those it rejects.",
+      "visualDescription": "A floating wavy-bladed keris with a carved golden hilt, wreathed in a pale gold ghostly figure whose arms trail into smoke; glowing runes along the blade.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/ruin_wraith.webp",
+        "tint": "sepia(0.8) saturate(1.6) brightness(1.2)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/keris_spirit.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "cloud_koi",
+      "name": "Cloud koi",
+      "forms": [
+        {
+          "id": "cloud_koi",
+          "name": "Cloud koi",
+          "tierLevel": 362,
+          "level": 3616
+        },
+        {
+          "id": "elder_cloud_koi",
+          "name": "Elder Cloud koi",
+          "tierLevel": 405,
+          "level": 4256
+        },
+        {
+          "id": "ancient_cloud_koi",
+          "name": "Ancient Cloud koi",
+          "tierLevel": 448,
+          "level": 4925
+        }
+      ],
+      "bodyPlan": "seacreature",
+      "race": "Sea creature",
+      "region": "The Celestial Peaks",
+      "aggressive": "all forms",
+      "colour": "#f0a060",
+      "lore": "A koi that swam up the waterfall into the clouds and is halfway to becoming a dragon.",
+      "visualDescription": "A flowing orange-and-white koi with gold whiskers, wispy cloud fins, little budding dragon horns and mist swirling round its tail.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/pink_dolphin.webp",
+        "tint": "hue-rotate(-40deg) saturate(1.4) brightness(1.2)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/cloud_koi.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "jade_hare",
+      "name": "Jade hare",
+      "forms": [
+        {
+          "id": "jade_hare",
+          "name": "Jade hare",
+          "tierLevel": 365,
+          "level": 3660
+        },
+        {
+          "id": "elder_jade_hare",
+          "name": "Elder Jade hare",
+          "tierLevel": 410,
+          "level": 4333
+        },
+        {
+          "id": "ancient_jade_hare",
+          "name": "Ancient Jade hare",
+          "tierLevel": 450,
+          "level": 4957
+        }
+      ],
+      "bodyPlan": "rodent",
+      "race": "Beast",
+      "region": "The Celestial Peaks",
+      "aggressive": "Elder and Ancient forms only",
+      "colour": "#c0f0d0",
+      "lore": "The Moon Rabbit, who pounds the elixir of life with a jade pestle. It came down for the mooncakes.",
+      "visualDescription": "Fluffy white moon rabbit with pale jade-green ear tips, red eyes, a tiny jade mortar and pestle in its paws and a crescent-moon mark on its forehead.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/field_rat.webp",
+        "tint": "grayscale(1) brightness(1.8) sepia(0.2) hue-rotate(100deg)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/jade_hare.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    },
+    {
+      "family": "phoenix_chick",
+      "name": "Phoenix chick",
+      "forms": [
+        {
+          "id": "phoenix_chick",
+          "name": "Phoenix chick",
+          "tierLevel": 370,
+          "level": 3733
+        },
+        {
+          "id": "elder_phoenix_chick",
+          "name": "Elder Phoenix chick",
+          "tierLevel": 415,
+          "level": 4409
+        },
+        {
+          "id": "ancient_phoenix_chick",
+          "name": "Ancient Phoenix chick",
+          "tierLevel": 450,
+          "level": 4957
+        }
+      ],
+      "bodyPlan": "fowl",
+      "race": "Flyer",
+      "region": "The Celestial Peaks",
+      "aggressive": "all forms",
+      "colour": "#f06a2a",
+      "lore": "A fenghuang chick, already hot enough to scorch the snow. It will be magnificent one day; for now it is merely furious.",
+      "visualDescription": "A round fluffy chick of flame-red and gold feathers with a three-feather crest, long ribbon tail feathers trailing embers, a tiny beak and determined eyes.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/species/garuda_fledgling.webp",
+        "tint": "hue-rotate(-30deg) saturate(1.8)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/species/phoenix_chick.webp",
+        "registry": "SPECIES_ART (src/render/sprites.js)",
+        "size": "256px, run through tools/unify_creatures.py"
+      }
+    }
+  ],
+  "bosses": [
+    {
+      "id": "toman_tyrant",
+      "name": "Toman, the Snakehead Tyrant",
+      "bodyPlan": "seacreature",
+      "race": "Sea creature",
+      "region": "MacRitchie Reservoir",
+      "tierLevel": 40,
+      "level": 107,
+      "colour": "#3a4a2a",
+      "signatureMove": "Feeding Lunge",
+      "mechanic": "Slime Scales (shield)",
+      "lore": "The reservoir's oldest snakehead, grown as long as a sampan. Every fish in MacRitchie pays it tribute.",
+      "visualDescription": "An enormous dark olive snakehead fish with black blotches, a crown-like ridge of fin spines, a huge underbite full of needle teeth and orange-rimmed eyes, coiled half out of the water like a dragon.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/bosses/sentosa_megalodon.webp",
+        "tint": "hue-rotate(60deg) saturate(0.7) brightness(0.7)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/bosses/toman_tyrant.webp",
+        "registry": "BOSS_ART (src/render/sprites.js)",
+        "size": "320px, run through tools/unify_creatures.py"
+      },
+      "signatureWeaponIcon": {
+        "file": "assets/icons/item-sig_toman_tyrant.webp",
+        "registry": "ITEM_ART (src/render/icons.js; it stops borrowing once the file is listed)",
+        "size": "160px"
+      }
+    },
+    {
+      "id": "ubin_quarry_python",
+      "name": "The Quarry Python of Ubin",
+      "bodyPlan": "serpent",
+      "race": "Reptile",
+      "region": "Pulau Ubin",
+      "tierLevel": 40,
+      "level": 107,
+      "colour": "#7a7a6a",
+      "signatureMove": "Granite Coil",
+      "mechanic": "Rockslide (circle)",
+      "lore": "It sleeps in the flooded granite quarries and has grown the colour of the stone. Quarrymen called it the moving rock.",
+      "visualDescription": "A massive python with granite-grey speckled scales cracked like quarry stone, moss in the cracks, amber eyes and coils piled like boulders around an old quarry pick.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/bosses/reservoir_serpent.webp",
+        "tint": "grayscale(0.8) brightness(1.1)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/bosses/ubin_quarry_python.webp",
+        "registry": "BOSS_ART (src/render/sprites.js)",
+        "size": "320px, run through tools/unify_creatures.py"
+      },
+      "signatureWeaponIcon": {
+        "file": "assets/icons/item-sig_ubin_quarry_python.webp",
+        "registry": "ITEM_ART (src/render/icons.js; it stops borrowing once the file is listed)",
+        "size": "160px"
+      }
+    },
+    {
+      "id": "kopitiam_roach_queen",
+      "name": "The Kopitiam Roach Queen",
+      "bodyPlan": "insect",
+      "race": "Bug",
+      "region": "Marina Bay",
+      "tierLevel": 48,
+      "level": 151,
+      "colour": "#6a2a1a",
+      "signatureMove": "Midnight Swarm",
+      "mechanic": "Roach Brood (adds)",
+      "lore": "She rules the drains under every hawker centre in the bay, and her brood comes out when the stalls close.",
+      "visualDescription": "A giant glossy chestnut cockroach queen wearing a bottle-cap crown and a cape made from a hawker tissue packet, long antennae, wings fanned like a royal train, surrounded by tiny roach minions.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/bosses/spider_queen.webp",
+        "tint": "hue-rotate(-60deg) saturate(1.1) brightness(0.8)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/bosses/kopitiam_roach_queen.webp",
+        "registry": "BOSS_ART (src/render/sprites.js)",
+        "size": "320px, run through tools/unify_creatures.py"
+      },
+      "signatureWeaponIcon": {
+        "file": "assets/icons/item-sig_kopitiam_roach_queen.webp",
+        "registry": "ITEM_ART (src/render/icons.js; it stops borrowing once the file is listed)",
+        "size": "160px"
+      }
+    },
+    {
+      "id": "bakau_mud_lobster",
+      "name": "Bakau Mud Lobster",
+      "bodyPlan": "crab",
+      "race": "Sea creature",
+      "region": "Sungei Buloh Wetlands",
+      "tierLevel": 52,
+      "level": 175,
+      "colour": "#5a3a2a",
+      "signatureMove": "Mud Volcano",
+      "mechanic": "Mud Mound (shield)",
+      "lore": "Its mud mound is the tallest in the mangroves, and the whole wetland shakes when it digs.",
+      "visualDescription": "A hulking reddish-brown mud lobster caked in grey mangrove mud, huge shovel claws, mangrove roots and a heron feather stuck in its shell, standing on a smoking mud-volcano mound.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/bosses/kelong_king_crab.webp",
+        "tint": "hue-rotate(-20deg) saturate(0.6) brightness(0.7)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/bosses/bakau_mud_lobster.webp",
+        "registry": "BOSS_ART (src/render/sprites.js)",
+        "size": "320px, run through tools/unify_creatures.py"
+      },
+      "signatureWeaponIcon": {
+        "file": "assets/icons/item-sig_bakau_mud_lobster.webp",
+        "registry": "ITEM_ART (src/render/icons.js; it stops borrowing once the file is listed)",
+        "size": "160px"
+      }
+    },
+    {
+      "id": "strangler_fig_mother",
+      "name": "The Strangler Fig Mother",
+      "bodyPlan": "plant",
+      "race": "Plant",
+      "region": "Bukit Timah",
+      "tierLevel": 58,
+      "level": 215,
+      "colour": "#5a6a3a",
+      "signatureMove": "Choking Roots",
+      "mechanic": "Fig Seedlings (adds)",
+      "lore": "The first strangler fig on the hill. The tree she grew round rotted away a century ago; she kept its shape, and its grudge.",
+      "visualDescription": "A towering hollow lattice of twisting grey fig roots shaped like a hunched mother figure, a glowing amber heart visible through the gaps, a canopy of glossy fig leaves and red figs for jewellery.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/bosses/ancient_tembusu.webp",
+        "tint": "hue-rotate(30deg) saturate(0.7) brightness(0.85)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/bosses/strangler_fig_mother.webp",
+        "registry": "BOSS_ART (src/render/sprites.js)",
+        "size": "320px, run through tools/unify_creatures.py"
+      },
+      "signatureWeaponIcon": {
+        "file": "assets/icons/item-sig_strangler_fig_mother.webp",
+        "registry": "ITEM_ART (src/render/icons.js; it stops borrowing once the file is listed)",
+        "size": "160px"
+      }
+    },
+    {
+      "id": "kranji_bullfrog_emperor",
+      "name": "The Bullfrog Emperor of Kranji",
+      "bodyPlan": "slime",
+      "race": "Plant",
+      "region": "Kranji Farmlands",
+      "tierLevel": 62,
+      "level": 241,
+      "colour": "#5a7a2a",
+      "signatureMove": "Thunder Croak",
+      "mechanic": "Tadpole Choir (adds)",
+      "lore": "Twice the size of a buffalo and lord of every paddy pond. When it croaks, the tadpoles sing back.",
+      "visualDescription": "A gigantic olive-green bullfrog wearing a tiny gold crown and a lotus-leaf cape, throat sac puffed out like a drum, golden eyes and a court of tadpoles round its feet.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/bosses/ubin_stone_frog.webp",
+        "tint": "hue-rotate(50deg) saturate(2) brightness(0.9)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/bosses/kranji_bullfrog_emperor.webp",
+        "registry": "BOSS_ART (src/render/sprites.js)",
+        "size": "320px, run through tools/unify_creatures.py"
+      },
+      "signatureWeaponIcon": {
+        "file": "assets/icons/item-sig_kranji_bullfrog_emperor.webp",
+        "registry": "ITEM_ART (src/render/icons.js; it stops borrowing once the file is listed)",
+        "size": "160px"
+      }
+    },
+    {
+      "id": "sea_eagle_sovereign",
+      "name": "The Sea Eagle Sovereign",
+      "bodyPlan": "fowl",
+      "race": "Flyer",
+      "region": "Changi Coast",
+      "tierLevel": 66,
+      "level": 271,
+      "colour": "#e0e0e0",
+      "signatureMove": "Talon Dive",
+      "mechanic": "Shadow of Wings (circle)",
+      "lore": "It nests in the tallest casuarina on the Changi shore and claims every fish that swims past the point.",
+      "visualDescription": "A regal white-bellied sea eagle with a snow-white head and chest, broad slate-grey wings spread wide, a hooked grey beak and golden talons clutching a silver fish; sea spray behind.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/bosses/the_garuda.webp",
+        "tint": "grayscale(0.9) brightness(1.3)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/bosses/sea_eagle_sovereign.webp",
+        "registry": "BOSS_ART (src/render/sprites.js)",
+        "size": "320px, run through tools/unify_creatures.py"
+      },
+      "signatureWeaponIcon": {
+        "file": "assets/icons/item-sig_sea_eagle_sovereign.webp",
+        "registry": "ITEM_ART (src/render/icons.js; it stops borrowing once the file is listed)",
+        "size": "160px"
+      }
+    },
+    {
+      "id": "slag_titan",
+      "name": "The Slag Titan",
+      "bodyPlan": "golem",
+      "race": "Construct",
+      "region": "Jurong Forest",
+      "tierLevel": 68,
+      "level": 285,
+      "colour": "#a04a2a",
+      "signatureMove": "Molten Spill",
+      "mechanic": "Furnace Pour (cast)",
+      "lore": "Poured from the last shift at Jurong's old steel mill and never switched off. It still glows at the joints.",
+      "visualDescription": "A massive golem of charcoal-black slag with molten orange cracks, a smokestack on one shoulder puffing smoke, a ladle-shaped hand dripping liquid metal and rivets for eyebrows.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/bosses/molten_golem.webp",
+        "tint": "hue-rotate(-10deg) saturate(0.6) brightness(0.8)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/bosses/slag_titan.webp",
+        "registry": "BOSS_ART (src/render/sprites.js)",
+        "size": "320px, run through tools/unify_creatures.py"
+      },
+      "signatureWeaponIcon": {
+        "file": "assets/icons/item-sig_slag_titan.webp",
+        "registry": "ITEM_ART (src/render/icons.js; it stops borrowing once the file is listed)",
+        "size": "160px"
+      }
+    },
+    {
+      "id": "arowana_emperor",
+      "name": "The Arowana Emperor",
+      "bodyPlan": "seacreature",
+      "race": "Sea creature",
+      "region": "Punggol Waterway",
+      "tierLevel": 90,
+      "level": 469,
+      "colour": "#e0b030",
+      "signatureMove": "Lucky Splash",
+      "mechanic": "Golden Scales (shield)",
+      "lore": "A golden dragon fish as old as the waterway. Fortune follows it, and so does a great deal of trouble.",
+      "visualDescription": "A huge golden arowana with gleaming coin-like scales, long flowing fins like silk robes, twin barbels like a dragon's moustache and a small jade pearl balanced on its nose.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/bosses/merlion.webp",
+        "tint": "sepia(0.7) saturate(2.2) brightness(1.1)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/bosses/arowana_emperor.webp",
+        "registry": "BOSS_ART (src/render/sprites.js)",
+        "size": "320px, run through tools/unify_creatures.py"
+      },
+      "signatureWeaponIcon": {
+        "file": "assets/icons/item-sig_arowana_emperor.webp",
+        "registry": "ITEM_ART (src/render/icons.js; it stops borrowing once the file is listed)",
+        "size": "160px"
+      }
+    },
+    {
+      "id": "toyol_kingpin",
+      "name": "The Toyol Kingpin",
+      "bodyPlan": "greenman",
+      "race": "Humanoid",
+      "region": "Pulau Hantu",
+      "tierLevel": 95,
+      "level": 516,
+      "colour": "#5a4a6a",
+      "signatureMove": "Pickpocket Swarm",
+      "mechanic": "Coin Runners (adds)",
+      "lore": "Every coin a toyol ever stole ends up in his hoard. He sends his little runners out every night to add to it.",
+      "visualDescription": "A plump toyol boss sitting on a pile of stolen coins, grey-green baby skin, a gold chain and rings, a tiny songkok, a sly grin and a sack of loot over one shoulder.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/bosses/goblin_warchief.webp",
+        "tint": "hue-rotate(200deg) saturate(0.8) brightness(0.9)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/bosses/toyol_kingpin.webp",
+        "registry": "BOSS_ART (src/render/sprites.js)",
+        "size": "320px, run through tools/unify_creatures.py"
+      },
+      "signatureWeaponIcon": {
+        "file": "assets/icons/item-sig_toyol_kingpin.webp",
+        "registry": "ITEM_ART (src/render/icons.js; it stops borrowing once the file is listed)",
+        "size": "160px"
+      }
+    },
+    {
+      "id": "atlas_moth_empress",
+      "name": "The Atlas Moth Empress",
+      "bodyPlan": "insect",
+      "race": "Bug",
+      "region": "Gardens by the Bay",
+      "tierLevel": 100,
+      "level": 565,
+      "colour": "#c05a2a",
+      "signatureMove": "Dazzling Dust",
+      "mechanic": "Scale-Dust Veil (shield)",
+      "lore": "She was drawn to the Supertrees' lights and never left. Her wingbeats shed a glittering dust that dazzles the eye.",
+      "visualDescription": "A giant atlas moth queen with sweeping rust-red, cream and pink wings with see-through windows, snake-head wing tips, a fluffy white collar, feathery antennae like a tiara and glitter dust trailing behind.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/bosses/bunian_queen.webp",
+        "tint": "hue-rotate(-120deg) saturate(1.3)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/bosses/atlas_moth_empress.webp",
+        "registry": "BOSS_ART (src/render/sprites.js)",
+        "size": "320px, run through tools/unify_creatures.py"
+      },
+      "signatureWeaponIcon": {
+        "file": "assets/icons/item-sig_atlas_moth_empress.webp",
+        "registry": "ITEM_ART (src/render/icons.js; it stops borrowing once the file is listed)",
+        "size": "160px"
+      }
+    },
+    {
+      "id": "jembalang_lord",
+      "name": "Jembalang Lord",
+      "bodyPlan": "demon",
+      "race": "Demon",
+      "region": "Tekong Badlands",
+      "tierLevel": 125,
+      "level": 837,
+      "colour": "#5a3a1a",
+      "signatureMove": "Swallowing Ground",
+      "mechanic": "Claim the Ground (cast)",
+      "lore": "Lord of every jembalang on the island. It claims the Badlands as its own, and the ground itself rises to defend it.",
+      "visualDescription": "A hulking earth demon of cracked red-brown clay with great curling ram horns, roots and stones growing from its back, glowing ember eyes and fists like boulders.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/bosses/demon_lord.webp",
+        "tint": "hue-rotate(30deg) saturate(0.7) brightness(0.8)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/bosses/jembalang_lord.webp",
+        "registry": "BOSS_ART (src/render/sprites.js)",
+        "size": "320px, run through tools/unify_creatures.py"
+      },
+      "signatureWeaponIcon": {
+        "file": "assets/icons/item-sig_jembalang_lord.webp",
+        "registry": "ITEM_ART (src/render/icons.js; it stops borrowing once the file is listed)",
+        "size": "160px"
+      }
+    },
+    {
+      "id": "krait_matriarch",
+      "name": "The Banded Krait Matriarch",
+      "bodyPlan": "serpent",
+      "race": "Reptile",
+      "region": "Coney Island",
+      "tierLevel": 130,
+      "level": 896,
+      "colour": "#d0c020",
+      "signatureMove": "Neurotoxin",
+      "mechanic": "Krait Brood (adds)",
+      "lore": "Mother of every krait on Coney Island. She lies coiled across the old beach trail and lets nobody pass.",
+      "visualDescription": "An enormous thick-bodied snake in bold yellow and black rings, coiled round a clutch of glowing eggs, a blunt black head with a golden crest and calm, deadly eyes.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/bosses/mangrove_hydra.webp",
+        "tint": "hue-rotate(20deg) saturate(1.6) brightness(1.2)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/bosses/krait_matriarch.webp",
+        "registry": "BOSS_ART (src/render/sprites.js)",
+        "size": "320px, run through tools/unify_creatures.py"
+      },
+      "signatureWeaponIcon": {
+        "file": "assets/icons/item-sig_krait_matriarch.webp",
+        "registry": "ITEM_ART (src/render/icons.js; it stops borrowing once the file is listed)",
+        "size": "160px"
+      }
+    },
+    {
+      "id": "duyung_queen",
+      "name": "The Duyung Queen",
+      "bodyPlan": "seacreature",
+      "race": "Sea creature",
+      "region": "Southern Islands",
+      "tierLevel": 150,
+      "level": 1157,
+      "colour": "#6a9ab0",
+      "signatureMove": "Siren Song",
+      "mechanic": "Siren Tide (circle)",
+      "lore": "Queen of the sea-cow mermaids. Her song turns ships onto the reefs, and the reefs keep what they catch.",
+      "visualDescription": "A majestic dugong mermaid queen with a coral-and-pearl crown, long flowing sea-green hair, a shimmering teal fluked tail, a conch-shell sceptre and soft glowing eyes.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/bosses/coral_leviathan.webp",
+        "tint": "hue-rotate(40deg) saturate(1.2) brightness(1.1)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/bosses/duyung_queen.webp",
+        "registry": "BOSS_ART (src/render/sprites.js)",
+        "size": "320px, run through tools/unify_creatures.py"
+      },
+      "signatureWeaponIcon": {
+        "file": "assets/icons/item-sig_duyung_queen.webp",
+        "registry": "ITEM_ART (src/render/icons.js; it stops borrowing once the file is listed)",
+        "size": "160px"
+      }
+    },
+    {
+      "id": "great_argus_monarch",
+      "name": "The Great Argus Monarch",
+      "bodyPlan": "fowl",
+      "race": "Flyer",
+      "region": "Mandai Rainforest",
+      "tierLevel": 190,
+      "level": 1779,
+      "colour": "#8a5a3a",
+      "signatureMove": "Thousand Eyes",
+      "mechanic": "Courtship Dance (cast)",
+      "lore": "Its courtship dance spreads a wall of a thousand eyes. Those who stare too long forget where they are.",
+      "visualDescription": "A huge brown pheasant king with an enormous fanned wall of wing feathers covered in golden eye-spots, a bright blue face, a crest of fine plumes and an extremely long tail.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/bosses/celestial_garuda.webp",
+        "tint": "sepia(0.9) saturate(0.9) brightness(0.85)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/bosses/great_argus_monarch.webp",
+        "registry": "BOSS_ART (src/render/sprites.js)",
+        "size": "320px, run through tools/unify_creatures.py"
+      },
+      "signatureWeaponIcon": {
+        "file": "assets/icons/item-sig_great_argus_monarch.webp",
+        "registry": "ITEM_ART (src/render/icons.js; it stops borrowing once the file is listed)",
+        "size": "160px"
+      }
+    },
+    {
+      "id": "typhoon_mother",
+      "name": "The Typhoon Mother",
+      "bodyPlan": "wisp",
+      "race": "Spirit",
+      "region": "Tuas Docklands",
+      "tierLevel": 240,
+      "level": 2763,
+      "colour": "#5a8ac0",
+      "signatureMove": "Monsoon Fury",
+      "mechanic": "Eye of the Storm (circle)",
+      "lore": "The storm every typhoon wisp was torn from. Where she settles, the cranes sway and the containers fall.",
+      "visualDescription": "A towering spiral of dark storm cloud with a calm bright eye at its centre forming a serene face, lightning crackling through her cloud hair, rain bands for arms and shipping containers swirling in her winds.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/bosses/punggol_lantern_spirit.webp",
+        "tint": "hue-rotate(180deg) saturate(1.1)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/bosses/typhoon_mother.webp",
+        "registry": "BOSS_ART (src/render/sprites.js)",
+        "size": "320px, run through tools/unify_creatures.py"
+      },
+      "signatureWeaponIcon": {
+        "file": "assets/icons/item-sig_typhoon_mother.webp",
+        "registry": "ITEM_ART (src/render/icons.js; it stops borrowing once the file is listed)",
+        "size": "160px"
+      }
+    },
+    {
+      "id": "void_eel_leviathan",
+      "name": "The Void Eel Leviathan",
+      "bodyPlan": "serpent",
+      "race": "Reptile",
+      "region": "The Shadow Rift",
+      "tierLevel": 245,
+      "level": 2874,
+      "colour": "#3a1a5a",
+      "signatureMove": "Void Current",
+      "mechanic": "Starlight Discharge (cast)",
+      "lore": "The first thing to swim out of the Rift. It feeds on starlight, and the sky above it grows darker every year.",
+      "visualDescription": "A colossal sinuous eel of deep indigo speckled with stars and galaxies, a glowing violet fin ridge, a huge grinning maw with crackling purple lightning and tiny void eels circling it.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/bosses/reservoir_serpent.webp",
+        "tint": "hue-rotate(220deg) saturate(1.5) brightness(0.7)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/bosses/void_eel_leviathan.webp",
+        "registry": "BOSS_ART (src/render/sprites.js)",
+        "size": "320px, run through tools/unify_creatures.py"
+      },
+      "signatureWeaponIcon": {
+        "file": "assets/icons/item-sig_void_eel_leviathan.webp",
+        "registry": "ITEM_ART (src/render/icons.js; it stops borrowing once the file is listed)",
+        "size": "160px"
+      }
+    },
+    {
+      "id": "todak_king",
+      "name": "The Todak King",
+      "bodyPlan": "seacreature",
+      "race": "Sea creature",
+      "region": "Temasek Ruins",
+      "tierLevel": 330,
+      "level": 5190,
+      "colour": "#3a6ab0",
+      "signatureMove": "Leaping Spear",
+      "mechanic": "Swordbill Guard (shield)",
+      "lore": "King of the swordfish that once attacked Singapura. The banana-trunk walls stopped his shoals; nothing has stopped him.",
+      "visualDescription": "A giant armoured blue-and-silver swordfish king with a long gleaming sword bill, a sail fin like a royal standard, a golden crown fin and battle scars, leaping out of a crashing wave.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/bosses/sentosa_megalodon.webp",
+        "tint": "hue-rotate(-10deg) saturate(1.2) brightness(1.1)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/bosses/todak_king.webp",
+        "registry": "BOSS_ART (src/render/sprites.js)",
+        "size": "320px, run through tools/unify_creatures.py"
+      },
+      "signatureWeaponIcon": {
+        "file": "assets/icons/item-sig_todak_king.webp",
+        "registry": "ITEM_ART (src/render/icons.js; it stops borrowing once the file is listed)",
+        "size": "160px"
+      }
+    },
+    {
+      "id": "jade_moon_hare",
+      "name": "The Jade Hare of the Moon",
+      "bodyPlan": "rodent",
+      "race": "Beast",
+      "region": "The Celestial Peaks",
+      "tierLevel": 400,
+      "level": 7754,
+      "colour": "#b0e0c0",
+      "signatureMove": "Moon Pestle",
+      "mechanic": "Elixir of the Moon (cast)",
+      "lore": "Keeper of the elixir of immortality. It pounds the elixir with its jade pestle, and drinks it whenever a fight goes badly.",
+      "visualDescription": "A large serene white moon rabbit with jade-green ear tips and markings, a giant jade mortar and pestle, a glowing full moon halo behind it and floating mooncakes.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/bosses/lion_of_light.webp",
+        "tint": "grayscale(0.6) hue-rotate(90deg) brightness(1.3)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/bosses/jade_moon_hare.webp",
+        "registry": "BOSS_ART (src/render/sprites.js)",
+        "size": "320px, run through tools/unify_creatures.py"
+      },
+      "signatureWeaponIcon": {
+        "file": "assets/icons/item-sig_jade_moon_hare.webp",
+        "registry": "ITEM_ART (src/render/icons.js; it stops borrowing once the file is listed)",
+        "size": "160px"
+      }
+    },
+    {
+      "id": "fenghuang",
+      "name": "Fenghuang, the Vermilion Phoenix",
+      "bodyPlan": "fowl",
+      "race": "Flyer",
+      "region": "The Celestial Peaks",
+      "tierLevel": 440,
+      "level": 9519,
+      "colour": "#e04a2a",
+      "signatureMove": "Vermilion Rebirth",
+      "mechanic": "Rebirth Blaze (circle)",
+      "lore": "The phoenix of the eastern heavens, who burns and is reborn on the highest peak. It answers to no emperor.",
+      "visualDescription": "A magnificent vermilion and gold phoenix with five-coloured ribbon tail feathers, a flowing flame crest, wings spread in a blaze of embers and calm golden eyes.",
+      "currentlyBorrows": {
+        "file": "assets/creatures/bosses/celestial_garuda.webp",
+        "tint": "hue-rotate(-40deg) saturate(1.8)"
+      },
+      "artNeeded": {
+        "file": "assets/creatures/bosses/fenghuang.webp",
+        "registry": "BOSS_ART (src/render/sprites.js)",
+        "size": "320px, run through tools/unify_creatures.py"
+      },
+      "signatureWeaponIcon": {
+        "file": "assets/icons/item-sig_fenghuang.webp",
+        "registry": "ITEM_ART (src/render/icons.js; it stops borrowing once the file is listed)",
+        "size": "160px"
+      }
+    }
+  ]
+}
