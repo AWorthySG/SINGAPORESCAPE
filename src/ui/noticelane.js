@@ -40,6 +40,7 @@ export class NoticeLane {
       if (!card) return;
       const act = e.target.closest?.('[data-act]')?.dataset.act;
       if (act === 'notips') this.ui.tipsOff?.();
+      else if (act) this.ui.noticeAct?.(act);   // a note's own button ("Wear it": whatnextui.js)
       this.dismiss(Number(card.dataset.id));
     });
     (document.getElementById('game-root') || document.body).appendChild(el);

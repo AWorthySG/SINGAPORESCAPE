@@ -78,6 +78,10 @@ import { foeDetails, labelMode, nextLabelMode, LABEL_MODE_NAMES } from '../rende
 import { applyAccessibility, countUp, playCloseGhost, inlineIcon } from './uifx.js';
 import { mechLabel } from '../game/bossmech.js';
 import { renderBossBar } from './bossbar.js';
+import { whatNextHTML, wireWhatNext, whatNextTrackerRows, watchUpgrades, watchGoals } from './whatnextui.js';
+import { depositLootButton, keepMenuItem, markKept } from './bankkeepui.js';
+import { levelNews, levelNewsText } from '../game/levelnews.js';
+import { whatNext } from '../game/whatnext.js';
 import { XpDisplay } from './xpdisplay.js';
 import { crossesMilestone, xpDisplayMode, nextXpDisplay, XP_DISPLAY_NAMES } from '../game/xptrack.js';
 import { regionDialogue, canRegionTeleport, regionTeleport } from '../game/regionquests.js';
@@ -283,6 +287,8 @@ export class UI {
     this.quickSlot = new QuickSlot(this);   // food / potion button beside Attack (hudease.js)
     this.bus.on('tick', () => this.lane.place());
     this.xpHud = new XpDisplay(this);   // XP counter, progress ring and level-up toasts (xpdisplay.js)
+    watchUpgrades(this);   // "Wear it" when loot beats your gear (whatnextui.js)
+    watchGoals(this);      // the journal's "What next?" card follows the goals
     this.bus.on('inventory', () => this.scheduleInventory());
     // Gear changes come in bursts (every worn piece gains mastery on a kill), so redraw once a frame.
     this.bus.on('equipment', () => { this._soon('equipment', () => this.renderEquipment()); this._soon('combat', () => this.renderCombatPanel()); this.scheduleInventory(); });
@@ -588,6 +594,7 @@ export class UI {
     rows.push(...eventTrackerRows(this));      // a world event under way
     rows.push(...contractTrackerRows(this));   // today's Pest Control contracts
     rows.push(...lifeTrackerRows(this));       // a gathering streak, today's skilling contracts (lifeskillui.js)
+    rows.push(...whatNextTrackerRows(this));   // the first "What next?" goal, tap to start (whatnextui.js)
     for (const q of QUESTS) {
       const st = g.quests[q.id];
       if (st && st.state === 'active') {
@@ -2968,7 +2975,9 @@ export class UI {
       : s === 'active' ? '<span class="q-chip active">Active</span>'
         : '<span class="q-chip todo">Not started</span>';
     const done = QUESTS.filter((d) => game.quests[d.id]?.state === 'done').length;
-    let html = '';
+    // "What next?": two or three goals with a Go each (whatnextui.js).
+    const goals = this._wnGoals = whatNext(game);
+    let html = whatNextHTML(game, goals);
     const b = game.bounties;
     if (b && b.list.length) {
       const mult = Math.round((streakMult(b.streak) - 1) * 100);
@@ -3014,6 +3023,7 @@ export class UI {
     for (const b of this.el.questPanel.querySelectorAll('.q-tp')) b.addEventListener('click', (e) => { e.stopPropagation(); regionTeleport(game, b.dataset.tp); });
     this.el.questPanel.querySelector('.q-auto')?.addEventListener('click', () => { game.toggleAutoQuest(); });
     wireEventsPanel(this, this.el.questPanel);
+    wireWhatNext(this, this.el.questPanel, goals);
     addCompendiumButton(this, this.el.questPanel);   // the game guide (compendiumui.js)
   }
 
@@ -3107,17 +3117,19 @@ export class UI {
     for (const [skill, { from, to }] of q) {
       const sk = SKILLS.find((s) => s.id === skill);
       const n = to - from;
-      this.addChat(n > 1
+      // What the new level opened: trees, recipes, gear (levelnews.js).
+      const news = levelNewsText(levelNews(this.game, skill, from, to));
+      this.addChat((n > 1
         ? `Congratulations, you just advanced ${n} ${sk.name} levels! You are now level ${to}.`
-        : `Congratulations, you just advanced a ${sk.name} level! You are now level ${to}.`, 'level');
-      if (!big || crossesMilestone(from, to)) last = { sk, n, to };   // the banner names a milestone skill
+        : `Congratulations, you just advanced a ${sk.name} level! You are now level ${to}.`) + (news ? ` ${news}` : ''), 'level');
+      if (!big || crossesMilestone(from, to)) last = { sk, n, to, news };   // the banner names a milestone skill
       big = big || crossesMilestone(from, to);
       this.xpHud?.levelUp(skill, from, to);   // a gold pulse on the ring and a toast at the edge
     }
     // The big centre banner is kept for milestone levels (every tenth, 99).
     if (!big) { q.clear(); return; }
     const more = q.size > 1 ? ` (and ${q.size - 1} more skill${q.size > 2 ? 's' : ''})` : '';
-    this.showBanner(`<span class="big">Level up!</span>Your ${last.sk.name} is now level ${last.to}${last.n > 1 ? ` (+${last.n})` : ''}${more}.`);
+    this.showBanner(`<span class="big">Level up!</span>Your ${last.sk.name} is now level ${last.to}${last.n > 1 ? ` (+${last.n})` : ''}${more}.${last.news ? ` <span class="lvl-news">${escapeHtml(last.news)}</span>` : ''}`);
     q.clear();
   }
 
@@ -3469,6 +3481,7 @@ export class UI {
             { label: 'Withdraw 5', fn: () => this.game.withdraw(e.id, 5, q) },
             { label: 'Withdraw 10', fn: () => this.game.withdraw(e.id, 10, q) },
             { label: 'Withdraw All', fn: () => this.game.withdraw(e.id, e.qty, q) },
+            keepMenuItem(this, e.id),
           ],
           q,
         }));
@@ -3489,6 +3502,7 @@ export class UI {
       depAll.className = 'bank-deposit-all';
       depAll.textContent = 'Deposit all';
       depAll.addEventListener('click', () => this.game.depositAll());
+      invHead.appendChild(depositLootButton(this));   // keeps tools, coins and kept items (bankkeepui.js)
       invHead.appendChild(depAll);
       invSide.appendChild(invHead);
       const invGrid = document.createElement('div');
@@ -3496,15 +3510,16 @@ export class UI {
       this.game.inventory.slots.forEach((s, i) => {
         if (!s) return;
         const q = s.q || null;
-        invGrid.appendChild(this._cell(s.id, s.qty, {
+        invGrid.appendChild(markKept(this, this._cell(s.id, s.qty, {
           onClick: () => this.game.deposit(s.id, s.qty, q),
           menu: () => [
             { label: 'Deposit 1', fn: () => this.game.deposit(s.id, 1, q) },
             { label: 'Deposit 5', fn: () => this.game.deposit(s.id, 5, q) },
             { label: 'Deposit All', fn: () => this.game.deposit(s.id, this.game.inventory.count(s.id)) },
+            keepMenuItem(this, s.id),
           ],
           q,
-        }));
+        }), s.id));
       });
       invSide.appendChild(invGrid);
       cols.appendChild(bankSide);
