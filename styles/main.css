@@ -3515,12 +3515,18 @@ body.cb-safe #hp-orb.low::after {
   background: var(--aw-card, #fff); border: 1.5px solid var(--aw-ink, #22304A); border-radius: 999px; padding: 0 7px;
 }
 /* First-time tips: a slim strip with a close button and "Don't show tips". */
-.nl-tip { border-left-color: var(--aw-sky-deep, #3a8fd0); cursor: default; flex-wrap: wrap; row-gap: 2px; }
-.nl-tip .nl-ic { flex: none; font-size: 14px; line-height: 1; }
-.nl-tip .nl-text { -webkit-line-clamp: 3; line-clamp: 3; font-size: 12px; }
+/* (A grid: the words get the whole width; the close button sits top-right
+   and "Don't show tips" goes on a small line under the words.) */
+.nl-tip {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; column-gap: 7px; row-gap: 3px;
+  border-left-color: var(--aw-sky-deep, #3a8fd0); cursor: default;
+}
+.nl-tip .nl-ic { grid-column: 1; grid-row: 1; font-size: 14px; line-height: 1.2; }
+.nl-tip .nl-text { grid-column: 2; grid-row: 1; -webkit-line-clamp: 4; line-clamp: 4; font-size: 12px; }
+.nl-tip .nl-x { grid-column: 3; grid-row: 1; }
 .nl-tip button { font-family: inherit; cursor: var(--cur-pointer, pointer); }
 .nl-notips {
-  order: 3; position: relative; margin-left: 21px; padding: 0; background: none; border: 0;
+  grid-column: 2; grid-row: 2; justify-self: start; position: relative; padding: 0; background: none; border: 0;
   font-size: 11px; font-weight: 800; color: var(--aw-text-sec, #5a6478); text-decoration: underline;
 }
 .nl-x {
