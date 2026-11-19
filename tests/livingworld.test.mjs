@@ -99,15 +99,14 @@ test('neighbours meet for a chat, face each other and trade lines', () => {
   assert.ok(pair, 'two Kampong Glam neighbours are paired');
   standNear(g, pair.a.life.post.x, pair.a.life.post.y);
   setHour(g, 16.5);
-  run(g, 40);
+  const lines = new Set(CHAT_EXCHANGES.flat());
+  const said = new Set();
+  for (let i = 0; i < 80; i++) { run(g, 1); for (const n of [pair.a, pair.b]) if (n.chatTimer > 0 && lines.has(n.chatText)) said.add(n); }
+  assert.equal(said.size, 2, 'both of them speak');
   const [sa, sb] = pair.spots;
   assert.deepEqual({ x: pair.a.x, y: pair.a.y }, sa);
   assert.deepEqual({ x: pair.b.x, y: pair.b.y }, sb);
   assert.deepEqual(pair.a.facing, { dx: Math.sign(pair.b.x - pair.a.x), dy: Math.sign(pair.b.y - pair.a.y) }, 'they face each other');
-  const lines = new Set(CHAT_EXCHANGES.flat());
-  const said = new Set();
-  for (let i = 0; i < 16; i++) { run(g, 1); for (const n of [pair.a, pair.b]) if (n.chatTimer > 0 && lines.has(n.chatText)) said.add(n); }
-  assert.equal(said.size, 2, 'both of them speak');
 });
 
 test('someone you click stops, turns to you, and waits; then carries on', () => {
@@ -133,7 +132,7 @@ test('someone you click stops, turns to you, and waits; then carries on', () => 
   run(g, HOLD_TICKS + 10);
   assert.deepEqual({ x: z.x, y: z.y }, stopped, 'she waits while you talk');
   // Done talking: she goes on home.
-  g.ui = new Proxy({}, { get: () => () => {} });
+  g.ui = new Proxy({ modal: null }, { get: (t, k) => (k in t ? t[k] : () => {}) });
   run(g, HOLD_TICKS + 40);
   assert.deepEqual({ x: z.x, y: z.y }, routineTarget(g, z), 'then she carries on home');
 });
@@ -145,6 +144,7 @@ test('shopkeepers and the banker never wander off; a moving shop resident still 
   assert.ok(!g._life.list.some((n) => n.npcId === 'shopkeeper' || n.npcId === 'banker' || n.npcId === 'hawker'));
   const kim = g.npcs.find((n) => n.npcId === 'life_auntie_kim');
   assert.ok(kim, 'Auntie Kim keeps her laksa stall in Marina Bay');
+  standNear(g, kim.x, kim.y);
   g.defaultNpcAction(kim);
   assert.equal(g.player.action?.type, 'openshop');
   assert.equal(g.player.action.shop, 'life_laksa_stall');

@@ -169,8 +169,8 @@ export function dialogueGreeting(game, npc) {
 export const regionNews = (region) => REGION_NEWS[region] || NEWS_FALLBACK;
 
 /**
- * Give a conversation a personal touch: the first time it opens it starts with
- * a greeting that knows you, a Friend of the region can ask for the local
+ * Give a conversation a personal touch: it starts with a greeting that knows
+ * you, a Friend of the region can ask for the local
  * news, and a living-world resident (who has no dialogue of their own) gets a
  * short chat from their lines. Returns a tree in dialogue.js's shape; the
  * original tree is never changed.
@@ -185,16 +185,14 @@ export function personalise(game, npc, tree) {
   }
   if (!tree) return tree;
   const out = Object.create(tree);
-  let greeted = false;
+  const greeting = dialogueGreeting(game, npc);   // the same words each time the start comes round
   const friend = npc.def.dialogue === 'region' && repAtLeast(game, region, 'friend');
   Object.defineProperty(out, 'start', {
     get() {
       const node = tree.start;
       if (!node) return node;
-      const text = greeted ? node.text : `${dialogueGreeting(game, npc)} ${node.text}`;
-      greeted = true;
       const options = friend ? [{ label: 'Any news around here?', next: 'lifeNews' }, ...node.options] : node.options;
-      return { ...node, text, options };
+      return { ...node, text: `${greeting} ${node.text}`, options };
     },
   });
   out.lifeNews = { speaker, text: regionNews(region), options: [{ label: 'Thanks.', next: 'start' }] };
