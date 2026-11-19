@@ -226,7 +226,7 @@ test('townsfolk art stays in lock-step with assets/creatures/townsfolk/ and name
   assert.deepEqual([...onDisk].filter((s) => !declared.has(s)), [], 'townsfolk art file not declared');
   const { RESIDENTS } = await import('../src/data/consequences.js');   // the living world's residents are drawn by their own id
   for (const id of declared) {
-    if (id === 'event_merchant') continue;   // the world event's lost merchant, drawn by artId (worldevents.js)
+    if (id === 'event_merchant' || id === 'story_messenger') continue;   // the lost merchant and the story's messenger, drawn by artId (worldevents.js, story.js)
     assert.ok(RESIDENTS[id] || (getNpc(id) && !getNpc(id).attackable), `${id} is a real townsfolk NPC`);
   }
 });
@@ -587,4 +587,27 @@ test('gameplay art pack: items, world objects, quest givers, pets and gameplay i
     if (/^(event|mech|quality)-/.test(n) && n !== 'event-weekly_crate') continue;   // reached by EVENT_ICON, mechIcon and `quality-${q}`
     assert.ok(src.includes(`'${n}'`), `${n} is used`);
   }
+});
+
+test('final creature art: the last borrowing species and townsfolk wear their own pictures, untinted', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const { speciesArt, townArt, portraitFor } = await import('../src/render/sprites.js');
+  const fams = ['plantain_squirrel', 'red_junglefowl', 'strangler_fig', 'paradise_tree_snake', 'toman_snakehead',
+    'hantu_air', 'fiddler_crab', 'sentosa_peafowl', 'sandcastle_golem', 'bajang'];
+  for (const f of fams) {
+    assert.ok(speciesArt().has(f), `${f} has its own species art`);
+    const ids = Object.keys(NPCS).filter((id) => NPCS[id].family === f && !NPCS[id].boss);
+    assert.ok(ids.length >= 3, `${f} has its three forms`);
+    for (const id of ids) {
+      const p = portraitFor(id, NPCS[id]);
+      assert.equal(p.src, `assets/creatures/species/${f}.webp`, `${id} draws its own art`);
+      assert.ok(!p.tint, `${id} is not recoloured`);
+    }
+  }
+  for (const id of ['pest_officer', 'marina_high_roller', 'jade_merchant', 'story_messenger']) assert.ok(townArt().has(id), `${id} has its own picture`);
+  // ...and no longer borrows a recoloured one.
+  const src = readFileSync(fileURLToPath(new URL('../src/render/sprites.js', import.meta.url)), 'utf8');
+  assert.match(src, /const TOWN_ALIAS = \{\};/);
+  assert.match(src, /const TOWN_TINT = \{\};/);
 });
