@@ -665,6 +665,12 @@ import { BESTIARY_BOSSES } from '../data/bestiary.js';
   export const sunIconSVG = (size = 20, cls) => artImg('hud-sun', size, cls);
   export const moonIconSVG = (size = 20, cls) => artImg('hud-moon', size, cls);
 
+  // ---- Painted UI badges (assets/icons/icon-<name>.webp) ----
+  // Decoration on buttons, slots and badges. If a picture can't load it takes
+  // itself away, so the control looks just as it did before the art arrived.
+  export const UI_ICONS = ['teleport-town', 'teleport-grave', 'prayer-burst', 'blessing-slot', 'legend-ribbon', 'contract-token'];
+  export const uiIconHTML = (name, size, cls = '') => `<img class="ui-ic ${cls}" src="assets/icons/icon-${name}.webp" width="${size}" height="${size}" alt="" draggable="false" onerror="this.remove()" />`;
+
   // A-Worthy sticker treatment for every icon: the art is traced with a navy
   // ink line inside a white die-cut border (two dilated copies of its
   // silhouette), shrunk slightly so the border fits inside the 24x24 box.

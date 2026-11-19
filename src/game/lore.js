@@ -23,9 +23,9 @@ const DROP_PAGE = Object.fromEntries(LORE.filter((p) => p.from === 'drop').map((
 /** The monster a region's guardian is a champion of: its quest line's named foe's kind. */
 export const guardianKind = (region) => LINE_BY_REGION[region]?.steps.find((s) => s.kind === 'foe')?.npc || null;
 
-// The hidden note: the signpost's picture, warmed up so it glints.
+// The hidden note: a rolled-up lore scroll.
 const spotDef = (base, page) => ({ ...base, name: 'Glinting note', type: 'storyobj', verb: 'Read', blocking: false,
-  art: 'obj-sign', tint: 'sepia(0.7) saturate(1.8) brightness(1.15)', examine: `Something is pinned here, catching the light. (${page.region})` });
+  art: 'obj-lore_scroll', examine: `Something is pinned here, catching the light. (${page.region})` });
 
 // A small string hash, so each region's spot is picked the same way every time.
 const hash = (s) => { let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; };

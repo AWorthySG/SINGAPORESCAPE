@@ -228,6 +228,9 @@ test('moral choices change prices, bring residents, and shade a region', () => {
   assert.ok(huat, 'Ah Huat has set up his stall');
   assert.equal(g.world.zoneAt(huat.x, huat.y)?.name, 'Bukit Timah');
   assert.equal(huat.def.role, 'shop');
+  assert.equal(huat.artId, 'life_ah_huat', 'drawn by his own townsfolk picture, not the sellsword he borrows');
+  const kim = g.npcs.find((n) => n.npcId === 'life_auntie_kim');
+  assert.equal(kim?.artId, 'life_auntie_kim', 'Auntie Kim has her own picture too');
   assert.ok(SHOPS[huat.def.shop].stock.every((s) => getItem(s.id)), 'his stall sells real food');
   // Salting the laksa drives Auntie Kim away.
   assert.ok(g.npcs.some((n) => n.npcId === 'life_auntie_kim'));

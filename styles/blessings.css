@@ -16,6 +16,8 @@
   background: var(--aw-card, #fff); color: var(--aw-text-sec, #5b6577);
   font: inherit; font-weight: 900; cursor: pointer; opacity: .7;
 }
+#prayer-panel .bl-burst { display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
+#prayer-panel .bl-burst .bl-burst-ic { width: 24px; height: 24px; object-fit: contain; }
 #prayer-panel .bl-burst kbd, #prayer-orb .orb-key {
   font: inherit; font-size: 9px; padding: 0 3px; border-radius: 4px;
   border: 1px solid currentColor; opacity: .8;
@@ -41,6 +43,13 @@
 }
 #prayer-panel .bl-slot.filled:hover { border-color: var(--aw-ink, #24324a); }
 #prayer-panel .bl-slot-ic { display: flex; }
+/* Each slot sits in the painted ring frame (see-through centre): behind a
+   blessing's icon, or on its own in an empty slot. A missing picture leaves the plain slot. */
+#prayer-panel .bl-slot.filled .bl-slot-ic, #prayer-panel .bl-slot.empty {
+  background: url('../assets/icons/icon-blessing-slot.webp') center / contain no-repeat;
+}
+#prayer-panel .bl-slot.filled .bl-slot-ic { width: 30px; height: 30px; align-items: center; justify-content: center; }
+#prayer-panel .bl-slot.empty { background-origin: content-box; }
 #prayer-panel .bl-slot-ic img { width: 22px; height: 22px; }
 #prayer-panel .bl-slot-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #prayer-panel .bl-slot.empty { border: 2px dashed var(--aw-sun, #f5b82e); color: var(--aw-text-sec, #5b6577); }
@@ -53,6 +62,9 @@
 #prayer-orb .orb-key {
   position: absolute; top: -7px; right: -7px; line-height: 12px;
   background: var(--aw-card, #fff); color: var(--aw-text, #24324a);
+}
+#prayer-orb .orb-burst {
+  position: absolute; top: -8px; left: -8px; width: 16px; height: 16px; object-fit: contain; pointer-events: none;
 }
 #prayer-orb.ready { animation: bl-glow 1.4s ease-in-out infinite; }
 

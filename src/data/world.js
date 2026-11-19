@@ -1409,7 +1409,7 @@ export function buildWorld() {
           if (water ? shore(x, y) : ((x - cx) % 2 === 0 && (y - cy) % 2 === 0 && (x !== cx || y !== cy) && open(x, y, allowed))) spots.push([x, y]);
         }
         if (spots.length < Math.ceil(total * 1.4)) continue;   // too cramped: look elsewhere
-        placeObj('sign', cx, cy, { sign: name });
+        placeObj('sign', cx, cy, { sign: name, art: `obj-sign-${skill}` });   // its skill's signpost picture
         const placed = [];
         for (const [objId, n] of nodes) for (let i = 0; i < n && spots.length; i++) {
           const [x, y] = spots.splice(Math.floor(rz() * spots.length), 1)[0];

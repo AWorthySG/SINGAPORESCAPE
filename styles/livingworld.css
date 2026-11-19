@@ -11,6 +11,8 @@
 .rep-row.dim .rep-badge, .rep-row.rank-stranger .rep-badge, .rep-row.rank-distrusted .rep-badge { filter: grayscale(1); }
 .rep-row.rank-legend .rep-badge { filter: drop-shadow(0 0 4px #ffd24a); }
 .rep-badge { width: 46px; height: 46px; object-fit: contain; }
+.rep-badge-wrap { position: relative; display: block; width: 46px; height: 46px; }
+.rep-badge-wrap .rep-ribbon { position: absolute; left: -5px; bottom: -24px; width: 56px; height: 56px; object-fit: contain; pointer-events: none; }
 .rep-main { min-width: 0; }
 .rep-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .rep-top b { flex: 1; min-width: 0; font-size: 13px; }

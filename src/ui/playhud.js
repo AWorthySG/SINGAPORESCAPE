@@ -6,6 +6,7 @@
 
 import * as Play from '../game/playbalance.js';
 import { TICK_MS } from '../config.js';
+import { uiIconHTML } from '../render/icons.js';
 
 export class PlayHud {
   constructor(ui) {
@@ -89,7 +90,7 @@ export class PlayHud {
       // Or teleport back to it for free (teleports.js, R).
       const tp = document.createElement('div');
       tp.className = 'dialogue-option';
-      tp.textContent = 'Teleport to it (R)';
+      tp.innerHTML = `${uiIconHTML('teleport-grave', 20, 'dlg-ic')}Teleport to it (R)`;
       tp.addEventListener('click', () => { this.ui.closeModal(); this.game.teleports?.start('grave'); });
       const no = document.createElement('div');
       no.className = 'dialogue-option';
