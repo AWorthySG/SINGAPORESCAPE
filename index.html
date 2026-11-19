@@ -45,8 +45,10 @@
     <div id="boss-bar" class="hidden">
       <div id="boss-bar-portrait" aria-hidden="true"><div class="bp-img"></div><span class="bp-badge"></span></div>
       <div id="boss-bar-main">
-      <div id="boss-bar-name"></div>
-      <div id="boss-bar-track"><div id="boss-bar-fill"></div><div id="boss-bar-ticks"></div></div>
+      <div id="boss-bar-head"><div id="boss-bar-name"></div><span id="boss-bar-mech" class="hidden"></span></div>
+      <div id="boss-bar-track"><div id="boss-bar-fill"></div><div id="boss-bar-ticks"></div><span id="boss-bar-life"></span></div>
+      <div id="boss-bar-cast"><i></i></div>
+      <div id="boss-bar-info"></div>
       </div>
     </div>
 
@@ -187,8 +189,7 @@
       </div>
     </div>
 
-    <!-- Level-up / important banner -->
-    <div id="banner" class="hidden"></div>
+    <!-- Banners and tips go to the notification lane (#notice-lane, src/ui/noticelane.js) -->
 
   </div>
 

@@ -28,7 +28,7 @@ import { moralDialogue, MORAL_BY_ID, MORAL_EVENTS, moralCoins } from '../data/mo
 import { ALL_MONSTER_IDS as MONSTER_IDS, ALL_BOSS_IDS as BOSS_IDS, getNpc } from '../data/npcs.js';
 import { SIGNATURE_CLASS, SIGNATURE_DROP_CHANCE, sigIdFor } from '../data/bossWeapons.js';
 import { levelProgress, xpToNext, MAX_LEVEL, maxLevelFor } from '../data/xp.js';
-import { stackLabel, capitalize, formatNumber } from '../core/utils.js';
+import { stackLabel, capitalize, formatNumber, shortNumber } from '../core/utils.js';
 import { RHYTHM_MAX, levelBonuses, playerMagicVsNpc } from '../game/combat.js';
 import { classPassives, CLASS_SKILL } from '../data/classPassives.js';
 import { ELEMENTS, SPELLS, getSpell } from '../data/magic.js';
@@ -58,7 +58,7 @@ import { TERRAIN, zoneLevel } from '../data/world.js';
 import { clearSave, suppressSaves, exportSaveCode, importSaveCode } from '../game/save.js';
 import { statSheet } from '../game/statsheet.js';
 import { statsPanelHTML } from './statspanel.js';
-import { openCodex, monsterAtScreen } from './codexui.js';
+import { openCodex, monsterAtScreen, openCompendium, addCompendiumButton } from './codexui.js';
 import { openPestOfficer, contractTrackerRows, stewardLineHTML, cullingInvOptions } from './cullingui.js';
 import { eventsPanelHTML, wireEventsPanel, eventTrackerRows, drawEventMarker } from './worldeventsui.js';
 import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG, abilityIconHTML, prayerIconHTML, spellIconHTML } from '../render/icons.js';
@@ -67,11 +67,16 @@ import { isBone } from '../data/bones.js';
 import { RACES, raceOf, weaponsFor, weaponTypeName, WEAPON_VS_RACE } from '../data/races.js';
 import { WaveHud } from './wavehud.js';
 import { PlayHud } from './playhud.js';
+import { NoticeLane } from './noticelane.js';
+import { QuickSlot, interactCaption, trackerHTML, loadTrackerFolded, saveTrackerFolded, sheetSnap } from './hudease.js';
 import { addCollectionButton } from './collectionui.js';
 import { TIPS, TIPS_KEY, nextTip, markTipSeen, tipsSeen } from './tips.js';
 import { foeDetails, labelMode, nextLabelMode, LABEL_MODE_NAMES } from '../render/worldlabels.js';
 import { applyAccessibility, countUp, playCloseGhost, inlineIcon } from './uifx.js';
 import { mechLabel } from '../game/bossmech.js';
+import { renderBossBar } from './bossbar.js';
+import { XpDisplay } from './xpdisplay.js';
+import { crossesMilestone, xpDisplayMode, nextXpDisplay, XP_DISPLAY_NAMES } from '../game/xptrack.js';
 import { regionDialogue, canRegionTeleport, regionTeleport } from '../game/regionquests.js';
 
 const EQUIP_LAYOUT = [
@@ -160,7 +165,6 @@ export class UI {
       modalTitle: id('modal-title'),
       modalBody: id('modal-body'),
       modalClose: id('modal-close'),
-      banner: id('banner'),
       bossBar: id('boss-bar'),
       bossBarName: id('boss-bar-name'),
       bossBarFill: id('boss-bar-fill'),
@@ -271,6 +275,10 @@ export class UI {
     this._initMinimalHud();
     this.waveHud = new WaveHud(this);   // the Endless Gate's run panel
     this.playHud = new PlayHud(this);   // Focus, Rested and the Grave button (playhud.js)
+    this.lane ||= new NoticeLane(this);   // the one notification lane (noticelane.js)
+    this.quickSlot = new QuickSlot(this);   // food / potion button beside Attack (hudease.js)
+    this.bus.on('tick', () => this.lane.place());
+    this.xpHud = new XpDisplay(this);   // XP counter, progress ring and level-up toasts (xpdisplay.js)
     this.bus.on('inventory', () => this.scheduleInventory());
     // Gear changes come in bursts (every worn piece gains mastery on a kill), so redraw once a frame.
     this.bus.on('equipment', () => { this._soon('equipment', () => this.renderEquipment()); this._soon('combat', () => this.renderCombatPanel()); this.scheduleInventory(); });
@@ -441,8 +449,9 @@ export class UI {
       if (!ic) { ic = document.createElement('span'); ic.className = 'ib-icon'; btn.prepend(ic); }
       ic.innerHTML = skillIconSVG(skill, 26);
     } else ic?.remove();
-    const need = label && label[3] ? label[1].match(/needs (.+)\)$/) : null;
-    btn.querySelector('.ib-verb').innerHTML = label ? (need ? `Needs<br>${need[1]}` : label[0]) : 'Interact';
+    // Always what it will do, short enough to fit: "Chop Oak", "Talk to Aziz" (hudease.js).
+    const [verb, noun] = interactCaption(label, this.game?.interactTarget);
+    btn.querySelector('.ib-verb').innerHTML = noun ? `${escapeHtml(verb)}<span class="ib-noun">${escapeHtml(noun)}</span>` : escapeHtml(verb);
     btn.title = label ? `${label[0]} ${label[1]}` : 'Interact with the nearest thing (E or Space)';
   }
 
@@ -579,8 +588,19 @@ export class UI {
         break; // show one active quest at a time to stay compact
       }
     }
-    el.innerHTML = rows.length ? `<div class="trk-title">Objectives</div>${rows.join('')}` : '';
+    // Tap the header to fold it to one line; remembered on this device (hudease.js).
+    if (this._trkFolded === undefined) {
+      this._trkFolded = loadTrackerFolded();
+      el.addEventListener?.('click', (e) => {
+        if (!e.target.closest?.('.trk-fold')) return;
+        this._trkFolded = !this._trkFolded;
+        saveTrackerFolded(this._trkFolded);
+        this.renderTracker();
+      });
+    }
+    el.innerHTML = trackerHTML(rows, this._trkFolded);
     el.classList.toggle('hidden', rows.length === 0);
+    el.classList.toggle('folded', !!this._trkFolded);
   }
 
   /** Arrow + distance from the player to the nearest living monster matching `pred`. */
@@ -621,6 +641,7 @@ export class UI {
     if (!panel || !btn) return;
     const apply = (collapsed) => {
       panel.classList.toggle('collapsed', collapsed);
+      if (collapsed) panel.classList.remove('sheet-full');   // a phone sheet always reopens at half height
       btn.innerHTML = collapsed ? '&#9656;' : '&#9662;'; // ▸ collapsed / ▾ expanded
       btn.title = `${collapsed ? 'Expand' : 'Collapse'} ${label}`;
     };
@@ -728,31 +749,41 @@ export class UI {
     if (typeof document === 'undefined' || typeof matchMedia !== 'function') return;
     const phone = matchMedia('(pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px)');
     const side = () => matchMedia('(max-height: 500px)').matches;   // landscape: the sheet slides in from the right
-    const wire = (sheet, grips, close, isOpen) => {
+    // `snap`: the side panel opens at half height on an upright phone; dragging
+    // its handle up snaps it full, down to half, further down folds it (hudease.js).
+    const wire = (sheet, grips, close, isOpen, snap = false) => {
       if (!sheet) return;
-      let start = null, d = 0;
+      let start = null, d = 0, up = 0;
       const move = (e) => {
         if (!start) return;
-        d = Math.max(0, side() ? e.clientX - start.x : e.clientY - start.y);
+        const raw = side() ? e.clientX - start.x : e.clientY - start.y;
+        d = Math.max(0, raw);
+        up = snap && !side() ? Math.max(0, -raw) : 0;
         // Only a real drag takes the pointer: capturing it on pointerdown
         // would steer a plain tap's events to the grip as well.
-        if (d >= 6 && !start.captured) { start.captured = true; start.grip.setPointerCapture?.(e.pointerId); }
+        if ((d >= 6 || up >= 6) && !start.captured) { start.captured = true; start.grip.setPointerCapture?.(e.pointerId); }
         sheet.style.transform = side() ? `translateX(${d}px)` : `translateY(${d}px)`;
+        if (snap && !side()) sheet.style.height = up ? `${Math.min(start.h + up, (globalThis.innerHeight || 800) * 0.85)}px` : '';
       };
       const end = () => {
         if (!start) return;
-        const tap = d < 6 && start.handle;
+        const tap = d < 6 && up < 6 && start.handle;
+        const h = start.h;
         start = null;
-        sheet.style.transition = ''; sheet.style.transform = '';
-        if (d > 70 || tap) close();
-        d = 0;
+        sheet.style.transition = ''; sheet.style.transform = ''; sheet.style.height = '';
+        if (snap && !side() && !tap) {
+          const to = sheetSnap({ full: sheet.classList.contains('sheet-full'), dy: d || -up, h });
+          if (to === 'full' || to === 'half') sheet.classList.toggle('sheet-full', to === 'full');
+          else if (to === 'close') close();
+        } else if (d > 70 || tap) close();
+        d = 0; up = 0;
       };
       for (const g of grips) {
         if (!g) continue;
         g.addEventListener('pointerdown', (e) => {
           // Anything pressable in the header (fold, close) keeps its own taps.
           if (!phone.matches || !isOpen() || !sheetDragStarts(e.target)) return;
-          start = { x: e.clientX, y: e.clientY, handle: g.classList.contains('sheet-handle'), grip: g, captured: false };
+          start = { x: e.clientX, y: e.clientY, handle: g.classList.contains('sheet-handle'), grip: g, captured: false, h: sheet.getBoundingClientRect?.().height || 0 };
           d = 0;
           sheet.style.transition = 'none';
         });
@@ -763,7 +794,7 @@ export class UI {
     };
     const panel = this.el.sidepanel;
     wire(panel, [panel?.querySelector('.sheet-handle'), this.el.panelHead],
-      () => this._collapseApply?.panel?.(true), () => !panel.classList.contains('collapsed'));
+      () => this._collapseApply?.panel?.(true), () => !panel.classList.contains('collapsed'), true);
     const win = document.getElementById('modal-window');
     wire(win, [win?.querySelector('.sheet-handle'), this.el.modalTitle],
       () => this.closeModal(), () => !!this.modal);
@@ -2485,11 +2516,11 @@ export class UI {
 
   // ---------------- First-time tips ----------------
   // One small, dismissible tip at a time, each shown once per save (ui/tips.js),
-  // tucked into a corner: under the objectives on a desktop, a slim strip along
-  // the top on a phone, never over the joystick, Attack button or ability bar.
+  // as a slim card in the notification lane (noticelane.js) with a close button
+  // and "Don't show tips" (the same switch as Settings > Tips).
   _tipsTick() {
     const g = this.game;
-    if (this._tipEl) { this._placeTip(); return; }
+    if (this.lane?.has('tip')) return;
     if (this.modal || g.pendingStyleChoice || g.pendingClassChoice || !g.player.alive) return;
     if (g.tipsFromDevice) {
       // A save from before tips were saved: carry over what this device had
@@ -2502,99 +2533,20 @@ export class UI {
   }
 
   showTip(id) {
-    if (this._tipEl) { this._tipEl.remove(); this._tipEl = null; }
     markTipSeen(this.game, id);   // seen as soon as it shows: a reload can't repeat it
-    const el = document.createElement('div');
-    el.id = 'tip-toast';
-    el.className = 'tip-corner';
-    el.innerHTML = `<span class="tip-badge">Tip</span><div class="tip-text">${TIPS[id]}</div>`;
-    const ok = document.createElement('button');
-    ok.textContent = 'Got it';
-    const done = () => { el.remove(); if (this._tipEl === el) this._tipEl = null; };
-    ok.addEventListener('click', done);
-    el.appendChild(ok);
-    document.body.appendChild(el);
-    this._tipEl = el;
-    this._placeTip();
-    clearTimeout(this._tipTimer);
-    this._tipTimer = setTimeout(() => { if (this._tipEl === el) done(); }, id === 'dodge' ? 6000 : 14000);
+    const lane = (this.lane ||= new NoticeLane(this));
+    lane.dismissKind('tip');
+    // The boss marker tip is urgent and brief; the others wait their turn and stay longer.
+    lane.push({ kind: 'tip', key: `tip:${id}`, html: TIPS[id], ttl: id === 'dodge' ? 6000 : 12000, priority: id === 'dodge' ? 2 : 0 });
   }
 
-  /** Sit the tip just under the objectives tracker (or the top-left corner
-   *  when it's hidden). On a phone it is a slim strip across the top of the
-   *  playfield, below the tracker and the minimap, so the joystick, Attack
-   *  button and ability bar at the bottom are never covered. */
-  _placeTip() {
-    const el = this._tipEl;
-    if (!el || typeof window === 'undefined') return;
-    const box = (id) => {
-      const e = document.getElementById(id);
-      if (!e || e.classList.contains('hidden') || !e.offsetParent) return null;
-      const r = e.getBoundingClientRect();
-      return r.height ? r : null;
-    };
-    const tr = box('quest-tracker');
-    const narrow = window.innerWidth <= 600;
-    // A phone on its side has no room under the top-left strip (the Auto
-    // button and joystick are right below it), and the bottom belongs to the
-    // thumbs, so the tip sits along the top, between the strip and the Bag.
-    const flat = !narrow && typeof matchMedia === 'function' && matchMedia('(pointer: coarse) and (max-height: 500px)').matches;
-    let top = tr ? tr.bottom + 6 : 44, left = tr ? tr.left : 10;
-    let width = Math.min(340, window.innerWidth - left - 10);
-    if (narrow) left = 6, width = window.innerWidth - 12;
-    // On touch screens the boss bar and the Endless Gate panel stack in the same
-    // top-left strip as the tracker: go below whichever of them is lowest.
-    for (const id of ['boss-bar', 'wave-hud']) {
-      const r = box(id);
-      if (r && r.left < left + width && r.right > left) top = Math.max(top, r.bottom + 6);
-    }
-    if (narrow) {
-      // Below the minimap and its orbs (+14 leaves room for the orbs' caption pills),
-      // and short of the panel launcher when it sits beside the strip.
-      const mm = box('minimap-panel'), hp = box('hp-orb'), dock = box('sidepanel');
-      top = Math.max(top, mm ? mm.bottom + 6 : 0, hp ? hp.bottom + 14 : 0);
-      if (dock && dock.width < 100 && dock.bottom > top && dock.left > left) width = Math.min(width, dock.left - 6 - left);
-    } else if (flat) {
-      // Right of the strip (objectives, boss bar, gate panel), left of the Bag
-      // launcher, the orbs and the minimap; it wraps to a few lines instead.
-      const rectOf = (id) => {
-        const e = document.getElementById(id);
-        const r = e && !e.classList.contains('hidden') ? e.getBoundingClientRect() : null;
-        return r && r.width && r.height ? r : null;
-      };
-      let lo = 6, hi = window.innerWidth - 6;
-      top = Infinity;   // level with the top of the strip
-      for (const id of ['quest-tracker', 'boss-bar', 'wave-hud']) {
-        const r = rectOf(id);
-        if (r && r.left < window.innerWidth / 2) { lo = Math.max(lo, r.right + 8); top = Math.min(top, r.top); }
-      }
-      for (const id of ['minimap-panel', 'spec-orb', 'prayer-orb', 'hp-orb']) {
-        const r = rectOf(id);
-        if (r && r.left > window.innerWidth / 2) hi = Math.min(hi, r.left - 8);
-      }
-      for (const e of document.querySelectorAll('#minimap-panel .orb-cap')) {   // the orbs' caption pills stick out left
-        const r = e.getBoundingClientRect();
-        if (r.width && r.left > window.innerWidth / 2) hi = Math.min(hi, r.left - 8);
-      }
-      if (top === Infinity) top = 6;
-      left = lo;
-      width = Math.min(360, hi - lo);
-      // The Bag launcher sits in that gap. Beside it when there's room for a
-      // few lines; when the boss bar widens the strip, just below it instead.
-      const bag = rectOf('sidepanel');
-      if (bag && bag.width < 100 && bag.right > lo && bag.left < hi) {
-        if (bag.left - 8 - lo >= 240) width = Math.min(width, bag.left - 8 - lo);
-        else top = Math.max(top, bag.bottom + 6);
-      }
-      width = Math.max(120, width);
-    }
-    const key = `${Math.round(top)}|${Math.round(left)}|${Math.round(width)}`;
-    if (el._at === key) return;
-    el._at = key;
-    el.style.top = `${Math.round(top)}px`;
-    el.style.left = `${Math.round(left)}px`;
-    el.style.width = `${Math.round(width)}px`;
-    el.classList.toggle('tip-strip', narrow);
+  /** "Don't show tips" on a tip card: the Settings switch, turned off. */
+  tipsOff() {
+    this.game.tipsOn = false;
+    this.game.saveSoon = true;
+    this.lane?.dismissKind('tip');
+    if (this._tipsBtn) this._tipsBtn.textContent = 'Tips: Off';
+    this.game.msg('Tips are off. Settings > Tips turns them back on.', 'system');
   }
 
   // ---------------- Minimal HUD ----------------
@@ -2663,6 +2615,7 @@ export class UI {
       else if (saved === null) this.game.msg('Saving is paused: reload the page to carry on.', 'system');
       else this.game.msg('Could not save: this browser\'s storage is full or blocked. Your progress is not being kept.', 'system');
     }); });
+    mk('Compendium: how the game works', () => openCompendium(this));
     // Account and cloud save (accountui.js fills this in).
     const acct = p.appendChild(document.createElement('div'));
     import('./accountui.js').then((m) => m.accountSettings(acct)).catch(() => {});
@@ -2721,6 +2674,14 @@ export class UI {
       this._minimalHudTick();
     });
     hudBtn.textContent = `Minimal HUD: ${this.game.minimalHud ? 'On' : 'Off'}`;
+    // XP display: Combined / Per skill / Off (xpdisplay.js).
+    const xpBtn = mk('', () => {
+      this.game.xpDisplay = nextXpDisplay(xpDisplayMode(this.game));
+      this.game.saveSoon = true;
+      this.xpHud?.refresh();
+      xpBtn.textContent = `XP display: ${XP_DISPLAY_NAMES[xpDisplayMode(this.game)]}`;
+    });
+    xpBtn.textContent = `XP display: ${XP_DISPLAY_NAMES[xpDisplayMode(this.game)]}`;
     // World labels: Smart (only what matters now), All, or Off. See render/worldlabels.js.
     const lblBtn = mk('', () => {
       this.game.worldLabels = nextLabelMode(labelMode(this.game));
@@ -2732,8 +2693,9 @@ export class UI {
       this.game.tipsOn = this.game.tipsOn === false;
       this.game.saveSoon = true;
       tipsBtn.textContent = `Tips: ${this.game.tipsOn ? 'On' : 'Off'}`;
-      if (!this.game.tipsOn && this._tipEl) { this._tipEl.remove(); this._tipEl = null; }
+      if (!this.game.tipsOn) this.lane?.dismissKind('tip');
     });
+    this._tipsBtn = tipsBtn;
     tipsBtn.textContent = `Tips: ${this.game.tipsOn === false ? 'Off' : 'On'}`;
     mk('Show tips again', () => {
       try { localStorage.removeItem(TIPS_KEY); } catch {}
@@ -2891,42 +2853,7 @@ export class UI {
     document.body.classList.toggle('boss-on', on);   // lets the tracker/tips move out of its way
     if (!on) { this.el.bossBar.classList.add('hidden'); return; }
     this.el.bossBar.classList.remove('hidden');
-    this.el.bossBar.classList.toggle('champion', !!boss.champion);
-    this.el.bossBar.classList.toggle('normal', !boss.def.boss && !boss.champion);
-    const mech = mechLabel(g, boss);   // a boss mechanic's prompt (bossmech.js) comes first
-    const warn = !!mech || g.hazards.some((h) => h.npc === boss);
-    this.el.bossBar.classList.toggle('warn', warn);
-    this.el.bossBarName.textContent = mech || (warn ? '⚠ Get out of the red!'
-      : `${boss.champion ? '★ ' : ''}${boss.name} — level ${boss.def.level} · ${Math.ceil(boss.hp)}/${boss.maxHp}`);
-    this.el.bossBarFill.style.width = `${Math.max(0, Math.min(100, (boss.hp / boss.maxHp) * 100))}%`;
-    // Race, weakness, armour and wounds: the long read-out the overhead tag left out.
-    if (!this._bossInfoEl) {
-      this._bossInfoEl = document.createElement('div');
-      this._bossInfoEl.id = 'boss-bar-info';
-      this.el.bossBarName.after(this._bossInfoEl);
-    }
-    const info = boss.attackable ? foeDetails(g, boss) : '';
-    if (this._bossInfoEl.textContent !== info) this._bossInfoEl.textContent = info;
-    this.el.bossBar.classList.toggle('enraged', !!boss.enraged);
-    // The portrait: set once per foe (it only changes when the foe does).
-    if (this._bossPortraitFor !== boss) {
-      this._bossPortraitFor = boss;
-      const pe = this.el.bossBar.querySelector('#boss-bar-portrait');
-      const pr = portraitFor(boss.npcId, boss.def);
-      if (pe) {
-        pe.classList.toggle('none', !pr);
-        const img = pe.querySelector('.bp-img');
-        img.style.backgroundImage = pr ? `url("${pr.src}")` : '';
-        img.style.backgroundPosition = pr ? pr.pos : '';
-        pe.querySelector('.bp-badge').textContent = boss.champion ? '★' : boss.def.boss ? '♛' : '';
-      }
-    }
-    // A flash on the portrait when the foe takes a hit.
-    if (this._bossPortraitHp !== undefined && boss.hp < this._bossPortraitHp) {
-      const pe = this.el.bossBar.querySelector('#boss-bar-portrait');
-      if (pe) { pe.classList.remove('hit'); void pe.offsetWidth; pe.classList.add('hit'); }
-    }
-    this._bossPortraitHp = boss.hp;
+    renderBossBar(this, boss);   // name, life, mechanic badge, threat frame, portrait (bossbar.js)
   }
 
   // ---------------- Day/night badge ----------------
@@ -3041,7 +2968,7 @@ export class UI {
         const pct = Math.min(100, Math.round((t.have / t.need) * 100));
         html += `<div class="quest-row bounty-row${t.done ? ' done' : ''}"><div class="q-top"><b>${escapeHtml(t.name)}</b>`
           + (t.done ? '<span class="q-chip done">Paid</span>' : `<span class="q-chip ${t.have > 0 ? 'active' : 'todo'}">${t.have}/${t.need}</span>`) + '</div>'
-          + `<span class="q-desc">Defeat ${t.need}${t.zone ? ` in ${escapeHtml(t.zone)}` : ''} &middot; ${formatNumber(Math.round(t.reward * streakMult(b.streak)))} coins</span>`
+          + `<span class="q-desc">Defeat ${t.need}${t.zone ? ` in ${escapeHtml(t.zone)}` : ''} &middot; ${shortNumber(Math.round(t.reward * streakMult(b.streak)))} coins</span>`
           + `<div class="bounty-bar"><i style="width:${pct}%"></i></div></div>`;
       }
       html += '<div class="modal-hint">New bounties every day. Finish all three for a bonus, and on back-to-back days to grow your streak.</div>';
@@ -3078,6 +3005,7 @@ export class UI {
     for (const b of this.el.questPanel.querySelectorAll('.q-tp')) b.addEventListener('click', (e) => { e.stopPropagation(); regionTeleport(game, b.dataset.tp); });
     this.el.questPanel.querySelector('.q-auto')?.addEventListener('click', () => { game.toggleAutoQuest(); });
     wireEventsPanel(this, this.el.questPanel);
+    addCompendiumButton(this, this.el.questPanel);   // the game guide (compendiumui.js)
   }
 
   // ---------------- Achievements / collection log ----------------
@@ -3113,7 +3041,7 @@ export class UI {
           `<div class="ach-top"><b>${escapeHtml(a.name)}</b>` +
           (done ? '<span class="ach-tick">&#10003;</span>' : (prog ? `<span class="ach-prog">${escapeHtml(prog)}</span>` : '')) + '</div>' +
           `<span class="ach-desc">${escapeHtml(a.desc)}</span>` +
-          `<span class="ach-reward">&#9733; ${formatNumber(rewardFor(a.id))}</span>` +
+          `<span class="ach-reward">&#9733; ${shortNumber(rewardFor(a.id))}</span>` +
           (!done && m ? `<span class="ach-bar"><i style="width:${Math.round(frac * 100)}%"></i></span>` : '') +
           `</div>`;
       }
@@ -3128,6 +3056,7 @@ export class UI {
     btn.addEventListener('click', () => this.openBestiary());
     panel.insertBefore(btn, panel.firstChild);
     addCollectionButton(this, panel);   // the Collection log and pets (collectionui.js)
+    addCompendiumButton(this, panel);   // the game guide, above them both
   }
 
   // ---------------- Bestiary / Monster Codex ----------------
@@ -3146,27 +3075,8 @@ export class UI {
   }
 
   // ---------------- XP drops / level up ----------------
-  // Fast combat earns XP several times a second, so drops for the same skill
-  // merge into one rising pill for ~0.8s, and at most 4 show at once.
-  showXpDrop({ skill, amount }) {
-    this._xpLive = this._xpLive || {};
-    const now = performance.now();
-    const live = this._xpLive[skill];
-    if (live && now - live.t < 800 && live.div.isConnected) {
-      const was = Math.round(live.total);
-      live.total += amount;
-      countUp(live.div.querySelector('.xp-amt'), `xp:${skill}`, Math.round(live.total), (n) => `+${n}`, was);
-      return;
-    }
-    const div = document.createElement('div');
-    div.className = 'xp-drop';
-    div.innerHTML = `<span class="xp-ic">${skillIconSVG(skill, 20)}</span><span class="xp-amt">+${Math.round(amount)}</span>`;
-    this.el.xpDrops.appendChild(div);
-    countUp(div.querySelector('.xp-amt'), `xp:${skill}`, Math.round(amount), (n) => `+${n}`, 0);
-    this._xpLive[skill] = { div, total: amount, t: now };
-    while (this.el.xpDrops.children.length > 4) this.el.xpDrops.firstElementChild.remove();
-    setTimeout(() => div.remove(), 2300);
-  }
+  // The running counter, ring and pills live in xpdisplay.js (under the minimap).
+  showXpDrop(p) { this.xpHud?.onXp(p); }
 
   onLevelUp({ skill, level }) {
     // A big kill (a boss) can give dozens or hundreds of levels at once: gather
@@ -3184,35 +3094,34 @@ export class UI {
   _flushLevelUps() {
     const q = this._levelUps;
     if (!q?.size) return;
-    let last = null;
+    let last = null, big = false;
     for (const [skill, { from, to }] of q) {
       const sk = SKILLS.find((s) => s.id === skill);
       const n = to - from;
       this.addChat(n > 1
         ? `Congratulations, you just advanced ${n} ${sk.name} levels! You are now level ${to}.`
         : `Congratulations, you just advanced a ${sk.name} level! You are now level ${to}.`, 'level');
-      last = { sk, n, to };
+      if (!big || crossesMilestone(from, to)) last = { sk, n, to };   // the banner names a milestone skill
+      big = big || crossesMilestone(from, to);
+      this.xpHud?.levelUp(skill, from, to);   // a gold pulse on the ring and a toast at the edge
     }
+    // The big centre banner is kept for milestone levels (every tenth, 99).
+    if (!big) { q.clear(); return; }
     const more = q.size > 1 ? ` (and ${q.size - 1} more skill${q.size > 2 ? 's' : ''})` : '';
     this.showBanner(`<span class="big">Level up!</span>Your ${last.sk.name} is now level ${last.to}${last.n > 1 ? ` (+${last.n})` : ''}${more}.`);
     q.clear();
   }
 
+  // Banners go to the one notification lane (noticelane.js): a small card,
+  // a couple at a time, the same one twice shown once as "x2".
   showBanner(html, tag = null) {
-    this.el.banner.innerHTML = html;
-    this.el.banner.classList.remove('hidden');
-    this._bannerTag = tag;   // who put it up, so they alone can take it down early
-    clearTimeout(this._bannerTimer);
-    this._bannerTimer = setTimeout(() => this.el.banner.classList.add('hidden'), 3200);
+    (this.lane ||= new NoticeLane(this)).push({ html, tag, kind: 'banner' });
   }
 
-  /** Take the banner down early, but only if it is still the one `tag` put up
-   *  (leaving the Endless Gate clears its wave banner, never a level-up). */
+  /** Take down early only what `tag` put up (leaving the Endless Gate clears
+   *  its wave banners, never a level-up). */
   hideBanner(tag) {
-    if (this._bannerTag !== tag) return;
-    clearTimeout(this._bannerTimer);
-    this.el.banner.classList.add('hidden');
-    this._bannerTag = null;
+    this.lane?.dismissTag(tag);
   }
 
   // ---------------- Context menu ----------------
@@ -3514,8 +3423,8 @@ export class UI {
       stats.innerHTML = `<div class="ui-stat">${inlineIcon(itemIconSVG('coins', 22))}<span class="ui-stat-label">Coins banked</span><b class="ui-stat-num bank-coins"></b></div>`
         + `<div class="ui-stat"><span class="ui-stat-label">Bank value</span><b class="ui-stat-num bank-total"></b></div>`;
       body.appendChild(stats);
-      countUp(stats.querySelector('.bank-coins'), 'bank-coins', coinsIn, formatNumber);
-      countUp(stats.querySelector('.bank-total'), 'bank-total', worth, formatNumber);
+      countUp(stats.querySelector('.bank-coins'), 'bank-coins', coinsIn, shortNumber);
+      countUp(stats.querySelector('.bank-total'), 'bank-total', worth, shortNumber);
       const cols = document.createElement('div');
       cols.className = 'modal-cols';
       // Bank side
@@ -3610,7 +3519,7 @@ export class UI {
     const shop = getShop(shopId);
     const render = (body) => {
       body.innerHTML = `<div class="ui-stats"><div class="ui-stat">${inlineIcon(itemIconSVG('coins', 22))}<span class="ui-stat-label">Coins</span><b class="ui-stat-num shop-coins"></b></div></div>`;
-      countUp(body.querySelector('.shop-coins'), 'coins', this.game.inventory.count('coins'), formatNumber);
+      countUp(body.querySelector('.shop-coins'), 'coins', this.game.inventory.count('coins'), shortNumber);
       const cols = document.createElement('div');
       cols.className = 'modal-cols';
       // Shop stock
