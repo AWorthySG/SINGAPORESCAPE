@@ -582,23 +582,10 @@ export class TerrainFx {
    * Draw the water's per-frame extras for the visible chunks (each chunk
    * canvas carries its `fx` from bake()): the lapping foam, then lily pads and
    * reeds bobbing gently. Then reflections, unless graphics are low.
+   * `foam` false leaves the foam out (the renderer's water layer carries it).
    */
-  drawWater(ctx, chunks, ox, oy, vw, vh, timeMs, low) {
-    const k = 0.5 + 0.5 * Math.sin(timeMs * 0.0016);
-    for (const ch of chunks) {
-      const fx = ch && ch.fx;
-      if (!fx || !fx.foam) continue;
-      // Copy only the on-screen part of the half-resolution foam layers.
-      const sx = Math.max(0, ox - fx.x), sy = Math.max(0, oy - fx.y);
-      const sw = Math.min(fx.w, ox + vw - fx.x) - sx, sh = Math.min(fx.h, oy + vh - fx.y) - sy;
-      if (sw <= 0 || sh <= 0) continue;
-      if (!fx.foam.b || low) { ctx.drawImage(fx.foam.a, sx / 2, sy / 2, sw / 2, sh / 2, fx.x + sx - ox, fx.y + sy - oy, sw, sh); continue; }
-      ctx.globalAlpha = 1 - k;
-      ctx.drawImage(fx.foam.a, sx / 2, sy / 2, sw / 2, sh / 2, fx.x + sx - ox, fx.y + sy - oy, sw, sh);
-      ctx.globalAlpha = k;
-      ctx.drawImage(fx.foam.b, sx / 2, sy / 2, sw / 2, sh / 2, fx.x + sx - ox, fx.y + sy - oy, sw, sh);
-      ctx.globalAlpha = 1;
-    }
+  drawWater(ctx, chunks, ox, oy, vw, vh, timeMs, low, foam = true) {
+    if (foam) this.drawFoam(ctx, chunks, ox, oy, vw, vh, timeMs, low);
     for (const ch of chunks) {
       const fx = ch && ch.fx;
       if (!fx || !fx.water.length) continue;
@@ -612,12 +599,39 @@ export class TerrainFx {
   }
 
   /**
+   * The lapping foam alone: the on-screen part of each chunk's two foam
+   * layers, cross-fading. The renderer paints it into its animated water layer
+   * (a few times a second) rather than over the whole screen every frame.
+   * True if any was drawn.
+   */
+  drawFoam(ctx, chunks, ox, oy, vw, vh, timeMs, low) {
+    const k = 0.5 + 0.5 * Math.sin(timeMs * 0.0016);
+    let any = false;
+    for (const ch of chunks) {
+      const fx = ch && ch.fx;
+      if (!fx || !fx.foam) continue;
+      // Copy only the on-screen part of the half-resolution foam layers.
+      const sx = Math.max(0, ox - fx.x), sy = Math.max(0, oy - fx.y);
+      const sw = Math.min(fx.w, ox + vw - fx.x) - sx, sh = Math.min(fx.h, oy + vh - fx.y) - sy;
+      if (sw <= 0 || sh <= 0) continue;
+      any = true;
+      if (!fx.foam.b || low) { ctx.drawImage(fx.foam.a, sx / 2, sy / 2, sw / 2, sh / 2, fx.x + sx - ox, fx.y + sy - oy, sw, sh); continue; }
+      ctx.globalAlpha = 1 - k;
+      ctx.drawImage(fx.foam.a, sx / 2, sy / 2, sw / 2, sh / 2, fx.x + sx - ox, fx.y + sy - oy, sw, sh);
+      ctx.globalAlpha = k;
+      ctx.drawImage(fx.foam.b, sx / 2, sy / 2, sw / 2, sh / 2, fx.x + sx - ox, fx.y + sy - oy, sw, sh);
+      ctx.globalAlpha = 1;
+    }
+    return any;
+  }
+
+  /**
    * Soft reflections in the water: tall objects and characters standing just
    * above it appear upside down below them, faded and gently rippling,
    * clipped to the water tiles. Skipped in low graphics.
    */
   drawReflections(ctx, game, chunks, ox, oy, vw, vh, timeMs) {
-    if (game.lowFx || !ctx.clip) return;
+    if (game.lowFx || game.fxTrim || !ctx.clip) return;   // also left out while frames run slow (governor.js)
     const w = game.world;
     for (const ch of chunks) {
       const fx = ch && ch.fx;

@@ -14,6 +14,7 @@ import { TitleScreen } from './ui/title.js';
 import { cloud } from './game/cloud.js';
 import { quickUse } from './game/quickuse.js';
 import { installLinks } from './ui/links.js';
+import { FxGovernor } from './render/governor.js';
 
 const VIEW_TILES = 15;        // tiles shown across the shorter side of the screen, at most
 const VIEW_TILES_LONG = 24;   // ...and along the longer side
@@ -155,6 +156,7 @@ resize();
 
 // Main loop.
 let last = now(), slowAvg = 16, lastScaleDown = 0;
+const governor = new FxGovernor();
 function frame() {
   const t = now();
   let dt = t - last;
@@ -176,6 +178,8 @@ function frame() {
     title.frame(dt);   // on the title: tours the camera, runs the loading bar
     renderer.render(t);
     ui.renderMinimap();
+    // Frames whose work keeps running long trim the decorative extras (governor.js).
+    game.fxTrim = governor.frame(now() - t, t);
   } catch (err) {
     if (!frameErrorLogged) { frameErrorLogged = true; console.error('Frame error (the game keeps running):', err); }
   }

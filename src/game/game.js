@@ -7042,7 +7042,9 @@ export class Game {
     };
     for (const g of this.world.groundItems) consider('item', g, g.x, g.y, 1);
     const fightReach = Math.max(2, this.attackRange());
-    for (const n of this.npcs) {
+    // Runs every frame: only the NPCs near you (nearbyNpcs reaches well past
+    // any bow), not the whole world's ten thousand.
+    for (const n of this.nearbyNpcs()) {
       if (!n.alive || n.ally) continue;   // mercenaries aren't interactable
       consider('npc', n, n.x, n.y, n.attackable ? fightReach : 2);
     }

@@ -181,8 +181,11 @@ export class Renderer {
     // Shadows lean and stretch with the sun (shadows.js); low graphics keeps the plain ones.
     const sun = sunShadow(game.dayPhase(), this._sun || (this._sun = {}));
     sun.low = !!game.lowFx;
+    // The decorative extras (reflections, critters, weather particles, the
+    // second foam layer) also step down while frames run slow (governor.js).
+    const trim = !!(game.lowFx || game.fxTrim);
 
-    ctx.fillStyle = '#FAF6EE'; ctx.fillRect(0, 0, vw, vh);   // opaque canvas: paint, don't clear
+    // Opaque canvas: paint, don't clear (one fill: a second, paler one under it was never seen).
     ctx.fillStyle = '#16241a';
     ctx.fillRect(0, 0, vw, vh);
 
@@ -194,10 +197,11 @@ export class Renderer {
     if (this.terrainCanvas) {
       // Blit the cached static terrain chunks for the visible slice, then animate water.
       this._drawTerrainChunks(ox, oy, vw, vh);
-      this._drawWaterOverlay(x0, y0, x1, y1, ox, oy, timeMs);
+      // (The animated water layer carries the shoreline foam when it can.)
+      const foamDone = this._drawWaterOverlay(x0, y0, x1, y1, ox, oy, timeMs);
       // Shoreline foam, lily pads and reeds, and reflections (terrainfx.js).
       if (this.tfx && this._visChunks) {
-        this.tfx.drawWater(ctx, this._visChunks, ox, oy, vw, vh, timeMs, game.lowFx);
+        this.tfx.drawWater(ctx, this._visChunks, ox, oy, vw, vh, timeMs, trim, !foamDone);
         this.tfx.drawReflections(ctx, game, this._visChunks, ox, oy, vw, vh, timeMs);
       }
     } else {
@@ -208,12 +212,12 @@ export class Renderer {
     // Weather (weather.js): the sky for this region and moment, then puddles and
     // ripples on the ground, under everyone. Looks only; never gameplay.
     this.weather.update(game, fdt);
-    this.weather.drawGround(ctx, game, ox, oy, vw, vh, timeMs, fdt, !!game.lowFx);
+    this.weather.drawGround(ctx, game, ox, oy, vw, vh, timeMs, fdt, trim);
     // Critters move on and objects near you react (bushes sway, tall things fade).
     this.react.update(game, fdt);
     {
       const env = this._critEnv, pc = game.player.renderCenter();
-      env.world = game.world; env.zone = game.currentZoneName; env.night = night; env.px = pc.x; env.py = pc.y; env.low = !!game.lowFx;
+      env.world = game.world; env.zone = game.currentZoneName; env.night = night; env.px = pc.x; env.py = pc.y; env.low = trim;
       this.critters.update(fdt, env, ox, oy, vw, vh);
       this.critters.drawGround(ctx, ox, oy);
     }
@@ -222,8 +226,13 @@ export class Renderer {
     const drawables = [];
     const isLightSource = (o) => o.def.type === 'fire' || o.def.type === 'furnace' || o.def.type === 'range' ||
       (o.def.type === 'scenery' && o.objId === 'lamp');
+    // The objects in view, kept for the node labels and signposts drawn later
+    // this frame (the world holds thousands: one pass over them is enough).
+    const visObjs = this._visObjs || (this._visObjs = []);
+    visObjs.length = 0;
     for (const o of game.world.objects) {
       if (o.x < x0 - 1 || o.x > x1 + 1 || o.y < y0 - 1 || o.y > y1 + 1) continue;
+      visObjs.push(o);
       // Harvest judder: a struck tree/rock wobbles briefly as the resource pops.
       const jx = o.shakeT > 0 ? Math.sin(o.shakeT * 0.09) * 1.7 * (o.shakeT / 280) : 0;
       const cx = o.x * TILE + TILE / 2 - ox + jx, cy = o.y * TILE + TILE / 2 - oy;
@@ -439,7 +448,7 @@ export class Renderer {
     // low graphics (and headless runs) keep the old flat fill.
     if (game.lowFx || !this.lights.ok || !this.lights.draw(ctx, game, this._blendMood(fdt), night, this.weather.state, ox, oy, vw, vh, timeMs)) this._drawDayNight(vw, vh, night, fdt);
     else this.cosy.draw(ctx, game, this.lights, night, ox, oy, vw, vh, timeMs);   // golden hour and lantern glow (cosylight.js)
-    this.weather.drawAir(ctx, ox, oy, vw, vh, timeMs, fdt, !!game.lowFx);
+    this.weather.drawAir(ctx, ox, oy, vw, vh, timeMs, fdt, trim);
     this._drawVignette(vw, vh, night);
     this.critters.drawAir(ctx, ox, oy, timeMs);
     this._drawParticles(ox, oy);
@@ -447,7 +456,7 @@ export class Renderer {
     // Impacts, crit stars, death poofs, coin sparkles, level-up light (combatfx.js).
     game.cfx.update(game.hitStop > 0 ? fdt * 0.12 : fdt);
     game.cfx.draw(ctx, ox, oy);
-    this._drawOverheads(ox, oy);
+    this._drawOverheads(ox, oy, visObjs);
     this._drawHurtFlash(vw, vh);
     if (!game.reduceMotion) game.cfx.drawPulse(ctx, vw, vh);
     this._drawCinematics(vw, vh);
@@ -1189,7 +1198,9 @@ export class Renderer {
       for (let x = tx0; x < tx1; x++) {
         const t = w.terrainAt(x, y);
         const sx = (x - tx0) * TILE, sy = (y - ty0) * TILE;
-        if (t === TERRAIN.WATER) { g.fillStyle = 'rgb(122,190,232)'; g.fillRect(sx, sy, TILE + 1, TILE + 1); continue; }
+        // Water's painted texture is baked here too: the animated layer over it
+        // (_drawWaterOverlay) then only adds the swell, shimmer and foam.
+        if (t === TERRAIN.WATER) { if (!this._groundTile(g, t, x, y, sx, sy)) { g.fillStyle = 'rgb(122,190,232)'; g.fillRect(sx, sy, TILE + 1, TILE + 1); } continue; }
         const h = hash(x, y);
         if (this._groundTile(g, t, x, y, sx, sy)) {
           // Painted ground: keep the odd wildflower and the crisp path edges.
@@ -1304,6 +1315,9 @@ export class Renderer {
     const w = game.world;
     // The shimmer is slow, so redraw it into an offscreen layer ~11 times a
     // second (or when the view crosses a tile) and blit that layer every frame.
+    // The shoreline foam (terrainfx.js) is painted into the same layer: drawn
+    // straight to the screen it cost two more full-screen blits every frame.
+    // Returns true when the foam went in.
     if (typeof document !== 'undefined' && document.createElement) {
       const dpr = (ctx.getTransform ? ctx.getTransform().a : 1) || 1;
       const cols = x1 - x0 + 1, rows = y1 - y0 + 1;
@@ -1323,10 +1337,11 @@ export class Renderer {
               wc.any = true;
             }
           }
+          if (this.tfx && this._visChunks && this.tfx.drawFoam(g, this._visChunks, x0 * TILE, y0 * TILE, cols * TILE, rows * TILE, timeMs, game.lowFx || game.fxTrim)) wc.any = true;
           Object.assign(wc, { x0, y0, cols, rows, dpr, t: timeMs });
         }
         if (wc.any) ctx.drawImage(wc.cv, x0 * TILE - ox, y0 * TILE - oy, cols * TILE, rows * TILE);
-        return;
+        return true;
       }
     }
     for (let y = y0; y <= y1; y++) {
@@ -1432,10 +1447,13 @@ export class Renderer {
     const wave = Math.sin((x + y) * 0.7 + timeMs * 0.0016) * 8 + Math.sin((x - y) * 0.5 + timeMs * 0.0011) * 6;
     // Deeper water reads darker/greener; shallows near shore are brighter teal.
     const d = shore && !soft ? 18 : 0;   // soft shores: no brighter rim to give the tile's square away
-    if (this._groundTile(ctx, TERRAIN.WATER, x, y, sx, sy)) {
+    // The animated layer (soft) sits over terrain chunks that already hold the
+    // painted water, so it skips repainting it under every tile's swell.
+    const tex = this.groundTex;
+    if (soft && tex && tex.ready && tex[TERRAIN.WATER] ? true : this._groundTile(ctx, TERRAIN.WATER, x, y, sx, sy)) {
       // Painted water: the swell rides on top as a soft light/dark wash.
       const k = (wave + d * 0.6) / 14;
-      ctx.fillStyle = k > 0 ? `rgba(255,255,255,${Math.min(0.22, k * 0.12).toFixed(3)})` : `rgba(30,90,140,${Math.min(0.14, -k * 0.08).toFixed(3)})`;
+      ctx.fillStyle = k > 0 ? swellFill(0, Math.min(0.22, k * 0.12)) : swellFill(1, Math.min(0.14, -k * 0.08));
       ctx.fillRect(sx, sy, TILE + 1, TILE + 1);
     } else {
       ctx.fillStyle = `rgb(${(122 + d + wave * 0.5) | 0},${(190 + d * 0.6 + wave * 0.6) | 0},${(232 + d * 0.3 + wave * 0.4) | 0})`;
@@ -1594,14 +1612,14 @@ export class Renderer {
   }
 
   // ---------------- Overhead UI (bars, hitsplats, name) ----------------
-  _drawNodeLabels(ox, oy) {
+  _drawNodeLabels(ox, oy, objs = this.game.world.objects) {
     const { ctx, game } = this;
     const vw = game.camera.viewW, vh = game.camera.viewH;
     ctx.font = '10px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
     // Settings > World labels: in Smart mode only the hovered, worked and
     // nearest workable nodes get a pill (see worldlabels.js); Off draws none.
     const mode = labelMode(game);
-    for (const o of mode === 'off' ? [] : game.world.objects) {
+    for (const o of mode === 'off' ? [] : objs) {
       const t = o.def.type;
       if (t !== 'tree' && t !== 'rock' && t !== 'fishing') continue;
       if (o.depleted || !o.def.label) continue;
@@ -1626,7 +1644,7 @@ export class Renderer {
     }
     // Directional signposts (which way to each area).
     ctx.font = '800 11px Nunito,"Trebuchet MS",sans-serif';
-    for (const o of game.world.objects) {
+    for (const o of objs) {
       if (!o.sign) continue;
       const cx = o.x * TILE + TILE / 2 - ox, cy = o.y * TILE + TILE / 2 - oy;
       if (cx < -40 || cx > vw + 40 || cy < -20 || cy > vh + 20) continue;
@@ -1640,9 +1658,9 @@ export class Renderer {
     }
   }
 
-  _drawOverheads(ox, oy) {
+  _drawOverheads(ox, oy, objs) {
     const { ctx, game } = this;
-    this._drawNodeLabels(ox, oy);
+    this._drawNodeLabels(ox, oy, objs);
     const vw = game.camera.viewW, vh = game.camera.viewH;
     const mode = labelMode(game);
     const placed = [];   // small names drawn so far this frame (to keep them apart)
@@ -1900,6 +1918,17 @@ export class Renderer {
       for (let i = 1; i < 4; i++) ctx.fillRect(x + (w / 4) * i, cy, 1, h);
     }
   }
+}
+
+// The swell's wash colours, one string per alpha step (to 0.001, as written
+// before), made once rather than for every water tile on every redraw.
+const SWELL_RGB = ['255,255,255', '30,90,140'];
+const _swell = [new Map(), new Map()];
+export function swellFill(dark, a) {
+  const k = Math.round(a * 1000), m = _swell[dark];
+  let s = m.get(k);
+  if (s === undefined) { s = `rgba(${SWELL_RGB[dark]},${(k / 1000).toFixed(3)})`; m.set(k, s); }
+  return s;
 }
 
 function clamp8(v) { return v < 0 ? 0 : v > 255 ? 255 : v | 0; }
