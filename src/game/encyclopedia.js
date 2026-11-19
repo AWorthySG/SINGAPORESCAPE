@@ -14,7 +14,6 @@ import { SKILLS } from '../data/skills.js';
 import { chebyshev } from '../core/utils.js';
 import { CODEX_IDS } from './codex.js';
 import { RESOURCE_CATS, resourceCat, itemSources } from './skillguide.js';
-import { isObtainable } from './discovery.js';
 import { searchArticles } from '../data/compendium.js';
 
 /** Every item the encyclopedia lists (coins aside), by name. */
@@ -159,7 +158,7 @@ export function linkNames(regionNames = []) {
   for (const r of regionNames) put(r, 'region', r);
   for (const s of SKILLS) if (!s.hidden) put(s.name, 'skill', s.id);
   for (const id of CODEX_IDS) put(getNpc(id).name, 'monster', id);
-  for (const id of allItemIds()) if (isObtainable(id)) put(getItem(id).name, 'item', id);
+  for (const id of allItemIds()) put(getItem(id).name, 'item', id);
   let longest = 1;
   for (const k of map.keys()) longest = Math.max(longest, k.split(' ').length);
   _names = { map, longest: Math.min(longest, 7), regions };
