@@ -7,6 +7,7 @@
 import { beforeEach } from 'node:test';
 import { GOLDEN } from '../src/data/skillhours.js';
 import { UNLOCKS } from '../src/data/unlocks.js';
+import { GATHER_FUN } from '../src/game/gathering.js';
 
 export const SEED = Number(process.env.TEST_SEED) || 20261112;
 
@@ -25,4 +26,5 @@ seedRandom();
 // Golden hours off too: XP amounts in tests mustn't depend on the in-game clock
 // (tests/skillhours.test.mjs switches them back on for itself).
 // Skill unlocks off as well, so balance checks see the base rates (skillshome.test.mjs turns them on).
-beforeEach(() => { seedRandom(); GOLDEN.on = false; UNLOCKS.on = false; });
+// Gathering streaks, lucky finds and contracts too (lifeskillfun.test.mjs turns them on).
+beforeEach(() => { seedRandom(); GOLDEN.on = false; UNLOCKS.on = false; GATHER_FUN.on = false; });

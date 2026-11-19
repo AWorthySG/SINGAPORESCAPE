@@ -132,6 +132,7 @@ export const DIALOGUES = {
         { label: 'What should I be doing now?', next: 'start', action: 'lifeRemind' },
         { label: 'Tell me about the advanced course.', next: 'adv' },
         { label: 'Teach me the wild trades.', next: 'wild' },
+        { label: 'Any skilling contracts today?', next: 'end', action: 'skillContracts' },
         { label: 'Goodbye.', next: 'end' },
       ],
     },

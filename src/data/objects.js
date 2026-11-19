@@ -758,6 +758,34 @@ for (const [id, h] of Object.entries(HUNT)) {
     examine: `${h.examine} (Hunter ${h.level})` };
 }
 
+// XP audit (Nov 2026): XP an hour at each node, at its own level, by auto gather.
+// Mining paid about a sixth of Woodcutting or Fishing at the same level, so every
+// rock pays MINING_XP_MULT times its listed XP; and a few nodes paid less than the
+// tier below them, so each is lifted until every tier pays at least ~10% more an
+// hour than the one before it (the factors are measured, not guessed).
+export const MINING_XP_MULT = 4;
+export const NODE_XP_TUNE = {
+  rain_tree: 1.36,                                          // was below mangrove (lvl 40)
+  clay_rock: 1.4, limestone_rock: 1.07, silver_rock: 1.06,  // level 1-20 rocks in order
+  gold_rock: 2.12, gem_rock: 2.32,                          // were below sandstone (lvl 35)
+  boar_pit: 1.65, python_trap: 1.42,                        // were below the mousedeer trail (lvl 40)
+  qilin_trail: 1.17,                                        // was below the tiger trail (lvl 160)
+  // With gathering 20% faster, nodes with long regrow times gained less, so the
+  // endgame ladders (each tier well ahead of the last at the same level) were
+  // re-measured and lifted where they fell short (audit/tune, same-level runs).
+  seraya_tree: 1.09, meranti_tree: 1.13, chengal_tree: 1.17, starfall_banyan: 1.15, moonlit_kapok: 1.15, keramat_tree: 1.18,
+  adamantite_rock: 1.21, runite_rock: 1.15, obsidian_vein: 1.16,
+  colugo_trap: 1.06, pangolin_burrow: 1.1,
+};
+// (Mithril, adamantite and obsidian dip below the rock before them only at their own
+// unlock level, where the success chance is low; at the same level they rank in
+// order, so they're left alone.)
+for (const [id, o] of Object.entries(OBJECTS)) {
+  if (typeof o.xp !== 'number') continue;
+  if (o.skill === 'mining') o.xp = Math.round(o.xp * MINING_XP_MULT * 10) / 10;
+  if (NODE_XP_TUNE[id]) o.xp = Math.round(o.xp * NODE_XP_TUNE[id] * 10) / 10;
+}
+
 export function getObject(id) {
   const obj = OBJECTS[id];
   if (!obj) throw new Error(`Unknown object id: ${id}`);

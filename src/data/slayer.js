@@ -3,6 +3,7 @@
 // derived from the bestiary so a task can never reference a monster that doesn't
 // exist. Higher Slayer level unlocks tougher families.
 import { NPCS, ALL_MONSTER_IDS } from './npcs.js';
+import { BESTIARY_SPECIES } from './bestiary.js';
 
 // Pretty plural names for the families we want to assign (keyed by family slug).
 const FAMILY_NAMES = {
@@ -35,6 +36,8 @@ const FAMILY_NAMES = {
   slow_loris: 'Slow lorises', polong: 'Polong', mambang_kuning: 'Mambang kuning',
   coconut_crab: 'Coconut crabs', rift_wyvern: 'Rift wyverns',
 };
+// The bestiary expansion's species (bestiary.js), each under its own plural.
+for (const b of BESTIARY_SPECIES) FAMILY_NAMES[b.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')] = b.plural;
 
 // Build the task table from the bestiary: each family's Slayer requirement is
 // based on the lowest-level member; harder families need a higher Slayer level.

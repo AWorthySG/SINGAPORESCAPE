@@ -12,7 +12,7 @@ import { ITEMS } from '../src/data/items.js';
 import { ALL_BOSS_IDS, getNpc } from '../src/data/npcs.js';
 import { PAGES, PAGE_BY_ID, RARE_FINDS } from '../src/game/collection.js';
 import { BOSS_PETS, SKILL_PETS, PET_BY_ID, LIFE_SKILL_IDS, bossPetChance, skillPetChance, rollPet, BOSS_PET_RATE, BOSS_PET_FLOOR, SKILL_PET_RATE } from '../src/game/pets.js';
-import { GATE, NEXT_WAVE_TICKS, GATE_MODS, modEffects, waveBonus, wavePlan } from '../src/game/waves.js';
+import { GATE, NEXT_WAVE_TICKS, GATE_MODS, modEffects, waveBonus, wavePlan, GATE_XP } from '../src/game/waves.js';
 import { collectionPageHTML, petsHTML } from '../src/ui/collectionui.js';
 
 function fakeStorage() {
@@ -255,7 +255,7 @@ test('gate modifiers stack their risk and reward', () => {
   g.waves.enter();
   assert.equal(g.waves.toggleMod('swift'), false, 'locked in once the run starts');
   // Fasting: no food, more XP.
-  assert.ok(Math.abs(g.combatXpMult() / xp0 - 1.75) < 1e-9);
+  assert.ok(Math.abs(g.combatXpMult() / xp0 - 1.75 * GATE_XP) < 1e-9);   // fasting, on top of the gate's own XP
   g.inventory.add('trout', 3);
   g.player.hp = 5;
   g.eatItem(g.inventory.slots.findIndex((s) => s?.id === 'trout'));

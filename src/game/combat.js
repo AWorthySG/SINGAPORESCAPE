@@ -133,6 +133,19 @@ export const WEAKNESS_BONUS = { dmg: 1.25 };
 // stronger). It sits with the other shared damage multipliers (game.js
 // _offensiveMods, the Stats tab, the Merchant's allies), so class balance is unchanged.
 export const CLASS_POWER = 1.2;
+// Brawler: every blow tears an Open Wound in the foe; each stack makes it take
+// `per` more damage (from you), up to `max` stacks. Stacks fade once the Brawler
+// has left it alone for `fadeTicks` ticks (about 8 s).
+// At most one stack a foe every `everyMs` (claws swing several times a second, so
+// stacking on every blow put the Brawler far above every other class).
+export const OPEN_WOUNDS = { per: 0.05, max: 30, fadeTicks: 14, everyMs: 1000 };
+/** A foe's Open Wounds stacks right now (0 once they've faded). */
+export function openWoundStacks(npc, tick) {
+  if (!npc?.openWounds) return 0;
+  if (tick - (npc.openWoundsAt || 0) > OPEN_WOUNDS.fadeTicks) { npc.openWounds = 0; return 0; }
+  return npc.openWounds;
+}
+
 
 // Monster armour: a share of every hit it shrugs off, by kind of creature, from
 // none (slimes, wisps, jellyfish) to armoured (golems, crabs, turtles). Champions

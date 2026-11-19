@@ -1,3 +1,4 @@
+import { getObject } from '../data/objects.js';   // quest guides read node levels
 import { EventBus } from '../core/events.js';
 import { goldenMult, goldenSkills, GOLDEN_HOUR_XP, SKILL_HOURS } from '../data/skillhours.js';
 import { buildWorld, TERRAIN, zoneLevel } from '../data/world.js';
@@ -34,7 +35,7 @@ import {
   playerAttackVsNpc, npcAttackVsPlayer, OFFHAND_SHARE, rollAttack, rollGuaranteed, rollHit, combatXp, magicXp, killXp, DAMAGE_XP_SHARE, KILL_XP_SHARE,
   playerRangedVsNpc, combatXpRanged, playerMagicVsNpc, RANGED_STYLES,
   weaknessOf, WEAKNESS_BONUS, armourOf, armourMult, critChance, hitChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE,
-  playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX, RANGED_TYPE_DMG, combatLevelXpMult, CLASS_POWER } from './combat.js';
+  playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX, RANGED_TYPE_DMG, combatLevelXpMult, CLASS_POWER, OPEN_WOUNDS, openWoundStacks } from './combat.js';
 import { ABILITY_BY_ID, abilitiesFor, ADREN_PER_HIT, ADREN_PER_HURT, CLASS_ADRENALINE, EXECUTE_BELOW } from '../data/abilities.js';
 import { classPassiveMods, CLASS_SKILL } from '../data/classPassives.js';
 import { RACES, raceOf, matchup, RACE_BONUS, RACE_PENALTY } from '../data/races.js';
@@ -84,6 +85,8 @@ import { Story } from './story.js';   // the main story, lore pages, story event
 import * as Life from './npclife.js';   // living NPCs, region reputation, consequences (npclife.js)
 import { repPriceMult, repTitleText } from './reputation.js';
 import { consequencePriceMult } from './consequences.js';
+import { Gathering } from './gathering.js';   // gathering streaks, lucky finds, skilling contracts
+import { Teleports } from './teleports.js';   // the Town and Grave teleports
 
 // Auto quest: the dialogue actions that start and hand in each quest it can
 // do ([start, hand-in]; Pest Control completes itself on the last rat). The
@@ -300,7 +303,7 @@ const CHAMPION_LOOT_KILLS = 30;
 // Wild up to Divine) are worth more loot: their drop table, rare-table chances
 // and upgrade stones roll this many times (a half is a 50% chance of one more).
 // Young monsters, the weaker form, stay at one roll like the plain species.
-export { CLASS_POWER };
+export { CLASS_POWER, OPEN_WOUNDS, openWoundStacks };
 export const RANK_LOOT_ROLLS = { Wild: 1.5, Feral: 2, Elder: 2.5, Dire: 3, Ancient: 3.5, Mythic: 4, Primordial: 4.5, Eternal: 5, Celestial: 5.5, Divine: 6 };
 const _slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
 /** A normal monster's rank word ('Elder', 'Dire'...), or '' for the plain
@@ -366,6 +369,14 @@ const ALCHEMY = { level: 21, xp: 65, runes: { nature_rune: 1, fire_rune: 5 } };
 // Actions that can fire the instant you press (no random roll to exploit by spamming).
 const INSTANT_ACTIONS = new Set(['pickup', 'cookmenu', 'smeltmenu', 'smithmenu', 'craftmenu', 'fletchmenu', 'herbmenu', 'farm', 'pray', 'rest', 'transport', 'openbank', 'openshop', 'talk', 'shrinemenu', 'homemenu']);
 const GATHER_ACTIONS = new Set(['woodcut', 'mine', 'fish', 'stall']);
+// Gathering (woodcutting, mining, fishing, Hunter) and making (cooking, smithing,
+// crafting, fletching, Herblore) go this much faster: every 1/(GATHER_SPEED-1)
+// ticks an extra roll, so each action takes about 20% less time. (Smelting is a
+// whole batch at once already; Firemaking walks a tile per fire, so it gets the
+// same boost as XP instead: see FIRE_XP in skilling.js.)
+export const GATHER_SPEED = 1.25;
+const MAKE_FAST = new Set(['cook', 'cookdish', 'smith', 'craft', 'recipe']);
+const GATHER_FAST = new Set(['woodcut', 'mine', 'fish', 'hunt', ...MAKE_FAST]);
 // Ticks you get to answer a Knowledge Strike before the boss's special lands (~7s).
 const KS_TICKS = 12;
 
@@ -378,7 +389,7 @@ export class Game {
 
     this.skills = new Skills(this.bus);
     Play.initPlay(this);   // Focus, Rested XP and the gravestone (playbalance.js)
-    this.skills.timeMult = (id) => goldenMult(id, this.gameHour()) * Play.xpMult(this);   // golden hours (skillhours.js), rested and tired
+    this.skills.timeMult = (id) => goldenMult(id, this.gameHour()) * Play.xpMult(this) * (this.gathering?.xpMult(id) ?? 1);   // golden hours (skillhours.js), rested and tired, gathering streaks
     this.inventory = new Inventory(this.bus);
     this.equipment = new Equipment(this.bus);
     this.shrine = new Shrine();   // the Offering Shrine's blessings (see shrine.js)
@@ -472,6 +483,8 @@ export class Game {
     this.story = new Story(this);     // the main story's chapters, lore pages, story events and scenes (story.js)
     installSkillUnlocks(this);        // life skill unlocks at 10/25/50/75/99 (skillunlocks.js)
     this.home = new Home(this);       // the kampong home plot in Kranji (home.js)
+    this.gathering = new Gathering(this);   // gathering streaks, lucky finds and daily skilling contracts (gathering.js)
+    this.teleports = new Teleports(this);   // the Town (K) and Grave (R) teleports (teleports.js)
     this.snareGiven = true;           // a new character has the starter snare; older saves get one on load (onboarding.js)
     // Knowledge Strikes: bosses' specials can be interrupted by answering a question.
     // On by default in the browser; headless runs (tests) leave bosses as they were.
@@ -1420,7 +1433,14 @@ export class Game {
     // Count the bag before and after so every item gathered pops up over you.
     const gather = GATHER_ACTIONS.has(a.type) || a.type === 'hunt';
     const before = gather ? this._bagCounts() : null;
-    const going = runSkillAction(this, a, resolver);   // with the skill's unlocks (skillunlocks.js)
+    let going = runSkillAction(this, a, resolver);   // with the skill's unlocks (skillunlocks.js)
+    // A gathering or making skill's extra share of a tick (GATHER_SPEED): every so often, a
+    // second roll. (Making swaps item for item, so it needs no free slot.)
+    if (going && GATHER_FAST.has(a.type)) {
+      a._quick = (a._quick || 0) + (GATHER_SPEED - 1);
+      if (a._quick >= 1 && (MAKE_FAST.has(a.type) || this.inventory.freeSlots() > 0) && !obj.depleted) { a._quick -= 1; going = runSkillAction(this, a, resolver); }
+    }
+    if (gather) this.gathering.onGather(a, obj, before);   // streaks, lucky finds, contracts (gathering.js)
     if (gather) {
       const after = this._bagCounts();
       for (const [id, n] of after) {
@@ -2131,6 +2151,7 @@ export class Game {
     if (this.onSlayerTask(npc)) dmgM *= 1 + this.slayerBonus().dmg / 100;   // Slayer: hit task monsters harder
     dmgM *= Culling.masteryDamage(this, npc).mult;   // codex mastery of its species and race
     dmgM *= Mercs.merchantPower(this);   // the strongest class (see mercenary.js)
+    dmgM *= 1 + openWoundStacks(npc, this.tickCount) * OPEN_WOUNDS.per;   // a Brawler's Open Wounds on the foe
     dmgM *= CLASS_POWER;   // every class 20% stronger
     const sharedM = dmgM;   // what both hands share
     dmgM *= abM * gearM(gb);
@@ -2298,6 +2319,14 @@ export class Game {
 
   _applyPlayerHit(npc, dmg, opts = {}) {
     if (dmg > 0 && !opts.aoe) this._woundFoe(npc, dmg);   // daggers may poison, claws may make it bleed
+    // Brawler: each blow adds an Open Wound (more damage taken), up to 30 stacks.
+    if (dmg > 0 && this.jobClass === 'brawler') {
+      const now = this.playMs || 0, had = openWoundStacks(npc, this.tickCount);
+      const n = now >= (npc._openWoundNext || 0) ? Math.min(OPEN_WOUNDS.max, had + 1) : had;
+      if (n > had) npc._openWoundNext = now + OPEN_WOUNDS.everyMs;
+      npc.openWounds = n; npc.openWoundsAt = this.tickCount;   // any blow keeps the wounds open
+      if (n % 10 === 0 && npc._openWoundsSaid !== n) { npc._openWoundsSaid = n; this.addHitsplat(npc, 0, { text: `Open wounds ×${n}` }); }
+    }
     // A stunning class ability: the foe reels once the blow lands.
     if (this._abStun && dmg > 0) {
       const t = this._abStun; this._abStun = 0;
@@ -6173,6 +6202,7 @@ export class Game {
       const q = this.quests.bone_collector;
       if (q.state === 'notStarted') { q.state = 'active'; this.msg('Quest started — A Bag of Bones: bring 10 bones to the Kampong Guide.', 'level'); }
     } else if (action === 'questTurnIn') this.turnInBoneQuest();
+    else if (action === 'skillContracts') this.bus.emit('skillcontractsopen');   // Cikgu Surya's skilling contracts (gathering.js)
     else if (action === 'pestStart') {
       const q = this.quests.pest_control;
       if (q.state === 'notStarted') { q.state = 'active'; q.kills = 0; this.msg('Quest started — Pest Control: slay 8 giant rats.', 'level'); }
@@ -6457,18 +6487,36 @@ export class Game {
       case 'bone_collector': return countBones(this.inventory) >= 10 ? npc('guide', 'Hand in to') : { kind: 'hunt', text: `Collect bones: ${countBones(this.inventory)}/10 (any kind of bones counts)` };
       case 'pest_control': return { kind: 'hunt', target: 'rat', text: `Slay rats: ${q.kills}/8` };
       case 'pillars': return !q.monument ? obj('shrine', 'Pray at the A-Worthy Monument') : !q.obelisk ? obj('mascot_statue', 'Rest at the Mascot Statue') : npc('guide', 'Hand in to');
-      case 'smith_apprentice':
-        if (inv('steel_bar') >= 8) return npc('guide', 'Hand in to');
-        if (inv('iron_ore') && inv('coal') >= 2) return obj('furnace', 'Smelt steel bars at the furnace');
-        if (inv('iron_ore') >= 4) return obj('coal_rock', 'Mine coal for the steel');
-        return obj('iron_rock', `Mine iron ore (${inv('steel_bar')}/8 steel bars)`);
+      case 'smith_apprentice': {
+        // Gather the ore for every bar still owed before the furnace, then smelt
+        // them all in one visit (it used to head off as soon as it held one ore
+        // and two coal, walking rock -> furnace -> rock for each bar).
+        const left = 8 - inv('steel_bar');
+        if (left <= 0) return npc('guide', 'Hand in to');
+        // Steel needs Smithing 30, iron Mining 15 and coal its own level: until then auto
+        // quest sets this aside (as Island Provisions does) rather than smelt iron bars.
+        const needs = [['smithing', 30, 'smelt steel'], ['mining', getObject('iron_rock').level, 'mine iron'], ['mining', getObject('coal_rock').level, 'mine coal']]
+          .find(([sk, lv]) => this.skills.level(sk) < lv);
+        if (needs) return { text: `Reach ${needs[0] === 'mining' ? 'Mining' : 'Smithing'} ${needs[1]} to ${needs[2]}`, kind: 'none' };
+        if (inv('iron_ore') < left) return obj('iron_rock', `Mine iron ore (${inv('iron_ore')}/${left})`);
+        if (inv('coal') < left * 2) return obj('coal_rock', `Mine coal for the steel (${inv('coal')}/${left * 2})`);
+        return obj('furnace', `Smelt ${left} steel bar${left > 1 ? 's' : ''} at the furnace`);
+      }
       case 'island_defender': return this.bossKills - (q.startBoss || 0) >= 3 ? npc('guide', 'Hand in to') : { kind: 'boss', text: 'Defeat a boss' };
       case 'big_game_hunter': return this.totalKills - (q.startKills || 0) >= 50 ? npc('guide', 'Hand in to') : { kind: 'hunt', text: 'Defeat creatures' };
       case 'mystic_trial': return inv('death_rune') >= 25 ? npc('guide', 'Hand in to') : npc('mage', 'Buy death runes from');
-      case 'island_provisions':
-        if (inv('salmon') >= 10) return npc('guide', 'Hand in to');
-        if (inv('raw_salmon')) return obj('range', 'Cook your salmon on a range');
-        return obj('rod_spot', 'Catch salmon (Fishing 30, fishing rod)');
+      case 'island_provisions': {
+        // Catch every salmon still owed, then cook the lot in one go (a burnt
+        // one just means a few more to catch). Salmon come from the net spots
+        // (rod spots never had any), and only from Fishing 30.
+        const left = 10 - inv('salmon');
+        if (left <= 0) return npc('guide', 'Hand in to');
+        if (inv('raw_salmon') < left) {
+          if (this.skills.level('fishing') < 30) return { text: 'Reach Fishing 30 to catch salmon', kind: 'none' };
+          return obj('fishing_spot', `Net salmon (${inv('raw_salmon')}/${left})`);
+        }
+        return obj('range', `Cook your ${left} salmon on a range`);
+      }
       case 'champion': return this.bossKills - (q.startBoss || 0) >= 1 ? npc('guide', 'Hand in to') : { kind: 'boss', text: 'Final trial: defeat a boss' };
       default: return npc(giver);
     }
@@ -6629,7 +6677,8 @@ export class Game {
     if (p.action || p.isMoving) return;               // busy: wait until idle
     const name = id === 'slayer' ? 'Slayer' : QUESTS.find((d) => d.id === id)?.name || id;
     // (A Slayer task's text counts down every kill; keep the step steady while hunting.)
-    const step = id === 'slayer' ? `slayer:${g.kind}:${g.family || ''}` : `${id}:${g.text}`;
+    // (Nor does a gathering count like "(3/8)" make a new step on every ore.)
+    const step = id === 'slayer' ? `slayer:${g.kind}:${g.family || ''}` : `${id}:${g.objId || g.npcId || ''}:${g.text.replace(/\(\d+\/\d+/, '(')}`;
     if (step !== this._autoQuestStep) {
       this._autoQuestStep = step;
       this._autoQuestStuck = 0;

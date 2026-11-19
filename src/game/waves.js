@@ -33,6 +33,10 @@ export const NEXT_WAVE_TICKS = 6;   // ~3.6s between the last kill and the next 
 export const MAX_ALIVE = 8;         // at most this many wave monsters at once (phones)
 export const CHAMPION_EVERY = 5;    // every 5th wave adds a champion
 export const BOSS_EVERY = 10;       // every 10th wave is a boss wave
+// The owner asked for the gate to pay more: +50% combat XP inside a run, and
+// wave bonuses and boss chests pay double coins and half as many stones and scrolls again.
+export const GATE_XP = 1.5;
+const more = (n) => Math.ceil(n * 1.5);
 // A wave boss is a boss scaled to the wave the way _scaleBoss scales bosses to
 // you (f x its hits and defence, f^2 x its life), but with a fifth of that life:
 // a full boss is a siege for a party, and this one stands between you and the
@@ -56,16 +60,16 @@ export const waveMight = (n) => ({ hp: 1 + 0.04 * (n - 1) + 0.002 * (n - 1) ** 2
  *  wave, enhancement stones from wave 5, refine scrolls on even waves from 10,
  *  and a ward every 5th wave from 15. A boss wave adds its chest (see bossChest). */
 export function waveBonus(n, level) {
-  const out = [['coins', Math.round((50 + 5 * level) * n)]];
-  if (n >= 5) out.push(['upgrade_stone', Math.floor(n / 5)]);
-  if (n >= 10 && n % 2 === 0) out.push(['refine_scroll', 1 + Math.floor((n - 10) / 20)]);
+  const out = [['coins', Math.round((50 + 5 * level) * n * 2)]];
+  if (n >= 5) out.push(['upgrade_stone', more(Math.floor(n / 5))]);
+  if (n >= 10 && n % 2 === 0) out.push(['refine_scroll', more(1 + Math.floor((n - 10) / 20))]);
   if (n >= 15 && n % 5 === 0) out.push(['upgrade_ward', 1]);
   return out;
 }
 /** A boss wave's guaranteed chest: a big purse, refine scrolls, stones and a ward. */
 export function bossChest(n, level) {
-  return [['coins', Math.round((50 + 5 * level) * n * 3)], ['refine_scroll', 2 + Math.floor(n / 20)],
-    ['upgrade_stone', 5 + Math.floor(n / 2)], ['upgrade_ward', 1 + Math.floor(n / 30)]];
+  return [['coins', Math.round((50 + 5 * level) * n * 6)], ['refine_scroll', more(2 + Math.floor(n / 20))],
+    ['upgrade_stone', more(5 + Math.floor(n / 2))], ['upgrade_ward', 1 + Math.floor(n / 30)]];
 }
 
 // ---------------- Gate modifiers ----------------
@@ -201,7 +205,7 @@ export class Waves {
     return true;
   }
   /** Combat XP multiplier from this run's modifiers (1 outside a run). */
-  xpMult() { return this.active ? this.fx.xp : 1; }
+  xpMult() { return this.active ? this.fx.xp * GATE_XP : 1; }
   /** Does this run forbid healing food? */
   blocksFood() { return this.active && this.fx.noFood; }
   /** Say no to a meal (at most every few ticks: auto-eat asks every tick). */

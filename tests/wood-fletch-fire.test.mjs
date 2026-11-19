@@ -2,7 +2,7 @@
 // tree groves and their logs, the ashes those logs leave when burnt, and the
 // fletching recipes for the obsidian to eternal bows, staves, wands, rifles,
 // crossbows and arrows that used to come only from monster drops.
-import './seed.mjs';   // seeded Math.random: no test fails on an unlucky roll
+import { seedRandom } from './seed.mjs';   // seeded Math.random: no test fails on an unlucky roll
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -275,6 +275,9 @@ test('endgame Woodcutting XP an hour: each tier well ahead of the best before it
     const near = (o) => all.filter((p) => chebyshev(p.x, p.y, o.x, o.y) <= 15).length;
     const start = all.reduce((a, b) => (near(b) > near(a) ? b : a));
     standBy(g, start);
+    // Each run starts from the same rolls, however many spawns the world took
+    // making (more monsters in the world must not tip a close comparison).
+    seedRandom();
     g.toggleAutoGather(true);
     g.defaultObjectAction(start);
     const base = g.skills.xp.woodcutting;

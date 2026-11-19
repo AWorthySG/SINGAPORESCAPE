@@ -14,6 +14,7 @@ import { xpForLevel } from '../src/data/xp.js';
 import {
   gearWorth, sacrificePoints, dismantleYield, sacrificeGear, dismantleGear, packQualities,
   bulkPicks, dismantleAll, sacrificeAll, previewSacrifice, sacrificeOptions, salvageWarning, QUALITY_MULT, UNIQUE_MULT,
+  SACRIFICE_RATE,
 } from '../src/game/salvage.js';
 import { salvageHour } from '../tools/balance/salvage.mjs';
 
@@ -48,13 +49,13 @@ test('worth grows with level (with diminishing returns), tier, quality and boss 
   assert.equal(gearWorth('coins'), 0);
 });
 
-test('sacrifice points: worth x1.5, at least 1, and only into the same gear type', () => {
+test('sacrifice points: worth x1.5 at double rate, at least 1, and only into the same gear type', () => {
   // A plate body into a sword gives nothing; into another plate body, its worth.
   assert.equal(sacrificePoints('rune_sword', 'rune_platebody'), 0, 'another type: refused');
   assert.equal(sacrificePoints('rune_sword', 'iron_scimitar'), 0, 'a scimitar is not a sword');
   assert.equal(sacrificePoints('rune_platebody', 'leather_body'), 0, 'scout leather is not plate');
-  assert.equal(sacrificePoints('adamant_platebody', 'rune_platebody'), Math.round(gearWorth('rune_platebody') * 1.5));
-  assert.equal(sacrificePoints('rune_sword', 'mithril_sword'), Math.round(gearWorth('mithril_sword') * 1.5));
+  assert.equal(sacrificePoints('adamant_platebody', 'rune_platebody'), Math.round(gearWorth('rune_platebody') * SACRIFICE_RATE * 1.5));
+  assert.equal(sacrificePoints('rune_sword', 'mithril_sword'), Math.round(gearWorth('mithril_sword') * SACRIFICE_RATE * 1.5));
   assert.ok(sacrificePoints('rune_dagger', 'bronze_dagger') >= 1, 'the humblest piece still gives 1');
 });
 
@@ -206,17 +207,19 @@ test('bulk picks: not my class, below my worn tier, below a quality; never upgra
   assert.equal(g.inventory.count('merlion_blade'), 1);
 });
 
-test('balance: an hour of drops, dismantled, adds 30-60% to stone and scroll income; the same type sacrificed, about an hour of kills', () => {
+test('balance: an hour of drops, dismantled, adds 45-90% to stone and scroll income; the same type sacrificed, about an hour of kills', () => {
   const rows = [50, 150, 250].map((L) => salvageHour(L, { kills: 2400 }));
   for (const r of rows) {
     const sac = r.sacPoints / r.killMastery;
     // (Up to about twice: champions, each worth thirty kills of loot, are twice
     // as common as they were, so an hour now brings half as much gear again.)
-    assert.ok(sac > 0.55 && sac < 2.3, `level ${r.level}: sacrifice gives ${Math.round(sac * 100)}% of the kills' mastery`);
+    // (Doubled again when the owner asked for sacrifice to pay more mastery: SACRIFICE_RATE 2.)
+    assert.ok(sac > 1.1 && sac < 4.6, `level ${r.level}: sacrifice gives ${Math.round(sac * 100)}% of the kills' mastery`);
   }
   const sum = (k) => rows.reduce((t, r) => t + r[k], 0);
   const stones = sum('disStones') / sum('dropStones'), scrolls = sum('disScrolls') / sum('dropScrolls');
-  assert.ok(stones >= 0.3 && stones <= 0.6, `stones +${Math.round(stones * 100)}%`);
-  assert.ok(scrolls >= 0.3 && scrolls <= 0.6, `scrolls +${Math.round(scrolls * 100)}%`);
+  // (Raised by half when the owner asked for dismantling to pay more: STONE_RATE 0.09, SCROLL_RATE 0.012.)
+  assert.ok(stones >= 0.45 && stones <= 0.9, `stones +${Math.round(stones * 100)}%`);
+  assert.ok(scrolls >= 0.45 && scrolls <= 0.9, `scrolls +${Math.round(scrolls * 100)}%`);
   assert.ok(sum('disWards') < sum('dropWards'), 'wards stay mostly a boss and champion drop');
 });

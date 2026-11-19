@@ -87,6 +87,7 @@ export function snapshot(game) {
     waveMods: [...(game.waves?.mods || [])],
     collection: game.collection?.serialize(),
     pets: game.pets?.serialize(),
+    gathering: game.gathering?.serialize(),   // daily skilling contracts (gathering.js)
     worldEvents: game.worldEvents?.serialize(),
     story: game.story?.serialize(),   // story chapters, lore pages, lore guardians (story.js)
     bowQuiverGiven: !!game.bowQuiverGiven,   // the one-off quiver for bows from before quivers (game._giveBowQuiver)
@@ -400,6 +401,7 @@ function loadFields(game, data) {
   // The Collection log and pets (older saves: empty).
   game.collection?.load(data.collection);
   game.pets?.load(data.pets);
+  game.gathering?.load(data.gathering);   // skilling contracts (older saves: none yet)
   // World events' schedule and the weekly region challenge (older saves: none yet).
   game.worldEvents?.load(data.worldEvents);
   game.story?.load(data.story);   // the main story and lore pages (older saves: caught up from their quests)

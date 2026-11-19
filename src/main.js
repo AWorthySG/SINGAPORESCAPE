@@ -112,6 +112,10 @@ input.onKey((e) => {
     game.toggleAutoGather();
   } else if (e.key === 'u' || e.key === 'U') {
     game.toggleAutoQuest();
+  } else if (e.key === 'k' || e.key === 'K') {
+    game.teleports?.start('town');    // teleport to Kampong Glam (teleports.js)
+  } else if (e.key === 'r' || e.key === 'R') {
+    game.teleports?.start('grave');   // teleport to your gravestone
   } else if (e.key === 'm' || e.key === 'M') {
     ui.openWorldMap();
   } else if (e.key === 'Escape') {

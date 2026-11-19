@@ -15,7 +15,7 @@ import { NPCS } from '../src/data/npcs.js';
 import { HUNT, CROPS, POTIONS, cropFor } from '../src/data/trades.js';
 import { SHOPS } from '../src/data/shops.js';
 import { xpForLevel, pastCapXpMult } from '../src/data/xp.js';
-import { XP_RATE } from '../src/config.js';
+import { XP_RATE, LIFE_XP_BOOST } from '../src/config.js';
 import { chebyshev } from '../src/core/utils.js';
 import { findPath } from '../src/engine/pathfinding.js';
 import { guideEntries } from '../src/game/skillguide.js';
@@ -265,7 +265,7 @@ test('endgame brews: a crop, a catch and an ash, brewed at their level for ~35% 
     const xp0 = g.skills.xp.herblore;
     g.startRecipe('herblore', recipe, table); step(g, 3);
     assert.equal(g.inventory.count(t.brew), 1, `brewed ${t.brew}`);
-    assert.ok(Math.abs(g.skills.xp.herblore - xp0 - p.xp * XP_RATE * pastCapXpMult(t.lvl)) < 1, 'for its XP');
+    assert.ok(Math.abs(g.skills.xp.herblore - xp0 - p.xp * XP_RATE * LIFE_XP_BOOST * pastCapXpMult(t.lvl)) < 1, 'for its XP');
     for (const [id] of p.inputs) assert.equal(g.inventory.count(id), 0, `using up the ${id}`);
     g.inventory.remove(t.brew, 1);
     assert.ok(guideEntries('herblore').some((e) => e.label === p.name && e.level === t.lvl));

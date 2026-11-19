@@ -3502,6 +3502,11 @@ body.cb-safe #hp-orb.low::after {
 .inv-slot:has(> .q-epic), .item-cell:has(> .q-epic), .equip-slot:has(> .q-epic) { --qc: #8b4fe0; }
 .inv-slot:has(> .q-legendary), .item-cell:has(> .q-legendary), .equip-slot:has(> .q-legendary) { --qc: #d08a00; }
 .inv-slot:has(> .q-mythic), .item-cell:has(> .q-mythic), .equip-slot:has(> .q-mythic) { --qc: #d6336c; }
+
+/* ---- Gear pages: switch between Enchant and Refine on the same piece; flash the piece's row on Back ---- */
+.ench-switch { font-weight: 800; }
+.mastery-row.focus-flash { animation: focusflash 1.4s ease-out 1; }
+@keyframes focusflash { 0% { box-shadow: 0 0 0 3px var(--aw-sun, #F5B82E); } 100% { box-shadow: 0 0 0 3px transparent; } }
 /* ===============================================================   Easier interface (ui-declutter): the notification lane, slim tips, the
    foldable Objectives, the quick-use slot, the Interact caption and the
    half / full phone sheet. (Preludes here avoid the exact ones
