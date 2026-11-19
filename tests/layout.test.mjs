@@ -387,3 +387,15 @@ test('sub-tabs switch views inside a tab, and each tab remembers the one it last
     globalThis.localStorage = prev.localStorage;
   }
 });
+
+test('the stylesheet is well formed: no merge leftovers, every block closed', async () => {
+  const { readFileSync } = await import('node:fs');
+  for (const f of ['styles/main.css', ...(['styles/accounts.css', 'styles/title.css', 'styles/story.css'])]) {
+    let css; try { css = readFileSync(new URL(`../${f}`, import.meta.url), 'utf8'); } catch { continue; }
+    assert.ok(!/^(<{7}|={7}|>{7})/m.test(css), `${f}: no merge conflict markers`);
+    const bare = css.replace(/\/\*[\s\S]*?\*\//g, '');
+    let depth = 0;
+    for (const ch of bare) { if (ch === '{') depth++; else if (ch === '}') { depth--; assert.ok(depth >= 0, `${f}: an extra }`); } }
+    assert.equal(depth, 0, `${f}: every { is closed`);
+  }
+});
