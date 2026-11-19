@@ -7059,6 +7059,34 @@ export class Game {
     return true;
   }
 
+  /** Next target (the round button by Attack, or Tab): switch to the next
+   *  closest enemy within reach. Repeated presses step through every foe in
+   *  reach, nearest first, before coming back round; a pause of a few seconds
+   *  starts the round again from the nearest. Returns the new target. */
+  nextTarget() {
+    const p = this.player;
+    if (!p.alive) return null;
+    const a = p.action;
+    const cur = a && a.type === 'attack' && a.npc && a.npc.alive ? a.npc : null;
+    const dist = (n) => Math.hypot(n.x - p.fx, n.y - p.fy);
+    const foes = this.nearbyNpcs().filter((n) => n.alive && n.attackable && !n.ally && !n.temporaryAlly
+      && !(n.def.fixed && n.target !== p && n !== cur) && dist(n) <= 10).sort((x, y) => dist(x) - dist(y));
+    if (!foes.length) { this.msg('No enemies nearby.', 'system'); return null; }
+    if (!this._cycle || this.playMs - this._cycle.at > 4000) this._cycle = { seen: new Set() };
+    this._cycle.at = this.playMs;
+    if (cur) this._cycle.seen.add(cur);
+    let next = foes.find((n) => n !== cur && !this._cycle.seen.has(n));
+    if (!next) {   // every foe in reach has had a turn: round again from the nearest
+      this._cycle.seen = new Set(cur ? [cur] : []);
+      next = foes.find((n) => n !== cur) || foes[0];
+    }
+    this._cycle.seen.add(next);
+    if (next !== cur) this.attackNpc(next);
+    if (this.autoBattle) { this._autoLast = next; this._autoFight = null; }   // auto battle keeps fighting the one you picked
+    this.addHitsplat(next, 0, { text: 'Target' });
+    return next;
+  }
+
   /** A skill button: attack skills go for the foe it was aimed at (or the
    *  current / nearest foe on a tap), then the skill is readied or fired. */
   useSkillAt(id, dir = null) {

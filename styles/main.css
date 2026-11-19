@@ -1630,10 +1630,10 @@ body.boss-on #tip-toast { top: 132px; }
 .as-opt:hover { background: var(--aw-hover); }
 .as-opt.active { background: var(--aw-ink); color: #fff; }
 .as-opt:focus-visible { outline: 3px solid var(--aw-sun); outline-offset: 2px; }
-/* Phones and touch screens: a narrower card, and no T / Y / U keys to show. */
+/* Phones and touch screens: a narrower card; the T / Y / U keys stay, a little smaller. */
 @media (max-width: 760px), (pointer: coarse) {
   .auto-row #auto-battle-btn, .auto-row .ab-btn { padding: 3px 8px 3px 5px; gap: 6px; }
-  .ab-label kbd { display: none; }
+  .ab-label kbd { font-size: 8.5px; padding: 0 3px; margin-left: 3px; }
   .ab-status { font-size: 10px; max-width: 108px; }
 }
 @media (max-width: 540px) { #interact-btn { bottom: 104px; } }
@@ -1843,7 +1843,7 @@ body.boss-on #tip-toast { top: 132px; }
    big Attack button bottom-right with the skills in an arc around it and the
    Interact button tucked beside them. Mouse and keyboard keep the bar (G attacks).
    ====================================================================== */
-#attack-btn { display: none; }
+#attack-btn, #target-btn { display: none; }
 @media (pointer: coarse) {
   :root { --pad-r: calc(var(--rail-w) + 20px); --pad-b: 18px; --atk: 84px; --sk: 54px; }
   /* Tablets: the side panel sits bottom-right, so the pad sits to its left. */
@@ -1863,6 +1863,15 @@ body.boss-on #tip-toast { top: 132px; }
   #attack-btn .atk-icon { font-size: 30px; line-height: 1; }
   #attack-btn .atk-label { font-size: 11px; letter-spacing: .03em; }
   #attack-btn.held, #attack-btn:active { transform: translateY(3px) scale(.97); box-shadow: 0 1px 0 #962D22; }
+  /* Next target: a small round button on the Attack button's top-right shoulder. */
+  #target-btn {
+    display: flex; align-items: center; justify-content: center;
+    position: fixed; z-index: 28; width: 40px; height: 40px; border-radius: 50%; padding: 0;
+    right: calc(var(--pad-r) + var(--atk) / 2 - 20px - 30px); bottom: calc(var(--pad-b) + var(--atk) / 2 - 20px + 62px);
+    background: var(--aw-card, #fff); color: var(--aw-ink, #22304A); border: 2.5px solid var(--aw-ink, #22304A);
+    box-shadow: 0 3px 0 rgba(34,48,74,.35); font: 900 20px/1 inherit; touch-action: none; user-select: none; -webkit-user-select: none;
+  }
+  #target-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(34,48,74,.35); }
 
   /* The skills leave the bottom bar and fan round the Attack button. */
   #ability-buttons {
@@ -1878,7 +1887,7 @@ body.boss-on #tip-toast { top: 132px; }
   #ability-buttons .ability-btn:nth-child(1) { --ax: -104px; --ay: 0px; }
   #ability-buttons .ability-btn:nth-child(2) { --ax: -87px;  --ay: -57px; }
   #ability-buttons .ability-btn:nth-child(3) { --ax: -42px;  --ay: -95px; }
-  #ability-buttons .ability-btn:nth-child(4) { --ax: 16px;   --ay: -103px; }
+  #ability-buttons .ability-btn:nth-child(4) { --ax: 10px;   --ay: -112px; }   /* (up a touch to clear the Next target button) */
   /* The ultimate sits on its own, a size up, further out. */
   #ability-buttons .ability-btn:nth-child(5) { --ax: -103px; --ay: -123px; --sk: 62px; }
   #ability-buttons .ability-btn.aiming { outline: 3px solid var(--aw-sun, #F5B82E); outline-offset: 2px; }

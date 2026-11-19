@@ -87,6 +87,10 @@ input.onKey((e) => {
     document.querySelector(`#panel-tabs .tab-btn[data-view="${map[e.key]}"]`)?.click();
   } else if (e.key === 'f' || e.key === 'F') {
     game.eatFirstFood();
+  } else if (e.key === 'Tab' && !document.activeElement?.closest?.('#sidepanel, #modal-overlay, #chatbox, #ability-bar')) {
+    // Tab in the world switches target; inside a panel it still moves keyboard focus.
+    e.preventDefault();
+    game.nextTarget();
   } else if (e.key === 'g' || e.key === 'G') {
     game.attackNearest();   // lock onto the nearest enemy, like the Attack button
   } else if (e.key === 'q' || e.key === 'Q') {
