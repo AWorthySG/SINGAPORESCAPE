@@ -179,7 +179,7 @@ export class Equipment {
       total.dance += b.dance || 0;   // Dancer damage
       total.crit += b.crit || 0;   // bonus critical-hit chance (%)
       total.hp += b.hp || 0;       // bonus max hitpoints
-      total.prayer += b.prayer || 0;   // slows prayer drain (prayer accessories)
+      total.prayer += b.prayer || 0;   // fills Faith faster (prayer accessories)
       for (const k of OFFENCE_KEYS) total[k] += b[k] || 0;   // armour piercing, crit damage, haste, lifesteal, boss damage (%)
     }
     for (const k of OFFENCE_KEYS) if (OFFENCE_CAPS[k] != null) total[k] = Math.min(total[k], OFFENCE_CAPS[k]);

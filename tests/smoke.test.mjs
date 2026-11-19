@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url';
 import { ITEMS } from '../src/data/items.js';
 import { SKILLS } from '../src/data/skills.js';
 import { SPELLS } from '../src/data/magic.js';
-import { PRAYERS } from '../src/data/prayers.js';
+import { PRAYERS, blessingCost } from '../src/data/prayers.js';
 import { ACHIEVEMENTS } from '../src/data/achievements.js';
 
 test('OSRS xp table matches known values', () => {
@@ -234,7 +234,7 @@ test('achievements are defined, unique and well-formed', () => {
 test('prayers are defined and well-formed', () => {
   assert.ok(PRAYERS.length >= 12);
   for (const p of PRAYERS) {
-    assert.ok(p.level >= 1 && p.drain >= 1, `prayer ${p.id} well-formed`);
+    assert.ok(p.level >= 1 && blessingCost(p) >= 1 && p.drain === undefined, `blessing ${p.id} well-formed (slots, no drain)`);
     assert.ok(p.protect || p.crit || p.str || p.def || p.ranged || p.magic, `prayer ${p.id} has an effect`);
   }
 });
