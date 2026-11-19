@@ -6,16 +6,16 @@
 //    mouse it folds to one line showing that message; hover brings it back.
 //  - The area name at the top centre shows on arrival, then gives way to the
 //    minimap's own caption (it stays while the minimap is folded).
-//  - On phones the objectives doze: with nothing new on them for a while they
-//    fold to a small "Objectives" chip; any progress (or a tap) wakes them.
+//  - The objectives doze on every screen: with nothing new on them for a while
+//    they fold to a small "Objectives" chip; a new goal, a tap or (with a
+//    mouse) hovering over the chip wakes them.
 //  - #game-root.calm: out of combat, so an empty adrenaline bar can hide.
 // The rules are pure functions below (tested headlessly); the class only
 // toggles classes and text, once a tick, and does nothing headless.
 
 export const CHAT_QUIET_MS = 9000;     // a chat with nothing new for this long folds to one line (mouse only)
 export const REGION_SHOW_MS = 6000;    // the top-centre area name shows this long after you arrive
-export const TRACKER_DOZE_MS = 15000;  // phones: objectives with no news for this long fold to a chip
-const PHONE_QUERY = '(pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px)';
+export const TRACKER_DOZE_MS = 15000;  // objectives with no news for this long fold to a chip
 
 /** The Auto button's caption: what's switched on, or "Auto" when nothing is.
  *  A waiting gravestone is added, as its button lives in the folded card. */
@@ -38,13 +38,14 @@ export function regionShown({ now, changedAt, minimapFolded = false }) {
   return minimapFolded || now - (changedAt ?? -Infinity) < REGION_SHOW_MS;
 }
 
-/** What counts as news on the tracker: its text without the distances,
- *  which change with every step you take ("42m"). */
+/** What counts as news on the tracker: its words without any numbers. Distances
+ *  change with every step ("42m"), and counts like a kill streak or "3/11"
+ *  with every kill, so only a new or different goal wakes it. */
 export function trackerSig(text) {
-  return String(text || '').replace(/\d+(\.\d+)?\s?(m|km)\b/g, '').replace(/\s+/g, ' ').trim();
+  return String(text || '').replace(/[×x]?\d[\d.,:\/%+]*\s?(?:km|m|s)?/g, '').replace(/\s+/g, ' ').trim();
 }
 
-/** True when the phone tracker should fold to its chip. */
+/** True when the tracker should fold to its chip. */
 export function trackerDozing({ now, changedAt, wokeAt = -Infinity }) {
   return now - Math.max(changedAt ?? -Infinity, wokeAt) >= TRACKER_DOZE_MS;
 }
@@ -132,8 +133,8 @@ export class CompactHud {
     if (trk) {
       const sig = trackerSig(trk.textContent);
       if (sig !== this._trkSig) { this._trkSig = sig; this._trkAt = t; }
-      const phone = typeof matchMedia === 'function' && matchMedia(PHONE_QUERY).matches;
-      trk.classList.toggle('dozing', phone && !trk.classList.contains('folded') && trackerDozing({ now: t, changedAt: this._trkAt, wokeAt: this._trkWoke }));
+      if (trk.matches?.(':hover')) this._trkWoke = t;   // a mouse resting on it keeps it open
+      trk.classList.toggle('dozing', !trk.classList.contains('folded') && trackerDozing({ now: t, changedAt: this._trkAt, wokeAt: this._trkWoke }));
     }
 
     const region = this._regionEl || (this._regionEl = document.getElementById('region-label'));

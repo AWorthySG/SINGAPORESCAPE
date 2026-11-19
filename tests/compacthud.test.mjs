@@ -34,9 +34,12 @@ test('the area name shows on arrival, and always while the minimap is folded', (
   assert.equal(regionShown({ now: REGION_SHOW_MS * 9, changedAt: 0, minimapFolded: true }), true);
 });
 
-test('phone objectives doze when nothing changes, walking does not count as news', () => {
+test('objectives doze when nothing new comes up: walking, kills and streaks are not news', () => {
   assert.equal(trackerSig('Wild Hornbill 0/11 42m Bat 0/18 1.2km'), trackerSig('Wild Hornbill 0/11 41m Bat 0/18 1.1km'));
-  assert.notEqual(trackerSig('Wild Hornbill 0/11 42m'), trackerSig('Wild Hornbill 1/11 42m'), 'a kill is news');
+  assert.equal(trackerSig('Wild Hornbill 0/11 42m'), trackerSig('Wild Hornbill 1/11 42m'), 'a kill counted is not news');
+  assert.equal(trackerSig('XP ×2.25 streak 232 · night'), trackerSig('XP ×2.5 streak 233 · night'), 'a growing streak is not news');
+  assert.notEqual(trackerSig('Wild Hornbill 0/11'), trackerSig('Wild Hornbill 0/11 Dire Mud crab 0/12'), 'a new goal is news');
+  assert.equal(trackerSig('Next stop'), 'Next stop', 'words keep their letters');
   assert.equal(trackerDozing({ now: TRACKER_DOZE_MS - 1, changedAt: 0 }), false);
   assert.equal(trackerDozing({ now: TRACKER_DOZE_MS, changedAt: 0 }), true);
   assert.equal(trackerDozing({ now: TRACKER_DOZE_MS + 10, changedAt: 0, wokeAt: TRACKER_DOZE_MS }), false, 'a tap wakes it for a while');
