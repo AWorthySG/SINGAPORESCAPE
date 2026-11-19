@@ -399,6 +399,7 @@ export class Story {
     n.def = { ...n.def, name: 'Messenger', dialogue: 'story', chatter: null, wander: 0, attackable: false,
       examine: `A runner with a letter for you, from ${speakerName(ev.from)}.` };
     n.wander = 0;
+    n.artId = 'story_messenger';   // drawn in his own picture (townsfolk art)
     n.temporary = true;
     n.storyEvent = true;
     n.stepMul = 0.9;   // runs

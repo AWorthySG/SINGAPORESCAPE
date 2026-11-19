@@ -317,6 +317,7 @@ test('a chapter far from its speaker: a messenger runs up with the letter, then 
   const m = ev.npc;
   assert.equal(m.def.dialogue, 'story');
   assert.ok(!m.attackable);
+  assert.equal(m.artId, 'story_messenger', 'drawn in his own picture, not a plain villager');
   // Talking to the messenger hands the letter over.
   assert.ok(g.story.talkTo(m));
   ticks(g, 1);

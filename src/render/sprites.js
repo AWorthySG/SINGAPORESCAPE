@@ -157,6 +157,9 @@ const SPECIES_ART = new Set([
   'binturong', 'orangutan', 'great_argus', 'rebar_golem',
   'concrete_golem', 'excavator_crab', 'typhoon_wisp', 'majapahit_revenant', 'todak',
   'keris_spirit', 'cloud_koi', 'jade_hare', 'phoenix_chick',
+  // The last of the bestiary expansion's borrowers (sheets P01-S1 and P01-S2).
+  'plantain_squirrel', 'red_junglefowl', 'strangler_fig', 'paradise_tree_snake', 'toman_snakehead',
+  'hantu_air', 'fiddler_crab', 'sentosa_peafowl', 'sandcastle_golem', 'bajang',
 ]);
 // Newer species without painted art yet borrow a close relative's art until
 // theirs arrives (remove the line when the file is added).
@@ -165,7 +168,7 @@ const SPECIES_ALIAS = {};
 const SPECIES_TINT = {};
 // The bestiary expansion's species (bestiary.js) borrow this way until their art arrives.
 const slugName = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
-for (const b of BESTIARY_SPECIES) { const f = slugName(b.name); SPECIES_ALIAS[f] = b.borrow; SPECIES_TINT[f] = b.tint; }
+for (const b of BESTIARY_SPECIES) { const f = slugName(b.name); if (!SPECIES_ART.has(f)) { SPECIES_ALIAS[f] = b.borrow; SPECIES_TINT[f] = b.tint; } }
 const speciesFile = (family) => (SPECIES_ART.has(family) ? family : SPECIES_ALIAS[family] || null);
 const _speciesImg = {};
 function speciesImage(family) {
@@ -234,11 +237,13 @@ const TOWN_ART = new Set([
   'rq_kumar', 'rq_keeper_hui', 'rq_wei_jie', 'rq_monk', 'rq_osman', 'rq_priya', 'rq_hafiz', 'rq_diver_kai',
   'rq_ranger_boon', 'rq_aisha', 'rq_ah_peng', 'rq_kamal', 'rq_goh', 'rq_nadia', 'rq_lin',
   'event_merchant',
+  'pest_officer', 'marina_high_roller', 'jade_merchant',
+  'story_messenger',   // the story's messenger, drawn by this id (`artId`, story.js)
 ]);
 // Newer townsfolk borrow another's picture, recoloured, until their own art
 // arrives (remove the line when the file is added).
-const TOWN_ALIAS = { marina_high_roller: 'banker', jade_merchant: 'mage', pest_officer: 'farmer' };
-const TOWN_TINT = { marina_high_roller: 'hue-rotate(150deg) saturate(1.3)', jade_merchant: 'hue-rotate(-120deg) saturate(1.2)', pest_officer: 'hue-rotate(70deg) saturate(1.2)' };
+const TOWN_ALIAS = {};
+const TOWN_TINT = {};
 // A region quest giver without a picture of their own borrows one the same way (regionQuests.js).
 for (const [id, g] of Object.entries(REGION_GIVERS)) if (!TOWN_ART.has(id)) { TOWN_ALIAS[id] = g.art; TOWN_TINT[id] = g.tint; }
 // A living-world resident without a picture of their own wears the one they borrow (`art`).
