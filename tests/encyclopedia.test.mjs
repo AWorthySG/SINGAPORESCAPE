@@ -9,7 +9,6 @@ import assert from 'node:assert/strict';
 
 import { Game } from '../src/game/game.js';
 import { clearSave, saveGame } from '../src/game/save.js';
-import { SAVE_KEY } from '../src/config.js';
 import { ITEMS, getItem } from '../src/data/items.js';
 import { LORE } from '../src/data/lore.js';
 import { ARTICLE_BY_ID, ARTICLES, articleBlocks } from '../src/data/compendium.js';
@@ -21,6 +20,12 @@ import {
 import { regionList, regionInfo } from '../src/game/regioninfo.js';
 import { regionPageHTML, regionListHTML } from '../src/ui/regionui.js';
 import { addRep } from '../src/game/reputation.js';
+import { TRAIN_SKILLS, trainingFor, xpPerHour, ACTIONS_PER_HOUR, preyFor, myWeaponType, gearUpgrades } from '../src/game/foryou.js';
+import { forYouHTML } from '../src/ui/foryouui.js';
+import { getNpc } from '../src/data/npcs.js';
+import { weaponsFor, raceOf } from '../src/data/races.js';
+import { XP_RATE, SAVE_KEY } from '../src/config.js';
+import { xpForLevel } from '../src/data/xp.js';
 import { encyState, encyclopediaPageHTML, itemEntryHTML, itemsListHTML, openEntry, renderEncyclopedia } from '../src/ui/encyclopediaui.js';
 import { linkHTML } from '../src/ui/links.js';
 import { codexSwitchHTML, markupHTML } from '../src/ui/compendiumui.js';
@@ -293,4 +298,48 @@ test('the Compendium covers the newer systems, and each boss mechanic has its ow
     for (const [, m] of Object.entries(BOSS_MECHANICS).filter(([, m]) => m.type === kind).slice(0, 3)) assert.ok(text.length > 0 && m);
   }
   assert.ok(ARTICLES.length >= 80);
+});
+
+// ---------------- For you ----------------
+test('For you suggests a training spot for each life skill at your level, with a rough XP an hour', () => {
+  const g = newGame();
+  for (const skill of TRAIN_SKILLS) {
+    const [s] = trainingFor(g, skill, 1);
+    assert.ok(s, `${skill} has somewhere to train at level 1`);
+    assert.ok(s.level <= g.skills.level(skill), `${skill}: nothing above your level`);
+    assert.equal(s.xph, xpPerHour(g, skill, s.xp));
+    assert.ok(s.xph > 0);
+  }
+  // XP an hour follows the game's pace: XP_RATE, the life skill boost and one action a tick (sped up).
+  assert.equal(xpPerHour(g, 'mining', 10), Math.round(10 * XP_RATE * g.skills.lifeXpMult('mining') * ACTIONS_PER_HOUR));
+  // A higher level unlocks better spots.
+  const low = trainingFor(g, 'mining', 1)[0];
+  g.skills.xp.mining = xpForLevel(60);
+  const high = trainingFor(g, 'mining', 1)[0];
+  assert.ok(high.xp >= low.xp && high.level >= low.level);
+});
+
+test('For you finds prey your weapon is strong against near your level, and gear upgrades you can get', () => {
+  const g = newGame();
+  const type = myWeaponType(g);
+  assert.ok(type, 'a melee starter holds a weapon');
+  const prey = preyFor(g);
+  assert.ok(prey.length > 0);
+  const fight = g.fightLevel();
+  for (const m of prey) {
+    assert.ok(weaponsFor(raceOf(getNpc(m.id), m.id)).strong.includes(type), `${m.id} is weak to a ${type}`);
+    assert.ok(Math.abs(m.level - fight) <= 12 && !getNpc(m.id).boss);
+  }
+  const ups = gearUpgrades(g);
+  assert.ok(ups.length > 0, 'a starter can buy something better');
+  for (const u of ups) {
+    assert.ok(g._canEquipNow(u.id), `${u.id} can be worn now`);
+    assert.ok(u.gain > 0 && (u.source || u.make), `${u.id} beats what is worn and can be got`);
+  }
+  assert.equal(new Set(ups.map((u) => u.slot)).size, ups.length, 'one per slot');
+  const html = forYouHTML(g);
+  assert.match(html, /Train your skills/);
+  assert.match(html, /xp\/h/);
+  assert.match(html, /Gear you could wear now/);
+  assert.ok(!/undefined|NaN/.test(html));
 });

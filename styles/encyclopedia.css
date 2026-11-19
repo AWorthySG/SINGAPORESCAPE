@@ -9,7 +9,7 @@
 .cx-switch { flex-wrap: wrap; }
 @media (max-width: 600px) {
   .cx-switch { border-radius: 18px; }
-  .cx-view { flex: 1 1 30%; font-size: 13px; padding: 0 4px; }
+  .cx-view { flex: 1 1 30%; font-size: 12.5px; padding: 0 2px; white-space: nowrap; }
   /* The shelves scroll sideways on a phone rather than pushing the list down. */
   .ency-chips { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
   .ency-chips .sgx-chip { flex: none; }
@@ -80,3 +80,9 @@
 .ency-dyk { padding: 8px 12px; border-radius: var(--r1); background: var(--aw-sun-bg); border: 2px solid var(--aw-ink); }
 .ency-dyk h4 { margin-bottom: 2px; }
 .ency-dyk p { margin: 0; font-size: 13px; line-height: 1.45; }
+
+/* ---------- For you ---------- */
+.ency-train > span { line-height: 1.35; }
+.ency-gear { justify-content: flex-start; }
+.ency-gear .sgx-item { flex: none; min-height: 40px; }
+.ency-gear-why { flex: 1; min-width: 0; }

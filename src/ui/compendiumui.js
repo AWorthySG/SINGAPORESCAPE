@@ -66,7 +66,7 @@ export function blockHTML(b) {
 // sections are drawn by encyclopediaui.js).
 export const CODEX_VIEWS = [
   ['monsters', '🐾 Monsters'], ['items', '🎒 Items'], ['places', '🗺️ Places'],
-  ['compendium', '📖 Compendium'], ['search', '🔎 Search'],
+  ['compendium', '📖 Compendium'], ['foryou', '✨ For you'], ['search', '🔎 Search'],
 ];
 
 /** The section switch at the top of the Codex window. */
