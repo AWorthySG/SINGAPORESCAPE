@@ -450,10 +450,14 @@ test('art batch 1: weapon and armour types, signature weapons, bones and trinket
   const { itemIconSVG } = await import('../src/render/icons.js');
   const { ITEMS } = await import('../src/data/items.js');
   const { worldArt } = await import('../src/render/sprites.js');
-  // The bestiary expansion's bosses have no stickers yet: their weapons borrow an older one, recoloured.
+  // The bestiary expansion's bosses' weapons have their own stickers now (art packs 08 and 09), untinted.
   const { BESTIARY_BOSSES } = await import('../src/data/bestiary.js');
   const NEW_SIG = new Set(BESTIARY_BOSSES.map((b) => `sig_${b.id}`));
-  for (const id of NEW_SIG) assert.match(itemIconSVG(id, 24), /assets\/icons\/item-sig_\w+\.webp[^>]*filter:hue-rotate/, `${id} borrows a tinted sticker`);
+  for (const id of NEW_SIG) {
+    const html = itemIconSVG(id, 24);
+    assert.match(html, new RegExp(`assets/icons/item-${id}\\.webp`), `${id} uses its own sticker`);
+    assert.ok(!/filter:hue-rotate/.test(html), `${id} is not recoloured`);
+  }
   const tiers = ['bronze', 'iron', 'steel', 'mithril', 'adamant', 'rune', 'dragon', 'obsidian', 'orichalcum', 'jade', 'starmetal', 'celestial', 'eternal'];
   const ids = [
     ...tiers.flatMap((t) => ['parang', 'kerambit', 'toya', 'crossbow', 'chakram', 'orb', 'fan', 'rifle', 'quiver',

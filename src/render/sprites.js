@@ -192,6 +192,11 @@ const BOSS_ART = new Set([
   'nian_beast', 'kelong_king_crab', 'langsuir_matriarch', 'shadow_panther', 'abyssal_oarfish', 'jenglot_sovereign',
   'ubin_stone_frog',   // the first house-style boss (sheet B1 of the art brief)
   'buaya_putih', 'hantu_tinggi',   // sheet B7
+  // The bestiary expansion's own boss art (art packs 08 and 09): these stop borrowing a tinted boss.
+  'toman_tyrant', 'ubin_quarry_python', 'kopitiam_roach_queen', 'bakau_mud_lobster', 'strangler_fig_mother',
+  'kranji_bullfrog_emperor', 'sea_eagle_sovereign', 'slag_titan', 'arowana_emperor', 'toyol_kingpin',
+  'atlas_moth_empress', 'jembalang_lord', 'krait_matriarch', 'duyung_queen', 'great_argus_monarch',
+  'typhoon_mother', 'void_eel_leviathan', 'todak_king', 'jade_moon_hare', 'fenghuang',
 ]);
 // Newer bosses borrow another boss's art until its own art arrives (remove the line when the file is added).
 const BOSS_ALIAS = {};
