@@ -150,8 +150,8 @@
   #quest-tracker .trk-row { line-height: 1.25; }
 }
 
-/* ---------- Phones, both ways up: dozing objectives ---------- */
-@media (pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px) {
+/* ---------- Every screen: dozing objectives ---------- */
+@media all {
   #quest-tracker.dozing { padding: 0; }
   #quest-tracker.dozing .trk-row { display: none; }
   #quest-tracker.dozing:not(.folded) .trk-fold {
