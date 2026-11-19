@@ -30,6 +30,24 @@ export function formatNumber(n) {
   return (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
 }
 
+/** Short numbers for crowded labels: under 10,000 the full digits with commas
+ *  ("9,999"); above that one decimal and K, M or B ("12.3K", "3.4M", "1.0B"),
+ *  and no decimal from 100 of a unit up ("456K"). Rounds down, so a coin
+ *  count never looks bigger than it is. */
+export function shortNumber(n) {
+  n = Number(n);
+  if (!Number.isFinite(n)) return '0';
+  const sign = n < 0 ? '-' : '';
+  const a = Math.abs(n);
+  if (a < 10000) return sign + Math.floor(a).toLocaleString('en-US');
+  for (const [u, s] of [[1e9, 'B'], [1e6, 'M'], [1e3, 'K']]) {
+    if (a < u) continue;
+    const tenths = Math.floor((a * 10) / u);   // (whole-number maths: no 14.599999)
+    return sign + (tenths >= 1000 ? String(Math.floor(tenths / 10)) : (tenths / 10).toFixed(1)) + s;
+  }
+  return sign + String(a);
+}
+
 /** Compact quantity label for item stacks (matches RS colours via class in UI). */
 export function stackLabel(n) {
   if (n < 100000) return { text: String(n), cls: '' };
@@ -52,4 +70,21 @@ export function weightedPick(table) {
 
 export function capitalize(s) {
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** Short HUD number: 999 -> "999", 1234 -> "1.2K", 3_400_000 -> "3.4M",
+ *  1e9 -> "1.0B" (always one decimal once shortened, so a bar's read-out
+ *  doesn't jump about in width). Shared by the boss bar and XP display.
+ *  (shortNumber above is for coins and stats: full digits under 10,000.) */
+export function hudNumber(n) {
+  n = Number(n) || 0;
+  const sign = n < 0 ? '-' : '';
+  let v = Math.abs(n);
+  if (v < 1000) return sign + String(Math.floor(v));
+  const units = ['K', 'M', 'B', 'T'];
+  let i = -1;
+  while (i < units.length - 1 && v >= 1000) { v /= 1000; i++; }
+  // Rounding can tip 999.96K over to "1000.0K": roll it up to the next unit.
+  if (Number(v.toFixed(1)) >= 1000 && i < units.length - 1) { v /= 1000; i++; }
+  return `${sign}${v.toFixed(1)}${units[i]}`;
 }

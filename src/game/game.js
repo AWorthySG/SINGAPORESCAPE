@@ -292,15 +292,28 @@ const CLEAVE_WIDE = { '2h_sword': { around: 3, max: Infinity } };   // (was 10; 
 // (table, rare table, upgrade stones) this many times, as a normal kill would,
 // on top of its champion extras (champion bones, a 50% accessory, a 20% ward).
 const CHAMPION_LOOT_KILLS = 30;
-// Elder and Dire monsters (the tougher ranks of the common species) are worth
-// more loot: their drop table and rare-table chances roll this many times.
-// Ancient, the rank above Dire, matches Dire so the strongest never drops less.
+// Monsters with a rank in their name (every form above the plain species, from
+// Wild up to Divine) are worth more loot: their drop table, rare-table chances
+// and upgrade stones roll this many times (a half is a 50% chance of one more).
+// Young monsters, the weaker form, stay at one roll like the plain species.
 export { CLASS_POWER };
-export const RANK_LOOT_ROLLS = { Elder: 2, Dire: 3, Ancient: 3 };
-/** Loot rolls for a normal monster's rank (from its name: "Elder sea snake"). */
+export const RANK_LOOT_ROLLS = { Wild: 1.5, Feral: 2, Elder: 2.5, Dire: 3, Ancient: 3.5, Mythic: 4, Primordial: 4.5, Eternal: 5, Celestial: 5.5, Divine: 6 };
+const _slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+/** A normal monster's rank word ('Elder', 'Dire'...), or '' for the plain
+ *  species. Read against its family, so a species whose own name starts with a
+ *  rank word ("Wild boar") isn't mistaken for a ranked form. */
+export function monsterRank(def) {
+  if (!def?.family || !def.name || _slug(def.name) === def.family) return '';
+  return def.name.split(' ')[0];
+}
+/** Average loot rolls for a monster's rank (1 for none). */
 export function rankLootRolls(def) {
-  const p = (def?.name || '').split(' ')[0];
-  return RANK_LOOT_ROLLS[p] || 1;
+  return RANK_LOOT_ROLLS[monsterRank(def)] || 1;
+}
+/** The whole number of rolls for one kill: the fraction is a chance of one more. */
+export function rollRankLoot(def, rand = Math.random) {
+  const r = rankLootRolls(def);
+  return Math.floor(r) + (rand() < r % 1 ? 1 : 0);
 }
 // A champion's chance of an upgrade ward (was 10%, doubled with champion rates).
 export const CHAMPION_WARD_CHANCE = 0.2;
@@ -3550,8 +3563,8 @@ export class Game {
       this.msg(`A rare drop! ${q > 1 ? q + ' x ' : ''}${getItem(rareBone).name}.`, 'level');
     }
     // A champion's loot is CHAMPION_LOOT_KILLS normal kills' worth of its monster.
-    // An Elder or Dire monster rolls more times too (rankLootRolls).
-    const kills = npc.champion && !def.boss ? CHAMPION_LOOT_KILLS : def.boss ? 1 : rankLootRolls(def);
+    // A ranked monster (Wild up to Divine) rolls more times too (rollRankLoot).
+    const kills = npc.champion && !def.boss ? CHAMPION_LOOT_KILLS : def.boss ? 1 : rollRankLoot(def);
     if (def.dropTable && def.dropTable.length) {
       // Bosses roll their table ten times and never come up empty; champions roll
       // it once per normal kill they're worth, by a normal monster's rules.

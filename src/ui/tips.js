@@ -1,8 +1,9 @@
 // First-time tips: which one to show next, and remembering which were seen.
 //
 // Each tip shows once per save (the seen ids are saved with the game, see
-// save.js), and Settings > Tips: Off stops them altogether. The toast itself
-// lives in ui.js (showTip); this part has no DOM so it can be tested headlessly.
+// save.js), and Settings > Tips: Off (or "Don't show tips" on a tip) stops them
+// altogether. The card is drawn in the notification lane (ui.js showTip);
+// this part has no DOM so it can be tested headlessly.
 import { getItem } from '../data/items.js';
 import { canWear } from '../data/classes.js';
 import { compareGear, meetsReq } from '../game/gear.js';
@@ -12,13 +13,14 @@ import { STONE as UP_STONE } from '../game/mastery.js';
 export const TIPS_KEY = 'singaporescape:tips';
 
 export const TIPS = {
-  move: 'Move with the <b>joystick</b> (or W A S D). Walk up to something and press <b>Interact</b> (E / Space) to chop, mine, fish, talk or fight.',
-  auto: 'Tap <b>Auto battle</b> to hunt monsters for you. The &#9881; next to it sets when to eat and what to fight.',
-  gear: 'A green <b>&#9650;</b> on an item means it beats what you wear. <b>Hold</b> (or hover) an item for details, or open Worn Equipment &gt; <b>Gear Guide</b>.',
-  dodge: 'A boss marked the ground in <b>red</b>! Walk out before it fills up to dodge the hit.',
-  champion: 'A gold-ringed <b>&#9733; Champion</b> is nearby: tougher than normal, with extra loot.',
-  bounty: 'You have <b>daily bounties</b> in the Quest Journal: three kill targets that pay coins. The tracker on the left points the way.',
-  upgrade: 'Your gear gains <b>mastery</b> with every kill. Spend upgrade stones to <b>enchant</b> it in Worn Equipment &gt; Gear mastery &amp; enchanting.',
+  // (Kept short: each shows as a slim strip in the notification lane.)
+  move: 'Move with the <b>joystick</b> (W A S D). Walk up to things and press <b>Interact</b> (E) to chop, mine, talk or fight.',
+  auto: '<b>Auto battle</b> hunts monsters for you; its &#9881; sets when to eat and what to fight.',
+  gear: 'A green <b>&#9650;</b> on an item beats what you wear. <b>Hold</b> (or hover) it for details.',
+  dodge: 'A boss marked the ground in <b>red</b>! Walk out before it fills up.',
+  champion: 'A gold-ringed <b>&#9733; Champion</b> is near: tougher, with extra loot.',
+  bounty: '<b>Daily bounties</b> in the Quest Journal pay coins. The Objectives point the way.',
+  upgrade: 'Kills give your gear <b>mastery</b>. Spend upgrade stones to <b>enchant</b> it in Worn Equipment.',
 };
 
 /** The seen-tip ids for this save (created on first use). */

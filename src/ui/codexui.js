@@ -19,6 +19,7 @@ import {
   isDiscovered, killsOf, championCapable, chanceText, nearestSpawn,
 } from '../game/codex.js';
 import { masteryProgress, masterySummary, earnedTitles, setTitle, MASTERY_TIERS, RACE_MASTERY_CAP, raceMastery } from '../game/culling.js';
+import { codexSwitchHTML, renderCompendium, defaultCompendiumState } from './compendiumui.js';
 
 export const PAGE_SIZE = 40;
 
@@ -174,11 +175,17 @@ function masteryHTML(game, id, e) {
     '</div>';
 }
 
-/** Open the codex; with an id, straight to that creature's entry. */
-export function openCodex(ui, id = null) {
+/** Open the codex; with an id, straight to that creature's entry. The window
+ *  has two sections, switched at its top: the Monsters list and the
+ *  Compendium (compendiumui.js). `view: 'compendium'` opens on the latter, at
+ *  `article` if one is named. */
+export function openCodex(ui, id = null, { view = 'monsters', article } = {}) {
   const game = ui.game;
   const st = ui._codex || (ui._codex = defaultCodexState());
+  const cst = ui._compendium || (ui._compendium = defaultCompendiumState());
   st.id = id && CODEX_SET.has(id) ? id : null;
+  st.view = st.id ? 'monsters' : view;
+  if (article !== undefined) cst.id = article;
   let listEl = null;
 
   const drawList = () => {
@@ -206,7 +213,7 @@ export function openCodex(ui, id = null) {
 
   const renderList = (body) => {
     body.innerHTML = codexProgressHTML(game);
-    body.querySelectorAll('.cx-title-btn').forEach((b) => b.addEventListener('click', () => { setTitle(game, b.dataset.title || null); renderList(body); }));
+    body.querySelectorAll('.cx-title-btn').forEach((b) => b.addEventListener('click', () => { setTitle(game, b.dataset.title || null); render(body); }));
     const bar = control('div', 'cx-filters');
     const search = control('input', 'bank-search cx-search', { placeholder: 'Search creatures…', value: st.search || '', type: 'search' });
     search.addEventListener('input', () => { st.search = search.value; st.shown = PAGE_SIZE; drawList(); });
@@ -227,7 +234,7 @@ export function openCodex(ui, id = null) {
     }
     bar.appendChild(lv);
     const reset = control('button', 'cx-reset', { type: 'button', textContent: 'Clear' });
-    reset.addEventListener('click', () => { const keep = st.sort; Object.assign(st, defaultCodexState(), { sort: keep }); renderList(body); });
+    reset.addEventListener('click', () => { const keep = st.sort; Object.assign(st, defaultCodexState(), { sort: keep }); render(body); });
     bar.appendChild(reset);
     body.appendChild(bar);
     listEl = control('div', 'cx-results');
@@ -265,12 +272,38 @@ export function openCodex(ui, id = null) {
     }
   };
 
+  // The Monsters | Compendium switch over the list (an entry has its Back button instead).
+  const flip = (body, v) => { st.view = v; render(body); body.scrollTop = 0; };
   const render = (body) => {
-    ui.modal.title = 'Monster Codex';
-    if (st.id) renderEntry(body); else renderList(body);
+    const title = st.view === 'compendium' ? 'Compendium' : 'Monster Codex';
+    if (ui.modal) ui.modal.title = title;
+    if (ui.el?.modalTitle) ui.el.modalTitle.textContent = title;
+    if (st.view === 'compendium') { renderCompendium(body, cst, (v) => flip(body, v)); return; }
+    if (st.id) { renderEntry(body); return; }
+    renderList(body);
+    body.insertAdjacentHTML('afterbegin', codexSwitchHTML('monsters'));
+    body.querySelector('.cx-switch')?.addEventListener('click', (ev) => {
+      const v = ev.target.closest?.('[data-view]')?.dataset.view;
+      if (v && v !== 'monsters') flip(body, v);
+    });
   };
-  ui.openModal('Monster Codex', render);
-  ui.modal.kind = 'codex';
+  ui.openModal(st.view === 'compendium' ? 'Compendium' : 'Monster Codex', render);
+  if (ui.modal) ui.modal.kind = 'codex';
+}
+
+/** Open the Codex window on the Compendium: its contents, or one article. */
+export function openCompendium(ui, article = null) {
+  openCodex(ui, null, { view: 'compendium', article });
+}
+
+/** A "Compendium" button at the top of a panel (the Journal's views). */
+export function addCompendiumButton(ui, panel) {
+  if (typeof document === 'undefined' || !panel) return;
+  const btn = document.createElement('button');
+  btn.className = 'bestiary-open compendium-open';
+  btn.textContent = '📖 Compendium: how the game works';
+  btn.addEventListener('click', () => openCompendium(ui));
+  panel.insertBefore(btn, panel.firstChild);
 }
 
 /** The monster drawn under a point on the game screen (CSS pixels), if any:
