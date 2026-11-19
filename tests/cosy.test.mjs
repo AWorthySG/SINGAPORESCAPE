@@ -226,6 +226,12 @@ test('postcard mode builds a card from the game, names the file and words the sh
   assert.equal(postmarkDate(new Date(2026, 10, 19)), '19 NOV 2026');
   const main = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
   assert.match(main, /import\('\.\/ui\/photomode\.js'\)\.then\(\(m\) => m\.initPhotoMode\(game, canvas\)\)/);
+  // Its key (O) is free: main.js's own shortcuts don't use it, and the controls list names it.
+  assert.doesNotMatch(main, /e\.key === 'o'|e\.key === 'O'/);
+  const pm = readFileSync(new URL('../src/ui/photomode.js', import.meta.url), 'utf8');
+  assert.match(pm, /e\.key === 'o' \|\| e\.key === 'O'/);
+  const comp = readFileSync(new URL('../src/data/compendium.js', import.meta.url), 'utf8');
+  assert.match(comp, /\['O', 'Postcard mode/);
 });
 
 // ---------------- The title ----------------

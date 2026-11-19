@@ -300,6 +300,7 @@ export const CHAPTERS = [
             ['M', 'World map'],
             ['K', 'Teleport back to Kampong Glam (stand still 3s; recharges in 2.5 minutes)'],
             ['R', 'Teleport to your gravestone after a death'],
+            ['O', 'Postcard mode: snap the view as a postcard to save or share'],
             ['1 2 3 4 5', 'Side panel tabs: Bag, Skills, Combat, Journal, Settings'],
             ['Esc', 'Close the window or menu'],
           ] },

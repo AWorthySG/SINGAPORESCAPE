@@ -1,6 +1,6 @@
 // Postcard mode: snap the world as a postcard to keep or share.
 //
-// A little camera button sits on the minimap (and the K key works too).
+// A little camera button sits on the minimap (and the O key works too).
 // Pressing it hides the HUD and shows a postcard-shaped viewfinder over the
 // live world, so the player can walk into a nicer spot; the shutter then frames
 // that view as a postcard (render/postcard.js: "Greetings from <region>", the
@@ -61,7 +61,7 @@ export class PhotoMode {
     const btn = document.createElement('button');
     btn.id = 'photo-btn';
     btn.type = 'button';
-    btn.title = 'Postcard mode: snap and share this view (K)';
+    btn.title = 'Postcard mode: snap and share this view (O)';
     btn.setAttribute('aria-label', 'Postcard mode');
     btn.innerHTML = CAMERA_SVG;
     btn.addEventListener('click', () => this.open());
@@ -104,7 +104,7 @@ export class PhotoMode {
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
       if (document.body.classList.contains('title-on')) return;
       if (e.key === 'Escape' && this.state !== 'off') { e.stopPropagation(); this.close(); }
-      else if ((e.key === 'k' || e.key === 'K') && !e.ctrlKey && !e.metaKey) { if (this.state === 'off') this.open(); else if (this.state === 'framing') this.snap(); }
+      else if ((e.key === 'o' || e.key === 'O') && !e.ctrlKey && !e.metaKey) { if (this.state === 'off') this.open(); else if (this.state === 'framing') this.snap(); }
     }, true);
   }
 
