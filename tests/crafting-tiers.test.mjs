@@ -138,9 +138,9 @@ test('robes, hide and dancewear above level 100 stay drop-only (nothing to make 
   }
 });
 
-test('endgame jewellery borrows tinted sticker art until its own arrives', () => {
+test('endgame jewellery has its own untinted sticker', () => {
   for (const t of TIERS) {
     const html = itemIconSVG(t.jewel, 24);
-    assert.ok(html.includes('assets/icons/item-') && html.includes('filter:'), `${t.jewel} borrows tinted art`);
+    assert.ok(html.includes(`assets/icons/item-${t.jewel}.webp`) && !html.includes('filter:'), `${t.jewel} has its own sticker`);
   }
 });

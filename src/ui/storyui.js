@@ -15,11 +15,11 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 const chip = (state, text) => `<span class="q-chip ${state === 'done' ? 'done' : state === 'active' ? 'active' : 'todo'}">${esc(text)}</span>`;
 const HOW = { drop: 'a rare drop from monsters here', spot: 'a glinting note hidden near the region’s quest giver', chapter: 'finishing its story chapter' };
 
-/** A speaker's picture: the townsfolk art they borrow (recoloured), or a boss's or creature's portrait. */
+/** A speaker's picture: their own townsfolk art, the one they borrow (recoloured), or a boss's or creature's portrait. */
 export function speakerArt(who) {
+  if (townArt().has(who)) return { src: `assets/creatures/townsfolk/${who}.webp`, filter: '' };
   const g = REGION_GIVERS[who];
   if (g) return { src: `assets/creatures/townsfolk/${g.art}.webp`, filter: g.tint || '' };
-  if (townArt().has(who)) return { src: `assets/creatures/townsfolk/${who}.webp`, filter: '' };
   const def = getNpc(who);
   const p = def && portraitFor(who, def);
   return p ? { src: p.src, filter: '', pos: p.pos } : null;

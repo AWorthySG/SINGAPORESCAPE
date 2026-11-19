@@ -420,5 +420,5 @@ test('the Story view renders headlessly: chapters, next step with Go, lore sets'
   assert.match(html, /Lore pages/);
   assert.match(html, /A Note under the Signpost/, 'a found page reads');
   assert.ok(speakerArt('guide')?.src.endsWith('guide.webp'));
-  assert.ok(speakerArt('rq_zainab')?.filter, 'a quest giver borrows art, recoloured');
+  assert.deepEqual(speakerArt('rq_zainab'), { src: 'assets/creatures/townsfolk/rq_zainab.webp', filter: '' }, 'a quest giver wears her own picture, untinted');
 });

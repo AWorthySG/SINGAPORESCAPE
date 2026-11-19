@@ -60,11 +60,11 @@ test('every region has one quest line, ordered by fight level, with a real giver
   }
 });
 
-test('quest givers borrow existing townsfolk art (no new files)', () => {
+test('quest givers wear their own townsfolk art (the borrowed one stays as a fallback)', () => {
   const art = townArt();
   for (const [id, g] of Object.entries(REGION_GIVERS)) {
-    assert.ok(art.has(g.art), `${id} borrows real art (${g.art})`);
-    assert.ok(!art.has(id), `${id} is not in the art registry`);
+    assert.ok(art.has(g.art), `${id} falls back on real art (${g.art})`);
+    assert.ok(art.has(id), `${id} has its own picture`);
   }
 });
 

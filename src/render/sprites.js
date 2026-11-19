@@ -228,13 +228,19 @@ const TOWN_ART = new Set([
   'aworthling',   // the Merchant's mirror-image follower (a copy of the Merchant hero art)
   // The living world's residents (data/consequences.js RESIDENTS), drawn by their own id.
   'life_faridah', 'life_ah_huat', 'life_auntie_kim', 'life_ubin_mum', 'life_ubin_dad', 'life_hiker', 'life_lucky',
+  // The region quest givers (data/regionQuests.js REGION_GIVERS), and the world
+  // event's lost merchant (worldevents.js draws him by this id, `artId`).
+  'rq_zainab', 'rq_madam_tan', 'rq_ranger_siti', 'rq_uncle_seng', 'rq_rajoo', 'rq_mei_ling', 'rq_darren', 'rq_rosnah',
+  'rq_kumar', 'rq_keeper_hui', 'rq_wei_jie', 'rq_monk', 'rq_osman', 'rq_priya', 'rq_hafiz', 'rq_diver_kai',
+  'rq_ranger_boon', 'rq_aisha', 'rq_ah_peng', 'rq_kamal', 'rq_goh', 'rq_nadia', 'rq_lin',
+  'event_merchant',
 ]);
 // Newer townsfolk borrow another's picture, recoloured, until their own art
 // arrives (remove the line when the file is added).
 const TOWN_ALIAS = { marina_high_roller: 'banker', jade_merchant: 'mage', pest_officer: 'farmer' };
 const TOWN_TINT = { marina_high_roller: 'hue-rotate(150deg) saturate(1.3)', jade_merchant: 'hue-rotate(-120deg) saturate(1.2)', pest_officer: 'hue-rotate(70deg) saturate(1.2)' };
-// The region quest givers borrow pictures the same way (regionQuests.js).
-for (const [id, g] of Object.entries(REGION_GIVERS)) { TOWN_ALIAS[id] = g.art; TOWN_TINT[id] = g.tint; }
+// A region quest giver without a picture of their own borrows one the same way (regionQuests.js).
+for (const [id, g] of Object.entries(REGION_GIVERS)) if (!TOWN_ART.has(id)) { TOWN_ALIAS[id] = g.art; TOWN_TINT[id] = g.tint; }
 // A living-world resident without a picture of their own wears the one they borrow (`art`).
 for (const [id, r] of Object.entries(RESIDENTS)) if (!TOWN_ART.has(id) && TOWN_ART.has(r.art)) TOWN_ALIAS[id] = r.art;
 const townFile = (id) => (TOWN_ART.has(id) ? id : TOWN_ALIAS[id] || null);
@@ -2324,6 +2330,22 @@ const WORLD_ART = {
   ...Object.fromEntries(['mining', 'woodcutting', 'fishing', 'hunter'].map((k) => [`obj-sign-${k}`, [34, 44, 15]])),
   // Story objects (story.js, lore.js): a hidden lore note and a turned-over stall.
   'obj-lore_scroll': [30, 32, 14], 'obj-ransacked_stall': [56, 50, 16],
+  // Gameplay pack: the endgame fishing spots, Hunter grounds, Thieving chests and
+  // agility obstacles, the Endless Gate, the kampong home and the gravestone.
+  ...Object.fromEntries(['dorado_spot', 'bluefin_spot', 'sailfish_spot', 'moonfish_spot', 'rift_eel_spot'].map((k) => [`obj-${k}`, [44, 34, 12]])),
+  'obj-arowana_pool': [46, 38, 12],
+  ...Object.fromEntries(['pangolin_burrow', 'colugo_trap', 'tiger_trail', 'garuda_nest', 'naga_track', 'phoenix_roost'].map((k) => [`obj-${k}`, [44, 38, 14]])),
+  ...Object.fromEntries(['temple_vault', 'observatory_chest', 'smugglers_hold', 'rift_treasury'].map((k) => [`obj-${k}`, [50, 46, 16]])),
+  ...Object.fromEntries(Object.entries({
+    supertree_skyway: ['stairs', 'bridge', 'vines', 'zipline'], container_yard_run: ['stack', 'gap', 'crane', 'ropes', 'chute'],
+    canopy_course: ['rope_bridge', 'vine_swing', 'treetop_walk', 'log_slide'], cloud_steps: ['ledge', 'stepping_stones', 'rock_climb', 'cloud_bridge', 'glide'],
+    wraith_run: ['gravestones', 'broken_pier', 'lantern_swing', 'ghost_bridge'], rift_leap: ['chasm', 'floating_rocks', 'chain_climb', 'void_bridge', 'portal_dive'],
+  }).flatMap(([c, parts]) => parts.map((p) => [`obj-${c}_${p}`, [56, 50, 16]]))),
+  'obj-wave_gate': [52, 54, 16], 'obj-wave_exit': [50, 52, 16],
+  'obj-home_plot': [40, 38, 15], 'obj-home_chest': [44, 38, 15], 'obj-home_trophy': [46, 44, 16],
+  'obj-gravestone': [28, 34, 14],   // where you last fell (grave.js)
+  // A world event's node (worldevents.js): the rare shoal, the meteorite and the ancient tree.
+  'obj-event_shoal': [48, 36, 12], 'rock-meteorite': [42, 36, 14], 'tree-ancient': [72, 78, 15],
   // Animated: a campfire's four flicker frames, and a farm patch's five growth stages.
   ...Object.fromEntries([0, 1, 2, 3].map((i) => [`obj-fire-${i}`, [32, 42, 14]])),
   ...Object.fromEntries([0, 1, 2, 3, 4].map((i) => [`obj-farm_patch-${i}`, [42, 36, 15]])),
@@ -2336,11 +2358,16 @@ function farmStage(obj) {
   const k = grow ? 1 - (obj.growLeft || 0) / grow : 1;
   return k >= 1 ? 4 : k >= 0.5 ? 3 : k >= 0.15 ? 2 : 1;
 }
+// World events add an ordinary spot, rock or tree with a def of their own; each
+// kind wears its event picture instead (untinted).
+const EVENT_ART = { fishing: 'obj-event_shoal', rock: 'rock-meteorite', tree: 'tree-ancient' };
+const EVENT_KEYS = new Set(Object.values(EVENT_ART));
 /** The painted-art key for a world object, or null to keep its drawn sprite. */
 function worldArtKey(obj, time = 0) {
   const t = obj.def.type;
   if (t === 'fire') return `obj-fire-${Math.floor(time / FIRE_FRAME_MS + obj.x * 3 + obj.y) % 4}`;   // each fire on its own beat
   if (t === 'farm') return `obj-farm_patch-${farmStage(obj)}`;
+  if (obj.worldEvent && !obj.depleted && EVENT_ART[t]) return EVENT_ART[t];   // a world event's node
   // A tree without its own picture yet may borrow another's (`borrow`), recoloured by its `tint`.
   if (t === 'tree') return obj.depleted ? `stump-${obj.def.borrow || obj.objId}` : `tree-${obj.def.borrow || obj.objId}`;
   if (t === 'rock') return obj.depleted ? 'rock-empty' : `rock-${obj.objId}`;
@@ -2358,6 +2385,16 @@ function worldImage(key) {
   return img;
 }
 export const worldArt = () => new Set(Object.keys(WORLD_ART));
+/** Draw a world picture by its key, standing on (cx, footY), fitted to its box.
+ *  False while it is still loading (or headless), so the caller draws its own. */
+export function drawWorldPicture(ctx, key, cx, footY) {
+  const img = worldImage(key);
+  if (!img || !img.complete || !img.naturalWidth) return false;
+  const [mw, mh] = WORLD_ART[key], s = Math.min(mw / img.naturalWidth, mh / img.naturalHeight);
+  const w = img.naturalWidth * s, h = img.naturalHeight * s;
+  ctx.drawImage(img, cx - w / 2, footY - h, w, h);
+  return true;
+}
 // A borrowed world picture recoloured by its `tint` (a CSS filter), baked once
 // per picture and tint. A canvas filter set at draw time costs a layer and a
 // filter pass on every draw: a bay of tinted fishing spots did that each frame.
@@ -2390,7 +2427,7 @@ function drawWorldArt(ctx, obj, img, key, cx, cy, time) {
   ctx.save();
   // Spent stalls, traps and fishing spots fade back; trees and rocks swap pictures instead.
   if (obj.depleted && t !== 'tree' && t !== 'rock') ctx.globalAlpha = 0.5;
-  if (obj.def.tint && 'filter' in ctx) img = tintedArt(img, obj.def.tint) || img;   // a borrowed picture, recoloured
+  if (obj.def.tint && !EVENT_KEYS.has(key) && 'filter' in ctx) img = tintedArt(img, obj.def.tint) || img;   // a borrowed picture, recoloured
   if (t === 'tree' && !obj.depleted) {
     // The canopy leans gently about the base of the trunk.
     const sway = Math.sin(time * 0.0012 + obj.x * 1.7 + obj.y) * 1.4;

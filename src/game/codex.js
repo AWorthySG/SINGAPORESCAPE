@@ -179,7 +179,7 @@ export function codexEntry(game, id) {
   // A boss's mechanic is shown even before the first kill: it's how you learn to win that fight.
   const mech = BOSS_MECHANICS[id];
   if (mech) {
-    e.mechanic = { name: mech.name, kind: MECH_KINDS[mech.type].name, icon: MECH_KINDS[mech.type].icon, how: mechanicHowTo(mech),
+    e.mechanic = { name: mech.name, type: mech.type, kind: MECH_KINDS[mech.type].name, icon: MECH_KINDS[mech.type].icon, how: mechanicHowTo(mech),
       styles: (mech.styles || []).map((s) => ({ id: s, label: MECH_STYLES[s].label, color: MECH_STYLES[s].color })) };
   }
   if (!seen) return e;

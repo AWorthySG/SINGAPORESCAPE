@@ -225,7 +225,10 @@ test('townsfolk art stays in lock-step with assets/creatures/townsfolk/ and name
   assert.deepEqual([...declared].filter((s) => !onDisk.has(s)), [], 'declared townsfolk art has no file');
   assert.deepEqual([...onDisk].filter((s) => !declared.has(s)), [], 'townsfolk art file not declared');
   const { RESIDENTS } = await import('../src/data/consequences.js');   // the living world's residents are drawn by their own id
-  for (const id of declared) assert.ok(RESIDENTS[id] || (getNpc(id) && !getNpc(id).attackable), `${id} is a real townsfolk NPC`);
+  for (const id of declared) {
+    if (id === 'event_merchant') continue;   // the world event's lost merchant, drawn by artId (worldevents.js)
+    assert.ok(RESIDENTS[id] || (getNpc(id) && !getNpc(id).attackable), `${id} is a real townsfolk NPC`);
+  }
 });
 
 test('world art stays in lock-step with assets/world/ and names real objects', async () => {
@@ -244,6 +247,8 @@ test('world art stays in lock-step with assets/world/ and names real objects', a
     if (key === 'rock-empty') continue;
     if (/^obj-sign-/.test(key)) continue;   // a resource zone's signpost (checked in its own test)
     if (key === 'obj-lore_scroll' || key === 'obj-ransacked_stall') continue;   // story objects (story.js, lore.js)
+    if (key === 'obj-gravestone') continue;   // where you last fell (grave.js)
+    if (['obj-event_shoal', 'rock-meteorite', 'tree-ancient'].includes(key)) continue;   // world event nodes (worldevents.js)
     const id = key.replace(/^(obj|tree|stump|rock)-/, '').replace(/-\d+$/, '');   // animation frames end in -0, -1...
     assert.ok(OBJECTS[id], `${key} names a real object`);
   }
@@ -524,4 +529,62 @@ test('art pack 10: residents, zone signs, story objects and UI badges use their 
   assert.match(uiIconHTML('teleport-town', 26), /onerror="this\.remove\(\)"/, 'a missing picture leaves the old look');
   const ui = ['src/ui/lifeskillui.js', 'src/ui/playhud.js', 'src/ui/blessingsui.js', 'src/ui/reputationui.js'].map(src).join('\n') + src('styles/blessings.css');
   for (const n of UI_ICONS) assert.ok(ui.includes(`'${n}'`) || ui.includes(`icon-${n}.webp`), `icon-${n} is used`);
+});
+
+test('gameplay art pack: items, world objects, quest givers, pets and gameplay icons use their own art', async () => {
+  const { readdirSync, readFileSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const { itemIconSVG, PLAY_ICONS, playIconHTML, EVENT_ICON, mechIcon } = await import('../src/render/icons.js');
+  const { worldArt, townArt } = await import('../src/render/sprites.js');
+  const { PET_ART, petArtSrc } = await import('../src/render/petsprite.js');
+  const { SKILL_PETS } = await import('../src/game/pets.js');
+  const { REGION_GIVERS } = await import('../src/data/regionQuests.js');
+  const { EVENT_KINDS } = await import('../src/data/worldevents.js');
+  const { MECH_KINDS, MECH_STYLES } = await import('../src/data/bossMechanics.js');
+  const { ITEMS } = await import('../src/data/items.js');
+  const dir = (d) => fileURLToPath(new URL(`../assets/${d}/`, import.meta.url));
+  // Items: the endgame goods that used to borrow a tinted sticker now have their own.
+  for (const id of ['raw_dorado', 'arowana_feast', 'boar_rendang', 'fish_head_curry', 'torch_ginger_seed', 'eternal_lotus', 'anglers_brew',
+    'phoenix_elixir', 'barbed_hooks', 'bamboo_decoy', 'phoenix_ember', 'casino_chip', 'eternal_amulet', 'pest_token', 'mosquito_net_cape']) {
+    assert.ok(ITEMS[id], `${id} is an item`);
+    const html = itemIconSVG(id, 24);
+    assert.ok(html.includes(`assets/icons/item-${id}.webp`) && !html.includes('filter:'), `${id} has its own untinted sticker`);
+  }
+  // World objects: every object with a picture of its own shows it untinted, never a borrowed one.
+  for (const [id, d] of Object.entries(OBJECTS)) {
+    if (!worldArt().has(`obj-${id}`)) continue;
+    assert.ok(!d.art && !d.tint, `${id} wears its own picture, not a tinted borrow`);
+  }
+  for (const id of Object.keys(OBJECTS).filter((k) => OBJECTS[k].type === 'agility' && OBJECTS[k].level >= 100)) assert.ok(worldArt().has(`obj-${id}`), `${id} has its own picture`);
+  // A world event's node draws its event picture (the shoal untinted, though its def carries a tint).
+  const ctx = makeCtx(), drawn = [];
+  ctx.drawImage = (img) => drawn.push(img);
+  globalThis.Image = class { constructor() { this.complete = true; this.naturalWidth = 100; this.naturalHeight = 80; } };
+  try {
+    for (const [objId, key] of [['dorado_spot', 'obj-event_shoal'], ['fallen_star', 'rock-meteorite'], ['oak', 'tree-ancient']]) {
+      drawn.length = 0;
+      drawObjectSprite(ctx, { objId, def: { ...OBJECTS[objId], tint: 'saturate(2)', worldEvent: true }, worldEvent: true, x: 1, y: 1 }, 50, 50, 0);
+      assert.ok(drawn.some((im) => im.src === `assets/world/${key}.webp`), `${objId} as a world event draws ${key}`);
+    }
+  } finally { delete globalThis.Image; }
+  // Quest givers and the lost merchant have townsfolk pictures of their own.
+  for (const id of [...Object.keys(REGION_GIVERS), 'event_merchant']) assert.ok(townArt().has(id), `${id} has its own picture`);
+  assert.match(readFileSync(fileURLToPath(new URL('../src/game/worldevents.js', import.meta.url)), 'utf8'), /artId = 'event_merchant'/);
+  // Pets: every life-skill pet has its own picture, in lock-step with assets/creatures/pets/.
+  const pets = new Set(readdirSync(dir('creatures/pets')).filter((f) => f.endsWith('.webp')).map((f) => f.slice(0, -5)));
+  assert.deepEqual([...pets].sort(), [...PET_ART].sort());
+  for (const p of Object.values(SKILL_PETS)) assert.equal(petArtSrc(p.id), `assets/creatures/pets/${p.id}.webp`);
+  // Gameplay icons stay in lock-step with assets/icons/{mech,event,quality,ui}-*.webp, and each is used.
+  const icons = readdirSync(dir('icons')).filter((f) => /^(mech|event|quality|ui)-/.test(f)).map((f) => f.slice(0, -5))
+    .filter((n) => n !== 'ui-lockon' && n !== 'ui-cancel');   // older HUD art, loaded directly
+  assert.deepEqual(icons.sort(), [...PLAY_ICONS].sort());
+  assert.match(playIconHTML('ui-focus', 16), /assets\/icons\/ui-focus\.webp"[^>]*onerror="this\.remove\(\)"/);
+  for (const k of Object.keys(EVENT_KINDS)) assert.ok(PLAY_ICONS.includes(EVENT_ICON[k]), `${k} has an event icon`);
+  for (const t of Object.keys(MECH_KINDS)) for (const s of Object.keys(MECH_STYLES)) assert.ok(PLAY_ICONS.includes(mechIcon(t, s)), `${t} has a mechanic icon`);
+  const src = ['src/ui/playhud.js', 'src/ui/homeui.js', 'src/ui/collectionui.js', 'src/ui/worldeventsui.js', 'src/ui/ranksui.js', 'src/ui/ui.js',
+    'src/ui/skillguideui.js', 'src/game/skillunlocks.js', 'src/render/icons.js'].map((f) => readFileSync(fileURLToPath(new URL(`../${f}`, import.meta.url)), 'utf8')).join('\n');
+  for (const n of PLAY_ICONS) {
+    if (/^(event|mech|quality)-/.test(n) && n !== 'event-weekly_crate') continue;   // reached by EVENT_ICON, mechIcon and `quality-${q}`
+    assert.ok(src.includes(`'${n}'`), `${n} is used`);
+  }
 });

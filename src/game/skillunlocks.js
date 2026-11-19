@@ -12,6 +12,7 @@ import { POTIONS } from '../data/trades.js';
 import { STATION_BY_ID } from '../data/transport.js';
 import { SKILL_BY_ID } from '../data/skills.js';
 import { getItem } from '../data/items.js';
+import { playIconHTML } from '../render/icons.js';
 
 const skillName = (s) => SKILL_BY_ID[s]?.name || s;
 
@@ -178,7 +179,7 @@ export function unlockTipText(skill, level) {
 export function announceUnlocks(game, skill, level) {
   for (const u of unlocksAt(skill, level)) {
     game.msg(`${skillName(skill)} ${level} unlock: ${u.name}. ${u.desc}.`, 'level');
-    game.banner?.(`<span class="big">${u.name}</span>${skillName(skill)} ${level} unlock: ${u.desc}`);
+    game.banner?.(`<span class="big">${playIconHTML('ui-skill_unlock', 28)} ${u.name}</span>${skillName(skill)} ${level} unlock: ${u.desc}`);
   }
 }
 
