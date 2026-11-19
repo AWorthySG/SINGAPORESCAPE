@@ -204,13 +204,16 @@ test('the tip sits under the whole info strip, short of the launcher, and bottom
   assert.ok(fight.left + fight.width <= 560 - 8 && fight.width >= 200, 'wide enough for a few lines, clear of the orbs');
 });
 
-test('phone sheet: all nine tabs share one row, and the body is not size-contained', () => {
+test('phone sheet: the five tabs share one row, and the body is not size-contained', () => {
   const phones = mediaBlock('(pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px)');
   const tabs = (html.match(/<button class="tab-btn[^"]*" data-view=/g) || []).length;
-  assert.equal(tabs, 9, 'nine panel tabs');
-  // Equal columns, one per tab, instead of a row that scrolls Stats, Awards
-  // and Settings off the edge of a 390px phone.
-  assert.match(phones, /#sidepanel:not\(\.collapsed\) #panel-tabs \{\s*display: grid; grid-template-columns: repeat\(9, minmax\(0, 1fr\)\);/);
+  assert.equal(tabs, 5, 'five panel tabs');
+  // Equal columns, one per tab, instead of a row that scrolls (and on iPhone
+  // dropped taps); with five, each is a big target with its label showing.
+  assert.match(phones, /#sidepanel:not\(\.collapsed\) #panel-tabs \{\s*display: grid; grid-template-columns: repeat\(5, minmax\(0, 1fr\)\);/);
+  assert.match(phones, /#sidepanel:not\(\.collapsed\) \.tab-btn \{[^}]*min-height: 56px;/);
+  assert.match(phones, /#sidepanel:not\(\.collapsed\) \.tab-btn \.tab-label \{ display: block;/);
+  assert.match(mediaBlock('(pointer: coarse)'), /\.subtab-btn \{ min-height: 44px; \}/, 'sub-tabs are full-size touch targets');
   assert.ok(!/#sidepanel:not\(\.collapsed\) #panel-tabs \{[^}]*overflow-x: auto/.test(phones), 'the tab row no longer scrolls');
   assert.match(phones, /#sidepanel:not\(\.collapsed\) \.tab-btn \{ min-width: 0;/, 'tabs may shrink below the 44px min-width to fit');
   const body = phones.match(/#sidepanel:not\(\.collapsed\) #panel-body \{[^}]*\}/)?.[0] || '';
@@ -311,7 +314,7 @@ test('a quick second tap on the tab just opened does not fold the phone sheet', 
   globalThis.document = { querySelectorAll: (s) => (s.includes('tab-btn') ? tabs : []), getElementById: (id) => (id === 'sidepanel' ? panel : null) };
   Object.defineProperty(globalThis, 'performance', { value: { now: () => now }, configurable: true, writable: true });
   let folds = 0;
-  const ui = { _dropTips() {}, _setPanelTitle() {}, renderStatsPanel() {}, _collapseApply: { panel: (c) => { if (c) folds++; } } };
+  const ui = { _dropTips() {}, _showPanelView() {}, _collapseApply: { panel: (c) => { if (c) folds++; } } };
   try {
     UI.prototype._bindTabs.call(ui);
     tabs[1].click(); now += 150; tabs[1].click();
@@ -321,5 +324,76 @@ test('a quick second tap on the tab just opened does not fold the phone sheet', 
   } finally {
     globalThis.document = prev.document;
     Object.defineProperty(globalThis, 'performance', prev.performance);
+  }
+});
+
+test('five panel tabs: every view sits in exactly one tab, and the number keys pick the tabs', async () => {
+  const { PANEL_TABS, tabOfView } = await import('../src/ui/ui.js');
+  const tabViews = [...html.matchAll(/<button class="tab-btn[^"]*" data-view="([a-z]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(tabViews, Object.keys(PANEL_TABS), 'Bag, Skills, Combat, Journal, Settings, in that order');
+  const panelViews = [...html.matchAll(/<section class="panel-view[^"]*" data-view="([a-z]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(Object.values(PANEL_TABS).flat().sort(), [...panelViews].sort(), 'each view in one tab, none lost');
+  assert.deepEqual(PANEL_TABS.inventory, ['inventory', 'equipment']);
+  assert.deepEqual(PANEL_TABS.combat, ['combat', 'prayer', 'stats']);
+  assert.deepEqual(PANEL_TABS.quests, ['quests', 'achievements']);
+  assert.equal(tabOfView('prayer'), 'combat');
+  assert.equal(tabOfView('achievements'), 'quests');
+  assert.match(html, /<div id="panel-body">\s*<div id="panel-subtabs"/, 'the sub-tab row heads the panel body');
+  const main = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  assert.match(main, /const map = \{ '1': 'inventory', '2': 'skills', '3': 'combat', '4': 'quests', '5': 'settings' \};/);
+});
+
+test('sub-tabs switch views inside a tab, and each tab remembers the one it last showed', async () => {
+  const { UI } = await import('../src/ui/ui.js');
+  const mkCls = (init = []) => { const s = new Set(init); return { contains: (c) => s.has(c), toggle: (c, on) => { if (on ?? !s.has(c)) s.add(c); else s.delete(c); } }; };
+  const clickable = (props, init) => { const l = []; return { ...props, classList: mkCls(init), setAttribute() {}, addEventListener: (t, fn) => l.push(fn), click() { l.forEach((fn) => fn()); } }; };
+  const panel = { classList: mkCls() };
+  const tabs = ['inventory', 'skills', 'combat', 'quests', 'settings'].map((view) => clickable({ dataset: { view } }, view === 'inventory' ? ['active'] : []));
+  const views = ['inventory', 'equipment', 'skills', 'combat', 'prayer', 'quests', 'stats', 'achievements', 'settings'].map((view) => ({ dataset: { view }, classList: mkCls() }));
+  let subBtns = [];
+  const row = {
+    dataset: {}, classList: mkCls(['hidden']),
+    set innerHTML(h) { subBtns = [...h.matchAll(/data-view="([a-z]+)"/g)].map((m) => clickable({ dataset: { view: m[1] } })); },
+    querySelectorAll: () => subBtns,
+  };
+  const store = {};
+  const prev = { document: globalThis.document, localStorage: globalThis.localStorage };
+  globalThis.document = {
+    querySelectorAll: (s) => (s.includes('tab-btn') ? tabs : s.includes('panel-view') ? views : []),
+    getElementById: (id) => ({ sidepanel: panel, 'panel-subtabs': row }[id] || null),
+  };
+  globalThis.localStorage = { getItem: (k) => store[k] ?? null, setItem: (k, v) => { store[k] = String(v); } };
+  const shown = () => views.filter((v) => !v.classList.contains('hidden')).map((v) => v.dataset.view);
+  let statsDrawn = 0;
+  const ui = Object.assign(Object.create(UI.prototype), { el: {}, _dropTips() {}, renderStatsPanel() { statsDrawn++; } });
+  try {
+    ui._bindTabs();
+    tabs[2].click();
+    assert.deepEqual(shown(), ['combat'], 'Combat opens on its first view');
+    assert.ok(!row.classList.contains('hidden'));
+    assert.deepEqual(subBtns.map((b) => b.dataset.view), ['combat', 'prayer', 'stats']);
+    subBtns[2].click();
+    assert.deepEqual(shown(), ['stats']);
+    assert.equal(statsDrawn, 1, 'the stats sheet is brought up to date when shown');
+    assert.ok(tabs[2].classList.contains('active'), 'the Combat tab stays lit');
+    tabs[1].click();
+    assert.deepEqual(shown(), ['skills']);
+    assert.ok(row.classList.contains('hidden'), 'a one-view tab shows no sub-tab row');
+    tabs[2].click();
+    assert.deepEqual(shown(), ['stats'], 'Combat comes back on Stats, the sub-tab it last showed');
+    assert.equal(JSON.parse(store.ss_ui_subtab).combat, 'stats', 'remembered for next time');
+    // Code can open a view directly: the right tab lights and the sub-tab switches.
+    ui.showPanelView('achievements');
+    assert.deepEqual(shown(), ['achievements']);
+    assert.deepEqual(tabs.filter((t) => t.classList.contains('active')).map((t) => t.dataset.view), ['quests']);
+    assert.ok(subBtns.find((b) => b.dataset.view === 'achievements').classList.contains('active'));
+    // A fresh UI reads the memory back.
+    const ui2 = Object.assign(Object.create(UI.prototype), { el: {}, _dropTips() {}, renderStatsPanel() {} });
+    ui2._bindTabs();
+    tabs[3].click();
+    assert.deepEqual(shown(), ['achievements']);
+  } finally {
+    globalThis.document = prev.document;
+    globalThis.localStorage = prev.localStorage;
   }
 });
