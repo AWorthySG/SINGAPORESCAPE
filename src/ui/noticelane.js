@@ -6,12 +6,28 @@
 // queue and draws nothing.
 import { NoticeQueue } from './notices.js';
 
+// Compact lane: one line on screen at a time. While others wait behind it the
+// one showing moves on after LANE_CYCLE_MS, so they take turns; the "+N"
+// button opens the waiting ones as a short list (tap one to put it away), and
+// the list folds again by itself after LANE_LIST_MS.
+export const LANE_SHOWN = 1;
+export const LANE_CYCLE_MS = 2600;
+export const LANE_LIST_MS = 8000;
+
+/** How long a showing card stays up: its own time, but no more than the cycle
+ *  while others wait (tips, which need reading, keep theirs). Pure, for the tests. */
+export function laneTtl(item, waiting) {
+  return waiting > 0 && item.kind !== 'tip' ? Math.min(item.ttl, LANE_CYCLE_MS) : item.ttl;
+}
+
 const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
 export class NoticeLane {
   constructor(ui) {
     this.ui = ui;
-    this.queue = new NoticeQueue();
+    this.queue = new NoticeQueue({ max: LANE_SHOWN });
+    this.listOpen = false;
+    this._listAt = 0;
     this.el = null;
     this._timer = 0;
     this._sig = '';
@@ -36,6 +52,10 @@ export class NoticeLane {
     el.setAttribute('aria-live', 'polite');
     // A tap on a card puts it away; the tip's own buttons do their own thing.
     el.addEventListener('click', (e) => {
+      if (e.target.closest?.('.nl-more')) {   // "+N": open or fold the waiting list
+        this.listOpen = !this.listOpen; this._listAt = now(); this._sig = ''; this.render();
+        return;
+      }
       const card = e.target.closest?.('.nl-card');
       if (!card) return;
       const act = e.target.closest?.('[data-act]')?.dataset.act;
@@ -56,16 +76,22 @@ export class NoticeLane {
     const el = this._root();
     if (!el) return;
     const shown = this.queue.visible();
-    const waiting = this.queue.queued().length;
-    const sig = shown.map((x) => `${x.id}:${x.count}:${x.html.length}`).join('|') + `#${waiting}`;
+    const queued = this.queue.queued();
+    const waiting = queued.length;
+    for (const x of shown) x.ttl = laneTtl(x, waiting);   // take turns while others wait
+    if (!waiting || t - this._listAt > LANE_LIST_MS) this.listOpen = false;
+    const sig = shown.map((x) => `${x.id}:${x.count}:${x.html.length}`).join('|') + `#${queued.map((x) => x.id).join(',')}${this.listOpen ? '+' : ''}`;
     if (sig !== this._sig) {
       this._sig = sig;
-      el.innerHTML = shown.map((x) => cardHTML(x)).join('')
-        + (waiting ? `<div class="nl-more">+${waiting} more</div>` : '');
+      el.innerHTML = shown.map((x) => cardHTML(x, waiting)).join('')
+        + (this.listOpen ? `<div class="nl-list">${queued.map((x) => cardHTML(x, 0, true)).join('')}</div>` : '');
     }
+    el.classList.toggle('listing', this.listOpen);
     el.classList.toggle('empty', !shown.length);
     this.place();
-    const next = this.queue.nextExpiry();
+    let next = this.queue.nextExpiry();
+    if (this.listOpen) next = Math.min(next ?? Infinity, this._listAt + LANE_LIST_MS + 10);
+    if (next === Infinity) next = null;
     if (next != null && typeof setTimeout === 'function') this._timer = setTimeout(() => this.render(), Math.max(50, next - t + 20));
   }
 
@@ -83,15 +109,24 @@ export class NoticeLane {
   }
 }
 
-function cardHTML(x) {
+const ACT_BUTTON = /<button[^>]*class="[^"]*\bnl-act\b[^"]*"[^>]*>[\s\S]*?<\/button>/g;
+
+export function cardHTML(x, waiting = 0, mini = false) {
   const n = x.count > 1 ? `<span class="nl-count">&times;${x.count}</span>` : '';
+  // The "+N" button rides on the showing card's line, so the lane stays one line tall.
+  const more = waiting ? `<button type="button" class="nl-more" aria-label="${waiting} more notices">+${waiting}</button>` : '';
+  if (mini) return `<div class="nl-card nl-mini nl-${x.kind}" data-id="${x.id}" role="status"><div class="nl-text">${x.html}</div>${n}</div>`;
   if (x.kind === 'tip') {
     return `<div class="nl-card nl-tip" data-id="${x.id}" role="status"><span class="nl-ic" aria-hidden="true">&#128161;</span>`
       + `<div class="nl-text">${x.html}</div>`
       + '<button type="button" class="nl-notips" data-act="notips">Don\'t show tips</button>'
-      + '<button type="button" class="nl-x" aria-label="Dismiss">&#10005;</button></div>';
+      + `${more}<button type="button" class="nl-x" aria-label="Dismiss">&#10005;</button></div>`;
   }
-  return `<div class="nl-card nl-${x.kind}" data-id="${x.id}" role="status"><div class="nl-text">${x.html}</div>${n}</div>`;
+  // A note's own button ("Wear it") sits outside the words, so it stays in
+  // view when the words are cut to one line.
+  const acts = [];
+  const words = x.html.replace(ACT_BUTTON, (b) => { acts.push(b); return ''; });
+  return `<div class="nl-card nl-${x.kind}" data-id="${x.id}" role="status"><div class="nl-text">${words}</div>${acts.join('')}${n}${more}</div>`;
 }
 
 /** Which layout the lane follows: 'phone' (narrow, upright), 'flat' (a phone
