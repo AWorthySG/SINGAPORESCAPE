@@ -69,7 +69,7 @@ import { PlayHud } from './playhud.js';
 import { addCollectionButton } from './collectionui.js';
 import { TIPS, TIPS_KEY, nextTip, markTipSeen, tipsSeen } from './tips.js';
 import { foeDetails, labelMode, nextLabelMode, LABEL_MODE_NAMES } from '../render/worldlabels.js';
-import { applyAccessibility, countUp, playCloseGhost, inlineIcon, nextTextSize, TEXT_SIZE_NAMES } from './uifx.js';
+import { applyAccessibility, countUp, playCloseGhost, inlineIcon } from './uifx.js';
 import { mechLabel } from '../game/bossmech.js';
 import { regionDialogue, canRegionTeleport, regionTeleport } from '../game/regionquests.js';
 
@@ -2632,12 +2632,8 @@ export class UI {
     // Accessibility: saved with the other settings; uifx.js puts them on <body>.
     sec('Accessibility');
     const access = () => { this._accessSig = applyAccessibility(this.game); this.game.saveSoon = true; };
-    const sizeBtn = mk('', () => {
-      this.game.textSize = nextTextSize(this.game.textSize || 'normal');
-      access();
-      sizeBtn.textContent = `Text size: ${TEXT_SIZE_NAMES[this.game.textSize]}`;
-    });
-    sizeBtn.textContent = `Text size: ${TEXT_SIZE_NAMES[this.game.textSize] || 'Normal'}`;
+    // (No Text size setting any more: it enlarged panels with CSS zoom, which
+    // iPhone Safari hit-tests a few pixels off, so taps missed their buttons.)
     const cbBtn = mk('', () => {
       this.game.colourBlind = !this.game.colourBlind;
       access();

@@ -3076,8 +3076,6 @@ body #tip-toast.tip-strip { font-size: 11px; padding: 4px 6px 4px 7px; border-ra
   --ui-ease: cubic-bezier(.2, .9, .35, 1.12);
   --ui-ease-out: cubic-bezier(.25, .8, .3, 1);
   --ui-fast: .12s; --ui-med: .2s;
-  /* Settings > Text size scales the words inside panels and windows. */
-  --ui-zoom: 1;
   /* Status colours, so "good" and "bad" are set in one place (swapped by
      Settings > Colour-blind friendly below). */
   --st-good: var(--aw-grass-deep); --st-good-fill: var(--aw-grass); --st-good-bg: var(--aw-grass-bg);
@@ -3248,14 +3246,6 @@ body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after 
   outline: 3px solid var(--aw-sky); outline-offset: 1px;
 }
 
-/* ---------- Settings > Text size ---------- */
-body[data-text-size="large"]  { --ui-zoom: 1.12; }
-body[data-text-size="larger"] { --ui-zoom: 1.25; }
-/* Scale what's inside the scroll boxes, not the boxes themselves, so the
-   panels keep their place and size and the words reflow inside them. */
-#panel-body > .panel-view, #modal-body > *, #chat-log, #context-menu > *, #tooltip, #quest-tracker {
-  zoom: var(--ui-zoom);
-}
 
 /* ---------- Settings > Colour-blind friendly ---------- */
 /* Good and bad move off green and red to blue and orange (the Okabe-Ito

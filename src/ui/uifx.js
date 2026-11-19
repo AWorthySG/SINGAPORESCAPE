@@ -4,10 +4,6 @@
 // back to doing nothing (or setting the final text) when there is no DOM, as
 // in the headless tests, or when the player has asked for less motion.
 
-/** Settings > Text size: the names shown on the button, in cycling order. */
-export const TEXT_SIZES = ['normal', 'large', 'larger'];
-export const TEXT_SIZE_NAMES = { normal: 'Normal', large: 'Large', larger: 'Larger' };
-export const nextTextSize = (s) => TEXT_SIZES[(TEXT_SIZES.indexOf(s) + 1) % TEXT_SIZES.length];
 
 /** True when the browser or Settings > Reduce motion asks for stillness. */
 export function motionReduced() {
@@ -19,11 +15,9 @@ export function motionReduced() {
 /** Put the accessibility settings on the page as classes the stylesheet reads.
  *  Returns a short signature so callers can skip work when nothing changed. */
 export function applyAccessibility(game) {
-  const size = TEXT_SIZES.includes(game?.textSize) ? game.textSize : 'normal';
-  const sig = `${size}|${!!game?.colourBlind}|${!!game?.reduceMotion}`;
+  const sig = `${!!game?.colourBlind}|${!!game?.reduceMotion}`;
   const body = typeof document !== 'undefined' ? document.body : null;
   if (!body) return sig;
-  body.dataset.textSize = size;
   body.classList.toggle('cb-safe', !!game?.colourBlind);
   body.classList.toggle('reduce-motion', !!game?.reduceMotion);
   return sig;
