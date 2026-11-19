@@ -47,6 +47,7 @@ import { MATERIAL_KINDS, feedKind, FEED_CAP, FEED_CAP_RANK, materialKind } from 
 import { SHRINE_TRACKS, SHRINE_TRACK_IDS, trackText } from '../game/shrine.js';
 import { isSalvageable, sameKind, nearOfferingShrine } from '../game/salvage.js';
 import { QUALITY, qualityNameHTML } from '../game/loot.js';
+import { ranksCardHTML, openRanksGuide, masteryLine, qualityLine } from './ranksui.js';
 import { openSacrifice, openSacrificeFrom, openDismantle, shrineGearSection, askOffer } from './salvageui.js';
 import { shrineGoodsSection, askGoods } from './shrineui.js';
 import { goodsKind } from '../game/offerings.js';
@@ -1186,6 +1187,12 @@ export class UI {
     guide.textContent = 'Gear Guide: which equipment is better?';
     guide.addEventListener('click', () => this.openGearGuide());
     this.el.equipBonuses.appendChild(guide);
+    // What mastery ranks and quality tiers mean, as two ladders.
+    const rq = document.createElement('button');
+    rq.className = 'bestiary-open gear-guide-open ranks-open';
+    rq.textContent = '? Mastery ranks & quality tiers explained';
+    rq.addEventListener('click', () => openRanksGuide(this));
+    this.el.equipBonuses.appendChild(rq);
     const ms = document.createElement('button');
     ms.className = 'bestiary-open gear-guide-open';
     ms.textContent = 'Gear mastery & enchanting';
@@ -1234,8 +1241,8 @@ export class UI {
     // A boss's signature weapon: whose it is and which class it's made for.
     const sig = getItem(id).signature;
     let html = (sig ? `<div class="gt-sig">Signature weapon of ${escapeHtml(getNpc(sig.boss).name)} · for ${escapeHtml(CLASS_BY_ID[sig.classId].name)}</div>` : '')
-      + (QUALITY[q] ? `<div class="gt-qual"><span class="q-word" style="color:${QUALITY[q].color}">${QUALITY[q].label}</span> quality: +${Math.round(QUALITY[q].gain * 100)}% to this copy's stats</div>` : '')
-      + (rk ? `<div class="gt-up">${masteryTypeName(id)} mastery: ${MASTERY_RANKS[rk].name}</div>` : '')
+      + (QUALITY[q] ? `<div class="gt-qual">${qualityLine(q)}</div>` : '')
+      + `<div class="gt-up">${masteryLine(masteryTypeName(id), this.game.equipment.masteryPoints(id))}</div>`
       + (copy === 'off' ? '<div class="gt-up">Off-hand copy: its own refine and enchantments</div>' : '')
       + (rl ? `<div class="gt-refine">Refined ${refineTag(rl)}</div>` : '')
       + (lines.length ? `<div class="gt-ench">Enchanted: ${lines.map(enchantLabel).join(' · ')}</div>` : '')
@@ -1292,9 +1299,7 @@ export class UI {
   openMastery() {
     const g = this.game;
     const render = (body) => {
-      body.innerHTML = '<div class="gear-intro"><p>Gear grows stronger as you fight with it. <b>Mastery</b> belongs to a gear type (every sword shares Sword mastery, every plate body Plate body mastery), so it stays when you move up a tier. Every kill gives each type you wear mastery '
-        + '(1 for a monster, 5 for a champion, 25 for a boss), and each rank adds to its stats, up to <b>Legendary</b> (+140%). '
-        + '<b>Quality</b> belongs to one copy: a Fine, Superior, Epic, Legendary or Mythic drop has +8%, +16%, +25%, +40% or +60% on its stats, mastery included. '
+      body.innerHTML = ranksCardHTML() + '<div class="gear-intro"><p>Gear grows stronger as you fight with it: <b>mastery</b> and <b>quality</b> are shown above. '
         + `<b>Enchanting</b> adds up to ${MAX_ENCHANTS} bonus lines: choose one of three on offer, paid for with upgrade stones and coins. An <b>upgrade ward</b> rerolls the offer. `
         + `<b>Refining</b> (★1 to ★${MAX_REFINE}) adds a share of the base stats on top, paid for with <b>refine scrolls</b> only; the higher you go, the riskier it gets. `
         + `<b>Feed materials</b> from your life skills to add mastery too (bars for metal, logs for bows and staves, hides for leather, gems for jewellery, herbs for cloth), up to ${MASTERY_RANKS[FEED_CAP_RANK].name}. `

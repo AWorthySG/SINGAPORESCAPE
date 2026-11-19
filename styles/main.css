@@ -3479,3 +3479,26 @@ body.cb-safe #hp-orb.low::after {
 @media (max-width: 540px), (max-height: 500px) {
   #panel-subtabs { top: -7px; margin: -7px -7px 7px; padding: 5px 7px; }
 }
+
+/* ---- Mastery ranks & quality tiers: the two ladders (ranksui.js) ---- */
+.ranks-card { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 4px 0 10px; }
+@media (max-width: 540px) { .ranks-card { grid-template-columns: 1fr; } }
+.rk-col { background: var(--aw-card, #fff); border: 2px solid var(--aw-ink, #22304A); border-radius: 12px; padding: 8px; }
+.rk-head { font-weight: 900; margin-bottom: 6px; }
+.rk-head small { font-weight: 600; opacity: .7; margin-left: 4px; }
+.rk-ladder { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.rk-step { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; padding: 4px 8px; border-radius: 8px;
+  border-left: 6px solid var(--rk); background: color-mix(in srgb, var(--rk) 12%, transparent); font-size: 13px; }
+.rk-step b { color: var(--rk); }
+.rk-step span { font-weight: 800; }
+.rk-step small { opacity: .7; min-width: 64px; text-align: right; }
+.rk-step.got { box-shadow: inset 0 0 0 2px var(--rk); }
+.rk-how { font-size: 12px; margin: 6px 2px 0; opacity: .85; line-height: 1.35; }
+.ranks-open { font-weight: 800; }
+/* A quality copy's icon gets an edge in its colour, not just a dot. */
+.inv-slot:has(> .q-pip), .item-cell:has(> .q-pip), .equip-slot:has(> .q-pip) { box-shadow: inset 0 0 0 2.5px var(--qc, transparent); }
+.inv-slot:has(> .q-fine), .item-cell:has(> .q-fine), .equip-slot:has(> .q-fine) { --qc: #2e9e4f; }
+.inv-slot:has(> .q-superior), .item-cell:has(> .q-superior), .equip-slot:has(> .q-superior) { --qc: #3a7bd5; }
+.inv-slot:has(> .q-epic), .item-cell:has(> .q-epic), .equip-slot:has(> .q-epic) { --qc: #8b4fe0; }
+.inv-slot:has(> .q-legendary), .item-cell:has(> .q-legendary), .equip-slot:has(> .q-legendary) { --qc: #d08a00; }
+.inv-slot:has(> .q-mythic), .item-cell:has(> .q-mythic), .equip-slot:has(> .q-mythic) { --qc: #d6336c; }
