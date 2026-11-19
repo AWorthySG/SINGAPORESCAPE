@@ -19,6 +19,8 @@ import {
   discoveryCategories, discoveryTotals, claimDiscovery, obtainableItems, REWARD_LAMPS, REWARD_COINS_MIN,
 } from '../src/game/discovery.js';
 import { regionList, regionInfo } from '../src/game/regioninfo.js';
+import { regionPageHTML, regionListHTML } from '../src/ui/regionui.js';
+import { addRep } from '../src/game/reputation.js';
 import { encyState, encyclopediaPageHTML, itemEntryHTML, itemsListHTML, openEntry, renderEncyclopedia } from '../src/ui/encyclopediaui.js';
 import { linkHTML } from '../src/ui/links.js';
 import { codexSwitchHTML, markupHTML } from '../src/ui/compendiumui.js';
@@ -196,6 +198,25 @@ test('every region has a page with its level band and what lives there', () => {
   const ubin = regionInfo(g, 'Pulau Ubin');
   assert.ok(ubin.monsters.length > 0 && ubin.band);
   assert.equal(regionInfo(g, 'Nowhere'), null);
+  // Its MRT stop, quest giver, resource zone and your standing there.
+  assert.ok(ubin.stations.some((s) => s.id === 'pulau_ubin'));
+  assert.ok(ubin.givers.some((q) => q.id === 'rq_uncle_seng'));
+  assert.ok(ubin.zones.some((z) => z.id === 'ubin_quarry'));
+  assert.equal(ubin.rep.rank.id, 'stranger');
+  assert.deepEqual(ubin.go, { x: ubin.stations[0].x, y: ubin.stations[0].y }, 'Go heads for its MRT stop');
+  // Every region's Go lands inside it, and every page renders headlessly.
+  for (const r of list) {
+    const info = regionInfo(g, r.name);
+    assert.equal(g.world.zoneAt(info.go.x, info.go.y)?.name, r.name, `${r.name}: Go stays in the region`);
+    const html = regionPageHTML(g, r.name);
+    assert.ok(html.includes(r.name) && !/undefined|NaN/.test(html), `${r.name} renders`);
+  }
+  assert.match(regionPageHTML(g, 'Pulau Ubin'), /Ubin Granite Quarry/);
+  assert.match(regionPageHTML(g, 'Pulau Ubin'), /data-goxy=/);
+  // Reputation shows as it grows.
+  addRep(g, 'Pulau Ubin', 350, '', true);
+  assert.equal(regionInfo(g, 'Pulau Ubin').rep.rank.id, 'friend');
+  assert.match(regionListHTML(g), /Kampong Glam/);
 });
 
 // ---------------- The window ----------------
