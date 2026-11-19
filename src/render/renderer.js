@@ -38,6 +38,7 @@ import { RARITY } from '../game/loot.js';
 const HELD_FX = new Set(['slash', 'cleave', 'swipe']);
 import { itemIconImage } from './icons.js';
 import { moodFor, blendMood, composeWashes, dayNightWashes, buildVignette, ObjectReactions } from './ambience.js';
+import { worldMood } from '../game/consequences.js';
 import { Critters } from './critters.js';
 import { LightPass } from './lighting.js';
 import { Weather } from './weather.js';
@@ -471,7 +472,7 @@ export class Renderer {
   /** Ease the region's mood toward where you are (low graphics keeps just the
    *  day/night light, so the mood eases away). */
   _blendMood(dt) {
-    return blendMood(this._mood, this.game.lowFx ? moodFor('Singapore') : moodFor(this.game.currentZoneName), dt);
+    return blendMood(this._mood, this.game.lowFx ? moodFor('Singapore') : worldMood(this.game, this.game.currentZoneName), dt);   // shaded by your choices (consequences.js)
   }
 
   // ---------------- Alignment aura (alignment.js) ----------------

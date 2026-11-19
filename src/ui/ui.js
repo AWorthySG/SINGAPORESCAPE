@@ -4,6 +4,9 @@ import { classPerks, classPerkSummary } from '../game/classperks.js';
 import { LIFE_PERKS, LIFE_PERK_SKILLS, LIFE_PERK_FULL_LEVEL, lifePerkText, lifePerkNext } from '../game/lifeperks.js';
 import { unlockTipText } from '../game/skillunlocks.js';
 import { installHomeUI } from './homeui.js';
+import { installStoryUI } from './storyui.js';
+import { installReputationUI } from './reputationui.js';
+import { personalise } from '../game/memory.js';
 import * as Mercs from '../game/mercenary.js';
 import { PERK_SKILLS, PERK_TRACKS, PERK_EVERY, trackPerks, rankName } from '../data/perks.js';
 import { heroArtSrc, portraitFor } from '../render/sprites.js';
@@ -113,10 +116,10 @@ export const PANEL_TABS = {
   inventory: ['inventory', 'equipment'],
   skills: ['skills'],
   combat: ['combat', 'prayer', 'stats'],
-  quests: ['quests', 'achievements'],
+  quests: ['quests', 'achievements', 'story'],
   settings: ['settings'],
 };
-const SUBTAB_LABELS = { inventory: 'Bag', equipment: 'Gear', combat: 'Combat', prayer: 'Prayer', stats: 'Stats', quests: 'Quests', achievements: 'Awards' };
+const SUBTAB_LABELS = { inventory: 'Bag', equipment: 'Gear', combat: 'Combat', prayer: 'Prayer', stats: 'Stats', quests: 'Quests', achievements: 'Awards', story: 'Story' };
 /** The tab that holds a view ('prayer' -> 'combat'). */
 export const tabOfView = (view) => Object.keys(PANEL_TABS).find((t) => PANEL_TABS[t].includes(view)) || null;
 
@@ -339,6 +342,8 @@ export class UI {
     this.renderAbilities();
     this.renderTracker();
     installHomeUI(this);   // the kampong home's panel and its button by the map (homeui.js)
+    installStoryUI(this);  // the Journal's Story view and chapter scenes (storyui.js)
+    installReputationUI(this, PANEL_TABS, SUBTAB_LABELS);   // the Journal's Regions view and the region pill (reputationui.js)
   }
 
   // ---------------- Active-combat ability bar ----------------
@@ -622,7 +627,7 @@ export class UI {
   _setPanelTitle(view) {
     const el = this.el.panelTitle || this.el.panelHead;
     if (!el) return;
-    const titles = { inventory: 'Inventory', equipment: 'Worn Equipment', skills: 'Skills', combat: 'Combat', prayer: 'Prayers', quests: 'Quest Journal', stats: 'Final Stats', achievements: 'Achievements', settings: 'Settings' };
+    const titles = { inventory: 'Inventory', equipment: 'Worn Equipment', skills: 'Skills', combat: 'Combat', prayer: 'Prayers', quests: 'Quest Journal', stats: 'Final Stats', achievements: 'Achievements', story: 'Story', settings: 'Settings' };
     el.textContent = titles[view] || '';
   }
 
@@ -845,6 +850,7 @@ export class UI {
     }
     this._renderSubtabs(tab, view);
     if (view === 'stats') this.renderStatsPanel();   // it only redraws while showing, so bring it up to date
+    if (view === 'story') this.renderStoryPanel?.();  // (storyui.js) likewise
     // The skills list carries a name + description per row, so it gets more room.
     document.getElementById('sidepanel')?.classList.toggle('wide', view === 'skills');
   }
@@ -3512,7 +3518,7 @@ export class UI {
       const shopGrid = document.createElement('div');
       shopGrid.className = 'item-grid shop';
       for (const entry of shop.stock) {
-        const price = Math.max(1, Math.round(getItem(entry.id).value * shop.buyMul * this.game.priceFactor().buy));
+        const price = Math.max(1, Math.round(getItem(entry.id).value * shop.buyMul * this.game.priceFactor(shopId).buy));
         const buyCell = this._cell(entry.id, entry.qty, {
           tooltip: `<b>${getItem(entry.id).name}</b><br>Buy: ${price} coins`,
           onClick: (e) => this.game.buyItem(shopId, entry.id, e?.shiftKey ? 10 : 1),
@@ -3848,7 +3854,8 @@ export class UI {
   openDialogue(npc) {
     if (npc.def.dialogue === 'slayer') return this.openSlayerMaster(npc);
     if (npc.def.dialogue === 'pest') return openPestOfficer(this, npc);   // Pest Control contracts (cullingui.js)
-    const tree = npc.def.moral ? this._moralTree(npc.def.moral) : npc.def.dialogue === 'region' ? regionDialogue(this.game, npc) : getDialogue(npc.def.dialogue);
+    if (npc.def.dialogue === 'story') return this.game.story?.talkTo(npc);   // a story messenger (story.js)
+    const tree = personalise(this.game, npc, npc.def.moral ? this._moralTree(npc.def.moral) : npc.def.dialogue === 'region' ? regionDialogue(this.game, npc) : getDialogue(npc.def.dialogue));   // memory.js
     if (!tree) { this.game.msg(`${npc.name} has nothing to say.`); return; }
     const show = (nodeId) => {
       const node = tree[nodeId];

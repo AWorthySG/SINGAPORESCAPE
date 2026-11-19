@@ -80,6 +80,10 @@ import { LIFE_STAGES, LIFE_GRAD, LIFE_STAGES_ADV, LIFE_GRAD_ADV, LIFE_STAGES_WIL
 import { QUESTS, CHAMPION_QP, REDEMPTION_GOAL, CORRUPTION_GOAL } from '../data/quests.js';
 import { CLUE_TIERS, CLUE_SPOTS, clueTierForLevel } from '../data/clues.js';
 import * as RQ from './regionquests.js';   // region story quests
+import { Story } from './story.js';   // the main story, lore pages, story events and scenes
+import * as Life from './npclife.js';   // living NPCs, region reputation, consequences (npclife.js)
+import { repPriceMult, repTitleText } from './reputation.js';
+import { consequencePriceMult } from './consequences.js';
 
 // Auto quest: the dialogue actions that start and hand in each quest it can
 // do ([start, hand-in]; Pest Control completes itself on the last rat). The
@@ -465,6 +469,7 @@ export class Game {
     this.collection = new Collection(this);   // the Collection log: every source's unique drops (collection.js)
     this.pets = new Pets(this);       // rare boss and life-skill pets, and the one following you (pets.js)
     this.worldEvents = new WorldEvents(this);   // roaming world events and weekly region challenges (worldevents.js)
+    this.story = new Story(this);     // the main story's chapters, lore pages, story events and scenes (story.js)
     installSkillUnlocks(this);        // life skill unlocks at 10/25/50/75/99 (skillunlocks.js)
     this.home = new Home(this);       // the kampong home plot in Kranji (home.js)
     this.snareGiven = true;           // a new character has the starter snare; older saves get one on load (onboarding.js)
@@ -615,6 +620,7 @@ export class Game {
     this.bus.emit('prayer');
     this.updateRegion();
     RQ.syncRegionQuests(this);
+    this.story.sync();
     this.ensureBounties();
     this.checkAchievements(true);
     this.bus.emit('achievement');
@@ -976,7 +982,7 @@ export class Game {
     if (this._autoRetarget) { this._autoRetarget = false; if (this.autoBattle && this.player.alive) this._autoBattleTick(); }
 
     // The camera follows a little ahead of you (and toward a boss making its entrance).
-    const c = this.cine.update(this, dt);
+    const c = this.story.camera(this.cine.update(this, dt), dt);   // a story scene leans toward its speaker
     this.camera.follow(c.x, c.y, 0.22, { width: this.world.width, height: this.world.height }, dt);
 
     for (const e of this.effects) e.life -= adt;
@@ -1122,6 +1128,7 @@ export class Game {
     this.worldEvents.tick();
     this._tickTownGuards();
     this._tickGreetings();
+    Life.tickLife(this);   // routines, chats, remarks, reputation (npclife.js)
     this.cine.tick(this);   // fight push-in, and a boss's entrance the first time it engages
     this._tickIgnites();
     this._tickWounds();
@@ -1389,6 +1396,7 @@ export class Game {
       case 'homemenu': return this._tickArrival(a, a.target, true, () => this.bus.emit('homeopen', a.obj.def.homeTab));   // homeui.js
       case 'openshop': return this._tickArrival(a, a.target, true, () => this.ui?.openShop(a.shop));
       case 'talk': return this._tickArrival(a, a.target, true, () => this.ui?.openDialogue(a.npc));
+      case 'storyobj': return this._tickArrival(a, a.target, true, () => this.story.useObject(a.obj));
       case 'questtalk': return this._tickArrival(a, a.target, true, () => this._autoQuestTalk(a.quest, a.npc));
       default: p.clearAction();
     }
@@ -3064,7 +3072,7 @@ export class Game {
   }
   /** Overhead title, colour and aura for the current alignment (alignment.js). */
   alignmentStyle() {
-    const a = this.alignment(), t = Culling.titleText(this);   // asked every frame by the renderer: kept until either changes
+    const a = this.alignment(), t = Culling.titleText(this) || repTitleText(this);   // asked every frame by the renderer: kept until either changes
     // A Neutral hero has no alignment title, so a codex title they wear shows instead.
     if (this._alStyle?.a !== a || this._alStyle.t !== t) { const st = alignmentStyle(a); this._alStyle = { a, t, ...st, label: st.label || t }; }
     return this._alStyle;
@@ -3080,10 +3088,12 @@ export class Game {
     return { buy: 1, sell: 1 };
   }
 
-  /** Shop prices: karma, then the Economics Trader perk from mastered topics. */
-  priceFactor() {
+  /** Shop prices: karma, then the Economics Trader perk from mastered topics,
+   *  then (buying at `shopId`) your standing in the region and your choices. */
+  priceFactor(shopId = null) {
     const k = this.karmaFactor(), t = this.learning.perks().shop;
-    return { buy: k.buy * (1 - t), sell: k.sell * (1 + t) };
+    const local = shopId ? repPriceMult(this, this.currentZoneName) * consequencePriceMult(this, shopId) : 1;
+    return { buy: k.buy * (1 - t) * local, sell: k.sell * (1 + t) };
   }
 
   // ---------------- Moral choice encounters (moralEvents.js) ----------------
@@ -3369,6 +3379,7 @@ export class Game {
     this._deathBurst(npc);
     this.rollDrops(npc);
     this.pets.onKill(npc);   // a boss's very rare pet (pets.js)
+    Life.lifeOnKill(this, npc, onTask);   // region reputation and the deeds townsfolk talk about
     // Slayer: a task monster sometimes drops a second helping of loot.
     if (onTask && Math.random() < this.slayerBonus().loot / 100) { this.rollDrops(npc); this.msg('Slayer bonus: extra loot!', 'system'); }
     if (npc.worldBoss) { for (let k = 1; k < WORLD_BOSS_LOOT_ROLLS; k++) this.rollDrops(npc); this.msg('World Boss slain! Triple loot.', 'level'); }
@@ -3381,6 +3392,7 @@ export class Game {
     // resolves) instead of idling until the next world tick.
     if (this.autoBattle) { this._autoLast = null; this._autoRetarget = true; }
     RQ.onRegionKill(this, npc);
+    this.story.onKill(npc);   // lore page drops, lore guardians (story.js)
     const pc = this.quests.pest_control;
     if (pc.state === 'active' && npc.npcId === 'rat') {
       pc.kills++;
@@ -4557,6 +4569,7 @@ export class Game {
     // Falling in the Endless Gate ends the run (nothing is lost) and you wake by its gate.
     this._respawnAt = this.waves.onDeath();
     this.worldEvents.onDeath();   // a world event is called off (and packed away)
+    this.story.onDeath();   // ...and so is a story event or scene
     this.ui?.closeModal();
   }
 
@@ -5424,10 +5437,11 @@ export class Game {
 
   defaultNpcAction(npc) {
     if (npc.attackable) return this.attackNpc(npc);
-    if (npc.def.role === 'shop') return this.beginAction({ type: 'openshop', shop: npc.def.shop, target: { x: npc.x, y: npc.y } }, { x: npc.x, y: npc.y }, true);
-    if (npc.def.role === 'bank') return this.beginAction({ type: 'openbank', target: { x: npc.x, y: npc.y } }, { x: npc.x, y: npc.y }, true);
     if (npc.def.role === 'mark') return this.startPickpocket(npc);   // a Thieving mark has nothing to say
-    return this.beginAction({ type: 'talk', npc, target: { x: npc.x, y: npc.y } }, { x: npc.x, y: npc.y }, true);
+    const at = Life.holdNpc(this, npc);   // they stop and turn to you (npclife.js)
+    if (npc.def.role === 'shop') return this.beginAction({ type: 'openshop', shop: npc.def.shop, target: at }, at, true);
+    if (npc.def.role === 'bank') return this.beginAction({ type: 'openbank', target: at }, at, true);
+    return this.beginAction({ type: 'talk', npc, target: at }, at, true);
   }
 
   defaultObjectAction(obj) {
@@ -5454,6 +5468,7 @@ export class Game {
       case 'transport': return this.beginAction({ type: 'transport', obj, target: tgt }, tgt, true);
       case 'gate': return this.beginAction({ type: 'gate', obj, target: tgt }, tgt, true);
       case 'home': return this.beginAction({ type: 'homemenu', obj, target: tgt }, tgt, true);
+      case 'storyobj': return this.beginAction({ type: 'storyobj', obj, target: tgt }, tgt, true);   // lore notes, story events (story.js)
       default: return this.walkTo(tgt);
     }
   }
@@ -6842,7 +6857,7 @@ export class Game {
   // ---------------- Shop trading ----------------
   buyItem(shopId, itemId, qty = 1) {
     const shop = getShop(shopId);
-    const price = Math.max(1, Math.round(getItem(itemId).value * shop.buyMul * this.priceFactor().buy));
+    const price = Math.max(1, Math.round(getItem(itemId).value * shop.buyMul * this.priceFactor(shopId).buy));
     let bought = 0;
     // Stackables (runes, arrows...) are bought in one go: as many as your coins
     // cover, up to the amount asked for (a thousand at a time is common).
