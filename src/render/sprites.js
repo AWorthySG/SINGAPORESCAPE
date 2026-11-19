@@ -828,9 +828,9 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
       if (idle && drawTownIdle(c, npcId, idle, h, opts.time || 0, cx)) return;
       // An A-Worthling is a mirror image of the Merchant, a little see-through.
       if (npcId === 'aworthling') c.globalAlpha *= 0.8;
-      if (TOWN_TINT[npcId] && 'filter' in c) c.filter = TOWN_TINT[npcId];   // a borrowed picture, recoloured
-      c.drawImage(timg, -w / 2, TOWN_ART_FEET - h, w, h);
-      if (TOWN_TINT[npcId] && 'filter' in c) c.filter = 'none';
+      // A borrowed picture, recoloured (baked once, see tintedArt).
+      const pic = TOWN_TINT[npcId] && 'filter' in c ? tintedArt(timg, TOWN_TINT[npcId]) || timg : timg;
+      c.drawImage(pic, -w / 2, TOWN_ART_FEET - h, w, h);
     });
   }
   return staged(ctx, cx, cy, opts, (c) => {
@@ -2358,6 +2358,26 @@ function worldImage(key) {
   return img;
 }
 export const worldArt = () => new Set(Object.keys(WORLD_ART));
+// A borrowed world picture recoloured by its `tint` (a CSS filter), baked once
+// per picture and tint. A canvas filter set at draw time costs a layer and a
+// filter pass on every draw: a bay of tinted fishing spots did that each frame.
+const _tinted = new Map();
+export function tintedArt(img, tint) {
+  if (!img || !img.naturalWidth) return null;   // not loaded yet: nothing to bake
+  const key = `${img.src}|${tint}`;
+  let c = _tinted.get(key);
+  if (c !== undefined) return c;
+  c = null;
+  if (typeof document !== 'undefined') {
+    try {
+      const cv = document.createElement('canvas'); cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+      const g = cv.getContext('2d');
+      if (g && 'filter' in g) { g.filter = tint; g.drawImage(img, 0, 0); c = cv; }
+    } catch { c = null; }
+  }
+  _tinted.set(key, c);
+  return c;
+}
 function drawWorldArt(ctx, obj, img, key, cx, cy, time) {
   const [mw, mh, foot] = WORLD_ART[key];
   const s = Math.min(mw / img.naturalWidth, mh / img.naturalHeight);
@@ -2370,7 +2390,7 @@ function drawWorldArt(ctx, obj, img, key, cx, cy, time) {
   ctx.save();
   // Spent stalls, traps and fishing spots fade back; trees and rocks swap pictures instead.
   if (obj.depleted && t !== 'tree' && t !== 'rock') ctx.globalAlpha = 0.5;
-  if (obj.def.tint && 'filter' in ctx) ctx.filter = obj.def.tint;   // a borrowed picture, recoloured
+  if (obj.def.tint && 'filter' in ctx) img = tintedArt(img, obj.def.tint) || img;   // a borrowed picture, recoloured
   if (t === 'tree' && !obj.depleted) {
     // The canopy leans gently about the base of the trunk.
     const sway = Math.sin(time * 0.0012 + obj.x * 1.7 + obj.y) * 1.4;

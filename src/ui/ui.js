@@ -864,6 +864,7 @@ export class UI {
     }
     this._renderSubtabs(tab, view);
     if (view === 'stats') this.renderStatsPanel();   // it only redraws while showing, so bring it up to date
+    if (view === 'skills' && this._skillsStale) this.renderSkills();   // likewise
     if (view === 'story') this.renderStoryPanel?.();  // (storyui.js) likewise
     // The skills list carries a name + description per row, so it gets more room.
     document.getElementById('sidepanel')?.classList.toggle('wide', view === 'skills');
@@ -1776,6 +1777,10 @@ export class UI {
   // ---------------- Skills ----------------
   renderSkills() {
     const grid = this.el.skillsGrid;
+    // Every XP drop asks for this (a few times a second in a fight): while the
+    // Skills view is hidden, just note it is out of date and rebuild on opening.
+    if (grid?.closest?.('.panel-view')?.classList.contains('hidden')) { this._skillsStale = true; return; }
+    this._skillsStale = false;
     grid.innerHTML = '';
     // One labelled row per skill (icon, name, what it's for, level), grouped
     // into Combat / Gathering / Making / Other.
