@@ -52,7 +52,7 @@ export const SKILL_GUIDES = {
   ranged: { use: 'Bow, gun and crossbow damage. Every 20 levels unlocks a passive perk, and higher levels unlock better bows and hide armour.', combat: true },
   magic: { use: 'Spell power. Every 20 levels unlocks a passive perk, and higher levels unlock better staves and robes.', combat: true },
   hitpoints: { use: 'Your life. It rises as you deal damage in any style. Eat food to heal: the better the food, the more it heals.', combat: true },
-  prayer: { use: `Unlocks combat prayers. Bury bones anywhere, or offer them at an A-Worthy Monument for ${ALTAR_XP_MULT}x XP.`, combat: true, where: ['shrine'] },
+  prayer: { use: `Unlocks Blessings (always-on, in slots that grow with your level) and powers the Prayer Burst. Bury bones anywhere, or offer them at an A-Worthy Monument for ${ALTAR_XP_MULT}x XP.`, combat: true, where: ['shrine'] },
   slayer: { use: 'Tasks from Slayer Master Rajan. On task you hit harder and sometimes get a second helping of loot; points buy rewards.', combat: true },
 };
 export const GUIDE_SKILLS = Object.keys(SKILL_GUIDES);
@@ -465,7 +465,7 @@ export function bestSpotsFor(game, level, n = 5) {
 /** The extra lists a fighting skill's guide shows: spells, prayers, Slayer tasks and rewards, food. */
 export function combatExtras(skill) {
   if (skill === 'magic') return { title: 'Spells', rows: SPELLS.map((s) => ({ level: s.level, name: s.name, text: `Runes: ${Object.entries(s.runes).map(([r, q]) => `${q} ${name(r)}`).join(', ')}`, items: Object.keys(s.runes) })) };
-  if (skill === 'prayer') return { title: 'Prayers', rows: PRAYERS.map((p) => ({ level: p.level, name: p.name, text: [p.def && `+${Math.round(p.def * 100)}% Defence`, p.str && `+${Math.round(p.str * 100)}% Strength`, p.ranged && `+${Math.round(p.ranged * 100)}% Ranged`, p.magic && `+${Math.round(p.magic * 100)}% Magic`, p.crit && `+${Math.round(p.crit * 100)}% crit chance`, p.protect && `Blocks ${Math.round(p.protect * 100)}% of melee damage`].filter(Boolean).join(', ') || 'A blessing' })) };
+  if (skill === 'prayer') return { title: 'Blessings', rows: PRAYERS.map((p) => ({ level: p.level, name: p.name, text: [p.def && `+${Math.round(p.def * 100)}% Defence`, p.str && `+${Math.round(p.str * 100)}% Strength`, p.ranged && `+${Math.round(p.ranged * 100)}% Ranged`, p.magic && `+${Math.round(p.magic * 100)}% Magic`, p.crit && `+${Math.round(p.crit * 100)}% crit chance`, p.protect && `Blocks ${Math.round(p.protect * 100)}% of damage taken`, p.slots > 1 && `takes ${p.slots} slots`].filter(Boolean).join(', ') || 'A blessing' })) };
   if (skill === 'slayer') return { title: 'Tasks', rows: SLAYER_TASKS.slice().sort((a, b) => a.req - b.req || a.name.localeCompare(b.name)).map((t) => ({ level: t.req, name: t.name, text: `${t.min}-${t.max} kills` })),
     rewards: SLAYER_REWARDS.map((r) => ({ id: r.id, qty: r.qty, cost: r.cost })) };
   if (skill === 'hitpoints') {

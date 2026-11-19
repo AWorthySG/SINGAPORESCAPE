@@ -26,7 +26,7 @@ export const STAT_HELP = [
   ['Magic bonus', 'more damage from spells (staves, wands, robes)'],
   ['Lifesteal', 'heals you by a share of the damage you deal (dancewear)'],
   ['Boss damage', 'extra damage against bosses and champions'],
-  ['Prayer', 'prayers drain more slowly: +30 halves the drain (prayer accessories)'],
+  ['Prayer', 'Faith fills faster as you fight: +30 doubles it (prayer accessories)'],
 ];
 
 /** Weapon style: 'melee' | 'ranged' | 'magic' | 'dance'. */

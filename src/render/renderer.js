@@ -418,7 +418,7 @@ export class Renderer {
           hasBody: !!game.equipment.get('body'), hasWeapon: !!game.equipment.get('weapon'), weaponType: game.combatMode(),
           hasCape: !!game.equipment.get('cape'), hasHelm: !!game.equipment.get('head'),
           hasShield: !!game.equipment.get('shield') && !game.equipment.isDualWielding() && !/_quiver$/.test(game.equipment.get('shield')),   // a quiver is no shield
-          dualWield: game.equipment.isDualWielding(), prayerActive: game.activePrayers.size > 0, jobClass: game.jobClass,
+          dualWield: game.equipment.isDualWielding(), prayerActive: !!game.burstActive?.(), jobClass: game.jobClass,
           gait: { phase: game.player.walkPhase, move: game.player.animMove, run: game.player.running && game.player.isMoving,
             turn: game.player.turnT / TURN_MS },
         });

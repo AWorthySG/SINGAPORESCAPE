@@ -84,7 +84,7 @@ input.onKey((e) => {
   // Typing in a search box (bank, bestiary) must not fire the shortcut keys.
   const t = e.target;
   if (e.key !== 'Escape' && t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
-  if ('fgqepzxcvb '.includes(e.key?.toLowerCase() || '-')) handsOn(game);
+  if ('fgqlepzxcvb '.includes(e.key?.toLowerCase() || '-')) handsOn(game);
   // The number keys pick the five panel tabs: 1 Bag, 2 Skills, 3 Combat, 4 Journal, 5 Settings.
   const map = { '1': 'inventory', '2': 'skills', '3': 'combat', '4': 'quests', '5': 'settings' };
   if (map[e.key]) {
@@ -99,6 +99,8 @@ input.onKey((e) => {
     game.attackNearest();   // lock onto the nearest enemy, like the Attack button
   } else if (e.key === 'q' || e.key === 'Q') {
     game.toggleSpec();
+  } else if (e.key === 'l' || e.key === 'L') {
+    game.prayerBurst();   // spend a full bar of Faith (game/blessings.js)
   } else if (ABILITY_KEYS.has(e.key?.toLowerCase())) {
     game.activateAbilityKey(e.key);
   } else if (e.key === 'e' || e.key === 'E' || e.key === ' ') {

@@ -386,7 +386,7 @@ test('the bone quest takes any kind of bones, cheapest first', () => {
   assert.equal(game.inventory.count('spirit_bones'), 2, 'the best bones are kept');
 });
 
-test('prayers activate, conflict by group, boost combat and drain points', () => {
+test('blessings equip, conflict by group, boost combat and never drain', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
   const game = new Game();
@@ -402,11 +402,12 @@ test('prayers activate, conflict by group, boost combat and drain points', () =>
   assert.ok(!game.activePrayers.has('burst_strength') && game.activePrayers.has('superhuman'));
 
   game.togglePrayer('protect_melee');
-  assert.ok(game.protectFactor() > 0, 'protect prayer reduces incoming damage');
+  assert.ok(game.protectFactor() > 0, 'protect blessing reduces incoming damage');
 
   const before = game.prayerPoints;
   for (let i = 0; i < 10; i++) game.update(600);
-  assert.ok(game.prayerPoints < before, 'prayer points drain while active');
+  assert.equal(game.prayerPoints, before, 'equipped blessings cost no Faith');
+  assert.ok(game.activePrayers.has('superhuman') && game.activePrayers.has('protect_melee'), 'and stay on');
 });
 
 test('pest control quest tracks rat kills to completion', () => {
@@ -5631,26 +5632,24 @@ test('best in slot swaps a wielded tool for a weapon', () => {
   assert.equal(g.equipment.get('weapon'), 'iron_dagger', 'the axe makes way for a dagger');
 });
 
-test('prayer accessories slow the prayer drain', () => {
+test('prayer accessories make Faith fill faster', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
   const g = new Game(); g.start();
   g.ui = new Proxy({}, { get: () => () => {} });
   g.skills.addXp('prayer', 40000);   // about Prayer 40
   assert.ok(g.skills.level('prayer') >= 30, 'high enough Prayer for the gear');
-  const drainOver = (ticks) => {
-    g.prayerPoints = g.maxPrayer();
-    g.activePrayers.clear(); g.togglePrayer('clarity');
-    const before = g.prayerPoints;
-    for (let i = 0; i < ticks; i++) g.drainPrayer();
-    return before - g.prayerPoints;
+  const gainOver = (hits) => {
+    g.prayerPoints = 0;
+    for (let i = 0; i < hits; i++) g.gainFaith(0.01);
+    return g.prayerPoints;
   };
-  const bare = drainOver(10);
+  const bare = gainOver(10);
   g.equipment.set('amulet', 'holy_beads'); g.equipment.set('cape', 'pilgrim_cape');
   assert.equal(g.equipment.bonuses().prayer, 9);
-  const geared = drainOver(10);
-  assert.ok(bare > 0 && geared < bare, `gear slows the drain (${geared} < ${bare})`);
-  assert.ok(Math.abs(geared / bare - 1 / (1 + 9 / 30)) < 1e-6, 'by 1 / (1 + prayer / 30)');
+  const geared = gainOver(10);
+  assert.ok(bare > 0 && geared > bare, `gear speeds Faith up (${geared} > ${bare})`);
+  assert.ok(Math.abs(geared / bare - (1 + 9 / 30)) < 1e-6, 'by 1 + prayer / 30');
 });
 
 test('new gear enters the game: the Fletcher sells quivers, and every drop is a real item', async () => {

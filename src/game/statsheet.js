@@ -19,7 +19,7 @@ import { getItem } from '../data/items.js';
 import { getSpell, ELEMENTS, elementMatchup } from '../data/magic.js';
 import { raceOf, matchup, RACE_BONUS, RACE_PENALTY } from '../data/races.js';
 import { POTIONS } from '../data/trades.js';
-import { PRAYER_BY_ID } from '../data/prayers.js';
+import { PRAYER_BY_ID, burstPower } from '../data/prayers.js';
 import { CLASS_BY_ID } from '../data/classes.js';
 import { classPassiveMods, CLASS_SKILL } from '../data/classPassives.js';
 import { masteryDamage, stewardship, masterySummary, titleText, MASTERY_TIERS } from './culling.js';
@@ -310,7 +310,7 @@ export function statSheet(game) {
     const prot = game.protectFactor(), buff = Math.min(0.9, game.buffMod('reduce')), pr = defPerks.get('reduce');
     const perkCut = Math.min(0.6, pr.total);
     const tot = 1 - (1 - prot) * (1 - buff) * (1 - perkCut);
-    const parts = [...(prot ? [['Protect prayer', fracPct(prot)]] : []), ...(buff ? [['Class buff', fracPct(buff)]] : []), ...perkLines(pr)];
+    const parts = [...(prot ? [[game.burstWard > 0 ? 'Burst ward' : 'Protect blessing', fracPct(prot)]] : []), ...(buff ? [['Class buff', fracPct(buff)]] : []), ...perkLines(pr)];
     if (game.braceTicks > 0) parts.push(['Bracing now', '×0.5']);
     defence.push(row('reduce', 'Damage reduction %', fracPct(tot, false), parts, 'The sources multiply; perks and potions stop at 60%.'));
     const br = defPerks.get('bossReduce');
@@ -339,8 +339,8 @@ export function statSheet(game) {
   utility.push(row('run', 'Run speed', `${r1(1000 / (TICK_MS * game.playerStepMul() * game.player.runMul))} tiles/s`));
   {
     const p = part('prayer');
-    utility.push(row('prayer', 'Prayer points', `${Math.ceil(game.prayerPoints)} / ${game.maxPrayer()}`,
-      p.total ? [['Prayer bonus', `+${num(p.total)}`], ['Drain slowed by', pct(100 - 100 / (1 + p.total / 30), false)]] : []));
+    utility.push(row('prayer', 'Faith', `${Math.floor(game.prayerPoints)} / ${game.maxPrayer()}`,
+      p.total ? [['Prayer bonus', `+${num(p.total)}`], ['Faith fills faster by', pct(100 * p.total / 30, false)]] : []));
   }
   {
     const x = game.xpBreakdown();
@@ -404,10 +404,12 @@ export function activeEffects(game) {
   }
   for (const id of game.activePrayers || []) {
     const p = PRAYER_BY_ID[id];
-    const bits = [['str', 'melee damage'], ['def', 'defence'], ['ranged', 'ranged damage'], ['magic', 'magic damage'], ['crit', 'crit chance'], ['protect', 'melee damage blocked']]
+    const bits = [['str', 'melee damage'], ['def', 'defence'], ['ranged', 'ranged damage'], ['magic', 'magic damage'], ['crit', 'crit chance'], ['protect', 'damage blocked']]
       .filter(([k]) => p[k]).map(([k, l]) => `${fracPct(p[k], k !== 'protect')} ${l}`);
-    out.push({ name: p.name, detail: `${bits.join(', ')} (prayer)`, left: null, off: '' });
+    out.push({ name: p.name, detail: `${bits.join(', ')} (blessing)`, left: null, off: '' });
   }
+  if (game.burstWard > 0) out.push({ name: 'Burst ward', detail: 'every blow stopped', left: game.burstWard * TICK_MS, off: '' });
+  if (game.burstZeal > 0) out.push({ name: 'Burst zeal', detail: `${fracPct(burstPower(game.skills.prayer).zeal)} damage`, left: game.burstZeal * TICK_MS, off: '' });
   if (game.braceTicks > 0) out.push({ name: 'Brace', detail: 'incoming damage halved', left: game.braceTicks * TICK_MS, off: '' });
   if (game.blessedMs > 0) out.push({ name: 'Blessed', detail: `combat XP ${times(game.xpBreakdown().blessed)}`, left: game.blessedMs, off: '' });
   if (game.slayer?.task) out.push({ name: 'Slayer task', detail: `${game.slayer.task.remaining} ${game.slayer.task.name} left, ${pct(game.slayerBonus().dmg)} damage to them`, left: null, off: '' });

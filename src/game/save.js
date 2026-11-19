@@ -8,6 +8,7 @@ import { serializePlay, loadPlay } from './playbalance.js';
 import { ensureHunterSnare } from './onboarding.js';
 import { serializeLiving, loadLiving } from './living.js';
 import { serializeKeep, loadKeep } from './bankkeep.js';
+import { trimBlessings } from './blessings.js';
 
 const VERSION = 1;
 // An unreadable save is copied here before a new game replaces it, so a bug or
@@ -81,6 +82,8 @@ export function snapshot(game) {
     attrs: game.attrs,
     clue: game.clue,
     specEnergy: game.specEnergy,
+    blessings: [...game.activePrayers],   // the equipped Blessings (blessings.js)
+    prayerPoints: Math.round(game.prayerPoints * 100) / 100,   // Faith
     bossRecord: game.bossRecord,
     waveBest: game.waves?.best || 0,
     play: serializePlay(game),   // Focus, rested pool and gravestone (playbalance.js)
@@ -361,6 +364,13 @@ function loadFields(game, data) {
   loadLiving(game, data.living);   // region reputation and remembered deeds (older saves have none)
   if (data.clue && typeof data.clue === 'object' && Array.isArray(data.clue.spots)) game.clue = data.clue;
   if (typeof data.specEnergy === 'number') game.specEnergy = Math.max(0, Math.min(100, data.specEnergy));
+  // Blessings and Faith (blessings.js). Older saves have neither: the old toggled
+  // prayers were never saved (an `activePrayers` list is still taken if present),
+  // so they start with nothing equipped and a full bar, as they used to reload.
+  // The loadout is trimmed to the Prayer level's slots and conflict groups.
+  { const list = Array.isArray(data.blessings) ? data.blessings : Array.isArray(data.activePrayers) ? data.activePrayers : [];
+    game.activePrayers = new Set(trimBlessings(game.skills.prayer, list.filter((id) => typeof id === 'string')));
+    game.prayerPoints = typeof data.prayerPoints === 'number' && data.prayerPoints >= 0 ? Math.min(data.prayerPoints, game.maxPrayer()) : game.maxPrayer(); }
   game.running = data.settings?.running ?? game.running;
   // Job class: older saves pick one on their next visit.
   game.jobClass = typeof data.jobClass === 'string' ? data.jobClass : null;

@@ -21,7 +21,7 @@ import { ITEMS, getItem, TWO_HANDED_TYPES, QUIVER_BOW_TYPES } from './items.js';
 import { ALL_MONSTER_IDS, ALL_BOSS_IDS, getNpc, RARE_DROP_TABLE, stretchLevel } from './npcs.js';
 import { RACES, WEAPON_VS_RACE, RACE_BONUS } from './races.js';
 import { ELEMENTS, SPELLS } from './magic.js';
-import { PRAYERS } from './prayers.js';
+import { PRAYERS, BLESSING_SLOT_LADDER, FAITH_BASE, FAITH_GAIN, burstPower } from './prayers.js';
 import { SKILLS, SKILL_BY_ID } from './skills.js';
 import { SKILL_HOURS, GOLDEN_HOUR_XP } from './skillhours.js';
 import { SKILL_UNLOCKS, UNLOCK_LEVELS, GATHER_CONSUMABLES } from './unlocks.js';
@@ -159,7 +159,7 @@ export function mrtRows() {
   return STATIONS.map((s) => [s.name]);
 }
 
-/** Prayers: name, Prayer level, what it does, drain. */
+/** Blessings: name, Prayer level, what it does, slots it takes. */
 export function prayerRows() {
   return PRAYERS.map((p) => {
     const fx = [];
@@ -168,8 +168,8 @@ export function prayerRows() {
     if (p.ranged) fx.push(`+${pct(p.ranged)} Ranged`);
     if (p.magic) fx.push(`+${pct(p.magic)} Magic`);
     if (p.crit) fx.push(`+${pct(p.crit)} crit chance`);
-    if (p.protect) fx.push(`stops ${pct(p.protect)} of melee damage`);
-    return [p.name, num(p.level), fx.join(', '), num(p.drain)];
+    if (p.protect) fx.push(`stops ${pct(p.protect)} of damage taken`);
+    return [p.name, num(p.level), fx.join(', '), num(p.slots || 1)];
   });
 }
 
@@ -291,6 +291,7 @@ export const CHAPTERS = [
             ['E or Space', 'Interact with the nearest thing'],
             ['F', 'Quick eat: eat the first food in your bag'],
             ['Q', 'Arm your weapon\'s special attack'],
+            ['L', 'Prayer Burst, when your Faith is full (see [[prayers]])'],
             ['Z X C V B', 'Your five combat skills (see [[abilities]])'],
             ['T', 'Auto battle on or off'],
             ['Y', 'Auto gather on or off'],
@@ -469,12 +470,14 @@ export const CHAPTERS = [
         see: ['prayers', 'auto-battle'],
       },
       {
-        id: 'prayers', title: 'Prayers',
-        summary: 'Turn them on in the Combat tab; they drain prayer points.',
+        id: 'prayers', title: 'Blessings and the Prayer Burst',
+        summary: 'Equip Blessings in the Combat tab: always on, no drain. Full Faith fires a Burst (L).',
         body: [
-          'Prayers boost you while they are on, and drain prayer points (some faster than others). Your prayer points top out at your Prayer level. Only one prayer of each kind (attack, strength, defence, ranged, magic) works at once.',
+          `**Blessings** are Prayer's loadout. Equip them in the **Prayer** view of the Combat tab: an equipped blessing is always on and never drains. You have ${BLESSING_SLOT_LADDER.map((r) => `**${r.slots}** slot${r.slots > 1 ? 's' : ''} at Prayer ${r.level}`).join(', ')}. Only one blessing of each kind (attack, strength, defence, ranged, magic) can be equipped, and Spirit of the Worthy takes two slots. Tap a slot to take its blessing off.`,
+          `**Faith** fills as you fight: ${pct(FAITH_GAIN.hit)} of the bar for each hit you land, ${pct(FAITH_GAIN.hurt)} for each hit you take and ${pct(FAITH_GAIN.kill)} for a kill, so about 45 seconds of fighting fills it. Burying bones and kneeling at an A-Worthy Monument fill it too, and prayer accessories make it fill faster (+30 Prayer bonus doubles it). The bar holds ${FAITH_BASE} + your Prayer level.`,
+          `With a full bar, press **L** (or tap the Faith orb, or **Burst** in the panel) for a **Prayer Burst**: heal ${pct(burstPower(1).heal)} of your life (more with Prayer level, up to ${pct(burstPower(300).heal)}), a ward that stops every blow for 3 seconds, and +${pct(burstPower(1).zeal)} damage (up to +${pct(burstPower(300).zeal)}) for 8 seconds. Auto battle fires it when you drop below 40% life or fight a boss or champion.`,
           `Train Prayer by burying bones, or offer them at an A-Worthy Monument for **x${ALTAR_XP_MULT} XP**.`,
-          () => ({ table: { head: ['Prayer', 'Level', 'Effect', 'Drain rate'], rows: prayerRows() } }),
+          () => ({ table: { head: ['Blessing', 'Level', 'Effect', 'Slots'], rows: prayerRows() } }),
         ],
         see: ['abilities', 'skills-overview'],
       },

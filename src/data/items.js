@@ -1177,7 +1177,7 @@ for (const [id, name, slot, lvl, P, extra, value, examine] of ENDGAME_JEWELLERY)
     equip: { slot, req: { defence: lvl }, bonuses: { ...accessoryStats('melee', P), ...accessoryStats('ranged', P), ...accessoryStats('magic', P), ...extra } } };
 }
 
-// ---- Prayer accessories: no fighting stats, but prayers last longer (bonus `prayer`, see Game.drainPrayer) ----
+// ---- Prayer accessories: no fighting stats, but Faith fills faster (bonus `prayer`, see blessings.js gainFaith) ----
 export const PRAYER_GEAR = [
   // id, name, slot, Prayer level, prayer, defence, hp, value, examine
   ['holy_beads', 'Holy beads', 'amulet', 10, 4, 2, 0, 800, 'Pearl beads worn smooth by quiet prayer.'],

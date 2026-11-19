@@ -35,7 +35,7 @@ import { stackLabel, capitalize, formatNumber, shortNumber } from '../core/utils
 import { RHYTHM_MAX, levelBonuses, playerMagicVsNpc } from '../game/combat.js';
 import { classPassives, CLASS_SKILL } from '../data/classPassives.js';
 import { ELEMENTS, SPELLS, getSpell } from '../data/magic.js';
-import { PRAYERS } from '../data/prayers.js';
+import { buildBlessingsPanel, renderBlessingsPanel, renderFaithOrb } from './blessingsui.js';
 import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
 import { QUESTS } from '../data/quests.js';
 import { SLAYER_REWARDS, SLAYER_FULL_LEVEL, SLAYER_HELM_DMG, slayerBuffs, nextSlayerUnlock } from '../data/slayer.js';
@@ -64,7 +64,7 @@ import { statsPanelHTML } from './statspanel.js';
 import { openCodex, monsterAtScreen, openCompendium, addCompendiumButton } from './codexui.js';
 import { openPestOfficer, contractTrackerRows, stewardLineHTML, cullingInvOptions } from './cullingui.js';
 import { eventsPanelHTML, wireEventsPanel, eventTrackerRows, drawEventMarker } from './worldeventsui.js';
-import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG, abilityIconHTML, prayerIconHTML, spellIconHTML } from '../render/icons.js';
+import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG, abilityIconHTML, spellIconHTML } from '../render/icons.js';
 import { weaknessOf, armourTierOf, ARMOUR_TIERS, levelFlatDmg } from '../game/combat.js';
 import { isBone } from '../data/bones.js';
 import { RACES, raceOf, weaponsFor, weaponTypeName, WEAPON_VS_RACE } from '../data/races.js';
@@ -637,7 +637,7 @@ export class UI {
   _setPanelTitle(view) {
     const el = this.el.panelTitle || this.el.panelHead;
     if (!el) return;
-    const titles = { inventory: 'Inventory', equipment: 'Worn Equipment', skills: 'Skills', combat: 'Combat', prayer: 'Prayers', quests: 'Quest Journal', stats: 'Final Stats', achievements: 'Achievements', story: 'Story', settings: 'Settings' };
+    const titles = { inventory: 'Inventory', equipment: 'Worn Equipment', skills: 'Skills', combat: 'Combat', prayer: 'Blessings', quests: 'Quest Journal', stats: 'Final Stats', achievements: 'Achievements', story: 'Story', settings: 'Settings' };
     el.textContent = titles[view] || '';
   }
 
@@ -2921,51 +2921,10 @@ export class UI {
       : 'Special attack (needs a spec weapon)';
   }
 
-  // ---------------- Prayer ----------------
-  renderPrayer() {
-    if (this.el.prayerOrbVal) this.el.prayerOrbVal.textContent = Math.ceil(this.game.prayerPoints);
-    if (this.el.prayerOrb) {
-      const max = this.game.maxPrayer();
-      const frac = max ? this.game.prayerPoints / max : 0;
-      this.el.prayerOrb.style.setProperty('--fill', Math.max(0, Math.min(1, frac)).toFixed(3));
-      this.el.prayerOrb.classList.toggle('active', this.game.activePrayers.size > 0);
-    }
-  }
-
-  _buildPrayerPanel() {
-    this.el.prayerPanel.innerHTML = '<div class="prayer-pts"></div><div class="prayer-grid"></div>';
-    this._prayerGrid = this.el.prayerPanel.querySelector('.prayer-grid');
-    const labels = { crit: 'crit', att: 'Att', str: 'Str', def: 'Def', ranged: 'Rng', magic: 'Mag' };
-    for (const pr of PRAYERS) {
-      const cell = document.createElement('div');
-      cell.className = 'prayer-cell';
-      cell.dataset.prayer = pr.id;
-      const effect = pr.protect
-        ? `-${Math.round(pr.protect * 100)}% melee dmg`
-        : Object.keys(labels).filter((k) => pr[k]).map((k) => `+${Math.round(pr[k] * 100)}% ${labels[k]}`).join(' ');
-      // The level sits beside the name as a chip; a thin bar along the bottom
-      // shows how close a locked prayer is to unlocking.
-      cell.innerHTML = `<span class="pr-ic">${prayerIconHTML(pr.art || pr.id, 30, '', pr.tint)}</span><span class="pr-text">`
-        + `<span class="pr-top"><b>${pr.name}</b><span class="pr-lvl">Lvl ${pr.level}</span></span><span class="pr-effect">${effect}</span></span>`
-        + '<span class="pr-bar"><i></i></span>';
-      cell.addEventListener('click', () => this.game.togglePrayer(pr.id));
-      this._prayerGrid.appendChild(cell);
-    }
-  }
-
-  renderPrayerPanel() {
-    if (!this._prayerGrid) return;
-    const lvl = this.game.skills.prayer;
-    this.el.prayerPanel.querySelector('.prayer-pts').textContent =
-      `Prayer points: ${Math.ceil(this.game.prayerPoints)} / ${this.game.maxPrayer()}`;
-    for (const cell of this._prayerGrid.children) {
-      const pr = PRAYERS.find((p) => p.id === cell.dataset.prayer);
-      cell.classList.toggle('active', this.game.activePrayers.has(pr.id));
-      cell.classList.toggle('locked', lvl < pr.level);
-      const bar = cell.querySelector('.pr-bar i');
-      if (bar) bar.style.width = `${Math.round(Math.min(1, lvl / pr.level) * 100)}%`;
-    }
-  }
+  // ---------------- Prayer: Blessings and Faith (blessingsui.js) ----------------
+  renderPrayer() { renderFaithOrb(this); }
+  _buildPrayerPanel() { buildBlessingsPanel(this); }
+  renderPrayerPanel() { renderBlessingsPanel(this); }
 
   // ---------------- Quest journal ----------------
   renderQuestPanel() {

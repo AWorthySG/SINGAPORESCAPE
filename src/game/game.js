@@ -44,7 +44,8 @@ import { CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, equivalentWeapon, CLEAVE
 import { STYLE_TRACKS, sumPerks, perkAtLevel, rankName, PERK_SKILLS, PERK_CAPS } from '../data/perks.js';
 import { getSpell, SPELLS, ELEMENTS, AOE_RADIUS, elementMatchup } from '../data/magic.js';
 import { xpForLevel, pastCapXpMult } from '../data/xp.js';
-import { PRAYERS, PRAYER_BY_ID, PRAYER_GROUPS } from '../data/prayers.js';
+import { PRAYER_BY_ID, FAITH_BASE } from '../data/prayers.js';
+import * as Bless from './blessings.js';
 import { isBone, boneXp, BONE_IDS, countBones, championBoneQty, RARE_BOSS_BONES, RARE_BONE_CHANCE, RARE_BONE_QTY, ALTAR_XP_MULT, ALTAR_RANGE } from '../data/bones.js';
 import {
   resolveWoodcut, resolveMine, resolveFish, resolveCook,
@@ -450,8 +451,9 @@ export class Game {
     this.wildLevel = 0;
     this.playerStun = 0;
     this.hasTemps = false;
-    this.prayerPoints = 0;
-    this.activePrayers = new Set();
+    this.prayerPoints = 0;          // Faith (blessings.js); the old field name, for saves
+    this.activePrayers = new Set(); // the equipped Blessings
+    this.burstWard = 0; this.burstZeal = 0;   // a Prayer Burst's ward and zeal, in ticks
     this.quests = {
       bone_collector: { state: 'notStarted' },
       pest_control: { state: 'notStarted', kills: 0 },
@@ -629,7 +631,7 @@ export class Game {
     this.bus.emit('skills');
     this.bus.emit('hp');
     this.bus.emit('run');
-    this.prayerPoints = this.skills.prayer;
+    this.prayerPoints = Math.min(this.prayerPoints, this.maxPrayer());   // Faith (a save's, or none for a new game)
     this.bus.emit('prayer');
     this.updateRegion();
     RQ.syncRegionQuests(this);
@@ -1183,7 +1185,7 @@ export class Game {
     this.updateRunEnergy();
     if (this.specEnergy < 100) { this.specEnergy = Math.min(100, this.specEnergy + 1); this.bus.emit('spec'); }
     this._tickCombatResources();
-    this.drainPrayer();
+    Bless.tickBlessings(this);   // a Prayer Burst's ward and zeal run down
 
     if (this.tickCount % 100 === 1) this.ensureBounties();   // roll over at local midnight
     // Big moments (a class picked, a quest done, anything with a banner) save on
@@ -1205,31 +1207,15 @@ export class Game {
 
   toggleRun() {}   // kept so old key bindings and callers do nothing harmful
 
-  // ---------------- Prayers ----------------
-  maxPrayer() { return this.skills.prayer; }
-
-  drainPrayer() {
-    if (!this.activePrayers.size || this.prayerPoints <= 0) return;
-    let drain = 0;
-    for (const id of this.activePrayers) drain += PRAYER_BY_ID[id].drain;
-    this.prayerPoints = Math.max(0, this.prayerPoints - drain * 0.15 / (1 + (this.equipment.bonuses().prayer || 0) / 30));   // prayer gear slows the drain
-    if (this.prayerPoints <= 0) { this.activePrayers.clear(); this.msg('You have run out of prayer points.', 'system'); }
-    this.bus.emit('prayer');
-  }
-
-  togglePrayer(id) {
-    const p = PRAYER_BY_ID[id];
-    if (!p) return;
-    if (this.activePrayers.has(id)) { this.activePrayers.delete(id); this.bus.emit('prayer'); return; }
-    if (this.skills.prayer < p.level) { this.msg(`You need Prayer level ${p.level} for ${p.name}.`); return; }
-    if (this.prayerPoints <= 0) { this.msg('You have no prayer points. Restore at the A-Worthy Monument.'); return; }
-    for (const ids of Object.values(PRAYER_GROUPS)) {
-      if (ids.includes(id)) for (const other of ids) this.activePrayers.delete(other);
-    }
-    this.activePrayers.add(id);
-    this.spawnSparkle(this.player, '#ffe89a', 6);
-    this.bus.emit('prayer');
-  }
+  // ---------------- Blessings and Faith (blessings.js) ----------------
+  /** Faith's cap: FAITH_BASE + Prayer level. */
+  maxPrayer() { return FAITH_BASE + this.skills.prayer; }
+  blessingSlots() { return Bless.blessingSlots(this.skills.prayer); }
+  toggleBlessing(id) { return Bless.toggleBlessing(this, id); }
+  togglePrayer(id) { return this.toggleBlessing(id); }   // older callers
+  gainFaith(frac) { Bless.gainFaith(this, frac); }
+  prayerBurst() { return Bless.prayerBurst(this); }
+  burstActive() { return this.burstWard > 0 || this.burstZeal > 0; }
 
   prayerMult() {
     const m = { att: 1, str: 1, def: 1, ranged: 1, magic: 1 };
@@ -1237,10 +1223,12 @@ export class Game {
       const p = PRAYER_BY_ID[id];
       for (const k of ['att', 'str', 'def', 'ranged', 'magic']) if (p[k]) m[k] += p[k];
     }
+    const zeal = Bless.burstZeal(this);   // a Prayer Burst's extra damage, for every style
+    if (zeal) { m.str += zeal; m.ranged += zeal; m.magic += zeal; }
     return m;
   }
 
-  /** Extra crit chance (a fraction) from the Attack prayers, for every style. */
+  /** Extra crit chance (a fraction) from the Attack blessings, for every style. */
   prayerCrit() {
     let c = 0;
     for (const id of this.activePrayers) c += PRAYER_BY_ID[id].crit || 0;
@@ -1248,6 +1236,7 @@ export class Game {
   }
 
   protectFactor() {
+    if (this.burstWard > 0) return 1;   // a Prayer Burst's ward stops every blow
     for (const id of this.activePrayers) { const p = PRAYER_BY_ID[id]; if (p.protect) return p.protect; }
     return 0;
   }
@@ -1383,10 +1372,10 @@ export class Game {
       case 'shrinemenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openOfferingShrine());
       case 'pray': return this._tickArrival(a, a.obj, true, () => {
         this.player.hp = this.maxHp();
-        this.prayerPoints = this.skills.prayer;
+        this.prayerPoints = this.maxPrayer();
         this.bus.emit('hp'); this.bus.emit('prayer');
         this.spawnSparkle(this.player, '#9adcff', 16);
-        this.msg('You kneel at the A-Worthy Monument. Your health and prayer are restored.', 'system');
+        this.msg('You kneel at the A-Worthy Monument. Your health and Faith are restored.', 'system');
         if (this.inventory.slots.some((x) => x && isBone(x.id))) this.msg('You could offer your bones here for 2.5x Prayer XP (right-click them).', 'system');
         this.addGood(1); // devotion is a small good
         this.markPillar('monument');
@@ -1956,6 +1945,7 @@ export class Game {
     if (crit) n += this._adrenTrait('crit');
     if (this.player.hp < this.maxHp() * 0.5) n += this._adrenTrait('lowHp');
     this._gainAdrenaline(n);
+    Bless.faithGain(this, 'hit');   // fighting fills Faith too
   }
 
   _gainAdrenaline(n) {
@@ -3072,7 +3062,7 @@ export class Game {
     p.takeDamage(dmg);
     if (dmg > 0) this._knock(p, npc);
     this.addHitsplat(p, dmg, { crit: heavy && dmg > 0 });
-    if (dmg > 0) { this.spawnHitSparks(p, heavy ? '#ff5a5a' : '#ff8a8a'); this.bus.emit('sfx', 'hurt'); this._gainAdrenaline((heavy ? 2 : 1) * ADREN_PER_HURT + this._adrenTrait('hurt')); }
+    if (dmg > 0) { this.spawnHitSparks(p, heavy ? '#ff5a5a' : '#ff8a8a'); this.bus.emit('sfx', 'hurt'); this._gainAdrenaline((heavy ? 2 : 1) * ADREN_PER_HURT + this._adrenTrait('hurt')); Bless.faithGain(this, 'hurt'); }
     if (heavy) this.msg(`${npc.name} unleashes a heavy blow${this.braceTicks > 0 ? ' — you brace and soften it!' : '!'}`, 'combat');
     this.bus.emit('hp');
     if (this._shouldRetaliate()) this.attackNpc(npc);
@@ -3365,7 +3355,7 @@ export class Game {
     if (this.killStreak > 1 && this.killStreak % 5 === 0) this.msg(`Kill streak ${this.killStreak}! Combat XP +${Math.round(Math.min(STREAK_MAX_BONUS, this.killStreak * STREAK_XP_PER_KILL) * 100)}%.`, 'level');
     this.bus.emit('xpbonus');
     this.kills[npc.npcId] = (this.kills[npc.npcId] || 0) + 1;
-    if (!byAlly) this._gainAdrenaline(this._adrenTrait('kill'));   // Gladiators, Berserkers, Sorcerers
+    if (!byAlly) { this._gainAdrenaline(this._adrenTrait('kill')); Bless.faithGain(this, 'kill'); }   // kill adrenaline (Gladiators, Berserkers, Sorcerers), and Faith
     // The Holy path: each of your kills heals you a little.
     if (!byAlly && this.player.alive) {
       const kc = this.karmaCombat();
@@ -3807,7 +3797,7 @@ export class Game {
 
   // ---------------- New skills: Prayer, Thieving, Agility ----------------
   /** Bury bones from a stack (any kind): 100 at a time by default, or `count` (Infinity = the whole stack).
-   *  Offering at an A-Worthy Monument (`altar`) pays ALTAR_XP_MULT x. Each bone also restores a little prayer. */
+   *  Offering at an A-Worthy Monument (`altar`) pays ALTAR_XP_MULT x. Each bone also restores a little Faith. */
   buryBones(index, count = BURY_BATCH, altar = false) {
     const s = this.inventory.slotAt(index);
     if (!s || !isBone(s.id)) { this.msg('You can only bury bones.'); return 0; }
@@ -3815,7 +3805,7 @@ export class Game {
     const it = getItem(s.id), n = Math.min(s.qty, count);
     this.inventory.removeAt(index, n);
     this.skills.addXp('prayer', boneXp(s.id) * n * (altar ? ALTAR_XP_MULT : 1));
-    // Only the first few bones of a click restore prayer, so a big stack can't stand in for a monument mid-fight.
+    // Only the first few bones of a click restore Faith, so a big stack can't stand in for a monument mid-fight.
     this.prayerPoints = Math.min(this.maxPrayer(), this.prayerPoints + (it.prayerRestore || 1) * Math.min(n, BURY_RESTORE_CAP));
     this.bus.emit('prayer');
     this.addGood(Math.min(n, 10)); // honouring the dead is a small good
@@ -4717,6 +4707,8 @@ export class Game {
     }
     // 1a. Run from a monster far above you that you'd lose to (see _autoFlee).
     if (this._autoFlee()) return;
+    // 1a'. A full bar of Faith: the Prayer Burst when hurt or at a boss (blessings.js).
+    if (this.autoCfg.abilities !== false && Bless.shouldAutoBurst(this)) this.prayerBurst();
     // 1b. Step out of a boss's ground marker, still fighting (see _autoDodge).
     this._autoDodge();
     const a = p.action;
