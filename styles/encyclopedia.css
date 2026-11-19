@@ -7,6 +7,7 @@
 
 /* Six sections: one row on a wide screen, three to a row on a phone. */
 .cx-switch { flex-wrap: wrap; }
+.cx-view { white-space: nowrap; padding: 0 6px; font-size: 13.5px; }
 @media (max-width: 600px) {
   .cx-switch { border-radius: 18px; }
   .cx-view { flex: 1 1 30%; font-size: 12.5px; padding: 0 2px; white-space: nowrap; }

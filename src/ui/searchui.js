@@ -1,8 +1,10 @@
-// The Search section of the Codex window: your recent pages (kept in this
-// browser only: a per-viewer convenience, never in the save).
+// The Search section of the Codex window: one box over monsters, items,
+// places and the Compendium, and your recent pages (kept in this browser
+// only: a per-viewer convenience, never in the save).
 import { getItem, ITEMS } from '../data/items.js';
 import { getNpc } from '../data/npcs.js';
 import { ARTICLE_BY_ID } from '../data/compendium.js';
+import { searchAll } from '../game/encyclopedia.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 export const RECENT_MAX = 8;
@@ -38,9 +40,34 @@ export function entryChip(game, kind, id) {
   return `<button type="button" class="cp-chip ency-chip" ${ATTR[kind] || 'data-x'}="${esc(id)}">${icon} ${esc(label)}</button>`;
 }
 
-/** The Search page's top: the recent pages. */
-export function searchHTML(ui) {
-  const rec = recentPages(ui);
-  return rec.length ? `<section class="ency-recent"><h3 class="ency-h3">Recent pages</h3><div class="cp-chips">${rec.map((r) => entryChip(ui.game, r.kind, r.id)).join('')}</div></section>` : '';
+// How many of each kind the results show before "See all".
+export const SEARCH_SHOW = 6;
+const GROUPS = [
+  { key: 'monsters', title: '🐾 Monsters', attr: 'data-monster', all: 'monsters' },
+  { key: 'items', title: '🎒 Items', attr: 'data-item', all: 'items' },
+  { key: 'regions', title: '🗺️ Places', attr: 'data-region', all: null },
+  { key: 'articles', title: '📖 Compendium', attr: 'data-article', all: 'compendium' },
+];
+
+/** The results of one search over monsters, items, places and the Compendium. */
+export function searchResultsHTML(ui, query) {
+  if (!String(query || '').trim()) return '';
+  const r = searchAll(ui.game, query);
+  const total = GROUPS.reduce((n, g) => n + r[g.key].length, 0);
+  if (!total) return '<div class="modal-hint">Nothing matches. Try another word.</div>';
+  return GROUPS.filter((g) => r[g.key].length).map((g) => {
+    const list = r[g.key];
+    return `<section class="ency-hits"><h4 class="ency-h4">${g.title} <small>(${list.length.toLocaleString('en-GB')})</small></h4><div class="cp-list">` +
+      list.slice(0, SEARCH_SHOW).map((e) => `<button type="button" class="cp-row" ${g.attr}="${esc(e.id)}"><b>${esc(e.title)}</b><span>${esc(e.sub)}</span></button>`).join('') + '</div>' +
+      (list.length > SEARCH_SHOW && g.all ? `<button type="button" class="cx-more" data-seeall="${g.all}">See all ${list.length.toLocaleString('en-GB')}</button>` : '') + '</section>';
+  }).join('');
 }
-export const searchResultsHTML = () => '';
+
+/** The Search page's top: one box over everything, its results, and the recent pages. */
+export function searchHTML(ui, st = {}) {
+  const rec = recentPages(ui);
+  return '<div class="cp-intro">Search monsters, items, places and the Compendium at once.</div>' +
+    `<input type="search" class="bank-search cx-search cp-search ency-all-search" data-search="all" placeholder="Search everything…" aria-label="Search everything" value="${esc(st.query || '')}">` +
+    `<div class="ency-search-results">${searchResultsHTML(ui, st.query)}</div>` +
+    (rec.length ? `<section class="ency-recent"><h3 class="ency-h3">Recent pages</h3><div class="cp-chips">${rec.map((r) => entryChip(ui.game, r.kind, r.id)).join('')}</div></section>` : '');
+}

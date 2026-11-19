@@ -15,6 +15,7 @@ import { chebyshev } from '../core/utils.js';
 import { CODEX_IDS } from './codex.js';
 import { RESOURCE_CATS, resourceCat, itemSources } from './skillguide.js';
 import { isObtainable } from './discovery.js';
+import { searchArticles } from '../data/compendium.js';
 
 /** Every item the encyclopedia lists (coins aside), by name. */
 let _all = null;
@@ -188,4 +189,29 @@ export function findLinks(text, regionNames = []) {
   }
   if (at < s.length) out.push({ text: s.slice(at) });
   return out;
+}
+
+// ---------------- One search over everything ----------------
+
+/** Search monsters, items, regions and Compendium articles at once:
+ *  { monsters, items, regions, articles }, each [{ id, title, sub }] (all
+ *  matches; the page shows the first few of each). Every word must appear
+ *  in the name (or, for an article, anywhere in it). Names you haven't found
+ *  yet still match: you typed them, so you know them. */
+export function searchAll(game, query) {
+  const words = String(query || '').toLowerCase().split(/\s+/).filter(Boolean);
+  const empty = { monsters: [], items: [], regions: [], articles: [] };
+  if (!words.length) return empty;
+  const hit = (name) => { const n = name.toLowerCase(); return words.every((w) => n.includes(w)); };
+  // Closest names first: an exact or starting match beats one buried inside.
+  const rank = (name) => { const n = name.toLowerCase(), q = words.join(' '); return n === q ? 0 : n.startsWith(q) ? 1 : 2; };
+  const byRank = (a, b) => rank(a.title) - rank(b.title) || a.title.length - b.title.length || a.title.localeCompare(b.title);
+  const monsters = CODEX_IDS.filter((id) => hit(getNpc(id).name)).map((id) => {
+    const d = getNpc(id);
+    return { id, title: d.name, sub: `${d.boss ? 'Boss' : 'Creature'} · level ${d.level.toLocaleString('en-GB')}${game?.kills?.[id] > 0 ? '' : ' · not met yet'}` };
+  }).sort(byRank);
+  const items = allItemIds().filter((id) => hit(getItem(id).name)).map((id) => ({ id, title: getItem(id).name, sub: itemKind(id) })).sort(byRank);
+  const regions = (game?.world?.zones || []).filter((z) => !z.instance && hit(z.name)).map((z) => ({ id: z.name, title: z.name, sub: game.zonesVisited?.has(z.name) ? 'Region · visited' : 'Region' })).sort(byRank);
+  const articles = searchArticles(words.join(' ')).map((h) => ({ id: h.article.id, title: h.article.title, sub: h.inTitle ? h.article.summary : h.snippet || h.article.summary }));
+  return { monsters, items, regions, articles };
 }

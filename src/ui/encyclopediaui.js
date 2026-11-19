@@ -175,6 +175,15 @@ export function renderEncyclopedia(ui, body, view, flip) {
     if (d.cat) { its.cat = d.cat; its.shown = ITEM_PAGE; redraw(); return; }
     if (d.all) { its[d.all] = true; redraw(); return; }
     if (d.allthen) { its.allThen = true; redraw(); return; }
+    if (d.seeall) {
+      // The whole list in its own section, already searched.
+      const q = st.search.query || '';
+      if (d.seeall === 'items') { Object.assign(its, { search: q, cat: 'all', disc: 'all', shown: ITEM_PAGE, id: null }); }
+      else if (d.seeall === 'monsters') { const c = ui._codex; if (c) Object.assign(c, { search: q, id: null, shown: 40 }); }
+      else if (d.seeall === 'compendium') { const c = ui._compendium; if (c) Object.assign(c, { query: q, id: null }); }
+      flip?.(d.seeall);
+      return;
+    }
     if (d.claim) { claimDiscovery(game, d.claim); redraw(); return; }
     if (d.gosrc) { ui.closeModal?.(); goToSource(game, d.gosrc); return; }
     if (d.go) { game.goToNearest?.(d.go.split(',')); return; }

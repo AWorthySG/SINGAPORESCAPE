@@ -1246,9 +1246,10 @@ export const CHAPTERS = [
           { list: [
             '**Monsters**: every monster and boss (see [[codex-mastery]]).',
             '**Items**: every item in the game. Its page says what it is, who drops it and how often, which nodes give it and in which regions, what makes it and what it makes, where it is sold and what it is worth, with a **Go** button to the nearest place to get one.',
-            '**Places**: every region and what lives there.',
+            '**Places**: every region, with its level band, monsters and bosses, resource zones, quest givers, shops, MRT stops, your reputation there, a small map, a "Did you know?" about the real place, and Go.',
             '**Compendium**: this guide.',
-            '**Search**: your recent pages and your discoveries.',
+            '**For you**: where to train each life skill at your level (with a rough XP an hour), monsters your weapon is strong against, and gear you could wear and get now that beats what you have on.',
+            '**Search**: one box over monsters, items, places and this guide, your recent pages, and your [[discoveries]].',
           ] },
           'Names of monsters, items, skills and regions in the chat, in quest text and on Codex pages are **links**: tap one to open its page. An item in your bag or bank has an **Info** option too.',
         ],

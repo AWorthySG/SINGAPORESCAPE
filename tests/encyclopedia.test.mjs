@@ -13,7 +13,7 @@ import { ITEMS, getItem } from '../src/data/items.js';
 import { LORE } from '../src/data/lore.js';
 import { ARTICLE_BY_ID, ARTICLES, articleBlocks } from '../src/data/compendium.js';
 import { BOSS_MECHANICS, MECH_KINDS } from '../src/data/bossMechanics.js';
-import { allItemIds, searchItems, itemKind, nearestSource, goToSource, findLinks, nameKey } from '../src/game/encyclopedia.js';
+import { allItemIds, searchItems, itemKind, nearestSource, goToSource, findLinks, nameKey, searchAll } from '../src/game/encyclopedia.js';
 import {
   discoveryCategories, discoveryTotals, claimDiscovery, obtainableItems, REWARD_LAMPS, REWARD_COINS_MIN,
 } from '../src/game/discovery.js';
@@ -31,7 +31,7 @@ import { encyState, encyclopediaPageHTML, itemEntryHTML, itemsListHTML, openEntr
 import { linkHTML } from '../src/ui/links.js';
 import { codexSwitchHTML, markupHTML } from '../src/ui/compendiumui.js';
 import { codexEntryHTML } from '../src/ui/codexui.js';
-import { noteRecent, recentPages, RECENT_MAX } from '../src/ui/searchui.js';
+import { noteRecent, recentPages, RECENT_MAX, searchResultsHTML } from '../src/ui/searchui.js';
 
 function fakeStorage() {
   const m = new Map();
@@ -369,4 +369,25 @@ test('every "Did you know?" belongs to a real region or creature, and shows on i
   const otter = ALL_MONSTER_IDS.find((id) => getNpc(id).family === 'smooth_otter');
   assert.match(codexEntryHTML(g, otter), /Did you know\?[\s\S]*romps/);
   assert.equal(creatureFlavour(getNpc('goblin'), 'goblin'), '', 'no fantasy facts');
+});
+
+// ---------------- Search ----------------
+test('one search finds monsters, items, places and Compendium articles, closest names first', () => {
+  const g = newGame();
+  const r = searchAll(g, 'otter');
+  assert.ok(r.monsters.some((m) => m.id === 'smooth_otter'));
+  assert.equal(searchAll(g, 'iron ore').items[0].id, 'iron_ore', 'an exact name comes first');
+  assert.ok(searchAll(g, 'ubin').regions.some((x) => x.id === 'Pulau Ubin'));
+  assert.ok(searchAll(g, 'reputation').articles.some((a) => a.id === 'reputation'));
+  assert.deepEqual(searchAll(g, ''), { monsters: [], items: [], regions: [], articles: [] });
+  const ui = fakeUi(g);
+  const html = searchResultsHTML(ui, 'iron');
+  assert.match(html, /data-item="iron_ore"/);
+  assert.match(html, /data-seeall="items"/, 'a long list offers See all');
+  assert.match(searchResultsHTML(ui, 'no such thing anywhere'), /Nothing matches/);
+  encyState(ui).search.query = 'pangolin';
+  const page = encyclopediaPageHTML(ui, 'search');
+  assert.match(page, /ency-all-search/);
+  assert.match(page, /data-monster="pangolin"/);
+  assert.match(page, /Your discoveries/);
 });
