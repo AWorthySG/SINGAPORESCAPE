@@ -84,6 +84,8 @@ import { Story } from './story.js';   // the main story, lore pages, story event
 import * as Life from './npclife.js';   // living NPCs, region reputation, consequences (npclife.js)
 import { repPriceMult, repTitleText } from './reputation.js';
 import { consequencePriceMult } from './consequences.js';
+import { Gathering } from './gathering.js';   // gathering streaks, lucky finds, skilling contracts
+import { Teleports } from './teleports.js';   // the Town and Grave teleports
 
 // Auto quest: the dialogue actions that start and hand in each quest it can
 // do ([start, hand-in]; Pest Control completes itself on the last rat). The
@@ -386,7 +388,7 @@ export class Game {
 
     this.skills = new Skills(this.bus);
     Play.initPlay(this);   // Focus, Rested XP and the gravestone (playbalance.js)
-    this.skills.timeMult = (id) => goldenMult(id, this.gameHour()) * Play.xpMult(this);   // golden hours (skillhours.js), rested and tired
+    this.skills.timeMult = (id) => goldenMult(id, this.gameHour()) * Play.xpMult(this) * (this.gathering?.xpMult(id) ?? 1);   // golden hours (skillhours.js), rested and tired, gathering streaks
     this.inventory = new Inventory(this.bus);
     this.equipment = new Equipment(this.bus);
     this.shrine = new Shrine();   // the Offering Shrine's blessings (see shrine.js)
@@ -480,6 +482,8 @@ export class Game {
     this.story = new Story(this);     // the main story's chapters, lore pages, story events and scenes (story.js)
     installSkillUnlocks(this);        // life skill unlocks at 10/25/50/75/99 (skillunlocks.js)
     this.home = new Home(this);       // the kampong home plot in Kranji (home.js)
+    this.gathering = new Gathering(this);   // gathering streaks, lucky finds and daily skilling contracts (gathering.js)
+    this.teleports = new Teleports(this);   // the Town (K) and Grave (R) teleports (teleports.js)
     this.snareGiven = true;           // a new character has the starter snare; older saves get one on load (onboarding.js)
     // Knowledge Strikes: bosses' specials can be interrupted by answering a question.
     // On by default in the browser; headless runs (tests) leave bosses as they were.
@@ -1435,6 +1439,7 @@ export class Game {
       a._quick = (a._quick || 0) + (GATHER_SPEED - 1);
       if (a._quick >= 1 && (MAKE_FAST.has(a.type) || this.inventory.freeSlots() > 0) && !obj.depleted) { a._quick -= 1; going = runSkillAction(this, a, resolver); }
     }
+    if (gather) this.gathering.onGather(a, obj, before);   // streaks, lucky finds, contracts (gathering.js)
     if (gather) {
       const after = this._bagCounts();
       for (const [id, n] of after) {
@@ -6196,6 +6201,7 @@ export class Game {
       const q = this.quests.bone_collector;
       if (q.state === 'notStarted') { q.state = 'active'; this.msg('Quest started — A Bag of Bones: bring 10 bones to the Kampong Guide.', 'level'); }
     } else if (action === 'questTurnIn') this.turnInBoneQuest();
+    else if (action === 'skillContracts') this.bus.emit('skillcontractsopen');   // Cikgu Surya's skilling contracts (gathering.js)
     else if (action === 'pestStart') {
       const q = this.quests.pest_control;
       if (q.state === 'notStarted') { q.state = 'active'; q.kills = 0; this.msg('Quest started — Pest Control: slay 8 giant rats.', 'level'); }

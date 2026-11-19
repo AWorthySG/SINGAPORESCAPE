@@ -1,0 +1,34 @@
+/* Town and Grave teleports, and Cikgu Surya's skilling contracts
+   (src/ui/lifeskillui.js). Kept out of main.css so it stays easy to find. */
+
+/* The two teleport buttons share one line of the auto switches' card. */
+#tp-row { display: flex; align-items: stretch; border-top: 2px dashed var(--aw-ink-faint); }
+#tp-row .tp-btn {
+  flex: 1 1 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 0; min-width: 0;
+  padding: 3px 10px; line-height: 1.1; background: transparent; border: 0; border-radius: 0; box-shadow: none;
+  color: var(--aw-text); cursor: var(--cur-pointer); font-family: inherit;
+}
+#tp-row .tp-btn + .tp-btn { border-left: 2px dashed var(--aw-ink-faint); }
+#tp-row .tp-btn:hover { background: var(--aw-hover); }
+#tp-row .tp-btn:active { transform: none; }
+#tp-row .tp-btn.hidden { display: none; }
+#tp-row .tp-btn .ab-status { max-width: 110px; }
+#tp-row .tp-btn.wait .ab-label { opacity: .6; }
+#tp-row .tp-btn.on .ab-status { color: var(--aw-accent); }
+@media (max-width: 760px), (pointer: coarse) {
+  #tp-row .tp-btn { min-height: 44px; padding: 3px 8px; }
+  #tp-row .tp-btn .ab-status { max-width: 92px; }
+}
+
+/* The contracts window. */
+.lsx-list { display: grid; gap: 6px; margin: 8px 0; }
+.lsx-row {
+  display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; align-items: center; gap: 2px 8px;
+  padding: 6px 8px; border: 2px solid var(--aw-ink); border-radius: 12px; background: var(--aw-card);
+}
+.lsx-row.done { opacity: .65; }
+.lsx-ic { grid-row: 1 / span 2; display: inline-flex; }
+.lsx-text b { display: block; font-size: 13px; }
+.lsx-text small { display: block; font-size: 11px; color: var(--aw-text-sec); }
+.lsx-bar { height: 7px; border-radius: 999px; background: var(--aw-muted); border: 1.5px solid var(--aw-ink); overflow: hidden; }
+.lsx-bar i { display: block; height: 100%; background: #9be37a; }

@@ -81,6 +81,7 @@ import { renderBossBar } from './bossbar.js';
 import { XpDisplay } from './xpdisplay.js';
 import { crossesMilestone, xpDisplayMode, nextXpDisplay, XP_DISPLAY_NAMES } from '../game/xptrack.js';
 import { regionDialogue, canRegionTeleport, regionTeleport } from '../game/regionquests.js';
+import { installLifeSkillUI, lifeTrackerRows } from './lifeskillui.js';
 
 const EQUIP_LAYOUT = [
   null, 'head', null,
@@ -344,6 +345,7 @@ export class UI {
     installHomeUI(this);   // the kampong home's panel and its button by the map (homeui.js)
     installStoryUI(this);  // the Journal's Story view and chapter scenes (storyui.js)
     installReputationUI(this, PANEL_TABS, SUBTAB_LABELS);   // the Journal's Regions view and the region pill (reputationui.js)
+    installLifeSkillUI(this);   // Town / Grave teleports, skilling contracts (lifeskillui.js)
   }
 
   // ---------------- Active-combat ability bar ----------------
@@ -585,6 +587,7 @@ export class UI {
     }
     rows.push(...eventTrackerRows(this));      // a world event under way
     rows.push(...contractTrackerRows(this));   // today's Pest Control contracts
+    rows.push(...lifeTrackerRows(this));       // a gathering streak, today's skilling contracts (lifeskillui.js)
     for (const q of QUESTS) {
       const st = g.quests[q.id];
       if (st && st.state === 'active') {
@@ -4031,6 +4034,15 @@ export class UI {
         placed.push({ cx, cy, w2 });
         c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillText(label, cx + 1, cy + 1);
         c.fillStyle = z.wilderness ? '#ff8a7a' : tooHigh(rec, you) ? '#ffb347' : '#fff3c8'; c.fillText(label, cx, cy);
+      }
+      // Resource zones (world.js): a green dot and the zone's name at its signpost.
+      c.font = `800 ${Math.max(8, scale * 2.4)}px Nunito,"Trebuchet MS",sans-serif`;
+      for (const rz of game.world.resourceZones || []) {
+        const zx = rz.cx * scale + scale / 2, zy = rz.cy * scale + scale / 2;
+        c.fillStyle = '#22304A'; c.beginPath(); c.arc(zx, zy, 4.5 * k, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#9be37a'; c.beginPath(); c.arc(zx, zy, 3.2 * k, 0, Math.PI * 2); c.fill();
+        c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillText(rz.name, zx + 1, zy - 7 * k + 1);
+        c.fillStyle = '#c8f5b0'; c.fillText(rz.name, zx, zy - 7 * k);
       }
       c.textAlign = 'start'; c.textBaseline = 'alphabetic';
       // The picked spot gets a gold ring.
