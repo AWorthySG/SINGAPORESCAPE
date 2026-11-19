@@ -100,6 +100,20 @@ const MAP_FILTERS = [
 // Everything a finger means to press rather than drag. A phone sheet's drag
 // (see _initSheets) never starts on one of these, so it never captures the
 // pointer away from a tab, slot, row or button and eats its tap.
+// The side panel's five tabs, each named by its first view (the tab button's
+// data-view), and the views it holds. A tab with more than one view shows a
+// row of sub-tabs at the top of the panel body to switch between them.
+export const PANEL_TABS = {
+  inventory: ['inventory', 'equipment'],
+  skills: ['skills'],
+  combat: ['combat', 'prayer', 'stats'],
+  quests: ['quests', 'achievements'],
+  settings: ['settings'],
+};
+const SUBTAB_LABELS = { inventory: 'Bag', equipment: 'Gear', combat: 'Combat', prayer: 'Prayer', stats: 'Stats', quests: 'Quests', achievements: 'Awards' };
+/** The tab that holds a view ('prayer' -> 'combat'). */
+export const tabOfView = (view) => Object.keys(PANEL_TABS).find((t) => PANEL_TABS[t].includes(view)) || null;
+
 const PRESSABLE = 'button, a, input, select, textarea, label, summary, [role="button"], '
   + '.tab-btn, .inv-slot, .equip-slot, .item-cell, .prayer-cell, .quest-row, .ctx-item, .dialogue-option';
 
@@ -167,7 +181,7 @@ export class UI {
     this.minimapCtx = this.el.minimap.getContext('2d');
 
     // Tab buttons: the mascot icon plus a short label, so each tab is easy to find.
-    const TAB_LABELS = { inventory: 'Bag', equipment: 'Gear', skills: 'Skills', combat: 'Combat', prayer: 'Prayer', quests: 'Quests', stats: 'Stats', achievements: 'Awards', settings: 'Settings' };
+    const TAB_LABELS = { inventory: 'Bag', skills: 'Skills', combat: 'Combat', quests: 'Journal', settings: 'Settings' };
     document.querySelectorAll('#panel-tabs .tab-btn').forEach((b) => {
       b.innerHTML = tabIconSVG(b.dataset.view, 32) + `<span class="tab-label">${TAB_LABELS[b.dataset.view] || ''}</span>`;
       b.setAttribute('aria-label', b.title || TAB_LABELS[b.dataset.view] || b.dataset.view);
@@ -186,6 +200,8 @@ export class UI {
     this._initCollapsibles();
 
     this._bindTabs();
+    // The Bag tab opens on whichever of Bag / Gear it showed last time.
+    this._showPanelView(PANEL_TABS.inventory.includes(this._subView?.inventory) ? this._subView.inventory : 'inventory');
     this._bindChatTabs();
     this._buildCombatPanel();
     this._buildPrayerPanel();
@@ -737,7 +753,8 @@ export class UI {
 
   _bindTabs() {
     const tabs = document.querySelectorAll('#panel-tabs .tab-btn');
-    const views = document.querySelectorAll('#panel-body .panel-view');
+    // The sub-tab each tab last showed, remembered per viewer (it is only a convenience).
+    try { this._subView = JSON.parse(localStorage.getItem('ss_ui_subtab')) || {}; } catch { this._subView = {}; }
     tabs.forEach((btn) => {
       btn.addEventListener('click', () => {
         this._dropTips();   // switching tabs never leaves an item's description behind
@@ -752,14 +769,62 @@ export class UI {
         if (folded) this._collapseApply?.panel?.(false);
         else if (btn.classList.contains('active') && panel?.classList.contains('compact-ui')) { if (!quick) this._collapseApply?.panel?.(true); return; }
         tabs.forEach((b) => b.classList.toggle('active', b === btn));
-        const view = btn.dataset.view;
-        this._setPanelTitle(view);
-        views.forEach((v) => v.classList.toggle('hidden', v.dataset.view !== view));
-        if (view === 'stats') this.renderStatsPanel();   // it only redraws while showing, so bring it up to date
-        // The skills list carries a name + description per row, so it gets more room.
-        document.getElementById('sidepanel')?.classList.toggle('wide', view === 'skills');
+        const tab = btn.dataset.view;
+        const views = PANEL_TABS[tab] || [tab];
+        this._showPanelView(views.includes(this._subView?.[tab]) ? this._subView[tab] : views[0]);
       });
     });
+  }
+
+  /** Show one view of the side panel (and its sub-tab row), without touching
+   *  which tab button is lit or folding anything. */
+  _showPanelView(view) {
+    const tab = tabOfView(view) || view;
+    this._setPanelTitle(view);
+    document.querySelectorAll('#panel-body .panel-view').forEach((v) => v.classList.toggle('hidden', v.dataset.view !== view));
+    if (this._subView) {
+      this._subView[tab] = view;
+      try { localStorage.setItem('ss_ui_subtab', JSON.stringify(this._subView)); } catch {}
+    }
+    this._renderSubtabs(tab, view);
+    if (view === 'stats') this.renderStatsPanel();   // it only redraws while showing, so bring it up to date
+    // The skills list carries a name + description per row, so it gets more room.
+    document.getElementById('sidepanel')?.classList.toggle('wide', view === 'skills');
+  }
+
+  /** The "Bag | Gear" style row of sub-tabs at the top of the panel body. */
+  _renderSubtabs(tab, view) {
+    const row = document.getElementById('panel-subtabs');
+    if (!row) return;
+    const views = PANEL_TABS[tab] || [];
+    row.classList.toggle('hidden', views.length < 2);
+    if (row.dataset.tab !== tab) {
+      row.dataset.tab = tab;
+      row.innerHTML = views.length < 2 ? '' : views.map((v) =>
+        `<button type="button" class="subtab-btn" role="tab" data-view="${v}">${SUBTAB_LABELS[v] || v}</button>`).join('');
+      row.querySelectorAll('.subtab-btn').forEach((b) => b.addEventListener('click', () => {
+        this._dropTips();
+        this._showPanelView(b.dataset.view);
+        document.getElementById('panel-body')?.scrollTo?.(0, 0);
+      }));
+    }
+    row.querySelectorAll('.subtab-btn').forEach((b) => {
+      const on = b.dataset.view === view;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+  }
+
+  /** Open the side panel on a view, wherever it lives: lights its tab, picks
+   *  its sub-tab and unfolds the panel. For code (and keys) that want, say,
+   *  the achievements up rather than whatever the Journal tab last showed. */
+  showPanelView(view) {
+    if (typeof document === 'undefined') return;
+    const tab = tabOfView(view);
+    if (!tab) return;
+    document.querySelectorAll('#panel-tabs .tab-btn').forEach((b) => b.classList.toggle('active', b.dataset.view === tab));
+    if (document.getElementById('sidepanel')?.classList.contains('collapsed')) this._collapseApply?.panel?.(false);
+    this._showPanelView(view);
   }
 
   _bindChatTabs() {

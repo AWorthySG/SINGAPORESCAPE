@@ -86,6 +86,7 @@
       <div class="sheet-handle" aria-hidden="true"></div>
       <div id="panel-head"><span id="panel-title">Inventory</span><button id="panel-collapse" title="Collapse panel" aria-label="Collapse panel">&#9662;</button></div>
       <div id="panel-body">
+        <div id="panel-subtabs" class="hidden" role="tablist"></div>
         <section class="panel-view" data-view="inventory">
           <div id="inventory-bar">
             <div id="inv-tabs"></div>
@@ -122,14 +123,12 @@
         </section>
       </div>
       <div id="panel-tabs">
-        <button class="tab-btn active" data-view="inventory" title="Inventory"></button>
-        <button class="tab-btn" data-view="equipment" title="Worn Equipment"></button>
+        <!-- Five tabs; Bag, Combat and Journal each hold two or three views,
+             switched by the sub-tab row at the top of the panel body (ui.js: PANEL_TABS). -->
+        <button class="tab-btn active" data-view="inventory" title="Bag and worn equipment"></button>
         <button class="tab-btn" data-view="skills" title="Skills"></button>
-        <button class="tab-btn" data-view="combat" title="Combat Options"></button>
-        <button class="tab-btn" data-view="prayer" title="Prayers"></button>
-        <button class="tab-btn" data-view="quests" title="Quest Journal"></button>
-        <button class="tab-btn" data-view="stats" title="Final Stats"></button>
-        <button class="tab-btn" data-view="achievements" title="Achievements"></button>
+        <button class="tab-btn" data-view="combat" title="Combat, prayers and stats"></button>
+        <button class="tab-btn" data-view="quests" title="Quest journal and achievements"></button>
         <button class="tab-btn" data-view="settings" title="Settings"></button>
       </div>
     </div>
