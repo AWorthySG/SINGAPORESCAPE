@@ -2144,7 +2144,7 @@ test('gear mastery: kills train every worn gear type (1 a monster, 5 a champion,
   const M = await import('../src/game/mastery.js');
   // Rank thresholds and the stat gain at each rank.
   assert.deepEqual(M.MASTERY_RANKS.map((r) => r.points), [0, 250, 1000, 3000, 8000, 20000, 50000]);
-  assert.deepEqual(M.MASTERY_RANKS.map((r) => r.name), ['Novice', 'Adept', 'Skilled', 'Expert', 'Master', 'Grandmaster', 'Legendary']);
+  assert.deepEqual(M.MASTERY_RANKS.map((r) => r.name), ['Novice', 'Adept', 'Skilled', 'Expert', 'Master', 'Grandmaster', 'Ascended']);
   assert.equal(M.rankFor(0), 0); assert.equal(M.rankFor(249), 0); assert.equal(M.rankFor(250), 1);
   assert.equal(M.rankFor(7999), 3); assert.equal(M.rankFor(8000), 4); assert.equal(M.rankFor(1e9), 6);
   assert.deepEqual(M.rankProgress(500), { rank: 1, next: 2, need: 500, frac: 1 / 3 });

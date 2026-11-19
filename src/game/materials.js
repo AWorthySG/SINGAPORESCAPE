@@ -75,7 +75,7 @@ export function materialPoints(id) {
 // main road, and feeding lets a skiller catch a new piece up.
 //
 // The cap: materials raise mastery only as far as Master (8,000 points);
-// Grandmaster and Legendary must be earned in battle. The last material fed
+// Grandmaster and Ascended must be earned in battle. The last material fed
 // counts in full, so it may carry a piece a little past 8,000.
 export const FEED_CAP_RANK = 4;   // Master
 export const FEED_CAP = MASTERY_RANKS[FEED_CAP_RANK].points;

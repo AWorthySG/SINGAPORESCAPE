@@ -34,7 +34,9 @@ const STATS = ['attack', 'strength', 'defence', 'ranged', 'magic', 'magicStr', '
 // gain: the total extra share of the item's base stats at that rank; abbr: the
 // short tag shown on item icons.
 // Auto battle racks up kills quickly (about 75 a minute at a good spot), so the
-// ranks are spread out: Adept in a few minutes, Legendary after many hours.
+// ranks are spread out: Adept in a few minutes, Ascended after many hours.
+// (The top rank was called Legendary, the same word as a quality tier; renamed
+// so the two systems never share a name.)
 export const MASTERY_RANKS = [
   { name: 'Novice', abbr: '', points: 0, gain: 0 },
   { name: 'Adept', abbr: 'A', points: 250, gain: 0.10 },
@@ -42,7 +44,7 @@ export const MASTERY_RANKS = [
   { name: 'Expert', abbr: 'E', points: 3000, gain: 0.45 },
   { name: 'Master', abbr: 'M', points: 8000, gain: 0.70 },
   { name: 'Grandmaster', abbr: 'GM', points: 20000, gain: 1.00 },
-  { name: 'Legendary', abbr: 'L', points: 50000, gain: 1.40 },
+  { name: 'Ascended', abbr: 'AS', points: 50000, gain: 1.40 },
 ];
 export const MAX_RANK = MASTERY_RANKS.length - 1;
 /** From this rank up, ranking up earns a banner as well as a chat message. */
@@ -83,7 +85,7 @@ export function killMastery(npc) {
   return npc.def?.boss ? 25 : npc.champion ? 5 : 1;
 }
 
-/** Rank index (0 Novice .. 6 Legendary) for a number of points. */
+/** Rank index (0 Novice .. 6 Ascended) for a number of points. */
 export function rankFor(points = 0) {
   let r = 0;
   for (let i = 1; i < MASTERY_RANKS.length; i++) if (points >= MASTERY_RANKS[i].points) r = i;
