@@ -21,7 +21,7 @@ import { SLAYER_TASKS } from '../src/data/slayer.js';
 import { codexEntry, HAZARD_TEXT } from '../src/game/codex.js';
 import { PAGES } from '../src/game/collection.js';
 import { BOSS_PETS } from '../src/game/pets.js';
-import { portraitFor, speciesArt } from '../src/render/sprites.js';
+import { portraitFor, speciesArt, bossArt } from '../src/render/sprites.js';
 
 const world = buildWorld();
 const NEW = new Set([...BESTIARY_MONSTER_IDS, ...BESTIARY_BOSS_IDS]);
@@ -70,13 +70,14 @@ test('every new monster has a race, drops, a real region, a level in its band an
 });
 
 test('every new monster and boss has a look: its own painted art, or a real picture recoloured', () => {
-  const own = speciesArt();
+  const own = speciesArt(), ownBoss = bossArt();
   for (const id of NEW) {
     const p = portraitFor(id, NPCS[id]);
     assert.ok(p && existsSync(artFile(p.src)), `${id} has a picture that exists (${p?.src})`);
-    if (own.has(NPCS[id].family)) {
+    const file = NPCS[id].boss ? (ownBoss.has(id) ? id : null) : (own.has(NPCS[id].family) ? NPCS[id].family : null);
+    if (file) {
       // Its own art has arrived: drawn as itself, with no borrowed tint.
-      assert.ok(p.src.endsWith(`/${NPCS[id].family}.webp`), `${id} uses its own art (${p.src})`);
+      assert.ok(p.src.endsWith(`/${file}.webp`), `${id} uses its own art (${p.src})`);
       assert.ok(!p.tint, `${id} is not recoloured`);
     } else assert.ok(typeof p.tint === 'string' && p.tint.length > 5, `${id} is recoloured`);
   }

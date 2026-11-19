@@ -828,9 +828,14 @@ import { BESTIARY_BOSSES } from '../data/bestiary.js';
     'big_bones', 'heavy_bones', 'ancient_bones', 'spirit_bones', 'champion_bones', 'titan_bones', 'dragon_bones', 'fiend_bones', 'legend_bones',
     'refine_scroll', 'pearl_ring', 'pearl_amulet', 'holy_beads', 'ring_of_devotion', 'pilgrim_cape', 'temple_pendant', 'ring_of_serenity',
     'lantern_cape', 'starlit_pendant']) ITEM_ART.add(id);
-  // (The bestiary expansion's bosses have no stickers yet: theirs borrow one below.)
+  // The bestiary expansion's bosses' weapons: those listed in SIG_ART have their own
+  // stickers (art packs 08 and 09); any without one borrow one below.
   const NEW_SIG = new Set(BESTIARY_BOSSES.map((b) => `sig_${b.id}`));
-  for (const [id, it] of Object.entries(ITEMS)) if (it.signature && !NEW_SIG.has(id)) ITEM_ART.add(id);
+  const SIG_ART = new Set(['toman_tyrant', 'ubin_quarry_python', 'kopitiam_roach_queen', 'bakau_mud_lobster', 'strangler_fig_mother',
+    'kranji_bullfrog_emperor', 'sea_eagle_sovereign', 'slag_titan', 'arowana_emperor', 'toyol_kingpin',
+    'atlas_moth_empress', 'jembalang_lord', 'krait_matriarch', 'duyung_queen', 'great_argus_monarch',
+    'typhoon_mother', 'void_eel_leviathan', 'todak_king', 'jade_moon_hare', 'fenghuang'].map((b) => `sig_${b}`));
+  for (const [id, it] of Object.entries(ITEMS)) if (it.signature && (!NEW_SIG.has(id) || SIG_ART.has(id))) ITEM_ART.add(id);
   export const itemArtSrc = (id) => (ITEM_ART.has(id) ? `assets/icons/item-${id}.webp` : borrowedArt(id) ? `assets/icons/item-${borrowedArt(id).file}.webp` : null);
   const artImg = (file, size, cls, filter) => `<img class="${cls || ''}" width="${size}" height="${size}" src="assets/icons/${file}.webp" alt="" style="display:block;object-fit:contain${filter ? `;filter:${filter}` : ''}" />`;
   // Metal-tier items without stickers of their own can borrow another sticker,
@@ -841,6 +846,7 @@ import { BESTIARY_BOSSES } from '../data/bestiary.js';
   const BORROW_TINT = {};   // optional per-item tint for a BORROW_ID sticker
   // A new boss's signature weapon borrows an older one made for the same class, turned to its own hue.
   for (const id of NEW_SIG) {
+    if (ITEM_ART.has(id)) continue;   // its own sticker has arrived
     const it = ITEMS[id];
     const donor = it && Object.keys(ITEMS).find((d) => ITEM_ART.has(d) && ITEMS[d].signature?.classId === it.signature.classId);
     if (donor) { BORROW_ID[id] = donor; BORROW_TINT[id] = `hue-rotate(${it.signature.hue}deg) saturate(1.2)`; }
