@@ -406,6 +406,11 @@ export function resolveSmith(game, action) {
   return game.inventory.has(r.bar, r.barCount);
 }
 
+// Firemaking can't simply go faster (each fire needs its own tile, and you step
+// to the next one), so it gets the 25% the other life skills gained in speed
+// (GATHER_SPEED in game.js) as XP per log instead.
+export const FIRE_XP = 1.25;
+
 export function resolveFiremake(game, action) {
   // Wait until the player is standing on the target tile. If the walk there was
   // cut short, light where they stopped instead of waiting for ever.
@@ -429,7 +434,7 @@ export function resolveFiremake(game, action) {
   game.inventory.remove(action.logId, 1);
   afterFireLit(game, game.world.lightFire(p.x, p.y), action.logId);   // Firemaking unlocks (skillunlocks.js)
   // A fire occasionally roars up for bonus XP.
-  const baseFm = logDef.fmXp || 40;
+  const baseFm = Math.round((logDef.fmXp || 40) * FIRE_XP);
   if (Math.random() < 0.10) {
     game.skills.addXp('firemaking', Math.round(baseFm * 1.5));
     game.spawnSparkle(game.player, '#ffae3a', 8);

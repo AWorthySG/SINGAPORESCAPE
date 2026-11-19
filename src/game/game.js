@@ -362,10 +362,14 @@ const ALCHEMY = { level: 21, xp: 65, runes: { nature_rune: 1, fire_rune: 5 } };
 // Actions that can fire the instant you press (no random roll to exploit by spamming).
 const INSTANT_ACTIONS = new Set(['pickup', 'cookmenu', 'smeltmenu', 'smithmenu', 'craftmenu', 'fletchmenu', 'herbmenu', 'farm', 'pray', 'rest', 'transport', 'openbank', 'openshop', 'talk', 'shrinemenu', 'homemenu']);
 const GATHER_ACTIONS = new Set(['woodcut', 'mine', 'fish', 'stall']);
-// Gathering (woodcutting, mining, fishing, Hunter) goes this much faster: every
-// 1/(GATHER_SPEED-1) ticks an extra roll, so each action takes about 20% less time.
+// Gathering (woodcutting, mining, fishing, Hunter) and making (cooking, smithing,
+// crafting, fletching, Herblore) go this much faster: every 1/(GATHER_SPEED-1)
+// ticks an extra roll, so each action takes about 20% less time. (Smelting is a
+// whole batch at once already; Firemaking walks a tile per fire, so it gets the
+// same boost as XP instead: see FIRE_XP in skilling.js.)
 export const GATHER_SPEED = 1.25;
-const GATHER_FAST = new Set(['woodcut', 'mine', 'fish', 'hunt']);
+const MAKE_FAST = new Set(['cook', 'cookdish', 'smith', 'craft', 'recipe']);
+const GATHER_FAST = new Set(['woodcut', 'mine', 'fish', 'hunt', ...MAKE_FAST]);
 // Ticks you get to answer a Knowledge Strike before the boss's special lands (~7s).
 const KS_TICKS = 12;
 
@@ -1417,10 +1421,11 @@ export class Game {
     const gather = GATHER_ACTIONS.has(a.type) || a.type === 'hunt';
     const before = gather ? this._bagCounts() : null;
     let going = runSkillAction(this, a, resolver);   // with the skill's unlocks (skillunlocks.js)
-    // A gathering skill's extra share of a tick (GATHER_SPEED): every so often, a second roll.
+    // A gathering or making skill's extra share of a tick (GATHER_SPEED): every so often, a
+    // second roll. (Making swaps item for item, so it needs no free slot.)
     if (going && GATHER_FAST.has(a.type)) {
       a._quick = (a._quick || 0) + (GATHER_SPEED - 1);
-      if (a._quick >= 1 && this.inventory.freeSlots() > 0 && !obj.depleted) { a._quick -= 1; going = runSkillAction(this, a, resolver); }
+      if (a._quick >= 1 && (MAKE_FAST.has(a.type) || this.inventory.freeSlots() > 0) && !obj.depleted) { a._quick -= 1; going = runSkillAction(this, a, resolver); }
     }
     if (gather) {
       const after = this._bagCounts();
