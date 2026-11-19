@@ -56,7 +56,7 @@ export function elementForTint(color) {
  *  projectiles fly at (game.js _projectile), so a ranged impact lands with it. */
 export function flightMs(kind, dist) {
   if (kind === 'pierce') return Math.min(650, 140 + dist / 0.55);
-  if (kind === 'bullet') return 110 + dist / 2.2;
+  if (kind === 'bullet') return 60 + dist / 5;
   if (kind === 'coin') return Math.min(560, 120 + dist / 0.6);
   if (kind === 'magic') return 240;
   return 0;

@@ -1059,7 +1059,7 @@ export class Renderer {
         if (e.gun === 'rifle') {
           // The Sniper's round: a long gold tracer with a pale vapour trail
           // behind it, and a copper slug at its head.
-          const tt = Math.max(0, t - 0.4);
+          const tt = Math.max(0, t - 0.6);   // a long streak: the round is quick, the trail stays in sight
           const tx = e.x + (e.ex - e.x) * tt - ox, ty = e.y + (e.ey - e.y) * tt - oy;
           ctx.globalAlpha = 0.35; ctx.strokeStyle = '#e8eef5'; ctx.lineWidth = 4.5;
           ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(x, y); ctx.stroke();
@@ -1073,7 +1073,7 @@ export class Renderer {
         } else {
           // The Pistoler's round: a tiny brass pellet with a faint, short streak
           // (pistols fire four shots a beat, so each one stays small).
-          const tt = Math.max(0, t - 0.07);
+          const tt = Math.max(0, t - 0.22);   // fast, so the faint streak trails a little further behind
           const tx = e.x + (e.ex - e.x) * tt - ox, ty = e.y + (e.ey - e.y) * tt - oy;
           ctx.globalAlpha = 0.55; ctx.strokeStyle = e.crit ? '#ffd24a' : '#fff0c0'; ctx.lineWidth = 1;
           ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(x, y); ctx.stroke();

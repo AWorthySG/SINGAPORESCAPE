@@ -2961,7 +2961,7 @@ export class Game {
     const dist = Math.hypot(to.x - fx, to.y - from.y);
     // Bullets are the quickest of all; shurikens spin across a little slower than arrows.
     const life = kind === 'arrow' ? Math.min(650, 140 + dist / 0.55) + Math.abs(spread) * 40
-      : kind === 'bullet' ? 110 + dist / 2.2 + Math.abs(spread) * 20
+      : kind === 'bullet' ? 60 + dist / 5 + Math.abs(spread) * 12   // about twice as quick as they were; a longer streak keeps them in sight
         : kind === 'shuriken' || kind === 'coin' ? Math.min(560, 120 + dist / 0.6) + Math.abs(spread) * 40
           : 240 + Math.abs(spread) * 40;
     this.effects.push({ type: 'projectile', kind, x: fx, y: from.y - 6 + off, ex: to.x, ey: to.y - 8 + off * 0.6, color, life, maxLife: life,
