@@ -6630,9 +6630,11 @@ test('boss signature weapons: stronger than the plain weapon they are built on, 
     for (const k of FIGHT) assert.ok((s[k] || 0) >= (b[k] || 0), `${it.id} ${k}`);
     assert.ok(sum(s, FIGHT) > sum(b, FIGHT) * 1.2, `${it.id} hits about 1.3x harder`);
     assert.ok(sum(s, OFF) > sum(b, OFF), `${it.id} has extra offensive lines`);
-    // It has its own painted sticker.
+    // It has its own painted sticker (the bestiary expansion's bosses' weapons borrow
+    // an older one of their class, recoloured, until theirs arrive).
     assert.ok(hasIcon(it.id));
-    assert.ok(itemIconSVG(it.id, 24).includes(`assets/icons/item-${it.id}.webp`), `${it.id} has its own art`);
+    const own = itemIconSVG(it.id, 24).includes(`assets/icons/item-${it.id}.webp`);
+    assert.ok(own || /item-sig_\w+\.webp[^>]*filter:/.test(itemIconSVG(it.id, 24)), `${it.id} has art`);
     if (it.equip.weaponType === 'dagger') assert.ok(canDualWield(it.id), 'signature daggers dual wield');
   }
 });

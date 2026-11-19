@@ -8,6 +8,7 @@
 import { CROPS, POTIONS } from '../data/trades.js';
 import { ABILITY_BY_ID } from '../data/abilities.js';
 import { ITEMS } from '../data/items.js';
+import { BESTIARY_BOSSES } from '../data/bestiary.js';
   const OL = '#22304A';                 // A-Worthy navy ink outline
   // palettes
   const C = {
@@ -827,7 +828,9 @@ import { ITEMS } from '../data/items.js';
     'big_bones', 'heavy_bones', 'ancient_bones', 'spirit_bones', 'champion_bones', 'titan_bones', 'dragon_bones', 'fiend_bones', 'legend_bones',
     'refine_scroll', 'pearl_ring', 'pearl_amulet', 'holy_beads', 'ring_of_devotion', 'pilgrim_cape', 'temple_pendant', 'ring_of_serenity',
     'lantern_cape', 'starlit_pendant']) ITEM_ART.add(id);
-  for (const [id, it] of Object.entries(ITEMS)) if (it.signature) ITEM_ART.add(id);
+  // (The bestiary expansion's bosses have no stickers yet: theirs borrow one below.)
+  const NEW_SIG = new Set(BESTIARY_BOSSES.map((b) => `sig_${b.id}`));
+  for (const [id, it] of Object.entries(ITEMS)) if (it.signature && !NEW_SIG.has(id)) ITEM_ART.add(id);
   export const itemArtSrc = (id) => (ITEM_ART.has(id) ? `assets/icons/item-${id}.webp` : borrowedArt(id) ? `assets/icons/item-${borrowedArt(id).file}.webp` : null);
   const artImg = (file, size, cls, filter) => `<img class="${cls || ''}" width="${size}" height="${size}" src="assets/icons/${file}.webp" alt="" style="display:block;object-fit:contain${filter ? `;filter:${filter}` : ''}" />`;
   // Metal-tier items without stickers of their own can borrow another sticker,
@@ -836,6 +839,12 @@ import { ITEMS } from '../data/items.js';
   const BORROW = {};
   const BORROW_ID = {};   // single items borrowing a sticker
   const BORROW_TINT = {};   // optional per-item tint for a BORROW_ID sticker
+  // A new boss's signature weapon borrows an older one made for the same class, turned to its own hue.
+  for (const id of NEW_SIG) {
+    const it = ITEMS[id];
+    const donor = it && Object.keys(ITEMS).find((d) => ITEM_ART.has(d) && ITEMS[d].signature?.classId === it.signature.classId);
+    if (donor) { BORROW_ID[id] = donor; BORROW_TINT[id] = `hue-rotate(${it.signature.hue}deg) saturate(1.2)`; }
+  }
   // Endgame ores, bars, logs and ashes have painted stickers (ITEM_ART); these
   // vectors stay as their fallback.
   for (const [m, ore] of [['obsidian', 'obsidian_shard'], ['orichalcum', 'orichalcum_ore'], ['jade', 'raw_jade'],
