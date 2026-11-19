@@ -219,6 +219,8 @@ export class UI {
       });
       for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) atk.addEventListener(ev, release);
     }
+    // Next target: step through the enemies in reach (Tab on a keyboard).
+    document.getElementById('target-btn')?.addEventListener('pointerdown', (e) => { e.preventDefault(); this.game.nextTarget(); });
     this.renderAutoBattle();
 
     this.el.runOrb?.remove();   // no run energy any more: everyone always runs
