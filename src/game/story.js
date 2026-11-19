@@ -313,8 +313,8 @@ export class Story {
       if (prev === key) continue;
       snap[l.id] = key;
       if (!this.eventsOn || q?.state !== 'active') continue;
-      if (prev?.startsWith('notStarted')) this.startEvent('ransack', { line: l.id });
-      else if (l.steps[q.step]?.kind === 'foe') this.startEvent('raid', { line: l.id });
+      if (l.steps[q.step]?.kind === 'foe') this.startEvent('raid', { line: l.id });
+      else if (prev?.startsWith('notStarted')) this.startEvent('ransack', { line: l.id });
     }
   }
 

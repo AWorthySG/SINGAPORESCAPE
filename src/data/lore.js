@@ -10,7 +10,7 @@
 // quest foe) beside the hidden spot, and the story's own set pays a bonus.
 // Ids are saved: never rename one.
 
-export const STORY_SET = 'The Shadow Rift';
+export const STORY_SET = 'The Story So Far';   // (not 'The Shadow Rift': that is a region's set)
 
 // Region prefix -> region name (prefixes match the region quest line ids).
 const R = {
