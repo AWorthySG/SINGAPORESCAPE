@@ -3543,11 +3543,14 @@ body.reduce-motion #boss-bar.warn { animation: none; }
 @media (max-width: 540px) and (orientation: portrait) {
   body.boss-on #quest-tracker { font-size: 10px; max-height: 92px; overflow: hidden; }
   body.boss-on #quest-tracker .trk-title { display: none; }
+  /* Under the minimap sit its caption and the row of orbs, then the panel
+     launcher at the edge: the XP counter goes below the orbs, left of it. */
+  body #xp-hud { top: calc(100% + 100px); right: 64px; }
 }
 
 /* XP display: the running counter and progress ring under the minimap. */
 #xp-hud {
-  position: absolute; top: calc(100% + 8px); right: 0; z-index: 22;
+  position: absolute; top: calc(100% + 36px); right: 0; z-index: 22;   /* under the area caption */
   display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
   pointer-events: none; transition: opacity .4s ease;
 }
@@ -3614,7 +3617,6 @@ body.reduce-motion #boss-bar.warn { animation: none; }
 .xph-toast.out { opacity: 0; transform: translateX(-12px); }
 @keyframes xphToast { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
 @media (max-width: 540px) {
-  #xp-hud { top: calc(100% + 4px); }
   .xph-count { font-size: 12px; padding: 1px 8px 1px 4px; }
   #xp-toasts { left: 8px; top: 36%; }
   .xph-toast { font-size: 11.5px; }

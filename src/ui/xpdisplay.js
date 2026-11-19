@@ -183,8 +183,8 @@ export class XpDisplay {
       this.track.last = skill;
       this._renderRing(true);
       const el = this.el;
-      el.classList.remove('idle', 'no-ring', 'ring-only');
-      el.classList.add('ring-only');
+      el.classList.remove('idle', 'no-ring');
+      if (!this.track.active(this._now())) el.classList.add('ring-only');   // a running counter stays up
       const r = this.parts.ring;
       // Reduce motion and low graphics: the ring just glows gold, no pulse.
       const cls = this.game.reduceMotion || this.game.lowFx ? 'lvl-still' : 'lvl';
