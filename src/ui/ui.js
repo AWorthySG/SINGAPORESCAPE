@@ -100,6 +100,20 @@ const MAP_FILTERS = [
 // Everything a finger means to press rather than drag. A phone sheet's drag
 // (see _initSheets) never starts on one of these, so it never captures the
 // pointer away from a tab, slot, row or button and eats its tap.
+// The side panel's five tabs, each named by its first view (the tab button's
+// data-view), and the views it holds. A tab with more than one view shows a
+// row of sub-tabs at the top of the panel body to switch between them.
+export const PANEL_TABS = {
+  inventory: ['inventory', 'equipment'],
+  skills: ['skills'],
+  combat: ['combat', 'prayer', 'stats'],
+  quests: ['quests', 'achievements'],
+  settings: ['settings'],
+};
+const SUBTAB_LABELS = { inventory: 'Bag', equipment: 'Gear', combat: 'Combat', prayer: 'Prayer', stats: 'Stats', quests: 'Quests', achievements: 'Awards' };
+/** The tab that holds a view ('prayer' -> 'combat'). */
+export const tabOfView = (view) => Object.keys(PANEL_TABS).find((t) => PANEL_TABS[t].includes(view)) || null;
+
 const PRESSABLE = 'button, a, input, select, textarea, label, summary, [role="button"], '
   + '.tab-btn, .inv-slot, .equip-slot, .item-cell, .prayer-cell, .quest-row, .ctx-item, .dialogue-option';
 
@@ -167,7 +181,7 @@ export class UI {
     this.minimapCtx = this.el.minimap.getContext('2d');
 
     // Tab buttons: the mascot icon plus a short label, so each tab is easy to find.
-    const TAB_LABELS = { inventory: 'Bag', equipment: 'Gear', skills: 'Skills', combat: 'Combat', prayer: 'Prayer', quests: 'Quests', stats: 'Stats', achievements: 'Awards', settings: 'Settings' };
+    const TAB_LABELS = { inventory: 'Bag', skills: 'Skills', combat: 'Combat', quests: 'Journal', settings: 'Settings' };
     document.querySelectorAll('#panel-tabs .tab-btn').forEach((b) => {
       b.innerHTML = tabIconSVG(b.dataset.view, 32) + `<span class="tab-label">${TAB_LABELS[b.dataset.view] || ''}</span>`;
       b.setAttribute('aria-label', b.title || TAB_LABELS[b.dataset.view] || b.dataset.view);
@@ -186,6 +200,8 @@ export class UI {
     this._initCollapsibles();
 
     this._bindTabs();
+    // The Bag tab opens on whichever of Bag / Gear it showed last time.
+    this._showPanelView(PANEL_TABS.inventory.includes(this._subView?.inventory) ? this._subView.inventory : 'inventory');
     this._bindChatTabs();
     this._buildCombatPanel();
     this._buildPrayerPanel();
@@ -205,6 +221,7 @@ export class UI {
     this._initAutoMenu();
     this._initSheets();
     this._initPressHold();
+    this._initWindowHotkeys();
     document.getElementById('interact-btn')?.addEventListener('pointerdown', (e) => { e.preventDefault(); this.game.interact(); });
     // Attack: a tap locks onto the nearest enemy; holding it keeps fighting,
     // moving straight on to the next foe as each one falls.
@@ -677,6 +694,30 @@ export class UI {
     document.addEventListener('pointercancel', later, true);
   }
 
+  // Shop and Offering Shrine hotkeys: point at an item (or an offer row) and
+  // press 1, 5, X (10) or A (all; 100 when buying) instead of right-clicking for
+  // a menu. Each pointable thing carries its action as `_hot(n)` (n = Infinity
+  // for "all"); the window's hint line lists the keys.
+  _initWindowHotkeys() {
+    if (typeof document === 'undefined') return;
+    const KEYS = { '1': 1, '5': 5, 'x': 10, 'a': Infinity };
+    // Where the mouse is: the window redraws after each buy or sale, so the thing
+    // pointed at is looked up afresh on every key press (a held key keeps going).
+    let mx = -1, my = -1;
+    document.addEventListener('mousemove', (e) => { mx = e.clientX; my = e.clientY; }, { capture: true, passive: true });
+    document.addEventListener('keydown', (e) => {
+      if (!this.modal || !['shop', 'shrine'].includes(this.modal.kind)) return;
+      const t = e.target;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const n = KEYS[(e.key || '').toLowerCase()];
+      const over = mx >= 0 ? document.elementFromPoint(mx, my)?.closest?.('.hot') : null;
+      if (!n || !over || typeof over._hot !== 'function') return;
+      e.preventDefault(); e.stopImmediatePropagation();   // (not the game's own 1-5 tab keys)
+      over._hot(n);
+    }, true);
+  }
+
   // Phones show the side panel and the big windows as sheets (see "Responsive
   // layout" in main.css). Dragging the handle or header down (or sideways to
   // the right for the landscape side sheet) past a short distance closes the
@@ -737,7 +778,8 @@ export class UI {
 
   _bindTabs() {
     const tabs = document.querySelectorAll('#panel-tabs .tab-btn');
-    const views = document.querySelectorAll('#panel-body .panel-view');
+    // The sub-tab each tab last showed, remembered per viewer (it is only a convenience).
+    try { this._subView = JSON.parse(localStorage.getItem('ss_ui_subtab')) || {}; } catch { this._subView = {}; }
     tabs.forEach((btn) => {
       btn.addEventListener('click', () => {
         this._dropTips();   // switching tabs never leaves an item's description behind
@@ -752,14 +794,62 @@ export class UI {
         if (folded) this._collapseApply?.panel?.(false);
         else if (btn.classList.contains('active') && panel?.classList.contains('compact-ui')) { if (!quick) this._collapseApply?.panel?.(true); return; }
         tabs.forEach((b) => b.classList.toggle('active', b === btn));
-        const view = btn.dataset.view;
-        this._setPanelTitle(view);
-        views.forEach((v) => v.classList.toggle('hidden', v.dataset.view !== view));
-        if (view === 'stats') this.renderStatsPanel();   // it only redraws while showing, so bring it up to date
-        // The skills list carries a name + description per row, so it gets more room.
-        document.getElementById('sidepanel')?.classList.toggle('wide', view === 'skills');
+        const tab = btn.dataset.view;
+        const views = PANEL_TABS[tab] || [tab];
+        this._showPanelView(views.includes(this._subView?.[tab]) ? this._subView[tab] : views[0]);
       });
     });
+  }
+
+  /** Show one view of the side panel (and its sub-tab row), without touching
+   *  which tab button is lit or folding anything. */
+  _showPanelView(view) {
+    const tab = tabOfView(view) || view;
+    this._setPanelTitle(view);
+    document.querySelectorAll('#panel-body .panel-view').forEach((v) => v.classList.toggle('hidden', v.dataset.view !== view));
+    if (this._subView) {
+      this._subView[tab] = view;
+      try { localStorage.setItem('ss_ui_subtab', JSON.stringify(this._subView)); } catch {}
+    }
+    this._renderSubtabs(tab, view);
+    if (view === 'stats') this.renderStatsPanel();   // it only redraws while showing, so bring it up to date
+    // The skills list carries a name + description per row, so it gets more room.
+    document.getElementById('sidepanel')?.classList.toggle('wide', view === 'skills');
+  }
+
+  /** The "Bag | Gear" style row of sub-tabs at the top of the panel body. */
+  _renderSubtabs(tab, view) {
+    const row = document.getElementById('panel-subtabs');
+    if (!row) return;
+    const views = PANEL_TABS[tab] || [];
+    row.classList.toggle('hidden', views.length < 2);
+    if (row.dataset.tab !== tab) {
+      row.dataset.tab = tab;
+      row.innerHTML = views.length < 2 ? '' : views.map((v) =>
+        `<button type="button" class="subtab-btn" role="tab" data-view="${v}">${SUBTAB_LABELS[v] || v}</button>`).join('');
+      row.querySelectorAll('.subtab-btn').forEach((b) => b.addEventListener('click', () => {
+        this._dropTips();
+        this._showPanelView(b.dataset.view);
+        document.getElementById('panel-body')?.scrollTo?.(0, 0);
+      }));
+    }
+    row.querySelectorAll('.subtab-btn').forEach((b) => {
+      const on = b.dataset.view === view;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+  }
+
+  /** Open the side panel on a view, wherever it lives: lights its tab, picks
+   *  its sub-tab and unfolds the panel. For code (and keys) that want, say,
+   *  the achievements up rather than whatever the Journal tab last showed. */
+  showPanelView(view) {
+    if (typeof document === 'undefined') return;
+    const tab = tabOfView(view);
+    if (!tab) return;
+    document.querySelectorAll('#panel-tabs .tab-btn').forEach((b) => b.classList.toggle('active', b.dataset.view === tab));
+    if (document.getElementById('sidepanel')?.classList.contains('collapsed')) this._collapseApply?.panel?.(false);
+    this._showPanelView(view);
   }
 
   _bindChatTabs() {
@@ -1501,14 +1591,15 @@ export class UI {
         tracks.appendChild(row);
       }
       body.appendChild(tracks);
-      body.insertAdjacentHTML('beforeend', '<div class="ench-head shrine-head">Offer materials</div>');
+      body.insertAdjacentHTML('beforeend', '<div class="ench-head shrine-head">Offer materials</div><div class="modal-hint hotkey-hint">Point at a material and press <kbd>1</kbd> <kbd>5</kbd> <kbd>X</kbd> (10) or <kbd>A</kbd> (all)</div>');
       const list = document.createElement('div');
       list.className = 'gear-list feed-list';
       const opts = g.shrineDonatables();
       if (!opts.length) list.innerHTML = '<div class="modal-hint">You carry no materials to offer. Gather some, or take them out of the bank.</div>';
       for (const o of opts) {
         const row = document.createElement('div');
-        row.className = 'gear-row feed-row';
+        row.className = 'gear-row feed-row hot';
+        row._hot = (n) => { g.donateToShrine(o.id, n); render(body); };
         row.innerHTML = `<span class="gear-ic">${itemIconSVG(o.id, 28)}</span>`
           + `<div class="gear-info"><div class="gear-name"><b>${escapeHtml(getItem(o.id).name)}</b><span class="gear-tag">x${formatNumber(o.count)}</span></div>`
           + `<div class="gear-stats">${formatNumber(o.points)} point${o.points > 1 ? 's' : ''} each (${formatNumber(o.points * o.count)} for all)</div></div>`;
@@ -3508,9 +3599,9 @@ export class UI {
       shopGrid.className = 'item-grid shop';
       for (const entry of shop.stock) {
         const price = Math.max(1, Math.round(getItem(entry.id).value * shop.buyMul * this.game.priceFactor().buy));
-        shopGrid.appendChild(this._cell(entry.id, entry.qty, {
+        const buyCell = this._cell(entry.id, entry.qty, {
           tooltip: `<b>${getItem(entry.id).name}</b><br>Buy: ${price} coins`,
-          onClick: () => this.game.buyItem(shopId, entry.id, 1),
+          onClick: (e) => this.game.buyItem(shopId, entry.id, e?.shiftKey ? 10 : 1),
           menu: () => [
             { label: `Buy 1 (${price})`, fn: () => this.game.buyItem(shopId, entry.id, 1) },
             { label: 'Buy 5', fn: () => this.game.buyItem(shopId, entry.id, 5) },
@@ -3522,7 +3613,10 @@ export class UI {
             ] : []),
             { label: 'Value', fn: () => this.game.msg(`${getItem(entry.id).name}: ${price} coins.`, 'system') },
           ],
-        }));
+        });
+        buyCell.classList.add('hot');
+        buyCell._hot = (n) => this.game.buyItem(shopId, entry.id, n === Infinity ? 100 : n);
+        shopGrid.appendChild(buyCell);
       }
       shopSide.appendChild(shopGrid);
       // Player inventory (sell)
@@ -3545,19 +3639,23 @@ export class UI {
       this.game.inventory.slots.forEach((s) => {
         if (!s || s.id === 'coins') return;
         const sell = Math.max(1, Math.round(getItem(s.id).value * shop.sellMul * this.game.priceFactor().sell));
-        invGrid.appendChild(this._cell(s.id, s.qty, {
+        const sellCell = this._cell(s.id, s.qty, {
           tooltip: `<b>${getItem(s.id).name}</b><br>Sell: ${sell} coins`,
-          onClick: () => this.game.sellItem(shopId, s.id, 1),
+          onClick: (e) => this.game.sellItem(shopId, s.id, e?.shiftKey ? 10 : 1),
           menu: () => [
             { label: `Sell 1 (${sell})`, fn: () => this.game.sellItem(shopId, s.id, 1) },
             { label: 'Sell 5', fn: () => this.game.sellItem(shopId, s.id, 5) },
             { label: 'Sell All', fn: () => this.game.sellItem(shopId, s.id, this.game.inventory.count(s.id)) },
           ],
-        }));
+        });
+        sellCell.classList.add('hot');
+        sellCell._hot = (n) => this.game.sellItem(shopId, s.id, n === Infinity ? this.game.inventory.count(s.id) : n);
+        invGrid.appendChild(sellCell);
       });
       invSide.appendChild(invGrid);
       cols.appendChild(shopSide);
       cols.appendChild(invSide);
+      body.insertAdjacentHTML('beforeend', '<div class="modal-hint hotkey-hint">Click: 1 · Shift-click: 10 · Point at an item and press <kbd>1</kbd> <kbd>5</kbd> <kbd>X</kbd> (10) or <kbd>A</kbd> (sell all / buy 100)</div>');
       body.appendChild(cols);
     };
     this.openModal(shop.name, render);

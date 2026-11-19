@@ -2772,7 +2772,7 @@ body #tip-toast.tip-strip { font-size: 11px; padding: 4px 6px 4px 7px; border-ra
   .tab-btn { min-width: 44px; min-height: 44px; }
   #panel-tabs { gap: 3px; }
   .inv-slot, .equip-slot, .item-cell { min-width: 44px; min-height: 44px; }
-  .inv-tab, #inv-sort, .chat-tab, .as-opt, .wm-chip { min-height: 44px; }
+  .inv-tab, #inv-sort, .chat-tab, .as-opt, .wm-chip, .subtab-btn { min-height: 44px; }
   #inv-sort { min-width: 44px; }
   .auto-row #auto-battle-btn, .auto-row .ab-btn, .auto-row #auto-battle-cfg { min-height: 44px; }
   #wave-hud .wv-leave { min-height: 44px; }
@@ -2857,17 +2857,16 @@ body #tip-toast.tip-strip { font-size: 11px; padding: 4px 6px 4px 7px; border-ra
   }
   #sidepanel:not(.collapsed) .sheet-handle { display: block; }
   #panel-head, #modal-title { touch-action: none; }
-  /* All nine tabs share one row in equal columns, so none hides off the edge
-     of a 375-390px phone (a scrolling row only showed six, with no hint that
-     Stats, Awards and Settings were there). They are icons only; the header
-     above names the open tab. Each is about 38px wide and 48px tall and they
-     sit 2px apart, so the row is one continuous strip of tap area. */
+  /* The five tabs share one row in equal columns, so none hides off the edge
+     of a 375-390px phone (a scrolling row dropped taps on iPhone). Each is
+     about 70px wide and 56px tall with its label under the icon, and they sit
+     2px apart, so the row is one continuous strip of tap area. */
   #sidepanel:not(.collapsed) #panel-tabs {
-    display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 2px; overflow: visible; padding: 4px 6px;
+    display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; overflow: visible; padding: 4px 6px;
     border-left: 0; border-bottom: 2px dashed var(--aw-ink-faint);
   }
-  #sidepanel:not(.collapsed) .tab-btn { min-width: 0; min-height: 48px; padding: 2px 0; border-radius: 12px; border-bottom: 0; }
-  #sidepanel:not(.collapsed) .tab-btn .tab-label { display: none; }
+  #sidepanel:not(.collapsed) .tab-btn { min-width: 0; min-height: 56px; padding: 3px 0; border-radius: 12px; border-bottom: 0; }
+  #sidepanel:not(.collapsed) .tab-btn .tab-label { display: block; font-size: 10.5px; }
   /* No contain: size here (desktop and tablets keep it): the sheet has a
      fixed height and the body sits in a minmax(0, 1fr) row, so it can't grow
      the sheet anyway, and size containment on a scroller inside a transformed,
@@ -3454,3 +3453,29 @@ body.cb-safe #hp-orb.low::after {
 .sg-fire .sg-fire-btn { min-height: 40px; padding: 0 14px; font-weight: 700; }
 .sg-fire .sg-fire-btn[disabled] { opacity: .5; }
 .sg-fire span { flex: 1 1 180px; }
+
+/* ---- Shop and shrine hotkeys: the hint line's keycaps (hidden on touch, which has no keys) ---- */
+.hotkey-hint kbd { font-family: inherit; font-size: 10px; font-weight: 800; padding: 0 4px; margin: 0 1px; border: 1.5px solid var(--aw-ink-faint, #c9cdd4); border-radius: 4px; }
+@media (pointer: coarse) and (hover: none) { .hotkey-hint { display: none; } }
+/* ======================================================================
+   Five panel tabs: the sub-tab row ("Bag | Gear", "Combat | Prayer | Stats",
+   "Quests | Awards") at the top of the panel body (ui.js: _renderSubtabs).
+   ====================================================================== */
+#panel-subtabs {
+  position: sticky; top: -9px; z-index: 2; display: flex; gap: 0; margin: -9px -9px 8px; padding: 6px 9px;
+  background: var(--aw-bg, #FBF7EE); border-bottom: 2px dashed var(--aw-ink-faint);
+}
+.subtab-btn {
+  flex: 1 1 0; min-width: 0; padding: 6px; cursor: var(--cur-pointer);   /* touch screens: 44px tall (see "Touch targets") */
+  font: inherit; font-size: 12px; font-weight: 800; letter-spacing: .02em;
+  color: var(--aw-text, #22304A); background: var(--aw-card, #fff);
+  border: 2px solid var(--aw-ink, #22304A); border-left-width: 0;
+}
+.subtab-btn:first-child { border-left-width: 2px; border-radius: 999px 0 0 999px; }
+.subtab-btn:last-child { border-radius: 0 999px 999px 0; }
+.subtab-btn:hover:not(.active) { background: var(--aw-hover, #EEE7D6); }
+.subtab-btn.active { background: var(--aw-accent, #C0392B); color: #fff; }
+.subtab-btn:focus-visible { outline: 3px solid var(--aw-sun, #F2B33D); outline-offset: 1px; }
+@media (max-width: 540px), (max-height: 500px) {
+  #panel-subtabs { top: -7px; margin: -7px -7px 7px; padding: 5px 7px; }
+}

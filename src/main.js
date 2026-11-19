@@ -82,7 +82,8 @@ input.onKey((e) => {
   const t = e.target;
   if (e.key !== 'Escape' && t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
   if ('fgqepzxcvb '.includes(e.key?.toLowerCase() || '-')) handsOn(game);
-  const map = { '1': 'inventory', '2': 'equipment', '3': 'skills', '4': 'combat', '5': 'prayer', '6': 'quests', '7': 'achievements', '8': 'settings' };
+  // The number keys pick the five panel tabs: 1 Bag, 2 Skills, 3 Combat, 4 Journal, 5 Settings.
+  const map = { '1': 'inventory', '2': 'skills', '3': 'combat', '4': 'quests', '5': 'settings' };
   if (map[e.key]) {
     document.querySelector(`#panel-tabs .tab-btn[data-view="${map[e.key]}"]`)?.click();
   } else if (e.key === 'f' || e.key === 'F') {
