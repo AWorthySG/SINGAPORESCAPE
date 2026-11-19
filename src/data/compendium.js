@@ -1110,7 +1110,7 @@ export const CHAPTERS = [
         summary: `${MORAL_EVENTS.length} moral choices, and how the world remembers them.`,
         body: [
           `Here and there someone needs you: a crying child with a purse, a hawker who gave too much change, a beaten bandit. There are **${MORAL_EVENTS.length}** of these moments across the island, and each has a **good** and an **evil** answer.`,
-          `A good answer gives karma towards good, often a little XP, and the **Blessed** buff: +${pct(BLESS_XP - 1)} combat XP for ${mins(BLESS_MS)}. An evil answer pays coins and karma towards evil.`,
+          `A good answer gives karma towards good, often a little XP, and the **Blessed** buff: +${pct(BLESS_XP - 1)} combat XP for ${mins(BLESS_MS)} (a different thing from the [[prayers|Blessings]] you equip with Prayer). An evil answer pays coins and karma towards evil.`,
           () => `Your choices, and the region quest lines you finish, leave **${CONSEQUENCES.length} lasting changes** in the world: new residents who set up a stall, ones who pack up and leave, shop prices that go up or down, and regions whose light turns a touch warmer or gloomier. The Regions journal lists the ones you have caused.`,
           'Your karma sets your **alignment**:',
           () => ({ table: { head: ['Title', 'Karma (good minus evil)'], rows: alignmentRows() } }),
