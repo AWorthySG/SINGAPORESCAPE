@@ -9,6 +9,7 @@ import { CLASSES } from '../src/data/classes.js';
 import {
   HERO_CLIPS, HERO_CHANNELS, SKILL_ACTION_TYPES, WEAPON_CLIP, DUAL_CLIPS, actionClipId, actionPropId, weaponClipId,
   sampleHeroClip, heroAnimFrame, blendHeroFrame, CLIP_BLEND_MS, FISHING, attachFishing, drawFishingGear, blowMs, strikeClock,
+  drawHeroArm, armInFront, propPoint,
 } from '../src/render/heroanim.js';
 import { OBJECTS } from '../src/data/objects.js';
 import { drawPlayer } from '../src/render/sprites.js';
@@ -490,4 +491,54 @@ test('the Lancer lowers the spear from its upright guard into the thrust, not in
   }
   assert.ok(aimed - shown >= 0.08, `lowered over ${(aimed - shown).toFixed(3)} of the clip`);
   assert.equal(sampleHeroClip('slash', 0.1).guardIn, false, 'other clips coil as before');
+});
+
+// A canvas stand-in that records each point an arm is drawn from: a mitten
+// arm's stroke starts at the shoulder; a painted arm (and the tool) is drawn
+// translated to it (when earlier tests left pictures loaded).
+function strokeStarts() {
+  const starts = [];
+  const c = new Proxy({ globalAlpha: 1 }, {
+    get: (t, k) => (k in t ? t[k] : k === 'moveTo' || k === 'translate' ? (x, y) => starts.push([x, y]) : () => {}),
+    set: (t, k, v) => { t[k] = v; return true; },
+  });
+  return { c, starts };
+}
+
+test("the Brawler's life-skill arms hang from his gi's sleeve ends, the back one over the body", () => {
+  // His gi is as pale as his arms: from the usual shoulders, inside the chest,
+  // they vanished into it and left two empty sleeves (fishing, chopping...).
+  for (const id of ['woodcut', 'fish_rod', 'mine']) {
+    const anim = sampleHeroClip(id, 0.3, { kind: 'skill', tool: 'bronze_axe', jobClass: 'brawler' });
+    const front = strokeStarts(), back = strokeStarts();
+    drawHeroArm(front.c, anim, 'front', -11);
+    drawHeroArm(back.c, anim, 'back', -11);
+    assert.ok(front.starts.some(([x, y]) => x === 13 && y === -12), `${id}: front arm out at the sleeve (${JSON.stringify(front.starts)})`);
+    assert.ok(!front.starts.some(([x]) => x === 8), `${id}: not from inside the chest`);
+    assert.deepEqual(back.starts[0], [-13, -12], `${id}: back arm out at the other sleeve`);
+  }
+  assert.equal(armInFront('brawler'), true, 'his back arm is drawn over the body, as his rig arm is');
+  // Everyone else keeps the usual shoulders, with the back arm behind the body.
+  const anim = sampleHeroClip('woodcut', 0.3, { kind: 'skill', tool: 'bronze_axe', jobClass: 'swordsman' });
+  const sw = strokeStarts();
+  drawHeroArm(sw.c, anim, 'front', -11);
+  assert.ok(sw.starts.some(([x, y]) => x === 8 && y === -11), JSON.stringify(sw.starts));
+  assert.equal(armInFront('swordsman'), false);
+});
+
+test('the axe chops blade first and the pickaxe is held by its handle', () => {
+  // The handle held out level toward the tree (angle 0) at the bite of a
+  // downswing: the head moves down, so the blade must be on the lower side.
+  // The sticker's blade edge is at its left (about 0.12, 0.45), its poll at
+  // the head's upper right (about 0.55, 0.12).
+  const blade = propPoint('bronze_axe', 0.12, 0.45, 0), poll = propPoint('bronze_axe', 0.55, 0.12, 0);
+  assert.ok(blade[1] > 2 && poll[1] < -2, `blade at y ${blade[1].toFixed(1)}, poll at y ${poll[1].toFixed(1)}`);
+  assert.ok(blade[0] > 10, 'the head is out at the end of the handle');
+  // Both tools: the end of the handle is near the hand and the handle runs
+  // along the arm's line to the head (not off to one side of the fist).
+  for (const [id, end, mid] of [['bronze_axe', [0.88, 0.88], [0.62, 0.57]], ['bronze_pickaxe', [0.88, 0.88], [0.66, 0.6]]]) {
+    const e = propPoint(id, ...end, 0), m = propPoint(id, ...mid, 0);
+    assert.ok(Math.hypot(...e) < 6, `${id}: handle end ${e.map((v) => v.toFixed(1))} by the hand`);
+    assert.ok(m[0] > 3 && Math.abs(m[1]) < 2, `${id}: handle ${m.map((v) => v.toFixed(1))} along the arm`);
+  }
 });
