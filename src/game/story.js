@@ -355,8 +355,8 @@ export class Story {
     const t = this._freeNear(giver.x, giver.y, 1, 2, l.region);
     if (!t) return false;
     const base = g.world.objects.find((o) => o.objId === 'sign')?.def || {};
-    const def = { ...base, name: 'Ransacked stall', type: 'storyobj', verb: 'Tidy up', blocking: false, art: 'obj-stall_market',
-      tint: 'grayscale(0.6) brightness(0.8) sepia(0.3)', examine: `${speakerName(l.giver)}'s stall, turned over and trampled.` };
+    const def = { ...base, name: 'Ransacked stall', type: 'storyobj', verb: 'Tidy up', blocking: false, art: 'obj-ransacked_stall',
+      examine: `${speakerName(l.giver)}'s stall, turned over and trampled.` };
     ev.objs.push(g.world.addObject('sign', t.x, t.y, { def, storyKind: 'ransack' }));
     ev.endTick = g.tickCount + RANSACK_TICKS;
     giver.chatText = EVENT_LINES.ransack; giver.chatTimer = 5;

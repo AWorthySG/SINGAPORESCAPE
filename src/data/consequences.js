@@ -14,8 +14,9 @@
 //   npc          a resident who turns up (see RESIDENTS) — by id
 //   leaves       a resident who packs up and goes — by id
 //
-// Residents are people only the living world places: they wear an existing
-// NPC's painted art (`art`), and keep a routine
+// Residents are people only the living world places: they take an existing
+// NPC's body (`art`) but are drawn by their own townsfolk picture
+// (assets/creatures/townsfolk/<id>.webp; the borrowed one until it arrives), and keep a routine
 // (npcchatter.js ROUTINES) like the townsfolk. `always` residents are there
 // from the start (until a consequence sends them away); the rest arrive with one.
 import { SHOPS } from './shops.js';

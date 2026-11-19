@@ -92,7 +92,7 @@ export function spawnResident(game, id) {
   let n;
   try { n = new NPC(r.art, spot.x, spot.y, 0, { aggressive: false }); } finally { Math.random = roll; }
   n.npcId = id;
-  n.artId = r.art;
+  n.artId = id;   // drawn by their own townsfolk picture (sprites.js TOWN_ART), else the one they borrow
   n.wander = 0;
   n.chatter = null;
   n.def = { ...n.def, name: r.name, attackable: false, aggressive: false, aggroRange: 0, role: r.role || 'dialogue',

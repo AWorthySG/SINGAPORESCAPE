@@ -10,6 +10,7 @@ import { drawHeroBack } from './heroAnimArt.js';
 import { poseBlender } from './poseBlend.js';
 import { CREATURE_RIGS, TOWN_IDLE } from './creatureRigs.js';
 import { REGION_GIVERS } from '../data/regionQuests.js';
+import { RESIDENTS } from '../data/consequences.js';
 import { BESTIARY_SPECIES, BESTIARY_BOSSES } from '../data/bestiary.js';
 
 const CROP_COLORS = Object.fromEntries(CROPS.map((c) => [c[0], c[9]]));
@@ -225,6 +226,8 @@ const TOWN_ART = new Set([
   'skills_tutor', 'shadow_broker', 'farmer', 'villager',
   'mercenary_sellsword', 'mercenary_bruiser', 'mercenary_spear_guard', 'mercenary_duellist',
   'aworthling',   // the Merchant's mirror-image follower (a copy of the Merchant hero art)
+  // The living world's residents (data/consequences.js RESIDENTS), drawn by their own id.
+  'life_faridah', 'life_ah_huat', 'life_auntie_kim', 'life_ubin_mum', 'life_ubin_dad', 'life_hiker', 'life_lucky',
 ]);
 // Newer townsfolk borrow another's picture, recoloured, until their own art
 // arrives (remove the line when the file is added).
@@ -232,6 +235,8 @@ const TOWN_ALIAS = { marina_high_roller: 'banker', jade_merchant: 'mage', pest_o
 const TOWN_TINT = { marina_high_roller: 'hue-rotate(150deg) saturate(1.3)', jade_merchant: 'hue-rotate(-120deg) saturate(1.2)', pest_officer: 'hue-rotate(70deg) saturate(1.2)' };
 // The region quest givers borrow pictures the same way (regionQuests.js).
 for (const [id, g] of Object.entries(REGION_GIVERS)) { TOWN_ALIAS[id] = g.art; TOWN_TINT[id] = g.tint; }
+// A living-world resident without a picture of their own wears the one they borrow (`art`).
+for (const [id, r] of Object.entries(RESIDENTS)) if (!TOWN_ART.has(id) && TOWN_ART.has(r.art)) TOWN_ALIAS[id] = r.art;
 const townFile = (id) => (TOWN_ART.has(id) ? id : TOWN_ALIAS[id] || null);
 const _townImg = {};
 function townImage(id) {
@@ -736,7 +741,9 @@ function drawCached(ctx, key, box, draw) {
 // Monsters render via colour-tinted archetypes (def.sprite + def.color). Townsfolk
 // keep bespoke human palettes. Bosses get an aura + crown and are scaled by the caller.
 export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
-  const arch = opts.sprite && ARCH[opts.sprite];
+  // A resident who borrows a monster's body (Lucky the dog) stands as townsfolk
+  // once their own picture has loaded; until then (or headless) the monster art.
+  const arch = opts.sprite && !townImage(npcId)?.naturalWidth && ARCH[opts.sprite];
   if (arch) {
     const bimg = opts.boss ? bossImage(npcId) : null;
     const simg = bimg || speciesImage(opts.family);
@@ -2313,6 +2320,10 @@ const WORLD_ART = {
   'obj-bird_snare': [40, 34, 14], 'obj-squirrel_trap': [40, 34, 14], 'obj-lizard_snare': [40, 34, 14],
   'obj-mousedeer_trail': [40, 34, 14], 'obj-boar_pit': [42, 34, 14], 'obj-python_trap': [44, 34, 14],
   'obj-crocodile_trap': [44, 32, 14], 'obj-hornbill_nest': [40, 40, 14], 'obj-qilin_trail': [40, 34, 14],
+  // A resource zone's signpost wears its skill's sign (world.js gives it `art`).
+  ...Object.fromEntries(['mining', 'woodcutting', 'fishing', 'hunter'].map((k) => [`obj-sign-${k}`, [34, 44, 15]])),
+  // Story objects (story.js, lore.js): a hidden lore note and a turned-over stall.
+  'obj-lore_scroll': [30, 32, 14], 'obj-ransacked_stall': [56, 50, 16],
   // Animated: a campfire's four flicker frames, and a farm patch's five growth stages.
   ...Object.fromEntries([0, 1, 2, 3].map((i) => [`obj-fire-${i}`, [32, 42, 14]])),
   ...Object.fromEntries([0, 1, 2, 3, 4].map((i) => [`obj-farm_patch-${i}`, [42, 36, 15]])),
@@ -2333,6 +2344,7 @@ function worldArtKey(obj, time = 0) {
   // A tree without its own picture yet may borrow another's (`borrow`), recoloured by its `tint`.
   if (t === 'tree') return obj.depleted ? `stump-${obj.def.borrow || obj.objId}` : `tree-${obj.def.borrow || obj.objId}`;
   if (t === 'rock') return obj.depleted ? 'rock-empty' : `rock-${obj.objId}`;
+  if (obj.art && WORLD_ART[obj.art]) return obj.art;   // one object's own picture (a resource zone's signpost)
   return obj.def.art || `obj-${obj.objId}`;   // an object may borrow another's picture (the Offering Shrine)
 }
 const _worldImg = {};

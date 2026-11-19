@@ -7,7 +7,7 @@
 // strip and the list are only redrawn when the loadout or the level changes;
 // Faith ticking up while you fight just moves the bar.
 import { PRAYERS, PRAYER_BY_ID, BLESSING_SLOT_LADDER, blessingCost, burstPower } from '../data/prayers.js';
-import { prayerIconHTML } from '../render/icons.js';
+import { prayerIconHTML, uiIconHTML } from '../render/icons.js';
 import { faithFull } from '../game/blessings.js';
 
 /** The Burst's hotkey (main.js); shown on the button and the orb. */
@@ -72,7 +72,7 @@ export function blessingsPanelHTML(game) {
   const open = game.blessingSlots(), used = [...game.activePrayers].reduce((n, id) => n + blessingCost(PRAYER_BY_ID[id]), 0);
   return '<div class="bl-head">'
     + '<div class="bl-faith" title="Faith fills as you fight (hits landed and taken, kills), from bones and at a Monument."><div class="bl-faith-bar"><i></i></div><span class="bl-faith-text"></span></div>'
-    + `<button type="button" class="bl-burst" title="Prayer Burst (${BURST_KEY}): spend a full bar of Faith">Burst <kbd>${BURST_KEY}</kbd></button>`
+    + `<button type="button" class="bl-burst" title="Prayer Burst (${BURST_KEY}): spend a full bar of Faith">${uiIconHTML('prayer-burst', 24, 'bl-burst-ic')}Burst <kbd>${BURST_KEY}</kbd></button>`
     + '</div>'
     + `<div class="bl-burst-info">${esc(burstText(game.skills.prayer))}</div>`
     + `<div class="bl-slots-label">Blessings <b>${used} / ${open}</b> slots · always on, no drain</div>`
@@ -107,6 +107,7 @@ export function buildBlessingsPanel(ui) {
       const k = document.createElement('kbd');
       k.className = 'orb-key'; k.textContent = BURST_KEY;
       orb.appendChild(k);
+      orb.insertAdjacentHTML?.('beforeend', uiIconHTML('prayer-burst', 16, 'orb-burst'));   // the Burst's badge
     }
   }
   renderBlessingsPanel(ui);

@@ -8,6 +8,7 @@
 import { REP_REGIONS, repPoints, rankFor, repProgress, rankPerkText, repTitleText, setRepTitle } from '../game/reputation.js';
 import { consequencesIn } from '../game/consequences.js';
 import { badgeKey } from '../render/fxart.js';
+import { uiIconHTML } from '../render/icons.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const badgeSrc = (region) => `assets/fx/${badgeKey(region)}.webp`;
@@ -26,7 +27,9 @@ export function regionsPanelHTML(game) {
     const changes = consequencesIn(game, region);
     const here = region === game.currentZoneName;
     html += `<div class="rep-row rank-${r.id}${seen ? '' : ' dim'}${here ? ' here' : ''}" style="--rk:${r.colour}">`
-      + `<img class="rep-badge" src="${badgeSrc(region)}" alt="" loading="lazy">`
+      + (r.id === 'legend'   // a Legend's badge sits on a golden ribbon
+        ? `<span class="rep-badge-wrap"><img class="rep-badge" src="${badgeSrc(region)}" alt="" loading="lazy">${uiIconHTML('legend-ribbon', 46, 'rep-ribbon')}</span>`
+        : `<img class="rep-badge" src="${badgeSrc(region)}" alt="" loading="lazy">`)
       + '<div class="rep-main">'
       + `<div class="rep-top"><b>${esc(region)}</b><span class="rep-chip">${esc(r.name)}</span></div>`
       + (here ? '<div class="rep-here">You are here</div>' : '');

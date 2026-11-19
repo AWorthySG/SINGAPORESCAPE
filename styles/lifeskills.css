@@ -4,7 +4,7 @@
 /* The two teleport buttons share one line of the auto switches' card. */
 #tp-row { display: flex; align-items: stretch; border-top: 2px dashed var(--aw-ink-faint); }
 #tp-row .tp-btn {
-  flex: 1 1 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 0; min-width: 0;
+  flex: 1 1 0; display: grid; grid-template-columns: auto 1fr; align-content: center; justify-items: start; min-width: 0;
   padding: 3px 10px; line-height: 1.1; background: transparent; border: 0; border-radius: 0; box-shadow: none;
   color: var(--aw-text); cursor: var(--cur-pointer); font-family: inherit;
 }
@@ -12,6 +12,13 @@
 #tp-row .tp-btn:hover { background: var(--aw-hover); }
 #tp-row .tp-btn:active { transform: none; }
 #tp-row .tp-btn.hidden { display: none; }
+/* The painted teleport badge sits left of the label and status (it removes itself if missing). */
+#tp-row .tp-btn .tp-ic { grid-row: 1 / span 2; grid-column: 1; width: 26px; height: 26px; margin-right: 6px; align-self: center; object-fit: contain; }
+#tp-row .tp-btn .ab-label, #tp-row .tp-btn .ab-status { grid-column: 2; }
+#tp-row .tp-btn.wait .tp-ic { opacity: .6; }
+/* The gravestone window's "Teleport to it" option, and a contract's reward token. */
+.dialogue-option .dlg-ic { width: 20px; height: 20px; margin-right: 6px; vertical-align: -5px; object-fit: contain; }
+.lsx-text .lsx-token { width: 14px; height: 14px; margin-right: 2px; vertical-align: -3px; object-fit: contain; }
 #tp-row .tp-btn .ab-status { max-width: 110px; }
 #tp-row .tp-btn.wait .ab-label { opacity: .6; }
 #tp-row .tp-btn.on .ab-status { color: var(--aw-accent); }

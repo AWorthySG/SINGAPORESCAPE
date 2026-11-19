@@ -8,7 +8,7 @@
 import { Gathering, STREAK_XP_STEP, streakTier, contractStreakMult } from '../game/gathering.js';
 import { Teleports, TOWN_KEY, GRAVE_KEY, CAST_TICKS, TOWN_COOLDOWN_TICKS } from '../game/teleports.js';
 import { SKILL_BY_ID } from '../data/skills.js';
-import { skillIconSVG } from '../render/icons.js';
+import { skillIconSVG, uiIconHTML } from '../render/icons.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const skillName = (id) => SKILL_BY_ID[id]?.name || id;
@@ -43,7 +43,7 @@ export function openSkillContracts(ui) {
       + 'coins and a good helping of XP. Clear all three for a bonus, and come back tomorrow to build a streak.</div>'
       + `<div class="lsx-list">${c.list.map((k) => `<div class="lsx-row${k.done ? ' done' : ''}">`
         + `<span class="lsx-ic">${skillIconSVG(k.skill, 26)}</span>`
-        + `<span class="lsx-text"><b>${esc(Gathering.contractText(k))}</b><small>${esc(skillName(k.skill))} · ${k.done ? 'done' : `${k.have}/${k.need}`} · ${Math.round(k.coins * contractStreakMult(c.streak))} coins, ${k.xp} XP</small></span>`
+        + `<span class="lsx-text"><b>${esc(Gathering.contractText(k))}</b><small>${esc(skillName(k.skill))} · ${k.done ? 'done' : `${k.have}/${k.need}`} · ${uiIconHTML('contract-token', 14, 'lsx-token')}${Math.round(k.coins * contractStreakMult(c.streak))} coins, ${k.xp} XP</small></span>`
         + `<span class="lsx-bar"><i style="width:${Math.round((k.have / k.need) * 100)}%"></i></span></div>`).join('')
         || '<div class="lsx-row">No contracts today: train a gathering skill first.</div>'}</div>`
       + `<div class="modal-hint">Contract streak: <b>${c.streak}</b> day${c.streak === 1 ? '' : 's'}${mult ? ` (+${mult}% pay)` : ''}. `
@@ -68,9 +68,9 @@ class TeleportButtons {
     const el = document.createElement('div');
     el.id = 'tp-row';
     el.innerHTML = `<button id="tp-town" class="tp-btn" type="button" title="Teleport to Kampong Glam (${TOWN_KEY}): stand still for ${Teleports.secs(CAST_TICKS)}s; recharges in ${Math.round(TOWN_COOLDOWN_TICKS * 0.6 / 60 * 10) / 10} minutes">`
-      + `<b class="ab-label">Town <kbd>${TOWN_KEY}</kbd></b><span class="ab-status"></span></button>`
+      + `${uiIconHTML('teleport-town', 26, 'tp-ic')}<b class="ab-label">Town <kbd>${TOWN_KEY}</kbd></b><span class="ab-status"></span></button>`
       + `<button id="tp-grave" class="tp-btn hidden" type="button" title="Teleport to your gravestone (${GRAVE_KEY}): stand still for ${Teleports.secs(CAST_TICKS)}s">`
-      + `<b class="ab-label">Grave <kbd>${GRAVE_KEY}</kbd></b><span class="ab-status"></span></button>`;
+      + `${uiIconHTML('teleport-grave', 26, 'tp-ic')}<b class="ab-label">Grave <kbd>${GRAVE_KEY}</kbd></b><span class="ab-status"></span></button>`;
     el.querySelector('#tp-town').addEventListener('click', () => this.game.teleports?.start('town'));
     el.querySelector('#tp-grave').addEventListener('click', () => this.game.teleports?.start('grave'));
     const cfg = document.getElementById('auto-battle-cfg');

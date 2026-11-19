@@ -224,7 +224,8 @@ test('townsfolk art stays in lock-step with assets/creatures/townsfolk/ and name
   const declared = townArt();
   assert.deepEqual([...declared].filter((s) => !onDisk.has(s)), [], 'declared townsfolk art has no file');
   assert.deepEqual([...onDisk].filter((s) => !declared.has(s)), [], 'townsfolk art file not declared');
-  for (const id of declared) assert.ok(getNpc(id) && !getNpc(id).attackable, `${id} is a real townsfolk NPC`);
+  const { RESIDENTS } = await import('../src/data/consequences.js');   // the living world's residents are drawn by their own id
+  for (const id of declared) assert.ok(RESIDENTS[id] || (getNpc(id) && !getNpc(id).attackable), `${id} is a real townsfolk NPC`);
 });
 
 test('world art stays in lock-step with assets/world/ and names real objects', async () => {
@@ -241,6 +242,8 @@ test('world art stays in lock-step with assets/world/ and names real objects', a
   // Every object picture names a real object (trees and rocks by their id).
   for (const key of worldArt()) {
     if (key === 'rock-empty') continue;
+    if (/^obj-sign-/.test(key)) continue;   // a resource zone's signpost (checked in its own test)
+    if (key === 'obj-lore_scroll' || key === 'obj-ransacked_stall') continue;   // story objects (story.js, lore.js)
     const id = key.replace(/^(obj|tree|stump|rock)-/, '').replace(/-\d+$/, '');   // animation frames end in -0, -1...
     assert.ok(OBJECTS[id], `${key} names a real object`);
   }
@@ -489,4 +492,36 @@ test('title art stays in lock-step with assets/title/ and fills a declared slot'
     assert.ok(slot.size && slot.use && slot.placeholder, `${s} says its size, use and stand-in`);
     assert.equal(titleArtSrc(s), TITLE_ART.has(s) ? `assets/title/${s}.webp` : null);
   }
+});
+
+test('art pack 10: residents, zone signs, story objects and UI badges use their own art', async () => {
+  const { readdirSync, readFileSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const { townArt, worldArt } = await import('../src/render/sprites.js');
+  const { RESIDENTS } = await import('../src/data/consequences.js');
+  const { UI_ICONS, uiIconHTML } = await import('../src/render/icons.js');
+  // Every living-world resident has their own townsfolk picture.
+  for (const id of Object.keys(RESIDENTS)) assert.ok(townArt().has(id), `${id} has its own townsfolk art`);
+  // Each resource zone's signpost wears its skill's sign; ordinary signs stay plain.
+  const { buildWorld } = await import('../src/data/world.js');
+  const data = buildWorld();
+  const signs = data.objects.filter((o) => o.objId === 'sign');
+  for (const z of data.resourceZones) {
+    const s = signs.find((o) => o.x === z.cx && o.y === z.cy);
+    assert.ok(s, `${z.id} has a signpost`);
+    assert.equal(s.art, `obj-sign-${z.skill}`, `${z.id} signpost`);
+    assert.ok(worldArt().has(s.art), `${s.art} is registered`);
+  }
+  assert.ok(signs.some((o) => !o.art), 'ordinary signs keep the plain signpost');
+  for (const k of ['obj-lore_scroll', 'obj-ransacked_stall']) assert.ok(worldArt().has(k), k);
+  const src = (f) => readFileSync(fileURLToPath(new URL(`../${f}`, import.meta.url)), 'utf8');
+  assert.match(src('src/game/lore.js'), /art: 'obj-lore_scroll'/);
+  assert.match(src('src/game/story.js'), /art: 'obj-ransacked_stall'/);
+  // The UI badges stay in lock-step with assets/icons/icon-*.webp, and each is used.
+  const onDisk = readdirSync(fileURLToPath(new URL('../assets/icons/', import.meta.url))).filter((f) => f.startsWith('icon-')).map((f) => f.slice(5, -5));
+  assert.deepEqual([...onDisk].sort(), [...UI_ICONS].sort());
+  assert.match(uiIconHTML('teleport-town', 26), /assets\/icons\/icon-teleport-town\.webp/);
+  assert.match(uiIconHTML('teleport-town', 26), /onerror="this\.remove\(\)"/, 'a missing picture leaves the old look');
+  const ui = ['src/ui/lifeskillui.js', 'src/ui/playhud.js', 'src/ui/blessingsui.js', 'src/ui/reputationui.js'].map(src).join('\n') + src('styles/blessings.css');
+  for (const n of UI_ICONS) assert.ok(ui.includes(`'${n}'`) || ui.includes(`icon-${n}.webp`), `icon-${n} is used`);
 });
