@@ -1,0 +1,164 @@
+/* ==========================================================================
+   Compact HUD (src/ui/compacthud.js): the same widgets, taking less of the
+   screen. Linked last, so it settles the older layers; main.css is untouched.
+   - One small Auto button opens the card of switches on every screen (the
+     phones' pattern); it names what is on ("Battle + Quest").
+   - The chat folds to one line a few seconds after its last news (mouse
+     only: hover brings it back); its filter tabs show on hover.
+   - The area name shows on arrival, then the minimap's caption takes over.
+   - The status orbs wear a small icon instead of a caption pill (the caption
+     comes back on hover); the minimap loses its square card.
+   - Objectives lose their title row, and on phones doze to a small chip
+     when nothing on them has changed for a while (a tap or news wakes them);
+     Interact hides with nothing in reach;
+     an empty adrenaline bar hides out of a fight.
+   Hit areas stay the size they were: only the visible chrome shrinks.
+   ========================================================================== */
+
+/* ---------- Everywhere ---------- */
+/* The minimap is its round map: no square card behind it (kept when folded). */
+#minimap-panel:not(.collapsed) { background: transparent; border-color: transparent; box-shadow: none; }
+
+/* The area name at the top centre: on arrival only (compacthud.js adds .fresh). */
+#region-label { transition: opacity .5s ease, visibility 0s linear 0s; }
+#region-label:not(.fresh) { opacity: 0; visibility: hidden; transition: opacity .5s ease, visibility 0s linear .5s; }
+
+/* Status orbs: a small icon on each instead of a caption pill (top-left,
+   clear of the Faith orb's "L" Burst key at its top-right). */
+#hp-orb::after, #prayer-orb::after, #spec-orb::after {
+  display: flex; align-items: center; justify-content: center; content: "";
+  position: absolute; top: -5px; left: -5px; right: auto; width: 15px; height: 15px; border-radius: 50%;
+  font-size: 9px; font-weight: 900; line-height: 1; color: #fff; background: var(--aw-ink, #22304A);
+  border: 1.5px solid var(--aw-card, #fff); box-sizing: border-box; pointer-events: none;
+}
+#hp-orb::after { content: "\2665\FE0E"; background: var(--aw-bloom-deep, #B32048); }
+#prayer-orb::after { content: "\2726"; background: var(--aw-sun-deep, #8A6205); }
+#spec-orb::after { content: "\26A1\FE0E"; background: var(--aw-sky-deep, #1F6FA8); }
+.orb .orb-cap { display: none; }
+#minimap-panel:not(.collapsed):hover .orb .orb-cap { display: block; }
+
+/* Blessings strip: a slot's name wraps onto a second line rather than
+   being cut short ("Thick Skin", not "Thick ..."). */
+#prayer-panel .bl-slot-name {
+  white-space: normal; line-height: 1.1; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  overflow: hidden; word-break: normal; overflow-wrap: break-word;
+}
+
+/* Objectives: no title row; the fold chevron sits in the top-right corner. */
+#quest-tracker:not(.folded) { padding-right: 24px; }
+#quest-tracker:not(.folded) .trk-fold {
+  position: absolute; top: 3px; right: 3px; width: 18px; height: 16px; margin: 0;
+  font-size: 0; justify-content: center;
+}
+#quest-tracker:not(.folded) .trk-chev { margin: 0; padding: 0; font-size: 11px; }
+#quest-tracker .trk-row { line-height: 1.35; }
+
+/* Interact with nothing in reach has nothing to do: it waits out of sight. */
+#interact-btn.idle { display: none; }
+
+/* Adrenaline at 0% outside a fight says nothing; it shows again on the first hit. */
+#game-root.calm.adr-empty #adrenaline { display: none; }
+
+/* The chat's one-line peek is for a mouse (see below); never on a phone pill. */
+#chat-peek { display: none; }
+
+/* The Auto button: grave waiting = sun yellow. */
+#auto-menu-btn .am-text { white-space: nowrap; }
+#auto-menu-btn.grave .am-dot { background: var(--aw-sun, #F5B82E); }
+
+/* ---------- Mouse and keyboard ---------- */
+@media (hover: hover) and (pointer: fine) {
+  /* Action bar: [Auto][adrenaline] over the skill buttons; the card of
+     switches opens above it on a click (T / Y / U still work as before). */
+  #ability-bar {
+    display: grid; grid-template-columns: auto auto; grid-template-areas: "auto adr" "btns btns";
+    align-items: center; justify-items: center; justify-content: center; column-gap: 8px; row-gap: 5px;
+  }
+  #auto-menu-btn {
+    grid-area: auto; display: flex; align-items: center; gap: 5px; height: 24px; padding: 0 10px 0 7px;
+    pointer-events: auto; cursor: var(--cur-pointer, pointer); font-family: inherit; font-size: 11.5px; font-weight: 900;
+    background: var(--aw-card, #fff); color: var(--aw-text, #1C1B19); border: 2px solid var(--aw-ink, #22304A);
+    border-radius: 999px; box-shadow: var(--shadow-sticker-sm);
+  }
+  #auto-menu-btn:hover { background: var(--aw-hover, #FFF6E5); }
+  #auto-menu-btn .am-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--aw-muted, #F5F0E6); border: 1.5px solid var(--aw-ink, #22304A); }
+  #ability-bar:has(.ab-btn.on) #auto-menu-btn { background: var(--aw-accent, #C0392B); color: #fff; }
+  #ability-bar:has(.ab-btn.on) #auto-menu-btn .am-dot { background: var(--aw-sun, #F5B82E); }
+  #ability-bar.auto-open #auto-menu-btn { box-shadow: 0 0 0 3px var(--aw-sun, #F5B82E), var(--shadow-sticker-sm); }
+  #ability-bar .auto-row {
+    display: none; position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+    width: max-content; z-index: 31; margin: 0;
+  }
+  #ability-bar.auto-open .auto-row { display: flex; }
+  #adrenaline { grid-area: adr; width: 180px; height: 14px; }
+  #ability-buttons { grid-area: btns; }
+
+  /* Chat: a little smaller; the filter tabs show on hover. Quiet, it folds
+     to its header with the latest news in it; hover opens it again. */
+  #chatbox { width: min(400px, 36vw); max-width: none; height: 150px; }
+  #chatbox:not(:hover):not(:focus-within) #chat-tabs { display: none; }
+  #chatbox.quiet:not(.collapsed) { height: auto; }
+  #chatbox.quiet #chat-log, #chatbox.quiet #chat-tabs { display: none; }
+  #chatbox.quiet #chat-head, #chatbox.collapsed #chat-head { border-bottom: 0; }
+  #chatbox.quiet #chat-peek, #chatbox.collapsed #chat-peek {
+    display: block; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: 12px; font-weight: 700; letter-spacing: 0; color: var(--aw-text-sec, #6B6760);
+  }
+
+  /* Interact: a size smaller (click and E / Space do the same). */
+  #interact-btn { width: 68px; height: 68px; font-size: 11px; }
+
+  /* Side panel: a slimmer header and tab rail. */
+  #panel-head { padding: 4px 10px; font-size: 13px; }
+  :root { --rail-w: 52px; }
+  .tab-btn { min-height: 40px; padding: 3px 1px; }
+  .tab-btn img, .tab-btn svg { width: 24px !important; height: 24px !important; }
+
+  /* Objectives: a lighter card. */
+  #quest-tracker { padding: 4px 8px; font-size: 11.5px; }
+}
+
+/* ---------- Phone portrait ---------- */
+@media (pointer: coarse) and (max-width: 540px) {
+  /* The minimap column packs tighter: a smaller caption close under the
+     map, the orbs straight under it, the panel launcher under them. */
+  #minimap-region {
+    margin-top: 2px; font-size: 10.5px; padding: 1px 8px; max-width: 128px;
+    overflow: hidden; text-overflow: ellipsis; box-sizing: border-box;
+  }
+  #run-orb, #spec-orb, #prayer-orb, #hp-orb { bottom: -58px; }
+  #sidepanel.collapsed { top: calc(192px + var(--sa-t)); }
+  body #xp-hud { top: calc(100% + 66px); }
+  /* No pill under the orbs now, so their tap areas reach down a little. */
+  .orb::before { inset: -6px -6px -8px; }
+
+  /* Locked skills (a level still to reach) leave the arc until they unlock. */
+  #ability-buttons .ability-btn.locked { display: none; }
+  /* The stick, Attack and the skill arc a size smaller (all still well over
+     44px); the arc's offsets are the old ones x0.92 so it keeps its shape. */
+  #joystick { width: 108px; height: 108px; }
+  #joystick-knob { width: 46px; height: 46px; }
+  :root { --atk: 76px; --sk: 48px; }
+  #ability-buttons .ability-btn:nth-child(1) { --ax: -96px; --ay: 0px; }
+  #ability-buttons .ability-btn:nth-child(2) { --ax: -80px; --ay: -52px; }
+  #ability-buttons .ability-btn:nth-child(3) { --ax: -39px; --ay: -87px; }
+  #ability-buttons .ability-btn:nth-child(4) { --ax: 9px;   --ay: -103px; }
+  #ability-buttons .ability-btn:nth-child(5) { --ax: -95px; --ay: -113px; --sk: 56px; }
+  #ability-buttons .ability-btn .ab-icon img, #ability-buttons .ability-btn .ab-icon svg { width: 30px; height: 30px; }
+  /* Objectives: smaller, tighter type. */
+  #quest-tracker { font-size: 10.5px; padding: 3px 7px; }
+  #quest-tracker .trk-row { line-height: 1.25; }
+}
+
+/* ---------- Phones, both ways up: dozing objectives ---------- */
+@media (pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px) {
+  #quest-tracker.dozing { padding: 0; }
+  #quest-tracker.dozing .trk-row { display: none; }
+  #quest-tracker.dozing:not(.folded) .trk-fold {
+    display: flex; position: relative; top: auto; right: auto; width: auto; height: 28px; padding: 0 10px;
+    font-size: 11px; font-weight: 900; color: var(--aw-sun-deep, #8A6205); text-transform: none; letter-spacing: 0;
+  }
+  #quest-tracker.dozing .trk-chev { font-size: 0; padding-left: 4px; }
+  #quest-tracker.dozing .trk-chev::after { content: "\25B8"; font-size: 11px; }
+  #quest-tracker.dozing .trk-fold::before { inset: -8px -10px; }
+}

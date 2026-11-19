@@ -70,6 +70,7 @@ import { isBone } from '../data/bones.js';
 import { RACES, raceOf, weaponsFor, weaponTypeName, WEAPON_VS_RACE } from '../data/races.js';
 import { WaveHud } from './wavehud.js';
 import { PlayHud } from './playhud.js';
+import { CompactHud } from './compacthud.js';
 import { NoticeLane } from './noticelane.js';
 import { QuickSlot, interactCaption, trackerHTML, loadTrackerFolded, saveTrackerFolded, sheetSnap } from './hudease.js';
 import { addCollectionButton } from './collectionui.js';
@@ -287,6 +288,7 @@ export class UI {
     this.quickSlot = new QuickSlot(this);   // food / potion button beside Attack (hudease.js)
     this.bus.on('tick', () => this.lane.place());
     this.xpHud = new XpDisplay(this);   // XP counter, progress ring and level-up toasts (xpdisplay.js)
+    this.compactHud = new CompactHud(this);   // Auto caption, quiet chat, area name on arrival (compacthud.js)
     watchUpgrades(this);   // "Wear it" when loot beats your gear (whatnextui.js)
     watchGoals(this);      // the journal's "What next?" card follows the goals
     this.bus.on('inventory', () => this.scheduleInventory());
