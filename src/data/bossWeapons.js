@@ -58,6 +58,18 @@ export const SIG_BOSSES = [
   ['boar_king', 60, 'Boar King', 'The Boar King'], ['nian_beast', 55, 'Nian', 'Nian, the New Year Beast'],
   ['ubin_stone_frog', 45, 'Stone Frog', 'The Stone Frog of Ubin'], ['macaque_alpha', 45, 'Macaque Alpha', 'Macaque Alpha'],
   ['goblin_warchief', 35, 'Goblin Warchief', 'Goblin Warchief'],
+  // The bestiary expansion (bestiary.js), strongest first. Their order is chosen so the six
+  // that join the 21 strongest are dealt the six classes of the bosses they push out.
+  ['fenghuang', 440, 'Fenghuang', 'Fenghuang, the Vermilion Phoenix'], ['jade_moon_hare', 400, 'Jade Hare', 'The Jade Hare of the Moon'],
+  ['todak_king', 330, 'Todak King', 'The Todak King'], ['void_eel_leviathan', 245, 'Void Eel', 'The Void Eel Leviathan'],
+  ['typhoon_mother', 240, 'Typhoon Mother', 'The Typhoon Mother'], ['great_argus_monarch', 190, 'Argus Monarch', 'The Great Argus Monarch'],
+  ['duyung_queen', 150, 'Duyung Queen', 'The Duyung Queen'], ['krait_matriarch', 130, 'Krait Matriarch', 'The Banded Krait Matriarch'],
+  ['jembalang_lord', 125, 'Jembalang Lord', 'Jembalang Lord'], ['atlas_moth_empress', 100, 'Moth Empress', 'The Atlas Moth Empress'],
+  ['toyol_kingpin', 95, 'Toyol Kingpin', 'The Toyol Kingpin'], ['arowana_emperor', 90, 'Arowana Emperor', 'The Arowana Emperor'],
+  ['slag_titan', 68, 'Slag Titan', 'The Slag Titan'], ['sea_eagle_sovereign', 66, 'Sea Eagle', 'The Sea Eagle Sovereign'],
+  ['kranji_bullfrog_emperor', 62, 'Bullfrog Emperor', 'The Bullfrog Emperor of Kranji'], ['strangler_fig_mother', 58, 'Fig Mother', 'The Strangler Fig Mother'],
+  ['bakau_mud_lobster', 52, 'Mud Lobster', 'Bakau Mud Lobster'], ['kopitiam_roach_queen', 48, 'Roach Queen', 'The Kopitiam Roach Queen'],
+  ['ubin_quarry_python', 40, 'Quarry Python', 'The Quarry Python of Ubin'], ['toman_tyrant', 40, 'Toman', 'Toman, the Snakehead Tyrant'],
 ];
 
 /** The signature weapon's item id for a boss. */

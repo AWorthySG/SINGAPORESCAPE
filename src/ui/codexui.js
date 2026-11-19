@@ -44,7 +44,10 @@ function artHTML(id, cls, seen) {
   const src = artSrc(id);
   const d = getNpc(id);
   if (!src) return `<span class="${cls} cx-noart">${seen ? RACES[codexRaceId(id)]?.icon || '?' : '?'}</span>`;
-  return `<img class="${cls}${seen ? '' : ' cx-silhouette'}" src="${esc(src)}" alt="${seen ? esc(d.name) : 'Unknown creature'}" loading="lazy" decoding="async" />`;
+  // A borrowed picture wears its recolouring (not on a silhouette, which has its own filter).
+  let tint = null;
+  try { tint = seen ? portraitFor(id, d)?.tint : null; } catch { tint = null; }
+  return `<img class="${cls}${seen ? '' : ' cx-silhouette'}" src="${esc(src)}"${tint ? ` style="filter:${esc(tint)}"` : ''} alt="${seen ? esc(d.name) : 'Unknown creature'}" loading="lazy" decoding="async" />`;
 }
 const codexRaceId = (id) => raceOf(getNpc(id), id);
 const CODEX_SET = new Set(CODEX_IDS);

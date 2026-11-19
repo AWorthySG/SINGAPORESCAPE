@@ -4,6 +4,7 @@
 
 import { NPCS, MONSTER_IDS, BOSS_IDS, EXTRA_MONSTER_IDS, EXTRA_BOSS_IDS, MORE_MONSTER_IDS, MORE_BOSS_IDS, stretchLevel } from './npcs.js';
 import { STATIONS } from './transport.js';
+import { placeBestiary } from './bestiaryPlace.js';
 
 // How many of each monster kind populate the world.
 export const MONSTER_COPIES = 5;
@@ -1366,6 +1367,12 @@ export function buildWorld() {
     course('wraith_run', ['gravestones', 'broken_pier', 'lantern_swing', 'ghost_bridge'], 121, 2, 148, 102, GRASSY);    // Pulau Hantu
     course('rift_leap', ['chasm', 'floating_rocks', 'chain_climb', 'void_bridge', 'portal_dive'], 202, 206, 396, 276, GRASSY);   // The Shadow Rift
   }
+  // ================= The bestiary expansion (Nov 2026) =================
+  // 67 new species and 20 new bosses (bestiary.js), placed after everything
+  // else on a stream of their own so nothing above moves (bestiaryPlace.js).
+  placeBestiary({ zones, get, landable: LANDABLE, occupied, key, npcSpawns, objects, placeNpc, inTown, inNewTown, W, H,
+    rand: mulberry32(20261126), mrtClear: MRT_CLEAR });
+
   // Thieving marks (Thieving 100 and 130): high rollers on the Marina Bay
   // plaza and jade merchants in the Chinatown market.
   placeNpc('marina_high_roller', 186, 140, 3); placeNpc('marina_high_roller', 200, 134, 3);

@@ -81,6 +81,27 @@ export const BOSS_MECHANICS = {
   ubin_stone_frog: { type: 'shield', name: 'Granite Hide', styles: ['magic'] },
   buaya_putih: { type: 'circle', name: 'Mud Flood' },
   hantu_tinggi: { type: 'cast', name: 'Looming Dread' },
+  // The bestiary expansion (bestiary.js): five of each kind.
+  toman_tyrant: { type: 'shield', name: 'Slime Scales', styles: ['ranged'] },
+  ubin_quarry_python: { type: 'circle', name: 'Rockslide' },
+  kopitiam_roach_queen: { type: 'adds', name: 'Roach Brood', id: 'kopitiam_cockroach', n: 3 },
+  bakau_mud_lobster: { type: 'shield', name: 'Mud Mound', styles: ['magic'] },
+  strangler_fig_mother: { type: 'adds', name: 'Fig Seedlings', id: 'strangler_fig', n: 2 },
+  kranji_bullfrog_emperor: { type: 'adds', name: 'Tadpole Choir', id: 'bullfrog', n: 3 },
+  sea_eagle_sovereign: { type: 'circle', name: 'Shadow of Wings' },
+  slag_titan: { type: 'cast', name: 'Furnace Pour' },
+  arowana_emperor: { type: 'shield', name: 'Golden Scales', styles: ['melee', 'magic'] },
+  toyol_kingpin: { type: 'adds', name: 'Coin Runners', id: 'toyol', n: 3 },
+  atlas_moth_empress: { type: 'shield', name: 'Scale-Dust Veil', styles: ['ranged'] },
+  jembalang_lord: { type: 'cast', name: 'Claim the Ground' },
+  krait_matriarch: { type: 'adds', name: 'Krait Brood', id: 'banded_krait', n: 2 },
+  duyung_queen: { type: 'circle', name: 'Siren Tide' },
+  great_argus_monarch: { type: 'cast', name: 'Courtship Dance' },
+  typhoon_mother: { type: 'circle', name: 'Eye of the Storm' },
+  void_eel_leviathan: { type: 'cast', name: 'Starlight Discharge' },
+  todak_king: { type: 'shield', name: 'Swordbill Guard', styles: ['magic', 'ranged'] },
+  jade_moon_hare: { type: 'cast', name: 'Elixir of the Moon' },
+  fenghuang: { type: 'circle', name: 'Rebirth Blaze' },
 };
 
 /** How the mechanic plays, in plain words for the Monster Codex. */
