@@ -21,6 +21,7 @@ import {
 import { masteryProgress, masterySummary, earnedTitles, setTitle, MASTERY_TIERS, RACE_MASTERY_CAP, raceMastery } from '../game/culling.js';
 import { codexSwitchHTML, renderCompendium, defaultCompendiumState } from './compendiumui.js';
 import { renderEncyclopedia, ENCY_VIEWS } from './encyclopediaui.js';
+import { creatureFlavour } from '../data/flavour.js';
 
 export const PAGE_SIZE = 40;
 
@@ -127,8 +128,11 @@ export function codexEntryHTML(game, id) {
   // A boss's mechanic (bossMechanics.js): shown from the start, so you can learn it before the fight.
   const m = e.mechanic;
   const mechHTML = m ? `<div class="cx-sec cx-mech"><h4>Mechanic: ${m.icon} ${esc(m.kind)}</h4><div class="cx-ability"><b>${esc(m.name)}${m.styles.length ? ` <span class="cx-mech-styles">(breaks to ${m.styles.map((s) => `<span style="color:${s.color}">${esc(s.label)}</span>`).join(', ')})</span>` : ''}:</b> ${esc(m.how)}</div></div>` : '';
+  // A real animal's "Did you know?" (flavour.js), shown from the start.
+  const dyk = creatureFlavour(getNpc(id), id);
+  const dykHTML = dyk ? `<div class="cx-sec ency-dyk"><h4>Did you know?</h4><p>${esc(dyk)}</p></div>` : '';
   if (!e.discovered) {
-    return head + whereHTML + mechHTML + '<div class="cx-sec cx-locked">Defeat one to reveal its stats, matchups and drops.</div>';
+    return head + dykHTML + whereHTML + mechHTML + '<div class="cx-sec cx-locked">Defeat one to reveal its stats, matchups and drops.</div>';
   }
   const scaleNote = e.numberScale > 1 ? `<div class="cx-note">Numbers ×1/${e.numberScale} scale: its life, and every hit you land on it, are shown ${e.numberScale} times smaller.</div>` : '';
   const stats = '<div class="cx-sec"><h4>Stats</h4><div class="cx-stats">' +
@@ -159,7 +163,7 @@ export function codexEntryHTML(game, id) {
     return `<div class="cx-drop" title="${esc(it.name)}" role="button" tabindex="0" data-ency="item:${esc(dr.id)}">${itemIconSVG(dr.id, 24)}<span class="cx-drop-name">${qty}${esc(it.name)}</span><span class="cx-drop-chance${dr.always ? ' always' : ''}">${chanceText(dr.chance)}</span></div>`;
   }).join('');
   const dropsHTML = `<div class="cx-sec"><h4>Drops <small>(rough chances per kill${e.boss ? '; bosses roll ten times' : ''})</small></h4><div class="cx-drops">${drops || '<i>No notable drops.</i>'}</div></div>`;
-  return head + masteryHTML(game, id, e) + stats + strong + boss + whereHTML + dropsHTML;
+  return head + dykHTML + masteryHTML(game, id, e) + stats + strong + boss + whereHTML + dropsHTML;
 }
 
 /** The entry's mastery section: its tier, progress to the next, and what each tier gives. */

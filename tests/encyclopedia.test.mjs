@@ -22,7 +22,8 @@ import { regionPageHTML, regionListHTML } from '../src/ui/regionui.js';
 import { addRep } from '../src/game/reputation.js';
 import { TRAIN_SKILLS, trainingFor, xpPerHour, ACTIONS_PER_HOUR, preyFor, myWeaponType, gearUpgrades } from '../src/game/foryou.js';
 import { forYouHTML } from '../src/ui/foryouui.js';
-import { getNpc } from '../src/data/npcs.js';
+import { getNpc, ALL_MONSTER_IDS, ALL_BOSS_IDS } from '../src/data/npcs.js';
+import { REGION_FLAVOUR, CREATURE_FLAVOUR, creatureFlavour } from '../src/data/flavour.js';
 import { weaponsFor, raceOf } from '../src/data/races.js';
 import { XP_RATE, SAVE_KEY } from '../src/config.js';
 import { xpForLevel } from '../src/data/xp.js';
@@ -342,4 +343,30 @@ test('For you finds prey your weapon is strong against near your level, and gear
   assert.match(html, /xp\/h/);
   assert.match(html, /Gear you could wear now/);
   assert.ok(!/undefined|NaN/.test(html));
+});
+
+// ---------------- Did you know? ----------------
+test('every "Did you know?" belongs to a real region or creature, and shows on its page', () => {
+  const g = newGame();
+  const regions = new Set(g.world.zones.map((z) => z.name));
+  for (const [name, text] of Object.entries(REGION_FLAVOUR)) {
+    assert.ok(regions.has(name), `${name} is a region`);
+    assert.ok(text.length > 30 && text.length < 260 && /[.!]$/.test(text), `${name}: one or two short sentences`);
+    assert.ok(!/\bcolor|\bfavorite|\bcenter\b/.test(text), `${name}: British spelling`);
+  }
+  for (const real of ['Kampong Glam', 'Chinatown', 'Bukit Timah', 'Pulau Ubin', 'Sungei Buloh Wetlands', 'Marina Bay', 'Gardens by the Bay', 'Mandai Rainforest']) {
+    assert.ok(REGION_FLAVOUR[real], `${real} has a note`);
+  }
+  const families = new Set();
+  for (const id of [...ALL_MONSTER_IDS, ...ALL_BOSS_IDS]) { families.add(id); if (getNpc(id).family) families.add(getNpc(id).family); }
+  for (const [key, text] of Object.entries(CREATURE_FLAVOUR)) {
+    assert.ok(families.has(key), `${key} is a monster family`);
+    assert.ok(text.length > 20 && text.length < 260, `${key}: short`);
+    assert.ok(!/\bcolor|\bfavorite|\bcenter\b/.test(text), `${key}: British spelling`);
+  }
+  for (const real of ['smooth_otter', 'pangolin', 'colugo', 'hornbill', 'kancil', 'monitor_lizard']) assert.ok(CREATURE_FLAVOUR[real], `${real} has a note`);
+  assert.match(regionPageHTML(g, 'Pulau Ubin'), /Did you know\?/);
+  const otter = ALL_MONSTER_IDS.find((id) => getNpc(id).family === 'smooth_otter');
+  assert.match(codexEntryHTML(g, otter), /Did you know\?[\s\S]*romps/);
+  assert.equal(creatureFlavour(getNpc('goblin'), 'goblin'), '', 'no fantasy facts');
 });
