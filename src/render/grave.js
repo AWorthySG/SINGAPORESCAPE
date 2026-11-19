@@ -1,7 +1,10 @@
-// The gravestone left where you last fell (see game/playbalance.js), drawn
-// procedurally in the sticker style: a rounded grey headstone with a navy ink
-// outline (no white border), a little cross, a grassy mound, and a soft pulse
-// so it is easy to spot on the way back. (No painted art for it yet.)
+// The gravestone left where you last fell (see game/playbalance.js): its
+// painted picture (assets/world/obj-gravestone.webp) over a soft pulse so it is
+// easy to spot on the way back. Until the picture loads (and headless) it is
+// drawn in the sticker style: a rounded grey headstone with a navy ink outline
+// (no white border), a little cross and a grassy mound.
+
+import { drawWorldPicture } from './sprites.js';
 
 const INK = '#22304A';
 
@@ -15,6 +18,7 @@ export function drawGrave(ctx, x, y, timeMs = 0) {
   ctx.fillStyle = '#bfe8ff';
   ctx.beginPath(); ctx.ellipse(x, y, 15 + pulse * 2, 6, 0, 0, Math.PI * 2); ctx.fill();
   ctx.globalAlpha = 1;
+  if (drawWorldPicture(ctx, 'obj-gravestone', x, y + 2)) { ctx.restore(); return; }
   // Mound.
   ctx.fillStyle = '#8fbf6a'; ctx.strokeStyle = INK; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.ellipse(x, y - 1, 12, 4.5, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();

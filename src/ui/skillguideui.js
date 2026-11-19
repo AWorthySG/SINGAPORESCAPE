@@ -21,7 +21,7 @@ import { getNpc } from '../data/npcs.js';
 import { SKILLS } from '../data/skills.js';
 import { OBJECTS } from '../data/objects.js';
 import { formatNumber } from '../core/utils.js';
-import { itemIconSVG, skillIconSVG } from '../render/icons.js';
+import { itemIconSVG, skillIconSVG, playIconHTML } from '../render/icons.js';
 import { chanceText, codexHabitats } from '../game/codex.js';
 import { unlockLadder, skillTeleportOf, skillTeleportWait, skillTeleport } from '../game/skillunlocks.js';
 import { STATION_BY_ID } from '../data/transport.js';
@@ -134,7 +134,7 @@ export function unlockLadderHTML(game, skill) {
   const ladder = unlockLadder(skill, lvl);
   if (!ladder.length) return '';
   const tp = skillTeleportOf(game, skill), wait = skillTeleportWait(game);
-  return `<div class="sgx-unlocks"><b>Unlocks</b>${ladder.map((u) => `<div class="sgx-unlock${u.unlocked ? ' on' : ''}">`
+  return `<div class="sgx-unlocks"><b>${playIconHTML('ui-skill_unlock', 18)} Unlocks</b>${ladder.map((u) => `<div class="sgx-unlock${u.unlocked ? ' on' : ''}">`
     + `<span class="sg-lvl">${u.level}</span><span><b>${u.unlocked ? '&#10003; ' : '&#128274; '}${esc(u.name)}</b><small>${esc(u.desc)}</small></span></div>`).join('')}`
     + (tp ? `<button type="button" class="wm-go sgx-tp" data-skilltp="${esc(skill)}"${wait ? ' disabled' : ''}>Teleport to ${esc(STATION_BY_ID[tp]?.name || tp)}${wait ? ` (${Math.ceil(wait * 0.6)}s)` : ''}</button>` : '')
     + '</div>';

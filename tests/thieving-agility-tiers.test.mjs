@@ -17,6 +17,7 @@ import { chebyshev } from '../src/core/utils.js';
 import { findPath } from '../src/engine/pathfinding.js';
 import { guideEntries } from '../src/game/skillguide.js';
 import { itemIconSVG } from '../src/render/icons.js';
+import { worldArt } from '../src/render/sprites.js';
 
 function fakeStorage() {
   const m = new Map();
@@ -138,7 +139,7 @@ test('the chests sit in their regions, reachable, and are cracked at their level
     for (let i = 0; i < 20; i++) { chest.depleted = false; g.player.hp = 1e6; g.playerStun = 0; g.stealFromStall(chest); }
     assert.ok(g.skills.xp.thieving > xp0, `${c.id} pays Thieving XP`);
     assert.ok(guideEntries('thieving').some((e) => e.objIds?.includes(c.id) && e.level === c.lvl), `${c.id} in the Thieving guide`);
-    assert.ok(def.art && def.tint, `${c.id} borrows a tinted picture`);
+    assert.ok(worldArt().has(`obj-${c.id}`) && !def.art && !def.tint, `${c.id} has its own untinted picture`);
   }
 });
 
@@ -187,7 +188,7 @@ test('six new courses: 4-5 spread-out obstacles each, in their regions, gated at
       const d = OBJECTS[ids[i]];
       assert.equal(d.type, 'agility'); assert.equal(d.level, c.lvl); assert.ok(d.markChance > 0, `${ids[i]} counts as a course obstacle`);
       assert.ok(inZone(g, o, c.zone), `${ids[i]} at ${o.x},${o.y} is in ${c.zone}`);
-      assert.ok(d.art && d.tint, `${ids[i]} borrows a tinted picture`);
+      assert.ok(worldArt().has(`obj-${ids[i]}`) && !d.art && !d.tint, `${ids[i]} has its own untinted picture`);
     }
     // One course: the game groups obstacles within 12 tiles, so they must all be, and no others.
     for (const o of obs) assert.deepEqual(new Set(g._agilityCourse(o).map((x) => x.objId)), new Set(ids), `${c.id} is one course`);
@@ -243,8 +244,9 @@ test('endgame Agility XP an hour (marks included): each course well ahead of the
   }
 });
 
-test('casino chips sell at the general store; new marks and chests have art to borrow', () => {
+test('casino chips sell at the general store and have their own sticker', () => {
   assert.ok(ITEMS.casino_chip.stackable);
-  assert.ok(itemIconSVG('casino_chip', 24).includes('filter:'), 'the chip borrows a tinted sticker');
+  const html = itemIconSVG('casino_chip', 24);
+  assert.ok(html.includes('assets/icons/item-casino_chip.webp') && !html.includes('filter:'), 'the chip has its own sticker');
   assert.ok(Object.values(SHOPS).some((s) => s.buysAnything), 'a shop takes anything');
 });

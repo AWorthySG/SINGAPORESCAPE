@@ -3441,6 +3441,9 @@ body.cb-safe #hp-orb.low::after {
 /* ---------------- Gear quality per copy (src/game/loot.js QUALITY) ---------------- */
 /* A quality copy: a dot in its colour at the icon's bottom left, and its drop named in that colour in the chat. */
 .q-pip { position: absolute; left: 3px; bottom: 3px; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #fff; box-shadow: 0 0 0 1px var(--aw-ink); pointer-events: none; }
+/* With its painted tier badge (quality-<tier>.webp) the dot steps aside; it comes back if the picture can't load. */
+.q-pip:has(> img) { left: 1px; bottom: 1px; width: 16px; height: 16px; background: none !important; border: 0; border-radius: 0; box-shadow: none; }
+.q-pip > img { width: 100%; height: 100%; }
 .q-word { font-weight: 800; }
 #chat-log .msg.qual-fine { color: #2e9e4f; font-weight: 800; }
 #chat-log .msg.qual-superior { color: #3a7bd5; font-weight: 800; }

@@ -350,27 +350,23 @@ export const OBJECTS = {
   // cast catches, so XP an hour is just xp a cast: each tier gives about 35%
   // more than the one before, starting from the harpoon spot's average catch
   // (~134 xp once all five of its fish are open), the best below level 100
-  // (tests/fish-cook.test.mjs times them). Until their own art arrives they
-  // borrow an older spot's picture (`art`), recoloured (`tint`).
+  // (tests/fish-cook.test.mjs times them). Each has its own picture (assets/world/).
   dorado_spot: {
     name: 'Dorado fishing spot', label: 'Dorado', type: 'fishing', verb: 'Cast', emoji: '🎣', blocking: false,
     skill: 'fishing', tool: 'rod', depleteChance: 0, respawn: 0,
     catches: [{ id: 'raw_dorado', level: 100, xp: 184, weight: 1 }],
-    art: 'obj-sea_rod_spot', tint: 'sepia(0.6) saturate(2.2) hue-rotate(10deg) brightness(1.08)',
     examine: 'Flashes of gold and green chase bait round the islands. (Fishing 100)',
   },
   bluefin_spot: {
     name: 'Bluefin fishing spot', label: 'Bluefin', type: 'fishing', verb: 'Harpoon', emoji: '🦈', blocking: false,
     skill: 'fishing', tool: 'harpoon', depleteChance: 0, respawn: 0,
     catches: [{ id: 'raw_bluefin_tuna', level: 130, xp: 249, weight: 1 }],
-    art: 'obj-harpoon_spot', tint: 'hue-rotate(20deg) saturate(1.4) brightness(0.92)',
     examine: 'A school of giant bluefin boils the water off Changi. (Fishing 130)',
   },
   sailfish_spot: {
     name: 'Sailfish fishing spot', label: 'Sailfish', type: 'fishing', verb: 'Cast', emoji: '🎣', blocking: false,
     skill: 'fishing', tool: 'rod', depleteChance: 0, respawn: 0,
     catches: [{ id: 'raw_sailfish', level: 160, xp: 337, weight: 1 }],
-    art: 'obj-sea_rod_spot', tint: 'hue-rotate(60deg) saturate(1.5)',
     examine: 'Deep blue water past the Sentosa reef. A sail cuts the surface. (Fishing 160)',
   },
   // Moonfish rise to the surface by moonlight: +25% Fishing XP at night
@@ -379,21 +375,18 @@ export const OBJECTS = {
     name: 'Moonfish fishing spot', label: 'Moonfish', type: 'fishing', verb: 'Net', emoji: '🎣', blocking: false,
     skill: 'fishing', tool: 'net', depleteChance: 0, respawn: 0, night: true,
     catches: [{ id: 'raw_moonfish', level: 200, xp: 455, weight: 1 }],
-    art: 'obj-fishing_spot', tint: 'saturate(0.4) brightness(1.25)',
     examine: 'Round silver fish drift up the waterway when the moon is out. (Fishing 200)',
   },
   rift_eel_spot: {
     name: 'Rift eel fishing spot', label: 'Rift eel', type: 'fishing', verb: 'Cage', emoji: '🦞', blocking: false,
     skill: 'fishing', tool: 'lobster_pot', depleteChance: 0, respawn: 0,
     catches: [{ id: 'raw_rift_eel', level: 250, xp: 615, weight: 1 }],
-    art: 'obj-fishing_cage', tint: 'hue-rotate(230deg) saturate(1.6) brightness(0.9)',
     examine: 'Something long and glowing coils in the haunted shallows. (Fishing 250)',
   },
   arowana_pool: {
     name: 'Arowana pool', label: 'Arowana', type: 'fishing', verb: 'Lure', emoji: '🐉', blocking: false,
     skill: 'fishing', tool: 'rod', depleteChance: 0, respawn: 0,
     catches: [{ id: 'raw_dragon_arowana', level: 300, xp: 831, weight: 1 }],
-    art: 'obj-rod_spot', tint: 'sepia(0.8) saturate(2.6) hue-rotate(-25deg) brightness(1.05)',
     examine: 'A still black pool in the Rift. A golden dragonfish circles below. (Fishing 300)',
   },
 
@@ -498,140 +491,140 @@ export const OBJECTS = {
   // The xp was set by timing auto gather laps at each course: each pays about
   // 35% more an hour (Marks of grace included) than the best course before it,
   // starting from the town course (tests/thieving-agility-tiers.test.mjs).
-  // Until their own art arrives they borrow an older obstacle's picture, recoloured.
+  // Every obstacle has its own picture (assets/world/obj-<id>.webp).
   supertree_skyway_stairs: {
     name: 'Spiral stair', label: 'Stair', type: 'agility', verb: 'Climb', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 100, xp: 124, markChance: 0.08, art: 'obj-agility_net', tint: 'hue-rotate(80deg) saturate(1.2)',
+    skill: 'agility', level: 100, xp: 124, markChance: 0.08,
     examine: 'Up the spiral stair round a Supertree trunk. (Agility 100)',
   },
   supertree_skyway_bridge: {
     name: 'Skyway bridge', label: 'Bridge', type: 'agility', verb: 'Cross', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 100, xp: 124, markChance: 0.08, art: 'obj-agility_balance', tint: 'hue-rotate(80deg) saturate(1.2)',
+    skill: 'agility', level: 100, xp: 124, markChance: 0.08,
     examine: 'A swaying walkway between the Supertrees. (Agility 100)',
   },
   supertree_skyway_vines: {
     name: 'Vine wall', label: 'Wall', type: 'agility', verb: 'Climb', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 100, xp: 124, markChance: 0.08, art: 'obj-agility_ledge', tint: 'hue-rotate(80deg) saturate(1.2)',
+    skill: 'agility', level: 100, xp: 124, markChance: 0.08,
     examine: 'Hand over hand up a wall of creepers. (Agility 100)',
   },
   supertree_skyway_zipline: {
     name: 'Supertree zip-line', label: 'Zip-line', type: 'agility', verb: 'Ride', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 100, xp: 124, markChance: 0.08, art: 'obj-agility_zip', tint: 'hue-rotate(80deg) saturate(1.2)',
+    skill: 'agility', level: 100, xp: 124, markChance: 0.08,
     examine: 'Down from the canopy on a humming wire. (Agility 100)',
   },
   container_yard_run_stack: {
     name: 'Container stack', label: 'Stack', type: 'agility', verb: 'Climb', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 130, xp: 163, markChance: 0.08, art: 'obj-agility_net', tint: 'hue-rotate(-30deg) saturate(1.4)',
+    skill: 'agility', level: 130, xp: 163, markChance: 0.08,
     examine: 'Up a cargo net on the side of a container stack. (Agility 130)',
   },
   container_yard_run_gap: {
     name: 'Container gap', label: 'Gap', type: 'agility', verb: 'Leap', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 130, xp: 163, markChance: 0.08, art: 'obj-agility_ledge', tint: 'hue-rotate(-30deg) saturate(1.4)',
+    skill: 'agility', level: 130, xp: 163, markChance: 0.08,
     examine: 'A long jump between two stacks. (Agility 130)',
   },
   container_yard_run_crane: {
     name: 'Crane hook', label: 'Hook', type: 'agility', verb: 'Swing on', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 130, xp: 163, markChance: 0.08, art: 'obj-agility_rope', tint: 'hue-rotate(-30deg) saturate(1.4)',
+    skill: 'agility', level: 130, xp: 163, markChance: 0.08,
     examine: 'Swing across the yard on a crane hook. (Agility 130)',
   },
   container_yard_run_ropes: {
     name: 'Mooring ropes', label: 'Ropes', type: 'agility', verb: 'Balance on', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 130, xp: 163, markChance: 0.08, art: 'obj-agility_balance', tint: 'hue-rotate(-30deg) saturate(1.4)',
+    skill: 'agility', level: 130, xp: 163, markChance: 0.08,
     examine: 'Walk the thick mooring ropes above the quay. (Agility 130)',
   },
   container_yard_run_chute: {
     name: 'Cargo chute', label: 'Chute', type: 'agility', verb: 'Slide down', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 130, xp: 163, markChance: 0.08, art: 'obj-agility_zip', tint: 'hue-rotate(-30deg) saturate(1.4)',
+    skill: 'agility', level: 130, xp: 163, markChance: 0.08,
     examine: 'Down the cargo chute to the wharf. (Agility 130)',
   },
   canopy_course_rope_bridge: {
     name: 'Rope bridge', label: 'Bridge', type: 'agility', verb: 'Cross', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 160, xp: 247, markChance: 0.08, art: 'obj-agility_balance', tint: 'hue-rotate(50deg) saturate(1.3) brightness(0.9)',
+    skill: 'agility', level: 160, xp: 247, markChance: 0.08,
     examine: 'A rope bridge strung between rainforest giants. (Agility 160)',
   },
   canopy_course_vine_swing: {
     name: 'Vine swing', label: 'Swing', type: 'agility', verb: 'Swing on', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 160, xp: 247, markChance: 0.08, art: 'obj-agility_rope', tint: 'hue-rotate(50deg) saturate(1.3) brightness(0.9)',
+    skill: 'agility', level: 160, xp: 247, markChance: 0.08,
     examine: 'Swing on a liana across the creek. (Agility 160)',
   },
   canopy_course_treetop_walk: {
     name: 'Treetop walk', label: 'Walk', type: 'agility', verb: 'Edge across', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 160, xp: 247, markChance: 0.08, art: 'obj-agility_ledge', tint: 'hue-rotate(50deg) saturate(1.3) brightness(0.9)',
+    skill: 'agility', level: 160, xp: 247, markChance: 0.08,
     examine: 'Along a mossy branch high above the forest floor. (Agility 160)',
   },
   canopy_course_log_slide: {
     name: 'Log slide', label: 'Slide', type: 'agility', verb: 'Slide down', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 160, xp: 247, markChance: 0.08, art: 'obj-agility_zip', tint: 'hue-rotate(50deg) saturate(1.3) brightness(0.9)',
+    skill: 'agility', level: 160, xp: 247, markChance: 0.08,
     examine: 'Down a fallen trunk to the ground. (Agility 160)',
   },
   cloud_steps_ledge: {
     name: 'Cliff ledge', label: 'Ledge', type: 'agility', verb: 'Edge across', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 200, xp: 317, markChance: 0.08, art: 'obj-agility_ledge', tint: 'hue-rotate(180deg) saturate(0.8) brightness(1.15)',
+    skill: 'agility', level: 200, xp: 317, markChance: 0.08,
     examine: 'A ledge no wider than your foot, above the clouds. (Agility 200)',
   },
   cloud_steps_stepping_stones: {
     name: 'Floating stones', label: 'Stones', type: 'agility', verb: 'Hop across', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 200, xp: 317, markChance: 0.08, art: 'obj-agility_balance', tint: 'hue-rotate(180deg) saturate(0.8) brightness(1.15)',
+    skill: 'agility', level: 200, xp: 317, markChance: 0.08,
     examine: 'Stones that hang in the air. Do not look down. (Agility 200)',
   },
   cloud_steps_rock_climb: {
     name: 'Rock face', label: 'Face', type: 'agility', verb: 'Climb', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 200, xp: 317, markChance: 0.08, art: 'obj-agility_net', tint: 'hue-rotate(180deg) saturate(0.8) brightness(1.15)',
+    skill: 'agility', level: 200, xp: 317, markChance: 0.08,
     examine: 'A sheer face with a few good holds. (Agility 200)',
   },
   cloud_steps_cloud_bridge: {
     name: 'Cloud bridge', label: 'Bridge', type: 'agility', verb: 'Cross', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 200, xp: 317, markChance: 0.08, art: 'obj-agility_rope', tint: 'hue-rotate(180deg) saturate(0.8) brightness(1.15)',
+    skill: 'agility', level: 200, xp: 317, markChance: 0.08,
     examine: 'A bridge of mist that holds your weight, mostly. (Agility 200)',
   },
   cloud_steps_glide: {
     name: 'Glide wire', label: 'Wire', type: 'agility', verb: 'Ride', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 200, xp: 317, markChance: 0.08, art: 'obj-agility_zip', tint: 'hue-rotate(180deg) saturate(0.8) brightness(1.15)',
+    skill: 'agility', level: 200, xp: 317, markChance: 0.08,
     examine: 'A wire down the mountainside. (Agility 200)',
   },
   wraith_run_gravestones: {
     name: 'Gravestone hop', label: 'Hop', type: 'agility', verb: 'Hop across', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 250, xp: 461, markChance: 0.08, art: 'obj-agility_balance', tint: 'grayscale(0.6) hue-rotate(120deg) brightness(1.05)',
+    skill: 'agility', level: 250, xp: 461, markChance: 0.08,
     examine: 'Leap from headstone to headstone. Mind the residents. (Agility 250)',
   },
   wraith_run_broken_pier: {
     name: 'Broken pier', label: 'Pier', type: 'agility', verb: 'Edge across', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 250, xp: 461, markChance: 0.08, art: 'obj-agility_ledge', tint: 'grayscale(0.6) hue-rotate(120deg) brightness(1.05)',
+    skill: 'agility', level: 250, xp: 461, markChance: 0.08,
     examine: 'What is left of the old jetty. (Agility 250)',
   },
   wraith_run_lantern_swing: {
     name: 'Lantern swing', label: 'Swing', type: 'agility', verb: 'Swing on', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 250, xp: 461, markChance: 0.08, art: 'obj-agility_rope', tint: 'grayscale(0.6) hue-rotate(120deg) brightness(1.05)',
+    skill: 'agility', level: 250, xp: 461, markChance: 0.08,
     examine: 'Swing on a rope hung with spirit lanterns. (Agility 250)',
   },
   wraith_run_ghost_bridge: {
     name: 'Ghost bridge', label: 'Bridge', type: 'agility', verb: 'Cross', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 250, xp: 461, markChance: 0.08, art: 'obj-agility_net', tint: 'grayscale(0.6) hue-rotate(120deg) brightness(1.05)',
+    skill: 'agility', level: 250, xp: 461, markChance: 0.08,
     examine: 'A bridge that is only there when you believe in it. (Agility 250)',
   },
   rift_leap_chasm: {
     name: 'Chasm leap', label: 'Leap', type: 'agility', verb: 'Leap', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 300, xp: 577, markChance: 0.08, art: 'obj-agility_ledge', tint: 'hue-rotate(240deg) saturate(1.5) brightness(0.85)',
+    skill: 'agility', level: 300, xp: 577, markChance: 0.08,
     examine: 'A jump across a crack in the world. (Agility 300)',
   },
   rift_leap_floating_rocks: {
     name: 'Floating rocks', label: 'Rocks', type: 'agility', verb: 'Hop across', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 300, xp: 577, markChance: 0.08, art: 'obj-agility_balance', tint: 'hue-rotate(240deg) saturate(1.5) brightness(0.85)',
+    skill: 'agility', level: 300, xp: 577, markChance: 0.08,
     examine: 'Rocks drifting over the void. (Agility 300)',
   },
   rift_leap_chain_climb: {
     name: 'Chain climb', label: 'Climb', type: 'agility', verb: 'Climb', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 300, xp: 577, markChance: 0.08, art: 'obj-agility_net', tint: 'hue-rotate(240deg) saturate(1.5) brightness(0.85)',
+    skill: 'agility', level: 300, xp: 577, markChance: 0.08,
     examine: 'Up a great chain that anchors the Rift. (Agility 300)',
   },
   rift_leap_void_bridge: {
     name: 'Void bridge', label: 'Bridge', type: 'agility', verb: 'Cross', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 300, xp: 577, markChance: 0.08, art: 'obj-agility_rope', tint: 'hue-rotate(240deg) saturate(1.5) brightness(0.85)',
+    skill: 'agility', level: 300, xp: 577, markChance: 0.08,
     examine: 'A bridge of dark light. (Agility 300)',
   },
   rift_leap_portal_dive: {
     name: 'Portal dive', label: 'Dive', type: 'agility', verb: 'Dive into', emoji: '🏃', blocking: false,
-    skill: 'agility', level: 300, xp: 577, markChance: 0.08, art: 'obj-agility_zip', tint: 'hue-rotate(240deg) saturate(1.5) brightness(0.85)',
+    skill: 'agility', level: 300, xp: 577, markChance: 0.08,
     examine: 'Through a portal and out at the start. (Agility 300)',
   },
 
@@ -671,11 +664,11 @@ export const OBJECTS = {
   // cracked four times in five at its level (`sure`), not half the time. The
   // valuable things (refine scrolls, wards, endgame ore, rare amulets) are
   // rare rolls, so a chest pays mostly in coins. Each pays about 35% more an
-  // hour, at its own level, than the best Thieving before it. Until their own
-  // art arrives they borrow the gem stall's picture, recoloured.
+  // hour, at its own level, than the best Thieving before it. Each has its own
+  // picture (assets/world/).
   temple_vault: {
     name: 'Temple vault', label: 'Vault', type: 'stall', verb: 'Crack', emoji: '🧰', blocking: true,
-    skill: 'thieving', level: 160, xp: 2450, respawn: 10, sure: 0.8, art: 'obj-stall_gem', tint: 'sepia(0.8) saturate(1.4) hue-rotate(60deg) brightness(0.85)',
+    skill: 'thieving', level: 160, xp: 2450, respawn: 10, sure: 0.8,
     examine: 'A stone vault in the old temple, its lock worn smooth. (Thieving 160)',
     loot: [
       { id: 'coins', min: 500, max: 1500, weight: 66 },
@@ -685,7 +678,7 @@ export const OBJECTS = {
   },
   observatory_chest: {
     name: 'Observatory chest', label: 'Chest', type: 'stall', verb: 'Crack', emoji: '🧰', blocking: true,
-    skill: 'thieving', level: 200, xp: 3610, respawn: 10, sure: 0.8, art: 'obj-stall_gem', tint: 'hue-rotate(190deg) saturate(1.2) brightness(1.1)',
+    skill: 'thieving', level: 200, xp: 3610, respawn: 10, sure: 0.8,
     examine: 'A star-chart chest in the mountain observatory. (Thieving 200)',
     loot: [
       { id: 'coins', min: 800, max: 2000, weight: 66 },
@@ -695,7 +688,7 @@ export const OBJECTS = {
   },
   smugglers_hold: {
     name: "Smugglers' hold", label: 'Hold', type: 'stall', verb: 'Crack', emoji: '🧰', blocking: true,
-    skill: 'thieving', level: 250, xp: 5350, respawn: 10, sure: 0.8, art: 'obj-stall_gem', tint: 'sepia(0.9) saturate(0.8) brightness(0.75)',
+    skill: 'thieving', level: 250, xp: 5350, respawn: 10, sure: 0.8,
     examine: 'A false-bottomed crate of contraband on the wharf. (Thieving 250)',
     loot: [
       { id: 'coins', min: 1000, max: 3000, weight: 70 },
@@ -705,7 +698,7 @@ export const OBJECTS = {
   },
   rift_treasury: {
     name: 'Rift treasury', label: 'Treasury', type: 'stall', verb: 'Crack', emoji: '🧰', blocking: true,
-    skill: 'thieving', level: 300, xp: 7800, respawn: 10, sure: 0.8, art: 'obj-stall_gem', tint: 'hue-rotate(250deg) saturate(1.6) brightness(0.8)',
+    skill: 'thieving', level: 300, xp: 7800, respawn: 10, sure: 0.8,
     examine: 'The hoard of the Rift, guarded by nothing you can see. (Thieving 300)',
     // A rare-item table: weights out of 1000, so the merlion amulet is one success in a thousand.
     loot: [
@@ -719,16 +712,13 @@ export const OBJECTS = {
   },
 
   // ---------------- The Endless Gate (waves.js) ----------------
-  // The way into the wave dungeon and the portal back out. Until their own art
-  // arrives they borrow the ruined arch, recoloured.
+  // The way into the wave dungeon and the portal back out, each with its own picture.
   wave_gate: {
-    name: 'The Endless Gate', label: 'Gate', type: 'gate', verb: 'Enter', emoji: '🌀', blocking: true, art: 'obj-ruin',
-    tint: 'hue-rotate(230deg) saturate(1.8) brightness(0.9)',
+    name: 'The Endless Gate', label: 'Gate', type: 'gate', verb: 'Enter', emoji: '🌀', blocking: true,
     examine: 'An ancient arch humming with violet light. Beyond it, monsters come in endless waves.',
   },
   wave_exit: {
-    name: 'Exit portal', label: 'Portal', type: 'gate', verb: 'Leave by', emoji: '🌀', blocking: true, art: 'obj-ruin',
-    tint: 'hue-rotate(150deg) saturate(1.6) brightness(1.05)',
+    name: 'Exit portal', label: 'Portal', type: 'gate', verb: 'Leave by', emoji: '🌀', blocking: true,
     examine: 'The way back out, to where you came in.',
   },
 
@@ -743,13 +733,10 @@ export const OBJECTS = {
   sign: { name: 'Signpost', type: 'scenery', emoji: '🪧', blocking: false, examine: 'Welcome to Kampong Glam!' },
 
   // ---------------- Kampong home (home.js) ----------------
-  // Borrowed pictures until their own art arrives; `homeTab` is the panel each opens.
-  home_plot: { name: 'Kampong plot', label: 'Home', type: 'home', homeTab: 'plot', verb: 'Visit', emoji: '🏡', blocking: false, art: 'obj-sign',
-    tint: 'sepia(0.5) saturate(1.6) hue-rotate(-10deg)', examine: 'A plot of land in Kranji. Buy it and make it your kampong home.' },
-  home_chest: { name: 'Storage chest', label: 'Chest', type: 'home', homeTab: 'chest', verb: 'Open', emoji: '🧰', blocking: true, art: 'obj-bank_booth',
-    tint: 'sepia(0.7) saturate(1.4) brightness(0.95)', examine: 'Your own storage chest. Only you have the key.' },
-  home_trophy: { name: 'Trophy wall', label: 'Trophies', type: 'home', homeTab: 'trophy', verb: 'Admire', emoji: '🏆', blocking: true, art: 'obj-shrine',
-    tint: 'sepia(0.8) saturate(2.2) hue-rotate(-12deg) brightness(1.08)', examine: 'Your boss kills and rare finds, on show.' },
+  // Each has its own picture (assets/world/); `homeTab` is the panel each opens.
+  home_plot: { name: 'Kampong plot', label: 'Home', type: 'home', homeTab: 'plot', verb: 'Visit', emoji: '🏡', blocking: false, examine: 'A plot of land in Kranji. Buy it and make it your kampong home.' },
+  home_chest: { name: 'Storage chest', label: 'Chest', type: 'home', homeTab: 'chest', verb: 'Open', emoji: '🧰', blocking: true, examine: 'Your own storage chest. Only you have the key.' },
+  home_trophy: { name: 'Trophy wall', label: 'Trophies', type: 'home', homeTab: 'trophy', verb: 'Admire', emoji: '🏆', blocking: true, examine: 'Your boss kills and rare finds, on show.' },
 };
 
 // Hunter traps and trails (definitions in trades.js).

@@ -223,15 +223,15 @@ test('sambal sailfish and the arowana feast boost damage for a minute; moonfish 
   assert.equal(g.meal, null, 'and it has run its course');
 });
 
-test('endgame fish and dishes borrow tinted art; the spots borrow tinted spot pictures', () => {
+test('endgame fish, dishes and their spots have their own untinted art', () => {
   const declared = worldArt();
   for (const t of TIERS) {
     for (const id of [t.raw, t.dish]) {
       const html = itemIconSVG(id, 24);
-      assert.ok(html.includes('assets/icons/item-') && html.includes('filter:'), `${id} borrows tinted art`);
+      assert.ok(html.includes(`assets/icons/item-${id}.webp`) && !html.includes('filter:'), `${id} has its own sticker`);
     }
     const def = OBJECTS[t.spot];
-    assert.ok(declared.has(def.art) && def.tint, `${t.spot} borrows a tinted spot picture (${def.art})`);
+    assert.ok(declared.has(`obj-${t.spot}`) && !def.art && !def.tint, `${t.spot} has its own spot picture`);
   }
 });
 

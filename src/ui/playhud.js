@@ -6,7 +6,7 @@
 
 import * as Play from '../game/playbalance.js';
 import { TICK_MS } from '../config.js';
-import { uiIconHTML } from '../render/icons.js';
+import { uiIconHTML, playIconHTML } from '../render/icons.js';
 
 export class PlayHud {
   constructor(ui) {
@@ -24,9 +24,9 @@ export class PlayHud {
     if (!row) return null;
     const el = document.createElement('div');
     el.id = 'play-hud';
-    el.innerHTML = '<button class="ph-focus" type="button"><span class="ph-label">Focus</span><span class="ph-bar"><i></i></span></button>'
-      + '<button class="ph-rested hidden" type="button">Rested</button>'
-      + '<button class="ph-grave hidden" type="button"></button>';
+    el.innerHTML = `<button class="ph-focus" type="button">${playIconHTML('ui-focus', 16)}<span class="ph-label">Focus</span><span class="ph-bar"><i></i></span></button>`
+      + `<button class="ph-rested hidden" type="button">${playIconHTML('ui-rested', 16)}Rested</button>`
+      + `<button class="ph-grave hidden" type="button">${playIconHTML('ui-grave', 16)}<span class="ph-grave-t"></span></button>`;
     el.querySelector('.ph-focus').addEventListener('click', () => this.game.msg(this.focusTip(), 'system'));
     el.querySelector('.ph-rested').addEventListener('click', () => this.game.msg(this.restedTip(), 'system'));
     el.querySelector('.ph-grave').addEventListener('click', () => this.openGrave());
@@ -69,7 +69,7 @@ export class PlayHud {
     r.title = pl.rested > 0 ? this.restedTip() : '';
     const gb = el.querySelector('.ph-grave');
     gb.classList.toggle('hidden', !g);
-    gb.textContent = graveText;
+    gb.querySelector('.ph-grave-t').textContent = graveText;
     gb.title = g ? `Your gravestone holds ${Play.graveSummary(g)}. Walk back to it, or tap to have it brought to you for ${Play.graveFee(this.game)} coins.` : '';
   }
 

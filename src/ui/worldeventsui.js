@@ -4,6 +4,7 @@
 // tracker, and the marker on the minimap. ui.js only calls in here; the
 // HTML builders return plain strings so the tests can render them headlessly.
 import { EVENT_KINDS } from '../data/worldevents.js';
+import { playIconHTML, EVENT_ICON } from '../render/icons.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const pctOf = (a, b) => (b ? Math.max(0, Math.min(100, Math.floor((a / b) * 100))) : 0);
@@ -19,7 +20,7 @@ export function eventsPanelHTML(game) {
   if (ev) {
     const k = EVENT_KINDS[ev.kind];
     html += `<div class="quest-head">World event &middot; ${clock(we.secondsLeft())} left</div>`
-      + `<div class="quest-row we-row can-go" style="--we-col:${k.colour}"><div class="q-top"><b>${esc(k.icon)} ${esc(ev.name)}</b>`
+      + `<div class="quest-row we-row can-go" style="--we-col:${k.colour}"><div class="q-top"><b>${playIconHTML(EVENT_ICON[ev.kind], 20)} ${esc(ev.name)}</b>`
       + `<span class="q-chip active">${esc(we.progressText())}</span></div>`
       + `<span class="q-desc">${esc(k.blurb(ev))}</span>`
       + `<div class="q-foot"><span class="q-next">&#10148; ${esc(ev.place)}</span><button class="q-go we-go" title="Travel to the event">Go</button></div></div>`;
@@ -27,7 +28,7 @@ export function eventsPanelHTML(game) {
   const tasks = we.weeklyTasks();
   if (tasks.length) {
     const w = we.weekly;
-    html += `<div class="quest-head">Weekly challenge &middot; ${esc(w.region)}${w.claimed ? ' &middot; complete' : ''}</div>`;
+    html += `<div class="quest-head">${playIconHTML('event-weekly_crate', 18)} Weekly challenge &middot; ${esc(w.region)}${w.claimed ? ' &middot; complete' : ''}</div>`;
     for (const t of tasks) {
       html += `<div class="quest-row bounty-row we-task${t.done ? ' done' : ''}"><div class="q-top"><b>${esc(t.text)}</b>`
         + `<span class="q-chip ${t.done ? 'done' : t.have > 0 ? 'active' : 'todo'}">${t.done ? 'Done' : `${t.have}/${t.need}`}</span></div>`
@@ -55,7 +56,7 @@ export function eventTrackerRows(ui) {
     const deg = Math.round(Math.atan2(ev.y - p.y, ev.x - p.x) * 180 / Math.PI);
     const ptr = d <= 6 ? '<span class="trk-dist here">here</span>'
       : `<span class="trk-arrow" style="transform:rotate(${deg}deg)">&#10148;</span><span class="trk-dist">${Math.round(d)}m</span>`;
-    rows.push(`<div class="trk-row trk-event"><span class="trk-ic" style="color:${k.colour}">${esc(k.icon)}</span>${esc(ev.name)} `
+    rows.push(`<div class="trk-row trk-event"><span class="trk-ic" style="color:${k.colour}">${playIconHTML(EVENT_ICON[ev.kind], 16)}</span>${esc(ev.name)} `
       + `<span class="trk-prog">${esc(we.progressText())} &middot; ${clock(we.secondsLeft())}</span>${ptr}</div>`);
   }
   return rows;

@@ -26,6 +26,7 @@ import { zoneLevel } from '../data/world.js';
 import { findPath } from '../engine/pathfinding.js';
 import { chebyshev } from '../core/utils.js';
 import { TILE } from '../config.js';
+import { playIconHTML, EVENT_ICON } from '../render/icons.js';
 import { waveKinds, waveMobDef } from './waves.js';
 import { seeded } from './bounty.js';
 import {
@@ -164,7 +165,7 @@ export class WorldEvents {
     if (!ok) { this._cleanup(ev); return null; }
     this.active = ev;
     g.msg(`World event: ${ev.name}! ${def.blurb(ev)}`, 'level');
-    g.banner(`<span class="big">${def.icon} ${ev.name}</span>${def.blurb(ev)}`, BANNER);
+    g.banner(`<span class="big">${playIconHTML(EVENT_ICON[kind], 28)} ${ev.name}</span>${def.blurb(ev)}`, BANNER);
     g.bus.emit('sfx', 'spec');
     g.bus.emit('worldevents');
     return ev;
@@ -247,6 +248,7 @@ export class WorldEvents {
       m.def = { ...m.def, name: 'Lost merchant', wander: 0, examine: 'A travelling merchant who has lost his way. Keep him safe!',
         chatter: null };
       m.wander = 0;
+      m.artId = 'event_merchant';   // drawn in his own picture (townsfolk art)
       m.temporary = true;
       m.worldEvent = true;
       m.escortHp = m.escortMax = ESCORT_MERCHANT_HP;
@@ -509,7 +511,7 @@ export class WorldEvents {
     g.skills.addXp(skill, xp);
     const list = got.map(([id, q]) => `${q.toLocaleString('en-GB')} ${id === 'coins' ? 'coins' : getItem(id).name}`).join(', ');
     g.msg(`${ev.name} complete! Reward: ${list}, and bonus ${skill} XP.`, 'level');
-    g.banner(`<span class="big">${kind.icon} ${ev.name} complete!</span>${list}`, BANNER);
+    g.banner(`<span class="big">${playIconHTML(EVENT_ICON[ev.kind], 28)} ${ev.name} complete!</span>${list}`, BANNER);
     g.bus.emit('sfx', 'achievement');
     const c = g.player.renderCenter?.();
     if (c) g.spawnConfetti?.(c.x, c.y - 18, 26);

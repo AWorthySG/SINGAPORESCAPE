@@ -66,7 +66,7 @@ import { setLinkedText, linkHTML } from './links.js';   // names that open their
 import { openEntry } from './encyclopediaui.js';
 import { openPestOfficer, contractTrackerRows, stewardLineHTML, cullingInvOptions } from './cullingui.js';
 import { eventsPanelHTML, wireEventsPanel, eventTrackerRows, drawEventMarker } from './worldeventsui.js';
-import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG, abilityIconHTML, spellIconHTML } from '../render/icons.js';
+import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG, abilityIconHTML, spellIconHTML, playIconHTML } from '../render/icons.js';
 import { weaknessOf, armourTierOf, ARMOUR_TIERS, levelFlatDmg } from '../game/combat.js';
 import { isBone } from '../data/bones.js';
 import { RACES, raceOf, weaponsFor, weaponTypeName, WEAPON_VS_RACE } from '../data/races.js';
@@ -1268,7 +1268,8 @@ export class UI {
 
   /** A quality copy's dot, in the quality's colour (on its icon). */
   _qualityPip(q) {
-    return QUALITY[q] ? `<span class="q-pip q-${q}" style="background:${QUALITY[q].color}" title="${QUALITY[q].label} quality"></span>` : '';
+    // Its painted badge on the coloured dot (the dot shows if the picture can't load).
+    return QUALITY[q] ? `<span class="q-pip q-${q}" style="background:${QUALITY[q].color}" title="${QUALITY[q].label} quality">${playIconHTML(`quality-${q}`, 14)}</span>` : '';
   }
 
   /** Stat chips for one piece of gear, e.g. "+12 Defence · 1.2s" (`q`: the copy's quality). */

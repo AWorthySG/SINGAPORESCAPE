@@ -13,7 +13,8 @@ test('mastery and quality never share a name', () => {
 test('the ladders list every rank and tier with its bonus', () => {
   const html = ranksCardHTML({ rank: 3 });
   for (const r of MASTERY_RANKS) assert.match(html, new RegExp(`<b>${r.name}</b>`));
-  for (const q of Object.values(QUALITY)) assert.match(html, new RegExp(`<b>${q.label}</b><span>\\+${Math.round(q.gain * 100)}%`));
+  // Each tier wears its painted badge (assets/icons/quality-<tier>.webp) before its name.
+  for (const [k, q] of Object.entries(QUALITY)) assert.match(html, new RegExp(`<b><img[^>]*quality-${k}\\.webp[^>]*> ${q.label}</b><span>\\+${Math.round(q.gain * 100)}%`));
   assert.equal((html.match(/rk-step got/g) || []).length, 4, 'ranks up to the one you have are marked');
 });
 

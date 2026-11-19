@@ -21,6 +21,7 @@ import { findPath } from '../src/engine/pathfinding.js';
 import { guideEntries } from '../src/game/skillguide.js';
 import { materialKind } from '../src/game/materials.js';
 import { itemIconSVG } from '../src/render/icons.js';
+import { worldArt } from '../src/render/sprites.js';
 
 function fakeStorage() {
   const m = new Map();
@@ -91,8 +92,8 @@ test('endgame hunting grounds: five traps each in their region, reachable, clear
     // Auto gather looks 30 tiles round for the next trap: keep the older kinds out of reach.
     const old = g.world.objects.filter((o) => OLD_TRAPS.includes(o.objId));
     for (const o of traps) assert.ok(old.every((p) => chebyshev(o.x, o.y, p.x, p.y) > 30), `${t.trap} at ${o.x},${o.y} is clear of older traps`);
-    // Borrowed, tinted art until its own arrives.
-    assert.ok(def.art && def.tint, `${t.trap} borrows a tinted trap picture`);
+    // Its own picture, untinted.
+    assert.ok(worldArt().has(`obj-${t.trap}`) && !def.art && !def.tint, `${t.trap} has its own trap picture`);
   }
 });
 
@@ -346,11 +347,11 @@ test('balance guard: no potion runs unless you drink one', () => {
   assert.equal(g.perkMods().haste, undefined);
 });
 
-test('endgame catches, crops, seeds and brews borrow tinted sticker art until their own arrives', () => {
+test('endgame catches, crops, seeds and brews have their own untinted stickers', () => {
   for (const t of TIERS) {
     for (const id of [t.catch, t.crop, `${t.crop}_seed`, t.brew]) {
       const html = itemIconSVG(id, 24);
-      assert.ok(html.includes('assets/icons/item-') && html.includes('filter:'), `${id} borrows tinted art`);
+      assert.ok(html.includes(`assets/icons/item-${id}.webp`) && !html.includes('filter:'), `${id} has its own sticker`);
     }
   }
 });

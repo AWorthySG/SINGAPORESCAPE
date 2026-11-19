@@ -4,7 +4,7 @@
 // <button>, so phone sheets don't swallow taps. Does nothing without a DOM.
 import { getItem, ITEMS } from '../data/items.js';
 import { formatNumber } from '../core/utils.js';
-import { itemIconSVG } from '../render/icons.js';
+import { itemIconSVG, playIconHTML } from '../render/icons.js';
 import { HOME_PRICE, HOME_UPGRADES, UPGRADE_KEYS, costText } from '../game/home.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -87,7 +87,7 @@ export function installHomeUI(ui) {
     btn.id = 'home-btn';
     btn.type = 'button';
     btn.title = 'Teleport to your kampong home';
-    btn.textContent = 'HOME';
+    btn.innerHTML = `${playIconHTML('ui-home', 14)}HOME`;
     btn.addEventListener('click', () => game.home?.teleport());
     panel.appendChild(btn);
   }

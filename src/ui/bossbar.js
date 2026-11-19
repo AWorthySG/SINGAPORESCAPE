@@ -11,6 +11,7 @@ import { mechLabel } from '../game/bossmech.js';
 import { hudNumber } from '../core/utils.js';
 import { TICK_MS } from '../config.js';
 import { portraitFor } from '../render/sprites.js';
+import { playIconHTML, mechIcon } from '../render/icons.js';
 import { foeDetails } from '../render/worldlabels.js';
 
 /** Life read-out: "999.9M · 99.9%" (short numbers; percent to one decimal,
@@ -41,7 +42,7 @@ export function foeThreat(game, n) {
 }
 
 /** The mechanic badge for the bar, or null when none is under way.
- *  { kind, icon, text, color, title, cast?: { start, dur } } */
+ *  { kind, icon, art, text, color, title, cast?: { start, dur } } (`art`: its painted icon, if any) */
 export function mechBadge(game, boss) {
   const m = boss?.mech;
   if (!m) {
@@ -53,14 +54,14 @@ export function mechBadge(game, boss) {
   switch (m.type) {
     case 'shield': {
       const st = MECH_STYLES[m.style] || MECH_STYLES.melee;
-      return { kind: 'shield', style: m.style, icon: '🛡', text: `${st.label} ${Math.max(0, Math.ceil(m.hp / m.max * 100))}%`, color: st.color, title };
+      return { kind: 'shield', style: m.style, icon: '🛡', art: mechIcon('shield', m.style), text: `${st.label} ${Math.max(0, Math.ceil(m.hp / m.max * 100))}%`, color: st.color, title };
     }
-    case 'circle': return { kind: 'circle', icon: '◎', text: 'Safe spot!', color: null, title };
+    case 'circle': return { kind: 'circle', icon: '◎', art: mechIcon('circle'), text: 'Safe spot!', color: null, title };
     case 'adds': {
       const k = (m.adds || []).filter((a) => a.alive && a.hp > 0).length;
-      return { kind: 'adds', icon: '✚', text: `Healers ×${k}`, color: null, title };
+      return { kind: 'adds', icon: '✚', art: mechIcon('adds'), text: `Healers ×${k}`, color: null, title };
     }
-    case 'cast': return { kind: 'cast', icon: '⏳', text: `Interrupt! ${left}s`, color: null, title, cast: { start: m.start, dur: m.dur || m.until - m.since } };
+    case 'cast': return { kind: 'cast', icon: '⏳', art: mechIcon('cast'), text: `Interrupt! ${left}s`, color: null, title, cast: { start: m.start, dur: m.dur || m.until - m.since } };
     default: return null;
   }
 }
@@ -138,7 +139,7 @@ export function renderBossBar(ui, boss) {
     b.mech.classList.toggle('hidden', !mc);
     for (const k of KINDS) b.mech.classList.toggle(`mk-${k}`, mc?.kind === k);
     if (mc) {
-      const html = `<i>${mc.icon}</i>${mc.text}`;
+      const html = `<i>${mc.art ? playIconHTML(mc.art, 16, 'mech-ic') : mc.icon}</i>${mc.text}`;
       if (b.mech.innerHTML !== html) b.mech.innerHTML = html;
       b.mech.style.background = mc.color || '';
       if (b.mech.title !== mc.title) b.mech.title = mc.title;

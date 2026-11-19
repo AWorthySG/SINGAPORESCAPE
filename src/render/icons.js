@@ -671,6 +671,23 @@ import { BESTIARY_BOSSES } from '../data/bestiary.js';
   export const UI_ICONS = ['teleport-town', 'teleport-grave', 'prayer-burst', 'blessing-slot', 'legend-ribbon', 'contract-token'];
   export const uiIconHTML = (name, size, cls = '') => `<img class="ui-ic ${cls}" src="assets/icons/icon-${name}.webp" width="${size}" height="${size}" alt="" draggable="false" onerror="this.remove()" />`;
 
+  // ---- Painted gameplay icons (assets/icons/<name>.webp) ----
+  // Boss mechanics, world events, the play HUD (Focus, Rested, Grave), the
+  // collection log, pets, home, unlocks, mastery and the gear quality tiers.
+  // Like the badges above, a picture that can't load takes itself away.
+  export const PLAY_ICONS = [
+    'mech-shield_melee', 'mech-shield_ranged', 'mech-shield_magic', 'mech-safe_circle', 'mech-healers', 'mech-interrupt',
+    'event-invasion', 'event-shoal', 'event-meteor', 'event-escort', 'event-champion', 'event-ancient_tree', 'event-weekly_crate',
+    'ui-collection_log', 'ui-pets', 'ui-home', 'ui-focus', 'ui-rested', 'ui-grave', 'ui-skill_unlock', 'ui-mastery',
+    ...['fine', 'superior', 'epic', 'legendary', 'mythic'].map((q) => `quality-${q}`),
+  ];
+  export const playIconHTML = (name, size, cls = '') => `<img class="ui-ic ${cls}" src="assets/icons/${name}.webp" width="${size}" height="${size}" alt="" draggable="false" onerror="this.remove()" />`;
+  /** Each world event kind's icon (data/worldevents.js EVENT_KINDS). */
+  export const EVENT_ICON = { invasion: 'event-invasion', shoal: 'event-shoal', meteor: 'event-meteor', escort: 'event-escort',
+    rampage: 'event-champion', grove: 'event-ancient_tree' };
+  /** A boss mechanic's icon by its type (and a shield's style). */
+  export const mechIcon = (type, style) => ({ shield: `mech-shield_${style || 'melee'}`, circle: 'mech-safe_circle', adds: 'mech-healers', cast: 'mech-interrupt' })[type] || null;
+
   // A-Worthy sticker treatment for every icon: the art is traced with a navy
   // ink line inside a white die-cut border (two dilated copies of its
   // silhouette), shrunk slightly so the border fits inside the 24x24 box.
@@ -842,6 +859,16 @@ import { BESTIARY_BOSSES } from '../data/bestiary.js';
     'atlas_moth_empress', 'jembalang_lord', 'krait_matriarch', 'duyung_queen', 'great_argus_monarch',
     'typhoon_mother', 'void_eel_leviathan', 'todak_king', 'jade_moon_hare', 'fenghuang'].map((b) => `sig_${b}`));
   for (const [id, it] of Object.entries(ITEMS)) if (it.signature && (!NEW_SIG.has(id) || SIG_ART.has(id))) ITEM_ART.add(id);
+  // Gameplay art pack: endgame fish and dishes, crops and seeds, brews, Hunter
+  // catches and lures, jewellery, the casino chip and Pest Control's goods.
+  for (const id of ['raw_dorado', 'grilled_dorado', 'raw_bluefin_tuna', 'tuna_sashimi', 'raw_sailfish', 'sambal_sailfish',
+    'raw_moonfish', 'moonfish_curry', 'raw_rift_eel', 'rift_eel_claypot', 'raw_dragon_arowana', 'arowana_feast', 'boar_rendang', 'fish_head_curry',
+    ...['torch_ginger', 'black_nutmeg', 'golden_durian', 'starbloom', 'moon_orchid', 'eternal_lotus'].flatMap((c) => [c, `${c}_seed`]),
+    'anglers_brew', 'trackers_brew', 'prospectors_brew', 'super_might_potion', 'super_haste_potion', 'tigers_focus',
+    'garuda_draught', 'naga_elixir', 'phoenix_elixir', 'barbed_hooks', 'feather_lure', 'bamboo_decoy',
+    'pangolin_scales', 'colugo_fur', 'tiger_whisker', 'garuda_plume', 'naga_scale', 'phoenix_ember', 'casino_chip',
+    'obsidian_ring', 'orichalcum_amulet', 'jade_ring', 'star_amulet', 'celestial_ring', 'eternal_amulet',
+    'pest_token', 'hunter_bait', 'forager_lamp', 'codex_quill', 'mosquito_net_cape']) ITEM_ART.add(id);
   export const itemArtSrc = (id) => (ITEM_ART.has(id) ? `assets/icons/item-${id}.webp` : borrowedArt(id) ? `assets/icons/item-${borrowedArt(id).file}.webp` : null);
   const artImg = (file, size, cls, filter) => `<img class="${cls || ''}" width="${size}" height="${size}" src="assets/icons/${file}.webp" alt="" style="display:block;object-fit:contain${filter ? `;filter:${filter}` : ''}" />`;
   // Metal-tier items without stickers of their own can borrow another sticker,
@@ -869,63 +896,25 @@ import { BESTIARY_BOSSES } from '../data/bestiary.js';
     ['starwood_logs', '#4a5ac8', '#9aaaf0'], ['moonwood_logs', '#a8b0c8', '#e0e6f4'], ['eternal_heartwood', '#c8962a', '#f5c84a'],
   ]) I[id] = logIcon(c, hi);
   for (const [id, fleck] of [['fine_ash', '#c8c8c8'], ['ember_ash', '#ff8a3a'], ['star_ash', '#9aaaf0'], ['ghost_ash', '#eef2fa'], ['eternal_ash', '#f5c84a']]) I[id] = oreIcon(fleck);
-  // Endgame fish (Fishing 100-300) borrow an older fish sticker, and their
-  // dishes a cooked fish or bowl, tinted to suit, until their own art arrives.
-  for (const [raw, rawFrom, dish, dishFrom, tint, c, hi, dishTint] of [
-    ['raw_dorado', 'raw_giant_trevally', 'grilled_dorado', 'giant_trevally', 'sepia(0.5) saturate(2) hue-rotate(15deg)', '#c8b02a', '#7ac04a'],
-    ['raw_bluefin_tuna', 'raw_tuna', 'tuna_sashimi', 'tuna', 'hue-rotate(15deg) saturate(1.5) brightness(0.9)', '#2a4a8a', '#7a9ad8'],
-    ['raw_sailfish', 'raw_swordfish', 'sambal_sailfish', 'swordfish', 'hue-rotate(40deg) saturate(1.5)', '#3a3a9a', '#8a8ae0'],
-    ['raw_moonfish', 'raw_white_pomfret', 'moonfish_curry', 'laksa', 'saturate(0.5) brightness(1.2)', '#b8c0d0', '#eef2fa', 'sepia(0.3) saturate(1.4) hue-rotate(-10deg)'],
-    ['raw_rift_eel', 'raw_eel', 'rift_eel_claypot', 'seafood_stew', 'hue-rotate(230deg) saturate(1.6)', '#6a3a9a', '#b08ae0'],
-    ['raw_dragon_arowana', 'raw_arowana', 'arowana_feast', 'seafood_platter', 'sepia(0.8) saturate(2.4) hue-rotate(-20deg) brightness(1.05)', '#d8a02a', '#f5d070'],
-  ]) {
-    BORROW_ID[raw] = rawFrom; BORROW_TINT[raw] = tint; I[raw] = rawFish(c, hi);
-    BORROW_ID[dish] = dishFrom; BORROW_TINT[dish] = dishTint || tint; I[dish] = cookedFish(c);
-  }
-  // Endgame jewellery (Crafting 100-300) borrows a gem ring or amulet sticker,
-  // tinted to its metal, until its own art arrives.
-  for (const [id, from, m] of [['obsidian_ring', 'diamond_ring', 'obsidian'], ['orichalcum_amulet', 'ruby_amulet', 'orichalcum'],
-    ['jade_ring', 'emerald_ring', 'jade'], ['star_amulet', 'sapphire_amulet', 'starmetal'], ['celestial_ring', 'diamond_ring', 'celestial'],
-    ['eternal_amulet', 'amulet_of_glory', 'eternal']]) {
+  // Endgame fish and their dishes (Fishing 100-300), endgame jewellery (Crafting
+  // 100-300), the endgame Hunter catches, crops, seeds and brews, the casino chip
+  // and Pest Control's goods have their own stickers (ITEM_ART, the gameplay art
+  // pack); these vectors stay as their fallback.
+  for (const [raw, dish, c, hi] of [
+    ['raw_dorado', 'grilled_dorado', '#c8b02a', '#7ac04a'], ['raw_bluefin_tuna', 'tuna_sashimi', '#2a4a8a', '#7a9ad8'],
+    ['raw_sailfish', 'sambal_sailfish', '#3a3a9a', '#8a8ae0'], ['raw_moonfish', 'moonfish_curry', '#b8c0d0', '#eef2fa'],
+    ['raw_rift_eel', 'rift_eel_claypot', '#6a3a9a', '#b08ae0'], ['raw_dragon_arowana', 'arowana_feast', '#d8a02a', '#f5d070'],
+  ]) { I[raw] = rawFish(c, hi); I[dish] = cookedFish(c); }
+  for (const [id, m] of [['obsidian_ring', 'obsidian'], ['orichalcum_amulet', 'orichalcum'], ['jade_ring', 'jade'],
+    ['star_amulet', 'starmetal'], ['celestial_ring', 'celestial'], ['eternal_amulet', 'eternal']]) {
     const [c, hi] = METAL_PAL[m];
-    BORROW_ID[id] = from; BORROW_TINT[id] = metalTint(m); I[id] = id.endsWith('_ring') ? ringIcon(c, hi) : I.amulet_of_power;
+    I[id] = id.endsWith('_ring') ? ringIcon(c, hi) : I.amulet_of_power;
   }
-  // Endgame Hunter catches, crops, seeds and brews (Hunter, Farming and
-  // Herblore 100-300) borrow an older sticker, tinted, until their own art
-  // arrives. (Crops, seeds and brews already have vector fallbacks from the
-  // CROPS and POTIONS loops above.)
-  for (const [id, from, tint] of [
-    ['pangolin_scales', 'python_skin', 'sepia(0.6) saturate(1.1) brightness(0.9)'],
-    ['colugo_fur', 'squirrel_pelt', 'grayscale(0.7) brightness(1.1)'],
-    ['tiger_whisker', 'feather', 'sepia(0.8) saturate(2.5) hue-rotate(-15deg)'],
-    ['garuda_plume', 'feather', 'hue-rotate(190deg) saturate(1.6) brightness(1.05)'],
-    ['naga_scale', 'croc_hide', 'hue-rotate(60deg) saturate(1.3) brightness(1.1)'],
-    ['phoenix_ember', 'hornbill_casque', 'saturate(2.2) hue-rotate(-20deg) brightness(1.1)'],
-    ['torch_ginger', 'lingzhi', 'hue-rotate(-20deg) saturate(1.6) brightness(1.1)'], ['torch_ginger_seed', 'lingzhi_seed', 'hue-rotate(-20deg) saturate(1.6)'],
-    ['black_nutmeg', 'mangosteen', 'grayscale(0.6) brightness(0.8)'], ['black_nutmeg_seed', 'mangosteen_seed', 'grayscale(0.6) brightness(0.85)'],
-    ['golden_durian', 'durian', 'sepia(0.7) saturate(2.2) brightness(1.1)'], ['golden_durian_seed', 'durian_seed', 'sepia(0.7) saturate(2.2)'],
-    ['starbloom', 'snow_lotus', 'sepia(0.5) hue-rotate(190deg) saturate(2)'], ['starbloom_seed', 'snow_lotus_seed', 'sepia(0.5) hue-rotate(190deg) saturate(2)'],
-    ['moon_orchid', 'misai_kucing', 'saturate(0.5) brightness(1.2)'], ['moon_orchid_seed', 'misai_kucing_seed', 'saturate(0.5) brightness(1.2)'],
-    ['eternal_lotus', 'snow_lotus', 'sepia(0.9) saturate(2.5) hue-rotate(-10deg)'], ['eternal_lotus_seed', 'snow_lotus_seed', 'sepia(0.9) saturate(2.5) hue-rotate(-10deg)'],
-    ['super_might_potion', 'super_strength', 'hue-rotate(-120deg) saturate(1.3)'],
-    ['super_haste_potion', 'super_ranging', 'hue-rotate(30deg) brightness(1.15)'],
-    ['tigers_focus', 'super_attack', 'hue-rotate(30deg) saturate(1.4) brightness(1.15)'],
-    ['garuda_draught', 'super_magic', 'hue-rotate(-20deg) brightness(1.2)'],
-    ['naga_elixir', 'super_defence', 'hue-rotate(-60deg) saturate(1.2)'],
-    ['phoenix_elixir', 'immortal_elixir', 'sepia(0.6) saturate(3) hue-rotate(-25deg)'],
-  ]) { BORROW_ID[id] = from; BORROW_TINT[id] = tint; }
   I.pangolin_scales = hideIcon('#a8743a'); I.colugo_fur = hideIcon('#9a9a8a'); I.naga_scale = hideIcon('#3ab08a');
   I.tiger_whisker = I.feather; I.garuda_plume = I.feather; I.phoenix_ember = I.hornbill_casque;
-  // The casino chip (Thieving 100) borrows the coins sticker, tinted red.
-  BORROW_ID.casino_chip = 'coins'; BORROW_TINT.casino_chip = 'hue-rotate(-40deg) saturate(1.8)'; I.casino_chip = I.coins;
-  // Pest Control's goods (culling.js) borrow older stickers, tinted, until their own art arrives.
-  for (const [id, from, tint] of [
-    ['pest_token', 'coins', 'hue-rotate(80deg) saturate(1.4)'],
-    ['hunter_bait', 'fishing_bait', 'hue-rotate(-30deg) saturate(1.5)'],
-    ['forager_lamp', 'djinn_lamp', 'hue-rotate(60deg) saturate(1.2) brightness(1.1)'],
-    ['codex_quill', 'feather', 'hue-rotate(200deg) saturate(1.6)'],
-    ['mosquito_net_cape', 'pilgrim_cape', 'grayscale(0.6) brightness(1.25)'],
-  ]) { BORROW_ID[id] = from; BORROW_TINT[id] = tint; I[id] = I[from] || I.coins; }
+  I.casino_chip = I.coins;
+  for (const [id, from] of [['pest_token', 'coins'], ['hunter_bait', 'fishing_bait'], ['forager_lamp', 'djinn_lamp'],
+    ['codex_quill', 'feather'], ['mosquito_net_cape', 'pilgrim_cape']]) I[id] = I[from] || I.coins;
   // Items that name a sticker to borrow (`artFrom: [from, tint]`, e.g. the skill-chain goods) borrow it, tinted.
   for (const [id, it] of Object.entries(ITEMS)) if (it.artFrom && !ITEM_ART.has(id)) { BORROW_ID[id] = it.artFrom[0]; BORROW_TINT[id] = it.artFrom[1]; I[id] ||= I[it.artFrom[0]] || I.coins; }
   // Boss signature weapons have painted stickers (ITEM_ART); their base weapon's vector is the fallback.
