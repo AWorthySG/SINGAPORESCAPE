@@ -80,6 +80,7 @@ import { LIFE_STAGES, LIFE_GRAD, LIFE_STAGES_ADV, LIFE_GRAD_ADV, LIFE_STAGES_WIL
 import { QUESTS, CHAMPION_QP, REDEMPTION_GOAL, CORRUPTION_GOAL } from '../data/quests.js';
 import { CLUE_TIERS, CLUE_SPOTS, clueTierForLevel } from '../data/clues.js';
 import * as RQ from './regionquests.js';   // region story quests
+import { Story } from './story.js';   // the main story, lore pages, story events and scenes
 
 // Auto quest: the dialogue actions that start and hand in each quest it can
 // do ([start, hand-in]; Pest Control completes itself on the last rat). The
@@ -465,6 +466,7 @@ export class Game {
     this.collection = new Collection(this);   // the Collection log: every source's unique drops (collection.js)
     this.pets = new Pets(this);       // rare boss and life-skill pets, and the one following you (pets.js)
     this.worldEvents = new WorldEvents(this);   // roaming world events and weekly region challenges (worldevents.js)
+    this.story = new Story(this);     // the main story's chapters, lore pages, story events and scenes (story.js)
     installSkillUnlocks(this);        // life skill unlocks at 10/25/50/75/99 (skillunlocks.js)
     this.home = new Home(this);       // the kampong home plot in Kranji (home.js)
     this.snareGiven = true;           // a new character has the starter snare; older saves get one on load (onboarding.js)
@@ -615,6 +617,7 @@ export class Game {
     this.bus.emit('prayer');
     this.updateRegion();
     RQ.syncRegionQuests(this);
+    this.story.sync();
     this.ensureBounties();
     this.checkAchievements(true);
     this.bus.emit('achievement');
@@ -976,7 +979,7 @@ export class Game {
     if (this._autoRetarget) { this._autoRetarget = false; if (this.autoBattle && this.player.alive) this._autoBattleTick(); }
 
     // The camera follows a little ahead of you (and toward a boss making its entrance).
-    const c = this.cine.update(this, dt);
+    const c = this.story.camera(this.cine.update(this, dt), dt);   // a story scene leans toward its speaker
     this.camera.follow(c.x, c.y, 0.22, { width: this.world.width, height: this.world.height }, dt);
 
     for (const e of this.effects) e.life -= adt;
@@ -1389,6 +1392,7 @@ export class Game {
       case 'homemenu': return this._tickArrival(a, a.target, true, () => this.bus.emit('homeopen', a.obj.def.homeTab));   // homeui.js
       case 'openshop': return this._tickArrival(a, a.target, true, () => this.ui?.openShop(a.shop));
       case 'talk': return this._tickArrival(a, a.target, true, () => this.ui?.openDialogue(a.npc));
+      case 'storyobj': return this._tickArrival(a, a.target, true, () => this.story.useObject(a.obj));
       case 'questtalk': return this._tickArrival(a, a.target, true, () => this._autoQuestTalk(a.quest, a.npc));
       default: p.clearAction();
     }
@@ -3381,6 +3385,7 @@ export class Game {
     // resolves) instead of idling until the next world tick.
     if (this.autoBattle) { this._autoLast = null; this._autoRetarget = true; }
     RQ.onRegionKill(this, npc);
+    this.story.onKill(npc);   // lore page drops, lore guardians (story.js)
     const pc = this.quests.pest_control;
     if (pc.state === 'active' && npc.npcId === 'rat') {
       pc.kills++;
@@ -4557,6 +4562,7 @@ export class Game {
     // Falling in the Endless Gate ends the run (nothing is lost) and you wake by its gate.
     this._respawnAt = this.waves.onDeath();
     this.worldEvents.onDeath();   // a world event is called off (and packed away)
+    this.story.onDeath();   // ...and so is a story event or scene
     this.ui?.closeModal();
   }
 
@@ -5454,6 +5460,7 @@ export class Game {
       case 'transport': return this.beginAction({ type: 'transport', obj, target: tgt }, tgt, true);
       case 'gate': return this.beginAction({ type: 'gate', obj, target: tgt }, tgt, true);
       case 'home': return this.beginAction({ type: 'homemenu', obj, target: tgt }, tgt, true);
+      case 'storyobj': return this.beginAction({ type: 'storyobj', obj, target: tgt }, tgt, true);   // lore notes, story events (story.js)
       default: return this.walkTo(tgt);
     }
   }
