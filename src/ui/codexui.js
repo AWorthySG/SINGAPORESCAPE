@@ -20,6 +20,7 @@ import {
 } from '../game/codex.js';
 import { masteryProgress, masterySummary, earnedTitles, setTitle, MASTERY_TIERS, RACE_MASTERY_CAP, raceMastery } from '../game/culling.js';
 import { codexSwitchHTML, renderCompendium, defaultCompendiumState } from './compendiumui.js';
+import { renderEncyclopedia, ENCY_VIEWS } from './encyclopediaui.js';
 
 export const PAGE_SIZE = 40;
 
@@ -114,7 +115,7 @@ const stat = (label, value, hint = '') => `<div class="cx-stat"${hint ? ` title=
  *  where it lives, and a hint to defeat one. */
 export function codexEntryHTML(game, id) {
   const e = codexEntry(game, id);
-  const where = e.zones.length ? e.zones.map((z) => `<span class="cx-zone">${esc(z)}</span>`).join('') : '<span class="cx-zone">Unknown</span>';
+  const where = e.zones.length ? e.zones.map((z) => `<span class="cx-zone" role="button" tabindex="0" data-ency="region:${esc(z)}">${esc(z)}</span>`).join('') : '<span class="cx-zone">Unknown</span>';
   const head = `<div class="cx-entry-top">${artHTML(id, 'cx-art', e.discovered)}<div class="cx-entry-id">` +
     `<div class="cx-entry-name">${e.discovered ? esc(e.name) : '???'}${e.boss ? ' <span class="cx-tag boss">Boss</span>' : ''}</div>` +
     `<div class="cx-entry-lvl">Level ${formatNumber(e.level)}` +
@@ -155,7 +156,7 @@ export function codexEntryHTML(game, id) {
   const drops = e.drops.map((dr) => {
     const it = getItem(dr.id);
     const qty = dr.max > 1 ? (dr.min === dr.max ? `${formatNumber(dr.min)} × ` : `${formatNumber(dr.min)}–${formatNumber(dr.max)} × `) : '';
-    return `<div class="cx-drop" title="${esc(it.name)}">${itemIconSVG(dr.id, 24)}<span class="cx-drop-name">${qty}${esc(it.name)}</span><span class="cx-drop-chance${dr.always ? ' always' : ''}">${chanceText(dr.chance)}</span></div>`;
+    return `<div class="cx-drop" title="${esc(it.name)}" role="button" tabindex="0" data-ency="item:${esc(dr.id)}">${itemIconSVG(dr.id, 24)}<span class="cx-drop-name">${qty}${esc(it.name)}</span><span class="cx-drop-chance${dr.always ? ' always' : ''}">${chanceText(dr.chance)}</span></div>`;
   }).join('');
   const dropsHTML = `<div class="cx-sec"><h4>Drops <small>(rough chances per kill${e.boss ? '; bosses roll ten times' : ''})</small></h4><div class="cx-drops">${drops || '<i>No notable drops.</i>'}</div></div>`;
   return head + masteryHTML(game, id, e) + stats + strong + boss + whereHTML + dropsHTML;
@@ -177,6 +178,9 @@ function masteryHTML(game, id, e) {
     (race ? `<div class="cx-note">All your ${esc(e.race.name)} mastery together: +${Math.round(race * 100)}% damage to every ${esc(e.race.name)} creature (at most +${Math.round(RACE_MASTERY_CAP * 100)}%).</div>` : '') +
     '</div>';
 }
+
+// The window's title for each section.
+const VIEW_TITLE = { monsters: 'Monster Codex', compendium: 'Compendium', items: 'Item Encyclopedia', places: 'Places', foryou: 'For you', search: 'Search the Codex' };
 
 /** Open the codex; with an id, straight to that creature's entry. The window
  *  has two sections, switched at its top: the Monsters list and the
@@ -278,10 +282,11 @@ export function openCodex(ui, id = null, { view = 'monsters', article } = {}) {
   // The Monsters | Compendium switch over the list (an entry has its Back button instead).
   const flip = (body, v) => { st.view = v; render(body); body.scrollTop = 0; };
   const render = (body) => {
-    const title = st.view === 'compendium' ? 'Compendium' : 'Monster Codex';
+    const title = VIEW_TITLE[st.view] || 'Monster Codex';
     if (ui.modal) ui.modal.title = title;
     if (ui.el?.modalTitle) ui.el.modalTitle.textContent = title;
     if (st.view === 'compendium') { renderCompendium(body, cst, (v) => flip(body, v)); return; }
+    if (ENCY_VIEWS.includes(st.view)) { renderEncyclopedia(ui, body, st.view, (v) => flip(body, v)); return; }
     if (st.id) { renderEntry(body); return; }
     renderList(body);
     body.insertAdjacentHTML('afterbegin', codexSwitchHTML('monsters'));
@@ -290,7 +295,7 @@ export function openCodex(ui, id = null, { view = 'monsters', article } = {}) {
       if (v && v !== 'monsters') flip(body, v);
     });
   };
-  ui.openModal(st.view === 'compendium' ? 'Compendium' : 'Monster Codex', render);
+  ui.openModal(VIEW_TITLE[st.view] || 'Monster Codex', render);
   if (ui.modal) ui.modal.kind = 'codex';
 }
 

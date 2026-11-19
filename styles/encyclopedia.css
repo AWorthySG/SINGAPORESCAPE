@@ -1,0 +1,60 @@
+/* The encyclopedia sections of the Codex window (src/ui/encyclopediaui.js):
+   Items, Places, For you and Search, and the name links (links.js) in the
+   chat, quests and Codex pages. Same look as the Monster Codex and the
+   Compendium (the cx- and cp- classes in main.css). */
+
+#modal-window:has(.ency-wrap) { width: min(720px, 96vw); }
+
+/* Six sections: one row on a wide screen, three to a row on a phone. */
+.cx-switch { flex-wrap: wrap; }
+@media (max-width: 600px) {
+  .cx-switch { border-radius: 18px; }
+  .cx-view { flex: 1 1 30%; font-size: 13px; padding: 0 4px; }
+  /* The shelves scroll sideways on a phone rather than pushing the list down. */
+  .ency-chips { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+  .ency-chips .sgx-chip { flex: none; }
+}
+.ency-wrap .cx-back { min-height: 40px; }
+
+/* ---------- Name links ---------- */
+.ency-link { color: var(--aw-sky-deep); font-weight: 800; text-decoration: underline dotted; text-underline-offset: 2px;
+  cursor: var(--cur-pointer); touch-action: manipulation; border-radius: 4px; padding: 0 1px; }
+.ency-link:hover, .ency-link:focus-visible { background: var(--aw-sky-bg); outline: none; }
+#chat-log .ency-link { font-weight: 700; }
+.cx-drop[data-ency], .cx-zone[data-ency] { cursor: var(--cur-pointer); touch-action: manipulation; }
+.cx-drop[data-ency]:hover, .cx-zone[data-ency]:hover { background: var(--aw-hover); }
+
+/* ---------- Lists ---------- */
+.ency-row { min-height: 48px; }
+.ency-row svg, .ency-row img { flex: none; }
+.ency-sil { display: inline-flex; filter: brightness(0) opacity(0.4); }
+.ency-reg-ic { flex: none; width: 36px; text-align: center; font-size: 24px; }
+.ency-filters .ency-search { flex: 1 1 180px; min-height: 42px; font-size: 16px; }
+.ency-filters .cx-select { min-height: 42px; }
+.ency-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+.ency-chips .sgx-chip { min-height: 36px; }
+.ency-h3 { margin: 12px 0 6px; font-size: 15px; font-weight: 900; }
+.ency-h4 { margin: 10px 0 4px; font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: .04em; color: var(--aw-text-sec); }
+.ency-chip small { font-weight: 600; color: var(--aw-text-sec); }
+
+/* ---------- An item's page ---------- */
+.ency-item-top { display: flex; gap: 12px; align-items: center; }
+.ency-item-top > svg, .ency-item-top > img, .ency-item-top > .ency-sil { flex: none; }
+.ency-item-id { min-width: 0; }
+.ency-go-row { padding: 8px 10px; border-radius: var(--r1); background: var(--aw-sky-bg); border: 2px solid var(--aw-ink); }
+.ency-go-row .wm-go { min-height: 40px; min-width: 56px; }
+
+/* ---------- Discoveries ---------- */
+.ency-cats { display: flex; flex-direction: column; gap: 4px; }
+.ency-cat { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(60px, 1fr) auto auto; align-items: center; gap: 8px;
+  min-height: 40px; padding: 2px 8px; font-size: 13px; background: var(--aw-card); border: 1.5px solid var(--aw-ink-faint, #d8d2c4); border-radius: 10px; }
+.ency-cat.done { border-color: var(--aw-grass-deep, #2e7d4f); background: var(--aw-grass-bg); }
+.ency-cat-name { font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ency-cat b { font-variant-numeric: tabular-nums; font-size: 12px; }
+.ency-reward { font-size: 11px; color: var(--aw-text-sec); white-space: nowrap; }
+.ency-claimed { font-size: 11px; font-weight: 800; color: var(--aw-grass-deep, #2e7d4f); white-space: nowrap; }
+.ency-claim { min-height: 36px; padding: 2px 12px; margin: 0; }
+@media (max-width: 420px) {
+  .ency-cat { grid-template-columns: minmax(0, 1fr) auto auto; }
+  .ency-cat .cx-bar { grid-column: 1 / -1; grid-row: 2; }
+}

@@ -88,6 +88,7 @@ import { repPriceMult, repTitleText } from './reputation.js';
 import { consequencePriceMult } from './consequences.js';
 import { Gathering } from './gathering.js';   // gathering streaks, lucky finds, skilling contracts
 import { Teleports } from './teleports.js';   // the Town and Grave teleports
+import { Discovery } from './discovery.js';   // encyclopedia discoveries and their rewards
 
 // Auto quest: the dialogue actions that start and hand in each quest it can
 // do ([start, hand-in]; Pest Control completes itself on the last rat). The
@@ -487,6 +488,7 @@ export class Game {
     this.home = new Home(this);       // the kampong home plot in Kranji (home.js)
     this.gathering = new Gathering(this);   // gathering streaks, lucky finds and daily skilling contracts (gathering.js)
     this.teleports = new Teleports(this);   // the Town (K) and Grave (R) teleports (teleports.js)
+    this.discovery = new Discovery(this);   // what the encyclopedia shows as found (discovery.js)
     this.snareGiven = true;           // a new character has the starter snare; older saves get one on load (onboarding.js)
     // Knowledge Strikes: bosses' specials can be interrupted by answering a question.
     // On by default in the browser; headless runs (tests) leave bosses as they were.
