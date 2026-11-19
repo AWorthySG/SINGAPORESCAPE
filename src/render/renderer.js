@@ -1,3 +1,4 @@
+import { damageNumber as splatNum } from '../core/utils.js';   // hitsplats: 54000 -> "54K"
 import { TILE, TICK_MS } from '../config.js';
 import { drawBossMech, drawSafeZone } from './bossmechfx.js';
 import { TURN_MS } from '../game/character.js';
@@ -9,13 +10,6 @@ import { getItem } from '../data/items.js';
 // Hit numbers are drawn at this size (they were crowding the fight), and big
 // ones are shortened: 12,345 -> 12.3k, 1,234,567 -> 1.23M.
 const SPLAT_SCALE = 0.72;
-function splatNum(n) {
-  const a = Math.abs(n);
-  if (a >= 1e9) return `${+(n / 1e9).toPrecision(3)}B`;
-  if (a >= 1e6) return `${+(n / 1e6).toPrecision(3)}M`;
-  if (a >= 1e4) return `${+(n / 1e3).toPrecision(3)}k`;
-  return String(n);
-}
 const ARROW_LOOK = {
   default: { head: '#d9c45a', fletch: '#ffffff', shaft: '#b8874a', trail: '#ffffff', size: 1 },
   bronze: { head: '#c9874a', fletch: '#ffffff', shaft: '#b8874a', trail: '#ffffff', size: 1 },
