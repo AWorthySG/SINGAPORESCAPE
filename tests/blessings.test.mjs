@@ -14,7 +14,7 @@ import {
   PRAYERS, PRAYER_BY_ID, BLESSING_SLOT_LADDER, FAITH_BASE, FAITH_GAIN,
   BURST_WARD_TICKS, BURST_ZEAL_TICKS, burstPower, blessingCost,
 } from '../src/data/prayers.js';
-import { blessingSlots, trimBlessings, slotsUsed, shouldAutoBurst } from '../src/game/blessings.js';
+import { blessingSlots, trimBlessings, slotsUsed, shouldAutoBurst, starterBlessings } from '../src/game/blessings.js';
 import { ARTICLE_BY_ID, articleBlocks } from '../src/data/compendium.js';
 import { blessingsPanelHTML, slotStripHTML, renderBlessingsPanel, renderFaithOrb, BURST_KEY, burstText } from '../src/ui/blessingsui.js';
 
@@ -187,7 +187,7 @@ test('the Burst hotkey (L) is wired and listed in the Compendium', () => {
   assert.match(text, /Prayer Burst/); assert.match(text, /Faith/);
 });
 
-test('saves keep the loadout and Faith; older saves load with none equipped and a full bar', () => {
+test('saves keep the loadout and Faith; older saves load with a starter loadout and a full bar', () => {
   const g = newGame(120);
   g.toggleBlessing('superhuman'); g.toggleBlessing('rock_skin');
   g.prayerPoints = 33.3;
@@ -201,12 +201,17 @@ test('saves keep the loadout and Faith; older saves load with none equipped and 
   delete old.blessings; delete old.prayerPoints;
   localStorage.setItem(SAVE_KEY, JSON.stringify(old));
   const g3 = new Game(); g3.start();
-  assert.equal(g3.activePrayers.size, 0);
+  // ...given the best blessings for their style, so nobody loses their prayer bonuses.
+  assert.deepEqual([...g3.activePrayers], ['superhuman', 'rock_skin', 'reflexes']);
   assert.equal(g3.prayerPoints, g3.maxPrayer(), 'a full bar, as old saves reloaded');
   old.activePrayers = ['superhuman', 'ultimate_strength', 'burst_strength', 'eagle_eye', 'mystic_lore', 'nonsense', 'thick_skin'];
   localStorage.setItem(SAVE_KEY, JSON.stringify(old));
   const g4 = new Game(); g4.start();
   assert.deepEqual([...g4.activePrayers], ['superhuman', 'eagle_eye', 'mystic_lore'], 'locked, rival, unknown and extra ones dropped');
+  // A starter loadout follows the fighting style and the slots.
+  assert.deepEqual(starterBlessings(1, 'melee'), ['thick_skin']);
+  assert.deepEqual(starterBlessings(99, 'ranged'), ['eagle_eye', 'rock_skin', 'reflexes']);
+  assert.deepEqual(starterBlessings(250, 'magic'), ['mystic_might', 'steel_skin', 'incredible_reflexes', 'protect_melee', ]);
   // trimBlessings on its own.
   assert.deepEqual(trimBlessings(1, ['thick_skin', 'clarity']), ['thick_skin']);
   assert.deepEqual(trimBlessings(300, ['worthy_spirit', 'clarity', 'steel_skin', 'deadeye', 'mystic_might', 'protect_melee', 'thick_skin']),

@@ -8,7 +8,7 @@ import { serializePlay, loadPlay } from './playbalance.js';
 import { ensureHunterSnare } from './onboarding.js';
 import { serializeLiving, loadLiving } from './living.js';
 import { serializeKeep, loadKeep } from './bankkeep.js';
-import { trimBlessings } from './blessings.js';
+import { trimBlessings, starterBlessings } from './blessings.js';
 
 const VERSION = 1;
 // An unreadable save is copied here before a new game replaces it, so a bug or
@@ -370,6 +370,9 @@ function loadFields(game, data) {
   // The loadout is trimmed to the Prayer level's slots and conflict groups.
   { const list = Array.isArray(data.blessings) ? data.blessings : Array.isArray(data.activePrayers) ? data.activePrayers : [];
     game.activePrayers = new Set(trimBlessings(game.skills.prayer, list.filter((id) => typeof id === 'string')));
+    // A save from before the rework has no loadout: start it with the best blessings
+    // for its fighting style, so nobody loses their prayer bonuses in the change.
+    if (!Array.isArray(data.blessings) && !game.activePrayers.size) game.activePrayers = new Set(starterBlessings(game.skills.prayer, game.combatMode?.() || 'melee'));
     game.prayerPoints = typeof data.prayerPoints === 'number' && data.prayerPoints >= 0 ? Math.min(data.prayerPoints, game.maxPrayer()) : game.maxPrayer(); }
   game.running = data.settings?.running ?? game.running;
   // Job class: older saves pick one on their next visit.

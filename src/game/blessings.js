@@ -50,6 +50,22 @@ export function trimBlessings(level, ids) {
   return out;
 }
 
+/** A sensible loadout for a fighting style at a Prayer level: the best unlocked
+ *  blessing of each group, in the order that style gets most from (damage,
+ *  then Defence, then crits, then protection), as many as the slots hold. Used
+ *  for a save that has no loadout yet, so nobody loses their prayer bonuses to
+ *  the rework, and for a new character. */
+export function starterBlessings(level, mode = 'melee') {
+  const order = mode === 'ranged' ? ['ranged', 'def', 'att'] : mode === 'magic' ? ['magic', 'def', 'att'] : ['str', 'def', 'att'];
+  const best = (group) => PRAYER_GROUPS[group].map((id) => PRAYER_BY_ID[id])
+    .filter((p) => p && p.level <= level && blessingCost(p) === 1)
+    .sort((a, b) => b.level - a.level)[0]?.id;
+  const want = order.map(best).filter(Boolean);
+  const protect = PRAYER_BY_ID.protect_melee;
+  if (protect && protect.level <= level) want.push(protect.id);
+  return trimBlessings(level, want);
+}
+
 /** Equip a blessing. A rival in the same group is swapped out; otherwise it
  *  needs a free slot. Returns true when it is on. */
 export function equipBlessing(game, id) {
