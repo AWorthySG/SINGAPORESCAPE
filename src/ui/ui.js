@@ -624,7 +624,7 @@ export class UI {
   _setPanelTitle(view) {
     const el = this.el.panelTitle || this.el.panelHead;
     if (!el) return;
-    const titles = { inventory: 'Inventory', equipment: 'Worn Equipment', skills: 'Skills', combat: 'Combat', prayer: 'Prayers', quests: 'Quest Journal', stats: 'Final Stats', achievements: 'Achievements', settings: 'Settings' };
+    const titles = { inventory: 'Inventory', equipment: 'Worn Equipment', skills: 'Skills', combat: 'Combat', prayer: 'Prayers', quests: 'Quest Journal', stats: 'Final Stats', achievements: 'Achievements', story: 'Story', settings: 'Settings' };
     el.textContent = titles[view] || '';
   }
 
