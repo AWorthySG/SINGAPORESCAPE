@@ -18,6 +18,7 @@ import { maxHitNow, damageMult, statSheet } from '../src/game/statsheet.js';
 import { codexEntryHTML, codexRowHTML, codexProgressHTML } from '../src/ui/codexui.js';
 import { contractsHTML, stewardHTML, stewardLineHTML, contractTrackerRows } from '../src/ui/cullingui.js';
 import * as C from '../src/game/culling.js';
+import { dayKey } from '../src/game/bounty.js';
 
 function fakeStorage() {
   const m = new Map();
@@ -39,7 +40,10 @@ function harmless(g, id = 'rat', hp = 1) {
   n.hp = n.maxHp = hp;
   return n;
 }
-const TODAY = '2026-11-18';
+// The real day: hunting a contract reads today's board (dayKey), so a fixed date
+// here broke this file the day after it was written.
+const TODAY = dayKey();
+const TOMORROW = dayKey(new Date(Date.now() + 86400000));
 
 // ---------------- Codex mastery ----------------
 test('mastery tiers come at 20, 200 and 2,000 kills, and a quill adds to the count', () => {
@@ -153,7 +157,7 @@ test('contracts are three harmless species near your level, seeded by the date, 
     assert.ok(!getNpc(m.id).aggressive && !getNpc(m.id).boss, `${m.id} is harmless`);
     assert.ok(!g.world.zones.find((z) => z.name === m.zone)?.wilderness, `${m.id} is outside the Wilderness`);
   }
-  const a = C.makeContracts(TODAY, 20, pool), b = C.makeContracts(TODAY, 20, pool), c = C.makeContracts('2026-11-19', 20, pool);
+  const a = C.makeContracts(TODAY, 20, pool), b = C.makeContracts(TODAY, 20, pool), c = C.makeContracts(TOMORROW, 20, pool);
   assert.deepEqual(a, b, 'the same day gives the same board');
   assert.notDeepEqual(a.map((x) => x.id), c.map((x) => x.id), 'another day, another board');
   assert.equal(new Set(a.map((x) => x.id)).size, 3, 'three different species');
@@ -208,9 +212,9 @@ test('a finished contract left at midnight is paid out with the new board', () =
   const k = C.activeContracts(g, TODAY)[0];
   k.have = k.need; k.done = true;
   const t0 = g.inventory.count('pest_token');
-  assert.ok(C.ensureContracts(g, '2026-11-19'));
+  assert.ok(C.ensureContracts(g, TOMORROW));
   assert.equal(g.inventory.count('pest_token'), t0 + k.tokens);
-  assert.ok(C.activeContracts(g, '2026-11-19').every((x) => !x.done && x.have === 0));
+  assert.ok(C.activeContracts(g, TOMORROW).every((x) => !x.done && x.have === 0));
 });
 
 test('the token shop sells the cape, bait, lamps, quills and food for tokens', () => {

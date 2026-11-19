@@ -90,7 +90,7 @@ export function snapshot(game) {
     playMs: Math.floor(game.playMs || 0),   // time played, shown when choosing between a cloud and a device save
     settings: { running: game.running, autoCfg: game.autoCfg, autoGather: game.autoGather, gatherPicks: [...(game.gatherPicks || [])], knowledgeStrikes: game.knowledgeStrikes, minimalHud: !!game.minimalHud,
       worldLabels: game.worldLabels || 'smart', tips: game.tipsOn !== false, tipsSeen: [...(game.tipsSeen || [])],
-      textSize: game.textSize || 'normal', colourBlind: !!game.colourBlind, reduceMotion: !!game.reduceMotion },
+      colourBlind: !!game.colourBlind, reduceMotion: !!game.reduceMotion },
     jobClass: game.jobClass,
     potions: game.potions,
     farms: game.world.objects.filter((o) => o.def.type === 'farm' && o.crop).map((o) => ({ x: o.x, y: o.y, crop: o.crop, left: o.growLeft })),
@@ -408,7 +408,7 @@ function loadFields(game, data) {
   game.worldLabels = ['smart', 'all', 'off'].includes(data.settings?.worldLabels) ? data.settings.worldLabels : 'smart';
   game.tipsOn = data.settings?.tips !== false;
   // Settings > Accessibility (older saves: normal text, standard colours, full motion).
-  game.textSize = ['normal', 'large', 'larger'].includes(data.settings?.textSize) ? data.settings.textSize : 'normal';
+  // (A saved textSize from the old Text size setting is ignored: the setting is gone.)
   game.colourBlind = data.settings?.colourBlind === true;
   game.reduceMotion = data.settings?.reduceMotion === true;
   if (Array.isArray(data.settings?.tipsSeen)) {
