@@ -30,16 +30,23 @@ export const SKILLING_GROUND = /^(obsidian_vein|orichalcum_rock|jade_seam|fallen
  */
 export function placeBestiary(ctx) {
   const { zones, get, landable, occupied, key, npcSpawns, objects, placeNpc, inTown, inNewTown, W, H, rand, mrtClear } = ctx;
+  const cheb = (ax, ay, bx, by) => Math.max(Math.abs(ax - bx), Math.abs(ay - by));
   // Tiles within SKILL_GAP of a skilling ground, marked once.
   const nearSkill = new Set();
   for (const o of objects) {
     if (!SKILLING_GROUND.test(o.objId)) continue;
     for (let dy = -SKILL_GAP; dy <= SKILL_GAP; dy++) for (let dx = -SKILL_GAP; dx <= SKILL_GAP; dx++) nearSkill.add(key(o.x + dx, o.y + dy));
   }
+  // And the first lessons' spots (the tree, rocks and fishing spots nearest the
+  // respawn point), which world.js keeps free of ambushers for 10 tiles.
+  for (const id of ['tree', 'copper_rock', 'tin_rock', 'fishing_spot', 'rod_spot']) {
+    let o = null;
+    for (const q of objects) if (q.objId === id && (!o || cheb(q.x, q.y, STARTER.x, STARTER.y) < cheb(o.x, o.y, STARTER.x, STARTER.y))) o = q;
+    if (o) for (let dy = -SKILL_GAP; dy <= SKILL_GAP; dy++) for (let dx = -SKILL_GAP; dx <= SKILL_GAP; dx++) nearSkill.add(key(o.x + dx, o.y + dy));
+  }
   const zoneByName = (name) => zones.find((z) => z.name === name);
   const WZ = zoneByName('The Wilderness');
   const taken = new Set(npcSpawns.map((s) => key(s.x, s.y)));
-  const cheb = (ax, ay, bx, by) => Math.max(Math.abs(ax - bx), Math.abs(ay - by));
   const nearStation = (x, y) => STATIONS.some((st) => cheb(st.x, st.y, x, y) < mrtClear + 2);
   const inZ = (z, x, y) => x >= z.x0 && x <= z.x1 && y >= z.y0 && y <= z.y1;
   // Aggressive spawns in the Wilderness stay wander (3) + aggro range (4) + 1 tiles in from its west edge.
