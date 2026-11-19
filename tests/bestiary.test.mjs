@@ -21,7 +21,7 @@ import { SLAYER_TASKS } from '../src/data/slayer.js';
 import { codexEntry, HAZARD_TEXT } from '../src/game/codex.js';
 import { PAGES } from '../src/game/collection.js';
 import { BOSS_PETS } from '../src/game/pets.js';
-import { portraitFor } from '../src/render/sprites.js';
+import { portraitFor, speciesArt } from '../src/render/sprites.js';
 
 const world = buildWorld();
 const NEW = new Set([...BESTIARY_MONSTER_IDS, ...BESTIARY_BOSS_IDS]);
@@ -69,11 +69,16 @@ test('every new monster has a race, drops, a real region, a level in its band an
   for (const b of BESTIARY_SPECIES) assert.ok(SLAYER_TASKS.some((t) => t.name === b.plural), `${b.name} is a Slayer task`);
 });
 
-test('every new monster and boss has a fallback look: a real picture, recoloured', () => {
+test('every new monster and boss has a look: its own painted art, or a real picture recoloured', () => {
+  const own = speciesArt();
   for (const id of NEW) {
     const p = portraitFor(id, NPCS[id]);
-    assert.ok(p && existsSync(artFile(p.src)), `${id} borrows a picture that exists (${p?.src})`);
-    assert.ok(typeof p.tint === 'string' && p.tint.length > 5, `${id} is recoloured`);
+    assert.ok(p && existsSync(artFile(p.src)), `${id} has a picture that exists (${p?.src})`);
+    if (own.has(NPCS[id].family)) {
+      // Its own art has arrived: drawn as itself, with no borrowed tint.
+      assert.ok(p.src.endsWith(`/${NPCS[id].family}.webp`), `${id} uses its own art (${p.src})`);
+      assert.ok(!p.tint, `${id} is not recoloured`);
+    } else assert.ok(typeof p.tint === 'string' && p.tint.length > 5, `${id} is recoloured`);
   }
   for (const b of BESTIARY_SPECIES) assert.ok(b.look.length > 60 && b.borrow, `${b.name} has an art brief`);
   for (const b of BESTIARY_BOSSES) assert.ok(b.look.length > 60 && b.borrow, `${b.id} has an art brief`);
