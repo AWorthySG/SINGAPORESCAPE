@@ -40,7 +40,7 @@ import { RegionPostcards } from './postcard.js';
 import { Weather } from './weather.js';
 import { fxImage, fxTinted, drawFx, drawStrip, badgeKey, preloadFx, DARK_REGIONS } from './fxart.js';
 import { introCurve, titleAlpha, DEATH_FLASH_MS } from '../game/cinematics.js';
-import { TerrainFx } from './terrainfx.js';
+import { TerrainFx, growBox } from './terrainfx.js';
 import { sunShadow, drawSunShadow, footfall } from './shadows.js';
 import { hasLightColumn, columnImage, dropArc, dropFx } from './combatfx.js';
 import { drawGrave } from './grave.js';
@@ -227,12 +227,12 @@ export class Renderer {
     const isLightSource = (o) => o.def.type === 'fire' || o.def.type === 'furnace' || o.def.type === 'range' ||
       (o.def.type === 'scenery' && o.objId === 'lamp');
     // The objects in view, kept for the node labels and signposts drawn later
-    // this frame (the world holds thousands: one pass over them is enough).
+    // this frame (the world holds thousands: its spatial index finds the few in view).
     const visObjs = this._visObjs || (this._visObjs = []);
-    visObjs.length = 0;
-    for (const o of game.world.objects) {
-      if (o.x < x0 - 1 || o.x > x1 + 1 || o.y < y0 - 1 || o.y > y1 + 1) continue;
-      visObjs.push(o);
+    const W = game.world;
+    if (W.objectsIn) W.objectsIn(x0 - 1, y0 - 1, x1 + 1, y1 + 1, visObjs);
+    else { visObjs.length = 0; for (const o of W.objects) if (!(o.x < x0 - 1 || o.x > x1 + 1 || o.y < y0 - 1 || o.y > y1 + 1)) visObjs.push(o); }
+    for (const o of visObjs) {
       // Harvest judder: a struck tree/rock wobbles briefly as the resource pops.
       const jx = o.shakeT > 0 ? Math.sin(o.shakeT * 0.09) * 1.7 * (o.shakeT / 280) : 0;
       const cx = o.x * TILE + TILE / 2 - ox + jx, cy = o.y * TILE + TILE / 2 - oy;
@@ -397,6 +397,7 @@ export class Renderer {
           attackK: n.swingProgress ? n.swingProgress() : -1,
           hurt: this._heldHurt(n, timeMs), windup: n.windup > 0, castK: n.castT > 0 ? 1 - n.castT / 700 : 0, castCol: n.castCol,
           low: game.lowFx,   // low graphics: monsters and townsfolk skip their moving parts
+          trim: game.fxTrim,   // frames running slow: monster packs skip theirs too (governor.js)
         });
         if (n.mech || n.mechHealer) drawBossMech(ctx, n, cx, cy, sc, timeMs, ox, oy);   // boss mechanics (bossmech.js)
         if (spawn > 0) ctx.restore();
@@ -1326,21 +1327,38 @@ export class Renderer {
       if (g) {
         if (wc.x0 !== x0 || wc.y0 !== y0 || wc.cols !== cols || wc.rows !== rows || wc.dpr !== dpr || timeMs - wc.t >= 90 || timeMs < wc.t) {
           const W = Math.ceil(cols * TILE * dpr), H = Math.ceil(rows * TILE * dpr);
+          // Only the box that holds water or foam is cleared, painted and
+          // copied to the screen: away from the sea that is a shoreline's
+          // strip, not a full-screen layer redrawn ~11 times a second.
+          const old = wc.box, box = (wc.box = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity });
           if (wc.cv.width !== W || wc.cv.height !== H) { wc.cv.width = W; wc.cv.height = H; }
-          g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H);
+          else if (old && old.x1 > old.x0) { g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(old.x0, old.y0, old.x1 - old.x0, old.y1 - old.y0); }
           g.setTransform(dpr, 0, 0, dpr, 0, 0);
           wc.any = false;
           for (let y = y0; y <= y1; y++) {
             for (let x = x0; x <= x1; x++) {
               if (w.terrainAt(x, y) !== TERRAIN.WATER) continue;
               this._water(g, w, x, y, (x - x0) * TILE, (y - y0) * TILE, timeMs, true);
+              growBox(box, (x - x0) * TILE, (y - y0) * TILE, TILE + 1, TILE + 1);
               wc.any = true;
             }
           }
-          if (this.tfx && this._visChunks && this.tfx.drawFoam(g, this._visChunks, x0 * TILE, y0 * TILE, cols * TILE, rows * TILE, timeMs, game.lowFx || game.fxTrim)) wc.any = true;
+          if (this.tfx && this._visChunks && this.tfx.drawFoam(g, this._visChunks, x0 * TILE, y0 * TILE, cols * TILE, rows * TILE, timeMs, game.lowFx || game.fxTrim, box)) wc.any = true;
+          // A pixel of slack all round (the swell overlaps by one, smoothing
+          // reaches a little further), kept inside the layer.
+          if (wc.any) {
+            box.x0 = Math.max(0, Math.floor(box.x0) - 2); box.y0 = Math.max(0, Math.floor(box.y0) - 2);
+            box.x1 = Math.min(cols * TILE, Math.ceil(box.x1) + 2); box.y1 = Math.min(rows * TILE, Math.ceil(box.y1) + 2);
+          }
           Object.assign(wc, { x0, y0, cols, rows, dpr, t: timeMs });
         }
-        if (wc.any) ctx.drawImage(wc.cv, x0 * TILE - ox, y0 * TILE - oy, cols * TILE, rows * TILE);
+        const b = wc.box;
+        if (wc.any && b && b.x1 > b.x0 && b.y1 > b.y0) {
+          // Same mapping as copying the whole layer (cols*TILE wide on screen), just a part of it.
+          const kx = wc.cv.width / (cols * TILE), ky = wc.cv.height / (rows * TILE);
+          ctx.drawImage(wc.cv, b.x0 * kx, b.y0 * ky, (b.x1 - b.x0) * kx, (b.y1 - b.y0) * ky,
+            x0 * TILE - ox + b.x0, y0 * TILE - oy + b.y0, b.x1 - b.x0, b.y1 - b.y0);
+        }
         return true;
       }
     }

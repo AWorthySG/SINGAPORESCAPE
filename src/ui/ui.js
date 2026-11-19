@@ -288,7 +288,7 @@ export class UI {
     this.playHud = new PlayHud(this);   // Focus, Rested and the Grave button (playhud.js)
     this.lane ||= new NoticeLane(this);   // the one notification lane (noticelane.js)
     this.quickSlot = new QuickSlot(this);   // food / potion button beside Attack (hudease.js)
-    this.bus.on('tick', () => this.lane.place());
+    this.bus.on('tick', () => this.lane.placeSoon());
     this.xpHud = new XpDisplay(this);   // XP counter, progress ring and level-up toasts (xpdisplay.js)
     this.compactHud = new CompactHud(this);   // Auto caption, quiet chat, area name on arrival (compacthud.js)
     watchUpgrades(this);   // "Wear it" when loot beats your gear (whatnextui.js)
@@ -617,7 +617,10 @@ export class UI {
         this.renderTracker();
       });
     }
-    el.innerHTML = trackerHTML(rows, this._trkFolded);
+    // Redrawn every tick, but only rewritten when it reads differently (a
+    // rewrite costs a style and layout pass even when nothing changed).
+    const html = trackerHTML(rows, this._trkFolded);
+    if (html !== this._trkHTML) { this._trkHTML = html; el.innerHTML = html; }
     el.classList.toggle('hidden', rows.length === 0);
     el.classList.toggle('folded', !!this._trkFolded);
   }
@@ -626,12 +629,15 @@ export class UI {
   _trkPointer(pred) {
     const g = this.game, p = g.player;
     let best = null, bd = Infinity;
+    // The whole world is searched (a target can be far off), so compare squared
+    // distances and take the one square root at the end.
     for (const n of g.npcs) {
-      if (!n.alive || !pred(n)) continue;
-      const d = Math.hypot(n.x - p.x, n.y - p.y);
-      if (d < bd) { bd = d; best = n; }
+      if (!n.alive) continue;
+      const dx = n.x - p.x, dy = n.y - p.y, d = dx * dx + dy * dy;
+      if (d < bd && pred(n)) { bd = d; best = n; }
     }
     if (!best) return '';
+    bd = Math.sqrt(bd);
     if (bd <= 6) return '<span class="trk-dist here">here</span>';
     const deg = Math.round(Math.atan2(best.y - p.y, best.x - p.x) * 180 / Math.PI);
     return `<span class="trk-arrow" style="transform:rotate(${deg}deg)">&#10148;</span><span class="trk-dist">${Math.round(bd)}m</span>`;
@@ -3928,19 +3934,17 @@ export class UI {
       const b = document.createElement('canvas');
       b.width = W; b.height = H;
       const bc = b.getContext('2d');
-      const colors = {
-        [TERRAIN.GRASS]: '#3f6e2c', [TERRAIN.DARKGRASS]: '#365f25', [TERRAIN.PATH]: '#9c8456',
-        [TERRAIN.WATER]: '#2f6f9e', [TERRAIN.SAND]: '#c8b27a', [TERRAIN.STONE]: '#8a8378', [TERRAIN.WOOD]: '#7a5a36',
-      };
-      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-        bc.fillStyle = colors[game.world.terrainAt(x, y)] || '#3f6e2c';
-        bc.fillRect(x, y, 1, 1);
-      }
+      // The minimap's one-pixel-per-tile picture is the same map in the same
+      // colours: copy its top W x H (was 200,000 one-pixel fills on first open).
+      const mini = this._minimapTerrain();
+      if (mini && bc) bc.drawImage(mini, 0, 0, W, H, 0, 0, W, H);
       this._mapBase = b;
     }
     const skillName = (id) => SKILLS.find((x) => x.id === id)?.name || id;
     const objTypes = { tree: ['tree'], rock: ['rock'], fishing: ['fishing'], hunt: ['hunt'], farm: ['farm'], bank: ['bank'],
       station: ['furnace', 'anvil', 'range', 'craft', 'fletch', 'herblore'] };
+    const filterOf = Object.create(null);   // object type -> its filter, looked up once per object below
+    for (const k of Object.keys(objTypes)) for (const t of objTypes[k]) filterOf[t] ??= k;
     const markers = () => {
       const out = [];
       if (on.has('mrt')) for (const st of STATIONS) {
@@ -3951,7 +3955,7 @@ export class UI {
         out.push({ f: 'boss', x: n.x, y: n.y, big: true, npc: n, label: `${n.name} (level ${n.def.level})` });
       }
       for (const o of game.world.objects) {
-        const f = Object.keys(objTypes).find((k) => objTypes[k].includes(o.def.type));
+        const f = filterOf[o.def.type];
         if (!f || !on.has(f)) continue;
         const d = o.def;
         const locked = !!(d.skill && d.level && game.skills.level(d.skill) < d.level);
@@ -4143,8 +4147,9 @@ export class UI {
         W / 2 + (Math.round(px) - px - radius) * scale - scale / 2, H / 2 + (Math.round(py) - py - radius) * scale - scale / 2, side * scale, side * scale);
       ctx.imageSmoothingEnabled = prev;
     }
-    // Objects (notable ones).
-    for (const o of game.world.objects) {
+    // Objects (notable ones): just those in the minimap's square (spatial index).
+    const mmObjs = game.world.objectsIn ? game.world.objectsIn(Math.floor(px - radius), Math.floor(py - radius), Math.ceil(px + radius), Math.ceil(py + radius), this._mmObjs || (this._mmObjs = [])) : game.world.objects;
+    for (const o of mmObjs) {
       const dx = o.x - px, dy = o.y - py;
       if (Math.abs(dx) > radius || Math.abs(dy) > radius) continue;
       let col = null;
