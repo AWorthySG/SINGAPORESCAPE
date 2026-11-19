@@ -30,6 +30,24 @@ export function formatNumber(n) {
   return (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
 }
 
+/** Short numbers for crowded labels: under 10,000 the full digits with commas
+ *  ("9,999"); above that one decimal and K, M or B ("12.3K", "3.4M", "1.0B"),
+ *  and no decimal from 100 of a unit up ("456K"). Rounds down, so a coin
+ *  count never looks bigger than it is. */
+export function shortNumber(n) {
+  n = Number(n);
+  if (!Number.isFinite(n)) return '0';
+  const sign = n < 0 ? '-' : '';
+  const a = Math.abs(n);
+  if (a < 10000) return sign + Math.floor(a).toLocaleString('en-US');
+  for (const [u, s] of [[1e9, 'B'], [1e6, 'M'], [1e3, 'K']]) {
+    if (a < u) continue;
+    const tenths = Math.floor((a * 10) / u);   // (whole-number maths: no 14.599999)
+    return sign + (tenths >= 1000 ? String(Math.floor(tenths / 10)) : (tenths / 10).toFixed(1)) + s;
+  }
+  return sign + String(a);
+}
+
 /** Compact quantity label for item stacks (matches RS colours via class in UI). */
 export function stackLabel(n) {
   if (n < 100000) return { text: String(n), cls: '' };
