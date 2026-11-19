@@ -1371,6 +1371,63 @@ export function buildWorld() {
   placeNpc('marina_high_roller', 186, 140, 3); placeNpc('marina_high_roller', 200, 134, 3);
   placeNpc('jade_merchant', 79, 56, 3); placeNpc('jade_merchant', 88, 55, 3);
 
+  // ================= Resource zones =================
+  // A handful of named places packed with one life skill's nodes, so there is
+  // somewhere worth settling in to train (resourcezones.js tells you when you
+  // walk in). Each picks a spot in its region with room to spare, puts up a
+  // signpost in the middle and lays its nodes on every other tile both ways,
+  // so the gaps between rocks and trees always make a walkable grid. Placed
+  // last from their own random stream, so nothing generated earlier moves.
+  const resourceZones = [];
+  {
+    const rz = mulberry32(20261201);
+    const npcAt = new Set(npcSpawns.map((s) => key(s.x, s.y)));
+    const stationsAt = objects.filter((o) => o.objId === 'mrt_station');
+    const byStation = (x, y) => stationsAt.some((o) => Math.max(Math.abs(o.x - x), Math.abs(o.y - y)) < 8);
+    const byRoad = (x, y) => { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (get(x + dx, y + dy) === T.PATH || get(x + dx, y + dy) === T.WOOD) return true; return false; };
+    const open = (x, y, allowed) => inB(x, y) && allowed.includes(get(x, y)) && isFree(x, y) && !npcAt.has(key(x, y))
+      && !inTown(x, y) && !inNewTown(x, y) && !byRoad(x, y) && !byStation(x, y);
+    // Shore water with open land beside it to stand on (for fishing spots).
+    const shore = (x, y) => inB(x, y) && get(x, y) === T.WATER && isFree(x, y) && !byStation(x, y)
+      && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => open(x + dx, y + dy, [T.GRASS, T.DARKGRASS, T.SAND, T.STONE]));
+    const zone = (id, name, skill, rect, nodes, allowed, water = false) => {
+      const [x0, y0, x1, y1] = rect, R2 = 7;
+      const total = nodes.reduce((s, [, n]) => s + n, 0);
+      for (let tries = 0; tries < 600; tries++) {
+        const cx = x0 + R2 + Math.floor(rz() * (x1 - x0 - 2 * R2)), cy = y0 + R2 + Math.floor(rz() * (y1 - y0 - 2 * R2));
+        if (!open(cx, cy, [T.GRASS, T.DARKGRASS, T.SAND, T.STONE])) continue;   // the signpost's tile
+        const spots = [];
+        for (let y = cy - R2; y <= cy + R2; y++) for (let x = cx - R2; x <= cx + R2; x++) {
+          if (water ? shore(x, y) : ((x - cx) % 2 === 0 && (y - cy) % 2 === 0 && (x !== cx || y !== cy) && open(x, y, allowed))) spots.push([x, y]);
+        }
+        if (spots.length < Math.ceil(total * 1.4)) continue;   // too cramped: look elsewhere
+        placeObj('sign', cx, cy, { sign: name });
+        const placed = [];
+        for (const [objId, n] of nodes) for (let i = 0; i < n && spots.length; i++) {
+          const [x, y] = spots.splice(Math.floor(rz() * spots.length), 1)[0];
+          if (placeObj(objId, x, y)) placed.push([x, y]);
+        }
+        const xs = placed.map((p) => p[0]), ys = placed.map((p) => p[1]);
+        resourceZones.push({ id, name, skill, cx, cy, count: placed.length,
+          x0: Math.min(cx, ...xs), y0: Math.min(cy, ...ys), x1: Math.max(cx, ...xs), y1: Math.max(cy, ...ys) });
+        return;
+      }
+    };
+    const ROCKY = [T.GRASS, T.DARKGRASS, T.SAND, T.STONE];
+    zone('ubin_quarry', 'Ubin Granite Quarry', 'mining', [162, 4, 226, 96],
+      [['copper_rock', 4], ['tin_rock', 4], ['clay_rock', 3], ['limestone_rock', 3], ['iron_rock', 4], ['silver_rock', 3], ['coal_rock', 3], ['gold_rock', 2]], ROCKY);
+    zone('tekong_deep_mine', 'Tekong Deep Mine', 'mining', [232, 102, 293, 196],
+      [['granite_rock', 3], ['mithril_rock', 3], ['adamantite_rock', 3], ['runite_rock', 3], ['gem_rock', 4], ['coal_rock', 4]], ROCKY);
+    zone('jurong_timberland', 'Jurong Timberland', 'woodcutting', [78, 116, 155, 196],
+      [['oak', 5], ['angsana', 3], ['willow', 4], ['teak', 4], ['rain_tree', 3], ['mahogany', 3], ['yew_tree', 2]], GRASSY);
+    zone('coney_old_growth', 'Coney Old-Growth Woods', 'woodcutting', [302, 104, 396, 200],
+      [['yew_tree', 6], ['tembusu', 3], ['magic_tree', 5], ['mahogany', 3]], GRASSY);
+    zone('changi_pier', 'Changi Fishing Pier', 'fishing', [232, 2, 297, 97],
+      [['fishing_spot', 4], ['sea_rod_spot', 5], ['harpoon_spot', 4], ['fishing_cage', 4]], null, true);
+    zone('buloh_hunting', 'Buloh Hunting Grounds', 'hunter', [4, 116, 72, 196],
+      [['bird_snare', 4], ['squirrel_trap', 4], ['lizard_snare', 4], ['mousedeer_trail', 3], ['boar_pit', 2]], GRASSY);
+  }
+
   // --- Border fence ---
   for (let x = 0; x < W; x++) { placeObj('fence', x, 0); placeObj('fence', x, H - 1); }
   for (let y = 0; y < H; y++) { placeObj('fence', 0, y); placeObj('fence', W - 1, y); }
@@ -1383,6 +1440,7 @@ export function buildWorld() {
     npcSpawns,
     zones,
     towns,   // the outer towns' rectangles (the World Boss keeps its distance)
+    resourceZones,   // named places dense with one life skill's nodes (see the block above the border fence)
     spawnPoint: { x: 58, y: 55 },
     respawnPoint: { x: 58, y: 55 },
     townName: 'Kampong Glam',

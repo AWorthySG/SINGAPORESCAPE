@@ -85,6 +85,7 @@ export function snapshot(game) {
     waveMods: [...(game.waves?.mods || [])],
     collection: game.collection?.serialize(),
     pets: game.pets?.serialize(),
+    gathering: game.gathering?.serialize(),   // daily skilling contracts (gathering.js)
     worldEvents: game.worldEvents?.serialize(),
     bowQuiverGiven: !!game.bowQuiverGiven,   // the one-off quiver for bows from before quivers (game._giveBowQuiver)
     playMs: Math.floor(game.playMs || 0),   // time played, shown when choosing between a cloud and a device save
@@ -396,6 +397,7 @@ function loadFields(game, data) {
   // The Collection log and pets (older saves: empty).
   game.collection?.load(data.collection);
   game.pets?.load(data.pets);
+  game.gathering?.load(data.gathering);   // skilling contracts (older saves: none yet)
   // World events' schedule and the weekly region challenge (older saves: none yet).
   game.worldEvents?.load(data.worldEvents);
   if (Array.isArray(data.settings?.gatherPicks)) game.gatherPicks = new Set(data.settings.gatherPicks.filter((id) => typeof id === 'string'));

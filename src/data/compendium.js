@@ -298,6 +298,8 @@ export const CHAPTERS = [
             ['P', 'Pickpocket the nearest person'],
             ['H', 'Merchant only: hire a mercenary'],
             ['M', 'World map'],
+            ['K', 'Teleport back to Kampong Glam (stand still 3s; recharges in 2.5 minutes)'],
+            ['R', 'Teleport to your gravestone after a death'],
             ['1 2 3 4 5', 'Side panel tabs: Bag, Skills, Combat, Journal, Settings'],
             ['Esc', 'Close the window or menu'],
           ] },

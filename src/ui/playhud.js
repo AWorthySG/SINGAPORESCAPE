@@ -79,18 +79,23 @@ export class PlayHud {
     this.ui.openModal('Gravestone', (body) => {
       body.innerHTML = '<div class="dialogue"><div class="speaker">Gravedigger</div>'
         + `Your gravestone holds ${Play.graveSummary(g)}. Walk back to it within ${Play.fmtMs(g.left * TICK_MS)} to take it all back for free, `
-        + `or I can fetch it for you now for <b>${fee}</b> coins (taken from the gravestone's coins first, then your pack, then your bank).</div>`;
+        + `or I can fetch it for you now for <b>${fee}</b> coins (taken from the gravestone's coins first, then your pack, then your bank). Or teleport straight to it from the Grave button.</div>`;
       const opts = document.createElement('div');
       opts.className = 'dialogue-options';
       const go = document.createElement('div');
       go.className = 'dialogue-option';
       go.textContent = `Pay ${fee} coins`;
       go.addEventListener('click', () => { this.ui.closeModal(); Play.buyBackGrave(this.game); });
+      // Or teleport back to it for free (teleports.js, R).
+      const tp = document.createElement('div');
+      tp.className = 'dialogue-option';
+      tp.textContent = 'Teleport to it (R)';
+      tp.addEventListener('click', () => { this.ui.closeModal(); this.game.teleports?.start('grave'); });
       const no = document.createElement('div');
       no.className = 'dialogue-option';
       no.textContent = 'I\'ll walk back';
       no.addEventListener('click', () => this.ui.closeModal());
-      opts.append(go, no);
+      opts.append(go, tp, no);
       body.appendChild(opts);
     });
   }
