@@ -53,3 +53,19 @@ export function weightedPick(table) {
 export function capitalize(s) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
+
+/** Short HUD number: 999 -> "999", 1234 -> "1.2K", 3_400_000 -> "3.4M",
+ *  1e9 -> "1.0B" (always one decimal once shortened, so a bar's read-out
+ *  doesn't jump about in width). Shared by the boss bar and XP display. */
+export function shortNumber(n) {
+  n = Number(n) || 0;
+  const sign = n < 0 ? '-' : '';
+  let v = Math.abs(n);
+  if (v < 1000) return sign + String(Math.floor(v));
+  const units = ['K', 'M', 'B', 'T'];
+  let i = -1;
+  while (i < units.length - 1 && v >= 1000) { v /= 1000; i++; }
+  // Rounding can tip 999.96K over to "1000.0K": roll it up to the next unit.
+  if (Number(v.toFixed(1)) >= 1000 && i < units.length - 1) { v /= 1000; i++; }
+  return `${sign}${v.toFixed(1)}${units[i]}`;
+}

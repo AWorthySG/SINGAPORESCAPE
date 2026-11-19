@@ -71,6 +71,9 @@ import { TIPS, TIPS_KEY, nextTip, markTipSeen, tipsSeen } from './tips.js';
 import { foeDetails, labelMode, nextLabelMode, LABEL_MODE_NAMES } from '../render/worldlabels.js';
 import { applyAccessibility, countUp, playCloseGhost, inlineIcon } from './uifx.js';
 import { mechLabel } from '../game/bossmech.js';
+import { renderBossBar } from './bossbar.js';
+import { XpDisplay } from './xpdisplay.js';
+import { crossesMilestone, xpDisplayMode, nextXpDisplay, XP_DISPLAY_NAMES } from '../game/xptrack.js';
 import { regionDialogue, canRegionTeleport, regionTeleport } from '../game/regionquests.js';
 
 const EQUIP_LAYOUT = [
@@ -270,6 +273,7 @@ export class UI {
     this._initMinimalHud();
     this.waveHud = new WaveHud(this);   // the Endless Gate's run panel
     this.playHud = new PlayHud(this);   // Focus, Rested and the Grave button (playhud.js)
+    this.xpHud = new XpDisplay(this);   // XP counter, progress ring and level-up toasts (xpdisplay.js)
     this.bus.on('inventory', () => this.scheduleInventory());
     // Gear changes come in bursts (every worn piece gains mastery on a kill), so redraw once a frame.
     this.bus.on('equipment', () => { this._soon('equipment', () => this.renderEquipment()); this._soon('combat', () => this.renderCombatPanel()); this.scheduleInventory(); });
@@ -2700,6 +2704,14 @@ export class UI {
       this._minimalHudTick();
     });
     hudBtn.textContent = `Minimal HUD: ${this.game.minimalHud ? 'On' : 'Off'}`;
+    // XP display: Combined / Per skill / Off (xpdisplay.js).
+    const xpBtn = mk('', () => {
+      this.game.xpDisplay = nextXpDisplay(xpDisplayMode(this.game));
+      this.game.saveSoon = true;
+      this.xpHud?.refresh();
+      xpBtn.textContent = `XP display: ${XP_DISPLAY_NAMES[xpDisplayMode(this.game)]}`;
+    });
+    xpBtn.textContent = `XP display: ${XP_DISPLAY_NAMES[xpDisplayMode(this.game)]}`;
     // World labels: Smart (only what matters now), All, or Off. See render/worldlabels.js.
     const lblBtn = mk('', () => {
       this.game.worldLabels = nextLabelMode(labelMode(this.game));
@@ -2870,42 +2882,7 @@ export class UI {
     document.body.classList.toggle('boss-on', on);   // lets the tracker/tips move out of its way
     if (!on) { this.el.bossBar.classList.add('hidden'); return; }
     this.el.bossBar.classList.remove('hidden');
-    this.el.bossBar.classList.toggle('champion', !!boss.champion);
-    this.el.bossBar.classList.toggle('normal', !boss.def.boss && !boss.champion);
-    const mech = mechLabel(g, boss);   // a boss mechanic's prompt (bossmech.js) comes first
-    const warn = !!mech || g.hazards.some((h) => h.npc === boss);
-    this.el.bossBar.classList.toggle('warn', warn);
-    this.el.bossBarName.textContent = mech || (warn ? '⚠ Get out of the red!'
-      : `${boss.champion ? '★ ' : ''}${boss.name} — level ${boss.def.level} · ${Math.ceil(boss.hp)}/${boss.maxHp}`);
-    this.el.bossBarFill.style.width = `${Math.max(0, Math.min(100, (boss.hp / boss.maxHp) * 100))}%`;
-    // Race, weakness, armour and wounds: the long read-out the overhead tag left out.
-    if (!this._bossInfoEl) {
-      this._bossInfoEl = document.createElement('div');
-      this._bossInfoEl.id = 'boss-bar-info';
-      this.el.bossBarName.after(this._bossInfoEl);
-    }
-    const info = boss.attackable ? foeDetails(g, boss) : '';
-    if (this._bossInfoEl.textContent !== info) this._bossInfoEl.textContent = info;
-    this.el.bossBar.classList.toggle('enraged', !!boss.enraged);
-    // The portrait: set once per foe (it only changes when the foe does).
-    if (this._bossPortraitFor !== boss) {
-      this._bossPortraitFor = boss;
-      const pe = this.el.bossBar.querySelector('#boss-bar-portrait');
-      const pr = portraitFor(boss.npcId, boss.def);
-      if (pe) {
-        pe.classList.toggle('none', !pr);
-        const img = pe.querySelector('.bp-img');
-        img.style.backgroundImage = pr ? `url("${pr.src}")` : '';
-        img.style.backgroundPosition = pr ? pr.pos : '';
-        pe.querySelector('.bp-badge').textContent = boss.champion ? '★' : boss.def.boss ? '♛' : '';
-      }
-    }
-    // A flash on the portrait when the foe takes a hit.
-    if (this._bossPortraitHp !== undefined && boss.hp < this._bossPortraitHp) {
-      const pe = this.el.bossBar.querySelector('#boss-bar-portrait');
-      if (pe) { pe.classList.remove('hit'); void pe.offsetWidth; pe.classList.add('hit'); }
-    }
-    this._bossPortraitHp = boss.hp;
+    renderBossBar(this, boss);   // name, life, mechanic badge, threat frame, portrait (bossbar.js)
   }
 
   // ---------------- Day/night badge ----------------
@@ -3125,27 +3102,8 @@ export class UI {
   }
 
   // ---------------- XP drops / level up ----------------
-  // Fast combat earns XP several times a second, so drops for the same skill
-  // merge into one rising pill for ~0.8s, and at most 4 show at once.
-  showXpDrop({ skill, amount }) {
-    this._xpLive = this._xpLive || {};
-    const now = performance.now();
-    const live = this._xpLive[skill];
-    if (live && now - live.t < 800 && live.div.isConnected) {
-      const was = Math.round(live.total);
-      live.total += amount;
-      countUp(live.div.querySelector('.xp-amt'), `xp:${skill}`, Math.round(live.total), (n) => `+${n}`, was);
-      return;
-    }
-    const div = document.createElement('div');
-    div.className = 'xp-drop';
-    div.innerHTML = `<span class="xp-ic">${skillIconSVG(skill, 20)}</span><span class="xp-amt">+${Math.round(amount)}</span>`;
-    this.el.xpDrops.appendChild(div);
-    countUp(div.querySelector('.xp-amt'), `xp:${skill}`, Math.round(amount), (n) => `+${n}`, 0);
-    this._xpLive[skill] = { div, total: amount, t: now };
-    while (this.el.xpDrops.children.length > 4) this.el.xpDrops.firstElementChild.remove();
-    setTimeout(() => div.remove(), 2300);
-  }
+  // The running counter, ring and pills live in xpdisplay.js (under the minimap).
+  showXpDrop(p) { this.xpHud?.onXp(p); }
 
   onLevelUp({ skill, level }) {
     // A big kill (a boss) can give dozens or hundreds of levels at once: gather
@@ -3163,15 +3121,19 @@ export class UI {
   _flushLevelUps() {
     const q = this._levelUps;
     if (!q?.size) return;
-    let last = null;
+    let last = null, big = false;
     for (const [skill, { from, to }] of q) {
       const sk = SKILLS.find((s) => s.id === skill);
       const n = to - from;
       this.addChat(n > 1
         ? `Congratulations, you just advanced ${n} ${sk.name} levels! You are now level ${to}.`
         : `Congratulations, you just advanced a ${sk.name} level! You are now level ${to}.`, 'level');
-      last = { sk, n, to };
+      if (!big || crossesMilestone(from, to)) last = { sk, n, to };   // the banner names a milestone skill
+      big = big || crossesMilestone(from, to);
+      this.xpHud?.levelUp(skill, from, to);   // a gold pulse on the ring and a toast at the edge
     }
+    // The big centre banner is kept for milestone levels (every tenth, 99).
+    if (!big) { q.clear(); return; }
     const more = q.size > 1 ? ` (and ${q.size - 1} more skill${q.size > 2 ? 's' : ''})` : '';
     this.showBanner(`<span class="big">Level up!</span>Your ${last.sk.name} is now level ${last.to}${last.n > 1 ? ` (+${last.n})` : ''}${more}.`);
     q.clear();
