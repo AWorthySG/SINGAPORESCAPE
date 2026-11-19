@@ -142,6 +142,11 @@ const SPECIES_ART = new Set([
   'forest_scorpion', 'coconut_crab', 'estuarine_stingray',   // sheet B4
   'pitcher_plant', 'polong', 'mambang_kuning', 'rift_wyvern',   // sheets B5 and B6
   'langsuir', 'black_panther', 'oarfish', 'jenglot',
+  // The bestiary expansion's own art (art packs 02 and 03): these stop borrowing a tinted relative.
+  'pelesit', 'blackwater_ghoul', 'hantu_laut', 'ghost_crab', 'hantu_kum_kum',
+  'archerfish', 'mud_lobster', 'milky_stork', 'runaway_cassowary', 'malayan_porcupine',
+  'slag_slime', 'common_birdwing', 'oriental_whip_snake', 'changeable_lizard', 'hermit_crab',
+  'spotted_seahorse', 'white_bellied_sea_eagle', 'rock_pigeon', 'kopitiam_cockroach', 'laksa_slime',
 ]);
 // Newer species without painted art yet borrow a close relative's art until
 // theirs arrives (remove the line when the file is added).
