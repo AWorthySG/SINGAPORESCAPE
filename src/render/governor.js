@@ -1,9 +1,10 @@
 // Adaptive trim: when the game's own work each frame (update, drawing, the
 // minimap) keeps running long, the purely decorative extras step down to their
 // low-graphics versions (reflections in the water, ambient critters, weather
-// particles, the second foam layer) until things are quick again. Sprites,
-// lighting and effects are never touched, so on a machine that keeps up the
-// look is exactly as before. It works on the frame's work time rather than the
+// particles, the second foam layer, the moving parts of pack monsters) until
+// things are quick again. The pictures themselves, lighting and effects are
+// never touched, so on a machine that keeps up the look is exactly as before.
+// It works on the frame's work time rather than the
 // time between frames, so a screen capped at 30fps (an iPhone in Low Power
 // Mode) isn't mistaken for a slow one. Resolution is a separate, later step
 // (main.js scales the canvas down when frames stay very slow).

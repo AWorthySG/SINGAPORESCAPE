@@ -115,7 +115,7 @@ export function resolveWoodcut(game, action) {
     // A moonlit tree gives more under the moon (a bonus for night chopping, never a lock).
     game.skills.addXp('woodcutting', def.night && game.isNight() ? def.xp * NIGHT_TREE_BONUS : def.xp);
     const wc = objCenter(obj); game.spawnPoof(wc.x, wc.y, '#caa15a');
-    obj.shakeT = 280; game.bus.emit('sfx', 'gather'); // the tree judders as the log falls
+    game.world.shake(obj, 280); game.bus.emit('sfx', 'gather'); // the tree judders as the log falls
     const logName = getItem(def.gives).name.toLowerCase();
     // Double logs: a sturdy bough sometimes drops an extra.
     // (Stewardship adds to the chance while you are Neutral, see culling.js.)
@@ -167,7 +167,7 @@ export function resolveMine(game, action) {
     game.inventory.add(yieldId, 1);
     game.skills.addXp('mining', def.xp);
     const mc = objCenter(obj); game.spawnPoof(mc.x, mc.y, def.ore || '#cfcfcf');
-    obj.shakeT = 280; game.bus.emit('sfx', 'gather'); // the rock judders as ore breaks free
+    game.world.shake(obj, 280); game.bus.emit('sfx', 'gather'); // the rock judders as ore breaks free
     const oreName = getItem(yieldId).name.toLowerCase();
     // Rich seam: a chance at a second yield.
     if (Math.random() < 0.04 + lvl * 0.001 + yieldBonus(game) && game.inventory.canAdd(yieldId, 1) > 0) {
@@ -505,7 +505,7 @@ export function resolveHunt(game, action) {
   // The Night Safari's tiger trail pays more after dark (a bonus, never a lock), as the moonlit kapok does.
   game.skills.addXp('hunter', (def.night && game.isNight() ? def.xp * NIGHT_TREE_BONUS : def.xp) * hx.xpMult);
   const c = objCenter(obj); game.spawnPoof(c.x, c.y, def.color || '#caa15a');
-  obj.shakeT = 280; game.bus.emit('sfx', 'gather');
+  game.world.shake(obj, 280); game.bus.emit('sfx', 'gather');
   game.msg(`The trap springs! You catch ${got.join(' and ')}.`);
   if (Math.random() < def.depleteChance) {
     obj.depleted = true;

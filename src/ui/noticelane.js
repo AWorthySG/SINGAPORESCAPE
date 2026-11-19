@@ -95,7 +95,18 @@ export class NoticeLane {
     if (next != null && typeof setTimeout === 'function') this._timer = setTimeout(() => this.render(), Math.max(50, next - t + 20));
   }
 
-  /** Keep the lane in its spot as the strip above it changes (called each tick). */
+  /** Each tick: place() at the start of the next frame instead of mid-tick.
+   *  Measuring the strip mid-tick, after the tick's other DOM changes, forced
+   *  an extra layout of the page every tick; by the next frame the browser has
+   *  already worked it out, so reading it is nearly free. */
+  placeSoon() {
+    if (this._placeQueued) return;
+    if (typeof requestAnimationFrame !== 'function') { this.place(); return; }
+    this._placeQueued = true;
+    requestAnimationFrame(() => { this._placeQueued = false; this.place(); });
+  }
+
+  /** Keep the lane in its spot as the strip above it changes. */
   place() {
     const el = this.el;
     if (!el || !this.queue.items.length || typeof window === 'undefined') return;

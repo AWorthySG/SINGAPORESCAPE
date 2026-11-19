@@ -3,6 +3,8 @@ import { TERRAIN } from '../data/world.js';
 import { uid } from '../core/utils.js';
 import { FIRE_LIFETIME_TICKS, GROUND_ITEM_LIFETIME_TICKS } from '../config.js';
 
+const OBJ_CELL = 16;   // tiles per side of a spatial-index bucket
+
 // Runtime world state: terrain, object instances (with depletion/respawn),
 // ground items and temporary fires. Collision is derived from terrain + blocking objects.
 export class World {
@@ -52,15 +54,21 @@ export class World {
     const def = getObject(objId);
     const inst = { uid: uid(), objId, def, x, y, depleted: false, respawnTimer: 0, ...extra };
     if (def.type === 'fire') inst.lifetime = FIRE_LIFETIME_TICKS;
+    const ix = this._oix && this._oix.arr === this.objects && this._oix.len === this.objects.length ? this._oix : null;
     this.objects.push(inst);
+    if (ix) { ix.len++; ix.rank.set(inst, ix.next++); this._cellOf(ix.cells, ix.cols, ix.rows, inst).push(inst); }
     this.objectByTile.set(this.idx(x, y), inst);
     if (def.blocking && this.inBounds(x, y)) this.baseBlocked[this.idx(x, y)] = 1;
     return inst;
   }
 
   removeObject(inst) {
+    const ix = this._oix && this._oix.arr === this.objects && this._oix.len === this.objects.length ? this._oix : null;
     const i = this.objects.indexOf(inst);
-    if (i !== -1) this.objects.splice(i, 1);
+    if (i !== -1) {
+      this.objects.splice(i, 1);
+      if (ix) { ix.len--; const c = this._cellOf(ix.cells, ix.cols, ix.rows, inst), j = c.indexOf(inst); if (j !== -1) c.splice(j, 1); ix.rank.delete(inst); }
+    }
     if (this.objectByTile.get(this.idx(inst.x, inst.y)) === inst) {
       this.objectByTile.delete(this.idx(inst.x, inst.y));
     }
@@ -73,6 +81,61 @@ export class World {
 
   objectAt(x, y) {
     return this.objectByTile.get(this.idx(x, y)) || null;
+  }
+
+  // ---------------- Spatial index ----------------
+  // The world holds thousands of objects; per-frame work (what's in view, what
+  // you can reach) asks for the few in a small box through a grid of
+  // OBJ_CELL-tile buckets. It is (re)made from `objects` whenever that list is
+  // replaced or changed behind addObject/removeObject's back.
+  _objIndex() {
+    const ix = this._oix;
+    if (ix && ix.arr === this.objects && ix.len === this.objects.length) return ix;
+    const cols = Math.ceil((this.width || 1) / OBJ_CELL), rows = Math.ceil((this.height || 1) / OBJ_CELL);
+    const cells = new Map(), rank = new Map();
+    this.objects.forEach((o, i) => { rank.set(o, i); this._cellOf(cells, cols, rows, o).push(o); });
+    return (this._oix = { arr: this.objects, len: this.objects.length, cols, rows, cells, rank, next: this.objects.length });
+  }
+
+  _cellOf(cells, cols, rows, o) {
+    const cx = Math.min(cols - 1, Math.max(0, Math.floor(o.x / OBJ_CELL))), cy = Math.min(rows - 1, Math.max(0, Math.floor(o.y / OBJ_CELL)));
+    const k = cy * cols + cx;
+    let c = cells.get(k);
+    if (!c) cells.set(k, (c = []));
+    return c;
+  }
+
+  /** The objects standing in tiles x0..x1, y0..y1 (inclusive), in the same
+   *  order as `objects` (so depth ties draw as before). Fills and returns `out`. */
+  objectsIn(x0, y0, x1, y1, out = []) {
+    out.length = 0;
+    const ix = this._objIndex();
+    // (Anything off the map's edge sits in its edge cells, hence the clamping.)
+    const cl = (v, n) => Math.min(n - 1, Math.max(0, Math.floor(v / OBJ_CELL)));
+    const c0x = cl(x0, ix.cols), c1x = cl(x1, ix.cols), c0y = cl(y0, ix.rows), c1y = cl(y1, ix.rows);
+    for (let cy = c0y; cy <= c1y; cy++) {
+      for (let cx = c0x; cx <= c1x; cx++) {
+        const c = ix.cells.get(cy * ix.cols + cx);
+        if (c) for (const o of c) if (o.x >= x0 && o.x <= x1 && o.y >= y0 && o.y <= y1) out.push(o);
+      }
+    }
+    if (out.length > 1) out.sort((a, b) => ix.rank.get(a) - ix.rank.get(b));
+    return out;
+  }
+
+  /** Set a harvest judder on an object (trees and rocks as they're worked);
+   *  the frame update runs it down (tickShakes) without visiting every object. */
+  shake(o, ms) {
+    o.shakeT = ms;
+    (this._shaking ||= new Set()).add(o);
+  }
+
+  tickShakes(dt) {
+    if (!this._shaking) return;
+    for (const o of this._shaking) {
+      if (o.shakeT > 0) o.shakeT = Math.max(0, o.shakeT - dt);
+      if (!(o.shakeT > 0)) this._shaking.delete(o);
+    }
   }
 
   isBlocked(x, y) {

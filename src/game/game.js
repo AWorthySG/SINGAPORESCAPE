@@ -225,6 +225,12 @@ export const HAZARD_DODGE_MULT = 3;
 // NPCs within this many tiles of the player (see nearbyNpcs): the world holds
 // thousands, and scanning them all on every hit was the main cause of lag.
 const NEAR_RADIUS = 60;
+// NPCs further than this from the player are frozen (no animation, no AI), so
+// a list of everyone within NEAR_RADIUS + NEAR_SLACK of where it was made, plus
+// the allies, holds everyone the frame or the tick can touch until the player
+// strays NEAR_SLACK / 2 tiles from there (see _npcsAround).
+const UPDATE_RADIUS = 48;
+const NEAR_SLACK = 8;
 const SPLAT_MERGE_MS = 200;   // hits on one foe this close together share one damage number (crits merge with crits)
 const SPLAT_MAX_PER = 5;      // damage numbers shown at once over one foe
 // Tiny hits (a sliver of the target's life, like poison and burn ticks or a
@@ -980,7 +986,7 @@ export class Game {
     // Only NPCs near the player animate and walk (the rest are frozen until you
     // come close, like their AI), so a fuller world costs no more per frame.
     { const px = this.player.x, py = this.player.y;
-      for (const n of this.npcs) if (n.ally || (Math.abs(n.x - px) <= 48 && Math.abs(n.y - py) <= 48)) n.update(adt); }
+      for (const n of this._npcsAround()) if (n.ally || (Math.abs(n.x - px) <= UPDATE_RADIUS && Math.abs(n.y - py) <= UPDATE_RADIUS)) n.update(adt); }
     this.playMs += dt;
     this._tickPotions(dt);
 
@@ -1006,7 +1012,7 @@ export class Game {
     keepLive(this.effects, MAX_EFFECTS);   // in place, and capped
     if (this.shakeT > 0) this.shakeT = Math.max(0, this.shakeT - dt);
     // Harvest-judder timers on world objects (trees/rocks being worked).
-    for (const o of this.world.objects) if (o.shakeT > 0) o.shakeT = Math.max(0, o.shakeT - dt);
+    this.world.tickShakes(dt);
 
     for (const p of this.particles) {
       p.x += p.vx * adt; p.y += p.vy * adt; p.vy += p.g * adt; p.life -= adt;
@@ -1918,8 +1924,24 @@ export class Game {
     const p = this.player, px = Math.round(p.x), py = Math.round(p.y), c = this._near;
     if (c && c.tick === this.tickCount && c.arr === this.npcs && c.len === this.npcs.length && c.px === px && c.py === py) return c.list;
     const list = [];
-    for (const n of this.npcs) if (Math.abs(n.x - px) <= NEAR_RADIUS && Math.abs(n.y - py) <= NEAR_RADIUS) list.push(n);
+    for (const n of this._npcsAround()) if (Math.abs(n.x - px) <= NEAR_RADIUS && Math.abs(n.y - py) <= NEAR_RADIUS) list.push(n);
     this._near = { tick: this.tickCount, arr: this.npcs, len: this.npcs.length, px, py, list };
+    return list;
+  }
+
+  /** Everyone who might be within NEAR_RADIUS of the player, in list order:
+   *  the NPCs within NEAR_RADIUS + NEAR_SLACK of where the list was made, and
+   *  every ally. NPCs that far out stand frozen, so it only needs making again
+   *  each tick, when the NPC list changes, or once the player has strayed
+   *  NEAR_SLACK / 2 tiles. Per frame this saves a pass over the whole world's
+   *  ten thousand (the frame update and nearbyNpcs both start from it). */
+  _npcsAround() {
+    const p = this.player, px = Math.round(p.x), py = Math.round(p.y), c = this._around;
+    if (c && c.tick === this.tickCount && c.arr === this.npcs && c.len === this.npcs.length
+      && Math.abs(c.px - px) <= NEAR_SLACK / 2 && Math.abs(c.py - py) <= NEAR_SLACK / 2) return c.list;
+    const list = [], R = NEAR_RADIUS + NEAR_SLACK;
+    for (const n of this.npcs) if (n.ally || (Math.abs(n.x - px) <= R && Math.abs(n.y - py) <= R)) list.push(n);
+    this._around = { tick: this.tickCount, arr: this.npcs, len: this.npcs.length, px, py, list };
     return list;
   }
 
@@ -7048,9 +7070,9 @@ export class Game {
       if (!n.alive || n.ally) continue;   // mercenaries aren't interactable
       consider('npc', n, n.x, n.y, n.attackable ? fightReach : 2);
     }
-    for (const o of this.world.objects) {
+    // Only the objects within two tiles (the world's spatial index, in list order).
+    for (const o of this.world.objectsIn(at.x - 2, at.y - 2, at.x + 2, at.y + 2, this._interactObjs || (this._interactObjs = []))) {
       if (!o.def.verb || (o.def.type === 'tree' && o.depleted)) continue;
-      if (Math.abs(o.x - at.x) > 2 || Math.abs(o.y - at.y) > 2) continue;
       consider('obj', o, o.x, o.y, 2);
     }
     return best;

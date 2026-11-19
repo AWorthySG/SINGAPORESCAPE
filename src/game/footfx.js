@@ -42,7 +42,7 @@ export function footFx(game, st) {
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
       const o = game.world.objectAt(p.x + dx, p.y + dy);
       if (!o || o.def.type !== 'tree' || o.depleted || rnd() > LEAF_CHANCE) continue;
-      o.shakeT = Math.max(o.shakeT || 0, 140);
+      game.world.shake(o, Math.max(o.shakeT || 0, 140));
       const n = 1 + (rnd() < 0.4 ? 1 : 0);
       for (let i = 0; i < n; i++) {
         const autumn = rnd() < 0.25;

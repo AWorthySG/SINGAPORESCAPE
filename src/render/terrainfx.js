@@ -372,6 +372,35 @@ function drawDetail(g, id) {
 
 const DETAIL_SCALE = 2;   // details are drawn at twice size and shrunk, for smooth edges
 
+// Foam is tracked in blocks of FOAM_CELL x FOAM_CELL tiles, so the water layer
+// copies the few blocks along a shore instead of the whole 1024px chunk.
+export const FOAM_CELL = 4;
+
+/** The foam blocks of a chunk (keys row * 1024 + col) as rectangles in chunk
+ *  pixels [x, y, w, h], neighbouring blocks in a row merged into one. */
+export function foamRects(cells, wTiles, hTiles) {
+  const out = [];
+  const cols = Math.ceil(wTiles / FOAM_CELL), rows = Math.ceil(hTiles / FOAM_CELL), C = FOAM_CELL * TILE;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (!cells.has(r * 1024 + c)) continue;
+      let e = c;
+      while (e + 1 < cols && cells.has(r * 1024 + e + 1)) e++;
+      out.push([c * C, r * C, Math.min((e + 1) * C, wTiles * TILE) - c * C, Math.min(C, hTiles * TILE - r * C)]);
+      c = e;
+    }
+  }
+  return out;
+}
+
+/** Grow `box` {x0, y0, x1, y1} to take in the rectangle (x, y, w, h). */
+export function growBox(box, x, y, w, h) {
+  if (x < box.x0) box.x0 = x;
+  if (y < box.y0) box.y0 = y;
+  if (x + w > box.x1) box.x1 = x + w;
+  if (y + h > box.y1) box.y1 = y + h;
+}
+
 export class TerrainFx {
   /** `factory(w, h)` makes a canvas; by default document.createElement. */
   constructor(factory) {
@@ -484,6 +513,7 @@ export class TerrainFx {
   *bakeSteps(g, world, tx0, ty0, tx1, ty1, fill, opts = {}) {
     const ox = tx0 * TILE, oy = ty0 * TILE;
     let foam = null;
+    const foamCells = new Set();   // FOAM_CELL-tile blocks that hold any foam (drawFoam copies only those)
     // 1. Soft edges. A row of tiles at a time: the masks of every tile in the
     //    row that takes a given neighbouring ground are gathered into one strip,
     //    that ground is filled across the strip and cut to the masks, and the
@@ -519,6 +549,7 @@ export class TerrainFx {
                 const fm = foam[f] && this._mask(p.bits, p.v, 'f' + f);
                 if (fm) foam[f].g.drawImage(fm, sx / 2, sy / 2, TILE / 2, TILE / 2);
               }
+              foamCells.add(Math.floor((y - ty0) / FOAM_CELL) * 1024 + Math.floor((x - tx0) / FOAM_CELL));
             }
           }
           const sg = strip.g;
@@ -571,7 +602,7 @@ export class TerrainFx {
       const tiles = waterBelow(world, s.x, s.y);
       if (tiles.length) refl.push({ o: world.objectAt(s.x, s.y), tiles });
     }
-    const fm = foam && foam[0] ? { a: foam[0].c, b: foam[1] ? foam[1].c : null } : null;
+    const fm = foam && foam[0] ? { a: foam[0].c, b: foam[1] ? foam[1].c : null, rects: foamRects(foamCells, tx1 - tx0, ty1 - ty0) } : null;
     if (!fm && !water.length && !refl.length) return null;
     return { foam: fm, water, refl, x: ox, y: oy, w: (tx1 - tx0) * TILE, h: (ty1 - ty0) * TILE };
   }
@@ -604,23 +635,29 @@ export class TerrainFx {
    * (a few times a second) rather than over the whole screen every frame.
    * True if any was drawn.
    */
-  drawFoam(ctx, chunks, ox, oy, vw, vh, timeMs, low) {
+  drawFoam(ctx, chunks, ox, oy, vw, vh, timeMs, low, box = null) {
     const k = 0.5 + 0.5 * Math.sin(timeMs * 0.0016);
     let any = false;
     for (const ch of chunks) {
       const fx = ch && ch.fx;
       if (!fx || !fx.foam) continue;
-      // Copy only the on-screen part of the half-resolution foam layers.
-      const sx = Math.max(0, ox - fx.x), sy = Math.max(0, oy - fx.y);
-      const sw = Math.min(fx.w, ox + vw - fx.x) - sx, sh = Math.min(fx.h, oy + vh - fx.y) - sy;
-      if (sw <= 0 || sh <= 0) continue;
-      any = true;
-      if (!fx.foam.b || low) { ctx.drawImage(fx.foam.a, sx / 2, sy / 2, sw / 2, sh / 2, fx.x + sx - ox, fx.y + sy - oy, sw, sh); continue; }
-      ctx.globalAlpha = 1 - k;
-      ctx.drawImage(fx.foam.a, sx / 2, sy / 2, sw / 2, sh / 2, fx.x + sx - ox, fx.y + sy - oy, sw, sh);
-      ctx.globalAlpha = k;
-      ctx.drawImage(fx.foam.b, sx / 2, sy / 2, sw / 2, sh / 2, fx.x + sx - ox, fx.y + sy - oy, sw, sh);
-      ctx.globalAlpha = 1;
+      // Only the blocks of the chunk that hold foam (a shoreline is a thin line
+      // through a mostly empty layer), or the whole chunk for an older bake.
+      for (const r of fx.foam.rects || [[0, 0, fx.w, fx.h]]) {
+        // Copy only the on-screen part of the half-resolution foam layers.
+        const sx = Math.max(r[0], ox - fx.x), sy = Math.max(r[1], oy - fx.y);
+        const sw = Math.min(r[0] + r[2], ox + vw - fx.x) - sx, sh = Math.min(r[1] + r[3], oy + vh - fx.y) - sy;
+        if (sw <= 0 || sh <= 0) continue;
+        any = true;
+        const dx = fx.x + sx - ox, dy = fx.y + sy - oy;
+        if (box) growBox(box, dx, dy, sw, sh);
+        if (!fx.foam.b || low) { ctx.drawImage(fx.foam.a, sx / 2, sy / 2, sw / 2, sh / 2, dx, dy, sw, sh); continue; }
+        ctx.globalAlpha = 1 - k;
+        ctx.drawImage(fx.foam.a, sx / 2, sy / 2, sw / 2, sh / 2, dx, dy, sw, sh);
+        ctx.globalAlpha = k;
+        ctx.drawImage(fx.foam.b, sx / 2, sy / 2, sw / 2, sh / 2, dx, dy, sw, sh);
+        ctx.globalAlpha = 1;
+      }
     }
     return any;
   }

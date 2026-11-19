@@ -769,8 +769,9 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
       const flash = Math.max(Math.min(1, (opts.hurt || 0) / 200) * 0.55, opts.windup ? 0.18 + Math.sin(t * 0.03) * 0.12 : 0);
       const flashCol = opts.windup && !(opts.hurt > 0) ? '#ff5040' : '#ffffff';
       // A showpiece boss with moving parts, or a species whose parts sheet is in.
-      // Low graphics keeps monster packs on the cheaper single-sticker path.
-      const rigId = opts.boss ? (RIGS[npcId] ? npcId : null) : (!opts.low && RIGS[opts.family]?.kind === 'species' ? opts.family : null);
+      // Low graphics keeps monster packs on the cheaper single-sticker path, and
+      // so do slow frames (each pack member's parts are composed afresh every frame).
+      const rigId = opts.boss ? (RIGS[npcId] ? npcId : null) : (!opts.low && !opts.trim && RIGS[opts.family]?.kind === 'species' ? opts.family : null);
       const rig = rigId ? rigLayers(rigId) : null;
       if (rig) { drawRig(c, rigId, rig, opts, t, flash, flashCol); return; }
       const drawBody = (g) => {
