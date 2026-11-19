@@ -3,7 +3,24 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>A-Worthy Adventure</title>
+  <title>A-Worthy Adventure – your cosy kampong adventure</title>
+  <!-- Sharing: how the game looks when its link is posted (Open Graph and X/Twitter cards). -->
+  <meta name="description" content="A cosy Singapore adventure you play free in your browser. Wander the kampong, sip kopi at the kopitiam, fish by the void deck, quest through shophouse streets at golden hour. Steady lah, adventurer!" />
+  <link rel="canonical" href="https://adventure.a-worthy.com/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="A-Worthy Adventure" />
+  <meta property="og:title" content="A-Worthy Adventure – your cosy kampong adventure" />
+  <meta property="og:description" content="Play free in your browser: a cosy, sticker-bright Singapore of kampongs, kopitiams and shophouse lanterns. Fun for the whole family, from kids to ah gongs." />
+  <meta property="og:url" content="https://adventure.a-worthy.com/" />
+  <meta property="og:image" content="https://adventure.a-worthy.com/assets/app/icon-512.png" />
+  <meta property="og:image:width" content="512" />
+  <meta property="og:image:height" content="512" />
+  <meta property="og:image:alt" content="The A-Worthy mascot, a cheerful sticker character" />
+  <meta property="og:locale" content="en_SG" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="A-Worthy Adventure – your cosy kampong adventure" />
+  <meta name="twitter:description" content="A cosy Singapore adventure, free in your browser. Kopi, kampongs and quests at golden hour." />
+  <meta name="twitter:image" content="https://adventure.a-worthy.com/assets/app/icon-512.png" />
   <link rel="icon" type="image/svg+xml" href="assets/logo-mark.svg" />
   <!-- Installable as an app (see manifest.webmanifest and sw.js) -->
   <link rel="manifest" href="manifest.webmanifest" />
@@ -20,6 +37,7 @@
   <link rel="stylesheet" href="styles/accounts.css" />
   <link rel="stylesheet" href="styles/livingworld.css" />
   <link rel="stylesheet" href="styles/lifeskills.css" />
+  <link rel="stylesheet" href="styles/cosy.css" />
   <!-- Preload the heaviest modules so the browser fetches them in parallel -->
   <link rel="modulepreload" href="src/main.js" />
   <link rel="modulepreload" href="src/game/game.js" />
@@ -209,8 +227,9 @@
     <div class="title-place" aria-hidden="true"></div>
     <div class="splash-inner">
       <img src="assets/mascot-login.webp" alt="" class="splash-mascot" />
+      <p class="splash-lah" aria-hidden="true">Steady lah, adventurer!</p>
       <h1 class="splash-title">A-Worthy Adventure</h1>
-      <p class="splash-sub">An island of adventure &mdash; by <b>A&nbsp;Worthy</b></p>
+      <p class="splash-sub"><span class="cosy-tag">Your cosy kampong adventure</span> &mdash; by <b>A&nbsp;Worthy</b></p>
       <img src="assets/logo.svg" alt="A-Worthy" class="splash-logo" />
       <div id="splash-loader" role="progressbar" aria-label="Loading" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
         <div class="sl-track"><div class="sl-fill"></div></div>

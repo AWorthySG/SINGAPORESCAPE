@@ -70,6 +70,8 @@ title.attach(game);
 // Accounts: background cloud uploads, the Account button on the title, the cloud toast.
 cloud().attach(game);
 import('./ui/accountui.js').then((m) => m.initAccountUi(document.getElementById('splash'))).catch(() => {});
+// Postcard mode: the camera button that frames the view as a shareable postcard.
+import('./ui/photomode.js').then((m) => m.initPhotoMode(game, canvas)).catch(() => {});
 
 // Input wiring.
 // Clicks and the action keys count as hands-on play, which refills Focus (playbalance.js).

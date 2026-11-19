@@ -35,6 +35,8 @@ import { moodFor, blendMood, composeWashes, dayNightWashes, buildVignette, Objec
 import { worldMood } from '../game/consequences.js';
 import { Critters } from './critters.js';
 import { LightPass } from './lighting.js';
+import { CosyLight } from './cosylight.js';
+import { RegionPostcards } from './postcard.js';
 import { Weather } from './weather.js';
 import { fxImage, fxTinted, drawFx, drawStrip, badgeKey, preloadFx, DARK_REGIONS } from './fxart.js';
 import { introCurve, titleAlpha, DEATH_FLASH_MS } from '../game/cinematics.js';
@@ -112,6 +114,8 @@ export class Renderer {
     this.react = new ObjectReactions();
     this.critters = new Critters();
     this.lights = new LightPass();   // night lighting and the colour grade (lighting.js)
+    this.cosy = new CosyLight();     // golden hour and lantern bloom over it (cosylight.js)
+    this.postcards = new RegionPostcards();   // the arrival postcards (postcard.js)
     this.weather = new Weather();    // rain, snow, mist, embers (weather.js)
     preloadFx();   // painted critters, particles, banner and plaques (fxart.js)
     this._critEnv = { world: null, zone: '', night: 0, px: 0, py: 0, low: false };
@@ -434,6 +438,7 @@ export class Renderer {
     // with lamps, fires and spells cut out of it, then the weather in the air;
     // low graphics (and headless runs) keep the old flat fill.
     if (game.lowFx || !this.lights.ok || !this.lights.draw(ctx, game, this._blendMood(fdt), night, this.weather.state, ox, oy, vw, vh, timeMs)) this._drawDayNight(vw, vh, night, fdt);
+    else this.cosy.draw(ctx, game, this.lights, night, ox, oy, vw, vh, timeMs);   // golden hour and lantern glow (cosylight.js)
     this.weather.drawAir(ctx, ox, oy, vw, vh, timeMs, fdt, !!game.lowFx);
     this._drawVignette(vw, vh, night);
     this.critters.drawAir(ctx, ox, oy, timeMs);
@@ -602,7 +607,7 @@ export class Renderer {
         ctx.save();
         ctx.globalAlpha = a;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
-        if (this._titlePlaque(tc, vw, y, size)) { ctx.restore(); return; }
+        if (this.postcards.draw(ctx, tc, vw, vh, a) || this._titlePlaque(tc, vw, y, size)) { ctx.restore(); return; }   // a postcard (postcard.js), else the plaque
         // Sticker lettering: a white border round navy ink round the colour.
         ctx.font = `900 ${(size * 1.25).toFixed(1)}px Nunito,"Trebuchet MS",sans-serif`;
         ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = size * 0.5; ctx.strokeText(tc.name, vw / 2, y);

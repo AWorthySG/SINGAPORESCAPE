@@ -22,6 +22,7 @@ import { sampleHeroClip, blendHeroFrame, weaponClipId, HERO_CLIPS } from '../ren
 import { fxImage } from '../render/fxart.js';
 import { CLASS_BY_ID, starterWeapon } from '../data/classes.js';
 import { TILE } from '../config.js';
+import { cosySkylineSvg, dressTitle } from './cosytitle.js';
 
 // ---------------- Painted art slots ----------------
 // Pictures that would lift the title and loading screens above the stand-ins
@@ -325,7 +326,9 @@ export class TitleScreen {
     }
     // The drifting petals (fxImage's own Image is counted like any other).
     if (!this.still && !this.lowFx) for (const k of PETALS) fxImage(`particle-${k}`);
-    if (this.el.sky) this.el.sky.innerHTML = titleArtSrc('skyline') ? `<img src="${titleArtSrc('skyline')}" alt="">` : titleSkylineSvg();
+    // The cosy neighbourhood at golden hour (cosytitle.js), until painted art arrives.
+    if (this.el.sky) this.el.sky.innerHTML = titleArtSrc('skyline') ? `<img src="${titleArtSrc('skyline')}" alt="">` : cosySkylineSvg();
+    dressTitle(this.splash, { lowFx: this.lowFx, still: this.still });
     // The other painted slots, where they have arrived (title.css picks them up).
     for (const slot of ['backdrop', 'backdrop-portrait', 'ground']) if (titleArtSrc(slot)) this.splash.style.setProperty(`--title-${slot}`, `url("${titleArtSrc(slot)}")`);
     const mascot = this.splash.querySelector('.splash-mascot');
