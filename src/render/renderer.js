@@ -1054,15 +1054,32 @@ export class Renderer {
         continue;
       }
       if (e.kind === 'bullet') {
-        // A pistol round: a short, hot tracer streak with a bright tip.
-        const tt = Math.max(0, t - 0.18);
-        const tx = e.x + (e.ex - e.x) * tt - ox, ty = e.y + (e.ey - e.y) * tt - oy;
+        const ang = Math.atan2(e.ey - e.y, e.ex - e.x);
         ctx.save(); ctx.lineCap = 'round';
-        ctx.strokeStyle = '#22304A'; ctx.lineWidth = 3.4;
-        ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(x, y); ctx.stroke();
-        ctx.strokeStyle = e.color; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(x, y); ctx.stroke();
-        ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(x, y, 1.8, 0, Math.PI * 2); ctx.fill();
+        if (e.gun === 'rifle') {
+          // The Sniper's round: a long gold tracer with a pale vapour trail
+          // behind it, and a copper slug at its head.
+          const tt = Math.max(0, t - 0.6);   // a long streak: the round is quick, the trail stays in sight
+          const tx = e.x + (e.ex - e.x) * tt - ox, ty = e.y + (e.ey - e.y) * tt - oy;
+          ctx.globalAlpha = 0.35; ctx.strokeStyle = '#e8eef5'; ctx.lineWidth = 4.5;
+          ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(x, y); ctx.stroke();
+          ctx.globalAlpha = 1; ctx.strokeStyle = e.crit ? '#ffd24a' : '#ffe28a'; ctx.lineWidth = 1.6;
+          ctx.beginPath(); ctx.moveTo(tx + (x - tx) * 0.35, ty + (y - ty) * 0.35); ctx.lineTo(x, y); ctx.stroke();
+          ctx.translate(x, y); ctx.rotate(ang);
+          ctx.fillStyle = '#c8763a'; ctx.strokeStyle = '#22304A'; ctx.lineWidth = 0.9;
+          ctx.beginPath(); ctx.moveTo(4.5, 0); ctx.quadraticCurveTo(2.5, -1.9, -2.5, -1.6); ctx.lineTo(-2.5, 1.6); ctx.quadraticCurveTo(2.5, 1.9, 4.5, 0); ctx.closePath();
+          ctx.fill(); ctx.stroke();
+          ctx.fillStyle = '#ffe2b0'; ctx.fillRect(-1.5, -0.9, 3.2, 0.7);   // a glint along the slug
+        } else {
+          // The Pistoler's round: a tiny brass pellet with a faint, short streak
+          // (pistols fire four shots a beat, so each one stays small).
+          const tt = Math.max(0, t - 0.22);   // fast, so the faint streak trails a little further behind
+          const tx = e.x + (e.ex - e.x) * tt - ox, ty = e.y + (e.ey - e.y) * tt - oy;
+          ctx.globalAlpha = 0.55; ctx.strokeStyle = e.crit ? '#ffd24a' : '#fff0c0'; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(x, y); ctx.stroke();
+          ctx.globalAlpha = 1; ctx.fillStyle = e.crit ? '#ffd24a' : '#e2b04a'; ctx.strokeStyle = '#22304A'; ctx.lineWidth = 0.6;
+          ctx.beginPath(); ctx.arc(x, y, 1.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        }
         ctx.restore();
         continue;
       }

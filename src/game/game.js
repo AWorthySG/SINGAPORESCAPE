@@ -2436,7 +2436,7 @@ export class Game {
     // The tracer carries on past the target.
     const from = target.renderCenter();
     const life = 160;
-    this.effects.push({ type: 'projectile', kind: 'bullet', x: from.x, y: from.y - 8,
+    this.effects.push({ type: 'projectile', kind: 'bullet', gun: 'rifle', x: from.x, y: from.y - 8,
       ex: from.x + ux * RIFLE_PIERCE_TILES * TILE, ey: from.y - 8 + uy * RIFLE_PIERCE_TILES * TILE, color: '#fff2b0', life, maxLife: life, arc: 0 });
   }
 
@@ -2961,13 +2961,15 @@ export class Game {
     const dist = Math.hypot(to.x - fx, to.y - from.y);
     // Bullets are the quickest of all; shurikens spin across a little slower than arrows.
     const life = kind === 'arrow' ? Math.min(650, 140 + dist / 0.55) + Math.abs(spread) * 40
-      : kind === 'bullet' ? 110 + dist / 2.2 + Math.abs(spread) * 20
+      : kind === 'bullet' ? 60 + dist / 5 + Math.abs(spread) * 12   // about twice as quick as they were; a longer streak keeps them in sight
         : kind === 'shuriken' || kind === 'coin' ? Math.min(560, 120 + dist / 0.6) + Math.abs(spread) * 40
           : 240 + Math.abs(spread) * 40;
     this.effects.push({ type: 'projectile', kind, x: fx, y: from.y - 6 + off, ex: to.x, ey: to.y - 8 + off * 0.6, color, life, maxLife: life,
       arc: kind === 'arrow' ? Math.min(22, dist * 0.09) : 0,
       // Which arrows were loosed (bronze ... eternal): the renderer draws each kind its own way.
-      ammo: kind === 'arrow' ? this._shotAmmo || null : null, crit: color === '#ffd24a' });
+      ammo: kind === 'arrow' ? this._shotAmmo || null : null, crit: color === '#ffd24a',
+      // Which gun fired a bullet: the Pistoler's rounds are tiny, the Sniper's a long tracer (renderer.js).
+      gun: kind === 'bullet' ? (this.weaponType() === 'rifle' ? 'rifle' : 'pistol') : null });
   }
 
   /** Dodging a monster's attack trains Agility, more for tougher foes: a share
