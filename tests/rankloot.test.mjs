@@ -2,7 +2,7 @@
 import './seed.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Game, rankLootRolls, RANK_LOOT_ROLLS, CLASS_POWER } from '../src/game/game.js';
+import { Game, rankLootRolls, rollRankLoot, monsterRank, RANK_LOOT_ROLLS, CLASS_POWER } from '../src/game/game.js';
 import { clearSave } from '../src/game/save.js';
 import * as combat from '../src/game/combat.js';
 import { ALL_MONSTER_IDS, getNpc } from '../src/data/npcs.js';
@@ -16,11 +16,19 @@ function game() {
 }
 
 test('Elder and Dire monsters roll their loot more times than the plain rank', () => {
-  assert.equal(rankLootRolls({ name: 'Elder sea snake' }), RANK_LOOT_ROLLS.Elder);
-  assert.equal(rankLootRolls({ name: 'Dire wild boar' }), RANK_LOOT_ROLLS.Dire);
-  assert.equal(rankLootRolls({ name: 'Wild boar' }), 1);
-  assert.equal(rankLootRolls({ name: 'Elderberry bush' }), 1, 'only the rank word counts');
-  assert.ok(RANK_LOOT_ROLLS.Elder >= 2 && RANK_LOOT_ROLLS.Dire > RANK_LOOT_ROLLS.Elder);
+  assert.equal(rankLootRolls({ name: 'Elder sea snake', family: 'sea_snake' }), RANK_LOOT_ROLLS.Elder);
+  assert.equal(rankLootRolls({ name: 'Dire wild boar', family: 'wild_boar' }), RANK_LOOT_ROLLS.Dire);
+  assert.equal(rankLootRolls({ name: 'Wild boar', family: 'wild_boar' }), 1, 'a species named Wild boar is not a Wild form');
+  assert.equal(rankLootRolls({ name: 'Young rat', family: 'rat' }), 1, 'Young is the weaker form: no extra');
+  assert.equal(rankLootRolls({ name: 'Elderberry bush', family: 'elderberry_bush' }), 1, 'only the rank word counts');
+  // Every labelled rank above the plain species rolls more, the tougher the more.
+  const order = ['Wild', 'Feral', 'Elder', 'Dire', 'Ancient', 'Mythic', 'Primordial', 'Eternal', 'Celestial', 'Divine'];
+  for (let i = 1; i < order.length; i++) assert.ok(RANK_LOOT_ROLLS[order[i]] > RANK_LOOT_ROLLS[order[i - 1]], order[i]);
+  // Every rank word in the monster list has a loot entry (except Young).
+  for (const id of ALL_MONSTER_IDS) { const r = monsterRank(getNpc(id)); if (r && r !== 'Young') assert.ok(RANK_LOOT_ROLLS[r] > 1, `${r} (${id}) gets extra loot`); }
+  // Halves: 1.5 is one roll, plus one more half the time.
+  assert.equal(rollRankLoot({ name: 'Wild rat', family: 'rat' }, () => 0.4), 2);
+  assert.equal(rollRankLoot({ name: 'Wild rat', family: 'rat' }, () => 0.6), 1);
   const ids = ALL_MONSTER_IDS.filter((id) => /^(elder|dire)_/.test(id));
   assert.ok(ids.length > 10, 'there are Elder and Dire monsters');
   // Drop counts over many kills: a Dire monster brings home well over what its plain kin do.
