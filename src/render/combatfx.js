@@ -211,14 +211,21 @@ export class CombatFx {
         break;
       }
       case 'bullet': {
-        // The tracer streaks muzzle to target at once; the pop waits for the shot.
+        if (opts.gun === 'pistol') {
+          // A pistol round is small (four a beat): a tiny pop and a spark or two, no tracer.
+          this.ring(x, y, 1.5, 6, 140, '#ffffff', 1.5);
+          this._burst(SPARK, x, y, this._n(2), 0.16, 120, crit ? GOLD : '#ffe28a', { ang, spread: 2, add: true, size: 1 });
+          break;
+        }
+        // A rifle round (and any other gun): the tracer streaks muzzle to target at
+        // once; a heavy pop, sparks out the far side and a puff of smoke.
         if (opts.from) {
-          const t = this._take(TRACER, opts.from.x, opts.from.y - 4, 120, '#fff4c2');
+          const t = this._take(TRACER, opts.from.x, opts.from.y - 4, 150, '#ffe28a');
           t.ex = x; t.ey = y;
         }
-        this.ring(x, y, 3, 14, 180, '#ffffff', 3);
-        this._burst(SPARK, x, y, this._n(5), 0.22, 160, '#ffe28a', { ang, spread: 2.2, add: true, size: 1.4 });
-        this._burst(CLOUD, x, y, this._n(2), 0.02, 360, '#d8d8d8', { size: 3 });
+        this.ring(x, y, 3, 18, 200, '#ffffff', 3.5);
+        this._burst(SPARK, x, y, this._n(7), 0.26, 180, crit ? GOLD : '#ffe28a', { ang, spread: 1.2, add: true, size: 1.6 });
+        this._burst(CLOUD, x, y, this._n(3), 0.02, 420, '#d8d8d8', { size: 3.5 });
         break;
       }
       case 'magic': this._spell(x, y, opts.element, crit); break;
@@ -575,7 +582,8 @@ export function hitImpact(game, npc, color) {
   const b = blowAt(game, npc, kind);
   // A spear's thrust has no flight time; its puncture lands with the swing.
   if (b.melee) b.delay = 0;
-  fx.impact(kind, b.x, b.y, { from: b.from, delay: b.delay, melee: b.melee, crit: color === GOLD, element: kind === 'magic' ? elementForTint(color) : null });
+  fx.impact(kind, b.x, b.y, { from: b.from, delay: b.delay, melee: b.melee, crit: color === GOLD, element: kind === 'magic' ? elementForTint(color) : null,
+    gun: kind === 'bullet' ? game.weaponType?.() : null });
 }
 
 // A hit this share of the foe's life (or of yours) counts as a big one.

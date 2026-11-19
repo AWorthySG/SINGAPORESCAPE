@@ -65,8 +65,10 @@ test('the hit hook spawns each weapon kind\'s own pieces', () => {
   const bow = run('longbow', 'ranged');
   assert.ok(kinds(bow).has(FX_KIND.SPARK));
   assert.ok(liveSlots(bow).every((s) => s.delay >= flightMs('pierce', 96) - 1), 'lands with the arrow');
-  // Bullets: a tracer at once, and the pop when the shot arrives.
-  const gun = run('pistol', 'ranged');
+  // Pistol rounds are small: a little pop, no tracer.
+  assert.ok(!liveSlots(run('pistol', 'ranged')).some((s) => s.k === FX_KIND.TRACER), 'no tracer for a pistol round');
+  // Rifle rounds: a tracer at once, and the pop when the shot arrives.
+  const gun = run('rifle', 'ranged');
   const tracer = liveSlots(gun).find((s) => s.k === FX_KIND.TRACER);
   assert.ok(tracer && tracer.delay === 0 && tracer.ex === 196, 'tracer from muzzle to target');
   assert.ok(liveSlots(gun).some((s) => s.k === FX_KIND.RING && s.delay > 0), 'the pop waits for the bullet');
