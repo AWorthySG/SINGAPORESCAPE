@@ -205,6 +205,7 @@ export class UI {
     this._initAutoMenu();
     this._initSheets();
     this._initPressHold();
+    this._initWindowHotkeys();
     document.getElementById('interact-btn')?.addEventListener('pointerdown', (e) => { e.preventDefault(); this.game.interact(); });
     // Attack: a tap locks onto the nearest enemy; holding it keeps fighting,
     // moving straight on to the next foe as each one falls.
@@ -675,6 +676,30 @@ export class UI {
     const later = () => { if (pressing && !timer) timer = setTimeout(flush, 350); };
     document.addEventListener('pointerup', later, true);
     document.addEventListener('pointercancel', later, true);
+  }
+
+  // Shop and Offering Shrine hotkeys: point at an item (or an offer row) and
+  // press 1, 5, X (10) or A (all; 100 when buying) instead of right-clicking for
+  // a menu. Each pointable thing carries its action as `_hot(n)` (n = Infinity
+  // for "all"); the window's hint line lists the keys.
+  _initWindowHotkeys() {
+    if (typeof document === 'undefined') return;
+    const KEYS = { '1': 1, '5': 5, 'x': 10, 'a': Infinity };
+    // Where the mouse is: the window redraws after each buy or sale, so the thing
+    // pointed at is looked up afresh on every key press (a held key keeps going).
+    let mx = -1, my = -1;
+    document.addEventListener('mousemove', (e) => { mx = e.clientX; my = e.clientY; }, { capture: true, passive: true });
+    document.addEventListener('keydown', (e) => {
+      if (!this.modal || !['shop', 'shrine'].includes(this.modal.kind)) return;
+      const t = e.target;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const n = KEYS[(e.key || '').toLowerCase()];
+      const over = mx >= 0 ? document.elementFromPoint(mx, my)?.closest?.('.hot') : null;
+      if (!n || !over || typeof over._hot !== 'function') return;
+      e.preventDefault(); e.stopImmediatePropagation();   // (not the game's own 1-5 tab keys)
+      over._hot(n);
+    }, true);
   }
 
   // Phones show the side panel and the big windows as sheets (see "Responsive
@@ -1501,14 +1526,15 @@ export class UI {
         tracks.appendChild(row);
       }
       body.appendChild(tracks);
-      body.insertAdjacentHTML('beforeend', '<div class="ench-head shrine-head">Offer materials</div>');
+      body.insertAdjacentHTML('beforeend', '<div class="ench-head shrine-head">Offer materials</div><div class="modal-hint hotkey-hint">Point at a material and press <kbd>1</kbd> <kbd>5</kbd> <kbd>X</kbd> (10) or <kbd>A</kbd> (all)</div>');
       const list = document.createElement('div');
       list.className = 'gear-list feed-list';
       const opts = g.shrineDonatables();
       if (!opts.length) list.innerHTML = '<div class="modal-hint">You carry no materials to offer. Gather some, or take them out of the bank.</div>';
       for (const o of opts) {
         const row = document.createElement('div');
-        row.className = 'gear-row feed-row';
+        row.className = 'gear-row feed-row hot';
+        row._hot = (n) => { g.donateToShrine(o.id, n); render(body); };
         row.innerHTML = `<span class="gear-ic">${itemIconSVG(o.id, 28)}</span>`
           + `<div class="gear-info"><div class="gear-name"><b>${escapeHtml(getItem(o.id).name)}</b><span class="gear-tag">x${formatNumber(o.count)}</span></div>`
           + `<div class="gear-stats">${formatNumber(o.points)} point${o.points > 1 ? 's' : ''} each (${formatNumber(o.points * o.count)} for all)</div></div>`;
@@ -3508,9 +3534,9 @@ export class UI {
       shopGrid.className = 'item-grid shop';
       for (const entry of shop.stock) {
         const price = Math.max(1, Math.round(getItem(entry.id).value * shop.buyMul * this.game.priceFactor().buy));
-        shopGrid.appendChild(this._cell(entry.id, entry.qty, {
+        const buyCell = this._cell(entry.id, entry.qty, {
           tooltip: `<b>${getItem(entry.id).name}</b><br>Buy: ${price} coins`,
-          onClick: () => this.game.buyItem(shopId, entry.id, 1),
+          onClick: (e) => this.game.buyItem(shopId, entry.id, e?.shiftKey ? 10 : 1),
           menu: () => [
             { label: `Buy 1 (${price})`, fn: () => this.game.buyItem(shopId, entry.id, 1) },
             { label: 'Buy 5', fn: () => this.game.buyItem(shopId, entry.id, 5) },
@@ -3522,7 +3548,10 @@ export class UI {
             ] : []),
             { label: 'Value', fn: () => this.game.msg(`${getItem(entry.id).name}: ${price} coins.`, 'system') },
           ],
-        }));
+        });
+        buyCell.classList.add('hot');
+        buyCell._hot = (n) => this.game.buyItem(shopId, entry.id, n === Infinity ? 100 : n);
+        shopGrid.appendChild(buyCell);
       }
       shopSide.appendChild(shopGrid);
       // Player inventory (sell)
@@ -3545,19 +3574,23 @@ export class UI {
       this.game.inventory.slots.forEach((s) => {
         if (!s || s.id === 'coins') return;
         const sell = Math.max(1, Math.round(getItem(s.id).value * shop.sellMul * this.game.priceFactor().sell));
-        invGrid.appendChild(this._cell(s.id, s.qty, {
+        const sellCell = this._cell(s.id, s.qty, {
           tooltip: `<b>${getItem(s.id).name}</b><br>Sell: ${sell} coins`,
-          onClick: () => this.game.sellItem(shopId, s.id, 1),
+          onClick: (e) => this.game.sellItem(shopId, s.id, e?.shiftKey ? 10 : 1),
           menu: () => [
             { label: `Sell 1 (${sell})`, fn: () => this.game.sellItem(shopId, s.id, 1) },
             { label: 'Sell 5', fn: () => this.game.sellItem(shopId, s.id, 5) },
             { label: 'Sell All', fn: () => this.game.sellItem(shopId, s.id, this.game.inventory.count(s.id)) },
           ],
-        }));
+        });
+        sellCell.classList.add('hot');
+        sellCell._hot = (n) => this.game.sellItem(shopId, s.id, n === Infinity ? this.game.inventory.count(s.id) : n);
+        invGrid.appendChild(sellCell);
       });
       invSide.appendChild(invGrid);
       cols.appendChild(shopSide);
       cols.appendChild(invSide);
+      body.insertAdjacentHTML('beforeend', '<div class="modal-hint hotkey-hint">Click: 1 · Shift-click: 10 · Point at an item and press <kbd>1</kbd> <kbd>5</kbd> <kbd>X</kbd> (10) or <kbd>A</kbd> (sell all / buy 100)</div>');
       body.appendChild(cols);
     };
     this.openModal(shop.name, render);

@@ -3454,3 +3454,7 @@ body.cb-safe #hp-orb.low::after {
 .sg-fire .sg-fire-btn { min-height: 40px; padding: 0 14px; font-weight: 700; }
 .sg-fire .sg-fire-btn[disabled] { opacity: .5; }
 .sg-fire span { flex: 1 1 180px; }
+
+/* ---- Shop and shrine hotkeys: the hint line's keycaps (hidden on touch, which has no keys) ---- */
+.hotkey-hint kbd { font-family: inherit; font-size: 10px; font-weight: 800; padding: 0 4px; margin: 0 1px; border: 1.5px solid var(--aw-ink-faint, #c9cdd4); border-radius: 4px; }
+@media (pointer: coarse) and (hover: none) { .hotkey-hint { display: none; } }
