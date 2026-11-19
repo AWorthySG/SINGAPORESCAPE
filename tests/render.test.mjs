@@ -434,15 +434,15 @@ test('the Lancer only pierces: the spear never swings in an arc, it draws back a
   assert.ok(Math.abs(h(0.6) - h(0)) > 0.1, 'the halberd still swings');
 });
 
-// A first-time tip can sit over the auto battle / gather / quest switches on a
-// phone (it grows upwards from near the bottom). It must let taps through to
-// them: only its own "Got it" button catches a tap.
-test('tip toast never blocks the buttons under it', async () => {
+// The notification lane (banners and first-time tips) must never block the
+// game under it: the lane itself lets taps through; only its cards (tap to
+// put one away) and their buttons catch them.
+test('notification lane never blocks the buttons under it', async () => {
   const { readFileSync } = await import('node:fs');
   const css = readFileSync(new URL('../styles/main.css', import.meta.url), 'utf8');
-  const block = css.match(/#tip-toast \{[^}]*\}/)[0];
-  assert.match(block, /pointer-events:\s*none/, 'the tip itself lets taps through');
-  assert.match(css, /#tip-toast button \{\s*pointer-events:\s*auto/, '"Got it" stays tappable');
+  const lane = css.match(/#notice-lane \{[^}]*\}/)[0];
+  assert.match(lane, /pointer-events:\s*none/, 'the lane lets taps through');
+  assert.match(css.match(/\.nl-card \{[^}]*\}/)[0], /pointer-events:\s*auto/, 'its cards stay tappable');
 });
 
 test('art batch 1: weapon and armour types, signature weapons, bones and trinkets use their own stickers', async () => {
