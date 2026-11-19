@@ -5735,9 +5735,12 @@ test('auto quest sets aside an accepted quest it cannot do yet and gets on with 
   const game = new Game();
   game.start();
   game.ui = new Proxy({}, { get: () => () => {} });
-  // A Smith's Apprentice needs Mining 15 for iron: a new player can't mine it.
+  // A Smith's Apprentice needs Mining 15 for iron and Smithing 30 for steel: a new
+  // player can do neither, so its guide says so and auto quest passes it over.
   game.quests.smith_apprentice.state = 'active';
-  assert.equal(game.autoQuestPick(), 'smith_apprentice');
+  assert.equal(game.questGuide('smith_apprentice').kind, 'none');
+  assert.match(game.questGuide('smith_apprentice').text, /^Reach (Smithing|Mining) \d+/);
+  assert.notEqual(game.autoQuestPick(), 'smith_apprentice');
   game.toggleAutoQuest(true);
   for (let i = 0; i < 4000 && game.quests.life_skills.state !== 'active'; i++) game.update(250);
   assert.equal(game.autoQuest, true, 'still on, not given up');

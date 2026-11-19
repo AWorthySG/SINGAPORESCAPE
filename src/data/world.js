@@ -1397,6 +1397,7 @@ export function buildWorld() {
     // Shore water with open land beside it to stand on (for fishing spots).
     const shore = (x, y) => inB(x, y) && get(x, y) === T.WATER && isFree(x, y) && !byStation(x, y)
       && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => open(x + dx, y + dy, [T.GRASS, T.DARKGRASS, T.SAND, T.STONE]));
+    const CALM_EDGE = 6;   // how far past the nodes the calm reaches
     const zone = (id, name, skill, rect, nodes, allowed, water = false) => {
       const [x0, y0, x1, y1] = rect, R2 = 7;
       const total = nodes.reduce((s, [, n]) => s + n, 0);
@@ -1415,6 +1416,9 @@ export function buildWorld() {
           if (placeObj(objId, x, y)) placed.push([x, y]);
         }
         const xs = placed.map((p) => p[0]), ys = placed.map((p) => p[1]);
+        // A working ground is calm: the monsters camped beside it don't attack on
+        // sight (you can still fight them), so you can settle in to train.
+        for (const sp of npcSpawns) if (Math.max(Math.abs(sp.x - cx), Math.abs(sp.y - cy)) <= R2 + CALM_EDGE) sp.opts = { ...(sp.opts || {}), aggressive: false };
         resourceZones.push({ id, name, skill, cx, cy, count: placed.length,
           x0: Math.min(cx, ...xs), y0: Math.min(cy, ...ys), x1: Math.max(cx, ...xs), y1: Math.max(cy, ...ys) });
         return;
@@ -1424,7 +1428,7 @@ export function buildWorld() {
     zone('ubin_quarry', 'Ubin Granite Quarry', 'mining', [162, 4, 226, 96],
       [['copper_rock', 4], ['tin_rock', 4], ['clay_rock', 3], ['limestone_rock', 3], ['iron_rock', 4], ['silver_rock', 3], ['coal_rock', 3], ['gold_rock', 2]], ROCKY);
     zone('tekong_deep_mine', 'Tekong Deep Mine', 'mining', [232, 102, 293, 196],
-      [['granite_rock', 3], ['mithril_rock', 3], ['adamantite_rock', 3], ['runite_rock', 3], ['gem_rock', 4], ['coal_rock', 4]], ROCKY);
+      [['granite_rock', 3], ['mithril_rock', 4], ['adamantite_rock', 4], ['runite_rock', 4], ['gem_rock', 3], ['coal_rock', 3]], ROCKY);
     zone('jurong_timberland', 'Jurong Timberland', 'woodcutting', [78, 116, 155, 196],
       [['oak', 5], ['angsana', 3], ['willow', 4], ['teak', 4], ['rain_tree', 3], ['mahogany', 3], ['yew_tree', 2]], GRASSY);
     zone('coney_old_growth', 'Coney Old-Growth Woods', 'woodcutting', [302, 104, 396, 200],

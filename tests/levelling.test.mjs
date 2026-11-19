@@ -167,7 +167,10 @@ function gatherRate(skill, id, lvl, ticks) {
   const g = newGame();
   for (const t of ['bronze_pickaxe', 'hunting_snare']) if (!g.inventory.has(t)) g.inventory.add(t, 1);
   setLevel(g, skill, lvl);
-  const all = g.world.objects.filter((o) => o.objId === id);
+  // Measured away from the resource zones: they mix several kinds of node, and auto
+  // gather there would work the others too, so the rate wouldn't be this node's alone.
+  const inZone = (o) => (g.world.resourceZones || []).some((z) => chebyshev(o.x, o.y, z.cx, z.cy) <= 12);
+  const all = g.world.objects.filter((o) => o.objId === id && !inZone(o));
   const near = (o) => all.filter((p) => chebyshev(p.x, p.y, o.x, o.y) <= 15).length;
   const start = all.reduce((a, b) => (near(b) > near(a) ? b : a));
   standBy(g, start);

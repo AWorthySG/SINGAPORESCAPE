@@ -90,6 +90,14 @@ test('resource zones suit their region: the Ubin quarry starts at level 1, the T
   assert.ok(lv('coney_old_growth').filter((l) => l >= 60).length >= 2, 'yews and magic trees in the Coney woods');
 });
 
+test('resource zones are calm: monsters camped beside them don\'t attack on sight', () => {
+  const g = boot();
+  for (const z of g.world.resourceZones) {
+    const near = g.npcs.filter((n) => n.def.attackable && Math.max(Math.abs(n.x - z.cx), Math.abs(n.y - z.cy)) <= 10);
+    assert.equal(near.filter((n) => n.def.aggressive).length, 0, `${z.name}: no monster attacks on sight`);
+  }
+});
+
 test('walking into a resource zone says what it holds', () => {
   const g = boot();
   const z = g.world.resourceZones.find((x) => x.id === 'jurong_timberland');
@@ -142,7 +150,9 @@ test('a real chop builds a streak; with the extras switched off nothing changes'
   const adj = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => ({ x: tree.x + dx, y: tree.y + dy })).find((t) => !g.world.isBlocked(t.x, t.y));
   g.player.x = g.player.tx = adj.x; g.player.y = g.player.ty = adj.y;
   g.beginAction({ type: 'woodcut', obj: tree }, { x: tree.x, y: tree.y }, true);
-  step(g, 60);
+  // (Check as soon as a log lands: a plain tree falls after one, and a streak
+  // left idle long enough ends.)
+  for (let i = 0; i < 60 && !g.gathering.streak; i++) step(g, 1);
   assert.ok(g.gathering.streak?.skill === 'woodcutting' && g.gathering.streak.count >= 1, 'chopping counts');
   GATHER_FUN.on = false;
   assert.equal(g.gathering.xpMult('woodcutting'), 1);

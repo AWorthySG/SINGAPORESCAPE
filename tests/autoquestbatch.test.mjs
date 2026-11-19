@@ -49,6 +49,12 @@ test('Smith\'s Apprentice guide: gathers ore for every bar still owed before the
   game.quests.smith_apprentice.state = 'active';
   for (const id of ['iron_ore', 'coal', 'steel_bar']) game.inventory.remove(id, game.inventory.count(id));
   const g = () => game.questGuide('smith_apprentice');
+  // A new player can't make steel yet: the guide says what to train first.
+  assert.equal(g().kind, 'none');
+  assert.match(g().text, /^Reach Smithing 30/);
+  game.skills.xp.smithing = xpForLevel(30);
+  assert.match(g().text, /^Reach Mining 15 to mine iron/);
+  game.skills.xp.mining = xpForLevel(60);
   assert.equal(g().objId, 'iron_rock');
   assert.equal(g().text, 'Mine iron ore (0/8)');
   // One ore and two coal used to send you to the furnace for a single bar.

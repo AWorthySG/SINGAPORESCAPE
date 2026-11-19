@@ -1,3 +1,4 @@
+import { getObject } from '../data/objects.js';   // quest guides read node levels
 import { EventBus } from '../core/events.js';
 import { goldenMult, goldenSkills, GOLDEN_HOUR_XP, SKILL_HOURS } from '../data/skillhours.js';
 import { buildWorld, TERRAIN, zoneLevel } from '../data/world.js';
@@ -6492,6 +6493,11 @@ export class Game {
         // and two coal, walking rock -> furnace -> rock for each bar).
         const left = 8 - inv('steel_bar');
         if (left <= 0) return npc('guide', 'Hand in to');
+        // Steel needs Smithing 30, iron Mining 15 and coal its own level: until then auto
+        // quest sets this aside (as Island Provisions does) rather than smelt iron bars.
+        const needs = [['smithing', 30, 'smelt steel'], ['mining', getObject('iron_rock').level, 'mine iron'], ['mining', getObject('coal_rock').level, 'mine coal']]
+          .find(([sk, lv]) => this.skills.level(sk) < lv);
+        if (needs) return { text: `Reach ${needs[0] === 'mining' ? 'Mining' : 'Smithing'} ${needs[1]} to ${needs[2]}`, kind: 'none' };
         if (inv('iron_ore') < left) return obj('iron_rock', `Mine iron ore (${inv('iron_ore')}/${left})`);
         if (inv('coal') < left * 2) return obj('coal_rock', `Mine coal for the steel (${inv('coal')}/${left * 2})`);
         return obj('furnace', `Smelt ${left} steel bar${left > 1 ? 's' : ''} at the furnace`);
