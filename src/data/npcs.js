@@ -3,6 +3,7 @@ import { accessoriesFor, PRAYER_GEAR } from './items.js';
 import { BOSS_ABILITIES } from './bossAbilities.js';
 import { boneForTier, bossBoneQty } from './bones.js';
 import { REGION_GIVER_DEFS } from './regionQuests.js';
+import { BESTIARY_SPECIES, BESTIARY_BOSSES, BESTIARY_FORMS } from './bestiary.js';
 // NPC registry. Monsters are generated from archetype "bases" × rank tiers into a
 // 169-strong bestiary (scaled stats + level-tiered drops), plus 15 hand-authored
 // bosses and the townsfolk. Sprites are drawn from def.sprite + def.color.
@@ -539,9 +540,32 @@ const MORE_BOSS_DEFS = {
 const MORE_BOSS_IDS = Object.keys(MORE_BOSS_DEFS);
 Object.assign(BOSS_DEFS, MORE_BOSS_DEFS);
 
+// ---- The bestiary expansion (Nov 2026): 67 species in three forms and 20 bosses ----
+// The data lives in bestiary.js; built here like the batches above and kept on
+// lists of their own, so world.js places them last and nothing already placed moves.
+// The Codex description is the species' lore (the level is added for the stretch below).
+const BESTIARY_MONSTER_IDS = [];
+for (const b of BESTIARY_SPECIES) {
+  BESTIARY_FORMS.forEach((f, i) => {
+    const name = (f.p ? f.p + ' ' : '') + b.name;
+    const id = slug(name);
+    if (_mobs[id]) throw new Error(`monster id clash: ${id}`);
+    const m = makeMob(id, name, b.sprite, b.color, b.levels[i], b.zone, b.aggro || !!f.p, slug(b.name));
+    _mobs[id] = { ...m, scale: f.scale, examine: `${b.lore} (level ${b.levels[i]})`, dropTable: b.drop ? [...m.dropTable, b.drop] : m.dropTable };
+    BESTIARY_MONSTER_IDS.push(id);
+  });
+}
+const BESTIARY_BOSS_IDS = [];
+for (const b of BESTIARY_BOSSES) {
+  if (BOSS_DEFS[b.id] || _mobs[b.id]) throw new Error(`boss id clash: ${b.id}`);
+  BOSS_DEFS[b.id] = { ...makeBoss(b.id, b.name, b.sprite, b.color, b.level, b.zone, b.scale, [...tierGear(b.level, 1), ...b.drops]),
+    examine: `${b.lore} (level ${b.level})` };
+  BESTIARY_BOSS_IDS.push(b.id);
+}
+
 // Give every boss a special mechanic (cycled) + a special-attack cadence.
 const MECHANICS = ['slam', 'heal', 'summon', 'enrage', 'frenzy'];
-[...BOSS_IDS, ...EXTRA_BOSS_IDS, ...MORE_BOSS_IDS].forEach((id, i) => {
+[...BOSS_IDS, ...EXTRA_BOSS_IDS, ...MORE_BOSS_IDS, ...BESTIARY_BOSS_IDS].forEach((id, i) => {
   BOSS_DEFS[id].mechanic = MECHANICS[i % MECHANICS.length];
   BOSS_DEFS[id].specialEvery = 9;
   // Each boss's own signature move and ground-attack patterns (see bossAbilities.js).
@@ -599,10 +623,10 @@ const TOWNSFOLK = {
 };
 
 export const NPCS = {};
-for (const id of [...MONSTER_IDS, ...EXTRA_MONSTER_IDS, ...MORE_MONSTER_IDS]) NPCS[id] = _mobs[id];
+for (const id of [...MONSTER_IDS, ...EXTRA_MONSTER_IDS, ...MORE_MONSTER_IDS, ...BESTIARY_MONSTER_IDS]) NPCS[id] = _mobs[id];
 // Every boss also drops archery loot: a bow a tier above its level, a big
 // bundle of good arrows, and dragonhide.
-for (const id of [...BOSS_IDS, ...EXTRA_BOSS_IDS, ...MORE_BOSS_IDS]) {
+for (const id of [...BOSS_IDS, ...EXTRA_BOSS_IDS, ...MORE_BOSS_IDS, ...BESTIARY_BOSS_IDS]) {
   const b = BOSS_DEFS[id];
   const lvl = b.level || 1;
   const arrow = lvl < 50 ? 'mithril_arrow' : lvl < 90 ? 'adamant_arrow' : 'rune_arrow';
@@ -627,7 +651,7 @@ for (const id of [...BOSS_IDS, ...EXTRA_BOSS_IDS, ...MORE_BOSS_IDS]) {
     { id: seedFor(lvl), min: 2, max: 5, weight: 8 },
   ];
 }
-for (const id of [...BOSS_IDS, ...EXTRA_BOSS_IDS, ...MORE_BOSS_IDS]) NPCS[id] = BOSS_DEFS[id];
+for (const id of [...BOSS_IDS, ...EXTRA_BOSS_IDS, ...MORE_BOSS_IDS, ...BESTIARY_BOSS_IDS]) NPCS[id] = BOSS_DEFS[id];
 Object.assign(NPCS, TOWNSFOLK);
 Object.assign(NPCS, REGION_GIVER_DEFS);   // the region quest givers (regionQuests.js)
 
@@ -708,9 +732,10 @@ for (const d of Object.values(NPCS)) {
 }
 
 // Everything the bestiary lists: the original sets plus the extras.
-const ALL_MONSTER_IDS = [...MONSTER_IDS, ...EXTRA_MONSTER_IDS, ...MORE_MONSTER_IDS];
-const ALL_BOSS_IDS = [...BOSS_IDS, ...EXTRA_BOSS_IDS, ...MORE_BOSS_IDS];
+const ALL_MONSTER_IDS = [...MONSTER_IDS, ...EXTRA_MONSTER_IDS, ...MORE_MONSTER_IDS, ...BESTIARY_MONSTER_IDS];
+const ALL_BOSS_IDS = [...BOSS_IDS, ...EXTRA_BOSS_IDS, ...MORE_BOSS_IDS, ...BESTIARY_BOSS_IDS];
 export { MONSTER_IDS, BOSS_IDS, EXTRA_MONSTER_IDS, EXTRA_BOSS_IDS, ALL_MONSTER_IDS, ALL_BOSS_IDS, MORE_MONSTER_IDS, MORE_BOSS_IDS };
+export { BESTIARY_MONSTER_IDS, BESTIARY_BOSS_IDS };
 
 export function getNpc(id) {
   const npc = NPCS[id];

@@ -10,6 +10,7 @@ import { drawHeroBack } from './heroAnimArt.js';
 import { poseBlender } from './poseBlend.js';
 import { CREATURE_RIGS, TOWN_IDLE } from './creatureRigs.js';
 import { REGION_GIVERS } from '../data/regionQuests.js';
+import { BESTIARY_SPECIES, BESTIARY_BOSSES } from '../data/bestiary.js';
 
 const CROP_COLORS = Object.fromEntries(CROPS.map((c) => [c[0], c[9]]));
 const CROP_GROW = Object.fromEntries(CROPS.map((c) => [c[0], c[3]]));
@@ -145,6 +146,11 @@ const SPECIES_ART = new Set([
 // Newer species without painted art yet borrow a close relative's art until
 // theirs arrives (remove the line when the file is added).
 const SPECIES_ALIAS = {};
+// ...recoloured by a CSS filter so a borrowed picture still reads as its own creature.
+const SPECIES_TINT = {};
+// The bestiary expansion's species (bestiary.js) borrow this way until their art arrives.
+const slugName = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+for (const b of BESTIARY_SPECIES) { const f = slugName(b.name); SPECIES_ALIAS[f] = b.borrow; SPECIES_TINT[f] = b.tint; }
 const speciesFile = (family) => (SPECIES_ART.has(family) ? family : SPECIES_ALIAS[family] || null);
 const _speciesImg = {};
 function speciesImage(family) {
@@ -175,7 +181,12 @@ const BOSS_ART = new Set([
 ]);
 // Newer bosses borrow another boss's art until its own art arrives (remove the line when the file is added).
 const BOSS_ALIAS = {};
+const BOSS_TINT = {};
+for (const b of BESTIARY_BOSSES) { BOSS_ALIAS[b.id] = b.borrow; BOSS_TINT[b.id] = b.tint; }
 const bossFile = (id) => (BOSS_ART.has(id) ? id : BOSS_ALIAS[id] || null);
+/** The CSS filter a borrowed picture is drawn with (none once a creature has its own art). */
+const artTint = (npcId, def) => (def.boss && bossFile(npcId) ? (BOSS_ART.has(npcId) ? null : BOSS_TINT[npcId])
+  : SPECIES_ART.has(def.family) ? null : SPECIES_TINT[def.family]) || null;
 const _bossImg = {};
 function bossImage(id) {
   if (!id || !bossFile(id)) return null;
@@ -497,8 +508,9 @@ export function portraitFor(npcId, def) {
   const src = def.boss && bossFile(npcId) ? `assets/creatures/bosses/${bossFile(npcId)}.webp`
     : speciesFile(def.family) ? `assets/creatures/species/${speciesFile(def.family)}.webp` : null;
   if (!src) return null;
+  const tint = artTint(npcId, def);
   const top = HEAD_TOP.has(def.sprite) || ['ghost', 'wisp', 'slime', 'plant', 'jellyfish', 'serpent'].includes(def.sprite);
-  return { src, pos: top ? '50% 8%' : '88% 22%' };
+  return { src, pos: top ? '50% 8%' : '88% 22%', tint };
 }
 const _puppetInfo = new Map();
 /** The painted area of a sticker (in its bitmap's pixels) and where its feet
@@ -726,7 +738,10 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
       if (rig) { drawRig(c, rigId, rig, opts, t, flash, flashCol); return; }
       const drawBody = (g) => {
         if (pimg && pimg.complete && pimg.naturalWidth) {
+          const tint = simg ? artTint(npcId, { boss: !!bimg, family: opts.family }) : null;
+          if (tint && 'filter' in g) g.filter = tint;   // a borrowed picture, recoloured (baked into the cached sticker)
           drawCreaturePng(g, pimg);    // painted art carries its own shading
+          if (tint && 'filter' in g) g.filter = 'none';
         } else {
           arch(g, col);
           // Soft upper sheen for volume, kept on the body (source-atop) so it

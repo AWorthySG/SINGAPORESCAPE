@@ -176,6 +176,7 @@ export function renderBossBar(ui, boss) {
       const img = pe.querySelector('.bp-img');
       img.style.backgroundImage = pr ? `url("${pr.src}")` : '';
       img.style.backgroundPosition = pr ? pr.pos : '';
+      img.style.filter = pr?.tint || '';   // a borrowed picture, recoloured
       pe.querySelector('.bp-badge').textContent = boss.champion ? '★' : boss.def.boss ? '♛' : '';
     }
   }
