@@ -161,7 +161,6 @@ export class UI {
       modalTitle: id('modal-title'),
       modalBody: id('modal-body'),
       modalClose: id('modal-close'),
-      banner: id('banner'),
       bossBar: id('boss-bar'),
       bossBarName: id('boss-bar-name'),
       bossBarFill: id('boss-bar-fill'),
