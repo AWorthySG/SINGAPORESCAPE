@@ -1333,7 +1333,7 @@ export class UI {
   // ---------------- Gear mastery & enchanting ----------------
   // Every piece you wear or carry: its mastery rank with a bar to the next,
   // and its enchant lines with a button to add (or replace) one.
-  openMastery() {
+  openMastery(focusId = null) {
     const g = this.game;
     const render = (body) => {
       body.innerHTML = ranksCardHTML() + '<div class="gear-intro"><p>Gear grows stronger as you fight with it: <b>mastery</b> and <b>quality</b> are shown above. '
@@ -1364,6 +1364,7 @@ export class UI {
         const rl = g.equipment.refineLevel(id);
         const row = document.createElement('div');
         row.className = 'gear-row mastery-row';
+        row.dataset.id = id;   // so coming Back from a piece's Enchant or Refine lands on it again
         row.innerHTML = `<span class="gear-ic">${itemIconSVG(id, 28)}</span>`
           + `<div class="gear-info"><div class="gear-name"><b>${escapeHtml(getItem(id).name)}</b>${rl ? `<span class="gear-tag refine-tag">${refineTag(rl)}</span>` : ''}<span class="gear-tag mastery-tag">${masteryTypeName(id)}: ${MASTERY_RANKS[p.rank].name}</span>${worn ? '<span class="gear-tag worn">Wearing</span>' : ''}</div>`
           + `<div class="mastery-bar"><span style="width:${Math.round(p.frac * 100)}%"></span></div>`
@@ -1418,6 +1419,12 @@ export class UI {
       body.appendChild(list);
     };
     this.openModal('Gear Mastery', render);
+    // Back from a piece's Enchant or Refine: scroll that piece's row into view.
+    if (focusId && this.el?.modalBody) {
+      const row = [...this.el.modalBody.querySelectorAll('.mastery-row')].find((r) => r.dataset.id === focusId);
+      try { row?.scrollIntoView({ block: 'center' }); } catch { /* old browsers */ }
+      row?.classList.add('focus-flash');
+    }
   }
 
   /** "Main hand | Off-hand" tabs for a weapon worn in both hands: each copy
@@ -1454,12 +1461,13 @@ export class UI {
       b.addEventListener('click', fn);
       return b;
     };
+    let done = null;   // the line just added, shown at the top
     const render = (body) => {
       const lines = g.equipment.enchantLines(id, copy);
       const full = lines.length >= MAX_ENCHANTS;
       const c = g.enchantCostFor(id, copy);
       const can = g.canAffordEnchant(id, copy);
-      body.innerHTML = `<div class="gear-intro"><p>${copy === 'off' ? 'Your off-hand ' : ''}${name} has ${lines.length}/${MAX_ENCHANTS} enchantments${lines.length ? ': ' + lines.map(enchantLabel).join(', ') : ''}. `
+      body.innerHTML = `<div class="gear-intro"><p>${done ? `<b class="refine-out success">Enchanted: ${enchantLabel(done)}</b><br>` : ''}${copy === 'off' ? 'Your off-hand ' : ''}${name} has ${lines.length}/${MAX_ENCHANTS} enchantments${lines.length ? ': ' + lines.map(enchantLabel).join(', ') : ''}. `
         + `Enchanting costs <b>${c.stones} upgrade stones</b> and <b>${formatNumber(c.coins)} coins</b>, paid when you pick a line. `
         + `You have ${formatNumber(g.inventory.count(UP_STONE))} stones and ${formatNumber(g.inventory.count('coins'))} coins.`
         + (can ? '' : ' <span class="short">You can\'t afford it yet.</span>') + '</p></div>';
@@ -1473,14 +1481,16 @@ export class UI {
       } else {
         box.insertAdjacentHTML('beforeend', `<div class="ench-head">${full ? `Replacing ${enchantLabel(lines[replace])}. ` : ''}Choose one:</div>`);
         g.enchantOffers(id, copy).forEach((o, i) => {
-          const b = button(enchantLabel(o), () => { if (g.pickEnchant(id, i, replace, copy)) this.openMastery(); else render(body); }, 'active ench-offer');
+          // Picking a line stays on this piece (the owner found jumping back to the list clunky).
+          const b = button(enchantLabel(o), () => { if (g.pickEnchant(id, i, replace, copy)) { done = o; replace = null; } render(body); }, 'active ench-offer');
           b.disabled = !can;
           box.appendChild(b);
         });
         const wards = g.inventory.count(UP_WARD);
         if (wards > 0) box.appendChild(button(`Reroll (uses a ward, ${wards} left)`, () => { g.rerollEnchant(id, copy); render(body); }));
       }
-      box.appendChild(button('Cancel', () => this.openMastery(), 'ench-cancel'));
+      box.appendChild(button('Refine this piece', () => this.openRefine(id, copy), 'ench-switch'));
+      box.appendChild(button('Back to all gear', () => this.openMastery(id), 'ench-cancel'));
       body.appendChild(box);
     };
     this.openModal(`Enchant ${getItem(id).name}`, render);
@@ -1546,8 +1556,14 @@ export class UI {
       const back = document.createElement('button');
       back.type = 'button';
       back.className = 'gear-tab ench-cancel';
-      back.textContent = 'Back';
-      back.addEventListener('click', () => this.openMastery());
+      back.textContent = 'Back to all gear';
+      back.addEventListener('click', () => this.openMastery(id));
+      const sw = document.createElement('button');
+      sw.type = 'button';
+      sw.className = 'gear-tab ench-switch';
+      sw.textContent = 'Enchant this piece';
+      sw.addEventListener('click', () => this.openEnchant(id, null, copy));
+      box.appendChild(sw);
       box.appendChild(back);
       body.appendChild(box);
     };
@@ -1593,7 +1609,7 @@ export class UI {
       back.type = 'button';
       back.className = 'gear-tab ench-cancel feed-back';
       back.textContent = 'Back';
-      back.addEventListener('click', () => this.openMastery());
+      back.addEventListener('click', () => this.openMastery(id));
       body.appendChild(back);
     };
     this.openModal(`Feed ${getItem(id).name}`, render);

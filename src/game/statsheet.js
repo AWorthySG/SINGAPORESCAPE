@@ -13,7 +13,7 @@ import { shortNumber } from '../core/utils.js';
 import {
   playerAttackVsNpc, playerRangedVsNpc, playerMagicVsNpc, playerDanceVsNpc, levelBonuses,
   critChance, danceEvade, weaknessOf, armourOf, armourMult, WEAKNESS_BONUS, RANGED_TYPE_DMG,
-  CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE, RHYTHM_MAX, RHYTHM_DMG, OFFHAND_SHARE, CLASS_POWER } from './combat.js';
+  CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE, RHYTHM_MAX, RHYTHM_DMG, OFFHAND_SHARE, CLASS_POWER, openWoundStacks, OPEN_WOUNDS } from './combat.js';
 import { attrForMode, ATTR_NAMES, DMG_PER_POINT, LIFE_PER_STR, CRIT_PER_INT, SPEED_PER_DEX } from './attributes.js';
 import { getItem } from '../data/items.js';
 import { getSpell, ELEMENTS, elementMatchup } from '../data/magic.js';
@@ -123,6 +123,7 @@ export function damageMult(game, mode = game.combatMode(), { npc = null, boss = 
   mul(CLASS_POWER, 'Class power');
   if (npc && game.onSlayerTask(npc)) mul(1 + game.slayerBonus().dmg / 100, 'Slayer task');
   if (npc) { const cm = masteryDamage(game, npc); mul(1 + cm.species, 'Codex mastery (species)'); mul(1 + cm.race, 'Codex mastery (race)'); }
+  if (npc?.openWounds) mul(1 + openWoundStacks(npc, game.tickCount) * OPEN_WOUNDS.per, 'Open wounds (Brawler)');
   return { m, parts };
 }
 

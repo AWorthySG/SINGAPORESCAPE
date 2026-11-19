@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 
 import { Game } from '../src/game/game.js';
 import { saveGame, loadGame, clearSave, snapshot } from '../src/game/save.js';
-import { SAVE_KEY, XP_RATE } from '../src/config.js';
+import { SAVE_KEY, XP_RATE, LIFE_XP_BOOST } from '../src/config.js';
 import { xpForLevel } from '../src/data/xp.js';
 import { SMITH } from '../src/data/smithing.js';
 import { CRAFT } from '../src/data/crafting.js';
@@ -57,7 +57,7 @@ test('upgrade stones are smithed from bars at an anvil, more per bar for finer m
   pinned(0.99, () => resolveSmith(g, { recipe: mith, obj }));
   assert.equal(g.inventory.count('mithril_bar'), 1, 'one bar used');
   assert.equal(g.inventory.count('upgrade_stone'), 3, 'three stones made');
-  assert.equal(g.skills.xp.smithing - xp, 50 * XP_RATE);
+  assert.equal(g.skills.xp.smithing - xp, 50 * XP_RATE * LIFE_XP_BOOST);
 });
 
 test('refine scrolls and upgrade wards are crafted from a gem, bars and feathers, with a chisel', () => {
@@ -83,7 +83,7 @@ test('refine scrolls and upgrade wards are crafted from a gem, bars and feathers
   assert.equal(g.inventory.count('refine_scroll'), 4);
   assert.equal(g.inventory.count('ruby'), 0); assert.equal(g.inventory.count('adamant_bar'), 0);
   assert.equal(g.inventory.count('feather'), 2, 'ten feathers used');
-  assert.equal(g.skills.xp.crafting - xp, 200 * XP_RATE);
+  assert.equal(g.skills.xp.crafting - xp, 200 * XP_RATE * LIFE_XP_BOOST);
   // A ward: diamond, ruby, pearl and two adamant bars at Crafting 80.
   const ward = CRAFT.find((r) => r.result === 'upgrade_ward' && r.level === 80);
   for (const i of ward.inputs) g.inventory.add(i.id, i.qty);

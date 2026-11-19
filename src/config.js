@@ -31,5 +31,8 @@ export const XP_RATE = 20;         // global experience multiplier (doubled from
 // paid at this share of XP_RATE: at the full rate a new character reached level
 // 99 in about a minute of auto battle. Life skills keep the full XP_RATE.
 export const COMBAT_XP_RATE = 0.014;
+// Life skills (every skill outside combat) earn this much more on top: the owner
+// asked for them to level a little faster.
+export const LIFE_XP_BOOST = 1.25;
 
 export const DAY_CYCLE_MS = 10 * 60 * 1000; // one full day/night cycle = 10 real minutes

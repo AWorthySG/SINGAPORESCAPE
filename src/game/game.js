@@ -34,7 +34,7 @@ import {
   playerAttackVsNpc, npcAttackVsPlayer, OFFHAND_SHARE, rollAttack, rollGuaranteed, rollHit, combatXp, magicXp, killXp, DAMAGE_XP_SHARE, KILL_XP_SHARE,
   playerRangedVsNpc, combatXpRanged, playerMagicVsNpc, RANGED_STYLES,
   weaknessOf, WEAKNESS_BONUS, armourOf, armourMult, critChance, hitChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE,
-  playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX, RANGED_TYPE_DMG, combatLevelXpMult, CLASS_POWER } from './combat.js';
+  playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX, RANGED_TYPE_DMG, combatLevelXpMult, CLASS_POWER, OPEN_WOUNDS, openWoundStacks } from './combat.js';
 import { ABILITY_BY_ID, abilitiesFor, ADREN_PER_HIT, ADREN_PER_HURT, CLASS_ADRENALINE, EXECUTE_BELOW } from '../data/abilities.js';
 import { classPassiveMods, CLASS_SKILL } from '../data/classPassives.js';
 import { RACES, raceOf, matchup, RACE_BONUS, RACE_PENALTY } from '../data/races.js';
@@ -300,7 +300,7 @@ const CHAMPION_LOOT_KILLS = 30;
 // Wild up to Divine) are worth more loot: their drop table, rare-table chances
 // and upgrade stones roll this many times (a half is a 50% chance of one more).
 // Young monsters, the weaker form, stay at one roll like the plain species.
-export { CLASS_POWER };
+export { CLASS_POWER, OPEN_WOUNDS, openWoundStacks };
 export const RANK_LOOT_ROLLS = { Wild: 1.5, Feral: 2, Elder: 2.5, Dire: 3, Ancient: 3.5, Mythic: 4, Primordial: 4.5, Eternal: 5, Celestial: 5.5, Divine: 6 };
 const _slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
 /** A normal monster's rank word ('Elder', 'Dire'...), or '' for the plain
@@ -366,6 +366,14 @@ const ALCHEMY = { level: 21, xp: 65, runes: { nature_rune: 1, fire_rune: 5 } };
 // Actions that can fire the instant you press (no random roll to exploit by spamming).
 const INSTANT_ACTIONS = new Set(['pickup', 'cookmenu', 'smeltmenu', 'smithmenu', 'craftmenu', 'fletchmenu', 'herbmenu', 'farm', 'pray', 'rest', 'transport', 'openbank', 'openshop', 'talk', 'shrinemenu', 'homemenu']);
 const GATHER_ACTIONS = new Set(['woodcut', 'mine', 'fish', 'stall']);
+// Gathering (woodcutting, mining, fishing, Hunter) and making (cooking, smithing,
+// crafting, fletching, Herblore) go this much faster: every 1/(GATHER_SPEED-1)
+// ticks an extra roll, so each action takes about 20% less time. (Smelting is a
+// whole batch at once already; Firemaking walks a tile per fire, so it gets the
+// same boost as XP instead: see FIRE_XP in skilling.js.)
+export const GATHER_SPEED = 1.25;
+const MAKE_FAST = new Set(['cook', 'cookdish', 'smith', 'craft', 'recipe']);
+const GATHER_FAST = new Set(['woodcut', 'mine', 'fish', 'hunt', ...MAKE_FAST]);
 // Ticks you get to answer a Knowledge Strike before the boss's special lands (~7s).
 const KS_TICKS = 12;
 
@@ -1420,7 +1428,13 @@ export class Game {
     // Count the bag before and after so every item gathered pops up over you.
     const gather = GATHER_ACTIONS.has(a.type) || a.type === 'hunt';
     const before = gather ? this._bagCounts() : null;
-    const going = runSkillAction(this, a, resolver);   // with the skill's unlocks (skillunlocks.js)
+    let going = runSkillAction(this, a, resolver);   // with the skill's unlocks (skillunlocks.js)
+    // A gathering or making skill's extra share of a tick (GATHER_SPEED): every so often, a
+    // second roll. (Making swaps item for item, so it needs no free slot.)
+    if (going && GATHER_FAST.has(a.type)) {
+      a._quick = (a._quick || 0) + (GATHER_SPEED - 1);
+      if (a._quick >= 1 && (MAKE_FAST.has(a.type) || this.inventory.freeSlots() > 0) && !obj.depleted) { a._quick -= 1; going = runSkillAction(this, a, resolver); }
+    }
     if (gather) {
       const after = this._bagCounts();
       for (const [id, n] of after) {
@@ -2131,6 +2145,7 @@ export class Game {
     if (this.onSlayerTask(npc)) dmgM *= 1 + this.slayerBonus().dmg / 100;   // Slayer: hit task monsters harder
     dmgM *= Culling.masteryDamage(this, npc).mult;   // codex mastery of its species and race
     dmgM *= Mercs.merchantPower(this);   // the strongest class (see mercenary.js)
+    dmgM *= 1 + openWoundStacks(npc, this.tickCount) * OPEN_WOUNDS.per;   // a Brawler's Open Wounds on the foe
     dmgM *= CLASS_POWER;   // every class 20% stronger
     const sharedM = dmgM;   // what both hands share
     dmgM *= abM * gearM(gb);
@@ -2298,6 +2313,14 @@ export class Game {
 
   _applyPlayerHit(npc, dmg, opts = {}) {
     if (dmg > 0 && !opts.aoe) this._woundFoe(npc, dmg);   // daggers may poison, claws may make it bleed
+    // Brawler: each blow adds an Open Wound (more damage taken), up to 30 stacks.
+    if (dmg > 0 && this.jobClass === 'brawler') {
+      const now = this.playMs || 0, had = openWoundStacks(npc, this.tickCount);
+      const n = now >= (npc._openWoundNext || 0) ? Math.min(OPEN_WOUNDS.max, had + 1) : had;
+      if (n > had) npc._openWoundNext = now + OPEN_WOUNDS.everyMs;
+      npc.openWounds = n; npc.openWoundsAt = this.tickCount;   // any blow keeps the wounds open
+      if (n % 10 === 0 && npc._openWoundsSaid !== n) { npc._openWoundsSaid = n; this.addHitsplat(npc, 0, { text: `Open wounds ×${n}` }); }
+    }
     // A stunning class ability: the foe reels once the blow lands.
     if (this._abStun && dmg > 0) {
       const t = this._abStun; this._abStun = 0;

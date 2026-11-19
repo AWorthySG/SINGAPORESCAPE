@@ -43,8 +43,11 @@ const merchant = rows.find((r) => r.cls === 'merchant');
 // the median at levels 50-300 (tools/balance/classes.mjs, 180 s fights on three
 // targets); these 60 s fights are noisier, hence the wider band. The Merchant is
 // left out: it is meant to stand well above the rest (see the next test).
-test('every class but the Merchant hits one target at 70-140% of the median class', () => {
-  for (const r of others) {
+// The Brawler is left out too: its Open Wounds (+5% damage taken a stack, one a
+// second, up to 30) make it the strongest single-target and boss class in a long
+// fight, which the owner chose to keep (see the Brawler test below).
+test('every class but the Merchant and Brawler hits one target at 70-140% of the median class', () => {
+  for (const r of others.filter((r) => r.cls !== 'brawler')) {
     for (const [name, x] of [['all classes', rel(r, 'single')], ['the other classes', relOthers(r, 'single')]]) {
       assert.ok(x >= 0.7 && x <= 1.4, `${r.cls}: ${Math.round(x * 100)}% of the median single-target damage of ${name}`);
     }
@@ -54,15 +57,25 @@ test('every class but the Merchant hits one target at 70-140% of the median clas
 // The owner asked for the Merchant to be much stronger than every other class:
 // about twice the median (tools/balance/classes.mjs puts it at ~190-210% single
 // and ~185-230% boss at levels 50-300), top of the table, crowds included.
-test('the Merchant is the strongest class: 170-250% of the median of the other classes, and top', () => {
+// (Raised to about 250% when the Brawler's Open Wounds made it a stronger boss
+// killer: the owner wants the Merchant on top of every class, the Brawler included.)
+test('the Merchant is the strongest class: 200-330% of the median of the other classes, and top', () => {
   for (const m of ['single', 'boss']) {
     const x = relOthers(merchant, m);
-    assert.ok(x >= 1.7 && x <= 2.5, `merchant: ${Math.round(x * 100)}% of the other classes' median ${m} damage`);
+    assert.ok(x >= 2 && x <= 3.3, `merchant: ${Math.round(x * 100)}% of the other classes' median ${m} damage`);
   }
   for (const m of ['single', 'boss', 'crowd']) {
     const best = others.reduce((a, b) => (b[m] > a[m] ? b : a));
     assert.ok(merchant[m] > best[m], `merchant ${m} ${merchant[m].toFixed(0)} beats the best other class (${best.cls}, ${best[m].toFixed(0)})`);
   }
+});
+
+// The Brawler's Open Wounds stack up in a long fight: it ends up the strongest
+// single-target class after the Merchant (the owner chose this over trimming it), but stays sane.
+test('the Brawler: strongest on one target thanks to Open Wounds, within reason', () => {
+  const br = rows.find((r) => r.cls === 'brawler');
+  const x = relOthers(br, 'single');
+  assert.ok(x >= 1.4 && x <= 3.2, `brawler: ${Math.round(x * 100)}% of the other classes' median single-target damage`);
 });
 
 // Kill speed stays looser: a Sniper's huge shots waste the overkill on a monster

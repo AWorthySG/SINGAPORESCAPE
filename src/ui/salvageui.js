@@ -177,7 +177,7 @@ export function openSacrifice(ui, targetId, { src = null } = {}) {
       go.disabled = !pv.pieces;
       body.appendChild(go);
     }
-    body.appendChild(button('Back', () => ui.openMastery(), 'ench-cancel feed-back'));
+    body.appendChild(button('Back', () => ui.openMastery(targetId), 'ench-cancel feed-back'));
   };
   ui.openModal(`Sacrifice to ${masteryTypeName(targetId)} mastery`, render);
   ui.modal.kind = 'salvage';

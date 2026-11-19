@@ -36,7 +36,8 @@ import { tierOf, compareGear } from './gear.js';
 //     hour's kills gave each piece you wore (about 0.75, 1.1 and 1.3 times as
 //     much at levels 50, 150 and 250). Kills feed every worn piece, sacrifice
 //     only one, so battle stays the main road; and like materials, sacrifice
-//     stops at Master.
+//     stops at Master. (Sacrifice was doubled and dismantling raised by half
+//     since, at the owner's request: these figures are from before.)
 //   dismantle: worth x0.06 upgrade stones and worth x0.008 refine scrolls,
 //     each rounded up or down at random so a plain piece gives a stone now and
 //     then and a good one every time. Dismantling every gear drop adds about
@@ -53,10 +54,10 @@ export const QUALITY_KEYS = ['fine', 'superior', 'epic', 'legendary', 'mythic'];
 export const QUALITY_MULT = { plain: 1, fine: 1.25, superior: 1.6, epic: 2.2, legendary: 3.5, mythic: 6 };
 export const UNIQUE_MULT = 25;
 export const UNIQUE_MIN_LEVEL = 60;
-export const SACRIFICE_RATE = 1;
+export const SACRIFICE_RATE = 2;   // (doubled from 1: the owner wanted sacrifice to pay more mastery)
 export const SAME_KIND_MULT = 1.5;
-export const STONE_RATE = 0.06;
-export const SCROLL_RATE = 0.008;
+export const STONE_RATE = 0.09;   // (up from 0.06: dismantling pays half as much again)
+export const SCROLL_RATE = 0.012;   // (up from 0.008)
 export const WARD_CHANCE = { legendary: 0.05, mythic: 0.25, unique: 0.5 };
 
 // Boss-only uniques (plus every boss's signature weapon, marked on the item).

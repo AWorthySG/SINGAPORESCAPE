@@ -145,6 +145,9 @@ export function targetTag(game, n) {
   let status = '';
   const top = Math.max(poison, bleed, burns);
   if (top > 0) status = (top === poison ? '☠' : top === bleed ? '🩸' : '🔥') + (top > 1 ? top : '');
+  // A Brawler's Open Wounds (more damage taken) show alongside.
+  const ow = game.tickCount - (n.openWoundsAt || 0) <= 14 ? n.openWounds || 0 : 0;
+  if (ow) status = (status ? status + ' ' : '') + '💢' + ow;
   return `${r.icon}${arrow}${status ? ' ' + status : ''}`;
 }
 
@@ -157,5 +160,6 @@ export function foeDetails(game, n) {
   if (n.wounds?.poison?.length) parts.push(`poisoned ×${n.wounds.poison.length}`);
   if (n.wounds?.bleed?.length) parts.push(`bleeding ×${n.wounds.bleed.length}`);
   if (n.ignite?.burns?.length) parts.push(`burning ×${n.ignite.burns.length}`);
+  if (n.openWounds && game.tickCount - (n.openWoundsAt || 0) <= 14) parts.push(`open wounds ×${n.openWounds} (+${n.openWounds * 5}% damage taken)`);
   return parts.join(' · ');
 }

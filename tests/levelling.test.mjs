@@ -8,7 +8,7 @@ import { Game } from '../src/game/game.js';
 import { clearSave } from '../src/game/save.js';
 import { OBJECTS } from '../src/data/objects.js';
 import { xpForLevel, pastCapXpMult } from '../src/data/xp.js';
-import { XP_RATE } from '../src/config.js';
+import { XP_RATE, LIFE_XP_BOOST } from '../src/config.js';
 import { chebyshev } from '../src/core/utils.js';
 import { feedPoints, FEED_CAP } from '../src/game/materials.js';
 
@@ -44,9 +44,9 @@ test('life skills earn 1 + (L-99)/150 more XP past 99; combat skills, Prayer, Sl
   for (const s of ['mining', 'woodcutting', 'fishing', 'cooking', 'smithing', 'crafting', 'firemaking', 'fletching',
     'herblore', 'hunter', 'farming', 'thieving']) {
     setLevel(g, s, 50);
-    assert.equal(gained(g, s, () => g.skills.addXp(s, 10)), 10 * XP_RATE, `${s} at 50`);
+    assert.equal(gained(g, s, () => g.skills.addXp(s, 10)), 10 * XP_RATE * LIFE_XP_BOOST, `${s} at 50`);
     setLevel(g, s, 249);
-    assert.equal(gained(g, s, () => g.skills.addXp(s, 10)), 10 * XP_RATE * 2, `${s} at 249`);
+    assert.equal(gained(g, s, () => g.skills.addXp(s, 10)), 10 * XP_RATE * LIFE_XP_BOOST * 2, `${s} at 249`);
   }
   for (const s of ['attack', 'defence', 'hitpoints', 'ranged', 'magic', 'prayer', 'slayer', 'agility']) {
     setLevel(g, s, 249);
@@ -104,7 +104,7 @@ test('thieving: pickpocket XP stops growing past 99; stalls out-earn pickpocketi
   const npc = { def: { role: 'townsfolk' }, name: 'Uncle' };
   for (const [lvl, base] of [[50, 58], [99, 107], [1000, 107]]) {
     setLevel(g, 'thieving', lvl);
-    assert.ok(Math.abs(gained(g, 'thieving', () => g.pickpocket(npc)) - base * XP_RATE * pastCapXpMult(lvl)) < 0.01, `level ${lvl}`);
+    assert.ok(Math.abs(gained(g, 'thieving', () => g.pickpocket(npc)) - base * XP_RATE * LIFE_XP_BOOST * pastCapXpMult(lvl)) < 0.01, `level ${lvl}`);
   }
   // A stall restocks every few ticks and can fail; even so, ten levels past
   // its unlock it pays more a tick than a pocket picked every tick.
