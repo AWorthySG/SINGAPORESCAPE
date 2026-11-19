@@ -5731,9 +5731,9 @@ test('auto quest sets aside an accepted quest it cannot do yet and gets on with 
   const game = new Game();
   game.start();
   game.ui = new Proxy({}, { get: () => () => {} });
-  // Island Provisions needs Fishing 30: a new player can't catch salmon.
-  game.quests.island_provisions.state = 'active';
-  assert.equal(game.autoQuestPick(), 'island_provisions');
+  // A Smith's Apprentice needs Mining 15 for iron: a new player can't mine it.
+  game.quests.smith_apprentice.state = 'active';
+  assert.equal(game.autoQuestPick(), 'smith_apprentice');
   game.toggleAutoQuest(true);
   for (let i = 0; i < 4000 && game.quests.life_skills.state !== 'active'; i++) game.update(250);
   assert.equal(game.autoQuest, true, 'still on, not given up');
