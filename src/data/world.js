@@ -1418,7 +1418,7 @@ export function buildWorld() {
         const xs = placed.map((p) => p[0]), ys = placed.map((p) => p[1]);
         // A working ground is calm: the monsters camped beside it don't attack on
         // sight (you can still fight them), so you can settle in to train.
-        for (const sp of npcSpawns) if (Math.max(Math.abs(sp.x - cx), Math.abs(sp.y - cy)) <= R2 + CALM_EDGE) sp.opts = { ...(sp.opts || {}), aggressive: false };
+        for (const sp of npcSpawns) if (Math.max(Math.abs(sp.x - cx), Math.abs(sp.y - cy)) <= R2 + CALM_EDGE) sp.opts = { ...(sp.opts || {}), aggressive: false, tamed: true };   // (tamed: still fierce at heart, as by the starter town)
         resourceZones.push({ id, name, skill, cx, cy, count: placed.length,
           x0: Math.min(cx, ...xs), y0: Math.min(cy, ...ys), x1: Math.max(cx, ...xs), y1: Math.max(cy, ...ys) });
         return;
