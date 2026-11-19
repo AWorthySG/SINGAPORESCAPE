@@ -12,6 +12,7 @@ import { receiveTransfer, forwardToNewHome } from './game/transfer.js';
 import { initPwa } from './pwa.js';
 import { TitleScreen } from './ui/title.js';
 import { cloud } from './game/cloud.js';
+import { quickUse } from './game/quickuse.js';
 
 const VIEW_TILES = 15;        // tiles shown across the shorter side of the screen, at most
 const VIEW_TILES_LONG = 24;   // ...and along the longer side
@@ -87,7 +88,7 @@ input.onKey((e) => {
   if (map[e.key]) {
     document.querySelector(`#panel-tabs .tab-btn[data-view="${map[e.key]}"]`)?.click();
   } else if (e.key === 'f' || e.key === 'F') {
-    game.eatFirstFood();
+    quickUse(game);   // the food or potion that best fits your wound (game/quickuse.js)
   } else if (e.key === 'Tab' && !document.activeElement?.closest?.('#sidepanel, #modal-overlay, #chatbox, #ability-bar')) {
     // Tab in the world switches target; inside a panel it still moves keyboard focus.
     e.preventDefault();
