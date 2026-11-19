@@ -59,6 +59,21 @@ import {
   HEAL_FRAC, HEAL_CAP, CAST_TICKS, CAST_HIT, MECH_FIRST_TICKS, MECH_EVERY_TICKS,
 } from '../game/bossmech.js';
 import { TICK_MS, AUTOSAVE_TICKS, DAY_CYCLE_MS, RESPAWN_TICKS } from '../config.js';
+import { BESTIARY_SPECIES, BESTIARY_BOSSES, BESTIARY_FORMS } from './bestiary.js';
+import { STORY_NAME, CHAPTERS as STORY_CHAPTERS, RAID_TICKS, RANSACK_TICKS, RAIDERS } from './story.js';
+import { LORE, LORE_SETS, LORE_DROP_PER_MIL, LORE_DROP_PER_MIL_BIG, GUARDIAN_ITEM, STORY_SET_REWARD } from './lore.js';
+import { CONSEQUENCES } from './consequences.js';
+import { MORAL_EVENTS, BLESS_MS, BLESS_XP } from './moralEvents.js';
+import { ALIGN_TIERS } from './alignment.js';
+import { REP_RANKS, REP_GAIN, REP_FLOOR, REP_CAP } from '../game/reputation.js';
+import { FRESH_MS, REMARK_EVERY, REMARK_RANGE } from '../game/memory.js';
+import { HOLD_TICKS } from '../game/npclife.js';
+import {
+  STREAK_STEP, STREAK_TIERS, STREAK_XP_STEP, STREAK_GAP_TICKS, LUCKY_RATE, LUCKY_STREAK_BONUS,
+  CONTRACT_COUNT as GATHER_CONTRACTS, CONTRACT_STREAK_STEP, CONTRACT_SKILLS,
+} from '../game/gathering.js';
+import { CAST_TICKS as TP_CAST_TICKS, TOWN_COOLDOWN_TICKS, COMBAT_LOCK_TICKS, TOWN_KEY, GRAVE_KEY } from '../game/teleports.js';
+import { REWARD_COINS_EACH, REWARD_COINS_MIN, REWARD_COINS_MAX, REWARD_LAMPS } from '../game/discovery.js';
 
 // ---------------- Little helpers for the numbers ----------------
 const pct = (x, dp = 0) => `${(Math.round(x * 100 * 10 ** dp) / 10 ** dp).toLocaleString('en-GB')}%`;
@@ -71,6 +86,7 @@ const mins = (ms) => {
   const m = ms / 60000;
   return m >= 60 ? `${Math.round(m / 6) / 10} hours` : `${Math.round(m)} minutes`;
 };
+const sec = (ticks) => secs(ticks).replace(/^about /, '');   // "every 1.8 seconds", not "every about 1.8 seconds"
 const oneIn = (p) => (p <= 0 ? '-' : p >= 0.1 ? pct(p) : `1 in ${num(Math.round(1 / p))}`);
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const weaponName = (t) => cap(WEAPON_TYPE_NAMES[t] || t);
@@ -255,6 +271,39 @@ export function regionQuestRows() {
 export function clueRows() {
   const from = { easy: 1, medium: stretchLevel(20), hard: stretchLevel(45) };
   return Object.entries(CLUE_TIERS).map(([k, t]) => [cap(k), `${num(from[k])}+`, num(t.steps), num(t.rolls)]);
+}
+
+/** The bosses that use one kind of mechanic, by name. */
+export const mechanicBosses = (kind) => Object.entries(BOSS_MECHANICS).filter(([, m]) => m.type === kind).map(([id]) => getNpc(id).name).sort();
+
+/** The new species and bosses of the bestiary expansion, by region. */
+export function bestiaryRows() {
+  const by = new Map();
+  for (const s of BESTIARY_SPECIES) { const e = by.get(s.zone) || { n: 0, b: 0 }; e.n++; by.set(s.zone, e); }
+  for (const b of BESTIARY_BOSSES) { const e = by.get(b.zone) || { n: 0, b: 0 }; e.b++; by.set(b.zone, e); }
+  return [...by].map(([z, e]) => [z, num(e.n), num(e.b)]);
+}
+
+/** The main story's chapters: number, title, regions, the title it gives. */
+export function storyChapterRows() {
+  return STORY_CHAPTERS.map((c, i) => [num(i + 1), c.title, c.regions.join(', '), c.reward.title]);
+}
+
+/** Region reputation ranks. */
+export function repRankRows() {
+  return REP_RANKS.map((r) => [r.name, Number.isFinite(r.min) ? num(r.min) : 'below 0', r.discount > 0 ? `${pct(r.discount)} off` : r.discount < 0 ? `${pct(-r.discount)} more` : '-', r.title ? `${r.title} …` : '-']);
+}
+
+/** What raises (and lowers) region reputation. */
+export function repGainRows() {
+  const NAME = { kill: 'A monster killed there', slayerKill: 'A Slayer task kill there', champion: 'A champion', boss: 'A boss', regionQuest: 'Its region quest line', quest: 'A story quest there',
+    worldEvent: 'A world event there', bounty: 'A daily bounty there', goodChoice: 'A good choice there', evilChoice: 'An evil choice there' };
+  return Object.entries(REP_GAIN).map(([k, v]) => [NAME[k] || k, `${v > 0 ? '+' : ''}${num(v)}`]);
+}
+
+/** Alignment titles by karma. */
+export function alignmentRows() {
+  return ALIGN_TIERS.map((t) => [t.title, t.min != null ? `${num(t.min)} or more` : `${num(t.max)} or less`]);
 }
 
 const STAT_ROWS = () => SKILLS.filter((s) => !s.hidden).map((s) => [`${s.icon} ${s.name}`, s.desc]);
@@ -558,6 +607,58 @@ export const CHAPTERS = [
         ],
         see: ['monster-ranks', 'pest-control'],
       },
+      {
+        id: 'bestiary-expansion', title: 'New creatures of the island',
+        summary: `${BESTIARY_SPECIES.length} newer species in ${BESTIARY_FORMS.length} forms each, and ${BESTIARY_BOSSES.length} more bosses.`,
+        body: [
+          `The island's wild side keeps growing: **${BESTIARY_SPECIES.length} newer species**, each in ${BESTIARY_FORMS.length} forms (${BESTIARY_FORMS.map((f) => f.p || 'plain').join(', ')}), and **${BESTIARY_BOSSES.length} newer bosses**, spread over every region and level band. Many are real Singapore wildlife (plantain squirrels, junglefowl, toman snakeheads, fiddler crabs); others come from old kampong stories.`,
+          () => ({ table: { head: ['Region', 'New species', 'New bosses'], rows: bestiaryRows() } }),
+          'Each new species has a themed extra drop on top of its level\'s usual loot, and its own Slayer task name. Each new boss has a signature move, a [[boss-mechanics|mechanic]] and a signature weapon, like the older bosses.',
+          { tip: 'Look them up in the Monster Codex: an undiscovered one shows as a silhouette with its level and where it lives, so you can go hunting.' },
+        ],
+        see: ['monster-ranks', 'codex-mastery', 'discoveries'],
+      },
+      {
+        id: 'mech-shield', title: 'Mechanic: style shields',
+        summary: 'A coloured shield only one combat style can break.',
+        body: [
+          `A boss with a **style shield** throws up a coloured barrier: red for melee, green for ranged, purple for magic. Hits of the right style break it; hits of any other style do only ${pct(SHIELD_WRONG)} to it.`,
+          `Break it within ${secs(SHIELD_TICKS)} and the boss is **exposed**: it takes x${EXPOSED_MULT} damage for ${secs(EXPOSED_TICKS)}. Leave it standing and it bursts for ${pct(SHIELD_BURST)} of your life.`,
+          'Some shields cycle through two or three styles. A class with a secondary weapon of another style, or a friend of another style, makes these fights much easier.',
+          () => `Bosses with a style shield: ${mechanicBosses('shield').join(', ')}.`,
+        ],
+        see: ['boss-mechanics', 'classes'],
+      },
+      {
+        id: 'mech-circle', title: 'Mechanic: safe circles',
+        summary: 'Red everywhere: stand in the green circle.',
+        body: [
+          `A boss with a **safe circle** paints the ground round you red, all but one small green circle. You have ${secs(CIRCLE_TICKS)} to step into it before the blast lands.`,
+          'Auto battle\'s dodge setting (if you leave it on) moves you off red ground for you, into the circle too.',
+          () => `Bosses with a safe circle: ${mechanicBosses('circle').join(', ')}.`,
+        ],
+        see: ['boss-mechanics', 'auto-battle'],
+      },
+      {
+        id: 'mech-adds', title: 'Mechanic: healing adds',
+        summary: 'Little helpers that mend the boss: kill them first.',
+        body: [
+          `A boss with **healing adds** calls a few small helpers. Each mends ${pct(HEAL_FRAC, 1)} of the boss's life every ${sec(HEAL_EVERY)}, up to ${pct(HEAL_CAP)} in all, and fades after ${sec(ADDS_TICKS)} if you leave it.`,
+          'They have little life: switch to them, then go back to the boss. Auto battle turns on them by itself.',
+          () => `Bosses with healing adds: ${mechanicBosses('adds').join(', ')}.`,
+        ],
+        see: ['boss-mechanics', 'auto-battle'],
+      },
+      {
+        id: 'mech-cast', title: 'Mechanic: interruptible casts',
+        summary: 'A long cast bar: break it with a skill or special attack.',
+        body: [
+          `A boss with an **interruptible cast** starts a cast bar that fills in ${sec(CAST_TICKS)}. Any skill or special attack stops it. If it lands it takes ${pct(CAST_HIT)} of your life (never all of it).`,
+          'Keep a skill ready for the cast: auto battle uses one on it while you leave its skills on.',
+          () => `Bosses with an interruptible cast: ${mechanicBosses('cast').join(', ')}.`,
+        ],
+        see: ['boss-mechanics', 'abilities'],
+      },
     ],
   },
   {
@@ -780,6 +881,61 @@ export const CHAPTERS = [
         ].filter(Boolean),
         see: ['skill-unlocks', 'golden-hours'],
       })),
+      {
+        id: 'gathering-streaks', title: 'Gathering streaks',
+        summary: `Gather on and on for up to +${pct(STREAK_TIERS * STREAK_XP_STEP)} XP.`,
+        body: [
+          `Every successful gather in the same skill adds to a **streak**. Each ${STREAK_STEP} in a row adds +${pct(STREAK_XP_STEP)} XP in that skill, up to ${STREAK_TIERS} steps (+${pct(STREAK_TIERS * STREAK_XP_STEP)}), and makes [[lucky-finds]] a little likelier.`,
+          `Change skill, or go ${secs(STREAK_GAP_TICKS)} without a catch, and the streak starts again: long enough to walk to the next tree, not long enough for a trip to the bank.`,
+        ],
+        see: ['lucky-finds', 'resource-zones', 'auto-gather'],
+      },
+      {
+        id: 'lucky-finds', title: 'Lucky finds',
+        summary: `About 1 gather in ${num(LUCKY_RATE)} turns up a little cache.`,
+        body: [
+          `Any Woodcutting, Mining, Fishing or Hunter gather has a 1 in ${num(LUCKY_RATE)} chance of a **lucky find**, ${pct(LUCKY_STREAK_BONUS)} likelier for each step of your [[gathering-streaks|streak]].`,
+          { list: [
+            'Coins (more at higher-level nodes).',
+            "The skill's own rare find: a bird's nest from trees, a gem from rocks, a pearl from fishing, a bundle of feathers from Hunter.",
+            'A burst of XP, about five gathers\' worth.',
+          ] },
+          'A sparkle and a banner tell you when one turns up.',
+        ],
+        see: ['gathering-streaks', 'collection-log'],
+      },
+      {
+        id: 'skilling-contracts', title: 'Daily skilling contracts',
+        summary: `${GATHER_CONTRACTS} gathering jobs a day from Cikgu Surya.`,
+        body: [
+          () => `Cikgu Surya in Kampong Glam hands out **${GATHER_CONTRACTS} skilling contracts** a day, each in a different skill from ${CONTRACT_SKILLS.map((s) => SKILL_BY_ID[s]?.name || s).join(', ')}: "gather 25 to 50 times at one kind of node", picked from the best nodes you can use.`,
+          `Each pays coins and XP the moment it is done. Clear all ${GATHER_CONTRACTS} on back-to-back days to build a streak worth +${pct(CONTRACT_STREAK_STEP)} pay a day, up to +100%.`,
+        ],
+        see: ['bounties', 'resource-zones'],
+      },
+      {
+        id: 'resource-zones', title: 'Resource zones',
+        summary: 'Named places packed with one skill\'s nodes.',
+        body: [
+          'A few places are packed with one life skill\'s nodes, laid out in a tidy grid with a signpost in the middle: somewhere worth settling in to train. Walking in tells you what it holds and the levels it wants, and the world map labels each one.',
+          { list: [
+            '**Ubin Granite Quarry** (Mining) and **Tekong Deep Mine** (Mining).',
+            '**Jurong Timberland** (Woodcutting) and **Coney Old-Growth Woods** (Woodcutting).',
+            '**Changi Fishing Pier** (Fishing).',
+            '**Buloh Hunting Grounds** (Hunter).',
+          ] },
+          'A working ground is **calm**: the monsters camped beside it do not attack on sight (you can still fight them). Each one you walk into counts as a [[discoveries|discovery]].',
+        ],
+        see: ['gathering-streaks', 'skilling-contracts', 'auto-gather'],
+      },
+      {
+        id: 'do-all', title: 'Do all at a station',
+        summary: 'Smelt, cook, fletch or brew everything you can in one go.',
+        body: [
+          '**Do all** at a crafting station works through every recipe you can make there, best first, one after another, until nothing is left you can make: smelt all your ore, cook all your fish, fletch all your logs, brew all your herbs, smith all your bars, craft all your gems and clay.',
+        ],
+        see: ['skill-chains', 'auto-gather'],
+      },
     ],
   },
   {
@@ -895,6 +1051,98 @@ export const CHAPTERS = [
     ],
   },
   {
+    id: 'story-ch', title: 'The story and the island\'s people', icon: '📕',
+    articles: [
+      {
+        id: 'main-story', title: `The main story: ${STORY_NAME}`,
+        summary: `${STORY_CHAPTERS.length} chapters, from Kampong Glam to the edge of the Rift.`,
+        body: [
+          `Something is tearing the Shadow Rift open. **${STORY_NAME}** ties the region quest lines and a few story quests into one journey across the island, in ${STORY_CHAPTERS.length} chapters played in order. A chapter is done when all its quests are, however you finished them, so one can open already complete.`,
+          'Opening a chapter plays its **scene** (the speaker comes to you, or a messenger runs up with a letter when they are far away); finishing one pays coins, an item, a title and a badge, and gives the chapter\'s lore page. Replay any scene from the Story page of the Journal.',
+          () => ({ table: { head: ['Chapter', 'Title', 'Where', 'Title earned'], rows: storyChapterRows() } }),
+          { tip: 'Scenes never interrupt auto battle or auto quest (their lines go to the chat instead), and never start mid-fight.' },
+        ],
+        see: ['story-events', 'lore-pages', 'region-quests'],
+      },
+      {
+        id: 'story-events', title: 'Story events: raids, ransacks and messengers',
+        summary: 'Small happenings in the world as the quest lines move on.',
+        body: [
+          'As a region\'s quest line moves on, little story events happen near its quest giver:',
+          { list: [
+            `**Ransack**: when a line begins, the giver\'s stall has been turned over. Tidy it up (it packs itself away after ${mins(RANSACK_TICKS * TICK_MS)}).`,
+            `**Raid**: when a line reaches its named foe, ${RAIDERS} of the foe\'s gang raid the giver\'s patch for up to ${mins(RAID_TICKS * TICK_MS)}. Drive them off.`,
+            '**Messenger**: when a chapter opens far from its speaker, a runner brings you the letter.',
+          ] },
+          'One runs at a time, and everything an event puts in the world is taken away again when it ends, when you fall, or when you reload.',
+        ],
+        see: ['main-story', 'region-quests'],
+      },
+      {
+        id: 'lore-pages', title: 'Lore pages',
+        summary: `${LORE.length} pages of the island\'s story to collect.`,
+        body: [
+          `There are **${LORE.length} lore pages** in ${LORE_SETS.length} sets: two for each region, and one for each chapter of the main story.`,
+          { list: [
+            `A region\'s **drop page**: any kill in that region may turn it up (about 1 in ${num(Math.round(1000 / LORE_DROP_PER_MIL))}, or 1 in ${num(Math.round(1000 / LORE_DROP_PER_MIL_BIG))} from a boss or champion).`,
+            "A region's **hidden page**: a glinting note somewhere near its quest giver. Read it to take the page.",
+            'A **chapter page**: each finished chapter of the main story gives its own.',
+          ] },
+          () => `Finishing a region's two pages wakes its **lore guardian**, a champion waiting by the hidden spot: beat it for coins and ${GUARDIAN_ITEM[1]} ${itemName(GUARDIAN_ITEM[0]).toLowerCase()}. Every chapter page together pays ${num(STORY_SET_REWARD.coins)} coins and the title "${STORY_SET_REWARD.title}".`,
+          'Each page you hold counts as a [[discoveries|discovery]].',
+        ],
+        see: ['main-story', 'discoveries'],
+      },
+      {
+        id: 'reputation', title: 'Region reputation',
+        summary: 'From Stranger to Legend in every region.',
+        body: [
+          `Every region keeps a meter of how well its people know you, from Stranger up to Legend (at most ${num(REP_CAP)} points). Evil choices made there can sink it as far as ${num(REP_FLOOR)}: Distrusted.`,
+          () => ({ table: { head: ['Rank', 'Points', 'Shop prices there', 'Title to wear'], rows: repRankRows() } }),
+          'What moves it:',
+          () => ({ table: { head: ['Deed', 'Points'], rows: repGainRows() } }),
+          'Known: the quest givers greet you as a regular. Friend: they share the local news, and shops there give you a discount. Hero and Legend: a title. The Regions page of the Journal shows every meter. An older save starts with credit for what it had already done there.',
+        ],
+        see: ['choices', 'npc-memory', 'region-quests'],
+      },
+      {
+        id: 'choices', title: 'Choices and their consequences',
+        summary: `${MORAL_EVENTS.length} moral choices, and how the world remembers them.`,
+        body: [
+          `Here and there someone needs you: a crying child with a purse, a hawker who gave too much change, a beaten bandit. There are **${MORAL_EVENTS.length}** of these moments across the island, and each has a **good** and an **evil** answer.`,
+          `A good answer gives karma towards good, often a little XP, and the **Blessed** buff: +${pct(BLESS_XP - 1)} combat XP for ${mins(BLESS_MS)} (a different thing from the [[prayers|Blessings]] you equip with Prayer). An evil answer pays coins and karma towards evil.`,
+          () => `Your choices, and the region quest lines you finish, leave **${CONSEQUENCES.length} lasting changes** in the world: new residents who set up a stall, ones who pack up and leave, shop prices that go up or down, and regions whose light turns a touch warmer or gloomier. The Regions journal lists the ones you have caused.`,
+          'Your karma sets your **alignment**:',
+          () => ({ table: { head: ['Title', 'Karma (good minus evil)'], rows: alignmentRows() } }),
+          'A Paragon glows gold; a Villain trails dark smoke, townsfolk are afraid of them, and the town guards may challenge them.',
+        ],
+        see: ['reputation', 'npc-memory'],
+      },
+      {
+        id: 'npc-memory', title: 'NPCs who remember you',
+        summary: 'Townsfolk talk about your latest big deeds.',
+        body: [
+          `People remember your latest big deeds: a boss or champion beaten, a quest finished, a world event won. For ${mins(FRESH_MS)} of play after each one, townsfolk mention it.`,
+          { list: [
+            `Now and then (at most every ${sec(REMARK_EVERY)} or so) someone within ${REMARK_RANGE} tiles passes a remark.`,
+            'Talk to someone and they greet you personally; quest givers in a region where you are Known or better have more to say.',
+            'A boss taunts you as the fight starts, and some remember you by name.',
+          ] },
+        ],
+        see: ['reputation', 'npc-routines'],
+      },
+      {
+        id: 'npc-routines', title: 'Townsfolk and their day',
+        summary: 'Stall keepers go home at night; neighbours stop for a chat.',
+        body: [
+          'Townsfolk and the region quest givers keep simple daily routines on the in-game clock: a stall keeper minds the stall by day and walks home at night, others run errands between two or three spots, and villagers potter about and stop for a chat with a neighbour.',
+          `Click someone and they stop and turn to you, waiting ${secs(HOLD_TICKS)} for you to arrive, so a routine never gets in the way of a shop, a bank or a quest.`,
+        ],
+        see: ['npc-memory', 'golden-hours'],
+      },
+    ],
+  },
+  {
     id: 'places-ch', title: 'Places', icon: '🗺️',
     articles: [
       {
@@ -940,6 +1188,20 @@ export const CHAPTERS = [
         ],
         see: ['upgrade-materials', 'death'],
       },
+      {
+        id: 'teleports', title: 'Town and Grave teleports',
+        summary: `Home to Kampong Glam (${TOWN_KEY}) or back to your gravestone (${GRAVE_KEY}).`,
+        body: [
+          'Two teleports are yours from the start, on the **Town** and **Grave** buttons:',
+          { keys: [[TOWN_KEY, 'Town: back to Kampong Glam'], [GRAVE_KEY, 'Grave: to your gravestone after a fall']] },
+          { list: [
+            `Each is a short cast: stand still for ${secs(TP_CAST_TICKS)} while the sparkles gather. Walking off, taking a hit or falling breaks it.`,
+            `Neither starts mid-fight (a monster after you, or a hit in the last ${sec(COMBAT_LOCK_TICKS)}): they are a way home, not an escape button.`,
+            `The Town teleport then recharges for ${mins(TOWN_COOLDOWN_TICKS * TICK_MS)}. The Grave teleport has no recharge of its own, and lands you beside the stone, which hands your things straight back.`,
+          ] },
+        ],
+        see: ['death', 'mrt'],
+      },
     ],
   },
   {
@@ -970,6 +1232,44 @@ export const CHAPTERS = [
           { tip: 'Clearing your browser\'s site data wipes the save on this device. Export a code, or use an account, to be safe.' },
         ],
         see: ['death'],
+      },
+    ],
+  },
+  {
+    id: 'codex-ch', title: 'The Codex and your discoveries', icon: '🔎',
+    articles: [
+      {
+        id: 'encyclopedia', title: 'Using the Codex',
+        summary: 'Monsters, items, places, this guide, and what suits you now.',
+        body: [
+          'The Codex window has sections, switched at its top:',
+          { list: [
+            '**Monsters**: every monster and boss (see [[codex-mastery]]).',
+            '**Items**: every item in the game. Its page says what it is, who drops it and how often, which nodes give it and in which regions, what makes it and what it makes, where it is sold and what it is worth, with a **Go** button to the nearest place to get one.',
+            '**Places**: every region, with its level band, monsters and bosses, resource zones, quest givers, shops, MRT stops, your reputation there, a small map, a "Did you know?" about the real place, and Go.',
+            '**Compendium**: this guide.',
+            '**For you**: where to train each life skill at your level (with a rough XP an hour), monsters your weapon is strong against, and gear you could wear and get now that beats what you have on.',
+            '**Search**: one box over monsters, items, places and this guide, your recent pages, and your [[discoveries]].',
+          ] },
+          'Names of monsters, items, skills and regions in the chat, in quest text and on Codex pages are **links**: tap one to open its page. An item in your bag or bank has an **Info** option too.',
+        ],
+        see: ['discoveries', 'codex-mastery'],
+      },
+      {
+        id: 'discoveries', title: 'Discoveries and their rewards',
+        summary: 'Fill in the silhouettes; finish a category for a reward.',
+        body: [
+          'Codex entries start as silhouettes and fill in as you find them:',
+          { list: [
+            'A creature or boss: once you defeat one.',
+            'An item: once one has been in your pack or bank.',
+            'A region: once you visit it. A resource zone: once you walk in.',
+            'A lore page: once you pick it up.',
+          ] },
+          `The Search section shows how far along each category is. Finish one and claim its reward there: ${num(REWARD_COINS_EACH)} coins for each entry in it (at least ${num(REWARD_COINS_MIN)}, at most ${num(REWARD_COINS_MAX)}) and ${REWARD_LAMPS} forager's lamps, each worth a burst of XP in a gathering skill.`,
+          'Items are split into shelves (ores, bars, gems, logs, food, gear and so on), each its own category, so every one has a goal in reach.',
+        ],
+        see: ['encyclopedia', 'collection-log', 'lore-pages'],
       },
     ],
   },

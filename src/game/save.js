@@ -94,6 +94,7 @@ export function snapshot(game) {
     gathering: game.gathering?.serialize(),   // daily skilling contracts (gathering.js)
     worldEvents: game.worldEvents?.serialize(),
     story: game.story?.serialize(),   // story chapters, lore pages, lore guardians (story.js)
+    discovery: game.discovery?.serialize(),   // encyclopedia discoveries (discovery.js)
     bowQuiverGiven: !!game.bowQuiverGiven,   // the one-off quiver for bows from before quivers (game._giveBowQuiver)
     playMs: Math.floor(game.playMs || 0),   // time played, shown when choosing between a cloud and a device save
     settings: { running: game.running, autoCfg: game.autoCfg, autoGather: game.autoGather, gatherPicks: [...(game.gatherPicks || [])], knowledgeStrikes: game.knowledgeStrikes, minimalHud: !!game.minimalHud,
@@ -420,6 +421,7 @@ function loadFields(game, data) {
   // World events' schedule and the weekly region challenge (older saves: none yet).
   game.worldEvents?.load(data.worldEvents);
   game.story?.load(data.story);   // the main story and lore pages (older saves: caught up from their quests)
+  game.discovery?.load(data.discovery);   // encyclopedia discoveries (older saves: from the bag, bank and Collection log)
   if (Array.isArray(data.settings?.gatherPicks)) game.gatherPicks = new Set(data.settings.gatherPicks.filter((id) => typeof id === 'string'));
   if (data.learning) game.learning.load(data.learning);
   if (data.settings?.knowledgeStrikes === false) game.knowledgeStrikes = false;

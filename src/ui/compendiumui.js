@@ -7,6 +7,8 @@
 // a single click listener on that wrapper, so redrawing never stacks listeners
 // on the shared modal body, and the page builders can run in the tests
 // without a DOM.
+import { REGION_LINES } from '../data/regionQuests.js';
+import { findLinks } from '../game/encyclopedia.js';
 import {
   CHAPTERS, ARTICLE_BY_ID, CHAPTER_BY_ID, articleBlocks, relatedOf, searchArticles,
 } from '../data/compendium.js';
@@ -18,9 +20,21 @@ export function defaultCompendiumState() {
   return { query: '', id: null, homeScroll: 0 };
 }
 
-/** Marked-up text as HTML: **bold**, *italic*, and [[id]] / [[id|words]] links. */
+// Region names for the links in plain text (the region quest lines cover every
+// region with people in it; the two wild ones have none).
+const REGION_NAMES = [...REGION_LINES.map((l) => l.region), 'The Wilderness', 'Pulau Hantu'];
+/** Plain words with the names of monsters, items, skills and regions linked
+ *  to their encyclopedia entries (links.js opens them). */
+function linkWords(text) {
+  try {
+    return findLinks(text, REGION_NAMES).map((r) => (r.link ? `<span class="ency-link" role="button" tabindex="0" data-ency="${r.link.kind}:${esc(r.link.id)}">${esc(r.text)}</span>` : esc(r.text))).join('');
+  } catch { return esc(text); }
+}
+
+/** Marked-up text as HTML: **bold**, *italic*, and [[id]] / [[id|words]] links.
+ *  Names in the plain words between the markup link to their entries. */
 export function markupHTML(text) {
-  return esc(text)
+  return String(text ?? '').split(/(\[\[[^\]]+\]\]|\*\*[^*]+\*\*|\*[^*]+\*)/).map((part, i) => (i % 2 ? esc(part) : linkWords(part))).join('')
     .replace(/\[\[([a-z0-9-]+)(?:\|([^\]]+))?\]\]/g, (_, id, label) => {
       const a = ARTICLE_BY_ID[id];
       return `<button type="button" class="cp-link" data-article="${id}">${label || esc(a?.title || id)}</button>`;
@@ -48,10 +62,17 @@ export function blockHTML(b) {
   return '';
 }
 
-/** The Monsters | Compendium switch at the top of the Codex window. */
+// The Codex window's sections, in the switch's order (the encyclopedia's own
+// sections are drawn by encyclopediaui.js).
+export const CODEX_VIEWS = [
+  ['monsters', '🐾 Monsters'], ['items', '🎒 Items'], ['places', '🗺️ Places'],
+  ['compendium', '📖 Compendium'], ['foryou', '✨ For you'], ['search', '🔎 Search'],
+];
+
+/** The section switch at the top of the Codex window. */
 export function codexSwitchHTML(view = 'monsters') {
   const tab = (id, label) => `<button type="button" role="tab" class="cx-view${view === id ? ' active' : ''}" data-view="${id}" aria-selected="${view === id}">${label}</button>`;
-  return `<div class="cx-switch" role="tablist" aria-label="Codex section">${tab('monsters', '🐾 Monsters')}${tab('compendium', '📖 Compendium')}</div>`;
+  return `<div class="cx-switch" role="tablist" aria-label="Codex section">${CODEX_VIEWS.map(([id, label]) => tab(id, label)).join('')}</div>`;
 }
 
 const rowHTML = (a, sub = a.summary) => `<button type="button" class="cp-row" data-article="${a.id}"><b>${esc(a.title)}</b><span>${esc(sub)}</span></button>`;

@@ -62,6 +62,8 @@ import { clearSave, suppressSaves, exportSaveCode, importSaveCode } from '../gam
 import { statSheet } from '../game/statsheet.js';
 import { statsPanelHTML } from './statspanel.js';
 import { openCodex, monsterAtScreen, openCompendium, addCompendiumButton } from './codexui.js';
+import { setLinkedText, linkHTML } from './links.js';   // names that open their encyclopedia entry
+import { openEntry } from './encyclopediaui.js';
 import { openPestOfficer, contractTrackerRows, stewardLineHTML, cullingInvOptions } from './cullingui.js';
 import { eventsPanelHTML, wireEventsPanel, eventTrackerRows, drawEventMarker } from './worldeventsui.js';
 import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG, abilityIconHTML, spellIconHTML } from '../render/icons.js';
@@ -948,7 +950,7 @@ export class UI {
     if (this.chatMessages.length > 120) this.chatMessages.shift();
     const div = document.createElement('div');
     div.className = `msg ${cls}`;
-    div.textContent = text;
+    setLinkedText(div, this.game, text);
     div.dataset.cls = cls;
     this.el.chatLog.appendChild(div);
     while (this.el.chatLog.childElementCount > 120) this.el.chatLog.removeChild(this.el.chatLog.firstChild);
@@ -1141,6 +1143,7 @@ export class UI {
       opts.push({ label: 'Offer at shrine', target: item.name, fn: () => this.openOfferingShrine(s.id) });
     }
     opts.push({ label: 'Drop', target: item.name, fn: () => this.game.dropItem(i) });
+    opts.push({ label: 'Info', target: item.name, fn: () => openEntry(this, 'item', s.id) });   // its encyclopedia page
     opts.push({ label: 'Examine', target: item.name, fn: () => this.game.msg(item.examine, 'system') });
     return opts;
   }
@@ -2968,9 +2971,9 @@ export class UI {
       const guide = game.questGuide(d.id);
       const canGo = guide.kind !== 'none';
       const tp = canRegionTeleport(game, d.id);   // a finished region quest's teleport
-      const next = st !== 'done' && guide.text ? `<span class="q-next">${canGo ? '&#10148; ' : ''}${escapeHtml(guide.text)}</span>` : '';
+      const next = st !== 'done' && guide.text ? `<span class="q-next">${canGo ? '&#10148; ' : ''}${linkHTML(game, guide.text)}</span>` : '';
       html += `<div class="quest-row${canGo ? ' can-go' : ''}" data-quest="${d.id}"><div class="q-top"><b>${escapeHtml(d.name)}</b>${status(st)}</div>` +
-        `<span class="q-desc">${escapeHtml(d.desc)}${prog ? ` <span class="q-prog">(${escapeHtml(prog)})</span>` : ''}</span>` +
+        `<span class="q-desc">${linkHTML(game, d.desc)}${prog ? ` <span class="q-prog">(${escapeHtml(prog)})</span>` : ''}</span>` +
         // The next step and its Go button share the card's foot, so Go never squeezes the text.
         (next || canGo || tp ? `<div class="q-foot">${next}` +
           (canGo ? `<button class="q-go" data-quest="${d.id}" title="Walk there and start on it">Go</button>` : '')
@@ -3443,6 +3446,7 @@ export class UI {
             { label: 'Withdraw 10', fn: () => this.game.withdraw(e.id, 10, q) },
             { label: 'Withdraw All', fn: () => this.game.withdraw(e.id, e.qty, q) },
             keepMenuItem(this, e.id),
+            { label: 'Info', fn: () => openEntry(this, 'item', e.id) },
           ],
           q,
         }));
