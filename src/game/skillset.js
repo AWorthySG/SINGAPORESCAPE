@@ -1,6 +1,6 @@
 import { SKILL_IDS, SKILL_BY_ID, startLevel } from '../data/skills.js';
 import { levelForXp, xpForLevel, maxLevelFor, maxXpFor, pastCapXpMult } from '../data/xp.js';
-import { XP_RATE } from '../config.js';
+import { XP_RATE, LIFE_XP_BOOST } from '../config.js';
 
 // Tracks XP per skill and derives levels. Emits 'xp' and 'levelup' on the bus.
 export class Skills {
@@ -27,7 +27,7 @@ export class Skills {
    *  Agility is left out: the Dancer's combat XP goes into it, so its courses
    *  and Marks of grace apply pastCapXpMult themselves (Game.resolveAgility). */
   lifeXpMult(id) {
-    return SKILL_BY_ID[id]?.group !== 'combat' && id !== 'agility' ? pastCapXpMult(this.level(id)) : 1;
+    return SKILL_BY_ID[id]?.group !== 'combat' && id !== 'agility' ? pastCapXpMult(this.level(id)) * LIFE_XP_BOOST : 1;
   }
 
   /** Add experience; fires events; returns number of levels gained. */
