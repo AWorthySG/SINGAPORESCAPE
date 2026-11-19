@@ -34,7 +34,7 @@ import {
   playerAttackVsNpc, npcAttackVsPlayer, OFFHAND_SHARE, rollAttack, rollGuaranteed, rollHit, combatXp, magicXp, killXp, DAMAGE_XP_SHARE, KILL_XP_SHARE,
   playerRangedVsNpc, combatXpRanged, playerMagicVsNpc, RANGED_STYLES,
   weaknessOf, WEAKNESS_BONUS, armourOf, armourMult, critChance, hitChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE,
-  playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX, RANGED_TYPE_DMG, combatLevelXpMult, CLASS_POWER } from './combat.js';
+  playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX, RANGED_TYPE_DMG, combatLevelXpMult, CLASS_POWER, OPEN_WOUNDS, openWoundStacks } from './combat.js';
 import { ABILITY_BY_ID, abilitiesFor, ADREN_PER_HIT, ADREN_PER_HURT, CLASS_ADRENALINE, EXECUTE_BELOW } from '../data/abilities.js';
 import { classPassiveMods, CLASS_SKILL } from '../data/classPassives.js';
 import { RACES, raceOf, matchup, RACE_BONUS, RACE_PENALTY } from '../data/races.js';
@@ -295,7 +295,7 @@ const CHAMPION_LOOT_KILLS = 30;
 // Elder and Dire monsters (the tougher ranks of the common species) are worth
 // more loot: their drop table and rare-table chances roll this many times.
 // Ancient, the rank above Dire, matches Dire so the strongest never drops less.
-export { CLASS_POWER };
+export { CLASS_POWER, OPEN_WOUNDS, openWoundStacks };
 export const RANK_LOOT_ROLLS = { Elder: 2, Dire: 3, Ancient: 3 };
 /** Loot rolls for a normal monster's rank (from its name: "Elder sea snake"). */
 export function rankLootRolls(def) {
@@ -2110,6 +2110,7 @@ export class Game {
     if (this.onSlayerTask(npc)) dmgM *= 1 + this.slayerBonus().dmg / 100;   // Slayer: hit task monsters harder
     dmgM *= Culling.masteryDamage(this, npc).mult;   // codex mastery of its species and race
     dmgM *= Mercs.merchantPower(this);   // the strongest class (see mercenary.js)
+    dmgM *= 1 + openWoundStacks(npc, this.tickCount) * OPEN_WOUNDS.per;   // a Brawler's Open Wounds on the foe
     dmgM *= CLASS_POWER;   // every class 20% stronger
     const sharedM = dmgM;   // what both hands share
     dmgM *= abM * gearM(gb);
@@ -2277,6 +2278,14 @@ export class Game {
 
   _applyPlayerHit(npc, dmg, opts = {}) {
     if (dmg > 0 && !opts.aoe) this._woundFoe(npc, dmg);   // daggers may poison, claws may make it bleed
+    // Brawler: each blow adds an Open Wound (more damage taken), up to 30 stacks.
+    if (dmg > 0 && this.jobClass === 'brawler') {
+      const now = this.playMs || 0, had = openWoundStacks(npc, this.tickCount);
+      const n = now >= (npc._openWoundNext || 0) ? Math.min(OPEN_WOUNDS.max, had + 1) : had;
+      if (n > had) npc._openWoundNext = now + OPEN_WOUNDS.everyMs;
+      npc.openWounds = n; npc.openWoundsAt = this.tickCount;   // any blow keeps the wounds open
+      if (n % 10 === 0 && npc._openWoundsSaid !== n) { npc._openWoundsSaid = n; this.addHitsplat(npc, 0, { text: `Open wounds ×${n}` }); }
+    }
     // A stunning class ability: the foe reels once the blow lands.
     if (this._abStun && dmg > 0) {
       const t = this._abStun; this._abStun = 0;
