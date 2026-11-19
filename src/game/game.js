@@ -6442,18 +6442,31 @@ export class Game {
       case 'bone_collector': return countBones(this.inventory) >= 10 ? npc('guide', 'Hand in to') : { kind: 'hunt', text: `Collect bones: ${countBones(this.inventory)}/10 (any kind of bones counts)` };
       case 'pest_control': return { kind: 'hunt', target: 'rat', text: `Slay rats: ${q.kills}/8` };
       case 'pillars': return !q.monument ? obj('shrine', 'Pray at the A-Worthy Monument') : !q.obelisk ? obj('mascot_statue', 'Rest at the Mascot Statue') : npc('guide', 'Hand in to');
-      case 'smith_apprentice':
-        if (inv('steel_bar') >= 8) return npc('guide', 'Hand in to');
-        if (inv('iron_ore') && inv('coal') >= 2) return obj('furnace', 'Smelt steel bars at the furnace');
-        if (inv('iron_ore') >= 4) return obj('coal_rock', 'Mine coal for the steel');
-        return obj('iron_rock', `Mine iron ore (${inv('steel_bar')}/8 steel bars)`);
+      case 'smith_apprentice': {
+        // Gather the ore for every bar still owed before the furnace, then smelt
+        // them all in one visit (it used to head off as soon as it held one ore
+        // and two coal, walking rock -> furnace -> rock for each bar).
+        const left = 8 - inv('steel_bar');
+        if (left <= 0) return npc('guide', 'Hand in to');
+        if (inv('iron_ore') < left) return obj('iron_rock', `Mine iron ore (${inv('iron_ore')}/${left})`);
+        if (inv('coal') < left * 2) return obj('coal_rock', `Mine coal for the steel (${inv('coal')}/${left * 2})`);
+        return obj('furnace', `Smelt ${left} steel bar${left > 1 ? 's' : ''} at the furnace`);
+      }
       case 'island_defender': return this.bossKills - (q.startBoss || 0) >= 3 ? npc('guide', 'Hand in to') : { kind: 'boss', text: 'Defeat a boss' };
       case 'big_game_hunter': return this.totalKills - (q.startKills || 0) >= 50 ? npc('guide', 'Hand in to') : { kind: 'hunt', text: 'Defeat creatures' };
       case 'mystic_trial': return inv('death_rune') >= 25 ? npc('guide', 'Hand in to') : npc('mage', 'Buy death runes from');
-      case 'island_provisions':
-        if (inv('salmon') >= 10) return npc('guide', 'Hand in to');
-        if (inv('raw_salmon')) return obj('range', 'Cook your salmon on a range');
-        return obj('rod_spot', 'Catch salmon (Fishing 30, fishing rod)');
+      case 'island_provisions': {
+        // Catch every salmon still owed, then cook the lot in one go (a burnt
+        // one just means a few more to catch). Salmon come from the net spots
+        // (rod spots never had any), and only from Fishing 30.
+        const left = 10 - inv('salmon');
+        if (left <= 0) return npc('guide', 'Hand in to');
+        if (inv('raw_salmon') < left) {
+          if (this.skills.level('fishing') < 30) return { text: 'Reach Fishing 30 to catch salmon', kind: 'none' };
+          return obj('fishing_spot', `Net salmon (${inv('raw_salmon')}/${left})`);
+        }
+        return obj('range', `Cook your ${left} salmon on a range`);
+      }
       case 'champion': return this.bossKills - (q.startBoss || 0) >= 1 ? npc('guide', 'Hand in to') : { kind: 'boss', text: 'Final trial: defeat a boss' };
       default: return npc(giver);
     }
@@ -6614,7 +6627,8 @@ export class Game {
     if (p.action || p.isMoving) return;               // busy: wait until idle
     const name = id === 'slayer' ? 'Slayer' : QUESTS.find((d) => d.id === id)?.name || id;
     // (A Slayer task's text counts down every kill; keep the step steady while hunting.)
-    const step = id === 'slayer' ? `slayer:${g.kind}:${g.family || ''}` : `${id}:${g.text}`;
+    // (Nor does a gathering count like "(3/8)" make a new step on every ore.)
+    const step = id === 'slayer' ? `slayer:${g.kind}:${g.family || ''}` : `${id}:${g.objId || g.npcId || ''}:${g.text.replace(/\(\d+\/\d+/, '(')}`;
     if (step !== this._autoQuestStep) {
       this._autoQuestStep = step;
       this._autoQuestStuck = 0;
