@@ -9,7 +9,10 @@
 //   - well clear of every MRT station (MRT_CLEAR + 2 tiles);
 //   - outside the starter ring round the respawn point, where new players fight;
 //   - in the Wilderness, far enough east that nothing reaches across its border;
-//   - one tile in from the map edge, where the border fence goes up.
+//   - one tile in from the map edge, where the border fence goes up;
+//   - well away from the skilling grounds players stand at for hours (the endgame
+//     groves, veins, fishing spots, traps, chests, agility courses, farm patches),
+//     so a new pack never interrupts a gathering run.
 import { NPCS, BESTIARY_MONSTER_IDS, BESTIARY_BOSS_IDS } from './npcs.js';
 import { STATIONS } from './transport.js';
 
@@ -18,13 +21,21 @@ export const CAMPS_PER_SPECIES = 4;
 export const STARTER = { x: 58, y: 55, ring: 34 };
 const CAMP_GAP = 6;     // camps of one species keep at least this far apart
 const BOSS_GAP = 14;    // a new boss keeps this far from any other boss
+const SKILL_GAP = 13;   // and every spawn this far from a skilling ground (aggro 4 + wander 3 + room)
+export const SKILLING_GROUND = /^(obsidian_vein|orichalcum_rock|jade_seam|fallen_star|skyglass_crystal|eternal_lode|seraya_tree|meranti_tree|chengal_tree|starfall_banyan|moonlit_kapok|keramat_tree|pangolin_burrow|colugo_trap|tiger_trail|garuda_nest|naga_track|phoenix_roost|temple_vault|observatory_chest|smugglers_hold|rift_treasury|farm_patch|apothecary_table|fletching_bench|bird_snare|squirrel_trap|lizard_snare|mousedeer_trail|boar_pit|python_trap|crocodile_trap|hornbill_nest|qilin_trail|.*_spot|arowana_pool|(supertree_skyway|container_yard_run|canopy_course|cloud_steps|wraith_run|rift_leap)_.*)$/;
 
 /**
  * Place the new monsters and bosses. `ctx` is world.js's own helpers:
- * { zones, get, landable, occupied, key, npcSpawns, placeNpc, inTown, inNewTown, W, H, rand, mrtClear }.
+ * { zones, get, landable, occupied, key, npcSpawns, objects, placeNpc, inTown, inNewTown, W, H, rand, mrtClear }.
  */
 export function placeBestiary(ctx) {
-  const { zones, get, landable, occupied, key, npcSpawns, placeNpc, inTown, inNewTown, W, H, rand, mrtClear } = ctx;
+  const { zones, get, landable, occupied, key, npcSpawns, objects, placeNpc, inTown, inNewTown, W, H, rand, mrtClear } = ctx;
+  // Tiles within SKILL_GAP of a skilling ground, marked once.
+  const nearSkill = new Set();
+  for (const o of objects) {
+    if (!SKILLING_GROUND.test(o.objId)) continue;
+    for (let dy = -SKILL_GAP; dy <= SKILL_GAP; dy++) for (let dx = -SKILL_GAP; dx <= SKILL_GAP; dx++) nearSkill.add(key(o.x + dx, o.y + dy));
+  }
   const zoneByName = (name) => zones.find((z) => z.name === name);
   const WZ = zoneByName('The Wilderness');
   const taken = new Set(npcSpawns.map((s) => key(s.x, s.y)));
@@ -34,7 +45,7 @@ export function placeBestiary(ctx) {
   // Aggressive spawns in the Wilderness stay wander (3) + aggro range (4) + 1 tiles in from its west edge.
   const ok = (z, x, y, def) => x >= 1 && y >= 1 && x <= W - 2 && y <= H - 2 && inZ(z, x, y)
     && landable.includes(get(x, y)) && !occupied.has(key(x, y)) && !taken.has(key(x, y))
-    && !inTown(x, y) && !inNewTown(x, y) && !nearStation(x, y)
+    && !inTown(x, y) && !inNewTown(x, y) && !nearStation(x, y) && !nearSkill.has(key(x, y))
     && cheb(x, y, STARTER.x, STARTER.y) > STARTER.ring
     && !(z === WZ && def.aggressive && x < WZ.x0 + 8);
   const spotIn = (z, def, far = () => true) => {

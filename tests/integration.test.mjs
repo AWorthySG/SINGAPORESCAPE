@@ -5576,7 +5576,7 @@ test('secondary weapon types: a chakram bounces into two more foes', async () =>
 });
 
 test('secondary weapon types sit a little under each class\'s main type', async () => {
-  // Measured, not derived: a maxed fighter hits a huge dummy for 100 ticks with each
+  // Measured, not derived: a maxed fighter hits a huge dummy for 400 ticks with each
   // weapon (race matchups switched off), and the secondary must not beat the main
   // type by much, nor be a dead pick. Orbs once did twice an early staff's damage.
   const { NPC } = await import('../src/game/npc.js');
@@ -5598,8 +5598,12 @@ test('secondary weapon types sit a little under each class\'s main type', async 
     g.equipment.set('weapon', w); g.equipment.set('shield', dual ? w : null);
     const t = new NPC('goblin', g.player.x + 2, g.player.y, 0, {});
     t.hp = t.maxHp = 1e9; t.def = { ...t.def, aggressive: false, maxHit: 0 };
-    g.npcs = [t]; g.attackNpc(t);
-    step(g, 100);
+    g.npcs = [t];
+    // Reseed once the world is up too, so how many spawns it holds (each takes
+    // rolls as it is made) can't tip the comparison either way.
+    seedRandom();
+    g.attackNpc(t);
+    step(g, 400);
     return t.maxHp - t.hp;
   };
   const pairs = [

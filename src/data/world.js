@@ -1370,7 +1370,7 @@ export function buildWorld() {
   // ================= The bestiary expansion (Nov 2026) =================
   // 67 new species and 20 new bosses (bestiary.js), placed after everything
   // else on a stream of their own so nothing above moves (bestiaryPlace.js).
-  placeBestiary({ zones, get, landable: LANDABLE, occupied, key, npcSpawns, placeNpc, inTown, inNewTown, W, H,
+  placeBestiary({ zones, get, landable: LANDABLE, occupied, key, npcSpawns, objects, placeNpc, inTown, inNewTown, W, H,
     rand: mulberry32(20261126), mrtClear: MRT_CLEAR });
 
   // Thieving marks (Thieving 100 and 130): high rollers on the Marina Bay
