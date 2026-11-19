@@ -147,6 +147,15 @@ const SPECIES_ART = new Set([
   'archerfish', 'mud_lobster', 'milky_stork', 'runaway_cassowary', 'malayan_porcupine',
   'slag_slime', 'common_birdwing', 'oriental_whip_snake', 'changeable_lizard', 'hermit_crab',
   'spotted_seahorse', 'white_bellied_sea_eagle', 'rock_pigeon', 'kopitiam_cockroach', 'laksa_slime',
+  // Art packs 04 to 07.
+  'tunnel_centipede', 'mud_golem', 'bunker_bat', 'jembalang', 'spitting_cobra',
+  'supertree_vine', 'atlas_moth', 'crimson_sunbird', 'coney_island_cow', 'spotted_wood_owl',
+  'casuarina_dryad', 'banded_krait', 'giant_clam', 'hawksbill_turtle', 'duyung',
+  'rift_toyol', 'minyak_shade', 'void_eel', 'wild_arowana',
+  'asian_koel', 'hyacinth_tangle', 'dairy_goat', 'bullfrog', 'paddy_locust',
+  'binturong', 'orangutan', 'great_argus', 'rebar_golem',
+  'concrete_golem', 'excavator_crab', 'typhoon_wisp', 'majapahit_revenant', 'todak',
+  'keris_spirit', 'cloud_koi', 'jade_hare', 'phoenix_chick',
 ]);
 // Newer species without painted art yet borrow a close relative's art until
 // theirs arrives (remove the line when the file is added).
