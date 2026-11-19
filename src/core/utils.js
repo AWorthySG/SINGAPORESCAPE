@@ -48,6 +48,26 @@ export function shortNumber(n) {
   return sign + String(a);
 }
 
+/** Damage numbers on hitsplats: the full number under 1,000, then three
+ *  significant figures and K, M, B or T with trailing zeros dropped
+ *  (1,234 -> "1.23K", 54,000 -> "54K", 1,500,000 -> "1.5M"), so big hits
+ *  stay short and readable over a monster's head. */
+export function damageNumber(n) {
+  n = Math.round(Number(n) || 0);
+  const a = Math.abs(n);
+  if (a < 1000) return String(n);
+  const units = [[1e12, 'T'], [1e9, 'B'], [1e6, 'M'], [1e3, 'K']];
+  for (let i = 0; i < units.length; i++) {
+    const [u, s] = units[i];
+    if (a < u) continue;
+    const v = +(n / u).toPrecision(3);
+    // 999,999 rounds to "1000K": show it as the next unit up instead.
+    if (Math.abs(v) >= 1000 && i > 0) return `${+(n / units[i - 1][0]).toPrecision(3)}${units[i - 1][1]}`;
+    return `${v}${s}`;
+  }
+  return String(n);
+}
+
 /** Compact quantity label for item stacks (matches RS colours via class in UI). */
 export function stackLabel(n) {
   if (n < 100000) return { text: String(n), cls: '' };
