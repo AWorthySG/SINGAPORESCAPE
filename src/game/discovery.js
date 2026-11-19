@@ -78,7 +78,11 @@ export class Discovery {
     for (const page of Object.values(g.collection?.log || {})) for (const [id, n] of Object.entries(page || {})) if (n > 0 && ITEMS[id]) this.items.add(id);
   }
 
-  serialize() { return { items: [...this.items], places: [...this.places], claimed: [...this.claimed] }; }
+  // Sorted, so the same discoveries always save the same way (however they were found).
+  serialize() {
+    this.backfill();   // what you hold and wear counts even before the first tick
+    return { items: [...this.items].sort(), places: [...this.places].sort(), claimed: [...this.claimed].sort() };
+  }
 
   load(d) {
     const arr = (x) => (Array.isArray(x) ? x.filter((v) => typeof v === 'string') : []);
