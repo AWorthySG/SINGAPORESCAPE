@@ -6,6 +6,7 @@ import { assignLegacyQuality } from './quality.js';
 import { loadCulling } from './culling.js';
 import { serializePlay, loadPlay } from './playbalance.js';
 import { ensureHunterSnare } from './onboarding.js';
+import { serializeLiving, loadLiving } from './living.js';
 
 const VERSION = 1;
 // An unreadable save is copied here before a new game replaces it, so a bug or
@@ -75,6 +76,7 @@ export function snapshot(game) {
     culling: game.culling,
     karma: game.karma,
     moral: game.moral,
+    living: serializeLiving(game),   // region reputation and remembered deeds (living.js)
     attrs: game.attrs,
     clue: game.clue,
     specEnergy: game.specEnergy,
@@ -352,6 +354,7 @@ function loadFields(game, data) {
   { const m = data.moral && typeof data.moral === 'object' ? data.moral : {}, choices = {};
     if (m.choices && typeof m.choices === 'object') for (const [id, side] of Object.entries(m.choices)) if (side === 'good' || side === 'evil') choices[id] = side;
     game.moral = { choices, heroKills: Math.max(0, Math.floor(Number(m.heroKills) || 0)), giftDay: typeof m.giftDay === 'string' ? m.giftDay : null }; }
+  loadLiving(game, data.living);   // region reputation and remembered deeds (older saves have none)
   if (data.clue && typeof data.clue === 'object' && Array.isArray(data.clue.spots)) game.clue = data.clue;
   if (typeof data.specEnergy === 'number') game.specEnergy = Math.max(0, Math.min(100, data.specEnergy));
   game.running = data.settings?.running ?? game.running;

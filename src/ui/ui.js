@@ -4,6 +4,8 @@ import { classPerks, classPerkSummary } from '../game/classperks.js';
 import { LIFE_PERKS, LIFE_PERK_SKILLS, LIFE_PERK_FULL_LEVEL, lifePerkText, lifePerkNext } from '../game/lifeperks.js';
 import { unlockTipText } from '../game/skillunlocks.js';
 import { installHomeUI } from './homeui.js';
+import { installReputationUI } from './reputationui.js';
+import { personalise } from '../game/memory.js';
 import * as Mercs from '../game/mercenary.js';
 import { PERK_SKILLS, PERK_TRACKS, PERK_EVERY, trackPerks, rankName } from '../data/perks.js';
 import { heroArtSrc, portraitFor } from '../render/sprites.js';
@@ -339,6 +341,7 @@ export class UI {
     this.renderAbilities();
     this.renderTracker();
     installHomeUI(this);   // the kampong home's panel and its button by the map (homeui.js)
+    installReputationUI(this, PANEL_TABS, SUBTAB_LABELS);   // the Journal's Regions view and the region pill (reputationui.js)
   }
 
   // ---------------- Active-combat ability bar ----------------
@@ -3512,7 +3515,7 @@ export class UI {
       const shopGrid = document.createElement('div');
       shopGrid.className = 'item-grid shop';
       for (const entry of shop.stock) {
-        const price = Math.max(1, Math.round(getItem(entry.id).value * shop.buyMul * this.game.priceFactor().buy));
+        const price = Math.max(1, Math.round(getItem(entry.id).value * shop.buyMul * this.game.priceFactor(shopId).buy));
         const buyCell = this._cell(entry.id, entry.qty, {
           tooltip: `<b>${getItem(entry.id).name}</b><br>Buy: ${price} coins`,
           onClick: (e) => this.game.buyItem(shopId, entry.id, e?.shiftKey ? 10 : 1),
@@ -3848,7 +3851,7 @@ export class UI {
   openDialogue(npc) {
     if (npc.def.dialogue === 'slayer') return this.openSlayerMaster(npc);
     if (npc.def.dialogue === 'pest') return openPestOfficer(this, npc);   // Pest Control contracts (cullingui.js)
-    const tree = npc.def.moral ? this._moralTree(npc.def.moral) : npc.def.dialogue === 'region' ? regionDialogue(this.game, npc) : getDialogue(npc.def.dialogue);
+    const tree = personalise(this.game, npc, npc.def.moral ? this._moralTree(npc.def.moral) : npc.def.dialogue === 'region' ? regionDialogue(this.game, npc) : getDialogue(npc.def.dialogue));   // memory.js
     if (!tree) { this.game.msg(`${npc.name} has nothing to say.`); return; }
     const show = (nodeId) => {
       const node = tree[nodeId];
