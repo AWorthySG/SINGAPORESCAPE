@@ -28,7 +28,8 @@ export function regionsPanelHTML(game) {
     html += `<div class="rep-row rank-${r.id}${seen ? '' : ' dim'}${here ? ' here' : ''}" style="--rk:${r.colour}">`
       + `<img class="rep-badge" src="${badgeSrc(region)}" alt="" loading="lazy">`
       + '<div class="rep-main">'
-      + `<div class="rep-top"><b>${esc(region)}</b>${here ? '<span class="rep-here">You are here</span>' : ''}<span class="rep-chip">${esc(r.name)}</span></div>`;
+      + `<div class="rep-top"><b>${esc(region)}</b><span class="rep-chip">${esc(r.name)}</span></div>`
+      + (here ? '<div class="rep-here">You are here</div>' : '');
     if (!seen) html += '<div class="rep-next">Not visited yet.</div>';
     else {
       html += `<div class="rep-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${prog ? Math.round(prog.frac * 100) : 100}"><i style="width:${prog ? Math.round(prog.frac * 100) : 100}%"></i></div>`
@@ -96,6 +97,7 @@ export function installReputationUI(ui, PANEL_TABS, SUBTAB_LABELS) {
     if (name === last) return;
     const first = last === null;
     last = name;
+    render();   // "You are here" moves with you
     if (first || !REP_REGIONS.includes(name)) return;   // not on the first frame, nor between regions
     const r = rankFor(repPoints(game, name));
     pill.style.setProperty('--rk', r.colour);
