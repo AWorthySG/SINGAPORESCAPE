@@ -58,8 +58,23 @@ export function button(html, fn, cls = '') {
   return b;
 }
 
-/** The in-page confirmation (or the result of the last action), shown at the
- *  top of the window. `st.pending`: { html, warn, go: () => resultHtml, label }. */
+/** Redraw a window in place after a tap, keeping its scroll position. Every
+ *  tap rebuilds the window's contents, and a rebuilt list used to snap back
+ *  to the top, so on a phone the row just tapped (and the next one) vanished
+ *  from under the finger. A folded "How it works" note that was open stays
+ *  open, so the buttons below it don't jump either. */
+export function redraw(body, render) {
+  const at = body.scrollTop || 0;
+  const open = [...(body.querySelectorAll?.('details') || [])].map((d) => d.open);
+  render(body);
+  if (open.some(Boolean)) [...body.querySelectorAll('details')].forEach((d, i) => { if (open[i]) d.open = true; });
+  if (at) body.scrollTop = at;
+}
+
+/** The in-page confirmation (or the result of the last action), shown near the
+ *  top of the window. It sticks to the window's top or bottom edge as you
+ *  scroll (styles: .salvage-confirm), so Confirm and Cancel are always in reach
+ *  without moving the list. `st.pending`: { html, warn, go: () => resultHtml, label }. */
 export function confirmBox(body, st, rerender) {
   if (st.result) {
     const r = document.createElement('div');
@@ -79,7 +94,6 @@ export function confirmBox(body, st, rerender) {
   row.appendChild(button('Cancel', () => { st.pending = null; rerender(); }, 'salvage-cancel'));
   box.appendChild(row);
   body.appendChild(box);
-  try { box.scrollIntoView({ block: 'nearest' }); } catch {}
 }
 
 /** The bulk filters (remembered while the game runs). */
@@ -140,7 +154,7 @@ export function openSacrifice(ui, targetId, { src = null } = {}) {
     body.innerHTML = `<div class="gear-intro"><p><b>${type} mastery</b>: ${masteryLine(g, targetId)}. Sacrifice spare ${type.toLowerCase()} gear from your pack to add mastery: only gear of the same type counts. `
       + 'Higher level, better ranked and better quality pieces give more, and boss uniques a great deal. '
       + `Like materials, sacrifice takes gear up to <b>${MASTERY_RANKS[FEED_CAP_RANK].name}</b>; after that only battle trains it. Plain copies go before quality ones.</p></div>`;
-    confirmBox(body, st, () => render(body));
+    confirmBox(body, st, () => redraw(body, render));
     const list = document.createElement('div');
     list.className = 'gear-list feed-list salvage-list';
     const opts = sacrificeOptions(g, targetId).filter((o) => o.id !== targetId || o.count > 1 || EQUIP_SLOTS.some((s) => g.equipment.get(s) === targetId));
@@ -154,15 +168,15 @@ export function openSacrifice(ui, targetId, { src = null } = {}) {
         + `<div class="gear-stats">+${formatNumber(o.points)} mastery for the next (${formatNumber(o.total)} for all) · ${qualityText(o.qualities)}</div></div>`;
       const btns = document.createElement('div');
       btns.className = 'qty-btns';
-      btns.appendChild(button('1', () => { ask(o.id, 1); render(body); }, 'small'));
-      if (o.count > 1) btns.appendChild(button('All', () => { ask(o.id, o.count); render(body); }, 'small'));
+      btns.appendChild(button('1', () => { ask(o.id, 1); redraw(body, render); }, 'small'));
+      if (o.count > 1) btns.appendChild(button('All', () => { ask(o.id, o.count); redraw(body, render); }, 'small'));
       row.appendChild(btns);
       list.appendChild(row);
     }
     body.appendChild(list);
     if (!capped) {
       body.insertAdjacentHTML('beforeend', '<div class="ench-head salvage-head">Sacrifice all…</div>');
-      const { box, f } = filterBox(ui, () => render(body));
+      const { box, f } = filterBox(ui, () => redraw(body, render));
       body.appendChild(box);
       const pv = previewSacrificeAll(g, targetId, f);
       const go = button(pv.pieces ? `Sacrifice ${formatNumber(pv.pieces)} piece${pv.pieces > 1 ? 's' : ''}: +${formatNumber(pv.points)} mastery` : 'No spare gear matches', () => {
@@ -172,7 +186,7 @@ export function openSacrifice(ui, targetId, { src = null } = {}) {
           label: 'Sacrifice all',
           go: () => { const r = sacrificeAll(g, targetId, f); return `Sacrificed <b>${formatNumber(r.pieces)}</b> pieces: <b>+${formatNumber(r.points)} mastery</b>. Your ${type} mastery is now ${masteryLine(g, targetId)}.`; },
         };
-        render(body);
+        redraw(body, render);
       }, 'salvage-bulk');
       go.disabled = !pv.pieces;
       body.appendChild(go);
@@ -236,7 +250,7 @@ export function openDismantle(ui, focus = null) {
     body.innerHTML = '<div class="gear-intro"><p>Break spare gear down for <b>upgrade stones</b> (for enchanting), now and then a <b>refine scroll</b>, '
       + 'and from Legendary and Mythic pieces and boss uniques a chance of an <b>upgrade ward</b>. Higher level, better ranked and better quality gear gives more. '
       + `Plain copies go before quality ones. You have ${formatNumber(g.inventory.count('upgrade_stone'))} stones, ${formatNumber(g.inventory.count('refine_scroll'))} scrolls and ${formatNumber(g.inventory.count('upgrade_ward'))} wards.</p></div>`;
-    confirmBox(body, st, () => render(body));
+    confirmBox(body, st, () => redraw(body, render));
     const ids = [...new Set(g.inventory.slots.filter((s) => s && isSalvageable(s.id)).map((s) => s.id))];
     const list = document.createElement('div');
     list.className = 'gear-list feed-list salvage-list';
@@ -250,14 +264,14 @@ export function openDismantle(ui, focus = null) {
         + `<div class="gear-stats">Next: ${expectText(dismantleYield(id, qs[0]))} · ${qualityText(qs)}</div></div>`;
       const btns = document.createElement('div');
       btns.className = 'qty-btns';
-      btns.appendChild(button('1', () => { ask(id, 1); render(body); }, 'small'));
-      if (qs.length > 1) btns.appendChild(button('All', () => { ask(id, qs.length); render(body); }, 'small'));
+      btns.appendChild(button('1', () => { ask(id, 1); redraw(body, render); }, 'small'));
+      if (qs.length > 1) btns.appendChild(button('All', () => { ask(id, qs.length); redraw(body, render); }, 'small'));
       row.appendChild(btns);
       list.appendChild(row);
     }
     body.appendChild(list);
     body.insertAdjacentHTML('beforeend', '<div class="ench-head salvage-head">Dismantle all…</div>');
-    const { box, f } = filterBox(ui, () => render(body));
+    const { box, f } = filterBox(ui, () => redraw(body, render));
     body.appendChild(box);
     const picks = bulkPicks(g, f);
     const n = picks.reduce((t, p) => t + p.qualities.length, 0);
@@ -270,7 +284,7 @@ export function openDismantle(ui, focus = null) {
         label: 'Dismantle all',
         go: () => { const r = dismantleAll(g, f); return `Dismantled <b>${formatNumber(r.pieces)}</b> pieces: <b>${yieldText(r)}</b>.`; },
       };
-      render(body);
+      redraw(body, render);
     }, 'salvage-bulk');
     go.disabled = !n;
     body.appendChild(go);
