@@ -3502,8 +3502,7 @@ body.cb-safe #hp-orb.low::after {
 .inv-slot:has(> .q-epic), .item-cell:has(> .q-epic), .equip-slot:has(> .q-epic) { --qc: #8b4fe0; }
 .inv-slot:has(> .q-legendary), .item-cell:has(> .q-legendary), .equip-slot:has(> .q-legendary) { --qc: #d08a00; }
 .inv-slot:has(> .q-mythic), .item-cell:has(> .q-mythic), .equip-slot:has(> .q-mythic) { --qc: #d6336c; }
-/* ======================================================================
-   Easier interface (ui-declutter): the notification lane, slim tips, the
+/* ===============================================================   Easier interface (ui-declutter): the notification lane, slim tips, the
    foldable Objectives, the quick-use slot, the Interact caption and the
    half / full phone sheet. (Preludes here avoid the exact ones
    tests/layout.test.mjs reads.)
@@ -3604,4 +3603,145 @@ body.reduce-motion .nl-card { animation: none; }
 @media (max-width: 540px) and (pointer: coarse) {
   #sidepanel:not(.collapsed), #sidepanel.wide:not(.collapsed) { height: 50dvh; transition: height .18s ease-out; }
   #sidepanel.sheet-full:not(.collapsed), #sidepanel.wide.sheet-full:not(.collapsed) { height: 85dvh; }
+=======
+/* ==========================================================================
+   Compact boss bar and XP display (Claude, ui-boss-xp; src/ui/bossbar.js,
+   src/ui/xpdisplay.js). The battle bar is one slim card: a small portrait
+   inset at its left end, name + level and the mechanic badge on one row, the
+   life bar with its short read-out inside it, and a thin cast bar under it.
+   Its frame is coloured by threat. "body #boss-bar" outranks the older
+   boss bar rules above; the phone strip rules keep placing it.
+   ========================================================================== */
+body #boss-bar { gap: 8px; padding: 5px 10px 6px 5px; border-radius: 12px; width: min(400px, 64vw); align-items: center; }
+body #boss-bar.threat-easy, body #boss-bar.threat-easy.warn { border-color: var(--aw-grass, #3DAA5C); }
+body #boss-bar.threat-even, body #boss-bar.threat-even.warn { border-color: var(--aw-sun, #F5B82E); }
+body #boss-bar.threat-danger, body #boss-bar.threat-danger.warn { border-color: var(--aw-accent, #C0392B); }
+body #boss-bar #boss-bar-portrait {
+  width: 40px; height: 40px; margin: 0; border-radius: 9px; overflow: hidden; align-self: center;
+  border: 2px solid var(--aw-ink, #22304A); box-shadow: none; background: var(--aw-muted, #F5F0E6);
+}
+body #boss-bar #boss-bar-portrait .bp-img { border-radius: 0; background-size: 170%; }
+body #boss-bar #boss-bar-portrait .bp-badge { top: auto; bottom: 0; left: auto; right: 1px; transform: none; font-size: 11px; }
+body #boss-bar.normal #boss-bar-portrait { width: 30px; height: 30px; border-radius: 7px; border-width: 1.5px; }
+body #boss-bar.normal { width: min(300px, 56vw); padding: 4px 8px 5px 4px; }
+#boss-bar-head { display: flex; align-items: center; gap: 6px; min-width: 0; margin-bottom: 3px; }
+body #boss-bar #boss-bar-name {
+  flex: 1; min-width: 0; margin: 0; text-align: left; font-size: 12.5px; line-height: 1.2;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: none;
+}
+#boss-bar-name .bb-lvl { margin-left: 5px; font-size: 10.5px; font-weight: 800; color: var(--aw-text-sec, #6B6760); }
+body #boss-bar.normal #boss-bar-name { font-size: 11.5px; }
+#boss-bar-mech {
+  flex: none; display: inline-flex; align-items: center; gap: 3px; white-space: nowrap;
+  font-size: 10.5px; font-weight: 900; line-height: 1.35; color: #fff; background: var(--aw-ink, #22304A);
+  border: 1.5px solid var(--aw-ink, #22304A); border-radius: 999px; padding: 0 7px 0 5px;
+}
+#boss-bar-mech.hidden { display: none; }
+#boss-bar-mech i { font-style: normal; font-size: 11px; }
+#boss-bar-mech.mk-circle { background: var(--aw-grass-deep, #1F7A3D); }
+#boss-bar-mech.mk-adds { background: var(--aw-bloom-deep, #B32048); }
+#boss-bar-mech.mk-cast { background: var(--aw-sky-deep, #1F6FA8); }
+#boss-bar-mech.mk-hazard { background: var(--aw-accent, #C0392B); }
+body #boss-bar #boss-bar-track { height: 14px; border-radius: 7px; }
+body #boss-bar.normal #boss-bar-track { height: 12px; }
+#boss-bar-life {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 9.5px; font-weight: 900; line-height: 1; color: var(--aw-ink, #22304A); font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 1px #fff;
+}
+#boss-bar-cast { display: none; height: 4px; margin-top: 3px; border-radius: 3px; overflow: hidden; background: var(--aw-muted, #F5F0E6); box-shadow: inset 0 0 0 1px var(--aw-ink-faint, rgba(34,48,74,.28)); }
+#boss-bar-cast.on { display: block; }
+#boss-bar-cast i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--aw-sky, #5FAEE3), var(--aw-sky-deep, #1F6FA8)); }
+@keyframes bbCast { from { width: var(--bb-from, 0%); } to { width: 100%; } }
+body #boss-bar #boss-bar-info { text-align: left; font-size: 10px; margin: 3px 0 0; }
+body.reduce-motion #boss-bar.warn { animation: none; }
+/* Phones: the strip holds name, life and the cast bar; the foe read-out goes
+   (examine the portrait for it), and the objectives shrink under the bar. */
+@media (max-width: 540px), (max-height: 500px) {
+  body #boss-bar #boss-bar-info { display: none; }
+  body #boss-bar #boss-bar-portrait { width: 34px; height: 34px; }
+  body #boss-bar.normal #boss-bar-portrait { width: 28px; height: 28px; }
+  body #boss-bar #boss-bar-name { font-size: 11px; }
+  #boss-bar-mech { font-size: 9.5px; padding: 0 5px 0 4px; }
+}
+@media (max-width: 540px) and (orientation: portrait) {
+  body.boss-on #quest-tracker { font-size: 10px; max-height: 92px; overflow: hidden; }
+  body.boss-on #quest-tracker .trk-title { display: none; }
+  /* Under the minimap sit its caption and the row of orbs, then the panel
+     launcher at the edge: the XP counter goes below the orbs, left of it. */
+  body #xp-hud { top: calc(100% + 100px); right: 64px; }
+}
+
+/* XP display: the running counter and progress ring under the minimap. */
+#xp-hud {
+  position: absolute; top: calc(100% + 36px); right: 0; z-index: 22;   /* under the area caption */
+  display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
+  pointer-events: none; transition: opacity .4s ease;
+}
+#xp-hud.idle { opacity: 0; visibility: hidden; transition: opacity .6s ease, visibility 0s linear .6s; }
+.xph-row { display: flex; align-items: center; gap: 6px; }
+.xph-count {
+  display: flex; align-items: center; gap: 5px; white-space: nowrap; font-variant-numeric: tabular-nums;
+  font-size: 13px; font-weight: 900; color: var(--aw-text, #1C1B19); background: var(--aw-card, #fff);
+  border: 2px solid var(--aw-ink, #22304A); border-radius: 999px; padding: 2px 9px 2px 5px;
+  box-shadow: var(--shadow-sticker-sm); transition: opacity .5s ease;
+}
+.xph-skills { display: inline-flex; gap: 1px; }
+.xph-skills:empty { display: none; }
+.xph-skills img, .xph-skills svg { width: 16px; height: 16px; display: block; }
+#xp-hud.ring-only .xph-count, #xp-hud.per-skill .xph-count { opacity: 0; }
+.xph-ring {
+  position: relative; flex: none; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 50%;
+  display: grid; place-items: center; background: var(--aw-card, #fff); cursor: var(--cur-pointer);
+  box-shadow: 0 0 0 2px var(--aw-ink, #22304A), var(--shadow-sticker-sm); pointer-events: auto;
+}
+.xph-ring::before { content: ''; position: absolute; inset: -4px; }   /* a 44px tap area */
+.xph-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.xph-ring circle { fill: none; stroke-width: 3.5; }
+.xph-ring .bg { stroke: var(--aw-muted, #F5F0E6); }
+.xph-ring .fg { stroke: var(--aw-grass, #3DAA5C); stroke-linecap: round; transition: stroke-dashoffset .4s ease; }
+.xph-ic { position: relative; display: flex; }
+.xph-ic img, .xph-ic svg { width: 18px; height: 18px; display: block; }
+#xp-hud.ring-only .xph-ring { opacity: .85; }
+#xp-hud.no-ring .xph-ring { visibility: hidden; }
+.xph-ring.lvl, .xph-ring.lvl-still { box-shadow: 0 0 0 2px var(--aw-ink, #22304A), 0 0 10px 4px rgba(245,184,46,.75); }
+.xph-ring.lvl .fg, .xph-ring.lvl-still .fg { stroke: var(--aw-sun, #F5B82E); }
+.xph-ring.lvl { animation: xphLvl 1.4s ease-out; }
+@keyframes xphLvl {
+  0% { transform: scale(1); box-shadow: 0 0 0 2px var(--aw-ink, #22304A), 0 0 0 0 rgba(245,184,46,.9); }
+  30% { transform: scale(1.18); box-shadow: 0 0 0 2px var(--aw-ink, #22304A), 0 0 18px 8px rgba(245,184,46,.85); }
+  100% { transform: scale(1); box-shadow: 0 0 0 2px var(--aw-ink, #22304A), 0 0 10px 4px rgba(245,184,46,.75); }
+}
+.xph-tip {
+  background: var(--aw-card, #fff); color: var(--aw-text, #1C1B19); border: 2px solid var(--aw-ink, #22304A);
+  border-radius: 10px; box-shadow: var(--shadow-sticker-sm); padding: 4px 9px; font-size: 11.5px; line-height: 1.4;
+  text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.xph-tip.hidden { display: none; }
+.xph-pills { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.xph-pill {
+  display: flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 900; color: var(--aw-text, #1C1B19);
+  background: var(--aw-card, #fff); border: 1.5px solid var(--aw-ink, #22304A); border-radius: 999px; padding: 0 7px 0 4px;
+  animation: xphPill 2.2s ease-out forwards;
+}
+.xph-pill .xp-ic { display: flex; }
+.xph-pill img, .xph-pill svg { width: 14px; height: 14px; display: block; }
+@keyframes xphPill { 0% { opacity: 0; transform: translateY(-4px); } 10% { opacity: 1; transform: none; } 75% { opacity: 1; } 100% { opacity: 0; } }
+/* Level-up toasts: a short line at the left edge of the screen. */
+#xp-toasts { position: absolute; left: 10px; top: 40%; z-index: 24; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; pointer-events: none; }
+.xph-toast {
+  display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--aw-text, #1C1B19);
+  background: var(--aw-sun-bg, #FDF3DE); border: 2px solid var(--aw-ink, #22304A); border-left: 5px solid var(--aw-sun, #F5B82E);
+  border-radius: 10px; padding: 3px 10px 3px 6px; box-shadow: var(--shadow-sticker-sm);
+  animation: xphToast .25s ease-out; transition: opacity .3s ease, transform .3s ease;
+}
+.xph-toast b { font-weight: 900; }
+.xph-toast i { font-style: normal; font-weight: 900; color: var(--aw-sun-deep, #8A6205); }
+.xph-toast img, .xph-toast svg { width: 18px; height: 18px; display: block; }
+.xph-toast.out { opacity: 0; transform: translateX(-12px); }
+@keyframes xphToast { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
+@media (max-width: 540px) {
+  .xph-count { font-size: 12px; padding: 1px 8px 1px 4px; }
+  #xp-toasts { left: 8px; top: 36%; }
+  .xph-toast { font-size: 11.5px; }
 }
