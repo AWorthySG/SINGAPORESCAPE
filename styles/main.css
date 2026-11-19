@@ -3603,6 +3603,7 @@ body.reduce-motion .nl-card { animation: none; }
 @media (max-width: 540px) and (pointer: coarse) {
   #sidepanel:not(.collapsed), #sidepanel.wide:not(.collapsed) { height: 50dvh; transition: height .18s ease-out; }
   #sidepanel.sheet-full:not(.collapsed), #sidepanel.wide.sheet-full:not(.collapsed) { height: 85dvh; }
+}
 /* ==========================================================================
    Compact boss bar and XP display (Claude, ui-boss-xp; src/ui/bossbar.js,
    src/ui/xpdisplay.js). The battle bar is one slim card: a small portrait
@@ -3743,7 +3744,7 @@ body.reduce-motion #boss-bar.warn { animation: none; }
   .xph-count { font-size: 12px; padding: 1px 8px 1px 4px; }
   #xp-toasts { left: 8px; top: 36%; }
   .xph-toast { font-size: 11.5px; }
-=======
+}
 
 /* ---------- Compendium (compendiumui.js): the Codex window's game guide ---------- */
 #modal-window:has(.cp-wrap) { width: min(720px, 96vw); }
