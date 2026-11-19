@@ -58,7 +58,7 @@ import { TERRAIN, zoneLevel } from '../data/world.js';
 import { clearSave, suppressSaves, exportSaveCode, importSaveCode } from '../game/save.js';
 import { statSheet } from '../game/statsheet.js';
 import { statsPanelHTML } from './statspanel.js';
-import { openCodex, monsterAtScreen } from './codexui.js';
+import { openCodex, monsterAtScreen, openCompendium, addCompendiumButton } from './codexui.js';
 import { openPestOfficer, contractTrackerRows, stewardLineHTML, cullingInvOptions } from './cullingui.js';
 import { eventsPanelHTML, wireEventsPanel, eventTrackerRows, drawEventMarker } from './worldeventsui.js';
 import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG, abilityIconHTML, prayerIconHTML, spellIconHTML } from '../render/icons.js';
@@ -2599,6 +2599,7 @@ export class UI {
       else if (saved === null) this.game.msg('Saving is paused: reload the page to carry on.', 'system');
       else this.game.msg('Could not save: this browser\'s storage is full or blocked. Your progress is not being kept.', 'system');
     }); });
+    mk('Compendium: how the game works', () => openCompendium(this));
     // Account and cloud save (accountui.js fills this in).
     const acct = p.appendChild(document.createElement('div'));
     import('./accountui.js').then((m) => m.accountSettings(acct)).catch(() => {});
@@ -2988,6 +2989,7 @@ export class UI {
     for (const b of this.el.questPanel.querySelectorAll('.q-tp')) b.addEventListener('click', (e) => { e.stopPropagation(); regionTeleport(game, b.dataset.tp); });
     this.el.questPanel.querySelector('.q-auto')?.addEventListener('click', () => { game.toggleAutoQuest(); });
     wireEventsPanel(this, this.el.questPanel);
+    addCompendiumButton(this, this.el.questPanel);   // the game guide (compendiumui.js)
   }
 
   // ---------------- Achievements / collection log ----------------
@@ -3038,6 +3040,7 @@ export class UI {
     btn.addEventListener('click', () => this.openBestiary());
     panel.insertBefore(btn, panel.firstChild);
     addCollectionButton(this, panel);   // the Collection log and pets (collectionui.js)
+    addCompendiumButton(this, panel);   // the game guide, above them both
   }
 
   // ---------------- Bestiary / Monster Codex ----------------
