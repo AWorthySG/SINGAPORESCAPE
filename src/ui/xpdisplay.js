@@ -186,9 +186,11 @@ export class XpDisplay {
       el.classList.remove('idle', 'no-ring', 'ring-only');
       el.classList.add('ring-only');
       const r = this.parts.ring;
-      r.classList.remove('lvl'); void r.offsetWidth; r.classList.add('lvl');
+      // Reduce motion and low graphics: the ring just glows gold, no pulse.
+      const cls = this.game.reduceMotion || this.game.lowFx ? 'lvl-still' : 'lvl';
+      r.classList.remove('lvl', 'lvl-still'); void r.offsetWidth; r.classList.add(cls);
       clearTimeout(this._lvlTimer);
-      this._lvlTimer = setTimeout(() => r.classList.remove('lvl'), 1600);
+      this._lvlTimer = setTimeout(() => r.classList.remove('lvl', 'lvl-still'), 1600);
       clearTimeout(this._ringTimer);
       this._ringTimer = setTimeout(() => { if (!this._tipOpen) el.classList.add('idle', 'no-ring'); }, RING_LINGER_MS);
     }
