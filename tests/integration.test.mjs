@@ -7005,7 +7005,7 @@ test('mining always succeeds, and ticked rock kinds set auto gather’s round (k
       const before = g.inventory.count('copper_ore');
       resolveMine(g, { obj: rock });
       assert.equal(g.inventory.count('copper_ore'), before + 1, 'ore on the first swing');
-      assert.ok(rock.depleted);
+      assert.ok(!rock.depleted && rock.oresLeft >= 9 && rock.oresLeft <= 19, 'a rock holds 10-20 ores, not one');
     }
   } finally { Math.random = orig; }
   // Tick copper and tin: the round is exactly those, whatever you start on.

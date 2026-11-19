@@ -761,7 +761,12 @@ export const NODE_XP_TUNE = {
   // endgame ladders (each tier well ahead of the last at the same level) were
   // re-measured and lifted where they fell short (audit/tune, same-level runs).
   seraya_tree: 1.09, meranti_tree: 1.13, chengal_tree: 1.17, starfall_banyan: 1.15, moonlit_kapok: 1.15, keramat_tree: 1.18,
-  adamantite_rock: 1.21, runite_rock: 1.15, obsidian_vein: 1.16,
+  // Rocks now hold 10-20 ores each (skilling.js ROCK_ORES), so XP an hour follows
+  // XP a swing, not the walk between rocks: the mining ladder was re-measured and
+  // set so each tier still pays more an hour than the one below it (runite had
+  // jumped past the level 100+ rocks).
+  adamantite_rock: 1.02, runite_rock: 0.77, obsidian_vein: 2.4,
+  orichalcum_rock: 2.25, jade_seam: 2.75, fallen_star: 2.5, skyglass_crystal: 3.1, eternal_lode: 3.0,
   colugo_trap: 1.06, pangolin_burrow: 1.1,
 };
 // (Mithril, adamantite and obsidian dip below the rock before them only at their own
