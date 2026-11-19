@@ -7,6 +7,7 @@ import { loadCulling } from './culling.js';
 import { serializePlay, loadPlay } from './playbalance.js';
 import { ensureHunterSnare } from './onboarding.js';
 import { serializeLiving, loadLiving } from './living.js';
+import { serializeKeep, loadKeep } from './bankkeep.js';
 
 const VERSION = 1;
 // An unreadable save is copied here before a new game replaces it, so a bug or
@@ -100,6 +101,7 @@ export function snapshot(game) {
     farms: game.world.objects.filter((o) => o.def.type === 'farm' && o.crop).map((o) => ({ x: o.x, y: o.y, crop: o.crop, left: o.growLeft })),
     home: game.home?.serialize(),   // the kampong home (home.js)
     snareGiven: !!game.snareGiven,  // the one-off Hunter snare for older saves (onboarding.js)
+    bankKeep: serializeKeep(game),  // what the bank's Deposit loot leaves in the pack (bankkeep.js)
   };
 }
 
@@ -439,4 +441,5 @@ function loadFields(game, data) {
   // Hunter onboarding: a snare for characters that never got one, once per save.
   game.snareGiven = data.snareGiven === true;
   ensureHunterSnare(game);
+  loadKeep(game, data.bankKeep);   // older saves: an empty keep list
 }

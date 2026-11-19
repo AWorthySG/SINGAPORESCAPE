@@ -1,0 +1,50 @@
+/* Convenience touches: the "What next?" card and tracker row (src/ui/whatnextui.js),
+   the "Wear it" note, the bank's Deposit loot and kept-item pin (bankkeepui.js),
+   and what a level-up opened. Kept out of main.css, which is a shared hot spot. */
+
+/* ---- "What next?" in the Quest Journal ---- */
+.wn-head { color: var(--aw-accent, #C0392B); }
+.wn-card { margin-bottom: 8px; }
+.wn-row { border-left: 4px solid var(--aw-sun, #F2B33D); }
+.wn-row .q-foot { margin-top: 0; align-items: center; }
+.wn-row .wn-ic {
+  flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--aw-sun, #F2B33D); color: var(--aw-ink, #22304A); font-weight: 900; font-size: 12px;
+  border: 2px solid var(--aw-ink, #22304A);
+}
+.wn-row.wn-gear .wn-ic { background: #8fd18a; }
+.wn-row.wn-fight .wn-ic { background: #ffb3a7; }
+.wn-row .wn-text { flex: 1; min-width: 0; }
+.wn-row .wn-text b { display: block; }
+
+/* ---- The tracker's next-goal row: the only part of the tracker you can tap ---- */
+#quest-tracker .trk-next { pointer-events: auto; cursor: var(--cur-pointer, pointer); position: relative; }
+#quest-tracker .trk-next .trk-ic { color: var(--aw-accent, #C0392B); }
+#quest-tracker .trk-next-text {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700;
+}
+#quest-tracker .trk-go {
+  flex: none; margin-left: auto; padding: 0 8px; border-radius: 999px; font-size: 10px; font-weight: 900;
+  background: var(--aw-accent, #C0392B); color: #fff; border: 1.5px solid var(--aw-ink, #22304A); line-height: 16px;
+}
+/* A bigger target for a thumb than the row's text line. */
+#quest-tracker .trk-next::before { content: ""; position: absolute; inset: -4px -8px; }
+#quest-tracker.folded .trk-next { display: none; }
+
+/* ---- "Wear it" on an upgrade note ---- */
+.nl-card .nl-act {
+  margin-left: 6px; padding: 1px 10px; border-radius: 999px; font: inherit; font-size: 11.5px; font-weight: 900;
+  background: var(--aw-accent, #C0392B); color: #fff; border: 2px solid var(--aw-ink, #22304A); cursor: var(--cur-pointer, pointer);
+}
+
+/* ---- Bank: Deposit loot and the kept-item pin ---- */
+.bank-head .bank-deposit-loot { margin-left: auto; margin-right: 4px; background: linear-gradient(#3f7a3a, #2c5a28); }
+.bank-head .bank-deposit-loot:hover { background: linear-gradient(#4a8c44, #336a2e); }
+.item-cell.bank-kept { position: relative; }
+.item-cell.bank-kept::after {
+  content: "\1F4CC"; position: absolute; top: -3px; right: -3px; font-size: 11px; line-height: 1;
+  filter: drop-shadow(0 1px 0 rgba(0,0,0,0.35)); pointer-events: none;
+}
+
+/* ---- What a level-up opened, in its banner ---- */
+.nl-card .lvl-news { display: block; font-size: 11.5px; opacity: .85; }
