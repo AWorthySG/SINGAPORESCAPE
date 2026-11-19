@@ -2200,6 +2200,16 @@ body.boss-on #tip-toast { top: 132px; }
 .ench-choices .gear-tab { padding: 10px 14px; font-size: 14px; text-align: center; touch-action: manipulation; }
 .ench-choices .gear-tab:disabled { opacity: 0.45; cursor: not-allowed; }
 .ench-choices .ench-cancel { background: var(--aw-card); }
+/* The tag under each offer: how it compares with the piece's own lines, in
+   the verdict colours of the gear tooltip (.gt-verdict), on a white chip so
+   they read on the offer's dark button. */
+.ench-verdict {
+  display: block; width: fit-content; margin: 5px auto 0; padding: 1px 8px; border-radius: 999px;
+  font-size: 11.5px; font-weight: 900; background: #fff; color: var(--aw-text-sec);
+}
+.ench-verdict.better, .ench-verdict.new { color: var(--aw-grass-deep); }
+.ench-verdict.weaker { color: var(--aw-accent); }
+.ench-verdict.stack { color: var(--aw-sky-deep); }
 #tooltip .gt-ench { color: #6b3fc0; font-weight: 800; margin-top: 2px; }
 .ench-open .short, .gear-intro .short { color: var(--aw-accent); font-weight: 800; }
 /* Refining (★1-★15): sky blue, next to the purple enchanting. */
@@ -2576,6 +2586,25 @@ body.boss-on #tip-toast { top: 132px; }
 .salvage-bulk { margin-top: 8px; touch-action: manipulation; }
 .salvage-bulk:disabled { opacity: 0.45; cursor: not-allowed; }
 .salvage-list { max-height: 30vh; }
+/* Gear windows on a phone (Gear Mastery, Enchant, Refine, Feed, Sacrifice,
+   Dismantle, the shrine). The window itself is the one scroller: lists inside
+   it no longer scroll on their own, as a box-in-a-box showed barely two rows
+   on an iPhone, a swipe moved the wrong one, and the first tap after a flick
+   only stopped the inner scroll. The Confirm / Cancel box (and the result
+   after it) sticks to the window's edge as you scroll, so it is always in
+   reach, and every button answers a single quick tap (no double-tap zoom). */
+#modal-body .gear-list { max-height: none; overflow: visible; }
+#modal-body .salvage-confirm, #modal-body .salvage-result { position: sticky; top: 0; bottom: 0; z-index: 2; }
+#modal-body button { touch-action: manipulation; }
+.gear-help summary { padding: 4px 0; }
+.gear-help[open] summary { margin-bottom: 6px; }
+@media (max-width: 540px) {
+  /* A gear row's four buttons sit two by two under the piece, not in a tall
+     column beside it that squeezed the name and stats to a sliver. */
+  .mastery-row { flex-wrap: wrap; }
+  .mastery-row .gear-info { flex-basis: calc(100% - 44px); }
+  .mastery-row .gear-btns { flex: 1 1 100%; display: grid; grid-template-columns: 1fr 1fr; }
+}
 #tooltip .gt-qual { color: var(--aw-sun-deep); font-weight: 800; margin-top: 2px; }
 /* The shrine's "Offer all…" buttons, one per kind of item (shrineui.js). */
 .shrine-bulk { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 4px; }
@@ -3267,7 +3296,7 @@ body.cb-safe {
 body.cb-safe #tooltip .gt-verdict.downgrade, body.cb-safe #tooltip .gt-deltas .neg,
 body.cb-safe #tooltip .gt-req.no, body.cb-safe .gear-stats .short, body.cb-safe .shrine-up .short,
 body.cb-safe .refine-out.downgrade, body.cb-safe .refine-out.broken, body.cb-safe .slayer-cost.short,
-body.cb-safe .hk-nums .neg, body.cb-safe .hk-table .neg { color: var(--st-bad); }
+body.cb-safe .hk-nums .neg, body.cb-safe .hk-table .neg, body.cb-safe .ench-verdict.weaker { color: var(--st-bad); }
 body.cb-safe .hk-nums .pos { color: var(--st-good); }
 body.cb-safe #tooltip .gt-req.no::before { content: "✗ "; }
 body.cb-safe #tooltip .gt-deltas .neg::before { content: "▼"; font-size: .8em; margin-right: 1px; }

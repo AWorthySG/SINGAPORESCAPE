@@ -1002,7 +1002,7 @@ export class Game {
       this.beatAcc -= COMBAT_BEAT_MS;
       this._combatBeat();
     }
-    if (this._autoRetarget) { this._autoRetarget = false; if (this.autoBattle && this.player.alive) this._autoBattleTick(); }
+    if (this._autoRetarget) { this._autoRetarget = false; if (this.autoBattle && this.player.alive) this._autoRun(() => this._autoBattleTick()); }
 
     // The camera follows a little ahead of you (and toward a boss making its entrance).
     const c = this.story.camera(this.cine.update(this, dt), dt);   // a story scene leans toward its speaker
@@ -1139,7 +1139,7 @@ export class Game {
       if (--this.player.respawnTimer <= 0) this.respawnPlayer();
     } else {
       if (this.playerStun > 0) this.playerStun--;
-      else { this.resolvePlayerAction(); this._autoBattleTick(); this._autoLifeTick(); this._autoQuestTick(); }
+      else { this.resolvePlayerAction(); this._autoRun(() => { this._autoBattleTick(); this._autoLifeTick(); this._autoQuestTick(); }); }
       this._autoPickup();
     }
     this._resolveHazards();
@@ -1686,8 +1686,16 @@ export class Game {
     try { this.defaultObjectAction(obj); } finally { this._pathBudget = 0; }
     const ok = !!this.player.action || this.player.isMoving;
     this.msg(ok ? `You head for the ${obj.def.name.toLowerCase()}.` : "I can't find the way there.", 'system');
-    if (ok) this.ui?.closeModal();
+    if (ok && !this._autoTrip) this.ui?.closeModal();
     return ok;
+  }
+
+  /** Run the auto battle / gather / quest step. Trips it starts itself (an
+   *  MRT hop to a boss or a quest) leave an open window alone: it used to
+   *  close Gear Mastery, a refine or a dismantle under the player's finger. */
+  _autoRun(fn) {
+    this._autoTrip = true;
+    try { fn(); } finally { this._autoTrip = false; }
   }
 
   /** World map: ride the MRT to any station (every station is open from the start).
@@ -7039,7 +7047,7 @@ export class Game {
     this.msg(`You take the MRT to ${st.name}.`, 'system');
     this.bus.emit('sfx', 'travel');
     this.updateRegion();
-    this.ui?.closeModal();
+    if (!this._autoTrip) this.ui?.closeModal();   // a ride you chose closes the map; an auto trip doesn't (_autoRun)
     return true;
   }
 

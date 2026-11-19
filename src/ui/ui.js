@@ -43,7 +43,7 @@ import { STATIONS, MRT_FARE } from '../data/transport.js';
 import { EQUIP_SLOTS, canDualPair, isTwoHanded, offhandBlocked, takesQuiver } from '../game/equipment.js';
 import { streakMult } from '../game/bounty.js';
 import { itemCategory } from '../game/inventory.js';
-import { MASTERY_RANKS, MAX_ENCHANTS, rankProgress, enchantLabel, masteryTypeName, STONE as UP_STONE, WARD as UP_WARD } from '../game/mastery.js';
+import { MASTERY_RANKS, MAX_ENCHANTS, rankProgress, enchantLabel, compareEnchantOffer, masteryTypeName, STONE as UP_STONE, WARD as UP_WARD } from '../game/mastery.js';
 import { MAX_REFINE, SCROLL as REFINE_SCROLL, refineCost, refineOdds, refineTag, refinedBonuses } from '../game/refine.js';
 import { planCarry, carrySummary } from '../game/carry.js';
 import { MATERIAL_KINDS, feedKind, FEED_CAP, FEED_CAP_RANK, materialKind } from '../game/materials.js';
@@ -51,7 +51,7 @@ import { SHRINE_TRACKS, SHRINE_TRACK_IDS, trackText } from '../game/shrine.js';
 import { isSalvageable, sameKind, nearOfferingShrine } from '../game/salvage.js';
 import { QUALITY, qualityNameHTML } from '../game/loot.js';
 import { ranksCardHTML, openRanksGuide, masteryLine, qualityLine } from './ranksui.js';
-import { openSacrifice, openSacrificeFrom, openDismantle, shrineGearSection, askOffer } from './salvageui.js';
+import { openSacrifice, openSacrificeFrom, openDismantle, shrineGearSection, askOffer, redraw } from './salvageui.js';
 import { shrineGoodsSection, askGoods } from './shrineui.js';
 import { goodsKind } from '../game/offerings.js';
 import { ATTRS, ATTR_NAMES, attrSummary, attrForMode, MAX_STAT_POINTS, RESET_COST_PER_POINT, holdRepeatDelay } from '../game/attributes.js';
@@ -1359,13 +1359,17 @@ export class UI {
   openMastery(focusId = null) {
     const g = this.game;
     const render = (body) => {
-      body.innerHTML = ranksCardHTML() + '<div class="gear-intro"><p>Gear grows stronger as you fight with it: <b>mastery</b> and <b>quality</b> are shown above. '
+      // The ranks card and the rules fold away under one line: open, they
+      // filled a phone's whole window before the first piece of gear.
+      body.innerHTML = '<div class="gear-intro"><details class="gear-help"><summary>How mastery, quality, enchanting and refining work</summary>'
+        + ranksCardHTML() + '<p>Gear grows stronger as you fight with it: <b>mastery</b> and <b>quality</b> are shown above. '
         + `<b>Enchanting</b> adds up to ${MAX_ENCHANTS} bonus lines: choose one of three on offer, paid for with upgrade stones and coins. An <b>upgrade ward</b> rerolls the offer. `
         + `<b>Refining</b> (★1 to ★${MAX_REFINE}) adds a share of the base stats on top, paid for with <b>refine scrolls</b> only; the higher you go, the riskier it gets. `
         + `<b>Feed materials</b> from your life skills to add mastery too (bars for metal, logs for bows and staves, hides for leather, gems for jewellery, herbs for cloth), up to ${MASTERY_RANKS[FEED_CAP_RANK].name}. `
         + '<b>Sacrifice</b> spare gear of the same type for mastery as well, or <b>dismantle</b> it for upgrade stones and refine scrolls. '
         + 'Enchantments and refining belong to the item, so every copy you own shares them; a weapon worn in both hands is the one exception, as its off-hand copy has its own refine and enchantments. '
-        + `You have ${formatNumber(g.inventory.count(UP_STONE))} stones, ${g.inventory.count(UP_WARD)} wards and ${formatNumber(g.inventory.count(REFINE_SCROLL))} refine scrolls.</p></div>`;
+        + '</p></details>'
+        + `<p>You have ${formatNumber(g.inventory.count(UP_STONE))} stones, ${g.inventory.count(UP_WARD)} wards and ${formatNumber(g.inventory.count(REFINE_SCROLL))} refine scrolls.</p></div>`;
       // Spare gear can be broken down for stones and scrolls (salvage.js).
       const dis = document.createElement('button');
       dis.type = 'button';
@@ -1494,23 +1498,25 @@ export class UI {
         + `Enchanting costs <b>${c.stones} upgrade stones</b> and <b>${formatNumber(c.coins)} coins</b>, paid when you pick a line. `
         + `You have ${formatNumber(g.inventory.count(UP_STONE))} stones and ${formatNumber(g.inventory.count('coins'))} coins.`
         + (can ? '' : ' <span class="short">You can\'t afford it yet.</span>') + '</p></div>';
-      const hands = this._handPicker(id, copy, (c2) => { copy = c2; replace = null; render(body); });
+      const hands = this._handPicker(id, copy, (c2) => { copy = c2; replace = null; redraw(body, render); });
       if (hands) body.prepend(hands);
       const box = document.createElement('div');
       box.className = 'ench-choices';
       if (full && replace == null) {
         box.insertAdjacentHTML('beforeend', '<div class="ench-head">All three lines are full. Which one should go?</div>');
-        lines.forEach((l, i) => box.appendChild(button(`Replace ${enchantLabel(l)}`, () => { replace = i; render(body); })));
+        lines.forEach((l, i) => box.appendChild(button(`Replace ${enchantLabel(l)}`, () => { replace = i; redraw(body, render); })));
       } else {
         box.insertAdjacentHTML('beforeend', `<div class="ench-head">${full ? `Replacing ${enchantLabel(lines[replace])}. ` : ''}Choose one:</div>`);
         g.enchantOffers(id, copy).forEach((o, i) => {
           // Picking a line stays on this piece (the owner found jumping back to the list clunky).
-          const b = button(enchantLabel(o), () => { if (g.pickEnchant(id, i, replace, copy)) { done = o; replace = null; } render(body); }, 'active ench-offer');
+          // Each offer says how it measures up against the lines the piece already has.
+          const v = compareEnchantOffer(o, lines, replace);
+          const b = button(`${enchantLabel(o)}<span class="ench-verdict ${v.kind}">${escapeHtml(v.text)}</span>`, () => { if (g.pickEnchant(id, i, replace, copy)) { done = o; replace = null; } redraw(body, render); }, 'active ench-offer');
           b.disabled = !can;
           box.appendChild(b);
         });
         const wards = g.inventory.count(UP_WARD);
-        if (wards > 0) box.appendChild(button(`Reroll (uses a ward, ${wards} left)`, () => { g.rerollEnchant(id, copy); render(body); }));
+        if (wards > 0) box.appendChild(button(`Reroll (uses a ward, ${wards} left)`, () => { g.rerollEnchant(id, copy); redraw(body, render); }));
       }
       box.appendChild(button('Refine this piece', () => this.openRefine(id, copy), 'ench-switch'));
       box.appendChild(button('Back to all gear', () => this.openMastery(id), 'ench-cancel'));
@@ -1534,9 +1540,12 @@ export class UI {
       const said = { success: 'Success! It shines brighter.', fail: 'The refine failed; the scrolls are used up.', downgrade: 'The refine failed and the item lost a level.',
         broken: 'The item shattered and is gone.', warded: 'It went badly, but your upgrade ward crumbled instead.' }[last];
       let html = `<div class="gear-intro"><p>${said ? `<b class="refine-out ${last}">${said}</b><br>` : ''}`
-        + `${copy === 'off' ? 'Your off-hand ' : ''}${name} is ${lv ? `refined <b>${refineTag(lv)}</b>` : 'not refined yet'}. Each ★ adds a share of <i>this item's own</i> base stats (stronger gear gains more) on top of mastery: 6% a level to ★9, 10% to ★12, 15% to ★${MAX_REFINE}. `
+        + `${copy === 'off' ? 'Your off-hand ' : ''}${name} is ${lv ? `refined <b>${refineTag(lv)}</b>` : 'not refined yet'}. You have ${wards} upgrade ward${wards === 1 ? '' : 's'}.</p>`
+        // The rules fold away, so the Refine button stays on a phone's screen.
+        + '<details class="gear-help"><summary>How refining works</summary><p>'
+        + `Each ★ adds a share of <i>this item's own</i> base stats (stronger gear gains more) on top of mastery: 6% a level to ★9, 10% to ★12, 15% to ★${MAX_REFINE}. `
         + '★1–★5 always work; from ★6 an attempt can <b>fail</b> (scrolls lost); from ★10 it can <b>downgrade</b> the item a level; from ★13 it can <b>break</b> the item, destroying it. '
-        + `An <b>upgrade ward</b> in your pack takes a downgrade or a break instead (you have ${wards}).</p></div>`;
+        + 'An <b>upgrade ward</b> in your pack takes a downgrade or a break instead.</p></details></div>';
       if (lv >= MAX_REFINE) {
         html += `<div class="ench-head">Fully refined: ${refineTag(MAX_REFINE)}.</div>`;
       } else {
@@ -1556,7 +1565,7 @@ export class UI {
           + `${o.downgrade || o.broken ? (wards ? 'A ward will take the blow if it goes badly.' : '<span class="short">No ward: a bad roll will cost you.</span>') : ''}</div>`;
       }
       body.innerHTML = html;
-      const hands = this._handPicker(id, copy, (c2) => { copy = c2; last = null; render(body); });
+      const hands = this._handPicker(id, copy, (c2) => { copy = c2; last = null; redraw(body, render); });
       if (hands) body.prepend(hands);
       const box = document.createElement('div');
       box.className = 'ench-choices refine-box';
@@ -1572,7 +1581,7 @@ export class UI {
           // A broken item may be gone for good: back to the list if no copy is left.
           if (last === 'broken' && !EQUIP_SLOTS.some((s) => g.equipment.get(s) === id) && !g.inventory.count(id)) { this.openMastery(); return; }
           if (!g.equipment.twinWorn(id)) copy = 'main';   // a broken twin leaves one copy, on the main record
-          render(body);
+          redraw(body, render);
         });
         box.appendChild(b);
       }
@@ -1621,7 +1630,7 @@ export class UI {
           b.type = 'button';
           b.className = 'gear-tab small';
           b.textContent = label;
-          b.addEventListener('click', () => { g.feedMastery(id, o.id, n); render(body); });
+          b.addEventListener('click', () => { g.feedMastery(id, o.id, n); redraw(body, render); });
           btns.appendChild(b);
         }
         row.appendChild(btns);
@@ -1667,7 +1676,7 @@ export class UI {
         b.className = 'gear-tab shrine-up' + (ok ? ' active' : '');
         b.innerHTML = `Rank ${r + 1}<br><span class="${ok ? '' : 'short'}">${formatNumber(cost)} pts</span>`;
         b.disabled = !ok;
-        b.addEventListener('click', () => { g.shrineRankUp(t); render(body); });
+        b.addEventListener('click', () => { g.shrineRankUp(t); redraw(body, render); });
         row.appendChild(b);
         tracks.appendChild(row);
       }
@@ -1680,7 +1689,7 @@ export class UI {
       for (const o of opts) {
         const row = document.createElement('div');
         row.className = 'gear-row feed-row hot';
-        row._hot = (n) => { g.donateToShrine(o.id, n); render(body); };
+        row._hot = (n) => { g.donateToShrine(o.id, n); redraw(body, render); };
         row.innerHTML = `<span class="gear-ic">${itemIconSVG(o.id, 28)}</span>`
           + `<div class="gear-info"><div class="gear-name"><b>${escapeHtml(getItem(o.id).name)}</b><span class="gear-tag">x${formatNumber(o.count)}</span></div>`
           + `<div class="gear-stats">${formatNumber(o.points)} point${o.points > 1 ? 's' : ''} each (${formatNumber(o.points * o.count)} for all)</div></div>`;
@@ -1691,15 +1700,15 @@ export class UI {
           b.type = 'button';
           b.className = 'gear-tab small';
           b.textContent = label;
-          b.addEventListener('click', () => { g.donateToShrine(o.id, n); render(body); });
+          b.addEventListener('click', () => { g.donateToShrine(o.id, n); redraw(body, render); });
           btns.appendChild(b);
         }
         row.appendChild(btns);
         list.appendChild(row);
       }
       body.appendChild(list);
-      shrineGearSection(this, body, st, () => render(body));
-      shrineGoodsSection(this, body, stGoods, () => render(body));
+      shrineGearSection(this, body, st, () => redraw(body, render));
+      shrineGoodsSection(this, body, stGoods, () => redraw(body, render));
     };
     this.openModal('Offering Shrine', render);
     this.modal.kind = 'shrine';
@@ -3263,6 +3272,10 @@ export class UI {
     this.modal = { title, render };
     this.el.modalTitle.textContent = title;
     this.el.modalOverlay.classList.remove('hidden');
+    // A new window starts at its top. The body element is shared, so without
+    // this a window opened from a scrolled one (Gear Mastery -> Dismantle)
+    // opened part-way down, its intro and first rows out of sight.
+    this.el.modalBody.scrollTop = 0;
     render(this.el.modalBody);
   }
 
