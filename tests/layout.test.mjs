@@ -325,7 +325,7 @@ test('five panel tabs: every view sits in exactly one tab, and the number keys p
   assert.deepEqual(Object.values(PANEL_TABS).flat().sort(), [...panelViews].sort(), 'each view in one tab, none lost');
   assert.deepEqual(PANEL_TABS.inventory, ['inventory', 'equipment']);
   assert.deepEqual(PANEL_TABS.combat, ['combat', 'prayer', 'stats']);
-  assert.deepEqual(PANEL_TABS.quests, ['quests', 'achievements']);
+  assert.deepEqual(PANEL_TABS.quests, ['quests', 'achievements', 'story']);
   assert.equal(tabOfView('prayer'), 'combat');
   assert.equal(tabOfView('achievements'), 'quests');
   assert.match(html, /<div id="panel-body">\s*<div id="panel-subtabs"/, 'the sub-tab row heads the panel body');

@@ -4,6 +4,7 @@ import { classPerks, classPerkSummary } from '../game/classperks.js';
 import { LIFE_PERKS, LIFE_PERK_SKILLS, LIFE_PERK_FULL_LEVEL, lifePerkText, lifePerkNext } from '../game/lifeperks.js';
 import { unlockTipText } from '../game/skillunlocks.js';
 import { installHomeUI } from './homeui.js';
+import { installStoryUI } from './storyui.js';
 import * as Mercs from '../game/mercenary.js';
 import { PERK_SKILLS, PERK_TRACKS, PERK_EVERY, trackPerks, rankName } from '../data/perks.js';
 import { heroArtSrc, portraitFor } from '../render/sprites.js';
@@ -113,10 +114,10 @@ export const PANEL_TABS = {
   inventory: ['inventory', 'equipment'],
   skills: ['skills'],
   combat: ['combat', 'prayer', 'stats'],
-  quests: ['quests', 'achievements'],
+  quests: ['quests', 'achievements', 'story'],
   settings: ['settings'],
 };
-const SUBTAB_LABELS = { inventory: 'Bag', equipment: 'Gear', combat: 'Combat', prayer: 'Prayer', stats: 'Stats', quests: 'Quests', achievements: 'Awards' };
+const SUBTAB_LABELS = { inventory: 'Bag', equipment: 'Gear', combat: 'Combat', prayer: 'Prayer', stats: 'Stats', quests: 'Quests', achievements: 'Awards', story: 'Story' };
 /** The tab that holds a view ('prayer' -> 'combat'). */
 export const tabOfView = (view) => Object.keys(PANEL_TABS).find((t) => PANEL_TABS[t].includes(view)) || null;
 
@@ -339,6 +340,7 @@ export class UI {
     this.renderAbilities();
     this.renderTracker();
     installHomeUI(this);   // the kampong home's panel and its button by the map (homeui.js)
+    installStoryUI(this);  // the Journal's Story view and chapter scenes (storyui.js)
   }
 
   // ---------------- Active-combat ability bar ----------------
@@ -845,6 +847,7 @@ export class UI {
     }
     this._renderSubtabs(tab, view);
     if (view === 'stats') this.renderStatsPanel();   // it only redraws while showing, so bring it up to date
+    if (view === 'story') this.renderStoryPanel?.();  // (storyui.js) likewise
     // The skills list carries a name + description per row, so it gets more room.
     document.getElementById('sidepanel')?.classList.toggle('wide', view === 'skills');
   }
@@ -3848,6 +3851,7 @@ export class UI {
   openDialogue(npc) {
     if (npc.def.dialogue === 'slayer') return this.openSlayerMaster(npc);
     if (npc.def.dialogue === 'pest') return openPestOfficer(this, npc);   // Pest Control contracts (cullingui.js)
+    if (npc.def.dialogue === 'story') return this.game.story?.talkTo(npc);   // a story messenger (story.js)
     const tree = npc.def.moral ? this._moralTree(npc.def.moral) : npc.def.dialogue === 'region' ? regionDialogue(this.game, npc) : getDialogue(npc.def.dialogue);
     if (!tree) { this.game.msg(`${npc.name} has nothing to say.`); return; }
     const show = (nodeId) => {

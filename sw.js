@@ -8,7 +8,7 @@
 // Only this site's own GET requests are handled; saves live in localStorage
 // and are never touched here.
 const CACHE = 'awa-v1';
-const CORE = ['./', 'index.html', 'styles/main.css', 'styles/title.css', 'src/main.js', 'manifest.webmanifest', 'assets/logo.svg', 'assets/logo-mark.svg'];
+const CORE = ['./', 'index.html', 'styles/main.css', 'styles/title.css', 'styles/story.css', 'src/main.js', 'manifest.webmanifest', 'assets/logo.svg', 'assets/logo-mark.svg'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(CORE)).catch(() => {}).then(() => self.skipWaiting()));
