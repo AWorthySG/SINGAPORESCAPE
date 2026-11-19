@@ -1,5 +1,5 @@
 import { poseBlender, swapOpacity } from './poseBlend.js';
-import { drawHeroArm, drawGripHand } from './heroanim.js';
+import { drawHeroArm, drawGripHand, armInFront } from './heroanim.js';
 import { drawAnimBody, drawSwingArm, drawEmptyArm, hasSwingArt, swingPhase, offArmInFront } from './heroAnimArt.js';
 
 // Painted hero rigs use separate limbs. Keep loading and animation
@@ -205,7 +205,8 @@ export function drawHeroRig(ctx, opts = {}) {
   const sh = SHOULDER[classId] || [11, -10], osh = OFF_SHOULDER[classId];
   const hand = grip ? gripPoint(grip, shown, [11, y, w, h, sa, spx, spy], [11 + reach, y, kw, kh, ka, 4, 5], -4, -9 + pose.breathe) : null;
   if (hand) drawGripHand(ctx, classId, 'arm', -4, -9 + pose.breathe, hand[0], hand[1], arms);
-  if (anim) drawHeroArm(ctx, anim, 'back', -11 + pose.breathe);
+  const backFront = anim && armInFront(classId);
+  if (anim && !backFront) drawHeroArm(ctx, anim, 'back', -11 + pose.breathe);
   // A painted off arm (the Corsair's second scimitar, the Rogue's second
   // dagger) stays behind the body, clear of the face, except while it cuts.
   const offFront = !!offFrame && offArmInFront(anim.ch);
@@ -237,6 +238,7 @@ export function drawHeroRig(ctx, opts = {}) {
     draw('back', -14, -9 + pose.breathe, 17, 26, -pose.back - 0.5, 14, 23, (1 - shown2) * arms);
     drawIf('strike', -7 + (pose.reach2 || 0), -8 + pose.breathe, 27, 12, 0, 4, 4, shown2 * arms);
   }
+  if (backFront) drawHeroArm(ctx, anim, 'back', -11 + pose.breathe);
   if (anim) drawHeroArm(ctx, anim, 'front', -11 + pose.breathe);
   if (arms <= 0.001) return true;
   // Rotate around the shoulder, rather than rotating the whole portrait.

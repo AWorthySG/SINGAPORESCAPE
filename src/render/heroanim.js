@@ -1163,10 +1163,12 @@ const SLEEVE = {
   sorcerer: '#5b3a8c', pistoler: '#2f5a5a', sniper: '#2f5a5a',
 };
 // Where the hand grips each tool's sticker (0..1 across the picture), which
-// way its head points from there, and how big it is drawn.
+// way its head points from there, and how big it is drawn. `edge: -1` mirrors
+// the sticker across its handle: the axe sticker's blade sits on the trailing
+// side of the swing, so unmirrored it chopped with the back of the head.
 const PROPS = {
-  bronze_axe: { grip: [0.74, 0.86], tip: [0.3, 0.2], size: 24 },
-  bronze_pickaxe: { grip: [0.22, 0.85], tip: [0.62, 0.3], size: 25 },
+  bronze_axe: { grip: [0.76, 0.76], tip: [0.4, 0.3], size: 24, edge: -1 },
+  bronze_pickaxe: { grip: [0.8, 0.76], tip: [0.46, 0.28], size: 25 },
   small_net: { grip: [0.85, 0.85], tip: [0.3, 0.25], size: 24 },
   fishing_rod: { grip: [0.14, 0.85], tip: [0.9, 0.12], size: 30 },
   harpoon: { grip: [0.18, 0.85], tip: [0.85, 0.12], size: 28 },
@@ -1176,6 +1178,20 @@ const PROPS = {
 };
 const HELD = { grip: [0.5, 0.62], tip: [0.5, 0.1], size: 16 };   // anything else: held up in the fist
 
+/** Where a point (fx, fy across the tool's sticker) lands with the hand at
+ *  the origin and the handle turned to angle `want`: the grip on the hand, the
+ *  head along `want`, and a mirrored sticker (edge -1) flipped across the
+ *  handle. drawProp draws with this same mapping (keep the two in step). */
+export function propPoint(id, fx, fy, want) {
+  const P = PROPS[id] || HELD;
+  const iconAng = Math.atan2(P.tip[1] - P.grip[1], P.tip[0] - P.grip[0]);
+  const x0 = (fx - P.grip[0]) * P.size, y0 = (fy - P.grip[1]) * P.size;
+  const c1 = Math.cos(-iconAng), s1 = Math.sin(-iconAng);
+  const x1 = x0 * c1 - y0 * s1, y1 = (x0 * s1 + y0 * c1) * (P.edge === -1 ? -1 : 1);
+  const c2 = Math.cos(want), s2 = Math.sin(want);
+  return [x1 * c2 - y1 * s2, x1 * s2 + y1 * c2];
+}
+
 /** Draw the tool in hand. The hand is at the origin; `dir` is the arm's direction. */
 function drawProp(c, id, dir, wrist, upright) {
   const img = id ? itemIconImage(id) : null;
@@ -1184,7 +1200,10 @@ function drawProp(c, id, dir, wrist, upright) {
   const iconAng = Math.atan2(P.tip[1] - P.grip[1], P.tip[0] - P.grip[0]);
   const want = (upright || !PROPS[id] ? -Math.PI / 2 : dir) + wrist;
   c.save();
-  c.rotate(want - iconAng);
+  // Turned so the handle runs along `want`; a mirrored sticker flips across it.
+  c.rotate(want);
+  if (P.edge === -1) c.scale(1, -1);
+  c.rotate(-iconAng);
   c.drawImage(img, -P.grip[0] * P.size, -P.grip[1] * P.size, P.size, P.size);
   c.restore();
 }
@@ -1240,16 +1259,27 @@ function star(c, x, y, r, k) {
   c.closePath(); c.fill(); c.stroke();
 }
 
-/** The life-skill arms for a painted rig: the back one before the body, the
- *  front one (with the tool) after it. `y` is the shoulder height. */
+// Where the life-skill arms hang, for a class whose painted body is wider than
+// the usual chibi: [front x, back x, y offset]. The Brawler's gi is wide with
+// open sleeve ends at its sides, and his arms are as pale as the gi, so arms
+// from the usual shoulders sat inside the chest and vanished into it, leaving
+// two empty sleeves. His hang from the sleeve ends instead, and the back one is
+// drawn over the body, as his own rig arms are (see armInFront).
+const SKILL_SHOULDER = { brawler: [13, -13, -1] };
+/** Whether a class's back life-skill arm is drawn over its body, not behind it. */
+export const armInFront = (jobClass) => !!SKILL_SHOULDER[jobClass];
+/** The life-skill arms for a painted rig: the back one before the body (after
+ *  it where armInFront says so), the front one (with the tool) after it. `y`
+ *  is the shoulder height. */
 export function drawHeroArm(c, anim, side, y = -11) {
   const ch = anim.ch, a = ch.mix;
   if (!(a > 0.01)) return;
   const sleeve = SLEEVE[anim.jobClass] || '#C0392B';
+  const [fx, bx, dy] = SKILL_SHOULDER[anim.jobClass] || [8, -7, 0];
   const prev = c.globalAlpha;
   c.globalAlpha = prev * Math.min(1, a);
-  if (side === 'back') mittenArm(c, -7, y, ch.off, sleeve, null, 0, false, null, anim.jobClass);
-  else mittenArm(c, 8, y, ch.hand, sleeve, anim.tool, ch.prop, anim.upright, anim, anim.jobClass);
+  if (side === 'back') mittenArm(c, bx, y + dy, ch.off, sleeve, null, 0, false, null, anim.jobClass);
+  else mittenArm(c, fx, y + dy, ch.hand, sleeve, anim.tool, ch.prop, anim.upright, anim, anim.jobClass);
   c.globalAlpha = prev;
 }
 
