@@ -80,7 +80,7 @@
       "visualDescription": "Proud wild rooster with flame-orange neck feathers, a glossy green-black arching tail, red comb and wattles, a white ear patch and sharp little spurs; puffed-up chest, ready to brawl.",
       "currentlyBorrows": {
         "file": "assets/creatures/species/chicken.webp",
-        "tint": "hue-rotate(-20deg) saturate(1.6) brightness(0.9)"
+        "tint": "sepia(1) saturate(4) hue-rotate(-25deg) brightness(0.9)"
       },
       "artNeeded": {
         "file": "assets/creatures/species/red_junglefowl.webp",
@@ -280,7 +280,7 @@
       "visualDescription": "Tiny sand-coloured crab with a blue-and-orange shell and ONE enormous bright orange claw held up proudly (the other claw tiny), tall stalk eyes and a smug little face.",
       "currentlyBorrows": {
         "file": "assets/creatures/species/mud_crab.webp",
-        "tint": "hue-rotate(15deg) saturate(1.6) brightness(1.15)"
+        "tint": "sepia(1) saturate(3) hue-rotate(-10deg) brightness(1.1)"
       },
       "artNeeded": {
         "file": "assets/creatures/species/fiddler_crab.webp",
@@ -480,7 +480,7 @@
       "visualDescription": "Hunched ghoul with grey-green waterlogged skin, a ragged sarong, pondweed in its long hair, black water dripping from its claws and hollow white eyes.",
       "currentlyBorrows": {
         "file": "assets/creatures/species/skeleton.webp",
-        "tint": "hue-rotate(140deg) saturate(0.6) brightness(0.7)"
+        "tint": "sepia(1) hue-rotate(60deg) saturate(1.5) brightness(0.7)"
       },
       "artNeeded": {
         "file": "assets/creatures/species/blackwater_ghoul.webp",
@@ -520,7 +520,7 @@
       "visualDescription": "A tall sea ghost made of foaming waves, deep blue with white surf for hair, a tattered fishing net over its shoulders and barnacles for teeth.",
       "currentlyBorrows": {
         "file": "assets/creatures/species/jungle_wraith.webp",
-        "tint": "hue-rotate(160deg) saturate(1.4)"
+        "tint": "hue-rotate(-20deg) saturate(1.3)"
       },
       "artNeeded": {
         "file": "assets/creatures/species/hantu_laut.webp",
@@ -680,7 +680,7 @@
       "visualDescription": "Muddy reddish-brown burrowing lobster with stubby shovel claws, a curled tail and clumps of mud on its back, standing beside a little mud-volcano mound.",
       "currentlyBorrows": {
         "file": "assets/creatures/species/kelong_crab.webp",
-        "tint": "hue-rotate(-20deg) saturate(0.7) brightness(0.75)"
+        "tint": "sepia(1) saturate(1.5) hue-rotate(-20deg) brightness(0.75)"
       },
       "artNeeded": {
         "file": "assets/creatures/species/mud_lobster.webp",
@@ -1000,7 +1000,7 @@
       "visualDescription": "Orange-red hermit crab peeking out of a spiral seashell (a dented kopi tin for the elder form), one big purple claw, stalk eyes and hairy legs.",
       "currentlyBorrows": {
         "file": "assets/creatures/species/coconut_crab.webp",
-        "tint": "hue-rotate(-30deg) saturate(1.2) brightness(1.2)"
+        "tint": "sepia(1) saturate(3) hue-rotate(-30deg)"
       },
       "artNeeded": {
         "file": "assets/creatures/species/hermit_crab.webp",
@@ -1119,8 +1119,8 @@
       "lore": "The hawker centre's most loyal customer. It has never once paid for a meal.",
       "visualDescription": "Plump grey city pigeon with a shimmering green-purple neck, orange eyes, pink feet and a stolen chip in its beak; bold attitude.",
       "currentlyBorrows": {
-        "file": "assets/creatures/species/house_crow.webp",
-        "tint": "grayscale(0.4) brightness(1.5) hue-rotate(180deg)"
+        "file": "assets/creatures/species/grey_heron.webp",
+        "tint": "saturate(0.6) brightness(0.95)"
       },
       "artNeeded": {
         "file": "assets/creatures/species/rock_pigeon.webp",
@@ -1360,7 +1360,7 @@
       "visualDescription": "A squat horned earth demon with cracked clay-brown skin, roots growing from its shoulders, glowing ember eyes and a mouth of pebble teeth, holding a clod of earth.",
       "currentlyBorrows": {
         "file": "assets/creatures/species/jinn.webp",
-        "tint": "hue-rotate(-140deg) saturate(1.2) brightness(0.8)"
+        "tint": "sepia(1) saturate(2) hue-rotate(-15deg) brightness(0.75)"
       },
       "artNeeded": {
         "file": "assets/creatures/species/jembalang.webp",
@@ -1599,8 +1599,8 @@
       "lore": "Its deep hoot carries across the casuarinas at night. By the time you hear the wings, it is too late.",
       "visualDescription": "Round brown owl with a white-spotted back, a pale barred chest, a dark heart-shaped face disc, huge black eyes and fluffy feathered talons.",
       "currentlyBorrows": {
-        "file": "assets/creatures/species/house_crow.webp",
-        "tint": "sepia(0.9) saturate(1.2) brightness(1.4)"
+        "file": "assets/creatures/species/garuda_fledgling.webp",
+        "tint": "sepia(0.8) saturate(0.8) brightness(0.8)"
       },
       "artNeeded": {
         "file": "assets/creatures/species/spotted_wood_owl.webp",
@@ -1800,7 +1800,7 @@
       "visualDescription": "A sea-cow mermaid with a gentle dugong face, a crown of seagrass and shells, long flowing teal hair and a shimmering fluked tail, holding a conch.",
       "currentlyBorrows": {
         "file": "assets/creatures/species/dugong.webp",
-        "tint": "hue-rotate(120deg) saturate(1.3) brightness(1.1)"
+        "tint": "sepia(0.5) hue-rotate(130deg) saturate(2)"
       },
       "artNeeded": {
         "file": "assets/creatures/species/duyung.webp",
@@ -2040,7 +2040,7 @@
       "visualDescription": "A floating clump of glossy green bulb-leaves topped with pale lilac hyacinth flowers, dangling purple roots for legs and a mouth hidden in the leaves.",
       "currentlyBorrows": {
         "file": "assets/creatures/species/pitcher_plant.webp",
-        "tint": "hue-rotate(200deg) saturate(1.2)"
+        "tint": "hue-rotate(260deg) saturate(1.2)"
       },
       "artNeeded": {
         "file": "assets/creatures/species/hyacinth_tangle.webp",
@@ -2600,7 +2600,7 @@
       "visualDescription": "A flowing orange-and-white koi with gold whiskers, wispy cloud fins, little budding dragon horns and mist swirling round its tail.",
       "currentlyBorrows": {
         "file": "assets/creatures/species/pink_dolphin.webp",
-        "tint": "hue-rotate(-40deg) saturate(1.4) brightness(1.2)"
+        "tint": "hue-rotate(50deg) saturate(1.4) brightness(1.1)"
       },
       "artNeeded": {
         "file": "assets/creatures/species/cloud_koi.webp",
@@ -2761,7 +2761,7 @@
       "visualDescription": "A giant glossy chestnut cockroach queen wearing a bottle-cap crown and a cape made from a hawker tissue packet, long antennae, wings fanned like a royal train, surrounded by tiny roach minions.",
       "currentlyBorrows": {
         "file": "assets/creatures/bosses/spider_queen.webp",
-        "tint": "hue-rotate(-60deg) saturate(1.1) brightness(0.8)"
+        "tint": "hue-rotate(110deg) saturate(1.1) brightness(0.85)"
       },
       "artNeeded": {
         "file": "assets/creatures/bosses/kopitiam_roach_queen.webp",
@@ -3041,7 +3041,7 @@
       "visualDescription": "An enormous thick-bodied snake in bold yellow and black rings, coiled round a clutch of glowing eggs, a blunt black head with a golden crest and calm, deadly eyes.",
       "currentlyBorrows": {
         "file": "assets/creatures/bosses/mangrove_hydra.webp",
-        "tint": "hue-rotate(20deg) saturate(1.6) brightness(1.2)"
+        "tint": "sepia(1) saturate(4) hue-rotate(10deg)"
       },
       "artNeeded": {
         "file": "assets/creatures/bosses/krait_matriarch.webp",
@@ -3153,7 +3153,7 @@
       "visualDescription": "A colossal sinuous eel of deep indigo speckled with stars and galaxies, a glowing violet fin ridge, a huge grinning maw with crackling purple lightning and tiny void eels circling it.",
       "currentlyBorrows": {
         "file": "assets/creatures/bosses/reservoir_serpent.webp",
-        "tint": "hue-rotate(220deg) saturate(1.5) brightness(0.7)"
+        "tint": "hue-rotate(110deg) saturate(1.4) brightness(0.75)"
       },
       "artNeeded": {
         "file": "assets/creatures/bosses/void_eel_leviathan.webp",
@@ -3237,7 +3237,7 @@
       "visualDescription": "A magnificent vermilion and gold phoenix with five-coloured ribbon tail feathers, a flowing flame crest, wings spread in a blaze of embers and calm golden eyes.",
       "currentlyBorrows": {
         "file": "assets/creatures/bosses/celestial_garuda.webp",
-        "tint": "hue-rotate(-40deg) saturate(1.8)"
+        "tint": "hue-rotate(-50deg) saturate(2.2)"
       },
       "artNeeded": {
         "file": "assets/creatures/bosses/fenghuang.webp",
