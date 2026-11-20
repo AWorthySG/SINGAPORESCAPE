@@ -1,4 +1,5 @@
 import { blowAt, impactKind, lowOf, juicePop, columnImage } from './combatfx.js';
+import { fxImage, fxTinted } from './fxart.js';
 
 // "Juice": the small touches that make a hit, a kill or a level feel good.
 //  - a screen shake on big hits and crits, scaled by the hit and capped, with
@@ -114,10 +115,19 @@ export function splatMotion(e, age, out = {}) {
 }
 
 const INK = '#22304A';
-/** The spiky sticker star-burst behind a crit's number (white border, navy ink). */
+/** The spiky sticker star-burst behind a crit's number (white border, navy ink):
+ *  the painted one once it has loaded, else drawn here. */
 export function drawCritBurst(ctx, r, rot, mega) {
   const n = 12;
   ctx.save(); ctx.rotate(rot);
+  const img = fxImage('fx-crit-burst');
+  if (img) {
+    // The painting's points reach its edges, so it spans the drawn star's width.
+    const w = r * 2.1, h = w * img.naturalHeight / img.naturalWidth;
+    ctx.drawImage(img, -w / 2, -h / 2, w, h);
+    ctx.restore();
+    return;
+  }
   ctx.beginPath();
   for (let i = 0; i < n * 2; i++) {
     const a = (i / (n * 2)) * Math.PI * 2, rr = i % 2 ? r * 0.7 : r;
@@ -134,11 +144,19 @@ export function drawCritBurst(ctx, r, rot, mega) {
 export function drawMissPuff(ctx, age) {
   const g = 1 + Math.min(0.25, age / 2400);
   ctx.save(); ctx.scale(g, g);
-  ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.strokeStyle = 'rgba(34,48,74,0.55)'; ctx.lineWidth = 1.3;
-  ctx.beginPath();
-  ctx.arc(-7, 1.5, 5.5, 0, 6.2832); ctx.moveTo(7.5 + 5.5, 1.5); ctx.arc(7.5, 1.5, 5.5, 0, 6.2832);
-  ctx.moveTo(7, -1.5); ctx.arc(0, -1.5, 7, 0, 6.2832);
-  ctx.stroke(); ctx.fill();
+  const img = fxImage('fx-miss-puff');
+  if (img) {
+    // The painted puff trails swoosh lines on its left, so it sits a little
+    // left of centre to keep the cloud itself under the word.
+    const w = 36, h = w * img.naturalHeight / img.naturalWidth;
+    ctx.drawImage(img, -w / 2 - 3.5, -h / 2 - 0.5, w, h);
+  } else {
+    ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.strokeStyle = 'rgba(34,48,74,0.55)'; ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    ctx.arc(-7, 1.5, 5.5, 0, 6.2832); ctx.moveTo(7.5 + 5.5, 1.5); ctx.arc(7.5, 1.5, 5.5, 0, 6.2832);
+    ctx.moveTo(7, -1.5); ctx.arc(0, -1.5, 7, 0, 6.2832);
+    ctx.stroke(); ctx.fill();
+  }
   ctx.fillStyle = '#5a6f92'; ctx.font = '800 8.5px Nunito,"Trebuchet MS",sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText('miss', 0, 0.5);
@@ -168,8 +186,14 @@ export function drawLootGlow(ctx, rarity, cx, cy, ms, timeMs, low) {
   if (L.beam) {
     const grow = Math.min(1, Math.max(0, ms - 300) / 260);
     const bh = L.beam * grow, bw = 4 + L.beam / 12;
-    const img = bh > 1 ? columnImage(L.col) : null;
-    if (img) {
+    // The painted beam, tinted to the rarity (baked once per colour), else the plain column.
+    const art = bh > 1 && fxImage('fx-loot-beam') ? fxTinted('fx-loot-beam', L.col) : null;
+    const img = bh > 1 && !art ? columnImage(L.col) : null;
+    if (art) {
+      const h = bh * 1.2, w = h * 0.48;
+      ctx.globalAlpha = 0.62 + Math.sin(timeMs * 0.008) * 0.1;
+      ctx.drawImage(art, cx - w / 2, cy - h + 5, w, h);
+    } else if (img) {
       if (!low) { ctx.globalAlpha = 0.5 + Math.sin(timeMs * 0.006) * 0.12; ctx.drawImage(img, cx - bw * 2.4, cy - bh * 1.15, bw * 4.8, bh * 1.15 + 4); }
       ctx.globalAlpha = 0.85 + Math.sin(timeMs * 0.012) * 0.12;
       ctx.drawImage(img, cx - bw / 2, cy - bh, bw, bh + 2);
@@ -260,15 +284,19 @@ function abilityFlourish(game, b, ab) {
   if (ab.tier === 'ultimate') {
     const col = '#ff7ad9';
     if (!fx.low) fx.glow(b.x, b.y, 40, 520, col);
+    // The painted impact burst (rays, ring and sparks in one picture) stands in
+    // for most of the drawn rays once it has loaded.
+    const art = fx.sticker('fx-ultimate-burst', b.x, b.y, 74, 600, { grow: 0.3 });
     fx.ring(b.x, b.y, 6, 46, 520, '#ffffff', 5);
     fx.ring(b.x, b.y, 6, 34, 460, col, 3).delay = 90;
-    fx.burstOf('ray', b.x, b.y, 10, { life: 560, col: '#ffe3f6', size: 50 });
+    fx.burstOf('ray', b.x, b.y, art ? 4 : 10, { life: 560, col: '#ffe3f6', size: 50 });
     fx.burstOf('star', b.x, b.y, 7, { speed: 0.14, life: 640, col: '#ffd24a', up: -0.05, g: 0.0002, spin: 0.02, size: 7 });
     fx.burstOf('arc', b.x, b.y, 2, { life: 320, col, size: 22 });
     if (ab.name) fx.label(b.x, b.y - 38, `${ab.name}!`, '#C2185B', 1200, 1.1);
   } else {
     fx.burstOf('arc', b.x, b.y, 2, { life: 260, col: '#ffd24a', size: 19 });
-    fx.ring(b.x, b.y, 4, 26, 260, '#fff3b0', 3);
+    // A small, quick flash of the painted burst in place of the plain ring.
+    if (!fx.sticker('fx-ultimate-burst', b.x, b.y, 34, 280, { grow: 0.4, alpha: 0.85 })) fx.ring(b.x, b.y, 4, 26, 260, '#fff3b0', 3);
     fx.burstOf('spark', b.x, b.y, 6, { speed: 0.2, life: 220, col: '#ffe89a', add: true, size: 1.6 });
   }
   fx._end(b.melee ? 0 : b.delay, b.melee);

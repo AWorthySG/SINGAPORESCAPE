@@ -1,6 +1,7 @@
 import { SPELLS } from '../data/magic.js';
 import { RARITY } from '../game/loot.js';
 import { spawnElement } from './elementfx.js';
+import { fxImage } from './fxart.js';
 
 // Combat "feel" effects: an impact for each kind of weapon (slash arcs, blunt
 // rings and dust, arrow punctures, bullet tracers, elemental spell bursts, a
@@ -108,8 +109,10 @@ export function keepLive(arr, cap = Infinity) {
 const RING = 1, SPARK = 2, DOT = 3, CHIP = 4, SWIRL = 5, STAR = 6, ARC = 7, TRACER = 8, POOF = 9, CLOUD = 10, GLOW = 11, RAY = 12, TWINKLE = 13;
 // Added for juice.js: a lightning crackle, sticker confetti and a rising sticker label.
 const BOLT = 14, CONFETTI = 15, LABEL = 16;
+// A painted effect sticker (fxart.js EFFECT_ART), one picture per slot.
+const STICKER = 17;
 /** The slot kinds by name (for the tests and anyone inspecting the pool). */
-export const FX_KIND = { RING, SPARK, DOT, CHIP, SWIRL, STAR, ARC, TRACER, POOF, CLOUD, GLOW, RAY, TWINKLE, BOLT, CONFETTI, LABEL };
+export const FX_KIND = { RING, SPARK, DOT, CHIP, SWIRL, STAR, ARC, TRACER, POOF, CLOUD, GLOW, RAY, TWINKLE, BOLT, CONFETTI, LABEL, STICKER };
 // The shapes an element's pieces can name (elementfx.js).
 const KIND_BY_NAME = { dot: DOT, chip: CHIP, spark: SPARK, cloud: CLOUD, twinkle: TWINKLE, star: STAR, bolt: BOLT, confetti: CONFETTI };
 // Sticker confetti colours: the A-Worthy pastels and white.
@@ -228,8 +231,22 @@ export class CombatFx {
     this._burst(KIND_BY_NAME[name] || DOT, x, y, n, p.speed ?? 0.08, p.life || 400, p.col, p);
   }
 
-  /** Sticker confetti: little paper squares that flutter up and drift down. */
+  /** A painted effect (assets/fx/<key>.webp) `h` px tall that pops in, grows
+   *  by `o.grow` of its size, spins by `o.spin` and fades over `life` ms. Only
+   *  when its picture has loaded: returns false otherwise (and headless), so
+   *  the caller draws its canvas pieces instead. */
+  sticker(key, x, y, h, life, o = {}) {
+    if (!fxImage(key)) return false;
+    const s = this._take(STICKER, x, y, life, '#fff');
+    s.txt = key; s.size = h; s.a = o.grow || 0; s.b = o.alpha || 1;
+    s.rot = o.rot ?? (rnd() - 0.5) * 0.5; s.spin = o.spin || 0; s.vy = o.vy || 0; s.g = o.g || 0;
+    return s;
+  }
+
+  /** Sticker confetti: little paper squares that flutter up and drift down
+   *  (with the painted scatter of confetti once it has loaded, and half the squares). */
   confetti(x, y, n, scale = 1, cols = CONFETTI_COLS) {
+    if (this.sticker('fx-confetti', x, y - 8, 34 * Math.min(1.5, scale), 1000, { grow: 0.35, vy: -0.03, g: 0.00006, spin: 0.0004 })) n = Math.ceil(n / 2);
     n = this._n(n);
     for (let i = 0; i < n; i++) {
       const ang = -Math.PI / 2 + (rnd() - 0.5) * 2.4, sp = (0.07 + rnd() * 0.09) * scale;
@@ -373,7 +390,7 @@ export class CombatFx {
       s.vx = Math.cos(a) * 0.11; s.vy = Math.sin(a) * 0.07 - 0.03; s.drag = 0.975; s.g = 0.00008; s.size = big ? 6.5 : 5; s.spin = 0.008;
     }
     this.confetti(x, y - 6, big ? 26 : 14);
-    if (text) this.label(x, y - 24, text, '#B8860B', 1500, big ? 1.2 : 1);
+    if (text) this.label(x, y - 24, text, '#B8860B', 1500, big ? 1.2 : 1).a = 1;   // on the painted ribbon
     this._end();
   }
 
@@ -568,12 +585,38 @@ export class CombatFx {
           ctx.globalAlpha = t > 0.75 ? (1 - t) / 0.25 : 1;
           ctx.save(); ctx.translate(x, y); ctx.scale(pop * s.size, pop * s.size); ctx.rotate(-0.06);
           ctx.font = '900 11px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          const rib = s.a === 1 ? fxImage('fx-levelup-ribbon') : null;
+          if (rib) {
+            // A level-up's painted ribbon, stretched to the words: its folded
+            // ends keep their shape and only the middle of the band stretches.
+            const tw = ctx.measureText(s.txt).width, h = 30, k = h / rib.naturalHeight;
+            const ew = rib.naturalWidth * 0.3, ed = ew * k, mw = tw + 8;
+            const x0 = -(mw / 2) - ed;
+            ctx.drawImage(rib, ew, 0, rib.naturalWidth - 2 * ew, rib.naturalHeight, x0 + ed - 0.5, -h / 2, mw + 1, h);
+            ctx.drawImage(rib, 0, 0, ew, rib.naturalHeight, x0, -h / 2, ed, h);
+            ctx.drawImage(rib, rib.naturalWidth - ew, 0, ew, rib.naturalHeight, x0 + ed + mw, -h / 2, ed, h);
+            ctx.fillStyle = s.col; ctx.fillText(s.txt, 0, -1.5);
+            ctx.restore();
+            break;
+          }
           const w = ctx.measureText(s.txt).width + 14;
           ctx.fillStyle = '#ffffff'; ctx.strokeStyle = INK; ctx.lineWidth = 1.8;
           ctx.beginPath();
           if (ctx.roundRect) ctx.roundRect(-w / 2, -9, w, 18, 9); else ctx.rect(-w / 2, -9, w, 18);
           ctx.fill(); ctx.stroke();
           ctx.fillStyle = s.col; ctx.fillText(s.txt, 0, 0.5);
+          ctx.restore();
+          break;
+        }
+        case STICKER: {
+          // A painted effect: springs in, swells a little and fades out over its last half.
+          const img = fxImage(s.txt);
+          if (!img) break;
+          const pop = juicePop(s.max - s.life, 0.25) * (1 + s.a * t);
+          const h = s.size * pop, w = h * img.naturalWidth / img.naturalHeight;
+          ctx.globalAlpha = s.b * (t > 0.5 ? (1 - t) / 0.5 : 1);
+          ctx.save(); ctx.translate(x, y); if (s.rot) ctx.rotate(s.rot);
+          ctx.drawImage(img, -w / 2, -h / 2, w, h);
           ctx.restore();
           break;
         }
