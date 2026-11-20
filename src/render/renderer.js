@@ -843,6 +843,13 @@ export class Renderer {
         }
       }
       if (e._showAt > now) e.life = e._life0;   // held: it doesn't age until shown
+      // A blow folded into a number already up (game.js addHitsplat) pops it
+      // again on its own strike: otherwise the swing showed no number of its
+      // own, which read as a miss.
+      if (e.bumps !== e._bumpSeen) {
+        e._bumpSeen = e.bumps;
+        e._bumpAt = fresh && e.type === 'hitsplat' && e.entity !== game.player ? hits[0] : now;
+      }
     }
     for (const p of game.particles) {
       if (p._showAt === undefined) {
@@ -1812,7 +1819,7 @@ export class Renderer {
       const m = splatMotion(e, age, this._splatM || (this._splatM = {}));
       const px = c.x - ox + (e.fan || 0) * 13 + m.dx, py = c.y - oy - 26 - (e.row || 0) * 11 + m.dy;
       const hit = e.dmg > 0;
-      const pop = m.scale;
+      const pop = m.scale * splatBump(e, this._now);
       const r = e.crit ? 10 : 8;
       ctx.save();
       ctx.globalAlpha = m.alpha;
@@ -1857,11 +1864,13 @@ export class Renderer {
         ctx.restore(); ctx.globalAlpha = 1;
         continue;
       }
-      if (e.weak && hit) {
+      if ((e.weak || e.shield) && hit) {
         // Hit the monster's weakness: a small green "weak!" tag over the number.
+        // A blow soaked by a boss's style shield gets a "shield" tag in its colour.
+        const tag = e.shield ? 'shield' : 'weak!';
         ctx.font = '900 8px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
-        ctx.lineWidth = 3; ctx.strokeStyle = '#ffffff'; ctx.strokeText('weak!', 0, -r - 4);
-        ctx.fillStyle = '#1F7A3D'; ctx.fillText('weak!', 0, -r - 4);
+        ctx.lineWidth = 3; ctx.strokeStyle = '#ffffff'; ctx.strokeText(tag, 0, -r - 4);
+        ctx.fillStyle = e.shield ? e.tint || '#39557d' : '#1F7A3D'; ctx.fillText(tag, 0, -r - 4);
       }
       if (e.critX) {
         // Critical hit: just a red number, a touch smaller for x2 and a touch bigger for x4 (a mega crit).
@@ -1950,6 +1959,13 @@ export function swellFill(dark, a) {
   let s = m.get(k);
   if (s === undefined) { s = `rgba(${SWELL_RGB[dark]},${(k / 1000).toFixed(3)})`; m.set(k, s); }
   return s;
+}
+
+/** A merged hitsplat's quick re-pop (1 when not bumping): up by a third and back over 160ms. */
+const BUMP_MS = 160;
+export function splatBump(e, now) {
+  const t = e._bumpAt === undefined ? -1 : now - e._bumpAt;
+  return t >= 0 && t < BUMP_MS ? 1 + 0.35 * Math.sin((t / BUMP_MS) * Math.PI) : 1;
 }
 
 function clamp8(v) { return v < 0 ? 0 : v > 255 ? 255 : v | 0; }

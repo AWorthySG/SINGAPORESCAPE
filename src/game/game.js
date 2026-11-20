@@ -62,7 +62,7 @@ import { getShop } from '../data/shops.js';
 import { RARE_DROP_TABLE, getNpc, ALL_BOSS_IDS, ALL_MONSTER_IDS } from '../data/npcs.js';
 import { MORAL_EVENTS, MORAL_BY_ID, moralCoins, BLESS_MS, BLESS_XP } from '../data/moralEvents.js';
 import { alignmentTier, alignmentStyle, greetingFor } from '../data/alignment.js';
-import { tickBossMechanics, mechOnPlayerHit, mechAbilityUsed, mechAutoFight, inHazard } from './bossmech.js';
+import { tickBossMechanics, mechOnPlayerHit, mechAbilityUsed, mechAutoFight, inHazard, mechStyleColour } from './bossmech.js';
 import { SIGNATURE_DROP_CHANCE, SIGNATURE_CLASS, sigIdFor } from '../data/bossWeapons.js';
 import { nextJob, jobKey, makeBatch, batched } from './autoprocess.js';
 import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
@@ -917,6 +917,7 @@ export class Game {
     if (last && !opts.noMerge && !opts.text && !last.text && !!opts.aoe === !!last.aoe && dmg > 0 && last.dmg > 0 && !!opts.crit === last.crit && (opts.critX || 0) === last.critX && !!opts.weak === !!last.weak
       && opts.tint === last.tint && last.life > last.maxLife - mergeMs && this.effects.includes(last)) {
       last.dmg += dmg;
+      last.bumps = (last.bumps || 0) + 1;   // the number pops again, so every blow shows landing (renderer.js)
       return;
     }
     // Five fan positions, so quick hits sit side by side instead of in a column,
@@ -927,7 +928,7 @@ export class Game {
     entity._splatRow = entity._splatRow ? 0 : 1;
     const mine = this.effects.filter((e) => e.type === 'hitsplat' && e.entity === entity);
     if (mine.length >= SPLAT_MAX_PER) for (const e of mine.slice(0, mine.length - SPLAT_MAX_PER + 1)) e.life = Math.min(e.life, 120);
-    const fx = { type: 'hitsplat', entity, dmg, crit: !!opts.crit, critX: opts.critX || 0, text: opts.text, tint: opts.tint, aoe: !!opts.aoe, weak: !!opts.weak, life: opts.critX ? 1000 : 800, fan: (entity._splatN - 2) * 0.8, row: entity._splatRow };
+    const fx = { type: 'hitsplat', entity, dmg, crit: !!opts.crit, critX: opts.critX || 0, text: opts.text, tint: opts.tint, aoe: !!opts.aoe, weak: !!opts.weak, shield: !!opts.shield, life: opts.critX ? 1000 : 800, fan: (entity._splatN - 2) * 0.8, row: entity._splatRow };
     fx.maxLife = fx.life;
     entity._lastSplat = fx;
     this.effects.push(fx);
@@ -2400,6 +2401,10 @@ export class Game {
     const wasCrit = this._pendingCrit > 0 && dmg > 0;
     this._pendingCrit = 0;
     if (npc.shieldTicks > 0 && dmg > 0) dmg = Math.max(1, Math.floor(dmg / 2));   // a boss shield halves the blow
+    // A style shield soaks the whole blow until it breaks. The blow still lands
+    // (the player never misses): its number shows in the shield's colour with a
+    // "shield" tag, where it used to show the miss puff, which read as a miss.
+    const shield = dmg > 0 && npc.mech?.type === 'shield' ? npc.mech.style : null, blow = dmg;
     dmg = mechOnPlayerHit(this, npc, dmg);   // a style shield soaks it; an exposed boss takes more
     // At most a tenth of your life a tick in all, not a tenth a hit: an Archer's
     // volley (a dozen arrows a tick) was burnt back a dozen times and died from full life.
@@ -2432,7 +2437,8 @@ export class Game {
     const rm = dmg > 0 && !opts.tint ? this.raceMatchup(npc) : null;
     if (rm) opts = { ...opts, tint: rm === 'strong' ? '#f5b82e' : '#9aa3b2' };
     if (dmg > 0 && !opts.aoe && this._hitMode && weaknessOf(npc.def) === this._hitMode) opts = { ...opts, weak: true };   // a "weak!" tag on the number
-    this.addHitsplat(npc, dmg, opts);
+    if (shield && !(dmg > 0)) opts = { noMerge: opts.noMerge, tint: mechStyleColour(shield), shield: true };
+    this.addHitsplat(npc, dmg > 0 || !shield ? dmg : blow, opts);
     if (dmg > 0) {
       this.bus.emit('sfx', 'hit'); this._hitAdrenaline(wasCrit);
       // A running average of your landed hits, so auto battle can tell when a
