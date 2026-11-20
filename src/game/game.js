@@ -4878,6 +4878,14 @@ export class Game {
           && chebyshev(p.x, p.y, n.x, n.y) <= Math.max(1, this.attackRange()));
         if (att) { this._autoFight = null; this._autoLast = att; this.attackNpc(att); return; }
       }
+      // Bows and spells: a target that has wandered out of reach isn't chased
+      // while another can be shot from right here (checked every other tick).
+      if (!inRange && this._holdsGround() && !tgt.def.boss && this.tickCount % 2 === 0) {
+        const up = this._autoPickTarget();
+        if (up && up !== tgt && chebyshev(p.x, p.y, up.x, up.y) <= this.attackRange()) {
+          this._autoFight = null; this._autoLast = up; this.attackNpc(up); return;
+        }
+      }
       // Casters always throw the strongest spell they can afford.
       // Casters on 'Auto' get the element that suits the target; a chosen element is kept.
       if (this.combatMode() === 'magic' && p.spellAuto) { const best = this._autoSpellFor(tgt); if (best && best.id !== p.spell) { p.spell = best.id; this.bus.emit('spell'); } }
@@ -4963,7 +4971,12 @@ export class Game {
     const foes = this.nearbyNpcs().filter((n) => n.alive && n.target === p && !n.def.boss && !n.wave && !n.temporary
       && chebyshev(p.x, p.y, n.x, n.y) <= 8);
     if (!foes.length) return false;
-    const strong = foes.some((n) => n.champion || this._farAbove(n));
+    // A champion only counts when it is the danger itself: not one you could
+    // take on (see _autoChampionOk), not one you chose to fight, and not a weak
+    // one in a crowd. Running at full life from a level 9 champion with a few
+    // ordinary monsters about, again and again, was most of auto battle's walking.
+    const chosen = p.action?.type === 'attack' ? p.action.npc : null;
+    const strong = foes.some((n) => this._farAbove(n) || (n.champion && n !== chosen && this._autoChampionDanger(n)));
     if (!strong && p.hp >= this.maxHp() * FLEE_HURT) return false;
     let dps = 0, kill = 0;
     for (const n of foes) {
@@ -4995,9 +5008,32 @@ export class Game {
     if (!path?.length) return false;
     p.setPath(path, this.canRun()); p.clearAction();
     for (const n of foes) { this._autoSkip.set(n.entityId, this.tickCount + 200); this._autoFled.set(n.entityId, this.tickCount + 200); }
+    // Keep away from what it ran from for a while (see _autoNearDanger): going
+    // back for the monsters beside it woke it again, and round it went.
+    const danger = foes.filter((n) => this._farAbove(n) || n.champion);
+    this._autoDanger = (danger.length ? danger : foes).map((n) => ({ n, until: this.tickCount + 200 }));
     this._fleeing = { foes, until: this.tickCount + 60 };
     this.msg(`Auto battle: ${foes.length > 1 ? 'that fight is' : `${foes[0].name} is`} too much for you, so you run for it.`, 'system');
     return true;
+  }
+
+  /** A champion worth running from: one you couldn't take on whose own blows
+   *  would empty your life in under CHAMPION_SAFE_SECS. */
+  _autoChampionDanger(n) {
+    if (this._autoChampionOk(n)) return false;
+    const t = this._autoFightTimes(n);
+    return !t || t.theirTime < CHAMPION_SAFE_SECS;
+  }
+
+  /** Is this spot within reach of a monster auto battle ran from lately (its
+   *  aggro range and a few tiles more)? Picks there are passed over. */
+  _autoNearDanger(x, y) {
+    const list = this._autoDanger;
+    if (!list?.length) return false;
+    for (const { n, until } of list) {
+      if (until > this.tickCount && n.alive && chebyshev(x, y, n.x, n.y) <= (n.def.aggroRange || 4) + 3) return true;
+    }
+    return false;
   }
 
   /** Has auto battle run from this monster lately (see _autoFlee)? */
@@ -5030,6 +5066,13 @@ export class Game {
       this._autoTop = top; this._autoTopFor = inWild;
     }
     return Math.min(Math.floor(cl * 0.75), Math.floor(this._autoTop * 0.85));
+  }
+
+  /** Does auto battle fight from where you stand (bows, guns, thrown coins and
+   *  shurikens, spells) rather than walk up to each foe? */
+  _holdsGround() {
+    const m = this.combatMode();
+    return m === 'ranged' || m === 'magic';
   }
 
   /** A pick auto battle would rather walk past: an ordinary monster well below
@@ -5215,7 +5258,7 @@ export class Game {
       if ((this._autoSkip.get(n.entityId) || 0) > this.tickCount) continue;
       if (!inWild && this.world.zoneAt(n.x, n.y)?.wilderness) continue;
       const d = (n.x - p.x) ** 2 + (n.y - p.y) ** 2;
-      if (d < bd) { bd = d; best = n; }
+      if (d < bd && !this._autoNearDanger(n.x, n.y)) { bd = d; best = n; }
     }
     if (!best) return false;
     const t = this._nearestFree(best.x, best.y);
@@ -5384,6 +5427,10 @@ export class Game {
     // in-range targets outrank everything out of range (bosses included).
     const range = this.attackRange();
     const shootable = (n, d) => range > 1 && d <= range;
+    // Bows, guns and spells hold their ground: a champion out of reach waits
+    // until nothing is left in reach (walking off to one, through every pack on
+    // the way, was most of a ranged fighter's walking). Melee is unchanged.
+    const holds = this._holdsGround();
     const p = this.player;
     const cl = this.fightLevel();
     const wildZone = (x, y) => !!this.world.zoneAt(x, y)?.wilderness;
@@ -5425,6 +5472,7 @@ export class Game {
         continue;
       }
       if (n.temporary) continue;
+      if (this._autoNearDanger(n.x, n.y)) continue;   // beside something it ran from
       if (n.def.boss && !this.autoCfg.bosses && !this._questBoss && !only) continue;
       if ((this._autoSkip.get(n.entityId) || 0) > this.tickCount) continue;
       if (this.autoCfg.target && n.npcId !== this.autoCfg.target) continue;   // only the chosen monster type
@@ -5449,7 +5497,7 @@ export class Game {
         if (this.autoQuest) continue;
         if (!inWild && wildZone(n.x, n.y)) continue;
         if (!this._autoChampionOk(n)) continue;   // a slog you'd likely lose: leave it until you're stronger
-        { const tier = first ? -2000 : 0; cands.push({ n, score: d + tier, tier }); }
+        { const tier = !first ? 0 : holds && !shootable(n, d) ? -500 : -2000; cands.push({ n, score: d + tier, tier }); }
         continue;
       }
       if (only) continue;   // "Champions & bosses only"
