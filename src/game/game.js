@@ -5319,7 +5319,11 @@ export class Game {
       // Anything already fighting you (a boss, its summoned adds, a champion)
       // is always answered, whatever its level or where it stands.
       if (hunting) {
-        const tier = !first ? -0.5 : n.def.boss ? -3000 : n.champion ? -2000 : -200 - (shootable(n, d) ? 1000 : 0);
+        // In the Endless Gate a champion or boss leads every wave: its escort
+        // goes first (each hits nearly as hard for a sixth of the life), then
+        // the leader, unless it is in the middle of a mechanic (see bossmech.js).
+        const escortFirst = n.wave && (n.def.boss || n.champion) && !n.mech;
+        const tier = !first ? -0.5 : escortFirst ? -150 : n.def.boss ? -3000 : n.champion ? -2000 : -200 - (shootable(n, d) ? 1000 : 0);
         cands.push({ n, score: d + tier, tier });
         continue;
       }

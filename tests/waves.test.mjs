@@ -7,7 +7,10 @@ import assert from 'node:assert/strict';
 import { Game } from '../src/game/game.js';
 import { saveGame, clearSave } from '../src/game/save.js';
 import { findPath } from '../src/engine/pathfinding.js';
-import { ARENA, GATE, START, NEXT_WAVE_TICKS, MAX_ALIVE, BOSS_EVERY, inArena, wavePlan, waveCount, waveLevel } from '../src/game/waves.js';
+import { ARENA, GATE, START, NEXT_WAVE_TICKS, MAX_ALIVE, BOSS_EVERY, MILESTONE_EVERY, inArena, wavePlan, waveCount, waveLevel,
+  waveKinds, waveMobDef, gateMobDef, waveBossDef, bossChest, waveLeader, GATE_HP, GATE_HIT, GATE_ACC, WAVE_BOSS_LIFE, GATE_CHAMPION_LIFE, SECOND_CHAMPION_FROM } from '../src/game/waves.js';
+import { getNpc, ALL_MONSTER_IDS, ALL_BOSS_IDS } from '../src/data/npcs.js';
+import { CHAMPION_HP_MULT } from '../src/game/npc.js';
 import { RESPAWN_TICKS } from '../src/config.js';
 import { ITEMS } from '../src/data/items.js';
 
@@ -72,7 +75,8 @@ test('a wave banner names the real count and goes when you leave the gate', asyn
   g.waves.enter();
   nextWave(g);
   assert.equal(g.waves.wave, 1);
-  assert.match(shown(), new RegExp(`${waveCount(1)} monsters`), 'the wave banner is up, counting the wave, not what is left in the queue');
+  assert.match(shown(), new RegExp(`${waveCount(1) + 1} monsters`), 'the wave banner is up, counting the wave (and its champion), not what is left in the queue');
+  assert.match(shown(), /led by Champion /, 'and names the champion leading it');
   assert.ok(g.waves.leave());
   assert.doesNotMatch(shown(), /Wave 1/, 'leaving takes the wave banner down at once');
   // Someone else's banner (a level-up, say) is left alone.
@@ -107,7 +111,7 @@ test('wave 1 spawns inside the arena; clearing it pays a bonus and starts wave 2
   step(g, 2);
   assert.equal(g.waves.wave, 1);
   const mobs = waveMobs(g);
-  assert.equal(mobs.length, waveCount(1));
+  assert.equal(mobs.length, waveCount(1) + 1, 'the wave and its champion');
   for (const n of mobs) {
     assert.ok(n.x >= ARENA.x0 && n.x <= ARENA.x1 && n.y >= ARENA.y0 && n.y <= ARENA.y1, `${n.name} spawned on the arena floor`);
     assert.ok(n.temporary && n.def.aggressive, 'a temporary, aggressive spawn');
@@ -122,7 +126,7 @@ test('wave 1 spawns inside the arena; clearing it pays a bonus and starts wave 2
   assert.equal(g.waves.wave, 1, 'not before the delay');
   step(g, 2);
   assert.equal(g.waves.wave, 2, 'wave 2 has begun');
-  assert.equal(waveMobs(g).length, waveCount(2));
+  assert.equal(waveMobs(g).length, waveCount(2) + 1);
   assert.ok(waveMobs(g)[0].def.level > mobs[0].def.level, 'wave 2 is stronger');
 });
 
@@ -150,21 +154,21 @@ test('monster level, numbers, life and hits rise with the wave, gently and then 
   assert.ok(waveCount(30) > MAX_ALIVE, 'deep waves send more than can be out at once');
 });
 
-test('every 5th wave adds a champion and every 10th is a boss wave with its signature moves', () => {
+test('a champion leads every wave and every 5th is a boss wave with its signature moves', () => {
   const g = newGame();
   placeAt(g, GATE.x - 1, GATE.y + 1);
   g.waves.enter();
-  g.waves.wave = 4;
+  g.waves.wave = 3;
   nextWave(g);
-  assert.equal(g.waves.wave, 5);
-  assert.equal(waveMobs(g).filter((n) => n.champion).length, 1, 'wave 5 has a champion');
+  assert.equal(g.waves.wave, 4);
+  assert.equal(waveMobs(g).filter((n) => n.champion).length, 1, 'wave 4 has a champion');
   for (const n of waveMobs(g)) g.killNpc(n);
   g.waves.wave = BOSS_EVERY - 1;
   step(g, 1);
   nextWave(g);
-  assert.equal(g.waves.wave, 10);
+  assert.equal(g.waves.wave, BOSS_EVERY);
   const boss = waveMobs(g).find((n) => n.def.boss);
-  assert.ok(boss, 'wave 10 has a boss');
+  assert.ok(boss, 'wave 5 has a boss');
   assert.equal(boss.def.level, g.waves.level, 'scaled to the wave');
   assert.ok(inArena(boss.x, boss.y));
   // The boss lays its ground markers in the arena like any boss.
@@ -293,4 +297,143 @@ test('the arena is sealed: world NPCs never enter, and nothing walks between it 
   assert.ok(waveMobs(g).every((n) => inArena(n.x, n.y)), 'wave monsters never leave');
   // The world map still shows just the country, not the sea the arena sits in.
   assert.equal(g.world.mapHeight, 380);
+});
+
+// ---------------- A champion or boss in every wave, and tougher monsters ----------------
+
+test('every wave is led by a champion or a boss, and bosses come every 5th wave', () => {
+  assert.equal(BOSS_EVERY, 5);
+  for (const base of [1, 10, 60, 150, 1000]) {
+    for (let n = 1; n <= 45; n++) {
+      const plan = wavePlan(n, base);
+      const bosses = plan.filter((e) => e.def.boss), champs = plan.filter((e) => e.champion);
+      assert.ok(bosses.length + champs.length >= 1, `wave ${n} (base ${base}) has a champion or boss`);
+      assert.ok(plan[0].def.boss || plan[0].champion, 'the leader comes first, so MAX_ALIVE never holds it back');
+      if (n % BOSS_EVERY === 0) {
+        assert.equal(bosses.length, 1, `wave ${n} is a boss wave`);
+        assert.equal(bosses[0].def.level, waveLevel(n, base), 'its boss is scaled to the wave');
+        assert.ok(ALL_BOSS_IDS.includes(bosses[0].id) && !getNpc(bosses[0].id).fixed, 'a real, non-story boss');
+      } else {
+        assert.equal(bosses.length, 0, `wave ${n} has no boss`);
+        assert.equal(champs.length, n >= SECOND_CHAMPION_FROM ? 2 : 1);
+      }
+      assert.match(waveLeader(plan), plan[0].def.boss ? new RegExp(plan[0].def.name) : /^Champion /);
+    }
+  }
+});
+
+test('gate monsters are tougher than the same monster at the same level outside, by a pinned factor', () => {
+  // Pinned so a change to them is a choice: life x1.5, max hit x1.8, attack x1.3.
+  assert.deepEqual([GATE_HP, GATE_HIT, GATE_ACC], [1.5, 1.8, 1.3]);
+  const near = (a, b) => Math.abs(a - b) <= 1;
+  let checked = 0;
+  for (const id of ALL_MONSTER_IDS) {
+    const d = getNpc(id);
+    if (!d.attackable || d.boss || !(d.level > 0) || d.maxHit < 5) continue;
+    // Wave 1 at the monster's own level is the monster as it is in the world...
+    const g = gateMobDef(id, 1, d.level);
+    assert.ok(near(g.maxHp, d.maxHp * GATE_HP), `${id}: life x${GATE_HP}`);
+    assert.ok(near(g.maxHit, d.maxHit * GATE_HIT), `${id}: max hit x${GATE_HIT}`);
+    assert.ok(near(g.attack, d.attack * GATE_ACC), `${id}: attack x${GATE_ACC}`);
+    assert.equal(g.level, d.level);
+    if (++checked >= 40) break;
+  }
+  assert.ok(checked >= 20);
+  // ...and world events, which borrow waveMobDef at wave 1, are left as they were.
+  const d = getNpc(waveKinds(1, 50)[0]);
+  assert.equal(waveMobDef(waveKinds(1, 50)[0], 1, d.level).maxHp, d.maxHp);
+  // Later waves pile more on top, faster than before (+6% life and +3% hits a wave, steepening).
+  const id = waveKinds(1, 50)[0], a = gateMobDef(id, 1, 50), b = gateMobDef(id, 11, 50);
+  assert.ok(b.maxHp / a.maxHp > 1.85 && b.maxHit / a.maxHit > 1.4, 'wave 11 at the same level: ~x1.9 life, ~x1.45 hits');
+});
+
+test('a gate champion has a fifth of a world champion\'s life; a gate boss is WAVE_BOSS_LIFE gate monsters', () => {
+  const g = newGame();
+  placeAt(g, GATE.x - 1, GATE.y + 1);
+  g.waves.enter();
+  g.waves.wave = 2;
+  nextWave(g);
+  const champ = waveMobs(g).find((n) => n.champion);
+  const plain = waveMobs(g).find((n) => !n.champion && n.npcId === champ.npcId);
+  assert.ok(champ && plain);
+  assert.ok(Math.abs(champ.maxHp / plain.maxHp - CHAMPION_HP_MULT * GATE_CHAMPION_LIFE) < 0.05, 'x6 a wave monster');
+  assert.equal(champ.hp, champ.maxHp);
+  assert.ok(champ.def.maxHit > plain.def.maxHit && /^Champion /.test(champ.name), 'still a champion: harder hits and the label');
+  // The boss's life is set by the wave, not by its own: two bosses at one wave last as long.
+  const L = 120, mob = gateMobDef(waveKinds(15, L)[0], 15, L), real = (d) => d.maxHp * (d.hpScale || 1);
+  const bosses = ALL_BOSS_IDS.filter((id) => getNpc(id).attackable && !getNpc(id).fixed).slice(0, 4);
+  for (const id of bosses) {
+    const b = waveBossDef(id, 15, L, mob);
+    assert.ok(Math.abs(real(b) / real(mob) - WAVE_BOSS_LIFE) < 0.05, `${id}: ${WAVE_BOSS_LIFE} gate monsters' life`);
+    assert.ok(b.boss && b.wave && b.level === L);
+  }
+});
+
+test('milestone chests every 10th wave pay more than a plain boss chest', () => {
+  assert.equal(MILESTONE_EVERY, 10);
+  const get = (n, id) => bossChest(n, 100).find((e) => e[0] === id)[1];
+  assert.equal(get(5, 'upgrade_ward'), 1);
+  assert.equal(get(10, 'upgrade_ward'), 2, 'a milestone adds a ward');
+  assert.ok(get(10, 'coins') > get(5, 'coins') * 2, 'and half as much again on a bigger purse');
+});
+
+test('a boss wave\'s boss, champions and markers are cleaned up on leaving, on death and when cleared', () => {
+  for (const how of ['leave', 'death', 'clear']) {
+    const g = newGame();
+    placeAt(g, GATE.x - 1, GATE.y + 1);
+    g.waves.enter();
+    g.waves.wave = BOSS_EVERY - 1;
+    nextWave(g);
+    tame(g);
+    const boss = waveMobs(g).find((n) => n.def.boss);
+    assert.ok(boss && inArena(boss.x, boss.y), 'the boss spawns inside the arena');
+    // A boss summon and a ground marker, as a real fight leaves them.
+    const sum = g.npcs.find((n) => n.wave && !n.def.boss);
+    g.npcs.push(Object.assign(Object.create(Object.getPrototypeOf(sum)), sum, { wave: false, temporary: true, entityId: -1 }));
+    g.hazards.push({ cx: boss.x, cy: boss.y, r: 1, npc: boss, fireTick: g.tickCount + 9 });
+    if (how === 'leave') g.waves.leave();
+    else if (how === 'death') { g.player.hp = 0; g.playerDeath(); }
+    else { for (const n of waveMobs(g)) g.killNpc(n); step(g, 1); }
+    assert.equal(waveMobs(g).length, 0, `${how}: no wave monster is left`);
+    assert.ok(!g.npcs.some((n) => n.alive && n.temporary && !n.ally && inArena(n.x, n.y)), `${how}: no summon is left`);
+    if (how !== 'clear') {
+      assert.ok(!g.waves.active, `${how}: the run is over`);
+      assert.ok(!g.hazards.some((h) => inArena(h.cx, h.cy)), `${how}: no boss marker is left`);
+      assert.ok(!g.npcs.some((n) => n.wave), `${how}: nothing of the wave stays in the world`);
+    } else assert.ok(g.waves.active && g.waves.nextAt > 0, 'clear: on to the next wave');
+  }
+});
+
+test('auto battle clears a wave\'s escort first, then takes on its champion or boss', () => {
+  const g = newGame();
+  placeAt(g, GATE.x - 1, GATE.y + 1);
+  g.waves.enter();
+  g.waves.wave = BOSS_EVERY - 1;
+  nextWave(g);
+  tame(g);
+  const boss = waveMobs(g).find((n) => n.def.boss);
+  // Everything comes for you in the gate: line them up next to you.
+  const p = g.player;
+  for (const [i, n] of waveMobs(g).entries()) { n.x = n.tx = p.x + 1; n.y = n.ty = p.y - 1 + i; n.target = p; }
+  boss.x = boss.tx = p.x - 1; boss.y = boss.ty = p.y;
+  const first = g._autoPickTarget();
+  assert.ok(first && first.wave && !first.def.boss, 'an escort first');
+  // A boss in the middle of a mechanic is dealt with at once.
+  boss.mech = { type: 'cast', until: g.tickCount + 10 };
+  assert.equal(g._autoPickTarget(), boss, 'a casting boss comes first');
+  boss.mech = null;
+  // With the escort down, the boss.
+  for (const n of waveMobs(g)) if (n !== boss) g.killNpc(n);
+  assert.equal(g._autoPickTarget(), boss, 'then the boss');
+  // And it really fights a wave through, champion and all.
+  g.waves.wave = 1;
+  for (const n of waveMobs(g)) g.killNpc(n);
+  step(g, 1);
+  nextWave(g);
+  assert.equal(g.waves.wave, 2);
+  for (const n of waveMobs(g)) { n.hp = Math.min(n.hp, 3); n.maxHp = Math.max(n.maxHp, 3); }
+  tame(g);
+  g.toggleAutoBattle(true);
+  for (let t = 0; t < 400 && g.waves.wave < 3; t++) { step(g, 1); tame(g); }
+  assert.ok(g.waves.wave >= 3, `auto battle cleared wave 2, champion included (${g.waves.left()} left)`);
 });

@@ -46,7 +46,7 @@ import {
   FOCUS_MAX_MS, FOCUS_ACTIVE_REFILL, TIRED_MULT, RESTED_MULT, RESTED_RATE, RESTED_CAP_MS,
   GRAVE_TICKS, GRAVE_COIN_SHARE, GRAVE_STACKS, GRAVE_FEE_SHARE, GRAVE_FEE_MIN,
 } from '../game/playbalance.js';
-import { GATE_MODS, CHAMPION_EVERY, BOSS_EVERY } from '../game/waves.js';
+import { GATE_MODS, BOSS_EVERY, MILESTONE_EVERY } from '../game/waves.js';
 import { HOME_PRICE, HOME_UPGRADES } from '../game/home.js';
 import { BOSS_PET_RATE, BOSS_PET_FLOOR, SKILL_PET_RATE } from '../game/pets.js';
 import { MASTERY_TIERS, CONTRACT_COUNT } from '../game/culling.js';
@@ -1180,7 +1180,8 @@ export const CHAPTERS = [
         body: [
           'Step through the **Endless Gate** in Kampong Glam into a sealed arena where monsters come in waves, each stronger than the last. Fight until you fall or choose to leave; either way you come out where you went in, **keeping everything**.',
           { list: [
-            `Every ${CHAMPION_EVERY}th wave adds a champion, and every ${BOSS_EVERY}th is a boss wave with a guaranteed chest.`,
+            `Gate monsters are tougher than the same monsters outside: more life, harder and surer hits.`,
+            `Every wave is led by a champion (two from wave 20), and every ${BOSS_EVERY}th by a boss instead, with a guaranteed chest; every ${MILESTONE_EVERY}th wave's chest is a bigger milestone chest.`,
             'Clearing a wave pays coins, and from later waves upgrade stones, refine scrolls and wards.',
           ] },
           'Before a run you can pick **modifiers**. They stack, each making the run harder and paying for it:',
