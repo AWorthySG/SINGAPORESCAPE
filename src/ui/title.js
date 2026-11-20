@@ -33,19 +33,24 @@ import { cosySkylineSvg, dressTitle } from './cosytitle.js';
 // TITLE_ART: the screen uses it at once (tests/render.test.mjs keeps TITLE_ART
 // in lock-step with the folder). Until then each slot has a placeholder.
 export const TITLE_ART_SLOTS = {
-  skyline: { size: '2400x280, transparent, seamless left-right', use: 'the Singapore skyline band behind the title heroes', placeholder: 'an inline SVG silhouette (titleSkylineSvg)' },
+  skyline: { size: '2400x700 (any height), transparent, seamless left-right', use: 'the near band behind the title heroes: rain trees, palms and Supertree-style towers', placeholder: 'the cosy neighbourhood SVG (cosytitle.js)' },
   backdrop: { size: '1920x1080, opaque', use: 'a painted key-art scene shown while the game loads (before the live world fades in)', placeholder: 'the cream paper background' },
   'backdrop-portrait': { size: '1080x1920, opaque', use: 'the same key art cropped for phones held upright', placeholder: 'the cream paper background' },
   'loading-hero': { size: '512x512, transparent', use: 'a mascot illustration beside the loading bar (e.g. the A-Worthy mascot carrying a map)', placeholder: 'assets/mascot-login.webp' },
   ground: { size: '2400x160, transparent, seamless left-right', use: 'the grassy verge the title heroes stand on', placeholder: 'a CSS cream-to-green gradient' },
   sky: { size: '1920x1080, opaque', use: 'a sunset sky behind the city layers (it hides the live world behind it)', placeholder: 'a CSS sunset glow over the live world (titleSkyLayer)' },
-  clouds: { size: '1600x400, transparent', use: 'a few sticker clouds, drifting slowly across the top of the screen', placeholder: 'inline SVG clouds (titleCloudsLayer)' },
+  clouds: { size: '2400x800 sheet of six 800x400 clouds (3 x 2), transparent', use: 'a few sticker clouds, drifting slowly across the top of the screen', placeholder: 'inline SVG clouds (titleCloudsLayer)' },
   'skyline-far': { size: '3200x520, transparent, seamless left-right', use: 'the far city at sunset: Marina Bay Sands, the Supertrees, the Flyer, the CBD towers (hazy, slowest parallax)', placeholder: 'an inline SVG (titleFarLayer)' },
   'skyline-mid': { size: '3200x400, transparent, seamless left-right', use: 'a row of HDB blocks with lit windows and rain trees (middle parallax)', placeholder: 'an inline SVG (titleMidLayer)' },
+  foreground: { size: '2400x400, transparent, seamless left-right, low in the middle', use: 'dark bushes and a palm along the foot of the screen, the nearest layer', placeholder: 'nothing (the layer is left empty)' },
+  'logo-banner': { size: '1600x600, transparent, no text', use: 'the ribbon the game title sits on, its sunburst behind the mascot', placeholder: 'the plain title text' },
 };
-/** The slots that have a painted file in assets/title/ (none yet). */
-export const TITLE_ART = new Set([]);
+/** The slots that have a painted file in assets/title/. */
+export const TITLE_ART = new Set(['sky', 'clouds', 'skyline-far', 'skyline-mid', 'skyline', 'foreground', 'logo-banner']);
 export const titleArtSrc = (slot) => (TITLE_ART.has(slot) ? `assets/title/${slot}.webp` : null);
+/** The painted slots the title shows at once: asked for while the loading bar
+ *  runs (and counted by it), so the city fades in whole. */
+export const TITLE_START_ART = ['sky', 'clouds', 'skyline-far', 'skyline-mid', 'skyline', 'foreground', 'logo-banner'];
 
 // ---------------- The camera's shots ----------------
 // Tile coordinates: each shot pans from `from` to `to` while easing its zoom
@@ -363,6 +368,18 @@ export function titleCloudsLayer(n = 5) {
   return s;
 }
 
+/** Painted clouds: cells of the clouds sheet (3 x 2), drifting like the SVG ones. */
+export function titleCloudsArt(src, n = 5) {
+  const r = seeded(7);
+  let s = '';
+  for (let i = 0; i < n; i++) {
+    const w = Math.round(170 + r() * 170), c = i % 6;
+    s += `<i class="tcl tca" style="top:${(3 + r() * 30).toFixed(1)}%;width:${w}px;animation-duration:${(80 + r() * 70).toFixed(0)}s;animation-delay:${(-r() * 150).toFixed(0)}s;`
+      + `background-image:url(${src});background-position:${(c % 3) * 50}% ${Math.floor(c / 3) * 100}%"></i>`;
+  }
+  return s;
+}
+
 /** A tower with a few lit windows. */
 function tower(x, w, h, fill, G, seed, { spire = 0, crown = null } = {}) {
   const r = seeded(seed);
@@ -473,11 +490,19 @@ export const TITLE_LAYERS = [
   { id: 'clouds', slot: 'clouds', depth: 0.1, draw: titleCloudsLayer },
   { id: 'far', slot: 'skyline-far', depth: 0.25, draw: titleFarLayer },
   { id: 'mid', slot: 'skyline-mid', depth: 0.55, draw: titleMidLayer },
+  // In front of the near band (and behind the heroes): only drawn when painted.
+  { id: 'front', slot: 'foreground', depth: 1.15, draw: () => '', front: true },
 ];
+/** A painted strip (seamless left to right) repeated along a layer's foot,
+ *  scaled to the layer's height; the sky covers its layer. */
+export const titleStripHTML = (src) => `<i class="title-art title-strip" style="background-image:url(${src})"></i>`;
 /** A layer's markup: its painted picture once it exists, else its placeholder. */
 export function titleLayerHTML(layer) {
   const src = titleArtSrc(layer.slot);
-  return src ? `<img src="${src}" alt="" class="title-art">` : layer.draw();
+  if (!src) return layer.draw();
+  if (layer.slot === 'clouds') return titleCloudsArt(src);
+  if (layer.slot === 'sky') return `<i class="title-art title-sky-art" style="background-image:url(${src})"></i>`;
+  return titleStripHTML(src);
 }
 /** How far (px) each layer sways at parallax `p` (-1..1): the near layer most. */
 export const PARALLAX_PX = 34;
@@ -556,10 +581,23 @@ export class TitleScreen {
     });
     // The drifting petals (fxImage's own Image is counted like any other).
     if (!this.still && !this.lowFx) for (const k of PETALS) fxImage(`particle-${k}`);
-    // The cosy neighbourhood at golden hour (cosytitle.js), until painted art arrives.
-    // The city behind it is drawn in layers that sway apart (the parallax).
-    if (this.el.sky) this.el.sky.innerHTML = titleArtSrc('skyline') ? `<img src="${titleArtSrc('skyline')}" alt="">` : cosySkylineSvg({ city: false });
+    // The near band: the painted trees and Supertrees (art slot "skyline"), else
+    // the cosy neighbourhood at golden hour (cosytitle.js). The city behind it is
+    // drawn in layers that sway apart (the parallax).
+    if (this.el.sky) {
+      this.el.sky.innerHTML = titleArtSrc('skyline') ? titleStripHTML(titleArtSrc('skyline')) : cosySkylineSvg({ city: false });
+      this.el.sky.classList.toggle('painted', !!titleArtSrc('skyline'));
+    }
     dressTitle(this.splash, { lowFx: this.lowFx, still: this.still });
+    // The painted city: asked for now so the loading bar waits for it (the
+    // layers then use the same files from the cache). A painted sky hides the
+    // live world, so the place caption goes; the title sits on its ribbon.
+    this._titleArt = TITLE_START_ART.filter((s) => titleArtSrc(s) && !(s === 'clouds' && this.lowFx)).map((s) => {
+      if (typeof Image !== 'function') return null;
+      const img = new Image(); img.src = titleArtSrc(s); return img;
+    });
+    this.splash.classList.toggle('title-painted', !!titleArtSrc('sky'));
+    if (titleArtSrc('logo-banner')) { this.splash.classList.add('title-banner'); this.splash.style.setProperty('--title-banner', `url("${new URL(titleArtSrc('logo-banner'), document.baseURI).href}")`); }   // absolute: a url() in a custom property resolves against the stylesheet that uses it
     this._buildLayers();
     // The other painted slots, where they have arrived (title.css picks them up).
     for (const slot of ['backdrop', 'backdrop-portrait', 'ground']) if (titleArtSrc(slot)) this.splash.style.setProperty(`--title-${slot}`, `url("${titleArtSrc(slot)}")`);
@@ -611,13 +649,17 @@ export class TitleScreen {
     if (this._layers || typeof document === 'undefined') return;
     this._layers = [];
     const before = this.el.sky || this.splash.querySelector('.splash-inner');
+    // The front layer goes after the near band (in front of it, behind the heroes).
+    const front = this.el.heroes || this.splash.querySelector('.splash-inner');
     for (const layer of TITLE_LAYERS) {
       if (layer.id === 'clouds' && this.lowFx) continue;
+      const html = titleLayerHTML(layer);
+      if (layer.front && !html) continue;
       const div = document.createElement('div');
       div.className = `title-layer title-${layer.id}`;
       div.setAttribute('aria-hidden', 'true');
-      div.innerHTML = titleLayerHTML(layer);
-      this.splash.insertBefore(div, before);
+      div.innerHTML = html;
+      this.splash.insertBefore(div, layer.front ? front : before);
       this._layers.push({ el: div, depth: layer.depth });
     }
     if (this.el.sky) this._layers.push({ el: this.el.sky, depth: 1 });

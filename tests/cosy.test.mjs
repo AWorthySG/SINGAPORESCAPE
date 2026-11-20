@@ -255,7 +255,7 @@ test('fireflies come out as asked, and dressing the title is safe without a page
   assert.equal((html.match(/class="ct-fly"/g) || []).length, 9);
   assert.doesNotThrow(() => dressTitle(null));
   const title = readFileSync(new URL('../src/ui/title.js', import.meta.url), 'utf8');
-  assert.match(title, /: cosySkylineSvg\(\{ city: false \}\);\n\s*dressTitle\(this\.splash/);
+  assert.match(title, /: cosySkylineSvg\(\{ city: false \}\);[^\n]*\n[\s\S]{0,200}?\n\s*dressTitle\(this\.splash/);
 });
 
 test('the page shares well: description, Open Graph and Twitter cards, theme colour, and the cosy styles', () => {
