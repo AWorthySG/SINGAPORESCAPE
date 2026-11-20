@@ -148,8 +148,22 @@ export function enchantPool(id) {
 }
 
 /** How big a line of `stat` is on this item. */
+// Lines grow with the item's level, but past level ENCHANT_TAPER.from only by
+// `rate` of a level per level: growing in full, a level 300 item's lines were
+// 8.5 times a starter's, and with three on every piece (crit damage, physical
+// damage, crit chance all stacking) enchanting alone tripled late-game damage.
+export const ENCHANT_TAPER = { from: 100, rate: 0.25 };
 export function enchantValue(id, stat) {
-  return Math.max(1, Math.round(ENCHANT_STEP[stat] * (1 + reqLevel(id) / 40)));
+  const req = reqLevel(id), { from, rate } = ENCHANT_TAPER;
+  const lvl = req <= from ? req : from + (req - from) * rate;
+  return Math.max(1, Math.round(ENCHANT_STEP[stat] * (1 + lvl / 40)));
+}
+/** A line saved before the taper, brought down in proportion: the size it
+ *  would roll now over the size it rolled then (1 for items up to level 100). */
+export function taperedLine(id, line) {
+  const was = Math.round(ENCHANT_STEP[line.stat] * (1 + reqLevel(id) / 40));
+  const now = enchantValue(id, line.stat);
+  return now >= was ? line : { stat: line.stat, value: Math.max(1, Math.round(line.value * now / was)) };
 }
 
 /** What the next enchant costs, given how many lines the item has. A full

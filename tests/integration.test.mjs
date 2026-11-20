@@ -2537,15 +2537,18 @@ test('Melee level raises damage (and adds a level bonus like gear); scimitars an
 });
 
 test('High-level damage grows in a straight line with level, not with its square', async () => {
-  const { levelBonuses, LEVEL_BONUS_CAP } = await import('../src/game/combat.js');
+  const { levelBonuses, LEVEL_BONUS_CAP, damageTaper } = await import('../src/game/combat.js');
   const top = levelBonuses({ attack: 99999, ranged: 99999, magic: 99999, agility: 99999 });
   const cap = levelBonuses({ attack: LEVEL_BONUS_CAP, ranged: LEVEL_BONUS_CAP, magic: LEVEL_BONUS_CAP, agility: LEVEL_BONUS_CAP });
   assert.deepEqual(top, cap, 'the level bonus stops growing at the cap');
   const eq = { bonuses: () => ({ attack: 60, strength: 60, ranged: 60 }) };
   const at = (L) => playerAttackVsNpc({ attack: L, strength: L }, eq, 'balanced', { defence: 1 }).max;
-  // Ten times the level gives about ten times the damage (it gave ~25x before).
-  const r = at(10000) / at(1000);
+  // Ten times the level gives about ten times the damage before the late-game
+  // taper (it gave ~25x before the cap); the taper (combat.js damageTaper) then
+  // trims that, but more levels still hit harder.
+  const r = (at(10000) / damageTaper(10000)) / (at(1000) / damageTaper(1000));
   assert.ok(r > 8 && r < 11, `damage scales linearly past the cap (x${r.toFixed(1)})`);
+  assert.ok(at(10000) > at(1000), 'and still grows with level after the taper');
   assert.ok(at(99999) < 200000, `level 99999 max hit stays sane (${at(99999)})`);
 });
 
@@ -3051,7 +3054,8 @@ test('Smaller numbers: big monsters show less life and take smaller hits in prop
   const unscaled = playerAttackVsNpc(g.skills, g.equipment, 'x', { ...big, hpScale: 1 }).max;
   const hitsNow = big.maxHp / scaled, hitsBefore = (big.maxHp * big.hpScale) / unscaled;
   assert.ok(Math.abs(hitsNow / hitsBefore - 1) < 0.02, `same number of hits (${hitsNow.toFixed(1)} vs ${hitsBefore.toFixed(1)})`);
-  assert.ok(scaled < unscaled / 20, `and much smaller numbers (${scaled} vs ${unscaled})`);
+  // (Tapered late-game hits are small enough that rounding shows: allow for it.)
+  assert.ok(scaled < unscaled / 18, `and much smaller numbers (${scaled} vs ${unscaled})`);
   // The kill reward is worked out on the real size: at least what the unscaled life would give.
   const { NPC } = await import('../src/game/npc.js');
   const n = new NPC(Object.keys(NPCS).find((id) => NPCS[id] === big), g.player.x + 1, g.player.y, 0, {});
@@ -6429,9 +6433,10 @@ test('combat level is no longer squashed; every fighting level adds flat damage'
   assert.equal(levelFlatDmg(1000), 1000 * LEVEL_FLAT_DMG);
   const gear = { bonuses: () => ({ attack: 0, strength: 0, ranged: 0, magic: 0 }), weaponType: () => null };
   const at = (r) => playerRangedVsNpc({ ranged: r }, gear, 'balanced', {}, 0).max;
-  assert.ok(at(500) - at(499) >= 1, 'each Ranged level adds its flat damage');
-  assert.ok(playerAttackVsNpc({ attack: 400, strength: 400 }, gear, 'balanced', {}).max
-    - playerAttackVsNpc({ attack: 0, strength: 400 }, gear, 'balanced', {}).max >= levelFlatDmg(400), 'Melee levels add flat damage');
+  // (Checked below level 100: past it the late-game taper trims every level's share.)
+  assert.ok(at(100) - at(99) >= 1, 'each Ranged level adds its flat damage');
+  assert.ok(playerAttackVsNpc({ attack: 100, strength: 400 }, gear, 'balanced', {}).max
+    - playerAttackVsNpc({ attack: 0, strength: 400 }, gear, 'balanced', {}).max >= levelFlatDmg(100), 'Melee levels add flat damage');
 });
 
 test('runes and arrows can be bought a thousand at a time; you only pay for what you get', async () => {

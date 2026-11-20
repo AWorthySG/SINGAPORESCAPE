@@ -1,6 +1,6 @@
 import { getItem, TWO_HANDED_TYPES, QUIVER_BOW_TYPES } from '../data/items.js';
 import { ARMOUR_SETS } from '../data/sets.js';
-import { masteryBonuses, qualityBonuses, masteryType, enchantedBonuses, rankFor, migrateOld, MAX_ENCHANTS, ENCHANT_STEP } from './mastery.js';
+import { masteryBonuses, qualityBonuses, masteryType, enchantedBonuses, rankFor, migrateOld, MAX_ENCHANTS, ENCHANT_STEP, taperedLine } from './mastery.js';
 import { validQuality, QUALITY_ORDER } from './loot.js';
 import { refinedBonuses, MAX_REFINE } from './refine.js';
 
@@ -258,7 +258,7 @@ export class Equipment {
     const lines = (m) => Object.fromEntries(Object.entries(m).map(([id, l]) => [id, l.map((x) => ({ ...x }))]));
     return { ...this.slots, _mastery: { ...this.mastery }, _enchants: lines(this.enchants), _refines: { ...this.refines },
       _offEnchants: lines(this.offEnchants), _offRefines: { ...this.offRefines },
-      _slotQuality: { ...this.slotQuality } };
+      _slotQuality: { ...this.slotQuality }, _enchantTaper: 1 };
   }
 
   load(data) {
@@ -283,7 +283,9 @@ export class Equipment {
       for (const [id, lines] of Object.entries(src || {})) {
         if (!itemExists(id) || !Array.isArray(lines)) continue;
         const ok = lines.filter((l) => l && ENCHANT_STEP[l.stat] && typeof l.value === 'number' && l.value > 0).slice(0, MAX_ENCHANTS);
-        if (ok.length) out[id] = ok.map((l) => ({ stat: l.stat, value: Math.floor(l.value) }));
+        // Saves from before the late-game enchant taper (no _enchantTaper) bring
+        // their lines on items above level 100 down in proportion, once.
+        if (ok.length) out[id] = ok.map((l) => ({ stat: l.stat, value: Math.floor(l.value) })).map((l) => (data._enchantTaper ? l : taperedLine(id, l)));
       }
       return out;
     };
