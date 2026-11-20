@@ -374,6 +374,73 @@ test('creature rigs from the parts sheets have joints on their canvas and a moti
   }
 });
 
+test('the snake, swimmer and plant plans breathe at rest, wind up and strike', async () => {
+  const { buildRig, bodyPlans } = await import('../src/render/creatureRigs.js');
+  const PARTS = {
+    slither: ['tail', 'body', 'head'],
+    swim: ['arm_far', 'tail', 'body', 'head', 'arm_near'],
+    plant: ['arm_far', 'body', 'head', 'arm_near'],
+  };
+  assert.deepEqual(bodyPlans().sort(), Object.keys(PARTS).sort());
+  for (const [plan, order] of Object.entries(PARTS)) {
+    const piv = Object.fromEntries([...order, 'head_attack'].map((n) => [n, [0.5, 0.5]]));
+    const rig = buildRig(`test_${plan}`, { plan, kind: 'species', fit: 1, order, piv });
+    const idle = { moving: false, attackK: -1 };
+    // Every moving part has a motion, and it moves over time at rest.
+    for (const n of order.filter((n) => n !== 'body')) {
+      const sw = rig.parts[n].swing;
+      assert.ok(sw, `${plan} ${n} moves`);
+      assert.notEqual(sw(1000, idle).toFixed(4), sw(2400, idle).toFixed(4), `${plan} ${n} stirs at rest`);
+      for (const k of [-1, 0, 0.2, 0.35, 0.5, 0.8, 1]) assert.ok(Math.abs(sw(1234, { moving: true, attackK: k })) < 0.8, `${plan} ${n} swings sensibly`);
+    }
+    // The head draws back on the wind-up, then strikes the other way with its attack face on.
+    const head = rig.parts.head;
+    const wind = head.swing(1000, { attackK: 0.34 }), hit = head.swing(1000, { attackK: 0.6 });
+    assert.ok(Math.sign(wind) !== Math.sign(hit) && Math.abs(wind) > 0.05 && Math.abs(hit) > 0.1, `${plan} head winds up and strikes`);
+    assert.equal(head.alt, 'head_attack');
+    assert.ok(head.swap({ attackK: 0.6 }) && !head.swap({ attackK: -1 }), `${plan} bares its teeth only to strike`);
+    // The whole body sways or bobs at rest and gathers itself on the wind-up.
+    const b0 = rig.body(1000, idle), b1 = rig.body(1400, idle), bw = rig.body(1000, { attackK: 0.34 });
+    for (const b of [b0, b1, bw]) for (const v of Object.values(b)) assert.ok(Number.isFinite(v), `${plan} body motion is finite`);
+    assert.ok(Math.abs(b0.lean - b1.lean) + Math.abs(b0.dy - b1.dy) > 0.01, `${plan} body moves at rest`);
+    assert.ok(bw.lean < b0.lean - 0.03, `${plan} leans back on the wind-up`);
+    assert.ok(Math.abs(bw.lean) < 0.3 && bw.sx > 0.8 && bw.sy > 0.8, `${plan} stays in proportion`);
+  }
+});
+
+// Canvas size from a .webp header (VP8X, lossy VP8 or lossless VP8L), so tests can check layers share one canvas.
+function webpSize(buf) {
+  const kind = buf.toString('ascii', 12, 16);
+  if (kind === 'VP8X') return [1 + buf.readUIntLE(24, 3), 1 + buf.readUIntLE(27, 3)];
+  if (kind === 'VP8 ') return [buf.readUInt16LE(26) & 0x3fff, buf.readUInt16LE(28) & 0x3fff];
+  const b = buf.readUInt32LE(21);
+  return [1 + (b & 0x3fff), 1 + ((b >> 14) & 0x3fff)];
+}
+
+test('Part E species rigs: real monsters with their still art, layers on one canvas, joints on the picture', async () => {
+  const { CREATURE_RIGS } = await import('../src/render/creatureRigs.js');
+  const { speciesArt } = await import('../src/render/sprites.js');
+  const { NPCS } = await import('../src/data/npcs.js');
+  const { readFileSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const families = new Set(Object.values(NPCS).map((d) => d.family));
+  const E = ['reticulated_python', 'reef_shark', 'tarantula', 'sea_snake', 'jungle_spider', 'rust_golem', 'pocong', 'skeleton', 'outlaw', 'wild_dog',
+    'jungle_wraith', 'smuggler', 'pink_dolphin', 'hornbill', 'pontianak', 'dock_rat', 'horseshoe_crab', 'drowned_sailor', 'flying_fox', 'king_cobra'];
+  for (const id of E.filter((f) => CREATURE_RIGS[f])) {
+    const rig = CREATURE_RIGS[id];
+    assert.equal(rig.kind, 'species');
+    assert.ok(families.has(id) && speciesArt().has(id), `${id} is a monster family with its still picture`);
+    assert.ok(rig.order.includes('body'), `${id} has a body layer`);
+    const sizes = rig.files.map((n) => webpSize(readFileSync(fileURLToPath(new URL(`../assets/creatures/species/rig/${id}_${n}.webp`, import.meta.url)))));
+    for (const sz of sizes) assert.deepEqual(sz, sizes[0], `${id} layers share one canvas`);
+    for (const n of rig.order) {
+      const [x, y] = rig.parts[n].piv;
+      assert.ok(x > 0.02 && x < 0.98 && y > 0.02 && y <= 1, `${id} ${n} joint is on the picture`);
+    }
+  }
+  assert.ok(E.filter((f) => CREATURE_RIGS[f]).length >= 16, 'most of the E1 and E2 batches are rigged');
+});
+
 test('every monster body type has an automatic animation style', async () => {
   const { puppetKinds } = await import('../src/render/sprites.js');
   const { NPCS } = await import('../src/data/npcs.js');

@@ -535,6 +535,9 @@ function drawRig(c, id, imgs, opts, t, flash, flashCol) {
   const g = cv.getContext('2d');
   g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
   g.setTransform(res, 0, 0, res, -ST_X0 * res, -ST_Y0 * res);
+  // Snakes, swimmers and plants also sway, bob and lean as a whole, about the ground line (creatureRigs.js BODY).
+  const b = rig.body && rig.body(t, opts);
+  if (b) g.transform(b.sx, 0, -b.lean, b.sy, 13.5 * b.lean, 13.5 * (1 - b.sy) + b.dy);
   for (const n of rig.order) {
     const part = rig.parts[n];
     g.save();
