@@ -1815,7 +1815,7 @@ export class Game {
 
   // ---------------- Combat resolution ----------------
   combatMode() { return this.equipment.combatType(); }
-  /** Tiles you can attack from: bows have their own reach (12-18), spells 8, melee 1. */
+  /** Tiles you can attack from: bows and guns have their own reach (shortbows 5-9, longbows 9-10), spells 8, melee 2-4. */
   attackRange() {
     const m = this.combatMode();
     if (m === 'ranged') { const w = this.equipment.get('weapon'); return ((w && getItem(w).equip?.range) || 12) + Math.floor(this.perkMods('ranged').range || 0); }

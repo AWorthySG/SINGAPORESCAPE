@@ -57,7 +57,9 @@ function walk(g, ticks) {
 test('a Ranger with monsters in reach shoots them all from where it stands', () => {
   const { g } = arena('ranger');
   const range = g.attackRange();
-  assert.ok(range >= 10, `a longbow reaches far (${range})`);
+  // Longbows reach 9 tiles now (they reached 15+ before the owner asked for less):
+  // every foe below stands within 9 tiles, so it still never needs to move.
+  assert.ok(range >= 9, `a longbow out-reaches the foes below (${range})`);
   const foes = [foe(g, 5), foe(g, -7, 3), foe(g, 2, -9), foe(g, 9, 6)];
   g.toggleAutoBattle(true);
   const tiles = walk(g, 120);

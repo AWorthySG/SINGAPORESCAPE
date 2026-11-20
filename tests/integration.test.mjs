@@ -3139,7 +3139,7 @@ test('bows shoot from far: each bow has its own reach, and arrows fly at a stead
   game.chooseStartingStyle('ranged');
   assert.equal(game.attackRange(), 5, 'a shortbow reaches 5 tiles (a quarter of its old 12, plus 2)');
   assert.equal(ITEMS.magic_shortbow.equip.range, 7);
-  assert.ok(ITEMS.magic_longbow.equip.range > ITEMS.magic_shortbow.equip.range * 1.5, 'longbows keep their long reach');
+  assert.ok(ITEMS.magic_longbow.equip.range > ITEMS.magic_shortbow.equip.range, 'longbows reach a little further (no longer twice as far)');
   const near = game.spawnNpc('goblin', game.player.x + 2, game.player.y, { wander: 0 });
   const far = game.spawnNpc('goblin', game.player.x + 9, game.player.y, { wander: 0 });
   game._projectile(near, '#fff', 'arrow'); game._projectile(far, '#fff', 'arrow');
