@@ -1,5 +1,6 @@
 import { TILE } from '../config.js';
 import { composeWashes } from './ambience.js';
+import { timeGrade, moonDark } from './atmosphere.js';
 
 // The light pass: after dark the scene is covered by a darkness layer with
 // soft pools of light cut out of it around lamps, fires, furnaces, glowing
@@ -27,6 +28,11 @@ export const LIGHTS = {
   mrt_station: { r: 96, rgb: [214, 234, 255], y: -18, win: true },
   temple_vault: { r: 58, rgb: [255, 206, 120], y: -14, win: true },
   observatory_chest: { r: 58, rgb: [190, 210, 255], y: -10, win: true },
+  // Shop signs and the homes' windows: a small warm lantern glow.
+  sign: { r: 50, rgb: [255, 206, 150], y: -18, win: true },
+  home_plot: { r: 62, rgb: [255, 214, 150], y: -14, win: true },
+  smugglers_hold: { r: 56, rgb: [255, 190, 120], y: -12, flicker: 0.1 },
+  rift_treasury: { r: 60, rgb: [200, 140, 255], y: -12, pulse: 0.15 },
   // Glowing things: magic trees, star-touched rocks and crystals, shrines, portals.
   magic_tree: { r: 74, rgb: [150, 196, 255], y: -26, pulse: 0.12 },
   starfall_banyan: { r: 84, rgb: [255, 226, 150], y: -28, pulse: 0.12 },
@@ -44,6 +50,9 @@ export const LIGHTS = {
   wave_exit: { r: 92, rgb: [140, 220, 255], y: -16, pulse: 0.2 },
   phoenix_roost: { r: 70, rgb: [255, 140, 70], y: -10, flicker: 0.15 },
 };
+// Districts whose lamps are neon by night, and the colours they take in turn.
+export const NEON_ZONES = new Set(['Marina Bay', 'Chinatown']);
+export const NEON = { lamp: [[255, 120, 200], [110, 220, 255]], sign: [[255, 140, 210], [120, 230, 255]] };
 const PLAYER_LIGHT = { r: 78, rgb: [255, 210, 160], y: -10 };
 const SPELL_LIGHT_R = 46, BLAST_LIGHT_R = 110, BOSS_LIGHT_R = 130;
 // Arrows, bullets, coins and shurikens are dull metal; anything else in
@@ -94,9 +103,11 @@ export class LightPass {
     this.layer = null; this.g = null;
     this._cut = null; this._glow = new Map();   // baked gradient pictures
     this._index = []; this._indexN = -1; this._indexAt = 0;   // the world's light-giving objects
+    this._tint = new Map();                      // ...and any whose colour the district changes
     this._lights = [];                           // this frame's lights, reused
     this._sky = skyWashes(0.5);
-    this._dark = [18, 22, 58, 0];
+    this._dark = moonDark(0, [0, 0, 0, 0]);   // indigo at dusk, moonlit blue at midnight (atmosphere.js)
+    this._tg = timeGrade(0.5);
     this._washes = [];
     this._grade = [0, 0, 0, 0];
     this.count = 0;                              // lights drawn last frame (for tests and tuning)
@@ -107,8 +118,14 @@ export class LightPass {
   _scan(world, now) {
     const objs = world.objects;
     if (objs.length === this._indexN && now - this._indexAt < 2000) return this._index;
-    this._index.length = 0;
-    for (const o of objs) if (LIGHTS[o.objId]) this._index.push(o);
+    this._index.length = 0; this._tint.clear();
+    for (const o of objs) {
+      if (!LIGHTS[o.objId]) continue;
+      this._index.push(o);
+      // Street lamps in the neon districts glow pink and cyan in turn.
+      const neon = NEON[o.objId] && world.zoneAt && NEON_ZONES.has(world.zoneAt(o.x, o.y)?.name);
+      if (neon) this._tint.set(o, NEON[o.objId][(o.x + o.y) & 1]);
+    }
     this._indexN = objs.length; this._indexAt = now;
     return this._index;
   }
@@ -126,7 +143,7 @@ export class LightPass {
       let k = 1;
       if (L.flicker) k -= L.flicker * (0.5 + 0.5 * Math.sin(t * 0.017 + o.x * 2.3) * Math.sin(t * 0.0071 + o.y));
       if (L.pulse) k -= L.pulse * (0.5 + 0.5 * Math.sin(t * 0.0023 + o.x + o.y * 1.7));
-      add(x, y, L.r, L.rgb, k);
+      add(x, y, L.r, this._tint.get(o) || L.rgb, k);
     }
     const p = game.player;
     if (p && p.alive) {
@@ -183,7 +200,9 @@ export class LightPass {
    */
   draw(ctx, game, mood, night, wx, ox, oy, vw, vh, t) {
     if (!this.ok) return false;
-    const sky = skyWashes(game.dayPhase ? game.dayPhase() : 0.5, this._sky);
+    const phase = game.dayPhase ? game.dayPhase() : 0.5;
+    const sky = skyWashes(phase, this._sky);
+    moonDark(timeGrade(phase, 0, this._tg).moon, this._dark);
     // Storms darken the day enough for the lamps to come on.
     const dark = Math.max(nightDarkness(night), wx ? wx.gloom * 0.6 : 0);
     this._dark[3] = nightDarkness(night);

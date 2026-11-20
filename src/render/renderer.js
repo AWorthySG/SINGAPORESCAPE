@@ -36,6 +36,8 @@ import { worldMood } from '../game/consequences.js';
 import { Critters } from './critters.js';
 import { LightPass } from './lighting.js';
 import { CosyLight } from './cosylight.js';
+import { Atmosphere } from './atmosphere.js';
+import { AmbientLife } from './ambient.js';
 import { RegionPostcards } from './postcard.js';
 import { Weather } from './weather.js';
 import { fxImage, fxTinted, drawFx, drawStrip, badgeKey, DARK_REGIONS } from './fxart.js';
@@ -94,6 +96,8 @@ const GROUND_TEX = {
 };
 export const groundTextures = () => new Set(Object.values(GROUND_TEX));
 
+const LIT_RGB = [255, 190, 110];   // the warm pool round lamps and fires drawn with them
+
 export class Renderer {
   constructor(game, canvas, ctx) {
     this.game = game;
@@ -115,6 +119,9 @@ export class Renderer {
     this.critters = new Critters();
     this.lights = new LightPass();   // night lighting and the colour grade (lighting.js)
     this.cosy = new CosyLight();     // golden hour and lantern bloom over it (cosylight.js)
+    this.atmos = new Atmosphere();   // region grade across borders, crisp at midday (atmosphere.js)
+    this.amb = new AmbientLife();    // breeze, glints, flocks, town birds, cats, steam, leaves (ambient.js)
+    this._moodOf = (z) => worldMood(this.game, z);
     this.postcards = new RegionPostcards();   // the arrival postcards (postcard.js)
     this.weather = new Weather();    // rain, snow, mist, embers (weather.js)
     this._critEnv = { world: null, zone: '', night: 0, px: 0, py: 0, low: false };
@@ -219,6 +226,7 @@ export class Renderer {
       env.world = game.world; env.zone = game.currentZoneName; env.night = night; env.px = pc.x; env.py = pc.y; env.low = trim;
       this.critters.update(fdt, env, ox, oy, vw, vh);
       this.critters.drawGround(ctx, ox, oy);
+      this.amb.update(game, fdt, timeMs, ox, oy, vw, vh, night, this.weather.state, trim);
     }
 
     // Depth-sorted drawables.
@@ -236,21 +244,14 @@ export class Renderer {
       const jx = o.shakeT > 0 ? Math.sin(o.shakeT * 0.09) * 1.7 * (o.shakeT / 280) : 0;
       const cx = o.x * TILE + TILE / 2 - ox + jx, cy = o.y * TILE + TILE / 2 - oy;
       const lit = night > 0.12 && isLightSource(o);
-      const fade = this.react.alpha(o), lean = this.react.skew(o, timeMs);
+      const fade = this.react.alpha(o), lean = this.react.skew(o, timeMs) + this.amb.lean(o, timeMs);   // brushed, or in the breeze (ambient.js)
       drawables.push({ sortY: o.y + 0.4, z: 1, draw: () => {
         if (lit) {
           // A warm light pool blooms outward after dark — fires, furnaces,
           // ranges and street lamps become the island's night-time glow.
           const flick = 0.85 + Math.sin(timeMs * 0.01 + o.x * 3.1 + o.y) * 0.15;
           const r = (20 + night * 12) * flick;
-          const g = ctx.createRadialGradient(cx, cy - 4, 2, cx, cy - 4, r);
-          g.addColorStop(0, `rgba(255,190,110,${(0.32 * night).toFixed(3)})`);
-          g.addColorStop(1, 'rgba(255,190,110,0)');
-          ctx.save();
-          ctx.globalCompositeOperation = 'lighter';
-          ctx.fillStyle = g;
-          ctx.beginPath(); ctx.arc(cx, cy - 4, r, 0, Math.PI * 2); ctx.fill();
-          ctx.restore();
+          this.atmos.pool(ctx, cx, cy - 4, r, LIT_RGB, 0.32 * night);   // a baked sprite, not a gradient a frame
         }
         if (fade < 1 || lean) {
           // See-through while you're behind it; a brushed bush leans about its base.
@@ -439,14 +440,17 @@ export class Renderer {
     this._holdForStrike(timeMs);
     // A melee blow's impact waits for the weapon to land, like its hitsplat.
     { const clk = strikeClock(game); game.cfx.armFresh(clk && timeMs - clk.blowAt < 60 ? clk.hitTimes[0] - timeMs : 0); }
+    this.amb.drawGround(ctx, visObjs, ox, oy, timeMs);   // glints, flock shadows, cats, town birds (ambient.js)
     drawables.sort((a, b) => (a.sortY - b.sortY) || (a.z - b.z));
     for (const d of drawables) d.draw();
+    this.amb.drawOver(ctx, visObjs, ox, oy, timeMs);     // steam off the hawker stalls
 
     this._drawClueMarker(ox, oy, vw, vh, timeMs);
+    this.amb.drawAir(ctx, ox, oy, timeMs);   // leaves, petals and birds, under the grade
     // The light pass (lighting.js) paints the grade and the night's darkness
     // with lamps, fires and spells cut out of it, then the weather in the air;
     // low graphics (and headless runs) keep the old flat fill.
-    if (game.lowFx || !this.lights.ok || !this.lights.draw(ctx, game, this._blendMood(fdt), night, this.weather.state, ox, oy, vw, vh, timeMs)) this._drawDayNight(vw, vh, night, fdt);
+    if (game.lowFx || !this.lights.ok || !this.lights.draw(ctx, game, this.atmos.crisp(this._blendMood(fdt), game.dayPhase(), this.weather.state.gloom), night, this.weather.state, ox, oy, vw, vh, timeMs)) this._drawDayNight(vw, vh, night, fdt);
     else this.cosy.draw(ctx, game, this.lights, night, ox, oy, vw, vh, timeMs);   // golden hour and lantern glow (cosylight.js)
     this.weather.drawAir(ctx, ox, oy, vw, vh, timeMs, fdt, trim);
     this._drawVignette(vw, vh, night);
@@ -480,7 +484,7 @@ export class Renderer {
   /** Ease the region's mood toward where you are (low graphics keeps just the
    *  day/night light, so the mood eases away). */
   _blendMood(dt) {
-    return blendMood(this._mood, this.game.lowFx ? moodFor('Singapore') : worldMood(this.game, this.game.currentZoneName), dt);   // shaded by your choices (consequences.js)
+    return blendMood(this._mood, this.game.lowFx ? moodFor('Singapore') : this.atmos.regionMood(this.game, this._moodOf), dt);   // shaded by your choices (consequences.js), blended across borders (atmosphere.js)
   }
 
   // ---------------- Alignment aura (alignment.js) ----------------

@@ -1,7 +1,9 @@
 // Adaptive trim: when the game's own work each frame (update, drawing, the
 // minimap) keeps running long, the purely decorative extras step down to their
 // low-graphics versions (reflections in the water, ambient critters, weather
-// particles, the second foam layer, the moving parts of pack monsters) until
+// particles, the second foam layer, the moving parts of pack monsters, and all
+// of ambient.js: the breeze, water glints, flocks, town birds, hawker cats,
+// steam and drifting leaves) until
 // things are quick again. The pictures themselves, lighting and effects are
 // never touched, so on a machine that keeps up the look is exactly as before.
 // It works on the frame's work time rather than the
