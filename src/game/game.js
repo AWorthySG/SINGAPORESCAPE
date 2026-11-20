@@ -30,6 +30,7 @@ import { Cinematics } from './cinematics.js';
 import { leafArt } from '../render/fxart.js';
 import { footFx } from './footfx.js';
 import { CombatFx, MAX_EFFECTS, keepLive, hitImpact, hitsplatFx, deathFx, isMilestoneLevel } from '../render/combatfx.js';
+import { juiceHit, juiceKill, juiceLevel, noteAbility, shakeAllowed, spriteDt } from '../render/juice.js';
 import { findPath } from '../engine/pathfinding.js';
 import {
   playerAttackVsNpc, npcAttackVsPlayer, OFFHAND_SHARE, rollAttack, rollGuaranteed, rollHit, combatXp, magicXp, killXp, DAMAGE_XP_SHARE, KILL_XP_SHARE,
@@ -440,6 +441,7 @@ export class Game {
     this.cine = new Cinematics();   // camera lead/push-in, boss entrances, region title cards
     this.minimalHud = false;        // Settings > Minimal HUD (saved with the settings)
     this.colourBlind = false; this.reduceMotion = false;   // Settings > Accessibility (saved too)
+    this.screenShake = true;   // ...and Screen shake (render/juice.js)
     this.worldLabels = 'smart';     // Settings > World labels: smart / all / off (render/worldlabels.js)
     this.tipsOn = true;             // Settings > Tips: On / Off
     this.tipsSeen = new Set();      // first-time tips this save has shown (ui/tips.js)
@@ -568,6 +570,7 @@ export class Game {
       const big = isMilestoneLevel(p?.level);
       this.spawnConfetti(c.x, c.y - 18, big ? 46 : 22);
       if (big) this.cfx.levelBurst(c.x, c.y - 10);   // milestones: a ring of light and rays as well
+      juiceLevel(this, p, big);   // stars round you, confetti and a "<Skill> <level>!" sticker
       this.effects.push({ type: 'ring', x: c.x, y: c.y - 8, color: '#F5B82E', life: 520, maxLife: 520, r0: 6, r1: big ? 52 : 34 });
       if (big) this.addShake(2, 160);
       const perk = p?.skill && perkAtLevel(p.skill, p.level);
@@ -919,15 +922,12 @@ export class Game {
     entity._lastSplat = fx;
     this.effects.push(fx);
     hitsplatFx(this, entity, dmg, opts);   // crit stars and the screen-edge pulse on big hits
-    if (opts.crit && dmg > 0) {
-      this.addShake(2.5, 180);                 // crits thump the screen a little...
-      if (entity !== this.player) this.hitStop = Math.max(this.hitStop, 55);   // ...and freeze for a beat
-    }
+    juiceHit(this, entity, dmg, opts);     // a shake scaled to the hit, the struck sprite's hit-stop and squash
   }
 
   /** Kick off a decaying screen shake (kept subtle; the strongest is a boss kill). */
   addShake(mag = 3, ms = 220) {
-    if (this.reduceMotion) return;
+    if (!shakeAllowed(this)) return;   // Settings: Screen shake off, or Reduce motion
     if (mag >= this.shakeMag * (this.shakeT / this.shakeDur)) {
       this.shakeMag = Math.min(6, mag);
       this.shakeDur = ms;
@@ -978,6 +978,7 @@ export class Game {
     if (this.reduceMotion) this.hitStop = 0;
     if (this.hitStop > 0) { this.hitStop = Math.max(0, this.hitStop - dt); adt = dt * 0.12; }
     adt *= this.cine.timeScale();   // a boss's death plays out in slow motion
+    const wdt = dt * this.cine.timeScale();   // monsters' own time: a hit-stop slows only the sprite struck (juice.js)
     // Your own walking never freezes, though: stalling mid-stride on every kill
     // made moving between fights (auto battle above all) stutter.
     this.player.update(this.player.moving ? dt : adt);
@@ -986,7 +987,7 @@ export class Game {
     // Only NPCs near the player animate and walk (the rest are frozen until you
     // come close, like their AI), so a fuller world costs no more per frame.
     { const px = this.player.x, py = this.player.y;
-      for (const n of this._npcsAround()) if (n.ally || (Math.abs(n.x - px) <= UPDATE_RADIUS && Math.abs(n.y - py) <= UPDATE_RADIUS)) n.update(adt); }
+      for (const n of this._npcsAround()) if (n.ally || (Math.abs(n.x - px) <= UPDATE_RADIUS && Math.abs(n.y - py) <= UPDATE_RADIUS)) n.update(spriteDt(n, this.hitStop > 0 ? adt : wdt, this.playMs)); }
     this.playMs += dt;
     this._tickPotions(dt);
 
@@ -2204,6 +2205,7 @@ export class Game {
       + (mode === 'magic' ? (this.attrs.int || 0) * CRIT_PER_INT : 0);   // Intelligence
     const critCh = ab?.crit ? 1 : critChance(lvl, gb.crit) + critRest;
     this._abAoe = ab?.aoe || 0;   // an ultimate's area: everything this close to the target is hit too
+    noteAbility(this, ab);   // its swoosh (or an ultimate's flourish) over the first foe it hits (juice.js)
     // A dual wielder's off-hand blow: its own weapon's damage stats and crit
     // chance, everything shared, but none of the special attack's or ability's boosts.
     let off = null;
@@ -3368,7 +3370,7 @@ export class Game {
     else if (npc.def.aggressive || npc._spawnOpts?.tamed) {
       if (++this.moral.heroKills >= HERO_KILLS_PER_GOOD) { this.moral.heroKills = 0; this.addGood(1); }
     }
-    this.hitStop = Math.max(this.hitStop, npc.def.boss ? 180 : npc.champion ? 120 : 70);
+    juiceKill(this, npc);   // it alone freezes for a beat before it falls
     if (npc.def.boss) {
       this.msg(`You have slain ${npc.name}!`, 'combat');
       this.banner(`<span class="big">${npc.name} defeated!</span>The spoils are yours.`);

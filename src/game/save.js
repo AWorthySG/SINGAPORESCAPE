@@ -99,7 +99,7 @@ export function snapshot(game) {
     playMs: Math.floor(game.playMs || 0),   // time played, shown when choosing between a cloud and a device save
     settings: { running: game.running, autoCfg: game.autoCfg, autoGather: game.autoGather, gatherPicks: [...(game.gatherPicks || [])], knowledgeStrikes: game.knowledgeStrikes, minimalHud: !!game.minimalHud,
       worldLabels: game.worldLabels || 'smart', tips: game.tipsOn !== false, tipsSeen: [...(game.tipsSeen || [])],
-      colourBlind: !!game.colourBlind, reduceMotion: !!game.reduceMotion, xpDisplay: game.xpDisplay || 'combined' },
+      colourBlind: !!game.colourBlind, reduceMotion: !!game.reduceMotion, screenShake: game.screenShake !== false, xpDisplay: game.xpDisplay || 'combined' },
     jobClass: game.jobClass,
     potions: game.potions,
     farms: game.world.objects.filter((o) => o.def.type === 'farm' && o.crop).map((o) => ({ x: o.x, y: o.y, crop: o.crop, left: o.growLeft })),
@@ -435,6 +435,7 @@ function loadFields(game, data) {
   // (A saved textSize from the old Text size setting is ignored: the setting is gone.)
   game.colourBlind = data.settings?.colourBlind === true;
   game.reduceMotion = data.settings?.reduceMotion === true;
+  game.screenShake = data.settings?.screenShake !== false;   // on unless turned off (older saves: on)
   // Settings > XP display (xpdisplay.js); older saves: Combined.
   game.xpDisplay = ['combined', 'skill', 'off'].includes(data.settings?.xpDisplay) ? data.settings.xpDisplay : 'combined';
   if (Array.isArray(data.settings?.tipsSeen)) {

@@ -2765,6 +2765,13 @@ export class UI {
       motionBtn.textContent = `Reduce motion: ${this.game.reduceMotion ? 'On' : 'Off'}`;
     });
     motionBtn.textContent = `Reduce motion: ${this.game.reduceMotion ? 'On' : 'Off'}`;
+    // Screen shake on big hits and crits (render/juice.js); Reduce motion turns it off too.
+    const shakeBtn = mk('', () => {
+      this.game.screenShake = this.game.screenShake === false;
+      this.game.saveSoon = true;
+      shakeBtn.textContent = `Screen shake: ${this.game.screenShake !== false ? 'On' : 'Off'}`;
+    });
+    shakeBtn.textContent = `Screen shake: ${this.game.screenShake !== false ? 'On' : 'Off'}`;
     sec('Your save');
     // Carry a character to another browser, device or web address (saves live
     // in one site's storage, so they don't follow the player on their own).
