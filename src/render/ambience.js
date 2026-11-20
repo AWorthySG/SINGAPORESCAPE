@@ -13,14 +13,14 @@ import { TILE } from '../config.js';
 export const ZONE_MOOD = {
   'Kampong Glam': [255, 206, 130, 0.07],
   Chinatown: [255, 186, 140, 0.07],
-  'Marina Bay': [255, 210, 160, 0.06],
-  'Bukit Timah': [150, 214, 130, 0.06],
+  'Marina Bay': [150, 178, 238, 0.08],   // cool glass and water, lit warm and neon by night
+  'Bukit Timah': [150, 214, 130, 0.08],   // a humid green haze
   'Jurong Forest': [130, 204, 140, 0.07],
-  'Mandai Rainforest': [110, 196, 132, 0.08],
+  'Mandai Rainforest': [110, 196, 132, 0.09],
   'MacRitchie Reservoir': [214, 232, 246, 0.1],
   'Punggol Waterway': [196, 226, 240, 0.08],
   'Sungei Buloh Wetlands': [130, 206, 196, 0.08],
-  'Sentosa Beach': [160, 222, 236, 0.06],
+  'Sentosa Beach': [255, 220, 150, 0.07],   // sunny and warm
   'Changi Coast': [150, 214, 230, 0.06],
   'Southern Islands': [140, 210, 238, 0.07],
   'Pulau Ubin': [214, 228, 150, 0.06],

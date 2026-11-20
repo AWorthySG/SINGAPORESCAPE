@@ -28,6 +28,8 @@ export const REGION_SKY = {
   'Pulau Hantu': [120, 150, 200, 0.06],
 };
 const NO_SKY = [0, 0, 0, 0];
+// Lands that keep some mist all day: the Wilderness's drifting murk.
+export const HAZY = new Map([['The Wilderness', 0.45]]);
 
 /** A whole number hashed to [0, 1): the forecast's only source of chance. */
 export function hash01(n) {
@@ -96,7 +98,7 @@ export class Weather {
     this._drops = []; this._flakes = []; this._embers = []; this._ripples = [];
     this._sky = [0, 0, 0, 0];
     // The washes handed to the light pass: rain's grey, mist's pale veil, the region's sky.
-    this._rainWash = [70, 82, 108, 0];
+    this._rainWash = [58, 78, 118, 0];   // a cool slate blue
     this._mistWash = [214, 224, 234, 0];
     this.state = { rain: 0, snow: 0, embers: 0, storm: 0, flash: 0, gloom: 0,
       washes: [this._rainWash, this._mistWash, this._sky], flashWash: [236, 242, 255, 0] };
@@ -123,6 +125,7 @@ export class Weather {
     this._rainWash[3] = w.rain * 0.1 + w.storm * 0.16;
     const phase = game.dayPhase ? game.dayPhase() : 0.5;
     this.mist = MIST_REGIONS.has(zone) ? Math.max(mistAt(phase), w.rain * 0.35) : 0;
+    if (HAZY.has(zone)) this.mist = Math.max(this.mist, HAZY.get(zone));   // a haze that never quite lifts
     this._mistWash[3] = this.mist * 0.16;
     s.flashWash[3] = w.flash * 0.32;
     blendMood(this._sky, REGION_SKY[zone] || NO_SKY, dt);
@@ -167,8 +170,14 @@ export class Weather {
       const tries = Math.ceil(s.rain * dt * 0.4);
       for (let i = 0; i < tries && rp.length < RIPPLE_CAP; i++) {
         const tx = x0 + Math.floor(Math.random() * (x1 - x0 + 1)), ty = y0 + Math.floor(Math.random() * (y1 - y0 + 1));
-        if (world.terrainAt(tx, ty) !== TERRAIN.WATER) continue;
-        rp.push({ x: tx * TILE + Math.random() * TILE, y: ty * TILE + Math.random() * TILE, life: 0 });
+        const tt = world.terrainAt(tx, ty);
+        if (tt === TERRAIN.WATER) { rp.push({ x: tx * TILE + Math.random() * TILE, y: ty * TILE + Math.random() * TILE, life: 0 }); continue; }
+        // Drops landing in a puddle (the same spots the sheen marks) ripple too.
+        if (this.wet < 0.3 || (tt !== TERRAIN.PATH && tt !== TERRAIN.STONE)) continue;
+        const h = hash01(tx * 92821 + ty * 68917);
+        if (h > 0.28) continue;
+        const rx = 6 + h * 26;
+        rp.push({ x: tx * TILE + 8 + h * 50 + (Math.random() - 0.5) * rx * 1.2, y: ty * TILE + 10 + ((h * 977) % 1) * 14 + (Math.random() - 0.5) * rx * 0.3, life: 0 });
       }
     }
     if (rp.length) {

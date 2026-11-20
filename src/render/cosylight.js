@@ -16,7 +16,9 @@
 // The light pass's warm, homely lights get the bloom; magic and boss glows keep
 // their own look.
 const WARM = new Set(['255,214,140', '255,150,70', '255,128,60', '255,166,90', '255,200,120', '255,206,140', '255,222,160',
-  '255,206,120', '255,236,170', '255,220,150', '255,210,160']);
+  '255,206,120', '255,236,170', '255,220,150', '255,210,160',
+  // ...and the neon lamps of Marina Bay and Chinatown (lighting.js NEON).
+  '255,120,200', '110,220,255', '255,140,210', '120,230,255']);
 export const MAX_BLOOMS = 24;
 const GRADE_W = 64, GRADE_H = 40;   // the grade canvas (all smooth gradient, so tiny is fine)
 
