@@ -71,6 +71,50 @@ const PLANS = {
     head: { swing: (t, o) => { const a = atkPhase(o.attackK ?? -1); return (a ? -0.06 * a.wind + 0.08 * a.hit : Math.sin(t * 0.0021) * 0.035) - cast(o) * 0.08; }, swap: ['head_roar', fierce] },
     gem: { grow: (t, o) => 1 + Math.sin(t * 0.004) * 0.04 + cast(o) * 0.3 },
   },
+  // --- Part E plans: snakes, swimmers and the pitcher plant ---
+  // Snakes: the head sways, rears back on the wind-up and strikes with its fangs out; the tail tip flicks
+  // (and rattles as it coils to strike). The coils themselves move with the whole body (BODY below).
+  slither: {
+    tail: { swing: (t, o) => { const a = atkPhase(o.attackK ?? -1); return Math.sin(t * (walking(o) > 0.3 ? 0.012 : 0.005) + 1.2) * 0.16 + (a ? Math.sin(t * 0.05) * 0.1 * a.wind : 0); } },
+    head: { swing: (t, o) => { const a = atkPhase(o.attackK ?? -1); return a ? -0.28 * a.wind + 0.3 * a.hit : Math.sin(t * 0.0032) * 0.05 + Math.sin(t * 0.0011) * 0.03; }, swap: ['head_attack', fierce] },
+  },
+  // Sharks and dolphins: the tail fin sweeps (faster when swimming), the fins paddle, the head nods and opens its jaws to bite.
+  swim: {
+    tail: { swing: (t, o) => Math.sin(t * (walking(o) > 0.3 ? 0.016 : 0.006)) * 0.2 },
+    arm_far: { swing: (t, o) => Math.sin(t * (walking(o) > 0.3 ? 0.012 : 0.005) + 2.2) * 0.16 },
+    arm_near: { swing: (t, o) => Math.sin(t * (walking(o) > 0.3 ? 0.012 : 0.005) + 0.6) * 0.2 },
+    head: { swing: (t, o) => { const a = atkPhase(o.attackK ?? -1); return a ? 0.08 * a.wind - 0.14 * a.hit : Math.sin(t * 0.003) * 0.035; }, swap: ['head_attack', fierce] },
+  },
+  // The pitcher plant: the leaves wave, the trap head bobs, rears back on the wind-up, then snaps forward wide open.
+  plant: {
+    arm_far: { swing: (t, o) => sway(0.1, 0.0035, 2)(t, o) - 0.18 * (atkPhase(o.attackK ?? -1)?.wind || 0) },
+    arm_near: { swing: (t, o) => sway(0.12, 0.004, 0.5)(t, o) + 0.22 * (atkPhase(o.attackK ?? -1)?.wind || 0) },
+    head: {
+      swing: (t, o) => { const a = atkPhase(o.attackK ?? -1); return a ? -0.32 * a.wind + 0.36 * a.hit : Math.sin(t * 0.0028) * 0.06; },
+      grow: (t, o) => 1 + 0.12 * (atkPhase(o.attackK ?? -1)?.hit || 0),   // the lunge: the trap swells towards its target
+      swap: ['head_attack', fierce],
+    },
+  },
+};
+// Whole-body motion for the Part E plans, applied to every layer at once so the joints never open:
+// `lean` skews the picture about the ground line (positive tips it forward), `dy` lifts it, `sx`/`sy` squash it.
+const BODY = {
+  // The coils sway side to side and breathe in and out; on the wind-up the snake draws back and gathers, then throws itself forward.
+  slither: (t, o) => {
+    const a = atkPhase(o.attackK ?? -1), m = walking(o), w = a ? a.wind : 0, h = a ? a.hit : 0;
+    const coil = Math.sin(t * (m > 0.3 ? 0.009 : 0.0035));
+    return { lean: coil * (0.035 + 0.03 * m) - 0.08 * w + 0.1 * h, dy: 0, sx: 1 + coil * 0.02 + 0.03 * w, sy: 1 - coil * 0.02 - 0.05 * w + 0.03 * h };
+  },
+  // Swimmers bob up and down and pitch gently; they pull back before a bite.
+  swim: (t, o) => {
+    const a = atkPhase(o.attackK ?? -1), w = a ? a.wind : 0, h = a ? a.hit : 0;
+    return { lean: Math.sin(t * 0.0035 + 1) * 0.025 - 0.05 * w + 0.06 * h, dy: Math.sin(t * 0.0035) * 1.1, sx: 1, sy: 1 };
+  },
+  // The plant's stem sways in the breeze and leans back to gather for a snap.
+  plant: (t, o) => {
+    const a = atkPhase(o.attackK ?? -1), w = a ? a.wind : 0, h = a ? a.hit : 0;
+    return { lean: Math.sin(t * 0.0025) * 0.04 + Math.sin(t * 0.0061 + 1) * 0.012 - 0.07 * w + 0.09 * h, dy: 0, sx: 1, sy: 1 - 0.04 * w + 0.03 * h };
+  },
 };
 // How fast each flier's wings beat.
 const FLAP = { mosquito: 0.06, fruit_bat: 0.024, forest_drake: 0.013 };
@@ -297,8 +341,11 @@ function build(id, d) {
       swap: p.swap ? p.swap[1] : null,
     };
   }
-  return { kind: d.kind, fit: d.fit, order: d.order, files, parts };
+  return { kind: d.kind, fit: d.fit, order: d.order, files, parts, body: BODY[d.plan] || null };
 }
+// The body plans that move the whole picture as well as its parts (for tests).
+export const bodyPlans = () => Object.keys(BODY);
+export const buildRig = build;
 export const CREATURE_RIGS = Object.fromEntries(Object.entries(RIG_DATA).map(([id, d]) => [id, build(id, d)]));
 // A boss rig measured elsewhere (the later parts sheets keep their tables in sprites.js), with the shared boss motions.
 export const bossRig = (id, d) => build(id, { plan: 'boss', ...d });

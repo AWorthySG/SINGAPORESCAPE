@@ -374,6 +374,40 @@ test('creature rigs from the parts sheets have joints on their canvas and a moti
   }
 });
 
+test('the snake, swimmer and plant plans breathe at rest, wind up and strike', async () => {
+  const { buildRig, bodyPlans } = await import('../src/render/creatureRigs.js');
+  const PARTS = {
+    slither: ['tail', 'body', 'head'],
+    swim: ['arm_far', 'tail', 'body', 'head', 'arm_near'],
+    plant: ['arm_far', 'body', 'head', 'arm_near'],
+  };
+  assert.deepEqual(bodyPlans().sort(), Object.keys(PARTS).sort());
+  for (const [plan, order] of Object.entries(PARTS)) {
+    const piv = Object.fromEntries([...order, 'head_attack'].map((n) => [n, [0.5, 0.5]]));
+    const rig = buildRig(`test_${plan}`, { plan, kind: 'species', fit: 1, order, piv });
+    const idle = { moving: false, attackK: -1 };
+    // Every moving part has a motion, and it moves over time at rest.
+    for (const n of order.filter((n) => n !== 'body')) {
+      const sw = rig.parts[n].swing;
+      assert.ok(sw, `${plan} ${n} moves`);
+      assert.notEqual(sw(1000, idle).toFixed(4), sw(2400, idle).toFixed(4), `${plan} ${n} stirs at rest`);
+      for (const k of [-1, 0, 0.2, 0.35, 0.5, 0.8, 1]) assert.ok(Math.abs(sw(1234, { moving: true, attackK: k })) < 0.8, `${plan} ${n} swings sensibly`);
+    }
+    // The head draws back on the wind-up, then strikes the other way with its attack face on.
+    const head = rig.parts.head;
+    const wind = head.swing(1000, { attackK: 0.34 }), hit = head.swing(1000, { attackK: 0.6 });
+    assert.ok(Math.sign(wind) !== Math.sign(hit) && Math.abs(wind) > 0.05 && Math.abs(hit) > 0.1, `${plan} head winds up and strikes`);
+    assert.equal(head.alt, 'head_attack');
+    assert.ok(head.swap({ attackK: 0.6 }) && !head.swap({ attackK: -1 }), `${plan} bares its teeth only to strike`);
+    // The whole body sways or bobs at rest and gathers itself on the wind-up.
+    const b0 = rig.body(1000, idle), b1 = rig.body(1400, idle), bw = rig.body(1000, { attackK: 0.34 });
+    for (const b of [b0, b1, bw]) for (const v of Object.values(b)) assert.ok(Number.isFinite(v), `${plan} body motion is finite`);
+    assert.ok(Math.abs(b0.lean - b1.lean) + Math.abs(b0.dy - b1.dy) > 0.01, `${plan} body moves at rest`);
+    assert.ok(bw.lean < b0.lean - 0.03, `${plan} leans back on the wind-up`);
+    assert.ok(Math.abs(bw.lean) < 0.3 && bw.sx > 0.8 && bw.sy > 0.8, `${plan} stays in proportion`);
+  }
+});
+
 test('every monster body type has an automatic animation style', async () => {
   const { puppetKinds } = await import('../src/render/sprites.js');
   const { NPCS } = await import('../src/data/npcs.js');
