@@ -63,6 +63,19 @@ export const GATE_ACC = 1.3;   // x attack (they land more of those hits)
 export const GATE_CHAMPION_LIFE = 0.2;
 // From wave 20 a second champion comes along.
 export const SECOND_CHAMPION_FROM = 20;
+// The owner asked for dodging in the gate to pay real Agility XP: a gate boss's
+// life is only WAVE_BOSS_LIFE monsters', so its dodges paid a trickle next to a
+// course. Dodging a gate monster's blow or a gate boss's marker pays
+// 1 + GATE_DODGE_PER_WAVE x the wave number times the usual dodge XP, up to
+// GATE_DODGE_MAX (from wave 14). The cap stops it compounding past that: a deep
+// wave's monsters hit far harder, and dodge XP already grows with their max hit.
+// A wave 10 boss's markers then pay about what a course at your Agility level
+// does while you dodge them (most kitted-out runs end near wave 10), a wave 5
+// boss's about half that, and deeper bosses more.
+export const GATE_DODGE_PER_WAVE = 0.8;
+export const GATE_DODGE_MAX = 12;
+/** The Agility XP multiplier for dodging in wave n. */
+export const gateDodgeMult = (n) => Math.min(GATE_DODGE_MAX, 1 + GATE_DODGE_PER_WAVE * Math.max(0, n));
 
 /** How strong wave n is next to your fight level: 0.7x at wave 1, then gently
  *  (+3% a wave) and ever more steeply (the squared term): 1.17x at wave 10,
@@ -255,6 +268,9 @@ export class Waves {
   }
   /** Combat XP multiplier from this run's modifiers (1 outside a run). */
   xpMult() { return this.active ? this.fx.xp * GATE_XP : 1; }
+  /** Agility XP multiplier for dodging `npc`: gateDodgeMult of the wave for one
+   *  of this run's monsters (world events' borrowed wave monsters are not), else 1. */
+  dodgeXpMult(npc) { return this.active && npc?.wave ? gateDodgeMult(this.wave) : 1; }
   /** Does this run forbid healing food? */
   blocksFood() { return this.active && this.fx.noFood; }
   /** Say no to a meal (at most every few ticks: auto-eat asks every tick). */
