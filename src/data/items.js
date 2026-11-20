@@ -715,20 +715,20 @@ for (const [id, name, arrowStr, value] of [['dragon_arrow', 'Dragon arrow', 70, 
 // Rounds for guns (pistols and sniper rifles), one per bar tier. They go in the
 // ammo slot (see rounds.js) and add `roundStr` to the gun's own power: about a
 // third of the matching arrow's strength, as guns were balanced to need no ammo
-// and fire much faster than bows. Smithed 20 to a bar (smithing.js). Until their
-// stickers arrive they borrow their metal's bar (`artFrom`).
+// and fire much faster than bows. Smithed 20 to a bar (smithing.js). Each has
+// its own sticker (icons.js ITEM_ART).
 for (const [k, roundStr, value] of [['bronze', 2, 1], ['iron', 3, 3], ['steel', 5, 6], ['mithril', 7, 12], ['adamant', 10, 24], ['rune', 16, 50],
   ['obsidian', 23, 120], ['orichalcum', 27, 180], ['jade', 32, 260], ['starmetal', 42, 600], ['celestial', 50, 900], ['eternal', 57, 1500]]) {
   const n = k[0].toUpperCase() + k.slice(1);
-  RAW[`${k}_rounds`] = { name: `${n} rounds`, icon: '🔫', value, stackable: true, tags: ['ammo'], roundStr, artFrom: [`${k}_bar`, 'saturate(1.2) contrast(1.05)'],
+  RAW[`${k}_rounds`] = { name: `${n} rounds`, icon: '🔫', value, stackable: true, tags: ['ammo'], roundStr,
     examine: `${n} rounds for pistols and sniper rifles. Load them into your ammo slot.` };
 }
 // Special rounds: rune-strength rounds with an extra effect on one hit in five (rounds.js).
-for (const [id, name, special, tint, effect] of [
-  ['incendiary_rounds', 'Incendiary rounds', 'fire', 'sepia(1) saturate(4) hue-rotate(-25deg)', 'one hit in five bursts into flame for 30% more damage'],
-  ['frost_rounds', 'Frost rounds', 'frost', 'sepia(1) saturate(3) hue-rotate(160deg) brightness(1.1)', 'one hit in five chills the foe, slowing it for 3s'],
-  ['shock_rounds', 'Shock rounds', 'shock', 'sepia(1) saturate(5) hue-rotate(15deg) brightness(1.2)', 'one hit in five arcs into a foe nearby for half the hit'],
-]) RAW[id] = { name, icon: '🔫', value: 80, stackable: true, tags: ['ammo'], roundStr: 16, special, artFrom: ['steel_bar', tint], examine: `Rounds for guns: ${effect}.` };
+for (const [id, name, special, effect] of [
+  ['incendiary_rounds', 'Incendiary rounds', 'fire', 'one hit in five bursts into flame for 30% more damage'],
+  ['frost_rounds', 'Frost rounds', 'frost', 'one hit in five chills the foe, slowing it for 3s'],
+  ['shock_rounds', 'Shock rounds', 'shock', 'one hit in five arcs into a foe nearby for half the hit'],
+]) RAW[id] = { name, icon: '🔫', value: 80, stackable: true, tags: ['ammo'], roundStr: 16, special, examine: `Rounds for guns: ${effect}.` };
 // Ranged armour sets above dragonhide.
 for (const [tier, label, lvl, mult, vmul] of [['starhide', 'Starhide', 120, 3.5, 30], ['eternalhide', 'Eternal hide', 250, 8, 300]]) {
   for (const [t, name, slot, ranged, def] of [['coif', 'coif', 'head', 8, 6], ['body', 'body', 'body', 20, 16], ['chaps', 'chaps', 'legs', 14, 10], ['vambraces', 'vambraces', 'hands', 6, 4]]) {
