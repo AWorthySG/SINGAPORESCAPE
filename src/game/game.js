@@ -1198,6 +1198,9 @@ export class Game {
     if (this.specEnergy < 100) { this.specEnergy = Math.min(100, this.specEnergy + 1); this.bus.emit('spec'); }
     this._tickCombatResources();
     Bless.tickBlessings(this);   // a Prayer Burst's ward and zeal run down
+    // A full bar of Faith fires the Prayer Burst by itself in any fight, with or
+    // without auto battle (blessings.js shouldAutoBurst). autoCfg.burst = false turns it off.
+    if (this.autoCfg?.burst !== false && Bless.shouldAutoBurst(this)) this.prayerBurst();
 
     if (this.tickCount % 100 === 1) this.ensureBounties();   // roll over at local midnight
     // Big moments (a class picked, a quest done, anything with a banner) save on
@@ -4750,8 +4753,6 @@ export class Game {
     }
     // 1a. Run from a monster far above you that you'd lose to (see _autoFlee).
     if (this._autoFlee()) return;
-    // 1a'. A full bar of Faith: the Prayer Burst when hurt or at a boss (blessings.js).
-    if (this.autoCfg.abilities !== false && Bless.shouldAutoBurst(this)) this.prayerBurst();
     // 1b. Step out of a boss's ground marker, still fighting (see _autoDodge).
     this._autoDodge();
     const a = p.action;
