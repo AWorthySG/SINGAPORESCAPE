@@ -411,7 +411,7 @@ export function resolveSmith(game, action) {
     game.spawnSparkle(game.player, '#ffd24a', 6);
     game.msg(`Flawless work — you forge an extra ${itemName}!`);
   } else {
-    game.msg(r.qty > 1 ? `You hammer the metal into ${r.qty} ${itemName}s.` : `You hammer the metal into a ${itemName}.`);
+    game.msg(r.qty > 1 ? `You hammer the metal into ${r.qty} ${itemName.endsWith('s') ? itemName : `${itemName}s`}.` : `You hammer the metal into a ${itemName}.`);   // "20 bronze rounds", not "roundss"
   }
   return game.inventory.has(r.bar, r.barCount);
 }

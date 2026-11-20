@@ -8,6 +8,7 @@
 // (the damage multiplier, crit chance, final max hit), are worked out here the
 // same way, step for step; tests/statsheet.test.mjs checks them against real
 // attacks so the two can't drift apart unnoticed.
+import { gunShotStr } from './rounds.js';
 import { TICK_MS, COMBAT_BEAT_MS } from '../config.js';
 import { shortNumber } from '../core/utils.js';
 import {
@@ -150,7 +151,7 @@ export function maxHitNow(game, { npc = null, boss = false, rhythm = 0 } = {}) {
   if (mode === 'ranged') {
     const wpn = getItem(eq.get('weapon')).equip;
     const idx = wpn.noAmmo ? -1 : game._bestAmmoIdx();
-    const arrowStr = wpn.noAmmo ? Math.floor((wpn.bonuses.ranged || 0) / 3) : idx === -1 ? 0 : getItem(game.inventory.slotAt(idx).id).arrowStr || 0;
+    const arrowStr = wpn.noAmmo ? gunShotStr(eq, wpn) : idx === -1 ? 0 : getItem(game.inventory.slotAt(idx).id).arrowStr || 0;
     const typeMult = wpn.weaponType === 'longbow' || wpn.weaponType === 'rifle' ? RANGED_TYPE_DMG[wpn.weaponType] : 1;
     baseMax = Math.round(playerRangedVsNpc(sk, eq, game.player.rangedStyle, def, arrowStr, 'main').max * pm.ranged * typeMult);
     if (pm.ranged !== 1) parts.unshift(['Prayer', times(pm.ranged)]);
@@ -166,8 +167,8 @@ export function maxHitNow(game, { npc = null, boss = false, rhythm = 0 } = {}) {
   if (eq.isDualWielding()) {
     let offBase;
     if (mode === 'ranged') {
-      const ow = getItem(eq.get('shield')).equip;   // pistols: no ammo, the gun's own power
-      offBase = playerRangedVsNpc(sk, eq, game.player.rangedStyle, def, Math.floor((ow.bonuses.ranged || 0) / 3), 'off').max * pm.ranged;
+      const ow = getItem(eq.get('shield')).equip;   // pistols: the gun's own power plus its rounds
+      offBase = playerRangedVsNpc(sk, eq, game.player.rangedStyle, def, gunShotStr(eq, ow), 'off').max * pm.ranged;
     } else offBase = playerAttackVsNpc(sk, eq, game.player.style, def, 'off').max * pm.str;
     out.offBase = Math.round(offBase);
     out.off = Math.max(1, Math.round(offBase * OFFHAND_SHARE * damageMult(game, mode, { npc, boss, hand: 'off' }).m));

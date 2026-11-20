@@ -90,6 +90,7 @@ test('dual pistols: each gun fires its own shot with its own stats', () => {
   const runs = {};
   for (const off of ['iron_pistol', 'rune_pistol']) {
     const { g, t } = duel('pistoler', 'rune_pistol', off);
+    g.equipment.setAmmo(null, 0);   // the guns alone: loaded rounds add the same to both hands (rounds.js)
     runs[off] = { ...swings(g, t, 200), max: g.dualMaxHits() };
   }
   assert.equal(runs.rune_pistol.off.length, 200, 'the off-hand gun fires every attack');

@@ -89,6 +89,7 @@ import { consequencePriceMult } from './consequences.js';
 import { Gathering } from './gathering.js';   // gathering streaks, lucky finds, skilling contracts
 import { Teleports } from './teleports.js';   // the Town and Grave teleports
 import { Discovery } from './discovery.js';   // encyclopedia discoveries and their rewards
+import * as Rounds from './rounds.js';   // gun rounds and the ammo slot
 
 // Auto quest: the dialogue actions that start and hand in each quest it can
 // do ([start, hand-in]; Pest Control completes itself on the last rat). The
@@ -626,6 +627,7 @@ export class Game {
       // Saves from before two-handed weapons may hold a shield with one.
       if (this.equipment.get('shield') && offhandBlocked(this.equipment.get('weapon'), this.equipment.get('shield'))) this._stowShield();
       this._giveBowQuiver();
+      Rounds.grantStarterRounds(this);   // guns from before the ammo slot get some rounds
       this.msg(`Welcome back to ${this.world.townName}, ${this.player.name}!`, 'system');
       if (this.play.welcome) { this.msg(this.play.welcome, 'level'); this.play.welcome = null; }
       if (LEARNING_ENABLED && !this.learning.dailyDone(this.todayKey())) this.msg('Your daily revision is ready in the Knowledge Codex (Skills tab).', 'level');
@@ -687,6 +689,7 @@ export class Game {
       if (!this.equipment.get('weapon')) this.equipment.set('weapon', starter); else this.inventory.add(starter, 1);
       if (this.equipment.get('shield') && offhandBlocked(this.equipment.get('weapon'), this.equipment.get('shield'))) this._stowShield();
       this._giveBowQuiver();
+      Rounds.grantStarterRounds(this);
       this.msg(`You are now a ${cls.name}. Only ${WEAPON_TYPE_NAMES[cls.weapon]} and ${WEAPON_TYPE_NAMES[SECONDARY_WEAPON[classId]]} can be wielded, and the choice is permanent.`, 'level');
       this.msg(`${cls.name} perk: ${classPerks(classId)[0].text} (see Class perks in the Combat tab)`, 'system');
       this.bus.emit('inventory'); this.bus.emit('equipment');
@@ -709,6 +712,7 @@ export class Game {
         this.equipment.set('legs', 'leather_chaps');
       }
       if (!getItem(starter).equip.noAmmo) this.inventory.add('bronze_arrow', 999);
+      if (Rounds.isGunId(starter)) { this.equipment.setAmmo('bronze_rounds', Rounds.STARTER_ROUNDS); this.gunRoundsGiven = true; }   // Pistolers and Snipers start loaded
     } else if (style === 'dance') {
       this.equipment.set('weapon', starter);
       this.equipment.set('head', 'silk_headdress');
@@ -1895,8 +1899,8 @@ export class Game {
     const pm = this.prayerMult(), ranged = this.combatMode() === 'ranged';
     const one = (slot, hand) => {
       if (!ranged) return playerAttackVsNpc(this.skills, this.equipment, this.player.style, null, hand).max * pm.str;
-      const w = getItem(this.equipment.get(slot)).equip;   // pistols: no ammo, the gun's own power
-      return playerRangedVsNpc(this.skills, this.equipment, this.player.rangedStyle, null, Math.floor((w.bonuses.ranged || 0) / 3), hand).max * pm.ranged;
+      const w = getItem(this.equipment.get(slot)).equip;   // pistols: the gun's own power plus its rounds
+      return playerRangedVsNpc(this.skills, this.equipment, this.player.rangedStyle, null, Rounds.gunShotStr(this.equipment, w), hand).max * pm.ranged;
     };
     return { main: Math.round(one('weapon', 'main')), off: Math.max(1, Math.round(one('shield', 'off') * OFFHAND_SHARE)) };
   }
@@ -2677,7 +2681,7 @@ export class Game {
   _bestAmmoIdx() {
     let best = -1, bs = -1;
     this.inventory.slots.forEach((sl, i) => {
-      if (!sl || !getItem(sl.id).tags?.includes('ammo')) return;
+      if (!sl || !Rounds.isArrow(sl.id)) return;   // rounds are for guns (rounds.js)
       const st = getItem(sl.id).arrowStr || 0;
       if (st > bs) { bs = st; best = i; }
     });
@@ -2690,7 +2694,10 @@ export class Game {
     const noAmmo = !!wpn.noAmmo;
     const arrowIdx = noAmmo ? -1 : this._bestAmmoIdx();
     if (!noAmmo && arrowIdx === -1) { this._outOfAmmo('You have no arrows left.'); this.player.clearAction(); return; }
-    const arrowStr = noAmmo ? Math.floor((wpn.bonuses.ranged || 0) / 3) : getItem(this.inventory.slotAt(arrowIdx).id).arrowStr || 0;
+    const gun = Rounds.GUN_TYPES.has(wpn.weaponType);
+    if (gun) Rounds.reloadRounds(this);   // an empty ammo slot reloads from the pack
+    // Guns add their loaded rounds to their own power (rounds.js).
+    const arrowStr = noAmmo ? Rounds.gunShotStr(this.equipment, wpn) : getItem(this.inventory.slotAt(arrowIdx).id).arrowStr || 0;
     // A Merchant's cane throws money: every throw (a volley counts in full) costs coins.
     if (wpn.coins) {
       const cost = Math.ceil(this.coinThrowCost() * (this._volley || 1));
@@ -2726,6 +2733,7 @@ export class Game {
         if (ai === -1) break;
         this._spendArrow(ai);
       } else { this._spendArrow(arrowIdx); }
+      if (gun) Rounds.spendRound(this, wpn.weaponType);
       this._shotAmmo = noAmmo ? null : this.inventory.slotAt(this._bestAmmoIdx())?.id || this._shotAmmo;   // the arrow being drawn
       const effMax = Math.max(1, Math.round(baseMax * mods.dmgM * arrowDmg));
       let dmg = mods.guaranteed ? rollGuaranteed(effMax)
@@ -2735,13 +2743,14 @@ export class Game {
       const c = this._critHit(dmg, mods.critCh); dmg = c.dmg;
       this._projectile(npc, (c.crit || fancy) ? '#ffd24a' : tint, shot, shots > 1 ? (i % (spread > 1 ? spread : shots)) - ((spread > 1 ? spread : shots) - 1) / 2 : 0);
       this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax), noMerge: spread > 1 });   // each arrow of a spread shows its own number
+      if (gun) Rounds.roundEffect(this, npc, dmg);   // incendiary, frost or shock rounds
       if (dmg > 0) { this.spawnHitSparks(npc, (c.crit || fancy) ? '#ffd24a' : '#cfe0a0'); for (const x of combatXpRanged(style, dmg)) this.skills.addXp(x.skill, x.xp * this.combatXpMult()); }
       total += dmg;
     }
     // Dual pistols: the off-hand gun fires its own shot, with its own power.
     if (mods.off && npc.hp > 0) {
       const ow = getItem(this.equipment.get('shield')).equip;
-      const oStr = ow.noAmmo ? Math.floor((ow.bonuses.ranged || 0) / 3) : arrowStr;
+      const oStr = ow.noAmmo ? Rounds.gunShotStr(this.equipment, ow) : arrowStr;
       const max = playerRangedVsNpc(this.skills, this.equipment, style, npc.def, oStr, 'off').max * pr;
       const r = this._offHandBlow(npc, max, mods, (crit) => this._projectile(npc, crit ? '#ffd24a' : '#fff2b0', shot, 0.6));
       total += r.dmg;
@@ -3714,6 +3723,8 @@ export class Game {
         // Armour of another class's kind mostly turns into your own kind.
         const fam = getItem(l[0]).equip?.family, mine = ARMOUR_FAMILY[this.jobClass];
         if (fam && mine && fam !== mine && Math.random() < CLASS_LOOT_SHARE) l[0] = equivalentArmour(l[0], mine);
+        // Arrows drop as rounds of the same metal for a gun user.
+        if (Rounds.classUsesGuns(this.jobClass) && Rounds.roundsForArrow(l[0])) l[0] = Rounds.roundsForArrow(l[0]);
       }
     }
     // Boss hoards: stackables (coins, runes, arrows, seeds...) come in 100x the amount
@@ -4995,7 +5006,7 @@ export class Game {
     } else if (mode === 'ranged') {
       const wpn = getItem(this.equipment.get('weapon'))?.equip || {};
       const idx = wpn.noAmmo ? -1 : this._bestAmmoIdx();
-      const arrowStr = wpn.noAmmo ? Math.floor((wpn.bonuses?.ranged || 0) / 3) : idx === -1 ? 0 : getItem(this.inventory.slotAt(idx).id).arrowStr || 0;
+      const arrowStr = wpn.noAmmo ? Rounds.gunShotStr(this.equipment, wpn) : idx === -1 ? 0 : getItem(this.inventory.slotAt(idx).id).arrowStr || 0;
       max = playerRangedVsNpc(this.skills, this.equipment, this.player.rangedStyle, def, arrowStr).max * pm.ranged;
     } else if (mode === 'dance') {
       max = playerDanceVsNpc(this.skills, this.equipment, this.player.danceStyle, def, 0).max * pm.str;
@@ -5682,6 +5693,8 @@ export class Game {
       });
       if (bi >= 0) { this.equipItem(bi, { offhand: true }); changed++; }
     }
+    // Guns: load the strongest rounds in the pack (rounds.js).
+    if (Rounds.isGunId(this.equipment.get('weapon')) && Rounds.loadBestRounds(this)) changed++;
     this.msg(changed ? `Best in slot: you put on ${changed} better piece${changed > 1 ? 's' : ''} of gear.` : 'You are already wearing your best gear.', changed ? 'level' : 'system');
     return changed;
   }
@@ -6022,7 +6035,13 @@ export class Game {
     return out;
   }
 
+  /** Load the rounds in pack slot `index` into the ammo slot (rounds.js). */
+  loadRounds(index) { return Rounds.loadRounds(this, index); }
+  /** Take the loaded rounds back into the pack. */
+  unloadRounds() { return Rounds.unloadRounds(this); }
+
   unequip(slot) {
+    if (slot === 'ammo') return this.unloadRounds();
     const id = this.equipment.get(slot);
     if (!id) return;
     if (this.inventory.canAdd(id, 1) <= 0) { this.msg("You don't have enough inventory space."); return; }
@@ -6976,6 +6995,7 @@ export class Game {
     const cls = this.jobClass && CLASS_BY_ID[this.jobClass];
     const it = getItem(id);
     if (!cls || !it || id === 'coins' || it.tool) return false;
+    if (Rounds.isRound(id)) return !Rounds.classUsesGuns(cls.id);   // rounds, if you don't use a gun
     if (it.tags?.includes('ammo')) return cls.weapon !== 'shortbow' && cls.weapon !== 'longbow';
     const eq = it.equip;
     if (!eq) return false;

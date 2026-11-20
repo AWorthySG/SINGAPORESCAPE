@@ -77,6 +77,15 @@ export class Equipment {
     // copies out to the copies you own once everything is loaded (then clears this).
     this.legacyQuality = null;
     this.extra = null;            // () => bonuses from outside your gear (life skill perks and shrine blessings, see Game.outsideBonuses)
+    // The ammo slot: a stack of gun rounds ({ id, qty }), or null. It sits apart
+    // from the gear slots above, so rounds never take mastery, enchants or quality (rounds.js).
+    this.ammo = null;
+  }
+
+  /** Load `qty` of rounds `id` into the ammo slot (none, or no id, empties it). */
+  setAmmo(id, qty) {
+    this.ammo = id && qty > 0 ? { id, qty: Math.floor(qty) } : null;
+    this._changed();
   }
 
   // Mastery is read and written through any item of the type.
@@ -258,7 +267,7 @@ export class Equipment {
     const lines = (m) => Object.fromEntries(Object.entries(m).map(([id, l]) => [id, l.map((x) => ({ ...x }))]));
     return { ...this.slots, _mastery: { ...this.mastery }, _enchants: lines(this.enchants), _refines: { ...this.refines },
       _offEnchants: lines(this.offEnchants), _offRefines: { ...this.offRefines },
-      _slotQuality: { ...this.slotQuality }, _enchantTaper: 1 };
+      _slotQuality: { ...this.slotQuality }, _enchantTaper: 1, _ammo: this.ammo ? { ...this.ammo } : null };
   }
 
   load(data) {
@@ -275,6 +284,10 @@ export class Equipment {
       const type = key.includes(':') ? key : itemExists(key) ? masteryType(key) : null;
       if (type) this.mastery[type] = Math.max(this.mastery[type] || 0, Math.floor(pts));
     }
+    // The ammo slot came later: optional (rounds.js hands older gun users some rounds).
+    const am = data._ammo;
+    this.ammo = am && typeof am.id === 'string' && itemExists(am.id) && typeof getItem(am.id).roundStr === 'number'
+      && typeof am.qty === 'number' && am.qty >= 1 ? { id: am.id, qty: Math.floor(am.qty) } : null;
     // Each worn copy's quality came later: optional.
     this.slotQuality = {};
     for (const s of EQUIP_SLOTS) { const q = validQuality(data._slotQuality?.[s]); if (q && this.slots[s]) this.slotQuality[s] = q; }

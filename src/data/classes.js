@@ -21,8 +21,8 @@ export const CLASSES = [
   // Ranged
   { id: 'archer', name: 'Archer', weapon: 'shortbow', style: 'ranged', desc: 'Rapid shortbows: arrow after arrow from afar.' },
   { id: 'ranger', name: 'Ranger', weapon: 'longbow', style: 'ranged', desc: 'Longbows: slower, harder-hitting shots from very far.' },
-  { id: 'pistoler', name: 'Pistoler', weapon: 'pistol', style: 'ranged', desc: 'A pistol in each hand: the fastest attacks in the game, and no ammo needed.' },
-  { id: 'sniper', name: 'Sniper', weapon: 'rifle', style: 'ranged', desc: 'A sniper rifle: the furthest reach in the game and massive shots, but slow to fire.' },
+  { id: 'pistoler', name: 'Pistoler', weapon: 'pistol', style: 'ranged', desc: 'A pistol in each hand: the fastest attacks in the game. Load rounds in the ammo slot to hit harder.' },
+  { id: 'sniper', name: 'Sniper', weapon: 'rifle', style: 'ranged', desc: 'A sniper rifle: the furthest reach in the game and massive shots, but slow to fire. Load rounds in the ammo slot to hit harder.' },
   { id: 'ninja', name: 'Ninja', weapon: 'shuriken', style: 'ranged', desc: 'Thrown shurikens that ricochet into a second foe. No ammo needed.' },
   // Magic
   { id: 'wizard', name: 'Wizard', weapon: 'staff', style: 'magic', desc: 'Powerful staves; elemental staves give free runes.' },
