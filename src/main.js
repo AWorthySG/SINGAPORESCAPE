@@ -15,6 +15,7 @@ import { cloud } from './game/cloud.js';
 import { quickUse } from './game/quickuse.js';
 import { installLinks } from './ui/links.js';
 import { FxGovernor } from './render/governor.js';
+import { preloadFx } from './render/fxart.js';
 
 const VIEW_TILES = 15;        // tiles shown across the shorter side of the screen, at most
 const VIEW_TILES_LONG = 24;   // ...and along the longer side
@@ -70,6 +71,9 @@ window.addEventListener('keydown', unlockAudio, { once: true });
 ui.init();
 game.start();
 title.attach(game);
+// The painted critters, particles, banners and plaques (fxart.js): the ones in
+// view load as they're drawn; the rest once the title has finished loading.
+title.later(preloadFx);
 // Accounts: background cloud uploads, the Account button on the title, the cloud toast.
 cloud().attach(game);
 import('./ui/accountui.js').then((m) => m.initAccountUi(document.getElementById('splash'))).catch(() => {});

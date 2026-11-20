@@ -871,6 +871,10 @@ import { BESTIARY_BOSSES } from '../data/bestiary.js';
     'pest_token', 'hunter_bait', 'forager_lamp', 'codex_quill', 'mosquito_net_cape']) ITEM_ART.add(id);
   export const itemArtSrc = (id) => (ITEM_ART.has(id) ? `assets/icons/item-${id}.webp` : borrowedArt(id) ? `assets/icons/item-${borrowedArt(id).file}.webp` : null);
   const artImg = (file, size, cls, filter) => `<img class="${cls || ''}" width="${size}" height="${size}" src="assets/icons/${file}.webp" alt="" style="display:block;object-fit:contain${filter ? `;filter:${filter}` : ''}" />`;
+  /** An icon for a long grid (the bank's hundreds of slots): fetched only as its
+   *  row nears the screen, and decoded off the main thread, so opening the
+   *  window doesn't wait on every picture in it. Vector icons pass through. */
+  export const lazyIcon = (html) => html.replace(/^<img /, '<img loading="lazy" decoding="async" ');
   // Metal-tier items without stickers of their own can borrow another sticker,
   // tinted towards their metal's colour (BORROW), and single items can borrow
   // one as-is (BORROW_ID) until their art arrives.

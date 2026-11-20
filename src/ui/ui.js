@@ -66,7 +66,8 @@ import { setLinkedText, linkHTML } from './links.js';   // names that open their
 import { openEntry } from './encyclopediaui.js';
 import { openPestOfficer, contractTrackerRows, stewardLineHTML, cullingInvOptions } from './cullingui.js';
 import { eventsPanelHTML, wireEventsPanel, eventTrackerRows, drawEventMarker } from './worldeventsui.js';
-import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG, abilityIconHTML, spellIconHTML, playIconHTML } from '../render/icons.js';
+import { keyedSlots, placeSlots } from './slotgrid.js';
+import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG, abilityIconHTML, spellIconHTML, playIconHTML, lazyIcon } from '../render/icons.js';
 import { weaknessOf, armourTierOf, ARMOUR_TIERS, levelFlatDmg } from '../game/combat.js';
 import { isBone } from '../data/bones.js';
 import { RACES, raceOf, weaponsFor, weaponTypeName, WEAPON_VS_RACE } from '../data/races.js';
@@ -3423,18 +3424,17 @@ export class UI {
 
   // Bank ---------------------------------------------------------------
   openBank() {
-    const render = (body) => {
+    // The bank's slots outlive a redraw, and a closing (slotgrid.js): a withdraw
+    // or deposit swaps in only the slots that changed, and opening the bank again
+    // reuses them, rather than rebuilding and laying out hundreds of slots.
+    const slots = this._bankSlots || (this._bankSlots = keyedSlots());
+    let view = null;   // the window's parts, made on its first draw
+    const build = (body) => {
       body.innerHTML = '';
       // Totals at the top: coins in the bank and what everything in it is worth.
-      const coinsIn = this.game.bank.items.find((e) => e.id === 'coins')?.qty || 0;
-      const worth = this.game.bank.items.reduce((t, e) => t + (getItem(e.id)?.value || 0) * e.qty, 0);
       const stats = document.createElement('div');
       stats.className = 'ui-stats';
-      stats.innerHTML = `<div class="ui-stat">${inlineIcon(itemIconSVG('coins', 22))}<span class="ui-stat-label">Coins banked</span><b class="ui-stat-num bank-coins"></b></div>`
-        + `<div class="ui-stat"><span class="ui-stat-label">Bank value</span><b class="ui-stat-num bank-total"></b></div>`;
       body.appendChild(stats);
-      countUp(stats.querySelector('.bank-coins'), 'bank-coins', coinsIn, shortNumber);
-      countUp(stats.querySelector('.bank-total'), 'bank-total', worth, shortNumber);
       const cols = document.createElement('div');
       cols.className = 'modal-cols';
       // Bank side
@@ -3447,42 +3447,16 @@ export class UI {
       search.className = 'bank-search';
       search.placeholder = 'Search…';
       search.value = this._bankSearch || '';
-      search.addEventListener('input', () => {
-        this._bankSearch = search.value;
-        render(body);
-        const next = body.querySelector('.bank-search');
-        if (next) { next.focus(); next.setSelectionRange(next.value.length, next.value.length); }
-      });
+      // Filtering redraws the slots only, so the box keeps its focus and caret.
+      search.addEventListener('input', () => { this._bankSearch = search.value; fill(); });
       bankHead.appendChild(search);
       bankSide.appendChild(bankHead);
       const bankGrid = document.createElement('div');
       bankGrid.className = 'item-grid';
-      const term = (this._bankSearch || '').trim().toLowerCase();
-      const shown = term
-        ? this.game.bank.items.filter((e) => getItem(e.id).name.toLowerCase().includes(term))
-        : this.game.bank.items;
-      for (const e of shown) {
-        const q = e.q || null;   // each quality of an item is its own entry
-        bankGrid.appendChild(this._cell(e.id, e.qty, {
-          onClick: () => this.game.withdraw(e.id, 1, q),
-          menu: () => [
-            { label: 'Withdraw 1', fn: () => this.game.withdraw(e.id, 1, q) },
-            { label: 'Withdraw 5', fn: () => this.game.withdraw(e.id, 5, q) },
-            { label: 'Withdraw 10', fn: () => this.game.withdraw(e.id, 10, q) },
-            { label: 'Withdraw All', fn: () => this.game.withdraw(e.id, e.qty, q) },
-            keepMenuItem(this, e.id),
-            { label: 'Info', fn: () => openEntry(this, 'item', e.id) },
-          ],
-          q,
-        }));
-      }
       bankSide.appendChild(bankGrid);
-      if (!shown.length) {
-        const empty = document.createElement('div');
-        empty.className = 'modal-hint';
-        empty.textContent = term ? 'No matching items.' : 'Your bank is empty.';
-        bankSide.appendChild(empty);
-      }
+      const empty = document.createElement('div');
+      empty.className = 'modal-hint';
+      bankSide.appendChild(empty);
       // Inventory side
       const invSide = document.createElement('div');
       const invHead = document.createElement('div');
@@ -3497,6 +3471,53 @@ export class UI {
       invSide.appendChild(invHead);
       const invGrid = document.createElement('div');
       invGrid.className = 'item-grid';
+      invSide.appendChild(invGrid);
+      cols.appendChild(bankSide);
+      cols.appendChild(invSide);
+      body.appendChild(cols);
+      const hint = document.createElement('div');
+      hint.className = 'modal-hint';
+      // The first tap that opens the bank lands on the canvas, so ask the browser too.
+      const touch = this._touchUsed || !!window.matchMedia?.('(pointer: coarse)').matches;
+      hint.textContent = touch
+        ? 'Tap to withdraw/deposit one. Press and hold for amounts.'
+        : 'Left-click to withdraw/deposit one. Right-click for amounts.';
+      body.appendChild(hint);
+      return { body, stats, bankGrid, empty, invGrid };
+    };
+    const fill = () => {
+      const { stats, bankGrid, empty, invGrid } = view;
+      const coinsIn = this.game.bank.items.find((e) => e.id === 'coins')?.qty || 0;
+      const worth = this.game.bank.items.reduce((t, e) => t + (getItem(e.id)?.value || 0) * e.qty, 0);
+      stats.innerHTML = `<div class="ui-stat">${inlineIcon(itemIconSVG('coins', 22))}<span class="ui-stat-label">Coins banked</span><b class="ui-stat-num bank-coins"></b></div>`
+        + `<div class="ui-stat"><span class="ui-stat-label">Bank value</span><b class="ui-stat-num bank-total"></b></div>`;
+      countUp(stats.querySelector('.bank-coins'), 'bank-coins', coinsIn, shortNumber);
+      countUp(stats.querySelector('.bank-total'), 'bank-total', worth, shortNumber);
+      const term = (this._bankSearch || '').trim().toLowerCase();
+      const shown = term
+        ? this.game.bank.items.filter((e) => getItem(e.id).name.toLowerCase().includes(term))
+        : this.game.bank.items;
+      // A slot's key changes whenever its look would: item, quality or amount.
+      placeSlots(bankGrid, shown.map((e) => {
+        const q = e.q || null;   // each quality of an item is its own entry
+        return slots.get(`${e.id}|${q || ''}|${e.qty}`, () => this._cell(e.id, e.qty, {
+          onClick: () => this.game.withdraw(e.id, 1, q),
+          menu: () => [
+            { label: 'Withdraw 1', fn: () => this.game.withdraw(e.id, 1, q) },
+            { label: 'Withdraw 5', fn: () => this.game.withdraw(e.id, 5, q) },
+            { label: 'Withdraw 10', fn: () => this.game.withdraw(e.id, 10, q) },
+            { label: 'Withdraw All', fn: () => this.game.withdraw(e.id, e.qty, q) },
+            keepMenuItem(this, e.id),
+            { label: 'Info', fn: () => openEntry(this, 'item', e.id) },
+          ],
+          q,
+        }));
+      }));
+      // Only a search shows part of the bank: keep the rest of it for when the search is cleared.
+      if (!term) slots.prune();
+      empty.classList.toggle('hidden', shown.length > 0);
+      empty.textContent = term ? 'No matching items.' : 'Your bank is empty.';
+      invGrid.innerHTML = '';
       this.game.inventory.slots.forEach((s, i) => {
         if (!s) return;
         const q = s.q || null;
@@ -3511,18 +3532,10 @@ export class UI {
           q,
         }), s.id));
       });
-      invSide.appendChild(invGrid);
-      cols.appendChild(bankSide);
-      cols.appendChild(invSide);
-      body.appendChild(cols);
-      const hint = document.createElement('div');
-      hint.className = 'modal-hint';
-      // The first tap that opens the bank lands on the canvas, so ask the browser too.
-      const touch = this._touchUsed || !!window.matchMedia?.('(pointer: coarse)').matches;
-      hint.textContent = touch
-        ? 'Tap to withdraw/deposit one. Press and hold for amounts.'
-        : 'Left-click to withdraw/deposit one. Right-click for amounts.';
-      body.appendChild(hint);
+    };
+    const render = (body) => {
+      if (!view || view.body !== body || !body.contains(view.bankGrid)) view = build(body);
+      fill();
     };
     this.openModal('Bank of Singapore', render);
     this.modal.kind = 'bank';
@@ -3922,7 +3935,7 @@ export class UI {
     const item = getItem(id);
     const cell = document.createElement('div');
     cell.className = 'item-cell';
-    cell.innerHTML = `<span>${itemIconSVG(id, 30)}</span>${q ? this._qualityPip(q) : ''}`;
+    cell.innerHTML = `<span>${lazyIcon(itemIconSVG(id, 30))}</span>${q ? this._qualityPip(q) : ''}`;
     if (item.stackable || qty > 1) {
       const lbl = stackLabel(qty);
       const q = document.createElement('span'); q.className = 'qty'; q.textContent = lbl.text;
@@ -3930,7 +3943,8 @@ export class UI {
     }
     if (onClick) cell.addEventListener('click', onClick);
     if (menu) cell.addEventListener('contextmenu', (e) => { e.preventDefault(); this.showContextMenu(e.clientX, e.clientY, menu()); });
-    this._tip(cell, tooltip || `<b>${qualityNameHTML(id, q)}</b><br><span style="opacity:.8">${item.examine || ''}</span>${q && item.equip ? this._gearTip(id, 'main', q) : ''}`, menu);
+    // Built when first pointed at: a bank of hundreds of slots needn't write every card up front.
+    this._tip(cell, tooltip || (() => `<b>${qualityNameHTML(id, q)}</b><br><span style="opacity:.8">${item.examine || ''}</span>${q && item.equip ? this._gearTip(id, 'main', q) : ''}`), menu);
     return cell;
   }
 
