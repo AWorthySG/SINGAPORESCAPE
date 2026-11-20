@@ -10,7 +10,7 @@ import { ATTRS, ATTR_NAMES, statPointsAt, attrForMode, DMG_PER_POINT, LIFE_PER_S
 import { MASTERY_RANKS, BANNER_RANK, BATTLE_CAP, TOP_XP, MAX_ENCHANTS, killMastery, isWorldBoss, masteryType, masteryTypeName, enchantCost, rollEnchantOffers, enchantLabel, STONE as UP_STONE, WARD as UP_WARD } from './mastery.js';
 import { MAX_REFINE, SCROLL as REFINE_SCROLL, refineCost, rollRefine, refineTag, refineScrollDrop } from './refine.js';
 import { materialKind, materialPoints, feedKind, feedXp, FEED_CAP, FEED_CAP_RANK } from './materials.js';
-import { Shrine, SHRINE_TRACKS, trackText } from './shrine.js';
+import { Shrine, SHRINE_TRACKS, trackText, maxAffordable } from './shrine.js';
 import { getItem, ITEMS, MELEE_REACH, accessoriesFor } from '../data/items.js';
 import { chebyshev, randInt, weightedPick, capitalize, damageNumber } from '../core/utils.js';
 import {
@@ -6160,6 +6160,28 @@ export class Game {
     if (r % 10 === 0) this.banner(`<span class="big">${t.name} ${r}!</span>${trackText(track, r)}`);
     this.bus.emit('shrine');
     return true;
+  }
+
+  /** Spend as many shrine points as it takes on one blessing: every rank the
+   *  points afford, in one go, with one message. Returns the ranks bought. */
+  shrineRankUpMax(track) {
+    const t = SHRINE_TRACKS[track];
+    if (!t) return 0;
+    const sh = this.shrine, { ranks, cost } = maxAffordable(sh, track);
+    if (!ranks) { this.msg(`${t.name} rank ${sh.rank(track) + 1} needs ${sh.nextCost(track)} shrine points.`); return 0; }
+    const r0 = sh.rank(track), r1 = r0 + ranks;
+    sh.points -= cost;
+    sh.ranks[track] = r1;
+    sh.rev++;
+    this.equipment._changed();
+    this.spawnSparkle(this.player, '#ffe08a', 16);
+    this.bus.emit('sfx', 'level');
+    this.msg(`The shrine glows. ${t.name} +${ranks} rank${ranks > 1 ? 's' : ''} (${r0} → ${r1}): ${trackText(track, r1)}.`, 'level');
+    // A banner when the ranks passed a tenth rank, as single rank-ups give.
+    if (Math.floor(r1 / 10) > Math.floor(r0 / 10)) this.banner(`<span class="big">${t.name} ${r1}!</span>${trackText(track, r1)}`);
+    this.bus.emit('shrine');
+    this.saveSoon = true;
+    return ranks;
   }
 
   // ---------------- Refining ----------------

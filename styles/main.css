@@ -2267,6 +2267,8 @@ body.boss-on #tip-toast { top: 132px; }
 .shrine-row .shrine-up.active { background: var(--aw-sun-deep); }
 .shrine-row .shrine-up:disabled { opacity: 0.55; cursor: not-allowed; }
 .shrine-up .short { color: var(--aw-accent); font-weight: 800; }
+.shrine-row .shrine-btns { flex: 0 0 auto; display: flex; flex-direction: column; gap: 4px; }
+.shrine-row .shrine-max { font-size: 10.5px; }
 
 /* Stats (Strength / Intelligence / Dexterity) in the Combat tab. */
 .cb-stats { margin: 8px 0; padding: 8px 10px; border: 2px solid var(--ink, #1f2a44); border-radius: 12px; background: #fff; font-size: 12px; }
