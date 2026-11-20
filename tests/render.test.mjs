@@ -455,6 +455,21 @@ test('notification lane never blocks the buttons under it', async () => {
   assert.match(css.match(/\.nl-card \{[^}]*\}/)[0], /pointer-events:\s*auto/, 'its cards stay tappable');
 });
 
+test('Part F: the tiered gathering tools stay in lock-step with their item-*.webp stickers', async () => {
+  const { readdirSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const { itemArtSrc } = await import('../src/render/icons.js');
+  const { TOOL_KINDS, toolIds } = await import('../src/data/tooltiers.js');
+  const ids = TOOL_KINDS.flatMap((K) => toolIds(K.tag).slice(1));
+  assert.equal(ids.length, 55);
+  // Any <word>_<kind> sticker other than the tier-1 tools' (bronze_axe, fishing_rod...) must be a tiered tool.
+  const kinds = TOOL_KINDS.map((K) => K.tag).join('|'), bases = new Set(TOOL_KINDS.map((K) => K.base));
+  const onDisk = readdirSync(fileURLToPath(new URL('../assets/icons/', import.meta.url)))
+    .map((f) => new RegExp(`^item-([a-z]+_(?:${kinds}))\\.webp$`).exec(f)?.[1]).filter((id) => id && !bases.has(id));
+  assert.deepEqual(onDisk.sort(), [...ids].sort(), 'every tiered tool has a sticker file, and no stray ones');
+  for (const id of ids) assert.equal(itemArtSrc(id), `assets/icons/item-${id}.webp`, `${id} uses its own sticker`);
+});
+
 test('art batch 1: weapon and armour types, signature weapons, bones and trinkets use their own stickers', async () => {
   const { itemIconSVG } = await import('../src/render/icons.js');
   const { ITEMS } = await import('../src/data/items.js');
