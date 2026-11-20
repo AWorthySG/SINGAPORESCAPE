@@ -4354,9 +4354,11 @@ test('every class has its own four abilities (basic Z, threshold X, utility C, u
     const mode = c.style;
     const set = abilitiesFor(mode, c.id);
     const by = Object.fromEntries(set.map((a) => [a.key, a]));
-    assert.equal(by.Z.kind, 'attack', `${c.name}: Z is a damage skill`);
+    // The Ranger's skills are all damage buffs (tests/ranger-buffs.test.mjs): no strike, no area.
+    const buffsOnly = c.id === 'ranger';
+    assert.equal(by.Z.kind, buffsOnly ? 'buff' : 'attack', `${c.name}: Z is a damage skill`);
     assert.equal(by.X.kind, 'buff', `${c.name}: X is a buff`);
-    assert.ok(by.B.aoe || by.B.sweep, `${c.name}: B hits an area`);
+    assert.ok(buffsOnly ? by.B.kind === 'buff' && by.B.buff.dmg > 0 : by.B.aoe || by.B.sweep, `${c.name}: B hits an area`);
     // Build and spend: Z and C are free and Z builds adrenaline, X spends 50, B the full 100.
     assert.ok(by.Z.cost === 0 && by.Z.build > 0, `${c.name}: Z is a free builder`);
     assert.equal(by.C.cost, 0, `${c.name}: C is free`);

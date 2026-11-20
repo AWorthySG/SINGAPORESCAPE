@@ -554,6 +554,7 @@ export class Game {
     this._questBoss = false;      // a quest boss step (journal "Go") lets auto battle take on bosses for that trip
     this._autoLast = null;
     this.abilityCd = {};          // ability id -> ticks until usable again
+    this.stackBuffs = {};         // stacking class buffs (the Ranger's skills): ability id -> { ...buff, until }
     this.braceTicks = 0;          // ticks of halved incoming damage left
     this.danceRhythm = 0;         // Dancer Rhythm stacks (more whip damage per landed lash)
     this.playerDot = null;        // boss damage-over-time on the player: { kind, dmg, ticks, from }
@@ -2064,14 +2065,19 @@ export class Game {
       this.spawnSparkle(this.player, '#7fd8ff', 12);
       this.bus.emit('sfx', 'spec');
     } else if (ab.kind === 'buff') {
-      // A class buff: one at a time, a new one replaces the last.
-      this.buff = { id: ab.id, name: ab.name, ...ab.buff, until: this.tickCount + (ab.ticks || 10) };
+      // A class buff: one at a time, a new one replaces the last. A stacking
+      // buff (the Ranger's skills) runs alongside it and the other stacking ones.
+      const b = { id: ab.id, name: ab.name, ...ab.buff, until: this.tickCount + (ab.ticks || 10) };
+      const fresh = !ab.stack || !this.stackBuffUp(ab.id);   // topping up a running one is quiet
+      if (ab.stack) this.stackBuffs[ab.id] = b; else this.buff = b;
       if (ab.rhythm) { this.danceRhythm = Math.min(RHYTHM_MAX, this.danceRhythm + ab.rhythm); this.bus.emit('rhythm'); }
       if (ab.summon && this.jobClass === 'merchant') for (let k = 0; k < ab.summon; k++) Mercs.spawnFollower(this);
-      this.msg(`${ab.name}! ${ab.desc}`, 'system');
-      this.addHitsplat(this.player, 0, { text: ab.name });
-      this.spawnSparkle(this.player, '#ffd24a', 14);
-      this.bus.emit('sfx', 'spec');
+      if (fresh) {
+        this.msg(`${ab.name}! ${ab.desc}`, 'system');
+        this.addHitsplat(this.player, 0, { text: ab.name });
+        this.spawnSparkle(this.player, '#ffd24a', 14);
+        this.bus.emit('sfx', 'spec');
+      }
     } else if (ab.kind === 'heal') {
       const heal = Math.max(1, Math.round(this.maxHp() * ab.healFrac));
       this.player.hp = Math.min(this.maxHp(), this.player.hp + heal);
@@ -2106,8 +2112,12 @@ export class Game {
   /** The active buff's value for a key (dmg, haste, crit, lifesteal, reduce, dodge), or 0. */
   buffMod(k) {
     const b = this.buff;
-    return b && b.until > this.tickCount ? b[k] || 0 : 0;
+    let v = b && b.until > this.tickCount ? b[k] || 0 : 0;
+    for (const s of Object.values(this.stackBuffs || {})) if (s.until > this.tickCount) v += s[k] || 0;
+    return v;
   }
+  /** Is this stacking buff (a Ranger skill) running? */
+  stackBuffUp(id) { return (this.stackBuffs?.[id]?.until || 0) > this.tickCount; }
 
   /** Merchant: coins per coin throw (1, +1 per 10 Ranged levels). */
   coinThrowCost() { return 1 + Math.floor(this.skills.ranged / 10); }
@@ -2182,7 +2192,7 @@ export class Game {
     // Equipment.bonuses), so the gear-driven part is worked out per hand.
     const armour = armourOf(npc.def, { champion: npc.champion, fightLevel: this.fightLevel() });
     const cracks = shatterPierce(npc, this.tickCount);   // Earth's Shatter: cracked armour, for every style
-    const gearM = (g) => armourMult(armour, g.pierce + cracks, weak)
+    const gearM = (g) => armourMult(armour, g.pierce + cracks + this.buffMod('pierce'), weak)
       * (1 + (perk.dmg || 0) + this.learning.perks().dmg +   // English mastery: Eloquence
         ((npc.def.boss || npc.champion) ? (perk.boss || 0) + g.bossDmg / 100 : (g.mobDmg || 0) / 100))   // Cooking's perk: normal monsters
       // Physical damage bonus % (atkPct) boosts melee, ranged and whips; Magic bonus % boosts spells.
@@ -5401,6 +5411,22 @@ export class Game {
     const defensive = (ab) => ab.kind === 'guard' || (ab.kind === 'heal' ? hpFrac < 0.6 : ab.kind === 'buff' && !keepBuff && (ab.buff?.reduce || ab.buff?.dodge || ab.buff?.lifesteal));
     if (danger) { const c = ready('C', defensive); if (c) this.activateAbility(c.id); }
     if (hpFrac < 0.35) { const v = ready('V'); if (v) this.activateAbility(v.id); }
+    // Stacking buffs (the Ranger's skills): keep each one up while the fight is
+    // worth it; the ultimate's buff only for a boss, a champion, a crowd or a
+    // long fight, never on trash.
+    const stacker = (ab) => ab.stack && ab.kind === 'buff' && !this.stackBuffUp(ab.id);
+    if (this.currentAbilities().some((ab) => ab.stack)) {
+      const bigFight = big || attackers + crowd >= 3 || tgt.hp > hit * 15;
+      const b = ready('B', stacker);
+      if (b && bigFight) this.activateAbility(b.id);
+      const x = ready('X', stacker);
+      if (x && (worth(3) || this.adrenaline >= 100)) this.activateAbility(x.id);
+      const c = ready('C', stacker);
+      if (c && (danger || worth(3))) this.activateAbility(c.id);
+      const z = ready('Z', (ab) => ab.stack);   // free, and builds adrenaline: topped up whenever it's ready
+      if (z) this.activateAbility(z.id);
+      return;
+    }
     // Spend.
     const ult = ready('B');
     if (ult && !this.armedAbility && worth(4)) { this.activateAbility(ult.id); return; }

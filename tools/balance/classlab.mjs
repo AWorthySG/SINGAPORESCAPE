@@ -147,7 +147,7 @@ function fightTick(g, tgt) {
  *  new Game, which tests/balance.test.mjs relies on; the CLI builds fresh ones.) */
 export function resetFight(g) {
   g.npcs = []; g.effects = []; g.hazards = [];
-  g.buff = null; g.abilityCd = {}; g.adrenaline = 0; g.danceRhythm = 0; g.braceTicks = 0;
+  g.buff = null; g.stackBuffs = {}; g.abilityCd = {}; g.adrenaline = 0; g.danceRhythm = 0; g.braceTicks = 0;
   g.killStreak = 0; g.armedAbility = null;
   // The lab measures the classes alone: forget earlier scenarios' kills, so codex
   // mastery (culling.js) earned in a kill-speed run doesn't add to the next

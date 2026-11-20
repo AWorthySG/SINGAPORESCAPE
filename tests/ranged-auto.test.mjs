@@ -61,9 +61,15 @@ test('a Ranger with monsters in reach shoots them all from where it stands', () 
   // every foe below stands within 9 tiles, so it still never needs to move.
   assert.ok(range >= 9, `a longbow out-reaches the foes below (${range})`);
   const foes = [foe(g, 5), foe(g, -7, 3), foe(g, 2, -9), foe(g, 9, 6)];
+  // Count each one's first death: a goblin left lying long enough comes back
+  // (at full goblin life), and whether one stands again at the very end was down
+  // to how quickly the Ranger's skills happened to drop the first four.
+  const downed = new Set();
+  const kill = g.killNpc.bind(g);
+  g.killNpc = (n, ...rest) => { downed.add(n); return kill(n, ...rest); };
   g.toggleAutoBattle(true);
   const tiles = walk(g, 120);
-  assert.ok(foes.every((n) => !n.alive), `all four shot down (${foes.filter((n) => n.alive).length} left)`);
+  assert.ok(foes.every((n) => downed.has(n)), `all four shot down (${foes.filter((n) => !downed.has(n)).length} left)`);
   assert.ok(tiles <= 1, `it stood its ground (walked ${tiles} tiles)`);
 });
 

@@ -44,15 +44,17 @@ test('every class skill (Z, X, C, B) is 20-35% quicker to come back; ultimates s
 
 /** Does this skill deal or add damage? */
 const offensive = (a) => (a.kind === 'attack' && (a.dmgMul || a.hits)) || !!a.strike || !!a.counter
-  || !!(a.buff && (a.buff.dmg || a.buff.thorns));
+  || !!(a.buff && (a.buff.dmg || a.buff.thorns || a.buff.pierce));
 
 test('every class has an offensive part in every slot: strikes on buffs, strike-back on guards', () => {
   for (const c of CLASSES) {
     const set = abilitiesFor(c.style, c.id).filter((a) => a.key !== 'V');
     assert.deepEqual(set.map((a) => a.key), ['Z', 'X', 'C', 'B'], `${c.name}: four skills`);
     for (const a of set) assert.ok(offensive(a), `${c.name}: ${a.name} (${a.key}) has an offensive edge`);
-    // Every threshold buff lands a blow the moment it goes up.
+    // Every threshold buff lands a blow the moment it goes up, but the Ranger's:
+    // its skills became pure damage buffs at the owner's request (ranger-buffs.test.mjs).
     const x = set.find((a) => a.key === 'X');
+    if (c.id === 'ranger') { assert.ok(!x.strike, 'the Ranger\'s Steady Aim is a buff, no strike'); continue; }
     assert.ok(x.strike && (x.strike.dmgMul || x.strike.hits), `${c.name}: ${x.name} strikes`);
   }
   // Guards strike back, and every description mentions its numbers.

@@ -402,10 +402,11 @@ export function activeEffects(game) {
     out.push({ name: pot.name, detail: fxText(pot.fx), left: ms, off });
   }
   if (game.meal) out.push({ name: getItem(game.meal.id).name, detail: fxText(game.meal.fx), left: game.meal.ms, off: '' });
-  if (game.buff && game.buff.until > game.tickCount) {
-    // A class buff's haste is already in percent (see attackInterval); its other keys are fractions.
-    const { id: _i, name, until, haste, ...rest } = game.buff;
-    const detail = [haste ? `${pct(haste)} attack speed` : '', fxText(rest)].filter(Boolean).join(', ');
+  for (const b of [game.buff, ...Object.values(game.stackBuffs || {})]) {
+    if (!b || b.until <= game.tickCount) continue;
+    // A class buff's haste and armour pierce are already in percent (see attackInterval); its other keys are fractions.
+    const { id: _i, name, until, haste, pierce, ...rest } = b;
+    const detail = [haste ? `${pct(haste)} attack speed` : '', pierce ? `${pct(pierce)} armour pierce` : '', fxText(rest)].filter(Boolean).join(', ');
     out.push({ name, detail, left: (until - game.tickCount) * TICK_MS, off: '' });
   }
   for (const id of game.activePrayers || []) {

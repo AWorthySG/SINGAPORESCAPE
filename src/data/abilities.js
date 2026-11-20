@@ -73,6 +73,13 @@ export const EXECUTE_BELOW = 0.35;
 //   thorns  (in a buff) and counter (on a guard): that share of each blow struck
 //           at you, before your guard softens it, is dealt straight back.
 export const SUNDER_TICKS = 10;
+// The Ranger's skills are all damage buffs (see the Ranger's entries below):
+// Focused Draw's and Steady Aim's +damage, Camouflage's armour pierce (in %)
+// and Deadeye's +damage on top of sure crits. Tuned so a Ranger's damage over
+// a fight stays about where its old strikes left it: +6-11% on classlab's
+// dummies (where crits aren't yet capped), -5% in real boss fights with a
+// typical build (tests/ranger-buffs.test.mjs, tools/balance/bossfight.mjs).
+export const RANGER_BUFF = { draw: 0.05, aim: 0.3, pierce: 10, deadeye: 0.3 };
 // Tiers: Z basic attack, X threshold skill, C basic utility, B ultimate.
 // Cooldowns were cut by a quarter to a third in the skills rework (Z 3 -> 2,
 // X 20 -> 15, C 25 -> 19, B 30 -> 24 ticks); the ultimate stays gated by a full bar.
@@ -194,11 +201,14 @@ const CLASS_ABILITIES = [
   { ...BF, id: 'eagle_eye', cls: 'archer', mode: 'ranged', name: 'Eagle Eye', icon: '🦅', buff: { haste: 60, crit: 0.1 }, strike: { hits: 2, dmgMul: 0.8, guaranteed: true }, desc: 'Sharp eyes: a heavy pair of arrows (~0.8x each) at once, then +60% attack speed and +10% crit chance for 9s.' },
   { ...C, id: 'disengage', cls: 'archer', mode: 'ranged', name: 'Disengage', icon: '🍃', kind: 'buff', ticks: 6, buff: { dodge: 0.4, haste: 30 }, strike: { dmgMul: 1.3, guaranteed: true }, desc: 'Light on your feet: +40% dodge and +30% attack speed for 4s, and your next arrow lands heavy (~1.3x).' },
   { ...B, id: 'arrow_rain', cls: 'archer', mode: 'ranged', name: 'Arrow Rain', icon: '🌧️', hits: 6, dmgMul: 0.8, guaranteed: true, instant: true, desc: 'Ultimate: six heavy arrows (~0.8x each) rain down at once.' },
-  // Ranger: longbows. Patient shots; crits build.
-  { ...Z, id: 'aimed_shot', cls: 'ranger', mode: 'ranged', name: 'Aimed Shot', icon: '🎯', dmgMul: 1.4, guaranteed: true, desc: 'Take your time: a heavy arrow (~1.4x).' },
-  { ...BF, id: 'steady_aim', cls: 'ranger', mode: 'ranged', name: 'Steady Aim', icon: '🎯', buff: { dmg: 0.4 }, strike: { dmgMul: 1.7, guaranteed: true, sunder: 0.1 }, desc: 'Breathe and loose a marking shot (~1.7x, +10% damage taken for 6s) at once: +40% damage for 9s.' },
-  { ...C, id: 'camouflage', cls: 'ranger', mode: 'ranged', name: 'Camouflage', icon: '🌿', kind: 'buff', ticks: 6, buff: { dodge: 0.5 }, strike: { dmgMul: 0.8, crit: true }, desc: 'Fade into the brush: dodge half of all attacks for 4s, and your next shot from cover is a critical (~0.8x).' },
-  { ...B, id: 'deadeye', cls: 'ranger', mode: 'ranged', name: 'Deadeye', icon: '👁️', dmgMul: 4.2, guaranteed: true, instant: true, desc: 'Ultimate: one perfect long-range shot (~4.2x), instantly.' },
+  // Ranger: longbows. Patient shots; crits build. Every Ranger skill is a timed
+  // damage buff, not a strike (the owner's call): each runs alongside the others
+  // (`stack`, see Game.activateAbility), so the Ranger keeps them all up and
+  // lets the longbow do the hitting. Sized to deal about what the old strikes did.
+  { ...Z, id: 'aimed_shot', cls: 'ranger', mode: 'ranged', name: 'Focused Draw', icon: '🎯', kind: 'buff', stack: true, ticks: 4, buff: { dmg: RANGER_BUFF.draw }, desc: `Draw slow and steady: +${Math.round(RANGER_BUFF.draw * 100)}% damage for 2.4s. Free, and builds adrenaline.` },
+  { ...BF, id: 'steady_aim', cls: 'ranger', mode: 'ranged', name: 'Steady Aim', icon: '🎯', stack: true, buff: { dmg: RANGER_BUFF.aim }, desc: `Breathe and settle: +${Math.round(RANGER_BUFF.aim * 100)}% damage for 9s.` },
+  { ...C, id: 'camouflage', cls: 'ranger', mode: 'ranged', name: 'Camouflage', icon: '🌿', kind: 'buff', stack: true, ticks: 10, buff: { dodge: 0.5, pierce: RANGER_BUFF.pierce }, desc: `Fade into the brush: dodge half of all attacks, and shots from cover find the gaps (+${RANGER_BUFF.pierce}% armour pierce), for 6s.` },
+  { ...B, id: 'deadeye', cls: 'ranger', mode: 'ranged', name: 'Deadeye', icon: '👁️', kind: 'buff', stack: true, ticks: 8, buff: { dmg: RANGER_BUFF.deadeye, crit: 1 }, desc: `Ultimate: total focus. Every shot is a critical and deals +${Math.round(RANGER_BUFF.deadeye * 100)}% damage for 4.8s.` },
   // Pistoler: dual pistols. Bullets fly; every one builds.
   { ...Z, id: 'quickdraw', cls: 'pistoler', mode: 'ranged', name: 'Quickdraw', icon: '🔫', build: 10, hits: 2, dmgMul: 0.65, desc: 'Fan the hammer: your next shot is two (~0.65x each).' },
   { ...BF, id: 'fan_the_hammer', cls: 'pistoler', mode: 'ranged', name: 'Fan the Hammer', icon: '🔫', buff: { haste: 100 }, strike: { hits: 3, dmgMul: 0.5 }, desc: 'Fan the hammer: three quick shots (~0.5x each) at once, then shoot twice as often for 9s.' },
