@@ -1,5 +1,5 @@
 // Prayer as a Blessings loadout (game/blessings.js): slots by Prayer level,
-// conflict groups, no drain, Faith from fighting and bones, the Prayer Burst
+// blessings of a type stacking (or swapping when the slots are full), no drain, Faith from fighting and bones, the Prayer Burst
 // (and auto battle firing it), the L hotkey, saves, and the panel without a DOM.
 import './seed.mjs';
 import { test } from 'node:test';
@@ -12,11 +12,12 @@ import { SAVE_KEY } from '../src/config.js';
 import { xpForLevel } from '../src/data/xp.js';
 import {
   PRAYERS, PRAYER_BY_ID, BLESSING_SLOT_LADDER, FAITH_BASE, FAITH_GAIN,
-  BURST_WARD_TICKS, BURST_ZEAL_TICKS, burstPower, blessingCost,
+  BURST_WARD_TICKS, BURST_ZEAL_TICKS, burstPower, blessingCost, STACK_SHARE, STACK_CAP,
 } from '../src/data/prayers.js';
-import { blessingSlots, trimBlessings, slotsUsed, shouldAutoBurst, starterBlessings } from '../src/game/blessings.js';
+import { blessingSlots, trimBlessings, slotsUsed, shouldAutoBurst, starterBlessings, blessingBonus, blessingAction } from '../src/game/blessings.js';
 import { ARTICLE_BY_ID, articleBlocks } from '../src/data/compendium.js';
-import { blessingsPanelHTML, slotStripHTML, renderBlessingsPanel, renderFaithOrb, BURST_KEY, burstText } from '../src/ui/blessingsui.js';
+import { blessingsPanelHTML, slotStripHTML, renderBlessingsPanel, renderFaithOrb, BURST_KEY, burstText, blessingHint, blessingTotals } from '../src/ui/blessingsui.js';
+import { activeEffects } from '../src/game/statsheet.js';
 
 function fakeStorage() {
   const m = new Map();
@@ -47,7 +48,7 @@ test('blessing slots grow with Prayer level along the ladder', () => {
   assert.equal(g.blessingSlots(), 3);
 });
 
-test('equipping: level locks, slot limits, conflict groups swap, and Spirit takes two slots', () => {
+test('equipping: level locks, slot limits, a type swaps when the slots are full, and Spirit takes two slots', () => {
   const g = newGame(1);
   assert.equal(g.toggleBlessing('burst_strength'), false, 'Burst of Strength needs Prayer 5');
   assert.ok(g.toggleBlessing('thick_skin'));
@@ -56,22 +57,27 @@ test('equipping: level locks, slot limits, conflict groups swap, and Spirit take
   assert.deepEqual([...g.activePrayers], ['thick_skin']);
   g.skills.xp.prayer = xpForLevel(45);   // two slots
   assert.ok(g.toggleBlessing('burst_strength'));
-  assert.ok(g.toggleBlessing('rock_skin'), 'a rival in the same group swaps in even with the slots full');
+  assert.ok(g.toggleBlessing('rock_skin'), 'one of the same type swaps in even with the slots full');
   assert.deepEqual([...g.activePrayers].sort(), ['burst_strength', 'rock_skin']);
   assert.equal(g.toggleBlessing('rock_skin'), false, 'tapping an equipped one takes it off');
   assert.ok(!g.activePrayers.has('rock_skin'));
 
-  // Spirit of the Worthy: two slots, and it pushes out the melee blessings it covers.
+  // Spirit of the Worthy: two slots; with one free, the weakest blessing of its
+  // types (Clarity, the lowest level) makes room and the others stay to stack.
   const h = newGame(300);
   assert.equal(blessingCost(PRAYER_BY_ID.worthy_spirit), 2);
   for (const id of ['clarity', 'superhuman', 'rock_skin', 'eagle_eye']) assert.ok(h.toggleBlessing(id), id);
   assert.equal(slotsUsed(h.activePrayers), 4);
-  assert.ok(h.toggleBlessing('worthy_spirit'), 'its three rivals come off, so it fits');
-  assert.deepEqual([...h.activePrayers].sort(), ['eagle_eye', 'worthy_spirit']);
-  assert.ok(h.toggleBlessing('mystic_lore') && h.toggleBlessing('protect_melee'));
+  assert.deepEqual(blessingAction(h, 'worthy_spirit'), { kind: 'swap', out: ['clarity'], with: ['rock_skin', 'superhuman'] });
+  assert.ok(h.toggleBlessing('worthy_spirit'), 'Clarity comes off, so it fits');
+  assert.deepEqual([...h.activePrayers].sort(), ['eagle_eye', 'rock_skin', 'superhuman', 'worthy_spirit']);
   assert.equal(slotsUsed(h.activePrayers), 5);
-  assert.equal(h.toggleBlessing('deadeye'), true, 'Deadeye replaces Eagle Eye (same group)');
+  assert.equal(h.toggleBlessing('mystic_lore'), false, 'full, and nothing of its type to swap');
+  assert.equal(blessingAction(h, 'mystic_lore').kind, 'full');
+  assert.equal(h.toggleBlessing('deadeye'), true, 'Deadeye replaces Eagle Eye (same type, slots full)');
   assert.ok(!h.activePrayers.has('eagle_eye'));
+  assert.equal(blessingAction(newGame(40), 'worthy_spirit').kind, 'locked');
+  assert.equal(blessingAction(newGame(1), 'thick_skin').kind, 'add');
 });
 
 test('equipped blessings apply their multipliers, never drain, and stay on', () => {
@@ -210,7 +216,7 @@ test('saves keep the loadout and Faith; older saves load with a starter loadout 
   old.activePrayers = ['superhuman', 'ultimate_strength', 'burst_strength', 'eagle_eye', 'mystic_lore', 'nonsense', 'thick_skin'];
   localStorage.setItem(SAVE_KEY, JSON.stringify(old));
   const g4 = new Game(); g4.start();
-  assert.deepEqual([...g4.activePrayers], ['superhuman', 'eagle_eye', 'mystic_lore'], 'locked, rival, unknown and extra ones dropped');
+  assert.deepEqual([...g4.activePrayers], ['superhuman', 'burst_strength', 'eagle_eye'], 'locked, unknown and extra ones dropped; two of a type kept');
   // A starter loadout follows the fighting style and the slots.
   assert.deepEqual(starterBlessings(1, 'melee'), ['thick_skin']);
   assert.deepEqual(starterBlessings(99, 'ranged'), ['eagle_eye', 'rock_skin', 'reflexes']);
@@ -218,7 +224,8 @@ test('saves keep the loadout and Faith; older saves load with a starter loadout 
   // trimBlessings on its own.
   assert.deepEqual(trimBlessings(1, ['thick_skin', 'clarity']), ['thick_skin']);
   assert.deepEqual(trimBlessings(300, ['worthy_spirit', 'clarity', 'steel_skin', 'deadeye', 'mystic_might', 'protect_melee', 'thick_skin']),
-    ['worthy_spirit', 'deadeye', 'mystic_might', 'protect_melee']);
+    ['worthy_spirit', 'clarity', 'steel_skin', 'deadeye'], 'a stacked loadout survives; what no longer fits is dropped');
+  assert.deepEqual(trimBlessings(300, ['superhuman', 'superhuman', 'burst_strength']), ['superhuman', 'burst_strength'], 'a repeat is dropped');
 });
 
 test('the Blessings panel and Faith orb render without a DOM', () => {
@@ -248,4 +255,46 @@ test('the Blessings panel and Faith orb render without a DOM', () => {
   assert.equal((css.match(/\{/g) || []).length, (css.match(/\}/g) || []).length, 'braces balanced');
   assert.match(css, /\.bl-slot \{[^}]*min-height: 44px/);
   assert.match(readFileSync(new URL('../index.html', import.meta.url), 'utf8'), /styles\/blessings\.css/);
+});
+
+test('blessings of the same type stack when the slots allow: the strongest in full, the rest at a share, capped', () => {
+  assert.equal(STACK_SHARE, 0.75);
+  assert.equal(STACK_CAP, 1);
+  const close = (a, b, m) => assert.ok(Math.abs(a - b) < 1e-9, `${m}: ${a} vs ${b}`);
+  const g = newGame(99);   // three slots
+  assert.ok(g.toggleBlessing('superhuman'));
+  assert.equal(blessingAction(g, 'burst_strength').kind, 'stack');
+  assert.equal(blessingHint(g, 'burst_strength'), 'Stacks with Superhuman Strength');
+  assert.equal(blessingHint(g, 'eagle_eye'), '', 'another type: a plain add');
+  assert.ok(g.toggleBlessing('burst_strength'), 'a second Strength blessing goes into the free slot');
+  assert.deepEqual([...g.activePrayers], ['superhuman', 'burst_strength'], 'both on, nothing swapped');
+  close(g.prayerMult().str, 1 + 0.25 + 0.10 * STACK_SHARE, 'the weaker counts at 75%');
+  // Order does not matter: the strongest always counts in full.
+  close(blessingBonus(['burst_strength', 'superhuman']).str, 0.25 + 0.075, 'either order');
+  // The same blessing never counts twice.
+  close(blessingBonus(['superhuman', 'superhuman']).str, 0.25, 'a repeat counts once');
+  assert.equal(g.toggleBlessing('superhuman'), false, 'tapping it again takes it off');
+  close(g.prayerMult().str, 1.10, 'back to Burst of Strength alone');
+  g.toggleBlessing('superhuman');
+  // Crit stacks too (Clarity + Reflexes), and the third slot is filled, so the next of a type swaps.
+  assert.ok(g.toggleBlessing('reflexes'));
+  assert.equal(blessingHint(g, 'clarity'), 'Swaps out Improved Reflexes');
+  assert.equal(blessingHint(g, 'ultimate_strength'), '', 'locked: nothing to say');
+  assert.ok(g.toggleBlessing('clarity'), 'with the slots full, Clarity swaps out the weakest of its type');
+  assert.ok(!g.activePrayers.has('reflexes'));
+  g.skills.xp.prayer = xpForLevel(300);
+  g.activePrayers = new Set(['superhuman', 'reflexes', 'clarity']);
+  close(g.prayerCrit(), 0.10 + 0.05 * STACK_SHARE, 'crit stacks the same way');
+  // A big Strength stack stops at the cap: Spirit + Ultimate + Superhuman would be +116%.
+  g.activePrayers = new Set(['worthy_spirit', 'ultimate_strength', 'superhuman']);
+  close(g.prayerMult().str, 1 + STACK_CAP, 'capped at +100%');
+  close(g.prayerMult().def, 1.6, 'Spirit alone for Defence');
+  // A single blessing is never capped or tapered.
+  for (const p of PRAYERS) for (const k of ['str', 'def', 'ranged', 'magic', 'crit']) close(blessingBonus([p.id])[k], p[k] || 0, `${p.id} ${k}`);
+  // The panel shows the combined bonus and the stat sheet says it is stacked.
+  g.activePrayers = new Set(['superhuman', 'burst_strength']);
+  assert.equal(blessingTotals(g), '+33% Str');
+  assert.match(blessingsPanelHTML(g), /In all: <b>\+33% Str<\/b> · same type stacks at 75%/);
+  const fx = activeEffects(g).find((e) => e.name === 'Burst of Strength');
+  assert.match(fx.detail, /stacked/);
 });

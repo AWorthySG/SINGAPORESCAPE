@@ -56,6 +56,10 @@
 #prayer-panel .bl-slot.locked { border: 2px dashed rgba(36, 50, 74, .25); color: var(--aw-text-sec, #5b6577); opacity: .6; }
 
 #prayer-panel .prayer-cell { min-height: 44px; box-sizing: border-box; }
+/* The loadout's combined bonus, and a row's "Stacks with ..." / "Swaps out ..." note. */
+#prayer-panel .bl-total { font-size: 10.5px; color: var(--aw-text-sec, #5b6577); margin: -4px 0 8px; }
+#prayer-panel .bl-total b { color: var(--aw-text, #24324a); }
+#prayer-panel .pr-hint { display: block; font-size: 9.5px; font-weight: 800; color: var(--aw-sun-deep, #b7791f); }
 
 /* The Faith orb: a Burst ready glows, and a running Burst lights it up. */
 #prayer-orb { cursor: pointer; }
