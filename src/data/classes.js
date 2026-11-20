@@ -20,7 +20,7 @@ export const CLASSES = [
   { id: 'merchant', name: 'Merchant', weapon: 'cane', style: 'ranged', desc: 'The strongest class, if you can pay for it: throws money, and every attack and skill costs coins. Its coin throws and allies hit about twice as hard as other classes, its coins scatter through crowds, and it hires mercenaries and calls up A-Worthling mirror images.' },
   // Ranged
   { id: 'archer', name: 'Archer', weapon: 'shortbow', style: 'ranged', desc: 'Rapid shortbows: arrow after arrow from afar.' },
-  { id: 'ranger', name: 'Ranger', weapon: 'longbow', style: 'ranged', desc: 'Longbows: slower, harder-hitting shots from a little further off.' },
+  { id: 'ranger', name: 'Ranger', weapon: 'longbow', style: 'ranged', desc: 'Longbows: slower, harder-hitting shots from a little further off that pierce into the foes behind.' },
   { id: 'pistoler', name: 'Pistoler', weapon: 'pistol', style: 'ranged', desc: 'A pistol in each hand: the fastest attacks in the game. Load rounds in the ammo slot to hit harder.' },
   { id: 'sniper', name: 'Sniper', weapon: 'rifle', style: 'ranged', desc: 'A sniper rifle: the furthest reach in the game and massive shots, but slow to fire. Load rounds in the ammo slot to hit harder.' },
   { id: 'ninja', name: 'Ninja', weapon: 'shuriken', style: 'ranged', desc: 'Thrown shurikens that ricochet into a second foe. No ammo needed.' },

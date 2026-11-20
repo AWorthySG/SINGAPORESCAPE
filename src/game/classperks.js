@@ -23,7 +23,7 @@ const SIGNATURE = {
   samurai: 'Keen katanas: quick, balanced and extra critical hits.',
   halberdier: 'Halberds: slow, huge blows from 3 tiles with a wide cleave.',
   archer: 'Shortbows loose an arrow every 0.15s, twice as fast as a longbow.',
-  ranger: 'Longbows: each arrow hits 60% harder, from a little further than a shortbow.',
+  ranger: 'Longbows: each arrow hits 60% harder, from a little further than a shortbow, and pierces on into a monster lined up behind your target (30% of the hit; 2 monsters from Ranged 40, 3 from Ranged 70).',
   wizard: 'Staves cast powerful spells; elemental staves supply unlimited runes of their element.',
   sorcerer: 'Wands cast quickly: lighter spells, but more of them.',
   dancer: 'Whips lash from 3 tiles and ricochet into 2 more monsters (3 at full Rhythm), build Rhythm for bigger hits, and help you dodge blows.',
