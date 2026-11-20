@@ -91,6 +91,7 @@ import { Gathering } from './gathering.js';   // gathering streaks, lucky finds,
 import { Teleports } from './teleports.js';   // the Town and Grave teleports
 import { Discovery } from './discovery.js';   // encyclopedia discoveries and their rewards
 import * as Rounds from './rounds.js';   // gun rounds and the ammo slot
+import { bestTool, toolSpeed } from './tools.js';   // tiered gathering tools
 
 // Auto quest: the dialogue actions that start and hand in each quest it can
 // do ([start, hand-in]; Pest Control completes itself on the last rat). The
@@ -883,8 +884,8 @@ export class Game {
   }
 
   hasTool(tag) {
-    if (this.equipment.hasTool(tag)) return true;
-    return this.inventory.slots.some((s) => s && getItem(s.id).tool === tag);
+    // A tiered tool counts only once your level lets you use it (tools.js).
+    return !!bestTool(this, tag);
   }
 
   npcAt(tx, ty) {
@@ -1442,7 +1443,7 @@ export class Game {
     // A gathering or making skill's extra share of a tick (GATHER_SPEED): every so often, a
     // second roll. (Making swaps item for item, so it needs no free slot.)
     if (going && GATHER_FAST.has(a.type)) {
-      a._quick = (a._quick || 0) + (GATHER_SPEED - 1);
+      a._quick = (a._quick || 0) + (GATHER_SPEED - 1) + toolSpeed(this, a, GATHER_SPEED);   // a better tool adds more (tools.js)
       if (a._quick >= 1 && (MAKE_FAST.has(a.type) || this.inventory.freeSlots() > 0) && !obj.depleted) { a._quick -= 1; going = runSkillAction(this, a, resolver); }
     }
     if (gather) this.gathering.onGather(a, obj, before);   // streaks, lucky finds, contracts (gathering.js)

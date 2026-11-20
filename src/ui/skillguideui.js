@@ -25,6 +25,7 @@ import { itemIconSVG, skillIconSVG, playIconHTML } from '../render/icons.js';
 import { chanceText, codexHabitats } from '../game/codex.js';
 import { unlockLadder, skillTeleportOf, skillTeleportWait, skillTeleport } from '../game/skillunlocks.js';
 import { STATION_BY_ID } from '../data/transport.js';
+import { toolLadder } from '../game/tools.js';
 import {
   SKILL_GUIDES, GATHER_SKILLS, COMBAT_SKILLS, TOOL_NAMES, gatherSources, recipesFor, recipeLabel, recipeKindTitle, canMake,
   regionsOf, nearestObject, itemEntry, searchResources, RESOURCE_CATS, resourceIndex, perkLadder, gearTiers, trainingSpots, bestSpotsFor, combatExtras,
@@ -138,6 +139,19 @@ export function unlockLadderHTML(game, skill) {
     + `<span class="sg-lvl">${u.level}</span><span><b>${u.unlocked ? '&#10003; ' : '&#128274; '}${esc(u.name)}</b><small>${esc(u.desc)}</small></span></div>`).join('')}`
     + (tp ? `<button type="button" class="wm-go sgx-tp" data-skilltp="${esc(skill)}"${wait ? ' disabled' : ''}>Teleport to ${esc(STATION_BY_ID[tp]?.name || tp)}${wait ? ` (${Math.ceil(wait * 0.6)}s)` : ''}</button>` : '')
     + '</div>';
+}
+
+/** A gathering skill's tool ladder (tooltiers.js): each tier's level, its
+ *  tools and what they add, the one in use ticked. '' for other skills. */
+export function toolLadderHTML(game, skill) {
+  const rows = toolLadder(game, skill);
+  if (!rows.length) return '';
+  const tiers = [...new Set(rows.map((r) => r.tier))];
+  return `<div class="sgx-unlocks sgx-tools"><b>Tools <small>(the best one you carry and can use is picked for you)</small></b>${tiers.map((t) => {
+    const rs = rows.filter((r) => r.tier === t), use = rs.some((r) => r.inUse);
+    return `<div class="sgx-unlock${rs[0].usable ? ' on' : ''}"><span class="sg-lvl">${rs[0].level}</span><span><span class="sgx-gives">${rs.map((r) => itemBtn(r.id, r.inUse ? '&#10003; ' : '', 18)).join('')}</span>`
+      + `<small>${esc(rs[0].bonus)}${use ? ' (in use)' : ''}</small></span></div>`;
+  }).join('')}</div>`;
 }
 
 // How to start Hunter: the snare, where to get another, the first traps and bait.
@@ -350,6 +364,7 @@ export function openSkillGuide(ui, skill, { itemId = null } = {}) {
     if (sk === 'hunter') body.insertAdjacentHTML('beforeend', HUNTER_START);
     if (sk === 'firemaking') body.insertAdjacentHTML('beforeend', fireStartHTML(game));
     body.insertAdjacentHTML('beforeend', unlockLadderHTML(game, sk));
+    body.insertAdjacentHTML('beforeend', toolLadderHTML(game, sk));
     if (AUTO_TEXT[sk]) {
       body.insertAdjacentHTML('beforeend', `<button type="button" class="sg-auto${game.autoGather ? ' on' : ''}" data-auto="1"><span class="ab-switch" aria-hidden="true"><i></i></span><span><b>Auto gather</b> ${game.autoGather ? 'On' : 'Off'}: ${AUTO_TEXT[sk]}</span></button>`);
     }

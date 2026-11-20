@@ -5,6 +5,8 @@
 //   Fletching  carve logs into arrows, bows, staves and wands at a fletching bench.
 //   Hunter     work traps and trails out in the wild for feathers, meat and hides.
 
+import { TOOL_TIERS, TOOL_LOGS, TOOL_BAR_XP, toolId } from './tooltiers.js';
+
 // Crops: [id, name, Farming level, grow ticks (600ms each), plant xp, harvest xp per crop,
 //         [min, max] yield, heal if edible, value, colour]. The seed is `${id}_seed`.
 // chilli, pandan_leaves and lemongrass are the existing cooking herbs.
@@ -168,6 +170,15 @@ for (const T of _FLETCH_TIERS) {
   // Fifteen arrows from shafts, feathers and one bar, like the older arrows.
   if (T.arrow) FLETCH.push({ result: `${T.k}_arrow`, qty: 15, inputs: [['arrow_shaft', 15], ['feather', 15], [`${T.k}_bar`, 1]], level: T.base + 4, xp: Math.round(T.xp * 0.75) });
 }
+
+// Tiered fishing rods and hunting snares (tooltiers.js), iron to eternal:
+// the tier's logs and a bar for the fittings, at the bar's level plus a
+// little. `upgrade` keeps them out of "Fletch all" (autoprocess.js).
+TOOL_TIERS.forEach((T, i) => {
+  if (!i) return;   // the tier-1 rod and snare are bought
+  FLETCH.push({ result: toolId('rod', i), qty: 1, inputs: [[TOOL_LOGS[i], 2], [`${T.metal}_bar`, 1]], level: T.level + 2, xp: Math.round(TOOL_BAR_XP[i] * 1.5), tool: 'knife', upgrade: true });
+  FLETCH.push({ result: toolId('snare', i), qty: 1, inputs: [[TOOL_LOGS[i], 1], [`${T.metal}_bar`, 1]], level: T.level + 4, xp: Math.round(TOOL_BAR_XP[i]), tool: 'knife', upgrade: true });
+});
 
 // Hunter grounds: work a trap until it springs. `gives` are rolled on each catch
 // (`chance` defaults to 1). They reset after `respawn` ticks once they run dry.

@@ -1,3 +1,5 @@
+import { TOOL_TIERS, TOOL_BAR_XP, toolId } from './tooltiers.js';
+
 // Smithing recipes.
 // SMELT: ore -> bar at a furnace. SMITH: bar -> item at an anvil (requires a hammer).
 
@@ -115,4 +117,15 @@ SMITH.push(
 export const ROUNDS_PER_BAR = 20;
 for (const M of [..._SMETALS, ..._ENDGAME]) {
   SMITH.push({ result: `${M.k}_rounds`, qty: ROUNDS_PER_BAR, bar: `${M.k}_bar`, barCount: 1, level: M.base + 2, xp: M.xp });
+}
+
+// ---- Tiered gathering tools (tooltiers.js): axes, pickaxes and harpoons ----
+// Two bars each, at the bar's smelting level plus a little, for the tier's XP
+// a bar. `upgrade` keeps them out of "Smith all" too: a tool is made when
+// chosen, never by the batch. (The tier-1 harpoon is bought, so it starts at iron.)
+for (const [tag, off] of [['axe', 1], ['pickaxe', 2], ['harpoon', 3]]) {
+  TOOL_TIERS.forEach((T, i) => {
+    if (i === 0 && tag === 'harpoon') return;
+    SMITH.push({ result: toolId(tag, i), bar: `${T.metal}_bar`, barCount: 2, level: i ? T.level + off : 1, xp: 2 * TOOL_BAR_XP[i], upgrade: true });
+  });
 }
