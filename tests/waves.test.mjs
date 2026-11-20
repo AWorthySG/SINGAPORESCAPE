@@ -8,7 +8,11 @@ import { Game } from '../src/game/game.js';
 import { saveGame, clearSave } from '../src/game/save.js';
 import { findPath } from '../src/engine/pathfinding.js';
 import { ARENA, GATE, START, NEXT_WAVE_TICKS, MAX_ALIVE, BOSS_EVERY, MILESTONE_EVERY, inArena, wavePlan, waveCount, waveLevel,
-  waveKinds, waveMobDef, gateMobDef, waveBossDef, bossChest, waveLeader, GATE_HP, GATE_HIT, GATE_ACC, WAVE_BOSS_LIFE, GATE_CHAMPION_LIFE, SECOND_CHAMPION_FROM } from '../src/game/waves.js';
+  waveKinds, waveMobDef, gateMobDef, waveBossDef, bossChest, waveLeader, GATE_HP, GATE_HIT, GATE_ACC, WAVE_BOSS_LIFE, GATE_CHAMPION_LIFE, SECOND_CHAMPION_FROM,
+  gateDodgeMult, GATE_DODGE_MAX } from '../src/game/waves.js';
+import { HAZARD_DODGE_MULT, DODGE_AGILITY_XP, DODGE_BOSS_SHARE, DODGE_KILL_SHARE } from '../src/game/game.js';
+import { npcAttackVsPlayer } from '../src/game/combat.js';
+import { damageNumber } from '../src/core/utils.js';
 import { getNpc, ALL_MONSTER_IDS, ALL_BOSS_IDS } from '../src/data/npcs.js';
 import { CHAMPION_HP_MULT } from '../src/game/npc.js';
 import { RESPAWN_TICKS } from '../src/config.js';
@@ -436,4 +440,78 @@ test('auto battle clears a wave\'s escort first, then takes on its champion or b
   g.toggleAutoBattle(true);
   for (let t = 0; t < 400 && g.waves.wave < 3; t++) { step(g, 1); tame(g); }
   assert.ok(g.waves.wave >= 3, `auto battle cleared wave 2, champion included (${g.waves.left()} left)`);
+});
+
+test('dodging in the gate pays Agility XP that grows with the wave, up to a cap', () => {
+  assert.equal(gateDodgeMult(0), 1);
+  for (let n = 1; n <= 30; n++) assert.ok(gateDodgeMult(n) >= gateDodgeMult(n - 1), `never less at wave ${n}`);
+  assert.ok(gateDodgeMult(5) < gateDodgeMult(10) && gateDodgeMult(10) < gateDodgeMult(15), 'rises through the early waves');
+  assert.equal(gateDodgeMult(20), GATE_DODGE_MAX);
+  assert.equal(gateDodgeMult(1000), GATE_DODGE_MAX, 'capped, so deep waves cannot run away');
+
+  const g = newGame();
+  placeAt(g, GATE.x - 1, GATE.y + 1);
+  g.waves.enter();
+  nextWave(g);
+  const mob = waveMobs(g)[0];
+  assert.ok(mob, 'a wave monster to dodge');
+  // The XP one marker dodge pays, from the same Agility XP each time.
+  const xp0 = g.skills.xp.agility;
+  const dodge = (npc) => { g.skills.xp.agility = xp0; g._dodgeXp(npc, HAZARD_DODGE_MULT); const d = g.skills.xp.agility - xp0; g.skills.xp.agility = xp0; return d; };
+  g.waves.wave = 5; const at5 = dodge(mob);
+  g.waves.wave = 15; const at15 = dodge(mob);
+  g.waves.wave = 40; const at40 = dodge(mob);
+  g.waves.wave = 80; const at80 = dodge(mob);
+  assert.ok(at5 > 0);
+  assert.ok(Math.abs(at15 / at5 - gateDodgeMult(15) / gateDodgeMult(5)) < 1e-6, `wave 15 pays ${at15}, wave 5 ${at5}`);
+  assert.ok(Math.abs(at80 - at40) < 1e-6, 'past the cap the wave adds nothing more');
+  // A wave monster's dodge pays the wave's share; the same monster outside a run
+  // (or a world event's borrowed wave monster, which isn't one) pays as before.
+  assert.equal(g.waves.dodgeXpMult(mob), gateDodgeMult(80));
+  assert.equal(g.waves.dodgeXpMult({ def: mob.def }), 1, 'not one of the run\'s monsters');
+  g.waves.leave();
+  assert.equal(g.waves.dodgeXpMult(mob), 1, 'no run, no gate bonus');
+});
+
+const npcMax = (g, npc) => npcAttackVsPlayer(npc.def, g.skills, g.equipment, g.player.style).max;
+
+test('outside the gate a dodge pays exactly what it always did', () => {
+  const g = newGame();
+  const p = g.player;
+  const boss = g.spawnNpc('sand_scorpion_king', p.x + 60, p.y, { wander: 0 });
+  const mob = g.npcs.find((n) => n.alive && n.def.attackable && !n.def.boss && n.def.maxHit > 0);
+  const xp0 = g.skills.xp.agility;
+  for (const [npc, mult] of [[boss, HAZARD_DODGE_MULT], [mob, 1]]) {
+    g.skills.xp.agility = xp0;
+    g._dodgeXp(npc, mult);
+    const got = g.skills.xp.agility - xp0;
+    // The formula before the gate bonus, through the same addXp.
+    g.skills.xp.agility = xp0;
+    g.skills.addXp('agility', Math.max(Math.max(1, npcMax(g, npc)) * DODGE_AGILITY_XP,
+      (npc.maxHp || npc.def.hp || 1) * 3 * (npc.def.boss ? DODGE_BOSS_SHARE : DODGE_KILL_SHARE)) * mult * g.combatXpMult());
+    assert.ok(got > 0 && Math.abs(got - (g.skills.xp.agility - xp0)) < 1e-6, `${npc.def.id}: ${got}`);
+  }
+});
+
+test('a dodge shows the Agility XP it paid beside "Dodged!", when it is a point or more', () => {
+  const g = newGame();
+  placeAt(g, GATE.x - 1, GATE.y + 1);
+  g.waves.enter();
+  nextWave(g);
+  const mob = waveMobs(g)[0];
+  g.waves.wave = 20;
+  const label = () => g.effects.filter((e) => e.type === 'hitsplat' && e.entity === g.player && /Agility$/.test(e.text || ''));
+  g.effects = [];
+  const xp0 = g.skills.xp.agility;
+  g._dodgeXp(mob, HAZARD_DODGE_MULT);
+  const got = g.skills.xp.agility - xp0;
+  assert.ok(got >= 1, `a wave 20 marker dodge pays ${got}`);
+  assert.deepEqual(label().map((e) => e.text), [`+${damageNumber(got)} Agility`]);
+  // A gain under a point shows nothing (the XP drop HUD still counts it).
+  g.effects = [];
+  const real = g.skills.addXp.bind(g.skills);
+  g.skills.addXp = (id, amt) => real(id, 0.2 / 20);   // well under a point after the XP rate
+  g._dodgeXp(mob);
+  g.skills.addXp = real;
+  assert.equal(label().length, 0);
 });
