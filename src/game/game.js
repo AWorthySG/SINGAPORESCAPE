@@ -12,7 +12,7 @@ import { MAX_REFINE, SCROLL as REFINE_SCROLL, refineCost, rollRefine, refineTag,
 import { materialKind, materialPoints, feedKind, feedPoints, FEED_CAP, FEED_CAP_RANK } from './materials.js';
 import { Shrine, SHRINE_TRACKS, trackText } from './shrine.js';
 import { getItem, ITEMS, MELEE_REACH, accessoriesFor } from '../data/items.js';
-import { chebyshev, randInt, weightedPick, capitalize } from '../core/utils.js';
+import { chebyshev, randInt, weightedPick, capitalize, damageNumber } from '../core/utils.js';
 import {
   TILE, TICK_MS, COMBAT_BEAT_MS, RESPAWN_TICKS, AUTOSAVE_TICKS, DAY_CYCLE_MS,
   XP_RATE, COMBAT_XP_RATE, LEARNING_ENABLED, AGGRO_FORGET_TILES,
@@ -3135,13 +3135,18 @@ export class Game {
   /** Dodging a monster's attack trains Agility, more for tougher foes: a share
    *  of what killing it pays (DODGE_KILL_SHARE of its kill XP), and never less
    *  than DODGE_AGILITY_XP x its max hit. Stepping out of a boss's ground
-   *  marker is the skilful kind of dodge and pays HAZARD_DODGE_MULT times that. */
+   *  marker is the skilful kind of dodge and pays HAZARD_DODGE_MULT times that.
+   *  In the Endless Gate it grows with the wave (waves.dodgeXpMult). A gain of
+   *  a point or more floats up beside "Dodged!" as "+N Agility". */
   _dodgeXp(npc, mult = 1) {
     if (!npc?.def) return;
     const { max } = npcAttackVsPlayer(npc.def, this.skills, this.equipment, this.player.style);
     const share = (npc.maxHp || npc.def.hp || 1) * 3 * (npc.def.boss ? DODGE_BOSS_SHARE : DODGE_KILL_SHARE);
     // (Not rounded: at the combat XP rate one small dodge is a fraction of a point.)
-    this.skills.addXp('agility', Math.max(Math.max(1, max) * DODGE_AGILITY_XP, share) * mult * this.combatXpMult());
+    const xp0 = this.skills.xp.agility;
+    this.skills.addXp('agility', Math.max(Math.max(1, max) * DODGE_AGILITY_XP, share) * mult * this.combatXpMult() * this.waves.dodgeXpMult(npc));
+    const got = this.skills.xp.agility - xp0;   // after the XP rate and boosts addXp applies
+    if (got >= 1) this.addHitsplat(this.player, 0, { text: `+${damageNumber(got)} Agility`, noMerge: true });
   }
 
   resolveNpcAttack(npc, opts = {}) {
