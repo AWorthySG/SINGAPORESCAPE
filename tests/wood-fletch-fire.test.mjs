@@ -226,7 +226,8 @@ test('endgame fletching: every bow, staff, wand, rifle, crossbow and arrow of ea
       for (const [id] of r.inputs) assert.equal(g.inventory.count(id), 0, `using up the ${id}`);
       g.inventory.remove(r.result, r.qty);
     }
-    // One make a tick, so a tier's best make is its XP an hour at the bench.
+    // A batch is instant now (makeBatch), so XP an hour is set by how fast you
+    // gather the inputs; per make, each tier's best still pays ~35% more.
     const best = Math.max(...recs.map((r) => r.xp));
     assert.ok(best >= prevBest * 1.35, `${t.metal}: best make ${best} xp vs ${prevBest} before`);
     prevBest = best;

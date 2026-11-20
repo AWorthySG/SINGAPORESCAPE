@@ -15,6 +15,7 @@ import { CRAFT } from '../src/data/crafting.js';
 import { FLETCH } from '../src/data/trades.js';
 import { tradeRecipes } from '../src/game/autoprocess.js';
 import { UNLOCKS } from '../src/data/unlocks.js';
+import { skillPetChance } from '../src/game/pets.js';
 
 function fakeStorage() {
   const m = new Map();
@@ -221,4 +222,52 @@ test('"Fletch all" still skips upgrade recipes, and a batch never makes past wha
   for (const id of upgrades) assert.equal(g.inventory.count(id), before[id], `${id} is only made by choice`);
   for (const [id] of r.inputs) assert.equal(g.inventory.count(id), 0);
   assert.equal(g.player.action, null);
+});
+
+test('a batch rolls for the skilling pet once per item made, not once for the lot (smelting too)', () => {
+  const g = newGame();
+  // Spy on the held rolls: how many actions each batch hands to release().
+  const released = [];
+  const rel = g.pets.release.bind(g.pets);
+  g.pets.release = () => { released.push({ ...g.pets._held }); return rel(); };
+  const range = station(g, 'range');
+  standBy(g, range);
+  setLevel(g, 'cooking', 40);
+  g.inventory.add('raw_sardine', 27);
+  g.startCooking(range, 'raw_sardine');
+  oneTick(g);
+  assert.deepEqual(released.pop(), { cooking: 27 }, 'all 27 cooks count as pet rolls');
+  const furnace = station(g, 'furnace');
+  standBy(g, furnace);
+  g.inventory.add('copper_ore', 12); g.inventory.add('tin_ore', 12);
+  g.startSmelt({ inputs: [{ id: 'copper_ore', qty: 1 }, { id: 'tin_ore', qty: 1 }], result: 'bronze_bar', level: 1, xp: 6 }, furnace);
+  oneTick(g);
+  assert.deepEqual(released.pop(), { smithing: 12 }, 'all 12 bars count as pet rolls');
+});
+
+test('pet odds: N items in one batch match N single makes (seeded, within tolerance)', () => {
+  const g = newGame();
+  const pets = g.pets;
+  let a = 987654321;   // a seeded generator for the pet dice
+  pets.rand = () => { a = (Math.imul(a, 1664525) + 1013904223) >>> 0; return a / 4294967296; };
+  let hits = 0;
+  pets.grant = () => { hits++; return true; };
+  const xp = () => g.bus.emit('xp', { skill: 'cooking', amount: 10, total: 0 });
+  const ITEMS = 3_000_000, rate = skillPetChance();
+  // One make a tick (the old way): one roll each.
+  for (let i = 0; i < ITEMS; i++) { g.tickCount = i + 1; xp(); }
+  const single = hits / ITEMS;
+  // The same number of items in batches of 28, one batch a tick.
+  hits = 0;
+  for (let b = 0; b < ITEMS / 28; b++) {
+    g.tickCount = ITEMS + b + 1;
+    pets.hold();
+    for (let i = 0; i < 28; i++) xp();
+    pets.release();
+  }
+  const batched = hits / ITEMS;
+  for (const [what, r] of [['single', single], ['batched', batched]]) {
+    assert.ok(Math.abs(r - rate) < 0.25 * rate, `${what}: ${(r * 1e6).toFixed(1)} per million vs ${(rate * 1e6).toFixed(1)}`);
+  }
+  assert.ok(Math.abs(batched - single) < 0.35 * rate, 'batches give the same pet rate per item as single makes');
 });

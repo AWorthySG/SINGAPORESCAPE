@@ -62,9 +62,9 @@ export const COOKING = {
   // Hunter game
   raw_venison: { result: 'venison', level: 35, xp: 105, burnStop: 66 },
   raw_boar_meat: { result: 'boar_steak', level: 50, xp: 145, burnStop: 78 },
-  // Endgame fish (Cooking 100-300). One cook a tick, and an occasional perfect
-  // dish pays half again (about 4% more on average), so each tier's xp is set
-  // for ~35% more an hour than the tier before, starting from the seafood
+  // Endgame fish (Cooking 100-300). An occasional perfect dish pays half again
+  // (about 4% more on average), and each tier's xp is set for ~35% more a cook
+  // than the tier before (set when it was one cook a tick), starting from the seafood
   // platter (270), the best below level 100 (tests/fish-cook.test.mjs).
   raw_dorado: { result: 'grilled_dorado', level: 100, xp: 352, burnStop: 100 },
   raw_bluefin_tuna: { result: 'tuna_sashimi', level: 130, xp: 476, burnStop: 130 },
@@ -353,7 +353,10 @@ export function resolveSmelt(game, action) {
 export function smeltBatch(game, action) {
   action.tally = null;
   let guard = 0;
-  while (resolveSmelt(game, action) && ++guard < 100000) { /* keep smelting */ }
+  const held = game.pets?.hold();   // a pet roll for every bar, not one for the batch (pets.js)
+  try {
+    while (resolveSmelt(game, action) && ++guard < 100000) { /* keep smelting */ }
+  } finally { if (held) game.pets.release(); }
   const t = action.tally;
   if (!t || (!t.made && !t.failed)) return false;
   const name = getItem(action.recipe.result).name.toLowerCase();

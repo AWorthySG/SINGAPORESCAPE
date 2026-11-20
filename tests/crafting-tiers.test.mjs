@@ -123,7 +123,8 @@ test('endgame crafting: jewellery, war fans and whips at their levels, inputs us
       g.inventory.remove(r.result, 1);
       assert.ok(guideEntries('crafting').some((e) => e.label === ITEMS[r.result].name && e.level === r.level), `${r.result} in the Crafting guide`);
     }
-    // One make a tick, so a tier's best make is its XP an hour at the table.
+    // A batch is instant now (makeBatch), so XP an hour is set by how fast you
+    // gather the inputs; per make, each tier's best still pays ~35% more.
     const best = Math.max(...recs.map((r) => r.xp));
     assert.ok(best >= prevBest * 1.35, `${t.metal}: best make ${best} xp vs ${prevBest} before`);
     prevBest = best;

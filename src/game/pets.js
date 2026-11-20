@@ -83,11 +83,30 @@ export class Pets {
     // each skill. Bonus XP from the same action (a pearl, say) doesn't roll again.
     game.bus.on('xp', (e) => {
       if (!e || !LIFE.has(e.skill) || !(e.amount > 0)) return;
+      // An instant batch (hold/release) counts its makes and rolls for them all at the end.
+      if (this._held) { this._held[e.skill] = (this._held[e.skill] || 0) + 1; return; }
       const t = game.tickCount || 0;
       if (this._rolled[e.skill] === t) return;
       this._rolled[e.skill] = t;
       if (rollPet(skillPetChance(), this.rand)) this.grant(SKILL_PETS[e.skill].id);
     });
+  }
+
+  /** An instant batch (smelting and making: every item in one tick) would get
+   *  only one roll a tick, so it holds the rolls while it runs: each make's XP
+   *  counts as one action, and release() rolls once per skill at the chance of
+   *  any of those N actions bringing the pet, 1 - (1 - p)^N, the same as N makes
+   *  one at a time. Nested holds just keep counting. */
+  hold() { if (!this._held) { this._held = {}; return true; } return false; }
+  release() {
+    const held = this._held;
+    this._held = null;
+    if (!held) return;
+    const t = this.game.tickCount || 0;
+    for (const [skill, n] of Object.entries(held)) {
+      this._rolled[skill] = t;
+      if (n > 0 && rollPet(1 - (1 - skillPetChance()) ** n, this.rand)) this.grant(SKILL_PETS[skill].id);
+    }
   }
 
   /** A boss died to you (once per kill, from the kill code). */

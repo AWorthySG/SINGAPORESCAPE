@@ -108,14 +108,17 @@ function batchOne(game, a, once) {
  *  Returns false (the station is done). */
 export function makeBatch(game, a, once) {
   let any = 0;
-  any += batchOne(game, a, () => once(a));
-  while (a.all) {
-    (a.done ||= new Set()).add(key(a));
-    const nxt = nextJob(game, a.all, a.done);
-    if (!nxt || nxt.type === 'smelt') break;
-    Object.assign(a, { rawId: undefined, recipe: undefined, skill: undefined }, nxt);
+  const held = game.pets?.hold();   // a pet roll for every item made, not one for the batch (pets.js)
+  try {
     any += batchOne(game, a, () => once(a));
-  }
+    while (a.all) {
+      (a.done ||= new Set()).add(key(a));
+      const nxt = nextJob(game, a.all, a.done);
+      if (!nxt || nxt.type === 'smelt') break;
+      Object.assign(a, { rawId: undefined, recipe: undefined, skill: undefined }, nxt);
+      any += batchOne(game, a, () => once(a));
+    }
+  } finally { if (held) game.pets.release(); }
   if (any > 0) {
     game.bus.emit('sfx', a.type === 'smith' ? 'clang' : 'gather');
     game.spawnSparkle?.(game.player, '#ffd24a', 10);
