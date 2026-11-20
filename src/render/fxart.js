@@ -9,6 +9,12 @@ export const CRITTER_ART = ['butterfly', 'butterfly_half', 'butterfly_shut', 'sw
 // (The sheet's splash and sparkle are not used yet, so they are not shipped.)
 export const PARTICLE_ART = ['dust_s', 'dust_m', 'dust_l', 'leaf_green', 'leaf_lime', 'leaf_dry', 'petal_pink', 'frangipani',
   'petal_red', 'ember'];
+// Four-frame loops (numbered from 0, like the campfire): birds in flight, the
+// hawker cat, a pecking pigeon, a bluebottle, and glows, steam, sparkles,
+// ripples and tumbling leaves and petals.
+export const CRITTER_LOOPS = ['pigeon_fly', 'egret_fly', 'myna_fly', 'sunbird_fly', 'cat_curl', 'cat_tail', 'pigeon_peck', 'bluebottle'];
+export const PARTICLE_LOOPS = ['firefly_glow', 'steam', 'sparkle', 'ripple', 'leaf_tumble', 'petal_tumble'];
+const LOOP_FRAMES = 4;
 // The banner and the plaque come in three pieces (two ends and a middle that
 // stretches to fit the name), in a normal and a dark tone.
 const PIECES = ['normal', 'dark'].flatMap((t) => ['left', 'middle', 'right'].map((p) => `${t}-${p}`));
@@ -30,6 +36,7 @@ export const EFFECT_ART = ['crit-burst', 'miss-puff', 'confetti', 'levelup-ribbo
 /** Every file name (without .webp) in assets/fx/, for the lock-step test. */
 export const fxArt = () => new Set([
   ...CRITTER_ART.map((k) => `critter-${k}`), ...PARTICLE_ART.map((k) => `particle-${k}`),
+  ...CRITTER_LOOPS.flatMap((k) => [0, 1, 2, 3].map((i) => `critter-${k}-${i}`)), ...PARTICLE_LOOPS.flatMap((k) => [0, 1, 2, 3].map((i) => `particle-${k}-${i}`)),
   ...PIECES.flatMap((p) => [`banner-${p}`, `plaque-${p}`]), 'banner-crest', ...REGION_BADGES.map(badgeKey),
   ...EFFECT_ART.map((k) => `fx-${k}`),
 ]);
@@ -59,6 +66,25 @@ export function fxImage(key) {
     img.src = `assets/fx/${key}.webp`;
   }
   return img && img.complete && img.naturalWidth ? img : null;
+}
+
+/**
+ * One frame of a four-frame loop (`kind` 'critter' or 'particle'), stepping on
+ * every `ms` from `phase` (ms); or by `f`, 0..1 through the loop, when given.
+ * Null until that frame has loaded, so callers keep their drawn version. All
+ * four frames are asked for together, so a loop never stutters while one loads.
+ */
+const _loopReady = new Set();
+export function fxLoop(kind, id, t, ms, phase = 0, f = -1) {
+  const k = `${kind}-${id}`;
+  if (!_loopReady.has(k)) {
+    let ok = true;
+    for (let i = 0; i < LOOP_FRAMES; i++) if (!fxImage(`${k}-${i}`)) ok = false;
+    if (!ok) return null;
+    _loopReady.add(k);
+  }
+  const n = f >= 0 ? Math.min(LOOP_FRAMES - 1, Math.floor(f * LOOP_FRAMES)) : Math.floor((t + phase) / ms) % LOOP_FRAMES;
+  return fxImage(`${k}-${n < 0 ? n + LOOP_FRAMES : n}`);
 }
 
 /** Start loading every picture now, so the first boss banner or title card

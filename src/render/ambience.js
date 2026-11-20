@@ -111,6 +111,11 @@ const BRUSH_MS = 650;         // how long a brushed bush keeps swaying
 export function hidesPoint(o, px, py) {
   const t = o.def.type;
   if (t === 'tree' && o.depleted) return false;   // a stump hides nothing
+  if (o.def.footprint) {
+    // A landmark: behind its footprint, under a picture about as tall as it is drawn wide.
+    const [w, d] = o.def.footprint, back = (o.y + 1 - d) * TILE, tall = w * TILE * (o.def.artScale || 1.1) * 1.05;
+    return py < back + 4 && py + 12 > (o.y + 1) * TILE - tall && Math.abs(px - (o.x + w / 2) * TILE) < w * TILE / 2;
+  }
   const box = TALL[t] || (t === 'scenery' && TALL_SCENERY[o.objId]);
   if (!box) return false;
   const cx = o.x * TILE + TILE / 2, cy = o.y * TILE + TILE / 2;

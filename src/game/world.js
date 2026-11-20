@@ -27,6 +27,7 @@ export class World {
 
     this.objects = [];
     this.objectByTile = new Map();
+    this.landmarks = [];   // the multi-tile set pieces, drawn by their own short list (renderer.js)
     this.groundItems = [];
     this.baseBlocked = new Uint8Array(this.width * this.height);
 
@@ -59,6 +60,16 @@ export class World {
     if (ix) { ix.len++; ix.rank.set(inst, ix.next++); this._cellOf(ix.cells, ix.cols, ix.rows, inst).push(inst); }
     this.objectByTile.set(this.idx(x, y), inst);
     if (def.blocking && this.inBounds(x, y)) this.baseBlocked[this.idx(x, y)] = 1;
+    // A landmark covers its whole footprint (it stands on its front-left tile):
+    // every tile of it blocks, and finds it.
+    if (def.footprint) {
+      for (const [tx, ty] of this.footprint(inst)) {
+        if (!this.inBounds(tx, ty)) continue;
+        this.objectByTile.set(this.idx(tx, ty), inst);
+        this.baseBlocked[this.idx(tx, ty)] = 1;
+      }
+      this.landmarks.push(inst);
+    }
     return inst;
   }
 
@@ -69,14 +80,19 @@ export class World {
       this.objects.splice(i, 1);
       if (ix) { ix.len--; const c = this._cellOf(ix.cells, ix.cols, ix.rows, inst), j = c.indexOf(inst); if (j !== -1) c.splice(j, 1); ix.rank.delete(inst); }
     }
-    if (this.objectByTile.get(this.idx(inst.x, inst.y)) === inst) {
-      this.objectByTile.delete(this.idx(inst.x, inst.y));
+    for (const [x, y] of inst.def.footprint ? this.footprint(inst) : [[inst.x, inst.y]]) {
+      if (this.objectByTile.get(this.idx(x, y)) === inst) this.objectByTile.delete(this.idx(x, y));
+      // Recompute blocking for the tile (could still be water).
+      if (this.inBounds(x, y)) this.baseBlocked[this.idx(x, y)] = this.terrain[this.idx(x, y)] === TERRAIN.WATER ? 1 : 0;
     }
-    // Recompute blocking for the tile (could still be water).
-    if (this.inBounds(inst.x, inst.y)) {
-      this.baseBlocked[this.idx(inst.x, inst.y)] =
-        this.terrain[this.idx(inst.x, inst.y)] === TERRAIN.WATER ? 1 : 0;
-    }
+    if (inst.def.footprint) this.landmarks = this.landmarks.filter((o) => o !== inst);
+  }
+
+  /** The tiles a landmark covers: [wide, deep] tiles from its front-left tile, going back (north). */
+  footprint(o) {
+    const [w, d] = o.def.footprint || [1, 1], out = [];
+    for (let dy = 0; dy < d; dy++) for (let dx = 0; dx < w; dx++) out.push([o.x + dx, o.y - dy]);
+    return out;
   }
 
   objectAt(x, y) {

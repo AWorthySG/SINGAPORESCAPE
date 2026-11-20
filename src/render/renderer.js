@@ -241,12 +241,13 @@ export class Renderer {
     if (W.objectsIn) W.objectsIn(x0 - 1, y0 - 1, x1 + 1, y1 + 1, visObjs);
     else { visObjs.length = 0; for (const o of W.objects) if (!(o.x < x0 - 1 || o.x > x1 + 1 || o.y < y0 - 1 || o.y > y1 + 1)) visObjs.push(o); }
     for (const o of visObjs) {
+      if (o.def.footprint) continue;   // landmarks: below, by their own list
       // Harvest judder: a struck tree/rock wobbles briefly as the resource pops.
       const jx = o.shakeT > 0 ? Math.sin(o.shakeT * 0.09) * 1.7 * (o.shakeT / 280) : 0;
       const cx = o.x * TILE + TILE / 2 - ox + jx, cy = o.y * TILE + TILE / 2 - oy;
       const lit = night > 0.12 && isLightSource(o);
       const fade = this.react.alpha(o), lean = this.react.skew(o, timeMs) + this.amb.lean(o, timeMs);   // brushed, or in the breeze (ambient.js)
-      drawables.push({ sortY: o.y + 0.4, z: 1, draw: () => {
+      drawables.push({ sortY: o.y + (o.def.overhead ? 0.9 : 0.4), z: 1, draw: () => {   // (a hanging lantern goes over your head)
         if (lit) {
           // A warm light pool blooms outward after dark — fires, furnaces,
           // ranges and street lamps become the island's night-time glow.
@@ -262,6 +263,19 @@ export class Renderer {
           drawObjectSprite(ctx, o, cx, cy, timeMs);
           ctx.restore();
         } else drawObjectSprite(ctx, o, cx, cy, timeMs);
+      } });
+    }
+    // Landmarks stand on their front-left tile, but their picture spreads across
+    // the footprint and well above it, so they are found by the world's short
+    // list of them (a few dozen) rather than by the tiles in view.
+    for (const o of W.landmarks || []) {
+      const [fw] = o.def.footprint;
+      const left = o.x * TILE - TILE, right = (o.x + fw + 1) * TILE, base = (o.y + 1) * TILE;
+      if (right < ox || left > ox + vw || base < oy || base - fw * TILE * 1.6 - 2 * TILE > oy + vh) continue;
+      const cx = o.x * TILE + fw * TILE / 2 - ox, cy = o.y * TILE + TILE / 2 - oy, fade = this.react.alpha(o);
+      drawables.push({ sortY: o.y + 0.4, z: 1, draw: () => {
+        if (fade < 1) { ctx.save(); ctx.globalAlpha = fade; drawObjectSprite(ctx, o, cx, cy, timeMs); ctx.restore(); }
+        else drawObjectSprite(ctx, o, cx, cy, timeMs);
       } });
     }
     { const gr = game.play?.grave;   // your gravestone, where you last fell (playbalance.js)
