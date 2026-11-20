@@ -4398,10 +4398,10 @@ test('every class has its own four abilities (basic Z, threshold X, utility C, u
   assert.ok(Math.abs(b.g.attackInterval() - iv / 2) < 1e-9, 'twice as often');
   b.g.tickCount += 16;
   assert.equal(b.g.attackInterval(), iv, 'and it wears off after 9s');
-  // A Knight's Shield Wall halves the damage taken.
+  // A Knight's Shield Wall cuts the damage taken (and strikes back since the skills rework).
   const k = mk('knight');
   k.g.activateAbility('shield_wall');
-  assert.equal(k.g.buffMod('reduce'), 0.5);
+  assert.equal(k.g.buffMod('reduce'), 0.4);
   // Ultimates hit everything within 3 tiles of the target.
   const s2 = mk('swordsman');
   const near = new NPC('goblin', s2.t.x + 2, s2.t.y, 0, {}); near.hp = near.maxHp = 999999;

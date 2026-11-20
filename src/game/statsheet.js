@@ -385,6 +385,7 @@ const FX = {
   crit: (v) => `${fracPct(v)} crit chance`, dmg: (v) => `${fracPct(v)} damage`, reduce: (v) => `${fracPct(v, false)} less damage taken`,
   haste: (v) => `${fracPct(v)} attack speed`, boss: (v) => `${fracPct(v)} boss damage`, lifesteal: (v) => `${fracPct(v, false)} lifesteal`,
   maxhp: (v) => `${fracPct(v)} max life`, regen: (v) => `${num(v * 1000 / TICK_MS)} life/s`, dodge: (v) => `${fracPct(v, false)} dodge`,
+  thorns: (v) => `${fracPct(v, false)} of blows struck back`,
 };
 const fxText = (fx, skip = []) => Object.entries(fx || {}).filter(([k]) => !skip.includes(k) && k !== 'heal')
   .map(([k, v]) => (FX[k] ? FX[k](v) : `${k} ${v}`)).join(', ');

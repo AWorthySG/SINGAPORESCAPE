@@ -37,7 +37,7 @@ import {
   playerRangedVsNpc, combatXpRanged, playerMagicVsNpc, RANGED_STYLES,
   weaknessOf, WEAKNESS_BONUS, armourOf, armourMult, critChance, hitChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE,
   playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX, RANGED_TYPE_DMG, combatLevelXpMult, CLASS_POWER, OPEN_WOUNDS, openWoundStacks, shatterPierce } from './combat.js';
-import { ABILITY_BY_ID, abilitiesFor, ADREN_PER_HIT, ADREN_PER_HURT, CLASS_ADRENALINE, EXECUTE_BELOW } from '../data/abilities.js';
+import { ABILITY_BY_ID, abilitiesFor, ADREN_PER_HIT, ADREN_PER_HURT, CLASS_ADRENALINE, EXECUTE_BELOW, SUNDER_TICKS } from '../data/abilities.js';
 import { classPassiveMods, CLASS_SKILL } from '../data/classPassives.js';
 import { RACES, raceOf, matchup, RACE_BONUS, RACE_PENALTY } from '../data/races.js';
 import { DOT_KINDS } from '../data/bossAbilities.js';
@@ -2059,6 +2059,7 @@ export class Game {
     if (ab.build) this._gainAdrenaline(ab.build);
     if (ab.kind === 'guard') {
       this.braceTicks = ab.guardTicks;
+      this.braceCounter = ab.counter || 0;   // a guard that strikes back (see resolveNpcAttack)
       this.msg('You brace for impact — incoming damage halved!', 'system');
       this.spawnSparkle(this.player, '#7fd8ff', 12);
       this.bus.emit('sfx', 'spec');
@@ -2078,6 +2079,13 @@ export class Game {
       this.spawnSparkle(this.player, '#7fff8f', 14);
       this.bus.emit('hp');
       this.bus.emit('sfx', 'eat');
+    }
+    // An offensive rider: a threshold skill strikes the foe you're fighting at
+    // once; a free one rides on your next hit (never a free extra attack).
+    if (ab.strike) {
+      this._strikeAb = { id: ab.id, name: ab.name, kind: 'attack', ...ab.strike };
+      const a = this.player.action, npc = a && a.type === 'attack' ? a.npc : null;
+      if (ab.cost && npc && npc.alive && this.player.alive && chebyshev(this.player.x, this.player.y, npc.x, npc.y) <= this.attackRange()) this.doPlayerAttack(npc);
     }
     this.bus.emit('adrenaline');
     this.bus.emit('ability');
@@ -2123,6 +2131,8 @@ export class Game {
 
   /** Consume an armed offensive ability for the current hit (spends adrenaline). */
   _takeAbility() {
+    // A skill's strike (already paid for) goes first; an armed skill waits for the next hit.
+    if (this._strikeAb) { const s = this._strikeAb; this._strikeAb = null; return s; }
     if (!this.armedAbility) return null;
     const ab = ABILITY_BY_ID[this.armedAbility];
     this.armedAbility = null;
@@ -2185,6 +2195,7 @@ export class Game {
     dmgM *= Culling.masteryDamage(this, npc).mult;   // codex mastery of its species and race
     dmgM *= Mercs.merchantPower(this);   // the strongest class (see mercenary.js)
     dmgM *= 1 + openWoundStacks(npc, this.tickCount) * OPEN_WOUNDS.per;   // a Brawler's Open Wounds on the foe
+    if (npc.sunderUntil > this.tickCount) dmgM *= 1 + (npc.sunder || 0);   // armour broken by a skill
     dmgM *= CLASS_POWER;   // every class 20% stronger
     const sharedM = dmgM;   // what both hands share
     dmgM *= abM * gearM(gb);
@@ -2197,7 +2208,8 @@ export class Game {
     // lands, a brace afterwards, and (Merchant) A-Worthlings called up.
     this._abCleave = ab?.cleave || 1;
     this._abStun = ab?.stun && mode !== 'dance' ? ab.stun : 0;   // the Dancer's whip handles its own stun
-    if (ab?.guard) this.braceTicks = Math.max(this.braceTicks || 0, ab.guard);
+    this._abRider = ab && (ab.bleed || ab.sunder) ? ab : null;   // a bleed or armour break once the blow lands
+    if (ab?.guard) { if (!(this.braceTicks > 0)) this.braceCounter = 0; this.braceTicks = Math.max(this.braceTicks || 0, ab.guard); }
     if (ab?.summon && this.jobClass === 'merchant') for (let k = 0; k < ab.summon; k++) Mercs.spawnFollower(this);
     if (spec) { this.msg(`Special attack: ${spec.name}!`, 'combat'); this.spawnSparkle(this.player, '#ffd24a', 12); }
     if (ab) { this.msg(`Ability: ${ab.name}!`, 'combat'); this.spawnSparkle(this.player, '#ff9a3a', 10); this.bus.emit('sfx', 'spec'); }
@@ -2368,6 +2380,7 @@ export class Game {
       npc.windup = 0; npc.attackCooldown = Math.max(npc.attackCooldown || 0, t * 2);
       this.addHitsplat(npc, 0, { text: 'Stunned!' });
     }
+    if (this._abRider && dmg > 0 && !opts.aoe) this._applyRider(npc, dmg);
     // A crit rolled just before this hit: show it as a big red ×2 / ×4 number.
     if (this._pendingCrit && dmg > 0) {
       opts = { ...opts, critX: this._pendingCrit };
@@ -2918,6 +2931,25 @@ export class Game {
     if (xp) for (const x of magicXp(xp)) this.skills.addXp(x.skill, x.xp * m);
   }
 
+  /** A skill's rider on the first blow that lands: a sure bleeding wound
+   *  (`bleed` of the blow a second, like a claw's) and/or broken armour (the
+   *  foe takes `sunder` more damage from you for SUNDER_TICKS ticks). */
+  _applyRider(npc, hit) {
+    const ab = this._abRider; this._abRider = null;
+    if (!npc.alive) return;
+    if (ab.bleed) {
+      const w = npc.wounds || (npc.wounds = {}), list = w.bleed || (w.bleed = []);
+      list.push({ perSec: Math.max(1, Math.round(hit * ab.bleed)), left: WOUNDS.bleed.secs });
+      if (list.length > WOUNDS.bleed.stacks) list.sort((a, b) => b.perSec - a.perSec).length = WOUNDS.bleed.stacks;
+      this.spawnSparkle(npc, WOUNDS.bleed.color, 5);
+    }
+    if (ab.sunder) {
+      npc.sunder = Math.max(npc.sunderUntil > this.tickCount ? npc.sunder || 0 : 0, ab.sunder);
+      npc.sunderUntil = this.tickCount + SUNDER_TICKS;
+      this.addHitsplat(npc, 0, { text: 'Armour broken!' });
+    }
+  }
+
   /** Daggers poison and claws open bleeding wounds: a chance on each blow
    *  (WOUNDS) to add a stack that deals a share of that hit every second for a
    *  while. Poison is slow and stacks deep; bleeding is shorter and sharper.
@@ -3126,11 +3158,13 @@ export class Game {
     if (npc.slowTicks > 0) dmg = Math.floor(dmg * (1 - ELEMENTS.water.chill));   // Water's Chill: a chilled foe hits softer
     const prot = this.protectFactor();
     if (prot) dmg = Math.floor(dmg * (1 - prot));
+    // A skill's thorns or counter strikes back a share of the blow as it came, before the guard.
+    const blow = dmg, skillThorns = this.buffMod('thorns') + (this.braceTicks > 0 ? this.braceCounter || 0 : 0);
     if (this.braceTicks > 0) dmg = Math.floor(dmg * 0.5); // the Brace ability soaks the blow
     if (this.buffMod('reduce')) dmg = Math.floor(dmg * (1 - Math.min(0.9, this.buffMod('reduce'))));   // a defensive class buff
     dmg = this._perkReduce(dmg, npc);
-    if (dmg > 0 && perk.thorns && npc.alive) {           // Spiked Armour perk
-      const back = Math.max(1, Math.round(dmg * perk.thorns / (npc.def?.hpScale || 1)));
+    if ((dmg > 0 && perk.thorns || blow > 0 && skillThorns) && npc.alive) {           // Spiked Armour perk, thorny skills
+      const back = Math.max(1, Math.round((dmg * (perk.thorns || 0) + blow * skillThorns) / (npc.def?.hpScale || 1)));
       npc.takeDamage(back); this.addHitsplat(npc, back, { tint: '#9aa6b2' });
       if (npc.hp <= 0) { this.killNpc(npc); }
     }
@@ -5311,11 +5345,14 @@ export class Game {
     const hpFrac = p.hp / this.maxHp();
     const danger = big || hpFrac < 0.5 || near.some((n) => n.alive && n.target === p && n.windup > 0);
     // Defend.
-    const defensive = (ab) => ab.kind === 'guard' || (ab.kind === 'heal' ? hpFrac < 0.6 : ab.kind === 'buff' && (ab.buff?.reduce || ab.buff?.dodge || ab.buff?.lifesteal));
+    // (A short defensive buff never replaces the threshold buff while you're
+    // still healthy: only one buff runs at a time, and the X one hits harder.)
+    const buffUp = this.buff && this.buff.until > this.tickCount;
+    const keepBuff = buffUp && hpFrac >= 0.5 && ABILITY_BY_ID[this.buff.id]?.key === 'X';
+    const defensive = (ab) => ab.kind === 'guard' || (ab.kind === 'heal' ? hpFrac < 0.6 : ab.kind === 'buff' && !keepBuff && (ab.buff?.reduce || ab.buff?.dodge || ab.buff?.lifesteal));
     if (danger) { const c = ready('C', defensive); if (c) this.activateAbility(c.id); }
     if (hpFrac < 0.35) { const v = ready('V'); if (v) this.activateAbility(v.id); }
     // Spend.
-    const buffUp = this.buff && this.buff.until > this.tickCount;
     const ult = ready('B');
     if (ult && !this.armedAbility && worth(4)) { this.activateAbility(ult.id); return; }
     const x = ready('X');
