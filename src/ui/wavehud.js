@@ -3,7 +3,7 @@
 // wave, monsters left, the countdown to the next wave, your best and a Leave
 // button. Kept out of ui.js, which only creates this and forwards to it.
 
-import { GATE_NAME, BOSS_EVERY, CHAMPION_EVERY, GATE_MODS, GATE_MOD_IDS, waveLevel } from '../game/waves.js';
+import { GATE_NAME, BOSS_EVERY, GATE_MODS, GATE_MOD_IDS, waveLevel } from '../game/waves.js';
 import { CLASS_BY_ID } from '../data/classes.js';
 
 export class WaveHud {
@@ -43,6 +43,7 @@ export class WaveHud {
       `<div class="wv-wave">${w.wave ? `Wave <b>${w.wave}</b>` : 'Get ready'}${w.wave && w.wave % BOSS_EVERY === 0 ? ' <span class="wv-tag">boss</span>' : ''}</div>`,
       cd ? `<div class="wv-next">${next % BOSS_EVERY === 0 ? 'Boss wave' : `Wave ${next}`} in <b>${cd}s</b></div>`
         : `<div class="wv-left">Monsters left: <b>${w.left()}</b>${w.level ? ` <span class="wv-dim">(level ${w.level})</span>` : ''}</div>`,
+      !cd && w.leader && w.mobs.some((m) => m.alive && (m.champion || m.def.boss)) ? `<div class="wv-lead">Led by <b>${w.leader}</b></div>` : '',
       `<div class="wv-best">Best: wave <b>${w.best || 0}</b>${w.classBest() ? ` · class <b>${w.classBest()}</b>` : ''}</div>`,
       w.runMods?.length ? `<div class="wv-mods">${w.runMods.map((id) => GATE_MODS[id].name).join(' · ')}</div>` : '',
     ];
@@ -57,7 +58,7 @@ export class WaveHud {
     this.ui.openModal(GATE_NAME, (body) => {
       body.innerHTML = `<div class="dialogue"><div class="speaker">${GATE_NAME}</div>`
         + 'Beyond the arch lies a sealed hall where monsters come in endless waves, each stronger than the last. '
-        + `Every ${CHAMPION_EVERY}th wave brings a champion and every ${BOSS_EVERY}th a boss. Clearing a wave pays a bonus that grows the deeper you go. `
+        + `Its monsters are tougher than those outside. A champion leads every wave, and a boss every ${BOSS_EVERY}th. Clearing a wave pays a bonus that grows the deeper you go. `
         + 'If you fall, you keep everything you earned and wake back here.</div>'
         + `<div class="modal-hint">Your best: <b>${w.best ? `wave ${w.best}` : 'not yet tried'}</b>`
         + ` &middot; as ${CLASS_BY_ID[g.jobClass]?.name || 'your class'}: <b>${w.classBest() ? `wave ${w.classBest()}` : 'not yet tried'}</b>`

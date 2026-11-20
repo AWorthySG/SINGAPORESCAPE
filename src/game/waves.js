@@ -31,17 +31,38 @@ export const START = { x: 252, y: ARENA.y0 + 2 };
 // Pacing and limits.
 export const NEXT_WAVE_TICKS = 6;   // ~3.6s between the last kill and the next wave
 export const MAX_ALIVE = 8;         // at most this many wave monsters at once (phones)
-export const CHAMPION_EVERY = 5;    // every 5th wave adds a champion
-export const BOSS_EVERY = 10;       // every 10th wave is a boss wave
+// The owner asked for a champion or a boss in every wave: every wave is led by
+// a champion, and every 5th by a boss instead.
+export const CHAMPION_EVERY = 1;    // every wave brings a champion...
+export const BOSS_EVERY = 5;        // ...and every 5th wave a boss instead
+export const MILESTONE_EVERY = 10;  // every 10th wave's chest is a bigger one
 // The owner asked for the gate to pay more: +50% combat XP inside a run, and
 // wave bonuses and boss chests pay double coins and half as many stones and scrolls again.
 export const GATE_XP = 1.5;
 const more = (n) => Math.ceil(n * 1.5);
 // A wave boss is a boss scaled to the wave the way _scaleBoss scales bosses to
-// you (f x its hits and defence, f^2 x its life), but with a fifth of that life:
-// a full boss is a siege for a party, and this one stands between you and the
-// next wave. That still leaves it about as long a fight as a champion.
-export const WAVE_BOSS_LIFE = 0.2;
+// you (f x its hits and defence), but its life is set from the wave's own
+// monsters: WAVE_BOSS_LIFE of them. Its own life (f^2 x a boss's) made a wave
+// 10 boss a 20-minute siege for a level 30 Archer, and it would move with every
+// change to boss life out in the world.
+export const WAVE_BOSS_LIFE = 10;
+// ...and it hits a little softer than the same boss outside: it comes every 5th
+// wave now, with its mechanics and an escort, and at full strength it stopped
+// every level 150 melee build at wave 5 (see tools/balance/gate.mjs).
+export const WAVE_BOSS_HIT = 0.8;
+// Gate monsters are tougher than the same monster at the same level outside:
+// the owner wanted the gate to be a real test. Before this a level-matched
+// fighter cleared every ordinary wave at full life (they barely hit it), and
+// only the champion every 5th wave could kill it.
+export const GATE_HP = 1.5;    // x life
+export const GATE_HIT = 1.8;   // x max hit
+export const GATE_ACC = 1.3;   // x attack (they land more of those hits)
+// A champion is x30 life out in the world (npc.js); in the gate, where one leads
+// every wave, it has GATE_CHAMPION_LIFE of that (x6 a wave monster), so a wave
+// stays a minute or so rather than a long siege. Its harder hits, armour and loot are kept.
+export const GATE_CHAMPION_LIFE = 0.2;
+// From wave 20 a second champion comes along.
+export const SECOND_CHAMPION_FROM = 20;
 
 /** How strong wave n is next to your fight level: 0.7x at wave 1, then gently
  *  (+3% a wave) and ever more steeply (the squared term): 1.17x at wave 10,
@@ -53,8 +74,10 @@ export const waveLevel = (n, base) => Math.max(1, Math.round(Math.max(1, base) *
 /** How many monsters wave n sends (not counting a champion or boss): 3, then one
  *  more every second wave. Only MAX_ALIVE are out at once; the rest follow. */
 export const waveCount = (n) => Math.min(30, 3 + Math.floor(n / 2));
-/** On top of the level, later waves hit harder and last longer. */
-export const waveMight = (n) => ({ hp: 1 + 0.04 * (n - 1) + 0.002 * (n - 1) ** 2, hit: 1 + 0.02 * (n - 1) + 0.001 * (n - 1) ** 2 });
+/** On top of the level, later waves hit harder and last longer: +6% life and
+ *  +3% hits a wave, steepening (was +4% and +2%). Wave 1 is x1, so world events
+ *  that borrow waveMobDef(id, 1, L) are unchanged. */
+export const waveMight = (n) => ({ hp: 1 + 0.06 * (n - 1) + 0.003 * (n - 1) ** 2, hit: 1 + 0.03 * (n - 1) + 0.0015 * (n - 1) ** 2 });
 
 /** The bonus for clearing wave n (monsters of `level`): coins growing with the
  *  wave, enhancement stones from wave 5, refine scrolls on even waves from 10,
@@ -66,10 +89,14 @@ export function waveBonus(n, level) {
   if (n >= 15 && n % 5 === 0) out.push(['upgrade_ward', 1]);
   return out;
 }
-/** A boss wave's guaranteed chest: a big purse, refine scrolls, stones and a ward. */
+/** A boss wave's guaranteed chest: a big purse, refine scrolls, stones and a ward.
+ *  Every MILESTONE_EVERY-th wave it is a milestone chest: half as much again,
+ *  and another ward. (Bosses come twice as often as they did, every 5th wave
+ *  rather than every 10th, so the plain chest pays as before and the milestone more.) */
 export function bossChest(n, level) {
-  return [['coins', Math.round((50 + 5 * level) * n * 6)], ['refine_scroll', more(2 + Math.floor(n / 20))],
-    ['upgrade_stone', more(5 + Math.floor(n / 2))], ['upgrade_ward', 1 + Math.floor(n / 30)]];
+  const big = n % MILESTONE_EVERY === 0 ? 1.5 : 1;
+  return [['coins', Math.round((50 + 5 * level) * n * 6 * big)], ['refine_scroll', Math.ceil(more(2 + Math.floor(n / 20)) * big)],
+    ['upgrade_stone', Math.ceil(more(5 + Math.floor(n / 2)) * big)], ['upgrade_ward', 1 + Math.floor(n / 30) + (big > 1 ? 1 : 0)]];
 }
 
 // ---------------- Gate modifiers ----------------
@@ -157,31 +184,52 @@ export function waveMobDef(id, n, L) {
   return { ...base, level: L, maxHp: s(base.maxHp, m.hp), attack: s(base.attack), strength: s(base.strength), defence: s(base.defence),
     maxHit: s(base.maxHit, m.hit), aggressive: true, aggroRange: 30, ignoreLevelGate: true, wave: true };
 }
+/** A monster made a gate monster: GATE_HP x life, GATE_HIT x max hit and
+ *  GATE_ACC x attack on top of waveMobDef (which world events borrow as is). */
+export function gateMobDef(id, n, L) {
+  const d = waveMobDef(id, n, L);
+  return { ...d, maxHp: Math.max(1, Math.round(d.maxHp * GATE_HP)), maxHit: Math.max(1, Math.round(d.maxHit * GATE_HIT)), attack: Math.max(1, Math.round(d.attack * GATE_ACC)) };
+}
+/** Real life (see hpScale in npcs.js: big monsters show their life smaller). */
+const realLife = (d) => d.maxHp * (d.hpScale || 1);
+
 /** A boss rebuilt for wave n at level L: f = L / its level, f x attack, strength,
- *  defence and max hit, f^2 x life (as in _scaleBoss, but down as well as up),
- *  times WAVE_BOSS_LIFE and the wave's extra might. Signature moves and ground
- *  markers come with it: they're worked out from its max hit as usual. */
-export function waveBossDef(id, n, L) {
+ *  defence and max hit (as in _scaleBoss, but down as well as up), times the
+ *  wave's extra might (not GATE_HIT: bosses already hit 1.8x as hard, see
+ *  BOSS_DAMAGE_MULT, and with both a wave 5 boss took a level 100 Swordsman
+ *  from full life with 20 sharks in a minute); its life is WAVE_BOSS_LIFE
+ *  times a gate monster's of the wave (`mob`, real life). Signature moves and
+ *  ground markers come with it: they're worked out from its max hit as usual. */
+export function waveBossDef(id, n, L, mob = gateMobDef(waveKinds(n, L)[0], n, L)) {
   const base = getNpc(id), f = L / Math.max(1, base.level), m = waveMight(n);
   const s = (v, k) => Math.max(1, Math.round((v || 1) * k));
-  return { ...base, level: L, maxHp: s(base.maxHp, f * f * WAVE_BOSS_LIFE * m.hp), attack: s(base.attack, f), strength: s(base.strength, f),
-    defence: s(base.defence, f), maxHit: s(base.maxHit, f * m.hit), aggressive: true, aggroRange: 30, ignoreLevelGate: true, wave: true };
+  return { ...base, level: L, maxHp: s(realLife(mob) * WAVE_BOSS_LIFE / (base.hpScale || 1), 1), attack: s(base.attack, f), strength: s(base.strength, f),
+    defence: s(base.defence, f), maxHit: s(base.maxHit, f * m.hit * WAVE_BOSS_HIT), aggressive: true, aggroRange: 30, ignoreLevelGate: true, wave: true };
 }
 
 /** Everything wave n sends for a fighter of level `base`: a list of
- *  { id, def, champion? } (the boss first on a boss wave). */
+ *  { id, def, champion? }, its leader first: a boss on every BOSS_EVERY-th
+ *  wave, otherwise a champion (two from SECOND_CHAMPION_FROM). Leading the
+ *  list, the leader is always out at once, whatever MAX_ALIVE holds back. */
 export function wavePlan(n, base) {
   const L = waveLevel(n, base), out = [];
+  const kinds = waveKinds(n, L);
   let count = waveCount(n);
   if (n % BOSS_EVERY === 0) {
     const id = waveBoss(n, L);
-    out.push({ id, def: waveBossDef(id, n, L) });
+    out.push({ id, def: waveBossDef(id, n, L, gateMobDef(kinds[0], n, L)) });
     count = 2;   // a boss brings a couple of escorts, not a full wave
+  } else {
+    const champs = n >= SECOND_CHAMPION_FROM ? 2 : 1;
+    for (let i = 0; i < champs; i++) out.push({ id: kinds[i % kinds.length], def: gateMobDef(kinds[i % kinds.length], n, L), champion: true });
   }
-  const kinds = waveKinds(n, L);
-  for (let i = 0; i < count; i++) out.push({ id: kinds[i % kinds.length], def: waveMobDef(kinds[i % kinds.length], n, L) });
-  if (n % CHAMPION_EVERY === 0) out.push({ id: kinds[0], def: waveMobDef(kinds[0], n, L), champion: true });
+  for (let i = 0; i < count; i++) out.push({ id: kinds[i % kinds.length], def: gateMobDef(kinds[i % kinds.length], n, L) });
   return out;
+}
+/** The name a wave's banner gives its leader (its boss, else its champion). */
+export function waveLeader(plan) {
+  const e = plan.find((x) => x.def.boss) || plan.find((x) => x.champion);
+  return e ? (e.def.boss ? e.def.name : `Champion ${e.def.name}`) : '';
 }
 
 /** One run in the Endless Gate, and your best wave (saved). */
@@ -223,6 +271,7 @@ export class Waves {
     this.mobs = [];         // its monsters still standing
     this.queue = [];        // ...and those still to come (beyond MAX_ALIVE)
     this.nextAt = 0;        // tick the next wave starts (0: a wave is being fought)
+    this.leader = '';       // the name of the wave's boss or (first) champion
     this.ret = null;        // where you came in from
   }
 
@@ -338,11 +387,14 @@ export class Waves {
     while (this.queue.length && this.mobs.length < MAX_ALIVE) this._spawn(this.queue.shift());
     if (n > this.best) { this.best = n; g.saveSoon = true; }
     const boss = n % BOSS_EVERY === 0 ? plan.find((e) => e.def.boss) : null;
+    const champs = this.mobs.filter((m) => m.champion).length;
+    const leader = boss ? boss.def.name : this.mobs.find((m) => m.champion)?.name || '';
+    this.leader = leader;
     if (boss) {
       g.banner(`<span class="big">Wave ${n}: boss!</span>${boss.def.name} (level ${this.level})`, 'waves');
       g.addShake(4, 320);
-    } else g.banner(`<span class="big">Wave ${n}</span>${count} monsters, level ${this.level}${n % CHAMPION_EVERY === 0 ? ', with a champion' : ''}`, 'waves');
-    g.msg(`Wave ${n} begins: ${count} monsters of level ${this.level}.`, 'combat');
+    } else g.banner(`<span class="big">Wave ${n}</span>${count} monsters, level ${this.level}${leader ? `, led by ${leader}${champs > 1 ? ` and ${champs - 1} more` : ''}` : ''}`, 'waves');
+    g.msg(`Wave ${n} begins: ${count} monsters of level ${this.level}${leader ? `, led by ${leader}` : ''}.`, 'combat');
     g.bus.emit('sfx', 'spec');
     g.checkAchievements();
     g.bus.emit('waves');
@@ -367,7 +419,12 @@ export class Waves {
     const n = new NPC(entry.id, spot.x, spot.y, 0, { aggressive: true, ignoreLevelGate: true });
     n.def = entry.def;
     n.maxHp = n.hp = n.def.maxHp;
-    if (entry.champion) n.makeChampion();
+    if (entry.champion) {
+      n.makeChampion();
+      // One leads every wave: a fifth of a world champion's life (GATE_CHAMPION_LIFE).
+      n.def = { ...n.def, maxHp: Math.max(1, Math.round(n.def.maxHp * GATE_CHAMPION_LIFE)) };
+      n.maxHp = n.hp = n.def.maxHp;
+    }
     if (this.fx.speed !== 1) n.stepMul /= this.fx.speed;   // Swift foes
     // Home is the middle of the hall, with room to roam all of it, so it never
     // gives up the chase and walks "home" while you stand in a corner.
@@ -399,8 +456,9 @@ export class Waves {
     for (const [id, q] of sum) { g.inventory.add(id, q); g.collection?.record('gate', id, q); }
     const names = { coins: 'coins', upgrade_stone: 'enhancement stones', refine_scroll: 'refine scrolls', upgrade_ward: 'upgrade wards' };
     const list = [...sum].map(([id, q]) => `${q.toLocaleString('en-GB')} ${names[id] || getItem(id).name}`).join(', ');
-    g.msg(`Wave ${n} cleared! ${n % BOSS_EVERY === 0 ? 'Boss chest' : 'Bonus'}: ${list}.`, 'level');
-    g.banner(`<span class="big">Wave ${n} cleared!</span>${n % BOSS_EVERY === 0 ? 'Boss chest opened. ' : ''}Next wave in ${Math.round(NEXT_WAVE_TICKS * 0.6)}s`, 'waves');
+    const chest = n % BOSS_EVERY !== 0 ? '' : n % MILESTONE_EVERY === 0 ? 'Milestone chest' : 'Boss chest';
+    g.msg(`Wave ${n} cleared! ${chest || 'Bonus'}: ${list}.`, 'level');
+    g.banner(`<span class="big">Wave ${n} cleared!</span>${chest ? `${chest} opened. ` : ''}Next wave in ${Math.round(NEXT_WAVE_TICKS * 0.6)}s`, 'waves');
     g.bus.emit('sfx', n % BOSS_EVERY === 0 ? 'dropepic' : 'droprare');
     g.spawnConfetti?.(g.player.renderCenter().x, g.player.renderCenter().y - 18, n % BOSS_EVERY === 0 ? 46 : 22);
     this.nextAt = g.tickCount + NEXT_WAVE_TICKS;

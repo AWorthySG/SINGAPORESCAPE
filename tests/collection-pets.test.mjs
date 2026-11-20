@@ -269,6 +269,7 @@ test('gate modifiers stack their risk and reward', () => {
   assert.ok(mobs.length > 0);
   for (const n of mobs) {
     assert.ok(Math.abs(n.stepMul - 1.8 / 1.5) < 1e-9, 'moves 50% faster');
+    if (n.champion) continue;   // (a champion leads every wave: its life is a champion's)
     const e = plan.find((x) => x.id === n.npcId && !x.champion);
     assert.equal(n.maxHp, Math.round(e.def.maxHp * 1.5), 'half as much life again');
   }
