@@ -6713,7 +6713,7 @@ export class Game {
         if (needs) return { text: `Reach ${needs[0] === 'mining' ? 'Mining' : 'Smithing'} ${needs[1]} to ${needs[2]}`, kind: 'none' };
         if (inv('iron_ore') < left) return obj('iron_rock', `Mine iron ore (${inv('iron_ore')}/${left})`);
         if (inv('coal') < left * 2) return obj('coal_rock', `Mine coal for the steel (${inv('coal')}/${left * 2})`);
-        return obj('furnace', `Smelt ${left} steel bar${left > 1 ? 's' : ''} at the furnace`);
+        return { ...obj('furnace', `Smelt ${left} steel bar${left > 1 ? 's' : ''} at the furnace`), make: 'steel_bar' };
       }
       case 'island_defender': return this.bossKills - (q.startBoss || 0) >= 3 ? npc('guide', 'Hand in to') : { kind: 'boss', text: 'Defeat a boss' };
       case 'big_game_hunter': return this.totalKills - (q.startKills || 0) >= 50 ? npc('guide', 'Hand in to') : { kind: 'hunt', text: 'Defeat creatures' };
@@ -6939,8 +6939,13 @@ export class Game {
         const make = AUTO_QUEST_STATION[o.def.type];
         this._mrtHopToward(o);
         if (make) {
-          if (!nextJob(this, make)) { this.toggleAutoQuest(false, `you don't have what you need to "${g.text}".`); return; }
-          this.startAll(make, o);
+          // A step that names what it wants (`make`) makes just that, so a spare
+          // ore from a lucky swing isn't smelted into a lesser bar.
+          let job = nextJob(this, make);
+          for (const skip = new Set(); g.make && job && job.recipe?.result !== g.make; job = nextJob(this, make, skip)) skip.add(jobKey(job));
+          if (!job) { this.toggleAutoQuest(false, `you don't have what you need to "${g.text}".`); return; }
+          if (g.make) this.beginAction({ ...job, obj: o }, { x: o.x, y: o.y }, true);
+          else this.startAll(make, o);
         } else {
           if (this.inventory.freeSlots() <= 0) { this.toggleAutoQuest(false, 'your bag is full. Bank or drop something and switch it back on.'); return; }
           this.defaultObjectAction(o);

@@ -15,6 +15,8 @@
 // - Drifting leaves and petals on the breeze: jungle leaves in the forests,
 //   pink and frangipani petals in the towns and gardens.
 //
+// The birds, cat, steam, glints and tumbling leaves are painted four-frame loops
+// (fxart.js), stepped gently; until they load the old drawn shapes stand in.
 // Everything comes from fixed pools and a few baked sprites, is culled to the
 // view, and switches off entirely in low graphics or while frames run slow
 // (the renderer passes `low` for both: see governor.js).
@@ -22,7 +24,7 @@
 import { TILE } from '../config.js';
 import { TERRAIN } from '../data/world.js';
 import { tileHash } from './terrainfx.js';
-import { fxImage, drawFx } from './fxart.js';
+import { fxImage, fxLoop, drawFx } from './fxart.js';
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
@@ -36,6 +38,16 @@ const TOWNS = new Set(['Kampong Glam', 'Chinatown', 'Marina Bay', 'Pulau Ubin', 
 const GRIM = new Set(['The Wilderness', 'Pulau Hantu', 'Tekong Badlands', 'The Shadow Rift']);
 const LEAF_ART = ['leaf_green', 'leaf_lime', 'leaf_green', 'leaf_dry'];
 const PETAL_ART = ['petal_pink', 'frangipani', 'petal_pink', 'petal_red'];
+// Which flock flies over each kind of place: egrets over the wetlands and the
+// coasts, pigeons over the towns, mynas everywhere else.
+const EGRET_SKIES = new Set(['Sungei Buloh Wetlands', 'Changi Coast', 'Sentosa Beach', 'Southern Islands', 'Punggol Waterway', 'MacRitchie Reservoir']);
+const WING_MS = 110;     // a wingbeat frame
+const PECK_MS = 260;     // a pecking pigeon's frame
+const TAIL_MS = 340;     // a cat's tail flick
+const TUMBLE_MS = 180;   // a leaf or petal turning over
+// The painted tumbling loops stand in for these single leaves and petals.
+const TUMBLE = { leaf_green: 'leaf_tumble', leaf_lime: 'leaf_tumble', frangipani: 'petal_tumble' };
+export const RIPPLE_CAP = 3;
 const LEAF_COL = { leaf_green: '#7cc46a', leaf_lime: '#b8d860', leaf_dry: '#d9a066', petal_pink: '#f6a6c8', frangipani: '#fff4dc', petal_red: '#e8505a' };
 
 // How far each kind of plant leans in a full gust (a shear factor).
@@ -47,8 +59,8 @@ export const GLINT_CAP = 16;
 export const BIRD_CAP = 5;       // town birds in a group
 export const FLOCK_CAP = 7;      // birds in a flock overhead
 export const CAT_CAP = 3;
-const STEAMERS = new Set(['stall_food', 'range']);
-const CAT_STALLS = new Set(['stall_food', 'stall_market']);
+const STEAMERS = new Set(['stall_food', 'range', 'hawker_stall_noodle', 'hawker_stall_satay']);
+const CAT_STALLS = new Set(['stall_food', 'stall_market', 'hawker_stall_noodle', 'fish_stall']);
 
 /**
  * The island's breeze at time t (ms), 0 (still) .. 1 (a strong gust): a slow
@@ -86,7 +98,7 @@ export class AmbientLife {
     this.leaves = [];
     for (let i = 0; i < LEAF_CAP; i++) this.leaves.push({ on: false, x: 0, y: 0, vx: 0, vy: 0, art: '', p: 0, spin: 0, life: 0 });
     this._leafIn = 0;
-    this.flock = { on: false, x: 0, y: 0, vx: 0, vy: 0, n: 0, dir: 1, t: 0 };
+    this.flock = { on: false, x: 0, y: 0, vx: 0, vy: 0, n: 0, dir: 1, t: 0, sp: 'myna_fly' };
     this._flockIn = 9000;
     this.birds = { on: false, flee: false, x: 0, y: 0, t: 0, n: 0, m: [] };
     for (let i = 0; i < BIRD_CAP; i++) this.birds.m.push({ dx: 0, dy: 0, vx: 0, vy: 0, face: 1, p: 0, sp: 'myna' });
@@ -188,6 +200,7 @@ export class AmbientLife {
     const sp = 0.07 + this.rnd() * 0.03;
     f.vx = sp * f.dir; f.vy = (this.rnd() - 0.4) * 0.025;
     f.n = 3 + Math.floor(this.rnd() * (FLOCK_CAP - 2)); f.t = 0; f.on = true;
+    f.sp = EGRET_SKIES.has(this._zone) ? 'egret_fly' : TOWNS.has(this._zone) ? 'pigeon_fly' : 'myna_fly';
   }
 
   // Where flock member j sits relative to the leader: a loose V trailing behind.
@@ -242,7 +255,8 @@ export class AmbientLife {
     for (let i = 0; i < b.n; i++) {
       const m = b.m[i];
       m.dx = (this.rnd() - 0.5) * 34; m.dy = (this.rnd() - 0.5) * 16; m.face = this.rnd() < 0.5 ? -1 : 1;
-      m.p = this.rnd() * 2400; m.vx = 0; m.vy = 0; m.sp = this.rnd() < 0.7 ? 'myna' : 'sparrow';
+      m.p = this.rnd() * 2400; m.vx = 0; m.vy = 0;
+      const r = this.rnd(); m.sp = r < 0.4 ? 'pigeon' : r < 0.8 ? 'myna' : 'sparrow';
     }
   }
 
@@ -316,10 +330,11 @@ export class AmbientLife {
       for (let i = 0; i < b.n; i++) {
         const m = b.m[i], x = b.x + m.dx - ox, y = b.y + m.dy - oy;
         const peck = Math.sin(m.p * 0.006 + i) > 0.6;
-        const img = fxImage(`critter-${m.sp}${peck ? '_peck' : ''}`);
+        // A pigeon bobs through its painted pecking loop; mynas and sparrows peck now and then.
+        const img = m.sp === 'pigeon' ? fxLoop('critter', 'pigeon_peck', t, PECK_MS, i * 397) : fxImage(`critter-${m.sp}${peck ? '_peck' : ''}`);
         ctx.fillStyle = 'rgba(34,48,74,0.18)';
         ctx.beginPath(); ctx.ellipse(x, y + 2.5, 4, 1.3, 0, 0, Math.PI * 2); ctx.fill();
-        if (img) drawFx(ctx, img, x, y - 3, 12, m.face < 0);
+        if (img) drawFx(ctx, img, x, y - 3, m.sp === 'pigeon' ? 13 : 12, m.face < 0);
         else drawBirdShape(ctx, x, y - 2, m.face, peck);
         this.drawn++;
       }
@@ -332,10 +347,21 @@ export class AmbientLife {
     const day = this._day, clear = 1 - clamp01(this._gloom * 1.4);
     const strength = (day * 0.95 + (1 - day) * 0.5) * clear;
     if (strength < 0.05) return;
-    const img = this._sprite(day > 0.5 ? 'glint' : 'moonglint');
-    if (!img) return;
-    const count = Math.min(GLINT_CAP, Math.ceil(n / 5));
+    // (The painted sparkle once it has loaded, else the baked twinkle.)
+    const img = fxLoop('particle', 'sparkle', 0, 0, 0, 0) ? null : this._sprite(day > 0.5 ? 'glint' : 'moonglint');
+    if (!img && !fxLoop('particle', 'sparkle', 0, 0, 0, 0)) return;
+    // A few rings spreading on the water too (the painted ripple loop), by day and night.
     ctx.save();
+    for (let i = 0; i < RIPPLE_CAP; i++) {
+      const ph = (t + i * 1231) / 2600, cyc = Math.floor(ph), f = ph - cyc;
+      const k = Math.floor(tileHash(i, cyc, 21) * n) * 2;
+      const rip = fxLoop('particle', 'ripple', 0, 0, 0, f);
+      if (!rip) break;
+      ctx.globalAlpha = Math.sin(f * Math.PI) * 0.75 * (0.4 + 0.6 * clear);
+      ctx.drawImage(rip, w[k] * TILE + 3 - ox, w[k + 1] * TILE + 12 - oy, 26, 10);
+      this.drawn++;
+    }
+    const count = Math.min(GLINT_CAP, Math.ceil(n / 5));
     ctx.globalCompositeOperation = 'lighter';
     for (let i = 0; i < count; i++) {
       const period = 1400 + (i % 5) * 260;
@@ -346,8 +372,11 @@ export class AmbientLife {
       const s = Math.sin(f * Math.PI), a = s * s * strength;
       if (a < 0.03) continue;
       const r = (3 + h * 4) * (0.6 + 0.4 * s);
-      ctx.globalAlpha = a;
-      ctx.drawImage(img, x - r, y - r, r * 2, r * 2);
+      // The painted sparkle grows from a dot to a star and back as it winks.
+      const spark = fxLoop('particle', 'sparkle', 0, 0, 0, f);
+      ctx.globalAlpha = spark ? Math.min(1, a * 1.4) : a;
+      if (spark) ctx.drawImage(spark, x - r * 1.4, y - r * 1.4, r * 2.8, r * 2.8);
+      else ctx.drawImage(img, x - r, y - r, r * 2, r * 2);
       this.drawn++;
     }
     ctx.restore();
@@ -374,10 +403,15 @@ export class AmbientLife {
       if (!this._clearBeside(o.x + side, o.y)) side = -side;
       if (!this._clearBeside(o.x + side, o.y)) continue;
       const x = o.x * TILE + TILE / 2 + side * 30 - ox, y = o.y * TILE + TILE / 2 + 14 - oy;
-      const img = this._sprite(`cat-${coat}-${asleep ? 'z' : 's'}`);
+      // The painted cat: flicking its tail, or curled up asleep and breathing
+      // slowly (the last two frames of its curling loop, in turn).
+      const art = asleep ? fxLoop('critter', 'cat_curl', 0, 0, 0, Math.floor((t + h * 5000) / 1400) % 2 ? 0.5 : 0.75)
+        : fxLoop('critter', 'cat_tail', t, TAIL_MS, h * 4000);
+      const img = art || this._sprite(`cat-${coat}-${asleep ? 'z' : 's'}`);
       if (!img) continue;
       ctx.fillStyle = 'rgba(34,48,74,0.2)';
       ctx.beginPath(); ctx.ellipse(x, y + 1, 9, 2.6, 0, 0, Math.PI * 2); ctx.fill();
+      if (art) { drawFx(ctx, art, x, y - 11, 24, side > 0); this.drawn++; continue; }   // facing the stall
       ctx.drawImage(img, x - 20, y - 26, 40, 32);
       if (!asleep) {
         // The tail, swishing slowly.
@@ -398,8 +432,9 @@ export class AmbientLife {
     ctx.save();
     for (const o of objs) {
       if (!STEAMERS.has(o.objId) || o.depleted) continue;
-      img = img || this._sprite('steam');
-      if (!img) break;
+      const puff = !!fxLoop('particle', 'steam', 0, 0, 0, 0);   // the painted puffs, once loaded
+      img = img || (puff ? null : this._sprite('steam'));
+      if (!img && !puff) break;
       const cx = o.x * TILE + TILE / 2 - ox + (o.objId === 'range' ? 0 : -6), cy = o.y * TILE + TILE / 2 - oy - (o.objId === 'range' ? 16 : 22);
       const h = tileHash(o.x, o.y, 3) * 10;
       // Three curls in turn, each rising, swaying, stretching and fading out.
@@ -407,9 +442,16 @@ export class AmbientLife {
         const f = ((t * 0.00035 + i / 3 + h) % 1);
         const a = Math.sin(f * Math.PI);
         if (a < 0.05) continue;
-        const w = 6 + f * 3, hh = 10 + f * 8;
+        const sx = cx + (i - 1) * 6 + Math.sin(f * 4 + h + i) * 2 + f * this.wind * 8;
         ctx.globalAlpha = a * 0.8;
-        ctx.drawImage(img, cx + (i - 1) * 6 + Math.sin(f * 4 + h + i) * 2 + f * this.wind * 8 - w / 2, cy - f * 22 - hh, w, hh);
+        if (puff) {
+          // A wisp that billows into a cloud and breaks up as it rises (its four frames in turn).
+          const hh = 9 + f * 9;
+          drawFx(ctx, fxLoop('particle', 'steam', 0, 0, 0, f), sx, cy - f * 22 - hh / 2, hh);
+        } else {
+          const w = 6 + f * 3, hh = 10 + f * 8;
+          ctx.drawImage(img, sx - w / 2, cy - f * 22 - hh, w, hh);
+        }
         this.drawn++;
       }
     }
@@ -427,8 +469,11 @@ export class AmbientLife {
       const turn = Math.cos(l.p * 0.004 + l.spin), size = l.art === 'frangipani' ? 9 : 8;
       const x = l.x - ox, y = l.y - oy;
       ctx.globalAlpha = Math.min(1, l.life / 900);
-      const img = fxImage(`particle-${l.art}`);
-      if (img) ctx.drawImage(img, x - size * Math.abs(turn) / 2, y - size / 2, size * Math.max(0.15, Math.abs(turn)), size);
+      // A painted tumble where there is one (its frames do the turning), else the leaf squashed to turn.
+      const loop = TUMBLE[l.art] && fxLoop('particle', TUMBLE[l.art], l.p, TUMBLE_MS, l.spin * 300);
+      const img = loop || fxImage(`particle-${l.art}`);
+      if (loop) drawFx(ctx, loop, x, y, size + 1);
+      else if (img) ctx.drawImage(img, x - size * Math.abs(turn) / 2, y - size / 2, size * Math.max(0.15, Math.abs(turn)), size);
       else {
         ctx.fillStyle = LEAF_COL[l.art] || '#7cc46a';
         ctx.beginPath(); ctx.ellipse(x, y, 3.2 * Math.max(0.2, Math.abs(turn)), 2, 0, 0, Math.PI * 2); ctx.fill();
@@ -441,8 +486,8 @@ export class AmbientLife {
       for (let i = 0; i < b.n; i++) {
         const m = b.m[i], x = b.x + m.dx - ox, y = b.y + m.dy - oy;
         const up = Math.sin(t * 0.05 + i * 1.7) > 0;
-        const img = fxImage(`critter-${m.sp}_${up ? 'up' : 'down'}`);
-        if (img) drawFx(ctx, img, x, y, 13, m.face < 0);
+        const img = m.sp === 'sparrow' ? fxImage(`critter-sparrow_${up ? 'up' : 'down'}`) : fxLoop('critter', `${m.sp}_fly`, t, WING_MS, i * 170);
+        if (img) drawFx(ctx, img, x, y, m.sp === 'sparrow' ? 13 : 15, m.face < 0);
         else drawWings(ctx, x, y, up, 6);
         this.drawn++;
       }
@@ -453,8 +498,9 @@ export class AmbientLife {
       for (let j = 0; j < f.n; j++) {
         this._flockPos(j, q);
         const up = Math.sin(t * 0.03 + j * 1.9) > 0;
-        const img = fxImage(`critter-myna_${up ? 'up' : 'down'}`);
-        if (img) drawFx(ctx, img, q.x - ox, q.y - oy, 15, f.dir < 0);
+        // Each bird a little out of step with the next, so the flock shimmers.
+        const img = fxLoop('critter', f.sp, t, WING_MS * 1.3, j * 210) || fxImage(`critter-myna_${up ? 'up' : 'down'}`);
+        if (img) drawFx(ctx, img, q.x - ox, q.y - oy, f.sp === 'egret_fly' ? 18 : 16, f.dir < 0);
         else drawWings(ctx, q.x - ox, q.y - oy, up, 7);
         this.drawn++;
       }
