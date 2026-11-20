@@ -313,12 +313,29 @@ export function askOffer(ui, st, id, qty) {
   };
 }
 
-/** Draw the gear list, its confirmation and "Offer all spare gear…" into `body`. */
+/** Draw the gear section into `body`: its confirmation, "Offer all spare gear…", then the gear list. */
 export function shrineGearSection(ui, body, st, rerender) {
   const g = ui.game;
   body.insertAdjacentHTML('beforeend', '<div class="ench-head shrine-head">Offer gear</div>'
     + `<div class="modal-hint">Spare gear of any class or slot, from your pack: higher level, better ranked and better quality pieces give more, boss uniques a great deal, and everything more as your combat level (${g.skills.combatLevel()}) grows. Plain copies go before quality ones.</div>`);
   confirmBox(body, st, rerender);
+  // "Offer all spare gear…" comes first, above the list: with a full pack the
+  // owner had to scroll past every piece to reach it.
+  body.insertAdjacentHTML('beforeend', '<div class="ench-head salvage-head">Offer all spare gear…</div>');
+  const { box, f } = filterBox(ui, rerender);
+  body.appendChild(box);
+  const pv = previewOfferAll(g, f);
+  const go = button(pv.pieces ? `Offer ${formatNumber(pv.pieces)} piece${pv.pieces > 1 ? 's' : ''}: +${formatNumber(pv.points)} points` : 'No spare gear matches', () => {
+    st.pending = {
+      html: `Offer <b>${formatNumber(pv.pieces)} piece${pv.pieces > 1 ? 's' : ''}</b> of spare gear at the shrine: <b>+${formatNumber(pv.points)} shrine points</b>.`,
+      warn: f.below === 'any' || f.below === 'mythic' || f.below === 'legendary' ? 'this includes Epic copies or better' : '',
+      label: 'Offer all',
+      go: () => { const r = offerAll(g, f); return `Offered <b>${formatNumber(r.pieces)}</b> pieces: <b>+${formatNumber(r.points)} shrine points</b>.`; },
+    };
+    rerender();
+  }, 'salvage-bulk');
+  go.disabled = !pv.pieces;
+  body.appendChild(go);
   const list = document.createElement('div');
   list.className = 'gear-list feed-list salvage-list';
   const opts = shrineGearOptions(g);
@@ -337,19 +354,4 @@ export function shrineGearSection(ui, body, st, rerender) {
     list.appendChild(row);
   }
   body.appendChild(list);
-  body.insertAdjacentHTML('beforeend', '<div class="ench-head salvage-head">Offer all spare gear…</div>');
-  const { box, f } = filterBox(ui, rerender);
-  body.appendChild(box);
-  const pv = previewOfferAll(g, f);
-  const go = button(pv.pieces ? `Offer ${formatNumber(pv.pieces)} piece${pv.pieces > 1 ? 's' : ''}: +${formatNumber(pv.points)} points` : 'No spare gear matches', () => {
-    st.pending = {
-      html: `Offer <b>${formatNumber(pv.pieces)} piece${pv.pieces > 1 ? 's' : ''}</b> of spare gear at the shrine: <b>+${formatNumber(pv.points)} shrine points</b>.`,
-      warn: f.below === 'any' || f.below === 'mythic' || f.below === 'legendary' ? 'this includes Epic copies or better' : '',
-      label: 'Offer all',
-      go: () => { const r = offerAll(g, f); return `Offered <b>${formatNumber(r.pieces)}</b> pieces: <b>+${formatNumber(r.points)} shrine points</b>.`; },
-    };
-    rerender();
-  }, 'salvage-bulk');
-  go.disabled = !pv.pieces;
-  body.appendChild(go);
 }
