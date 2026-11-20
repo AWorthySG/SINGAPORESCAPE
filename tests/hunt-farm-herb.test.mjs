@@ -3,11 +3,11 @@
 // (with more patches in Gardens by the Bay and the Shadow Rift), and six
 // brews made from a crop, a catch and an ash, whose boosts feed the real
 // combat code (and the phoenix elixir saves you once from death).
-import './seed.mjs';   // seeded Math.random: no test fails on an unlucky roll
+import { SEED, seedRandom } from './seed.mjs';   // seeded Math.random: no test fails on an unlucky roll
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { Game } from '../src/game/game.js';
+import { Game, GATHER_SPEED } from '../src/game/game.js';
 import { clearSave } from '../src/game/save.js';
 import { ITEMS } from '../src/data/items.js';
 import { OBJECTS } from '../src/data/objects.js';
@@ -140,14 +140,49 @@ test('the tiger trail pays 25% more Hunter XP at night, and works by day too', (
   assert.ok(Math.abs(dark / day - 1.25) < 0.01, `night ${dark} vs day ${day}`);
 });
 
-test('endgame Hunter XP an hour: each tier well ahead of the best before it, at the same level', () => {
-  // A trap runs dry at random and a ground can sit empty for a while, so these
-  // runs are long and the bar leaves room for the dice (over long runs each
-  // step is ~1.35x). At 3000 ticks a step measured anywhere from 1.10x to 1.54x
-  // depending on the rolls, and failed a deploy at the old 1.15x bar; doubling
-  // the run narrows that spread, and 1.1x still catches a tier falling behind.
-  const TICKS = 6000;
-  const rate = (trapId, lvl) => {
+// What one trap of a ground earns a tick, worked flat out: a catch is certain
+// (resolveHunt), the player gets GATHER_SPEED tries a tick, each catch runs the
+// trap dry with its depleteChance (so 1/depleteChance catches a reset), and a
+// dry trap takes `respawn` ticks to reset. Straight from the data and the
+// game's own constants, so it stays in lock-step with them and has no dice.
+const trapRate = (id) => {
+  const d = OBJECTS[id];
+  const perReset = 1 / d.depleteChance;
+  return (d.xp * perReset) / (d.respawn + perReset / GATHER_SPEED);
+};
+
+test('endgame Hunter grounds: each tier earns well ahead of the one before (from the data)', () => {
+  // The endgame grounds are five traps that run dry quickly and reset slowly:
+  // you empty all five well inside one reset, so a ground's XP an hour is set
+  // by its traps (five times trapRate), not by your walking. That makes the
+  // ladder a sum over the data, with no rolls to go wrong. (Measured with auto
+  // gather over 20 seeds x 6000 ticks, the steps came out 1.25-1.40x, within a
+  // few per cent of these figures.)
+  const g = newGame();
+  let prev = null;
+  for (const t of TIERS) {
+    const d = OBJECTS[t.trap], n = g.world.objects.filter((o) => o.objId === t.trap).length;
+    assert.ok(n / d.depleteChance / GATHER_SPEED < d.respawn, `${t.trap}: all ${n} can be emptied inside one reset`);
+    const now = n * trapRate(t.trap);
+    if (prev) assert.ok(now >= prev.rate * 1.2, `${t.trap}: ${now.toFixed(1)} xp a tick vs ${prev.rate.toFixed(1)} at the ${prev.trap}`);
+    prev = { trap: t.trap, rate: now };
+  }
+});
+
+test('endgame Hunter XP an hour: each tier well ahead of the older traps, at the same level', () => {
+  // The older traps (crocodile, hornbill, qilin) lie far apart and reset fast,
+  // so working them is mostly walking, and auto gather wanders off to other
+  // traps nearby while they reset: only a real run can time that. A trap runs
+  // dry at random, so one run swings a few per cent either way, and any
+  // unrelated change that uses Math.random differently reshuffles the rolls
+  // (a single 6000-tick run of colugo against hornbill once came out at 1.09x
+  // and blocked a deploy, against ~1.25x on average). So each rate is the mean
+  // of several runs, each seeded on its own, and the bar sits well below the
+  // measured means (20 seeds x 6000 ticks: 2.16x, 1.25x and 1.54x below). The
+  // closest step, colugo against hornbill, gets the most runs.
+  const TICKS = 4000;
+  const once = (trapId, lvl, seed) => {
+    seedRandom(seed);
     const g = newGame();
     if (!g.inventory.has('hunting_snare')) g.inventory.add('hunting_snare', 1);
     setLevel(g, 'hunter', lvl); noon(g);
@@ -167,11 +202,16 @@ test('endgame Hunter XP an hour: each tier well ahead of the best before it, at 
     }
     return gain * 6000 / TICKS;
   };
-  // The best before each tier: the tier below, or an older trap with a higher level.
-  const before = { 100: ['crocodile_trap'], 130: ['pangolin_burrow', 'hornbill_nest'], 160: ['colugo_trap'], 200: ['tiger_trail', 'qilin_trail'], 250: ['garuda_nest'], 300: ['naga_track'] };
-  for (const t of TIERS) {
-    const prev = Math.max(...before[t.lvl].map((id) => rate(id, t.lvl))), now = rate(t.trap, t.lvl);
-    assert.ok(now >= prev * 1.1, `${t.trap}: ${Math.round(now)} xp/h vs ${Math.round(prev)} before, at level ${t.lvl}`);
+  const rate = (trapId, lvl, runs) => {
+    let sum = 0;
+    for (let r = 0; r < runs; r++) sum += once(trapId, lvl, SEED + 7919 * r);
+    return sum / runs;
+  };
+  // Each endgame tier against the older trap with the nearest level below or
+  // above it (the endgame tiers among themselves are the test above).
+  for (const [now, old, lvl, runs] of [['pangolin_burrow', 'crocodile_trap', 100, 1], ['colugo_trap', 'hornbill_nest', 130, 6], ['garuda_nest', 'qilin_trail', 200, 2]]) {
+    const a = rate(now, lvl, runs), b = rate(old, lvl, runs);
+    assert.ok(a >= b * 1.1, `${now}: ${Math.round(a)} xp/h vs ${Math.round(b)} at the ${old}, at level ${lvl}`);
   }
 });
 
