@@ -43,13 +43,26 @@ export class Skills {
     this.xp[id] = Math.min(maxXpFor(id), this.xp[id] + amount);
     if (id === 'attack' && 'strength' in this.xp) this.xp.strength = this.xp.attack;
     const after = this.level(id);
-    this.bus.emit('xp', { skill: id, amount, total: this.xp[id] });
+    const h = this._held;
+    if (h) { const e = h[id] || (h[id] = { amount: 0, count: 0 }); e.amount += amount; e.count++; }   // told once at release()
+    else this.bus.emit('xp', { skill: id, amount, total: this.xp[id] });
     if (after > before) {
       for (let lvl = before + 1; lvl <= after; lvl++) {
         this.bus.emit('levelup', { skill: id, level: lvl });
       }
     }
     return after - before;
+  }
+
+  /** An instant batch holds the 'xp' event: thousands of gains in one tick would
+   *  each redraw the XP drop, burst particles and roll a pet. release() tells one
+   *  gain per skill, the summed amount with `count` (how many gains it was).
+   *  Level-ups still fire as each level comes. Returns whether this call took the hold. */
+  hold() { if (this._held) return false; this._held = {}; return true; }
+  release() {
+    const h = this._held;
+    this._held = null;
+    for (const [skill, e] of Object.entries(h || {})) this.bus.emit('xp', { skill, amount: e.amount, total: this.xp[skill], count: e.count });
   }
 
   get attack() { return this.level('attack'); }

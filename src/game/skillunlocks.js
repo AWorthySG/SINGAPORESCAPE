@@ -120,12 +120,25 @@ export function runSkillAction(game, a, resolver) {
   // A station can lend bonuses of its own (the kampong home's upgraded range, home.js).
   if (obj?.homeFx) for (const [k, v] of Object.entries(obj.homeFx)) fx[k] = (fx[k] || 0) + v;
   const wasDepleted = !!obj?.depleted;
-  const before = bagCounts(game);
-  let going = resolver();
-  const after = bagCounts(game);
   const gained = [], spent = [];
-  for (const [id, n] of after) if (n > (before.get(id) || 0)) gained.push([id, n - (before.get(id) || 0)]);
-  for (const [id, n] of before) if ((after.get(id) || 0) < n) spent.push([id, n - (after.get(id) || 0)]);
+  let going;
+  if (MAKE_KINDS.has(a.type) && game.inventory.journal) {
+    // Making runs thousands at a time in a batch: the inventory notes what each
+    // one changed, rather than counting the whole bag twice per item. Spent
+    // items come in the order of their first slot, as the count gave them.
+    game.inventory.journal();
+    try { going = resolver(); } finally {
+      const j = game.inventory.endJournal();
+      for (const [id, e] of j) if (e.n > 0) gained.push([id, e.n]);
+      for (const [id, e] of [...j].filter(([, x]) => x.n < 0).sort((x, y) => x[1].at - y[1].at)) spent.push([id, -e.n]);
+    }
+  } else {
+    const before = bagCounts(game);
+    going = resolver();
+    const after = bagCounts(game);
+    for (const [id, n] of after) if (n > (before.get(id) || 0)) gained.push([id, n - (before.get(id) || 0)]);
+    for (const [id, n] of before) if ((after.get(id) || 0) < n) spent.push([id, n - (after.get(id) || 0)]);
+  }
   if (GATHER_KINDS.has(a.type) && gained.length) {
     // A lure or decoy in the pack: one is used on each catch, for a better chance of two.
     const c = GATHER_CONSUMABLES[skill];
@@ -178,9 +191,24 @@ export function unlockTipText(skill, level) {
 
 /** The level-up banner for a new unlock (and its chat line). */
 export function announceUnlocks(game, skill, level) {
+  // An instant batch (autoprocess.js) can open several rungs at once: it tells
+  // each skill's new unlocks together when it ends (flushUnlockNews).
+  const news = game._batchNews?.unlocks;
+  if (news) { for (const u of unlocksAt(skill, level)) (news[skill] ||= []).push(u); return; }
   for (const u of unlocksAt(skill, level)) {
     game.msg(`${skillName(skill)} ${level} unlock: ${u.name}. ${u.desc}.`, 'level');
     game.banner?.(`<span class="big">${playIconHTML('ui-skill_unlock', 28)} ${u.name}</span>${skillName(skill)} ${level} unlock: ${u.desc}`);
+  }
+}
+
+/** A batch's new unlocks ({ skill: [rung...] }): one line and one banner per
+ *  skill, naming every rung that opened (a single rung reads as it always has). */
+export function flushUnlockNews(game, news) {
+  for (const [skill, list] of Object.entries(news || {})) {
+    if (list.length === 1) { const u = list[0]; announceUnlocks(game, skill, u.level); continue; }
+    const top = list[list.length - 1].level;
+    game.msg(`${skillName(skill)} ${top}: ${list.length} unlocks opened. ${list.map((u) => `${u.name} (${u.desc})`).join('; ')}.`, 'level');
+    game.banner?.(`<span class="big">${playIconHTML('ui-skill_unlock', 28)} ${list.length} new unlocks</span>${skillName(skill)} ${top}: ${list.map((u) => u.name).join(', ')}`);
   }
 }
 

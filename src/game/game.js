@@ -64,7 +64,7 @@ import { MORAL_EVENTS, MORAL_BY_ID, moralCoins, BLESS_MS, BLESS_XP } from '../da
 import { alignmentTier, alignmentStyle, greetingFor } from '../data/alignment.js';
 import { tickBossMechanics, mechOnPlayerHit, mechAbilityUsed, mechAutoFight, inHazard } from './bossmech.js';
 import { SIGNATURE_DROP_CHANCE, SIGNATURE_CLASS, sigIdFor } from '../data/bossWeapons.js';
-import { nextJob, jobKey, makeBatch } from './autoprocess.js';
+import { nextJob, jobKey, makeBatch, batched } from './autoprocess.js';
 import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
 import { eligibleTasks, SLAYER_REWARDS, SLAYER_TASKS, SLAYER_HELM_DMG, slayerBuffs, slayerBuffText } from '../data/slayer.js';
 import { STATIONS, STATION_BY_ID, MRT_FARE } from '../data/transport.js';
@@ -604,7 +604,9 @@ export class Game {
     this._lifePerkNote = (p) => {
       if (!LIFE_PERKS[p?.skill] || p.level % LIFE_PERK_NOTE_EVERY || p.level > LIFE_PERK_FULL_LEVEL) return;
       const name = SKILL_BY_ID[p.skill]?.name || p.skill;
-      this.msg(`Life skill perk: your ${name} now gives ${lifePerkText(p.skill, p.level)} in combat${p.level === LIFE_PERK_FULL_LEVEL ? ' (its full strength)' : ''}.`, 'level');
+      const text = `Life skill perk: your ${name} now gives ${lifePerkText(p.skill, p.level)} in combat${p.level === LIFE_PERK_FULL_LEVEL ? ' (its full strength)' : ''}.`;
+      if (this._batchNews) this._batchNews.notes.set(`lifeperk:${p.skill}`, [text, 'level']);   // a batch says only the last (autoprocess.js)
+      else this.msg(text, 'level');
     };
     // Slayer level-ups: new task monsters when a tier opens, and the on-task
     // bonuses every 10 levels.
@@ -1363,7 +1365,7 @@ export class Game {
         return this._tickContinuous(a, a.obj, () => makeBatch(this, a, (x) => runSkillAction(this, x, () => MAKE_RESOLVE[x.type](this, x))));
       // Smelting is instant: the whole batch at once, and with "Smelt all" every
       // kind of bar your ores allow, one after another in the same moment.
-      case 'smelt': return this._tickContinuous(a, a.obj, () => {
+      case 'smelt': return this._tickContinuous(a, a.obj, () => batched(this, () => {   // the bag and XP told once (autoprocess.js)
         smeltBatch(this, a);
         while (a.all) {
           (a.done ||= new Set()).add(jobKey(a));
@@ -1373,7 +1375,7 @@ export class Game {
           smeltBatch(this, a);
         }
         return false;
-      });
+      }));
       case 'hunt': return this._tickContinuous(a, a.obj, () => resolveHunt(this, a));
       case 'fletchmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openRecipeMenu('fletching', a.obj));
       case 'herbmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openRecipeMenu('herblore', a.obj));

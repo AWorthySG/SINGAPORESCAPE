@@ -8,6 +8,7 @@ import { SMELT, SMITH } from '../data/smithing.js';
 import { CRAFT } from '../data/crafting.js';
 import { POTIONS, FLETCH } from '../data/trades.js';
 import { getItem } from '../data/items.js';
+import { flushUnlockNews } from './skillunlocks.js';
 
 /** The station kinds a "Do all" can run at. */
 export const AUTO_KINDS = ['cook', 'smelt', 'smith', 'craft', 'fletching', 'herblore'];
@@ -101,6 +102,29 @@ function batchOne(game, a, once) {
   return made;
 }
 
+/** Run a whole instant batch (`fn`) with its news held: the bag's 'inventory'
+ *  and each skill's 'xp' are told once at the end, not once per item (5,000 raw
+ *  fish made the bag grid, quick-use slot and XP drop redraw 5,000 times in one
+ *  tick, a freeze of seconds). A pet roll still counts every item made (pets.js).
+ *  Nested batches (smeltBatch inside "Smelt all") leave it to the outer one. */
+export function batched(game, fn) {
+  const pets = game.pets?.hold(), xp = game.skills.hold?.(), inv = game.inventory.hold?.();
+  // Level-up news gathered too: each skill's unlocks in one line and banner, and
+  // only the last of its life-skill perk notes (each one supersedes the one before).
+  const news = game._batchNews ? null : (game._batchNews = { unlocks: {}, notes: new Map() });
+  try { return fn(); } finally {
+    // The bag first, then the XP (which the pets count), then the pet rolls.
+    if (inv) game.inventory.release();
+    if (xp) game.skills.release();
+    if (pets) game.pets.release();
+    if (news) {
+      game._batchNews = null;
+      for (const [text, cls] of news.notes.values()) game.msg(text, cls);
+      flushUnlockNews(game, news.unlocks);
+    }
+  }
+}
+
 /** The instant make at a station (cook, cookdish, smith, craft, recipe): this
  *  recipe's whole batch, and with "Do all" every recipe after it, in the same
  *  moment. `once(a)` makes one item of whatever `a` now is (a "Do all" can move
@@ -108,8 +132,7 @@ function batchOne(game, a, once) {
  *  Returns false (the station is done). */
 export function makeBatch(game, a, once) {
   let any = 0;
-  const held = game.pets?.hold();   // a pet roll for every item made, not one for the batch (pets.js)
-  try {
+  batched(game, () => {
     any += batchOne(game, a, () => once(a));
     while (a.all) {
       (a.done ||= new Set()).add(key(a));
@@ -118,7 +141,7 @@ export function makeBatch(game, a, once) {
       Object.assign(a, { rawId: undefined, recipe: undefined, skill: undefined }, nxt);
       any += batchOne(game, a, () => once(a));
     }
-  } finally { if (held) game.pets.release(); }
+  });
   if (any > 0) {
     game.bus.emit('sfx', a.type === 'smith' ? 'clang' : 'gather');
     game.spawnSparkle?.(game.player, '#ffd24a', 10);

@@ -7,10 +7,10 @@ import { getItem } from '../data/items.js';
 import { POTIONS } from '../data/trades.js';
 import * as Culling from './culling.js';
 
-/** How much one of `id` would heal you now (0 when it doesn't heal). */
-export function healOf(game, id) {
+/** How much one of `id` would heal you now (0 when it doesn't heal). `max`:
+ *  your max life, when the caller already has it (maxHp sums all your gear). */
+export function healOf(game, id, max = game.maxHp()) {
   const item = getItem(id);
-  const max = game.maxHp();
   const pot = POTIONS[id];
   if (pot) return pot.fx.heal ? Math.round(max * pot.fx.heal) : 0;
   if (!item?.heal) return 0;
@@ -20,7 +20,8 @@ export function healOf(game, id) {
 /** What a tap would use: { index, id, count, heal, drink } or null when you
  *  carry nothing that heals. */
 export function quickUseChoice(game) {
-  const missing = Math.max(0, game.maxHp() - game.player.hp);
+  const max = game.maxHp();   // once, not once per kind of item carried
+  const missing = Math.max(0, max - game.player.hp);
   const seen = new Map();   // id -> { index of its first slot, count }
   game.inventory.slots.forEach((s, i) => {
     if (!s) return;
@@ -30,7 +31,7 @@ export function quickUseChoice(game) {
   });
   let best = null;
   for (const [id, e] of seen) {
-    const heal = healOf(game, id);
+    const heal = healOf(game, id, max);
     if (heal <= 0) continue;
     const c = { index: e.index, id, count: e.count, heal, drink: !!POTIONS[id] };
     if (!best) { best = c; continue; }

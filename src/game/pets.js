@@ -84,7 +84,9 @@ export class Pets {
     game.bus.on('xp', (e) => {
       if (!e || !LIFE.has(e.skill) || !(e.amount > 0)) return;
       // An instant batch (hold/release) counts its makes and rolls for them all at the end.
-      if (this._held) { this._held[e.skill] = (this._held[e.skill] || 0) + 1; return; }
+      // A held 'xp' from Skills (skillset.js) stands for `count` gains, so `count` makes.
+      const n = e.count > 1 ? e.count : 1;
+      if (this._held) { this._held[e.skill] = (this._held[e.skill] || 0) + n; return; }
       const t = game.tickCount || 0;
       if (this._rolled[e.skill] === t) return;
       this._rolled[e.skill] = t;
