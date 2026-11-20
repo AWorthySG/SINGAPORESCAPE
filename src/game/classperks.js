@@ -22,7 +22,7 @@ const SIGNATURE = {
   brawler: 'Claws: the quickest swings in the game and extra critical hits, with a light cleave. Your blows open wounds: the foe takes 5% more damage per stack (one stack a second), up to 30 stacks (+150%).',
   samurai: 'Keen katanas: quick, balanced and extra critical hits.',
   halberdier: 'Halberds: slow, huge blows from 3 tiles with a wide cleave.',
-  archer: 'Shortbows loose an arrow every 0.15s, twice as fast as a longbow.',
+  archer: 'Shortbows loose an arrow every 0.15s, twice as fast as a longbow, and each spread of three fans out: the 2nd and 3rd arrows fly to the nearest other foes within 2 tiles of your target.',
   ranger: 'Longbows: each arrow hits 60% harder, from a little further than a shortbow, and pierces on into a monster lined up behind your target (30% of the hit; 2 monsters from Ranged 40, 3 from Ranged 70).',
   wizard: 'Staves cast powerful spells; elemental staves supply unlimited runes of their element.',
   sorcerer: 'Wands cast quickly: lighter spells, but more of them.',
