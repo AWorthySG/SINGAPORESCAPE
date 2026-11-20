@@ -1,6 +1,6 @@
 import { getItem, TWO_HANDED_TYPES, QUIVER_BOW_TYPES } from '../data/items.js';
 import { ARMOUR_SETS } from '../data/sets.js';
-import { masteryBonuses, qualityBonuses, masteryType, enchantedBonuses, rankFor, migrateOld, MAX_ENCHANTS, ENCHANT_STEP } from './mastery.js';
+import { masteryBonuses, qualityBonuses, masteryType, enchantedBonuses, rankFor, migrateOld, MAX_ENCHANTS, ENCHANT_STEP, enchantValue } from './mastery.js';
 import { validQuality, QUALITY_ORDER } from './loot.js';
 import { refinedBonuses, MAX_REFINE } from './refine.js';
 
@@ -283,7 +283,9 @@ export class Equipment {
       for (const [id, lines] of Object.entries(src || {})) {
         if (!itemExists(id) || !Array.isArray(lines)) continue;
         const ok = lines.filter((l) => l && ENCHANT_STEP[l.stat] && typeof l.value === 'number' && l.value > 0).slice(0, MAX_ENCHANTS);
-        if (ok.length) out[id] = ok.map((l) => ({ stat: l.stat, value: Math.floor(l.value) }));
+        // A line is never bigger than one rolled today (enchantValue): lines from
+        // before the late-game taper come down to today's size for the item.
+        if (ok.length) out[id] = ok.map((l) => ({ stat: l.stat, value: Math.min(Math.floor(l.value), enchantValue(id, l.stat)) }));
       }
       return out;
     };

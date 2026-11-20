@@ -104,9 +104,10 @@ export const MEGA_CRIT_CHANCE = 0.25;
 
 /** Critical-hit chance: scales with the attacking skill level, plus gear crit %.
  *  Level 99 alone gives ~15%; gear adds flat percent on top. It can reach 100%
- *  (every hit a crit). */
+ *  (every hit a crit). The level's share stops growing at LEVEL_BONUS_CAP (30%),
+ *  like the level bonuses below: it used to reach 100% on its own by level 667. */
 export function critChance(level, equipCrit = 0) {
-  return Math.min(1, level * 0.0015 + (equipCrit || 0) / 100);
+  return Math.min(1, Math.min(level || 0, LEVEL_BONUS_CAP) * 0.0015 + (equipCrit || 0) / 100);
 }
 
 // ----- Combat weakness (rock-paper-scissors style triangle) -----
@@ -279,6 +280,24 @@ export function weaknessOf(def) {
 // the square of the level (a level 5000 fighter one-shot monsters of its level).
 // Past the cap, damage grows in a straight line with level, like monster HP does.
 export const LEVEL_BONUS_CAP = 200;
+
+// Late-game damage taper. Measured headlessly (auto battle against monsters of
+// your level), a player's damage grew far faster than monster life past level
+// 100: a regular monster that took 1.3 s to kill at level 100 took 0.45 s at
+// 300 and 0.03 s at 5,000 with the same kind of kit (a well-upgraded fighter
+// one-shot everything), and bosses fell in seconds.
+// Past DAMAGE_TAPER_FROM every max hit is scaled by (from + K) / (level + K),
+// with K the spell's level divisor (MAGIC_LEVEL_DIV): the taper falls exactly
+// as fast as a spell's level multiplier (1 + Magic / 80) grows, so no style's
+// max hit ever drops as you level (a caster's holds steady, a fighter's still
+// climbs), and gear, quality, mastery, refining and enchanting keep all of their
+// value. Only the level's runaway share is trimmed; up to level 100 nothing changes.
+export const DAMAGE_TAPER_FROM = 100;
+/** The damage taper at a fighting level: 1 up to DAMAGE_TAPER_FROM, then (from + 80) / (level + 80). */
+export function damageTaper(level) {
+  const l = level || 0;
+  return l <= DAMAGE_TAPER_FROM ? 1 : (DAMAGE_TAPER_FROM + MAGIC_LEVEL_DIV) / (l + MAGIC_LEVEL_DIV);
+}
 export function levelBonuses(skills = {}) {
   const lv = (n) => Math.min(LEVEL_BONUS_CAP, n || 0);
   const half = (n) => Math.floor(lv(n) / 2);
@@ -311,7 +330,7 @@ export function playerAttackVsNpc(skills, equip, styleId, npc, hand = null) {
   // it was for a player who had trained Attack and Strength evenly.
   const mh = Math.round(maxHit(skills.strength + Math.floor(skills.attack * ATTACK_TO_STRENGTH), style.str, bonuses.strength) * MELEE_BONUS.dmg * weaponDmgMult(equip)) + 1
     + scaledFlat(skills.attack || 0, equip);   // the flat damage every Melee level adds
-  return { max: Math.max(1, Math.round(mh / numScale(npc))) };
+  return { max: Math.max(1, Math.round(mh * damageTaper(skills.attack) / numScale(npc))) };
 }
 
 export function npcAttackVsPlayer(npc, skills, equip, styleId) {
@@ -340,7 +359,7 @@ export function playerRangedVsNpc(skills, equip, styleId, npc, arrowStr, hand = 
   const str = arrowStr + Math.floor((b.ranged || 0) / 2);
   return {
     max: Math.max(1, Math.round((Math.round(maxHit(skills.ranged, 0, str) * RANGED_BONUS.dmg * weaponDmgMult(equip)) + 1
-      + scaledFlat(skills.ranged, equip)) / numScale(npc))),   // plus the flat damage every Ranged level adds
+      + scaledFlat(skills.ranged, equip)) * damageTaper(skills.ranged) / numScale(npc))),   // plus the flat damage every Ranged level adds
   };
 }
 
@@ -363,7 +382,7 @@ export function playerDanceVsNpc(skills, equip, styleId, npc, rhythm = 0) {
   // The whip's power comes from Agility and Ranged together (see Skills.danceLevel).
   const lvl = skills.dance ?? skills.agility;
   return {
-    max: Math.max(1, Math.round((Math.round(maxHit(lvl, st.str, b.dance) * DANCE_BONUS.dmg * weaponDmgMult(equip) * (1 + Math.min(RHYTHM_MAX, rhythm) * RHYTHM_DMG)) + 1) / numScale(npc))),
+    max: Math.max(1, Math.round((Math.round(maxHit(lvl, st.str, b.dance) * DANCE_BONUS.dmg * weaponDmgMult(equip) * (1 + Math.min(RHYTHM_MAX, rhythm) * RHYTHM_DMG)) + 1) * damageTaper(lvl) / numScale(npc))),
   };
 }
 
@@ -398,6 +417,6 @@ export function playerMagicVsNpc(skills, equip, spell, npc) {
     // level 50 mage hits ~1.6x the spell's base and a level 99 mage ~2.2x.
     // The spell's base grows with Magic too (see spellBaseHit). (A dmgMult on an element would scale it.)
     max: Math.max(1, Math.round(((spellBaseHit(spell, skills.magic) + magicLevelBase(skills.magic) + (b.magicStr || 0)) * (1 + skills.magic / MAGIC_LEVEL_DIV)
-      * (ELEMENTS[spell.element]?.dmgMult || 1) * weaponDmgMult(equip) + scaledFlat(skills.magic, equip, 0.5)) / numScale(npc))),   // plus the flat damage every Magic level adds
+      * (ELEMENTS[spell.element]?.dmgMult || 1) * weaponDmgMult(equip) + scaledFlat(skills.magic, equip, 0.5)) * damageTaper(skills.magic) / numScale(npc))),   // plus the flat damage every Magic level adds
   };
 }
