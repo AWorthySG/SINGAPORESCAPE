@@ -2901,10 +2901,12 @@ body #tip-toast.tip-strip { font-size: 11px; padding: 4px 6px 4px 7px; border-ra
      the sheet anyway, and size containment on a scroller inside a transformed,
      animated fixed sheet is the kind of thing iOS Safari has hit-tested wrongly. */
   #sidepanel:not(.collapsed) #panel-body { height: auto; max-height: none; min-height: 0; contain: none; overflow-y: auto; }
-  /* Minimal HUD fades the panel while you explore; an open sheet is something
-     you asked for, so it stays solid. (Faded to nothing, a tap on it only
-     brought it back: iOS treats a tap that reveals content as a hover.) */
-  #game-root.hud-min #sidepanel:not(.collapsed) { opacity: 1; }
+  /* Minimal HUD fades the panel while you explore, but not here: an open
+     sheet is something you asked for, and the folded launcher is the only way
+     to the Bag and Skills, like the action buttons it keeps. (Faded to
+     nothing, it came back only while it held the iOS "hover" of a tap, so it
+     vanished and reappeared as you played.) */
+  #game-root.hud-min #sidepanel.collapsed, #game-root.hud-min #sidepanel:not(.collapsed) { opacity: 1; }
   #sidepanel:not(.collapsed) #inventory-grid { grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); }
   /* Shop and bank grids fill the sheet's width rather than a fixed 8 or 6. */
   #modal-body .item-grid, #modal-body .item-grid.shop { grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); }
