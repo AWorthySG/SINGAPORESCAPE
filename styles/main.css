@@ -61,6 +61,32 @@
   --stroke-hair: 1.5px; --stroke: 2px; --stroke-bold: 2.5px;
   /* Sticker shadows are the --shadow-sticker-* and --shadow-primary set above. */
 
+  /* Sticker card kit (the "Sticker card UI kit" block at the end of this
+     sheet). Paper: warm cream cards with a faint grain (an inline SVG noise,
+     so no image request) that match the painted art's paper. */
+  --paper:      #FFFCF5;   /* cards and panels */
+  --paper-warm: #FFF5E1;   /* headers and raised strips */
+  --paper-deep: #F8F1E2;   /* the well a window's contents sit in */
+  --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.15' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .33 0 0 0 0 .16 0 0 0 -.9 .48'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23g)'/%3E%3C/svg%3E");
+  --rim: #FFFFFF;          /* the die-cut white border round a floating sticker */
+  /* Radii by role: windows, panels, cards and buttons, slots, chips. */
+  --r-window: var(--r4); --r-panel: var(--r3); --r-card: var(--r2); --r-slot: var(--r1); --r-chip: var(--r-pill);
+  /* Floating stickers: ink outline (the border), white die-cut rim, a hard
+     offset shadow and a soft one so they sit on the world. */
+  --shadow-float:    0 0 0 3px var(--rim), 0 6px 0 3px rgba(34,48,74,0.16), 0 18px 34px -10px rgba(70,45,15,0.34);
+  --shadow-float-sm: 0 0 0 2px var(--rim), 0 4px 0 2px rgba(34,48,74,0.14), 0 10px 20px -8px rgba(70,45,15,0.3);
+  --shadow-btn:      0 3px 0 rgba(34,48,74,0.24);
+  --shadow-btn-hi:   0 4px 0 rgba(34,48,74,0.24);
+  --shadow-btn-down: 0 1px 0 rgba(34,48,74,0.24);
+  /* Gloss: a soft highlight over bars and buttons (layered over their colour). */
+  --gloss: linear-gradient(180deg, rgba(255,255,255,0.55) 0, rgba(255,255,255,0.18) 42%, rgba(255,255,255,0) 52%, rgba(0,0,0,0.08) 100%);
+  --btn-gloss: linear-gradient(180deg, rgba(255,255,255,0.3), rgba(255,255,255,0) 55%);
+  /* Display type: Nunito at its heaviest (it is the one font the game loads). */
+  --font-display: "Nunito", ui-rounded, "Nunito Fallback", system-ui, sans-serif;
+  --fw-display: 950;
+  --ease-pop: cubic-bezier(.2, .9, .3, 1.3);
+  --ease-out: cubic-bezier(.2, .8, .3, 1);
+
   /* Legacy names the rest of the sheet (and inline UI markup) still use,
      re-pointed at text-safe A-Worthy values on light paper. */
   --bg:        var(--aw-bg);
@@ -3841,3 +3867,180 @@ body.reduce-motion #boss-bar.warn { animation: none; }
 .equip-slot .qty { position: absolute; top: 1px; left: 3px; font-size: 10px; font-weight: 900; color: var(--aw-text); pointer-events: none; }
 .equip-slot .qty.k { color: var(--aw-sky-deep); }
 .equip-slot .qty.m { color: var(--aw-grass-deep); }
+/* ============================================================================
+   Sticker card UI kit
+   One look for every window, panel, button, tab and bar, built from the
+   tokens at the top of this sheet (--paper*, --r-*, --shadow-float*,
+   --shadow-btn*, --gloss, --font-display):
+   - Cards: cream paper with a faint grain, navy ink outline, a white die-cut
+     rim and a soft drop shadow, so they read as stickers on the world.
+   - Buttons: chunky stickers that lift on hover and press down on click.
+     Primary is rust, secondary is paper, chips are small pills (ink when on).
+   - Tabs: rounded tiles; the open one is a rust sticker.
+   - Bars: a soft gloss over the fill, an inset track, and they ease.
+   Motion is transform and opacity only; reduced motion stills it (the
+   prefers-reduced-motion block above covers every transition here).
+   ============================================================================ */
+
+/* ---- Cards and panels ---- */
+#sidepanel, #chatbox, #modal-window, #context-menu, #tooltip, #quest-tracker, .nl-card, #boss-bar, .class-spot {
+  background-color: var(--paper);
+  background-image: var(--paper-grain);
+}
+#modal-window, #sidepanel, #chatbox { box-shadow: var(--shadow-float); }
+#context-menu, #tooltip, #quest-tracker, .nl-card, #boss-bar { box-shadow: var(--shadow-float-sm); }
+#modal-window { border-width: var(--stroke-bold); border-radius: var(--r-window); }
+#modal-window #modal-body { background: var(--paper-deep) var(--paper-grain); }
+#sidepanel #panel-body { background: var(--paper-deep) var(--paper-grain); }
+#chat-head, #panel-head, #modal-title, #context-menu .ctx-title {
+  background-color: var(--paper-warm); background-image: var(--paper-grain);
+}
+#chat-head, #panel-head { border-bottom: 2px solid var(--aw-ink-faint); }
+
+/* ---- Type: display headings in heavy Nunito; labels stay small caps ---- */
+#modal-title, #panel-head, #chat-head, .splash-title, .class-spot-name b, #banner .big, #boss-bar-name {
+  font-family: var(--font-display);
+}
+#modal-title { font-weight: var(--fw-display); font-size: var(--fs-xl); letter-spacing: -0.01em; text-shadow: 0 2px 0 var(--rim); }
+#panel-head, #chat-head { font-weight: var(--fw-display); font-size: var(--fs-md); letter-spacing: 0; }
+.modal-section-title { font-size: var(--fs-xs); font-weight: var(--fw-label); text-transform: uppercase; letter-spacing: .06em; color: var(--aw-text-sec); }
+
+/* ---- Buttons ---- */
+/* Secondary: paper stickers. */
+.style-btn, #settings-panel button, .bestiary-open, .bank-deposit-all, .q-auto, .chat-tab, .sg-auto, .perks-open,
+.cp-step, #modal-close, #panel-collapse, #chat-collapse, #auto-menu-btn {
+  border: var(--stroke) solid var(--aw-ink);
+  font-weight: var(--fw-label);
+  background-image: var(--btn-gloss);
+  box-shadow: var(--shadow-btn);
+  transition: translate .14s var(--ease-pop), box-shadow .14s ease, background-color .14s ease, filter .14s ease;
+}
+/* Primary: rust stickers. */
+.q-go, .wm-go, .st-all, .class-spot-go, #splash-enter, .style-btn.active, .chat-tab.active {
+  background-color: var(--aw-accent); color: #fff; border: var(--stroke) solid var(--aw-ink);
+  background-image: var(--btn-gloss);
+  box-shadow: 0 3px 0 var(--aw-accent-dk), inset 0 -2px 0 rgba(0,0,0,0.1);
+  transition: translate .14s var(--ease-pop), box-shadow .14s ease, background-color .14s ease;
+}
+.wm-go.ride { background-color: var(--aw-sky-deep); box-shadow: 0 3px 0 #164F78, inset 0 -2px 0 rgba(0,0,0,0.1); }
+@media (hover: hover) {
+  .style-btn:hover, #settings-panel button:hover, .bestiary-open:hover, .bank-deposit-all:hover, .q-auto:hover, .chat-tab:hover, .sg-auto:hover,
+  .perks-open:hover, .cp-step:hover, #modal-close:hover, #auto-menu-btn:hover {
+    translate: 0 -1px; box-shadow: var(--shadow-btn-hi);
+  }
+  .q-go:hover, .wm-go:hover, .st-all:hover, .class-spot-go:hover, #splash-enter:hover, .style-btn.active:hover {
+    translate: 0 -1px; background-color: #CB4434; box-shadow: 0 4px 0 var(--aw-accent-dk), inset 0 -2px 0 rgba(0,0,0,0.1);
+  }
+}
+/* Pressed: the sticker goes down onto its shadow. */
+.style-btn:active, #settings-panel button:active, .bestiary-open:active, .bank-deposit-all:active, .q-auto:active, .chat-tab:active, .sg-auto:active,
+.perks-open:active, .cp-step:active, #modal-close:active, #panel-collapse:active, #chat-collapse:active, #auto-menu-btn:active {
+  transform: none; translate: 0 2px; box-shadow: var(--shadow-btn-down); transition-duration: .05s;
+}
+.q-go:active, .wm-go:active, .st-all:active, .class-spot-go:active, #splash-enter:active, .style-btn.active:active {
+  transform: none; translate: 0 2px; box-shadow: 0 1px 0 var(--aw-accent-dk); transition-duration: .05s;
+}
+#panel-collapse, #chat-collapse { box-shadow: 0 2px 0 rgba(34,48,74,0.24); }
+
+/* Chips: small pills for filters and choices; the chosen one is ink. */
+.inv-tab, .gear-tab, .wm-chip, .as-opt, .cb-perks, .cp-chip {
+  border: var(--stroke-hair) solid var(--aw-ink); font-weight: var(--fw-label);
+  transition: background-color .12s ease, color .12s ease, translate .12s var(--ease-pop);
+}
+@media (hover: hover) {
+  .inv-tab:not(.active):hover, .gear-tab:not(.active):hover, .wm-chip:hover, .as-opt:not(.active):hover, .cb-perks:hover, .cp-chip:hover {
+    background-color: var(--aw-hover); filter: none;
+  }
+}
+.inv-tab:active, .gear-tab:active, .wm-chip:active, .as-opt:active, .cb-perks:active, .cp-chip:active { translate: 0 1px; }
+.inv-tab.active, .gear-tab.active, .as-opt.active {
+  background-color: var(--aw-ink); color: #fff; border-color: var(--aw-ink);
+  box-shadow: inset 0 2px 0 rgba(255,255,255,0.14);
+}
+.cx-view { display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
+.cx-view img { flex: none; width: 18px; height: 18px; }
+
+/* Text boxes. */
+#modal-body input[type="text"], #modal-body input[type="search"], #modal-body input:not([type]), .bank-search {
+  background: var(--paper); border: var(--stroke) solid var(--aw-ink); border-radius: var(--r-chip);
+  box-shadow: inset 0 2px 0 rgba(34,48,74,0.08); color: var(--aw-text); font-weight: 700;
+}
+#modal-body input:focus, .bank-search:focus { outline: none; border-color: var(--aw-ink); box-shadow: 0 0 0 3px var(--aw-sun), inset 0 2px 0 rgba(34,48,74,0.08); }
+input[type="checkbox"], input[type="radio"], input[type="range"] { accent-color: var(--aw-accent); }
+
+/* Keyboard focus: one sunny ring for every control. */
+button:focus-visible, .tab-btn:focus-visible, [role="button"]:focus-visible, [role="tab"]:focus-visible {
+  outline: 3px solid var(--aw-sun); outline-offset: 2px;
+}
+
+/* ---- Tabs: rounded tiles in the side panel's rail ---- */
+#panel-tabs { gap: 3px; padding: 4px 3px; border-left: 2px solid var(--aw-ink-faint); background: var(--aw-sidebar) var(--paper-grain); }
+#panel-tabs .tab-btn {
+  border: var(--stroke) solid transparent; border-radius: var(--r-card); background-color: transparent;
+  transition: background-color .14s ease, translate .14s var(--ease-pop), box-shadow .14s ease;
+}
+#panel-tabs .tab-btn img, #panel-tabs .tab-btn svg { transition: transform .2s var(--ease-pop); }
+@media (hover: hover) {
+  #panel-tabs .tab-btn:not(.active):hover { background-color: var(--paper); border-color: var(--aw-ink-faint); }
+  #panel-tabs .tab-btn:not(.active):hover img, #panel-tabs .tab-btn:not(.active):hover svg { transform: translateY(-1px) rotate(-4deg) scale(1.06); }
+}
+#panel-tabs .tab-btn.active, #panel-tabs .tab-btn.active:hover {
+  background-color: var(--aw-accent); background-image: var(--btn-gloss); border-color: var(--aw-ink);
+  box-shadow: 0 3px 0 var(--aw-accent-dk);
+}
+#panel-tabs .tab-btn.active img, #panel-tabs .tab-btn.active svg { filter: drop-shadow(0 1px 0 rgba(0,0,0,0.18)); }
+#panel-tabs .tab-btn:active { translate: 0 1px; }
+/* The Bag | Gear switch: one rounded sticker cut in two. */
+.subtab-btn { background-image: var(--btn-gloss); }
+.subtab-btn.active { box-shadow: inset 0 -2px 0 rgba(0,0,0,0.12); }
+
+/* ---- Menus and tooltips ---- */
+#context-menu { border-radius: var(--r-card); padding-bottom: 4px; }
+#context-menu .ctx-item { margin: 2px 4px 0; border-radius: var(--r-slot); }
+#tooltip { border-radius: var(--r-card); padding: 8px 11px; line-height: 1.4; font-size: var(--fs-sm); }
+#tooltip b:first-child, #tooltip .tt-name { font-family: var(--font-display); font-weight: var(--fw-display); }
+
+/* ---- Rows that open something: cards that lift ---- */
+.dialogue-option { border-radius: var(--r-card); background-image: var(--btn-gloss); transition: translate .14s var(--ease-pop), box-shadow .14s ease; }
+.dialogue-option:hover { transform: none; translate: 0 -2px; }
+.dialogue-option:active { translate: 0 1px; box-shadow: var(--shadow-btn-down); }
+.perks-open { border-radius: var(--r-card); }
+
+/* ---- Bars: a soft gloss over every fill, an inset track, and they ease ---- */
+.skill-cell .xp-bar, #adrenaline-fill, #boss-bar-fill, .sl-fill, .bounty-bar i, .codex-bar i, .mastery-bar span,
+.ach-bar i, .prayer-cell .pr-bar i, .cx-bar i, .pc-bar i, .cl-bar i, .lsx-bar i, .rep-bar i,
+#prayer-panel .bl-faith-bar i, #play-hud .ph-bar i {
+  background-image: var(--gloss);
+}
+.bounty-bar i, .codex-bar i, .mastery-bar span, .ach-bar i, .cx-bar i, .pc-bar i, .cl-bar i, .lsx-bar i, .rep-bar i, #prayer-panel .bl-faith-bar i {
+  border-radius: var(--r-pill); transition: width .45s var(--ease-out);
+}
+#adrenaline-fill, #boss-bar-fill { transition: width .35s var(--ease-out), transform .35s var(--ease-out); }
+.bounty-bar, .codex-bar, .mastery-bar, .ach-bar, .cx-bar, .pc-bar, .cl-bar, .lsx-bar, .rep-bar, #play-hud .ph-bar, .sl-track, #boss-bar-track {
+  box-shadow: inset 0 2px 0 rgba(34,48,74,0.1);
+}
+
+/* ---- Gentle opening: windows pop, panels and pages fade up ---- */
+@media (prefers-reduced-motion: no-preference) {
+  #modal-overlay:not(.hidden) { animation: kitFade .18s ease-out both; }
+  #sidepanel:not(.collapsed) .panel-view:not(.hidden) { animation: kitRise .2s var(--ease-out) both; }
+  #context-menu:not(.hidden) { animation: kitPop .14s var(--ease-pop) both; transform-origin: 0 0; }
+  #tooltip:not(.hidden) { animation: kitFade .12s ease-out both; }
+}
+/* Mouse screens: the window pops in (touch screens keep their sliding sheets). */
+@media (prefers-reduced-motion: no-preference) and (pointer: fine) {
+  #modal-window { animation: kitPop .26s var(--ease-pop) both; }
+}
+@keyframes kitFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes kitPop { from { opacity: 0; transform: translateY(8px) scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes kitRise { from { opacity: .4; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+/* Desktops blur the world a touch behind a window (phones skip the cost). */
+@media (hover: hover) and (pointer: fine) {
+  #modal-overlay { -webkit-backdrop-filter: blur(1.5px); backdrop-filter: blur(1.5px); }
+}
+
+/* ---- Scrollbars: soft ink thumbs on the paper ---- */
+* { scrollbar-color: rgba(34,48,74,0.32) transparent; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(34,48,74,0.3); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: rgba(34,48,74,0.5); background-clip: padding-box; }

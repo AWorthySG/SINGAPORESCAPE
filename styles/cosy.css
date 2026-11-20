@@ -61,7 +61,8 @@
 
 /* ---------------- Title: the card ---------------- */
 #splash.cosy .splash-inner {
-  background: linear-gradient(180deg, #FFFDF7, #FFF6E6);
+  background: var(--paper-grain, none), linear-gradient(180deg, #FFFDF7, #FFF6E6);
+  box-shadow: var(--shadow-float, 0 5px 0 rgba(34,48,74,0.14));
 }
 /* "Steady lah, adventurer!": a tilted sticker on the card's corner. */
 .splash-lah {
