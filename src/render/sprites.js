@@ -466,6 +466,37 @@ const RIGS = {
     order: ['tail', 'limb2', 'base', 'limb', 'head'],
     piv: { base: [0.4401, 0.5476], head: [0.7031, 0.5734], limb: [0.6869, 0.6995], limb2: [0.4215, 0.5767], tail: [0.3953, 0.6598], head_roar: [0.7031, 0.5734], limb_strike: [0.6869, 0.6995] } }),
   // end of boss rigs D5
+  // Boss rigs D6 (RB51–RB60): measured from the parts sheets like D7, with the shared boss motions.
+  harimau_jadian: bossRig('harimau_jadian', { fit: 0.759,
+    order: ['tail', 'limb', 'base', 'limb2', 'head'],
+    piv: { base: [0.4209, 0.6409], head: [0.5197, 0.4688], limb: [0.6812, 0.6669], limb2: [0.4998, 0.6806], tail: [0.207, 0.5516], head_roar: [0.5197, 0.4688], limb_strike: [0.6812, 0.6669] } }),
+  // RB53: the far hand was placed by hand.
+  bunian_queen: bossRig('bunian_queen', { fit: 0.852, amp: { tail: 0.4 },
+    order: ['tail', 'limb2', 'base', 'limb', 'head', 'gem'],
+    piv: { base: [0.4956, 0.6194], head: [0.5025, 0.553], limb: [0.4954, 0.6195], limb2: [0.5115, 0.5937], tail: [0.4921, 0.6787], gem: [0.5087, 0.2076], head_roar: [0.5025, 0.553], limb_strike: [0.4954, 0.6195] } }),
+  typhoon_mother: bossRig('typhoon_mother', { fit: 0.798, amp: { tail: 0.4 },
+    order: ['tail', 'limb2', 'limb', 'base', 'head', 'gem'],
+    piv: { base: [0.5006, 0.4942], head: [0.5007, 0.4912], limb: [0.4879, 0.6012], limb2: [0.5266, 0.6999], tail: [0.5306, 0.6098], gem: [0.4728, 0.3602], head_roar: [0.5007, 0.4912], limb_strike: [0.4879, 0.6012] } }),
+  void_eel_leviathan: bossRig('void_eel_leviathan', { fit: 0.813,
+    order: ['tail', 'limb2', 'limb', 'base', 'head'],
+    piv: { base: [0.4822, 0.5574], head: [0.4519, 0.5247], limb: [0.5764, 0.718], limb2: [0.3553, 0.5773], tail: [0.6309, 0.1053], head_roar: [0.4519, 0.5247], limb_strike: [0.5764, 0.718] } }),
+  rift_tyrant: bossRig('rift_tyrant', { fit: 0.788,
+    order: ['tail', 'base', 'limb2', 'limb', 'head'],
+    piv: { base: [0.4502, 0.6093], head: [0.4705, 0.5601], limb: [0.5142, 0.6924], limb2: [0.5285, 0.6892], tail: [0.3448, 0.5938], head_roar: [0.4705, 0.5601], limb_strike: [0.5142, 0.6924] } }),
+  tuas_crane_colossus: bossRig('tuas_crane_colossus', { fit: 0.791,
+    order: ['tail', 'limb2', 'limb', 'base', 'head'],
+    piv: { base: [0.4988, 0.5069], head: [0.4988, 0.5068], limb: [0.6123, 0.6686], limb2: [0.2866, 0.6703], tail: [0.5257, 0.3052], head_roar: [0.4988, 0.5068], limb_strike: [0.6123, 0.6686] } }),
+  drowned_admiral: bossRig('drowned_admiral', { fit: 0.886, amp: { tail: 0.5 },
+    order: ['tail', 'limb', 'base', 'limb2', 'head'],
+    piv: { base: [0.4797, 0.6831], head: [0.5567, 0.4796], limb: [0.6414, 0.5832], limb2: [0.3875, 0.5975], tail: [0.4796, 0.6831], head_roar: [0.5567, 0.4796], limb_strike: [0.6414, 0.5832] } }),
+  // RB59: the far hand was placed by hand on the throne arm; the hair is the tail and barely stirs.
+  jenglot_sovereign: bossRig('jenglot_sovereign', { fit: 0.849, amp: { tail: 0.35 },
+    order: ['tail', 'limb2', 'limb', 'gem', 'base', 'head'],
+    piv: { base: [0.4574, 0.6476], head: [0.4098, 0.5999], limb: [0.4574, 0.6473], limb2: [0.6852, 0.6122], tail: [0.4551, 0.6484], gem: [0.5315, 0.1994], head_roar: [0.4098, 0.5999], limb_strike: [0.4574, 0.6473] } }),
+  todak_king: bossRig('todak_king', { fit: 0.879, amp: { tail: 0.15 },
+    order: ['tail', 'limb2', 'base', 'limb', 'head', 'gem'],
+    piv: { base: [0.4092, 0.5963], head: [0.4866, 0.4723], limb: [0.3688, 0.5164], limb2: [0.2881, 0.5393], tail: [0.4377, 0.7323], gem: [0.5039, 0.1878], head_roar: [0.4866, 0.4723], limb_strike: [0.3688, 0.5164] } }),
+  // end of boss rigs D6
 };
 const _rigImg = {};
 const rigDir = (kind) => (kind === 'species' ? 'species/rig' : kind === 'town' ? 'townsfolk/idle' : 'bosses/rig');

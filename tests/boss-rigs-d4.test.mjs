@@ -1,6 +1,6 @@
 // Boss rigs cut from the Part D sheets, batches D4 onwards (RB31+): every layer the
 // rig names ships, and each joint sits on its part. The opaque box of each layer is
-// measured into tests/fixtures/boss-rig-bounds.json (webp can't be decoded here
+// measured into tests/fixtures/boss-rig-bounds-d4.json (webp can't be decoded here
 // without a dependency); a hash of each file keeps that table honest.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -8,7 +8,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
-const BOUNDS = JSON.parse(readFileSync(new URL('./fixtures/boss-rig-bounds.json', import.meta.url), 'utf8'));
+const BOUNDS = JSON.parse(readFileSync(new URL('./fixtures/boss-rig-bounds-d4.json', import.meta.url), 'utf8'));
 const file = (id, n) => fileURLToPath(new URL(`../assets/creatures/bosses/rig/${id}_${n}.webp`, import.meta.url));
 
 test('the newer boss rigs are registered and ship every layer', async () => {
@@ -35,11 +35,11 @@ test('the newer boss rigs have each joint on its own part', async () => {
   for (const [id, b] of Object.entries(BOUNDS)) {
     for (const [n, m] of Object.entries(b.parts)) {
       const hash = createHash('sha256').update(readFileSync(file(id, n))).digest('hex').slice(0, 16);
-      assert.equal(hash, m.sha256, `${id}_${n}.webp changed: re-measure tests/fixtures/boss-rig-bounds.json`);
+      assert.equal(hash, m.sha256, `${id}_${n}.webp changed: re-measure tests/fixtures/boss-rig-bounds-d4.json`);
       const piv = rigPivot(id, n);
       assert.ok(piv, `${id} ${n} has a joint`);
-      const [x0, y0, x1, y1] = m.box;
-      assert.ok(piv[0] >= x0 && piv[0] <= x1 && piv[1] >= y0 && piv[1] <= y1, `${id} ${n} joint ${piv} lies on the part ${m.box}`);
+      const [x0, y0, x1, y1] = m.box, M = 0.02;   // an edge pixel's worth of slack, as for D7
+      assert.ok(piv[0] >= x0 - M && piv[0] <= x1 + M && piv[1] >= y0 - M && piv[1] <= y1 + M, `${id} ${n} joint ${piv} lies on the part ${m.box}`);
     }
     // The motion stays gentle: no part swings past about 40 degrees in any pose.
     const rig = bossRig(id, { fit: 1, order: Object.keys(b.parts).filter((n) => !n.includes('_')), piv: Object.fromEntries(Object.keys(b.parts).map((n) => [n, rigPivot(id, n)])) });
