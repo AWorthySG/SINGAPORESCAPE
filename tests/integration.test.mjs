@@ -2902,11 +2902,12 @@ test('Refine scrolls: rare from monsters, likelier from champions, always a few 
   g.rollDrops(boss);
   g._autoLoot = orig;
   const lvl = boss.def.tierLevel || boss.def.level || 1;
-  // (A late boss's siege, npcs.js bossSiegeScale, grows both piles by its factor.)
-  const siege = boss.def.siege || 1;
-  assert.ok(got >= 6 && got <= Math.round((10 + Math.floor(lvl / 75)) * siege), `boss dropped ${got} refine scrolls`);
+  // (A boss's siege, npcs.js bossSiegeScale, grows or shrinks both piles with its
+  // life, but a kill always leaves at least one of each.)
+  const siege = boss.def.siege || 1, pile = (n) => Math.max(1, Math.round(n * siege));
+  assert.ok(got >= pile(6) && got <= pile(10 + Math.floor(lvl / 75)), `boss dropped ${got} refine scrolls`);
   // Upgrade wards (which protect a refine) are counted as dropped too, not 100x.
-  assert.ok(wards >= 1 && wards <= Math.round(3 * siege), `boss dropped ${wards} upgrade wards`);
+  assert.ok(wards >= 1 && wards <= pile(3), `boss dropped ${wards} upgrade wards`);
   // Refine scrolls are earned, never bought.
   const { SHOPS } = await import('../src/data/shops.js');
   for (const sh of Object.values(SHOPS)) assert.ok(!(sh.stock || []).some((s) => s.id === R.SCROLL), 'not sold in shops');
@@ -4294,13 +4295,15 @@ test('boss rewards scale with their 100x health: big kill bonus, hoards of loot'
   assert.ok(gear.length >= 3, 'at least three pieces of class gear');
   assert.ok(loot.some(([id]) => id === 'upgrade_ward'), 'always an upgrade ward');
   const stone = loot.find(([id]) => id === 'upgrade_stone');
-  assert.ok(stone && stone[1] >= 20, 'a pile of upgrade stones');
+  // (Stones and the kill bonus follow the boss's life, npcs.js bossSiegeScale.)
+  const siege = boss.def.siege;
+  assert.ok(stone && stone[1] >= Math.round(20 * siege), 'a pile of upgrade stones');
   const coins = loot.filter(([id]) => id === 'coins').reduce((a, [, q]) => a + q, 0);
   if (coins) assert.ok(coins >= 100, 'coins come in boss-sized piles');
   const xp0 = g.skills.xp.attack;
   boss.hp = 0; g.npcs.push(boss);
   g.killNpc(boss);
-  assert.ok(g.skills.xp.attack - xp0 >= 35 * 4000 * XP_RATE * COMBAT_XP_RATE, 'the kill bonus is 100x what it was (at the combat XP rate)');
+  assert.ok(g.skills.xp.attack - xp0 >= boss.def.level * 4000 * siege * XP_RATE * COMBAT_XP_RATE * 0.99, 'the kill bonus is 100x what it was (at the combat XP rate)');
 });
 
 test('auto gather for Farming: plants and harvests patch after patch by itself', () => {

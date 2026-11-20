@@ -12,7 +12,7 @@ import { ALL_BOSS_IDS, NPCS } from '../src/data/npcs.js';
 import { BOSS_MECHANICS, MECH_STYLES, mechanicHowTo } from '../src/data/bossMechanics.js';
 import {
   startMechanic, clearMechanic, tickBossMechanics, mechAutoFight, mechLabel, inHazard,
-  MECH_FIRST_TICKS, SHIELD_TICKS, SHIELD_POOL, SHIELD_BURST, SHIELD_MEND, CIRCLE_TICKS, HEAL_EVERY, HEAL_CAP, ADDS_TICKS, CAST_TICKS, CAST_HIT,
+  MECH_FIRST_TICKS, SHIELD_TICKS, SHIELD_POOL, SHIELD_WRONG, SHIELD_BURST, SHIELD_MEND, CIRCLE_TICKS, HEAL_EVERY, HEAL_CAP, ADDS_TICKS, CAST_TICKS, CAST_HIT,
 } from '../src/game/bossmech.js';
 import { codexEntry } from '../src/game/codex.js';
 import { codexEntryHTML } from '../src/ui/codexui.js';
@@ -105,7 +105,8 @@ test('style shield: the right style breaks it fast, others barely; broken leaves
   game.combatMode = () => 'magic';
   for (let i = 0; i < 4; i++) game._applyPlayerHit(boss, 50);
   assert.equal(boss.hp, 10000, 'the boss takes nothing while shielded');
-  assert.equal(m.hp, 400 - 4 * 50 * 0.25, 'a wrong-style hit does a quarter');
+  assert.equal(m.hp, 10000 * SHIELD_POOL - 4 * 50 * SHIELD_WRONG, 'a wrong-style hit does only part');
+  assert.ok(SHIELD_WRONG < 1);
   // Right style: it breaks.
   game.combatMode = () => 'melee';
   let hits = 0;

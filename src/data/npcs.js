@@ -718,25 +718,29 @@ for (const d of Object.values(NPCS)) {
   d.maxHp = Math.round(d.maxHp * monsterHpScale(d.level));
 }
 
-// Late bosses are sieges again. Monster life above is scaled to keep pace with
-// the player's damage (x4 by level 350) but boss life was left alone, and gear
-// upgrades, perk ranks and blessings keep climbing past level 100: measured
-// headlessly with a typical build for each level (tools/balance, the late-damage
-// lab), a level-matched boss took about 4 minutes solo at level 100 but only
-// 20-30 s from level 300 to 1,000, and 10 s at 9,999. So a boss's life is
-// multiplied by bossSiegeScale: x1 up to level 100, easing up to BOSS_SIEGE.max
-// by level 300, flat to level 1,000, then rising gently (x2 by 9,999) with the
-// gear and perks that keep growing out there. Its rewards per minute stay where
-// they were: the kill XP is worth its whole life already, and the boss XP bonus,
-// coin and rune hoard and upgrade materials grow by the same factor (`siege`,
-// see Game.rollDrops and killNpc); one-off drops (gear, the signature weapon)
-// stay per kill, as they are at level 100.
-export const BOSS_SIEGE = { from: 100, to: 300, max: 12.5, lateFrom: 1000, latePow: 0.3 };
+// Boss fights last about 3-4 minutes solo, at every level. A boss's life is its
+// base life above times bossSiegeScale (stored as `siege`), set from real fights
+// measured headlessly (tools/balance/bossfight.mjs: auto battle against the
+// level-matched boss, mechanics and signature moves live, food in the bag) with
+// a typical build for each level. #467 had set it from damage into a dummy, which
+// leaves out the boss's armour, its mechanics, dodging and healers: real fights
+// ran 6-18 minutes below level 200 and 4-9 above (owner: "way too long"). It is
+// eased between the anchor levels below (log-log): under 1 for the early bosses,
+// whose base life was already too much, a siege of x8-10 from level 360, then
+// rising gently with the gear and perks that keep growing out there.
+// Rewards follow the effort: the kill XP is worth its whole life already, and the
+// boss XP bonus, coin and rune hoard and upgrade materials grow (or shrink) by
+// the same factor (see Game.rollDrops and killNpc), so they come as fast per
+// minute; one-off drops (gear, the signature weapon) stay per kill.
+export const BOSS_SIEGE = [[81, 0.25], [107, 0.42], [140, 1.2], [190, 1.4], [250, 2.2], [360, 9], [1200, 9.8], [4000, 12.8], [10000, 18]];
 export function bossSiegeScale(level) {
-  const { from, to, max, lateFrom, latePow } = BOSS_SIEGE, l = level || 1;
-  if (l <= from) return 1;
-  if (l <= to) { const s = (l - from) / (to - from); return 1 + (max - 1) * s * s; }
-  return max * (l <= lateFrom ? 1 : Math.pow(l / lateFrom, latePow));
+  const l = level || 1, pts = BOSS_SIEGE;
+  if (l <= pts[0][0]) return pts[0][1];
+  for (let i = 1; i < pts.length; i++) {
+    const [l0, s0] = pts[i - 1], [l1, s1] = pts[i];
+    if (l <= l1 || i === pts.length - 1) return s0 * Math.pow(s1 / s0, Math.log(l / l0) / Math.log(l1 / l0));
+  }
+  return pts[pts.length - 1][1];
 }
 for (const d of Object.values(NPCS)) {
   if (!d.boss || !d.attackable || !d.maxHp || d.siege) continue;

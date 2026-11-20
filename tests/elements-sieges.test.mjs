@@ -1,14 +1,16 @@
-// Late bosses as sieges, casters brought up to the other classes, and the spell
-// elements' sharper matchups and effects. The balance checks use the real game
-// headlessly (tools/balance/classlab.mjs) with a typical upgraded build for each
-// level, the build the late-game damage lab measured.
+// Boss fights of 3-4 minutes, casters brought up to the other classes, and the
+// spell elements' sharper matchups and effects. The balance checks use the real
+// game headlessly (tools/balance/classlab.mjs, and tools/balance/bossfight.mjs for
+// whole boss fights) with a typical upgraded build for each level, the build the
+// late-game damage lab measured.
 import './seed.mjs';   // seeded Math.random: no test fails on an unlucky roll
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { setupClass, dummyDps, pickTargets } from '../tools/balance/classlab.mjs';
+import { bossFight, bossesNear } from '../tools/balance/bossfight.mjs';
 import { NPC } from '../src/game/npc.js';
-import { getNpc, ALL_BOSS_IDS, bossSiegeScale, BOSS_SIEGE } from '../src/data/npcs.js';
+import { getNpc, ALL_BOSS_IDS, bossSiegeScale } from '../src/data/npcs.js';
 import { EQUIP_SLOTS } from '../src/game/equipment.js';
 import { masteryType, MASTERY_RANKS, enchantValue, isMagicItem, STONE as UP_STONE } from '../src/game/mastery.js';
 import { starterBlessings } from '../src/game/blessings.js';
@@ -48,42 +50,61 @@ function dps(cls, L, boss = false) {
 }
 const BOSSES = ALL_BOSS_IDS.map((id) => [id, getNpc(id)]).filter(([, d]) => !d.fixed && d.attackable);
 const bossFor = (L) => BOSSES.slice().sort((x, y) => Math.abs(x[1].level - L) - Math.abs(y[1].level - L))[0];
-/** Seconds for a solo typical build to bring down the boss nearest its level. */
-function bossTtk(cls, L) {
-  const [, d] = bossFor(L);
-  return d.maxHp * (d.hpScale || 1) / dps(cls, L, true);
-}
 const median = (v) => { const s = v.slice().sort((a, b) => a - b); return s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2; };
 
-test('boss life: x1 up to level 100, a siege by 300, rising gently past 1,000', () => {
-  assert.equal(bossSiegeScale(50), 1);
-  assert.equal(bossSiegeScale(100), 1);
-  assert.equal(bossSiegeScale(300), BOSS_SIEGE.max);
-  assert.equal(bossSiegeScale(1000), BOSS_SIEGE.max);
-  let prev = 1;
-  for (const L of [120, 200, 300, 600, 1000, 3000, 9999]) { const s = bossSiegeScale(L); assert.ok(s >= prev, `never falls (${L})`); prev = s; }
-  assert.ok(bossSiegeScale(9999) < BOSS_SIEGE.max * 2.1);
+test('boss life: well under x1 for the first bosses, a siege of about x9 from level 360, rising gently past 1,000', () => {
+  assert.ok(bossSiegeScale(50) < 0.5 && bossSiegeScale(100) < 1);
+  assert.ok(bossSiegeScale(400) > 8 && bossSiegeScale(1000) < 11);
+  let prev = 0;
+  for (const L of [50, 81, 100, 120, 150, 200, 300, 600, 1000, 3000, 9999]) { const s = bossSiegeScale(L); assert.ok(s >= prev, `never falls (${L})`); prev = s; }
+  assert.ok(bossSiegeScale(9999) < bossSiegeScale(1000) * 2);
   // Applied to every boss, and only to bosses.
   for (const [, d] of BOSSES) assert.equal(d.siege, bossSiegeScale(d.level));
   assert.equal(getNpc('goblin').siege, undefined);
 });
 
-test('a late boss takes about as long to bring down solo as a level 100 one (a siege, best fought with help)', () => {
-  // Before: a typical build took ~4 minutes at level 100 but 20-30 s at 300 and 1,000.
-  for (const cls of ['swordsman', 'archer']) {
-    const base = bossTtk(cls, 100);
-    assert.ok(base > 120 && base < 600, `${cls} level 100 boss: ${base.toFixed(0)} s`);
-    for (const L of [300, 1000]) {
-      const r = bossTtk(cls, L) / base;
-      assert.ok(r > 0.6 && r < 1.6, `${cls} level ${L} boss takes ${r.toFixed(2)}x level 100's`);
-    }
+test('a solo fight against a level-matched boss takes 3-4 minutes, mechanics and all, at every level', () => {
+  // Real fights (tools/balance/bossfight.mjs): auto battle against the boss nearest
+  // your fight level, its mechanic, signature move and ground attacks live. Before:
+  // 6-18 minutes below level 200 (and never over against a shield it couldn't
+  // break), 4-9 minutes above.
+  const times = [];
+  for (const [cls, L] of [['swordsman', 100], ['wizard', 100], ['swordsman', 300], ['wizard', 300], ['archer', 300], ['swordsman', 1000], ['wizard', 1000]]) {
+    const id = bossesNear(setupClass(cls, L).fightLevel())[0];
+    const r = bossFight(cls, L, id, { maxTicks: 1000 });
+    assert.ok(r.killed && !r.died, `${cls} ${L} beats ${id}`);
+    assert.ok(r.secs > 75 && r.secs < 480, `${cls} ${L} against ${id}: ${r.secs.toFixed(0)} s`);
+    times.push(r.secs);
   }
+  const med = median(times);
+  assert.ok(med > 150 && med < 330, `median ${med.toFixed(0)} s`);
+});
+
+test('a style shield of another style no longer stops a one-style class: it breaks it and wins in a few minutes', () => {
+  // Before: a Swordsman couldn't crack Toman's ranged shield in time, the boss
+  // mended 5% a time and the fight never ended (auto battle wandered off).
+  const r = bossFight('swordsman', 85, 'toman_tyrant', { maxTicks: 1000 });
+  assert.ok(r.killed && !r.died, 'beaten');
+  assert.ok(r.secs < 420 && r.mechShare < 0.35, `${r.secs.toFixed(0)} s, ${(r.mechShare * 100).toFixed(0)}% under the shield`);
+});
+
+test('a boss\'s reflect burns back at most a tenth of your life a tick, however many arrows you loose', () => {
+  const g = setupClass('archer', 300), p = g.player;
+  const boss = new NPC('slag_titan', p.x + 2, p.y, 0, {});
+  boss.reflectTicks = 3; boss.reflectFrac = 0.2;
+  const hp0 = p.hp;
+  for (let i = 0; i < 20; i++) g._applyPlayerHit(boss, 5000);
+  assert.ok(p.alive && hp0 - p.hp <= Math.ceil(g.maxHp() * 0.1), `took ${hp0 - p.hp} of ${g.maxHp()}`);
+  const hp1 = p.hp;
+  g.tickCount++;
+  g._applyPlayerHit(boss, 5000);
+  assert.ok(p.hp < hp1, 'and again the next tick');
 });
 
 test('auto battle still takes on a siege boss it could take on before, and its rewards keep pace', () => {
   const g = setupClass('swordsman', 300);
   const [id, d] = bossFor(300);
-  assert.ok(d.siege > 10);
+  assert.ok(d.siege > 3);
   // Its rough time-to-kill is siege x longer, and so is the allowance.
   assert.ok(g._autoCanBeat({ def: d, hp: d.maxHp, npcId: id }), 'a level-matched boss is fair game');
   // Upgrade materials and the hoard grow with the siege; one-off gear does not.
@@ -259,6 +280,6 @@ test('a spell\'s max hit counts its attunement, and the Stats tab agrees with th
 test('an Endless Gate boss keeps the wave\'s life, so its rewards are not a siege\'s', async () => {
   const { waveBossDef } = await import('../src/game/waves.js');
   const [id] = bossFor(1000);
-  assert.ok(getNpc(id).siege > 10);
+  assert.ok(getNpc(id).siege > 5);
   assert.equal(waveBossDef(id, 5, 1000).siege, 1);
 });

@@ -2391,8 +2391,12 @@ export class Game {
     this._pendingCrit = 0;
     if (npc.shieldTicks > 0 && dmg > 0) dmg = Math.max(1, Math.floor(dmg / 2));   // a boss shield halves the blow
     dmg = mechOnPlayerHit(this, npc, dmg);   // a style shield soaks it; an exposed boss takes more
-    if (npc.reflectTicks > 0 && dmg > 0 && this.player.alive) {
-      const back = Math.min(this.player.hp, Math.max(1, Math.round(dmg * (npc.reflectFrac || 0.2))), Math.ceil(this.maxHp() * 0.1));
+    // At most a tenth of your life a tick in all, not a tenth a hit: an Archer's
+    // volley (a dozen arrows a tick) was burnt back a dozen times and died from full life.
+    if (npc.reflectTicks > 0 && this._reflectTick !== this.tickCount) { this._reflectTick = this.tickCount; this._reflectLeft = Math.ceil(this.maxHp() * 0.1); }
+    if (npc.reflectTicks > 0 && dmg > 0 && this.player.alive && this._reflectLeft > 0) {
+      const back = Math.min(this.player.hp, Math.max(1, Math.round(dmg * (npc.reflectFrac || 0.2))), this._reflectLeft);
+      this._reflectLeft -= back;
       this.player.takeDamage(back);
       this.addHitsplat(this.player, back, { tint: '#f5b82e' });
       this.bus.emit('hp');
@@ -3761,7 +3765,9 @@ export class Game {
     }
     // Upgrade materials: stones from anything (bosses and champions most), wards from bosses.
     // A late boss's longer siege (npcs.js bossSiegeScale) leaves a bigger pile of
-    // stones, wards and scrolls, and a bigger hoard below, so they come as fast per minute.
+    // stones, wards and scrolls, and a bigger hoard below, so they come as fast per
+    // minute; an early boss's shorter fight (siege under 1) a smaller one, but
+    // always at least one ward and scroll.
     const siege = def.boss ? def.siege || 1 : 1;
     if (def.boss) loot.push([UP_STONE, Math.round(randInt(20, 50) * siege), 'rare']);
     else {
@@ -3771,11 +3777,11 @@ export class Game {
       if (npc.champion) stones = Math.max(2, stones);   // a champion always leaves a couple
       if (stones) loot.push([UP_STONE, stones, npc.champion ? 'rare' : 'common']);
     }
-    if (def.boss) loot.push([UP_WARD, Math.round(randInt(1, 3) * siege), 'epic']);
+    if (def.boss) loot.push([UP_WARD, Math.max(1, Math.round(randInt(1, 3) * siege)), 'epic']);
     else if (Math.random() < (npc.champion ? CHAMPION_WARD_CHANCE : 0)) loot.push([UP_WARD, 1, 'epic']);
     // Refine scrolls: rare from monsters, likelier from champions, a few from every boss (see refine.js).
     const scrolls = refineScrollDrop(def.tierLevel || def.level || 1, def.boss ? 'boss' : npc.champion ? 'champion' : 'normal');
-    if (scrolls) loot.push([REFINE_SCROLL, Math.round(scrolls * siege), def.boss ? 'epic' : 'rare']);
+    if (scrolls) loot.push([REFINE_SCROLL, Math.max(1, Math.round(scrolls * siege)), def.boss ? 'epic' : 'rare']);
     // Treasure trails: a rare clue scroll, if you aren't already carrying one.
     if (!this.clue && !this._holdsClue()) {
       const clueChance = Math.min(0.05, (def.tierLevel || def.level || 1) / 3000 + (def.boss ? 0.04 : 0.006));

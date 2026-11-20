@@ -15,12 +15,17 @@ export const MECH_FIRST_TICKS = 10;   // ~6s into a fight before the first one
 export const MECH_EVERY_TICKS = 26;   // then one every ~15s (counted from when the last one ends)
 export const MECH_RANGE = 10;         // the boss must be fighting you within this many tiles
 export const MECH_LEAVE = 15;         // walk further than this and it's called off
-// Style shield.
-export const SHIELD_TICKS = 18;       // ~11s to break it
-export const SHIELD_POOL = 0.04;      // of the boss's life
-export const SHIELD_WRONG = 0.25;     // what a hit of the wrong style does to it
+// Style shield. Sized for a fight of about 4 minutes (a boss's whole life in
+// ~240s of hitting): the right style breaks it in ~3s, any other style in ~4s,
+// inside its ~12s. It used to be 4% of the boss's life, a quarter for the wrong
+// style and a 5% mend when it burst: a class with one style (most of them) could
+// never break a shield of another, so the boss mended faster than it was hurt
+// and the fight never ended (measured headlessly, see tests/elements-sieges.test.mjs).
+export const SHIELD_TICKS = 20;       // ~12s to break it
+export const SHIELD_POOL = 0.01;      // of the boss's life
+export const SHIELD_WRONG = 0.6;      // what a hit of the wrong style does to it
 export const SHIELD_BURST = 0.25;     // of your life when it bursts unbroken
-export const SHIELD_MEND = 0.05;      // and the boss mends this much
+export const SHIELD_MEND = 0.02;      // and the boss mends this much
 export const EXPOSED_TICKS = 6;       // broken: the boss takes extra damage for ~3.6s
 export const EXPOSED_MULT = 1.5;
 // Safe circle.
@@ -29,9 +34,11 @@ export const CIRCLE_R = 6;            // the red covers 13x13 tiles round you
 export const CIRCLE_SAFE_R = 1;       // the green circle is 3x3
 // Healing adds.
 export const ADDS_TICKS = 30;         // they fade after ~18s
+// (A 15% cap at 1.5% a heal outpaced a modest build: a boss whose healers came
+// back every ~20s could mend more than it lost and never die.)
 export const HEAL_EVERY = 3;          // each heals every ~1.8s...
-export const HEAL_FRAC = 0.015;       // ...this much of the boss's life...
-export const HEAL_CAP = 0.15;         // ...up to this much in all
+export const HEAL_FRAC = 0.01;        // ...this much of the boss's life...
+export const HEAL_CAP = 0.06;         // ...up to this much in all
 // Interruptible cast.
 export const CAST_TICKS = 6;          // ~3.6s cast bar
 export const CAST_HIT = 0.35;         // of your life if it lands (never a one-shot)
