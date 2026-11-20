@@ -246,6 +246,18 @@ const RIFLE_PIERCE_TILES = 10;
 // ...and the round's wake also catches anything within 1 tile to either side of
 // its path (and beside the target), not just monsters squarely on the line.
 const RIFLE_PIERCE_WIDTH = 1;
+// Longbow arrows pierce too (the owner: "give longbows some form of AoE in the
+// early game"): each shot carries on through its target into the monsters
+// lined up behind it (within LONGBOW_PIERCE_WIDTH tiles of the line, up to
+// LONGBOW_PIERCE_TILES past the target), each taking LONGBOW_PIERCE_SHARE of
+// the shot. 1 extra foe from the start, 2 from Ranged 40, 3 from Ranged 70.
+// Only other monsters are hit, so single-target and boss damage is unchanged.
+// Sized so a Ranger clears a pack noticeably quicker than it did, but no
+// quicker than a shortbow Archer (a half share made it the faster of the two).
+export const LONGBOW_PIERCE_SHARE = 0.3;
+export const LONGBOW_PIERCE_TILES = 3, LONGBOW_PIERCE_WIDTH = 1;
+export const LONGBOW_PIERCE_LEVELS = [1, 40, 70];
+export const longbowPierceFoes = (ranged) => LONGBOW_PIERCE_LEVELS.filter((l) => ranged >= l).length;
 const CHAMPION_STACK_MULT = 1;
 // Good and evil in combat (see karmaCombat). The bonus grows through the three
 // alignment tiers (Kind-hearted / Virtuous / Paragon, Mischievous / Wicked / Villain).
@@ -2567,6 +2579,44 @@ export class Game {
       ex: from.x + ux * RIFLE_PIERCE_TILES * TILE, ey: from.y - 8 + uy * RIFLE_PIERCE_TILES * TILE, color: '#fff2b0', life, maxLife: life, arc: 0 });
   }
 
+  /** A longbow arrow passes through its target into up to longbowPierceFoes()
+   *  monsters lined up behind it (nearest first), each taking LONGBOW_PIERCE_SHARE
+   *  of the shot (rolling its own crit, at least 1), with Ranged XP. */
+  _longbowPierce(target, raw, style) {
+    const p = this.player;
+    const dx = target.x - p.x, dy = target.y - p.y, len = Math.hypot(dx, dy) || 1;
+    const ux = dx / len, uy = dy / len;
+    const hits = [];
+    for (const o of this.nearbyNpcs()) {
+      if (o === target || !o.alive || !o.attackable || o.ally || o.temporary || o.hp <= 0) continue;
+      const ox = o.x - p.x, oy = o.y - p.y;
+      const along = ox * ux + oy * uy - len;          // how far past the target
+      const off = Math.abs(ox * uy - oy * ux);        // how far to the side of the line
+      if (along < 0.5 || along > LONGBOW_PIERCE_TILES + 0.5 || off > LONGBOW_PIERCE_WIDTH + 0.01) continue;
+      if (this._aoeSpares(o)) continue;   // bosses aren't dragged in
+      hits.push([along, o]);
+    }
+    if (!hits.length) return;
+    hits.sort((a, b) => a[0] - b[0]);
+    hits.length = Math.min(hits.length, longbowPierceFoes(this.skills.ranged));
+    const m = this.combatXpMult();
+    for (const [, o] of hits) {
+      const c = this._aoeCrit(this._aoeShare(raw * LONGBOW_PIERCE_SHARE, target, o));
+      const d = Math.min(o.hp, c.dmg);
+      o.takeDamage(d);
+      this.addHitsplat(o, d, { aoe: true, tint: '#d9c45a', critX: c.critX });
+      this.spawnHitSparks(o, '#cfe0a0');
+      for (const x of combatXpRanged(style, d)) this.skills.addXp(x.skill, x.xp * m);
+      if (!o.target) o.target = p;
+      if (o.hp <= 0) this.killNpc(o);
+    }
+    // The arrow flies on from the target to the last foe it pierced.
+    const from = target.renderCenter(), to = hits[hits.length - 1][1].renderCenter();
+    const life = 120 + Math.hypot(to.x - from.x, to.y - from.y) / 0.8;
+    this.effects.push({ type: 'projectile', kind: 'arrow', x: from.x, y: from.y - 8, ex: to.x, ey: to.y - 8,
+      color: '#d9c45a', life, maxLife: life, arc: 0, ammo: this._shotAmmo || null, crit: false, gun: null });
+  }
+
   /** An ultimate's area: every other monster within `radius` tiles of the target
    *  takes the same damage (before crits; each rolls its own), with XP. */
   _abilityAoe(target, raw, mode) {
@@ -2833,6 +2883,7 @@ export class Game {
     if (wpn.coins && raw > 0) Mercs.allyCleave(this, npc, raw);
     this._abilityAoe(npc, raw, 'ranged');
     if (wpn.weaponType === 'rifle' && raw > 0) this._riflePierce(npc, raw, style);
+    if (wpn.weaponType === 'longbow' && raw > 0) this._longbowPierce(npc, raw, style);
     // Shots come as fast as the weapon and attack speed % allow (no floor).
     this._resetCooldown(this.attackInterval());
     this._postAttack(npc);
