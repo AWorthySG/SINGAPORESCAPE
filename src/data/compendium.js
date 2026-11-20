@@ -489,7 +489,7 @@ export const CHAPTERS = [
         body: [
           `Monsters wear armour that stops a share of every hit, by the kind of creature. Bosses and champions add ${pct(0.1)} each (and a little more or less by how far above or below you they are), up to ${pct(ARMOUR_CAP)} in all. Hitting a weakness gets past half of it.`,
           () => ({ table: { head: ['Armour', 'Stops', 'Who wears it'], rows: armourRows() } }),
-          '**Armour pierce** on your gear cancels armour first; whatever pierce is left over adds damage instead. Plate armour carries the most.',
+          '**Armour pierce** on your gear cancels armour first; whatever pierce is left over adds damage instead. Plate, scout leather, hide, robes and dancewear all carry it, more on higher-level pieces, and it counts for spells too.',
         ],
         see: ['weakness', 'combat-basics'],
       },

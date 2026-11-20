@@ -2614,6 +2614,8 @@ test('Former accuracy stats now add damage: gear Attack and Magic bonus, and arm
   const mob = game.npcs.find((n) => n.def.attackable && n.alive && !n.def.boss);
   mob.def = { ...mob.def, sprite: 'slime', level: game.fightLevel() };
   const plain = game.equipment.bonuses.bind(game.equipment);
+  // (From no pierce at all: the melee starting kit's scout leather pierces a little now.)
+  game.equipment.bonuses = () => ({ ...plain(), pierce: 0 });
   const d0 = game._offensiveMods(mob, 'melee').dmgM;
   game.equipment.bonuses = () => ({ ...plain(), pierce: 20 });
   const d1 = game._offensiveMods(mob, 'melee').dmgM;
@@ -3066,8 +3068,9 @@ test('Smaller numbers: big monsters show less life and take smaller hits in prop
   const scaled = playerAttackVsNpc(g.skills, g.equipment, 'x', big).max;
   const unscaled = playerAttackVsNpc(g.skills, g.equipment, 'x', { ...big, hpScale: 1 }).max;
   const hitsNow = big.maxHp / scaled, hitsBefore = (big.maxHp * big.hpScale) / unscaled;
-  assert.ok(Math.abs(hitsNow / hitsBefore - 1) < 0.02, `same number of hits (${hitsNow.toFixed(1)} vs ${hitsBefore.toFixed(1)})`);
-  // (Tapered late-game hits are small enough that rounding shows: allow for it.)
+  // (Tapered late-game hits are small enough that rounding shows: allow for it. Up
+  // from 2% to 3% when the sword's damage scale moved and the rounding fell a little worse.)
+  assert.ok(Math.abs(hitsNow / hitsBefore - 1) < 0.03, `same number of hits (${hitsNow.toFixed(1)} vs ${hitsBefore.toFixed(1)})`);
   assert.ok(scaled < unscaled / 18, `and much smaller numbers (${scaled} vs ${unscaled})`);
   // The kill reward is worked out on the real size: at least what the unscaled life would give.
   const { NPC } = await import('../src/game/npc.js');

@@ -36,10 +36,10 @@ export const CLASS_BY_ID = Object.fromEntries(CLASSES.map((c) => [c.id, c]));
 // Armour families: each class wears one kind of helm, body and legs armour.
 export const ARMOUR_FAMILIES = {
   plate: { name: 'Plate', desc: 'Heavy metal armour: the most Defence, and it pierces armour.', stat: 'armour piercing' },
-  leather: { name: 'Scout leather', desc: 'Light studded leather: less Defence, but extra Attack, crit chance and crit damage.', stat: 'crit damage' },
-  hide: { name: 'Hide', desc: 'Archers\u2019 hide: Ranged bonus, Physical damage bonus % and quicker shots.', stat: 'physical damage bonus' },
-  robes: { name: 'Robes', desc: 'Casters\u2019 robes: Magic bonus and Magic bonus %.', stat: 'magic bonus' },
-  dancewear: { name: 'Dancewear', desc: 'Silk and gold outfits: Dance bonus and lifesteal.', stat: 'lifesteal' },
+  leather: { name: 'Scout leather', desc: 'Light studded leather: less Defence, but extra Attack, crit chance, crit damage and armour piercing.', stat: 'armour piercing and crit damage' },
+  hide: { name: 'Hide', desc: 'Archers\u2019 hide: Ranged bonus, armour piercing and quicker shots.', stat: 'armour piercing' },
+  robes: { name: 'Robes', desc: 'Casters\u2019 robes: Magic bonus, Magic bonus % and armour piercing for spells.', stat: 'armour piercing and magic bonus' },
+  dancewear: { name: 'Dancewear', desc: 'Silk and gold outfits: Dance bonus, armour piercing and lifesteal.', stat: 'armour piercing and lifesteal' },
 };
 export const ARMOUR_FAMILY = {
   swordsman: 'plate', paladin: 'plate', knight: 'plate', berserker: 'plate', juggernaut: 'plate', gladiator: 'plate', lancer: 'plate', halberdier: 'plate',

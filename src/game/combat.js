@@ -246,14 +246,23 @@ const scaledFlat = (level, equip, castMult) => Math.round(levelFlatDmg(level) * 
 // still the slowest boss killers of the hide classes (about 0.8 of the median in
 // real fights, 0.7-0.95 on the dummies): two of classlab's three dummies are a bug
 // and a bird, which shortbows bite into, but few bosses are. The shortbow went up 10%.
+// When scout leather, robes and dancewear took up armour pierce too, real boss fights
+// (tools/balance/bossfight.mjs, every class at levels 100, 300 and 1000) put the
+// Brawler at 1.7-1.8 times the median class, above the Merchant, and the Corsair
+// at 1.4-2: the claws came down by 60% and the scimitar by 30% (the Brawler still
+// sits a little above the rest, its Open Wounds stacking), and kerambits with
+// them. Daggers and whips came down a little (the fan with the whip); staves,
+// wands, the shortbow, sword and rifle went up a little to keep Wizards, Archers,
+// Swordsmen and Snipers near the median, and the cane a little to keep the
+// Merchant on top.
 export const WEAPON_DMG_MULT = {
   // (The two-handed types, the crossbow too, were trimmed by up to 12% when they gained the two-handed grip, the
   // off-hand's atkPct, haste and Ranged built into the weapon: see items.js.)
-  dagger: 0.6, sword: 2.2, scimitar: 0.39, mace: 2.62, longsword: 2.13, battleaxe: 1.72, warhammer: 2.8,
-  '2h_sword': 2.55, spear: 2.05, claws: 0.48, katana: 1.41, halberd: 3.18, cane: 0.71, shortbow: 0.49,
+  dagger: 0.55, sword: 2.35, scimitar: 0.27, mace: 2.62, longsword: 2.13, battleaxe: 1.72, warhammer: 2.8,
+  '2h_sword': 2.55, spear: 2.05, claws: 0.18, katana: 1.41, halberd: 3.18, cane: 0.78, shortbow: 0.53,
   // (Staves, wands and orbs came down by 15% when the Mystic blessings began to count
   // for spells, elements began to bite harder and Magic gained its attunement below.)
-  longbow: 1.15, pistol: 0.37, rifle: 1.07, shuriken: 1.3, staff: 0.272, wand: 0.264, whip: 2.0,
+  longbow: 1.15, pistol: 0.37, rifle: 1.2, shuriken: 1.3, staff: 0.3, wand: 0.29, whip: 1.6,
   // Secondary types (first estimates, pending the combat rescale), tuned against measured
   // damage (a headless run of each class's best weapon at tiers 10-250, not a formula)
   // so that each sits a little under its classes' main types and the main type stays
@@ -265,7 +274,7 @@ export const WEAPON_DMG_MULT = {
   // needs no ammo and pierces, so it stays just under the bows. (Retuned with the
   // main types: each now lands at about 80-105% of its class's main weapon, the
   // chakram 60-105% as it serves three quite different classes.)
-  parang: 1.75, kerambit: 0.27, toya: 2.35, crossbow: 2.92, chakram: 1.3, orb: 0.255, fan: 1.45,
+  parang: 1.75, kerambit: 0.18, toya: 2.35, crossbow: 2.92, chakram: 1.3, orb: 0.255, fan: 1.29,
 };
 /** The target's number scale (see hpScaleFor in npcs.js): hits on a big monster are divided by it. */
 const numScale = (npc) => npc?.hpScale || 1;
