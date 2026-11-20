@@ -140,7 +140,8 @@ export function runSkillAction(game, a, resolver) {
   }
   if (MAKE_KINDS.has(a.type) && spent.length && gained.length && roll(game, fx.save)) {
     for (const [id, n] of spent) game.inventory.add(id, n);
-    game.msg('Skill unlock: you keep your materials.');
+    if (a.tally) a.tally.kept++;   // a batch tells it in its summary (makeBatch, autoprocess.js)
+    else game.msg('Skill unlock: you keep your materials.');
     going = true;
   }
   if (obj && !wasDepleted && obj.depleted && roll(game, fx.keep)) {
