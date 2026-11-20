@@ -386,7 +386,7 @@ test('the bone quest takes any kind of bones, cheapest first', () => {
   assert.equal(game.inventory.count('spirit_bones'), 2, 'the best bones are kept');
 });
 
-test('blessings equip, conflict by group, boost combat and never drain', () => {
+test('blessings equip, stack by type, boost combat and never drain', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();
   const game = new Game();
@@ -398,8 +398,9 @@ test('blessings equip, conflict by group, boost combat and never drain', () => {
   assert.ok(game.activePrayers.has('burst_strength'));
   assert.ok(game.prayerMult().str > 1, 'strength prayer boosts damage');
 
-  game.togglePrayer('superhuman'); // same (str) group -> replaces
-  assert.ok(!game.activePrayers.has('burst_strength') && game.activePrayers.has('superhuman'));
+  game.togglePrayer('superhuman'); // same (str) type, with free slots -> stacks
+  assert.ok(game.activePrayers.has('burst_strength') && game.activePrayers.has('superhuman'));
+  game.togglePrayer('burst_strength');
 
   game.togglePrayer('protect_melee');
   assert.ok(game.protectFactor() > 0, 'protect blessing reduces incoming damage');
@@ -5522,7 +5523,8 @@ test('bones ladder: better bones by band, champion and boss bones, altar offerin
   game.togglePrayer('clarity');
   assert.ok(game.activePrayers.has('clarity'));
   game.togglePrayer('worthy_spirit');
-  assert.ok(!game.activePrayers.has('clarity'), 'clarity switched off');
+  assert.ok(game.activePrayers.has('clarity'), 'with free slots, clarity stays and stacks');
+  game.togglePrayer('clarity');
   const m = game.prayerMult();
   for (const k of ['str', 'def']) assert.ok(Math.abs(m[k] - 1.6) < 1e-9, `${k} x1.6`);
   assert.ok(Math.abs(game.prayerCrit() - 0.25) < 1e-9, '+25% crit chance');

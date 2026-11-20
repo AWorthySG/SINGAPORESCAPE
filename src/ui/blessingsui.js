@@ -1,14 +1,15 @@
 // The Prayer panel as a Blessings loadout (game/blessings.js): the Faith bar
 // and the Prayer Burst button, the slot strip (tap a slot to take that blessing
-// off), and every blessing with its level (tap to equip or take off). Also the
+// off), the loadout's combined bonus, and every blessing with its level (tap to
+// equip or take off; a row says when it would stack or swap). Also the
 // Faith orb on the minimap, which fires the Burst when the bar is full.
 //
 // The HTML comes from pure functions so tests can check it without a DOM. The
 // strip and the list are only redrawn when the loadout or the level changes;
 // Faith ticking up while you fight just moves the bar.
-import { PRAYERS, PRAYER_BY_ID, BLESSING_SLOT_LADDER, blessingCost, burstPower } from '../data/prayers.js';
+import { PRAYERS, PRAYER_BY_ID, BLESSING_SLOT_LADDER, blessingCost, burstPower, STACK_SHARE } from '../data/prayers.js';
 import { prayerIconHTML, uiIconHTML } from '../render/icons.js';
-import { faithFull } from '../game/blessings.js';
+import { faithFull, blessingAction, blessingBonus } from '../game/blessings.js';
 
 /** The Burst's hotkey (main.js); shown on the button and the orb. */
 export const BURST_KEY = 'L';
@@ -20,6 +21,22 @@ export function blessingEffect(p) {
   if (p.protect) return `-${Math.round(p.protect * 100)}% damage taken`;
   const labels = { crit: 'crit', att: 'Att', str: 'Str', def: 'Def', ranged: 'Rng', magic: 'Mag' };
   return Object.keys(labels).filter((k) => p[k]).map((k) => `+${Math.round(p[k] * 100)}% ${labels[k]}`).join(' ');
+}
+
+/** The loadout's bonuses in all, stacking counted: "+98% Str +60% Def +25% crit". */
+export function blessingTotals(game) {
+  const b = blessingBonus(game.activePrayers);
+  return [blessingEffect({ ...b, protect: 0 }), b.protect ? blessingEffect({ protect: b.protect }) : ''].filter(Boolean).join(' ');
+}
+
+/** What tapping a blessing row would do, in a few words ('' when nothing to say). */
+export function blessingHint(game, id) {
+  const a = blessingAction(game, id), names = (ids) => ids.map((o) => PRAYER_BY_ID[o].name).join(', ');
+  if (a.kind === 'stack') return `Stacks with ${names(a.with)}`;
+  if (a.kind === 'swap') return `Swaps out ${names(a.out)}`;
+  if (a.kind === 'full') return 'Slots full';
+  if (a.kind === 'too_big') return `Needs ${blessingCost(PRAYER_BY_ID[id])} slots`;
+  return '';
 }
 
 /** The Burst in a line, at a Prayer level. */
@@ -57,12 +74,13 @@ export function slotStripHTML(game) {
 export function blessingListHTML(game) {
   const lvl = game.skills.prayer;
   return PRAYERS.map((p) => {
-    const on = game.activePrayers.has(p.id), locked = lvl < p.level, cost = blessingCost(p);
+    const on = game.activePrayers.has(p.id), locked = lvl < p.level, cost = blessingCost(p), hint = blessingHint(game, p.id);
     const cls = ['prayer-cell', on && 'active', locked && 'locked'].filter(Boolean).join(' ');
     return `<div class="${cls}" data-prayer="${p.id}" role="button" tabindex="0" aria-pressed="${on}">`
       + `<span class="pr-ic">${prayerIconHTML(p.art || p.id, 30, '', p.tint)}</span><span class="pr-text">`
       + `<span class="pr-top"><b>${esc(p.name)}</b><span class="pr-lvl">Lvl ${p.level}</span></span>`
-      + `<span class="pr-effect">${esc(blessingEffect(p))}${cost > 1 ? ` · ${cost} slots` : ''}</span></span>`
+      + `<span class="pr-effect">${esc(blessingEffect(p))}${cost > 1 ? ` · ${cost} slots` : ''}</span>`
+      + (hint ? `<span class="pr-hint">${esc(hint)}</span>` : '') + '</span>'
       + `<span class="pr-bar"><i style="width:${Math.round(Math.min(1, lvl / p.level) * 100)}%"></i></span></div>`;
   }).join('');
 }
@@ -77,6 +95,7 @@ export function blessingsPanelHTML(game) {
     + `<div class="bl-burst-info">${esc(burstText(game.skills.prayer))}</div>`
     + `<div class="bl-slots-label">Blessings <b>${used} / ${open}</b> slots · always on, no drain</div>`
     + slotStripHTML(game)
+    + (game.activePrayers.size ? `<div class="bl-total" title="Blessings of the same type stack: the strongest in full, each other one at ${Math.round(STACK_SHARE * 100)}%.">In all: <b>${esc(blessingTotals(game))}</b> · same type stacks at ${Math.round(STACK_SHARE * 100)}%</div>` : '')
     + `<div class="prayer-grid">${blessingListHTML(game)}</div>`;
 }
 

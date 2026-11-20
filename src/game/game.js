@@ -1234,11 +1234,9 @@ export class Game {
   burstActive() { return this.burstWard > 0 || this.burstZeal > 0; }
 
   prayerMult() {
-    const m = { att: 1, str: 1, def: 1, ranged: 1, magic: 1 };
-    for (const id of this.activePrayers) {
-      const p = PRAYER_BY_ID[id];
-      for (const k of ['att', 'str', 'def', 'ranged', 'magic']) if (p[k]) m[k] += p[k];
-    }
+    // Blessings of the same type stack, the weaker ones at a share (Bless.blessingBonus).
+    const b = Bless.blessingBonus(this.activePrayers);
+    const m = { att: 1 + b.att, str: 1 + b.str, def: 1 + b.def, ranged: 1 + b.ranged, magic: 1 + b.magic };
     const zeal = Bless.burstZeal(this);   // a Prayer Burst's extra damage, for every style
     if (zeal) { m.str += zeal; m.ranged += zeal; m.magic += zeal; }
     return m;
@@ -1246,9 +1244,7 @@ export class Game {
 
   /** Extra crit chance (a fraction) from the Attack blessings, for every style. */
   prayerCrit() {
-    let c = 0;
-    for (const id of this.activePrayers) c += PRAYER_BY_ID[id].crit || 0;
-    return c;
+    return Bless.blessingBonus(this.activePrayers).crit;
   }
 
   protectFactor() {

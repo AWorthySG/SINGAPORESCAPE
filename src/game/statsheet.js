@@ -20,7 +20,8 @@ import { getItem } from '../data/items.js';
 import { getSpell, ELEMENTS, elementMatchup } from '../data/magic.js';
 import { raceOf, matchup, RACE_BONUS, RACE_PENALTY } from '../data/races.js';
 import { POTIONS } from '../data/trades.js';
-import { PRAYER_BY_ID, burstPower } from '../data/prayers.js';
+import { PRAYER_BY_ID, burstPower, STACK_SHARE } from '../data/prayers.js';
+import { rivals } from './blessings.js';
 import { CLASS_BY_ID } from '../data/classes.js';
 import { classPassiveMods, CLASS_SKILL } from '../data/classPassives.js';
 import { masteryDamage, stewardship, masterySummary, titleText, MASTERY_TIERS } from './culling.js';
@@ -407,7 +408,9 @@ export function activeEffects(game) {
     const p = PRAYER_BY_ID[id];
     const bits = [['str', 'melee damage'], ['def', 'defence'], ['ranged', 'ranged damage'], ['magic', 'magic damage'], ['crit', 'crit chance'], ['protect', 'damage blocked']]
       .filter(([k]) => p[k]).map(([k, l]) => `${fracPct(p[k], k !== 'protect')} ${l}`);
-    out.push({ name: p.name, detail: `${bits.join(', ')} (blessing)`, left: null, off: '' });
+    // Two of a type stack, the weaker ones at a share (blessings.js blessingBonus); say so.
+    const stacked = [...rivals(id)].some((o) => game.activePrayers.has(o));
+    out.push({ name: p.name, detail: `${bits.join(', ')} (blessing${stacked ? `, stacked: the weaker of a type counts ${Math.round(STACK_SHARE * 100)}%` : ''})`, left: null, off: '' });
   }
   if (game.burstWard > 0) out.push({ name: 'Burst ward', detail: 'every blow stopped', left: game.burstWard * TICK_MS, off: '' });
   if (game.burstZeal > 0) out.push({ name: 'Burst zeal', detail: `${fracPct(burstPower(game.skills.prayer).zeal)} damage`, left: game.burstZeal * TICK_MS, off: '' });
