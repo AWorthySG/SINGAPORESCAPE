@@ -195,6 +195,7 @@ test('old saves: per-item mastery becomes per-type (the most any item had); qual
   // Rewrite the save as one from before: mastery per item id, a tally of quality copies.
   const raw = JSON.parse(localStorage.getItem(SAVE_KEY));
   delete raw.equipment._slotQuality;
+  delete raw.equipment._masteryXp;   // and from before mastery XP: points
   raw.equipment._mastery = { iron_sword: 3000, rune_sword: 9000, bronze_platebody: 300, rune_platebody: 1200, no_such_item: 5 };
   raw.equipment._quality = { rune_sword: [1, 0, 1, 0, 1], rune_platebody: [0, 0, 0, 2, 0], gold_ring: [1, 0, 0, 0, 0] };
   localStorage.setItem(SAVE_KEY, JSON.stringify(raw));
