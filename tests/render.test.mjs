@@ -408,6 +408,38 @@ test('the snake, swimmer and plant plans breathe at rest, wind up and strike', a
   }
 });
 
+// Canvas size from a .webp header (VP8X, lossy VP8 or lossless VP8L), so tests can check layers share one canvas.
+function webpSize(buf) {
+  const kind = buf.toString('ascii', 12, 16);
+  if (kind === 'VP8X') return [1 + buf.readUIntLE(24, 3), 1 + buf.readUIntLE(27, 3)];
+  if (kind === 'VP8 ') return [buf.readUInt16LE(26) & 0x3fff, buf.readUInt16LE(28) & 0x3fff];
+  const b = buf.readUInt32LE(21);
+  return [1 + (b & 0x3fff), 1 + ((b >> 14) & 0x3fff)];
+}
+
+test('Part E species rigs: real monsters with their still art, layers on one canvas, joints on the picture', async () => {
+  const { CREATURE_RIGS } = await import('../src/render/creatureRigs.js');
+  const { speciesArt } = await import('../src/render/sprites.js');
+  const { NPCS } = await import('../src/data/npcs.js');
+  const { readFileSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const families = new Set(Object.values(NPCS).map((d) => d.family));
+  const E = ['reticulated_python', 'reef_shark', 'tarantula', 'sea_snake', 'jungle_spider', 'rust_golem', 'pocong', 'skeleton', 'outlaw', 'wild_dog'];
+  for (const id of E.filter((f) => CREATURE_RIGS[f])) {
+    const rig = CREATURE_RIGS[id];
+    assert.equal(rig.kind, 'species');
+    assert.ok(families.has(id) && speciesArt().has(id), `${id} is a monster family with its still picture`);
+    assert.ok(rig.order.includes('body'), `${id} has a body layer`);
+    const sizes = rig.files.map((n) => webpSize(readFileSync(fileURLToPath(new URL(`../assets/creatures/species/rig/${id}_${n}.webp`, import.meta.url)))));
+    for (const sz of sizes) assert.deepEqual(sz, sizes[0], `${id} layers share one canvas`);
+    for (const n of rig.order) {
+      const [x, y] = rig.parts[n].piv;
+      assert.ok(x > 0.02 && x < 0.98 && y > 0.02 && y <= 1, `${id} ${n} joint is on the picture`);
+    }
+  }
+  assert.ok(E.filter((f) => CREATURE_RIGS[f]).length >= 8, 'most of the E1 batch is rigged');
+});
+
 test('every monster body type has an automatic animation style', async () => {
   const { puppetKinds } = await import('../src/render/sprites.js');
   const { NPCS } = await import('../src/data/npcs.js');
