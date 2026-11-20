@@ -81,12 +81,16 @@ test('the Monster Codex explains each boss mechanic, even before the first kill'
 
 test('a mechanic triggers on its own a few seconds into a boss fight, telegraphed', () => {
   const { game, boss, chat } = setup('reservoir_serpent', { live: true, gap: 1 });
+  // Note every overhead text as it is shown: a 600ms step can age it out
+  // before the check (only a whole-world hit-stop used to keep it alive).
+  const said = [], add = game.addHitsplat.bind(game);
+  game.addHitsplat = (e, d, o = {}) => { if (o.text) said.push(o.text); return add(e, d, o); };
   step(game, MECH_FIRST_TICKS - 2);
   assert.ok(!boss.mech, 'not straight away');
   for (let i = 0; i < 4 && !boss.mech; i++) step(game, 1);
   assert.equal(boss.mech?.type, 'cast');
   assert.ok(chat.some((t) => t.includes('Tidal Coil') && t.includes('interrupt')), 'a chat line says what to do');
-  assert.ok(game.effects.some((e) => e.type === 'hitsplat' && e.text === 'Casting Tidal Coil!'), 'overhead text');
+  assert.ok(said.includes('Casting Tidal Coil!'), 'overhead text');
   assert.ok(mechLabel(game, boss).includes('interrupt'), 'and the boss bar prompts it');
 });
 
