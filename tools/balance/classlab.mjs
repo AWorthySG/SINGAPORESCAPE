@@ -72,6 +72,9 @@ export function setupClass(cls, L, seed = 20261112) {
   const g = new Game(); g.start(); g.chooseClass(cls);
   g.ui = new Proxy({}, { get: () => () => {} });
   g.msg = () => {};
+  // Class against class: the Prayer Burst (which fires by itself in any fight
+  // once Faith is full) is the same for everyone, so it stays out of the sums.
+  g.autoCfg.burst = false;
   const x = xpForLevel(L), sx = g.skills.xp;
   for (const k of ['defence', 'hitpoints', 'prayer']) sx[k] = x;
   sx.agility = x / 2;
