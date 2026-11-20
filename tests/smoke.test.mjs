@@ -608,7 +608,7 @@ test('each class wears its own kind of armour, and armour families carry offensi
   // Family stats.
   assert.ok(ITEMS.rune_platebody.equip.bonuses.pierce > 0);
   assert.ok(ITEMS.rune_scout_jerkin.equip.bonuses.critDmg > 0);
-  assert.ok(ITEMS.dragonhide_body.equip.bonuses.atkPct > 0 && ITEMS.dragonhide_body.equip.bonuses.haste > 0, 'hide: Attack bonus % and attack speed');
+  assert.ok(ITEMS.dragonhide_body.equip.bonuses.pierce > 0 && ITEMS.dragonhide_body.equip.bonuses.haste > 0, 'hide: armour pierce and attack speed');
   assert.ok(ITEMS.mystic_top.equip.bonuses.magPct > 0, 'robes: Magic bonus %');
   assert.ok(ITEMS.golden_dancer_top.equip.bonuses.lifesteal > 0);
 });

@@ -964,14 +964,21 @@ function armourFamily(id, eq) {
 }
 // Each family's own offensive stat, on every helm, body and legs piece, growing
 // with the piece's level: plate pierces armour, scout leather sharpens crits,
-// hide quickens your shots, robes hurt bosses, and dancewear steals life.
+// hide pierces armour and quickens your shots, robes hurt bosses, and dancewear steals life.
 // (Class balance: hide's power step was halved, as five pieces gave archers
 // +60% damage on top of their haste at level 200; plate pierces a little more,
 // since monster armour ate most of it; scout leather gained a little speed.)
+// Hide's power is armour pierce now, as much as plate's (it was +1% Attack
+// bonus a step). Boss armour (30-60%) took a third to a half off every arrow
+// and bullet, while plate's pierce cancelled it, and gear upgrades grew that
+// pierce (52 -> 80 at level 300) while hide's Attack bonus % was drowned out
+// by enchant lines: Archers, Pistolers and Snipers took twice as long as a
+// Swordsman over a real boss fight (tools/balance/bossfight.mjs) though the
+// dummy lab, plain gear on lightly armoured dummies, had them level.
 const FAMILY_STAT = {
   plate: (r) => ({ pierce: 1 + Math.floor(r / 25) }),
   leather: (r) => ({ critDmg: 3 * (1 + Math.floor(r / 30)), haste: Math.floor(r / 75) }),
-  hide: (r) => ({ atkPct: 1 + Math.floor(r / 40), haste: 1 + Math.floor(r / 60) }),   // archers' power and quick hands
+  hide: (r) => ({ pierce: 1 + Math.floor(r / 25), haste: 1 + Math.floor(r / 60) }),   // arrows that punch through, and quick hands
   robes: (r) => ({ magPct: 2 * (1 + Math.floor(r / 30)) }),   // casters' Magic bonus %
   dancewear: (r) => ({ lifesteal: 1 + Math.floor(r / 60) }),
 };
