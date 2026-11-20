@@ -196,8 +196,8 @@ test('prayer and spell icons exist for every prayer and spell', async () => {
   const { PRAYERS } = await import('../src/data/prayers.js');
   const { SPELLS } = await import('../src/data/magic.js');
   const onDisk = new Set(readdirSync(fileURLToPath(new URL('../assets/icons/', import.meta.url))));
-  // (new prayers may borrow an existing icon via `art`)
-  for (const p of PRAYERS) assert.ok(onDisk.has(`prayer-${p.art || p.id}.webp`), `prayer-${p.art || p.id}.webp`);
+  // Every blessing has its own icon (none borrow another's with `art` any more).
+  for (const p of PRAYERS) assert.ok(!p.art && !p.tint && onDisk.has(`prayer-${p.id}.webp`), `prayer-${p.id}.webp`);
   for (const s of SPELLS) assert.ok(onDisk.has(`spell-${s.id}.webp`), `spell-${s.id}.webp`);
 });
 
@@ -393,16 +393,17 @@ test('every boss and champion-able monster has a battle-bar portrait', async () 
   }
 });
 
-test('every ability has an icon on disk: its own art, or the art it names', async () => {
+test('every ability has its own icon, in lock-step with assets/icons/ability-*.webp', async () => {
   const { ABILITIES } = await import('../src/data/abilities.js');
   const { readdirSync } = await import('node:fs');
   const { fileURLToPath } = await import('node:url');
   const onDisk = new Set(readdirSync(fileURLToPath(new URL('../assets/icons/', import.meta.url))));
-  for (const a of ABILITIES) {
-    assert.ok(onDisk.has(`ability-${a.art || a.id}.webp`), `${a.id} has ability-${a.art || a.id}.webp`);
-  }
-  // The class C skills have their own painted icons.
-  for (const a of ABILITIES.filter((x) => x.cls && x.key === 'C')) assert.ok(!a.art && onDisk.has(`ability-${a.id}.webp`), `${a.id} has its own icon`);
+  // Every ability (class skills included) has its own painted icon, not a borrowed one.
+  for (const a of ABILITIES) assert.ok(!a.art && onDisk.has(`ability-${a.id}.webp`), `${a.id} has its own icon`);
+  // ...and every ability icon on disk belongs to a real ability.
+  const ids = new Set(ABILITIES.map((a) => a.id));
+  const stray = [...onDisk].filter((f) => /^ability-.*\.webp$/.test(f) && !ids.has(f.slice(8, -5)));
+  assert.deepEqual(stray, [], 'ability icons for no ability');
 });
 
 test('HUD orbs keep the sticker skin: no dark-skin neon colours in the orb code', async () => {

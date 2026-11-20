@@ -26,12 +26,12 @@ export const PRAYERS = [
   { id: 'mystic_lore', name: 'Mystic Lore', level: 80, magic: 0.35 },
   { id: 'protect_melee', name: 'Protect from Melee', level: 99, protect: 0.30 },
   { id: 'steel_skin', name: 'Steel Skin', level: 150, def: 0.50 },
-  { id: 'deadeye', name: 'Deadeye', level: 175, ranged: 0.60, art: 'eagle_eye', tint: 'hue-rotate(-60deg) saturate(1.6)' },
+  { id: 'deadeye', name: 'Deadeye', level: 175, ranged: 0.60 },
   { id: 'ultimate_strength', name: 'Ultimate Strength', level: 200, str: 0.50 },
-  { id: 'mystic_might', name: 'Mystic Might', level: 225, magic: 0.60, art: 'mystic_lore', tint: 'hue-rotate(60deg) saturate(1.6)' },
+  { id: 'mystic_might', name: 'Mystic Might', level: 225, magic: 0.60 },
   { id: 'incredible_reflexes', name: 'Incredible Reflexes', level: 250, crit: 0.20 },
   // The Worthy's blessing at 300: crit, Strength and Defence at once, a little stronger than the three tier-3 blessings and in two slots instead of three.
-  { id: 'worthy_spirit', name: 'Spirit of the Worthy', level: 300, slots: 2, crit: 0.25, str: 0.60, def: 0.60, art: 'incredible_reflexes', tint: 'sepia(1) saturate(3) brightness(1.1)' },
+  { id: 'worthy_spirit', name: 'Spirit of the Worthy', level: 300, slots: 2, crit: 0.25, str: 0.60, def: 0.60 },
 ];
 
 export const PRAYER_BY_ID = Object.fromEntries(PRAYERS.map((p) => [p.id, p]));

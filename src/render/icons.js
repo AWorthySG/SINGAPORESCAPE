@@ -953,7 +953,7 @@ import { BESTIARY_BOSSES } from '../data/bestiary.js';
   /** Combat-skill (action bar) icon: mascot artwork, or a stickered vector for
    *  any ability still waiting on artwork (listed in ABILITY_SVG). */
   const ABILITY_SVG = {};
-  // Class abilities reuse an existing ability's artwork (`art`) until they get their own.
+  // Each ability has its own icon; an ability may borrow another's with `art`.
   export const abilityIconHTML = (id, size = 34, cls) => (ABILITY_SVG[id] ? svg(ABILITY_SVG[id], size, cls) : artImg(`ability-${ABILITY_BY_ID[id]?.art || id}`, size, cls));
   // Side-panel tabs that have a real A-Worthy mascot icon use the artwork;
   // the rest keep their stickered vector until artwork exists.
