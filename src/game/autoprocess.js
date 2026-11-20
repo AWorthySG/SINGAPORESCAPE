@@ -46,7 +46,7 @@ export function nextJob(game, kind, skip = new Set()) {
     const r = best(CRAFT.filter((x) => !x.upgrade && (!x.tool || game.hasTool(x.tool)) && lvl('crafting') >= x.level && x.inputs.every((i) => has(game, i.id, i.qty)) && !skip.has(`craft:${x.result}`)));
     job = r && { type: 'craft', recipe: r };
   } else if (kind === 'fletching' || kind === 'herblore') {
-    const r = best(tradeRecipes(kind).filter((x) => (!x.tool || game.hasTool(x.tool)) && lvl(kind) >= x.level
+    const r = best(tradeRecipes(kind).filter((x) => !x.upgrade && (!x.tool || game.hasTool(x.tool)) && lvl(kind) >= x.level
       && x.inputs.every(([id, n]) => has(game, id, n)) && !skip.has(`recipe:${x.result}`)));
     job = r && { type: 'recipe', skill: kind, recipe: r };
   }

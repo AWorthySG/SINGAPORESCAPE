@@ -3,6 +3,7 @@ import { clamp, weightedPick, randInt } from '../core/utils.js';
 import { TILE } from '../config.js';
 import { yieldBonus, huntExtras } from './culling.js';
 import { afterFireLit } from './skillunlocks.js';
+import { toolBonus, toolTooHighMsg } from './tools.js';
 
 const objCenter = (obj) => ({ x: obj.x * TILE + TILE / 2, y: obj.y * TILE + TILE / 2 - 6 });
 
@@ -103,11 +104,12 @@ export function resolveWoodcut(game, action) {
   if (game.skills.level('woodcutting') < def.level) {
     game.msg(`You need a Woodcutting level of ${def.level} to chop this.`); return false;
   }
-  if (!game.hasTool('axe')) { game.msg('You need an axe to chop this tree.'); return false; }
+  if (!game.hasTool('axe')) { game.msg(toolTooHighMsg(game, 'axe') || 'You need an axe to chop this tree.'); return false; }
   // The moonlit kapok only gives its wood after dark.
   if (game.inventory.canAdd(def.gives, 1) <= 0) { game.msg('Your inventory is too full to hold any more logs.'); return false; }
 
   const lvl = game.skills.level('woodcutting');
+  const tb = toolBonus(game, 'axe');   // a better axe: more double logs and nests (tooltiers.js)
   // Life skills never fail (the owner's call): every swing at a tree you can
   // chop gives logs. Level still decides which trees you can chop.
   {
@@ -119,14 +121,14 @@ export function resolveWoodcut(game, action) {
     const logName = getItem(def.gives).name.toLowerCase();
     // Double logs: a sturdy bough sometimes drops an extra.
     // (Stewardship adds to the chance while you are Neutral, see culling.js.)
-    if (Math.random() < 0.04 + lvl * 0.001 + yieldBonus(game) && game.inventory.canAdd(def.gives, 1) > 0) {
+    if (Math.random() < 0.04 + lvl * 0.001 + yieldBonus(game) + tb.yield && game.inventory.canAdd(def.gives, 1) > 0) {
       game.inventory.add(def.gives, 1);
       game.msg(`A second branch falls — double ${logName}!`);
     } else {
       game.msg(`You get some ${logName}.`);
     }
     // Rare bird's nest tumbles from the canopy.
-    if (Math.random() < 0.008 && game.inventory.canAdd('birds_nest', 1) > 0) {
+    if (Math.random() < 0.008 * (1 + tb.find) && game.inventory.canAdd('birds_nest', 1) > 0) {
       game.inventory.add('birds_nest', 1);
       game.spawnSparkle(game.player, '#caa15a', 6);
       game.msg("A bird's nest tumbles down! Open it from your pack.", 'level');
@@ -160,12 +162,13 @@ export function resolveMine(game, action) {
   if (game.skills.level('mining') < def.level) {
     game.msg(`You need a Mining level of ${def.level} to mine this rock.`); return false;
   }
-  if (!game.hasTool('pickaxe')) { game.msg('You need a pickaxe to mine this rock.'); return false; }
+  if (!game.hasTool('pickaxe')) { game.msg(toolTooHighMsg(game, 'pickaxe') || 'You need a pickaxe to mine this rock.'); return false; }
   // Gem rocks yield a random gem; ordinary rocks yield their fixed ore.
   const yieldId = def.gemRock ? weightedPick(GEM_TABLE).id : def.gives;
   if (game.inventory.canAdd(yieldId, 1) <= 0) { game.msg('Your inventory is too full to hold any more.'); return false; }
 
   const lvl = game.skills.level('mining');
+  const tb = toolBonus(game, 'pickaxe');   // a better pickaxe: more rich seams and gems (tooltiers.js)
   // Every swing at a rock you can mine now succeeds (the owner's call: no
   // more swinging at nothing); level still decides which rocks you can mine.
   {
@@ -176,7 +179,7 @@ export function resolveMine(game, action) {
     game.world.shake(obj, 280); game.bus.emit('sfx', 'gather'); // the rock judders as ore breaks free
     const oreName = getItem(yieldId).name.toLowerCase();
     // Rich seam: a chance at a second yield.
-    if (obj.oresLeft > 1 && Math.random() < 0.04 + lvl * 0.001 + yieldBonus(game) && game.inventory.canAdd(yieldId, 1) > 0) {
+    if (obj.oresLeft > 1 && Math.random() < 0.04 + lvl * 0.001 + yieldBonus(game) + tb.yield && game.inventory.canAdd(yieldId, 1) > 0) {
       game.inventory.add(yieldId, 1);
       obj.oresLeft--;   // the bonus ore comes out of the rock's 10-20
       game.msg(`A rich seam — double ${oreName}!`);
@@ -184,7 +187,7 @@ export function resolveMine(game, action) {
       game.msg(def.gemRock ? `You chip out a ${oreName}!` : `You manage to mine some ${oreName}.`);
     }
     // Lucky gem: unearth a precious stone now and then (ordinary rocks only).
-    if (!def.gemRock && Math.random() < 0.012 + lvl * 0.0006) {
+    if (!def.gemRock && Math.random() < (0.012 + lvl * 0.0006) * (1 + tb.find)) {
       const gem = weightedPick(GEM_TABLE);
       if (game.inventory.canAdd(gem.id, 1) > 0) {
         game.inventory.add(gem.id, 1);
@@ -206,7 +209,8 @@ export function resolveFish(game, action) {
   const { obj } = action;
   const def = obj.def;
   const tool = def.tool || 'net';
-  if (!game.hasTool(tool)) { game.msg(`You need a ${FISH_TOOL_NAME[tool] || tool} to fish here.`); return false; }
+  if (!game.hasTool(tool)) { game.msg(toolTooHighMsg(game, tool) || `You need a ${FISH_TOOL_NAME[tool] || tool} to fish here.`); return false; }
+  const tb = toolBonus(game, tool);   // a better rod or harpoon: more big and trophy catches (tooltiers.js)
 
   const lvl = game.skills.level('fishing');
   const eligible = def.catches.filter((c) => lvl >= c.level);
@@ -229,7 +233,7 @@ export function resolveFish(game, action) {
     const fc = objCenter(obj);
     const nm = getItem(pick.id).name.replace(/^Raw /, '').toLowerCase();
     // Rare trophy catch: triple XP + a coin bonus.
-    if (Math.random() < 0.02) {
+    if (Math.random() < 0.02 * (1 + tb.find)) {
       game.inventory.add(pick.id, 1);
       game.skills.addXp('fishing', xpEach * 3);
       game.inventory.add('coins', 50 + Math.round(pick.xp));
@@ -238,7 +242,7 @@ export function resolveFish(game, action) {
       return true;
     }
     // A "big catch" reels in two at once — more likely at higher levels / with bait.
-    const big = Math.random() < 0.05 + lvl * 0.0015 + (baited ? 0.05 : 0) + yieldBonus(game) && game.inventory.canAdd(pick.id, 2) >= 2;
+    const big = Math.random() < 0.05 + lvl * 0.0015 + (baited ? 0.05 : 0) + yieldBonus(game) + tb.yield && game.inventory.canAdd(pick.id, 2) >= 2;
     const n = big ? 2 : 1;
     game.inventory.add(pick.id, n);
     game.skills.addXp('fishing', xpEach * n);
@@ -491,6 +495,7 @@ export function resolveHunt(game, action) {
   const def = obj.def;
   if (obj.depleted || game.world.objectAt(obj.x, obj.y) !== obj) return false;
   if (game.skills.level('hunter') < def.level) { game.msg(`You need a Hunter level of ${def.level} to use this.`); return false; }
+  if (!game.hasTool('snare') && toolTooHighMsg(game, 'snare')) { game.msg(toolTooHighMsg(game, 'snare')); return false; }
   if (!game.hasTool('snare')) {
     // Said over your head too: a chat line alone was easy to miss, so the trap looked broken.
     game.msg('You need a hunting snare to work traps: buy one at the Kampong General Store, or ask the Kampong Guide for starter tools.');
@@ -502,8 +507,9 @@ export function resolveHunt(game, action) {
   // The trap always springs (life skills never fail), and its main catch is certain;
   // anything after the first is a bonus with its own chance.
   const got = [];
+  const tb = toolBonus(game, 'snare');   // a better snare: more bonus catches (tooltiers.js)
   for (const [gi, g] of def.gives.entries()) {
-    if (gi > 0 && Math.random() >= (g.chance ?? 1)) continue;
+    if (gi > 0 && Math.random() >= Math.min(1, (g.chance ?? 1) * (1 + tb.find))) continue;
     const n = g.max ? randInt(g.min, g.max) : 1;
     game.inventory.add(g.id, n);
     got.push(n > 1 ? `${n} ${getItem(g.id).name.toLowerCase()}s` : getItem(g.id).name.toLowerCase());
@@ -511,7 +517,7 @@ export function resolveHunt(game, action) {
   // Hunter bait, Stewardship and the mosquito-net cape (culling.js): more XP, and
   // bait now and then lands a second main catch.
   const hx = huntExtras(game), main = def.gives[0];
-  if (hx.double && game.inventory.canAdd(main.id, 1) > 0) { game.inventory.add(main.id, 1); got.push(`a second ${getItem(main.id).name.toLowerCase()}`); }
+  if ((hx.double || (tb.yield > 0 && Math.random() < tb.yield)) && game.inventory.canAdd(main.id, 1) > 0) { game.inventory.add(main.id, 1); got.push(`a second ${getItem(main.id).name.toLowerCase()}`); }
   // The Night Safari's tiger trail pays more after dark (a bonus, never a lock), as the moonlit kapok does.
   game.skills.addXp('hunter', (def.night && game.isNight() ? def.xp * NIGHT_TREE_BONUS : def.xp) * hx.xpMult);
   const c = objCenter(obj); game.spawnPoof(c.x, c.y, def.color || '#caa15a');

@@ -13,6 +13,7 @@
 
 import { CROPS, POTIONS } from './trades.js';
 import { signatureWeapons } from './bossWeapons.js';
+import { TOOL_KINDS, TOOL_TIERS, toolId, toolBonusText } from './tooltiers.js';
 
 const RAW = {
   // ---- Currency ----
@@ -1221,6 +1222,25 @@ Object.assign(RAW, {
   mosquito_net_cape: { name: 'Mosquito-net cape', icon: '🧣', value: 1, examine: 'Fine netting worn as a cape. +5% Hunter XP while worn.',
     equip: { slot: 'cape', req: {}, bonuses: { defence: 3, hp: 2 } } },
 });
+
+// ---- Tiered gathering tools (tooltiers.js) ----
+// The old tier-1 tool of each kind gets its tier marked; the iron to eternal
+// ones are built here. Axes and pickaxes can be wielded, as the bronze ones
+// can (with a little more bite each tier, still far below a real weapon).
+for (const K of TOOL_KINDS) {
+  TOOL_TIERS.forEach((T, i) => {
+    const id = toolId(K.tag, i);
+    const M = T.metal[0].toUpperCase() + T.metal.slice(1);
+    const how = toolBonusText(T);
+    const tier = { tool: K.tag, toolTier: i, toolLevel: T.level, toolSkill: K.skill, toolBase: K.base, toolMetal: T.metal };
+    if (RAW[id]) { Object.assign(RAW[id], tier); return; }
+    const base = RAW[K.base];
+    const it = { name: K.name(M), icon: base.icon, value: base.value * T.value, ...tier,
+      examine: `${base.examine} ${M}: ${K.skill[0].toUpperCase() + K.skill.slice(1)} ${T.level} to use; ${how}. The best tool you can use is picked for you.` };
+    if (base.equip) it.equip = { slot: 'weapon', req: { attack: 1 }, bonuses: { ...base.equip.bonuses, attack: base.equip.bonuses.attack + i, strength: base.equip.bonuses.strength + i } };
+    RAW[id] = it;
+  });
+}
 
 export const ITEMS = Object.fromEntries(
   Object.entries(RAW).map(([id, def]) => [id, Object.freeze({ id, ...def })])

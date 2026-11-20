@@ -37,6 +37,7 @@
 import { TICK_MS, TILE, COMBAT_BEAT_MS } from '../config.js';
 import { ITEMS } from '../data/items.js';
 import { itemIconImage } from './icons.js';
+import { bestTool } from '../game/tools.js';
 import { drawEmptyArm, hasEmptyArm } from './heroAnimArt.js';
 
 const EASE = {
@@ -824,6 +825,8 @@ const ARRIVAL = new Set(['farm', 'thieve', 'pray', 'rest', 'bury', 'offer']);
 /** The item drawn in the hero's hand for an action: their own tool where one
  *  is needed (the one wielded, else the one in the pack), else what they work. */
 function itemWithTool(game, tag) {
+  const best = bestTool(game, tag);   // the tier in use (tools.js), so a rune axe swings a rune axe
+  if (best) return best;
   const w = game?.equipment?.get?.('weapon');
   if (w && ITEMS[w]?.tool === tag) return w;
   const slot = game?.inventory?.slots?.find((s) => s && ITEMS[s.id]?.tool === tag);
@@ -1177,13 +1180,29 @@ const PROPS = {
   knife: { grip: [0.78, 0.78], tip: [0.2, 0.22], size: 14 },
 };
 const HELD = { grip: [0.5, 0.62], tip: [0.5, 0.1], size: 16 };   // anything else: held up in the fist
+// A tiered tool (an iron axe...) is held like its tier-1 tool, whose sticker it borrows.
+const propOf = (id) => PROPS[id] || PROPS[ITEMS[id]?.toolBase] || null;
+// A borrowed sticker drawn with its metal tint, baked once into a canvas (a
+// filter on every frame would cost too much). The plain image without a DOM.
+const _tintedProps = new Map();
+function propImage(img) {
+  if (!img.tint || typeof document === 'undefined') return img;
+  let c = _tintedProps.get(img);
+  if (c) return c;
+  c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
+  const g = c.getContext('2d');
+  if (!g || !('filter' in g)) return img;
+  g.filter = img.tint; g.drawImage(img, 0, 0);
+  _tintedProps.set(img, c);
+  return c;
+}
 
 /** Where a point (fx, fy across the tool's sticker) lands with the hand at
  *  the origin and the handle turned to angle `want`: the grip on the hand, the
  *  head along `want`, and a mirrored sticker (edge -1) flipped across the
  *  handle. drawProp draws with this same mapping (keep the two in step). */
 export function propPoint(id, fx, fy, want) {
-  const P = PROPS[id] || HELD;
+  const P = propOf(id) || HELD;
   const iconAng = Math.atan2(P.tip[1] - P.grip[1], P.tip[0] - P.grip[0]);
   const x0 = (fx - P.grip[0]) * P.size, y0 = (fy - P.grip[1]) * P.size;
   const c1 = Math.cos(-iconAng), s1 = Math.sin(-iconAng);
@@ -1196,15 +1215,15 @@ export function propPoint(id, fx, fy, want) {
 function drawProp(c, id, dir, wrist, upright) {
   const img = id ? itemIconImage(id) : null;
   if (!img || !img.complete || !img.naturalWidth) return;
-  const P = PROPS[id] || HELD;
+  const P = propOf(id) || HELD;
   const iconAng = Math.atan2(P.tip[1] - P.grip[1], P.tip[0] - P.grip[0]);
-  const want = (upright || !PROPS[id] ? -Math.PI / 2 : dir) + wrist;
+  const want = (upright || !propOf(id) ? -Math.PI / 2 : dir) + wrist;
   c.save();
   // Turned so the handle runs along `want`; a mirrored sticker flips across it.
   c.rotate(want);
   if (P.edge === -1) c.scale(1, -1);
   c.rotate(-iconAng);
-  c.drawImage(img, -P.grip[0] * P.size, -P.grip[1] * P.size, P.size, P.size);
+  c.drawImage(propImage(img), -P.grip[0] * P.size, -P.grip[1] * P.size, P.size, P.size);
   c.restore();
 }
 
@@ -1244,8 +1263,8 @@ function toolInHand(c, anim, tool, hx, hy, phi, wrist, upright) {
   const k = anim?.ch?.impact;
   if (k > 0.05 && !anim.low) {
     // The head is where the sticker's tip lies from the grip, along the turn drawProp gave it.
-    const P = PROPS[tool] || HELD;
-    const want = (upright || !PROPS[tool] ? -Math.PI / 2 : dir) + wrist;
+    const P = propOf(tool) || HELD;
+    const want = (upright || !propOf(tool) ? -Math.PI / 2 : dir) + wrist;
     const reach = Math.hypot(P.tip[0] - P.grip[0], P.tip[1] - P.grip[1]) * P.size * 0.85;
     star(c, hx + Math.cos(want) * reach, hy + Math.sin(want) * reach, 1.5 + k * 4, k);
   }
@@ -1479,8 +1498,9 @@ function drawNetBundle(c, x, y) {
 function drawIcon(c, id, x, y, size, rot = 0) {
   const img = id ? itemIconImage(id) : null;
   if (!img || !img.complete || !img.naturalWidth) return false;
-  if (rot) { c.save(); c.translate(x, y); c.rotate(rot); c.drawImage(img, -size / 2, -size / 2, size, size); c.restore(); }
-  else c.drawImage(img, x - size / 2, y - size / 2, size, size);
+  const pic = propImage(img);
+  if (rot) { c.save(); c.translate(x, y); c.rotate(rot); c.drawImage(pic, -size / 2, -size / 2, size, size); c.restore(); }
+  else c.drawImage(pic, x - size / 2, y - size / 2, size, size);
   return true;
 }
 
@@ -1578,7 +1598,7 @@ function flyingHarpoon(c, id, x, y, ang) {
     const P = PROPS.harpoon, size = 26;
     c.save(); c.translate(x, y);
     c.rotate(ang - Math.atan2(P.tip[1] - P.grip[1], P.tip[0] - P.grip[0]));
-    c.drawImage(img, -P.tip[0] * size, -P.tip[1] * size, size, size);
+    c.drawImage(propImage(img), -P.tip[0] * size, -P.tip[1] * size, size, size);
     c.restore();
     return;
   }

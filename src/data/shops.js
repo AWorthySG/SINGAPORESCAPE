@@ -1,4 +1,5 @@
 import { REGION_SHOPS } from './regionQuests.js';
+import { TOOL_KINDS, SHOP_TOOL_TIER, toolId } from './tooltiers.js';
 
 // Shop stock definitions.
 //   buyMul:  multiplier on item value for the price the PLAYER pays to buy.
@@ -216,6 +217,15 @@ for (const [metal, qty] of [['bronze', 5], ['iron', 3]]) {
     const id = `${metal}_${t}`;
     if (!SHOPS.general.stock.some((s) => s.id === id)) SHOPS.general.stock.push({ id, qty });
   }
+}
+
+// Better gathering tools, iron to adamant, beside the tier-1 ones (tooltiers.js).
+// Rune and finer are smithed, fletched or dropped, never sold.
+{
+  const at = SHOPS.general.stock.findIndex((s) => s.id === 'hunting_snare') + 1;
+  const tools = [];
+  for (let i = 1; i <= SHOP_TOOL_TIER; i++) for (const K of TOOL_KINDS) tools.push({ id: toolId(K.tag, i), qty: Math.max(2, 10 - 2 * i) });
+  SHOPS.general.stock.splice(at, 0, ...tools);
 }
 
 // The shops region story quests open (regionQuests.js).
