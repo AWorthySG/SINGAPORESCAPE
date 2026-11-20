@@ -152,7 +152,8 @@ test('endgame cooking: each fish cooks at its level into its dish, plain, for mo
   const range = g.world.objects.find((o) => o.def.type === 'range');
   standBy(g, range);
   const said = listen(g);
-  // One cook a tick; the best below 100 is the seafood platter dish.
+  // Each tier pays ~35% more a cook (cooking is an instant batch now, so XP an
+  // hour follows the fishing); the best below 100 is the seafood platter dish.
   let prevBest = Math.max(...DISHES.map((d) => d.xp), ...Object.values(COOKING).filter((c) => c.level < 100).map((c) => c.xp * 1.04));
   for (const t of TIERS) {
     const c = COOKING[t.raw];

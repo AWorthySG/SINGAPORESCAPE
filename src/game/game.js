@@ -64,7 +64,7 @@ import { MORAL_EVENTS, MORAL_BY_ID, moralCoins, BLESS_MS, BLESS_XP } from '../da
 import { alignmentTier, alignmentStyle, greetingFor } from '../data/alignment.js';
 import { tickBossMechanics, mechOnPlayerHit, mechAbilityUsed, mechAutoFight, inHazard } from './bossmech.js';
 import { SIGNATURE_DROP_CHANCE, SIGNATURE_CLASS, sigIdFor } from '../data/bossWeapons.js';
-import { nextJob, jobKey } from './autoprocess.js';
+import { nextJob, jobKey, makeBatch } from './autoprocess.js';
 import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
 import { eligibleTasks, SLAYER_REWARDS, SLAYER_TASKS, SLAYER_HELM_DMG, slayerBuffs, slayerBuffText } from '../data/slayer.js';
 import { STATIONS, STATION_BY_ID, MRT_FARE } from '../data/transport.js';
@@ -380,13 +380,15 @@ const ALCHEMY = { level: 21, xp: 65, runes: { nature_rune: 1, fire_rune: 5 } };
 // Actions that can fire the instant you press (no random roll to exploit by spamming).
 const INSTANT_ACTIONS = new Set(['pickup', 'cookmenu', 'smeltmenu', 'smithmenu', 'craftmenu', 'fletchmenu', 'herbmenu', 'farm', 'pray', 'rest', 'transport', 'openbank', 'openshop', 'talk', 'shrinemenu', 'homemenu']);
 const GATHER_ACTIONS = new Set(['woodcut', 'mine', 'fish', 'stall']);
-// Gathering (woodcutting, mining, fishing, Hunter) and making (cooking, smithing,
-// crafting, fletching, Herblore) go this much faster: every 1/(GATHER_SPEED-1)
-// ticks an extra roll, so each action takes about 20% less time. (Smelting is a
-// whole batch at once already; Firemaking walks a tile per fire, so it gets the
-// same boost as XP instead: see FIRE_XP in skilling.js.)
+// Gathering (woodcutting, mining, fishing, Hunter) goes this much faster: every
+// 1/(GATHER_SPEED-1) ticks an extra roll, so each action takes about 20% less
+// time. (Smelting and making, MAKE_FAST, are a whole batch at once, see makeBatch
+// in autoprocess.js; Firemaking walks a tile per fire, so it gets the same boost
+// as XP instead: see FIRE_XP in skilling.js.)
 export const GATHER_SPEED = 1.25;
 const MAKE_FAST = new Set(['cook', 'cookdish', 'smith', 'craft', 'recipe']);
+// One item of each instant make (makeBatch in autoprocess.js runs the batch).
+const MAKE_RESOLVE = { cook: resolveCook, cookdish: resolveDish, smith: resolveSmith, craft: resolveCraft, recipe: resolveRecipe };
 const GATHER_FAST = new Set(['woodcut', 'mine', 'fish', 'hunt', ...MAKE_FAST]);
 // Ticks you get to answer a Knowledge Strike before the boss's special lands (~7s).
 const KS_TICKS = 12;
@@ -1355,8 +1357,10 @@ export class Game {
       case 'woodcut': return this._tickContinuous(a, a.obj, () => resolveWoodcut(this, a));
       case 'mine': return this._tickContinuous(a, a.obj, () => resolveMine(this, a));
       case 'fish': return this._tickContinuous(a, a.obj, () => resolveFish(this, a));
-      case 'cook': return this._tickContinuous(a, a.obj, () => resolveCook(this, a));
-      case 'cookdish': return this._tickContinuous(a, a.obj, () => resolveDish(this, a));
+      // Making is instant too, like smelting: the whole batch (and with "Do all"
+      // every recipe after it) at once, each item still its own roll (autoprocess.js).
+      case 'cook': case 'cookdish': case 'smith': case 'craft': case 'recipe':
+        return this._tickContinuous(a, a.obj, () => makeBatch(this, a, (x) => runSkillAction(this, x, () => MAKE_RESOLVE[x.type](this, x))));
       // Smelting is instant: the whole batch at once, and with "Smelt all" every
       // kind of bar your ores allow, one after another in the same moment.
       case 'smelt': return this._tickContinuous(a, a.obj, () => {
@@ -1370,10 +1374,7 @@ export class Game {
         }
         return false;
       });
-      case 'smith': return this._tickContinuous(a, a.obj, () => resolveSmith(this, a));
-      case 'craft': return this._tickContinuous(a, a.obj, () => resolveCraft(this, a));
       case 'hunt': return this._tickContinuous(a, a.obj, () => resolveHunt(this, a));
-      case 'recipe': return this._tickContinuous(a, a.obj, () => resolveRecipe(this, a));
       case 'fletchmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openRecipeMenu('fletching', a.obj));
       case 'herbmenu': return this._tickArrival(a, a.obj, true, () => this.ui?.openRecipeMenu('herblore', a.obj));
       case 'farm': return this._tickArrival(a, a.obj, true, () => { this.tendPatch(a.obj, a.seed); if (this.autoGather) this._autoLife = { kind: 'farm' }; });
@@ -1435,7 +1436,8 @@ export class Game {
     // Count the bag before and after so every item gathered pops up over you.
     const gather = GATHER_ACTIONS.has(a.type) || a.type === 'hunt';
     const before = gather ? this._bagCounts() : null;
-    let going = runSkillAction(this, a, resolver);   // with the skill's unlocks (skillunlocks.js)
+    // With the skill's unlocks (skillunlocks.js); an instant make batch applies them per item itself.
+    let going = MAKE_FAST.has(a.type) ? resolver() : runSkillAction(this, a, resolver);
     // A gathering or making skill's extra share of a tick (GATHER_SPEED): every so often, a
     // second roll. (Making swaps item for item, so it needs no free slot.)
     if (going && GATHER_FAST.has(a.type)) {

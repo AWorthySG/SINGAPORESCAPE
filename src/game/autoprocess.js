@@ -7,6 +7,7 @@ import { DISHES } from '../data/cooking.js';
 import { SMELT, SMITH } from '../data/smithing.js';
 import { CRAFT } from '../data/crafting.js';
 import { POTIONS, FLETCH } from '../data/trades.js';
+import { getItem } from '../data/items.js';
 
 /** The station kinds a "Do all" can run at. */
 export const AUTO_KINDS = ['cook', 'smelt', 'smith', 'craft', 'fletching', 'herblore'];
@@ -54,3 +55,73 @@ export function nextJob(game, kind, skip = new Set()) {
 }
 
 export const jobKey = key;
+
+// ---------------- Instant batches ----------------
+// Making at a station is instant (the owner's call, as smelting already was):
+// choosing a recipe, or "Do all", makes everything the pack allows in one go.
+// Each item is still its own roll through the resolver and the skill's unlocks
+// (perfect cooks, flawless extras, kept materials, level-ups part-way through),
+// so the odds and the XP are what one-at-a-time making gave; only the waiting
+// and the chat line per item are gone.
+
+const VERB = { cook: 'cook', cookdish: 'prepare', smith: 'smith', craft: 'craft', fletching: 'fletch', herblore: 'brew' };
+const BONUS = { cook: 'perfectly cooked', smith: 'extra from flawless work' };
+const plural = (name, n) => (n === 1 || name.endsWith('s') ? name : `${name}s`);
+
+/** What a make action trains and produces: { skill, result }. */
+function makeInfo(a) {
+  if (a.type === 'cook') return { skill: 'cooking', result: COOKING[a.rawId]?.result };
+  if (a.type === 'recipe') return { skill: a.skill, result: a.recipe?.result };
+  return { skill: a.type === 'craft' ? 'crafting' : a.type === 'smith' ? 'smithing' : 'cooking', result: a.recipe?.result };
+}
+
+/** Make one recipe as many times as the pack allows, all at once, and say what
+ *  came out in one line. `once` makes a single item (the resolver wrapped in the
+ *  skill's unlocks) and returns whether another can follow. Returns the count made. */
+function batchOne(game, a, once) {
+  const { skill, result } = makeInfo(a);
+  const xp0 = game.skills.xp[skill] || 0, have0 = result ? game.inventory.count(result) : 0;
+  const t = a.tally = { burnt: 0, bonus: 0, kept: 0 };
+  let guard = 0;
+  try {
+    while (once() && ++guard < 100000) { /* keep making */ }
+  } finally { a.tally = null; }
+  const made = result ? game.inventory.count(result) - have0 : 0;
+  const xp = Math.round((game.skills.xp[skill] || 0) - xp0);
+  if (made <= 0 && !t.burnt) return 0;
+  const name = getItem(result).name.toLowerCase();
+  const kind = a.type === 'recipe' ? a.skill : a.type;
+  const notes = [];
+  if (t.bonus) notes.push(`${t.bonus} ${BONUS[kind] || 'extra'}`);
+  if (t.burnt) notes.push(`${t.burnt} burnt`);
+  if (t.kept) notes.push(`materials kept ${t.kept} time${t.kept === 1 ? '' : 's'}`);
+  const sname = skill[0].toUpperCase() + skill.slice(1);
+  game.msg(`You ${VERB[kind] || 'make'} ${made} ${plural(name, made)}${notes.length ? ` (${notes.join(', ')})` : ''}.`
+    + (xp > 0 ? ` +${xp.toLocaleString('en-GB')} ${sname} XP.` : ''));
+  return made;
+}
+
+/** The instant make at a station (cook, cookdish, smith, craft, recipe): this
+ *  recipe's whole batch, and with "Do all" every recipe after it, in the same
+ *  moment. `once(a)` makes one item of whatever `a` now is (a "Do all" can move
+ *  from cooking fish to a dish). One sound and one sparkle for the lot.
+ *  Returns false (the station is done). */
+export function makeBatch(game, a, once) {
+  let any = 0;
+  const held = game.pets?.hold();   // a pet roll for every item made, not one for the batch (pets.js)
+  try {
+    any += batchOne(game, a, () => once(a));
+    while (a.all) {
+      (a.done ||= new Set()).add(key(a));
+      const nxt = nextJob(game, a.all, a.done);
+      if (!nxt || nxt.type === 'smelt') break;
+      Object.assign(a, { rawId: undefined, recipe: undefined, skill: undefined }, nxt);
+      any += batchOne(game, a, () => once(a));
+    }
+  } finally { if (held) game.pets.release(); }
+  if (any > 0) {
+    game.bus.emit('sfx', a.type === 'smith' ? 'clang' : 'gather');
+    game.spawnSparkle?.(game.player, '#ffd24a', 10);
+  }
+  return false;
+}

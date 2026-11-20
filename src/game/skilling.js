@@ -62,9 +62,9 @@ export const COOKING = {
   // Hunter game
   raw_venison: { result: 'venison', level: 35, xp: 105, burnStop: 66 },
   raw_boar_meat: { result: 'boar_steak', level: 50, xp: 145, burnStop: 78 },
-  // Endgame fish (Cooking 100-300). One cook a tick, and an occasional perfect
-  // dish pays half again (about 4% more on average), so each tier's xp is set
-  // for ~35% more an hour than the tier before, starting from the seafood
+  // Endgame fish (Cooking 100-300). An occasional perfect dish pays half again
+  // (about 4% more on average), and each tier's xp is set for ~35% more a cook
+  // than the tier before (set when it was one cook a tick), starting from the seafood
   // platter (270), the best below level 100 (tests/fish-cook.test.mjs).
   raw_dorado: { result: 'grilled_dorado', level: 100, xp: 352, burnStop: 100 },
   raw_bluefin_tuna: { result: 'tuna_sashimi', level: 130, xp: 476, burnStop: 130 },
@@ -295,19 +295,26 @@ export function resolveCook(game, action) {
   // Food never burns any more (life skills never fail); the old burn levels in
   // COOKABLE (burnStop) are kept only as data.
   const burnChance = 0;
+  // A batch (makeBatch, autoprocess.js) passes a tally: each roll is counted
+  // there and told in one summary line, rather than a line and a sparkle each.
+  const t = action.tally;
   if (burnChance > 0 && Math.random() < burnChance) {
     game.inventory.add('burnt_fish', 1);
-    game.msg(`Oops! You accidentally burn the ${getItem(action.rawId).name.replace(/^Raw /, '').toLowerCase()}.`);
+    if (t) t.burnt++;
+    else game.msg(`Oops! You accidentally burn the ${getItem(action.rawId).name.replace(/^Raw /, '').toLowerCase()}.`);
   } else {
     game.inventory.add(cook.result, 1);
     // Perfectly cooked: an occasional flawless dish grants bonus XP.
     if (Math.random() < 0.08) {
       game.skills.addXp('cooking', Math.round(cook.xp * 1.5));
-      game.spawnSparkle(game.player, '#ffd24a', 6);
-      game.msg(`Perfectly cooked! A flawless ${getItem(cook.result).name.toLowerCase()}.`, 'level');
+      if (t) t.bonus++;
+      else {
+        game.spawnSparkle(game.player, '#ffd24a', 6);
+        game.msg(`Perfectly cooked! A flawless ${getItem(cook.result).name.toLowerCase()}.`, 'level');
+      }
     } else {
       game.skills.addXp('cooking', cook.xp);
-      game.msg(`You cook the ${getItem(cook.result).name.toLowerCase()}.`);
+      if (!t) game.msg(`You cook the ${getItem(cook.result).name.toLowerCase()}.`);
     }
   }
   return game.inventory.has(action.rawId);
@@ -346,7 +353,10 @@ export function resolveSmelt(game, action) {
 export function smeltBatch(game, action) {
   action.tally = null;
   let guard = 0;
-  while (resolveSmelt(game, action) && ++guard < 100000) { /* keep smelting */ }
+  const held = game.pets?.hold();   // a pet roll for every bar, not one for the batch (pets.js)
+  try {
+    while (resolveSmelt(game, action) && ++guard < 100000) { /* keep smelting */ }
+  } finally { if (held) game.pets.release(); }
   const t = action.tally;
   if (!t || (!t.made && !t.failed)) return false;
   const name = getItem(action.recipe.result).name.toLowerCase();
@@ -371,6 +381,7 @@ export function resolveDish(game, action) {
   for (const inp of r.inputs) game.inventory.remove(inp.id, inp.qty);
   game.inventory.add(r.result, 1);
   game.skills.addXp('cooking', r.xp);
+  if (action.tally) return r.inputs.every((inp) => game.inventory.has(inp.id, inp.qty));   // a batch says it once (makeBatch)
   const fc = { x: action.obj.x * 32 + 16, y: action.obj.y * 32 + 10 };
   game.spawnPoof(fc.x, fc.y, '#ffd9a0');
   game.msg(`You prepare a ${getItem(r.result).name.toLowerCase()}.`);
@@ -391,6 +402,7 @@ export function resolveCraft(game, action) {
   for (const inp of r.inputs) game.inventory.remove(inp.id, inp.qty);
   game.inventory.add(r.result, n);
   game.skills.addXp('crafting', r.xp);
+  if (action.tally) return r.inputs.every((inp) => game.inventory.has(inp.id, inp.qty));   // a batch says it once (makeBatch)
   game.spawnSparkle(game.player, '#caa15a', 6);
   game.msg(n > 1 ? `You craft ${n} ${getItem(r.result).name.toLowerCase()}s.` : `You craft a ${getItem(r.result).name.toLowerCase()}.`);
   return r.inputs.every((inp) => game.inventory.has(inp.id, inp.qty));
@@ -406,15 +418,19 @@ export function resolveSmith(game, action) {
   game.inventory.remove(r.bar, r.barCount);
   game.inventory.add(r.result, r.qty || 1);   // upgrade stones come several to a bar
   game.skills.addXp('smithing', r.xp);
-  game.bus.emit('sfx', 'clang');
+  const t = action.tally;   // a batch (makeBatch) counts the extras and says it once
+  if (!t) game.bus.emit('sfx', 'clang');
   const lvl = game.skills.level('smithing');
   const itemName = getItem(r.result).name.toLowerCase();
   // Flawless work: a chance to forge an extra piece for free.
   if (Math.random() < 0.03 + lvl * 0.001 && game.inventory.canAdd(r.result, 1) > 0) {
     game.inventory.add(r.result, 1);
-    game.spawnSparkle(game.player, '#ffd24a', 6);
-    game.msg(`Flawless work — you forge an extra ${itemName}!`);
-  } else {
+    if (t) t.bonus++;
+    else {
+      game.spawnSparkle(game.player, '#ffd24a', 6);
+      game.msg(`Flawless work — you forge an extra ${itemName}!`);
+    }
+  } else if (!t) {
     game.msg(r.qty > 1 ? `You hammer the metal into ${r.qty} ${itemName.endsWith('s') ? itemName : `${itemName}s`}.` : `You hammer the metal into a ${itemName}.`);   // "20 bronze rounds", not "roundss"
   }
   return game.inventory.has(r.bar, r.barCount);
@@ -544,6 +560,7 @@ export function resolveRecipe(game, action) {
   for (const [id, n] of r.inputs) game.inventory.remove(id, n);
   game.inventory.add(r.result, r.qty || 1);
   game.skills.addXp(skill, r.xp);
+  if (action.tally) return r.inputs.every(([id, n]) => game.inventory.has(id, n));   // a batch says it once (makeBatch)
   game.spawnSparkle(game.player, skill === 'herblore' ? '#7ad08a' : '#caa15a', 6);
   const name = getItem(r.result).name.toLowerCase();
   game.msg(skill === 'herblore' ? `You brew a ${name}.` : `You fletch ${(r.qty || 1) > 1 ? `${r.qty} ${name}s` : `a ${name}`}.`);
