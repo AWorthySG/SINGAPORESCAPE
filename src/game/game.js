@@ -4809,6 +4809,14 @@ export class Game {
           && chebyshev(p.x, p.y, n.x, n.y) <= Math.max(1, this.attackRange()));
         if (att) { this._autoFight = null; this._autoLast = att; this.attackNpc(att); return; }
       }
+      // Bows and spells: a target that has wandered out of reach isn't chased
+      // while another can be shot from right here (checked every other tick).
+      if (!inRange && this._holdsGround() && !tgt.def.boss && this.tickCount % 2 === 0) {
+        const up = this._autoPickTarget();
+        if (up && up !== tgt && chebyshev(p.x, p.y, up.x, up.y) <= this.attackRange()) {
+          this._autoFight = null; this._autoLast = up; this.attackNpc(up); return;
+        }
+      }
       // Casters always throw the strongest spell they can afford.
       // Casters on 'Auto' get the element that suits the target; a chosen element is kept.
       if (this.combatMode() === 'magic' && p.spellAuto) { const best = this._autoSpellFor(tgt); if (best && best.id !== p.spell) { p.spell = best.id; this.bus.emit('spell'); } }
@@ -4961,6 +4969,13 @@ export class Game {
       this._autoTop = top; this._autoTopFor = inWild;
     }
     return Math.min(Math.floor(cl * 0.75), Math.floor(this._autoTop * 0.85));
+  }
+
+  /** Does auto battle fight from where you stand (bows, guns, thrown coins and
+   *  shurikens, spells) rather than walk up to each foe? */
+  _holdsGround() {
+    const m = this.combatMode();
+    return m === 'ranged' || m === 'magic';
   }
 
   /** A pick auto battle would rather walk past: an ordinary monster well below
@@ -5299,6 +5314,10 @@ export class Game {
     // in-range targets outrank everything out of range (bosses included).
     const range = this.attackRange();
     const shootable = (n, d) => range > 1 && d <= range;
+    // Bows, guns and spells hold their ground: a champion out of reach waits
+    // until nothing is left in reach (walking off to one, through every pack on
+    // the way, was most of a ranged fighter's walking). Melee is unchanged.
+    const holds = this._holdsGround();
     const p = this.player;
     const cl = this.fightLevel();
     const wildZone = (x, y) => !!this.world.zoneAt(x, y)?.wilderness;
@@ -5364,7 +5383,7 @@ export class Game {
         if (this.autoQuest) continue;
         if (!inWild && wildZone(n.x, n.y)) continue;
         if (!this._autoChampionOk(n)) continue;   // a slog you'd likely lose: leave it until you're stronger
-        { const tier = first ? -2000 : 0; cands.push({ n, score: d + tier, tier }); }
+        { const tier = !first ? 0 : holds && !shootable(n, d) ? -500 : -2000; cands.push({ n, score: d + tier, tier }); }
         continue;
       }
       if (only) continue;   // "Champions & bosses only"
