@@ -242,11 +242,15 @@ const scaledFlat = (level, equip, castMult) => Math.round(levelFlatDmg(level) * 
 // longer counting the off-hand weapon's stats, the off-hand gaining crits, armour
 // pierce and the other per-hit boosts), daggers came down a little and scimitars
 // went up a little to keep Rogues and Corsairs where they were; pistols barely moved.
+// When hide armour took up armour pierce (items.js FAMILY_STAT), the Archers were
+// still the slowest boss killers of the hide classes (about 0.8 of the median in
+// real fights, 0.7-0.95 on the dummies): two of classlab's three dummies are a bug
+// and a bird, which shortbows bite into, but few bosses are. The shortbow went up 10%.
 export const WEAPON_DMG_MULT = {
   // (The two-handed types, the crossbow too, were trimmed by up to 12% when they gained the two-handed grip, the
   // off-hand's atkPct, haste and Ranged built into the weapon: see items.js.)
   dagger: 0.6, sword: 2.2, scimitar: 0.39, mace: 2.62, longsword: 2.13, battleaxe: 1.72, warhammer: 2.8,
-  '2h_sword': 2.55, spear: 2.05, claws: 0.48, katana: 1.41, halberd: 3.18, cane: 0.71, shortbow: 0.445,
+  '2h_sword': 2.55, spear: 2.05, claws: 0.48, katana: 1.41, halberd: 3.18, cane: 0.71, shortbow: 0.49,
   // (Staves, wands and orbs came down by 15% when the Mystic blessings began to count
   // for spells, elements began to bite harder and Magic gained its attunement below.)
   longbow: 1.15, pistol: 0.37, rifle: 1.07, shuriken: 1.3, staff: 0.272, wand: 0.264, whip: 2.0,

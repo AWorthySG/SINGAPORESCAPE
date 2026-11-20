@@ -3139,7 +3139,7 @@ test('bows shoot from far: each bow has its own reach, and arrows fly at a stead
   game.chooseStartingStyle('ranged');
   assert.equal(game.attackRange(), 5, 'a shortbow reaches 5 tiles (a quarter of its old 12, plus 2)');
   assert.equal(ITEMS.magic_shortbow.equip.range, 7);
-  assert.ok(ITEMS.magic_longbow.equip.range > ITEMS.magic_shortbow.equip.range * 1.5, 'longbows keep their long reach');
+  assert.ok(ITEMS.magic_longbow.equip.range > ITEMS.magic_shortbow.equip.range, 'longbows reach a little further (no longer twice as far)');
   const near = game.spawnNpc('goblin', game.player.x + 2, game.player.y, { wander: 0 });
   const far = game.spawnNpc('goblin', game.player.x + 9, game.player.y, { wander: 0 });
   game._projectile(near, '#fff', 'arrow'); game._projectile(far, '#fff', 'arrow');
@@ -4354,9 +4354,11 @@ test('every class has its own four abilities (basic Z, threshold X, utility C, u
     const mode = c.style;
     const set = abilitiesFor(mode, c.id);
     const by = Object.fromEntries(set.map((a) => [a.key, a]));
-    assert.equal(by.Z.kind, 'attack', `${c.name}: Z is a damage skill`);
+    // The Ranger's skills are all damage buffs (tests/ranger-buffs.test.mjs): no strike, no area.
+    const buffsOnly = c.id === 'ranger';
+    assert.equal(by.Z.kind, buffsOnly ? 'buff' : 'attack', `${c.name}: Z is a damage skill`);
     assert.equal(by.X.kind, 'buff', `${c.name}: X is a buff`);
-    assert.ok(by.B.aoe || by.B.sweep, `${c.name}: B hits an area`);
+    assert.ok(buffsOnly ? by.B.kind === 'buff' && by.B.buff.dmg > 0 : by.B.aoe || by.B.sweep, `${c.name}: B hits an area`);
     // Build and spend: Z and C are free and Z builds adrenaline, X spends 50, B the full 100.
     assert.ok(by.Z.cost === 0 && by.Z.build > 0, `${c.name}: Z is a free builder`);
     assert.equal(by.C.cost, 0, `${c.name}: C is free`);
