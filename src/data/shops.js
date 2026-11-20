@@ -45,6 +45,10 @@ export const SHOPS = {
       { id: 'bronze_arrow', qty: 1000 },
       { id: 'iron_arrow', qty: 1000 },
       { id: 'steel_arrow', qty: 1000 },
+      // Rounds for Pistolers' and Snipers' guns (rounds.js).
+      { id: 'bronze_rounds', qty: 1000 },
+      { id: 'iron_rounds', qty: 1000 },
+      { id: 'steel_rounds', qty: 1000 },
       { id: 'feather', qty: 1000 },
       { id: 'batik_cape', qty: 5 },
       { id: 'songket_cape', qty: 2 },
@@ -113,6 +117,16 @@ export const SHOPS = {
       { id: 'mithril_arrow', qty: 1500 },
       { id: 'adamant_arrow', qty: 1000 },
       { id: 'rune_arrow', qty: 500 },
+      // Gun rounds, and the special rounds (rounds.js).
+      { id: 'bronze_rounds', qty: 2000 },
+      { id: 'iron_rounds', qty: 2000 },
+      { id: 'steel_rounds', qty: 2000 },
+      { id: 'mithril_rounds', qty: 1500 },
+      { id: 'adamant_rounds', qty: 1000 },
+      { id: 'rune_rounds', qty: 500 },
+      { id: 'incendiary_rounds', qty: 300 },
+      { id: 'frost_rounds', qty: 300 },
+      { id: 'shock_rounds', qty: 300 },
     ],
   },
   magic: {

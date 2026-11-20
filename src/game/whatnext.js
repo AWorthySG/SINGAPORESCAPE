@@ -13,6 +13,7 @@
 //  - fight: monsters your level, outside the Wilderness -> walk there and
 //    switch auto battle on.
 // No DOM and no Math.random, so the tests can drive it.
+import { betterRoundsInPack } from './rounds.js';
 import { getItem } from '../data/items.js';
 import { getNpc } from '../data/npcs.js';
 import { QUESTS } from '../data/quests.js';
@@ -45,6 +46,9 @@ export function packUpgrades(game) {
     const v = compareGear(s.id, game.equipment, null, s.q || null)?.verdict;
     if (v === 'upgrade' || v === 'empty') out.push(s);
   }
+  // Rounds that beat the loaded ones, while a gun is in hand (Equip best loads them).
+  const r = betterRoundsInPack(game);
+  if (r) out.push(r);
   return out;
 }
 /** The first of them, or null. */
