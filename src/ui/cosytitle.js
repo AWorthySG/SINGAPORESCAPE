@@ -153,9 +153,11 @@ function rainTree(x, h) {
  * The cosy skyline, 1200 x 220 units with the ground along the bottom: the
  * modern city hazy behind, the old neighbourhood in front. The middle third
  * (what a phone shows) holds the kampong house, the shophouses and the kopitiam.
+ * `city: false` leaves the hazy city out (the title draws it as its own
+ * parallax layers behind this one).
  */
-export function cosySkylineSvg() {
-  const far = titleSkylineSvg().replace('<svg ', '<svg x="0" y="36" width="1200" height="140" opacity=".55" ');
+export function cosySkylineSvg({ city = true } = {}) {
+  const far = city ? titleSkylineSvg().replace('<svg ', '<svg x="0" y="36" width="1200" height="140" opacity=".55" ') : '';
   const near = [
     rainTree(40, 120),
     hdb(70, 120, 196, '#CDE7DF', '#7FB8A8', 1),
@@ -175,7 +177,7 @@ export function cosySkylineSvg() {
   return `<svg viewBox="0 0 ${COSY_VIEW.w} ${COSY_VIEW.h}" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="cosy-skyline">`
     + `<defs><linearGradient id="ctHaze" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFB27A" stop-opacity=".0"/><stop offset="1" stop-color="#F59A7A" stop-opacity=".45"/></linearGradient></defs>`
     + far
-    + `<rect x="0" y="40" width="1200" height="180" fill="url(#ctHaze)"/>`
+    + (city ? `<rect x="0" y="40" width="1200" height="180" fill="url(#ctHaze)"/>` : '')
     + `<g stroke="${INK}" stroke-width="3" stroke-linejoin="round" paint-order="stroke">${near.join('')}</g>`
     + `<rect x="0" y="${G - 5}" width="1200" height="5" fill="#C9A77E"/></svg>`;
 }
