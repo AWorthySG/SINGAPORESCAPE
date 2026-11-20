@@ -10,7 +10,7 @@ import { OBJECTS } from '../src/data/objects.js';
 import { xpForLevel, pastCapXpMult } from '../src/data/xp.js';
 import { XP_RATE, LIFE_XP_BOOST } from '../src/config.js';
 import { chebyshev } from '../src/core/utils.js';
-import { feedPoints, FEED_CAP } from '../src/game/materials.js';
+import { feedXp, FEED_CAP } from '../src/game/materials.js';
 
 function fakeStorage() {
   const m = new Map();
@@ -206,9 +206,13 @@ test('hunter: crocodile < hornbill < qilin an hour', () => {
   }
 });
 
-test('feeding mastery has diminishing returns on value: endgame bars no longer reach Master in a handful', () => {
-  assert.equal(feedPoints('rune_scimitar', 'eternal_bar'), 113);
-  assert.ok(FEED_CAP / feedPoints('rune_scimitar', 'eternal_bar') > 50, 'Master takes dozens of eternal bars, not three');
-  assert.ok(feedPoints('rune_scimitar', 'rune_bar') > feedPoints('rune_scimitar', 'adamant_bar'), 'a better bar is still worth more');
-  assert.ok(feedPoints('rune_scimitar', 'eternal_bar') > feedPoints('rune_scimitar', 'rune_bar'));
+// The owner found the old square-root taper too harsh (Master took over seventy
+// eternal bars); with mastery XP the taper is gentle (worth^0.8): about ten of
+// the best bars, but not the three that a tenth of the value outright once gave.
+test('feeding mastery has gentle diminishing returns on value: about ten eternal bars to Master', () => {
+  assert.equal(feedXp('rune_scimitar', 'eternal_bar'), 7644);
+  const bars = FEED_CAP / feedXp('rune_scimitar', 'eternal_bar');
+  assert.ok(bars > 6 && bars < 15, `Master takes ${bars.toFixed(1)} eternal bars`);
+  assert.ok(feedXp('rune_scimitar', 'rune_bar') > feedXp('rune_scimitar', 'adamant_bar'), 'a better bar is still worth more');
+  assert.ok(feedXp('rune_scimitar', 'eternal_bar') > feedXp('rune_scimitar', 'rune_bar'));
 });

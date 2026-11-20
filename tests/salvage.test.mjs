@@ -12,10 +12,11 @@ import { ALL_BOSS_IDS } from '../src/data/npcs.js';
 import { FEED_CAP } from '../src/game/materials.js';
 import { xpForLevel } from '../src/data/xp.js';
 import {
-  gearWorth, sacrificePoints, dismantleYield, sacrificeGear, dismantleGear, packQualities,
+  gearWorth, sacrificeXp, sacrificeXpIn, dismantleYield, sacrificeGear, dismantleGear, packQualities,
   bulkPicks, dismantleAll, sacrificeAll, previewSacrifice, sacrificeOptions, salvageWarning, QUALITY_MULT, UNIQUE_MULT,
-  SACRIFICE_RATE,
+  SACRIFICE_XP, OLD_SACRIFICE_XP, SACRIFICE_RANK_BONUS, SACRIFICE_REFINE_BONUS,
 } from '../src/game/salvage.js';
+import { MASTERY_RANKS, rankFor } from '../src/game/mastery.js';
 import { salvageHour } from '../tools/balance/salvage.mjs';
 
 function fakeStorage() {
@@ -43,20 +44,60 @@ test('worth grows with level (with diminishing returns), tier, quality and boss 
   assert.ok(gearWorth('rune_sword', 'mythic') > gearWorth('rune_sword', 'legendary'));
   // Boss uniques and signature weapons are worth a lot.
   assert.ok(gearWorth('merlion_blade') > gearWorth('rune_sword') * UNIQUE_MULT * 0.9);
-  assert.ok(sacrificePoints('rune_sword', 'merlion_blade') >= 60, 'a boss unique gives a lot of mastery');
+  assert.ok(sacrificeXp('rune_sword', 'merlion_blade') >= 6000, 'a boss unique gives a lot of mastery');
   // Tools and things with no stats are worth nothing.
   assert.equal(gearWorth('bronze_axe'), 0);
   assert.equal(gearWorth('coins'), 0);
 });
 
-test('sacrifice points: worth x1.5 at double rate, at least 1, and only into the same gear type', () => {
+// The owner asked for sacrifice to pay far more. It was worth x3 mastery
+// points (x1.5, doubled), and a point is 10 XP now (the ranks' XP is ten times
+// their old points), so the old value is 30 XP a point of worth: it is four
+// times that at Novice, and more as the type's rank climbs and for refined pieces.
+test('sacrifice XP: four times the old value, more with rank and refine, and only into the same gear type', () => {
   // A plate body into a sword gives nothing; into another plate body, its worth.
-  assert.equal(sacrificePoints('rune_sword', 'rune_platebody'), 0, 'another type: refused');
-  assert.equal(sacrificePoints('rune_sword', 'iron_scimitar'), 0, 'a scimitar is not a sword');
-  assert.equal(sacrificePoints('rune_platebody', 'leather_body'), 0, 'scout leather is not plate');
-  assert.equal(sacrificePoints('adamant_platebody', 'rune_platebody'), Math.round(gearWorth('rune_platebody') * SACRIFICE_RATE * 1.5));
-  assert.equal(sacrificePoints('rune_sword', 'mithril_sword'), Math.round(gearWorth('mithril_sword') * SACRIFICE_RATE * 1.5));
-  assert.ok(sacrificePoints('rune_dagger', 'bronze_dagger') >= 1, 'the humblest piece still gives 1');
+  assert.equal(sacrificeXp('rune_sword', 'rune_platebody'), 0, 'another type: refused');
+  assert.equal(sacrificeXp('rune_sword', 'iron_scimitar'), 0, 'a scimitar is not a sword');
+  assert.equal(sacrificeXp('rune_platebody', 'leather_body'), 0, 'scout leather is not plate');
+  assert.equal(SACRIFICE_XP, 4 * OLD_SACRIFICE_XP);
+  assert.equal(OLD_SACRIFICE_XP, 2 * 1.5 * 10, 'the old SACRIFICE_RATE x SAME_KIND_MULT, at 10 XP a point');
+  for (const [t, src] of [['adamant_platebody', 'rune_platebody'], ['rune_sword', 'mithril_sword'], ['eternal_sword', 'rune_sword'], ['rune_sword', 'merlion_blade']]) {
+    const old = Math.max(1, Math.round(gearWorth(src) * 3)) * 10;
+    assert.equal(sacrificeXp(t, src), Math.round(gearWorth(src) * SACRIFICE_XP), src);
+    const x = sacrificeXp(t, src) / old;
+    assert.ok(x > 3.5 && x < 4.5, `${src}: ${x.toFixed(2)}x the old value at Novice`);
+    // At Expert (rank 3) +30%, so about five times; a ★10 piece +40% on top.
+    assert.equal(sacrificeXp(t, src, 'plain', 3), Math.round(gearWorth(src) * SACRIFICE_XP * (1 + 3 * SACRIFICE_RANK_BONUS)));
+    assert.equal(sacrificeXp(t, src, 'plain', 3, 10), Math.round(gearWorth(src) * SACRIFICE_XP * (1 + 3 * SACRIFICE_RANK_BONUS) * (1 + 10 * SACRIFICE_REFINE_BONUS)));
+  }
+  // Quality is in the worth: an Epic copy is worth 2.2 plain ones.
+  assert.equal(sacrificeXp('rune_sword', 'mithril_sword', 'epic'), Math.round(gearWorth('mithril_sword') * QUALITY_MULT.epic * SACRIFICE_XP));
+  assert.ok(sacrificeXp('rune_dagger', 'bronze_dagger') >= 1, 'the humblest piece still gives some');
+});
+
+test('sacrifice: same-tier copies per rank, and in a game the piece\'s refine and the target\'s rank count', () => {
+  // Plain rune swords (level 40) into Sword mastery from Novice: about 11 to
+  // Adept, 27 more to Skilled, 67 to Expert and 156 to Master (salvage.js);
+  // 1,334 took it to Master before. Eternal swords (level 300): 87 in all.
+  const perRank = (id) => {
+    let xp = 0; const out = [];
+    for (let r = 1; r <= 4; r++) { let n = 0; while (xp < MASTERY_RANKS[r].xp) { xp += sacrificeXp(id, id, 'plain', rankFor(xp)); n++; } out.push(n); }
+    return out;
+  };
+  const rune = perRank('rune_sword'), eternal = perRank('eternal_sword');
+  const total = (a) => a.reduce((t, n) => t + n, 0);
+  assert.ok(total(rune) >= 200 && total(rune) <= 320, `rune swords to Master: ${rune.join('/')}`);
+  assert.ok(total(eternal) >= 60 && total(eternal) <= 120, `eternal swords to Master: ${eternal.join('/')}`);
+  const oldRune = Math.ceil(MASTERY_RANKS[4].xp / (Math.round(gearWorth('rune_sword') * 3) * 10));
+  assert.ok(oldRune / total(rune) >= 4 && oldRune / total(rune) <= 6, `${oldRune} before, ${total(rune)} now`);
+  // In a game: the target's mastery and the piece's refine stars.
+  const g = newGame('swordsman');
+  const target = g.equipment.get('weapon');
+  assert.equal(sacrificeXpIn(g, target, 'mithril_sword'), sacrificeXp(target, 'mithril_sword'));
+  g.equipment.refines.mithril_sword = 5;
+  g.equipment.setMastery(target, MASTERY_RANKS[2].xp);
+  assert.equal(sacrificeXpIn(g, target, 'mithril_sword'), sacrificeXp(target, 'mithril_sword', 'plain', 2, 5));
+  assert.ok(sacrificeXpIn(g, target, 'mithril_sword') > sacrificeXp(target, 'mithril_sword') * 1.4);
 });
 
 test('sacrificing gear adds mastery to its gear type, and only gear of that type can go', () => {
@@ -70,13 +111,13 @@ test('sacrificing gear adds mastery to its gear type, and only gear of that type
   assert.equal(g.inventory.count('fire_staff'), 3, 'nothing used up');
   assert.ok(!sacrificeOptions(g, target).some((o) => o.id === 'fire_staff'), 'not offered either');
   g.inventory.add('mithril_sword', 3);
-  const each = sacrificePoints(target, 'mithril_sword');
-  const before = g.equipment.masteryPoints(target);
+  const each = sacrificeXp(target, 'mithril_sword');
+  const before = g.equipment.masteryXp(target);
   const pv = previewSacrifice(g, target, 'mithril_sword', 2);
   assert.deepEqual([pv.n, pv.points], [2, each * 2], 'the preview matches');
   assert.equal(sacrificeGear(g, target, 'mithril_sword', 2), each * 2);
-  assert.equal(g.equipment.masteryPoints(target), before + each * 2);
-  assert.equal(g.equipment.masteryPoints('rune_sword'), before + each * 2, 'every sword shares Sword mastery');
+  assert.equal(g.equipment.masteryXp(target), before + each * 2);
+  assert.equal(g.equipment.masteryXp('rune_sword'), before + each * 2, 'every sword shares Sword mastery');
   assert.equal(g.inventory.count('mithril_sword'), 1, 'two used up, one left');
   assert.ok(sacrificeOptions(g, target).some((o) => o.id === 'mithril_sword' && o.count === 1));
 });
@@ -130,10 +171,10 @@ test('each copy keeps its quality, saved, and the plainest copy goes first', () 
   // Sacrificing two (to plate body mastery) uses the plain ones and keeps the Epic.
   g.inventory.add('adamant_platebody', 1);
   const target = 'adamant_platebody';
-  const plain = sacrificePoints(target, 'rune_platebody', 'plain');
+  const plain = sacrificeXp(target, 'rune_platebody', 'plain');
   assert.equal(sacrificeGear(g, target, 'rune_platebody', 2), plain * 2);
   assert.deepEqual(packQualities(g, 'rune_platebody'), ['epic']);
-  assert.equal(sacrificeGear(g, target, 'rune_platebody', 1), sacrificePoints(target, 'rune_platebody', 'epic'));
+  assert.equal(sacrificeGear(g, target, 'rune_platebody', 1), sacrificeXpIn(g, target, 'rune_platebody', 'epic'));
   assert.equal(g.inventory.count('rune_platebody'), 0);
 });
 
@@ -199,22 +240,23 @@ test('bulk picks: not my class, below my worn tier, below a quality; never upgra
   assert.equal(g.inventory.count('merlion_blade'), 1);
   assert.equal(g.inventory.count('eternal_platebody'), 1);
   // Sacrifice all the rest into the worn sword: only swords go (not the staves).
-  const pts = g.equipment.masteryPoints('rune_sword');
+  const pts = g.equipment.masteryXp('rune_sword');
   const res = sacrificeAll(g, 'rune_sword', {});
   assert.equal(res.pieces, 1, 'the Epic sword');
   assert.equal(g.inventory.count('eternal_staff'), 2, 'the staves are another type');
-  assert.equal(g.equipment.masteryPoints('rune_sword'), pts + res.points);
+  assert.equal(g.equipment.masteryXp('rune_sword'), pts + res.points);
   assert.equal(g.inventory.count('merlion_blade'), 1);
 });
 
-test('balance: an hour of drops, dismantled, adds 45-90% to stone and scroll income; the same type sacrificed, about an hour of kills', () => {
+test('balance: an hour of drops, dismantled, adds 45-90% to stone and scroll income; the same type sacrificed reaches Master quickly', () => {
   const rows = [50, 150, 250].map((L) => salvageHour(L, { kills: 2400 }));
   for (const r of rows) {
-    const sac = r.sacPoints / r.killMastery;
-    // (Up to about twice: champions, each worth thirty kills of loot, are twice
-    // as common as they were, so an hour now brings half as much gear again.)
-    // (Doubled again when the owner asked for sacrifice to pay more mastery: SACRIFICE_RATE 2.)
-    assert.ok(sac > 1.1 && sac < 4.6, `level ${r.level}: sacrifice gives ${Math.round(sac * 100)}% of the kills' mastery`);
+    // Sacrifice used to give 1.6-2.4x the kills' mastery in an hour, so a
+    // fresh type took ~2 hours of spare drops to reach Master. At four times
+    // the old rate (and more as ranks climb) it reaches Master, where
+    // sacrifice stops, in well under an hour of drops.
+    assert.ok(r.sacPoints >= FEED_CAP, `level ${r.level}: sacrifice gave ${r.sacPoints} XP`);
+    assert.ok(r.toMaster >= 5 && r.toMaster <= 45, `level ${r.level}: Master in ${r.toMaster} minutes of spare drops`);
   }
   const sum = (k) => rows.reduce((t, r) => t + r[k], 0);
   const stones = sum('disStones') / sum('dropStones'), scrolls = sum('disScrolls') / sum('dropScrolls');

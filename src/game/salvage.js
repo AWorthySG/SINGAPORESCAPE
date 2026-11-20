@@ -1,6 +1,6 @@
 import { getItem } from '../data/items.js';
 import { CLASS_BY_ID, canWear, canWield } from '../data/classes.js';
-import { reqLevel, MASTERY_RANKS, STONE, WARD, masteryType, masteryTypeName } from './mastery.js';
+import { reqLevel, MASTERY_RANKS, STONE, WARD, masteryType, masteryTypeName, rankFor } from './mastery.js';
 import { SCROLL } from './refine.js';
 import { FEED_CAP, FEED_CAP_RANK } from './materials.js';
 import { QUALITY } from './loot.js';
@@ -29,15 +29,14 @@ import { tierOf, compareGear } from './gear.js';
 // at levels 50, 150 and 250: about 0.5 pieces of gear drop per kill (champions'
 // thirty rolls are most of them), mostly well below your level, at an average
 // worth of about 2-3. So:
-//   sacrifice: worth x1.5 mastery points, at least 1. Only gear of the same
-//     type can be sacrificed to a type (same weapon type, or same slot and
-//     armour family: the gear type mastery belongs to). An hour's
-//     drops, all sacrificed into one piece, come to roughly the mastery that
-//     hour's kills gave each piece you wore (about 0.75, 1.1 and 1.3 times as
-//     much at levels 50, 150 and 250). Kills feed every worn piece, sacrifice
-//     only one, so battle stays the main road; and like materials, sacrifice
-//     stops at Master. (Sacrifice was doubled and dismantling raised by half
-//     since, at the owner's request: these figures are from before.)
+//   sacrifice: worth x SACRIFICE_XP mastery XP (see sacrificeXp), at least 1.
+//     Only gear of the same type can be sacrificed to a type (same weapon
+//     type, or same slot and armour family: the gear type mastery belongs to).
+//     Like materials, sacrifice stops at Master. (History: it began at worth
+//     x1.5 points, about what an hour's kills gave each piece; it was doubled
+//     at the owner's request, and on mastery becoming XP made four times that
+//     again, with a bonus for the target's rank and the piece's refine stars:
+//     see SACRIFICE_XP.)
 //   dismantle: worth x0.06 upgrade stones and worth x0.008 refine scrolls,
 //     each rounded up or down at random so a plain piece gives a stone now and
 //     then and a good one every time. Dismantling every gear drop adds about
@@ -54,8 +53,22 @@ export const QUALITY_KEYS = ['fine', 'superior', 'epic', 'legendary', 'mythic'];
 export const QUALITY_MULT = { plain: 1, fine: 1.25, superior: 1.6, epic: 2.2, legendary: 3.5, mythic: 6 };
 export const UNIQUE_MULT = 25;
 export const UNIQUE_MIN_LEVEL = 60;
-export const SACRIFICE_RATE = 2;   // (doubled from 1: the owner wanted sacrifice to pay more mastery)
-export const SAME_KIND_MULT = 1.5;
+// Sacrifice, in mastery XP per point of a piece's worth. It was worth x3
+// points (x1.5, doubled at the owner's request), 30 XP at 10 XP a point
+// (OLD_SACRIFICE_XP); the owner asked for sacrifice to pay far more, so it is
+// four times that, and grows further with:
+//   the target type's rank   +10% a rank (so it keeps pace as ranks get longer)
+//   the piece's refine stars +4% a star (a refined piece took scrolls to make)
+// So a plain rune sword (level 40) sacrificed to Sword mastery takes about 11
+// copies to Adept, 27 more to Skilled, 67 to Expert and 156 to Master: 261 in
+// all, where it took 1,334 before. An eternal sword (level 300) takes 87 (422
+// before). Measured with tools/balance/salvage.mjs (an hour of auto battle
+// drops at levels 50, 150 and 250): a Swordsman's spare swords take a fresh
+// Sword mastery to Master in about 25 minutes' worth of drops (~2 hours before).
+export const OLD_SACRIFICE_XP = 30;
+export const SACRIFICE_XP = 4 * OLD_SACRIFICE_XP;
+export const SACRIFICE_RANK_BONUS = 0.1;
+export const SACRIFICE_REFINE_BONUS = 0.04;
 export const STONE_RATE = 0.09;   // (up from 0.06: dismantling pays half as much again)
 export const SCROLL_RATE = 0.012;   // (up from 0.008)
 export const WARD_CHANCE = { legendary: 0.05, mythic: 0.25, unique: 0.5 };
@@ -94,12 +107,20 @@ export function sameKind(a, b) {
   return masteryType(a) === masteryType(b);
 }
 
-/** Mastery points one copy of `srcId` at quality `q` gives the gear type of
- *  `targetId` (0 when it is another type: only the same type can be sacrificed). */
-export function sacrificePoints(targetId, srcId, q = 'plain') {
+/** Mastery XP one copy of `srcId` at quality `q` gives the gear type of
+ *  `targetId` (0 when it is another type: only the same type can be
+ *  sacrificed), with that type at mastery rank `rank` and `srcId` refined to
+ *  `refine` stars. Its level, tier and quality are in its worth. */
+export function sacrificeXp(targetId, srcId, q = 'plain', rank = 0, refine = 0) {
   const w = gearWorth(srcId, q);
   if (!w || !isSalvageable(targetId) || !sameKind(targetId, srcId)) return 0;
-  return Math.max(1, Math.round(SACRIFICE_RATE * w * SAME_KIND_MULT));
+  return Math.max(1, Math.round(SACRIFICE_XP * w * (1 + SACRIFICE_RANK_BONUS * rank) * (1 + SACRIFICE_REFINE_BONUS * refine)));
+}
+
+/** sacrificeXp for one copy in this game: the target's mastery (`xp`, by
+ *  default what it has now) and the piece's refine stars. */
+export function sacrificeXpIn(game, targetId, srcId, q = 'plain', xp = game.equipment.masteryXp(targetId)) {
+  return sacrificeXp(targetId, srcId, q, rankFor(xp), game.equipment.refineLevel(srcId));
 }
 
 /** What dismantling one copy is expected to give: { stones, scrolls, ward } (averages; ward is a chance). */
@@ -148,7 +169,7 @@ export function salvageWarning(game, id, q = 'plain') {
 function targetProblem(game, id) {
   if (!isSalvageable(id)) return 'That has no stats to master.';
   if (!EQUIP_SLOTS.some((s) => game.equipment.get(s) === id) && !game.inventory.count(id)) return 'Wear or carry the gear you want to strengthen.';
-  if (game.equipment.masteryPoints(id) >= FEED_CAP) return `Sacrifices can take gear only to ${MASTERY_RANKS[FEED_CAP_RANK].name} mastery. Fight with it to go further.`;
+  if (game.equipment.masteryXp(id) >= FEED_CAP) return `Sacrifices can take gear only to ${MASTERY_RANKS[FEED_CAP_RANK].name} mastery. Fight with it to go further.`;
   return '';
 }
 
@@ -160,21 +181,22 @@ export function sacrificeOptions(game, targetId) {
   for (const s of game.inventory.slots) {
     if (!s || !isSalvageable(s.id) || !sameKind(targetId, s.id) || out.some((o) => o.id === s.id)) continue;
     const qs = packQualities(game, s.id);
-    out.push({ id: s.id, count: qs.length, qualities: qs, points: sacrificePoints(targetId, s.id, qs[0]),
-      total: qs.reduce((t, q) => t + sacrificePoints(targetId, s.id, q), 0), warn: salvageWarning(game, s.id, qs[qs.length - 1]) });
+    out.push({ id: s.id, count: qs.length, qualities: qs, points: sacrificeXpIn(game, targetId, s.id, qs[0]),
+      total: qs.reduce((t, q) => t + sacrificeXpIn(game, targetId, s.id, q), 0), warn: salvageWarning(game, s.id, qs[qs.length - 1]) });
   }
   return out.sort((a, b) => b.points - a.points || b.total - a.total);
 }
 
 /** What sacrificing up to `qty` copies of `srcId` to `targetId` would give,
- *  without doing it: { n, points, copies (their qualities) }. Stops at Master. */
+ *  without doing it: { n, points (mastery XP), copies (their qualities) }.
+ *  Stops at Master. Each copy counts at the rank the ones before it reached. */
 export function previewSacrifice(game, targetId, srcId, qty = 1) {
   const qs = packQualities(game, srcId);
-  let pts = game.equipment.masteryPoints(targetId), points = 0;
+  let pts = game.equipment.masteryXp(targetId), points = 0;
   const copies = [];
   for (const q of qs) {
     if (copies.length >= qty || pts >= FEED_CAP) break;
-    const p = sacrificePoints(targetId, srcId, q);
+    const p = sacrificeXpIn(game, targetId, srcId, q, pts);
     copies.push(q); points += p; pts += p;
   }
   return { n: copies.length, points, copies };
@@ -183,7 +205,7 @@ export function previewSacrifice(game, targetId, srcId, qty = 1) {
 /** Sacrifice up to `qty` copies of `srcId` (from your pack) to the mastery of
  *  `targetId`'s gear type, which must be `srcId`'s type too. Plainest copies go
  *  first; only what it takes to reach Master is used. Returns the mastery
- *  points added (0 when refused). */
+ *  XP added (0 when refused). */
 export function sacrificeGear(game, targetId, srcId, qty = 1, { quiet = false } = {}) {
   const why = targetProblem(game, targetId);
   if (why) { if (!quiet) game.msg(why); return 0; }
@@ -208,7 +230,7 @@ export function sacrificeGear(game, targetId, srcId, qty = 1, { quiet = false } 
   game.equipment._changed();
   if (!quiet) {
     game.spawnSparkle?.(game.player, '#ffd24a', 10);
-    game.msg(`You sacrifice ${pv.n} x ${getItem(srcId).name} to your ${masteryTypeName(targetId)} mastery: +${pv.points} mastery.`, 'system');
+    game.msg(`You sacrifice ${pv.n} x ${getItem(srcId).name} to your ${masteryTypeName(targetId)} mastery: +${pv.points} mastery XP.`, 'system');
   }
   return pv.points;
 }
@@ -312,13 +334,13 @@ export function dismantleAll(game, filters = {}, { rand = Math.random } = {}) {
   return sum;
 }
 
-/** What "Sacrifice all" would give `targetId`: { pieces, points } (stops at Master). */
+/** What "Sacrifice all" would give `targetId`: { pieces, points (mastery XP) } (stops at Master). */
 export function previewSacrificeAll(game, targetId, filters = {}) {
-  let pts = game.equipment.masteryPoints(targetId), pieces = 0, points = 0;
+  let pts = game.equipment.masteryXp(targetId), pieces = 0, points = 0;
   for (const p of bulkPicks(game, filters, targetId)) {
     for (const q of p.qualities) {
       if (pts >= FEED_CAP) return { pieces, points };
-      const v = sacrificePoints(targetId, p.id, q);
+      const v = sacrificeXpIn(game, targetId, p.id, q, pts);
       pieces++; points += v; pts += v;
     }
   }
@@ -332,14 +354,14 @@ export function sacrificeAll(game, targetId, filters = {}) {
   const why = targetProblem(game, targetId);
   if (why) { game.msg(why); return sum; }
   for (const p of bulkPicks(game, filters, targetId)) {
-    if (game.equipment.masteryPoints(targetId) >= FEED_CAP) break;
+    if (game.equipment.masteryXp(targetId) >= FEED_CAP) break;
     const before = game.inventory.count(p.id);
     const pts = sacrificeGear(game, targetId, p.id, p.qualities.length, { quiet: true });
     sum.points += pts; sum.pieces += before - game.inventory.count(p.id);
   }
   if (sum.pieces) {
     game.spawnSparkle?.(game.player, '#ffd24a', 14);
-    game.msg(`You sacrifice ${sum.pieces} piece${sum.pieces > 1 ? 's' : ''} of gear to your ${masteryTypeName(targetId)} mastery: +${sum.points} mastery.`, 'level');
+    game.msg(`You sacrifice ${sum.pieces} piece${sum.pieces > 1 ? 's' : ''} of gear to your ${masteryTypeName(targetId)} mastery: +${sum.points} mastery XP.`, 'level');
   } else game.msg('No spare gear matches.');
   return sum;
 }

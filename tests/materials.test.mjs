@@ -13,7 +13,7 @@ import { SMITH } from '../src/data/smithing.js';
 import { CRAFT } from '../src/data/crafting.js';
 import { resolveSmith, resolveCraft } from '../src/game/skilling.js';
 import { nextJob } from '../src/game/autoprocess.js';
-import { materialKind, materialPoints, feedKind, feedPoints, FEED_CAP } from '../src/game/materials.js';
+import { materialKind, materialPoints, feedKind, feedXp, materialFeedXp, FEED_CAP } from '../src/game/materials.js';
 import { shrineCost, SHRINE_TRACK_IDS } from '../src/game/shrine.js';
 import { MASTERY_RANKS } from '../src/game/mastery.js';
 
@@ -129,9 +129,12 @@ test('feeding: each kind of gear takes its own material', () => {
   assert.equal(feedKind('wizard_robe_top'), 'herb');
   assert.equal(feedKind('batik_cape'), 'herb');
   assert.equal(feedKind('logs'), null, 'not gear');
-  assert.equal(feedPoints('rune_scimitar', 'mithril_bar'), 11, '2 x the square root of its worth (32)');
-  assert.equal(feedPoints('rune_scimitar', 'bronze_bar'), 3, 'never more than its worth');
-  assert.equal(feedPoints('rune_scimitar', 'yew_logs'), 0, 'logs do not feed a sword');
+  // Mastery XP: 12 x worth^0.8 (worth 32: 192), and never less than the old
+  // points (2 x the square root of the worth, at most the worth) at 10 XP each.
+  assert.equal(feedXp('rune_scimitar', 'mithril_bar'), 192, '12 x 32^0.8');
+  assert.equal(feedXp('rune_scimitar', 'bronze_bar'), 30, 'the old 3 points, as XP');
+  assert.equal(feedXp('rune_scimitar', 'yew_logs'), 0, 'logs do not feed a sword');
+  assert.equal(materialFeedXp('yew_logs'), feedXp('magic_longbow', 'yew_logs'), 'whichever piece it feeds');
 });
 
 test('feeding: bars add mastery to a sword, wrong materials are refused, rank-ups are announced, Master is the cap', () => {
@@ -143,36 +146,36 @@ test('feeding: bars add mastery to a sword, wrong materials are refused, rank-up
   // The wrong material: nothing happens.
   assert.equal(g.feedMastery(w, 'yew_logs', 5), 0);
   assert.equal(g.inventory.count('yew_logs'), 5);
-  assert.equal(g.equipment.masteryPoints(w), 0);
+  assert.equal(g.equipment.masteryXp(w), 0);
   // The pack's options list only bars, best first.
   assert.deepEqual(g.feedOptions(w).map((o) => o.id), ['mithril_bar']);
-  // Twenty-five mithril bars: 11 points each.
+  // Twenty-five mithril bars: 192 XP each.
   g.equipment.setMastery(w, 0);
-  assert.equal(g.feedMastery(w, 'mithril_bar', 25), 275);
+  assert.equal(g.feedMastery(w, 'mithril_bar', 25), 25 * 192);
   assert.equal(g.inventory.count('mithril_bar'), 0);
-  assert.equal(g.equipment.masteryPoints(w), 275);
+  assert.equal(g.equipment.masteryXp(w), 25 * 192);
   assert.equal(g.equipment.masteryRank(w), 1, 'Adept');
   assert.ok(said.some((t) => /mastery reached Adept/.test(t)), 'the rank-up is announced as a kill would');
-  // The cap: from 7,990 one rune bar is enough to reach Master; the rest stay in the pack.
+  // The cap: from 10 XP short of Master one rune bar is enough; the rest stay in the pack.
   g.equipment.setMastery(w, FEED_CAP - 10);
   g.inventory.add('rune_bar', 5);
-  assert.equal(g.feedMastery(w, 'rune_bar', Infinity), 36);
+  assert.equal(g.feedMastery(w, 'rune_bar', Infinity), feedXp(w, 'rune_bar'));
   assert.equal(g.inventory.count('rune_bar'), 4, 'only what it took');
   assert.equal(g.equipment.masteryRank(w), 4, 'Master');
   assert.ok(said.some((t) => /mastery reached Master/.test(t)));
   assert.equal(g.feedMastery(w, 'rune_bar', 1), 0, 'no further with materials');
   assert.equal(g.inventory.count('rune_bar'), 4);
-  // Kills still carry it on past the cap.
-  const before = g.equipment.masteryPoints(w);
-  g._gainMastery({ def: { boss: true } });
-  assert.equal(g.equipment.masteryPoints(w), before + 25);
+  // Kills still carry it on past the cap (a level 1 boss in the open world: 2,506 XP).
+  const before = g.equipment.masteryXp(w);
+  g._gainMastery({ def: { boss: true, level: 1 } });
+  assert.equal(g.equipment.masteryXp(w), before + 2506);
   // Gear you neither wear nor carry can't be fed.
   g.inventory.add('mithril_bar', 1);
   assert.equal(g.feedMastery('rune_platebody', 'mithril_bar', 1), 0);
   // Gear in the pack can.
   g.inventory.add('rune_platebody', 1);
-  assert.equal(g.feedMastery('rune_platebody', 'mithril_bar', 1), 11);
-  assert.ok(MASTERY_RANKS[4].points === FEED_CAP);
+  assert.equal(g.feedMastery('rune_platebody', 'mithril_bar', 1), 192);
+  assert.ok(MASTERY_RANKS[4].xp === FEED_CAP);
 });
 
 // ---------------- 3. The Offering Shrine ----------------
