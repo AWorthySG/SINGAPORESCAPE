@@ -62,7 +62,7 @@ import { getShop } from '../data/shops.js';
 import { RARE_DROP_TABLE, getNpc, ALL_BOSS_IDS, ALL_MONSTER_IDS } from '../data/npcs.js';
 import { MORAL_EVENTS, MORAL_BY_ID, moralCoins, BLESS_MS, BLESS_XP } from '../data/moralEvents.js';
 import { alignmentTier, alignmentStyle, greetingFor } from '../data/alignment.js';
-import { tickBossMechanics, mechOnPlayerHit, mechAbilityUsed, mechAutoFight, inHazard } from './bossmech.js';
+import { tickBossMechanics, mechOnPlayerHit, mechAbilityUsed, mechAutoFight, inHazard, mechStyleColour } from './bossmech.js';
 import { SIGNATURE_DROP_CHANCE, SIGNATURE_CLASS, sigIdFor } from '../data/bossWeapons.js';
 import { nextJob, jobKey, makeBatch, batched } from './autoprocess.js';
 import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
@@ -917,6 +917,7 @@ export class Game {
     if (last && !opts.noMerge && !opts.text && !last.text && !!opts.aoe === !!last.aoe && dmg > 0 && last.dmg > 0 && !!opts.crit === last.crit && (opts.critX || 0) === last.critX && !!opts.weak === !!last.weak
       && opts.tint === last.tint && last.life > last.maxLife - mergeMs && this.effects.includes(last)) {
       last.dmg += dmg;
+      last.bumps = (last.bumps || 0) + 1;   // the number pops again, so every blow shows landing (renderer.js)
       return;
     }
     // Five fan positions, so quick hits sit side by side instead of in a column,
@@ -927,7 +928,7 @@ export class Game {
     entity._splatRow = entity._splatRow ? 0 : 1;
     const mine = this.effects.filter((e) => e.type === 'hitsplat' && e.entity === entity);
     if (mine.length >= SPLAT_MAX_PER) for (const e of mine.slice(0, mine.length - SPLAT_MAX_PER + 1)) e.life = Math.min(e.life, 120);
-    const fx = { type: 'hitsplat', entity, dmg, crit: !!opts.crit, critX: opts.critX || 0, text: opts.text, tint: opts.tint, aoe: !!opts.aoe, weak: !!opts.weak, life: opts.critX ? 1000 : 800, fan: (entity._splatN - 2) * 0.8, row: entity._splatRow };
+    const fx = { type: 'hitsplat', entity, dmg, crit: !!opts.crit, critX: opts.critX || 0, text: opts.text, tint: opts.tint, aoe: !!opts.aoe, weak: !!opts.weak, shield: !!opts.shield, life: opts.critX ? 1000 : 800, fan: (entity._splatN - 2) * 0.8, row: entity._splatRow };
     fx.maxLife = fx.life;
     entity._lastSplat = fx;
     this.effects.push(fx);
@@ -2400,6 +2401,10 @@ export class Game {
     const wasCrit = this._pendingCrit > 0 && dmg > 0;
     this._pendingCrit = 0;
     if (npc.shieldTicks > 0 && dmg > 0) dmg = Math.max(1, Math.floor(dmg / 2));   // a boss shield halves the blow
+    // A style shield soaks the whole blow until it breaks. The blow still lands
+    // (the player never misses): its number shows in the shield's colour with a
+    // "shield" tag, where it used to show the miss puff, which read as a miss.
+    const shield = dmg > 0 && npc.mech?.type === 'shield' ? npc.mech.style : null, blow = dmg;
     dmg = mechOnPlayerHit(this, npc, dmg);   // a style shield soaks it; an exposed boss takes more
     // At most a tenth of your life a tick in all, not a tenth a hit: an Archer's
     // volley (a dozen arrows a tick) was burnt back a dozen times and died from full life.
@@ -2432,7 +2437,8 @@ export class Game {
     const rm = dmg > 0 && !opts.tint ? this.raceMatchup(npc) : null;
     if (rm) opts = { ...opts, tint: rm === 'strong' ? '#f5b82e' : '#9aa3b2' };
     if (dmg > 0 && !opts.aoe && this._hitMode && weaknessOf(npc.def) === this._hitMode) opts = { ...opts, weak: true };   // a "weak!" tag on the number
-    this.addHitsplat(npc, dmg, opts);
+    if (shield && !(dmg > 0)) opts = { noMerge: opts.noMerge, tint: mechStyleColour(shield), shield: true };
+    this.addHitsplat(npc, dmg > 0 || !shield ? dmg : blow, opts);
     if (dmg > 0) {
       this.bus.emit('sfx', 'hit'); this._hitAdrenaline(wasCrit);
       // A running average of your landed hits, so auto battle can tell when a
@@ -3140,11 +3146,15 @@ export class Game {
    *  a point or more floats up beside "Dodged!" as "+N Agility". */
   _dodgeXp(npc, mult = 1) {
     if (!npc?.def) return;
-    const { max } = npcAttackVsPlayer(npc.def, this.skills, this.equipment, this.player.style);
-    const share = (npc.maxHp || npc.def.hp || 1) * 3 * (npc.def.boss ? DODGE_BOSS_SHARE : DODGE_KILL_SHARE);
+    const base = (o) => {
+      const { max } = npcAttackVsPlayer(o.def, this.skills, this.equipment, this.player.style);
+      return Math.max(Math.max(1, max) * DODGE_AGILITY_XP, (o.maxHp || o.def.hp || 1) * 3 * (o.def.boss ? DODGE_BOSS_SHARE : DODGE_KILL_SHARE));
+    };
+    // Deep in the Endless Gate, no more than the same monster at wave 20 (waves.dodgeRef).
+    const ref = this.waves.dodgeRef(npc);
     // (Not rounded: at the combat XP rate one small dodge is a fraction of a point.)
     const xp0 = this.skills.xp.agility;
-    this.skills.addXp('agility', Math.max(Math.max(1, max) * DODGE_AGILITY_XP, share) * mult * this.combatXpMult() * this.waves.dodgeXpMult(npc));
+    this.skills.addXp('agility', (ref ? Math.min(base(npc), base(ref)) : base(npc)) * mult * this.combatXpMult() * this.waves.dodgeXpMult(npc));
     const got = this.skills.xp.agility - xp0;   // after the XP rate and boosts addXp applies
     if (got >= 1) this.addHitsplat(this.player, 0, { text: `+${damageNumber(got)} Agility`, noMerge: true });
   }
@@ -4697,17 +4707,18 @@ export class Game {
     {
       const p0 = this.player, a = p0.action;
       const boss = (a?.type === 'attack' && a.npc?.def.boss && a.npc) || this.nearbyNpcs().find((n) => n.alive && n.def.boss && n.target === p0);
-      if (boss && !this.bossRecord.beat[boss.npcId]) {
+      if (boss && !boss.wave && !this.bossRecord.beat[boss.npcId]) {   // (an Endless Gate boss is the wave's, not the boss's record)
         this.bossRecord.lost[boss.npcId] = this.fightLevel();
         this.msg(`Auto battle will leave ${boss.name} alone until you are ${BOSS_RETRY_LEVELS} fight levels stronger.`, 'system');
       }
     }
     this._dodging = false;
     this.killStreak = 0; this.bus.emit('xpbonus');
-    if (this.autoBattle) this.toggleAutoBattle(false);
+    const gate = this.waves.active;   // in the Endless Gate you rise by its shrine, and auto battle fights on
+    if (this.autoBattle && !gate) this.toggleAutoBattle(false);
     this._autoBossTrip = null;
     if (this.autoQuest) this.toggleAutoQuest(false, 'you died.');
-    this.banner('<span class="big">Oh dear, you are dead!</span>Respawning in town...');
+    this.banner(`<span class="big">Oh dear, you are dead!</span>${gate ? 'Rising at the shrine...' : 'Respawning in town...'}`);
     const p = this.player;
     p.alive = false;
     p.respawnTimer = RESPAWN_TICKS;
@@ -4721,7 +4732,7 @@ export class Game {
       this.npcs = this.npcs.filter((n) => n !== wb); this._worldBoss = null;
     }
     Play.onDeath(this);   // a gravestone holds part of your pack until you walk back for it
-    // Falling in the Endless Gate ends the run (nothing is lost) and you wake by its gate.
+    // Falling in the Endless Gate: you rise by its shrine a little later, and the run goes on (waves.js).
     this._respawnAt = this.waves.onDeath();
     this.worldEvents.onDeath();   // a world event is called off (and packed away)
     this.story.onDeath();   // ...and so is a story event or scene
@@ -4741,7 +4752,7 @@ export class Game {
     p.moving = false;
     p.path = [];
     this.regenCounter = 0;
-    this.msg(back ? 'You wake up outside the Endless Gate.' : `You wake up back in ${this.world.townName}.`, 'system');
+    this.msg(back ? (this.waves.active ? 'You rise again beside the A-Worthy Shrine.' : 'You wake up outside the Endless Gate.') : `You wake up back in ${this.world.townName}.`, 'system');
     this.bus.emit('hp');
   }
 
@@ -4881,6 +4892,13 @@ export class Game {
       // A boss mechanic: interrupt its cast, turn on its healers (bossmech.js).
       const heal = mechAutoFight(this, tgt, f);
       if (heal) { this._autoFight = null; this._autoLast = heal; this.attackNpc(heal); return; }
+      // In the Endless Gate, a monster striking the shrine draws you off one that
+      // isn't (one fighting you near the shrine is fought out: you're defending it).
+      if (this.waves.active && this.tickCount % 3 === 0 && !this.waves.besieging(tgt) && !tgt.mech
+        && (tgt.target !== p || this.waves.shrineDist(p) > Math.max(4, this.attackRange())) && this.nearbyNpcs().some((n) => this.waves.besieging(n))) {
+        const up = this._autoPickTarget();
+        if (up && up !== tgt && this.waves.besieging(up)) { this._autoFight = null; this._autoLast = up; this.attackNpc(up); return; }
+      }
       // "Bosses & champions first" holds mid-fight too: when one you'd take on
       // turns up within reach of an ordinary fight, switch to it (checked every
       // few ticks, and only when one is actually near).
@@ -5504,8 +5522,11 @@ export class Game {
         // goes first (each hits nearly as hard for a sixth of the life), then
         // the leader, unless it is in the middle of a mechanic (see bossmech.js).
         const escortFirst = n.wave && (n.def.boss || n.champion) && !n.mech;
-        const tier = !first ? -0.5 : escortFirst ? -150 : n.def.boss ? -3000 : n.champion ? -2000 : -200 - (shootable(n, d) ? 1000 : 0);
-        cands.push({ n, score: d + tier, tier });
+        // ...but whatever is striking the A-Worthy Shrine comes first (a boss or
+        // champion before its escort), then those nearest the shrine (waves.js).
+        const siege = this.waves.besieging(n) && !n.mech;
+        const tier = !first ? -0.5 : siege ? -2500 - (n.def.boss || n.champion ? 400 : 0) : escortFirst ? -150 : n.def.boss ? -3000 : n.champion ? -2000 : -200 - (shootable(n, d) ? 1000 : 0);
+        cands.push({ n, score: d + tier + (n.wave ? this.waves.shrineDist(n) * 0.5 : 0), tier });
         continue;
       }
       if (n.temporary) continue;

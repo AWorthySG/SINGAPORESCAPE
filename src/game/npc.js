@@ -241,6 +241,8 @@ export class NPC extends Character {
       return;
     }
 
+    // An Endless Gate monster with nobody to fight goes for the shrine (waves.js).
+    if (this.wave && game.waves?.siegeStep(this)) return;
     this._wanderAI(game);
   }
 

@@ -273,6 +273,9 @@ export function mechOnPlayerHit(game, npc, dmg) {
   return 0;
 }
 
+/** A style shield's colour (its badge, and the numbers of the blows it soaks). */
+export const mechStyleColour = (style) => MECH_STYLES[style]?.color;
+
 /** You used a skill or a special attack: it interrupts a boss's cast. */
 export function mechAbilityUsed(game) {
   const p = game.player;

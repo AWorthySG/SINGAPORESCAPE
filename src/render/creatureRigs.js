@@ -71,9 +71,53 @@ const PLANS = {
     head: { swing: (t, o) => { const a = atkPhase(o.attackK ?? -1); return (a ? -0.06 * a.wind + 0.08 * a.hit : Math.sin(t * 0.0021) * 0.035) - cast(o) * 0.08; }, swap: ['head_roar', fierce] },
     gem: { grow: (t, o) => 1 + Math.sin(t * 0.004) * 0.04 + cast(o) * 0.3 },
   },
+  // --- Part E plans: snakes, swimmers and the pitcher plant ---
+  // Snakes: the head sways, rears back on the wind-up and strikes with its fangs out; the tail tip flicks
+  // (and rattles as it coils to strike). The coils themselves move with the whole body (BODY below).
+  slither: {
+    tail: { swing: (t, o) => { const a = atkPhase(o.attackK ?? -1); return Math.sin(t * (walking(o) > 0.3 ? 0.012 : 0.005) + 1.2) * 0.16 + (a ? Math.sin(t * 0.05) * 0.1 * a.wind : 0); } },
+    head: { swing: (t, o) => { const a = atkPhase(o.attackK ?? -1); return a ? -0.28 * a.wind + 0.3 * a.hit : Math.sin(t * 0.0032) * 0.05 + Math.sin(t * 0.0011) * 0.03; }, swap: ['head_attack', fierce] },
+  },
+  // Sharks and dolphins: the tail fin sweeps (faster when swimming), the fins paddle, the head nods and opens its jaws to bite.
+  swim: {
+    tail: { swing: (t, o) => Math.sin(t * (walking(o) > 0.3 ? 0.016 : 0.006)) * 0.2 },
+    arm_far: { swing: (t, o) => Math.sin(t * (walking(o) > 0.3 ? 0.012 : 0.005) + 2.2) * 0.16 },
+    arm_near: { swing: (t, o) => Math.sin(t * (walking(o) > 0.3 ? 0.012 : 0.005) + 0.6) * 0.2 },
+    head: { swing: (t, o) => { const a = atkPhase(o.attackK ?? -1); return a ? 0.08 * a.wind - 0.14 * a.hit : Math.sin(t * 0.003) * 0.035; }, swap: ['head_attack', fierce] },
+  },
+  // The pitcher plant: the leaves wave, the trap head bobs, rears back on the wind-up, then snaps forward wide open.
+  plant: {
+    arm_far: { swing: (t, o) => sway(0.1, 0.0035, 2)(t, o) - 0.18 * (atkPhase(o.attackK ?? -1)?.wind || 0) },
+    arm_near: { swing: (t, o) => sway(0.12, 0.004, 0.5)(t, o) + 0.22 * (atkPhase(o.attackK ?? -1)?.wind || 0) },
+    head: {
+      swing: (t, o) => { const a = atkPhase(o.attackK ?? -1); return a ? -0.32 * a.wind + 0.36 * a.hit : Math.sin(t * 0.0028) * 0.06; },
+      grow: (t, o) => 1 + 0.12 * (atkPhase(o.attackK ?? -1)?.hit || 0),   // the lunge: the trap swells towards its target
+      swap: ['head_attack', fierce],
+    },
+  },
+};
+// Whole-body motion for the Part E plans, applied to every layer at once so the joints never open:
+// `lean` skews the picture about the ground line (positive tips it forward), `dy` lifts it, `sx`/`sy` squash it.
+const BODY = {
+  // The coils sway side to side and breathe in and out; on the wind-up the snake draws back and gathers, then throws itself forward.
+  slither: (t, o) => {
+    const a = atkPhase(o.attackK ?? -1), m = walking(o), w = a ? a.wind : 0, h = a ? a.hit : 0;
+    const coil = Math.sin(t * (m > 0.3 ? 0.009 : 0.0035));
+    return { lean: coil * (0.035 + 0.03 * m) - 0.08 * w + 0.1 * h, dy: 0, sx: 1 + coil * 0.02 + 0.03 * w, sy: 1 - coil * 0.02 - 0.05 * w + 0.03 * h };
+  },
+  // Swimmers bob up and down and pitch gently; they pull back before a bite.
+  swim: (t, o) => {
+    const a = atkPhase(o.attackK ?? -1), w = a ? a.wind : 0, h = a ? a.hit : 0;
+    return { lean: Math.sin(t * 0.0035 + 1) * 0.025 - 0.05 * w + 0.06 * h, dy: Math.sin(t * 0.0035) * 1.1, sx: 1, sy: 1 };
+  },
+  // The plant's stem sways in the breeze and leans back to gather for a snap.
+  plant: (t, o) => {
+    const a = atkPhase(o.attackK ?? -1), w = a ? a.wind : 0, h = a ? a.hit : 0;
+    return { lean: Math.sin(t * 0.0025) * 0.04 + Math.sin(t * 0.0061 + 1) * 0.012 - 0.07 * w + 0.09 * h, dy: 0, sx: 1, sy: 1 - 0.04 * w + 0.03 * h };
+  },
 };
 // How fast each flier's wings beat.
-const FLAP = { mosquito: 0.06, fruit_bat: 0.024, forest_drake: 0.013 };
+const FLAP = { mosquito: 0.06, fruit_bat: 0.024, forest_drake: 0.013, flying_fox: 0.022, hornbill: 0.014 };
 
 // --- measured from the sheets (tools: cut, fit against the assembled picture, bake) ---
 const RIG_DATA = {
@@ -134,6 +178,65 @@ const RIG_DATA = {
   fruit_bat: { plan: 'flier', kind: 'species', fit: 0.643,
     order: ['wing_far', 'body', 'wing_near'],
     piv: { body: [0.5363, 0.5953], wing_near: [0.4649, 0.557], wing_far: [0.6935, 0.3986], wing_near_down: [0.4649, 0.557], wing_far_down: [0.6935, 0.3986] } },
+  // Species rigs E1 (RS01–RS10)
+  reticulated_python: { plan: 'slither', kind: 'species', fit: 1.016,
+    order: ['tail', 'body', 'head'],
+    piv: { body: [0.4788, 0.9815], head: [0.5273, 0.6062], tail: [0.4303, 0.6585], head_attack: [0.5273, 0.6062] } },
+  reef_shark: { plan: 'swim', kind: 'species', fit: 1.016,
+    order: ['arm_far', 'tail', 'body', 'head', 'arm_near'],
+    piv: { body: [0.5182, 0.8923], head: [0.6, 0.7169], tail: [0.2333, 0.8123], arm_near: [0.4515, 0.84], arm_far: [0.6364, 0.8769], head_attack: [0.6, 0.7169] } },
+  tarantula: { plan: 'crawl', kind: 'species', fit: 1.016,
+    order: ['legs_far', 'claw_far', 'legs_near', 'body', 'claw'],
+    piv: { body: [0.4636, 0.7846], claw: [0.4182, 0.7169], claw_far: [0.4394, 0.7569], legs_near: [0.4788, 0.7262], legs_far: [0.4303, 0.6031], claw_open: [0.4182, 0.7169] } },
+  sea_snake: { plan: 'slither', kind: 'species', fit: 1.016,
+    order: ['tail', 'body', 'head'],
+    piv: { body: [0.5061, 0.9846], head: [0.3818, 0.3877], tail: [0.2303, 0.88], head_attack: [0.3818, 0.3877] } },
+  jungle_spider: { plan: 'crawl', kind: 'species', fit: 1.016,
+    order: ['legs_far', 'claw_far', 'legs_near', 'body', 'claw'],
+    piv: { body: [0.497, 0.7815], claw: [0.4424, 0.7262], claw_far: [0.7758, 0.5477], legs_near: [0.5091, 0.7292], legs_far: [0.397, 0.5354], claw_open: [0.4424, 0.7262] } },
+  rust_golem: { plan: 'biped', kind: 'species', fit: 1.016,
+    order: ['cape', 'arm_far', 'leg_far', 'leg_near', 'body', 'head', 'arm_near'],
+    piv: { body: [0.5364, 0.7754], head: [0.6, 0.4123], arm_near: [0.403, 0.4338], arm_far: [0.6333, 0.5723], leg_near: [0.4091, 0.6954], leg_far: [0.597, 0.7169], cape: [0.5061, 0.52], head_attack: [0.6, 0.4123] } },
+  pocong: { plan: 'float', kind: 'species', fit: 1.016,
+    order: ['lower', 'body', 'face'],
+    piv: { body: [0.497, 0.8554], face: [0.6576, 0.459], lower: [0.4182, 0.8277], face_attack: [0.6576, 0.459] } },
+  skeleton: { plan: 'biped', kind: 'species', fit: 1.016,
+    order: ['arm_far', 'leg_far', 'leg_near', 'body', 'head', 'arm_near'],
+    piv: { body: [0.5727, 0.8], head: [0.4879, 0.4892], arm_near: [0.4333, 0.5292], arm_far: [0.6455, 0.6062], leg_near: [0.4879, 0.7262], leg_far: [0.6364, 0.7415], head_attack: [0.4879, 0.4892] } },
+  outlaw: { plan: 'biped', kind: 'species', fit: 1.016,
+    order: ['cape', 'arm_far', 'leg_far', 'leg_near', 'body', 'head', 'arm_near'],
+    piv: { body: [0.4212, 0.8123], head: [0.503, 0.4585], arm_near: [0.4939, 0.5169], arm_far: [0.4606, 0.5138], leg_near: [0.4152, 0.7138], leg_far: [0.5727, 0.7077], cape: [0.3545, 0.6185], head_attack: [0.503, 0.4585] } },
+  wild_dog: { plan: 'quad', kind: 'species', fit: 1.016,
+    order: ['tail', 'back_far', 'front_far', 'back_near', 'front_near', 'body', 'head'],
+    piv: { body: [0.4545, 0.8862], head: [0.597, 0.6123], front_near: [0.5364, 0.7815], front_far: [0.6455, 0.8062], back_near: [0.2939, 0.7446], back_far: [0.2515, 0.8615], tail: [0.2697, 0.6246], head_open: [0.597, 0.6123] } },
+  // Species rigs E2 (RS11–RS20)
+  jungle_wraith: { plan: 'float', kind: 'species', fit: 1.016,
+    order: ['arm_far', 'lower', 'body', 'face', 'arm_near'],
+    piv: { body: [0.6121, 0.8308], face: [0.8213, 0.4617], arm_near: [0.7091, 0.6185], arm_far: [0.5667, 0.76], lower: [0.6, 0.72], face_attack: [0.8213, 0.4617] } },
+  smuggler: { plan: 'biped', kind: 'species', fit: 1.016,
+    order: ['cape', 'arm_far', 'leg_far', 'leg_near', 'body', 'head', 'arm_near'],
+    piv: { body: [0.5424, 0.8923], head: [0.6273, 0.4092], arm_near: [0.6364, 0.5662], arm_far: [0.6879, 0.5385], leg_near: [0.6636, 0.7908], leg_far: [0.397, 0.8123], cape: [0.4818, 0.7169], head_attack: [0.6273, 0.4092] } },
+  pink_dolphin: { plan: 'swim', kind: 'species', fit: 1.016,
+    order: ['arm_far', 'tail', 'body', 'head', 'arm_near'],
+    piv: { body: [0.497, 0.6308], head: [0.5576, 0.4554], tail: [0.2636, 0.7446], arm_near: [0.5576, 0.5662], arm_far: [0.4758, 0.28], head_attack: [0.5576, 0.4554] } },
+  hornbill: { plan: 'flier', kind: 'species', fit: 1.016,
+    order: ['wing_far', 'feet', 'body', 'wing_near'],
+    piv: { body: [0.5182, 0.7877], wing_near: [0.3909, 0.6769], wing_far: [0.5091, 0.7415], feet: [0.5424, 0.7108], wing_near_down: [0.3909, 0.6769], wing_far_down: [0.5091, 0.7415] } },
+  dock_rat: { plan: 'quad', kind: 'species', fit: 1.016,
+    order: ['back_far', 'front_far', 'back_near', 'front_near', 'body', 'tail', 'head'],
+    piv: { body: [0.4818, 0.9723], head: [0.5424, 0.4738], front_near: [0.3879, 0.6092], front_far: [0.4515, 0.5077], back_near: [0.4606, 0.6185], back_far: [0.5667, 0.9046], tail: [0.2939, 0.88], head_open: [0.5424, 0.4738] } },
+  horseshoe_crab: { plan: 'crawl', kind: 'species', fit: 1.016,
+    order: ['legs_far', 'tail', 'legs_near', 'body'],
+    piv: { body: [0.503, 0.9108], legs_near: [0.5455, 0.8708], legs_far: [0.3273, 0.8677], tail: [0.1848, 0.5138] } },
+  drowned_sailor: { plan: 'biped', kind: 'species', fit: 1.016,
+    order: ['arm_far', 'leg_far', 'leg_near', 'body', 'head', 'arm_near'],
+    piv: { body: [0.4848, 0.8862], head: [0.4485, 0.4185], arm_near: [0.3667, 0.5754], arm_far: [0.5273, 0.5692], leg_near: [0.3939, 0.7569], leg_far: [0.5, 0.7631], head_attack: [0.4485, 0.4185] } },
+  flying_fox: { plan: 'flier', kind: 'species', fit: 1.016,
+    order: ['wing_far', 'feet', 'body', 'wing_near'],
+    piv: { body: [0.5576, 0.8123], wing_near: [0.4273, 0.6369], wing_far: [0.6667, 0.6554], feet: [0.4212, 0.8092], wing_near_down: [0.4273, 0.6369], wing_far_down: [0.6667, 0.6554] } },
+  king_cobra: { plan: 'slither', kind: 'species', fit: 1.016,
+    order: ['body', 'head'],
+    piv: { body: [0.4727, 0.9785], head: [0.503, 0.7138], head_attack: [0.503, 0.7138] } },
   boar_king: { plan: 'boss', fit: 0.798,
     order: ['tail', 'limb2', 'base', 'limb', 'head', 'gem'],
     piv: { base: [0.4627, 0.6163], head: [0.5063, 0.5555], gem: [0.6067, 0.1696], tail: [0.1836, 0.6144], limb2: [0.665, 0.7578], limb: [0.7695, 0.56], head_roar: [0.5063, 0.5555], limb_strike: [0.7695, 0.56] } },
@@ -297,8 +400,11 @@ function build(id, d) {
       swap: p.swap ? p.swap[1] : null,
     };
   }
-  return { kind: d.kind, fit: d.fit, order: d.order, files, parts };
+  return { kind: d.kind, fit: d.fit, order: d.order, files, parts, body: BODY[d.plan] || null };
 }
+// The body plans that move the whole picture as well as its parts (for tests).
+export const bodyPlans = () => Object.keys(BODY);
+export const buildRig = build;
 export const CREATURE_RIGS = Object.fromEntries(Object.entries(RIG_DATA).map(([id, d]) => [id, build(id, d)]));
 // A boss rig measured elsewhere (the later parts sheets keep their tables in sprites.js), with the shared boss motions.
 export const bossRig = (id, d) => build(id, { plan: 'boss', ...d });

@@ -1,10 +1,12 @@
 // The Endless Gate's screens (see game/waves.js): the gate's "enter?" panel,
-// which shows your best wave, and a small HUD panel while a run is on: the
-// wave, monsters left, the countdown to the next wave, your best and a Leave
-// button. Kept out of ui.js, which only creates this and forwards to it.
+// which shows your best wave, a small HUD panel while a run is on (the wave,
+// the shrine's life, monsters left, the countdown to the next wave, your best
+// and a Leave button), and the summary when the shrine falls. Kept out of
+// ui.js, which only creates this and forwards to it.
 
 import { GATE_NAME, BOSS_EVERY, GATE_MODS, GATE_MOD_IDS, waveLevel } from '../game/waves.js';
 import { CLASS_BY_ID } from '../data/classes.js';
+import { getItem } from '../data/items.js';
 
 export class WaveHud {
   constructor(ui) {
@@ -14,6 +16,7 @@ export class WaveHud {
     this._last = '';
     this.game.bus.on('tick', () => this.render());
     this.game.bus.on('waves', () => this.render());
+    this.game.bus.on('gateFallen', (sum) => this.showFallen(sum));
   }
 
   /** The panel, made on first use and parked in the game root. */
@@ -41,6 +44,7 @@ export class WaveHud {
     const next = w.wave + 1;
     const rows = [
       `<div class="wv-wave">${w.wave ? `Wave <b>${w.wave}</b>` : 'Get ready'}${w.wave && w.wave % BOSS_EVERY === 0 ? ' <span class="wv-tag">boss</span>' : ''}</div>`,
+      this._shrineHTML(w),
       cd ? `<div class="wv-next">${next % BOSS_EVERY === 0 ? 'Boss wave' : `Wave ${next}`} in <b>${cd}s</b></div>`
         : `<div class="wv-left">Monsters left: <b>${w.left()}</b>${w.level ? ` <span class="wv-dim">(level ${w.level})</span>` : ''}</div>`,
       !cd && w.leader && w.mobs.some((m) => m.alive && (m.champion || m.def.boss)) ? `<div class="wv-lead">Led by <b>${w.leader}</b></div>` : '',
@@ -59,7 +63,8 @@ export class WaveHud {
       body.innerHTML = `<div class="dialogue"><div class="speaker">${GATE_NAME}</div>`
         + 'Beyond the arch lies a sealed hall where monsters come in endless waves, each stronger than the last. '
         + `Its monsters are tougher than those outside. A champion leads every wave, and a boss every ${BOSS_EVERY}th. Clearing a wave pays a bonus that grows the deeper you go. `
-        + 'If you fall, you keep everything you earned and wake back here.</div>'
+        + 'They come for the A-Worthy Shrine in the middle of the hall: guard it, for the run ends when it falls. '
+        + 'If you fall yourself, you rise beside the shrine a few seconds later. You keep everything you earned.</div>'
         + `<div class="modal-hint">Your best: <b>${w.best ? `wave ${w.best}` : 'not yet tried'}</b>`
         + ` &middot; as ${CLASS_BY_ID[g.jobClass]?.name || 'your class'}: <b>${w.classBest() ? `wave ${w.classBest()}` : 'not yet tried'}</b>`
         + ` &middot; Wave 1 for you: level ${waveLevel(1, lvl)} monsters</div>`
@@ -79,6 +84,35 @@ export class WaveHud {
       body.appendChild(opts);
     });
     this.ui.modal.kind = 'waveGate';
+  }
+
+  /** The shrine's line: a little bar and its life as a percentage. */
+  _shrineHTML(w) {
+    const pct = w.shrinePct(), hit = this.game.tickCount - (w.shrine.hitAt ?? -99) <= 1;
+    return `<div class="wv-shrine${pct <= 25 ? ' low' : ''}${hit ? ' hit' : ''}"><span class="wv-sbar"><i style="width:${pct}%"></i></span>Shrine <b>${pct}%</b></div>`;
+  }
+
+  /** The shrine has fallen: the run's summary (waves, kills, what it paid). */
+  showFallen(sum) {
+    if (!sum || typeof document === 'undefined') return;
+    const names = { coins: 'coins' };
+    const got = sum.got.length ? sum.got.map(([id, q]) => `<li>${q.toLocaleString('en-GB')} ${names[id] || getItem(id).name}</li>`).join('') : '<li>Nothing this time.</li>';
+    this.ui.openModal('The shrine has fallen', (body) => {
+      body.innerHTML = `<div class="dialogue"><div class="speaker">${GATE_NAME}</div>`
+        + `The A-Worthy Shrine has fallen at wave <b>${sum.wave}</b>. You cleared ${sum.cleared} wave${sum.cleared === 1 ? '' : 's'}`
+        + `, beat ${sum.kills} monster${sum.kills === 1 ? '' : 's'}${sum.deaths ? ` and fell ${sum.deaths} time${sum.deaths === 1 ? '' : 's'}` : ''}. You keep everything you earned.</div>`
+        + `<div class="modal-hint">${sum.record ? '<b>A new best!</b> ' : ''}Best: <b>wave ${sum.best}</b>${sum.classBest ? ` &middot; as this class: <b>wave ${sum.classBest}</b>` : ''}</div>`
+        + `<div class="wv-summary"><div class="wv-modhead">Rewards this run</div><ul>${got}</ul></div>`;
+      const opts = document.createElement('div');
+      opts.className = 'dialogue-options';
+      const ok = document.createElement('div');
+      ok.className = 'dialogue-option';
+      ok.textContent = 'Back to Kampong Glam';
+      ok.addEventListener('click', () => this.ui.closeModal());
+      opts.append(ok);
+      body.appendChild(opts);
+    });
+    this.ui.modal.kind = 'gateFallen';
   }
 
   /** The modifier toggles: pick any to stack their risk and reward. */
