@@ -183,6 +183,10 @@ export function placeLane(b, vw, mode) {
     const mm = b['minimap-panel'];
     width = (mm ? mm.left - 6 : vw - 6) - left;
     top = below(6, left, width);
+    // With the minimap folded the gap reaches past the Bag launcher under it:
+    // stop short of the launcher, so a card never sits over it.
+    const bag = b.sidepanel;
+    if (bag && bag.width < 100 && bag.left < left + width && bag.bottom > top) width = bag.left - 6 - left;
     if (width < 200) {
       // A very narrow screen: a strip right across, under the minimap and its orbs.
       left = 6; width = vw - 12;

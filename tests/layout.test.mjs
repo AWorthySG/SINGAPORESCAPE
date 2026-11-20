@@ -178,6 +178,12 @@ test('the notification lane: top centre on a desktop, under the objectives on a 
     'minimap-panel': rect(296, 6, 126, 150), 'hp-orb': rect(380, 160, 36, 36), sidepanel: rect(366, 222, 56, 56),
   }, 428, 'phone');
   assert.deepEqual(phone, { top: 150, left: 6, width: 284 });
+  // The minimap folded (just its small button left): the lane stops short of
+  // the launcher, which stays where it was under the minimap's place.
+  const folded = placeLane({
+    'quest-tracker': rect(6, 6, 200, 200), 'minimap-panel': rect(346, 6, 38, 38), sidepanel: rect(330, 194, 52, 52),
+  }, 390, 'phone');
+  assert.deepEqual(folded, { top: 212, left: 6, width: 318 }, 'clear of the Bag / Skills launcher');
   // A very narrow phone: a strip right across, under the minimap and orbs, short of the launcher.
   const tiny = placeLane({ 'quest-tracker': rect(6, 6, 120, 40), 'minimap-panel': rect(180, 6, 134, 150), 'hp-orb': rect(270, 160, 36, 36), sidepanel: rect(258, 222, 56, 56) }, 320, 'phone');
   assert.ok(tiny.top >= 210 && tiny.left === 6 && tiny.left + tiny.width <= 258 - 6);
@@ -211,6 +217,20 @@ test('phone sheet: the five tabs share one row, and the body is not size-contain
   assert.match(body, /overflow-y: auto/);
   // Minimal HUD never fades an open sheet.
   assert.match(phones, /#game-root\.hud-min #sidepanel:not\(\.collapsed\) \{ opacity: 1; \}/);
+});
+
+test('Minimal HUD on a phone keeps the folded Bag / Skills launcher (it used to fade out while exploring)', () => {
+  const phones = mediaBlock('(pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px)');
+  const strip = (s) => s.replace(/\/\*[^]*?\*\//g, '');
+  // The fade everywhere: #game-root.hud-min #sidepanel:not(:hover), specificity (2,2,0).
+  assert.match(css, /#game-root\.hud-min #sidepanel:not\(:hover\) \{ opacity: 0; \}/);
+  // On phones a rule of the same weight, later in the file, brings the folded
+  // launcher back (iOS only "hovers" the last thing tapped, so it came and went).
+  const rule = strip(phones).match(/([^{}]+)\{ opacity: 1; \}/g)?.find((r) => r.includes('#sidepanel.collapsed')) || '';
+  assert.ok(rule.split('{')[0].split(',').map((s) => s.trim()).includes('#game-root.hud-min #sidepanel.collapsed'), 'the folded launcher stays solid');
+  assert.ok(css.indexOf(phones) > css.indexOf('#game-root.hud-min #sidepanel:not(:hover)'), 'and it comes after the fade');
+  // Nothing else on a phone fades or hides the launcher's tab.
+  assert.ok(!/#sidepanel\.collapsed \.tab-btn\.active\s*\{[^}]*(display: none|opacity: 0|visibility: hidden)/.test(css));
 });
 
 test('touch screens: tapped divs and rows show the pointer cursor (iOS only clicks "clickable" things)', () => {
