@@ -2182,9 +2182,10 @@ test('gear mastery: kills train every worn gear type (XP by level, x5 a champion
   const boss = g.npcs.find((n) => n.def.boss && !n.def.fixed);
   const adept = M.MASTERY_RANKS[1].xp, bossXp = M.killMastery(boss);
   assert.ok(bossXp >= one * 200, 'a world boss is worth hundreds of kills');
-  g.equipment.setMastery(w, adept - bossXp);   // a boss kill short of Adept
+  g.equipment.setMastery(w, 0);   // Novice: one world boss is enough for Adept
   kill(boss);
-  assert.equal(g.equipment.masteryXp(w), adept, 'the boss tips it over');
+  assert.ok(bossXp >= adept);
+  assert.equal(g.equipment.masteryXp(w), bossXp, 'the boss takes it to Adept');
   assert.equal(g.equipment.masteryRank(w), 1);
   assert.ok(chat.includes(`${M.masteryTypeName(w)} mastery reached Adept!`), 'ranking up is announced');
   assert.ok(g.equipment.bonuses().attack > atk0, 'a rank raises your bonuses');
@@ -2192,11 +2193,11 @@ test('gear mastery: kills train every worn gear type (XP by level, x5 a champion
   g.inventory.add('gold_ring', 1);
   kill(mob);
   assert.equal(g.equipment.masteryPoints('gold_ring'), 0, 'only worn gear types gain mastery');
-  assert.equal(g.equipment.masteryXp('mithril_sword'), adept + one, 'every sword shares Sword mastery');
+  assert.equal(g.equipment.masteryXp('mithril_sword'), bossXp + one, 'every sword shares Sword mastery');
   // Saved and loaded.
   saveGame(g);
   const g2 = new Game(); g2.start(); loadGame(g2);
-  assert.equal(g2.equipment.masteryXp(w), adept + one, 'mastery survives save/load');
+  assert.equal(g2.equipment.masteryXp(w), bossXp + one, 'mastery survives save/load');
 });
 
 test('enchanting: up to 3 lines for stones and coins, pick one of three offers, replace when full, reroll with a ward', async () => {
@@ -2272,7 +2273,7 @@ test('mastery and enchantments add up in your bonuses, and an attack speed line 
   const w = g.equipment.get('weapon');
   const base = ITEMS[w].equip.bonuses;
   const b0 = g.equipment.bonuses(), speed0 = g.equipment.weaponSpeed();
-  g.equipment.setMastery(w, 20000);   // Grandmaster: +100%
+  g.equipment.setMastery(w, 200000);   // Grandmaster: +100%
   g.equipment.enchants[w] = [{ stat: 'crit', value: 4 }, { stat: 'haste', value: 50 }];
   const ib = g.equipment.itemBonuses(w);
   assert.equal(ib.attack, base.attack + Math.max(5, Math.round(base.attack * 1.0)));
@@ -2767,7 +2768,7 @@ test('Merchant allies share the Merchant\'s damage perks: allies hit harder as p
 test('old saves: upgrade levels and refine stars become mastery and free enchant lines', async () => {
   const M = await import('../src/game/mastery.js');
   // The old gains: +5 = 0.40 (Skilled, 0.25), +15 & ★15 = 2.94 (Legendary), +1 = 0.08 (at least Adept).
-  assert.deepEqual(M.migrateOld('bronze_scimitar', 5, 0), { points: 1000, lines: [] });
+  assert.deepEqual(M.migrateOld('bronze_scimitar', 5, 0), { xp: 10000, lines: [] });
   // (In mastery XP now: the same ranks, ten times the old points up to Grandmaster.)
   assert.equal(M.migrateOld('bronze_scimitar', 1, 0).xp, 2500);
   assert.equal(M.migrateOld('bronze_scimitar', 10, 0).xp, 80000, '+10 = 0.90: Master');
@@ -2838,7 +2839,7 @@ test('Refining: ★1-★15 on top of mastery, paid for with refine scrolls only'
   assert.equal(g.equipment.refineLevel(w), 0);
   g.inventory.add(R.SCROLL, 100);
   // A mastered, enchanted weapon: refining adds its share of the BASE stats on top.
-  g.equipment.setMastery(w, 1000);   // Skilled
+  g.equipment.setMastery(w, 10000);   // Skilled
   g.equipment.enchants[w] = [{ stat: 'crit', value: 2 }];
   const before = g.equipment.itemBonuses(w);
   for (let i = 0; i < 5; i++) assert.equal(g.refineItem(w, 0.99), 'success', '★1-★5 always succeed');
@@ -2872,7 +2873,7 @@ test('Refining: ★1-★15 on top of mastery, paid for with refine scrolls only'
   assert.equal(JSON.parse(localStorage.getItem(SAVE_KEY)).equipment._refines[w], 14);
   const g2 = new Game(); g2.start(); loadGame(g2);
   assert.equal(g2.equipment.refineLevel(w), 14);
-  assert.equal(g2.equipment.masteryPoints(w), 1000, 'mastery untouched by the refine field');
+  assert.equal(g2.equipment.masteryXp(w), 10000, 'mastery untouched by the refine field');
   assert.deepEqual(g2.equipment.enchantLines(w), [{ stat: 'crit', value: 2 }]);
   // Without a ward, a break destroys the worn copy and resets the type's refine.
   const s1 = g.inventory.count(R.SCROLL);
@@ -2880,7 +2881,7 @@ test('Refining: ★1-★15 on top of mastery, paid for with refine scrolls only'
   assert.equal(g.inventory.count(R.SCROLL), s1 - 4, '4 scrolls at ★13-★15');
   assert.notEqual(g.equipment.get('weapon'), w, 'the weapon is gone');
   assert.equal(g.equipment.refineLevel(w), 0);
-  assert.equal(g.equipment.masteryPoints(w), 1000, 'mastery survives a break');
+  assert.equal(g.equipment.masteryXp(w), 10000, 'mastery survives a break');
   // ★15 is the top.
   g.equipment.refines.rune_scimitar = 15;
   g.inventory.add('rune_scimitar', 1);
@@ -4585,7 +4586,7 @@ test('Equip best in slot counts mastery and enchantments, and only the stats you
   assert.equal(g.equipment.get('weapon'), 'steel_sword', 'plain for plain, the steel sword is better');
   // Refine and enchantments carry over to a better piece, so the higher tier of
   // the same line always stays on: a Legendary iron sword no longer pulls it off.
-  g.equipment.setMastery('iron_sword', 50000);
+  g.equipment.setMastery('iron_sword', 480000);
   g.equipBest();
   assert.equal(g.equipment.get('weapon'), 'steel_sword', 'the higher tier stays on');
   // ...and goes on first, whatever the worn piece has had spent on it.
@@ -4593,7 +4594,7 @@ test('Equip best in slot counts mastery and enchantments, and only the stats you
   h.ui = new Proxy({}, { get: () => () => {} });
   h.skills.xp.attack = 50000000; h.skills.xp.defence = 50000000;
   h.inventory.add('iron_sword', 1); h.equipItem(h.inventory.slots.findIndex((x) => x?.id === 'iron_sword'));
-  h.equipment.setMastery('iron_sword', 50000); h.equipment.refines.iron_sword = 12;
+  h.equipment.setMastery('iron_sword', 480000); h.equipment.refines.iron_sword = 12;
   h.equipment.enchants.iron_sword = [{ stat: 'haste', value: 10 }, { stat: 'atkPct', value: 10 }];
   h.inventory.add('mithril_sword', 1); h.inventory.add('steel_sword', 1);
   h.equipBest();
