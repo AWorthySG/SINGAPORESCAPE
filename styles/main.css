@@ -67,7 +67,7 @@
   --paper:      #FFFCF5;   /* cards and panels */
   --paper-warm: #FFF5E1;   /* headers and raised strips */
   --paper-deep: #F8F1E2;   /* the well a window's contents sit in */
-  --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.15' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .33 0 0 0 0 .16 0 0 0 -.9 .48'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23g)'/%3E%3C/svg%3E");
+  --paper-grain: url("../assets/ui/paper.webp");   /* the painted paper's fibre, see-through so each paper colour shows (240px tile) */
   --rim: #FFFFFF;          /* the die-cut white border round a floating sticker */
   /* Radii by role: windows, panels, cards and buttons, slots, chips. */
   --r-window: var(--r4); --r-panel: var(--r3); --r-card: var(--r2); --r-slot: var(--r1); --r-chip: var(--r-pill);
@@ -4048,3 +4048,76 @@ button:focus-visible, .tab-btn:focus-visible, [role="button"]:focus-visible, [ro
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(34,48,74,0.3); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(34,48,74,0.5); background-clip: padding-box; }
+
+/* ============================================================================
+   Painted UI kit (assets/ui/, the owner's Part C sheets)
+   Used where the painting beats the CSS, and kept light:
+   - Windows and the side panel wear the painted frame's inner line, rivets
+     and corner leaves (a 9-slice laid over the edge; the outline stays the CSS
+     border, so layout and tap targets don't move).
+   - Tooltips and menus get the simpler card frame's gold corner dots.
+   - Paper: the painted paper's fibre and speckles, as a see-through grain
+     over each paper colour (--paper-grain, set at the top of this sheet).
+   - The close button, checkboxes and slider knob are painted stickers; the
+     title's loading bar sits in the painted bar frame; the level-up banner
+     has the grand corner flourish. Chips and buttons keep the CSS kit.
+   ============================================================================ */
+/* Wider screens only: on phones the panels are edge-to-edge sheets and the
+   frame's line would run over their full-width buttons. */
+@media (min-width: 600px) {
+  #modal-window, #sidepanel { border-radius: 18px; }
+  #modal-window::after, #sidepanel:not(.collapsed)::after {
+    content: ""; position: absolute; inset: 0; z-index: 30; pointer-events: none; border-radius: inherit;
+    border: 24px solid transparent; border-image: url("../assets/ui/panel.webp") 56 / 24px stretch;
+  }
+  #sidepanel:not(.collapsed)::after { border-width: 18px; border-image-width: 18px; }
+  #sidepanel:not(.collapsed) #panel-head { padding-left: 18px; }
+  #modal-close { z-index: 31; }
+  #panel-collapse { position: relative; z-index: 31; }
+}
+#tooltip::after, #context-menu::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  border: 20px solid transparent; border-image: url("../assets/ui/tooltip.webp") 40 / 20px stretch;
+}
+
+#modal-close, #modal-close:hover {
+  color: transparent; text-shadow: none; border: none; border-radius: 50%; box-shadow: none; filter: none;
+  background: url("../assets/ui/close.webp") center / contain no-repeat;
+}
+#modal-close:active { background-image: url("../assets/ui/close-pressed.webp"); translate: 0 1px; box-shadow: none; }
+@media (hover: hover) { #modal-close:hover { translate: 0 -1px; filter: brightness(1.05); box-shadow: none; } }
+
+input[type="checkbox"] {
+  -webkit-appearance: none; appearance: none; flex: none; width: 18px; height: 18px; margin: 0 4px 0 0; vertical-align: -4px;
+  background: url("../assets/ui/check-off.webp") center / contain no-repeat; border: none; cursor: var(--cur-pointer, pointer);
+}
+input[type="checkbox"]:checked { background-image: url("../assets/ui/check-on.webp"); }
+input[type="checkbox"]:focus-visible { outline: 3px solid var(--aw-sun); outline-offset: 1px; border-radius: 5px; }
+input[type="range"] { -webkit-appearance: none; appearance: none; height: 24px; background: transparent; cursor: var(--cur-pointer, pointer); }
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 8px; border-radius: 999px; background: var(--paper-deep); border: 2px solid var(--aw-ink); box-shadow: inset 0 2px 0 rgba(34,48,74,0.1);
+}
+input[type="range"]::-moz-range-track {
+  height: 4px; border-radius: 999px; background: var(--paper-deep); border: 2px solid var(--aw-ink); box-shadow: inset 0 2px 0 rgba(34,48,74,0.1);
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 22px; height: 22px; margin-top: -7px; border: none;
+  background: url("../assets/ui/knob.webp") center / contain no-repeat;
+}
+input[type="range"]::-moz-range-thumb { width: 22px; height: 22px; border: none; border-radius: 50%; background: url("../assets/ui/knob.webp") center / contain no-repeat; }
+input[type="range"]:focus-visible { outline: 3px solid var(--aw-sun); outline-offset: 2px; border-radius: 999px; }
+
+/* The loading bar: the painted frame (gold end caps) round a cream track. */
+#splash .sl-track {
+  height: 22px; overflow: visible; background: none; border: none; box-shadow: none;
+  border-style: solid; border-color: transparent; border-width: 0 18px; border-image: url("../assets/ui/bar-frame.webp") 0 48 fill / 0 18px stretch;
+}
+#splash .sl-fill { inset: 6px -3px; border-radius: 999px; overflow: hidden; }
+
+/* Rare windows: the level-up banner wears the grand flourish on two corners. */
+#banner::before, #banner::after {
+  content: ""; position: absolute; width: 34px; height: 36px; pointer-events: none;
+  background: url("../assets/ui/corner-gold.webp") center / contain no-repeat;
+}
+#banner::before { top: -7px; left: -7px; }
+#banner::after { bottom: -7px; right: -7px; transform: rotate(180deg); }

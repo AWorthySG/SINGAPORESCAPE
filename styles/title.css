@@ -102,6 +102,27 @@ body.title-on > :not(#splash):not(#game-root):not(script) { visibility: hidden !
 #splash.title-still .title-clouds .tcl:nth-child(3) { transform: translateX(34vw); }
 #splash.title-still .title-clouds .tcl:nth-child(n+4) { display: none; }
 
+/* ---- The painted city (assets/title/, title.js TITLE_ART) ----
+   The sky covers the screen (so the live world and its caption step back);
+   each strip repeats along its layer's foot at the layer's height, so wide
+   screens never crop it. Heights are set for the paintings' proportions. */
+.title-layer .title-art, .title-skyline .title-art { display: block; width: 100%; height: 100%; }
+.title-sky-art { position: absolute; inset: 0; background: center 100% / cover no-repeat; }
+.title-strip { background: 50% 100% / auto 100% repeat-x; }
+#splash.title-painted .title-place { display: none; }
+#splash.title-painted .title-far { height: clamp(170px, 36vh, 400px); bottom: clamp(70px, 15vh, 170px); }
+#splash.title-painted .title-mid { height: clamp(130px, 31vh, 330px); bottom: clamp(30px, 7vh, 80px); }
+.title-skyline.painted, #splash.cosy .title-skyline.painted { height: clamp(130px, 27vh, 300px); }
+.title-front { height: clamp(64px, 12vh, 132px); }
+/* Painted clouds: cells of one sheet (3 x 2). */
+.title-clouds .tca { aspect-ratio: 2 / 1; background-size: 300% 200%; background-repeat: no-repeat; }
+@media (max-width: 540px) {
+  #splash.title-painted .title-far { height: 30vh; bottom: 13vh; }
+  #splash.title-painted .title-mid { height: 22vh; bottom: 5vh; }
+  .title-skyline.painted, #splash.cosy .title-skyline.painted { height: 21vh; }
+  .title-front { height: 9vh; }
+}
+
 /* ---- The heroes (one canvas, drawn by HeroStage) ---- */
 .title-heroes {
   position: fixed; left: 0; bottom: 0; z-index: 4; pointer-events: none;
@@ -153,6 +174,21 @@ body.title-on > :not(#splash):not(#game-root):not(script) { visibility: hidden !
 #splash.ready .splash-inner { animation: titleCardIn .7s cubic-bezier(.2,.9,.3,1.1) both; }
 @keyframes titleCardIn { from { transform: translateY(10px) scale(.985); } to { transform: none; } }
 #splash.leaving { opacity: 0; transition: opacity .55s ease; }
+
+/* ---- The title on its painted ribbon (art slot "logo-banner") ----
+   One line on the ribbon's cream band; the sunburst and medallion rise
+   behind the mascot above it. The ribbon may run past the card's sides. */
+#splash.title-banner .splash-title {
+  --bw: min(540px, calc(100vw - 12px));
+  position: relative; white-space: nowrap; font-size: clamp(18px, 5.2vw, 31px); line-height: 1.2;
+  margin: calc(var(--bw) * 0.2) 0 calc(var(--bw) * 0.07);
+}
+#splash.title-banner .splash-title::before {
+  content: ""; position: absolute; z-index: -1; left: 50%; top: 50%; width: var(--bw); aspect-ratio: 878 / 330;
+  transform: translate(-50%, -67%); background: var(--title-banner) center / 100% 100% no-repeat; pointer-events: none;
+}
+#splash.title-banner .splash-title::after { display: none; }
+#splash.title-banner .splash-mascot { position: relative; margin-bottom: 0; }
 
 /* ---- Loading bar and tips (shown in place of the Enter button) ---- */
 #splash-loader { width: min(300px, 100%); margin: 2px auto 0; }
