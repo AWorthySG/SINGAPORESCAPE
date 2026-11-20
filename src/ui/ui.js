@@ -1923,7 +1923,7 @@ export class UI {
       const done = L.dailyDone(g.todayKey());
       const daily = document.createElement('button');
       daily.className = 'wm-go' + (done ? ' ride' : '');
-      daily.innerHTML = done ? `Daily done · ${inlineIcon(skillIconSVG('firemaking', 16))} ${L.daily.streak}-day streak` : `✨ Daily revision (${DAILY_COUNT} questions)${L.daily.streak ? ` · ${inlineIcon(skillIconSVG('firemaking', 16))} ${L.daily.streak}` : ''}`;
+      daily.innerHTML = done ? `Daily done · ${inlineIcon(skillIconSVG('firemaking', 16))} ${L.daily.streak}-day streak` : `${playIconHTML('ui-daily', 18)} Daily revision (${DAILY_COUNT} questions)${L.daily.streak ? ` · ${inlineIcon(skillIconSVG('firemaking', 16))} ${L.daily.streak}` : ''}`;
       daily.disabled = done;
       daily.addEventListener('click', () => this.openStudy({ queue: L.dailySet(), daily: true }));
       habits.appendChild(daily);
@@ -1936,7 +1936,7 @@ export class UI {
       }
       const rc = document.createElement('button');
       rc.className = 'wm-go ride';
-      rc.textContent = '📋 Report card';
+      rc.innerHTML = `${playIconHTML('ui-report', 18)} Report card`;
       rc.addEventListener('click', () => this.openReport());
       habits.appendChild(rc);
       body.appendChild(habits);

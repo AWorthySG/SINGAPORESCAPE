@@ -8,7 +8,7 @@ import { drawRangedHeroRig } from './rangedHeroRig.js';
 import { drawPictureTool, drawWeaponTrail } from './heroanim.js';
 import { drawHeroBack } from './heroAnimArt.js';
 import { poseBlender } from './poseBlend.js';
-import { CREATURE_RIGS, TOWN_IDLE } from './creatureRigs.js';
+import { CREATURE_RIGS, TOWN_IDLE, bossRig } from './creatureRigs.js';
 import { REGION_GIVERS } from '../data/regionQuests.js';
 import { RESIDENTS } from '../data/consequences.js';
 import { BESTIARY_SPECIES, BESTIARY_BOSSES } from '../data/bestiary.js';
@@ -368,6 +368,103 @@ const RIGS = {
   },
   // The species and bosses cut from the animation-parts sheets (see creatureRigs.js).
   ...CREATURE_RIGS,
+  // Boss rigs D7 (RB61–RB66): measured from the parts sheets like creatureRigs.js, with its boss motions.
+  // RB61: the crown is baked onto both heads so it stays on when he roars.
+  singa_of_temasek: bossRig('singa_of_temasek', { fit: 0.846,
+    order: ['tail', 'limb2', 'base', 'limb', 'head'],
+    piv: { tail: [0.1204, 0.8745], limb2: [0.2372, 0.8086], base: [0.4013, 0.8498], limb: [0.5728, 0.7263], head: [0.4378, 0.6481], head_roar: [0.4378, 0.6481], limb_strike: [0.5728, 0.7263] } }),
+  // RB62: the arm under the boulder heaves it; the sash is the "tail" and hangs in front (no striking picture: the draft threw it backwards).
+  spirit_of_badang: bossRig('spirit_of_badang', { fit: 0.922, amp: { limb: 0.5 },
+    order: ['limb2', 'base', 'tail', 'limb', 'head'],
+    piv: { limb2: [0.728, 0.5381], base: [0.546, 0.6722], tail: [0.6317, 0.6969], limb: [0.372, 0.5691], head: [0.6129, 0.5299], head_roar: [0.6129, 0.5299] } }),
+  // RB63: the "limb" is paw, pestle and mortar in one, so it only rocks; the jade crest is baked onto both heads.
+  jade_moon_hare: bossRig('jade_moon_hare', { fit: 0.809, amp: { limb: 0.25 },
+    order: ['base', 'limb2', 'limb', 'head'],
+    piv: { base: [0.4558, 0.8399], limb2: [0.2762, 0.8399], limb: [0.7252, 0.9539], head: [0.5905, 0.5768], head_roar: [0.5905, 0.5768], limb_strike: [0.7252, 0.9539] } }),
+  // RB64: the wings are the limbs; the tiara is baked onto both heads (no striking picture: the draft wing faced the wrong way).
+  celestial_garuda: bossRig('celestial_garuda', { fit: 0.698,
+    order: ['tail', 'limb2', 'limb', 'base', 'head'],
+    piv: { tail: [0.3665, 0.8245], limb2: [0.7052, 0.5781], limb: [0.4104, 0.6033], base: [0.5657, 0.8245], head: [0.5657, 0.5982], head_roar: [0.5657, 0.5982] } }),
+  // RB65: the far wing is the near wing mirrored (the draft drew it facing the wrong way).
+  fenghuang: bossRig('fenghuang', { fit: 0.758,
+    order: ['tail', 'limb2', 'base', 'limb', 'head'],
+    piv: { tail: [0.4359, 0.6975], limb2: [0.7702, 0.5576], base: [0.6009, 0.7381], limb: [0.5586, 0.5688], head: [0.6263, 0.5576], head_roar: [0.6263, 0.5576], limb_strike: [0.5586, 0.5688] } }),
+  // RB66: front and hind paws; the coil and antlers stay on the body and head.
+  jade_dragon: bossRig('jade_dragon', { fit: 0.721,
+    order: ['limb2', 'base', 'limb', 'head'],
+    piv: { limb2: [0.2455, 0.8073], base: [0.5171, 0.7533], limb: [0.7787, 0.8515], head: [0.6177, 0.6061], head_roar: [0.6177, 0.6061], limb_strike: [0.7787, 0.8515] } }),
+  // Boss rigs D4 (RB31–RB40): measured from the parts sheets like D7, with the shared boss motions.
+  shadow_sovereign: bossRig('shadow_sovereign', { fit: 0.830, amp: { tail: 0.5 },
+    order: ['limb2', 'base', 'limb', 'head', 'tail', 'gem'],
+    piv: { base: [0.5095, 0.8054], head: [0.5126, 0.621], limb: [0.506, 0.8028], limb2: [0.5978, 0.7856], tail: [0.5097, 0.6936], gem: [0.5198, 0.2055], head_roar: [0.5126, 0.621], limb_strike: [0.506, 0.8028] } }),
+  coral_leviathan: bossRig('coral_leviathan', { fit: 0.796,
+    order: ['limb2', 'base', 'tail', 'limb', 'head', 'gem'],
+    piv: { base: [0.5452, 0.6373], head: [0.5249, 0.5684], limb: [0.3737, 0.7276], limb2: [0.7398, 0.8719], tail: [0.3208, 0.5748], gem: [0.4466, 0.3622], head_roar: [0.5249, 0.5684], limb_strike: [0.3737, 0.7276] } }),
+  jembalang_lord: bossRig('jembalang_lord', { fit: 0.776,
+    order: ['limb2', 'base', 'limb', 'head'],
+    piv: { base: [0.4567, 0.5228], head: [0.4805, 0.5042], limb: [0.3851, 0.5422], limb2: [0.6715, 0.6201], head_roar: [0.4805, 0.5042], limb_strike: [0.3851, 0.5422] } }),
+  changi_phantom: bossRig('changi_phantom', { fit: 0.907, amp: { tail: 0.6 },
+    order: ['tail', 'limb2', 'head', 'base', 'limb'],
+    piv: { base: [0.5245, 0.6571], head: [0.5251, 0.553], limb: [0.3733, 0.6436], limb2: [0.6871, 0.6472], tail: [0.5291, 0.7686], head_roar: [0.5251, 0.553], limb_strike: [0.3733, 0.6436] } }),
+  demon_lord: bossRig('demon_lord', { fit: 0.775, amp: { tail: 0.5 },
+    order: ['limb2', 'base', 'tail', 'limb', 'head', 'gem'],
+    piv: { base: [0.5093, 0.7159], head: [0.5178, 0.5627], limb: [0.4527, 0.7661], limb2: [0.6595, 0.8237], tail: [0.5117, 0.6512], gem: [0.5295, 0.1869], head_roar: [0.5178, 0.5627], limb_strike: [0.4527, 0.7661] } }),
+  // RB36: a coiled snake with no limbs; the far-coil draft did not line up with cell 1, so it is left out.
+  krait_matriarch: bossRig('krait_matriarch', { fit: 0.851,
+    order: ['tail', 'head', 'base', 'gem'],
+    piv: { base: [0.4907, 0.7154], head: [0.4941, 0.7152], tail: [0.2892, 0.488], gem: [0.612, 0.1706], head_roar: [0.4941, 0.7152] } }),
+  // RB37: the head, arm and crown drafts were drawn smaller than cell 1 and re-fitted by hand.
+  pulau_hantu_djinn: bossRig('pulau_hantu_djinn', { fit: 0.948, amp: { tail: 0.35 },
+    order: ['tail', 'limb', 'base', 'limb2', 'head', 'gem'],
+    piv: { base: [0.4732, 0.5834], head: [0.5782, 0.4019], limb: [0.6044, 0.5077], limb2: [0.3954, 0.4032], tail: [0.4636, 0.5968], gem: [0.697, 0.225], head_roar: [0.5782, 0.4019], limb_strike: [0.6044, 0.5077] } }),
+  // RB38: the far wing is the near wing's draft mirrored; the far-wing draft did not line up with cell 1.
+  the_garuda: bossRig('the_garuda', { fit: 0.787,
+    order: ['tail', 'limb2', 'limb', 'base', 'head', 'gem'],
+    piv: { base: [0.5523, 0.7461], head: [0.5563, 0.5762], limb: [0.4056, 0.6135], limb2: [0.6203, 0.6416], tail: [0.3498, 0.7642], gem: [0.5648, 0.273], head_roar: [0.5563, 0.5762], limb_strike: [0.4056, 0.6135] } }),
+  // RB39: the lantern is the striking limb.
+  bukit_brown_revenant: bossRig('bukit_brown_revenant', { fit: 0.816,
+    order: ['base', 'limb2', 'limb', 'head'],
+    piv: { base: [0.4694, 0.7215], head: [0.4708, 0.6554], limb: [0.6784, 0.6821], limb2: [0.4048, 0.7425], head_roar: [0.4708, 0.6554], limb_strike: [0.6784, 0.6821] } }),
+  // RB40: the far fist was placed by hand; the draft's sat over the chest.
+  rune_golem: bossRig('rune_golem', { fit: 0.770,
+    order: ['base', 'limb2', 'limb', 'head', 'gem'],
+    piv: { base: [0.5265, 0.5445], head: [0.6343, 0.3373], limb: [0.3272, 0.5521], limb2: [0.6932, 0.5342], gem: [0.6314, 0.7148], head_roar: [0.6343, 0.3373], limb_strike: [0.3272, 0.5521] } }),
+  // end of boss rigs D4
+  // Boss rigs D5 (RB41–RB50): measured from the parts sheets like D7, with the shared boss motions.
+  // RB41: head only: the sheet's arms are slices of the ring sash and tear the trunk when they swing.
+  supertree_guardian: bossRig('supertree_guardian', { fit: 0.872,
+    order: ['base', 'head'],
+    piv: { base: [0.4895, 0.7512], head: [0.4925, 0.6315], head_roar: [0.4925, 0.6315] } }),
+  langsuir_matriarch: bossRig('langsuir_matriarch', { fit: 0.811, amp: { tail: 0.4 },
+    order: ['tail', 'limb2', 'head', 'base', 'limb', 'gem'],
+    piv: { base: [0.4876, 0.7896], head: [0.3944, 0.6566], limb: [0.4563, 0.7875], limb2: [0.5621, 0.7385], tail: [0.4876, 0.7894], gem: [0.5121, 0.2328], head_roar: [0.3944, 0.6566], limb_strike: [0.4563, 0.7875] } }),
+  sentosa_megalodon: bossRig('sentosa_megalodon', { fit: 0.778,
+    order: ['tail', 'base', 'limb2', 'limb', 'head'],
+    piv: { base: [0.5398, 0.57], head: [0.5285, 0.4883], limb: [0.4813, 0.6282], limb2: [0.4345, 0.209], tail: [0.2187, 0.5613], head_roar: [0.5285, 0.4883], limb_strike: [0.4813, 0.6282] } }),
+  // RB44: head, leg and tail drafts were re-fitted by hand.
+  dragon_kiln_wyrm: bossRig('dragon_kiln_wyrm', { fit: 0.789,
+    order: ['tail', 'limb', 'base', 'limb2', 'head'],
+    piv: { base: [0.6137, 0.6598], head: [0.6346, 0.4022], limb: [0.6128, 0.6588], limb2: [0.5318, 0.5295], tail: [0.4918, 0.7275], head_roar: [0.6346, 0.4022], limb_strike: [0.6128, 0.6588] } }),
+  // RB45: every moving part was re-fitted; the draft placed them on the wrong side of the body.
+  shadow_panther: bossRig('shadow_panther', { fit: 0.820,
+    order: ['tail', 'limb2', 'limb', 'base', 'head', 'gem'],
+    piv: { base: [0.4936, 0.6949], head: [0.6809, 0.493], limb: [0.7046, 0.7612], limb2: [0.429, 0.7445], tail: [0.4272, 0.517], gem: [0.8147, 0.2968], head_roar: [0.6809, 0.493], limb_strike: [0.7046, 0.7612] } }),
+  duyung_queen: bossRig('duyung_queen', { fit: 0.903,
+    order: ['tail', 'limb2', 'limb', 'base', 'head', 'gem'],
+    piv: { base: [0.5373, 0.6687], head: [0.4853, 0.5777], limb: [0.7111, 0.6825], limb2: [0.6049, 0.5143], tail: [0.553, 0.6942], gem: [0.5522, 0.2087], head_roar: [0.4853, 0.5777], limb_strike: [0.7111, 0.6825] } }),
+  coney_behemoth: bossRig('coney_behemoth', { fit: 0.790,
+    order: ['tail', 'limb2', 'limb', 'base', 'head', 'gem'],
+    piv: { base: [0.4705, 0.6856], head: [0.5079, 0.639], limb: [0.4626, 0.6866], limb2: [0.4615, 0.6901], tail: [0.219, 0.5285], gem: [0.4163, 0.741], head_roar: [0.5079, 0.639], limb_strike: [0.4626, 0.6866] } }),
+  orang_minyak: bossRig('orang_minyak', { fit: 0.996, amp: { tail: 0.4 },
+    order: ['limb2', 'base', 'tail', 'limb', 'head', 'gem'],
+    piv: { base: [0.6124, 0.7033], head: [0.6782, 0.4485], limb: [0.6123, 0.7033], limb2: [0.608, 0.6992], tail: [0.5536, 0.6617], gem: [0.6996, 0.1738], head_roar: [0.6782, 0.4485], limb_strike: [0.6123, 0.7033] } }),
+  great_argus_monarch: bossRig('great_argus_monarch', { fit: 0.782, amp: { tail: 0.5 },
+    order: ['tail', 'limb2', 'base', 'limb', 'head', 'gem'],
+    piv: { base: [0.6569, 0.6904], head: [0.7241, 0.5788], limb: [0.6493, 0.6805], limb2: [0.657, 0.6904], tail: [0.6401, 0.6294], gem: [0.686, 0.2378], head_roar: [0.7241, 0.5788], limb_strike: [0.6493, 0.6805] } }),
+  kusu_tortoise: bossRig('kusu_tortoise', { fit: 0.841,
+    order: ['tail', 'limb2', 'base', 'limb', 'head'],
+    piv: { base: [0.4401, 0.5476], head: [0.7031, 0.5734], limb: [0.6869, 0.6995], limb2: [0.4215, 0.5767], tail: [0.3953, 0.6598], head_roar: [0.7031, 0.5734], limb_strike: [0.6869, 0.6995] } }),
+  // end of boss rigs D5
 };
 const _rigImg = {};
 const rigDir = (kind) => (kind === 'species' ? 'species/rig' : kind === 'town' ? 'townsfolk/idle' : 'bosses/rig');
@@ -383,6 +480,8 @@ function rigLayers(id, rig = RIGS[id]) {
 export const rigIds = () => Object.keys(RIGS);
 export const rigParts = (id) => RIGS[id] && [...rigFiles(RIGS[id])];
 export const rigKind = (id) => RIGS[id] && (RIGS[id].kind || 'boss');
+// A part's joint (fraction of the layer canvas); an alternate picture turns about its part's joint.
+export const rigPivot = (id, n) => RIGS[id] && (RIGS[id].parts[n] || Object.values(RIGS[id].parts).find((p) => p.alt === n))?.piv;
 // Townsfolk with idle parts, and the layer files each one ships.
 export const townIdleIds = () => Object.keys(TOWN_IDLE);
 export const townIdleParts = (id) => TOWN_IDLE[id] && Object.keys(TOWN_IDLE[id].piv);

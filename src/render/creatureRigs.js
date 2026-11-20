@@ -164,70 +164,6 @@ const RIG_DATA = {
   night_safari_tiger: { plan: 'boss', fit: 0.826,
     order: ['tail', 'limb2', 'base', 'limb', 'head'],
     piv: { base: [0.5677, 0.7304], head: [0.5726, 0.5554], tail: [0.2763, 0.8098], limb2: [0.5102, 0.4989], limb: [0.534, 0.6616], head_roar: [0.5726, 0.5554], limb_strike: [0.534, 0.6616] } },
-  // Boss rigs D4 (RB31–RB40)
-  shadow_sovereign: { plan: 'boss', fit: 0.830, amp: { tail: 0.5 },
-    order: ['limb2', 'base', 'limb', 'head', 'tail', 'gem'],
-    piv: { base: [0.5095, 0.8054], head: [0.5126, 0.621], limb: [0.506, 0.8028], limb2: [0.5978, 0.7856], tail: [0.5097, 0.6936], gem: [0.5198, 0.2055], head_roar: [0.5126, 0.621], limb_strike: [0.506, 0.8028] } },
-  coral_leviathan: { plan: 'boss', fit: 0.796,
-    order: ['limb2', 'base', 'tail', 'limb', 'head', 'gem'],
-    piv: { base: [0.5452, 0.6373], head: [0.5249, 0.5684], limb: [0.3737, 0.7276], limb2: [0.7398, 0.8719], tail: [0.3208, 0.5748], gem: [0.4466, 0.3622], head_roar: [0.5249, 0.5684], limb_strike: [0.3737, 0.7276] } },
-  jembalang_lord: { plan: 'boss', fit: 0.776,
-    order: ['limb2', 'base', 'limb', 'head'],
-    piv: { base: [0.4567, 0.5228], head: [0.4805, 0.5042], limb: [0.3851, 0.5422], limb2: [0.6715, 0.6201], head_roar: [0.4805, 0.5042], limb_strike: [0.3851, 0.5422] } },
-  changi_phantom: { plan: 'boss', fit: 0.907, amp: { tail: 0.6 },
-    order: ['tail', 'limb2', 'head', 'base', 'limb'],
-    piv: { base: [0.5245, 0.6571], head: [0.5251, 0.553], limb: [0.3733, 0.6436], limb2: [0.6871, 0.6472], tail: [0.5291, 0.7686], head_roar: [0.5251, 0.553], limb_strike: [0.3733, 0.6436] } },
-  demon_lord: { plan: 'boss', fit: 0.775, amp: { tail: 0.5 },
-    order: ['limb2', 'base', 'tail', 'limb', 'head', 'gem'],
-    piv: { base: [0.5093, 0.7159], head: [0.5178, 0.5627], limb: [0.4527, 0.7661], limb2: [0.6595, 0.8237], tail: [0.5117, 0.6512], gem: [0.5295, 0.1869], head_roar: [0.5178, 0.5627], limb_strike: [0.4527, 0.7661] } },
-  krait_matriarch: { plan: 'boss', fit: 0.851,
-    order: ['tail', 'head', 'base', 'gem'],
-    piv: { base: [0.4907, 0.7154], head: [0.4941, 0.7152], tail: [0.2892, 0.488], gem: [0.612, 0.1706], head_roar: [0.4941, 0.7152] } },
-  pulau_hantu_djinn: { plan: 'boss', fit: 0.948, amp: { tail: 0.35 },
-    order: ['tail', 'limb', 'base', 'limb2', 'head', 'gem'],
-    piv: { base: [0.4732, 0.5834], head: [0.5782, 0.4019], limb: [0.6044, 0.5077], limb2: [0.3954, 0.4032], tail: [0.4636, 0.5968], gem: [0.697, 0.225], head_roar: [0.5782, 0.4019], limb_strike: [0.6044, 0.5077] } },
-  the_garuda: { plan: 'boss', fit: 0.787,
-    order: ['tail', 'limb2', 'limb', 'base', 'head', 'gem'],
-    piv: { base: [0.5523, 0.7461], head: [0.5563, 0.5762], limb: [0.4056, 0.6135], limb2: [0.6203, 0.6416], tail: [0.3498, 0.7642], gem: [0.5648, 0.273], head_roar: [0.5563, 0.5762], limb_strike: [0.4056, 0.6135] } },
-  bukit_brown_revenant: { plan: 'boss', fit: 0.816,
-    order: ['base', 'limb2', 'limb', 'head'],
-    piv: { base: [0.4694, 0.7215], head: [0.4708, 0.6554], limb: [0.6784, 0.6821], limb2: [0.4048, 0.7425], head_roar: [0.4708, 0.6554], limb_strike: [0.6784, 0.6821] } },
-  rune_golem: { plan: 'boss', fit: 0.770,
-    order: ['base', 'limb2', 'limb', 'head', 'gem'],
-    piv: { base: [0.5265, 0.5445], head: [0.6343, 0.3373], limb: [0.3272, 0.5521], limb2: [0.6932, 0.5342], gem: [0.6314, 0.7148], head_roar: [0.6343, 0.3373], limb_strike: [0.3272, 0.5521] } },
-  // end of boss rigs D4
-  // Boss rigs D5 (RB41–RB50)
-  supertree_guardian: { plan: 'boss', fit: 0.872,
-    order: ['base', 'head'],
-    piv: { base: [0.4895, 0.7512], head: [0.4925, 0.6315], head_roar: [0.4925, 0.6315] } },
-  langsuir_matriarch: { plan: 'boss', fit: 0.811, amp: { tail: 0.4 },
-    order: ['tail', 'limb2', 'head', 'base', 'limb', 'gem'],
-    piv: { base: [0.4876, 0.7896], head: [0.3944, 0.6566], limb: [0.4563, 0.7875], limb2: [0.5621, 0.7385], tail: [0.4876, 0.7894], gem: [0.5121, 0.2328], head_roar: [0.3944, 0.6566], limb_strike: [0.4563, 0.7875] } },
-  sentosa_megalodon: { plan: 'boss', fit: 0.778,
-    order: ['tail', 'base', 'limb2', 'limb', 'head'],
-    piv: { base: [0.5398, 0.57], head: [0.5285, 0.4883], limb: [0.4813, 0.6282], limb2: [0.4345, 0.209], tail: [0.2187, 0.5613], head_roar: [0.5285, 0.4883], limb_strike: [0.4813, 0.6282] } },
-  dragon_kiln_wyrm: { plan: 'boss', fit: 0.789,
-    order: ['tail', 'limb', 'base', 'limb2', 'head'],
-    piv: { base: [0.6137, 0.6598], head: [0.6346, 0.4022], limb: [0.6128, 0.6588], limb2: [0.5318, 0.5295], tail: [0.4918, 0.7275], head_roar: [0.6346, 0.4022], limb_strike: [0.6128, 0.6588] } },
-  shadow_panther: { plan: 'boss', fit: 0.820,
-    order: ['tail', 'limb2', 'limb', 'base', 'head', 'gem'],
-    piv: { base: [0.4936, 0.6949], head: [0.6809, 0.493], limb: [0.7046, 0.7612], limb2: [0.429, 0.7445], tail: [0.4272, 0.517], gem: [0.8147, 0.2968], head_roar: [0.6809, 0.493], limb_strike: [0.7046, 0.7612] } },
-  duyung_queen: { plan: 'boss', fit: 0.903,
-    order: ['tail', 'limb2', 'limb', 'base', 'head', 'gem'],
-    piv: { base: [0.5373, 0.6687], head: [0.4853, 0.5777], limb: [0.7111, 0.6825], limb2: [0.6049, 0.5143], tail: [0.553, 0.6942], gem: [0.5522, 0.2087], head_roar: [0.4853, 0.5777], limb_strike: [0.7111, 0.6825] } },
-  coney_behemoth: { plan: 'boss', fit: 0.790,
-    order: ['tail', 'limb2', 'limb', 'base', 'head', 'gem'],
-    piv: { base: [0.4705, 0.6856], head: [0.5079, 0.639], limb: [0.4626, 0.6866], limb2: [0.4615, 0.6901], tail: [0.219, 0.5285], gem: [0.4163, 0.741], head_roar: [0.5079, 0.639], limb_strike: [0.4626, 0.6866] } },
-  orang_minyak: { plan: 'boss', fit: 0.996, amp: { tail: 0.4 },
-    order: ['limb2', 'base', 'tail', 'limb', 'head', 'gem'],
-    piv: { base: [0.6124, 0.7033], head: [0.6782, 0.4485], limb: [0.6123, 0.7033], limb2: [0.608, 0.6992], tail: [0.5536, 0.6617], gem: [0.6996, 0.1738], head_roar: [0.6782, 0.4485], limb_strike: [0.6123, 0.7033] } },
-  great_argus_monarch: { plan: 'boss', fit: 0.782, amp: { tail: 0.5 },
-    order: ['tail', 'limb2', 'base', 'limb', 'head', 'gem'],
-    piv: { base: [0.6569, 0.6904], head: [0.7241, 0.5788], limb: [0.6493, 0.6805], limb2: [0.657, 0.6904], tail: [0.6401, 0.6294], gem: [0.686, 0.2378], head_roar: [0.7241, 0.5788], limb_strike: [0.6493, 0.6805] } },
-  kusu_tortoise: { plan: 'boss', fit: 0.841,
-    order: ['tail', 'limb2', 'base', 'limb', 'head'],
-    piv: { base: [0.4401, 0.5476], head: [0.7031, 0.5734], limb: [0.6869, 0.6995], limb2: [0.4215, 0.5767], tail: [0.3953, 0.6598], head_roar: [0.7031, 0.5734], limb_strike: [0.6869, 0.6995] } },
-  // end of boss rigs D5
 };
 const TOWN_DATA = {
   farmer: { W: 229, H: 300, ref: [9, 9, 218, 296], piv: { body: [0.4694, 0.506], arm: [0.5775, 0.6075], body_blink: [0.4694, 0.506], arm_wave: [0.6228, 0.552] } },
@@ -257,13 +193,12 @@ function build(id, d) {
   for (const n of d.order) {
     const p = plan[n] || {};
     const flap = FLAP[id];
-    // `amp` damps (or boosts) one part's motion, for a big cape or a wave that should barely stir.
-    const k = d.amp?.[n] ?? 1;
-    const sw = p.swing && k !== 1 ? (t, o) => p.swing(t, o) * k : p.swing;
+    const amp = d.amp?.[n] ?? 1;   // a heavy part (a boulder, a mortar on the ground) moves less than the plan's limb
+    const sw = p.swing ? (flap ? (t, o) => p.swing(t, { ...o, flap }) : p.swing) : null;
     parts[n] = {
       piv: d.piv[n],
-      swing: sw ? (flap ? (t, o) => sw(t, { ...o, flap }) : sw) : null,
-      grow: p.grow && k !== 1 ? (t, o) => 1 + (p.grow(t, o) - 1) * k : p.grow || null,
+      swing: sw && amp !== 1 ? (t, o) => sw(t, o) * amp : sw,
+      grow: p.grow || null,
       // An alternate picture (open mouth, open claw, striking arm) shown while the test holds.
       alt: p.swap && files.includes(p.swap[0]) ? p.swap[0] : null,
       swap: p.swap ? p.swap[1] : null,
@@ -272,6 +207,8 @@ function build(id, d) {
   return { kind: d.kind, fit: d.fit, order: d.order, files, parts };
 }
 export const CREATURE_RIGS = Object.fromEntries(Object.entries(RIG_DATA).map(([id, d]) => [id, build(id, d)]));
+// A boss rig measured elsewhere (the later parts sheets keep their tables in sprites.js), with the shared boss motions.
+export const bossRig = (id, d) => build(id, { plan: 'boss', ...d });
 
 // Townsfolk idle: a body that blinks, a near arm that hangs and now and then waves.
 // `ref` is the assembled picture's box on the layer canvas, for sizing it like the still art.
