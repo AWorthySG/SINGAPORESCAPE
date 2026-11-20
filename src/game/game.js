@@ -3647,7 +3647,7 @@ export class Game {
     if (changed && !opened.length) this.bus.emit('skills');
     if (!opened.length) return;
     const names = opened.map((s) => SKILL_BY_ID[s]?.name || s).join(' and ');
-    this.msg(`Golden hours: ${names} XP +${Math.round((GOLDEN_HOUR_XP - 1) * 100)}% for the next six hours of the day (${opened.map((s) => SKILL_HOURS[s].why).join('; ')}).`, 'level');
+    this.msg(`Golden hours: ${names} XP +${Math.round((GOLDEN_HOUR_XP - 1) * 100)}% for the next twelve hours of the day (${opened.map((s) => SKILL_HOURS[s].why).join('; ')}).`, 'level');
     this.banner(`<span class="big">Golden hours</span>${names} XP +${Math.round((GOLDEN_HOUR_XP - 1) * 100)}%`);
     this.bus.emit('skills');
   }
