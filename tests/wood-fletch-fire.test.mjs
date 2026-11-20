@@ -209,7 +209,8 @@ test('endgame fletching: every bow, staff, wand, rifle, crossbow and arrow of ea
     assert.ok(shafts && shafts.level === t.lvl && shafts.qty > 30, `${t.log} cuts into arrow shafts`);
     for (const r of recs) {
       assert.ok(ITEMS[r.result], `${r.result} is a real item`);
-      if (r.result !== 'arrow_shaft') assert.ok(ITEMS[r.result].equip || ITEMS[r.result].tags?.includes('ammo'), `${r.result} is real gear or ammo`);
+      // Rods and snares (tooltiers.js) are gathering tools, not gear.
+      if (r.result !== 'arrow_shaft' && !ITEMS[r.result].tool) assert.ok(ITEMS[r.result].equip || ITEMS[r.result].tags?.includes('ammo'), `${r.result} is real gear or ammo`);
       assert.ok(!r.result.startsWith('sig_'), 'signature weapons stay drop-only');
       // Below the level: refused. At it: made, inputs used up.
       for (const [id, n] of r.inputs) g.inventory.add(id, n);

@@ -134,7 +134,8 @@ test('endgame smithing: every metal melee weapon and plate piece of each tier, a
       assert.equal(r.bar, t.bar);
       assert.ok(r.level >= t.lvl && r.level < t.lvl + 20, `${r.result} at Smithing ${r.level}`);
     }
-    const recs = SMITH.filter((s) => s.bar === t.bar);
+    // Gathering tools (tooltiers.js) are forged from the same bars, but aren't gear.
+    const recs = SMITH.filter((s) => s.bar === t.bar && !ITEMS[s.result]?.tool);
     for (const r of recs) assert.ok(ITEMS[r.result]?.equip || ITEMS[r.result]?.roundStr, `${r.result} is real gear (or gun rounds)`);
     // One piece is forged a tick, so a tier's best piece is its XP an hour at the anvil.
     const best = Math.max(...recs.map((r) => r.xp));
