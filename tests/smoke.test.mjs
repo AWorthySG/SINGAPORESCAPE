@@ -352,7 +352,8 @@ test('monsters and bosses are tougher, but the first town monsters stay easy', a
   assert.ok(monsterHpScale(200) > 2 && monsterHpScale(200) < 3);
   // Bosses: 5400x the base health and a sturdier defence.
   const chief = getNpc('goblin_warchief');
-  assert.equal(chief.maxHp, Math.round(Math.round((35 * 4.5 + 30) * 5400) * chief.level / 35));   // level 81: below the number scale
+  // (Level 81: below the number scale; then its fight-length factor, npcs.js bossSiegeScale.)
+  assert.equal(chief.maxHp, Math.round(Math.round(Math.round((35 * 4.5 + 30) * 5400) * chief.level / 35) * chief.siege));
   assert.ok(chief.defence > Math.round(35 * 0.95), 'boss defence raised');
   // Bosses hit 1.8x harder (1.3x to match the reworked skills, raised again by the owner).
   const { BOSS_DAMAGE_MULT } = await import('../src/data/npcs.js');
