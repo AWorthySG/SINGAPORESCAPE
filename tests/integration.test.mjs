@@ -2143,15 +2143,16 @@ test('night hunt boosts combat XP; big hits and kills trigger hit-stop', () => {
   assert.ok(n.stopUntil - game.playMs < 500, 'and it is brief');
 });
 
-test('gear mastery: kills train every worn gear type (1 a monster, 5 a champion, 25 a boss), ranks add stats, saved with the game', async () => {
+test('gear mastery: kills train every worn gear type (XP by level, x5 a champion, x250 a world boss), ranks add stats, saved with the game', async () => {
   const M = await import('../src/game/mastery.js');
   // Rank thresholds and the stat gain at each rank.
-  assert.deepEqual(M.MASTERY_RANKS.map((r) => r.points), [0, 250, 1000, 3000, 8000, 20000, 50000]);
-  assert.deepEqual(M.MASTERY_RANKS.map((r) => r.name), ['Novice', 'Adept', 'Skilled', 'Expert', 'Master', 'Grandmaster', 'Ascended']);
-  assert.equal(M.rankFor(0), 0); assert.equal(M.rankFor(249), 0); assert.equal(M.rankFor(250), 1);
-  assert.equal(M.rankFor(7999), 3); assert.equal(M.rankFor(8000), 4); assert.equal(M.rankFor(1e9), 6);
-  assert.deepEqual(M.rankProgress(500), { rank: 1, next: 2, need: 500, frac: 1 / 3 });
-  assert.equal(M.rankProgress(50000).next, null);
+  assert.deepEqual(M.MASTERY_RANKS.map((r) => r.xp), [0, 2500, 10000, 30000, 80000, 200000, 480000, 720000, 1200000]);
+  // Mastery XP: ten times the old points, and two world-boss ranks on top (tests/mastery-xp.test.mjs).
+  assert.deepEqual(M.MASTERY_RANKS.map((r) => r.name), ['Novice', 'Adept', 'Skilled', 'Expert', 'Master', 'Grandmaster', 'Ascended', 'Exalted', 'Transcendent']);
+  assert.equal(M.rankFor(0), 0); assert.equal(M.rankFor(2499), 0); assert.equal(M.rankFor(2500), 1);
+  assert.equal(M.rankFor(79999), 3); assert.equal(M.rankFor(80000), 4); assert.equal(M.rankFor(1e9), 8);
+  assert.deepEqual(M.rankProgress(5000), { rank: 1, next: 2, need: 5000, frac: 1 / 3, into: 2500, span: 7500, worldBoss: false });
+  assert.equal(M.rankProgress(1200000).next, null);
   assert.deepEqual(M.masteryBonuses({ attack: 100, speed: 4, haste: 3 }, 0), { attack: 100, speed: 4, haste: 3 });
   assert.equal(M.masteryBonuses({ attack: 100 }, 1).attack, 110);
   assert.equal(M.masteryBonuses({ attack: 100 }, 3).attack, 145);
@@ -2170,15 +2171,20 @@ test('gear mastery: kills train every worn gear type (1 a monster, 5 a champion,
   const atk0 = g.equipment.bonuses().attack;
   const mob = g.npcs.find((n) => n.def.attackable && !n.def.boss);
   const kill = (n) => { n.alive = true; n.hp = 1; g.killNpc(n); };
+  // Mastery XP (mastery.js killMastery): by the monster's level, x5 a champion, x250 a world boss.
+  const one = M.killMastery(mob);
+  assert.ok(one >= 10);
   kill(mob);
-  for (const id of worn) assert.equal(g.equipment.masteryPoints(id), 1, `${id} gains 1 for a monster`);
-  mob.champion = true; kill(mob); mob.champion = false;
-  assert.equal(g.equipment.masteryPoints(w), 6, 'a champion is worth 5');
-  const boss = g.npcs.find((n) => n.def.boss);
-  const adept = M.MASTERY_RANKS[1].points;
-  g.equipment.setMastery(w, adept - 25);   // a boss kill short of Adept
+  for (const id of worn) assert.equal(g.equipment.masteryXp(id), one, `${id} gains a monster's XP`);
+  mob.champion = true; const champ = M.killMastery(mob); kill(mob); mob.champion = false;
+  assert.ok(champ >= one * 4.5 && champ <= one * 5.5, 'a champion is worth about 5');
+  assert.equal(g.equipment.masteryXp(w), one + champ);
+  const boss = g.npcs.find((n) => n.def.boss && !n.def.fixed);
+  const adept = M.MASTERY_RANKS[1].xp, bossXp = M.killMastery(boss);
+  assert.ok(bossXp >= one * 200, 'a world boss is worth hundreds of kills');
+  g.equipment.setMastery(w, adept - bossXp);   // a boss kill short of Adept
   kill(boss);
-  assert.equal(g.equipment.masteryPoints(w), adept, 'a boss is worth 25');
+  assert.equal(g.equipment.masteryXp(w), adept, 'the boss tips it over');
   assert.equal(g.equipment.masteryRank(w), 1);
   assert.ok(chat.includes(`${M.masteryTypeName(w)} mastery reached Adept!`), 'ranking up is announced');
   assert.ok(g.equipment.bonuses().attack > atk0, 'a rank raises your bonuses');
@@ -2186,11 +2192,11 @@ test('gear mastery: kills train every worn gear type (1 a monster, 5 a champion,
   g.inventory.add('gold_ring', 1);
   kill(mob);
   assert.equal(g.equipment.masteryPoints('gold_ring'), 0, 'only worn gear types gain mastery');
-  assert.equal(g.equipment.masteryPoints('mithril_sword'), adept + 1, 'every sword shares Sword mastery');
+  assert.equal(g.equipment.masteryXp('mithril_sword'), adept + one, 'every sword shares Sword mastery');
   // Saved and loaded.
   saveGame(g);
   const g2 = new Game(); g2.start(); loadGame(g2);
-  assert.equal(g2.equipment.masteryPoints(w), adept + 1, 'mastery survives save/load');
+  assert.equal(g2.equipment.masteryXp(w), adept + one, 'mastery survives save/load');
 });
 
 test('enchanting: up to 3 lines for stones and coins, pick one of three offers, replace when full, reroll with a ward', async () => {
@@ -2762,10 +2768,11 @@ test('old saves: upgrade levels and refine stars become mastery and free enchant
   const M = await import('../src/game/mastery.js');
   // The old gains: +5 = 0.40 (Skilled, 0.25), +15 & ★15 = 2.94 (Legendary), +1 = 0.08 (at least Adept).
   assert.deepEqual(M.migrateOld('bronze_scimitar', 5, 0), { points: 1000, lines: [] });
-  assert.equal(M.migrateOld('bronze_scimitar', 1, 0).points, 250);
-  assert.equal(M.migrateOld('bronze_scimitar', 10, 0).points, 8000, '+10 = 0.90: Master');
+  // (In mastery XP now: the same ranks, ten times the old points up to Grandmaster.)
+  assert.equal(M.migrateOld('bronze_scimitar', 1, 0).xp, 2500);
+  assert.equal(M.migrateOld('bronze_scimitar', 10, 0).xp, 80000, '+10 = 0.90: Master');
   const top = M.migrateOld('rune_scimitar', 15, 15);
-  assert.equal(top.points, 50000);
+  assert.equal(top.xp, M.MASTERY_RANKS[6].xp, 'Ascended: never a world-boss rank');
   assert.equal(top.lines.length, 3, '★15 gives three lines');
   globalThis.localStorage = fakeStorage(); clearSave();
   const g = new Game(); g.start(); g.chooseClass('swordsman');
@@ -2781,7 +2788,7 @@ test('old saves: upgrade levels and refine stars become mastery and free enchant
   const g2 = new Game(); g2.start(); loadGame(g2);
   // +7 (0.60) and ★10 (0.64): 1.24 in all -> Grandmaster (1.00), and two lines for ten stars.
   assert.equal(g2.equipment.masteryRank(w), 5);
-  assert.equal(g2.equipment.masteryPoints(w), 20000);
+  assert.equal(g2.equipment.masteryXp(w), 200000);
   assert.equal(g2.equipment.enchantLines(w).length, 2);
   for (const l of g2.equipment.enchantLines(w)) assert.ok(M.enchantPool(w).includes(l.stat) && l.value === M.enchantValue(w, l.stat));
   assert.equal(g2.equipment.masteryRank('iron_platebody'), 1, 'any upgrade is at least Adept');
@@ -2795,14 +2802,14 @@ test('old saves: upgrade levels and refine stars become mastery and free enchant
   // _refines is a live field again (refine.js), but the converted stars never come back as live levels.
   assert.equal(after._upgrades, undefined); assert.deepEqual(after._refines, {});
   assert.equal(g2.equipment.refineLevel(w), 0, 'old stars were converted, not kept');
-  assert.equal(after._mastery[M.masteryType(w)], 20000);
+  assert.equal(after._mastery[M.masteryType(w)], 200000);
   const lines = g2.equipment.enchantLines(w).map((l) => ({ ...l }));
   const g3 = new Game(); g3.start(); loadGame(g3);
   assert.deepEqual(g3.equipment.enchantLines(w), lines);
   // An item that already has mastery is never converted again (mixed saves).
   const mixed = { ...after, _upgrades: { [w]: 15 }, _refines: { [w]: 15 } };
   g3.equipment.load(mixed);
-  assert.equal(g3.equipment.masteryPoints(w), 20000);
+  assert.equal(g3.equipment.masteryXp(w), 200000);
   assert.equal(g3.equipment.refineLevel(w), 15, 'a save with _mastery keeps its _refines as live refine levels');
 });
 
@@ -4152,7 +4159,7 @@ test('drops: rarer gear from normal monsters, quality rolls, and bosses always d
   assert.equal(rollQuality('normal', () => 0.9), null, 'most normal drops have no quality');
   assert.deepEqual(['fine', 'superior', 'epic', 'legendary', 'mythic'].map((k) => QUALITY[k].gain),
     [0.08, 0.16, 0.25, 0.40, 0.60], 'each quality adds a share to its copy\'s stats');
-  assert.ok(MASTERY_RANKS.length === 7);
+  assert.ok(MASTERY_RANKS.length === 9, 'seven mastery ranks and two world-boss ranks');
   // Odds vary greatly by source: count how often Mythic comes up.
   let seed = 1; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
   const highShare = (src) => { let n = 0; for (let i = 0; i < 40000; i++) if (rollQuality(src, rnd) === 'mythic') n++; return n / 40000; };
