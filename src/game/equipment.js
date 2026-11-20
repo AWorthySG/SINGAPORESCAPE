@@ -1,6 +1,6 @@
 import { getItem, TWO_HANDED_TYPES, QUIVER_BOW_TYPES } from '../data/items.js';
 import { ARMOUR_SETS } from '../data/sets.js';
-import { masteryBonuses, qualityBonuses, masteryType, enchantedBonuses, rankFor, migrateOld, MAX_ENCHANTS, ENCHANT_STEP, taperedLine } from './mastery.js';
+import { masteryBonuses, qualityBonuses, masteryType, enchantedBonuses, rankFor, migrateOld, pointsToXp, MAX_ENCHANTS, ENCHANT_STEP, taperedLine } from './mastery.js';
 import { validQuality, QUALITY_ORDER } from './loot.js';
 import { refinedBonuses, MAX_REFINE } from './refine.js';
 
@@ -60,7 +60,7 @@ export class Equipment {
     this.bus = bus;
     this.slots = {};
     for (const s of EQUIP_SLOTS) this.slots[s] = null;
-    this.mastery = {};            // gear type (masteryType: 'weapon:sword', 'body:plate'...) -> mastery points (see mastery.js)
+    this.mastery = {};            // gear type (masteryType: 'weapon:sword', 'body:plate'...) -> mastery XP (see mastery.js)
     this.enchants = {};           // itemId -> [{ stat, value }] (up to 3), shared by every copy
     this.refines = {};            // itemId -> refine level (★1..★15), shared by every copy (see refine.js)
     // A twin pair (the same dual-wield weapon in both hands) has a second copy
@@ -89,9 +89,10 @@ export class Equipment {
   }
 
   // Mastery is read and written through any item of the type.
-  masteryPoints(id) { return this.mastery[masteryType(id)] || 0; }
-  masteryRank(id) { return rankFor(this.masteryPoints(id)); }
-  setMastery(id, pts) { this.mastery[masteryType(id)] = Math.max(0, Math.floor(pts)); }
+  masteryXp(id) { return this.mastery[masteryType(id)] || 0; }
+  masteryPoints(id) { return this.masteryXp(id); }   // (its name from before mastery XP; older tests and tools use it)
+  masteryRank(id) { return rankFor(this.masteryXp(id)); }
+  setMastery(id, xp) { this.mastery[masteryType(id)] = Math.max(0, Math.floor(xp)); }
   /** The quality of the copy worn in `slot` (null when plain or empty). */
   qualityIn(slot) { return this.slots[slot] ? this.slotQuality[slot] || null : null; }
   // `copy` is 'main' (every copy you own, the usual record) or 'off' (the
@@ -265,7 +266,7 @@ export class Equipment {
 
   serialize() {
     const lines = (m) => Object.fromEntries(Object.entries(m).map(([id, l]) => [id, l.map((x) => ({ ...x }))]));
-    return { ...this.slots, _mastery: { ...this.mastery }, _enchants: lines(this.enchants), _refines: { ...this.refines },
+    return { ...this.slots, _mastery: { ...this.mastery }, _masteryXp: 1, _enchants: lines(this.enchants), _refines: { ...this.refines },
       _offEnchants: lines(this.offEnchants), _offRefines: { ...this.offRefines },
       _slotQuality: { ...this.slotQuality }, _enchantTaper: 1, _ammo: this.ammo ? { ...this.ammo } : null };
   }
@@ -279,10 +280,13 @@ export class Equipment {
     // Mastery is kept per gear type (keys with a colon). Saves from before
     // that kept it per item id: each type takes the most points any of its
     // items had, so nobody loses a rank.
+    // Saves from before mastery XP (no _masteryXp) kept points: each is turned
+    // into XP once, keeping its rank and its share of the way to the next.
+    const xpOf = data._masteryXp ? (v) => v : pointsToXp;
     for (const [key, pts] of Object.entries(data._mastery || {})) {
       if (typeof pts !== 'number' || !(pts > 0)) continue;
       const type = key.includes(':') ? key : itemExists(key) ? masteryType(key) : null;
-      if (type) this.mastery[type] = Math.max(this.mastery[type] || 0, Math.floor(pts));
+      if (type) this.mastery[type] = Math.max(this.mastery[type] || 0, Math.floor(xpOf(pts)));
     }
     // The ammo slot came later: optional (rounds.js hands older gun users some rounds).
     const am = data._ammo;
@@ -329,14 +333,14 @@ export class Equipment {
       if (r.some((x) => x)) (this.legacyQuality || (this.legacyQuality = {}))[id] = r;
     }
     // Saves from before mastery had upgrade levels (+1..+15) and refine stars
-    // (★1..★15): turn them into mastery points and free enchant lines, once.
+    // (★1..★15): turn them into mastery XP and free enchant lines, once.
     const ups = data._upgrades || {}, refs = live ? {} : data._refines || {};
     for (const id of new Set([...Object.keys(ups), ...Object.keys(refs)])) {
       if (!itemExists(id) || (data._mastery && id in data._mastery) || this.enchants[id]) continue;   // never converted twice
       const up = Math.max(0, Math.min(15, Math.floor(ups[id]) || 0)), ref = Math.max(0, Math.min(15, Math.floor(refs[id]) || 0));
       if (!up && !ref) continue;
       const m = migrateOld(id, up, ref);
-      if (m.points) this.mastery[masteryType(id)] = Math.max(this.masteryPoints(id), m.points);
+      if (m.xp) this.mastery[masteryType(id)] = Math.max(this.masteryXp(id), m.xp);
       if (m.lines.length) this.enchants[id] = m.lines;
     }
     this._changed();

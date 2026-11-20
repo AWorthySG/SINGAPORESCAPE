@@ -35,11 +35,11 @@ import { BOSS_MECHANICS, MECH_KINDS } from './bossMechanics.js';
 import { SIGNATURE_DROP_CHANCE } from './bossWeapons.js';
 import { ALTAR_XP_MULT } from './bones.js';
 import { ADREN_PER_HIT, ADREN_PER_HURT, THRESHOLD_COST, ULTIMATE_COST } from './abilities.js';
-import { MASTERY_RANKS, MAX_ENCHANTS, ENCHANT_LABELS, enchantCost } from '../game/mastery.js';
+import { MASTERY_RANKS, MAX_ENCHANTS, ENCHANT_LABELS, enchantCost, BATTLE_CAP_RANK, KILL_XP, KILL_MULT } from '../game/mastery.js';
 import { QUALITY, QUALITY_ORDER, QUALITY_RULES, RARITY, NORMAL_GEAR_SKIP } from '../game/loot.js';
 import { MAX_REFINE, refineGain } from '../game/refine.js';
 import { FEED_CAP_RANK } from '../game/materials.js';
-import { QUALITY_MULT, SAME_KIND_MULT, WARD_CHANCE } from '../game/salvage.js';
+import { QUALITY_MULT, SACRIFICE_XP, WARD_CHANCE } from '../game/salvage.js';
 import { SHRINE_TRACKS, shrineCost } from '../game/shrine.js';
 import { GOODS_RATE } from '../game/offerings.js';
 import {
@@ -110,9 +110,9 @@ export function gearTierRows() {
     .map((t) => [t.metal, num(t.lvl)]);
 }
 
-/** Mastery ranks: name, points, the share of base stats it adds. */
+/** Mastery ranks: name, XP, the share of base stats it adds (world-boss ranks marked). */
 export function masteryRankRows() {
-  return MASTERY_RANKS.map((r) => [r.name, num(r.points), r.gain ? `+${pct(r.gain)}` : '-']);
+  return MASTERY_RANKS.map((r) => [r.worldBoss ? `${r.name} (world bosses)` : r.name, num(r.xp), r.gain ? `+${pct(r.gain)}` : '-']);
 }
 
 /** The chance a gear drop reaches each quality, from QUALITY_RULES' ladder. */
@@ -730,12 +730,13 @@ export const CHAPTERS = [
       },
       {
         id: 'mastery', title: 'Gear mastery',
-        summary: 'Using your gear makes it stronger: Novice to Ascended.',
+        summary: `Using your gear makes it stronger: ${MASTERY_RANKS[0].name} to ${MASTERY_RANKS[MASTERY_RANKS.length - 1].name}.`,
         body: [
           'Mastery belongs to a **gear type**, not one item: every sword shares Sword mastery, every plate body Plate body mastery. So moving up a tier keeps everything you have earned.',
-          'Every kill gives each type you wear mastery points: 1 for a monster, 5 for a champion, 25 for a boss. Each rank adds a share of the item\'s base stats:',
-          () => ({ table: { head: ['Rank', 'Points', 'Stat bonus'], rows: masteryRankRows() } }),
-          `You can also feed life-skill materials or [[salvage|sacrifice spare gear]] to a type; those stop at ${MASTERY_RANKS[FEED_CAP_RANK].name}, so the last ranks come from fighting.`,
+          `Every kill gives each type you wear mastery XP: about ${KILL_XP} for a monster, more the higher its level, ${KILL_MULT.champion}x that for a champion, ${KILL_MULT.boss}x for an Endless Gate boss and ${KILL_MULT.worldBoss}x for a world boss. Each rank adds a share of the item\'s base stats:`,
+          () => ({ table: { head: ['Rank', 'XP', 'Stat bonus'], rows: masteryRankRows() } }),
+          `You can also feed life-skill materials or [[salvage|sacrifice spare gear]] to a type; those stop at ${MASTERY_RANKS[FEED_CAP_RANK].name}, so the ranks above come from fighting.`,
+          `The last two ranks are unlocked by defeating world bosses: past ${MASTERY_RANKS[BATTLE_CAP_RANK].name}, only XP from bosses fought in the open world counts. Ordinary kills, Endless Gate bosses, materials and sacrifices add nothing more.`,
         ],
         see: ['quality', 'enchanting', 'carry-over'],
       },
@@ -813,7 +814,7 @@ export const CHAPTERS = [
         body: [
           'Spare gear (any class\'s, any slot) can be used up two ways, from the Gear Mastery window or the item\'s menu:',
           { list: [
-            `**Sacrifice** it to the mastery of its own gear type for ${SAME_KIND_MULT}x its worth in points (up to ${MASTERY_RANKS[FEED_CAP_RANK].name}).`,
+            `**Sacrifice** it to the mastery of its own gear type for ${SACRIFICE_XP}x its worth in mastery XP, more for a refined piece and as your mastery climbs (up to ${MASTERY_RANKS[FEED_CAP_RANK].name}).`,
             `**Dismantle** it into upgrade stones and sometimes a refine scroll. A Legendary piece has a ${pct(WARD_CHANCE.legendary)} chance of a ward, a Mythic one ${pct(WARD_CHANCE.mythic)}, and a boss unique ${pct(WARD_CHANCE.unique)} or more.`,
           ] },
           () => `A piece's worth grows with its level, how high it ranks in its slot, and its quality: ${QUALITY_ORDER.map((k) => `${QUALITY[k].label} x${QUALITY_MULT[k]}`).join(', ')}. Boss uniques and signature weapons are worth far more.`,

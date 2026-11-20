@@ -7,9 +7,9 @@ import { planCarry, applyCarry, carryMessages, scoreAfterCarry } from './carry.j
 import { RARITY, dropRarity, lootDelay, rollQuality, QUALITY, NORMAL_GEAR_SKIP, qualityName } from './loot.js';
 import { dayKey, prevDayKey, makeBounties, streakMult } from './bounty.js';
 import { ATTRS, ATTR_NAMES, statPointsAt, attrForMode, DMG_PER_POINT, LIFE_PER_STR, CRIT_PER_INT, SPEED_PER_DEX, RESET_COST_PER_POINT } from './attributes.js';
-import { MASTERY_RANKS, BANNER_RANK, MAX_ENCHANTS, killMastery, masteryType, masteryTypeName, enchantCost, rollEnchantOffers, enchantLabel, STONE as UP_STONE, WARD as UP_WARD } from './mastery.js';
+import { MASTERY_RANKS, BANNER_RANK, BATTLE_CAP, TOP_XP, MAX_ENCHANTS, killMastery, isWorldBoss, masteryType, masteryTypeName, enchantCost, rollEnchantOffers, enchantLabel, STONE as UP_STONE, WARD as UP_WARD } from './mastery.js';
 import { MAX_REFINE, SCROLL as REFINE_SCROLL, refineCost, rollRefine, refineTag, refineScrollDrop } from './refine.js';
-import { materialKind, materialPoints, feedKind, feedPoints, FEED_CAP, FEED_CAP_RANK } from './materials.js';
+import { materialKind, materialPoints, feedKind, feedXp, FEED_CAP, FEED_CAP_RANK } from './materials.js';
 import { Shrine, SHRINE_TRACKS, trackText } from './shrine.js';
 import { getItem, ITEMS, MELEE_REACH, accessoriesFor } from '../data/items.js';
 import { chebyshev, randInt, weightedPick, capitalize, damageNumber } from '../core/utils.js';
@@ -3869,22 +3869,25 @@ export class Game {
   }
 
   /** Every kill trains the gear you are wearing: each gear type worn gains
-   *  mastery points (1 a monster, 5 a champion, 25 a boss), and may rank up.
+   *  mastery XP (by the monster's level; more for a champion or boss, see
+   *  killMastery), and may rank up. Past Ascended only world bosses count.
    *  (Two pieces of one type, such as a pair of daggers, train it once.) */
   _gainMastery(npc) {
-    const pts = killMastery(npc);
+    const pts = killMastery(npc), cap = isWorldBoss(npc) ? TOP_XP : BATTLE_CAP;
     const types = new Map();
     for (const s of EQUIP_SLOTS) { const id = this.equipment.get(s); if (id && getItem(id).equip?.bonuses && !types.has(masteryType(id))) types.set(masteryType(id), id); }
     if (!types.size) return;
-    for (const id of types.values()) this._addMastery(id, pts);
+    for (const id of types.values()) this._addMastery(id, pts, cap);
     this.equipment._changed();
   }
 
-  /** Add mastery points to `id`'s gear type, announcing a new rank (with a
-   *  banner from Master up). Kills, sacrifices and fed materials all come through here. */
-  _addMastery(id, pts) {
-    const before = this.equipment.masteryRank(id);
-    this.equipment.setMastery(id, this.equipment.masteryPoints(id) + pts);
+  /** Add mastery XP to `id`'s gear type, but not past `cap` (XP already past
+   *  it stays), announcing a new rank (with a banner from Master up). Kills,
+   *  sacrifices and fed materials all come through here. */
+  _addMastery(id, pts, cap = TOP_XP) {
+    const before = this.equipment.masteryRank(id), have = this.equipment.masteryXp(id);
+    if (have >= cap) return;
+    this.equipment.setMastery(id, Math.min(cap, have + pts));
     const after = this.equipment.masteryRank(id);
     if (after > before) {
       const R = MASTERY_RANKS[after], type = masteryTypeName(id);
@@ -6065,18 +6068,18 @@ export class Game {
   }
 
   // ---------------- Feeding gear with materials ----------------
-  // Life-skill materials add mastery points to an item type, worn or in your
+  // Life-skill materials add mastery XP to an item type, worn or in your
   // pack: bars for metal gear, logs for bows and staves, hides for leather and
   // hide, gems for jewellery, herbs for cloth (see materials.js). Materials
-  // stop at Master; the last two ranks are earned in battle.
+  // stop at Master; the ranks above are earned in battle.
 
   /** The materials in your pack that can feed this item type, best first:
-   *  [{ id, count, points (each) }]. */
+   *  [{ id, count, points (mastery XP each) }]. */
   feedOptions(id) {
     const out = [];
     for (const s of this.inventory.slots) {
       if (!s || out.some((o) => o.id === s.id)) continue;
-      const points = feedPoints(id, s.id);
+      const points = feedXp(id, s.id);
       if (points) out.push({ id: s.id, count: this.inventory.count(s.id), points });
     }
     return out.sort((a, b) => b.points - a.points);
@@ -6084,23 +6087,23 @@ export class Game {
 
   /** Feed up to `qty` of material `matId` to item type `id` (worn or in your
    *  pack). Only what it takes to reach Master is used up. Returns the
-   *  mastery points added (0 when nothing could be fed). */
+   *  mastery XP added (0 when nothing could be fed). */
   feedMastery(id, matId, qty = 1) {
     if (!getItem(id).equip?.bonuses) return 0;
     if (!EQUIP_SLOTS.some((s) => this.equipment.get(s) === id) && !this.inventory.count(id)) { this.msg('Wear or carry the gear you want to feed.'); return 0; }
-    const per = feedPoints(id, matId);
+    const per = feedXp(id, matId);
     const name = getItem(id).name;
     if (!per) { this.msg(`${getItem(matId).name} can't feed your ${name.toLowerCase()}: it takes ${feedKind(id) || 'nothing'} materials.`); return 0; }
     const have = this.inventory.count(matId);
     if (!have) { this.msg(`You have no ${getItem(matId).name.toLowerCase()}.`); return 0; }
-    const pts = this.equipment.masteryPoints(id);
+    const pts = this.equipment.masteryXp(id);
     if (pts >= FEED_CAP) { this.msg(`Materials can take gear only to ${MASTERY_RANKS[FEED_CAP_RANK].name} mastery. Fight with your ${name.toLowerCase()} to go further.`); return 0; }
     const n = Math.min(Math.max(1, Math.floor(qty)), have, Math.ceil((FEED_CAP - pts) / per));
     this.inventory.remove(matId, n);
     this._addMastery(id, n * per);
     this.equipment._changed();
     this.spawnSparkle(this.player, '#ffd24a', 8);
-    this.msg(`You work ${n} x ${getItem(matId).name} into your ${name.toLowerCase()}: +${n * per} mastery.`, 'system');
+    this.msg(`You work ${n} x ${getItem(matId).name} into your ${name.toLowerCase()}: +${n * per} mastery XP.`, 'system');
     return n * per;
   }
 

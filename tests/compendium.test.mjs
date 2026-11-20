@@ -102,8 +102,8 @@ test('search finds articles by title and by body text', () => {
 });
 
 test('the tables are built from the game\'s own data', () => {
-  assert.deepEqual(masteryRankRows().map((r) => r[0]), MASTERY_RANKS.map((r) => r.name));
-  assert.deepEqual(masteryRankRows().map((r) => r[1]), MASTERY_RANKS.map((r) => r.points.toLocaleString('en-GB')));
+  assert.deepEqual(masteryRankRows().map((r) => r[0]), MASTERY_RANKS.map((r) => (r.worldBoss ? `${r.name} (world bosses)` : r.name)));
+  assert.deepEqual(masteryRankRows().map((r) => r[1]), MASTERY_RANKS.map((r) => r.xp.toLocaleString('en-GB')));
   assert.deepEqual(qualityRows().map((r) => r[0]), QUALITY_ORDER.map((k) => QUALITY[k].label));
   assert.deepEqual(qualityRows().map((r) => r[1]), QUALITY_ORDER.map((k) => `+${Math.round(QUALITY[k].gain * 100)}%`));
   assert.equal(prayerRows().length, PRAYERS.length);

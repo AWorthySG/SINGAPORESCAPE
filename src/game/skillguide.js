@@ -23,7 +23,7 @@ import { BONE_IDS, boneXp, ALTAR_XP_MULT } from '../data/bones.js';
 import { COOKING, GEM_TABLE, HERB_FORAGE, FISH_TOOL_NAME } from './skilling.js';
 import { CODEX_IDS, dropChances, codexHabitats } from './codex.js';
 import { CULL_GOODS, TOKEN_SHOP } from './culling.js';
-import { materialKind, materialPoints } from './materials.js';
+import { materialKind, materialPoints, materialFeedXp } from './materials.js';
 import { goodsKind, goodsPoints } from './offerings.js';
 import { isSalvageable } from './salvage.js';
 
@@ -338,7 +338,7 @@ export function itemOtherUses(id) {
   const mk = materialKind(id);
   // Gear mastery: which gear each kind of material feeds (materials.js feedKind).
   const FEEDS = { bar: 'metal weapons, plate and shields', gem: 'rings, amulets and orbs', log: 'bows, crossbows, staves, wands and fans', hide: 'leather and hide armour, and whips', herb: 'capes, robes and dancewear' };
-  if (FEEDS[mk]) add('mastery', `Feeds the mastery of ${FEEDS[mk]} (${materialPoints(id)} points each)`);
+  if (FEEDS[mk]) add('mastery', `Feeds the mastery of ${FEEDS[mk]} (${materialFeedXp(id).toLocaleString('en-GB')} mastery XP each)`);
   for (const [stages, qname] of [[LIFE_STAGES, 'Trades of the Island'], [LIFE_STAGES_ADV, 'Master of Trades'], [LIFE_STAGES_WILD, 'Trades of the Wild']]) {
     const st = stages.find((s) => s.need?.item === id);
     if (st) add('quest', `Quest: ${qname} asks for ${st.need.qty}`);

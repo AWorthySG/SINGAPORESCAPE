@@ -5,6 +5,11 @@
 //   node tools/balance/salvage.mjs                        # levels 50, 150, 250
 //   node tools/balance/salvage.mjs --levels 100 --kills 3600 --seed 7
 //
+// Mastery is XP (mastery.js): "kill mst" is the XP the kills gave each worn
+// piece, "sac mst" what sacrificing the hour's spare gear of the weapon's type
+// gave it (it stops at Master: "to M" is the pieces that took, "min" the
+// minutes of drops they came to, "same" all the spare pieces of the type).
+//
 // "An hour" is 1,800 kills (30 a minute; the comparisons are per kill, so the
 // pace doesn't change them) of the monsters within 15% of the level, each spawn
 // a champion as often as in the game (8%), loot rolled by the game's own
@@ -16,7 +21,8 @@ import { NPC } from '../../src/game/npc.js';
 import { getNpc, ALL_MONSTER_IDS } from '../../src/data/npcs.js';
 import { getItem } from '../../src/data/items.js';
 import { killMastery } from '../../src/game/mastery.js';
-import { previewSacrificeAll, dismantleAll } from '../../src/game/salvage.js';
+import { FEED_CAP } from '../../src/game/materials.js';
+import { previewSacrificeAll, dismantleAll, bulkPicks } from '../../src/game/salvage.js';
 
 /** One hour of drops at level L; returns the totals. */
 export function salvageHour(L, { kills = 1800, cls = 'swordsman', seed = 20261112 } = {}) {
@@ -47,8 +53,12 @@ export function salvageHour(L, { kills = 1800, cls = 'swordsman', seed = 2026111
   const target = g.equipment.get('weapon');
   g.equipment.setMastery(target, 0);
   const sac = previewSacrificeAll(g, target);
+  // Sacrifice stops at Master: how much of the hour's spare gear of the type
+  // that took, as minutes of drops (the run's same-type pieces at an even pace, 30 kills a minute).
+  const sameType = bulkPicks(g, {}, target).reduce((t, p) => t + p.qualities.length, 0);
+  const toMaster = sac.points >= FEED_CAP ? Math.round((kills / 30) * sac.pieces / Math.max(1, sameType)) : null;
   const dis = dismantleAll(g, {}, { rand: Math.random });
-  return { level: L, mons: mons.length, kills, champs, gear: got.gear, killMastery: mastery, sacPieces: sac.pieces, sacPoints: sac.points,
+  return { level: L, mons: mons.length, kills, champs, gear: got.gear, killMastery: mastery, sacPieces: sac.pieces, sacPoints: sac.points, sameType, toMaster,
     dropStones: got.stones, disStones: dis.stones, dropScrolls: got.scrolls, disScrolls: dis.scrolls, dropWards: got.wards, disWards: dis.wards, disPieces: dis.pieces };
 }
 
@@ -66,6 +76,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     { key: 'killMastery', label: 'kill mst', w: 8 },
     { key: 'sacPoints', label: 'sac mst', w: 7 },
     { key: 'sacPoints', label: 'sac/kill', w: 8, fmt: (v, r) => pct(v, r.killMastery) },
+    { key: 'sameType', label: 'same', w: 5 },
+    { key: 'sacPieces', label: 'to M', w: 5 },
+    { key: 'toMaster', label: 'min', w: 4, fmt: (v) => (v == null ? '-' : String(v)) },
     { key: 'dropStones', label: 'stones', w: 6 },
     { key: 'disStones', label: '+dism', w: 6 },
     { key: 'disStones', label: 'share', w: 6, fmt: (v, r) => pct(v, r.dropStones) },

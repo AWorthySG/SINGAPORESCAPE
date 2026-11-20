@@ -37,7 +37,7 @@ export function kitOut(cls, L, kind = 'typical') {
     const id = eq.slots[s];
     if (!id) continue;
     if (P.q) eq.slotQuality[s] = P.q;
-    eq.mastery[masteryType(id)] = MASTERY_RANKS[P.rank].points;
+    eq.mastery[masteryType(id)] = MASTERY_RANKS[P.rank].xp;
     const off = s === 'shield' && eq.slots.weapon === id;
     (off ? eq.offRefines : eq.refines)[id] = P.star;
     (off ? eq.offEnchants : eq.enchants)[id] = [isMagicItem(id) ? 'magPct' : 'atkPct', 'critDmg', 'crit'].slice(0, P.lines).map((stat) => ({ stat, value: enchantValue(id, stat) }));

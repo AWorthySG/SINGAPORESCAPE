@@ -13,7 +13,7 @@ import { xpForLevel } from '../src/data/xp.js';
 import { Equipment } from '../src/game/equipment.js';
 import { masteryType, masteryTypeName, MASTERY_RANKS, qualityBonuses } from '../src/game/mastery.js';
 import { QUALITY, qualityName } from '../src/game/loot.js';
-import { sacrificePoints, sacrificeGear } from '../src/game/salvage.js';
+import { sacrificeXp, sacrificeGear } from '../src/game/salvage.js';
 import { offenceFirstScore } from '../src/game/gear.js';
 import { saveGame, loadGame } from '../src/game/save.js';
 import { SAVE_KEY } from '../src/config.js';
@@ -43,7 +43,7 @@ test('mastery belongs to the gear type: weapon type, slot and armour family, or 
     ['Sword', 'Plate body', 'Ring', 'Staff', 'Tool']);
   // Read and written through any item of the type.
   const e = new Equipment();
-  e.setMastery('iron_sword', MASTERY_RANKS[3].points);
+  e.setMastery('iron_sword', MASTERY_RANKS[3].xp);
   assert.equal(e.masteryRank('rune_sword'), 3, 'a higher tier keeps the mastery earned');
   assert.equal(e.masteryRank('rune_scimitar'), 0);
   // Ranks and gains are unchanged: Legendary is +140%.
@@ -53,10 +53,11 @@ test('mastery belongs to the gear type: weapon type, slot and armour family, or 
 test('kills train each worn gear type once, and only worn types; quality drops never touch mastery', () => {
   const g = hero('corsair');
   g.equipment.set('weapon', 'rune_scimitar'); g.equipment.set('shield', 'iron_scimitar');
-  g._gainMastery({ def: { boss: true } });
-  assert.equal(g.equipment.masteryPoints('mithril_scimitar'), 25, 'a boss: 25 to Scimitar mastery, once for the pair');
-  g._gainMastery({ champion: true, def: {} });
-  assert.equal(g.equipment.masteryPoints('rune_scimitar'), 30, 'a champion: 5');
+  // Mastery XP (mastery.js killMastery): 10 a level 1 monster, x250 a world boss, x5 a champion.
+  g._gainMastery({ def: { boss: true, level: 1 } });
+  assert.equal(g.equipment.masteryXp('mithril_scimitar'), 2506, 'a world boss: 2,506 to Scimitar mastery, once for the pair');
+  g._gainMastery({ champion: true, def: { level: 1 } });
+  assert.equal(g.equipment.masteryXp('rune_scimitar'), 2506 + 50, 'a champion: 50');
   assert.equal(g.equipment.masteryPoints('gold_ring'), 0, 'no ring worn');
   // A boss's drops arrive with quality, but mastery stays where it was.
   let loot = [];
@@ -72,11 +73,11 @@ test('sacrifice feeds the same gear type only', () => {
   const g = hero();
   const w = g.equipment.get('weapon');
   g.inventory.add('rune_platebody', 1); g.inventory.add('mithril_sword', 1, 'epic');
-  assert.equal(sacrificePoints(w, 'rune_platebody'), 0);
+  assert.equal(sacrificeXp(w, 'rune_platebody'), 0);
   assert.equal(sacrificeGear(g, w, 'rune_platebody', 1), 0, 'a plate body is not a sword');
   const pts = sacrificeGear(g, w, 'mithril_sword', 1);
-  assert.equal(pts, sacrificePoints(w, 'mithril_sword', 'epic'), 'the Epic copy is worth its quality');
-  assert.ok(pts > sacrificePoints(w, 'mithril_sword', 'plain'));
+  assert.equal(pts, sacrificeXp(w, 'mithril_sword', 'epic'), 'the Epic copy is worth its quality');
+  assert.ok(pts > sacrificeXp(w, 'mithril_sword', 'plain'));
   assert.equal(g.equipment.masteryPoints('rune_sword'), pts);
 });
 
@@ -90,7 +91,7 @@ test('quality multiplies the copy\'s stats: +8% to +60%, on top of mastery', () 
   assert.equal(leg.speed, base.speed, 'speed never changes');
   assert.ok(e.itemBonuses('rune_sword', 'main', 'fine').attack > base.attack);
   // Multiplied with mastery: Grandmaster (+100%) and Mythic (+60%).
-  e.setMastery('rune_sword', MASTERY_RANKS[5].points);
+  e.setMastery('rune_sword', MASTERY_RANKS[5].xp);
   const gm = e.itemBonuses('rune_sword'), both = e.itemBonuses('rune_sword', 'main', 'mythic');
   assert.equal(both.attack, Math.round(gm.attack * 1.6));
   assert.deepEqual(qualityBonuses({ attack: 2 }, { attack: 2 }, 'fine'), { attack: 3 }, 'at least +1');
@@ -194,13 +195,17 @@ test('old saves: per-item mastery becomes per-type (the most any item had); qual
   // Rewrite the save as one from before: mastery per item id, a tally of quality copies.
   const raw = JSON.parse(localStorage.getItem(SAVE_KEY));
   delete raw.equipment._slotQuality;
+  delete raw.equipment._masteryXp;   // and from before mastery XP: points
   raw.equipment._mastery = { iron_sword: 3000, rune_sword: 9000, bronze_platebody: 300, rune_platebody: 1200, no_such_item: 5 };
   raw.equipment._quality = { rune_sword: [1, 0, 1, 0, 1], rune_platebody: [0, 0, 0, 2, 0], gold_ring: [1, 0, 0, 0, 0] };
   localStorage.setItem(SAVE_KEY, JSON.stringify(raw));
   const g2 = new Game(); g2.start();
   assert.equal(loadGame(g2), true, 'the old save loads (no version change)');
-  assert.equal(g2.equipment.masteryPoints('adamant_sword'), 9000, 'Sword mastery: the most any sword had');
-  assert.equal(g2.equipment.masteryPoints('iron_platebody'), 1200, 'Plate body mastery');
+  // ...and, as a save from before mastery XP, points become XP: 9,000 points
+  // (an eighth of the way from Master to Grandmaster) is 90,000 XP, 1,200
+  // (a tenth of the way from Skilled to Expert) 12,000.
+  assert.equal(g2.equipment.masteryXp('adamant_sword'), 90000, 'Sword mastery: the most any sword had');
+  assert.equal(g2.equipment.masteryXp('iron_platebody'), 12000, 'Plate body mastery');
   assert.equal(g2.equipment.masteryRank('rune_sword'), 4, 'Master, as the rune sword was');
   // Four rune swords (worn, two in the pack, one banked) and three quality copies: Mythic worn, then Epic and Fine in the pack.
   assert.equal(g2.equipment.qualityIn('weapon'), 'mythic');
@@ -214,10 +219,11 @@ test('old saves: per-item mastery becomes per-type (the most any item had); qual
   saveGame(g2);
   const after = JSON.parse(localStorage.getItem(SAVE_KEY)).equipment;
   assert.equal(after._quality, undefined);
-  assert.equal(after._mastery['weapon:sword'], 9000);
+  assert.equal(after._mastery['weapon:sword'], 90000);
+  assert.equal(after._masteryXp, 1, 'marked as XP, so it is never converted again');
   assert.ok(Object.keys(after._mastery).every((k) => k.includes(':')), JSON.stringify(after._mastery));
   const g3 = new Game(); g3.start(); loadGame(g3);
   assert.equal(g3.equipment.qualityIn('weapon'), 'mythic');
   assert.deepEqual(g3.inventory.qualities('rune_sword'), ['fine', 'epic']);
-  assert.equal(g3.equipment.masteryPoints('rune_sword'), 9000);
+  assert.equal(g3.equipment.masteryXp('rune_sword'), 90000);
 });
