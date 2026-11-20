@@ -9,7 +9,7 @@
 import { ALL_MONSTER_IDS, ALL_BOSS_IDS, getNpc } from '../data/npcs.js';
 import { getItem } from '../data/items.js';
 import { RACES, raceOf, weaponsFor, weaponTypeName } from '../data/races.js';
-import { armourTierOf, ARMOUR_TIERS } from './combat.js';
+import { armourTierOf, ARMOUR_TIERS, bossTypeOf } from './combat.js';
 import { ELEMENTS, elementMatchup, ELEMENT_MATCHUP } from '../data/magic.js';
 import { SIGNATURE_CLASS, SIGNATURE_DROP_CHANCE, sigIdFor } from '../data/bossWeapons.js';
 import { CLASS_BY_ID } from '../data/classes.js';
@@ -177,6 +177,9 @@ export function codexEntry(game, id) {
     race: { id: rid, name: race.name, icon: race.icon, desc: race.desc },
     championCapable: championCapable(d),
   };
+  // A boss's armour type, like its mechanic, is shown from the start: it says who should take it on.
+  const bt = bossTypeOf(d);
+  if (bt) e.armourType = { id: d.armourType, name: bt.name, icon: bt.icon, hint: bt.hint };
   // A boss's mechanic is shown even before the first kill: it's how you learn to win that fight.
   const mech = BOSS_MECHANICS[id];
   if (mech) {

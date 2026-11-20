@@ -2,6 +2,7 @@
 // (simplified: melee only, no prayer/potions). Pure functions.
 import { randInt } from '../core/utils.js';
 import { spellBaseHit, ELEMENTS } from '../data/magic.js';
+import { BOSS_TYPES, BLUNT_TYPES } from '../data/bossTypes.js';
 
 // There are no combat stances to pick any more: every fighter uses one balanced
 // stance (a little accuracy, power and defence), and every hit trains your
@@ -180,8 +181,41 @@ export function armourOf(def, { champion = false, fightLevel = 0 } = {}) {
   if (def?.boss) a += 0.1;
   if (champion || def?.champion) a += 0.1;
   if (fightLevel > 0 && (def?.boss || champion || def?.champion)) a += Math.max(-0.1, Math.min(0.15, ((def?.level || 1) / fightLevel - 1) * 0.15));
-  return Math.max(0, Math.min(ARMOUR_CAP, a));
+  const bt = bossTypeOf(def);   // a boss's armour type: plated bosses wear more, warded and evasive ones less
+  return Math.max(0, Math.min(bt?.cap || ARMOUR_CAP, a + (bt?.armour || 0)));
 }
+
+// Boss armour types (data/bossTypes.js): plated, warded, evasive and thick-hided.
+/** A boss's armour type entry from BOSS_TYPES, or null (not a boss). */
+export const bossTypeOf = (def) => (def?.boss && BOSS_TYPES[def.armourType]) || null;
+/** How slow your attacks are, 0 (a swing every quarter beat or quicker: pistols,
+ *  claws, daggers, spells) to 1 (every 1.25 beats or slower: great swords, rifles),
+ *  from the attack interval in 0.3s beats. */
+export const attackSlowness = (interval) => Math.max(0, Math.min(1, ((interval || 0) - 0.25) / 1));
+/** The damage multiplier a boss's armour type puts on your hits: blunt weapons
+ *  on plated bosses, spells on warded ones, light blows (or heavy) on thick hides.
+ *  (Evasive bosses are grazed instead: see bossGrazeChance.) */
+export function bossTypeDmgMult(def, { mode, weaponType, interval } = {}) {
+  const bt = bossTypeOf(def);
+  if (!bt) return 1;
+  let m = 1;
+  if (bt.blunt && mode === 'melee' && BLUNT_TYPES.has(weaponType)) m *= bt.blunt;
+  if (bt.magic && mode === 'magic') m *= bt.magic;
+  if (bt.glance) m *= bt.glance[0] + (bt.glance[1] - bt.glance[0]) * attackSlowness(interval);
+  return m;
+}
+/** The chance one of your blows only grazes an evasive boss (0 for any other foe):
+ *  quick attacks land clean, slow swings graze more often. */
+export function bossGrazeChance(def, interval) {
+  const d = bossTypeOf(def)?.graze;
+  return d ? d[0] + (d[1] - d[0]) * attackSlowness(interval) : 0;
+}
+/** A grazing blow's share of its damage (it still lands at least 1). */
+export const GRAZE_DMG = BOSS_TYPES.evasive.grazeDmg;
+/** Your average damage against this boss after grazes (1 against any other foe). */
+export const bossGrazeMult = (def, interval) => 1 - bossGrazeChance(def, interval) * (1 - GRAZE_DMG);
+/** How much more an armour break (a skill's sunder, Earth's cracks) counts on this boss. */
+export const bossBreakMult = (def) => bossTypeOf(def)?.breaks || 1;
 /** The damage multiplier after armour, weakness and Armour pierce (pierce in %). */
 export function armourMult(armour, piercePct = 0, weak = false) {
   const a = weak ? armour / 2 : armour, p = (piercePct || 0) / 100;

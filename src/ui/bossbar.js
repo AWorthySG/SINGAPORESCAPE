@@ -13,6 +13,7 @@ import { TICK_MS } from '../config.js';
 import { portraitFor } from '../render/sprites.js';
 import { playIconHTML, mechIcon } from '../render/icons.js';
 import { foeDetails } from '../render/worldlabels.js';
+import { bossTypeOf } from '../game/combat.js';
 
 /** Life read-out: "999.9M · 99.9%" (short numbers; percent to one decimal,
  *  never "0.0%" while it is still alive, nor "100.0%" once it is hurt). */
@@ -78,6 +79,8 @@ export function bossBarModel(game, boss) {
     threat: foeThreat(game, boss),
     mech: mechBadge(game, boss),
     enraged: !!boss.enraged,
+    // Its armour type and the one-line hint on how to beat it (bossTypes.js).
+    armourType: bossTypeOf(def) ? { name: bossTypeOf(def).name, icon: bossTypeOf(def).icon, hint: bossTypeOf(def).hint } : null,
   };
 }
 
@@ -132,6 +135,8 @@ export function renderBossBar(ui, boss) {
   if (b.info) {
     const info = boss.attackable ? foeDetails(g, boss) : '';
     if (b.info.textContent !== info) b.info.textContent = info;
+    const hint = m.armourType?.hint || '';
+    if (b.info.title !== hint) b.info.title = hint;
   }
   // The mechanic badge.
   const mc = m.mech;
