@@ -1,11 +1,12 @@
 import { TILE } from '../config.js';
 import { TERRAIN } from '../data/world.js';
-import { fxImage, fxTinted, drawFx } from './fxart.js';
+import { fxImage, fxTinted, fxLoop, drawFx } from './fxart.js';
 
 // Ambient critters: butterflies over grass and flowers by day, fireflies near
 // water and jungle at night, birds that sit on the ground and flutter off when
 // you come close, and the odd gecko on a wall. By the water, dragonflies dart
-// about and now and then a kingfisher perches on the bank. Painted stickers
+// about and now and then a kingfisher perches on the bank; an olive sunbird
+// hovers at the flowers and a bluebottle flits through the towns and gardens. Painted stickers
 // (fxart.js), with a few canvas strokes standing in until they load; purely
 // cosmetic: not entities, never saved, no effect on play.
 // A fixed pool of objects is reused (nothing is allocated per frame), they only
@@ -22,6 +23,10 @@ const JUNGLE = new Set(['Bukit Timah', 'Jurong Forest', 'Mandai Rainforest', 'Su
   'MacRitchie Reservoir', 'Pulau Ubin', 'Kranji Farmlands', 'Gardens by the Bay', 'Punggol Waterway']);
 const GRIM = new Set(['The Wilderness', 'Pulau Hantu', 'Tekong Badlands', 'The Shadow Rift']);
 const PERCH = new Set(['wall', 'ruin', 'bank', 'stall', 'transport', 'lamp', 'shrine']);
+// Where the bluebottle flits (in its own colours, flapping through its painted loop).
+const BLUEBOTTLE = new Set(['Kampong Glam', 'Chinatown', 'Marina Bay', 'Gardens by the Bay', 'Pulau Ubin', 'Kranji Farmlands']);
+const FLAP_MS = 90;     // a butterfly's or sunbird's wingbeat frame
+const GLOW_MS = 260;    // a firefly's glow frame
 
 export class Critters {
   constructor(cap = CRITTER_CAP) {
@@ -102,9 +107,13 @@ export class Critters {
       c.x = wx + (this.rnd() - 0.5) * 16; c.y = wy - 10; c.max = c.life = 9000 + this.rnd() * 6000;
       c.col = WINGS[Math.floor(this.rnd() * WINGS.length)];
       // Dragonflies by the water; the odd swallowtail in the jungle.
+      const r2 = this.rnd();
       if (wet) c.sp = 'dragonfly';
-      else if (JUNGLE.has(env.zone) && this.rnd() < 0.25) c.sp = 'swallowtail';
+      else if (o && o.objId === 'flower' && r2 < 0.18) c.sp = 'sunbird';   // hovering at the flowers
+      else if (JUNGLE.has(env.zone) && r2 < 0.25) c.sp = 'swallowtail';
+      else if (BLUEBOTTLE.has(env.zone) && r2 < 0.45) c.sp = 'bluebottle';
       const a = this.rnd() * 6.28; c.vx = Math.cos(a) * 0.022; c.vy = Math.sin(a) * 0.012;
+      if (c.sp === 'sunbird') { c.vx *= 0.4; c.vy *= 0.4; c.y -= 4; }   // it hangs about its flower
     } else if (kind === FIREFLY) {
       c.x = wx + (this.rnd() - 0.5) * 24; c.y = wy - 6 - this.rnd() * 10; c.max = c.life = 6000 + this.rnd() * 5000;
     } else if (kind === BIRD) {
@@ -183,6 +192,16 @@ export class Critters {
       if (c.kind === FIREFLY) {
         if (!glow) { ctx.globalCompositeOperation = 'lighter'; glow = true; }
         const pulse = 0.35 + 0.65 * Math.max(0, Math.sin(timeMs * 0.0035 + c.phase));
+        const glowing = fxLoop('particle', 'firefly_glow', timeMs, GLOW_MS, c.phase * 400);
+        if (glowing) {
+          // The painted beetle with its tail light pulsing, and a faint halo added on top.
+          ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = a;
+          drawFx(ctx, glowing, x, y, 7);
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.globalAlpha = a * pulse * 0.3; ctx.fillStyle = '#d8ff6a';
+          ctx.beginPath(); ctx.arc(x, y + 1.5, 4, 0, 6.283); ctx.fill();
+          continue;
+        }
         const body = fxImage('critter-firefly');
         if (body) {
           // The little beetle itself, then its glow added on top.
@@ -229,6 +248,13 @@ function artButterfly(ctx, c, x, y, t) {
     ctx.restore();
     return true;
   }
+  if (c.sp === 'sunbird' || c.sp === 'bluebottle') {
+    // Painted loops in their own colours: a hovering sunbird, a flapping bluebottle.
+    const img = fxLoop('critter', c.sp === 'sunbird' ? 'sunbird_fly' : 'bluebottle', t, FLAP_MS * (c.sp === 'sunbird' ? 0.8 : 1.4), c.phase * 300);
+    if (!img) return false;
+    drawFx(ctx, img, x, y, c.sp === 'sunbird' ? 13 : 12, c.sp === 'sunbird' && c.vx < 0);
+    return true;
+  }
   const flap = Math.abs(Math.sin(t * 0.03 + c.phase));
   if (c.sp === 'swallowtail') {
     // In its own colours, so its one picture squashes sideways to flap.
@@ -259,9 +285,11 @@ function artSitting(ctx, c, x, y) {
 function artFlying(ctx, c, x, y, t) {
   // Wings up and wings down in turn (the kingfisher has the one picture).
   const up = Math.sin(t * 0.05 + c.phase) > 0;
-  const img = fxImage(c.sp === 'kingfisher' ? 'critter-kingfisher' : `critter-${c.sp}_${up ? 'up' : 'down'}`);
+  // A myna beats through its painted flight loop; the sparrow has an up and a down.
+  const loop = c.sp === 'myna' && fxLoop('critter', 'myna_fly', t, 80, c.phase * 200);
+  const img = loop || fxImage(c.sp === 'kingfisher' ? 'critter-kingfisher' : `critter-${c.sp}_${up ? 'up' : 'down'}`);
   if (!img) return false;
-  drawFx(ctx, img, x, y, 13, c.ax < 0);
+  drawFx(ctx, img, x, y, loop ? 15 : 13, c.ax < 0);
   return true;
 }
 

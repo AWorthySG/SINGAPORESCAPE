@@ -12,6 +12,7 @@ import { CREATURE_RIGS, TOWN_IDLE, bossRig } from './creatureRigs.js';
 import { REGION_GIVERS } from '../data/regionQuests.js';
 import { RESIDENTS } from '../data/consequences.js';
 import { BESTIARY_SPECIES, BESTIARY_BOSSES } from '../data/bestiary.js';
+import { OBJECTS } from '../data/objects.js';
 
 const CROP_COLORS = Object.fromEntries(CROPS.map((c) => [c[0], c[9]]));
 const CROP_GROW = Object.fromEntries(CROPS.map((c) => [c[0], c[3]]));
@@ -2456,6 +2457,20 @@ const WORLD_ART = {
   // Animated: a campfire's four flicker frames, and a farm patch's five growth stages.
   ...Object.fromEntries([0, 1, 2, 3].map((i) => [`obj-fire-${i}`, [32, 42, 14]])),
   ...Object.fromEntries([0, 1, 2, 3, 4].map((i) => [`obj-farm_patch-${i}`, [42, 36, 15]])),
+  // Landmarks (landmarks.js): drawn across their footprint, a little wider than it.
+  ...Object.fromEntries(Object.entries(OBJECTS).filter(([, d]) => d.footprint).map(([id, d]) => [`obj-${id}`, [d.footprint[0] * 32 * (d.artScale || 1.1), 999, 16]])),
+  // Set dressing: one-tile props, most fitted in a 40 px box, a few taller or smaller.
+  ...Object.fromEntries(Object.entries(OBJECTS).filter(([, d]) => d.prop).map(([id]) => [`obj-${id}`, [40, 40, 15]])),
+  ...Object.fromEntries(Object.entries({
+    heritage_lamp: [30, 54], lantern_post: [44, 52], bollard_light: [22, 32], trail_marker: [22, 36], trail_signpost: [32, 46],
+    ghost_lantern: [38, 50], cloud_lantern: [38, 48], prayer_flags: [40, 52], leaning_palm: [50, 60], beach_umbrella_red: [46, 50],
+    beach_umbrella_teal: [46, 50], rusty_tank: [42, 54], hawker_stall_noodle: [50, 52], hawker_stall_satay: [50, 52], hawker_stall_drinks: [50, 52],
+    hawker_stall_fruit: [50, 50], fish_stall: [50, 48], bird_hide: [46, 46], kelong_stilts: [40, 46], stone_lion: [36, 44], roadside_shrine: [34, 46],
+    signboard: [32, 44], incense_urn: [32, 40], kopitiam_stool: [34, 28], sampan: [46, 38], boardwalk: [42, 36], boardwalk_corner: [42, 36],
+  }).map(([k, [w, h]]) => [`obj-${k}`, [w, h, 15]])),
+  // Animated set dressing: washing on a laundry pole, and a lantern swaying overhead.
+  ...Object.fromEntries([0, 1, 2, 3].map((i) => [`obj-laundry_pole-${i}`, [52, 40, 15]])),
+  ...Object.fromEntries([0, 1, 2, 3].map((i) => [`obj-five_foot_lantern-${i}`, [30, 34, -12]])),
 };
 const FIRE_FRAME_MS = 110;
 /** A farm patch's growth stage: 0 empty, 1 planted, 2 sprouting, 3 growing, 4 ripe. */
@@ -2474,6 +2489,7 @@ function worldArtKey(obj, time = 0) {
   const t = obj.def.type;
   if (t === 'fire') return `obj-fire-${Math.floor(time / FIRE_FRAME_MS + obj.x * 3 + obj.y) % 4}`;   // each fire on its own beat
   if (t === 'farm') return `obj-farm_patch-${farmStage(obj)}`;
+  if (obj.def.frames) return `obj-${obj.objId}-${Math.floor(time / obj.def.frameMs + obj.x * 3 + obj.y) % obj.def.frames}`;   // a looping prop
   if (obj.worldEvent && !obj.depleted && EVENT_ART[t]) return EVENT_ART[t];   // a world event's node
   // A tree without its own picture yet may borrow another's (`borrow`), recoloured by its `tint`.
   if (t === 'tree') return obj.depleted ? `stump-${obj.def.borrow || obj.objId}` : `tree-${obj.def.borrow || obj.objId}`;
@@ -2527,7 +2543,10 @@ function drawWorldArt(ctx, obj, img, key, cx, cy, time) {
   const s = Math.min(mw / img.naturalWidth, mh / img.naturalHeight);
   const w = img.naturalWidth * s, h = img.naturalHeight * s;
   const t = obj.def.type;
-  if (t !== 'fishing') {   // a soft contact shadow; fishing spots sit in the water
+  if (obj.def.footprint) {   // a landmark's shadow spans its footprint
+    ctx.fillStyle = 'rgba(34,48,74,0.16)';
+    ellipse(ctx, cx, cy + foot - 2, w * 0.46, 7); ctx.fill();
+  } else if (t !== 'fishing' && foot > 0) {   // a soft contact shadow; fishing spots sit in the water, hanging things cast none
     ctx.fillStyle = 'rgba(34,48,74,0.16)';
     ellipse(ctx, cx, cy + foot - 1, Math.min(w * 0.42, 22), Math.min(h * 0.12, 5)); ctx.fill();
   }
@@ -2555,8 +2574,10 @@ export function drawObjectSprite(ctx, obj, cx, cy, time = 0) {
   // Load every frame of an animated object together, so it never drops back
   // to its drawn version between frames.
   if (t === 'fire' || t === 'farm') for (const k of Object.keys(WORLD_ART)) if (k.startsWith(t === 'fire' ? 'obj-fire-' : 'obj-farm_patch-')) worldImage(k);
+  else if (obj.def.frames) for (let i = 0; i < obj.def.frames; i++) worldImage(`obj-${obj.objId}-${i}`);
   const art = key && worldImage(key);
   if (art && art.complete && art.naturalWidth) { drawWorldArt(ctx, obj, art, key, cx, cy, time); return; }
+  if (obj.def.footprint) return;   // a landmark has no drawn stand-in: it appears once its picture loads
   if (CACHED_OBJECTS.has(t)) {
     const key = `obj|${t}|${obj.objId}|${obj.def.ore || ''}|${obj.depleted ? 1 : 0}`;
     const img = cachedBitmap(key, OBJ_BOX, (g) => drawObjectRaw(g, obj, 0, 0, 0));
