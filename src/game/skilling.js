@@ -4,6 +4,7 @@ import { TILE } from '../config.js';
 import { yieldBonus, huntExtras } from './culling.js';
 import { afterFireLit } from './skillunlocks.js';
 import { toolBonus, toolTooHighMsg } from './tools.js';
+import { batched } from './autoprocess.js';   // an instant batch's news told once (smeltBatch)
 
 const objCenter = (obj) => ({ x: obj.x * TILE + TILE / 2, y: obj.y * TILE + TILE / 2 - 6 });
 
@@ -353,10 +354,8 @@ export function resolveSmelt(game, action) {
 export function smeltBatch(game, action) {
   action.tally = null;
   let guard = 0;
-  const held = game.pets?.hold();   // a pet roll for every bar, not one for the batch (pets.js)
-  try {
-    while (resolveSmelt(game, action) && ++guard < 100000) { /* keep smelting */ }
-  } finally { if (held) game.pets.release(); }
+  // A pet roll for every bar, and the bag and XP told once for the lot (autoprocess.js).
+  batched(game, () => { while (resolveSmelt(game, action) && ++guard < 100000) { /* keep smelting */ } });
   const t = action.tally;
   if (!t || (!t.made && !t.failed)) return false;
   const name = getItem(action.recipe.result).name.toLowerCase();

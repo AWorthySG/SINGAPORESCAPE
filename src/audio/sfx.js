@@ -27,7 +27,13 @@ export class Sfx {
     this.amb = null;               // the region sound beds (ambience.js), made on unlock
     this.ambienceSource = null;    // set by main: () => ({ zone, night })
     bus.on('sfx', (n) => this.play(n));
-    bus.on('levelup', () => this.play('level'));
+    // Many levels at once (a big batch, a boss) chime once, not once per level.
+    bus.on('levelup', () => {
+      const now = this.ctx?.currentTime ?? 0;
+      if (this.ctx && now - (this._lastLevel ?? -1) < 0.25) return;
+      this._lastLevel = now;
+      this.play('level');
+    });
     bus.on('achievement', () => this.play('achievement'));
   }
 

@@ -82,7 +82,9 @@ export class QuickSlot {
     this.game = ui.game;
     this.el = null;
     this._sig = null;
-    for (const ev of ['tick', 'hp', 'inventory']) this.game.bus.on(ev, () => this.render());
+    // A burst of bag or life changes redraws it once a frame (ui._soon), not once each.
+    this.game.bus.on('tick', () => this.render());
+    for (const ev of ['hp', 'inventory']) this.game.bus.on(ev, () => (ui._soon ? ui._soon('quickslot', () => this.render()) : this.render()));
   }
 
   _button() {

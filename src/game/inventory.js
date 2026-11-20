@@ -33,7 +33,32 @@ export class Inventory {
 
   get size() { return this.slots.length; }
 
-  _changed() { this._pad(); this.bus?.emit('inventory'); }
+  _changed() {
+    this._pad();
+    if (this._held) this._held.dirty = true;   // a batch tells the bag once, at the end (hold/release)
+    else this.bus?.emit('inventory');
+  }
+
+  /** An instant batch (thousands of makes in one tick) holds the 'inventory'
+   *  event: every listener (the bag grid, the quick-use slot, discovery) would
+   *  otherwise rescan the whole pack once per item. release() tells it once.
+   *  Returns whether this call took the hold (nested holds leave it to the outer). */
+  hold() { if (this._held) return false; this._held = { dirty: false }; return true; }
+  release() {
+    const h = this._held;
+    this._held = null;
+    if (h?.dirty) this.bus?.emit('inventory');
+  }
+
+  /** Watch what changes (skillunlocks.js, around each make in a batch): a map of
+   *  id -> { n: net change, at: the item's first slot before it was taken }.
+   *  The same answer as counting the bag before and after, without the scans. */
+  journal() { return (this._log = new Map()); }
+  endJournal() { const j = this._log; this._log = null; return j; }
+  _note(id, n, at) {
+    const e = this._log.get(id);
+    if (e) { e.n += n; if (at < e.at) e.at = at; } else this._log.set(id, { n, at });
+  }
 
   /** Keep at least `minSize` slots and a spare row of empty slots at the end. */
   _pad() {
@@ -57,7 +82,10 @@ export class Inventory {
   isFull() { return false; }
 
   count(id) {
-    return this.slots.reduce((n, s) => (s && s.id === id ? n + s.qty : n), 0);
+    // A plain loop: a big batch asks this several times per item made.
+    let n = 0;
+    for (const s of this.slots) if (s && s.id === id) n += s.qty;
+    return n;
   }
 
   has(id, qty = 1) { return this.count(id) >= qty; }
@@ -90,6 +118,7 @@ export class Inventory {
       this.slots.push(mk(put)); remaining -= put;
     }
     const added = qty - remaining;
+    if (this._log && added > 0) this._note(id, added, Infinity);
     if (added > 0) this._changed();
     return added;
   }
@@ -104,7 +133,12 @@ export class Inventory {
   /** Remove like remove(), saying which copies went: [{ q, n }], plainest first. */
   take(id, qty = 1, q) {
     const order = [];
-    this.slots.forEach((s, i) => { if (s && s.id === id && (q === undefined || (s.q || null) === validQuality(q))) order.push(i); });
+    let first = Infinity;   // the item's first slot, whatever its quality (the journal orders what was spent by it)
+    this.slots.forEach((s, i) => {
+      if (!s || s.id !== id) return;
+      if (i < first) first = i;
+      if (q === undefined || (s.q || null) === validQuality(q)) order.push(i);
+    });
     order.sort((a, b) => qualityRank(this.slots[a].q) - qualityRank(this.slots[b].q) || a - b);
     const out = [];
     let toRemove = qty;
@@ -118,6 +152,7 @@ export class Inventory {
       if (last && last.q === sq) last.n += take; else out.push({ q: sq, n: take });
       if (s.qty <= 0) this.slots[i] = null;
     }
+    if (this._log && toRemove < qty) this._note(id, toRemove - qty, first);
     if (toRemove < qty) this._changed();
     return out;
   }

@@ -36,8 +36,18 @@ export class NoticeLane {
   /** Show a note. `n`: { html, kind ('banner' | 'tip' | 'note'), tag, key, ttl, priority }. */
   push(n) {
     const item = this.queue.push(n, now());
-    this.render();
+    this.renderSoon();
     return item;
+  }
+
+  /** Draw on the next frame, once, however many notes came in this tick: each
+   *  draw measures the page (place), and a tick that pushed several (a big
+   *  batch opening unlocks, a boss kill) forced a layout for every one. */
+  renderSoon() {
+    if (typeof requestAnimationFrame !== 'function') { this.render(); return; }
+    if (this._renderQueued) return;
+    this._renderQueued = true;
+    requestAnimationFrame(() => { this._renderQueued = false; this.render(); });
   }
 
   has(kind) { return this.queue.has(kind); }
