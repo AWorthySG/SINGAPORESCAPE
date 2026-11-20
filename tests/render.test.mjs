@@ -694,3 +694,41 @@ test('final creature art: the last borrowing species and townsfolk wear their ow
   assert.match(src, /const TOWN_ALIAS = \{\};/);
   assert.match(src, /const TOWN_TINT = \{\};/);
 });
+
+test('Part E batch 3 species rigs ship every layer on one canvas, with joints inside their parts', async () => {
+  const { CREATURE_RIGS } = await import('../src/render/creatureRigs.js');
+  const { readFileSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  // RS21-RS30 (the sun bear's sheet didn't line up, so it keeps its still picture).
+  const PLAN = { sea_turtle: 'quad', vampire_bat: 'flier', kingfisher: 'flier', carnivorous_plant: 'plant', banded_leaf_monkey: 'quad', bunian: 'float', clouded_leopard: 'quad', sambar_deer: 'quad', mud_crab: 'crawl' };
+  // Each layer's opaque box on the shared canvas (fractions), measured when the layers were cut.
+  const BOX = {
+    sea_turtle: { front_far: [0.688, 0.422, 0.959, 0.902], back_near: [0.069, 0.484, 0.319, 0.709], front_near: [0.266, 0.447, 0.603, 0.939], body: [0.075, 0.135, 0.753, 0.73], head: [0.531, 0.033, 0.975, 0.594], head_open: [0.531, 0.033, 0.972, 0.594] },
+    vampire_bat: { wing_far: [0.022, 0.046, 0.441, 0.684], feet: [0.312, 0.615, 0.509, 0.816], body: [0.381, 0.207, 0.678, 0.839], wing_near: [0.575, 0.046, 0.972, 0.718] },
+    kingfisher: { feet: [0.331, 0.805, 0.691, 0.971], body: [0.181, 0.026, 0.975, 0.864], wing_near: [0.112, 0.347, 0.631, 0.838] },
+    carnivorous_plant: { arm_far: [0.241, 0.06, 0.544, 0.372], body: [0.103, 0.262, 0.744, 0.963], head: [0.388, 0.027, 0.812, 0.419], arm_near: [0.025, 0.456, 0.434, 0.822], head_attack: [0.438, 0.027, 0.744, 0.419] },
+    banded_leaf_monkey: { tail: [0.05, 0.299, 0.319, 0.93], front_far: [0.5, 0.592, 0.678, 0.962], back_near: [0.2, 0.551, 0.516, 0.971], front_near: [0.45, 0.599, 0.647, 0.955], body: [0.194, 0.5, 0.762, 0.939], head: [0.294, 0.029, 0.972, 0.605], head_open: [0.294, 0.032, 0.972, 0.605] },
+    bunian: { arm_far: [0.622, 0.457, 0.838, 0.642], lower: [0.034, 0.438, 0.912, 0.974], body: [0.028, 0.026, 0.972, 0.895], face: [0.7, 0.272, 0.856, 0.454], arm_near: [0.478, 0.505, 0.716, 0.748], face_attack: [0.716, 0.294, 0.859, 0.45] },
+    clouded_leopard: { tail: [0.028, 0.135, 0.347, 0.661], back_far: [0.078, 0.72, 0.294, 0.927], front_far: [0.547, 0.637, 0.756, 0.969], back_near: [0.078, 0.505, 0.369, 0.927], front_near: [0.422, 0.567, 0.65, 0.924], body: [0.088, 0.405, 0.803, 0.893], head: [0.381, 0.028, 0.972, 0.599], head_open: [0.384, 0.031, 0.969, 0.606] },
+    sambar_deer: { tail: [0.032, 0.481, 0.208, 0.688], back_far: [0.272, 0.85, 0.391, 0.962], front_far: [0.573, 0.8, 0.71, 0.975], back_near: [0.093, 0.522, 0.419, 0.95], front_near: [0.444, 0.684, 0.62, 0.969], body: [0.122, 0.494, 0.81, 0.897], head: [0.24, 0.028, 0.964, 0.634], head_open: [0.247, 0.031, 0.957, 0.634] },
+    mud_crab: { legs_far: [0.025, 0.515, 0.259, 0.9], claw_far: [0.641, 0.03, 0.969, 0.47], legs_near: [0.047, 0.559, 0.784, 0.967], body: [0.1, 0.13, 0.791, 0.815], claw: [0.55, 0.433, 0.972, 0.796], claw_open: [0.566, 0.433, 0.953, 0.796] },
+  };
+  for (const [id, plan] of Object.entries(PLAN)) {
+    const rig = CREATURE_RIGS[id];
+    assert.ok(rig && rig.kind === 'species', `${id} is rigged`);
+    assert.deepEqual(Object.keys(BOX[id]).sort(), [...rig.files].sort(), `${id} layers match the measured boxes`);
+    const sizes = new Set(rig.files.map((n) => webpSize(readFileSync(fileURLToPath(new URL(`../assets/creatures/species/rig/${id}_${n}.webp`, import.meta.url)))).join('x')));
+    assert.equal(sizes.size, 1, `${id} layers share one canvas`);
+    const [w, h] = [...sizes][0].split('x').map(Number);
+    assert.ok(Math.max(w, h) === 320 && Math.min(w, h) > 100, `${id} canvas is sized like the other species rigs`);
+    for (const n of rig.order) {
+      const [x0, y0, x1, y1] = BOX[id][n], [px, py] = rig.parts[n].piv;
+      assert.ok(px >= x0 && px <= x1 && py >= y0 && py <= y1, `${id} ${n} joint sits inside the part`);
+      const alt = rig.parts[n].alt;
+      if (alt) { const [a0, b0, a1, b1] = BOX[id][alt]; assert.ok(px >= a0 && px <= a1 && py >= b0 && py <= b1, `${id} ${alt} turns about the same joint`); }
+    }
+    // The plan gives every moving part a motion (the body and the face swap stay still).
+    for (const n of rig.order.filter((n) => !['body', 'face'].includes(n))) assert.ok(rig.parts[n].swing, `${id} ${n} moves (${plan})`);
+    assert.equal(!!rig.body, plan === 'plant', `${id} sways as a whole only on the plant plan`);
+  }
+});
