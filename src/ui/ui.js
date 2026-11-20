@@ -52,7 +52,7 @@ import { isSalvageable, sameKind, nearOfferingShrine } from '../game/salvage.js'
 import { QUALITY, qualityNameHTML } from '../game/loot.js';
 import { ranksCardHTML, openRanksGuide, masteryLine, masteryProgressText, qualityLine } from './ranksui.js';
 import { openSacrifice, openSacrificeFrom, openDismantle, shrineGearSection, askOffer, redraw } from './salvageui.js';
-import { shrineGoodsSection, askGoods } from './shrineui.js';
+import { shrineGoodsSection, askGoods, shrineMaxButton } from './shrineui.js';
 import { goodsKind } from '../game/offerings.js';
 import { ATTRS, ATTR_NAMES, attrSummary, attrForMode, MAX_STAT_POINTS, RESET_COST_PER_POINT, holdRepeatDelay } from '../game/attributes.js';
 import { STAT_LABELS, STAT_HELP, compareGear, deltaText, gearBySlot, gearRating, meetsReq, swingBeats, tierOf, weaponStyle } from '../game/gear.js';
@@ -1701,7 +1701,12 @@ export class UI {
         b.innerHTML = `Rank ${r + 1}<br><span class="${ok ? '' : 'short'}">${formatNumber(cost)} pts</span>`;
         b.disabled = !ok;
         b.addEventListener('click', () => { g.shrineRankUp(t); redraw(body, render); });
-        row.appendChild(b);
+        // One rank, or every rank the points afford ("Max", shrineui.js).
+        const btns = document.createElement('div');
+        btns.className = 'shrine-btns';
+        btns.appendChild(b);
+        btns.appendChild(shrineMaxButton(g, t, () => redraw(body, render)));
+        row.appendChild(btns);
         tracks.appendChild(row);
       }
       body.appendChild(tracks);
