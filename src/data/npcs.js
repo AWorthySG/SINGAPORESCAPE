@@ -718,6 +718,32 @@ for (const d of Object.values(NPCS)) {
   d.maxHp = Math.round(d.maxHp * monsterHpScale(d.level));
 }
 
+// Late bosses are sieges again. Monster life above is scaled to keep pace with
+// the player's damage (x4 by level 350) but boss life was left alone, and gear
+// upgrades, perk ranks and blessings keep climbing past level 100: measured
+// headlessly with a typical build for each level (tools/balance, the late-damage
+// lab), a level-matched boss took about 4 minutes solo at level 100 but only
+// 20-30 s from level 300 to 1,000, and 10 s at 9,999. So a boss's life is
+// multiplied by bossSiegeScale: x1 up to level 100, easing up to BOSS_SIEGE.max
+// by level 300, flat to level 1,000, then rising gently (x2 by 9,999) with the
+// gear and perks that keep growing out there. Its rewards per minute stay where
+// they were: the kill XP is worth its whole life already, and the boss XP bonus,
+// coin and rune hoard and upgrade materials grow by the same factor (`siege`,
+// see Game.rollDrops and killNpc); one-off drops (gear, the signature weapon)
+// stay per kill, as they are at level 100.
+export const BOSS_SIEGE = { from: 100, to: 300, max: 12.5, lateFrom: 1000, latePow: 0.3 };
+export function bossSiegeScale(level) {
+  const { from, to, max, lateFrom, latePow } = BOSS_SIEGE, l = level || 1;
+  if (l <= from) return 1;
+  if (l <= to) { const s = (l - from) / (to - from); return 1 + (max - 1) * s * s; }
+  return max * (l <= lateFrom ? 1 : Math.pow(l / lateFrom, latePow));
+}
+for (const d of Object.values(NPCS)) {
+  if (!d.boss || !d.attackable || !d.maxHp || d.siege) continue;
+  d.siege = bossSiegeScale(d.level);
+  d.maxHp = Math.round(d.maxHp * d.siege);
+}
+
 // Smaller numbers: above level 100 a monster's life is divided by its level /
 // 100 (`hpScale`: x10 smaller at level 1,000, x100 at 10,000), and every hit the
 // player lands on it is divided by the same amount (see the player*VsNpc helpers

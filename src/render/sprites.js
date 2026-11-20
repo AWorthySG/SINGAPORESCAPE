@@ -766,8 +766,10 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
       const t = opts.time || 0;
       if (opts.castK > 0) castBurst(c, opts.castK, opts.castCol || col);
       creaturePose(c, opts, t, cx);
-      const flash = Math.max(Math.min(1, (opts.hurt || 0) / 200) * 0.55, opts.windup ? 0.18 + Math.sin(t * 0.03) * 0.12 : 0);
-      const flashCol = opts.windup && !(opts.hurt > 0) ? '#ff5040' : '#ffffff';
+      let flash = Math.max(Math.min(1, (opts.hurt || 0) / 200) * 0.55, opts.windup ? 0.18 + Math.sin(t * 0.03) * 0.12 : 0);
+      let flashCol = opts.windup && !(opts.hurt > 0) ? '#ff5040' : '#ffffff';
+      // An element's effect (opts.status: burning, chilled...) washes the body in its colour between flashes.
+      if (opts.status && flash < opts.status.a) { flash = opts.status.a; flashCol = opts.status.col; }
       // A showpiece boss with moving parts, or a species whose parts sheet is in.
       // Low graphics keeps monster packs on the cheaper single-sticker path, and
       // so do slow frames (each pack member's parts are composed afresh every frame).

@@ -10,7 +10,7 @@
 // heal, a short ward that stops every blow, and a few seconds of extra damage.
 import {
   PRAYER_BY_ID, PRAYER_GROUPS, BLESSING_SLOT_LADDER, blessingCost, FAITH_GAIN,
-  BURST_WARD_TICKS, BURST_ZEAL_TICKS, burstPower,
+  BURST_WARD_TICKS, BURST_ZEAL_TICKS, burstPower, STACK_SHARE, STACK_CAP,
 } from '../data/prayers.js';
 
 /** Blessing slots at a Prayer level (BLESSING_SLOT_LADDER). */
@@ -27,23 +27,41 @@ export function slotsUsed(ids) {
   return n;
 }
 
-/** The blessings that share a conflict group with `id` (not counting itself). */
-function rivals(id) {
+/** The blessings that share a group (a type) with `id` (not counting itself). */
+export function rivals(id) {
   const out = new Set();
   for (const ids of Object.values(PRAYER_GROUPS)) if (ids.includes(id)) for (const o of ids) if (o !== id) out.add(o);
   return out;
 }
 
-/** A loadout made valid for a Prayer level: unknown or locked blessings, a later
- *  rival of one already kept, and whatever no longer fits the slots are dropped
- *  (earlier entries win). Used when loading a save. */
+const BONUS_KEYS = ['att', 'str', 'def', 'ranged', 'magic', 'crit'];
+
+/** What a loadout grants in all, as fractions: { att, str, def, ranged, magic,
+ *  crit, protect }. Blessings of the same type stack: per bonus, the strongest
+ *  counts in full and every other one at STACK_SHARE, up to STACK_CAP in all. (Each bonus belongs to
+ *  one type, so this is the same as tapering within a group.) A blessing is
+ *  counted once however it is listed. */
+export function blessingBonus(ids) {
+  const ps = [...new Set(ids || [])].map((id) => PRAYER_BY_ID[id]).filter(Boolean);
+  const out = { protect: 0 };
+  for (const k of BONUS_KEYS) {
+    const vals = ps.map((p) => p[k] || 0).filter((v) => v > 0).sort((a, b) => b - a);
+    const sum = vals.reduce((n, v, i) => n + (i ? v * STACK_SHARE : v), 0);
+    out[k] = vals.length > 1 ? Math.min(STACK_CAP, sum) : sum;   // the cap only reins in a stack
+  }
+  for (const p of ps) out.protect = Math.max(out.protect, p.protect || 0);
+  return out;
+}
+
+/** A loadout made valid for a Prayer level: unknown, repeated or locked
+ *  blessings and whatever no longer fits the slots are dropped (earlier
+ *  entries win). Blessings of the same type may stay together. Used when
+ *  loading a save. */
 export function trimBlessings(level, ids) {
   const out = [], cap = blessingSlots(level);
   for (const id of ids || []) {
     const p = PRAYER_BY_ID[id];
     if (!p || p.level > level || out.includes(id)) continue;
-    const r = rivals(id);
-    if (out.some((o) => r.has(o))) continue;
     if (slotsUsed(out) + blessingCost(p) > cap) continue;
     out.push(id);
   }
@@ -66,24 +84,47 @@ export function starterBlessings(level, mode = 'melee') {
   return trimBlessings(level, want);
 }
 
-/** Equip a blessing. A rival in the same group is swapped out; otherwise it
- *  needs a free slot. Returns true when it is on. */
+/** What tapping a blessing would do, without doing it (the panel shows it too):
+ *  { kind, out, with }. kind is 'remove' (it is on), 'locked', 'too_big' (more
+ *  slots than you have), 'add' (a free slot), 'stack' (a free slot, and it
+ *  stacks with `with`, equipped blessings of its type), 'swap' (no free slot:
+ *  `out`, the weakest of its type, come off to make room) or 'full' (no room,
+ *  and nothing of its type to swap). */
+export function blessingAction(game, id) {
+  const p = PRAYER_BY_ID[id], set = game.activePrayers;
+  if (!p) return { kind: 'none', out: [], with: [] };
+  if (set.has(id)) return { kind: 'remove', out: [], with: [] };
+  if (game.skills.prayer < p.level) return { kind: 'locked', out: [], with: [] };
+  const cap = blessingSlots(game.skills.prayer), cost = blessingCost(p);
+  if (cost > cap) return { kind: 'too_big', out: [], with: [] };
+  const r = rivals(id), same = [...set].filter((o) => r.has(o));
+  if (slotsUsed(set) + cost <= cap) return { kind: same.length ? 'stack' : 'add', out: [], with: same };
+  // Full: the weakest of its type (lowest level first) make room, as few as will do.
+  const weakest = same.sort((a, b) => PRAYER_BY_ID[a].level - PRAYER_BY_ID[b].level);
+  const out = [];
+  let used = slotsUsed(set);
+  for (const o of weakest) {
+    if (used + cost <= cap) break;
+    out.push(o); used -= blessingCost(PRAYER_BY_ID[o]);
+  }
+  if (used + cost > cap) return { kind: 'full', out: [], with: [] };
+  return { kind: 'swap', out, with: same.filter((o) => !out.includes(o)) };
+}
+
+/** Equip a blessing: into a free slot (stacking with others of its type), or
+ *  with the slots full in place of the weakest of its type. Returns true when it is on. */
 export function equipBlessing(game, id) {
   const p = PRAYER_BY_ID[id];
   if (!p) return false;
   const set = game.activePrayers;
   if (set.has(id)) return true;
-  if (game.skills.prayer < p.level) { game.msg(`You need Prayer level ${p.level} for ${p.name}.`); return false; }
-  const r = rivals(id);
-  const kept = [...set].filter((o) => !r.has(o));
-  const cap = blessingSlots(game.skills.prayer);
-  if (slotsUsed(kept) + blessingCost(p) > cap) {
-    game.msg(blessingCost(p) > cap ? `${p.name} needs ${blessingCost(p)} blessing slots.`
-      : 'Your blessing slots are full. Take one off first (tap it in the slot strip).');
-    return false;
-  }
-  for (const o of r) set.delete(o);
+  const act = blessingAction(game, id);
+  if (act.kind === 'locked') { game.msg(`You need Prayer level ${p.level} for ${p.name}.`); return false; }
+  if (act.kind === 'too_big') { game.msg(`${p.name} needs ${blessingCost(p)} blessing slots.`); return false; }
+  if (act.kind === 'full') { game.msg('Your blessing slots are full. Take one off first (tap it in the slot strip).'); return false; }
+  for (const o of act.out) set.delete(o);
   set.add(id);
+  if (act.kind === 'stack') game.msg(`${p.name} stacks with ${act.with.map((o) => PRAYER_BY_ID[o].name).join(' and ')}: the weaker bonuses count at ${Math.round(STACK_SHARE * 100)}%.`);
   game.spawnSparkle?.(game.player, '#ffe89a', 6);
   game.bus.emit('prayer');
   return true;

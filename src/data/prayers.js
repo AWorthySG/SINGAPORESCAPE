@@ -36,7 +36,11 @@ export const PRAYERS = [
 
 export const PRAYER_BY_ID = Object.fromEntries(PRAYERS.map((p) => [p.id, p]));
 
-// Blessings that conflict (only one of each group equipped at once).
+// Blessings of the same type. Two of a type can be equipped together when the
+// slots allow (the owner's call): they stack, the strongest in full and each
+// other one at STACK_SHARE, so stacking clearly helps but a second Strength
+// blessing is worth a little less than a first blessing of another kind.
+// With no free slot, equipping one swaps out the weakest of its type.
 export const PRAYER_GROUPS = {
   att: ['clarity', 'reflexes', 'incredible_reflexes', 'worthy_spirit'],
   str: ['burst_strength', 'superhuman', 'ultimate_strength', 'worthy_spirit'],
@@ -44,6 +48,13 @@ export const PRAYER_GROUPS = {
   ranged: ['sharp_eye', 'eagle_eye', 'deadeye'],
   magic: ['mystic_will', 'mystic_lore', 'mystic_might'],
 };
+
+/** The share of each stacked blessing's bonus after the strongest of its type. */
+export const STACK_SHARE = 0.75;
+/** The most a stacked type can add (+100%: twice the damage), so a loadout of
+ *  nothing but Strength blessings tops out a little above the old best (+60%)
+ *  rather than at +116%, after late-game damage was tapered (#458). */
+export const STACK_CAP = 1.0;
 
 /** Blessing slots by Prayer level: the highest rung you have reached. */
 export const BLESSING_SLOT_LADDER = [

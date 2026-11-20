@@ -20,8 +20,8 @@ import { CLASSES, SECONDARY_WEAPON, WEAPON_TYPE_NAMES, ARMOUR_FAMILY, ARMOUR_FAM
 import { ITEMS, getItem, TWO_HANDED_TYPES, QUIVER_BOW_TYPES } from './items.js';
 import { ALL_MONSTER_IDS, ALL_BOSS_IDS, getNpc, RARE_DROP_TABLE, stretchLevel } from './npcs.js';
 import { RACES, WEAPON_VS_RACE, RACE_BONUS } from './races.js';
-import { ELEMENTS, SPELLS } from './magic.js';
-import { PRAYERS, BLESSING_SLOT_LADDER, FAITH_BASE, FAITH_GAIN, burstPower } from './prayers.js';
+import { ELEMENTS, SPELLS, ELEMENT_MATCHUP } from './magic.js';
+import { PRAYERS, BLESSING_SLOT_LADDER, FAITH_BASE, FAITH_GAIN, burstPower, STACK_SHARE, STACK_CAP } from './prayers.js';
 import { SKILLS, SKILL_BY_ID } from './skills.js';
 import { SKILL_HOURS, GOLDEN_HOUR_XP } from './skillhours.js';
 import { SKILL_UNLOCKS, UNLOCK_LEVELS, GATHER_CONSUMABLES } from './unlocks.js';
@@ -189,10 +189,11 @@ export function prayerRows() {
   });
 }
 
-/** Spells: element, Magic level, what its element does. */
+/** Spells: element, Magic level, what its element does, and the races it bites into and is resisted by. */
 export function spellRows() {
+  const races = (ids) => ids.map((r) => RACES[r]?.name || r).join(', ') || '-';
   return SPELLS.map((s) => [`${ELEMENTS[s.element].icon} ${s.name}`, num(s.level), ELEMENTS[s.element].effect,
-    ELEMENTS[s.element].strong.map((r) => RACES[r]?.name || r).join(', ')]);
+    races(ELEMENTS[s.element].strong), races(ELEMENTS[s.element].weak)]);
 }
 
 /** Races and the weapon types strong against each. */
@@ -475,9 +476,10 @@ export const CHAPTERS = [
           `Every monster is **weak to one combat style**: melee, ranged or magic. Hitting it with that style does **+${pct(WEAKNESS_BONUS.dmg - 1)} damage** and gets past half its armour; the number carries a small "weak!" tag. Broadly: beasts and people are weak to melee, flying, small and quick things to ranged, and armoured, undead and magical things to magic.`,
           `Every monster also belongs to a **race**. Each weapon type is strong against a couple of races for **+${pct(RACE_BONUS.dmg - 1)} damage**. Matchups only ever help: no weapon is worse against anything.`,
           () => ({ table: { head: ['Race', 'Strong weapons'], rows: raceRows() } }),
-          `**Spells** each have an element. An element strong against a race also adds +${pct(RACE_BONUS.dmg - 1)}, and each element has its own effect:`,
-          () => ({ table: { head: ['Spell', 'Magic', 'Effect', 'Strong against'], rows: spellRows() } }),
-          'Every spell also blasts the area round its target for the same damage.',
+          `**Spells** are judged by their element, not by the staff. An element hits the races it is strong against for **x${ELEMENT_MATCHUP.strong}** damage (gold numbers) and is **resisted** by others, doing only **x${ELEMENT_MATCHUP.weak}** (grey numbers), so pick the element for the foe: Auto element in the spell list does it for you.`,
+          'Each element also has its own effect, shown on the foe while it lasts: **burning** foes glow orange (🔥 under their life bar), **chilled** ones turn icy blue (❄) and hit softer, and **cracked** armour shows a brown wash (🪨 and the number of cracks).',
+          () => ({ table: { head: ['Spell', 'Magic', 'Effect', 'Strong against', 'Resisted by'], rows: spellRows() } }),
+          'Every spell also blasts the area round its target for the same damage. Earth\'s cracks count for every hit you land on that foe, whatever you hit it with.',
         ],
         see: ['monster-armour', 'codex-mastery'],
       },
@@ -522,7 +524,7 @@ export const CHAPTERS = [
         id: 'prayers', title: 'Blessings and the Prayer Burst',
         summary: 'Equip Blessings in the Combat tab: always on, no drain. Full Faith fires a Burst (L).',
         body: [
-          `**Blessings** are Prayer's loadout. Equip them in the **Prayer** view of the Combat tab: an equipped blessing is always on and never drains. You have ${BLESSING_SLOT_LADDER.map((r) => `**${r.slots}** slot${r.slots > 1 ? 's' : ''} at Prayer ${r.level}`).join(', ')}. Only one blessing of each kind (attack, strength, defence, ranged, magic) can be equipped, and Spirit of the Worthy takes two slots. Tap a slot to take its blessing off.`,
+          `**Blessings** are Prayer's loadout. Equip them in the **Prayer** view of the Combat tab: an equipped blessing is always on and never drains. You have ${BLESSING_SLOT_LADDER.map((r) => `**${r.slots}** slot${r.slots > 1 ? 's' : ''} at Prayer ${r.level}`).join(', ')}. With a free slot you can equip two or more of the same kind (attack, strength, defence, ranged, magic) and they **stack**: the strongest counts in full and each other one at ${pct(STACK_SHARE)}, up to +${pct(STACK_CAP)} for a kind. With the slots full, a new blessing swaps out the weakest of its kind. Spirit of the Worthy takes two slots. Tap a slot to take its blessing off.`,
           `**Faith** fills as you fight: ${pct(FAITH_GAIN.hit)} of the bar for each hit you land, ${pct(FAITH_GAIN.hurt)} for each hit you take and ${pct(FAITH_GAIN.kill)} for a kill, so about 45 seconds of fighting fills it. Burying bones and kneeling at an A-Worthy Monument fill it too, and prayer accessories make it fill faster (+30 Prayer bonus doubles it). The bar holds ${FAITH_BASE} + your Prayer level.`,
           `With a full bar, press **L** (or tap the Faith orb, or **Burst** in the panel) for a **Prayer Burst**: heal ${pct(burstPower(1).heal)} of your life (more with Prayer level, up to ${pct(burstPower(300).heal)}), a ward that stops every blow for 3 seconds, and +${pct(burstPower(1).zeal)} damage (up to +${pct(burstPower(300).zeal)}) for 8 seconds. Auto battle fires it when you drop below 40% life or fight a boss or champion.`,
           `Train Prayer by burying bones, or offer them at an A-Worthy Monument for **x${ALTAR_XP_MULT} XP**.`,

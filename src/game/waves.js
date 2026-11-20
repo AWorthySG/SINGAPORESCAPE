@@ -204,7 +204,8 @@ export function waveBossDef(id, n, L, mob = gateMobDef(waveKinds(n, L)[0], n, L)
   const base = getNpc(id), f = L / Math.max(1, base.level), m = waveMight(n);
   const s = (v, k) => Math.max(1, Math.round((v || 1) * k));
   return { ...base, level: L, maxHp: s(realLife(mob) * WAVE_BOSS_LIFE / (base.hpScale || 1), 1), attack: s(base.attack, f), strength: s(base.strength, f),
-    defence: s(base.defence, f), maxHit: s(base.maxHit, f * m.hit * WAVE_BOSS_HIT), aggressive: true, aggroRange: 30, ignoreLevelGate: true, wave: true };
+    defence: s(base.defence, f), maxHit: s(base.maxHit, f * m.hit * WAVE_BOSS_HIT), aggressive: true, aggroRange: 30, ignoreLevelGate: true, wave: true,
+    siege: 1 };   // its life is the wave's, not a siege boss's (npcs.js bossSiegeScale), so neither are its rewards
 }
 
 /** Everything wave n sends for a fighter of level `base`: a list of

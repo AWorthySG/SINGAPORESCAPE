@@ -14,7 +14,7 @@
 //
 // Kept free of drawing code so the rules can be tested headlessly.
 import { RACES, raceOf } from '../data/races.js';
-import { weaknessOf, armourTierOf } from '../game/combat.js';
+import { weaknessOf, armourTierOf, shatterPierce } from '../game/combat.js';
 
 export const LABEL_MODES = ['smart', 'all', 'off'];
 export const LABEL_MODE_NAMES = { smart: 'Smart', all: 'All', off: 'Off' };
@@ -148,6 +148,10 @@ export function targetTag(game, n) {
   // A Brawler's Open Wounds (more damage taken) show alongside.
   const ow = game.tickCount - (n.openWoundsAt || 0) <= 14 ? n.openWounds || 0 : 0;
   if (ow) status = (status ? status + ' ' : '') + '💢' + ow;
+  // Element effects: chilled (Water) and cracked armour (Earth).
+  if (n.slowTicks > 0) status = (status ? status + ' ' : '') + '❄';
+  const cracks = shatterPierce(n, game.tickCount) ? n.shatter.n : 0;
+  if (cracks) status = (status ? status + ' ' : '') + '🪨' + cracks;
   return `${r.icon}${arrow}${status ? ' ' + status : ''}`;
 }
 
@@ -160,6 +164,20 @@ export function foeDetails(game, n) {
   if (n.wounds?.poison?.length) parts.push(`poisoned ×${n.wounds.poison.length}`);
   if (n.wounds?.bleed?.length) parts.push(`bleeding ×${n.wounds.bleed.length}`);
   if (n.ignite?.burns?.length) parts.push(`burning ×${n.ignite.burns.length}`);
+  if (n.slowTicks > 0) parts.push('chilled (slower, hits softer)');
+  const pierce = shatterPierce(n, game.tickCount);
+  if (pierce) parts.push(`armour cracked ×${n.shatter.n} (+${pierce}% pierce)`);
   if (n.openWounds && game.tickCount - (n.openWoundsAt || 0) <= 14) parts.push(`open wounds ×${n.openWounds} (+${n.openWounds * 5}% damage taken)`);
   return parts.join(' · ');
+}
+
+/** The colour a foe's body is washed with while an element's effect is on it
+ *  (burning, chilled, cracked armour), or null: the struck-flash tint (see
+ *  drawCreature), so it costs no more to draw than a hit does. Burning
+ *  flickers; the others hold steady. Returns { col, a } or null. */
+export function elementTint(game, n, timeMs = 0) {
+  if (n.ignite?.burns?.length) return { col: '#ff6a1a', a: 0.26 + Math.sin(timeMs * 0.018) * 0.08 };
+  if (n.slowTicks > 0) return { col: '#7fd4ff', a: 0.34 };
+  if (n.shatter && shatterPierce(n, game.tickCount)) return { col: '#a07838', a: 0.12 + n.shatter.n * 0.04 };
+  return null;
 }

@@ -36,14 +36,14 @@ import {
   playerAttackVsNpc, npcAttackVsPlayer, OFFHAND_SHARE, rollAttack, rollGuaranteed, rollHit, combatXp, magicXp, killXp, DAMAGE_XP_SHARE, KILL_XP_SHARE,
   playerRangedVsNpc, combatXpRanged, playerMagicVsNpc, RANGED_STYLES,
   weaknessOf, WEAKNESS_BONUS, armourOf, armourMult, critChance, hitChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE,
-  playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX, RANGED_TYPE_DMG, combatLevelXpMult, CLASS_POWER, OPEN_WOUNDS, openWoundStacks } from './combat.js';
-import { ABILITY_BY_ID, abilitiesFor, ADREN_PER_HIT, ADREN_PER_HURT, CLASS_ADRENALINE, EXECUTE_BELOW } from '../data/abilities.js';
+  playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX, RANGED_TYPE_DMG, combatLevelXpMult, CLASS_POWER, OPEN_WOUNDS, openWoundStacks, shatterPierce } from './combat.js';
+import { ABILITY_BY_ID, abilitiesFor, ADREN_PER_HIT, ADREN_PER_HURT, CLASS_ADRENALINE, EXECUTE_BELOW, SUNDER_TICKS } from '../data/abilities.js';
 import { classPassiveMods, CLASS_SKILL } from '../data/classPassives.js';
 import { RACES, raceOf, matchup, RACE_BONUS, RACE_PENALTY } from '../data/races.js';
 import { DOT_KINDS } from '../data/bossAbilities.js';
 import { CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, equivalentWeapon, CLEAVE_SHARE, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWear, equivalentArmour, classGearFor, canWield, classesForType, SECONDARY_WEAPON } from '../data/classes.js';
 import { STYLE_TRACKS, sumPerks, perkAtLevel, rankName, PERK_SKILLS, PERK_CAPS } from '../data/perks.js';
-import { getSpell, SPELLS, ELEMENTS, AOE_RADIUS, elementMatchup } from '../data/magic.js';
+import { getSpell, SPELLS, ELEMENTS, AOE_RADIUS, elementMatchup, elementMult } from '../data/magic.js';
 import { xpForLevel, pastCapXpMult } from '../data/xp.js';
 import { PRAYER_BY_ID, FAITH_BASE } from '../data/prayers.js';
 import * as Bless from './blessings.js';
@@ -1235,11 +1235,9 @@ export class Game {
   burstActive() { return this.burstWard > 0 || this.burstZeal > 0; }
 
   prayerMult() {
-    const m = { att: 1, str: 1, def: 1, ranged: 1, magic: 1 };
-    for (const id of this.activePrayers) {
-      const p = PRAYER_BY_ID[id];
-      for (const k of ['att', 'str', 'def', 'ranged', 'magic']) if (p[k]) m[k] += p[k];
-    }
+    // Blessings of the same type stack, the weaker ones at a share (Bless.blessingBonus).
+    const b = Bless.blessingBonus(this.activePrayers);
+    const m = { att: 1 + b.att, str: 1 + b.str, def: 1 + b.def, ranged: 1 + b.ranged, magic: 1 + b.magic };
     const zeal = Bless.burstZeal(this);   // a Prayer Burst's extra damage, for every style
     if (zeal) { m.str += zeal; m.ranged += zeal; m.magic += zeal; }
     return m;
@@ -1247,9 +1245,7 @@ export class Game {
 
   /** Extra crit chance (a fraction) from the Attack blessings, for every style. */
   prayerCrit() {
-    let c = 0;
-    for (const id of this.activePrayers) c += PRAYER_BY_ID[id].crit || 0;
-    return c;
+    return Bless.blessingBonus(this.activePrayers).crit;
   }
 
   protectFactor() {
@@ -2059,6 +2055,7 @@ export class Game {
     if (ab.build) this._gainAdrenaline(ab.build);
     if (ab.kind === 'guard') {
       this.braceTicks = ab.guardTicks;
+      this.braceCounter = ab.counter || 0;   // a guard that strikes back (see resolveNpcAttack)
       this.msg('You brace for impact — incoming damage halved!', 'system');
       this.spawnSparkle(this.player, '#7fd8ff', 12);
       this.bus.emit('sfx', 'spec');
@@ -2078,6 +2075,13 @@ export class Game {
       this.spawnSparkle(this.player, '#7fff8f', 14);
       this.bus.emit('hp');
       this.bus.emit('sfx', 'eat');
+    }
+    // An offensive rider: a threshold skill strikes the foe you're fighting at
+    // once; a free one rides on your next hit (never a free extra attack).
+    if (ab.strike) {
+      this._strikeAb = { id: ab.id, name: ab.name, kind: 'attack', ...ab.strike };
+      const a = this.player.action, npc = a && a.type === 'attack' ? a.npc : null;
+      if (ab.cost && npc && npc.alive && this.player.alive && chebyshev(this.player.x, this.player.y, npc.x, npc.y) <= this.attackRange()) this.doPlayerAttack(npc);
     }
     this.bus.emit('adrenaline');
     this.bus.emit('ability');
@@ -2123,6 +2127,8 @@ export class Game {
 
   /** Consume an armed offensive ability for the current hit (spends adrenaline). */
   _takeAbility() {
+    // A skill's strike (already paid for) goes first; an armed skill waits for the next hit.
+    if (this._strikeAb) { const s = this._strikeAb; this._strikeAb = null; return s; }
     if (!this.armedAbility) return null;
     const ab = ABILITY_BY_ID[this.armedAbility];
     this.armedAbility = null;
@@ -2154,7 +2160,8 @@ export class Game {
     if (ab?.execute && npc.hp < npc.maxHp * EXECUTE_BELOW) abM *= 1 + ab.execute;
     // Race: the weapon in hand bites harder into some races and is shrugged off by others.
     const race = this.raceMatchup(npc);
-    if (race === 'strong') dmgM *= RACE_BONUS.dmg;
+    if (this._castElement) dmgM *= elementMult(race);   // a spell's element: x1.5 strong, x0.7 resisted
+    else if (race === 'strong') dmgM *= RACE_BONUS.dmg;
     else if (race === 'weak') dmgM *= RACE_PENALTY.dmg;
     // The Holy path (good alignment) smites the unholy: undead, spirits and demons.
     { const kc = this.karmaCombat(); if (kc.side === 'holy' && UNHOLY_RACES.has(raceOf(npc.def, npc.npcId))) dmgM *= 1 + kc.holyDmg; }
@@ -2170,7 +2177,8 @@ export class Game {
     // A dual wielder's hands each use their own weapon's stats (this._hand, see
     // Equipment.bonuses), so the gear-driven part is worked out per hand.
     const armour = armourOf(npc.def, { champion: npc.champion, fightLevel: this.fightLevel() });
-    const gearM = (g) => armourMult(armour, g.pierce, weak)
+    const cracks = shatterPierce(npc, this.tickCount);   // Earth's Shatter: cracked armour, for every style
+    const gearM = (g) => armourMult(armour, g.pierce + cracks, weak)
       * (1 + (perk.dmg || 0) + this.learning.perks().dmg +   // English mastery: Eloquence
         ((npc.def.boss || npc.champion) ? (perk.boss || 0) + g.bossDmg / 100 : (g.mobDmg || 0) / 100))   // Cooking's perk: normal monsters
       // Physical damage bonus % (atkPct) boosts melee, ranged and whips; Magic bonus % boosts spells.
@@ -2183,6 +2191,7 @@ export class Game {
     dmgM *= Culling.masteryDamage(this, npc).mult;   // codex mastery of its species and race
     dmgM *= Mercs.merchantPower(this);   // the strongest class (see mercenary.js)
     dmgM *= 1 + openWoundStacks(npc, this.tickCount) * OPEN_WOUNDS.per;   // a Brawler's Open Wounds on the foe
+    if (npc.sunderUntil > this.tickCount) dmgM *= 1 + (npc.sunder || 0);   // armour broken by a skill
     dmgM *= CLASS_POWER;   // every class 20% stronger
     const sharedM = dmgM;   // what both hands share
     dmgM *= abM * gearM(gb);
@@ -2195,7 +2204,8 @@ export class Game {
     // lands, a brace afterwards, and (Merchant) A-Worthlings called up.
     this._abCleave = ab?.cleave || 1;
     this._abStun = ab?.stun && mode !== 'dance' ? ab.stun : 0;   // the Dancer's whip handles its own stun
-    if (ab?.guard) this.braceTicks = Math.max(this.braceTicks || 0, ab.guard);
+    this._abRider = ab && (ab.bleed || ab.sunder) ? ab : null;   // a bleed or armour break once the blow lands
+    if (ab?.guard) { if (!(this.braceTicks > 0)) this.braceCounter = 0; this.braceTicks = Math.max(this.braceTicks || 0, ab.guard); }
     if (ab?.summon && this.jobClass === 'merchant') for (let k = 0; k < ab.summon; k++) Mercs.spawnFollower(this);
     if (spec) { this.msg(`Special attack: ${spec.name}!`, 'combat'); this.spawnSparkle(this.player, '#ffd24a', 12); }
     if (ab) { this.msg(`Ability: ${ab.name}!`, 'combat'); this.spawnSparkle(this.player, '#ff9a3a', 10); this.bus.emit('sfx', 'spec'); }
@@ -2210,7 +2220,8 @@ export class Game {
     const lvl = mode === 'ranged' ? this.skills.ranged : mode === 'magic' ? this.skills.magic : mode === 'dance' ? this.skills.agility : this.skills.attack;
     // A `crit` ability makes every one of its hits a critical.
     const critRest = (perk.crit || 0) + this.learning.perks().crit + this.buffMod('crit') + this.prayerCrit()
-      + (mode === 'magic' ? (this.attrs.int || 0) * CRIT_PER_INT : 0);   // Intelligence
+      + (mode === 'magic' ? (this.attrs.int || 0) * CRIT_PER_INT : 0)   // Intelligence
+      + (this._castElement ? ELEMENTS[this._castElement].crit || 0 : 0);   // Wind's Gale
     const critCh = ab?.crit ? 1 : critChance(lvl, gb.crit) + critRest;
     this._abAoe = ab?.aoe || 0;   // an ultimate's area: everything this close to the target is hit too
     noteAbility(this, ab);   // its swoosh (or an ultimate's flourish) over the first foe it hits (juice.js)
@@ -2365,6 +2376,7 @@ export class Game {
       npc.windup = 0; npc.attackCooldown = Math.max(npc.attackCooldown || 0, t * 2);
       this.addHitsplat(npc, 0, { text: 'Stunned!' });
     }
+    if (this._abRider && dmg > 0 && !opts.aoe) this._applyRider(npc, dmg);
     // A crit rolled just before this hit: show it as a big red ×2 / ×4 number.
     if (this._pendingCrit && dmg > 0) {
       opts = { ...opts, critX: this._pendingCrit };
@@ -2817,7 +2829,8 @@ export class Game {
       o.takeDamage(d);
       this.addHitsplat(o, d, { aoe: true, tint: spell.tint, critX: c.critX });
       if (ELEMENTS[spell.element]?.slowTicks) this._slowFoe(o, ELEMENTS[spell.element].slowTicks);
-      if (ELEMENTS[spell.element]?.ignite && d > 0) this._igniteFoe(o, d, ELEMENTS[spell.element].ignite);
+      if (ELEMENTS[spell.element]?.ignite && d > 0) this._igniteFoe(o, dmg, ELEMENTS[spell.element].ignite);   // from the hit before its crit (see _magicAttack)
+      if (ELEMENTS[spell.element]?.shatter && d > 0) this._shatterFoe(o, ELEMENTS[spell.element].shatter);
       this.spawnHitSparks(o, spell.tint);
       xp += d;
       if (!o.target) o.target = p;
@@ -2842,21 +2855,29 @@ export class Game {
     const mods = this._offensiveMods(npc, 'magic');
     this._castElement = null;
     const fancy = mods.spec || mods.ability;
-    const effMax = Math.max(1, Math.round(max * mods.dmgM));
+    // The Mystic blessings (and a Prayer Burst's zeal) boost spells as the Strength
+    // and Ranged ones boost blows and arrows (they used to be left out of spells).
+    const effMax = Math.max(1, Math.round(max * this.prayerMult().magic * mods.dmgM));
     let dmg = mods.guaranteed ? rollGuaranteed(effMax) : rollHit(effMax);
     const raw = dmg;   // the splash rolls its own crits
     const c = this._critHit(dmg, mods.critCh); dmg = c.dmg;
     this._swingToward(this.player, npc.x, npc.y);
     this._projectile(npc, (c.crit || fancy) ? '#e0a0ff' : spell.tint, 'bolt');
     this.bus.emit('sfx', `atk:${this.weaponType() || 'staff'}`);   // staves shimmer, wands sparkle, orbs hum
-    this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax) });
+    // The number shows the element: gold where it bites, grey where it's resisted, else its own colour.
+    const tint = mods.race === 'strong' ? '#f5b82e' : mods.race === 'weak' ? '#9aa3b2' : ELEMENTS[spell.element]?.splat;
+    this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax), tint });
     this.skills.addXp('magic', spell.xp * this.combatXpMult());
     if (dmg > 0) { const m = this.combatXpMult(); this.spawnHitSparks(npc, spell.tint); for (const x of magicXp(dmg)) this.skills.addXp(x.skill, x.xp * m); }
     if (dmg > 0) this._spellSplash(npc, raw, spell);
     this._abilityAoe(npc, raw, 'magic');
     const el = ELEMENTS[spell.element] || {};
     if (dmg > 0 && el.slowTicks) this._slowFoe(npc, el.slowTicks);   // Water's Tide
-    if (dmg > 0 && el.ignite) this._igniteFoe(npc, dmg, el.ignite);   // Fire's Ignite
+    // Fire's Ignite: the burn is a share of the hit before its crit, since every
+    // burn tick rolls its own crit (a crit's burn critting again made Fire twice
+    // as strong as any other element once crits came easily).
+    if (dmg > 0 && el.ignite) this._igniteFoe(npc, raw, el.ignite);
+    if (dmg > 0 && el.shatter) this._shatterFoe(npc, el.shatter);   // Earth's Shatter
     // Spells come off at half the weapon's swing time (wands quicker than staves); Wind and Water quicker still.
     this._resetCooldown(this.attackInterval(spell));
     this._postAttack(npc);
@@ -2906,6 +2927,25 @@ export class Game {
     if (xp) for (const x of magicXp(xp)) this.skills.addXp(x.skill, x.xp * m);
   }
 
+  /** A skill's rider on the first blow that lands: a sure bleeding wound
+   *  (`bleed` of the blow a second, like a claw's) and/or broken armour (the
+   *  foe takes `sunder` more damage from you for SUNDER_TICKS ticks). */
+  _applyRider(npc, hit) {
+    const ab = this._abRider; this._abRider = null;
+    if (!npc.alive) return;
+    if (ab.bleed) {
+      const w = npc.wounds || (npc.wounds = {}), list = w.bleed || (w.bleed = []);
+      list.push({ perSec: Math.max(1, Math.round(hit * ab.bleed)), left: WOUNDS.bleed.secs });
+      if (list.length > WOUNDS.bleed.stacks) list.sort((a, b) => b.perSec - a.perSec).length = WOUNDS.bleed.stacks;
+      this.spawnSparkle(npc, WOUNDS.bleed.color, 5);
+    }
+    if (ab.sunder) {
+      npc.sunder = Math.max(npc.sunderUntil > this.tickCount ? npc.sunder || 0 : 0, ab.sunder);
+      npc.sunderUntil = this.tickCount + SUNDER_TICKS;
+      this.addHitsplat(npc, 0, { text: 'Armour broken!' });
+    }
+  }
+
   /** Daggers poison and claws open bleeding wounds: a chance on each blow
    *  (WOUNDS) to add a stack that deals a share of that hit every second for a
    *  while. Poison is slow and stacks deep; bleeding is shorter and sharper.
@@ -2953,11 +2993,26 @@ export class Game {
     if (xp) for (const x of combatXp(p.style, xp)) this.skills.addXp(x.skill, x.xp * m);
   }
 
-  /** Water's Tide: the foe moves and attacks slower for a few ticks (see NPC.slowTicks). */
+  /** Water's Chill: the foe moves and attacks slower for a few ticks (see
+   *  NPC.slowTicks), and its blows land softer meanwhile (resolveNpcAttack). */
   _slowFoe(npc, ticks) {
     if (!npc.alive || npc.hp <= 0) return;
-    if (!npc.slowTicks) { npc._baseStepMul = npc.stepMul; npc.stepMul = npc.stepMul * 1.6; this.spawnSparkle(npc, '#9fe6ff', 4); }
+    if (!npc.slowTicks) {
+      npc._baseStepMul = npc.stepMul; npc.stepMul = npc.stepMul * 1.6; this.spawnSparkle(npc, '#9fe6ff', 4);
+      if (npc._chillSaid !== this.tickCount) { npc._chillSaid = this.tickCount; this.addHitsplat(npc, 0, { text: 'Chilled!' }); }
+    }
     npc.slowTicks = Math.max(npc.slowTicks || 0, ticks);
+  }
+
+  /** Earth's Shatter: each hit adds a crack to the foe's armour, up to `max`;
+   *  every crack is `per`% armour pierce for any hit landed on it (see
+   *  shatterPierce in combat.js), until `ticks` ticks after the last Earth hit. */
+  _shatterFoe(npc, { max, ticks }) {
+    if (!npc.alive || npc.hp <= 0) return;
+    const had = shatterPierce(npc, this.tickCount) ? npc.shatter.n : 0;
+    npc.shatter = { n: Math.min(max, had + 1), until: this.tickCount + ticks };
+    if (npc.shatter.n > had) this.spawnSparkle(npc, '#b08850', 3);
+    if (npc.shatter.n === max && had < max) this.addHitsplat(npc, 0, { text: 'Shattered!' });
   }
 
   /** The rune an equipped elemental staff supplies without limit (or null). */
@@ -3096,13 +3151,16 @@ export class Game {
     let dmg = rollAttack(atkRoll, defRoll * this.prayerMult().def, heavy ? Math.round(max * 2) : max);
     if (heavy && dmg === 0) dmg = Math.max(1, Math.round(max * 1.2)); // a telegraphed blow always stings
     if (heavy) { this._slash(p, '#ff6a5a'); this.addShake(4, 260); }
+    if (npc.slowTicks > 0) dmg = Math.floor(dmg * (1 - ELEMENTS.water.chill));   // Water's Chill: a chilled foe hits softer
     const prot = this.protectFactor();
     if (prot) dmg = Math.floor(dmg * (1 - prot));
+    // A skill's thorns or counter strikes back a share of the blow as it came, before the guard.
+    const blow = dmg, skillThorns = this.buffMod('thorns') + (this.braceTicks > 0 ? this.braceCounter || 0 : 0);
     if (this.braceTicks > 0) dmg = Math.floor(dmg * 0.5); // the Brace ability soaks the blow
     if (this.buffMod('reduce')) dmg = Math.floor(dmg * (1 - Math.min(0.9, this.buffMod('reduce'))));   // a defensive class buff
     dmg = this._perkReduce(dmg, npc);
-    if (dmg > 0 && perk.thorns && npc.alive) {           // Spiked Armour perk
-      const back = Math.max(1, Math.round(dmg * perk.thorns / (npc.def?.hpScale || 1)));
+    if ((dmg > 0 && perk.thorns || blow > 0 && skillThorns) && npc.alive) {           // Spiked Armour perk, thorny skills
+      const back = Math.max(1, Math.round((dmg * (perk.thorns || 0) + blow * skillThorns) / (npc.def?.hpScale || 1)));
       npc.takeDamage(back); this.addHitsplat(npc, back, { tint: '#9aa6b2' });
       if (npc.hp <= 0) { this.killNpc(npc); }
     }
@@ -3425,7 +3483,8 @@ export class Game {
       this.bossRecord.beat[npc.npcId] = true;   // auto battle will take it on again
       delete this.bossRecord.lost[npc.npcId];
       // A boss kill is a big payday: bonus XP in your combat style and Hitpoints.
-      const xp = Math.round((npc.def.level || 1) * BOSS_XP_PER_LEVEL * this.combatXpMult());
+      // A late boss's siege (npcs.js bossSiegeScale) lasts longer, so its bonus grows to match.
+      const xp = Math.round((npc.def.level || 1) * BOSS_XP_PER_LEVEL * (npc.def.siege || 1) * this.combatXpMult());
       const mode = this.combatMode();
       if (mode === 'dance') {   // a Dancer's bonus is split between Agility and Ranged
         this.skills.addXp('agility', xp / 2); this.skills.addXp('ranged', xp / 2); this.skills.addXp('hitpoints', Math.round(xp / 3));
@@ -3697,7 +3756,10 @@ export class Game {
       this.banner(`<span class="big">Signature drop!</span>${nm} (for ${who})`);
     }
     // Upgrade materials: stones from anything (bosses and champions most), wards from bosses.
-    if (def.boss) loot.push([UP_STONE, randInt(20, 50), 'rare']);
+    // A late boss's longer siege (npcs.js bossSiegeScale) leaves a bigger pile of
+    // stones, wards and scrolls, and a bigger hoard below, so they come as fast per minute.
+    const siege = def.boss ? def.siege || 1 : 1;
+    if (def.boss) loot.push([UP_STONE, Math.round(randInt(20, 50) * siege), 'rare']);
     else {
       const stoneChance = Math.min(0.12, 0.03 + (def.tierLevel || def.level || 1) / 2500);
       let stones = 0;
@@ -3705,11 +3767,11 @@ export class Game {
       if (npc.champion) stones = Math.max(2, stones);   // a champion always leaves a couple
       if (stones) loot.push([UP_STONE, stones, npc.champion ? 'rare' : 'common']);
     }
-    if (def.boss) loot.push([UP_WARD, randInt(1, 3), 'epic']);
+    if (def.boss) loot.push([UP_WARD, Math.round(randInt(1, 3) * siege), 'epic']);
     else if (Math.random() < (npc.champion ? CHAMPION_WARD_CHANCE : 0)) loot.push([UP_WARD, 1, 'epic']);
     // Refine scrolls: rare from monsters, likelier from champions, a few from every boss (see refine.js).
     const scrolls = refineScrollDrop(def.tierLevel || def.level || 1, def.boss ? 'boss' : npc.champion ? 'champion' : 'normal');
-    if (scrolls) loot.push([REFINE_SCROLL, scrolls, def.boss ? 'epic' : 'rare']);
+    if (scrolls) loot.push([REFINE_SCROLL, Math.round(scrolls * siege), def.boss ? 'epic' : 'rare']);
     // Treasure trails: a rare clue scroll, if you aren't already carrying one.
     if (!this.clue && !this._holdsClue()) {
       const clueChance = Math.min(0.05, (def.tierLevel || def.level || 1) / 3000 + (def.boss ? 0.04 : 0.006));
@@ -3735,8 +3797,8 @@ export class Game {
     }
     // Boss hoards: stackables (coins, runes, arrows, seeds...) come in 100x the amount
     // (not upgrade stones, wards or refine scrolls: those are counted as dropped).
-    const stackMult = def.boss ? BOSS_STACK_MULT : npc.champion ? CHAMPION_STACK_MULT : 1;
-    if (stackMult > 1) for (const l of loot) if (l[0] !== UP_STONE && l[0] !== REFINE_SCROLL && l[0] !== UP_WARD && getItem(l[0]).stackable) l[1] *= stackMult;
+    const stackMult = def.boss ? BOSS_STACK_MULT * siege : npc.champion ? CHAMPION_STACK_MULT : 1;
+    if (stackMult > 1) for (const l of loot) if (l[0] !== UP_STONE && l[0] !== REFINE_SCROLL && l[0] !== UP_WARD && getItem(l[0]).stackable) l[1] = Math.round(l[1] * stackMult);
     for (const l of loot) if (l[0] === 'coins') l[1] = Math.round(l[1] * COIN_LOOT_MULT);
     // A champion's many rolls: stack repeats of the same stackable into one pile.
     if (kills > 1) {
@@ -4812,6 +4874,14 @@ export class Game {
           && chebyshev(p.x, p.y, n.x, n.y) <= Math.max(1, this.attackRange()));
         if (att) { this._autoFight = null; this._autoLast = att; this.attackNpc(att); return; }
       }
+      // Bows and spells: a target that has wandered out of reach isn't chased
+      // while another can be shot from right here (checked every other tick).
+      if (!inRange && this._holdsGround() && !tgt.def.boss && this.tickCount % 2 === 0) {
+        const up = this._autoPickTarget();
+        if (up && up !== tgt && chebyshev(p.x, p.y, up.x, up.y) <= this.attackRange()) {
+          this._autoFight = null; this._autoLast = up; this.attackNpc(up); return;
+        }
+      }
       // Casters always throw the strongest spell they can afford.
       // Casters on 'Auto' get the element that suits the target; a chosen element is kept.
       if (this.combatMode() === 'magic' && p.spellAuto) { const best = this._autoSpellFor(tgt); if (best && best.id !== p.spell) { p.spell = best.id; this.bus.emit('spell'); } }
@@ -4897,7 +4967,12 @@ export class Game {
     const foes = this.nearbyNpcs().filter((n) => n.alive && n.target === p && !n.def.boss && !n.wave && !n.temporary
       && chebyshev(p.x, p.y, n.x, n.y) <= 8);
     if (!foes.length) return false;
-    const strong = foes.some((n) => n.champion || this._farAbove(n));
+    // A champion only counts when it is the danger itself: not one you could
+    // take on (see _autoChampionOk), not one you chose to fight, and not a weak
+    // one in a crowd. Running at full life from a level 9 champion with a few
+    // ordinary monsters about, again and again, was most of auto battle's walking.
+    const chosen = p.action?.type === 'attack' ? p.action.npc : null;
+    const strong = foes.some((n) => this._farAbove(n) || (n.champion && n !== chosen && this._autoChampionDanger(n)));
     if (!strong && p.hp >= this.maxHp() * FLEE_HURT) return false;
     let dps = 0, kill = 0;
     for (const n of foes) {
@@ -4929,9 +5004,32 @@ export class Game {
     if (!path?.length) return false;
     p.setPath(path, this.canRun()); p.clearAction();
     for (const n of foes) { this._autoSkip.set(n.entityId, this.tickCount + 200); this._autoFled.set(n.entityId, this.tickCount + 200); }
+    // Keep away from what it ran from for a while (see _autoNearDanger): going
+    // back for the monsters beside it woke it again, and round it went.
+    const danger = foes.filter((n) => this._farAbove(n) || n.champion);
+    this._autoDanger = (danger.length ? danger : foes).map((n) => ({ n, until: this.tickCount + 200 }));
     this._fleeing = { foes, until: this.tickCount + 60 };
     this.msg(`Auto battle: ${foes.length > 1 ? 'that fight is' : `${foes[0].name} is`} too much for you, so you run for it.`, 'system');
     return true;
+  }
+
+  /** A champion worth running from: one you couldn't take on whose own blows
+   *  would empty your life in under CHAMPION_SAFE_SECS. */
+  _autoChampionDanger(n) {
+    if (this._autoChampionOk(n)) return false;
+    const t = this._autoFightTimes(n);
+    return !t || t.theirTime < CHAMPION_SAFE_SECS;
+  }
+
+  /** Is this spot within reach of a monster auto battle ran from lately (its
+   *  aggro range and a few tiles more)? Picks there are passed over. */
+  _autoNearDanger(x, y) {
+    const list = this._autoDanger;
+    if (!list?.length) return false;
+    for (const { n, until } of list) {
+      if (until > this.tickCount && n.alive && chebyshev(x, y, n.x, n.y) <= (n.def.aggroRange || 4) + 3) return true;
+    }
+    return false;
   }
 
   /** Has auto battle run from this monster lately (see _autoFlee)? */
@@ -4966,6 +5064,13 @@ export class Game {
     return Math.min(Math.floor(cl * 0.75), Math.floor(this._autoTop * 0.85));
   }
 
+  /** Does auto battle fight from where you stand (bows, guns, thrown coins and
+   *  shurikens, spells) rather than walk up to each foe? */
+  _holdsGround() {
+    const m = this.combatMode();
+    return m === 'ranged' || m === 'magic';
+  }
+
   /** A pick auto battle would rather walk past: an ordinary monster well below
    *  your level that isn't fighting you (bosses, champions, attackers, a chosen
    *  monster type or a quest hunt always count). */
@@ -4992,7 +5097,9 @@ export class Game {
     if (lost && cl < lost + BOSS_RETRY_LEVELS) return false;
     if ((def.level || 1) > Math.max(cl + 5, Math.round(cl * 1.25))) return false;
     const t = this._autoFightTimes(n);
-    return !!t && t.myTime <= 1800 && t.theirTime >= 20;
+    // A late boss's siege (npcs.js bossSiegeScale) is meant to take that many times
+    // longer, so it gets that much more time: the same call as before sieges.
+    return !!t && t.myTime <= 1800 * (def.siege || 1) && t.theirTime >= 20;
   }
 
   /** Rough seconds for you to empty this monster's life, and for its average
@@ -5026,8 +5133,10 @@ export class Game {
     // these out made auto battle think it couldn't beat bosses it easily could.
     const gb = this.equipment.bonuses(), perk = this.perkMods(mode);
     if (weak) max *= WEAKNESS_BONUS.dmg;
-    const race = this.raceMatchup(n);
-    if (race === 'strong') max *= RACE_BONUS.dmg; else if (race === 'weak') max *= RACE_PENALTY.dmg;
+    // (A spell is judged by its element, not by the staff: see raceMatchup.)
+    const race = sp ? elementMatchup(sp.element, raceOf(def, n.npcId)) : this.raceMatchup(n);
+    if (sp) max *= elementMult(race);
+    else if (race === 'strong') max *= RACE_BONUS.dmg; else if (race === 'weak') max *= RACE_PENALTY.dmg;
     max *= 1 + (this.attrs[attrForMode(mode)] || 0) * DMG_PER_POINT;
     max *= 1 + (perk.dmg || 0) + this.learning.perks().dmg + (perk.boss || 0) + gb.bossDmg / 100;
     max *= 1 + (mode === 'magic' ? gb.magPct : gb.atkPct) / 100;
@@ -5145,7 +5254,7 @@ export class Game {
       if ((this._autoSkip.get(n.entityId) || 0) > this.tickCount) continue;
       if (!inWild && this.world.zoneAt(n.x, n.y)?.wilderness) continue;
       const d = (n.x - p.x) ** 2 + (n.y - p.y) ** 2;
-      if (d < bd) { bd = d; best = n; }
+      if (d < bd && !this._autoNearDanger(n.x, n.y)) { bd = d; best = n; }
     }
     if (!best) return false;
     const t = this._nearestFree(best.x, best.y);
@@ -5165,25 +5274,34 @@ export class Game {
     const race = raceOf(tgt.def, tgt.npcId);
     const crowd = this.nearbyNpcs().filter((n) => n !== tgt && n.alive && n.attackable && !n.ally && !n.def.fixed
       && chebyshev(n.x, n.y, tgt.x, tgt.y) <= 5).length;
+    // For Wind's Gale (extra crit chance is worth nothing past 100%) and Earth's
+    // Shatter (cracks are armour pierce: worth most against heavy armour).
+    const gb = this.equipment.bonuses();
+    const critNow = critChance(this.skills.magic, gb.crit) + (this.perkMods('magic').crit || 0) + this.prayerCrit();
+    const armour = armourOf(tgt.def, { champion: tgt.champion, fightLevel: this.fightLevel() }), weak = weaknessOf(tgt.def) === 'magic';
     const value = (sp) => {
       const el = ELEMENTS[sp.element] || {};
       const m = elementMatchup(sp.element, race);
       // Damage per second from the casts alone (an average hit, the race matchup, the cast speed).
       const hit = playerMagicVsNpc(this.skills, this.equipment, sp, tgt.def).max * 0.625;
-      const d = Math.max(1, hit * (m === 'strong' ? RACE_BONUS.dmg : m === 'weak' ? RACE_PENALTY.dmg : 1)
+      const d = Math.max(1, hit * elementMult(m)
         / (this.attackInterval(sp) * COMBAT_BEAT_MS / 1000));
       // Fire's Ignite: every cast adds a burn of share x its hit every second for
       // `secs` seconds, so once the first burns are going Fire deals share x secs
       // more per second. Burns still running when the foe dies are wasted, so by
       // time T the burns have added share x (T^2/2) x d inside the first `secs`
       // seconds, and share x secs x (T - secs/2) x d after (T worked out on the
-      // casts alone, hp/d): a quick kill favours Wind's double cast speed, a
+      // casts alone, hp/d): a quick kill favours Wind's quick casts, a
       // longer fight Fire's burns.
       let v = d;
       if (el.ignite) {
         const s = el.ignite.share, secs = el.ignite.secs || 5, T = Math.max(1, tgt.hp) / d;
         v = d * (1 + s * (T <= secs ? T / 2 : secs * (1 - secs / (2 * T))));
       }
+      // A crit lands x2 (x4 one time in four): +1% crit chance is about +1.5% damage.
+      if (el.crit) v *= 1 + 1.5 * Math.min(el.crit, Math.max(0, 1 - critNow));
+      // Shatter's cracks build over the first few casts: count most of the full effect.
+      if (el.shatter) v *= 1 + 0.8 * (armourMult(armour, gb.pierce + el.shatter.per * el.shatter.max, weak) / armourMult(armour, gb.pierce, weak) - 1);
       // Area damage: Earth reaches everyone within 5 tiles, the rest only within 2.
       const near = el.aoeRadius ? crowd : this.nearbyNpcs().filter((n) => n !== tgt && n.alive && n.attackable && !n.ally && !n.def.fixed
         && chebyshev(n.x, n.y, tgt.x, tgt.y) <= AOE_RADIUS).length;
@@ -5266,11 +5384,14 @@ export class Game {
     const hpFrac = p.hp / this.maxHp();
     const danger = big || hpFrac < 0.5 || near.some((n) => n.alive && n.target === p && n.windup > 0);
     // Defend.
-    const defensive = (ab) => ab.kind === 'guard' || (ab.kind === 'heal' ? hpFrac < 0.6 : ab.kind === 'buff' && (ab.buff?.reduce || ab.buff?.dodge || ab.buff?.lifesteal));
+    // (A short defensive buff never replaces the threshold buff while you're
+    // still healthy: only one buff runs at a time, and the X one hits harder.)
+    const buffUp = this.buff && this.buff.until > this.tickCount;
+    const keepBuff = buffUp && hpFrac >= 0.5 && ABILITY_BY_ID[this.buff.id]?.key === 'X';
+    const defensive = (ab) => ab.kind === 'guard' || (ab.kind === 'heal' ? hpFrac < 0.6 : ab.kind === 'buff' && !keepBuff && (ab.buff?.reduce || ab.buff?.dodge || ab.buff?.lifesteal));
     if (danger) { const c = ready('C', defensive); if (c) this.activateAbility(c.id); }
     if (hpFrac < 0.35) { const v = ready('V'); if (v) this.activateAbility(v.id); }
     // Spend.
-    const buffUp = this.buff && this.buff.until > this.tickCount;
     const ult = ready('B');
     if (ult && !this.armedAbility && worth(4)) { this.activateAbility(ult.id); return; }
     const x = ready('X');
@@ -5302,6 +5423,10 @@ export class Game {
     // in-range targets outrank everything out of range (bosses included).
     const range = this.attackRange();
     const shootable = (n, d) => range > 1 && d <= range;
+    // Bows, guns and spells hold their ground: a champion out of reach waits
+    // until nothing is left in reach (walking off to one, through every pack on
+    // the way, was most of a ranged fighter's walking). Melee is unchanged.
+    const holds = this._holdsGround();
     const p = this.player;
     const cl = this.fightLevel();
     const wildZone = (x, y) => !!this.world.zoneAt(x, y)?.wilderness;
@@ -5343,6 +5468,7 @@ export class Game {
         continue;
       }
       if (n.temporary) continue;
+      if (this._autoNearDanger(n.x, n.y)) continue;   // beside something it ran from
       if (n.def.boss && !this.autoCfg.bosses && !this._questBoss && !only) continue;
       if ((this._autoSkip.get(n.entityId) || 0) > this.tickCount) continue;
       if (this.autoCfg.target && n.npcId !== this.autoCfg.target) continue;   // only the chosen monster type
@@ -5367,7 +5493,7 @@ export class Game {
         if (this.autoQuest) continue;
         if (!inWild && wildZone(n.x, n.y)) continue;
         if (!this._autoChampionOk(n)) continue;   // a slog you'd likely lose: leave it until you're stronger
-        { const tier = first ? -2000 : 0; cands.push({ n, score: d + tier, tier }); }
+        { const tier = !first ? 0 : holds && !shootable(n, d) ? -500 : -2000; cands.push({ n, score: d + tier, tier }); }
         continue;
       }
       if (only) continue;   // "Champions & bosses only"

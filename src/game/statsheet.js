@@ -14,13 +14,14 @@ import { shortNumber } from '../core/utils.js';
 import {
   playerAttackVsNpc, playerRangedVsNpc, playerMagicVsNpc, playerDanceVsNpc, levelBonuses,
   critChance, danceEvade, weaknessOf, armourOf, armourMult, WEAKNESS_BONUS, RANGED_TYPE_DMG,
-  CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE, RHYTHM_MAX, RHYTHM_DMG, OFFHAND_SHARE, CLASS_POWER, openWoundStacks, OPEN_WOUNDS } from './combat.js';
+  CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE, RHYTHM_MAX, RHYTHM_DMG, OFFHAND_SHARE, CLASS_POWER, openWoundStacks, OPEN_WOUNDS, shatterPierce } from './combat.js';
 import { attrForMode, ATTR_NAMES, DMG_PER_POINT, LIFE_PER_STR, CRIT_PER_INT, SPEED_PER_DEX } from './attributes.js';
 import { getItem } from '../data/items.js';
-import { getSpell, ELEMENTS, elementMatchup } from '../data/magic.js';
+import { getSpell, ELEMENTS, elementMatchup, elementMult } from '../data/magic.js';
 import { raceOf, matchup, RACE_BONUS, RACE_PENALTY } from '../data/races.js';
 import { POTIONS } from '../data/trades.js';
-import { PRAYER_BY_ID, burstPower } from '../data/prayers.js';
+import { PRAYER_BY_ID, burstPower, STACK_SHARE } from '../data/prayers.js';
+import { rivals } from './blessings.js';
 import { CLASS_BY_ID } from '../data/classes.js';
 import { classPassiveMods, CLASS_SKILL } from '../data/classPassives.js';
 import { masteryDamage, stewardship, masterySummary, titleText, MASTERY_TIERS } from './culling.js';
@@ -106,13 +107,14 @@ export function damageMult(game, mode = game.combatMode(), { npc = null, boss = 
   if (def) {
     const race = raceOf(def, npc.npcId);
     const mu = mode === 'magic' ? elementMatchup((spell || currentSpell(game)).element, race) : matchup(game.weaponType(), race);
-    if (mu === 'strong') mul(RACE_BONUS.dmg, 'Effective vs race');
+    if (mode === 'magic') mul(elementMult(mu), mu === 'strong' ? 'Element effective vs race' : 'Element resisted by race');
+    else if (mu === 'strong') mul(RACE_BONUS.dmg, 'Effective vs race');
     else if (mu === 'weak') mul(RACE_PENALTY.dmg, 'Resisted by race');
     const kc = game.karmaCombat();
     if (kc.side === 'holy' && UNHOLY_RACES.has(race)) mul(1 + kc.holyDmg, 'Holy path vs unholy');
   }
   const gb = game.equipment.bonuses(hand);
-  if (def) mul(armourMult(armourOf(def, { champion: npc.champion, fightLevel: game.fightLevel() }), gb.pierce, weak), 'Monster armour / pierce');
+  if (def) mul(armourMult(armourOf(def, { champion: npc.champion, fightLevel: game.fightLevel() }), gb.pierce + shatterPierce(npc, game.tickCount), weak), 'Monster armour / pierce');
   const attr = attrForMode(mode);
   mul(1 + (game.attrs?.[attr] || 0) * DMG_PER_POINT, ATTR_NAMES[attr]);
   const perk = game.perkMods(mode), learn = game.learning.perks().dmg;
@@ -140,7 +142,8 @@ export function maxHitNow(game, { npc = null, boss = false, rhythm = 0 } = {}) {
   const out = { mode, spell, arrows: 1, off: 0, parts };
   if (mode === 'magic') {
     const base = playerMagicVsNpc(sk, eq, spell, def).max;
-    return { ...out, base, max: Math.max(1, Math.round(base * m)) };
+    if (pm.magic !== 1) parts.unshift(['Prayer', times(pm.magic)]);
+    return { ...out, base, max: Math.max(1, Math.round(base * pm.magic * m)) };
   }
   if (mode === 'dance') {
     const base = playerDanceVsNpc(sk, eq, game.player.danceStyle, def, rhythm).max;
@@ -184,8 +187,9 @@ export function critNow(game, mode = game.combatMode(), hand = 'main') {
   const base = critChance(lvl, b.crit);
   const learn = game.learning.perks().crit, buff = game.buffMod('crit'), pray = game.prayerCrit();
   const int = mode === 'magic' ? (game.attrs.int || 0) * CRIT_PER_INT : 0;
-  const total = base + (perk.crit || 0) + learn + buff + pray + int;
-  return { total, base, levelPart: Math.min(base, lvl * 0.0015), perk: perk.crit || 0, learn, buff, pray, int };
+  const gale = mode === 'magic' ? ELEMENTS[currentSpell(game).element]?.crit || 0 : 0;   // Wind's Gale
+  const total = base + (perk.crit || 0) + learn + buff + pray + int + gale;
+  return { total, base, levelPart: Math.min(base, lvl * 0.0015), perk: perk.crit || 0, learn, buff, pray, int, gale };
 }
 
 /** Attack speed: the time between attacks and every factor in it. */
@@ -249,7 +253,7 @@ export function statSheet(game) {
   offence.push(row('crit', 'Crit chance %', pct(Math.min(1, crit.total) * 100, false), [
     ['Fighting level', fracPct(crit.levelPart)], ...bonusParts(cp).map(([l, v]) => [l, v]),
     ...perkLines(perks.get('crit')), ['Maths mastery', fracPct(crit.learn)], ['Prayer', fracPct(crit.pray)],
-    ['Class buff', fracPct(crit.buff)], ['Intelligence', fracPct(crit.int)],
+    ['Class buff', fracPct(crit.buff)], ['Intelligence', fracPct(crit.int)], ['Wind: Gale', fracPct(crit.gale)],
   ].filter(([, v]) => v !== '0%'), crit.total > 1 ? 'Capped at 100%: every hit is a crit.' : ''));
   const cd = part('critDmg');
   offence.push(row('critdmg', 'Crit damage bonus %', pct(cd.total),
@@ -382,6 +386,7 @@ const FX = {
   crit: (v) => `${fracPct(v)} crit chance`, dmg: (v) => `${fracPct(v)} damage`, reduce: (v) => `${fracPct(v, false)} less damage taken`,
   haste: (v) => `${fracPct(v)} attack speed`, boss: (v) => `${fracPct(v)} boss damage`, lifesteal: (v) => `${fracPct(v, false)} lifesteal`,
   maxhp: (v) => `${fracPct(v)} max life`, regen: (v) => `${num(v * 1000 / TICK_MS)} life/s`, dodge: (v) => `${fracPct(v, false)} dodge`,
+  thorns: (v) => `${fracPct(v, false)} of blows struck back`,
 };
 const fxText = (fx, skip = []) => Object.entries(fx || {}).filter(([k]) => !skip.includes(k) && k !== 'heal')
   .map(([k, v]) => (FX[k] ? FX[k](v) : `${k} ${v}`)).join(', ');
@@ -407,7 +412,9 @@ export function activeEffects(game) {
     const p = PRAYER_BY_ID[id];
     const bits = [['str', 'melee damage'], ['def', 'defence'], ['ranged', 'ranged damage'], ['magic', 'magic damage'], ['crit', 'crit chance'], ['protect', 'damage blocked']]
       .filter(([k]) => p[k]).map(([k, l]) => `${fracPct(p[k], k !== 'protect')} ${l}`);
-    out.push({ name: p.name, detail: `${bits.join(', ')} (blessing)`, left: null, off: '' });
+    // Two of a type stack, the weaker ones at a share (blessings.js blessingBonus); say so.
+    const stacked = [...rivals(id)].some((o) => game.activePrayers.has(o));
+    out.push({ name: p.name, detail: `${bits.join(', ')} (blessing${stacked ? `, stacked: the weaker of a type counts ${Math.round(STACK_SHARE * 100)}%` : ''})`, left: null, off: '' });
   }
   if (game.burstWard > 0) out.push({ name: 'Burst ward', detail: 'every blow stopped', left: game.burstWard * TICK_MS, off: '' });
   if (game.burstZeal > 0) out.push({ name: 'Burst zeal', detail: `${fracPct(burstPower(game.skills.prayer).zeal)} damage`, left: game.burstZeal * TICK_MS, off: '' });
