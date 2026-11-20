@@ -15,6 +15,8 @@ const BATCHES = {
     'bakau_mud_lobster', 'strangler_fig_mother', 'kranji_bullfrog_emperor', 'sand_scorpion_king', 'sea_eagle_sovereign'],
   D2: ['slag_titan', 'chilli_crab', 'lion_of_light', 'hantu_tinggi', 'kelong_king_crab',
     'spider_queen', 'kranji_buffalo_king', 'bandit_kingpin', 'hungry_ghost_king', 'arowana_emperor'],
+  D3: ['bone_colossus', 'mangrove_hydra', 'toyol_kingpin', 'timah_drake', 'atlas_moth_empress',
+    'molten_golem', 'tualang_treant', 'sentosa_kraken', 'punggol_lantern_spirit', 'wilderness_warlord'],
 };
 const inside = ([x, y], [x0, y0, x1, y1], m = 0.01) => x >= x0 - m && x <= x1 + m && y >= y0 - m && y <= y1 + m;
 
