@@ -288,9 +288,9 @@ export const LEVEL_BONUS_CAP = 200;
 // one-shot everything), and bosses fell in seconds.
 // Past DAMAGE_TAPER_FROM every max hit is scaled by (from + K) / (level + K),
 // with K the spell's level divisor (MAGIC_LEVEL_DIV): the taper falls exactly
-// as fast as a spell's level multiplier (1 + Magic / 80) grows, so no style's
-// max hit ever drops as you level (a caster's holds steady, a fighter's still
-// climbs), and gear, quality, mastery, refining and enchanting keep all of their
+// as fast as a spell's level multiplier (1 + Magic / 80) grows, so levelling
+// never lowers a max hit (beyond a point of rounding: a caster's holds steady,
+// a fighter's still climbs), and gear, quality, mastery, refining and enchanting keep all of their
 // value. Only the level's runaway share is trimmed; up to level 100 nothing changes.
 export const DAMAGE_TAPER_FROM = 100;
 /** The damage taper at a fighting level: 1 up to DAMAGE_TAPER_FROM, then (from + 80) / (level + 80). */

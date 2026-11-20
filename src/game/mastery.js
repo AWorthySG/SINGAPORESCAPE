@@ -158,6 +158,13 @@ export function enchantValue(id, stat) {
   const lvl = req <= from ? req : from + (req - from) * rate;
   return Math.max(1, Math.round(ENCHANT_STEP[stat] * (1 + lvl / 40)));
 }
+/** A line saved before the taper, brought down in proportion: the size it
+ *  would roll now over the size it rolled then (1 for items up to level 100). */
+export function taperedLine(id, line) {
+  const was = Math.round(ENCHANT_STEP[line.stat] * (1 + reqLevel(id) / 40));
+  const now = enchantValue(id, line.stat);
+  return now >= was ? line : { stat: line.stat, value: Math.max(1, Math.round(line.value * now / was)) };
+}
 
 /** What the next enchant costs, given how many lines the item has. A full
  *  item (replacing a line) pays the third slot's price. */

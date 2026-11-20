@@ -93,12 +93,18 @@ test('crit chance from levels stops growing at the level bonus cap; gear still r
   assert.equal(critChance(5000, 100), 1);
 });
 
-test('enchant lines still grow with item level, more gently past 100, and old big lines load at today\'s size', async () => {
+test('enchant lines still grow with item level, more gently past 100, and an old save\'s lines are brought down once', async () => {
   assert.ok(enchantValue('eternal_sword', 'critDmg') > enchantValue('orichalcum_sword', 'critDmg'));
   assert.ok(enchantValue('orichalcum_sword', 'critDmg') > enchantValue('rune_sword', 'critDmg'));
   assert.equal(enchantValue('eternal_sword', 'critDmg'), 14);   // was 26 (3 x (1 + 300/40))
   const { Equipment } = await import('../src/game/equipment.js');
   const e = new Equipment();
-  e.load({ weapon: 'eternal_sword', _mastery: {}, _enchants: { eternal_sword: [{ stat: 'critDmg', value: 26 }, { stat: 'crit', value: 2 }] } });
-  assert.deepEqual(e.enchantLines('eternal_sword'), [{ stat: 'critDmg', value: 14 }, { stat: 'crit', value: 2 }]);
+  // An old save's lines on a level 300 item come down in proportion (26 rolled then, 14 now), once;
+  // lines on items up to level 100 are untouched.
+  e.load({ weapon: 'eternal_sword', _mastery: {}, _enchants: { eternal_sword: [{ stat: 'critDmg', value: 26 }, { stat: 'crit', value: 9 }], rune_sword: [{ stat: 'crit', value: 6 }] } });
+  assert.deepEqual(e.enchantLines('eternal_sword'), [{ stat: 'critDmg', value: 14 }, { stat: 'crit', value: 5 }]);
+  assert.deepEqual(e.enchantLines('rune_sword'), [{ stat: 'crit', value: 6 }]);
+  const again = new Equipment();
+  again.load(e.serialize());
+  assert.deepEqual(again.enchantLines('eternal_sword'), [{ stat: 'critDmg', value: 14 }, { stat: 'crit', value: 5 }], 'not brought down twice');
 });
