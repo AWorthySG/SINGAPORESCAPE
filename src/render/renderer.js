@@ -38,7 +38,7 @@ import { LightPass } from './lighting.js';
 import { CosyLight } from './cosylight.js';
 import { RegionPostcards } from './postcard.js';
 import { Weather } from './weather.js';
-import { fxImage, fxTinted, drawFx, drawStrip, badgeKey, preloadFx, DARK_REGIONS } from './fxart.js';
+import { fxImage, fxTinted, drawFx, drawStrip, badgeKey, DARK_REGIONS } from './fxart.js';
 import { introCurve, titleAlpha, DEATH_FLASH_MS } from '../game/cinematics.js';
 import { TerrainFx, growBox } from './terrainfx.js';
 import { sunShadow, drawSunShadow, footfall } from './shadows.js';
@@ -117,7 +117,6 @@ export class Renderer {
     this.cosy = new CosyLight();     // golden hour and lantern bloom over it (cosylight.js)
     this.postcards = new RegionPostcards();   // the arrival postcards (postcard.js)
     this.weather = new Weather();    // rain, snow, mist, embers (weather.js)
-    preloadFx();   // painted critters, particles, banner and plaques (fxart.js)
     this._critEnv = { world: null, zone: '', night: 0, px: 0, py: 0, low: false };
     this._lastT = 0;
     this.groundTex = this._loadGroundTextures();

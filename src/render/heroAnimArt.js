@@ -74,15 +74,19 @@ function image(name) {
   return img;
 }
 const loaded = (img) => !!img && img.complete && img.naturalWidth > 0;
-// The first time a class is drawn, all of its pictures start loading at
-// once, so the first swing, blink or walk up the screen is ready when it comes.
+// The first time a class is drawn in the world (the player's hero), all of its
+// pictures start loading at once, so the first swing, blink or walk up the
+// screen is ready when it comes. Heroes on the title and the class picker's
+// stages only need their faces to idle; their swings load when first asked
+// for (swingArtReady), so a new player isn't kept waiting on every class's.
 const _warm = new Set();
-function warm(classId) {
+export function warmHeroAnim(classId) {
   if (_warm.has(classId)) return;
   _warm.add(classId);
   const pre = `${classId}_`;
   for (const name of heroAnimFiles()) if (name.startsWith(pre)) image(name);
 }
+const warm = warmHeroAnim;
 /** The named pictures, or null until every one of them has loaded. */
 function set(names) {
   let ok = true;
@@ -101,19 +105,26 @@ export function faceState(opts = {}) {
   if (!opts.anim?.low && t % BLINK_EVERY < BLINK_MS) return 'blink';
   return 'body';
 }
-const _faces = {};   // each class's loaded faces, kept once all are in (drawn every frame)
+// The faces an idling hero shows. The hurt and victory faces come only with a
+// hit or a cheer: until they have loaded, the neutral face stands in.
+export const IDLE_FACES = ['body', 'blink'];
+const _faces = {};   // each class's idle faces, kept once all are in (drawn every frame)
 /** Draw the class's painted body for this moment in place of the rig body
  *  (drawn at x, y, w, h). False when the class has no faces, or they aren't loaded. */
 export function drawAnimBody(ctx, classId, opts, x, y, w, h) {
   const a = ANIM_ART[classId];
   if (!a || !a.faces) return false;
-  warm(classId);
-  const pics = _faces[classId] || (_faces[classId] = set(a.faces.map((f) => `${classId}_${f}`)));
-  if (!pics) return false;
-  let i = a.faces.indexOf(faceState(opts));
+  if (opts.entity) warm(classId);   // a hero out in the world: everything it may do next
+  if (!(_faces[classId] || (_faces[classId] = set(a.faces.filter((f) => IDLE_FACES.includes(f)).map((f) => `${classId}_${f}`))))) return false;
+  const face = faceState(opts);
   // The Merchant has no neutral picture of its own: its rig body stands in.
-  if (i < 0) return false;
-  ctx.drawImage(pics[i], x - w * FACE_PAD, y - h * FACE_PAD, w * (1 + 2 * FACE_PAD), h * (1 + 2 * FACE_PAD));
+  if (!a.faces.includes(face)) return false;
+  let pic = image(`${classId}_${face}`);
+  if (!loaded(pic)) {
+    if (!a.faces.includes('body')) return false;
+    pic = image(`${classId}_body`);
+  }
+  ctx.drawImage(pic, x - w * FACE_PAD, y - h * FACE_PAD, w * (1 + 2 * FACE_PAD), h * (1 + 2 * FACE_PAD));
   return true;
 }
 
@@ -322,6 +333,13 @@ function tipStar(ctx, x, y, r, k, fire) {
  *  behind before it turns up to guard, past the face). */
 export function offArmInFront(ch) {
   return ch.arc2 > 2.5 && ch.arc2 < 3.12;
+}
+/** Ask for a class's attack pictures (both hands, where it has an off hand's):
+ *  true once they are all in, or when it has none (or there is no browser). */
+export function swingArtReady(classId) {
+  const a = ANIM_ART[classId];
+  if (!a || typeof Image === 'undefined') return true;
+  return (!a.swing || !!armPics(classId, 'main')) && (!a.off || !!armPics(classId, 'off'));
 }
 /** Does this class have painted attack arms ready (for the off hand too)? */
 export function hasSwingArt(classId, hand = 'main') {

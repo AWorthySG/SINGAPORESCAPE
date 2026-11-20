@@ -17,7 +17,10 @@
 // The DOM side only runs in a browser (main.js and ui.js call it). Everything
 // else here (the camera path, the load counter, the tips, the art slots, the
 // hero drawing) is plain code the tests drive headlessly.
-import { drawPlayer, drawShadow } from '../render/sprites.js';
+import { drawPlayer, drawShadow, heroArtSrc } from '../render/sprites.js';
+import { HERO_RIG_CLASSES, HERO_RIG_PARTS, heroRigSrc } from '../render/heroRig.js';
+import { RANGED_HERO_CLASSES, RANGED_HERO_PARTS, rangedHeroSrc } from '../render/rangedHeroRig.js';
+import { ANIM_ART, IDLE_FACES, animArtSrc, swingArtReady, warmHeroAnim } from '../render/heroAnimArt.js';
 import { sampleHeroClip, blendHeroFrame, weaponClipId, HERO_CLIPS } from '../render/heroanim.js';
 import { fxImage } from '../render/fxart.js';
 import { CLASS_BY_ID, starterWeapon } from '../data/classes.js';
@@ -135,6 +138,35 @@ export function trackImages(tracker, scope = globalThis) {
 }
 
 // ---------------- Heroes on a stage ----------------
+/** The pictures a class's hero needs to stand and idle: its painted picture,
+ *  its rig's limbs and its neutral and blinking faces. Drawing alone finds
+ *  them one layer at a time (the rig is only tried once the picture is in, the
+ *  faces once the rig is), three round trips on a slow phone; asked for
+ *  together they load side by side. Swings, the back view and the empty hand
+ *  load when first needed. */
+export function heroIdleArt(classId) {
+  const out = [];
+  const pic = heroArtSrc(classId);
+  if (pic) out.push(pic);
+  if (HERO_RIG_CLASSES.includes(classId)) for (const p of HERO_RIG_PARTS) out.push(heroRigSrc(p, classId));
+  if (RANGED_HERO_CLASSES.includes(classId)) for (const p of RANGED_HERO_PARTS) out.push(rangedHeroSrc(classId, p));
+  for (const f of ANIM_ART[classId]?.faces || []) if (IDLE_FACES.includes(f)) out.push(animArtSrc(`${classId}_${f}`));
+  return out;
+}
+const _heroArt = new Map();   // classId -> its idle pictures, once asked for
+/** Start loading a class's idle pictures (counted by the loading bar while it runs). */
+export function warmHero(classId) {
+  if (_heroArt.has(classId) || !CLASS_BY_ID[classId]) return;
+  const imgs = [];
+  if (typeof Image === 'function') for (const src of heroIdleArt(classId)) { const img = new Image(); img.src = src; imgs.push(img); }
+  _heroArt.set(classId, imgs);
+}
+/** Are a class's idle pictures in (loaded or failed)? True with no browser. */
+export function heroReady(classId) {
+  warmHero(classId);
+  const imgs = _heroArt.get(classId);
+  return !imgs || imgs.every((img) => img.complete);
+}
 // The classes that start with a weapon in each hand show both in the previews.
 const DUAL_START = new Set(['pistoler']);
 const IDLE_MS = HERO_CLIPS.idle.dur || 3200;
@@ -149,10 +181,17 @@ export function attackClipFor(classId, n = 0) {
  * Draw a class's hero standing with its feet at (x, y): idling, or swinging
  * when `actor.attackAt` (ms) is recent. `actor` carries the blend state
  * between frames ({ classId, fx, phase, attackAt, swings, blend }).
+ * Nothing is drawn until the hero's idle pictures are in, so it appears whole
+ * rather than as a stand-in that changes under the player's eyes; false then.
  */
 export function drawClassHero(ctx, actor, x, y, now) {
   const cls = CLASS_BY_ID[actor.classId];
-  if (!cls) return;
+  if (!cls || !heroReady(actor.classId)) return false;
+  // A swing asked for before its painted arms were in starts once they are
+  // (or after a moment regardless, should one never arrive).
+  if (actor.swingWant != null && (swingArtReady(actor.classId) || now - actor.swingWant > SWING_WAIT_MS)) {
+    actor.attackAt = now; actor.swingWant = null;
+  }
   const dual = DUAL_START.has(actor.classId);
   const held = { jobClass: actor.classId, weapon: cls.weapon, offhand: dual ? starterWeapon(actor.classId) : null };
   let frame = null;
@@ -171,12 +210,15 @@ export function drawClassHero(ctx, actor, x, y, now) {
     anim: frame, time: now, jobClass: actor.classId, hasWeapon: true, weaponType: cls.style,
     dualWield: dual, fx: actor.fx || 1,
   });
+  return true;
 }
-/** Start a swing on `actor` (each one alternates clips for dual wielders). */
+const SWING_WAIT_MS = 1500;
+/** Start a swing on `actor` (each one alternates clips for dual wielders). Its
+ *  painted arms are asked for now; until they're in, the swing waits. */
 export function swingActor(actor, now) {
   actor.swings = (actor.swings || 0) + 1;
   actor.clip = attackClipFor(actor.classId, actor.swings);
-  actor.attackAt = now;
+  if (swingArtReady(actor.classId)) { actor.attackAt = now; actor.swingWant = null; } else actor.swingWant = now;
 }
 
 /**
@@ -206,11 +248,13 @@ export class HeroStage {
     if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, c.width, c.height);
+    let all = true;
     for (const a of this.layout(w, h, now)) {
       ctx.setTransform(dpr * a.scale, 0, 0, dpr * a.scale, dpr * a.x, dpr * a.y);
-      drawClassHero(ctx, a.actor, 0, 0, now);
+      if (!drawClassHero(ctx, a.actor, 0, 0, now)) all = false;
     }
-    this._drawn++;
+    // Still stages stop redrawing after a while: only once every hero is on it.
+    if (all) this._drawn++;
   }
 }
 const STAGES = new Set();
@@ -286,7 +330,9 @@ export class TitleScreen {
     this.shown = 0;          // the bar's drawn fill (0..1), never going back
     this.tracker = new LoadTracker();
     this._untrack = () => {};
-    this._preload = 0;       // preload passes done (one shot per frame)
+    this._preload = 0;       // frames spent on the opening shot, so its pictures are asked for
+    this._rest = null;       // then frames glancing at the other shots (see frame)
+    this._later = [];        // jobs for once loading is done (later)
     this._tipStart = Math.floor(Math.random() * LOADING_TIPS.length);
     this._shot = -1;
     if (!splash) return;
@@ -309,21 +355,31 @@ export class TitleScreen {
     try { document.fonts?.ready.then(() => this.tracker.done('fonts'), () => this.tracker.done('fonts')); } catch { this.tracker.done('fonts'); }
   }
 
+  /** Run `fn` once loading is done (at once if it already is, or there's no
+   *  title): pictures that aren't on screen at the start, fetched without
+   *  holding up the bar or sharing the connection with what is. */
+  later(fn) {
+    if (!this.active || this.ready) { try { fn(); } catch (e) { console.error(e); } return; }
+    this._later.push(fn);
+  }
+
   /** The game is built: hook its camera, and warm up the heroes we'll need. */
   attach(game) {
     this.game = game;
     if (!this.splash) return;
     const picking = game.pendingStyleChoice || game.pendingClassChoice;
-    // Draw each hero once off-screen, so its pictures are asked for (and counted)
-    // now: the title's heroes, and every class when a class is still to be picked.
-    const ids = picking ? Object.keys(CLASS_BY_ID) : TITLE_HEROES;
-    const scratch = document.createElement('canvas').getContext('2d');
-    for (const id of ids) {
-      const a = { classId: id };
-      drawClassHero(scratch, a, 0, 0, 0);
-      // ...and the title heroes' swings too (their painted arms).
-      if (TITLE_HEROES.includes(id)) for (const u of [0.25, 0.5, 0.75]) { a.attackAt = -u * previewAttackMs(attackClipFor(id)); drawClassHero(scratch, a, 0, 0, 0); }
-    }
+    // The pictures the first view needs are asked for (and counted) now: the
+    // title's heroes, and your own hero, whom the camera comes back to.
+    for (const id of TITLE_HEROES) warmHero(id);
+    if (game.jobClass) warmHero(game.jobClass);
+    // Once loading is done: every class's idle pictures for the class picker
+    // (they arrive while the title plays), the title heroes' swings and
+    // all of your own hero's pictures.
+    this.later(() => {
+      if (picking) for (const id of Object.keys(CLASS_BY_ID)) warmHero(id);
+      for (const id of TITLE_HEROES) swingArtReady(id);
+      if (game.jobClass) warmHeroAnim(game.jobClass);
+    });
     // The drifting petals (fxImage's own Image is counted like any other).
     if (!this.still && !this.lowFx) for (const k of PETALS) fxImage(`particle-${k}`);
     // The cosy neighbourhood at golden hour (cosytitle.js), until painted art arrives.
@@ -341,15 +397,22 @@ export class TitleScreen {
     const cam = this.game.camera;
     if (!this.ready) {
       this.loadMs += dt;
-      // Visit every shot for a frame or two first, so their pictures are asked for.
-      const n = TITLE_SHOTS.length;
-      if (this._preload < n * 2) {
-        const s = TITLE_SHOTS[this._preload % n];
+      // Show the opening shot for a frame or two first (behind the cream), so its
+      // pictures are asked for: the bar waits for those. The later shots come
+      // eleven seconds apart, so theirs needn't hold the player up.
+      if (this._preload < 2) {
+        const s = TITLE_SHOTS[0];
         cam.cx = s.from[0] * TILE; cam.cy = s.from[1] * TILE;
         this._preload++;
         return;
       }
-      this._updateBar(dt);
+      // Loaded: glance at each later shot for two frames, still behind the
+      // cream and no longer counted, so their pictures start coming in.
+      if (this._rest != null) {
+        const s = TITLE_SHOTS[1 + (this._rest >> 1)];
+        if (s) { cam.cx = s.from[0] * TILE; cam.cy = s.from[1] * TILE; this._rest++; return; }
+        this._becomeReady();
+      } else this._updateBar(dt);
     }
     if (this.leaving) return;   // the camera returns to the player
     this.t += this.ready && !this.still ? dt : 0;
@@ -375,7 +438,7 @@ export class TitleScreen {
     if (this.el.status) this.el.status.textContent = st.total ? `Painting the island… ${st.loaded} / ${st.total}` : 'Painting the island…';
     if (Math.floor(this.loadMs / TIP_MS) !== this._tipN) this._showTip();
     const done = (st.idle && this.loadMs >= LOAD_MIN_MS && this.shown >= 0.99) || this.loadMs >= LOAD_MAX_MS;
-    if (done) this._becomeReady();
+    if (done) { this._untrack(); this._rest = 0; }
   }
 
   _showTip() {
@@ -392,14 +455,8 @@ export class TitleScreen {
     this.splash.classList.remove('loading');
     this._startHeroes();
     if (!this.still && !this.lowFx) this._startPetals();
-    // Now that the player can come in, fetch the rest of the swings quietly.
-    const g = this.game;
-    if (g && (g.pendingStyleChoice || g.pendingClassChoice) && typeof setTimeout === 'function') {
-      setTimeout(() => {
-        const scratch = document.createElement('canvas').getContext('2d');
-        for (const id of Object.keys(CLASS_BY_ID)) for (const u of [0.3, 0.6]) drawClassHero(scratch, { classId: id, attackAt: -u * previewAttackMs(attackClipFor(id)) }, 0, 0, 0);
-      }, 400);
-    }
+    // Now that the player can come in, fetch what the start didn't need.
+    for (const fn of this._later.splice(0)) { try { fn(); } catch (e) { console.error(e); } }
   }
 
   _startHeroes() {
