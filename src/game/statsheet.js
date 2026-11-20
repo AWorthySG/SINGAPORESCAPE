@@ -13,7 +13,7 @@ import { TICK_MS, COMBAT_BEAT_MS } from '../config.js';
 import { shortNumber } from '../core/utils.js';
 import {
   playerAttackVsNpc, playerRangedVsNpc, playerMagicVsNpc, playerDanceVsNpc, levelBonuses,
-  critChance, danceEvade, weaknessOf, armourOf, armourMult, WEAKNESS_BONUS, RANGED_TYPE_DMG,
+  critChance, danceEvade, weaknessOf, armourOf, armourMult, bossTypeDmgMult, WEAKNESS_BONUS, RANGED_TYPE_DMG,
   CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE, RHYTHM_MAX, RHYTHM_DMG, OFFHAND_SHARE, CLASS_POWER, openWoundStacks, OPEN_WOUNDS, shatterPierce } from './combat.js';
 import { attrForMode, ATTR_NAMES, DMG_PER_POINT, LIFE_PER_STR, CRIT_PER_INT, SPEED_PER_DEX } from './attributes.js';
 import { getItem } from '../data/items.js';
@@ -115,6 +115,7 @@ export function damageMult(game, mode = game.combatMode(), { npc = null, boss = 
   }
   const gb = game.equipment.bonuses(hand);
   if (def) mul(armourMult(armourOf(def, { champion: npc.champion, fightLevel: game.fightLevel() }), gb.pierce + shatterPierce(npc, game.tickCount), weak), 'Monster armour / pierce');
+  if (def) mul(bossTypeDmgMult(def, { mode, weaponType: game.weaponType(), interval: game.attackInterval() }), 'Boss armour type');
   const attr = attrForMode(mode);
   mul(1 + (game.attrs?.[attr] || 0) * DMG_PER_POINT, ATTR_NAMES[attr]);
   const perk = game.perkMods(mode), learn = game.learning.perks().dmg;

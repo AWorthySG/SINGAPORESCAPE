@@ -44,7 +44,7 @@ const merchant = rows.find((r) => r.cls === 'merchant');
 // targets); these 60 s fights are noisier, hence the wider band. The Merchant is
 // left out: it is meant to stand well above the rest (see the next test).
 // The Brawler is left out too: its Open Wounds (+5% damage taken a stack, one a
-// second, up to 30) make it the strongest single-target and boss class in a long
+// second, up to 30) lift it above the other classes on one target and bosses in a long
 // fight, which the owner chose to keep (see the Brawler test below).
 test('every class but the Merchant and Brawler hits one target at 70-140% of the median class', () => {
   for (const r of others.filter((r) => r.cls !== 'brawler')) {
@@ -70,12 +70,15 @@ test('the Merchant is the strongest class: 200-330% of the median of the other c
   }
 });
 
-// The Brawler's Open Wounds stack up in a long fight: it ends up the strongest
-// single-target class after the Merchant (the owner chose this over trimming it), but stays sane.
-test('the Brawler: strongest on one target thanks to Open Wounds, within reason', () => {
+// The Brawler's Open Wounds stack up in a long fight: it ends up above the median
+// single-target class (the owner chose this over trimming Open Wounds), but stays sane.
+// (It was held at 140-320%; when scout leather took up armour pierce, Brawlers ran at
+// 1.7-1.8 times the median class in real boss fights, above the Merchant, so the
+// claws came down (combat.js WEAPON_DMG_MULT) and it now sits a little above the rest.)
+test('the Brawler: above the median on one target thanks to Open Wounds, within reason', () => {
   const br = rows.find((r) => r.cls === 'brawler');
   const x = relOthers(br, 'single');
-  assert.ok(x >= 1.4 && x <= 3.2, `brawler: ${Math.round(x * 100)}% of the other classes' median single-target damage`);
+  assert.ok(x >= 1.05 && x <= 2, `brawler: ${Math.round(x * 100)}% of the other classes' median single-target damage`);
 });
 
 // Kill speed stays looser: a Sniper's huge shots waste the overkill on a monster

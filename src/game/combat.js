@@ -2,6 +2,7 @@
 // (simplified: melee only, no prayer/potions). Pure functions.
 import { randInt } from '../core/utils.js';
 import { spellBaseHit, ELEMENTS } from '../data/magic.js';
+import { BOSS_TYPES, BLUNT_TYPES } from '../data/bossTypes.js';
 
 // There are no combat stances to pick any more: every fighter uses one balanced
 // stance (a little accuracy, power and defence), and every hit trains your
@@ -180,8 +181,41 @@ export function armourOf(def, { champion = false, fightLevel = 0 } = {}) {
   if (def?.boss) a += 0.1;
   if (champion || def?.champion) a += 0.1;
   if (fightLevel > 0 && (def?.boss || champion || def?.champion)) a += Math.max(-0.1, Math.min(0.15, ((def?.level || 1) / fightLevel - 1) * 0.15));
-  return Math.max(0, Math.min(ARMOUR_CAP, a));
+  const bt = bossTypeOf(def);   // a boss's armour type: plated bosses wear more, warded and evasive ones less
+  return Math.max(0, Math.min(bt?.cap || ARMOUR_CAP, a + (bt?.armour || 0)));
 }
+
+// Boss armour types (data/bossTypes.js): plated, warded, evasive and thick-hided.
+/** A boss's armour type entry from BOSS_TYPES, or null (not a boss). */
+export const bossTypeOf = (def) => (def?.boss && BOSS_TYPES[def.armourType]) || null;
+/** How slow your attacks are, 0 (a swing every quarter beat or quicker: pistols,
+ *  claws, daggers, spells) to 1 (every 1.25 beats or slower: great swords, rifles),
+ *  from the attack interval in 0.3s beats. */
+export const attackSlowness = (interval) => Math.max(0, Math.min(1, ((interval || 0) - 0.25) / 1));
+/** The damage multiplier a boss's armour type puts on your hits: blunt weapons
+ *  on plated bosses, spells on warded ones, light blows (or heavy) on thick hides.
+ *  (Evasive bosses are grazed instead: see bossGrazeChance.) */
+export function bossTypeDmgMult(def, { mode, weaponType, interval } = {}) {
+  const bt = bossTypeOf(def);
+  if (!bt) return 1;
+  let m = 1;
+  if (bt.blunt && mode === 'melee' && BLUNT_TYPES.has(weaponType)) m *= bt.blunt;
+  if (bt.magic && mode === 'magic') m *= bt.magic;
+  if (bt.glance) m *= bt.glance[0] + (bt.glance[1] - bt.glance[0]) * attackSlowness(interval);
+  return m;
+}
+/** The chance one of your blows only grazes an evasive boss (0 for any other foe):
+ *  quick attacks land clean, slow swings graze more often. */
+export function bossGrazeChance(def, interval) {
+  const d = bossTypeOf(def)?.graze;
+  return d ? d[0] + (d[1] - d[0]) * attackSlowness(interval) : 0;
+}
+/** A grazing blow's share of its damage (it still lands at least 1). */
+export const GRAZE_DMG = BOSS_TYPES.evasive.grazeDmg;
+/** Your average damage against this boss after grazes (1 against any other foe). */
+export const bossGrazeMult = (def, interval) => 1 - bossGrazeChance(def, interval) * (1 - GRAZE_DMG);
+/** How much more an armour break (a skill's sunder, Earth's cracks) counts on this boss. */
+export const bossBreakMult = (def) => bossTypeOf(def)?.breaks || 1;
 /** The damage multiplier after armour, weakness and Armour pierce (pierce in %). */
 export function armourMult(armour, piercePct = 0, weak = false) {
   const a = weak ? armour / 2 : armour, p = (piercePct || 0) / 100;
@@ -246,14 +280,23 @@ const scaledFlat = (level, equip, castMult) => Math.round(levelFlatDmg(level) * 
 // still the slowest boss killers of the hide classes (about 0.8 of the median in
 // real fights, 0.7-0.95 on the dummies): two of classlab's three dummies are a bug
 // and a bird, which shortbows bite into, but few bosses are. The shortbow went up 10%.
+// When scout leather, robes and dancewear took up armour pierce too, real boss fights
+// (tools/balance/bossfight.mjs, every class at levels 100, 300 and 1000) put the
+// Brawler at 1.7-1.8 times the median class, above the Merchant, and the Corsair
+// at 1.4-2: the claws came down by 60% and the scimitar by 30% (the Brawler still
+// sits a little above the rest, its Open Wounds stacking), and kerambits with
+// them. Daggers and whips came down a little (the fan with the whip); staves,
+// wands, the shortbow, sword and rifle went up a little to keep Wizards, Archers,
+// Swordsmen and Snipers near the median, and the cane a little to keep the
+// Merchant on top.
 export const WEAPON_DMG_MULT = {
   // (The two-handed types, the crossbow too, were trimmed by up to 12% when they gained the two-handed grip, the
   // off-hand's atkPct, haste and Ranged built into the weapon: see items.js.)
-  dagger: 0.6, sword: 2.2, scimitar: 0.39, mace: 2.62, longsword: 2.13, battleaxe: 1.72, warhammer: 2.8,
-  '2h_sword': 2.55, spear: 2.05, claws: 0.48, katana: 1.41, halberd: 3.18, cane: 0.71, shortbow: 0.49,
+  dagger: 0.55, sword: 2.35, scimitar: 0.27, mace: 2.62, longsword: 2.13, battleaxe: 1.72, warhammer: 2.8,
+  '2h_sword': 2.55, spear: 2.05, claws: 0.18, katana: 1.41, halberd: 3.18, cane: 0.78, shortbow: 0.53,
   // (Staves, wands and orbs came down by 15% when the Mystic blessings began to count
   // for spells, elements began to bite harder and Magic gained its attunement below.)
-  longbow: 1.15, pistol: 0.37, rifle: 1.07, shuriken: 1.3, staff: 0.272, wand: 0.264, whip: 2.0,
+  longbow: 1.15, pistol: 0.37, rifle: 1.2, shuriken: 1.3, staff: 0.3, wand: 0.29, whip: 1.6,
   // Secondary types (first estimates, pending the combat rescale), tuned against measured
   // damage (a headless run of each class's best weapon at tiers 10-250, not a formula)
   // so that each sits a little under its classes' main types and the main type stays
@@ -265,7 +308,7 @@ export const WEAPON_DMG_MULT = {
   // needs no ammo and pierces, so it stays just under the bows. (Retuned with the
   // main types: each now lands at about 80-105% of its class's main weapon, the
   // chakram 60-105% as it serves three quite different classes.)
-  parang: 1.75, kerambit: 0.27, toya: 2.35, crossbow: 2.92, chakram: 1.3, orb: 0.255, fan: 1.45,
+  parang: 1.75, kerambit: 0.18, toya: 2.35, crossbow: 2.92, chakram: 1.3, orb: 0.255, fan: 1.29,
 };
 /** The target's number scale (see hpScaleFor in npcs.js): hits on a big monster are divided by it. */
 const numScale = (npc) => npc?.hpScale || 1;

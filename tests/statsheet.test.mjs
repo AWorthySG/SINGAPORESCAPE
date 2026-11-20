@@ -88,7 +88,9 @@ test('stat sheet: dual wielding shows the off-hand blow the attack makes', () =>
   assert.ok(want.off > 0);
   const { landed } = attackOnce(g, npc);
   assert.deepEqual(landed, [want.max, want.off]);
-  assert.ok(statSheet(g).sections[0].rows.some((r) => r.id === 'offhand' && r.text === String(want.off)));
+  // The sheet's row is against no foe in particular, so it leaves out the foe's armour
+  // and your pierce (scout leather pierces armour now, which the target above counts).
+  assert.ok(statSheet(g).sections[0].rows.some((r) => r.id === 'offhand' && r.text === String(maxHitNow(g).off)));
 });
 
 test('stat sheet: Dancer whip max hit matches a real lash', () => {

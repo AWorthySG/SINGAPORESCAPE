@@ -963,8 +963,9 @@ function armourFamily(id, eq) {
   return 'plate';
 }
 // Each family's own offensive stat, on every helm, body and legs piece, growing
-// with the piece's level: plate pierces armour, scout leather sharpens crits,
-// hide pierces armour and quickens your shots, robes hurt bosses, and dancewear steals life.
+// with the piece's level. Every family pierces armour as plate does (see below);
+// on top of that scout leather sharpens crits, hide quickens your shots, robes
+// add Magic bonus % and dancewear steals life.
 // (Class balance: hide's power step was halved, as five pieces gave archers
 // +60% damage on top of their haste at level 200; plate pierces a little more,
 // since monster armour ate most of it; scout leather gained a little speed.)
@@ -975,12 +976,18 @@ function armourFamily(id, eq) {
 // by enchant lines: Archers, Pistolers and Snipers took twice as long as a
 // Swordsman over a real boss fight (tools/balance/bossfight.mjs) though the
 // dummy lab, plain gear on lightly armoured dummies, had them level.
+// Scout leather, robes and dancewear followed: their classes did 0.52-0.72 of the
+// median class's damage in real level-1000 boss fights, every blow and spell
+// losing a share to armour (spells meet armour just as blows do, and gear's pierce
+// counts for them: Game._offensiveMods). They pierce at plate's rate too. Leather's
+// crit damage and robes' Magic bonus % were halved to make room: with both in
+// full, Rogues and Corsairs ran at 1.3-2 times the median class and casters 1.25-1.35.
 const FAMILY_STAT = {
   plate: (r) => ({ pierce: 1 + Math.floor(r / 25) }),
-  leather: (r) => ({ critDmg: 3 * (1 + Math.floor(r / 30)), haste: Math.floor(r / 75) }),
+  leather: (r) => ({ pierce: 1 + Math.floor(r / 25), critDmg: Math.round(1.5 * (1 + Math.floor(r / 30))), haste: Math.floor(r / 75) }),
   hide: (r) => ({ pierce: 1 + Math.floor(r / 25), haste: 1 + Math.floor(r / 60) }),   // arrows that punch through, and quick hands
-  robes: (r) => ({ magPct: 2 * (1 + Math.floor(r / 30)) }),   // casters' Magic bonus %
-  dancewear: (r) => ({ lifesteal: 1 + Math.floor(r / 60) }),
+  robes: (r) => ({ pierce: 1 + Math.floor(r / 25), magPct: 1 + Math.floor(r / 30) }),   // casters' Magic bonus %
+  dancewear: (r) => ({ pierce: 1 + Math.floor(r / 25), lifesteal: 1 + Math.floor(r / 60) }),
 };
 for (const [id, it] of Object.entries(RAW)) {
   const eq = it.equip;

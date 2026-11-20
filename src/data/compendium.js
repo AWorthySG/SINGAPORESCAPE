@@ -32,6 +32,7 @@ import { REGION_LINES } from './regionQuests.js';
 import { SLAYER_REWARDS, SLAYER_DMG, SLAYER_LOOT, SLAYER_HELM_DMG, SLAYER_FULL_LEVEL } from './slayer.js';
 import { EVENT_KINDS, EVENT_GAP, WEEKLY_TASKS } from './worldevents.js';
 import { BOSS_MECHANICS, MECH_KINDS } from './bossMechanics.js';
+import { BOSS_TYPES } from './bossTypes.js';
 import { SIGNATURE_DROP_CHANCE } from './bossWeapons.js';
 import { ALTAR_XP_MULT } from './bones.js';
 import { ADREN_PER_HIT, ADREN_PER_HURT, THRESHOLD_COST, ULTIMATE_COST } from './abilities.js';
@@ -206,6 +207,19 @@ export function raceRows() {
 export function armourRows() {
   const WHO = { none: 'Slimes, wisps, jellyfish', light: 'Birds, bats, insects, rodents, plants, monkeys, hounds, ghosts', medium: 'Beasts, people, spiders, snakes, undead, demons', heavy: 'Reptiles, scorpions, drakes', armoured: 'Golems, crabs, turtles' };
   return Object.entries(ARMOUR_TIERS).map(([k, v]) => [cap(k), pct(v), WHO[k] || '']);
+}
+
+/** Boss armour types: type, what it does, how to beat it, how many bosses wear it. */
+export function bossTypeRows() {
+  const WHAT = {
+    plated: `${pct(BOSS_TYPES.plated.armour)} more armour (up to ${pct(BOSS_TYPES.plated.cap)}); maces, warhammers and toyas hit ×${BOSS_TYPES.plated.blunt}`,
+    warded: `${pct(-BOSS_TYPES.warded.armour)} less armour; spells do ×${BOSS_TYPES.warded.magic}`,
+    evasive: `${pct(-BOSS_TYPES.evasive.armour)} less armour; ${pct(BOSS_TYPES.evasive.graze[0])} of quick attacks, up to ${pct(BOSS_TYPES.evasive.graze[1])} of slow swings, only graze it (${pct(BOSS_TYPES.evasive.grazeDmg)} damage)`,
+    thick: `Quick blows do ×${BOSS_TYPES.thick.glance[0]}, slow heavy ones ×${BOSS_TYPES.thick.glance[1]}; armour breaks count ×${BOSS_TYPES.thick.breaks}`,
+  };
+  const n = {};
+  for (const id of ALL_BOSS_IDS) n[getNpc(id).armourType] = (n[getNpc(id).armourType] || 0) + 1;
+  return Object.entries(BOSS_TYPES).map(([k, t]) => [`${t.icon} ${t.name}`, WHAT[k], t.hint.replace(/^[^:]+: (.)/, (_, c) => c.toUpperCase()), num(n[k] || 0)]);
 }
 
 /** Boss mechanics: kind, what to do, how many bosses use it. */
@@ -489,7 +503,9 @@ export const CHAPTERS = [
         body: [
           `Monsters wear armour that stops a share of every hit, by the kind of creature. Bosses and champions add ${pct(0.1)} each (and a little more or less by how far above or below you they are), up to ${pct(ARMOUR_CAP)} in all. Hitting a weakness gets past half of it.`,
           () => ({ table: { head: ['Armour', 'Stops', 'Who wears it'], rows: armourRows() } }),
-          '**Armour pierce** on your gear cancels armour first; whatever pierce is left over adds damage instead. Plate armour carries the most.',
+          '**Armour pierce** on your gear cancels armour first; whatever pierce is left over adds damage instead. Plate, scout leather, hide, robes and dancewear all carry it, more on higher-level pieces, and it counts for spells too.',
+          'Every **boss** also wears one of four **armour types**, shown in the Codex, on its battle bar and in its hover details, so each class has bosses it is good against and bosses it finds hard:',
+          () => ({ table: { head: ['Type', 'What it does', 'How to beat it', 'Bosses'], rows: bossTypeRows() } }),
         ],
         see: ['weakness', 'combat-basics'],
       },

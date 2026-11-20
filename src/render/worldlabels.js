@@ -14,7 +14,7 @@
 //
 // Kept free of drawing code so the rules can be tested headlessly.
 import { RACES, raceOf } from '../data/races.js';
-import { weaknessOf, armourTierOf, shatterPierce } from '../game/combat.js';
+import { weaknessOf, armourTierOf, shatterPierce, bossTypeOf } from '../game/combat.js';
 
 export const LABEL_MODES = ['smart', 'all', 'off'];
 export const LABEL_MODE_NAMES = { smart: 'Smart', all: 'All', off: 'Off' };
@@ -161,6 +161,8 @@ export function foeDetails(game, n) {
   const m = game.raceMatchup ? game.raceMatchup(n) : null;
   const parts = [`${r.icon} ${r.name}${m === 'strong' ? ' ▲' : m === 'weak' ? ' ▼' : ''}`,
     `weak: ${weaknessOf(n.def)}`, `armour: ${armourTierOf(n.def)}`];
+  const bt = bossTypeOf(n.def);   // a boss's armour type (bossTypes.js)
+  if (bt) parts.push(`${bt.icon} ${bt.name}`);
   if (n.wounds?.poison?.length) parts.push(`poisoned ×${n.wounds.poison.length}`);
   if (n.wounds?.bleed?.length) parts.push(`bleeding ×${n.wounds.bleed.length}`);
   if (n.ignite?.burns?.length) parts.push(`burning ×${n.ignite.burns.length}`);

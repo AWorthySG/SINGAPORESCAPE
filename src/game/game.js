@@ -36,7 +36,8 @@ import {
   playerAttackVsNpc, npcAttackVsPlayer, OFFHAND_SHARE, rollAttack, rollGuaranteed, rollHit, combatXp, magicXp, killXp, DAMAGE_XP_SHARE, KILL_XP_SHARE,
   playerRangedVsNpc, combatXpRanged, playerMagicVsNpc, RANGED_STYLES,
   weaknessOf, WEAKNESS_BONUS, armourOf, armourMult, critChance, hitChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE,
-  playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX, RANGED_TYPE_DMG, combatLevelXpMult, CLASS_POWER, OPEN_WOUNDS, openWoundStacks, shatterPierce } from './combat.js';
+  playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX, RANGED_TYPE_DMG, combatLevelXpMult, CLASS_POWER, OPEN_WOUNDS, openWoundStacks, shatterPierce,
+  bossTypeDmgMult, bossGrazeChance, bossGrazeMult, GRAZE_DMG, bossBreakMult } from './combat.js';
 import { ABILITY_BY_ID, abilitiesFor, ADREN_PER_HIT, ADREN_PER_HURT, CLASS_ADRENALINE, EXECUTE_BELOW, SUNDER_TICKS } from '../data/abilities.js';
 import { classPassiveMods, CLASS_SKILL } from '../data/classPassives.js';
 import { RACES, raceOf, matchup, RACE_BONUS, RACE_PENALTY } from '../data/races.js';
@@ -2192,7 +2193,7 @@ export class Game {
     // A dual wielder's hands each use their own weapon's stats (this._hand, see
     // Equipment.bonuses), so the gear-driven part is worked out per hand.
     const armour = armourOf(npc.def, { champion: npc.champion, fightLevel: this.fightLevel() });
-    const cracks = shatterPierce(npc, this.tickCount);   // Earth's Shatter: cracked armour, for every style
+    const cracks = shatterPierce(npc, this.tickCount) * bossBreakMult(npc.def);   // Earth's Shatter: cracked armour, for every style (deeper on a thick hide)
     const gearM = (g) => armourMult(armour, g.pierce + cracks + this.buffMod('pierce'), weak)
       * (1 + (perk.dmg || 0) + this.learning.perks().dmg +   // English mastery: Eloquence
         ((npc.def.boss || npc.champion) ? (perk.boss || 0) + g.bossDmg / 100 : (g.mobDmg || 0) / 100))   // Cooking's perk: normal monsters
@@ -2206,7 +2207,9 @@ export class Game {
     dmgM *= Culling.masteryDamage(this, npc).mult;   // codex mastery of its species and race
     dmgM *= Mercs.merchantPower(this);   // the strongest class (see mercenary.js)
     dmgM *= 1 + openWoundStacks(npc, this.tickCount) * OPEN_WOUNDS.per;   // a Brawler's Open Wounds on the foe
-    if (npc.sunderUntil > this.tickCount) dmgM *= 1 + (npc.sunder || 0);   // armour broken by a skill
+    if (npc.sunderUntil > this.tickCount) dmgM *= 1 + (npc.sunder || 0) * bossBreakMult(npc.def);   // armour broken by a skill
+    // A boss's armour type: blunt weapons crack plate, wards soak spells, light blows glance off a thick hide.
+    dmgM *= bossTypeDmgMult(npc.def, { mode, weaponType: this.weaponType(), interval: this.attackInterval() });
     dmgM *= CLASS_POWER;   // every class 20% stronger
     const sharedM = dmgM;   // what both hands share
     dmgM *= abM * gearM(gb);
@@ -2376,6 +2379,12 @@ export class Game {
   }
 
   _applyPlayerHit(npc, dmg, opts = {}) {
+    // An evasive boss twists away from some blows, slow swings more often than quick
+    // ones, and they only graze it (combat.js bossGrazeChance): still a number of at
+    // least 1, with a "Grazed" label. (Rolled only against an evasive boss, so no
+    // other fight's rolls change.)
+    const graze = dmg > 0 && !opts.aoe ? bossGrazeChance(npc.def, this.attackInterval()) : 0;
+    if (graze > 0 && Math.random() < graze) { dmg = Math.max(1, Math.round(dmg * GRAZE_DMG)); this.addHitsplat(npc, 0, { text: 'Grazed' }); }
     if (dmg > 0 && !opts.aoe) this._woundFoe(npc, dmg);   // daggers may poison, claws may make it bleed
     // Brawler: each blow adds an Open Wound (more damage taken), up to 30 stacks.
     if (dmg > 0 && this.jobClass === 'brawler') {
@@ -5179,6 +5188,8 @@ export class Game {
     // these out made auto battle think it couldn't beat bosses it easily could.
     const gb = this.equipment.bonuses(), perk = this.perkMods(mode);
     if (weak) max *= WEAKNESS_BONUS.dmg;
+    // A boss's armour type (its armour is already in armourOf): blunt, spells, glancing and grazing blows.
+    max *= bossTypeDmgMult(def, { mode, weaponType: this.weaponType(), interval: this.attackInterval() }) * bossGrazeMult(def, this.attackInterval());
     // (A spell is judged by its element, not by the staff: see raceMatchup.)
     const race = sp ? elementMatchup(sp.element, raceOf(def, n.npcId)) : this.raceMatchup(n);
     if (sp) max *= elementMult(race);
