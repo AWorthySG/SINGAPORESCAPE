@@ -76,7 +76,7 @@ test('a fully upgraded late build still has to work at a boss of its level', () 
     const id = eq.slots[s];
     if (!id) continue;
     eq.slotQuality[s] = 'mythic';
-    eq.mastery[masteryType(id)] = MASTERY_RANKS[MAX_RANK].points;
+    eq.mastery[masteryType(id)] = MASTERY_RANKS[MAX_RANK].xp;
     eq.refines[id] = MAX_REFINE;
     eq.enchants[id] = [isMagicItem(id) ? 'magPct' : 'atkPct', 'critDmg', 'crit'].map((stat) => ({ stat, value: enchantValue(id, stat) }));
   }

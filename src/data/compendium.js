@@ -32,14 +32,15 @@ import { REGION_LINES } from './regionQuests.js';
 import { SLAYER_REWARDS, SLAYER_DMG, SLAYER_LOOT, SLAYER_HELM_DMG, SLAYER_FULL_LEVEL } from './slayer.js';
 import { EVENT_KINDS, EVENT_GAP, WEEKLY_TASKS } from './worldevents.js';
 import { BOSS_MECHANICS, MECH_KINDS } from './bossMechanics.js';
+import { BOSS_TYPES } from './bossTypes.js';
 import { SIGNATURE_DROP_CHANCE } from './bossWeapons.js';
 import { ALTAR_XP_MULT } from './bones.js';
 import { ADREN_PER_HIT, ADREN_PER_HURT, THRESHOLD_COST, ULTIMATE_COST } from './abilities.js';
-import { MASTERY_RANKS, MAX_ENCHANTS, ENCHANT_LABELS, enchantCost } from '../game/mastery.js';
+import { MASTERY_RANKS, MAX_ENCHANTS, ENCHANT_LABELS, enchantCost, BATTLE_CAP_RANK, KILL_XP, KILL_MULT } from '../game/mastery.js';
 import { QUALITY, QUALITY_ORDER, QUALITY_RULES, RARITY, NORMAL_GEAR_SKIP } from '../game/loot.js';
 import { MAX_REFINE, refineGain } from '../game/refine.js';
 import { FEED_CAP_RANK } from '../game/materials.js';
-import { QUALITY_MULT, SAME_KIND_MULT, WARD_CHANCE } from '../game/salvage.js';
+import { QUALITY_MULT, SACRIFICE_XP, WARD_CHANCE } from '../game/salvage.js';
 import { SHRINE_TRACKS, shrineCost } from '../game/shrine.js';
 import { GOODS_RATE } from '../game/offerings.js';
 import {
@@ -110,9 +111,9 @@ export function gearTierRows() {
     .map((t) => [t.metal, num(t.lvl)]);
 }
 
-/** Mastery ranks: name, points, the share of base stats it adds. */
+/** Mastery ranks: name, XP, the share of base stats it adds (world-boss ranks marked). */
 export function masteryRankRows() {
-  return MASTERY_RANKS.map((r) => [r.name, num(r.points), r.gain ? `+${pct(r.gain)}` : '-']);
+  return MASTERY_RANKS.map((r) => [r.worldBoss ? `${r.name} (world bosses)` : r.name, num(r.xp), r.gain ? `+${pct(r.gain)}` : '-']);
 }
 
 /** The chance a gear drop reaches each quality, from QUALITY_RULES' ladder. */
@@ -206,6 +207,19 @@ export function raceRows() {
 export function armourRows() {
   const WHO = { none: 'Slimes, wisps, jellyfish', light: 'Birds, bats, insects, rodents, plants, monkeys, hounds, ghosts', medium: 'Beasts, people, spiders, snakes, undead, demons', heavy: 'Reptiles, scorpions, drakes', armoured: 'Golems, crabs, turtles' };
   return Object.entries(ARMOUR_TIERS).map(([k, v]) => [cap(k), pct(v), WHO[k] || '']);
+}
+
+/** Boss armour types: type, what it does, how to beat it, how many bosses wear it. */
+export function bossTypeRows() {
+  const WHAT = {
+    plated: `${pct(BOSS_TYPES.plated.armour)} more armour (up to ${pct(BOSS_TYPES.plated.cap)}); maces, warhammers and toyas hit ×${BOSS_TYPES.plated.blunt}`,
+    warded: `${pct(-BOSS_TYPES.warded.armour)} less armour; spells do ×${BOSS_TYPES.warded.magic}`,
+    evasive: `${pct(-BOSS_TYPES.evasive.armour)} less armour; ${pct(BOSS_TYPES.evasive.graze[0])} of quick attacks, up to ${pct(BOSS_TYPES.evasive.graze[1])} of slow swings, only graze it (${pct(BOSS_TYPES.evasive.grazeDmg)} damage)`,
+    thick: `Quick blows do ×${BOSS_TYPES.thick.glance[0]}, slow heavy ones ×${BOSS_TYPES.thick.glance[1]}; armour breaks count ×${BOSS_TYPES.thick.breaks}`,
+  };
+  const n = {};
+  for (const id of ALL_BOSS_IDS) n[getNpc(id).armourType] = (n[getNpc(id).armourType] || 0) + 1;
+  return Object.entries(BOSS_TYPES).map(([k, t]) => [`${t.icon} ${t.name}`, WHAT[k], t.hint.replace(/^[^:]+: (.)/, (_, c) => c.toUpperCase()), num(n[k] || 0)]);
 }
 
 /** Boss mechanics: kind, what to do, how many bosses use it. */
@@ -489,7 +503,9 @@ export const CHAPTERS = [
         body: [
           `Monsters wear armour that stops a share of every hit, by the kind of creature. Bosses and champions add ${pct(0.1)} each (and a little more or less by how far above or below you they are), up to ${pct(ARMOUR_CAP)} in all. Hitting a weakness gets past half of it.`,
           () => ({ table: { head: ['Armour', 'Stops', 'Who wears it'], rows: armourRows() } }),
-          '**Armour pierce** on your gear cancels armour first; whatever pierce is left over adds damage instead. Plate armour carries the most.',
+          '**Armour pierce** on your gear cancels armour first; whatever pierce is left over adds damage instead. Plate, scout leather, hide, robes and dancewear all carry it, more on higher-level pieces, and it counts for spells too.',
+          'Every **boss** also wears one of four **armour types**, shown in the Codex, on its battle bar and in its hover details, so each class has bosses it is good against and bosses it finds hard:',
+          () => ({ table: { head: ['Type', 'What it does', 'How to beat it', 'Bosses'], rows: bossTypeRows() } }),
         ],
         see: ['weakness', 'combat-basics'],
       },
@@ -730,12 +746,13 @@ export const CHAPTERS = [
       },
       {
         id: 'mastery', title: 'Gear mastery',
-        summary: 'Using your gear makes it stronger: Novice to Ascended.',
+        summary: `Using your gear makes it stronger: ${MASTERY_RANKS[0].name} to ${MASTERY_RANKS[MASTERY_RANKS.length - 1].name}.`,
         body: [
           'Mastery belongs to a **gear type**, not one item: every sword shares Sword mastery, every plate body Plate body mastery. So moving up a tier keeps everything you have earned.',
-          'Every kill gives each type you wear mastery points: 1 for a monster, 5 for a champion, 25 for a boss. Each rank adds a share of the item\'s base stats:',
-          () => ({ table: { head: ['Rank', 'Points', 'Stat bonus'], rows: masteryRankRows() } }),
-          `You can also feed life-skill materials or [[salvage|sacrifice spare gear]] to a type; those stop at ${MASTERY_RANKS[FEED_CAP_RANK].name}, so the last ranks come from fighting.`,
+          `Every kill gives each type you wear mastery XP: about ${KILL_XP} for a monster, more the higher its level, ${KILL_MULT.champion}x that for a champion, ${KILL_MULT.boss}x for an Endless Gate boss and ${KILL_MULT.worldBoss}x for a world boss. Each rank adds a share of the item\'s base stats:`,
+          () => ({ table: { head: ['Rank', 'XP', 'Stat bonus'], rows: masteryRankRows() } }),
+          `You can also feed life-skill materials or [[salvage|sacrifice spare gear]] to a type; those stop at ${MASTERY_RANKS[FEED_CAP_RANK].name}, so the ranks above come from fighting.`,
+          `The last two ranks are unlocked by defeating world bosses: past ${MASTERY_RANKS[BATTLE_CAP_RANK].name}, only XP from bosses fought in the open world counts. Ordinary kills, Endless Gate bosses, materials and sacrifices add nothing more.`,
         ],
         see: ['quality', 'enchanting', 'carry-over'],
       },
@@ -813,7 +830,7 @@ export const CHAPTERS = [
         body: [
           'Spare gear (any class\'s, any slot) can be used up two ways, from the Gear Mastery window or the item\'s menu:',
           { list: [
-            `**Sacrifice** it to the mastery of its own gear type for ${SAME_KIND_MULT}x its worth in points (up to ${MASTERY_RANKS[FEED_CAP_RANK].name}).`,
+            `**Sacrifice** it to the mastery of its own gear type for ${SACRIFICE_XP}x its worth in mastery XP, more for a refined piece and as your mastery climbs (up to ${MASTERY_RANKS[FEED_CAP_RANK].name}).`,
             `**Dismantle** it into upgrade stones and sometimes a refine scroll. A Legendary piece has a ${pct(WARD_CHANCE.legendary)} chance of a ward, a Mythic one ${pct(WARD_CHANCE.mythic)}, and a boss unique ${pct(WARD_CHANCE.unique)} or more.`,
           ] },
           () => `A piece's worth grows with its level, how high it ranks in its slot, and its quality: ${QUALITY_ORDER.map((k) => `${QUALITY[k].label} x${QUALITY_MULT[k]}`).join(', ')}. Boss uniques and signature weapons are worth far more.`,

@@ -7,6 +7,7 @@ import { formatNumber } from '../core/utils.js';
 import { itemIconSVG } from '../render/icons.js';
 import { GOODS_KINDS, goodsKind, shrineGoods, goodsRefusal, goodsPoints, offerGoods, pointsText, bulkGoods, offerAllGoods } from '../game/offerings.js';
 import { button, confirmBox } from './salvageui.js';
+import { maxAffordable } from '../game/shrine.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const name = (id) => esc(getItem(id).name);
@@ -88,4 +89,20 @@ export function shrineGoodsSection(ui, body, st, rerender) {
   }
   if (!kinds.children.length) kinds.innerHTML = '<div class="modal-hint">Nothing to offer in bulk.</div>';
   body.appendChild(kinds);
+}
+
+/** The "Max" button beside a blessing's rank-up button: spends every point
+ *  the blessing can take, showing what that buys ("Max +7 ranks", 12,340 pts).
+ *  Disabled when not even one rank is affordable. `done` redraws the window. */
+export function shrineMaxButton(g, track, done) {
+  const { ranks, cost } = maxAffordable(g.shrine, track);
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'gear-tab shrine-up shrine-max' + (ranks ? ' active' : '');
+  b.innerHTML = ranks ? `Max +${formatNumber(ranks)} rank${ranks > 1 ? 's' : ''}<br><span>${formatNumber(cost)} pts</span>`
+    : 'Max<br><span class="short">+0 ranks</span>';
+  b.title = ranks ? `Spend ${formatNumber(cost)} shrine points on ${formatNumber(ranks)} rank${ranks > 1 ? 's' : ''}` : 'Not enough points for a rank';
+  b.disabled = !ranks;
+  b.addEventListener('click', () => { g.shrineRankUpMax(track); done?.(); });
+  return b;
 }

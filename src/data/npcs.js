@@ -4,6 +4,7 @@ import { BOSS_ABILITIES } from './bossAbilities.js';
 import { boneForTier, bossBoneQty } from './bones.js';
 import { REGION_GIVER_DEFS } from './regionQuests.js';
 import { BESTIARY_SPECIES, BESTIARY_BOSSES, BESTIARY_FORMS } from './bestiary.js';
+import { bossTypeFor } from './bossTypes.js';
 // NPC registry. Monsters are generated from archetype "bases" × rank tiers into a
 // 169-strong bestiary (scaled stats + level-tiered drops), plus 15 hand-authored
 // bosses and the townsfolk. Sprites are drawn from def.sprite + def.color.
@@ -764,6 +765,8 @@ for (const d of Object.values(NPCS)) {
 // Everything the bestiary lists: the original sets plus the extras.
 const ALL_MONSTER_IDS = [...MONSTER_IDS, ...EXTRA_MONSTER_IDS, ...MORE_MONSTER_IDS, ...BESTIARY_MONSTER_IDS];
 const ALL_BOSS_IDS = [...BOSS_IDS, ...EXTRA_BOSS_IDS, ...MORE_BOSS_IDS, ...BESTIARY_BOSS_IDS];
+// Each boss's armour type (bossTypes.js), carried into its scaled copies.
+for (const id of ALL_BOSS_IDS) NPCS[id].armourType = bossTypeFor(NPCS[id], id);
 export { MONSTER_IDS, BOSS_IDS, EXTRA_MONSTER_IDS, EXTRA_BOSS_IDS, ALL_MONSTER_IDS, ALL_BOSS_IDS, MORE_MONSTER_IDS, MORE_BOSS_IDS };
 export { BESTIARY_MONSTER_IDS, BESTIARY_BOSS_IDS };
 

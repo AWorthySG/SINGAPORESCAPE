@@ -117,7 +117,7 @@ const BODY = {
   },
 };
 // How fast each flier's wings beat.
-const FLAP = { mosquito: 0.06, fruit_bat: 0.024, forest_drake: 0.013, flying_fox: 0.022, hornbill: 0.014 };
+const FLAP = { mosquito: 0.06, fruit_bat: 0.024, forest_drake: 0.013, flying_fox: 0.022, hornbill: 0.014, vampire_bat: 0.026, kingfisher: 0.005 };
 
 // --- measured from the sheets (tools: cut, fit against the assembled picture, bake) ---
 const RIG_DATA = {
@@ -360,6 +360,34 @@ const RIG_DATA = {
   wilderness_warlord: { plan: 'boss', fit: 0.847,
     order: ['tail', 'limb2', 'base', 'limb', 'head'],
     piv: { base: [0.4864, 0.5894], head: [0.6082, 0.3715], limb: [0.4422, 0.5166], limb2: [0.3097, 0.5802], tail: [0.6145, 0.632], head_roar: [0.6082, 0.3715], limb_strike: [0.4422, 0.5166] } },
+  // Species rigs E3 (RS21–RS30)
+  sea_turtle: { plan: 'quad', kind: 'species', fit: 0.726,
+    order: ['front_far', 'back_near', 'body', 'front_near', 'head'],
+    piv: { front_far: [0.7243, 0.5011], back_near: [0.2173, 0.5829], front_near: [0.4859, 0.6056], body: [0.4299, 0.4447], head: [0.6443, 0.413], head_open: [0.6443, 0.413] } },
+  vampire_bat: { plan: 'flier', kind: 'species', fit: 0.496,
+    order: ['wing_far', 'feet', 'body', 'wing_near'],
+    piv: { wing_far: [0.412, 0.6111], feet: [0.4419, 0.7116], body: [0.5342, 0.5364], wing_near: [0.6314, 0.538] } },
+  kingfisher: { plan: 'flier', kind: 'species', fit: 0.907,
+    order: ['feet', 'body', 'wing_near'],
+    piv: { feet: [0.4542, 0.8393], body: [0.5103, 0.4564], wing_near: [0.3955, 0.5657] } },
+  carnivorous_plant: { plan: 'plant', kind: 'species', fit: 0.876,
+    order: ['arm_far', 'body', 'head', 'arm_near'],
+    piv: { arm_far: [0.5312, 0.2332], body: [0.4549, 0.7088], head: [0.5466, 0.3273], arm_near: [0.3701, 0.5745], head_attack: [0.5466, 0.3273] } },
+  banded_leaf_monkey: { plan: 'quad', kind: 'species', fit: 0.856,
+    order: ['tail', 'front_far', 'body', 'back_near', 'front_near', 'head'],
+    piv: { tail: [0.2395, 0.811], front_far: [0.5888, 0.7881], back_near: [0.3607, 0.7582], front_near: [0.5478, 0.7834], body: [0.4857, 0.7281], head: [0.5523, 0.5462], head_open: [0.5523, 0.5462] } },
+  bunian: { plan: 'float', kind: 'species', fit: 0.888,
+    order: ['arm_far', 'lower', 'body', 'face', 'arm_near'],
+    piv: { arm_far: [0.7182, 0.5557], lower: [0.4193, 0.63], body: [0.5508, 0.4306], face: [0.7702, 0.377], arm_near: [0.6062, 0.6287], face_attack: [0.7702, 0.377] } },
+  clouded_leopard: { plan: 'quad', kind: 'species', fit: 0.775,
+    order: ['tail', 'back_far', 'front_far', 'back_near', 'front_near', 'body', 'head'],
+    piv: { tail: [0.179, 0.574], back_far: [0.1779, 0.8126], front_far: [0.6376, 0.7626], back_near: [0.2214, 0.705], front_near: [0.5273, 0.7279], body: [0.4206, 0.6598], head: [0.5846, 0.5185], head_open: [0.5846, 0.5185] } },
+  sambar_deer: { plan: 'quad', kind: 'species', fit: 0.926,
+    order: ['tail', 'back_far', 'front_far', 'back_near', 'front_near', 'body', 'head'],
+    piv: { tail: [0.1595, 0.6177], back_far: [0.3333, 0.8734], front_far: [0.6358, 0.8439], back_near: [0.2631, 0.6886], front_near: [0.5298, 0.7951], body: [0.4597, 0.6951], head: [0.5907, 0.5639], head_open: [0.5907, 0.5639] } },
+  mud_crab: { plan: 'crawl', kind: 'species', fit: 0.745,
+    order: ['legs_far', 'claw_far', 'legs_near', 'body', 'claw'],
+    piv: { legs_far: [0.1739, 0.6259], claw_far: [0.7129, 0.3469], legs_near: [0.3994, 0.6988], body: [0.4444, 0.4787], claw: [0.6839, 0.619], claw_open: [0.6839, 0.619] } },
 };
 const TOWN_DATA = {
   farmer: { W: 229, H: 300, ref: [9, 9, 218, 296], piv: { body: [0.4694, 0.506], arm: [0.5775, 0.6075], body_blink: [0.4694, 0.506], arm_wave: [0.6228, 0.552] } },

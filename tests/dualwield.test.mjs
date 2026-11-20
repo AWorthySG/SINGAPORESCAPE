@@ -5,6 +5,7 @@
 import './seed.mjs';   // seeded Math.random: no test fails on an unlucky roll
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { killMastery } from '../src/game/mastery.js';
 
 import { freshGame } from '../tools/balance/common.mjs';
 import { NPC } from '../src/game/npc.js';
@@ -105,7 +106,7 @@ test('both weapons gain mastery from a kill', () => {
   assert.ok(g.equipment.masteryPoints('rune_scimitar') > 0, 'main hand');
   assert.ok(g.equipment.masteryPoints('iron_scimitar') > 0, 'off-hand');
   assert.equal(g.equipment.masteryPoints('rune_scimitar'), g.equipment.masteryPoints('iron_scimitar'), 'one Scimitar mastery');
-  assert.equal(g.equipment.masteryPoints('rune_scimitar'), 1, 'trained once for the pair, not twice');
+  assert.equal(g.equipment.masteryXp('rune_scimitar'), killMastery(t), 'trained once for the pair, not twice (one kill\'s mastery XP)');
 });
 
 test('a better off-hand says Upgrade, and Equip best fills the off-hand by its own stats', () => {

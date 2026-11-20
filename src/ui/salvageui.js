@@ -12,11 +12,12 @@ import { getItem } from '../data/items.js';
 import { formatNumber } from '../core/utils.js';
 import { itemIconSVG } from '../render/icons.js';
 import { MASTERY_RANKS, rankProgress, masteryTypeName } from '../game/mastery.js';
+import { masteryProgressText } from './ranksui.js';
 import { FEED_CAP, FEED_CAP_RANK } from '../game/materials.js';
 import { QUALITY } from '../game/loot.js';
 import { EQUIP_SLOTS } from '../game/equipment.js';
 import {
-  QUALITY_KEYS, isSalvageable, sameKind, sacrificePoints, sacrificeOptions, previewSacrifice, sacrificeGear, salvageWarning,
+  QUALITY_KEYS, isSalvageable, sameKind, sacrificeXpIn, sacrificeOptions, previewSacrifice, sacrificeGear, salvageWarning,
   packQualities, dismantleYield, dismantleGear, bulkPicks, dismantleAll, previewSacrificeAll, sacrificeAll, yieldText,
   shrineGearOptions, previewOffer, offerGear, previewOfferAll, offerAll,
 } from '../game/salvage.js';
@@ -121,11 +122,12 @@ function filterBox(ui, onChange) {
   return { box, f };
 }
 
-/** "Skilled, 1,234 points" with the change a gain would make. */
+/** "Skilled, 2,000 / 20,000 XP to Expert", or with a gain the change it would
+ *  make: "Skilled 12,000 XP → Expert 34,000 XP". */
 function masteryLine(g, id, gain = 0) {
-  const pts = g.equipment.masteryPoints(id), after = pts + gain;
+  const pts = g.equipment.masteryXp(id), after = pts + gain;
   const r0 = MASTERY_RANKS[rankProgress(pts).rank].name, r1 = MASTERY_RANKS[rankProgress(after).rank].name;
-  return gain ? `${r0} ${formatNumber(pts)} → ${r1 !== r0 ? `<b>${r1}</b> ` : ''}${formatNumber(after)}` : `${r0}, ${formatNumber(pts)} points`;
+  return gain ? `${r0} ${formatNumber(pts)} XP → ${r1 !== r0 ? `<b>${r1}</b> ` : ''}${formatNumber(after)} XP` : `${r0}, ${masteryProgressText(pts)}`;
 }
 
 // ---------------- Sacrifice ----------------
@@ -142,17 +144,17 @@ export function openSacrifice(ui, targetId, { src = null } = {}) {
     const pv = previewSacrifice(g, targetId, srcId, qty);
     if (!pv.n) { st.result = 'Nothing to sacrifice: the piece is already at Master, or you have none of that to spare.'; return; }
     st.pending = {
-      html: `Sacrifice ${pv.n} x <b>${name(srcId)}</b> (${qualityText(pv.copies)}) to your <b>${type} mastery</b>: <b>+${formatNumber(pv.points)} mastery</b> (${masteryLine(g, targetId, pv.points)}).`,
+      html: `Sacrifice ${pv.n} x <b>${name(srcId)}</b> (${qualityText(pv.copies)}) to your <b>${type} mastery</b>: <b>+${formatNumber(pv.points)} mastery XP</b> (${masteryLine(g, targetId, pv.points)}).`,
       warn: salvageWarning(g, srcId, pv.copies[pv.copies.length - 1]),
       label: 'Sacrifice',
-      go: () => { const pts = sacrificeGear(g, targetId, srcId, qty); return pts ? `Sacrificed ${pv.n} x ${name(srcId)}: <b>+${formatNumber(pts)} mastery</b>.` : 'Nothing was sacrificed.'; },
+      go: () => { const pts = sacrificeGear(g, targetId, srcId, qty); return pts ? `Sacrificed ${pv.n} x ${name(srcId)}: <b>+${formatNumber(pts)} mastery XP</b>.` : 'Nothing was sacrificed.'; },
     };
   };
   if (src) ask(src, 1);
   const render = (body) => {
-    const pts = g.equipment.masteryPoints(targetId), capped = pts >= FEED_CAP;
+    const pts = g.equipment.masteryXp(targetId), capped = pts >= FEED_CAP;
     body.innerHTML = `<div class="gear-intro"><p><b>${type} mastery</b>: ${masteryLine(g, targetId)}. Sacrifice spare ${type.toLowerCase()} gear from your pack to add mastery: only gear of the same type counts. `
-      + 'Higher level, better ranked and better quality pieces give more, and boss uniques a great deal. '
+      + 'Higher level, better ranked, better quality and refined pieces give more, boss uniques a great deal, and each rank your mastery has reached adds a tenth more. '
       + `Like materials, sacrifice takes gear up to <b>${MASTERY_RANKS[FEED_CAP_RANK].name}</b>; after that only battle trains it. Plain copies go before quality ones.</p></div>`;
     confirmBox(body, st, () => redraw(body, render));
     const list = document.createElement('div');
@@ -165,7 +167,7 @@ export function openSacrifice(ui, targetId, { src = null } = {}) {
       row.className = 'gear-row feed-row salvage-row';
       row.innerHTML = `<span class="gear-ic">${itemIconSVG(o.id, 28)}</span>`
         + `<div class="gear-info"><div class="gear-name"><b>${name(o.id)}</b><span class="gear-tag">x${formatNumber(o.count)}</span>${o.warn ? '<span class="gear-tag lock">!</span>' : ''}</div>`
-        + `<div class="gear-stats">+${formatNumber(o.points)} mastery for the next (${formatNumber(o.total)} for all) · ${qualityText(o.qualities)}</div></div>`;
+        + `<div class="gear-stats">+${formatNumber(o.points)} mastery XP for the next (${formatNumber(o.total)} for all) · ${qualityText(o.qualities)}</div></div>`;
       const btns = document.createElement('div');
       btns.className = 'qty-btns';
       btns.appendChild(button('1', () => { ask(o.id, 1); redraw(body, render); }, 'small'));
@@ -179,12 +181,12 @@ export function openSacrifice(ui, targetId, { src = null } = {}) {
       const { box, f } = filterBox(ui, () => redraw(body, render));
       body.appendChild(box);
       const pv = previewSacrificeAll(g, targetId, f);
-      const go = button(pv.pieces ? `Sacrifice ${formatNumber(pv.pieces)} piece${pv.pieces > 1 ? 's' : ''}: +${formatNumber(pv.points)} mastery` : 'No spare gear matches', () => {
+      const go = button(pv.pieces ? `Sacrifice ${formatNumber(pv.pieces)} piece${pv.pieces > 1 ? 's' : ''}: +${formatNumber(pv.points)} mastery XP` : 'No spare gear matches', () => {
         st.pending = {
-          html: `Sacrifice <b>${formatNumber(pv.pieces)} pieces</b> of spare ${type.toLowerCase()} gear to your <b>${type} mastery</b>: <b>+${formatNumber(pv.points)} mastery</b> (${masteryLine(g, targetId, pv.points)}).`,
+          html: `Sacrifice <b>${formatNumber(pv.pieces)} pieces</b> of spare ${type.toLowerCase()} gear to your <b>${type} mastery</b>: <b>+${formatNumber(pv.points)} mastery XP</b> (${masteryLine(g, targetId, pv.points)}).`,
           warn: f.below === 'any' || f.below === 'mythic' || f.below === 'legendary' ? 'this includes Epic copies or better' : '',
           label: 'Sacrifice all',
-          go: () => { const r = sacrificeAll(g, targetId, f); return `Sacrificed <b>${formatNumber(r.pieces)}</b> pieces: <b>+${formatNumber(r.points)} mastery</b>. Your ${type} mastery is now ${masteryLine(g, targetId)}.`; },
+          go: () => { const r = sacrificeAll(g, targetId, f); return `Sacrificed <b>${formatNumber(r.pieces)}</b> pieces: <b>+${formatNumber(r.points)} mastery XP</b>. Your ${type} mastery is now ${masteryLine(g, targetId)}.`; },
         };
         redraw(body, render);
       }, 'salvage-bulk');
@@ -210,12 +212,12 @@ export function openSacrificeFrom(ui, srcId) {
     if (!qs.length) list.innerHTML = '<div class="modal-hint">You can\'t sacrifice gear you are wearing: take it off first.</div>';
     else if (!worn.length && !carried.length) list.innerHTML = `<div class="modal-hint">Wear or carry another piece of ${esc(masteryTypeName(srcId).toLowerCase())} gear to sacrifice this to.</div>`;
     else for (const id of [...worn, ...carried]) {
-      const capped = g.equipment.masteryPoints(id) >= FEED_CAP;
+      const capped = g.equipment.masteryXp(id) >= FEED_CAP;
       const row = document.createElement('div');
       row.className = 'gear-row feed-row salvage-row';
       row.innerHTML = `<span class="gear-ic">${itemIconSVG(id, 28)}</span>`
         + `<div class="gear-info"><div class="gear-name"><b>${name(id)}</b>${worn.includes(id) ? '<span class="gear-tag worn">Wearing</span>' : ''}</div>`
-        + `<div class="gear-stats">${masteryLine(g, id)} · ${capped ? `${MASTERY_RANKS[FEED_CAP_RANK].name} reached` : `+${formatNumber(sacrificePoints(id, srcId, qs[0]))} mastery`}</div></div>`;
+        + `<div class="gear-stats">${masteryLine(g, id)} · ${capped ? `${MASTERY_RANKS[FEED_CAP_RANK].name} reached` : `+${formatNumber(sacrificeXpIn(g, id, srcId, qs[0]))} mastery XP`}</div></div>`;
       const b = button('Choose', () => openSacrifice(ui, id, { src: srcId }), 'small');
       b.disabled = capped;
       row.appendChild(b);
@@ -311,12 +313,29 @@ export function askOffer(ui, st, id, qty) {
   };
 }
 
-/** Draw the gear list, its confirmation and "Offer all spare gear…" into `body`. */
+/** Draw the gear section into `body`: its confirmation, "Offer all spare gear…", then the gear list. */
 export function shrineGearSection(ui, body, st, rerender) {
   const g = ui.game;
   body.insertAdjacentHTML('beforeend', '<div class="ench-head shrine-head">Offer gear</div>'
     + `<div class="modal-hint">Spare gear of any class or slot, from your pack: higher level, better ranked and better quality pieces give more, boss uniques a great deal, and everything more as your combat level (${g.skills.combatLevel()}) grows. Plain copies go before quality ones.</div>`);
   confirmBox(body, st, rerender);
+  // "Offer all spare gear…" comes first, above the list: with a full pack the
+  // owner had to scroll past every piece to reach it.
+  body.insertAdjacentHTML('beforeend', '<div class="ench-head salvage-head">Offer all spare gear…</div>');
+  const { box, f } = filterBox(ui, rerender);
+  body.appendChild(box);
+  const pv = previewOfferAll(g, f);
+  const go = button(pv.pieces ? `Offer ${formatNumber(pv.pieces)} piece${pv.pieces > 1 ? 's' : ''}: +${formatNumber(pv.points)} points` : 'No spare gear matches', () => {
+    st.pending = {
+      html: `Offer <b>${formatNumber(pv.pieces)} piece${pv.pieces > 1 ? 's' : ''}</b> of spare gear at the shrine: <b>+${formatNumber(pv.points)} shrine points</b>.`,
+      warn: f.below === 'any' || f.below === 'mythic' || f.below === 'legendary' ? 'this includes Epic copies or better' : '',
+      label: 'Offer all',
+      go: () => { const r = offerAll(g, f); return `Offered <b>${formatNumber(r.pieces)}</b> pieces: <b>+${formatNumber(r.points)} shrine points</b>.`; },
+    };
+    rerender();
+  }, 'salvage-bulk');
+  go.disabled = !pv.pieces;
+  body.appendChild(go);
   const list = document.createElement('div');
   list.className = 'gear-list feed-list salvage-list';
   const opts = shrineGearOptions(g);
@@ -335,19 +354,4 @@ export function shrineGearSection(ui, body, st, rerender) {
     list.appendChild(row);
   }
   body.appendChild(list);
-  body.insertAdjacentHTML('beforeend', '<div class="ench-head salvage-head">Offer all spare gear…</div>');
-  const { box, f } = filterBox(ui, rerender);
-  body.appendChild(box);
-  const pv = previewOfferAll(g, f);
-  const go = button(pv.pieces ? `Offer ${formatNumber(pv.pieces)} piece${pv.pieces > 1 ? 's' : ''}: +${formatNumber(pv.points)} points` : 'No spare gear matches', () => {
-    st.pending = {
-      html: `Offer <b>${formatNumber(pv.pieces)} piece${pv.pieces > 1 ? 's' : ''}</b> of spare gear at the shrine: <b>+${formatNumber(pv.points)} shrine points</b>.`,
-      warn: f.below === 'any' || f.below === 'mythic' || f.below === 'legendary' ? 'this includes Epic copies or better' : '',
-      label: 'Offer all',
-      go: () => { const r = offerAll(g, f); return `Offered <b>${formatNumber(r.pieces)}</b> pieces: <b>+${formatNumber(r.points)} shrine points</b>.`; },
-    };
-    rerender();
-  }, 'salvage-bulk');
-  go.disabled = !pv.pieces;
-  body.appendChild(go);
 }

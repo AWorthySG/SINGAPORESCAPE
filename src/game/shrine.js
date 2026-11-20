@@ -45,6 +45,26 @@ export function trackText(track, rank) {
   return Object.entries(b).map(([k, v]) => `+${v}% ${names[k] || k}`).join(', ');
 }
 
+/** Most ranks a single press of "Max" buys, so a giant points total can't
+ *  lock the game in a long loop (rank 100,000 alone costs some 3 billion points). */
+export const SHRINE_MAX_BULK = 100000;
+
+/** How many ranks of one blessing `points` buys in a row, and what they cost
+ *  together: { ranks, cost }. Each rank is dearer than the last, so it walks up
+ *  from the current rank until the next one is out of reach. The shrine
+ *  window's "Max" button and Game.shrineRankUpMax both use it, so they agree. */
+export function maxAffordable(shrine, track, points = shrine?.points) {
+  if (!SHRINE_TRACKS[track] || !shrine) return { ranks: 0, cost: 0 };
+  let left = Number.isFinite(points) ? Math.max(0, Math.floor(points)) : 0;
+  let r = shrine.rank(track), ranks = 0, cost = 0;
+  while (ranks < SHRINE_MAX_BULK) {
+    const c = shrineCost(r + 1);
+    if (left < c) break;
+    left -= c; cost += c; r++; ranks++;
+  }
+  return { ranks, cost };
+}
+
 export class Shrine {
   constructor() {
     this.points = 0;   // shrine points donated and not yet spent

@@ -50,9 +50,9 @@ import { MATERIAL_KINDS, feedKind, FEED_CAP, FEED_CAP_RANK, materialKind } from 
 import { SHRINE_TRACKS, SHRINE_TRACK_IDS, trackText } from '../game/shrine.js';
 import { isSalvageable, sameKind, nearOfferingShrine } from '../game/salvage.js';
 import { QUALITY, qualityNameHTML } from '../game/loot.js';
-import { ranksCardHTML, openRanksGuide, masteryLine, qualityLine } from './ranksui.js';
+import { ranksCardHTML, openRanksGuide, masteryLine, masteryProgressText, qualityLine } from './ranksui.js';
 import { openSacrifice, openSacrificeFrom, openDismantle, shrineGearSection, askOffer, redraw } from './salvageui.js';
-import { shrineGoodsSection, askGoods } from './shrineui.js';
+import { shrineGoodsSection, askGoods, shrineMaxButton } from './shrineui.js';
 import { goodsKind } from '../game/offerings.js';
 import { ATTRS, ATTR_NAMES, attrSummary, attrForMode, MAX_STAT_POINTS, RESET_COST_PER_POINT, holdRepeatDelay } from '../game/attributes.js';
 import { STAT_LABELS, STAT_HELP, compareGear, deltaText, gearBySlot, gearRating, meetsReq, swingBeats, tierOf, weaponStyle } from '../game/gear.js';
@@ -1326,7 +1326,7 @@ export class UI {
     const sig = getItem(id).signature;
     let html = (sig ? `<div class="gt-sig">Signature weapon of ${escapeHtml(getNpc(sig.boss).name)} · for ${escapeHtml(CLASS_BY_ID[sig.classId].name)}</div>` : '')
       + (QUALITY[q] ? `<div class="gt-qual">${qualityLine(q)}</div>` : '')
-      + `<div class="gt-up">${masteryLine(masteryTypeName(id), this.game.equipment.masteryPoints(id))}</div>`
+      + `<div class="gt-up">${masteryLine(masteryTypeName(id), this.game.equipment.masteryXp(id))}</div>`
       + (copy === 'off' ? '<div class="gt-up">Off-hand copy: its own refine and enchantments</div>' : '')
       + (rl ? `<div class="gt-refine">Refined ${refineTag(rl)}</div>` : '')
       + (lines.length ? `<div class="gt-ench">Enchanted: ${lines.map(enchantLabel).join(' · ')}</div>` : '')
@@ -1407,7 +1407,7 @@ export class UI {
       list.className = 'gear-list';
       if (!ids.length) list.innerHTML = '<div class="modal-hint">Wear or carry some gear to see its mastery.</div>';
       for (const id of ids) {
-        const p = rankProgress(g.equipment.masteryPoints(id));
+        const xp = g.equipment.masteryXp(id), p = rankProgress(xp);
         const lines = g.equipment.enchantLines(id);
         const c = g.enchantCostFor(id);
         const okS = g.inventory.count(UP_STONE) >= c.stones, okC = g.inventory.count('coins') >= c.coins;
@@ -1419,7 +1419,7 @@ export class UI {
         row.innerHTML = `<span class="gear-ic">${itemIconSVG(id, 28)}</span>`
           + `<div class="gear-info"><div class="gear-name"><b>${escapeHtml(getItem(id).name)}</b>${rl ? `<span class="gear-tag refine-tag">${refineTag(rl)}</span>` : ''}<span class="gear-tag mastery-tag">${masteryTypeName(id)}: ${MASTERY_RANKS[p.rank].name}</span>${worn ? '<span class="gear-tag worn">Wearing</span>' : ''}</div>`
           + `<div class="mastery-bar"><span style="width:${Math.round(p.frac * 100)}%"></span></div>`
-          + `<div class="gear-stats">${p.next ? `${formatNumber(p.need)} more kill${p.need > 1 ? 's' : ''} to ${MASTERY_RANKS[p.next].name}` : 'Fully mastered'}</div>`
+          + `<div class="gear-stats mastery-xp">${masteryProgressText(xp)}</div>`
           + `<div class="gear-stats">${this._gearStats(id)}</div>`
           + `<div class="ench-lines">Enchantments ${lines.length}/${MAX_ENCHANTS}: ${lines.length ? lines.map((l) => `<span class="ench-chip">${enchantLabel(l)}</span>`).join(' ') : 'none yet'}</div>`
           + (g.equipment.twinWorn(id) ? (() => {
@@ -1452,7 +1452,7 @@ export class UI {
         // Feed sits below: life-skill materials for mastery points, up to Master.
         const fb = document.createElement('button');
         fb.type = 'button';
-        const kind = feedKind(id), capped = g.equipment.masteryPoints(id) >= FEED_CAP;
+        const kind = feedKind(id), capped = xp >= FEED_CAP;
         fb.className = 'gear-tab feed-open' + (!capped && g.feedOptions(id).length ? ' active' : '');
         fb.innerHTML = capped ? `Feed materials<br>${MASTERY_RANKS[FEED_CAP_RANK].name} reached` : `Feed materials<br>${MATERIAL_KINDS[kind] || ''}`;
         fb.addEventListener('click', () => this.openFeed(id));
@@ -1632,10 +1632,10 @@ export class UI {
     const g = this.game;
     const name = escapeHtml(getItem(id).name);
     const render = (body) => {
-      const pts = g.equipment.masteryPoints(id), p = rankProgress(pts);
+      const pts = g.equipment.masteryXp(id), p = rankProgress(pts);
       const cap = MASTERY_RANKS[FEED_CAP_RANK].name, kind = MATERIAL_KINDS[feedKind(id)] || 'nothing';
-      body.innerHTML = `<div class="gear-intro"><p>${name} is <b>${MASTERY_RANKS[p.rank].name}</b> mastery (${formatNumber(pts)} points${p.next ? `, ${formatNumber(p.need)} to ${MASTERY_RANKS[p.next].name}` : ''}). `
-        + `It is fed with <b>${kind}</b>; finer materials give more. Materials can take it up to <b>${cap}</b> (${formatNumber(FEED_CAP)} points); after that, only battle trains it.</p></div>`;
+      body.innerHTML = `<div class="gear-intro"><p>${name} is <b>${MASTERY_RANKS[p.rank].name}</b> mastery (${masteryProgressText(pts)}). `
+        + `It is fed with <b>${kind}</b>; finer materials give more. Materials can take it up to <b>${cap}</b> (${formatNumber(FEED_CAP)} XP); after that, only battle trains it.</p></div>`;
       const list = document.createElement('div');
       list.className = 'gear-list feed-list';
       const opts = g.feedOptions(id);
@@ -1646,7 +1646,7 @@ export class UI {
         row.className = 'gear-row feed-row';
         row.innerHTML = `<span class="gear-ic">${itemIconSVG(o.id, 28)}</span>`
           + `<div class="gear-info"><div class="gear-name"><b>${escapeHtml(getItem(o.id).name)}</b><span class="gear-tag">x${formatNumber(o.count)}</span></div>`
-          + `<div class="gear-stats">+${formatNumber(o.points)} mastery each</div></div>`;
+          + `<div class="gear-stats">+${formatNumber(o.points)} mastery XP each</div></div>`;
         const btns = document.createElement('div');
         btns.className = 'qty-btns';
         for (const [label, n] of [['1', 1], ['10', 10], ['All', Infinity]]) {
@@ -1701,7 +1701,12 @@ export class UI {
         b.innerHTML = `Rank ${r + 1}<br><span class="${ok ? '' : 'short'}">${formatNumber(cost)} pts</span>`;
         b.disabled = !ok;
         b.addEventListener('click', () => { g.shrineRankUp(t); redraw(body, render); });
-        row.appendChild(b);
+        // One rank, or every rank the points afford ("Max", shrineui.js).
+        const btns = document.createElement('div');
+        btns.className = 'shrine-btns';
+        btns.appendChild(b);
+        btns.appendChild(shrineMaxButton(g, t, () => redraw(body, render)));
+        row.appendChild(btns);
         tracks.appendChild(row);
       }
       body.appendChild(tracks);
