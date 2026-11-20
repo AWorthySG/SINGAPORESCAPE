@@ -1,5 +1,6 @@
 import { SPELLS } from '../data/magic.js';
 import { RARITY } from '../game/loot.js';
+import { spawnElement } from './elementfx.js';
 
 // Combat "feel" effects: an impact for each kind of weapon (slash arcs, blunt
 // rings and dust, arrow punctures, bullet tracers, elemental spell bursts, a
@@ -105,12 +106,18 @@ export function keepLive(arr, cap = Infinity) {
 // ---------------- The effect pool ----------------
 // Slot kinds (numbers, so drawing is a cheap switch).
 const RING = 1, SPARK = 2, DOT = 3, CHIP = 4, SWIRL = 5, STAR = 6, ARC = 7, TRACER = 8, POOF = 9, CLOUD = 10, GLOW = 11, RAY = 12, TWINKLE = 13;
+// Added for juice.js: a lightning crackle, sticker confetti and a rising sticker label.
+const BOLT = 14, CONFETTI = 15, LABEL = 16;
 /** The slot kinds by name (for the tests and anyone inspecting the pool). */
-export const FX_KIND = { RING, SPARK, DOT, CHIP, SWIRL, STAR, ARC, TRACER, POOF, CLOUD, GLOW, RAY, TWINKLE };
+export const FX_KIND = { RING, SPARK, DOT, CHIP, SWIRL, STAR, ARC, TRACER, POOF, CLOUD, GLOW, RAY, TWINKLE, BOLT, CONFETTI, LABEL };
+// The shapes an element's pieces can name (elementfx.js).
+const KIND_BY_NAME = { dot: DOT, chip: CHIP, spark: SPARK, cloud: CLOUD, twinkle: TWINKLE, star: STAR, bolt: BOLT, confetti: CONFETTI };
+// Sticker confetti colours: the A-Worthy pastels and white.
+const CONFETTI_COLS = ['#F5B82E', '#FF8AA8', '#6FC3FF', '#7FD36A', '#B98CF0', '#FFFFFF'];
 
 function newSlot() {
   return { k: 0, x: 0, y: 0, vx: 0, vy: 0, g: 0, drag: 1, life: 0, max: 1, delay: 0, size: 1, a: 0, b: 0, sq: 1,
-    rot: 0, spin: 0, ex: 0, ey: 0, col: '#fff', add: false, fresh: false };
+    rot: 0, spin: 0, ex: 0, ey: 0, col: '#fff', add: false, fresh: false, txt: '' };
 }
 
 // Cosmetic randomness from its own little generator, so effects never shift
@@ -149,7 +156,7 @@ export class CombatFx {
       s = this.slots[best];
     }
     s.k = k; s.x = x; s.y = y; s.vx = 0; s.vy = 0; s.g = 0; s.drag = 1; s.life = life; s.max = life; s.delay = 0;
-    s.size = 1; s.a = 0; s.b = 0; s.sq = 1; s.rot = 0; s.spin = 0; s.ex = x; s.ey = y; s.col = col; s.add = false; s.fresh = false;
+    s.size = 1; s.a = 0; s.b = 0; s.sq = 1; s.rot = 0; s.spin = 0; s.ex = x; s.ey = y; s.col = col; s.add = false; s.fresh = false; s.txt = '';
     this._sp.push(s);
     return s;
   }
@@ -180,6 +187,62 @@ export class CombatFx {
       s.g = opts.g || 0; s.drag = opts.drag ?? 0.992; s.size = (opts.size || 2) * (0.7 + rnd() * 0.6);
       s.rot = rnd() * 6.283; s.spin = opts.spin ? (rnd() - 0.5) * opts.spin : 0; s.add = !!opts.add;
     }
+  }
+
+  /** A soft enchanted glow behind a hit (skipped on low graphics by callers). */
+  glow(x, y, size, life, col) { const g = this._take(GLOW, x, y, life, col); g.size = size; return g; }
+
+  /** A burst of `n` pieces of a named shape (elementfx.js): 'dot', 'chip',
+   *  'spark', 'cloud', 'twinkle', 'star', 'bolt', 'confetti', 'swirl', 'ray'. */
+  burstOf(name, x, y, n, p = {}) {
+    n = this._n(n);
+    if (name === 'swirl') {
+      for (let i = 0; i < n; i++) {
+        const s = this._take(SWIRL, x, y, p.life || 420, i && p.col2 ? p.col2 : p.col);
+        s.a = 4; s.b = 16 + i * 4; s.rot = i * 2.1; s.spin = 0.014 * (i % 2 ? -1 : 1);
+      }
+      return;
+    }
+    if (name === 'ray') {
+      for (let i = 0; i < n; i++) {
+        const r = this._take(RAY, x, y, p.life || 400, p.col); r.rot = (i / n) * Math.PI * 2 + rnd(); r.spin = 0.002; r.size = p.size || 24;
+      }
+      return;
+    }
+    if (name === 'arc') {
+      // Sticker crescents sweeping across the hit (an ability's swoosh).
+      for (let i = 0; i < n; i++) {
+        const s = this._take(ARC, x, y, p.life || 260, p.col);
+        s.rot = (p.rot ?? rnd() * 6.283) + i * 1.3; s.spin = (i % 2 ? -1 : 1) * 0.011; s.size = (p.size || 18) + i * 4;
+      }
+      return;
+    }
+    if (name === 'bolt') {
+      // Little zig-zag bolts flicking out from the hit (the shape is re-rolled as they flicker).
+      for (let i = 0; i < n; i++) {
+        const s = this._take(BOLT, x, y, (p.life || 170) * (0.7 + rnd() * 0.6), p.col);
+        s.rot = (i / n) * Math.PI * 2 + rnd() * 0.8; s.size = (p.size || 14) * (0.7 + rnd() * 0.5); s.a = rnd() * 1000;
+      }
+      return;
+    }
+    this._burst(KIND_BY_NAME[name] || DOT, x, y, n, p.speed ?? 0.08, p.life || 400, p.col, p);
+  }
+
+  /** Sticker confetti: little paper squares that flutter up and drift down. */
+  confetti(x, y, n, scale = 1, cols = CONFETTI_COLS) {
+    n = this._n(n);
+    for (let i = 0; i < n; i++) {
+      const ang = -Math.PI / 2 + (rnd() - 0.5) * 2.4, sp = (0.07 + rnd() * 0.09) * scale;
+      const s = this._take(CONFETTI, x, y, 800 + rnd() * 500, cols[i % cols.length]);
+      s.vx = Math.cos(ang) * sp; s.vy = Math.sin(ang) * sp; s.g = 0.00022; s.drag = 0.985;
+      s.size = (2.2 + rnd() * 1.4) * Math.min(1.5, scale); s.rot = rnd() * 6.283; s.spin = (rnd() - 0.5) * 0.03; s.a = rnd() * 6.283;
+    }
+  }
+
+  /** A white sticker label that pops in and rises (a level-up, "x2!"). */
+  label(x, y, text, col = INK, life = 1300, scale = 1) {
+    const s = this._take(LABEL, x, y, life, col); s.txt = text; s.size = scale; s.vy = -0.018; s.drag = 0.995;
+    return s;
   }
 
   /** The hit of one blow. `kind` from impactKind; opts: from {x,y} (the
@@ -242,38 +305,15 @@ export class CombatFx {
         break;
       }
     }
+    // An elemental blow that isn't a spell (an enchanted weapon) adds its element's look.
+    if (kind !== 'magic' && opts.element) spawnElement(this, opts.element, x, y, crit);
     // The pieces of this hit land together, after the shot's flight.
     this._end(opts.delay || 0, !!opts.melee);
   }
 
-  /** A spell's burst by element, and an enchanted glow behind it. */
-  _spell(x, y, element, crit) {
-    const col = { fire: '#ff8a3d', water: '#6fc3ff', earth: '#a87b4a', wind: '#a8f0c8' }[element] || '#c890f0';
-    if (!this.low) { const g = this._take(GLOW, x, y, 380, col); g.size = crit ? 30 : 22; }
-    switch (element) {
-      case 'fire':   // embers that float up and wink out
-        this._burst(DOT, x, y, this._n(9), 0.08, 520, '#ffae3a', { g: -0.00012, up: -0.03, add: true, size: 1.8 });
-        this.ring(x, y, 4, 18, 240, '#ffcf6a', 3);
-        break;
-      case 'water':  // droplets thrown up that fall back, and a flat splash ring
-        this._burst(DOT, x, y, this._n(9), 0.11, 520, '#9fdcff', { g: 0.0007, up: -0.12, size: 1.9 });
-        this.ring(x, y + 8, 4, 22, 320, '#bfe8ff', 2.5, 0.45);
-        break;
-      case 'earth':  // tumbling chips of stone and a puff of dust
-        this._burst(CHIP, x, y, this._n(7), 0.12, 560, '#9a6f40', { g: 0.0008, up: -0.12, spin: 0.03, size: 2.6 });
-        this._burst(CLOUD, x, y + 8, this._n(3), 0.03, 460, '#d9c3a0', { size: 4 });
-        break;
-      case 'wind': { // little swirls spinning out
-        for (let i = 0; i < this._n(3); i++) {
-          const s = this._take(SWIRL, x, y, 420, i ? '#d8fff0' : '#8fe0b8');
-          s.a = 4; s.b = 16 + i * 4; s.rot = i * 2.1; s.spin = 0.014 * (i % 2 ? -1 : 1);
-        }
-        this._burst(SPARK, x, y, this._n(4), 0.12, 220, '#e8fff6', { add: true, size: 1.3 });
-        break;
-      }
-      default: this.ring(x, y, 4, 18, 260, col, 2.5);
-    }
-  }
+  /** A spell's burst by element, and an enchanted glow behind it: the table
+   *  of looks is in elementfx.js (an unknown element gets a soft arcane burst). */
+  _spell(x, y, element, crit) { spawnElement(this, element, x, y, crit); }
 
   /** Cartoon impact stars bursting off a crit (no blood: this is a cosy game). */
   critStars(x, y, opts = {}) {
@@ -289,6 +329,9 @@ export class CombatFx {
     this._begin();
     this._burst(CLOUD, x, y, this._n(6), 0.05 * scale, 520, '#ffffff', { size: 5 * scale, up: -0.015, drag: 0.98 });
     this._burst(STAR, x, y, this._n(5), 0.11 * scale, 620, GOLD, { up: -0.05, g: 0.0002, spin: 0.02, size: 4.5 * scale });
+    // ...then sticker confetti and a white ring, so a kill reads as a little celebration.
+    this.ring(x, y, 4 * scale, 22 * scale, 300, '#ffffff', 3.5);
+    this.confetti(x, y - 4, Math.round(10 * Math.min(1.6, scale)), scale);
     const p = this._take(POOF, x, y - 10 * scale, 760, INK);
     p.size = Math.min(1.8, scale); p.vy = -0.02;
     this._end(delay);
@@ -316,6 +359,21 @@ export class CombatFx {
       r.rot = (i / n) * Math.PI * 2; r.spin = 0.0012; r.size = 56 + (i % 3) * 10;
     }
     this._burst(TWINKLE, x, y, this._n(10), 0.09, 900, '#fff6c8', { up: -0.04, size: 3.5 });
+    this._end();
+  }
+
+  /** Every level-up: a ring of stars round the hero, sticker confetti and a
+   *  rising "<Skill> <level>!" label (milestones add levelBurst on top). */
+  levelPop(x, y, text, big = false) {
+    this._begin();
+    this.ring(x, y + 12, 6, big ? 44 : 34, 620, GOLD, 3, 0.42);   // round the hero's feet
+    const n = this._n(big ? 10 : 7);
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2, s = this._take(STAR, x, y, 700, i % 2 ? '#ffffff' : GOLD);
+      s.vx = Math.cos(a) * 0.11; s.vy = Math.sin(a) * 0.07 - 0.03; s.drag = 0.975; s.g = 0.00008; s.size = big ? 6.5 : 5; s.spin = 0.008;
+    }
+    this.confetti(x, y - 6, big ? 26 : 14);
+    if (text) this.label(x, y - 24, text, '#B8860B', 1500, big ? 1.2 : 1);
     this._end();
   }
 
@@ -479,6 +537,46 @@ export class CombatFx {
           ctx.closePath(); ctx.fill();
           break;
         }
+        case BOLT: {
+          // A zig-zag crackle out from the hit, its kinks re-rolled every frame it flickers.
+          const len = s.size * (0.6 + t * 0.6), c = Math.cos(s.rot), sn = Math.sin(s.rot);
+          // Sticker-drawn: a navy edge, the bolt's colour, a white-hot core.
+          ctx.globalAlpha = Math.min(1, fade * 1.6); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+          ctx.beginPath(); ctx.moveTo(x, y);
+          for (let j = 1; j <= 3; j++) {
+            const d = len * j / 3, k = j < 3 ? (rnd() - 0.5) * len * 0.5 : 0;
+            ctx.lineTo(x + c * d - sn * k, y + sn * d + c * k);
+          }
+          ctx.strokeStyle = INK; ctx.lineWidth = 4.2; ctx.stroke();
+          ctx.strokeStyle = s.col; ctx.lineWidth = 2.6; ctx.stroke();
+          ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1; ctx.stroke();
+          break;
+        }
+        case CONFETTI: {
+          // A paper square tumbling: it flips (squashes) as it spins and sways as it falls.
+          ctx.globalAlpha = Math.min(1, fade * 2.5); ctx.fillStyle = s.col;
+          ctx.save(); ctx.translate(x + Math.sin(s.a + s.life * 0.006) * 2, y); ctx.rotate(s.rot);
+          ctx.scale(1, Math.cos(s.rot * 3 + s.a) * 0.8 + 0.2);
+          ctx.fillRect(-s.size, -s.size * 0.6, s.size * 2, s.size * 1.2);
+          if (s.col === '#FFFFFF') { ctx.strokeStyle = INK; ctx.lineWidth = 0.8; ctx.strokeRect(-s.size, -s.size * 0.6, s.size * 2, s.size * 1.2); }
+          ctx.restore();
+          break;
+        }
+        case LABEL: {
+          // A white sticker label: springs in past full size, settles, then fades as it rises.
+          const age = s.max - s.life, pop = juicePop(age);
+          ctx.globalAlpha = t > 0.75 ? (1 - t) / 0.25 : 1;
+          ctx.save(); ctx.translate(x, y); ctx.scale(pop * s.size, pop * s.size); ctx.rotate(-0.06);
+          ctx.font = '900 11px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          const w = ctx.measureText(s.txt).width + 14;
+          ctx.fillStyle = '#ffffff'; ctx.strokeStyle = INK; ctx.lineWidth = 1.8;
+          ctx.beginPath();
+          if (ctx.roundRect) ctx.roundRect(-w / 2, -9, w, 18, 9); else ctx.rect(-w / 2, -9, w, 18);
+          ctx.fill(); ctx.stroke();
+          ctx.fillStyle = s.col; ctx.fillText(s.txt, 0, 0.5);
+          ctx.restore();
+          break;
+        }
       }
     }
     ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.lineCap = 'butt';
@@ -545,6 +643,16 @@ export function columnImage(col) {
   return (_columns[col] = c);
 }
 
+/** A springy pop-in scale for stickers and numbers, `age` ms after they
+ *  appear: from small, past full size (about 1.3), back a touch under, then 1. */
+export function juicePop(age, over = 0.32) {
+  if (age < 0) return 0;
+  if (age < 80) { const u = age / 80; return 0.35 + (0.65 + over) * (1 - (1 - u) * (1 - u)); }
+  if (age < 170) { const u = (age - 80) / 90; return 1 + over - (over + 0.08) * u; }
+  if (age < 260) return 0.92 + 0.08 * ((age - 170) / 90);
+  return 1;
+}
+
 /** A chunky five-pointed sticker star: white border, gold fill, navy ink. */
 function drawStar(ctx, r, col) {
   if (r <= 0.3) return;
@@ -563,10 +671,22 @@ function drawStar(ctx, r, col) {
 // ---------------- Hooks the game calls ----------------
 // Small functions so game.js only needs a one-line call at each spot.
 
+/** Fewer pieces on low graphics, and while frames run slow (governor.js). */
+export const lowOf = (game) => !!(game.lowFx || game.fxTrim);
+
+/** The element of the player's blow, from whatever combat passes: an element
+ *  the game names for the hit (game._hitElement, for elemental weapons and the
+ *  element rework), the spell being cast, or a spell's spark colour; else null. */
+export function attackElement(game, color, kind) {
+  if (game._hitElement) return game._hitElement;
+  if (kind !== 'magic') return null;
+  return game._castElement || elementForTint(color) || null;
+}
+
 /** Where and when a blow by the player lands on `npc`: its impact point, the
  *  attacker's position, the shot's flight time, and whether it is a melee
  *  blow (which waits for the hero's swing, see CombatFx.armFresh). */
-function blowAt(game, npc, kind) {
+export function blowAt(game, npc, kind) {
   const c = npc.renderCenter(), p = game.player.renderCenter();
   const dist = Math.hypot(c.x - p.x, c.y - p.y);
   return { x: c.x, y: c.y - 8, from: p, delay: flightMs(kind, dist), melee: kind === 'blade' || kind === 'blunt' || kind === 'whip' || (kind === 'pierce' && game.combatMode() === 'melee') };
@@ -577,12 +697,12 @@ function blowAt(game, npc, kind) {
 export function hitImpact(game, npc, color) {
   const fx = game.cfx;
   if (!fx || !npc?.renderCenter) return;
-  fx.low = !!game.lowFx;
+  fx.low = lowOf(game);
   const kind = impactKind(game.weaponType?.(), game.combatMode?.());
   const b = blowAt(game, npc, kind);
   // A spear's thrust has no flight time; its puncture lands with the swing.
   if (b.melee) b.delay = 0;
-  fx.impact(kind, b.x, b.y, { from: b.from, delay: b.delay, melee: b.melee, crit: color === GOLD, element: kind === 'magic' ? elementForTint(color) : null,
+  fx.impact(kind, b.x, b.y, { from: b.from, delay: b.delay, melee: b.melee, crit: color === GOLD, element: attackElement(game, color, kind),
     gun: kind === 'bullet' ? game.weaponType?.() : null });
 }
 
@@ -593,7 +713,7 @@ export const BIG_HIT_SHARE = 0.25, HURT_HARD_SHARE = 0.15;
 export function hitsplatFx(game, entity, dmg, opts = {}) {
   const fx = game.cfx;
   if (!fx || !(dmg > 0) || !entity?.renderCenter) return;
-  fx.low = !!game.lowFx;
+  fx.low = lowOf(game);
   if (entity === game.player) {
     const share = dmg / Math.max(1, game.maxHp());
     if (share >= HURT_HARD_SHARE && !game.reduceMotion) fx.pulse('hurt', share / 0.4);
@@ -614,7 +734,7 @@ export function hitsplatFx(game, entity, dmg, opts = {}) {
 export function deathFx(game, npc) {
   const fx = game.cfx;
   if (!fx || !npc?.renderCenter) return;
-  fx.low = !!game.lowFx;
+  fx.low = lowOf(game);
   const c = npc.renderCenter(), sc = npc.def?.scale || 1;
   fx.deathPoof(c.x, c.y - 6 * sc, Math.min(2, 0.85 + sc * 0.25 + (npc.def?.boss ? 0.4 : 0)), 260);
 }
@@ -623,6 +743,6 @@ export function deathFx(game, npc) {
 export function dropFx(game, gi, x, y, wait = 0) {
   const fx = game.cfx;
   if (!fx || gi.id !== 'coins') return;
-  fx.low = !!game.lowFx;
+  fx.low = lowOf(game);
   fx.coinSparkle(x, y, Math.max(0, wait) + DROP_ARC_MS);
 }

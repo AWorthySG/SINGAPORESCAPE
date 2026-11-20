@@ -42,7 +42,8 @@ import { fxImage, fxTinted, drawFx, drawStrip, badgeKey, DARK_REGIONS } from './
 import { introCurve, titleAlpha, DEATH_FLASH_MS } from '../game/cinematics.js';
 import { TerrainFx, growBox } from './terrainfx.js';
 import { sunShadow, drawSunShadow, footfall } from './shadows.js';
-import { hasLightColumn, columnImage, dropArc, dropFx } from './combatfx.js';
+import { dropArc, dropFx } from './combatfx.js';
+import { applySquash, splatMotion, drawCritBurst, drawMissPuff, drawLootGlow, drawCoinGlint } from './juice.js';
 import { drawGrave } from './grave.js';
 
 // Gathering actions that show a progress ring over the node, and its colour.
@@ -266,7 +267,6 @@ export class Renderer {
       if (gr && gr.x >= x0 && gr.x <= x1 && gr.y >= y0 && gr.y <= y1) drawables.push({ sortY: gr.y + 0.3, z: 1, draw: () => drawGrave(ctx, gr.x * TILE + TILE / 2 - ox, gr.y * TILE + TILE * 0.8 - oy, timeMs) }); }
     for (const g of game.world.groundItems) {
       if (g.x < x0 || g.x > x1 || g.y < y0 || g.y > y1) continue;
-      const rar = RARITY[g.rarity] || RARITY.common, column = hasLightColumn(g.rarity);
       drawables.push({ sortY: g.y - 0.3, z: 0, draw: () => {
         // (Worked out at draw time, after the hero's clip has noted this frame's blow.)
         if (g.born && !g._fx) {
@@ -281,44 +281,15 @@ export class Renderer {
         if (ms < 0) return;   // still waiting for the blow that dropped it to land
         const arc = dropArc(ms, this._arc || (this._arc = {}));
         const cx = g.x * TILE + TILE / 2 - ox + (g.ox || 0) * arc.k, cy = g.y * TILE + TILE * 0.62 - oy + (g.oy || 0) * arc.k - arc.h;
-        // Soft glow so loot on the ground is easy to spot, tinted by rarity.
-        ctx.save();
-        // Additive light vanishes on the pale pastel ground, so rare beams paint solid colour.
-        ctx.globalCompositeOperation = rar.rank ? 'source-over' : 'lighter';
-        if (column) {
-          // Epic and Legendary drops stand in a glowing column of light (a soft
-          // wide glow behind a bright core) once they've landed.
-          const grow = Math.min(1, Math.max(0, ms - 300) / 260);
-          const bh = (34 + rar.rank * 14) * grow, bw = 5 + rar.rank * 2;
-          const glow = columnImage(rar.color);
-          if (glow) {
-            ctx.globalAlpha = 0.6 + Math.sin(timeMs * 0.006) * 0.15;
-            ctx.drawImage(glow, cx - bw * 2.4, cy - bh * 1.2, bw * 4.8, bh * 1.2 + 4);
-          }
-          const beam = ctx.createLinearGradient(0, cy - bh, 0, cy);
-          beam.addColorStop(0, rar.color + '00');
-          beam.addColorStop(0.6, rar.color + 'AA');
-          beam.addColorStop(1, rar.color);
-          ctx.globalAlpha = 0.75 + Math.sin(timeMs * 0.012) * 0.2;
-          ctx.fillStyle = beam;
-          ctx.fillRect(cx - bw / 2, cy - bh, bw, bh);
-          const ring = (timeMs % 700) / 700;
-          ctx.globalAlpha = 1 - ring;
-          ctx.strokeStyle = rar.color; ctx.lineWidth = 2.5;
-          ctx.beginPath(); ctx.ellipse(cx, cy + 3, 6 + ring * 10, 3 + ring * 5, 0, 0, Math.PI * 2); ctx.stroke();
-        } else if (rar.rank > 0) {
-          // Rare drops just pulse a ring at their base.
-          const ring = (timeMs % 900) / 900;
-          ctx.globalAlpha = 1 - ring;
-          ctx.strokeStyle = rar.color; ctx.lineWidth = 2;
-          ctx.beginPath(); ctx.ellipse(cx, cy + 3, 6 + ring * 8, 3 + ring * 4, 0, 0, Math.PI * 2); ctx.stroke();
-        }
-        ctx.globalAlpha = rar.rank ? 0.35 : 0.22 + Math.sin(timeMs * 0.005 + g.x + g.y) * 0.06;
-        ctx.fillStyle = rar.color;
-        ctx.beginPath(); ctx.arc(cx, cy, rar.rank ? 10 : 8, 0, Math.PI * 2); ctx.fill();
-        ctx.restore();
-        ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
-        drawGroundItem(ctx, g.id, cx, cy);
+        // Uncommon and up glow in their rarity's colour; rare and up stand in a
+        // beam of light once they've landed, legendary ones sparkle (juice.js).
+        drawLootGlow(ctx, g.rarity, cx, cy, ms, timeMs, !!(game.lowFx || game.fxTrim));
+        if (g.id === 'coins') drawCoinGlint(ctx, cx, cy, timeMs, g.x + g.y);   // coins catch the light now and then
+        if (arc.land > 0) {   // a little squash as it touches down
+          ctx.save(); ctx.translate(cx, cy + 6); ctx.scale(1 + arc.land * 0.22, 1 - arc.land * 0.22); ctx.translate(-cx, -(cy + 6));
+          drawGroundItem(ctx, g.id, cx, cy);
+          ctx.restore();
+        } else drawGroundItem(ctx, g.id, cx, cy);
       } });
     }
     // Only NPCs near the player can be on screen (the world holds thousands).
@@ -389,15 +360,19 @@ export class Renderer {
           ctx.setLineDash([]);
           ctx.restore();
         }
+        const hurt = this._heldHurt(n, timeMs);
+        // Struck: squash, stretch and wobble about its feet as the blow lands (juice.js).
+        const sq = applySquash(ctx, n, hurt, cx + off.x, cy + 12 * sc + off.y);
         drawCreature(ctx, n.artId || n.npcId, cx + off.x, cy - 2 + off.y - spawn * spawn * 6 * sc, {
           time: timeMs, facing: n.facing, fx: n.faceX, turn: (n.turnT || 0) / TURN_MS, entity: n,
           moving: n.isMoving, walk: n.walkPhase, move: n.animMove,
           scale: sc, sprite: n.def.sprite, color: n.def.color, boss: n.def.boss, family: n.def.family,
           attackK: n.swingProgress ? n.swingProgress() : -1,
-          hurt: this._heldHurt(n, timeMs), windup: n.windup > 0, castK: n.castT > 0 ? 1 - n.castT / 700 : 0, castCol: n.castCol,
+          hurt, windup: n.windup > 0, castK: n.castT > 0 ? 1 - n.castT / 700 : 0, castCol: n.castCol,
           low: game.lowFx,   // low graphics: monsters and townsfolk skip their moving parts
           trim: game.fxTrim,   // frames running slow: monster packs skip theirs too (governor.js)
         });
+        if (sq) ctx.restore();
         if (n.mech || n.mechHealer) drawBossMech(ctx, n, cx, cy, sc, timeMs, ox, oy);   // boss mechanics (bossmech.js)
         if (spawn > 0) ctx.restore();
       } });
@@ -1812,15 +1787,22 @@ export class Renderer {
       // Rise from above the head and fan out sideways so rapid hits don't stack
       // into one blob over the face. Back-to-back numbers also alternate
       // between two rows (e.row), so they never overlap before rising apart.
-      const px = c.x - ox + (e.fan || 0) * 13, py = c.y - oy - 26 - (e.row || 0) * 11 - age * 0.03;
+      // Each number springs in, hops sideways in a little arc and fades as it rises (juice.js).
+      const m = splatMotion(e, age, this._splatM || (this._splatM = {}));
+      const px = c.x - ox + (e.fan || 0) * 13 + m.dx, py = c.y - oy - 26 - (e.row || 0) * 11 + m.dy;
       const hit = e.dmg > 0;
-      // Pop in: overshoot to ~1.15 then settle to 1.
-      const pop = age < 90 ? 0.5 + 0.72 * (age / 90) : Math.max(1, 1.22 - (age - 90) / 260);
-      const a = Math.min(1, e.life / 350);
+      const pop = m.scale;
       const r = e.crit ? 10 : 8;
       ctx.save();
-      ctx.globalAlpha = a;
+      ctx.globalAlpha = m.alpha;
       ctx.translate(px, py); ctx.scale(pop * SPLAT_SCALE, pop * SPLAT_SCALE);
+      if (m.rot) ctx.rotate(m.rot);
+      if (!hit && !e.text) {
+        // A blow that didn't land: a soft "miss" puff rather than a zero.
+        drawMissPuff(ctx, age);
+        ctx.restore(); ctx.globalAlpha = 1;
+        continue;
+      }
       if (e.text) {
         // A word instead of a number (e.g. "Dodged!"): a white sticker label.
         ctx.font = '900 11px Nunito,"Trebuchet MS",sans-serif';
@@ -1865,6 +1847,7 @@ export class Renderer {
         const mega = e.critX >= 4;
         // Kept small (they used to dwarf the fight): a touch bigger than a plain hit, x4 a touch more.
         const size = mega ? 16 : 13.5;
+        drawCritBurst(ctx, (mega ? 19 : 16) + splatNum(e.dmg).length * 1.2, age * 0.0016, mega);   // a sticker star-burst behind it
         ctx.font = `900 ${size}px Nunito,"Trebuchet MS",sans-serif`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.lineJoin = 'round';

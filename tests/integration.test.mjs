@@ -2136,9 +2136,10 @@ test('night hunt boosts combat XP; big hits and kills trigger hit-stop', () => {
   assert.ok(chat.some((t) => t.startsWith('Night falls')));
   const n = game.npcs.find((x) => x.def.attackable && !x.def.boss);
   game.addHitsplat(n, 5, { crit: true });
-  assert.ok(game.hitStop > 0, 'a crit freezes the action for a moment');
-  game.update(16); game.update(100);
-  assert.equal(game.hitStop, 0, 'and it is brief');
+  // The hit-stop freezes the struck sprite alone (render/juice.js), not the world.
+  assert.equal(game.hitStop, 0, 'the rest of the world carries on');
+  assert.ok(n.stopUntil > n.stopFrom, 'a crit freezes the monster struck for a moment');
+  assert.ok(n.stopUntil - game.playMs < 500, 'and it is brief');
 });
 
 test('gear mastery: kills train every worn gear type (1 a monster, 5 a champion, 25 a boss), ranks add stats, saved with the game', async () => {
