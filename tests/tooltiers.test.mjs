@@ -212,13 +212,16 @@ test('the skill guide lists each skill\'s tools, ticking the one in use', async 
   assert.equal(toolLadderHTML(g, 'cooking'), '');
 });
 
-test('the tiered tools borrow their tier-1 sticker, tinted to their metal, until their own art arrives', async () => {
+test('the tiered tools have their own stickers (Part F), held like the tier-1 tool', async () => {
   const { itemIconSVG, itemArtSrc } = await import('../src/render/icons.js');
   const { propPoint } = await import('../src/render/heroanim.js');
+  const { existsSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
   for (const K of TOOL_KINDS) {
     for (const id of toolIds(K.tag).slice(1)) {
-      assert.equal(itemArtSrc(id), `assets/icons/item-${K.base}.webp`, id);
-      assert.match(itemIconSVG(id, 24), /filter:/, `${id} is tinted`);
+      assert.equal(itemArtSrc(id), `assets/icons/item-${id}.webp`, id);
+      assert.ok(existsSync(fileURLToPath(new URL(`../assets/icons/item-${id}.webp`, import.meta.url))), `item-${id}.webp`);
+      assert.doesNotMatch(itemIconSVG(id, 24), /filter:/, `${id} is not tinted`);
       // Held just like the tier-1 tool.
       assert.deepEqual(propPoint(id, 0.5, 0.5, 0), propPoint(K.base, 0.5, 0.5, 0), `${id} held like ${K.base}`);
     }
