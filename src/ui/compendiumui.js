@@ -8,7 +8,7 @@
 // on the shared modal body, and the page builders can run in the tests
 // without a DOM.
 import { REGION_LINES } from '../data/regionQuests.js';
-import { tabIconSVG } from '../render/icons.js';
+import { tabIconSVG, playIconHTML } from '../render/icons.js';
 import { findLinks } from '../game/encyclopedia.js';
 import {
   CHAPTERS, ARTICLE_BY_ID, CHAPTER_BY_ID, articleBlocks, relatedOf, searchArticles,
@@ -72,10 +72,13 @@ export const CODEX_VIEWS = [
 // Sections with painted art wear it in place of their emoji (the side
 // panel's tab pictures: the fighters, the bag, the journal, the trophy).
 export const CODEX_VIEW_ART = { monsters: 'combat', items: 'inventory', compendium: 'quests', foryou: 'achievements' };
+// ...and Places and Search wear their own round badges (assets/icons/ui-*.webp).
+export const CODEX_VIEW_ICON = { places: 'ui-places', search: 'ui-search' };
 /** A section's label for the switch: its painted icon and name, or the emoji one. */
 export function codexViewLabel(id, label) {
-  const art = CODEX_VIEW_ART[id];
-  return art ? `${tabIconSVG(art, 18)}${label.replace(/^\S+\s/, '')}` : label;
+  const art = CODEX_VIEW_ART[id], icon = CODEX_VIEW_ICON[id];
+  return art ? `${tabIconSVG(art, 18)}${label.replace(/^\S+\s/, '')}`
+    : icon ? `${playIconHTML(icon, 18)}${label.replace(/^\S+\s/, '')}` : label;
 }
 
 /** The section switch at the top of the Codex window. */

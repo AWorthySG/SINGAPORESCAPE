@@ -679,6 +679,7 @@ import { BESTIARY_BOSSES } from '../data/bestiary.js';
     'mech-shield_melee', 'mech-shield_ranged', 'mech-shield_magic', 'mech-safe_circle', 'mech-healers', 'mech-interrupt',
     'event-invasion', 'event-shoal', 'event-meteor', 'event-escort', 'event-champion', 'event-ancient_tree', 'event-weekly_crate',
     'ui-collection_log', 'ui-pets', 'ui-home', 'ui-focus', 'ui-rested', 'ui-grave', 'ui-skill_unlock', 'ui-mastery',
+    'ui-places', 'ui-search', 'ui-daily', 'ui-report',   // the Codex's Places and Search, Daily revision, Report card (FX-1)
     ...['fine', 'superior', 'epic', 'legendary', 'mythic'].map((q) => `quality-${q}`),
   ];
   export const playIconHTML = (name, size, cls = '') => `<img class="ui-ic ${cls}" src="assets/icons/${name}.webp" width="${size}" height="${size}" alt="" draggable="false" onerror="this.remove()" />`;
@@ -869,6 +870,10 @@ import { BESTIARY_BOSSES } from '../data/bestiary.js';
     'pangolin_scales', 'colugo_fur', 'tiger_whisker', 'garuda_plume', 'naga_scale', 'phoenix_ember', 'casino_chip',
     'obsidian_ring', 'orichalcum_amulet', 'jade_ring', 'star_amulet', 'celestial_ring', 'eternal_amulet',
     'pest_token', 'hunter_bait', 'forager_lamp', 'codex_quill', 'mosquito_net_cape']) ITEM_ART.add(id);
+  // Ammo pack (AM-1): gun rounds at every bar tier and the three special rounds.
+  const ROUNDS = ['bronze', 'iron', 'steel', 'mithril', 'adamant', 'rune', 'obsidian', 'orichalcum', 'jade', 'starmetal', 'celestial', 'eternal',
+    'incendiary', 'frost', 'shock'];
+  for (const r of ROUNDS) ITEM_ART.add(`${r}_rounds`);
   export const itemArtSrc = (id) => (ITEM_ART.has(id) ? `assets/icons/item-${id}.webp` : borrowedArt(id) ? `assets/icons/item-${borrowedArt(id).file}.webp` : null);
   const artImg = (file, size, cls, filter) => `<img class="${cls || ''}" width="${size}" height="${size}" src="assets/icons/${file}.webp" alt="" style="display:block;object-fit:contain${filter ? `;filter:${filter}` : ''}" />`;
   /** An icon for a long grid (the bank's hundreds of slots): fetched only as its
@@ -919,6 +924,8 @@ import { BESTIARY_BOSSES } from '../data/bestiary.js';
   I.casino_chip = I.coins;
   for (const [id, from] of [['pest_token', 'coins'], ['hunter_bait', 'fishing_bait'], ['forager_lamp', 'djinn_lamp'],
     ['codex_quill', 'feather'], ['mosquito_net_cape', 'pilgrim_cape']]) I[id] = I[from] || I.coins;
+  // Gun rounds' vector fallback: their metal's bar (steel for the special rounds).
+  for (const r of ROUNDS) I[`${r}_rounds`] ||= I[`${r}_bar`] || I.steel_bar || I.coins;
   // Items that name a sticker to borrow (`artFrom: [from, tint]`, e.g. the skill-chain goods) borrow it, tinted.
   for (const [id, it] of Object.entries(ITEMS)) if (it.artFrom && !ITEM_ART.has(id)) { BORROW_ID[id] = it.artFrom[0]; BORROW_TINT[id] = it.artFrom[1]; I[id] ||= I[it.artFrom[0]] || I.coins; }
   // Tiered gathering tools (tooltiers.js) borrow their tier-1 tool's sticker, tinted to their metal, until their own art arrives.

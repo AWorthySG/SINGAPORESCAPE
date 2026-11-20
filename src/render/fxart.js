@@ -20,11 +20,18 @@ export const REGION_BADGES = ['Kampong Glam', 'Chinatown', 'Marina Bay', 'Bukit 
 // The grim lands get the dark plaque and banner.
 export const DARK_REGIONS = new Set(['The Wilderness', 'Pulau Hantu', 'Tekong Badlands', 'The Shadow Rift']);
 export const badgeKey = (region) => `badge-${region.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`;
+// Painted combat effects (assets/fx/fx-<name>.webp): the crit star-burst, the
+// miss puff, confetti, the level-up ribbon, six element hits, the loot beam
+// (tinted by rarity) and the ultimate burst. Each caller keeps its canvas
+// drawing as the fallback while the picture loads (and in the tests).
+export const EFFECT_ART = ['crit-burst', 'miss-puff', 'confetti', 'levelup-ribbon', 'hit-ice', 'hit-lightning', 'hit-nature',
+  'hit-poison', 'hit-holy', 'hit-shadow', 'loot-beam', 'ultimate-burst'];
 
 /** Every file name (without .webp) in assets/fx/, for the lock-step test. */
 export const fxArt = () => new Set([
   ...CRITTER_ART.map((k) => `critter-${k}`), ...PARTICLE_ART.map((k) => `particle-${k}`),
   ...PIECES.flatMap((p) => [`banner-${p}`, `plaque-${p}`]), 'banner-crest', ...REGION_BADGES.map(badgeKey),
+  ...EFFECT_ART.map((k) => `fx-${k}`),
 ]);
 
 /**

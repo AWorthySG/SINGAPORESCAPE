@@ -8,7 +8,7 @@ import { drawRangedHeroRig } from './rangedHeroRig.js';
 import { drawPictureTool, drawWeaponTrail } from './heroanim.js';
 import { drawHeroBack } from './heroAnimArt.js';
 import { poseBlender } from './poseBlend.js';
-import { CREATURE_RIGS, TOWN_IDLE } from './creatureRigs.js';
+import { CREATURE_RIGS, TOWN_IDLE, bossRig } from './creatureRigs.js';
 import { REGION_GIVERS } from '../data/regionQuests.js';
 import { RESIDENTS } from '../data/consequences.js';
 import { BESTIARY_SPECIES, BESTIARY_BOSSES } from '../data/bestiary.js';
@@ -368,6 +368,31 @@ const RIGS = {
   },
   // The species and bosses cut from the animation-parts sheets (see creatureRigs.js).
   ...CREATURE_RIGS,
+  // Boss rigs D7 (RB61–RB66): measured from the parts sheets like creatureRigs.js, with its boss motions.
+  // RB61: the crown is baked onto both heads so it stays on when he roars.
+  singa_of_temasek: bossRig('singa_of_temasek', { fit: 0.846,
+    order: ['tail', 'limb2', 'base', 'limb', 'head'],
+    piv: { tail: [0.1204, 0.8745], limb2: [0.2372, 0.8086], base: [0.4013, 0.8498], limb: [0.5728, 0.7263], head: [0.4378, 0.6481], head_roar: [0.4378, 0.6481], limb_strike: [0.5728, 0.7263] } }),
+  // RB62: the arm under the boulder heaves it; the sash is the "tail" and hangs in front (no striking picture: the draft threw it backwards).
+  spirit_of_badang: bossRig('spirit_of_badang', { fit: 0.922, amp: { limb: 0.5 },
+    order: ['limb2', 'base', 'tail', 'limb', 'head'],
+    piv: { limb2: [0.728, 0.5381], base: [0.546, 0.6722], tail: [0.6317, 0.6969], limb: [0.372, 0.5691], head: [0.6129, 0.5299], head_roar: [0.6129, 0.5299] } }),
+  // RB63: the "limb" is paw, pestle and mortar in one, so it only rocks; the jade crest is baked onto both heads.
+  jade_moon_hare: bossRig('jade_moon_hare', { fit: 0.809, amp: { limb: 0.25 },
+    order: ['base', 'limb2', 'limb', 'head'],
+    piv: { base: [0.4558, 0.8399], limb2: [0.2762, 0.8399], limb: [0.7252, 0.9539], head: [0.5905, 0.5768], head_roar: [0.5905, 0.5768], limb_strike: [0.7252, 0.9539] } }),
+  // RB64: the wings are the limbs; the tiara is baked onto both heads (no striking picture: the draft wing faced the wrong way).
+  celestial_garuda: bossRig('celestial_garuda', { fit: 0.698,
+    order: ['tail', 'limb2', 'limb', 'base', 'head'],
+    piv: { tail: [0.3665, 0.8245], limb2: [0.7052, 0.5781], limb: [0.4104, 0.6033], base: [0.5657, 0.8245], head: [0.5657, 0.5982], head_roar: [0.5657, 0.5982] } }),
+  // RB65: the far wing is the near wing mirrored (the draft drew it facing the wrong way).
+  fenghuang: bossRig('fenghuang', { fit: 0.758,
+    order: ['tail', 'limb2', 'base', 'limb', 'head'],
+    piv: { tail: [0.4359, 0.6975], limb2: [0.7702, 0.5576], base: [0.6009, 0.7381], limb: [0.5586, 0.5688], head: [0.6263, 0.5576], head_roar: [0.6263, 0.5576], limb_strike: [0.5586, 0.5688] } }),
+  // RB66: front and hind paws; the coil and antlers stay on the body and head.
+  jade_dragon: bossRig('jade_dragon', { fit: 0.721,
+    order: ['limb2', 'base', 'limb', 'head'],
+    piv: { limb2: [0.2455, 0.8073], base: [0.5171, 0.7533], limb: [0.7787, 0.8515], head: [0.6177, 0.6061], head_roar: [0.6177, 0.6061], limb_strike: [0.7787, 0.8515] } }),
 };
 const _rigImg = {};
 const rigDir = (kind) => (kind === 'species' ? 'species/rig' : kind === 'town' ? 'townsfolk/idle' : 'bosses/rig');
@@ -383,6 +408,8 @@ function rigLayers(id, rig = RIGS[id]) {
 export const rigIds = () => Object.keys(RIGS);
 export const rigParts = (id) => RIGS[id] && [...rigFiles(RIGS[id])];
 export const rigKind = (id) => RIGS[id] && (RIGS[id].kind || 'boss');
+// A part's joint (fraction of the layer canvas); an alternate picture turns about its part's joint.
+export const rigPivot = (id, n) => RIGS[id] && (RIGS[id].parts[n] || Object.values(RIGS[id].parts).find((p) => p.alt === n))?.piv;
 // Townsfolk with idle parts, and the layer files each one ships.
 export const townIdleIds = () => Object.keys(TOWN_IDLE);
 export const townIdleParts = (id) => TOWN_IDLE[id] && Object.keys(TOWN_IDLE[id].piv);
