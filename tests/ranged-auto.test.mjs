@@ -138,3 +138,41 @@ test('a ranged fighter still steps out of a boss ground marker', () => {
   assert.ok(Math.abs(at.x - x0) > 1 || Math.abs(at.y - y0) > 1, `stepped out of the marker (now at ${at.x - x0},${at.y - y0})`);
   assert.equal(p.action?.npc, boss, 'still on the boss');
 });
+
+// The flee loop: auto battle ran at full life from champions it could take on
+// (or weak ones in a crowd), then went straight back for the monsters beside
+// them, woke them again and ran again: most of the walking left after the above.
+
+test('auto battle does not run at full life from a champion it can take on, or from a harmless one it chose', () => {
+  for (const ok of [true, false]) {
+    const { g, p } = arena('swordsman');
+    const champ = foe(g, 1, 0, 1e6);
+    champ.makeChampion(); champ.hp = champ.maxHp = 1e6;   // a long fight, so the old rule ran from it
+    champ.def = { ...champ.def, maxHit: 1 };
+    champ.target = p;
+    g._autoChampionOk = () => ok;
+    g.autoBattle = true;
+    g.attackNpc(champ);
+    assert.equal(g._autoFlee(), false, `no run (champion ok: ${ok})`);
+    assert.equal(p.action?.npc, champ, 'still fighting it');
+  }
+});
+
+test('auto battle still runs from a monster far above it, and keeps away from it for a while', () => {
+  const { g, p, spot } = arena('archer');
+  const deadly = foe(g, 2, 0, 1e6);
+  deadly.def = { ...deadly.def, level: g.fightLevel() * 3 + 30, maxHit: 60 };
+  deadly.target = p;
+  const beside = foe(g, 4, 1);   // an ordinary monster of your level right by it
+  g.autoBattle = true;
+  assert.equal(g._autoFlee(), true, 'it runs');
+  // Later, back near it (it has gone home and calmed down): the monster beside
+  // it is left alone instead of waking it again...
+  deadly.target = null;
+  g._fleeing = null;
+  g._placePlayer(spot.x - 4, spot.y);
+  assert.notEqual(g._autoPickTarget(), beside, 'the monster beside it is passed over');
+  // ...until the memory runs out.
+  g.tickCount += 201;
+  assert.equal(g._autoPickTarget(), beside, 'and fought again once the memory runs out');
+});
