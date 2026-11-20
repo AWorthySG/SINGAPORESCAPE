@@ -75,17 +75,22 @@ export const PERK_TRACKS = {
     { name: 'Deadeye', desc: '+4% ranged damage', mods: { dmg: 0.04 } },
     { name: 'Barbed Arrows', desc: '2% chance to stun on hit', mods: { stun: 0.02 } },
   ],
+  // Melee draws on two tracks (Attack and Strength) and Magic on one, so a mage's
+  // perks added up to well under half a fighter's damage by level 1,000 (spell
+  // damage +20% against +90%, crits and echoes a fraction of theirs). Each Magic
+  // perk now carries about what the two melee perks at its level do together:
+  // +18% damage, +4.5% crit, 5% echo and +6% boss damage a round of ten.
   magic: [
-    { name: 'Arcane Focus', desc: '+1% spell critical chance', mods: { crit: 0.01 } },
-    { name: 'Spell Power', desc: '+4% spell damage', mods: { dmg: 0.04 } },
-    { name: 'Rune Saver', desc: '5% chance a cast uses no runes', mods: { runeSave: 0.05 } },
+    { name: 'Arcane Focus', desc: '+1.5% spell critical chance', mods: { crit: 0.015 } },
+    { name: 'Spell Power', desc: '+6% spell damage', mods: { dmg: 0.06 } },
+    { name: 'Rune Saver', desc: '5% chance a cast uses no runes; +3% spell damage', mods: { runeSave: 0.05, dmg: 0.03 } },
     { name: 'Chain Spell', desc: '3% chance a spell leaps to another monster', mods: { splash: 0.03 } },
     { name: 'Mana Ward', desc: 'Take 1.5% less damage', mods: { reduce: 0.015 } },
-    { name: 'Critical Cast', desc: '+1% spell critical chance', mods: { crit: 0.01 } },
-    { name: 'Spell Echo', desc: '2% chance a spell casts twice', mods: { extra: 0.02 } },
-    { name: 'Siphon', desc: 'Heal 1% of spell damage dealt', mods: { lifesteal: 0.01 } },
-    { name: 'Archmage', desc: '+4% damage to bosses and champions', mods: { boss: 0.04 } },
-    { name: 'Overcharge', desc: '2% chance to stun on hit', mods: { stun: 0.02 } },
+    { name: 'Critical Cast', desc: '+1.5% spell critical chance and +3% spell damage', mods: { crit: 0.015, dmg: 0.03 } },
+    { name: 'Spell Echo', desc: '5% chance a spell casts twice', mods: { extra: 0.05 } },
+    { name: 'Siphon', desc: 'Heal 1% of spell damage dealt; +3% spell damage', mods: { lifesteal: 0.01, dmg: 0.03 } },
+    { name: 'Archmage', desc: '+6% damage to bosses and champions and +3% spell damage', mods: { boss: 0.06, dmg: 0.03 } },
+    { name: 'Overcharge', desc: '2% chance to stun on hit; +1.5% spell critical chance', mods: { stun: 0.02, crit: 0.015 } },
   ],
   agility: [
     { name: 'Graceful', desc: '+1% chance to dodge', mods: { dodge: 0.01 } },

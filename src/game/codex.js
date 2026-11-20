@@ -10,6 +10,7 @@ import { ALL_MONSTER_IDS, ALL_BOSS_IDS, getNpc } from '../data/npcs.js';
 import { getItem } from '../data/items.js';
 import { RACES, raceOf, weaponsFor, weaponTypeName } from '../data/races.js';
 import { armourTierOf, ARMOUR_TIERS } from './combat.js';
+import { ELEMENTS, elementMatchup, ELEMENT_MATCHUP } from '../data/magic.js';
 import { SIGNATURE_CLASS, SIGNATURE_DROP_CHANCE, sigIdFor } from '../data/bossWeapons.js';
 import { CLASS_BY_ID } from '../data/classes.js';
 import { CHAMPION_HP_MULT } from './npc.js';
@@ -186,6 +187,9 @@ export function codexEntry(game, id) {
   Object.assign(e, {
     examine: d.examine || '',
     strongWeapons: weaponsFor(rid).strong.map(weaponTypeName),
+    // Spell elements that bite into its race (x1.5) and that it resists (x0.7).
+    elements: ['strong', 'weak'].map((m) => ({ m, mult: ELEMENT_MATCHUP[m],
+      list: Object.keys(ELEMENTS).filter((el) => elementMatchup(el, rid) === m).map((el) => `${ELEMENTS[el].icon} ${ELEMENTS[el].name}`) })),
     armour: { tier, pct: Math.round(ARMOUR_TIERS[tier] * 100) + (d.boss ? 10 : 0) },
     // The same numbers the game puts on screen: life is already divided by
     // the creature's number scale (hpScaleFor in npcs.js), and so is every

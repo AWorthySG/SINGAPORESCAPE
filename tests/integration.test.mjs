@@ -2901,9 +2901,11 @@ test('Refine scrolls: rare from monsters, likelier from champions, always a few 
   g.rollDrops(boss);
   g._autoLoot = orig;
   const lvl = boss.def.tierLevel || boss.def.level || 1;
-  assert.ok(got >= 6 && got <= 10 + Math.floor(lvl / 75), `boss dropped ${got} refine scrolls`);
+  // (A late boss's siege, npcs.js bossSiegeScale, grows both piles by its factor.)
+  const siege = boss.def.siege || 1;
+  assert.ok(got >= 6 && got <= Math.round((10 + Math.floor(lvl / 75)) * siege), `boss dropped ${got} refine scrolls`);
   // Upgrade wards (which protect a refine) are counted as dropped too, not 100x.
-  assert.ok(wards >= 1 && wards <= 3, `boss dropped ${wards} upgrade wards`);
+  assert.ok(wards >= 1 && wards <= Math.round(3 * siege), `boss dropped ${wards} upgrade wards`);
   // Refine scrolls are earned, never bought.
   const { SHOPS } = await import('../src/data/shops.js');
   for (const sh of Object.values(SHOPS)) assert.ok(!(sh.stock || []).some((s) => s.id === R.SCROLL), 'not sold in shops');
@@ -4419,7 +4421,8 @@ test('spells: every spell hits the area for 100% damage (with XP), and elements 
   const { NPC } = await import('../src/game/npc.js');
   const { elementMatchup, SPELLS } = await import('../src/data/magic.js');
   assert.equal(elementMatchup('fire', 'flora'), 'strong');
-  assert.equal(elementMatchup('fire', 'aquatic'), null, 'elements are never resisted');
+  assert.equal(elementMatchup('fire', 'aquatic'), 'weak', 'elements can be resisted again (x0.7)');
+  assert.equal(elementMatchup('fire', 'humanoid'), null);
   assert.ok(SPELLS.every((s) => ['wind', 'water', 'earth', 'fire'].includes(s.element)), 'every spell has an element');
   globalThis.localStorage = fakeStorage(); clearSave();
   const g = new Game(); g.start(); g.chooseClass('wizard');
@@ -4613,7 +4616,7 @@ test('Sell gear for other classes: sells other weapons, armour, accessories and 
   assert.equal(s.unrelatedToClass('bronze_arrow'), true);
 });
 
-test('one spell per element: wind casts 2x faster, water slows and casts 30% faster, earth hits 5 tiles, fire 50% harder', async () => {
+test('one spell per element: wind casts 1/0.6 as fast, water slows and casts 40% faster, earth hits 5 tiles, fire burns', async () => {
   const { NPC } = await import('../src/game/npc.js');
   const { getSpell, SPELLS, ELEMENTS } = await import('../src/data/magic.js');
   const { playerMagicVsNpc } = await import('../src/game/combat.js');
@@ -4631,33 +4634,33 @@ test('one spell per element: wind casts 2x faster, water slows and casts 30% fas
     for (let i = 0; i < 60; i++) { p.attackCooldown = 0; const before = target.hp; g._magicAttack(target); if (target.hp < before) return p.attackCooldown; }
     assert.fail(`${spell} never hit`);
   };
-  // Cast speeds: wind half of earth's, water 1/1.3 of it.
+  // Cast speeds: wind 0.6 of earth's, water 1/1.4 of it.
   const t = foe(2); g.npcs = [t];
   const earthCd = cast('earth_strike', t), windCd = cast('wind_strike', t), waterCd = cast('water_strike', t);
-  assert.ok(Math.abs(windCd - earthCd * 0.5) < 0.01, `wind ${windCd} vs earth ${earthCd}`);
-  assert.ok(Math.abs(waterCd - earthCd / 1.3) < 0.01, `water ${waterCd} vs earth ${earthCd}`);
-  // Fire hits like the others, and ignites: 12% of the hit every second for 5 seconds.
+  assert.ok(Math.abs(windCd - earthCd * 0.6) < 0.01, `wind ${windCd} vs earth ${earthCd}`);
+  assert.ok(Math.abs(waterCd - earthCd / 1.4) < 0.01, `water ${waterCd} vs earth ${earthCd}`);
+  // Fire hits like the others, and ignites: 15% of the hit every second for 5 seconds.
   const max = (id) => playerMagicVsNpc(g.skills, g.equipment, getSpell(id), { defence: 1 }).max;
   assert.equal(max('fire_strike'), max('wind_strike'), 'no flat fire bonus any more');
   const IG = ELEMENTS.fire.ignite;
-  assert.deepEqual([IG.share, IG.secs], [0.12, 5]);
+  assert.deepEqual([IG.share, IG.secs], [0.15, 5]);
   const f = foe(2); g.npcs = [f];
   g._critHit = (d) => ({ dmg: d, crit: false }); g._aoeCrit = (d) => ({ dmg: d, critX: 0 });
   cast('fire_strike', f);
-  const hit = 1e7 - f.hp, per = Math.max(1, Math.round(hit * 0.12));
+  const hit = 1e7 - f.hp, per = Math.max(1, Math.round(hit * 0.15));
   assert.equal(f.ignite.burns.length, 1, 'set alight');
   assert.equal(f.ignite.burns[0].perSec, per);
   const burning = f.hp; f.ignite.acc = 0;
   for (let i = 0; i < 51; i++) g._tickIgnites();   // 30.6 seconds of ticks
-  assert.equal(burning - f.hp, per * 5, 'burns for 5 seconds at 12% of the hit, then stops');
+  assert.equal(burning - f.hp, per * 5, 'burns for 5 seconds at 15% of the hit, then stops');
   assert.equal(f.ignite, null, 'and goes out on its own');
   // Burns stack while they last: three hits burn together, each for its own 5 seconds.
   for (let k = 0; k < 3; k++) g._igniteFoe(f, 100, IG);
   const h2 = f.hp;
   g._tickIgnites(); g._tickIgnites();
-  assert.equal(h2 - f.hp, 36, 'all the stacks burn together');
+  assert.equal(h2 - f.hp, 45, 'all the stacks burn together');
   for (let i = 0; i < 20; i++) g._tickIgnites();
-  assert.equal(h2 - f.hp, 36 * 5, 'a burn adds 60% of its hit in all, however many are stacked');
+  assert.equal(h2 - f.hp, 45 * 5, 'a burn adds 75% of its hit in all, however many are stacked');
   // Out when the foe dies.
   const small = foe(3); small.maxHp = small.hp = 100; g.npcs = [f, small];
   for (let k = 0; k < 3; k++) g._igniteFoe(small, 400, IG);

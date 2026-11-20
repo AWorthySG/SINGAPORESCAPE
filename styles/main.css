@@ -2721,6 +2721,10 @@ body.boss-on #tip-toast { top: 132px; }
 .cx-note { font-size: 12px; color: var(--aw-text-sec); margin-top: 6px; }
 .cx-weapons, .cx-zones { display: flex; flex-wrap: wrap; gap: 5px; }
 .cx-weapon, .cx-zone { font-size: 12px; font-weight: 800; padding: 2px 10px; border-radius: 999px; border: 1.5px solid var(--aw-ink); background: var(--aw-grass-bg); text-transform: capitalize; }
+/* Spell elements in a codex entry: what it is weak to (gold) and what it resists (grey). */
+.cx-elements { margin-top: 6px; }
+.cx-el-strong { background: #fdf1d0; text-transform: none; }
+.cx-el-weak { background: #e8ebf0; text-transform: none; }
 .cx-zone { background: var(--aw-sky-bg); text-transform: none; }
 .cx-go-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
 .cx-go-row .wm-go { margin: 0; }

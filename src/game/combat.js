@@ -146,6 +146,14 @@ export function openWoundStacks(npc, tick) {
   if (tick - (npc.openWoundsAt || 0) > OPEN_WOUNDS.fadeTicks) { npc.openWounds = 0; return 0; }
   return npc.openWounds;
 }
+/** Earth's Shatter on a foe right now: the armour pierce (in %) its cracks give
+ *  every hit landed on it, by any style (0 once they've faded). See ELEMENTS.earth. */
+export function shatterPierce(npc, tick) {
+  const sh = npc?.shatter;
+  if (!sh) return 0;
+  if (tick > sh.until) { npc.shatter = null; return 0; }
+  return sh.n * ELEMENTS.earth.shatter.per;
+}
 
 
 // Monster armour: a share of every hit it shrugs off, by kind of creature, from
@@ -201,7 +209,7 @@ export const FLAT_DMG_BEATS = 1;
 export const RANGED_TYPE_DMG = { longbow: 1.6, rifle: 5.5 };
 /** The flat level damage's scale for the weapon in hand (`castMult`: a spell's
  *  share of the swing time; an element's own cast speed is left out, so Wind
- *  really does deal twice the damage per second). 1 for a test stub with no weapon speed. */
+ *  really does deal more damage per second). 1 for a test stub with no weapon speed. */
 export function flatDmgScale(equip, castMult = 1) {
   const ws = equip?.weaponSpeed?.(), h = equip?.hasteMult?.();
   if (!(ws > 0) || !(h > 0)) return 1;
@@ -239,7 +247,9 @@ export const WEAPON_DMG_MULT = {
   // off-hand's atkPct, haste and Ranged built into the weapon: see items.js.)
   dagger: 0.6, sword: 2.2, scimitar: 0.39, mace: 2.62, longsword: 2.13, battleaxe: 1.72, warhammer: 2.8,
   '2h_sword': 2.55, spear: 2.05, claws: 0.48, katana: 1.41, halberd: 3.18, cane: 0.71, shortbow: 0.445,
-  longbow: 1.15, pistol: 0.37, rifle: 1.07, shuriken: 1.3, staff: 0.32, wand: 0.31, whip: 2.0,
+  // (Staves, wands and orbs came down by 15% when the Mystic blessings began to count
+  // for spells, elements began to bite harder and Magic gained its attunement below.)
+  longbow: 1.15, pistol: 0.37, rifle: 1.07, shuriken: 1.3, staff: 0.272, wand: 0.264, whip: 2.0,
   // Secondary types (first estimates, pending the combat rescale), tuned against measured
   // damage (a headless run of each class's best weapon at tiers 10-250, not a formula)
   // so that each sits a little under its classes' main types and the main type stays
@@ -251,7 +261,7 @@ export const WEAPON_DMG_MULT = {
   // needs no ammo and pierces, so it stays just under the bows. (Retuned with the
   // main types: each now lands at about 80-105% of its class's main weapon, the
   // chakram 60-105% as it serves three quite different classes.)
-  parang: 1.75, kerambit: 0.27, toya: 2.35, crossbow: 2.92, chakram: 1.3, orb: 0.3, fan: 1.45,
+  parang: 1.75, kerambit: 0.27, toya: 2.35, crossbow: 2.92, chakram: 1.3, orb: 0.255, fan: 1.45,
 };
 /** The target's number scale (see hpScaleFor in npcs.js): hits on a big monster are divided by it. */
 const numScale = (npc) => npc?.hpScale || 1;
@@ -406,6 +416,20 @@ export const MAGIC_LEVEL_DIV = 80;
 // median class at level 100 to ~80% at 200. So from Magic 100 up to the bonus
 // cap, every 2 levels add a point to the spell's base as well.
 export const magicLevelBase = (magic) => Math.floor(Math.max(0, Math.min(LEVEL_BONUS_CAP, magic || 0) - 100) / 2);
+// Magic attunement. Even so, casters fell further behind every other class past
+// level 100 (measured with tools/balance/classlab.mjs and a typical upgraded build
+// at each level: Wizards and Sorcerers at ~55% of the median class's damage from
+// level 150, ~60% at 1,000, ~55% at 3,000), because a large share of a spell's
+// power (its base, the level bonus) is fixed, so quality, mastery, refining and
+// enchanting a staff added far less than they do to a sword or bow. So past Magic
+// 100 every spell gains up to +MAGIC_ATTUNE.gain, most of it by Magic 300, which
+// brings casters to about the median from level 100 to 3,000.
+export const MAGIC_ATTUNE = { from: 100, gain: 0.94, span: 100 };
+/** The attunement multiplier on spells at a Magic level (1 up to level 100). */
+export function magicAttunement(magic) {
+  const { from, gain, span } = MAGIC_ATTUNE;
+  return 1 + gain * (1 - Math.exp(-Math.max(0, (magic || 0) - from) / span));
+}
 export function playerMagicVsNpc(skills, equip, spell, npc) {
   const gear = equip.bonuses();
   const b = withLevelBonus(gear, skills);
@@ -417,6 +441,7 @@ export function playerMagicVsNpc(skills, equip, spell, npc) {
     // level 50 mage hits ~1.6x the spell's base and a level 99 mage ~2.2x.
     // The spell's base grows with Magic too (see spellBaseHit). (A dmgMult on an element would scale it.)
     max: Math.max(1, Math.round(((spellBaseHit(spell, skills.magic) + magicLevelBase(skills.magic) + (b.magicStr || 0)) * (1 + skills.magic / MAGIC_LEVEL_DIV)
-      * (ELEMENTS[spell.element]?.dmgMult || 1) * weaponDmgMult(equip) + scaledFlat(skills.magic, equip, 0.5)) * damageTaper(skills.magic) / numScale(npc))),   // plus the flat damage every Magic level adds
+      * (ELEMENTS[spell.element]?.dmgMult || 1) * weaponDmgMult(equip) + scaledFlat(skills.magic, equip, 0.5)) * damageTaper(skills.magic)
+      * magicAttunement(skills.magic) / numScale(npc))),   // plus the flat damage every Magic level adds, and attunement
   };
 }

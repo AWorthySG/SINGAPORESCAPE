@@ -1,0 +1,264 @@
+// Late bosses as sieges, casters brought up to the other classes, and the spell
+// elements' sharper matchups and effects. The balance checks use the real game
+// headlessly (tools/balance/classlab.mjs) with a typical upgraded build for each
+// level, the build the late-game damage lab measured.
+import './seed.mjs';   // seeded Math.random: no test fails on an unlucky roll
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+
+import { setupClass, dummyDps, pickTargets } from '../tools/balance/classlab.mjs';
+import { NPC } from '../src/game/npc.js';
+import { getNpc, ALL_BOSS_IDS, bossSiegeScale, BOSS_SIEGE } from '../src/data/npcs.js';
+import { EQUIP_SLOTS } from '../src/game/equipment.js';
+import { masteryType, MASTERY_RANKS, enchantValue, isMagicItem, STONE as UP_STONE } from '../src/game/mastery.js';
+import { starterBlessings } from '../src/game/blessings.js';
+import { CLASS_BY_ID } from '../src/data/classes.js';
+import { RACES } from '../src/data/races.js';
+import { ELEMENTS, ELEMENT_MATCHUP, elementMatchup, elementMult, getSpell } from '../src/data/magic.js';
+import { shatterPierce, magicAttunement, playerMagicVsNpc } from '../src/game/combat.js';
+import { PERK_TRACKS, sumPerks } from '../src/data/perks.js';
+import { elementTint } from '../src/render/worldlabels.js';
+import { codexEntry } from '../src/game/codex.js';
+
+/** A typical build at level L: quality, mastery, refining and enchant lines as a
+ *  player has them by then, and the best starter blessings. */
+function typical(cls, L) {
+  const g = setupClass(cls, L), eq = g.equipment;
+  const P = L <= 100 ? { q: 'fine', rank: 2, star: 4, lines: 1 } : L <= 200 ? { q: 'superior', rank: 3, star: 6, lines: 2 }
+    : L <= 300 ? { q: 'epic', rank: 4, star: 9, lines: 3 } : { q: 'epic', rank: 5, star: 10, lines: 3 };
+  for (const s of EQUIP_SLOTS) {
+    const id = eq.slots[s];
+    if (!id) continue;
+    eq.slotQuality[s] = P.q;
+    eq.mastery[masteryType(id)] = MASTERY_RANKS[P.rank].points;
+    const off = s === 'shield' && eq.slots.weapon === id;
+    (off ? eq.offRefines : eq.refines)[id] = P.star;
+    (off ? eq.offEnchants : eq.enchants)[id] = [isMagicItem(id) ? 'magPct' : 'atkPct', 'critDmg', 'crit'].slice(0, P.lines).map((stat) => ({ stat, value: enchantValue(id, stat) }));
+  }
+  const style = CLASS_BY_ID[cls].style;
+  g.activePrayers = new Set(starterBlessings(L, style === 'dance' ? 'melee' : style));
+  g.player.hp = g.maxHp();
+  return g;
+}
+const TICKS = 60;
+/** Single-target damage per second (real life) into the three monsters picked for the level. */
+function dps(cls, L, boss = false) {
+  const game = typical(cls, L), tg = pickTargets(L);
+  return tg.reduce((s, id) => s + dummyDps(cls, L, [id], [[1, 0]], TICKS, { game, boss }), 0) / tg.length;
+}
+const BOSSES = ALL_BOSS_IDS.map((id) => [id, getNpc(id)]).filter(([, d]) => !d.fixed && d.attackable);
+const bossFor = (L) => BOSSES.slice().sort((x, y) => Math.abs(x[1].level - L) - Math.abs(y[1].level - L))[0];
+/** Seconds for a solo typical build to bring down the boss nearest its level. */
+function bossTtk(cls, L) {
+  const [, d] = bossFor(L);
+  return d.maxHp * (d.hpScale || 1) / dps(cls, L, true);
+}
+const median = (v) => { const s = v.slice().sort((a, b) => a - b); return s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2; };
+
+test('boss life: x1 up to level 100, a siege by 300, rising gently past 1,000', () => {
+  assert.equal(bossSiegeScale(50), 1);
+  assert.equal(bossSiegeScale(100), 1);
+  assert.equal(bossSiegeScale(300), BOSS_SIEGE.max);
+  assert.equal(bossSiegeScale(1000), BOSS_SIEGE.max);
+  let prev = 1;
+  for (const L of [120, 200, 300, 600, 1000, 3000, 9999]) { const s = bossSiegeScale(L); assert.ok(s >= prev, `never falls (${L})`); prev = s; }
+  assert.ok(bossSiegeScale(9999) < BOSS_SIEGE.max * 2.1);
+  // Applied to every boss, and only to bosses.
+  for (const [, d] of BOSSES) assert.equal(d.siege, bossSiegeScale(d.level));
+  assert.equal(getNpc('goblin').siege, undefined);
+});
+
+test('a late boss takes about as long to bring down solo as a level 100 one (a siege, best fought with help)', () => {
+  // Before: a typical build took ~4 minutes at level 100 but 20-30 s at 300 and 1,000.
+  for (const cls of ['swordsman', 'archer']) {
+    const base = bossTtk(cls, 100);
+    assert.ok(base > 120 && base < 600, `${cls} level 100 boss: ${base.toFixed(0)} s`);
+    for (const L of [300, 1000]) {
+      const r = bossTtk(cls, L) / base;
+      assert.ok(r > 0.6 && r < 1.6, `${cls} level ${L} boss takes ${r.toFixed(2)}x level 100's`);
+    }
+  }
+});
+
+test('auto battle still takes on a siege boss it could take on before, and its rewards keep pace', () => {
+  const g = setupClass('swordsman', 300);
+  const [id, d] = bossFor(300);
+  assert.ok(d.siege > 10);
+  // Its rough time-to-kill is siege x longer, and so is the allowance.
+  assert.ok(g._autoCanBeat({ def: d, hp: d.maxHp, npcId: id }), 'a level-matched boss is fair game');
+  // Upgrade materials and the hoard grow with the siege; one-off gear does not.
+  const n = new NPC(id, g.player.x + 2, g.player.y, 0, {});
+  let loot = [];
+  g._autoLoot = (l) => { loot = l; };
+  g.rollDrops(n);
+  const stones = loot.find((l) => l[0] === UP_STONE);
+  assert.ok(stones && stones[1] >= Math.round(20 * d.siege), `a siege's pile of stones (${stones?.[1]})`);
+});
+
+test('Wizards and Sorcerers deal about the median class damage from level 100 to 1,000', () => {
+  // Before: Wizards at 80% of the median at level 100, 45% at 300 and 22% at 1,000.
+  const others = ['swordsman', 'paladin', 'archer', 'ranger', 'ninja', 'dancer'];
+  for (const L of [100, 300, 1000]) {
+    const med = median(others.map((c) => dps(c, L)));
+    for (const cls of ['wizard', 'sorcerer']) {
+      const r = dps(cls, L) / med;
+      assert.ok(r > 0.75 && r < 1.35, `${cls} at level ${L}: ${(r * 100).toFixed(0)}% of the median`);
+    }
+  }
+});
+
+test('the Mystic blessings count for spells, and Magic perks match the two melee tracks', () => {
+  const g = setupClass('wizard', 300), npc = new NPC('goblin', g.player.x + 2, g.player.y, 0, {});
+  npc.maxHp = npc.hp = 1e9;
+  g._critHit = (dmg) => ({ dmg, crit: false, mult: 1 });
+  g._aoeCrit = (dmg) => ({ dmg, critX: 0 });
+  const hitWith = (prayers) => {
+    g.activePrayers = new Set(prayers);
+    let total = 0;
+    for (let i = 0; i < 40; i++) { g.player.attackCooldown = 0; npc.hp = npc.maxHp; g._magicAttack(npc); total += npc.maxHp - npc.hp; }
+    return total;
+  };
+  const plain = hitWith([]), blessed = hitWith(['mystic_might']);
+  assert.ok(blessed > plain * 1.4, `Mystic Might (+60%) lifts spells: ${blessed} vs ${plain}`);
+  // A round of ten perks: Magic's damage matches Attack + Strength's.
+  const sum = (tracks) => sumPerks(tracks, () => 200);
+  assert.ok(Math.abs(sum(['magic']).dmg - sum(['attack', 'strength']).dmg) < 1e-9);
+  assert.ok(sum(['magic']).extra >= sum(['attack', 'strength']).extra);
+  assert.equal(PERK_TRACKS.magic.length, 10);
+  // Attunement: nothing up to Magic 100, then most of it by 300.
+  assert.equal(magicAttunement(100), 1);
+  assert.ok(magicAttunement(300) > 1.75 && magicAttunement(1000) < 1.95);
+});
+
+test('elements: every race has a strong element; strong x1.5, resisted x0.7', () => {
+  assert.equal(ELEMENT_MATCHUP.strong, 1.5);
+  assert.equal(ELEMENT_MATCHUP.weak, 0.7);
+  for (const r of Object.keys(RACES)) {
+    assert.ok(Object.keys(ELEMENTS).some((e) => elementMatchup(e, r) === 'strong'), `${r} has an element strong against it`);
+    assert.ok(Object.keys(ELEMENTS).filter((e) => elementMatchup(e, r) !== 'weak').length >= 2, `${r} resists at most two`);
+  }
+  assert.equal(elementMatchup('fire', 'undead'), 'strong');
+  assert.equal(elementMatchup('fire', 'dragon'), 'weak');
+  assert.equal(elementMatchup('fire', 'humanoid'), null);
+  assert.deepEqual(['strong', 'weak', null].map(elementMult), [1.5, 0.7, 1]);
+  // The codex shows them.
+  const g = setupClass('wizard', 50);
+  g.kills = { cursed_pirate: 1 };
+  const e = codexEntry(g, 'cursed_pirate');
+  assert.ok(e.elements.find((x) => x.m === 'strong').list.some((t) => t.includes('Fire')));
+});
+
+/** A wizard beside one huge-life foe, crits off, to look at single casts. */
+// The foe is a reptile body throughout (heavy armour, weak to magic), and only its
+// race changes (by family: a scarecrow is a plant, a qilin a dragon), so nothing but
+// the element matchup differs between them.
+function bench(family = 'plain_test') {
+  const g = setupClass('wizard', 300);
+  g.player.spellAuto = false;
+  const n = new NPC('goblin', g.player.x + 2, g.player.y, 0, {});
+  n.def = { ...n.def, sprite: 'reptile', family, aggressive: false };
+  n.maxHp = n.hp = 1e12;
+  g.npcs = [n];
+  g._critHit = (dmg) => ({ dmg, crit: false, mult: 1 });
+  g._aoeCrit = (dmg) => ({ dmg, critX: 0 });
+  const cast = (spell) => { g.player.spell = spell; g.player.attackCooldown = 0; const h = n.hp; g._magicAttack(n); return h - n.hp; };
+  return { g, n, cast };
+}
+
+test('elements bite harder and softer: an effective spell hits about 1.5x, a resisted one 0.7x, with gold and grey numbers', () => {
+  const avg = (family, spell) => {
+    const { g, n, cast } = bench(family);
+    let t = 0;
+    for (let i = 0; i < 200; i++) { t += cast(spell); n.shatter = null; n.ignite = null; }
+    return { t, g, n };
+  };
+  // Fire: a reptile is neither, a plant (scarecrow) is strong, a dragon (qilin) resists.
+  const neutral = avg('plain_test', 'fire_strike').t, strong = avg('scarecrow', 'fire_strike').t, weak = avg('celestial_qilin', 'fire_strike').t;
+  assert.ok(strong / neutral > 1.35 && strong / neutral < 1.65, `strong ${(strong / neutral).toFixed(2)}x`);
+  assert.ok(weak / neutral > 0.6 && weak / neutral < 0.8, `resisted ${(weak / neutral).toFixed(2)}x`);
+  const { g, n, cast } = bench('celestial_qilin');
+  g.effects = [];
+  cast('fire_strike');
+  assert.ok(g.effects.some((e) => e.type === 'hitsplat' && e.entity === n && e.dmg > 0 && e.tint === '#9aa3b2'), 'resisted: a grey number');
+  assert.ok(g.effects.some((e) => e.type === 'hitsplat' && e.text === 'Fire: Resisted'), 'and a "Resisted" pop');
+  const b = bench();
+  b.g.effects = [];
+  b.cast('wind_strike');
+  assert.ok(b.g.effects.some((e) => e.type === 'hitsplat' && e.entity === b.n && e.tint === ELEMENTS.wind.splat), 'a neutral spell in its element\'s colour');
+});
+
+test('Wind: Gale adds 15% crit chance to its casts', () => {
+  const { g, n } = bench();
+  const critCh = (spell) => { g._castElement = getSpell(spell).element; const m = g._offensiveMods(n, 'magic'); g._castElement = null; return m.critCh; };
+  assert.ok(Math.abs(critCh('wind_strike') - critCh('earth_strike') - ELEMENTS.wind.crit) < 1e-9);
+  assert.equal(ELEMENTS.wind.crit, 0.15);
+});
+
+test('Water: Chill slows a foe and its blows land 25% softer, then wears off', () => {
+  const { g, n, cast } = bench();
+  n.def = { ...n.def, maxHit: 400, attack: 5000 };
+  g.perkMods = () => ({});
+  const p = g.player;
+  const blow = () => {
+    const rnd = Math.random;
+    p.hp = p.maxHp = 1e6;
+    g.maxHp = () => 1e6;
+    // Low rolls: the blow lands (no dodge perks here) for the bottom of its range.
+    try { Math.random = () => 0.001; const h = p.hp; g.resolveNpcAttack(n); return h - p.hp; } finally { Math.random = rnd; }
+  };
+  const before = blow();
+  assert.ok(before > 0);
+  cast('water_strike');
+  assert.ok(n.slowTicks > 0, 'chilled');
+  assert.equal(elementTint(g, n).col, '#7fd4ff', 'washed icy blue');
+  const chilled = blow();
+  assert.ok(chilled <= Math.floor(before * 0.75) + 1 && chilled >= Math.floor(before * 0.75) - 1, `${chilled} vs ${before}`);
+  for (let i = 0; i < 6; i++) n._combatAI(g);
+  assert.equal(n.slowTicks, 0);
+  assert.equal(blow(), before, 'full strength again');
+});
+
+test('Earth: Shatter cracks armour, up to 5 cracks of +6% pierce for every hit on the foe, and fades', () => {
+  const { g, n, cast } = bench();
+  const mods = () => g._offensiveMods(n, 'melee').dmgM;
+  const m0 = mods();
+  for (let i = 0; i < 7; i++) cast('earth_strike');
+  assert.equal(n.shatter.n, 5, 'stops at 5 cracks');
+  assert.equal(shatterPierce(n, g.tickCount), 30);
+  assert.ok(mods() / m0 > 1.3, `every hit lands harder, a sword's too (${(mods() / m0).toFixed(2)}x)`);
+  assert.equal(elementTint(g, n).col, '#a07838');
+  g.tickCount += ELEMENTS.earth.shatter.ticks + 1;
+  assert.equal(shatterPierce(n, g.tickCount), 0, 'faded');
+  assert.equal(n.shatter, null);
+});
+
+test('Fire: Ignite burns 15% of the hit before its crit every second for 5s, and the foe glows', () => {
+  const { g, n, cast } = bench();
+  const hit = cast('fire_strike');
+  assert.equal(n.ignite.burns.length, 1);
+  assert.equal(n.ignite.burns[0].perSec, Math.max(1, Math.round(hit * 0.15)));
+  assert.equal(elementTint(g, n).col, '#ff6a1a');
+  // A crit's burn is worked out from the hit before the crit.
+  const b = bench();
+  b.g._critHit = (dmg) => ({ dmg: dmg * 2, crit: true, mult: 2 });
+  const hc = b.cast('fire_strike');
+  assert.equal(b.n.ignite.burns[0].perSec, Math.max(1, Math.round(hc / 2 * 0.15)));
+});
+
+test('a spell\'s max hit counts its attunement, and the Stats tab agrees with the attack code', async () => {
+  const { maxHitNow } = await import('../src/game/statsheet.js');
+  const g = setupClass('wizard', 300);
+  g.activePrayers = new Set(['mystic_might']);
+  const sp = getSpell(g.player.spell);
+  const m = maxHitNow(g);
+  const base = playerMagicVsNpc(g.skills, g.equipment, sp, {}).max;
+  assert.ok(m.max >= Math.round(base * 1.6 * 0.99), `the blessing shows in the Stats max hit (${m.max} vs ${base})`);
+  assert.ok(m.parts.some(([l]) => l === 'Prayer'));
+});
+
+test('an Endless Gate boss keeps the wave\'s life, so its rewards are not a siege\'s', async () => {
+  const { waveBossDef } = await import('../src/game/waves.js');
+  const [id] = bossFor(1000);
+  assert.ok(getNpc(id).siege > 10);
+  assert.equal(waveBossDef(id, 5, 1000).siege, 1);
+});

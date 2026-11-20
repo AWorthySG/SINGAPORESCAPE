@@ -144,7 +144,9 @@ export function codexEntryHTML(game, id) {
     stat('Aggressive', e.aggressive ? 'Yes' : 'No', e.aggressive ? 'Attacks you on sight' : 'Only fights back') +
     '</div>' + scaleNote +
     (e.championLife ? `<div class="cx-note">★ Can turn up as a champion: ${full(e.championLife)} life, harder hits and much better loot.</div>` : '') + '</div>';
-  const strong = `<div class="cx-sec"><h4>Strong against it</h4><div class="cx-weapons">${e.strongWeapons.map((w) => `<span class="cx-weapon">${esc(w)}</span>`).join('') || '<i>No weapon type in particular.</i>'}</div></div>`;
+  const els = (e.elements || []).filter((x) => x.list.length).map((x) => `<span class="cx-weapon cx-el-${x.m}" title="Spells of this element do ×${x.mult} damage">${x.m === 'strong' ? 'weak to' : 'resists'} ${x.list.map(esc).join(', ')}</span>`).join('');
+  const strong = `<div class="cx-sec"><h4>Strong against it</h4><div class="cx-weapons">${e.strongWeapons.map((w) => `<span class="cx-weapon">${esc(w)}</span>`).join('') || '<i>No weapon type in particular.</i>'}</div>` +
+    (els ? `<div class="cx-weapons cx-elements">${els}</div>` : '') + '</div>';
   let boss = '';
   if (e.signature) {
     const mine = e.signature.classId === game?.jobClass;
