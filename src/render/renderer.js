@@ -23,7 +23,7 @@ const ARROW_LOOK = {
   starmetal: { head: '#ffd24a', fletch: '#fff2b0', shaft: '#4a4a6a', trail: '#ffe88a', glow: '#ffd24a', size: 1.2, barbed: true },
   eternal: { head: '#c27bff', fletch: '#ecd6ff', shaft: '#3a2a5a', trail: '#d6a8ff', glow: '#a855ff', size: 1.25, barbed: true },
 };
-import { labelMode, objectLabelAlpha, npcNameVisible, targetTag } from './worldlabels.js';
+import { labelMode, objectLabelAlpha, npcNameVisible, targetTag, elementTint } from './worldlabels.js';
 import { drawCreature, drawPlayer, drawObjectSprite, drawGroundItem } from './sprites.js';
 import { heroAnimFrame, drawFishingGear, strikeClock } from './heroanim.js';
 import { petDrawable } from './petsprite.js';
@@ -370,6 +370,7 @@ export class Renderer {
           scale: sc, sprite: n.def.sprite, color: n.def.color, boss: n.def.boss, family: n.def.family,
           attackK: n.swingProgress ? n.swingProgress() : -1,
           hurt, windup: n.windup > 0, castK: n.castT > 0 ? 1 - n.castT / 700 : 0, castCol: n.castCol,
+          status: elementTint(game, n, timeMs),   // burning, chilled or cracked: a wash of the element's colour
           low: game.lowFx,   // low graphics: monsters and townsfolk skip their moving parts
           trim: game.fxTrim,   // frames running slow: monster packs skip theirs too (governor.js)
         });
