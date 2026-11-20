@@ -15,6 +15,7 @@ export const CLUE_TIERS = {
       { id: 'sapphire', weight: 15 }, { id: 'emerald', weight: 8 },
       { id: 'steel_platebody', weight: 10 }, { id: 'steel_scimitar', weight: 10 },
       { id: 'mithril_arrow', min: 30, max: 80, weight: 12 },
+      { id: 'mithril_rounds', min: 60, max: 160, weight: 6 },
       { id: 'lobster', min: 3, max: 6, weight: 12 },
     ],
   },
@@ -26,6 +27,8 @@ export const CLUE_TIERS = {
       { id: 'mithril_platebody', weight: 10 }, { id: 'mithril_scimitar', weight: 10 },
       { id: 'amulet_of_power', weight: 8 },
       { id: 'rune_arrow', min: 40, max: 120, weight: 12 },
+      { id: 'rune_rounds', min: 80, max: 240, weight: 6 },
+      { id: 'incendiary_rounds', min: 40, max: 100, weight: 3 }, { id: 'frost_rounds', min: 40, max: 100, weight: 3 }, { id: 'shock_rounds', min: 40, max: 100, weight: 3 },
     ],
   },
   hard: {

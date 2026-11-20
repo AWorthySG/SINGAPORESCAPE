@@ -90,10 +90,11 @@ import { XpDisplay } from './xpdisplay.js';
 import { crossesMilestone, xpDisplayMode, nextXpDisplay, XP_DISPLAY_NAMES } from '../game/xptrack.js';
 import { regionDialogue, canRegionTeleport, regionTeleport } from '../game/regionquests.js';
 import { installLifeSkillUI, lifeTrackerRows } from './lifeskillui.js';
+import { isRound, isGunId } from '../game/rounds.js';
 
 const EQUIP_LAYOUT = [
   null, 'head', null,
-  'cape', 'amulet', null,
+  'cape', 'amulet', 'ammo',   // ammo: gun rounds (rounds.js), not one of the gear slots
   'weapon', 'body', 'shield',
   null, 'legs', null,
   'hands', 'feet', 'ring',
@@ -1093,6 +1094,7 @@ export class UI {
     if (item.heal) this.game.eatItem(i);
     else if (item.potion) this.game.drinkPotion(i);
     else if (item.equip) this.game.equipItem(i);
+    else if (isRound(s.id)) this.game.loadRounds(i);
     else if (item.tags?.includes('log')) this.game.lightLogs(i);
     else if (isBone(s.id)) this.game.buryBones(i);
     else if (s.id === 'mark_of_grace') this.game.useMarkOfGrace(i);
@@ -1123,6 +1125,7 @@ export class UI {
         opts.push({ label: 'Wield in main hand', target: item.name, fn: () => this.game.equipItem(i, { offhand: false }) });
       } else opts.push({ label: item.equip.slot === 'weapon' ? 'Wield' : 'Wear', target: item.name, fn: () => this.game.equipItem(i) });
     }
+    if (isRound(s.id)) opts.push({ label: 'Load', target: item.name, fn: () => this.game.loadRounds(i) });
     if (item.tags?.includes('log')) opts.push({ label: 'Light', target: item.name, fn: () => this.game.lightLogs(i) });
     if (isBone(s.id)) {
       opts.push({ label: s.qty > 1 ? `Bury ${Math.min(100, s.qty)}` : 'Bury', target: item.name, fn: () => this.game.buryBones(i) });
@@ -1157,12 +1160,32 @@ export class UI {
   }
 
   // ---------------- Equipment ----------------
+  /** The ammo slot: the rounds a gun fires (rounds.js), with how many are left. */
+  _ammoCell(cell) {
+    const a = this.game.equipment.ammo, gun = isGunId(this.game.equipment.get('weapon'));
+    cell.dataset.slot = 'ammo';
+    if (!a) {
+      cell.className = 'equip-slot empty';
+      cell.textContent = 'Ammo';
+      this._tip(cell, () => `<b>Ammo slot</b><br>Load rounds here for pistols and sniper rifles: tap rounds in your pack.${gun ? '<br>Without rounds your guns fire plain shot.' : ''}`);
+      return;
+    }
+    const it = getItem(a.id), lbl = stackLabel(a.qty);
+    cell.className = 'equip-slot filled';
+    cell.innerHTML = `${itemIconSVG(a.id, 32)}<span class="qty ${lbl.cls}">${lbl.text}</span>`;
+    cell.addEventListener('click', () => this.game.unloadRounds());
+    this._tip(cell, () => `<b>${escapeHtml(it.name)}</b> &times;${formatNumber(a.qty)}<br>+${it.roundStr} shot power for guns${it.special ? `<br>${escapeHtml(it.examine.replace(/^Rounds for guns: /, ''))}` : ''}`
+      + `${gun ? '' : '<br><span style="opacity:.8">Only pistols and sniper rifles fire rounds.</span>'}<br><span style="opacity:.8">Tap to unload</span>`,
+      () => [{ label: 'Unload', target: it.name, fn: () => this.game.unloadRounds() }]);
+  }
+
   renderEquipment() {
     const layout = this.el.equipLayout;
     layout.innerHTML = '';
     for (const slot of EQUIP_LAYOUT) {
       const cell = document.createElement('div');
       if (!slot) { cell.className = 'equip-slot empty'; cell.style.visibility = 'hidden'; layout.appendChild(cell); continue; }
+      if (slot === 'ammo') { this._ammoCell(cell); layout.appendChild(cell); continue; }
       const id = this.game.equipment.get(slot);
       if (id) {
         const item = getItem(id);

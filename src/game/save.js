@@ -96,6 +96,7 @@ export function snapshot(game) {
     story: game.story?.serialize(),   // story chapters, lore pages, lore guardians (story.js)
     discovery: game.discovery?.serialize(),   // encyclopedia discoveries (discovery.js)
     bowQuiverGiven: !!game.bowQuiverGiven,   // the one-off quiver for bows from before quivers (game._giveBowQuiver)
+    gunRoundsGiven: !!game.gunRoundsGiven,   // the one-off rounds for guns from before the ammo slot (rounds.js)
     playMs: Math.floor(game.playMs || 0),   // time played, shown when choosing between a cloud and a device save
     settings: { running: game.running, autoCfg: game.autoCfg, autoGather: game.autoGather, gatherPicks: [...(game.gatherPicks || [])], knowledgeStrikes: game.knowledgeStrikes, minimalHud: !!game.minimalHud,
       worldLabels: game.worldLabels || 'smart', tips: game.tipsOn !== false, tipsSeen: [...(game.tipsSeen || [])],
@@ -406,6 +407,7 @@ function loadFields(game, data) {
   // Time played (older saves: not counted yet).
   game.playMs = typeof data.playMs === 'number' && data.playMs > 0 ? data.playMs : 0;
   game.bowQuiverGiven = data.bowQuiverGiven === true;
+  game.gunRoundsGiven = data.gunRoundsGiven === true;   // older saves: not yet (start() hands gun users some rounds)
   if (game.waves) game.waves.best = typeof data.waveBest === 'number' && data.waveBest > 0 ? Math.floor(data.waveBest) : 0;
   // ...and per class, and the modifiers last picked (older saves: none).
   if (game.waves) {

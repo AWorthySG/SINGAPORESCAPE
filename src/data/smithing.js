@@ -109,3 +109,10 @@ SMITH.push(
   { result: 'barbed_hooks', qty: 10, bar: 'iron_bar', barCount: 1, level: 25, xp: 30 },
   { result: 'refine_scroll', qty: 1, bar: 'adamant_bar', barCount: 2, level: 75, xp: 110, upgrade: true },
 );
+
+// ---- Gun rounds (see rounds.js): twenty from a bar, at every bar tier ----
+// A little above the tier's first piece, for one bar's worth of XP.
+export const ROUNDS_PER_BAR = 20;
+for (const M of [..._SMETALS, ..._ENDGAME]) {
+  SMITH.push({ result: `${M.k}_rounds`, qty: ROUNDS_PER_BAR, bar: `${M.k}_bar`, barCount: 1, level: M.base + 2, xp: M.xp });
+}
