@@ -1180,7 +1180,7 @@ const PROPS = {
   knife: { grip: [0.78, 0.78], tip: [0.2, 0.22], size: 14 },
 };
 const HELD = { grip: [0.5, 0.62], tip: [0.5, 0.1], size: 16 };   // anything else: held up in the fist
-// A tiered tool (an iron axe...) is held like its tier-1 tool, whose sticker it borrows.
+// A tiered tool (an iron axe...) is held like its tier-1 tool: its sticker copies that one's shape and angle.
 const propOf = (id) => PROPS[id] || PROPS[ITEMS[id]?.toolBase] || null;
 // A borrowed sticker drawn with its metal tint, baked once into a canvas (a
 // filter on every frame would cost too much). The plain image without a DOM.

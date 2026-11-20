@@ -874,6 +874,8 @@ import { BESTIARY_BOSSES } from '../data/bestiary.js';
   const ROUNDS = ['bronze', 'iron', 'steel', 'mithril', 'adamant', 'rune', 'obsidian', 'orichalcum', 'jade', 'starmetal', 'celestial', 'eternal',
     'incendiary', 'frost', 'shock'];
   for (const r of ROUNDS) ITEM_ART.add(`${r}_rounds`);
+  // Part F: every tiered gathering tool (iron to eternal axes, pickaxes, rods, harpoons and snares).
+  for (const [id, it] of Object.entries(ITEMS)) if (it.toolTier > 0) ITEM_ART.add(id);
   export const itemArtSrc = (id) => (ITEM_ART.has(id) ? `assets/icons/item-${id}.webp` : borrowedArt(id) ? `assets/icons/item-${borrowedArt(id).file}.webp` : null);
   const artImg = (file, size, cls, filter) => `<img class="${cls || ''}" width="${size}" height="${size}" src="assets/icons/${file}.webp" alt="" style="display:block;object-fit:contain${filter ? `;filter:${filter}` : ''}" />`;
   /** An icon for a long grid (the bank's hundreds of slots): fetched only as its
@@ -928,8 +930,8 @@ import { BESTIARY_BOSSES } from '../data/bestiary.js';
   for (const r of ROUNDS) I[`${r}_rounds`] ||= I[`${r}_bar`] || I.steel_bar || I.coins;
   // Items that name a sticker to borrow (`artFrom: [from, tint]`, e.g. the skill-chain goods) borrow it, tinted.
   for (const [id, it] of Object.entries(ITEMS)) if (it.artFrom && !ITEM_ART.has(id)) { BORROW_ID[id] = it.artFrom[0]; BORROW_TINT[id] = it.artFrom[1]; I[id] ||= I[it.artFrom[0]] || I.coins; }
-  // Tiered gathering tools (tooltiers.js) borrow their tier-1 tool's sticker, tinted to their metal, until their own art arrives.
-  for (const [id, it] of Object.entries(ITEMS)) if (it.toolTier && !ITEM_ART.has(id)) { BORROW_ID[id] = it.toolBase; BORROW_TINT[id] = metalTint(it.toolMetal); I[id] ||= I[it.toolBase] || I.coins; }
+  // Tiered gathering tools (tooltiers.js) have their own stickers (ITEM_ART); their tier-1 tool's vector is the fallback.
+  for (const [id, it] of Object.entries(ITEMS)) if (it.toolTier) I[id] ||= I[it.toolBase] || I.coins;
   // Boss signature weapons have painted stickers (ITEM_ART); their base weapon's vector is the fallback.
   for (const [id, it] of Object.entries(ITEMS)) if (it.signature && !I[id]) I[id] = I[it.signature.base];
   function hueOf(hex) {
