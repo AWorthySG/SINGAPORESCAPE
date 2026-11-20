@@ -424,7 +424,8 @@ test('Part E species rigs: real monsters with their still art, layers on one can
   const { readFileSync } = await import('node:fs');
   const { fileURLToPath } = await import('node:url');
   const families = new Set(Object.values(NPCS).map((d) => d.family));
-  const E = ['reticulated_python', 'reef_shark', 'tarantula', 'sea_snake', 'jungle_spider', 'rust_golem', 'pocong', 'skeleton', 'outlaw', 'wild_dog'];
+  const E = ['reticulated_python', 'reef_shark', 'tarantula', 'sea_snake', 'jungle_spider', 'rust_golem', 'pocong', 'skeleton', 'outlaw', 'wild_dog',
+    'jungle_wraith', 'smuggler', 'pink_dolphin', 'hornbill', 'pontianak', 'dock_rat', 'horseshoe_crab', 'drowned_sailor', 'flying_fox', 'king_cobra'];
   for (const id of E.filter((f) => CREATURE_RIGS[f])) {
     const rig = CREATURE_RIGS[id];
     assert.equal(rig.kind, 'species');
@@ -437,7 +438,7 @@ test('Part E species rigs: real monsters with their still art, layers on one can
       assert.ok(x > 0.02 && x < 0.98 && y > 0.02 && y <= 1, `${id} ${n} joint is on the picture`);
     }
   }
-  assert.ok(E.filter((f) => CREATURE_RIGS[f]).length >= 8, 'most of the E1 batch is rigged');
+  assert.ok(E.filter((f) => CREATURE_RIGS[f]).length >= 16, 'most of the E1 and E2 batches are rigged');
 });
 
 test('every monster body type has an automatic animation style', async () => {

@@ -117,7 +117,7 @@ const BODY = {
   },
 };
 // How fast each flier's wings beat.
-const FLAP = { mosquito: 0.06, fruit_bat: 0.024, forest_drake: 0.013 };
+const FLAP = { mosquito: 0.06, fruit_bat: 0.024, forest_drake: 0.013, flying_fox: 0.022, hornbill: 0.014 };
 
 // --- measured from the sheets (tools: cut, fit against the assembled picture, bake) ---
 const RIG_DATA = {
@@ -209,6 +209,34 @@ const RIG_DATA = {
   wild_dog: { plan: 'quad', kind: 'species', fit: 1.016,
     order: ['tail', 'back_far', 'front_far', 'back_near', 'front_near', 'body', 'head'],
     piv: { body: [0.4545, 0.8862], head: [0.597, 0.6123], front_near: [0.5364, 0.7815], front_far: [0.6455, 0.8062], back_near: [0.2939, 0.7446], back_far: [0.2515, 0.8615], tail: [0.2697, 0.6246], head_open: [0.597, 0.6123] } },
+  // Species rigs E2 (RS11–RS20)
+  jungle_wraith: { plan: 'float', kind: 'species', fit: 1.016,
+    order: ['arm_far', 'lower', 'body', 'face', 'arm_near'],
+    piv: { body: [0.6121, 0.8308], face: [0.8213, 0.4617], arm_near: [0.7091, 0.6185], arm_far: [0.5667, 0.76], lower: [0.6, 0.72], face_attack: [0.8213, 0.4617] } },
+  smuggler: { plan: 'biped', kind: 'species', fit: 1.016,
+    order: ['cape', 'arm_far', 'leg_far', 'leg_near', 'body', 'head', 'arm_near'],
+    piv: { body: [0.5424, 0.8923], head: [0.6273, 0.4092], arm_near: [0.6364, 0.5662], arm_far: [0.6879, 0.5385], leg_near: [0.6636, 0.7908], leg_far: [0.397, 0.8123], cape: [0.4818, 0.7169], head_attack: [0.6273, 0.4092] } },
+  pink_dolphin: { plan: 'swim', kind: 'species', fit: 1.016,
+    order: ['arm_far', 'tail', 'body', 'head', 'arm_near'],
+    piv: { body: [0.497, 0.6308], head: [0.5576, 0.4554], tail: [0.2636, 0.7446], arm_near: [0.5576, 0.5662], arm_far: [0.4758, 0.28], head_attack: [0.5576, 0.4554] } },
+  hornbill: { plan: 'flier', kind: 'species', fit: 1.016,
+    order: ['wing_far', 'feet', 'body', 'wing_near'],
+    piv: { body: [0.5182, 0.7877], wing_near: [0.3909, 0.6769], wing_far: [0.5091, 0.7415], feet: [0.5424, 0.7108], wing_near_down: [0.3909, 0.6769], wing_far_down: [0.5091, 0.7415] } },
+  dock_rat: { plan: 'quad', kind: 'species', fit: 1.016,
+    order: ['back_far', 'front_far', 'back_near', 'front_near', 'body', 'tail', 'head'],
+    piv: { body: [0.4818, 0.9723], head: [0.5424, 0.4738], front_near: [0.3879, 0.6092], front_far: [0.4515, 0.5077], back_near: [0.4606, 0.6185], back_far: [0.5667, 0.9046], tail: [0.2939, 0.88], head_open: [0.5424, 0.4738] } },
+  horseshoe_crab: { plan: 'crawl', kind: 'species', fit: 1.016,
+    order: ['legs_far', 'tail', 'legs_near', 'body'],
+    piv: { body: [0.503, 0.9108], legs_near: [0.5455, 0.8708], legs_far: [0.3273, 0.8677], tail: [0.1848, 0.5138] } },
+  drowned_sailor: { plan: 'biped', kind: 'species', fit: 1.016,
+    order: ['arm_far', 'leg_far', 'leg_near', 'body', 'head', 'arm_near'],
+    piv: { body: [0.4848, 0.8862], head: [0.4485, 0.4185], arm_near: [0.3667, 0.5754], arm_far: [0.5273, 0.5692], leg_near: [0.3939, 0.7569], leg_far: [0.5, 0.7631], head_attack: [0.4485, 0.4185] } },
+  flying_fox: { plan: 'flier', kind: 'species', fit: 1.016,
+    order: ['wing_far', 'feet', 'body', 'wing_near'],
+    piv: { body: [0.5576, 0.8123], wing_near: [0.4273, 0.6369], wing_far: [0.6667, 0.6554], feet: [0.4212, 0.8092], wing_near_down: [0.4273, 0.6369], wing_far_down: [0.6667, 0.6554] } },
+  king_cobra: { plan: 'slither', kind: 'species', fit: 1.016,
+    order: ['body', 'head'],
+    piv: { body: [0.4727, 0.9785], head: [0.503, 0.7138], head_attack: [0.503, 0.7138] } },
   boar_king: { plan: 'boss', fit: 0.798,
     order: ['tail', 'limb2', 'base', 'limb', 'head', 'gem'],
     piv: { base: [0.4627, 0.6163], head: [0.5063, 0.5555], gem: [0.6067, 0.1696], tail: [0.1836, 0.6144], limb2: [0.665, 0.7578], limb: [0.7695, 0.56], head_roar: [0.5063, 0.5555], limb_strike: [0.7695, 0.56] } },
