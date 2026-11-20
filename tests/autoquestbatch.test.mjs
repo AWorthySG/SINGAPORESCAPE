@@ -93,6 +93,21 @@ test('auto quest mines all the ore, smelts all 8 steel bars in one furnace visit
   assert.equal(game.inventory.count('iron_bar'), 0, 'no ore wasted on iron bars');
 });
 
+test('auto quest smelts only the steel it was sent for: a spare iron ore stays ore', () => {
+  const game = freshGame();
+  game.skills.xp.mining = xpForLevel(60);
+  game.skills.xp.smithing = xpForLevel(60);
+  game.quests.smith_apprentice.state = 'active';
+  for (const id of ['iron_ore', 'coal', 'steel_bar', 'iron_bar']) game.inventory.remove(id, game.inventory.count(id));
+  // A lucky swing left one ore over: "Do all" at the furnace would make it an iron bar.
+  game.inventory.add('iron_ore', 9); game.inventory.add('coal', 16);
+  assert.equal(game.questGuide('smith_apprentice').make, 'steel_bar');
+  const { q } = runAutoQuest(game, 'smith_apprentice', 'steel_bar');
+  assert.equal(q.state, 'done');
+  assert.equal(game.inventory.count('iron_bar'), 0, 'no iron bar');
+  assert.equal(game.inventory.count('iron_ore'), 1, 'the spare ore is kept');
+});
+
 test('auto quest catches all the salmon before cooking them in one go, then hands in once', () => {
   const game = freshGame();
   game.skills.xp.fishing = xpForLevel(60);

@@ -739,6 +739,116 @@ export const OBJECTS = {
   home_trophy: { name: 'Trophy wall', label: 'Trophies', type: 'home', homeTab: 'trophy', verb: 'Admire', emoji: '🏆', blocking: true, examine: 'Your boss kills and rare finds, on show.' },
 };
 
+// ---------------- Landmarks and set dressing (landmarks.js places them) ----------------
+// Painted set pieces that make each region recognisable. A landmark covers a
+// `footprint` of [wide, deep] tiles, standing on its front-left tile, and
+// blocks all of it (World.addObject); `artScale` is how much wider than its
+// footprint its picture is drawn (sprites.js). Props (`prop`) are one tile, like a lamp.
+// The laundry pole and five-foot-way lantern are animated (`frames`, one every
+// `frameMs`), like a campfire; the lantern hangs `overhead`, so you walk under it.
+const LANDMARKS = {
+  shophouse_row_mint: [[3, 2], 'Shophouse row', 'Mint-green shophouses with teal shutters over a shady five-foot way.'],
+  shophouse_row_peach: [[3, 2], 'Shophouse row', 'Peach and coral shophouses, their shutters thrown open to the street.'],
+  shophouse_row_butter: [[3, 2], 'Shophouse row', 'Butter-yellow shophouses with red lanterns under the arches.'],
+  shophouse_row_lilac: [[3, 2], 'Shophouse row', 'Lilac shophouses; a songbird chirps in a cage by the door.'],
+  golden_dome_hall: [[4, 4], 'Golden-domed hall', 'A grand old hall under a gleaming golden dome, palms either side.'],
+  hdb_block: [[4, 2], 'HDB block', 'A cheerful block of flats, laundry poles sticking out of every window.'],
+  dragon_playground: [[3, 2], 'Dragon playground', 'A mosaic dragon with a slide for a tongue. Every kid in town has climbed it.'],
+  hawker_centre: [[4, 3], 'Hawker centre', 'Fans whirring, woks clanging and the smell of a hundred dinners.'],
+  chinese_temple: [[3, 3], 'Clan temple', 'Green roof tiles, little ceramic dragons and the drift of incense.'],
+  wet_market: [[4, 3], 'Wet market', 'Fish on ice, greens in baskets and a floor that is never quite dry.'],
+  lionfish_fountain: [[3, 3], 'Lion-fish fountain', 'Half lion, half fish, and very pleased to spout water at the bay.', 1.05],
+  spiky_dome_theatre: [[4, 3], 'Spiky-domed theatre', 'A theatre under two spiky domes. Locals argue about which fruit it looks like.'],
+  observation_wheel: [[4, 2], 'Observation wheel', 'A giant wheel turning slowly over the bay.', 1.05],
+  flower_dome: [[4, 3], 'Flower dome', 'A great glasshouse full of flowers from cooler lands.'],
+  supertree_tall: [[2, 2], 'Supertree', 'A towering tree of steel, wrapped in ferns and orchids.', 1.45],
+  supertree_short: [[2, 2], 'Supertree', 'A young Supertree, its canopy strung with little lights.', 1.3],
+  kelong: [[4, 3], 'Kelong', 'A fishing platform on stilts. Its net comes up full of silver every morning.'],
+  lifeguard_tower: [[2, 2], 'Lifeguard tower', 'The flag is flying, so the sea is safe to swim today.', 1.25],
+  lighthouse: [[2, 2], 'Lighthouse', 'Its lamp has guided boats past the islands for a hundred years.', 1.35],
+  kusu_turtle_temple: [[3, 3], 'Turtle temple', 'A little island temple by a pond of sleepy turtles.'],
+  stilt_house: [[3, 3], 'Kampong stilt house', 'A wooden house up on stilts, chickens pecking underneath.'],
+  treetop_bridge: [[4, 2], 'Treetop bridge', 'A swaying rope bridge strung between two lookout towers.'],
+  gantry_crane: [[3, 3], 'Gantry crane', 'A port crane on rails, lifting a container high over the wharf.', 1.15],
+  temasek_gate: [[4, 2], 'Temasek gate', 'A crumbling stone gate carved with lions, older than anyone can say.'],
+  kranji_farmhouse: [[3, 2], 'Kranji farmhouse', 'A farmhouse with a water tower, a vegetable patch and a goat.'],
+  punggol_footbridge: [[4, 2], 'Waterway footbridge', 'A graceful arched footbridge over the waterway.'],
+  celestial_pavilion: [[3, 3], 'Cloud-top pavilion', 'A pavilion on a cloud, waterfalls spilling off its edges.', 1.15],
+  rift_obelisk: [[2, 2], 'Rift obelisk', 'A shard of the void, bound in chains that hum when you come near.', 1.3],
+};
+const PROPS = {
+  kopitiam_table: ['Kopitiam table', 'A marble-topped table with kopi and kaya toast.'],
+  kopitiam_stool: ['Kopitiam stools', 'A plastic stool and a wooden one. Everyone has a favourite.'],
+  hawker_stall_noodle: ['Noodle stall', 'A pot of broth bubbling away under a striped awning.'],
+  hawker_stall_satay: ['Satay cart', 'Skewers sizzling over the coals.'],
+  hawker_stall_drinks: ['Drinks stall', 'Jars of bright cold drinks, ice clinking.'],
+  hawker_stall_fruit: ['Fruit stall', 'Durians, mangosteens and pineapples, piled high.'],
+  void_deck_bench: ['Void-deck bench', 'A stone table with a draughts board, and curved seats round it.'],
+  heritage_lamp: ['Heritage lamp', 'An old cast-iron street lamp.'],
+  signboard: ['Shop signboard', 'A hanging red signboard. The paint has worn smooth.'],
+  trishaw: ['Trishaw', 'A flowery trishaw, waiting for its next passenger.'],
+  bougainvillea_pot: ['Bougainvillea', 'A blue and white pot bursting with magenta flowers.'],
+  dragon_jar: ['Dragon jar', 'A big glazed water jar with a golden dragon curling round it.'],
+  push_cart: ['Ice-cream cart', 'Ice cream between wafers, or in bread. Both are correct.'],
+  letterbox_bank: ['Letterboxes', 'A bank of green letterboxes for the block.'],
+  rattan_chair: ['Rattan chair', 'A comfy rattan chair with a flowery cushion.'],
+  bicycle: ['Bicycle', 'A green bicycle with a basket of flowers.'],
+  incense_urn: ['Incense urn', 'Three joss sticks smoulder in a bronze urn.'],
+  roadside_shrine: ['Roadside shrine', 'A little red shrine with a candle and an orange left as an offering.'],
+  stone_lion: ['Stone lion', 'A stone guardian lion, one paw on a ball.'],
+  lantern_post: ['Lantern post', 'Red lanterns swinging from a wooden post.'],
+  fish_stall: ['Fish stall', 'The catch of the day on crushed ice.'],
+  vegetable_crates: ['Vegetable crates', 'Crates of greens, chillies and bananas.'],
+  rice_sacks: ['Rice sacks', 'Sacks of rice stacked on a pallet.'],
+  dried_goods: ['Dried goods', 'Baskets of dried mushrooms, shrimp and anchovies.'],
+  promenade_rail: ['Promenade railing', 'A glass railing along the water.'],
+  promenade_rail_corner: ['Promenade railing', 'A glass railing turns the corner here.'],
+  bay_bench: ['Bench', 'A wooden bench with a view of the water.'],
+  bollard_light: ['Bollard light', 'A little light to keep you off the edge after dark.'],
+  planter_box: ['Planter', 'A frangipani in a stone planter.'],
+  orchid_planter: ['Orchid planter', 'A bed of purple and pink orchids.'],
+  topiary: ['Topiary bird', 'A hedge clipped into a very round bird.'],
+  fountain_small: ['Fountain', 'A little fountain bubbling in a stone basin.'],
+  beach_umbrella_red: ['Beach umbrella', 'A red and white umbrella over a beach towel.'],
+  beach_umbrella_teal: ['Beach umbrella', 'A teal and yellow umbrella over a cool box.'],
+  deck_chair: ['Deck chair', 'A striped deck chair, warm from the sun.'],
+  leaning_palm: ['Coconut palm', 'A coconut palm leaning out over the sand. Mind your head.'],
+  surf_rack: ['Surfboard rack', 'Three bright surfboards in a rack.'],
+  sampan: ['Sampan', 'A little wooden boat with a woven canopy and an eye painted on the bow.'],
+  kelong_net: ['Drying net', 'A fishing net hung up to dry between two poles.'],
+  kelong_stilts: ['Kelong stilts', 'Rope-bound stilts, all that is left of an old kelong.'],
+  buoy_pile: ['Buoys', 'A heap of floats and a coil of rope.'],
+  crab_trap: ['Crab trap', 'A woven trap. Someone is home.'],
+  boardwalk: ['Boardwalk', 'Planks out over the water.'],
+  boardwalk_corner: ['Boardwalk', 'The boardwalk turns here.'],
+  trail_signpost: ['Trail signpost', 'Signs to the summit, the stream and the valley.'],
+  trail_marker: ['Trail marker', 'A painted post that marks the trail.'],
+  fallen_log: ['Fallen log', 'A mossy log, mushrooms sprouting along it.'],
+  bird_hide: ['Bird hide', 'A wooden hide with a slot to watch the birds through.'],
+  hay_bale: ['Hay bale', 'A round bale of golden hay.'],
+  water_trough: ['Water trough', 'A stone trough with a tap, for the goats.'],
+  durian_cart: ['Durian cart', 'A cart of durians. You can smell it from here.'],
+  fish_rack: ['Fish rack', 'Fish drying in the sun on a bamboo rack.'],
+  oil_drums: ['Oil drums', 'Rusty drums stacked on the wharf.'],
+  mooring_bollard: ['Mooring bollard', 'An iron bollard with a heavy rope round it.'],
+  broken_pillar: ['Broken pillar', 'A carved pillar, broken off and wrapped in vines.'],
+  lion_stone: ['Lion stone', 'A boulder carved with a weathered lion.'],
+  prayer_flags: ['Prayer flags', 'Coloured flags snapping in the mountain wind.'],
+  cloud_lantern: ['Cloud lantern', 'A jade lantern that glows softly in the mist.'],
+  rift_crystal: ['Rift crystal', 'A violet crystal, cold to the touch.'],
+  void_brazier: ['Void brazier', 'It burns with a purple fire that gives no heat.'],
+  ghost_lantern: ['Ghost lantern', 'A pale lantern on a crooked post. Nobody lit it.'],
+  offering_table: ['Offering table', 'Oranges, rice and incense, left for the island\'s spirits.'],
+  sandbag_wall: ['Sandbags', 'A low wall of sandbags from some old drill.'],
+  rusty_tank: ['Water tank', 'A rusty water tank on stilts.'],
+};
+for (const [id, [footprint, name, examine, artScale]] of Object.entries(LANDMARKS)) {
+  OBJECTS[id] = { name, type: 'scenery', emoji: '🏛️', blocking: true, footprint, ...(artScale ? { artScale } : {}), examine };
+}
+for (const [id, [name, examine]] of Object.entries(PROPS)) OBJECTS[id] = { name, type: 'scenery', emoji: '🪴', blocking: true, prop: true, examine };
+OBJECTS.laundry_pole = { name: 'Laundry pole', type: 'scenery', emoji: '👕', blocking: true, frames: 4, frameMs: 240, examine: 'Washing flapping in the breeze.' };
+OBJECTS.five_foot_lantern = { name: 'Lantern', type: 'scenery', emoji: '🏮', blocking: false, overhead: true, frames: 4, frameMs: 320, examine: 'A red lantern swaying over the five-foot way.' };
+
 // Hunter traps and trails (definitions in trades.js).
 for (const [id, h] of Object.entries(HUNT)) {
   OBJECTS[id] = { ...h, label: h.name.split(' ')[0], type: 'hunt', verb: 'Check', emoji: '🪤', blocking: false, skill: 'hunter',

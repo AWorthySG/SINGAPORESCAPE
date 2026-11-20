@@ -4,6 +4,7 @@
 
 import { NPCS, MONSTER_IDS, BOSS_IDS, EXTRA_MONSTER_IDS, EXTRA_BOSS_IDS, MORE_MONSTER_IDS, MORE_BOSS_IDS, stretchLevel } from './npcs.js';
 import { STATIONS } from './transport.js';
+import { placeLandmarks } from './landmarks.js';
 import { placeBestiary } from './bestiaryPlace.js';
 
 // How many of each monster kind populate the world.
@@ -1439,6 +1440,11 @@ export function buildWorld() {
       [['bird_snare', 4], ['squirrel_trap', 4], ['lizard_snare', 4], ['mousedeer_trail', 3], ['boar_pit', 2]], GRASSY);
   }
 
+  // ================= Landmarks and set dressing =================
+  // Each region's painted set pieces and props (landmarks.js), placed after
+  // everything else and without dice, so nothing generated earlier moves.
+  const landmarks = placeLandmarks({ T, width: W, height: H, get, inB, occupied, key, objects, npcSpawns, zones, resourceZones, stations: STATIONS });
+
   // --- Border fence ---
   for (let x = 0; x < W; x++) { placeObj('fence', x, 0); placeObj('fence', x, H - 1); }
   for (let y = 0; y < H; y++) { placeObj('fence', 0, y); placeObj('fence', W - 1, y); }
@@ -1452,6 +1458,7 @@ export function buildWorld() {
     zones,
     towns,   // the outer towns' rectangles (the World Boss keeps its distance)
     resourceZones,   // named places dense with one life skill's nodes (see the block above the border fence)
+    landmarks,       // the regions' set pieces, { objId, x, y, region } (landmarks.js)
     spawnPoint: { x: 58, y: 55 },
     respawnPoint: { x: 58, y: 55 },
     townName: 'Kampong Glam',
