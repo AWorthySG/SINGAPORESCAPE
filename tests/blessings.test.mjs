@@ -154,25 +154,28 @@ test('the Prayer Burst needs full Faith, spends it, heals, wards, adds damage, t
   assert.equal(burstPower(5000).heal, 0.5); assert.equal(burstPower(5000).zeal, 0.45);
 });
 
-test('auto battle fires the Burst when hurt or at a boss, not otherwise', () => {
+test('the Burst fires by itself in any fight once Faith is full, at any range', () => {
   const g = newGame(50);
-  g.toggleAutoBattle(true);
   g.prayerPoints = g.maxPrayer();
   g.player.hp = g.maxHp();
-  assert.equal(shouldAutoBurst(g), false, 'healthy, no boss: keep it');
-  g.player.hp = Math.floor(g.maxHp() * 0.3);
-  g.autoCfg.eatAt = 0;   // no eating or Second Wind first, so the life check is what decides
-  assert.ok(shouldAutoBurst(g));
-  g._autoBattleTick();
-  assert.ok(g.burstWard > 0 && g.prayerPoints === 0, 'fired');
-  // At a boss, even when healthy.
+  g.player.action = null;
+  for (const n of g.nearbyNpcs()) if (n.target === g.player) n.target = null;
+  assert.equal(shouldAutoBurst(g), false, 'out of a fight: keep it');
+  // Shooting a plain monster far away (a longbow's reach), healthy, no auto battle.
+  const far = g.npcs.find((n) => n.alive && !n.def.boss && !n.champion && Math.max(Math.abs(n.x - g.player.x), Math.abs(n.y - g.player.y)) >= 8);
+  g.player.action = { type: 'attack', npc: far };
+  assert.ok(shouldAutoBurst(g), 'any fight counts, near or far');
+  g.doTick();
+  assert.ok(g.burstWard > 0 || g.burstZeal > 0, 'fired on the tick');
+  assert.ok(g.prayerPoints < g.maxPrayer(), 'Faith spent');
+  // Never without full Faith; and it can be switched off.
   const h = newGame(50);
-  h.prayerPoints = h.maxPrayer();
-  const boss = h.npcs.find((n) => n.def.boss);
-  h.player.action = { type: 'attack', npc: boss };
-  assert.ok(shouldAutoBurst(h), 'a boss fight');
-  h.prayerPoints = 0;
+  h.player.action = { type: 'attack', npc: h.npcs.find((n) => n.alive && n.def.boss) };
   assert.equal(shouldAutoBurst(h), false, 'never without full Faith');
+  h.prayerPoints = h.maxPrayer();
+  h.autoCfg.burst = false;
+  h.doTick();
+  assert.equal(h.burstWard, 0, 'switched off: no Burst');
 });
 
 test('the Burst hotkey (L) is wired and listed in the Compendium', () => {

@@ -38,6 +38,10 @@ export const TITLE_ART_SLOTS = {
   'backdrop-portrait': { size: '1080x1920, opaque', use: 'the same key art cropped for phones held upright', placeholder: 'the cream paper background' },
   'loading-hero': { size: '512x512, transparent', use: 'a mascot illustration beside the loading bar (e.g. the A-Worthy mascot carrying a map)', placeholder: 'assets/mascot-login.webp' },
   ground: { size: '2400x160, transparent, seamless left-right', use: 'the grassy verge the title heroes stand on', placeholder: 'a CSS cream-to-green gradient' },
+  sky: { size: '1920x1080, opaque', use: 'a sunset sky behind the city layers (it hides the live world behind it)', placeholder: 'a CSS sunset glow over the live world (titleSkyLayer)' },
+  clouds: { size: '1600x400, transparent', use: 'a few sticker clouds, drifting slowly across the top of the screen', placeholder: 'inline SVG clouds (titleCloudsLayer)' },
+  'skyline-far': { size: '3200x520, transparent, seamless left-right', use: 'the far city at sunset: Marina Bay Sands, the Supertrees, the Flyer, the CBD towers (hazy, slowest parallax)', placeholder: 'an inline SVG (titleFarLayer)' },
+  'skyline-mid': { size: '3200x400, transparent, seamless left-right', use: 'a row of HDB blocks with lit windows and rain trees (middle parallax)', placeholder: 'an inline SVG (titleMidLayer)' },
 };
 /** The slots that have a painted file in assets/title/ (none yet). */
 export const TITLE_ART = new Set([]);
@@ -309,6 +313,176 @@ export function titleSkylineSvg() {
     + `<g stroke="${ink}" stroke-width="3" stroke-linejoin="round" paint-order="stroke">${parts.join('')}</g></svg>`;
 }
 
+// ---------------- The sunset city: parallax layers (placeholders) ----------------
+// Back to front: the sunset sky, drifting clouds, the far city (Marina Bay, the
+// Supertrees, the Flyer, the CBD), a row of HDB blocks, then the old
+// neighbourhood (cosytitle.js) the heroes stand in front of. Each layer is one
+// function returning its markup, and each has a painted art slot: once
+// assets/title/<slot>.webp exists (and the slot is in TITLE_ART) the layer is
+// that picture instead (titleLayerHTML). `depth` is how far a layer sways with
+// the parallax (1 = the nearest).
+const INK = '#22304A';
+// A small seeded random, so the windows lit in a block are the same every time.
+const seeded = (seed) => () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+
+/** The sunset: a warm glow rising from the horizon and a low sun (CSS does the
+ *  gradient; this is the sun and its halo). */
+export function titleSkyLayer() {
+  return '<i class="tsun"></i>';
+}
+
+/** A puffy sticker cloud: overlapping circles, one ink outline round them all
+ *  (the outlines are drawn first, the cream over them). */
+export function cloudSvg(w = 220, seed = 1) {
+  const r = seeded(seed * 97 + 13);
+  const h = w * 0.42, base = h - 6;
+  const puffs = [];
+  let x = w * 0.16;
+  while (x < w * 0.86) {
+    const rad = w * (0.1 + r() * 0.08);
+    puffs.push([x, base - rad * (0.55 + r() * 0.5), rad]);
+    x += rad * (1 + r() * 0.3);
+  }
+  const shape = (extra) => puffs.map(([cx, cy, rad]) => `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${rad.toFixed(1)}"${extra}/>`).join('')
+    + `<rect x="${(w * 0.08).toFixed(1)}" y="${(base - w * 0.09).toFixed(1)}" width="${(w * 0.84).toFixed(1)}" height="${(w * 0.09).toFixed(1)}" rx="${(w * 0.045).toFixed(1)}"${extra}/>`;
+  return `<svg viewBox="-6 -6 ${w + 12} ${(h + 12).toFixed(0)}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">`
+    + `<g fill="${INK}" fill-opacity=".0" stroke="${INK}" stroke-opacity=".5" stroke-width="5">${shape('')}</g>`
+    + `<g fill="#FFF9F0">${shape('')}</g>`
+    + `<g fill="#FFD9C2" fill-opacity=".55">${puffs.map(([cx, cy, rad]) => `<ellipse cx="${cx.toFixed(1)}" cy="${(cy + rad * 0.45).toFixed(1)}" rx="${(rad * 0.8).toFixed(1)}" ry="${(rad * 0.4).toFixed(1)}"/>`).join('')}</g></svg>`;
+}
+
+/** Clouds drifting across the top of the screen, each at its own height,
+ *  size and pace (CSS moves them). */
+export function titleCloudsLayer(n = 5) {
+  const r = seeded(7);
+  let s = '';
+  for (let i = 0; i < n; i++) {
+    const w = Math.round(150 + r() * 150);
+    s += `<i class="tcl" style="top:${(3 + r() * 30).toFixed(1)}%;width:${w}px;animation-duration:${(80 + r() * 70).toFixed(0)}s;animation-delay:${(-r() * 150).toFixed(0)}s;opacity:${(0.75 + r() * 0.25).toFixed(2)}">${cloudSvg(w, i + 1)}</i>`;
+  }
+  return s;
+}
+
+/** A tower with a few lit windows. */
+function tower(x, w, h, fill, G, seed, { spire = 0, crown = null } = {}) {
+  const r = seeded(seed);
+  let s = `<rect x="${x}" y="${G - h}" width="${w}" height="${h}" rx="3" fill="${fill}"/>`;
+  if (crown) s += `<rect x="${x - 3}" y="${G - h - 6}" width="${w + 6}" height="8" rx="3" fill="${crown}"/>`;
+  if (spire) s += `<path d="M${x + w / 2} ${G - h - (crown ? 6 : 0)}v${-spire}" stroke-width="2.5"/>`;
+  let lit = '';
+  for (let yy = G - h + 12; yy < G - 10; yy += 14) for (let xx = x + 6; xx < x + w - 8; xx += 11) if (r() < 0.22) lit += `<rect x="${xx}" y="${yy}" width="5" height="7" rx="1"/>`;
+  return s + `<g fill="#FFE6A6" stroke="none">${lit}</g>`;
+}
+
+/** A Supertree from Gardens by the Bay: a tall tapering trunk opening into a
+ *  wide trumpet of a canopy, strung with lights. */
+function supertree(x, h, G, fill = '#B88AB0') {
+  const top = G - h;
+  let s = `<path d="M${x - 9} ${G}L${x - 4} ${top + 34}L${x + 4} ${top + 34}L${x + 9} ${G}Z" fill="${fill}"/>`;
+  s += `<path d="M${x - 5} ${top + 36}Q${x - 14} ${top + 12} ${x - 38} ${top}L${x + 38} ${top}Q${x + 14} ${top + 12} ${x + 5} ${top + 36}Z" fill="${fill}"/>`;
+  s += `<path d="M${x - 30} ${top + 3}Q${x - 10} ${top + 14} ${x - 3} ${top + 34}M${x + 30} ${top + 3}Q${x + 10} ${top + 14} ${x + 3} ${top + 34}M${x} ${top + 2}V${top + 34}" stroke-opacity=".3" stroke-width="2" fill="none"/>`;
+  s += `<g class="tlight" fill="#FFE08A" stroke="none">`;
+  for (let i = -3; i <= 3; i++) s += `<circle cx="${x + i * 10}" cy="${top + 2 + Math.abs(i) * -0.4}" r="2.4"/>`;
+  return s + `</g>`;
+}
+
+/**
+ * The far city at sunset, 1600 x 260 units with the ground along the bottom:
+ * CBD towers, the Supertrees, Marina Bay Sands under its SkyPark, the
+ * Flyer and the Esplanade's domes, hazy and warm.
+ */
+export function titleFarLayer() {
+  const G = 260;
+  const parts = [
+    tower(30, 52, 150, '#EED3DA', G, 3, { crown: '#E7BFC9' }), tower(90, 40, 196, '#E7D6EC', G, 4, { spire: 22 }), tower(136, 58, 128, '#F2DCCF', G, 5),
+    tower(200, 44, 172, '#E9D3E4', G, 6, { crown: '#DDBFD6' }), tower(250, 36, 112, '#F4DED1', G, 7),
+    supertree(330, 150, G), supertree(392, 196, G, '#C394BA'), supertree(452, 132, G), supertree(506, 176, G, '#C394BA'), supertree(560, 118, G),
+    // The Esplanade's two spiky domes and the ArtScience Museum's lotus (the
+    // middle, which the title card covers on wide screens).
+    `<path d="M600 ${G}Q600 204 650 204Q700 204 700 ${G}Z" fill="#F3E0B0"/><path d="M708 ${G}Q708 218 744 218Q780 218 780 ${G}Z" fill="#F3E0B0"/>`,
+    `<path d="M612 236h76M610 222h80M720 240h48" stroke-opacity=".22" stroke-width="2" stroke-dasharray="3 5"/>`,
+    `<path d="M806 ${G}Q810 214 826 196L834 220L844 190L854 220L864 196Q880 214 884 ${G}Z" fill="#F4E6D6"/>`,
+    // Marina Bay Sands: three leaning towers under the boat-shaped SkyPark.
+    `<path d="M940 ${G}L946 64L980 64L972 ${G}Z M1000 ${G}L1006 64L1040 64L1032 ${G}Z M1060 ${G}L1066 64L1100 64L1092 ${G}Z" fill="#EADFEF"/>`,
+    `<path d="M912 58Q926 50 940 52L1112 52Q1128 52 1140 46L1134 64L920 66Z" fill="#F5C26B"/>`,
+    `<g fill="#FFE6A6" stroke="none">${[950, 1010, 1070].map((tx) => Array.from({ length: 9 }, (_, i) => `<rect x="${tx + 6}" y="${84 + i * 19}" width="18" height="4" rx="1.5" opacity="${(i % 3 === 1 ? 0.9 : 0.45)}"/>`).join('')).join('')}</g>`,
+    // The Flyer.
+    `<g class="tflyer" style="transform-origin:1250px 150px"><circle cx="1250" cy="150" r="74" fill="none" stroke="#D9CBEA" stroke-width="8"/>`
+      + Array.from({ length: 12 }, (_, i) => { const a = (i / 12) * Math.PI * 2; return `<path d="M1250 150L${(1250 + Math.cos(a) * 72).toFixed(1)} ${(150 + Math.sin(a) * 72).toFixed(1)}" stroke-opacity=".25" stroke-width="1.5"/><circle cx="${(1250 + Math.cos(a) * 76).toFixed(1)}" cy="${(150 + Math.sin(a) * 76).toFixed(1)}" r="4.5" fill="#FFF3D6" stroke-width="1.5"/>`; }).join('')
+      + `</g>`,
+    `<path d="M1250 150L1220 ${G}M1250 150L1280 ${G}" stroke="#D9CBEA" stroke-width="7"/>`,
+    tower(1160, 34, 120, '#F4DED1', G, 10),
+    tower(1336, 48, 182, '#E7D6EC', G, 11, { spire: 18 }), tower(1390, 60, 214, '#EED3DA', G, 12, { crown: '#E3BCCB' }), tower(1456, 42, 150, '#F2DCCF', G, 13),
+    tower(1504, 54, 236, '#E9D3E4', G, 14, { spire: 26 }), tower(1564, 34, 168, '#F4DED1', G, 15),
+  ];
+  return `<svg viewBox="0 0 1600 ${G}" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="title-far-svg">`
+    + `<g stroke="${INK}" stroke-opacity=".4" stroke-width="3" stroke-linejoin="round" paint-order="stroke">${parts.join('')}</g>`
+    + `<rect x="0" y="${G - 70}" width="1600" height="70" fill="url(#tfHaze)"/>`
+    + `<defs><linearGradient id="tfHaze" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFC9A8" stop-opacity="0"/><stop offset="1" stop-color="#FFB894" stop-opacity=".7"/></linearGradient></defs></svg>`;
+}
+
+/** An HDB block: a pastel slab with a coloured roof band, a water tank,
+ *  rows of windows (some lit for the evening) and a block number. */
+function hdbBlock(x, w, h, fill, band, G, seed, num = '') {
+  const r = seeded(seed);
+  const top = G - h;
+  let s = `<rect x="${x}" y="${top}" width="${w}" height="${h}" rx="4" fill="${fill}"/>`;
+  s += `<rect x="${x + w * 0.3}" y="${top - 14}" width="${w * 0.4}" height="14" rx="2" fill="${band}"/>`;
+  s += `<rect x="${x - 4}" y="${top - 2}" width="${w + 8}" height="10" rx="3" fill="${band}"/>`;
+  let win = '', lit = '';
+  for (let yy = top + 18; yy < G - 26; yy += 15) for (let xx = x + 8; xx + 12 <= x + w - 6; xx += 17) {
+    (r() < 0.3 ? (lit += `<rect x="${xx}" y="${yy}" width="12" height="8" rx="1.5"/>`) : (win += `<rect x="${xx}" y="${yy}" width="12" height="8" rx="1.5"/>`));
+  }
+  s += `<g stroke="none" fill="${INK}" fill-opacity=".14">${win}</g><g stroke="none" fill="#FFD884">${lit}</g>`;
+  // The void deck: an open ground floor on pillars.
+  s += `<rect x="${x + 3}" y="${G - 20}" width="${w - 6}" height="20" fill="${INK}" fill-opacity=".18" stroke="none"/>`;
+  if (num) s += `<rect x="${x + 8}" y="${top + 14}" width="34" height="14" rx="3" fill="#FFF8EA" stroke-width="1.5"/>`
+    + `<text x="${x + 25}" y="${top + 24.5}" text-anchor="middle" font-family="Nunito,'Trebuchet MS',sans-serif" font-weight="900" font-size="9" fill="${INK}" stroke="none">${num}</text>`;
+  return s;
+}
+
+/** A rain tree's round canopy on a short trunk. */
+function canopy(x, h, G, fill = '#9ACB86') {
+  const top = G - h;
+  return `<path d="M${x - 3} ${G}V${top + 26}h6V${G}Z" fill="#8E6A45"/>`
+    + `<path d="M${x - 38} ${top + 30}Q${x - 44} ${top + 6} ${x - 18} ${top + 4}Q${x - 6} ${top - 10} ${x + 12} ${top}Q${x + 40} ${top} ${x + 38} ${top + 28}Q${x} ${top + 40} ${x - 38} ${top + 30}Z" fill="${fill}"/>`;
+}
+
+/** The middle distance, 1600 x 200: a row of HDB estates and rain trees. */
+export function titleMidLayer() {
+  const G = 200;
+  const blocks = [
+    [20, 118, 150, '#CDE7DF', '#7FB8A8', 'BLK 21'], [176, 96, 118, '#F7D9C4', '#E2A27E'], [300, 132, 176, '#DCD5F2', '#A79AD6', 'BLK 8'],
+    [486, 104, 132, '#FBE8B0', '#E3BA55'], [620, 126, 164, '#CFE2F5', '#86ACD8', 'BLK 135'], [810, 110, 140, '#F6CDD3', '#E2909E'],
+    [956, 136, 182, '#CDE7DF', '#7FB8A8', 'BLK 72'], [1126, 98, 124, '#FBE8B0', '#E3BA55'], [1258, 124, 158, '#DCD5F2', '#A79AD6', 'BLK 40'],
+    [1418, 112, 136, '#F7D9C4', '#E2A27E'], [1540, 90, 110, '#CFE2F5', '#86ACD8'],
+  ];
+  const parts = blocks.map(([x, w, h, f, b, n], i) => hdbBlock(x, w, h, f, b, G, 31 + i * 7, n));
+  for (const [x, h, f] of [[155, 70, '#9ACB86'], [455, 84, '#86C07A'], [596, 62, '#A6D392'], [920, 76, '#9ACB86'], [1240, 66, '#86C07A'], [1394, 80, '#A6D392']]) parts.push(canopy(x, h, G, f));
+  return `<svg viewBox="0 0 1600 ${G}" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="title-mid-svg">`
+    + `<g stroke="${INK}" stroke-opacity=".7" stroke-width="3" stroke-linejoin="round" paint-order="stroke">${parts.join('')}</g>`
+    + `<rect x="0" y="${G - 4}" width="1600" height="4" fill="#C9A77E"/></svg>`;
+}
+
+/** The title's layers, back to front: id (its element's class is
+ *  title-<id>), the painted art slot that replaces it, its parallax depth and
+ *  the function that draws its placeholder. The nearest layer, the old
+ *  neighbourhood, lives in index.html's .title-skyline (art slot "skyline"). */
+export const TITLE_LAYERS = [
+  { id: 'sunset', slot: 'sky', depth: 0, draw: titleSkyLayer },
+  { id: 'clouds', slot: 'clouds', depth: 0.1, draw: titleCloudsLayer },
+  { id: 'far', slot: 'skyline-far', depth: 0.25, draw: titleFarLayer },
+  { id: 'mid', slot: 'skyline-mid', depth: 0.55, draw: titleMidLayer },
+];
+/** A layer's markup: its painted picture once it exists, else its placeholder. */
+export function titleLayerHTML(layer) {
+  const src = titleArtSrc(layer.slot);
+  return src ? `<img src="${src}" alt="" class="title-art">` : layer.draw();
+}
+/** How far (px) each layer sways at parallax `p` (-1..1): the near layer most. */
+export const PARALLAX_PX = 34;
+export const parallaxShift = (depth, p) => Math.round(-p * depth * PARALLAX_PX * 10) / 10 + 0;   // + 0: no "-0px"
+
 // ---------------- The title screen (browser only) ----------------
 // The heroes posing on the title: a mix of melee, ranged, magic and the Dancer.
 const TITLE_HEROES = ['swordsman', 'wizard', 'ranger', 'samurai', 'dancer', 'pistoler'];
@@ -383,8 +557,10 @@ export class TitleScreen {
     // The drifting petals (fxImage's own Image is counted like any other).
     if (!this.still && !this.lowFx) for (const k of PETALS) fxImage(`particle-${k}`);
     // The cosy neighbourhood at golden hour (cosytitle.js), until painted art arrives.
-    if (this.el.sky) this.el.sky.innerHTML = titleArtSrc('skyline') ? `<img src="${titleArtSrc('skyline')}" alt="">` : cosySkylineSvg();
+    // The city behind it is drawn in layers that sway apart (the parallax).
+    if (this.el.sky) this.el.sky.innerHTML = titleArtSrc('skyline') ? `<img src="${titleArtSrc('skyline')}" alt="">` : cosySkylineSvg({ city: false });
     dressTitle(this.splash, { lowFx: this.lowFx, still: this.still });
+    this._buildLayers();
     // The other painted slots, where they have arrived (title.css picks them up).
     for (const slot of ['backdrop', 'backdrop-portrait', 'ground']) if (titleArtSrc(slot)) this.splash.style.setProperty(`--title-${slot}`, `url("${titleArtSrc(slot)}")`);
     const mascot = this.splash.querySelector('.splash-mascot');
@@ -416,6 +592,7 @@ export class TitleScreen {
     }
     if (this.leaving) return;   // the camera returns to the player
     this.t += this.ready && !this.still ? dt : 0;
+    if (this.ready) this._parallax(dt);
     const v = titleCameraAt(this.t, TITLE_SHOTS, this.still);
     cam.cx = v.x; cam.cy = v.y;
     cam.setZoomMul?.(v.zoom);
@@ -426,6 +603,38 @@ export class TitleScreen {
       // Restart the caption's fade-in for the new place.
       this.el.place.classList.remove('show'); void this.el.place.offsetWidth; this.el.place.classList.add('show');
     }
+  }
+
+  /** The sunset city's layers (TITLE_LAYERS), put in behind the near
+   *  neighbourhood; a pointer moving over the title steers the parallax. */
+  _buildLayers() {
+    if (this._layers || typeof document === 'undefined') return;
+    this._layers = [];
+    const before = this.el.sky || this.splash.querySelector('.splash-inner');
+    for (const layer of TITLE_LAYERS) {
+      if (layer.id === 'clouds' && this.lowFx) continue;
+      const div = document.createElement('div');
+      div.className = `title-layer title-${layer.id}`;
+      div.setAttribute('aria-hidden', 'true');
+      div.innerHTML = titleLayerHTML(layer);
+      this.splash.insertBefore(div, before);
+      this._layers.push({ el: div, depth: layer.depth });
+    }
+    if (this.el.sky) this._layers.push({ el: this.el.sky, depth: 1 });
+    this._pointer = 0; this._pan = 0;
+    if (!this.still && typeof addEventListener === 'function') {
+      this._onPointer = (e) => { this._pointer = Math.max(-1, Math.min(1, (e.clientX / (innerWidth || 1)) * 2 - 1)); };
+      addEventListener('pointermove', this._onPointer, { passive: true });
+    }
+  }
+
+  /** Sway the layers: a slow drift, plus the pointer on a mouse screen. Only
+   *  transforms change, so it costs the page next to nothing. */
+  _parallax(dt) {
+    if (!this._layers?.length || this.still) return;
+    const target = Math.sin(this.t / 9000) * 0.6 + this._pointer * 0.5;
+    this._pan += (target - this._pan) * Math.min(1, dt / 700);
+    for (const l of this._layers) if (l.depth) l.el.style.transform = `translate3d(${parallaxShift(l.depth, this._pan)}px,0,0)`;
   }
 
   _updateBar(dt) {
@@ -519,7 +728,10 @@ export class TitleScreen {
       document.body.classList.remove('title-on');
       try { onIn?.(); } catch (e) { console.error(e); }
       s.classList.add('leaving');
-      const end = () => { s.classList.add('hidden'); this.stage?.stop(); this.active = false; if (this.el.petals) this.el.petals.innerHTML = ''; };
+      const end = () => {
+        s.classList.add('hidden'); this.stage?.stop(); this.active = false; if (this.el.petals) this.el.petals.innerHTML = '';
+        if (this._onPointer) removeEventListener('pointermove', this._onPointer);
+      };
       if (this.still) end(); else setTimeout(end, 560);
     };
     if (this.still) { swap(); return; }

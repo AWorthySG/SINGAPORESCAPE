@@ -8,6 +8,7 @@
 // on the shared modal body, and the page builders can run in the tests
 // without a DOM.
 import { REGION_LINES } from '../data/regionQuests.js';
+import { tabIconSVG } from '../render/icons.js';
 import { findLinks } from '../game/encyclopedia.js';
 import {
   CHAPTERS, ARTICLE_BY_ID, CHAPTER_BY_ID, articleBlocks, relatedOf, searchArticles,
@@ -68,10 +69,18 @@ export const CODEX_VIEWS = [
   ['monsters', '🐾 Monsters'], ['items', '🎒 Items'], ['places', '🗺️ Places'],
   ['compendium', '📖 Compendium'], ['foryou', '✨ For you'], ['search', '🔎 Search'],
 ];
+// Sections with painted art wear it in place of their emoji (the side
+// panel's tab pictures: the fighters, the bag, the journal, the trophy).
+export const CODEX_VIEW_ART = { monsters: 'combat', items: 'inventory', compendium: 'quests', foryou: 'achievements' };
+/** A section's label for the switch: its painted icon and name, or the emoji one. */
+export function codexViewLabel(id, label) {
+  const art = CODEX_VIEW_ART[id];
+  return art ? `${tabIconSVG(art, 18)}${label.replace(/^\S+\s/, '')}` : label;
+}
 
 /** The section switch at the top of the Codex window. */
 export function codexSwitchHTML(view = 'monsters') {
-  const tab = (id, label) => `<button type="button" role="tab" class="cx-view${view === id ? ' active' : ''}" data-view="${id}" aria-selected="${view === id}">${label}</button>`;
+  const tab = (id, label) => `<button type="button" role="tab" class="cx-view${view === id ? ' active' : ''}" data-view="${id}" aria-selected="${view === id}">${codexViewLabel(id, label)}</button>`;
   return `<div class="cx-switch" role="tablist" aria-label="Codex section">${CODEX_VIEWS.map(([id, label]) => tab(id, label)).join('')}</div>`;
 }
 

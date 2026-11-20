@@ -146,11 +146,14 @@ export function tickBlessings(game) {
   if (!game.burstWard && !game.burstZeal) game.bus.emit('prayer');
 }
 
-/** Auto battle fires the Burst when Faith is full and you are in trouble
- *  (below 40% life) or fighting a boss or champion. */
+/** The Burst fires by itself as soon as Faith is full and you are in a fight
+ *  (the owner's call): attacking a living monster, or being targeted by one,
+ *  at any range, so a longbow or a staff at the far end of its reach counts
+ *  too. It used to wait for low life or a boss, which a ranged fighter who is
+ *  rarely hit almost never reached. */
 export function shouldAutoBurst(game) {
   if (!faithFull(game) || !game.player.alive) return false;
-  if (game.player.hp < game.maxHp() * 0.4) return true;
-  const n = game.player.action?.type === 'attack' ? game.player.action.npc : null;
-  return !!(n && n.alive && (n.def?.boss || n.champion));
+  const a = game.player.action;
+  if (a?.type === 'attack' && a.npc?.alive) return true;
+  return game.nearbyNpcs().some((n) => n.alive && n.target === game.player);
 }
