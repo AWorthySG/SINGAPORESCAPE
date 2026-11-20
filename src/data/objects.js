@@ -721,6 +721,12 @@ export const OBJECTS = {
     name: 'Exit portal', label: 'Portal', type: 'gate', verb: 'Leave by', emoji: '🌀', blocking: true,
     examine: 'The way back out, to where you came in.',
   },
+  // The heart of a run: the waves come for it, and the run ends when it falls.
+  // It wears the A-Worthy Monument's picture; it isn't a place to pray.
+  gate_shrine: {
+    name: 'A-Worthy Shrine', label: 'Shrine', type: 'gate_shrine', art: 'obj-shrine', emoji: '⛩️', blocking: true,
+    examine: 'The A-Worthy Shrine. The monsters of the gate want it broken; hold them off for as long as you can.',
+  },
 
   // ---------------- Scenery (blocking decor) ----------------
   wall: { name: 'Wall', type: 'scenery', emoji: '🧱', blocking: true, examine: 'A stone wall.' },

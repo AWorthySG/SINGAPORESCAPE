@@ -2646,7 +2646,7 @@ function drawObjectRaw(ctx, obj, cx, cy, time) {
     case 'fletch': return fletchingBench(ctx, cx, cy);
     case 'hunt': return huntTrap(ctx, obj, cx, cy);
     case 'bank': return bank(ctx, cx, cy);
-    case 'shrine': case 'offering': return shrine(ctx, cx, cy, time);
+    case 'shrine': case 'offering': case 'gate_shrine': return shrine(ctx, cx, cy, time);
     case 'rest': return mascotStatue(ctx, cx, cy);
     case 'agility': return agilityCourse(ctx, cx, cy);
     case 'stall': return stall(ctx, obj.objId, obj.depleted, cx, cy);

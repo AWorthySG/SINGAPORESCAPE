@@ -10,7 +10,9 @@ import { GATE } from '../../src/game/waves.js';
 const foodFor = (L) => (L >= 90 ? 'shark' : L >= 50 ? 'lobster' : L >= 20 ? 'salmon' : 'trout');
 export const GATE_FOOD = 20;
 
-/** One run: { wave reached, how it ended, minutes }. */
+/** One run: { wave reached, how it ended, minutes, deaths, the seconds each
+ *  wave took (start to clear) and the shrine's life (%) as each wave began }.
+ *  The run ends when the shrine falls (you rise again after a fall). */
 export function gateRun(cls, L, { cap = 40, seed = 20261112, maxTicks = 60000 } = {}) {
   const g = setupClass(cls, L, seed);
   g.skills.addXp = () => 0;
@@ -20,14 +22,20 @@ export function gateRun(cls, L, { cap = 40, seed = 20261112, maxTicks = 60000 } 
   seedRandom(seed);
   g.waves.enter();
   g.toggleAutoBattle(true);
-  let t = 0;
+  let t = 0, deaths = 0, began = 0, wave = 0;
+  const clears = [], shrine = [];
   for (; t < maxTicks; t++) {
+    const was = p.alive;
     g.update(600);
-    if (!g.waves.active) break;
-    if (g.waves.wave > cap) break;
+    if (was && !p.alive) deaths++;
+    const w = g.waves;
+    if (!w.active) break;
+    if (w.wave !== wave) { wave = w.wave; began = t; shrine.push(w.shrinePct()); }
+    if (w.nextAt && w.wave && clears.length < w.wave) clears.push(Math.round((t - began) * 0.6));
+    if (w.wave > cap) break;
   }
   const died = !g.waves.active;
-  return { wave: died ? g.waves.wave : g.waves.wave - 1, died, capped: !died && g.waves.wave > cap, mins: +(t * 0.6 / 60).toFixed(1) };
+  return { wave: died ? g.waves.wave : g.waves.wave - 1, died, capped: !died && g.waves.wave > cap, mins: +(t * 0.6 / 60).toFixed(1), deaths, clears, shrine };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -36,6 +44,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const cap = +(process.argv[4] || 40);
   for (const L of levels) for (const c of classes) {
     const r = gateRun(c, L, { cap });
-    console.log(`${c.padEnd(11)} L${String(L).padEnd(4)} ${r.died ? 'fell at wave' : r.capped ? 'cleared to ' : 'stalled at '} ${r.wave}  (${r.mins} min)`);
+    console.log(`${c.padEnd(11)} L${String(L).padEnd(4)} ${r.died ? 'shrine fell at wave' : r.capped ? 'cleared to ' : 'stalled at '} ${r.wave}  (${r.mins} min, ${r.deaths} deaths)`);
+    console.log(`  clear secs: ${r.clears.join(' ')}`);
+    console.log(`  shrine %:   ${r.shrine.join(' ')}`);
   }
 }

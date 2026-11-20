@@ -3471,6 +3471,15 @@ body.cb-safe #hp-orb.low::after {
 .wv-risk { color: var(--aw-accent-dk); }
 .wv-reward { color: var(--aw-grass-deep); font-weight: 800; }
 #wave-hud .wv-mods { font-size: 10px; font-weight: 800; color: #6d3fd6; }
+/* The A-Worthy Shrine's life in the gate panel: gold, red when low, a red flash when struck. */
+#wave-hud .wv-shrine { font-weight: 800; }
+#wave-hud .wv-shrine b { color: #b8860b; }
+#wave-hud .wv-shrine.low b { color: #c81e1e; }
+#wave-hud .wv-sbar { display: inline-block; width: 46px; height: 7px; margin-right: 5px; vertical-align: 0; background: #5a1212; border: 1.5px solid #22304A; border-radius: 4px; overflow: hidden; }
+#wave-hud .wv-sbar i { display: block; height: 100%; background: #f5b82e; transition: width .3s; }
+#wave-hud .wv-shrine.low .wv-sbar i { background: #e0393e; }
+#wave-hud .wv-shrine.hit .wv-sbar { border-color: #e0393e; box-shadow: 0 0 0 2px rgba(224,57,62,.35); }
+.wv-summary ul { margin: 4px 0 0; padding-left: 18px; font-size: 13px; }
 /* ---------------- World events and weekly region challenges (worldeventsui.js) ---------------- */
 .quest-row.we-row { border-left: 5px solid var(--we-col, var(--aw-accent)); cursor: var(--cur-pointer, pointer); }
 .quest-row.we-row .q-go { min-height: 40px; min-width: 52px; }

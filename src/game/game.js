@@ -3140,11 +3140,15 @@ export class Game {
    *  a point or more floats up beside "Dodged!" as "+N Agility". */
   _dodgeXp(npc, mult = 1) {
     if (!npc?.def) return;
-    const { max } = npcAttackVsPlayer(npc.def, this.skills, this.equipment, this.player.style);
-    const share = (npc.maxHp || npc.def.hp || 1) * 3 * (npc.def.boss ? DODGE_BOSS_SHARE : DODGE_KILL_SHARE);
+    const base = (o) => {
+      const { max } = npcAttackVsPlayer(o.def, this.skills, this.equipment, this.player.style);
+      return Math.max(Math.max(1, max) * DODGE_AGILITY_XP, (o.maxHp || o.def.hp || 1) * 3 * (o.def.boss ? DODGE_BOSS_SHARE : DODGE_KILL_SHARE));
+    };
+    // Deep in the Endless Gate, no more than the same monster at wave 20 (waves.dodgeRef).
+    const ref = this.waves.dodgeRef(npc);
     // (Not rounded: at the combat XP rate one small dodge is a fraction of a point.)
     const xp0 = this.skills.xp.agility;
-    this.skills.addXp('agility', Math.max(Math.max(1, max) * DODGE_AGILITY_XP, share) * mult * this.combatXpMult() * this.waves.dodgeXpMult(npc));
+    this.skills.addXp('agility', (ref ? Math.min(base(npc), base(ref)) : base(npc)) * mult * this.combatXpMult() * this.waves.dodgeXpMult(npc));
     const got = this.skills.xp.agility - xp0;   // after the XP rate and boosts addXp applies
     if (got >= 1) this.addHitsplat(this.player, 0, { text: `+${damageNumber(got)} Agility`, noMerge: true });
   }
@@ -4697,17 +4701,18 @@ export class Game {
     {
       const p0 = this.player, a = p0.action;
       const boss = (a?.type === 'attack' && a.npc?.def.boss && a.npc) || this.nearbyNpcs().find((n) => n.alive && n.def.boss && n.target === p0);
-      if (boss && !this.bossRecord.beat[boss.npcId]) {
+      if (boss && !boss.wave && !this.bossRecord.beat[boss.npcId]) {   // (an Endless Gate boss is the wave's, not the boss's record)
         this.bossRecord.lost[boss.npcId] = this.fightLevel();
         this.msg(`Auto battle will leave ${boss.name} alone until you are ${BOSS_RETRY_LEVELS} fight levels stronger.`, 'system');
       }
     }
     this._dodging = false;
     this.killStreak = 0; this.bus.emit('xpbonus');
-    if (this.autoBattle) this.toggleAutoBattle(false);
+    const gate = this.waves.active;   // in the Endless Gate you rise by its shrine, and auto battle fights on
+    if (this.autoBattle && !gate) this.toggleAutoBattle(false);
     this._autoBossTrip = null;
     if (this.autoQuest) this.toggleAutoQuest(false, 'you died.');
-    this.banner('<span class="big">Oh dear, you are dead!</span>Respawning in town...');
+    this.banner(`<span class="big">Oh dear, you are dead!</span>${gate ? 'Rising at the shrine...' : 'Respawning in town...'}`);
     const p = this.player;
     p.alive = false;
     p.respawnTimer = RESPAWN_TICKS;
@@ -4721,7 +4726,7 @@ export class Game {
       this.npcs = this.npcs.filter((n) => n !== wb); this._worldBoss = null;
     }
     Play.onDeath(this);   // a gravestone holds part of your pack until you walk back for it
-    // Falling in the Endless Gate ends the run (nothing is lost) and you wake by its gate.
+    // Falling in the Endless Gate: you rise by its shrine a little later, and the run goes on (waves.js).
     this._respawnAt = this.waves.onDeath();
     this.worldEvents.onDeath();   // a world event is called off (and packed away)
     this.story.onDeath();   // ...and so is a story event or scene
@@ -4741,7 +4746,7 @@ export class Game {
     p.moving = false;
     p.path = [];
     this.regenCounter = 0;
-    this.msg(back ? 'You wake up outside the Endless Gate.' : `You wake up back in ${this.world.townName}.`, 'system');
+    this.msg(back ? (this.waves.active ? 'You rise again beside the A-Worthy Shrine.' : 'You wake up outside the Endless Gate.') : `You wake up back in ${this.world.townName}.`, 'system');
     this.bus.emit('hp');
   }
 
@@ -4881,6 +4886,13 @@ export class Game {
       // A boss mechanic: interrupt its cast, turn on its healers (bossmech.js).
       const heal = mechAutoFight(this, tgt, f);
       if (heal) { this._autoFight = null; this._autoLast = heal; this.attackNpc(heal); return; }
+      // In the Endless Gate, a monster striking the shrine draws you off one that
+      // isn't (one fighting you near the shrine is fought out: you're defending it).
+      if (this.waves.active && this.tickCount % 3 === 0 && !this.waves.besieging(tgt) && !tgt.mech
+        && (tgt.target !== p || this.waves.shrineDist(p) > Math.max(4, this.attackRange())) && this.nearbyNpcs().some((n) => this.waves.besieging(n))) {
+        const up = this._autoPickTarget();
+        if (up && up !== tgt && this.waves.besieging(up)) { this._autoFight = null; this._autoLast = up; this.attackNpc(up); return; }
+      }
       // "Bosses & champions first" holds mid-fight too: when one you'd take on
       // turns up within reach of an ordinary fight, switch to it (checked every
       // few ticks, and only when one is actually near).
@@ -5504,8 +5516,11 @@ export class Game {
         // goes first (each hits nearly as hard for a sixth of the life), then
         // the leader, unless it is in the middle of a mechanic (see bossmech.js).
         const escortFirst = n.wave && (n.def.boss || n.champion) && !n.mech;
-        const tier = !first ? -0.5 : escortFirst ? -150 : n.def.boss ? -3000 : n.champion ? -2000 : -200 - (shootable(n, d) ? 1000 : 0);
-        cands.push({ n, score: d + tier, tier });
+        // ...but whatever is striking the A-Worthy Shrine comes first (a boss or
+        // champion before its escort), then those nearest the shrine (waves.js).
+        const siege = this.waves.besieging(n) && !n.mech;
+        const tier = !first ? -0.5 : siege ? -2500 - (n.def.boss || n.champion ? 400 : 0) : escortFirst ? -150 : n.def.boss ? -3000 : n.champion ? -2000 : -200 - (shootable(n, d) ? 1000 : 0);
+        cands.push({ n, score: d + tier + (n.wave ? this.waves.shrineDist(n) * 0.5 : 0), tier });
         continue;
       }
       if (n.temporary) continue;

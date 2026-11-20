@@ -1,16 +1,20 @@
 // The Endless Gate: a sealed dungeon arena where monsters come in endless,
-// ever-stronger waves. You step through a gate in Kampong Glam, fight until you
-// fall or choose to leave, and come out where you went in, keeping everything.
+// ever-stronger waves. You step through a gate in Kampong Glam and defend the
+// A-Worthy Shrine at the hall's heart: the monsters come for it from the edges
+// of the hall, and the run ends when it falls (or when you choose to leave).
+// Falling yourself only costs you a few seconds: you rise again beside it.
+// You come out where you went in, keeping everything.
 //
 // The arena is not a separate map: rows are added below the 540x380 world
 // (`addArena`), ringed by walls and open sea, so nothing can walk in or out.
 // Appending rows keeps every existing tile index where it was, and the seeded
 // world is built first and left untouched, so no tree, rock or monster moves.
 
-import { NPC } from './npc.js';
+import { NPC, CHAMPION_HP_MULT } from './npc.js';
 import { getNpc, ALL_MONSTER_IDS, ALL_BOSS_IDS } from '../data/npcs.js';
 import { TERRAIN } from '../data/world.js';
 import { chebyshev, weightedPick, randInt } from '../core/utils.js';
+import { findPath } from '../engine/pathfinding.js';
 import { TILE } from '../config.js';
 import { getItem } from '../data/items.js';
 
@@ -27,10 +31,20 @@ const MID = { x: (ARENA.x0 + ARENA.x1) / 2, y: (ARENA.y0 + ARENA.y1) / 2 };
 export const GATE = { x: 66, y: 48 };
 export const EXIT = { x: 252, y: ARENA.y0 };
 export const START = { x: 252, y: ARENA.y0 + 2 };
+// The A-Worthy Shrine stands in the middle of the hall (addArena puts it there),
+// and the monsters come in from the gaps along its west, south and east sides,
+// away from the way in, so you have a moment to reach the shrine first.
+export const SHRINE = { x: Math.round(MID.x), y: Math.round(MID.y) };
+export const SPAWN_POINTS = [
+  { x: ARENA.x0, y: ARENA.y0 + 3 }, { x: ARENA.x0, y: ARENA.y1 - 3 }, { x: Math.round(MID.x), y: ARENA.y1 },
+  { x: ARENA.x1, y: ARENA.y1 - 3 }, { x: ARENA.x1, y: ARENA.y0 + 3 },
+];
 
 // Pacing and limits.
 export const NEXT_WAVE_TICKS = 6;   // ~3.6s between the last kill and the next wave
-export const MAX_ALIVE = 8;         // at most this many wave monsters at once (phones)
+// At most this many wave monsters at once (phones): the rest trickle in, one a
+// tick, as others fall. Raised from 8 when waves doubled in size.
+export const MAX_ALIVE = 14;
 // The owner asked for a champion or a boss in every wave: every wave is led by
 // a champion, and every 5th by a boss instead.
 export const CHAMPION_EVERY = 1;    // every wave brings a champion...
@@ -61,8 +75,9 @@ export const GATE_ACC = 1.3;   // x attack (they land more of those hits)
 // every wave, it has GATE_CHAMPION_LIFE of that (x6 a wave monster), so a wave
 // stays a minute or so rather than a long siege. Its harder hits, armour and loot are kept.
 export const GATE_CHAMPION_LIFE = 0.2;
-// From wave 20 a second champion comes along.
+// From wave 20 a second champion comes along, and from wave 50 a third.
 export const SECOND_CHAMPION_FROM = 20;
+export const THIRD_CHAMPION_FROM = 50;
 // The owner asked for dodging in the gate to pay real Agility XP: a gate boss's
 // life is only WAVE_BOSS_LIFE monsters', so its dodges paid a trickle next to a
 // course. Dodging a gate monster's blow or a gate boss's marker pays
@@ -76,27 +91,65 @@ export const GATE_DODGE_PER_WAVE = 0.8;
 export const GATE_DODGE_MAX = 12;
 /** The Agility XP multiplier for dodging in wave n. */
 export const gateDodgeMult = (n) => Math.min(GATE_DODGE_MAX, 1 + GATE_DODGE_PER_WAVE * Math.max(0, n));
+// The base dodge XP grows with the monster's life and max hit, which keep
+// climbing with the wave, so with waves that never end it ran away (about 25
+// million a dodge at wave 500 for a level 60 fighter). Past DODGE_CAP_WAVE a
+// dodge pays at most what the same monster would at that wave (see dodgeRef).
+export const DODGE_CAP_WAVE = 20;
+// Waves are about twice the size they were (the owner asked for more monsters),
+// so each ordinary monster in one has HORDE_LIFE of a gate monster's life: a
+// wave takes about as long to clear as before. Champions and bosses keep theirs.
+export const HORDE_LIFE = 0.6;
+export const MAX_WAVE_COUNT = 60;   // ordinary monsters in one wave, at most
+
+// ---------------- The A-Worthy Shrine ----------------
+// The shrine has a fixed life (shown as a percentage); each blow on it chips off
+// SHRINE_CHIP for the kind of monster striking, times shrineScale, which grows
+// 3% a wave up to x4 (wave 101). Clearing a wave mends SHRINE_MEND of it.
+export const SHRINE_LIFE = 1000;
+export const SHRINE_CHIP = { mob: 4, champion: 12, boss: 30 };
+export const SHRINE_MEND = 0.1;
+export const shrineScale = (n) => Math.min(4, 1 + 0.03 * (Math.max(1, n) - 1));
+export const shrineChip = (n, kind) => Math.max(1, Math.round((SHRINE_CHIP[kind] || SHRINE_CHIP.mob) * shrineScale(n)));
+// A gate monster goes for the shrine, turning on you only when you hit it or
+// come within GATE_AGGRO tiles; once you're GATE_FORGET tiles off and it hasn't
+// been hit for a few seconds, it goes back to the shrine.
+export const GATE_AGGRO = 3;
+export const GATE_FORGET = 6;
+// Fall in the gate and you rise beside the shrine after this many ticks (~5s),
+// while the monsters keep at it.
+export const GATE_RESPAWN_TICKS = 8;
+// Rewards stop growing with the wave past this one (deep waves would otherwise
+// pay hundreds of stones a wave), and a wave's coin purse is capped.
+export const REWARD_WAVE_CAP = 100;
+export const COIN_CAP = 50000000;
+// The squared terms of the wave curves turn into straight lines from this wave
+// on (the tangent), so waves 200 or 500 are very hard but never absurd.
+export const CURVE_KNEE = 100;
+const sq = (m) => (m <= CURVE_KNEE ? m * m : CURVE_KNEE * CURVE_KNEE + 2 * CURVE_KNEE * (m - CURVE_KNEE));
 
 /** How strong wave n is next to your fight level: 0.7x at wave 1, then gently
  *  (+3% a wave) and ever more steeply (the squared term): 1.17x at wave 10,
  *  2.2x at 20, 3.6x at 30, 7.2x at 50. Everyone falls in the end. */
-export const waveCurve = (n) => 0.7 + 0.03 * (n - 1) + 0.0025 * (n - 1) ** 2;
+export const waveCurve = (n) => 0.7 + 0.03 * (n - 1) + 0.0025 * sq(n - 1);
 /** The level of wave n's monsters for a fighter of level `base`. The (n - 1)
  *  keeps it climbing every wave even for a level 1 character. */
 export const waveLevel = (n, base) => Math.max(1, Math.round(Math.max(1, base) * waveCurve(n))) + (n - 1);
-/** How many monsters wave n sends (not counting a champion or boss): 3, then one
- *  more every second wave. Only MAX_ALIVE are out at once; the rest follow. */
-export const waveCount = (n) => Math.min(30, 3 + Math.floor(n / 2));
+/** How many monsters wave n sends (not counting a champion or boss): 6, then one
+ *  more every wave (about twice what it was: 3, then one every second wave), up
+ *  to MAX_WAVE_COUNT. Only MAX_ALIVE are out at once; the rest follow. */
+export const waveCount = (n) => Math.min(MAX_WAVE_COUNT, 5 + Math.max(1, n));
 /** On top of the level, later waves hit harder and last longer: +6% life and
  *  +3% hits a wave, steepening (was +4% and +2%). Wave 1 is x1, so world events
  *  that borrow waveMobDef(id, 1, L) are unchanged. */
-export const waveMight = (n) => ({ hp: 1 + 0.06 * (n - 1) + 0.003 * (n - 1) ** 2, hit: 1 + 0.03 * (n - 1) + 0.0015 * (n - 1) ** 2 });
+export const waveMight = (n) => ({ hp: 1 + 0.06 * (n - 1) + 0.003 * sq(n - 1), hit: 1 + 0.03 * (n - 1) + 0.0015 * sq(n - 1) });
 
 /** The bonus for clearing wave n (monsters of `level`): coins growing with the
  *  wave, enhancement stones from wave 5, refine scrolls on even waves from 10,
  *  and a ward every 5th wave from 15. A boss wave adds its chest (see bossChest). */
 export function waveBonus(n, level) {
-  const out = [['coins', Math.round((50 + 5 * level) * n * 2)]];
+  n = Math.min(n, REWARD_WAVE_CAP);
+  const out = [['coins', Math.min(COIN_CAP, Math.round((50 + 5 * level) * n * 2))]];
   if (n >= 5) out.push(['upgrade_stone', more(Math.floor(n / 5))]);
   if (n >= 10 && n % 2 === 0) out.push(['refine_scroll', more(1 + Math.floor((n - 10) / 20))]);
   if (n >= 15 && n % 5 === 0) out.push(['upgrade_ward', 1]);
@@ -108,7 +161,8 @@ export function waveBonus(n, level) {
  *  rather than every 10th, so the plain chest pays as before and the milestone more.) */
 export function bossChest(n, level) {
   const big = n % MILESTONE_EVERY === 0 ? 1.5 : 1;
-  return [['coins', Math.round((50 + 5 * level) * n * 6 * big)], ['refine_scroll', Math.ceil(more(2 + Math.floor(n / 20)) * big)],
+  n = Math.min(n, REWARD_WAVE_CAP);
+  return [['coins', Math.min(COIN_CAP, Math.round((50 + 5 * level) * n * 6 * big))], ['refine_scroll', Math.ceil(more(2 + Math.floor(n / 20)) * big)],
     ['upgrade_stone', Math.ceil(more(5 + Math.floor(n / 2)) * big)], ['upgrade_ward', 1 + Math.floor(n / 30) + (big > 1 ? 1 : 0)]];
 }
 
@@ -163,6 +217,9 @@ export function addArena(data) {
   // Torches (lamp posts) in the four corners light the hall.
   for (const [x, y] of [[ARENA.x0, ARENA.y0], [ARENA.x1, ARENA.y0], [ARENA.x0, ARENA.y1], [ARENA.x1, ARENA.y1]]) objects.push({ objId: 'lamp', x, y });
   objects.push({ objId: 'wave_gate', x: GATE.x, y: GATE.y });
+  // The A-Worthy Shrine in the middle of the hall, pushed last so every other
+  // object keeps its place in the list.
+  objects.push({ objId: 'gate_shrine', x: SHRINE.x, y: SHRINE.y });
   const zones = [...data.zones, { name: GATE_NAME, x0: ARENA.x0 - 1, y0: ARENA.y0 - 1, x1: ARENA.x1 + 1, y1: ARENA.y1 + 1, instance: true }];
   // mapHeight: the world map shows the country, not the sea the arena sits in.
   return { ...data, height: H, mapHeight: H0, terrain, objects, zones };
@@ -198,10 +255,12 @@ export function waveMobDef(id, n, L) {
     maxHit: s(base.maxHit, m.hit), aggressive: true, aggroRange: 30, ignoreLevelGate: true, wave: true };
 }
 /** A monster made a gate monster: GATE_HP x life, GATE_HIT x max hit and
- *  GATE_ACC x attack on top of waveMobDef (which world events borrow as is). */
+ *  GATE_ACC x attack on top of waveMobDef (which world events borrow as is).
+ *  It only turns on you close up (GATE_AGGRO): the shrine is what it is after. */
 export function gateMobDef(id, n, L) {
   const d = waveMobDef(id, n, L);
-  return { ...d, maxHp: Math.max(1, Math.round(d.maxHp * GATE_HP)), maxHit: Math.max(1, Math.round(d.maxHit * GATE_HIT)), attack: Math.max(1, Math.round(d.attack * GATE_ACC)) };
+  return { ...d, maxHp: Math.max(1, Math.round(d.maxHp * GATE_HP)), maxHit: Math.max(1, Math.round(d.maxHit * GATE_HIT)), attack: Math.max(1, Math.round(d.attack * GATE_ACC)),
+    aggroRange: GATE_AGGRO };
 }
 /** Real life (see hpScale in npcs.js: big monsters show their life smaller). */
 const realLife = (d) => d.maxHp * (d.hpScale || 1);
@@ -217,14 +276,15 @@ export function waveBossDef(id, n, L, mob = gateMobDef(waveKinds(n, L)[0], n, L)
   const base = getNpc(id), f = L / Math.max(1, base.level), m = waveMight(n);
   const s = (v, k) => Math.max(1, Math.round((v || 1) * k));
   return { ...base, level: L, maxHp: s(realLife(mob) * WAVE_BOSS_LIFE / (base.hpScale || 1), 1), attack: s(base.attack, f), strength: s(base.strength, f),
-    defence: s(base.defence, f), maxHit: s(base.maxHit, f * m.hit * WAVE_BOSS_HIT), aggressive: true, aggroRange: 30, ignoreLevelGate: true, wave: true,
+    defence: s(base.defence, f), maxHit: s(base.maxHit, f * m.hit * WAVE_BOSS_HIT), aggressive: true, aggroRange: GATE_AGGRO, ignoreLevelGate: true, wave: true,
     siege: 1 };   // its life is the wave's, not a siege boss's (npcs.js bossSiegeScale), so neither are its rewards
 }
 
 /** Everything wave n sends for a fighter of level `base`: a list of
  *  { id, def, champion? }, its leader first: a boss on every BOSS_EVERY-th
- *  wave, otherwise a champion (two from SECOND_CHAMPION_FROM). Leading the
- *  list, the leader is always out at once, whatever MAX_ALIVE holds back. */
+ *  wave, otherwise a champion (two from SECOND_CHAMPION_FROM, three from
+ *  THIRD_CHAMPION_FROM). Leading the list, the leader is always out at once,
+ *  whatever MAX_ALIVE holds back. Ordinary monsters have HORDE_LIFE x life. */
 export function wavePlan(n, base) {
   const L = waveLevel(n, base), out = [];
   const kinds = waveKinds(n, L);
@@ -232,18 +292,28 @@ export function wavePlan(n, base) {
   if (n % BOSS_EVERY === 0) {
     const id = waveBoss(n, L);
     out.push({ id, def: waveBossDef(id, n, L, gateMobDef(kinds[0], n, L)) });
-    count = 2;   // a boss brings a couple of escorts, not a full wave
+    count = Math.min(12, 4 + Math.floor(n / 10));   // a boss brings an escort (was 2), not a full wave
   } else {
-    const champs = n >= SECOND_CHAMPION_FROM ? 2 : 1;
+    const champs = n >= THIRD_CHAMPION_FROM ? 3 : n >= SECOND_CHAMPION_FROM ? 2 : 1;
     for (let i = 0; i < champs; i++) out.push({ id: kinds[i % kinds.length], def: gateMobDef(kinds[i % kinds.length], n, L), champion: true });
   }
-  for (let i = 0; i < count; i++) out.push({ id: kinds[i % kinds.length], def: gateMobDef(kinds[i % kinds.length], n, L) });
+  for (let i = 0; i < count; i++) {
+    const d = gateMobDef(kinds[i % kinds.length], n, L);
+    out.push({ id: kinds[i % kinds.length], def: { ...d, maxHp: Math.max(1, Math.round(d.maxHp * HORDE_LIFE)) } });
+  }
   return out;
 }
 /** The name a wave's banner gives its leader (its boss, else its champion). */
 export function waveLeader(plan) {
   const e = plan.find((x) => x.def.boss) || plan.find((x) => x.champion);
   return e ? (e.def.boss ? e.def.name : `Champion ${e.def.name}`) : '';
+}
+
+/** The A-Worthy Shrine for a fresh run. A plain object standing in for an
+ *  entity, so hitsplats and the hit flash can be drawn on it. */
+function newShrine() {
+  return { x: SHRINE.x, y: SHRINE.y, hp: SHRINE_LIFE, maxHp: SHRINE_LIFE, hurt: 0, hitAt: -99, shrine: true,
+    renderCenter: () => ({ x: SHRINE.x * TILE + TILE / 2, y: SHRINE.y * TILE + TILE / 2 - 14 }) };
 }
 
 /** One run in the Endless Gate, and your best wave (saved). */
@@ -271,7 +341,23 @@ export class Waves {
   /** Agility XP multiplier for dodging `npc`: gateDodgeMult of the wave for one
    *  of this run's monsters (world events' borrowed wave monsters are not), else 1. */
   dodgeXpMult(npc) { return this.active && npc?.wave ? gateDodgeMult(this.wave) : 1; }
-  /** Does this run forbid healing food? */
+  /** Past DODGE_CAP_WAVE: a monster of the same rank (ordinary, champion or
+   *  boss) as wave DODGE_CAP_WAVE sends them to you now, so _dodgeXp pays no
+   *  more for a dodge than one there would. Null when there is no cap (not a
+   *  run monster, or an early wave). */
+  dodgeRef(npc) {
+    if (!this.active || !npc?.wave || this.wave <= DODGE_CAP_WAVE) return null;
+    const F = this.game.fightLevel();
+    if (this._dodgeRefs?.F !== F) {
+      const at = wavePlan(DODGE_CAP_WAVE, F), before = wavePlan(DODGE_CAP_WAVE - 1, F);
+      const mob = at.find((e) => !e.def.boss && !e.champion).def, boss = at.find((e) => e.def.boss) || at[0];
+      // The champion as _spawn makes it: makeChampion's harder hits, GATE_CHAMPION_LIFE of its life.
+      const c = before[0].def;
+      const champ = { ...c, maxHp: Math.max(1, Math.round(c.maxHp * CHAMPION_HP_MULT * GATE_CHAMPION_LIFE)), maxHit: Math.max(2, Math.round(c.maxHit * 1.5)), attack: Math.round(c.attack * 1.25) };
+      this._dodgeRefs = { F, mob: { def: mob, maxHp: mob.maxHp }, champion: { def: champ, maxHp: champ.maxHp }, boss: { def: boss.def, maxHp: boss.def.maxHp } };
+    }
+    return this._dodgeRefs[npc.def.boss ? 'boss' : npc.champion ? 'champion' : 'mob'];
+  }  /** Does this run forbid healing food? */
   blocksFood() { return this.active && this.fx.noFood; }
   /** Say no to a meal (at most every few ticks: auto-eat asks every tick). */
   foodRefused() {
@@ -290,7 +376,16 @@ export class Waves {
     this.nextAt = 0;        // tick the next wave starts (0: a wave is being fought)
     this.leader = '';       // the name of the wave's boss or (first) champion
     this.ret = null;        // where you came in from
+    this.shrine = newShrine();   // the A-Worthy Shrine's life this run
+    this.run = { kills: 0, deaths: 0, got: new Map() };   // for the summary when the shrine falls
   }
+
+  /** The shrine's life left, as a whole percentage (rounded up: 0 only when fallen). */
+  shrinePct() { const s = this.shrine; return s.hp <= 0 ? 0 : Math.max(1, Math.ceil((s.hp / s.maxHp) * 100)); }
+  /** How far a monster is from the shrine (in tiles). */
+  shrineDist(n) { return chebyshev(n.x, n.y, SHRINE.x, SHRINE.y); }
+  /** Is this monster hitting the shrine (beside it and not after you)? */
+  besieging(n) { return !!(this.active && n?.wave && n.alive && !n.target && chebyshev(n.x, n.y, SHRINE.x, SHRINE.y) <= 1); }
 
   /** Monsters of this wave still to beat, out or waiting. */
   left() { return this.mobs.filter((n) => n.alive).length + this.queue.length; }
@@ -314,7 +409,7 @@ export class Waves {
     this.fx = modEffects(this.runMods);
     this.nextAt = g.tickCount + NEXT_WAVE_TICKS;
     g.spawnSparkle(p, '#b58cff', 16);
-    g.msg(`You step through ${GATE_NAME}. Monsters come in waves, each stronger than the last. Leave by the portal, or with Leave; if you fall you keep everything and wake outside.`, 'system');
+    g.msg(`You step through ${GATE_NAME}. Monsters come in waves, each stronger than the last, and they want the A-Worthy Shrine broken. Guard it: the run ends when it falls. If you fall, you rise again beside it. Leave by the portal, or with Leave.`, 'system');
     if (this.runMods.length) g.msg(`Modifiers: ${this.runMods.map((id) => GATE_MODS[id].name).join(', ')}.`, 'system');
     if (this.best) g.msg(`Your best: wave ${this.best}${this.classBest() ? ` (as this class: wave ${this.classBest()})` : ''}.`, 'system');
     g.bus.emit('sfx', 'travel');
@@ -325,28 +420,96 @@ export class Waves {
   }
 
   /** Leave by the portal or the Leave button: back to where you came in. */
-  leave() {
+  leave(quiet = false) {
     if (!this.active) return false;
     const ret = this.ret;
     this._end();
     const g = this.game, spot = (ret && g._nearestFree(ret.x, ret.y)) || g.world.respawnPoint;
-    g._placePlayer(spot.x, spot.y);
+    // Down and waiting to rise: you wake outside instead of beside the shrine.
+    if (!g.player.alive) g._respawnAt = spot;
+    else g._placePlayer(spot.x, spot.y);
     g.updateRegion();
     // Auto battle stops at the door, or it would march you straight off into town.
     if (g.autoBattle) g.toggleAutoBattle(false);
-    g.msg(`You leave ${GATE_NAME}.`, 'system');
+    if (!quiet) g.msg(`You leave ${GATE_NAME}.`, 'system');
     g.bus.emit('sfx', 'travel');
     return true;
   }
 
-  /** You fell inside: the run ends, nothing is lost, and you wake at the gate.
+  /** You fell inside: the run goes on without you for a few seconds (the
+   *  monsters keep at the shrine), then you rise beside the shrine.
    *  Returns the tile to respawn on (null when not in a run). */
   onDeath() {
     if (!this.active) return null;
-    const ret = this.ret;
-    this._end();
-    this.game.msg(`You fall in ${GATE_NAME} at wave ${this.wave || 1}. You keep everything you earned.`, 'system');
-    return ret;
+    const g = this.game;
+    this.run.deaths++;
+    g.player.respawnTimer = GATE_RESPAWN_TICKS;
+    g.msg(`You fall in ${GATE_NAME}! You'll rise beside the shrine in ${Math.round(GATE_RESPAWN_TICKS * 0.6)}s: the monsters won't wait.`, 'system');
+    return g._nearestFree(SHRINE.x, SHRINE.y + 1) || { x: START.x, y: START.y };
+  }
+
+  /** A monster with nobody to fight goes for the shrine (from NPC._combatAI):
+   *  walks up to it and strikes it on its own attack timer. True when handled. */
+  siegeStep(n) {
+    if (!this.active || !n.wave || this.shrine.hp <= 0) return false;
+    const g = this.game;
+    if (chebyshev(n.x, n.y, SHRINE.x, SHRINE.y) <= 1) {
+      n.stop();
+      if (n.attackCooldown <= 0 && !n.isMoving) {
+        this.hitShrine(n);
+        const speed = Math.max(2, (n.def.attackSpeed || 4) - 2);
+        n.attackCooldown = n.slowTicks > 0 ? Math.round(speed * 1.6) : speed;   // a Water spell slows it here too
+      }
+      return true;
+    }
+    // On its way: a fresh route when it stands still (a chase it gave up ends in place).
+    if (!n.isMoving && n.repathCooldown <= 0) {
+      const path = findPath(g.pathCfg(), n.stepTile(), SHRINE, { reachAdjacent: true, maxNodes: 2000 });
+      if (path.length) n.setPath(path);
+      n.repathCooldown = 2;
+    }
+    return true;
+  }
+
+  /** A blow on the shrine: chip its life by the striker's kind and the wave. */
+  hitShrine(n) {
+    const g = this.game, s = this.shrine;
+    if (s.hp <= 0) return 0;
+    const kind = n.def.boss ? 'boss' : n.champion ? 'champion' : 'mob';
+    const dmg = Math.max(1, Math.round(shrineChip(this.wave, kind) * this.fx.hit));   // Elite waves hit it harder too
+    const before = this.shrinePct();
+    g._swingToward?.(n, SHRINE.x, SHRINE.y);
+    s.hp = Math.max(0, s.hp - dmg);
+    s.hitAt = g.tickCount;
+    g.addHitsplat(s, dmg, { tint: '#c2185b' });   // raspberry, apart from the hits on you
+    const now = this.shrinePct();
+    for (const at of [50, 25, 10]) {
+      if (before > at && now <= at && now > 0) {
+        g.msg(`The A-Worthy Shrine is at ${now}%! Drive them off it!`, 'combat');
+        g.bus.emit('sfx', 'hurt');
+        break;
+      }
+    }
+    if (s.hp <= 0) this._fall();
+    else g.bus.emit('waves');
+    return dmg;
+  }
+
+  /** The shrine is broken: the run is over. Sum it up, keep the record, and
+   *  send you back out to where you came in. */
+  _fall() {
+    const g = this.game, n = this.wave || 1;
+    const cls = g.jobClass || 'none';
+    const summary = { wave: n, cleared: Math.max(0, n - 1), best: this.best, classBest: this.bestByClass[cls] || 0,
+      record: n >= this.best, kills: this.run.kills, deaths: this.run.deaths, got: [...this.run.got] };
+    this.lastRun = summary;
+    g.msg(`The shrine has fallen at wave ${n}! You cleared ${summary.cleared} wave${summary.cleared === 1 ? '' : 's'} and keep everything you earned.`, 'level');
+    g.addShake?.(5, 420);
+    this.leave(true);
+    g.banner(`<span class="big">The shrine has fallen at wave ${n}</span>${summary.record ? 'A new best!' : `Your best: wave ${this.best}`}`, 'gatefall');
+    g.saveSoon = true;
+    g.bus.emit('gateFallen', summary);
+    return summary;
   }
 
   /** Close the run: clear its monsters, boss markers and leftovers. */
@@ -374,14 +537,20 @@ export class Waves {
     g.bus.emit('waves');
   }
 
-  /** Each world tick: send the next wave, top up the field, and pay out a cleared wave. */
+  /** Each world tick: send the next wave, top up the field, and pay out a cleared
+   *  wave. It runs on while you're down: the monsters keep at the shrine. */
   tick() {
     if (!this.active) return;
     const g = this.game, p = g.player;
-    if (!p.alive) return;   // playerDeath ends the run
     // Carried off by other means (the MRT from the world map, say): the run is over.
     if (!inArena(p.x, p.y)) { this._end(); this.wave = 0; return; }
+    const before = this.mobs.length;
     this.mobs = this.mobs.filter((n) => n.alive && g.npcs.includes(n));
+    this.run.kills += before - this.mobs.length;
+    // A monster you've walked away from (and stopped hitting) goes back to the shrine.
+    for (const n of this.mobs) {
+      if (n.target === p && n.combatLatch <= 0 && (!p.alive || chebyshev(n.x, n.y, p.x, p.y) > GATE_FORGET)) { n.target = null; n.stop(); }
+    }
     // Reinforcements: one a tick, so they arrive in a stream rather than a heap.
     if (this.queue.length && this.mobs.length < MAX_ALIVE) this._spawn(this.queue.shift());
     if (this.wave > 0 && !this.nextAt && !this.mobs.length && !this.queue.length) this._cleared();
@@ -417,10 +586,17 @@ export class Waves {
     g.bus.emit('waves');
   }
 
-  /** A free floor tile for a new monster, away from you if there's room. */
+  /** A free floor tile for a new monster: by the next of the spawn points round
+   *  the hall's edge (in turn, so they come from every side), else anywhere. */
   _spawnSpot() {
     const g = this.game, p = g.player, taken = new Set(g.npcs.filter((n) => n.alive).map((n) => n.x * 4096 + n.y));
-    const free = (x, y) => !g.world.isBlocked(x, y) && !taken.has(x * 4096 + y) && (x !== p.x || y !== p.y);
+    const free = (x, y) => !g.world.isBlocked(x, y) && !taken.has(x * 4096 + y) && (x !== p.x || y !== p.y)
+      && x >= ARENA.x0 && x <= ARENA.x1 && y >= ARENA.y0 && y <= ARENA.y1;
+    this._spawnN = ((this._spawnN || 0) + 1) % SPAWN_POINTS.length;
+    const sp = SPAWN_POINTS[this._spawnN];
+    for (let r = 0; r <= 2; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) === r && free(sp.x + dx, sp.y + dy)) return { x: sp.x + dx, y: sp.y + dy };
+    }
     for (let tries = 0; tries < 60; tries++) {
       const x = ARENA.x0 + Math.floor(Math.random() * (ARENA.x1 - ARENA.x0 + 1));
       const y = ARENA.y0 + Math.floor(Math.random() * (ARENA.y1 - ARENA.y0 + 1));
@@ -470,7 +646,10 @@ export class Waves {
     for (let r = 0; r < fx.rolls; r++) { const pick = weightedPick(GATE_CACHE); got.push([pick.id, pick.min ? randInt(pick.min, pick.max) : 1]); }
     const sum = new Map();
     for (const [id, q] of got) if (q > 0) sum.set(id, (sum.get(id) || 0) + q);
-    for (const [id, q] of sum) { g.inventory.add(id, q); g.collection?.record('gate', id, q); }
+    for (const [id, q] of sum) { g.inventory.add(id, q); g.collection?.record('gate', id, q); this.run.got.set(id, (this.run.got.get(id) || 0) + q); }
+    // The shrine mends a little between waves.
+    const s = this.shrine, mend = Math.min(s.maxHp - s.hp, Math.round(s.maxHp * SHRINE_MEND));
+    if (mend > 0) { s.hp += mend; g.addHitsplat(s, 0, { text: `Shrine +${Math.round(mend / s.maxHp * 100)}%` }); }
     const names = { coins: 'coins', upgrade_stone: 'enhancement stones', refine_scroll: 'refine scrolls', upgrade_ward: 'upgrade wards' };
     const list = [...sum].map(([id, q]) => `${q.toLocaleString('en-GB')} ${names[id] || getItem(id).name}`).join(', ');
     const chest = n % BOSS_EVERY !== 0 ? '' : n % MILESTONE_EVERY === 0 ? 'Milestone chest' : 'Boss chest';

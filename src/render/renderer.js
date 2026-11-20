@@ -1,6 +1,7 @@
 import { damageNumber as splatNum } from '../core/utils.js';   // hitsplats: 54000 -> "54K"
 import { TILE, TICK_MS } from '../config.js';
 import { drawBossMech, drawSafeZone } from './bossmechfx.js';
+import { drawGateShrine } from './gateshrine.js';
 import { TURN_MS } from '../game/character.js';
 import { TERRAIN } from '../data/world.js';
 import { getItem } from '../data/items.js';
@@ -1673,6 +1674,7 @@ export class Renderer {
     const { ctx, game } = this;
     this._drawNodeLabels(ox, oy, objs);
     const vw = game.camera.viewW, vh = game.camera.viewH;
+    drawGateShrine(ctx, game, ox, oy, vw, vh);   // the Endless Gate's shrine: its bar and hit flash
     const mode = labelMode(game);
     const placed = [];   // small names drawn so far this frame (to keep them apart)
     for (const n of (game.nearbyNpcs ? game.nearbyNpcs() : game.npcs)) {
