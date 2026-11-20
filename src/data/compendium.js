@@ -849,7 +849,7 @@ export const CHAPTERS = [
         id: 'golden-hours', title: 'Golden hours',
         summary: `Each life skill earns x${GOLDEN_HOUR_XP} XP at its own time of day.`,
         body: [
-          `A game day lasts ${mins(DAY_CYCLE_MS)}. Each life skill has a **golden hour**, a six-hour window on the in-game clock (about two and a half real minutes) when its XP is worth **x${GOLDEN_HOUR_XP}**:`,
+          `A game day lasts ${mins(DAY_CYCLE_MS)}. Each life skill has a **golden hour**, a twelve-hour window on the in-game clock (about five real minutes, half the day) when its XP is worth **x${GOLDEN_HOUR_XP}**:`,
           () => ({ table: { head: ['Skill', 'When', 'Game time'], rows: goldenHourRows() } }),
         ],
         see: ['skills-overview', 'levels-xp'],
