@@ -9,16 +9,23 @@ import { readFileSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const BOUNDS = JSON.parse(readFileSync(fileURLToPath(new URL('./fixtures/boss-rig-bounds.json', import.meta.url)), 'utf8'));
-const D1 = ['goblin_warchief', 'toman_tyrant', 'ubin_quarry_python', 'ubin_stone_frog', 'kopitiam_roach_queen',
-  'bakau_mud_lobster', 'strangler_fig_mother', 'kranji_bullfrog_emperor', 'sand_scorpion_king', 'sea_eagle_sovereign'];
+// The Part D batches (sheets RB01 onwards), one list per batch.
+const BATCHES = {
+  D1: ['goblin_warchief', 'toman_tyrant', 'ubin_quarry_python', 'ubin_stone_frog', 'kopitiam_roach_queen',
+    'bakau_mud_lobster', 'strangler_fig_mother', 'kranji_bullfrog_emperor', 'sand_scorpion_king', 'sea_eagle_sovereign'],
+  D2: ['slag_titan', 'chilli_crab', 'lion_of_light', 'hantu_tinggi', 'kelong_king_crab',
+    'spider_queen', 'kranji_buffalo_king', 'bandit_kingpin', 'hungry_ghost_king', 'arowana_emperor'],
+};
 const inside = ([x, y], [x0, y0, x1, y1], m = 0.01) => x >= x0 - m && x <= x1 + m && y >= y0 - m && y <= y1 + m;
 
-test('the D1 bosses (RB01 to RB10) are rigged', async () => {
+test('the Part D bosses are rigged, batch by batch', async () => {
   const { rigIds, rigKind } = await import('../src/render/sprites.js');
-  for (const id of D1) {
-    assert.ok(rigIds().includes(id), `${id} has a rig`);
-    assert.equal(rigKind(id), 'boss');
-    assert.ok(BOUNDS[id], `${id} has measured layer bounds`);
+  for (const [batch, ids] of Object.entries(BATCHES)) {
+    for (const id of ids) {
+      assert.ok(rigIds().includes(id), `${batch}: ${id} has a rig`);
+      assert.equal(rigKind(id), 'boss');
+      assert.ok(BOUNDS[id], `${batch}: ${id} has measured layer bounds`);
+    }
   }
 });
 
