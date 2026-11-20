@@ -193,9 +193,11 @@ function build(id, d) {
   for (const n of d.order) {
     const p = plan[n] || {};
     const flap = FLAP[id];
+    const amp = d.amp?.[n] ?? 1;   // a heavy part (a boulder, a mortar on the ground) moves less than the plan's limb
+    const sw = p.swing ? (flap ? (t, o) => p.swing(t, { ...o, flap }) : p.swing) : null;
     parts[n] = {
       piv: d.piv[n],
-      swing: p.swing ? (flap ? (t, o) => p.swing(t, { ...o, flap }) : p.swing) : null,
+      swing: sw && amp !== 1 ? (t, o) => sw(t, o) * amp : sw,
       grow: p.grow || null,
       // An alternate picture (open mouth, open claw, striking arm) shown while the test holds.
       alt: p.swap && files.includes(p.swap[0]) ? p.swap[0] : null,
@@ -205,6 +207,8 @@ function build(id, d) {
   return { kind: d.kind, fit: d.fit, order: d.order, files, parts };
 }
 export const CREATURE_RIGS = Object.fromEntries(Object.entries(RIG_DATA).map(([id, d]) => [id, build(id, d)]));
+// A boss rig measured elsewhere (the later parts sheets keep their tables in sprites.js), with the shared boss motions.
+export const bossRig = (id, d) => build(id, { plan: 'boss', ...d });
 
 // Townsfolk idle: a body that blinks, a near arm that hangs and now and then waves.
 // `ref` is the assembled picture's box on the layer canvas, for sizing it like the still art.
