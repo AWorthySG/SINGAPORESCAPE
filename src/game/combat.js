@@ -289,6 +289,9 @@ const scaledFlat = (level, equip, castMult) => Math.round(levelFlatDmg(level) * 
 // wands, the shortbow, sword and rifle went up a little to keep Wizards, Archers,
 // Swordsmen and Snipers near the median, and the cane a little to keep the
 // Merchant on top.
+// When Ninjas gave up their shield for a second shuriken (dual wielded, the off-hand
+// throw at OFFHAND_SHARE), the shuriken came down from 1.3 to 0.97 to keep the Ninja's
+// single-target and boss damage within a few percent of before at levels 100 and 300.
 export const WEAPON_DMG_MULT = {
   // (The two-handed types, the crossbow too, were trimmed by up to 12% when they gained the two-handed grip, the
   // off-hand's atkPct, haste and Ranged built into the weapon: see items.js.)
@@ -296,7 +299,7 @@ export const WEAPON_DMG_MULT = {
   '2h_sword': 2.55, spear: 2.05, claws: 0.18, katana: 1.41, halberd: 3.18, cane: 0.78, shortbow: 0.53,
   // (Staves, wands and orbs came down by 15% when the Mystic blessings began to count
   // for spells, elements began to bite harder and Magic gained its attunement below.)
-  longbow: 1.15, pistol: 0.37, rifle: 1.2, shuriken: 1.3, staff: 0.3, wand: 0.29, whip: 1.6,
+  longbow: 1.15, pistol: 0.37, rifle: 1.2, shuriken: 0.97, staff: 0.3, wand: 0.29, whip: 1.6,
   // Secondary types (first estimates, pending the combat rescale), tuned against measured
   // damage (a headless run of each class's best weapon at tiers 10-250, not a formula)
   // so that each sits a little under its classes' main types and the main type stays

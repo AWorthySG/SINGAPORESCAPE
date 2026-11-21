@@ -42,7 +42,7 @@ import { ABILITY_BY_ID, abilitiesFor, ADREN_PER_HIT, ADREN_PER_HURT, CLASS_ADREN
 import { classPassiveMods, CLASS_SKILL } from '../data/classPassives.js';
 import { RACES, raceOf, matchup, RACE_BONUS, RACE_PENALTY } from '../data/races.js';
 import { DOT_KINDS } from '../data/bossAbilities.js';
-import { CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, equivalentWeapon, CLEAVE_SHARE, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWear, equivalentArmour, classGearFor, canWield, classesForType, SECONDARY_WEAPON } from '../data/classes.js';
+import { CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, equivalentWeapon, CLEAVE_SHARE, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWear, equivalentArmour, classGearFor, canWield, classesForType, SECONDARY_WEAPON, shieldBarred, NO_SHIELD_MSG } from '../data/classes.js';
 import { STYLE_TRACKS, sumPerks, perkAtLevel, rankName, PERK_SKILLS, PERK_CAPS } from '../data/perks.js';
 import { getSpell, SPELLS, ELEMENTS, AOE_RADIUS, elementMatchup, elementMult } from '../data/magic.js';
 import { xpForLevel, pastCapXpMult } from '../data/xp.js';
@@ -656,6 +656,7 @@ export class Game {
       this.starterGiven = true;
       // Saves from before two-handed weapons may hold a shield with one.
       if (this.equipment.get('shield') && offhandBlocked(this.equipment.get('weapon'), this.equipment.get('shield'))) this._stowShield();
+      this._bankNinjaShield();   // Ninjas from before dual shurikens may still hold a shield
       this._giveBowQuiver();
       Rounds.grantStarterRounds(this);   // guns from before the ammo slot get some rounds
       this.msg(`Welcome back to ${this.world.townName}, ${this.player.name}!`, 'system');
@@ -718,6 +719,7 @@ export class Game {
       const starter = starterWeapon(classId);
       if (!this.equipment.get('weapon')) this.equipment.set('weapon', starter); else this.inventory.add(starter, 1);
       if (this.equipment.get('shield') && offhandBlocked(this.equipment.get('weapon'), this.equipment.get('shield'))) this._stowShield();
+      this._bankNinjaShield();
       this._giveBowQuiver();
       Rounds.grantStarterRounds(this);
       this.msg(`You are now a ${cls.name}. Only ${WEAPON_TYPE_NAMES[cls.weapon]} and ${WEAPON_TYPE_NAMES[SECONDARY_WEAPON[classId]]} can be wielded, and the choice is permanent.`, 'level');
@@ -730,7 +732,7 @@ export class Game {
     const starter = starterWeapon(classId);
     if (style === 'ranged') {
       this.equipment.set('weapon', starter);
-      if (canDualWield(starter)) this.equipment.set('shield', starter);   // Pistolers start with a pair
+      if (canDualWield(starter)) this.equipment.set('shield', starter);   // Pistolers and Ninjas start with a pair
       else if (takesQuiver(starter)) this.equipment.set('shield', 'bronze_quiver');   // Archers and Rangers start with a quiver
       if (ARMOUR_FAMILY[classId] === 'leather') {   // the Ninja wears scout leather, not hide
         this.equipment.set('head', 'bronze_scout_hood');
@@ -2894,17 +2896,18 @@ export class Game {
     // After the target's arrows (so its own rolls are just as before), each
     // spread loosed flings its extra arrows into the foes around it.
     if (fan.length && spreads) this._fanArrows(npc, fan, spreads, Math.max(1, Math.round(baseMax * mods.dmgM)), tint, shot, style);
-    // Dual pistols: the off-hand gun fires its own shot, with its own power.
+    // Dual pistols (and shurikens): the off-hand one fires its own shot, with its own power.
+    let offRaw = 0;
     if (mods.off && npc.hp > 0) {
       const ow = getItem(this.equipment.get('shield')).equip;
       const oStr = ow.noAmmo ? Rounds.gunShotStr(this.equipment, ow) : arrowStr;
       const max = playerRangedVsNpc(this.skills, this.equipment, style, npc.def, oStr, 'off').max * pr;
       const r = this._offHandBlow(npc, max, mods, (crit) => this._projectile(npc, crit ? '#ffd24a' : '#fff2b0', shot, 0.6));
-      total += r.dmg;
+      total += r.dmg; offRaw = r.raw || 0;
     }
     this._hand = null;
-    // Shurikens ricochet off the target into one more foe nearby (60% of the hit);
-    // chakrams bounce on into two more (45% each).
+    // Shurikens ricochet off the target into one more foe nearby (60% of the hit,
+    // both hands' throws together); chakrams bounce on into two more (45% each).
     const rc = RICOCHET[wpn.weaponType];
     if (rc && total > 0) {
       const p = this.player;
@@ -2915,7 +2918,7 @@ export class Game {
           && !this._aoeSpares(n));
         if (!o) break;
         hit.add(o);
-        const c = this._aoeCrit(Math.max(1, Math.round(raw * rc.share)));
+        const c = this._aoeCrit(Math.max(1, Math.round((raw + offRaw) * rc.share)));
         const d = Math.min(o.hp, c.dmg);
         o.takeDamage(d);
         this.addHitsplat(o, d, { aoe: true, tint: '#cfd8e6', critX: c.critX });
@@ -5921,6 +5924,19 @@ export class Game {
     this.msg(`Your weapon needs both hands, so you put your ${getItem(sh).name.toLowerCase()} in your pack.`, 'system');
   }
 
+  /** A Ninja holds no shield (a shuriken goes in each hand): one still worn,
+   *  from a save made before that, goes to the bank (the pack if it can't).
+   *  The off-hand is left empty; Equip best fills it with a spare shuriken. */
+  _bankNinjaShield() {
+    const sh = this.equipment.get('shield');
+    if (!sh || !shieldBarred(this.jobClass, sh)) return;
+    const shQ = this.equipment.qualityIn('shield');
+    this.equipment.clearSlot('shield');
+    const name = getItem(sh).name.toLowerCase();
+    if (this.bank?.deposit) { this.bank.deposit(sh, 1, shQ); this.msg(`${NO_SHIELD_MSG} Your ${name} was put in your bank.`, 'system'); }
+    else { this.inventory.add(sh, 1, shQ); this.msg(`${NO_SHIELD_MSG} Your ${name} was put in your pack.`, 'system'); }
+  }
+
   _canEquipNow(id) {
     const it = getItem(id), eq = it.equip;
     if (!eq || it.tool) return false;
@@ -6045,6 +6061,8 @@ export class Game {
       this.msg(`Only a ${CLASS_FOR_TYPE(eq.weaponType)} can wield ${WEAPON_TYPE_NAMES[eq.weaponType]}. You are a ${cls.name}: you fight with ${WEAPON_TYPE_NAMES[cls.weapon]} and ${WEAPON_TYPE_NAMES[SECONDARY_WEAPON[cls.id]]}.`);
       return;
     }
+    // Ninjas hold a shuriken in each hand, never a shield.
+    if (cls && shieldBarred(cls.id, s.id)) { this.msg(NO_SHIELD_MSG); return; }
     // ...and only your class's kind of helm, body and legs armour.
     if (cls && !canWear(cls.id, s.id)) {
       const mine = ARMOUR_FAMILIES[ARMOUR_FAMILY[cls.id]];
@@ -6056,7 +6074,7 @@ export class Game {
     const main = this.equipment.get('weapon');
     const offhand = canDualPair(s.id, main)
       && (opts.offhand ?? !canDualPair(main, this.equipment.get('shield')));
-    if (opts.offhand && !offhand) { this.msg('Only a second weapon of the same dual-wield kind (daggers, scimitars, kerambits or pistols) can go in your off-hand.'); return; }
+    if (opts.offhand && !offhand) { this.msg('Only a second weapon of the same dual-wield kind (daggers, scimitars, kerambits, pistols or shurikens) can go in your off-hand.'); return; }
     const slot = offhand ? 'shield' : eq.slot;
     if (slot === 'shield' && offhandBlocked(main, s.id)) {
       this.msg(takesQuiver(main) ? `Your ${getItem(main).name.toLowerCase()} needs both hands: only a quiver can go with it.`
@@ -7329,6 +7347,7 @@ export class Game {
     const eq = it.equip;
     if (!eq) return false;
     if (eq.weaponType) return !canWield(cls.id, eq.weaponType);
+    if (shieldBarred(cls.id, id)) return true;   // a Ninja's shields
     if (eq.family) return !canWear(cls.id, id);
     if (eq.style) return eq.style !== (cls.style === 'dance' ? 'melee' : cls.style);
     return false;

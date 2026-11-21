@@ -23,7 +23,7 @@ export const CLASSES = [
   { id: 'ranger', name: 'Ranger', weapon: 'longbow', style: 'ranged', desc: 'Longbows: slower, harder-hitting shots from a little further off that pierce into the foes behind.' },
   { id: 'pistoler', name: 'Pistoler', weapon: 'pistol', style: 'ranged', desc: 'A pistol in each hand: the fastest attacks in the game. Load rounds in the ammo slot to hit harder.' },
   { id: 'sniper', name: 'Sniper', weapon: 'rifle', style: 'ranged', desc: 'A sniper rifle: the furthest reach in the game and massive shots, but slow to fire. Load rounds in the ammo slot to hit harder.' },
-  { id: 'ninja', name: 'Ninja', weapon: 'shuriken', style: 'ranged', desc: 'Thrown shurikens that ricochet into a second foe. No ammo needed.' },
+  { id: 'ninja', name: 'Ninja', weapon: 'shuriken', style: 'ranged', desc: 'A shuriken in each hand: both throw every attack and ricochet into a second foe. No ammo, and no shields.' },
   // Magic
   { id: 'wizard', name: 'Wizard', weapon: 'staff', style: 'magic', desc: 'Powerful staves; elemental staves give free runes.' },
   { id: 'sorcerer', name: 'Sorcerer', weapon: 'wand', style: 'magic', desc: 'Quick-casting wands, lighter but faster than staves.' },
@@ -47,8 +47,18 @@ export const ARMOUR_FAMILY = {
   archer: 'hide', ranger: 'hide', wizard: 'robes', sorcerer: 'robes', dancer: 'dancewear',
   pistoler: 'hide', ninja: 'leather', merchant: 'hide', sniper: 'hide',
 };
-/** Can this class wear this item? (Only helm, body and legs armour is restricted.) */
+// Ninjas throw a shuriken from each hand (the off-hand one goes where a shield
+// would), so no shield-slot piece (shield, buckler, quiver or tome) is for them.
+export const NO_SHIELD_CLASSES = new Set(['ninja']);
+export const NO_SHIELD_MSG = 'Ninjas fight with a shuriken in each hand: no shields.';
+/** Is this a shield-slot piece (not an off-hand weapon) this class can't hold? */
+export function shieldBarred(classId, id) {
+  const eq = ITEMS[id]?.equip;
+  return NO_SHIELD_CLASSES.has(classId) && eq?.slot === 'shield' && !eq.weaponType;
+}
+/** Can this class wear this item? (Only helm, body and legs armour is restricted, and a Ninja's shields.) */
 export function canWear(classId, id) {
+  if (shieldBarred(classId, id)) return false;
   const fam = ITEMS[id]?.equip?.family;
   return !fam || !classId || ARMOUR_FAMILY[classId] === fam;
 }

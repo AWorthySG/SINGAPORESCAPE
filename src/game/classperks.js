@@ -29,7 +29,7 @@ const SIGNATURE = {
   dancer: 'Whips lash from 3 tiles and ricochet into 2 more monsters (3 at full Rhythm), build Rhythm for bigger hits, and help you dodge blows.',
   sniper: 'Sniper rifles: the furthest reach in the game (32+ tiles) and each round hits about 5.5x as hard and pierces every monster within 1 tile of its path, up to 10 tiles past the target, but fires only every 1.5s. No ammo to buy.',
   pistoler: 'Dual pistols: by far the fastest attacks in the game, each hand firing, and no ammo to buy.',
-  ninja: 'Shurikens ricochet off your target into a second foe nearby (60% damage), and need no ammo.',
+  ninja: 'A shuriken in each hand: each attack throws both, they ricochet off your target into a second foe nearby (60% damage), and need no ammo. No shields.',
   merchant: 'The strongest class in the game, paid for in coins: money talks, so your coin throws and every ally hit about twice as hard as any other class, and your coins scatter into up to 4 foes beside the target (90% each). Throws money: every coin flick from your cane costs coins (1 + 1 per 10 Ranged levels), and your skills cost coins instead of adrenaline. Hire up to 3 mercenaries at a time (Combat tab): each runs at the closest monster for 90 seconds, swings as fast as you, hits for half your damage, and earns you full XP. Every attack has a 25% chance to call up an A-Worthling, a mirror image of you that fights the same way for 25% of your damage and stays for good. Each A-Worthling swing has a 25% chance to split off a smaller one, up to 6 in all. Run out of coins and you can\'t fight, so keep your purse full.',
 };
 
