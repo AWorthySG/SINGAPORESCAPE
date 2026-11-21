@@ -66,6 +66,6 @@ test('desktop folds the side panel to its tab icons, short laptop screens start 
 test('Minimal HUD folds the menu to its tab icons instead of hiding it', () => {
   const css = readFileSync(new URL('../styles/main.css', import.meta.url), 'utf8');
   assert.ok(!/#game-root\.hud-min #sidepanel:not\(:hover\) \{ opacity: 0; \}/.test(css), 'the menu no longer fades out entirely');
-  assert.match(css, /#game-root\.hud-min #sidepanel:not\(:hover\):not\(\.collapsed\) \{[^}]*grid-template-areas: "tabs"/);
+  assert.match(css, /@media \(pointer: fine\) \{\s*#game-root\.hud-min #sidepanel:not\(:hover\):not\(\.collapsed\) \{[^}]*grid-template-areas: "tabs"/);
   assert.match(css, /#game-root\.hud-min #sidepanel:not\(:hover\):not\(\.collapsed\) #panel-body \{ display: none; \}/);
 });

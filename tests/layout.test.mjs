@@ -222,13 +222,13 @@ test('phone sheet: the five tabs share one row, and the body is not size-contain
 test('Minimal HUD on a phone keeps the folded Bag / Skills launcher (it used to fade out while exploring)', () => {
   const phones = mediaBlock('(pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px)');
   const strip = (s) => s.replace(/\/\*[^]*?\*\//g, '');
-  // The fade everywhere: #game-root.hud-min #sidepanel:not(:hover), specificity (2,2,0).
-  assert.match(css, /#game-root\.hud-min #sidepanel:not\(:hover\) \{ opacity: 0; \}/);
-  // On phones a rule of the same weight, later in the file, brings the folded
-  // launcher back (iOS only "hovers" the last thing tapped, so it came and went).
+  // The side panel never fades out any more (#518): on a mouse screen it folds
+  // to its tab icons instead, and that fold is kept off touch screens.
+  assert.ok(!/#game-root\.hud-min #sidepanel:not\(:hover\) \{ opacity: 0; \}/.test(css), 'no fade');
+  assert.match(css, /@media \(pointer: fine\) \{\s*#game-root\.hud-min #sidepanel:not\(:hover\):not\(\.collapsed\)/, 'the fold is for mouse screens only');
+  // On phones the folded launcher stays solid (iOS only "hovers" the last thing tapped).
   const rule = strip(phones).match(/([^{}]+)\{ opacity: 1; \}/g)?.find((r) => r.includes('#sidepanel.collapsed')) || '';
   assert.ok(rule.split('{')[0].split(',').map((s) => s.trim()).includes('#game-root.hud-min #sidepanel.collapsed'), 'the folded launcher stays solid');
-  assert.ok(css.indexOf(phones) > css.indexOf('#game-root.hud-min #sidepanel:not(:hover)'), 'and it comes after the fade');
   // Nothing else on a phone fades or hides the launcher's tab.
   assert.ok(!/#sidepanel\.collapsed \.tab-btn\.active\s*\{[^}]*(display: none|opacity: 0|visibility: hidden)/.test(css));
 });
