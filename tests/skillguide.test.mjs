@@ -17,12 +17,12 @@ import { DISHES } from '../src/data/cooking.js';
 import { CRAFT } from '../src/data/crafting.js';
 import { CROPS, POTIONS, FLETCH, HUNT, HIDE_CRAFT } from '../src/data/trades.js';
 import { NPCS } from '../src/data/npcs.js';
-import { COOKING } from '../src/game/skilling.js';
+import { COOKING, resolveWoodcut } from '../src/game/skilling.js';
 import {
   GUIDE_SKILLS, GATHER_SKILLS, MAKE_SKILLS, COMBAT_SKILLS, SKILL_GUIDES, allRecipes, recipesFor, gatherSources, guideEntries,
   resourceIndex, searchResources, itemEntry, itemSources, recipesUsing, canMake, objectRegions, regionsOf, trainingSpots, bestSpotsFor,
 } from '../src/game/skillguide.js';
-import { skillListHTML, combatGuideHTML, resourcesListHTML, itemPageHTML, PAGE } from '../src/ui/skillguideui.js';
+import { skillListHTML, combatGuideHTML, resourcesListHTML, itemPageHTML, PAGE, realXp } from '../src/ui/skillguideui.js';
 import { SKILLS } from '../src/data/skills.js';
 
 function newGame() {
@@ -210,4 +210,25 @@ test('Untick all: clears every auto gather pick, says so, and the save still loa
   saveGame(g2);
   const g3 = new Game(); g3.start(); assert.ok(loadGame(g3));
   assert.deepEqual([...g3.gatherPicks], ['copper_rock']);
+});
+
+// The XP badges: each log, fish, ore and make shows the XP you really get,
+// as Skills.addXp adds it (the listed number times the XP rate and boost).
+test('the Woodcutting and Fishing lists show the real XP each log or fish gives', () => {
+  const g = newGame();
+  g.skills.timeMult = null;   // golden hours aside
+  const tree = g.world.objects.find((o) => o.objId === 'tree' && !o.depleted);
+  if (!g.inventory.has('bronze_axe')) g.inventory.add('bronze_axe', 1);
+  const x0 = g.skills.xp.woodcutting;
+  const r = Math.random; Math.random = () => 0.99;   // no double log, nest or herb
+  try { resolveWoodcut(g, { obj: tree }); } finally { Math.random = r; }
+  const gained = g.skills.xp.woodcutting - x0;
+  assert.ok(Math.abs(realXp(g, 'woodcutting', tree.def.xp) - gained) < 1e-6, `the badge's figure is what a log gives (${gained})`);
+  const wc = skillListHTML(g, 'woodcutting', {}).html;
+  assert.ok(wc.includes(`+${Math.round(gained).toLocaleString('en-US')} xp each`), 'the Tree row shows it');
+  const fish = skillListHTML(g, 'fishing', {}).html;
+  const anchovy = OBJECTS.anchovy_spot?.catches?.[0] || Object.values(OBJECTS).find((o) => o.catches)?.catches[0];
+  assert.ok(fish.includes(`+${Math.round(realXp(g, 'fishing', anchovy.xp)).toLocaleString('en-US')} xp each`), 'a fish row shows its XP');
+  assert.equal((fish.match(/class="sgx-xp"/g) || []).length, (fish.match(/class="sg-row sgx-row/g) || []).length, 'every fish row has a badge');
+  assert.ok(!/at a [aeiou]/.test(fish), '"an anchovy shoal", not "a anchovy shoal"');
 });

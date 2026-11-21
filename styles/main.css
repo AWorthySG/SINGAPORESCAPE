@@ -4161,3 +4161,11 @@ input[type="range"]:focus-visible { outline: 3px solid var(--aw-sun); outline-of
    few seconds, or while the minimap is folded); otherwise the minimap's own
    label names the area. */
 #region-label:not(.fresh) { opacity: 0; pointer-events: none; }
+
+/* Skill guides: the XP each log, fish, ore or make really gives, as a badge. */
+.sgx-xp {
+  display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; vertical-align: 1px;
+  background: #e6f5dc; color: #2f6a1f; border: 1.5px solid #22304A; font-size: 11.5px; font-weight: 800; white-space: nowrap;
+}
+.sgx-row.locked .sgx-xp { opacity: .75; }
+
