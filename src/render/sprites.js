@@ -2010,6 +2010,11 @@ function heroImage(style) {
   return img;
 }
 const HERO_ART_H = 56, HERO_ART_W = 60, HERO_ART_FEET = 15;
+// Classes whose portrait has been redrawn but whose layered rig parts (and
+// painted back view) still show the old look. Until the redesigned rig sheets
+// arrive they walk and fight as the single-picture puppet below, which uses
+// the new portrait. The old rig files stay registered, just unused here.
+export const PUPPET_HEROES = new Set(['ninja', 'sniper']);
 
 // ---- Puppet animation for the painted hero ----
 // The picture is cut once into a body and two feet (the bottom band, split at
@@ -2245,7 +2250,7 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
       const w = himg.naturalWidth * s, h = himg.naturalHeight * s;
       const g = opts.gait;
       // Walking up the screen shows the painted back view where a class has one.
-      const layered = drawHeroBack(c, opts) || drawHeroRig(c, opts) || drawRangedHeroRig(c, opts);
+      const layered = !PUPPET_HEROES.has(opts.jobClass) && (drawHeroBack(c, opts) || drawHeroRig(c, opts) || drawRangedHeroRig(c, opts));
       if (!layered) {
         if (g && !pose) heroPuppet(c, himg, w, h, g, t);
         else {
