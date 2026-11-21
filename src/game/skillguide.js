@@ -225,6 +225,16 @@ export function objectRegions(game) {
   if (game) game._objRegions = out;
   return out;
 }
+/** The world's groves (groves.js), lowest tree first, for the Woodcutting
+ *  guide: [{ id, name, objId, tree, level, region, count, x, y, text }]. */
+export function groveList(game) {
+  return (game?.world?.groves || []).map((g) => {
+    const d = OBJECTS[g.objId] || {};
+    const tree = d.name || g.objId;
+    return { id: g.id, name: g.name, objId: g.objId, tree, level: d.level || 1, region: g.region, count: g.count, x: g.cx, y: g.cy,
+      text: `${g.name}: ${g.count} ${tree.toLowerCase()}s (level ${d.level || 1}), ${g.region}` };
+  }).sort((a, b) => a.level - b.level);
+}
 /** Regions for several object kinds together, without repeats. */
 export function regionsOf(game, objIds = []) {
   const map = objectRegions(game), seen = new Set();
