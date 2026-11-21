@@ -78,6 +78,8 @@ import { REWARD_COINS_EACH, REWARD_COINS_MIN, REWARD_COINS_MAX, REWARD_LAMPS } f
 
 // ---------------- Little helpers for the numbers ----------------
 const pct = (x, dp = 0) => `${(Math.round(x * 100 * 10 ** dp) / 10 ** dp).toLocaleString('en-GB')}%`;
+// A crit's average multiplier: x2, or x4 one time in four (2.5).
+const avgCrit = () => (1 - MEGA_CRIT_CHANCE) * CRIT_MULT + MEGA_CRIT_CHANCE * MEGA_CRIT_MULT;
 const num = (n) => Number(n).toLocaleString('en-GB');
 const secs = (ticks) => {
   const s = ticks * TICK_MS / 1000;
@@ -517,6 +519,20 @@ export const CHAPTERS = [
           '**Crit damage %** (scout leather, enchantments, the Ferocity blessing) makes every critical hit bigger still.',
         ],
         see: ['enchanting', 'offering-shrine', 'prayers'],
+      },
+      {
+        id: 'damage-stats', title: 'Physical damage vs crit damage vs pierce',
+        summary: '1% of one damage stat is not 1% of another: what each point is really worth.',
+        body: [
+          '**Physical damage bonus %** (melee and ranged) and **Magic bonus %** (spells) make every hit that much bigger: +1% is +1% damage, a little less once you already have a lot.',
+          () => `**Crit damage %** only counts on critical hits. A crit does x${CRIT_MULT} (x${MEGA_CRIT_MULT} one time in ${Math.round(1 / MEGA_CRIT_CHANCE)}, so x${avgCrit()} on average), and crit damage adds to that multiplier. With crit chance c, a hit is worth 1 + c x (${avgCrit() - 1} + crit damage / 100) on average, so a point of crit damage is worth less than c times a point of physical damage: much less until you crit often.`,
+          () => ({ table: { head: ['Crit chance', '+1% Physical damage', '+1% Crit damage'], rows: [0.1, 0.2, 0.4, 0.7, 1].map((c) => [pct(c), '+1%', `+${(100 * c / (100 + c * (avgCrit() - 1) * 100)).toFixed(2)}%`]) } }),
+          () => `**Crit chance %** adds crits: with no other bonuses each point is worth about ${avgCrit() - 1}% damage (more with crit damage), until every hit crits.`,
+          '**Armour pierce %** cancels a monster\'s armour first, and only what is left over adds damage. Until your pierce matches the armour, each point gives back more than 1% damage (it takes back a share of the hit the armour stopped); past that, each extra point adds a little less than 1%.',
+          '**Attack speed %** gives more attacks: damage per second grows by (100 + attack speed) / 100.',
+          { tip: 'The **Stats** view shows "What 1 point is worth" for you right now, and every gear tooltip notes what its stats add for you (≈ +X% dmg).' },
+        ],
+        see: ['crits', 'monster-armour', 'enchanting'],
       },
       {
         id: 'abilities', title: 'Skills, adrenaline and special attacks',
