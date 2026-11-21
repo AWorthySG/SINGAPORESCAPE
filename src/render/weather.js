@@ -87,7 +87,19 @@ export function regionWeather(zone, base) {
   return { rain: base.rain, snow: 0, embers: 0, storm: base.storm, flash: base.flash };
 }
 
-const RAIN_CAP = 170, RAIN_CAP_LOW = 50, SNOW_CAP = 110, EMBER_CAP = 26, RIPPLE_CAP = 40;
+const RAIN_CAP = 170, RAIN_CAP_LOW = 50, SNOW_CAP = 110, EMBER_CAP = 26, RIPPLE_CAP = 40, SPLASH_CAP = 36;
+
+// Cloud shadows: on a clear day, big soft shadows of passing clouds drift
+// across the land (and everyone on it). Each keeps its place in the world and
+// slides east with the wind; they fade out at night, in rain (the sky is all
+// cloud then) and under a roof.
+export const CLOUD_COUNT = 4;
+export const CLOUD_ALPHA = 0.2;   // how dark a cloud's shadow is at its middle
+/** How strong the cloud shadows are: full on a dry day, none at night, in rain or under a roof. */
+export function cloudShadeAt(day, rain, roofed) {
+  if (roofed) return 0;
+  return Math.max(0, Math.min(1, (day - 0.35) / 0.4)) * Math.max(0, 1 - rain * 2.5);
+}
 
 export class Weather {
   constructor() {
@@ -96,6 +108,9 @@ export class Weather {
     this.wet = 0;          // how wet the ground is: rises in rain, dries slowly after
     this.mist = 0;
     this._drops = []; this._flakes = []; this._embers = []; this._ripples = [];
+    this._splashes = [];   // rain bouncing off the ground (screen space)
+    this.clouds = 0;       // cloud shadow strength (cloudShadeAt)
+    this._cloudImg = null;
     this._sky = [0, 0, 0, 0];
     // The washes handed to the light pass: rain's grey, mist's pale veil, the region's sky.
     this._rainWash = [58, 78, 118, 0];   // a cool slate blue
@@ -133,6 +148,7 @@ export class Weather {
     const target = ROOFED.has(zone) ? 0 : Math.min(1, w.rain * 1.4);
     this.wet += (target - this.wet) * Math.min(1, dt / (target > this.wet ? 20000 : 60000));
     this.zone = zone;
+    this.clouds = cloudShadeAt(game.daylightFactor ? game.daylightFactor() : 1, w.rain + w.snow, ROOFED.has(zone));
     return s;
   }
 
@@ -182,14 +198,16 @@ export class Weather {
     }
     if (rp.length) {
       ctx.save();
-      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5;
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.1;
       for (let i = rp.length - 1; i >= 0; i--) {
         const r = rp[i];
         r.life += dt;
         if (r.life >= 650) { rp.splice(i, 1); continue; }
         const k = r.life / 650;
-        ctx.globalAlpha = (1 - k) * 0.85;
-        ctx.beginPath(); ctx.ellipse(r.x - ox, r.y - oy, 2 + k * 11, 1 + k * 5, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.globalAlpha = (1 - k) * 0.7;
+        ctx.beginPath(); ctx.ellipse(r.x - ox, r.y - oy, 1.5 + k * 9, 0.8 + k * 3.6, 0, 0, Math.PI * 2); ctx.stroke();
+        // A second, smaller ring a moment behind the first.
+        if (k > 0.3) { const k2 = (k - 0.3) / 0.7; ctx.globalAlpha = (1 - k2) * 0.5; ctx.beginPath(); ctx.ellipse(r.x - ox, r.y - oy, 1 + k2 * 5, 0.5 + k2 * 2, 0, 0, Math.PI * 2); ctx.stroke(); }
       }
       ctx.restore();
     }
@@ -231,9 +249,45 @@ export class Weather {
         ctx.restore();
       }
     }
+    if (!low && this.clouds > 0.02) this._cloudShadows(ctx, ox, oy, vw, vh, t);
     this._rain(ctx, vw, vh, dt, low);
     this._snow(ctx, vw, vh, t, dt, low);
     if (!low) this._embersDraw(ctx, vw, vh, t, dt);
+  }
+
+  // A soft, lumpy cloud shadow, baked once: a few overlapping round blobs.
+  _cloud() {
+    if (this._cloudImg !== null) return this._cloudImg;
+    if (typeof document === 'undefined' || !document.createElement) return (this._cloudImg = false);
+    const cv = document.createElement('canvas'); cv.width = 256; cv.height = 128;
+    const g = cv.getContext('2d');
+    if (!g) return (this._cloudImg = false);
+    for (const [x, y, r] of [[80, 70, 52], [130, 56, 60], [180, 72, 46], [118, 84, 50]]) {
+      const grd = g.createRadialGradient(x, y, 0, x, y, r);
+      grd.addColorStop(0, 'rgba(30,44,74,0.55)'); grd.addColorStop(0.7, 'rgba(30,44,74,0.45)'); grd.addColorStop(1, 'rgba(30,44,74,0)');
+      g.fillStyle = grd; g.fillRect(0, 0, 256, 128);
+    }
+    return (this._cloudImg = cv);
+  }
+
+  _cloudShadows(ctx, ox, oy, vw, vh, t) {
+    const img = this._cloud();
+    if (!img) return;
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, this.clouds * CLOUD_ALPHA / 0.55);
+    // Big (a cloud is wider than the screen) and spaced so that one or two
+    // are usually passing over you, with clear sky between.
+    const cw = Math.max(vw, vh) * 1.5, ch = cw * 0.5;
+    const spanX = vw + cw * 1.2, spanY = vh + ch * 1.2;
+    const wrap = (v, m) => ((v % m) + m) % m;
+    for (let i = 0; i < CLOUD_COUNT; i++) {
+      // World-anchored (they slide with the ground as you walk) and drifting
+      // east at a breeze's pace, each at its own speed.
+      const x = wrap(i * 977 + t * 0.012 * (1 + (i % 3) * 0.3) - ox, spanX) - cw;
+      const y = wrap(i * 613 - oy, spanY) - ch;
+      ctx.drawImage(img, x, y, cw, ch);
+    }
+    ctx.restore();
   }
 
   _rain(ctx, vw, vh, dt, low) {
@@ -243,15 +297,42 @@ export class Weather {
     if (drops.length > want) drops.length = want;
     if (!drops.length) return;
     const slant = 0.22 + s.storm * 0.25, len = 13 + s.storm * 6, fall = 0.9 + s.storm * 0.3;
+    const sp = this._splashes;
     ctx.save();
-    ctx.strokeStyle = 'rgba(226,236,252,0.7)'; ctx.lineWidth = 1.3; ctx.lineCap = 'round';
-    ctx.beginPath();
-    for (const d of drops) {
-      d.y += fall * d.v * dt; d.x -= slant * fall * d.v * dt;
-      if (d.y > vh + 10 || d.x < -20) { d.y = -10 - Math.random() * 40; d.x = Math.random() * (vw + 80); }
-      ctx.moveTo(d.x, d.y); ctx.lineTo(d.x + slant * len * d.v, d.y - len * d.v);
+    ctx.lineCap = 'round';
+    // Two layers for depth: far drops thin and faint, near ones longer and
+    // brighter. A near drop that reaches the ground bounces up in a splash.
+    for (const near of [false, true]) {
+      ctx.strokeStyle = near ? 'rgba(236,244,255,0.78)' : 'rgba(214,226,246,0.45)';
+      ctx.lineWidth = near ? 1.6 : 1;
+      ctx.beginPath();
+      for (const d of drops) {
+        if ((d.v > 1.05) !== near) continue;
+        d.y += fall * d.v * dt; d.x -= slant * fall * d.v * dt;
+        if (d.y > (d.land || vh + 10) || d.x < -20) {
+          if (near && !low && d.land && sp.length < SPLASH_CAP) sp.push({ x: d.x, y: d.y, life: 0 });
+          d.y = -10 - Math.random() * 40; d.x = Math.random() * (vw + 80);
+          d.land = near ? vh * (0.15 + Math.random() * 0.85) : 0;   // where on screen it hits the ground
+        }
+        const l = len * d.v * (near ? 1.25 : 0.8);
+        ctx.moveTo(d.x, d.y); ctx.lineTo(d.x + slant * l, d.y - l);
+      }
+      ctx.stroke();
     }
-    ctx.stroke();
+    // Splashes: a tiny crown of two droplets that hop out and fade.
+    if (sp.length) {
+      ctx.strokeStyle = 'rgba(236,244,255,0.8)'; ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      for (let i = sp.length - 1; i >= 0; i--) {
+        const p = sp[i];
+        p.life += dt;
+        if (p.life >= 240) { sp.splice(i, 1); continue; }
+        const k = p.life / 240, r = 2 + k * 4, up = Math.sin(k * Math.PI) * 4;
+        ctx.moveTo(p.x - r, p.y - up); ctx.lineTo(p.x - r - 1.5, p.y - up - 2);
+        ctx.moveTo(p.x + r, p.y - up); ctx.lineTo(p.x + r + 1.5, p.y - up - 2);
+      }
+      ctx.stroke();
+    }
     ctx.restore();
   }
 

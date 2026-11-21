@@ -197,7 +197,7 @@ test('small and touch screens get half the rain and no puddle sheen', () => {
       set: (t, k, v) => { t[k] = v; return true; },
     });
     ww._rain(ctx, 1100, 620, 16, false);
-    assert.equal(strokes, 1, 'all the streaks in a single stroke');
+    assert.equal(strokes, 2, 'all the streaks in two strokes: the far layer and the near one');
     return moves;
   };
   assert.ok(Math.abs(streaks(true) - streaks(false) / 2) <= 1, 'half the streaks on a small screen');
