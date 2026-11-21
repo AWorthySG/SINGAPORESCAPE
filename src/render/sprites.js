@@ -11,6 +11,7 @@ import { poseBlender } from './poseBlend.js';
 import { CREATURE_RIGS, TOWN_IDLE, bossRig } from './creatureRigs.js';
 import { REGION_GIVERS } from '../data/regionQuests.js';
 import { RESIDENTS } from '../data/consequences.js';
+import { PORTRAIT_CROPS } from '../data/portraitcrops.js';
 import { BESTIARY_SPECIES, BESTIARY_BOSSES } from '../data/bestiary.js';
 import { OBJECTS } from '../data/objects.js';
 
@@ -674,12 +675,30 @@ export const puppetKinds = () => ({ ...PUPPET_KIND });
 /** A boss or champion's portrait for the battle bar: its painted art and where
  *  in the picture its head is (as a CSS background-position), or null. */
 export function portraitFor(npcId, def) {
-  const src = def.boss && bossFile(npcId) ? `assets/creatures/bosses/${bossFile(npcId)}.webp`
-    : speciesFile(def.family) ? `assets/creatures/species/${speciesFile(def.family)}.webp` : null;
-  if (!src) return null;
+  const key = def.boss && bossFile(npcId) ? `bosses/${bossFile(npcId)}`
+    : speciesFile(def.family) ? `species/${speciesFile(def.family)}` : null;
+  if (!key) return null;
+  const src = `assets/creatures/${key}.webp`;
   const tint = artTint(npcId, def);
-  const top = HEAD_TOP.has(def.sprite) || ['ghost', 'wisp', 'slime', 'plant', 'jellyfish', 'serpent'].includes(def.sprite);
-  return { src, pos: top ? '50% 8%' : '88% 22%', tint };
+  return { src, ...portraitFrame(key, def), tint };
+}
+
+/** Where a round portrait looks on a creature picture, as CSS background
+ *  `pos` and `size`: from its measured painted area (portraitcrops.js), so the
+ *  circle is filled by the creature itself. Pictures not yet measured fall
+ *  back to the old guess. */
+export function portraitFrame(key, def = {}) {
+  const c = PORTRAIT_CROPS[key];
+  if (!c) {
+    const top = HEAD_TOP.has(def.sprite) || ['ghost', 'wisp', 'slime', 'plant', 'jellyfish', 'serpent'].includes(def.sprite);
+    return { pos: top ? '50% 8%' : '88% 22%', size: '165%' };
+  }
+  const [cx, cy, sw, sh] = c;
+  // A background bigger than its box puts p% of the picture at p% of the box,
+  // so the square's left edge (cx - sw/2) lands on the box's left edge when
+  // p = (cx - sw/2) / (1 - sw); likewise down.
+  const at = (m, s) => (s >= 1 ? 50 : Math.max(0, Math.min(100, ((m - s / 2) / (1 - s)) * 100)));
+  return { pos: `${at(cx, sw).toFixed(1)}% ${at(cy, sh).toFixed(1)}%`, size: `${(100 / sw).toFixed(1)}% ${(100 / sh).toFixed(1)}%` };
 }
 const _puppetInfo = new Map();
 /** The painted area of a sticker (in its bitmap's pixels) and where its feet
