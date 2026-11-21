@@ -15,7 +15,7 @@ import { cloud } from './game/cloud.js';
 import { quickUse } from './game/quickuse.js';
 import { installLinks } from './ui/links.js';
 import { closeTopWindow } from './ui/windowease.js';
-import { FxGovernor } from './render/governor.js';
+import { FxGovernor, slowFrames, shouldScaleDown, TRIM_OFF_HOLD } from './render/governor.js';
 import { preloadFx } from './render/fxart.js';
 
 const VIEW_TILES = 15;        // tiles shown across the shorter side of the screen, at most
@@ -165,18 +165,19 @@ window.addEventListener('resize', resize);
 resize();
 
 // Main loop.
-let last = now(), slowAvg = 16, lastScaleDown = 0;
+let last = now(), slowAvg = 16, lastScaleDown = 0, slowTrimUntil = 0;
 const governor = new FxGovernor();
 function frame() {
   const t = now();
   let dt = t - last;
   last = t;
   if (dt > 250) dt = 250; // avoid huge catch-up after a tab switch
-  // Frames averaging slower than ~30fps for a couple of seconds: draw at a
-  // lower resolution (a step at a time, down to 60%; a reload starts afresh).
+  // Frames averaging slower than ~30fps for a couple of seconds, with the
+  // extras already trimmed: draw at a lower resolution (a step at a time,
+  // down to 60%; a reload starts afresh).
   if (dt < 250) {
     slowAvg = slowAvg * 0.97 + dt * 0.03;
-    if (slowAvg > 33 && autoScale > 0.6 && t - lastScaleDown > 2500) {
+    if (shouldScaleDown(slowAvg, game.fxTrim) && autoScale > 0.6 && t - lastScaleDown > 2500) {
       autoScale = Math.max(0.6, autoScale - 0.15); lastScaleDown = t; slowAvg = 20; resize();
     }
   }
@@ -189,7 +190,11 @@ function frame() {
     renderer.render(t);
     ui.renderMinimap();
     // Frames whose work keeps running long trim the decorative extras (governor.js).
-    game.fxTrim = governor.frame(now() - t, t);
+    // So do frames that keep arriving slowly whatever the work (a phone whose
+    // painting can't keep up): the extras go before the resolution does.
+    // It holds for a while once on (TRIM_OFF_HOLD), so it doesn't flicker.
+    if (slowFrames(slowAvg)) slowTrimUntil = t + TRIM_OFF_HOLD;
+    game.fxTrim = governor.frame(now() - t, t) || t < slowTrimUntil;
   } catch (err) {
     if (!frameErrorLogged) { frameErrorLogged = true; console.error('Frame error (the game keeps running):', err); }
   }

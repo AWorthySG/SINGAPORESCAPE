@@ -202,3 +202,25 @@ test('small and touch screens get half the rain and no puddle sheen', () => {
   };
   assert.ok(Math.abs(streaks(true) - streaks(false) / 2) <= 1, 'half the streaks on a small screen');
 });
+
+test('cloud shadows ride the light pass: painted into its small layer, with no full-screen layer of their own', () => {
+  const g = freshGame();
+  const lp = new LightPass();
+  // A stand-in layer (headless has no canvas): record what is drawn where.
+  const layerCtx = recordingCtx();
+  lp.ok = true; lp.layer = { width: 0, height: 0 }; lp.g = layerCtx;
+  const seen = [];
+  const wx = { gloom: 0, flash: 0, washes: [], flashWash: [0, 0, 0, 0], clouds: 1, cloudsInto: (gg, ...a) => seen.push([gg, ...a]) };
+  const day = recordingCtx();
+  assert.equal(lp.draw(day, g, [0, 0, 0, 0], 0, wx, 10, 20, 800, 600, 1000), true);
+  assert.equal(seen.length, 1, 'the clouds are painted once');
+  assert.equal(seen[0][0], layerCtx, '...into the light layer');
+  const onScreen = day.calls.filter((c) => c === 'drawImage' || c === 'fillRect');
+  assert.equal(onScreen.length, 1, 'one full-screen draw, as without clouds');
+  // No clouds (night, rain, trimmed): the plain daylight fill.
+  wx.clouds = 0; seen.length = 0;
+  const plain = recordingCtx();
+  lp.draw(plain, g, [10, 10, 10, 0.1], 0, wx, 0, 0, 800, 600, 1000);
+  assert.equal(seen.length, 0);
+  assert.deepEqual(plain.calls, ['fillRect']);
+});

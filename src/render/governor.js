@@ -11,6 +11,17 @@
 // Mode) isn't mistaken for a slow one. Resolution is a separate, later step
 // (main.js scales the canvas down when frames stay very slow).
 
+// Frames that keep coming slower than this (ms between them, smoothed) also
+// trim, whatever the game's own work: a phone whose painting can't keep up
+// (the work time looks fine, the screen doesn't). Above a 30fps cap (33ms),
+// so an iPhone in Low Power Mode isn't mistaken for a slow one.
+export const SLOW_FRAME_MS = 36;
+/** Whether frames arriving `slowAvg` ms apart (smoothed) call for the trim. */
+export function slowFrames(slowAvg) { return slowAvg > SLOW_FRAME_MS; }
+/** Whether to lower the resolution: frames still slower than ~30fps with the
+ *  extras already trimmed (the picture's sharpness is the last thing to go). */
+export function shouldScaleDown(slowAvg, trimmed) { return slowAvg > 33 && trimmed; }
+
 export const TRIM_ON_MS = 14;       // average work above this (ms) for TRIM_ON_HOLD: trim
 export const TRIM_OFF_MS = 9;       // ...below this for TRIM_OFF_HOLD: back to full
 export const TRIM_ON_HOLD = 1500;
