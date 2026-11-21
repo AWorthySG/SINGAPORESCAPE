@@ -48,6 +48,7 @@ import { sunShadow, drawSunShadow, footfall } from './shadows.js';
 import { dropArc, dropFx } from './combatfx.js';
 import { applySquash, splatMotion, drawCritBurst, drawMissPuff, drawLootGlow, drawCoinGlint } from './juice.js';
 import { drawGrave } from './grave.js';
+import { drawFishSchool } from './fishschoolfx.js';
 
 // Gathering actions that show a progress ring over the node, and its colour.
 const GATHER_RING = { woodcut: '#4fa04f', mine: '#8a8fa0', fish: '#3a8fd8', hunt: '#d08a3a' };
@@ -278,6 +279,11 @@ export class Renderer {
         if (fade < 1) { ctx.save(); ctx.globalAlpha = fade; drawObjectSprite(ctx, o, cx, cy, timeMs); ctx.restore(); }
         else drawObjectSprite(ctx, o, cx, cy, timeMs);
       } });
+    }
+    for (const sc of game.fishSchools?.list || []) {   // a school of fish at a spot (fishschool.js): one or two at most
+      const o = sc.obj;
+      if (o.x < x0 - 1 || o.x > x1 + 1 || o.y < y0 - 1 || o.y > y1 + 1) continue;
+      drawables.push({ sortY: o.y + 0.41, z: 1, draw: () => drawFishSchool(ctx, o.x * TILE + TILE / 2 - ox, o.y * TILE + TILE / 2 - oy, timeMs, sc, game.tickCount || 0, !!game.lowFx) });
     }
     { const gr = game.play?.grave;   // your gravestone, where you last fell (playbalance.js)
       if (gr && gr.x >= x0 && gr.x <= x1 && gr.y >= y0 && gr.y <= y1) drawables.push({ sortY: gr.y + 0.3, z: 1, draw: () => drawGrave(ctx, gr.x * TILE + TILE / 2 - ox, gr.y * TILE + TILE * 0.8 - oy, timeMs) }); }
