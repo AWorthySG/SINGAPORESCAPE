@@ -84,7 +84,7 @@ export const LIFE_STAGES_ADV = [
   },
   {
     skill: 'fishing', name: 'Fishing',
-    teach: 'Trout (Fishing 20) take patience. Net me 5 raw trout.',
+    teach: 'Trout (Fishing 20) take patience. Take your rod to a trout pool and bring me 5 raw trout.',
     need: { item: 'raw_trout', qty: 5 },
     reward: { xp: 900, coins: 400 },
   },

@@ -6896,13 +6896,13 @@ export class Game {
       case 'mystic_trial': return inv('death_rune') >= 25 ? npc('guide', 'Hand in to') : npc('mage', 'Buy death runes from');
       case 'island_provisions': {
         // Catch every salmon still owed, then cook the lot in one go (a burnt
-        // one just means a few more to catch). Salmon come from the net spots
-        // (rod spots never had any), and only from Fishing 30.
+        // one just means a few more to catch). Salmon come from the salmon runs
+        // (netted, in Marina Bay: fishspots.js), and only from Fishing 30.
         const left = 10 - inv('salmon');
         if (left <= 0) return npc('guide', 'Hand in to');
         if (inv('raw_salmon') < left) {
           if (this.skills.level('fishing') < 30) return { text: 'Reach Fishing 30 to catch salmon', kind: 'none' };
-          return obj('fishing_spot', `Net salmon (${inv('raw_salmon')}/${left})`);
+          return obj('salmon_spot', `Net salmon (${inv('raw_salmon')}/${left})`);
         }
         return obj('range', `Cook your ${left} salmon on a range`);
       }

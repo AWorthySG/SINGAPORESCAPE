@@ -146,24 +146,22 @@ test('thieving: a stall keeps you stealing as it restocks', () => {
   assert.ok(steals >= 5 && steals >= clicks * 2, `${clicks} clicks, ${steals} steals`);
 });
 
-// Mean XP a cast at a fishing spot at a level (catch rolls are weighted).
-function castXp(spot, lvl) {
-  const el = OBJECTS[spot].catches.filter((c) => lvl >= c.level);
-  return el.reduce((a, c) => a + c.weight * c.xp, 0) / el.reduce((a, c) => a + c.weight, 0);
+// XP an hour at a fishing spot, as a share: its one fish's XP a cast, times the
+// casts the best rod or harpoon for the level adds (the net and pot have no tiers).
+function spotRate(spot, lvl) {
+  const d = OBJECTS[spot], speed = ['rod', 'harpoon'].includes(d.tool) ? TOOL_TIERS.filter((t) => t.level <= lvl).pop().speed : 0;
+  return d.catches[0].xp * (1 + speed / 100);
 }
 
-test('fishing: the cage and harpoon spots beat the coastal rod spot, and sharks and manta rays pay', () => {
-  for (let L = 40; L <= 99; L++) {
-    assert.ok(castXp('fishing_cage', L) > castXp('sea_rod_spot', L), `cage at ${L}`);
-    assert.ok(castXp('harpoon_spot', L) > castXp('sea_rod_spot', L), `harpoon at ${L}`);
+test('fishing: the lobster bed beats the coastal rod spots when it opens, and sharks and manta rays pay', () => {
+  // Since each spot holds one fish (Nov 2026), the old mixed spots' ranking
+  // holds spot by spot: tests/fish-spots.test.mjs checks the whole ladder.
+  for (const id of ['sea_rod_spot', 'milkfish_spot', 'queenfish_spot', 'red_drum_spot']) assert.ok(spotRate('fishing_cage', 40) > spotRate(id, 40), `lobster beats ${id}`);
+  assert.ok(spotRate('harpoon_spot', 35) > spotRate('sea_rod_spot', 35), 'tuna from its unlock');
+  const below = (L) => Object.keys(OBJECTS).filter((id) => OBJECTS[id].type === 'fishing' && OBJECTS[id].catches[0].level < L);
+  for (const [spot, L] of [['shark_spot', 76], ['manta_spot', 84]]) {
+    for (const id of below(L)) assert.ok(spotRate(spot, L) > spotRate(id, L), `${spot} beats ${id} at ${L}`);
   }
-  assert.ok(castXp('harpoon_spot', 35) > castXp('sea_rod_spot', 35), 'harpoon from its unlock');
-  assert.ok(castXp('harpoon_spot', 76) > castXp('harpoon_spot', 75), 'sharks raise it');
-  assert.ok(castXp('harpoon_spot', 84) > castXp('harpoon_spot', 83), 'manta rays raise it');
-  // The lobster pot has no better tiers but the harpoon does (an adamant one by
-  // 70: a third more casts), so the cage pays more a cast and the harpoon more an hour.
-  const harpoonSpeed = 1 + TOOL_TIERS.filter((t) => t.level <= 76).pop().speed / 100;
-  assert.ok(castXp('harpoon_spot', 76) * harpoonSpeed > castXp('fishing_cage', 76), 'top of the ladder by 76');
 });
 
 // XP an hour from auto gather at the densest cluster of `id`, XP pinned at `lvl`.

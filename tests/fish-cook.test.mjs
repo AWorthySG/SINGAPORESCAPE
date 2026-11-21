@@ -269,7 +269,9 @@ test('endgame Fishing XP an hour: each spot well ahead of the best before it, at
     }
     return gain * 6000 / TICKS;
   };
-  let prev = 'harpoon_spot';
+  // The best spot below level 100 is the manta run (one fish to a spot since
+  // Nov 2026; before that, the mixed harpoon spot with its mantas).
+  let prev = 'manta_spot';
   for (const t of TIERS) {
     const before = rate(prev, t.lvl), now = rate(t.spot, t.lvl);
     assert.ok(now >= before * 1.25, `${t.spot}: ${Math.round(now)} xp/h vs ${prev} ${Math.round(before)} at level ${t.lvl}`);

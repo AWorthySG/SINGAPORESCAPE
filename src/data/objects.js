@@ -265,95 +265,47 @@ export const OBJECTS = {
   },
 
   // ---------------- Fishing ----------------
+  // One fish to a spot (Nov 2026): each kind of spot catches one species, and
+  // each species comes from one kind of spot, so where you fish picks the fish.
+  // These five keep their ids (saves and quests name them) and the headline
+  // catch of the mixed spots they used to be; the other species have spots of
+  // their own (FISH_SPOTS below), and fishspots.js shares the world's spots out
+  // between them, region by region.
   fishing_spot: {
-    name: 'Net fishing spot', label: 'Net', type: 'fishing', verb: 'Net', emoji: '🎣', blocking: false,
+    name: 'Anchovy shoal', label: 'Anchovy', type: 'fishing', verb: 'Net', emoji: '🎣', blocking: false,
     skill: 'fishing', tool: 'net', depleteChance: 0, respawn: 0,
-    // Level-gated catches; a weighted eligible-by-level entry is rolled.
-    catches: [
-      { id: 'raw_salmon', level: 30, xp: 70, lowChance: 0.22, highChance: 0.72, weight: 18 },
-      { id: 'raw_mackerel', level: 16, xp: 45, lowChance: 0.25, highChance: 0.78, weight: 26 },
-      { id: 'raw_trout', level: 20, xp: 50, lowChance: 0.25, highChance: 0.80, weight: 26 },
-      { id: 'raw_sardine', level: 5, xp: 20, lowChance: 0.35, highChance: 0.85, weight: 50 },
-      { id: 'raw_anchovy', level: 1, xp: 10, lowChance: 0.45, highChance: 0.95, weight: 100 },
-    ],
-    examine: 'Small fish dart about. Use a net here.',
+    catches: [{ id: 'raw_anchovy', level: 1, xp: 10, weight: 1 }],
+    examine: 'Tiny silver anchovies flicker in the shallows. Use a net here.',
   },
   rod_spot: {
-    name: 'Rod fishing spot', label: 'Rod', type: 'fishing', verb: 'Lure', emoji: '🎣', blocking: false,
+    name: 'Trout pool', label: 'Trout', type: 'fishing', verb: 'Lure', emoji: '🎣', blocking: false,
     skill: 'fishing', tool: 'rod', depleteChance: 0, respawn: 0,
-    catches: [
-      { id: 'raw_arowana', level: 80, xp: 240, lowChance: 0.05, highChance: 0.22, weight: 3 }, // prized & rare
-      { id: 'raw_arapaima', level: 70, xp: 185, lowChance: 0.08, highChance: 0.38, weight: 12 },
-      { id: 'raw_giant_snakehead', level: 55, xp: 130, lowChance: 0.12, highChance: 0.48, weight: 18 },
-      { id: 'raw_speckled_temensis', level: 45, xp: 110, lowChance: 0.16, highChance: 0.56, weight: 24 },
-      { id: 'raw_eel', level: 38, xp: 85, lowChance: 0.18, highChance: 0.62, weight: 28 },
-      { id: 'raw_belida', level: 35, xp: 95, lowChance: 0.18, highChance: 0.60, weight: 28 },
-      { id: 'raw_peacock_bass', level: 32, xp: 80, lowChance: 0.22, highChance: 0.68, weight: 36 },
-      { id: 'raw_pike', level: 25, xp: 60, lowChance: 0.25, highChance: 0.74, weight: 44 },
-      { id: 'raw_marble_goby', level: 24, xp: 70, lowChance: 0.20, highChance: 0.60, weight: 26 },
-      { id: 'raw_trout', level: 20, xp: 50, lowChance: 0.28, highChance: 0.82, weight: 50 },
-      { id: 'raw_ikan_keli', level: 18, xp: 52, lowChance: 0.30, highChance: 0.84, weight: 60 },
-      { id: 'raw_climbing_perch', level: 15, xp: 48, lowChance: 0.30, highChance: 0.85, weight: 70 },
-      { id: 'raw_tilapia', level: 12, xp: 38, lowChance: 0.32, highChance: 0.86, weight: 90 },
-    ],
-    examine: 'Calm freshwater — perfect for rod fishing. (Fishing 12)',
+    catches: [{ id: 'raw_trout', level: 20, xp: 50, weight: 1 }],
+    examine: 'Cool, clear freshwater where trout rise to a lure. (Fishing 20)',
   },
   sea_rod_spot: {
-    name: 'Coastal fishing spot', label: 'Cast', type: 'fishing', verb: 'Cast', emoji: '🎣', blocking: false,
+    name: 'Red snapper run', label: 'Snapper', type: 'fishing', verb: 'Cast', emoji: '🎣', blocking: false,
     skill: 'fishing', tool: 'rod', depleteChance: 0, respawn: 0,
-    // Singapore saltwater line fish, caught with a rod from the coast.
-    catches: [
-      { id: 'raw_giant_trevally', level: 65, xp: 165, lowChance: 0.10, highChance: 0.44, weight: 16 },
-      { id: 'raw_hybrid_grouper', level: 62, xp: 160, lowChance: 0.12, highChance: 0.48, weight: 18 },
-      { id: 'raw_cobia', level: 60, xp: 155, lowChance: 0.12, highChance: 0.50, weight: 22 },
-      { id: 'raw_diamond_trevally', level: 58, xp: 150, lowChance: 0.14, highChance: 0.52, weight: 24 },
-      { id: 'raw_coral_trout', level: 52, xp: 135, lowChance: 0.15, highChance: 0.55, weight: 28 },
-      { id: 'raw_longfin_trevally', level: 50, xp: 125, lowChance: 0.16, highChance: 0.58, weight: 32 },
-      { id: 'raw_tenggiri', level: 48, xp: 120, lowChance: 0.18, highChance: 0.60, weight: 36 },
-      { id: 'raw_white_pomfret', level: 46, xp: 120, lowChance: 0.18, highChance: 0.58, weight: 30 },
-      { id: 'raw_threadfin', level: 42, xp: 112, lowChance: 0.19, highChance: 0.60, weight: 34 },
-      { id: 'raw_golden_snapper', level: 40, xp: 105, lowChance: 0.20, highChance: 0.64, weight: 38 },
-      { id: 'raw_red_drum', level: 38, xp: 100, lowChance: 0.22, highChance: 0.66, weight: 46 },
-      { id: 'raw_queenfish', level: 36, xp: 96, lowChance: 0.22, highChance: 0.68, weight: 50 },
-      { id: 'raw_mangrove_jack', level: 34, xp: 92, lowChance: 0.24, highChance: 0.70, weight: 56 },
-      { id: 'raw_milkfish', level: 30, xp: 86, lowChance: 0.26, highChance: 0.72, weight: 64 },
-      { id: 'raw_barramundi', level: 30, xp: 88, lowChance: 0.26, highChance: 0.72, weight: 64 },
-      { id: 'raw_red_snapper', level: 28, xp: 80, lowChance: 0.28, highChance: 0.76, weight: 90 },
-    ],
-    examine: 'Brackish coastal water teeming with sport fish. Cast a rod here. (Fishing 28)',
+    catches: [{ id: 'raw_red_snapper', level: 28, xp: 80, weight: 1 }],
+    examine: 'Red snapper nose along the rocks. Cast a rod here. (Fishing 28)',
   },
   fishing_cage: {
-    name: 'Cage fishing spot', label: 'Cage', type: 'fishing', verb: 'Cage', emoji: '🦞', blocking: false,
+    name: 'Lobster bed', label: 'Lobster', type: 'fishing', verb: 'Cage', emoji: '🦞', blocking: false,
     skill: 'fishing', tool: 'lobster_pot', depleteChance: 0, respawn: 0,
-    // Cage and harpoon fish pay more than the coastal rod spot's, so the
-    // higher spots out-earn it at every level, sharks and manta rays most.
-    catches: [
-      { id: 'raw_grouper', level: 55, xp: 135, lowChance: 0.20, highChance: 0.62, weight: 40 },
-      { id: 'raw_lobster', level: 40, xp: 105, lowChance: 0.25, highChance: 0.70, weight: 100 },
-    ],
-    examine: 'Bubbles rise where shellfish lurk. Set a lobster pot. (Fishing 40)',
+    catches: [{ id: 'raw_lobster', level: 40, xp: 105, weight: 1 }],
+    examine: 'Bubbles rise where lobsters lurk. Set a lobster pot. (Fishing 40)',
   },
   harpoon_spot: {
-    name: 'Harpoon fishing spot', label: 'Harpoon', type: 'fishing', verb: 'Harpoon', emoji: '🦈', blocking: false,
+    name: 'Tuna shoal', label: 'Tuna', type: 'fishing', verb: 'Harpoon', emoji: '🦈', blocking: false,
     skill: 'fishing', tool: 'harpoon', depleteChance: 0, respawn: 0,
-    // Raised Nov 2026 (see NODE_XP_TUNE): the big three most, as Woodcutting
-    // climbs fast from yew and magic trees and the harpoon spot is the best
-    // fishing all the way to level 99.
-    catches: [
-      { id: 'raw_manta_ray', level: 84, xp: 320, lowChance: 0.08, highChance: 0.40, weight: 18 },
-      { id: 'raw_shark', level: 76, xp: 300, lowChance: 0.10, highChance: 0.45, weight: 30 },
-      { id: 'raw_stingray', level: 68, xp: 290, lowChance: 0.14, highChance: 0.52, weight: 40 },
-      { id: 'raw_swordfish', level: 50, xp: 150, lowChance: 0.20, highChance: 0.60, weight: 60 },
-      { id: 'raw_tuna', level: 35, xp: 115, lowChance: 0.25, highChance: 0.72, weight: 100 },
-    ],
-    examine: 'Big shadows circle in the deep water. Bring a harpoon. (Fishing 35)',
+    catches: [{ id: 'raw_tuna', level: 35, xp: 115, weight: 1 }],
+    examine: 'Fat tuna boil the water out in the deep. Bring a harpoon. (Fishing 35)',
   },
   // ---- Endgame fishing spots (Fishing 100-300) ----
   // One fish each, cooked into that tier's dish (skilling.js COOKING). Every
   // cast catches, so XP an hour is just xp a cast: each tier gives about 35%
-  // more than the one before, starting from the harpoon spot's average catch
-  // (~134 xp once all five of its fish are open), the best below level 100
-  // (tests/fish-cook.test.mjs times them). NODE_XP_TUNE below lifts each spot
+  // more than the one before, starting from the manta run, the best below
+  // level 100 (tests/fish-cook.test.mjs times them). NODE_XP_TUNE below lifts each spot
   // to keep pace with the other gathering skills with the best tools to hand.
   // Each has its own picture (assets/world/).
   dorado_spot: {
@@ -866,6 +818,72 @@ for (const [id, h] of Object.entries(HUNT)) {
     examine: `${h.examine} (Hunter ${h.level})` };
 }
 
+// Fishing spots with one species each (see the Fishing block above). Each kind
+// borrows the picture of the old mixed spot it was carved from: a net, rod,
+// coastal rod, cage or harpoon spot. [id, name, label, fish, level, xp, examine]
+const FISH_SPOT_KINDS = {
+  net: { verb: 'Net', emoji: '🎣', tool: 'net', art: 'obj-fishing_spot' },
+  pool: { verb: 'Lure', emoji: '🎣', tool: 'rod', art: 'obj-rod_spot' },
+  coast: { verb: 'Cast', emoji: '🎣', tool: 'rod', art: 'obj-sea_rod_spot' },
+  cage: { verb: 'Cage', emoji: '🦞', tool: 'lobster_pot', art: 'obj-fishing_cage' },
+  harpoon: { verb: 'Harpoon', emoji: '🦈', tool: 'harpoon', art: 'obj-harpoon_spot' },
+};
+export const FISH_SPOTS = {
+  net: [
+    ['sardine_spot', 'Sardine shoal', 'Sardine', 'raw_sardine', 5, 20, 'A glittering ball of sardines turns in the shallows.'],
+    ['mackerel_spot', 'Mackerel shoal', 'Mackerel', 'raw_mackerel', 16, 45, 'Striped mackerel dart after the bait fish.'],
+    ['salmon_spot', 'Salmon run', 'Salmon', 'raw_salmon', 30, 70, 'Pink-flanked salmon shoulder up the current.'],
+  ],
+  pool: [
+    ['tilapia_spot', 'Tilapia pool', 'Tilapia', 'raw_tilapia', 12, 38, 'A warm, weedy pool. Tilapia nibble at anything.'],
+    ['perch_spot', 'Climbing perch pool', 'Perch', 'raw_climbing_perch', 15, 48, 'Hardy little puyu hide in the reeds.'],
+    ['keli_spot', 'Ikan keli pool', 'Keli', 'raw_ikan_keli', 18, 52, 'Whiskers stir the mud: catfish feed down there.'],
+    ['goby_spot', 'Marble goby pool', 'Goby', 'raw_marble_goby', 24, 70, 'A dark, still pool where marble goby lie in wait.'],
+    ['pike_spot', 'Pike pool', 'Pike', 'raw_pike', 25, 60, 'A long shadow waits among the weeds.'],
+    ['peacock_bass_spot', 'Peacock bass pool', 'Bass', 'raw_peacock_bass', 32, 80, 'Peacock bass flash green and gold in the open water.'],
+    ['belida_spot', 'Belida pool', 'Belida', 'raw_belida', 35, 95, 'Belida knifefish glide just under the surface.'],
+    ['eel_spot', 'Eel pool', 'Eel', 'raw_eel', 38, 85, 'Something long and slippery winds through the roots.'],
+    ['temensis_spot', 'Speckled temensis pool', 'Temensis', 'raw_speckled_temensis', 45, 110, 'Big speckled temensis hunt along the bank.'],
+    ['snakehead_spot', 'Giant snakehead pool', 'Snakehead', 'raw_giant_snakehead', 55, 130, 'A giant snakehead guards its patch of the pool.'],
+    ['arapaima_spot', 'Arapaima pool', 'Arapaima', 'raw_arapaima', 70, 185, 'A huge red-tailed arapaima rolls to gulp air.'],
+    ['asian_arowana_spot', 'Asian arowana pool', 'Arowana', 'raw_arowana', 80, 240, 'A prized Asian arowana patrols the clear, cold water.'],
+  ],
+  coast: [
+    ['milkfish_spot', 'Milkfish run', 'Milkfish', 'raw_milkfish', 30, 86, 'Silver milkfish graze along the brackish edge.'],
+    ['barramundi_spot', 'Barramundi run', 'Barramundi', 'raw_barramundi', 30, 88, 'Barramundi lurk where the mangrove roots meet the tide.'],
+    ['mangrove_jack_spot', 'Mangrove jack run', 'Jack', 'raw_mangrove_jack', 34, 92, 'Mangrove jacks strike from the shade of the roots.'],
+    ['queenfish_spot', 'Queenfish run', 'Queenfish', 'raw_queenfish', 36, 96, 'Queenfish leap after the bait in the bay.'],
+    ['red_drum_spot', 'Red drum run', 'Drum', 'raw_red_drum', 38, 100, 'Red drum grunt and tail over the sandy bottom.'],
+    ['golden_snapper_spot', 'Golden snapper run', 'Golden', 'raw_golden_snapper', 40, 105, 'Golden snapper school round the old pier posts.'],
+    ['threadfin_spot', 'Threadfin run', 'Threadfin', 'raw_threadfin', 42, 112, 'Threadfin trail their long fins through the murky shallows.'],
+    ['pomfret_spot', 'White pomfret run', 'Pomfret', 'raw_white_pomfret', 46, 120, 'Flat white pomfret drift by like silver plates.'],
+    ['tenggiri_spot', 'Tenggiri run', 'Tenggiri', 'raw_tenggiri', 48, 120, 'Fast tenggiri slice through the open water.'],
+    ['longfin_spot', 'Longfin trevally run', 'Longfin', 'raw_longfin_trevally', 50, 125, 'Longfin trevally chase each other round the reef.'],
+    ['coral_trout_spot', 'Coral trout run', 'Coral', 'raw_coral_trout', 52, 135, 'Spotted coral trout hide in the reef.'],
+    ['diamond_trevally_spot', 'Diamond trevally run', 'Diamond', 'raw_diamond_trevally', 58, 150, 'Diamond trevally glint like cut glass.'],
+    ['cobia_spot', 'Cobia run', 'Cobia', 'raw_cobia', 60, 155, 'A dark cobia shadows the drifting weed.'],
+    ['hybrid_grouper_spot', 'Hybrid grouper run', 'Hybrid', 'raw_hybrid_grouper', 62, 160, 'Fat hybrid groupers sulk under the wharf.'],
+    ['giant_trevally_spot', 'Giant trevally run', 'GT', 'raw_giant_trevally', 65, 165, 'Giant trevally smash the surface. Hold on tight.'],
+  ],
+  cage: [
+    ['grouper_spot', 'Grouper reef', 'Grouper', 'raw_grouper', 55, 135, 'Groupers lurk in the reef. Set a lobster pot.'],
+  ],
+  harpoon: [
+    ['swordfish_spot', 'Swordfish run', 'Swordfish', 'raw_swordfish', 50, 150, 'A swordfish bill slashes through the swell.'],
+    ['stingray_spot', 'Stingray flats', 'Stingray', 'raw_stingray', 68, 290, 'Wide wings ripple over the sandy flats.'],
+    ['shark_spot', 'Shark run', 'Shark', 'raw_shark', 76, 300, 'A grey fin circles in the deep water.'],
+    ['manta_spot', 'Manta run', 'Manta', 'raw_manta_ray', 84, 320, 'Manta rays wheel slowly through the blue.'],
+  ],
+};
+for (const [kind, list] of Object.entries(FISH_SPOTS)) {
+  const k = FISH_SPOT_KINDS[kind];
+  for (const [id, name, label, fish, level, xp, examine] of list) {
+    OBJECTS[id] = { name, label, type: 'fishing', verb: k.verb, emoji: k.emoji, blocking: false, art: k.art,
+      skill: 'fishing', tool: k.tool, depleteChance: 0, respawn: 0,
+      catches: [{ id: fish, level, xp, weight: 1 }], examine: `${examine} (Fishing ${level})` };
+  }
+}
+
 // XP audit (Nov 2026): XP an hour at each node, at its own level, by auto gather.
 // Mining paid about a sixth of Woodcutting or Fishing at the same level, so every
 // rock pays MINING_XP_MULT times its listed XP; and a few nodes paid less than the
@@ -903,10 +921,19 @@ export const NODE_XP_TUNE = {
   crocodile_trap: 2.55, pangolin_burrow: 2.01, hornbill_nest: 1.75, colugo_trap: 2.12, tiger_trail: 2.26,
   qilin_trail: 2.63, garuda_nest: 2.23, naga_track: 2.75, phoenix_roost: 2.6,
   // Fishing: about 1.25x the others (the owner's call: it levelled too slowly). A
-  // spot's factor lifts each of its catches. The net and lobster pot have no better
-  // tiers, so their spots (net, cage, moonfish, rift eel) need more. (The harpoon
-  // spot's catches were also raised in its data, Nov 2026.)
-  fishing_spot: 3.55, rod_spot: 1.55, harpoon_spot: 1.15, fishing_cage: 2.1,
+  // spot's factor lifts its catch. Since each spot holds one fish (Nov 2026) the
+  // factors are set so each spot pays a little more an hour than every spot below
+  // it, at its own unlock level and with the best rod or harpoon for that level
+  // (the net and lobster pot have no better tiers), while the best spot at each
+  // level pays what the old mixed spots did (tests/fish-spots.test.mjs).
+  fishing_spot: 3.55, sardine_spot: 2.5, tilapia_spot: 1.545, perch_spot: 1.366, mackerel_spot: 1.581, keli_spot: 1.339,
+  rod_spot: 1.455, goby_spot: 1.063, pike_spot: 1.28, sea_rod_spot: 1, salmon_spot: 1.394, milkfish_spot: 0.978,
+  barramundi_spot: 0.956, peacock_bass_spot: 1.053, mangrove_jack_spot: 0.932, belida_spot: 1.392, harpoon_spot: 1.15,
+  queenfish_spot: 1.381, eel_spot: 1.565, red_drum_spot: 1.331, fishing_cage: 2.1, golden_snapper_spot: 1.81,
+  threadfin_spot: 1.702, temensis_spot: 1.737, pomfret_spot: 1.596, tenggiri_spot: 1.599, longfin_spot: 1.539,
+  swordfish_spot: 1.283, coral_trout_spot: 1.432, snakehead_spot: 1.493, grouper_spot: 1.783, diamond_trevally_spot: 1.299,
+  cobia_spot: 1.261, hybrid_grouper_spot: 1.227, giant_trevally_spot: 1.195, stingray_spot: 0.683, arapaima_spot: 1.075,
+  shark_spot: 0.685, asian_arowana_spot: 0.86, manta_spot: 0.679,
   dorado_spot: 1.52, bluefin_spot: 1.5, sailfish_spot: 1.47, moonfish_spot: 2.65, rift_eel_spot: 2.7, arowana_pool: 1.22,
 };
 // (Mithril, adamantite and obsidian dip below the rock before them only at their own

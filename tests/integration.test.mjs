@@ -1757,12 +1757,13 @@ test('Singapore fish species are defined, cookable, and catchable', async () => 
   const game = new Game();
   game.start();
   game.skills.addXp('fishing', 2_000_000);
-  const rod = game.world.objects.find((o) => o.objId === 'rod_spot');
-  const sea = game.world.objects.find((o) => o.objId === 'sea_rod_spot');
-  assert.ok(rod && sea, 'freshwater and coastal rod spots exist');
-  for (let i = 0; i < 800; i++) { resolveFish(game, { obj: rod }); resolveFish(game, { obj: sea }); }
-  assert.ok(freshwater.some((f) => game.inventory.count(`raw_${f}`) > 0), 'caught a Singapore freshwater fish');
-  assert.ok(saltwater.some((f) => game.inventory.count(`raw_${f}`) > 0), 'caught a Singapore saltwater fish');
+  // One fish to a spot (fishspots.js): each is caught at its own kind of spot.
+  for (const f of [...freshwater, ...saltwater]) {
+    const spot = game.world.objects.find((o) => o.def.type === 'fishing' && o.def.catches[0].id === `raw_${f}`);
+    assert.ok(spot, `${f} has a spot in the world`);
+    resolveFish(game, { obj: spot });
+    assert.ok(game.inventory.count(`raw_${f}`) > 0, `caught a ${f}`);
+  }
 });
 
 test('extra fish species, bait, junk & treasure are defined and catchable', async () => {
@@ -1788,10 +1789,13 @@ test('extra fish species, bait, junk & treasure are defined and catchable', asyn
   const tally = {};
   game.inventory.add = (id, q = 1) => { tally[id] = (tally[id] || 0) + q; return q; };
   game.inventory.canAdd = () => 99;
-  const rod = game.world.objects.find((o) => o.objId === 'rod_spot');
-  const sea = game.world.objects.find((o) => o.objId === 'sea_rod_spot');
-  for (let i = 0; i < 6000; i++) resolveFish(game, { obj: i % 2 ? rod : sea });
-  assert.ok(extra.some((f) => tally[`raw_${f}`] > 0), 'caught at least one extra species');
+  // One fish to a spot (fishspots.js): each extra species at its own kind of spot.
+  for (const f of extra) {
+    const spot = game.world.objects.find((o) => o.def.type === 'fishing' && o.def.catches[0].id === `raw_${f}`);
+    assert.ok(spot, `${f} has a spot in the world`);
+    resolveFish(game, { obj: spot });
+    assert.ok(tally[`raw_${f}`] > 0, `caught a ${f}`);
+  }
 });
 
 test('gathering lucky finds: woodcutting doubles/nests and mining doubles/gems', async () => {

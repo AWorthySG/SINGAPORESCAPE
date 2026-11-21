@@ -1,0 +1,177 @@
+// One fish to a spot (Nov 2026): every kind of fishing spot catches one
+// species, every species comes from one kind of spot, and the kinds are spread
+// over the world's regions (fishspots.js), so where you fish picks the fish.
+import './seed.mjs';   // seeded Math.random: no test fails on an unlucky roll
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+import { Game } from '../src/game/game.js';
+import { clearSave } from '../src/game/save.js';
+import { ITEMS } from '../src/data/items.js';
+import { OBJECTS } from '../src/data/objects.js';
+import { COOKING } from '../src/game/skilling.js';
+import { TOOL_TIERS } from '../src/data/tooltiers.js';
+import { xpForLevel } from '../src/data/xp.js';
+import { FISH_SPOT_PLAN, MIXED_FISH_SPOTS } from '../src/data/fishspots.js';
+import { fishSpotList, guideEntries } from '../src/game/skillguide.js';
+import { worldArt } from '../src/render/sprites.js';
+
+function fakeStorage() {
+  const m = new Map();
+  return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k) };
+}
+let _game = null;
+function game() {
+  if (_game) return _game;
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const g = new Game();
+  g.start();
+  g.chooseStartingStyle('melee');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  return (_game = g);
+}
+
+const SPOTS = Object.keys(OBJECTS).filter((id) => OBJECTS[id].type === 'fishing');
+// Every fish the game has ever had a fishing spot for: the 40 the five old mixed
+// spots caught between them (trout came from two) and the six endgame fish.
+const FISH = ['raw_anchovy', 'raw_sardine', 'raw_mackerel', 'raw_trout', 'raw_salmon', 'raw_tilapia', 'raw_climbing_perch', 'raw_ikan_keli',
+  'raw_marble_goby', 'raw_pike', 'raw_peacock_bass', 'raw_belida', 'raw_eel', 'raw_speckled_temensis', 'raw_giant_snakehead', 'raw_arapaima',
+  'raw_arowana', 'raw_red_snapper', 'raw_milkfish', 'raw_barramundi', 'raw_mangrove_jack', 'raw_queenfish', 'raw_red_drum', 'raw_golden_snapper',
+  'raw_threadfin', 'raw_white_pomfret', 'raw_tenggiri', 'raw_longfin_trevally', 'raw_coral_trout', 'raw_diamond_trevally', 'raw_cobia',
+  'raw_hybrid_grouper', 'raw_giant_trevally', 'raw_lobster', 'raw_grouper', 'raw_tuna', 'raw_swordfish', 'raw_stingray', 'raw_shark',
+  'raw_manta_ray', 'raw_dorado', 'raw_bluefin_tuna', 'raw_sailfish', 'raw_moonfish', 'raw_rift_eel', 'raw_dragon_arowana'];
+const TOOLS = new Set(['net', 'rod', 'harpoon', 'lobster_pot']);
+
+test('every spot kind catches one species, and every fish comes from exactly one kind of spot', () => {
+  const from = new Map();
+  for (const id of SPOTS) {
+    const d = OBJECTS[id];
+    assert.equal(d.catches.length, 1, `${id} catches one species`);
+    const c = d.catches[0];
+    assert.ok(ITEMS[c.id]?.tags.includes('raw') && COOKING[c.id], `${id}: ${c.id} is a raw fish that cooks`);
+    assert.ok(TOOLS.has(d.tool), `${id} needs a real fishing tool (${d.tool})`);
+    assert.ok(d.name && d.label && d.verb && d.examine, `${id} has a name, label, verb and examine text`);
+    if (c.level > 1) assert.match(d.examine, new RegExp(`\\(Fishing ${c.level}\\)`), `${id}'s examine gives its level`);
+    // A spot without a picture of its own borrows one of the old spots' pictures.
+    assert.ok(worldArt().has(d.art || `obj-${id}`), `${id} has a picture`);
+    assert.ok(!from.has(c.id), `${c.id} comes from ${from.get(c.id)} and ${id}`);
+    from.set(c.id, id);
+  }
+  assert.deepEqual([...from.keys()].sort(), [...FISH].sort(), 'every fish has its one spot, and nothing else is caught');
+  // The old ids keep their headline catch: saves, quests and contracts name them.
+  for (const [id, fish] of [['fishing_spot', 'raw_anchovy'], ['rod_spot', 'raw_trout'], ['sea_rod_spot', 'raw_red_snapper'],
+    ['fishing_cage', 'raw_lobster'], ['harpoon_spot', 'raw_tuna']]) assert.equal(from.get(fish), id, `${fish} from ${id}`);
+});
+
+test('every spot kind is placed at least five times, on shore water you can walk up to', () => {
+  const g = game(), W = g.world;
+  // Every tile you can walk to from Kampong Glam (four ways: a stricter walk than the game's).
+  const seen = new Uint8Array(W.width * W.height), start = W.spawnPoint || { x: 58, y: 55 };
+  const queue = [[start.x, start.y]];
+  seen[start.y * W.width + start.x] = 1;
+  while (queue.length) {
+    const [x, y] = queue.pop();
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, ny = y + dy;
+      if (!W.inBounds(nx, ny) || seen[ny * W.width + nx] || W.isBlocked(nx, ny)) continue;
+      seen[ny * W.width + nx] = 1; queue.push([nx, ny]);
+    }
+  }
+  const N8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]];
+  for (const id of SPOTS) {
+    const placed = W.objects.filter((o) => o.objId === id);
+    assert.ok(placed.length >= 5, `${id}: ${placed.length} placed`);
+    for (const o of placed) {
+      assert.equal(W.terrainAt(o.x, o.y), 2, `${id} at ${o.x},${o.y} is on water`);
+      assert.ok(N8.some(([dx, dy]) => W.inBounds(o.x + dx, o.y + dy) && seen[(o.y + dy) * W.width + o.x + dx]), `${id} at ${o.x},${o.y} can be reached`);
+    }
+  }
+  // The old mixed spots outside the plan's regions are only the town pond's two.
+  const planned = new Set(FISH_SPOT_PLAN.flatMap((p) => p.regions));
+  const left = W.objects.filter((o) => MIXED_FISH_SPOTS.includes(o.objId) && !planned.has(W.zoneAt(o.x, o.y)?.name));
+  assert.deepEqual(left.map((o) => o.objId).sort(), ['fishing_spot', 'rod_spot'], 'only the town pond is left as it was');
+  // The plan names real regions and real spots, each spot once.
+  const names = new Set(W.zones.map((z) => z.name)), kinds = FISH_SPOT_PLAN.flatMap((p) => p.spots);
+  for (const r of planned) assert.ok(names.has(r), `${r} is a region`);
+  for (const id of kinds) assert.equal(OBJECTS[id]?.type, 'fishing', `${id} is a fishing spot`);
+  assert.equal(new Set(kinds).size, kinds.length, 'each spot kind in one place in the plan');
+});
+
+test('the species are spread out: each keeps to a region or two, and no region has them all', () => {
+  const g = game(), W = g.world;
+  const regionsOf = new Map(), kindsIn = new Map();
+  for (const o of W.objects) {
+    if (OBJECTS[o.objId]?.type !== 'fishing') continue;
+    // (Regions the plan takes together, like MacRitchie and Bukit Timah, count as one place.)
+    const zn = W.zoneAt(o.x, o.y)?.name, z = FISH_SPOT_PLAN.find((p) => p.regions.includes(zn))?.regions.join(' and ') || zn || 'town pond';
+    if (!regionsOf.has(o.objId)) regionsOf.set(o.objId, new Set());
+    regionsOf.get(o.objId).add(z);
+    if (!kindsIn.has(z)) kindsIn.set(z, new Set());
+    kindsIn.get(z).add(o.objId);
+  }
+  for (const [id, zs] of regionsOf) assert.ok(zs.size <= 2, `${id} is in ${[...zs].join(', ')}`);
+  assert.ok(kindsIn.size >= 15, `fishing in ${kindsIn.size} regions`);
+  for (const [z, ids] of kindsIn) assert.ok(ids.size <= 7, `${z} has ${ids.size} kinds of spot`);
+  // Within a region, each kind keeps to its own stretch of shore rather than
+  // being dotted among the others: the middles of neighbouring kinds' stretches
+  // stand apart.
+  for (const plan of FISH_SPOT_PLAN) {
+    if (plan.spots.length < 2) continue;
+    const pts = (id) => W.objects.filter((o) => o.objId === id && plan.regions.includes(W.zoneAt(o.x, o.y)?.name));
+    const mid = (ps) => ({ x: ps.reduce((s, p) => s + p.x, 0) / ps.length, y: ps.reduce((s, p) => s + p.y, 0) / ps.length });
+    const centres = plan.spots.map((id) => mid(pts(id)));
+    for (let i = 1; i < centres.length; i++) {
+      assert.ok(Math.hypot(centres[i].x - centres[i - 1].x, centres[i].y - centres[i - 1].y) > 3, `${plan.spots[i]} has its own stretch, apart from ${plan.spots[i - 1]}`);
+    }
+  }
+});
+
+// XP an hour at a spot, as a share: its fish's XP a cast, times the casts the
+// best rod or harpoon for the level adds (the net and lobster pot have no tiers).
+function spotRate(id, lvl) {
+  const d = OBJECTS[id], speed = ['rod', 'harpoon'].includes(d.tool) ? TOOL_TIERS.filter((t) => t.level <= lvl).pop().speed : 0;
+  return d.catches[0].xp * (1 + speed / 100);
+}
+
+test('the Fishing ladder: each spot out-earns every spot below it, at its own unlock level', () => {
+  // Every cast catches and every spot casts at the same pace, so XP an hour
+  // follows XP a cast times the tool's speed (big and trophy catches come at the
+  // same rate everywhere at a level). NODE_XP_TUNE (objects.js) sets each spot.
+  const lvl = (id) => OBJECTS[id].catches[0].level;
+  for (const id of SPOTS) {
+    const L = lvl(id);
+    for (const below of SPOTS.filter((b) => lvl(b) < L)) {
+      assert.ok(spotRate(id, L) > spotRate(below, L), `${id} (${Math.round(spotRate(id, L))}) beats ${below} (${Math.round(spotRate(below, L))}) at ${L}`);
+    }
+  }
+});
+
+test('the Fishing guide lists every spot kind with its fish, level, tool and regions, with Go and Map', () => {
+  const g = game();
+  const list = fishSpotList(g);
+  assert.deepEqual(list.map((f) => f.objId).sort(), [...SPOTS].sort(), 'every spot kind is listed');
+  for (const f of list) {
+    const d = OBJECTS[f.objId];
+    assert.equal(f.level, d.catches[0].level);
+    assert.ok(f.regions.length >= 1 && f.count >= 5, `${f.objId} is somewhere`);
+    assert.ok(f.text.includes(f.name) && f.text.includes(`level ${f.level}`) && f.text.includes(f.regions[0]), f.text);
+  }
+  for (let i = 1; i < list.length; i++) assert.ok(list[i].level >= list[i - 1].level, 'lowest first');
+  assert.ok(list.find((f) => f.objId === 'salmon_spot').text.includes('Marina Bay'), 'salmon in Marina Bay');
+  // The skill guide's own rows name the one spot each fish comes from.
+  const rows = guideEntries('fishing');
+  for (const fish of FISH) assert.equal(rows.filter((e) => e.source?.gives[0].id === fish).length, 1, `${fish}: one row`);
+  // The window gives each kind Go and Map buttons, as it does the groves.
+  const ui = readFileSync(new URL('../src/ui/skillguideui.js', import.meta.url), 'utf8');
+  assert.match(ui, /fishSpotList\(game\)[\s\S]{0,400}data-go="\$\{esc\(f\.objId\)\}"[\s\S]{0,200}data-map="\$\{esc\(f\.objId\)\}"/);
+});
+
+test('quests that ask for fish send you to the one spot that has them', () => {
+  const g = game();
+  g.quests.island_provisions.state = 'active';
+  g.skills.xp.fishing = xpForLevel(40);
+  for (const id of ['raw_salmon', 'salmon']) g.inventory.remove(id, g.inventory.count(id));
+  assert.equal(g.questGuide('island_provisions').objId, 'salmon_spot', 'salmon are netted at a salmon run');
+});

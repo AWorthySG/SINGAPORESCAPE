@@ -6,6 +6,7 @@ import { NPCS, MONSTER_IDS, BOSS_IDS, EXTRA_MONSTER_IDS, EXTRA_BOSS_IDS, MORE_MO
 import { STATIONS } from './transport.js';
 import { placeLandmarks } from './landmarks.js';
 import { placeGroves } from './groves.js';
+import { assignFishSpots } from './fishspots.js';
 import { placeBestiary } from './bestiaryPlace.js';
 
 // How many of each monster kind populate the world.
@@ -1449,6 +1450,11 @@ export function buildWorld({ groves: withGroves = true } = {}) {
   // --- Border fence ---
   for (let x = 0; x < W; x++) { placeObj('fence', x, 0); placeObj('fence', x, H - 1); }
   for (let y = 0; y < H; y++) { placeObj('fence', 0, y); placeObj('fence', W - 1, y); }
+
+  // ================= One fish to a spot =================
+  // The mixed fishing spots placed above become one-species spots, region by
+  // region (fishspots.js). Only their ids change, so nothing moves.
+  assignFishSpots({ objects, zones });
 
   // ================= Groves =================
   // Patches thick with one kind of tree (groves.js), placed after everything else
