@@ -217,8 +217,12 @@ export const WOUNDS = {
 };
 export const WOUND_BY_WEAPON = { dagger: 'poison', claws: 'bleed' };
 export const SHORTBOW_ARROW_DMG = 0.5;
-// A spread's 2nd and 3rd arrows fan out to other foes within this many tiles of the target.
+// Each spread also flings an extra arrow into up to SHORTBOW_FAN_FOES other foes
+// within SHORTBOW_FAN_TILES of the target, each at SHORTBOW_FAN_SHARE of a full
+// arrow; the target still takes the whole spread.
 export const SHORTBOW_FAN_TILES = 2;
+export const SHORTBOW_FAN_FOES = 2;
+export const SHORTBOW_FAN_SHARE = 0.3;
 // ...or this share of what killing the monster pays (3 XP per point of its
 // life), whichever is more, so dodging keeps pace with kill XP as you climb.
 export const DODGE_KILL_SHARE = 0.04;
@@ -2634,16 +2638,25 @@ export class Game {
     return near.slice(0, n).map((e) => e[1]);
   }
 
-  /** One arrow of a fanned spread landing on a foe beside the target: the same
-   *  arrow's damage (its own crit already rolled), carried over at its real size. */
-  _fanArrow(target, o, dmg, c, fancy, tint, shot, style) {
-    const d = Math.min(o.hp, this._aoeShare(dmg, target, o));
-    this._projectile(o, (c.crit || fancy) ? '#ffd24a' : tint, shot, 0);
-    this._applyPlayerHit(o, d, { crit: c.crit || fancy, noMerge: true });
-    this.spawnHitSparks(o, (c.crit || fancy) ? '#ffd24a' : '#cfe0a0');
-    for (const x of combatXpRanged(style, d)) this.skills.addXp(x.skill, x.xp * this.combatXpMult());
-    if (!o.target) o.target = this.player;
-    if (o.hp <= 0) this.killNpc(o);
+  /** A shortbow's fanned arrows: for each of `spreads` spreads, every foe in
+   *  `fan` takes one extra arrow of SHORTBOW_FAN_SHARE of a full arrow (`fullMax`),
+   *  rolling its own hit and crit, at least 1, with Ranged XP. */
+  _fanArrows(target, fan, spreads, fullMax, tint, shot, style) {
+    const p = this.player, m = this.combatXpMult();
+    for (let k = 0; k < spreads; k++) {
+      for (const o of fan) {
+        if (!o.alive || o.hp <= 0) continue;
+        const c = this._aoeCrit(this._aoeShare(Math.max(1, Math.round(rollHit(fullMax) * SHORTBOW_FAN_SHARE)), target, o));
+        const d = Math.min(o.hp, c.dmg);
+        this._projectile(o, c.critX ? '#ffd24a' : tint, shot, 0);
+        o.takeDamage(d);
+        this.addHitsplat(o, d, { aoe: true, noMerge: true, tint: '#d9c45a', critX: c.critX });
+        this.spawnHitSparks(o, '#cfe0a0');
+        for (const x of combatXpRanged(style, d)) this.skills.addXp(x.skill, x.xp * m);
+        if (!o.target) o.target = p;
+        if (o.hp <= 0) this.killNpc(o);
+      }
+    }
   }
 
   /** An ultimate's area: every other monster within `radius` tiles of the target
@@ -2854,11 +2867,11 @@ export class Game {
     const spread = wpn.weaponType === 'shortbow' ? SHORTBOW_ARROWS : 1;
     const arrowDmg = spread > 1 ? SHORTBOW_ARROW_DMG : 1;
     const shots = mods.hits * spread;
-    // The spread fans out: the 2nd and 3rd arrows fly to the nearest other foes
-    // around the target; spare arrows (no one else near) go into the target.
-    const fan = spread > 1 ? this._shortbowFan(npc, spread - 1) : [];
-    // (A fanned arrow still flies if the first one dropped the target.)
-    for (let i = 0; i < shots && (npc.hp > 0 || fan[(i % spread) - 1]?.hp > 0); i++) {
+    // The spread also flings an extra arrow into each of the nearest other foes
+    // around the target (see _shortbowFan); the target still takes all three.
+    const fan = spread > 1 ? this._shortbowFan(npc, SHORTBOW_FAN_FOES) : [];
+    let spreads = 0;
+    for (let i = 0; i < shots && npc.hp > 0; i++) {
       // A shortbow's spread of three costs one arrow, as a single shot did before
       // spreads: paying for all three ran a new Archer's 999 arrows dry within
       // a few minutes, and auto battle then stopped for good.
@@ -2867,6 +2880,7 @@ export class Game {
         if (ai === -1) break;
         this._spendArrow(ai);
       } else { this._spendArrow(arrowIdx); }
+      if (i % spread === 0) spreads++;
       if (gun) Rounds.spendRound(this, wpn.weaponType);
       this._shotAmmo = noAmmo ? null : this.inventory.slotAt(this._bestAmmoIdx())?.id || this._shotAmmo;   // the arrow being drawn
       const effMax = Math.max(1, Math.round(baseMax * mods.dmgM * arrowDmg));
@@ -2874,16 +2888,16 @@ export class Game {
         : wpn.weaponType === 'rifle' ? randInt(Math.max(1, Math.floor(effMax / 4)), effMax)   // sniper rounds always land
         : rollHit(effMax);
       raw += dmg;
-      const pre = dmg;   // raw counts only the arrows that hit the target itself
       const c = this._critHit(dmg, mods.critCh); dmg = c.dmg;
-      const side = fan[(i % spread) - 1];
-      if (side && side.alive && side.hp > 0) { raw -= pre; this._fanArrow(npc, side, dmg, c, fancy, tint, shot, style); continue; }
       this._projectile(npc, (c.crit || fancy) ? '#ffd24a' : tint, shot, shots > 1 ? (i % (spread > 1 ? spread : shots)) - ((spread > 1 ? spread : shots) - 1) / 2 : 0);
       this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax), noMerge: spread > 1 });   // each arrow of a spread shows its own number
       if (gun) Rounds.roundEffect(this, npc, dmg);   // incendiary, frost or shock rounds
       if (dmg > 0) { this.spawnHitSparks(npc, (c.crit || fancy) ? '#ffd24a' : '#cfe0a0'); for (const x of combatXpRanged(style, dmg)) this.skills.addXp(x.skill, x.xp * this.combatXpMult()); }
       total += dmg;
     }
+    // After the target's arrows (so its own rolls are just as before), each
+    // spread loosed flings its extra arrows into the foes around it.
+    if (fan.length && spreads) this._fanArrows(npc, fan, spreads, Math.max(1, Math.round(baseMax * mods.dmgM)), tint, shot, style);
     // Dual pistols: the off-hand gun fires its own shot, with its own power.
     if (mods.off && npc.hp > 0) {
       const ow = getItem(this.equipment.get('shield')).equip;
