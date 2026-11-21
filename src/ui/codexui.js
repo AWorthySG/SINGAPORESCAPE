@@ -194,12 +194,13 @@ const VIEW_TITLE = { monsters: 'Monster Codex', compendium: 'Compendium', items:
  *  has two sections, switched at its top: the Monsters list and the
  *  Compendium (compendiumui.js). `view: 'compendium'` opens on the latter, at
  *  `article` if one is named. */
-export function openCodex(ui, id = null, { view = 'monsters', article } = {}) {
+export function openCodex(ui, id = null, { view, article } = {}) {
   const game = ui.game;
   const st = ui._codex || (ui._codex = defaultCodexState());
   const cst = ui._compendium || (ui._compendium = defaultCompendiumState());
   st.id = id && CODEX_SET.has(id) ? id : null;
-  st.view = st.id ? 'monsters' : view;
+  // No section asked for: the one it was left on (remembered: windowease.js).
+  st.view = st.id ? 'monsters' : view || st.view || 'monsters';
   if (article !== undefined) cst.id = article;
   let listEl = null;
 

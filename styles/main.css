@@ -588,6 +588,13 @@ body { -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
   color: var(--gold-hi); letter-spacing: 1.5px; text-transform: uppercase;
   border-bottom: 3px solid var(--teal);
 }
+/* A finger dragging the title down closes the window (windowease.js), so the
+   browser mustn't take that drag for a page scroll. */
+#modal-title { touch-action: none; }
+/* A press on the dim backdrop becomes a joystick drag (windowease.js), so the
+   browser mustn't claim it for panning either. (The window's lists still
+   scroll: touch-action only reaches up as far as the nearest scroller.) */
+#modal-overlay { touch-action: none; }
 #modal-close {
   position: absolute; top: 9px; right: 9px; width: 27px; height: 27px;
   background: linear-gradient(180deg, var(--coral), var(--coral-dk)); color: #fff;

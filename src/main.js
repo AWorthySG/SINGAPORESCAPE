@@ -14,6 +14,7 @@ import { TitleScreen } from './ui/title.js';
 import { cloud } from './game/cloud.js';
 import { quickUse } from './game/quickuse.js';
 import { installLinks } from './ui/links.js';
+import { closeTopWindow } from './ui/windowease.js';
 import { FxGovernor } from './render/governor.js';
 import { preloadFx } from './render/fxart.js';
 
@@ -84,6 +85,12 @@ import('./ui/photomode.js').then((m) => m.initPhotoMode(game, canvas)).catch(() 
 // Clicks and the action keys count as hands-on play, which refills Focus (playbalance.js).
 input.onLeftClick((x, y) => { handsOn(game); game.onLeftClick(x, y); });
 input.onRightClick((x, y) => { handsOn(game); game.onRightClick(x, y); });
+// A tap on the game around an open window closes it and still reaches the game
+// as a tap (windowease.js; a press on the joystick there starts walking).
+ui.onWorldTap = (cx, cy) => {
+  const r = canvas.getBoundingClientRect();
+  handsOn(game); game.onLeftClick(cx - r.left, cy - r.top);
+};
 input.onKey((e) => {
   // On the title screen the keys belong to it: Enter goes in (as does Space or
   // Enter on its focused button), and nothing reaches the game behind it.
@@ -130,8 +137,7 @@ input.onKey((e) => {
   } else if (e.key === 'm' || e.key === 'M') {
     ui.openWorldMap();
   } else if (e.key === 'Escape') {
-    ui.closeModal();
-    ui.hideContextMenu();
+    closeTopWindow(ui);   // the top-most only: a menu, a touch card, then the window
   }
 });
 
