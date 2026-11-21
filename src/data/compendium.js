@@ -432,7 +432,7 @@ export const CHAPTERS = [
         id: 'classes', title: 'The job classes',
         summary: `${CLASSES.length} classes, one weapon type each, chosen once for good.`,
         body: [
-          `There are **${CLASSES.length} job classes** in four fighting styles. Each masters one main weapon type and one secondary type of the same style; no other weapons can be wielded. Armour (helm, body, legs, gloves and boots) belongs to one family per class; shields, capes, jewellery and tools are open to everyone.`,
+          `There are **${CLASSES.length} job classes** in four fighting styles. Each masters one main weapon type and one secondary type of the same style; no other weapons can be wielded. Armour (helm, body, legs, gloves and boots) belongs to one family per class; capes, jewellery and tools are open to everyone, and shields to every class but the Ninja, who holds a shuriken in each hand.`,
           () => ({ table: { head: ['Class', 'Style', 'Main weapon', 'Secondary', 'Armour'], rows: classRows() } }),
           'Weapon and armour drops mostly turn into your own class\'s kind, so loot stays useful (see [[drops]]).',
         ],
@@ -444,7 +444,7 @@ export const CHAPTERS = [
         body: [
           () => `**Two-handed** weapons fill both hands, so no shield, buckler or tome goes with them: ${[...TWO_HANDED_TYPES].map((t) => WEAPON_TYPE_NAMES[t]).join(', ')}. To make up for it each has a **two-handed grip**: the Defence and life of a same-tier kiteshield, plus (for most) the extras of a buckler or quiver.`,
           () => `**Quivers**: ${[...QUIVER_BOW_TYPES].map((t) => WEAPON_TYPE_NAMES[t]).join(' and ')} are drawn from a quiver at the hip, so a quiver (and only a quiver) can sit in the off-hand with them. The Fletcher sells them.`,
-          `**Dual wielding**: daggers, scimitars, pistols and kerambits pair with a second one of the same kind in the off-hand. Each hand strikes with its own weapon; the off-hand's blow lands at ${pct(OFFHAND_SHARE)} of what that weapon would do.`,
+          `**Dual wielding**: daggers, scimitars, pistols, kerambits and shurikens pair with a second one of the same kind in the off-hand. Each hand strikes with its own weapon; the off-hand's blow lands at ${pct(OFFHAND_SHARE)} of what that weapon would do. Ninjas fight with a shuriken in each hand and hold no shield.`,
           'A Knight\'s longsword and the toya staff are one-handed, so they keep a shield.',
           '**Reach**: most melee weapons strike from 2 tiles, longswords, halberds and two-handed swords from 3, spears from 4. Every melee weapon **cleaves** a share of each hit into foes next to the target, from a quarter for the quick blades to most of it for two-handed swords.',
         ],

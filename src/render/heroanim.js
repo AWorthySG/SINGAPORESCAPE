@@ -680,6 +680,15 @@ Object.assign(CLIPS, {
   rip_dual_b: dualClip([blow(0.08, 0.32, 0.4, 0.62, { wind: 0.5, swing: 1.5, reach: 3 })], [blow(0.4, 0.62, 0.71, 0.95, { wind: 0.9, swing: 1.7, reach: 5, hold: 0.07 })],
     { ...lunges([0.4, 0.71], { push: 5, lean: 0.18, hop: 2 }), crouch: T([[0, 0], [0.08, 2], [0.6, 2.5], [0.71, -0.5, 'in'], [1, 0, 'io']]), impact: impacts(0.4, 0.71) },
     { trail: { kind: 'arc', cx: 26, cy: -12, r: 16, a0: -2.0, a1: 1.0 }, trail2: { kind: 'arc', cx: 22, cy: -8, r: 13, a0: -2.2, a1: 1.1 } }),
+  // Shurikens, A: a star flicked from the front hand, then one from the back hand
+  // (a throw, so the hits come from the stars in flight, not from these frames).
+  throw_dual: { ...dualClip([blow(0.08, 0.3, 0.38, 0.62, { wind: 0.9, swing: 1.25, reach: 5 })], [blow(0.4, 0.6, 0.68, 0.93, { wind: 0.8, swing: 1.3, reach: 4 })],
+    { ...lunges([0.38, 0.68], { push: 3, lean: 0.14 }) },
+    { trail: { kind: 'line', x0: 18, x1: 46, y: -14 }, trail2: { kind: 'line', x0: 14, x1: 42, y: -8 } }), shot: true },
+  // Shurikens, B: both hands drawn back together, then the back hand's star and the front's.
+  throw_dual_b: { ...dualClip([blow(0.12, 0.36, 0.66, 0.9, { wind: 1, swing: 1.3, reach: 5 })], [blow(0.12, 0.34, 0.42, 0.7, { wind: 1, swing: 1.3, reach: 4 })],
+    { ...lunges([0.42, 0.66], { push: 3, lean: 0.16, hop: 2 }) },
+    { trail: { kind: 'line', x0: 18, x1: 46, y: -14 }, trail2: { kind: 'line', x0: 14, x1: 42, y: -8 } }), shot: true },
 });
 // Clips that don't fit a family are written out in full.
 Object.assign(CLIPS, {
@@ -764,6 +773,7 @@ export const WEAPON_CLIP = {
 export const DUAL_CLIPS = {
   dagger: ['stab_dual', 'cross_dual'], scimitar: ['scim_dual', 'scim_dual_b'],
   kerambit: ['rip_dual', 'rip_dual_b'], pistol: ['pistols', 'pistols_b'],
+  shuriken: ['throw_dual', 'throw_dual_b'],
 };
 /** The clip for an attack with this weapon type; `variant` counts attacks, so
  *  dual wielders alternate between their two clips. */

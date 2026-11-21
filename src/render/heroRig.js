@@ -170,8 +170,9 @@ export function drawHeroRig(ctx, opts = {}) {
   const shield = classId === 'paladin' || classId === 'knight';
   const polearm = classId === 'lancer' || classId === 'halberdier';
   const broad = classId === 'berserker' || classId === 'juggernaut' || classId === 'gladiator';
-  // A Corsair with a scimitar in each hand carries the second in the back hand.
-  const corsairPair = classId === 'corsair' && !!opts.dualWield;
+  // A Corsair with a scimitar in each hand carries the second in the back hand
+  // (and a Ninja with a shuriken in each hand, its second star).
+  const corsairPair = (classId === 'corsair' || classId === 'ninja') && !!opts.dualWield;
   // A two-handed weapon the class is painted with: the back hand grips it too.
   const grip = anim && GRIP[classId] && anim.weapon === GRIP[classId].weapon ? GRIP[classId] : null;
   const bootY = rogue ? -1 : 2, bootH = rogue ? 16 : 13;

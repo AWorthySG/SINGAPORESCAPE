@@ -1,4 +1,4 @@
-import { CLASSES, CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, canWear, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWield, SECONDARY_WEAPON } from '../data/classes.js';
+import { CLASSES, CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, canWear, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWield, SECONDARY_WEAPON, shieldBarred, NO_SHIELD_MSG } from '../data/classes.js';
 import { SKILL_HOURS, windowLabel } from '../data/skillhours.js';
 import { classPerks, classPerkSummary } from '../game/classperks.js';
 import { LIFE_PERKS, LIFE_PERK_SKILLS, LIFE_PERK_FULL_LEVEL, lifePerkText, lifePerkNext } from '../game/lifeperks.js';
@@ -1343,6 +1343,7 @@ export class UI {
       if (g) html += `<div class="gt-grip">Two-handed grip: +${g.defence} Defence, +${g.hp} life${g.ranged ? `, +${g.ranged} Ranged` : ''}${g.atkPct != null ? `, +${g.atkPct}% damage, +${g.haste}% attack speed` : ''} (makes up for having no ${takesQuiver(id) ? 'shield' : 'off-hand'})</div>`;
     }
     else if (eq.slot === 'shield' && offhandBlocked(this.game.equipment.get('weapon'), id)) html += `<div class="gt-req no">Your weapon is two-handed: no shield</div>`;
+    else if (shieldBarred(this.game.jobClass, id)) { html += `<div class="gt-req no">${NO_SHIELD_MSG}</div>`; return html; }
     // Accessories suit one fighting style: say which, and whether it's yours.
     if (eq.style) {
       const mine = this.game.combatMode() === 'dance' ? 'melee' : this.game.combatMode();

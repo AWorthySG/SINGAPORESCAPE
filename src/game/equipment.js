@@ -7,14 +7,14 @@ import { refinedBonuses, MAX_REFINE } from './refine.js';
 export const EQUIP_SLOTS = ['head', 'cape', 'amulet', 'weapon', 'body', 'shield', 'legs', 'hands', 'feet', 'ring'];
 export const DEFAULT_WEAPON_SPEED = 5; // ticks (unarmed)
 
-/** Daggers (and the kris), scimitars, pistols and kerambits can be dual wielded: a second one of
- *  the same kind goes in the off-hand. */
+/** Daggers (and the kris), scimitars, pistols, kerambits and shurikens can be dual wielded: a
+ *  second one of the same kind goes in the off-hand. */
 export const dualType = (id) => {
   if (!id) return null;
   if (/_dagger$/.test(id) || id === 'tiger_kris') return 'dagger';
   const t = getItem(id)?.equip?.weaponType;
   if (t === 'dagger' && getItem(id).signature) return 'dagger';   // a boss's signature dagger pairs like any other
-  return t === 'scimitar' || t === 'pistol' || t === 'kerambit' ? t : null;
+  return t === 'scimitar' || t === 'pistol' || t === 'kerambit' || t === 'shuriken' ? t : null;
 };
 export const canDualWield = (id) => !!dualType(id);
 /** Can these two be held together (main hand and off-hand)? */
