@@ -60,15 +60,16 @@ function rate(skill, id, lvl, ticks, seed) {
   return gain * 6000 / ticks;
 }
 
-// The best node of each skill at each level. Fishing spots never deplete and
+// The best node of each skill at each level (Fishing: one fish to a spot since
+// Nov 2026, so the best spot is the newest one open). Fishing spots never deplete and
 // need no walking, so one run is exact; the others walk between nodes that run
 // dry at random, so each is the mean of two seeded runs. Measured once, shared
 // by both tests below.
 const TICKS = 800;
 const BEST = [
-  { lvl: 10, fishing: 'fishing_spot', woodcutting: 'bamboo', mining: 'limestone_rock', hunter: 'bird_snare' },
-  { lvl: 60, fishing: 'fishing_cage', woodcutting: 'yew_tree', mining: 'gem_rock', hunter: 'boar_pit' },
-  { lvl: 99, fishing: 'harpoon_spot', woodcutting: 'magic_tree', mining: 'runite_rock', hunter: 'crocodile_trap' },
+  { lvl: 10, fishing: 'sardine_spot', woodcutting: 'bamboo', mining: 'limestone_rock', hunter: 'bird_snare' },
+  { lvl: 60, fishing: 'cobia_spot', woodcutting: 'yew_tree', mining: 'gem_rock', hunter: 'boar_pit' },
+  { lvl: 99, fishing: 'manta_spot', woodcutting: 'magic_tree', mining: 'runite_rock', hunter: 'crocodile_trap' },
   { lvl: 250, fishing: 'rift_eel_spot', woodcutting: 'moonlit_kapok', mining: 'skyglass_crystal', hunter: 'naga_track' },
 ];
 const OTHERS = ['woodcutting', 'mining', 'hunter'];

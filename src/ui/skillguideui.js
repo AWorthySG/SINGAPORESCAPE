@@ -28,7 +28,7 @@ import { STATION_BY_ID } from '../data/transport.js';
 import { toolLadder } from '../game/tools.js';
 import {
   SKILL_GUIDES, GATHER_SKILLS, COMBAT_SKILLS, TOOL_NAMES, gatherSources, recipesFor, recipeLabel, recipeKindTitle, canMake,
-  regionsOf, nearestObject, groveList, itemEntry, searchResources, RESOURCE_CATS, resourceIndex, perkLadder, gearTiers, trainingSpots, bestSpotsFor, combatExtras,
+  regionsOf, nearestObject, groveList, fishSpotList, itemEntry, searchResources, RESOURCE_CATS, resourceIndex, perkLadder, gearTiers, trainingSpots, bestSpotsFor, combatExtras,
 } from '../game/skillguide.js';
 
 export const PAGE = 30;
@@ -385,6 +385,13 @@ export function openSkillGuide(ui, skill, { itemId = null } = {}) {
       for (const g of groveList(game)) {
         body.insertAdjacentHTML('beforeend', `<div class="sgx-station"><span><b>${esc(g.name)}</b>: ${g.count} ${esc(g.tree.toLowerCase())}s (level ${g.level}), ${esc(g.region)}</span>`
           + `<span class="sgx-btns"><button type="button" class="wm-go" data-grove="${esc(g.id)}">Go</button><button type="button" class="wm-go cx-map" data-gmap="${esc(g.id)}">Map</button></span></div>`);
+      }
+    }
+    // Fishing: each kind of spot and its one fish, and where to find it (fishspots.js).
+    if (sk === 'fishing') {
+      for (const f of fishSpotList(game)) {
+        body.insertAdjacentHTML('beforeend', `<div class="sgx-station"><span><b>${esc(f.name)}</b>: ${esc(f.fish.toLowerCase())} (level ${f.level}, ${esc(f.tool)}), ${regionsText(f.regions, 3)}</span>`
+          + `<span class="sgx-btns"><button type="button" class="wm-go" data-go="${esc(f.objId)}">Go</button><button type="button" class="wm-go cx-map" data-map="${esc(f.objId)}" data-label="${esc(f.name)}">Map</button></span></div>`);
       }
     }
     if (COMBAT_SKILLS.includes(sk)) {

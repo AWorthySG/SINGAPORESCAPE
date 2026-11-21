@@ -115,10 +115,10 @@ test('auto quest catches all the salmon before cooking them in one go, then hand
   game.quests.island_provisions.state = 'active';
   for (const id of ['raw_salmon', 'salmon']) game.inventory.remove(id, game.inventory.count(id));
   const g = game.questGuide('island_provisions');
-  assert.equal(g.objId, 'fishing_spot', 'salmon are netted');
+  assert.equal(g.objId, 'salmon_spot', 'salmon are netted at a salmon run');
   assert.equal(g.text, 'Net salmon (0/10)');
   game.inventory.add('raw_salmon', 4);
-  assert.equal(game.questGuide('island_provisions').objId, 'fishing_spot', 'four is not ten: keep fishing');
+  assert.equal(game.questGuide('island_provisions').objId, 'salmon_spot', 'four is not ten: keep fishing');
   game.inventory.remove('raw_salmon', 4);
   const { q, visits, handIns } = runAutoQuest(game, 'island_provisions', 'salmon');
   assert.equal(q.state, 'done', `handed in (auto quest ${game.autoQuest ? 'on' : 'off'})`);

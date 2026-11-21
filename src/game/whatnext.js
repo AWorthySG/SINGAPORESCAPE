@@ -29,8 +29,8 @@ export const NEAR_UNLOCK = 2;
 const GO_SKILLS = ['woodcutting', 'mining', 'fishing', 'hunter', 'thieving', 'agility'];
 // The skill card's verb for each.
 const VERB = { woodcutting: 'Chop', mining: 'Mine', hunter: 'Trap', thieving: 'Steal from', agility: 'Run' };
-/** What to do there, e.g. "Chop Oak tree", "Catch Anchovy at a net fishing spot". */
-const doText = (src) => (src.spot ? `Catch ${src.name} at a ${src.spot.toLowerCase()}` : `${VERB[src.skill] || 'Work'} ${src.name}`);
+/** What to do there, e.g. "Chop Oak tree", "Catch Raw anchovy at an anchovy shoal". */
+const doText = (src) => (src.spot ? `Catch ${src.name} at ${/^[aeiou]/i.test(src.spot) ? 'an' : 'a'} ${src.spot.toLowerCase()}` : `${VERB[src.skill] || 'Work'} ${src.name}`);
 
 const skillName = (s) => SKILL_BY_ID[s]?.name || s;
 const dist = (a, b) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));

@@ -35,7 +35,7 @@ const TICK_S = 0.6;
 export const SKILL_GUIDES = {
   woodcutting: { use: 'Logs feed Firemaking and Fletching (bows, arrows, staves). From level 100, groves of rare trees in the far regions give the endgame logs.' },
   mining: { use: 'Ore is smelted into bars for Smithing, and gems and gold go to Crafting. From level 100, rare veins in the far regions give the endgame ores.' },
-  fishing: { use: 'Raw fish are cooked into food that heals you in a fight. From level 100, rare spots in the far regions give the endgame fish. Now and then a school of fish (a dark swirl on the water) visits a spot near you for half a minute: fish there and you may net the whole school, 5 to 12 fish at once.' },
+  fishing: { use: 'Raw fish are cooked into food that heals you in a fight. Each kind of spot holds one fish, so where you fish picks the fish: the list below says where each is. From level 100, rare spots in the far regions give the endgame fish. Now and then a school of fish (a dark swirl on the water) visits a spot near you for half a minute: fish there and you may net the whole school, 5 to 12 fish at once.' },
   hunter: { use: 'Pelts, skins and hides become armour; meat is cooked into food. From level 100, hunting grounds in the far regions give the catches for the endgame brews.' },
   farming: { use: 'Crops are herbs for Herblore and ingredients for hawker dishes. The farm shop sells every seed, the endgame ones too; Gardens by the Bay has more patches.', where: ['farm_patch'] },
   cooking: { use: 'Food heals you in a fight; better food heals more. From level 100 the endgame fish cook into dishes that heal a share of your life, and some boost you too.', where: ['range', 'fire'] },
@@ -235,6 +235,22 @@ export function groveList(game) {
     return { id: g.id, name: g.name, objId: g.objId, tree, level: d.level || 1, region: g.region, count: g.count, x: g.cx, y: g.cy,
       text: `${g.name}: ${g.count} ${tree.toLowerCase()}s (level ${d.level || 1}), ${g.region}` };
   }).sort((a, b) => a.level - b.level);
+}
+/** The world's fishing spots, one kind to each fish (fishspots.js), lowest
+ *  first, for the Fishing guide: [{ objId, name, fish, level, tool, regions,
+ *  count, text }]. Only kinds the world has placed (not a world event's shoal). */
+export function fishSpotList(game) {
+  const count = new Map();
+  for (const o of game?.world?.objects || []) {
+    if (o.worldEvent || OBJECTS[o.objId]?.type !== 'fishing') continue;
+    count.set(o.objId, (count.get(o.objId) || 0) + 1);
+  }
+  return [...count].map(([objId, n]) => {
+    const d = OBJECTS[objId], c = d.catches[0], regions = regionsOf(game, [objId]);
+    const fish = name(c.id).replace(/^Raw /, ''), tool = FISH_TOOL_NAME[d.tool] || d.tool;
+    return { objId, name: d.name, fish, level: c.level, tool, regions, count: n,
+      text: `${d.name}: ${fish.toLowerCase()} (level ${c.level}, ${tool}), ${regions.join(', ')}` };
+  }).sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
 }
 /** Regions for several object kinds together, without repeats. */
 export function regionsOf(game, objIds = []) {
