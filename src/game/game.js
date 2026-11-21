@@ -1465,7 +1465,8 @@ export class Game {
     // second roll. (Making swaps item for item, so it needs no free slot.)
     if (going && GATHER_FAST.has(a.type)) {
       a._quick = (a._quick || 0) + (GATHER_SPEED - 1) + toolSpeed(this, a, GATHER_SPEED);   // a better tool adds more (tools.js)
-      if (a._quick >= 1 && (MAKE_FAST.has(a.type) || this.inventory.freeSlots() > 0) && !obj.depleted) { a._quick -= 1; going = runSkillAction(this, a, resolver); }
+      // (A loop, not one extra: the best tools add up to +100%, so a tick can hold two extra rolls.)
+      while (going && a._quick >= 1 && (MAKE_FAST.has(a.type) || this.inventory.freeSlots() > 0) && !obj.depleted) { a._quick -= 1; going = runSkillAction(this, a, resolver); }
     }
     if (gather) this.gathering.onGather(a, obj, before);   // streaks, lucky finds, contracts (gathering.js)
     if (gather) {
