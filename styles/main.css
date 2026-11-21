@@ -4148,3 +4148,16 @@ input[type="range"]:focus-visible { outline: 3px solid var(--aw-sun); outline-of
 }
 #banner::before { top: -7px; left: -7px; }
 #banner::after { bottom: -7px; right: -7px; transform: rotate(180deg); }
+
+/* Desktop: the folded side panel keeps its column of tab icons (as on
+   phones), so every tab is still one click away; a click opens the panel. */
+@media (pointer: fine) and (min-width: 541px) and (min-height: 501px) {
+  #sidepanel.collapsed { width: auto; grid-template-columns: var(--rail-w); grid-template-areas: "tabs"; }
+  #sidepanel.collapsed #panel-head { display: none; }
+  #sidepanel.collapsed #panel-tabs { display: flex; }
+}
+
+/* The top-centre area name shows on arrival (CompactHud adds .fresh for a
+   few seconds, or while the minimap is folded); otherwise the minimap's own
+   label names the area. */
+#region-label:not(.fresh) { opacity: 0; pointer-events: none; }

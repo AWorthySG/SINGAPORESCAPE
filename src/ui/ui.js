@@ -76,6 +76,8 @@ import { RACES, raceOf, weaponsFor, weaponTypeName, WEAPON_VS_RACE } from '../da
 import { WaveHud } from './wavehud.js';
 import { PlayHud } from './playhud.js';
 import { CompactHud } from './compacthud.js';
+// Screens where the side panel starts folded (see _wireCollapse).
+export const LAPTOP_FOLD = '(pointer: fine) and (max-height: 820px) and (min-width: 541px)';
 import { NoticeLane } from './noticelane.js';
 import { QuickSlot, interactCaption, trackerHTML, loadTrackerFolded, saveTrackerFolded, sheetSnap } from './hudease.js';
 import { QuickBar } from './quickbar.js';
@@ -681,6 +683,10 @@ export class UI {
     // a saved choice always wins.
     const compact = typeof matchMedia === 'function' && matchMedia('(max-width: 540px), (max-height: 500px)').matches;
     if (this._collapse[key] === undefined && compact && (key === 'panel' || key === 'chat')) this._collapse[key] = true;
+    // Laptops (a mouse and a short screen) start with the side panel folded to
+    // its column of tab icons: open, it covers a third of the view.
+    const laptop = typeof matchMedia === 'function' && matchMedia(LAPTOP_FOLD).matches;
+    if (this._collapse[key] === undefined && laptop && key === 'panel') this._collapse[key] = true;
     apply(!!this._collapse[key]);
     this._collapseApply = this._collapseApply || {};
     this._collapseApply[key] = (c) => { this._collapse[key] = c; apply(c); this._saveCollapse(); };
