@@ -212,6 +212,7 @@ export function outsideTapAction(ui, under, t = now()) {
 
 /** Esc: close the top-most thing, and only that. Returns what it closed. */
 export function closeTopWindow(ui) {
+  if (ui.cmdSearch?.isOpen?.()) { ui.cmdSearch.close(); return 'search'; }   // the search box sits above everything (cmdsearch.js)
   const menu = ui.el?.contextMenu;
   if (menu && !menu.classList.contains('hidden')) { ui.hideContextMenu(); return 'menu'; }
   if (ui._cardOpen) { ui.closeTouchCard(); return 'card'; }

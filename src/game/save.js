@@ -110,6 +110,7 @@ export function snapshot(game) {
     home: game.home?.serialize(),   // the kampong home (home.js)
     snareGiven: !!game.snareGiven,  // the one-off Hunter snare for older saves (onboarding.js)
     bankKeep: serializeKeep(game),  // what the bank's Deposit loot leaves in the pack (bankkeep.js)
+    quickbar: Array.isArray(game.quickbar) ? [...game.quickbar] : undefined,   // the quick bar's slots (quickbar.js)
   };
 }
 
@@ -466,4 +467,6 @@ function loadFields(game, data) {
   game.snareGiven = data.snareGiven === true;
   ensureHunterSnare(game);
   loadKeep(game, data.bankKeep);   // older saves: an empty keep list
+  // The quick bar's slots; quickbar.js cleans them on first use (older saves: none, so the defaults).
+  game.quickbar = Array.isArray(data.quickbar) ? data.quickbar.map((k) => (typeof k === 'string' ? k : null)) : null;
 }

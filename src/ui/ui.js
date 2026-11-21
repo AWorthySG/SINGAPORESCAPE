@@ -78,6 +78,8 @@ import { PlayHud } from './playhud.js';
 import { CompactHud } from './compacthud.js';
 import { NoticeLane } from './noticelane.js';
 import { QuickSlot, interactCaption, trackerHTML, loadTrackerFolded, saveTrackerFolded, sheetSnap } from './hudease.js';
+import { QuickBar } from './quickbar.js';
+import { CmdSearch } from './cmdsearch.js';
 import { addCollectionButton } from './collectionui.js';
 import { TIPS, TIPS_KEY, nextTip, markTipSeen, tipsSeen } from './tips.js';
 import { foeDetails, labelMode, nextLabelMode, LABEL_MODE_NAMES } from '../render/worldlabels.js';
@@ -294,6 +296,8 @@ export class UI {
     this.bus.on('tick', () => this.lane.placeSoon());
     this.xpHud = new XpDisplay(this);   // XP counter, progress ring and level-up toasts (xpdisplay.js)
     this.compactHud = new CompactHud(this);   // Auto caption, quiet chat, area name on arrival (compacthud.js)
+    this.cmdSearch = new CmdSearch(this);   // the / or Ctrl+K search box (cmdsearch.js)
+    this.quickBar = new QuickBar(this);     // one-tap favourites (quickbar.js)
     watchUpgrades(this);   // "Wear it" when loot beats your gear (whatnextui.js)
     watchGoals(this);      // the journal's "What next?" card follows the goals
     this.bus.on('inventory', () => this.scheduleInventory());

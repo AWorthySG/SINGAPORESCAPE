@@ -48,3 +48,73 @@
 
 /* ---- What a level-up opened, in its banner ---- */
 .nl-card .lvl-news { display: block; font-size: 11.5px; opacity: .85; }
+
+/* ---- Quick bar (src/ui/quickbar.js): search, favourites, edit ----
+   Desktop: a row centred above the action bar. Phones: a column under the
+   folded Bag button, wrapping leftwards before it can reach Interact. */
+#quickbar {
+  position: absolute; left: 50%; bottom: 132px; transform: translateX(-50%); z-index: 22;
+  display: flex; gap: 6px; align-items: center; pointer-events: none;
+}
+#quickbar .qb-btn {
+  pointer-events: auto; position: relative; width: 40px; height: 40px; padding: 0; display: grid; place-items: center;
+  background: var(--aw-card, #fff); border: 2px solid var(--aw-ink, #22304A); border-radius: 12px;
+  box-shadow: var(--shadow-sticker-sm); cursor: var(--cur-pointer, pointer); font: inherit; color: var(--aw-ink, #22304A);
+}
+#quickbar .qb-btn:hover { background: var(--aw-hover, #FFF6E5); }
+#quickbar .qb-btn:active { transform: translateY(1px); }
+#quickbar .qb-btn .ui-ic, #quickbar .qb-btn svg { width: 26px; height: 26px; pointer-events: none; }
+#quickbar .qb-slot.on { background: var(--aw-accent, #C0392B); box-shadow: 0 0 0 2px var(--aw-sun, #F5B82E), var(--shadow-sticker-sm); }
+#quickbar .qb-key {
+  position: absolute; right: -4px; bottom: -5px; min-width: 14px; padding: 0 3px; border-radius: 6px; font-size: 9px; line-height: 13px;
+  font-weight: 900; background: var(--aw-ink, #22304A); color: #fff; font-family: inherit; pointer-events: none;
+}
+#quickbar #qb-search { border-radius: 50%; }
+#quickbar .qb-edit { width: 26px; height: 26px; border-radius: 50%; font-size: 13px; opacity: 0.8; }
+.qb-edit-list { display: grid; gap: 8px; margin: 10px 0; }
+.qb-edit-row { display: grid; grid-template-columns: 32px 18px 1fr; align-items: center; gap: 8px; }
+.qb-edit-row select { width: 100%; min-height: 36px; }
+.qb-edit-ic { display: grid; place-items: center; width: 32px; height: 32px; }
+
+/* ---- Command search (src/ui/cmdsearch.js) ---- */
+#cmd-search { position: absolute; inset: 0; z-index: 90; background: rgba(34,48,74,0.28); display: flex; justify-content: center; align-items: flex-start; padding-top: 12vh; }
+#cmd-search.hidden { display: none; }
+#cmd-search .cs-box {
+  width: min(560px, calc(100vw - 24px)); max-height: 70vh; display: flex; flex-direction: column; overflow: hidden;
+  background: var(--aw-card, #fff); border: 3px solid var(--aw-ink, #22304A); border-radius: 18px; box-shadow: 0 6px 0 rgba(34,48,74,0.18);
+}
+#cmd-search .cs-input {
+  margin: 10px; padding: 10px 14px; font: inherit; font-size: 16px; font-weight: 700; border-radius: 12px;
+  border: 2px solid var(--aw-ink, #22304A); background: var(--aw-paper, #FFFBF2); color: var(--aw-text, #1C1B19); outline: none;
+}
+#cmd-search .cs-input:focus { box-shadow: 0 0 0 3px var(--aw-sun, #F5B82E); }
+#cmd-search .cs-list { overflow-y: auto; padding: 0 8px 4px; }
+#cmd-search .cs-row {
+  display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 12px; cursor: var(--cur-pointer, pointer);
+}
+#cmd-search .cs-row.sel, #cmd-search .cs-row:hover { background: var(--aw-hover, #FFF6E5); box-shadow: inset 0 0 0 2px var(--aw-sun, #F5B82E); }
+#cmd-search .cs-ic { flex: none; width: 30px; height: 30px; display: grid; place-items: center; }
+#cmd-search .cs-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+#cmd-search .cs-text b, #cmd-search .cs-text small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#cmd-search .cs-text small { opacity: 0.7; font-size: 11.5px; }
+#cmd-search .cs-main, #cmd-search .cs-alt {
+  flex: none; padding: 4px 10px; min-height: 30px; border-radius: 999px; font: inherit; font-size: 12px; font-weight: 900; cursor: var(--cur-pointer, pointer);
+  border: 2px solid var(--aw-ink, #22304A); background: var(--aw-accent, #C0392B); color: #fff;
+}
+#cmd-search .cs-alt { background: var(--aw-card, #fff); color: var(--aw-ink, #22304A); }
+#cmd-search .cs-empty { padding: 12px 8px; opacity: 0.75; }
+#cmd-search .cs-hint { padding: 6px 12px 10px; font-size: 11px; opacity: 0.6; }
+
+@media (pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px) {
+  #quickbar {
+    left: auto; bottom: auto; transform: none; right: calc(13px + env(safe-area-inset-right, 0px)); top: 262px;
+    flex-direction: column; flex-wrap: wrap-reverse; align-content: flex-start; max-height: calc(100dvh - 262px - 270px);
+  }
+  #quickbar .qb-btn { width: 44px; height: 44px; }
+  #quickbar .qb-edit { width: 32px; height: 32px; margin: 0 6px; }
+  #quickbar .qb-edit::before { content: ""; position: absolute; inset: -6px; }   /* a 44px target */
+  #quickbar .qb-key { display: none; }   /* no keyboard to press them on */
+  #cmd-search { padding-top: 8px; }
+  #cmd-search .cs-main, #cmd-search .cs-alt { min-height: 36px; }
+  #cmd-search .cs-hint { display: none; }
+}
