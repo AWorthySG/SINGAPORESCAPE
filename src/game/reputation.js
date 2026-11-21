@@ -13,6 +13,7 @@ import { REGION_LINES } from '../data/regionQuests.js';
 import { MORAL_BY_ID } from '../data/moralEvents.js';
 
 // The regions, in the journal's order (the region quest lines run outwards from Kampong Glam).
+import { aOrAn } from '../core/utils.js';
 export const REP_REGIONS = REGION_LINES.map((l) => l.region);
 const REGION_SET = new Set(REP_REGIONS);
 
@@ -70,7 +71,7 @@ export function addRep(game, region, amount, why = '', quiet = false) {
   if (r0 !== r1 && !quiet) {
     const up = RANK_INDEX[r1.id] > RANK_INDEX[r0.id];
     if (up) {
-      game.msg?.(`${region} reputation: you are now a ${r1.name} here${why ? ` (${why})` : ''}. ${rankPerkText(r1)}`, 'level');
+      game.msg?.(`${region} reputation: you are now ${aOrAn(r1.name)} here${why ? ` (${why})` : ''}. ${rankPerkText(r1)}`, 'level');
       game.banner?.(`<span class="big">${r1.name} of ${region}</span>${rankPerkText(r1)}`);
       game.bus?.emit('sfx', 'achievement');
     } else game.msg?.(`${region} reputation falls to ${r1.name}${why ? ` (${why})` : ''}.`, 'system');

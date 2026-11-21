@@ -15,6 +15,7 @@ import { CROPS, POTIONS } from './trades.js';
 import { signatureWeapons } from './bossWeapons.js';
 import { TOOL_KINDS, TOOL_TIERS, toolId, toolBonusText } from './tooltiers.js';
 
+import { aOrAn, AOrAn } from '../core/utils.js';
 const RAW = {
   // ---- Currency ----
   coins: { name: 'Coins', icon: '🪙', value: 1, stackable: true, maxStack: Infinity, examine: 'Lovely money!' },
@@ -616,8 +617,8 @@ const _REACH = { spear: SPEAR_REACH, halberd: 3, longsword: 3, '2h_sword': 3 };
 //    kite's Defence, but a Physical damage bonus and Attack speed that grow with the tier.
 // (The old buckler's flat +3 Attack meant nothing past the first few tiers.)
 const _SHIELD_ROLES = {
-  kiteshield: (M) => ({ bonuses: { defence: Math.round(9 * M.m), hp: Math.round(1.5 * M.m) }, examine: `A ${M.n.toLowerCase()} kiteshield: the most Defence and extra life, for holding the line.` }),
-  sq_shield: (M) => ({ bonuses: { defence: Math.round(6.3 * M.m), pierce: 1 + Math.floor(M.rd / 75) }, examine: `A ${M.n.toLowerCase()} square shield: solid Defence, and its rim bites through armour.` }),
+  kiteshield: (M) => ({ bonuses: { defence: Math.round(9 * M.m), hp: Math.round(1.5 * M.m) }, examine: `${AOrAn(M.n.toLowerCase())} kiteshield: the most Defence and extra life, for holding the line.` }),
+  sq_shield: (M) => ({ bonuses: { defence: Math.round(6.3 * M.m), pierce: 1 + Math.floor(M.rd / 75) }, examine: `${AOrAn(M.n.toLowerCase())} square shield: solid Defence, and its rim bites through armour.` }),
   buckler: (M) => ({ bonuses: { defence: Math.round(4 * M.m), atkPct: 2 + 2 * Math.floor(M.rd / 75), haste: 1 + Math.floor(M.rd / 120) },
     examine: `A small ${M.n.toLowerCase()} buckler for parrying: light Defence, but quicker, harder strikes.` }),
 };
@@ -627,7 +628,7 @@ for (const M of _METALS) {
     if (RAW[id]) continue;
     const bonuses = { attack: Math.round(att * M.m), strength: Math.round(str * M.m), speed: spd };
     if (crit) bonuses.crit = crit;
-    RAW[id] = { name: `${M.n} ${label}`, icon: '⚔️', value: Math.round(v * M.v), examine: `A ${M.n.toLowerCase()} ${label}.`,
+    RAW[id] = { name: `${M.n} ${label}`, icon: '⚔️', value: Math.round(v * M.v), examine: `${AOrAn(M.n.toLowerCase())} ${label}.`,
       equip: { slot: 'weapon', req: { attack: M.ra }, bonuses, range: _REACH[t] || MELEE_REACH } };
   }
   for (const [t, label, slot, def, att, v] of _ARMOURS) {
@@ -755,7 +756,7 @@ for (const [id, name, lvl, dance, crit, value, examine] of [
 ]) RAW[id] = { name, icon: '〰️', value, examine, equip: { slot: 'weapon', combatType: 'dance', range: 3, req: { agility: lvl }, bonuses: { dance, crit, speed: 4 } } };
 for (const [tier, label, req, mult, vmul] of [['jade', 'Jade', 130, 9, 400], ['eternal', 'Eternal', 300, 18, 3000]]) {
   for (const [t, name, slot, dance, def] of _DANCER) {
-    RAW[`${tier}_${t}`] = { name: `${label} ${name}`, icon: '🎀', value: Math.round((40 + dance * 20) * vmul), examine: `A ${label.toLowerCase()} ${name} for the greatest dancers.`,
+    RAW[`${tier}_${t}`] = { name: `${label} ${name}`, icon: '🎀', value: Math.round((40 + dance * 20) * vmul), examine: `${AOrAn(label.toLowerCase())} ${name} for the greatest dancers.`,
       equip: { slot, req: { agility: req }, bonuses: { dance: dance * mult, defence: def * mult } } };
   }
 }
@@ -872,14 +873,14 @@ Object.assign(RAW, {
 // mercenaries they hire.
 for (const M of _METALS) {
   const tag = M.n.toLowerCase();
-  if (!RAW[`${M.k}_pistol`]) RAW[`${M.k}_pistol`] = { name: `${M.n} pistol`, icon: '🔫', value: Math.round(28 * M.v), examine: `A ${tag} flintlock pistol. Best in pairs.`,
+  if (!RAW[`${M.k}_pistol`]) RAW[`${M.k}_pistol`] = { name: `${M.n} pistol`, icon: '🔫', value: Math.round(28 * M.v), examine: `${AOrAn(tag)} flintlock pistol. Best in pairs.`,
     equip: { slot: 'weapon', combatType: 'ranged', noAmmo: true, req: { ranged: M.ra }, bonuses: { ranged: Math.round(5 * M.m), speed: 3 }, range: 7 } };
   if (!RAW[`${M.k}_shuriken`]) RAW[`${M.k}_shuriken`] = { name: `${M.n} shuriken`, icon: '✴️', value: Math.round(30 * M.v), examine: `${M.n} throwing stars that skip from foe to foe.`,
     equip: { slot: 'weapon', combatType: 'ranged', noAmmo: true, req: { ranged: M.ra }, bonuses: { ranged: Math.round(8 * M.m), speed: 4 }, range: 8 } };
   // Sniper rifles (Sniper): the longest reach in the game and huge shots, fired slowly. No ammo.
   if (!RAW[`${M.k}_rifle`]) RAW[`${M.k}_rifle`] = { name: `${M.n} sniper rifle`, icon: '🎯', value: Math.round(40 * M.v), examine: `A long ${tag}-barrelled sniper rifle. One shot, one kill.`,
     equip: { slot: 'weapon', combatType: 'ranged', noAmmo: true, req: { ranged: M.ra }, bonuses: { ranged: Math.round(14 * M.m), speed: 8 }, range: 32 + Math.floor(M.ra / 40) } };   // the furthest in the game (longbows reach 9-10)
-  if (!RAW[`${M.k}_cane`]) RAW[`${M.k}_cane`] = { name: `${M.n}-tipped cane`, icon: '🦯', value: Math.round(26 * M.v), examine: `A merchant's cane with a ${tag} tip, for flicking coins at foes. Every throw costs money.`,
+  if (!RAW[`${M.k}_cane`]) RAW[`${M.k}_cane`] = { name: `${M.n}-tipped cane`, icon: '🦯', value: Math.round(26 * M.v), examine: `A merchant's cane with ${aOrAn(tag)} tip, for flicking coins at foes. Every throw costs money.`,
     equip: { slot: 'weapon', combatType: 'ranged', noAmmo: true, coins: true, req: { ranged: M.ra }, bonuses: { ranged: Math.round(8 * M.m), speed: 4 }, range: 8 } };
 }
 
@@ -893,11 +894,11 @@ for (const M of _METALS) {
     equip: { slot: 'weapon', req: { attack: r }, bonuses: { attack: R(5 * m), strength: R(5 * m), speed: 4, crit: 5 }, range: MELEE_REACH } });
   add(`${k}_toya`, { name: `${n}-capped toya`, icon: '🥢', value: R(34 * v), examine: `A silat fighting staff with ${tag} caps. Guards as well as it strikes.`,
     equip: { slot: 'weapon', req: { attack: r }, bonuses: { attack: R(7 * m), strength: R(6 * m), defence: R(3 * m), speed: 5 }, range: MELEE_REACH } });
-  add(`${k}_crossbow`, { name: `${n} crossbow`, icon: '🏹', value: R(40 * v), examine: `A ${tag}-limbed crossbow. Its bolts punch through armour. No ammo needed.`,
+  add(`${k}_crossbow`, { name: `${n} crossbow`, icon: '🏹', value: R(40 * v), examine: `${AOrAn(tag)}-limbed crossbow. Its bolts punch through armour. No ammo needed.`,
     equip: { slot: 'weapon', combatType: 'ranged', noAmmo: true, req: { ranged: r }, bonuses: { ranged: R(11 * m), speed: 5 }, range: 10 } });
-  add(`${k}_chakram`, { name: `${n} chakram`, icon: '⭕', value: R(32 * v), examine: `A ${tag} throwing ring that bounces between foes. No ammo needed.`,
+  add(`${k}_chakram`, { name: `${n} chakram`, icon: '⭕', value: R(32 * v), examine: `${AOrAn(tag)} throwing ring that bounces between foes. No ammo needed.`,
     equip: { slot: 'weapon', combatType: 'ranged', noAmmo: true, req: { ranged: r }, bonuses: { ranged: R(9 * m), speed: 4 }, range: 7 } });
-  add(`${k}_orb`, { name: `${n} orb`, icon: '🔮', value: R(36 * v), examine: `A crystal orb in a ${tag} cage. Focused spells that hurt big foes.`,
+  add(`${k}_orb`, { name: `${n} orb`, icon: '🔮', value: R(36 * v), examine: `A crystal orb in ${aOrAn(tag)} cage. Focused spells that hurt big foes.`,
     // Orbs cast at a staff's pace: slow below the dragon tier, quicker from it (as staves turn
     // quicker from about level 50-65), so their damage scale can sit just under a staff's.
     equip: { slot: 'weapon', combatType: 'magic', req: { magic: r }, bonuses: { magic: R(4 * m + 2), ...(r >= 15 ? { magicStr: R(r / 15) } : {}), speed: r >= 60 ? 4 : 5 } } });

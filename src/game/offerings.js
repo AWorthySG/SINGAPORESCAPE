@@ -5,6 +5,7 @@ import { materialKind, materialPoints } from './materials.js';
 import { isSalvageable } from './salvage.js';
 
 // Everything else the Offering Shrine takes. Materials (materials.js) and spare
+import { aOrAn } from '../core/utils.js';
 // gear (salvage.js) have their own rules; every other item, from food and
 // potions to runes, arrows, seeds, bones, glassware and tools, is a GOOD, worth
 // its shop value / 250 shrine points (a 25th of what a material of the same
@@ -84,7 +85,7 @@ export function goodsRefusal(game, id) {
   if (questNeeds(game).has(id)) return `Keep your ${getItem(id).name.toLowerCase()}: a quest you are on needs it.`;
   if (!goodsKind(id)) {
     let it; try { it = getItem(id); } catch { return 'The shrine won\'t take that.'; }
-    if (TOKENS.has(id)) return `The shrine won't take a ${it.name.toLowerCase()}.`;
+    if (TOKENS.has(id)) return `The shrine won't take ${aOrAn(it.name.toLowerCase())}.`;
     if (!(it.value > 0)) return `The shrine won't take the ${it.name.toLowerCase()}: open or use it instead.`;
     return 'The shrine won\'t take that.';
   }

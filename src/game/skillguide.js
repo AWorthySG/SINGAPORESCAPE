@@ -142,7 +142,7 @@ export function allRecipes() {
   for (const r of FLETCH) add({ skill: 'fletching', kind: 'fletch', output: { id: r.result, qty: r.qty || 1 }, inputs: r.inputs.map(([id, qty]) => ({ id, qty })), level: r.level, xp: r.xp, tool: r.tool || null });
   for (const [id, p] of Object.entries(POTIONS)) add({ skill: 'herblore', kind: 'brew', output: { id, qty: 1 }, inputs: p.inputs.map(([i, qty]) => ({ id: i, qty })), level: p.level, xp: p.xp, label: p.name });
   for (const c of CROPS.map((x) => cropFor(x[0]))) add({ skill: 'farming', kind: 'farm', output: { id: c.id, qty: c.yield[0], max: c.yield[1] }, inputs: [{ id: c.seed, qty: 1 }], level: c.level, xp: c.plantXp, harvestXp: c.harvestXp, label: c.name,
-    note: `grows in ${Math.round(c.grow * TICK_S / 60 * 10) / 10} min, ${c.yield[0]}-${c.yield[1]} a harvest, ${c.harvestXp} xp each` });
+    note: `grows in ${Math.round(c.grow * TICK_S / 60 * 10) / 10} min, ${c.yield[0]}-${c.yield[1]} a harvest` });   // the harvest XP shows as a badge (skillguideui.js)
   for (const [id, it] of Object.entries(ITEMS)) if (it.tags?.includes('log')) add({ skill: 'firemaking', kind: 'burn', output: it.ash ? { id: it.ash, qty: 1 } : null, inputs: [{ id, qty: 1 }], level: it.firemaking, xp: it.fmXp || 0, tool: 'tinderbox', label: it.name, note: 'light it anywhere' });
   for (const id of BONE_IDS) add({ skill: 'prayer', kind: 'bury', output: null, inputs: [{ id, qty: 1 }], level: 1, xp: boneXp(id), label: name(id), note: `${Math.round(boneXp(id) * ALTAR_XP_MULT)} xp offered at a monument` });
   _recipes = out;

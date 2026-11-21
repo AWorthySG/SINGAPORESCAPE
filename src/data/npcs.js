@@ -6,6 +6,7 @@ import { REGION_GIVER_DEFS } from './regionQuests.js';
 import { BESTIARY_SPECIES, BESTIARY_BOSSES, BESTIARY_FORMS } from './bestiary.js';
 import { bossTypeFor } from './bossTypes.js';
 // NPC registry. Monsters are generated from archetype "bases" × rank tiers into a
+import { AOrAn } from '../core/utils.js';
 // 169-strong bestiary (scaled stats + level-tiered drops), plus 15 hand-authored
 // bosses and the townsfolk. Sprites are drawn from def.sprite + def.color.
 
@@ -161,7 +162,7 @@ function runesFor(level) {
 function makeMob(id, name, sprite, color, level, zone, aggro, family) {
   return { name, level, attackable: true, sprite, color, zone, family, ...statsFor(level),
     aggressive: aggro, aggroRange: aggro ? 4 : 0, respawn: Math.min(18, Math.max(10, Math.round(10 + level / 40))), wander: 4,   // 6-11s, so high-level areas refill as fast as low ones
-    examine: `A ${name.toLowerCase()} (level ${level}).`,
+    examine: `${AOrAn(name.toLowerCase())} (level ${level}).`,
     alwaysDrop: [{ id: boneForTier(level) }], dropTable: dropsFor(level) };   // better bones from stronger bands (see bones.js)
 }
 

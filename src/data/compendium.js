@@ -77,6 +77,7 @@ import { CAST_TICKS as TP_CAST_TICKS, TOWN_COOLDOWN_TICKS, COMBAT_LOCK_TICKS, TO
 import { REWARD_COINS_EACH, REWARD_COINS_MIN, REWARD_COINS_MAX, REWARD_LAMPS } from '../game/discovery.js';
 
 // ---------------- Little helpers for the numbers ----------------
+import { AOrAn } from '../core/utils.js';
 const pct = (x, dp = 0) => `${(Math.round(x * 100 * 10 ** dp) / 10 ** dp).toLocaleString('en-GB')}%`;
 // A crit's average multiplier: x2, or x4 one time in four (2.5).
 const avgCrit = () => (1 - MEGA_CRIT_CHANCE) * CRIT_MULT + MEGA_CRIT_CHANCE * MEGA_CRIT_MULT;
@@ -888,7 +889,7 @@ export const CHAPTERS = [
         summary: 'Life skills that feed one another.',
         body: [
           'The life skills lean on each other: logs feed Firemaking and Fletching, ore becomes bars for Smithing, raw fish and meat go to Cooking, crops to Herblore.',
-          () => `Some makes boost another skill. ${Object.entries(GATHER_CONSUMABLES).map(([s, c]) => `A ${itemName(c.id).toLowerCase()} in your pack adds ${pct(c.double)} double ${SKILL_BY_ID[s].name} yield`).join('; ')}. Herblore brews can raise Fishing, Hunter and Mining yields, and boss-fight meals cook from Hunter meat, farmed herbs and fish.`,
+          () => `Some makes boost another skill. ${Object.entries(GATHER_CONSUMABLES).map(([s, c]) => `${AOrAn(itemName(c.id).toLowerCase())} in your pack adds ${pct(c.double)} double ${SKILL_BY_ID[s].name} yield`).join('; ')}. Herblore brews can raise Fishing, Hunter and Mining yields, and boss-fight meals cook from Hunter meat, farmed herbs and fish.`,
         ],
         see: ['skills-overview', 'auto-gather'],
       },

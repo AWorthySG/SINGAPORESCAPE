@@ -5,6 +5,7 @@ import { MAX_REFINE, refineTag } from './refine.js';
 import { compareGear, gearRating, weaponStyle } from './gear.js';
 
 // Carrying upgrades over. When you put a better piece into a slot that already
+import { aOrAn } from '../core/utils.js';
 // holds one, the old piece's refine level and enchantments move across to it,
 // so outgrowing a piece doesn't throw away the scrolls and stones spent on it.
 //
@@ -137,7 +138,7 @@ export function carryMessages(plan) {
   if (traded.length) left.push(traded.map(enchantLabel).join(', '));
   if (left.length) out.push(`Your ${from} keeps ${left.join(' and ')}.`);
   if (plan.enchants?.skipped.length) {
-    out.push(`${plan.enchants.skipped.map(enchantLabel).join(', ')} can't go on a ${to}, so ${plan.enchants.skipped.length > 1 ? 'they stay' : 'it stays'} on your ${from}.`);
+    out.push(`${plan.enchants.skipped.map(enchantLabel).join(', ')} can't go on ${aOrAn(to)}, so ${plan.enchants.skipped.length > 1 ? 'they stay' : 'it stays'} on your ${from}.`);
   }
   return out;
 }

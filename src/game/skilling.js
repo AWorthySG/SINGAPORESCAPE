@@ -1,5 +1,5 @@
 import { getItem } from '../data/items.js';
-import { clamp, weightedPick, randInt } from '../core/utils.js';
+import { clamp, weightedPick, randInt, aOrAn } from '../core/utils.js';
 import { TILE } from '../config.js';
 import { yieldBonus, huntExtras } from './culling.js';
 import { afterFireLit } from './skillunlocks.js';
@@ -198,7 +198,7 @@ export function resolveMine(game, action) {
       obj.oresLeft--;   // the bonus ore comes out of the rock's 10-20
       game.msg(`A rich seam — double ${oreName}!`);
     } else {
-      game.msg(def.gemRock ? `You chip out a ${oreName}!` : `You manage to mine some ${oreName}.`);
+      game.msg(def.gemRock ? `You chip out ${aOrAn(oreName)}!` : `You manage to mine some ${oreName}.`);
     }
     // Lucky gem: unearth a precious stone now and then (ordinary rocks only).
     if (!def.gemRock && Math.random() < (0.012 + lvl * 0.0006) * (1 + tb.find)) {
@@ -207,7 +207,7 @@ export function resolveMine(game, action) {
         game.inventory.add(gem.id, 1);
         game.skills.addXp('mining', 40);
         game.spawnSparkle(game.player, '#9adcff', 8);
-        game.msg(`You unearth a ${getItem(gem.id).name.toLowerCase()}!`, 'level');
+        game.msg(`You unearth ${aOrAn(getItem(gem.id).name.toLowerCase())}!`, 'level');
       }
     }
     // Now and then the whole seam breaks free at once (jackpot.js).
@@ -225,7 +225,7 @@ export function resolveFish(game, action) {
   const { obj } = action;
   const def = obj.def;
   const tool = def.tool || 'net';
-  if (!game.hasTool(tool)) { game.msg(toolTooHighMsg(game, tool) || `You need a ${FISH_TOOL_NAME[tool] || tool} to fish here.`); return false; }
+  if (!game.hasTool(tool)) { game.msg(toolTooHighMsg(game, tool) || `You need ${aOrAn(FISH_TOOL_NAME[tool] || tool)} to fish here.`); return false; }
   const tb = toolBonus(game, tool);   // a better rod or harpoon: more big and trophy catches (tooltiers.js)
 
   const lvl = game.skills.level('fishing');
@@ -265,7 +265,7 @@ export function resolveFish(game, action) {
     game.skills.addXp('fishing', xpEach * n);
     game.spawnPoof(fc.x, fc.y, '#bfe3ff');
     game.bus.emit('sfx', 'gather');
-    game.msg(big ? `A big catch! You haul in two ${nm}.` : `You catch a ${nm}.`);
+    game.msg(big ? `A big catch! You haul in two ${nm}.` : `You catch ${aOrAn(nm)}.`);
     game.fishSchools?.onCatch(obj, pick.xp ? xpEach / pick.xp : 1);   // a school at the spot: maybe the whole lot (fishschool.js)
   }
   return true; // fishing spots never deplete
@@ -400,13 +400,13 @@ export function resolveDish(game, action) {
   if (action.tally) return r.inputs.every((inp) => game.inventory.has(inp.id, inp.qty));   // a batch says it once (makeBatch)
   const fc = { x: action.obj.x * 32 + 16, y: action.obj.y * 32 + 10 };
   game.spawnPoof(fc.x, fc.y, '#ffd9a0');
-  game.msg(`You prepare a ${getItem(r.result).name.toLowerCase()}.`);
+  game.msg(`You prepare ${aOrAn(getItem(r.result).name.toLowerCase())}.`);
   return r.inputs.every((inp) => game.inventory.has(inp.id, inp.qty));
 }
 
 export function resolveCraft(game, action) {
   const r = action.recipe;
-  if (r.tool && !game.hasTool(r.tool)) { game.msg(`You need a ${getItem(r.tool).name.toLowerCase()} to craft this.`); return false; }
+  if (r.tool && !game.hasTool(r.tool)) { game.msg(`You need ${aOrAn(getItem(r.tool).name.toLowerCase())} to craft this.`); return false; }
   if (game.skills.level('crafting') < r.level) {
     game.msg(`You need a Crafting level of ${r.level} to make this.`); return false;
   }
@@ -420,7 +420,7 @@ export function resolveCraft(game, action) {
   game.skills.addXp('crafting', r.xp);
   if (action.tally) return r.inputs.every((inp) => game.inventory.has(inp.id, inp.qty));   // a batch says it once (makeBatch)
   game.spawnSparkle(game.player, '#caa15a', 6);
-  game.msg(n > 1 ? `You craft ${n} ${getItem(r.result).name.toLowerCase()}s.` : `You craft a ${getItem(r.result).name.toLowerCase()}.`);
+  game.msg(n > 1 ? `You craft ${n} ${getItem(r.result).name.toLowerCase()}s.` : `You craft ${aOrAn(getItem(r.result).name.toLowerCase())}.`);
   return r.inputs.every((inp) => game.inventory.has(inp.id, inp.qty));
 }
 
@@ -447,7 +447,7 @@ export function resolveSmith(game, action) {
       game.msg(`Flawless work — you forge an extra ${itemName}!`);
     }
   } else if (!t) {
-    game.msg(r.qty > 1 ? `You hammer the metal into ${r.qty} ${itemName.endsWith('s') ? itemName : `${itemName}s`}.` : `You hammer the metal into a ${itemName}.`);   // "20 bronze rounds", not "roundss"
+    game.msg(r.qty > 1 ? `You hammer the metal into ${r.qty} ${itemName.endsWith('s') ? itemName : `${itemName}s`}.` : `You hammer the metal into ${aOrAn(itemName)}.`);   // "20 bronze rounds", not "roundss"
   }
   return game.inventory.has(r.bar, r.barCount);
 }
@@ -569,8 +569,8 @@ export function resolveHunt(game, action) {
 export function resolveRecipe(game, action) {
   const { recipe: r, skill } = action;
   const sname = skill[0].toUpperCase() + skill.slice(1);
-  if (r.tool && !game.hasTool(r.tool)) { game.msg(`You need a ${getItem(r.tool === 'knife' ? 'knife' : r.tool).name.toLowerCase()} for this.`); return false; }
-  if (game.skills.level(skill) < r.level) { game.msg(`You need a ${sname} level of ${r.level} to make this.`); return false; }
+  if (r.tool && !game.hasTool(r.tool)) { game.msg(`You need ${aOrAn(getItem(r.tool === 'knife' ? 'knife' : r.tool).name.toLowerCase())} for this.`); return false; }
+  if (game.skills.level(skill) < r.level) { game.msg(`You need ${aOrAn(sname)} level of ${r.level} to make this.`); return false; }
   if (!r.inputs.every(([id, n]) => game.inventory.has(id, n))) { game.msg('You have run out of materials.'); return false; }
   if (game.inventory.canAdd(r.result, r.qty || 1) <= 0) { game.msg('Your inventory is too full.'); return false; }
   for (const [id, n] of r.inputs) game.inventory.remove(id, n);
@@ -579,6 +579,6 @@ export function resolveRecipe(game, action) {
   if (action.tally) return r.inputs.every(([id, n]) => game.inventory.has(id, n));   // a batch says it once (makeBatch)
   game.spawnSparkle(game.player, skill === 'herblore' ? '#7ad08a' : '#caa15a', 6);
   const name = getItem(r.result).name.toLowerCase();
-  game.msg(skill === 'herblore' ? `You brew a ${name}.` : `You fletch ${(r.qty || 1) > 1 ? `${r.qty} ${name}s` : `a ${name}`}.`);
+  game.msg(skill === 'herblore' ? `You brew ${aOrAn(name)}.` : `You fletch ${(r.qty || 1) > 1 ? `${r.qty} ${name}s` : `${aOrAn(name)}`}.`);
   return r.inputs.every(([id, n]) => game.inventory.has(id, n));
 }

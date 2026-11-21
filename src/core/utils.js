@@ -88,6 +88,17 @@ export function weightedPick(table) {
   return table[table.length - 1];
 }
 
+/** "a" or "an" before a word, by its sound: "an emerald", "an Agility level",
+ *  "an hour", but "a unicorn" and "a one-off". Returns the pair: aOrAn('eel') -> 'an eel'. */
+export function aOrAn(w) {
+  const t = String(w ?? '').trim();
+  const an = /^(?:hour|honou?r|heir)/i.test(t) || (/^[aeiou]/i.test(t) && !/^(?:uni|use|usu|uti|ure|eu|ewe|one|once)/i.test(t));
+  return `${an ? 'an' : 'a'} ${t}`;
+}
+
+/** The same at the start of a sentence: AOrAn('iron sword') -> 'An iron sword'. */
+export const AOrAn = (w) => { const t = aOrAn(w); return t[0].toUpperCase() + t.slice(1); };
+
 export function capitalize(s) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }

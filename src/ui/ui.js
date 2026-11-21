@@ -31,7 +31,7 @@ import { moralDialogue, MORAL_BY_ID, MORAL_EVENTS, moralCoins } from '../data/mo
 import { ALL_MONSTER_IDS as MONSTER_IDS, ALL_BOSS_IDS as BOSS_IDS, getNpc } from '../data/npcs.js';
 import { SIGNATURE_CLASS, SIGNATURE_DROP_CHANCE, sigIdFor } from '../data/bossWeapons.js';
 import { levelProgress, xpToNext, MAX_LEVEL, maxLevelFor } from '../data/xp.js';
-import { stackLabel, capitalize, formatNumber, shortNumber } from '../core/utils.js';
+import { stackLabel, capitalize, formatNumber, shortNumber, aOrAn } from '../core/utils.js';
 import { RHYTHM_MAX, levelBonuses, playerMagicVsNpc } from '../game/combat.js';
 import { classPassives, CLASS_SKILL } from '../data/classPassives.js';
 import { ELEMENTS, SPELLS, getSpell } from '../data/magic.js';
@@ -384,6 +384,7 @@ export class UI {
       btn.className = 'ability-btn';
       btn.dataset.ability = ab.id;
       btn.title = `${ab.name} (${ab.key}) — ${this.game.abilityCostText(ab)}\n${ab.desc}`;   // a Merchant pays in coins
+      btn._baseTitle = btn.title;   // renderAbilities adds the unlock level while it's locked
       btn.innerHTML =
         `<span class="ab-key">${ab.key}</span>` +
         `<span class="ab-icon">${abilityIconHTML(ab.id, 36)}</span>` +
@@ -570,6 +571,9 @@ export class UI {
       const ready = unlocked && cd <= 0 && g.canAffordAbility(ab);
       const armed = g.armedAbility === ab.id;
       btn.classList.toggle('locked', !unlocked);
+      // A locked slot says why on hover (the 🔒 number alone was a puzzle).
+      const tip = unlocked ? btn._baseTitle : `🔒 Unlocks at combat level ${ab.unlock}\n${btn._baseTitle}`;
+      if (tip && btn.title !== tip) btn.title = tip;
       btn.classList.toggle('armed', armed);
       btn.classList.toggle('ready', ready && !armed);
       btn.classList.toggle('disabled', unlocked && !ready && !armed);
@@ -3165,7 +3169,7 @@ export class UI {
       const news = levelNewsText(levelNews(this.game, skill, from, to));
       this.addChat((n > 1
         ? `Congratulations, you just advanced ${n} ${sk.name} levels! You are now level ${to}.`
-        : `Congratulations, you just advanced a ${sk.name} level! You are now level ${to}.`) + (news ? ` ${news}` : ''), 'level');
+        : `Congratulations, you just advanced ${aOrAn(sk.name)} level! You are now level ${to}.`) + (news ? ` ${news}` : ''), 'level');
       if (!big || crossesMilestone(from, to)) last = { sk, n, to, news };   // the banner names a milestone skill
       big = big || crossesMilestone(from, to);
       this.xpHud?.levelUp(skill, from, to);   // a gold pulse on the ring and a toast at the edge
@@ -3457,7 +3461,7 @@ export class UI {
         parent.querySelector(`.class-card[data-cls="${id}"]`)?.classList.add('previewing');
         el.classList.remove('swap'); void el.offsetWidth; el.classList.add('swap');
       }
-      if (picked) { el.classList.add('chosen'); el.querySelector('.class-spot-sig').textContent = `You are a ${c.name}! ${el.querySelector('.class-spot-sig').textContent}`; }
+      if (picked) { el.classList.add('chosen'); el.querySelector('.class-spot-sig').textContent = `You are ${aOrAn(c.name)}! ${el.querySelector('.class-spot-sig').textContent}`; }
       if (swing && !still) { swingActor(actor, performance.now()); next = performance.now() + 2300; }
     };
     el.querySelector('.class-spot-go').addEventListener('click', () => onChoose(actor.classId));
