@@ -1683,6 +1683,14 @@ export class Renderer {
     drawGateShrine(ctx, game, ox, oy, vw, vh);   // the Endless Gate's shrine: its bar and hit flash
     const mode = labelMode(game);
     const placed = [];   // small names drawn so far this frame (to keep them apart)
+    // Your own name (drawn later, over everyone) holds its spot first, so a
+    // townsperson standing by you steps their name aside instead of printing
+    // it over yours.
+    if (game.player.alive) {
+      const pc = game.player.renderCenter();
+      ctx.font = '800 11px Nunito,"Trebuchet MS",sans-serif';
+      placed.push({ x: pc.x - ox, y: pc.y - oy - 53, hw: ctx.measureText(game.player.name).width / 2 + 3 });
+    }
     for (const n of (game.nearbyNpcs ? game.nearbyNpcs() : game.npcs)) {
       if (!n.alive) continue;
       const boss = n.def.boss;
