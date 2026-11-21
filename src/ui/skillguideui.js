@@ -21,6 +21,7 @@ import { getNpc } from '../data/npcs.js';
 import { SKILLS } from '../data/skills.js';
 import { OBJECTS } from '../data/objects.js';
 import { formatNumber } from '../core/utils.js';
+import { XP_RATE } from '../config.js';
 import { itemIconSVG, skillIconSVG, playIconHTML } from '../render/icons.js';
 import { chanceText, codexHabitats } from '../game/codex.js';
 import { unlockLadder, skillTeleportOf, skillTeleportWait, skillTeleport } from '../game/skillunlocks.js';
@@ -66,20 +67,29 @@ export function gatherPicksHTML(game) {
 
 // ---------------- Rows ----------------
 
+/** The XP you really get for one log, fish, ore or make: the listed amount
+ *  times the game's XP rate and the life-skill boost for your level, as
+ *  Skills.addXp adds it (golden hours, worn as a bonus on top, left out). */
+export function realXp(game, skill, xp) {
+  return (xp || 0) * XP_RATE * (game?.skills?.lifeXpMult ? game.skills.lifeXpMult(skill) : 1);
+}
+/** That XP as a badge beside a row's name. */
+export const xpBadge = (n, each = true) => `<span class="sgx-xp" title="Experience you get${each ? ' for each one' : ''}">+${formatNumber(Math.round(n))} xp${each ? ' each' : ''}</span>`;
+
 function sourceRowHTML(game, s, st) {
   const lvl = game.skills.level(s.skill);
   const ok = lvl >= s.level;
   const picking = PICK_SKILLS.has(s.skill) && ok && s.objIds;
   const ticked = picking && s.objIds.every((id) => game.gatherPicks.has(id));
-  const facts = [`${formatNumber(s.xp)} xp`, s.tool && `needs ${TOOL_NAMES[s.tool] || s.tool}`,
+  const facts = [s.tool && `needs ${TOOL_NAMES[s.tool] || s.tool}`,
     s.respawn !== undefined && s.objIds && s.skill !== 'agility' && (s.respawn ? `respawns in ${Math.round(s.respawn * 0.6)}s` : 'never runs dry'),
     s.lasts > 1 && `about ${s.lasts} a node`].filter(Boolean).join(' · ');
   const gives = s.gives.map((g) => `<span class="sgx-give${g.rare ? ' rare' : ''}">${itemBtn(g.id, qtyText(g.min || 1, g.max || 1))}<i>${g.chance >= 0.999 ? '' : chanceText(g.chance)}</i></span>`).join('');
   const where = s.objIds ? regionsOf(game, s.objIds) : s.npcId ? npcRegions(game, s.npcId) : null;
-  const spot = s.spot && s.spot !== s.name ? ` <small>at a ${esc(s.spot.toLowerCase())}</small>` : '';
+  const spot = s.spot && s.spot !== s.name ? ` <small>at ${esc(aOrAn(s.spot.toLowerCase()))}</small>` : '';
   return `<div class="sg-row sgx-row${ok ? '' : ' locked'}">`
     + (picking ? `<label class="sg-pick" title="Auto gather this"><input type="checkbox" data-pick="${esc(s.objIds.join(','))}"${ticked ? ' checked' : ''}></label>` : '')
-    + `<span class="sg-lvl">${s.level}</span><span class="sg-text sgx-text"><b>${esc(s.name)}${spot}</b><span>${facts}${s.note && !s.spot ? ` · ${esc(s.note)}` : ''}</span>`
+    + `<span class="sg-lvl">${s.level}</span><span class="sg-text sgx-text"><b>${esc(s.name)}${spot} ${xpBadge(realXp(game, s.skill, s.xp))}</b><span>${facts}${s.note && !s.spot ? ` · ${esc(s.note)}` : ''}</span>`
     + (gives ? `<span class="sgx-gives">${gives}</span>` : '')
     + (where ? `<span class="sgx-where">&#128205; ${regionsText(where)}</span>` : '') + '</span>'
     + `<span class="sgx-btns">${s.objIds ? `<button type="button" class="wm-go" data-go="${esc(s.objIds.join(','))}"${ok ? '' : ' disabled'}>Go</button><button type="button" class="wm-go cx-map" data-map="${esc(s.objIds.join(','))}" data-label="${esc(s.name)}">Map</button>`
@@ -96,10 +106,10 @@ function recipeRowHTML(game, r, { showSkill = false } = {}) {
     : c.ok ? `<span class="sgx-st ok">Can make${c.times > 1 ? ` ×${formatNumber(c.times)}` : ''}${c.tool ? '' : ` (bring ${TOOL_NAMES[r.tool]})`}</span>`
     : c.okWithBank ? '<span class="sgx-st bank">Inputs in the bank</span>' : '<span class="sgx-st short">Need inputs</span>';
   const out = r.output ? itemBtn(r.output.id, r.output.max ? qtyText(r.output.qty, r.output.max) : r.output.qty > 1 ? `${r.output.qty} × ` : '', 24) : `<b>${esc(recipeLabel(r))}</b>`;
-  const facts = [showSkill && `${skillName(r.skill)} ${r.level}`, `${formatNumber(r.xp)} xp`, recipeKindTitle(r.kind) !== skillName(r.skill) && recipeKindTitle(r.kind),
+  const facts = [showSkill && `${skillName(r.skill)} ${r.level}`, recipeKindTitle(r.kind) !== skillName(r.skill) && recipeKindTitle(r.kind),
     r.stations.length ? `at ${r.stations.map((o) => aOrAn(OBJECTS[o]?.name.toLowerCase() || o)).join(' or ')}` : '', r.tool && `needs ${TOOL_NAMES[r.tool]}`, r.note].filter(Boolean).join(' · ');
   return `<div class="sg-row sgx-row${c.levelOk ? '' : ' locked'}"><span class="sg-lvl">${r.level}</span>`
-    + `<span class="sg-text sgx-text"><span class="sgx-out">${out}${status}</span><span>${esc(facts)}</span>`
+    + `<span class="sg-text sgx-text"><span class="sgx-out">${out}${xpBadge(realXp(game, r.skill, r.xp))}${status}</span><span>${esc(facts)}</span>`
     + `<span class="sgx-ins">${r.kind === 'farm' || r.kind === 'burn' || r.kind === 'bury' ? '' : '<small>From</small>'}${ins}</span></span></div>`;
 }
 
@@ -267,7 +277,7 @@ export function itemPageHTML(game, id, st = {}) {
     from += `<h4>Gathered</h4>` + nodes.map((n) => {
       const s = n.source, ok = game.skills.level(s.skill) >= s.level;
       const zs = s.objIds ? regionsOf(game, s.objIds) : s.npcId ? npcRegions(game, s.npcId) : [];
-      return `<div class="sg-row sgx-row${ok ? '' : ' locked'}"><span class="sg-lvl">${s.level}</span><span class="sg-text sgx-text"><b>${esc(s.name)}${s.spot && s.spot !== s.name ? ` <small>(${esc(s.spot)})</small>` : ''} <small>${esc(skillName(s.skill))} · ${formatNumber(s.xp)} xp${n.chance < 0.999 ? ` · ${chanceText(n.chance)}` : ''}${n.max > 1 ? ` · ${n.min}-${n.max} at a time` : ''}</small></b>`
+      return `<div class="sg-row sgx-row${ok ? '' : ' locked'}"><span class="sg-lvl">${s.level}</span><span class="sg-text sgx-text"><b>${esc(s.name)}${s.spot && s.spot !== s.name ? ` <small>(${esc(s.spot)})</small>` : ''} <small>${esc(skillName(s.skill))} · ${formatNumber(Math.round(realXp(game, s.skill, s.xp)))} xp each${n.chance < 0.999 ? ` · ${chanceText(n.chance)}` : ''}${n.max > 1 ? ` · ${n.min}-${n.max} at a time` : ''}</small></b>`
         + `<span>${s.tool ? `Needs ${esc(TOOL_NAMES[s.tool] || s.tool)} · ` : ''}&#128205; ${regionsText(zs)}</span></span>`
         + `<span class="sgx-btns">${s.objIds ? `<button type="button" class="wm-go" data-go="${esc(s.objIds.join(','))}"${ok ? '' : ' disabled'}>Go</button><button type="button" class="wm-go cx-map" data-map="${esc(s.objIds.join(','))}" data-label="${esc(s.name)}">Map</button>` : s.npcId ? `<button type="button" class="wm-go" data-npc="${esc(s.npcId)}">Go</button>` : ''}</span></div>`;
     }).join('');
