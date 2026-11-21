@@ -19,7 +19,7 @@ export const CLASSES = [
   { id: 'halberdier', name: 'Halberdier', weapon: 'halberd', style: 'melee', desc: 'Slow, devastating halberds with 3-tile reach.' },
   { id: 'merchant', name: 'Merchant', weapon: 'cane', style: 'ranged', desc: 'The strongest class, if you can pay for it: throws money, and every attack and skill costs coins. Its coin throws and allies hit about twice as hard as other classes, its coins scatter through crowds, and it hires mercenaries and calls up A-Worthling mirror images.' },
   // Ranged
-  { id: 'archer', name: 'Archer', weapon: 'shortbow', style: 'ranged', desc: 'Rapid shortbows: arrow after arrow from afar, each spread fanning out into the foes around your target.' },
+  { id: 'archer', name: 'Archer', weapon: 'shortbow', style: 'ranged', desc: 'Rapid shortbows: arrow after arrow from afar, each spread also flinging an extra arrow into up to two foes around your target.' },
   { id: 'ranger', name: 'Ranger', weapon: 'longbow', style: 'ranged', desc: 'Longbows: slower, harder-hitting shots from a little further off that pierce into the foes behind.' },
   { id: 'pistoler', name: 'Pistoler', weapon: 'pistol', style: 'ranged', desc: 'A pistol in each hand: the fastest attacks in the game. Load rounds in the ammo slot to hit harder.' },
   { id: 'sniper', name: 'Sniper', weapon: 'rifle', style: 'ranged', desc: 'A sniper rifle: the furthest reach in the game and massive shots, but slow to fire. Load rounds in the ammo slot to hit harder.' },
