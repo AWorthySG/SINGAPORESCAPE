@@ -61,6 +61,7 @@ import { TERRAIN, zoneLevel } from '../data/world.js';
 import { clearSave, suppressSaves, exportSaveCode, importSaveCode } from '../game/save.js';
 import { statSheet } from '../game/statsheet.js';
 import { statsPanelHTML } from './statspanel.js';
+import { gearWorthNotes, gearSwapWorth, fmtWorth, worthTable } from '../game/statworth.js';
 import { openCodex, monsterAtScreen, openCompendium, addCompendiumButton } from './codexui.js';
 import { setLinkedText, linkHTML } from './links.js';   // names that open their encyclopedia entry
 import { openEntry } from './encyclopediaui.js';
@@ -1302,11 +1303,13 @@ export class UI {
     return QUALITY[q] ? `<span class="q-pip q-${q}" style="background:${QUALITY[q].color}" title="${QUALITY[q].label} quality">${playIconHTML(`quality-${q}`, 14)}</span>` : '';
   }
 
-  /** Stat chips for one piece of gear, e.g. "+12 Defence · 1.2s" (`q`: the copy's quality). */
-  _gearStats(id, base = false, copy = 'main', q = null) {
+  /** Stat chips for one piece of gear, e.g. "+12 Defence · 1.2s" (`q`: the copy's quality).
+   *  `notes` (statworth.js gearWorthNotes): what each offensive stat is worth to you. */
+  _gearStats(id, base = false, copy = 'main', q = null, notes = null) {
     const eq = getItem(id).equip;
     const b = base ? (eq.bonuses || {}) : this.game.equipment.itemBonuses(id, copy, q);
-    const chips = Object.keys(STAT_LABELS).filter((k) => b[k]).map((k) => `+${Math.round(b[k] * 10) / 10} ${STAT_LABELS[k]}`);
+    const chips = Object.keys(STAT_LABELS).filter((k) => b[k]).map((k) => `+${Math.round(b[k] * 10) / 10} ${STAT_LABELS[k]}`
+      + (notes?.[k] ? ` <span class="gt-worth">(${notes[k]})</span>` : ''));
     if (eq.slot === 'weapon') chips.push(`${capitalize(weaponStyle(id))}, ${(swingBeats(id) * 0.3).toFixed(1)}s swing`);
     if (eq.range) chips.push(`${eq.range}-tile range`);
     if (eq.runes) chips.push(`Unlimited ${getItem(eq.runes).name.toLowerCase()}s`);
@@ -1330,7 +1333,7 @@ export class UI {
       + (copy === 'off' ? '<div class="gt-up">Off-hand copy: its own refine and enchantments</div>' : '')
       + (rl ? `<div class="gt-refine">Refined ${refineTag(rl)}</div>` : '')
       + (lines.length ? `<div class="gt-ench">Enchanted: ${lines.map(enchantLabel).join(' · ')}</div>` : '')
-      + `<div class="gt-stats">${this._gearStats(id, false, copy, q)}</div>`
+      + `<div class="gt-stats">${this._gearStats(id, false, copy, q, gearWorthNotes(this.game, id, copy, q))}</div>`
       + `<div class="gt-tier">#${t.rank} of ${t.of} ${eq.slot === 'weapon' ? weaponStyle(id) + ' weapons' : eq.slot + ' items'}</div>`;
     if (reqTxt) html += `<div class="gt-req ${req.ok ? 'ok' : 'no'}">Needs ${reqTxt}${req.ok ? ' ✓' : ''}</div>`;
     if (isTwoHanded(id)) {
@@ -1366,6 +1369,9 @@ export class UI {
       const good = d.lowerIsBetter ? d.delta < 0 : d.delta > 0;
       return `<span class="${good ? 'pos' : 'neg'}">${deltaText([d])}</span>`;
     }).join(' ')}</div>`;
+    // The offensive stats summed up in plain damage terms (statworth.js).
+    const sw = cmp.worn && cmp.verdict !== 'style' ? gearSwapWorth(this.game, id, eq.slot, q) : null;
+    if (sw != null && Math.abs(sw) >= 0.05) html += `<div class="gt-worth-all ${sw > 0 ? 'pos' : 'neg'}">Overall: ≈ ${fmtWorth(sw)} damage vs equipped <span class="gt-worth">(offensive stats)</span></div>`;
     if (offCmp?.worn) html += `<div class="gt-verdict ${offCmp.verdict}">Off-hand: ${{ upgrade: '▲ Upgrade', downgrade: '▼ Downgrade', same: '= Same strength' }[offCmp.verdict] || ''} vs ${escapeHtml(getItem(offCmp.worn).name)}</div>`;
     // Say what a better piece would take over from the worn one (carry.js). A
     // matching weapon goes in a free off-hand first, as equipItem does.
@@ -3057,7 +3063,7 @@ export class UI {
     if (!el || el.closest('.panel-view')?.classList.contains('hidden')) return;
     const open = new Set([...el.querySelectorAll('details[open]')].map((d) => d.dataset.row));
     let html;
-    try { html = statsPanelHTML(statSheet(this.game), open); } catch (e) { console.warn('Stats tab:', e); return; }
+    try { html = statsPanelHTML(statSheet(this.game), open, worthTable(this.game)); } catch (e) { console.warn('Stats tab:', e); return; }
     if (html !== this._statsHTML) { el.innerHTML = html; this._statsHTML = html; }
   }
 

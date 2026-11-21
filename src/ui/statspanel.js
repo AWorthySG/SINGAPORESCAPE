@@ -3,6 +3,7 @@
 // build it headlessly. Rows with a breakdown are <details>, so a tap opens the
 // sources on phones; the same breakdown is in the row's title for mouse hover.
 import { fmtTime } from '../game/statsheet.js';
+import { fmtWorth } from '../game/statworth.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -17,12 +18,26 @@ function rowHTML(r, open) {
     + `<summary>${head}</summary><div class="st-parts">${parts}${r.note ? `<div class="st-note">${esc(r.note)}</div>` : ''}</div></details>`;
 }
 
-/** The whole tab. `open` is the set of row ids whose breakdown is showing. */
-export function statsPanelHTML(sheet, open = new Set()) {
+/** "What 1 point is worth" (statworth.js worthTable): each offensive stat's
+ *  +1 as % more damage for you, the best one picked out, and why. */
+export function worthBoxHTML(w) {
+  const rows = w.rows.map((r) => `<div class="st-row st-w${r.key === w.best ? ' best' : ''}" data-worth="${r.key}">`
+    + `<span class="st-label">+1 ${esc(r.label)}${r.key === w.best ? ' <b class="st-best">best</b>' : ''}</span><span class="st-val">${fmtWorth(r.worth)}</span></div>`).join('');
+  const tiers = w.tiers.map((t) => `${t.tier} (${Math.round(t.armour * 100)}%) ${fmtWorth(t.worth)}`).join(' · ');
+  return `<div class="st-sec st-worth" data-sec="worth"><div class="st-head">What 1 point is worth</div>`
+    + `<div class="st-worth-sub">% more damage for you, right now</div>${rows}`
+    + `<div class="st-note">${esc(w.why)}</div>`
+    + `<div class="st-note">Armour pierce is against a boss your level (${Math.round(w.armour * 100)}% armour). Per armour tier: ${esc(tiers)}.</div></div>`;
+}
+
+/** The whole tab. `open` is the set of row ids whose breakdown is showing;
+ *  `worth` (statworth.js worthTable) adds the "What 1 point is worth" box. */
+export function statsPanelHTML(sheet, open = new Set(), worth = null) {
   let html = `<div class="st-mode"><span>Fighting style: <b>${esc(sheet.modeName)}</b></span><span class="st-hint">Tap a stat for its sources</span></div>`;
   for (const sec of sheet.sections) {
     if (!sec.rows.length) continue;
     html += `<div class="st-sec" data-sec="${sec.id}"><div class="st-head">${esc(sec.title)}</div>${sec.rows.map((r) => rowHTML(r, open)).join('')}</div>`;
+    if (sec.id === 'offence' && worth) html += worthBoxHTML(worth);
   }
   html += '<div class="st-sec" data-sec="effects"><div class="st-head">Active effects</div>';
   if (!sheet.effects.length) html += '<div class="st-empty">No potions, meals, buffs or prayers running.</div>';
