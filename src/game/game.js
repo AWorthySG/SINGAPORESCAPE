@@ -89,6 +89,7 @@ import * as Life from './npclife.js';   // living NPCs, region reputation, conse
 import { repPriceMult, repTitleText } from './reputation.js';
 import { consequencePriceMult } from './consequences.js';
 import { Gathering } from './gathering.js';   // gathering streaks, lucky finds, skilling contracts
+import { FishSchools } from './fishschool.js';   // schools of fish visiting the spots
 import { Teleports } from './teleports.js';   // the Town and Grave teleports
 import { Discovery } from './discovery.js';   // encyclopedia discoveries and their rewards
 import * as Rounds from './rounds.js';   // gun rounds and the ammo slot
@@ -518,6 +519,7 @@ export class Game {
     installSkillUnlocks(this);        // life skill unlocks at 10/25/50/75/99 (skillunlocks.js)
     this.home = new Home(this);       // the kampong home plot in Kranji (home.js)
     this.gathering = new Gathering(this);   // gathering streaks, lucky finds and daily skilling contracts (gathering.js)
+    this.fishSchools = new FishSchools(this);   // a school of fish now and then at a spot near you (fishschool.js)
     this.teleports = new Teleports(this);   // the Town (K) and Grave (R) teleports (teleports.js)
     this.discovery = new Discovery(this);   // what the encyclopedia shows as found (discovery.js)
     this.snareGiven = true;           // a new character has the starter snare; older saves get one on load (onboarding.js)
