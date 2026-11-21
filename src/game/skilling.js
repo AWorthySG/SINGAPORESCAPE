@@ -4,7 +4,8 @@ import { TILE } from '../config.js';
 import { yieldBonus, huntExtras } from './culling.js';
 import { afterFireLit } from './skillunlocks.js';
 import { toolBonus, toolTooHighMsg } from './tools.js';
-import { batched } from './autoprocess.js';   // an instant batch's news told once (smeltBatch)
+import { batched } from './autoprocess.js';
+import { nodeJackpot, rockPick } from './jackpot.js';   // now and then the whole tree or seam at once   // an instant batch's news told once (smeltBatch)
 
 const objCenter = (obj) => ({ x: obj.x * TILE + TILE / 2, y: obj.y * TILE + TILE / 2 - 6 });
 
@@ -152,6 +153,9 @@ export function resolveWoodcut(game, action) {
         game.msg(`You forage some ${getItem(herb).name.toLowerCase()} from the undergrowth.`);
       }
     }
+    // Now and then the whole tree comes down at once (jackpot.js).
+    if (falls && obj.logsLeft > 1 && nodeJackpot(game, obj, { kind: 'woodcutting', left: obj.logsLeft - 1,
+      xpEach: def.night && game.isNight() ? def.xp * NIGHT_TREE_BONUS : def.xp, pick: () => def.gives, find: tb.find })) obj.logsLeft = 1;
     if (!falls || --obj.logsLeft > 0) return true;   // logs left in the tree: keep chopping
     obj.logsLeft = undefined;              // a fresh amount is rolled once it regrows
     obj.depleted = true;
@@ -206,6 +210,8 @@ export function resolveMine(game, action) {
         game.msg(`You unearth a ${getItem(gem.id).name.toLowerCase()}!`, 'level');
       }
     }
+    // Now and then the whole seam breaks free at once (jackpot.js).
+    if (obj.oresLeft > 1 && nodeJackpot(game, obj, { kind: 'mining', left: obj.oresLeft - 1, xpEach: def.xp, pick: rockPick(def, GEM_TABLE), find: tb.find })) obj.oresLeft = 1;
     if (--obj.oresLeft > 0) return true;   // ore left in the seam: keep swinging
     obj.oresLeft = undefined;              // a fresh amount is rolled once it regrows
     obj.depleted = true;
