@@ -208,7 +208,7 @@ test('the skill guide lists each skill\'s tools, ticking the one in use', async 
   const { toolLadderHTML } = await import('../src/ui/skillguideui.js');
   const html = toolLadderHTML(g, 'woodcutting');
   assert.match(html, /data-item="steel_axe"[^]*?&#10003; [^]*?\(in use\)/);
-  assert.match(html, /\+48% speed, \+10% double yield, \+60% rare finds/);
+  assert.match(html, /\+100% speed, \+10% double yield, \+60% rare finds/);
   assert.equal(toolLadderHTML(g, 'cooking'), '');
 });
 

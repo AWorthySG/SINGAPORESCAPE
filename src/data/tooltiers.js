@@ -5,7 +5,8 @@
 // A better tool needs a level in its skill to use (the same ladder as the
 // smelting levels and the rocks: obsidian at 100, eternal at 300) and gives:
 //   speed  % more gathers an hour (an extra roll now and then, on top of
-//          GATHER_SPEED in game.js)
+//          GATHER_SPEED in game.js). The owner asked for these to climb to
+//          +100% at eternal (they topped out at +48%).
 //   yield  added to the skill's double-yield chance (double logs, rich seam,
 //          big catch, second Hunter catch)
 //   find   added share on the rare finds (bird's nests, gems, trophy fish,
@@ -18,17 +19,17 @@
 
 export const TOOL_TIERS = [
   { metal: 'bronze', level: 1, speed: 0, yield: 0, find: 0, value: 1 },
-  { metal: 'iron', level: 15, speed: 4, yield: 0, find: 0, value: 10 },
-  { metal: 'steel', level: 30, speed: 8, yield: 0, find: 0, value: 25 },
-  { metal: 'mithril', level: 50, speed: 12, yield: 0, find: 0, value: 50 },
-  { metal: 'adamant', level: 70, speed: 16, yield: 0.01, find: 0, value: 120 },
-  { metal: 'rune', level: 85, speed: 20, yield: 0.02, find: 0, value: 500 },
-  { metal: 'obsidian', level: 100, speed: 24, yield: 0.03, find: 0.1, value: 750 },
-  { metal: 'orichalcum', level: 130, speed: 28, yield: 0.04, find: 0.2, value: 1100 },
-  { metal: 'jade', level: 160, speed: 32, yield: 0.05, find: 0.3, value: 1600 },
-  { metal: 'starmetal', level: 200, speed: 36, yield: 0.06, find: 0.4, value: 2400 },
-  { metal: 'celestial', level: 250, speed: 40, yield: 0.08, find: 0.5, value: 3400 },
-  { metal: 'eternal', level: 300, speed: 48, yield: 0.1, find: 0.6, value: 5000 },
+  { metal: 'iron', level: 15, speed: 8, yield: 0, find: 0, value: 10 },
+  { metal: 'steel', level: 30, speed: 16, yield: 0, find: 0, value: 25 },
+  { metal: 'mithril', level: 50, speed: 24, yield: 0, find: 0, value: 50 },
+  { metal: 'adamant', level: 70, speed: 32, yield: 0.01, find: 0, value: 120 },
+  { metal: 'rune', level: 85, speed: 40, yield: 0.02, find: 0, value: 500 },
+  { metal: 'obsidian', level: 100, speed: 50, yield: 0.03, find: 0.1, value: 750 },
+  { metal: 'orichalcum', level: 130, speed: 60, yield: 0.04, find: 0.2, value: 1100 },
+  { metal: 'jade', level: 160, speed: 70, yield: 0.05, find: 0.3, value: 1600 },
+  { metal: 'starmetal', level: 200, speed: 80, yield: 0.06, find: 0.4, value: 2400 },
+  { metal: 'celestial', level: 250, speed: 90, yield: 0.08, find: 0.5, value: 3400 },
+  { metal: 'eternal', level: 300, speed: 100, yield: 0.1, find: 0.6, value: 5000 },
 ];
 
 // The highest tier shops sell (bronze to adamant); the rest are made or dropped.
