@@ -336,12 +336,15 @@ export const OBJECTS = {
   harpoon_spot: {
     name: 'Harpoon fishing spot', label: 'Harpoon', type: 'fishing', verb: 'Harpoon', emoji: '🦈', blocking: false,
     skill: 'fishing', tool: 'harpoon', depleteChance: 0, respawn: 0,
+    // Raised Nov 2026 (see NODE_XP_TUNE): the big three most, as Woodcutting
+    // climbs fast from yew and magic trees and the harpoon spot is the best
+    // fishing all the way to level 99.
     catches: [
-      { id: 'raw_manta_ray', level: 84, xp: 215, lowChance: 0.08, highChance: 0.40, weight: 18 },
-      { id: 'raw_shark', level: 76, xp: 185, lowChance: 0.10, highChance: 0.45, weight: 30 },
-      { id: 'raw_stingray', level: 68, xp: 150, lowChance: 0.14, highChance: 0.52, weight: 40 },
-      { id: 'raw_swordfish', level: 50, xp: 130, lowChance: 0.20, highChance: 0.60, weight: 60 },
-      { id: 'raw_tuna', level: 35, xp: 100, lowChance: 0.25, highChance: 0.72, weight: 100 },
+      { id: 'raw_manta_ray', level: 84, xp: 320, lowChance: 0.08, highChance: 0.40, weight: 18 },
+      { id: 'raw_shark', level: 76, xp: 300, lowChance: 0.10, highChance: 0.45, weight: 30 },
+      { id: 'raw_stingray', level: 68, xp: 290, lowChance: 0.14, highChance: 0.52, weight: 40 },
+      { id: 'raw_swordfish', level: 50, xp: 150, lowChance: 0.20, highChance: 0.60, weight: 60 },
+      { id: 'raw_tuna', level: 35, xp: 115, lowChance: 0.25, highChance: 0.72, weight: 100 },
     ],
     examine: 'Big shadows circle in the deep water. Bring a harpoon. (Fishing 35)',
   },
@@ -350,7 +353,9 @@ export const OBJECTS = {
   // cast catches, so XP an hour is just xp a cast: each tier gives about 35%
   // more than the one before, starting from the harpoon spot's average catch
   // (~134 xp once all five of its fish are open), the best below level 100
-  // (tests/fish-cook.test.mjs times them). Each has its own picture (assets/world/).
+  // (tests/fish-cook.test.mjs times them). NODE_XP_TUNE below lifts each spot
+  // to keep pace with the other gathering skills with the best tools to hand.
+  // Each has its own picture (assets/world/).
   dorado_spot: {
     name: 'Dorado fishing spot', label: 'Dorado', type: 'fishing', verb: 'Cast', emoji: '🎣', blocking: false,
     skill: 'fishing', tool: 'rod', depleteChance: 0, respawn: 0,
@@ -884,11 +889,22 @@ export const NODE_XP_TUNE = {
   adamantite_rock: 1.02, runite_rock: 0.77, obsidian_vein: 2.4,
   orichalcum_rock: 2.25, jade_seam: 2.75, fallen_star: 2.5, skyglass_crystal: 3.1, eternal_lode: 3.0,
   colugo_trap: 1.06, pangolin_burrow: 1.1,
+  // Fishing (Nov 2026): measured with auto gather and the best rod and harpoon
+  // for the level, Fishing paid 0.53-0.96x the middle of Woodcutting, Mining and
+  // Hunter at most levels (the net and lobster pot have no better tiers, so the
+  // moonfish and rift eel spots lagged most). Each spot's catches are lifted so
+  // its band pays about 1.05-1.15x that middle, and each spot still out-earns the
+  // one below it at its own level. (Cooking XP has its own table, so is unchanged;
+  // the rod spots from 12 to 34 and the arowana pool already paid that, so are left alone.)
+  fishing_spot: 1.9, fishing_cage: 1.35,   // (the harpoon spot's catches are set in its data)
+  dorado_spot: 1.39, bluefin_spot: 1.33, sailfish_spot: 1.27, moonfish_spot: 2.3, rift_eel_spot: 2.23,
 };
 // (Mithril, adamantite and obsidian dip below the rock before them only at their own
 // unlock level, where the success chance is low; at the same level they rank in
 // order, so they're left alone.)
 for (const [id, o] of Object.entries(OBJECTS)) {
+  // A fishing spot pays by its catches, so its factor lifts each catch.
+  if (o.catches && NODE_XP_TUNE[id]) for (const c of o.catches) c.xp = Math.round(c.xp * NODE_XP_TUNE[id]);
   if (typeof o.xp !== 'number') continue;
   if (o.skill === 'mining') o.xp = Math.round(o.xp * MINING_XP_MULT * 10) / 10;
   if (NODE_XP_TUNE[id]) o.xp = Math.round(o.xp * NODE_XP_TUNE[id] * 10) / 10;
