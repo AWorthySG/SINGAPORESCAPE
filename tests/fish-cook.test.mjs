@@ -10,6 +10,7 @@ import { clearSave } from '../src/game/save.js';
 import { ITEMS } from '../src/data/items.js';
 import { OBJECTS } from '../src/data/objects.js';
 import { COOKING } from '../src/game/skilling.js';
+import { TOOL_TIERS, toolId } from '../src/data/tooltiers.js';
 import { DISHES } from '../src/data/cooking.js';
 import { xpForLevel } from '../src/data/xp.js';
 import { chebyshev } from '../src/core/utils.js';
@@ -240,11 +241,17 @@ test('endgame Fishing XP an hour: each spot well ahead of the best before it, at
   // A short run at each spot with XP pinned, against the spot before at the
   // same level, so the past-99 XP bonus (and the bigger catches of a high
   // level) count the same for both. Measured at noon: the moonfish's night
-  // bonus is on top. (Each step is ~1.35x; the bar leaves room for the dice.)
+  // bonus is on top. (Each step is ~1.3x; the bar leaves room for the dice.)
+  // With the best rod and harpoon for the level, as a player would fish: the
+  // net and lobster pot have no better tiers, so their spots' XP is set to
+  // keep pace with tiered rods and harpoons (NODE_XP_TUNE in objects.js), and
+  // with plain tools all round the arowana pool would trail the rift eel.
   const TICKS = 400;
   const rate = (spotId, lvl) => {
     const g = newGame();
     giveTools(g);
+    const tier = TOOL_TIERS.reduce((b, t, i) => (t.level <= lvl ? i : b), 0);
+    for (const tag of ['rod', 'harpoon']) g.inventory.add(toolId(tag, tier), 1);
     setLevel(g, 'fishing', lvl);
     noon(g);
     const spot = g.world.objects.find((o) => o.objId === spotId);
