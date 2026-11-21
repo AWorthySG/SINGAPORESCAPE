@@ -6,6 +6,7 @@
 import './seed.mjs';   // seeded Math.random: no test fails on an unlucky roll
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import { Game } from '../src/game/game.js';
 import { NPC } from '../src/game/npc.js';
@@ -13,7 +14,7 @@ import { Renderer, swellFill } from '../src/render/renderer.js';
 import { TerrainFx } from '../src/render/terrainfx.js';
 import { tintedArt } from '../src/render/sprites.js';
 import { TERRAIN } from '../src/data/world.js';
-import { FxGovernor, TRIM_ON_HOLD, TRIM_OFF_HOLD } from '../src/render/governor.js';
+import { FxGovernor, TRIM_ON_HOLD, TRIM_OFF_HOLD, slowFrames, shouldScaleDown, SLOW_FRAME_MS } from '../src/render/governor.js';
 
 function fakeStorage() {
   const m = new Map();
@@ -200,4 +201,22 @@ test('while trimmed, reflections are left out (and the renderer still draws)', (
   assert.equal(clips, 0, 'trimmed: no reflections');
   const r = new Renderer(g, {}, countingCtx());
   assert.doesNotThrow(() => { r.render(1000); r.render(1016); });
+});
+
+// Slow painting (governor.js, main.js): frames that keep arriving slowly trim
+// the extras even when the game's own work looks quick, before the resolution
+// is lowered; trimmed frames also skip the full-screen golden-hour grade and vignette.
+test('slow frames trim the extras first; the resolution only drops once they are off', () => {
+  assert.equal(slowFrames(16.7), false, '60fps');
+  assert.equal(slowFrames(33.4), false, 'a 30fps cap (Low Power Mode) is not slow');
+  assert.equal(slowFrames(SLOW_FRAME_MS + 4), true, 'below ~28fps');
+  assert.equal(shouldScaleDown(45, false), false, 'extras still on: trim them first');
+  assert.equal(shouldScaleDown(45, true), true, 'trimmed and still slow: lower the resolution');
+  assert.equal(shouldScaleDown(20, true), false);
+  const main = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  assert.match(main, /game\.fxTrim = governor\.frame\(now\(\) - t, t\) \|\| t < slowTrimUntil/);
+  assert.match(main, /shouldScaleDown\(slowAvg, game\.fxTrim\)/);
+  const r = readFileSync(new URL('../src/render/renderer.js', import.meta.url), 'utf8');
+  assert.match(r, /else if \(!game\.fxTrim\) this\.cosy\.draw\(/);
+  assert.match(r, /if \(!game\.fxTrim\) this\._drawVignette\(/);
 });

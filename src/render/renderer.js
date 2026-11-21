@@ -441,9 +441,12 @@ export class Renderer {
     // with lamps, fires and spells cut out of it, then the weather in the air;
     // low graphics (and headless runs) keep the old flat fill.
     if (game.lowFx || !this.lights.ok || !this.lights.draw(ctx, game, this.atmos.crisp(this._blendMood(fdt), game.dayPhase(), this.weather.state.gloom), night, this.weather.state, ox, oy, vw, vh, timeMs)) this._drawDayNight(vw, vh, night, fdt);
-    else this.cosy.draw(ctx, game, this.lights, night, ox, oy, vw, vh, timeMs);   // golden hour and lantern glow (cosylight.js)
+    else if (!game.fxTrim) this.cosy.draw(ctx, game, this.lights, night, ox, oy, vw, vh, timeMs);   // golden hour and lantern glow (cosylight.js)
     this.weather.drawAir(ctx, ox, oy, vw, vh, timeMs, fdt, trim);
-    this._drawVignette(vw, vh, night);
+    // Frames running slow (governor.js) also skip these two full-screen layers:
+    // the golden hour's soft-light grade and the vignette are the costliest
+    // things left to paint on a phone that can't keep up.
+    if (!game.fxTrim) this._drawVignette(vw, vh, night);
     this.critters.drawAir(ctx, ox, oy, timeMs);
     this._drawParticles(ox, oy);
     this._drawProjectiles(ox, oy);

@@ -120,8 +120,8 @@ test('the renderer carries the cosy light and postcards, and a headless frame at
   g.cine.enterRegion('Chinatown', { sub: 'Monsters level 5+' });
   assert.doesNotThrow(() => r.render(1000));
   const src = readFileSync(new URL('../src/render/renderer.js', import.meta.url), 'utf8');
-  // Low graphics never reaches the cosy pass (it rides the light pass's else).
-  assert.match(src, /if \(game\.lowFx \|\| !this\.lights\.ok[^\n]*\n\s*else this\.cosy\.draw\(/);
+  // Low graphics never reaches the cosy pass (it rides the light pass's else), nor do trimmed frames.
+  assert.match(src, /if \(game\.lowFx \|\| !this\.lights\.ok[^\n]*\n\s*else if \(!game\.fxTrim\) this\.cosy\.draw\(/);
 });
 
 // ---------------- Postcards ----------------

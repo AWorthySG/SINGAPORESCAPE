@@ -94,7 +94,8 @@ const RAIN_CAP = 170, RAIN_CAP_LOW = 50, SNOW_CAP = 110, EMBER_CAP = 26, RIPPLE_
 // slides east with the wind; they fade out at night, in rain (the sky is all
 // cloud then) and under a roof.
 export const CLOUD_COUNT = 4;
-export const CLOUD_ALPHA = 0.2;   // how dark a cloud's shadow is at its middle
+export const CLOUD_ALPHA = 0.2;
+export const CLOUD_RES = 4;      // the cloud buffer is drawn at 1/4 of the screen's size   // how dark a cloud's shadow is at its middle
 /** How strong the cloud shadows are: full on a dry day, none at night, in rain or under a roof. */
 export function cloudShadeAt(day, rain, roofed) {
   if (roofed) return 0;
@@ -115,8 +116,10 @@ export class Weather {
     // The washes handed to the light pass: rain's grey, mist's pale veil, the region's sky.
     this._rainWash = [58, 78, 118, 0];   // a cool slate blue
     this._mistWash = [214, 224, 234, 0];
-    this.state = { rain: 0, snow: 0, embers: 0, storm: 0, flash: 0, gloom: 0,
+    this.state = { rain: 0, snow: 0, embers: 0, storm: 0, flash: 0, gloom: 0, clouds: 0,
       washes: [this._rainWash, this._mistWash, this._sky], flashWash: [236, 242, 255, 0] };
+    // The light pass paints the cloud shadows into its own layer (lighting.js).
+    this.state.cloudsInto = (g, ox, oy, vw, vh, t, scale) => this.drawCloudsInto(g, ox, oy, vw, vh, t, scale);
     this._mistImg = null;
     // Phones and small screens get half the rain and no puddle sheen.
     this._coarse = null;
@@ -156,6 +159,9 @@ export class Weather {
    *  ripples where rain hits water. */
   drawGround(ctx, game, ox, oy, vw, vh, t, dt, low) {
     const s = this.state;
+    // The light pass paints the cloud shadows (drawCloudsInto); trimmed or low
+    // graphics go without.
+    s.clouds = low ? 0 : this.clouds;
     if (low) return;
     const world = game.world;
     const x0 = Math.max(0, Math.floor(ox / TILE)), y0 = Math.max(0, Math.floor(oy / TILE));
@@ -249,7 +255,6 @@ export class Weather {
         ctx.restore();
       }
     }
-    if (!low && this.clouds > 0.02) this._cloudShadows(ctx, ox, oy, vw, vh, t);
     this._rain(ctx, vw, vh, dt, low);
     this._snow(ctx, vw, vh, t, dt, low);
     if (!low) this._embersDraw(ctx, vw, vh, t, dt);
@@ -270,24 +275,33 @@ export class Weather {
     return (this._cloudImg = cv);
   }
 
-  _cloudShadows(ctx, ox, oy, vw, vh, t) {
+  /**
+   * Paint the cloud shadows into the light pass's small layer `g` (lighting.js),
+   * which covers the screen at `scale` of its size: so the clouds ride the
+   * pass's one full-screen composite instead of adding their own (big
+   * full-screen layers were the costliest thing on slower phones).
+   */
+  drawCloudsInto(g, ox, oy, vw, vh, t, scale) {
+    const k = this.state.clouds;
+    if (!(k > 0.02)) return;
     const img = this._cloud();
     if (!img) return;
-    ctx.save();
-    ctx.globalAlpha = Math.min(1, this.clouds * CLOUD_ALPHA / 0.55);
-    // Big (a cloud is wider than the screen) and spaced so that one or two
-    // are usually passing over you, with clear sky between.
     const cw = Math.max(vw, vh) * 1.5, ch = cw * 0.5;
     const spanX = vw + cw * 1.2, spanY = vh + ch * 1.2;
     const wrap = (v, m) => ((v % m) + m) % m;
+    g.globalCompositeOperation = 'source-over';
+    g.globalAlpha = Math.min(1, k * CLOUD_ALPHA / 0.55);
+    // Big (a cloud is wider than the screen) and spaced so that one or two
+    // are usually passing over you, with clear sky between.
     for (let i = 0; i < CLOUD_COUNT; i++) {
       // World-anchored (they slide with the ground as you walk) and drifting
       // east at a breeze's pace, each at its own speed.
       const x = wrap(i * 977 + t * 0.012 * (1 + (i % 3) * 0.3) - ox, spanX) - cw;
       const y = wrap(i * 613 - oy, spanY) - ch;
-      ctx.drawImage(img, x, y, cw, ch);
+      if (x > vw || y > vh || x + cw < 0 || y + ch < 0) continue;   // wholly off screen
+      g.drawImage(img, x * scale, y * scale, cw * scale, ch * scale);
     }
-    ctx.restore();
+    g.globalAlpha = 1;
   }
 
   _rain(ctx, vw, vh, dt, low) {

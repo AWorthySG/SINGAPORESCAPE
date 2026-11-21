@@ -214,7 +214,10 @@ export class LightPass {
     const gr = composeWashes(w, this._grade);
     const fill = `rgba(${gr[0] | 0},${gr[1] | 0},${gr[2] | 0},${gr[3].toFixed(3)})`;
     this.count = 0;
-    if (dark < 0.03) {
+    // Cloud shadows on a clear day (weather.js) are painted into this pass's
+    // small layer, so they cost no full-screen layer of their own.
+    const clouds = wx && wx.clouds > 0.02 && wx.cloudsInto;
+    if (dark < 0.03 && !clouds) {
       // Daylight: nothing to cut out, so the grade is one plain fill.
       if (gr[3] > 0.004) { ctx.fillStyle = fill; ctx.fillRect(0, 0, vw, vh); }
       return true;
@@ -230,6 +233,8 @@ export class LightPass {
     g.globalCompositeOperation = 'copy';
     g.globalAlpha = 1;
     g.fillStyle = fill; g.fillRect(0, 0, lw, lh);
+    if (clouds) wx.cloudsInto(g, ox, oy, vw, vh, t, sx);
+    if (dark < 0.03) { this.count = 0; ctx.drawImage(this.layer, 0, 0, vw, vh); return true; }   // day: no lights to cut
     const lights = this.gather(game, ox, oy, vw, vh, t);
     // How strongly lights win against the dark: none by day, nearly fully at night.
     const strength = Math.min(1, dark * 2.4);
