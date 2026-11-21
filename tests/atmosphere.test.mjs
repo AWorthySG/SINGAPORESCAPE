@@ -14,7 +14,7 @@ import { TILE } from '../src/config.js';
 import { timeGrade, blendedMood, Atmosphere, BLEND_TILES, moonDark, CRISP_CLEAR } from '../src/render/atmosphere.js';
 import { AmbientLife, windAt, swayLean, swayKind, LEAF_CAP, GLINT_CAP, BIRD_CAP, FLOCK_CAP } from '../src/render/ambient.js';
 import { LIGHTS, LightPass, NEON, NEON_ZONES } from '../src/render/lighting.js';
-import { HAZY, Weather, MIST_REGIONS } from '../src/render/weather.js';
+import { HAZY, Weather, MIST_REGIONS, cloudShadeAt, CLOUD_ALPHA, CLOUD_COUNT } from '../src/render/weather.js';
 import { moodFor, ZONE_MOOD } from '../src/render/ambience.js';
 
 // A 2D context that records every call made on it.
@@ -287,4 +287,27 @@ test('a headless renderer frame runs every new layer without a DOM, at noon, dus
   r.weather.wet = 1;
   for (let i = 0; i < 5; i++) r.render(9000 + i * 16);
   assert.equal(r.atmos.ok, false, 'no DOM: the baked pools stay off');
+});
+
+// Cloud shadows (weather.js): soft shadows of passing clouds on a clear day.
+test('cloud shadows drift over clear days only: none at night, in rain or under a roof', () => {
+  assert.equal(cloudShadeAt(1, 0, false), 1, 'full on a clear noon');
+  assert.equal(cloudShadeAt(0.1, 0, false), 0, 'none at night');
+  assert.equal(cloudShadeAt(1, 0.5, false), 0, 'none in steady rain: the sky is all cloud');
+  assert.equal(cloudShadeAt(1, 0, true), 0, 'none under a roof');
+  const dusk = cloudShadeAt(0.55, 0, false);
+  assert.ok(dusk > 0 && dusk < 1, 'fading in and out around dawn and dusk');
+  assert.ok(CLOUD_ALPHA > 0 && CLOUD_ALPHA <= 0.25 && CLOUD_COUNT >= 3, 'gentle, and a few at a time');
+});
+
+test('the weather keeps its cloud strength up to date, and drawing rain and clouds headless is safe', () => {
+  const w = new Weather();
+  w.update({ currentZoneName: 'Kampong Glam', playMs: 0, dayPhase: () => 0.5, daylightFactor: () => 1 }, 16);
+  assert.ok(w.clouds > 0.9, 'a clear noon in town has cloud shadows');
+  w.update({ currentZoneName: 'The Endless Gate', playMs: 0, dayPhase: () => 0.5, daylightFactor: () => 1 }, 16);
+  assert.equal(w.clouds, 0, 'none in the sealed arena');
+  const ctx = new Proxy({}, { get: (t, k) => (k in t ? t[k] : () => {}), set: (t, k, v) => { t[k] = v; return true; } });
+  w.clouds = 1; w.state.rain = 1;
+  for (let i = 0; i < 60; i++) w.drawAir(ctx, 0, 0, 800, 600, 1000 + i * 16, 16, false);   // no document: no cloud picture, no throw
+  assert.ok(w._splashes.length <= 36, 'splashes stay capped');
 });
