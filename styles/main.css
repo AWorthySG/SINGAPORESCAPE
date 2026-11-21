@@ -2559,11 +2559,16 @@ body.boss-on #tip-toast { top: 132px; }
 .save-xfer-actions .wm-go { padding: 8px 22px; font-size: var(--fs-md); }
 .save-xfer-actions .wm-go:disabled { opacity: .6; cursor: var(--cur-default); }
 
-/* Minimal HUD (Settings): while exploring, the side panel, chat log, objectives
-   and labels tuck away, leaving the orbs, minimap, adrenaline and the action
-   buttons. Hovering or tapping where a panel sits brings it all back. */
+/* Minimal HUD (Settings): while exploring, the chat log, objectives and labels
+   tuck away and the side panel folds to its tab icons, leaving the orbs,
+   minimap, adrenaline and the action buttons. Hovering or tapping a panel
+   brings it all back. */
 #sidepanel, #chatbox, #quest-tracker, #hover-text, #region-label { transition: opacity .35s ease; }
-#game-root.hud-min #sidepanel:not(:hover) { opacity: 0; }
+/* The menu never vanishes: it folds to its column of tab icons, bottom right
+   (it used to fade out entirely, leaving no way back but hovering an empty spot). */
+#game-root.hud-min #sidepanel:not(:hover):not(.collapsed) { width: auto; grid-template-columns: var(--rail-w); grid-template-areas: "tabs"; }
+#game-root.hud-min #sidepanel:not(:hover):not(.collapsed) #panel-head,
+#game-root.hud-min #sidepanel:not(:hover):not(.collapsed) #panel-body { display: none; }
 #game-root.hud-min #chatbox:not(:hover) #chat-log,
 #game-root.hud-min #chatbox:not(:hover) #chat-tabs { display: none; }
 #game-root.hud-min #chatbox:not(:hover) { height: auto; opacity: .7; }
