@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { Game } from '../src/game/game.js';
 import { clearSave } from '../src/game/save.js';
 import { OBJECTS } from '../src/data/objects.js';
+import { TOOL_TIERS } from '../src/data/tooltiers.js';
 import { xpForLevel, pastCapXpMult } from '../src/data/xp.js';
 import { XP_RATE, LIFE_XP_BOOST } from '../src/config.js';
 import { chebyshev } from '../src/core/utils.js';
@@ -159,7 +160,10 @@ test('fishing: the cage and harpoon spots beat the coastal rod spot, and sharks 
   assert.ok(castXp('harpoon_spot', 35) > castXp('sea_rod_spot', 35), 'harpoon from its unlock');
   assert.ok(castXp('harpoon_spot', 76) > castXp('harpoon_spot', 75), 'sharks raise it');
   assert.ok(castXp('harpoon_spot', 84) > castXp('harpoon_spot', 83), 'manta rays raise it');
-  assert.ok(castXp('harpoon_spot', 76) > castXp('fishing_cage', 76), 'top of the ladder by 76');
+  // The lobster pot has no better tiers but the harpoon does (an adamant one by
+  // 70: a third more casts), so the cage pays more a cast and the harpoon more an hour.
+  const harpoonSpeed = 1 + TOOL_TIERS.filter((t) => t.level <= 76).pop().speed / 100;
+  assert.ok(castXp('harpoon_spot', 76) * harpoonSpeed > castXp('fishing_cage', 76), 'top of the ladder by 76');
 });
 
 // XP an hour from auto gather at the densest cluster of `id`, XP pinned at `lvl`.

@@ -1,8 +1,8 @@
-// Fishing keeps pace with the other gathering skills (Nov 2026: Fishing paid
-// 0.53-0.96x the middle of Woodcutting, Mining and Hunter at most levels, so
-// its spots were lifted in NODE_XP_TUNE, objects.js). Each skill is worked
-// the way a player would: auto gather at its best node for the level, the
-// best tool the level allows, an endless bag.
+// The gathering skills pay alike: Woodcutting, Mining and Hunter about the same
+// XP an hour at each level, Fishing about a quarter more (GATHER_XP_MULT and
+// NODE_XP_TUNE, objects.js). Each skill is worked the way a player would: auto
+// gather at its best node for the level, the best tool the level allows, an
+// endless bag.
 import { SEED, seedRandom } from './seed.mjs';   // seeded Math.random: no test fails on an unlucky roll
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -60,24 +60,52 @@ function rate(skill, id, lvl, ticks, seed) {
   return gain * 6000 / ticks;
 }
 
-test('Fishing XP an hour sits at or a little above the middle of Woodcutting, Mining and Hunter', () => {
-  // The best node of each skill at each level. Fishing spots never deplete and
-  // need no walking, so one run is exact; the others walk between nodes that
-  // run dry at random, so each is the mean of two seeded runs. Measured with
-  // 1000-1500-tick runs the ratio came out 1.02, 1.11, 1.15 and 1.07 (from 0.54,
-  // 0.96, 0.82 and 0.53 before): the bar leaves room for the dice either way.
-  const TICKS = 800;
-  const BEST = [
-    { lvl: 10, fishing: 'fishing_spot', woodcutting: 'bamboo', mining: 'limestone_rock', hunter: 'bird_snare' },
-    { lvl: 60, fishing: 'harpoon_spot', woodcutting: 'yew_tree', mining: 'gem_rock', hunter: 'boar_pit' },
-    { lvl: 99, fishing: 'harpoon_spot', woodcutting: 'magic_tree', mining: 'runite_rock', hunter: 'boar_pit' },
-    { lvl: 250, fishing: 'rift_eel_spot', woodcutting: 'moonlit_kapok', mining: 'skyglass_crystal', hunter: 'naga_track' },
-  ];
-  for (const b of BEST) {
-    const fish = rate('fishing', b.fishing, b.lvl, TICKS, SEED);
-    const others = ['woodcutting', 'mining', 'hunter'].map((s) => (rate(s, b[s], b.lvl, TICKS, SEED) + rate(s, b[s], b.lvl, TICKS, SEED + 7919)) / 2);
-    const mid = others.sort((x, y) => x - y)[1];
-    const r = fish / mid;
-    assert.ok(r >= 0.95 && r <= 1.4, `level ${b.lvl}: Fishing ${Math.round(fish)} xp/h is ${r.toFixed(2)}x the middle of the others (${others.map(Math.round).join(', ')})`);
+// The best node of each skill at each level. Fishing spots never deplete and
+// need no walking, so one run is exact; the others walk between nodes that run
+// dry at random, so each is the mean of two seeded runs. Measured once, shared
+// by both tests below.
+const TICKS = 800;
+const BEST = [
+  { lvl: 10, fishing: 'fishing_spot', woodcutting: 'bamboo', mining: 'limestone_rock', hunter: 'bird_snare' },
+  { lvl: 60, fishing: 'fishing_cage', woodcutting: 'yew_tree', mining: 'gem_rock', hunter: 'boar_pit' },
+  { lvl: 99, fishing: 'harpoon_spot', woodcutting: 'magic_tree', mining: 'runite_rock', hunter: 'crocodile_trap' },
+  { lvl: 250, fishing: 'rift_eel_spot', woodcutting: 'moonlit_kapok', mining: 'skyglass_crystal', hunter: 'naga_track' },
+];
+const OTHERS = ['woodcutting', 'mining', 'hunter'];
+let measured = null;
+function rates() {
+  if (measured) return measured;
+  measured = BEST.map((b) => {
+    const r = { lvl: b.lvl, fishing: rate('fishing', b.fishing, b.lvl, TICKS, SEED) };
+    for (const s of OTHERS) r[s] = (rate(s, b[s], b.lvl, TICKS, SEED) + rate(s, b[s], b.lvl, TICKS, SEED + 7919)) / 2;
+    r.mid = OTHERS.map((s) => r[s]).sort((x, y) => x - y)[1];
+    return r;
+  });
+  return measured;
+}
+const show = (r) => [...OTHERS, 'fishing'].map((s) => `${s} ${Math.round(r[s] / 1e3)}k`).join(', ');
+
+test('Woodcutting, Mining and Hunter pay about the same XP an hour at each level', () => {
+  // Nov 2026: Mining paid 2-4x Woodcutting and 3-11x Hunter, so the other two
+  // were brought up to it (GATHER_XP_MULT and NODE_XP_TUNE, objects.js). Measured
+  // with 800-tick runs over two seeds, each came out 0.92-1.10x the middle of the
+  // three. (Each tree holds 10-20 logs, and the densest stand of a tree is its
+  // grove where it has one, groves.js.)
+  for (const r of rates()) {
+    for (const s of OTHERS) {
+      const x = r[s] / r.mid;
+      assert.ok(x >= 0.85 && x <= 1.2, `level ${r.lvl}: ${s} is ${x.toFixed(2)}x the middle (${show(r)})`);
+    }
+  }
+});
+
+test('Fishing XP an hour sits about a quarter above the middle of Woodcutting, Mining and Hunter', () => {
+  // Fishing is slower to engage with and levelled too slowly (the owner's call),
+  // so it pays about 1.25x the others. Measured with 1000-tick runs the ratio came
+  // out 1.19-1.23, 1.22-1.25, 1.23-1.25 and 1.19-1.21 at levels 10, 60, 99 and 250:
+  // the bar leaves room for the dice either way.
+  for (const r of rates()) {
+    const x = r.fishing / r.mid;
+    assert.ok(x >= 1.1 && x <= 1.42, `level ${r.lvl}: Fishing is ${x.toFixed(2)}x the middle of the others (${show(r)})`);
   }
 });

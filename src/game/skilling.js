@@ -98,6 +98,13 @@ export const GEM_TABLE = [
 // the moonfish spot's Fishing XP, and the tiger trail's Hunter XP.
 export const NIGHT_TREE_BONUS = 1.25;
 
+// Each tree holds a random 10-20 logs, like a rock's ores (the owner's call:
+// trees fell too fast), rolled when it is first chopped and again after it
+// regrows; it falls to a stump when they run out. A tree with no depleteChance
+// (the world events' ancient trees) never falls and keeps no count.
+export const TREE_LOGS_MIN = 10, TREE_LOGS_MAX = 20;
+export const rollTreeLogs = (rand = Math.random) => TREE_LOGS_MIN + Math.floor(rand() * (TREE_LOGS_MAX - TREE_LOGS_MIN + 1));
+
 export function resolveWoodcut(game, action) {
   const { obj } = action;
   const def = obj.def;
@@ -114,6 +121,8 @@ export function resolveWoodcut(game, action) {
   // Life skills never fail (the owner's call): every swing at a tree you can
   // chop gives logs. Level still decides which trees you can chop.
   {
+    const falls = def.depleteChance > 0;
+    if (falls && typeof obj.logsLeft !== 'number') obj.logsLeft = rollTreeLogs();
     game.inventory.add(def.gives, 1);
     // A moonlit tree gives more under the moon (a bonus for night chopping, never a lock).
     game.skills.addXp('woodcutting', def.night && game.isNight() ? def.xp * NIGHT_TREE_BONUS : def.xp);
@@ -122,8 +131,9 @@ export function resolveWoodcut(game, action) {
     const logName = getItem(def.gives).name.toLowerCase();
     // Double logs: a sturdy bough sometimes drops an extra.
     // (Stewardship adds to the chance while you are Neutral, see culling.js.)
-    if (Math.random() < 0.04 + lvl * 0.001 + yieldBonus(game) + tb.yield && game.inventory.canAdd(def.gives, 1) > 0) {
+    if ((!falls || obj.logsLeft > 1) && Math.random() < 0.04 + lvl * 0.001 + yieldBonus(game) + tb.yield && game.inventory.canAdd(def.gives, 1) > 0) {
       game.inventory.add(def.gives, 1);
+      if (falls) obj.logsLeft--;   // the extra log comes out of the tree's 10-20
       game.msg(`A second branch falls — double ${logName}!`);
     } else {
       game.msg(`You get some ${logName}.`);
@@ -142,13 +152,12 @@ export function resolveWoodcut(game, action) {
         game.msg(`You forage some ${getItem(herb).name.toLowerCase()} from the undergrowth.`);
       }
     }
-    if (Math.random() < def.depleteChance) {
-      obj.depleted = true;
-      obj.respawnTimer = def.respawn;
-      return false; // tree felled
-    }
+    if (!falls || --obj.logsLeft > 0) return true;   // logs left in the tree: keep chopping
+    obj.logsLeft = undefined;              // a fresh amount is rolled once it regrows
+    obj.depleted = true;
+    obj.respawnTimer = def.respawn;
+    return false; // tree felled
   }
-  return true;
 }
 
 // Each rock holds a random 10-20 ores (the owner's call), rolled when it is

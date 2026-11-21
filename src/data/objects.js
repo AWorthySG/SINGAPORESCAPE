@@ -872,42 +872,53 @@ for (const [id, h] of Object.entries(HUNT)) {
 // tier below them, so each is lifted until every tier pays at least ~10% more an
 // hour than the one before it (the factors are measured, not guessed).
 export const MINING_XP_MULT = 4;
+// Gathering parity (Nov 2026): by then Mining paid 2-4x Woodcutting and 3-11x
+// Hunter an hour (auto gather, the best tool for the level), and the owner chose
+// to bring the others up to Mining rather than cut it. Each skill's nodes pay
+// GATHER_XP_MULT times their listed XP, then NODE_XP_TUNE fits each node to its
+// level band, so the best node of every gathering skill pays about what the best
+// rock does at that level (measured at 10, 30, 60, 99, 150, 250 and 400; Fishing
+// about a quarter more) and each node still out-earns the one below it at its own
+// unlock level. Firemaking, Fletching and Cooking XP have their own tables, so are
+// unchanged. (tests/fishing-balance.test.mjs keeps the four in step.)
+export const GATHER_XP_MULT = { mining: MINING_XP_MULT, woodcutting: 2.2, hunter: 4, fishing: 2.3 };
 export const NODE_XP_TUNE = {
-  rain_tree: 1.36,                                          // was below mangrove (lvl 40)
   clay_rock: 1.4, limestone_rock: 1.07, silver_rock: 1.06,  // level 1-20 rocks in order
   gold_rock: 2.12, gem_rock: 2.32,                          // were below sandstone (lvl 35)
-  boar_pit: 1.65, python_trap: 1.42,                        // were below the mousedeer trail (lvl 40)
-  qilin_trail: 1.17,                                        // was below the tiger trail (lvl 160)
-  // With gathering 20% faster, nodes with long regrow times gained less, so the
-  // endgame ladders (each tier well ahead of the last at the same level) were
-  // re-measured and lifted where they fell short (audit/tune, same-level runs).
-  seraya_tree: 1.09, meranti_tree: 1.13, chengal_tree: 1.17, starfall_banyan: 1.15, moonlit_kapok: 1.15, keramat_tree: 1.18,
   // Rocks now hold 10-20 ores each (skilling.js ROCK_ORES), so XP an hour follows
   // XP a swing, not the walk between rocks: the mining ladder was re-measured and
   // set so each tier still pays more an hour than the one below it (runite had
   // jumped past the level 100+ rocks).
   adamantite_rock: 1.02, runite_rock: 0.77, obsidian_vein: 2.4,
   orichalcum_rock: 2.25, jade_seam: 2.75, fallen_star: 2.5, skyglass_crystal: 3.1, eternal_lode: 3.0,
-  colugo_trap: 1.06, pangolin_burrow: 1.1,
-  // Fishing (Nov 2026): measured with auto gather and the best rod and harpoon
-  // for the level, Fishing paid 0.53-0.96x the middle of Woodcutting, Mining and
-  // Hunter at most levels (the net and lobster pot have no better tiers, so the
-  // moonfish and rift eel spots lagged most). Each spot's catches are lifted so
-  // its band pays about 1.05-1.15x that middle, and each spot still out-earns the
-  // one below it at its own level. (Cooking XP has its own table, so is unchanged;
-  // the rod spots from 12 to 34 and the arowana pool already paid that, so are left alone.)
-  fishing_spot: 2.1, fishing_cage: 1.35,   // (the harpoon spot's catches are set in its data)
-  dorado_spot: 1.39, bluefin_spot: 1.33, sailfish_spot: 1.27, moonfish_spot: 2.3, rift_eel_spot: 2.23,
+  // Woodcutting: the level 40-59 trees most, as the gold and gem rocks open at 40.
+  // (Measured with each tree holding 10-20 logs, skilling.js TREE_LOGS, at the
+  // densest stand of each tree: its grove, groves.js, where it has one.)
+  tree: 1.34, bamboo: 1.72, oak: 1.76, angsana: 1.34, willow: 1.2, teak: 1.18, mangrove: 1.96, rain_tree: 2.03,
+  mahogany: 1.79, yew_tree: 1.32, tembusu: 1.16, magic_tree: 1.16,
+  seraya_tree: 1.05, meranti_tree: 1.03, chengal_tree: 1.09, starfall_banyan: 1.1, moonlit_kapok: 1.16, keramat_tree: 1.16,
+  // Hunter: the far-apart older traps are mostly walking, the endgame grounds are
+  // capped by their slow resets, so each needs its own lift.
+  bird_snare: 1.15, squirrel_trap: 1, lizard_snare: 0.8, mousedeer_trail: 1.75, boar_pit: 1.46, python_trap: 2.17,
+  crocodile_trap: 2.55, pangolin_burrow: 2.01, hornbill_nest: 1.75, colugo_trap: 2.12, tiger_trail: 2.26,
+  qilin_trail: 2.63, garuda_nest: 2.23, naga_track: 2.75, phoenix_roost: 2.6,
+  // Fishing: about 1.25x the others (the owner's call: it levelled too slowly). A
+  // spot's factor lifts each of its catches. The net and lobster pot have no better
+  // tiers, so their spots (net, cage, moonfish, rift eel) need more. (The harpoon
+  // spot's catches were also raised in its data, Nov 2026.)
+  fishing_spot: 3.55, rod_spot: 1.55, harpoon_spot: 1.15, fishing_cage: 2.1,
+  dorado_spot: 1.52, bluefin_spot: 1.5, sailfish_spot: 1.47, moonfish_spot: 2.65, rift_eel_spot: 2.7, arowana_pool: 1.22,
 };
 // (Mithril, adamantite and obsidian dip below the rock before them only at their own
 // unlock level, where the success chance is low; at the same level they rank in
 // order, so they're left alone.)
 for (const [id, o] of Object.entries(OBJECTS)) {
-  // A fishing spot pays by its catches, so its factor lifts each catch.
-  if (o.catches && NODE_XP_TUNE[id]) for (const c of o.catches) c.xp = Math.round(c.xp * NODE_XP_TUNE[id]);
+  const skillMult = GATHER_XP_MULT[o.skill] || 1, tune = NODE_XP_TUNE[id] || 1;
+  // A fishing spot pays by its catches, so its factors lift each catch.
+  if (o.catches) for (const c of o.catches) c.xp = Math.round(c.xp * skillMult * tune);
   if (typeof o.xp !== 'number') continue;
-  if (o.skill === 'mining') o.xp = Math.round(o.xp * MINING_XP_MULT * 10) / 10;
-  if (NODE_XP_TUNE[id]) o.xp = Math.round(o.xp * NODE_XP_TUNE[id] * 10) / 10;
+  if (skillMult !== 1) o.xp = Math.round(o.xp * skillMult * 10) / 10;
+  if (tune !== 1) o.xp = Math.round(o.xp * tune * 10) / 10;
 }
 
 export function getObject(id) {

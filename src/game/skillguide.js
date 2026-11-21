@@ -20,7 +20,7 @@ import { PERK_TRACKS, PERK_EVERY } from '../data/perks.js';
 import { SLAYER_TASKS, SLAYER_REWARDS } from '../data/slayer.js';
 import { LIFE_STAGES, LIFE_STAGES_ADV, LIFE_STAGES_WILD } from '../data/lifeskills.js';
 import { BONE_IDS, boneXp, ALTAR_XP_MULT } from '../data/bones.js';
-import { COOKING, GEM_TABLE, HERB_FORAGE, FISH_TOOL_NAME } from './skilling.js';
+import { COOKING, GEM_TABLE, HERB_FORAGE, FISH_TOOL_NAME, TREE_LOGS_MIN, TREE_LOGS_MAX } from './skilling.js';
 import { CODEX_IDS, dropChances, codexHabitats } from './codex.js';
 import { CULL_GOODS, TOKEN_SHOP } from './culling.js';
 import { materialKind, materialPoints, materialFeedXp } from './materials.js';
@@ -80,7 +80,7 @@ export function gatherSources() {
   const add = (s) => out.push({ min: 1, ...s, level: s.level || 1 });
   for (const [id, d] of Object.entries(OBJECTS)) {
     if (d.type === 'tree') {
-      add({ key: id, skill: 'woodcutting', name: d.name, level: d.level, xp: d.xp, tool: 'axe', respawn: d.respawn, lasts: d.depleteChance ? Math.round(1 / d.depleteChance) : 0, objIds: [id],
+      add({ key: id, skill: 'woodcutting', name: d.name, level: d.level, xp: d.xp, tool: 'axe', respawn: d.respawn, lasts: d.depleteChance ? (TREE_LOGS_MIN + TREE_LOGS_MAX) / 2 : 0, objIds: [id],
         gives: [{ id: d.gives, chance: 1 }, { id: 'birds_nest', chance: 0.008, rare: true }, ...HERB_FORAGE.map((h) => ({ id: h, chance: 0.03 / HERB_FORAGE.length, rare: true }))],
         note: d.night ? '+25% XP at night' : '' });
     } else if (d.type === 'rock') {
@@ -103,7 +103,8 @@ export function gatherSources() {
     }
   }
   for (const [id, h] of Object.entries(HUNT)) {
-    add({ key: id, skill: 'hunter', name: h.name, level: h.level, xp: h.xp, tool: 'snare', respawn: h.respawn, lasts: Math.round(1 / h.depleteChance), objIds: [id],
+    // (XP as paid: the trap's object, with the gathering XP tuning in objects.js.)
+    add({ key: id, skill: 'hunter', name: h.name, level: h.level, xp: OBJECTS[id]?.xp ?? h.xp, tool: 'snare', respawn: h.respawn, lasts: Math.round(1 / h.depleteChance), objIds: [id],
       gives: (h.gives || []).map((g) => ({ id: g.id, min: g.min || 1, max: g.max || 1, chance: g.chance ?? 1 })), note: h.night ? '+25% XP at night' : '' });
   }
   // The endgame marks: townsfolk with pockets worth picking (and anyone else's, for coins).

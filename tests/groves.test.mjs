@@ -157,12 +157,15 @@ test('auto gather in a grove moves from tree to tree of the grove', () => {
   g.player.x = g.player.tx = gr.x0 - 1; g.player.y = g.player.ty = gr.y0;
   g.toggleAutoGather(true);
   g.defaultObjectAction(start);
+  // (A tree holds 10-20 logs now, skilling.js TREE_LOGS: felling one takes a
+  // dozen ticks or so, and an oak regrows in 14, so auto gather can work round
+  // the same three oaks of the grove for ever. Three is enough to show it moves.)
   const felled = new Set();
-  for (let i = 0; i < 1500 && felled.size < 4; i++) {
+  for (let i = 0; i < 1500 && felled.size < 3; i++) {
     g.update(600);
     for (const o of g.world.objects) if (o.objId === 'oak' && o.depleted) felled.add(o);
     for (const sl of g.inventory.slots) if (sl && sl.id === 'oak_logs') g.inventory.remove('oak_logs', sl.qty);
   }
-  assert.ok(felled.size >= 4, `felled ${felled.size} oaks`);
+  assert.ok(felled.size >= 3, `felled ${felled.size} oaks`);
   for (const o of felled) assert.ok(inBox(gr, o), `the oak at ${o.x},${o.y} is one of the grove's`);
 });
