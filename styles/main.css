@@ -2566,9 +2566,13 @@ body.boss-on #tip-toast { top: 132px; }
 #sidepanel, #chatbox, #quest-tracker, #hover-text, #region-label { transition: opacity .35s ease; }
 /* The menu never vanishes: it folds to its column of tab icons, bottom right
    (it used to fade out entirely, leaving no way back but hovering an empty spot). */
-#game-root.hud-min #sidepanel:not(:hover):not(.collapsed) { width: auto; grid-template-columns: var(--rail-w); grid-template-areas: "tabs"; }
-#game-root.hud-min #sidepanel:not(:hover):not(.collapsed) #panel-head,
-#game-root.hud-min #sidepanel:not(:hover):not(.collapsed) #panel-body { display: none; }
+/* Mouse screens only: phones and tablets keep their own launcher and never
+   fold an open sheet (see the touch layout below). */
+@media (pointer: fine) {
+  #game-root.hud-min #sidepanel:not(:hover):not(.collapsed) { width: auto; grid-template-columns: var(--rail-w); grid-template-areas: "tabs"; }
+  #game-root.hud-min #sidepanel:not(:hover):not(.collapsed) #panel-head,
+  #game-root.hud-min #sidepanel:not(:hover):not(.collapsed) #panel-body { display: none; }
+}
 #game-root.hud-min #chatbox:not(:hover) #chat-log,
 #game-root.hud-min #chatbox:not(:hover) #chat-tabs { display: none; }
 #game-root.hud-min #chatbox:not(:hover) { height: auto; opacity: .7; }
