@@ -127,7 +127,7 @@ export function codexEntryHTML(game, id) {
   const whereHTML = `<div class="cx-sec"><h4>Where it lives</h4><div class="cx-zones">${where}</div><div class="cx-go-row"></div></div>`;
   // A boss's mechanic (bossMechanics.js): shown from the start, so you can learn it before the fight.
   const m = e.mechanic;
-  const mechHTML = m ? `<div class="cx-sec cx-mech"><h4>Mechanic: ${playIconHTML(mechIcon(m.type, m.styles[0]?.id), 20)} ${esc(m.kind)}</h4><div class="cx-ability"><b>${esc(m.name)}${m.styles.length ? ` <span class="cx-mech-styles">(breaks to ${m.styles.map((s) => `<span style="color:${s.color}">${esc(s.label)}</span>`).join(', ')})</span>` : ''}:</b> ${esc(m.how)}</div></div>` : '';
+  const mechHTML = m ? `<div class="cx-sec cx-mech"><h4>Mechanic: ${playIconHTML(mechIcon(m.type), 20)} ${esc(m.kind)}</h4><div class="cx-ability"><b>${esc(m.name)}:</b> ${esc(m.how)}</div></div>` : '';
   const at = e.armourType;   // a boss's armour type and how to beat it
   const typeHTML = at ? `<div class="cx-sec cx-armour-type"><h4>Armour type: ${esc(at.icon)} ${esc(at.name)}</h4><p>${esc(at.hint)}</p></div>` : '';
   // A real animal's "Did you know?" (flavour.js), shown from the start.

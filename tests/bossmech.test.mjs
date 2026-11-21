@@ -9,11 +9,13 @@ import assert from 'node:assert/strict';
 import { Game } from '../src/game/game.js';
 import { clearSave } from '../src/game/save.js';
 import { ALL_BOSS_IDS, NPCS } from '../src/data/npcs.js';
-import { BOSS_MECHANICS, MECH_STYLES, mechanicHowTo } from '../src/data/bossMechanics.js';
+import { BOSS_MECHANICS, MECH_KINDS, mechanicHowTo } from '../src/data/bossMechanics.js';
 import {
   startMechanic, clearMechanic, tickBossMechanics, mechAutoFight, mechLabel, inHazard,
-  MECH_FIRST_TICKS, SHIELD_TICKS, SHIELD_POOL, SHIELD_WRONG, SHIELD_BURST, SHIELD_MEND, CIRCLE_TICKS, HEAL_EVERY, HEAL_CAP, ADDS_TICKS, CAST_TICKS, CAST_HIT,
+  MECH_FIRST_TICKS, CIRCLE_TICKS, HEAL_EVERY, HEAL_CAP, ADDS_TICKS, CAST_TICKS, CAST_HIT,
 } from '../src/game/bossmech.js';
+import * as bossmech from '../src/game/bossmech.js';
+import { BOSS_ABILITIES } from '../src/data/bossAbilities.js';
 import { codexEntry } from '../src/game/codex.js';
 import { codexEntryHTML } from '../src/ui/codexui.js';
 import { chebyshev } from '../src/core/utils.js';
@@ -49,18 +51,17 @@ function setup(id, { live = false, gap = 2 } = {}) {
   return { game, p, boss, chat };
 }
 
-test('every boss has one mechanic, the four kinds are all used, and each is explained', () => {
+test('every boss has one mechanic, the three kinds are all used, and each is explained', () => {
   const kinds = new Set();
   for (const id of ALL_BOSS_IDS) {
     const m = BOSS_MECHANICS[id];
     assert.ok(m && m.name, `${id} has a mechanic`);
     kinds.add(m.type);
     if (m.type === 'adds') assert.ok(NPCS[m.id] && NPCS[m.id].attackable, `${id}'s healers are a real monster (${m.id})`);
-    if (m.type === 'shield') assert.ok(m.styles.length && m.styles.every((s) => MECH_STYLES[s]), `${id}'s shield styles`);
     assert.ok(mechanicHowTo(m).length > 40, `${id} has a how-to`);
   }
   for (const id of Object.keys(BOSS_MECHANICS)) assert.ok(ALL_BOSS_IDS.includes(id), `${id} is a boss`);
-  assert.deepEqual([...kinds].sort(), ['adds', 'cast', 'circle', 'shield']);
+  assert.deepEqual([...kinds].sort(), ['adds', 'cast', 'circle']);
   for (const k of kinds) assert.ok(ALL_BOSS_IDS.filter((id) => BOSS_MECHANICS[id].type === k).length >= 10, `${k} is spread across many bosses`);
 });
 
@@ -69,10 +70,10 @@ test('the Monster Codex explains each boss mechanic, even before the first kill'
   game.kills = {};
   const e = codexEntry(game, 'chilli_crab');
   assert.equal(e.discovered, false);
-  assert.equal(e.mechanic.kind, 'Style shield');
-  assert.equal(e.mechanic.styles[0].id, 'melee');
+  assert.equal(e.mechanic.kind, 'Safe circle');
   const html = codexEntryHTML(game, 'chilli_crab', e);
-  assert.ok(html.includes('Chilli Shell') && html.includes('Melee'), 'the locked page still teaches it');
+  assert.ok(html.includes('Sauce Flood') && html.includes('green circle'), 'the locked page still teaches it');
+  assert.ok(!/shield/i.test(html), 'and says nothing of a shield');
   game.kills = { reservoir_serpent: 1 };
   const h2 = codexEntryHTML(game, 'reservoir_serpent', codexEntry(game, 'reservoir_serpent'));
   assert.ok(h2.includes('Interruptible cast') && h2.includes('interrupt'));
@@ -94,54 +95,41 @@ test('a mechanic triggers on its own a few seconds into a boss fight, telegraphe
   assert.ok(mechLabel(game, boss).includes('interrupt'), 'and the boss bar prompts it');
 });
 
-test('style shield: the right style breaks it fast, others barely; broken leaves the boss exposed', () => {
-  const { game, boss, chat } = setup('chilli_crab');
-  const m = startMechanic(game, boss);
-  assert.equal(m.type, 'shield'); assert.equal(m.style, 'melee');
-  assert.equal(m.hp, 10000 * SHIELD_POOL);
-  assert.ok(chat.some((t) => t.includes('melee shield')));
-  assert.ok(mechLabel(game, boss).includes('Melee shield'));
-  // Wrong style: the shield soaks the hit and barely cracks.
-  game.combatMode = () => 'magic';
-  for (let i = 0; i < 4; i++) game._applyPlayerHit(boss, 50);
-  assert.equal(boss.hp, 10000, 'the boss takes nothing while shielded');
-  assert.equal(m.hp, 10000 * SHIELD_POOL - 4 * 50 * SHIELD_WRONG, 'a wrong-style hit does only part');
-  assert.ok(SHIELD_WRONG < 1);
-  // Right style: it breaks.
-  game.combatMode = () => 'melee';
-  let hits = 0;
-  while (boss.mech && hits < 20) { game._applyPlayerHit(boss, 50); hits++; }
-  assert.ok(!boss.mech && hits <= 7, `broken in ${hits} melee hits`);
-  assert.ok(chat.some((t) => t.includes('shatter')));
-  assert.ok(game.effects.some((e) => e.type === 'hitsplat' && e.text === 'Shield broken!'));
-  game._applyPlayerHit(boss, 40);
-  assert.equal(boss.hp, 10000 - 60, 'exposed: it takes half as much again');
+// The owner asked for boss shielding gone: no style shields (which soaked every
+// blow to 0 until broken) and no signature-move shields (which halved them).
+test('no boss shields itself: no shield mechanic, no shield in any signature move', () => {
+  assert.ok(!('shield' in MECH_KINDS), 'no style-shield kind');
+  for (const id of ALL_BOSS_IDS) {
+    assert.notEqual(BOSS_MECHANICS[id].type, 'shield', `${id} has no style shield`);
+    assert.ok(!BOSS_MECHANICS[id].styles, `${id}'s mechanic needs no combat style`);
+    const ab = BOSS_ABILITIES[id];
+    if (!ab) continue;
+    assert.ok(!ab.fx.some((f) => f.t === 'shield'), `${id}'s ${ab.name} raises no shield`);
+    assert.ok(!/shield/i.test(ab.desc), `${id}'s ${ab.name} says nothing of a shield`);
+  }
+  for (const k of ['SHIELD_TICKS', 'SHIELD_POOL', 'SHIELD_WRONG', 'mechOnPlayerHit', 'mechStyleColour']) assert.ok(!(k in bossmech), `${k} is gone`);
 });
 
-test('style shield left standing bursts: hurts you and mends the boss, never a one-shot', () => {
-  const { game, p, boss, chat } = setup('chilli_crab');
-  boss.hp = 5000;
-  startMechanic(game, boss);
-  const hp0 = p.hp;
-  step(game, SHIELD_TICKS);
-  assert.ok(!boss.mech, 'gone');
-  assert.equal(boss.hp, 5000 + 10000 * SHIELD_MEND, 'the boss mends');
-  assert.ok(p.alive && hp0 - p.hp > 0 && hp0 - p.hp <= Math.ceil(game.maxHp() * SHIELD_BURST), 'hurts but no more than a quarter');
-  assert.ok(chat.some((t) => t.includes('bursts')));
-});
-
-test('style shield cleans up when the boss dies or you leave', () => {
-  const { game, p, boss } = setup('jade_dragon');
-  startMechanic(game, boss);
-  boss.alive = false;
-  step(game, 1);
-  assert.ok(!boss.mech && !game._mechActive.size);
-  boss.alive = true; boss.hp = boss.maxHp;
-  const m = startMechanic(game, boss);
-  assert.equal(m.style, 'ranged', 'the Jade Dragon cycles its styles');
-  game._placePlayer(p.x + 30, p.y);
-  step(game, 1);
-  assert.ok(!boss.mech, 'walking away calls it off');
+test('a boss\'s damage taken is never soaked to 0 or halved by a shield, mid-mechanic or after its signature move', () => {
+  // Every boss that used to raise a style shield, and every one whose signature
+  // move used to raise a halving shield, takes each blow in full.
+  for (const id of ['chilli_crab', 'durian_behemoth', 'jade_dragon', 'kusu_tortoise', 'rune_golem', 'shadow_sovereign', 'toman_tyrant']) {
+    const { game, boss } = setup(id, { gap: 1 });
+    game.combatMode = () => 'magic';   // the style that used to be "wrong" for most of them
+    for (let round = 0; round < 3; round++) {
+      startMechanic(game, boss);
+      game.player.hp = game.maxHp();
+      game._runBossAbility(boss, boss.def.ability || BOSS_ABILITIES[id]);   // its signature move, as in the fight
+      game._runBossAbility(boss, { name: 'Old Guard', desc: '', fx: [{ t: 'shield', ticks: 5 }] });   // an old move list's shield does nothing
+      boss.reflectTicks = 0;
+      const before = boss.hp;
+      game._applyPlayerHit(boss, 40);
+      assert.equal(before - boss.hp, 40, `${id}: the blow lands in full (round ${round})`);
+      assert.ok(!(boss.shieldTicks > 0), `${id}: no shield timer`);
+      clearMechanic(game, boss);
+      boss.hp = boss.maxHp; boss._mechN = round + 1;
+    }
+  }
 });
 
 test('safe circle: red all round with a green hole; standing in it is safe, anywhere else hurts', () => {
@@ -299,7 +287,7 @@ test('only one mechanic at a time per boss, none for ordinary monsters, and no s
   tickBossMechanics(game);
 });
 
-test('the mechanic drawings run on a canvas without errors (shield, cast bar, healer beam, safe circle)', async () => {
+test('the mechanic drawings run on a canvas without errors (cast bar, healer beam, safe circle)', async () => {
   const { drawBossMech, drawSafeZone } = await import('../src/render/bossmechfx.js');
   const ctx = new Proxy({}, { get: (t, k) => (k in t ? t[k] : () => {}), set: (t, k, v) => { t[k] = v; return true; } });
   for (const id of ['jade_dragon', 'kusu_tortoise', 'durian_behemoth', 'demon_lord', 'tualang_treant', 'the_garuda']) {

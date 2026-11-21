@@ -1,7 +1,9 @@
 // The player never misses (combat.js rollHit): every attack that swings must
 // show a landed number on its target, never the "miss" puff a 0 hitsplat draws.
 // The owner saw Swordsmen "miss": a boss's style shield soaked each blow to 0,
-// which drew the miss puff on every swing until the shield broke.
+// which drew the miss puff on every swing until the shield broke. Boss shields
+// are gone now; these fights keep every boss's mechanic running to make sure
+// nothing else turns a blow into a 0.
 import './seed.mjs';   // seeded Math.random: no test fails on an unlucky roll
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -13,13 +15,12 @@ import { splatBump } from '../src/render/renderer.js';
 
 /** Count, for every player attack, whether its target showed a number. */
 function watch(g) {
-  const st = { attacks: 0, landed: 0, puffs: 0, shieldTagged: 0 };
+  const st = { attacks: 0, landed: 0, puffs: 0 };
   const attack = g.doPlayerAttack.bind(g), splat = g.addHitsplat.bind(g);
   let cur = null;
   g.addHitsplat = (e, dmg, opts = {}) => {
     if (e !== g.player && !opts.text) {
       if (!(dmg > 0) || Math.round(dmg) < 1) st.puffs++;   // a miss puff, or a number that reads 0
-      if (opts.shield) st.shieldTagged++;
       if (cur && e === cur && dmg >= 1) cur.got = true;
     }
     return splat(e, dmg, opts);
@@ -32,8 +33,8 @@ function watch(g) {
   return st;
 }
 
-/** A boss that stands still and never strikes back, holding a style shield. */
-function shieldedBoss(g, id, x, y) {
+/** A boss that stands still and never strikes back. */
+function stillBoss(g, id, x, y) {
   const b = new NPC(id, x, y, 0, { aggressive: false });
   b.maxHp = b.hp = 1e6;
   b.def = { ...b.def, maxHp: 1e6 };
@@ -42,23 +43,25 @@ function shieldedBoss(g, id, x, y) {
   return b;
 }
 
-test('no class ever misses: shielded bosses and plain monsters all show landed numbers', () => {
+test('no class ever misses: bosses mid-mechanic and plain monsters all show landed numbers', () => {
   const rows = [];
   for (const cls of CLASS_IDS) {
     const g = setupClass(cls, 10);
     const st = watch(g);
     const p = g.player;
-    // A melee shield and a ranged one, so every class meets the wrong style
-    // (a shield only it can't break quickly) as well as, for some, its own.
-    for (const id of ['chilli_crab', 'durian_behemoth']) {
-      const b = shieldedBoss(g, id, p.x + 2, p.y);
+    // The two bosses that used to raise a style shield (now a safe circle) and
+    // a caster, each with its mechanic kept up the whole fight: every blow must
+    // still take life off the boss.
+    for (const id of ['chilli_crab', 'durian_behemoth', 'reservoir_serpent']) {
+      const b = stillBoss(g, id, p.x + 2, p.y);
       g.npcs = [b];
       g.player.clearAction(); g.attackNpc(b);
       for (let i = 0; i < 25; i++) {
-        if (!b.mech) startMechanic(g, b);   // keep the shield up for the whole fight
+        if (!b.mech) startMechanic(g, b);   // keep its mechanic going for the whole fight
         p.hp = g.maxHp();
         g.update(600);
       }
+      st.bossHurt = (st.bossHurt || 0) + (b.hp < 1e6 ? 1 : 0);
     }
     // A plain monster that fights back and moves.
     const m = new NPC('goblin', p.x + 2, p.y, 0);
@@ -73,20 +76,20 @@ test('no class ever misses: shielded bosses and plain monsters all show landed n
     assert.equal(r.landed, r.attacks, `${r.cls}: every attack lands a number (${r.landed}/${r.attacks})`);
     assert.equal(r.puffs, 0, `${r.cls}: no miss puffs or 0s`);
   }
-  // The shields really were up: the blows they soaked show as shield-tagged numbers.
-  assert.ok(rows.every((r) => r.shieldTagged > 0), 'every class hit a shield');
+  // Nothing soaked the blows: every class wore down every boss.
+  assert.ok(rows.every((r) => r.bossHurt === 3), 'every class hurt every boss');
 });
 
-test('a blow soaked by a style shield shows its number in the shield colour', () => {
+test('a blow on a boss mid-mechanic lands in full and shows its own number', () => {
   const g = setupClass('swordsman', 10);
-  const b = shieldedBoss(g, 'durian_behemoth', g.player.x + 1, g.player.y);   // a ranged shield: wrong for a sword
+  const b = stillBoss(g, 'durian_behemoth', g.player.x + 1, g.player.y);   // its style shield once soaked a sword's blows
   g.npcs = [b];
   startMechanic(g, b);
   g.effects = [];
   g._applyPlayerHit(b, 12);
-  assert.equal(b.hp, 1e6, 'the shield took it');
+  assert.equal(b.hp, 1e6 - 12, 'the boss took it all');
   const s = g.effects.find((e) => e.type === 'hitsplat' && e.entity === b && !e.text);
-  assert.ok(s && s.dmg === 12 && s.shield && s.tint, 'a tinted, tagged 12, not a miss puff');
+  assert.ok(s && s.dmg === 12 && !('shield' in s), 'a plain 12, no shield tag');
 });
 
 test('a blow folded into a number already up makes it pop again', () => {

@@ -676,7 +676,7 @@ import { BESTIARY_BOSSES } from '../data/bestiary.js';
   // collection log, pets, home, unlocks, mastery and the gear quality tiers.
   // Like the badges above, a picture that can't load takes itself away.
   export const PLAY_ICONS = [
-    'mech-shield_melee', 'mech-shield_ranged', 'mech-shield_magic', 'mech-safe_circle', 'mech-healers', 'mech-interrupt',
+    'mech-safe_circle', 'mech-healers', 'mech-interrupt',
     'event-invasion', 'event-shoal', 'event-meteor', 'event-escort', 'event-champion', 'event-ancient_tree', 'event-weekly_crate',
     'ui-collection_log', 'ui-pets', 'ui-home', 'ui-focus', 'ui-rested', 'ui-grave', 'ui-skill_unlock', 'ui-mastery',
     'ui-places', 'ui-search', 'ui-daily', 'ui-report',   // the Codex's Places and Search, Daily revision, Report card (FX-1)
@@ -686,8 +686,8 @@ import { BESTIARY_BOSSES } from '../data/bestiary.js';
   /** Each world event kind's icon (data/worldevents.js EVENT_KINDS). */
   export const EVENT_ICON = { invasion: 'event-invasion', shoal: 'event-shoal', meteor: 'event-meteor', escort: 'event-escort',
     rampage: 'event-champion', grove: 'event-ancient_tree' };
-  /** A boss mechanic's icon by its type (and a shield's style). */
-  export const mechIcon = (type, style) => ({ shield: `mech-shield_${style || 'melee'}`, circle: 'mech-safe_circle', adds: 'mech-healers', cast: 'mech-interrupt' })[type] || null;
+  /** A boss mechanic's icon by its type. */
+  export const mechIcon = (type) => ({ circle: 'mech-safe_circle', adds: 'mech-healers', cast: 'mech-interrupt' })[type] || null;
 
   // A-Worthy sticker treatment for every icon: the art is traced with a navy
   // ink line inside a white die-cut border (two dilated copies of its

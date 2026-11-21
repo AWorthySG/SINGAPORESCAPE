@@ -350,20 +350,13 @@ export class Renderer {
         const land = spawn > 0 && spawn < 0.3 ? Math.sin(spawn / 0.3 * Math.PI) : 0;
         drawSunShadow(ctx, cx, cy + 12 * sc, 10 * sc, 4.5 * sc, sun, Math.max(footfall(n.walkPhase, n.isMoving) * 0.6, land), spawn * spawn * 6 * sc);
         if (n === game.player.target) this._lockOn(cx, cy + 12 * sc, sc, timeMs);
-        if (n.shieldTicks > 0 || n.reflectTicks > 0) {
-          // Boss buffs: a blue bubble while shielded, a spiky gold ring while reflecting.
+        if (n.reflectTicks > 0) {
+          // Boss buff: a spiky gold ring while reflecting.
           ctx.save();
           const R = 22 * sc, by = cy - 6 * sc;
-          if (n.shieldTicks > 0) {
-            ctx.globalAlpha = 0.28 + Math.sin(timeMs * 0.01) * 0.06;
-            ctx.fillStyle = '#7fc8ff'; ctx.beginPath(); ctx.arc(cx, by, R, 0, Math.PI * 2); ctx.fill();
-            ctx.globalAlpha = 0.8; ctx.strokeStyle = '#1F6FA8'; ctx.lineWidth = 2; ctx.stroke();
-          }
-          if (n.reflectTicks > 0) {
-            ctx.globalAlpha = 0.9; ctx.strokeStyle = '#F5B82E'; ctx.lineWidth = 2.5; ctx.beginPath();
-            for (let i = 0; i <= 24; i++) { const a = i / 24 * Math.PI * 2 + timeMs * 0.002, rr2 = R + 4 + (i % 2 ? 5 : 0); ctx.lineTo(cx + Math.cos(a) * rr2, by + Math.sin(a) * rr2); }
-            ctx.stroke();
-          }
+          ctx.globalAlpha = 0.9; ctx.strokeStyle = '#F5B82E'; ctx.lineWidth = 2.5; ctx.beginPath();
+          for (let i = 0; i <= 24; i++) { const a = i / 24 * Math.PI * 2 + timeMs * 0.002, rr2 = R + 4 + (i % 2 ? 5 : 0); ctx.lineTo(cx + Math.cos(a) * rr2, by + Math.sin(a) * rr2); }
+          ctx.stroke();
           ctx.restore();
         }
         if (n.champion) {
@@ -1864,13 +1857,11 @@ export class Renderer {
         ctx.restore(); ctx.globalAlpha = 1;
         continue;
       }
-      if ((e.weak || e.shield) && hit) {
+      if (e.weak && hit) {
         // Hit the monster's weakness: a small green "weak!" tag over the number.
-        // A blow soaked by a boss's style shield gets a "shield" tag in its colour.
-        const tag = e.shield ? 'shield' : 'weak!';
         ctx.font = '900 8px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
-        ctx.lineWidth = 3; ctx.strokeStyle = '#ffffff'; ctx.strokeText(tag, 0, -r - 4);
-        ctx.fillStyle = e.shield ? e.tint || '#39557d' : '#1F7A3D'; ctx.fillText(tag, 0, -r - 4);
+        ctx.lineWidth = 3; ctx.strokeStyle = '#ffffff'; ctx.strokeText('weak!', 0, -r - 4);
+        ctx.fillStyle = '#1F7A3D'; ctx.fillText('weak!', 0, -r - 4);
       }
       if (e.critX) {
         // Critical hit: just a red number, a touch smaller for x2 and a touch bigger for x4 (a mega crit).

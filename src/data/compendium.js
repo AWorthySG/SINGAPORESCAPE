@@ -56,7 +56,7 @@ import {
   CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE, WEAKNESS_BONUS, ARMOUR_TIERS, ARMOUR_CAP, OFFHAND_SHARE,
 } from '../game/combat.js';
 import {
-  SHIELD_TICKS, SHIELD_WRONG, SHIELD_BURST, EXPOSED_MULT, EXPOSED_TICKS, CIRCLE_TICKS, ADDS_TICKS, HEAL_EVERY,
+  CIRCLE_TICKS, ADDS_TICKS, HEAL_EVERY,
   HEAL_FRAC, HEAL_CAP, CAST_TICKS, CAST_HIT, MECH_FIRST_TICKS, MECH_EVERY_TICKS,
 } from '../game/bossmech.js';
 import { TICK_MS, AUTOSAVE_TICKS, DAY_CYCLE_MS, RESPAWN_TICKS } from '../config.js';
@@ -227,7 +227,6 @@ export function bossTypeRows() {
 /** Boss mechanics: kind, what to do, how many bosses use it. */
 export function mechanicRows() {
   const HOW = {
-    shield: 'Break it with the combat style its colour shows',
     circle: 'Step into the green circle before the blast',
     adds: 'Kill the little healers first',
     cast: 'Use any skill or special attack to interrupt the cast bar',
@@ -607,17 +606,16 @@ export const CHAPTERS = [
       },
       {
         id: 'boss-mechanics', title: 'Boss mechanics',
-        summary: 'Style shields, safe circles, healers and casts to interrupt.',
+        summary: 'Safe circles, healers and casts to interrupt.',
         body: [
           `About ${secs(MECH_FIRST_TICKS)} into a fight, and then every ${secs(MECH_EVERY_TICKS)} or so, a boss uses its mechanic:`,
           () => ({ table: { head: ['Mechanic', 'What to do', 'Bosses'], rows: mechanicRows() } }),
           { list: [
-            `**Style shield**: you have ${secs(SHIELD_TICKS)} to break it. Hits of the wrong style do only ${pct(SHIELD_WRONG)} to it. Left unbroken it bursts for ${pct(SHIELD_BURST)} of your life; broken, the boss is exposed and takes x${EXPOSED_MULT} damage for ${secs(EXPOSED_TICKS)}.`,
             `**Safe circle**: red covers the ground round you; step into the small green circle within ${secs(CIRCLE_TICKS)}.`,
             `**Healing adds**: each mends ${pct(HEAL_FRAC, 1)} of the boss's life every ${secs(HEAL_EVERY)}, up to ${pct(HEAL_CAP)} in all, and fades after ${secs(ADDS_TICKS)}.`,
             `**Interruptible cast**: a ${secs(CAST_TICKS)} cast bar. Any skill or special attack stops it; if it lands it takes ${pct(CAST_HIT)} of your life (never all of it).`,
           ] },
-          'No mechanic stuns you or throws you about. Auto battle turns on healers, interrupts casts and (if you leave it on) dodges the red markers for you.',
+          'No mechanic stuns you or throws you about, and no boss shields itself: every blow you land counts in full. Auto battle turns on healers, interrupts casts and (if you leave it on) dodges the red markers for you.',
         ],
         see: ['bosses', 'abilities', 'auto-battle'],
       },
@@ -651,17 +649,6 @@ export const CHAPTERS = [
           { tip: 'Look them up in the Monster Codex: an undiscovered one shows as a silhouette with its level and where it lives, so you can go hunting.' },
         ],
         see: ['monster-ranks', 'codex-mastery', 'discoveries'],
-      },
-      {
-        id: 'mech-shield', title: 'Mechanic: style shields',
-        summary: 'A coloured shield only one combat style can break.',
-        body: [
-          `A boss with a **style shield** throws up a coloured barrier: red for melee, green for ranged, purple for magic. Hits of the right style break it; hits of any other style do only ${pct(SHIELD_WRONG)} to it.`,
-          `Break it within ${secs(SHIELD_TICKS)} and the boss is **exposed**: it takes x${EXPOSED_MULT} damage for ${secs(EXPOSED_TICKS)}. Leave it standing and it bursts for ${pct(SHIELD_BURST)} of your life.`,
-          'Some shields cycle through two or three styles. A class with a secondary weapon of another style, or a friend of another style, makes these fights much easier.',
-          () => `Bosses with a style shield: ${mechanicBosses('shield').join(', ')}.`,
-        ],
-        see: ['boss-mechanics', 'classes'],
       },
       {
         id: 'mech-circle', title: 'Mechanic: safe circles',

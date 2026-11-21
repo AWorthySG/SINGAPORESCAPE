@@ -3442,7 +3442,6 @@ body.cb-safe #hp-orb.low::after {
 }
 /* ---------------- Boss mechanics (src/game/bossmech.js) ---------------- */
 .cx-mech { border-left: 4px solid #9a6ae8; padding-left: 8px; }
-.cx-mech-styles { font-weight: 800; }
 /* ---------------- Collection log, pets and Endless Gate modifiers ---------------- */
 .collection-open { margin-top: 6px; }
 .cl-head { font-size: 13px; margin-bottom: 8px; }

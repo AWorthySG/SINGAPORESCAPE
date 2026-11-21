@@ -12,7 +12,6 @@ import { saveGame, clearSave } from '../src/game/save.js';
 import { SAVE_KEY } from '../src/config.js';
 import { hudNumber, chebyshev } from '../src/core/utils.js';
 import { startMechanic } from '../src/game/bossmech.js';
-import { MECH_STYLES } from '../src/data/bossMechanics.js';
 import { lifeText, bossBarModel, foeThreat, mechBadge } from '../src/ui/bossbar.js';
 import {
   XpTracker, XP_IDLE_MS, XP_RATE_WINDOW_MS, XP_RATE_MIN_SPAN_MS, XP_RUN_SKILLS,
@@ -83,15 +82,13 @@ test('boss bar model: name, level, life and a threat; no mechanic badge in a pla
   assert.equal(m.mech, null);
 });
 
-test('boss bar badge: a coloured shield, healers, the safe circle and a cast with its timing', () => {
+test('boss bar badge: healers, the safe circle and a cast with its timing (no boss shields any more)', () => {
   const g = freshGame();
-  const crab = bossBeside(g, 'chilli_crab');
+  const crab = bossBeside(g, 'chilli_crab');   // once a style shield, now a safe circle
   startMechanic(g, crab);
-  const sh = mechBadge(g, crab);
-  assert.equal(sh.kind, 'shield');
-  assert.equal(sh.color, MECH_STYLES.melee.color, 'melee red');
-  assert.equal(sh.text, 'Melee 100%');
-  assert.ok(sh.title.includes('Melee shield'), 'the full prompt stays as its tooltip');
+  const sc = mechBadge(g, crab);
+  assert.equal(sc.kind, 'circle');
+  assert.ok(sc.title.includes('green circle'), 'the full prompt stays as its tooltip');
 
   const g2 = freshGame();
   const chief = bossBeside(g2, 'goblin_warchief');

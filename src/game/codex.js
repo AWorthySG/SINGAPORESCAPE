@@ -16,7 +16,7 @@ import { CLASS_BY_ID } from '../data/classes.js';
 import { CHAMPION_HP_MULT } from './npc.js';
 import { NORMAL_GEAR_SKIP } from './loot.js';
 import { chebyshev } from '../core/utils.js';
-import { BOSS_MECHANICS, MECH_KINDS, MECH_STYLES, mechanicHowTo } from '../data/bossMechanics.js';
+import { BOSS_MECHANICS, MECH_KINDS, mechanicHowTo } from '../data/bossMechanics.js';
 
 /** Every attackable monster and boss, bosses first, each once. */
 export const CODEX_IDS = [...new Set([...ALL_BOSS_IDS, ...ALL_MONSTER_IDS])].filter((id) => getNpc(id).attackable);
@@ -183,8 +183,7 @@ export function codexEntry(game, id) {
   // A boss's mechanic is shown even before the first kill: it's how you learn to win that fight.
   const mech = BOSS_MECHANICS[id];
   if (mech) {
-    e.mechanic = { name: mech.name, type: mech.type, kind: MECH_KINDS[mech.type].name, icon: MECH_KINDS[mech.type].icon, how: mechanicHowTo(mech),
-      styles: (mech.styles || []).map((s) => ({ id: s, label: MECH_STYLES[s].label, color: MECH_STYLES[s].color })) };
+    e.mechanic = { name: mech.name, type: mech.type, kind: MECH_KINDS[mech.type].name, icon: MECH_KINDS[mech.type].icon, how: mechanicHowTo(mech) };
   }
   if (!seen) return e;
   Object.assign(e, {
