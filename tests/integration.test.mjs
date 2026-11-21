@@ -6496,6 +6496,8 @@ test('a shortbow looses three arrows a shot; a longbow one', async () => {
   const p = game.player;
   const count = (weapon) => {
     game.equipment.set('weapon', weapon);
+    // Alone, so neither the shortbow's fan (#492) nor the longbow's pierce adds arrows at neighbours.
+    game.npcs = [];
     const mob = game.spawnNpc('goblin', p.x + 3, p.y, { wander: 0 }); mob.maxHp = mob.hp = 1e9;
     game.effects = [];
     game._rangedAttack(mob);
