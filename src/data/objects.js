@@ -896,7 +896,7 @@ export const NODE_XP_TUNE = {
   // its band pays about 1.05-1.15x that middle, and each spot still out-earns the
   // one below it at its own level. (Cooking XP has its own table, so is unchanged;
   // the rod spots from 12 to 34 and the arowana pool already paid that, so are left alone.)
-  fishing_spot: 1.9, fishing_cage: 1.35,   // (the harpoon spot's catches are set in its data)
+  fishing_spot: 2.1, fishing_cage: 1.35,   // (the harpoon spot's catches are set in its data)
   dorado_spot: 1.39, bluefin_spot: 1.33, sailfish_spot: 1.27, moonfish_spot: 2.3, rift_eel_spot: 2.23,
 };
 // (Mithril, adamantite and obsidian dip below the rock before them only at their own
