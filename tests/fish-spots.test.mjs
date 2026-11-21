@@ -175,3 +175,11 @@ test('quests that ask for fish send you to the one spot that has them', () => {
   for (const id of ['raw_salmon', 'salmon']) g.inventory.remove(id, g.inventory.count(id));
   assert.equal(g.questGuide('island_provisions').objId, 'salmon_spot', 'salmon are netted at a salmon run');
 });
+
+test('each fishing spot wears a little sticker of its fish, so spots sharing a picture tell apart', async () => {
+  const { CATCH_BADGE } = await import('../src/render/sprites.js');
+  assert.ok(CATCH_BADGE >= 12 && CATCH_BADGE <= 24, 'small');
+  const src = readFileSync(new URL('../src/render/sprites.js', import.meta.url), 'utf8');
+  assert.match(src, /drawWorldArt\(ctx, obj, art, key, cx, cy, time\); if \(t === 'fishing'\) drawCatchBadge\(/, 'drawn over each spot picture');
+  assert.match(src, /const id = !obj\.worldEvent && obj\.def\.catches\?\.\[0\]\?\.id;/, 'its one fish; not on a world event shoal');
+});

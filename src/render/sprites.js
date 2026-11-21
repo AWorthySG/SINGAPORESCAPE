@@ -2634,7 +2634,7 @@ export function drawObjectSprite(ctx, obj, cx, cy, time = 0) {
   if (t === 'fire' || t === 'farm') for (const k of Object.keys(WORLD_ART)) if (k.startsWith(t === 'fire' ? 'obj-fire-' : 'obj-farm_patch-')) worldImage(k);
   else if (obj.def.frames) for (let i = 0; i < obj.def.frames; i++) worldImage(`obj-${obj.objId}-${i}`);
   const art = key && worldImage(key);
-  if (art && art.complete && art.naturalWidth) { drawWorldArt(ctx, obj, art, key, cx, cy, time); return; }
+  if (art && art.complete && art.naturalWidth) { drawWorldArt(ctx, obj, art, key, cx, cy, time); if (t === 'fishing') drawCatchBadge(ctx, obj, cx, cy, time); return; }
   if (obj.def.footprint) return;   // a landmark has no drawn stand-in: it appears once its picture loads
   if (CACHED_OBJECTS.has(t)) {
     const key = `obj|${t}|${obj.objId}|${obj.def.ore || ''}|${obj.depleted ? 1 : 0}`;
@@ -2652,6 +2652,25 @@ export function drawObjectSprite(ctx, obj, cx, cy, time = 0) {
     }
   }
   return drawObjectRaw(ctx, obj, cx, cy, time);
+}
+
+// Each kind of fishing spot holds one fish (fishspots.js), but most share one
+// of five pictures: a little sticker of the fish it holds bobs on the water
+// beside it, so spots tell apart at a glance. Its painted item icon, so no new
+// art; a world event's shoal and a spot still loading go without.
+export const CATCH_BADGE = 15;   // px across
+function drawCatchBadge(ctx, obj, cx, cy, time) {
+  const id = !obj.worldEvent && obj.def.catches?.[0]?.id;
+  const img = id && itemIconImage(id);
+  if (!img || !img.complete || !img.naturalWidth) return;
+  const bob = Math.sin(time * 0.003 + obj.x * 1.3 + obj.y) * 1.5;
+  const s = CATCH_BADGE, x = cx + 9, y = cy - 6 + bob;
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.strokeStyle = '#22304A'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(x, y, s * 0.62, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  if (img.tint) ctx.filter = img.tint;
+  ctx.drawImage(img, x - s / 2, y - s / 2, s, s);
+  ctx.restore();
 }
 
 function drawObjectRaw(ctx, obj, cx, cy, time) {

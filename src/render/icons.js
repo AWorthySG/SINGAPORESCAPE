@@ -629,37 +629,6 @@ import { BESTIARY_BOSSES } from '../data/bestiary.js';
     <circle cx="12" cy="5.5" r="1.1" fill="${C.goldHi}" stroke="${OL}" stroke-width=".7"/><circle cx="18.2" cy="10.2" r="1.1" fill="${C.goldHi}" stroke="${OL}" stroke-width=".7"/>`;
   T.achievements = `<path d="M7 4 L17 4 L17 8 C17 12 14 13 12 13 C10 13 7 12 7 8 Z" fill="${C.gold}" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/><path d="M7 5 C4 5 4 9 7 9 M17 5 C20 5 20 9 17 9" fill="none" stroke="${OL}" stroke-width="1.1"/><rect x="10.6" y="13" width="2.8" height="4" fill="${C.goldDk}" stroke="${OL}" stroke-width="1"/><rect x="8" y="17" width="8" height="3" rx="1" fill="${C.stone}" stroke="${OL}" stroke-width="1.1"/>`;
 
-  // Items shipped as hand-drawn PNG sprites (assets/items/<id>.png). When an id
-  // is in this set the DOM + canvas renderers use the painted artwork; every
-  // other item falls back to the inline vector icon above. Keep in sync with
-  // the files committed under assets/items/.
-  const PNG_ITEMS = new Set([
-    'adamant_bar', 'adamantite_ore', 'amulet_of_glory', 'angsana_logs', 'bamboo',
-    'birds_nest', 'bones', 'bowl', 'bronze_axe', 'bronze_bar',
-    'bronze_pickaxe', 'chicken_rice', 'chilli', 'chisel', 'clay',
-    'coal', 'coins', 'copper_ore', 'diamond', 'emerald',
-    'feather', 'fishing_bait', 'fishing_rod', 'galangal', 'glass_orb',
-    'gold_ore', 'granite', 'granite_maul', 'hammer', 'harpoon',
-    'iron_bar', 'iron_ore', 'jug', 'kaya_toast', 'laksa',
-    'lantern', 'lemongrass', 'limestone', 'lobster_pot', 'logs',
-    'magic_logs', 'mahogany_logs', 'mangrove_logs', 'maple_logs', 'mark_of_grace',
-    'merlion_amulet', 'mithril_bar', 'mithril_ore', 'molten_glass', 'nasi_lemak',
-    'oak_logs', 'old_boot', 'pandan_leaves', 'pearl', 'pie_dish',
-    'pot', 'raw_anchovy', 'raw_arapaima', 'raw_arowana', 'raw_barramundi',
-    'raw_belida', 'raw_climbing_perch', 'raw_cobia', 'raw_coral_trout', 'raw_diamond_trevally',
-    'raw_eel', 'raw_giant_snakehead', 'raw_giant_trevally', 'raw_golden_snapper', 'raw_grouper',
-    'raw_hybrid_grouper', 'raw_ikan_keli', 'raw_lobster', 'raw_longfin_trevally', 'raw_mackerel',
-    'raw_mangrove_jack', 'raw_manta_ray', 'raw_marble_goby', 'raw_milkfish', 'raw_peacock_bass',
-    'raw_pike', 'raw_queenfish', 'raw_red_drum', 'raw_red_snapper', 'raw_salmon',
-    'raw_sardine', 'raw_shark', 'raw_stingray', 'raw_swordfish', 'raw_tenggiri',
-    'raw_threadfin', 'raw_tilapia', 'raw_trout', 'raw_tuna', 'raw_white_pomfret',
-    'roti_prata', 'ruby', 'ruby_ring', 'rune_bar', 'runite_ore',
-    'sandstone', 'sapphire', 'satay', 'seafood_stew', 'seaweed',
-    'silver_ore', 'small_net', 'steel_bar', 'teak_logs', 'tembusu_logs',
-    'tin_ore', 'tinderbox', 'turmeric', 'vial', 'willow_logs',
-    'yew_logs',
-  ]);
-  const itemPngSrc = (id) => `assets/items/${id}.png`;
 
   // ---- Day/night HUD badge: illustrated sun and moon artwork ----
   export const sunIconSVG = (size = 20, cls) => artImg('hud-sun', size, cls);
@@ -710,14 +679,11 @@ import { BESTIARY_BOSSES } from '../data/bestiary.js';
   }
 
   // SVG markup helpers (DOM use: inventory, equipment, skills, shops, tabs).
-  // Items with painted PNG art render as an <img>; the rest stay inline vectors.
-  // Painted PNG items sit inside the same sticker filter via an SVG <image>.
+  // Items with sticker art render as an <img>; the rest stay inline vectors.
   export const itemIconSVG = (id, size = 28, cls) => (
     ITEM_ART.has(id) ? artImg(`item-${id}`, size, cls)
     : borrowedArt(id) ? artImg(`item-${borrowedArt(id).file}`, size, cls, borrowedArt(id).tint)
-    : PNG_ITEMS.has(id)
-      ? svg(`<image href="${itemPngSrc(id)}" x="0" y="0" width="24" height="24" preserveAspectRatio="xMidYMid meet"/>`, size, cls)
-      : svg(I[id] || I.coins, size, cls)
+    : svg(I[id] || I.coins, size, cls)
   );
   // A-Worthy mascot artwork, where it exists, replaces the stickered vectors.
   // Items with A-Worthy mascot-sticker artwork (assets/icons/item-<id>.webp).
@@ -969,9 +935,6 @@ import { BESTIARY_BOSSES } from '../data/bestiary.js';
   const TAB_ART = new Set(['inventory', 'equipment', 'skills', 'combat', 'prayer', 'quests', 'achievements', 'settings']);
   export const tabIconSVG = (id, size = 24, cls) => (TAB_ART.has(id) ? artImg(`tab-${id}`, size, cls) : svg(T[id] || T.inventory, size, cls));
   export const hasIcon = (id) => !!I[id];
-  // The set of item ids backed by painted PNG art under assets/items/. Exposed
-  // so tests can assert it stays in lock-step with the files on disk.
-  export const pngItems = () => new Set(PNG_ITEMS);
 
   // Rasterised <img> cache for drawing item icons onto the world canvas
   // (ground item drops). Returns an HTMLImageElement that may still be loading.
@@ -989,12 +952,6 @@ import { BESTIARY_BOSSES } from '../data/bestiary.js';
       const img = new Image();
       img.src = `assets/icons/item-${borrowedArt(id).file}.webp`;
       img.tint = borrowedArt(id).tint;   // drawGroundItem applies it, so borrowed stickers keep their colour on the ground
-      _imgCache[id] = img;
-      return img;
-    }
-    if (PNG_ITEMS.has(id)) {
-      const img = new Image();
-      img.src = itemPngSrc(id);
       _imgCache[id] = img;
       return img;
     }

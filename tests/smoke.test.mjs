@@ -13,8 +13,8 @@ import { hitChance, maxHit, attackRoll, combatXp } from '../src/game/combat.js';
 import { gatherChance } from '../src/game/skilling.js';
 import { XP_RATE } from '../src/config.js';
 import { NPCS, MONSTER_IDS, ALL_MONSTER_IDS, BOSS_IDS, getNpc, monsterHpScale } from '../src/data/npcs.js';
-import { itemIconSVG, hasIcon, skillIconSVG, pngItems } from '../src/render/icons.js';
-import { readdirSync } from 'node:fs';
+import { itemIconSVG, hasIcon, skillIconSVG } from '../src/render/icons.js';
+import { readdirSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { ITEMS } from '../src/data/items.js';
 import { SKILLS } from '../src/data/skills.js';
@@ -247,9 +247,8 @@ test('every equippable item has its own custom icon', () => {
   assert.ok(itemIconSVG('merlion_blade', 24).includes('assets/icons/item-merlion_blade.webp'));
 });
 
-test('every item has A-Worthy sticker artwork, ahead of any older painted PNG', () => {
-  // Sticker artwork (assets/icons/item-<id>.webp) wins over the older
-  // hand-drawn PNGs in assets/items/, which stay as a fallback.
+test('every item has A-Worthy sticker artwork', () => {
+  // Sticker artwork (assets/icons/item-<id>.webp), or a recoloured borrow of one.
   assert.ok(itemIconSVG('nasi_lemak', 32).includes('assets/icons/item-nasi_lemak.webp'), 'nasi lemak uses its sticker artwork');
   assert.ok(itemIconSVG('logs', 32).includes('assets/icons/item-logs.webp'), 'logs use the sticker artwork');
   assert.ok(itemIconSVG('raw_arowana', 24).includes('assets/icons/item-raw_arowana.webp'));
@@ -259,17 +258,10 @@ test('every item has A-Worthy sticker artwork, ahead of any older painted PNG', 
   assert.ok(hasIcon('logs') && hasIcon('raw_barramundi'));
 });
 
-test('PNG_ITEMS stays in lock-step with the files under assets/items/', () => {
-  const dir = fileURLToPath(new URL('../assets/items/', import.meta.url));
-  const onDisk = new Set(readdirSync(dir).filter((f) => f.endsWith('.png')).map((f) => f.slice(0, -4)));
-  const declared = pngItems();
-  const missingFiles = [...declared].filter((id) => !onDisk.has(id));
-  const undeclared = [...onDisk].filter((id) => !declared.has(id));
-  assert.deepEqual(missingFiles, [], `declared in PNG_ITEMS but no file: ${missingFiles.join(', ')}`);
-  assert.deepEqual(undeclared, [], `file on disk but not in PNG_ITEMS: ${undeclared.join(', ')}`);
-  // Every painted id (bar the currency) must be a real game item.
-  const orphans = [...declared].filter((id) => id !== 'coins' && !ITEMS[id]);
-  assert.deepEqual(orphans, [], `painted ids with no item: ${orphans.join(', ')}`);
+test('the old PNG item sprites are gone: every item uses its sticker art', () => {
+  // assets/items/*.png were superseded by assets/icons/item-*.webp (checked
+  // above) and never loaded any more, so they were removed.
+  assert.equal(existsSync(fileURLToPath(new URL('../assets/items/', import.meta.url))), false);
 });
 
 test('new content: capes, granite maul and cooking herbs are wired up & sourced', async () => {
