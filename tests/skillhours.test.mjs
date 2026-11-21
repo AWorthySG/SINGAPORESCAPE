@@ -58,3 +58,24 @@ test('golden hours only redraw the Skills tab when the set of skills changes, no
   at(10.05); g._checkGoldenHours();
   assert.ok(n >= 1, 'a window closing redraws');
 });
+
+test('golden hours opening a few ticks apart each get a short chat line but share one banner', () => {
+  GOLDEN.on = true;
+  globalThis.localStorage = fakeStorage(); clearSave();
+  const g = new Game(); g.start(); g.chooseClass('swordsman');
+  g.ui = new Proxy({}, { get: () => () => {} });
+  const msgs = [], banners = [];
+  const m0 = g.msg.bind(g); g.msg = (t, c) => { msgs.push(t); return m0(t, c); };
+  g.banner = (h) => banners.push(h);
+  // Two skills whose windows open at different hours, both open at the later one.
+  const starts = [...new Set(Object.values(SKILL_HOURS).map((w) => w.from))].sort((a, b) => a - b);
+  const [h1, h2] = [starts[0], starts.find((h) => h > starts[0] && h - starts[0] < 6)];
+  assert.ok(h2 !== undefined, 'two openings close together');
+  const at = (hour) => { g.playMs = Math.round((hour / 24) * DAY_CYCLE_MS); };
+  g.tickCount = 1000; at(h1 - 0.05); g._checkGoldenHours(); at(h1 + 0.05); g._checkGoldenHours();
+  g.tickCount = 1010; at(h2 - 0.05); g._checkGoldenHours(); at(h2 + 0.05); g._checkGoldenHours();
+  const lines = msgs.filter((t) => t.startsWith('Golden hours:'));
+  assert.equal(lines.length, 2, 'a line for each opening');
+  assert.ok(lines.every((t) => /\+50% XP for half a day \(/.test(t) && !/twelve hours/.test(t)), 'the short wording');
+  assert.equal(banners.length, 1, 'one banner for the burst');
+});

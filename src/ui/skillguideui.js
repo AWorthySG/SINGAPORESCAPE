@@ -20,7 +20,7 @@ import { getItem, ITEMS } from '../data/items.js';
 import { getNpc } from '../data/npcs.js';
 import { SKILLS } from '../data/skills.js';
 import { OBJECTS } from '../data/objects.js';
-import { formatNumber } from '../core/utils.js';
+import { formatNumber, AOrAn } from '../core/utils.js';
 import { XP_RATE } from '../config.js';
 import { itemIconSVG, skillIconSVG, playIconHTML } from '../render/icons.js';
 import { chanceText, codexHabitats } from '../game/codex.js';
@@ -109,7 +109,7 @@ function recipeRowHTML(game, r, { showSkill = false } = {}) {
   const facts = [showSkill && `${skillName(r.skill)} ${r.level}`, recipeKindTitle(r.kind) !== skillName(r.skill) && recipeKindTitle(r.kind),
     r.stations.length ? `at ${r.stations.map((o) => aOrAn(OBJECTS[o]?.name.toLowerCase() || o)).join(' or ')}` : '', r.tool && `needs ${TOOL_NAMES[r.tool]}`, r.note].filter(Boolean).join(' · ');
   return `<div class="sg-row sgx-row${c.levelOk ? '' : ' locked'}"><span class="sg-lvl">${r.level}</span>`
-    + `<span class="sg-text sgx-text"><span class="sgx-out">${out}${xpBadge(realXp(game, r.skill, r.xp))}${status}</span><span>${esc(facts)}</span>`
+    + `<span class="sg-text sgx-text"><span class="sgx-out">${out}${r.harvestXp ? `<span class="sgx-xp" title="Experience for planting, then for each crop you pick">+${formatNumber(Math.round(realXp(game, r.skill, r.xp)))} xp to plant · +${formatNumber(Math.round(realXp(game, r.skill, r.harvestXp)))} each picked</span>` : xpBadge(realXp(game, r.skill, r.xp))}${status}</span><span>${esc(facts)}</span>`
     + `<span class="sgx-ins">${r.kind === 'farm' || r.kind === 'burn' || r.kind === 'bury' ? '' : '<small>From</small>'}${ins}</span></span></div>`;
 }
 
@@ -300,7 +300,7 @@ export function itemPageHTML(game, id, st = {}) {
   for (const s of by('raredrop')) misc.push(`The rare drop table: a small chance on any kill (${chanceText(s.chance)} of its rolls)`);
   for (const s of by('shop')) misc.push(`Bought at ${esc(s.name)} for ${formatNumber(s.price)} coins`);
   for (const s of by('nest')) misc.push(`A bird's nest from Woodcutting (${chanceText(s.chance)} of nests)`);
-  for (const s of by('casket')) misc.push(`A ${esc(s.tier)} clue's reward casket (${chanceText(s.chance)} a roll)`);
+  for (const s of by('casket')) misc.push(`${AOrAn(esc(s.tier))} clue's reward casket (${chanceText(s.chance)} a roll)`);
   for (const s of by('cull')) misc.push(`Now and then from culling harmless ${esc(s.from.join(', ').replace(/_/g, ' '))}`);
   for (const s of by('token')) misc.push(`Pest Control token shop: ${s.qty} for ${s.cost} tokens`);
   for (const s of by('slayer')) misc.push(`Slayer rewards: ${formatNumber(s.qty)} for ${s.cost} points`);

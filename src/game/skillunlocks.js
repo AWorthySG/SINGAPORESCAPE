@@ -14,6 +14,7 @@ import { SKILL_BY_ID } from '../data/skills.js';
 import { getItem } from '../data/items.js';
 import { playIconHTML } from '../render/icons.js';
 
+import { aOrAn } from '../core/utils.js';
 const skillName = (s) => SKILL_BY_ID[s]?.name || s;
 
 /** Unlock dice: xorshift on a seed kept on the game. */
@@ -90,7 +91,7 @@ export function teleportPlayer(game, x, y, text) {
 /** Teleport to a skill's training area (an unlock at level 50 for most skills). */
 export function skillTeleport(game, skill) {
   const st = STATION_BY_ID[skillTeleportOf(game, skill)];
-  if (!st) { game.msg(`You haven't unlocked a ${skillName(skill)} teleport yet.`); return false; }
+  if (!st) { game.msg(`You haven't unlocked ${aOrAn(skillName(skill))} teleport yet.`); return false; }
   if (!game.player.alive || game.waves?.active) { game.msg("You can't teleport right now."); return false; }
   const wait = skillTeleportWait(game);
   if (wait > 0) { game.msg(`Your skill teleports need ${Math.ceil(wait * 0.6)}s more to recharge.`); return false; }

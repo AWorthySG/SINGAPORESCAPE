@@ -7,6 +7,7 @@
 import './seed.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import { Game } from '../src/game/game.js';
 import { clearSave } from '../src/game/save.js';
@@ -231,4 +232,16 @@ test('the Woodcutting and Fishing lists show the real XP each log or fish gives'
   assert.ok(fish.includes(`+${Math.round(realXp(g, 'fishing', anchovy.xp)).toLocaleString('en-US')} xp each`), 'a fish row shows its XP');
   assert.equal((fish.match(/class="sgx-xp"/g) || []).length, (fish.match(/class="sg-row sgx-row/g) || []).length, 'every fish row has a badge');
   assert.ok(!/at a [aeiou]/.test(fish), '"an anchovy shoal", not "a anchovy shoal"');
+});
+
+test('farming rows show the real XP to plant and for each crop picked', () => {
+  const g = newGame();
+  const html = skillListHTML(g, 'farming', {}).html;
+  assert.match(html, /\+[\d,]+ xp to plant · \+[\d,]+ each picked/);
+  assert.ok(!/\d xp each<\/span>/.test(html.replace(/class="sgx-xp"[^>]*>[^<]*<\/span>/g, '')), 'no raw "xp each" note left');
+});
+
+test('a locked action-bar slot says on hover what level unlocks it', () => {
+  const src = readFileSync(new URL('../src/ui/ui.js', import.meta.url), 'utf8');
+  assert.match(src, /Unlocks at combat level \$\{ab\.unlock\}/);
 });

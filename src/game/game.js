@@ -12,7 +12,7 @@ import { MAX_REFINE, SCROLL as REFINE_SCROLL, refineCost, rollRefine, refineTag,
 import { materialKind, materialPoints, feedKind, feedXp, FEED_CAP, FEED_CAP_RANK } from './materials.js';
 import { Shrine, SHRINE_TRACKS, trackText, maxAffordable } from './shrine.js';
 import { getItem, ITEMS, MELEE_REACH, accessoriesFor } from '../data/items.js';
-import { chebyshev, randInt, weightedPick, capitalize, damageNumber } from '../core/utils.js';
+import { chebyshev, randInt, weightedPick, capitalize, damageNumber, aOrAn, AOrAn } from '../core/utils.js';
 import {
   TILE, TICK_MS, COMBAT_BEAT_MS, RESPAWN_TICKS, AUTOSAVE_TICKS, DAY_CYCLE_MS,
   XP_RATE, COMBAT_XP_RATE, LEARNING_ENABLED, AGGRO_FORGET_TILES,
@@ -94,6 +94,8 @@ import { Teleports } from './teleports.js';   // the Town and Grave teleports
 import { Discovery } from './discovery.js';   // encyclopedia discoveries and their rewards
 import * as Rounds from './rounds.js';   // gun rounds and the ammo slot
 import { bestTool, toolSpeed } from './tools.js';   // tiered gathering tools
+
+const GOLDEN_BANNER_GAP = 50;   // ticks (30s): golden hours opening within this share one banner
 
 // Auto quest: the dialogue actions that start and hand in each quest it can
 // do ([start, hand-in]; Pest Control completes itself on the last rat). The
@@ -722,7 +724,7 @@ export class Game {
       this._bankNinjaShield();
       this._giveBowQuiver();
       Rounds.grantStarterRounds(this);
-      this.msg(`You are now a ${cls.name}. Only ${WEAPON_TYPE_NAMES[cls.weapon]} and ${WEAPON_TYPE_NAMES[SECONDARY_WEAPON[classId]]} can be wielded, and the choice is permanent.`, 'level');
+      this.msg(`You are now ${aOrAn(cls.name)}. Only ${WEAPON_TYPE_NAMES[cls.weapon]} and ${WEAPON_TYPE_NAMES[SECONDARY_WEAPON[classId]]} can be wielded, and the choice is permanent.`, 'level');
       this.msg(`${cls.name} perk: ${classPerks(classId)[0].text} (see Class perks in the Combat tab)`, 'system');
       this.bus.emit('inventory'); this.bus.emit('equipment');
       return;
@@ -772,7 +774,7 @@ export class Game {
       this.equipment.set('body', ARMOUR_FAMILY[classId] === 'plate' ? 'bronze_chainbody' : 'leather_body');
     }
     this.player.hp = this.maxHp();
-    this.msg(`You are a ${cls.name}: you fight with ${WEAPON_TYPE_NAMES[cls.weapon]} (or ${WEAPON_TYPE_NAMES[SECONDARY_WEAPON[classId]]}). Talk to the Kampong Guide for tips.`, 'system');
+    this.msg(`You are ${aOrAn(cls.name)}: you fight with ${WEAPON_TYPE_NAMES[cls.weapon]} (or ${WEAPON_TYPE_NAMES[SECONDARY_WEAPON[classId]]}). Talk to the Kampong Guide for tips.`, 'system');
     this.msg(`${cls.name} perk: ${classPerks(classId)[0].text} (see Class perks in the Combat tab)`, 'system');
     this.bus.emit('inventory'); this.bus.emit('equipment'); this.bus.emit('hp');
   }
@@ -2053,7 +2055,7 @@ export class Game {
     if (!this.abilityUnlocked(ab)) { this.msg(`${ab.name} unlocks at combat level ${ab.unlock}.`, 'system'); return; }
     if ((this.abilityCd[id] || 0) > 0) { this.msg(`${ab.name} is on cooldown.`, 'system'); return; }
     if (!this.canAffordAbility(ab)) { this.msg(`You need ${this.abilityCostText(ab)} for ${ab.name}.`, 'system'); return; }
-    if (ab.cls && ab.cls !== this.jobClass) { this.msg(`${ab.name} is a ${CLASS_BY_ID[ab.cls]?.name || ab.cls} ability.`, 'system'); return; }
+    if (ab.cls && ab.cls !== this.jobClass) { this.msg(`${ab.name} is ${aOrAn(CLASS_BY_ID[ab.cls]?.name || ab.cls)} ability.`, 'system'); return; }
     if (ab.mode && ab.mode !== this.combatMode()) {
       const need = { melee: 'a melee weapon', ranged: 'a bow', magic: 'a staff' }[ab.mode];
       this.msg(`${ab.name} needs ${need} equipped.`, 'system');
@@ -3789,8 +3791,14 @@ export class Game {
     if (changed && !opened.length) this.bus.emit('skills');
     if (!opened.length) return;
     const names = opened.map((s) => SKILL_BY_ID[s]?.name || s).join(' and ');
-    this.msg(`Golden hours: ${names} XP +${Math.round((GOLDEN_HOUR_XP - 1) * 100)}% for the next twelve hours of the day (${opened.map((s) => SKILL_HOURS[s].why).join('; ')}).`, 'level');
-    this.banner(`<span class="big">Golden hours</span>${names} XP +${Math.round((GOLDEN_HOUR_XP - 1) * 100)}%`);
+    const pct = Math.round((GOLDEN_HOUR_XP - 1) * 100);
+    this.msg(`Golden hours: ${names} +${pct}% XP for half a day (${opened.map((s) => SKILL_HOURS[s].why).join('; ')}).`, 'level');
+    // Several skills can open a few ticks apart: one banner for the burst.
+    const t = this.tickCount || 0;
+    if (!(t - (this._goldenBannerAt ?? -Infinity) < GOLDEN_BANNER_GAP)) {
+      this._goldenBannerAt = t;
+      this.banner(`<span class="big">Golden hours</span>${names} +${pct}% XP`);
+    }
     this.bus.emit('skills');
   }
   /** Flavour clock text, e.g. "11:42 PM" — purely cosmetic. */
@@ -3973,7 +3981,7 @@ export class Game {
   /** A quality drop is named in its colour (a banner from Legendary up). */
   _announceQuality(id, q) {
     const Q = QUALITY[q];
-    this.msg(`${qualityName(id, q)}! A ${Q.label} copy: +${Math.round(Q.gain * 100)}% to its stats.`, `qual-${q}`);
+    this.msg(`${qualityName(id, q)}! ${AOrAn(Q.label)} copy: +${Math.round(Q.gain * 100)}% to its stats.`, `qual-${q}`);
     if (Q.step >= QUALITY.legendary.step) this.banner(`<span class="big">${Q.label} drop!</span>${getItem(id).name}`);
   }
 
@@ -5912,7 +5920,7 @@ export class Game {
     const tier = getItem(w).equip.grip?.tier || 'bronze';
     const q = ITEMS[`${tier}_quiver`] ? `${tier}_quiver` : 'bronze_quiver';
     this.equipment.set('shield', q);
-    this.msg(`Bows now take a real quiver in the off-hand: you sling on a ${getItem(q).name.toLowerCase()}.`, 'level');
+    this.msg(`Bows now take a real quiver in the off-hand: you sling on ${aOrAn(getItem(q).name.toLowerCase())}.`, 'level');
   }
 
   /** Take off the shield (a two-handed weapon is in hand) and put it in the pack. */
@@ -6031,7 +6039,7 @@ export class Game {
       else if (eq?.family && !canWear(cls.id, id)) give = equivalentArmour(id, ARMOUR_FAMILY[cls.id]);
     }
     this.inventory.add(give, 1);
-    if (give !== id) this.msg(`Your reward is made for a ${cls.name}: ${getItem(give).name}.`, 'level');
+    if (give !== id) this.msg(`Your reward is made for ${aOrAn(cls.name)}: ${getItem(give).name}.`, 'level');
     if (xpSkill && xp) {
       const style = cls?.style;
       const skill = !cls ? xpSkill : style === 'ranged' ? 'ranged' : style === 'magic' ? 'magic' : style === 'dance' ? 'agility' : (xpSkill === 'magic' || xpSkill === 'ranged' ? 'attack' : xpSkill);
@@ -6058,7 +6066,7 @@ export class Game {
     // Job classes: only your class's weapon type can be wielded (tools are fine).
     const cls = this.jobClass && CLASS_BY_ID[this.jobClass];
     if (cls && eq.weaponType && !canWield(cls.id, eq.weaponType)) {
-      this.msg(`Only a ${CLASS_FOR_TYPE(eq.weaponType)} can wield ${WEAPON_TYPE_NAMES[eq.weaponType]}. You are a ${cls.name}: you fight with ${WEAPON_TYPE_NAMES[cls.weapon]} and ${WEAPON_TYPE_NAMES[SECONDARY_WEAPON[cls.id]]}.`);
+      this.msg(`Only ${aOrAn(CLASS_FOR_TYPE(eq.weaponType))} can wield ${WEAPON_TYPE_NAMES[eq.weaponType]}. You are ${aOrAn(cls.name)}: you fight with ${WEAPON_TYPE_NAMES[cls.weapon]} and ${WEAPON_TYPE_NAMES[SECONDARY_WEAPON[cls.id]]}.`);
       return;
     }
     // Ninjas hold a shuriken in each hand, never a shield.
@@ -6066,7 +6074,7 @@ export class Game {
     // ...and only your class's kind of helm, body and legs armour.
     if (cls && !canWear(cls.id, s.id)) {
       const mine = ARMOUR_FAMILIES[ARMOUR_FAMILY[cls.id]];
-      this.msg(`That's ${ARMOUR_FAMILIES[eq.family].name.toLowerCase()} armour. A ${cls.name} wears ${mine.name.toLowerCase()}: ${mine.desc}`);
+      this.msg(`That's ${ARMOUR_FAMILIES[eq.family].name.toLowerCase()} armour. ${AOrAn(cls.name)} wears ${mine.name.toLowerCase()}: ${mine.desc}`);
       return;
     }
     // A dagger goes in the off-hand when asked, or by default when you already
@@ -6139,7 +6147,7 @@ export class Game {
   /** The off-hand copy can only be worked on while the pair is worn. */
   _offCopyOk(id, copy) {
     if (copy !== 'off' || this.equipment.twinWorn(id)) return true;
-    this.msg(`Wield a ${getItem(id).name.toLowerCase()} in each hand to upgrade the off-hand one.`);
+    this.msg(`Wield ${aOrAn(getItem(id).name.toLowerCase())} in each hand to upgrade the off-hand one.`);
     return false;
   }
 
@@ -6515,7 +6523,7 @@ export class Game {
     obj.crop = null; obj.growLeft = 0;
     this.spawnSparkle({ x: obj.x, y: obj.y }, c.color, 10);
     this.msg(`You harvest ${n} ${c.name.toLowerCase()}.`);
-    if (Math.random() < 0.25) { this.inventory.add(c.seed, 1); this.msg(`You save a ${c.name.toLowerCase()} seed for next time.`); }
+    if (Math.random() < 0.25) { this.inventory.add(c.seed, 1); this.msg(`You save ${aOrAn(c.name.toLowerCase())} seed for next time.`); }
     this.bus.emit('sfx', 'pickup');
     return true;
   }
