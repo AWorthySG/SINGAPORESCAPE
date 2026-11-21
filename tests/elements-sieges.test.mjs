@@ -66,8 +66,8 @@ test('boss life: well under x1 for the first bosses, a siege of about x9 from le
 test('a solo fight against a level-matched boss takes 3-4 minutes, mechanics and all, at every level', () => {
   // Real fights (tools/balance/bossfight.mjs): auto battle against the boss nearest
   // your fight level, its mechanic, signature move and ground attacks live. Before:
-  // 6-18 minutes below level 200 (and never over against a shield it couldn't
-  // break), 4-9 minutes above.
+  // 6-18 minutes below level 200 (and never over against a style shield it
+  // couldn't break, before boss shields were taken out), 4-9 minutes above.
   const times = [];
   for (const [cls, L] of [['swordsman', 100], ['wizard', 100], ['swordsman', 300], ['wizard', 300], ['archer', 300], ['swordsman', 1000], ['wizard', 1000]]) {
     const id = bossesNear(setupClass(cls, L).fightLevel())[0];
@@ -83,12 +83,14 @@ test('a solo fight against a level-matched boss takes 3-4 minutes, mechanics and
   assert.ok(med > 120 && med < 330, `median ${med.toFixed(0)} s`);
 });
 
-test('a style shield of another style no longer stops a one-style class: it breaks it and wins in a few minutes', () => {
+test('a boss that once raised a style shield no longer stalls a one-style class: it wins in a few minutes', () => {
   // Before: a Swordsman couldn't crack Toman's ranged shield in time, the boss
-  // mended 5% a time and the fight never ended (auto battle wandered off).
+  // mended 5% a time and the fight never ended (auto battle wandered off). Boss
+  // shields are gone now (Toman calls a safe circle instead); the fight stays short.
   const r = bossFight('swordsman', 85, 'toman_tyrant', { maxTicks: 1000 });
   assert.ok(r.killed && !r.died, 'beaten');
-  assert.ok(r.secs < 420 && r.mechShare < 0.35, `${r.secs.toFixed(0)} s, ${(r.mechShare * 100).toFixed(0)}% under the shield`);
+  assert.equal(r.mechanic, 'circle');
+  assert.ok(r.secs < 420 && r.mechShare < 0.35, `${r.secs.toFixed(0)} s, ${(r.mechShare * 100).toFixed(0)}% under a mechanic`);
 });
 
 test('a boss\'s reflect burns back at most a tenth of your life a tick, however many arrows you loose', () => {

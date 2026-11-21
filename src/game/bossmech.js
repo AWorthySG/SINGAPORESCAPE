@@ -2,12 +2,11 @@
 // src/data/bossMechanics.js for who does what). Kept out of game.js: the game
 // calls in from a handful of one-line hooks:
 //   doTick            -> tickBossMechanics      start, run and clean up
-//   _applyPlayerHit   -> mechOnPlayerHit         shields soak hits, exposed bosses take more
 //   abilities / specs -> mechAbilityUsed         interrupts a cast
 //   auto battle       -> mechAutoFight           turn on healers, interrupt casts
 //   hazards           -> inHazard                the safe circle's hole in the red
 // Nothing here is saved: a mechanic only lives as long as the fight.
-import { BOSS_MECHANICS, MECH_STYLES } from '../data/bossMechanics.js';
+import { BOSS_MECHANICS } from '../data/bossMechanics.js';
 import { chebyshev } from '../core/utils.js';
 import { TICK_MS } from '../config.js';
 
@@ -15,19 +14,6 @@ export const MECH_FIRST_TICKS = 10;   // ~6s into a fight before the first one
 export const MECH_EVERY_TICKS = 26;   // then one every ~15s (counted from when the last one ends)
 export const MECH_RANGE = 10;         // the boss must be fighting you within this many tiles
 export const MECH_LEAVE = 15;         // walk further than this and it's called off
-// Style shield. Sized for a fight of about 4 minutes (a boss's whole life in
-// ~240s of hitting): the right style breaks it in ~3s, any other style in ~4s,
-// inside its ~12s. It used to be 4% of the boss's life, a quarter for the wrong
-// style and a 5% mend when it burst: a class with one style (most of them) could
-// never break a shield of another, so the boss mended faster than it was hurt
-// and the fight never ended (measured headlessly, see tests/elements-sieges.test.mjs).
-export const SHIELD_TICKS = 20;       // ~12s to break it
-export const SHIELD_POOL = 0.01;      // of the boss's life
-export const SHIELD_WRONG = 0.6;      // what a hit of the wrong style does to it
-export const SHIELD_BURST = 0.25;     // of your life when it bursts unbroken
-export const SHIELD_MEND = 0.02;      // and the boss mends this much
-export const EXPOSED_TICKS = 6;       // broken: the boss takes extra damage for ~3.6s
-export const EXPOSED_MULT = 1.5;
 // Safe circle.
 export const CIRCLE_TICKS = 5;        // ~3s to get into the green
 export const CIRCLE_R = 6;            // the red covers 13x13 tiles round you
@@ -109,16 +95,6 @@ export function clearMechanic(game, n, why = 'done') {
 
 // ---------------- Starting each kind ----------------
 const START = {
-  shield(game, n, md) {
-    const style = md.styles[(n._mechN || 0) % md.styles.length];
-    const st = MECH_STYLES[style];
-    const pool = Math.max(1, Math.round(n.maxHp * SHIELD_POOL));
-    game.addHitsplat(n, 0, { text: `${st.label} shield!` });
-    game.spawnSparkle(n, st.color, 16);
-    msg(game, `${n.name} raises its ${md.name}, a ${st.name} shield! Only ${st.name} attacks break it quickly.`);
-    if (game.combatMode() !== style) msg(game, `Switch to ${st.name} (${st.how}) to break it, or it bursts in your face.`);
-    return { style, hp: pool, max: pool, until: game.tickCount + SHIELD_TICKS };
-  },
   circle(game, n, md) {
     const at = game.playerTile();
     const safe = safeSpot(game, at, n);
@@ -181,18 +157,6 @@ function safeSpot(game, at, boss) {
 
 // ---------------- Each tick of a mechanic ----------------
 const STEP = {
-  shield(game, n, m) {
-    if (game.tickCount < m.until) return;
-    // Left standing: it bursts.
-    const st = MECH_STYLES[m.style];
-    hurtPlayer(game, n, SHIELD_BURST, st.color);
-    const mend = Math.round(n.maxHp * SHIELD_MEND);
-    n.hp = Math.min(n.maxHp, n.hp + mend);
-    game.addHitsplat(n, 0, { text: 'Shield bursts!' });
-    game.spawnSparkle(n, '#5fe08a', 10);
-    msg(game, `${n.name}'s ${m.md.name} bursts, and it mends itself!`);
-    clearMechanic(game, n);
-  },
   circle(game, n, m) {
     if (game.tickCount >= m.until) clearMechanic(game, n);   // the hazard itself hit or missed you
   },
@@ -249,33 +213,6 @@ function hurtPlayer(game, n, frac, color) {
 }
 
 // ---------------- Hooks the game calls ----------------
-/** A hit of yours is about to land on `npc`: a style shield soaks it (the
- *  right style cracks it much faster) and an exposed boss takes extra. */
-export function mechOnPlayerHit(game, npc, dmg) {
-  if (dmg <= 0) return dmg;
-  if (npc.mechExposed > game.tickCount) dmg = Math.round(dmg * EXPOSED_MULT);
-  const m = npc.mech;
-  if (!m || m.type !== 'shield') return dmg;
-  const right = game.combatMode() === m.style;
-  m.hp -= right ? dmg : dmg * SHIELD_WRONG;
-  if (m.hp > 0) {
-    if (!right && !m.saidWrong) { m.saidWrong = true; game.addHitsplat(npc, 0, { text: 'Resisted!' }); }
-    return 0;
-  }
-  // Broken: the boss is left exposed.
-  npc.mechExposed = game.tickCount + EXPOSED_TICKS;
-  game.addHitsplat(npc, 0, { text: 'Shield broken!' });
-  game.spawnSparkle(npc, MECH_STYLES[m.style].color, 18);
-  game._gainAdrenaline?.(15);
-  game.bus.emit('sfx', 'spec');
-  msg(game, `You shatter ${npc.name}'s ${m.md.name}! It is exposed.`);
-  clearMechanic(game, npc);
-  return 0;
-}
-
-/** A style shield's colour (its badge, and the numbers of the blows it soaks). */
-export const mechStyleColour = (style) => MECH_STYLES[style]?.color;
-
 /** You used a skill or a special attack: it interrupts a boss's cast. */
 export function mechAbilityUsed(game) {
   const p = game.player;
@@ -299,7 +236,7 @@ export function mechAutoFight(game, tgt, fight) {
   const boss = tgt.mechHealer || tgt;
   const m = boss.mech;
   if (!m) return null;
-  if (fight) fight.since = game.tickCount;   // a shield or healers aren't a stalled fight
+  if (fight) fight.since = game.tickCount;   // healers or a cast aren't a stalled fight
   // A skill that goes off at once (a guard, heal or buff, or an instant strike)
   // interrupts straight away; an armed strike only when its hit lands.
   if (m.type === 'cast' && game.autoCfg?.abilities !== false && !game.armedAbility) {
@@ -319,10 +256,6 @@ export function mechLabel(game, boss) {
   if (!m) return '';
   const left = Math.max(0, Math.ceil((m.until - game.tickCount) * TICK_MS / 1000));
   switch (m.type) {
-    case 'shield': {
-      const st = MECH_STYLES[m.style];
-      return `🛡 ${st.label} shield (${Math.max(0, Math.ceil(m.hp / m.max * 100))}%): hit it with ${st.name}! ${left}s`;
-    }
     case 'circle': return '◎ Get into the green circle!';
     case 'adds': return `✚ Kill the healers! (${m.adds.filter((a) => a.alive && a.hp > 0).length} left)`;
     case 'cast': return `⏳ ${m.md.name}: use a skill to interrupt! ${left}s`;

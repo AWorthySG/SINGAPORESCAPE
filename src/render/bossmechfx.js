@@ -1,7 +1,6 @@
-// Drawing for boss mechanics (src/game/bossmech.js): the style shield bubble
-// and its badge, the cast bar, the healers' green beam and the safe circle.
+// Drawing for boss mechanics (src/game/bossmech.js): the cast bar, the
+// healers' green beam and the safe circle.
 // Simple procedural shapes in the sticker palette: no new art needed.
-import { MECH_STYLES } from '../data/bossMechanics.js';
 
 const INK = '#22304A';
 
@@ -10,41 +9,7 @@ export function drawBossMech(ctx, n, cx, cy, sc, timeMs, ox, oy) {
   const m = n.mech;
   if (n.mechHealer && n.mechHealer.alive) drawBeam(ctx, n, cx, cy, ox, oy, timeMs);
   if (!m) return;
-  if (m.type === 'shield') drawShield(ctx, m, cx, cy - 6 * sc, 26 * sc, timeMs);
-  else if (m.type === 'cast') drawCastBar(ctx, m, cx, cy - 34 * sc - 10);
-}
-
-function drawShield(ctx, m, cx, cy, R, timeMs) {
-  const st = MECH_STYLES[m.style];
-  const k = Math.max(0, m.hp / m.max);
-  ctx.save();
-  ctx.globalAlpha = 0.22 + k * 0.14 + Math.sin(timeMs * 0.008) * 0.04;
-  ctx.fillStyle = st.color;
-  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
-  ctx.globalAlpha = 0.95; ctx.lineWidth = 3; ctx.strokeStyle = st.color;
-  // The rim wears away as the shield cracks.
-  ctx.beginPath(); ctx.arc(cx, cy, R, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k); ctx.stroke();
-  // The badge: which style breaks it.
-  const bx = cx + R * 0.72, by = cy - R * 0.72;
-  ctx.fillStyle = '#fff'; ctx.strokeStyle = INK; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.arc(bx, by, 10, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  ctx.strokeStyle = st.color; ctx.fillStyle = st.color; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
-  ctx.beginPath();
-  if (m.style === 'melee') {          // a sword
-    ctx.moveTo(bx - 5, by + 5); ctx.lineTo(bx + 5, by - 5);
-    ctx.moveTo(bx - 4, by); ctx.lineTo(bx, by + 4);
-  } else if (m.style === 'ranged') {  // a bow and arrow
-    ctx.arc(bx - 2, by, 6, -Math.PI / 2.4, Math.PI / 2.4);
-    ctx.moveTo(bx - 4, by); ctx.lineTo(bx + 6, by);
-  } else {                            // a magic star
-    for (let i = 0; i < 8; i++) {
-      const a = i / 8 * Math.PI * 2, r = i % 2 ? 2.4 : 6.5;
-      ctx[i ? 'lineTo' : 'moveTo'](bx + Math.cos(a) * r, by + Math.sin(a) * r);
-    }
-    ctx.closePath(); ctx.fill();
-  }
-  ctx.stroke();
-  ctx.restore();
+  if (m.type === 'cast') drawCastBar(ctx, m, cx, cy - 34 * sc - 10);
 }
 
 function drawCastBar(ctx, m, cx, y) {

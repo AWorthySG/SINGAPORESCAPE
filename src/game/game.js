@@ -63,7 +63,7 @@ import { getShop } from '../data/shops.js';
 import { RARE_DROP_TABLE, getNpc, ALL_BOSS_IDS, ALL_MONSTER_IDS } from '../data/npcs.js';
 import { MORAL_EVENTS, MORAL_BY_ID, moralCoins, BLESS_MS, BLESS_XP } from '../data/moralEvents.js';
 import { alignmentTier, alignmentStyle, greetingFor } from '../data/alignment.js';
-import { tickBossMechanics, mechOnPlayerHit, mechAbilityUsed, mechAutoFight, inHazard, mechStyleColour } from './bossmech.js';
+import { tickBossMechanics, mechAbilityUsed, mechAutoFight, inHazard } from './bossmech.js';
 import { SIGNATURE_DROP_CHANCE, SIGNATURE_CLASS, sigIdFor } from '../data/bossWeapons.js';
 import { nextJob, jobKey, makeBatch, batched } from './autoprocess.js';
 import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
@@ -578,7 +578,7 @@ export class Game {
     this.danceRhythm = 0;         // Dancer Rhythm stacks (more whip damage per landed lash)
     this.playerDot = null;        // boss damage-over-time on the player: { kind, dmg, ticks, from }
     this.playerRoot = 0;          // ticks the player can't move (webs, roots, coils)
-    this._buffedBosses = new Set(); // bosses with a shield or reflect running
+    this._buffedBosses = new Set(); // bosses with a reflect running
     this._danceHitTick = 0;
 
     // Celebratory sparkle on level up; new milestones may unlock on level/quest changes.
@@ -947,7 +947,7 @@ export class Game {
     entity._splatRow = entity._splatRow ? 0 : 1;
     const mine = this.effects.filter((e) => e.type === 'hitsplat' && e.entity === entity);
     if (mine.length >= SPLAT_MAX_PER) for (const e of mine.slice(0, mine.length - SPLAT_MAX_PER + 1)) e.life = Math.min(e.life, 120);
-    const fx = { type: 'hitsplat', entity, dmg, crit: !!opts.crit, critX: opts.critX || 0, text: opts.text, tint: opts.tint, aoe: !!opts.aoe, weak: !!opts.weak, shield: !!opts.shield, life: opts.critX ? 1000 : 800, fan: (entity._splatN - 2) * 0.8, row: entity._splatRow };
+    const fx = { type: 'hitsplat', entity, dmg, crit: !!opts.crit, critX: opts.critX || 0, text: opts.text, tint: opts.tint, aoe: !!opts.aoe, weak: !!opts.weak, life: opts.critX ? 1000 : 800, fan: (entity._splatN - 2) * 0.8, row: entity._splatRow };
     fx.maxLife = fx.life;
     entity._lastSplat = fx;
     this.effects.push(fx);
@@ -2427,12 +2427,6 @@ export class Game {
     }
     const wasCrit = this._pendingCrit > 0 && dmg > 0;
     this._pendingCrit = 0;
-    if (npc.shieldTicks > 0 && dmg > 0) dmg = Math.max(1, Math.floor(dmg / 2));   // a boss shield halves the blow
-    // A style shield soaks the whole blow until it breaks. The blow still lands
-    // (the player never misses): its number shows in the shield's colour with a
-    // "shield" tag, where it used to show the miss puff, which read as a miss.
-    const shield = dmg > 0 && npc.mech?.type === 'shield' ? npc.mech.style : null, blow = dmg;
-    dmg = mechOnPlayerHit(this, npc, dmg);   // a style shield soaks it; an exposed boss takes more
     // At most a tenth of your life a tick in all, not a tenth a hit: an Archer's
     // volley (a dozen arrows a tick) was burnt back a dozen times and died from full life.
     if (npc.reflectTicks > 0 && this._reflectTick !== this.tickCount) { this._reflectTick = this.tickCount; this._reflectLeft = Math.ceil(this.maxHp() * 0.1); }
@@ -2464,8 +2458,7 @@ export class Game {
     const rm = dmg > 0 && !opts.tint ? this.raceMatchup(npc) : null;
     if (rm) opts = { ...opts, tint: rm === 'strong' ? '#f5b82e' : '#9aa3b2' };
     if (dmg > 0 && !opts.aoe && this._hitMode && weaknessOf(npc.def) === this._hitMode) opts = { ...opts, weak: true };   // a "weak!" tag on the number
-    if (shield && !(dmg > 0)) opts = { noMerge: opts.noMerge, tint: mechStyleColour(shield), shield: true };
-    this.addHitsplat(npc, dmg > 0 || !shield ? dmg : blow, opts);
+    this.addHitsplat(npc, dmg, opts);
     if (dmg > 0) {
       this.bus.emit('sfx', 'hit'); this._hitAdrenaline(wasCrit);
       // A running average of your landed hits, so auto battle can tell when a
@@ -4689,7 +4682,7 @@ export class Game {
           break;
         }
         case 'heal': if (npc.healCapped(npc.maxHp * fx.frac) > 0) this.spawnSparkle(npc, '#5fe08a', 10); break;   // capped by recent damage (see NPC.healCapped)
-        case 'shield': npc.shieldTicks = Math.max(npc.shieldTicks || 0, fx.ticks); this._buffedBosses.add(npc); break;
+        case 'shield': break;   // bosses no longer shield themselves (the owner asked for it gone)
         case 'reflect': npc.reflectTicks = Math.max(npc.reflectTicks || 0, fx.ticks); npc.reflectFrac = fx.frac; this._buffedBosses.add(npc); break;
         case 'summon': {
           const adds = this.npcs.filter((n) => n.temporary && n.alive && !n.ally).length;
@@ -4736,7 +4729,7 @@ export class Game {
     p.x = p.tx = x; p.y = p.ty = y; p.progress = 0; p.moving = false;
   }
 
-  /** Each world tick: damage over time on the player, root countdown, boss shield/reflect timers. */
+  /** Each world tick: damage over time on the player, root countdown, boss reflect timers. */
   _tickBossEffects() {
     const p = this.player;
     if (this.playerRoot > 0) this.playerRoot--;
@@ -4756,9 +4749,8 @@ export class Game {
       if (p.hp <= 0) { this.playerDot = null; this.playerDeath(); }
     } else if (d) this.playerDot = null;
     for (const n of this._buffedBosses) {
-      if (n.shieldTicks > 0) n.shieldTicks--;
       if (n.reflectTicks > 0) n.reflectTicks--;
-      if (!n.alive || (!(n.shieldTicks > 0) && !(n.reflectTicks > 0))) this._buffedBosses.delete(n);
+      if (!n.alive || !(n.reflectTicks > 0)) this._buffedBosses.delete(n);
     }
   }
 

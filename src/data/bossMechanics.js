@@ -1,23 +1,16 @@
 // Every boss has one interactive mechanic on top of its signature move and
 // ground attacks: something the player has to *do* (src/game/bossmech.js runs
-// them). Four kinds, spread across the bosses to fit each one's story:
+// them). Three kinds, spread across the bosses to fit each one's story:
 //
-//   shield  { styles }   a shield only one combat style breaks (cycles through
-//                        `styles`); its colour and badge show which
 //   circle               a huge area attack where only a green circle is safe
 //   adds    { id, n }    small healers that mend the boss until you kill them
 //   cast                 a long cast bar: any skill or special attack interrupts it
 //
 // No mechanic stuns, roots or throws you about: the owner asked for that gone.
-
-export const MECH_STYLES = {
-  melee: { name: 'melee', label: 'Melee', color: '#e04a3a', how: 'swords, axes, claws and other close-up weapons' },
-  ranged: { name: 'ranged', label: 'Ranged', color: '#3f9a3a', how: 'bows, guns and thrown weapons' },
-  magic: { name: 'magic', label: 'Magic', color: '#6a5ae8', how: 'staves and spells' },
-};
+// Nor does any boss shield itself (the old style shields soaked your blows to
+// nothing until broken): the owner asked for boss shielding gone too.
 
 export const MECH_KINDS = {
-  shield: { name: 'Style shield', icon: '🛡' },
   circle: { name: 'Safe circle', icon: '◎' },
   adds: { name: 'Healing adds', icon: '✚' },
   cast: { name: 'Interruptible cast', icon: '⏳' },
@@ -28,78 +21,78 @@ export const BOSS_MECHANICS = {
   goblin_warchief: { type: 'adds', name: 'Goblin Medics', id: 'goblin', n: 2 },
   macaque_alpha: { type: 'adds', name: 'Snack Runners', id: 'macaque', n: 2 },
   reservoir_serpent: { type: 'cast', name: 'Tidal Coil' },
-  chilli_crab: { type: 'shield', name: 'Chilli Shell', styles: ['melee'] },
+  chilli_crab: { type: 'circle', name: 'Sauce Flood' },
   spider_queen: { type: 'adds', name: 'Brood Nurses', id: 'jungle_spider', n: 2 },
-  ancient_tembusu: { type: 'shield', name: 'Ironbark', styles: ['magic'] },
+  ancient_tembusu: { type: 'cast', name: 'Ironbark Groan' },
   merlion: { type: 'circle', name: 'Great Wave' },
-  timah_drake: { type: 'shield', name: 'Granite Plates', styles: ['melee'] },
+  timah_drake: { type: 'circle', name: 'Granite Hail' },
   bandit_kingpin: { type: 'cast', name: 'Bounty Mark' },
   bone_colossus: { type: 'adds', name: 'Bone Menders', id: 'skeleton', n: 2 },
-  molten_golem: { type: 'shield', name: 'Cooling Crust', styles: ['magic'] },
+  molten_golem: { type: 'circle', name: 'Magma Eruption' },
   sentosa_kraken: { type: 'circle', name: 'Whirlpool' },
   demon_lord: { type: 'cast', name: 'Hellgate' },
   wilderness_warlord: { type: 'cast', name: 'Execution' },
   sand_scorpion_king: { type: 'circle', name: 'Sandstorm' },
-  durian_behemoth: { type: 'shield', name: 'Spiked Husk', styles: ['ranged'] },
+  durian_behemoth: { type: 'circle', name: 'Durian Rain' },
   bedok_bandit_lord: { type: 'cast', name: 'Smoke Ambush' },
   hungry_ghost_king: { type: 'adds', name: 'Offering Spirits', id: 'wraith', n: 2 },
   night_safari_tiger: { type: 'cast', name: 'Killing Leap' },
   mangrove_hydra: { type: 'adds', name: 'Regrowth Buds', id: 'swamp_slime', n: 3 },
   tualang_treant: { type: 'adds', name: 'Honey Bees', id: 'wild_hornet', n: 3 },
-  coral_leviathan: { type: 'shield', name: 'Coral Carapace', styles: ['melee'] },
+  coral_leviathan: { type: 'cast', name: 'Reef Crush' },
   the_garuda: { type: 'circle', name: 'Cyclone' },
-  rune_golem: { type: 'shield', name: 'Rune Ward', styles: ['ranged'] },
+  rune_golem: { type: 'cast', name: 'Rune Overload' },
   sentosa_megalodon: { type: 'circle', name: 'Feeding Frenzy' },
   changi_phantom: { type: 'cast', name: 'Soul Rend' },
   pulau_hantu_djinn: { type: 'adds', name: 'Wish Servants', id: 'imp', n: 2 },
   bukit_brown_revenant: { type: 'adds', name: 'Grave Keepers', id: 'pocong', n: 2 },
   dragon_kiln_wyrm: { type: 'circle', name: 'Kiln Firestorm' },
   orang_minyak: { type: 'cast', name: 'Black Oil Curse' },
-  lion_of_light: { type: 'shield', name: 'Halo of Dawn', styles: ['ranged'] },
-  shadow_sovereign: { type: 'shield', name: 'Umbral Veil', styles: ['ranged'] },
+  lion_of_light: { type: 'cast', name: 'Dawn Judgement' },
+  shadow_sovereign: { type: 'cast', name: 'Umbral Night' },
   supertree_guardian: { type: 'adds', name: 'Sunlight Fireflies', id: 'kunang_kunang', n: 3 },
   coney_behemoth: { type: 'circle', name: 'Earthquake Stampede' },
-  kusu_tortoise: { type: 'shield', name: 'Jade Shell', styles: ['magic'] },
+  kusu_tortoise: { type: 'circle', name: 'Shell Quake' },
   rift_tyrant: { type: 'cast', name: 'Rift Collapse' },
   eternal_wyrm: { type: 'circle', name: 'Sky Inferno' },
   kranji_buffalo_king: { type: 'cast', name: 'Thunder Charge' },
   punggol_lantern_spirit: { type: 'adds', name: 'Lantern Wisps', id: 'will_o_wisp', n: 3 },
   harimau_jadian: { type: 'cast', name: 'Were-Roar' },
   bunian_queen: { type: 'adds', name: 'Bunian Healers', id: 'bunian', n: 2 },
-  tuas_crane_colossus: { type: 'shield', name: 'Steel Plating', styles: ['melee'] },
+  tuas_crane_colossus: { type: 'circle', name: 'Falling Girders' },
   drowned_admiral: { type: 'circle', name: 'Full Broadside' },
   singa_of_temasek: { type: 'cast', name: 'Lion\'s Judgement' },
   spirit_of_badang: { type: 'circle', name: 'Boulder Rain' },
   celestial_garuda: { type: 'circle', name: 'Sunfall' },
-  jade_dragon: { type: 'shield', name: 'Jade Aegis', styles: ['melee', 'ranged', 'magic'] },
+  jade_dragon: { type: 'cast', name: 'Heaven\'s Verdict' },
   nian_beast: { type: 'circle', name: 'Firework Barrage' },
-  kelong_king_crab: { type: 'shield', name: 'Barnacle Shell', styles: ['melee'] },
+  kelong_king_crab: { type: 'circle', name: 'Tide Crash' },
   langsuir_matriarch: { type: 'cast', name: 'Death Wail' },
   shadow_panther: { type: 'cast', name: 'Night Strike' },
-  abyssal_oarfish: { type: 'shield', name: 'Silver Scales', styles: ['magic'] },
+  abyssal_oarfish: { type: 'cast', name: 'Abyssal Omen' },
   jenglot_sovereign: { type: 'adds', name: 'Blood Kin', id: 'jenglot', n: 2 },
-  ubin_stone_frog: { type: 'shield', name: 'Granite Hide', styles: ['magic'] },
+  ubin_stone_frog: { type: 'adds', name: 'Quarry Froglets', id: 'bullfrog', n: 2 },
   buaya_putih: { type: 'circle', name: 'Mud Flood' },
   hantu_tinggi: { type: 'cast', name: 'Looming Dread' },
-  // The bestiary expansion (bestiary.js): five of each kind.
-  toman_tyrant: { type: 'shield', name: 'Slime Scales', styles: ['ranged'] },
+  // The bestiary expansion (bestiary.js): six or seven of each kind.
+  toman_tyrant: { type: 'circle', name: 'Swamp Thrash' },
   ubin_quarry_python: { type: 'circle', name: 'Rockslide' },
   kopitiam_roach_queen: { type: 'adds', name: 'Roach Brood', id: 'kopitiam_cockroach', n: 3 },
-  bakau_mud_lobster: { type: 'shield', name: 'Mud Mound', styles: ['magic'] },
+  bakau_mud_lobster: { type: 'adds', name: 'Fiddler Diggers', id: 'fiddler_crab', n: 2 },
   strangler_fig_mother: { type: 'adds', name: 'Fig Seedlings', id: 'strangler_fig', n: 2 },
   kranji_bullfrog_emperor: { type: 'adds', name: 'Tadpole Choir', id: 'bullfrog', n: 3 },
   sea_eagle_sovereign: { type: 'circle', name: 'Shadow of Wings' },
   slag_titan: { type: 'cast', name: 'Furnace Pour' },
-  arowana_emperor: { type: 'shield', name: 'Golden Scales', styles: ['melee', 'magic'] },
+  arowana_emperor: { type: 'cast', name: 'Golden Gleam' },
   toyol_kingpin: { type: 'adds', name: 'Coin Runners', id: 'toyol', n: 3 },
-  atlas_moth_empress: { type: 'shield', name: 'Scale-Dust Veil', styles: ['ranged'] },
+  atlas_moth_empress: { type: 'circle', name: 'Scale-Dust Storm' },
   jembalang_lord: { type: 'cast', name: 'Claim the Ground' },
   krait_matriarch: { type: 'adds', name: 'Krait Brood', id: 'banded_krait', n: 2 },
   duyung_queen: { type: 'circle', name: 'Siren Tide' },
   great_argus_monarch: { type: 'cast', name: 'Courtship Dance' },
   typhoon_mother: { type: 'circle', name: 'Eye of the Storm' },
   void_eel_leviathan: { type: 'cast', name: 'Starlight Discharge' },
-  todak_king: { type: 'shield', name: 'Swordbill Guard', styles: ['magic', 'ranged'] },
+  todak_king: { type: 'cast', name: 'Swordbill Charge' },
   jade_moon_hare: { type: 'cast', name: 'Elixir of the Moon' },
   fenghuang: { type: 'circle', name: 'Rebirth Blaze' },
 };
@@ -108,14 +101,6 @@ export const BOSS_MECHANICS = {
 export function mechanicHowTo(m) {
   if (!m) return '';
   switch (m.type) {
-    case 'shield': {
-      const st = m.styles.map((s) => MECH_STYLES[s].name);
-      const which = st.length > 1 ? `one style at a time (${st.join(', then ')})` : `${st[0]} attacks`;
-      return `Every so often it raises a coloured shield that only ${which} can break: the badge and colour show which. `
-        + 'While it is up the boss takes no damage; the right style cracks it four times faster than the others. '
-        + 'Break it and the boss is exposed, taking extra damage for a few seconds. Leave it and the shield bursts, '
-        + 'hurting you and mending the boss a little.';
-    }
     case 'circle':
       return 'It marks the whole ground round you in red with one small green circle. Stand in the green circle before it lands '
         + '(auto battle\'s "Dodge boss attacks" walks you there). Anywhere else in the red takes a heavy hit.';

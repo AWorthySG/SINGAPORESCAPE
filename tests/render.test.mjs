@@ -623,7 +623,7 @@ test('gameplay art pack: items, world objects, quest givers, pets and gameplay i
   const { SKILL_PETS } = await import('../src/game/pets.js');
   const { REGION_GIVERS } = await import('../src/data/regionQuests.js');
   const { EVENT_KINDS } = await import('../src/data/worldevents.js');
-  const { MECH_KINDS, MECH_STYLES } = await import('../src/data/bossMechanics.js');
+  const { MECH_KINDS } = await import('../src/data/bossMechanics.js');
   const { ITEMS } = await import('../src/data/items.js');
   const dir = (d) => fileURLToPath(new URL(`../assets/${d}/`, import.meta.url));
   // Items: the endgame goods that used to borrow a tinted sticker now have their own.
@@ -663,7 +663,7 @@ test('gameplay art pack: items, world objects, quest givers, pets and gameplay i
   assert.deepEqual(icons.sort(), [...PLAY_ICONS].sort());
   assert.match(playIconHTML('ui-focus', 16), /assets\/icons\/ui-focus\.webp"[^>]*onerror="this\.remove\(\)"/);
   for (const k of Object.keys(EVENT_KINDS)) assert.ok(PLAY_ICONS.includes(EVENT_ICON[k]), `${k} has an event icon`);
-  for (const t of Object.keys(MECH_KINDS)) for (const s of Object.keys(MECH_STYLES)) assert.ok(PLAY_ICONS.includes(mechIcon(t, s)), `${t} has a mechanic icon`);
+  for (const t of Object.keys(MECH_KINDS)) assert.ok(PLAY_ICONS.includes(mechIcon(t)), `${t} has a mechanic icon`);
   const src = ['src/ui/playhud.js', 'src/ui/homeui.js', 'src/ui/collectionui.js', 'src/ui/worldeventsui.js', 'src/ui/ranksui.js', 'src/ui/ui.js',
     'src/ui/skillguideui.js', 'src/game/skillunlocks.js', 'src/render/icons.js'].map((f) => readFileSync(fileURLToPath(new URL(`../${f}`, import.meta.url)), 'utf8')).join('\n');
   for (const n of PLAY_ICONS) {

@@ -1,12 +1,11 @@
 // The compact battle bar at the top of the screen (index.html #boss-bar):
 // a small portrait inset at its left end, name and level, life as short
 // numbers ("999.9M · 99.9%"), the boss mechanic under way as a badge on the
-// bar (a coloured shield, healers, the safe circle, a cast with its own thin
+// bar (healers, the safe circle, a cast with its own thin
 // bar), and a frame coloured by how dangerous the foe is for you.
 //
 // bossBarModel() is pure (tested headlessly); renderBossBar() writes it into
 // the DOM and is called by ui.js updateBossBar once a tick while a foe is up.
-import { MECH_STYLES } from '../data/bossMechanics.js';
 import { mechLabel } from '../game/bossmech.js';
 import { hudNumber } from '../core/utils.js';
 import { TICK_MS } from '../config.js';
@@ -53,10 +52,6 @@ export function mechBadge(game, boss) {
   const left = Math.max(0, Math.ceil((m.until - game.tickCount) * TICK_MS / 1000));
   const title = mechLabel(game, boss);
   switch (m.type) {
-    case 'shield': {
-      const st = MECH_STYLES[m.style] || MECH_STYLES.melee;
-      return { kind: 'shield', style: m.style, icon: '🛡', art: mechIcon('shield', m.style), text: `${st.label} ${Math.max(0, Math.ceil(m.hp / m.max * 100))}%`, color: st.color, title };
-    }
     case 'circle': return { kind: 'circle', icon: '◎', art: mechIcon('circle'), text: 'Safe spot!', color: null, title };
     case 'adds': {
       const k = (m.adds || []).filter((a) => a.alive && a.hp > 0).length;
@@ -87,7 +82,7 @@ export function bossBarModel(game, boss) {
 // ---- DOM ----
 
 const THREATS = ['easy', 'even', 'danger'];
-const KINDS = ['shield', 'circle', 'adds', 'cast', 'hazard'];
+const KINDS = ['circle', 'adds', 'cast', 'hazard'];
 
 /** Build the bar's inner parts once (index.html holds the shell). */
 function parts(ui) {

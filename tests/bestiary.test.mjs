@@ -106,7 +106,9 @@ test('every new boss has a signature move without stuns, a mechanic, a weapon, a
     assert.ok(d.tierLevel >= lo && d.tierLevel <= hi, `${id} (${d.tierLevel}) fits ${d.zone}'s band`);
     assert.ok(!d.aggressive, `${id} waits to be challenged, like every boss`);
   }
-  assert.deepEqual(kinds, { shield: 5, circle: 5, adds: 5, cast: 5 }, 'the four mechanics are shared out evenly');
+  // (Five of each of four kinds, until boss style shields were taken out: their
+  // five bosses were shared among the other three.)
+  assert.deepEqual(kinds, { circle: 7, adds: 6, cast: 7 }, 'the three mechanics are shared out evenly');
   // Mid and endgame both get new bosses.
   assert.ok(BESTIARY_BOSS_IDS.filter((id) => NPCS[id].tierLevel >= 150).length >= 6);
 });

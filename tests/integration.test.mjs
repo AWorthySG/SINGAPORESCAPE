@@ -3432,7 +3432,7 @@ test('every boss has its own signature move and ground patterns, and every move 
   }
 });
 
-test('boss effects: damage over time ticks, roots hold you, shields halve damage, reflect bites back', async () => {
+test('boss effects: damage over time ticks, roots hold you, reflect bites back', async () => {
   const { NPC } = await import('../src/game/npc.js');
   globalThis.localStorage = fakeStorage();
   clearSave();
@@ -3450,10 +3450,9 @@ test('boss effects: damage over time ticks, roots hold you, shields halve damage
   assert.equal(p.path.length, 0, 'a rooted player cannot walk');
   const boss = new NPC('boar_king', p.x + 2, p.y, 0, {});
   boss.hp = boss.maxHp = 10000;
-  boss.shieldTicks = 3;
   game._applyPlayerHit(boss, 40);
-  assert.equal(boss.hp, 10000 - 20, 'a shield halves the hit');
-  boss.shieldTicks = 0; boss.reflectTicks = 3; boss.reflectFrac = 0.25;
+  assert.equal(boss.hp, 10000 - 40, 'the hit lands in full (bosses no longer shield themselves)');
+  boss.reflectTicks = 3; boss.reflectFrac = 0.25;
   const hp1 = p.hp;
   game._applyPlayerHit(boss, 40);
   assert.ok(p.hp < hp1, 'reflect hurts the attacker');
