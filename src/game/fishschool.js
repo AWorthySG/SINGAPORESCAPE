@@ -1,7 +1,7 @@
 // Schools of fish: every few minutes a school of one kind of fish swims up to a
 // fishing spot near you, stays for half a minute or so, then swims off. While
 // it's there, each catch at that spot has a 1 in 4 chance to net the whole
-// school at once: 5-12 fish (a few more at higher Fishing levels and with a
+// school at once: 250-600 fish (more at higher Fishing levels and with a
 // rune-or-better rod or harpoon), with XP for each. That uses the school up.
 //
 // Built alongside the other fishing extras rather than over them: the tool
@@ -30,9 +30,13 @@ export const SCHOOL_NEAR = 14;          // a school only visits spots this close
 export const SCHOOL_SEEN = 16;          // ...and is announced in the chat this close
 export const SCHOOL_MAX = 2;            // at most this many at once
 export const SCHOOL_NET = 0.25;         // chance each catch at the spot nets the whole school
-export const SCHOOL_HAUL = [5, 9];      // fish in a school, before the bonuses below
-export const SCHOOL_LEVEL_STEP = 50;    // +1 fish per 50 Fishing levels (up to +2)...
-export const SCHOOL_TOOL_SPEED = 40;    // ...and +1 with a rune-or-better rod or harpoon: 12 at most
+// A school is a real haul: fifty times the handful it used to be (the owner
+// wanted netting one to feel huge). The bag has no slot limit, so it all fits.
+export const SCHOOL_SCALE = 50;
+export const SCHOOL_HAUL = [5 * SCHOOL_SCALE, 9 * SCHOOL_SCALE];   // 250-450 fish, before the bonuses below
+export const SCHOOL_LEVEL_STEP = 50;    // +50 fish per 50 Fishing levels (up to +100)...
+export const SCHOOL_TOOL_SPEED = 40;    // ...and +50 with a rune-or-better rod or harpoon
+export const SCHOOL_HAUL_MAX = 12 * SCHOOL_SCALE;   // 600 at most
 export const SCHOOL_AUTO = 10;          // auto gather moves to a school this close at a spot of the same kind
 const RETRY = 50;                       // no spot nearby: look again in 30 seconds
 
@@ -40,7 +44,7 @@ const fishName = (id) => getItem(id).name.replace(/^Raw /, '').toLowerCase();
 
 /** The most fish a school can hold for a player at `lvl` with tool tier `tb`. */
 export function haulBonus(lvl, tb) {
-  return Math.min(2, Math.floor(Math.max(0, lvl) / SCHOOL_LEVEL_STEP)) + ((tb?.speed || 0) >= SCHOOL_TOOL_SPEED ? 1 : 0);
+  return SCHOOL_SCALE * (Math.min(2, Math.floor(Math.max(0, lvl) / SCHOOL_LEVEL_STEP)) + ((tb?.speed || 0) >= SCHOOL_TOOL_SPEED ? 1 : 0));
 }
 
 export class FishSchools {
@@ -152,7 +156,7 @@ export class FishSchools {
     if (!s || this.rand() >= SCHOOL_NET) return 0;
     const g = this.game;
     const tb = toolBonus(g, obj.def.tool || 'net');
-    const want = Math.min(12, s.size + haulBonus(g.skills.level('fishing'), tb));
+    const want = Math.min(SCHOOL_HAUL_MAX, s.size + haulBonus(g.skills.level('fishing'), tb));
     // A full bag takes what fits; with no room at all, the school stays for later.
     const n = Math.min(want, g.inventory.canAdd(s.fishId, want));
     if (n <= 0) return 0;
