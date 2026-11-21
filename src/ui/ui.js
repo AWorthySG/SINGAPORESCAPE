@@ -68,6 +68,7 @@ import { openEntry } from './encyclopediaui.js';
 import { openPestOfficer, contractTrackerRows, stewardLineHTML, cullingInvOptions } from './cullingui.js';
 import { eventsPanelHTML, wireEventsPanel, eventTrackerRows, drawEventMarker } from './worldeventsui.js';
 import { keyedSlots, placeSlots } from './slotgrid.js';
+import { WindowMemory, initWindowEase, toggleTapClose, tapCloseLabel } from './windowease.js';   // windows remember where you were; tap outside to close
 import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG, abilityIconHTML, spellIconHTML, playIconHTML, lazyIcon } from '../render/icons.js';
 import { weaknessOf, armourTierOf, ARMOUR_TIERS, levelFlatDmg } from '../game/combat.js';
 import { isBone } from '../data/bones.js';
@@ -156,6 +157,7 @@ export class UI {
 
   init() {
     const id = (x) => document.getElementById(x);
+    this.winMem ||= new WindowMemory(this);
     this.el = {
       hover: id('hover-text'),
       tracker: id('quest-tracker'),
@@ -271,9 +273,7 @@ export class UI {
       portrait.addEventListener('click', () => { if (this._bossPortraitFor) this.openBestiary(this._bossPortraitFor.npcId); });
     }
     this.el.modalClose.addEventListener('click', () => this.closeModal());
-    this.el.modalOverlay.addEventListener('mousedown', (e) => {
-      if (e.target === this.el.modalOverlay) this.closeModal();
-    });
+    initWindowEase(this);   // a tap outside closes the window (and walks there); swipe the title down (windowease.js)
     document.addEventListener('mousedown', (e) => {
       if (!this.el.contextMenu.contains(e.target)) this.hideContextMenu();
     });
@@ -872,6 +872,7 @@ export class UI {
       try { localStorage.setItem('ss_ui_subtab', JSON.stringify(this._subView)); } catch {}
     }
     this._renderSubtabs(tab, view);
+    this.winMem?.panelShown(tab, view);
     if (view === 'stats') this.renderStatsPanel();   // it only redraws while showing, so bring it up to date
     if (view === 'skills' && this._skillsStale) this.renderSkills();   // likewise
     if (view === 'story') this.renderStoryPanel?.();  // (storyui.js) likewise
@@ -891,8 +892,7 @@ export class UI {
         `<button type="button" class="subtab-btn" role="tab" data-view="${v}">${SUBTAB_LABELS[v] || v}</button>`).join('');
       row.querySelectorAll('.subtab-btn').forEach((b) => b.addEventListener('click', () => {
         this._dropTips();
-        this._showPanelView(b.dataset.view);
-        document.getElementById('panel-body')?.scrollTo?.(0, 0);
+        this._showPanelView(b.dataset.view);   // (each view keeps its own scroll: windowease.js)
       }));
     }
     row.querySelectorAll('.subtab-btn').forEach((b) => {
@@ -1753,9 +1753,12 @@ export class UI {
   // ---------------- Gear guide ----------------
   // Every equippable item per slot, ranked best first, with what it needs and
   // whether you already own it — so players can see which equipment is better.
-  openGearGuide(slot = 'weapon') {
+  openGearGuide(slot) {
     const g = this.game;
-    let style = g.equipment.combatType();
+    // The slot and style tabs you left it on (remembered: windowease.js).
+    const mem = this._gearGuide || (this._gearGuide = {});
+    slot ||= mem.slot || 'weapon';
+    let style = mem.style || g.equipment.combatType();
     const render = (body) => {
       body.innerHTML = '';
       const intro = document.createElement('div');
@@ -1771,7 +1774,7 @@ export class UI {
         const b = document.createElement('button');
         b.className = 'gear-tab' + (s === slot ? ' active' : '');
         b.textContent = capitalize(s);
-        b.addEventListener('click', () => { slot = s; render(body); });
+        b.addEventListener('click', () => { slot = mem.slot = s; render(body); });
         tabs.appendChild(b);
       }
       body.appendChild(tabs);
@@ -1792,7 +1795,7 @@ export class UI {
           const b = document.createElement('button');
           b.className = 'gear-tab small' + (k === style ? ' active' : '');
           b.textContent = k === 'dance' ? 'Dancer' : capitalize(k);
-          b.addEventListener('click', () => { style = k; render(body); });
+          b.addEventListener('click', () => { style = mem.style = k; render(body); });
           st.appendChild(b);
         }
         body.appendChild(st);
@@ -2290,7 +2293,7 @@ export class UI {
   openPerks() {
     const g = this.game;
     const NAMES = { attack: 'Melee', strength: 'Melee power', defence: 'Defence', ranged: 'Ranged', magic: 'Magic', agility: 'Agility (Dancer)' };
-    let tab = PERK_SKILLS.find((s) => g.skills.level(s) >= PERK_EVERY) || 'attack';
+    let tab = PERK_SKILLS.includes(this._perksTab) ? this._perksTab : PERK_SKILLS.find((s) => g.skills.level(s) >= PERK_EVERY) || 'attack';
     const render = (body) => {
       body.innerHTML = '<div class="modal-hint">Every 20 levels in a fighting skill unlocks that skill\'s next passive perk. After level 200 the perks rank up again (Rank II at 220, III at 420...) until level 9999. Defence perks help in every style.</div>';
       const tabs = document.createElement('div'); tabs.className = 'gear-tabs';
@@ -2298,7 +2301,7 @@ export class UI {
         const b = document.createElement('button');
         b.className = 'gear-tab' + (s === tab ? ' active' : '');
         b.textContent = `${NAMES[s].split(' ')[0]} ${g.skills.level(s)}`;
-        b.addEventListener('click', () => { tab = s; render(body); });
+        b.addEventListener('click', () => { tab = this._perksTab = s; render(body); });
         tabs.appendChild(b);
       }
       body.appendChild(tabs);
@@ -2752,6 +2755,9 @@ export class UI {
       this._minimalHudTick();
     });
     hudBtn.textContent = `Minimal HUD: ${this.game.minimalHud ? 'On' : 'Off'}`;
+    // Tapping the dim space around a window closes it (windowease.js); some prefer the ✕ alone.
+    const tapBtn = mk('', () => { tapBtn.textContent = toggleTapClose(this.game); });
+    tapBtn.textContent = tapCloseLabel(this.game);
     // XP display: Combined / Per skill / Off (xpdisplay.js).
     const xpBtn = mk('', () => {
       this.game.xpDisplay = nextXpDisplay(xpDisplayMode(this.game));
@@ -3312,6 +3318,7 @@ export class UI {
   // ---------------- Modals ----------------
   openModal(title, render) {
     this._dropTips();
+    this.winMem?.leave();   // a window opened from another: remember where that one was
     this.modal = { title, render };
     this.el.modalTitle.textContent = title;
     this.el.modalOverlay.classList.remove('hidden');
@@ -3320,6 +3327,7 @@ export class UI {
     // opened part-way down, its intro and first rows out of sight.
     this.el.modalBody.scrollTop = 0;
     render(this.el.modalBody);
+    this.winMem?.enter();   // ...then back to where this window was last time (windowease.js)
   }
 
   /** One-time, non-dismissible prompt: pick a job class. A new character gets its
@@ -3451,7 +3459,9 @@ export class UI {
     if (this.modal?.locked) return; // e.g. the starting-style choice — must pick one
     this._dropTips();
     if (this.modal && typeof document !== 'undefined') playCloseGhost(this.el.modalOverlay);
+    this.winMem?.leave();
     this.modal = null;
+    this.winMem?.closed();
     this.el.modalOverlay.classList.add('hidden');
     this.el.modalBody.innerHTML = '';
     // Removed cells never fire mouseleave, and the hover tip now sits above
