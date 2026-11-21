@@ -160,18 +160,20 @@ export function worthTable(game) {
   const s = worthState(game);
   const c = Math.max(0, Math.min(1, s.critBase + s.crit / 100));
   const rows = [
-    { key: s.dmgKey, label: s.mode === 'magic' ? 'Magic bonus' : 'Physical damage', worth: statWorth(game, s.dmgKey) },
-    { key: 'critDmg', label: 'Crit damage', worth: statWorth(game, 'critDmg') },
-    { key: 'crit', label: 'Crit chance', worth: statWorth(game, 'crit') },
-    { key: 'haste', label: 'Attack speed', worth: statWorth(game, 'haste') },
-    { key: 'pierce', label: 'Armour pierce', worth: statWorth(game, 'pierce') },
+    { key: s.dmgKey, label: s.mode === 'magic' ? 'Magic bonus %' : 'Physical damage bonus %', worth: statWorth(game, s.dmgKey) },
+    { key: 'critDmg', label: 'Crit damage %', worth: statWorth(game, 'critDmg') },
+    { key: 'crit', label: 'Crit chance %', worth: statWorth(game, 'crit') },
+    { key: 'haste', label: 'Attack speed %', worth: statWorth(game, 'haste') },
+    { key: 'pierce', label: 'Armour pierce %', worth: statWorth(game, 'pierce') },
   ];
   const best = rows.reduce((a, r) => (r.worth > a.worth ? r : a), rows[0]).key;
   const dmg = rows[0].worth, cd = rows[1].worth;
   const ratio = cd > 0 ? dmg / cd : 0;
   let why = c >= 1 ? 'Every hit already crits, so more crit chance does nothing; crit damage now counts on every hit.'
     : `Crit damage only counts on crits (you crit ${pctOf(c)} of the time)${ratio >= 1.05 ? `, so 1 point of it is worth about ${ratio >= 10 ? ratio.toFixed(0) : ratio.toFixed(1)}× less than 1 point of ${rows[0].label}` : ''}.`;
-  if (best === 'pierce') why += ` A boss your level wears ${pctOf(s.armour)} armour and your pierce is ${Math.round(s.pierce)}%: pierce is worth most until it cancels the armour.`;
+  if (best === 'pierce') why += s.pierce >= s.armour * 100
+    ? ` A boss your level wears ${pctOf(s.armour)} armour and your pierce (${Math.round(s.pierce)}%) already cancels it, so each extra point adds damage directly; it beats ${rows[0].label} because that bonus is already large, so 1 more point of it adds little.`
+    : ` A boss your level wears ${pctOf(s.armour)} armour and your pierce is ${Math.round(s.pierce)}%: pierce is worth most until it cancels the armour.`;
   else if (best === 'crit') why += ' Each crit hits ×2.5 on average (more with crit damage), so more crits beat a flat bonus.';
   else if (best === 'haste') why += ' Attack speed adds whole extra attacks.';
   return { rows, best, why, crit: c, armour: s.armour, pierce: s.pierce, tiers: pierceByTier(game) };

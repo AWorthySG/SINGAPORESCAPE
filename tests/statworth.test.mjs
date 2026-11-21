@@ -127,7 +127,7 @@ test('the Stats tab shows "What 1 point is worth" and picks out the best stat', 
   const w = worthTable(g);
   const best = w.rows.reduce((a, r) => (r.worth > a.worth ? r : a));
   assert.equal(w.best, best.key);
-  assert.deepEqual(w.rows.map((r) => r.label), ['Physical damage', 'Crit damage', 'Crit chance', 'Attack speed', 'Armour pierce']);
+  assert.deepEqual(w.rows.map((r) => r.label), ['Physical damage bonus %', 'Crit damage %', 'Crit chance %', 'Attack speed %', 'Armour pierce %']);
   const html = statsPanelHTML(statSheet(g), new Set(), w);
   assert.ok(html.includes('What 1 point is worth'));
   assert.match(html, new RegExp(`class="st-row st-w best" data-worth="${w.best}"`));
