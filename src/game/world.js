@@ -24,6 +24,7 @@ export class World {
     this.zones = data.zones || [];
     this.towns = data.towns || [];   // [x0, y0, x1, y1] of each outer town
     this.resourceZones = data.resourceZones || [];   // { id, name, skill, cx, cy, x0..y1 } (world.js, resourcezones.js)
+    this.groves = data.groves || [];   // patches thick with one kind of tree, { id, name, objId, region, cx, cy, x0..y1, count } (groves.js)
 
     this.objects = [];
     this.objectByTile = new Map();

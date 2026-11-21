@@ -5,6 +5,7 @@
 import { NPCS, MONSTER_IDS, BOSS_IDS, EXTRA_MONSTER_IDS, EXTRA_BOSS_IDS, MORE_MONSTER_IDS, MORE_BOSS_IDS, stretchLevel } from './npcs.js';
 import { STATIONS } from './transport.js';
 import { placeLandmarks } from './landmarks.js';
+import { placeGroves } from './groves.js';
 import { placeBestiary } from './bestiaryPlace.js';
 
 // How many of each monster kind populate the world.
@@ -56,7 +57,7 @@ function fbm(x, y, s) {
   return vnoise(x, y, s) * 0.57 + vnoise(x * 2.1, y * 2.1, s + 1) * 0.29 + vnoise(x * 4.3, y * 4.3, s + 2) * 0.14;
 }
 
-export function buildWorld() {
+export function buildWorld({ groves: withGroves = true } = {}) {
   // The original island (x 0-149, y 0-103) keeps its coordinates; the open world
   // extends south across a strait and east across a channel, and the far regions
   // lie beyond it, east of x 400 and south of y 280.
@@ -1449,6 +1450,13 @@ export function buildWorld() {
   for (let x = 0; x < W; x++) { placeObj('fence', x, 0); placeObj('fence', x, H - 1); }
   for (let y = 0; y < H; y++) { placeObj('fence', 0, y); placeObj('fence', W - 1, y); }
 
+  // ================= Groves =================
+  // Patches thick with one kind of tree (groves.js), placed after everything else
+  // and without dice, so nothing generated earlier moves. (Tests build the world
+  // without them to check that.)
+  const groves = withGroves ? placeGroves({ T, width: W, height: H, get, inB, placeObj, objects, npcSpawns, zones, resourceZones,
+    stations: STATIONS, landmarks, towns: [[44, 44, 72, 66], ...towns], start: { x: 58, y: 55 } }) : [];
+
   return {
     width: W,
     height: H,
@@ -1459,6 +1467,7 @@ export function buildWorld() {
     towns,   // the outer towns' rectangles (the World Boss keeps its distance)
     resourceZones,   // named places dense with one life skill's nodes (see the block above the border fence)
     landmarks,       // the regions' set pieces, { objId, x, y, region } (landmarks.js)
+    groves,          // patches thick with one kind of tree, { id, name, objId, region, cx, cy, x0..y1, count } (groves.js)
     spawnPoint: { x: 58, y: 55 },
     respawnPoint: { x: 58, y: 55 },
     townName: 'Kampong Glam',
