@@ -79,7 +79,9 @@ test('endgame trees: a grove of each in its region, every tree reachable', () =>
     const def = OBJECTS[t.tree];
     assert.equal(def.type, 'tree'); assert.equal(def.level, t.lvl); assert.equal(def.gives, t.log);
     assert.ok(ITEMS[t.log]?.tags.includes('log') && ITEMS[t.ash], `${t.log} and ${t.ash} exist`);
-    const trees = g.world.objects.filter((o) => o.objId === t.tree);
+    // (Its vein: the groves of groves.js, placed after, are tests/groves.test.mjs's.)
+    const inGrove = (o) => g.world.groves.some((gr) => o.x >= gr.x0 && o.x <= gr.x1 && o.y >= gr.y0 && o.y <= gr.y1);
+    const trees = g.world.objects.filter((o) => o.objId === t.tree && !inGrove(o));
     assert.ok(trees.length >= 6, `${t.tree}: ${trees.length} placed`);
     const zone = g.world.zones.find((z) => z.name === t.zone);
     for (const r of trees) assert.ok(r.x >= zone.x0 && r.x <= zone.x1 && r.y >= zone.y0 && r.y <= zone.y1, `${t.tree} at ${r.x},${r.y} is in ${t.zone}`);
@@ -273,7 +275,10 @@ test('endgame Woodcutting XP an hour: each tier well ahead of the best before it
     if (!g.inventory.has('bronze_axe')) g.inventory.add('bronze_axe', 1);
     setLevel(g, 'woodcutting', lvl);
     noon(g);   // base rates: the moonlit kapok's night bonus is on top of these
-    const all = g.world.objects.filter((o) => o.objId === treeId);
+    // At each tier's vein, as the xp was set there: the groves (groves.js) hold
+    // twice the trees, which nudges some tiers more than others by a few percent.
+    const inGrove = (o) => g.world.groves.some((gr) => o.x >= gr.x0 && o.x <= gr.x1 && o.y >= gr.y0 && o.y <= gr.y1);
+    const all = g.world.objects.filter((o) => o.objId === treeId && !inGrove(o));
     const near = (o) => all.filter((p) => chebyshev(p.x, p.y, o.x, o.y) <= 15).length;
     const start = all.reduce((a, b) => (near(b) > near(a) ? b : a));
     standBy(g, start);

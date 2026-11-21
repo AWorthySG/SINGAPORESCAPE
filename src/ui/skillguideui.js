@@ -28,7 +28,7 @@ import { STATION_BY_ID } from '../data/transport.js';
 import { toolLadder } from '../game/tools.js';
 import {
   SKILL_GUIDES, GATHER_SKILLS, COMBAT_SKILLS, TOOL_NAMES, gatherSources, recipesFor, recipeLabel, recipeKindTitle, canMake,
-  regionsOf, nearestObject, itemEntry, searchResources, RESOURCE_CATS, resourceIndex, perkLadder, gearTiers, trainingSpots, bestSpotsFor, combatExtras,
+  regionsOf, nearestObject, groveList, itemEntry, searchResources, RESOURCE_CATS, resourceIndex, perkLadder, gearTiers, trainingSpots, bestSpotsFor, combatExtras,
 } from '../game/skillguide.js';
 
 export const PAGE = 30;
@@ -380,6 +380,13 @@ export function openSkillGuide(ui, skill, { itemId = null } = {}) {
       body.insertAdjacentHTML('beforeend', `<div class="sgx-station"><span><b>${esc(OBJECTS[o]?.name || o)}</b>: ${zs.length ? regionsText(zs, 6) : 'light one anywhere'}</span>`
         + (zs.length ? `<span class="sgx-btns"><button type="button" class="wm-go" data-go="${esc(o)}">Go</button><button type="button" class="wm-go cx-map" data-map="${esc(o)}" data-label="${esc(OBJECTS[o]?.name || o)}">Map</button></span>` : '') + '</div>');
     }
+    // Woodcutting: the groves, each thick with one kind of tree (groves.js).
+    if (sk === 'woodcutting') {
+      for (const g of groveList(game)) {
+        body.insertAdjacentHTML('beforeend', `<div class="sgx-station"><span><b>${esc(g.name)}</b>: ${g.count} ${esc(g.tree.toLowerCase())}s (level ${g.level}), ${esc(g.region)}</span>`
+          + `<span class="sgx-btns"><button type="button" class="wm-go" data-grove="${esc(g.id)}">Go</button><button type="button" class="wm-go cx-map" data-gmap="${esc(g.id)}">Map</button></span></div>`);
+      }
+    }
     if (COMBAT_SKILLS.includes(sk)) {
       body.insertAdjacentHTML('beforeend', `<div class="cx-filters sgx-bar"><button type="button" class="wm-go sgx-res" data-resources="1">Resources</button></div>`);
       const div = document.createElement('div');
@@ -429,6 +436,16 @@ export function openSkillGuide(ui, skill, { itemId = null } = {}) {
     else if (d.pick) { game.toggleGatherPick(d.pick.split(',')); const sc = body.scrollTop; render(body); body.scrollTop = sc; }
     else if (d.skilltp) { if (skillTeleport(game, d.skilltp)) ui.closeModal(); }
     else if (d.go) game.goToNearest(d.go.split(','));
+    else if (d.grove || d.gmap) {
+      // A grove's trees stand on every other tile from its corner (x0, y0); Go heads for the nearest one.
+      const g = (game.world.groves || []).find((x) => x.id === (d.grove || d.gmap));
+      if (g && d.gmap) ui.openWorldMap({ x: g.cx, y: g.cy, label: g.name });
+      else if (g) {
+        const here = game.playerTile(), mine = game.world.objects.filter((o) => o.objId === g.objId && o.x >= g.x0 && o.x <= g.x1 && o.y >= g.y0 && o.y <= g.y1);
+        const o = mine.sort((a, b) => Math.hypot(a.x - here.x, a.y - here.y) - Math.hypot(b.x - here.x, b.y - here.y))[0];
+        if (o) game.goToObject(o);
+      }
+    }
     else if (d.map) { const spot = nearestObject(game, d.map.split(',')); if (spot) ui.openWorldMap({ x: spot.x, y: spot.y, label: d.label || '' }); }
     else if (d.npc) {
       const spot = nearestNpc(game, d.npc, d.region || null) || nearestNpc(game, d.npc);

@@ -5,6 +5,7 @@
 
 import { SKILL_BY_ID } from '../data/skills.js';
 import { nodeLevel } from './gathering.js';
+import { OBJECTS } from '../data/objects.js';
 
 const MARGIN = 2;   // tiles round a zone's nodes that still count as inside it
 
@@ -35,7 +36,21 @@ export function zoneSummary(world, z) {
   return `${z.name}: ${n} ${SKILL_BY_ID[z.skill]?.name || z.skill} spots, level ${lo}${hi > lo ? `-${hi}` : ''}`;
 }
 
-/** Says hello when you walk into a zone (once each time you enter). */
+/** The grove (groves.js: a patch thick with one kind of tree) at (x, y), or null. */
+export function groveAt(world, x, y) {
+  for (const g of world.groves || []) {
+    if (x >= g.x0 - MARGIN && x <= g.x1 + MARGIN && y >= g.y0 - MARGIN && y <= g.y1 + MARGIN) return g;
+  }
+  return null;
+}
+
+/** One line about a grove: "Tekong Yew Grove: 16 yew trees, Woodcutting 60". */
+export function groveSummary(g) {
+  const def = OBJECTS[g.objId];
+  return `${g.name}: ${g.count} ${(def?.name || g.objId).toLowerCase()}s, Woodcutting ${def?.level || 1}`;
+}
+
+/** Says hello when you walk into a zone or a grove (once each time you enter). */
 export class ZoneWatch {
   constructor(game) {
     this.game = game;
@@ -44,11 +59,12 @@ export class ZoneWatch {
   }
   tick() {
     const g = this.game, p = g.player;
-    if (!p?.alive || !g.world?.resourceZones?.length) return;
-    const z = resourceZoneAt(g.world, p.x, p.y);
-    const id = z?.id || null;
+    if (!p?.alive || !(g.world?.resourceZones?.length || g.world?.groves?.length)) return;
+    const z = resourceZoneAt(g.world, p.x, p.y), gr = z ? null : groveAt(g.world, p.x, p.y);
+    const id = z?.id || gr?.id || null;
     if (id === this.current) return;
     this.current = id;
     if (z) g.msg(`You enter ${zoneSummary(g.world, z)}.`, 'level');
+    else if (gr) g.msg(`You enter ${groveSummary(gr)}.`, 'level');
   }
 }
