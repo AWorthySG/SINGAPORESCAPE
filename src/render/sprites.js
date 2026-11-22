@@ -2667,43 +2667,22 @@ function drawWorldArt(ctx, obj, img, key, cx, cy, time) {
     ctx.fillStyle = 'rgba(34,48,74,0.16)';
     ellipse(ctx, cx, cy + foot - 1, Math.min(w * 0.42, 22), Math.min(h * 0.12, 5)); ctx.fill();
   }
-  // Only the alpha (and a tree's lean) change here, and both are put back by
-  // hand: a save/restore pair for every object in view cost more than drawing it.
+  ctx.save();
   // Spent stalls, traps and fishing spots fade back; trees and rocks swap pictures instead.
-  const fade = obj.depleted && t !== 'tree' && t !== 'rock', a0 = ctx.globalAlpha;
-  if (fade) ctx.globalAlpha = 0.5;
+  if (obj.depleted && t !== 'tree' && t !== 'rock') ctx.globalAlpha = 0.5;
   if (obj.def.tint && !EVENT_KEYS.has(key) && 'filter' in ctx) img = tintedArt(img, obj.def.tint) || img;   // a borrowed picture, recoloured
   if (t === 'tree' && !obj.depleted) {
     // The canopy leans gently about the base of the trunk.
-    const sway = Math.sin(time * 0.0012 + obj.x * 1.7 + obj.y) * 1.4, by = cy + foot;
-    ctx.translate(cx, by);
+    const sway = Math.sin(time * 0.0012 + obj.x * 1.7 + obj.y) * 1.4;
+    ctx.translate(cx, cy + foot);
     ctx.transform(1, 0, -sway / 38, 1, 0, 0);
     ctx.drawImage(img, -w / 2, -h, w, h);
-    ctx.transform(1, 0, sway / 38, 1, 0, 0);
-    ctx.translate(-cx, -by);
   } else if (t === 'fishing') {
     // Fishing spots bob on the swell.
     const bob = Math.sin(time * 0.003 + obj.x + obj.y * 0.7) * 1.2;
     ctx.drawImage(img, cx - w / 2, cy + foot - h + bob, w, h);
   } else ctx.drawImage(img, cx - w / 2, cy + foot - h, w, h);
-  if (fade) ctx.globalAlpha = a0;
-}
-
-/** How far a world object's picture reaches from its centre this frame, as
- *  [left, top, right, bottom] offsets (its contact shadow and a tree's lean
- *  included), so the renderer can skip one wholly off screen. Null when it
- *  can't say: a picture still loading, an animated object (its frames load
- *  together as it's drawn) or a fishing spot (its badge loads with it). Like
- *  drawing it, it starts the picture loading. */
-export function objectReach(obj, time = 0) {
-  const t = obj.def.type;
-  if (t === 'fire' || t === 'farm' || t === 'fishing' || obj.def.frames || obj.def.footprint) return null;
-  const key = worldArtKey(obj, time);
-  const art = key && worldImage(key);
-  if (!art || !art.complete || !art.naturalWidth) return null;
-  const [mw, mh, foot] = WORLD_ART[key];
-  const half = Math.max(mw / 2 + mh * 0.04, 22) + 2;   // the picture and a tree's lean, or the shadow
-  return [-half, foot - mh - 2, half, Math.max(foot, 0) + 6];
+  ctx.restore();
 }
 
 export function drawObjectSprite(ctx, obj, cx, cy, time = 0) {

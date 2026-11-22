@@ -25,7 +25,7 @@ const ARROW_LOOK = {
   eternal: { head: '#c27bff', fletch: '#ecd6ff', shaft: '#3a2a5a', trail: '#d6a8ff', glow: '#a855ff', size: 1.25, barbed: true },
 };
 import { labelMode, objectLabelAlpha, npcNameVisible, targetTag, elementTint } from './worldlabels.js';
-import { drawCreature, drawPlayer, drawObjectSprite, drawGroundItem, objectReach } from './sprites.js';
+import { drawCreature, drawPlayer, drawObjectSprite, drawGroundItem } from './sprites.js';
 import { heroAnimFrame, drawFishingGear, strikeClock } from './heroanim.js';
 import { petDrawable } from './petsprite.js';
 import { RARITY } from '../game/loot.js';
@@ -249,15 +249,6 @@ export class Renderer {
       const cx = o.x * TILE + TILE / 2 - ox + jx, cy = o.y * TILE + TILE / 2 - oy;
       const lit = night > 0.12 && isLightSource(o);
       const fade = this.react.alpha(o), lean = this.react.skew(o, timeMs) + this.amb.lean(o, timeMs);   // brushed, or in the breeze (ambient.js)
-      // The tiles round the view are fetched with a margin, and about a third
-      // of the objects there can't reach the screen: skip those (sprites.js
-      // objectReach, the lean below included). A lamp's glow at night reaches
-      // further, so lights are always drawn.
-      const reach = !lit && objectReach(o, timeMs);
-      if (reach) {
-        const sk = lean ? Math.abs(lean) * Math.max(13 - reach[1], Math.abs(reach[3] - 13)) : 0;
-        if (cx + reach[2] + sk < 0 || cx + reach[0] - sk > vw || cy + reach[3] < 0 || cy + reach[1] > vh) continue;
-      }
       drawables.push({ sortY: o.y + (o.def.overhead ? 0.9 : 0.4), z: 1, draw: () => {   // (a hanging lantern goes over your head)
         if (lit) {
           // A warm light pool blooms outward after dark — fires, furnaces,

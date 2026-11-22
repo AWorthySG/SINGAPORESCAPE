@@ -1,13 +1,10 @@
-// Two promises sprites.js makes to save drawing work, checked against a 2D
-// context that records where everything lands (Node has no DOM, so pictures
-// and canvases are stand-ins that are always loaded):
-//  - a rigged monster's hit flash is coloured from a box on its scratch canvas,
-//    and that box holds every posed layer, so no part of the flash is lost;
-//  - objectReach covers everything drawObjectSprite paints for a world object
-//    (with the renderer's lean on top), so the renderer can skip one wholly off
-//    screen without changing a pixel;
-// and one the renderer makes: a dying pack monster keeps to its sticker in low
-// graphics or slow frames, as the live ones do.
+// A promise sprites.js makes to save drawing work, checked against a 2D context
+// that records where everything lands (Node has no DOM, so pictures and
+// canvases are stand-ins that are always loaded): a rigged monster's hit flash
+// is coloured from a box on its scratch canvas, and that box holds every posed
+// layer, so no part of the flash is lost. And one the renderer makes: a dying
+// pack monster keeps to its sticker in low graphics or slow frames, as the live
+// ones do.
 import './seed.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -61,7 +58,6 @@ globalThis.document = { createElement: () => fakeCanvas() };
 
 const S = await import('../src/render/sprites.js');
 const { NPCS } = await import('../src/data/npcs.js');
-const { OBJECTS } = await import('../src/data/objects.js');
 
 const within = (b, o, slack = 1e-6) => b[0] >= o[0] - slack && b[1] >= o[1] - slack && b[2] <= o[2] + slack && b[3] <= o[3] + slack;
 
@@ -95,35 +91,6 @@ test('a rigged monster\'s hit flash is coloured from a box that holds every pose
     }
   }
   assert.ok(checked > 100, `checked ${checked} flashes`);
-});
-
-test('objectReach covers everything a world object paints, so skipping one off screen changes nothing', () => {
-  let checked = 0, skipped = 0;
-  for (const size of [[200, 200], [120, 300], [300, 110]]) {
-    picSize = size;
-    for (const [objId, def] of Object.entries(OBJECTS)) {
-      for (const extra of [{}, { depleted: true }]) {
-        for (const t of [0, 777, 4321.5]) {
-          const obj = { objId, def, x: 5, y: 7, ...extra };
-          const r = S.objectReach(obj, t);
-          if (!r) { skipped++; continue; }
-          for (const lean of [0, 0.31, -0.42]) {
-            const ctx = recordingCtx(fakeCanvas());
-            // As the renderer draws a brushed or breezy object: leaning about a point 13 below its centre.
-            if (lean) { ctx.translate(0, 13); ctx.transform(1, 0, lean, 1, 0, 0); ctx.translate(0, -13); }
-            S.drawObjectSprite(ctx, obj, 0, 0, t);
-            const sk = Math.abs(lean) * Math.max(13 - r[1], Math.abs(r[3] - 13));
-            assert.ok(ctx.ops.length > 0, `${objId} draws something`);
-            for (const o of ctx.ops) assert.ok(within(o.box, [r[0] - sk, r[1], r[2] + sk, r[3]]), `${objId} (${JSON.stringify(extra)}, lean ${lean}): ${o.op} at ${o.box.map((v) => v.toFixed(1))} outside its reach ${r}`);
-            checked++;
-          }
-        }
-      }
-    }
-  }
-  assert.ok(checked > 500, `checked ${checked} objects (${skipped} always drawn)`);
-  // The ones it can't vouch for are always drawn: animated, fishing spots (their badge loads with them).
-  for (const id of ['fire', 'farm_patch', 'fishing_spot']) assert.equal(S.objectReach({ objId: id, def: OBJECTS[id], x: 1, y: 1 }, 0), null, id);
 });
 
 test('a dying pack monster falls as its sticker when frames are trimmed or graphics are low', async () => {
