@@ -9,7 +9,7 @@ import { clearSave } from '../src/game/save.js';
 import { ITEMS } from '../src/data/items.js';
 import { xpForLevel } from '../src/data/xp.js';
 import { packUpgrades } from '../src/game/whatnext.js';
-import { compareGear } from '../src/game/gear.js';
+import { compareGear, isUpgrade } from '../src/game/gear.js';
 
 function newGame(cls) {
   const m = new Map();
@@ -41,7 +41,16 @@ for (const cls of ['swordsman', 'sniper', 'wizard']) {
     g.equipBest();
     assert.deepEqual(packUpgrades(g).map((s) => s.id), [], 'nothing left called an upgrade');
     for (const s of g.inventory.slots) if (s && ITEMS[s.id].equip) {
-      assert.notEqual(compareGear(s.id, g.equipment, null, s.q || null, g.combatMode()).verdict, 'upgrade', `${s.id} still shows the green arrow`);
+      assert.ok(!isUpgrade(compareGear(s.id, g.equipment, null, s.q || null, g.combatMode())), `${s.id} still shows the green arrow`);
     }
   });
 }
+
+test('a stronger weapon of another type is weighed in its tooltip but not called an upgrade', () => {
+  const g = newGame('swordsman');
+  g.equipment.set('weapon', 'bronze_sword');
+  const cmp = compareGear('eternal_parang', g.equipment, null, null, g.combatMode());
+  assert.equal(cmp.verdict, 'upgrade', 'the tooltip still says how it compares');
+  assert.ok(cmp.otherType);
+  assert.ok(!isUpgrade(cmp), 'no green arrow: Wear it keeps to the sword');
+});
