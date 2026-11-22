@@ -16,6 +16,7 @@ import { mulberry32 } from './pets.js';
 export const NODE_JACKPOT = { on: true };
 export const JACKPOT_CHANCE = 0.025;       // a swing's chance (about 1 in 40) to take everything left
 export const JACKPOT_TOOL_BONUS = 0.5;     // ...up to half as likely again with the best tools (their `find` share)
+export const SEAM_MULT = 10;               // the whole seam gives ten times the ore left in it (the owner's ask)
 
 const rand = mulberry32((Date.now() ^ 0x5bd1e995) >>> 0);
 /** Swap the generator (tests). */
@@ -26,15 +27,16 @@ let roll = rand;
  * After a swing at `obj` that left `left` more logs or ores in it, maybe take
  * them all. `kind` is 'woodcutting' or 'mining'; `xpEach` the XP per piece;
  * `pick()` the id of each piece (a gem rock rolls a gem for each); `find` the
- * tool's find bonus. Returns how many it added (0 if none); the caller then
- * treats the node as emptied.
+ * tool's find bonus; `mult` how many times over it pays out (SEAM_MULT for a
+ * rock). Returns how many it added (0 if none); the caller then treats the
+ * node as emptied.
  */
-export function nodeJackpot(game, obj, { kind, left, xpEach, pick, find = 0 }) {
+export function nodeJackpot(game, obj, { kind, left, xpEach, pick, find = 0, mult = 1 }) {
   if (!NODE_JACKPOT.on || !(left > 0)) return 0;
   if (roll() >= JACKPOT_CHANCE * (1 + Math.min(1, find) * JACKPOT_TOOL_BONUS)) return 0;
   const got = new Map();
   let n = 0;
-  for (let i = 0; i < left; i++) {
+  for (let i = 0; i < left * mult; i++) {
     const id = pick();
     if (game.inventory.canAdd(id, 1) <= 0) break;
     game.inventory.add(id, 1);

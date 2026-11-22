@@ -8,7 +8,7 @@ import { Game } from '../src/game/game.js';
 import { clearSave } from '../src/game/save.js';
 import { xpForLevel } from '../src/data/xp.js';
 import { resolveWoodcut, resolveMine } from '../src/game/skilling.js';
-import { NODE_JACKPOT, JACKPOT_CHANCE, setJackpotRand, nodeJackpot } from '../src/game/jackpot.js';
+import { NODE_JACKPOT, JACKPOT_CHANCE, setJackpotRand, nodeJackpot, SEAM_MULT } from '../src/game/jackpot.js';
 import { mulberry32 } from '../src/game/pets.js';
 import { SKILL_GUIDES } from '../src/game/skillguide.js';
 
@@ -45,7 +45,7 @@ test('a lucky swing brings the whole tree down: every log left, XP for each, and
   assert.ok(said.some((m) => /^The whole tree comes down at once: \d+ /.test(m)));
 });
 
-test('a lucky swing breaks the whole seam free: every ore left, and the rock is mined out', () => {
+test('a lucky swing breaks the whole seam free: ten times every ore left, and the rock is mined out', () => {
   const g = newGame(); const said = listen(g);
   const rock = find(g, 'copper_rock');
   rock.oresLeft = 12;
@@ -54,8 +54,10 @@ test('a lucky swing breaks the whole seam free: every ore left, and the rock is 
   assert.equal(resolveMine(g, { obj: rock }), false);
   assert.equal(rock.depleted, true);
   const got = g.inventory.count('copper_ore') - ore0;
-  assert.ok(got === 12 || got === 13, `all 12 ores (one more from a rich seam): ${got}`);
-  assert.ok(g.skills.xp.mining - xp0 >= rock.def.xp * 12 - 1e-6);
+  // The swing's own ore, then the 11 left ten times over (SEAM_MULT).
+  assert.equal(SEAM_MULT, 10);
+  assert.ok(got === 111 || got === 112, `1 + 11 x 10 ores (one more from a rich seam): ${got}`);
+  assert.ok(g.skills.xp.mining - xp0 >= rock.def.xp * 111 - 1e-6);
   assert.ok(said.some((m) => /^The whole seam breaks free: \d+ copper ore!$/.test(m)));
   // A gem rock rolls a gem for each piece.
   const gems = find(g, 'gem_rock');
@@ -64,7 +66,7 @@ test('a lucky swing breaks the whole seam free: every ore left, and the rock is 
     const before = g.inventory.slots.filter(Boolean).reduce((n, s) => n + s.qty, 0);
     assert.equal(resolveMine(g, { obj: gems }), false);
     const after = g.inventory.slots.filter(Boolean).reduce((n, s) => n + s.qty, 0);
-    assert.ok(after - before >= 10, 'ten gems');
+    assert.ok(after - before >= 1 + 9 * 10, 'a gem for each piece, ten times over');
   }
 });
 

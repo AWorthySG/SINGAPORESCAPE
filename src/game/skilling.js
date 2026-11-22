@@ -5,7 +5,7 @@ import { yieldBonus, huntExtras } from './culling.js';
 import { afterFireLit } from './skillunlocks.js';
 import { toolBonus, toolTooHighMsg } from './tools.js';
 import { batched } from './autoprocess.js';
-import { nodeJackpot, rockPick } from './jackpot.js';   // now and then the whole tree or seam at once   // an instant batch's news told once (smeltBatch)
+import { nodeJackpot, rockPick, SEAM_MULT } from './jackpot.js';   // now and then the whole tree or seam at once   // an instant batch's news told once (smeltBatch)
 
 const objCenter = (obj) => ({ x: obj.x * TILE + TILE / 2, y: obj.y * TILE + TILE / 2 - 6 });
 
@@ -210,8 +210,8 @@ export function resolveMine(game, action) {
         game.msg(`You unearth ${aOrAn(getItem(gem.id).name.toLowerCase())}!`, 'level');
       }
     }
-    // Now and then the whole seam breaks free at once (jackpot.js).
-    if (obj.oresLeft > 1 && nodeJackpot(game, obj, { kind: 'mining', left: obj.oresLeft - 1, xpEach: def.xp, pick: rockPick(def, GEM_TABLE), find: tb.find })) obj.oresLeft = 1;
+    // Now and then the whole seam breaks free at once, ten times over (jackpot.js).
+    if (obj.oresLeft > 1 && nodeJackpot(game, obj, { kind: 'mining', left: obj.oresLeft - 1, xpEach: def.xp, pick: rockPick(def, GEM_TABLE), find: tb.find, mult: SEAM_MULT })) obj.oresLeft = 1;
     if (--obj.oresLeft > 0) return true;   // ore left in the seam: keep swinging
     obj.oresLeft = undefined;              // a fresh amount is rolled once it regrows
     obj.depleted = true;
