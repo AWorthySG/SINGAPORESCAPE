@@ -90,6 +90,7 @@ import { repPriceMult, repTitleText } from './reputation.js';
 import { consequencePriceMult } from './consequences.js';
 import { Gathering } from './gathering.js';   // gathering streaks, lucky finds, skilling contracts
 import { FishSchools } from './fishschool.js';   // schools of fish visiting the spots
+import { bossToolDrop } from './bosstools.js';   // world bosses drop gathering tools of their level
 import { Teleports } from './teleports.js';   // the Town and Grave teleports
 import { Discovery } from './discovery.js';   // encyclopedia discoveries and their rewards
 import * as Rounds from './rounds.js';   // gun rounds and the ammo slot
@@ -3905,6 +3906,9 @@ export class Game {
       this.msg(`Signature drop! ${nm} (for ${who})`, 'level');
       this.banner(`<span class="big">Signature drop!</span>${nm} (for ${who})`);
     }
+    // A world boss now and then leaves an upgraded gathering tool of its level (bosstools.js).
+    const tool = bossToolDrop(npc);
+    if (tool) { loot.push(tool); this.msg(`Tool drop! ${getItem(tool[0]).name}.`, 'level'); }
     // Upgrade materials: stones from anything (bosses and champions most), wards from bosses.
     // A late boss's longer siege (npcs.js bossSiegeScale) leaves a bigger pile of
     // stones, wards and scrolls, and a bigger hoard below, so they come as fast per
