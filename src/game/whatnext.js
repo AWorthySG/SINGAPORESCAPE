@@ -19,7 +19,7 @@ import { getNpc } from '../data/npcs.js';
 import { QUESTS } from '../data/quests.js';
 import { canWear } from '../data/classes.js';
 import { SKILL_BY_ID } from '../data/skills.js';
-import { compareGear, meetsReq } from './gear.js';
+import { compareGear, isUpgrade, meetsReq } from './gear.js';
 import { gatherSources } from './skillguide.js';
 
 export const MAX_GOALS = 3;
@@ -43,8 +43,7 @@ export function packUpgrades(game) {
     if (game.jobClass && !canWear(game.jobClass, s.id)) continue;
     if (!meetsReq(s.id, game.skills).ok) continue;
     if (game._canEquipNow && !game._canEquipNow(s.id)) continue;
-    const v = compareGear(s.id, game.equipment, null, s.q || null, game.combatMode?.())?.verdict;
-    if (v === 'upgrade' || v === 'empty') out.push(s);
+    if (isUpgrade(compareGear(s.id, game.equipment, null, s.q || null, game.combatMode?.()))) out.push(s);
   }
   // Rounds that beat the loaded ones, while a gun is in hand (Equip best loads them).
   const r = betterRoundsInPack(game);

@@ -55,7 +55,7 @@ import { openSacrifice, openSacrificeFrom, openDismantle, shrineGearSection, ask
 import { shrineGoodsSection, askGoods, shrineMaxButton } from './shrineui.js';
 import { goodsKind } from '../game/offerings.js';
 import { ATTRS, ATTR_NAMES, attrSummary, attrForMode, MAX_STAT_POINTS, RESET_COST_PER_POINT, holdRepeatDelay } from '../game/attributes.js';
-import { STAT_LABELS, STAT_HELP, compareGear, deltaText, gearBySlot, gearRating, meetsReq, swingBeats, tierOf, weaponStyle } from '../game/gear.js';
+import { STAT_LABELS, STAT_HELP, compareGear, deltaText, isUpgrade, gearBySlot, gearRating, meetsReq, swingBeats, tierOf, weaponStyle } from '../game/gear.js';
 import { TILE, LEARNING_ENABLED, TICK_MS } from '../config.js';
 import { TERRAIN, zoneLevel } from '../data/world.js';
 import { clearSave, suppressSaves, exportSaveCode, importSaveCode } from '../game/save.js';
@@ -1095,7 +1095,7 @@ export class UI {
           up = this.game.equipment.masteryRank(s.id);
           rl = this.game.equipment.refineLevel(s.id);
           const cmp = compareGear(s.id, this.game.equipment, null, s.q || null, this.game.combatMode());
-          better = (cmp.verdict === 'upgrade' || cmp.verdict === 'empty') && meetsReq(s.id, this.game.skills).ok;
+          better = isUpgrade(cmp) && meetsReq(s.id, this.game.skills).ok;
         }
         sig = `${s.id}|${s.qty}|${up}|${rl}|${better ? 1 : 0}|${s.q || ''}`;
       }

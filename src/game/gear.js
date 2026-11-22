@@ -119,8 +119,9 @@ export function meetsReq(id, skills) {
  *           'upgrade' | 'downgrade' | 'same' | 'worn' (it IS the worn piece). */
 // `mode` (your fighting style, Game.combatMode): when given, the verdict follows
 // Equip best's rule (offenceFirstScore: only your style's attack stats count,
-// and damage decides before Defence and HP), and a weapon of another type than
-// the one in hand is a different style, as Equip best won't swap it. Without it
+// and damage decides before Defence and HP). A weapon of another type than the
+// one in hand is still weighed (the tooltip shows how it compares) but marked
+// `otherType`: Equip best won't swap types, so isUpgrade doesn't call it one. Without it
 // (no player to ask) every stat counts, as before. The owner found the green
 // arrow calling things upgrades that Wear it then refused.
 export function compareGear(id, equipment, slot = null, q = null, mode = null) {
@@ -149,12 +150,16 @@ export function compareGear(id, equipment, slot = null, q = null, mode = null) {
   const ratingDelta = masteredRating(id, equipment, myCopy, q) - masteredRating(worn, equipment, theirCopy, wornQ);
   if (mode) {
     const wt = getItem(worn).equip?.weaponType;
-    if (eq.slot === 'weapon' && wt && eq.weaponType !== wt) return { worn, verdict: 'style', deltas, ratingDelta };
+    const otherType = eq.slot === 'weapon' && !!wt && eq.weaponType !== wt;
     const d = offenceFirstScore(id, equipment, mode, myCopy, q) - offenceFirstScore(worn, equipment, mode, theirCopy, wornQ);
-    return { worn, verdict: d > 0 ? 'upgrade' : d < 0 ? 'downgrade' : 'same', deltas, ratingDelta };
+    return { worn, verdict: d > 0 ? 'upgrade' : d < 0 ? 'downgrade' : 'same', deltas, ratingDelta, otherType };
   }
   return { worn, verdict: ratingDelta > 0 ? 'upgrade' : ratingDelta < 0 ? 'downgrade' : 'same', deltas, ratingDelta };
 }
+
+/** Should the game call this an upgrade (the green arrow, the "Wear it" note)?
+ *  Only what Equip best would put on: better for your style, and the weapon type in hand. */
+export const isUpgrade = (cmp) => !!cmp && (cmp.verdict === 'empty' || (cmp.verdict === 'upgrade' && !cmp.otherType));
 
 let _bySlot = null;
 /** Every equippable item, grouped by slot and sorted best first. */
