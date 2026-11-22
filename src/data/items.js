@@ -1276,6 +1276,27 @@ for (const K of TOOL_KINDS) {
   });
 }
 
+// ---- Stronger rings and amulets ----
+// The owner found jewellery too weak to matter (an eternal amulet gave +26
+// Attack next to eternal mage gloves' +120 Magic). Every ring and amulet's
+// fighting stats count JEWELLERY_MULT times, its Defence and life
+// JEWELLERY_GUARD_MULT times and its offensive extras and Magic damage
+// JEWELLERY_EXTRA_MULT times (Magic damage weighs eight times a point of
+// Magic, so it rises less; at 2.5x a level-300 Wizard felled bosses in about a
+// minute). Rounded, at least 1 where there was any. Prayer stays as it was.
+export const JEWELLERY_MULT = 2, JEWELLERY_GUARD_MULT = 2, JEWELLERY_EXTRA_MULT = 1.5;
+const JEWEL_FIGHT = ['attack', 'strength', 'ranged', 'magic', 'dance'];
+const JEWEL_GUARD = ['defence', 'hp'];
+const JEWEL_EXTRA = ['magicStr', 'crit', 'critDmg', 'pierce', 'lifesteal', 'haste', 'bossDmg', 'atkPct', 'magPct'];
+for (const it of Object.values(RAW)) {
+  const eq = it.equip;
+  if (!eq || (eq.slot !== 'ring' && eq.slot !== 'amulet')) continue;
+  const b = { ...(eq.bonuses || {}) };
+  const scale = (keys, m) => { for (const k of keys) if (b[k]) b[k] = Math.max(1, Math.round(b[k] * m)); };
+  scale(JEWEL_FIGHT, JEWELLERY_MULT); scale(JEWEL_GUARD, JEWELLERY_GUARD_MULT); scale(JEWEL_EXTRA, JEWELLERY_EXTRA_MULT);
+  eq.bonuses = b;
+}
+
 export const ITEMS = Object.fromEntries(
   Object.entries(RAW).map(([id, def]) => [id, Object.freeze({ id, ...def })])
 );

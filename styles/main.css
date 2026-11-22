@@ -4198,3 +4198,8 @@ input[type="range"]:focus-visible { outline: 3px solid var(--aw-sun); outline-of
 .sk-row .cp-ic { flex: 0 0 auto; }
 .cp-list .cp-row { flex-direction: row; align-items: flex-start; justify-content: flex-start; gap: 8px; }
 .cp-list .cp-row > span:last-child { flex: 1; }
+
+/* Gear Guide: the best in slot, and which style a piece is for. */
+.gear-tag.best { background: var(--gold, #e6b34a); color: var(--aw-ink, #22304a); }
+.gear-tag.best.now { background: #fff4d6; }
+.gear-tag.style { background: #fff; color: var(--aw-text-sec, #5a6478); }
