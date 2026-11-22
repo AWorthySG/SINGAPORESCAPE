@@ -38,13 +38,16 @@ export function levelHaul(game, a, obj, before) {
   // What this action gave: the node's own product if it gave one (a log, not
   // the bird's nest that fell with it), else whatever it gave most of (never coins).
   const own = new Set([obj.def.gives, ...(obj.def.catches || []).map((c) => c.id)].filter(Boolean));
+  // The bag counted once (counting each slot's item over the whole bag took the
+  // square of its size, and a late game's bag holds hundreds of things).
+  const now = new Map();
+  for (const sl of game.inventory.slots) if (sl && sl.id !== 'coins') now.set(sl.id, (now.get(sl.id) || 0) + sl.qty);
   let id = null, most = 0, mine = false;
-  for (const sl of game.inventory.slots) {
-    if (!sl || sl.id === 'coins') continue;
-    const got = game.inventory.count(sl.id) - (before.get(sl.id) || 0);
+  for (const [sid, n] of now) {
+    const got = n - (before.get(sid) || 0);
     if (got <= 0) continue;
-    const isOwn = own.has(sl.id);
-    if ((isOwn && !mine) || (isOwn === mine && got > most)) { most = got; id = sl.id; mine = isOwn; }
+    const isOwn = own.has(sid);
+    if ((isOwn && !mine) || (isOwn === mine && got > most)) { most = got; id = sid; mine = isOwn; }
   }
   if (!id || game.inventory.canAdd(id, 1) <= 0) return null;
   // Its XP as the node lists it (a fish by its own catch); Skills.addXp adds the rates.
