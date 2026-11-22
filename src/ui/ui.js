@@ -1081,6 +1081,14 @@ export class UI {
       cells.push(cell);
     }
     while (cells.length > slots.length) cells.pop().remove();
+    // Whether a piece beats what you wear only changes with your gear, levels or
+    // style, so it is worked out once per piece until one of those changes (the
+    // endless pack holds hundreds of pieces late on, and every pickup redraws it).
+    const eqp = this.game.equipment, sk = this.game.skills;
+    const gearKey = this.game.combatMode() + '|' + ['attack', 'strength', 'defence', 'ranged', 'magic', 'agility', 'prayer'].map((k) => sk.level(k)).join(',')
+      + '|' + EQUIP_SLOTS.map((sl) => { const w = eqp.get(sl); return w ? `${w}:${eqp.qualityIn?.(sl) || ''}:${eqp.refineLevel(w)}:${eqp.masteryRank(w)}:${eqp.enchantLines?.(w)?.length || 0}` : ''; }).join(',');
+    if (this._betterKey !== gearKey) { this._betterKey = gearKey; this._betterOf = new Map(); }
+    const betterOf = this._betterOf;
     for (let i = 0; i < slots.length; i++) {
       const s = slots[i];
       const cell = cells[i];
@@ -1094,8 +1102,12 @@ export class UI {
         if (item.equip) {
           up = this.game.equipment.masteryRank(s.id);
           rl = this.game.equipment.refineLevel(s.id);
-          const cmp = compareGear(s.id, this.game.equipment, null, s.q || null, this.game.combatMode());
-          better = isUpgrade(cmp) && meetsReq(s.id, this.game.skills).ok;
+          const bk = `${s.id}|${s.q || ''}|${up}|${rl}`;
+          better = betterOf.get(bk);
+          if (better === undefined) {
+            better = isUpgrade(compareGear(s.id, eqp, null, s.q || null, this.game.combatMode())) && meetsReq(s.id, sk).ok;
+            betterOf.set(bk, better);
+          }
         }
         sig = `${s.id}|${s.qty}|${up}|${rl}|${better ? 1 : 0}|${s.q || ''}`;
       }
