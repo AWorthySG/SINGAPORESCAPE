@@ -43,7 +43,7 @@ export function packUpgrades(game) {
     if (game.jobClass && !canWear(game.jobClass, s.id)) continue;
     if (!meetsReq(s.id, game.skills).ok) continue;
     if (game._canEquipNow && !game._canEquipNow(s.id)) continue;
-    const v = compareGear(s.id, game.equipment, null, s.q || null)?.verdict;
+    const v = compareGear(s.id, game.equipment, null, s.q || null, game.combatMode?.())?.verdict;
     if (v === 'upgrade' || v === 'empty') out.push(s);
   }
   // Rounds that beat the loaded ones, while a gun is in hand (Equip best loads them).
