@@ -162,14 +162,27 @@ export class Sfx {
 
   _noise(dur, vol = 0.4, t0 = 0) {
     if (!this.ctx) return;
-    const n = Math.max(1, Math.floor(this.ctx.sampleRate * dur));
-    const buf = this.ctx.createBuffer(1, n, this.ctx.sampleRate);
-    const d = buf.getChannelData(0);
-    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n); // decaying burst
-    const s = this.ctx.createBufferSource(); s.buffer = buf;
-    const g = this.ctx.createGain(); g.gain.value = vol;
+    const sr = this.ctx.sampleRate;
+    const n = Math.max(1, Math.floor(sr * dur));
+    // One second of white noise, made once. Each burst plays a stretch of it
+    // from a random point, rather than filling a fresh buffer with random
+    // numbers for every hit and kill (several a second in a big fight).
+    if (!this._noiseBuf || this._noiseBuf.length < n) {
+      const buf = this.ctx.createBuffer(1, Math.max(sr, n), sr);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      this._noiseBuf = buf;
+    }
+    const len = this._noiseBuf.length;
+    const t = this.ctx.currentTime + t0;
+    const s = this.ctx.createBufferSource(); s.buffer = this._noiseBuf;
+    const g = this.ctx.createGain();
+    // A straight fade from `vol` to silence over the burst: the same decaying
+    // envelope the old per-burst buffers had baked in.
+    g.gain.setValueAtTime(vol, t);
+    g.gain.linearRampToValueAtTime(0, t + n / sr);
     s.connect(g); g.connect(this.master);
-    s.start(this.ctx.currentTime + t0);
+    s.start(t, Math.floor(Math.random() * Math.max(1, len - n)) / sr, n / sr);
   }
 
   /** Each weapon kind's attack sound, made from a few short tones and bursts

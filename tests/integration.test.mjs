@@ -6578,9 +6578,9 @@ test('bosses no longer knock you back; every weapon kind has its own attack soun
   assert.equal(p.x, x0); assert.equal(p.y, y0);
   // Sounds: a stand-in audio context records every tone; each weapon kind plays something of its own.
   const made = [];
-  const node = () => ({ connect() {}, start() {}, stop() {}, frequency: { setValueAtTime() {}, exponentialRampToValueAtTime() {} }, gain: { value: 0, setValueAtTime() {}, exponentialRampToValueAtTime() {} }, type: '' });
+  const node = () => ({ connect() {}, start() {}, stop() {}, frequency: { setValueAtTime() {}, exponentialRampToValueAtTime() {} }, gain: { value: 0, setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} }, type: '' });
   const ctx = { currentTime: 0, sampleRate: 8000, createOscillator: () => { const o = node(); made.push(o); return o; }, createGain: node,
-    createBuffer: (c, n) => ({ getChannelData: () => new Float32Array(n) }), createBufferSource: node };
+    createBuffer: (c, n) => { const d = new Float32Array(n); return { length: n, getChannelData: () => d }; }, createBufferSource: node };
   const s = Object.create((Sfx || class {}).prototype);
   s.ctx = ctx; s.master = node(); s.muted = false;
   const sig = new Set();

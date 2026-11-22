@@ -99,6 +99,7 @@ import * as Rounds from './rounds.js';   // gun rounds and the ammo slot
 import { bestTool, toolSpeed } from './tools.js';   // tiered gathering tools
 
 const GOLDEN_BANNER_GAP = 50;   // ticks (30s): golden hours opening within this share one banner
+const SAVE_SOON_GAP = 5;        // ticks (3s): the least time between two key-moment saves (see doTick)
 
 // Auto quest: the dialogue actions that start and hand in each quest it can
 // do ([start, hand-in]; Pest Control completes itself on the last rat). The
@@ -654,6 +655,7 @@ export class Game {
     this.regenCounter = 0;
     this.autosaveCounter = 0;
     this.saveSoon = false;        // set by key moments: save on the next tick
+    this._savedTick = -Infinity;  // the tick doTick last saved on
     this.starterGiven = false;
   }
 
@@ -1278,8 +1280,12 @@ export class Game {
     // the next tick rather than waiting up to 30s for the autosave.
     // Not before a brand-new player has picked a class: a classless save would
     // reload as an old character and skip the starting kit.
-    if ((++this.autosaveCounter >= AUTOSAVE_TICKS || this.saveSoon) && !this.pendingStyleChoice) {
-      this.autosaveCounter = 0; this.saveSoon = false;
+    // In a big fight the Collection log and loot banners ask nearly every tick,
+    // and each save writes the whole character (tens of KB with a full bag), so
+    // they come at most every SAVE_SOON_GAP ticks. (Leaving the page saves at once.)
+    const soon = this.saveSoon && this.tickCount - this._savedTick >= SAVE_SOON_GAP;
+    if ((++this.autosaveCounter >= AUTOSAVE_TICKS || soon) && !this.pendingStyleChoice) {
+      this.autosaveCounter = 0; this.saveSoon = false; this._savedTick = this.tickCount;
       // Storage full or blocked: say so once instead of failing silently forever.
       // (null is saving paused before a reload, which is not a failure.)
       if (saveGame(this) === false && !this.saveWarned) { this.saveWarned = true; this.msg('Could not save: this browser\'s storage is full or blocked. Your progress is not being kept.', 'system'); }

@@ -316,7 +316,24 @@ export class Renderer {
     }
     // Only NPCs near the player can be on screen (the world holds thousands).
     const npcs = game.nearbyNpcs ? game.nearbyNpcs() : game.npcs;
-    for (const n of npcs) {
+    // Most of those are well off screen (a busy region has over a thousand
+    // nearby), so they're ruled out by their tiles first, in a plain loop of
+    // their own: each turn of the loop below costs memory even when it skips
+    // (its drawables keep what they need), and so does working out where a
+    // body is drawn. A body is drawn between the tile it stands on and the one
+    // it's stepping to, and the margin is wider than either check below, so
+    // nothing that could show is left out.
+    const near = this._npcsInView || (this._npcsInView = []);
+    near.length = 0;
+    for (let i = 0; i < npcs.length; i++) {
+      const n = npcs[i];
+      if (!n.alive && !(n.deathT > 0)) continue;
+      const m = Math.max(40, 48 * (n.def.scale || 1)) + TILE;
+      if (Math.max(n.x, n.tx) * TILE + TILE / 2 - ox < -m || Math.min(n.x, n.tx) * TILE + TILE / 2 - ox > vw + m
+        || Math.max(n.y, n.ty) * TILE + TILE / 2 - oy < -m || Math.min(n.y, n.ty) * TILE + TILE / 2 - oy > vh + m) continue;
+      near.push(n);
+    }
+    for (const n of near) {
       if (!n.alive && !(n.deathT > 0)) continue;
       const c = n.renderCenter();
       const cx = c.x - ox, cy = c.y - oy;
