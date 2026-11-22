@@ -1,6 +1,7 @@
 // Frame-cost guards for the playfield's overlays: the animated water layer is
-// not remade every frame of a fight's zoom. All headless: a stand-in canvas
-// counts what is made and drawn.
+// not remade every frame of a fight's zoom, names and bars skip the off-screen
+// crowd, and the nearby node labels come from the square around you (the same
+// nodes as before). All headless: a stand-in canvas counts what is made and drawn.
 import './seed.mjs';   // seeded Math.random: no test fails on an unlucky roll
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
