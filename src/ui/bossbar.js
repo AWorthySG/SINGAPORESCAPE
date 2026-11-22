@@ -182,9 +182,12 @@ export function renderBossBar(ui, boss) {
       pe.querySelector('.bp-badge').textContent = boss.champion ? '★' : boss.def.boss ? '♛' : '';
     }
   }
-  // A flash on the portrait when the foe takes a hit.
+  // A flash on the portrait when the foe takes a hit. Two classes with the same
+  // keyframes take turns: switching the animation's name restarts it, where
+  // re-adding one class needed a forced layout of the page (most ticks in a fight).
   if (pe && !g.reduceMotion && ui._bossPortraitHp !== undefined && boss.hp < ui._bossPortraitHp) {
-    pe.classList.remove('hit'); void pe.offsetWidth; pe.classList.add('hit');
+    const next = pe.classList.contains('hit') ? 'hit2' : 'hit';
+    pe.classList.remove('hit', 'hit2'); pe.classList.add(next);
   }
   ui._bossPortraitHp = boss.hp;
 }

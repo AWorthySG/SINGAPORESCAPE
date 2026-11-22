@@ -170,13 +170,19 @@ export function findLinks(text, regionNames = []) {
   const { map, longest } = linkNames(regionNames);
   const s = String(text ?? '');
   const words = [...s.matchAll(/[A-Za-z0-9]+(?:['’-][A-Za-z0-9]+)*/g)];
+  const low = words.map((m) => m[0].toLowerCase());   // each word lower-cased once
+  const keys = [];
   const out = [];
   let at = 0;
   for (let i = 0; i < words.length;) {
+    // The names that could start here, one word long up to `longest`, built up
+    // a word at a time (every chat line goes through this), then tried longest first.
+    const most = Math.min(longest, words.length - i);
+    keys[0] = low[i];
+    for (let n = 2; n <= most; n++) keys[n - 1] = `${keys[n - 2]} ${low[i + n - 1]}`;
     let hit = null;
-    for (let n = Math.min(longest, words.length - i); n >= 1 && !hit; n--) {
-      const k = words.slice(i, i + n).map((m) => m[0].toLowerCase()).join(' ');
-      const e = map.get(k);
+    for (let n = most; n >= 1 && !hit; n--) {
+      const e = map.get(keys[n - 1]);
       if (e) hit = { n, e };
     }
     if (!hit) { i++; continue; }

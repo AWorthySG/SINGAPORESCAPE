@@ -17,18 +17,28 @@ export function healOf(game, id, max = game.maxHp()) {
   return Math.round((item.healPct ? Math.max(item.heal, Math.round(max * item.healPct)) : item.heal) * Culling.foodMult(game));
 }
 
+/** Whether healOf(id) can be more than 0 at all (the same tests, without the sums). */
+const mightHeal = (id) => {
+  const pot = POTIONS[id];
+  return pot ? !!pot.fx.heal : !!getItem(id)?.heal;
+};
+
 /** What a tap would use: { index, id, count, heal, drink } or null when you
  *  carry nothing that heals. */
 export function quickUseChoice(game) {
   const max = game.maxHp();   // once, not once per kind of item carried
   const missing = Math.max(0, max - game.player.hp);
   const seen = new Map();   // id -> { index of its first slot, count }
-  game.inventory.slots.forEach((s, i) => {
-    if (!s) return;
+  const slots = game.inventory.slots;
+  for (let i = 0; i < slots.length; i++) {
+    const s = slots[i];
+    // Only what can heal is counted up (healOf is 0 for the rest): a late-game
+    // pack holds hundreds of other things, and this runs every tick.
+    if (!s || !mightHeal(s.id)) continue;
     const e = seen.get(s.id);
     if (e) e.count += s.qty || 1;
     else seen.set(s.id, { index: i, count: s.qty || 1 });
-  });
+  }
   let best = null;
   for (const [id, e] of seen) {
     const heal = healOf(game, id, max);

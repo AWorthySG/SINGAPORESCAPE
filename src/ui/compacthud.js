@@ -72,9 +72,16 @@ export class CompactHud {
     // Hits and misses stream all fight long; only other news wakes the chat.
     if (cls === 'combat') return;
     this._chatAt = now();
-    const peek = this._peek();
-    if (peek && text) { peek.textContent = text; peek.title = text; }
-    this.tick();
+    if (text) this._peekText = text;
+    // A kill brings a burst of lines (loot, XP, a level): the peek shows the
+    // last of them and the HUD is checked once, at the end of the burst.
+    const show = () => {
+      const peek = this._peek();
+      if (peek && this._peekText) { peek.textContent = this._peekText; peek.title = this._peekText; }
+      this._peekText = '';
+      this.tick();
+    };
+    if (this.ui._coalesce) this.ui._coalesce('chatpeek', show); else show();
   }
 
   _peek() {
