@@ -1338,12 +1338,12 @@ export class Renderer {
           // copied to the screen: away from the sea that is a shoreline's
           // strip, not a full-screen layer redrawn ~11 times a second.
           const old = wc.box, box = (wc.box = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity });
-          // The view's width in tiles flickers by one as the camera scrolls, and
-          // a fight's zoom eases the scale a little every frame: resizing the
-          // layer to fit each time remade it (on a phone, a fresh GPU surface)
-          // on most frames of a fight. So it is made a couple of tiles roomier
-          // and only remade when too small (or far too big); a new size or
-          // scale just wipes it. Only its top-left W x H is ever used.
+          // The view's width in tiles flickers by one as the camera scrolls and
+          // the zoom eases in fights: resizing the layer to fit each time remade
+          // it (on a phone, a fresh GPU surface) on most frames of a fight. So it
+          // is made a couple of tiles roomier and only remade when too small (or
+          // far too big); a new size or scale just wipes it. Only its top-left
+          // W x H is ever used.
           const cv = wc.cv;
           if (cv.width < W || cv.height < H || cv.width * cv.height > 2 * W * H) {
             const pad = Math.ceil(2 * TILE * dpr);
