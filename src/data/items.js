@@ -226,6 +226,9 @@ const RAW = {
   mithril_bar: { name: 'Mithril bar', icon: '🟦', value: 324, examine: 'A bar of mithril.' },
   adamant_bar: { name: 'Adamant bar', icon: '🟩', value: 800, examine: 'A bar of adamantite.' },
   rune_bar: { name: 'Runite bar', icon: '🟦', value: 3200, examine: 'A bar of runite.' },
+  // Smelted from silver and gold ore at a furnace; jewellery is made from them.
+  silver_bar: { name: 'Silver bar', icon: '⬜', value: 150, examine: 'A bar of shining silver, for jewellery.' },
+  gold_bar: { name: 'Gold bar', icon: '🟨', value: 360, examine: 'A heavy bar of gold, for jewellery.' },
   // Endgame bars (Smithing 100-300): they forge the obsidian to eternal gear.
   obsidian_bar: { name: 'Obsidian bar', icon: '⬛', value: 4800, examine: 'A bar of tempered obsidian.' },
   orichalcum_bar: { name: 'Orichalcum bar', icon: '🟧', value: 7200, examine: 'A bar of orichalcum.' },

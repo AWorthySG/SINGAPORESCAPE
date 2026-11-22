@@ -207,3 +207,27 @@ test('endgame Mining XP an hour: each tier well ahead of the one before, from gr
     prev = r;
   }
 });
+
+test('silver and gold ore smelt into bars at a furnace, and jewellery is made from the bars', async () => {
+  const { CRAFT } = await import('../src/data/crafting.js');
+  const g = newGame();
+  const furnace = g.world.objects.find((o) => o.def.type === 'furnace');
+  standBy(g, furnace);
+  for (const [bar, ore, lvl] of [['silver_bar', 'silver_ore', 20], ['gold_bar', 'gold_ore', 40]]) {
+    const r = SMELT.find((s) => s.result === bar);
+    assert.ok(r && r.level === lvl && r.inputs.length === 1 && r.inputs[0].id === ore, `${bar} smelts from ${ore} at Smithing ${lvl}, no coal`);
+    g.inventory.add(ore, 3);
+    setLevel(g, 'smithing', lvl - 1);
+    g.startSmelt(r, furnace); step(g, 3);
+    assert.equal(g.inventory.count(bar), 0, `no ${bar} below Smithing ${lvl}`);
+    setLevel(g, 'smithing', lvl);
+    g.startSmelt(r, furnace); step(g, 3);
+    assert.ok(g.inventory.count(bar) >= 3, `smelted ${bar}`);
+    assert.equal(g.inventory.count(ore), 0);
+  }
+  // Every ring and amulet that used raw silver or gold now takes the bar.
+  const jewellery = CRAFT.filter((c) => /_(ring|amulet)$/.test(c.result));
+  assert.ok(jewellery.length >= 10);
+  assert.ok(!CRAFT.some((c) => c.inputs.some((i) => i.id === 'silver_ore' || i.id === 'gold_ore')), 'no recipe takes raw silver or gold ore');
+  assert.ok(CRAFT.some((c) => c.inputs.some((i) => i.id === 'gold_bar')) && CRAFT.some((c) => c.inputs.some((i) => i.id === 'silver_bar')));
+});

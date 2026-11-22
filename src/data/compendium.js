@@ -217,7 +217,7 @@ export function bossTypeRows() {
   const WHAT = {
     plated: `${pct(BOSS_TYPES.plated.armour)} more armour (up to ${pct(BOSS_TYPES.plated.cap)}); maces, warhammers and toyas hit ×${BOSS_TYPES.plated.blunt}`,
     warded: `${pct(-BOSS_TYPES.warded.armour)} less armour; spells do ×${BOSS_TYPES.warded.magic}`,
-    evasive: `${pct(-BOSS_TYPES.evasive.armour)} less armour; ${pct(BOSS_TYPES.evasive.graze[0])} of quick attacks, up to ${pct(BOSS_TYPES.evasive.graze[1])} of slow swings, only graze it (${pct(BOSS_TYPES.evasive.grazeDmg)} damage)`,
+    evasive: `${pct(-BOSS_TYPES.evasive.armour)} less armour; it slips your blows, so quick attacks do ${pct(BOSS_TYPES.evasive.graze[0] * (1 - BOSS_TYPES.evasive.grazeDmg))} less and slow swings up to ${pct(BOSS_TYPES.evasive.graze[1] * (1 - BOSS_TYPES.evasive.grazeDmg))} less (every blow still lands)`,
     thick: `Quick blows do ×${BOSS_TYPES.thick.glance[0]}, slow heavy ones ×${BOSS_TYPES.thick.glance[1]}; armour breaks count ×${BOSS_TYPES.thick.breaks}`,
   };
   const n = {};
@@ -368,6 +368,7 @@ export const CHAPTERS = [
             ['K', 'Teleport back to Kampong Glam (stand still 3s; recharges in 2.5 minutes)'],
             ['R', 'Teleport to your gravestone after a death'],
             ['O', 'Postcard mode: snap the view as a postcard to save or share'],
+            ['I', 'Open or fold the menu (the side panel)'],
             ['1 2 3 4 5', 'Side panel tabs: Bag, Skills, Combat, Journal, Settings'],
             ['Esc', 'Close the window or menu'],
           ] },

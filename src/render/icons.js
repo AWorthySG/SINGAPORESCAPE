@@ -280,6 +280,8 @@ import { BESTIARY_BOSSES } from '../data/bestiary.js';
   I.adamantite_ore = oreIcon(adam);
   I.runite_ore = oreIcon(rune);
   I.steel_bar = barIcon(C.steel, C.steelHi);
+  I.silver_bar = barIcon('#cdd6e2', '#f6f9fc');
+  I.gold_bar = barIcon(C.gold, C.goldHi);
   I.mithril_bar = barIcon(mith, mithHi);
   I.adamant_bar = barIcon(adam, adamHi);
   I.rune_bar = barIcon(rune, runeHi);
@@ -690,7 +692,7 @@ import { BESTIARY_BOSSES } from '../data/bestiary.js';
   const ITEM_ART = new Set([
     'coins', 'bronze_axe', 'bronze_pickaxe', 'small_net', 'tinderbox', 'hammer',
     'logs', 'oak_logs', 'willow_logs',
-    'copper_ore', 'tin_ore', 'iron_ore', 'coal', 'bronze_bar', 'iron_bar',
+    'copper_ore', 'tin_ore', 'iron_ore', 'coal', 'bronze_bar', 'iron_bar', 'silver_bar', 'gold_bar',
     'raw_trout', 'raw_sardine', 'raw_anchovy', 'chicken_rice', 'roti_prata',
     'bronze_dagger', 'bronze_sword', 'bronze_scimitar',
     // Batch 09: mithril/adamant/rune gear, ranged & magic kit, runes.

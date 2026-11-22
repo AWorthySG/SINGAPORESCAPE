@@ -5,14 +5,14 @@ import { HIDE_CRAFT } from './trades.js';
 export const CRAFT = [
   { result: 'pot', inputs: [{ id: 'clay', qty: 1 }], level: 1, xp: 6 },
   { result: 'bowl', inputs: [{ id: 'clay', qty: 1 }], level: 5, xp: 9 },
-  { result: 'gold_ring', inputs: [{ id: 'gold_ore', qty: 1 }], level: 5, xp: 18 },
-  { result: 'gold_amulet', inputs: [{ id: 'gold_ore', qty: 1 }], level: 8, xp: 30 },
-  { result: 'sapphire_ring', inputs: [{ id: 'silver_ore', qty: 1 }, { id: 'sapphire', qty: 1 }], level: 12, xp: 50, tool: 'chisel' },
-  { result: 'sapphire_amulet', inputs: [{ id: 'silver_ore', qty: 1 }, { id: 'sapphire', qty: 1 }], level: 16, xp: 65, tool: 'chisel' },
-  { result: 'emerald_amulet', inputs: [{ id: 'silver_ore', qty: 1 }, { id: 'emerald', qty: 1 }], level: 27, xp: 90, tool: 'chisel' },
-  { result: 'ruby_amulet', inputs: [{ id: 'silver_ore', qty: 1 }, { id: 'ruby', qty: 1 }], level: 42, xp: 125, tool: 'chisel' },
+  { result: 'gold_ring', inputs: [{ id: 'gold_bar', qty: 1 }], level: 5, xp: 18 },
+  { result: 'gold_amulet', inputs: [{ id: 'gold_bar', qty: 1 }], level: 8, xp: 30 },
+  { result: 'sapphire_ring', inputs: [{ id: 'silver_bar', qty: 1 }, { id: 'sapphire', qty: 1 }], level: 12, xp: 50, tool: 'chisel' },
+  { result: 'sapphire_amulet', inputs: [{ id: 'silver_bar', qty: 1 }, { id: 'sapphire', qty: 1 }], level: 16, xp: 65, tool: 'chisel' },
+  { result: 'emerald_amulet', inputs: [{ id: 'silver_bar', qty: 1 }, { id: 'emerald', qty: 1 }], level: 27, xp: 90, tool: 'chisel' },
+  { result: 'ruby_amulet', inputs: [{ id: 'silver_bar', qty: 1 }, { id: 'ruby', qty: 1 }], level: 42, xp: 125, tool: 'chisel' },
   { result: 'granite_shield', inputs: [{ id: 'granite', qty: 2 }], level: 50, xp: 130 },
-  { result: 'diamond_amulet', inputs: [{ id: 'silver_ore', qty: 1 }, { id: 'diamond', qty: 1 }], level: 55, xp: 165, tool: 'chisel' },
+  { result: 'diamond_amulet', inputs: [{ id: 'silver_bar', qty: 1 }, { id: 'diamond', qty: 1 }], level: 55, xp: 165, tool: 'chisel' },
   { result: 'granite_maul', inputs: [{ id: 'granite', qty: 5 }], level: 58, xp: 240 },
 
   // ---- Pottery ----
@@ -26,15 +26,15 @@ export const CRAFT = [
   { result: 'lantern', inputs: [{ id: 'molten_glass', qty: 1 }, { id: 'bronze_bar', qty: 1 }], level: 33, xp: 45 },
 
   // ---- Gem rings (need a chisel) ----
-  { result: 'emerald_ring', inputs: [{ id: 'silver_ore', qty: 1 }, { id: 'emerald', qty: 1 }], level: 30, xp: 95, tool: 'chisel' },
-  { result: 'ruby_ring', inputs: [{ id: 'silver_ore', qty: 1 }, { id: 'ruby', qty: 1 }], level: 44, xp: 130, tool: 'chisel' },
-  { result: 'diamond_ring', inputs: [{ id: 'silver_ore', qty: 1 }, { id: 'diamond', qty: 1 }], level: 58, xp: 170, tool: 'chisel' },
+  { result: 'emerald_ring', inputs: [{ id: 'silver_bar', qty: 1 }, { id: 'emerald', qty: 1 }], level: 30, xp: 95, tool: 'chisel' },
+  { result: 'ruby_ring', inputs: [{ id: 'silver_bar', qty: 1 }, { id: 'ruby', qty: 1 }], level: 44, xp: 130, tool: 'chisel' },
+  { result: 'diamond_ring', inputs: [{ id: 'silver_bar', qty: 1 }, { id: 'diamond', qty: 1 }], level: 58, xp: 170, tool: 'chisel' },
 
   // ---- Pearl jewellery: a caster's first rungs, and prayer beads ----
-  { result: 'pearl_ring', inputs: [{ id: 'silver_ore', qty: 1 }, { id: 'pearl', qty: 1 }], level: 10, xp: 40, tool: 'chisel' },
+  { result: 'pearl_ring', inputs: [{ id: 'silver_bar', qty: 1 }, { id: 'pearl', qty: 1 }], level: 10, xp: 40, tool: 'chisel' },
   { result: 'holy_beads', inputs: [{ id: 'pearl', qty: 2 }], level: 12, xp: 45 },
-  { result: 'pearl_amulet', inputs: [{ id: 'silver_ore', qty: 1 }, { id: 'pearl', qty: 2 }], level: 14, xp: 55, tool: 'chisel' },
-  { result: 'ring_of_devotion', inputs: [{ id: 'gold_ore', qty: 1 }, { id: 'pearl', qty: 1 }], level: 20, xp: 70, tool: 'chisel' },
+  { result: 'pearl_amulet', inputs: [{ id: 'silver_bar', qty: 1 }, { id: 'pearl', qty: 2 }], level: 14, xp: 55, tool: 'chisel' },
+  { result: 'ring_of_devotion', inputs: [{ id: 'gold_bar', qty: 1 }, { id: 'pearl', qty: 1 }], level: 20, xp: 70, tool: 'chisel' },
 
   // ---- Granite armour ----
   { result: 'granite_helm', inputs: [{ id: 'granite', qty: 1 }], level: 45, xp: 90 },

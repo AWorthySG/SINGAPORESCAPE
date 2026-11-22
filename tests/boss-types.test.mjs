@@ -67,16 +67,16 @@ test('each armour type does what it says', () => {
   assert.ok(armourMult(armourOf(as('plated'), { fightLevel: 300 }), 80) < armourMult(armourOf(as('evasive'), { fightLevel: 300 }), 80));
 });
 
-test('an evasive boss is grazed by some of your blows in a real game, never missed; a plain monster never is', () => {
+test('an evasive boss takes less from slow swings, but every blow lands with no "Grazed" roll; a plain monster takes it all', () => {
   const g = freshGame('gladiator');   // a two-handed great sword: slow swings
   const boss = g.spawnNpc(ofType('evasive')[0], g.player.x + 2, g.player.y, { wander: 0 });
   boss.maxHp = boss.hp = 1e9;
+  const want = Math.max(1, Math.round(100 * bossGrazeMult(boss.def, g.attackInterval())));
+  assert.ok(want < 100 && want > Math.round(100 * GRAZE_DMG), `a steady share of the blow (${want})`);
   const took = [];
   for (let i = 0; i < 200; i++) { const before = boss.hp; g._applyPlayerHit(boss, 100); took.push(before - boss.hp); }
-  const grazed = took.filter((d) => d === Math.round(100 * GRAZE_DMG)).length;
-  assert.ok(grazed >= 30 && grazed <= 140, `grazed ${grazed} of 200 slow swings`);
-  assert.ok(took.every((d) => d === 100 || d === Math.round(100 * GRAZE_DMG)), 'every blow lands: in full or grazing');
-  assert.ok(g.effects.some((e) => e.type === 'hitsplat' && e.entity === boss && e.text === 'Grazed'), 'a grazing blow is labelled');
+  assert.ok(took.every((d) => d === want), 'every blow lands the same: no rolled grazes');
+  assert.ok(!g.effects.some((e) => e.type === 'hitsplat' && e.entity === boss && e.text === 'Grazed'), 'nothing labelled "Grazed"');
   // Even a 1-damage blow still lands 1.
   const b0 = boss.hp; for (let i = 0; i < 40; i++) g._applyPlayerHit(boss, 1);
   assert.equal(b0 - boss.hp, 40);
@@ -84,7 +84,7 @@ test('an evasive boss is grazed by some of your blows in a real game, never miss
   mob.maxHp = mob.hp = 1e9;
   const m0 = mob.hp;
   for (let i = 0; i < 100; i++) g._applyPlayerHit(mob, 100);
-  assert.equal(m0 - mob.hp, 100 * 100, 'no grazes on an ordinary monster');
+  assert.equal(m0 - mob.hp, 100 * 100, 'an ordinary monster takes every blow in full');
 });
 
 test("auto battle's fight estimate counts the boss's armour type", () => {

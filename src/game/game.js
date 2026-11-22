@@ -37,7 +37,7 @@ import {
   playerRangedVsNpc, combatXpRanged, playerMagicVsNpc, RANGED_STYLES,
   weaknessOf, WEAKNESS_BONUS, armourOf, armourMult, critChance, hitChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE,
   playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX, RANGED_TYPE_DMG, combatLevelXpMult, CLASS_POWER, OPEN_WOUNDS, openWoundStacks, shatterPierce,
-  bossTypeDmgMult, bossGrazeChance, bossGrazeMult, GRAZE_DMG, bossBreakMult } from './combat.js';
+  bossTypeDmgMult, bossGrazeMult, bossBreakMult } from './combat.js';
 import { ABILITY_BY_ID, abilitiesFor, ADREN_PER_HIT, ADREN_PER_HURT, CLASS_ADRENALINE, EXECUTE_BELOW, SUNDER_TICKS } from '../data/abilities.js';
 import { classPassiveMods, CLASS_SKILL } from '../data/classPassives.js';
 import { RACES, raceOf, matchup, RACE_BONUS, RACE_PENALTY } from '../data/races.js';
@@ -2404,12 +2404,12 @@ export class Game {
   }
 
   _applyPlayerHit(npc, dmg, opts = {}) {
-    // An evasive boss twists away from some blows, slow swings more often than quick
-    // ones, and they only graze it (combat.js bossGrazeChance): still a number of at
-    // least 1, with a "Grazed" label. (Rolled only against an evasive boss, so no
-    // other fight's rolls change.)
-    const graze = dmg > 0 && !opts.aoe ? bossGrazeChance(npc.def, this.attackInterval()) : 0;
-    if (graze > 0 && Math.random() < graze) { dmg = Math.max(1, Math.round(dmg * GRAZE_DMG)); this.addHitsplat(npc, 0, { text: 'Grazed' }); }
+    // An evasive boss slips your blows: slow swings do less to it than quick
+    // attacks (combat.js bossGrazeMult). Every blow still lands in full view,
+    // with no roll and no "Grazed" label: it used to roll a graze on 15-45% of
+    // blows, which read as a miss (the owner's call: attacks never miss).
+    const slip = dmg > 0 && !opts.aoe ? bossGrazeMult(npc.def, this.attackInterval()) : 1;
+    if (slip < 1) dmg = Math.max(1, Math.round(dmg * slip));
     if (dmg > 0 && !opts.aoe) this._woundFoe(npc, dmg);   // daggers may poison, claws may make it bleed
     // Brawler: each blow adds an Open Wound (more damage taken), up to 30 stacks.
     if (dmg > 0 && this.jobClass === 'brawler') {

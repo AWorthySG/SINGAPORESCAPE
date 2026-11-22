@@ -109,6 +109,8 @@ input.onKey((e) => {
     // Tab in the world switches target; inside a panel it still moves keyboard focus.
     e.preventDefault();
     game.nextTarget();
+  } else if (e.key === 'i' || e.key === 'I') {
+    ui.toggleMenu();   // open or fold the side panel (Bag, Skills, Combat, Journal, Settings)
   } else if (e.key === 'g' || e.key === 'G') {
     game.attackNearest();   // lock onto the nearest enemy, like the Attack button
   } else if (e.key === 'q' || e.key === 'Q') {
