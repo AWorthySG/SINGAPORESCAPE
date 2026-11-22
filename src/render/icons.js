@@ -822,7 +822,8 @@ import { BESTIARY_BOSSES } from '../data/bestiary.js';
     'lantern_cape', 'starlit_pendant']) ITEM_ART.add(id);
   // The bestiary expansion's bosses' weapons: those listed in SIG_ART have their own
   // stickers (art packs 08 and 09); any without one borrow one below.
-  const NEW_SIG = new Set(BESTIARY_BOSSES.map((b) => `sig_${b.id}`));
+  // (Ascended weapons, bossWeapons.js, borrow one too until theirs arrive.)
+  const NEW_SIG = new Set([...BESTIARY_BOSSES.map((b) => `sig_${b.id}`), ...Object.keys(ITEMS).filter((id) => ITEMS[id].signature?.ascended)]);
   const SIG_ART = new Set(['toman_tyrant', 'ubin_quarry_python', 'kopitiam_roach_queen', 'bakau_mud_lobster', 'strangler_fig_mother',
     'kranji_bullfrog_emperor', 'sea_eagle_sovereign', 'slag_titan', 'arowana_emperor', 'toyol_kingpin',
     'atlas_moth_empress', 'jembalang_lord', 'krait_matriarch', 'duyung_queen', 'great_argus_monarch',

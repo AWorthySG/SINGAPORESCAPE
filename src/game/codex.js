@@ -11,7 +11,7 @@ import { getItem } from '../data/items.js';
 import { RACES, raceOf, weaponsFor, weaponTypeName } from '../data/races.js';
 import { armourTierOf, ARMOUR_TIERS, bossTypeOf } from './combat.js';
 import { ELEMENTS, elementMatchup, ELEMENT_MATCHUP } from '../data/magic.js';
-import { SIGNATURE_CLASS, SIGNATURE_DROP_CHANCE, sigIdFor } from '../data/bossWeapons.js';
+import { SIGNATURE_CLASS, SIGNATURE_DROP_CHANCE, sigIdFor, sigDropsFor } from '../data/bossWeapons.js';
 import { CLASS_BY_ID } from '../data/classes.js';
 import { CHAMPION_HP_MULT } from './npc.js';
 import { NORMAL_GEAR_SKIP } from './loot.js';
@@ -204,6 +204,9 @@ export function codexEntry(game, id) {
   });
   const sigCls = SIGNATURE_CLASS[id] && CLASS_BY_ID[SIGNATURE_CLASS[id]];
   if (sigCls) e.signature = { item: sigIdFor(id), className: sigCls.name, classId: sigCls.id, chance: SIGNATURE_DROP_CHANCE };
+  // The strongest bosses' ascended weapons for other classes (bossWeapons.js ASCENDED).
+  const asc = sigDropsFor(id).slice(1);
+  if (asc.length) e.ascended = asc.map((s) => ({ item: s.id, className: CLASS_BY_ID[s.classId].name, classId: s.classId, chance: SIGNATURE_DROP_CHANCE }));
   if (d.ability) {
     e.ability = { name: d.ability.name, desc: d.ability.desc,
       hazards: (d.ability.hazards || []).map((h) => ({ id: h, ...(HAZARD_TEXT[h] || { name: h, desc: '' }) })) };

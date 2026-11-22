@@ -64,7 +64,7 @@ import { RARE_DROP_TABLE, getNpc, ALL_BOSS_IDS, ALL_MONSTER_IDS } from '../data/
 import { MORAL_EVENTS, MORAL_BY_ID, moralCoins, BLESS_MS, BLESS_XP } from '../data/moralEvents.js';
 import { alignmentTier, alignmentStyle, greetingFor } from '../data/alignment.js';
 import { tickBossMechanics, mechAbilityUsed, mechAutoFight, inHazard } from './bossmech.js';
-import { SIGNATURE_DROP_CHANCE, SIGNATURE_CLASS, sigIdFor } from '../data/bossWeapons.js';
+import { SIGNATURE_DROP_CHANCE, sigDropsFor } from '../data/bossWeapons.js';
 import { nextJob, jobKey, makeBatch, batched } from './autoprocess.js';
 import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
 import { eligibleTasks, SLAYER_REWARDS, SLAYER_TASKS, SLAYER_HELM_DMG, slayerBuffs, slayerBuffText } from '../data/slayer.js';
@@ -3902,8 +3902,9 @@ export class Game {
     }
     // A boss's signature weapon (bossWeapons.js), 1 kill in 5 whatever your class:
     // it is made for one class, so for the rest it's a trophy or something to trade.
-    if (def.boss && SIGNATURE_CLASS[npc.npcId] && Math.random() < SIGNATURE_DROP_CHANCE) {
-      const sid = sigIdFor(npc.npcId), nm = getItem(sid).name, who = CLASS_BY_ID[SIGNATURE_CLASS[npc.npcId]]?.name;
+    // The strongest bosses also carry an ascended one for another class, rolled on its own.
+    if (def.boss) for (const { id: sid, classId } of sigDropsFor(npc.npcId)) if (Math.random() < SIGNATURE_DROP_CHANCE) {
+      const nm = getItem(sid).name, who = CLASS_BY_ID[classId]?.name;
       loot.push([sid, 1, 'legendary', 'sig']);
       this.msg(`Signature drop! ${nm} (for ${who})`, 'level');
       this.banner(`<span class="big">Signature drop!</span>${nm} (for ${who})`);

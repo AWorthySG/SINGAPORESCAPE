@@ -104,6 +104,28 @@ const DEAL_ORDER = (() => {
 /** bossId -> the class its signature weapon is made for. */
 export const SIGNATURE_CLASS = Object.fromEntries(SIG_BOSSES.map(([id], i) => [id, DEAL_ORDER[i % DEAL_ORDER.length]]));
 
+// Ascended signature weapons (the owner's ask: every class has a signature weapon
+// stronger than its eternal one). A signature weapon is built on the best plain
+// weapon its boss's level allows, so only bosses of ASCENDED_LEVEL (the eternal
+// tier) and up make one that beats eternal, and those serve only some classes.
+// Each other class gets one more weapon, built on the eternal tier, dropped by one
+// of those bosses besides its own (dealt from the strongest down). The bosses'
+// first weapons stay exactly as they were.
+export const ASCENDED_LEVEL = 300;
+const TOP_BOSSES = SIG_BOSSES.filter((b) => b[1] >= ASCENDED_LEVEL).sort((a, b) => b[1] - a[1]);
+/** [{ boss, classId, id }]: the ascended weapons, in deal order. */
+export const ASCENDED = (() => {
+  const served = new Set(TOP_BOSSES.map(([id]) => SIGNATURE_CLASS[id]));
+  const need = DEAL_ORDER.filter((c) => !served.has(c));
+  return need.map((classId, i) => { const boss = TOP_BOSSES[i % TOP_BOSSES.length][0]; return { boss, classId, id: `sig_${boss}_${classId}` }; });
+})();
+/** Every signature weapon a boss drops: [{ id, classId }], its own first, then any ascended ones. */
+export function sigDropsFor(bossId) {
+  if (!SIGNATURE_CLASS[bossId]) return [];
+  return [{ id: sigIdFor(bossId), classId: SIGNATURE_CLASS[bossId] },
+    ...ASCENDED.filter((a) => a.boss === bossId).map(({ id, classId }) => ({ id, classId }))];
+}
+
 // A noun for each weapon type: "Nian's Fang", "Kelong King's Longbow".
 const NOUNS = {
   dagger: ['Fang', 'Sting'], sword: ['Edge', 'Blade'], scimitar: ['Crescent', 'Cutlass'], mace: ['Crusher', 'Sceptre'],
@@ -139,23 +161,26 @@ export function signatureWeapons(RAW, classify, skip = new Set()) {
     const t = classify(id, eq);
     if (t) (byType[t] = byType[t] || []).push(id);
   }
-  for (const [bossId, level, short, full] of SIG_BOSSES) {
-    const cls = SIG_CLASSES.find((c) => c[0] === SIGNATURE_CLASS[bossId]);
+  const jobs = [...SIG_BOSSES.map(([bossId, level, short, full]) => [bossId, level, short, full, SIGNATURE_CLASS[bossId], sigIdFor(bossId)]),
+    ...ASCENDED.map(({ boss, classId, id }) => { const [, level, short, full] = SIG_BOSSES.find((b) => b[0] === boss); return [boss, level, short, full, classId, id]; })];
+  for (const [bossId, level, short, full, sigClass, id] of jobs) {
+    const cls = SIG_CLASSES.find((c) => c[0] === sigClass);
     const [classId, className, type] = cls;
     // The best plain weapon of the type the boss's tier allows (the lowest if none does).
     const list = (byType[type] || []).slice().sort((a, b) => req(RAW[b].equip) - req(RAW[a].equip) || power(RAW[b].equip.bonuses || {}) - power(RAW[a].equip.bonuses || {}));
     const baseId = list.find((x) => req(RAW[x].equip) <= level) || list[list.length - 1];
     if (!baseId) throw new Error(`no ${type} weapon to base ${bossId}'s signature weapon on`);
-    const base = RAW[baseId], h = hash(bossId);
+    const base = RAW[baseId], h = hash(id === sigIdFor(bossId) ? bossId : id);   // a boss's first weapon keeps its old hash
     const bonuses = { ...(base.equip.bonuses || {}) };
     for (const k of SCALED) if (bonuses[k]) bonuses[k] = Math.round(bonuses[k] * SIGNATURE_MULT);
-    const id = sigIdFor(bossId);
+    const ascended = id !== sigIdFor(bossId);
     const nouns = NOUNS[type];
     const article = /^[AEIOU]/.test(className) ? 'an' : 'a';
     const boss = full.replace(/^The /, 'the ');
-    items[id] = { ...base, name: `${short}'s ${nouns[h % nouns.length]}`, value: Math.round((base.value || 100) * 3),
-      examine: `Signature weapon of ${boss}. Made for ${article} ${className}'s hand.`,
-      signature: { boss: bossId, classId, base: baseId, hue: h % 360 },   // hue: its icon's tint
+    items[id] = { ...base, name: `${short}'s ${ascended ? 'Ascended ' : ''}${nouns[h % nouns.length]}`, value: Math.round((base.value || 100) * 3),
+      examine: ascended ? `Signature weapon of ${boss}, ascended past the eternal tier. Made for ${article} ${className}'s hand.`
+        : `Signature weapon of ${boss}. Made for ${article} ${className}'s hand.`,
+      signature: { boss: bossId, classId, base: baseId, hue: h % 360, ...(ascended ? { ascended: true } : {}) },   // hue: its icon's tint
       equip: { ...base.equip, req: { ...(base.equip.req || {}) }, bonuses } };
     types[id] = type;
     // Two different extras, picked by the hash; magic weapons take Magic bonus %, the rest Physical damage bonus %.

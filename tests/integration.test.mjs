@@ -6620,9 +6620,10 @@ test('boss signature weapons: one per boss, for one class, dealt fairly and fixe
     assert.equal(full, NPCS[id].name, `${id}'s name matches npcs.js`);
   }
   assert.deepEqual(SIG_CLASSES, CLASSES.map((c) => [c.id, c.name, c.weapon]), 'the class list matches classes.js');
-  // Exactly one weapon per boss, each id unique, for a real class.
+  // One weapon per boss (plus the strongest bosses' ascended ones), each id unique, for a real class.
+  const { ASCENDED } = await import('../src/data/bossWeapons.js');
   const sigs = Object.values(ITEMS).filter((it) => it.signature);
-  assert.equal(sigs.length, ALL_BOSS_IDS.length);
+  assert.equal(sigs.length, ALL_BOSS_IDS.length + ASCENDED.length);
   assert.equal(new Set(sigs.map((it) => it.id)).size, sigs.length);
   for (const boss of ALL_BOSS_IDS) {
     const it = ITEMS[sigIdFor(boss)], cls = CLASS_BY_ID[SIGNATURE_CLASS[boss]];

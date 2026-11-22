@@ -155,6 +155,11 @@ export function codexEntryHTML(game, id) {
     boss += `<div class="cx-sec cx-sig${mine ? ' mine' : ''}"><h4>Signature weapon</h4>${itemIconSVG(e.signature.item, 28)}` +
       `<span><b>${esc(getItem(e.signature.item).name)}</b> for ${esc(e.signature.className)}${mine ? ' (your class!)' : ''} · drops 1 kill in ${Math.round(1 / e.signature.chance)}</span></div>`;
   }
+  for (const a of e.ascended || []) {
+    const mine = a.classId === game?.jobClass;
+    boss += `<div class="cx-sec cx-sig${mine ? ' mine' : ''}"><h4>Ascended signature weapon</h4>${itemIconSVG(a.item, 28)}` +
+      `<span><b>${esc(getItem(a.item).name)}</b> for ${esc(a.className)}${mine ? ' (your class!)' : ''}, stronger than eternal · drops 1 kill in ${Math.round(1 / a.chance)}</span></div>`;
+  }
   if (e.ability) {
     boss += `<div class="cx-sec"><h4>Signature move</h4><div class="cx-ability"><b>${esc(e.ability.name)}:</b> ${esc(e.ability.desc)}</div>` +
       (e.ability.hazards.length ? `<div class="cx-hazards">Ground attacks: ${e.ability.hazards.map((h) => `<span class="cx-hazard" title="${esc(h.desc)}"><b>${esc(h.name)}</b> ${esc(h.desc)}</span>`).join('')}</div>` : '') +
