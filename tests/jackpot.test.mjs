@@ -29,7 +29,7 @@ const find = (g, id) => g.world.objects.find((o) => o.objId === id && !o.deplete
 beforeEach(() => { NODE_JACKPOT.on = true; });
 afterEach(() => { setJackpotRand(mulberry32(1)); });
 
-test('a lucky swing brings the whole tree down: every log left, XP for each, and the tree falls', () => {
+test('a lucky swing brings the whole tree down: ten times every log left, XP for each, and the tree falls', () => {
   const g = newGame(); const said = listen(g);
   const tree = find(g, 'tree');
   tree.logsLeft = 15;
@@ -40,8 +40,9 @@ test('a lucky swing brings the whole tree down: every log left, XP for each, and
   assert.equal(tree.depleted, true, 'the tree falls');
   assert.equal(tree.logsLeft, undefined, 'a fresh count once it regrows');
   const got = g.inventory.count(tree.def.gives) - logs0;
-  assert.ok(got === 15 || got === 16, `all 15 logs (one more from a double): ${got}`);
-  assert.ok(g.skills.xp.woodcutting - xp0 >= tree.def.xp * 15 - 1e-6, 'XP for every log');
+  // The swing's own log, then the 14 left ten times over (SEAM_MULT).
+  assert.ok(got === 141 || got === 142, `1 + 14 x 10 logs (one more from a double): ${got}`);
+  assert.ok(g.skills.xp.woodcutting - xp0 >= tree.def.xp * 141 - 1e-6, 'XP for every log');
   assert.ok(said.some((m) => /^The whole tree comes down at once: \d+ /.test(m)));
 });
 
