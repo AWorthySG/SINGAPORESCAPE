@@ -44,13 +44,16 @@ export function isLabelledObject(o) {
   return !!o && LABELLED_TYPES.has(o.def?.type) && !!o.def.label && !o.depleted;
 }
 
+const _box = [];   // scratch for the world's spatial lookup (nearbyWorkable)
+
 /** Nodes near you that your tools can work, nearest first (at most
  *  NEAR_LABEL_MAX). Worked out once per tick and player tile, not every frame. */
 export function nearbyWorkable(game) {
   const p = game.player;
-  const key = `${game.tickCount}|${p.x}|${p.y}`;
+  // (Asked once per node label every frame: compared field by field, so the
+  // check makes no string.)
   const memo = game._nearLabels;
-  if (memo && memo.key === key) return memo.set;
+  if (memo && memo.tick === game.tickCount && memo.x === p.x && memo.y === p.y) return memo.set;
   const tools = new Map();
   const has = (tag) => {
     if (!tag) return true;
@@ -58,7 +61,12 @@ export function nearbyWorkable(game) {
     return tools.get(tag);
   };
   const near = [];
-  for (const o of game.world.objects) {
+  // Only the square of tiles around you can hold one: the world's spatial
+  // index finds those few among its thousands of objects, in the order of
+  // the object list (so nodes at the same distance keep their old order).
+  const W = game.world, R = NEAR_LABEL_TILES;
+  const objs = W.objectsIn ? W.objectsIn(Math.floor(p.x - R), Math.floor(p.y - R), Math.ceil(p.x + R), Math.ceil(p.y + R), _box) : W.objects;
+  for (const o of objs) {
     if (!isLabelledObject(o)) continue;
     const d = Math.max(Math.abs(o.x - p.x), Math.abs(o.y - p.y));
     if (d > NEAR_LABEL_TILES || !has(o.def.tool)) continue;
@@ -73,7 +81,7 @@ export function nearbyWorkable(game) {
   const now = game.playMs || 0;
   for (const o of since.keys()) if (!set.has(o)) since.delete(o);
   for (const o of set) if (!since.has(o)) since.set(o, now);
-  game._nearLabels = { key, set };
+  game._nearLabels = { tick: game.tickCount, x: p.x, y: p.y, set };
   return set;
 }
 

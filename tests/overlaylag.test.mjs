@@ -166,3 +166,37 @@ test('names and bars skip the off-screen crowd before working anything out, and 
   assert.ok(barAt(near) && barAt(walker), 'both fighters in view wear their bars');
   assert.ok(!barAt(far) && !barAt(below), 'the off-screen ones wear none');
 });
+
+test('the nearby node labels come from the square around you, and are the same nodes a walk of the whole world finds', async () => {
+  const { nearbyWorkable, isLabelledObject, NEAR_LABEL_TILES, NEAR_LABEL_MAX } = await import('../src/render/worldlabels.js');
+  const g = freshGame();
+  g.hasTool = (tag) => tag !== 'harpoon';   // some tools, not all
+  // The old way: every object in the world, nearest first, ties in list order.
+  const reference = () => {
+    const p = g.player, near = [];
+    for (const o of g.world.objects) {
+      if (!isLabelledObject(o)) continue;
+      const d = Math.max(Math.abs(o.x - p.x), Math.abs(o.y - p.y));
+      if (d > NEAR_LABEL_TILES || !(!o.def.tool || g.hasTool(o.def.tool))) continue;
+      if (o.def.skill && o.def.level && g.skills.level(o.def.skill) < o.def.level) continue;
+      near.push([d, o]);
+    }
+    near.sort((a, b) => a[0] - b[0]);
+    return near.slice(0, NEAR_LABEL_MAX).map((e) => e[1]);
+  };
+  const labelled = g.world.objects.filter(isLabelledObject);
+  let found = 0;
+  for (let i = 0; i < 300; i++) {
+    const o = labelled[(i * 7919) % labelled.length];
+    g.player.x = o.x + (i % 5) - 2; g.player.y = o.y + (i % 3) - 1; g.tickCount++;
+    const got = [...nearbyWorkable(g)];
+    assert.deepEqual(got, reference(), `the same nodes at ${g.player.x},${g.player.y}`);
+    if (got.length) found++;
+  }
+  assert.ok(found > 50, 'plenty of spots had nodes to label');
+  // Worked out once per tick and tile: asking again hands back the same set.
+  const s = nearbyWorkable(g);
+  assert.equal(nearbyWorkable(g), s);
+  g.tickCount++;
+  assert.notEqual(nearbyWorkable(g), s, 'a new tick works it out afresh');
+});
