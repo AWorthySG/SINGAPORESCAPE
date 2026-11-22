@@ -681,7 +681,7 @@ export class UI {
       panel.classList.toggle('collapsed', collapsed);
       if (collapsed) panel.classList.remove('sheet-full');   // a phone sheet always reopens at half height
       btn.innerHTML = collapsed ? '&#9656;' : '&#9662;'; // ▸ collapsed / ▾ expanded
-      btn.title = `${collapsed ? 'Expand' : 'Collapse'} ${label}`;
+      btn.title = `${collapsed ? 'Expand' : 'Collapse'} ${label}${key === 'panel' ? ' (I)' : ''}`;
     };
     // Small screens start with the big panels folded (the game needs the room);
     // a saved choice always wins.
@@ -836,6 +836,14 @@ export class UI {
     const win = document.getElementById('modal-window');
     wire(win, [win?.querySelector('.sheet-handle'), this.el.modalTitle],
       () => this.closeModal(), () => !!this.modal);
+  }
+
+  /** The I key: open the side panel (the menu) if it's folded, fold it if open. */
+  toggleMenu() {
+    const p = this.el.sidepanel;
+    if (!p) return;
+    this._dropTips();
+    this._collapseApply?.panel?.(!p.classList.contains('collapsed'));
   }
 
   _loadCollapse() {

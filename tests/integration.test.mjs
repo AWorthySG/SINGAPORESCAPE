@@ -1908,7 +1908,7 @@ test('crafting skill: table exists, recipes consume materials and yield products
   assert.ok(game.hasTool('chisel'), 'starter kit includes a chisel');
   assert.ok(game.hasTool('snare'), 'and a hunting snare (traps did nothing without one)');
   game.skills.addXp('crafting', 2_000_000);
-  game.inventory.add('silver_ore', 3); game.inventory.add('sapphire', 3);
+  game.inventory.add('silver_bar', 3); game.inventory.add('sapphire', 3);
   game.inventory.add('clay', 3); game.inventory.add('granite', 4);
   const obj = { x: 0, y: 0, def: { type: 'craft' } };
 
@@ -1916,7 +1916,7 @@ test('crafting skill: table exists, recipes consume materials and yield products
   const xp0 = game.skills.xp.crafting;
   resolveCraft(game, { recipe: amulet, obj });
   assert.ok(game.inventory.has('sapphire_amulet'), 'crafted a sapphire amulet');
-  assert.equal(game.inventory.count('silver_ore'), 2, 'consumed a silver ore');
+  assert.equal(game.inventory.count('silver_bar'), 2, 'consumed a silver bar');
   assert.equal(game.inventory.count('sapphire'), 2, 'consumed a sapphire');
   assert.ok(game.skills.xp.crafting > xp0, 'gained crafting xp');
 

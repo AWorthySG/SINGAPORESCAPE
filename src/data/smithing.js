@@ -10,6 +10,9 @@ export const SMELT = [
   { result: 'mithril_bar', inputs: [{ id: 'mithril_ore', qty: 1 }, { id: 'coal', qty: 4 }], level: 50, xp: 30 },
   { result: 'adamant_bar', inputs: [{ id: 'adamantite_ore', qty: 1 }, { id: 'coal', qty: 6 }], level: 70, xp: 37.5 },
   { result: 'rune_bar', inputs: [{ id: 'runite_ore', qty: 1 }, { id: 'coal', qty: 8 }], level: 85, xp: 50 },
+  // Precious metals for Crafting's jewellery: no coal needed.
+  { result: 'silver_bar', inputs: [{ id: 'silver_ore', qty: 1 }], level: 20, xp: 13.7 },
+  { result: 'gold_bar', inputs: [{ id: 'gold_ore', qty: 1 }], level: 40, xp: 22.5 },
   // Endgame bars, one per endgame ore (Mining 100-300). Each bar's xp is about
   // 35% more than the tier before (rune 50 -> 68 -> 92 ...).
   { result: 'obsidian_bar', inputs: [{ id: 'obsidian_shard', qty: 1 }, { id: 'coal', qty: 4 }], level: 100, xp: 68 },

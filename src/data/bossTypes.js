@@ -19,11 +19,12 @@ export const BOSS_TYPES = {
   // Spirits, demons and the restless dead: little armour, but wards that soak spells.
   warded: { name: 'Warded', icon: '🔮', armour: -0.1, magic: 0.7,
     hint: 'Warded: spells fizzle on its wards; weapons cut through.' },
-  // Birds, cats, snakes and other quick things: little armour, but they twist away
-  // from slow swings, which only graze them (a "Grazed" blow does `grazeDmg` of its
-  // damage, never under 1: every blow still lands a number, as the owner wants).
+  // Birds, cats, snakes and other quick things: little armour, but they slip slow
+  // swings. Every blow lands (no roll, no miss: the owner's call); its damage is
+  // scaled by the average a graze would cost (combat.js bossGrazeMult): `graze` is
+  // the share of quick / slow blows that slip and `grazeDmg` what a slipped one keeps.
   evasive: { name: 'Evasive', icon: '💨', armour: -0.15, graze: [0.15, 0.45], grazeDmg: 0.35,
-    hint: 'Evasive: slow swings only graze it; quick attacks land clean.' },
+    hint: 'Evasive: it slips slow swings (they do less); quick attacks land in full.' },
   // Beasts, great fish, crocodiles and trees: light blows glance off a thick hide,
   // heavy ones land, and armour breaks (skills' sunder, Earth's cracks) bite deeper.
   thick: { name: 'Thick-hided', icon: '🦏', glance: [0.85, 1.15], breaks: 1.5,
