@@ -1328,13 +1328,27 @@ export class Renderer {
       const wc = this._waterCache || (this._waterCache = { cv: document.createElement('canvas'), t: -1e9 });
       const g = wc.cv.getContext && wc.cv.getContext('2d');
       if (g) {
-        if (wc.x0 !== x0 || wc.y0 !== y0 || wc.cols !== cols || wc.rows !== rows || wc.dpr !== dpr || timeMs - wc.t >= 90 || timeMs < wc.t) {
+        // A fight's zoom eases the scale a little every frame: a change of under
+        // 2% waits for the next timed redraw (the copy below stretches the layer
+        // to fit until then) rather than repainting it on every frame of a zoom.
+        const rescale = !(Math.abs(wc.dpr / dpr - 1) <= 0.02);
+        if (wc.x0 !== x0 || wc.y0 !== y0 || wc.cols !== cols || wc.rows !== rows || rescale || timeMs - wc.t >= 90 || timeMs < wc.t) {
           const W = Math.ceil(cols * TILE * dpr), H = Math.ceil(rows * TILE * dpr);
           // Only the box that holds water or foam is cleared, painted and
           // copied to the screen: away from the sea that is a shoreline's
           // strip, not a full-screen layer redrawn ~11 times a second.
           const old = wc.box, box = (wc.box = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity });
-          if (wc.cv.width !== W || wc.cv.height !== H) { wc.cv.width = W; wc.cv.height = H; }
+          // The view's width in tiles flickers by one as the camera scrolls, and
+          // a fight's zoom eases the scale a little every frame: resizing the
+          // layer to fit each time remade it (on a phone, a fresh GPU surface)
+          // on most frames of a fight. So it is made a couple of tiles roomier
+          // and only remade when too small (or far too big); a new size or
+          // scale just wipes it. Only its top-left W x H is ever used.
+          const cv = wc.cv;
+          if (cv.width < W || cv.height < H || cv.width * cv.height > 2 * W * H) {
+            const pad = Math.ceil(2 * TILE * dpr);
+            cv.width = W + pad; cv.height = H + pad;
+          } else if (wc.W !== W || wc.H !== H || wc.dpr !== dpr) { g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height); }
           else if (old && old.x1 > old.x0) { g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(old.x0, old.y0, old.x1 - old.x0, old.y1 - old.y0); }
           g.setTransform(dpr, 0, 0, dpr, 0, 0);
           wc.any = false;
@@ -1353,12 +1367,13 @@ export class Renderer {
             box.x0 = Math.max(0, Math.floor(box.x0) - 2); box.y0 = Math.max(0, Math.floor(box.y0) - 2);
             box.x1 = Math.min(cols * TILE, Math.ceil(box.x1) + 2); box.y1 = Math.min(rows * TILE, Math.ceil(box.y1) + 2);
           }
-          Object.assign(wc, { x0, y0, cols, rows, dpr, t: timeMs });
+          Object.assign(wc, { x0, y0, cols, rows, dpr, t: timeMs, W, H });
         }
         const b = wc.box;
         if (wc.any && b && b.x1 > b.x0 && b.y1 > b.y0) {
-          // Same mapping as copying the whole layer (cols*TILE wide on screen), just a part of it.
-          const kx = wc.cv.width / (cols * TILE), ky = wc.cv.height / (rows * TILE);
+          // Same mapping as copying the whole layer (cols*TILE wide on screen), just a part of it
+          // (W x H is the size it was painted at, even if the zoom has moved on a touch since).
+          const kx = wc.W / (cols * TILE), ky = wc.H / (rows * TILE);
           ctx.drawImage(wc.cv, b.x0 * kx, b.y0 * ky, (b.x1 - b.x0) * kx, (b.y1 - b.y0) * ky,
             x0 * TILE - ox + b.x0, y0 * TILE - oy + b.y0, b.x1 - b.x0, b.y1 - b.y0);
         }
