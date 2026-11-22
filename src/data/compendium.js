@@ -16,7 +16,7 @@
 // functions below build the tables from them, so they keep in step when
 // something is retuned) or matches a constant in the module named beside it.
 // Kept free of the DOM so the tests can check it headlessly.
-import { CLASSES, SECONDARY_WEAPON, WEAPON_TYPE_NAMES, ARMOUR_FAMILY, ARMOUR_FAMILIES, CLEAVE_SHARE } from './classes.js';
+import { CLASSES, CLASS_BY_ID, SECONDARY_WEAPON, WEAPON_TYPE_NAMES, ARMOUR_FAMILY, ARMOUR_FAMILIES, CLEAVE_SHARE } from './classes.js';
 import { ITEMS, getItem, TWO_HANDED_TYPES, QUIVER_BOW_TYPES } from './items.js';
 import { ALL_MONSTER_IDS, ALL_BOSS_IDS, getNpc, RARE_DROP_TABLE, stretchLevel } from './npcs.js';
 import { RACES, WEAPON_VS_RACE, RACE_BONUS } from './races.js';
@@ -33,7 +33,7 @@ import { SLAYER_REWARDS, SLAYER_DMG, SLAYER_LOOT, SLAYER_HELM_DMG, SLAYER_FULL_L
 import { EVENT_KINDS, EVENT_GAP, WEEKLY_TASKS } from './worldevents.js';
 import { BOSS_MECHANICS, MECH_KINDS } from './bossMechanics.js';
 import { BOSS_TYPES } from './bossTypes.js';
-import { SIGNATURE_DROP_CHANCE } from './bossWeapons.js';
+import { SIGNATURE_DROP_CHANCE, ASCENDED, ASCENDED_LEVEL } from './bossWeapons.js';
 import { ALTAR_XP_MULT } from './bones.js';
 import { ADREN_PER_HIT, ADREN_PER_HURT, THRESHOLD_COST, ULTIMATE_COST } from './abilities.js';
 import { MASTERY_RANKS, MAX_ENCHANTS, ENCHANT_LABELS, enchantCost, BATTLE_CAP_RANK, KILL_XP, KILL_MULT } from '../game/mastery.js';
@@ -623,7 +623,8 @@ export const CHAPTERS = [
           `There are **${ALL_BOSS_IDS.length} bosses** across the island. Each has a signature move, red ground markers to step out of, and one [[boss-mechanics|mechanic]] you must deal with. The Monster Codex shows a boss's mechanic before you fight it.`,
           { list: [
             'A boss rolls its drop table ten times and never comes up empty, hits the rare drop table five times, and always drops an accessory and three pieces of gear for your class, Superior quality or better.',
-            `Each boss has a **signature weapon** for one class, which drops ${oneIn(SIGNATURE_DROP_CHANCE)} kills.`,
+            `Each boss has a **signature weapon** for one class, which drops ${oneIn(SIGNATURE_DROP_CHANCE)} kills. It is a third stronger than the plain weapon of the boss's level.`,
+            `So every class has one stronger than its eternal weapon, the bosses of level ${ASCENDED_LEVEL} and up also carry an **ascended** signature weapon for a class none of them serve (${ASCENDED.map((a) => `${getNpc(a.boss).name}: ${CLASS_BY_ID[a.classId].name}`).join(', ')}), which drops just as often.`,
             'It also leaves 20 to 50 upgrade stones and 1 to 3 upgrade wards.',
             'A boss kill is worth 25 gear mastery points to every piece you wear.',
           ] },

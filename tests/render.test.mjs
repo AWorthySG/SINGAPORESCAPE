@@ -553,7 +553,7 @@ test('art batch 1: weapon and armour types, signature weapons, bones and trinket
   const ids = [
     ...tiers.flatMap((t) => ['parang', 'kerambit', 'toya', 'crossbow', 'chakram', 'orb', 'fan', 'rifle', 'quiver',
       'scout_gloves', 'scout_boots', 'hide_vambraces', 'hide_boots', 'mage_gloves', 'mage_boots'].map((w) => `${t}_${w}`)),
-    ...Object.keys(ITEMS).filter((id) => ITEMS[id].signature && !NEW_SIG.has(id)),
+    ...Object.keys(ITEMS).filter((id) => ITEMS[id].signature && !ITEMS[id].signature.ascended && !NEW_SIG.has(id)),
     'big_bones', 'legend_bones', 'refine_scroll', 'pearl_ring', 'pearl_amulet', 'holy_beads', 'lantern_cape', 'starlit_pendant',
   ];
   for (const id of ids) {
