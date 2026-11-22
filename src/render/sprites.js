@@ -521,24 +521,8 @@ export const townIdleParts = (id) => TOWN_IDLE[id] && Object.keys(TOWN_IDLE[id].
 let _rigCv = null, _rigTint = null, _spCv = null, _spTint = null;
 const RIG_RES = 6;   // one showpiece boss at a time, so it can afford a sharper canvas than the cached stickers
 const SPECIES_RIG_RES = 3;   // a pack of monsters can be on screen at once, so theirs is lighter
-// Compose the layers (posed for this frame) into one canvas, then blit it.
-function drawRig(c, id, imgs, opts, t, flash, flashCol) {
-  const rig = RIGS[id];
-  const base = imgs[rig.order[0]];   // every layer shares one canvas size
-  const s = Math.min(34 / base.naturalHeight, 64 / base.naturalWidth) * (rig.fit || 1);
-  const w = base.naturalWidth * s, h = base.naturalHeight * s, x0 = -w / 2, y0 = 13.5 - h;
-  const species = rig.kind === 'species', res = species ? SPECIES_RIG_RES : RIG_RES;
-  let cv = species ? _spCv : _rigCv;
-  if (!cv) {
-    cv = document.createElement('canvas'); cv.width = ST_W * res; cv.height = ST_H * res;
-    if (species) _spCv = cv; else _rigCv = cv;
-  }
-  const g = cv.getContext('2d');
-  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
-  g.setTransform(res, 0, 0, res, -ST_X0 * res, -ST_Y0 * res);
-  // Snakes, swimmers and plants also sway, bob and lean as a whole, about the ground line (creatureRigs.js BODY).
-  const b = rig.body && rig.body(t, opts);
-  if (b) g.transform(b.sx, 0, -b.lean, b.sy, 13.5 * b.lean, 13.5 * (1 - b.sy) + b.dy);
+// Each layer, posed for this frame, onto `g` (the screen or the scratch canvas).
+function drawRigParts(g, rig, imgs, opts, t, x0, y0, w, h) {
   for (const n of rig.order) {
     const part = rig.parts[n];
     g.save();
@@ -555,6 +539,41 @@ function drawRig(c, id, imgs, opts, t, flash, flashCol) {
     g.drawImage(img, x0, y0, w, h);
     g.restore();
   }
+}
+
+// Draw the layers (posed for this frame): straight onto the screen, or composed
+// on a scratch canvas first when the frame needs a hit flash or see-through.
+function drawRig(c, id, imgs, opts, t, flash, flashCol) {
+  const rig = RIGS[id];
+  const base = imgs[rig.order[0]];   // every layer shares one canvas size
+  const s = Math.min(34 / base.naturalHeight, 64 / base.naturalWidth) * (rig.fit || 1);
+  const w = base.naturalWidth * s, h = base.naturalHeight * s, x0 = -w / 2, y0 = 13.5 - h;
+  const species = rig.kind === 'species', res = species ? SPECIES_RIG_RES : RIG_RES;
+  // Most frames (no hit flash, fully opaque) the parts go straight onto the
+  // screen: composing them on a scratch canvas first cost a clear and an extra
+  // full copy per monster per frame. The scratch canvas is kept for a flash
+  // (which needs the whole silhouette) and for see-through draws, where
+  // overlapping parts would otherwise show through each other.
+  if (!(flash > 0.01) && c.globalAlpha >= 0.999) {
+    c.save();
+    const b0 = rig.body && rig.body(t, opts);
+    if (b0) c.transform(b0.sx, 0, -b0.lean, b0.sy, 13.5 * b0.lean, 13.5 * (1 - b0.sy) + b0.dy);
+    drawRigParts(c, rig, imgs, opts, t, x0, y0, w, h);
+    c.restore();
+    return;
+  }
+  let cv = species ? _spCv : _rigCv;
+  if (!cv) {
+    cv = document.createElement('canvas'); cv.width = ST_W * res; cv.height = ST_H * res;
+    if (species) _spCv = cv; else _rigCv = cv;
+  }
+  const g = cv.getContext('2d');
+  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
+  g.setTransform(res, 0, 0, res, -ST_X0 * res, -ST_Y0 * res);
+  // Snakes, swimmers and plants also sway, bob and lean as a whole, about the ground line (creatureRigs.js BODY).
+  const b = rig.body && rig.body(t, opts);
+  if (b) g.transform(b.sx, 0, -b.lean, b.sy, 13.5 * b.lean, 13.5 * (1 - b.sy) + b.dy);
+  drawRigParts(g, rig, imgs, opts, t, x0, y0, w, h);
   // A tinted copy of this frame, for the hit flash. (Species rigs no longer get a
   // white border traced round them: monsters go without one, see MONSTER_BOX.)
   const tinted = (col) => {

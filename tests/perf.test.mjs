@@ -220,3 +220,10 @@ test('slow frames trim the extras first; the resolution only drops once they are
   assert.match(r, /else if \(!game\.fxTrim\) this\.cosy\.draw\(/);
   assert.match(r, /if \(!game\.fxTrim\) this\._drawVignette\(/);
 });
+
+test('a rigged monster draws its parts straight to the screen unless it flashes or is see-through', () => {
+  const src = readFileSync(new URL('../src/render/sprites.js', import.meta.url), 'utf8');
+  assert.match(src, /if \(!\(flash > 0\.01\) && c\.globalAlpha >= 0\.999\) \{[\s\S]{0,400}drawRigParts\(c, rig, imgs, opts, t, x0, y0, w, h\);[\s\S]{0,60}return;/,
+    'the common frame skips the scratch canvas');
+  assert.match(src, /drawRigParts\(g, rig, imgs, opts, t, x0, y0, w, h\);/, 'the flash and see-through path still composes first');
+});
