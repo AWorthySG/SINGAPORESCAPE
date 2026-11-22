@@ -91,6 +91,7 @@ import { consequencePriceMult } from './consequences.js';
 import { Gathering } from './gathering.js';   // gathering streaks, lucky finds, skilling contracts
 import { FishSchools } from './fishschool.js';   // schools of fish visiting the spots
 import { bossToolDrop } from './bosstools.js';   // world bosses drop gathering tools of their level
+import { levelHaul } from './levelhaul.js';   // a bigger haul as your gathering level rises
 import { Teleports } from './teleports.js';   // the Town and Grave teleports
 import { Discovery } from './discovery.js';   // encyclopedia discoveries and their rewards
 import * as Rounds from './rounds.js';   // gun rounds and the ammo slot
@@ -1477,6 +1478,7 @@ export class Game {
     }
     if (gather) this.gathering.onGather(a, obj, before);   // streaks, lucky finds, contracts (gathering.js)
     if (gather) {
+      levelHaul(this, a, obj, before);   // a bonus one now and then, likelier as your level rises (levelhaul.js)
       const after = this._bagCounts();
       for (const [id, n] of after) {
         const got = n - (before.get(id) || 0);

@@ -11,6 +11,7 @@ import { GATHER_FUN } from '../src/game/gathering.js';
 import { FISH_SCHOOL } from '../src/game/fishschool.js';
 import { NODE_JACKPOT } from '../src/game/jackpot.js';
 import { BOSS_TOOLS } from '../src/game/bosstools.js';
+import { LEVEL_HAUL } from '../src/game/levelhaul.js';
 
 export const SEED = Number(process.env.TEST_SEED) || 20261112;
 
@@ -30,5 +31,5 @@ seedRandom();
 // (tests/skillhours.test.mjs switches them back on for itself).
 // Skill unlocks off as well, so balance checks see the base rates (skillshome.test.mjs turns them on).
 // Gathering streaks, lucky finds and contracts too (lifeskillfun.test.mjs turns them on),
-// schools of fish (fish-school.test.mjs) whole trees and seams at once (jackpot.test.mjs) and world bosses' tool drops (bosstools.test.mjs).
-beforeEach(() => { seedRandom(); GOLDEN.on = false; UNLOCKS.on = false; GATHER_FUN.on = false; FISH_SCHOOL.on = false; NODE_JACKPOT.on = false; BOSS_TOOLS.on = false; });
+// schools of fish (fish-school.test.mjs) whole trees and seams at once (jackpot.test.mjs) world bosses' tool drops (bosstools.test.mjs) and the level haul (level-haul.test.mjs).
+beforeEach(() => { seedRandom(); GOLDEN.on = false; UNLOCKS.on = false; GATHER_FUN.on = false; FISH_SCHOOL.on = false; NODE_JACKPOT.on = false; BOSS_TOOLS.on = false; LEVEL_HAUL.on = false; });
