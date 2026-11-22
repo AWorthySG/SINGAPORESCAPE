@@ -906,8 +906,11 @@ export const NODE_XP_TUNE = {
   // Rocks now hold 10-20 ores each (skilling.js ROCK_ORES), so XP an hour follows
   // XP a swing, not the walk between rocks: the mining ladder was re-measured and
   // set so each tier still pays more an hour than the one below it (runite had
-  // jumped past the level 100+ rocks).
-  adamantite_rock: 1.02, runite_rock: 0.77, obsidian_vein: 2.4,
+  // jumped past the level 100+ rocks). Once the quarries came in (groves.js),
+  // with no walk between rocks, adamantite paid as much as runite: mithril and
+  // adamantite come down a little so each still steps up (runite is left alone:
+  // it sets the level-99 Mining rate, fishing-balance.test.mjs).
+  mithril_rock: 0.95, adamantite_rock: 0.99, runite_rock: 0.77, obsidian_vein: 2.4,
   orichalcum_rock: 2.25, jade_seam: 2.75, fallen_star: 2.5, skyglass_crystal: 3.1, eternal_lode: 3.0,
   // Woodcutting: the level 40-59 trees most, as the gold and gem rocks open at 40.
   // (Measured with each tree holding 10-20 logs, skilling.js TREE_LOGS, at the
