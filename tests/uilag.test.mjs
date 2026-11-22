@@ -2,9 +2,10 @@
 // of events redraw the objectives, the quick bar, the chat peek and the Faith
 // orb once per task; the tracker's pointers look only among the NPCs they could
 // point at; the notice lane is measured after the browser's own layout; hidden
-// panels catch up when shown; the region labels and the boss portrait's hit
-// flash stop forcing work; and the bag, chat-link and "What next?" helpers give
-// the very answers they gave before, sooner. All headless.
+// panels catch up when shown; the minimap keeps its list of nearby objects; the
+// region labels and the boss portrait's hit flash stop forcing work; and the
+// bag, chat-link and "What next?" helpers give the very answers they gave
+// before, sooner. All headless.
 import './seed.mjs';   // seeded Math.random: no test fails on an unlucky roll
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -231,6 +232,42 @@ test('the region labels are rewritten only when the place changes', () => {
   UI.prototype.setRegion.call(ui, 'Chinatown', 3);
   assert.equal(writes, 3);
   assert.equal(ui.el.minimapRegion.textContent, 'Chinatown (Lvl 3)');
+});
+
+test('the minimap draws the same objects, in the same order, from its kept list', () => {
+  const g = freshGame();
+  const ui = { game: g };
+  const radius = 20;
+  // What a draw keeps: inside its own square, in world order.
+  const drawn = (list, px, py) => list.filter((o) => Math.abs(o.x - px) <= radius && Math.abs(o.y - py) <= radius);
+  const objectsIn = g.world.objectsIn.bind(g.world);
+  const exact = (px, py) => drawn(objectsIn(Math.floor(px - radius), Math.floor(py - radius), Math.ceil(px + radius), Math.ceil(py + radius)), px, py);
+  const kept = (px, py) => drawn(UI.prototype._minimapObjects.call(ui, px, py, radius), px, py);
+  let fetched = 0;
+  g.world.objectsIn = (...a) => { fetched++; return objectsIn(...a); };
+  const p0 = { x: g.player.x, y: g.player.y };
+  // A walk with fractional steps, then a long way off and back.
+  const walk = [];
+  for (let i = 0; i <= 40; i++) walk.push([p0.x + i * 0.45, p0.y + i * 0.2]);
+  walk.push([p0.x + 120, p0.y + 30], [p0.x + 120.5, p0.y + 30], [p0.x, p0.y]);
+  for (const [x, y] of walk) assert.deepEqual(kept(x, y), exact(x, y), `at ${x},${y}`);
+  const calls = fetched;
+  // A new tree beside you shows at once; one taken away goes at once.
+  const tx = Math.round(p0.x) + 3, ty = Math.round(p0.y) + 3;
+  const tree = g.world.addObject('oak', tx, ty);
+  assert.ok(kept(p0.x, p0.y).includes(tree));
+  assert.deepEqual(kept(p0.x, p0.y), exact(p0.x, p0.y));
+  g.world.removeObject(tree);
+  assert.ok(!kept(p0.x, p0.y).includes(tree));
+  // One added and another removed (the same count): still seen.
+  const a = g.world.addObject('oak', tx, ty);
+  kept(p0.x, p0.y);
+  const b = g.world.addObject('oak', tx + 1, ty);
+  g.world.removeObject(a);
+  assert.deepEqual(kept(p0.x, p0.y), exact(p0.x, p0.y));
+  assert.ok(kept(p0.x, p0.y).includes(b) && !kept(p0.x, p0.y).includes(a));
+  g.world.objectsIn = objectsIn;
+  assert.ok(calls < walk.length / 2, `fetched only now and then (${calls} times for ${walk.length} draws)`);
 });
 
 test("the boss portrait's two hit flashes are the very same animation", () => {
