@@ -757,9 +757,11 @@ export class UI {
       'renderQuestPanel', 'renderStatsPanel', 'renderAchievementPanel', '_refreshModalIfOpen'];
     const held = new Map();
     let pressing = false, timer = 0, since = 0;
+    this._unheld = {};   // the redraws themselves, for a view coming into sight (_catchUpPanels)
     for (const name of HELD) {
       const orig = this[name];
       if (typeof orig !== 'function') continue;
+      this._unheld[name] = orig;
       this[name] = (...args) => {
         // A press held for seconds (a slow scroll) doesn't freeze the panel for good.
         if (pressing && performance.now() - since < 3000) { held.set(name, args); return undefined; }
@@ -947,13 +949,17 @@ export class UI {
 
   /** The Gear, Combat, Journal and Awards views (and the alignment box under
    *  Skills) skip their redraws while out of sight: bring any that missed one
-   *  up to date (each draws only if it now shows). */
+   *  up to date (each draws only if it now shows). Straight away, even while
+   *  the tab is still pressed: the press-hold (_initPressHold) would draw it
+   *  only after the click, so the view's first frame showed its old state.
+   *  Nothing in a view just coming into sight is under the finger. */
   _catchUpPanels() {
-    if (this._equipStale) this.renderEquipment();
-    if (this._combatStale) this.renderCombatPanel();
-    if (this._questStale) this.renderQuestPanel();
-    if (this._achStale) this.renderAchievementPanel();
-    if (this._alignStale) this.renderAlignment();
+    const draw = (name) => (this._unheld?.[name] || this[name]).call(this);
+    if (this._equipStale) draw('renderEquipment');
+    if (this._combatStale) draw('renderCombatPanel');
+    if (this._questStale) draw('renderQuestPanel');
+    if (this._achStale) draw('renderAchievementPanel');
+    if (this._alignStale) draw('renderAlignment');
   }
 
   /** The "Bag | Gear" style row of sub-tabs at the top of the panel body. */
@@ -4560,7 +4566,7 @@ export class UI {
       ctx.imageSmoothingEnabled = prev;
     }
     // Objects (notable ones): just those in the minimap's square (spatial index).
-    const mmObjs = this._minimapObjects(px, py, radius);
+    const mmObjs = game.world.objectsIn ? game.world.objectsIn(Math.floor(px - radius), Math.floor(py - radius), Math.ceil(px + radius), Math.ceil(py + radius), this._mmObjs || (this._mmObjs = [])) : game.world.objects;
     for (const o of mmObjs) {
       const dx = o.x - px, dy = o.y - py;
       if (Math.abs(dx) > radius || Math.abs(dy) > radius) continue;
@@ -4622,24 +4628,6 @@ export class UI {
       ctx.fillRect(0, 0, W, H);
     }
     ctx.restore();
-  }
-
-  /** The world objects the minimap may show around (px, py), in world order:
-   *  fetched for a square a few tiles bigger than its own and kept until you
-   *  stray that far or the objects change (putting a few hundred in world order
-   *  was half the minimap's time, every draw). The draw still keeps only those
-   *  inside its own square, so it shows exactly the same. */
-  _minimapObjects(px, py, radius) {
-    const w = this.game.world, objs = w.objects, SLACK = 6;
-    if (!w.objectsIn) return objs;
-    const cx = Math.round(px), cy = Math.round(py), c = this._mmObjCache, last = objs[objs.length - 1];
-    // Objects only join the list at its end (always new ones) or leave it, so
-    // its length and last entry change whenever its members do.
-    if (c && c.arr === objs && c.len === objs.length && c.last === last && c.radius === radius
-      && Math.abs(c.cx - cx) <= SLACK && Math.abs(c.cy - cy) <= SLACK) return c.list;
-    const R = radius + SLACK + 1;
-    this._mmObjCache = { arr: objs, len: objs.length, last, radius, cx, cy, list: w.objectsIn(cx - R, cy - R, cx + R, cy + R) };
-    return this._mmObjCache.list;
   }
 }
 

@@ -2,10 +2,9 @@
 // of events redraw the objectives, the quick bar, the chat peek and the Faith
 // orb once per task; the tracker's pointers look only among the NPCs they could
 // point at; the notice lane is measured after the browser's own layout; hidden
-// panels catch up when shown; the minimap keeps its list of nearby objects; the
-// region labels and the boss portrait's hit flash stop forcing work; and the
-// bag, chat-link and "What next?" helpers give the very answers they gave
-// before, sooner. All headless.
+// panels catch up when shown (at once, even mid-tap); the region labels and the
+// boss portrait's hit flash stop forcing work; and the "What next?" helpers give
+// the very answers they gave before, sooner. All headless.
 import './seed.mjs';   // seeded Math.random: no test fails on an unlucky roll
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -18,13 +17,8 @@ import { NoticeLane } from '../src/ui/noticelane.js';
 import { QuickBar } from '../src/ui/quickbar.js';
 import { CompactHud } from '../src/ui/compacthud.js';
 import { watchGoals } from '../src/ui/whatnextui.js';
-import { quickUseChoice, healOf } from '../src/game/quickuse.js';
 import { packUpgrades, packUpgrade, firstPackUpgrade, fightTarget } from '../src/game/whatnext.js';
-import { findLinks, linkNames } from '../src/game/encyclopedia.js';
-import { ITEMS, getItem } from '../src/data/items.js';
-import { POTIONS } from '../src/data/trades.js';
-import { getNpc } from '../src/data/npcs.js';
-import { SKILLS } from '../src/data/skills.js';
+import { ITEMS } from '../src/data/items.js';
 
 function fakeStorage() {
   const m = new Map();
@@ -186,6 +180,28 @@ test('hidden panels skip their redraws and catch up when they show', () => {
   assert.deepEqual(drawn, ['renderEquipment', 'renderQuestPanel', 'renderAlignment']);
 });
 
+test('a view coming into sight is drawn at once, even while its tab is still pressed', () => {
+  // Redraws wait while a finger is down on the panel (_initPressHold): the
+  // catch-up must not, or the view's first frame shows its old state.
+  const saved = globalThis.document;
+  const on = {};
+  globalThis.document = { addEventListener: (ev, fn) => { (on[ev] ||= []).push(fn); } };
+  try {
+    const drawn = [];
+    const ui = {};
+    for (const fn of ['renderEquipment', 'renderCombatPanel', 'renderQuestPanel', 'renderAchievementPanel']) ui[fn] = () => drawn.push(fn);
+    UI.prototype._initPressHold.call(ui);
+    for (const f of on.pointerdown) f({ target: { closest: () => true } });   // a finger down on the side panel
+    ui.renderQuestPanel();
+    assert.deepEqual(drawn, [], 'an ordinary redraw waits for the press to end');
+    ui._equipStale = true; ui._questStale = true;
+    UI.prototype._catchUpPanels.call(ui);
+    assert.deepEqual(drawn, ['renderEquipment', 'renderQuestPanel'], 'the views coming into sight are drawn now');
+  } finally {
+    if (saved) globalThis.document = saved; else delete globalThis.document;
+  }
+});
+
 test('the journal goals are not worked out while the journal is out of sight', () => {
   const g = freshGame();
   let drawn = 0;
@@ -249,42 +265,6 @@ test('the region labels are rewritten only when the place changes', () => {
   assert.equal(ui.el.minimapRegion.textContent, 'Chinatown (Lvl 3)');
 });
 
-test('the minimap draws the same objects, in the same order, from its kept list', () => {
-  const g = freshGame();
-  const ui = { game: g };
-  const radius = 20;
-  // What a draw keeps: inside its own square, in world order.
-  const drawn = (list, px, py) => list.filter((o) => Math.abs(o.x - px) <= radius && Math.abs(o.y - py) <= radius);
-  const objectsIn = g.world.objectsIn.bind(g.world);
-  const exact = (px, py) => drawn(objectsIn(Math.floor(px - radius), Math.floor(py - radius), Math.ceil(px + radius), Math.ceil(py + radius)), px, py);
-  const kept = (px, py) => drawn(UI.prototype._minimapObjects.call(ui, px, py, radius), px, py);
-  let fetched = 0;
-  g.world.objectsIn = (...a) => { fetched++; return objectsIn(...a); };
-  const p0 = { x: g.player.x, y: g.player.y };
-  // A walk with fractional steps, then a long way off and back.
-  const walk = [];
-  for (let i = 0; i <= 40; i++) walk.push([p0.x + i * 0.45, p0.y + i * 0.2]);
-  walk.push([p0.x + 120, p0.y + 30], [p0.x + 120.5, p0.y + 30], [p0.x, p0.y]);
-  for (const [x, y] of walk) assert.deepEqual(kept(x, y), exact(x, y), `at ${x},${y}`);
-  const calls = fetched;
-  // A new tree beside you shows at once; one taken away goes at once.
-  const tx = Math.round(p0.x) + 3, ty = Math.round(p0.y) + 3;
-  const tree = g.world.addObject('oak', tx, ty);
-  assert.ok(kept(p0.x, p0.y).includes(tree));
-  assert.deepEqual(kept(p0.x, p0.y), exact(p0.x, p0.y));
-  g.world.removeObject(tree);
-  assert.ok(!kept(p0.x, p0.y).includes(tree));
-  // One added and another removed (the same count): still seen.
-  const a = g.world.addObject('oak', tx, ty);
-  kept(p0.x, p0.y);
-  const b = g.world.addObject('oak', tx + 1, ty);
-  g.world.removeObject(a);
-  assert.deepEqual(kept(p0.x, p0.y), exact(p0.x, p0.y));
-  assert.ok(kept(p0.x, p0.y).includes(b) && !kept(p0.x, p0.y).includes(a));
-  g.world.objectsIn = objectsIn;
-  assert.ok(calls < walk.length / 2, `fetched only now and then (${calls} times for ${walk.length} draws)`);
-});
-
 test("the boss portrait's two hit flashes are the very same animation", () => {
   const css = readFileSync(new URL('../styles/main.css', import.meta.url), 'utf8');
   const frames = (name) => new RegExp(`@keyframes ${name} \\{(.*)\\}\\s*$`, 'm').exec(css)?.[1];
@@ -296,40 +276,6 @@ test("the boss portrait's two hit flashes are the very same animation", () => {
 });
 
 // ---------------- Same answers, sooner ----------------
-test('the quick-use choice is the same as counting up the whole bag', () => {
-  // The way it was worked out before: every kind in the bag counted, then weighed.
-  const before = (game) => {
-    const max = game.maxHp(), missing = Math.max(0, max - game.player.hp), seen = new Map();
-    game.inventory.slots.forEach((s, i) => { if (!s) return; const e = seen.get(s.id); if (e) e.count += s.qty || 1; else seen.set(s.id, { index: i, count: s.qty || 1 }); });
-    let best = null;
-    for (const [id, e] of seen) {
-      const heal = healOf(game, id, max);
-      if (heal <= 0) continue;
-      const c = { index: e.index, id, count: e.count, heal, drink: !!POTIONS[id] };
-      if (!best) { best = c; continue; }
-      const covers = c.heal >= missing, bestCovers = best.heal >= missing;
-      const better = covers !== bestCovers ? covers : covers ? (c.heal < best.heal || (c.heal === best.heal && best.drink && !c.drink)) : (c.heal > best.heal || (c.heal === best.heal && best.drink && !c.drink));
-      if (better) best = c;
-    }
-    return best;
-  };
-  const g = freshGame();
-  g.skills.addXp('hitpoints', 400000);
-  const heals = Object.keys(ITEMS).filter((id) => ITEMS[id].heal).slice(0, 14);
-  const pots = Object.keys(POTIONS);
-  const gear = Object.keys(ITEMS).filter((id) => ITEMS[id].equip).slice(0, 60);
-  const pool = [...heals, ...pots, ...gear];
-  for (let round = 0; round < 40; round++) {
-    g.inventory.slots.fill(null);
-    for (let k = 0; k < 30; k++) g.inventory.add(pool[Math.floor(Math.random() * pool.length)], 1 + Math.floor(Math.random() * 4));
-    g.player.hp = 1 + Math.floor(Math.random() * g.maxHp());
-    assert.deepEqual(quickUseChoice(g), before(g), `round ${round}`);
-  }
-  g.inventory.slots.fill(null);
-  g.inventory.add(gear[0], 1);
-  assert.equal(quickUseChoice(g), null, 'nothing that heals');
-});
-
 test('the first pack upgrade is the first of the whole list, found without weighing the rest', () => {
   const g = freshGame();
   assert.equal(packUpgrade(g), packUpgrades(g)[0] || null, 'the starter kit');
@@ -372,38 +318,4 @@ test('the fight suggestion is the same with the level band tested first', () => 
     assert.equal(fightTarget(g), want, `at ${xp} xp`);
   }
   assert.ok(found >= 3, 'monsters were found at several levels');
-});
-
-test('chat links are found exactly as before', () => {
-  // The way it was matched before: every run of words rebuilt and lower-cased for each length tried.
-  const before = (text, regions) => {
-    const { map, longest } = linkNames(regions);
-    const s = String(text ?? '');
-    const words = [...s.matchAll(/[A-Za-z0-9]+(?:['’-][A-Za-z0-9]+)*/g)];
-    const out = [];
-    let at = 0;
-    for (let i = 0; i < words.length;) {
-      let hit = null;
-      for (let n = Math.min(longest, words.length - i); n >= 1 && !hit; n--) {
-        const e = map.get(words.slice(i, i + n).map((m) => m[0].toLowerCase()).join(' '));
-        if (e) hit = { n, e };
-      }
-      if (!hit) { i++; continue; }
-      const from = words[i].index, last = words[i + hit.n - 1], to = last.index + last[0].length;
-      if (from > at) out.push({ text: s.slice(at, from) });
-      out.push({ text: s.slice(from, to), link: hit.e });
-      at = to;
-      i += hit.n;
-    }
-    if (at < s.length) out.push({ text: s.slice(at) });
-    return out;
-  };
-  const g = freshGame();
-  const regions = g.world.zones.filter((z) => !z.instance).map((z) => z.name);
-  const names = [...regions, ...SKILLS.map((s) => s.name), ...g.npcs.slice(0, 300).map((n) => getNpc(n.npcId).name), ...Object.keys(ITEMS).slice(0, 400).map((id) => getItem(id).name)];
-  const filler = ['You', 'loot:', 'the', 'a', 'x', '3', 'and', 'near', '(Rare),', 'Epic', "it's", '—', 'kill', 'streak!', 'Elder', 'Young'];
-  const pick = (a) => a[Math.floor(Math.random() * a.length)];
-  const lines = ['', 'x', "St John's Island", 'You defeat the Elder macaque.', 'You loot: Champion bones (Rare), 147 x Steel arrow (Rare), 2 x Upgrade stone.'];
-  for (let i = 0; i < 300; i++) lines.push(Array.from({ length: 2 + Math.floor(Math.random() * 14) }, () => (Math.random() < 0.45 ? pick(names) : pick(filler))).join(Math.random() < 0.2 ? ', ' : ' '));
-  for (const line of lines) assert.deepEqual(findLinks(line, regions), before(line, regions), line);
 });

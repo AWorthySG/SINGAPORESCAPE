@@ -10,14 +10,7 @@ import { findLinks } from '../game/encyclopedia.js';
 import { openEntry } from './encyclopediaui.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-// The regions' names, worked out again only when the list of zones changes
-// (every chat line asks for them).
-let regionMemo = { zones: null, len: -1, names: [] };
-const regionNames = (game) => {
-  const zones = game?.world?.zones || [];
-  if (regionMemo.zones !== zones || regionMemo.len !== zones.length) regionMemo = { zones, len: zones.length, names: zones.filter((z) => !z.instance).map((z) => z.name) };
-  return regionMemo.names;
-};
+const regionNames = (game) => (game?.world?.zones || []).filter((z) => !z.instance).map((z) => z.name);
 
 /** A link's HTML: the text, tappable, opening `kind:id`. */
 export const linkTag = (kind, id, text) => `<span class="ency-link" role="button" tabindex="0" data-ency="${esc(kind)}:${esc(id)}">${esc(text)}</span>`;
