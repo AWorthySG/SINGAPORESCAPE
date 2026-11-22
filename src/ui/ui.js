@@ -685,6 +685,7 @@ export class UI {
     const apply = (collapsed) => {
       panel.classList.toggle('collapsed', collapsed);
       if (collapsed) panel.classList.remove('sheet-full');   // a phone sheet always reopens at half height
+      if (key === 'panel' && !collapsed && this._invStale) this.renderInventory();   // the bag skipped redraws while folded
       btn.innerHTML = collapsed ? '&#9656;' : '&#9662;'; // ▸ collapsed / ▾ expanded
       btn.title = `${collapsed ? 'Expand' : 'Collapse'} ${label}${key === 'panel' ? ' (I)' : ''}`;
     };
@@ -904,6 +905,7 @@ export class UI {
     this.winMem?.panelShown(tab, view);
     if (view === 'stats') this.renderStatsPanel();   // it only redraws while showing, so bring it up to date
     if (view === 'skills' && this._skillsStale) this.renderSkills();   // likewise
+    if (view === 'inventory' && this._invStale) this.renderInventory();   // likewise
     if (view === 'story') this.renderStoryPanel?.();  // (storyui.js) likewise
     // The skills list carries a name + description per row, so it gets more room.
     document.getElementById('sidepanel')?.classList.toggle('wide', view === 'skills');
@@ -1061,6 +1063,15 @@ export class UI {
   renderInventory() {
     this._buildInvBar();
     const grid = this.el.inventory;
+    // While the bag can't be seen (the panel folded, as it mostly is on a phone,
+    // or another tab open) just note it is out of date: every pickup redrew
+    // hundreds of hidden cells, and a whole seam or a busy fight brings many.
+    // It catches up when shown (_showPanelView, and unfolding the panel).
+    if (this._invCells?.length && (this.el.sidepanel?.classList?.contains('collapsed') || grid?.closest?.('.panel-view')?.classList.contains('hidden'))) {
+      this._invStale = true;
+      return;
+    }
+    this._invStale = false;
     const slots = this.game.inventory.slots;
     const f = this.invFilter || 'all';
     const cells = this._invCells || (this._invCells = []);
