@@ -13,7 +13,7 @@ import { heroArtSrc, portraitFor } from '../render/sprites.js';
 import { HeroStage, swingActor, prefersReducedMotion } from './title.js';
 import { getItem } from '../data/items.js';
 import { SHOPS, getShop } from '../data/shops.js';
-import { SMELT, SMITH } from '../data/smithing.js';
+import { SMELT, SMITH, smithToolRows } from '../data/smithing.js';
 import { CRAFT } from '../data/crafting.js';
 import { POTIONS, FLETCH, CROP_BY_SEED } from '../data/trades.js';
 import { COOKING } from '../game/skilling.js';
@@ -3868,15 +3868,27 @@ export class UI {
       body.innerHTML = '<div class="modal-hint">Hammer bars into equipment, or into upgrade stones for enchanting.</div>';
       const list = document.createElement('div');
       list.appendChild(this._doAllRow('smith', obj, 'Smith all'));
-      for (const r of SMITH) {
-        const can = this.game.inventory.has(r.bar, r.barCount) && this.game.skills.level('smithing') >= r.level && this.game.hasTool('hammer');
-        const row = document.createElement('div');
-        row.className = 'dialogue-option';
-        row.style.opacity = can ? '1' : '0.5';
-        row.innerHTML = `<span class="row-ic">${itemIconSVG(r.result, 22)}</span> <b>${r.qty > 1 ? r.qty + ' ' : ''}${getItem(r.result).name}</b> <span style="opacity:.75">(lvl ${r.level} &mdash; ${r.barCount} ${getItem(r.bar).name})</span>`;
-        row.addEventListener('click', () => { this.game.startSmith(r, obj); this.closeModal(); });
-        list.appendChild(row);
+      const lvl = this.game.skills.level('smithing');
+      const row = (r) => {
+        const can = this.game.inventory.has(r.bar, r.barCount) && lvl >= r.level && this.game.hasTool('hammer');
+        const el = document.createElement('div');
+        el.className = 'dialogue-option';
+        el.style.opacity = can ? '1' : '0.5';
+        el.innerHTML = `<span class="row-ic">${itemIconSVG(r.result, 22)}</span> <b>${r.qty > 1 ? r.qty + ' ' : ''}${getItem(r.result).name}</b> <span style="opacity:.75">(lvl ${r.level} &mdash; ${r.barCount} ${getItem(r.bar).name})</span>`;
+        el.addEventListener('click', () => { this.game.startSmith(r, obj); this.closeModal(); });
+        return el;
+      };
+      const head = (text) => { const h = document.createElement('div'); h.className = 'set-section'; h.textContent = text; return h; };
+      // Gathering tools first (they were at the bottom of 300-odd recipes): each
+      // kind's tiers up to the next one past your level, best first.
+      const tools = smithToolRows(lvl);
+      if (tools.length) {
+        list.appendChild(head('Gathering tools'));
+        for (const r of tools) list.appendChild(row(r));
+        list.appendChild(head('Weapons, armour and more'));
       }
+      const shown = new Set(tools);
+      for (const r of SMITH) if (!shown.has(r) && !r.toolTag) list.appendChild(row(r));
       body.appendChild(list);
     };
     this.openModal('Smithing', render);

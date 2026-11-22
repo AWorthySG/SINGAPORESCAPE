@@ -122,13 +122,27 @@ for (const M of [..._SMETALS, ..._ENDGAME]) {
   SMITH.push({ result: `${M.k}_rounds`, qty: ROUNDS_PER_BAR, bar: `${M.k}_bar`, barCount: 1, level: M.base + 2, xp: M.xp });
 }
 
-// ---- Tiered gathering tools (tooltiers.js): axes, pickaxes and harpoons ----
+// ---- Tiered gathering tools (tooltiers.js): axes, pickaxes, harpoons, fishing rods and snares ----
 // Two bars each, at the bar's smelting level plus a little, for the tier's XP
 // a bar. `upgrade` keeps them out of "Smith all" too: a tool is made when
-// chosen, never by the batch. (The tier-1 harpoon is bought, so it starts at iron.)
-for (const [tag, off] of [['axe', 1], ['pickaxe', 2], ['harpoon', 3]]) {
+// chosen, never by the batch. (The tier-1 harpoon, rod and snare are bought, so
+// they start at iron. Rods and snares can also be fletched from logs and a bar.)
+export const SMITH_TOOL_KINDS = [['axe', 1], ['pickaxe', 2], ['harpoon', 3], ['rod', 2], ['snare', 4]];
+for (const [tag, off] of SMITH_TOOL_KINDS) {
   TOOL_TIERS.forEach((T, i) => {
-    if (i === 0 && tag === 'harpoon') return;
-    SMITH.push({ result: toolId(tag, i), bar: `${T.metal}_bar`, barCount: 2, level: i ? T.level + off : 1, xp: 2 * TOOL_BAR_XP[i], upgrade: true });
+    if (i === 0 && tag !== 'axe' && tag !== 'pickaxe') return;
+    SMITH.push({ result: toolId(tag, i), bar: `${T.metal}_bar`, barCount: 2, level: i ? T.level + off : 1, xp: 2 * TOOL_BAR_XP[i], upgrade: true, toolTag: tag });
   });
+}
+
+/** The tool recipes for the anvil's "Gathering tools" section at Smithing
+ *  `level`: for each kind, every tier you can make plus the next one up, best first. */
+export function smithToolRows(level) {
+  const out = [];
+  for (const [tag] of SMITH_TOOL_KINDS) {
+    const rs = SMITH.filter((r) => r.toolTag === tag);
+    const next = rs.find((r) => r.level > level);
+    out.push(...rs.filter((r) => r.level <= level || r === next).reverse());
+  }
+  return out;
 }
