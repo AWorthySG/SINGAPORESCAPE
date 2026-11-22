@@ -4160,14 +4160,15 @@ export class UI {
         c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillText(rz.name, zx + 1, zy - 7 * k + 1);
         c.fillStyle = '#c8f5b0'; c.fillText(rz.name, zx, zy - 7 * k);
       }
-      // Groves (groves.js): a smaller dot and name, a darker green.
+      // Groves and quarries (groves.js): a smaller dot and name, a darker green (grey for a quarry).
       c.font = `800 ${Math.max(7, scale * 2)}px Nunito,"Trebuchet MS",sans-serif`;
       for (const g of game.world.groves || []) {
         const gx = g.cx * scale + scale / 2, gy = g.cy * scale + scale / 2;
+        const q = g.kind === 'quarry';   // quarries in stone grey
         c.fillStyle = '#22304A'; c.beginPath(); c.arc(gx, gy, 3.6 * k, 0, Math.PI * 2); c.fill();
-        c.fillStyle = '#4fae5a'; c.beginPath(); c.arc(gx, gy, 2.4 * k, 0, Math.PI * 2); c.fill();
+        c.fillStyle = q ? '#a9b4c2' : '#4fae5a'; c.beginPath(); c.arc(gx, gy, 2.4 * k, 0, Math.PI * 2); c.fill();
         c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillText(g.name, gx + 1, gy - 6 * k + 1);
-        c.fillStyle = '#b6e8a4'; c.fillText(g.name, gx, gy - 6 * k);
+        c.fillStyle = q ? '#e2e8f0' : '#b6e8a4'; c.fillText(g.name, gx, gy - 6 * k);
       }
       c.textAlign = 'start'; c.textBaseline = 'alphabetic';
       // The picked spot gets a gold ring.
