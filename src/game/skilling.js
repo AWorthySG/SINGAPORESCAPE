@@ -2,10 +2,10 @@ import { getItem } from '../data/items.js';
 import { clamp, weightedPick, randInt, aOrAn } from '../core/utils.js';
 import { TILE } from '../config.js';
 import { yieldBonus, huntExtras } from './culling.js';
-import { afterFireLit } from './skillunlocks.js';
 import { toolBonus, toolTooHighMsg } from './tools.js';
 import { batched } from './autoprocess.js';
-import { nodeJackpot, rockPick, SEAM_MULT } from './jackpot.js';   // now and then the whole tree or seam at once   // an instant batch's news told once (smeltBatch)
+import { nodeJackpot, rockPick, SEAM_MULT } from './jackpot.js';
+import { burnAll } from './bonfire.js';   // every log at once, onto one bonfire   // now and then the whole tree or seam at once   // an instant batch's news told once (smeltBatch)
 
 const objCenter = (obj) => ({ x: obj.x * TILE + TILE / 2, y: obj.y * TILE + TILE / 2 - 6 });
 
@@ -463,7 +463,8 @@ export function resolveFiremake(game, action) {
   const p = game.player;
   if (p.isMoving) return true;
   if (p.x !== action.tile.x || p.y !== action.tile.y) {
-    if (game.world.isBlocked(p.x, p.y) || game.world.objectAt(p.x, p.y)) { game.msg("You can't light a fire here."); return false; }
+    const there = game.world.objectAt(p.x, p.y);
+    if (game.world.isBlocked(p.x, p.y) || (there && there.def.type !== 'fire')) { game.msg("You can't light a fire here."); return false; }
     action.tile = { x: p.x, y: p.y };
   }
 
@@ -473,51 +474,14 @@ export function resolveFiremake(game, action) {
   if (game.skills.level('firemaking') < (logDef.firemaking || 1)) {
     game.msg(`You need a Firemaking level of ${logDef.firemaking} to burn these logs.`); return false;
   }
-  if (game.world.objectAt(p.x, p.y)) {
+  const here = game.world.objectAt(p.x, p.y);
+  if (here && here.def.type !== 'fire') {
     game.msg('You can\'t light a fire here.'); return false;
   }
-
-  game.inventory.remove(action.logId, 1);
-  afterFireLit(game, game.world.lightFire(p.x, p.y), action.logId);   // Firemaking unlocks (skillunlocks.js)
-  // A fire occasionally roars up for bonus XP.
-  const baseFm = Math.round((logDef.fmXp || 40) * FIRE_XP);
-  if (Math.random() < 0.10) {
-    game.skills.addXp('firemaking', Math.round(baseFm * 1.5));
-    game.spawnSparkle(game.player, '#ffae3a', 8);
-    game.msg('The fire roars to life — bonus Firemaking XP!', 'level');
-  } else {
-    game.skills.addXp('firemaking', baseFm);
-    game.msg('The fire catches and the logs begin to burn.');
-  }
-  // The endgame logs leave an ash behind (a shrine material, and later a Herblore one).
-  if (logDef.ash) {
-    if (game.inventory.canAdd(logDef.ash, 1) > 0) game.inventory.add(logDef.ash, 1);
-    else game.world.addGroundItem(logDef.ash, 1, p.x, p.y);
-  }
-  // Rarely, something glints in the embers.
-  if (Math.random() < 0.012) {
-    const c = randInt(15, 90);
-    game.inventory.add('coins', c);
-    game.msg(`You spot ${c} coins glinting in the ashes.`);
-  }
-
-  // Out of this kind: "burn everything" (the Skills menu) moves on to the next best logs.
-  if (!game.inventory.has(action.logId) && action.all) {
-    const next = game.burnableLogs?.()[0];
-    if (next) action.logId = next;
-  }
-  // Try to step to an adjacent free tile (west preferred) and keep going.
-  if (game.inventory.has(action.logId)) {
-    const candidates = [[-1, 0], [1, 0], [0, -1], [0, 1]];
-    for (const [dx, dy] of candidates) {
-      const nx = p.x + dx, ny = p.y + dy;
-      if (!game.world.isBlocked(nx, ny) && !game.world.objectAt(nx, ny)) {
-        p.setPath([{ x: nx, y: ny }], game.running);
-        action.tile = { x: nx, y: ny };
-        return true;
-      }
-    }
-  }
+  // Every log of this kind (or every log you can burn, for "burn everything")
+  // goes on one fire at once, or onto the fire already here: a bigger, longer
+  // bonfire that warms whoever stands near it (bonfire.js).
+  burnAll(game, action.all ? (game.burnableLogs?.() || [action.logId]) : [action.logId], action.count || Infinity);
   return false;
 }
 

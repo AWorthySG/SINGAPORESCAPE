@@ -92,6 +92,7 @@ import { Gathering } from './gathering.js';   // gathering streaks, lucky finds,
 import { FishSchools } from './fishschool.js';   // schools of fish visiting the spots
 import { bossToolDrop } from './bosstools.js';   // world bosses drop gathering tools of their level
 import { levelHaul } from './levelhaul.js';   // a bigger haul as your gathering level rises
+import { tickWarmth, warmthBonus } from './bonfire.js';   // bonfires and their warmth
 import { Teleports } from './teleports.js';   // the Town and Grave teleports
 import { Discovery } from './discovery.js';   // encyclopedia discoveries and their rewards
 import * as Rounds from './rounds.js';   // gun rounds and the ammo slot
@@ -891,14 +892,15 @@ export class Game {
    *  life skill perks plus the Offering Shrine's blessings. Kept until either changes. */
   outsideBonuses() {
     const lp = this.lifePerks(), rev = this.shrine.rev, c = this._outsideCache;
-    const kc = this.karmaCombat(), kKey = `${kc.side}${kc.tier}`, rq = RQ.regionPerks(this);
-    if (c && c.lp === lp && c.rev === rev && c.kKey === kKey && c.rq === rq) return c.totals;
+    const kc = this.karmaCombat(), kKey = `${kc.side}${kc.tier}`, rq = RQ.regionPerks(this), warm = this.warmth || 0;
+    if (c && c.lp === lp && c.rev === rev && c.kKey === kKey && c.rq === rq && c.warm === warm) return c.totals;
     const totals = { ...lp };
+    for (const [k, v] of Object.entries(warmthBonus(this) || {})) totals[k] = (totals[k] || 0) + v;   // a fire's warmth (bonfire.js)
     for (const [k, v] of Object.entries(this.shrine.bonuses())) totals[k] = (totals[k] || 0) + v;
     for (const [k, v] of Object.entries(rq)) totals[k] = (totals[k] || 0) + v;   // region quest perks
     // The Dark path's crit damage and lifesteal count like gear's.
     if (kc.side === 'dark') { totals.critDmg = (totals.critDmg || 0) + kc.critDmg; totals.lifesteal = (totals.lifesteal || 0) + kc.lifesteal; }
-    this._outsideCache = { lp, rev, kKey, rq, totals };
+    this._outsideCache = { lp, rev, kKey, rq, warm, totals };
     return totals;
   }
 
@@ -1171,6 +1173,7 @@ export class Game {
   // ---------------- Game tick (600ms) ----------------
   doTick() {
     this.tickCount++;
+    tickWarmth(this);   // standing near a fire warms you (bonfire.js)
     this._tickBossEffects();
     this._tickKnowledgeStrike();
     // Rhythm fades if the Dancer stops lashing for a few ticks.
@@ -6424,7 +6427,7 @@ export class Game {
     const s = this.inventory.slotAt(index);
     if (!s) return;
     if (!getItem(s.id).tags?.includes('log')) { this.msg("You can't light that."); return; }
-    this.startFiremaking(s.id);
+    this.startFiremaking(s.id);   // all of them (the bag asks how many first: ui.js askFireLogs)
   }
 
   /** The logs you can burn, best (highest Firemaking level) first. */
@@ -6441,7 +6444,7 @@ export class Game {
    *  beside you when something is already there (a fire, a tree, a stall).
    *  (It used to aim at player.x/y even mid-step, so a tap while walking waited
    *  for a tile it had already left and nothing ever caught.) */
-  startFiremaking(logId = null) {
+  startFiremaking(logId = null, count = Infinity) {
     if (!this.hasTool('tinderbox')) { this.msg('You need a tinderbox to light a fire. The Kampong Guide hands one out, and the General Store sells them.'); return false; }
     const all = !logId;
     const id = logId || this.burnableLogs()[0];
@@ -6454,13 +6457,19 @@ export class Game {
     if (this.skills.level('firemaking') < lvl) { this.msg(`You need a Firemaking level of ${lvl} to burn these logs.`); return false; }
     const tile = this._fireTile();
     if (!tile) { this.msg("There's no room to light a fire here. Step into the open."); return false; }
-    return this.beginAction({ type: 'firemake', logId: id, all, tile }, tile, false);
+    return this.beginAction({ type: 'firemake', logId: id, all, tile, count }, tile, false);
   }
 
-  /** Where a fire can go: your own tile, else the nearest free tile within 2. */
+  /** Where a fire can go: a fire you stand on or beside (the logs pile onto it:
+   *  a bigger bonfire, bonfire.js), else your own tile, else the nearest free
+   *  tile within 2. */
   _fireTile() {
     const here = this.playerTile();
     const free = (x, y) => !this.world.isBlocked(x, y) && !this.world.objectAt(x, y);
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const o = this.world.objectAt(here.x + dx, here.y + dy);
+      if (o?.def.type === 'fire') return { x: o.x, y: o.y };
+    }
     if (free(here.x, here.y)) return here;
     for (let r = 1; r <= 2; r++) {
       for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {

@@ -27,7 +27,7 @@ test('"Light a fire" burns every log, best kind first, moving on when one runs o
   assert.ok(g.startFiremaking());
   for (let i = 0; i < 60 && (g.inventory.count('logs') || g.inventory.count('oak_logs')); i++) g.update(600);
   assert.equal(g.inventory.count('oak_logs'), 0); assert.equal(g.inventory.count('logs'), 0, 'went on to the plain logs');
-  assert.ok(fires(g) - f0 >= 5, 'five fires lit');
+  assert.equal(fires(g) - f0, 1, 'all of them on one bonfire (bonfire.js)');
 });
 
 test('a fire lights even when tapped mid-step, or while standing on another fire', () => {
@@ -38,16 +38,18 @@ test('a fire lights even when tapped mid-step, or while standing on another fire
   p.setPath([{ x: p.x + 1, y: p.y }], true);
   g.update(100);
   const f0 = fires(g);
-  g.lightLogs(g.inventory.slots.findIndex((s) => s?.id === 'logs'));
+  g.startFiremaking('logs', 1);   // one log on this fire (the bag asks how many: ui.js askFireLogs)
   for (let i = 0; i < 20 && g.inventory.count('logs') === 2; i++) g.update(600);
   assert.equal(g.inventory.count('logs'), 1, 'the first log caught');
   assert.equal(fires(g), f0 + 1);
-  // Standing on that fire's tile now? Lighting again picks a free tile beside it.
+  // Standing on that fire's tile now? Lighting again piles the log onto it (bonfire.js).
   const fire = g.world.objects.filter((o) => o.def?.type === 'fire').pop();
   p.x = p.tx = fire.x; p.y = p.ty = fire.y; p.setPath?.([], false);
   assert.ok(g.startFiremaking());
   for (let i = 0; i < 20 && g.inventory.count('logs'); i++) g.update(600);
-  assert.equal(g.inventory.count('logs'), 0, 'the second log caught beside the first fire');
+  assert.equal(g.inventory.count('logs'), 0, 'the second log caught');
+  assert.equal(fires(g), f0 + 1, 'on the same fire');
+  assert.equal(fire.logs, 2, 'which is bigger now');
 });
 
 test('the Skills menu button says what it will burn, or what is missing', () => {

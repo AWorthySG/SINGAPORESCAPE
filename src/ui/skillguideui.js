@@ -454,7 +454,7 @@ export function openSkillGuide(ui, skill, { itemId = null } = {}) {
     else if (d.auto) { game.toggleAutoGather(); render(body); }
     else if (d.untick) { game.clearGatherPicks(); const sc = body.scrollTop; render(body); body.scrollTop = sc; }
     else if (d.start) { game.startGatherPicks(); ui.closeModal(); }
-    else if (d.fire) { ui.closeModal(); game.startFiremaking(); }
+    else if (d.fire) { ui.closeModal(); ui.askFireLogs ? ui.askFireLogs(null) : game.startFiremaking(); }
     else if (d.pick) { game.toggleGatherPick(d.pick.split(',')); const sc = body.scrollTop; render(body); body.scrollTop = sc; }
     else if (d.skilltp) { if (skillTeleport(game, d.skilltp)) ui.closeModal(); }
     else if (d.go) game.goToNearest(d.go.split(','));
