@@ -80,7 +80,7 @@ import { CompactHud } from './compacthud.js';
 import { feedAllPlan, feedAll } from '../game/feedall.js';   // "Feed materials to worn gear" in one go
 export const COLLAPSE_V = 2;   // the saved fold states' version (see _loadCollapse)
 export const TIP_LINGER_MS = 1000;   // an item's hover description stays this long after the pointer leaves
-import { NoticeLane } from './noticelane.js';
+import { NoticeLane, afterLayout } from './noticelane.js';
 import { QuickSlot, interactCaption, trackerHTML, loadTrackerFolded, saveTrackerFolded, sheetSnap } from './hudease.js';
 import { QuickBar } from './quickbar.js';
 import { CmdSearch } from './cmdsearch.js';
@@ -331,12 +331,13 @@ export class UI {
     this.bus.on('autoquest', () => { this.renderQuestPanel(); this.renderAutoBattle(); });
     this.bus.on('autogather', () => this.renderAutoBattle());
     this.bus.on('karma', () => { this.renderAlignment(); this._refreshModalIfOpen(['shop']); });
-    this.bus.on('prayer', () => { this.renderPrayer(); this.renderPrayerPanel(); });
+    // Faith moves on every hit: draw the orb (and the Blessings panel) once per burst.
+    this.bus.on('prayer', () => this._coalesce('prayer', () => { this.renderPrayer(); this.renderPrayerPanel(); }));
     this.bus.on('skills', () => this.renderPrayerPanel());
-    this.bus.on('quest', () => { this.renderQuestPanel(); this.renderTracker(); });
-    this.bus.on('bounties', () => { this.renderQuestPanel(); this.renderTracker(); });
+    this.bus.on('quest', () => { this.renderQuestPanel(); this._trackerSoon(); });
+    this.bus.on('bounties', () => { this.renderQuestPanel(); this._trackerSoon(); });
     this.bus.on('worldevents', () => this._soon('worldevents', () => { this.renderQuestPanel(); this.renderTracker(); }, 1000));   // world events (worldeventsui.js)
-    this.bus.on('xpbonus', () => this.renderTracker());
+    this.bus.on('xpbonus', () => this._trackerSoon());
     this.bus.on('spell', () => this.renderCombatPanel());
     this.bus.on('mercs', () => this.renderCombatPanel());
     this.bus.on('achievement', () => this._soon('achievements', () => this.renderAchievementPanel()));
@@ -345,7 +346,7 @@ export class UI {
     for (const ev of ['equipment', 'skills', 'stats', 'potions', 'prayer', 'ability', 'karma', 'slayer', 'spell', 'xpbonus', 'hp', 'tick', 'rhythm', 'culling']) {
       this.bus.on(ev, () => this._soon('statsTab', () => this.renderStatsPanel(), 300));
     }
-    this.bus.on('slayer', () => { this._refreshModalIfOpen(['slayer', 'slayerRewards']); this.renderTracker(); });
+    this.bus.on('slayer', () => { this._refreshModalIfOpen(['slayer', 'slayerRewards']); this._trackerSoon(); });
     this.bus.on('bank', () => this._refreshModalIfOpen(['bank']));
     // Culling (culling.js): contracts, Stewardship and the token shop, a few times a second at most.
     this.bus.on('culling', () => this._soon('culling', () => { this._refreshModalIfOpen(['pest', 'pestShop']); this.renderTracker(); this.renderAlignment(); }, 250));
@@ -594,6 +595,7 @@ export class UI {
   renderTracker() {
     const el = this.el.tracker;
     if (!el) return;
+    this._trkDirty = false;   // drawn now: a redraw queued by _trackerSoon has nothing left to do
     const g = this.game;
     const rows = [];
     const xb = g.xpBreakdown();
@@ -607,11 +609,11 @@ export class UI {
     }
     if (g.slayer && g.slayer.task) {
       const t = g.slayer.task;
-      rows.push(`<div class="trk-row"><span class="trk-ic trk-slayer">&#9760;</span>${Number(t.remaining) || 0} ${escapeHtml(t.name)} <span class="trk-buff" title="Slayer bonus against your task">+${g.slayerBonus().dmg}% dmg</span>${this._trkPointer((n) => n.def.family === t.family)}</div>`);
+      rows.push(`<div class="trk-row"><span class="trk-ic trk-slayer">&#9760;</span>${Number(t.remaining) || 0} ${escapeHtml(t.name)} <span class="trk-buff" title="Slayer bonus against your task">+${g.slayerBonus().dmg}% dmg</span>${this._trkPointer((n) => n.def.family === t.family, `fam:${t.family}`)}</div>`);
     }
     // Today's unfinished bounties (up to two), each with a pointer to the nearest target.
     for (const t of (g.bounties?.list || []).filter((x) => !x.done).slice(0, 2)) {
-      rows.push(`<div class="trk-row"><span class="trk-ic trk-bounty">&#9733;</span>${escapeHtml(t.name)} <span class="trk-prog">${Number(t.have) || 0}/${Number(t.need) || 0}</span>${this._trkPointer((n) => n.npcId === t.id)}</div>`);
+      rows.push(`<div class="trk-row"><span class="trk-ic trk-bounty">&#9733;</span>${escapeHtml(t.name)} <span class="trk-prog">${Number(t.have) || 0}/${Number(t.need) || 0}</span>${this._trkPointer((n) => n.npcId === t.id, `id:${t.id}`)}</div>`);
     }
     rows.push(...eventTrackerRows(this));      // a world event under way
     rows.push(...contractTrackerRows(this));   // today's Pest Control contracts
@@ -643,13 +645,15 @@ export class UI {
     el.classList.toggle('folded', !!this._trkFolded);
   }
 
-  /** Arrow + distance from the player to the nearest living monster matching `pred`. */
-  _trkPointer(pred) {
+  /** Arrow + distance from the player to the nearest living monster matching `pred`.
+   *  `key` ('id:<npcId>' or 'fam:<family>') names what `pred` picks out: the
+   *  search then visits only those NPCs (_trkCandidates), not the whole world. */
+  _trkPointer(pred, key) {
     const g = this.game, p = g.player;
     let best = null, bd = Infinity;
     // The whole world is searched (a target can be far off), so compare squared
     // distances and take the one square root at the end.
-    for (const n of g.npcs) {
+    for (const n of (key ? this._trkCandidates(key, pred) : g.npcs)) {
       if (!n.alive) continue;
       const dx = n.x - p.x, dy = n.y - p.y, d = dx * dx + dy * dy;
       if (d < bd && pred(n)) { bd = d; best = n; }
@@ -659,6 +663,28 @@ export class UI {
     if (bd <= 6) return '<span class="trk-dist here">here</span>';
     const deg = Math.round(Math.atan2(best.y - p.y, best.x - p.x) * 180 / Math.PI);
     return `<span class="trk-arrow" style="transform:rotate(${deg}deg)">&#10148;</span><span class="trk-dist">${Math.round(bd)}m</span>`;
+  }
+
+  /** The NPCs `pred` picks out (dead ones too: they come back), in list order,
+   *  kept per `key` until the NPC list is replaced or grows. The world holds ten
+   *  thousand and the tracker points at a few kinds several times a tick; NPCs
+   *  only join or leave it that way, and their kind is set before they join. */
+  _trkCandidates(key, pred) {
+    const g = this.game;
+    let c = this._trkIdx;
+    if (!c || c.arr !== g.npcs || c.len !== g.npcs.length) c = this._trkIdx = { arr: g.npcs, len: g.npcs.length, lists: new Map() };
+    let list = c.lists.get(key);
+    if (!list) c.lists.set(key, list = g.npcs.filter(pred));
+    return list;
+  }
+
+  /** Redraw the objectives once at the end of this task, however many events
+   *  ask (one kill can move the XP bonus, a bounty and a contract). That is
+   *  still before the browser paints, so it shows at the same moment; and the
+   *  tick's own redraw, which comes last in a tick, covers what came before it. */
+  _trackerSoon() {
+    this._trkDirty = true;
+    this._coalesce('tracker', () => { if (this._trkDirty) this.renderTracker(); });
   }
 
   // ---------------- Tabs ----------------
@@ -686,6 +712,7 @@ export class UI {
       panel.classList.toggle('collapsed', collapsed);
       if (collapsed) panel.classList.remove('sheet-full');   // a phone sheet always reopens at half height
       if (key === 'panel' && !collapsed && this._invStale) this.renderInventory();   // the bag skipped redraws while folded
+      if (key === 'panel' && !collapsed) this._catchUpPanels();   // and so did the Gear, Combat, Journal and Awards views
       btn.innerHTML = collapsed ? '&#9656;' : '&#9662;'; // ▸ collapsed / ▾ expanded
       btn.title = `${collapsed ? 'Expand' : 'Collapse'} ${label}${key === 'panel' ? ' (I)' : ''}`;
     };
@@ -730,9 +757,11 @@ export class UI {
       'renderQuestPanel', 'renderStatsPanel', 'renderAchievementPanel', '_refreshModalIfOpen'];
     const held = new Map();
     let pressing = false, timer = 0, since = 0;
+    this._unheld = {};   // the redraws themselves, for a view coming into sight (_catchUpPanels)
     for (const name of HELD) {
       const orig = this[name];
       if (typeof orig !== 'function') continue;
+      this._unheld[name] = orig;
       this[name] = (...args) => {
         // A press held for seconds (a slow scroll) doesn't freeze the panel for good.
         if (pressing && performance.now() - since < 3000) { held.set(name, args); return undefined; }
@@ -902,6 +931,7 @@ export class UI {
       try { localStorage.setItem('ss_ui_subtab', JSON.stringify(this._subView)); } catch {}
     }
     this._renderSubtabs(tab, view);
+    this._catchUpPanels();   // before the view's scroll is put back, so it lands on what will show
     this.winMem?.panelShown(tab, view);
     if (view === 'stats') this.renderStatsPanel();   // it only redraws while showing, so bring it up to date
     if (view === 'skills' && this._skillsStale) this.renderSkills();   // likewise
@@ -909,6 +939,27 @@ export class UI {
     if (view === 'story') this.renderStoryPanel?.();  // (storyui.js) likewise
     // The skills list carries a name + description per row, so it gets more room.
     document.getElementById('sidepanel')?.classList.toggle('wide', view === 'skills');
+  }
+
+  /** True while `el`, inside a side-panel view, can't be seen: the panel is
+   *  folded (as it mostly is on a phone) or another view is showing. */
+  _panelHidden(el) {
+    return !!(this.el.sidepanel?.classList?.contains('collapsed') || el?.closest?.('.panel-view')?.classList.contains('hidden'));
+  }
+
+  /** The Gear, Combat, Journal and Awards views (and the alignment box under
+   *  Skills) skip their redraws while out of sight: bring any that missed one
+   *  up to date (each draws only if it now shows). Straight away, even while
+   *  the tab is still pressed: the press-hold (_initPressHold) would draw it
+   *  only after the click, so the view's first frame showed its old state.
+   *  Nothing in a view just coming into sight is under the finger. */
+  _catchUpPanels() {
+    const draw = (name) => (this._unheld?.[name] || this[name]).call(this);
+    if (this._equipStale) draw('renderEquipment');
+    if (this._combatStale) draw('renderCombatPanel');
+    if (this._questStale) draw('renderQuestPanel');
+    if (this._achStale) draw('renderAchievementPanel');
+    if (this._alignStale) draw('renderAlignment');
   }
 
   /** The "Bag | Gear" style row of sub-tabs at the top of the panel body. */
@@ -957,6 +1008,11 @@ export class UI {
 
   // ---------------- Region label ----------------
   setRegion(name, wildLevel = 0) {
+    // Called every tick: the labels are rewritten only when the place (or its
+    // Wilderness level) changes, not rebuilt the same each time.
+    const key = `${name}|${wildLevel}`;
+    if (key === this._regionKey) return;
+    this._regionKey = key;
     const wild = wildLevel > 0;
     if (this.el.region) {
       this.el.region.innerHTML = `<span class="loc-pin">&#128205;</span> ${escapeHtml(name)}` +
@@ -996,8 +1052,18 @@ export class UI {
     this.el.chatLog.appendChild(div);
     while (this.el.chatLog.childElementCount > 120) this.el.chatLog.removeChild(this.el.chatLog.firstChild);
     this._applyVisibility(div);
-    // Scrolling to the bottom forces a layout: do it once a frame, not per message.
-    this._soon('chatScroll', () => { this.el.chatLog.scrollTop = this.el.chatLog.scrollHeight; });
+    // Scrolling to the bottom needs the page laid out: do it once a frame, not
+    // per message, right after the browser's own layout (where reading the
+    // log's height costs nothing; noticelane.js afterLayout), and not while the
+    // chat is folded (its log isn't laid out, so there is nothing to scroll).
+    if (this._chatScrollQueued) return;
+    this._chatScrollQueued = true;
+    const scroll = () => {
+      this._chatScrollQueued = false;
+      if (this.el.chatLog.parentElement?.classList.contains('collapsed')) return;
+      this.el.chatLog.scrollTop = this.el.chatLog.scrollHeight;
+    };
+    if (!afterLayout(scroll)) this._soon('chatScroll', scroll);
   }
 
   /** Run `fn` once on the next animation frame, however many times it is asked
@@ -1013,6 +1079,24 @@ export class UI {
     const wait = q.last + minMs - performance.now();
     if (wait > 0) setTimeout(() => requestAnimationFrame(run), wait);
     else requestAnimationFrame(run);
+  }
+
+  /** Run `fn` once at the end of the current task (a microtask), however many
+   *  times it is asked for before then (keyed by `key`). Unlike _soon it lands
+   *  in the same frame: the browser paints only after the task, so a redraw a
+   *  burst of events each asked for shows at the very same moment, done once. */
+  _coalesce(key, fn) {
+    const q = this._coalesceQ || (this._coalesceQ = new Map());
+    const queued = q.has(key);
+    q.set(key, fn);
+    if (queued) return;
+    if (typeof queueMicrotask !== 'function') { q.delete(key); fn(); return; }
+    queueMicrotask(() => {
+      const f = q.get(key);
+      q.delete(key);
+      // Like the event bus: one bad redraw is logged, never thrown at the page.
+      try { f(); } catch (err) { console.error(`Error in queued redraw "${key}":`, err); }
+    });
   }
 
   _applyChatFilter() {
@@ -1234,6 +1318,12 @@ export class UI {
 
   renderEquipment() {
     const layout = this.el.equipLayout;
+    // Out of sight (the panel folded, or the Bag showing) it only notes it is
+    // out of date: every kill's gear mastery rebuilt it unseen. It catches up
+    // when it shows (_catchUpPanels).
+    if (this._equipDrawn && this._panelHidden(layout)) { this._equipStale = true; return; }
+    this._equipDrawn = true;
+    this._equipStale = false;
     layout.innerHTML = '';
     for (const slot of EQUIP_LAYOUT) {
       const cell = document.createElement('div');
@@ -2494,6 +2584,11 @@ export class UI {
   renderAlignment() {
     const el = this.el.alignment || (this.el.alignment = document.getElementById('alignment-readout'));
     if (!el) return;
+    // It sits under the Skills list: out of sight it waits (Culling's Stewardship
+    // line moved it a few times a second in a fight) and catches up when shown.
+    if (this._alignDrawn && this._panelHidden(el)) { this._alignStale = true; return; }
+    this._alignDrawn = true;
+    this._alignStale = false;
     const g = this.game;
     const { title, cls } = g.alignmentTitle();
     const good = g.karma.good, evil = g.karma.evil, total = good + evil || 1;
@@ -2643,6 +2738,10 @@ export class UI {
 
   renderCombatPanel() {
     if (!this._styleRow) return;
+    // Out of sight it waits too (gear and levels change all fight long).
+    if (this._combatDrawn && this._panelHidden(this._styleRow)) { this._combatStale = true; return; }
+    this._combatDrawn = true;
+    this._combatStale = false;
     const mode = this.game.combatMode();
     const p = this.game.player;
     const row = this._styleRow;
@@ -3111,10 +3210,13 @@ export class UI {
     const engaged = (n) => n.alive && Math.abs(n.x - p.x) <= 16 && Math.abs(n.y - p.y) <= 16 &&
       (n.target === p || p.target === n || n.combatLatch > 0);
     // A boss or champion takes the bar; otherwise the ordinary monster you're
-    // fighting gets a smaller, plainer one.
-    const boss = g.npcs.find((n) => (n.def.boss || n.champion) && engaged(n))
+    // fighting gets a smaller, plainer one. Engaged means within 16 tiles, so
+    // the NPCs near you (in list order, as the whole list) hold every one: no
+    // need to search the whole world's ten thousand every tick.
+    const near = g.nearbyNpcs ? g.nearbyNpcs() : g.npcs;
+    const boss = near.find((n) => (n.def.boss || n.champion) && engaged(n))
       || (p.target && p.target.attackable && engaged(p.target) ? p.target : null)
-      || g.npcs.find((n) => n.attackable && n.target === p && engaged(n));
+      || near.find((n) => n.attackable && n.target === p && engaged(n));
     const on = !!boss && p.alive;
     document.body.classList.toggle('boss-on', on);   // lets the tracker/tips move out of its way
     if (!on) { this.el.bossBar.classList.add('hidden'); return; }
@@ -3179,6 +3281,11 @@ export class UI {
   // ---------------- Quest journal ----------------
   renderQuestPanel() {
     const game = this.game;
+    // Out of sight it waits, like the Gear view: working out "What next?" and
+    // every quest's next step is the dearest redraw in the panel.
+    if (this._questDrawn && this._panelHidden(this.el.questPanel)) { this._questStale = true; return; }
+    this._questDrawn = true;
+    this._questStale = false;
     // Status is a small chip in the card's top row, beside (never over) the title.
     const status = (s) => s === 'done' ? '<span class="q-chip done">Done</span>'
       : s === 'active' ? '<span class="q-chip active">Active</span>'
@@ -3252,6 +3359,10 @@ export class UI {
   renderAchievementPanel() {
     const panel = this.el.achievementPanel;
     if (!panel) return;
+    // Out of sight it waits too (every new collection entry redrew it).
+    if (this._achDrawn && this._panelHidden(panel)) { this._achStale = true; return; }
+    this._achDrawn = true;
+    this._achStale = false;
     const game = this.game;
     const owned = game.achievements;
     const cats = [...new Set(ACHIEVEMENTS.map((a) => a.cat))];

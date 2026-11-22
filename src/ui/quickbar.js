@@ -41,7 +41,10 @@ export class QuickBar {
     // The Compendium opener the bar's action calls (ui.js has none of its own).
     ui.openCompendium ??= (article = null) => openCompendium(ui, article);
     quickbarOf(this.game);
-    for (const ev of ['quickbar', 'autobattle', 'autogather', 'autoquest', 'inventory']) this.game.bus.on(ev, () => this.render());
+    for (const ev of ['quickbar', 'autobattle', 'autogather', 'autoquest']) this.game.bus.on(ev, () => this.render());
+    // The bag changes many times a tick in a fight (every drop picked up): the
+    // Eat slot, which scans the whole bag, is worked out once per burst.
+    this.game.bus.on('inventory', () => (ui._coalesce ? ui._coalesce('quickbar', () => this.render()) : this.render()));
     if (typeof document === 'undefined') return;
     document.addEventListener('keydown', (e) => this.onKey(e));
     this.render();

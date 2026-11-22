@@ -520,21 +520,38 @@ export const rigPivot = (id, n) => RIGS[id] && (RIGS[id].parts[n] || Object.valu
 export const townIdleIds = () => Object.keys(TOWN_IDLE);
 export const townIdleParts = (id) => TOWN_IDLE[id] && Object.keys(TOWN_IDLE[id].piv);
 let _rigCv = null, _rigTint = null, _spCv = null, _spTint = null;
+const _rigBox = { x0: 0, y0: 0, x1: 0, y1: 0 };   // the area the posed layers cover (reused each frame)
 const RIG_RES = 6;   // one showpiece boss at a time, so it can afford a sharper canvas than the cached stickers
 const SPECIES_RIG_RES = 3;   // a pack of monsters can be on screen at once, so theirs is lighter
-// Each layer, posed for this frame, onto `g` (the screen or the scratch canvas).
-function drawRigParts(g, rig, imgs, opts, t, x0, y0, w, h) {
+// Grow `box` (local units) by a layer's rectangle turned by `a` and scaled by
+// `s` about (px, py): the scratch canvas only copies and tints that much.
+function growRigBox(box, x0, y0, w, h, px, py, a, s) {
+  const co = Math.cos(a) * s, si = Math.sin(a) * s;
+  for (let i = 0; i < 4; i++) {
+    const dx = (i & 1 ? x0 + w : x0) - px, dy = (i & 2 ? y0 + h : y0) - py;
+    const x = px + co * dx - si * dy, y = py + si * dx + co * dy;
+    if (x < box.x0) box.x0 = x;
+    if (x > box.x1) box.x1 = x;
+    if (y < box.y0) box.y0 = y;
+    if (y > box.y1) box.y1 = y;
+  }
+}
+// Each layer, posed for this frame, onto `g` (the screen or the scratch canvas),
+// noting the area the posed layers cover in `box` when one is given.
+function drawRigParts(g, rig, imgs, opts, t, x0, y0, w, h, box = null) {
   for (const n of rig.order) {
     const part = rig.parts[n];
     g.save();
     if (part) {
       const px = x0 + part.piv[0] * w, py = y0 + part.piv[1] * h;
       const gr = part.grow ? part.grow(t, opts) : 1;   // a crown or gem pulsing
+      const a = part.swing ? part.swing(t, opts) : 0;
       g.translate(px, py);
-      if (part.swing) g.rotate(part.swing(t, opts));
+      if (part.swing) g.rotate(a);
       if (gr !== 1) g.scale(gr, gr);
       g.translate(-px, -py);
-    }
+      if (box) growRigBox(box, x0, y0, w, h, px, py, a, gr);
+    } else if (box) growRigBox(box, x0, y0, w, h, 0, 0, 0, 1);
     // Some parts swap to another picture for a moment (a mouth opening to bite, a claw opening).
     const img = part && part.alt && part.swap(opts) ? imgs[part.alt] : imgs[n];
     g.drawImage(img, x0, y0, w, h);
@@ -574,9 +591,16 @@ function drawRig(c, id, imgs, opts, t, flash, flashCol) {
   // Snakes, swimmers and plants also sway, bob and lean as a whole, about the ground line (creatureRigs.js BODY).
   const b = rig.body && rig.body(t, opts);
   if (b) g.transform(b.sx, 0, -b.lean, b.sy, 13.5 * b.lean, 13.5 * (1 - b.sy) + b.dy);
-  drawRigParts(g, rig, imgs, opts, t, x0, y0, w, h);
+  const box = flash > 0.01 ? _rigBox : null;
+  if (box) { box.x0 = box.y0 = Infinity; box.x1 = box.y1 = -Infinity; }
+  drawRigParts(g, rig, imgs, opts, t, x0, y0, w, h, box);
   // A tinted copy of this frame, for the hit flash. (Species rigs no longer get a
   // white border traced round them: monsters go without one, see MONSTER_BOX.)
+  // Only the posed layers' box (through the body's sway, in scratch pixels, with
+  // a little slack for smoothing) is copied and coloured: the rest of the canvas
+  // is empty, and a boss's canvas is mostly air round the picture. The colour
+  // goes on 'source-atop', the same as 'source-in' for an opaque colour, but it
+  // works on that box alone where 'source-in' works over the whole canvas.
   const tinted = (col) => {
     let tc = species ? _spTint : _rigTint;
     if (!tc) {
@@ -585,7 +609,22 @@ function drawRig(c, id, imgs, opts, t, flash, flashCol) {
     }
     const tg = tc.getContext('2d');
     tg.globalCompositeOperation = 'source-over'; tg.clearRect(0, 0, tc.width, tc.height);
-    tg.drawImage(cv, 0, 0); tg.globalCompositeOperation = 'source-in'; tg.fillStyle = col; tg.fillRect(0, 0, tc.width, tc.height);
+    let sx0 = Infinity, sy0 = Infinity, sx1 = -Infinity, sy1 = -Infinity;
+    for (let i = 0; i < 4; i++) {
+      let x = i & 1 ? box.x1 : box.x0, y = i & 2 ? box.y1 : box.y0;
+      if (b) { const xb = b.sx * x - b.lean * y + 13.5 * b.lean; y = b.sy * y + 13.5 * (1 - b.sy) + b.dy; x = xb; }
+      x = (x - ST_X0) * res; y = (y - ST_Y0) * res;
+      if (x < sx0) sx0 = x;
+      if (x > sx1) sx1 = x;
+      if (y < sy0) sy0 = y;
+      if (y > sy1) sy1 = y;
+    }
+    const sx = Math.max(0, Math.floor(sx0) - 2), sy = Math.max(0, Math.floor(sy0) - 2);
+    const sw = Math.min(tc.width, Math.ceil(sx1) + 2) - sx, sh = Math.min(tc.height, Math.ceil(sy1) + 2) - sy;
+    if (sw > 0 && sh > 0) {
+      tg.drawImage(cv, sx, sy, sw, sh, sx, sy, sw, sh);
+      tg.globalCompositeOperation = 'source-atop'; tg.fillStyle = col; tg.fillRect(sx, sy, sw, sh);
+    }
     return tc;
   };
   c.drawImage(cv, ST_X0, ST_Y0, ST_W, ST_H);
@@ -3261,9 +3300,14 @@ function groundIcon(id, img, s) {
   _groundIcons.set(id, c);
   return c;
 }
+const GROUND_GLOW_BOX = { x0: -12, y0: -12, w: 24, h: 24 };
 export function drawGroundItem(ctx, id, cx, cy) {
-  // soft pickup disc + hand-drawn vector icon (matches the inventory art)
-  glow(ctx, cx, cy, 12, 'rgba(255,225,140,0.22)');
+  // soft pickup disc + hand-drawn vector icon (matches the inventory art).
+  // The disc is one soft glow drawn once and blitted, like the shadows: a pile
+  // of drops was building a fresh gradient for each of them every frame.
+  const disc = cachedBitmap('ground-glow', GROUND_GLOW_BOX, (g) => glow(g, 0, 0, 12, 'rgba(255,225,140,0.22)'));
+  if (disc) ctx.drawImage(disc, cx - 12, cy - 12, 24, 24);
+  else glow(ctx, cx, cy, 12, 'rgba(255,225,140,0.22)');
   ctx.fillStyle = 'rgba(0,0,0,0.18)'; ellipse(ctx, cx, cy + 7, 9, 3.2); ctx.fill();
   const img = itemIconImage(id);
   if (img && img.complete && img.naturalWidth) {

@@ -99,6 +99,7 @@ import * as Rounds from './rounds.js';   // gun rounds and the ammo slot
 import { bestTool, toolSpeed } from './tools.js';   // tiered gathering tools
 
 const GOLDEN_BANNER_GAP = 50;   // ticks (30s): golden hours opening within this share one banner
+const SAVE_SOON_GAP = 5;        // ticks (3s): the least time between two key-moment saves (see doTick)
 
 // Auto quest: the dialogue actions that start and hand in each quest it can
 // do ([start, hand-in]; Pest Control completes itself on the last rat). The
@@ -247,6 +248,8 @@ const NEAR_RADIUS = 60;
 // strays NEAR_SLACK / 2 tiles from there (see _npcsAround).
 const UPDATE_RADIUS = 48;
 const NEAR_SLACK = 8;
+// ...and that list is made afresh at least this often (ticks), whatever happens.
+const AROUND_REFRESH_TICKS = 10;
 const SPLAT_MERGE_MS = 200;   // hits on one foe this close together share one damage number (crits merge with crits)
 const SPLAT_MAX_PER = 5;      // damage numbers shown at once over one foe
 // Tiny hits (a sliver of the target's life, like poison and burn ticks or a
@@ -652,6 +655,7 @@ export class Game {
     this.regenCounter = 0;
     this.autosaveCounter = 0;
     this.saveSoon = false;        // set by key moments: save on the next tick
+    this._savedTick = -Infinity;  // the tick doTick last saved on
     this.starterGiven = false;
   }
 
@@ -849,8 +853,29 @@ export class Game {
   /** Summed passive-perk modifiers for a fighting style (its tracks plus Defence),
    *  or for 'defence' alone. Cached until a relevant level changes. */
   perkMods(mode = this.combatMode()) {
-    const sk = this.skills;
-    const key = mode + ':' + (this.jobClass || '') + ':' + PERK_SKILLS.map((s) => sk.level(s)).join(',');
+    const sk = this.skills, cl = this.jobClass || '';
+    // Asked several times a blow: while the levels behind this mode's last
+    // answer haven't moved, that answer stands, with no key to build.
+    const last = (this._perkLast ||= {})[mode];
+    let m = last && last.cl === cl ? last.m : null;
+    if (m) for (let i = 0; i < PERK_SKILLS.length; i++) if (sk.level(PERK_SKILLS[i]) !== last.lv[i]) { m = null; break; }
+    if (!m) m = this._perkModsFor(mode, cl);
+    // Potions and a meal's boost add on top of the perks (a fresh object, so the cache stays clean).
+    let boosted = !!this.meal;
+    for (const _ in this.potions) { boosted = true; break; }
+    if (boosted) {
+      const pm = this.potionMods(mode === 'defence' ? this.combatMode() : mode);
+      const out = { ...m };
+      for (const [k, v] of Object.entries(pm)) out[k] = (out[k] || 0) + v;
+      return out;
+    }
+    return m;
+  }
+
+  /** The cached perk sums behind perkMods, by mode, class and the PERK_SKILLS levels. */
+  _perkModsFor(mode, cl) {
+    const sk = this.skills, lv = PERK_SKILLS.map((s) => sk.level(s));
+    const key = mode + ':' + cl + ':' + lv.join(',');
     this._perkCache ||= new Map();
     let m = this._perkCache.get(key);
     if (!m) {
@@ -866,15 +891,7 @@ export class Game {
       if (this._perkCache.size > 64) this._perkCache.clear();
       this._perkCache.set(key, m);
     }
-    // Potions and a meal's boost add on top of the perks (a fresh object, so the cache stays clean).
-    let boosted = !!this.meal;
-    for (const _ in this.potions) { boosted = true; break; }
-    if (boosted) {
-      const pm = this.potionMods(mode === 'defence' ? this.combatMode() : mode);
-      const out = { ...m };
-      for (const [k, v] of Object.entries(pm)) out[k] = (out[k] || 0) + v;
-      return out;
-    }
+    this._perkLast[mode] = { cl, lv, m };
     return m;
   }
 
@@ -1119,8 +1136,7 @@ export class Game {
   }
 
   _spawnEmbers() {
-    for (const o of this.world.objects) {
-      if (o.def.type !== 'fire' && o.def.type !== 'furnace') continue;
+    for (const o of this.world.emberSources()) {
       if (Math.random() < 0.45) {
         const wx = o.x * TILE + TILE / 2 + (Math.random() - 0.5) * 8;
         const wy = o.y * TILE + TILE / 2 - 6;
@@ -1156,8 +1172,11 @@ export class Game {
         life: 5200, maxLife: 5200, size: 0.8 + Math.random() * 1.2, color: Math.random() < 0.5 ? '#8a7a6a' : '#b5a48f', add: false, art: 'dust_l',
       });
     } else {
-      // A leaf now and then, tumbling down from a nearby tree.
-      const trees = this.world.objects.filter((o) => o.def.type === 'tree' && Math.abs(o.x * TILE - c.x) < 200 && Math.abs(o.y * TILE - c.y) < 150);
+      // A leaf now and then, tumbling down from a nearby tree. (Only the objects
+      // in a box around you, from the world's spatial index and in list order,
+      // are tested: not the thousands in the whole world, every tick.)
+      const box = this.world.objectsIn(Math.floor((c.x - 200) / TILE), Math.floor((c.y - 150) / TILE), Math.ceil((c.x + 200) / TILE), Math.ceil((c.y + 150) / TILE));
+      const trees = box.filter((o) => o.def.type === 'tree' && Math.abs(o.x * TILE - c.x) < 200 && Math.abs(o.y * TILE - c.y) < 150);
       if (trees.length && Math.random() < 0.6) {
         const t = trees[Math.floor(Math.random() * trees.length)];
         const autumn = Math.random() < 0.3;
@@ -1209,19 +1228,34 @@ export class Game {
     // Cached so every aggressive NPC's _combatAI can cheaply see how many
     // wandering monsters already have unprovoked aggro this tick, instead of
     // each one re-scanning the whole NPC list (avoids O(n^2) in dense areas).
+    // The same pass over the whole list picks out who ticks, in list order: a
+    // tick only ever moves the NPC ticking, so this picks the very NPCs that
+    // checking each in turn would (and it is one walk of ten thousand, not two).
     this._aggroAttackers = 0;
-    for (const n of this.npcs) {
+    const npcs = this.npcs, len0 = npcs.length, ticking = [];
+    for (let i = 0; i < len0; i++) {
+      const n = npcs[i];
       if (n.alive && !n.temporary && n.target === this.player) this._aggroAttackers++;
+      // Allies always tick, so they can catch up with a Merchant who travelled far.
+      if (n.ally || !(Math.abs(n.x - px) > 46 || Math.abs(n.y - py) > 46)) ticking.push(n);
     }
     const cl = this.skills.squashedCombatLevel();   // bosses' scaling was tuned on the squashed level
-    for (const n of this.npcs) {
-      // Allies always tick, so they can catch up with a Merchant who travelled far.
-      if (!n.ally && (Math.abs(n.x - px) > 46 || Math.abs(n.y - py) > 46)) continue;
+    for (const n of ticking) {
       if (n.def.boss && !n.wave) this._scaleBoss(n, cl);   // a wave boss is already scaled to its wave
       n.tick(this);
     }
+    // Anyone added during those ticks (a boss's adds) ticks straight away, as before.
+    for (let i = len0; i < npcs.length; i++) {
+      const n = npcs[i];
+      if (!n.ally && (Math.abs(n.x - px) > 46 || Math.abs(n.y - py) > 46)) continue;
+      if (n.def.boss && !n.wave) this._scaleBoss(n, cl);
+      n.tick(this);
+    }
     Mercs.flushAllies(this);
-    if (this.hasTemps) this.npcs = this.npcs.filter((n) => !(n.temporary && !n.alive));
+    // Only when one has actually gone: once any temporary had ever been made,
+    // the whole list was copied every tick, throwing away every list kept of
+    // who is near you with it.
+    if (this.hasTemps && this.npcs.some((n) => n.temporary && !n.alive)) this.npcs = this.npcs.filter((n) => !(n.temporary && !n.alive));
     if (this._worldBoss && !this._worldBoss.alive) { this.npcs = this.npcs.filter((n) => n !== this._worldBoss); this._worldBoss = null; }
     if (this.player.alive) this.updateRegion();
     this.world.tick();
@@ -1246,8 +1280,12 @@ export class Game {
     // the next tick rather than waiting up to 30s for the autosave.
     // Not before a brand-new player has picked a class: a classless save would
     // reload as an old character and skip the starting kit.
-    if ((++this.autosaveCounter >= AUTOSAVE_TICKS || this.saveSoon) && !this.pendingStyleChoice) {
-      this.autosaveCounter = 0; this.saveSoon = false;
+    // In a big fight the Collection log and loot banners ask nearly every tick,
+    // and each save writes the whole character (tens of KB with a full bag), so
+    // they come at most every SAVE_SOON_GAP ticks. (Leaving the page saves at once.)
+    const soon = this.saveSoon && this.tickCount - this._savedTick >= SAVE_SOON_GAP;
+    if ((++this.autosaveCounter >= AUTOSAVE_TICKS || soon) && !this.pendingStyleChoice) {
+      this.autosaveCounter = 0; this.saveSoon = false; this._savedTick = this.tickCount;
       // Storage full or blocked: say so once instead of failing silently forever.
       // (null is saving paused before a reload, which is not a failure.)
       if (saveGame(this) === false && !this.saveWarned) { this.saveWarned = true; this.msg('Could not save: this browser\'s storage is full or blocked. Your progress is not being kept.', 'system'); }
@@ -1983,13 +2021,15 @@ export class Game {
 
   /** Everyone who might be within NEAR_RADIUS of the player, in list order:
    *  the NPCs within NEAR_RADIUS + NEAR_SLACK of where the list was made, and
-   *  every ally. NPCs that far out stand frozen, so it only needs making again
-   *  each tick, when the NPC list changes, or once the player has strayed
-   *  NEAR_SLACK / 2 tiles. Per frame this saves a pass over the whole world's
-   *  ten thousand (the frame update and nearbyNpcs both start from it). */
+   *  every ally. NPCs that far out stand frozen (only those near you move, and
+   *  only ever themselves), so it only needs making again when the NPC list
+   *  changes or once the player has strayed NEAR_SLACK / 2 tiles; it is also
+   *  remade every AROUND_REFRESH_TICKS ticks to be safe. Per frame this saves a
+   *  pass over the whole world's ten thousand (the frame update and nearbyNpcs
+   *  both start from it), and now per tick too. */
   _npcsAround() {
     const p = this.player, px = Math.round(p.x), py = Math.round(p.y), c = this._around;
-    if (c && c.tick === this.tickCount && c.arr === this.npcs && c.len === this.npcs.length
+    if (c && c.tick <= this.tickCount && this.tickCount - c.tick < AROUND_REFRESH_TICKS && c.arr === this.npcs && c.len === this.npcs.length
       && Math.abs(c.px - px) <= NEAR_SLACK / 2 && Math.abs(c.py - py) <= NEAR_SLACK / 2) return c.list;
     const list = [], R = NEAR_RADIUS + NEAR_SLACK;
     for (const n of this.npcs) if (n.ally || (Math.abs(n.x - px) <= R && Math.abs(n.y - py) <= R)) list.push(n);
@@ -2042,7 +2082,7 @@ export class Game {
    *  monster aggression, bounties, world bosses and goal hunts all use this. */
   fightLevel() {
     const mode = this.combatMode();
-    const lvl = mode === 'dance' ? this.skills.danceLevel() : this.skills.level({ ranged: 'ranged', magic: 'magic' }[mode] || 'attack');
+    const lvl = mode === 'dance' ? this.skills.danceLevel() : this.skills.level(mode === 'ranged' || mode === 'magic' ? mode : 'attack');
     return Math.max(this.skills.combatLevel(), lvl);
   }
 
@@ -2379,8 +2419,7 @@ export class Game {
   }
 
   /** Is this monster far above your fight level (see FAR_ABOVE_LEVELS)? */
-  _farAbove(n) {
-    const cl = this.fightLevel();
+  _farAbove(n, cl = this.fightLevel()) {
     return (n.def.level || 1) > cl + Math.max(Math.min(FAR_ABOVE_LEVELS, Math.round(cl / 2)), Math.round(cl / 4));
   }
 
@@ -2569,7 +2608,9 @@ export class Game {
     const dx = target.x - p.x, dy = target.y - p.y, len = Math.hypot(dx, dy) || 1;
     const ux = dx / len, uy = dy / len;
     const m = this.combatXpMult();
+    const reach = len + RIFLE_PIERCE_TILES + RIFLE_PIERCE_WIDTH + 1;   // nothing further from you is on the line
     for (const o of this.nearbyNpcs()) {
+      if (Math.abs(o.x - p.x) > reach || Math.abs(o.y - p.y) > reach) continue;
       if (o === target || !o.alive || !o.attackable || o.ally || o.hp <= 0) continue;
       const ox = o.x - p.x, oy = o.y - p.y;
       const along = ox * ux + oy * uy;                // how far down the line
@@ -2600,7 +2641,9 @@ export class Game {
     const dx = target.x - p.x, dy = target.y - p.y, len = Math.hypot(dx, dy) || 1;
     const ux = dx / len, uy = dy / len;
     const hits = [];
+    const reach = len + LONGBOW_PIERCE_TILES + LONGBOW_PIERCE_WIDTH + 1;   // nothing further from you is on the line
     for (const o of this.nearbyNpcs()) {
+      if (Math.abs(o.x - p.x) > reach || Math.abs(o.y - p.y) > reach) continue;
       if (o === target || !o.alive || !o.attackable || o.ally || o.temporary || o.hp <= 0) continue;
       const ox = o.x - p.x, oy = o.y - p.y;
       const along = ox * ux + oy * uy - len;          // how far past the target
@@ -2701,6 +2744,7 @@ export class Game {
     for (let k = 0; k < bounces; k++) {
       let next = null, bd = Infinity;
       for (const n of this.nearbyNpcs()) {
+        if (Math.abs(n.x - prev.x) > 3 || Math.abs(n.y - prev.y) > 3) continue;   // (out of reach: skip the rest)
         if (hit.has(n) || !n.alive || !n.attackable || n.ally || n.temporary || n.hp <= 0) continue;
         const d = chebyshev(n.x, n.y, prev.x, prev.y);
         if (d > 3 || d >= bd || this._aoeSpares(n)) continue;   // bosses aren't dragged in
@@ -2745,7 +2789,12 @@ export class Game {
     // two tiles past it, a tile wide (the line's direction, in tiles).
     const vx = target.x - p.x, vy = target.y - p.y, vlen = Math.hypot(vx, vy) || 1;
     const caught = [];
+    // Nothing further from you than the sweep can reach is ever caught (a
+    // thrust's line, or reach and a tile past the target), so the hundreds of
+    // monsters beyond it are passed over without the sums.
+    const far = style === 'pierce' ? vlen + 4 : reach + (CLEAVE_WIDE[type]?.around || 1);
     for (const o of this.nearbyNpcs()) {
+      if (Math.abs(o.x - p.x) > far || Math.abs(o.y - p.y) > far) continue;
       if (o === target || !o.alive || !o.attackable || o.ally || o.temporary || o.hp <= 0) continue;
       const dt = chebyshev(o.x, o.y, target.x, target.y), dp = chebyshev(o.x, o.y, p.x, p.y);
       if (style === 'pierce') {
@@ -2804,6 +2853,7 @@ export class Game {
     // The closest other foe within 3 tiles (one already fighting you wins a tie).
     let other = null, bd = Infinity;
     for (const n of this.nearbyNpcs()) {
+      if (Math.abs(n.x - from.x) > 4 || Math.abs(n.y - from.y) > 4) continue;   // (well out of it: skip the rest)
       if (n === from || !n.alive || !n.attackable || n.ally || n.temporary || n.hp <= 0) continue;
       const d = chebyshev(n.x, n.y, from.x, from.y) - (n.target === this.player ? 0.5 : 0);
       if (d > 3 || d >= bd || this._aoeSpares(n)) continue;
@@ -3334,7 +3384,8 @@ export class Game {
    *  path (evil), stronger at each alignment tier; Neutral gives nothing. */
   karmaCombat() {
     const a = this.alignment();
-    const tier = KARMA_TIERS.filter((t) => Math.abs(a) >= t).length;
+    let tier = 0;   // (how many tiers you've reached: asked whenever your gear's totals are)
+    for (const t of KARMA_TIERS) if (Math.abs(a) >= t) tier++;
     if (!tier) return { side: 'neutral', tier: 0 };
     if (a > 0) return { side: 'holy', tier, holyDmg: HOLY_DMG[tier - 1], killHeal: HOLY_HEAL[tier - 1] };
     return { side: 'dark', tier, critDmg: DARK_CRITDMG[tier - 1], lifesteal: DARK_LIFESTEAL[tier - 1] };
@@ -4053,20 +4104,25 @@ export class Game {
     const at = this.playerTile();
     const got = [];
     let special = false;
-    for (const gi of [...this.world.groundItems]) {
-      if (gi.playerDropped) continue;                     // things you drop stay dropped
-      // Kill drops fly in once their (rarity-based) delay is up, wherever you are;
-      // anything else is swept up when you're within 2 tiles.
-      if (gi.fromKill ? this.tickCount < gi.lootAt : chebyshev(at.x, at.y, gi.x, gi.y) > 2) continue;
-      const added = this.inventory.add(gi.id, gi.qty, gi.q);
-      if (added <= 0) continue;
-      const rar = RARITY[gi.rarity];
-      if (rar && rar.rank > 0) special = true;
-      got.push(`${added > 1 ? added + ' x ' : ''}${qualityName(gi.id, gi.q)}${rar && rar.rank > 0 && !gi.q ? ` (${rar.label})` : ''}`);
-      const c = p.renderCenter();
-      this.effects.push({ type: 'lootfly', id: gi.id, rarity: gi.rarity, x: gi.x * TILE + TILE / 2 + (gi.ox || 0), y: gi.y * TILE + TILE * 0.62 + (gi.oy || 0), ex: c.x, ey: c.y - 10, life: 420, maxLife: 420 });
-      this.world.removeGroundItem(gi);
-    }
+    // The bag is told once, after the sweep: a busy fight's dozens of drops a
+    // tick each had every bag listener rescan the whole (late-game, huge) pack.
+    const held = this.inventory.hold();
+    try {
+      for (const gi of [...this.world.groundItems]) {
+        if (gi.playerDropped) continue;                     // things you drop stay dropped
+        // Kill drops fly in once their (rarity-based) delay is up, wherever you are;
+        // anything else is swept up when you're within 2 tiles.
+        if (gi.fromKill ? this.tickCount < gi.lootAt : chebyshev(at.x, at.y, gi.x, gi.y) > 2) continue;
+        const added = this.inventory.add(gi.id, gi.qty, gi.q);
+        if (added <= 0) continue;
+        const rar = RARITY[gi.rarity];
+        if (rar && rar.rank > 0) special = true;
+        got.push(`${added > 1 ? added + ' x ' : ''}${qualityName(gi.id, gi.q)}${rar && rar.rank > 0 && !gi.q ? ` (${rar.label})` : ''}`);
+        const c = p.renderCenter();
+        this.effects.push({ type: 'lootfly', id: gi.id, rarity: gi.rarity, x: gi.x * TILE + TILE / 2 + (gi.ox || 0), y: gi.y * TILE + TILE * 0.62 + (gi.oy || 0), ex: c.x, ey: c.y - 10, life: 420, maxLife: 420 });
+        this.world.removeGroundItem(gi);
+      }
+    } finally { if (held) this.inventory.release(); }
     if (got.length) { this.msg(`You loot: ${got.join(', ')}.`, special ? 'level' : 'game'); this.bus.emit('sfx', 'pickup'); }
   }
 
@@ -5299,15 +5355,18 @@ export class Game {
     // crits, abilities and perks roughly treble that in a real fight.
     // Your attack interval is in 0.3s beats; its attack speed is in 0.6s ticks.
     const weak = weaknessOf(def) === (mode === 'dance' ? 'melee' : mode);
-    max *= armourMult(armourOf(def, { champion: n.champion, fightLevel: cl }), this.equipment.bonuses().pierce, weak);   // its armour
+    // (Your gear's totals and attack interval, looked up once for the whole estimate:
+    // auto battle asks this of every champion and attacker near you, after every kill.)
+    const gb = this.equipment.bonuses(), iv = this.attackInterval();
+    max *= armourMult(armourOf(def, { champion: n.champion, fightLevel: cl }), gb.pierce, weak);   // its armour
     // ...and every lasting damage bonus a real hit gets (see _offensiveMods): its
     // weakness and your weapon's race match-up, stats, passive perks and boss
     // damage, Physical / Magic damage bonus %, and any class buff running. Leaving
     // these out made auto battle think it couldn't beat bosses it easily could.
-    const gb = this.equipment.bonuses(), perk = this.perkMods(mode);
+    const perk = this.perkMods(mode);
     if (weak) max *= WEAKNESS_BONUS.dmg;
     // A boss's armour type (its armour is already in armourOf): blunt, spells, glancing and grazing blows.
-    max *= bossTypeDmgMult(def, { mode, weaponType: this.weaponType(), interval: this.attackInterval() }) * bossGrazeMult(def, this.attackInterval());
+    max *= bossTypeDmgMult(def, { mode, weaponType: this.weaponType(), interval: iv }) * bossGrazeMult(def, iv);
     // (A spell is judged by its element, not by the staff: see raceMatchup.)
     const race = sp ? elementMatchup(sp.element, raceOf(def, n.npcId)) : this.raceMatchup(n);
     if (sp) max *= elementMult(race);
@@ -5317,7 +5376,7 @@ export class Game {
     max *= 1 + (mode === 'magic' ? gb.magPct : gb.atkPct) / 100;
     max *= 1 + this.buffMod('dmg');
     max *= Mercs.merchantPower(this);   // 1 for every class but the Merchant
-    const swingSecs = Math.max(0.1, this.attackInterval()) * COMBAT_BEAT_MS / 1000;
+    const swingSecs = Math.max(0.1, iv) * COMBAT_BEAT_MS / 1000;
     const myDps = 3 * max * 0.625 / swingSecs;
     const { atkRoll, defRoll, max: theirMax } = npcAttackVsPlayer(def, this.skills, this.equipment, this.player.style);
     const theirDps = hitChance(atkRoll, defRoll * pm.def) * theirMax * 0.625 * (1 - this.protectFactor())
@@ -5626,7 +5685,7 @@ export class Game {
     const cands = [];
     // Only monsters near you matter here, and pack counts only look at those (see nearbyNpcs).
     const near = this.nearbyNpcs();
-    let packAt = null;
+    let packAt = null, bandLo;
     // "Targets": Bosses & champions first (the default), or Nearest, which is
     // simply the closest monster by the walk there (ties go to one already
     // fighting you). Either way a monster well below your level waits until
@@ -5695,9 +5754,10 @@ export class Game {
       // Only monsters up to a little above your level, near or far. (Close by
       // it used to fight anything, so a new character beside a pack's level 59
       // Dire or level 111 Elder picked that and died.)
-      if (this._farAbove(n)) continue;
-      // Monsters well below your level rank behind any in your level band.
-      const weak = !this.autoCfg.target && !this._questTarget && !this._questFamily && lvl < this._autoBandLo(inWild);
+      if (this._farAbove(n, cl)) continue;
+      // Monsters well below your level rank behind any in your level band
+      // (the band worked out once per pick, not once per monster).
+      const weak = !this.autoCfg.target && !this._questTarget && !this._questFamily && lvl < (bandLo ??= this._autoBandLo(inWild));
       if (!inWild && wildZone(n.x, n.y)) continue;
       // "Nearest" really is the nearest: no ranking by level band, pack or wounds.
       if (!first) { cands.push({ n, score: d, tier: 0 }); continue; }
@@ -7467,12 +7527,14 @@ export class Game {
       const score = d + ahead + pref;
       if (score < bestScore) { bestScore = score; best = { kind, ref }; }
     };
-    for (const g of this.world.groundItems) consider('item', g, g.x, g.y, 1);
+    // (Loot piles up in a busy fight: only what lies beside you is scored.)
+    for (const g of this.world.groundItems) if (Math.abs(g.x - at.x) <= 1 && Math.abs(g.y - at.y) <= 1) consider('item', g, g.x, g.y, 1);
     const fightReach = Math.max(2, this.attackRange());
     // Runs every frame: only the NPCs near you (nearbyNpcs reaches well past
     // any bow), not the whole world's ten thousand.
     for (const n of this.nearbyNpcs()) {
       if (!n.alive || n.ally) continue;   // mercenaries aren't interactable
+      if (Math.abs(n.x - at.x) > fightReach || Math.abs(n.y - at.y) > fightReach) continue;   // beyond any reach (most of the list): no need to score it
       consider('npc', n, n.x, n.y, n.attackable ? fightReach : 2);
     }
     // Only the objects within two tiles (the world's spatial index, in list order).

@@ -90,8 +90,17 @@ export function classGearFor(classId, level, rand = Math.random) {
   return pickBest(Object.keys(ITEMS).filter((x) => ITEMS[x].equip?.family === fam && ITEMS[x].equip.slot === slot));
 }
 
-/** The piece of a family that best matches another piece's slot and level (for loot). */
+/** The piece of a family that best matches another piece's slot and level (for loot).
+ *  Each answer is kept (like weaponsOfType): it is a pass over every item, and a
+ *  late-game fight asks it for drop after drop. */
+const _equivArmour = new Map();
 export function equivalentArmour(id, family) {
+  const key = `${id}|${family}`;
+  let v = _equivArmour.get(key);
+  if (v === undefined) _equivArmour.set(key, (v = findEquivalentArmour(id, family)));
+  return v;
+}
+function findEquivalentArmour(id, family) {
   const eq = ITEMS[id]?.equip;
   if (!eq) return id;
   const req = (x) => Math.max(0, ...Object.values(ITEMS[x].equip.req || {}));

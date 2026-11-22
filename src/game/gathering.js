@@ -133,9 +133,12 @@ export class Gathering {
     if (!skill || !obj?.def || !before) return false;
     const g = this.game;
     let got = false;
+    // The bag counted in one pass: a late game's holds hundreds of slots, and
+    // counting each slot's item afresh walked the whole bag once per slot.
+    const now = new Map();
+    for (const sl of g.inventory.slots) if (sl) now.set(sl.id, (now.get(sl.id) || 0) + sl.qty);
     for (const sl of g.inventory.slots) if (sl && sl.id !== 'coins') {
-      // (cheap: the bag is a few dozen slots)
-      if (sl.qty > 0 && this._count(sl.id) > (before.get(sl.id) || 0)) { got = true; break; }
+      if (sl.qty > 0 && now.get(sl.id) > (before.get(sl.id) || 0)) { got = true; break; }
     }
     if (!got || !GATHER_FUN.on) return got;
     const t = g.tickCount || 0;

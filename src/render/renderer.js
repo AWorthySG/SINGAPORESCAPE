@@ -316,7 +316,24 @@ export class Renderer {
     }
     // Only NPCs near the player can be on screen (the world holds thousands).
     const npcs = game.nearbyNpcs ? game.nearbyNpcs() : game.npcs;
-    for (const n of npcs) {
+    // Most of those are well off screen (a busy region has over a thousand
+    // nearby), so they're ruled out by their tiles first, in a plain loop of
+    // their own: each turn of the loop below costs memory even when it skips
+    // (its drawables keep what they need), and so does working out where a
+    // body is drawn. A body is drawn between the tile it stands on and the one
+    // it's stepping to, and the margin is wider than either check below, so
+    // nothing that could show is left out.
+    const near = this._npcsInView || (this._npcsInView = []);
+    near.length = 0;
+    for (let i = 0; i < npcs.length; i++) {
+      const n = npcs[i];
+      if (!n.alive && !(n.deathT > 0)) continue;
+      const m = Math.max(40, 48 * (n.def.scale || 1)) + TILE;
+      if (Math.max(n.x, n.tx) * TILE + TILE / 2 - ox < -m || Math.min(n.x, n.tx) * TILE + TILE / 2 - ox > vw + m
+        || Math.max(n.y, n.ty) * TILE + TILE / 2 - oy < -m || Math.min(n.y, n.ty) * TILE + TILE / 2 - oy > vh + m) continue;
+      near.push(n);
+    }
+    for (const n of near) {
       if (!n.alive && !(n.deathT > 0)) continue;
       const c = n.renderCenter();
       const cx = c.x - ox, cy = c.y - oy;
@@ -337,6 +354,10 @@ export class Renderer {
           drawCreature(ctx, n.artId || n.npcId, cx, cy - 2, {
             time: timeMs, facing: n.facing, fx: n.faceX, moving: false, hurt: n.hurt,
             scale: sc, sprite: n.def.sprite, color: n.def.color, boss: n.def.boss, family: n.def.family,
+            // It falls as it stood: in low graphics or slow frames a pack monster was
+            // its single sticker a moment ago, so it stays one rather than switching
+            // to its parts rig (composed afresh, see-through, every frame of the fall).
+            low: game.lowFx, trim: game.fxTrim,
           });
           ctx.restore();
           ctx.globalAlpha = 1;
@@ -1334,8 +1355,25 @@ export class Renderer {
           // copied to the screen: away from the sea that is a shoreline's
           // strip, not a full-screen layer redrawn ~11 times a second.
           const old = wc.box, box = (wc.box = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity });
-          if (wc.cv.width !== W || wc.cv.height !== H) { wc.cv.width = W; wc.cv.height = H; }
-          else if (old && old.x1 > old.x0) { g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(old.x0, old.y0, old.x1 - old.x0, old.y1 - old.y0); }
+          // The view's width in tiles flickers by one as the camera scrolls and
+          // the zoom eases in fights: resizing the layer to fit each time remade
+          // it (on a phone, a fresh GPU surface) on most frames of a fight. So it
+          // is made a couple of tiles roomier and only remade when too small (or
+          // far too big); a new size or scale just wipes it. Only its top-left
+          // W x H is ever used.
+          const cv = wc.cv;
+          if (cv.width < W || cv.height < H || cv.width * cv.height > 2 * W * H) {
+            const pad = Math.ceil(2 * TILE * dpr);
+            cv.width = W + pad; cv.height = H + pad;
+          } else if (wc.W !== W || wc.H !== H || wc.dpr !== dpr) { g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height); }
+          else if (old && old.x1 > old.x0) {
+            // A box that reached the layer's right or bottom edge also clears the
+            // spare room past it: the edge tiles' 1px overlap lands there and,
+            // left to build up, would show as a line at the screen's edge (the
+            // copy's smoothing reads one pixel past its source) at the world's edge.
+            g.setTransform(dpr, 0, 0, dpr, 0, 0);
+            g.clearRect(old.x0, old.y0, (old.x1 >= cols * TILE ? cv.width / dpr : old.x1) - old.x0, (old.y1 >= rows * TILE ? cv.height / dpr : old.y1) - old.y0);
+          }
           g.setTransform(dpr, 0, 0, dpr, 0, 0);
           wc.any = false;
           for (let y = y0; y <= y1; y++) {
@@ -1353,12 +1391,13 @@ export class Renderer {
             box.x0 = Math.max(0, Math.floor(box.x0) - 2); box.y0 = Math.max(0, Math.floor(box.y0) - 2);
             box.x1 = Math.min(cols * TILE, Math.ceil(box.x1) + 2); box.y1 = Math.min(rows * TILE, Math.ceil(box.y1) + 2);
           }
-          Object.assign(wc, { x0, y0, cols, rows, dpr, t: timeMs });
+          Object.assign(wc, { x0, y0, cols, rows, dpr, t: timeMs, W, H });
         }
         const b = wc.box;
         if (wc.any && b && b.x1 > b.x0 && b.y1 > b.y0) {
-          // Same mapping as copying the whole layer (cols*TILE wide on screen), just a part of it.
-          const kx = wc.cv.width / (cols * TILE), ky = wc.cv.height / (rows * TILE);
+          // Same mapping as copying the whole layer (cols*TILE wide on screen), just a part of it
+          // (of the W x H corner that was painted: the canvas itself is a little roomier).
+          const kx = wc.W / (cols * TILE), ky = wc.H / (rows * TILE);
           ctx.drawImage(wc.cv, b.x0 * kx, b.y0 * ky, (b.x1 - b.x0) * kx, (b.y1 - b.y0) * ky,
             x0 * TILE - ox + b.x0, y0 * TILE - oy + b.y0, b.x1 - b.x0, b.y1 - b.y0);
         }
@@ -1696,6 +1735,12 @@ export class Renderer {
     }
     for (const n of (game.nearbyNpcs ? game.nearbyNpcs() : game.npcs)) {
       if (!n.alive) continue;
+      // Most of the crowd near you (sixty tiles each way) is off screen: skip
+      // it before working anything out. A walker is drawn between its tile and
+      // the next, so it is off screen when both are (the same test as below).
+      const lx = n.x * TILE + TILE / 2 - ox, ly = n.y * TILE + TILE / 2 - oy;
+      const mx = n.moving ? n.tx * TILE + TILE / 2 - ox : lx, my = n.moving ? n.ty * TILE + TILE / 2 - oy : ly;
+      if ((lx < -90 && mx < -90) || (lx > vw + 90 && mx > vw + 90) || (ly < -90 && my < -90) || (ly > vh + 60 && my > vh + 60)) continue;
       const boss = n.def.boss;
       const targeted = n === game.player.target;
       const moral = n.def.moral && game.moralPending(n);   // a moral choice still waiting for you

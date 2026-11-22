@@ -89,6 +89,13 @@ export class NPC extends Character {
     this.chatTimer = 0;           // ticks left showing the current chatter line
     this.chatCooldown = randInt(2, 6); // staggered so a flock doesn't cluck in unison
     this.champion = false;
+    // What a fight adds later (damage lately, hit numbers, hit-stop and squash,
+    // the death and spawn fades, a boss's cast), made here empty so every
+    // monster keeps one object shape (see Character's constructor).
+    this.recentDmg = undefined;
+    this._lastSplat = undefined; this._splatN = undefined; this._splatRow = undefined; this._raceSaid = undefined;
+    this.stopFrom = undefined; this.stopUntil = undefined; this.squashK = undefined; this.squashDir = undefined;
+    this.deathT = undefined; this.spawnT = undefined; this.castT = undefined; this.castCol = undefined;
     this.maybeChampion(false);
   }
 

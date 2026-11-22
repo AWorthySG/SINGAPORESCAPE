@@ -240,10 +240,12 @@ export function onRegionKill(game, npc) {
 }
 
 // ---------------- Unlocks ----------------
-/** Finished lines' permanent bonuses, merged; the same object until one finishes. */
+/** Finished lines' permanent bonuses, merged; the same object until one finishes.
+ *  (Asked whenever your gear's totals are, so only the perk lines are looked at.) */
+const PERK_LINES = REGION_LINES.map((l, i) => [l, i]).filter(([l]) => l.unlock.type === 'perk');
 export function regionPerks(game) {
   let mask = 0;
-  REGION_LINES.forEach((l, i) => { if (l.unlock.type === 'perk' && game.quests?.[l.id]?.state === 'done') mask += 2 ** i; });
+  for (const [l, i] of PERK_LINES) if (game.quests?.[l.id]?.state === 'done') mask += 2 ** i;
   const c = game._rqPerks;
   if (c && c.mask === mask) return c.totals;
   const totals = {};
