@@ -42,9 +42,6 @@ export const SPAWN_POINTS = [
 
 // Pacing and limits.
 export const NEXT_WAVE_TICKS = 6;   // ~3.6s between the last kill and the next wave
-// At most this many wave monsters at once (phones): the rest trickle in, one a
-// tick, as others fall. Raised from 8 when waves doubled in size.
-export const MAX_ALIVE = 14;
 // The owner asked for a champion or a boss in every wave: every wave is led by
 // a champion, and every 5th by a boss instead.
 export const CHAMPION_EVERY = 1;    // every wave brings a champion...
@@ -101,6 +98,11 @@ export const DODGE_CAP_WAVE = 20;
 // wave takes about as long to clear as before. Champions and bosses keep theirs.
 export const HORDE_LIFE = 0.6;
 export const MAX_WAVE_COUNT = 60;   // ordinary monsters in one wave, at most
+// At most this many wave monsters at once. The owner asked for every monster
+// of a wave to come at once (it was 14, the rest trickling in as others fell),
+// so it holds a whole wave: the most a wave sends, its leader and two more.
+// The queue below stays as a safety net, should a wave ever outgrow it.
+export const MAX_ALIVE = MAX_WAVE_COUNT + 3;
 
 // ---------------- The A-Worthy Shrine ----------------
 // The shrine has a fixed life (shown as a percentage); each blow on it chips off
