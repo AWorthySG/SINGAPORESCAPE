@@ -76,8 +76,8 @@ import { RACES, raceOf, weaponsFor, weaponTypeName, WEAPON_VS_RACE } from '../da
 import { WaveHud } from './wavehud.js';
 import { PlayHud } from './playhud.js';
 import { CompactHud } from './compacthud.js';
-// Screens where the side panel starts folded (see _wireCollapse).
-export const LAPTOP_FOLD = '(pointer: fine) and (max-height: 820px) and (min-width: 541px)';
+export const COLLAPSE_V = 2;   // the saved fold states' version (see _loadCollapse)
+export const TIP_LINGER_MS = 700;   // an item's hover description stays this long after the pointer leaves
 import { NoticeLane } from './noticelane.js';
 import { QuickSlot, interactCaption, trackerHTML, loadTrackerFolded, saveTrackerFolded, sheetSnap } from './hudease.js';
 import { QuickBar } from './quickbar.js';
@@ -687,10 +687,6 @@ export class UI {
     // a saved choice always wins.
     const compact = typeof matchMedia === 'function' && matchMedia('(max-width: 540px), (max-height: 500px)').matches;
     if (this._collapse[key] === undefined && compact && (key === 'panel' || key === 'chat')) this._collapse[key] = true;
-    // Laptops (a mouse and a short screen) start with the side panel folded to
-    // its column of tab icons: open, it covers a third of the view.
-    const laptop = typeof matchMedia === 'function' && matchMedia(LAPTOP_FOLD).matches;
-    if (this._collapse[key] === undefined && laptop && key === 'panel') this._collapse[key] = true;
     apply(!!this._collapse[key]);
     this._collapseApply = this._collapseApply || {};
     this._collapseApply[key] = (c) => { this._collapse[key] = c; apply(c); this._saveCollapse(); };
@@ -843,7 +839,13 @@ export class UI {
   }
 
   _loadCollapse() {
-    try { return JSON.parse(localStorage.getItem('ss_ui_collapse')) || {}; } catch { return {}; }
+    let c;
+    try { c = JSON.parse(localStorage.getItem('ss_ui_collapse')) || {}; } catch { c = {}; }
+    // For a day, laptops started with the side panel folded, and that fold
+    // could be saved without the player choosing it (it read as the menu
+    // vanishing). Clear it once, so the menu opens; later choices are kept.
+    if (c.v !== COLLAPSE_V) { delete c.panel; c.v = COLLAPSE_V; }
+    return c;
   }
 
   _saveCollapse() {
@@ -3218,17 +3220,28 @@ export class UI {
     const t = this.el.tooltip;
     t.innerHTML = html;
     t.classList.remove('hidden');
+    clearTimeout(this._tipLinger);
     this._tipOwner = owner;
     this.moveTooltip(e);
     if (!this._tipGuard) {
       // A hover tip can outlive its item: the bag and equipment panels redraw
-      // as you fight, and a removed item never sends "mouse left". So any
-      // pointer movement away from the item (or onto a redrawn copy), a click,
-      // a scroll, a key press or the window losing focus closes the tip.
+      // as you fight or gather, and a removed item never sends "mouse left".
+      // Moving onto the redrawn copy of the item keeps the tip (it used to
+      // close on the slightest nudge, so it barely stayed up while gathering);
+      // moving away lets it linger a moment before closing; a click, a scroll,
+      // a key press or the window losing focus closes it at once.
       this._tipGuard = (ev) => {
         const o = this._tipOwner;
         if (this._cardOpen || t.classList.contains('hidden')) return;
-        if (ev.type !== 'mousemove' || !o || !o.isConnected || !o.contains(ev.target)) this.hideTooltip();
+        if (ev.type !== 'mousemove') { this.hideTooltip(); return; }
+        if (o && o.isConnected && o.contains(ev.target)) { clearTimeout(this._tipLinger); return; }
+        const host = ev.target?.closest?.('[data-tip-host]');
+        if (host && o && !o.isConnected && host._tipGet) {   // the item was redrawn under the pointer
+          const h = host._tipGet();
+          if (h) { t.innerHTML = h; this._tipOwner = host; clearTimeout(this._tipLinger); return; }
+        }
+        if (host && host !== o) return;   // another item: its own hover shows its tip
+        this._lingerHide();
       };
       document.addEventListener('mousemove', this._tipGuard, { passive: true });
       document.addEventListener('mousedown', this._tipGuard, { capture: true });
@@ -3252,8 +3265,18 @@ export class UI {
     this.el.tooltip?.classList.add('hidden');
   }
 
+  /** Close the hover tip after a short moment (TIP_LINGER_MS), unless the
+   *  pointer comes back to the item or onto another. */
+  _lingerHide() {
+    if (this._tipLinger && this._tipLingerArmed) return;
+    clearTimeout(this._tipLinger);
+    this._tipLingerArmed = true;
+    this._tipLinger = setTimeout(() => { this._tipLingerArmed = false; this.hideTooltip(); }, TIP_LINGER_MS);
+  }
+
   hideTooltip() {
     if (this._cardOpen) return;            // a held-open touch card stays until you tap away
+    clearTimeout(this._tipLinger); this._tipLingerArmed = false;
     this._tipOwner = null;
     this.el.tooltip.classList.add('hidden');
   }
@@ -3262,9 +3285,11 @@ export class UI {
    *  as a card with the item's actions as buttons, since phones can't hover. */
   _tip(el, html, actions) {
     const get = () => (typeof html === 'function' ? html() : html);
+    el.dataset.tipHost = '';   // marks it for the tip guard (a redrawn copy keeps the tip)
+    el._tipGet = get;
     el.addEventListener('mouseenter', (e) => { if (this._touchUsed) return; const h = get(); if (h) this.showTooltip(e, h, el); });
-    el.addEventListener('mousemove', (e) => { if (!this._touchUsed) this.moveTooltip(e); });
-    el.addEventListener('mouseleave', () => this.hideTooltip());
+    el.addEventListener('mousemove', (e) => { if (!this._touchUsed) { clearTimeout(this._tipLinger); this._tipLingerArmed = false; this.moveTooltip(e); } });
+    el.addEventListener('mouseleave', () => this._lingerHide());
     let timer = 0, sx = 0, sy = 0, fired = false, touching = false;
     const open = () => {
       if (fired || !el.isConnected) return;   // the item was redrawn away mid-press

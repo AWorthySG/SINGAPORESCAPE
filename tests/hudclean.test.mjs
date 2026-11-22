@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { Game } from '../src/game/game.js';
 import { Renderer } from '../src/render/renderer.js';
-import { LAPTOP_FOLD } from '../src/ui/ui.js';
+import { COLLAPSE_V } from '../src/ui/ui.js';
 
 function recordingCtx() {
   const calls = [];
@@ -53,14 +53,14 @@ test("a townsperson's name beside you steps aside rather than printing over your
   assert.ok(checked > 0, "the townsperson's name was drawn at least once");
 });
 
-test('desktop folds the side panel to its tab icons, short laptop screens start folded, and the area name only shows on arrival', () => {
-  assert.match(LAPTOP_FOLD, /pointer: fine/);
-  assert.match(LAPTOP_FOLD, /max-height: 820px/);
+test('desktop folds the side panel to its tab icons when you fold it, starts with it open, and the area name only shows on arrival', () => {
   const css = readFileSync(new URL('../styles/main.css', import.meta.url), 'utf8');
   assert.match(css, /@media \(pointer: fine\) and \(min-width: 541px\) and \(min-height: 501px\) \{\s*#sidepanel\.collapsed \{[^}]*grid-template-areas: "tabs"/);
   assert.match(css, /#region-label:not\(\.fresh\) \{ opacity: 0;/);
   const ui = readFileSync(new URL('../src/ui/ui.js', import.meta.url), 'utf8');
-  assert.match(ui, /laptop && key === 'panel'/);
+  assert.ok(!/laptop && key === 'panel'/.test(ui), 'computers no longer start with the menu folded');
+  assert.equal(COLLAPSE_V, 2);
+  assert.match(ui, /if \(c\.v !== COLLAPSE_V\) \{ delete c\.panel; c\.v = COLLAPSE_V; \}/, 'a fold saved before is cleared once');
 });
 
 test('Minimal HUD folds the menu to its tab icons instead of hiding it', () => {
@@ -68,4 +68,12 @@ test('Minimal HUD folds the menu to its tab icons instead of hiding it', () => {
   assert.ok(!/#game-root\.hud-min #sidepanel:not\(:hover\) \{ opacity: 0; \}/.test(css), 'the menu no longer fades out entirely');
   assert.match(css, /@media \(pointer: fine\) \{\s*#game-root\.hud-min #sidepanel:not\(:hover\):not\(\.collapsed\) \{[^}]*grid-template-areas: "tabs"/);
   assert.match(css, /#game-root\.hud-min #sidepanel:not\(:hover\):not\(\.collapsed\) #panel-body \{ display: none; \}/);
+});
+
+test('item descriptions stay up: through the bag redrawing under the mouse, and a moment after it leaves', async () => {
+  const { TIP_LINGER_MS } = await import('../src/ui/ui.js');
+  assert.ok(TIP_LINGER_MS >= 500 && TIP_LINGER_MS <= 1500, 'a short linger');
+  const ui = readFileSync(new URL('../src/ui/ui.js', import.meta.url), 'utf8');
+  assert.match(ui, /el\.addEventListener\('mouseleave', \(\) => this\._lingerHide\(\)\);/, 'leaving an item lingers rather than closing at once');
+  assert.match(ui, /if \(host && o && !o\.isConnected && host\._tipGet\)/, 'a redrawn copy of the item keeps the tip');
 });
