@@ -44,10 +44,11 @@ export function groveAt(world, x, y) {
   return null;
 }
 
-/** One line about a grove: "Tekong Yew Grove: 16 yew trees, Woodcutting 60". */
+/** One line about a grove or quarry: "Tekong Yew Grove: 16 yew trees, Woodcutting 60". */
 export function groveSummary(g) {
   const def = OBJECTS[g.objId];
-  return `${g.name}: ${g.count} ${(def?.name || g.objId).toLowerCase()}s, Woodcutting ${def?.level || 1}`;
+  const skill = g.kind === 'quarry' ? 'Mining' : 'Woodcutting';
+  return `${g.name}: ${g.count} ${(def?.name || g.objId).toLowerCase()}s, ${skill} ${def?.level || 1}`;
 }
 
 /** Says hello when you walk into a zone or a grove (once each time you enter). */

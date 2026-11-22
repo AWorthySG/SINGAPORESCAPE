@@ -394,9 +394,10 @@ export function openSkillGuide(ui, skill, { itemId = null } = {}) {
       body.insertAdjacentHTML('beforeend', `<div class="sgx-station"><span><b>${esc(OBJECTS[o]?.name || o)}</b>: ${zs.length ? regionsText(zs, 6) : 'light one anywhere'}</span>`
         + (zs.length ? `<span class="sgx-btns"><button type="button" class="wm-go" data-go="${esc(o)}">Go</button><button type="button" class="wm-go cx-map" data-map="${esc(o)}" data-label="${esc(OBJECTS[o]?.name || o)}">Map</button></span>` : '') + '</div>');
     }
-    // Woodcutting: the groves, each thick with one kind of tree (groves.js).
-    if (sk === 'woodcutting') {
-      for (const g of groveList(game)) {
+    // Woodcutting: the groves, each thick with one kind of tree; Mining: the
+    // quarries, each thick with one kind of rock (groves.js).
+    if (sk === 'woodcutting' || sk === 'mining') {
+      for (const g of groveList(game, sk === 'mining' ? 'quarry' : 'grove')) {
         body.insertAdjacentHTML('beforeend', `<div class="sgx-station"><span><b>${esc(g.name)}</b>: ${g.count} ${esc(g.tree.toLowerCase())}s (level ${g.level}), ${esc(g.region)}</span>`
           + `<span class="sgx-btns"><button type="button" class="wm-go" data-grove="${esc(g.id)}">Go</button><button type="button" class="wm-go cx-map" data-gmap="${esc(g.id)}">Map</button></span></div>`);
       }

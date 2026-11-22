@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { buildWorld, TERRAIN } from '../src/data/world.js';
-import { GROVE_PLAN } from '../src/data/groves.js';
+import { GROVE_PLAN, QUARRY_PLAN } from '../src/data/groves.js';
 import { OBJECTS } from '../src/data/objects.js';
 import { Game } from '../src/game/game.js';
 import { clearSave } from '../src/game/save.js';
@@ -18,6 +18,9 @@ import { groveAt, groveSummary } from '../src/game/resourcezones.js';
 
 const data = buildWorld();
 const bare = buildWorld({ groves: false });
+// The tree groves (the world's list also holds the quarries, kind 'quarry').
+const treeGroves = data.groves.filter((g) => g.kind !== 'quarry');
+const quarries = data.groves.filter((g) => g.kind === 'quarry');
 const zoneAt = (x, y) => data.zones.find((z) => x >= z.x0 && x <= z.x1 && y >= z.y0 && y <= z.y1)?.name;
 const inBox = (g, o, m = 0) => o.x >= g.x0 - m && o.x <= g.x1 + m && o.y >= g.y0 - m && o.y <= g.y1 + m;
 
@@ -56,22 +59,22 @@ function reachable(w) {
 
 test('groves: every planned grove is placed, one or two a region, with mid, high and endgame trees among them', () => {
   assert.ok(GROVE_PLAN.length >= 12 && GROVE_PLAN.length <= 20, `${GROVE_PLAN.length} planned`);
-  assert.deepEqual(data.groves.map((g) => g.id).sort(), GROVE_PLAN.map((p) => p.id).sort(), 'all of them placed');
+  assert.deepEqual(treeGroves.map((g) => g.id).sort(), GROVE_PLAN.map((p) => p.id).sort(), 'all of them placed');
   const per = {};
-  for (const g of data.groves) per[g.region] = (per[g.region] || 0) + 1;
+  for (const g of treeGroves) per[g.region] = (per[g.region] || 0) + 1;
   assert.ok(Object.keys(per).length >= 12, `${Object.keys(per).length} regions have one`);
   assert.ok(Object.values(per).every((n) => n <= 2), 'no more than two a region');
-  const kinds = new Set(data.groves.map((g) => g.objId));
+  const kinds = new Set(treeGroves.map((g) => g.objId));
   for (const id of ['oak', 'willow', 'teak', 'yew_tree', 'magic_tree', 'tembusu', 'seraya_tree', 'meranti_tree', 'chengal_tree', 'starfall_banyan', 'moonlit_kapok', 'keramat_tree']) {
     assert.ok(kinds.has(id), `a grove of ${id}`);
   }
-  assert.equal(new Set(data.groves.map((g) => g.name)).size, data.groves.length, 'each has its own name');
-  const total = data.groves.reduce((s, g) => s + g.count, 0);
+  assert.equal(new Set(treeGroves.map((g) => g.name)).size, treeGroves.length, 'each has its own name');
+  const total = treeGroves.reduce((s, g) => s + g.count, 0);
   assert.ok(total >= 200 && total <= 450, `${total} trees in all: a modest number to draw`);
 });
 
 test('each grove is one kind of tree, packed thick, inside its region on open grass', () => {
-  for (const g of data.groves) {
+  for (const g of treeGroves) {
     const plan = GROVE_PLAN.find((p) => p.id === g.id);
     assert.equal(g.objId, plan.tree);
     // Nothing you use stands in or just round the patch but its own trees.
@@ -126,7 +129,7 @@ test('nothing placed before the groves moved: the world without them is the same
 test('the Woodcutting guide lists the groves; walking into one says what grows there; a grove tree can be walked to from town', () => {
   const g = boot();
   const list = groveList(g);
-  assert.equal(list.length, data.groves.length);
+  assert.equal(list.length, treeGroves.length);
   for (let i = 1; i < list.length; i++) assert.ok(list[i].level >= list[i - 1].level, 'lowest tree first');
   const yew = list.find((r) => r.objId === 'yew_tree');
   assert.match(yew.text, /^Tekong Yew Grove: \d+ yew trees \(level 60\), Tekong Badlands$/);
@@ -168,4 +171,44 @@ test('auto gather in a grove moves from tree to tree of the grove', () => {
   }
   assert.ok(felled.size >= 3, `felled ${felled.size} oaks`);
   for (const o of felled) assert.ok(inBox(gr, o), `the oak at ${o.x},${o.y} is one of the grove's`);
+});
+
+test('quarries: every planned quarry is placed, each thick with one kind of rock in its own region, off the roads, and reachable', () => {
+  assert.deepEqual(quarries.map((q) => q.id).sort(), QUARRY_PLAN.map((p) => p.id).sort(), 'all of them placed');
+  for (const id of ['copper_rock', 'tin_rock', 'iron_rock', 'coal_rock', 'gold_rock', 'mithril_rock', 'adamantite_rock', 'runite_rock']) {
+    assert.ok(quarries.some((q) => q.objId === id), `a quarry of ${id}`);
+  }
+  for (const q of quarries) {
+    const plan = QUARRY_PLAN.find((p) => p.id === q.id);
+    assert.equal(q.objId, plan.rock);
+    assert.equal(OBJECTS[q.objId].type, 'rock');
+    const near = data.objects.filter((o) => OBJECTS[o.objId]?.verb && inBox(q, o, 1));
+    assert.ok(near.every((o) => o.objId === q.objId), `${q.name}: only ${q.objId}`);
+    assert.equal(near.length, q.count);
+    assert.ok(q.count >= 9 && q.count <= 36, `${q.name}: ${q.count} rocks`);
+    const area = (q.x1 - q.x0 + 1) * (q.y1 - q.y0 + 1);
+    assert.ok(q.count * 4 >= area, `${q.name} is dense`);
+    for (const t of near) assert.equal(zoneAt(t.x, t.y), q.region, `${q.name}'s rock at ${t.x},${t.y} is in ${q.region}`);
+    for (let y = q.y0 - 1; y <= q.y1 + 1; y++) for (let x = q.x0 - 1; x <= q.x1 + 1; x++) {
+      assert.ok(![TERRAIN.PATH, TERRAIN.WOOD].includes(data.terrain[y * data.width + x]), `${q.name} keeps off the road at ${x},${y}`);
+    }
+    assert.ok(!data.npcSpawns.some((s) => near.some((t) => t.x === s.x && t.y === s.y)), `${q.name}: no rock on a spawn`);
+    assert.ok(!data.resourceZones.some((z) => q.x1 >= z.x0 - 2 && q.x0 <= z.x1 + 2 && q.y1 >= z.y0 - 2 && q.y0 <= z.y1 + 2), `${q.name} is clear of the resource zones`);
+  }
+  // Placed after the groves, so the groves are just where they were without quarries.
+  assert.equal(treeGroves.length, GROVE_PLAN.length);
+});
+
+test('the Mining guide lists the quarries, walking into one says so, and the Woodcutting guide keeps to the groves', () => {
+  const g = boot();
+  const qs = groveList(g, 'quarry');
+  assert.equal(qs.length, quarries.length);
+  assert.ok(qs.every((r) => /rock|vein|seam|star|lode|crystal/i.test(r.tree)), 'rocks only');
+  assert.ok(groveList(g).every((r) => OBJECTS[r.objId].type === 'tree'), 'the Woodcutting list is trees');
+  const q = g.world.groves.find((x) => x.kind === 'quarry' && x.objId === 'adamantite_rock');
+  assert.match(groveSummary(q), /^Tuas Adamant Quarry: \d+ adamantite rocks, Mining 70$/);
+  const cfg = g.pathCfg();
+  for (const x of g.world.groves.filter((x) => x.kind === 'quarry')) {
+    assert.ok(findPath(cfg, { x: 58, y: 55 }, { x: x.x0, y: x.y0 }, { reachAdjacent: true, maxNodes: 300000 }).length > 0, `${x.name} can be walked to`);
+  }
 });

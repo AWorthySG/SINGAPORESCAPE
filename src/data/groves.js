@@ -48,16 +48,34 @@ export const GROVE_PLAN = [
   { id: 'peaks_keramat_grove', name: 'Peaks Keramat Grove', tree: 'keramat_tree', region: 'The Celestial Peaks', n: 4 },
 ];
 
+// Quarries: the same for Mining (the owner's ask: rocks were few and far
+// between, so mining around level 70 ran about 40% slower than woodcutting).
+// Each is a patch thick with one kind of rock, in a region where that rock
+// already belongs, placed by placeGroves after the groves, the same way. (The
+// endgame rocks, obsidian to eternal, already stand in one cluster each.)
+export const QUARRY_PLAN = [
+  { id: 'ubin_copper_quarry', name: 'Ubin Copper Quarry', rock: 'copper_rock', region: 'Pulau Ubin', n: 4 },
+  { id: 'ubin_tin_quarry', name: 'Ubin Tin Quarry', rock: 'tin_rock', region: 'Pulau Ubin', n: 4 },
+  { id: 'jurong_iron_quarry', name: 'Jurong Iron Quarry', rock: 'iron_rock', region: 'Jurong Forest', n: 4 },
+  { id: 'timah_silver_quarry', name: 'Bukit Timah Silver Quarry', rock: 'silver_rock', region: 'Bukit Timah', n: 4 },
+  { id: 'ubin_coal_quarry', name: 'Ubin Coal Quarry', rock: 'coal_rock', region: 'Pulau Ubin', n: 5 },
+  { id: 'tuas_gold_quarry', name: 'Tuas Gold Quarry', rock: 'gold_rock', region: 'Tuas Docklands', n: 4 },
+  { id: 'wilderness_mithril_quarry', name: 'Wilderness Mithril Quarry', rock: 'mithril_rock', region: 'The Wilderness', n: 4 },
+  { id: 'tuas_adamant_quarry', name: 'Tuas Adamant Quarry', rock: 'adamantite_rock', region: 'Tuas Docklands', n: 5 },
+  { id: 'peaks_runite_quarry', name: 'Peaks Runite Quarry', rock: 'runite_rock', region: 'The Celestial Peaks', n: 4 },
+];
+
 const GAP = 4;   // open tiles kept between one grove and the next
 
 /**
- * Place every grove in GROVE_PLAN. `ctx` is world.js's own state:
+ * Place every grove in `plan` (GROVE_PLAN, or QUARRY_PLAN for rocks: an
+ * entry names its `tree` or its `rock`). `ctx` is world.js's own state:
  * { T, width, height, get, inB, placeObj, objects, npcSpawns, zones, resourceZones,
  *   stations, landmarks, towns, start }.
  * Returns the groves placed: { id, name, objId, region, cx, cy, x0, y0, x1, y1, count }
  * (x0..y1 bound its trees).
  */
-export function placeGroves(ctx) {
+export function placeGroves(ctx, plan_ = GROVE_PLAN, kind = 'grove') {
   const { T, width: MW, height: MH, get, inB, placeObj, objects, npcSpawns, zones, resourceZones, stations, landmarks, towns, start } = ctx;
   const K = (x, y) => y * MW + x;
   const zoneAt = (x, y) => zones.find((z) => x >= z.x0 && x <= z.x1 && y >= z.y0 && y <= z.y1)?.name;
@@ -122,9 +140,10 @@ export function placeGroves(ctx) {
   tally();
 
   const placed = [];
-  for (const plan of GROVE_PLAN) {
+  for (const plan of plan_) {
     const z = zones.find((r) => r.name === plan.region);
-    if (!z || !OBJECTS[plan.tree]) continue;
+    const objId = plan.tree || plan.rock;
+    if (!z || !OBJECTS[objId]) continue;
     const h = plan.n;   // the patch runs h tiles each way from its middle
     const [hx, hy] = plan.at || [Math.round((z.x0 + z.x1) / 2), Math.round((z.y0 + z.y1) / 2)];
     const trees = (cx, cy) => {
@@ -168,8 +187,8 @@ export function placeGroves(ctx) {
       if (!joinedUp(cx, cy, ks)) continue;
       for (const k of ks) blocked[k] = 1;
       let count = 0;
-      for (const k of ks) if (placeObj(plan.tree, k % MW, Math.floor(k / MW))) count++;
-      placed.push({ id: plan.id, name: plan.name, objId: plan.tree, region: plan.region, cx, cy,
+      for (const k of ks) if (placeObj(objId, k % MW, Math.floor(k / MW))) count++;
+      placed.push({ id: plan.id, name: plan.name, objId, kind, region: plan.region, cx, cy,
         x0: cx - (h - 1), y0: cy - (h - 1), x1: cx + (h - 1), y1: cy + (h - 1), count });
       mark(cx - h - GAP, cy - h - GAP, cx + h + GAP, cy + h + GAP);
       tally();

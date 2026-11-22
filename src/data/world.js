@@ -5,7 +5,7 @@
 import { NPCS, MONSTER_IDS, BOSS_IDS, EXTRA_MONSTER_IDS, EXTRA_BOSS_IDS, MORE_MONSTER_IDS, MORE_BOSS_IDS, stretchLevel } from './npcs.js';
 import { STATIONS } from './transport.js';
 import { placeLandmarks } from './landmarks.js';
-import { placeGroves } from './groves.js';
+import { placeGroves, QUARRY_PLAN } from './groves.js';
 import { assignFishSpots } from './fishspots.js';
 import { placeBestiary } from './bestiaryPlace.js';
 
@@ -1460,8 +1460,12 @@ export function buildWorld({ groves: withGroves = true } = {}) {
   // Patches thick with one kind of tree (groves.js), placed after everything else
   // and without dice, so nothing generated earlier moves. (Tests build the world
   // without them to check that.)
-  const groves = withGroves ? placeGroves({ T, width: W, height: H, get, inB, placeObj, objects, npcSpawns, zones, resourceZones,
-    stations: STATIONS, landmarks, towns: [[44, 44, 72, 66], ...towns], start: { x: 58, y: 55 } }) : [];
+  const groveCtx = { T, width: W, height: H, get, inB, placeObj, objects, npcSpawns, zones, resourceZones,
+    stations: STATIONS, landmarks, towns: [[44, 44, 72, 66], ...towns], start: { x: 58, y: 55 } };
+  const groves = withGroves ? placeGroves(groveCtx) : [];
+  // Then the quarries, patches thick with one kind of rock (groves.js QUARRY_PLAN),
+  // the same way: after the groves, so none of them moves. They share the list.
+  if (withGroves) groves.push(...placeGroves(groveCtx, QUARRY_PLAN, 'quarry'));
 
   return {
     width: W,
@@ -1473,7 +1477,7 @@ export function buildWorld({ groves: withGroves = true } = {}) {
     towns,   // the outer towns' rectangles (the World Boss keeps its distance)
     resourceZones,   // named places dense with one life skill's nodes (see the block above the border fence)
     landmarks,       // the regions' set pieces, { objId, x, y, region } (landmarks.js)
-    groves,          // patches thick with one kind of tree, { id, name, objId, region, cx, cy, x0..y1, count } (groves.js)
+    groves,          // patches thick with one kind of tree, or of rock (kind 'quarry'), { id, name, objId, kind, region, cx, cy, x0..y1, count } (groves.js)
     spawnPoint: { x: 58, y: 55 },
     respawnPoint: { x: 58, y: 55 },
     townName: 'Kampong Glam',

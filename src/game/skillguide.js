@@ -227,9 +227,9 @@ export function objectRegions(game) {
   return out;
 }
 /** The world's groves (groves.js), lowest tree first, for the Woodcutting
- *  guide: [{ id, name, objId, tree, level, region, count, x, y, text }]. */
-export function groveList(game) {
-  return (game?.world?.groves || []).map((g) => {
+ *  guide (or with kind 'quarry', its quarries for the Mining guide): [{ id, name, objId, tree, level, region, count, x, y, text }]. */
+export function groveList(game, kind = 'grove') {
+  return (game?.world?.groves || []).filter((g) => (g.kind || 'grove') === kind).map((g) => {
     const d = OBJECTS[g.objId] || {};
     const tree = d.name || g.objId;
     return { id: g.id, name: g.name, objId: g.objId, tree, level: d.level || 1, region: g.region, count: g.count, x: g.cx, y: g.cy,
