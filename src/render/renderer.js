@@ -337,6 +337,10 @@ export class Renderer {
           drawCreature(ctx, n.artId || n.npcId, cx, cy - 2, {
             time: timeMs, facing: n.facing, fx: n.faceX, moving: false, hurt: n.hurt,
             scale: sc, sprite: n.def.sprite, color: n.def.color, boss: n.def.boss, family: n.def.family,
+            // It falls as it stood: in low graphics or slow frames a pack monster was
+            // its single sticker a moment ago, so it stays one rather than switching
+            // to its parts rig (composed afresh, see-through, every frame of the fall).
+            low: game.lowFx, trim: game.fxTrim,
           });
           ctx.restore();
           ctx.globalAlpha = 1;
