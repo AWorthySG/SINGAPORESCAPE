@@ -61,7 +61,7 @@ function shoreSpot(g) {
   return null;
 }
 
-test('the water layer is not remade every frame of a fight zoom, and repaints on its own clock', () => withCanvases((made) => {
+test('the water layer is not remade every frame of a fight zoom, and clears all it painted', () => withCanvases((made) => {
   const g = freshGame();
   const spot = shoreSpot(g);
   assert.ok(spot, 'a shore tile');
@@ -95,30 +95,39 @@ test('the water layer is not remade every frame of a fight zoom, and repaints on
   assert.equal(layerOf(), cv, 'the same layer');
   assert.equal(cv.sized, 2, 'never resized');
 
-  // A small change of scale waits for the next timed repaint...
+  // Any change of scale repaints straight away (the layer always matches the
+  // screen's pixels), wiping the whole layer first instead of remaking it.
   scale = 1.4;
   r._drawWaterOverlay(x0, y0, x1, y1, ox, oy, 5000);
   assert.equal(r._waterCache.t, 5000, 'repainted (time was up)');
+  cv.g.calls.clearRect.length = 0;
   scale = 1.41;
   r._drawWaterOverlay(x0, y0, x1, y1, ox, oy, 5016);
-  assert.equal(r._waterCache.t, 5000, 'a 0.7% zoom step: not repainted yet');
-  assert.equal(r._waterCache.dpr, 1.4);
-  const stretched = main.calls.drawImage.at(-1);
-  assert.equal(stretched[3], (r._waterCache.box.x1 - r._waterCache.box.x0) * Math.ceil(16 * TILE * 1.4) / (16 * TILE), 'copied at the scale it was painted at');
-  r._drawWaterOverlay(x0, y0, x1, y1, ox, oy, 5100);
-  assert.equal(r._waterCache.t, 5100, '...and repainted at the new scale once its time is up');
+  assert.equal(r._waterCache.t, 5016, 'a 0.7% zoom step: repainted at once');
   assert.equal(r._waterCache.dpr, 1.41);
-  // ...a bigger one repaints straight away, wiping the whole layer first.
-  cv.g.calls.clearRect.length = 0;
-  scale = 1.5;
-  r._drawWaterOverlay(x0, y0, x1, y1, ox, oy, 5110);
-  assert.equal(r._waterCache.t, 5110);
   assert.deepEqual(cv.g.calls.clearRect[0], [0, 0, cv.width, cv.height], 'the whole layer is wiped');
-  // The same view a moment later only clears the box that was painted.
+  const bn = r._waterCache.box, blit2 = main.calls.drawImage.at(-1);
+  assert.equal(blit2[3], (bn.x1 - bn.x0) * Math.ceil(16 * TILE * 1.41) / (16 * TILE), 'copied at the scale it was painted at');
+  assert.equal(cv.sized, 2, 'still not remade');
+  // The same view a moment later clears the box that was painted and, where
+  // the box reached the layer's right or bottom edge, the spare room past it
+  // (the edge tiles' 1px overlap lands there and must not build up).
+  const sea = { ...r._waterCache.box };
+  assert.ok(sea.x1 === 16 * TILE && sea.y1 === 25 * TILE, "this view's water reaches the right and bottom edges");
   cv.g.calls.clearRect.length = 0;
-  r._drawWaterOverlay(x0, y0, x1, y1, ox, oy, 5210);
-  const ob = cv.g.calls.clearRect[0];
-  assert.ok(ob && ob[2] <= 16 * TILE && ob[3] <= 25 * TILE, 'just the old box');
+  r._drawWaterOverlay(x0, y0, x1, y1, ox, oy, 5116);
+  assert.deepEqual(cv.g.calls.clearRect[0], [sea.x0, sea.y0, cv.width / 1.41 - sea.x0, cv.height / 1.41 - sea.y0], 'the old box and the room past it');
+  // A pond in the middle of the view: the repaint after it clears just its box.
+  const terrainAt = g.world.terrainAt;
+  g.world.terrainAt = (x, y) => (x >= x0 + 3 && x <= x0 + 5 && y >= y0 + 4 && y <= y0 + 6 ? TERRAIN.WATER : TERRAIN.GRASS);
+  try {
+    r._drawWaterOverlay(x0, y0, x1, y1, ox, oy, 5216);
+    const pond = { ...r._waterCache.box };
+    assert.ok(pond.x1 < 16 * TILE && pond.y1 < 25 * TILE, "the pond's box is inside the layer");
+    cv.g.calls.clearRect.length = 0;
+    r._drawWaterOverlay(x0, y0, x1, y1, ox, oy, 5316);
+    assert.deepEqual(cv.g.calls.clearRect[0], [pond.x0, pond.y0, pond.x1 - pond.x0, pond.y1 - pond.y0], 'just the old box');
+  } finally { g.world.terrainAt = terrainAt; }
 
   // Far too big for the view (the resolution dropped a lot): made smaller again.
   scale = 0.7;

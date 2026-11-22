@@ -1328,11 +1328,7 @@ export class Renderer {
       const wc = this._waterCache || (this._waterCache = { cv: document.createElement('canvas'), t: -1e9 });
       const g = wc.cv.getContext && wc.cv.getContext('2d');
       if (g) {
-        // A fight's zoom eases the scale a little every frame: a change of under
-        // 2% waits for the next timed redraw (the copy below stretches the layer
-        // to fit until then) rather than repainting it on every frame of a zoom.
-        const rescale = !(Math.abs(wc.dpr / dpr - 1) <= 0.02);
-        if (wc.x0 !== x0 || wc.y0 !== y0 || wc.cols !== cols || wc.rows !== rows || rescale || timeMs - wc.t >= 90 || timeMs < wc.t) {
+        if (wc.x0 !== x0 || wc.y0 !== y0 || wc.cols !== cols || wc.rows !== rows || wc.dpr !== dpr || timeMs - wc.t >= 90 || timeMs < wc.t) {
           const W = Math.ceil(cols * TILE * dpr), H = Math.ceil(rows * TILE * dpr);
           // Only the box that holds water or foam is cleared, painted and
           // copied to the screen: away from the sea that is a shoreline's
@@ -1349,7 +1345,14 @@ export class Renderer {
             const pad = Math.ceil(2 * TILE * dpr);
             cv.width = W + pad; cv.height = H + pad;
           } else if (wc.W !== W || wc.H !== H || wc.dpr !== dpr) { g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height); }
-          else if (old && old.x1 > old.x0) { g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(old.x0, old.y0, old.x1 - old.x0, old.y1 - old.y0); }
+          else if (old && old.x1 > old.x0) {
+            // A box that reached the layer's right or bottom edge also clears the
+            // spare room past it: the edge tiles' 1px overlap lands there and,
+            // left to build up, would show as a line at the screen's edge (the
+            // copy's smoothing reads one pixel past its source) at the world's edge.
+            g.setTransform(dpr, 0, 0, dpr, 0, 0);
+            g.clearRect(old.x0, old.y0, (old.x1 >= cols * TILE ? cv.width / dpr : old.x1) - old.x0, (old.y1 >= rows * TILE ? cv.height / dpr : old.y1) - old.y0);
+          }
           g.setTransform(dpr, 0, 0, dpr, 0, 0);
           wc.any = false;
           for (let y = y0; y <= y1; y++) {
@@ -1372,7 +1375,7 @@ export class Renderer {
         const b = wc.box;
         if (wc.any && b && b.x1 > b.x0 && b.y1 > b.y0) {
           // Same mapping as copying the whole layer (cols*TILE wide on screen), just a part of it
-          // (W x H is the size it was painted at, even if the zoom has moved on a touch since).
+          // (of the W x H corner that was painted: the canvas itself is a little roomier).
           const kx = wc.W / (cols * TILE), ky = wc.H / (rows * TILE);
           ctx.drawImage(wc.cv, b.x0 * kx, b.y0 * ky, (b.x1 - b.x0) * kx, (b.y1 - b.y0) * ky,
             x0 * TILE - ox + b.x0, y0 * TILE - oy + b.y0, b.x1 - b.x0, b.y1 - b.y0);
