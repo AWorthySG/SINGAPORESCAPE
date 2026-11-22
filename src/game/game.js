@@ -727,7 +727,7 @@ export class Game {
       this._giveBowQuiver();
       Rounds.grantStarterRounds(this);
       this.msg(`You are now ${aOrAn(cls.name)}. Only ${WEAPON_TYPE_NAMES[cls.weapon]} and ${WEAPON_TYPE_NAMES[SECONDARY_WEAPON[classId]]} can be wielded, and the choice is permanent.`, 'level');
-      this.msg(`${cls.name} perk: ${classPerks(classId)[0].text} (see Class perks in the Combat tab)`, 'system');
+      this.msg(`${cls.name} perk: ${classPerks(classId)[0].text} (see Skills & perks in the Combat tab)`, 'system');
       this.bus.emit('inventory'); this.bus.emit('equipment');
       return;
     }
@@ -777,7 +777,7 @@ export class Game {
     }
     this.player.hp = this.maxHp();
     this.msg(`You are ${aOrAn(cls.name)}: you fight with ${WEAPON_TYPE_NAMES[cls.weapon]} (or ${WEAPON_TYPE_NAMES[SECONDARY_WEAPON[classId]]}). Talk to the Kampong Guide for tips.`, 'system');
-    this.msg(`${cls.name} perk: ${classPerks(classId)[0].text} (see Class perks in the Combat tab)`, 'system');
+    this.msg(`${cls.name} perk: ${classPerks(classId)[0].text} (see Skills & perks in the Combat tab)`, 'system');
     this.bus.emit('inventory'); this.bus.emit('equipment'); this.bus.emit('hp');
   }
 
