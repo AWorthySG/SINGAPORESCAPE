@@ -153,9 +153,9 @@ export function resolveWoodcut(game, action) {
         game.msg(`You forage some ${getItem(herb).name.toLowerCase()} from the undergrowth.`);
       }
     }
-    // Now and then the whole tree comes down at once (jackpot.js).
+    // Now and then the whole tree comes down at once, ten times over (jackpot.js).
     if (falls && obj.logsLeft > 1 && nodeJackpot(game, obj, { kind: 'woodcutting', left: obj.logsLeft - 1,
-      xpEach: def.night && game.isNight() ? def.xp * NIGHT_TREE_BONUS : def.xp, pick: () => def.gives, find: tb.find })) obj.logsLeft = 1;
+      xpEach: def.night && game.isNight() ? def.xp * NIGHT_TREE_BONUS : def.xp, pick: () => def.gives, find: tb.find, mult: SEAM_MULT })) obj.logsLeft = 1;
     if (!falls || --obj.logsLeft > 0) return true;   // logs left in the tree: keep chopping
     obj.logsLeft = undefined;              // a fresh amount is rolled once it regrows
     obj.depleted = true;

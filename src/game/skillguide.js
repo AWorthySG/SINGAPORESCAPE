@@ -33,7 +33,7 @@ const TICK_S = 0.6;
 
 // One line on why each skill matters, and the objects to walk to.
 export const SKILL_GUIDES = {
-  woodcutting: { use: 'Logs feed Firemaking and Fletching (bows, arrows, staves). From level 100, groves of rare trees in the far regions give the endgame logs. Each tree holds 10 to 20 logs, and about one swing in 40 brings the whole tree down at once, with XP for every log.' },
+  woodcutting: { use: 'Logs feed Firemaking and Fletching (bows, arrows, staves). From level 100, groves of rare trees in the far regions give the endgame logs. Each tree holds 10 to 20 logs, and about one swing in 40 brings the whole tree down at once: ten times the logs left in it, with XP for every log.' },
   mining: { use: 'Ore is smelted into bars for Smithing, and gems and gold go to Crafting. From level 100, rare veins in the far regions give the endgame ores. Each rock holds 10 to 20 ores, and about one swing in 40 breaks the whole seam free at once: ten times the ore left in it, with XP for every ore.' },
   fishing: { use: 'Raw fish are cooked into food that heals you in a fight. Each kind of spot holds one fish, so where you fish picks the fish: the list below says where each is. From level 100, rare spots in the far regions give the endgame fish. Now and then a school of fish (a dark swirl on the water) visits a spot near you for half a minute: fish there and you may net the whole school, 250 to 600 fish at once.' },
   hunter: { use: 'Pelts, skins and hides become armour; meat is cooked into food. From level 100, hunting grounds in the far regions give the catches for the endgame brews.' },
