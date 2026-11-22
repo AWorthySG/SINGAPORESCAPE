@@ -1199,7 +1199,7 @@ export class UI {
     cell.className = 'equip-slot filled';
     cell.innerHTML = `${itemIconSVG(a.id, 32)}<span class="qty ${lbl.cls}">${lbl.text}</span>`;
     cell.addEventListener('click', () => this.game.unloadRounds());
-    this._tip(cell, () => `<b>${escapeHtml(it.name)}</b> &times;${formatNumber(a.qty)}<br>+${it.roundStr} shot power for guns${it.special ? `<br>${escapeHtml(it.examine.replace(/^Rounds for guns: /, ''))}` : ''}`
+    this._tip(cell, () => `<b>${escapeHtml(it.name)}</b> &times;${formatNumber(a.qty)}<br>+${it.roundStr} shot power for guns<br><span style="opacity:.8">${escapeHtml(it.examine)}</span>`
       + `${gun ? '' : '<br><span style="opacity:.8">Only pistols and sniper rifles fire rounds.</span>'}<br><span style="opacity:.8">Tap to unload</span>`,
       () => [{ label: 'Unload', target: it.name, fn: () => this.game.unloadRounds() }]);
   }

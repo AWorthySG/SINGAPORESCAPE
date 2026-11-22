@@ -78,6 +78,8 @@ import { REWARD_COINS_EACH, REWARD_COINS_MIN, REWARD_COINS_MAX, REWARD_LAMPS } f
 
 // ---------------- Little helpers for the numbers ----------------
 import { AOrAn } from '../core/utils.js';
+import { SMITH } from './smithing.js';
+import { ROUND_SPEND, SPECIAL_CHANCE, INCENDIARY_SHARE, SHOCK_SHARE, FROST_SLOW_TICKS } from '../game/rounds.js';
 const pct = (x, dp = 0) => `${(Math.round(x * 100 * 10 ** dp) / 10 ** dp).toLocaleString('en-GB')}%`;
 // A crit's average multiplier: x2, or x4 one time in four (2.5).
 const avgCrit = () => (1 - MEGA_CRIT_CHANCE) * CRIT_MULT + MEGA_CRIT_CHANCE * MEGA_CRIT_MULT;
@@ -450,7 +452,30 @@ export const CHAPTERS = [
           'A Knight\'s longsword and the toya staff are one-handed, so they keep a shield.',
           '**Reach**: most melee weapons strike from 2 tiles, longswords, halberds and two-handed swords from 3, spears from 4. Every melee weapon **cleaves** a share of each hit into foes next to the target, from a quarter for the quick blades to most of it for two-handed swords.',
         ],
-        see: ['classes', 'equip-best'],
+        see: ['classes', 'equip-best', 'gun-rounds'],
+      },
+      {
+        id: 'gun-rounds', title: 'Gun rounds',
+        summary: 'The bullets Pistolers and Snipers fire: what each kind adds, how fast they go and where to get them.',
+        body: [
+          'Pistols and sniper rifles fire **rounds**. Rounds sit in their own **ammo slot** beside your gear (they never gain mastery, quality or enchantments), and each kind adds its **shot power** to the gun\'s own power, so better rounds make every shot hit harder.',
+          () => `Most rounds are picked back up after a fight, like arrows, so only some shots use one up: a **pistol** about one shot in ${Math.round(1 / ROUND_SPEND.pistol)} (pistols fire about four times as fast as a bow) and a **sniper rifle** about one shot in ${Math.round(1 / ROUND_SPEND.rifle)}.`,
+          'When the slot runs dry your gun reloads from the **best rounds in your pack**. With none at all it still fires **plain shot** at its own power, so you are never left unable to fight. New Pistolers and Snipers start with a full stack.',
+          () => ({ table: { head: ['Rounds', 'Shot power', 'Smithing (20 a bar)', 'Where to get them'], rows: Object.values(ITEMS).filter((it) => typeof it.roundStr === 'number' && !it.special).sort((a, b) => a.roundStr - b.roundStr).map((it) => {
+            const id = Object.keys(ITEMS).find((k) => ITEMS[k] === it);
+            const r = SMITH.find((x) => x.result === id);
+            const metal = id.replace(/_rounds$/, '');
+            const shop = ['bronze', 'iron'].includes(metal) ? 'General Store, Archery Emporium' : ['steel', 'mithril', 'adamant', 'rune'].includes(metal) ? 'Archery Emporium' : 'smithing only';
+            return [it.name, `+${it.roundStr}`, r ? `level ${r.level}` : '-', shop];
+          }) } }),
+          () => ({ table: { head: ['Special rounds (rune strength)', `Effect, on ${pct(SPECIAL_CHANCE)} of the hits that land`], rows: [
+            ['Incendiary rounds', `bursts into flame for ${pct(INCENDIARY_SHARE)} more damage`],
+            ['Frost rounds', `chills the foe, slowing its moves and attacks for ${Math.round(FROST_SLOW_TICKS * 0.6)}s`],
+            ['Shock rounds', `arcs into a foe nearby for ${pct(SHOCK_SHARE)} of the hit`],
+          ] } }),
+          'Special rounds are sold at the Archery Emporium and found in treasure caskets; they are never smithed. Monsters that would drop arrows drop the same metal\'s rounds for a gun user instead.',
+        ],
+        see: ['weapon-grips', 'classes'],
       },
       {
         id: 'armour-families', title: 'Armour families',
