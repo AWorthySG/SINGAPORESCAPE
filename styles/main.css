@@ -2012,7 +2012,9 @@ body.boss-on #tip-toast { top: 132px; }
 #boss-bar.enraged #boss-bar-portrait { animation: bpRage .7s ease-in-out infinite alternate; }
 @keyframes bpRage { from { box-shadow: 0 0 0 2.5px var(--aw-ink, #22304A), 0 0 0 0 rgba(192,57,43,.6); } to { box-shadow: 0 0 0 2.5px var(--aw-ink, #22304A), 0 0 14px 5px rgba(192,57,43,.55); } }
 #boss-bar-portrait.hit .bp-img { animation: bpHit .22s ease-out; }
+#boss-bar-portrait.hit2 .bp-img { animation: bpHit2 .22s ease-out; }   /* the same flash: hits take turns (bossbar.js) */
 @keyframes bpHit { 0% { filter: brightness(2.2) saturate(.4); transform: translateX(-2px); } 100% { filter: none; transform: none; } }
+@keyframes bpHit2 { 0% { filter: brightness(2.2) saturate(.4); transform: translateX(-2px); } 100% { filter: none; transform: none; } }
 @media (max-width: 540px) {
   #boss-bar-portrait { width: 46px; height: 46px; margin: -10px 0 -10px -10px; }
   #boss-bar-portrait .bp-badge { font-size: 12px; top: -7px; }

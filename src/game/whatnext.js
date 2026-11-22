@@ -35,23 +35,37 @@ const doText = (src) => (src.spot ? `Catch ${src.name} at ${/^[aeiou]/i.test(src
 const skillName = (s) => SKILL_BY_ID[s]?.name || s;
 const dist = (a, b) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 
+/** Whether the piece in pack slot `s` beats what you wear (and you can wear it now). */
+function beatsWorn(game, s) {
+  if (!s || !getItem(s.id).equip || getItem(s.id).tool) return false;
+  if (game.jobClass && !canWear(game.jobClass, s.id)) return false;
+  if (!meetsReq(s.id, game.skills).ok) return false;
+  if (game._canEquipNow && !game._canEquipNow(s.id)) return false;
+  return isUpgrade(compareGear(s.id, game.equipment, null, s.q || null, game.combatMode?.()));
+}
+
 /** The pieces in the pack that beat what you wear (and that you can wear now). */
 export function packUpgrades(game) {
   const out = [];
-  for (const s of game.inventory.slots) {
-    if (!s || !getItem(s.id).equip || getItem(s.id).tool) continue;
-    if (game.jobClass && !canWear(game.jobClass, s.id)) continue;
-    if (!meetsReq(s.id, game.skills).ok) continue;
-    if (game._canEquipNow && !game._canEquipNow(s.id)) continue;
-    if (isUpgrade(compareGear(s.id, game.equipment, null, s.q || null, game.combatMode?.()))) out.push(s);
-  }
+  for (const s of game.inventory.slots) if (beatsWorn(game, s)) out.push(s);
   // Rounds that beat the loaded ones, while a gun is in hand (Equip best loads them).
   const r = betterRoundsInPack(game);
   if (r) out.push(r);
   return out;
 }
-/** The first of them, or null. */
-export const packUpgrade = (game) => packUpgrades(game)[0] || null;
+/** The first of them, or null. It stops at the first rather than weighing
+ *  every piece in a late-game pack of hundreds (the tracker asks every few ticks). */
+export function packUpgrade(game) {
+  for (const s of game.inventory.slots) if (beatsWorn(game, s)) return s;
+  return betterRoundsInPack(game) || null;
+}
+/** The first of packUpgrades(game) that `want` takes, or null; the pieces
+ *  `want` turns down (say, ones already mentioned) are never weighed at all. */
+export function firstPackUpgrade(game, want) {
+  for (const s of game.inventory.slots) if (s && want(s) && beatsWorn(game, s)) return s;
+  const r = betterRoundsInPack(game);
+  return r && want(r) ? r : null;
+}
 
 /** The quest to work on next: the first active one with a step to go to,
  *  else the first one you can start. { id, name, text } or null. */
@@ -99,9 +113,10 @@ export function fightTarget(game) {
   const lo = Math.max(1, cl - 8), hi = cl + 3;
   let best = null;
   for (const n of game.npcs) {
-    if (!n.alive || !n.attackable || n.temporary || n.def.boss || n.def.fixed || n.champion) continue;
+    // The level band first: the cheapest test, and most of the world's ten thousand fail it.
     const l = n.def.level || 1;
     if (l < lo || l > hi) continue;
+    if (!n.alive || !n.attackable || n.temporary || n.def.boss || n.def.fixed || n.champion) continue;
     if (game.world.zoneAt(n.x, n.y)?.wilderness) continue;
     // Prefer the strongest of the band (better XP), then the nearest.
     if (!best || l > best.l + 2 || (Math.abs(l - best.l) <= 2 && dist(n, p) < dist(best.n, p))) best = { n, l };

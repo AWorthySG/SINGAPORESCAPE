@@ -58,7 +58,7 @@ export function contractTrackerRows(ui) {
   const g = ui.game, rows = [];
   const list = activeContracts(g);
   for (const c of list.filter((x) => !x.done).slice(0, 2)) {
-    rows.push(`<div class="trk-row"><span class="trk-ic trk-pest" title="Pest Control contract">&#10047;</span>${esc(cap(plural(c.name)))} <span class="trk-prog">${n(c.have)}/${n(c.need)}</span>${ui._trkPointer ? ui._trkPointer((m) => m.npcId === c.id) : ''}</div>`);
+    rows.push(`<div class="trk-row"><span class="trk-ic trk-pest" title="Pest Control contract">&#10047;</span>${esc(cap(plural(c.name)))} <span class="trk-prog">${n(c.have)}/${n(c.need)}</span>${ui._trkPointer ? ui._trkPointer((m) => m.npcId === c.id, `id:${c.id}`) : ''}</div>`);
   }
   const ready = list.filter((x) => x.done && !x.claimed).length;
   if (ready) rows.push(`<div class="trk-row"><span class="trk-ic trk-pest">&#10047;</span>Hand in ${ready} contract${ready > 1 ? 's' : ''} to Officer Aziz</div>`);

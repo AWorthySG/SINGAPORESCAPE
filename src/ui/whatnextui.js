@@ -3,7 +3,7 @@
 // what you wear. The goals come from src/game/whatnext.js; ui.js only calls in
 // here. The HTML builders return plain strings so the tests can render them
 // headlessly.
-import { whatNext, runGoal, packUpgrades } from '../game/whatnext.js';
+import { whatNext, runGoal, packUpgrades, firstPackUpgrade } from '../game/whatnext.js';
 import { qualityName } from '../game/loot.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -66,6 +66,9 @@ export function whatNextTrackerRows(ui) {
 export function watchGoals(ui) {
   const sig = (goals) => (goals || []).map((g) => g.key).join('|');
   const check = () => ui._soon?.('whatNext', () => {
+    // Out of sight the journal works its goals out afresh when it next shows,
+    // so there is nothing to compare yet (and working them out is not cheap).
+    if (ui._panelHidden?.(ui.el?.questPanel)) { ui._questStale = true; return; }
     if (sig(whatNext(ui.game)) !== sig(ui._wnGoals)) ui.renderQuestPanel();
   }, 1000);
   for (const ev of ['inventory', 'equipment', 'levelup', 'quest']) ui.game.bus.on(ev, check);
@@ -80,7 +83,8 @@ export function watchUpgrades(ui, { settleMs = 3000, debounceMs = 400 } = {}) {
   let pending = false;
   const check = () => {
     pending = false;
-    const s = packUpgrades(game).find((x) => !told.has(`${x.id}:${x.q || ''}`));
+    // (Pieces already mentioned aren't weighed again: a late-game pack holds hundreds.)
+    const s = firstPackUpgrade(game, (x) => !told.has(`${x.id}:${x.q || ''}`));
     if (!s) return;
     const key = `${s.id}:${s.q || ''}`;
     told.add(key);
