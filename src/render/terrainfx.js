@@ -685,7 +685,17 @@ export class TerrainFx {
     const people = [];
     if (game.player && game.player.alive) people.push(game.player);
     const npcs = game.nearbyNpcs ? game.nearbyNpcs() : [];
-    for (const n of npcs) if (n.alive) people.push(n);
+    // (Those well off screen are ruled out by their tiles first: a busy region
+    // has over a thousand nearby, and each turn of the loop below costs memory,
+    // as does renderCenter. A body is drawn between its tile and the next, and
+    // the margin is wider than the check below, so nothing in view is lost.)
+    const m = 80 + TILE;
+    for (const n of npcs) {
+      if (!n.alive) continue;
+      if (Math.max(n.x, n.tx) * TILE + TILE / 2 - ox < -m || Math.min(n.x, n.tx) * TILE + TILE / 2 - ox > vw + m
+        || Math.max(n.y, n.ty) * TILE + TILE / 2 - oy < -m || Math.min(n.y, n.ty) * TILE + TILE / 2 - oy > vh + m) continue;
+      people.push(n);
+    }
     for (const p of people) {
       const c = p.renderCenter();
       const cx = c.x - ox, cy = c.y - oy;

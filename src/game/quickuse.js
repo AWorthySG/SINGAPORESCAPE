@@ -22,13 +22,20 @@ export function healOf(game, id, max = game.maxHp()) {
 export function quickUseChoice(game) {
   const max = game.maxHp();   // once, not once per kind of item carried
   const missing = Math.max(0, max - game.player.hp);
+  // Only what can heal is tallied: the quick bar asks every time the bag
+  // changes, and a late-game bag holds hundreds of pieces of gear, which are
+  // passed over here without a note made for each (healOf gives them 0).
   const seen = new Map();   // id -> { index of its first slot, count }
-  game.inventory.slots.forEach((s, i) => {
-    if (!s) return;
+  const slots = game.inventory.slots;
+  for (let i = 0; i < slots.length; i++) {
+    const s = slots[i];
+    if (!s) continue;
+    const item = getItem(s.id), pot = POTIONS[s.id];
+    if (pot ? !pot.fx.heal : !item?.heal) continue;
     const e = seen.get(s.id);
     if (e) e.count += s.qty || 1;
     else seen.set(s.id, { index: i, count: s.qty || 1 });
-  });
+  }
   let best = null;
   for (const [id, e] of seen) {
     const heal = healOf(game, id, max);
