@@ -77,3 +77,8 @@ test('item descriptions stay up: through the bag redrawing under the mouse, and 
   assert.match(ui, /el\.addEventListener\('mouseleave', \(\) => this\._lingerHide\(\)\);/, 'leaving an item lingers rather than closing at once');
   assert.match(ui, /if \(host && o && !o\.isConnected && host\._tipGet\)/, 'a redrawn copy of the item keeps the tip');
 });
+
+test("the chat log scrolling as lines arrive no longer closes an item's description", () => {
+  const ui = readFileSync(new URL('../src/ui/ui.js', import.meta.url), 'utf8');
+  assert.match(ui, /if \(ev\.type === 'scroll'\) \{[\s\S]{0,300}!sc\.contains\?\.\(o\)\) return;/, 'only a scroll that moves the item closes it');
+});

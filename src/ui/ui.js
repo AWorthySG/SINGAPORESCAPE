@@ -77,7 +77,7 @@ import { WaveHud } from './wavehud.js';
 import { PlayHud } from './playhud.js';
 import { CompactHud } from './compacthud.js';
 export const COLLAPSE_V = 2;   // the saved fold states' version (see _loadCollapse)
-export const TIP_LINGER_MS = 700;   // an item's hover description stays this long after the pointer leaves
+export const TIP_LINGER_MS = 1000;   // an item's hover description stays this long after the pointer leaves
 import { NoticeLane } from './noticelane.js';
 import { QuickSlot, interactCaption, trackerHTML, loadTrackerFolded, saveTrackerFolded, sheetSnap } from './hudease.js';
 import { QuickBar } from './quickbar.js';
@@ -3241,6 +3241,14 @@ export class UI {
       this._tipGuard = (ev) => {
         const o = this._tipOwner;
         if (this._cardOpen || t.classList.contains('hidden')) return;
+        // A scroll closes it only if it moves the item: its own list, or the
+        // page. (The chat log scrolls itself as lines arrive while you gather,
+        // which used to close the tip with the mouse still resting on the item.)
+        if (ev.type === 'scroll') {
+          const sc = ev.target;
+          if (sc && sc !== document && sc !== document.documentElement && sc !== document.body && o && !sc.contains?.(o)) return;
+          this.hideTooltip(); return;
+        }
         if (ev.type !== 'mousemove') { this.hideTooltip(); return; }
         if (o && o.isConnected && o.contains(ev.target)) { clearTimeout(this._tipLinger); return; }
         const host = ev.target?.closest?.('[data-tip-host]');
