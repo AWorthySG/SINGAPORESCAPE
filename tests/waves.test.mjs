@@ -160,7 +160,7 @@ test('monster level, numbers, life and hits rise with the wave, gently and then 
   // Each wave's monsters are a mix of existing kinds that changes from wave to wave.
   const kinds = (n) => [...new Set(wavePlan(n, 100).map((e) => e.id))].join();
   assert.notEqual(kinds(3), kinds(4));
-  assert.ok(waveCount(30) > MAX_ALIVE, 'deep waves send more than can be out at once');
+  assert.ok(waveCount(200) + 3 <= MAX_ALIVE, 'even the deepest wave comes out all at once');
 });
 
 test('a champion leads every wave and every 5th is a boss wave with its signature moves', () => {
@@ -725,25 +725,28 @@ test('waves are about twice the size, with up to three champions, and still the 
   assert.equal(p[0].def.maxHp, gateMobDef(p[0].id, 12, p[0].def.level).maxHp);
 });
 
-test('at most MAX_ALIVE wave monsters are out at once; the rest trickle in as others fall', () => {
+test('a whole wave comes at once, even the biggest (the owner\'s ask)', () => {
   const g = newGame();
   placeAt(g, GATE.x - 1, GATE.y + 1);
   g.waves.enter();
-  g.waves.wave = 50;
+  g.waves.wave = 80;
   nextWave(g);
-  assert.equal(g.waves.wave, 51);
-  const total = waveCount(51) + 3;
-  assert.ok(total > MAX_ALIVE * 3);
-  let seen = 0, most = 0;
+  assert.equal(g.waves.wave, 81);
+  assert.ok(waveCount(81) + 3 <= MAX_ALIVE, 'room for the biggest wave');
+  assert.equal(g.waves.queue.length, 0, 'none held back');
+  const out = waveMobs(g).length;
+  assert.ok(out >= waveCount(81), `all ${waveCount(81)}+ out at once (saw ${out})`);
+  // ...each on its own tile inside the hall.
+  const tiles = new Set(waveMobs(g).map((n) => n.x * 4096 + n.y));
+  assert.equal(tiles.size, out);
+  for (const n of waveMobs(g)) assert.ok(inArena(n.x, n.y));
+  let seen = 0;
   for (let t = 0; t < 400 && (waveMobs(g).length || g.waves.queue.length); t++) {
     tame(g); spare(g);
-    most = Math.max(most, g.waves.mobs.length, waveMobs(g).length);
-    // Kill a couple a tick, so the queue drains.
-    for (const n of waveMobs(g).slice(0, 2)) { g.killNpc(n); seen++; }
+    for (const n of waveMobs(g).slice(0, 4)) { g.killNpc(n); seen++; }
     step(g, 1);
   }
-  assert.ok(most <= MAX_ALIVE, `never more than ${MAX_ALIVE} out (saw ${most})`);
-  assert.equal(seen, total, 'every one of them came in the end');
+  assert.equal(seen, out, 'every one of them fell');
   assert.ok(g.waves.nextAt > 0, 'and the wave was cleared');
 });
 
