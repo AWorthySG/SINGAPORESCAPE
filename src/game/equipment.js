@@ -7,6 +7,22 @@ import { refinedBonuses, MAX_REFINE } from './refine.js';
 export const EQUIP_SLOTS = ['head', 'cape', 'amulet', 'weapon', 'body', 'shield', 'legs', 'hands', 'feet', 'ring'];
 export const DEFAULT_WEAPON_SPEED = 5; // ticks (unarmed)
 
+// An item's gear type (masteryType) never changes, so it is worked out once per item.
+const _mtypes = new Map();
+const mtypeOf = (id) => { let t = _mtypes.get(id); if (t === undefined) _mtypes.set(id, (t = masteryType(id))); return t; };
+/** Are these the very same pieces' bonuses as before (see Equipment._wornParts)? */
+function sameParts(was, now) {
+  for (let i = 0; i < now.length; i++) if (was[i] !== now[i]) return false;
+  return true;
+}
+/** Do enchant lines `now` say the same as the copy `was` kept of them? */
+function sameLines(was, now) {
+  if (!was || !now) return !was === !now;
+  if (was.length !== now.length) return false;
+  for (let i = 0; i < was.length; i++) if (was[i].stat !== now[i]?.stat || was[i].value !== now[i]?.value) return false;
+  return true;
+}
+
 /** Daggers (and the kris), scimitars, pistols, kerambits and shurikens can be dual wielded: a
  *  second one of the same kind goes in the off-hand. */
 export const dualType = (id) => {
@@ -127,6 +143,22 @@ export class Equipment {
     return enchantedBonuses(refinedBonuses(base, mastered, this.refineLevel(id, copy)), this.enchantLines(id, copy));
   }
 
+  /** itemBonuses for the piece worn in `slot` (id `id`), kept until anything it
+   *  is made from changes: the piece, its copy and quality, its type's mastery
+   *  XP, its refine level or its enchant lines (all read afresh each time, so a
+   *  change made straight to the records is seen too). A fight asks for your
+   *  gear's totals many times a blow, and each answer built four objects per
+   *  piece worn. Read-only: callers copy before changing anything. */
+  _wornBonuses(slot, id) {
+    const copy = this.copyIn(slot), q = this.qualityIn(slot);
+    const xp = this.mastery[mtypeOf(id)] || 0, ref = this.refineMap(copy)[id], lines = this.enchantMap(copy)[id];
+    const c = (this._worn ||= {})[slot];
+    if (c !== undefined && c.id === id && c.copy === copy && c.q === q && c.xp === xp && c.ref === ref && sameLines(c.lines, lines)) return c.b;
+    const b = this.itemBonuses(id, copy, q);
+    this._worn[slot] = { id, copy, q, xp, ref, lines: lines && lines.map((l) => ({ stat: l?.stat, value: l?.value })), b };
+    return b;
+  }
+
   _changed() { this.bus?.emit('equipment'); }
 
   get(slot) { return this.slots[slot]; }
@@ -169,13 +201,18 @@ export class Equipment {
    *  totals the Equipment panel shows. */
   bonuses(hand = null) {
     const skip = hand && this.isDualWielding() ? (hand === 'off' ? 'weapon' : 'shield') : null;
+    // The very same pieces (see _wornBonuses) and the same bonuses from outside
+    // your gear add up to the same totals: a copy of last time's is handed back.
+    const parts = this._wornParts(), ex = this.extra?.(), memo = (this._bonusMemo ||= {});
+    const m = memo[skip || ''];
+    if (m && m.ex === ex && sameParts(m.parts, parts)) return { ...m.total };
     const total = { attack: 0, strength: 0, defence: 0, ranged: 0, magic: 0, magicStr: 0, dance: 0, crit: 0, hp: 0,
       pierce: 0, critDmg: 0, haste: 0, lifesteal: 0, bossDmg: 0, atkPct: 0, magPct: 0, prayer: 0 };
-    for (const slot of EQUIP_SLOTS) {
-      const id = this.slots[slot];
+    for (let i = 0; i < EQUIP_SLOTS.length; i++) {
+      const slot = EQUIP_SLOTS[i], id = this.slots[slot];
       if (!id || slot === skip) continue;
       if (!getItem(id).equip?.bonuses) continue;
-      let b = this.itemBonuses(id, this.copyIn(slot), this.qualityIn(slot));
+      let b = parts[i];
       // A melee, ranged or magic accessory only lends its crit and offensive
       // stats (pierce, crit damage, haste, lifesteal, boss damage) when you fight
       // in that style; its Defence and HP help whatever you fight with.
@@ -197,9 +234,16 @@ export class Equipment {
     const sb = this.setBonus();
     for (const k of Object.keys(total)) total[k] += sb[k] || 0;
     // Life skill perks sit on top too (see lifeperks.js).
-    const ex = this.extra?.();
     if (ex) for (const k of Object.keys(ex)) total[k] = (total[k] || 0) + ex[k];
+    memo[skip || ''] = { ex, parts, total: { ...total } };
     return total;
+  }
+
+  /** Each slot's piece's bonuses (see _wornBonuses), null where nothing is worn. */
+  _wornParts() {
+    const out = new Array(EQUIP_SLOTS.length);
+    for (let i = 0; i < EQUIP_SLOTS.length; i++) { const id = this.slots[EQUIP_SLOTS[i]]; out[i] = id ? this._wornBonuses(EQUIP_SLOTS[i], id) : null; }
+    return out;
   }
 
   /** Aggregated bonus from every fully-worn armour set. */
@@ -253,9 +297,14 @@ export class Equipment {
   _haste() {
     // Both hands swing on the same beat, so attack speed is the whole
     // character's: a dual wielder's two weapons both add theirs.
+    // (Kept like bonuses(): the same pieces and outside bonuses, the same answer.)
+    const parts = this._wornParts(), ex = this.extra?.(), m = this._hasteMemo;
+    if (m && m.ex === ex && sameParts(m.parts, parts)) return m.h;
     let h = 0;
-    for (const slot of EQUIP_SLOTS) { const id = this.slots[slot]; if (id && this.styleFits(id)) h += this.itemBonuses(id, this.copyIn(slot), this.qualityIn(slot)).haste || 0; }
-    return h + (this.extra?.().haste || 0);   // plus Fletching's life perk
+    for (let i = 0; i < EQUIP_SLOTS.length; i++) { const id = this.slots[EQUIP_SLOTS[i]]; if (id && this.styleFits(id)) h += parts[i].haste || 0; }
+    h += ex?.haste || 0;   // plus Fletching's life perk
+    this._hasteMemo = { ex, parts, h };
+    return h;
   }
 
   /** Is a tool of `tag` currently wielded (e.g. an axe in the weapon slot)? */
