@@ -4203,3 +4203,9 @@ input[type="range"]:focus-visible { outline: 3px solid var(--aw-sun); outline-of
 .gear-tag.best { background: var(--gold, #e6b34a); color: var(--aw-ink, #22304a); }
 .gear-tag.best.now { background: #fff4d6; }
 .gear-tag.style { background: #fff; color: var(--aw-text-sec, #5a6478); }
+/* A long game fills the (endless) pack with hundreds of pieces, and every
+   pickup made the browser restyle and lay out all of them (24 ms a pickup at
+   650 items on a desktop, several times that on a phone). Cells you have
+   scrolled past now skip that work, and the grid keeps its changes to itself. */
+#inventory-grid { contain: layout style; }
+.inv-slot { content-visibility: auto; contain-intrinsic-size: auto 52px; }
