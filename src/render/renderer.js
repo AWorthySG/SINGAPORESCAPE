@@ -1711,6 +1711,12 @@ export class Renderer {
     }
     for (const n of (game.nearbyNpcs ? game.nearbyNpcs() : game.npcs)) {
       if (!n.alive) continue;
+      // Most of the crowd near you (sixty tiles each way) is off screen: skip
+      // it before working anything out. A walker is drawn between its tile and
+      // the next, so it is off screen when both are (the same test as below).
+      const lx = n.x * TILE + TILE / 2 - ox, ly = n.y * TILE + TILE / 2 - oy;
+      const mx = n.moving ? n.tx * TILE + TILE / 2 - ox : lx, my = n.moving ? n.ty * TILE + TILE / 2 - oy : ly;
+      if ((lx < -90 && mx < -90) || (lx > vw + 90 && mx > vw + 90) || (ly < -90 && my < -90) || (ly > vh + 60 && my > vh + 60)) continue;
       const boss = n.def.boss;
       const targeted = n === game.player.target;
       const moral = n.def.moral && game.moralPending(n);   // a moral choice still waiting for you

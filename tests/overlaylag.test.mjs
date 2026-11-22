@@ -6,6 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { Game } from '../src/game/game.js';
+import { NPC } from '../src/game/npc.js';
 import { Renderer } from '../src/render/renderer.js';
 import { TERRAIN } from '../src/data/world.js';
 import { TILE } from '../src/config.js';
@@ -124,3 +125,44 @@ test('the water layer is not remade every frame of a fight zoom, and repaints on
   assert.equal(cv.sized, 4, 'resized once');
   assert.ok(cv.width < Math.ceil(16 * TILE * 1.4), 'smaller');
 }));
+
+test('names and bars skip the off-screen crowd before working anything out, and still catch a walker stepping into view', () => {
+  const g = freshGame();
+  g.camera.resize(400, 300);
+  g.camera.follow(g.player.x * TILE + TILE / 2, g.player.y * TILE + TILE / 2);
+  const p = g.player;
+  const r = new Renderer(g, {}, countingCtx());
+  // Who the overheads look at: reading a monster's kind (def) is the first
+  // thing done for one that is on screen.
+  const looked = new Set();
+  const watch = (n) => {
+    const def = n.def;
+    Object.defineProperty(n, 'def', { configurable: true, get() { looked.add(n); return def; }, set(v) { Object.defineProperty(n, 'def', { value: v, writable: true, configurable: true }); } });
+    return n;
+  };
+  const near = watch(new NPC('goblin', p.x + 2, p.y, 0, {}));
+  const far = watch(new NPC('goblin', p.x + 40, p.y, 0, {}));      // well off screen, still "nearby"
+  const below = watch(new NPC('goblin', p.x, p.y + 30, 0, {}));
+  // A walker on its last off-screen tile, stepping onto the screen's edge.
+  const edgeX = Math.floor((g.camera.originX + g.camera.viewW + 90) / TILE) + 1;
+  const walker = watch(new NPC('goblin', edgeX, p.y, 0, {}));
+  walker.moving = true; walker.tx = edgeX - 3; walker.ty = p.y; walker.progress = 0.9;
+  g.npcs.push(near, far, below, walker);
+  g._near = null; g._around = null;
+  assert.ok(g.nearbyNpcs().includes(far) && g.nearbyNpcs().includes(below), 'all four count as nearby');
+  // In a fight all four would wear a health bar, if on screen.
+  const bars = [];
+  r._healthBar = (x, y) => bars.push(x);
+  for (const n of [near, far, below, walker]) n.combatLatch = 5;
+  const ox = g.camera.originX, oy = g.camera.originY;
+  const wx = walker.renderCenter().x - ox;
+  assert.ok(wx <= g.camera.viewW + 90 && (walker.x * TILE + TILE / 2 - ox) > g.camera.viewW + 90, 'the walker is drawn in view, its tile is not');
+  looked.clear();
+  r._drawOverheads(ox, oy, []);
+  assert.ok(looked.has(near), 'the goblin beside you is looked at');
+  assert.ok(!looked.has(far) && !looked.has(below), 'the off-screen ones are not');
+  assert.ok(looked.has(walker), 'a walker whose next tile is on screen is looked at');
+  const barAt = (n) => bars.some((x) => Math.abs(x - (n.renderCenter().x - ox)) < 1e-9);
+  assert.ok(barAt(near) && barAt(walker), 'both fighters in view wear their bars');
+  assert.ok(!barAt(far) && !barAt(below), 'the off-screen ones wear none');
+});
