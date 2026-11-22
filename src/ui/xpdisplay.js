@@ -194,13 +194,19 @@ export class XpDisplay {
       clearTimeout(this._ringTimer);
       this._ringTimer = setTimeout(() => { if (!this._tipOpen) el.classList.add('idle', 'no-ring'); }, RING_LINGER_MS);
     }
-    const t = document.createElement('div');
+    // One toast per skill: another level-up while it shows updates it ("Hitpoints
+    // 66 +6") instead of stacking a second one (phones showed the same skill twice).
+    const live = (this._lvlToasts ||= {})[skill];
+    const t = live?.el?.isConnected ? live.el : document.createElement('div');
+    const first = t === live?.el ? live.from : from;
     t.className = 'xph-toast';
-    const n = to - from;
+    const n = to - first;
     t.innerHTML = `${skillIconSVG(skill, 18)}<span><b>${skillName(skill)} ${to}</b>${n > 1 ? ` <i>+${n}</i>` : ''}</span>`;
-    this.toasts.appendChild(t);
+    if (!t.isConnected) this.toasts.appendChild(t);
     while (this.toasts.children.length > 3) this.toasts.firstElementChild.remove();
-    setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 300); }, 2600);
+    clearTimeout(live?.timer);
+    const timer = setTimeout(() => { t.classList.add('out'); setTimeout(() => { t.remove(); if (this._lvlToasts[skill]?.el === t) delete this._lvlToasts[skill]; }, 300); }, 2600);
+    this._lvlToasts[skill] = { el: t, from: first, timer };
   }
 
   /** Settings changed the mode: tidy away what the new one doesn't show. */

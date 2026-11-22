@@ -197,6 +197,11 @@ export function placeLane(b, vw, mode) {
     // stop short of the launcher, so a card never sits over it.
     const bag = b.sidepanel;
     if (bag && bag.width < 100 && bag.left < left + width && bag.bottom > top) width = bag.left - 6 - left;
+    // The orbs (and their labels) sit under the minimap but reach further left
+    // than it: stop short of them too, or a tip covers the HP and Special orbs.
+    for (const r of [b['spec-orb'], b['prayer-orb'], b['hp-orb'], ...(b.caps || [])]) {
+      if (r && r.left < left + width && r.right > left && r.top < top + 120 && r.bottom > top) width = Math.min(width, r.left - 8 - left);
+    }
     if (width < 200) {
       // A very narrow screen: a strip right across, under the minimap and its orbs.
       left = 6; width = vw - 12;

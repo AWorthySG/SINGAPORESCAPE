@@ -70,8 +70,9 @@ export class QuickBar {
       const b = e.target.closest('button');
       if (!b) return;
       if (b.id === 'qb-search') this.ui.cmdSearch?.open();
-      else if (b.classList.contains('qb-edit')) this.openEdit();
-      else if (b.dataset.slot) this.tap(Number(b.dataset.slot));
+      else if (b.classList.contains('qb-more')) el.classList.toggle('open');
+      else if (b.classList.contains('qb-edit')) { el.classList.remove('open'); this.openEdit(); }
+      else if (b.dataset.slot) { this.tap(Number(b.dataset.slot)); el.classList.remove('open'); }
     });
     root.appendChild(el);
     this.el = el;
@@ -88,6 +89,11 @@ export class QuickBar {
     if (sig === this._sig) return;
     this._sig = sig;
     let html = `<button type="button" id="qb-search" class="qb-btn" title="Search windows, skills, places, quests, monsters and items (/ or Ctrl+K)" aria-label="Search">${playIconHTML('ui-search', 24)}</button>`;
+    // Phones fold the favourites behind this (styles/qol.css): a 2 x 3 block of
+    // buttons sat beside your hero in the middle of the screen. A dot shows while
+    // one of them (auto battle, say) is on.
+    const anyOn = bar.some((k) => QB_ACTIONS[k]?.on?.(g));
+    html += `<button type="button" class="qb-btn qb-more${anyOn ? ' has-on' : ''}" title="Your quick actions" aria-label="Quick actions">&#8943;</button>`;
     bar.forEach((key, i) => {
       const a = QB_ACTIONS[key];
       if (!a) return;
