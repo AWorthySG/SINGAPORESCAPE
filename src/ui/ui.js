@@ -80,7 +80,7 @@ import { CompactHud } from './compacthud.js';
 import { feedAllPlan, feedAll } from '../game/feedall.js';   // "Feed materials to worn gear" in one go
 export const COLLAPSE_V = 2;   // the saved fold states' version (see _loadCollapse)
 export const TIP_LINGER_MS = 1000;   // an item's hover description stays this long after the pointer leaves
-import { NoticeLane } from './noticelane.js';
+import { NoticeLane, afterLayout } from './noticelane.js';
 import { QuickSlot, interactCaption, trackerHTML, loadTrackerFolded, saveTrackerFolded, sheetSnap } from './hudease.js';
 import { QuickBar } from './quickbar.js';
 import { CmdSearch } from './cmdsearch.js';
@@ -1046,13 +1046,18 @@ export class UI {
     this.el.chatLog.appendChild(div);
     while (this.el.chatLog.childElementCount > 120) this.el.chatLog.removeChild(this.el.chatLog.firstChild);
     this._applyVisibility(div);
-    // Scrolling to the bottom forces a layout: do it once a frame, not per message,
-    // and not while the chat is folded (its log isn't laid out, so there is
-    // nothing to scroll, but reading its height still laid out the whole page).
-    this._soon('chatScroll', () => {
+    // Scrolling to the bottom needs the page laid out: do it once a frame, not
+    // per message, right after the browser's own layout (where reading the
+    // log's height costs nothing; noticelane.js afterLayout), and not while the
+    // chat is folded (its log isn't laid out, so there is nothing to scroll).
+    if (this._chatScrollQueued) return;
+    this._chatScrollQueued = true;
+    const scroll = () => {
+      this._chatScrollQueued = false;
       if (this.el.chatLog.parentElement?.classList.contains('collapsed')) return;
       this.el.chatLog.scrollTop = this.el.chatLog.scrollHeight;
-    });
+    };
+    if (!afterLayout(scroll)) this._soon('chatScroll', scroll);
   }
 
   /** Run `fn` once on the next animation frame, however many times it is asked

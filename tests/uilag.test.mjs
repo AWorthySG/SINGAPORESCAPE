@@ -97,9 +97,11 @@ test('the tracker pointer looks only among the NPCs it could point at, and sees 
 
 // ---------------- Notice lane ----------------
 test('the notice lane is measured once the browser has laid the page out (a ResizeObserver), once per frame', async () => {
-  const saved = { RO: globalThis.ResizeObserver, doc: globalThis.document, raf: globalThis.requestAnimationFrame };
+  const saved = { RO: globalThis.ResizeObserver, doc: globalThis.document, raf: globalThis.requestAnimationFrame, st: globalThis.setTimeout };
   const observers = [];
   const frames = [];
+  const timers = [];
+  globalThis.setTimeout = (f, ms) => { timers.push({ f, ms }); return timers.length; };
   globalThis.ResizeObserver = class {
     constructor(cb) { this.cb = cb; this.watching = new Set(); observers.push(this); }
     observe(t) { this.watching.add(t); }
@@ -137,8 +139,21 @@ test('the notice lane is measured once the browser has laid the page out (a Resi
     assert.equal(ro.watching.size, 1);
     ro.fire();
     assert.equal(placed, 3);
+    // A browser that never answers: after a second the lane is placed anyway.
+    timers.length = 0;
+    lane.placeSoon();
+    assert.equal(timers.length, 1);
+    assert.equal(timers[0].ms, 1000);
+    timers[0].f();
+    assert.equal(placed, 4, 'placed by the watchdog');
+    assert.equal(ro.watching.size, 0);
+    lane.placeSoon();
+    ro.fire();
+    assert.equal(placed, 5, 'and the next one goes the quick way again');
+    timers.at(-1).f();
+    assert.equal(placed, 5, 'a watchdog with nothing left to do does nothing');
   } finally {
-    for (const [k, v] of [['ResizeObserver', saved.RO], ['document', saved.doc], ['requestAnimationFrame', saved.raf]]) {
+    for (const [k, v] of [['ResizeObserver', saved.RO], ['document', saved.doc], ['requestAnimationFrame', saved.raf], ['setTimeout', saved.st]]) {
       if (v) globalThis[k] = v; else delete globalThis[k];
     }
   }

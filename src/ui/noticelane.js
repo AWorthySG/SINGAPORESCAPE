@@ -26,27 +26,34 @@ const now = () => (typeof performance !== 'undefined' ? performance.now() : Date
 // next rendering step: after style and layout, before paint, the one moment
 // reading boxes costs nothing. Observing the root element (always laid out,
 // never 0 x 0) afresh each time turns that into "call me after the next layout".
-let layoutRO = null, layoutJobs = [], layoutRunning = false;
+let layoutRO = null, layoutJobs = [], layoutRunning = false, layoutTimer = 0;
+function runLayoutJobs() {
+  layoutRO.disconnect();
+  clearTimeout(layoutTimer);
+  const jobs = layoutJobs;
+  layoutJobs = [];
+  layoutRunning = true;
+  for (const f of jobs) { try { f(); } catch (err) { console.error('Error after layout:', err); } }
+  layoutRunning = false;
+  // Asked again meanwhile: wait for the next frame (observing inside the
+  // observer's own callback would only be reported as a loop it can't finish).
+  if (layoutJobs.length) requestAnimationFrame(armLayout);
+}
+function armLayout() {
+  layoutRO.observe(document.documentElement);
+  // A browser that never answered would leave the lane where it was for good:
+  // after a second the jobs run anyway, as they used to (measuring there and then).
+  clearTimeout(layoutTimer);
+  layoutTimer = setTimeout(() => { if (layoutJobs.length && !layoutRunning) runLayoutJobs(); }, 1000);
+  layoutTimer?.unref?.();   // (headless, the tests: never keeps Node waiting)
+}
 /** Run `fn` after the browser's next layout. False when there is no
  *  ResizeObserver (headless, very old browsers): the caller falls back. */
 export function afterLayout(fn) {
   if (typeof ResizeObserver !== 'function' || typeof document === 'undefined' || !document.documentElement) return false;
-  const root = document.documentElement;
-  if (!layoutRO) {
-    layoutRO = new ResizeObserver(() => {
-      layoutRO.disconnect();
-      const jobs = layoutJobs;
-      layoutJobs = [];
-      layoutRunning = true;
-      for (const f of jobs) { try { f(); } catch (err) { console.error('Error after layout:', err); } }
-      layoutRunning = false;
-      // Asked again meanwhile: wait for the next frame (observing inside this
-      // callback would only be reported as a loop the browser can't finish).
-      if (layoutJobs.length) requestAnimationFrame(() => layoutRO.observe(root));
-    });
-  }
+  layoutRO ||= new ResizeObserver(runLayoutJobs);
   layoutJobs.push(fn);
-  if (layoutJobs.length === 1 && !layoutRunning) layoutRO.observe(root);
+  if (layoutJobs.length === 1 && !layoutRunning) armLayout();
   return true;
 }
 
