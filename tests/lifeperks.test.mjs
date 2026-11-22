@@ -8,9 +8,8 @@ import assert from 'node:assert/strict';
 import { Game } from '../src/game/game.js';
 import { clearSave } from '../src/game/save.js';
 import { xpForLevel } from '../src/data/xp.js';
-import { playerAttackVsNpc, playerRangedVsNpc, playerMagicVsNpc, armourMult, armourOf, weaknessOf } from '../src/game/combat.js';
-import { getSpell } from '../src/data/magic.js';
-import { LIFE_PERKS, LIFE_PERK_SKILLS, LIFE_PERK_FULL_LEVEL, lifePerkValue, lifePerkTotals } from '../src/game/lifeperks.js';
+import { armourMult, armourOf, weaknessOf } from '../src/game/combat.js';
+import { LIFE_PERKS, LIFE_PERK_SKILLS, LIFE_PERK_FULL_LEVEL, LIFE_PERK_MAX_LEVEL, LIFE_PERK_OVER, lifePerkValue, lifePerkTotals } from '../src/game/lifeperks.js';
 
 function fakeStorage() {
   const m = new Map();
@@ -35,7 +34,12 @@ test('life perks: nothing at level 1, full at level 200, rising in between', () 
   for (const s of LIFE_PERK_SKILLS) {
     assert.equal(lifePerkValue(s, 1), 0, `${s} gives nothing at level 1`);
     assert.equal(lifePerkValue(s, LIFE_PERK_FULL_LEVEL), LIFE_PERKS[s].max, `${s} is full at ${LIFE_PERK_FULL_LEVEL}`);
-    assert.equal(lifePerkValue(s, 5000), LIFE_PERKS[s].max, `${s} stops growing past ${LIFE_PERK_FULL_LEVEL}`);
+    // Past 200 it keeps growing, half as fast, to 1.5x at LIFE_PERK_MAX_LEVEL, and stops there.
+    const top = Math.round(LIFE_PERKS[s].max * (1 + LIFE_PERK_OVER) * 10) / 10;
+    assert.equal(lifePerkValue(s, LIFE_PERK_MAX_LEVEL), top, `${s} is ${top} at ${LIFE_PERK_MAX_LEVEL}`);
+    assert.equal(lifePerkValue(s, 5000), top, `${s} stops growing past ${LIFE_PERK_MAX_LEVEL}`);
+    const v600 = lifePerkValue(s, 600);
+    assert.ok(v600 > LIFE_PERKS[s].max && v600 < top, `${s} grows past ${LIFE_PERK_FULL_LEVEL} (${v600})`);
     const v50 = lifePerkValue(s, 50), v99 = lifePerkValue(s, 99);
     assert.ok(v50 > 0 && v50 < v99 && v99 < LIFE_PERKS[s].max, `${s} scales with level (${v50} < ${v99})`);
   }
@@ -58,17 +62,17 @@ test('life perks: gear-style stats (crit damage, pierce, crit, Attack/Magic %, l
   const before = game.equipment.bonuses();
   for (const s of LIFE_PERK_SKILLS) setLevel(game, s, LIFE_PERK_FULL_LEVEL);
   const after = game.equipment.bonuses();
-  assert.equal(after.critDmg - before.critDmg, 40, 'Mining: crit damage');
+  assert.equal(after.critDmg - before.critDmg, 60, 'Mining: crit damage');
   assert.equal(after.pierce - before.pierce, 15, 'Smithing: armour pierce');
-  assert.equal(after.crit - before.crit, 10, 'Crafting: crit chance');
-  assert.equal(after.magPct - before.magPct, 15, 'Firemaking: Magic bonus');
-  assert.equal(after.atkPct - before.atkPct, 15, 'Woodcutting: Attack bonus');
-  assert.equal(after.lifesteal - before.lifesteal, 5, 'Herblore: lifesteal');
-  assert.equal(after.bossDmg - before.bossDmg, 15, 'Hunter: boss damage');
-  assert.equal(after.strength - before.strength, 60, 'Fishing: melee power');
+  assert.equal(after.crit - before.crit, 15, 'Crafting: crit chance');
+  assert.equal(after.magPct - before.magPct, 15 + 10, 'Firemaking: Magic bonus, and Fishing: damage for every style');
+  assert.equal(after.atkPct - before.atkPct, 15 + 10, 'Woodcutting: Physical bonus, and Fishing: damage for every style');
+  assert.equal(after.lifesteal - before.lifesteal, 8, 'Herblore: lifesteal');
+  assert.equal(after.bossDmg - before.bossDmg, 20, 'Hunter: boss damage');
+  assert.equal(after.strength - before.strength, 0, 'no flat power any more (Fishing is a percentage)');
   // Halfway-ish levels give part of it.
   setLevel(game, 'mining', 99);
-  assert.ok(game.equipment.bonuses().critDmg - before.critDmg > 15 && game.equipment.bonuses().critDmg - before.critDmg < 25);
+  assert.ok(game.equipment.bonuses().critDmg - before.critDmg > 25 && game.equipment.bonuses().critDmg - before.critDmg < 35);
 });
 
 test('life perks: Woodcutting, Smithing and Cooking raise damage against a normal monster; Hunter does not', () => {
@@ -79,7 +83,7 @@ test('life perks: Woodcutting, Smithing and Cooking raise damage against a norma
   assert.ok(Math.abs(dmgM(game, n) / base - 1.15) < 1e-9, 'Woodcutting: +15% physical damage');
   setLevel(game, 'woodcutting', 1);
   setLevel(game, 'cooking', LIFE_PERK_FULL_LEVEL);
-  assert.ok(Math.abs(dmgM(game, n) / base - 1.15) < 1e-9, 'Cooking: +15% against normal monsters');
+  assert.ok(Math.abs(dmgM(game, n) / base - 1.20) < 1e-9, 'Cooking: +20% against normal monsters');
   setLevel(game, 'cooking', 1);
   setLevel(game, 'hunter', LIFE_PERK_FULL_LEVEL);
   assert.ok(Math.abs(dmgM(game, n) / base - 1) < 1e-9, 'Hunter does nothing against a normal monster');
@@ -98,7 +102,7 @@ test('life perks: Hunter raises damage against bosses and champions; Cooking doe
   const base = dmgM(game, b);
   setLevel(game, 'hunter', LIFE_PERK_FULL_LEVEL);
   const perk = game.perkMods('melee').boss || 0;
-  assert.ok(Math.abs(dmgM(game, b) / base - (1 + perk + 0.15) / (1 + perk)) < 1e-9, 'Hunter: +15% boss damage');
+  assert.ok(Math.abs(dmgM(game, b) / base - (1 + perk + 0.20) / (1 + perk)) < 1e-9, 'Hunter: +20% boss damage');
   setLevel(game, 'hunter', 1);
   setLevel(game, 'cooking', LIFE_PERK_FULL_LEVEL);
   assert.ok(Math.abs(dmgM(game, b) / base - 1) < 1e-9, 'Cooking does nothing against a boss');
@@ -122,30 +126,24 @@ test('life perks: Crafting raises crit chance', () => {
   setLevel(game, 'crafting', LIFE_PERK_FULL_LEVEL);
   const cMax = game._offensiveMods(n, 'melee').critCh;
   assert.ok(c0 < c50 && c50 < cMax);
-  assert.ok(Math.abs(cMax - c0 - 0.10) < 1e-9, 'Crafting: +10% crit chance');
+  assert.ok(Math.abs(cMax - c0 - 0.15) < 1e-9, 'Crafting: +15% crit chance');
 });
 
-test('life perks: Fishing adds power to every style', () => {
+test('life perks: Fishing adds damage to every style', () => {
   const game = newGame();
-  const def = mob(game).def;
-  setLevel(game, 'ranged', 99); setLevel(game, 'magic', 99);   // big enough that +power shows in the max hit
-  const spell = getSpell(game.player.spell);
-  const maxes = () => [playerAttackVsNpc(game.skills, game.equipment, 'balanced', def).max,
-    playerRangedVsNpc(game.skills, game.equipment, 'balanced', def, 10).max,
-    playerMagicVsNpc(game.skills, game.equipment, spell, def).max];
-  const before = maxes(), gearStr = game.equipment.bonuses().magicStr;
+  const n = mob(game);
+  const m0 = dmgM(game, n, 'melee'), g0 = dmgM(game, n, 'magic');
   setLevel(game, 'fishing', LIFE_PERK_FULL_LEVEL);
-  const after = maxes();
-  for (let i = 0; i < 3; i++) assert.ok(after[i] > before[i], `${['melee', 'ranged', 'magic'][i]} max hit: ${before[i]} -> ${after[i]}`);
-  assert.equal(game.equipment.bonuses().magicStr - gearStr, 6, 'a point of magic damage per 10 power');
+  assert.ok(Math.abs(dmgM(game, n, 'melee') / m0 - 1.10) < 1e-9, 'melee (and ranged): +10%');
+  assert.ok(Math.abs(dmgM(game, n, 'magic') / g0 - 1.10) < 1e-9, 'magic: +10%');
 });
 
 test('life perks: Fletching shortens the time between attacks', () => {
   const game = newGame();
   const t0 = game.attackInterval();
   setLevel(game, 'fletching', LIFE_PERK_FULL_LEVEL);
-  const gear = game.equipment._haste() - 10;
-  assert.ok(Math.abs(game.attackInterval() / t0 - (100 + gear) / (110 + gear)) < 1e-9, 'Fletching: +10% attack speed');
+  const gear = game.equipment._haste() - 15;
+  assert.ok(Math.abs(game.attackInterval() / t0 - (100 + gear) / (115 + gear)) < 1e-9, 'Fletching: +15% attack speed');
 });
 
 test('life perks: Herblore heals a share of the damage you deal', () => {
@@ -159,7 +157,7 @@ test('life perks: Herblore heals a share of the damage you deal', () => {
   game.player.hp = 1;
   setLevel(game, 'herblore', LIFE_PERK_FULL_LEVEL);
   game._applyPlayerHit(n, 100);
-  assert.equal(game.player.hp - 1 - gearHeal, Math.round(100 * (n.def?.hpScale || 1) * 5 / 100), 'Herblore: +5% lifesteal');
+  assert.equal(game.player.hp - 1 - gearHeal, Math.round(100 * (n.def?.hpScale || 1) * 8 / 100), 'Herblore: +8% lifesteal');
 });
 
 test('life perks: Farming makes area hits land harder, not damage over time', () => {
@@ -167,7 +165,7 @@ test('life perks: Farming makes area hits land harder, not damage over time', ()
   game._aoeCritCh = 0;   // no crits: compare plain damage
   assert.equal(game._aoeCrit(100).dmg, 100);
   setLevel(game, 'farming', LIFE_PERK_FULL_LEVEL);
-  assert.equal(game._aoeCrit(100).dmg, 120, 'Farming: +20% area damage');
+  assert.equal(game._aoeCrit(100).dmg, 130, 'Farming: +30% area damage');
   assert.equal(game._aoeCrit(100, false).dmg, 100, 'an ignite tick is not an area hit');
 });
 
@@ -176,7 +174,7 @@ test('life perks: Thieving adds a chance of an extra strike', () => {
   const n = mob(game);
   const rand = Math.random;
   try {
-    Math.random = () => 0.08;   // under Thieving's 10%, over any low-level perk chance
+    Math.random = () => 0.1;    // under Thieving's 12%, over any low-level perk chance
     const h0 = game._offensiveMods(n, 'melee').hits;
     setLevel(game, 'thieving', LIFE_PERK_FULL_LEVEL);
     const h1 = game._offensiveMods(n, 'melee').hits;

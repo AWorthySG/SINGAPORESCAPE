@@ -78,7 +78,7 @@ import { WorldEvents } from './worldevents.js';
 import * as Mercs from './mercenary.js';
 import * as Culling from './culling.js';
 import { classPerks } from './classperks.js';
-import { LIFE_PERKS, LIFE_PERK_SKILLS, LIFE_PERK_FULL_LEVEL, LIFE_PERK_NOTE_EVERY, lifePerkTotals, lifePerkText } from './lifeperks.js';
+import { LIFE_PERKS, LIFE_PERK_SKILLS, LIFE_PERK_FULL_LEVEL, LIFE_PERK_MAX_LEVEL, LIFE_PERK_NOTE_EVERY, lifePerkTotals, lifePerkText } from './lifeperks.js';
 import { TOPIC_BY_ID } from '../data/questions.js';
 import { LIFE_STAGES, LIFE_GRAD, LIFE_STAGES_ADV, LIFE_GRAD_ADV, LIFE_STAGES_WILD, LIFE_GRAD_WILD } from '../data/lifeskills.js';
 import { QUESTS, CHAMPION_QP, REDEMPTION_GOAL, CORRUPTION_GOAL } from '../data/quests.js';
@@ -628,9 +628,10 @@ export class Game {
     // Every 10 life skill levels, say what that skill now adds in a fight, so
     // players notice their gathering and making makes them stronger.
     this._lifePerkNote = (p) => {
-      if (!LIFE_PERKS[p?.skill] || p.level % LIFE_PERK_NOTE_EVERY || p.level > LIFE_PERK_FULL_LEVEL) return;
+      // (Past level 200, where it grows half as fast, every 50 levels, to LIFE_PERK_MAX_LEVEL.)
+      if (!LIFE_PERKS[p?.skill] || p.level % (p.level > LIFE_PERK_FULL_LEVEL ? 50 : LIFE_PERK_NOTE_EVERY) || p.level > LIFE_PERK_MAX_LEVEL) return;
       const name = SKILL_BY_ID[p.skill]?.name || p.skill;
-      const text = `Life skill perk: your ${name} now gives ${lifePerkText(p.skill, p.level)} in combat${p.level === LIFE_PERK_FULL_LEVEL ? ' (its full strength)' : ''}.`;
+      const text = `Life skill perk: your ${name} now gives ${lifePerkText(p.skill, p.level)} in combat${p.level === LIFE_PERK_MAX_LEVEL ? ' (its full strength)' : ''}.`;
       if (this._batchNews) this._batchNews.notes.set(`lifeperk:${p.skill}`, [text, 'level']);   // a batch says only the last (autoprocess.js)
       else this.msg(text, 'level');
     };
