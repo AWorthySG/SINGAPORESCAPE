@@ -56,7 +56,7 @@ import { shrineGoodsSection, askGoods, shrineMaxButton } from './shrineui.js';
 import { goodsKind } from '../game/offerings.js';
 import { ATTRS, ATTR_NAMES, attrSummary, attrForMode, MAX_STAT_POINTS, RESET_COST_PER_POINT, holdRepeatDelay } from '../game/attributes.js';
 import { STAT_LABELS, STAT_HELP, compareGear, deltaText, gearBySlot, gearRating, meetsReq, swingBeats, tierOf, weaponStyle } from '../game/gear.js';
-import { TILE, LEARNING_ENABLED } from '../config.js';
+import { TILE, LEARNING_ENABLED, TICK_MS } from '../config.js';
 import { TERRAIN, zoneLevel } from '../data/world.js';
 import { clearSave, suppressSaves, exportSaveCode, importSaveCode } from '../game/save.js';
 import { statSheet } from '../game/statsheet.js';
@@ -70,6 +70,7 @@ import { eventsPanelHTML, wireEventsPanel, eventTrackerRows, drawEventMarker } f
 import { keyedSlots, placeSlots } from './slotgrid.js';
 import { WindowMemory, initWindowEase, toggleTapClose, tapCloseLabel } from './windowease.js';   // windows remember where you were; tap outside to close
 import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG, abilityIconHTML, spellIconHTML, playIconHTML, lazyIcon } from '../render/icons.js';
+import { abilitiesFor } from '../data/abilities.js';   // a class's skills, for its Skills & perks window
 import { weaknessOf, armourTierOf, ARMOUR_TIERS, levelFlatDmg } from '../game/combat.js';
 import { isBone } from '../data/bones.js';
 import { RACES, raceOf, weaponsFor, weaponTypeName, WEAPON_VS_RACE } from '../data/races.js';
@@ -384,8 +385,14 @@ export class UI {
       const btn = document.createElement('button');
       btn.className = 'ability-btn';
       btn.dataset.ability = ab.id;
-      btn.title = `${ab.name} (${ab.key}) — ${this.game.abilityCostText(ab)}\n${ab.desc}`;   // a Merchant pays in coins
-      btn._baseTitle = btn.title;   // renderAbilities adds the unlock level while it's locked
+      // Our own hover card (the browser's title tip didn't show: the button redraws
+      // every tick as its cooldown counts down). Mouse only: a touch uses the skill.
+      btn.setAttribute('aria-label', `${ab.name} (${ab.key})`);
+      btn.dataset.tipHost = '';
+      btn._tipGet = () => this._skillTipHTML(ab);
+      btn.addEventListener('mouseenter', (e) => { if (!this._touchUsed) this.showTooltip(e, this._skillTipHTML(ab), btn); });
+      btn.addEventListener('mousemove', (e) => { if (!this._touchUsed) { clearTimeout(this._tipLinger); this._tipLingerArmed = false; this.moveTooltip(e); } });
+      btn.addEventListener('mouseleave', () => this._lingerHide());
       btn.innerHTML =
         `<span class="ab-key">${ab.key}</span>` +
         `<span class="ab-icon">${abilityIconHTML(ab.id, 36)}</span>` +
@@ -572,9 +579,6 @@ export class UI {
       const ready = unlocked && cd <= 0 && g.canAffordAbility(ab);
       const armed = g.armedAbility === ab.id;
       btn.classList.toggle('locked', !unlocked);
-      // A locked slot says why on hover (the 🔒 number alone was a puzzle).
-      const tip = unlocked ? btn._baseTitle : `🔒 Unlocks at combat level ${ab.unlock}\n${btn._baseTitle}`;
-      if (tip && btn.title !== tip) btn.title = tip;
       btn.classList.toggle('armed', armed);
       btn.classList.toggle('ready', ready && !armed);
       btn.classList.toggle('disabled', unlocked && !ready && !armed);
@@ -2637,7 +2641,7 @@ export class UI {
     }
     const modeLabel = mode === 'ranged' ? 'Ranged' : mode === 'magic' ? 'Magic' : mode === 'dance' ? `Dancer &middot; Rhythm ${this.game.danceRhythm}/${RHYTHM_MAX}` : 'Melee';
     const cls = CLASS_BY_ID[this.game.jobClass];
-    const clsLabel = cls ? `<div class="cb-class">Class: <b>${cls.name}</b> &middot; ${WEAPON_TYPE_NAMES[cls.weapon]} <button class="cb-perks" type="button">Class perks</button></div>`
+    const clsLabel = cls ? `<div class="cb-class">Class: <b>${cls.name}</b> &middot; ${WEAPON_TYPE_NAMES[cls.weapon]} <button class="cb-perks" type="button">Skills &amp; perks</button></div>`
       + `<div class="cb-perkline">${classPerkSummary(cls.id)}</div>` : '';
     const lvlEl = this.el.combat.querySelector('.cb-level');
     lvlEl.innerHTML = `${clsLabel}Combat level: ${this.game.skills.combatLevel()} <span style="opacity:.7">&middot; ${modeLabel}</span>`;
@@ -2663,11 +2667,12 @@ export class UI {
   openClassPerks(classId = this.game.jobClass) {
     const cls = CLASS_BY_ID[classId];
     if (!cls) return;
-    this.openModal(`${cls.name} perks`, (body) => {
+    this.openModal(`${cls.name}: skills and perks`, (body) => {
       const art = heroArtSrc(cls.id);
       body.innerHTML = `<div class="sg-head"><span class="class-pic">${art ? `<img src="${art}" alt="" width="48" height="48">` : itemIconSVG(starterWeapon(cls.id), 40)}</span>`
         + `<div><b>${cls.name} · ${WEAPON_TYPE_NAMES[cls.weapon]}</b><span>${cls.desc}</span></div></div>`
-        + `<div class="cp-list">${classPerks(cls.id).map((p) => `<div class="cp-row"><span class="cp-ic">${p.icon}</span><span><b>${p.label}</b> ${p.text}</span></div>`).join('')}</div>`
+        + this._skillsSection(cls)
+        + `<div class="cp-head"><b>Perks</b></div><div class="cp-list">${classPerks(cls.id).map((p) => `<div class="cp-row"><span class="cp-ic">${p.icon}</span><span><b>${p.label}</b> ${p.text}</span></div>`).join('')}</div>`
         // Class passives: one every 100 levels of the class's fighting skill.
         + (() => {
           const skill = CLASS_SKILL[cls.style] || 'attack';
@@ -2680,6 +2685,30 @@ export class UI {
         + '<div class="modal-hint">Every class can use any armour, tools and the learning perks in the Knowledge Codex.</div>';
     });
     this.modal.kind = 'classperks';
+  }
+
+  /** The class's five skills (Z X C V B) in full: the owner found them only on
+   *  the action bar's hover, which phones never show. Yours follow the weapon in
+   *  your hand, as the bar does; another class's show its own weapon's set. */
+  _skillsSection(cls) {
+    const g = this.game, own = cls.id === g.jobClass;
+    const set = own ? g.currentAbilities() : abilitiesFor(cls.style, cls.id);
+    const rows = set.map((ab) => {
+      const cost = own ? g.abilityCostText(ab) : ab.cost ? `${ab.cost}% adrenaline` : ab.build ? `free, builds ${ab.build}% adrenaline` : 'free';
+      const locked = own && !g.abilityUnlocked(ab);
+      const bits = [cost, `${+(ab.cd * TICK_MS / 1000).toFixed(1)}s cooldown`, ...(ab.unlock > 1 ? [`from combat level ${ab.unlock}`] : [])];
+      return `<div class="cp-row sk-row${locked ? ' locked' : ''}"><span class="cp-ic">${abilityIconHTML(ab.id, 28)}</span>`
+        + `<span><b><kbd>${ab.key}</kbd> ${escapeHtml(ab.name)}</b> <i class="sk-meta">${escapeHtml(bits.join(' · '))}</i><br>${escapeHtml(ab.desc)}</span></div>`;
+    }).join('');
+    return `<div class="cp-head"><b>Skills</b> · ${own ? 'for the weapon in your hand' : `with ${aOrAn(WEAPON_TYPE_NAMES[cls.weapon].toLowerCase())}`}</div><div class="cp-list">${rows}</div>`;
+  }
+
+  /** A skill button's hover card: name, key, cost, cooldown and what it does. */
+  _skillTipHTML(ab) {
+    const g = this.game, cd = g.abilityCd[ab.id] || 0;
+    const state = !g.abilityUnlocked(ab) ? `🔒 Unlocks at combat level ${ab.unlock}`
+      : cd > 0 ? `Ready in ${+(cd * TICK_MS / 1000).toFixed(1)}s` : !g.canAffordAbility(ab) ? 'Not enough adrenaline yet' : 'Ready';
+    return `<b>${escapeHtml(ab.name)}</b> (${ab.key})<br><span style="opacity:.8">${escapeHtml(g.abilityCostText(ab))} · ${+(ab.cd * TICK_MS / 1000).toFixed(1)}s cooldown</span><br>${escapeHtml(ab.desc)}<br><i>${state}</i>`;
   }
 
   // ---------------- First-time tips ----------------
