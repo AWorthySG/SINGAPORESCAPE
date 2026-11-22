@@ -55,7 +55,7 @@ import { openSacrifice, openSacrificeFrom, openDismantle, shrineGearSection, ask
 import { shrineGoodsSection, askGoods, shrineMaxButton } from './shrineui.js';
 import { goodsKind } from '../game/offerings.js';
 import { ATTRS, ATTR_NAMES, attrSummary, attrForMode, MAX_STAT_POINTS, RESET_COST_PER_POINT, holdRepeatDelay } from '../game/attributes.js';
-import { STAT_LABELS, STAT_HELP, compareGear, deltaText, isUpgrade, gearBySlot, gearRating, meetsReq, swingBeats, tierOf, weaponStyle } from '../game/gear.js';
+import { STAT_LABELS, STAT_HELP, compareGear, deltaText, effectiveRating, isUpgrade, gearBySlot, gearRating, meetsReq, swingBeats, tierOf, weaponStyle } from '../game/gear.js';
 import { TILE, LEARNING_ENABLED, TICK_MS } from '../config.js';
 import { TERRAIN, zoneLevel } from '../data/world.js';
 import { clearSave, suppressSaves, exportSaveCode, importSaveCode } from '../game/save.js';
@@ -1849,12 +1849,12 @@ export class UI {
     // The slot and style tabs you left it on (remembered: windowease.js).
     const mem = this._gearGuide || (this._gearGuide = {});
     slot ||= mem.slot || 'weapon';
-    let style = mem.style || g.equipment.combatType();
+    let style = mem.style || g.combatMode?.() || g.equipment.combatType();
     const render = (body) => {
       body.innerHTML = '';
       const intro = document.createElement('div');
       intro.className = 'gear-intro';
-      intro.innerHTML = '<p>Each slot is ranked <b>best first</b> by its <b>gear score</b>: total bonuses, with weapons counted as damage per swing, so a fast sword can beat a slow axe. Look for the green <span class="gear-up-inline">▲</span> in your pack. It marks gear that beats what you are wearing.</p>'
+      intro.innerHTML = '<p>Each slot is ranked <b>best first</b> for a fighting style (yours, to start): only the stats that style uses count, with weapons counted as damage per swing, so a fast sword can beat a slow axe. <b>★ Best in slot</b> marks the strongest of all, <b>★ Best you can wear now</b> the strongest you have the levels for. Look for the green <span class="gear-up-inline">▲</span> in your pack. It marks gear that beats what you are wearing.</p>'
         + `<details><summary>What do the stats mean?</summary><ul>${STAT_HELP.map(([k, v]) => `<li><b>${k}</b>: ${v}</li>`).join('')}</ul></details>`;
       body.appendChild(intro);
       const tabs = document.createElement('div');
@@ -1878,8 +1878,9 @@ export class UI {
         note.innerHTML = `As a <b>${myCls.name}</b> you can wield <b>${WEAPON_TYPE_NAMES[myCls.weapon]}</b> and <b>${WEAPON_TYPE_NAMES[SECONDARY_WEAPON[myCls.id]]}</b>. Other weapons you find are worth selling.`;
         body.appendChild(note);
         ids = ids.filter((id) => { const t = getItem(id).equip?.weaponType; return t && canWield(myCls.id, t); });
-      } else if (slot === 'weapon') {
-        // Weapons only compare fairly within a fighting style.
+      } else {
+        // The style the list is ranked for: weapons only compare fairly within one,
+        // and jewellery, capes and the like are worth most to the style they suit.
         const st = document.createElement('div');
         st.className = 'gear-tabs gear-styles';
         for (const k of ['melee', 'ranged', 'magic', 'dance']) {
@@ -1890,8 +1891,14 @@ export class UI {
           st.appendChild(b);
         }
         body.appendChild(st);
-        ids = ids.filter((id) => weaponStyle(id) === style);
+        if (slot === 'weapon') ids = ids.filter((id) => weaponStyle(id) === style);
       }
+      // Ranked for the style: a weapon for its own, anything else for the style picked
+      // (a Magic ring is worth little to a swordsman). The owner asked to see the best plainly.
+      const styleOf = (id) => (slot === 'weapon' ? weaponStyle(id) : style);
+      const score = (id) => effectiveRating(id, {}, styleOf(id));
+      ids = [...ids].sort((a, b) => score(b) - score(a) || gearRating(b) - gearRating(a));
+      const bestNow = ids.find((id) => meetsReq(id, g.skills).ok);
       const list = document.createElement('div');
       list.className = 'gear-list';
       const worn = g.equipment.get(slot);
@@ -1904,12 +1911,18 @@ export class UI {
         else if (g.inventory.count(id)) tag = '<span class="gear-tag own">In pack</span>';
         else if (g.bank.count(id)) tag = '<span class="gear-tag own">In bank</span>';
         if (!req.ok) tag += `<span class="gear-tag lock">Needs ${req.missing.map((m) => `${capitalize(m.skill)} ${m.lvl}`).join(', ')}</span>`;
+        if (i === 0) tag += '<span class="gear-tag best">★ Best in slot</span>';
+        else if (id === bestNow) tag += '<span class="gear-tag best now">★ Best you can wear now</span>';
+        // Which style a piece is for (jewellery, capes, gloves, boots carry one).
+        const st = it.equip.style;
+        if (slot !== 'weapon' && st) tag += `<span class="gear-tag style">${st === 'melee' ? 'Melee' : st === 'ranged' ? 'Ranged' : 'Magic'}</span>`;
+        else if (slot !== 'weapon' && ['ring', 'amulet'].includes(slot) && !st && (it.equip.bonuses?.attack || it.equip.bonuses?.ranged || it.equip.bonuses?.magic)) tag += '<span class="gear-tag style">All styles</span>';
         const row = document.createElement('div');
         row.className = 'gear-row' + (id === worn ? ' is-worn' : '') + (req.ok ? '' : ' locked');
         row.innerHTML = `<span class="gear-rank">#${i + 1}</span><span class="gear-ic">${itemIconSVG(id, 28)}</span>`
           + `<div class="gear-info"><div class="gear-name"><b>${escapeHtml(it.name)}</b>${tag}</div>`
           + `<div class="gear-stats">${this._gearStats(id, true)}${reqTxt && req.ok ? ` · <i>req ${reqTxt}</i>` : ''}</div></div>`
-          + `<span class="gear-score" title="Gear score">${gearRating(id)}</span>`;
+          + `<span class="gear-score" title="Gear score for this style">${Math.round(score(id))}</span>`;
         list.appendChild(row);
       });
       body.appendChild(list);

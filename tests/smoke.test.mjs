@@ -635,7 +635,7 @@ test('existing weapons, jewellery and boss uniques carry the new offensive stats
 });
 
 test('every amulet, ring and cape suits one style, and each style gets an equal ladder', async () => {
-  const { ITEMS, ACCESSORY_SLOTS, ACCESSORY_STYLE, ENDGAME_JEWELLERY, accessoryStats } = await import('../src/data/items.js');
+  const { ITEMS, ACCESSORY_SLOTS, ACCESSORY_STYLE, ENDGAME_JEWELLERY, accessoryStats, JEWELLERY_MULT, JEWELLERY_EXTRA_MULT } = await import('../src/data/items.js');
   // The crafted endgame jewellery suits every style at once (tests/crafting-tiers.test.mjs).
   const allStyle = new Set(ENDGAME_JEWELLERY.map(([id]) => id));
   for (const [id, it] of Object.entries(ITEMS)) {
@@ -646,7 +646,12 @@ test('every amulet, ring and cape suits one style, and each style gets an equal 
     assert.ok(ACCESSORY_STYLE[id], `${id} has a style`);
     const [style, P] = ACCESSORY_STYLE[id];
     const want = accessoryStats(style, P);
-    for (const k of ['attack', 'strength', 'ranged', 'magic', 'magicStr', 'dance']) assert.equal(b[k] || 0, want[k] || 0, `${id} ${k}`);
+    // Rings and amulets are scaled up on top (items.js JEWELLERY_MULT).
+    const jewel = eq.slot === 'ring' || eq.slot === 'amulet';
+    const m = (k) => (!jewel ? 1 : k === 'magicStr' ? JEWELLERY_EXTRA_MULT : JEWELLERY_MULT);
+    for (const k of ['attack', 'strength', 'ranged', 'magic', 'magicStr', 'dance']) {
+      assert.equal(b[k] || 0, want[k] ? Math.max(1, Math.round(want[k] * m(k))) : 0, `${id} ${k}`);
+    }
   }
   // Each style's best amulet, ring and cape are equally strong.
   for (const slot of ACCESSORY_SLOTS) {
