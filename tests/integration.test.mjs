@@ -1847,8 +1847,8 @@ test('artisan lucky finds: perfect cooks, bonus smelting/smithing, roaring fires
   game.skills.addXp('firemaking', 2_000_000);
   const hits = {};
   game.msg = (t) => { for (const k of ['Perfectly', 'crucible', 'Flawless', 'roars']) if (t.includes(k)) hits[k] = (hits[k] || 0) + 1; };
-  game.inventory.has = () => true; game.inventory.canAdd = () => 99; game.inventory.add = () => 1; game.inventory.remove = () => {};
-  game.world.objectAt = () => null; game.world.lightFire = () => {}; game.world.isBlocked = () => true;
+  game.inventory.has = () => true; game.inventory.canAdd = () => 99; game.inventory.add = () => 1; game.inventory.remove = () => {}; game.inventory.count = () => 1;
+  game.world.objectAt = () => null; game.world.lightFire = () => ({ def: { type: 'fire' } }); game.world.isBlocked = () => true;
   game.player.x = game.player.tx = 5; game.player.y = game.player.ty = 5;
 
   for (let i = 0; i < 3000; i++) resolveCook(game, { rawId: 'raw_shark', obj: { def: { type: 'range' } } });

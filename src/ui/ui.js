@@ -1148,7 +1148,7 @@ export class UI {
     else if (item.potion) this.game.drinkPotion(i);
     else if (item.equip) this.game.equipItem(i);
     else if (isRound(s.id)) this.game.loadRounds(i);
-    else if (item.tags?.includes('log')) this.game.lightLogs(i);
+    else if (item.tags?.includes('log')) this.askFireLogs(s.id);   // how many on this fire
     else if (isBone(s.id)) this.game.buryBones(i);
     else if (s.id === 'mark_of_grace') this.game.useMarkOfGrace(i);
     else if (s.id.startsWith('clue_scroll_')) this.game.readClue(i);
@@ -1179,7 +1179,7 @@ export class UI {
       } else opts.push({ label: item.equip.slot === 'weapon' ? 'Wield' : 'Wear', target: item.name, fn: () => this.game.equipItem(i) });
     }
     if (isRound(s.id)) opts.push({ label: 'Load', target: item.name, fn: () => this.game.loadRounds(i) });
-    if (item.tags?.includes('log')) opts.push({ label: 'Light', target: item.name, fn: () => this.game.lightLogs(i) });
+    if (item.tags?.includes('log')) opts.push({ label: 'Light', target: item.name, fn: () => this.askFireLogs(item.id) });
     if (isBone(s.id)) {
       opts.push({ label: s.qty > 1 ? `Bury ${Math.min(100, s.qty)}` : 'Bury', target: item.name, fn: () => this.game.buryBones(i) });
       if (s.qty > 100) opts.push({ label: `Bury all ${s.qty}`, target: item.name, fn: () => this.game.buryBones(i, Infinity) });
@@ -2721,6 +2721,29 @@ export class UI {
         + '<div class="modal-hint">Every class can use any armour, tools and the learning perks in the Knowledge Codex.</div>';
     });
     this.modal.kind = 'classperks';
+  }
+
+  /** How many logs go on this fire (the owner's ask): a few choices and All.
+   *  `logId` null burns your best logs first and moves on to the next kind. */
+  askFireLogs(logId = null) {
+    const g = this.game;
+    const have = logId ? g.inventory.count(logId) : g.burnableLogs().reduce((n, id) => n + g.inventory.count(id), 0);
+    if (have <= 1) { g.startFiremaking(logId); return; }
+    const name = logId ? getItem(logId).name.toLowerCase() : 'logs';
+    this.openModal('Light a fire', (body) => {
+      body.innerHTML = `<div class="modal-hint">How many ${escapeHtml(name)} go on this fire? You have ${formatNumber(have)}. More logs make a bigger fire that burns longer and warms you more, from further away.</div>`;
+      const row = document.createElement('div');
+      row.className = 'dialogue-options';
+      for (const n of [...new Set([1, 5, 10, 25].filter((k) => k < have)), have]) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'dialogue-option';
+        b.textContent = n === have ? `All ${formatNumber(have)}` : String(n);
+        b.addEventListener('click', () => { this.closeModal(); g.startFiremaking(logId, n); });
+        row.appendChild(b);
+      }
+      body.appendChild(row);
+    });
   }
 
   /** The class's five skills (Z X C V B) in full: the owner found them only on

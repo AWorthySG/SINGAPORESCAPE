@@ -1,6 +1,7 @@
 // Vector sprite library — cohesive hand-drawn art for creatures and world objects,
 // replacing the old emoji rendering. Everything is drawn relative to a centre
 // point (cx, cy) with the entity's "feet" near cy + 13.
+import { fireScale } from '../game/bonfire.js';   // bonfires are drawn bigger
 import { itemIconImage } from './icons.js';
 import { CROPS } from '../data/trades.js';
 import { drawHeroRig } from './heroRig.js';
@@ -2698,7 +2699,12 @@ function drawObjectRaw(ctx, obj, cx, cy, time) {
     case 'tree': return tree(ctx, obj.objId, obj.depleted, cx, cy, time);
     case 'rock': return rock(ctx, obj.def.ore, obj.depleted, cx, cy);
     case 'fishing': return fishing(ctx, cx, cy, time);
-    case 'fire': return fire(ctx, cx, cy, time);
+    case 'fire': {
+      // A bonfire (more logs piled on, bonfire.js) is drawn bigger, from its base.
+      const s = fireScale(obj);
+      if (s === 1) return fire(ctx, cx, cy, time);
+      ctx.save(); ctx.translate(cx, cy + 10); ctx.scale(s, s); fire(ctx, 0, -10, time); ctx.restore(); return;
+    }
     case 'range': return range(ctx, cx, cy, time);
     case 'furnace': return furnace(ctx, cx, cy, time);
     case 'anvil': return anvil(ctx, cx, cy);
