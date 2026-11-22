@@ -1094,7 +1094,7 @@ export class UI {
         if (item.equip) {
           up = this.game.equipment.masteryRank(s.id);
           rl = this.game.equipment.refineLevel(s.id);
-          const cmp = compareGear(s.id, this.game.equipment, null, s.q || null);
+          const cmp = compareGear(s.id, this.game.equipment, null, s.q || null, this.game.combatMode());
           better = (cmp.verdict === 'upgrade' || cmp.verdict === 'empty') && meetsReq(s.id, this.game.skills).ok;
         }
         sig = `${s.id}|${s.qty}|${up}|${rl}|${better ? 1 : 0}|${s.q || ''}`;
@@ -1389,9 +1389,9 @@ export class UI {
     // A dual wielder's spare weapon is weighed against the off-hand too (each hand hits with its own weapon).
     const dualOff = eqp.isDualWielding() && canDualPair(id, eqp.get('weapon'));
     if (copy === 'off' || (dualOff && eqp.get('shield') === id && eqp.get('weapon') !== id)) return html + '<div class="gt-verdict same">Currently worn (off-hand)</div>';
-    const cmp = compareGear(id, eqp, null, q);
+    const cmp = compareGear(id, eqp, null, q, this.game.combatMode());
     if (cmp.verdict === 'worn') return html + '<div class="gt-verdict same">Currently worn</div>';
-    const offCmp = dualOff && eqp.get('shield') !== id ? compareGear(id, eqp, 'shield', q) : null;
+    const offCmp = dualOff && eqp.get('shield') !== id ? compareGear(id, eqp, 'shield', q, this.game.combatMode()) : null;
     const vs = cmp.worn ? ` vs ${escapeHtml(getItem(cmp.worn).name)}` : '';
     const label = { upgrade: '▲ Upgrade', downgrade: '▼ Downgrade', same: '= Same strength', empty: '▲ Fills an empty slot', style: '⇄ Different fighting style' }[cmp.verdict];
     html += `<div class="gt-verdict ${cmp.verdict}">${label}${vs}</div>`;

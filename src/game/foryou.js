@@ -108,7 +108,7 @@ export function gearUpgrades(game) {
   for (const slot of EQUIP_SLOTS) {
     for (const id of bySlot[slot] || []) {
       if (!isObtainable(id) || !game._canEquipNow(id)) continue;
-      const c = compareGear(id, game.equipment);
+      const c = compareGear(id, game.equipment, null, null, game.combatMode?.());
       if (!c || !(c.verdict === 'upgrade' || c.verdict === 'empty') || !(c.ratingDelta > 0)) continue;
       // Only what you could actually get now: a node, shop or monster near your
       // level (nearestSource), or a recipe you have the level for.
