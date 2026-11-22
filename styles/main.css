@@ -4178,3 +4178,16 @@ input[type="range"]:focus-visible { outline: 3px solid var(--aw-sun); outline-of
 }
 .sgx-row.locked .sgx-xp { opacity: .75; }
 
+/* Gear Mastery on wider screens: a piece's four buttons in one row under it
+   (they stood in a tall column, making each card twice the height). */
+@media (min-width: 541px) {
+  .mastery-row { flex-wrap: wrap; }
+  .mastery-row .gear-info { flex-basis: calc(100% - 44px); }
+  .mastery-row .gear-btns { flex: 1 1 100%; display: grid; grid-template-columns: repeat(4, 1fr); }
+}
+/* Its Wearing / In your bag tabs and the one-go feed button. */
+.gear-view { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.gear-view .gear-tab { flex: 0 0 auto; }
+.feed-plan { margin: 6px 0; padding: 0; list-style: none; }
+.feed-plan li { display: flex; align-items: center; gap: 6px; padding: 3px 0; border-bottom: 1px dashed var(--aw-line, #d9cfb9); }
+

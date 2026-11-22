@@ -76,6 +76,7 @@ import { RACES, raceOf, weaponsFor, weaponTypeName, WEAPON_VS_RACE } from '../da
 import { WaveHud } from './wavehud.js';
 import { PlayHud } from './playhud.js';
 import { CompactHud } from './compacthud.js';
+import { feedAllPlan, feedAll } from '../game/feedall.js';   // "Feed materials to worn gear" in one go
 export const COLLAPSE_V = 2;   // the saved fold states' version (see _loadCollapse)
 export const TIP_LINGER_MS = 1000;   // an item's hover description stays this long after the pointer leaves
 import { NoticeLane } from './noticelane.js';
@@ -1425,15 +1426,47 @@ export class UI {
         + 'Enchantments and refining belong to the item, so every copy you own shares them; a weapon worn in both hands is the one exception, as its off-hand copy has its own refine and enchantments. '
         + '</p></details>'
         + `<p>You have ${formatNumber(g.inventory.count(UP_STONE))} stones, ${g.inventory.count(UP_WARD)} wards and ${formatNumber(g.inventory.count(REFINE_SCROLL))} refine scrolls.</p></div>`;
+      // One go: feed what your pack holds to every piece you wear (feedall.js),
+      // after a look at what it would use. Then the spare-gear dismantler.
+      const top = document.createElement('div');
+      top.className = 'gear-view';
+      const plan = feedAllPlan(g);
+      if (plan.length) {
+        const fa = document.createElement('button');
+        fa.type = 'button';
+        fa.className = 'gear-tab feed-all active';
+        fa.textContent = 'Feed materials to worn gear…';
+        fa.addEventListener('click', () => this._openFeedAll());
+        top.appendChild(fa);
+      }
       // Spare gear can be broken down for stones and scrolls (salvage.js).
       const dis = document.createElement('button');
       dis.type = 'button';
       dis.className = 'gear-tab salvage-open';
       dis.textContent = 'Dismantle spare gear…';
       dis.addEventListener('click', () => openDismantle(this));
-      body.appendChild(dis);
-      const ids = [...new Set([...EQUIP_SLOTS.map((s) => g.equipment.get(s)).filter(Boolean),
-        ...g.inventory.slots.filter((s) => s && getItem(s.id).equip?.bonuses).map((s) => s.id)])];
+      top.appendChild(dis);
+      body.appendChild(top);
+      const worn = [...new Set(EQUIP_SLOTS.map((s) => g.equipment.get(s)).filter(Boolean))];
+      const bag = [...new Set(g.inventory.slots.filter((s) => s && getItem(s.id).equip?.bonuses).map((s) => s.id))].filter((id) => !worn.includes(id));
+      // Wearing first; the gear in your bag (often a pile of spares) a tab away.
+      if (bag.length && !worn.includes(focusId) && bag.includes(focusId)) this._gearView = 'bag';
+      const view = bag.length && this._gearView === 'bag' ? 'bag' : 'worn';
+      if (bag.length) {
+        const tabs = document.createElement('div');
+        tabs.className = 'gear-view';
+        for (const [v, label] of [['worn', `Wearing (${worn.length})`], ['bag', `In your bag (${bag.length})`]]) {
+          const t = document.createElement('button');
+          t.type = 'button';
+          t.className = 'gear-tab' + (v === view ? ' active' : '');
+          t.dataset.view = v;
+          t.textContent = label;
+          t.addEventListener('click', () => { this._gearView = v; redraw(body, render); });
+          tabs.appendChild(t);
+        }
+        body.appendChild(tabs);
+      }
+      const ids = view === 'bag' ? bag : worn;
       const list = document.createElement('div');
       list.className = 'gear-list';
       if (!ids.length) list.innerHTML = '<div class="modal-hint">Wear or carry some gear to see its mastery.</div>';
@@ -1507,6 +1540,36 @@ export class UI {
       try { row?.scrollIntoView({ block: 'center' }); } catch { /* old browsers */ }
       row?.classList.add('focus-flash');
     }
+  }
+
+  /** "Feed materials to worn gear": what it would use and add, then Feed or Back. */
+  _openFeedAll() {
+    const g = this.game;
+    const render = (body) => {
+      const plan = feedAllPlan(g);
+      body.innerHTML = '';
+      if (!plan.length) {
+        body.insertAdjacentHTML('beforeend', '<div class="modal-hint">Nothing to feed: your worn gear is at Master, or your pack holds no materials it takes.</div>');
+      } else {
+        const used = new Map();
+        for (const p of plan) used.set(p.matId, (used.get(p.matId) || 0) + p.n);
+        body.insertAdjacentHTML('beforeend', `<p>This uses ${[...used].map(([id, n]) => `<b>${formatNumber(n)} ${escapeHtml(getItem(id).name)}</b>`).join(', ')} from your pack, up to ${MASTERY_RANKS[FEED_CAP_RANK].name} on each piece:</p>`
+          + `<ul class="feed-plan">${plan.map((p) => `<li>${itemIconSVG(p.gearId, 18)} ${escapeHtml(getItem(p.gearId).name)}: ${formatNumber(p.n)} ${escapeHtml(getItem(p.matId).name)}, +${formatNumber(p.xp)} mastery XP</li>`).join('')}</ul>`);
+        const go = document.createElement('button');
+        go.type = 'button';
+        go.className = 'gear-tab active';
+        go.textContent = 'Feed';
+        go.addEventListener('click', () => { feedAll(g, plan); this.openMastery(); });
+        body.appendChild(go);
+      }
+      const back = document.createElement('button');
+      back.type = 'button';
+      back.className = 'gear-tab';
+      back.textContent = 'Back to all gear';
+      back.addEventListener('click', () => this.openMastery());
+      body.appendChild(back);
+    };
+    this.openModal('Feed materials to worn gear', render);
   }
 
   /** "Main hand | Off-hand" tabs for a weapon worn in both hands: each copy
