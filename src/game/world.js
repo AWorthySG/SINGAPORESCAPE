@@ -44,8 +44,24 @@ export class World {
   inBounds(x, y) { return x >= 0 && x < this.width && y >= 0 && y < this.height; }
   terrainAt(x, y) { return this.inBounds(x, y) ? this.terrain[this.idx(x, y)] : TERRAIN.WATER; }
 
-  /** Region/zone descriptor for a tile (first matching rect wins). */
+  /** Region/zone descriptor for a tile (first matching rect wins). Asked
+   *  hundreds of times a tick (and once per object by auto gather's search),
+   *  so each tile's answer is kept: the zones never move, and a new list of
+   *  them starts the record afresh. */
   zoneAt(x, y) {
+    if (Number.isInteger(x) && Number.isInteger(y) && x >= 0 && y >= 0 && x < this.width && y < this.height && this.zones.length < 32000) {
+      let c = this._zoneOf;
+      if (!c || c.zones !== this.zones || c.len !== this.zones.length || c.w !== this.width || c.at.length !== this.width * this.height) {
+        c = this._zoneOf = { zones: this.zones, len: this.zones.length, w: this.width, at: new Int16Array(this.width * this.height).fill(-2) };
+      }
+      const i = y * this.width + x;
+      let k = c.at[i];
+      if (k === -2) {   // not asked yet: the first zone that holds it, or -1 for none
+        k = this.zones.findIndex((z) => x >= z.x0 && x <= z.x1 && y >= z.y0 && y <= z.y1);
+        c.at[i] = k;
+      }
+      return k >= 0 ? this.zones[k] : null;
+    }
     for (const z of this.zones) {
       if (x >= z.x0 && x <= z.x1 && y >= z.y0 && y <= z.y1) return z;
     }
@@ -57,6 +73,7 @@ export class World {
     const inst = { uid: uid(), objId, def, x, y, depleted: false, respawnTimer: 0, ...extra };
     if (def.type === 'fire') inst.lifetime = FIRE_LIFETIME_TICKS;
     const ix = this._oix && this._oix.arr === this.objects && this._oix.len === this.objects.length ? this._oix : null;
+    this._objRev = (this._objRev || 0) + 1;   // the object list changed (see emberSources)
     this.objects.push(inst);
     if (ix) { ix.len++; ix.rank.set(inst, ix.next++); this._cellOf(ix.cells, ix.cols, ix.rows, inst).push(inst); }
     this.objectByTile.set(this.idx(x, y), inst);
@@ -78,6 +95,7 @@ export class World {
     const ix = this._oix && this._oix.arr === this.objects && this._oix.len === this.objects.length ? this._oix : null;
     const i = this.objects.indexOf(inst);
     if (i !== -1) {
+      this._objRev = (this._objRev || 0) + 1;
       this.objects.splice(i, 1);
       if (ix) { ix.len--; const c = this._cellOf(ix.cells, ix.cols, ix.rows, inst), j = c.indexOf(inst); if (j !== -1) c.splice(j, 1); ix.rank.delete(inst); }
     }
@@ -138,6 +156,17 @@ export class World {
     }
     if (out.length > 1) out.sort((a, b) => ix.rank.get(a) - ix.rank.get(b));
     return out;
+  }
+
+  /** The fires and furnaces (each gives off embers every tick), in `objects`
+   *  order. Kept until an object is added or removed, instead of walking the
+   *  thousands of objects every tick to find the handful. */
+  emberSources() {
+    const c = this._embers;
+    if (c && c.rev === this._objRev && c.arr === this.objects && c.len === this.objects.length) return c.list;
+    const list = this.objects.filter((o) => o.def.type === 'fire' || o.def.type === 'furnace');
+    this._embers = { rev: this._objRev, arr: this.objects, len: this.objects.length, list };
+    return list;
   }
 
   /** Set a harvest judder on an object (trees and rocks as they're worked);

@@ -6,6 +6,14 @@ export const TURN_MS = 150;   // how long the turn-around takes on screen
 // Shared movement for the player and NPCs. Movement is time-based and decoupled
 // from the combat tick: walking = 1 tile / 600ms, running = 1 tile / 300ms.
 const easeInOut = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+// The drawn offset's easing step for a frame of dt ms. Hundreds of monsters
+// share each frame's dt, so it is worked out once per dt, not once per monster.
+let _easeDt = NaN, _easeK = 0;
+const easeK = (dt) => (dt === _easeDt ? _easeK : (_easeDt = dt, _easeK = 1 - Math.exp(-dt / 35)));
+const _raw = { x: 0, y: 0 };   // scratch for _tickTimers (no new object per character per frame)
+// Below this (a millionth of a pixel, or of a stride) the eased offset and walk
+// weight are as good as settled, and are landed on exactly 0 (see _tickTimers).
+const SETTLED = 1e-6;
 
 export class Character {
   constructor(x, y) {
@@ -37,12 +45,18 @@ export class Character {
     this.animMove = 0;
     this.turnT = 0;
     this._fx = 1;
+    // The drawn lunge/knockback offset (see _tickTimers), made here with the
+    // rest so every character keeps one object shape: the frame loop reads
+    // hundreds of monsters, and a mix of shapes made each read slower.
+    this._offX = 0;
+    this._offY = 0;
+    this._offOn = false;   // until the first frame the drawn offset is the raw one
   }
 
   /** Where the body should be pushed this instant: a swing's lunge (a small
    *  wind-up back, a quick strike out toward the target, then an eased return)
-   *  plus any hit knockback easing home. */
-  _rawOffset() {
+   *  plus any hit knockback easing home. Written into `out` when given. */
+  _rawOffset(out = { x: 0, y: 0 }) {
     let x = 0, y = 0;
     if (this.swing > 0) {
       const p = 1 - this.swing / this.swingDur;
@@ -55,14 +69,15 @@ export class Character {
       const k = this.knock / 160;
       x += this.knockDX * 4 * k * k; y += this.knockDY * 4 * k * k;
     }
-    return { x, y };
+    out.x = x; out.y = y;
+    return out;
   }
 
   /** Pixel offset the body is drawn at. It glides toward _rawOffset over a few
    *  frames, so a swing cut short by the next one (fast attackers) or a change
    *  of target never makes the sprite jump. */
   renderOffset() {
-    if (this._offX === undefined) { const r = this._rawOffset(); return { x: r.x, y: r.y }; }
+    if (!this._offOn) return this._rawOffset();
     return { x: this._offX, y: this._offY };
   }
 
@@ -138,13 +153,25 @@ export class Character {
     if (this.knock > 0) this.knock = Math.max(0, this.knock - dt);
     if (this.turnT > 0) this.turnT = Math.max(0, this.turnT - dt);
     // Ease the drawn lunge/knockback offset toward where it should be (~35ms lag).
-    const r = this._rawOffset(), k = 1 - Math.exp(-dt / 35);
-    this._offX = (this._offX ?? r.x) + (r.x - (this._offX ?? r.x)) * k;
-    this._offY = (this._offY ?? r.y) + (r.y - (this._offY ?? r.y)) * k;
+    const r = this._rawOffset(_raw), k = easeK(dt);
+    const ox = this._offOn ? this._offX : r.x, oy = this._offOn ? this._offY : r.y;
+    this._offX = ox + (r.x - ox) * k;
+    this._offY = oy + (r.y - oy) * k;
+    this._offOn = true;
     this.animMove += ((this.moving ? 1 : 0) - this.animMove) * Math.min(1, dt / 90);
+    // All but settled: land on exactly 0, so a character at rest can skip its
+    // frames (see update). Left alone the easing creeps on through ever tinier
+    // numbers and never quite arrives.
+    if (r.x === 0 && r.y === 0 && Math.abs(this._offX) < SETTLED && Math.abs(this._offY) < SETTLED) { this._offX = 0; this._offY = 0; }
+    if (!this.moving && this.animMove < SETTLED) this.animMove = 0;
   }
 
   update(dt) {
+    // At rest (standing still, every timer run down, the drawn offset and walk
+    // weight settled at 0) a frame changes nothing, so skip it: most of the
+    // monsters around you stand like this most of the time.
+    if (!this.moving && this._offOn && this.animMove === 0 && this._offX === 0 && this._offY === 0 && !this.path.length
+      && !(this.hurt > 0) && !(this.swing > 0) && !(this.knock > 0) && !(this.turnT > 0)) return;
     this._tickTimers(dt);
     if (!this.moving) {
       if (this.path.length) this._beginStep();

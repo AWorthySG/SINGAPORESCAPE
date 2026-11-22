@@ -8,18 +8,32 @@ export class Skills {
     this.bus = bus;
     this.xp = {};
     for (const id of SKILL_IDS) this.xp[id] = xpForLevel(startLevel(id));
+    // The last level worked out for each skill, with the XP it was for: levels
+    // are asked for thousands of times a tick (every monster nearby checks your
+    // fight level), and XP only moves now and then. Keyed on the XP itself, so
+    // XP set straight into `xp` is never missed.
+    this._lvl = {};
+  }
+
+  /** Level for `xp` against a skill's cap, remembered under `key` until the XP changes. */
+  _levelOf(key, xp, cap) {
+    const c = this._lvl[key];
+    if (c !== undefined && c.xp === xp) return c.lvl;
+    const lvl = levelForXp(xp, cap);
+    this._lvl[key] = { xp, lvl };
+    return lvl;
   }
 
   /** The Dancer's fighting level: Agility and Ranged experience pooled together
    *  (the Dancer's combat XP is split between them), so splitting it never slows
    *  a Dancer down and Ranged trained with a bow powers the whip as well. */
-  danceLevel() { return levelForXp((this.xp.agility || 0) + (this.xp.ranged || 0), maxLevelFor('ranged')); }
+  danceLevel() { return this._levelOf('dance', (this.xp.agility || 0) + (this.xp.ranged || 0), maxLevelFor('ranged')); }
   get dance() { return this.danceLevel(); }
 
   // Melee is one skill: Strength mirrors Attack (shown as "Melee"), so every
   // Strength requirement, perk and formula reads the Melee level.
   // 'dance' is the Dancer's pooled level (see danceLevel), e.g. for its class passives.
-  level(id) { if (id === 'dance') return this.danceLevel(); const k = id === 'strength' ? 'attack' : id; return levelForXp(this.xp[k] ?? 0, maxLevelFor(k)); }
+  level(id) { if (id === 'dance') return this.danceLevel(); const k = id === 'strength' ? 'attack' : id; return this._levelOf(k, this.xp[k] ?? 0, maxLevelFor(k)); }
 
   /** Life skills (everything outside the Combat group) earn more past 99, at the
    *  rate each level's cost grows, so a level past 99 takes about as long as

@@ -81,7 +81,19 @@ export class Discovery {
   // Sorted, so the same discoveries always save the same way (however they were found).
   serialize() {
     this.backfill();   // what you hold and wear counts even before the first tick
-    return { items: [...this.items].sort(), places: [...this.places].sort(), claimed: [...this.claimed].sort() };
+    return { items: this._sorted('items'), places: this._sorted('places'), claimed: this._sorted('claimed') };
+  }
+
+  /** A sorted copy of one of the sets. The sets only ever grow (or are swapped
+   *  for new ones on a load), so a sort is kept until its set grows: a busy
+   *  fight saves every second or two, and sorting a late game's thousand items
+   *  each time was most of the save's work. */
+  _sorted(key) {
+    const set = this[key], c = (this._sorts ||= {})[key];
+    if (c && c.set === set && c.n === set.size) return c.out.slice();
+    const out = [...set].sort();
+    this._sorts[key] = { set, n: set.size, out };
+    return out.slice();
   }
 
   load(d) {

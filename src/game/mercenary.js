@@ -120,6 +120,7 @@ export function spawnFollower(game, parent = null) {
   const f = game.spawnNpc('aworthling', spot.x, spot.y, { temporary: true, wander: 0 });
   f.ally = true;
   f.follower = true;
+  game._followersMade = true;   // (see mergeFollowers)
   game._followerCount++;
   // A split-off A-Worthling is drawn smaller but hits just as hard (25%).
   f.share = FOLLOWER_SHARE;
@@ -327,6 +328,9 @@ function allyXp(game, dmg) {
  *  as hard as both together (and looks a little bigger), until MERGE_TO are
  *  left. The same total damage, far fewer of them to move, path and draw. */
 export function mergeFollowers(game, at = MERGE_AT, to = MERGE_TO) {
+  // Only spawnFollower makes A-Worthlings: until it has, there are none to
+  // merge, and every other class is spared a pass over the whole world's NPCs each tick.
+  if (!game._followersMade) return 0;
   const fs = activeFollowers(game);
   if (fs.length <= at) return 0;
   let merged = 0;

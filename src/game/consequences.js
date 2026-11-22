@@ -8,6 +8,8 @@ import { CONSEQUENCES, RESIDENTS } from '../data/consequences.js';
 import { moodFor } from '../render/ambience.js';
 import { NPC } from './npc.js';
 
+const RESIDENT_IDS = new Set(Object.keys(RESIDENTS));
+
 /** Has this consequence's condition been met? */
 export function consequenceMet(game, c) {
   const w = c.when || {};
@@ -125,8 +127,21 @@ export function syncConsequences(game, quiet = false, onSpawn = null) {
     seen.add(c.id);
     fresh.push(c);
   }
+  // Which residents are about, from one pass over the NPCs: asking once per
+  // resident walked the whole world's ten thousand for each one not there.
+  // (Placing or sending one away never changes whether another is about.) The
+  // answer is kept while the NPC list is the same list at the same length: an
+  // NPC's id is settled before it joins the list, so only a new or shorter
+  // list can bring a resident or take one away.
+  const was = game._residentsAbout;
+  let about = was && was.arr === game.npcs && was.len === game.npcs.length ? was.about : null;
+  if (!about) {
+    about = new Set();
+    for (const n of game.npcs) if (RESIDENT_IDS.has(n.npcId)) about.add(n.npcId);
+    game._residentsAbout = { arr: game.npcs, len: game.npcs.length, about };
+  }
   for (const id of Object.keys(RESIDENTS)) {
-    const here = game.npcs.some((n) => n.npcId === id);
+    const here = about.has(id);
     const want = residentPresent(game, id);
     if (want && !here) { const n = spawnResident(game, id); if (n) onSpawn?.(n); }
     else if (!want && here) removeResident(game, id);
