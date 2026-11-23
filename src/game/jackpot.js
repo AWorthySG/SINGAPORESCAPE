@@ -2,12 +2,16 @@
 // left in a tree, or breaks a rock's whole seam free, at once, with XP for each
 // (the owner's ask, after the fish schools' "whole school" catch). It uses the
 // tree or rock up, as if you had chopped or mined it to the end. Every fishing
-// spot has the same chance of a whole school (schoolJackpot, fishschool.js).
+// spot has the same chance of a whole school (schoolJackpot, fishschool.js),
+// every trap of a whole flock (huntJackpot) and every harvest of a record one
+// (recordHarvest).
 //
 // Kept out of skilling.js: resolveWoodcut and resolveMine call `nodeJackpot`
-// once per swing, after that swing's own log or ore. Rolls use their own
-// generator, so they never shift Math.random (the seeded tests depend on its
-// sequence), and a switch lets the test suite turn it off (tests/seed.mjs).
+// once per swing, after that swing's own log or ore, resolveHunt calls
+// `huntJackpot` after each catch and Game.harvestPatch `recordHarvest` after
+// each harvest. Rolls use their own generator, so they never shift Math.random
+// (the seeded tests depend on its sequence), and a switch lets the test suite
+// turn it off (tests/seed.mjs).
 
 import { getItem } from '../data/items.js';
 import { weightedPick } from '../core/utils.js';
@@ -78,3 +82,88 @@ export function schoolJackpot(find = 0) {
 
 /** The pick for a rock: its ore, or a fresh gem each time for a gem rock. */
 export const rockPick = (def, table) => (def.gemRock ? () => weightedPick(table).id : () => def.gives);
+
+// Hunter's whole flock (the owner's ask: in play Hunter earned about a fifth of
+// what Mining, Woodcutting and Fishing did an hour, having no burst of its own,
+// and about four fifths of theirs comes from their whole seams, trees and
+// schools). Now and then a trap springs on a whole flock, nest or herd at once:
+// about one catch in 20, and sized like a whole school at any spot, ten times a
+// stock of 1-14 catches (10-140), with XP for each. A trap holds no count to use
+// up, so it stays set, as a fishing spot does after its whole school (using the
+// trap up was tried, but the walk between the far-apart crocodile traps then
+// cost a third of Hunter's XP an hour at level 99). A better snare doesn't make
+// it likelier, as a better pickaxe does a whole seam: with nothing used up, the
+// endgame snares' find share lifted Hunter about a quarter past the others at
+// level 500.
+export const HUNT_STOCK = [1, 14];   // as fishschool.js WILD_STOCK
+// What each trap springs on all at once ("Whole nest!"); a trap not listed: a flock.
+export const HUNT_CROWD = {
+  bird_snare: 'flock', squirrel_trap: 'nest', lizard_snare: 'nest', mousedeer_trail: 'herd', boar_pit: 'herd',
+  python_trap: 'nest', crocodile_trap: 'nest', hornbill_nest: 'flock', qilin_trail: 'herd', pangolin_burrow: 'warren',
+  colugo_trap: 'family', tiger_trail: 'family', garuda_nest: 'flock', naga_track: 'nest', phoenix_roost: 'flock',
+};
+const between = ([a, b]) => a + Math.floor(roll() * (b - a + 1));
+const count = (n) => n.toLocaleString('en-GB');   // "1,120 feathers", as the XP lines write it
+// Many of a catch or crop: "75 lizard skins", "840 sweet potatoes", "140 sireh
+// leaves", "70 peaches of immortality" and "140 eternal lotuses", but "75 raw
+// venison", "140 pangolin scales" and "840 kangkong" (meat, fur and the herbs
+// are counted as they are).
+const AS_IS = /(s|meat|venison|fur|kangkong|ali|kucing|bumi|ginseng|lingzhi)$/;
+export function many(name) {
+  const of = name.indexOf(' of ');
+  if (of > 0) return many(name.slice(0, of)) + name.slice(of);
+  if (/lotus$/.test(name)) return `${name}es`;
+  if (AS_IS.test(name)) return name;
+  if (/leaf$/.test(name)) return `${name.slice(0, -1)}ves`;
+  return /(i|o|ch)$/.test(name) ? `${name}es` : `${name}s`;
+}
+
+/** After a catch at trap `obj` worth `xpEach` XP: maybe the whole flock comes
+ *  with it. Each catch is the trap's main catch (a bird snare's is a handful of
+ *  feathers). Returns how many catches it added (0 if none). */
+export function huntJackpot(game, obj, { xpEach }) {
+  if (!NODE_JACKPOT.on || roll() >= JACKPOT_CHANCE) return 0;
+  const main = obj.def.gives[0];
+  const n = SEAM_MULT * between(HUNT_STOCK);
+  let got = 0;
+  for (let i = 0; i < n; i++) got += main.max ? between([main.min, main.max]) : 1;
+  game.inventory.add(main.id, got);   // (the bag always has room)
+  game.skills.addXp('hunter', xpEach * n);
+  const crowd = HUNT_CROWD[obj.objId] || 'flock', name = getItem(main.id).name;
+  game.msg(`It was a whole ${crowd}: you catch ${count(got)} ${many(name.toLowerCase())} at once!`, 'level');
+  game.banner?.(`<span class="big">Whole ${crowd}!</span>+${count(got)} ${name}`);
+  game.addHitsplat?.(game.player, 0, { text: `Whole ${crowd}! +${count(got)}` });
+  const cx = (obj.x + 0.5) * TILE, cy = (obj.y + 0.5) * TILE, col = obj.def.color || '#caa15a';
+  game.spawnPoof?.(cx, cy, col); game.spawnPoof?.(cx - 8, cy + 4, col); game.spawnPoof?.(cx + 8, cy - 3, '#ffffff');
+  game.spawnSparkle?.(game.player, '#e8c46a', 14);
+  game.bus.emit('sfx', 'dropepic');
+  return n;
+}
+
+// Farming's record harvest (the same ask: a farm had no burst either; not
+// "bumper", which is Farming's level-75 unlock). About one harvest in 20 is a
+// record one (there is no tool, so no find bonus), as big for the work as a
+// whole seam: the patch gives the crop's own yield ten times a stock of 1-14
+// over again (10-140 harvests' worth at once), with XP for every crop. Sized on
+// the yield the crop rolled, not on green fingers or the unlocks' extra crops:
+// those grow as you out-level a crop, and a record harvest grown with them left
+// the last crop paying far more than the other skills at level 500. The patch
+// is empty after it, as after any harvest.
+export const RECORD_STOCK = [1, 14];
+
+/** After a harvest of `crop` (cropFor) at patch `obj` whose own yield roll was
+ *  `rolled` crops: maybe a record harvest. Returns how many more crops it added
+ *  (0 if none). */
+export function recordHarvest(game, obj, crop, rolled) {
+  if (!NODE_JACKPOT.on || !(rolled > 0) || roll() >= JACKPOT_CHANCE) return 0;
+  const n = rolled * SEAM_MULT * between(RECORD_STOCK);
+  game.inventory.add(crop.id, n);   // (the bag always has room)
+  game.skills.addXp('farming', crop.harvestXp * n);
+  game.msg(`A record harvest! The patch gives ${count(n)} more ${many(crop.name.toLowerCase())}.`, 'level');
+  game.banner?.(`<span class="big">Record harvest!</span>+${count(n)} ${crop.name}`);
+  game.addHitsplat?.(game.player, 0, { text: `Record harvest! +${count(n)}` });
+  game.spawnSparkle?.({ x: obj.x, y: obj.y }, crop.color, 18);
+  game.spawnSparkle?.(game.player, '#9be37a', 14);
+  game.bus.emit('sfx', 'dropepic');
+  return n;
+}

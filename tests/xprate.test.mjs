@@ -154,8 +154,8 @@ test('the estimate matches a headless run: a spot for each fishing tool, an endg
 });
 
 test('with every extra and the skill unlocks on, as in the real game, the estimate still matches a run', () => {
-  // Whole trees, seams and schools, passing schools, the level haul, streaks
-  // and lucky finds come on top of the catches themselves: together they make
+  // Whole trees, seams, schools and flocks, passing schools, the level haul,
+  // streaks and lucky finds come on top of the catches themselves: together they make
   // most of an hour (four to seven times the catches alone). Each rolls its
   // own dice: pinned, so every run is the same. The unlocks add quick swings
   // and nodes that hold for another go.
@@ -172,7 +172,10 @@ test('with every extra and the skill unlocks on, as in the real game, the estima
     ];
     for (const c of cases) {
       const { got, est } = measure(c.id, c.lvl, c.tools, 2400, { auto: true });
-      if (c.id !== 'lizard_snare') assert.ok(est.parts.whole > 0.5, `${c.id}: whole ${c.id === 'arowana_pool' ? 'schools' : 'trees and seams'} are most of the hour (${est.parts.whole.toFixed(2)})`);
+      const whole = { arowana_pool: 'schools', lizard_snare: 'flocks' }[c.id] || 'trees and seams';
+      assert.ok(est.parts.whole > 0.5, `${c.id}: whole ${whole} are most of the hour (${est.parts.whole.toFixed(2)})`);
+      // A trap's whole flock (10-140 catches, about 1 in 20) is counted and said.
+      if (c.id === 'lizard_snare') assert.match(est.why, /Counted: whole flocks at once \(about \d+% of it\)/);
       near(got / est.perHour, 0.85, 1.15, `${c.id} at level ${c.lvl}, everything on: ran ${Math.round(got).toLocaleString()} xp/h against ${Math.round(est.perHour).toLocaleString()} estimated (${(got / est.perHour).toFixed(3)}x)`);
       if (c.id === 'arowana_pool') {
         // Passing schools come to the arowana pools (nothing else is near

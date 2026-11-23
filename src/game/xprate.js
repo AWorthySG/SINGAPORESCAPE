@@ -15,8 +15,9 @@
 //    never fail, so every roll pays, as Skills.addXp adds it (XP_RATE and the
 //    life-skill boost at your level).
 //  - What a roll pays: its XP, a big catch or trophy fish, a gem, and now and
-//    then the whole tree, seam or school at once (jackpot.js: ten times what
-//    is left in the tree or rock, or 10-140 fish), which is most of an hour.
+//    then the whole tree, seam, school or flock at once (jackpot.js: ten times
+//    what is left in the tree or rock, or 10-140 fish or catches), which is
+//    most of an hour.
 //    Each tick of gathering adds a chance of your level's bonus haul
 //    (levelhaul.js) and of a lucky find, and a gathering streak adds up to 10%
 //    to all of it (gathering.js).
@@ -48,7 +49,7 @@ import { bestTool, toolBonus } from './tools.js';
 import { hunterXpMult } from './culling.js';
 import { unlockFx } from './skillunlocks.js';
 import { TREE_LOGS_MIN, TREE_LOGS_MAX, ROCK_ORES_MIN, ROCK_ORES_MAX, doubleChance, gemChance, GEM_XP, trophyChance, TROPHY_XP_MULT, bigCatchChance } from './skilling.js';
-import { NODE_JACKPOT, jackpotChance, SEAM_MULT } from './jackpot.js';
+import { NODE_JACKPOT, jackpotChance, JACKPOT_CHANCE, SEAM_MULT, HUNT_STOCK } from './jackpot.js';
 import { FISH_SCHOOL, WILD_STOCK, SCHOOL_GAP, SCHOOL_HAUL, SCHOOL_NEAR, SCHOOL_AUTO, SCHOOL_SAME_KIND, passingSchoolSize } from './fishschool.js';
 import { LEVEL_HAUL, levelHaulPct } from './levelhaul.js';
 import { GATHER_FUN, STREAK_GAP_TICKS, streakXpMult, luckyChance, LUCKY_XP_MULT, nodeXp } from './gathering.js';
@@ -316,7 +317,7 @@ export function xpRate(game, s) {
     const p = { rolls, whole, schools, haul: gatherTicks * haul * s.xp, finds: gatherTicks * st.lucky * findXp + gems };
     const raw = Object.values(p).reduce((a, b) => a + b, 0);
     const parts = Object.fromEntries(Object.entries(p).map(([k, v]) => [k, raw ? v / raw : 0]));
-    const counted = [whole && `whole ${s.skill === 'fishing' ? 'schools' : s.skill === 'mining' ? 'seams' : 'trees'} at once (${pct(parts.whole)} of it)`,
+    const counted = [whole && `whole ${s.skill === 'fishing' ? 'schools' : s.skill === 'mining' ? 'seams' : s.skill === 'hunter' ? 'flocks' : 'trees'} at once (${pct(parts.whole)} of it)`,
       schools && `passing schools (${pct(parts.schools)})`, ...also, haul && 'your level\'s bonus haul', gems && 'gems', st.lucky && 'lucky finds',
       st.mult > 1 && `a gathering streak (+${Math.round((st.mult - 1) * 100)}%)`].filter(Boolean);
     return { perHour: raw * st.mult * rate * TICKS_AN_HOUR, parts,
@@ -361,13 +362,16 @@ export function xpRate(game, s) {
   if (s.skill === 'hunter' && def?.depleteChance) {
     const t = toolFor(game, 'snare');
     const extra = quickly(t.extra);
+    // A catch's whole flock (jackpot.js huntJackpot): about 1 in 20, 10-140
+    // catches at its XP each, and the trap stays set (so the visits are as before).
+    const flock = NODE_JACKPOT.on ? JACKPOT_CHANCE * SEAM_MULT * (HUNT_STOCK[0] + HUNT_STOCK[1]) / 2 : 0;
     // resolveHunt: each catch may run the trap dry (unless an unlock keeps it
     // set), and a dry trap takes `respawn` ticks to reset. Kept set for good,
     // it would never run dry: no visits and no resets.
     const end = def.depleteChance * (1 - Math.min(fx.keep || 0, 1));
-    if (!(end > 0)) { const per = 1 + extra; return gathered({ rolls: per * x, gatherTicks: 1 }, `${t.text}, at your level, at a trap that stays set`); }
+    if (!(end > 0)) { const per = 1 + extra; return gathered({ rolls: per * x, whole: per * x * flock, gatherTicks: 1 }, `${t.text}, at your level, at a trap that stays set`); }
     const v = cached(`trap:${end}:${extra}`, () => visitPace((n) => (1 - end) ** n, extra));
-    return worked(t, v, def.respawn || s.respawn || 0, 0, 'reset');
+    return worked(t, { ...v, whole: v.rolls * flock }, def.respawn || s.respawn || 0, 0, 'reset');
   }
   const done = (perTick, why) => ({ perHour: perTick * x * rate * TICKS_AN_HOUR, why, parts: { rolls: 1 } });
   if (s.skill === 'thieving' && def?.type === 'stall') {
