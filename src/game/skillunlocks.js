@@ -6,8 +6,9 @@
 //
 // The rolls use a small generator of their own (as culling.js does), so an
 // unlock never shifts the game's Math.random sequence that seeded tests replay.
-import { SKILL_UNLOCKS, UNLOCKS, UNLOCK_LEVELS, SKILL_TELEPORT_TICKS, ACTION_SKILL, GATHER_KINDS, MAKE_KINDS,
+import { SKILL_UNLOCKS, UNLOCKS, UNLOCK_LEVELS, UNLOCK_TOP_MULT, SKILL_TELEPORT_TICKS, ACTION_SKILL, GATHER_KINDS, MAKE_KINDS,
   GATHER_CONSUMABLES, GATHER_BREW_KEYS } from '../data/unlocks.js';
+import { MAX_LEVEL, towardTop } from '../data/xp.js';
 import { POTIONS } from '../data/trades.js';
 import { STATION_BY_ID } from '../data/transport.js';
 import { SKILL_BY_ID } from '../data/skills.js';
@@ -40,7 +41,13 @@ export function nextUnlock(skill, level) {
   return (SKILL_UNLOCKS[skill] || []).find((u) => u.level > level) || null;
 }
 
-/** Summed effects of every rung unlocked at `level`: { double, quick, save, keep, grow, burn }. */
+/** How much stronger every unlock is at `level` than at the last rung (99):
+ *  1 up to 99, then a straight line to UNLOCK_TOP_MULT at level 9999. */
+export const unlockGrowth = (level) => 1 + (UNLOCK_TOP_MULT - 1) * towardTop(level, UNLOCK_LEVELS[UNLOCK_LEVELS.length - 1]);
+
+/** Summed effects of every rung unlocked at `level`: { double, quick, save, keep, grow, burn },
+ *  grown by unlockGrowth past level 99. (Lures, decoys, brews and the kampong
+ *  home's range add to them afterwards and don't grow.) */
 export function unlockFxAt(skill, level) {
   const out = {};
   if (!UNLOCKS.on) return out;
@@ -48,6 +55,8 @@ export function unlockFxAt(skill, level) {
     if (level < u.level || !u.fx) continue;
     for (const [k, v] of Object.entries(u.fx)) out[k] = (out[k] || 0) + v;
   }
+  const m = unlockGrowth(level);
+  if (m !== 1) for (const k of Object.keys(out)) out[k] *= m;
   return out;
 }
 
@@ -186,8 +195,9 @@ export function afterFireLit(game, fire, logId) {
 export function unlockTipText(skill, level) {
   const all = SKILL_UNLOCKS[skill];
   if (!all) return '';
-  const open = all.filter((u) => level >= u.level).length, next = nextUnlock(skill, level);
-  return `<br>Unlocks: <b>${open} of ${all.length}</b>` + (next ? `<br>At level ${next.level}: ${next.name} (${next.desc})` : '<br>Every unlock open');
+  const open = all.filter((u) => level >= u.level).length, next = nextUnlock(skill, level), m = unlockGrowth(level);
+  return `<br>Unlocks: <b>${open} of ${all.length}</b>` + (next ? `<br>At level ${next.level}: ${next.name} (${next.desc})` : '<br>Every unlock open')
+    + (m > 1 ? `, each now x${m.toFixed(2)} as strong (x${UNLOCK_TOP_MULT} at level ${MAX_LEVEL})` : '');
 }
 
 /** The level-up banner for a new unlock (and its chat line). */

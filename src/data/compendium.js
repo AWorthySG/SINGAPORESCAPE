@@ -24,7 +24,8 @@ import { ELEMENTS, SPELLS, ELEMENT_MATCHUP } from './magic.js';
 import { PRAYERS, BLESSING_SLOT_LADDER, FAITH_BASE, FAITH_GAIN, burstPower, STACK_SHARE, STACK_CAP } from './prayers.js';
 import { SKILLS, SKILL_BY_ID } from './skills.js';
 import { SKILL_HOURS, GOLDEN_HOUR_XP } from './skillhours.js';
-import { SKILL_UNLOCKS, UNLOCK_LEVELS, GATHER_CONSUMABLES } from './unlocks.js';
+import { SKILL_UNLOCKS, UNLOCK_LEVELS, UNLOCK_TOP_MULT, GATHER_CONSUMABLES } from './unlocks.js';
+import { MAX_LEVEL } from './xp.js';
 import { STATIONS, MRT_FARE } from './transport.js';
 import { CLUE_TIERS } from './clues.js';
 import { QUESTS } from './quests.js';
@@ -904,9 +905,10 @@ export const CHAPTERS = [
       },
       {
         id: 'skill-unlocks', title: 'Skill unlocks',
-        summary: `Every life skill unlocks something at levels ${UNLOCK_LEVELS.join(', ')}.`,
+        summary: `Every life skill unlocks something at levels ${UNLOCK_LEVELS.join(', ')}, and they keep growing to level ${num(MAX_LEVEL)}.`,
         body: [
           `At levels **${UNLOCK_LEVELS.join(', ')}** each life skill unlocks something you feel while training it: double yields, quick actions, kept ingredients, trees and rocks that hold, new recipes, and a teleport to its best training spot (skill teleports share a 5-minute cooldown). Each skill's article lists its ladder.`,
+          `Past the last rung every unlock's effect keeps growing, a little with every level, to **x${UNLOCK_TOP_MULT}** by level ${num(MAX_LEVEL)}. The ladders show each rung before that growth; a skill's guide shows how much more they give you now.`,
           'Separately, every 20 levels of a fighting or life skill unlocks a passive perk that helps in a fight.',
         ],
         see: ['skills-overview', 'skill-chains'],

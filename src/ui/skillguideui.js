@@ -24,7 +24,7 @@ import { formatNumber, AOrAn } from '../core/utils.js';
 import { XP_RATE } from '../config.js';
 import { itemIconSVG, skillIconSVG, playIconHTML } from '../render/icons.js';
 import { chanceText, codexHabitats } from '../game/codex.js';
-import { unlockLadder, skillTeleportOf, skillTeleportWait, skillTeleport } from '../game/skillunlocks.js';
+import { unlockLadder, unlockGrowth, skillTeleportOf, skillTeleportWait, skillTeleport } from '../game/skillunlocks.js';
 import { STATION_BY_ID } from '../data/transport.js';
 import { toolLadder } from '../game/tools.js';
 import { levelHaulPct, LEVEL_HAUL_PER, LEVEL_HAUL_CAP, LEVEL_HAUL_CAP_LEVEL, LEVEL_HAUL_TOP } from '../game/levelhaul.js';
@@ -141,14 +141,19 @@ function headHTML(game, skill) {
 }
 
 /** A life skill's unlock ladder (10/25/50/75/99), each rung locked or unlocked,
- *  with the skill's teleport button once it's open. '' for other skills. */
+ *  then past 99 a row saying how much more strongly they all work now (they
+ *  keep growing to level 9999), with the skill's teleport button once it's
+ *  open. '' for other skills. */
 export function unlockLadderHTML(game, skill) {
   const lvl = game.skills.level(skill);
   const ladder = unlockLadder(skill, lvl);
   if (!ladder.length) return '';
-  const tp = skillTeleportOf(game, skill), wait = skillTeleportWait(game);
+  const tp = skillTeleportOf(game, skill), wait = skillTeleportWait(game), m = unlockGrowth(lvl);
+  const growRow = m > 1 ? `<div class="sgx-unlock on"><span class="sg-lvl">${ladder[ladder.length - 1].level}+</span><span><b>&#10003; Still growing</b>`
+    + `<small>Every unlock above works x${m.toFixed(2)} as strongly (x${unlockGrowth(MAX_LEVEL)} at level ${MAX_LEVEL})</small></span></div>` : '';
   return `<div class="sgx-unlocks"><b>${playIconHTML('ui-skill_unlock', 18)} Unlocks</b>${ladder.map((u) => `<div class="sgx-unlock${u.unlocked ? ' on' : ''}">`
     + `<span class="sg-lvl">${u.level}</span><span><b>${u.unlocked ? '&#10003; ' : '&#128274; '}${esc(u.name)}</b><small>${esc(u.desc)}</small></span></div>`).join('')}`
+    + growRow
     + (tp ? `<button type="button" class="wm-go sgx-tp" data-skilltp="${esc(skill)}"${wait ? ' disabled' : ''}>Teleport to ${esc(STATION_BY_ID[tp]?.name || tp)}${wait ? ` (${Math.ceil(wait * 0.6)}s)` : ''}</button>` : '')
     + '</div>';
 }
