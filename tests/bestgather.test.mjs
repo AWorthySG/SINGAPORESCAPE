@@ -1,14 +1,16 @@
 // "The best you can" auto gather, from the Life skills shortcuts (game/quickbar.js
 // startLifeSkill, game/whatnext.js, game.js autoGatherBest): the tap takes you to
-// the best source you can get to without crossing a region too strong for you;
-// what the mode then does by itself stays close and on foot, moves up only when a
-// level opens something better, and gives way to whatever you choose yourself.
-// Each test plays out a step of the review that found where it went wrong.
+// the best source you can get to without crossing a region too strong for you or
+// coming within reach of a monster that would set on you; what the mode then does
+// by itself stays close and on foot, moves up only when a level opens something
+// better, and gives way to whatever you choose yourself. Each test plays out a
+// step of the reviews that found where it went wrong.
 import './seed.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { Game } from '../src/game/game.js';
+import { NPC } from '../src/game/npc.js';
 import { startLifeSkill, lifeShortcutHint } from '../src/game/quickbar.js';
 import { bestGatherPick, bestGatherNode } from '../src/game/whatnext.js';
 import { zoneLevel } from '../src/data/world.js';
@@ -58,6 +60,14 @@ function safeFor(g) {
   const t0 = g.playerTile(), here = g.world.zoneAt(t0.x, t0.y), fight = g.fightLevel();
   return (t) => { const z = g.world.zoneAt(t.x, t.y); return !z || z === here || (!z.wilderness && zoneLevel(z) <= fight + 10); };
 }
+/** A test of whether tile t lies within reach (and `extra` tiles more) of a monster
+ *  that would set on you, any not too weak to bother with you as npc.js decides:
+ *  worked out here from the monsters themselves. */
+function reachOf(g) {
+  const fight = g.fightLevel();
+  const foes = g.npcs.filter((n) => n.def.attackable && n.def.aggressive && (n.def.ignoreLevelGate || fight <= n.def.level * 2 + 1));
+  return (t, extra = 0) => foes.some((n) => chebyshev(t.x, t.y, n.spawnX, n.spawnY) <= (n.wander || 0) + (n.def.aggroRange || 4) + extra);
+}
 /** Back to `at` with auto gather off: a fresh start for the next tap. */
 function goHome(g, at) {
   const p = g.player;
@@ -66,47 +76,102 @@ function goHome(g, at) {
   g.autoGather = false; g.autoGatherBest = null; g._autoLife = null;
 }
 
-test('the tap walks round regions too strong for you, rides the MRT where that is the safe way, or takes the best it can reach safely', () => {
+test('the tap keeps out of danger: regions far above you, and the reach of any monster that would set on you', () => {
+  // The regions alone (no monsters about): Fishing 46's best catch a safe walk
+  // reaches is Changi Coast's threadfin, the long way round by Pulau Ubin (the
+  // white pomfret there can only be reached through Gardens by the Bay), where a
+  // plain Go cuts through Tekong Badlands and Gardens by the Bay (monsters of
+  // level 200 and more).
+  const c = fresh();
+  c.inventory.add('fishing_rod', 1);
+  const start = c.playerTile(), safe = safeFor(c);
+  assert.equal(c.fightLevel(), 19);
+  c.skills.xp.fishing = xpForLevel(46);
+  assert.ok(startLifeSkill(c, 'fishing'));
+  const spot = c.player.action.obj;
+  assert.equal(spot.objId, 'threadfin_spot');
+  assert.equal(c.world.zoneAt(spot.x, spot.y).name, 'Changi Coast');
+  assert.ok(c.player.path.length > 200, `a long walk (${c.player.path.length} steps)`);
+  assert.ok(c.player.path.every(safe), 'every step of it keeps out of danger');
+  const plain = findPath(c.pathCfg(), start, spot, { reachAdjacent: true, maxNodes: 150000 });
+  assert.ok(plain.length && !plain.every(safe), 'where a plain walk there cuts through danger');
+  // With the monsters about, a region's level says little: Sentosa Beach counts
+  // as level 0, yet its sea snakes (level 81) set on a new fighter, who never
+  // fights back while fishing, and an AFK fisher there died within a minute. The
+  // tap goes to the best catch out of reach of every monster that would set on
+  // you, on a walk that never comes within it.
   const g = fresh({ calm: false });
   g.inventory.add('fishing_rod', 1);
-  const start = g.playerTile(), safe = safeFor(g);
-  assert.equal(g.fightLevel(), 19);
-  // Fishing 46: a plain Go to Changi Coast's spots walks through Tekong Badlands
-  // and Gardens by the Bay (monsters of level 200 and more). The white pomfret's
-  // spots (46) can only be reached through Gardens by the Bay, so the tap takes
-  // the best catch it can walk to safely, the long way round by Pulau Ubin.
+  const home = g.playerTile(), reach = reachOf(g);
+  const clear = () => !reach(g.player.action.obj, 1) && g.player.path.every((t) => !reach(t));
   g.skills.xp.fishing = xpForLevel(46);
   assert.ok(startLifeSkill(g, 'fishing'));
-  const spot = g.player.action.obj;
-  assert.notEqual(spot.objId, 'pomfret_spot');
-  assert.equal(g.world.zoneAt(spot.x, spot.y).name, 'Changi Coast');
-  assert.ok(g.player.path.length > 200, `a long walk (${g.player.path.length} steps)`);
-  assert.ok(g.player.path.every(safe), 'every step of it keeps out of danger');
-  const plain = findPath(g.pathCfg(), start, spot, { reachAdjacent: true, maxNodes: 150000 });
-  assert.ok(plain.length && !plain.every(safe), 'where a plain walk there cuts through danger');
-  // Fishing 25: pike only swim in Kranji Farmlands, ringed by regions of level
-  // 100 and more. With no fare, the best catch you can walk to (marble goby)...
-  goHome(g, start);
+  assert.equal(g.player.action.obj.objId, 'sea_rod_spot', 'a red snapper run');
+  assert.ok(clear(), 'out of every such monster\'s reach, there and on the way');
+  assert.equal(g.said.at(-1), "That's the best you can get to safely: Raw white pomfret (Fishing 46) lies among or past monsters that would set on you.",
+    'and it says why (a red snapper at Fishing 46 looked like a mistake)');
+  assert.ok(g.world.objects.some((o) => o.objId === 'sea_rod_spot' && reach(o)), 'though the runs further along the beach lie within one');
+  // Fishing 25: every pike pool in Kranji Farmlands lies within some monster's
+  // reach, so with the fare it's still never the pike, and the ride keeps clear too.
+  goHome(g, home);
   g.skills.xp.fishing = xpForLevel(25);
-  assert.equal(bestGatherPick(g, 'fishing').src.key, 'goby_spot:raw_marble_goby');
-  // ...and the same with a fare but something (a monster left far behind) still
-  // after you, as the MRT won't take you then: never the walk through danger.
   g.inventory.add('coins', 100);
-  const stale = g.npcs.find((n) => n.alive && n.def.attackable && near(n, start) > 100);
-  stale.target = g.player;
+  assert.ok(g.world.objects.filter((o) => o.objId === 'pike_spot').every((o) => reach(o, 1)));
   assert.ok(startLifeSkill(g, 'fishing'));
-  assert.equal(g.player.action.obj.objId, 'goby_spot');
-  assert.ok(g.player.path.every(safe));
-  assert.equal(rides(g), 0);
-  // With nobody after you, the MRT is the safe way: a ride to Kranji, then a short walk.
-  stale.target = null;
-  goHome(g, start);
-  assert.ok(startLifeSkill(g, 'fishing'));
-  assert.equal(g.player.action.obj.objId, 'pike_spot');
-  assert.equal(rides(g), 1);
-  assert.equal(g.world.zoneAt(g.player.x, g.player.y).name, 'Kranji Farmlands');
-  assert.ok(g.player.path.every(safe));
+  assert.notEqual(g.player.action.obj.objId, 'pike_spot');
+  assert.ok(clear());
   assert.equal(g.autoGatherBest, 'fishing', "the tap's own ride keeps the mode on");
+  // A monster left far behind still after you: the MRT won't take you, and the
+  // tap walks to the best it can reach on foot instead, never through danger.
+  goHome(g, home);
+  const stale = g.npcs.find((n) => n.alive && n.def.attackable && near(n, home) > 100);
+  stale.target = g.player;
+  const before = rides(g);
+  assert.ok(startLifeSkill(g, 'fishing'));
+  assert.equal(rides(g), before, 'no ride');
+  assert.ok(clear());
+  stale.target = null;
+});
+
+test('a monster that would set on you walls off its reach; one too weak to bother with you does not', () => {
+  const g = fresh();
+  g.inventory.add('bronze_axe', 1);
+  const tree = bestGatherPick(g, 'woodcutting').obj;
+  // A dire goblin (level 15) by that tree would set on a fighting level 19 (npc.js:
+  // anyone up to twice its level and one): the tap takes you to another tree, and
+  // the walk there keeps out of its reach.
+  const gob = new NPC('dire_goblin', tree.x + 1, tree.y, 3);
+  g.npcs.push(gob);
+  const reach = (t, extra = 0) => chebyshev(t.x, t.y, gob.spawnX, gob.spawnY) <= gob.wander + gob.def.aggroRange + extra;
+  assert.ok(!reach(g.playerTile()));
+  assert.ok(startLifeSkill(g, 'woodcutting'));
+  const other = g.player.action.obj;
+  assert.equal(other.objId, 'tree');
+  assert.ok(other !== tree && !reach(other, 1), `another tree (${other.x},${other.y}), out of its reach`);
+  assert.ok(g.player.path.every((t) => !reach(t)));
+  // A wild goblin (level 7) leaves a fighting level 19 be: the tree is as good as ever.
+  g.npcs = g.npcs.filter((n) => n !== gob);
+  g.npcs.push(new NPC('wild_goblin', tree.x + 1, tree.y, 3));
+  assert.equal(bestGatherPick(g, 'woodcutting').obj, tree);
+});
+
+test("the mode's own move up keeps out of every monster's reach too", () => {
+  const g = fresh({ calm: false });
+  g.inventory.add('fishing_rod', 1);
+  g.skills.xp.fishing = xpForLevel(27);
+  trickle(g);
+  assert.ok(startLifeSkill(g, 'fishing'));
+  arrive(g);
+  // Fishing 28 opens red snapper, on Sentosa Beach a short walk south. The move up
+  // used to take a new fighter to the run by the sea snakes and sand scorpions,
+  // where it died within a minute (auto retaliate stays quiet while you fish).
+  const reach = reachOf(g);
+  g.skills.xp.fishing = xpForLevel(28) - 1;
+  playUntil(g, () => g.player.action?.obj?.objId === 'sea_rod_spot', 100);
+  const run = g.player.action?.obj;
+  assert.equal(run?.objId, 'sea_rod_spot', 'moved up to a red snapper run');
+  assert.ok(!reach(run, 1) && g.player.path.every((t) => !reach(t)), 'one out of their reach, by a walk that keeps out of it');
+  assert.equal(g.autoGatherBest, 'fishing');
 });
 
 test("standing on a spent trap doesn't stop the Hunter shortcut: it takes you to the nearest ready one", () => {
@@ -147,15 +212,16 @@ test('by itself the mode stays close and on foot: a better source far away is on
   assert.deepEqual(g.said.filter((m) => /is open now/.test(m)),
     ['Raw red snapper (Fishing 28) is open now, in Sentosa Beach: tap Life skills > Fishing to go.']);
   assert.equal(g.autoGatherStatus(), 'Best Fishing: Pike pool');
-  // You ride home yourself (the world map): that ends the mode and its loop, as
-  // walking off does. It used to ride you straight back.
+  // You ride home yourself (the world map): that ends the mode, which used to
+  // ride you straight back. Plain auto gather carries on where you land, as it
+  // always has.
   assert.ok(g.mrtFromMap('kampong_glam'));
   assert.equal(g.autoGatherBest, null);
-  assert.equal(g._autoLife, null);
+  assert.equal(g._autoLife?.objId, 'pike_spot');
   const home = g.playerTile();
   playUntil(g, () => false, 20);
   assert.equal(rides(g), 2, 'no ride back');
-  assert.ok(near(g.playerTile(), home) <= 1 && !g.player.action, 'still at the station');
+  assert.ok(near(g.playerTile(), home) <= 30, 'it stays about the station');
 });
 
 test('a level-up that opens nothing new leaves you be', () => {
@@ -191,7 +257,7 @@ test('a level-up on a world event node (the meteorite, a rare shoal) keeps you t
   g.skills.xp.mining = xpForLevel(15) - 1;
   playUntil(g, () => g.skills.level('mining') >= 15, 30);
   assert.equal(g.skills.level('mining'), 15);
-  playUntil(g, () => false, 3);
+  playUntil(g, () => false, 10);
   assert.equal(g.player.action?.obj, met, 'still mining the meteorite');
   assert.equal(g.autoGatherBest, null, 'a node you chose yourself ends "the best you can"');
   assert.ok(!g.said.some((m) => /moves up/.test(m)));
@@ -210,7 +276,7 @@ test('a level-up on a world event node (the meteorite, a rare shoal) keeps you t
   h.skills.xp.fishing = xpForLevel(15) - 1;
   playUntil(h, () => h.skills.level('fishing') >= 15, 60);
   assert.equal(h.skills.level('fishing'), 15);
-  playUntil(h, () => false, 3);
+  playUntil(h, () => false, 10);
   assert.equal(h.player.action?.obj, shoal, 'still fishing the shoal');
   assert.ok(!h.said.some((m) => /moves up/.test(m)));
 });
@@ -230,18 +296,27 @@ test('a level-up never moves the mode itself off a world event node, though a be
   g.skills.xp.fishing = xpForLevel(15) - 1;
   playUntil(g, () => g.skills.level('fishing') >= 15, 60);
   assert.equal(g.skills.level('fishing'), 15);
-  playUntil(g, () => false, 3);
+  playUntil(g, () => false, 10);
   assert.equal(g.player.action?.obj, pool, 'still at the event node');
   assert.equal(g.autoGatherBest, 'fishing');
   assert.equal(bestGatherNode(g, 'fishing')?.objId, 'perch_spot', 'the pool it would have walked you to');
 });
 
-test('a node you choose yourself ends the mode: Interact, a guide\'s or the map\'s Go, steering, a ride, auto gather off', () => {
+test('a node you choose yourself ends the mode (Interact, a Go, steering, a ride, the map, a teleport, auto gather off); your own tap on its kind does not', () => {
   const g = fresh();
   g.inventory.add('bronze_axe', 1);
   g.skills.xp.woodcutting = xpForLevel(42) - 1;   // mangrove (40) is the best; 42 opens nothing
   assert.ok(startLifeSkill(g, 'woodcutting'));
-  assert.equal(g.player.action.obj.objId, 'mangrove');
+  const mangrove = g.player.action.obj;
+  assert.equal(mangrove.objId, 'mangrove');
+  // Your own tap on a mangrove (back to work after a fight, say) carries on in the
+  // mode: it used to end it, and auto gather then dropped to whatever tree stood nearest.
+  g.player.clearAction();
+  g.defaultObjectAction(mangrove);
+  playUntil(g, () => g.player.action?.obj === mangrove && g._autoLife && !g.player.isMoving);
+  assert.equal(g.autoGatherBest, 'woodcutting');
+  assert.ok(g.player.action.best, "the mode's own again");
+  assert.equal(g.autoGatherStatus(), 'Best Woodcutting: Mangrove tree');
   // Interact on an oak instead: at the next level-up you used to be walked off to the mangroves.
   const oak = nearestOf(g, 'oak');
   placeBeside(g, oak);
@@ -269,7 +344,26 @@ test('a node you choose yourself ends the mode: Interact, a guide\'s or the map\
   g.inventory.add('coins', 30);
   assert.ok(g.travelTo('chinatown'));
   assert.equal(g.autoGatherBest, null);
-  assert.equal(g._autoLife, null);
+  // A tap on the ground, the map's Travel, a teleport: the HUD used to go on
+  // saying "Best Woodcutting" with the loop long gone.
+  assert.ok(startLifeSkill(g, 'woodcutting'));
+  g.walkTo({ x: g.player.x, y: g.player.y + 1 });
+  assert.equal(g.autoGatherBest, null);
+  assert.ok(startLifeSkill(g, 'woodcutting'));
+  g.travelToTile({ x: g.player.x + 3, y: g.player.y });
+  assert.equal(g.autoGatherBest, null);
+  assert.ok(startLifeSkill(g, 'woodcutting'));
+  assert.ok(g.teleports.start('town'));
+  assert.equal(g.autoGatherBest, null);
+  g.teleports.interrupt('');
+  // A farming tap: farming's loop takes over auto gather's, and the HUD went on
+  // saying "Best Woodcutting" while you farmed.
+  assert.ok(startLifeSkill(g, 'woodcutting'));
+  g.inventory.add('chilli_seed', 1);
+  assert.ok(startLifeSkill(g, 'farming'));
+  playUntil(g, () => g._autoLife?.kind === 'farm', 300);
+  assert.equal(g.autoGatherBest, null);
+  assert.equal(g.autoGatherStatus(), 'Farming');
   // Switching auto gather off, or ticking kinds of your own.
   assert.ok(startLifeSkill(g, 'woodcutting'));
   g.toggleAutoGather(false);
@@ -279,25 +373,41 @@ test('a node you choose yourself ends the mode: Interact, a guide\'s or the map\
   assert.equal(g.autoGatherBest, null);
 });
 
-test('death ends the mode: you wake in town and stay there', () => {
+test('death ends the mode: plain auto gather carries on near where you wake, never back where you fell', () => {
   const g = fresh();
   g.inventory.add('bronze_axe', 1);
+  g.inventory.add('coins', 100);
   g.skills.xp.woodcutting = xpForLevel(99);   // magic trees, up in Bukit Timah
   assert.ok(startLifeSkill(g, 'woodcutting'));
   const tree = arrive(g);
   assert.equal(tree.objId, 'magic_tree');
   g.playerDeath();
-  assert.equal(g.autoGatherBest, null);
-  assert.equal(g._autoLife, null, 'it used to walk (or ride) you straight back to where you fell');
+  assert.equal(g.autoGatherBest, null, 'it used to walk (or ride) you straight back to where you fell');
   playUntil(g, () => g.player.alive, 30);
   const woke = g.playerTile();
-  playUntil(g, () => false, 15);
-  assert.ok(!g.player.action && !g.player.isMoving && near(g.playerTile(), woke) === 0, 'still where you woke');
+  playUntil(g, () => false, 30);
+  assert.equal(rides(g), 0);
+  assert.ok(near(g.playerTile(), woke) <= 30, 'about the town (as plain auto gather always has)');
+  assert.notEqual(g.player.action?.obj?.objId, 'magic_tree', 'not back at the magic trees');
 });
 
-test('while auto quest is on, the mode starts no trips (it decides where you go)', () => {
+test('a tap switches auto quest off; while you have it on again, the mode starts no trips (it decides where you go)', () => {
   const g = fresh();
   g.inventory.add('bronze_axe', 1);
+  g.inventory.add('fishing_rod', 1);
+  g.inventory.add('coins', 100);
+  // With auto quest on, a tap rode you off to fish and auto quest rode you straight
+  // back for its next step: a Life skills shortcut switches it off, as it does auto battle.
+  g.skills.xp.fishing = xpForLevel(25);
+  g.toggleAutoQuest(true);
+  assert.ok(startLifeSkill(g, 'fishing'));
+  assert.equal(g.autoQuest, false);
+  assert.ok(g.said.includes('Auto quest off: you went to train Fishing.'));
+  const spot = g.player.action.obj;
+  playUntil(g, () => false, 5);
+  assert.equal(g.player.action?.obj, spot, 'still on the way there');
+  assert.equal(rides(g), 1, 'one ride, no ride back');
+  goHome(g, { x: 58, y: 55 });
   trickle(g);   // (ordinary trees stay the best)
   assert.ok(startLifeSkill(g, 'woodcutting'));
   const tree = arrive(g);
@@ -314,4 +424,111 @@ test('while auto quest is on, the mode starts no trips (it decides where you go)
   assert.equal(g.player.action?.obj?.objId, 'tree');
   assert.notEqual(g.player.action.obj, tree);
   assert.ok(g.player.action.best, "the mode's own pick");
+});
+
+test('one big haul moves you up to the best source close by, and one line says where a tap takes you for better', () => {
+  const g = fresh();
+  g.inventory.add('fishing_rod', 1); g.inventory.add('small_net', 1);
+  trickle(g);
+  assert.ok(startLifeSkill(g, 'fishing'));
+  const shoal = arrive(g);
+  assert.equal(shoal.objId, 'fishing_spot', 'the anchovy shoal south of town');
+  // One haul from Fishing 24 to 44 (a level-up for each level, as Skills.addXp tells
+  // them): red snapper (28) opens a short walk away on Sentosa Beach, threadfin
+  // (42) far off at Changi Coast. The mode used to move only to the overall best,
+  // which never came close, and stayed on the anchovy for good.
+  g.skills.xp.fishing = xpForLevel(44);
+  for (let l = 25; l <= 44; l++) g.bus.emit('levelup', { skill: 'fishing', level: l });
+  playUntil(g, () => g.player.action?.obj?.objId === 'sea_rod_spot', 15);
+  assert.equal(g.player.action?.obj?.objId, 'sea_rod_spot');
+  assert.deepEqual(g.said.filter((m) => /moves up|is open now/.test(m)),
+    ['Auto gather moves up to the red snapper run. Raw threadfin (Fishing 42) is open now, in Changi Coast: tap Life skills > Fishing to go.']);
+});
+
+test("a new character's run of levels brings one move up, within half a minute, not a line at each", () => {
+  const g = fresh();
+  g.inventory.add('fishing_rod', 1); g.inventory.add('small_net', 1);
+  let first = null;
+  g.bus.on('levelup', () => { first ??= g.tickCount; });
+  assert.ok(startLifeSkill(g, 'fishing'));
+  // Fishing levels come every tick or two at first: the mode waits for them to
+  // settle, but never more than 30 seconds (50 ticks).
+  playUntil(g, () => g.player.action?.obj?.objId === 'sea_rod_spot', 80);
+  assert.equal(g.player.action?.obj?.objId, 'sea_rod_spot');
+  assert.ok(g.tickCount - first <= 51, `moved up ${g.tickCount - first} ticks after the first level`);
+  assert.equal(g.said.filter((m) => /moves up|is open now/.test(m)).length, 1);
+});
+
+test('the mode waits for a school of fish passing its spot to swim off before it moves up', () => {
+  const g = fresh();
+  g.inventory.add('fishing_rod', 1);
+  g.skills.xp.fishing = xpForLevel(14);
+  trickle(g);
+  assert.ok(startLifeSkill(g, 'fishing'));
+  const pool = arrive(g);
+  assert.equal(pool.objId, 'tilapia_spot');
+  g.fishSchools.rand = () => 0.99;   // it stays its full time (and, schools being off in tests/seed.mjs, is never netted)
+  g.fishSchools.spawn(pool);
+  // Fishing 15 opens the perch pools a few steps away: the catch that brought it
+  // used to walk you off the school there and then.
+  g.skills.xp.fishing = xpForLevel(15) - 1;
+  playUntil(g, () => g.skills.level('fishing') >= 15, 60);
+  playUntil(g, () => false, 10);
+  assert.ok(g.fishSchools.at(pool), 'the school is still there');
+  assert.equal(g.player.action?.obj, pool, 'and so are you');
+  // Once it has swum off, you move up.
+  playUntil(g, () => !g.fishSchools.at(pool), 100);
+  playUntil(g, () => g.player.action?.obj !== pool, 15);
+  assert.ok(g.player.action?.obj && g.player.action.obj !== pool);
+  assert.ok(g.said.some((m) => /^Auto gather moves up to the /.test(m)));
+});
+
+test("best spots you can't reach safely neither stall the mode nor bring news of them", () => {
+  const g = fresh();
+  g.inventory.add('fishing_rod', 1);
+  g.skills.xp.fishing = xpForLevel(45);
+  trickle(g);
+  // Beside Changi Coast's threadfin, where the tap's walk round by Pulau Ubin ends.
+  const spot = g.world.objects.find((o) => o.objId === 'threadfin_spot' && o.x === 287 && o.y === 75);
+  placeBeside(g, spot);
+  assert.ok(startLifeSkill(g, 'fishing'));
+  assert.equal(g.player.action.obj, spot);
+  // Fishing 46 opens white pomfret, whose spots a few steps off can only be reached
+  // through Gardens by the Bay: no word of it (a tap would only bring you back here)...
+  g.skills.xp.fishing = xpForLevel(46) - 1;
+  playUntil(g, () => g.skills.level('fishing') >= 46, 100);
+  playUntil(g, () => false, 10);
+  assert.equal(g.player.action?.obj, spot);
+  assert.ok(!g.said.some((m) => /is open now|moves up/.test(m)));
+  // ...and after an interruption (a fight, the bank) you fish on here. The mode used
+  // to spend its few tries on the pomfret's spots, and never fished again.
+  g.player.clearAction();
+  playUntil(g, () => g.player.action, 3);
+  assert.equal(g.player.action?.obj, spot);
+  assert.equal(bestGatherNode(g, 'fishing'), spot);
+});
+
+test('a school is followed only somewhere safe', () => {
+  const g = fresh();
+  g.inventory.add('fishing_rod', 1);
+  g.skills.xp.fishing = xpForLevel(14);
+  assert.ok(startLifeSkill(g, 'fishing'));
+  const pool = arrive(g);
+  assert.equal(pool.objId, 'tilapia_spot');
+  const other = nearestOf(g, pool.objId, g.playerTile(), (o) => o !== pool && near(o, g.player) <= 10);
+  assert.ok(other, 'another tilapia pool close by');
+  g.fishSchools.rand = () => 0.99;
+  // A monster that would set on you by the other pool: auto gather used to follow
+  // a school there all the same, by a plain walk.
+  const gob = new NPC('dire_goblin', other.x + 1, other.y, 3);
+  g.npcs.push(gob);
+  g.fishSchools.spawn(other);
+  assert.equal(g.player.action?.obj, pool, 'it stays put');
+  g.fishSchools.leave(g.fishSchools.at(other));
+  // Without the monster, it follows, and the pick is still the mode's own.
+  g.npcs = g.npcs.filter((n) => n !== gob);
+  g.fishSchools.spawn(other);
+  assert.equal(g.player.action?.obj, other);
+  assert.ok(g.player.action.best);
+  assert.ok(g.said.includes('Auto gather follows the school.'));
 });

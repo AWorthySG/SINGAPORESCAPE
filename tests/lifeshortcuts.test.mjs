@@ -64,6 +64,7 @@ test('gathering: walks to the best node you can work and starts on it, with auto
 
 test('the best you can: auto gather never drops to a lesser node and waits for the best to grow back; only a tap goes further for it', () => {
   const g = fresh();
+  g.npcs = g.npcs.filter((n) => !n.def?.attackable);   // no monsters: every far bamboo stands within some one's reach (tests/bestgather.test.mjs)
   g.inventory.add('bronze_axe', 1);
   g.skills.xp.woodcutting = xpForLevel(8);   // bamboo (8) is the best, ordinary trees (1) all round
   assert.ok(startLifeSkill(g, 'woodcutting'));
@@ -115,6 +116,7 @@ test('the best you can: a level that opens a better source moves you up to it', 
 
 test('the best you can never takes you into the Wilderness or a region far above your fighting level', () => {
   const g = fresh();
+  g.npcs = g.npcs.filter((n) => !n.def?.attackable);   // the regions alone here (the monsters' own reach: tests/bestgather.test.mjs)
   g.inventory.add('bronze_axe', 1);
   const fight = g.fightLevel();
   const safe = (o) => { const z = g.world.zoneAt(o.x, o.y); return !z || (!z.wilderness && zoneLevel(z) <= fight + 10); };

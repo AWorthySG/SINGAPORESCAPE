@@ -11,7 +11,7 @@ import { POTIONS, CROP_BY_SEED, cropFor } from '../data/trades.js';
 import { SKILL_BY_ID } from '../data/skills.js';
 import { SKILL_GUIDES } from './skillguide.js';
 import { quickUse, quickUseChoice } from './quickuse.js';
-import { nextQuest, bestSource, bestGatherPick } from './whatnext.js';
+import { nextQuest, bestSource, bestGatherPick, bestWorkable } from './whatnext.js';
 import { nearOfferingShrine } from './salvage.js';
 import { nextJob } from './autoprocess.js';
 
@@ -127,11 +127,15 @@ export function lifeShortcutHint(game, skill) {
  *  something started: a walk, a fire, a batch made on the spot. */
 export function startLifeSkill(game, skill, ui = game.ui) {
   if (!game.player.alive) return false;
-  // Skilling, not fighting: auto battle would only pull you away again.
+  // Skilling, not fighting: auto battle would only pull you away again. So would
+  // auto quest, off to its next step (it rode you straight back from the MRT ride
+  // a shortcut had just taken).
   if (game.autoBattle) game.toggleAutoBattle(false);
+  if (game.autoQuest) game.toggleAutoQuest(false, `you went to train ${skillName(skill)}.`);
   if (GATHERING.has(skill)) {
     // The best source you can get to without crossing a region too strong for
-    // you, riding the MRT where that helps or is the only safe way (whatnext.js).
+    // you or coming within reach of a monster that would set on you, riding the
+    // MRT where that helps or is the only safe way (whatnext.js).
     const pick = bestGatherPick(game, skill);
     if (!pick) { game.msg(`There's nothing for ${skillName(skill)} I can take you to right now.`, 'system'); return false; }
     // Auto gather keeps you at it, always on the best the skill offers you (the
@@ -141,7 +145,12 @@ export function startLifeSkill(game, skill, ui = game.ui) {
     if (!game.autoGather) game.toggleAutoGather(true);
     if (!game.goToObject(pick.obj, null, pick.trip)) return false;
     game.autoGatherBest = skill;
-    if (game.player.action?.obj === pick.obj) game.player.action.best = true;   // the mode's own pick: one you choose yourself ends it
+    if (game.player.action?.obj === pick.obj) game.player.action.best = true;   // the mode's own pick: one you choose yourself ends it...
+    game._autoLife = { kind: 'gather', objId: pick.obj.objId };   // ...unless it's of this kind (game.js _tickContinuous)
+    // Better ones your level allows stand where monsters that would set on you
+    // roam, or past them: say so, or Mining 99 heading for a clay rock looks broken.
+    const top = bestWorkable(game, skill);
+    if (top && top.level > pick.src.level) game.msg(`That's the best you can get to safely: ${top.name} (${skillName(skill)} ${top.level}) lies among or past monsters that would set on you.`, 'system');
     return true;
   }
   if (MAKING[skill]) {
