@@ -1,7 +1,7 @@
 // The whole tree, the whole seam (src/game/jackpot.js): now and then a swing
 // takes every log left in a tree, or every ore left in a rock, at once, with
 // XP for each, and the tree falls or the rock is mined out. Hunter's whole
-// flock is the same burst for a trap.
+// flock and Farming's bumper harvest are the same burst for a trap and a patch.
 import './seed.mjs';   // seeded Math.random (and NODE_JACKPOT off before every test)
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -11,9 +11,9 @@ import { xpForLevel } from '../src/data/xp.js';
 import { resolveWoodcut, resolveMine, resolveFish, resolveHunt } from '../src/game/skilling.js';
 import { FISH_SCHOOL, WILD_STOCK } from '../src/game/fishschool.js';
 import {
-  NODE_JACKPOT, JACKPOT_CHANCE, JACKPOT_TOOL_BONUS, setJackpotRand, nodeJackpot, SEAM_MULT, huntJackpot, HUNT_STOCK, HUNT_CROWD,
+  NODE_JACKPOT, JACKPOT_CHANCE, JACKPOT_TOOL_BONUS, setJackpotRand, nodeJackpot, SEAM_MULT, huntJackpot, HUNT_STOCK, HUNT_CROWD, BUMPER_STOCK, bumperHarvest,
 } from '../src/game/jackpot.js';
-import { HUNT } from '../src/data/trades.js';
+import { cropFor, HUNT } from '../src/data/trades.js';
 import { mulberry32 } from '../src/game/pets.js';
 import { SKILL_GUIDES } from '../src/game/skillguide.js';
 
@@ -182,22 +182,51 @@ test('a lucky catch springs the trap on a whole nest: ten times a stock of catch
   assert.equal(huntJackpot(g, trap, { xpEach: 1 }), 0, 'the switch turns it off with the seams');
 });
 
-test('the whole flock is as likely as a whole seam, and sized like a whole school', () => {
+test('a harvest can be a bumper one: the patch gives its crop ten times a stock over, XP for each crop', () => {
+  const g = newGame(); const said = listen(g);
+  g.skills.xp.farming = xpForLevel(30);
+  const patch = g.world.objects.find((o) => o.objId === 'farm_patch');
+  const c = cropFor('tongkat_ali');
+  const harvest = (r) => {
+    g.inventory.add(c.seed, 1);
+    assert.ok(g.plantSeed(patch, c.seed));
+    patch.growLeft = 0;
+    setJackpotRand(r);
+    const n0 = g.inventory.count(c.id), x0 = g.skills.xp.farming;
+    assert.ok(g.harvestPatch(patch));
+    return [g.inventory.count(c.id) - n0, g.skills.xp.farming - x0];
+  };
+  const [plain, plainXp] = harvest(() => 0.99);
+  assert.ok(plain >= c.yield[0] && plain <= c.yield[1] + 1, `an ordinary harvest: ${plain}`);
+  const [bumper, bumperXp] = harvest(() => 0);
+  // The harvest, then ten times it again (the smallest stock).
+  assert.equal(bumper % (1 + SEAM_MULT * BUMPER_STOCK[0]), 0, `n + 10n crops: ${bumper}`);
+  assert.ok(Math.abs(bumperXp / bumper - plainXp / plain) < 1e-6, 'XP for every crop');
+  assert.ok(said.some((m) => /^A bumper harvest! The patch gives \d+ more tongkat ali\.$/.test(m)));
+  NODE_JACKPOT.on = false;
+  assert.equal(bumperHarvest(g, patch, c, 3), 0, 'the switch turns it off');
+});
+
+test('the whole flock and the bumper harvest are as likely as a whole seam, and sized like a whole school', () => {
   assert.deepEqual(HUNT_STOCK, WILD_STOCK);
+  assert.deepEqual(BUMPER_STOCK, WILD_STOCK);
   const fake = { inventory: { canAdd: (id, k) => k, add() {} }, skills: { addXp() {} }, msg() {}, bus: { emit() {} }, player: {} };
   const trap = { x: 0, y: 0, def: { gives: [{ id: 'lizard_skin' }] } };
+  const chilli = { id: 'chilli', name: 'Chilli', harvestXp: 1 };
   // About 1 in 20, and half as likely again with the best snare (as a whole seam with the best pickaxe).
-  for (const [f, p] of [[() => huntJackpot(fake, trap, { xpEach: 1 }), JACKPOT_CHANCE],
+  for (const [f, p] of [[() => huntJackpot(fake, trap, { xpEach: 1 }), JACKPOT_CHANCE], [() => bumperHarvest(fake, trap, chilli, 3), JACKPOT_CHANCE],
     [() => huntJackpot(fake, trap, { xpEach: 1, find: 1 }), JACKPOT_CHANCE * (1 + JACKPOT_TOOL_BONUS)]]) {
     setJackpotRand(mulberry32(42));
     let hits = 0;
     for (let i = 0; i < 20000; i++) if (f()) hits++;
     assert.ok(Math.abs(hits / 20000 - p) < 0.006, `about ${p} (${hits / 20000})`);
   }
-  // Ten times a stock of 1 to 14: 10 to 140 catches.
+  // Ten times a stock of 1 to 14: 10 to 140 catches, or 10 to 140 times the harvest.
   const rolls = (...xs) => { let i = 0; return () => xs[Math.min(i++, xs.length - 1)]; };
   setJackpotRand(rolls(0, 0)); assert.equal(huntJackpot(fake, trap, { xpEach: 1 }), 10);
   setJackpotRand(rolls(0, 0.9999)); assert.equal(huntJackpot(fake, trap, { xpEach: 1 }), 140);
+  setJackpotRand(rolls(0, 0)); assert.equal(bumperHarvest(fake, trap, chilli, 3), 30);
+  setJackpotRand(rolls(0, 0.9999)); assert.equal(bumperHarvest(fake, trap, chilli, 3), 420);
   // Every trap says what it springs on ("Whole nest!").
   for (const id of Object.keys(HUNT)) assert.ok(['flock', 'nest', 'herd', 'warren', 'family'].includes(HUNT_CROWD[id]), id);
 });
@@ -207,4 +236,5 @@ test('the skill guides mention it', () => {
   assert.match(SKILL_GUIDES.mining.use, /whole seam free at once/);
   assert.match(SKILL_GUIDES.fishing.use, /at any spot, about one catch in 20 turns out to be a smaller school of the fish you hooked: 10 to 140/);
   assert.match(SKILL_GUIDES.hunter.use, /one catch in 20 springs the trap on a whole flock, nest or herd at once: 10 to 140/);
+  assert.match(SKILL_GUIDES.farming.use, /one harvest in 20 is a bumper harvest: the patch gives its crop 10 to 140 times over/);
 });

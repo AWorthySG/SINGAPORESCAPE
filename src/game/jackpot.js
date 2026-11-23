@@ -3,13 +3,15 @@
 // (the owner's ask, after the fish schools' "whole school" catch). It uses the
 // tree or rock up, as if you had chopped or mined it to the end. Every fishing
 // spot has the same chance of a whole school (schoolJackpot, fishschool.js),
-// and every trap of a whole flock (huntJackpot).
+// every trap of a whole flock (huntJackpot) and every harvest of a bumper one
+// (bumperHarvest).
 //
 // Kept out of skilling.js: resolveWoodcut and resolveMine call `nodeJackpot`
-// once per swing, after that swing's own log or ore, and resolveHunt calls
-// `huntJackpot` after each catch. Rolls use their own generator, so they never
-// shift Math.random (the seeded tests depend on its sequence), and a switch
-// lets the test suite turn it off (tests/seed.mjs).
+// once per swing, after that swing's own log or ore, resolveHunt calls
+// `huntJackpot` after each catch and Game.harvestPatch `bumperHarvest` after
+// each harvest. Rolls use their own generator, so they never shift Math.random
+// (the seeded tests depend on its sequence), and a switch lets the test suite
+// turn it off (tests/seed.mjs).
 
 import { getItem } from '../data/items.js';
 import { weightedPick } from '../core/utils.js';
@@ -127,4 +129,29 @@ export function huntJackpot(game, obj, { xpEach, find = 0 }) {
   game.spawnSparkle?.(game.player, '#e8c46a', 14);
   game.bus.emit('sfx', 'dropepic');
   return caught;
+}
+
+// Farming's bumper harvest (the same ask: a farm had no burst either). Now and
+// then a harvest is a bumper one: as likely as a whole seam (there is no tool,
+// so no find bonus) and as big for the work, the patch giving its crop ten
+// times a stock of 1-14 harvests over (10-140 harvests' worth at once), with
+// XP for every crop. The patch is empty after it, as after any harvest.
+export const BUMPER_STOCK = [1, 14];
+
+/** After harvesting `n` of `crop` (cropFor) at patch `obj`: maybe a bumper
+ *  harvest. Returns how many more crops it added (0 if none). */
+export function bumperHarvest(game, obj, crop, n) {
+  if (!NODE_JACKPOT.on || !(n > 0) || roll() >= JACKPOT_CHANCE) return 0;
+  const want = n * SEAM_MULT * between(BUMPER_STOCK);
+  const got = Math.min(want, game.inventory.canAdd(crop.id, want));
+  if (got <= 0) return 0;
+  game.inventory.add(crop.id, got);
+  game.skills.addXp('farming', crop.harvestXp * got);
+  game.msg(`A bumper harvest! The patch gives ${got} more ${crop.name.toLowerCase()}.`, 'level');
+  game.banner?.(`<span class="big">Bumper harvest!</span>+${got} ${crop.name}`);
+  game.addHitsplat?.(game.player, 0, { text: `Bumper harvest! +${got}` });
+  game.spawnSparkle?.({ x: obj.x, y: obj.y }, crop.color, 18);
+  game.spawnSparkle?.(game.player, '#9be37a', 14);
+  game.bus.emit('sfx', 'dropepic');
+  return got;
 }
