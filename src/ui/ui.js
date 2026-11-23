@@ -3108,19 +3108,25 @@ export class UI {
       ambBtn.textContent = `Ambience: ${on ? 'On' : 'Off'}`;
     });
     ambBtn.textContent = `Ambience: ${this.game.audio && this.game.audio.ambienceOn === false ? 'Off' : 'On'}`;
-    // Volume slider.
-    const vol = document.createElement('label');
-    vol.className = 'set-slider';
-    const pct = Math.round((this.game.audio?.volume ?? 1) * 100);
-    vol.innerHTML = `<span>Volume <b>${pct}%</b></span><input type="range" min="0" max="100" step="5" value="${pct}">`;
-    vol.querySelector('input').addEventListener('input', (e) => {
-      const v = Number(e.target.value);
-      vol.querySelector('b').textContent = `${v}%`;
-      const a = this.game.audio;
-      if (a) { a.unlock(); a.setVolume(v / 100); }
-    });
-    vol.querySelector('input').addEventListener('change', () => this.game.audio?.play('pickup'));
-    p.appendChild(vol);
+    // Volume sliders: everything, then the sound effects and the music on their own.
+    const slider = (label, level, set, sample) => {
+      const vol = document.createElement('label');
+      vol.className = 'set-slider';
+      const pct = Math.round((level ?? 1) * 100);
+      vol.innerHTML = `<span>${label} <b>${pct}%</b></span><input type="range" min="0" max="100" step="5" value="${pct}">`;
+      vol.querySelector('input').addEventListener('input', (e) => {
+        const v = Number(e.target.value);
+        vol.querySelector('b').textContent = `${v}%`;
+        const a = this.game.audio;
+        if (a) { a.unlock(); set(a, v / 100); }
+      });
+      if (sample) vol.querySelector('input').addEventListener('change', () => this.game.audio?.play('pickup'));
+      p.appendChild(vol);
+    };
+    const au = this.game.audio;
+    slider('Volume', au?.volume, (a, v) => a.setVolume(v), true);
+    slider('Sound effects', au?.sfxVolume, (a, v) => a.setSfxVolume(v), true);
+    slider('Music', au?.musicVolume, (a, v) => a.setMusicVolume(v), false);
     sec('Display');
     const gfxBtn = mk('', () => {
       this.game.lowFx = !this.game.lowFx;
