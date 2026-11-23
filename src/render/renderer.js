@@ -1139,18 +1139,20 @@ export class Renderer {
         ctx.restore();
         continue;
       }
-      // Magic bolt: a glowing orb with a fading trail of embers behind it.
+      // Magic bolt: a glowing orb in its element's colour with a fading trail of
+      // embers behind it; a crit's is half as big again (and brighter, game.js).
+      const k = e.crit ? 1.5 : 1;
       ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = 0.3;
       for (let i = 1; i <= 3; i++) {
         const tt = Math.max(0, t - i * 0.1);
         const tx = e.x + (e.ex - e.x) * tt - ox, ty = e.y + (e.ey - e.y) * tt - oy;
-        ctx.fillStyle = e.color; ctx.beginPath(); ctx.arc(tx, ty, 2.6 - i * 0.6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = e.color; ctx.beginPath(); ctx.arc(tx, ty, (2.6 - i * 0.6) * k, 0, Math.PI * 2); ctx.fill();
       }
       ctx.globalAlpha = 1;
       ctx.fillStyle = e.color;
-      ctx.beginPath(); ctx.arc(x, y, 3.6, 0, Math.PI * 2); ctx.fill();
-      ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+      ctx.beginPath(); ctx.arc(x, y, 3.6 * k, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.arc(x, y, 6 * k, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = 'source-over';
     }
   }

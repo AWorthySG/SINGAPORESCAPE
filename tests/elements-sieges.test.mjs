@@ -73,7 +73,10 @@ test('a solo fight against a level-matched boss takes 3-4 minutes, mechanics and
     const id = bossesNear(setupClass(cls, L).fightLevel())[0];
     const r = bossFight(cls, L, id, { maxTicks: 1000 });
     assert.ok(r.killed && !r.died, `${cls} ${L} beats ${id}`);
-    assert.ok(r.secs > 75 && r.secs < 480, `${cls} ${L} against ${id}: ${r.secs.toFixed(0)} s`);
+    // A Wizard's Fire burns go off every half second and with every hit (the
+    // owner's much stronger Ignite), which about halves its fights: 1-2 minutes.
+    const floor = cls === 'wizard' ? 30 : 75;
+    assert.ok(r.secs > floor && r.secs < 480, `${cls} ${L} against ${id}: ${r.secs.toFixed(0)} s`);
     times.push(r.secs);
   }
   const med = median(times);
@@ -121,14 +124,17 @@ test('auto battle still takes on a siege boss it could take on before, and its r
   assert.ok(stones && stones[1] >= Math.round(20 * d.siege), `a siege's pile of stones (${stones?.[1]})`);
 });
 
-test('Wizards and Sorcerers deal about the median class damage from level 100 to 1,000', () => {
-  // Before: Wizards at 80% of the median at level 100, 45% at 300 and 22% at 1,000.
+test('Wizards and Sorcerers out-damage the other classes 2-3.5x from level 100 to 1,000, with Fire\'s burns', () => {
+  // Once: Wizards at 80% of the median at level 100, 45% at 300 and 22% at 1,000.
+  // Then about the median (110%). Now Fire's burns go off every half second and
+  // with every hit (the owner chose a much stronger Ignite, knowing casters would
+  // pull far ahead): 230-300% of the median.
   const others = ['swordsman', 'paladin', 'archer', 'ranger', 'ninja', 'dancer'];
   for (const L of [100, 300, 1000]) {
     const med = median(others.map((c) => dps(c, L)));
     for (const cls of ['wizard', 'sorcerer']) {
       const r = dps(cls, L) / med;
-      assert.ok(r > 0.75 && r < 1.35, `${cls} at level ${L}: ${(r * 100).toFixed(0)}% of the median`);
+      assert.ok(r > 2 && r < 3.5, `${cls} at level ${L}: ${(r * 100).toFixed(0)}% of the median`);
     }
   }
 });
@@ -260,17 +266,50 @@ test('Earth: Shatter cracks armour, up to 5 cracks of +6% pierce for every hit o
   assert.equal(n.shatter, null);
 });
 
-test('Fire: Ignite burns 15% of the hit before its crit every second for 5s, and the foe glows', () => {
+test('Fire: Ignite burns 15% of the hit before its crit for 5s, and the foe glows', () => {
   const { g, n, cast } = bench();
   const hit = cast('fire_strike');
   assert.equal(n.ignite.burns.length, 1);
-  assert.equal(n.ignite.burns[0].perSec, Math.max(1, Math.round(hit * 0.15)));
+  assert.equal(n.ignite.burns[0].dmg, Math.max(1, Math.round(hit * 0.15)));
   assert.equal(elementTint(g, n).col, '#ff6a1a');
+  // The next cast's hit sets the first burn off (then adds its own).
+  const before = n.hp;
+  const h2 = cast('fire_strike');
+  assert.equal(n.ignite.owedN, 1);
+  assert.equal(n.ignite.burns.length, 2);
+  g._tickIgnites();
+  assert.equal(before - n.hp, h2 + n.ignite.burns[0].dmg, 'the burn went off with the hit');
   // A crit's burn is worked out from the hit before the crit.
   const b = bench();
   b.g._critHit = (dmg) => ({ dmg: dmg * 2, crit: true, mult: 2 });
   const hc = b.cast('fire_strike');
-  assert.equal(b.n.ignite.burns[0].perSec, Math.max(1, Math.round(hc / 2 * 0.15)));
+  assert.equal(b.n.ignite.burns[0].dmg, Math.max(1, Math.round(hc / 2 * 0.15)));
+});
+
+test('Fire: a spell\'s splash sets off the burns of every burning monster it reaches', () => {
+  const { g, n, cast } = bench();
+  const m = new NPC('goblin', n.x + 1, n.y, 0, {});
+  m.def = { ...m.def, sprite: 'reptile', family: 'plain_test', aggressive: false };
+  m.maxHp = m.hp = 1e12;
+  g.npcs = [n, m];
+  cast('fire_strike');
+  assert.ok(m.ignite?.burns.length === 1 && m.ignite.owedN === 0, 'the splash lit it too');
+  cast('fire_strike');
+  assert.equal(m.ignite.owedN, 1, 'and the next splash set it off');
+});
+
+test('a spell bolt flies in its element\'s colour, a crit\'s brighter and bigger', () => {
+  const { g, cast } = bench();
+  const bolt = () => g.effects.filter((e) => e.type === 'projectile' && e.kind === 'bolt').pop();
+  for (const id of ['wind_strike', 'water_strike', 'earth_strike', 'fire_strike']) {
+    const sp = getSpell(id);
+    g.effects = []; delete g._critHit; g._critHit = (dmg) => ({ dmg, crit: false, mult: 1 });
+    cast(id);
+    assert.deepEqual([bolt().color, bolt().crit], [sp.tint, false], `${id}: its own colour`);
+    g.effects = []; g._critHit = (dmg) => ({ dmg: dmg * 2, crit: true, mult: 2 });
+    cast(id);
+    assert.deepEqual([bolt().color, bolt().crit], [sp.critTint, true], `${id}: a crit, brighter and bigger, not purple`);
+  }
 });
 
 test('a spell\'s max hit counts its attunement, and the Stats tab agrees with the attack code', async () => {

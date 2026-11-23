@@ -93,6 +93,7 @@ export class NPC extends Character {
     // the death and spawn fades, a boss's cast), made here empty so every
     // monster keeps one object shape (see Character's constructor).
     this.recentDmg = undefined;
+    this.ignite = null;           // Fire's burns on it (game.js _igniteFoe)
     this._lastSplat = undefined; this._splatN = undefined; this._splatRow = undefined; this._raceSaid = undefined;
     this.stopFrom = undefined; this.stopUntil = undefined; this.squashK = undefined; this.squashDir = undefined;
     this.deathT = undefined; this.spawnT = undefined; this.castT = undefined; this.castCol = undefined;
@@ -132,6 +133,10 @@ export class NPC extends Character {
     this.combatLatch = 12;
     // Damage taken lately (fades each tick): a boss's heal is capped by it.
     this.recentDmg = (this.recentDmg || 0) + (before - this.hp);
+    // Fire's Ignite: any damage sets a burning foe's burns off again, worth what
+    // they hold now (game.js _tickIgnites pays it out on the next combat beat).
+    const ig = this.ignite;
+    if (ig && dmg > 0 && this.hp > 0) { ig.owed += ig.sum; ig.owedN++; }
     return this.hp;
   }
 
@@ -292,6 +297,7 @@ export class NPC extends Character {
     this.stopNow();
     this.respawnTimer = this.def.respawn || 15;
     this.deathT = 420; // ms of fall-over + fade-out animation
+    this.ignite = null;   // its burns go out with it (and don't come back with the respawn)
   }
 
   update(dt) {

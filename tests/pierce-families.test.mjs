@@ -49,6 +49,9 @@ for (const cls of ['ninja', 'wizard']) {
       ratios.push(a.secs / s.secs);
     }
     const mean = ratios.reduce((x, y) => x + y) / ratios.length;
-    assert.ok(mean >= 0.6 && mean <= 1.4, `the ${cls} takes ${mean.toFixed(2)} times as long (${ratios.map((r) => r.toFixed(2)).join(', ')})`);
+    // A Wizard's Fire burns go off every half second and with every hit since the
+    // owner made Ignite much stronger: it now takes about a third of the time.
+    const lo = cls === 'wizard' ? 0.2 : 0.6;
+    assert.ok(mean >= lo && mean <= 1.4, `the ${cls} takes ${mean.toFixed(2)} times as long (${ratios.map((r) => r.toFixed(2)).join(', ')})`);
   });
 }
