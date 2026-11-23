@@ -930,6 +930,33 @@ test('MapleStory-style auto-loot: drops pop out, then fly into the pack; things 
   assert.ok(game.world.groundItems.some((g) => g.id === 'logs' && g.playerDropped), 'a dropped item stays on the ground');
 });
 
+test('a stack of any size banks in one tap, and dropping a big stack asks first', () => {
+  globalThis.localStorage = fakeStorage();
+  clearSave();
+  const game = new Game();
+  game.start();
+  // 200 million coins in one stack: tapping it in the bank (a plain stack, q
+  // null) counts by slot, not one entry a coin, which ran out of array length.
+  game.inventory.add('coins', 200000000 - game.inventory.count('coins'));
+  game.deposit('coins', 200000000, null);
+  assert.equal(game.inventory.count('coins'), 0);
+  assert.equal(game.bank.count('coins'), 200000000);
+  // Dropping more than 999 asks; a no keeps the stack in the bag.
+  game.inventory.add('iron_ore', 5000);
+  const at = () => game.inventory.slots.findIndex((x) => x && x.id === 'iron_ore');
+  let asked = 0;
+  game.dropItem(at(), (n) => { asked = n; return false; });
+  assert.equal(asked, 5000, 'asked with the size of the stack');
+  assert.equal(game.inventory.count('iron_ore'), 5000, 'a no drops nothing');
+  game.dropItem(at(), () => true);
+  assert.equal(game.inventory.count('iron_ore'), 0);
+  assert.ok(game.world.groundItems.some((g) => g.id === 'iron_ore' && g.qty === 5000));
+  // A small stack drops without asking.
+  game.inventory.add('logs', 5);
+  game.dropItem(game.inventory.slots.findIndex((x) => x && x.id === 'logs'), () => { throw new Error('asked'); });
+  assert.equal(game.inventory.count('logs'), 0);
+});
+
 test('new sessions start on a bright morning, then follow the day/night cycle', () => {
   globalThis.localStorage = fakeStorage();
   clearSave();

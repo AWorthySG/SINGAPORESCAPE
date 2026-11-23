@@ -2,12 +2,15 @@ import { getItem } from '../data/items.js';
 import { validQuality, qualityRank } from './loot.js';
 
 export const INV_SIZE = 28;
-export const STACK_LIMIT = 999; // max quantity of one item per inventory slot
+// No limit to a stack (the owner's ask): every kind of item sits in one slot
+// however many you hold. It used to be 999 a slot, so a late game's hauls
+// (whole seams, whole schools) filled thousands of slots that every pickup,
+// gather and redraw of the bag had to walk through. An item's own `maxStack`
+// still caps it.
+export const STACK_LIMIT = Infinity;
 
 // An unlimited inventory: it starts with 28 slots and grows as it fills,
-// always keeping a row of empty slots open. Every item stacks up to
-// STACK_LIMIT per slot; items with an explicit `maxStack` (e.g. coins =
-// Infinity) override that limit.
+// always keeping a row of empty slots open.
 // A slot is { id, qty } plus `q` for gear copies of a quality ('fine' ..
 // 'mythic', see loot.js). Copies only stack with copies of the same quality,
 // and when no quality is asked for, the plainest copies go first.
@@ -89,6 +92,14 @@ export class Inventory {
   }
 
   has(id, qty = 1) { return this.count(id) >= qty; }
+
+  /** How many copies of `id` of one quality (`q`, null for plain) the pack holds:
+   *  summed by slot, so a stack of millions costs no more than a stack of one. */
+  countQ(id, q) {
+    let n = 0;
+    for (const s of this.slots) if (s && s.id === id && (s.q || null) === q) n += s.qty;
+    return n;
+  }
 
   /** How many of `id` could be added right now: always all of it. */
   canAdd(id, qty) { return qty; }
@@ -212,13 +223,23 @@ export class Inventory {
 
   load(data) {
     if (!Array.isArray(data)) return;
-    this.slots = new Array(Math.max(this.minSize, data.length)).fill(null);
+    const slots = new Array(data.length).fill(null);
+    // A save from the days of 999 a slot has an item split over several slots:
+    // they join its first one, copies of each quality apart, and the slots they
+    // leave go (the player's own gaps stay), so an old bag loads as short as one
+    // stack a kind makes it, not as long as it was with holes all through it.
+    const first = new Map(), joined = new Set();
     for (let i = 0; i < data.length; i++) {
       const s = data[i];
       if (!s || !s.id || !getItemSafe(s.id)) continue;
       const q = validQuality(s.q);   // a copy's quality came later: optional
-      this.slots[i] = q ? { id: s.id, qty: s.qty, q } : { id: s.id, qty: s.qty };
+      const k = `${s.id}|${q || ''}`, at = first.get(k);
+      if (at !== undefined && slots[at].qty + s.qty <= this.maxStackOf(s.id)) { slots[at].qty += s.qty; joined.add(i); continue; }
+      first.set(k, i);
+      slots[i] = q ? { id: s.id, qty: s.qty, q } : { id: s.id, qty: s.qty };
     }
+    this.slots = joined.size ? slots.filter((_, i) => !joined.has(i)) : slots;
+    while (this.slots.length < this.minSize) this.slots.push(null);
     this._changed();
   }
 }
