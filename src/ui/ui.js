@@ -93,7 +93,7 @@ import { renderBossBar } from './bossbar.js';
 import { whatNextHTML, wireWhatNext, whatNextTrackerRows, watchUpgrades, watchGoals } from './whatnextui.js';
 import { depositLootButton, keepMenuItem, markKept } from './bankkeepui.js';
 import { levelNews, levelNewsText } from '../game/levelnews.js';
-import { whatNext } from '../game/whatnext.js';
+import { whatNext, packUpgrades } from '../game/whatnext.js';
 import { XpDisplay } from './xpdisplay.js';
 import { crossesMilestone, xpDisplayMode, nextXpDisplay, XP_DISPLAY_NAMES } from '../game/xptrack.js';
 import { regionDialogue, canRegionTeleport, regionTeleport } from '../game/regionquests.js';
@@ -1324,6 +1324,7 @@ export class UI {
     if (this._equipDrawn && this._panelHidden(layout)) { this._equipStale = true; return; }
     this._equipDrawn = true;
     this._equipStale = false;
+    this._equipBestBar(layout);
     layout.innerHTML = '';
     for (const slot of EQUIP_LAYOUT) {
       const cell = document.createElement('div');
@@ -1401,13 +1402,6 @@ export class UI {
       list.appendChild(row);
     }
     this.el.equipBonuses.prepend(list);
-    // One tap to put on the strongest gear in the backpack.
-    const bis = document.createElement('button');
-    bis.className = 'bestiary-open gear-guide-open eq-best';
-    bis.type = 'button';
-    bis.innerHTML = `${inlineIcon(tabIconSVG('equipment', 18))} Equip best in slot`;
-    bis.addEventListener('click', () => this.game.equipBest());
-    this.el.equipBonuses.prepend(bis);
     const guide = document.createElement('button');
     guide.className = 'bestiary-open gear-guide-open';
     guide.textContent = 'Gear Guide: which equipment is better?';
@@ -1430,6 +1424,34 @@ export class UI {
     rf.textContent = `Refine gear (★1 to ★${MAX_REFINE})`;
     rf.addEventListener('click', () => this.openMastery());
     this.el.equipBonuses.appendChild(rf);
+  }
+
+  /** "Equip best in slot", pinned to the top of the Gear view: one tap puts on
+   *  the strongest gear in the bag, and it says how many pieces would change.
+   *  (It sat below the worn slots, so on a phone's short sheet the owner had to
+   *  scroll down to it and back up to see what changed.) */
+  _equipBestBar(layout) {
+    let bar = this._eqBestBar;
+    if (!bar) {
+      bar = this._eqBestBar = document.createElement('div');
+      bar.className = 'eq-bestbar';
+      bar.innerHTML = '<button type="button" class="bestiary-open gear-guide-open eq-best"></button>';
+      bar.firstChild.addEventListener('click', () => this.game.equipBest());
+      layout.parentNode?.insertBefore(bar, layout);
+    }
+    const n = packUpgrades(this.game).length;
+    const html = `${inlineIcon(tabIconSVG('equipment', 18))} Equip best in slot${n ? ` <span class="eq-best-n">${n} upgrade${n > 1 ? 's' : ''} in your bag</span>` : ''}`;
+    if (bar.firstChild.innerHTML !== html) bar.firstChild.innerHTML = html;
+    bar.firstChild.classList.toggle('has-up', n > 0);
+    // It pins just under the Bag / Gear switch, which is pinned too: measured
+    // after the browser's own layout (next frame), so this forces none.
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => {
+      const pb = document.getElementById('panel-body'), st = document.getElementById('panel-subtabs');
+      if (!pb || !bar.isConnected) return;
+      const pad = parseFloat(getComputedStyle(pb).paddingTop) || 0;
+      const under = st && st.offsetParent && getComputedStyle(st).position === 'sticky' ? st.getBoundingClientRect().bottom - pb.getBoundingClientRect().top : 0;
+      bar.style.top = `${Math.round(under - pad)}px`;
+    });
   }
 
   /** The little corner badge on a gear icon: its mastery rank and refine level ("M★7"). */

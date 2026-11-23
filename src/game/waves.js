@@ -41,7 +41,10 @@ export const SPAWN_POINTS = [
 ];
 
 // Pacing and limits.
-export const NEXT_WAVE_TICKS = 6;   // ~3.6s between the last kill and the next wave
+// The owner asked for no long waits: the first wave comes on the tick after you
+// step in, and the next one about 2s after a wave falls (it was 3.6s each).
+export const NEXT_WAVE_TICKS = 3;   // ~1.8s between the last kill and the next wave
+export const FIRST_WAVE_TICKS = 1;  // ...and from stepping in to the first wave
 // The owner asked for a champion or a boss in every wave: every wave is led by
 // a champion, and every 5th by a boss instead.
 export const CHAMPION_EVERY = 1;    // every wave brings a champion...
@@ -409,7 +412,7 @@ export class Waves {
     this.active = true;
     this.runMods = GATE_MOD_IDS.filter((id) => this.mods.has(id));
     this.fx = modEffects(this.runMods);
-    this.nextAt = g.tickCount + NEXT_WAVE_TICKS;
+    this.nextAt = g.tickCount + FIRST_WAVE_TICKS;
     g.spawnSparkle(p, '#b58cff', 16);
     g.msg(`You step through ${GATE_NAME}. Monsters come in waves, each stronger than the last, and they want the A-Worthy Shrine broken. Guard it: the run ends when it falls. If you fall, you rise again beside it. Leave by the portal, or with Leave.`, 'system');
     if (this.runMods.length) g.msg(`Modifiers: ${this.runMods.map((id) => GATE_MODS[id].name).join(', ')}.`, 'system');
