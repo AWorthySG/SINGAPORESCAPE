@@ -162,3 +162,23 @@ test('without Web Audio every sound is a quiet no-op', () => {
   for (const n of ['atk:sword', 'hit', 'crit', 'die', 'pickup', 'droprare', 'spec', 'hurt']) s.play(n);
   assert.equal(s.ctx, null);
 });
+
+test('on auto battle the level-up chime comes at most once every few seconds', async () => {
+  const { LEVEL_GAP_AUTO } = await import('../src/audio/sfx.js');
+  assert.equal(LEVEL_GAP_AUTO, 4);
+  const handlers = {};
+  const bus = { on: (n, f) => { handlers[n] = f; } };
+  const { Sfx } = await import('../src/audio/sfx.js');
+  const a = new Sfx(bus);
+  const played = [];
+  a.play = (n) => played.push(n);
+  let auto = true;
+  a.autoSource = () => auto;
+  a.ctx = { currentTime: 10 };
+  handlers.levelup(); a.ctx.currentTime = 11; handlers.levelup(); a.ctx.currentTime = 13.9; handlers.levelup();
+  assert.equal(played.length, 1, 'one chime in four seconds of auto battle');
+  a.ctx.currentTime = 14.1; handlers.levelup();
+  assert.equal(played.length, 2);
+  auto = false; a.ctx.currentTime = 14.5; handlers.levelup();
+  assert.equal(played.length, 3, 'off auto battle, a quarter of a second apart is enough');
+});

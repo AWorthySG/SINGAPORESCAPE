@@ -45,6 +45,8 @@ const SOFT_WAVE = { square: 'triangle', sawtooth: 'triangle' };
 
 const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
 
+export const LEVEL_GAP_AUTO = 4;   // seconds between level-up chimes on auto battle
+
 export class Sfx {
   constructor(bus) {
     this.bus = bus;
@@ -64,10 +66,13 @@ export class Sfx {
     this.autoSource = null;        // set by main: () => is auto battle on?
     this.combo = 0;                // kills in quick succession (see 'die')
     bus.on('sfx', (n) => this.play(n));
-    // Many levels at once (a big batch, a boss) chime once, not once per level.
+    // Many levels at once (a big batch, a boss) chime once, not once per level;
+    // and on auto battle, where a new hero levels up almost every second, the
+    // chime comes at most once every LEVEL_GAP_AUTO seconds so it stays a treat.
     bus.on('levelup', () => {
       const now = this.ctx?.currentTime ?? 0;
-      if (this.ctx && now - (this._lastLevel ?? -1) < 0.25) return;
+      const gap = this.autoSource?.() ? LEVEL_GAP_AUTO : 0.25;
+      if (this.ctx && now - (this._lastLevel ?? -1) < gap) return;
       this._lastLevel = now;
       this.play('level');
     });
