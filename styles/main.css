@@ -623,56 +623,29 @@ body { -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
 /* ---------- Splash / title screen ---------- */
 #splash {
   position: fixed; inset: 0; z-index: 300;
-  display: flex; align-items: center; justify-content: center;
-  background:
-    radial-gradient(120% 120% at 50% 28%, rgba(43,179,163,0.20), transparent 58%),
-    radial-gradient(100% 100% at 50% 50%, #143230, #07120f 82%);
+  display: flex; justify-content: center;
   animation: splashIn .4s ease;
-}
-#splash::before {
-  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .07;
-  background-image:
-    repeating-linear-gradient(45deg, #e6b34a 0 2px, transparent 2px 26px),
-    repeating-linear-gradient(-45deg, #2bb3a3 0 2px, transparent 2px 26px);
+  background: var(--aw-bg) radial-gradient(circle at 1px 1px, rgba(70,50,20,0.05) 1px, transparent 0) 0 0 / 22px 22px;
 }
 #splash.hidden { display: none !important; }
+#splash::before { display: none; }
 .splash-inner {
   position: relative; text-align: center; padding: 32px 30px 26px; max-width: 440px;
-  background: linear-gradient(180deg, rgba(23,63,58,0.74), rgba(14,42,39,0.84));
-  border: 4px solid transparent; border-image: var(--tile-trim) 6 round; border-radius: 12px;
-  box-shadow: 0 20px 54px rgba(0,0,0,0.6), inset 0 0 0 2px rgba(0,0,0,0.4), inset 0 0 26px rgba(43,179,163,0.12);
-}
-.splash-logo {
-  width: 132px; height: auto; margin-bottom: 8px;
-  filter: drop-shadow(0 6px 18px rgba(43,179,163,0.5));
-  animation: splashFloat 4s ease-in-out infinite;
+  background: var(--aw-card); border: 2px solid var(--aw-ink); border-image: none;
+  border-radius: var(--r5, 32px); box-shadow: var(--shadow-sticker-lg); color: var(--aw-text);
 }
 .splash-title {
-  font-size: 44px; font-weight: 800; letter-spacing: 1px; margin: 4px 0 6px;
-  background: linear-gradient(180deg, #fff0bf, #e6b34a 58%, #b07f24);
-  -webkit-background-clip: text; background-clip: text;
-  color: transparent; -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 2px 0 #2a1a0c) drop-shadow(0 0 18px rgba(230,179,74,0.35));
+  margin: 4px 0 6px;
+  font-size: 44px; font-weight: 900; letter-spacing: -0.02em; line-height: 1.05; background: none;
+  color: var(--aw-text); -webkit-text-fill-color: var(--aw-text); filter: none;
 }
-.splash-sub { color: var(--text); opacity: 0.88; margin-bottom: 24px; font-size: 14px; }
-.splash-sub b { color: var(--teal); }
+.splash-sub { margin-bottom: 24px; font-size: 14px; color: var(--aw-text-sec); opacity: 1; }
 #splash-enter {
-  font-size: 17px; font-weight: 800; color: #fff7e0; cursor: var(--cur-pointer);
-  padding: 13px 30px; border-radius: 10px; border: 2px solid var(--ink);
-  background: linear-gradient(180deg, var(--coral), var(--coral-dk));
-  box-shadow: 0 6px 18px rgba(0,0,0,0.5), inset 0 0 0 2px var(--gold-hi);
-  transition: transform .08s ease, filter .12s ease;
+  font-size: 17px; cursor: var(--cur-pointer);
+  padding: 13px 30px;
 }
-#splash-enter:hover { filter: brightness(1.12); transform: translateY(-1px); animation: none; }
-#splash-enter:active { transform: translateY(1px); }
-.splash-controls { margin-top: 20px; font-size: 12px; opacity: 0.6; }
+.splash-controls { margin-top: 20px; font-size: 12px; color: var(--aw-text-sec); opacity: 1; font-weight: 600; }
 @keyframes splashIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes splashFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
-#splash-enter { animation: enterPulse 2.4s ease-in-out infinite; }
-@keyframes enterPulse {
-  0%, 100% { box-shadow: 0 6px 18px rgba(0,0,0,0.5), inset 0 0 0 2px var(--gold-hi); }
-  50% { box-shadow: 0 6px 26px rgba(216,86,111,0.55), 0 0 24px rgba(230,179,74,0.5), inset 0 0 0 2px var(--gold-hi); }
-}
 
 /* ---------- Region / zone label ---------- */
 #region-label {
@@ -1022,30 +995,17 @@ button:focus:not(:focus-visible) { outline: none; }
 ::-webkit-scrollbar-track { background: transparent; }
 
 /* Splash: cream paper, a white hero sticker, the mascot, a rust primary pill */
-#splash { background: var(--aw-bg) radial-gradient(circle at 1px 1px, rgba(70,50,20,0.05) 1px, transparent 0) 0 0 / 22px 22px; }
-#splash::before { display: none; }
-.splash-inner {
-  background: var(--aw-card); border: 2px solid var(--aw-ink); border-image: none;
-  border-radius: var(--r5, 32px); box-shadow: var(--shadow-sticker-lg); color: var(--aw-text);
-}
 .splash-mascot { width: 168px; height: auto; display: block; margin: -4px auto 4px; animation: none; }
-.splash-logo { display: block; height: 64px; width: auto; margin: 2px auto 16px; filter: none; animation: none; }
-.splash-title {
-  font-size: 44px; font-weight: 900; letter-spacing: -0.02em; line-height: 1.05;
-  background: none; color: var(--aw-text); -webkit-text-fill-color: var(--aw-text); filter: none;
-}
 .splash-title::after {
   content: ""; display: block; width: 150px; height: 10px; margin: 6px auto 0;
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 150 10'%3E%3Cpath d='M2 6 Q 14 1 26 6 T 50 6 T 74 6 T 98 6 T 122 6 T 148 6' fill='none' stroke='%23C0392B' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat center / contain;
 }
-.splash-sub { color: var(--aw-text-sec); opacity: 1; }
 .splash-sub b { color: var(--aw-accent); }
 #splash-enter, #splash-enter:hover {
   color: #fff; background: var(--aw-accent); border: 2px solid var(--aw-ink); border-radius: 999px;
   box-shadow: var(--shadow-primary); animation: none; filter: none; transform: none; font-weight: 800;
 }
 #splash-enter:hover { background: #A93226; }
-.splash-controls { color: var(--aw-text-sec); opacity: 1; font-weight: 600; }
 
 /* ---------- Movement joystick (touch + mouse; WASD/arrow keys too) ---------- */
 #joystick {
@@ -1487,7 +1447,6 @@ body.boss-on #tip-toast { top: 132px; }
 }
 .tab-btn.active .tab-label { color: #fff; }
 /* Panel header: a touch larger and clearer. */
-#panel-head { font-size: 15px; letter-spacing: .01em; }
 
 /* Status orbs: a small caption pill beside each one (HP, Prayer, Special, Run). */
 .orb { overflow: visible; }
@@ -1524,14 +1483,10 @@ body.boss-on #tip-toast { top: 132px; }
   #sidepanel:not(.collapsed) { width: calc(100vw - 12px); z-index: 28; }
   .tab-btn { min-height: 44px; padding: 3px 1px; }
   .tab-btn img, .tab-btn svg { width: 24px !important; height: 24px !important; }
-  .tab-btn .tab-label { font-size: 8.5px; }
-  #panel-body { height: 46dvh; max-height: 380px; }
   .orb { width: 34px; height: 34px; line-height: 34px; font-size: 10px; }
   #spec-orb, #prayer-orb, #hp-orb { top: auto; left: auto; bottom: -72px; }
   #hp-orb { right: 0; }
-  #prayer-orb { right: 40px; }
-  #spec-orb { right: 80px; }
-  .orb .orb-cap { right: auto; left: 50%; top: calc(100% + 2px); transform: translateX(-50%); font-size: 7.5px; padding: 2px 4px; }
+  .orb .orb-cap { right: auto; left: 50%; top: calc(100% + 2px); transform: translateX(-50%); }
   #minimap-region { margin-top: 4px; }
 }
 .bestiary-row .b-ability { font-size: 12px; color: var(--aw-text-sec, #625d54); margin: 2px 0 4px; line-height: 1.35; }
@@ -1605,13 +1560,11 @@ body.boss-on #tip-toast { top: 132px; }
 @media (max-height: 560px) {
   .splash-inner { padding: 16px 22px 14px; }
   .splash-mascot { width: 96px; }
-  .splash-logo { height: 34px; margin-bottom: 8px; }
   .splash-sub { margin-bottom: 12px; }
 }
 @media (max-height: 440px) {
   .splash-inner { padding: 12px 20px 12px; }
   .splash-mascot { width: 72px; margin-bottom: 0; }
-  .splash-logo { display: none; }
   .splash-title { font-size: 30px; }
 }
 

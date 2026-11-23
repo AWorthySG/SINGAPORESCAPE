@@ -74,14 +74,12 @@
 }
 @keyframes ctLah { 0%, 100% { transform: rotate(8deg); } 50% { transform: rotate(4deg) translateY(-2px); } }
 .splash-sub .cosy-tag { font-style: italic; font-weight: 800; color: #8A5A1E; }
-#splash.cosy .splash-logo { height: 44px; margin: 0 auto 12px; }
 /* A big, friendly Play button. */
 #splash.cosy #splash-enter {
   font-size: 20px; font-weight: 900; padding: 15px 34px; min-width: min(300px, 100%);
 }
 @media (max-width: 540px), (max-height: 700px) {
   .splash-lah { top: -10px; right: 6px; font-size: 12px; }
-  #splash.cosy .splash-logo { height: 34px; margin-bottom: 8px; }
   #splash.cosy .splash-mascot { width: clamp(80px, 13vh, 112px); }
   #splash.cosy #splash-enter { font-size: 18px; padding: 13px 22px; white-space: nowrap; }
   /* Phones are played by touch: the keyboard hints make way for the skyline. */
