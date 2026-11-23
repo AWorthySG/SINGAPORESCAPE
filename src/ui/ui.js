@@ -1,7 +1,7 @@
 import { CLASSES, CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, canWear, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWield, SECONDARY_WEAPON, shieldBarred, NO_SHIELD_MSG } from '../data/classes.js';
 import { SKILL_HOURS, windowLabel } from '../data/skillhours.js';
 import { classPerks, classPerkSummary } from '../game/classperks.js';
-import { LIFE_PERKS, LIFE_PERK_SKILLS, LIFE_PERK_FULL_LEVEL, LIFE_PERK_MAX_LEVEL, lifePerkText, lifePerkNext } from '../game/lifeperks.js';
+import { LIFE_PERKS, LIFE_PERK_SKILLS, LIFE_PERK_FULL_LEVEL, LIFE_PERK_MAX_LEVEL, LIFE_PERK_TOP_LEVEL, lifePerkText, lifePerkNext } from '../game/lifeperks.js';
 import { unlockTipText } from '../game/skillunlocks.js';
 import { installHomeUI } from './homeui.js';
 import { installStoryUI } from './storyui.js';
@@ -2585,7 +2585,7 @@ export class UI {
   openLifePerks() {
     const g = this.game;
     const render = (body) => {
-      body.innerHTML = `<div class="modal-hint">Each life skill adds one combat stat that grows with every level to level ${LIFE_PERK_FULL_LEVEL}, then half as fast to its full strength at level ${LIFE_PERK_MAX_LEVEL}. They work in every style and stack on top of your gear (they are counted in the Equipment panel's totals).</div>`;
+      body.innerHTML = `<div class="modal-hint">Each life skill adds one combat stat that grows with every level to level ${LIFE_PERK_FULL_LEVEL}, then half as fast to level ${LIFE_PERK_MAX_LEVEL}, then slowly on to its full strength at level ${LIFE_PERK_TOP_LEVEL}. They work in every style and stack on top of your gear (they are counted in the Equipment panel's totals).</div>`;
       const list = document.createElement('div'); list.className = 'perk-list';
       for (const s of LIFE_PERK_SKILLS) {
         const lvl = g.skills.level(s), next = lifePerkNext(s, lvl);
@@ -2593,7 +2593,7 @@ export class UI {
         row.className = 'perk-row' + (lvl > 1 ? ' owned' : '');
         row.innerHTML = `<span class="perk-rank">${lvl}</span>`
           + `<span class="perk-text"><b>${escapeHtml(SKILLS.find((x) => x.id === s).name)}: ${escapeHtml(lifePerkText(s, lvl))}</b>`
-          + `<span>At level ${LIFE_PERK_FULL_LEVEL}: ${escapeHtml(lifePerkText(s, LIFE_PERK_FULL_LEVEL))} · full, at ${LIFE_PERK_MAX_LEVEL}: ${escapeHtml(lifePerkText(s, LIFE_PERK_MAX_LEVEL))}</span></span>`
+          + `<span>At level ${LIFE_PERK_FULL_LEVEL}: ${escapeHtml(lifePerkText(s, LIFE_PERK_FULL_LEVEL))} · at ${LIFE_PERK_MAX_LEVEL}: ${escapeHtml(lifePerkText(s, LIFE_PERK_MAX_LEVEL))} · full, at ${LIFE_PERK_TOP_LEVEL}: ${escapeHtml(lifePerkText(s, LIFE_PERK_TOP_LEVEL))}</span></span>`
           + `<span class="perk-next">${next ? `${escapeHtml(next.text.split(' ')[0])} at ${next.level}` : 'Full'}</span>`;
         list.appendChild(row);
       }
