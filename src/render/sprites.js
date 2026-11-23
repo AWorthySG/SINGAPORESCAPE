@@ -2757,15 +2757,23 @@ function tileHash(x, y, salt) {
  * -CATCH_FISH / 2 it is out of sight), `turn` in radians (nose up below 0, for
  * a fish heading right), `dir` the way it leaps (1 right, -1 left, 0 resting
  * as drawn), and a splash `ring` 0..1 (-1 for none) at `rx` along. `still`
- * (a school swirling there) keeps it resting.
+ * (a school swirling there) keeps it resting: `true` always, or the spot's
+ * calm `{ from, to }` (fishCalm) for any leap that would begin within it.
  */
 export function fishLeap(x, y, time, still = false, out = {}) {
   const every = FISH_LEAP_EVERY[0] + (FISH_LEAP_EVERY[1] - FISH_LEAP_EVERY[0]) * tileHash(x, y, 1);
   const T = time + every * tileHash(x, y, 2), n = Math.floor(T / every), u = T - n * every;
   const bob = Math.sin(time * 0.004 + x * 2.3 + y) * 0.8;
   out.dx = 0; out.lift = bob; out.turn = Math.sin(time * 0.0021 + x + y * 1.7) * 0.05; out.dir = 0; out.ring = -1; out.rx = 0;
-  if (still) return out;
+  if (still === true) return out;
   const half = CATCH_FISH / 2, go = every - DIP_MS - LEAP_MS * (1 + 2 * LEAP_UNDER) - UNDER_MS;
+  if (still) {
+    // A leap and the rise after it play whole or not at all, judged by when the
+    // leap began: one already under way when a school arrives finishes, and once
+    // it has gone the next begins from rest, so the fish never pops in or out.
+    const began = time - u + (u < RISE_MS ? go - every : go);
+    if (began >= still.from && began <= still.to) return out;
+  }
   if (u < RISE_MS) {   // back up in its place after the last leap
     const k = 1 - u / RISE_MS;
     out.lift = bob - (half + bob) * k * k;
@@ -2786,6 +2794,19 @@ export function fishLeap(x, y, time, still = false, out = {}) {
     }
   }
   return out;
+}
+/**
+ * The spot's calm, kept on the object as the renderer sees it: `{ from, to }`,
+ * the first and last frame (ms) a school was there, for fishLeap; null if none
+ * has been. A school back within a leap's time of the last continues one calm.
+ */
+export function fishCalm(obj, school, time) {
+  const c = obj._calm;
+  if (!school) { if (c) c.on = false; return c || null; }
+  if (!c) return (obj._calm = { from: time, to: time, on: true });
+  if (!c.on && time - c.to > FISH_LEAP_EVERY[1]) c.from = time;
+  c.to = time; c.on = true;
+  return c;
 }
 const _fish = {};
 function drawCatchBadge(ctx, obj, cx, cy, time, low = false, still = false) {

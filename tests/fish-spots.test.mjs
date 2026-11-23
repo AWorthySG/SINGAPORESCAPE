@@ -15,7 +15,7 @@ import { TOOL_TIERS } from '../src/data/tooltiers.js';
 import { xpForLevel } from '../src/data/xp.js';
 import { FISH_SPOT_PLAN, MIXED_FISH_SPOTS } from '../src/data/fishspots.js';
 import { fishSpotList, guideEntries } from '../src/game/skillguide.js';
-import { worldArt, drawObjectSprite, fishLeap, CATCH_BADGE, CATCH_FISH, FISH_LEAP, FISH_LEAP_EVERY, FISH_FACING } from '../src/render/sprites.js';
+import { worldArt, drawObjectSprite, fishLeap, fishCalm, CATCH_BADGE, CATCH_FISH, FISH_LEAP, FISH_LEAP_EVERY, FISH_FACING } from '../src/render/sprites.js';
 import { itemArtSrc } from '../src/render/icons.js';
 
 function fakeStorage() {
@@ -238,13 +238,62 @@ test('a spot\'s fish lies half-sunk, then every 5-7 s leaps a short arc, the oth
   }
 });
 
+test('a school coming or going lets a leap under way finish and the next begin from rest: the fish never pops', () => {
+  const x = 120, y = 64, f = {}, frame = 16;
+  // Its first leap in the air, and when it began (ducking under) and ended (back up).
+  let air = -1, start = -1, up = -1;
+  for (let t = 0, was = 1; t < 20000; t += 1) {
+    fishLeap(x, y, t, false, f);
+    if (f.dir && !was && air < 0) air = t;
+    was = f.dir;
+  }
+  for (let t = air; ; t--) { fishLeap(x, y, t, false, f); if (Math.abs(f.lift) <= 1 && !f.dir) { start = t + 1; break; } }
+  for (let t = air; ; t++) { fishLeap(x, y, t, false, f); if (!f.dir && Math.abs(f.lift) <= 1 && t > air + 400) { up = t; break; } }
+  const steps = (calmFor) => {   // the fish frame by frame, a school there while calmFor(t)
+    const spot = { x, y }, out = [];
+    for (let t = start - 2000; t < up + 8000; t += frame) {
+      fishLeap(x, y, t, fishCalm(spot, calmFor(t), t), f);
+      out.push({ t, ...f });
+    }
+    return out;
+  };
+  const seen = (s) => Math.max(s.lift, -CATCH_FISH / 2);   // (any lower is out of sight)
+  const smooth = (run, what) => {
+    for (let i = 1; i < run.length; i++) {
+      const a = run[i - 1], b = run[i];
+      assert.ok(Math.abs(seen(b) - seen(a)) < 4, `${what}: no jump at ${b.t} ms (${a.lift.toFixed(1)} to ${b.lift.toFixed(1)})`);
+      if (seen(a) > -CATCH_FISH / 2 && seen(b) > -CATCH_FISH / 2) assert.ok(Math.abs(b.dx - a.dx) < 2, `${what}: no jump along at ${b.t} ms`);
+    }
+  };
+  // Arriving with the fish in the air: it lands and comes back up, then rests.
+  const mid = air + 200, arrive = steps((t) => t >= mid);
+  smooth(arrive, 'arriving mid-leap');
+  assert.ok(arrive.some((s) => s.t > mid && s.dir), 'the leap under way finishes');
+  assert.ok(arrive.filter((s) => s.t > up + 100).every((s) => !s.dir && Math.abs(s.lift) <= 1), 'then it rests while the school stays');
+  // Leaving at a moment its own beat has it in the air: it stays resting, and
+  // only the next leap, begun from rest, is seen.
+  const leave = steps((t) => t < mid);
+  smooth(leave, 'leaving mid-leap');
+  for (const s of leave.filter((s) => s.t >= start && s.t < up)) {
+    assert.ok(!s.dir && Math.abs(s.lift) <= 1, `still resting at ${s.t} ms, after the school has gone`);
+  }
+  assert.ok(leave.some((s) => s.t > up && s.dir), 'its next leap comes in time');
+  // A school there for a moment, mid-leap, changes nothing; and a plain true
+  // keeps it resting whatever its beat.
+  smooth(steps((t) => t >= air && t < air + 100), 'a passing school');
+  fishLeap(x, y, mid, true, f);
+  assert.ok(!f.dir && Math.abs(f.lift) <= 1);
+  // Without a school, a spot has no calm and leaps as ever.
+  assert.equal(fishCalm({}, null, 0), null);
+});
+
 test('the fish is drawn as one sticker over its spot; low graphics keeps the little badge', () => {
   const src = readFileSync(new URL('../src/render/sprites.js', import.meta.url), 'utf8');
   assert.match(src, /drawWorldArt\(ctx, obj, art, key, cx, cy, time\); if \(t === 'fishing'\) drawCatchBadge\(ctx, obj, cx, cy, time, low, still\)/, 'drawn over each spot picture');
   assert.match(src, /const id = !obj\.worldEvent && obj\.def\.catches\?\.\[0\]\?\.id;/, 'its one fish; not on a world event shoal');
   // The renderer passes low graphics, and whether a school is at the spot.
   const rsrc = readFileSync(new URL('../src/render/renderer.js', import.meta.url), 'utf8');
-  assert.match(rsrc, /const still = o\.def\.type === 'fishing' && !!game\.fishSchools\?\.at\(o\);/);
+  assert.match(rsrc, /const still = o\.def\.type === 'fishing' && fishCalm\(o, game\.fishSchools\?\.at\(o\), timeMs\);/);
   assert.equal(rsrc.match(/drawObjectSprite\(ctx, o, cx, cy, timeMs, !!game\.lowFx, still\)/g)?.length, 2);
   // Draw it with every picture loaded, through a context that records its calls.
   globalThis.Image = class { constructor() { this.complete = true; this.naturalWidth = 160; this.naturalHeight = 160; } };
