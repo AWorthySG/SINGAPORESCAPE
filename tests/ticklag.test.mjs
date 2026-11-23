@@ -2,8 +2,9 @@
 // on screen and in play: the chat draws a task's lines once (and none while it
 // is folded, catching up when it opens), names are linked with fewer lookups
 // and repeated lines from a record, "What next?" looks for each tool once, an
-// auto battle pick estimates each foe's fight once, and the boss bar works out
-// its threat only when it means to. All headless.
+// auto battle pick estimates each foe's fight once, worn gear keeps its bonuses
+// while kills add mastery XP within a rank, and the boss bar works out its
+// threat only when it means to. All headless.
 import './seed.mjs';   // seeded Math.random: no test fails on an unlucky roll
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -15,6 +16,7 @@ import { findLinks, linkNames } from '../src/game/encyclopedia.js';
 import { linkHTML, linkTag, setLinkedText } from '../src/ui/links.js';
 import { bestSource } from '../src/game/whatnext.js';
 import { bossBarModel, foeThreat } from '../src/ui/bossbar.js';
+import { MASTERY_RANKS, rankFor } from '../src/game/mastery.js';
 import { gatherSources } from '../src/game/skillguide.js';
 import { ITEMS } from '../src/data/items.js';
 import { SKILLS } from '../src/data/skills.js';
@@ -328,4 +330,30 @@ test("the boss bar's model takes the threat it was given, and is otherwise the s
     assert.equal(plain.threat, foeThreat(g, n));
     for (const t of ['easy', 'even', 'danger']) assert.deepEqual(bossBarModel(g, n, t), { ...plain, threat: t }, n.name);
   }
+});
+
+// ---------------- Worn gear's bonuses ----------------
+test('worn gear keeps its bonuses while kills add mastery XP within a rank, and sees a new rank at once', () => {
+  const g = freshGame('swordsman');
+  const eq = g.equipment, w = eq.get('weapon');
+  const fresh = () => eq.itemBonuses(w, eq.copyIn('weapon'), eq.qualityIn('weapon'));
+  // Totals worked out from nothing kept (the looplag test's plain answer).
+  const plain = () => { eq._worn = null; eq._bonusMemo = null; eq._hasteMemo = null; return eq.bonuses(); };
+  for (let r = 1; r < MASTERY_RANKS.length; r++) {
+    eq.setMastery(w, Math.ceil(MASTERY_RANKS[r].xp));
+    assert.equal(eq.masteryRank(w), r);
+    const part = eq._wornBonuses('weapon', w);
+    assert.deepEqual(part, fresh(), `rank ${r}`);
+    // Kills add XP short of the next rank: the very same bonuses, not made again.
+    const next = MASTERY_RANKS[r + 1]?.xp ?? MASTERY_RANKS[r].xp * 2;
+    for (const xp of [MASTERY_RANKS[r].xp + 1, Math.floor((MASTERY_RANKS[r].xp + next) / 2), next - 1]) {
+      eq.setMastery(w, xp);
+      assert.equal(rankFor(eq.masteryXp(w)), r);
+      assert.equal(eq._wornBonuses('weapon', w), part, `rank ${r}, ${xp} XP: kept`);
+    }
+    assert.deepEqual(eq.bonuses(), plain(), `rank ${r}: the same totals`);   // (plain() starts the records afresh)
+  }
+  // Real kills train what you wear: the totals always match the plain sums.
+  const foe = g.npcs.find((n) => n.attackable && !n.def.boss);
+  for (let i = 0; i < 40; i++) { g._gainMastery(foe); assert.deepEqual(eq.bonuses(), plain(), `kill ${i}`); eq.bonuses(); }
 });
