@@ -279,10 +279,18 @@ body { -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
   background: var(--aw-card) radial-gradient(circle at 1px 1px, rgba(70,50,20,0.05) 1px, transparent 0) 0 0 / 22px 22px;
   color: var(--aw-text); box-shadow: none; border-radius: 0;
 }
-#chat-log .msg { white-space: pre-wrap; word-break: break-word; }
+/* One text style for every line (weight, no italics); the kind of message
+   shows in its colour only: news and hints (system) gold, level-ups green,
+   blows red, item quality in its tier colour, names you can open blue. */
+#chat-log .msg { white-space: pre-wrap; word-break: break-word; font-weight: var(--fw-body); }
+#chat-log .msg.system { color: var(--aw-sun-deep); }
+#chat-log .msg.level  { color: var(--aw-grass-deep); }
 #chat-log .msg.combat { color: var(--aw-bloom-deep); }
-#chat-log .msg.level  { color: var(--aw-grass-deep); font-weight: 800; }
-#chat-log .msg.system { color: var(--aw-sun-deep); font-style: italic; }
+#chat-log .msg.qual-fine { color: var(--q-fine); }
+#chat-log .msg.qual-superior { color: var(--q-superior); }
+#chat-log .msg.qual-epic { color: var(--q-epic); }
+#chat-log .msg.qual-legendary { color: var(--q-legendary); }
+#chat-log .msg.qual-mythic { color: var(--q-mythic); }
 #chat-tabs { display: flex; gap: 4px; padding: 5px; background: var(--aw-sidebar); border-top: 2px dashed var(--aw-ink-faint); }
 .chat-tab {
   flex: 1; text-align: center; padding: 5px; font-size: var(--fs-sm);
@@ -3188,11 +3196,6 @@ body.cb-safe #hp-orb.low::after {
 .q-pip:has(> img) { left: 1px; bottom: 1px; width: 16px; height: 16px; background: none !important; border: 0; border-radius: 0; box-shadow: none; }
 .q-pip > img { width: 100%; height: 100%; }
 .q-word { font-weight: 800; }
-#chat-log .msg.qual-fine { color: var(--q-fine); font-weight: 800; }
-#chat-log .msg.qual-superior { color: var(--q-superior); font-weight: 800; }
-#chat-log .msg.qual-epic { color: var(--q-epic); font-weight: 800; }
-#chat-log .msg.qual-legendary { color: var(--q-legendary); font-weight: 800; }
-#chat-log .msg.qual-mythic { color: var(--q-mythic); font-weight: 800; }
 
 /* ---- Firemaking: "Light a fire here" in the Firemaking guide (Skills menu) ---- */
 .sg-fire { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }

@@ -21,7 +21,9 @@
 .ency-link { color: var(--aw-sky-deep); font-weight: 800; text-decoration: underline dotted; text-underline-offset: 2px;
   cursor: var(--cur-pointer); touch-action: manipulation; border-radius: 4px; padding: 0 1px; }
 .ency-link:hover, .ency-link:focus-visible { background: var(--aw-sky-bg); outline: none; }
-#chat-log .ency-link { font-weight: 700; }
+/* In the chat a name is the line's own weight, told apart by its blue (and a
+   tint under the pointer), not by bold and an underline. */
+#chat-log .ency-link { font-weight: inherit; text-decoration: none; }
 .cx-drop[data-ency], .cx-zone[data-ency] { cursor: var(--cur-pointer); touch-action: manipulation; }
 .cx-drop[data-ency]:hover, .cx-zone[data-ency]:hover { background: var(--aw-hover); }
 
