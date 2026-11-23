@@ -37,9 +37,10 @@ const STATS = ['attack', 'strength', 'defence', 'ranged', 'magic', 'magicStr', '
 // The XP curve: rank r takes 2,500 x r x 2^(r-1) XP (2,500, 10,000, 30,000,
 // 80,000, 200,000, 480,000), ten times the old points (250 .. 50,000) up to
 // Grandmaster, so the ranks feel as far apart as they did. A kill is worth
-// about 10 XP early on and more at higher levels (killMastery), so auto battle
-// (about 75 kills a minute at a good spot) still brings Adept in a few minutes
-// and Ascended after many hours.
+// about 10 XP early on and more the higher the monster's level (killMastery),
+// so auto battle (about 75 kills a minute at a good spot) still brings Adept in
+// a few minutes, and Ascended after about 5 hours on level 100 monsters or
+// under 3 on level 300 ones.
 // (The top rank was called Legendary, the same word as a quality tier; renamed
 // so the two systems never share a name. Exalted and Transcendent were chosen
 // for the same reason: Mythic is a quality and Paragon an alignment.)
@@ -47,8 +48,8 @@ const STATS = ['attack', 'strength', 'defence', 'ranged', 'magic', 'magicStr', '
 // Beyond Ascended: two world-boss ranks (worldBoss: true). Past Ascended only
 // XP from world bosses counts (see Game._gainMastery): ordinary kills, gate
 // bosses, materials and sacrifices add nothing more. Their thresholds are 1.5x
-// and 2.5x Ascended's XP: about 60 and then 120 more world bosses at level 300
-// (one gives ~4,000 XP there), fewer for a higher-level player. Each adds +40%
+// and 2.5x Ascended's XP: about 24 and then 48 more world bosses at level 300
+// (one gives 10,000 XP there), fewer for a higher-level player. Each adds +40%
 // and then +45% of base stats, the next steps on the ladder (+10, +15, +20,
 // +25, +30, +40%); a fully upgraded level 3,000 build with them still needs
 // several seconds for a boss of its level (tests/late-damage.test.mjs).
@@ -102,9 +103,12 @@ export function masteryTypeName(id) {
   return `${FAMILY_WORDS[kind]} ${word}`;
 }
 
-// Kill XP: KILL_XP x the square root of 1 + level / 200 (10 at level 1, 12 at
-// 100, 16 at 300, 24 at 1,000), times 5 for a champion, 25 for an Endless Gate
-// boss and 250 for a world boss. A world boss fight takes 3-4 minutes, about
+// Kill XP: KILL_XP x (1 + (level - 1) / 100), 10 more every 100 levels, so a
+// stronger monster counts for more in step with its level (10 at level 1, 20 at 100, 40 at 300, 110 at 1,000).
+// It was the square root of 1 + level / 200 (12 at 100, 24 at 1,000), so a
+// level 1,000 monster trained gear barely twice what a chicken did; the owner
+// asked for stronger monsters to count for more. Times 5 for a champion, 25
+// for an Endless Gate boss and 250 for a world boss. A world boss fight takes 3-4 minutes, about
 // what 250 ordinary kills do on auto battle, so neither road is the better one.
 export const KILL_XP = 10;
 export const KILL_MULT = { champion: 5, boss: 25, worldBoss: 250 };
@@ -123,7 +127,7 @@ export function killMastery(npc) {
   // A boss grown to your level (Game._scaleBoss) counts at that level.
   const lvl = Math.max(1, npc?.def?.scaledTo || 0, npc?.def?.level || npc?.level || 1);
   const mult = isWorldBoss(npc) ? KILL_MULT.worldBoss : npc?.def?.boss ? KILL_MULT.boss : npc?.champion ? KILL_MULT.champion : 1;
-  return Math.max(1, Math.round(KILL_XP * Math.sqrt(1 + lvl / 200) * mult));
+  return Math.max(1, Math.round(KILL_XP * (1 + (lvl - 1) / 100) * mult));
 }
 
 /** Rank index (0 Novice .. 8 Transcendent) for an amount of mastery XP. */

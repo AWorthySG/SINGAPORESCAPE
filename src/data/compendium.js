@@ -807,7 +807,7 @@ export const CHAPTERS = [
         summary: `Using your gear makes it stronger: ${MASTERY_RANKS[0].name} to ${MASTERY_RANKS[MASTERY_RANKS.length - 1].name}.`,
         body: [
           'Mastery belongs to a **gear type**, not one item: every sword shares Sword mastery, every plate body Plate body mastery. So moving up a tier keeps everything you have earned.',
-          `Every kill gives each type you wear mastery XP: about ${KILL_XP} for a monster, more the higher its level, ${KILL_MULT.champion}x that for a champion, ${KILL_MULT.boss}x for an Endless Gate boss and ${KILL_MULT.worldBoss}x for a world boss. Each rank adds a share of the item\'s base stats:`,
+          `Every kill gives each type you wear mastery XP: ${KILL_XP} for a level 1 monster and 10 more for every 100 levels (20 at level 100, 40 at level 300), so stronger monsters count for more; ${KILL_MULT.champion}x that for a champion, ${KILL_MULT.boss}x for an Endless Gate boss and ${KILL_MULT.worldBoss}x for a world boss. Each rank adds a share of the item\'s base stats:`,
           () => ({ table: { head: ['Rank', 'XP', 'Stat bonus'], rows: masteryRankRows() } }),
           `You can also feed life-skill materials or [[salvage|sacrifice spare gear]] to a type; those stop at ${MASTERY_RANKS[FEED_CAP_RANK].name}, so the ranks above come from fighting.`,
           `The last two ranks are unlocked by defeating world bosses: past ${MASTERY_RANKS[BATTLE_CAP_RANK].name}, only XP from bosses fought in the open world counts. Ordinary kills, Endless Gate bosses, materials and sacrifices add nothing more.`,

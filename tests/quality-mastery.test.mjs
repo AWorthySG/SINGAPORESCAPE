@@ -55,9 +55,9 @@ test('kills train each worn gear type once, and only worn types; quality drops n
   g.equipment.set('weapon', 'rune_scimitar'); g.equipment.set('shield', 'iron_scimitar');
   // Mastery XP (mastery.js killMastery): 10 a level 1 monster, x250 a world boss, x5 a champion.
   g._gainMastery({ def: { boss: true, level: 1 } });
-  assert.equal(g.equipment.masteryXp('mithril_scimitar'), 2506, 'a world boss: 2,506 to Scimitar mastery, once for the pair');
+  assert.equal(g.equipment.masteryXp('mithril_scimitar'), 2500, 'a world boss: 2,500 to Scimitar mastery, once for the pair');
   g._gainMastery({ champion: true, def: { level: 1 } });
-  assert.equal(g.equipment.masteryXp('rune_scimitar'), 2506 + 50, 'a champion: 50');
+  assert.equal(g.equipment.masteryXp('rune_scimitar'), 2500 + 50, 'a champion: 50');
   assert.equal(g.equipment.masteryPoints('gold_ring'), 0, 'no ring worn');
   // A boss's drops arrive with quality, but mastery stays where it was.
   let loot = [];

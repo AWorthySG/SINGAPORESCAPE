@@ -165,10 +165,10 @@ test('feeding: bars add mastery to a sword, wrong materials are refused, rank-up
   assert.ok(said.some((t) => /mastery reached Master/.test(t)));
   assert.equal(g.feedMastery(w, 'rune_bar', 1), 0, 'no further with materials');
   assert.equal(g.inventory.count('rune_bar'), 4);
-  // Kills still carry it on past the cap (a level 1 boss in the open world: 2,506 XP).
+  // Kills still carry it on past the cap (a level 1 boss in the open world: 2,500 XP).
   const before = g.equipment.masteryXp(w);
   g._gainMastery({ def: { boss: true, level: 1 } });
-  assert.equal(g.equipment.masteryXp(w), before + 2506);
+  assert.equal(g.equipment.masteryXp(w), before + 2500);
   // Gear you neither wear nor carry can't be fed.
   g.inventory.add('mithril_bar', 1);
   assert.equal(g.feedMastery('rune_platebody', 'mithril_bar', 1), 0);
