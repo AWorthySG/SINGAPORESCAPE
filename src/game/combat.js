@@ -324,8 +324,11 @@ export const WEAPON_DMG_MULT = {
   // striking every swing (the off-hand at OFFHAND_SHARE) on the knuckles' quick beat,
   // and both at the knuckles' scale (each hand's blow takes the main weapon's), with
   // Chi adding about a fifth over a fight (monk.js). Gloves in the main hand swing
-  // slower, so theirs sits a little higher, a little under the knuckles' pair.
-  knuckles: 0.22, monk_gloves: 0.25,
+  // slower, so theirs sits higher, leaving a gloves-first pair a little under the
+  // knuckles' (88-94% of it). Tuned with tools/balance/classes.mjs: the Monk deals
+  // 100% of the median class's single-target damage at levels 100 and 300, and
+  // 103-105% on bosses (between the Corsair and the Brawler in real boss fights).
+  knuckles: 0.24, monk_gloves: 0.32,
 };
 /** The target's number scale (see hpScaleFor in npcs.js): hits on a big monster are divided by it. */
 const numScale = (npc) => npc?.hpScale || 1;
