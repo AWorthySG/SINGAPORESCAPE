@@ -34,6 +34,12 @@ export function mulberry32(seed) {
   };
 }
 
+// The test suite pins the pets' generator (tests/seed.mjs), as it pins
+// Math.random: a pet turning up in one run of a long test and not in the next
+// (its sparkles use Math.random) sent the two runs apart and failed a deploy.
+// In play it is seeded from the clock.
+export const PET_SEED = { value: null };
+
 /** One roll of a 1-in-`1 / chance` drop (rand injectable for tests). */
 export const rollPet = (chance, rand = Math.random) => rand() < chance;
 
@@ -77,7 +83,7 @@ export class Pets {
     this._rolled = {};      // skill -> tick of its last roll (one roll a tick at most)
     // Pets roll on their own generator, so these extra rolls never shift the
     // run of Math.random the rest of the game (and its seeded tests) depends on.
-    this.rand = mulberry32((Date.now() ^ 0x9e3779b9) >>> 0);
+    this.rand = mulberry32(((PET_SEED.value ?? Date.now()) ^ 0x9e3779b9) >>> 0);
     game.bus.on('tick', () => this.tick());
     // Every life-skill action pays XP, so the XP event is the roll: no hook in
     // each skill. Bonus XP from the same action (a pearl, say) doesn't roll again.

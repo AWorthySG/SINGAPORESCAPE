@@ -12,6 +12,7 @@ import { FISH_SCHOOL } from '../src/game/fishschool.js';
 import { NODE_JACKPOT } from '../src/game/jackpot.js';
 import { BOSS_TOOLS } from '../src/game/bosstools.js';
 import { LEVEL_HAUL } from '../src/game/levelhaul.js';
+import { PET_SEED } from '../src/game/pets.js';
 
 export const SEED = Number(process.env.TEST_SEED) || 20261112;
 
@@ -27,6 +28,9 @@ export function seedRandom(seed = SEED) {
 }
 
 seedRandom();
+// Pets roll on their own generator, seeded from the clock in play: pinned here, so
+// a rare pet turns up the same way on every run of a test (or not at all).
+PET_SEED.value = SEED;
 // Golden hours off too: XP amounts in tests mustn't depend on the in-game clock
 // (tests/skillhours.test.mjs switches them back on for itself).
 // Skill unlocks off as well, so balance checks see the base rates (skillshome.test.mjs turns them on).
