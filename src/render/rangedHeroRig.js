@@ -5,15 +5,15 @@ import { drawAnimBody, drawSwingArm, drawEmptyArm, hasSwingArt, swingPhase } fro
 // Ranged and magic limbs are separate from the melee pilot so each batch can
 // be reviewed independently. All parts must load before replacing a portrait.
 // The Sniper borrows the Pistoler's parts until its own art arrives (same file names, sniper-*),
-// and the Priest and Zealot the Wizard's and Sorcerer's, recoloured (priest-*, zealot-*).
+// and the Priest and Zealot the Sorcerer's, recoloured ivory and ember red (priest-*, zealot-*).
 export const RANGED_HERO_CLASSES = ['ranger', 'archer', 'sorcerer', 'wizard', 'pistoler', 'sniper', 'priest', 'zealot'];
 export const RANGED_HERO_PARTS = ['body', 'weapon', 'back', 'left', 'right', 'action'];
 export const rangedHeroSrc = (classId, part) => `assets/creatures/hero/rig/${classId}-${part}.webp`;
 // The weapon arm's shoulder, where the painted attack arms (heroAnimArt.js) hang.
 const SHOULDER = { archer: [4, -11], ranger: [4, -11], pistoler: [10, -10], sniper: [6, -10], wizard: [9, -11], sorcerer: [9, -11], priest: [9, -11], zealot: [9, -11] };
 // Rigs drawn on another class's layout (its poses and part sizes): the Priest's and
-// Zealot's stand-in parts are the Wizard's and Sorcerer's until their own sheets arrive.
-const LAYOUT = { priest: 'wizard', zealot: 'sorcerer' };
+// Zealot's stand-in parts are the Sorcerer's until their own sheets arrive.
+const LAYOUT = { priest: 'sorcerer', zealot: 'sorcerer' };
 const images = new Map();
 // Draw, release and cast ease across a restarted shot (see poseBlend.js).
 const blendRanged = poseBlender();
