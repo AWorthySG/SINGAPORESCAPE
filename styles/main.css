@@ -934,9 +934,13 @@ button:focus:not(:focus-visible) { outline: none; }
 
 
 /* ============================================================================
-   A-Worthy sticker-book skin — component overrides
-   Wells and slots sit on bg-muted; selected states use the rust accent with
-   white 800-weight text; marker pops carry fills and dots, never text.
+   A-Worthy sticker-book skin — the overrides that stay
+   Each component's sticker look now lives in its own rules above. What is
+   left here are groups shared by several components and states that must
+   come after rules of equal weight in between (moving them up would change
+   which one wins). Wells and slots sit on bg-muted; selected states use the
+   rust accent with white 800-weight text; marker pops carry fills and dots,
+   never text.
    ============================================================================ */
 
 /* Chat */
