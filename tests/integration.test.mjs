@@ -4800,22 +4800,28 @@ test('auto battle casters pick the element that suits the target', async () => {
   const crowd = [[3, 0], [-3, 0], [0, 4], [0, -4], [4, 4]].map(([dx, dy]) => new NPC('goblin', t.x + dx, t.y + dy, 0, {}));
   game.npcs = [t, ...crowd];
   assert.equal(game._autoSpellFor(t).element, 'earth');
-  // A lone foe: Wind (casts twice as fast) beats Fire's burns, which add at most
-  // 60% of each hit (12% a second for 5 s) and no longer stack for ever...
+  // A lone foe: Wind (casts twice as fast) wins a quick kill, before Fire's burns
+  // get going...
   const solo = new NPC('goblin', p.x + 3, p.y, 0, {});
   solo.def = { ...solo.def, sprite: 'none', race: 'humanoid' };
   game.npcs = [solo];
-  solo.maxHp = solo.hp = 500;
+  solo.maxHp = solo.hp = 100;
   assert.equal(game._autoSpellFor(solo).element, 'wind', 'Wind on a quick kill');
+  // ...but Fire's burns, going off every half second and with every hit (the
+  // owner's much stronger Ignite), win any longer fight, even against a foe that
+  // resists Fire. (They used to win only against a race Fire bites into.)
   solo.maxHp = solo.hp = 5e7;
-  assert.equal(game._autoSpellFor(solo).element, 'wind', 'and on a long fight against a foe Fire is not strong against');
-  // ...but against a race Fire bites into, its burns tip a long fight its way, not a quick kill.
+  assert.equal(game._autoSpellFor(solo).element, 'fire', 'Fire on a long fight');
   solo.def = { ...solo.def, sprite: 'undead', family: 'undead_test' };
   assert.equal(raceOf(solo.def, solo.npcId), 'undead');
   assert.equal(ELEMENTS.fire.strong.includes('undead') && !ELEMENTS.wind.strong.includes('undead'), true);
   assert.equal(game._autoSpellFor(solo).element, 'fire', 'Fire on a long fight it is strong in');
   solo.maxHp = solo.hp = 50;
   assert.equal(game._autoSpellFor(solo).element, 'wind', 'Wind still on a quick kill');
+  solo.def = { ...solo.def, sprite: 'none', race: 'dragon', family: 'dragon_test' };
+  solo.maxHp = solo.hp = 5e7;
+  assert.equal(raceOf(solo.def, solo.npcId), 'dragon');
+  assert.equal(game._autoSpellFor(solo).element, 'fire', 'and on a long fight against a dragon, which resists it');
 });
 
 test('attack speed % has no cap; wands cast faster than staves; spells halve the swing time', () => {

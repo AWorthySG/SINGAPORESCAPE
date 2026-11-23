@@ -93,6 +93,7 @@ export class NPC extends Character {
     // the death and spawn fades, a boss's cast), made here empty so every
     // monster keeps one object shape (see Character's constructor).
     this.recentDmg = undefined;
+    this.ignite = null;           // Fire's burns on it (game.js _igniteFoe)
     this._lastSplat = undefined; this._splatN = undefined; this._splatRow = undefined; this._raceSaid = undefined;
     this.stopFrom = undefined; this.stopUntil = undefined; this.squashK = undefined; this.squashDir = undefined;
     this.deathT = undefined; this.spawnT = undefined; this.castT = undefined; this.castCol = undefined;
