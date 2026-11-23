@@ -7,7 +7,8 @@ import assert from 'node:assert/strict';
 import { Game } from '../src/game/game.js';
 import { clearSave } from '../src/game/save.js';
 import { xpForLevel } from '../src/data/xp.js';
-import { resolveWoodcut, resolveMine } from '../src/game/skilling.js';
+import { resolveWoodcut, resolveMine, resolveFish } from '../src/game/skilling.js';
+import { FISH_SCHOOL, SCHOOL_HAUL, SCHOOL_HAUL_MAX } from '../src/game/fishschool.js';
 import { NODE_JACKPOT, JACKPOT_CHANCE, setJackpotRand, nodeJackpot, SEAM_MULT } from '../src/game/jackpot.js';
 import { mulberry32 } from '../src/game/pets.js';
 import { SKILL_GUIDES } from '../src/game/skillguide.js';
@@ -102,7 +103,33 @@ test('the last log or ore is never a jackpot, and the switch turns it all off', 
   assert.equal(resolveMine(g, { obj: rock }), true, 'off: an ordinary swing');
 });
 
+test('every fishing spot can net a whole school of the fish you hooked, as often as a whole seam', () => {
+  const g = newGame(); const said = listen(g);
+  g.skills.xp.fishing = xpForLevel(40);
+  if (!g.inventory.has('harpoon')) g.inventory.add('harpoon', 1);
+  FISH_SCHOOL.on = false;   // no school passing: just any spot
+  const spot = find(g, 'harpoon_spot');
+  const tuna = () => g.inventory.count('raw_tuna');
+  const catchOnce = () => { const t = tuna(); assert.equal(resolveFish(g, { obj: spot }), true, 'a spot never runs dry'); return tuna() - t; };
+  // A lucky catch: the fish, and a whole school of them with XP for each.
+  const xp0 = g.skills.xp.fishing;
+  setJackpotRand(() => 0);
+  const got = catchOnce();
+  assert.ok(got >= 1 + SCHOOL_HAUL[0] && got <= 2 + SCHOOL_HAUL_MAX, `the catch and a whole school: ${got}`);
+  assert.ok(g.skills.xp.fishing - xp0 >= spot.def.catches[0].xp * (got - 2) - 1e-6, 'XP for every fish');
+  assert.ok(said.some((m) => /^It was a whole school of tuna: you net \d+ at once!/.test(m)), said.slice(-3).join(' | '));
+  assert.equal(g.fishSchools.netted, 1);
+  // An unlucky one: just the fish (one, or two on a big catch).
+  setJackpotRand(() => 0.99);
+  assert.ok(catchOnce() <= 2);
+  // And the switch turns it off with the seams and trees.
+  NODE_JACKPOT.on = false;
+  setJackpotRand(() => 0);
+  assert.ok(catchOnce() <= 2);
+});
+
 test('the skill guides mention it', () => {
   assert.match(SKILL_GUIDES.woodcutting.use, /whole tree down at once/);
   assert.match(SKILL_GUIDES.mining.use, /whole seam free at once/);
+  assert.match(SKILL_GUIDES.fishing.use, /at any spot, about one catch in 40 turns out to be a whole school/);
 });

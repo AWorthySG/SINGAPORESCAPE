@@ -3,6 +3,8 @@
 // it's there, each catch at that spot has a 1 in 4 chance to net the whole
 // school at once: 250-600 fish (more at higher Fishing levels and with a
 // rune-or-better rod or harpoon), with XP for each. That uses the school up.
+// And at any spot, school or no school, about one catch in 40 (as often as a
+// rock's whole seam, jackpot.js) nets a whole school of the fish you hooked.
 //
 // Built alongside the other fishing extras rather than over them: the tool
 // tiers' "big catch" (two at once), the world event's rare shoal (worldevents.js)
@@ -19,6 +21,7 @@ import { chebyshev } from '../core/utils.js';
 import { TILE } from '../config.js';
 import { mulberry32 } from './pets.js';
 import { toolBonus } from './tools.js';
+import { schoolJackpot } from './jackpot.js';
 
 // A switch for the test suite (tests/seed.mjs turns it off, so tests that pin
 // exact catches aren't moved by a school; fish-school.test.mjs turns it on).
@@ -148,24 +151,44 @@ export class FishSchools {
   }
 
   /** A fish was just caught at `obj` (resolveFish); `xpMult` is what that
-   *  catch's XP was multiplied by (moonfish by moonlight). Now and then the
-   *  whole school comes up in the net. Returns how many fish it added (0 if none). */
-  onCatch(obj, xpMult = 1) {
-    if (!FISH_SCHOOL.on) return 0;
-    const s = this.at(obj);
-    if (!s || this.rand() >= SCHOOL_NET) return 0;
+   *  catch's XP was multiplied by (moonfish by moonlight), `caughtId` the fish.
+   *  Now and then the whole school comes up in the net: a school passing the
+   *  spot, or (at any spot) a school of the fish just hooked. Returns how many
+   *  fish it added (0 if none). */
+  onCatch(obj, xpMult = 1, caughtId = null) {
     const g = this.game;
+    const s = FISH_SCHOOL.on ? this.at(obj) : null;
+    if (s) {
+      if (this.rand() >= SCHOOL_NET) return 0;
+      const n = this._net(obj, s.fishId, s.size, xpMult, toolBonus(g, obj.def.tool || 'net'), false);
+      if (n) this.leave(s);
+      return n;
+    }
+    // No school passing: every spot still turns up a whole school now and then,
+    // as often as a whole seam or tree (the owner's ask), of the fish you hooked.
+    if (!caughtId) return 0;
     const tb = toolBonus(g, obj.def.tool || 'net');
-    const want = Math.min(SCHOOL_HAUL_MAX, s.size + haulBonus(g.skills.level('fishing'), tb));
-    // A full bag takes what fits; with no room at all, the school stays for later.
-    const n = Math.min(want, g.inventory.canAdd(s.fishId, want));
+    if (!schoolJackpot(tb.find)) return 0;
+    return this._net(obj, caughtId, this._between(SCHOOL_HAUL), xpMult, tb, true);
+  }
+
+  /** Net a whole school of `fishId` at `obj` (`size` fish before the level and
+   *  tool bonuses): into the bag, XP for each, and a splash. `wild`: no school
+   *  was seen passing, it came up with the fish you hooked. Returns how many. */
+  _net(obj, fishId, size, xpMult, tb, wild) {
+    const g = this.game;
+    const want = Math.min(SCHOOL_HAUL_MAX, size + haulBonus(g.skills.level('fishing'), tb));
+    // A full bag takes what fits; with no room at all, a passing school stays for later.
+    const n = Math.min(want, g.inventory.canAdd(fishId, want));
     if (n <= 0) return 0;
-    g.inventory.add(s.fishId, n);
-    const xpEach = (obj.def.catches.find((c) => c.id === s.fishId)?.xp || 0) * xpMult;
+    g.inventory.add(fishId, n);
+    const xpEach = (obj.def.catches.find((c) => c.id === fishId)?.xp || 0) * xpMult;
     g.skills.addXp('fishing', xpEach * n);
     this.netted++;
-    const name = getItem(s.fishId).name.replace(/^Raw /, '');
-    g.msg(`You net the whole school: ${n} ${fishName(s.fishId)}${n < want ? ' (all your bag could hold)' : ''}!`, 'level');
+    const name = getItem(fishId).name.replace(/^Raw /, '');
+    const full = n < want ? ' (all your bag could hold)' : '';
+    g.msg(wild ? `It was a whole school of ${fishName(fishId)}: you net ${n} at once${full}!`
+      : `You net the whole school: ${n} ${fishName(fishId)}${full}!`, 'level');
     g.banner?.(`<span class="big">Whole school!</span>+${n} ${name}`);
     g.addHitsplat?.(g.player, 0, { text: `Whole school! +${n} ${name}` });
     // A splash: spray off the water and a glint over you.
@@ -173,7 +196,6 @@ export class FishSchools {
     g.spawnPoof?.(cx, cy, '#bfe3ff'); g.spawnPoof?.(cx - 8, cy + 4, '#ffffff'); g.spawnPoof?.(cx + 8, cy - 3, '#8fd0ff');
     g.spawnSparkle?.(g.player, '#8fd0ff', 14);
     g.bus.emit('sfx', 'dropepic');
-    this.leave(s);
     return n;
   }
 }

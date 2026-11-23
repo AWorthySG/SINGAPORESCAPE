@@ -1,7 +1,8 @@
 // The whole tree, the whole rock: now and then a swing brings down every log
 // left in a tree, or breaks a rock's whole seam free, at once, with XP for each
 // (the owner's ask, after the fish schools' "whole school" catch). It uses the
-// tree or rock up, as if you had chopped or mined it to the end.
+// tree or rock up, as if you had chopped or mined it to the end. Every fishing
+// spot has the same chance of a whole school (schoolJackpot, fishschool.js).
 //
 // Kept out of skilling.js: resolveWoodcut and resolveMine call `nodeJackpot`
 // once per swing, after that swing's own log or ore. Rolls use their own
@@ -62,6 +63,14 @@ export function nodeJackpot(game, obj, { kind, left, xpEach, pick, find = 0, mul
   game.spawnSparkle?.(game.player, tree ? '#e8c46a' : '#9adcff', 14);
   game.bus.emit('sfx', 'dropepic');
   return n;
+}
+
+/** Fishing's whole school, at any spot (the owner's ask: a whole school for every
+ *  fishing spot, as rocks have their whole seam and trees their whole tree): does
+ *  this catch net one? As likely as a whole seam, more so with better tools.
+ *  The school itself (its size, the fish, the XP) is fishschool.js's. */
+export function schoolJackpot(find = 0) {
+  return NODE_JACKPOT.on && roll() < JACKPOT_CHANCE * (1 + Math.min(1, find) * JACKPOT_TOOL_BONUS);
 }
 
 /** The pick for a rock: its ore, or a fresh gem each time for a gem rock. */
