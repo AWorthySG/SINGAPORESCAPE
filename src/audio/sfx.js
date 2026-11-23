@@ -8,10 +8,16 @@ const MUTE_KEY = 'singaporescape:muted';
 const MUSIC_KEY = 'singaporescape:music';
 const VOLUME_KEY = 'singaporescape:volume';
 const AMBIENCE_KEY = 'singaporescape:ambience';
+// Separate levels for the sound effects and the background music (the owner's
+// ask), each 0..1 under the overall volume.
+const SFX_VOL_KEY = 'singaporescape:sfxVolume';
+const MUSIC_VOL_KEY = 'singaporescape:musicVolume';
 const MASTER = 0.16;
 const MUSIC_VOL = 0.5; // relative to master
 // Gentle A-minor pentatonic — kampong evening kalimba.
 const SCALE = [220, 261.63, 293.66, 329.63, 392, 440, 523.25];
+
+const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
 
 export class Sfx {
   constructor(bus) {
@@ -19,10 +25,13 @@ export class Sfx {
     this.ctx = null;
     this.master = null;
     this.musicGain = null;
+    this.sfxGain = null;           // every sound effect goes through this, so its own slider sets them all
     this.musicTimer = null;
     this.muted = this._loadMuted();
     this.volume = this._loadVolume();   // 0..1, scales everything
     this.musicOn = this._loadMusic();
+    this.sfxVolume = this._loadLevel(SFX_VOL_KEY);
+    this.musicVolume = this._loadLevel(MUSIC_VOL_KEY);
     this.ambienceOn = this._loadAmbience();
     this.amb = null;               // the region sound beds (ambience.js), made on unlock
     this.ambienceSource = null;    // set by main: () => ({ zone, night })
@@ -48,8 +57,11 @@ export class Sfx {
       this.master.gain.value = this.muted ? 0 : MASTER * this.volume;
       this.master.connect(this.ctx.destination);
       this.musicGain = this.ctx.createGain();
-      this.musicGain.gain.value = this.musicOn ? MUSIC_VOL : 0;
+      this.musicGain.gain.value = this._musicLevel();
       this.musicGain.connect(this.master);
+      this.sfxGain = this.ctx.createGain();
+      this.sfxGain.gain.value = this.sfxVolume;
+      this.sfxGain.connect(this.master);
       this._startMusic();
       this._startAmbience();
     } catch { this.ctx = null; }
@@ -124,8 +136,26 @@ export class Sfx {
   toggleMusic() {
     this.musicOn = !this.musicOn;
     try { localStorage.setItem(MUSIC_KEY, this.musicOn ? '1' : '0'); } catch { /* ignore */ }
-    if (this.musicGain) this.musicGain.gain.value = this.musicOn ? MUSIC_VOL : 0;
+    if (this.musicGain) this.musicGain.gain.value = this._musicLevel();
     return this.musicOn;
+  }
+  /** The music's gain: off, or its share of the overall volume times its own slider. */
+  _musicLevel() { return this.musicOn ? MUSIC_VOL * this.musicVolume : 0; }
+
+  /** The sound effects' own volume (0..1), under the overall volume. */
+  setSfxVolume(v) {
+    this.sfxVolume = clamp01(v);
+    try { localStorage.setItem(SFX_VOL_KEY, String(this.sfxVolume)); } catch { /* ignore */ }
+    if (this.sfxGain) this.sfxGain.gain.value = this.sfxVolume;
+  }
+  /** The background music's own volume (0..1), under the overall volume. */
+  setMusicVolume(v) {
+    this.musicVolume = clamp01(v);
+    try { localStorage.setItem(MUSIC_VOL_KEY, String(this.musicVolume)); } catch { /* ignore */ }
+    if (this.musicGain) this.musicGain.gain.value = this._musicLevel();
+  }
+  _loadLevel(key) {
+    try { const v = parseFloat(localStorage.getItem(key)); return Number.isFinite(v) ? clamp01(v) : 1; } catch { return 1; }
   }
   _loadMusic() { try { return localStorage.getItem(MUSIC_KEY) !== '0'; } catch { return true; } }
 
@@ -156,7 +186,7 @@ export class Sfx {
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(vol, t + 0.006);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); g.connect(this.master);
+    o.connect(g); g.connect(this.sfxGain || this.master);
     o.start(t); o.stop(t + dur + 0.03);
   }
 
@@ -181,7 +211,7 @@ export class Sfx {
     // envelope the old per-burst buffers had baked in.
     g.gain.setValueAtTime(vol, t);
     g.gain.linearRampToValueAtTime(0, t + n / sr);
-    s.connect(g); g.connect(this.master);
+    s.connect(g); g.connect(this.sfxGain || this.master);
     s.start(t, Math.floor(Math.random() * Math.max(1, len - n)) / sr, n / sr);
   }
 
