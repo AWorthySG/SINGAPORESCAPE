@@ -44,6 +44,9 @@ export function nextUnlock(skill, level) {
 /** How much stronger every unlock is at `level` than at the last rung (99):
  *  1 up to 99, then a straight line to UNLOCK_TOP_MULT at level 9999. */
 export const unlockGrowth = (level) => 1 + (UNLOCK_TOP_MULT - 1) * towardTop(level, UNLOCK_LEVELS[UNLOCK_LEVELS.length - 1]);
+/** unlockGrowth as the tooltip and the skill guide quote it ('x1.05'), or ''
+ *  while it would still read x1.00 (levels 100 to 198 grow it by under 0.5%). */
+export const unlockGrowthText = (level) => { const s = unlockGrowth(level).toFixed(2); return s === '1.00' ? '' : `x${s}`; };
 
 /** Summed effects of every rung unlocked at `level`: { double, quick, save, keep, grow, burn },
  *  grown by unlockGrowth past level 99. (Lures, decoys, brews and the kampong
@@ -56,7 +59,7 @@ export function unlockFxAt(skill, level) {
     for (const [k, v] of Object.entries(u.fx)) out[k] = (out[k] || 0) + v;
   }
   const m = unlockGrowth(level);
-  if (m !== 1) for (const k of Object.keys(out)) out[k] *= m;
+  if (m !== 1) for (const k in out) out[k] *= m;   // (no key list: a batch asks this for every make)
   return out;
 }
 
@@ -195,9 +198,10 @@ export function afterFireLit(game, fire, logId) {
 export function unlockTipText(skill, level) {
   const all = SKILL_UNLOCKS[skill];
   if (!all) return '';
-  const open = all.filter((u) => level >= u.level).length, next = nextUnlock(skill, level), m = unlockGrowth(level);
+  const open = all.filter((u) => level >= u.level).length, next = nextUnlock(skill, level), m = unlockGrowth(level), shown = unlockGrowthText(level);
+  // Past 99 the bonuses (not the teleport or a recipe) keep growing.
   return `<br>Unlocks: <b>${open} of ${all.length}</b>` + (next ? `<br>At level ${next.level}: ${next.name} (${next.desc})` : '<br>Every unlock open')
-    + (m > 1 ? `, each now x${m.toFixed(2)} as strong (x${UNLOCK_TOP_MULT} at level ${MAX_LEVEL})` : '');
+    + (m > 1 ? `${shown ? `, each bonus now ${shown} as strong` : ', and their bonuses keep growing'} (x${UNLOCK_TOP_MULT} at level ${MAX_LEVEL})` : '');
 }
 
 /** The level-up banner for a new unlock (and its chat line). */

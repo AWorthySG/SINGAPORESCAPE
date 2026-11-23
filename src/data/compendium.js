@@ -905,10 +905,10 @@ export const CHAPTERS = [
       },
       {
         id: 'skill-unlocks', title: 'Skill unlocks',
-        summary: `Every life skill unlocks something at levels ${UNLOCK_LEVELS.join(', ')}, and they keep growing to level ${num(MAX_LEVEL)}.`,
+        summary: `Every life skill unlocks something at levels ${UNLOCK_LEVELS.join(', ')}, and their bonuses keep growing to level ${num(MAX_LEVEL)}.`,
         body: [
           `At levels **${UNLOCK_LEVELS.join(', ')}** each life skill unlocks something you feel while training it: double yields, quick actions, kept ingredients, trees and rocks that hold, new recipes, and a teleport to its best training spot (skill teleports share a 5-minute cooldown). Each skill's article lists its ladder.`,
-          `Past the last rung every unlock's effect keeps growing, a little with every level, to **x${UNLOCK_TOP_MULT}** by level ${num(MAX_LEVEL)}. The ladders show each rung before that growth; a skill's guide shows how much more they give you now.`,
+          `Past the last rung every bonus they give keeps growing, a little with every level, to **x${UNLOCK_TOP_MULT}** by level ${num(MAX_LEVEL)} (teleports and recipes stay as they are). The ladders show each rung before that growth; a skill's guide shows how much more they give you now.`,
           'Separately, every 20 levels of a fighting or life skill unlocks a passive perk that helps in a fight.',
         ],
         see: ['skills-overview', 'skill-chains'],

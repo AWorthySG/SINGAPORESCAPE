@@ -150,13 +150,23 @@ test('past level 99 every unlock keeps growing, to x1.5 at level 9999', () => {
   const g = newGame();
   setLevel(g, 'farming', MAX_LEVEL);
   assert.equal(growTicks(g, 100), 63, 'crops grow 37.5% faster at 9999 (still under the 50% limit)');
-  assert.match(unlockTipText('mining', MAX_LEVEL), /x1\.50/);
-  assert.doesNotMatch(unlockTipText('mining', 99), /as strong/);
+  assert.match(unlockTipText('mining', MAX_LEVEL), /each bonus now x1\.50 as strong/);
+  assert.doesNotMatch(unlockTipText('mining', 99), /as strong|keep growing/);
+  // Up to level 198 it has grown by under 0.5%, which would read "x1.00": the
+  // texts say the bonuses keep growing instead, and quote it from 199 (x1.01).
+  assert.match(unlockTipText('mining', 150), /Every unlock open, and their bonuses keep growing \(x1\.5 at level 9999\)/);
+  assert.match(unlockTipText('mining', 199), /each bonus now x1\.01 as strong/);
   // The skill guide's ladder says so too, past 99 only.
   setLevel(g, 'mining', 99);
   assert.doesNotMatch(unlockLadderHTML(g, 'mining'), /Still growing/);
+  setLevel(g, 'mining', 150);
+  assert.match(unlockLadderHTML(g, 'mining'), /Still growing.*Every bonus above grows a little with every level/);
   setLevel(g, 'mining', 5049);
-  assert.match(unlockLadderHTML(g, 'mining'), /Still growing.*x1\.25 as strongly/);
+  assert.match(unlockLadderHTML(g, 'mining'), /Still growing.*Every bonus above now works x1\.25 as strongly/);
+  for (let l = 100; l <= 250; l++) {
+    setLevel(g, 'mining', l);
+    assert.doesNotMatch(unlockTipText('mining', l) + unlockLadderHTML(g, 'mining'), /x1\.00/, `level ${l}`);
+  }
 });
 
 // ---------------- Skill chains ----------------
