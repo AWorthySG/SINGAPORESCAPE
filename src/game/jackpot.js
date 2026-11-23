@@ -18,6 +18,9 @@ export const NODE_JACKPOT = { on: true };
 export const JACKPOT_CHANCE = 0.05;        // a swing's chance (about 1 in 20, the owner doubled it from 1 in 40) to take everything left
 export const JACKPOT_TOOL_BONUS = 0.5;     // ...up to half as likely again with the best tools (their `find` share)
 export const SEAM_MULT = 10;               // the whole seam or tree gives ten times what was left in it (the owner's ask)
+/** A swing's or catch's chance of the whole tree, seam or school with a tool of
+ *  find share `find` (also the skill guide's XP an hour, xprate.js). */
+export const jackpotChance = (find = 0) => JACKPOT_CHANCE * (1 + Math.min(1, find) * JACKPOT_TOOL_BONUS);
 
 const rand = mulberry32((Date.now() ^ 0x5bd1e995) >>> 0);
 /** Swap the generator (tests). */
@@ -34,7 +37,7 @@ let roll = rand;
  */
 export function nodeJackpot(game, obj, { kind, left, xpEach, pick, find = 0, mult = 1 }) {
   if (!NODE_JACKPOT.on || !(left > 0)) return 0;
-  if (roll() >= JACKPOT_CHANCE * (1 + Math.min(1, find) * JACKPOT_TOOL_BONUS)) return 0;
+  if (roll() >= jackpotChance(find)) return 0;
   // Tally the haul, then add it a kind at a time while the bag holds its
   // 'inventory' event: one at a time, a whole seam told every listener (the bag
   // grid, the quick-use slot, discovery) up to 200 times in one swing.
@@ -70,7 +73,7 @@ export function nodeJackpot(game, obj, { kind, left, xpEach, pick, find = 0, mul
  *  this catch net one? As likely as a whole seam, more so with better tools.
  *  The school itself (its size, the fish, the XP) is fishschool.js's. */
 export function schoolJackpot(find = 0) {
-  return NODE_JACKPOT.on && roll() < JACKPOT_CHANCE * (1 + Math.min(1, find) * JACKPOT_TOOL_BONUS);
+  return NODE_JACKPOT.on && roll() < jackpotChance(find);
 }
 
 /** The pick for a rock: its ore, or a fresh gem each time for a gem rock. */

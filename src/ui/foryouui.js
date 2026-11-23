@@ -1,11 +1,11 @@
 // The "For you" section of the Codex window: where to train each life skill
-// at your level (with a rough XP an hour), monsters your weapon is strong
+// at your level (with its XP an hour), monsters your weapon is strong
 // against, the regions with the most monsters at your level, and gear you
 // could wear now that beats what you have on. The facts come from
 // src/game/foryou.js; the buttons are handled by encyclopediaui.js.
 import { getItem } from '../data/items.js';
 import { SKILL_BY_ID } from '../data/skills.js';
-import { formatNumber } from '../core/utils.js';
+import { formatNumber, shortNumber } from '../core/utils.js';
 import { itemIconSVG } from '../render/icons.js';
 import { bestSpotsFor } from '../game/skillguide.js';
 import { TRAIN_SKILLS, trainingFor, preyFor, strongRaces, weaponName, gearUpgrades } from '../game/foryou.js';
@@ -16,7 +16,8 @@ const where = (zs, n = 2) => (zs.length ? esc(zs.slice(0, n).join(', ')) + (zs.l
 /** The whole For you page. */
 export function forYouHTML(game) {
   if (!game?.skills) return '<div class="modal-hint">Nothing to suggest yet.</div>';
-  let html = '<div class="cp-intro">What suits you right now, from your levels and what you wear. XP an hour is a rough "up to": walking and banking are not counted.</div>';
+  let html = '<div class="cp-intro">What suits you right now, from your levels and what you wear. XP an hour at a tree, rock, spot or trap is an hour of auto gather there, as its skill guide counts it; '
+    + 'for making it is a rough "up to" (fetching and banking are not counted).</div>';
   // ---- Training ----
   html += '<section class="cx-sec"><h3 class="ency-h3">Train your skills</h3>';
   for (const skill of TRAIN_SKILLS) {
@@ -24,7 +25,7 @@ export function forYouHTML(game) {
     const lvl = game.skills.level(skill);
     const s = spots[0];
     html += `<div class="ency-line ency-train"><span><b><span class="ency-link" role="button" tabindex="0" data-ency="skill:${esc(skill)}">${esc(SKILL_BY_ID[skill]?.name || skill)}</span> ${formatNumber(lvl)}</b>` +
-      (s ? `: ${esc(s.name)} <small>(lvl ${formatNumber(s.level)} · up to ~${formatNumber(s.xph)} xp/h${s.regions.length ? ` · ${where(s.regions)}` : ''})</small>`
+      (s ? `: ${esc(s.name)} <small>(lvl ${formatNumber(s.level)} · ${s.rough ? 'up to ~' : '≈ '}${shortNumber(s.xph)} xp/h${s.regions.length ? ` · ${where(s.regions)}` : ''})</small>`
         : ' <small>nothing at this level yet</small>') + '</span>' +
       (s?.objIds ? `<button type="button" class="wm-go" data-go="${esc(s.objIds.join(','))}">Go</button>` : s?.npcId ? `<button type="button" class="wm-go" data-npc="${esc(s.npcId)}">Go</button>` : '') + '</div>';
   }
