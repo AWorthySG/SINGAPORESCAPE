@@ -1,8 +1,10 @@
 // The gathering skills pay alike: Woodcutting, Mining and Hunter about the same
 // XP an hour at each level, Fishing about a quarter more (GATHER_XP_MULT and
-// NODE_XP_TUNE, objects.js). Each skill is worked the way a player would: auto
-// gather at its best node for the level, the best tool the level allows, an
-// endless bag.
+// NODE_XP_TUNE, objects.js), and a farm a little more than their average, as it
+// has fewer extras in play (FARM_XP_MULT and CROP_XP_TUNE, trades.js). Each
+// skill is worked the way a player would: auto gather at its best node for the
+// level, the best tool the level allows, an endless bag. (The extras, golden
+// hours to whole seams, are off here: tests/seed.mjs.)
 import { SEED, seedRandom } from './seed.mjs';   // seeded Math.random: no test fails on an unlucky roll
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -13,6 +15,7 @@ import { ITEMS } from '../src/data/items.js';
 import { xpForLevel } from '../src/data/xp.js';
 import { TOOL_TIERS, toolId } from '../src/data/tooltiers.js';
 import { chebyshev } from '../src/core/utils.js';
+import { CROPS, CROP_BY_SEED } from '../src/data/trades.js';
 
 function fakeStorage() {
   const m = new Map();
@@ -108,5 +111,49 @@ test('Fishing XP an hour sits about a quarter above the middle of Woodcutting, M
   for (const r of rates()) {
     const x = r.fishing / r.mid;
     assert.ok(x >= 1.1 && x <= 1.42, `level ${r.lvl}: Fishing is ${x.toFixed(2)}x the middle of the others (${show(r)})`);
+  }
+});
+
+// XP an hour from auto gather at the biggest farm (the twelve Kranji patches),
+// planting the newest crop the level allows (each pays more than the ones before
+// it at its own level), XP pinned at `lvl`. Crops take 50-600 ticks to grow, so
+// the run covers several harvests of every patch.
+function farmRate(lvl, ticks, seed) {
+  seedRandom(seed);
+  const g = newGame();
+  g.skills.xp.farming = xpForLevel(lvl);
+  const crop = CROPS.filter((c) => c[2] <= lvl).at(-1);
+  g.inventory.add(`${crop[0]}_seed`, 400);
+  noon(g);
+  const patches = g.world.objects.filter((o) => o.def.type === 'farm');
+  const near = (o) => patches.filter((p) => chebyshev(p.x, p.y, o.x, o.y) <= 12).length;
+  const start = patches.reduce((a, b) => (near(b) > near(a) ? b : a));
+  const [dx, dy] = ADJ.find(([ax, ay]) => !g.world.isBlocked(start.x + ax, start.y + ay) && !g.world.objectAt(start.x + ax, start.y + ay));
+  g.player.x = g.player.tx = start.x + dx; g.player.y = g.player.ty = start.y + dy;
+  g.toggleAutoGather(true);
+  g.defaultObjectAction(start);
+  const base = g.skills.xp.farming;
+  let gain = 0;
+  for (let i = 0; i < ticks; i++) {
+    g.update(600); noon(g);
+    gain += g.skills.xp.farming - base; g.skills.xp.farming = base;
+    for (let k = 0; k < g.inventory.size; k++) { const s = g.inventory.slotAt(k); if (s && !ITEMS[s.id]?.tool && !CROP_BY_SEED[s.id]) g.inventory.removeAt(k, s.qty); }
+  }
+  return { crop: crop[0], xp: gain * 6000 / ticks };
+}
+
+test('a farm of twelve patches pays a little more than the average of Mining, Woodcutting and Fishing an hour', () => {
+  // Nov 2026: a farm paid about a hundredth of the others, so every crop was
+  // lifted. Farming has fewer extras in play (no streaks, lucky finds or level
+  // haul), so with them off a farm pays a little more than the others; golden
+  // hours, the unlocks and bumper harvests (jackpot.js) bring it to about their
+  // average in play. Measured with 2400-tick runs, the ratio came out 1.11,
+  // 1.45, 1.20 and 1.21 at levels 10, 60, 99 and 250 (at 60 this test mines the
+  // gem rock, which pays less than the mithril rock the crops were tuned against).
+  for (const r of rates()) {
+    const avg = (r.mining + r.woodcutting + r.fishing) / 3;
+    const f = farmRate(r.lvl, 2400, SEED);
+    const x = f.xp / avg;
+    assert.ok(x >= 1 && x <= 1.6, `level ${r.lvl}: a farm of ${f.crop} pays ${x.toFixed(2)}x the average (${Math.round(f.xp / 1e3)}k vs ${show(r)})`);
   }
 });
