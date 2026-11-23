@@ -8,6 +8,7 @@ import { drawHeroRig } from './heroRig.js';
 import { drawRangedHeroRig } from './rangedHeroRig.js';
 import { drawPictureTool, drawWeaponTrail } from './heroanim.js';
 import { drawHeroBack } from './heroAnimArt.js';
+import { heroLit, bakeRim } from './herolight.js';
 import { poseBlender } from './poseBlend.js';
 import { CREATURE_RIGS, TOWN_IDLE, bossRig } from './creatureRigs.js';
 import { REGION_GIVERS } from '../data/regionQuests.js';
@@ -2106,8 +2107,9 @@ function heroRig(img) {
   let rig = null;
   try {
     const W = img.naturalWidth, H = img.naturalHeight;
-    const cnv = document.createElement('canvas'); cnv.width = W; cnv.height = H;
-    const g = cnv.getContext('2d'); g.drawImage(img, 0, 0);
+    // Cut from the picture with its rim light baked in (herolight.js).
+    const cnv = bakeRim(img, W, H);
+    const g = cnv.getContext('2d');
     const cut = Math.round(H * (1 - PUPPET_FEET));
     // Split where the feet band is emptiest, in the middle half of the picture.
     const band = g.getImageData(0, cut, W, H - cut).data;
@@ -2117,7 +2119,7 @@ function heroRig(img) {
     for (let x = Math.round(W * 0.25); x < Math.round(W * 0.75); x++) if (cols[x] < best) { best = cols[x]; split = x; }
     const part = (sx, sy, sw, sh) => {
       const c = document.createElement('canvas'); c.width = Math.max(1, sw); c.height = Math.max(1, sh);
-      c.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh); return c;
+      c.getContext('2d').drawImage(cnv, sx, sy, sw, sh, 0, 0, sw, sh); return c;
     };
     rig = { W, H, cut, split, body: part(0, 0, W, cut), back: part(0, cut, split, H - cut), front: part(split, cut, W - split, H - cut) };
   } catch { rig = null; }
@@ -2140,7 +2142,7 @@ function heroPuppet(c, img, w, h, g, t) {
   const sy = 1 + breathe - land * land * 0.035 * m, sx = 1 - breathe * 0.5 + land * land * 0.025 * m;
   c.scale(sx, sy);
   c.translate(0, -HERO_ART_FEET);
-  if (!rig) { c.drawImage(img, -w / 2, top, w, h); c.restore(); return; }
+  if (!rig) { c.drawImage(heroLit(img), -w / 2, top, w, h); c.restore(); return; }
   const fy = top + rig.cut * k, fh = (rig.H - rig.cut) * k, bw = rig.split * k, fw = (rig.W - rig.split) * k;
   // Feet first, so a lifted foot tucks up behind the body. A swinging foot
   // rises and travels forward; the planted one slides back under the body.
@@ -2335,7 +2337,7 @@ export function drawPlayer(ctx, cx, cy, opts = {}) {
           // A side-to-side rock while walking, as the monsters do (a gait cue).
           const mv = g ? g.move : opts.moving ? 1 : 0;
           if (mv > 0.001) c.rotate(Math.sin(t * 0.018 + cx) * 0.06 * mv);
-          c.drawImage(himg, -w / 2, HERO_ART_FEET - h, w, h);
+          c.drawImage(heroLit(himg), -w / 2, HERO_ART_FEET - h, w, h);
         }
         // A single picture can't move its arms: it just bobs and leans, with the tool in a fist.
         if (anim) drawPictureTool(c, anim);

@@ -10,11 +10,12 @@ import { Game } from '../src/game/game.js';
 import { Renderer } from '../src/render/renderer.js';
 import { OBJECTS } from '../src/data/objects.js';
 import { DAY_CYCLE_MS } from '../src/config.js';
-import { LIGHTS, lightFor, nightDarkness, skyWashes, LightPass } from '../src/render/lighting.js';
+import { LIGHTS, lightFor, nightDarkness, skyWashes, LightPass, nightMode, nightMultiply } from '../src/render/lighting.js';
+import { moonDark } from '../src/render/atmosphere.js';
 import {
   weatherAt, slotWeather, mistAt, regionWeather, Weather, WEATHER_SLOT_MS, RAIN_CHANCE, STORM_CHANCE, MIST_REGIONS, REGION_SKY,
 } from '../src/render/weather.js';
-import { ZONE_MOOD } from '../src/render/ambience.js';
+import { ZONE_MOOD, composeWashes } from '../src/render/ambience.js';
 
 // A 2D context that records every call made on it.
 function recordingCtx() {
@@ -104,6 +105,90 @@ test('the light pass is a no-op headless: no drawing at all, and the renderer ke
   const r = new Renderer(g, {}, rctx);
   assert.doesNotThrow(() => { r.render(16); r.render(32); });
   assert.equal(r.lights.count, 0);
+});
+
+// What the light pass does to one pixel `dst` with no lamp near (the model of
+// draw(): a wash by day, then the wash fading into the multiply as the lamps come on).
+function gradedPixel(dst, night, mood, moon) {
+  const nd = nightDarkness(night), dark = moonDark(moon, [0, 0, 0, nd]);
+  const sky = skyWashes(0.745);
+  const washes = [mood, ...sky];
+  if (nd < 0.03) {
+    const gr = composeWashes([...washes, dark]);
+    return dst.map((c, i) => c * (1 - gr[3]) + gr[i] * gr[3]);
+  }
+  const u = nightMode(nd), gr = composeWashes(washes), m = nightMultiply(gr, u, dark);
+  const a = gr[3] * (1 - u);
+  return dst.map((c, i) => (c * (1 - a) + gr[i] * a) * m[i] / 255);
+}
+
+test('night is a deep moonlit blue that keeps white rims and navy ink apart, and comes on without a jump', () => {
+  const mood = [255, 206, 130, 0.07], white = [255, 255, 255], ink = [34, 48, 74], paving = [196, 190, 178];
+  const mid = (c) => gradedPixel(c, 1, mood, 1);
+  const w = mid(white), k = mid(ink), p = mid(paving);
+  assert.ok(w[2] > w[0] + 40, 'white comes out a pale moonlit blue');
+  assert.ok(p[2] > p[0] * 1.3, 'the ground goes a cool blue, not grey');
+  const lum = (c) => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
+  assert.ok(lum(p) < 0.6 * lum(paving), 'properly dark');
+  // The old wash pulled white and ink toward each other; the multiply keeps them apart.
+  const nd = nightDarkness(1), oldGr = composeWashes([mood, [10, 28, 86, nd]]);
+  const old = (c) => c.map((v, i) => v * (1 - oldGr[3]) + oldGr[i] * oldGr[3]);
+  assert.ok(lum(w) / lum(k) > 1.5 * (lum(old(white)) / lum(old(ink))), 'rims stand out from the ink far more than before');
+  assert.ok(lum(w) - lum(p) > lum(old(white)) - lum(old(paving)), 'and from the ground');
+  // From noon to midnight and back, no visible step between neighbouring moments.
+  for (const c of [white, ink, paving]) {
+    let prev = gradedPixel(c, 0, mood, 0);
+    for (let n = 0.002; n <= 1; n += 0.002) {
+      const cur = gradedPixel(c, n, mood, Math.max(0, (n - 0.6) / 0.4));
+      for (let i = 0; i < 3; i++) assert.ok(Math.abs(cur[i] - prev[i]) < 3, `smooth at night ${n.toFixed(3)} (${c})`);
+      prev = cur;
+    }
+  }
+  assert.equal(nightMode(0.02), 0); assert.equal(nightMode(0.5), 1);
+  assert.deepEqual(nightMultiply([0, 0, 0, 0], 1, [0, 0, 0, 0]), [255, 255, 255], 'no night, no grade: the map is white (changes nothing)');
+});
+
+test('after dark the light pass is one multiply layer with the lamps painted in, and it carries the vignette', () => {
+  const g = freshGame();
+  const lamp = g.world.objects.find((o) => o.objId === 'lamp');
+  g._movePlayerNear(lamp.x, lamp.y + 2, 3);
+  g.playMs = 0;   // midnight
+  // A context that notes the blend mode each drawing call was made with.
+  const logCtx = () => {
+    const calls = [];
+    return new Proxy({ calls, globalCompositeOperation: 'source-over', globalAlpha: 1 }, {
+      get(t, k) {
+        if (k in t) return t[k];
+        if (k === 'createRadialGradient' || k === 'createLinearGradient') return () => ({ addColorStop() {} });
+        return () => { calls.push(`${String(k)}:${t.globalCompositeOperation}`); };
+      },
+      set(t, k, v) { t[k] = v; return true; },
+    });
+  };
+  const made = [];
+  globalThis.document = { createElement: () => { const c = { width: 0, height: 0, ctx: logCtx() }; c.getContext = () => c.ctx; made.push(c); return c; } };
+  try {
+    const lp = new LightPass();
+    const c = g.player.renderCenter();
+    const screen = logCtx();
+    assert.equal(lp.draw(screen, g, [255, 206, 130, 0.07], 1, null, c.x - 400, c.y - 300, 800, 600, 0), true);
+    assert.deepEqual(screen.calls, ['drawImage:multiply'], 'one full-screen draw, multiplied');
+    assert.equal(screen.globalCompositeOperation, 'source-over', 'left as it was found');
+    assert.ok(lp.count >= 2, 'the lamp and the hero light the map');
+    assert.equal(lp.vignetted, true, 'the vignette went into the map, so the renderer skips its own');
+    const layer = made.find((m) => m === lp.layer);
+    const pools = layer.ctx.calls.filter((k) => k === 'drawImage:source-over');
+    assert.ok(pools.length >= lp.count, 'each light is one stamp into the map (plus the vignette)');
+    // Early dusk: the last of the day's wash is still laid on under the multiply.
+    const dusk = logCtx();
+    lp.draw(dusk, g, [255, 206, 130, 0.07], 0.5, null, c.x - 400, c.y - 300, 800, 600, 0);
+    assert.deepEqual(dusk.calls, ['fillRect:source-over', 'drawImage:multiply']);
+    // By day nothing changes: one plain fill, no vignette taken.
+    const day = logCtx();
+    lp.draw(day, g, [255, 206, 130, 0.07], 0, null, 0, 0, 800, 600, 0);
+    assert.deepEqual(day.calls, ['fillRect:source-over']);
+    assert.equal(lp.vignetted, false);
+  } finally { delete globalThis.document; }
 });
 
 // ---------------- Weather ----------------

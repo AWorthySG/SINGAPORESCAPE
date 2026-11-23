@@ -1,5 +1,5 @@
 import { TILE } from '../config.js';
-import { composeWashes } from './ambience.js';
+import { composeWashes, buildVignette } from './ambience.js';
 import { timeGrade, moonDark } from './atmosphere.js';
 
 // The light pass: after dark the scene is covered by a darkness layer with
@@ -11,6 +11,13 @@ import { timeGrade, moonDark } from './atmosphere.js';
 // screen's size (light is all soft gradients, so stretched up it looks the
 // same) from little gradient pictures baked once. Low graphics and headless
 // runs keep the renderer's old flat fill.
+//
+// Once the lamps are on, the layer is a light map laid on with 'multiply'
+// rather than a translucent wash: a wash lifts the navy ink toward the night's
+// colour and pulls the white sticker rims down to the same grey, so the whole
+// town went flat. Multiplying keeps every colour's contrast (rims stay the
+// brightest thing about, ink stays ink) and lets the lamps paint warm light
+// into the map instead of only thinning the dark.
 
 // What gives off light, by object id: radius (world px), colour, how high above
 // the tile centre the light sits, how much it flickers (fires) or pulses
@@ -60,6 +67,36 @@ const SPELL_LIGHT_R = 46, BLAST_LIGHT_R = 110, BOSS_LIGHT_R = 130;
 const DULL_SHOTS = new Set(['arrow', 'bullet', 'coin', 'shuriken']);
 export const MAX_LIGHTS = 64;
 export const LAYER_SCALE = 0.25;    // the layer is drawn at a quarter size
+// How much of each light's colour the light map takes: lifted toward white so
+// a pool reads as warm light on the ground rather than a coloured filter.
+const LIT_LIFT = 0.3;
+// How far a pool reaches into the night compared with its radius, and how
+// strongly its middle is lit.
+const POOL_REACH = 1.15, POOL_K = 0.95;
+// How much deeper than the old wash the night's multiply goes (the darkness
+// level is shared with the lights' timing, nightDarkness).
+export const NIGHT_DEPTH = 1.15;
+
+/** How far the grade has turned from a wash (0, daylight) to the multiply
+ *  light map (1), for the darkness level the lamps go by. Eased over the first
+ *  stretch of dusk; in between both are drawn, so nothing jumps. */
+export function nightMode(dark) {
+  const k = Math.max(0, Math.min(1, (dark - 0.03) / 0.17));
+  return k * k * (3 - 2 * k);
+}
+
+/**
+ * The light map's colour (0..255 a channel: what the scene is multiplied by)
+ * where no lamp reaches: `gr` the day grade's washes folded into one [r, g, b,
+ * a], laid on as `u` of a multiply; `dark` the night's colour and depth
+ * [r, g, b, a] (a the darkness level). White comes out of a wash as the wash
+ * leaves it, so each is turned into the multiply that treats white the same.
+ */
+export function nightMultiply(gr, u, dark, out = [255, 255, 255]) {
+  const a = gr[3] * u, A = Math.min(0.95, dark[3] * NIGHT_DEPTH);
+  for (let i = 0; i < 3; i++) out[i] = 255 * (1 - a + a * gr[i] / 255) * (1 - A + A * dark[i] / 255);
+  return out;
+}
 
 /** The light an object gives off, or null (a felled magic tree gives none). */
 export function lightFor(o) {
@@ -101,7 +138,7 @@ export class LightPass {
   constructor() {
     this.ok = typeof document !== 'undefined' && !!document.createElement;
     this.layer = null; this.g = null;
-    this._cut = null; this._glow = new Map();   // baked gradient pictures
+    this._glow = new Map();                      // baked gradient pictures
     this._index = []; this._indexN = -1; this._indexAt = 0;   // the world's light-giving objects
     this._tint = new Map();                      // ...and any whose colour the district changes
     this._lights = [];                           // this frame's lights, reused
@@ -110,7 +147,11 @@ export class LightPass {
     this._tg = timeGrade(0.5);
     this._washes = [];
     this._grade = [0, 0, 0, 0];
+    this._mul = [255, 255, 255];
+    this._lit = new Map();                       // each light colour lifted for the light map
     this.count = 0;                              // lights drawn last frame (for tests and tuning)
+    this.vignetted = false;                      // the edge vignette went into the light map this frame
+    this._vig = null; this._vigAt = '';
   }
 
   /** The world's light-giving objects, rescanned when objects come or go
@@ -173,23 +214,47 @@ export class LightPass {
     return out;
   }
 
-  // A white radial gradient (for cutting light out of the darkness) and one
-  // per light colour (for tinting the pool), each a small canvas baked once.
+  // A soft radial gradient in a light's colour, a small canvas baked once a colour.
   _sprite(rgb) {
-    const key = rgb ? rgb.join(',') : 'cut';
-    let cv = key === 'cut' ? this._cut : this._glow.get(key);
+    const key = rgb.join(',');
+    let cv = this._glow.get(key);
     if (cv) return cv;
     cv = document.createElement('canvas'); cv.width = cv.height = 64;
     const g = cv.getContext('2d');
     const grd = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-    const c = rgb ? `${rgb[0]},${rgb[1]},${rgb[2]}` : '255,255,255';
-    grd.addColorStop(0, `rgba(${c},1)`);
-    grd.addColorStop(0.35, `rgba(${c},0.75)`);
-    grd.addColorStop(0.7, `rgba(${c},0.25)`);
-    grd.addColorStop(1, `rgba(${c},0)`);
+    grd.addColorStop(0, `rgba(${key},1)`);
+    grd.addColorStop(0.35, `rgba(${key},0.75)`);
+    grd.addColorStop(0.7, `rgba(${key},0.25)`);
+    grd.addColorStop(1, `rgba(${key},0)`);
     g.fillStyle = grd; g.fillRect(0, 0, 64, 64);
-    if (key === 'cut') this._cut = cv; else this._glow.set(key, cv);
+    this._glow.set(key, cv);
     return cv;
+  }
+
+  // The quarter-size layer, made once and resized with the screen.
+  _layer(vw, vh) {
+    const lw = Math.max(8, Math.ceil(vw * LAYER_SCALE)), lh = Math.max(8, Math.ceil(vh * LAYER_SCALE));
+    if (!this.layer) {
+      this.layer = document.createElement('canvas');
+      this.g = this.layer.getContext('2d');
+      if (!this.g) { this.ok = false; return null; }
+    }
+    if (this.layer.width !== lw || this.layer.height !== lh) { this.layer.width = lw; this.layer.height = lh; }
+    return this.g;
+  }
+
+  // The renderer's soft edge vignette (ambience.js), baked once per screen size.
+  _vignette(vw, vh) {
+    const at = `${vw}x${vh}`;
+    if (at !== this._vigAt) { this._vigAt = at; this._vig = buildVignette(vw, vh); }
+    return this._vig;
+  }
+
+  // A light's colour lifted toward white for the light map, worked out once a colour.
+  _litColour(rgb) {
+    let c = this._lit.get(rgb);
+    if (!c) { c = rgb.map((v) => Math.round(v + (255 - v) * LIT_LIFT)); this._lit.set(rgb, c); }
+    return c;
   }
 
   /**
@@ -209,52 +274,77 @@ export class LightPass {
     const w = this._washes; w.length = 0;
     w.push(mood, sky[0], sky[1], sky[2]);
     if (wx) w.push(...wx.washes);
-    w.push(this._dark);
-    if (wx && wx.flash > 0) w.push(wx.flashWash);
-    const gr = composeWashes(w, this._grade);
-    const fill = `rgba(${gr[0] | 0},${gr[1] | 0},${gr[2] | 0},${gr[3].toFixed(3)})`;
     this.count = 0;
+    this.vignetted = false;
     // Cloud shadows on a clear day (weather.js) are painted into this pass's
     // small layer, so they cost no full-screen layer of their own.
     const clouds = wx && wx.clouds > 0.02 && wx.cloudsInto;
-    if (dark < 0.03 && !clouds) {
-      // Daylight: nothing to cut out, so the grade is one plain fill.
-      if (gr[3] > 0.004) { ctx.fillStyle = fill; ctx.fillRect(0, 0, vw, vh); }
+    const flash = wx && wx.flash > 0;
+    if (dark < 0.03) {
+      // Daylight: the whole grade as one translucent wash, as it always was.
+      w.push(this._dark);
+      if (flash) w.push(wx.flashWash);
+      const gr = composeWashes(w, this._grade);
+      const fill = `rgba(${gr[0] | 0},${gr[1] | 0},${gr[2] | 0},${gr[3].toFixed(3)})`;
+      if (!clouds) {
+        // Nothing to cut out, so the grade is one plain fill.
+        if (gr[3] > 0.004) { ctx.fillStyle = fill; ctx.fillRect(0, 0, vw, vh); }
+        return true;
+      }
+      const g = this._layer(vw, vh);
+      if (!g) return false;
+      g.globalCompositeOperation = 'copy'; g.globalAlpha = 1;
+      g.fillStyle = fill; g.fillRect(0, 0, this.layer.width, this.layer.height);
+      wx.cloudsInto(g, ox, oy, vw, vh, t, this.layer.width / vw);
+      ctx.drawImage(this.layer, 0, 0, vw, vh);
       return true;
     }
-    const lw = Math.max(8, Math.ceil(vw * LAYER_SCALE)), lh = Math.max(8, Math.ceil(vh * LAYER_SCALE));
-    if (!this.layer) {
-      this.layer = document.createElement('canvas');
-      this.g = this.layer.getContext('2d');
-      if (!this.g) { this.ok = false; return false; }
-    }
-    if (this.layer.width !== lw || this.layer.height !== lh) { this.layer.width = lw; this.layer.height = lh; }
-    const g = this.g, sx = lw / vw, sy = lh / vh;
+    // Lamps on: the day's washes fade into the light map over the start of
+    // dusk (u), and while they do the rest of them is still washed on top.
+    const u = nightMode(dark);
+    const gr = composeWashes(w, this._grade);
+    const g = this._layer(vw, vh);
+    if (!g) return false;
+    const lw = this.layer.width, lh = this.layer.height, sx = lw / vw, sy = lh / vh;
+    const m = nightMultiply(gr, u, this._dark, this._mul);
     g.globalCompositeOperation = 'copy';
     g.globalAlpha = 1;
-    g.fillStyle = fill; g.fillRect(0, 0, lw, lh);
+    g.fillStyle = `rgb(${m[0] | 0},${m[1] | 0},${m[2] | 0})`; g.fillRect(0, 0, lw, lh);
+    g.globalCompositeOperation = 'source-over';
     if (clouds) wx.cloudsInto(g, ox, oy, vw, vh, t, sx);
-    if (dark < 0.03) { this.count = 0; ctx.drawImage(this.layer, 0, 0, vw, vh); return true; }   // day: no lights to cut
     const lights = this.gather(game, ox, oy, vw, vh, t);
     // How strongly lights win against the dark: none by day, nearly fully at night.
     const strength = Math.min(1, dark * 2.4);
-    g.globalCompositeOperation = 'destination-out';
-    const cut = this._sprite(null);
+    // Each pool paints its light's (lifted) colour into the map: warm under
+    // lamps and fires, cool under crystals, full brightness at its heart.
     for (const L of lights) {
-      const r = L.r * L.k;
-      g.globalAlpha = Math.min(1, 0.92 * strength * L.k);
-      g.drawImage(cut, (L.x - r) * sx, (L.y - r) * sy, 2 * r * sx, 2 * r * sy);
+      const r = L.r * L.k * POOL_REACH;
+      g.globalAlpha = Math.min(1, POOL_K * strength * L.k);
+      g.drawImage(this._sprite(this._litColour(L.rgb)), (L.x - r) * sx, (L.y - r) * sy, 2 * r * sx, 2 * r * sy);
     }
-    // Then each pool is tinted its light's colour.
-    g.globalCompositeOperation = 'source-over';
-    for (const L of lights) {
-      const r = L.r * L.k * 0.8;
-      g.globalAlpha = 0.42 * strength * L.k;
-      g.drawImage(this._sprite(L.rgb), (L.x - r) * sx, (L.y - r) * sy, 2 * r * sx, 2 * r * sy);
+    // The edge vignette goes into the map too, so the night costs one
+    // full-screen layer rather than two (the renderer then skips its own).
+    const vig = this._vignette(vw, vh);
+    if (vig) {
+      g.globalAlpha = 0.5 + 0.45 * Math.max(0, Math.min(1, night));
+      g.drawImage(vig, 0, 0, lw, lh);
+      this.vignetted = true;
     }
     g.globalAlpha = 1;
     this.count = lights.length;
+    if (u < 1 && gr[3] * (1 - u) > 0.004) {
+      ctx.fillStyle = `rgba(${gr[0] | 0},${gr[1] | 0},${gr[2] | 0},${(gr[3] * (1 - u)).toFixed(3)})`;
+      ctx.fillRect(0, 0, vw, vh);
+    }
+    const op = ctx.globalCompositeOperation;
+    ctx.globalCompositeOperation = 'multiply';
     ctx.drawImage(this.layer, 0, 0, vw, vh);   // the one full-screen composite
+    ctx.globalCompositeOperation = op;
+    // A lightning flash brightens, which a multiply can't: washed on over it.
+    if (flash && wx.flashWash[3] > 0.004) {
+      const f = wx.flashWash;
+      ctx.fillStyle = `rgba(${f[0]},${f[1]},${f[2]},${f[3].toFixed(3)})`; ctx.fillRect(0, 0, vw, vh);
+    }
     return true;
   }
 }
