@@ -201,7 +201,7 @@ export function unlockTipText(skill, level) {
   const open = all.filter((u) => level >= u.level).length, next = nextUnlock(skill, level), m = unlockGrowth(level), shown = unlockGrowthText(level);
   // Past 99 the bonuses (not the teleport or a recipe) keep growing.
   return `<br>Unlocks: <b>${open} of ${all.length}</b>` + (next ? `<br>At level ${next.level}: ${next.name} (${next.desc})` : '<br>Every unlock open')
-    + (m > 1 ? `${shown ? `, each bonus now ${shown} as strong` : ', and their bonuses keep growing'} (x${UNLOCK_TOP_MULT} at level ${MAX_LEVEL})` : '');
+    + (m > 1 ? `${shown ? `, each bonus now ${shown} as strong` : ', and their bonuses keep growing'}${level >= MAX_LEVEL ? ' (as strong as they get)' : ` (x${UNLOCK_TOP_MULT} at level ${MAX_LEVEL})`}` : '');
 }
 
 /** The level-up banner for a new unlock (and its chat line). */

@@ -150,7 +150,7 @@ export function unlockLadderHTML(game, skill) {
   if (!ladder.length) return '';
   const tp = skillTeleportOf(game, skill), wait = skillTeleportWait(game), m = unlockGrowth(lvl), shown = unlockGrowthText(lvl);
   const growRow = m > 1 ? `<div class="sgx-unlock on"><span class="sg-lvl">${ladder[ladder.length - 1].level}+</span><span><b>&#10003; Still growing</b>`
-    + `<small>Every bonus above ${shown ? `now works ${shown} as strongly` : 'grows a little with every level'} (x${unlockGrowth(MAX_LEVEL)} at level ${MAX_LEVEL})</small></span></div>` : '';
+    + `<small>Every bonus above ${shown ? `now works ${shown} as strongly` : 'grows a little with every level'}${lvl >= MAX_LEVEL ? ' (as strong as it gets)' : ` (x${unlockGrowth(MAX_LEVEL)} at level ${MAX_LEVEL})`}</small></span></div>` : '';
   return `<div class="sgx-unlocks"><b>${playIconHTML('ui-skill_unlock', 18)} Unlocks</b>${ladder.map((u) => `<div class="sgx-unlock${u.unlocked ? ' on' : ''}">`
     + `<span class="sg-lvl">${u.level}</span><span><b>${u.unlocked ? '&#10003; ' : '&#128274; '}${esc(u.name)}</b><small>${esc(u.desc)}</small></span></div>`).join('')}`
     + growRow
