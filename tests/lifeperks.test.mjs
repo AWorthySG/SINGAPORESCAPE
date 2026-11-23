@@ -10,7 +10,7 @@ import { clearSave } from '../src/game/save.js';
 import { xpForLevel, MAX_LEVEL } from '../src/data/xp.js';
 import { armourMult, armourOf, weaknessOf } from '../src/game/combat.js';
 import { LIFE_PERKS, LIFE_PERK_SKILLS, LIFE_PERK_FULL_LEVEL, LIFE_PERK_MAX_LEVEL, LIFE_PERK_OVER, LIFE_PERK_TOP_OVER, lifePerkValue, lifePerkTotals,
-  lifePerkNext, lifePerkNoteAt } from '../src/game/lifeperks.js';
+  lifePerkNext, lifePerkNoteAt, lifePerkText } from '../src/game/lifeperks.js';
 
 function fakeStorage() {
   const m = new Map();
@@ -206,4 +206,16 @@ test('life perks: totals refresh when a life skill levels, and every 10 levels s
   assert.ok(game.skills.level('mining') >= 10);
   assert.ok(game.lifePerks().critDmg > 0, 'the cached totals follow the new level');
   assert.ok(said.some((t) => /Life skill perk: your Mining now gives \+[\d.]+% crit damage/.test(t)), 'level 10 mentions the perk');
+});
+
+test('life perks: past level 1000 the chat note comes every 500 levels, and "its full strength" only at 9999', () => {
+  const game = newGame();
+  const said = [];
+  game.bus.on('chat', (p) => said.push(p.text));
+  const note = (level) => { said.length = 0; game._lifePerkNote({ skill: 'mining', level }); return said.find((t) => t.startsWith('Life skill perk:')); };
+  const at1000 = note(LIFE_PERK_MAX_LEVEL);
+  assert.ok(at1000 && !at1000.includes('(its full strength)'), `1000 still grows: ${at1000}`);
+  assert.match(note(1500) || '', /^Life skill perk: your Mining now gives \+[\d.]+% crit damage in combat\.$/);
+  assert.equal(note(1510), undefined, 'no note between the 500s');
+  assert.ok(note(MAX_LEVEL)?.endsWith(`gives ${lifePerkText('mining', MAX_LEVEL)} in combat (its full strength).`), said.join(' | '));
 });
