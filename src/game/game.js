@@ -2495,8 +2495,9 @@ export class Game {
     let off = null;
     if ((mode === 'melee' || mode === 'ranged') && this.equipment.isDualWielding()) {
       const go = this.equipment.bonuses('off');
-      // ...and its own weapon's race match-up (a Monk's gloves drive out spirits and demons).
-      const offRace = this._castElement ? race : matchup(weaponTypeOf(this.equipment.get('shield')), raceOf(npc.def, npc.npcId));
+      // ...and its own weapon's race match-up when it is another type (a Monk's gloves drive out spirits and demons).
+      const offType = weaponTypeOf(this.equipment.get('shield'));
+      const offRace = this._castElement || offType === this.weaponType() ? race : matchup(offType, raceOf(npc.def, npc.npcId));
       off = { dmgM: sharedM * (raceM(offRace) / raceM(race)) * gearM(go), critCh: critChance(lvl, go.crit) + critRest };
     }
     return { dmgM, hits, guaranteed, heal, spec, ability: ab, weak, race, critCh, off };
