@@ -1746,8 +1746,9 @@ export class Game {
   }
 
   /** "Go" from a skill guide or the world map: walk to the nearest of these
-   *  objects (anywhere on the island) and start on it. */
-  goToNearest(objIds) {
+   *  objects (anywhere on the island) and start on it (or `start(obj)`, the
+   *  life skill shortcuts' "make everything you can here"). */
+  goToNearest(objIds, start = null) {
     const ids = new Set(objIds);
     const here = this.playerTile();
     let best = null, bd = Infinity;
@@ -1757,17 +1758,33 @@ export class Game {
       if (d < bd) { bd = d; best = o; }
     }
     if (!best || !this.player.alive) { this.msg("I can't find one of those anywhere.", 'system'); return false; }
-    return this.goToObject(best);
+    return this.goToObject(best, start && (() => start(best)));
   }
 
-  /** Walk to one object, however far away, and start on it when you arrive. */
-  goToObject(obj) {
+  /** Walk to one object, however far away, and start on it when you arrive
+   *  (or do `start()` instead of what tapping it does). */
+  goToObject(obj, start = null) {
     if (!this.player.alive) return false;
     this._mrtHopToward(obj);
     this._pathBudget = 150000;       // like quest trips, these can cross the whole map
-    try { this.defaultObjectAction(obj); } finally { this._pathBudget = 0; }
-    const ok = !!this.player.action || this.player.isMoving;
+    let r;
+    try { r = start ? start() : this.defaultObjectAction(obj); } finally { this._pathBudget = 0; }
+    // (Making at a station is instant, so a "do all" beside one is already done.)
+    const ok = !!this.player.action || this.player.isMoving || (!!start && r === true);
     this.msg(ok ? `You head for the ${obj.def.name.toLowerCase()}.` : "I can't find the way there.", 'system');
+    if (ok && !this._autoTrip) this.ui?.closeModal();
+    return ok;
+  }
+
+  /** Walk to someone, however far away, and talk to them (or whatever tapping
+   *  them does) when you arrive: the life skill shortcut to the Slayer master. */
+  goToNpc(npc) {
+    if (!this.player.alive || !npc?.alive) return false;
+    this._mrtHopToward(npc);
+    this._pathBudget = 150000;
+    try { this.defaultNpcAction(npc); } finally { this._pathBudget = 0; }
+    const ok = !!this.player.action || this.player.isMoving;
+    this.msg(ok ? `You head for ${npc.name}.` : "I can't find the way there.", 'system');
     if (ok && !this._autoTrip) this.ui?.closeModal();
     return ok;
   }
@@ -6570,8 +6587,7 @@ export class Game {
   startAll(kind, obj) {
     const job = nextJob(this, kind);
     if (!job) { this.msg('You have nothing here you can make.'); return false; }
-    this.beginAction({ ...job, obj, all: kind }, { x: obj.x, y: obj.y }, true);
-    return true;
+    return this.beginAction({ ...job, obj, all: kind }, { x: obj.x, y: obj.y }, true);
   }
   startRecipe(skill, recipe, obj) { this.beginAction({ type: 'recipe', skill, recipe, obj }, { x: obj.x, y: obj.y }, true); }
 

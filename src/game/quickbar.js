@@ -7,12 +7,13 @@
 //
 // Saved as `game.quickbar`: an array of QB_SLOTS action keys (null for an
 // empty slot). Older saves have none and get QB_DEFAULT.
-import { POTIONS } from '../data/trades.js';
+import { POTIONS, CROP_BY_SEED, cropFor } from '../data/trades.js';
 import { SKILL_BY_ID } from '../data/skills.js';
 import { SKILL_GUIDES } from './skillguide.js';
 import { quickUse, quickUseChoice } from './quickuse.js';
 import { nextQuest, bestSource } from './whatnext.js';
 import { nearOfferingShrine } from './salvage.js';
+import { nextJob } from './autoprocess.js';
 
 export const QB_SLOTS = 6;
 export const QB_DEFAULT = ['bank', 'quest', 'battle', 'eat', null, null];
@@ -57,6 +58,107 @@ export function goSkill(game, skill) {
   return game.goToObject(src.obj);
 }
 
+// Life skill shortcuts (the owner's ask): the Life skills button on the quick
+// bar opens a grid of every life skill, and one tap goes and starts it: the
+// best tree, rock, fishing spot or trail you can work (with auto gather on, so
+// you carry on when it runs dry), the nearest station making everything you
+// can there (best first), a fire from your logs, the farm patch that needs
+// you, the Slayer master for a task. Thieving and Agility walk to their best
+// spot, like their Go.
+export const LIFE_SHORTCUTS = ['woodcutting', 'mining', 'fishing', 'hunter', 'farming', 'cooking', 'smithing',
+  'crafting', 'fletching', 'herblore', 'firemaking', 'thieving', 'agility', 'slayer'];
+const GATHERING = new Set(['woodcutting', 'mining', 'fishing', 'hunter']);
+// Each making skill's "Do all" (autoprocess.js nextJob) and where it is done,
+// first choice first: ore goes to the furnace before bars go to the anvil.
+const MAKING = {
+  cooking: [['cook', ['range', 'fire']]],
+  smithing: [['smelt', ['furnace']], ['smith', ['anvil']]],
+  crafting: [['craft', ['crafting_table']]],
+  fletching: [['fletching', ['fletching_bench']]],
+  herblore: [['herblore', ['apothecary_table']]],
+};
+const NOTHING_TO_MAKE = {
+  cooking: 'You have nothing you can cook: catch some fish or buy something raw first.',
+  smithing: 'You have nothing to smelt or smith: mine some ore first (and carry a hammer for the anvil).',
+  crafting: 'You have nothing you can craft yet: gather its materials (gems, bars, hides or clay) first.',
+  fletching: 'You have nothing you can fletch: chop some logs first (and carry a knife).',
+  herblore: 'You have nothing you can brew: farm or forage some herbs first.',
+};
+
+/** The making job a shortcut would start, and where: { kind, where } or null. */
+function makingJob(game, skill) {
+  for (const [kind, where] of MAKING[skill] || []) if (nextJob(game, kind)) return { kind, where };
+  return null;
+}
+
+/** The farm patch that needs you: a crop ready to pick first, then an empty
+ *  patch when you carry a seed you can plant; the nearest of them. */
+function patchToTend(game) {
+  const lvl = game.skills.level('farming'), p = game.playerTile();
+  const seeds = game.inventory.slots.some((sl) => sl && CROP_BY_SEED[sl.id] && cropFor(CROP_BY_SEED[sl.id][0]).level <= lvl);
+  let best = null, rank = 2, bd = Infinity;
+  for (const o of game.world.objects) {
+    if (o.def?.type !== 'farm') continue;
+    const r = o.crop ? (o.growLeft > 0 ? 2 : 0) : seeds ? 1 : 2;
+    const d = (o.x - p.x) ** 2 + (o.y - p.y) ** 2;
+    if (r < rank || (r === rank && r < 2 && d < bd)) { best = o; rank = r; bd = d; }
+  }
+  return best ? { obj: best, ready: rank === 0 } : { seeds };
+}
+
+/** A shortcut's one-line note for the grid: what a tap would do now. */
+export function lifeShortcutHint(game, skill) {
+  if (GATHERING.has(skill) || skill === 'thieving' || skill === 'agility') {
+    const src = bestSource(game, skill);
+    return src ? `${src.src.name} (lvl ${src.src.level})` : 'Nothing at your level yet';
+  }
+  if (MAKING[skill]) return makingJob(game, skill) ? 'Make everything you can' : 'Nothing to make yet';
+  if (skill === 'firemaking') return game.burnableLogs?.().length ? 'Light a fire from your logs' : 'No logs to burn';
+  if (skill === 'farming') { const t = patchToTend(game); return t.obj ? (t.ready ? 'A crop is ready to pick' : 'Plant your seeds') : 'Nothing to plant or pick'; }
+  if (skill === 'slayer') return 'Get a task from Rajan';
+  return '';
+}
+
+/** Go and start a life skill (a tap in the Life skills grid). Returns true when
+ *  something started: a walk, a fire, a batch made on the spot. */
+export function startLifeSkill(game, skill, ui = game.ui) {
+  if (!game.player.alive) return false;
+  // Skilling, not fighting: auto battle would only pull you away again.
+  if (game.autoBattle) game.toggleAutoBattle(false);
+  if (GATHERING.has(skill)) {
+    const src = bestSource(game, skill);
+    if (!src) { game.msg(`There's nothing for ${skillName(skill)} I can take you to right now.`, 'system'); return false; }
+    // Auto gather keeps you at it when the node runs dry (unless you ticked kinds of your own for it).
+    if (!game.autoGather && !game.gatherPicks?.size) game.toggleAutoGather(true);
+    return game.goToObject(src.obj);
+  }
+  if (MAKING[skill]) {
+    const job = makingJob(game, skill);
+    if (!job) { game.msg(NOTHING_TO_MAKE[skill], 'system'); return false; }
+    return game.goToNearest(job.where, (obj) => game.startAll(job.kind, obj));
+  }
+  if (skill === 'firemaking') {
+    // How many logs go on the fire is yours to choose (or all of them).
+    if (ui?.askFireLogs && game.burnableLogs?.().length) { ui.askFireLogs(null); return true; }
+    return !!game.startFiremaking();
+  }
+  if (skill === 'farming') {
+    const t = patchToTend(game);
+    if (!t.obj) {
+      game.msg(t.seeds ? 'Every farm patch is busy growing: come back when a crop is ready.'
+        : 'Nothing is ready to pick and you have no seeds to plant. The farmer at Kranji or in Kampong Glam sells them.', 'system');
+      return false;
+    }
+    return game.goToObject(t.obj);
+  }
+  if (skill === 'slayer') {
+    const npc = game.npcs.find((n) => n.npcId === 'slayer_master' && n.alive);
+    if (!npc) { game.msg("I can't find the Slayer master anywhere.", 'system'); return false; }
+    return game.goToNpc(npc);
+  }
+  return goSkill(game, skill);   // Thieving, Agility
+}
+
 /** The journal's Go on the next quest step (the same quest "What next?" picks). */
 export function nextQuestStep(game) {
   const q = nextQuest(game);
@@ -82,6 +184,7 @@ const WINDOWS = [
   ['mastery', 'Gear Mastery', { play: 'ui-mastery' }, (ui) => ui.openMastery()],
   // The shrine window works only beside an Offering Shrine: away from one, walk there.
   ['shrine', 'Offering Shrine', { ui: 'blessing-slot' }, (ui, g) => (nearOfferingShrine(g) ? ui.openOfferingShrine() : g.goToNearest(['offering_shrine']))],
+  ['life', 'Life skills', { tab: 'skills' }, (ui) => ui.openLifeSkills?.()],   // (added by src/ui/quickbar.js)
 ];
 
 /** Every action a slot can hold: key -> { label, group, icon, run(game, ui), on?(game) }.
@@ -102,6 +205,7 @@ export const QB_ACTIONS = (() => {
   };
   for (const [key, label, icon, open] of WINDOWS) A[`win:${key}`] = { label, group: 'Windows', icon, run: (g, ui) => ui && open(ui, g) };
   for (const s of GO_SKILLS) A[`go:${s}`] = { label: `Go: ${skillName(s)}`, group: 'Skilling spots', icon: { skill: s }, run: (g) => goSkill(g, s) };
+  for (const s of LIFE_SHORTCUTS) A[`life:${s}`] = { label: `Start: ${skillName(s)}`, group: 'Life skills', icon: { skill: s }, run: (g, ui) => startLifeSkill(g, s, ui) };
   return A;
 })();
 
