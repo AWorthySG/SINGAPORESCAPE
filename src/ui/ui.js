@@ -473,13 +473,16 @@ export class UI {
   setInteractLabel(label) {
     const btn = this.el.interact || (this.el.interact = document.getElementById('interact-btn'));
     if (!btn) return;
-    const key = label ? `${label[0]}|${label[2] || ''}|${label[3] ? label[1] : ''}` : '';
+    const keep = !!(label && label[0] === 'Attack' && label[4]);   // the Attack button would go for another foe (game._interactLabel)
+    const key = label ? `${label[0]}|${label[2] || ''}|${label[3] || keep ? label[1] : ''}` : '';
     if (key === this._interactKey) return;
     this._interactKey = key;
     btn.classList.toggle('idle', !label);
     // Touch screens already have the big Attack button, so an "Attack" here
     // would be a second one; main.css hides it then (see .is-attack).
-    btn.classList.toggle('is-attack', !!(label && label[0] === 'Attack'));
+    // (Unless the big button would go for a different foe: then this one is the
+    // only way to attack the one beside you, so it stays.)
+    btn.classList.toggle('is-attack', !!(label && label[0] === 'Attack') && !keep);
     // Gathering spots show their skill's icon, and turn amber when your level is too low.
     const skill = label && label[2];
     btn.classList.toggle('warn', !!(label && label[3]));

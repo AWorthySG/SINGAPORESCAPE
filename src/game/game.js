@@ -7740,7 +7740,12 @@ export class Game {
       if (n.attackable) {
         const m = this.raceMatchup(n);
         const tip = m === 'strong' ? ', weak to your weapon' : m === 'weak' ? ', resists your weapon' : '';
-        return ['Attack', `${n.name} (level ${n.def.level}, ${RACES[raceOf(n.def, n.npcId)].name}${tip})`];
+        // On touch screens this button steps aside for the big Attack button,
+        // but that one keeps to your current foe and leaves story bosses (the
+        // Lion of Light) alone: when it would go for something else, the fifth
+        // entry keeps this one up, or the monster beside you can't be attacked.
+        const a = this.player.action, cur = a?.type === 'attack' && a.npc?.alive ? a.npc : null;
+        return ['Attack', `${n.name} (level ${n.def.level}, ${RACES[raceOf(n.def, n.npcId)].name}${tip})`, null, false, (cur || this.nearestFoe()) !== n];
       }
       if (n.def.role === 'shop') return ['Trade with', n.name];
       if (n.def.role === 'bank') return ['Bank', n.name];
