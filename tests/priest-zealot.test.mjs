@@ -159,12 +159,17 @@ test('holy fire: a censer\'s every spell sets a burn that ticks once a second an
     const [dmg] = attack(g, t);
     const fire = t.wounds?.holyfire;
     assert.equal(fire?.length, 1, `${cls}: one holy fire`);
-    assert.deepEqual(fire[0], { perSec: Math.max(1, Math.round(dmg * HOLY_FIRE.share)), left: HOLY_FIRE.secs });
+    // Exactly 3% of the hit a second (15% in all), not rounded up to 1: a new Zealot's
+    // weak spells would otherwise burn for most of their hit.
+    assert.deepEqual(fire[0], { perSec: dmg * HOLY_FIRE.share, left: HOLY_FIRE.secs });
+    fire[0].perSec = 2.5;   // whole points a second, the fraction carried on
     const melee0 = g.skills.xp.attack + g.skills.xp.strength, magic0 = g.skills.xp.magic, hp0 = t.hp;
     g._tickWounds();   // 0.6s: not yet
     assert.equal(t.hp, hp0);
     g._tickWounds();   // 1.2s: one burn
-    assert.equal(hp0 - t.hp, fire[0].perSec, 'burned once');
+    assert.equal(hp0 - t.hp, 2, 'burned once: 2 of the 2.5');
+    g._tickWounds(); g._tickWounds();   // 2.4s: the second burn takes the half carried over
+    assert.equal(hp0 - t.hp, 5, 'two burns: 5 in all');
     assert.ok(g.skills.xp.magic > magic0, 'Magic XP');
     assert.equal(g.skills.xp.attack + g.skills.xp.strength, melee0, 'no Melee XP');
     // The fires stack, a burn for every spell.
@@ -290,4 +295,16 @@ test('a signature orb or censer is made for one class: the others who share its 
     assert.equal(g.equipment.get('weapon'), mine ? sig : before, `${cls}: ${mine ? 'wields' : 'can\'t wield'} ${sig}`);
     if (!mine) assert.match(g.said.at(-1), /made for a (Priest|Zealot)'s hand/);
   }
+});
+
+test('holy fire adds about 15% of a weak spell, not more (no burn rounded up to 1 a second)', () => {
+  const { g, t } = mk('zealot');
+  let dealt = 0;
+  for (let i = 0; i < 20; i++) dealt += attack(g, t).reduce((a, b) => a + b, 0);
+  const hp0 = t.hp;
+  for (let i = 0; i < 20; i++) g._tickWounds();   // 12 s: every fire has burnt out
+  const burnt = hp0 - t.hp;
+  assert.ok(dealt > 0 && dealt / 20 < 30, `a new Zealot's spells are weak (${dealt / 20} a cast)`);
+  const share = burnt / dealt, want = HOLY_FIRE.share * HOLY_FIRE.secs;
+  assert.ok(share <= want + 1e-9 && share >= want - 1 / dealt, `holy fire burnt ${Math.round(share * 100)}% of the hits`);
 });

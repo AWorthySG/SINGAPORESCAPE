@@ -226,12 +226,17 @@ export const SHORTBOW_ARROWS = 3;
 // spells set the foe they strike alight with holy fire. On a blow, `chance` to
 // add a stack dealing `share` of that hit every second for `secs` seconds, up to
 // `stacks` at once. A skill's `holyfire` rider (abilities.js) sets a fiercer one.
-// Holy fire is a spell's burn, so it pays Magic XP (`magic`).
+// Holy fire is a spell's burn, so it pays Magic XP (`magic`). It is also kept
+// exact (`exact`): every spell lights one, so rounding a weak spell's burn up to 1
+// a second made a new Zealot's fire worth most of its hit, not 15% of it.
 export const WOUNDS = {
   poison: { chance: 0.35, share: 0.06, secs: 8, stacks: 5, color: '#6cc24a', label: 'Poisoned' },
   bleed: { chance: 0.4, share: 0.1, secs: 4, stacks: 3, color: '#d23a3a', label: 'Bleeding' },
-  holyfire: { chance: 1, ...Zealot.HOLY_FIRE, color: '#ffc93a', label: 'Holy fire', magic: true },   // (zealot.js)
+  holyfire: { chance: 1, ...Zealot.HOLY_FIRE, color: '#ffc93a', label: 'Holy fire', magic: true, exact: true },   // (zealot.js)
 };
+/** One stack's damage a second: `share` of the hit, at least 1 and whole for a
+ *  poison or a bleed, exact for holy fire (WOUNDS.exact, carried over in _tickWounds). */
+const woundPerSec = (W, hit, share) => (W.exact ? hit * share : Math.max(1, Math.round(hit * share)));
 export const WOUND_BY_WEAPON = { dagger: 'poison', claws: 'bleed', censer: 'holyfire' };
 export const SHORTBOW_ARROW_DMG = 0.5;
 // Each spread also flings an extra arrow into up to SHORTBOW_FAN_FOES other foes
@@ -3346,7 +3351,7 @@ export class Game {
     }
     if (ab.holyfire) {
       const W = WOUNDS.holyfire, w = npc.wounds || (npc.wounds = {}), list = w.holyfire || (w.holyfire = []);
-      list.push({ perSec: Math.max(1, Math.round(hit * ab.holyfire)), left: W.secs });
+      list.push({ perSec: woundPerSec(W, hit, ab.holyfire), left: W.secs });
       if (list.length > W.stacks) list.sort((a, b) => b.perSec - a.perSec).length = W.stacks;
       this.spawnSparkle(npc, W.color, 5);
     }
@@ -3368,7 +3373,7 @@ export class Game {
     if (Math.random() >= W.chance) return;
     const w = npc.wounds || (npc.wounds = {});
     const list = w[kind] || (w[kind] = []);
-    list.push({ perSec: Math.max(1, Math.round(hit * W.share)), left: W.secs });
+    list.push({ perSec: woundPerSec(W, hit, W.share), left: W.secs });
     if (list.length > W.stacks) list.sort((a, b) => b.perSec - a.perSec).length = W.stacks;   // keep the strongest
     if (list.length === 1) this.spawnSparkle(npc, W.color, 5);
   }
@@ -3389,9 +3394,13 @@ export class Game {
         for (const kind of Object.keys(WOUNDS)) {
           const list = w[kind];
           if (!list?.length || n.hp <= 0) continue;
-          const d = Math.min(n.hp, list.reduce((t, s) => t + s.perSec, 0));
+          let d = list.reduce((t, s) => t + s.perSec, 0);
+          // An exact burn (holy fire) deals whole points and carries the fraction to the next second.
+          if (WOUNDS[kind].exact) { const r = d + (w[kind + 'Rest'] || 0); d = Math.floor(r); w[kind + 'Rest'] = r - d; }
+          d = Math.min(n.hp, d);
           for (const s of list) s.left--;
           w[kind] = list.filter((s) => s.left > 0);
+          if (d <= 0) continue;
           n.takeDamage(d);
           this.addHitsplat(n, d, { tint: WOUNDS[kind].color });
           this.spawnSparkle(n, WOUNDS[kind].color, 2);

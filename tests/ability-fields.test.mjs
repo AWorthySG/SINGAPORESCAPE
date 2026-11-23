@@ -75,7 +75,7 @@ test('unholy: a skill hits undead, spirits and demons harder', () => {
 
 test('holyfire: a rider sets a burn that ticks once a second and pays Magic XP, not Melee', () => {
   const { g, t } = mk('paladin');
-  g._strikeAb = { id: 't', name: 'T', kind: 'attack', dmgMul: 1, guaranteed: true, holyfire: 0.05 };
+  g._strikeAb = { id: 't', name: 'T', kind: 'attack', dmgMul: 1, guaranteed: true, holyfire: 1 };   // (a whole burn: a new hero's blow is weak)
   g.doPlayerAttack(t);
   const fire = t.wounds?.holyfire;
   assert.equal(fire?.length, 1, 'one holy fire burning');
@@ -84,7 +84,7 @@ test('holyfire: a rider sets a burn that ticks once a second and pays Magic XP, 
   g._tickWounds();   // 0.6s: not yet a second
   assert.equal(t.hp, hp0);
   g._tickWounds();   // 1.2s: one burn
-  assert.equal(hp0 - t.hp, fire[0].perSec, 'burned once');
+  assert.equal(hp0 - t.hp, Math.floor(fire[0].perSec), 'burned once');
   assert.ok(g.skills.xp.magic > magic0, 'Magic XP');
   assert.equal(g.skills.xp.attack + g.skills.xp.strength, melee0, 'no Melee XP for holy fire');
 });
