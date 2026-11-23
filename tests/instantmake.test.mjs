@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { Game } from '../src/game/game.js';
 import { clearSave } from '../src/game/save.js';
 import { xpForLevel } from '../src/data/xp.js';
-import { COOKING } from '../src/game/skilling.js';
+import { COOKING, makeXp } from '../src/game/skilling.js';
 import { DISHES } from '../src/data/cooking.js';
 import { SMITH } from '../src/data/smithing.js';
 import { CRAFT } from '../src/data/crafting.js';
@@ -47,10 +47,11 @@ function listen(g) {
   return said;
 }
 const station = (g, type) => g.world.objects.find((o) => o.def?.type === type);
-/** XP one item of `amount` base XP is worth right now (XP rate, life boost, golden hours). */
+/** XP one make listed at `amount` is worth right now (its making multiple,
+ *  makeXp, then the XP rate, life boost and golden hours). */
 function xpEach(g, skill, amount) {
   const xp0 = g.skills.xp[skill];
-  g.skills.addXp(skill, amount);
+  g.skills.addXp(skill, makeXp(g, skill, amount));
   const got = g.skills.xp[skill] - xp0;
   g.skills.xp[skill] = xp0;
   return got;
@@ -62,7 +63,7 @@ test('cooking is instant: one "cook" uses every raw fish at once, one summary li
   const g = newGame();
   const range = station(g, 'range');
   standBy(g, range);
-  setLevel(g, 'cooking', 40);   // level 40 is safe from a mid-batch level-up changing the XP each
+  setLevel(g, 'cooking', 99);   // level 99 is safe from a mid-batch level-up changing the XP each (and the making multiple)
   const said = listen(g);
   const N = 27, raw = 'raw_sardine', cook = COOKING[raw];
   g.inventory.add(raw, N);
@@ -106,7 +107,7 @@ test('a dish batch: "prepare" makes every dish the ingredients allow in one tick
   const range = station(g, 'range');
   standBy(g, range);
   const d = DISHES.find((x) => x.level <= 20) || DISHES[0];
-  setLevel(g, 'cooking', Math.max(d.level, 40));
+  setLevel(g, 'cooking', Math.max(d.level, 99));   // (no level-up part-way, as above)
   const said = listen(g);
   for (const i of d.inputs) g.inventory.add(i.id, i.qty * 6);
   const per = xpEach(g, 'cooking', d.xp);
@@ -125,7 +126,7 @@ test('smithing is instant: every bar hammered at once, flawless extras counted i
   standBy(g, anvil);
   if (!g.hasTool('hammer')) g.inventory.add('hammer', 1);
   const r = SMITH.find((x) => x.result === 'bronze_dagger') || SMITH.find((x) => x.level === 1 && !x.upgrade);
-  setLevel(g, 'smithing', 60);
+  setLevel(g, 'smithing', 99);
   const said = listen(g);
   const N = 30;
   g.inventory.add(r.bar, r.barCount * N);
@@ -149,7 +150,7 @@ test('crafting is instant: a whole batch at the table in one tick', () => {
   const table = station(g, 'craft');
   standBy(g, table);
   const r = CRAFT.find((x) => !x.upgrade && x.level <= 10 && (!x.tool || g.hasTool(x.tool)));
-  setLevel(g, 'crafting', 40);
+  setLevel(g, 'crafting', 99);
   const said = listen(g);
   const N = 12;
   for (const i of r.inputs) g.inventory.add(i.id, i.qty * N);
@@ -170,7 +171,7 @@ test('fletching and Herblore are instant at their benches', () => {
     standBy(g, bench);
     const r = tradeRecipes(skill).find((x) => !x.upgrade && x.level <= 5);
     if (r.tool && !g.hasTool(r.tool)) g.inventory.add(r.tool, 1);
-    setLevel(g, skill, 40);
+    setLevel(g, skill, 99);
     const said = listen(g);
     const N = 15;
     for (const [id, n] of r.inputs) g.inventory.add(id, n * N);

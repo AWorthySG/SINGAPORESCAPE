@@ -16,7 +16,7 @@ import { SHOPS, getShop } from '../data/shops.js';
 import { SMELT, SMITH, smithToolRows } from '../data/smithing.js';
 import { CRAFT } from '../data/crafting.js';
 import { POTIONS, FLETCH, CROP_BY_SEED } from '../data/trades.js';
-import { COOKING } from '../game/skilling.js';
+import { COOKING, makeXp } from '../game/skilling.js';
 import { DISHES } from '../data/cooking.js';
 import { SKILLS, SKILL_GROUPS } from '../data/skills.js';
 import { SKILL_GUIDES } from '../game/skillguide.js';
@@ -4119,7 +4119,7 @@ export class UI {
         for (const rawId of raws) {
           const cook = COOKING[rawId];
           grid.appendChild(this._cell(rawId, this.game.inventory.count(rawId), {
-            tooltip: `<b>${getItem(cook.result).name}</b><br>Cooking lvl ${cook.level}, ${formatNumber(Math.round(this.game.skills.xpAtLevel('cooking', cook.xp)))} xp`,
+            tooltip: `<b>${getItem(cook.result).name}</b><br>Cooking lvl ${cook.level}, ${formatNumber(Math.round(this.game.skills.xpAtLevel('cooking', makeXp(this.game, 'cooking', cook.xp))))} xp`,
             onClick: () => { this.game.startCooking(obj, rawId); this.closeModal(); },
           }));
         }

@@ -24,6 +24,7 @@ import { TRAIN_SKILLS, trainingFor, xpPerHour, ACTIONS_PER_HOUR, preyFor, myWeap
 import { xpRate } from '../src/game/xprate.js';
 import { gatherSources } from '../src/game/skillguide.js';
 import { forYouHTML } from '../src/ui/foryouui.js';
+import { makeXp } from '../src/game/skilling.js';
 import { getNpc, ALL_MONSTER_IDS, ALL_BOSS_IDS } from '../src/data/npcs.js';
 import { REGION_FLAVOUR, CREATURE_FLAVOUR, creatureFlavour } from '../src/data/flavour.js';
 import { weaponsFor, raceOf } from '../src/data/races.js';
@@ -312,7 +313,7 @@ test('For you suggests a training spot for each life skill at your level, with i
     assert.ok(s.level <= g.skills.level(skill), `${skill}: nothing above your level`);
     // A node's hour is the skill guide's (xprate.js); a recipe's the rough "up to".
     const src = gatherSources().find((x) => x.skill === skill && x.level === s.level && x.name === s.name.replace(/ \(.*\)$/, ''));
-    if (s.rough) assert.equal(s.xph, xpPerHour(g, skill, s.xp), `${skill}: a rough figure`);
+    if (s.rough) assert.equal(s.xph, xpPerHour(g, skill, makeXp(g, skill, s.xp)), `${skill}: a rough figure (a make at its making multiple)`);
     else assert.equal(s.xph, Math.round(xpRate(g, src).perHour), `${skill}: the guide's figure`);
     assert.ok(s.xph > 0);
   }
