@@ -6819,11 +6819,14 @@ export class Game {
   }
 
   // ---------------- Processing started from UI menus ----------------
-  startCooking(obj, rawId) { this.beginAction({ type: 'cook', obj, rawId }, { x: obj.x, y: obj.y }, true); }
-  startDish(obj, recipe) { this.beginAction({ type: 'cookdish', obj, recipe }, { x: obj.x, y: obj.y }, true); }
-  startSmelt(recipe, obj) { this.beginAction({ type: 'smelt', recipe, obj }, { x: obj.x, y: obj.y }, true); }
-  startSmith(recipe, obj) { this.beginAction({ type: 'smith', recipe, obj }, { x: obj.x, y: obj.y }, true); }
-  startCraft(recipe, obj) { this.beginAction({ type: 'craft', recipe, obj }, { x: obj.x, y: obj.y }, true); }
+  // `limit`: how many to make, by default the amount picked in a station window
+  // this session (`makeQty`, ui/makeqty.js; unset or Infinity is all the pack
+  // allows). Not saved: a fresh session makes all, as before. "Do all" ignores it.
+  startCooking(obj, rawId, limit = this.makeQty) { this.beginAction({ type: 'cook', obj, rawId, limit }, { x: obj.x, y: obj.y }, true); }
+  startDish(obj, recipe, limit = this.makeQty) { this.beginAction({ type: 'cookdish', obj, recipe, limit }, { x: obj.x, y: obj.y }, true); }
+  startSmelt(recipe, obj, limit = this.makeQty) { this.beginAction({ type: 'smelt', recipe, obj, limit }, { x: obj.x, y: obj.y }, true); }
+  startSmith(recipe, obj, limit = this.makeQty) { this.beginAction({ type: 'smith', recipe, obj, limit }, { x: obj.x, y: obj.y }, true); }
+  startCraft(recipe, obj, limit = this.makeQty) { this.beginAction({ type: 'craft', recipe, obj, limit }, { x: obj.x, y: obj.y }, true); }
   /** Fletching or Herblore at a station: `recipe` is { result, qty, inputs: [[id, n]], level, xp, tool? }. */
   /** "Do all" at a station: make everything you can there, best recipe first. */
   startAll(kind, obj) {
@@ -6831,7 +6834,7 @@ export class Game {
     if (!job) { this.msg('You have nothing here you can make.'); return false; }
     return this.beginAction({ ...job, obj, all: kind }, { x: obj.x, y: obj.y }, true);
   }
-  startRecipe(skill, recipe, obj) { this.beginAction({ type: 'recipe', skill, recipe, obj }, { x: obj.x, y: obj.y }, true); }
+  startRecipe(skill, recipe, obj, limit = this.makeQty) { this.beginAction({ type: 'recipe', skill, recipe, obj, limit }, { x: obj.x, y: obj.y }, true); }
 
   // ---------------- Farming ----------------
   /** Walked up to a farm patch: harvest it, check on it, or plant the best seed you can. */

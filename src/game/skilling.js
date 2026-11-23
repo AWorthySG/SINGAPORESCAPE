@@ -4,7 +4,7 @@ import { TILE } from '../config.js';
 import { pastSure } from '../data/xp.js';
 import { yieldBonus, huntExtras } from './culling.js';
 import { toolBonus, toolTooHighMsg } from './tools.js';
-import { batched } from './autoprocess.js';
+import { batched, makeCap } from './autoprocess.js';
 import { nodeJackpot, rockPick, SEAM_MULT, huntJackpot } from './jackpot.js';
 import { burnAll } from './bonfire.js';   // every log at once, onto one bonfire   // now and then the whole tree or seam at once   // an instant batch's news told once (smeltBatch)
 
@@ -474,9 +474,9 @@ export function resolveSmelt(game, action) {
  *  what came out. Returns false (the furnace is done). */
 export function smeltBatch(game, action) {
   action.tally = null;
-  let guard = 0;
+  const cap = makeCap(action);   // the amount chosen at the furnace, or all of it
   // A pet roll for every bar, and the bag and XP told once for the lot (autoprocess.js).
-  batched(game, () => { while (resolveSmelt(game, action) && ++guard < 100000) { /* keep smelting */ } });
+  batched(game, () => { for (let n = 0; n < cap && resolveSmelt(game, action); n++) { /* keep smelting */ } });
   const t = action.tally;
   if (!t || (!t.made && !t.failed)) return false;
   const name = getItem(action.recipe.result).name.toLowerCase();

@@ -246,7 +246,7 @@ test('the forager\'s lamp menu and the cooking menu show what the XP is worth at
   globalThis.document = { createElement: el };
   try {
     g.inventory.add('raw_anchovy', 2);
-    const ui = { game: g, modal: {}, openModal: (t, render) => render(el()), closeModal() {}, _doAllRow: el, _cell: (id, qty, o) => { tips.push(o.tooltip); return el(); } };
+    const ui = { game: g, modal: {}, openModal: (t, render) => render(el()), closeModal() {}, _doAllRow: el, _makeQtyRow: el, _cell: (id, qty, o) => { tips.push(o.tooltip); return el(); } };
     UI.prototype.openCookMenu.call(ui, null);
   } finally { delete globalThis.document; }
   const tip = tips.find((t) => t.includes(getItem(COOKING.raw_anchovy.result).name));
