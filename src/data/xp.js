@@ -34,6 +34,24 @@ export const maxXpFor = (id) => XP_TABLE[maxLevelFor(id)];
  *  past 99 takes about as long at the same activity as 98->99 did. */
 export const pastCapXpMult = (level) => 1 + Math.max(0, level - RS_MAX) / 150;
 
+/** How far `level` has come from `from` (where a life-skill bonus used to stop)
+ *  to MAX_LEVEL: 0 at or below `from`, 1 at MAX_LEVEL, a straight line between.
+ *  A bonus adds its further growth times this, so it keeps growing a little
+ *  with every level to its top at 9999 (the owner's ask) and nothing changes up
+ *  to its old stopping level. */
+export const towardTop = (level, from) => Math.max(0, Math.min(1, ((level || 1) - from) / (MAX_LEVEL - from)));
+
+/** For a chance `p(level)` that reaches 100% before MAX_LEVEL (double logs at
+ *  level 960, say): 0 until it is certain, then a straight line to 1 at
+ *  MAX_LEVEL. A certain chance can't grow, so it grows sideways into a chance
+ *  of one more (skilling.js). This is towardTop from the level where p became
+ *  certain, so it follows the player's tool, bait and Stewardship as p does.
+ *  0 for a chance that never reaches 100%. */
+export const pastSure = (p, level) => {
+  const span = p(MAX_LEVEL) - 1;
+  return span > 0 ? Math.max(0, Math.min(1, (p(level) - 1) / span)) : 0;
+};
+
 /** Level (1..cap) for a given total xp (binary search: skills ask this a lot). */
 export function levelForXp(xp, cap = MAX_LEVEL) {
   let lo = 1, hi = cap;

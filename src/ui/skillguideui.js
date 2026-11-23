@@ -27,7 +27,8 @@ import { chanceText, codexHabitats } from '../game/codex.js';
 import { unlockLadder, skillTeleportOf, skillTeleportWait, skillTeleport } from '../game/skillunlocks.js';
 import { STATION_BY_ID } from '../data/transport.js';
 import { toolLadder } from '../game/tools.js';
-import { levelHaulPct, LEVEL_HAUL_PER, LEVEL_HAUL_CAP } from '../game/levelhaul.js';
+import { levelHaulPct, LEVEL_HAUL_PER, LEVEL_HAUL_CAP, LEVEL_HAUL_CAP_LEVEL, LEVEL_HAUL_TOP } from '../game/levelhaul.js';
+import { MAX_LEVEL } from '../data/xp.js';
 import {
   SKILL_GUIDES, GATHER_SKILLS, COMBAT_SKILLS, TOOL_NAMES, gatherSources, recipesFor, recipeLabel, recipeKindTitle, canMake,
   regionsOf, nearestObject, groveList, fishSpotList, itemEntry, searchResources, RESOURCE_CATS, resourceIndex, perkLadder, gearTiers, trainingSpots, bestSpotsFor, combatExtras,
@@ -160,7 +161,7 @@ export function toolLadderHTML(game, skill) {
   const tiers = [...new Set(rows.map((r) => r.tier))];
   // Your level's own steady bonus (levelhaul.js): a chance of one more of each haul.
   const lv = game.skills.level(skill), lp = levelHaulPct(lv);
-  const lvLine = `<div class="sgx-unlock on"><span class="sg-lvl">${lv}</span><span><b>Your level</b> <small>${Math.round(lp * 10) / 10}% chance of a bonus one with each haul (+${LEVEL_HAUL_PER}% a level, up to ${LEVEL_HAUL_CAP}%); it never uses up the tree or rock</small></span></div>`;
+  const lvLine = `<div class="sgx-unlock on"><span class="sg-lvl">${lv}</span><span><b>Your level</b> <small>${Math.round(lp * 10) / 10}% chance of a bonus one with each haul (+${LEVEL_HAUL_PER}% a level to ${LEVEL_HAUL_CAP}% at level ${LEVEL_HAUL_CAP_LEVEL}, then slowly on to ${LEVEL_HAUL_TOP}% at level ${MAX_LEVEL}); it never uses up the tree or rock</small></span></div>`;
   return `<div class="sgx-unlocks sgx-tools"><b>Tools <small>(the best one you carry and can use is picked for you)</small></b>${lvLine}${tiers.map((t) => {
     const rs = rows.filter((r) => r.tier === t), use = rs.some((r) => r.inUse);
     return `<div class="sgx-unlock${rs[0].usable ? ' on' : ''}"><span class="sg-lvl">${rs[0].level}</span><span><span class="sgx-gives">${rs.map((r) => itemBtn(r.id, r.inUse ? '&#10003; ' : '', 18)).join('')}</span>`

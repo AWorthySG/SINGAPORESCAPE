@@ -56,7 +56,7 @@ import {
 } from './skilling.js';
 import { installSkillUnlocks, runSkillAction, extraCrop, growTicks } from './skillunlocks.js';
 import { Home } from './home.js';
-import { CROP_BY_SEED, cropFor, POTIONS } from '../data/trades.js';
+import { CROP_BY_SEED, cropFor, POTIONS, greenFingersChance } from '../data/trades.js';
 import { saveGame, loadGame, hasSave } from './save.js';
 import * as Play from './playbalance.js';
 import { getShop } from '../data/shops.js';
@@ -6678,8 +6678,9 @@ export class Game {
   harvestPatch(obj) {
     const c = cropFor(obj.crop);
     const lvl = this.skills.level('farming');
-    // Green fingers: higher levels coax a little more from each patch.
-    const n = randInt(c.yield[0], c.yield[1]) + (Math.random() < Math.min(0.5, (lvl - c.level) / 100) ? 1 : 0) + extraCrop(this);
+    // Green fingers: higher levels coax a little more from each patch (50% at
+    // the crop's level + 50, then on to 75% at level 9999: trades.js).
+    const n = randInt(c.yield[0], c.yield[1]) + (Math.random() < greenFingersChance(lvl, c.level) ? 1 : 0) + extraCrop(this);
     if (this.inventory.canAdd(c.id, n) <= 0) { this.msg('Your inventory is too full to harvest.'); return false; }
     this.inventory.add(c.id, n);
     this.skills.addXp('farming', c.harvestXp * n);

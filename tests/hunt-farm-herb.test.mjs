@@ -12,7 +12,7 @@ import { clearSave } from '../src/game/save.js';
 import { ITEMS } from '../src/data/items.js';
 import { OBJECTS } from '../src/data/objects.js';
 import { NPCS } from '../src/data/npcs.js';
-import { HUNT, CROPS, POTIONS, cropFor } from '../src/data/trades.js';
+import { HUNT, CROPS, POTIONS, cropFor, greenFingersChance } from '../src/data/trades.js';
 import { SHOPS } from '../src/data/shops.js';
 import { xpForLevel, pastCapXpMult } from '../src/data/xp.js';
 import { XP_RATE, LIFE_XP_BOOST } from '../src/config.js';
@@ -216,10 +216,10 @@ test('endgame Hunter XP an hour: each tier well ahead of the older traps, at the
 });
 
 // What a patch earns a tick from a crop at a Farming level: planting plus the
-// average harvest (with the green-fingers extra crop) over its growing time.
+// average harvest (with the green-fingers extra crop, as the game rolls it) over its growing time.
 const patchRate = (c, lvl) => {
   const f = cropFor(c[0]);
-  const y = (f.yield[0] + f.yield[1]) / 2 + Math.min(0.5, (lvl - f.level) / 100);
+  const y = (f.yield[0] + f.yield[1]) / 2 + greenFingersChance(lvl, f.level);
   return (f.plantXp + f.harvestXp * y) / f.grow;
 };
 
