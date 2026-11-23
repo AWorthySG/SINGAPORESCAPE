@@ -49,7 +49,7 @@ import { bestTool, toolBonus } from './tools.js';
 import { hunterXpMult } from './culling.js';
 import { unlockFx } from './skillunlocks.js';
 import { TREE_LOGS_MIN, TREE_LOGS_MAX, ROCK_ORES_MIN, ROCK_ORES_MAX, doubleChance, gemChance, GEM_XP, trophyChance, TROPHY_XP_MULT, bigCatchChance } from './skilling.js';
-import { NODE_JACKPOT, jackpotChance, JACKPOT_CHANCE, SEAM_MULT, HUNT_STOCK } from './jackpot.js';
+import { NODE_JACKPOT, jackpotChance, jackpotBase, SEAM_MULT, HUNT_STOCK } from './jackpot.js';
 import { FISH_SCHOOL, WILD_STOCK, SCHOOL_GAP, SCHOOL_HAUL, SCHOOL_NEAR, SCHOOL_AUTO, SCHOOL_SAME_KIND, passingSchoolSize } from './fishschool.js';
 import { LEVEL_HAUL, levelHaulPct } from './levelhaul.js';
 import { GATHER_FUN, STREAK_GAP_TICKS, streakXpMult, luckyChance, LUCKY_XP_MULT, nodeXp } from './gathering.js';
@@ -339,7 +339,7 @@ export function xpRate(game, s) {
     // lands two, both paid. Either way the catch may net a whole school.
     const trophy = Math.min(1, trophyChance(t)), big = Math.min(1, bigCatchChance(game, lvl, t));
     const per = 1 + quickly(t.extra);
-    const wild = NODE_JACKPOT.on ? jackpotChance(t.find) * SEAM_MULT * (WILD_STOCK[0] + WILD_STOCK[1]) / 2 : 0;
+    const wild = NODE_JACKPOT.on ? jackpotChance(t.find, lvl) * SEAM_MULT * (WILD_STOCK[0] + WILD_STOCK[1]) / 2 : 0;
     const passing = FISH_SCHOOL.on ? schoolShare(game, id, lvl) * schoolSize(lvl, t) / ((SCHOOL_GAP[0] + SCHOOL_GAP[1]) / 2) : 0;
     return gathered({ rolls: per * x * (trophy * TROPHY_XP_MULT + (1 - trophy) * (1 + big)), whole: per * x * wild, schools: passing * x, gatherTicks: 1 },
       `${t.text}, at your level: about ${fmt(per * TICKS_AN_HOUR)} casts an hour${big >= 0.995 ? ', every one a big catch (two fish)' : big > 0.005 ? `, ${Math.round(big * 100)}% of them big catches (two fish)` : ''}`);
@@ -348,7 +348,7 @@ export function xpRate(game, s) {
     const t = toolFor(game, s.tool);
     const mine = s.skill === 'mining';
     const dbl = Math.min(1, doubleChance(game, lvl, t));
-    const jp = NODE_JACKPOT.on ? jackpotChance(t.find) : 0;
+    const jp = NODE_JACKPOT.on ? jackpotChance(t.find, lvl) : 0;
     const extra = quickly(t.extra), keep = Math.min(fx.keep || 0, KEEP_MOST);
     if (!mine && !(def.depleteChance > 0)) {   // a world event's ancient tree never falls (and never comes down whole)
       const per = 1 + extra;
@@ -364,7 +364,7 @@ export function xpRate(game, s) {
     const extra = quickly(t.extra);
     // A catch's whole flock (jackpot.js huntJackpot): about 1 in 20, 10-140
     // catches at its XP each, and the trap stays set (so the visits are as before).
-    const flock = NODE_JACKPOT.on ? JACKPOT_CHANCE * SEAM_MULT * (HUNT_STOCK[0] + HUNT_STOCK[1]) / 2 : 0;
+    const flock = NODE_JACKPOT.on ? jackpotBase(lvl) * SEAM_MULT * (HUNT_STOCK[0] + HUNT_STOCK[1]) / 2 : 0;
     // resolveHunt: each catch may run the trap dry (unless an unlock keeps it
     // set), and a dry trap takes `respawn` ticks to reset. Kept set for good,
     // it would never run dry: no visits and no resets.
