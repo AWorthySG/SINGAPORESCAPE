@@ -21,6 +21,7 @@ import { canWear } from '../data/classes.js';
 import { SKILL_BY_ID } from '../data/skills.js';
 import { compareGear, isUpgrade, meetsReq } from './gear.js';
 import { gatherSources } from './skillguide.js';
+import { zoneLevel } from '../data/world.js';
 
 export const MAX_GOALS = 3;
 // A gathering skill this close to its next new source gets a nudge.
@@ -96,6 +97,63 @@ export function bestSource(game, skill) {
     if (obj) return { src, obj };
   }
   return null;
+}
+
+// Auto gather's "the best you can" mode (the Life skills shortcuts, the owner's
+// ask): it keeps to the highest-level source of a skill your level and tools
+// allow, never a lesser rock or tree that happens to be nearer. It never takes
+// you off by itself into danger: not into the Wilderness, nor a region whose
+// monsters are more than 10 levels above your fighting level (as world events
+// pick their regions), unless you are there already.
+const workable = (game, skill) => {
+  const lvl = game.skills.level(skill);
+  return gatherSources().filter((s) => s.skill === skill && s.objIds?.length && s.level <= lvl && (!s.tool || game.hasTool(s.tool)))
+    .sort((a, b) => b.level - a.level);
+};
+/** The highest-level source of `skill` you can work that is placed anywhere
+ *  (ready or not), or null. */
+export function topGatherSource(game, skill) {
+  for (const src of workable(game, skill)) {
+    const ids = new Set(src.objIds);
+    if (game.world.objects.some((o) => ids.has(o.objId))) return src;
+  }
+  return null;
+}
+function bestGather(game, skill, { exclude = null, near = 30 } = {}) {
+  const p = game.playerTile(), W = game.world;
+  const here = W.zoneAt?.(p.x, p.y), fight = game.fightLevel?.() || 1;
+  const safe = (o) => {
+    const z = W.zoneAt?.(o.x, o.y);
+    return !z || z === here || (!z.wilderness && !z.instance && zoneLevel(z) <= fight + 10);
+  };
+  for (const src of workable(game, skill)) {
+    const ids = new Set(src.objIds);
+    let close = null, cd = Infinity, any = false, far = null, fd = Infinity;
+    for (const o of W.objects) {
+      if (!ids.has(o.objId) || !safe(o)) continue;
+      const d = dist(o, p);
+      if (d <= near) any = true;
+      if (o === exclude || o.depleted) continue;
+      if (d <= near && d < cd) { cd = d; close = o; }
+      if (d < fd) { fd = d; far = o; }
+    }
+    if (close) return { obj: close, src };
+    if (any) return { obj: null, src };   // its nodes nearby are spent for now: they grow back in seconds
+    if (far) return { obj: far, src };
+  }
+  return null;
+}
+/** Where "the best you can" auto gather goes next: the nearest ready node of
+ *  the highest-level source you can work within `near` tiles; if that source's
+ *  nodes nearby are all spent, null (wait for them to grow back); with none of
+ *  them nearby, the nearest ready one anywhere safe. A source with no ready
+ *  node left gives way to the next best. */
+export const bestGatherNode = (game, skill, opts) => bestGather(game, skill, opts)?.obj || null;
+/** The first pick for a Life skills shortcut: the nearest ready node of the
+ *  best source anywhere safe, and that source: { obj, src } or null. */
+export function bestGatherPick(game, skill) {
+  const r = bestGather(game, skill, { near: 0 });
+  return r?.obj ? r : null;
 }
 
 /** The next new source a skill opens, if it is within NEAR_UNLOCK levels: { src, gap } or null. */

@@ -93,6 +93,7 @@ import { FishSchools } from './fishschool.js';   // schools of fish visiting the
 import { bossToolDrop } from './bosstools.js';   // world bosses drop gathering tools of their level
 import { levelHaul } from './levelhaul.js';   // a bigger haul as your gathering level rises
 import { tickWarmth, warmthBonus } from './bonfire.js';   // bonfires and their warmth
+import { bestGatherNode, topGatherSource } from './whatnext.js';   // auto gather's "the best you can" (Life skills)
 import { Teleports } from './teleports.js';   // the Town and Grave teleports
 import { Discovery } from './discovery.js';   // encyclopedia discoveries and their rewards
 import * as Rounds from './rounds.js';   // gun rounds and the ammo slot
@@ -574,6 +575,7 @@ export class Game {
     this.autoBattle = false;      // auto battle: hunt, fight, eat and use skills
     this.autoGather = false;      // auto gather: when a node runs dry, move on to the next one
     this.autoGatherKinds = [];    // ...cycling through every kind of node you've gathered since turning it on
+    this.autoGatherBest = null;   // ...or, from the Life skills shortcuts, always the best a skill offers you (not saved)
     this.gatherPicks = new Set(); // ...or exactly the kinds you ticked in a skill guide (kept between sessions)
     this.autoQuest = false;       // auto quest: work through quests by yourself (see _autoQuestTick)
     this.autoQuestId = null;      // the quest auto quest is on (the one you last pressed Go on)
@@ -594,6 +596,9 @@ export class Game {
     this._buffedBosses = new Set(); // bosses with a reflect running
     this._danceHitTick = 0;
 
+    // "The best you can" auto gather: a level that opens a better source moves you up
+    // to it, once the tick's gathering is done (see _tickContinuous).
+    this.bus.on('levelup', (p) => { if (p?.skill && p.skill === this.autoGatherBest) this._gatherUpgradeDue = p.skill; });
     // Celebratory sparkle on level up; new milestones may unlock on level/quest changes.
     this.bus.on('levelup', (p) => {
       // A big hit can jump many levels at once: the celebration and the
@@ -1550,6 +1555,7 @@ export class Game {
       this.player.clearAction();
       if (gather && this.autoGather) this._autoGatherNext(a, obj);
     }
+    if (this._gatherUpgradeDue) { const skill = this._gatherUpgradeDue; this._gatherUpgradeDue = null; this._autoGatherUpgrade(skill); }
   }
 
   _bagCounts() {
@@ -1567,14 +1573,38 @@ export class Game {
     if (this.inventory.freeSlots() <= 0) { this.msg('Your bag is full: auto gather stops.', 'system'); return false; }
     const best = this._nextGatherNode(obj.objId, obj);
     if (!best) { this.msg(`No more ${obj.def.name.toLowerCase()}s nearby: auto gather waits here until they grow back.`, 'system'); return false; }
-    this.defaultObjectAction(best);
+    this._gatherAt(best);
     return true;
+  }
+
+  /** Start on a node auto gather chose: one far off (the best you can gather
+   *  may be in another region) is the long trip, MRT and all, like a Go. */
+  _gatherAt(node) {
+    const here = this.playerTile();
+    if (chebyshev(here.x, here.y, node.x, node.y) > 30) return this._autoRun(() => this.goToObject(node));
+    return this.defaultObjectAction(node);
+  }
+
+  /** Auto gather in "the best you can" mode (the Life skills shortcuts): a level
+   *  that opens a better source in the skill moves you on to it at once (a
+   *  fishing spot never runs out, so this is how fishing moves up). */
+  _autoGatherUpgrade(skill) {
+    if (!skill || skill !== this.autoGatherBest || !this.autoGather || this.autoBattle) return;
+    const cur = this.player.action?.obj;
+    if (!cur || cur.def?.skill !== skill) return;
+    const top = topGatherSource(this, skill);
+    if (!top || top.objIds.includes(cur.objId)) return;
+    const next = bestGatherNode(this, skill);
+    if (!next || next.objId === cur.objId) return;
+    this.msg(`Auto gather moves up to the ${next.def.name.toLowerCase()}: the best you can gather now.`, 'system');
+    this._gatherAt(next);
   }
 
   /** Auto gather does several kinds of node at once: every kind you gather
    *  while it's on joins the round (copper and tin for bronze, or rocks and
    *  trees together), up to AUTO_GATHER_KINDS of them, oldest dropped first. */
   _addAutoGatherKind(obj) {
+    if (this.autoGatherBest && obj.def?.skill && obj.def.skill !== this.autoGatherBest) this.autoGatherBest = null;   // you moved on to another skill
     if (this.gatherPicks.size) return;   // a ticked list decides the round instead
     let list = this.autoGatherKinds;
     if (list.includes(obj.objId)) return;
@@ -1598,6 +1628,7 @@ export class Game {
 
   /** Tick or untick a kind of node (its object ids) for auto gather's round. */
   toggleGatherPick(objIds) {
+    this.autoGatherBest = null;   // your own list instead of "the best you can"
     const on = !objIds.every((id) => this.gatherPicks.has(id));
     for (const id of objIds) { if (on) this.gatherPicks.add(id); else this.gatherPicks.delete(id); }
     if (!on) this._forgetGatherKinds(objIds);
@@ -1652,6 +1683,9 @@ export class Game {
    *  anywhere in your current region (or within 30 tiles outside one). With
    *  kinds ticked in a skill guide, only those. */
   _nextGatherNode(objId, exclude = null) {
+    // The Life skills shortcuts: always the best the skill offers you, waiting
+    // for its nodes to grow back rather than dropping to a lesser one.
+    if (this.autoGatherBest) return bestGatherNode(this, this.autoGatherBest, { exclude });
     const here = this.playerTile();
     const def = this.world.objects.find((o) => o.objId === objId)?.def;
     const kinds = this._gatherRound();
@@ -1701,7 +1735,7 @@ export class Game {
       // Back to the nearest node of the same kind that's ready again.
       if (this.inventory.freeSlots() <= 0) return;
       const best = this._nextGatherNode(job.objId);
-      if (best) this.defaultObjectAction(best);
+      if (best) this._gatherAt(best);
       return;
     }
     if (job.kind === 'thieve') {
@@ -1731,6 +1765,7 @@ export class Game {
   toggleAutoGather(on = !this.autoGather) {
     this.autoGather = !!on;
     this.autoGatherKinds = [];   // a fresh round each time it's switched on
+    this.autoGatherBest = null;  // (a Life skills shortcut sets it again after switching it on)
     if (!this.autoGather) this._autoLife = null;
     this.msg(this.autoGather ? 'Auto gather on: when a node runs dry you move on to the next one.' : 'Auto gather off.', 'system');
     this.bus.emit('autogather');
@@ -1740,6 +1775,7 @@ export class Game {
   autoGatherStatus() {
     if (!this.autoGather) return 'Off';
     const a = this.player.action;
+    if (this.autoGatherBest) return `Best ${SKILL_BY_ID[this.autoGatherBest]?.name || this.autoGatherBest}` + (a && GATHER_ACTIONS.has(a.type) && a.obj?.def ? `: ${a.obj.def.name}` : '');
     const round = this._gatherRound();
     if (round.length > 1) return round.map((id) => capitalize(this._gatherKindName(id))).join(' + ');
     if (a && GATHER_ACTIONS.has(a.type) && a.obj?.def) return a.obj.def.name;

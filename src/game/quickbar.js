@@ -11,7 +11,7 @@ import { POTIONS, CROP_BY_SEED, cropFor } from '../data/trades.js';
 import { SKILL_BY_ID } from '../data/skills.js';
 import { SKILL_GUIDES } from './skillguide.js';
 import { quickUse, quickUseChoice } from './quickuse.js';
-import { nextQuest, bestSource } from './whatnext.js';
+import { nextQuest, bestSource, bestGatherPick } from './whatnext.js';
 import { nearOfferingShrine } from './salvage.js';
 import { nextJob } from './autoprocess.js';
 
@@ -60,8 +60,8 @@ export function goSkill(game, skill) {
 
 // Life skill shortcuts (the owner's ask): the Life skills button on the quick
 // bar opens a grid of every life skill, and one tap goes and starts it: the
-// best tree, rock, fishing spot or trail you can work (with auto gather on, so
-// you carry on when it runs dry), the nearest station making everything you
+// best tree, rock, fishing spot or trail you can work (with auto gather on and
+// kept to the best you can gather, moving up as you level), the nearest station making everything you
 // can there (best first), a fire from your logs, the farm patch that needs
 // you, the Slayer master for a task. Thieving and Agility walk to their best
 // spot, like their Go.
@@ -108,7 +108,11 @@ function patchToTend(game) {
 
 /** A shortcut's one-line note for the grid: what a tap would do now. */
 export function lifeShortcutHint(game, skill) {
-  if (GATHERING.has(skill) || skill === 'thieving' || skill === 'agility') {
+  if (GATHERING.has(skill)) {
+    const pick = bestGatherPick(game, skill);
+    return pick ? `${pick.src.name} (lvl ${pick.src.level})` : 'Nothing at your level yet';
+  }
+  if (skill === 'thieving' || skill === 'agility') {
     const src = bestSource(game, skill);
     return src ? `${src.src.name} (lvl ${src.src.level})` : 'Nothing at your level yet';
   }
@@ -126,10 +130,14 @@ export function startLifeSkill(game, skill, ui = game.ui) {
   // Skilling, not fighting: auto battle would only pull you away again.
   if (game.autoBattle) game.toggleAutoBattle(false);
   if (GATHERING.has(skill)) {
-    const src = bestSource(game, skill);
+    const src = bestGatherPick(game, skill);   // the best source anywhere safe (whatnext.js)
     if (!src) { game.msg(`There's nothing for ${skillName(skill)} I can take you to right now.`, 'system'); return false; }
-    // Auto gather keeps you at it when the node runs dry (unless you ticked kinds of your own for it).
-    if (!game.autoGather && !game.gatherPicks?.size) game.toggleAutoGather(true);
+    // Auto gather keeps you at it, always on the best the skill offers you (the
+    // owner's ask): the highest-level source your level and tools allow, waiting
+    // for its nodes to grow back rather than dropping to a lesser one, and moving
+    // up when a level opens a better one (game.js autoGatherBest).
+    if (!game.autoGather) game.toggleAutoGather(true);
+    game.autoGatherBest = skill;
     return game.goToObject(src.obj);
   }
   if (MAKING[skill]) {

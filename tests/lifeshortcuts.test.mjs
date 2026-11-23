@@ -7,6 +7,9 @@ import assert from 'node:assert/strict';
 
 import { Game } from '../src/game/game.js';
 import { QB_ACTIONS, LIFE_SHORTCUTS, startLifeSkill, lifeShortcutHint, runQuickAction } from '../src/game/quickbar.js';
+import { bestGatherNode, bestGatherPick, topGatherSource } from '../src/game/whatnext.js';
+import { zoneLevel } from '../src/data/world.js';
+import { xpForLevel } from '../src/data/xp.js';
 import { QuickBar } from '../src/ui/quickbar.js';
 import { LIFE_PERK_SKILLS } from '../src/game/lifeperks.js';
 
@@ -48,13 +51,84 @@ test('gathering: walks to the best node you can work and starts on it, with auto
   assert.equal(g.player.action?.type, 'woodcut');
   assert.equal(g.player.action.obj.objId, 'tree', 'the tree a new character can chop');
   assert.match(lifeShortcutHint(g, 'woodcutting'), /\(lvl 1\)/);
-  // Ticked kinds of your own for auto gather are left alone (and it isn't switched on for you).
+  assert.equal(g.autoGatherBest, 'woodcutting', 'and keeps to the best you can gather');
+  assert.equal(g.autoGatherStatus(), 'Best Woodcutting: Tree');
+  // Even with kinds of your own ticked for auto gather, the shortcut keeps to the best.
   const h = fresh();
   h.inventory.add('bronze_pickaxe', 1);
   h.gatherPicks.add('tree');
   assert.ok(startLifeSkill(h, 'mining'));
-  assert.equal(h.autoGather, false);
-  assert.equal(h.player.action?.type, 'mine');
+  assert.deepEqual([h.autoGather, h.autoGatherBest, h.player.action?.type], [true, 'mining', 'mine']);
+});
+
+test('the best you can: auto gather never drops to a lesser node, waits for the best to grow back, and goes further for it', () => {
+  const g = fresh();
+  g.inventory.add('bronze_axe', 1);
+  g.skills.xp.woodcutting = xpForLevel(8);   // bamboo (8) is the best, ordinary trees (1) all round
+  assert.ok(startLifeSkill(g, 'woodcutting'));
+  assert.equal(g.player.action.obj.objId, 'bamboo');
+  const p = g.playerTile(), d = (o) => Math.max(Math.abs(o.x - p.x), Math.abs(o.y - p.y));
+  const bamboo = g.world.objects.filter((o) => o.objId === 'bamboo');
+  // Every bamboo nearby cut down: wait for it to grow back, never an ordinary tree beside you.
+  for (const o of bamboo) if (d(o) <= 30) o.depleted = true;
+  assert.ok(g.world.objects.some((o) => o.objId === 'tree' && !o.depleted && d(o) <= 30), 'ordinary trees stand nearby');
+  assert.equal(g._nextGatherNode('bamboo'), null, 'it waits for the bamboo');
+  // With none of the best near you at all, the nearest ready one anywhere (a longer trip).
+  const far = bestGatherNode(g, 'woodcutting', { near: 0 });
+  assert.equal(far.objId, 'bamboo');
+  assert.ok(!far.depleted && d(far) > 30, `the nearest standing bamboo, further off (${d(far)} tiles)`);
+  // Without the mode, auto gather took the nearest tree of any kind you could cut (as before).
+  g.autoGatherBest = null;
+  assert.notEqual(g._nextGatherNode('bamboo'), null);
+});
+
+test('the best you can: a level that opens a better source moves you up to it', () => {
+  const g = fresh();
+  g.inventory.add('bronze_axe', 1);
+  g.skills.xp.woodcutting = xpForLevel(8) - 1;   // level 7: ordinary trees are the best
+  assert.ok(startLifeSkill(g, 'woodcutting'));
+  assert.equal(g.player.action.obj.objId, 'tree');
+  // Chop until a level opens something better (bamboo at 8, oak at 15...): auto gather moves up to it.
+  let moved = null;
+  for (let i = 0; i < 300 && !moved; i++) {
+    g.update(600);
+    const o = g.player.action?.obj;
+    if (o && o.objId !== 'tree') moved = o;
+  }
+  assert.ok(g.skills.level('woodcutting') >= 8, 'levelled up');
+  assert.ok(moved, 'and moved up from the ordinary trees');
+  assert.equal(moved.objId, topGatherSource(g, 'woodcutting').objIds[0], 'to the best your level allows');
+  assert.ok(g.said.some((m) => /^Auto gather moves up to the /.test(m)));
+});
+
+test('the best you can never takes you into the Wilderness or a region far above your fighting level', () => {
+  const g = fresh();
+  g.inventory.add('bronze_axe', 1);
+  g.skills.xp.woodcutting = xpForLevel(99);
+  const fight = g.fightLevel();
+  const safe = (o) => { const z = g.world.zoneAt(o.x, o.y); return !z || (!z.wilderness && zoneLevel(z) <= fight + 10); };
+  const pick = bestGatherPick(g, 'woodcutting');
+  assert.ok(pick && safe(pick.obj), `${pick?.obj.objId} at ${pick?.obj.x},${pick?.obj.y} is safe for a fighting level ${fight}`);
+  // The very best trees stand somewhere unsafe for a new fighter: they are passed over.
+  const top = topGatherSource(g, 'woodcutting');
+  const unsafeTop = g.world.objects.filter((o) => top.objIds.includes(o.objId)).every((o) => !safe(o));
+  if (unsafeTop) assert.notEqual(pick.src, top, 'not the best trees, out in danger');
+  assert.ok(safe(bestGatherNode(g, 'woodcutting', { near: 0 })));
+});
+
+test('the best you can ends when you choose for yourself', () => {
+  const g = fresh();
+  g.inventory.add('bronze_axe', 1);
+  startLifeSkill(g, 'woodcutting');
+  g.toggleGatherPick(['oak']);
+  assert.equal(g.autoGatherBest, null, 'ticking your own kinds');
+  startLifeSkill(g, 'woodcutting');
+  g.toggleAutoGather(false);
+  assert.equal(g.autoGatherBest, null, 'switching auto gather off');
+  g.inventory.add('bronze_pickaxe', 1);
+  startLifeSkill(g, 'woodcutting');
+  g._addAutoGatherKind(g.world.objects.find((o) => o.objId === 'copper_rock'));
+  assert.equal(g.autoGatherBest, null, 'gathering another skill');
 });
 
 test('making: walks to the nearest station and makes everything you can there', () => {
