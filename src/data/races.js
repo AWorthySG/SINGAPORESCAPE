@@ -81,6 +81,9 @@ export const WEAPON_VS_RACE = {
   chakram:   { strong: ['bug', 'flora', 'avian'],        weak: ['construct'] },
   orb:       { strong: ['demon', 'undead'],              weak: [] },
   fan:       { strong: ['spirit', 'avian'],              weak: [] },
+  // The Monk's: iron fists crack stone and quick jabs swat flyers; open palms drive out spirits and demons.
+  knuckles:  { strong: ['construct', 'avian'],           weak: [] },
+  monk_gloves: { strong: ['spirit', 'demon'],            weak: [] },
 };
 
 // Effective: harder hitting. A weapon is never WEAKER against a race (the
@@ -106,4 +109,5 @@ export function weaponsFor(race) {
 }
 
 /** A friendly name for a weapon type id. */
-export const weaponTypeName = (w) => (w === '2h_sword' ? 'two-handed sword' : w);
+const TYPE_NAME = { '2h_sword': 'two-handed sword', knuckles: 'monk knuckles', monk_gloves: 'monk gloves' };
+export const weaponTypeName = (w) => TYPE_NAME[w] || w;

@@ -190,7 +190,8 @@ export const SHOPS = {
 // Every class can buy a starter weapon: bronze, iron and steel of each metal
 // weapon type, added to the General Store (bows, staves, wands and whips are
 // already sold by the Fletcher, the Mystic Merchant and the store).
-const CLASS_METAL_WEAPONS = ['dagger', 'sword', 'scimitar', 'mace', 'longsword', 'battleaxe', 'warhammer', '2h_sword', 'spear', 'claws', 'katana', 'halberd', 'cane', 'pistol', 'shuriken', 'rifle'];
+const CLASS_METAL_WEAPONS = ['dagger', 'sword', 'scimitar', 'mace', 'longsword', 'battleaxe', 'warhammer', '2h_sword', 'spear', 'claws', 'katana', 'halberd', 'cane', 'pistol', 'shuriken', 'rifle',
+  'knuckles'];
 for (const [metal, qty] of [['bronze', 5], ['iron', 3], ['steel', 2]]) {
   for (const t of CLASS_METAL_WEAPONS) {
     const id = `${metal}_${t}`;
@@ -199,7 +200,7 @@ for (const [metal, qty] of [['bronze', 5], ['iron', 3], ['steel', 2]]) {
 }
 // Secondary types only in bronze, to keep the shop list short on phones: better ones
 // come from drops and smithing.
-for (const t of ['parang', 'kerambit', 'toya', 'crossbow', 'chakram', 'orb', 'fan']) {
+for (const t of ['parang', 'kerambit', 'toya', 'crossbow', 'chakram', 'orb', 'fan', 'monk_gloves']) {
   if (!SHOPS.general.stock.some((s) => s.id === `bronze_${t}`)) SHOPS.general.stock.push({ id: `bronze_${t}`, qty: 5 });
 }
 

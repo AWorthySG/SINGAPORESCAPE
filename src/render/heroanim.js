@@ -751,6 +751,16 @@ Object.assign(CLIPS, {
     release: T([[0, 0], [0.6, 0, 'lin'], [0.63, 1, 'snap'], [0.95, 0], [1, 0]]),
     crouch: T([[0, 0], [0.18, -1], [0.3, 1], [0.6, 1], [0.7, 0], [1, 0]]),
   } },
+  // Monk knuckles and gloves, A: a quick knuckle jab, then the gloved palm driven
+  // home from the other hand, the hips turning into it (the palm is the heavier blow).
+  fist_dual: dualClip([blow(0.1, 0.3, 0.38, 0.62, { wind: 0.35, swing: 0.8, reach: 6, over: 0.06 })], [blow(0.38, 0.6, 0.68, 0.94, { wind: 0.45, swing: 1.2, reach: 7, hold: 0.07 })],
+    { ...lunges([0.38, 0.68], { push: 4, lean: 0.14 }), impact: impacts(0.38, 0.68) },
+    { trail: { kind: 'line', x0: 16, x1: 38, y: -12 }, trail2: { kind: 'line', x0: 14, x1: 42, y: -6 } }),
+  // Monk knuckles and gloves, B: a low stance, a rising knuckle uppercut, then a hop
+  // into a long palm thrust.
+  fist_dual_b: dualClip([blow(0.12, 0.34, 0.42, 0.66, { wind: 0.6, swing: 1.2, reach: 4 })], [blow(0.42, 0.62, 0.71, 0.95, { wind: 0.5, swing: 1.1, reach: 8, hold: 0.07 })],
+    { ...lunges([0.42, 0.71], { push: 5, lean: 0.16, hop: 2 }), crouch: T([[0, 0], [0.2, 2.2, 'io'], [0.42, 0.5, 'in'], [0.62, 1.6, 'io'], [0.71, -0.5, 'in'], [1, 0, 'io']]), impact: impacts(0.42, 0.71) },
+    { trail: { kind: 'arc', cx: 20, cy: -8, r: 14, a0: 1.2, a1: -1.4 }, trail2: { kind: 'line', x0: 14, x1: 46, y: -8 } }),
   // Bare fists: a jab, then a cross from the other hand.
   punch: dualClip([blow(0.1, 0.3, 0.38, 0.6, { wind: 0.3, swing: 0.7, reach: 5, over: 0.06 })], [blow(0.36, 0.58, 0.66, 0.92, { wind: 0.3, swing: 1.0, reach: 6, over: 0.1 })],
     { ...lunges([0.38, 0.66], { push: 3, lean: 0.1 }), impact: impacts(0.38, 0.66) },
@@ -768,12 +778,13 @@ export const WEAPON_CLIP = {
   claws: 'flurry', whip: 'lash', fan: 'fan_sweep', cane: 'coin_toss', shuriken: 'throw', chakram: 'throw_wide',
   shortbow: 'bow_quick', longbow: 'bow', crossbow: 'crossbow', pistol: 'pistol_one', rifle: 'rifle',
   staff: 'cast', wand: 'flick', orb: 'orb',
+  knuckles: 'punch', monk_gloves: 'punch',   // a Monk's fists: one hand at a time unless paired (DUAL_CLIPS)
 };
 // Dual-wield kinds (equipment.js dualType) -> their two clips, played in turn.
 export const DUAL_CLIPS = {
   dagger: ['stab_dual', 'cross_dual'], scimitar: ['scim_dual', 'scim_dual_b'],
   kerambit: ['rip_dual', 'rip_dual_b'], pistol: ['pistols', 'pistols_b'],
-  shuriken: ['throw_dual', 'throw_dual_b'],
+  shuriken: ['throw_dual', 'throw_dual_b'], knuckles: ['fist_dual', 'fist_dual_b'],
 };
 /** The clip for an attack with this weapon type; `variant` counts attacks, so
  *  dual wielders alternate between their two clips. */
@@ -1173,7 +1184,7 @@ const SLEEVE = {
   swordsman: '#b8c4d0', rogue: '#2f4a4a', samurai: '#c0392b', corsair: '#3a3340', paladin: '#e8dfc8', knight: '#aab6c2',
   berserker: '#e9d6b0', juggernaut: '#6f7884', gladiator: '#c08a3a', lancer: '#2f5fb3', brawler: '#f2efe6', halberdier: '#c7cfd8',
   dancer: '#f4a7c4', merchant: '#7a2f4a', ninja: '#2b3a5a', archer: '#4f7a3a', ranger: '#4f7a3a', wizard: '#4b2a7a',
-  sorcerer: '#5b3a8c', pistoler: '#2f5a5a', sniper: '#2f5a5a',
+  sorcerer: '#5b3a8c', pistoler: '#2f5a5a', sniper: '#2f5a5a', monk: '#f2efe6',   // (the Monk's: the Brawler's rig parts for now)
 };
 // Where the hand grips each tool's sticker (0..1 across the picture), which
 // way its head points from there, and how big it is drawn. `edge: -1` mirrors
@@ -1294,7 +1305,7 @@ function star(c, x, y, r, k) {
 // from the usual shoulders sat inside the chest and vanished into it, leaving
 // two empty sleeves. His hang from the sleeve ends instead, and the back one is
 // drawn over the body, as his own rig arms are (see armInFront).
-const SKILL_SHOULDER = { brawler: [13, -13, -1] };
+const SKILL_SHOULDER = { brawler: [13, -13, -1], monk: [13, -13, -1] };
 /** Whether a class's back life-skill arm is drawn over its body, not behind it. */
 export const armInFront = (jobClass) => !!SKILL_SHOULDER[jobClass];
 /** The life-skill arms for a painted rig: the back one before the body (after

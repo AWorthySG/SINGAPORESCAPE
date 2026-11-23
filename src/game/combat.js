@@ -320,6 +320,12 @@ export const WEAPON_DMG_MULT = {
   // main types: each now lands at about 80-105% of its class's main weapon, the
   // chakram 60-105% as it serves three quite different classes.)
   parang: 1.75, kerambit: 0.18, toya: 2.35, crossbow: 2.92, chakram: 1.3, orb: 0.255, fan: 1.29,
+  // The Monk: monk knuckles in the main hand and monk gloves in the off-hand, both
+  // striking every swing (the off-hand at OFFHAND_SHARE) on the knuckles' quick beat,
+  // and both at the knuckles' scale (each hand's blow takes the main weapon's), with
+  // Chi adding about a fifth over a fight (monk.js). Gloves in the main hand swing
+  // slower, so theirs sits a little higher, a little under the knuckles' pair.
+  knuckles: 0.22, monk_gloves: 0.25,
 };
 /** The target's number scale (see hpScaleFor in npcs.js): hits on a big monster are divided by it. */
 const numScale = (npc) => npc?.hpScale || 1;

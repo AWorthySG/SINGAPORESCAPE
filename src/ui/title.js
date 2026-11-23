@@ -23,7 +23,8 @@ import { RANGED_HERO_CLASSES, RANGED_HERO_PARTS, rangedHeroSrc } from '../render
 import { ANIM_ART, IDLE_FACES, animArtSrc, swingArtReady, warmHeroAnim } from '../render/heroAnimArt.js';
 import { sampleHeroClip, blendHeroFrame, weaponClipId, HERO_CLIPS } from '../render/heroanim.js';
 import { fxImage } from '../render/fxart.js';
-import { CLASS_BY_ID, starterWeapon } from '../data/classes.js';
+import { CLASS_BY_ID } from '../data/classes.js';
+import { starterOffhand } from '../game/equipment.js';
 import { TILE } from '../config.js';
 import { cosySkylineSvg, dressTitle } from './cosytitle.js';
 
@@ -177,7 +178,7 @@ export function heroReady(classId) {
   return !imgs || imgs.every((img) => img.complete);
 }
 // The classes that start with a weapon in each hand show both in the previews.
-const DUAL_START = new Set(['pistoler']);
+const DUAL_START = new Set(['pistoler', 'monk']);
 const IDLE_MS = HERO_CLIPS.idle.dur || 3200;
 /** How long a preview swing lasts: slower than in a fight, so it reads. */
 export function previewAttackMs(clipId) { return HERO_CLIPS[clipId]?.shot ? 520 : 640; }
@@ -202,7 +203,7 @@ export function drawClassHero(ctx, actor, x, y, now) {
     actor.attackAt = now; actor.swingWant = null;
   }
   const dual = DUAL_START.has(actor.classId);
-  const held = { jobClass: actor.classId, weapon: cls.weapon, offhand: dual ? starterWeapon(actor.classId) : null };
+  const held = { jobClass: actor.classId, weapon: cls.weapon, offhand: dual ? starterOffhand(actor.classId) : null };
   let frame = null;
   if (actor.attackAt != null) {
     const clip = actor.clip || attackClipFor(actor.classId, actor.swings || 0);

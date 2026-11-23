@@ -3,6 +3,7 @@ import { ARMOUR_SETS } from '../data/sets.js';
 import { masteryBonuses, qualityBonuses, masteryType, enchantedBonuses, rankFor, migrateOld, pointsToXp, MAX_ENCHANTS, ENCHANT_STEP, taperedLine } from './mastery.js';
 import { validQuality, QUALITY_ORDER } from './loot.js';
 import { refinedBonuses, MAX_REFINE } from './refine.js';
+import { starterWeapon, weaponsOfType, SECONDARY_WEAPON } from '../data/classes.js';
 
 export const EQUIP_SLOTS = ['head', 'cape', 'amulet', 'weapon', 'body', 'shield', 'legs', 'hands', 'feet', 'ring'];
 export const DEFAULT_WEAPON_SPEED = 5; // ticks (unarmed)
@@ -30,11 +31,20 @@ export const dualType = (id) => {
   if (/_dagger$/.test(id) || id === 'tiger_kris') return 'dagger';
   const t = getItem(id)?.equip?.weaponType;
   if (t === 'dagger' && getItem(id).signature) return 'dagger';   // a boss's signature dagger pairs like any other
+  // A Monk's monk knuckles and monk gloves are one kind: either goes with the other,
+  // knuckles punching from the main hand and gloves palm-striking from the off-hand.
+  if (t === 'knuckles' || t === 'monk_gloves') return 'knuckles';
   return t === 'scimitar' || t === 'pistol' || t === 'kerambit' || t === 'shuriken' ? t : null;
 };
 export const canDualWield = (id) => !!dualType(id);
 /** Can these two be held together (main hand and off-hand)? */
 export const canDualPair = (a, b) => !!dualType(a) && dualType(a) === dualType(b);
+/** What a class that starts dual wielding holds in its off-hand: its second weapon
+ *  when that pairs with its first (a Monk's monk gloves), else a second of its first. */
+export function starterOffhand(classId) {
+  const first = starterWeapon(classId), second = weaponsOfType(SECONDARY_WEAPON[classId] || '')[0];
+  return second && canDualPair(first, second) ? second : first;
+}
 // Two-handed weapons need both hands, so no shield-slot item (shield, buckler,
 // quiver or tome) can be held with them: bows, crossbows, rifles, katanas,
 // warhammers, two-handed swords, halberds and claws (a claw on each hand). A
@@ -49,8 +59,8 @@ export const isQuiver = (id) => !!id && /_quiver$/.test(id) && getItem(id)?.equi
 export const takesQuiver = (weaponId) => !!weaponId && QUIVER_BOW_TYPES.has(getItem(weaponId)?.equip?.weaponType);
 /** Does the weapon in hand leave no room for this off-hand item? */
 export const offhandBlocked = (weaponId, offId) => isTwoHanded(weaponId) && !(takesQuiver(weaponId) && isQuiver(offId));
-// Quick weapons swing faster than one combat beat: scimitars, claws, kerambits and war fans swing
-// about 1.4 times a beat (a fractional cooldown carries over between beats).
+// Quick weapons swing faster than one combat beat: scimitars, claws, kerambits, war fans and monk
+// knuckles swing about 1.4 times a beat (a fractional cooldown carries over between beats).
 export const QUICK_WEAPON_SPEED = 0.7;
 // Extra offensive stats, all in percent, with caps so stacking stays sane:
 // pierce adds that much damage (player hits always land), critDmg adds to critical hits,
@@ -64,7 +74,7 @@ export const OFFENCE_KEYS = ['pierce', 'critDmg', 'haste', 'lifesteal', 'bossDmg
 export const OFFENCE_CAPS = {};
 // Melee swing intervals are halved: every melee class attacks twice as fast.
 export const MELEE_SPEED_MULT = 0.5;
-export const QUICK_TYPES = new Set(['scimitar', 'claws', 'kerambit', 'fan']);
+export const QUICK_TYPES = new Set(['scimitar', 'claws', 'kerambit', 'fan', 'knuckles']);
 // Ranged weapons quicker than any bow: pistols fire about 4 shots a beat (each
 // hand), shurikens 2 throws a beat.
 // Shortbows loose twice as fast as longbows; longbows hit harder instead (LONGBOW_DMG in game.js).

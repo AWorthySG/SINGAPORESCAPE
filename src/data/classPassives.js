@@ -72,6 +72,11 @@ export const CLASS_PASSIVES = {
     { name: 'Sweeping Blade', desc: '+5% damage', mods: { dmg: 0.05 } },
     { name: 'Reaper', desc: '+5% damage, 4% chance to strike another foe', mods: { dmg: 0.05, splash: 0.04 } },
   ],
+  monk: [
+    { name: 'Iron Fists', desc: '+4% damage, +1% crit chance', mods: { dmg: 0.04, crit: 0.01 } },
+    { name: 'Flowing Strikes', desc: '4% chance of an extra blow, +2% damage', mods: { extra: 0.04, dmg: 0.02 } },
+    { name: 'Inner Peace', desc: '+5% damage, +3% damage to bosses', mods: { dmg: 0.05, boss: 0.03 } },
+  ],
   merchant: [
     { name: 'Heavy Purse', desc: '+5% damage', mods: { dmg: 0.05 } },
     { name: 'Investor', desc: '+4% damage, +1% crit chance', mods: { dmg: 0.04, crit: 0.01 } },

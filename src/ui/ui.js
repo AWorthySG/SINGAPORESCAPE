@@ -1,4 +1,4 @@
-import { CLASSES, CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, canWear, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWield, SECONDARY_WEAPON, shieldBarred, noShieldMsg } from '../data/classes.js';
+import { CLASSES, CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, canWear, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWield, SECONDARY_WEAPON, shieldBarred, noShieldMsg, weaponTypeOf } from '../data/classes.js';
 import { SKILL_HOURS, windowLabel } from '../data/skillhours.js';
 import { classPerks, classPerkSummary } from '../game/classperks.js';
 import { LIFE_PERKS, LIFE_PERK_SKILLS, LIFE_PERK_FULL_LEVEL, LIFE_PERK_MAX_LEVEL, LIFE_PERK_TOP_LEVEL, lifePerkText, lifePerkNext } from '../game/lifeperks.js';
@@ -33,6 +33,7 @@ import { SIGNATURE_CLASS, SIGNATURE_DROP_CHANCE, sigIdFor } from '../data/bossWe
 import { levelProgress, xpToNext, MAX_LEVEL, maxLevelFor } from '../data/xp.js';
 import { stackLabel, capitalize, formatNumber, shortNumber, aOrAn } from '../core/utils.js';
 import { RHYTHM_MAX, levelBonuses, playerMagicVsNpc } from '../game/combat.js';
+import { CHI, chiStacks } from '../game/monk.js';
 import { classPassives, CLASS_SKILL } from '../data/classPassives.js';
 import { ELEMENTS, SPELLS, getSpell } from '../data/magic.js';
 import { buildBlessingsPanel, renderBlessingsPanel, renderFaithOrb } from './blessingsui.js';
@@ -315,6 +316,7 @@ export class UI {
     // redraw; _soon redraws it once on the next frame (the Skills list at most
     // ~3 times a second), instead of rebuilding it for every single hit.
     this.bus.on('rhythm', () => { if (this.game.combatMode() === 'dance') this._soon('combat', () => this.renderCombatPanel(), 150); });
+    this.bus.on('chi', () => this._soon('combat', () => this.renderCombatPanel(), 150));   // a Monk's Chi
     this.bus.on('skills', () => { this._soon('skills', () => this.renderSkills()); this._soon('combat', () => this.renderCombatPanel()); });
     this.bus.on('xp', (p) => { this._soon('skills', () => this.renderSkills(), 350); this.showXpDrop(p); });
     this.bus.on('learning', () => this._soon('skills', () => this.renderSkills()));   // Codex button shows Wisdom and cards
@@ -347,7 +349,7 @@ export class UI {
     this.bus.on('achievement', () => this._soon('achievements', () => this.renderAchievementPanel()));
     // The Stats tab: anything that changes a final stat redraws it (a few times a second at most),
     // and the tick keeps its potion and buff timers counting down.
-    for (const ev of ['equipment', 'skills', 'stats', 'potions', 'prayer', 'ability', 'karma', 'slayer', 'spell', 'xpbonus', 'hp', 'tick', 'rhythm', 'culling']) {
+    for (const ev of ['equipment', 'skills', 'stats', 'potions', 'prayer', 'ability', 'karma', 'slayer', 'spell', 'xpbonus', 'hp', 'tick', 'rhythm', 'chi', 'culling']) {
       this.bus.on(ev, () => this._soon('statsTab', () => this.renderStatsPanel(), 300));
     }
     this.bus.on('slayer', () => { this._refreshModalIfOpen(['slayer', 'slayerRewards']); this._trackerSoon(); });
@@ -1288,11 +1290,15 @@ export class UI {
     if (item.heal) opts.push({ label: 'Eat', target: item.name, fn: () => this.game.eatItem(i) });
     if (item.potion) opts.push({ label: 'Drink', target: item.name, fn: () => this.game.drinkPotion(i) });
     if (item.equip) {
-      const dual = canDualPair(s.id, this.game.equipment.get('weapon'));
+      const main = this.game.equipment.get('weapon'), dual = canDualPair(s.id, main);
       if (dual) {
-        // Holding a dagger already: choose which hand the new one goes in.
-        opts.push({ label: 'Wield in off-hand', target: item.name, fn: () => this.game.equipOffhand(i) });
-        opts.push({ label: 'Wield in main hand', target: item.name, fn: () => this.game.equipItem(i, { offhand: false }) });
+        // Holding a dagger already: choose which hand the new one goes in. A Monk's
+        // knuckles (its gloves in the off-hand) offer the main hand first.
+        const off = { label: 'Wield in off-hand', target: item.name, fn: () => this.game.equipOffhand(i) };
+        const inMain = { label: 'Wield in main hand', target: item.name, fn: () => this.game.equipItem(i, { offhand: false }) };
+        const shield = this.game.equipment.get('shield');
+        const mixed = canDualPair(main, shield) && weaponTypeOf(main) !== weaponTypeOf(shield);
+        opts.push(...(mixed && weaponTypeOf(s.id) === weaponTypeOf(main) ? [inMain, off] : [off, inMain]));
       } else opts.push({ label: item.equip.slot === 'weapon' ? 'Wield' : 'Wear', target: item.name, fn: () => this.game.equipItem(i) });
       // Straight to its Refine or Enchant window (the runs are there), without the Gear Mastery list on the way.
       if (item.equip.bonuses && !item.tool) {
@@ -2871,7 +2877,8 @@ export class UI {
       note.textContent = `Every hit trains ${skill}, Defence and Hitpoints.`;
       row.appendChild(note);
     }
-    const modeLabel = mode === 'ranged' ? 'Ranged' : mode === 'magic' ? 'Magic' : mode === 'dance' ? `Dancer &middot; Rhythm ${this.game.danceRhythm}/${RHYTHM_MAX}` : 'Melee';
+    const modeLabel = mode === 'ranged' ? 'Ranged' : mode === 'magic' ? 'Magic' : mode === 'dance' ? `Dancer &middot; Rhythm ${this.game.danceRhythm}/${RHYTHM_MAX}`
+      : this.game.jobClass === 'monk' ? `Monk &middot; Chi ${chiStacks(this.game)}/${CHI.max}` : 'Melee';
     const cls = CLASS_BY_ID[this.game.jobClass];
     const clsLabel = cls ? `<div class="cb-class">Class: <b>${cls.name}</b> &middot; ${WEAPON_TYPE_NAMES[cls.weapon]} <button class="cb-perks" type="button">Skills &amp; perks</button></div>`
       + `<div class="cb-perkline">${classPerkSummary(cls.id)}</div>` : '';

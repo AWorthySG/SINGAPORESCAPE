@@ -5,7 +5,10 @@ import { drawAnimBody, drawSwingArm, drawEmptyArm, hasSwingArt, swingPhase, offA
 // Painted hero rigs use separate limbs. Keep loading and animation
 // here so the shared sprite library only needs one optional drawing hook.
 export const HERO_RIG_PARTS = ['body', 'sword', 'back', 'left', 'right', 'strike'];
-export const HERO_RIG_CLASSES = ['swordsman', 'rogue', 'samurai', 'corsair', 'paladin', 'knight', 'berserker', 'juggernaut', 'gladiator', 'lancer', 'brawler', 'halberdier', 'dancer', 'merchant', 'ninja'];
+export const HERO_RIG_CLASSES = ['swordsman', 'rogue', 'samurai', 'corsair', 'paladin', 'knight', 'berserker', 'juggernaut', 'gladiator', 'lancer', 'brawler', 'halberdier', 'dancer', 'merchant', 'ninja', 'monk'];
+// Rigs drawn on another class's layout: the Monk's parts are the Brawler's (a
+// punch from each hand) until its own six-part sheet arrives.
+const LAYOUT = { monk: 'brawler' };
 // Heavier weapons commit later; spears extend forward and whips sweep wider.
 const ATTACKS = {
   corsair: { wind: 0.2, hit: 0.43, angle: 0.35, swing: 1.4, reach: 3 },
@@ -33,7 +36,7 @@ const GRIP = {
 };
 // Where the weapon arm's shoulder is (the painted attack arms hang from it),
 // and the off hand's for the dual wielders' second set.
-const SHOULDER = { rogue: [15, -8], brawler: [14, -9] };
+const SHOULDER = { rogue: [15, -8], brawler: [14, -9], monk: [14, -9] };
 const OFF_SHOULDER = { corsair: [-9, -10], rogue: [-11, -9] };
 const images = new Map();
 // Limb angles and reach ease across a restarted swing (see poseBlend.js).
@@ -65,6 +68,7 @@ export function swordsmanPose(gait = {}, time = 0, swing = -1) {
 // Rogue follows through with the off hand only when two daggers are equipped.
 // These timings are visual; combat still owns damage and attack speed.
 export function heroRigPose(classId, gait, time, swing = -1, dualWield = false) {
+  classId = LAYOUT[classId] || classId;
   const pose = swordsmanPose(gait, time, swing);
   if (classId === 'swordsman') return pose;
   const smooth = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
@@ -166,7 +170,7 @@ export function drawHeroRig(ctx, opts = {}) {
   const drawIf = (part, x, y, w, h, angle, px, py, opacity) => { if (opacity > 0.001) draw(part, x, y, w, h, angle, px, py, opacity); };
   // Boots tuck behind the tunic; their planted edges stay on the ground.
   const rogue = classId === 'rogue', samurai = classId === 'samurai';
-  const brawler = classId === 'brawler', dancer = classId === 'dancer';
+  const brawler = (LAYOUT[classId] || classId) === 'brawler', dancer = classId === 'dancer';
   const shield = classId === 'paladin' || classId === 'knight';
   const polearm = classId === 'lancer' || classId === 'halberdier';
   const broad = classId === 'berserker' || classId === 'juggernaut' || classId === 'gladiator';

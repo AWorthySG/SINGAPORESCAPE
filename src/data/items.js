@@ -918,6 +918,21 @@ for (const M of _METALS) {
     equip: { slot: 'shield', style: 'ranged', req: { ranged: r }, bonuses: { ranged: R(3 * m), atkPct: 2 * (1 + Math.floor(r / 60)), haste: 1 + Math.floor(r / 100) } } });
 }
 
+// ---- The Monk's fist weapons, one per metal tier ----
+// Monk knuckles (the Monk's own type): quick jabs that crit. Monk gloves (its second
+// type): heavier, slower palm strikes that get past armour and guard a little. They
+// pair as one dual-wield kind (equipment.js dualType): knuckles punch from the main
+// hand, gloves palm-strike from the off-hand. ("Monk gloves", as scout and mage
+// gloves are already hand armour.)
+for (const M of _METALS) {
+  const add = (id, def) => { if (!RAW[id]) RAW[id] = def; };
+  const { k, n, m, v } = M, r = M.ra, tag = n.toLowerCase(), R = Math.round;
+  add(`${k}_knuckles`, { name: `${n} monk knuckles`, icon: '👊', value: R(30 * v), examine: `${n}-plated monk knuckles: quick jabs that find the weak spot. Wear monk gloves on the other hand.`,
+    equip: { slot: 'weapon', req: { attack: r }, bonuses: { attack: R(6 * m), strength: R(5 * m), speed: 4, crit: 4 }, range: MELEE_REACH } });
+  add(`${k}_monk_gloves`, { name: `${n} monk gloves`, icon: '🧤', value: R(32 * v), examine: `Wrapped monk gloves with ${tag} studs: heavy palm strikes that get past armour.`,
+    equip: { slot: 'weapon', req: { attack: r }, bonuses: { attack: R(6 * m), strength: R(9 * m), defence: R(2 * m), speed: 4 }, range: MELEE_REACH } });
+}
+
 // A first hide body for archers (the studded body needs Ranged 20).
 RAW.hide_vest = { name: 'Hide vest', icon: '🦺', value: 30, examine: 'A soft hide vest that leaves the arms free to draw a bow.',
   equip: { slot: 'body', req: { ranged: 1 }, bonuses: { ranged: 4, defence: 3 } } };
@@ -1014,14 +1029,15 @@ for (const [id, it] of Object.entries(RAW)) {
 // ---- Weapon types (one per job class) ----
 // Every weapon belongs to exactly one type; a job class can only wield its own.
 export const WEAPON_TYPES = ['dagger', 'sword', 'scimitar', 'mace', 'longsword', 'battleaxe', 'warhammer', '2h_sword', 'spear', 'claws', 'katana', 'halberd',
-  'shortbow', 'longbow', 'staff', 'wand', 'whip', 'pistol', 'shuriken', 'cane', 'rifle'];
+  'shortbow', 'longbow', 'staff', 'wand', 'whip', 'pistol', 'shuriken', 'cane', 'rifle',
+  'knuckles'];   // (newer classes' types go on the end: MELEE_FAMILIES takes the first 12)
 const UNIQUE_TYPE = { tiger_kris: 'dagger', merlion_blade: 'sword', cursed_cutlass: 'scimitar', seraph_blade: 'longsword', megalodon_jaw: 'battleaxe',
   granite_maul: 'warhammer', void_blade: 'katana', leviathan_trident: 'spear', tiger_fang: 'claws' };
 // Secondary weapon types: no class of their own; each class wields one (SECONDARY_WEAPON in classes.js).
-export const SECONDARY_WEAPON_TYPES = ['parang', 'kerambit', 'toya', 'crossbow', 'chakram', 'orb', 'fan'];
+export const SECONDARY_WEAPON_TYPES = ['parang', 'kerambit', 'toya', 'crossbow', 'chakram', 'orb', 'fan', 'monk_gloves'];
 // Each type once, though a type may be one class's own and another's second (a Set keeps the order).
 export const ALL_WEAPON_TYPES = [...new Set([...WEAPON_TYPES, ...SECONDARY_WEAPON_TYPES])];
-const MELEE_FAMILIES = [...WEAPON_TYPES.slice(0, 12), 'parang', 'kerambit', 'toya'].sort((a, b) => b.length - a.length);   // '2h_sword' before 'sword'
+const MELEE_FAMILIES = [...WEAPON_TYPES.slice(0, 12), 'parang', 'kerambit', 'toya', 'knuckles', 'monk_gloves'].sort((a, b) => b.length - a.length);   // '2h_sword' before 'sword'
 function classifyWeapon(id, eq) {
   if (UNIQUE_TYPE[id]) return UNIQUE_TYPE[id];
   if (eq.combatType === 'dance') return /_fan$/.test(id) ? 'fan' : 'whip';
@@ -1072,6 +1088,7 @@ const WEAPON_STAT = {
   '2h_sword': 'bossDmg', halberd: 'bossDmg', battleaxe: 'atkPct', staff: 'magPct', wand: 'magPct', sword: 'atkPct',
   scimitar: 'lifesteal', whip: 'lifesteal', cane: 'lifesteal',
   parang: 'bossDmg', kerambit: 'critDmg', toya: 'pierce', crossbow: 'pierce', chakram: 'atkPct', orb: 'bossDmg', fan: 'critDmg',
+  knuckles: 'critDmg', monk_gloves: 'pierce',
 };
 // Size of one "step" of each stat (critDmg and bossDmg run bigger numbers).
 const STAT_STEP = { critDmg: 3, bossDmg: 2, pierce: 1, haste: 1, lifesteal: 1, atkPct: 2, magPct: 2 };

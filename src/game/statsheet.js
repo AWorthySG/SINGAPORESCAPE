@@ -25,6 +25,7 @@ import { rivals } from './blessings.js';
 import { CLASS_BY_ID } from '../data/classes.js';
 import { classPassiveMods, CLASS_SKILL } from '../data/classPassives.js';
 import { masteryDamage, stewardship, masterySummary, titleText, MASTERY_TIERS } from './culling.js';
+import * as Monk from './monk.js';
 
 // The same set as game.js (not exported there): the Holy path smites these races.
 const UNHOLY_RACES = new Set(['undead', 'spirit', 'demon']);
@@ -128,6 +129,7 @@ export function damageMult(game, mode = game.combatMode(), { npc = null, boss = 
   if (npc && game.onSlayerTask(npc)) mul(1 + game.slayerBonus().dmg / 100, 'Slayer task');
   if (npc) { const cm = masteryDamage(game, npc); mul(1 + cm.species, 'Codex mastery (species)'); mul(1 + cm.race, 'Codex mastery (race)'); }
   if (npc?.openWounds) mul(1 + openWoundStacks(npc, game.tickCount) * OPEN_WOUNDS.per, 'Open wounds (Brawler)');
+  mul(Monk.chiPower(game), `Chi ${Monk.chiStacks(game)}/${Monk.CHI.max} (Monk)`);
   return { m, parts };
 }
 
@@ -324,10 +326,11 @@ export function statSheet(game) {
   }
   {
     const dance = mode === 'dance' ? danceEvade(sk.agility, game.player.danceStyle) : 0;
-    const pd = defPerks.get('dodge'), buff = game.buffMod('dodge');
-    const tot = 1 - (1 - dance) * (1 - (pd.total + buff));
+    const pd = defPerks.get('dodge'), buff = game.buffMod('dodge'), monk = Monk.dodge(game);
+    const tot = 1 - (1 - dance) * (1 - (pd.total + buff + monk));
     if (tot > 0) defence.push(row('dodge', 'Dodge chance %', fracPct(tot, false),
-      [...(dance ? [["Dancer's evasion (Agility)", fracPct(dance)]] : []), ...perkLines(pd), ...(buff ? [['Class buff', fracPct(buff)]] : [])],
+      [...(dance ? [["Dancer's evasion (Agility)", fracPct(dance)]] : []), ...perkLines(pd), ...(buff ? [['Class buff', fracPct(buff)]] : []),
+        ...(monk ? [['Light on your feet (Monk)', fracPct(monk)]] : [])],
       'Halved against heavy, telegraphed blows.'));
   }
   {

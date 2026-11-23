@@ -37,6 +37,7 @@ export const CLASS_ADRENALINE = {
   lancer: { hit: 1, hurt: 3 }, brawler: { crit: 5 }, samurai: { crit: 6 }, halberdier: { hit: 1, hurt: 4 },
   merchant: { hit: 2 }, archer: { hit: 2 }, ranger: { hit: 1, crit: 5 }, pistoler: { hit: 2 }, sniper: { hit: 8 },
   ninja: { hit: 1, crit: 4 }, wizard: { hit: 3 }, sorcerer: { hit: 2, kill: 8 }, dancer: { hit: 2 },
+  monk: { hit: 2 },
 };
 
 // Active combat abilities, fuelled by adrenaline (see above). Each has an
@@ -204,6 +205,11 @@ const CLASS_ABILITIES = [
   { ...BF, id: 'hold_the_line', cls: 'halberdier', mode: 'melee', name: 'Hold the Line', icon: '🚩', buff: { reduce: 0.3, dmg: 0.25, thorns: 0.3 }, strike: { dmgMul: 1.4, guaranteed: true, cleave: 2, stun: 1 }, desc: 'Sweep the front rank back (~1.4x, cleaving, stuns) and stand firm: take 30% less damage, deal 25% more and strike back 30% of every blow for 9s.' },
   { ...C, id: 'stand_firm', cls: 'halberdier', mode: 'melee', name: 'Stand Firm', icon: '⚓', cd: 11, kind: 'guard', guardTicks: 5, build: 5, counter: 0.3, desc: 'Brace the halberd: halve damage for 5 ticks and strike back 30% of every blow.' },
   { ...B, id: 'iron_tempest', cls: 'halberdier', mode: 'melee', name: 'Iron Tempest', icon: '🌪️', hits: 3, dmgMul: 1.15, guaranteed: true, cleave: 2, stun: 1, desc: 'Ultimate: three heavy sweeps (~1.15x each), cleaving twice as hard, that leave the foe reeling.' },
+  // Monk: monk knuckles and gloves. Every blow builds Chi (monk.js); these stir it too.
+  { ...Z, id: 'twin_fists', cls: 'monk', mode: 'melee', name: 'Twin Fists', icon: '👊', build: 10, hits: 2, dmgMul: 0.7, chi: 1, desc: 'A quick one-two (~0.7x each) that stirs your Chi.' },
+  { ...BF, id: 'inner_focus', cls: 'monk', mode: 'melee', name: 'Inner Focus', icon: '🧘', chi: 10, buff: { haste: 50, dmg: 0.2 }, strike: { dmgMul: 1.5, guaranteed: true }, desc: 'Drive a palm home (~1.5x) and let your Chi overflow (a small heal) at once, then +50% attack speed and +20% damage for 9s.' },
+  { ...C, id: 'deflecting_palms', cls: 'monk', mode: 'melee', name: 'Deflecting Palms', icon: '🖐️', cd: 9, kind: 'guard', guardTicks: 4, build: 8, counter: 0.4, chi: 2, desc: 'Turn blows aside with open palms: halve damage for 4 ticks, strike back 40% of every blow and gain 2 Chi.' },
+  { ...B, id: 'hundred_fists', cls: 'monk', mode: 'melee', name: 'Hundred Fists', icon: '🤜', hits: 7, dmgMul: 0.52, guaranteed: true, stun: 2, chi: 10, desc: 'Ultimate: a blur of fists, seven heavy blows (~0.52x each) that leave the foe reeling, and your Chi overflows.' },
   // Merchant: canes and A-Worthlings. Pays for skills in coins, not adrenaline.
   { ...Z, id: 'golden_cane', cls: 'merchant', mode: 'ranged', name: 'Gold Rush', icon: '🪙', hits: 2, dmgMul: 0.75, lifesteal: 0.1, desc: 'Fling two fistfuls of gold at once (~0.75x each), healing a tenth of the damage.' },
   { ...BF, id: 'hire_bodyguards', cls: 'merchant', mode: 'ranged', name: 'Hire Bodyguards', icon: '🤝', summon: 2, buff: { dmg: 0.2 }, strike: { hits: 2, dmgMul: 0.8 }, desc: 'A signing bonus of coins in their face (two ~0.8x throws) at once, two A-Worthlings called in and +20% damage for 9s.' },

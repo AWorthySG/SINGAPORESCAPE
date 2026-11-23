@@ -22,7 +22,7 @@ import {
 import { World } from './world.js';
 import { Skills, xpText } from './skillset.js';
 import { Inventory } from './inventory.js';
-import { Equipment, canDualWield, canDualPair, EQUIP_SLOTS, isTwoHanded, offhandBlocked, takesQuiver } from './equipment.js';
+import { Equipment, canDualWield, canDualPair, EQUIP_SLOTS, isTwoHanded, offhandBlocked, takesQuiver, starterOffhand } from './equipment.js';
 import { Bank } from './bank.js';
 import { Player, STICK_DEAD } from './player.js';
 import { NPC } from './npc.js';
@@ -43,7 +43,7 @@ import { ABILITY_BY_ID, abilitiesFor, ADREN_PER_HIT, ADREN_PER_HURT, CLASS_ADREN
 import { classPassiveMods, CLASS_SKILL } from '../data/classPassives.js';
 import { RACES, raceOf, matchup, RACE_BONUS, RACE_PENALTY } from '../data/races.js';
 import { DOT_KINDS } from '../data/bossAbilities.js';
-import { CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, equivalentWeapon, CLEAVE_SHARE, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWear, equivalentArmour, classGearFor, canWield, classesForType, SECONDARY_WEAPON, shieldBarred, noShieldMsg } from '../data/classes.js';
+import { CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, equivalentWeapon, CLEAVE_SHARE, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWear, equivalentArmour, classGearFor, canWield, classesForType, SECONDARY_WEAPON, shieldBarred, noShieldMsg, weaponTypeOf } from '../data/classes.js';
 import { STYLE_TRACKS, sumPerks, perkAtLevel, rankName, PERK_SKILLS, PERK_CAPS } from '../data/perks.js';
 import { getSpell, SPELLS, ELEMENTS, AOE_RADIUS, elementMatchup, elementMult } from '../data/magic.js';
 import { xpForLevel, pastCapXpMult } from '../data/xp.js';
@@ -77,6 +77,7 @@ import { Collection } from './collection.js';
 import { Pets } from './pets.js';
 import { WorldEvents } from './worldevents.js';
 import * as Mercs from './mercenary.js';
+import * as Monk from './monk.js';   // the Monk's Chi and light feet
 import * as Culling from './culling.js';
 import { classPerks } from './classperks.js';
 import { LIFE_PERKS, LIFE_PERK_SKILLS, LIFE_PERK_TOP_LEVEL, lifePerkNoteAt, lifePerkTotals, lifePerkText } from './lifeperks.js';
@@ -333,7 +334,7 @@ export const CLEAVE_STYLE = {
   spear: 'pierce',
   battleaxe: 'sweep', '2h_sword': 'sweep', halberd: 'sweep', parang: 'sweep', longsword: 'sweep',
   mace: 'slam', warhammer: 'slam', toya: 'slam', cane: 'slam',
-  dagger: 'flurry', claws: 'flurry', scimitar: 'flurry', kerambit: 'flurry',
+  dagger: 'flurry', claws: 'flurry', scimitar: 'flurry', kerambit: 'flurry', knuckles: 'flurry', monk_gloves: 'slam',
   sword: 'arc', katana: 'arc',
 };
 // Two-handed swords' great upward sweep reaches further than other cleaves:
@@ -602,6 +603,7 @@ export class Game {
     this.stackBuffs = {};         // stacking class buffs (the Ranger's skills): ability id -> { ...buff, until }
     this.braceTicks = 0;          // ticks of halved incoming damage left
     this.danceRhythm = 0;         // Dancer Rhythm stacks (more whip damage per landed lash)
+    this.chi = 0;                 // a Monk's Chi (monk.js): more damage per stack, a heal when it overflows
     this.playerDot = null;        // boss damage-over-time on the player: { kind, dmg, ticks, from }
     this.playerRoot = 0;          // ticks the player can't move (webs, roots, coils)
     this._buffedBosses = new Set(); // bosses with a reflect running
@@ -802,9 +804,9 @@ export class Game {
       this.skills.xp.magic = Math.max(this.skills.xp.magic, xpForLevel(15));
     } else {
       this.equipment.set('weapon', starter);
-      // Rogues and Corsairs start dual wielding; one-handed melee classes get a shield.
-      // (Two-handed weapons leave no hand free for a shield.)
-      if (canDualWield(starter)) this.equipment.set('shield', starter);
+      // Rogues and Corsairs start dual wielding (a Monk with monk gloves on the other hand);
+      // one-handed melee classes get a shield. (Two-handed weapons leave no hand free for a shield.)
+      if (canDualWield(starter)) this.equipment.set('shield', starterOffhand(classId));
       else if (!isTwoHanded(starter)) this.equipment.set('shield', 'wooden_shield');
       // Heavy melee starts in chainmail, agile melee in leather (each class has its own armour).
       this.equipment.set('body', ARMOUR_FAMILY[classId] === 'plate' ? 'bronze_chainbody' : 'leather_body');
@@ -1227,6 +1229,7 @@ export class Game {
     this._tickKnowledgeStrike();
     // Rhythm fades if the Dancer stops lashing for a few ticks.
     if (this.danceRhythm > 0 && this.tickCount - this._danceHitTick > 4) { this.danceRhythm = 0; this.bus.emit('rhythm'); }
+    Monk.tickChi(this);   // ...and so does a Monk's Chi
     if (!this.player.alive) {
       if (--this.player.respawnTimer <= 0) this.respawnPlayer();
     } else {
@@ -2363,9 +2366,10 @@ export class Game {
     this.addHitsplat(p, cost, { tint: '#ff7a3a' });
     this.bus.emit('hp');
   }
-  /** What using a skill gives besides its effect: adrenaline (`build`) and Faith (`faith`). */
+  /** What using a skill gives besides its effect: adrenaline (`build`), a Monk's Chi (`chi`) and Faith (`faith`). */
   _abilityGains(ab) {
     if (ab.build) this._gainAdrenaline(ab.build);
+    if (ab.chi) Monk.gainChi(this, ab.chi);
     if (ab.faith) Bless.gainFaith(this, ab.faith);   // a full bar fires the Prayer Burst by itself
   }
 
@@ -2437,6 +2441,7 @@ export class Game {
     dmgM *= Culling.masteryDamage(this, npc).mult;   // codex mastery of its species and race
     dmgM *= Mercs.merchantPower(this);   // the strongest class (see mercenary.js)
     dmgM *= 1 + openWoundStacks(npc, this.tickCount) * OPEN_WOUNDS.per;   // a Brawler's Open Wounds on the foe
+    dmgM *= Monk.chiPower(this);   // a Monk's Chi (both hands)
     dmgM *= 1 + hexStacks(npc, this.tickCount) * ELEMENTS.dark.hex.per / 100;   // Dark's Hex on the foe (every style)
     if (npc.sunderUntil > this.tickCount) dmgM *= 1 + (npc.sunder || 0) * bossBreakMult(npc.def);   // armour broken by a skill
     // A boss's armour type: blunt weapons crack plate, wards soak spells, light blows glance off a thick hide.
@@ -2624,6 +2629,7 @@ export class Game {
       npc.openWounds = n; npc.openWoundsAt = this.tickCount;   // any blow keeps the wounds open
       if (n % 10 === 0 && npc._openWoundsSaid !== n) { npc._openWoundsSaid = n; this.addHitsplat(npc, 0, { text: `Open wounds ×${n}` }); }
     }
+    if (dmg > 0 && !opts.aoe) Monk.onHit(this);   // a Monk's blows build Chi (monk.js)
     // A stunning class ability: the foe reels once the blow lands.
     if (this._abStun && dmg > 0) {
       const t = this._abStun; this._abStun = 0;
@@ -3569,7 +3575,7 @@ export class Game {
       return;
     }
     const perk = this.perkMods();
-    const dodge = (perk.dodge || 0) + this.buffMod('dodge');   // perks and a dodging class buff
+    const dodge = (perk.dodge || 0) + this.buffMod('dodge') + Monk.dodge(this);   // perks, a dodging class buff and a Monk's light feet
     if (dodge && Math.random() < dodge * (heavy ? 0.5 : 1)) {   // Evasion / Graceful perks
       this.addHitsplat(p, 0, { text: 'Dodged!' });
       this._dodgeXp(npc);
@@ -6344,6 +6350,15 @@ export class Game {
   /** Wield a dagger in the off-hand (where a shield would go) for dual wielding. */
   equipOffhand(index) { return this.equipItem(index, { offhand: true }); }
 
+  /** Does `id` go in the off-hand when no hand is asked for? A weapon that pairs with
+   *  the one in hand fills an off-hand not yet holding its pair; a different type of the
+   *  same kind always goes on the other hand (a Monk's monk gloves beside its knuckles),
+   *  while one of the type in hand replaces the main hand's. */
+  goesOffhand(id) {
+    const main = this.equipment.get('weapon');
+    return canDualPair(id, main) && (!canDualPair(main, this.equipment.get('shield')) || weaponTypeOf(id) !== weaponTypeOf(main));
+  }
+
   equipItem(index, opts = {}) {
     const s = this.inventory.slotAt(index);
     if (!s) return;
@@ -6371,11 +6386,10 @@ export class Game {
       return;
     }
     // A dagger goes in the off-hand when asked, or by default when you already
-    // hold a dagger and your off-hand isn't one yet.
+    // hold a dagger and your off-hand isn't one yet (see goesOffhand).
     const main = this.equipment.get('weapon');
-    const offhand = canDualPair(s.id, main)
-      && (opts.offhand ?? !canDualPair(main, this.equipment.get('shield')));
-    if (opts.offhand && !offhand) { this.msg('Only a second weapon of the same dual-wield kind (daggers, scimitars, kerambits, pistols or shurikens) can go in your off-hand.'); return; }
+    const offhand = canDualPair(s.id, main) && (opts.offhand ?? this.goesOffhand(s.id));
+    if (opts.offhand && !offhand) { this.msg('Only a second weapon of the same dual-wield kind (daggers, scimitars, kerambits, pistols, shurikens, or monk knuckles and gloves) can go in your off-hand.'); return; }
     const slot = offhand ? 'shield' : eq.slot;
     if (slot === 'shield' && offhandBlocked(main, s.id)) {
       this.msg(takesQuiver(main) ? `Your ${getItem(main).name.toLowerCase()} needs both hands: only a quiver can go with it.`

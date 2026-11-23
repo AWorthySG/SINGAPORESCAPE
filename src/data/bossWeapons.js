@@ -12,19 +12,20 @@
 /** Chance that a boss drops its signature weapon on each kill (1 in 5; was 1 in 10). */
 export const SIGNATURE_DROP_CHANCE = 0.2;
 
-// The job classes: id, name and main weapon type (as in CLASSES in classes.js).
+// The job classes: id, name and main weapon type (as in CLASSES in classes.js;
+// the ones added after the deal are in LATE_CLASSES below).
 export const SIG_CLASSES = [
   ['rogue', 'Rogue', 'dagger'], ['swordsman', 'Swordsman', 'sword'], ['corsair', 'Corsair', 'scimitar'], ['paladin', 'Paladin', 'mace'],
   ['knight', 'Knight', 'longsword'], ['berserker', 'Berserker', 'battleaxe'], ['juggernaut', 'Juggernaut', 'warhammer'],
   ['gladiator', 'Gladiator', '2h_sword'], ['lancer', 'Lancer', 'spear'], ['brawler', 'Brawler', 'claws'], ['samurai', 'Samurai', 'katana'],
-  ['halberdier', 'Halberdier', 'halberd'], ['merchant', 'Merchant', 'cane'], ['archer', 'Archer', 'shortbow'], ['ranger', 'Ranger', 'longbow'],
+  ['halberdier', 'Halberdier', 'halberd'], ['monk', 'Monk', 'knuckles'], ['merchant', 'Merchant', 'cane'], ['archer', 'Archer', 'shortbow'], ['ranger', 'Ranger', 'longbow'],
   ['pistoler', 'Pistoler', 'pistol'], ['sniper', 'Sniper', 'rifle'], ['ninja', 'Ninja', 'shuriken'], ['wizard', 'Wizard', 'staff'],
   ['sorcerer', 'Sorcerer', 'wand'], ['dancer', 'Dancer', 'whip'],
 ];
 
 // Every boss: id, its loot-tier level (`tierLevel` in npcs.js), a short name for
 // the weapon and its full name. Listed strongest first, the order the classes
-// are dealt in, so every class gets one from the 21 strongest bosses (57 bosses
+// are dealt in, so every dealt class gets one from the 21 strongest bosses (57 bosses
 // over 21 classes leaves six classes with two, and they miss out at the weak end).
 // Add new bosses at the END of the list, so the bosses already here keep their
 // classes.
@@ -100,7 +101,7 @@ function hash(s) {
 // stay out of the shuffle, which leaves the first 21 in their order and every
 // boss with its class; they get extra drops of their own instead (LATE_SIGS).
 const SIG_SEED = 20261114;
-export const LATE_CLASSES = [];
+export const LATE_CLASSES = ['monk'];
 const DEAL_ORDER = (() => {
   const order = SIG_CLASSES.map((c) => c[0]).filter((id) => !LATE_CLASSES.includes(id)), rand = seeded(SIG_SEED);
   for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
@@ -129,7 +130,9 @@ export const ASCENDED = (() => {
 // eternal tier (so it is ascended, stronger than eternal) and two from earlier
 // bosses. Append only: never move or remove one (players own them).
 // [{ boss, classId, id }], like ASCENDED.
-export const LATE_SIGS = [].map(([classId, boss]) => ({ boss, classId, id: `sig_${boss}_${classId}` }));
+export const LATE_SIGS = [
+  ['monk', 'spirit_of_badang'], ['monk', 'harimau_jadian'], ['monk', 'macaque_alpha'],   // 380 the strongman, 210 the were-tiger, 45 the monkey style
+].map(([classId, boss]) => ({ boss, classId, id: `sig_${boss}_${classId}` }));
 /** Every signature weapon a boss drops: [{ id, classId }], its own first, then any ascended and late ones. */
 export function sigDropsFor(bossId) {
   if (!SIGNATURE_CLASS[bossId]) return [];
@@ -144,6 +147,7 @@ const NOUNS = {
   spear: ['Lance', 'Pike'], claws: ['Claws', 'Talons'], katana: ['Katana', 'Moonblade'], halberd: ['Halberd', 'Glaive'],
   cane: ['Cane', 'Gilded Cane'], shortbow: ['Shortbow', 'Stingbow'], longbow: ['Longbow', 'Warbow'], pistol: ['Pistol', 'Flintlock'],
   rifle: ['Longgun', 'Rifle'], shuriken: ['Stars', 'Shuriken'], staff: ['Staff', 'Stave'], wand: ['Wand', 'Rod'], whip: ['Lash', 'Whip'],
+  knuckles: ['Knuckles', 'Fists'],
 };
 // How much stronger than the plain weapon of its tier: its fighting bonuses x1.3.
 export const SIGNATURE_MULT = 1.3;

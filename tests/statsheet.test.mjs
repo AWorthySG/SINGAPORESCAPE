@@ -93,6 +93,19 @@ test('stat sheet: dual wielding shows the off-hand blow the attack makes', () =>
   assert.ok(statSheet(g).sections[0].rows.some((r) => r.id === 'offhand' && r.text === String(maxHitNow(g).off)));
 });
 
+test('stat sheet: a Monk\'s punch and palm strike, Chi included, match real blows', () => {
+  const g = newGame(null, 'monk');
+  assert.equal(g.equipment.get('shield'), 'bronze_monk_gloves', 'monk gloves in the off-hand');
+  buffUp(g);
+  const npc = dummy(g);
+  g.chi = 6; g.chiAt = g.tickCount;   // some Chi built up
+  const want = maxHitNow(g, { npc });
+  assert.ok(want.parts.some(([label]) => /^Chi 6\/10/.test(label)), 'the sheet counts the Chi');
+  const { landed } = attackOnce(g, npc);
+  assert.deepEqual(landed, [want.max, want.off], 'the punch, then the palm strike');
+  assert.ok(statSheet(g).sections[1].rows.some((r) => r.id === 'dodge'), 'a Monk sees its dodge chance');
+});
+
 test('stat sheet: Dancer whip max hit matches a real lash', () => {
   const g = newGame(null, 'dancer');
   assert.equal(g.combatMode(), 'dance');

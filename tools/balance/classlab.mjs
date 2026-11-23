@@ -9,7 +9,8 @@
 //    stat points spent with spendAllStats();
 //  - per slot, the best piece the class can wear at L by the game's own
 //    Equip-best score (offenceFirstScore), weapon of the class's main type; boss
-//    uniques and signature weapons left out; dual wielders hold two of the weapon;
+//    uniques and signature weapons left out; dual wielders hold two of the weapon
+//    (a Monk its best monk gloves in the off-hand, as Equip best would);
 //  - plenty of matching arrows and of every rune, and (Merchant) a billion coins;
 //  - XP gain frozen, so a long fight doesn't level the character up mid-run.
 // The fight is driven the way auto battle drives one (abilities, Merchant hires,
@@ -20,9 +21,9 @@ import { clearSave } from '../../src/game/save.js';
 import { NPC } from '../../src/game/npc.js';
 import { ITEMS, getItem } from '../../src/data/items.js';
 import { getNpc, ALL_MONSTER_IDS } from '../../src/data/npcs.js';
-import { CLASSES, CLASS_BY_ID } from '../../src/data/classes.js';
-import { offenceFirstScore } from '../../src/game/gear.js';
-import { EQUIP_SLOTS, canDualWield, isTwoHanded, takesQuiver, isQuiver } from '../../src/game/equipment.js';
+import { CLASSES, CLASS_BY_ID, SECONDARY_WEAPON } from '../../src/data/classes.js';
+import { offenceFirstScore, swingBeats } from '../../src/game/gear.js';
+import { EQUIP_SLOTS, canDualWield, canDualPair, isTwoHanded, takesQuiver, isQuiver } from '../../src/game/equipment.js';
 import { xpForLevel } from '../../src/data/xp.js';
 import { SPELLS } from '../../src/data/magic.js';
 import * as Mercs from '../../src/game/mercenary.js';
@@ -84,10 +85,11 @@ export function setupClass(cls, L, seed = 20261112) {
   else if (style === 'dance') { sx.ranged = x / 2; sx.agility = x / 2; }
   const eq = g.equipment;
   for (const s of EQUIP_SLOTS) eq.slots[s] = null;
-  const cands = {};
+  const cands = {}, seconds = [];
   for (const [id, it] of Object.entries(ITEMS)) {
     const e = it.equip;
     if (!e || it.tool || isUnique(id) || !g._canEquipNow(id)) continue;
+    if (e.slot === 'weapon' && e.weaponType === SECONDARY_WEAPON[cls]) seconds.push(id);
     if (e.slot === 'weapon' && e.weaponType !== C.weapon) continue;
     (cands[e.slot] ||= []).push(id);
   }
@@ -95,7 +97,10 @@ export function setupClass(cls, L, seed = 20261112) {
   eq.slots.weapon = best('weapon');
   for (const s of EQUIP_SLOTS) if (s !== 'weapon' && s !== 'shield') eq.slots[s] = best(s);
   const w = eq.slots.weapon;
-  if (canDualWield(w)) eq.slots.shield = w;
+  // The off-hand: the best weapon that pairs with the main one, weighed at the main
+  // hand's beat (the beat it strikes on), as Equip best does; a twin of it if none beats it.
+  const offScore = (id) => offenceFirstScore(id, eq, style, 'main', null, swingBeats(w));
+  if (canDualWield(w)) eq.slots.shield = seconds.filter((id) => canDualPair(id, w)).reduce((b, id) => (offScore(id) > offScore(b) ? id : b), w);
   else if (!isTwoHanded(w)) eq.slots.shield = best('shield');
   else if (takesQuiver(w)) eq.slots.shield = (cands.shield || []).filter(isQuiver).sort((a, b) => offenceFirstScore(b, eq, style) - offenceFirstScore(a, eq, style))[0] || null;   // bows take a quiver
   g.inventory.slots = g.inventory.slots.map(() => null);
@@ -147,7 +152,7 @@ function fightTick(g, tgt) {
  *  new Game, which tests/balance.test.mjs relies on; the CLI builds fresh ones.) */
 export function resetFight(g) {
   g.npcs = []; g.effects = []; g.hazards = [];
-  g.buff = null; g.stackBuffs = {}; g.abilityCd = {}; g.adrenaline = 0; g.danceRhythm = 0; g.braceTicks = 0;
+  g.buff = null; g.stackBuffs = {}; g.abilityCd = {}; g.adrenaline = 0; g.danceRhythm = 0; g.braceTicks = 0; g.chi = 0;
   g.killStreak = 0; g.armedAbility = null;
   // The lab measures the classes alone: forget earlier scenarios' kills, so codex
   // mastery (culling.js) earned in a kill-speed run doesn't add to the next

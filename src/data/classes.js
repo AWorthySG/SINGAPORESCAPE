@@ -17,6 +17,8 @@ export const CLASSES = [
   { id: 'brawler', name: 'Brawler', weapon: 'claws', style: 'melee', desc: 'Lightning-fast claws: the quickest swings in the game, and they crit often.' },
   { id: 'samurai', name: 'Samurai', weapon: 'katana', style: 'melee', desc: 'Keen katanas: fast, balanced and deadly.' },
   { id: 'halberdier', name: 'Halberdier', weapon: 'halberd', style: 'melee', desc: 'Slow, devastating halberds with 3-tile reach.' },
+  // Added after the boss signature weapons were dealt (see LATE_CLASSES in bossWeapons.js).
+  { id: 'monk', name: 'Monk', weapon: 'knuckles', style: 'melee', desc: 'Monk knuckles and gloves: a punch and a palm strike every swing, building Chi that hits harder and heals.' },
   { id: 'merchant', name: 'Merchant', weapon: 'cane', style: 'ranged', desc: 'The strongest class, if you can pay for it: throws money, and every attack and skill costs coins. Its coin throws and allies hit about twice as hard as other classes, its coins scatter through crowds, and it hires mercenaries and calls up A-Worthling mirror images.' },
   // Ranged
   { id: 'archer', name: 'Archer', weapon: 'shortbow', style: 'ranged', desc: 'Rapid shortbows: arrow after arrow from afar, each spread also flinging an extra arrow into up to two foes around your target.' },
@@ -46,12 +48,14 @@ export const ARMOUR_FAMILY = {
   rogue: 'leather', corsair: 'leather', brawler: 'leather', samurai: 'leather',
   archer: 'hide', ranger: 'hide', wizard: 'robes', sorcerer: 'robes', dancer: 'dancewear',
   pistoler: 'hide', ninja: 'leather', merchant: 'hide', sniper: 'hide',
+  monk: 'leather',
 };
 // Ninjas throw a shuriken from each hand (the off-hand one goes where a shield
 // would), so no shield-slot piece (shield, buckler, quiver or tome) is for them.
-export const NO_SHIELD_CLASSES = new Set(['ninja']);
+// Nor for Monks: monk knuckles on one hand and monk gloves on the other.
+export const NO_SHIELD_CLASSES = new Set(['ninja', 'monk']);
 export const NO_SHIELD_MSG = 'Ninjas fight with a shuriken in each hand: no shields.';
-const NO_SHIELD_MSGS = {};   // other shieldless classes' own reasons
+const NO_SHIELD_MSGS = { monk: 'Monks fight with knuckles and gloves, one on each hand: no shields.' };   // other shieldless classes' own reasons
 /** Why this class holds no shield (NO_SHIELD_MSG is the Ninja's). */
 export const noShieldMsg = (classId) => NO_SHIELD_MSGS[classId] || NO_SHIELD_MSG;
 /** Is this a shield-slot piece (not an off-hand weapon) this class can't hold? */
@@ -76,10 +80,16 @@ export const SECONDARY_WEAPON = {
   archer: 'crossbow', ranger: 'crossbow', sniper: 'crossbow',
   pistoler: 'chakram', ninja: 'chakram', merchant: 'chakram',
   wizard: 'orb', sorcerer: 'orb', dancer: 'fan',
+  // The Monk's monk gloves are worn on the other hand from its knuckles (one dual-wield
+  // kind, see dualType in equipment.js): a palm strike after every punch.
+  monk: 'monk_gloves',
 };
 /** Can this class wield this weapon type? (Its own type or its secondary; no class = anything.) */
 export function canWield(classId, type) { const c = CLASS_BY_ID[classId]; return !c || !type || c.weapon === type || SECONDARY_WEAPON[classId] === type; }
 export const classesForType = (t) => CLASSES.filter((c) => canWield(c.id, t));
+// The share of a class's weapon drops that are its second type: a quarter, but half
+// for a Monk, which always wears both (its gloves on the other hand).
+const SECOND_SHARE = { monk: 0.5 };
 /** A piece of gear for a class at about a monster's level: its weapon type or
  *  its armour family, the best one that level allows (for boss drops). */
 export function classGearFor(classId, level, rand = Math.random) {
@@ -87,7 +97,7 @@ export function classGearFor(classId, level, rand = Math.random) {
   if (!cls) return null;
   const req = (x) => Math.max(0, ...Object.values(ITEMS[x].equip.req || {}));
   const pickBest = (ids) => ids.filter((x) => req(x) <= level).sort((a, b) => req(b) - req(a))[0] || ids[0];
-  if (rand() < 0.5) { const t = SECONDARY_WEAPON[classId] && rand() < 0.25 ? SECONDARY_WEAPON[classId] : cls.weapon; return pickBest(weaponsOfType(t).filter((w) => !UNIQUES.has(w))); }
+  if (rand() < 0.5) { const t = SECONDARY_WEAPON[classId] && rand() < (SECOND_SHARE[classId] || 0.25) ? SECONDARY_WEAPON[classId] : cls.weapon; return pickBest(weaponsOfType(t).filter((w) => !UNIQUES.has(w))); }
   const slot = ['head', 'body', 'legs', 'hands', 'feet'][Math.floor(rand() * 5)];
   const fam = ARMOUR_FAMILY[classId];
   return pickBest(Object.keys(ITEMS).filter((x) => ITEMS[x].equip?.family === fam && ITEMS[x].equip.slot === slot));
@@ -131,6 +141,7 @@ function findEquivalentArmour(id, family) {
 export const CLEAVE_SHARE = {
   scimitar: 0.25, claws: 0.25, dagger: 0.35, sword: 0.45, mace: 0.45, katana: 0.45, longsword: 0.5, spear: 0.4,
   battleaxe: 0.65, warhammer: 0.6, '2h_sword': 0.7, halberd: 0.65, cane: 0.4, parang: 0.55, kerambit: 0.25, toya: 0.5,
+  knuckles: 0.25, monk_gloves: 0.35,   // the Monk's: quick knuckle jabs sweep little, heavier palm strikes a bit more
 };
 export const CLASS_FOR_WEAPON = Object.fromEntries(CLASSES.map((c) => [c.weapon, c]));
 export const WEAPON_TYPE_NAMES = {
@@ -139,6 +150,7 @@ export const WEAPON_TYPE_NAMES = {
   shortbow: 'shortbows', longbow: 'longbows', staff: 'staves', wand: 'wands', whip: 'whips',
   pistol: 'pistols', shuriken: 'shurikens', cane: 'canes', rifle: 'sniper rifles',
   parang: 'parangs', kerambit: 'kerambits', toya: 'toya staves', crossbow: 'crossbows', chakram: 'chakrams', orb: 'orbs', fan: 'war fans',
+  knuckles: 'monk knuckles', monk_gloves: 'monk gloves',
 };
 
 /** Weapon type of an item (null for non-weapons and tools). */

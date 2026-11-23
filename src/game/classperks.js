@@ -7,6 +7,8 @@ import { getItem } from '../data/items.js';
 import { WEAPON_VS_RACE, RACES, weaponTypeName } from '../data/races.js';
 import { swingBeats } from './gear.js';
 import { canDualWield } from './equipment.js';
+import { CHI, MONK_DODGE } from './monk.js';
+const pct = (f) => Math.round(f * 100);
 
 // One signature line per class: the thing to remember it by.
 const SIGNATURE = {
@@ -30,8 +32,16 @@ const SIGNATURE = {
   sniper: 'Sniper rifles: the furthest reach in the game (32+ tiles) and each round hits about 5.5x as hard and pierces every monster within 1 tile of its path, up to 10 tiles past the target, but fires only every 1.5s. No ammo to buy.',
   pistoler: 'Dual pistols: by far the fastest attacks in the game, each hand firing, and no ammo to buy.',
   ninja: 'A shuriken in each hand: each attack throws both, they ricochet off your target into a second foe nearby (60% damage), and need no ammo. No shields.',
+  monk: 'Monk knuckles punch and monk gloves palm-strike: knuckles in your main hand, gloves in the off-hand, and every swing lands both (the palm at 60% of the gloves\' hit). '
+    + `Each blow builds Chi (one every ${CHI.everyMs / 1000}s, up to ${CHI.max}): +${pct(CHI.per)}% damage per Chi, and at ${CHI.max} it overflows, healing ${pct(CHI.heal)}% of your life. `
+    + `Light on your feet: ${pct(MONK_DODGE)}% of blows miss you (${pct(MONK_DODGE / 2)}% of heavy ones). No shields.`,
   merchant: 'The strongest class in the game, paid for in coins: money talks, so your coin throws and every ally hit about twice as hard as any other class, and your coins scatter into up to 4 foes beside the target (90% each). Throws money: every coin flick from your cane costs coins (1 + 1 per 10 Ranged levels), and your skills cost coins instead of adrenaline. Hire up to 3 mercenaries at a time (Combat tab): each runs at the closest monster for 90 seconds, swings as fast as you, hits for half your damage, and earns you full XP. Every attack has a 25% chance to call up an A-Worthling, a mirror image of you that fights the same way for 25% of your damage and stays for good. Each A-Worthling swing has a 25% chance to split off a smaller one, up to 6 in all. Run out of coins and you can\'t fight, so keep your purse full.',
 };
+
+// The dual-wield line for a class whose off-hand holds its second weapon, not a twin.
+const DUAL_LINE = { monk: 'wear monk gloves on the other hand: a palm strike follows every punch (60% of the gloves\' hit)' };
+// "Every pair of claws": the weapon types that come in pairs.
+const PAIRED = new Set(['claws', 'knuckles']);
 
 // The passive perk tracks each style levels up (a perk every 20 levels).
 const TRACKS = { melee: 'Melee and Defence', ranged: 'Ranged and Defence', magic: 'Magic and Defence', dance: 'Agility and Defence' };
@@ -60,9 +70,9 @@ export function classPerks(classId) {
       ? { icon: '🌀', label: 'Cleave', text: `${Math.round(share * 100)}% of each hit sweeps into up to 3 foes beside your target` }
       : { icon: '🌀', label: 'No cleave', text: 'quick weapons trade cleave for speed' });
   }
-  if (canDualWield(w)) out.push({ icon: '⚔️', label: 'Dual wield', text: `hold a second ${weaponTypeName(type)} in the off-hand for an extra strike` });
+  if (canDualWield(w)) out.push({ icon: '⚔️', label: 'Dual wield', text: DUAL_LINE[classId] || `hold a second ${weaponTypeName(type)} in the off-hand for an extra strike` });
   const sec = SECONDARY_WEAPON[classId]; if (sec) out.push({ icon: '🔁', label: 'Second weapon', text: `can also wield ${WEAPON_TYPE_NAMES[sec]}` });
-  if (eq.bonuses?.crit) out.push({ icon: '💥', label: 'Critical', text: `+${eq.bonuses.crit}% crit chance on every ${weaponTypeName(type)}` });
+  if (eq.bonuses?.crit) out.push({ icon: '💥', label: 'Critical', text: `+${eq.bonuses.crit}% crit chance on every ${PAIRED.has(type) ? 'pair of ' : ''}${weaponTypeName(type)}` });
   const vs = WEAPON_VS_RACE[type];
   if (vs?.strong.length) out.push({ icon: '🎯', label: 'Strong against', text: raceList(vs.strong) });
   const fam = ARMOUR_FAMILIES[ARMOUR_FAMILY[classId]];
