@@ -33,6 +33,8 @@ test('ranking: "smlt" finds Smithing (smelting), "toman" the Toman Tyrant, "bank
   assert.equal(top(g, 'bank').id, 'bank');
   assert.equal(top(g, 'map').id, 'win:map');
   assert.equal(top(g, 'ench').id, 'win:mastery', 'enchanting lives in Gear Mastery');
+  assert.equal(top(g, 'refine').id, 'win:mastery', 'so does refining');
+  assert.equal(top(g, 'improve').id, 'win:improve', 'every safe upgrade on worn gear');
   assert.equal(top(g, 'bless').id, 'win:prayer');
   assert.equal(top(g, 'chinat').kind, 'place');
   assert.equal(top(g, 'mini').id, 'mining');

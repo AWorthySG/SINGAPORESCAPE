@@ -5,6 +5,10 @@
 // headlessly.
 import { whatNext, runGoal, packUpgrades, firstPackUpgrade } from '../game/whatnext.js';
 import { qualityName } from '../game/loot.js';
+import { getItem } from '../data/items.js';
+import { compareGear, isUpgrade } from '../game/gear.js';
+import { planCarry } from '../game/carry.js';
+import { refineTag } from '../game/refine.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 // A timer that never keeps Node (the headless tests) waiting; straight away without timers.
@@ -75,6 +79,23 @@ export function watchGoals(ui) {
 }
 
 // ---------------- "Wear it" when loot beats your gear ----------------
+/** What Equip best just did, for the notice lane (it says so in the chat too,
+ *  but the chat is folded away on a phone): the pieces that went on (up to
+ *  three, the weapon first) and whether their ★ and lines came across.
+ *  `changes`: bestpick.js wornChanges; `game` (optional) adds each piece's ★. */
+export function equipBestNoteHTML(changes, game = null) {
+  const on = (changes || []).filter((c) => c.to).sort((a, b) => (b.slot === 'weapon') - (a.slot === 'weapon'));
+  if (!on.length) return '&#10003; You already wear your best gear.';
+  // Three things at most: three pieces, or two and "N more".
+  const named = on.slice(0, on.length > 3 ? 2 : 3).map((c) => {
+    const eq = game?.equipment, lv = c.slot !== 'ammo' && eq ? eq.refineLevel(c.to, eq.copyIn(c.slot)) : 0;
+    return `${esc(qualityName(c.to, c.q || null))}${lv ? ` ${refineTag(lv)}` : ''}`;
+  });
+  const list = on.length > 3 ? `${named.join(', ')} and ${on.length - 2} more`
+    : named.length > 1 ? `${named.slice(0, -1).join(', ')} and ${named[named.length - 1]}` : named[0];
+  return `<b>&#10003; Best in slot:</b> ${list}${on.some((c) => c.carried) ? ' · your ★ and lines carried over' : ''}`;
+}
+
 /** Watch the pack: when a piece turns up that beats what you wear, say so once
  *  (per item and quality, this session) with a button that puts it on. */
 export function watchUpgrades(ui, { settleMs = 3000, debounceMs = 400 } = {}) {
@@ -91,9 +112,22 @@ export function watchUpgrades(ui, { settleMs = 3000, debounceMs = 400 } = {}) {
     // The starter kit and whatever you carried in a loaded save don't count:
     // only pieces that arrive while you play.
     if (!ui._wnUpReady) return;
-    ui.lane?.push({ kind: 'note', key: `wear:${key}`, ttl: 9000, priority: 1,
-      html: `<b>&#9650; Upgrade:</b> ${esc(qualityName(s.id, s.q || null))} beats what you wear. <button type="button" class="nl-act" data-act="wearbest">Wear it</button>` });
+    // A piece that wins only once the worn one's ★ and lines move across says so.
+    const slot = getItem(s.id).equip?.slot;
+    const viaCarry = !!slot && !isUpgrade(compareGear(s.id, game.equipment, null, s.q || null, game.combatMode?.()))
+      && !!planCarry(game.equipment, s.id, slot, s.q || null);
+    ui.lane?.push({ kind: 'note', key: `wear:${key}`, tag: 'wear', ttl: 9000, priority: 1,
+      html: `<b>&#9650; Upgrade:</b> ${esc(qualityName(s.id, s.q || null))} beats what you wear${viaCarry ? ' once your ★ and lines carry over' : ''}. <button type="button" class="nl-act" data-act="wearbest">Wear it</button>` });
   };
+  // Equip best, from anywhere (the Gear bar, the quick bar, the tracker, a
+  // note's Wear it): notes about pieces now worn are stale, the tracker's gear
+  // row is worked out afresh, and a note says what went on.
+  game.bus.on('equipBest', (changes) => {
+    ui.lane?.dismissTag?.('wear');
+    ui.lane?.dismissTag?.('equipbest');
+    ui._wnTrack = null;
+    ui.lane?.push({ kind: 'note', key: 'equipbest', tag: 'equipbest', ttl: 6000, priority: 1, html: equipBestNoteHTML(changes, game) });
+  });
   game.bus.on('inventory', () => {
     if (pending) return;
     pending = true;

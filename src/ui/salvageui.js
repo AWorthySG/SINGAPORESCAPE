@@ -122,6 +122,26 @@ function filterBox(ui, onChange) {
   return { box, f };
 }
 
+/** The kinds a bulk action takes, most numerous first, at most `max` named:
+ *  "Rune sword ×20, Dragon sword ×15, Mithril sword ×12 and 182 more kinds".
+ *  `list`: [{ id, n }]. */
+export function picksText(list, max = 3) {
+  const sorted = list.slice().sort((a, b) => b.n - a.n);
+  const named = sorted.slice(0, max).map((k) => `${name(k.id)} ×${formatNumber(k.n)}`);
+  const rest = sorted.length - named.length;
+  if (rest > 0) return `${named.join(', ')} and ${formatNumber(rest)} more kind${rest > 1 ? 's' : ''}`;
+  return named.length > 1 ? `${named.slice(0, -1).join(', ')} and ${named[named.length - 1]}` : named[0] || '';
+}
+
+/** Why "… all" matches nothing while spare gear is listed: which tick to undo. */
+function noMatchHint(f) {
+  const why = f.belowTier ? 'Nothing matches the ticked boxes: untick \'Below my worn tier\' to include pieces as high as yours.'
+    : f.offClass ? 'Nothing matches the ticked boxes: untick \'Not for my class\' to include your own class\'s gear.'
+      : f.below !== 'any' ? 'Nothing matches: raise \'Quality below\' to include better copies.'
+        : 'Nothing to take: every piece listed is better than what you wear, or a boss unique.';
+  return `<div class="modal-hint salvage-nomatch">${why}</div>`;
+}
+
 /** "Skilled, 2,000 / 20,000 XP to Expert", or with a gain the change it would
  *  make: "Skilled 12,000 XP → Expert 34,000 XP". */
 function masteryLine(g, id, gain = 0) {
@@ -157,9 +177,31 @@ export function openSacrifice(ui, targetId, { src = null } = {}) {
       + 'Higher level, better ranked, better quality and refined pieces give more, boss uniques a great deal, and each rank your mastery has reached adds a tenth more. '
       + `Like materials, sacrifice takes gear up to <b>${MASTERY_RANKS[FEED_CAP_RANK].name}</b>; after that only battle trains it. Plain copies go before quality ones.</p></div>`;
     confirmBox(body, st, () => redraw(body, render));
+    const opts = sacrificeOptions(g, targetId).filter((o) => o.id !== targetId || o.count > 1 || EQUIP_SLOTS.some((s) => g.equipment.get(s) === targetId));
+    // "Sacrifice all…" comes first, above the list (as the shrine's "Offer
+    // all" does): with a full pack it sat a long scroll down.
+    if (!capped) {
+      body.insertAdjacentHTML('beforeend', '<div class="ench-head salvage-head">Sacrifice all…</div>');
+      const { box, f } = filterBox(ui, () => redraw(body, render));
+      body.appendChild(box);
+      const pv = previewSacrificeAll(g, targetId, f);
+      const go = button(pv.pieces ? `Sacrifice ${formatNumber(pv.pieces)} piece${pv.pieces > 1 ? 's' : ''}: +${formatNumber(pv.points)} mastery XP` : 'No spare gear matches', () => {
+        const kinds = pv.kinds || [];
+        st.pending = {
+          html: `Sacrifice <b>${formatNumber(pv.pieces)} pieces</b>${kinds.length ? ` (${kinds.length} kind${kinds.length > 1 ? 's' : ''}: ${picksText(kinds)})` : ''} of spare ${type.toLowerCase()} gear to your <b>${type} mastery</b>: <b>+${formatNumber(pv.points)} mastery XP</b> (${masteryLine(g, targetId, pv.points)}).`,
+          warn: f.below === 'any' || f.below === 'mythic' || f.below === 'legendary' ? 'this includes Epic copies or better' : '',
+          label: 'Sacrifice all',
+          go: () => { const r = sacrificeAll(g, targetId, f); return `Sacrificed <b>${formatNumber(r.pieces)}</b> pieces: <b>+${formatNumber(r.points)} mastery XP</b>. Your ${type} mastery is now ${masteryLine(g, targetId)}.`; },
+        };
+        redraw(body, render);
+      }, 'salvage-bulk');
+      go.disabled = !pv.pieces;
+      body.appendChild(go);
+      if (!pv.pieces && opts.length) body.insertAdjacentHTML('beforeend', noMatchHint(f));
+      body.insertAdjacentHTML('beforeend', '<div class="ench-head salvage-head">One kind at a time</div>');
+    }
     const list = document.createElement('div');
     list.className = 'gear-list feed-list salvage-list';
-    const opts = sacrificeOptions(g, targetId).filter((o) => o.id !== targetId || o.count > 1 || EQUIP_SLOTS.some((s) => g.equipment.get(s) === targetId));
     if (capped) list.innerHTML = `<div class="modal-hint">Already ${MASTERY_RANKS[rankProgress(pts).rank].name}: fight with it to go further.</div>`;
     else if (!opts.length) list.innerHTML = `<div class="modal-hint">You carry no spare ${type.toLowerCase()} gear. (Gear you wear, and gear in the bank, can't be sacrificed.)</div>`;
     else for (const o of opts) {
@@ -176,23 +218,6 @@ export function openSacrifice(ui, targetId, { src = null } = {}) {
       list.appendChild(row);
     }
     body.appendChild(list);
-    if (!capped) {
-      body.insertAdjacentHTML('beforeend', '<div class="ench-head salvage-head">Sacrifice all…</div>');
-      const { box, f } = filterBox(ui, () => redraw(body, render));
-      body.appendChild(box);
-      const pv = previewSacrificeAll(g, targetId, f);
-      const go = button(pv.pieces ? `Sacrifice ${formatNumber(pv.pieces)} piece${pv.pieces > 1 ? 's' : ''}: +${formatNumber(pv.points)} mastery XP` : 'No spare gear matches', () => {
-        st.pending = {
-          html: `Sacrifice <b>${formatNumber(pv.pieces)} pieces</b> of spare ${type.toLowerCase()} gear to your <b>${type} mastery</b>: <b>+${formatNumber(pv.points)} mastery XP</b> (${masteryLine(g, targetId, pv.points)}).`,
-          warn: f.below === 'any' || f.below === 'mythic' || f.below === 'legendary' ? 'this includes Epic copies or better' : '',
-          label: 'Sacrifice all',
-          go: () => { const r = sacrificeAll(g, targetId, f); return `Sacrificed <b>${formatNumber(r.pieces)}</b> pieces: <b>+${formatNumber(r.points)} mastery XP</b>. Your ${type} mastery is now ${masteryLine(g, targetId)}.`; },
-        };
-        redraw(body, render);
-      }, 'salvage-bulk');
-      go.disabled = !pv.pieces;
-      body.appendChild(go);
-    }
     body.appendChild(button('Back', () => ui.openMastery(targetId), 'ench-cancel feed-back'));
   };
   ui.openModal(`Sacrifice to ${masteryTypeName(targetId)} mastery`, render);
@@ -254,6 +279,28 @@ export function openDismantle(ui, focus = null) {
       + `Plain copies go before quality ones. You have ${formatNumber(g.inventory.count('upgrade_stone'))} stones, ${formatNumber(g.inventory.count('refine_scroll'))} scrolls and ${formatNumber(g.inventory.count('upgrade_ward'))} wards.</p></div>`;
     confirmBox(body, st, () => redraw(body, render));
     const ids = [...new Set(g.inventory.slots.filter((s) => s && isSalvageable(s.id)).map((s) => s.id))];
+    // "Dismantle all…" comes first, above the list (as the shrine's "Offer
+    // all" does): with a late-game pack it sat some thirty screens down.
+    body.insertAdjacentHTML('beforeend', '<div class="ench-head salvage-head">Dismantle all…</div>');
+    const { box, f } = filterBox(ui, () => redraw(body, render));
+    body.appendChild(box);
+    const picks = bulkPicks(g, f);
+    const n = picks.reduce((t, p) => t + p.qualities.length, 0);
+    const exp = { stones: 0, scrolls: 0, ward: 0 };
+    for (const p of picks) { const y = expectFor(p.id, p.qualities); exp.stones += y.stones; exp.scrolls += y.scrolls; exp.ward += y.ward; }
+    const go = button(n ? `Dismantle ${formatNumber(n)} piece${n > 1 ? 's' : ''}` : 'No spare gear matches', () => {
+      st.pending = {
+        html: `Dismantle <b>${formatNumber(n)} pieces</b> (${picks.length} kind${picks.length > 1 ? 's' : ''}: ${picksText(picks.map((p) => ({ id: p.id, n: p.qualities.length })))}): ${expectText(exp) || 'very little'}.`,
+        warn: f.below === 'any' || f.below === 'mythic' || f.below === 'legendary' ? 'this includes Epic copies or better' : '',
+        label: 'Dismantle all',
+        go: () => { const r = dismantleAll(g, f); return `Dismantled <b>${formatNumber(r.pieces)}</b> pieces: <b>${yieldText(r)}</b>.`; },
+      };
+      redraw(body, render);
+    }, 'salvage-bulk');
+    go.disabled = !n;
+    body.appendChild(go);
+    if (!n && ids.length) body.insertAdjacentHTML('beforeend', noMatchHint(f));
+    body.insertAdjacentHTML('beforeend', '<div class="ench-head salvage-head">One kind at a time</div>');
     const list = document.createElement('div');
     list.className = 'gear-list feed-list salvage-list';
     if (!ids.length) list.innerHTML = '<div class="modal-hint">You carry no spare gear. (Gear you wear, and gear in the bank, can\'t be dismantled.)</div>';
@@ -272,24 +319,6 @@ export function openDismantle(ui, focus = null) {
       list.appendChild(row);
     }
     body.appendChild(list);
-    body.insertAdjacentHTML('beforeend', '<div class="ench-head salvage-head">Dismantle all…</div>');
-    const { box, f } = filterBox(ui, () => redraw(body, render));
-    body.appendChild(box);
-    const picks = bulkPicks(g, f);
-    const n = picks.reduce((t, p) => t + p.qualities.length, 0);
-    const exp = { stones: 0, scrolls: 0, ward: 0 };
-    for (const p of picks) { const y = expectFor(p.id, p.qualities); exp.stones += y.stones; exp.scrolls += y.scrolls; exp.ward += y.ward; }
-    const go = button(n ? `Dismantle ${formatNumber(n)} piece${n > 1 ? 's' : ''}` : 'No spare gear matches', () => {
-      st.pending = {
-        html: `Dismantle <b>${formatNumber(n)} pieces</b> (${picks.length} kind${picks.length > 1 ? 's' : ''}): ${expectText(exp) || 'very little'}.`,
-        warn: f.below === 'any' || f.below === 'mythic' || f.below === 'legendary' ? 'this includes Epic copies or better' : '',
-        label: 'Dismantle all',
-        go: () => { const r = dismantleAll(g, f); return `Dismantled <b>${formatNumber(r.pieces)}</b> pieces: <b>${yieldText(r)}</b>.`; },
-      };
-      redraw(body, render);
-    }, 'salvage-bulk');
-    go.disabled = !n;
-    body.appendChild(go);
     body.appendChild(button('Back', () => ui.openMastery(), 'ench-cancel feed-back'));
   };
   ui.openModal('Dismantle gear', render);
