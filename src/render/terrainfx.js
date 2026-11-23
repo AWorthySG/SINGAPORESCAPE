@@ -30,10 +30,14 @@ export function tileHash(x, y, s = 0) {
 // Which ground spills over which where two meet: a higher rank bleeds its
 // texture a little way into a lower neighbour, along a wavy, dithered edge.
 // Water is highest, so shores take a soft, uneven waterline. Town paving
-// (stone) and bridges (wood) are built surfaces and keep their crisp edges.
+// (stone) and bridges (wood) are built surfaces: paving gets a kerb instead
+// (kerbPlan), and bridges keep their crisp edges.
 export const BLEND_RANK = {
   [TERRAIN.GRASS]: 1, [TERRAIN.DARKGRASS]: 2, [TERRAIN.SAND]: 3, [TERRAIN.PATH]: 4, [TERRAIN.WATER]: 5,
 };
+// The one ground that does spill onto paving: a dirt road running in through a
+// town's gate, so the gap in the kerb isn't a hard-cut rectangle.
+const ONTO_STONE = new Set([TERRAIN.PATH]);
 export const FEATHER = 14;    // how far (px) a neighbour's ground reaches into a tile
 const WOBBLE = 4.5;           // how far (px) the edge wanders either way
 const VARIANTS = 4;           // wobble patterns per edge shape, picked per tile
@@ -46,12 +50,13 @@ const NB = [[0, -1], [1, 0], [0, 1], [-1, 0], [1, -1], [1, 1], [-1, 1], [-1, -1]
  * touches and which wobble pattern to use. Empty for most tiles.
  */
 export function blendPlan(world, x, y) {
-  const r = BLEND_RANK[world.terrainAt(x, y)];
-  if (!r) return [];
+  const stone = world.terrainAt(x, y) === TERRAIN.STONE;
+  const r = stone ? 0 : BLEND_RANK[world.terrainAt(x, y)];
+  if (!r && !stone) return [];
   let found = null;
   for (let i = 0; i < 8; i++) {
     const nt = world.terrainAt(x + NB[i][0], y + NB[i][1]);
-    if ((BLEND_RANK[nt] || 0) > r) (found || (found = new Map())).set(nt, (found.get(nt) || 0) | (1 << i));
+    if (stone ? ONTO_STONE.has(nt) : (BLEND_RANK[nt] || 0) > r) (found || (found = new Map())).set(nt, (found.get(nt) || 0) | (1 << i));
   }
   if (!found) return [];
   const out = [];
@@ -118,6 +123,88 @@ function foamAlpha(a, frame) {
   return Math.min(1, Math.exp(-d * d) * 1.1);
 }
 
+// ---------------- Kerbs ----------------
+
+// Where town paving meets grass or sand it gets a sticker-style kerb: a cream
+// band along the paving's edge with a thin navy hairline on the outside, its
+// outer corners rounded off, so a plaza reads as one die-cut shape rather than
+// a block of square tiles. (Roads spill onto the paving instead: ONTO_STONE.)
+const KERBED = new Set([TERRAIN.GRASS, TERRAIN.DARKGRASS, TERRAIN.SAND]);
+export const KERB_R = 7;   // px: the radius of a rounded outer corner
+
+/**
+ * The kerbs of the paving tiles on or just round tiles [tx0, tx1) x [ty0, ty1)
+ * (one tile of margin, so a kerb that crosses a chunk edge is drawn on both
+ * sides): [{ x, y, sides, round, cave, out }]. `sides` are the kerbed sides
+ * (N, E, S, W as bits 1, 2, 4, 8), `round` the outer corners where two kerbed
+ * sides meet (NE, SE, SW, NW as 1, 2, 4, 8), `cave` the inner corners where
+ * the ground beyond only touches diagonally, and `out` the ground beyond each
+ * side (for filling a rounded corner).
+ */
+export function kerbPlan(world, tx0, ty0, tx1, ty1) {
+  const out = [];
+  const S = TERRAIN.STONE;
+  for (let y = ty0 - 1; y < ty1 + 1; y++) {
+    for (let x = tx0 - 1; x < tx1 + 1; x++) {
+      if (world.terrainAt(x, y) !== S) continue;
+      let sides = 0, cave = 0;
+      const beyond = [];
+      for (let i = 0; i < 4; i++) {
+        const t = world.terrainAt(x + NB[i][0], y + NB[i][1]);
+        beyond.push(t);
+        if (KERBED.has(t)) sides |= 1 << i;
+      }
+      // An inner corner: paving on both sides, kerbed ground only on the diagonal.
+      for (let i = 0; i < 4; i++) {
+        const a = i, b = (i + 1) % 4;   // N+E -> NE (NB[4]), E+S -> SE, S+W -> SW, W+N -> NW
+        if (beyond[a] === S && beyond[b] === S && KERBED.has(world.terrainAt(x + NB[4 + i][0], y + NB[4 + i][1]))) cave |= 1 << i;
+      }
+      if (!sides && !cave) continue;
+      // A corner rounds where two kerbs meet, and where a kerb ends at a road
+      // coming in (a gatepost), so the kerb curls in rather than stopping dead.
+      let round = 0;
+      const P = TERRAIN.PATH;
+      for (let i = 0; i < 4; i++) {
+        const j = (i + 1) % 4, ki = sides & (1 << i), kj = sides & (1 << j);
+        if ((ki && kj) || (ki && beyond[j] === P) || (kj && beyond[i] === P)) round |= 1 << i;
+      }
+      out.push({ x, y, sides, round, cave, out: beyond });
+    }
+  }
+  return out;
+}
+
+// [line width, inset from the tile's edge, colour] of the kerb's strokes: the
+// cream band, the navy hairline on its outside, a faint lip of shade inside.
+const KERB_STROKES = [[4.4, 3, 'rgba(255,248,234,0.97)'], [1.3, 0.65, 'rgba(34,48,74,0.66)'], [1.2, 5.8, 'rgba(120,90,60,0.18)']];
+// Corner i of the tile at (sx, sy) (NE, SE, SW, NW): its point, and which way is into the tile.
+function corner(sx, sy, i) {
+  const cx = i < 2 ? 1 : 0, cy = i === 1 || i === 2 ? 1 : 0;
+  return [sx + cx * TILE, sy + cy * TILE, cx ? -1 : 1, cy ? -1 : 1];
+}
+// Trace a kerb's line `d` px in from the tile's kerbed sides: straight along
+// each side, a quarter circle round each rounded corner.
+function kerbPath(g, k, sx, sy, d) {
+  const R = KERB_R, T = TILE;
+  const r = (i) => k.round & (1 << i);
+  if (k.sides & 1) { g.moveTo(sx + (r(3) ? R : 0), sy + d); g.lineTo(sx + T - (r(0) ? R : 0), sy + d); }
+  if (k.sides & 2) { g.moveTo(sx + T - d, sy + (r(0) ? R : 0)); g.lineTo(sx + T - d, sy + T - (r(1) ? R : 0)); }
+  if (k.sides & 4) { g.moveTo(sx + (r(2) ? R : 0), sy + T - d); g.lineTo(sx + T - (r(1) ? R : 0), sy + T - d); }
+  if (k.sides & 8) { g.moveTo(sx + d, sy + (r(3) ? R : 0)); g.lineTo(sx + d, sy + T - (r(2) ? R : 0)); }
+  for (let i = 0; i < 4; i++) {
+    if (!r(i)) continue;
+    const [px, py, dx, dy] = corner(sx, sy, i);
+    const cx = px + dx * R, cy = py + dy * R;
+    // From the north or south side round to the east or west one, the short way.
+    const a0 = Math.atan2(-dy, 0), a1 = Math.atan2(0, -dx);
+    let dl = a1 - a0;
+    if (dl > Math.PI) dl -= 2 * Math.PI;
+    if (dl <= -Math.PI) dl += 2 * Math.PI;
+    g.moveTo(cx + Math.cos(a0) * (R - d), cy + Math.sin(a0) * (R - d));
+    g.arc(cx, cy, R - d, a0, a1, dl < 0);
+  }
+}
+
 // ---------------- Ground details ----------------
 
 // The small things scattered on the ground, drawn in the A-Worthy sticker
@@ -128,7 +215,15 @@ export const GROUND_DETAILS = {
   tuft: [11, 9], tuft_dark: [11, 9], flower_pink: [8, 8], flower_yellow: [8, 8], flower_white: [8, 8],
   flower_lilac: [8, 8], leaf_green: [8, 6], leaf_brown: [8, 6], pebble: [6, 4], stone: [9, 5],
   shell: [7, 6], shell_spiral: [6, 6], lily_pad: [13, 9], lily_flower: [13, 10], reed: [10, 17],
+  // Town paving: Peranakan tiles laid in little rugs, drain grates, fallen
+  // petals by the flowerbeds and the faint pool of shade in front of a lamp post.
+  drain: [16, 9], petals: [12, 7], lamp_pool: [26, 12],
 };
+// The Peranakan tile rugs' colourways ([ground, motif]): rug_<colour>, each a
+// 2 x 2 of tiles in a cream frame, two tiles across.
+const RUGS = { bloom: ['#F9DCE3', '#E9809E'], sky: ['#DCEAF6', '#6FA9DA'], sun: ['#F8EBCB', '#E9AE34'], mint: ['#DDEFE2', '#5FB27A'] };
+const RUG_IDS = Object.keys(RUGS).map((c) => `rug_${c}`);
+for (const id of RUG_IDS) GROUND_DETAILS[id] = [60, 60];
 /** Ground details that have painted art on disk (assets/world/detail-<id>.webp). */
 export const DETAIL_ART = {};
 export const groundDetailArt = () => new Set(Object.keys(DETAIL_ART).map((id) => `detail-${id}`));
@@ -158,8 +253,14 @@ export function detailTable(t, zone) {
     return { d: 0.22, w: [['pebble', 3], ['shell', 0.6], ['stone', 0.8]] };
   }
   if (t === T.PATH) return { d: 0.3, w: [['stone', 2], ['pebble', 2.5]] };
+  // Paving: the odd drain grate (ruins and wild places keep theirs plain).
+  // Tile rugs, petals and lamp pools are placed by plazaDetail instead.
+  if (t === T.STONE) return BLEAK.has(zone) ? null : { d: 0.03, w: [['drain', 1]] };
   return null;
 }
+// Objects that drop petals on the paving round them, and lamps that leave a pool of shade.
+const BEDS = new Set(['flower', 'bush', 'orchid_planter', 'bougainvillea_pot', 'planter_box']);
+const LAMPS = new Set(['lamp', 'heritage_lamp', 'lantern_post']);
 function pick(w, r) {
   let sum = 0;
   for (const [, n] of w) sum += n;
@@ -170,9 +271,10 @@ function pick(w, r) {
 
 /**
  * The ground details for tiles [tx0, tx1) x [ty0, ty1): [{ id, px, py, flip, s }]
- * in world pixels (foot point). Never on a tile with an object, on water, on
- * town paving or bridges; paths only get stones along their verges, so the
- * walking line down a road stays clear. Low graphics plants half as many.
+ * in world pixels (foot point). Never on a tile with an object, on water or
+ * bridges; town paving only gets its own flat details (plazaDetail); paths
+ * only get stones along their verges, so the walking line down a road stays
+ * clear. Low graphics plants half as many.
  */
 export function scatterPlan(world, tx0, ty0, tx1, ty1, opts = {}) {
   const out = [];
@@ -180,8 +282,9 @@ export function scatterPlan(world, tx0, ty0, tx1, ty1, opts = {}) {
   for (let y = ty0; y < ty1; y++) {
     for (let x = tx0; x < tx1; x++) {
       const t = world.terrainAt(x, y);
-      if (t === T.WATER || t === T.STONE || t === T.WOOD) continue;
+      if (t === T.WATER || t === T.WOOD) continue;
       if (world.objectAt(x, y)) continue;
+      if (t === T.STONE) { plazaDetail(world, x, y, opts, out); continue; }
       // A road's verge is the side facing off the road; the middle stays clear.
       let vx = 0, vy = 0;
       if (t === T.PATH) {
@@ -205,6 +308,46 @@ export function scatterPlan(world, tx0, ty0, tx1, ty1, opts = {}) {
     }
   }
   return out;
+}
+
+// One paving tile's detail, if any: a pool of shade just in front of a lamp
+// post, petals fallen beside a flowerbed, a Peranakan tile rug, or now and then
+// a drain. Each lies flat within the paving (a rug starts on its top-left tile
+// and covers four), never over a chunk's edge, so no chunk border cuts one.
+const RUG = 8;   // the paving is split into RUG x RUG blocks (a chunk holds whole ones); some hold a rug
+function plazaDetail(world, x, y, opts, out) {
+  const T = TILE, k = opts.low ? 0.5 : 1;
+  const obj = (dx, dy) => { const o = world.objectAt(x + dx, y + dy); return o && o.def ? o.objId : null; };
+  if (LAMPS.has(obj(0, -1))) {
+    out.push({ id: 'lamp_pool', px: x * T + T / 2, py: y * T + 13, flip: tileHash(x, y, 710) < 0.5, s: 0.95 });
+    return;
+  }
+  if (tileHash(x, y, 210) < 0.42 * k) {
+    let bed = false;
+    for (let i = 0; i < 8 && !bed; i++) bed = BEDS.has(obj(NB[i][0], NB[i][1]));
+    if (bed) {
+      out.push({ id: 'petals', px: x * T + 9 + tileHash(x, y, 410) * 14, py: y * T + 12 + tileHash(x, y, 510) * 16,
+        flip: tileHash(x, y, 711) < 0.5, s: 0.85 + tileHash(x, y, 811) * 0.3 });
+      return;
+    }
+  }
+  const z = world.zoneAt ? world.zoneAt(x, y) : null;
+  const tab = detailTable(TERRAIN.STONE, z ? z.name : '');
+  if (!tab) return;
+  // A rug, a little way into its block (so two never touch), on clear paving only.
+  const bx = Math.floor(x / RUG), by = Math.floor(y / RUG);
+  if (tileHash(bx, by, 220) < 0.5 * k && x === bx * RUG + 1 + Math.floor(tileHash(bx, by, 221) * (RUG - 3))
+    && y === by * RUG + 1 + Math.floor(tileHash(bx, by, 222) * (RUG - 3))) {
+    let clear = true;
+    for (const [dx, dy] of [[1, 0], [0, 1], [1, 1]]) if (world.terrainAt(x + dx, y + dy) !== TERRAIN.STONE || obj(dx, dy)) clear = false;
+    if (clear) {
+      out.push({ id: RUG_IDS[Math.floor(tileHash(bx, by, 223) * RUG_IDS.length)], px: x * T + T, py: y * T + 2 * T - 2, flip: false, s: 1 });
+      return;
+    }
+  }
+  if (tileHash(x, y, 200) >= tab.d * k) return;
+  const id = pick(tab.w, tileHash(x, y, 300));
+  out.push({ id, px: x * T + T / 2 + (tileHash(x, y, 400) - 0.5) * 8, py: y * T + T / 2 + 6, flip: false, s: 1 });
 }
 
 /** Is tile (x, y) water that is part of a lake, river or wetland (not the open sea)? */
@@ -364,7 +507,61 @@ function drawDetail(g, id) {
       blob('#9BCB78', () => { g.moveTo(-1, -1); g.quadraticCurveTo(-5, -4, -5.5, -7); g.quadraticCurveTo(-3, -4.5, 0.5, -1.5); g.closePath(); });
       break;
     }
-    default:
+    case 'drain': {
+      // A little iron drain grate set into the paving.
+      blob('#A9B0BE', () => g.roundRect ? g.roundRect(-7.5, -8.5, 15, 8, 1.8) : g.rect(-7.5, -8.5, 15, 8));
+      g.fillStyle = 'rgba(34,48,74,0.6)';
+      for (let i = 0; i < 5; i++) g.fillRect(-5.6 + i * 2.6, -7, 1.2, 4.8);
+      g.fillStyle = 'rgba(255,255,255,0.5)'; g.fillRect(-6.4, -8, 12.8, 0.7);
+      break;
+    }
+    case 'petals': {
+      // Orchid petals fallen from the bed next door.
+      g.lineWidth = 0.5; g.strokeStyle = 'rgba(150,70,100,0.55)';
+      for (const [px, py, a, col] of [[-3.6, -2.4, 0.4, '#F7A8C0'], [1.2, -4.6, -0.7, '#FFD1E0'], [3.8, -1.8, 1.2, '#E58FB6'], [-0.6, -1.2, 2.2, '#FFFFFF']]) {
+        blob(col, () => g.ellipse(px, py, 1.7, 1.05, a, 0, 6.3));
+      }
+      break;
+    }
+    case 'lamp_pool': {
+      // The soft pool of shade a lamp post's head throws on the paving in front of it.
+      if (!g.createRadialGradient) break;
+      g.save(); g.scale(1, 0.42);
+      const rg = g.createRadialGradient(0, -14, 0, 0, -14, 12);
+      rg.addColorStop(0, 'rgba(120,80,60,0.20)'); rg.addColorStop(0.6, 'rgba(120,80,60,0.10)'); rg.addColorStop(1, 'rgba(120,80,60,0)');
+      g.fillStyle = rg; g.beginPath(); g.arc(0, -14, 12, 0, 6.3); g.fill();
+      g.restore();
+      break;
+    }
+    default: {
+      if (!id.startsWith('rug_')) break;
+      // A rug of four Peranakan tiles set into the paving, seen from above: a
+      // cream frame with a navy hairline (the kerb's sticker edge again), a
+      // quarter-circle at each tile's corners that meet as full circles where
+      // tiles join, and a little flower in each tile.
+      const [bg, pop] = RUGS[id.slice(4)];
+      const c = -30, q = 12.75;
+      const rr = (x, y, w, h, r) => { if (g.roundRect) g.roundRect(x, y, w, h, r); else g.rect(x, y, w, h); };
+      g.globalAlpha = 0.85;
+      blob('#FFF6E6', () => rr(-29, c - 29, 58, 58, 4));
+      g.fillStyle = bg; g.beginPath(); g.rect(-25.5, c - 25.5, 51, 51); g.fill();
+      g.save(); g.beginPath(); g.rect(-25.5, c - 25.5, 51, 51); g.clip();
+      g.fillStyle = pop; g.globalAlpha = 0.5;
+      for (const sx of [-2, 0, 2]) for (const sy of [-2, 0, 2]) { g.beginPath(); g.arc(sx * q, c + sy * q, 5, 0, 6.3); g.fill(); }
+      g.globalAlpha = 0.85;
+      g.strokeStyle = 'rgba(34,48,74,0.2)'; g.lineWidth = 0.7;
+      g.beginPath(); g.moveTo(0, c - 26); g.lineTo(0, c + 26); g.moveTo(-26, c); g.lineTo(26, c); g.stroke();
+      g.lineWidth = 0.5; g.strokeStyle = 'rgba(34,48,74,0.4)';
+      for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
+        // A rosette: eight round petals about a white heart with a gold eye.
+        for (let i = 0; i < 8; i++) { const t = i * Math.PI / 4; blob(pop, () => g.arc(sx * q + Math.cos(t) * 3.8, c + sy * q + Math.sin(t) * 3.8, 1.9, 0, 6.3)); }
+        blob('#FFFFFF', () => g.arc(sx * q, c + sy * q, 2.2, 0, 6.3));
+        g.fillStyle = '#F5B82E'; g.beginPath(); g.arc(sx * q, c + sy * q, 1, 0, 6.3); g.fill();
+      }
+      g.restore();
+      g.lineWidth = 0.8; g.strokeStyle = 'rgba(34,48,74,0.4)'; g.beginPath(); g.rect(-25.5, c - 25.5, 51, 51); g.stroke();
+      g.globalAlpha = 1;
+    }
   }
 }
 
@@ -478,6 +675,51 @@ export class TerrainFx {
     if (sp) g.drawImage(sp.c, x - sp.ax * d.s, y - sp.ay * d.s, sp.w * d.s, sp.h * d.s);
   }
 
+  /**
+   * Draw the kerbs (kerbPlan) into chunk `g`: round off the outer corners with
+   * the ground beyond, then lay a cream band along each kerbed side with a navy
+   * hairline on its outside edge. Three strokes for the whole chunk.
+   */
+  _kerbs(g, world, tx0, ty0, tx1, ty1, fill) {
+    const plan = kerbPlan(world, tx0, ty0, tx1, ty1);
+    if (!plan.length) return;
+    const ox = tx0 * TILE, oy = ty0 * TILE, R = KERB_R;
+    for (const k of plan) {
+      if (!k.round) continue;
+      const sx = k.x * TILE - ox, sy = k.y * TILE - oy;
+      for (let i = 0; i < 4; i++) {
+        if (!(k.round & (1 << i))) continue;
+        // Fill the square corner outside the rounding with the ground beyond it.
+        const [px, py, dx, dy] = corner(sx, sy, i);
+        const o = k.out[i] === TERRAIN.PATH || k.out[(i + 1) % 4] !== TERRAIN.PATH ? k.out[i] : k.out[(i + 1) % 4];
+        g.fillStyle = fill(g, o);
+        g.beginPath(); g.moveTo(px, py); g.lineTo(px + dx * R, py); g.arcTo(px, py, px, py + dy * R, R); g.closePath(); g.fill();
+      }
+    }
+    // The band, the hairline outside it, and a faint lip of shade just inside
+    // it, so the kerb reads as a raised sticker edge: one path each for the chunk.
+    g.lineCap = 'butt';
+    for (const [w, inset, style] of KERB_STROKES) {
+      g.lineWidth = w; g.strokeStyle = style;
+      g.beginPath();
+      for (const k of plan) if (k.sides) kerbPath(g, k, k.x * TILE - ox, k.y * TILE - oy, inset);
+      g.stroke();
+    }
+    // Inner corners: close the little gap where two neighbours' bands meet.
+    for (const k of plan) {
+      if (!k.cave) continue;
+      const sx = k.x * TILE - ox, sy = k.y * TILE - oy;
+      for (let i = 0; i < 4; i++) {
+        if (!(k.cave & (1 << i))) continue;
+        const [px, py, dx, dy] = corner(sx, sy, i);
+        g.fillStyle = KERB_STROKES[0][2];
+        g.fillRect(dx > 0 ? px + 0.8 : px - 5.2, dy > 0 ? py + 0.8 : py - 5.2, 4.4, 4.4);
+        g.lineWidth = KERB_STROKES[1][0]; g.strokeStyle = KERB_STROKES[1][2];
+        g.beginPath(); g.moveTo(px + dx * 0.7, py); g.lineTo(px + dx * 0.7, py + dy * 0.7); g.lineTo(px, py + dy * 0.7); g.stroke();
+      }
+    }
+  }
+
   _shadowSprite() {
     if (this._shadow !== null) return this._shadow;
     const cv = makeCanvas(64, 32, this.factory);
@@ -568,6 +810,8 @@ export class TerrainFx {
         yield;
       }
     }
+    // 1b. Kerbs round the town paving, over the soft edges.
+    this._kerbs(g, world, tx0, ty0, tx1, ty1, fill);
     // 2. Small details on the ground.
     for (const d of scatterPlan(world, tx0, ty0, tx1, ty1, opts)) this._stamp(g, d, d.px - ox, d.py - oy);
     yield;

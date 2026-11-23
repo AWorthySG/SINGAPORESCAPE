@@ -14,7 +14,7 @@ const { LANDMARK_PLAN, STATION_GAP, footprintTiles } = await import('../src/data
 const { OBJECTS } = await import('../src/data/objects.js');
 const { STATIONS } = await import('../src/data/transport.js');
 const { World } = await import('../src/game/world.js');
-const { worldArt, drawObjectSprite } = await import('../src/render/sprites.js');
+const { worldArt, drawObjectSprite, bedLook } = await import('../src/render/sprites.js');
 const { hidesPoint } = await import('../src/render/ambience.js');
 const { fxArt, fxLoop, CRITTER_LOOPS, PARTICLE_LOOPS } = await import('../src/render/fxart.js');
 const { AmbientLife, RIPPLE_CAP } = await import('../src/render/ambient.js');
@@ -156,6 +156,34 @@ test('every set piece has its picture; landmarks span their footprint and loops 
     drawn.length = 0; drawObjectSprite(ctx, pole, 50, 50, t); frames.add(drawn[0].src);
   }
   assert.equal(frames.size, 4, [...frames].join(' '));
+});
+
+test('flowerbeds round the plaza vary their look by tile, but stay the same objects', () => {
+  const world = new World();
+  world.build(data);
+  const beds = world.objects.filter((o) => (o.objId === 'flower' || o.objId === 'bush') && o.x >= 46 && o.x <= 70 && o.y >= 46 && o.y <= 64);
+  assert.ok(beds.length > 60, `the plaza border (${beds.length})`);
+  const looks = beds.map(bedLook);
+  assert.deepEqual(beds.map(bedLook), looks, 'the same look every time');
+  for (const l of looks) {
+    assert.ok(l.s >= 0.92 && l.s <= 1.08, `scale within 8% (${l.s})`);
+    assert.ok(worldArt().has(l.key), l.key);
+  }
+  const kinds = new Set(looks.map((l) => `${l.key}|${l.tint}`));
+  assert.ok(kinds.size >= 5, `a mix of plants and colours (${kinds.size})`);
+  assert.ok(looks.some((l) => l.flip) && looks.some((l) => !l.flip), 'some mirrored');
+  assert.ok(beds.some((o, i) => looks[i].key !== `obj-${o.objId}`), 'now and then the other plant');
+  // Two neighbours in a row rarely match exactly.
+  let same = 0;
+  for (let i = 1; i < looks.length; i++) if (JSON.stringify(looks[i]) === JSON.stringify(looks[i - 1])) same++;
+  assert.ok(same < looks.length / 10);
+  // Drawn at its look (no filter on this stand-in context, so no tint), and only the drawing changes.
+  globalThis.__artLoaded = true;
+  const { ctx, drawn } = drawingCtx();
+  const o = beds[0];
+  drawObjectSprite(ctx, o, 100, 100, 0);
+  assert.equal(drawn[0].src, `assets/world/${looks[0].key}.webp`);
+  assert.equal(o.objId === 'flower' || o.objId === 'bush', true);
 });
 
 test('the ambient loops are registered and step at a gentle pace, or follow a puff from start to end', () => {

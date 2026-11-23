@@ -11,7 +11,7 @@ import { World } from '../src/game/world.js';
 import { TILE } from '../src/config.js';
 import {
   BLEND_RANK, blendPlan, blendMask, scatterPlan, waterDetailPlan, shadowPlan, detailTable,
-  GROUND_DETAILS, DETAIL_ART, TerrainFx, tileHash,
+  GROUND_DETAILS, DETAIL_ART, TerrainFx, tileHash, kerbPlan,
 } from '../src/render/terrainfx.js';
 
 let _world;
@@ -39,7 +39,11 @@ test('blending only lays a higher-ranked ground over a lower one, water on top',
   for (const [x0, y0, x1, y1] of AREAS) {
     for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
       const t = w.terrainAt(x, y), plan = blendPlan(w, x, y);
-      if (!BLEND_RANK[t]) { assert.deepEqual(plan, [], 'paving and bridges keep crisp edges'); continue; }
+      if (t === TERRAIN.STONE) {   // paving takes only a road's dust spilling in through a gate
+        for (const p of plan) assert.equal(p.t, TERRAIN.PATH, `paving takes ${p.t} at ${x},${y}`);
+        continue;
+      }
+      if (!BLEND_RANK[t]) { assert.deepEqual(plan, [], 'bridges keep crisp edges'); continue; }
       let last = 0;
       for (const p of plan) {
         assert.ok(BLEND_RANK[p.t] > BLEND_RANK[t], 'only higher ranks spill over');
@@ -81,7 +85,10 @@ test('ground details are deterministic, and low graphics plants fewer', () => {
   for (const d of full) assert.ok(GROUND_DETAILS[d.id], d.id);
 });
 
-test('ground details keep off object tiles, water, paving, bridges and the middle of roads', () => {
+// What may lie on town paving: flat things only, no tufts or flowers.
+const PAVING = (id) => ['drain', 'petals', 'lamp_pool'].includes(id) || id.startsWith('rug_');
+
+test('ground details keep off object tiles, water, bridges and the middle of roads; paving gets its own', () => {
   const w = world();
   const T = TERRAIN;
   const all = scatterPlan(w, 0, 0, w.width, w.height);
@@ -90,7 +97,8 @@ test('ground details keep off object tiles, water, paving, bridges and the middl
   for (const d of all) {
     const x = Math.floor(d.px / TILE), y = Math.floor(d.py / TILE), t = w.terrainAt(x, y);
     assert.equal(w.objectAt(x, y), null, `detail on an object at ${x},${y}`);
-    assert.ok(t !== T.WATER && t !== T.STONE && t !== T.WOOD, `detail on terrain ${t} at ${x},${y}`);
+    assert.ok(t !== T.WATER && t !== T.WOOD, `detail on terrain ${t} at ${x},${y}`);
+    assert.equal(t === T.STONE, PAVING(d.id), `${d.id} on terrain ${t} at ${x},${y}`);
     if (t === T.PATH) {
       onPath++;
       const verge = [[0, -1], [1, 0], [0, 1], [-1, 0]].some(([dx, dy]) => w.terrainAt(x + dx, y + dy) !== T.PATH);
@@ -98,6 +106,67 @@ test('ground details keep off object tiles, water, paving, bridges and the middl
     }
   }
   assert.ok(onPath > 0, 'roads still get stones along their verges');
+});
+
+test('kerbs run round the town paving where it meets grass or sand, rounded at the corners and gateposts', () => {
+  const w = world();
+  const T = TERRAIN;
+  const plan = kerbPlan(w, 40, 40, 80, 70);   // Kampong Glam and the edge of Chinatown
+  assert.deepEqual(plan, kerbPlan(fresh(), 40, 40, 80, 70), 'deterministic');
+  assert.ok(plan.length > 60, `the plaza is kerbed (${plan.length})`);
+  const SIDE = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+  for (const k of plan) {
+    assert.equal(w.terrainAt(k.x, k.y), T.STONE);
+    for (let i = 0; i < 4; i++) {
+      const nt = w.terrainAt(k.x + SIDE[i][0], k.y + SIDE[i][1]);
+      assert.equal(!!(k.sides & (1 << i)), [T.GRASS, T.DARKGRASS, T.SAND].includes(nt), `side ${i} of ${k.x},${k.y}`);
+    }
+  }
+  const at = (x, y) => plan.find((k) => k.x === x && k.y === y);
+  // The plaza's corners are rounded off (north-west at 46,46).
+  assert.ok(at(46, 46).round & 8, 'the north-west corner rounds');
+  // The west gate (a road in at 46,54-55): the kerb either side curls in.
+  assert.equal(w.terrainAt(46, 54), T.PATH);
+  assert.ok(at(46, 53).sides & 8 && at(46, 53).round & 4, 'the gatepost above the west gate rounds off');
+  assert.ok(!at(47, 54), 'no kerb across the gate itself');
+  // Inner corners, where paving wraps round a corner of grass, close up.
+  assert.ok(kerbPlan(w, 0, 0, w.width, w.height).some((k) => k.cave), 'inner corners are filled');
+  // The road spills onto the paving instead.
+  assert.ok(blendPlan(w, 47, 54).some((p) => p.t === T.PATH), 'the road dusts the paving at the gate');
+});
+
+test('town paving gets tile rugs, drains, petals by the flowerbeds and lamp pools, deterministically', () => {
+  const w = world();
+  const T = TERRAIN;
+  const kg = scatterPlan(w, 44, 44, 72, 66).filter((d) => PAVING(d.id));
+  assert.deepEqual(kg, scatterPlan(fresh(), 44, 44, 72, 66).filter((d) => PAVING(d.id)), 'deterministic');
+  assert.ok(kg.some((d) => d.id === 'petals'), 'petals by the plaza flowerbeds');
+  const all = scatterPlan(w, 0, 0, w.width, w.height).filter((d) => PAVING(d.id));
+  for (const id of ['drain', 'lamp_pool']) assert.ok(all.some((d) => d.id === id), `${id} somewhere`);
+  assert.ok(all.some((d) => d.id.startsWith('rug_')), 'rugs somewhere');
+  for (const d of all.filter((e) => e.id === 'lamp_pool')) {
+    const o = w.objectAt(Math.floor(d.px / TILE), Math.floor(d.py / TILE) - 1);
+    assert.ok(o && ['lamp', 'heritage_lamp', 'lantern_post'].includes(o.objId), 'a lamp pool lies in front of a lamp');
+  }
+  for (const d of all) {
+    assert.ok(GROUND_DETAILS[d.id], d.id);
+    if (!d.id.startsWith('rug_')) continue;
+    // A rug covers four tiles (its foot is the bottom of the middle): all clear paving.
+    const x0 = Math.round(d.px / TILE) - 1, y0 = Math.floor(d.py / TILE) - 1;
+    for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
+      assert.equal(w.terrainAt(x0 + dx, y0 + dy), T.STONE, `rug off the paving at ${x0 + dx},${y0 + dy}`);
+      assert.equal(w.objectAt(x0 + dx, y0 + dy), null, `rug under an object at ${x0 + dx},${y0 + dy}`);
+    }
+    // ...and stays inside one 32-tile chunk, so no chunk edge cuts it.
+    assert.equal(Math.floor(x0 / 32), Math.floor((x0 + 1) / 32));
+    assert.equal(Math.floor(y0 / 32), Math.floor((y0 + 1) / 32));
+  }
+  // Sparse: a detail on well under a fifth of the paving.
+  let paving = 0;
+  for (let y = 44; y < 66; y++) for (let x = 44; x < 72; x++) if (w.terrainAt(x, y) === T.STONE && !w.objectAt(x, y)) paving++;
+  assert.ok(kg.length < paving / 5, `${kg.length} details on ${paving} tiles`);
+  // Ruins keep their paving plain.
+  assert.equal(detailTable(T.STONE, 'Temasek Ruins'), null);
 });
 
 test('details suit the ground and region: shells on beaches, no flowers in the Wilderness', () => {

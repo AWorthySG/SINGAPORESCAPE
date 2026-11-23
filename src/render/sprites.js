@@ -2612,7 +2612,30 @@ function worldArtKey(obj, time = 0) {
   if (t === 'tree') return obj.depleted ? `stump-${obj.def.borrow || obj.objId}` : `tree-${obj.def.borrow || obj.objId}`;
   if (t === 'rock') return obj.depleted ? 'rock-empty' : `rock-${obj.objId}`;
   if (obj.art && WORLD_ART[obj.art]) return obj.art;   // one object's own picture (a resource zone's signpost)
+  if (t === 'scenery' && BED_LOOKS[obj.objId]) return bedLook(obj).key;   // a flowerbed's own look
   return obj.def.art || `obj-${obj.objId}`;   // an object may borrow another's picture (the Offering Shrine)
+}
+// Flowerbeds and shrubs line the town plazas tile after tile, and one sticker
+// repeated forty times reads as wallpaper. So each takes its look from its
+// tile: now and then the other plant, its orchids in another colour, a touch
+// bigger or smaller (within 8%), mirrored or not. Only the drawing changes:
+// the object, and what it says when examined, stay as they are. Each tint is
+// baked once (tintedArt), so a look costs nothing more per frame.
+const BED_LOOKS = {
+  flower: { swap: 0.14, other: 'obj-bush' },
+  bush: { swap: 0.18, other: 'obj-flower' },
+};
+const BED_TINTS = {
+  'obj-flower': [[null, 0.48], ['hue-rotate(-40deg)', 0.2], ['hue-rotate(24deg) saturate(1.05)', 0.18], ['saturate(0.3) brightness(1.1)', 0.14]],
+  'obj-bush': [[null, 0.6], ['hue-rotate(-14deg) brightness(1.04)', 0.24], ['hue-rotate(10deg) brightness(0.95)', 0.16]],
+};
+/** The look of the flowerbed or shrub `obj`: { key, tint, s, flip }, the same every time for its tile. */
+export function bedLook(obj) {
+  const b = BED_LOOKS[obj.objId];
+  const key = tileHash(obj.x, obj.y, 61) < b.swap ? b.other : `obj-${obj.objId}`;
+  let r = tileHash(obj.x, obj.y, 62), tint = null;
+  for (const [f, n] of BED_TINTS[key]) { r -= n; if (r <= 0) { tint = f; break; } }
+  return { key, tint, s: 0.92 + tileHash(obj.x, obj.y, 63) * 0.16, flip: tileHash(obj.x, obj.y, 64) < 0.5 };
 }
 const _worldImg = {};
 function worldImage(key) {
@@ -2657,9 +2680,10 @@ export function tintedArt(img, tint) {
 }
 function drawWorldArt(ctx, obj, img, key, cx, cy, time) {
   const [mw, mh, foot] = WORLD_ART[key];
-  const s = Math.min(mw / img.naturalWidth, mh / img.naturalHeight);
-  const w = img.naturalWidth * s, h = img.naturalHeight * s;
   const t = obj.def.type;
+  const look = t === 'scenery' && BED_LOOKS[obj.objId] ? bedLook(obj) : null;   // a flowerbed's own look
+  const s = Math.min(mw / img.naturalWidth, mh / img.naturalHeight) * (look ? look.s : 1);
+  const w = img.naturalWidth * s, h = img.naturalHeight * s;
   if (obj.def.footprint) {   // a landmark's shadow spans its footprint
     ctx.fillStyle = 'rgba(34,48,74,0.16)';
     ellipse(ctx, cx, cy + foot - 2, w * 0.46, 7); ctx.fill();
@@ -2671,6 +2695,7 @@ function drawWorldArt(ctx, obj, img, key, cx, cy, time) {
   // Spent stalls, traps and fishing spots fade back; trees and rocks swap pictures instead.
   if (obj.depleted && t !== 'tree' && t !== 'rock') ctx.globalAlpha = 0.5;
   if (obj.def.tint && !EVENT_KEYS.has(key) && 'filter' in ctx) img = tintedArt(img, obj.def.tint) || img;   // a borrowed picture, recoloured
+  if (look && look.tint && 'filter' in ctx) img = tintedArt(img, look.tint) || img;
   if (t === 'tree' && !obj.depleted) {
     // The canopy leans gently about the base of the trunk.
     const sway = Math.sin(time * 0.0012 + obj.x * 1.7 + obj.y) * 1.4;
@@ -2681,6 +2706,9 @@ function drawWorldArt(ctx, obj, img, key, cx, cy, time) {
     // Fishing spots bob on the swell.
     const bob = Math.sin(time * 0.003 + obj.x + obj.y * 0.7) * 1.2;
     ctx.drawImage(img, cx - w / 2, cy + foot - h + bob, w, h);
+  } else if (look && look.flip) {
+    ctx.translate(cx, 0); ctx.scale(-1, 1);
+    ctx.drawImage(img, -w / 2, cy + foot - h, w, h);
   } else ctx.drawImage(img, cx - w / 2, cy + foot - h, w, h);
   ctx.restore();
 }
