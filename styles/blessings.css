@@ -5,15 +5,15 @@
 #prayer-panel .bl-faith { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 #prayer-panel .bl-faith-bar {
   height: 12px; border-radius: 999px; overflow: hidden;
-  background: var(--aw-sun-bg, #fdf3de); border: 2px solid var(--aw-ink, #24324a);
+  background: var(--aw-sun-bg); border: 2px solid var(--aw-ink);
 }
-#prayer-panel .bl-faith-bar i { display: block; height: 100%; width: 0; background: var(--aw-sun, #f5b82e); transition: width .3s ease; }
-#prayer-panel .bl-faith-text { font-size: 11px; font-weight: 900; color: var(--aw-text, #24324a); }
+#prayer-panel .bl-faith-bar i { display: block; height: 100%; width: 0; background: var(--aw-sun); transition: width .3s ease; }
+#prayer-panel .bl-faith-text { font-size: 11px; font-weight: 900; color: var(--aw-text); }
 
 #prayer-panel .bl-burst {
   flex: none; min-height: 44px; min-width: 76px; padding: 0 10px;
-  border-radius: 12px; border: 2px solid var(--aw-ink, #24324a);
-  background: var(--aw-card, #fff); color: var(--aw-text-sec, #5b6577);
+  border-radius: 12px; border: 2px solid var(--aw-ink);
+  background: var(--aw-card); color: var(--aw-text-sec);
   font: inherit; font-weight: 900; cursor: pointer; opacity: .7;
 }
 #prayer-panel .bl-burst { display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
@@ -23,14 +23,14 @@
   border: 1px solid currentColor; opacity: .8;
 }
 #prayer-panel .bl-burst.ready {
-  opacity: 1; color: var(--aw-text, #24324a); background: var(--aw-sun, #f5b82e);
-  box-shadow: 0 0 0 3px var(--aw-sun-bg, #fdf3de), 0 0 12px rgba(245, 184, 46, .8);
+  opacity: 1; color: var(--aw-text); background: var(--aw-sun);
+  box-shadow: 0 0 0 3px var(--aw-sun-bg), 0 0 12px rgba(245, 184, 46, .8);
   animation: bl-glow 1.4s ease-in-out infinite;
 }
-#prayer-panel .bl-burst-info { font-size: 10.5px; color: var(--aw-text-sec, #5b6577); margin-bottom: 8px; }
+#prayer-panel .bl-burst-info { font-size: 10.5px; color: var(--aw-text-sec); margin-bottom: 8px; }
 
-#prayer-panel .bl-slots-label { font-size: 11px; color: var(--aw-text-sec, #5b6577); margin-bottom: 4px; }
-#prayer-panel .bl-slots-label b { color: var(--aw-text, #24324a); }
+#prayer-panel .bl-slots-label { font-size: 11px; color: var(--aw-text-sec); margin-bottom: 4px; }
+#prayer-panel .bl-slots-label b { color: var(--aw-text); }
 #prayer-panel .bl-slots { display: flex; gap: 4px; margin-bottom: 10px; }
 #prayer-panel .bl-slot {
   flex: 1 1 0; min-width: 0; min-height: 44px; border-radius: 10px;
@@ -38,10 +38,10 @@
   font: inherit; font-size: 9.5px; font-weight: 800; text-align: center; padding: 2px;
 }
 #prayer-panel .bl-slot.filled {
-  background: var(--aw-sun-bg, #fdf3de); border: 2px solid var(--aw-sun, #f5b82e);
-  color: var(--aw-text, #24324a); cursor: pointer;
+  background: var(--aw-sun-bg); border: 2px solid var(--aw-sun);
+  color: var(--aw-text); cursor: pointer;
 }
-#prayer-panel .bl-slot.filled:hover { border-color: var(--aw-ink, #24324a); }
+#prayer-panel .bl-slot.filled:hover { border-color: var(--aw-ink); }
 #prayer-panel .bl-slot-ic { display: flex; }
 /* Each slot sits in the painted ring frame (see-through centre): behind a
    blessing's icon, or on its own in an empty slot. A missing picture leaves the plain slot. */
@@ -52,20 +52,20 @@
 #prayer-panel .bl-slot.empty { background-origin: content-box; }
 #prayer-panel .bl-slot-ic img { width: 22px; height: 22px; }
 #prayer-panel .bl-slot-name { max-width: 100%; text-overflow: ellipsis; }
-#prayer-panel .bl-slot.empty { border: 2px dashed var(--aw-sun, #f5b82e); color: var(--aw-text-sec, #5b6577); }
-#prayer-panel .bl-slot.locked { border: 2px dashed rgba(36, 50, 74, .25); color: var(--aw-text-sec, #5b6577); opacity: .6; }
+#prayer-panel .bl-slot.empty { border: 2px dashed var(--aw-sun); color: var(--aw-text-sec); }
+#prayer-panel .bl-slot.locked { border: 2px dashed rgba(36, 50, 74, .25); color: var(--aw-text-sec); opacity: .6; }
 
 #prayer-panel .prayer-cell { min-height: 44px; box-sizing: border-box; }
 /* The loadout's combined bonus, and a row's "Stacks with ..." / "Swaps out ..." note. */
-#prayer-panel .bl-total { font-size: 10.5px; color: var(--aw-text-sec, #5b6577); margin: -4px 0 8px; }
-#prayer-panel .bl-total b { color: var(--aw-text, #24324a); }
-#prayer-panel .pr-hint { display: block; font-size: 9.5px; font-weight: 800; color: var(--aw-sun-deep, #b7791f); }
+#prayer-panel .bl-total { font-size: 10.5px; color: var(--aw-text-sec); margin: -4px 0 8px; }
+#prayer-panel .bl-total b { color: var(--aw-text); }
+#prayer-panel .pr-hint { display: block; font-size: 9.5px; font-weight: 800; color: var(--aw-sun-deep); }
 
 /* The Faith orb: a Burst ready glows, and a running Burst lights it up. */
 #prayer-orb { cursor: pointer; }
 #prayer-orb .orb-key {
   position: absolute; top: -7px; right: -7px; line-height: 12px;
-  background: var(--aw-card, #fff); color: var(--aw-text, #24324a);
+  background: var(--aw-card); color: var(--aw-text);
 }
 #prayer-orb .orb-burst {
   position: absolute; top: -8px; left: -8px; width: 16px; height: 16px; object-fit: contain; pointer-events: none;

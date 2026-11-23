@@ -8,7 +8,7 @@
    ========================================================================== */
 #minimap-canvas {
   top: 4px; left: 4px; width: 170px; height: 170px;
-  background: #22304A;   /* behind the ring's anti-aliased outer edge */
+  background: var(--aw-ink);   /* behind the ring's anti-aliased outer edge */
   box-shadow: 0 4px 0 rgba(34,48,74,0.2), 0 6px 14px rgba(34,48,74,0.18);
 }
 #minimap-compass { display: none; }
@@ -20,13 +20,13 @@
 /* The area name: a ribbon tucked over the bottom of the ring. */
 #minimap-panel #minimap-region {
   margin-top: -14px; padding: 2px 12px; font-weight: 900; letter-spacing: .2px;
-  background: #FFF8EA; border: 2px solid var(--aw-ink, #22304A);
+  background: #FFF8EA; border: 2px solid var(--aw-ink);
   box-shadow: 0 3px 0 rgba(34,48,74,0.18); overflow: visible;
 }
 #minimap-panel #minimap-region::before,
 #minimap-panel #minimap-region::after {
   content: ""; position: absolute; top: 5px; width: 10px; height: 12px; z-index: -1;
-  background: #F2C14E; border: 2px solid var(--aw-ink, #22304A);
+  background: #F2C14E; border: 2px solid var(--aw-ink);
 }
 #minimap-panel #minimap-region::before { left: -9px; border-right: 0; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 45% 50%); }
 #minimap-panel #minimap-region::after { right: -9px; border-left: 0; clip-path: polygon(0 0, 100% 0, 55% 50%, 100% 100%, 0 100%); }

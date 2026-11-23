@@ -51,7 +51,7 @@ html body.title-on > #acct-overlay:not(#splash):not(#game-root) { visibility: vi
   border: 2px solid var(--aw-ink); background: var(--aw-card); color: var(--aw-ink);
   font: 800 var(--fs-md) var(--font); cursor: var(--cur-pointer); box-shadow: var(--shadow-sticker-sm);
 }
-.acct-body button.acct-primary { background: var(--aw-accent); color: #fff; box-shadow: var(--shadow-primary); }
+.acct-body button.acct-primary { background: var(--aw-accent); color: var(--aw-white); box-shadow: var(--shadow-primary); }
 .acct-body button:disabled { opacity: 0.5; cursor: default; }
 .acct-body button:not(:disabled):active { transform: translateY(1px); }
 .acct-actions button { flex: 1 1 140px; }

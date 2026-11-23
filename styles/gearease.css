@@ -27,7 +27,7 @@
   border: 2px solid var(--aw-ink); border-radius: var(--r2); box-shadow: var(--shadow-sticker-sm);
 }
 .smart-run > summary {
-  display: flex; align-items: center; gap: 8px; min-height: 40px; cursor: var(--cur-pointer, pointer);
+  display: flex; align-items: center; gap: 8px; min-height: 40px; cursor: var(--cur-pointer);
   list-style: none; font-size: 14px; font-weight: 900; color: var(--aw-ink); touch-action: manipulation;
 }
 .smart-run > summary::-webkit-details-marker { display: none; }
@@ -50,7 +50,7 @@
 .smart-pm {
   width: 32px; height: 32px; padding: 0; border-radius: 50%; border: 2px solid var(--aw-ink);
   background: var(--aw-card); color: var(--aw-ink); font-family: inherit; font-size: 18px; font-weight: 900; line-height: 1;
-  cursor: var(--cur-pointer, pointer); box-shadow: var(--shadow-sticker-sm); touch-action: manipulation;
+  cursor: var(--cur-pointer); box-shadow: var(--shadow-sticker-sm); touch-action: manipulation;
 }
 .smart-pm:active { translate: 0 1px; box-shadow: none; }
 .smart-pm:disabled { opacity: .35; cursor: not-allowed; box-shadow: none; }
@@ -58,7 +58,7 @@
 .smart-val.long { font-size: 12px; }
 .smart-under { font-size: 11px; color: var(--aw-text-sec); line-height: 1.2; }
 
-.smart-check { display: flex; align-items: flex-start; gap: 6px; margin: 0 0 8px; font-size: 12px; font-weight: 700; line-height: 1.35; cursor: var(--cur-pointer, pointer); }
+.smart-check { display: flex; align-items: flex-start; gap: 6px; margin: 0 0 8px; font-size: 12px; font-weight: 700; line-height: 1.35; cursor: var(--cur-pointer); }
 .smart-check input { flex: none; width: 18px; height: 18px; margin: 0; }
 
 /* The forecast keeps its height, so the buttons under it never jump. */
@@ -105,7 +105,7 @@
 .smart-step.off, .smart-step.dead { opacity: .55; }
 .smart-step-head { display: flex; align-items: center; gap: 8px; }
 /* The title keeps to one line; a long cost wraps under itself instead. */
-.smart-step-tick { display: flex; align-items: center; gap: 7px; flex: none; font-size: 13.5px; white-space: nowrap; cursor: var(--cur-pointer, pointer); }
+.smart-step-tick { display: flex; align-items: center; gap: 7px; flex: none; font-size: 13.5px; white-space: nowrap; cursor: var(--cur-pointer); }
 .smart-step-tick input { flex: none; width: 18px; height: 18px; margin: 0; }
 .smart-cost { flex: 1 1 auto; min-width: 0; font-size: 12px; font-weight: 800; line-height: 1.25; color: var(--aw-ink); text-align: right; }
 .smart-step > .smart-sub { margin: 2px 0 0 25px; line-height: 1.3; }
@@ -113,7 +113,7 @@
 .smart-intro p { font-size: 12.5px; line-height: 1.4; }
 .smart-step .smart-more { margin: 6px 0 0 25px; }
 .smart-pieces { margin: 2px 0 8px; font-size: 12px; }
-.smart-pieces > summary { padding: 6px 0; font-weight: 800; color: var(--aw-ink); cursor: var(--cur-pointer, pointer); }
+.smart-pieces > summary { padding: 6px 0; font-weight: 800; color: var(--aw-ink); cursor: var(--cur-pointer); }
 .smart-piece { display: flex; align-items: center; gap: 6px; padding: 3px 0; border-bottom: 1px dashed var(--aw-ink-faint); }
 .smart-piece-ic { flex: none; display: flex; }
 .smart-piece-name { flex: 1; min-width: 0; font-weight: 800; }

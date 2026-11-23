@@ -3,14 +3,14 @@
    and what a level-up opened. Kept out of main.css, which is a shared hot spot. */
 
 /* ---- "What next?" in the Quest Journal ---- */
-.wn-head { color: var(--aw-accent, #C0392B); }
+.wn-head { color: var(--aw-accent); }
 .wn-card { margin-bottom: 8px; }
-.wn-row { border-left: 4px solid var(--aw-sun, #F2B33D); }
+.wn-row { border-left: 4px solid var(--aw-sun); }
 .wn-row .q-foot { margin-top: 0; align-items: center; }
 .wn-row .wn-ic {
   flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
-  background: var(--aw-sun, #F2B33D); color: var(--aw-ink, #22304A); font-weight: 900; font-size: 12px;
-  border: 2px solid var(--aw-ink, #22304A);
+  background: var(--aw-sun); color: var(--aw-ink); font-weight: 900; font-size: 12px;
+  border: 2px solid var(--aw-ink);
 }
 .wn-row.wn-gear .wn-ic { background: #8fd18a; }
 .wn-row.wn-fight .wn-ic { background: #ffb3a7; }
@@ -18,14 +18,14 @@
 .wn-row .wn-text b { display: block; }
 
 /* ---- The tracker's next-goal row: the only part of the tracker you can tap ---- */
-#quest-tracker .trk-next { pointer-events: auto; cursor: var(--cur-pointer, pointer); position: relative; }
-#quest-tracker .trk-next .trk-ic { color: var(--aw-accent, #C0392B); }
+#quest-tracker .trk-next { pointer-events: auto; cursor: var(--cur-pointer); position: relative; }
+#quest-tracker .trk-next .trk-ic { color: var(--aw-accent); }
 #quest-tracker .trk-next-text {
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700;
 }
 #quest-tracker .trk-go {
   flex: none; margin-left: auto; padding: 0 8px; border-radius: 999px; font-size: 10px; font-weight: 900;
-  background: var(--aw-accent, #C0392B); color: #fff; border: 1.5px solid var(--aw-ink, #22304A); line-height: 16px;
+  background: var(--aw-accent); color: var(--aw-white); border: 1.5px solid var(--aw-ink); line-height: 16px;
 }
 /* A bigger target for a thumb than the row's text line. */
 #quest-tracker .trk-next::before { content: ""; position: absolute; inset: -4px -8px; }
@@ -34,7 +34,7 @@
 /* ---- "Wear it" on an upgrade note ---- */
 .nl-card .nl-act {
   margin-left: 6px; padding: 1px 10px; border-radius: 999px; font: inherit; font-size: 11.5px; font-weight: 900;
-  background: var(--aw-accent, #C0392B); color: #fff; border: 2px solid var(--aw-ink, #22304A); cursor: var(--cur-pointer, pointer);
+  background: var(--aw-accent); color: var(--aw-white); border: 2px solid var(--aw-ink); cursor: var(--cur-pointer);
 }
 
 /* ---- Bank: Deposit loot and the kept-item pin ---- */
@@ -58,16 +58,16 @@
 }
 #quickbar .qb-btn {
   pointer-events: auto; position: relative; width: 40px; height: 40px; padding: 0; display: grid; place-items: center;
-  background: var(--aw-card, #fff); border: 2px solid var(--aw-ink, #22304A); border-radius: 12px;
-  box-shadow: var(--shadow-sticker-sm); cursor: var(--cur-pointer, pointer); font: inherit; color: var(--aw-ink, #22304A);
+  background: var(--aw-card); border: 2px solid var(--aw-ink); border-radius: 12px;
+  box-shadow: var(--shadow-sticker-sm); cursor: var(--cur-pointer); font: inherit; color: var(--aw-ink);
 }
-#quickbar .qb-btn:hover { background: var(--aw-hover, #FFF6E5); }
+#quickbar .qb-btn:hover { background: var(--aw-hover); }
 #quickbar .qb-btn:active { transform: translateY(1px); }
 #quickbar .qb-btn .ui-ic, #quickbar .qb-btn svg { width: 26px; height: 26px; pointer-events: none; }
-#quickbar .qb-slot.on { background: var(--aw-accent, #C0392B); box-shadow: 0 0 0 2px var(--aw-sun, #F5B82E), var(--shadow-sticker-sm); }
+#quickbar .qb-slot.on { background: var(--aw-accent); box-shadow: 0 0 0 2px var(--aw-sun), var(--shadow-sticker-sm); }
 #quickbar .qb-key {
   position: absolute; bottom: -5px; padding: 0 3px; border-radius: 6px; font-size: 9px; line-height: 13px;
-  font-weight: 900; background: var(--aw-ink, #22304A); color: #fff; font-family: inherit; pointer-events: none;
+  font-weight: 900; background: var(--aw-ink); color: var(--aw-white); font-family: inherit; pointer-events: none;
 }
 #quickbar #qb-search { border-radius: 50%; }
 #quickbar .qb-edit { width: 26px; height: 26px; border-radius: 50%; font-size: 13px; opacity: 0.8; }
@@ -78,10 +78,10 @@
 /* The Life skills grid (src/ui/quickbar.js openLife): one tap goes and starts a skill. */
 .life-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin: 10px 0 4px; }
 .life-btn {
-  display: flex; align-items: center; gap: 8px; padding: 8px; min-height: 52px; text-align: left; font: inherit; color: var(--aw-ink, #22304A);
-  background: var(--aw-card, #fff); border: 2px solid var(--aw-ink, #22304A); border-radius: 12px; box-shadow: var(--shadow-sticker-sm); cursor: var(--cur-pointer, pointer);
+  display: flex; align-items: center; gap: 8px; padding: 8px; min-height: 52px; text-align: left; font: inherit; color: var(--aw-ink);
+  background: var(--aw-card); border: 2px solid var(--aw-ink); border-radius: 12px; box-shadow: var(--shadow-sticker-sm); cursor: var(--cur-pointer);
 }
-.life-btn:hover { background: var(--aw-hover, #FFF6E5); }
+.life-btn:hover { background: var(--aw-hover); }
 .life-btn:active { transform: translateY(1px); }
 .life-ic { flex: none; width: 32px; height: 32px; display: grid; place-items: center; }
 .life-ic svg, .life-ic .ui-ic { width: 30px; height: 30px; }
@@ -94,27 +94,27 @@
 #cmd-search.hidden { display: none; }
 #cmd-search .cs-box {
   width: min(560px, calc(100vw - 24px)); max-height: 70vh; display: flex; flex-direction: column; overflow: hidden;
-  background: var(--aw-card, #fff); border: 3px solid var(--aw-ink, #22304A); border-radius: 18px; box-shadow: 0 6px 0 rgba(34,48,74,0.18);
+  background: var(--aw-card); border: 3px solid var(--aw-ink); border-radius: 18px; box-shadow: 0 6px 0 rgba(34,48,74,0.18);
 }
 #cmd-search .cs-input {
   margin: 10px; padding: 10px 14px; font: inherit; font-size: 16px; font-weight: 700; border-radius: 12px;
-  border: 2px solid var(--aw-ink, #22304A); background: var(--aw-paper, #FFFBF2); color: var(--aw-text, #1C1B19); outline: none;
+  border: 2px solid var(--aw-ink); background: var(--aw-paper, #FFFBF2); color: var(--aw-text); outline: none;
 }
-#cmd-search .cs-input:focus { box-shadow: 0 0 0 3px var(--aw-sun, #F5B82E); }
+#cmd-search .cs-input:focus { box-shadow: 0 0 0 3px var(--aw-sun); }
 #cmd-search .cs-list { overflow-y: auto; padding: 0 8px 4px; }
 #cmd-search .cs-row {
-  display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 12px; cursor: var(--cur-pointer, pointer);
+  display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 12px; cursor: var(--cur-pointer);
 }
-#cmd-search .cs-row.sel, #cmd-search .cs-row:hover { background: var(--aw-hover, #FFF6E5); box-shadow: inset 0 0 0 2px var(--aw-sun, #F5B82E); }
+#cmd-search .cs-row.sel, #cmd-search .cs-row:hover { background: var(--aw-hover); box-shadow: inset 0 0 0 2px var(--aw-sun); }
 #cmd-search .cs-ic { flex: none; width: 30px; height: 30px; display: grid; place-items: center; }
 #cmd-search .cs-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 #cmd-search .cs-text b, #cmd-search .cs-text small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #cmd-search .cs-text small { opacity: 0.7; font-size: 11.5px; }
 #cmd-search .cs-main, #cmd-search .cs-alt {
-  flex: none; padding: 4px 10px; min-height: 30px; border-radius: 999px; font: inherit; font-size: 12px; font-weight: 900; cursor: var(--cur-pointer, pointer);
-  border: 2px solid var(--aw-ink, #22304A); background: var(--aw-accent, #C0392B); color: #fff;
+  flex: none; padding: 4px 10px; min-height: 30px; border-radius: 999px; font: inherit; font-size: 12px; font-weight: 900; cursor: var(--cur-pointer);
+  border: 2px solid var(--aw-ink); background: var(--aw-accent); color: var(--aw-white);
 }
-#cmd-search .cs-alt { background: var(--aw-card, #fff); color: var(--aw-ink, #22304A); }
+#cmd-search .cs-alt { background: var(--aw-card); color: var(--aw-ink); }
 #cmd-search .cs-empty { padding: 12px 8px; opacity: 0.75; }
 #cmd-search .cs-hint { padding: 6px 12px 10px; font-size: 11px; opacity: 0.6; }
 
@@ -136,12 +136,12 @@
    opens the favourites (they sat as a 2 x 3 block beside your hero). Desktops
    have room for the row and never show the more button. */
 #quickbar .qb-more { display: none; font-size: 20px; font-weight: 900; line-height: 1; }
-#quickbar .qb-more.has-on::after { content: ""; position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; border-radius: 50%; background: var(--aw-accent, #C0392B); border: 1.5px solid #fff; }
+#quickbar .qb-more.has-on::after { content: ""; position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; border-radius: 50%; background: var(--aw-accent); border: 1.5px solid var(--aw-white); }
 @media (pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px) {
   #quickbar .qb-more { display: grid; }
   #quickbar:not(.open) .qb-slot, #quickbar:not(.open) .qb-edit { display: none; }
   #quickbar:not(.open) #qb-life { display: none; }   /* the Life skills grid opens from the unfolded bar */
-  #quickbar.open .qb-more { background: var(--aw-sun-bg, #FDF3DE); }
+  #quickbar.open .qb-more { background: var(--aw-sun-bg); }
 }
 
 /* ---- Settings > Show performance (src/ui/perfhud.js) ----
@@ -153,7 +153,7 @@
 .perf-hud {
   position: absolute; z-index: 19; right: 10px; top: 268px;
   padding: 4px 7px; border-radius: 8px; pointer-events: none; -webkit-user-select: none; user-select: none;
-  font: 600 11px/1.3 ui-monospace, Menlo, Consolas, monospace; white-space: pre; color: #FAF6EE;
+  font: 600 11px/1.3 ui-monospace, Menlo, Consolas, monospace; white-space: pre; color: var(--aw-bg);
   background: rgba(34, 48, 74, 0.78); contain: layout paint;
 }
 @media (pointer: coarse) and (max-width: 540px) {

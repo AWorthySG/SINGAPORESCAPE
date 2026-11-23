@@ -222,7 +222,7 @@ body.title-on > :not(#splash):not(#game-root):not(script) { visibility: hidden !
 /* Soft moving stripes, so the bar looks alive even while one big file loads. */
 .sl-fill::after {
   content: ""; position: absolute; inset: 0; opacity: .28;
-  background: repeating-linear-gradient(-45deg, #fff 0 6px, transparent 6px 14px);
+  background: repeating-linear-gradient(-45deg, var(--aw-white) 0 6px, transparent 6px 14px);
   animation: slStripes 1s linear infinite;
 }
 @keyframes slStripes { from { background-position: 0 0; } to { background-position: 28px 0; } }
@@ -246,7 +246,7 @@ body.title-on > :not(#splash):not(#game-root):not(script) { visibility: hidden !
 .class-spot {
   order: -1; position: sticky; top: -14px; z-index: 2;   /* -14px: flush with the top of #modal-body, past its padding */
   display: flex; align-items: center; gap: 14px; margin: 10px 0 2px; padding: 10px 14px 10px 8px;
-  background: var(--aw-card); border: 2px solid var(--aw-ink); border-radius: var(--r3, 20px); box-shadow: var(--shadow-sticker);
+  background: var(--aw-card); border: 2px solid var(--aw-ink); border-radius: var(--r3); box-shadow: var(--shadow-sticker);
 }
 .class-spot-stage {
   flex: none; width: 150px; height: 128px; border-radius: 16px;
@@ -267,7 +267,7 @@ body.title-on > :not(#splash):not(#game-root):not(script) { visibility: hidden !
 .class-spot-perks { display: inline-flex; vertical-align: middle; }
 .class-spot-perks li { max-width: 100%; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #modal-body .class-spot-more {
-  vertical-align: middle; min-width: 0; min-height: 0; margin: 0 0 0 5px; padding: 3px 10px; border-radius: 999px; cursor: var(--cur-pointer, pointer);
+  vertical-align: middle; min-width: 0; min-height: 0; margin: 0 0 0 5px; padding: 3px 10px; border-radius: 999px; cursor: var(--cur-pointer);
   font: inherit; font-size: 11px; font-weight: 900; line-height: 1.25; color: var(--aw-accent);
   background: var(--aw-card); border: 1.5px dashed var(--aw-accent); box-shadow: none;
 }
@@ -278,7 +278,7 @@ body.title-on > :not(#splash):not(#game-root):not(script) { visibility: hidden !
 .class-spot-all li b { color: var(--aw-text); font-weight: 900; }
 .class-spot-all li.sig { display: none; }
 .class-spot-go {
-  flex: none; align-self: center; font-size: 14px; font-weight: 800; color: #fff; cursor: var(--cur-pointer, pointer);
+  flex: none; align-self: center; font-size: 14px; font-weight: 800; color: var(--aw-white); cursor: var(--cur-pointer);
   padding: 10px 16px; border-radius: 999px; background: var(--aw-accent); border: 2px solid var(--aw-ink); box-shadow: var(--shadow-primary);
 }
 .class-spot-go:hover { background: var(--aw-accent-dk); }
@@ -301,7 +301,7 @@ body.title-on > :not(#splash):not(#game-root):not(script) { visibility: hidden !
 .class-card.chosen { background: var(--aw-accent-bg); border-color: var(--aw-accent); }
 #modal-body .class-peek {
   position: absolute; top: 5px; right: 5px; width: 34px; height: 34px; min-width: 0; min-height: 0; padding: 0; border-radius: 50%; box-sizing: border-box;
-  display: flex; align-items: center; justify-content: center; font-size: 14px; line-height: 1; cursor: var(--cur-pointer, pointer);
+  display: flex; align-items: center; justify-content: center; font-size: 14px; line-height: 1; cursor: var(--cur-pointer);
   background: var(--aw-card); border: 1.5px solid var(--aw-ink-faint); color: var(--aw-text-sec);
 }
 .class-peek:hover, .class-peek:focus-visible { border-color: var(--aw-ink); color: var(--aw-text); }
