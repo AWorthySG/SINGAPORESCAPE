@@ -25,7 +25,7 @@ const ARROW_LOOK = {
   eternal: { head: '#c27bff', fletch: '#ecd6ff', shaft: '#3a2a5a', trail: '#d6a8ff', glow: '#a855ff', size: 1.25, barbed: true },
 };
 import { labelMode, objectLabelAlpha, npcNameVisible, targetTag, elementTint } from './worldlabels.js';
-import { drawCreature, drawPlayer, drawObjectSprite, drawGroundItem } from './sprites.js';
+import { drawCreature, drawPlayer, drawObjectSprite, drawGroundItem, fishCalm } from './sprites.js';
 import { heroAnimFrame, drawFishingGear, strikeClock } from './heroanim.js';
 import { petDrawable } from './petsprite.js';
 import { RARITY } from '../game/loot.js';
@@ -249,6 +249,8 @@ export class Renderer {
       const cx = o.x * TILE + TILE / 2 - ox + jx, cy = o.y * TILE + TILE / 2 - oy;
       const lit = night > 0.12 && isLightSource(o);
       const fade = this.react.alpha(o), lean = this.react.skew(o, timeMs) + this.amb.lean(o, timeMs);   // brushed, or in the breeze (ambient.js)
+      // A spot's fish stops leaping while a school swirls there (fishCalm keeps when).
+      const still = o.def.type === 'fishing' && fishCalm(o, game.fishSchools?.at(o), timeMs);
       drawables.push({ sortY: o.y + (o.def.overhead ? 0.9 : 0.4), z: 1, draw: () => {   // (a hanging lantern goes over your head)
         if (lit) {
           // A warm light pool blooms outward after dark — fires, furnaces,
@@ -262,9 +264,9 @@ export class Renderer {
           ctx.save();
           ctx.globalAlpha = fade;
           if (lean) { ctx.translate(cx, cy + 13); ctx.transform(1, 0, lean, 1, 0, 0); ctx.translate(-cx, -(cy + 13)); }
-          drawObjectSprite(ctx, o, cx, cy, timeMs);
+          drawObjectSprite(ctx, o, cx, cy, timeMs, !!game.lowFx, still);
           ctx.restore();
-        } else drawObjectSprite(ctx, o, cx, cy, timeMs);
+        } else drawObjectSprite(ctx, o, cx, cy, timeMs, !!game.lowFx, still);
       } });
     }
     // Landmarks stand on their front-left tile, but their picture spreads across

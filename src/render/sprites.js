@@ -2685,7 +2685,9 @@ function drawWorldArt(ctx, obj, img, key, cx, cy, time) {
   ctx.restore();
 }
 
-export function drawObjectSprite(ctx, obj, cx, cy, time = 0) {
+// `low` (low graphics) and `still` (a school swirling there) only change how a
+// fishing spot's fish shows (drawCatchBadge).
+export function drawObjectSprite(ctx, obj, cx, cy, time = 0, low = false, still = false) {
   const t = obj.def.type;
   const key = worldArtKey(obj, time);
   // Load every frame of an animated object together, so it never drops back
@@ -2693,7 +2695,7 @@ export function drawObjectSprite(ctx, obj, cx, cy, time = 0) {
   if (t === 'fire' || t === 'farm') for (const k of Object.keys(WORLD_ART)) if (k.startsWith(t === 'fire' ? 'obj-fire-' : 'obj-farm_patch-')) worldImage(k);
   else if (obj.def.frames) for (let i = 0; i < obj.def.frames; i++) worldImage(`obj-${obj.objId}-${i}`);
   const art = key && worldImage(key);
-  if (art && art.complete && art.naturalWidth) { drawWorldArt(ctx, obj, art, key, cx, cy, time); if (t === 'fishing') drawCatchBadge(ctx, obj, cx, cy, time); return; }
+  if (art && art.complete && art.naturalWidth) { drawWorldArt(ctx, obj, art, key, cx, cy, time); if (t === 'fishing') drawCatchBadge(ctx, obj, cx, cy, time, low, still); return; }
   if (obj.def.footprint) return;   // a landmark has no drawn stand-in: it appears once its picture loads
   if (CACHED_OBJECTS.has(t)) {
     const key = `obj|${t}|${obj.objId}|${obj.def.ore || ''}|${obj.depleted ? 1 : 0}`;
@@ -2714,21 +2716,152 @@ export function drawObjectSprite(ctx, obj, cx, cy, time = 0) {
 }
 
 // Each kind of fishing spot holds one fish (fishspots.js), but most share one
-// of five pictures: a little sticker of the fish it holds bobs on the water
-// beside it, so spots tell apart at a glance. Its painted item icon, so no new
-// art; a world event's shoal and a spot still loading go without.
-export const CATCH_BADGE = 15;   // px across
-function drawCatchBadge(ctx, obj, cx, cy, time) {
+// of five pictures, so each spot shows its own fish: its painted item icon (no
+// new art) lies half-sunk in the water, bobbing, and every five to seven
+// seconds ducks under and leaps out in a short arc, turning with it and
+// heading the other way each time, with rings where it leaves and lands. Each
+// spot keeps its own beat (from its tile), so a bay never leaps together. Low
+// graphics keeps the little round badge; a world event's shoal and a spot
+// still loading go without.
+export const CATCH_BADGE = 15;   // px across: the low-graphics badge
+export const CATCH_FISH = 22;    // px across: the fish
+// The top of a leap, in px. A spot is drawn over whoever stands on the tile
+// above it, so a higher leap would cover their feet.
+export const FISH_LEAP = 12;
+export const FISH_LEAP_EVERY = [5000, 7000];   // ms from one leap to the next
+const FISH_AT = [2, 5];   // its resting place in the water, from the tile's centre
+const FISH_AT_OWN = { arowana_pool: [2, 0] };   // (a walled pond holds its water higher)
+const LEAP_SPAN = 7;      // px it carries along
+const LEAP_MS = 520;      // ms in the air; its arc runs on a quarter of that under water at each end
+const LEAP_UNDER = 0.25;
+// ms: coming back up in its place, ducking under before a leap, staying under
+// after it, and a splash's rings spreading.
+const RISE_MS = 500, DIP_MS = 260, UNDER_MS = 600, SPLASH_MS = 450;
+// The way a raw fish's sticker faces (its head), so it leaps head first; any
+// not listed face right. A repainted sticker may face another way: update it here.
+export const FISH_FACING = {
+  ...Object.fromEntries(['anchovy', 'arapaima', 'bluefin_tuna', 'dorado', 'dragon_arowana', 'giant_snakehead', 'grouper',
+    'lobster', 'longfin_trevally', 'mackerel', 'marble_goby', 'moonfish', 'peacock_bass', 'pike', 'rift_eel', 'sailfish', 'sardine',
+    'shark', 'speckled_temensis', 'stingray', 'swordfish', 'tenggiri', 'tilapia', 'trout', 'tuna'].map((f) => [`raw_${f}`, 'left'])),
+  raw_red_snapper: 'up', raw_golden_snapper: 'up', raw_manta_ray: 'up',
+};
+// A steady 0..1 for a tile and a salt: each spot's own beat.
+function tileHash(x, y, salt) {
+  let h = Math.imul((x * 374761393 + y * 668265263 + salt * 1442695041) | 0, 1274126177);
+  h ^= h >>> 15; h = Math.imul(h, 2246822519); h ^= h >>> 13;
+  return (h >>> 0) / 4294967296;
+}
+/**
+ * Where the fish at the spot on tile (x, y) is at `time` (ms), from its
+ * resting place: `dx` along, `lift` up (below 0 it is going under, and at
+ * -CATCH_FISH / 2 it is out of sight), `turn` in radians (nose up below 0, for
+ * a fish heading right), `dir` the way it leaps (1 right, -1 left, 0 resting
+ * as drawn), and a splash `ring` 0..1 (-1 for none) at `rx` along. `still`
+ * (a school swirling there) keeps it resting: `true` always, or the spot's
+ * calm `{ from, to }` (fishCalm) for any leap that would begin within it.
+ */
+export function fishLeap(x, y, time, still = false, out = {}) {
+  const every = FISH_LEAP_EVERY[0] + (FISH_LEAP_EVERY[1] - FISH_LEAP_EVERY[0]) * tileHash(x, y, 1);
+  const T = time + every * tileHash(x, y, 2), n = Math.floor(T / every), u = T - n * every;
+  const bob = Math.sin(time * 0.004 + x * 2.3 + y) * 0.8;
+  out.dx = 0; out.lift = bob; out.turn = Math.sin(time * 0.0021 + x + y * 1.7) * 0.05; out.dir = 0; out.ring = -1; out.rx = 0;
+  if (still === true) return out;
+  const half = CATCH_FISH / 2, go = every - DIP_MS - LEAP_MS * (1 + 2 * LEAP_UNDER) - UNDER_MS;
+  if (still) {
+    // A leap and the rise after it play whole or not at all, judged by when the
+    // leap began: one already under way when a school arrives finishes, and once
+    // it has gone the next begins from rest, so the fish never pops in or out.
+    const began = time - u + (u < RISE_MS ? go - every : go);
+    if (began >= still.from && began <= still.to) return out;
+  }
+  if (u < RISE_MS) {   // back up in its place after the last leap
+    const k = 1 - u / RISE_MS;
+    out.lift = bob - (half + bob) * k * k;
+  } else if (u >= go) {
+    const v = u - go;
+    if (v < DIP_MS) { const k = v / DIP_MS; out.lift = bob - (half + bob) * k * k; }   // ducking under
+    else {
+      // Out along an arc: nose up, level at the top, nose down; the other way each time.
+      const dir = n & 1 ? -1 : 1, t = (v - DIP_MS) / LEAP_MS - LEAP_UNDER;
+      if (t <= 1 + LEAP_UNDER) {
+        out.dir = dir; out.dx = dir * LEAP_SPAN * t; out.lift = FISH_LEAP * 4 * t * (1 - t);
+        out.turn = Math.atan2(-4 * FISH_LEAP * (1 - 2 * t), LEAP_SPAN) * 0.55;   // (not quite as steep as the arc)
+      } else out.lift = -CATCH_FISH;   // under, swimming back to its place
+      // Rings where it leaves the water, then where it lands.
+      const sp = SPLASH_MS / LEAP_MS;
+      if (t >= -0.1 && t < sp - 0.1) out.ring = (t + 0.1) / sp;
+      else if (t >= 0.95 && t < 0.95 + sp) { out.ring = (t - 0.95) / sp; out.rx = dir * LEAP_SPAN; }
+    }
+  }
+  return out;
+}
+/**
+ * The spot's calm, kept on the object as the renderer sees it: `{ from, to }`,
+ * the first and last frame (ms) a school was there, for fishLeap; null if none
+ * has been. A school back within a leap's time of the last continues one calm.
+ */
+export function fishCalm(obj, school, time) {
+  const c = obj._calm;
+  if (!school) { if (c) c.on = false; return c || null; }
+  if (!c) return (obj._calm = { from: time, to: time, on: true });
+  if (!c.on && time - c.to > FISH_LEAP_EVERY[1]) c.from = time;
+  c.to = time; c.on = true;
+  return c;
+}
+const _fish = {};
+function drawCatchBadge(ctx, obj, cx, cy, time, low = false, still = false) {
   const id = !obj.worldEvent && obj.def.catches?.[0]?.id;
   const img = id && itemIconImage(id);
   if (!img || !img.complete || !img.naturalWidth) return;
-  const bob = Math.sin(time * 0.003 + obj.x * 1.3 + obj.y) * 1.5;
-  const s = CATCH_BADGE, x = cx + 9, y = cy - 6 + bob;
   ctx.save();
-  ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.strokeStyle = '#22304A'; ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.arc(x, y, s * 0.62, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  if (img.tint) ctx.filter = img.tint;
-  ctx.drawImage(img, x - s / 2, y - s / 2, s, s);
+  if (low) {   // a still badge beside the spot
+    const bob = Math.sin(time * 0.003 + obj.x * 1.3 + obj.y) * 1.5;
+    const s = CATCH_BADGE, x = cx + 9, y = cy - 6 + bob;
+    ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.strokeStyle = '#22304A'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(x, y, s * 0.62, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    if (img.tint) ctx.filter = img.tint;
+    ctx.drawImage(img, x - s / 2, y - s / 2, s, s);
+    ctx.restore();
+    return;
+  }
+  const f = fishLeap(obj.x, obj.y, time, still, _fish), s = CATCH_FISH;
+  // Its place in the water, riding the swell with the spot's picture (drawWorldArt).
+  const at = FISH_AT_OWN[obj.objId] || FISH_AT;
+  const x = cx + at[0], w = cy + at[1] + Math.sin(time * 0.003 + obj.x + obj.y * 0.7) * 1.2;   // w: the water line
+  const fx = x + f.dx, fy = w - f.lift, a = ctx.globalAlpha;
+  ctx.strokeStyle = '#eaf7ff'; ctx.lineWidth = 1;
+  if (f.ring >= 0) {   // a splash: two rings spreading
+    const r = 2 + 7 * f.ring, sx = x + f.rx;
+    ctx.globalAlpha = a * 0.9 * (1 - f.ring);
+    ctx.beginPath(); ctx.ellipse(sx, w, r, r * 0.38, 0, 0, Math.PI * 2);
+    ctx.moveTo(sx + r * 0.55, w); ctx.ellipse(sx, w, r * 0.55, r * 0.21, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = a;
+  }
+  if (f.dir) {
+    // In the air it heads the way it leaps and turns with the arc; leaving and
+    // entering the water, the water line hides the rest of it.
+    ctx.beginPath(); ctx.rect(fx - s, w - s * 2, s * 2, s * 2); ctx.clip();
+    const face = FISH_FACING[id];
+    ctx.translate(fx, fy); ctx.scale(f.dir, 1);
+    ctx.rotate(face === 'up' ? f.turn + Math.PI / 2 : f.turn);
+    if (face === 'left') ctx.scale(-1, 1);
+    if (img.tint) ctx.filter = img.tint;
+    ctx.drawImage(img, -s / 2, -s / 2, s, s);
+  } else {
+    const shown = Math.min(1, 0.5 + f.lift / s);   // the share of it above the water line
+    if (shown > 0) {
+      if (f.ring < 0) {   // a ripple round it where it sits
+        ctx.globalAlpha = a * 0.4;
+        ellipse(ctx, fx, w, s * 0.36, 1.6); ctx.stroke();
+        ctx.globalAlpha = a;
+      }
+      // Only what is above the water: the sticker's top rows (it barely tilts).
+      ctx.translate(fx, fy); ctx.rotate(f.turn);
+      if (img.tint) ctx.filter = img.tint;
+      ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight * shown, -s / 2, -s / 2, s, s * shown);
+    }
+  }
   ctx.restore();
 }
 
