@@ -1,6 +1,6 @@
 /* ---- Story spine: the Journal's Story view and chapter scenes (storyui.js) ---- */
 .story-head { display: flex; flex-direction: column; align-items: center; gap: 2px; margin: 2px 0 8px; text-align: center; }
-.story-head b { color: var(--rs-gold); font-size: 14px; }
+.story-head b { color: var(--aw-sun-deep); font-size: 14px; }
 .story-head span { font-size: 11px; color: var(--aw-text-sec); }
 .story-lore-head { margin-top: 14px; }
 .story-badges { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; margin-bottom: 8px; }
