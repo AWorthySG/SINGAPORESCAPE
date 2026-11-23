@@ -89,6 +89,7 @@ export const CHAT_LINES = 120;   // the chat keeps (and its log shows) this many
 import { NoticeLane, afterLayout } from './noticelane.js';
 import { QuickSlot, interactCaption, trackerHTML, TRACKER_ROWS, TRACKER_ROWS_PHONE, sellSideSmall, loadTrackerFolded, saveTrackerFolded, sheetSnap } from './hudease.js';
 import { QuickBar } from './quickbar.js';
+import { makeQtyRow, makePill, maxMakes, makeQtyOf } from './makeqty.js';
 import { CmdSearch } from './cmdsearch.js';
 import { addCollectionButton } from './collectionui.js';
 import { renderHpBar } from './hpbar.js';
@@ -4197,15 +4198,17 @@ export class UI {
     const dishes = DISHES.filter((d) => d.inputs.every((inp) => this.game.inventory.has(inp.id, inp.qty)));
     if (!raws.length && !dishes.length) { this.game.msg('You have nothing to cook.'); return; }
     const render = (body) => {
-      body.innerHTML = '<div class="modal-hint">Choose what to cook. You\'ll cook until you run out.</div>';
+      const q = makeQtyOf(this.game);
+      body.innerHTML = `<div class="modal-hint">Choose what to cook. ${q === Infinity ? 'You\'ll cook until you run out.' : `You'll cook ${formatNumber(q)} (or all you have, if fewer).`}</div>`;
       body.appendChild(this._doAllRow('cook', obj, 'Cook all'));
+      body.appendChild(this._makeQtyRow());
       if (raws.length) {
         const grid = document.createElement('div');
         grid.className = 'item-grid';
         for (const rawId of raws) {
           const cook = COOKING[rawId];
           grid.appendChild(this._cell(rawId, this.game.inventory.count(rawId), {
-            tooltip: `<b>${getItem(cook.result).name}</b><br>Cooking lvl ${cook.level}, ${formatNumber(Math.round(this.game.skills.xpAtLevel('cooking', makeXp(this.game, 'cooking', cook.xp))))} xp`,
+            tooltip: `<b>${getItem(cook.result).name}</b><br>Cooking lvl ${cook.level}, ${formatNumber(Math.round(this.game.skills.xpAtLevel('cooking', makeXp(this.game, 'cooking', cook.xp))))} xp<br>${makePill(this.game, maxMakes(this.game, 'cook', rawId))}`,
             onClick: () => { this.game.startCooking(obj, rawId); this.closeModal(); },
           }));
         }
@@ -4221,7 +4224,7 @@ export class UI {
           row.className = 'dialogue-option';
           row.style.opacity = can ? '1' : '0.5';
           const needs = d.inputs.map((inp) => `${inp.qty} ${getItem(inp.id).name}`).join(' + ');
-          row.innerHTML = `<span class="row-ic">${itemIconSVG(d.result, 22)}</span> <b>${getItem(d.result).name}</b> <span style="opacity:.75">(lvl ${d.level} &mdash; ${needs})</span>`;
+          row.innerHTML = `<span class="row-ic">${itemIconSVG(d.result, 22)}</span> <b>${getItem(d.result).name}</b> <span style="opacity:.75">(lvl ${d.level} &mdash; ${needs})</span>${makePill(this.game, maxMakes(this.game, 'dish', d))}`;
           row.addEventListener('click', () => { this.game.startDish(obj, d); this.closeModal(); });
           list.appendChild(row);
         }
@@ -4241,19 +4244,25 @@ export class UI {
     return row;
   }
 
+  /** The "1 · 5 · 10 · X · All" amount chips under "Do all" (makeqty.js). */
+  _makeQtyRow() {
+    return makeQtyRow(this.game, () => this.modal?.render(this.el.modalBody));
+  }
+
   // Smelting -----------------------------------------------------------
   openSmeltMenu(obj) {
     const render = (body) => {
       body.innerHTML = '<div class="modal-hint">Smelt ore into bars.</div>';
       const list = document.createElement('div');
       list.appendChild(this._doAllRow('smelt', obj, 'Smelt all'));
+      list.appendChild(this._makeQtyRow());
       for (const r of SMELT) {
         const can = r.inputs.every((inp) => this.game.inventory.has(inp.id, inp.qty)) && this.game.skills.level('smithing') >= r.level;
         const row = document.createElement('div');
         row.className = 'dialogue-option';
         row.style.opacity = can ? '1' : '0.5';
         const needs = r.inputs.map((inp) => `${inp.qty} ${getItem(inp.id).name}`).join(' + ');
-        row.innerHTML = `<span class="row-ic">${itemIconSVG(r.result, 22)}</span> <b>${getItem(r.result).name}</b> <span style="opacity:.75">(lvl ${r.level} &mdash; ${needs})</span>`;
+        row.innerHTML = `<span class="row-ic">${itemIconSVG(r.result, 22)}</span> <b>${getItem(r.result).name}</b> <span style="opacity:.75">(lvl ${r.level} &mdash; ${needs})</span>${makePill(this.game, maxMakes(this.game, 'smelt', r))}`;
         row.addEventListener('click', () => { this.game.startSmelt(r, obj); this.closeModal(); });
         list.appendChild(row);
       }
@@ -4269,6 +4278,7 @@ export class UI {
       body.innerHTML = '<div class="modal-hint">Craft pottery and jewellery from gathered materials, and refine scrolls and upgrade wards from gems and bars.</div>';
       const list = document.createElement('div');
       list.appendChild(this._doAllRow('craft', obj, 'Craft all'));
+      list.appendChild(this._makeQtyRow());
       for (const r of CRAFT) {
         const hasTool = !r.tool || this.game.hasTool(r.tool);
         const can = hasTool && r.inputs.every((inp) => this.game.inventory.has(inp.id, inp.qty)) && this.game.skills.level('crafting') >= r.level;
@@ -4276,7 +4286,7 @@ export class UI {
         row.className = 'dialogue-option';
         row.style.opacity = can ? '1' : '0.5';
         const needs = r.inputs.map((inp) => `${inp.qty} ${getItem(inp.id).name}`).join(' + ');
-        row.innerHTML = `<span class="row-ic">${itemIconSVG(r.result, 22)}</span> <b>${r.qty > 1 ? r.qty + ' ' : ''}${getItem(r.result).name}</b> <span style="opacity:.75">(lvl ${r.level} &mdash; ${needs}${r.tool ? ', chisel' : ''})</span>`;
+        row.innerHTML = `<span class="row-ic">${itemIconSVG(r.result, 22)}</span> <b>${r.qty > 1 ? r.qty + ' ' : ''}${getItem(r.result).name}</b> <span style="opacity:.75">(lvl ${r.level} &mdash; ${needs}${r.tool ? ', chisel' : ''})</span>${makePill(this.game, maxMakes(this.game, 'craft', r))}`;
         row.addEventListener('click', () => { this.game.startCraft(r, obj); this.closeModal(); });
         list.appendChild(row);
       }
@@ -4298,6 +4308,7 @@ export class UI {
         : 'Carve logs with a knife, and tip arrow shafts with feathers and a metal bar.'}</div>`;
       const list = document.createElement('div');
       list.appendChild(this._doAllRow(skill, obj, skill === 'herblore' ? 'Brew all' : 'Fletch all'));
+      list.appendChild(this._makeQtyRow());
       for (const r of recipes) {
         const hasTool = !r.tool || g.hasTool(r.tool);
         const can = hasTool && g.skills.level(skill) >= r.level && r.inputs.every(([id, n]) => g.inventory.has(id, n));
@@ -4305,7 +4316,7 @@ export class UI {
         row.className = 'dialogue-option';
         row.style.opacity = can ? '1' : '0.5';
         const needs = r.inputs.map(([id, n]) => `${n} ${getItem(id).name}`).join(' + ');
-        row.innerHTML = `<span class="row-ic">${itemIconSVG(r.result, 22)}</span> <b>${r.qty > 1 ? r.qty + ' ' : ''}${getItem(r.result).name}</b> <span style="opacity:.75">(lvl ${r.level} &mdash; ${needs}${r.tool ? ', knife' : ''})</span>`;
+        row.innerHTML = `<span class="row-ic">${itemIconSVG(r.result, 22)}</span> <b>${r.qty > 1 ? r.qty + ' ' : ''}${getItem(r.result).name}</b> <span style="opacity:.75">(lvl ${r.level} &mdash; ${needs}${r.tool ? ', knife' : ''})</span>${makePill(g, maxMakes(g, 'recipe', r))}`;
         row.addEventListener('click', () => { g.startRecipe(skill, r, obj); this.closeModal(); });
         list.appendChild(row);
       }
@@ -4340,13 +4351,14 @@ export class UI {
       body.innerHTML = '<div class="modal-hint">Hammer bars into equipment, or into upgrade stones for enchanting.</div>';
       const list = document.createElement('div');
       list.appendChild(this._doAllRow('smith', obj, 'Smith all'));
+      list.appendChild(this._makeQtyRow());
       const lvl = this.game.skills.level('smithing');
       const row = (r) => {
         const can = this.game.inventory.has(r.bar, r.barCount) && lvl >= r.level && this.game.hasTool('hammer');
         const el = document.createElement('div');
         el.className = 'dialogue-option';
         el.style.opacity = can ? '1' : '0.5';
-        el.innerHTML = `<span class="row-ic">${itemIconSVG(r.result, 22)}</span> <b>${r.qty > 1 ? r.qty + ' ' : ''}${getItem(r.result).name}</b> <span style="opacity:.75">(lvl ${r.level} &mdash; ${r.barCount} ${getItem(r.bar).name})</span>`;
+        el.innerHTML = `<span class="row-ic">${itemIconSVG(r.result, 22)}</span> <b>${r.qty > 1 ? r.qty + ' ' : ''}${getItem(r.result).name}</b> <span style="opacity:.75">(lvl ${r.level} &mdash; ${r.barCount} ${getItem(r.bar).name})</span>${makePill(this.game, maxMakes(this.game, 'smith', r))}`;
         el.addEventListener('click', () => { this.game.startSmith(r, obj); this.closeModal(); });
         return el;
       };

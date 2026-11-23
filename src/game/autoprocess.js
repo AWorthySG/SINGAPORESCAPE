@@ -59,7 +59,8 @@ export const jobKey = key;
 
 // ---------------- Instant batches ----------------
 // Making at a station is instant (the owner's call, as smelting already was):
-// choosing a recipe, or "Do all", makes everything the pack allows in one go.
+// choosing a recipe makes the amount picked in the station window (all the
+// pack allows unless you chose 1, 5, 10 or X), and "Do all" makes everything.
 // Each item is still its own roll through the resolver and the skill's unlocks
 // (perfect cooks, flawless extras, kept materials, level-ups part-way through),
 // so the odds and the XP are what one-at-a-time making gave; only the waiting
@@ -68,6 +69,11 @@ export const jobKey = key;
 const VERB = { cook: 'cook', cookdish: 'prepare', smith: 'smith', craft: 'craft', fletching: 'fletch', herblore: 'brew' };
 const BONUS = { cook: 'perfectly cooked', smith: 'extra from flawless work' };
 const plural = (name, n) => (n === 1 || name.endsWith('s') ? name : `${name}s`);
+
+/** How many makes an action may run: its `limit` (the amount chosen in the
+ *  station window, ui/makeqty.js), or all the pack allows. The guard keeps a
+ *  bug from looping for ever. */
+export const makeCap = (a) => Math.min(a.limit > 0 ? a.limit : Infinity, 100000);
 
 /** What a make action trains and produces: { skill, result }. */
 function makeInfo(a) {
@@ -83,9 +89,12 @@ function batchOne(game, a, once) {
   const { skill, result } = makeInfo(a);
   const xp0 = game.skills.xp[skill] || 0, have0 = result ? game.inventory.count(result) : 0;
   const t = a.tally = { burnt: 0, bonus: 0, kept: 0 };
-  let guard = 0;
+  // At most `a.limit` makes when the station window's amount is 1, 5, 10 or X
+  // (makeCap); each call of `once` works one lot of inputs, so a fish that
+  // burns still counts as one of them (five raw fish off the pile, as asked).
+  const cap = makeCap(a);
   try {
-    while (once() && ++guard < 100000) { /* keep making */ }
+    for (let n = 0; n < cap && once(); n++) { /* keep making */ }
   } finally { a.tally = null; }
   const made = result ? game.inventory.count(result) - have0 : 0;
   const xp = Math.round((game.skills.xp[skill] || 0) - xp0);
