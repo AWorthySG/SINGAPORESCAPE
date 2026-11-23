@@ -155,6 +155,9 @@ export class FishSchools {
     if (!g.autoGather || a?.type !== 'fish' || !a.obj || a.obj === s.obj || a.obj.objId !== s.obj.objId) return;
     const p = g.playerTile();
     if (chebyshev(p.x, p.y, s.obj.x, s.obj.y) > SCHOOL_AUTO) return;
+    // "The best you can" (a Life skills shortcut) follows only to a spot somewhere
+    // safe, the safe way round, and it stays the mode's own pick (game.js _gatherAt).
+    if (a.best) { if (g._gatherAt(s.obj)) g.msg('Auto gather follows the school.', 'system'); return; }
     g.msg('Auto gather follows the school.', 'system');
     g.defaultObjectAction(s.obj);
   }

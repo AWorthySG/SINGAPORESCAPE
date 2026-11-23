@@ -65,7 +65,7 @@ export class Teleports {
     // Automatic play would walk you straight out of the cast.
     if (g.autoBattle) g.toggleAutoBattle(false);
     if (g.autoQuest) g.toggleAutoQuest(false, 'you are teleporting.');
-    g._autoLife = null;
+    g._autoLife = null; g.autoGatherBest = null;
     p.stopNow?.(); p.clearAction?.();
     this.cast = { kind, left: CAST_TICKS, x: p.x, y: p.y, hp: p.hp };
     g.msg(kind === 'town'
