@@ -1,7 +1,7 @@
 // The Collection log (src/game/collection.js), pets (src/game/pets.js) and the
 // Endless Gate's per-class bests and modifiers (src/game/waves.js). Headless,
 // deterministic game scenarios.
-import './seed.mjs';
+import { SEED } from './seed.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -11,7 +11,7 @@ import { saveGame, clearSave } from '../src/game/save.js';
 import { ITEMS } from '../src/data/items.js';
 import { ALL_BOSS_IDS, getNpc } from '../src/data/npcs.js';
 import { PAGES, PAGE_BY_ID, RARE_FINDS } from '../src/game/collection.js';
-import { BOSS_PETS, SKILL_PETS, PET_BY_ID, LIFE_SKILL_IDS, bossPetChance, skillPetChance, rollPet, BOSS_PET_RATE, BOSS_PET_FLOOR, SKILL_PET_RATE } from '../src/game/pets.js';
+import { BOSS_PETS, SKILL_PETS, PET_BY_ID, LIFE_SKILL_IDS, bossPetChance, skillPetChance, rollPet, BOSS_PET_RATE, BOSS_PET_FLOOR, SKILL_PET_RATE, PET_SEED } from '../src/game/pets.js';
 import { GATE, NEXT_WAVE_TICKS, GATE_MODS, modEffects, waveBonus, wavePlan, GATE_XP } from '../src/game/waves.js';
 import { collectionPageHTML, petsHTML } from '../src/ui/collectionui.js';
 
@@ -287,4 +287,11 @@ test('gate modifiers stack their risk and reward', () => {
   assert.equal(g.combatXpMult(), xp0, 'XP back to normal outside');
   g.eatItem(g.inventory.slots.findIndex((s) => s?.id === 'trout'));
   assert.equal(g.inventory.count('trout'), 2, 'and food works again');
+});
+
+test('under the test seed, every game\'s pets roll the same way (no clock in the tests)', () => {
+  assert.equal(PET_SEED.value, SEED);
+  const a = new Game(), b = new Game();
+  const roll = (g) => Array.from({ length: 5 }, () => g.pets.rand());
+  assert.deepEqual(roll(a), roll(b), 'the same rolls');
 });
