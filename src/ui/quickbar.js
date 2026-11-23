@@ -3,7 +3,10 @@
 // already pick the panel tabs) and a small pencil that opens the edit window.
 // On a desktop it is a row above the action bar; on a phone a column under the
 // Bag button (styles/qol.css). The actions themselves live in game/quickbar.js.
-import { QB_ACTIONS, QB_SLOTS, QB_DEFAULT, quickbarOf, setQuickSlot, runQuickAction } from '../game/quickbar.js';
+// Beside the search, the Life skills button opens a grid of every life skill:
+// one tap goes and starts it (game/quickbar.js startLifeSkill).
+import { QB_ACTIONS, QB_SLOTS, QB_DEFAULT, quickbarOf, setQuickSlot, runQuickAction, LIFE_SHORTCUTS, lifeShortcutHint, startLifeSkill } from '../game/quickbar.js';
+import { SKILL_BY_ID } from '../data/skills.js';
 import { quickUseChoice } from '../game/quickuse.js';
 import { openCompendium } from './codexui.js';
 import { itemIconSVG, skillIconSVG, tabIconSVG, uiIconHTML, playIconHTML } from '../render/icons.js';
@@ -40,6 +43,7 @@ export class QuickBar {
     this._sig = '';
     // The Compendium opener the bar's action calls (ui.js has none of its own).
     ui.openCompendium ??= (article = null) => openCompendium(ui, article);
+    ui.openLifeSkills ??= () => this.openLife();
     quickbarOf(this.game);
     for (const ev of ['quickbar', 'autobattle', 'autogather', 'autoquest']) this.game.bus.on(ev, () => this.render());
     // The bag changes many times a tick in a fight (every drop picked up): the
@@ -73,6 +77,7 @@ export class QuickBar {
       const b = e.target.closest('button');
       if (!b) return;
       if (b.id === 'qb-search') this.ui.cmdSearch?.open();
+      else if (b.id === 'qb-life') { el.classList.remove('open'); this.openLife(); }
       else if (b.classList.contains('qb-more')) el.classList.toggle('open');
       else if (b.classList.contains('qb-edit')) { el.classList.remove('open'); this.openEdit(); }
       else if (b.dataset.slot) { this.tap(Number(b.dataset.slot)); el.classList.remove('open'); }
@@ -92,6 +97,7 @@ export class QuickBar {
     if (sig === this._sig) return;
     this._sig = sig;
     let html = `<button type="button" id="qb-search" class="qb-btn" title="Search windows, skills, places, quests, monsters and items (/ or Ctrl+K)" aria-label="Search">${playIconHTML('ui-search', 24)}</button>`;
+    html += `<button type="button" id="qb-life" class="qb-btn" title="Life skills: go and start any of them in one tap" aria-label="Life skills">${tabIconSVG('skills', 24)}</button>`;
     // Phones fold the favourites behind this (styles/qol.css): a 2 x 3 block of
     // buttons sat beside your hero in the middle of the screen. A dot shows while
     // one of them (auto battle, say) is on.
@@ -108,6 +114,22 @@ export class QuickBar {
     });
     html += '<button type="button" class="qb-btn qb-edit" title="Choose the quick bar\'s actions" aria-label="Edit quick bar">&#9998;</button>';
     el.innerHTML = html;
+  }
+
+  /** The Life skills grid: every life skill, with what a tap would do now. */
+  openLife() {
+    const g = this.game;
+    const draw = (body) => {
+      body.innerHTML = '<div class="modal-hint">One tap walks you to the best spot for your level and starts: gathering carries on by itself (auto gather), and a station makes everything you can.</div>'
+        + '<div class="life-grid">' + LIFE_SHORTCUTS.map((s) => `<button type="button" class="life-btn" data-life="${esc(s)}">`
+          + `<span class="life-ic">${skillIconSVG(s, 30)}</span><span class="life-txt"><b>${esc(SKILL_BY_ID[s]?.name || s)} <small>${g.skills.level(s)}</small></b>`
+          + `<small>${esc(lifeShortcutHint(g, s))}</small></span></button>`).join('') + '</div>';
+      body.querySelectorAll('.life-btn').forEach((b) => b.addEventListener('click', () => {
+        this.ui.closeModal?.();   // first: lighting a fire asks how many logs in a window of its own
+        startLifeSkill(g, b.dataset.life, this.ui);
+      }));
+    };
+    this.ui.openModal('Life skills', draw);
   }
 
   /** The edit window: a picker per slot, grouped like the actions. */
