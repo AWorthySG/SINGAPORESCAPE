@@ -397,9 +397,10 @@ export function aimText(id, aim) {
 
 /** Enchant `id` (`copy`) until it has the aimed lines, at most `maxPicks`
  *  picks and `maxWards` ward rerolls, each one Game.pickEnchant or
- *  rerollEnchant at its usual cost. Returns { id, copy, from, to, picks,
- *  rerolls, same (picks that changed nothing), stones, coins, wards, stop }. */
-export function runEnchant(game, id, { aim, maxPicks, maxWards = 0 }, { copy = 'main' } = {}) {
+ *  rerollEnchant at its usual cost, and never more than `maxStones` stones and
+ *  `maxCoins` coins in all (what the confirm named). Returns { id, copy, from,
+ *  to, picks, rerolls, same (picks that changed nothing), stones, coins, wards, stop }. */
+export function runEnchant(game, id, { aim, maxPicks, maxWards = 0, maxStones = Infinity, maxCoins = Infinity }, { copy = 'main' } = {}) {
   const eqp = game.equipment, inv = game.inventory;
   const copyLines = () => eqp.enchantLines(id, copy).map((l) => ({ ...l }));
   const res = { id, copy, from: copyLines(), to: null, picks: 0, rerolls: 0, same: 0, stones: 0, coins: 0, wards: 0, stop: null };
@@ -417,6 +418,8 @@ export function runEnchant(game, id, { aim, maxPicks, maxWards = 0 }, { copy = '
         continue;
       }
       const c = game.enchantCostFor(id, copy);
+      // (A guard: from the lines the confirm was made on, maxPicks reaches these first.)
+      if (res.stones + c.stones > maxStones || res.coins + c.coins > maxCoins) { res.stop = 'budget'; return; }
       if (inv.count(STONE) < c.stones) { res.stop = 'stones'; return; }
       if (inv.count('coins') < c.coins) { res.stop = 'coins'; return; }
       const old = d.replace != null ? lines[d.replace] : null, offer = game.enchantOffers(id, copy)[d.pick];

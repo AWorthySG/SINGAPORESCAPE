@@ -206,6 +206,20 @@ test('runEnchant: a full piece gets the aimed lines, paying exactly each pick\'s
   assert.ok(r.picks <= 20);
 });
 
+test('runEnchant never spends past the stones and coins its confirm named', () => {
+  const g = lateGame();
+  // No lines yet: tries cost 10, 25, then 50 stones. Three atkPct lines take at
+  // least three picks (offers never repeat a stat), so a 40-stone limit stops it after two.
+  const stones = g.inventory.count('upgrade_stone'), coins = g.inventory.count('coins');
+  const r = runEnchant(g, 'jade_platebody', { aim: ['atkPct', 'atkPct', 'atkPct'], maxPicks: 10, maxWards: 0, maxStones: 40 });
+  assert.equal(r.stop, 'budget');
+  assert.equal(r.picks, 2);
+  assert.equal(stones - g.inventory.count('upgrade_stone'), 35);
+  const c = enchantCost('jade_platebody', 0).coins;
+  const s = runEnchant(g, 'jade_platebody', { aim: ['atkPct', 'atkPct', 'atkPct'], maxPicks: 10, maxWards: 0, maxCoins: c });
+  assert.ok(s.picks <= 1 && coins - g.inventory.count('coins') <= 3 * c, 'the coin limit holds too');
+});
+
 test('bestAim: three lines that add damage, never lifesteal or boss damage', () => {
   const g = lateGame();
   const aim = bestAim(g, 'jade_sword');

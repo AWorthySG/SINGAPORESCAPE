@@ -45,6 +45,21 @@ function confirmState(ui) {
   return (ui.modal._smartSt ||= { pending: null, result: null });
 }
 
+// What a confirm was worked out from: the piece (and which hand's copy) with
+// its ★ or its lines, or for Improve every worn piece's. A try by hand further
+// down the window, the other hand picked, or a swap (a note's "Wear it") changes
+// what a run would spend: an enchant confirmed at no lines priced its tries at
+// 10, 25 and 50 stones, and after a pick by hand the same tries cost 25, 50 and
+// 50. So a confirm whose piece has changed is put away when the window redraws,
+// and its button spends nothing.
+const refineBasis = (g, id, copy) => `r|${id}#${copy}|${g.equipment.refineLevel(id, copy)}`;
+const enchantBasis = (g, id, copy) => `e|${id}#${copy}|${g.equipment.enchantLines(id, copy).map((l) => l.stat + l.value).join('+')}`;
+const improveBasis = (g) => `i|${SG.wornPieces(g).map((p) => `${p.id}#${p.copy}:${g.equipment.refineLevel(p.id, p.copy)}:${g.equipment.enchantLines(p.id, p.copy).length}`).join(',')}`;
+const CHANGED = 'Nothing was spent: your gear changed since you asked. Check the numbers again and tap once more.';
+function dropStale(st, basis) {
+  if (st.pending?.basis && st.pending.basis !== basis) st.pending = null;
+}
+
 // Forecasts and plans, kept by what they were worked out from (cleared after any run).
 const memo = new Map();
 function remember(key, make) {
@@ -177,6 +192,7 @@ function refineCant(game, id, copy, o, f) {
 export function mountRefineRun(ui, body, id, copy, rerender) {
   const g = ui.game, st = confirmState(ui);
   const wrap = el('div', 'smart-wrap');
+  dropStale(st, refineBasis(g, id, copy));
   confirmBox(wrap, st, rerender);
   const lv = g.equipment.refineLevel(id, copy);
   if (lv < MAX_REFINE) wrap.appendChild(refineCard(ui, id, copy, lv, rerender, st));
@@ -233,10 +249,12 @@ function refineCard(ui, id, copy, lv, rerender, st) {
   const wardsOn = o.target >= 10 && o.maxWards > 0;
   card.appendChild(goButton(`Refine up to ${star(o.target)}`, `at most ${plural(o.maxScrolls, 'scroll')}${wardsOn ? ` · ${plural(o.maxWards, 'ward')}` : ''}`, () => {
     const snap = { ...o }, risky = snap.allowDowngrade && !wardsOn && snap.target >= 10;
+    const basis = refineBasis(g, id, copy);
     st.result = null;
     st.pending = {
-      html: refineConfirmHTML(g, id, copy, snap, f), warn: risky ? 'a bad roll can cost a level' : '', label: 'Refine',
+      html: refineConfirmHTML(g, id, copy, snap, f), warn: risky ? 'a bad roll can cost a level' : '', label: 'Refine', basis,
       go: () => {
+        if (refineBasis(g, id, copy) !== basis) return CHANGED;
         const r = SG.runRefine(g, id, snap, { copy });
         delete sm.refine[key];   // the next run starts from fresh suggestions
         memo.clear();
@@ -312,6 +330,7 @@ function missingCount(lines, aim) {
 export function mountEnchantRun(ui, body, id, copy, rerender) {
   const g = ui.game, st = confirmState(ui);
   const wrap = el('div', 'smart-wrap');
+  dropStale(st, enchantBasis(g, id, copy));
   confirmBox(wrap, st, rerender);
   if (getItem(id).equip?.bonuses) wrap.appendChild(enchantCard(ui, id, copy, rerender, st));
   afterIntro(body, wrap);
@@ -372,11 +391,14 @@ function enchantCard(ui, id, copy, rerender, st) {
   card.appendChild(fc);
   if (!afford && aimed.length && !met) card.appendChild(getMore(ui, stones < c.stones ? STONE : 'coins'));
   card.appendChild(goButton('Enchant until done', `at most ${plural(o.maxPicks, 'try', 'tries')} · ${num(m.stones)} stones · ${num(m.coins)} coins${o.maxWards ? ` · ${plural(o.maxWards, 'ward')}` : ''}`, () => {
-    const snap = { aim: o.aim.slice(), maxPicks: o.maxPicks, maxWards: o.maxWards };
+    // The stones and coins the confirm names are the run's hard limits too.
+    const snap = { aim: o.aim.slice(), maxPicks: o.maxPicks, maxWards: o.maxWards, maxStones: m.stones, maxCoins: m.coins };
+    const basis = enchantBasis(g, id, copy);
     st.result = null;
     st.pending = {
-      html: enchantConfirmHTML(g, id, copy, snap), warn: snap.maxWards > 0 ? 'it can use upgrade wards' : '', label: 'Enchant',
+      html: enchantConfirmHTML(g, id, copy, snap), warn: snap.maxWards > 0 ? 'it can use upgrade wards' : '', label: 'Enchant', basis,
       go: () => {
+        if (enchantBasis(g, id, copy) !== basis) return CHANGED;
         const aim = snap.aim;
         const r = SG.runEnchant(g, id, snap, { copy });
         delete sm.enchant[key];
@@ -449,6 +471,7 @@ export function openImprove(ui) {
     const scrolls = g.inventory.count(SCROLL), stones = g.inventory.count(STONE), wards = g.inventory.count(WARD), coins = g.inventory.count('coins');
     body.innerHTML = `<div class="gear-intro smart-intro"><p>Every safe upgrade for the gear you wear, in one go: nothing here can cost a level or break a piece. You carry ${plural(scrolls, 'refine scroll')}, ${plural(stones, 'upgrade stone')}, ${plural(wards, 'upgrade ward')} and ${num(coins)} coins.</p></div>`;
     const rerender = () => redraw(body, render);
+    dropStale(st, improveBasis(g));
     confirmBox(body, st, rerender);
     const footer = () => {
       const f = el('div', 'gear-view smart-foot');
@@ -525,10 +548,15 @@ export function openImprove(ui) {
     const ticked = opts.refine || opts.fill || opts.feed;
     const n = plan.count;
     body.appendChild(goButton(!ticked ? 'Tick a step to improve' : n ? `Improve ${plural(n, 'piece')}` : 'Nothing to improve', '', () => {
+      const basis = improveBasis(g);
       st.result = null;
       st.pending = {
-        html: improveConfirmHTML(plan, g), warn: improveWarn(plan, g), label: 'Improve',
-        go: () => { const res = SG.runImprove(g, plan); sm.improve.maxScrolls = null; memo.clear(); return improveResultHTML(res); },
+        html: improveConfirmHTML(plan, g), warn: improveWarn(plan, g), label: 'Improve', basis,
+        go: () => {
+          // (A swap while this waited, say a note's "Wear it", would send the plan's scrolls to a piece now in the bag.)
+          if (improveBasis(g) !== basis) return CHANGED;
+          const res = SG.runImprove(g, plan); sm.improve.maxScrolls = null; memo.clear(); return improveResultHTML(res);
+        },
       };
       rerender();
     }, !ticked || !n));

@@ -48,7 +48,8 @@ function el(tag = 'div') {
     insertAdjacentHTML(_, h) { this.children.push({ html: h }); },
     addEventListener(type, fn) { (this.on[type] ||= []).push(fn); },
     setAttribute(k, v) { this.attrs[k] = v; },
-    querySelector: () => el(), querySelectorAll: () => [],
+    // (One element per selector, so a filter tick's own listener can be played.)
+    querySelector(sel) { return ((this._qs ||= {})[sel] ||= el()); }, querySelectorAll: () => [],
   };
 }
 const html = (n) => (n.html !== undefined ? n.html : `<${n.tag} class="${n.className}">${n._html}${n.textContent}${n.children.map(html).join('')}</${n.tag}>`);
@@ -173,6 +174,90 @@ test('Improve worn gear: three steps with their costs, a confirm naming the most
   openImprove(ui2);
   assert.ok(html(ui2.body).includes('Every safe upgrade is done'));
   assert.ok(!byClass(ui2.body, 'smart-go').length, 'no Improve button');
+}));
+
+test('a run\'s confirm whose piece has changed is put away, and its button spends nothing', () => withDom(() => {
+  const n = (s) => Number(s.replace(/,/g, ''));
+  // Enchant: three tries priced at no lines (10 + 25 + 50 stones); after a pick
+  // by hand further down the window the same three would cost 25 + 50 + 50.
+  const g = lateGame();
+  const ui = { game: g, modal: {} };
+  const body = el();
+  const rerender = () => { body.innerHTML = '<div class="gear-intro"></div>'; mountEnchantRun(ui, body, 'jade_platebody', 'main', rerender); };
+  rerender();
+  const o = ui._smart.enchant['jade_platebody#main'];
+  o.maxPicks = 3; o.aim = ['atkPct', 'crit', 'critDmg'];
+  rerender();
+  tap(byClass(body, 'smart-go')[0]);
+  const stale = ui.modal._smartSt.pending;
+  assert.match(stale.html, /at most 3 tries \(85 stones/);
+  g.pickEnchant('jade_platebody', 0, null, 'main');
+  const stones = g.inventory.count('upgrade_stone'), coins = g.inventory.count('coins');
+  assert.match(stale.go(), /Nothing was spent/, 'pressed before the window redrew: nothing happens');
+  assert.equal(g.inventory.count('upgrade_stone'), stones);
+  assert.equal(g.inventory.count('coins'), coins);
+  rerender();
+  assert.equal(ui.modal._smartSt.pending, null, 'the redraw puts it away');
+  assert.equal(byClass(body, 'salvage-confirm').length, 0);
+  // A fresh confirm runs, within the stones and coins it names.
+  tap(byClass(body, 'smart-go')[0]);
+  const m = /\(([\d,]+) stones, ([\d,]+) coins\)/.exec(ui.modal._smartSt.pending.html);
+  tap(byClass(body, 'salvage-go')[0]);
+  assert.ok(stones - g.inventory.count('upgrade_stone') <= n(m[1]), `${stones - g.inventory.count('upgrade_stone')} stones, at most ${m[1]}`);
+  assert.ok(coins - g.inventory.count('coins') <= n(m[2]));
+
+  // Refine: a try by hand (★9 → ★10) while the confirm waits.
+  const h = lateGame();
+  const ui2 = { game: h, modal: {} };
+  const b2 = el();
+  const re2 = () => { b2.innerHTML = '<div class="gear-intro"></div>'; mountRefineRun(ui2, b2, 'jade_sword', 'main', re2); };
+  re2();
+  tap(byClass(b2, 'smart-go')[0]);
+  const waiting = ui2.modal._smartSt.pending;
+  h.refineItem('jade_sword', 0.01);
+  assert.equal(h.equipment.refineLevel('jade_sword'), 10);
+  const scrolls = h.inventory.count('refine_scroll');
+  assert.match(waiting.go(), /Nothing was spent/);
+  assert.equal(h.inventory.count('refine_scroll'), scrolls);
+  re2();
+  assert.equal(ui2.modal._smartSt.pending, null);
+
+  // Improve: a swap while it waits (a note's "Wear it" runs Equip best) would
+  // send the plan's scrolls to the jade sword, now in the bag.
+  const k = lateGame();
+  Object.assign(k.equipment.refines, { jade_full_helm: 3, jade_platebody: 5 });
+  const ui3 = fakeUI(k);
+  openImprove(ui3);
+  tap(byClass(ui3.body, 'smart-go')[0]);
+  const plan = ui3.modal._smartSt.pending;
+  assert.ok(k.equipBest() > 0);
+  const before = ['refine_scroll', 'upgrade_stone', 'coins'].map((id) => k.inventory.count(id));
+  assert.match(plan.go(), /Nothing was spent/);
+  assert.deepEqual(['refine_scroll', 'upgrade_stone', 'coins'].map((id) => k.inventory.count(id)), before);
+  assert.equal(k.equipment.refineLevel('jade_sword'), 0, 'the jade sword (its ★9 carried away) was not refined in the bag');
+  ui3.modal.render(ui3.body);
+  assert.equal(ui3.modal._smartSt.pending, null);
+}));
+
+test('a bulk confirm takes the pieces it named: a tick changed puts it away, and it keeps its own ticks', () => withDom(() => {
+  const g = lateGame();
+  g.inventory.add('rune_sword', 3);
+  g.inventory.add('jade_platebody', 5);   // as high as what you wear: not "below my worn tier"
+  const ui = fakeUI(g);
+  ui._salvageFilters = { offClass: false, belowTier: true, below: 'epic' };
+  openDismantle(ui);
+  tap(byClass(ui.body, 'salvage-bulk')[0]);
+  assert.match(html(ui.body), /Dismantle <b>3 pieces/);
+  // Untick "Below my worn tier" (its own change listener) while the confirm waits.
+  const tick = all(ui.body, (x) => x.tag === 'label' && /Below my worn tier/.test(x._html))[0];
+  tick.querySelector('input').on.change[0]({ target: { checked: false } });
+  assert.ok(!/salvage-confirm/.test(html(ui.body)), 'the confirm for 3 pieces is gone');
+  tap(byClass(ui.body, 'salvage-bulk')[0]);
+  assert.match(html(ui.body), /Dismantle <b>8 pieces/);
+  // The ticks change some other way before Dismantle all: it still takes the 8 it named.
+  ui._salvageFilters.belowTier = true;
+  tap(byClass(ui.body, 'salvage-go')[0]);
+  assert.equal(g.inventory.count('rune_sword') + g.inventory.count('jade_platebody'), 0, 'all 8 named pieces went');
 }));
 
 test('Dismantle all and Sacrifice all sit above their lists, and their confirms name the kinds', () => withDom(() => {

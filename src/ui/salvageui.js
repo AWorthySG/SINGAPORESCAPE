@@ -182,16 +182,17 @@ export function openSacrifice(ui, targetId, { src = null } = {}) {
     // all" does): with a full pack it sat a long scroll down.
     if (!capped) {
       body.insertAdjacentHTML('beforeend', '<div class="ench-head salvage-head">Sacrifice all…</div>');
-      const { box, f } = filterBox(ui, () => redraw(body, render));
+      // A tick changed while a confirm waits puts it away: it named the pieces of the old ticks.
+      const { box, f } = filterBox(ui, () => { st.pending = null; redraw(body, render); });
       body.appendChild(box);
       const pv = previewSacrificeAll(g, targetId, f);
       const go = button(pv.pieces ? `Sacrifice ${formatNumber(pv.pieces)} piece${pv.pieces > 1 ? 's' : ''}: +${formatNumber(pv.points)} mastery XP` : 'No spare gear matches', () => {
-        const kinds = pv.kinds || [];
+        const kinds = pv.kinds || [], fs = { ...f };   // the ticks it was asked with
         st.pending = {
           html: `Sacrifice <b>${formatNumber(pv.pieces)} pieces</b>${kinds.length ? ` (${kinds.length} kind${kinds.length > 1 ? 's' : ''}: ${picksText(kinds)})` : ''} of spare ${type.toLowerCase()} gear to your <b>${type} mastery</b>: <b>+${formatNumber(pv.points)} mastery XP</b> (${masteryLine(g, targetId, pv.points)}).`,
           warn: f.below === 'any' || f.below === 'mythic' || f.below === 'legendary' ? 'this includes Epic copies or better' : '',
           label: 'Sacrifice all',
-          go: () => { const r = sacrificeAll(g, targetId, f); return `Sacrificed <b>${formatNumber(r.pieces)}</b> pieces: <b>+${formatNumber(r.points)} mastery XP</b>. Your ${type} mastery is now ${masteryLine(g, targetId)}.`; },
+          go: () => { const r = sacrificeAll(g, targetId, fs); return `Sacrificed <b>${formatNumber(r.pieces)}</b> pieces: <b>+${formatNumber(r.points)} mastery XP</b>. Your ${type} mastery is now ${masteryLine(g, targetId)}.`; },
         };
         redraw(body, render);
       }, 'salvage-bulk');
@@ -282,18 +283,21 @@ export function openDismantle(ui, focus = null) {
     // "Dismantle all…" comes first, above the list (as the shrine's "Offer
     // all" does): with a late-game pack it sat some thirty screens down.
     body.insertAdjacentHTML('beforeend', '<div class="ench-head salvage-head">Dismantle all…</div>');
-    const { box, f } = filterBox(ui, () => redraw(body, render));
+    // A tick changed while a confirm waits puts it away: it named the pieces of the old
+    // ticks (unticking "Below my worn tier" then confirming took pieces it never named).
+    const { box, f } = filterBox(ui, () => { st.pending = null; redraw(body, render); });
     body.appendChild(box);
     const picks = bulkPicks(g, f);
     const n = picks.reduce((t, p) => t + p.qualities.length, 0);
     const exp = { stones: 0, scrolls: 0, ward: 0 };
     for (const p of picks) { const y = expectFor(p.id, p.qualities); exp.stones += y.stones; exp.scrolls += y.scrolls; exp.ward += y.ward; }
     const go = button(n ? `Dismantle ${formatNumber(n)} piece${n > 1 ? 's' : ''}` : 'No spare gear matches', () => {
+      const fs = { ...f };   // the ticks it was asked with
       st.pending = {
         html: `Dismantle <b>${formatNumber(n)} pieces</b> (${picks.length} kind${picks.length > 1 ? 's' : ''}: ${picksText(picks.map((p) => ({ id: p.id, n: p.qualities.length })))}): ${expectText(exp) || 'very little'}.`,
         warn: f.below === 'any' || f.below === 'mythic' || f.below === 'legendary' ? 'this includes Epic copies or better' : '',
         label: 'Dismantle all',
-        go: () => { const r = dismantleAll(g, f); return `Dismantled <b>${formatNumber(r.pieces)}</b> pieces: <b>${yieldText(r)}</b>.`; },
+        go: () => { const r = dismantleAll(g, fs); return `Dismantled <b>${formatNumber(r.pieces)}</b> pieces: <b>${yieldText(r)}</b>.`; },
       };
       redraw(body, render);
     }, 'salvage-bulk');
@@ -351,15 +355,17 @@ export function shrineGearSection(ui, body, st, rerender) {
   // "Offer all spare gear…" comes first, above the list: with a full pack the
   // owner had to scroll past every piece to reach it.
   body.insertAdjacentHTML('beforeend', '<div class="ench-head salvage-head">Offer all spare gear…</div>');
-  const { box, f } = filterBox(ui, rerender);
+  // A tick changed while a confirm waits puts it away (it named the pieces of the old ticks).
+  const { box, f } = filterBox(ui, () => { st.pending = null; rerender(); });
   body.appendChild(box);
   const pv = previewOfferAll(g, f);
   const go = button(pv.pieces ? `Offer ${formatNumber(pv.pieces)} piece${pv.pieces > 1 ? 's' : ''}: +${formatNumber(pv.points)} points` : 'No spare gear matches', () => {
+    const fs = { ...f };   // the ticks it was asked with
     st.pending = {
       html: `Offer <b>${formatNumber(pv.pieces)} piece${pv.pieces > 1 ? 's' : ''}</b> of spare gear at the shrine: <b>+${formatNumber(pv.points)} shrine points</b>.`,
       warn: f.below === 'any' || f.below === 'mythic' || f.below === 'legendary' ? 'this includes Epic copies or better' : '',
       label: 'Offer all',
-      go: () => { const r = offerAll(g, f); return `Offered <b>${formatNumber(r.pieces)}</b> pieces: <b>+${formatNumber(r.points)} shrine points</b>.`; },
+      go: () => { const r = offerAll(g, fs); return `Offered <b>${formatNumber(r.pieces)}</b> pieces: <b>+${formatNumber(r.points)} shrine points</b>.`; },
     };
     rerender();
   }, 'salvage-bulk');
