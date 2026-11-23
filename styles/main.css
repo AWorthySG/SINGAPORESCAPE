@@ -4211,3 +4211,10 @@ input[type="range"]:focus-visible { outline: 3px solid var(--aw-sun); outline-of
    scrolled past now skip that work, and the grid keeps its changes to itself. */
 #inventory-grid { contain: layout style; }
 .inv-slot { content-visibility: auto; contain-intrinsic-size: auto 52px; }
+
+/* "Equip best in slot" stays pinned at the top of the Gear view while you scroll
+   (on a phone's short sheet it sat below the worn slots). */
+.eq-bestbar { position: sticky; top: -9px; z-index: 3; margin: -9px -9px 8px; padding: 9px 9px 6px; background: var(--aw-paper, #FFFBF2); box-shadow: 0 6px 6px -6px rgba(34,48,74,0.25); }
+.eq-bestbar .eq-best { width: 100%; margin: 0; }
+.eq-bestbar .eq-best-n { display: inline-block; margin-left: 6px; padding: 0 8px; border-radius: 999px; font-size: 11px; font-weight: 900; background: var(--aw-grass, #3F9E5A); color: #fff; }
+@media (max-width: 540px) { .eq-bestbar { top: -7px; margin: -7px -7px 6px; padding: 7px 7px 5px; } }

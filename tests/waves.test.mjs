@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { Game } from '../src/game/game.js';
 import { saveGame, clearSave } from '../src/game/save.js';
 import { findPath } from '../src/engine/pathfinding.js';
-import { ARENA, GATE, START, NEXT_WAVE_TICKS, MAX_ALIVE, BOSS_EVERY, MILESTONE_EVERY, inArena, wavePlan, waveCount, waveLevel,
+import { ARENA, GATE, START, NEXT_WAVE_TICKS, FIRST_WAVE_TICKS, MAX_ALIVE, BOSS_EVERY, MILESTONE_EVERY, inArena, wavePlan, waveCount, waveLevel,
   waveKinds, waveMobDef, gateMobDef, waveBossDef, bossChest, waveBonus, waveLeader, waveCurve, waveMight, GATE_HP, GATE_HIT, GATE_ACC, WAVE_BOSS_LIFE, GATE_CHAMPION_LIFE,
   SECOND_CHAMPION_FROM, THIRD_CHAMPION_FROM, HORDE_LIFE, SHRINE, SHRINE_LIFE, SHRINE_MEND, SPAWN_POINTS, GATE_RESPAWN_TICKS, GATE_FORGET, MAX_WAVE_COUNT,
   COIN_CAP, shrineChip, GATE_LOOT, gateDodgeMult, GATE_DODGE_MAX, DODGE_CAP_WAVE } from '../src/game/waves.js';
@@ -47,6 +47,8 @@ const spare = (game) => { for (const n of waveMobs(game)) n.attackCooldown = 99;
 const tame = (game) => { for (const n of waveMobs(game)) { n.def = { ...n.def, maxHit: 0 }; n.attackCooldown = 99; } };
 /** Run the countdown out and start the next wave. */
 const nextWave = (game) => step(game, NEXT_WAVE_TICKS + 1);
+// Just after stepping in: the first wave comes sooner than the ones after it.
+const firstWave = (game) => step(game, FIRST_WAVE_TICKS + 1);
 
 test('the gate stands in Kampong Glam; entering and leaving puts you back where you were', () => {
   const g = newGame();
@@ -61,7 +63,7 @@ test('the gate stands in Kampong Glam; entering and leaving puts you back where 
   assert.deepEqual({ x: g.player.x, y: g.player.y }, START);
   assert.equal(g.currentZoneName, 'The Endless Gate');
   assert.ok(!g.zonesVisited.has('The Endless Gate'), 'the arena is not a region for the explorer achievements');
-  nextWave(g);
+  firstWave(g);
   assert.ok(waveMobs(g).length > 0);
   assert.ok(g.waves.leave(), 'left');
   assert.ok(!g.waves.active);
@@ -82,7 +84,7 @@ test('a wave banner names the real count and goes when you leave the gate', asyn
   const shown = () => fake.lane.queue.items.map((x) => x.html).join(' | ');
   placeAt(g, GATE.x - 1, GATE.y + 1);
   g.waves.enter();
-  nextWave(g);
+  firstWave(g);
   assert.equal(g.waves.wave, 1);
   assert.match(shown(), new RegExp(`${waveCount(1) + 1} monsters`), 'the wave banner is up, counting the wave (and its champion), not what is left in the queue');
   assert.match(shown(), /led by Champion /, 'and names the champion leading it');
@@ -111,14 +113,15 @@ test('the exit portal and the gate work through the normal interact routing', ()
   assert.deepEqual({ x: g.player.x, y: g.player.y }, { x: GATE.x - 1, y: GATE.y });
 });
 
-test('wave 1 spawns inside the arena; clearing it pays a bonus and starts wave 2 after the delay', () => {
+test('wave 1 spawns inside the arena at once; clearing it pays a bonus and starts wave 2 about 2s later', () => {
+  assert.equal(FIRST_WAVE_TICKS, 1, 'the first wave comes on the next tick');
+  assert.ok(NEXT_WAVE_TICKS * 0.6 <= 2, 'about 2s between waves');
   const g = newGame();
   placeAt(g, GATE.x - 1, GATE.y + 1);
   g.waves.enter();
-  step(g, NEXT_WAVE_TICKS - 1);
-  assert.equal(g.waves.wave, 0, 'a countdown before the first wave');
-  step(g, 2);
-  assert.equal(g.waves.wave, 1);
+  assert.equal(g.waves.wave, 0);
+  step(g, FIRST_WAVE_TICKS + 1);
+  assert.equal(g.waves.wave, 1, 'no countdown before the first wave');
   const mobs = waveMobs(g);
   assert.equal(mobs.length, waveCount(1) + 1, 'the wave and its champion');
   for (const n of mobs) {
@@ -168,7 +171,7 @@ test('a champion leads every wave and every 5th is a boss wave with its signatur
   placeAt(g, GATE.x - 1, GATE.y + 1);
   g.waves.enter();
   g.waves.wave = 3;
-  nextWave(g);
+  firstWave(g);
   assert.equal(g.waves.wave, 4);
   assert.equal(waveMobs(g).filter((n) => n.champion).length, 1, 'wave 4 has a champion');
   for (const n of waveMobs(g)) g.killNpc(n);
@@ -219,9 +222,13 @@ test('death inside keeps every item; you rise beside the shrine a few seconds la
   placeAt(g, GATE.x - 1, GATE.y + 1);
   g.waves.enter();
   g.toggleAutoBattle(true);
-  nextWave(g);
+  firstWave(g);
   for (const n of waveMobs(g).slice(0, 2)) g.killNpc(n);
-  step(g, 3);   // the kill drops fly in
+  // The kill drops fly in and are picked up (a few ticks), and any achievement
+  // they earn pays out, before the bag is noted.
+  for (let t = 0; t < 20 && g.world.groundItems.some((gi) => inArena(gi.x, gi.y)); t++) step(g, 1);
+  step(g, 1);
+  g.checkAchievements();
   const before = JSON.stringify(g.inventory.serialize()), equip = JSON.stringify(g.equipment.serialize());
   const left = waveMobs(g).length;
   // Two of them already at the shrine, harmless to you.
@@ -259,7 +266,7 @@ test('auto battle clears waves inside, eats, and never wanders out to quests or 
   g.autoGather = true;   // these pause inside
   g.toggleAutoQuest(true);
   g.toggleAutoBattle(true);
-  nextWave(g);
+  firstWave(g);
   assert.equal(g.waves.wave, 1);
   // A strong fighter against wave 1, which starts below your level anyway.
   for (const n of waveMobs(g)) { n.hp = Math.min(n.hp, 3); n.maxHp = Math.max(n.maxHp, 3); }
@@ -291,7 +298,7 @@ test('auto battle dodges a wave boss\'s ground markers inside the arena', () => 
   placeAt(g, GATE.x - 1, GATE.y + 1);
   g.waves.enter();
   g.waves.wave = BOSS_EVERY - 1;
-  nextWave(g);
+  firstWave(g);
   const boss = waveMobs(g).find((n) => n.def.boss);
   tame(g);
   g.toggleAutoBattle(true);
@@ -318,7 +325,7 @@ test('the arena is sealed: world NPCs never enter, and nothing walks between it 
   foe.target = g.player;
   g.waves.enter();
   assert.equal(foe.target, null);
-  nextWave(g);
+  firstWave(g);
   tame(g);
   for (let t = 0; t < 60; t++) { step(g, 1); tame(g); }
   const intruders = g.npcs.filter((n) => inArena(n.x, n.y) && !n.wave && !n.ally && !n.temporary);
@@ -381,7 +388,7 @@ test('a gate champion has a fifth of a world champion\'s life; a gate boss is WA
   placeAt(g, GATE.x - 1, GATE.y + 1);
   g.waves.enter();
   g.waves.wave = 2;
-  nextWave(g);
+  firstWave(g);
   const champ = waveMobs(g).find((n) => n.champion);
   const plain = waveMobs(g).find((n) => !n.champion && n.npcId === champ.npcId);
   assert.ok(champ && plain);
@@ -415,7 +422,7 @@ test('a boss wave\'s boss, champions and markers are cleaned up on leaving, when
     placeAt(g, GATE.x - 1, GATE.y + 1);
     g.waves.enter();
     g.waves.wave = BOSS_EVERY - 1;
-    nextWave(g);
+    firstWave(g);
     tame(g);
     const boss = waveMobs(g).find((n) => n.def.boss);
     assert.ok(boss && inArena(boss.x, boss.y), 'the boss spawns inside the arena');
@@ -441,7 +448,7 @@ test('auto battle clears a wave\'s escort first, then takes on its champion or b
   placeAt(g, GATE.x - 1, GATE.y + 1);
   g.waves.enter();
   g.waves.wave = BOSS_EVERY - 1;
-  nextWave(g);
+  firstWave(g);
   tame(g);
   const boss = waveMobs(g).find((n) => n.def.boss);
   // Everything comes for you in the gate: line them up next to you.
@@ -480,7 +487,7 @@ test('dodging in the gate pays Agility XP that grows with the wave, up to a cap'
   const g = newGame();
   placeAt(g, GATE.x - 1, GATE.y + 1);
   g.waves.enter();
-  nextWave(g);
+  firstWave(g);
   const mob = waveMobs(g)[0];
   assert.ok(mob, 'a wave monster to dodge');
   // The XP one marker dodge pays, from the same Agility XP each time.
@@ -525,7 +532,7 @@ test('a dodge shows the Agility XP it paid beside "Dodged!", when it is a point 
   const g = newGame();
   placeAt(g, GATE.x - 1, GATE.y + 1);
   g.waves.enter();
-  nextWave(g);
+  firstWave(g);
   const mob = waveMobs(g)[0];
   g.waves.wave = 20;
   const label = () => g.effects.filter((e) => e.type === 'hitsplat' && e.entity === g.player && /Agility$/.test(e.text || ''));
@@ -598,7 +605,7 @@ test('monsters come from the edges, go for the shrine, turn on you when hit, and
   g.waves.enter();
   // Out of their way in a corner by the way in.
   placeAt(g, ARENA.x0 + 2, ARENA.y0);
-  nextWave(g);
+  firstWave(g);
   const mobs = waveMobs(g);
   assert.equal(mobs.length, waveCount(1) + 1);
   const near = (n) => SPAWN_POINTS.some((sp) => Math.max(Math.abs(n.x - sp.x), Math.abs(n.y - sp.y)) <= 2);
@@ -638,7 +645,7 @@ test('clearing a wave mends the shrine a little', () => {
   const g = newGame();
   placeAt(g, GATE.x - 1, GATE.y + 1);
   g.waves.enter();
-  nextWave(g);
+  firstWave(g);
   g.waves.shrine.hp = 500;
   for (const n of waveMobs(g)) g.killNpc(n);
   step(g, 1);
@@ -653,7 +660,7 @@ test('the shrine falling ends the run: a summary, the best wave saved, and you a
   g.bus.on('gateFallen', (s) => { summary = s; });
   placeAt(g, GATE.x - 1, GATE.y + 1);
   g.waves.enter();
-  nextWave(g);
+  firstWave(g);
   for (const n of waveMobs(g)) g.killNpc(n);
   step(g, 1);
   nextWave(g);
@@ -696,7 +703,7 @@ test('waves go on past 25, with no cap', () => {
   g.waves.enter();
   g.waves.wave = 24;
   for (let w = 25; w <= 27; w++) {
-    nextWave(g);
+    if (w === 25) firstWave(g); else nextWave(g);
     assert.equal(g.waves.wave, w, `wave ${w} begins`);
     assert.ok(waveMobs(g).length > 0);
     tame(g); spare(g);
@@ -730,7 +737,7 @@ test('a whole wave comes at once, even the biggest (the owner\'s ask)', () => {
   placeAt(g, GATE.x - 1, GATE.y + 1);
   g.waves.enter();
   g.waves.wave = 80;
-  nextWave(g);
+  firstWave(g);
   assert.equal(g.waves.wave, 81);
   assert.ok(waveCount(81) + 3 <= MAX_ALIVE, 'room for the biggest wave');
   assert.equal(g.waves.queue.length, 0, 'none held back');
@@ -755,7 +762,7 @@ test('auto battle goes for the monsters striking the shrine first, leaders first
   placeAt(g, GATE.x - 1, GATE.y + 1);
   g.waves.enter();
   g.waves.wave = 2;
-  nextWave(g);
+  firstWave(g);
   tame(g); spare(g);
   const p = g.player;
   placeAt(g, SHRINE.x, SHRINE.y - 4);
