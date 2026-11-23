@@ -159,23 +159,34 @@ export function linkNames(regionNames = []) {
   for (const s of SKILLS) if (!s.hidden) put(s.name, 'skill', s.id);
   for (const id of CODEX_IDS) put(getNpc(id).name, 'monster', id);
   for (const id of allItemIds()) put(getItem(id).name, 'item', id);
+  // Each name's first word, with the most words a name starting with it has:
+  // most words in a line start no name at all, so findLinks moves straight on.
   let longest = 1;
-  for (const k of map.keys()) longest = Math.max(longest, k.split(' ').length);
-  _names = { map, longest: Math.min(longest, 7), regions };
+  const firsts = new Map();
+  for (const k of map.keys()) {
+    const w = k.split(' ');
+    longest = Math.max(longest, w.length);
+    if (!(firsts.get(w[0]) >= w.length)) firsts.set(w[0], w.length);
+  }
+  _names = { map, longest: Math.min(longest, 7), regions, firsts };
   return _names;
 }
 
 /** Split text into plain runs and linked names: [{ text, link? }]. */
 export function findLinks(text, regionNames = []) {
-  const { map, longest } = linkNames(regionNames);
+  const { map, longest, firsts } = linkNames(regionNames);
   const s = String(text ?? '');
   const words = [...s.matchAll(/[A-Za-z0-9]+(?:['’-][A-Za-z0-9]+)*/g)];
+  const low = words.map((m) => m[0].toLowerCase());
   const out = [];
   let at = 0;
   for (let i = 0; i < words.length;) {
     let hit = null;
-    for (let n = Math.min(longest, words.length - i); n >= 1 && !hit; n--) {
-      const k = words.slice(i, i + n).map((m) => m[0].toLowerCase()).join(' ');
+    // Longest name first, and only as long as the names this word starts
+    // (none at all for most words: the chat sends twenty-odd lines a second).
+    for (let n = Math.min(longest, firsts.get(low[i]) || 0, words.length - i); n >= 1 && !hit; n--) {
+      let k = low[i];
+      for (let j = 1; j < n; j++) k += ' ' + low[i + j];
       const e = map.get(k);
       if (e) hit = { n, e };
     }

@@ -6,11 +6,26 @@
 // all (event delegation), in the capture phase so a link inside a tappable
 // card (a quest row walks you somewhere when tapped) opens the entry instead.
 // Links are role="button", so a phone sheet's drag never swallows the tap.
-import { findLinks } from '../game/encyclopedia.js';
+import { findLinks, linkNames } from '../game/encyclopedia.js';
 import { openEntry } from './encyclopediaui.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const regionNames = (game) => (game?.world?.zones || []).filter((z) => !z.instance).map((z) => z.name);
+// The regions' names, kept until the world's list of zones changes (every
+// chat line asks, and the zones are laid out once, with the world).
+let _regions = null;
+const regionNames = (game) => {
+  const zones = game?.world?.zones || [];
+  if (!_regions || _regions.zones !== zones || _regions.len !== zones.length) {
+    _regions = { zones, len: zones.length, names: zones.filter((z) => !z.instance).map((z) => z.name) };
+  }
+  return _regions.names;
+};
+
+// The HTML of lines linked lately: a fight repeats many of its lines (the same
+// kill, the same quality drop), and the journal redraws the same quest text.
+// Kept for the names they were linked with: a new set of names starts afresh.
+const HTML_KEPT = 300;
+let _html = new Map(), _htmlNames = null;
 
 /** A link's HTML: the text, tappable, opening `kind:id`. */
 export const linkTag = (kind, id, text) => `<span class="ency-link" role="button" tabindex="0" data-ency="${esc(kind)}:${esc(id)}">${esc(text)}</span>`;
@@ -18,7 +33,17 @@ export const linkTag = (kind, id, text) => `<span class="ency-link" role="button
 /** Plain text as HTML with every known name linked (and everything escaped). */
 export function linkHTML(game, text) {
   if (!text) return '';
-  return findLinks(text, regionNames(game)).map((r) => (r.link ? linkTag(r.link.kind, r.link.id, r.text) : esc(r.text))).join('');
+  const regions = regionNames(game);
+  const names = linkNames(regions);   // (the same names until a new region turns up)
+  if (names !== _htmlNames) { _html = new Map(); _htmlNames = names; }
+  const key = String(text);
+  let html = _html.get(key);
+  if (html === undefined) {
+    html = findLinks(key, regions).map((r) => (r.link ? linkTag(r.link.kind, r.link.id, r.text) : esc(r.text))).join('');
+    if (_html.size >= HTML_KEPT) _html.delete(_html.keys().next().value);   // the oldest goes
+    _html.set(key, html);
+  }
+  return html;
 }
 
 /** Fill an element with linked text (the chat's lines). Falls back to plain text. */

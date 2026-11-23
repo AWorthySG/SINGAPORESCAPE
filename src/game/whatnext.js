@@ -90,7 +90,11 @@ export function nextQuest(game) {
 export function bestSource(game, skill) {
   const lvl = game.skills.level(skill);
   const p = game.playerTile();
-  const ok = gatherSources().filter((s) => s.skill === skill && s.objIds?.length && s.level <= lvl && (!s.tool || game.hasTool(s.tool)));
+  // Each kind of tool is looked for once (a look goes through the whole pack,
+  // hundreds of slots late in the game), not once per source that uses it.
+  const tools = new Map();
+  const hasTool = (t) => { if (!tools.has(t)) tools.set(t, game.hasTool(t)); return tools.get(t); };
+  const ok = gatherSources().filter((s) => s.skill === skill && s.objIds?.length && s.level <= lvl && (!s.tool || hasTool(s.tool)));
   for (const src of ok.slice().sort((a, b) => b.level - a.level)) {
     const ids = new Set(src.objIds);
     let obj = null;

@@ -83,6 +83,7 @@ import { improveCount } from '../game/smartgear.js';
 import { mountRefineRun, mountEnchantRun, openImprove } from './smartgearui.js';   // refine and enchant runs, "Improve worn gear"
 export const COLLAPSE_V = 2;   // the saved fold states' version (see _loadCollapse)
 export const TIP_LINGER_MS = 1000;   // an item's hover description stays this long after the pointer leaves
+export const CHAT_LINES = 120;   // the chat keeps (and its log shows) this many lines
 import { NoticeLane, afterLayout } from './noticelane.js';
 import { QuickSlot, interactCaption, trackerHTML, loadTrackerFolded, saveTrackerFolded, sheetSnap } from './hudease.js';
 import { QuickBar } from './quickbar.js';
@@ -716,6 +717,7 @@ export class UI {
       if (collapsed) panel.classList.remove('sheet-full');   // a phone sheet always reopens at half height
       if (key === 'panel' && !collapsed && this._invStale) this.renderInventory();   // the bag skipped redraws while folded
       if (key === 'panel' && !collapsed) this._catchUpPanels();   // and so did the Gear, Combat, Journal and Awards views
+      if (key === 'chat' && !collapsed) this._drawChat(false);   // the folded chat drew none of its new lines
       btn.innerHTML = collapsed ? '&#9656;' : '&#9662;'; // ▸ collapsed / ▾ expanded
       btn.title = `${collapsed ? 'Expand' : 'Collapse'} ${label}${key === 'panel' ? ' (I)' : ''}`;
     };
@@ -1045,16 +1047,39 @@ export class UI {
   }
 
   // ---------------- Chat ----------------
+  // A big fight sends twenty-odd lines a second. Each is kept in chatMessages
+  // as it comes, and the log draws what came in a task once, at its end (still
+  // before the browser paints): one fragment in, the oldest lines out together.
+  // While the chat is folded its log is out of sight, so nothing is drawn until
+  // it opens; then its newest CHAT_LINES are, just as they would have been.
   addChat(text, cls = 'game') {
     this.chatMessages.push({ text, cls });
-    if (this.chatMessages.length > 120) this.chatMessages.shift();
-    const div = document.createElement('div');
-    div.className = `msg ${cls}`;
-    setLinkedText(div, this.game, text);
-    div.dataset.cls = cls;
-    this.el.chatLog.appendChild(div);
-    while (this.el.chatLog.childElementCount > 120) this.el.chatLog.removeChild(this.el.chatLog.firstChild);
-    this._applyVisibility(div);
+    if (this.chatMessages.length > CHAT_LINES) this.chatMessages.shift();
+    this._chatSeq = (this._chatSeq || 0) + 1;   // lines ever added (the log has drawn up to _chatDrawn)
+    this._coalesce('chat', () => this._drawChat());
+  }
+
+  /** Draw the lines added since the log was last drawn (the newest CHAT_LINES
+   *  at most), unless the chat is folded. `follow`: then keep to the bottom. */
+  _drawChat(follow = true) {
+    const log = this.el.chatLog;
+    const n = Math.min(this.chatMessages.length, (this._chatSeq || 0) - (this._chatDrawn || 0));
+    if (!log || n <= 0 || log.parentElement?.classList.contains('collapsed')) return;
+    this._chatDrawn = this._chatSeq;
+    const frag = document.createDocumentFragment();
+    for (let i = this.chatMessages.length - n; i < this.chatMessages.length; i++) {
+      const { text, cls } = this.chatMessages[i];
+      const div = document.createElement('div');
+      div.className = `msg ${cls}`;
+      setLinkedText(div, this.game, text);
+      div.dataset.cls = cls;
+      this._applyVisibility(div);
+      frag.appendChild(div);
+    }
+    if (n >= CHAT_LINES) log.textContent = '';   // all new: every old line goes
+    else for (let k = log.childElementCount + n - CHAT_LINES; k > 0; k--) log.removeChild(log.firstChild);
+    log.appendChild(frag);
+    if (!follow) return;
     // Scrolling to the bottom needs the page laid out: do it once a frame, not
     // per message, right after the browser's own layout (where reading the
     // log's height costs nothing; noticelane.js afterLayout), and not while the
@@ -3132,6 +3157,13 @@ export class UI {
       tipsBtn.textContent = 'Tips: On';
       this.game.msg('Tips will show again as you play.', 'system');
     });
+    // A small readout of frame times and what fills each frame, for a screenshot
+    // of what is slow (perfhud.js; main.js keeps the choice on this device).
+    const perfBtn = mk('', () => {
+      this.setPerf?.(!this.perfOn);
+      perfBtn.textContent = `Show performance: ${this.perfOn ? 'On' : 'Off'}`;
+    });
+    perfBtn.textContent = `Show performance: ${this.perfOn ? 'On' : 'Off'}`;
     // Accessibility: saved with the other settings; uifx.js puts them on <body>.
     sec('Accessibility');
     const access = () => { this._accessSig = applyAccessibility(this.game); this.game.saveSoon = true; };
@@ -4072,7 +4104,7 @@ export class UI {
         for (const rawId of raws) {
           const cook = COOKING[rawId];
           grid.appendChild(this._cell(rawId, this.game.inventory.count(rawId), {
-            tooltip: `<b>${getItem(cook.result).name}</b><br>Cooking lvl ${cook.level}, ${cook.xp} xp`,
+            tooltip: `<b>${getItem(cook.result).name}</b><br>Cooking lvl ${cook.level}, ${formatNumber(Math.round(this.game.skills.xpAtLevel('cooking', cook.xp)))} xp`,
             onClick: () => { this.game.startCooking(obj, rawId); this.closeModal(); },
           }));
         }
