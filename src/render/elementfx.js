@@ -55,6 +55,15 @@ export const ELEMENT_FX = {
     { kind: 'swirl', n: 2, life: 460, col: '#7a4fb8', col2: '#c7a8f0' },
     { kind: 'cloud', n: 3, speed: 0.03, life: 480, col: '#b49ad8', size: 3.5 },
   ] },
+  chaos: { col: '#d070ff', pieces: [ // a wild spray of sparks and a lopsided ring
+    { kind: 'spark', n: 8, speed: 0.2, life: 260, col: '#f0a0ff', add: true, size: 1.6 },
+    { kind: 'swirl', n: 2, life: 420, col: '#b050e0', col2: '#ffd0ff' },
+    { ring: true, r0: 3, r1: 20, life: 260, col: '#e070ff', w: 2.5 },
+  ] },
+  blood: { col: '#e0304a', pieces: [ // red droplets flung out that fall back
+    { kind: 'dot', n: 8, speed: 0.1, life: 520, col: '#d0243e', g: 0.0007, up: -0.1, size: 1.9 },
+    { ring: true, r0: 3, r1: 16, life: 280, col: '#ff6a7a', w: 2 },
+  ] },
   // Anything else (a new element nobody has drawn yet, or plain magic).
   arcane: { col: '#c890f0', pieces: [
     { ring: true, r0: 4, r1: 18, life: 260, col: '#c890f0', w: 2.5 },

@@ -155,6 +155,14 @@ export function shatterPierce(npc, tick) {
   if (tick > sh.until) { npc.shatter = null; return 0; }
   return sh.n * ELEMENTS.earth.shatter.per;
 }
+/** Dark's Hex on a foe: how many hexes it carries now (0 once they fade). Each
+ *  is ELEMENTS.dark.hex.per % more damage from you (game.js _offensiveMods). */
+export function hexStacks(npc, tick) {
+  const hx = npc?.hex;
+  if (!hx) return 0;
+  if (tick > hx.until) { npc.hex = null; return 0; }
+  return hx.n;
+}
 
 
 // Monster armour: a share of every hit it shrugs off, by kind of creature, from

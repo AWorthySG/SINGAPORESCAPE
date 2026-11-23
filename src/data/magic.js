@@ -10,6 +10,11 @@ export const SPELLS = [
   { id: 'water_strike', name: 'Water', level: 5, maxHit: 2, xp: 7.5, tint: '#6fb6e0', critTint: '#b8e4ff', runes: { water_rune: 1, air_rune: 1, mind_rune: 1 } },
   { id: 'earth_strike', name: 'Earth', level: 9, maxHit: 2, xp: 9.5, tint: '#8a6a3a', critTint: '#e0b46a', runes: { earth_rune: 2, air_rune: 1, mind_rune: 1 } },
   { id: 'fire_strike', name: 'Fire', level: 13, maxHit: 2, xp: 11.5, tint: '#ef7a23', critTint: '#ffc04a', runes: { fire_rune: 3, air_rune: 2, mind_rune: 1 } },
+  // The owner asked for more elements: Chaos, Dark and Blood, each on the
+  // rarer runes (the general store and the elemental staves supply them).
+  { id: 'chaos_strike', name: 'Chaos', level: 20, maxHit: 2, xp: 13.5, tint: '#d070ff', critTint: '#f4ccff', runes: { chaos_rune: 1, air_rune: 2, mind_rune: 1 } },
+  { id: 'dark_strike', name: 'Dark', level: 30, maxHit: 2, xp: 15.5, tint: '#7a52c8', critTint: '#c2a6ff', runes: { death_rune: 1, air_rune: 2, mind_rune: 1 } },
+  { id: 'blood_strike', name: 'Blood', level: 40, maxHit: 2, xp: 17.5, tint: '#d0243e', critTint: '#ff8a9a', runes: { blood_rune: 1, air_rune: 2, mind_rune: 1 } },
 ];
 export const SPELL_HIT_CAP = 20;
 /** A spell's base max hit at a Magic level (before the Magic multiplier and the element's damage). */
@@ -25,7 +30,12 @@ export function spellBaseHit(spell, magic) {
 //   water (Chill)   slows the foes it hits, and a chilled foe's blows land softer;
 //   earth (Shatter) blasts a wide area and cracks armour, so every hit on it lands harder;
 //   fire  (Ignite)  sets foes alight: stacking burns that go off every half
-//                   second, and again whenever the burning foe takes damage.
+//                   second, and again whenever the burning foe takes damage;
+//   chaos (Wild Surge) hits for half to double (1.25x on average), and one cast
+//                   in four also burns, chills or cracks the foe at random;
+//   dark  (Hex)     curses the foes it hits: each hex makes them take 5% more
+//                   damage from you, up to 5;
+//   blood (Siphon)  heals you a share of the damage it deals.
 // The matchups used to only ever help (x1.3, never resisted), so a mage could
 // cast one element at everything; the owner asked for strong and weak matchups to
 // hit noticeably harder and softer, and for the effects to read clearly in a fight.
@@ -41,6 +51,12 @@ export const ELEMENTS = {
     effect: 'Quake: blasts everything within 5 tiles. Shatter: each hit cracks the foe\'s armour, +6% armour pierce against it (up to 5 cracks, 6s) for every hit you land on it', aoeRadius: 5, shatter: { per: 6, max: 5, ticks: 10 } },
   fire:  { name: 'Fire',  icon: '🔥', splat: '#e0602a', strong: ['flora', 'undead', 'bug'], weak: ['aquatic', 'dragon', 'demon'],
     effect: 'Ignite: every hit adds a burn of 15% of the hit for 5s (up to 20 at once). A burning foe\'s burns all go off every 0.5s, and again every time it takes damage, burn ticks included; every burn can crit', ignite: { share: 0.15, secs: 5, tickMs: 500, max: 20 } },
+  chaos: { name: 'Chaos', icon: '✴️', splat: '#a43ad0', strong: ['construct', 'dragon', 'spirit'], weak: ['demon', 'flora'],
+    effect: 'Wild Surge: every cast hits for anywhere from half to double (1.25x on average), and one cast in four also burns, chills or cracks the foe at random', chaos: { min: 0.5, max: 2, surge: 0.25 } },
+  dark:  { name: 'Dark',  icon: '🌑', splat: '#5a3a9a', strong: ['humanoid', 'avian', 'flora'], weak: ['undead', 'spirit'],
+    effect: 'Hex: every hit curses the foe: it takes 5% more damage from you, every style, up to 5 hexes (+25%), for 6s', hex: { per: 5, max: 5, ticks: 10 } },
+  blood: { name: 'Blood', icon: '🩸', splat: '#b0162e', strong: ['beast', 'reptile', 'aquatic'], weak: ['undead', 'construct'],
+    effect: 'Siphon: heals you 12% of the damage it deals, its splash included', siphon: 0.12 },
 };
 for (const s of SPELLS) s.element = s.id.split('_')[0];
 export const AOE_RADIUS = 2;   // tiles around the target that every spell also hits

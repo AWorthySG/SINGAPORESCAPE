@@ -17,9 +17,9 @@ import { starterBlessings } from '../src/game/blessings.js';
 import { CLASS_BY_ID } from '../src/data/classes.js';
 import { RACES } from '../src/data/races.js';
 import { ELEMENTS, ELEMENT_MATCHUP, elementMatchup, elementMult, getSpell } from '../src/data/magic.js';
-import { shatterPierce, magicAttunement, playerMagicVsNpc } from '../src/game/combat.js';
+import { shatterPierce, hexStacks, magicAttunement, playerMagicVsNpc } from '../src/game/combat.js';
 import { PERK_TRACKS, sumPerks } from '../src/data/perks.js';
-import { elementTint } from '../src/render/worldlabels.js';
+import { elementTint, targetTag, foeDetails } from '../src/render/worldlabels.js';
 import { codexEntry } from '../src/game/codex.js';
 
 /** A typical build at level L: quality, mastery, refining and enchant lines as a
@@ -309,6 +309,79 @@ test('a spell bolt flies in its element\'s colour, a crit\'s brighter and bigger
     g.effects = []; g._critHit = (dmg) => ({ dmg: dmg * 2, crit: true, mult: 2 });
     cast(id);
     assert.deepEqual([bolt().color, bolt().crit], [sp.critTint, true], `${id}: a crit, brighter and bigger, not purple`);
+  }
+});
+
+test('Chaos: Wild Surge hits for half to double (about 1.25x), and a cast in four burns, chills or cracks', () => {
+  const { n, cast } = bench(), f = bench();
+  let tc = 0, tf = 0, hiC = 0, hiF = 0, surges = 0;
+  const seen = new Set();
+  for (let i = 0; i < 300; i++) {
+    const c = cast('chaos_strike');
+    tc += c; hiC = Math.max(hiC, c);
+    if (n.ignite) seen.add('burn');
+    if (n.slowTicks > 0) seen.add('chill');
+    if (n.shatter) seen.add('crack');
+    if (n.ignite || n.slowTicks > 0 || n.shatter) surges++;
+    n.ignite = null; n.slowTicks = 0; n.shatter = null;
+    const d = f.cast('fire_strike');   // Fire hits like a plain spell (its burns aside)
+    tf += d; hiF = Math.max(hiF, d); f.n.ignite = null;
+  }
+  assert.ok(tc / tf > 1.1 && tc / tf < 1.4, `about 1.25x on average (${(tc / tf).toFixed(2)}x)`);
+  assert.ok(hiC > hiF * 1.3, `and its best hits go far higher (${hiC} vs ${hiF})`);
+  assert.ok(surges > 45 && surges < 105, `a surge about one cast in four (${surges} of 300)`);
+  assert.deepEqual([...seen].sort(), ['burn', 'chill', 'crack'], 'each of the three effects turns up');
+});
+
+test('Dark: Hex curses a foe, up to 5 hexes of +5% damage from you in every style, and fades', () => {
+  const { g, n, cast } = bench();
+  const mods = () => g._offensiveMods(n, 'melee').dmgM;
+  const m0 = mods();
+  for (let i = 0; i < 7; i++) cast('dark_strike');
+  assert.equal(n.hex.n, 5, 'stops at 5 hexes');
+  assert.equal(hexStacks(n, g.tickCount), 5);
+  assert.ok(Math.abs(mods() / m0 - 1.25) < 0.005, `+25% from a sword too (${(mods() / m0).toFixed(3)}x)`);
+  assert.equal(elementTint(g, n).col, '#7a52c8', 'the foe glows violet');
+  assert.ok(targetTag(g, n).includes('🌑5') && foeDetails(g, n).includes('hexed ×5'), 'and says so');
+  g.tickCount += ELEMENTS.dark.hex.ticks + 1;
+  assert.equal(hexStacks(n, g.tickCount), 0, 'faded');
+  assert.equal(n.hex, null);
+});
+
+test('Blood: Siphon heals you 12% of what the cast deals, its splash included', () => {
+  const { g, n, cast } = bench();
+  const m = new NPC('goblin', n.x + 1, n.y, 0, {});
+  m.def = { ...m.def, sprite: 'reptile', family: 'plain_test', aggressive: false };
+  m.maxHp = m.hp = 1e12;
+  m.target = g.player;   // already fighting you (a splash wakes no one new while you're hurt)
+  g.npcs = [n, m];
+  const S = ELEMENTS.blood.siphon, real = (o, d) => d * (o.def.hpScale || 1);
+  const castFrom1 = () => { g.player.hp = 1; const b = m.hp; const hit = cast('blood_strike'); return { hit, splash: b - m.hp, gain: g.player.hp - 1 }; };
+  try {
+    // What the rest of the kit steals back (gear, perks), as a share of the main hit...
+    ELEMENTS.blood.siphon = 0;
+    const off = castFrom1();
+    const other = off.gain / Math.max(1, real(n, off.hit));
+    // ...and with Siphon on top.
+    ELEMENTS.blood.siphon = S;
+    const on = castFrom1();
+    assert.ok(on.hit > 0 && on.splash > 0, `the cast and its splash landed (${on.hit}, ${on.splash})`);
+    const want = Math.max(1, Math.round((real(n, on.hit) + real(m, on.splash)) * S)) + other * real(n, on.hit);
+    if (1 + want >= g.maxHp()) assert.equal(g.player.hp, g.maxHp(), 'topped up');
+    else assert.ok(Math.abs(on.gain - want) <= 2, `healed ${on.gain}, expected about ${want.toFixed(0)}`);
+  } finally { ELEMENTS.blood.siphon = S; }
+  // Nothing at full life.
+  g.player.hp = g.maxHp();
+  cast('blood_strike');
+  assert.equal(g.player.hp, g.maxHp());
+});
+
+test('seven elements, each with races it bites into and races that resist it, and a spell icon', () => {
+  assert.deepEqual(Object.keys(ELEMENTS), ['wind', 'water', 'earth', 'fire', 'chaos', 'dark', 'blood']);
+  for (const [id, e] of Object.entries(ELEMENTS)) {
+    assert.ok(e.strong.length >= 3 && e.weak.length >= 2, id);
+    for (const r of [...e.strong, ...e.weak]) assert.ok(RACES[r], `${id}: ${r} is a race`);
+    assert.ok(getSpell(`${id}_strike`).element === id, `${id} has its spell`);
   }
 });
 

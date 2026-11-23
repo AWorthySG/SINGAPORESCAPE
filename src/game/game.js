@@ -36,7 +36,7 @@ import {
   playerAttackVsNpc, npcAttackVsPlayer, OFFHAND_SHARE, rollAttack, rollGuaranteed, rollHit, combatXp, magicXp, killXp, DAMAGE_XP_SHARE, KILL_XP_SHARE,
   playerRangedVsNpc, combatXpRanged, playerMagicVsNpc, RANGED_STYLES,
   weaknessOf, WEAKNESS_BONUS, armourOf, armourMult, critChance, hitChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE,
-  playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX, RANGED_TYPE_DMG, combatLevelXpMult, CLASS_POWER, OPEN_WOUNDS, openWoundStacks, shatterPierce,
+  playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX, RANGED_TYPE_DMG, combatLevelXpMult, CLASS_POWER, OPEN_WOUNDS, openWoundStacks, shatterPierce, hexStacks,
   bossTypeDmgMult, bossGrazeMult, bossBreakMult } from './combat.js';
 import { ABILITY_BY_ID, abilitiesFor, ADREN_PER_HIT, ADREN_PER_HURT, CLASS_ADRENALINE, EXECUTE_BELOW, SUNDER_TICKS } from '../data/abilities.js';
 import { classPassiveMods, CLASS_SKILL } from '../data/classPassives.js';
@@ -2297,6 +2297,7 @@ export class Game {
     dmgM *= Culling.masteryDamage(this, npc).mult;   // codex mastery of its species and race
     dmgM *= Mercs.merchantPower(this);   // the strongest class (see mercenary.js)
     dmgM *= 1 + openWoundStacks(npc, this.tickCount) * OPEN_WOUNDS.per;   // a Brawler's Open Wounds on the foe
+    dmgM *= 1 + hexStacks(npc, this.tickCount) * ELEMENTS.dark.hex.per / 100;   // Dark's Hex on the foe (every style)
     if (npc.sunderUntil > this.tickCount) dmgM *= 1 + (npc.sunder || 0) * bossBreakMult(npc.def);   // armour broken by a skill
     // A boss's armour type: blunt weapons crack plate, wards soak spells, light blows glance off a thick hide.
     dmgM *= bossTypeDmgMult(npc.def, { mode, weaponType: this.weaponType(), interval: this.attackInterval() });
@@ -3029,7 +3030,7 @@ export class Game {
   _spellSplash(target, dmg, spell) {
     const p = this.player;
     const radius = ELEMENTS[spell.element]?.aoeRadius || AOE_RADIUS;   // Earth's Quake reaches further
-    let xp = 0;
+    let xp = 0, real = 0;
     for (const o of this.nearbyNpcs()) {
       if (o === target || !o.alive || !o.attackable || o.ally || o.hp <= 0) continue;
       if (chebyshev(o.x, o.y, target.x, target.y) > radius) continue;
@@ -3041,14 +3042,17 @@ export class Game {
       if (ELEMENTS[spell.element]?.slowTicks) this._slowFoe(o, ELEMENTS[spell.element].slowTicks);
       if (ELEMENTS[spell.element]?.ignite && d > 0) this._igniteFoe(o, dmg, ELEMENTS[spell.element].ignite);   // from the hit before its crit (see _magicAttack)
       if (ELEMENTS[spell.element]?.shatter && d > 0) this._shatterFoe(o, ELEMENTS[spell.element].shatter);
+      if (ELEMENTS[spell.element]?.hex && d > 0) this._hexFoe(o, ELEMENTS[spell.element].hex);   // Dark's Hex
       this.spawnHitSparks(o, spell.tint);
       xp += d;
+      real += d * (o.def?.hpScale || 1);
       if (!o.target) o.target = p;
       if (o.hp <= 0) this.killNpc(o);
     }
     // Splash damage earns XP like any other hit, XP bonuses included.
     const m = this.combatXpMult();
     if (xp) for (const x of magicXp(xp)) this.skills.addXp(x.skill, x.xp * m);
+    return real;   // in your own life's units (a big monster's hits count at their real size), for Blood's Siphon
   }
 
   _magicAttack(npc) {
@@ -3068,7 +3072,10 @@ export class Game {
     // The Mystic blessings (and a Prayer Burst's zeal) boost spells as the Strength
     // and Ranged ones boost blows and arrows (they used to be left out of spells).
     const effMax = Math.max(1, Math.round(max * this.prayerMult().magic * mods.dmgM));
+    const el = ELEMENTS[spell.element] || {};
     let dmg = mods.guaranteed ? rollGuaranteed(effMax) : rollHit(effMax);
+    // Chaos's Wild Surge: anywhere from half to double the roll (splash and burns too).
+    if (el.chaos) dmg = Math.max(1, Math.round(dmg * (el.chaos.min + Math.random() * (el.chaos.max - el.chaos.min))));
     const raw = dmg;   // the splash rolls its own crits
     const c = this._critHit(dmg, mods.critCh); dmg = c.dmg;
     this._swingToward(this.player, npc.x, npc.y);
@@ -3079,15 +3086,23 @@ export class Game {
     this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax), tint });
     this.skills.addXp('magic', spell.xp * this.combatXpMult());
     if (dmg > 0) { const m = this.combatXpMult(); this.spawnHitSparks(npc, spell.tint); for (const x of magicXp(dmg)) this.skills.addXp(x.skill, x.xp * m); }
-    if (dmg > 0) this._spellSplash(npc, raw, spell);
+    const splashed = dmg > 0 ? this._spellSplash(npc, raw, spell) : 0;
     this._abilityAoe(npc, raw, 'magic');
-    const el = ELEMENTS[spell.element] || {};
     if (dmg > 0 && el.slowTicks) this._slowFoe(npc, el.slowTicks);   // Water's Tide
     // Fire's Ignite: the burn is a share of the hit before its crit, since every
     // burn tick rolls its own crit (a crit's burn critting again made Fire twice
     // as strong as any other element once crits came easily).
     if (dmg > 0 && el.ignite) this._igniteFoe(npc, raw, el.ignite);
     if (dmg > 0 && el.shatter) this._shatterFoe(npc, el.shatter);   // Earth's Shatter
+    if (dmg > 0 && el.hex) this._hexFoe(npc, el.hex);               // Dark's Hex
+    if (dmg > 0 && el.chaos && Math.random() < el.chaos.surge) this._chaosSurge(npc, raw);
+    // Blood's Siphon: a share of everything the cast dealt comes back to you as life.
+    if (dmg > 0 && el.siphon && this.player.alive && this.player.hp < this.maxHp()) {
+      const heal = Math.max(1, Math.round((dmg * (npc.def?.hpScale || 1) + splashed) * el.siphon));
+      this.player.hp = Math.min(this.maxHp(), this.player.hp + heal);
+      this.spawnSparkle(this.player, '#ff5a72', 3);
+      this.bus.emit('hp');
+    }
     // Spells come off at half the weapon's swing time (wands quicker than staves); Wind and Water quicker still.
     this._resetCooldown(this.attackInterval(spell));
     this._postAttack(npc);
@@ -3241,6 +3256,28 @@ export class Game {
     npc.shatter = { n: Math.min(max, had + 1), until: this.tickCount + ticks };
     if (npc.shatter.n > had) this.spawnSparkle(npc, '#b08850', 3);
     if (npc.shatter.n === max && had < max) this.addHitsplat(npc, 0, { text: 'Shattered!' });
+  }
+
+  /** Dark's Hex: each hit curses the foe a little more (up to `max` hexes, each
+   *  ELEMENTS.dark.hex.per % more damage from you, every style), fading `ticks`
+   *  after the last one (like Earth's cracks). */
+  _hexFoe(npc, { max, ticks }) {
+    if (!npc.alive || npc.hp <= 0) return;
+    const had = hexStacks(npc, this.tickCount);
+    npc.hex = { n: Math.min(max, had + 1), until: this.tickCount + ticks };
+    if (npc.hex.n > had) this.spawnSparkle(npc, '#9a6cd6', 3);
+    if (npc.hex.n === max && had < max) this.addHitsplat(npc, 0, { text: 'Hexed!' });
+  }
+
+  /** Chaos's Wild Surge: one of the other elements' effects, at random: a burn
+   *  (Fire), a chill (Water) or a crack in its armour (Earth). */
+  _chaosSurge(npc, raw) {
+    const pick = ['fire', 'water', 'earth'][Math.floor(Math.random() * 3)], E = ELEMENTS[pick];
+    if (pick === 'fire') this._igniteFoe(npc, raw, E.ignite);
+    else if (pick === 'water') this._slowFoe(npc, E.slowTicks);
+    else this._shatterFoe(npc, E.shatter);
+    this.spawnSparkle(npc, '#e0a0ff', 3);
+    return pick;
   }
 
   /** The rune an equipped elemental staff supplies without limit (or null). */
@@ -5572,6 +5609,12 @@ export class Game {
       }
       // A crit lands x2 (x4 one time in four): +1% crit chance is about +1.5% damage.
       if (el.crit) v *= 1 + 1.5 * Math.min(el.crit, Math.max(0, 1 - critNow));
+      // Chaos rolls half to double (1.25x on average), and a cast in four adds another element's effect.
+      if (el.chaos) v *= ((el.chaos.min + el.chaos.max) / 2) * (1 + el.chaos.surge * 0.3);
+      // Dark's hexes build over the first casts, like Earth's cracks: count most of the full effect.
+      if (el.hex) v *= 1 + 0.8 * el.hex.per * el.hex.max / 100;
+      // Blood heals: worth more the more hurt you are.
+      if (el.siphon) v *= 1 + el.siphon * (1 - this.player.hp / Math.max(1, this.maxHp()));
       // Shatter's cracks build over the first few casts: count most of the full effect.
       if (el.shatter) v *= 1 + 0.8 * (armourMult(armour, gb.pierce + el.shatter.per * el.shatter.max, weak) / armourMult(armour, gb.pierce, weak) - 1);
       // Area damage: Earth reaches everyone within 5 tiles, the rest only within 2.
