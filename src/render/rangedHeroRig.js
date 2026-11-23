@@ -1,6 +1,7 @@
 import { poseBlender, swapOpacity } from './poseBlend.js';
 import { drawHeroArm, drawGripHand } from './heroanim.js';
 import { drawAnimBody, drawSwingArm, drawEmptyArm, hasSwingArt, swingPhase } from './heroAnimArt.js';
+import { heroLit } from './herolight.js';
 
 // Ranged and magic limbs are separate from the melee pilot so each batch can
 // be reviewed independently. All parts must load before replacing a portrait.
@@ -87,7 +88,7 @@ export function drawRangedHeroRig(ctx, opts = {}) {
   const draw = (part, x, y, w, h, angle = 0, px = 0, py = 0, opacity = 1) => {
     if (opacity <= 0) return;
     ctx.save(); ctx.translate(x, y); ctx.rotate(angle); ctx.globalAlpha *= opacity;
-    ctx.drawImage(image(part), -px, -py, w, h);
+    ctx.drawImage(heroLit(image(part)), -px, -py, w, h);   // with its rim light (herolight.js)
     ctx.restore();
   };
   draw('left', -10 - pose.step * 1.5 - (pose.plantB || 0), -1 - Math.max(0, pose.step) * 3 - (pose.liftB || 0), 13, 16);

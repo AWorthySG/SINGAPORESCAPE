@@ -1687,7 +1687,11 @@ export class Renderer {
     // Baked once per viewport size (a small canvas stretched to fit), and a
     // little deeper after dark.
     if (!this._vig || this._vig.vw !== vw || this._vig.vh !== vh) this._vig = { vw, vh, img: buildVignette(vw, vh) };
-    if (!this._vig.img) return;
+    // After dark the light pass lays it into its light map instead (lighting.js);
+    // the flag is used up here, so a low graphics frame never misses it.
+    const inMap = this.lights.vignetted;
+    this.lights.vignetted = false;
+    if (!this._vig.img || inMap) return;
     const { ctx } = this;
     ctx.globalAlpha = 0.5 + 0.45 * night;
     ctx.drawImage(this._vig.img, 0, 0, vw, vh);

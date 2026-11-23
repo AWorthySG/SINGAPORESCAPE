@@ -67,8 +67,10 @@ export function timeGrade(phase, gloom = 0, out = { crisp: 0, moon: 0 }) {
 export const CRISP_CLEAR = 0.5;   // how much of the region's haze the midday sun burns off
 
 // The night's darkness colour: a dusky indigo in the evening, deepening to a
-// clear moonlit blue in the small hours.
-const DUSK_DARK = [22, 24, 62], MOON_DARK = [10, 28, 86];
+// clear moonlit blue in the small hours. The light pass multiplies by it, so
+// it is a cool blue rather than near-black: white comes out a pale moonlit
+// blue and the ink stays darkest.
+const DUSK_DARK = [40, 30, 110], MOON_DARK = [22, 56, 160];
 
 /** The colour of the night layer for a moonlight level (0..1), into `out` (its alpha is left alone). */
 export function moonDark(moon, out = [0, 0, 0, 0]) {

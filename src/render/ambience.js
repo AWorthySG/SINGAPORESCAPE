@@ -70,12 +70,13 @@ export function composeWashes(washes, out = [0, 0, 0, 0]) {
 }
 
 /** The day/night washes for a darkness level (0 noon .. 1 midnight): a peach
- *  dusk glow that peaks with the sun on the horizon, and a lavender night. */
-export function dayNightWashes(night, out = [[255, 170, 160, 0], [104, 96, 170, 0]]) {
+ *  dusk glow that peaks with the sun on the horizon, and a cool blue night
+ *  (low graphics' only night; a lavender one greyed the white sticker rims). */
+export function dayNightWashes(night, out = [[255, 170, 160, 0], [60, 84, 172, 0]]) {
   const day = 1 - night;
   const duskiness = 4 * day * night;
   out[0][3] = duskiness > 0.02 ? duskiness * 0.12 : 0;
-  out[1][3] = night > 0.05 ? Math.min(0.2, night * night * 0.26) : 0;
+  out[1][3] = night > 0.05 ? Math.min(0.26, night * night * 0.32) : 0;
   return out;
 }
 

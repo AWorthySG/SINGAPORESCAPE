@@ -17,7 +17,10 @@
 // [w, h, shoulder x, y, fist x, y].
 // Without Image (headless tests) nothing loads and every helper returns
 // false or null, so the rigs draw exactly as before; a set is only used once
-// all of its pictures have loaded, never half assembled.
+// all of its pictures have loaded, never half assembled. Each is drawn with
+// its rim light (herolight.js).
+
+import { heroLit } from './herolight.js';
 
 export const ANIM_ART = {
   swordsman: { faces: ['body', 'hurt', 'blink', 'victory'], swing: { wind: [24.7, 31.5, 8.3, 27.6], mid: [33.7, 24.7, 4.4, 5.1], follow: [41, 24.3, 4.8, 5.7] }, back: { body: [-17.5, -33.4, 34.7, 37.3], other: [1.9, -4.3, 21.2, 19.5, 18, 3.8, 3.3, 16], arm: [-7.3, -37.9, 28.3, 38.3], strike: [-6.8, -22.1, 41.2, 23.2] }, hand: [11, 12, 8.7, 1.6, 1.9, 10.3] },
@@ -124,7 +127,7 @@ export function drawAnimBody(ctx, classId, opts, x, y, w, h) {
     if (!a.faces.includes('body')) return false;
     pic = image(`${classId}_body`);
   }
-  ctx.drawImage(pic, x - w * FACE_PAD, y - h * FACE_PAD, w * (1 + 2 * FACE_PAD), h * (1 + 2 * FACE_PAD));
+  ctx.drawImage(heroLit(pic), x - w * FACE_PAD, y - h * FACE_PAD, w * (1 + 2 * FACE_PAD), h * (1 + 2 * FACE_PAD));
   return true;
 }
 
@@ -306,8 +309,8 @@ export function drawSwingArm(ctx, classId, anim, hand, kind, sx, sy, alpha = 1) 
       anim[off ? 'smeared2' : 'smeared'] = true;
     }
   }
-  if (turn) { ctx.save(); ctx.translate(sx, sy); ctx.rotate(turn); ctx.drawImage(pics[i], -px, -py, w, h); ctx.restore(); }
-  else ctx.drawImage(pics[i], sx - px, sy - py, w, h);
+  if (turn) { ctx.save(); ctx.translate(sx, sy); ctx.rotate(turn); ctx.drawImage(heroLit(pics[i]), -px, -py, w, h); ctx.restore(); }
+  else ctx.drawImage(heroLit(pics[i]), sx - px, sy - py, w, h);
   // The spark where the blow lands, or a gun's muzzle flash, at the tip.
   const fl = ch.flash || 0, k = Math.max(phase === 'follow' ? ch.impact || 0 : 0, fl);
   if (!low && k > 0.05 && phase !== 'wind') {
@@ -377,11 +380,11 @@ export function drawHeroBack(ctx, opts = {}) {
   // Feet where the front view has them, the soles showing as each lifts.
   const foot = (img, x, lift) => {
     const w = 12, h = w * img.naturalHeight / img.naturalWidth;
-    ctx.drawImage(img, x, 15 - h - lift, w, h);
+    ctx.drawImage(heroLit(img), x, 15 - h - lift, w, h);
   };
   foot(footL, -10 - step * 1.5, Math.max(0, step) * 3 + (ch?.liftB || 0));
   foot(footR, 1 + step * 1.5, Math.max(0, -step) * 3 + (ch?.liftF || 0));
-  const put = (img, r, dy = 0) => ctx.drawImage(img, r[0], r[1] + breathe + dy, r[2], r[3]);
+  const put = (img, r, dy = 0) => ctx.drawImage(heroLit(img), r[0], r[1] + breathe + dy, r[2], r[3]);
   put(body, b.body);
   if (other) {
     // The off arm hangs from its shoulder, a little out from the body, and swings as the hero walks.
@@ -389,7 +392,7 @@ export function drawHeroBack(ctx, opts = {}) {
     const natural = Math.atan2(fy - py, fx - px);
     const want = Math.PI / 2 + (sx < b.body[0] + b.body[2] / 2 ? 0.2 : -0.2) + step * 0.25;
     ctx.save(); ctx.translate(sx, sy + breathe); ctx.rotate(want - natural);
-    ctx.drawImage(other, -px, -py, w, h);
+    ctx.drawImage(heroLit(other), -px, -py, w, h);
     ctx.restore();
   }
   const hit = ch ? (ch.strike > 0.5 || ch.release > 0.05 || ch.cast > 0.2 || ch.strike2 > 0.5) : (opts.swingK ?? -1) >= 0.4;
@@ -413,7 +416,7 @@ export function drawEmptyArm(ctx, classId, sx, sy, phi, len = 10) {
   const k = len / (Math.hypot(fx - ax, fy - ay) || 1);
   ctx.save();
   ctx.translate(sx, sy); ctx.rotate(want - natural); ctx.scale(k, k);
-  ctx.drawImage(img, -ax, -ay, w, h);
+  ctx.drawImage(heroLit(img), -ax, -ay, w, h);
   ctx.restore();
   return [sx + Math.sin(phi) * len, sy + Math.cos(phi) * len];
 }

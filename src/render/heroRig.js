@@ -1,6 +1,7 @@
 import { poseBlender, swapOpacity } from './poseBlend.js';
 import { drawHeroArm, drawGripHand, armInFront } from './heroanim.js';
 import { drawAnimBody, drawSwingArm, drawEmptyArm, hasSwingArt, swingPhase, offArmInFront } from './heroAnimArt.js';
+import { heroLit } from './herolight.js';
 
 // Painted hero rigs use separate limbs. Keep loading and animation
 // here so the shared sprite library only needs one optional drawing hook.
@@ -163,7 +164,7 @@ export function drawHeroRig(ctx, opts = {}) {
   const draw = (part, x, y, w, h, angle = 0, px = 0, py = 0, opacity = 1) => {
     ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
     ctx.globalAlpha *= opacity;
-    ctx.drawImage(images.get(key(part)), -px, -py, w, h);
+    ctx.drawImage(heroLit(images.get(key(part))), -px, -py, w, h);   // with its rim light (herolight.js)
     ctx.restore();
   };
   // Parts that are often fully hidden are skipped outright.
