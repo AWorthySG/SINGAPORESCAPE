@@ -2,12 +2,14 @@
 // left in a tree, or breaks a rock's whole seam free, at once, with XP for each
 // (the owner's ask, after the fish schools' "whole school" catch). It uses the
 // tree or rock up, as if you had chopped or mined it to the end. Every fishing
-// spot has the same chance of a whole school (schoolJackpot, fishschool.js).
+// spot has the same chance of a whole school (schoolJackpot, fishschool.js),
+// and every trap of a whole flock (huntJackpot).
 //
 // Kept out of skilling.js: resolveWoodcut and resolveMine call `nodeJackpot`
-// once per swing, after that swing's own log or ore. Rolls use their own
-// generator, so they never shift Math.random (the seeded tests depend on its
-// sequence), and a switch lets the test suite turn it off (tests/seed.mjs).
+// once per swing, after that swing's own log or ore, and resolveHunt calls
+// `huntJackpot` after each catch. Rolls use their own generator, so they never
+// shift Math.random (the seeded tests depend on its sequence), and a switch
+// lets the test suite turn it off (tests/seed.mjs).
 
 import { getItem } from '../data/items.js';
 import { weightedPick } from '../core/utils.js';
@@ -78,3 +80,51 @@ export function schoolJackpot(find = 0) {
 
 /** The pick for a rock: its ore, or a fresh gem each time for a gem rock. */
 export const rockPick = (def, table) => (def.gemRock ? () => weightedPick(table).id : () => def.gives);
+
+// Hunter's whole flock (the owner's ask: in play Hunter earned about a fifth of
+// what Mining, Woodcutting and Fishing did an hour, having no burst of its own,
+// and about four fifths of theirs comes from their whole seams, trees and
+// schools). Now and then a trap springs on a whole flock, nest or herd at once:
+// as likely as a whole seam (more so with a better snare), and sized like a
+// whole school at any spot, ten times a stock of 1-14 catches (10-140), with XP
+// for each. A trap holds no count to use up, so it stays set, as a fishing spot
+// does after its whole school (using the trap up was tried, but the walk
+// between the far-apart crocodile traps then cost a third of Hunter's XP an
+// hour at level 99).
+export const HUNT_STOCK = [1, 14];   // as fishschool.js WILD_STOCK
+// What each trap springs on all at once ("Whole nest!"); a trap not listed: a flock.
+export const HUNT_CROWD = {
+  bird_snare: 'flock', squirrel_trap: 'nest', lizard_snare: 'nest', mousedeer_trail: 'herd', boar_pit: 'herd',
+  python_trap: 'nest', crocodile_trap: 'nest', hornbill_nest: 'flock', qilin_trail: 'herd', pangolin_burrow: 'warren',
+  colugo_trap: 'family', tiger_trail: 'family', garuda_nest: 'flock', naga_track: 'nest', phoenix_roost: 'flock',
+};
+const between = ([a, b]) => a + Math.floor(roll() * (b - a + 1));
+// "75 lizard skins", "300 feathers", but "75 raw venison" and "75 pangolin scales".
+const many = (name) => (/(s|meat|venison|fur)$/.test(name) ? name : `${name}s`);
+
+/** After a catch at trap `obj` worth `xpEach` XP: maybe the whole flock comes
+ *  with it (`find` is the snare's find bonus). Each catch is the trap's main
+ *  catch (a bird snare's is a handful of feathers). Returns how many catches it
+ *  added (0 if none). */
+export function huntJackpot(game, obj, { xpEach, find = 0 }) {
+  if (!NODE_JACKPOT.on) return 0;
+  if (roll() >= JACKPOT_CHANCE * (1 + Math.min(1, find) * JACKPOT_TOOL_BONUS)) return 0;
+  const main = obj.def.gives[0];
+  const n = SEAM_MULT * between(HUNT_STOCK);
+  let want = 0;
+  for (let i = 0; i < n; i++) want += main.max ? between([main.min, main.max]) : 1;
+  const got = Math.min(want, game.inventory.canAdd(main.id, want));
+  if (got <= 0) return 0;
+  game.inventory.add(main.id, got);
+  const caught = got < want ? Math.ceil(n * got / want) : n;   // a full bag: XP for what fitted
+  game.skills.addXp('hunter', xpEach * caught);
+  const crowd = HUNT_CROWD[obj.objId] || 'flock', name = getItem(main.id).name;
+  game.msg(`It was a whole ${crowd}: you catch ${got} ${many(name.toLowerCase())} at once!`, 'level');
+  game.banner?.(`<span class="big">Whole ${crowd}!</span>+${got} ${name}`);
+  game.addHitsplat?.(game.player, 0, { text: `Whole ${crowd}! +${got}` });
+  const cx = (obj.x + 0.5) * TILE, cy = (obj.y + 0.5) * TILE, col = obj.def.color || '#caa15a';
+  game.spawnPoof?.(cx, cy, col); game.spawnPoof?.(cx - 8, cy + 4, col); game.spawnPoof?.(cx + 8, cy - 3, '#ffffff');
+  game.spawnSparkle?.(game.player, '#e8c46a', 14);
+  game.bus.emit('sfx', 'dropepic');
+  return caught;
+}

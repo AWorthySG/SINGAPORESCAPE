@@ -5,7 +5,7 @@ import { pastSure } from '../data/xp.js';
 import { yieldBonus, huntExtras } from './culling.js';
 import { toolBonus, toolTooHighMsg } from './tools.js';
 import { batched } from './autoprocess.js';
-import { nodeJackpot, rockPick, SEAM_MULT } from './jackpot.js';
+import { nodeJackpot, rockPick, SEAM_MULT, huntJackpot } from './jackpot.js';
 import { burnAll } from './bonfire.js';   // every log at once, onto one bonfire   // now and then the whole tree or seam at once   // an instant batch's news told once (smeltBatch)
 
 const objCenter = (obj) => ({ x: obj.x * TILE + TILE / 2, y: obj.y * TILE + TILE / 2 - 6 });
@@ -587,10 +587,12 @@ export function resolveHunt(game, action) {
   const hx = huntExtras(game), main = def.gives[0];
   if ((hx.double || (tb.yield > 0 && Math.random() < tb.yield)) && game.inventory.canAdd(main.id, 1) > 0) { game.inventory.add(main.id, 1); got.push(`a second ${getItem(main.id).name.toLowerCase()}`); }
   // The Night Safari's tiger trail pays more after dark (a bonus, never a lock), as the moonlit kapok does.
-  game.skills.addXp('hunter', (def.night && game.isNight() ? def.xp * NIGHT_TREE_BONUS : def.xp) * hx.xpMult);
+  const xpEach = (def.night && game.isNight() ? def.xp * NIGHT_TREE_BONUS : def.xp) * hx.xpMult;
+  game.skills.addXp('hunter', xpEach);
   const c = objCenter(obj); game.spawnPoof(c.x, c.y, def.color || '#caa15a');
   game.world.shake(obj, 280); game.bus.emit('sfx', 'gather');
   game.msg(`The trap springs! You catch ${got.join(' and ')}.`);
+  huntJackpot(game, obj, { xpEach, find: tb.find });   // now and then the whole flock at once (jackpot.js)
   if (Math.random() < def.depleteChance) {
     obj.depleted = true;
     obj.respawnTimer = def.respawn;

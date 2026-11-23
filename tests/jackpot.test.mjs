@@ -1,15 +1,19 @@
 // The whole tree, the whole seam (src/game/jackpot.js): now and then a swing
 // takes every log left in a tree, or every ore left in a rock, at once, with
-// XP for each, and the tree falls or the rock is mined out.
+// XP for each, and the tree falls or the rock is mined out. Hunter's whole
+// flock is the same burst for a trap.
 import './seed.mjs';   // seeded Math.random (and NODE_JACKPOT off before every test)
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { Game } from '../src/game/game.js';
 import { clearSave } from '../src/game/save.js';
 import { xpForLevel } from '../src/data/xp.js';
-import { resolveWoodcut, resolveMine, resolveFish } from '../src/game/skilling.js';
+import { resolveWoodcut, resolveMine, resolveFish, resolveHunt } from '../src/game/skilling.js';
 import { FISH_SCHOOL, WILD_STOCK } from '../src/game/fishschool.js';
-import { NODE_JACKPOT, JACKPOT_CHANCE, setJackpotRand, nodeJackpot, SEAM_MULT } from '../src/game/jackpot.js';
+import {
+  NODE_JACKPOT, JACKPOT_CHANCE, JACKPOT_TOOL_BONUS, setJackpotRand, nodeJackpot, SEAM_MULT, huntJackpot, HUNT_STOCK, HUNT_CROWD,
+} from '../src/game/jackpot.js';
+import { HUNT } from '../src/data/trades.js';
 import { mulberry32 } from '../src/game/pets.js';
 import { SKILL_GUIDES } from '../src/game/skillguide.js';
 
@@ -143,8 +147,64 @@ test('at a spot a school is passing, a missed school roll still has the any-spot
   assert.equal(g.fishSchools.at(spot), s, 'the passing school is still there for later');
 });
 
+test('a lucky catch springs the trap on a whole nest: ten times a stock of catches, XP for each, and the trap stays set', () => {
+  const g = newGame(); const said = listen(g);
+  g.skills.xp.hunter = xpForLevel(30);
+  if (!g.inventory.has('hunting_snare')) g.inventory.add('hunting_snare', 1);
+  const trap = find(g, 'lizard_snare');
+  const skins = () => g.inventory.count('lizard_skin');
+  const s0 = skins(), xp0 = g.skills.xp.hunter;
+  setJackpotRand(() => 0);   // it hits, with the smallest stock: 1 x SEAM_MULT catches
+  const rnd = Math.random;
+  Math.random = () => 0.99;   // and the trap's own roll leaves it set
+  try { assert.equal(resolveHunt(g, { obj: trap }), true, 'the trap stays set'); } finally { Math.random = rnd; }
+  assert.equal(trap.depleted, false);
+  const got = skins() - s0;
+  assert.ok(got === 1 + SEAM_MULT * HUNT_STOCK[0] || got === 2 + SEAM_MULT * HUNT_STOCK[0], `the catch and a whole nest of ${SEAM_MULT}: ${got}`);
+  const one = g.skills.xp.hunter - xp0;
+  assert.ok(said.some((m) => m === 'It was a whole nest: you catch 10 lizard skins at once!'), said.slice(-3).join(' | '));
+  // XP for every catch: eleven catches' worth, against one for an unlucky catch.
+  trap.depleted = false;
+  setJackpotRand(() => 0.99);
+  const x1 = g.skills.xp.hunter, n1 = skins();
+  resolveHunt(g, { obj: trap });
+  assert.ok(skins() - n1 <= 2, 'an unlucky catch: just the catch');
+  const plain = g.skills.xp.hunter - x1;
+  assert.ok(Math.abs(one / plain - (1 + SEAM_MULT * HUNT_STOCK[0])) < 1e-9, `XP for each of the ${1 + SEAM_MULT * HUNT_STOCK[0]} catches (${one} vs ${plain})`);
+  // A bird snare's catch is a handful of feathers, so its flock is ten handfuls.
+  const snare = find(g, 'bird_snare');
+  const f0 = g.inventory.count('feather');
+  assert.equal(huntJackpot(g, snare, { xpEach: 1 }), 0, 'an unlucky roll');
+  setJackpotRand(() => 0);
+  assert.equal(huntJackpot(g, snare, { xpEach: 1 }), SEAM_MULT, 'ten catches');
+  assert.equal(g.inventory.count('feather') - f0, SEAM_MULT * snare.def.gives[0].min, 'each its handful of feathers');
+  NODE_JACKPOT.on = false;
+  assert.equal(huntJackpot(g, trap, { xpEach: 1 }), 0, 'the switch turns it off with the seams');
+});
+
+test('the whole flock is as likely as a whole seam, and sized like a whole school', () => {
+  assert.deepEqual(HUNT_STOCK, WILD_STOCK);
+  const fake = { inventory: { canAdd: (id, k) => k, add() {} }, skills: { addXp() {} }, msg() {}, bus: { emit() {} }, player: {} };
+  const trap = { x: 0, y: 0, def: { gives: [{ id: 'lizard_skin' }] } };
+  // About 1 in 20, and half as likely again with the best snare (as a whole seam with the best pickaxe).
+  for (const [f, p] of [[() => huntJackpot(fake, trap, { xpEach: 1 }), JACKPOT_CHANCE],
+    [() => huntJackpot(fake, trap, { xpEach: 1, find: 1 }), JACKPOT_CHANCE * (1 + JACKPOT_TOOL_BONUS)]]) {
+    setJackpotRand(mulberry32(42));
+    let hits = 0;
+    for (let i = 0; i < 20000; i++) if (f()) hits++;
+    assert.ok(Math.abs(hits / 20000 - p) < 0.006, `about ${p} (${hits / 20000})`);
+  }
+  // Ten times a stock of 1 to 14: 10 to 140 catches.
+  const rolls = (...xs) => { let i = 0; return () => xs[Math.min(i++, xs.length - 1)]; };
+  setJackpotRand(rolls(0, 0)); assert.equal(huntJackpot(fake, trap, { xpEach: 1 }), 10);
+  setJackpotRand(rolls(0, 0.9999)); assert.equal(huntJackpot(fake, trap, { xpEach: 1 }), 140);
+  // Every trap says what it springs on ("Whole nest!").
+  for (const id of Object.keys(HUNT)) assert.ok(['flock', 'nest', 'herd', 'warren', 'family'].includes(HUNT_CROWD[id]), id);
+});
+
 test('the skill guides mention it', () => {
   assert.match(SKILL_GUIDES.woodcutting.use, /whole tree down at once/);
   assert.match(SKILL_GUIDES.mining.use, /whole seam free at once/);
   assert.match(SKILL_GUIDES.fishing.use, /at any spot, about one catch in 20 turns out to be a smaller school of the fish you hooked: 10 to 140/);
+  assert.match(SKILL_GUIDES.hunter.use, /one catch in 20 springs the trap on a whole flock, nest or herd at once: 10 to 140/);
 });
