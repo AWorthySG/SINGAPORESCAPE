@@ -12,6 +12,11 @@
 // (an MRT station, from the skill guide); a rung with `recipe` names the new
 // recipe that opens at that level (the recipe's own level gates it).
 export const UNLOCK_LEVELS = [10, 25, 50, 75, 99];
+// Past the last rung every effect above grows, in a straight line, to this
+// many times its level-99 strength at level 9999 (unlockGrowth in
+// skillunlocks.js; the owner asked for life-skill bonuses all the way to
+// 9999). The rungs' `desc` strings give their level-99 strength.
+export const UNLOCK_TOP_MULT = 1.5;
 // The tests switch the level-based effects off (tests/seed.mjs), as they do
 // golden hours, so the XP-an-hour balance checks measure the base rates;
 // tests/skillshome.test.mjs switches them back on for itself.

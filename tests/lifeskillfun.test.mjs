@@ -201,6 +201,7 @@ test('skilling contracts: three a day in different gathering skills, at nodes yo
 
 test('a contract counts gathers at its node, pays coins and XP when done, and a full board builds a streak', () => {
   const g = boot();
+  g.todayKey = () => '2026-11-12';   // one day's board, even if the run crosses midnight
   g.gathering.rand = () => 0.99;
   const list = g.gathering.ensureContracts();
   assert.equal(list.length, 3);

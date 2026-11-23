@@ -1,6 +1,7 @@
 import { getItem } from '../data/items.js';
 import { clamp, weightedPick, randInt, aOrAn } from '../core/utils.js';
 import { TILE } from '../config.js';
+import { pastSure } from '../data/xp.js';
 import { yieldBonus, huntExtras } from './culling.js';
 import { toolBonus, toolTooHighMsg } from './tools.js';
 import { batched } from './autoprocess.js';
@@ -95,6 +96,19 @@ export const GEM_TABLE = [
   { id: 'ruby', weight: 16 }, { id: 'diamond', weight: 6 },
 ];
 
+// A chance that grows with your level and reaches 100% before level 9999
+// (double logs and ore at level 960, a big catch at 634, a gem at 1647, a hot
+// crucible or flawless work at 970; sooner with a better tool, bait or
+// Stewardship) can't grow any more, so it grows sideways: once it is certain,
+// a chance of one more on top, from nothing there to EXTRA_AT_TOP at level 9999
+// (pastSure in xp.js; the owner asked for life-skill bonuses all the way to
+// 9999). The one more pays no XP and never comes out of a tree's or rock's
+// stock, so XP an hour, the balance between the gathering skills and the
+// whole-tree and whole-seam jackpots stay as they were. It is rolled only once
+// the first chance is certain, so below that every Math.random roll is as it
+// was (the seeded tests replay them).
+export const EXTRA_AT_TOP = 0.5;
+
 // The moonlit kapok's Woodcutting XP at night (it can be chopped any time),
 // the moonfish spot's Fishing XP, and the tiger trail's Hunter XP.
 export const NIGHT_TREE_BONUS = 1.25;
@@ -108,9 +122,10 @@ export const rollTreeLogs = (rand = Math.random) => TREE_LOGS_MIN + Math.floor(r
 
 // The chances the resolvers below roll, shared with the skill guide's XP an
 // hour (xprate.js) so the two can't drift apart. `tb` is the tool tier's bonus
-// (toolBonus); Stewardship adds to the doubles and big catches (yieldBonus).
+// (toolBonus); Stewardship adds to the doubles and big catches (yieldBonus; `sb`
+// passes it in when a swing asks more than once, as the certain-extra check does).
 /** A swing's chance of a double log or ore (the extra comes out of the tree's or rock's stock). */
-export const doubleChance = (game, lvl, tb) => 0.04 + lvl * 0.001 + yieldBonus(game) + tb.yield;
+export const doubleChance = (game, lvl, tb, sb = yieldBonus(game)) => 0.04 + lvl * 0.001 + sb + tb.yield;
 /** A swing's chance of a lucky gem at an ordinary rock, and the XP the gem pays. */
 export const gemChance = (lvl, tb) => (0.012 + lvl * 0.0006) * (1 + tb.find);
 export const GEM_XP = 40;
@@ -118,7 +133,7 @@ export const GEM_XP = 40;
 export const trophyChance = (tb) => 0.02 * (1 + tb.find);
 export const TROPHY_XP_MULT = 3;
 /** ...and otherwise of a big catch: two fish, both paid. */
-export const bigCatchChance = (game, lvl, tb, baited = false) => 0.05 + lvl * 0.0015 + (baited ? 0.05 : 0) + yieldBonus(game) + tb.yield;
+export const bigCatchChance = (game, lvl, tb, baited = false, sb = yieldBonus(game)) => 0.05 + lvl * 0.0015 + (baited ? 0.05 : 0) + sb + tb.yield;
 
 export function resolveWoodcut(game, action) {
   const { obj } = action;
@@ -146,10 +161,17 @@ export function resolveWoodcut(game, action) {
     const logName = getItem(def.gives).name.toLowerCase();
     // Double logs: a sturdy bough sometimes drops an extra.
     // (Stewardship adds to the chance while you are Neutral, see culling.js.)
-    if ((!falls || obj.logsLeft > 1) && Math.random() < doubleChance(game, lvl, tb) && game.inventory.canAdd(def.gives, 1) > 0) {
+    // Once a double is certain, a third log can fall too (EXTRA_AT_TOP).
+    const sb = yieldBonus(game);   // read once: pastSure asks pDouble twice more
+    const pDouble = (l) => doubleChance(game, l, tb, sb);
+    if ((!falls || obj.logsLeft > 1) && Math.random() < pDouble(lvl) && game.inventory.canAdd(def.gives, 1) > 0) {
       game.inventory.add(def.gives, 1);
       if (falls) obj.logsLeft--;   // the extra log comes out of the tree's 10-20
-      game.msg(`A second branch falls — double ${logName}!`);
+      const third = EXTRA_AT_TOP * pastSure(pDouble, lvl);   // 0 until the double is certain
+      if (third > 0 && Math.random() < third && game.inventory.canAdd(def.gives, 1) > 0) {
+        game.inventory.add(def.gives, 1);   // on top of the tree's 10-20
+        game.msg(`Two more branches fall — triple ${logName}!`);
+      } else game.msg(`A second branch falls — double ${logName}!`);
     } else {
       game.msg(`You get some ${logName}.`);
     }
@@ -206,22 +228,36 @@ export function resolveMine(game, action) {
     const mc = objCenter(obj); game.spawnPoof(mc.x, mc.y, def.ore || '#cfcfcf');
     game.world.shake(obj, 280); game.bus.emit('sfx', 'gather'); // the rock judders as ore breaks free
     const oreName = getItem(yieldId).name.toLowerCase();
-    // Rich seam: a chance at a second yield.
-    if (obj.oresLeft > 1 && Math.random() < doubleChance(game, lvl, tb) && game.inventory.canAdd(yieldId, 1) > 0) {
+    // Rich seam: a chance at a second yield, and once that is certain a chance
+    // at a third (EXTRA_AT_TOP).
+    const sb = yieldBonus(game);   // read once: pastSure asks pDouble twice more
+    const pDouble = (l) => doubleChance(game, l, tb, sb);
+    if (obj.oresLeft > 1 && Math.random() < pDouble(lvl) && game.inventory.canAdd(yieldId, 1) > 0) {
       game.inventory.add(yieldId, 1);
       obj.oresLeft--;   // the bonus ore comes out of the rock's 10-20
-      game.msg(`A rich seam — double ${oreName}!`);
+      const third = EXTRA_AT_TOP * pastSure(pDouble, lvl);   // 0 until the double is certain
+      if (third > 0 && Math.random() < third && game.inventory.canAdd(yieldId, 1) > 0) {
+        game.inventory.add(yieldId, 1);   // on top of the rock's 10-20
+        game.msg(`A rich seam — triple ${oreName}!`);
+      } else game.msg(`A rich seam — double ${oreName}!`);
     } else {
       game.msg(def.gemRock ? `You chip out ${aOrAn(oreName)}!` : `You manage to mine some ${oreName}.`);
     }
-    // Lucky gem: unearth a precious stone now and then (ordinary rocks only).
-    if (!def.gemRock && Math.random() < gemChance(lvl, tb)) {
+    // Lucky gem: unearth a precious stone now and then (ordinary rocks only),
+    // and once a gem is certain, a chance of a second with it (EXTRA_AT_TOP; no XP of its own).
+    const pGem = (l) => gemChance(l, tb);
+    if (!def.gemRock && Math.random() < pGem(lvl)) {
       const gem = weightedPick(GEM_TABLE);
       if (game.inventory.canAdd(gem.id, 1) > 0) {
         game.inventory.add(gem.id, 1);
         game.skills.addXp('mining', GEM_XP);
+        const more = EXTRA_AT_TOP * pastSure(pGem, lvl);   // 0 until a gem is certain
+        const gem2 = more > 0 && Math.random() < more ? weightedPick(GEM_TABLE) : null;
+        const two = !!gem2 && game.inventory.canAdd(gem2.id, 1) > 0;
+        if (two) game.inventory.add(gem2.id, 1);
         game.spawnSparkle(game.player, '#9adcff', 8);
-        game.msg(`You unearth ${aOrAn(getItem(gem.id).name.toLowerCase())}!`, 'level');
+        const gemName = (g) => getItem(g.id).name.toLowerCase();
+        game.msg(`You unearth ${aOrAn(gemName(gem))}${!two ? '' : gem2.id === gem.id ? ', and another' : ` and ${aOrAn(gemName(gem2))}`}!`, 'level');
       }
     }
     // Now and then the whole seam breaks free at once, ten times over (jackpot.js).
@@ -273,13 +309,20 @@ export function resolveFish(game, action) {
       return true;
     }
     // A "big catch" reels in two at once — more likely at higher levels / with bait.
-    const big = Math.random() < bigCatchChance(game, lvl, tb, baited) && game.inventory.canAdd(pick.id, 2) >= 2;
+    // Once it is certain, a third fish can come too (EXTRA_AT_TOP), with no XP:
+    // spots never run dry, so XP for it would lift Fishing's XP an hour past the
+    // other gathering skills (tests/fishing-balance.test.mjs).
+    const sb = yieldBonus(game);   // read once: pastSure asks pBig twice more
+    const pBig = (l) => bigCatchChance(game, l, tb, baited, sb);
+    const big = Math.random() < pBig(lvl) && game.inventory.canAdd(pick.id, 2) >= 2;
+    const third = big ? EXTRA_AT_TOP * pastSure(pBig, lvl) : 0;   // 0 until a big catch is certain
+    const three = third > 0 && Math.random() < third && game.inventory.canAdd(pick.id, 3) >= 3;
     const n = big ? 2 : 1;
-    game.inventory.add(pick.id, n);
+    game.inventory.add(pick.id, n + (three ? 1 : 0));
     game.skills.addXp('fishing', xpEach * n);
     game.spawnPoof(fc.x, fc.y, '#bfe3ff');
     game.bus.emit('sfx', 'gather');
-    game.msg(big ? `A big catch! You haul in two ${nm}.` : `You catch ${aOrAn(nm)}.`);
+    game.msg(three ? `A huge catch! You haul in three ${nm}.` : big ? `A big catch! You haul in two ${nm}.` : `You catch ${aOrAn(nm)}.`);
     game.fishSchools?.onCatch(obj, pick.xp ? xpEach / pick.xp : 1, pick.id);   // maybe a whole school (fishschool.js)
   }
   return true; // fishing spots never deplete
@@ -352,6 +395,11 @@ export function resolveCook(game, action) {
   return game.inventory.has(action.rawId);
 }
 
+// A hot crucible's extra bar and flawless work's extra piece: the same chance
+// at a Smithing level, certain from level 970. Kept out here, not made in the
+// resolvers, as a batch runs them thousands of times in one tick.
+const smithExtraChance = (lvl) => 0.03 + lvl * 0.001;
+
 export function resolveSmelt(game, action) {
   const r = action.recipe;
   for (const inp of r.inputs) {
@@ -371,10 +419,16 @@ export function resolveSmelt(game, action) {
     game.skills.addXp('smithing', r.xp);
     tally.made++;
     const lvl = game.skills.level('smithing');
-    // A hot crucible occasionally yields an extra bar.
-    if (Math.random() < 0.03 + lvl * 0.001 && game.inventory.canAdd(r.result, 1) > 0) {
+    // A hot crucible occasionally yields an extra bar, and once that is
+    // certain (level 970) now and then a second extra (EXTRA_AT_TOP).
+    if (Math.random() < smithExtraChance(lvl) && game.inventory.canAdd(r.result, 1) > 0) {
       game.inventory.add(r.result, 1);
       tally.extra++;
+      const more = EXTRA_AT_TOP * pastSure(smithExtraChance, lvl);   // 0 until it is certain (level 970)
+      if (more > 0 && Math.random() < more && game.inventory.canAdd(r.result, 1) > 0) {
+        game.inventory.add(r.result, 1);
+        tally.extra++;
+      }
     }
   }
   return r.inputs.every((inp) => game.inventory.has(inp.id, inp.qty));
@@ -452,13 +506,17 @@ export function resolveSmith(game, action) {
   if (!t) game.bus.emit('sfx', 'clang');
   const lvl = game.skills.level('smithing');
   const itemName = getItem(r.result).name.toLowerCase();
-  // Flawless work: a chance to forge an extra piece for free.
-  if (Math.random() < 0.03 + lvl * 0.001 && game.inventory.canAdd(r.result, 1) > 0) {
+  // Flawless work: a chance to forge an extra piece for free, and once that is
+  // certain (level 970) now and then a second one (EXTRA_AT_TOP).
+  if (Math.random() < smithExtraChance(lvl) && game.inventory.canAdd(r.result, 1) > 0) {
     game.inventory.add(r.result, 1);
-    if (t) t.bonus++;
+    const more = EXTRA_AT_TOP * pastSure(smithExtraChance, lvl);   // 0 until it is certain (level 970)
+    const two = more > 0 && Math.random() < more && game.inventory.canAdd(r.result, 1) > 0;
+    if (two) game.inventory.add(r.result, 1);
+    if (t) t.bonus += two ? 2 : 1;
     else {
       game.spawnSparkle(game.player, '#ffd24a', 6);
-      game.msg(`Flawless work — you forge an extra ${itemName}!`);
+      game.msg(two ? `Flawless work — you forge two extra ${itemName.endsWith('s') ? itemName : `${itemName}s`}!` : `Flawless work — you forge an extra ${itemName}!`);
     }
   } else if (!t) {
     game.msg(r.qty > 1 ? `You hammer the metal into ${r.qty} ${itemName.endsWith('s') ? itemName : `${itemName}s`}.` : `You hammer the metal into ${aOrAn(itemName)}.`);   // "20 bronze rounds", not "roundss"

@@ -6,10 +6,9 @@
 // tests can render them without a DOM.
 import { getItem } from '../data/items.js';
 import { itemIconSVG } from '../render/icons.js';
-import { XP_RATE } from '../config.js';
 import {
   activeContracts, ensureContracts, handInContracts, huntContract, buyTokenReward, stewardship,
-  TOKEN_SHOP, FULL_BOARD_TOKENS, STEWARD_RANKS, LAMP_SKILLS, LAMP_XP_PER_LEVEL, rubLamp, readQuill, plural,
+  TOKEN_SHOP, FULL_BOARD_TOKENS, STEWARD_RANKS, LAMP_SKILLS, lampXp, rubLamp, readQuill, plural,
 } from '../game/culling.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -130,7 +129,8 @@ export function openTokenShop(ui) {
 export function cullingInvOptions(ui, s, i) {
   const g = ui.game, item = getItem(s.id);
   if (s.id === 'forager_lamp') {
-    return LAMP_SKILLS.map((sk) => ({ label: `Rub: ${cap(sk)}`, target: `${n(LAMP_XP_PER_LEVEL * g.skills.level(sk) * XP_RATE)} XP`, fn: () => rubLamp(g, i, sk) }));
+    // What it's worth at your level (the life-skill boost too); golden hours and the like come on top.
+    return LAMP_SKILLS.map((sk) => ({ label: `Rub: ${cap(sk)}`, target: `${n(Math.round(g.skills.xpAtLevel(sk, lampXp(g, sk))))} XP`, fn: () => rubLamp(g, i, sk) }));
   }
   if (s.id === 'codex_quill') return [{ label: 'Read', target: item.name, fn: () => readQuill(g, i) }];
   return [];

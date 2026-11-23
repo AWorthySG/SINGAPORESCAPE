@@ -69,6 +69,26 @@ const unlockAudio = () => game.audio.unlock();
 window.addEventListener('pointerdown', unlockAudio, { once: true });
 window.addEventListener('keydown', unlockAudio, { once: true });
 
+// Settings > Show performance (ui/perfhud.js): a small readout of frame times
+// and what fills each frame, for a screenshot of what is slow on a phone. Off
+// (the default) it costs nothing: its module isn't even loaded, and the frame
+// loop only checks that it isn't there. Kept on this device, like Graphics.
+const PERF_KEY = 'singaporescape:perf';
+let perfHud = null;
+function showPerf(on) {
+  ui.perfOn = on;
+  if (!on) { perfHud?.remove(); perfHud = null; return; }
+  import('./ui/perfhud.js').then((m) => {
+    if (ui.perfOn && !perfHud) perfHud = new m.PerfHud(game, canvas, () => autoScale);
+  }).catch(() => {});
+}
+ui.perfOn = false;
+ui.setPerf = (on) => {
+  try { localStorage.setItem(PERF_KEY, on ? '1' : '0'); } catch { /* storage blocked: just this visit */ }
+  showPerf(on);
+};
+try { if (localStorage.getItem(PERF_KEY) === '1') showPerf(true); } catch { /* ignore */ }
+
 ui.init();
 game.start();
 title.attach(game);
@@ -186,10 +206,16 @@ function frame() {
   // One bad frame must not stop the loop: the game (and its autosave) would
   // freeze for good. Log the first error and carry on with the next frame.
   try {
+    // Settings > Show performance times the update and the drawing (perfhud.js);
+    // off, perfHud is null and no clock is read.
+    const ph = perfHud, p0 = ph ? now() : 0;
     game.update(dt);
+    const p1 = ph ? now() : 0;
     if (!title.active) game.playMs = (game.playMs || 0) + dt;   // time played (saved; shown when choosing a cloud save)
     title.frame(dt);   // on the title: tours the camera, runs the loading bar
+    const p2 = ph ? now() : 0;
     renderer.render(t);
+    const p3 = ph ? now() : 0;
     ui.renderMinimap();
     // Frames whose work keeps running long trim the decorative extras (governor.js).
     // So do frames that keep arriving slowly whatever the work (a phone whose
@@ -197,6 +223,7 @@ function frame() {
     // It holds for a while once on (TRIM_OFF_HOLD), so it doesn't flicker.
     if (slowFrames(slowAvg)) slowTrimUntil = t + TRIM_OFF_HOLD;
     game.fxTrim = governor.frame(now() - t, t) || t < slowTrimUntil;
+    ph?.frame(t, p1 - p0, p3 - p2);   // last, so the readout's own work isn't timed as the frame's
   } catch (err) {
     if (!frameErrorLogged) { frameErrorLogged = true; console.error('Frame error (the game keeps running):', err); }
   }

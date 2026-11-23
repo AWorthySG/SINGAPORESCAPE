@@ -145,7 +145,7 @@ export class Equipment {
 
   /** itemBonuses for the piece worn in `slot` (id `id`), kept until anything it
    *  is made from changes: the piece, its copy and quality, its type's mastery
-   *  XP, its refine level or its enchant lines (all read afresh each time, so a
+   *  rank, its refine level or its enchant lines (all read afresh each time, so a
    *  change made straight to the records is seen too). A fight asks for your
    *  gear's totals many times a blow, and each answer built four objects per
    *  piece worn. Read-only: callers copy before changing anything. */
@@ -153,9 +153,13 @@ export class Equipment {
     const copy = this.copyIn(slot), q = this.qualityIn(slot);
     const xp = this.mastery[mtypeOf(id)] || 0, ref = this.refineMap(copy)[id], lines = this.enchantMap(copy)[id];
     const c = (this._worn ||= {})[slot];
-    if (c !== undefined && c.id === id && c.copy === copy && c.q === q && c.xp === xp && c.ref === ref && sameLines(c.lines, lines)) return c.b;
+    if (c !== undefined && c.id === id && c.copy === copy && c.q === q && c.ref === ref && sameLines(c.lines, lines)) {
+      if (c.xp === xp) return c.b;
+      // Every kill adds mastery XP to what you wear, but only a new rank changes its bonuses.
+      if (c.rank === rankFor(xp)) { c.xp = xp; return c.b; }
+    }
     const b = this.itemBonuses(id, copy, q);
-    this._worn[slot] = { id, copy, q, xp, ref, lines: lines && lines.map((l) => ({ stat: l?.stat, value: l?.value })), b };
+    this._worn[slot] = { id, copy, q, xp, rank: rankFor(xp), ref, lines: lines && lines.map((l) => ({ stat: l?.stat, value: l?.value })), b };
     return b;
   }
 

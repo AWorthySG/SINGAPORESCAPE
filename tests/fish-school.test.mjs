@@ -1,6 +1,6 @@
 // Schools of fish (src/game/fishschool.js): now and then a school visits a
 // fishing spot near you for 20-40 seconds, and a catch there may net the whole
-// school at once, 250-600 fish with XP for each.
+// school at once, 250-650 fish with XP for each.
 import { seedRandom } from './seed.mjs';   // seeded Math.random (and FISH_SCHOOL off before every test)
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -76,7 +76,7 @@ test('a school turns up at a spot near you, is announced, and swims off after it
   assert.ok(said.some((m) => /^The school of .+ swims off\.$/.test(m)), 'told it swam off');
 });
 
-test('netting the school: 250-600 fish at once, XP for each, and it is used up', () => {
+test('netting the school: 250-650 fish at once, XP for each, and it is used up', () => {
   const g = newGame();
   const said = listen(g);
   const spot = harpoonSpot(g);
@@ -91,7 +91,7 @@ test('netting the school: 250-600 fish at once, XP for each, and it is used up',
   g.skills.addXp = (id, amt) => { xpCalls.push([id, amt]); return addXp(id, amt); };
   const t0 = tuna(g);
   const n = fs.onCatch(spot, 1);
-  assert.ok(n >= SCHOOL_HAUL[0] && n <= SCHOOL_HAUL_MAX, `a haul of 250-600 (${n})`);
+  assert.ok(n >= SCHOOL_HAUL[0] && n <= SCHOOL_HAUL_MAX, `a haul of 250-650 (${n})`);
   assert.equal(n, Math.min(SCHOOL_HAUL_MAX, s.size + haulBonus(40, null)));
   assert.equal(tuna(g) - t0, n, 'all of them in the bag');
   assert.deepEqual(xpCalls, [['fishing', OBJECTS.harpoon_spot.catches.find((c) => c.id === 'raw_tuna').xp * n]], 'XP for each fish');
@@ -111,13 +111,16 @@ test('netting the school: 250-600 fish at once, XP for each, and it is used up',
   assert.equal(fs.at(spot), null);
 });
 
-test('the haul grows with Fishing level and a rune-or-better tool, to 600 at most', () => {
+test('the haul grows with Fishing level and a rune-or-better tool, to 650 at most', () => {
   assert.deepEqual(SCHOOL_HAUL, [250, 450], 'fifty times the old 5-9');
   assert.equal(haulBonus(1, null), 0);
   assert.equal(haulBonus(60, { speed: 0 }), 50);
   assert.equal(haulBonus(250, { speed: 40 }), 150);
-  assert.ok(SCHOOL_HAUL[1] + haulBonus(999, { speed: 99 }) === 600, 'the biggest school is 600');
-  assert.equal(SCHOOL_HAUL_MAX, 600);
+  // Past level 100 the level part grows slowly on, to +150 at level 9999.
+  assert.equal(haulBonus(999, null), 104);
+  assert.equal(haulBonus(9999, null), 150);
+  assert.ok(SCHOOL_HAUL[1] + haulBonus(9999, { speed: 99 }) === SCHOOL_HAUL_MAX, 'the biggest school is the most there can be');
+  assert.equal(SCHOOL_HAUL_MAX, 650);
 });
 
 test('a catch nets the school about 1 in 2 times (the owner doubled it from 1 in 4); otherwise fishing goes on as normal', () => {
@@ -205,6 +208,7 @@ test('with the switch off, fishing is unchanged: no schools, and a school left a
 test('the Fishing guide tells of schools', () => {
   assert.match(SKILL_GUIDES.fishing.use, /school of fish/);
   assert.match(SKILL_GUIDES.fishing.use, /net the whole school/);
+  assert.ok(SKILL_GUIDES.fishing.use.includes(`${SCHOOL_HAUL[0]} to ${SCHOOL_HAUL_MAX} fish`), 'the guide gives the real range');
 });
 
 test('drawing a school is cheap canvas work, simpler in low graphics', () => {

@@ -1,26 +1,28 @@
 // A bigger haul as you level (src/game/levelhaul.js): each gather has a
-// +0.2%-a-level chance (up to 50%) of a bonus one of what it gave, with its
-// XP, never taken from the tree or rock.
+// +0.2%-a-level chance (50% at level 251, then slowly on to 75% at 9999) of a
+// bonus one of what it gave, with its XP, never taken from the tree or rock.
 import './seed.mjs';   // seeded Math.random (and LEVEL_HAUL off before every test)
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { Game } from '../src/game/game.js';
 import { clearSave } from '../src/game/save.js';
-import { xpForLevel } from '../src/data/xp.js';
-import { LEVEL_HAUL, levelHaulPct, levelHaul, setHaulRand, LEVEL_HAUL_CAP } from '../src/game/levelhaul.js';
+import { xpForLevel, MAX_LEVEL } from '../src/data/xp.js';
+import { LEVEL_HAUL, levelHaulPct, levelHaul, setHaulRand, LEVEL_HAUL_CAP, LEVEL_HAUL_TOP } from '../src/game/levelhaul.js';
 import { mulberry32 } from '../src/game/pets.js';
 import { toolLadderHTML } from '../src/ui/skillguideui.js';
 
 beforeEach(() => { LEVEL_HAUL.on = true; });
 afterEach(() => setHaulRand(mulberry32(5)));
 
-test('the bonus-haul chance climbs steadily and stops at the cap', () => {
+test('the bonus-haul chance climbs steadily to 50% at level 251, then slowly on to 75% at 9999', () => {
   assert.equal(levelHaulPct(1), 0);
   assert.ok(Math.abs(levelHaulPct(51) - 10) < 1e-9);
   assert.ok(Math.abs(levelHaulPct(99) - 19.6) < 1e-9);
   assert.equal(levelHaulPct(251), LEVEL_HAUL_CAP);
-  assert.equal(levelHaulPct(9999), LEVEL_HAUL_CAP);
-  for (let l = 2; l < 260; l++) assert.ok(levelHaulPct(l) >= levelHaulPct(l - 1));
+  const mid = levelHaulPct(5000);
+  assert.ok(mid > LEVEL_HAUL_CAP && mid < LEVEL_HAUL_TOP, `still growing past 251 (${mid} at 5000)`);
+  assert.equal(levelHaulPct(MAX_LEVEL), LEVEL_HAUL_TOP);
+  for (let l = 2; l <= MAX_LEVEL; l++) assert.ok(levelHaulPct(l) >= levelHaulPct(l - 1) && levelHaulPct(l) < 100, `level ${l}`);
 });
 
 function newGame() {

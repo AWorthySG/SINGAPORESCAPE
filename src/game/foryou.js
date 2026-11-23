@@ -33,8 +33,8 @@ export const ACTIONS_PER_HOUR = Math.round((3600000 / TICK_MS) * GATHER_SPEED);
 
 /** Rough XP an hour from `xp` an action in `skill` at your level. */
 export function xpPerHour(game, skill, xp) {
-  const boost = game?.skills?.lifeXpMult ? game.skills.lifeXpMult(skill) : LIFE_XP_BOOST;
-  return Math.round(xp * XP_RATE * boost * ACTIONS_PER_HOUR);
+  const each = game?.skills?.xpAtLevel ? game.skills.xpAtLevel(skill, xp) : xp * XP_RATE * LIFE_XP_BOOST;   // an action's real XP at your level
+  return Math.round(each * ACTIONS_PER_HOUR);
 }
 
 /** The best training spots for a skill at your level (two at most), most XP an

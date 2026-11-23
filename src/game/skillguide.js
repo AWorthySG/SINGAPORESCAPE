@@ -35,7 +35,7 @@ const TICK_S = 0.6;
 export const SKILL_GUIDES = {
   woodcutting: { use: 'Logs feed Firemaking and Fletching (bows, arrows, staves). From level 100, groves of rare trees in the far regions give the endgame logs. Each tree holds 10 to 20 logs, and about one swing in 20 brings the whole tree down at once: ten times the logs left in it, with XP for every log.' },
   mining: { use: 'Ore is smelted into bars for Smithing, and gems and gold go to Crafting. From level 100, rare veins in the far regions give the endgame ores. Each rock holds 10 to 20 ores, and about one swing in 20 breaks the whole seam free at once: ten times the ore left in it, with XP for every ore.' },
-  fishing: { use: 'Raw fish are cooked into food that heals you in a fight. Each kind of spot holds one fish, so where you fish picks the fish: the list below says where each is. From level 100, rare spots in the far regions give the endgame fish. Now and then a school of fish (a dark swirl on the water) visits a spot near you for half a minute: fish there and you may net the whole school, 250 to 600 fish at once. And at any spot, about one catch in 20 turns out to be a smaller school of the fish you hooked: 10 to 140 at once.' },
+  fishing: { use: 'Raw fish are cooked into food that heals you in a fight. Each kind of spot holds one fish, so where you fish picks the fish: the list below says where each is. From level 100, rare spots in the far regions give the endgame fish. Now and then a school of fish (a dark swirl on the water) visits a spot near you for half a minute: fish there and you may net the whole school, 250 to 650 fish at once. And at any spot, about one catch in 20 turns out to be a smaller school of the fish you hooked: 10 to 140 at once.' },
   hunter: { use: 'Pelts, skins and hides become armour; meat is cooked into food. From level 100, hunting grounds in the far regions give the catches for the endgame brews.' },
   farming: { use: 'Crops are herbs for Herblore and ingredients for hawker dishes. The farm shop sells every seed, the endgame ones too; Gardens by the Bay has more patches.', where: ['farm_patch'] },
   cooking: { use: 'Food heals you in a fight; better food heals more. From level 100 the endgame fish cook into dishes that heal a share of your life, and some boost you too.', where: ['range', 'fire'] },
@@ -144,7 +144,7 @@ export function allRecipes() {
   for (const c of CROPS.map((x) => cropFor(x[0]))) add({ skill: 'farming', kind: 'farm', output: { id: c.id, qty: c.yield[0], max: c.yield[1] }, inputs: [{ id: c.seed, qty: 1 }], level: c.level, xp: c.plantXp, harvestXp: c.harvestXp, label: c.name,
     note: `grows in ${Math.round(c.grow * TICK_S / 60 * 10) / 10} min, ${c.yield[0]}-${c.yield[1]} a harvest` });   // the harvest XP shows as a badge (skillguideui.js)
   for (const [id, it] of Object.entries(ITEMS)) if (it.tags?.includes('log')) add({ skill: 'firemaking', kind: 'burn', output: it.ash ? { id: it.ash, qty: 1 } : null, inputs: [{ id, qty: 1 }], level: it.firemaking, xp: it.fmXp || 0, tool: 'tinderbox', label: it.name, note: 'light it anywhere' });
-  for (const id of BONE_IDS) add({ skill: 'prayer', kind: 'bury', output: null, inputs: [{ id, qty: 1 }], level: 1, xp: boneXp(id), label: name(id), note: `${Math.round(boneXp(id) * ALTAR_XP_MULT)} xp offered at a monument` });
+  for (const id of BONE_IDS) add({ skill: 'prayer', kind: 'bury', output: null, inputs: [{ id, qty: 1 }], level: 1, xp: boneXp(id), label: name(id), note: `${ALTAR_XP_MULT}x the XP offered at a monument` });   // (a multiple: the row's badge shows the real XP)
   _recipes = out;
   return _recipes;
 }
@@ -371,7 +371,8 @@ export function itemOtherUses(id) {
     if (st) add('quest', `Quest: ${qname} asks for ${st.need.qty}`);
   }
   if (QUEST_ITEMS[id]) add('quest', `Quest: ${QUEST_ITEMS[id]}`);
-  if (BONE_IDS.includes(id)) add('prayer', `Bury for ${boneXp(id)} Prayer XP, or offer at a monument for ${Math.round(boneXp(id) * ALTAR_XP_MULT)}`);
+  // No number: boneXp is before the XP rate, and the bury row on the same page shows the real one.
+  if (BONE_IDS.includes(id)) add('prayer', `Bury for Prayer XP, or offer at a monument for ${ALTAR_XP_MULT}x as much`);
   // The Offering Shrine: materials and goods for blessing points, gear by salvage.
   if (mk) add('shrine', `Offering Shrine: ${materialPoints(id)} points each`);
   else if (goodsKind(id)) add('shrine', `Offering Shrine: ${Math.round(goodsPoints(id) * 100) / 100} points each`);
