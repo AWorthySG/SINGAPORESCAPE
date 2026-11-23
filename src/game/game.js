@@ -93,7 +93,7 @@ import { Gathering } from './gathering.js';   // gathering streaks, lucky finds,
 import { FishSchools } from './fishschool.js';   // schools of fish visiting the spots
 import { bossToolDrop } from './bosstools.js';   // world bosses drop gathering tools of their level
 import { levelHaul } from './levelhaul.js';   // a bigger haul as your gathering level rises
-import { bumperHarvest } from './jackpot.js';   // now and then a bumper harvest
+import { recordHarvest } from './jackpot.js';   // now and then a record harvest
 import { tickWarmth, warmthBonus } from './bonfire.js';   // bonfires and their warmth
 import { Teleports } from './teleports.js';   // the Town and Grave teleports
 import { Discovery } from './discovery.js';   // encyclopedia discoveries and their rewards
@@ -6664,14 +6664,15 @@ export class Game {
     const lvl = this.skills.level('farming');
     // Green fingers: higher levels coax a little more from each patch (50% at
     // the crop's level + 50, then on to 75% at level 9999: trades.js).
-    const n = randInt(c.yield[0], c.yield[1]) + (Math.random() < greenFingersChance(lvl, c.level) ? 1 : 0) + extraCrop(this);
+    const rolled = randInt(c.yield[0], c.yield[1]);
+    const n = rolled + (Math.random() < greenFingersChance(lvl, c.level) ? 1 : 0) + extraCrop(this);
     if (this.inventory.canAdd(c.id, n) <= 0) { this.msg('Your inventory is too full to harvest.'); return false; }
     this.inventory.add(c.id, n);
     this.skills.addXp('farming', c.harvestXp * n);
     obj.crop = null; obj.growLeft = 0;
     this.spawnSparkle({ x: obj.x, y: obj.y }, c.color, 10);
     this.msg(`You harvest ${n} ${c.name.toLowerCase()}.`);
-    bumperHarvest(this, obj, c, n);   // now and then the patch gives its crop many times over (jackpot.js)
+    recordHarvest(this, obj, c, rolled);   // now and then the patch gives its yield many times over (jackpot.js)
     if (Math.random() < 0.25) { this.inventory.add(c.seed, 1); this.msg(`You save ${aOrAn(c.name.toLowerCase())} seed for next time.`); }
     this.bus.emit('sfx', 'pickup');
     return true;

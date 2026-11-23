@@ -592,7 +592,7 @@ export function resolveHunt(game, action) {
   const c = objCenter(obj); game.spawnPoof(c.x, c.y, def.color || '#caa15a');
   game.world.shake(obj, 280); game.bus.emit('sfx', 'gather');
   game.msg(`The trap springs! You catch ${got.join(' and ')}.`);
-  huntJackpot(game, obj, { xpEach, find: tb.find });   // now and then the whole flock at once (jackpot.js)
+  huntJackpot(game, obj, { xpEach });   // now and then the whole flock at once (jackpot.js)
   if (Math.random() < def.depleteChance) {
     obj.depleted = true;
     obj.respawnTimer = def.respawn;

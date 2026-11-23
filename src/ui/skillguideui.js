@@ -97,7 +97,7 @@ const XPH_COUNTS = {
   woodcutting: 'whole trees, bonus hauls, lucky finds and streaks, and the walk between trees and waiting for them to regrow',
   mining: 'whole seams, gems, bonus hauls, lucky finds and streaks, and the walk between rocks and waiting for them to grow back',
   fishing: 'big catches, trophies, whole schools and passing schools, bonus hauls, lucky finds and streaks',
-  hunter: 'bonus hauls, lucky finds and streaks, and the walk between traps and waiting for them to reset',
+  hunter: 'whole flocks, bonus hauls, lucky finds and streaks, and the walk between traps and waiting for them to reset',
   thieving: 'how often you get away with it, the stalls restocking and the stuns (pockets: one a tick)',
   agility: 'a lone obstacle crossed every tick (a course shows none: a lap is mostly running between obstacles)',
 };

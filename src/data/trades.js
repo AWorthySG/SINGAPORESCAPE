@@ -41,23 +41,26 @@ export const CROPS = [
   ['moon_orchid', 'Moon orchid', 250, 540, 1462, 1170, [2, 4], 0, 2800, '#d8d0f8'],
   ['eternal_lotus', 'Eternal lotus', 300, 600, 3230, 2584, [1, 3], 0, 4000, '#f5c84a'],
 ];
-// Farming parity (Nov 2026): a farm of twelve patches worked by auto gather
-// earned about a hundredth of what Mining, Woodcutting or Fishing did an hour,
-// so every crop pays FARM_XP_MULT times its listed planting and harvest XP (as
-// GATHER_XP_MULT does for their nodes, objects.js), and CROP_XP_TUNE fits each
-// crop under level 100 to its level: the early crops paid far more, for their
-// level, than the later ones. Measured, not guessed: twelve patches of each crop
-// at its own level (the Kranji farm, auto gather) against the best rock, tree
-// and fishing spot there, with the extras off. Farming has fewer extras in play
-// than they do (no streaks, lucky finds or level haul), so with the extras off
-// each crop pays about 1.25x their average (ginseng to durian a little less, so
-// each still out-earns the crop before it and torch ginger keeps its 35% step;
-// the endgame crops 1.05-1.3x, keeping theirs, tests/hunt-farm-herb.test.mjs).
-// Golden hours, the unlocks and bumper harvests (jackpot.js) bring that to about
-// what the others earn in play. (Lingzhi, snow lotus and the peach of
-// immortality, grown for what they make, pay less than the crops before them,
+// Farming parity (Nov 2026): a farm worked by auto gather earned about a
+// hundredth of what Mining, Woodcutting or Fishing did an hour, so every crop
+// pays FARM_XP_MULT times its listed planting and harvest XP (as GATHER_XP_MULT
+// does for their nodes, objects.js), and CROP_XP_TUNE fits each crop under level
+// 100 to its level: the early crops paid far more, for their level, than the
+// later ones. Measured, not guessed: each crop at its own level on the biggest
+// farm a player works, the twelve Kranji patches and the kampong home's six
+// beside them (home.js; auto gather tends all eighteen), against the best rock,
+// tree and fishing spot there, with the extras off. A farm is mostly waiting
+// for crops to grow, so its XP an hour goes with its patches: the twelve alone
+// earn about two thirds of it. Farming has fewer extras in play than the others
+// (no streaks, lucky finds or level haul), so with the extras off each crop pays
+// about 1.2-1.35x their average (each still out-earning the crop before it, and
+// torch ginger keeping its 35% step; the endgame crops 1.15-1.4x, keeping
+// theirs, tests/hunt-farm-herb.test.mjs). Golden hours, the unlocks and record
+// harvests (jackpot.js) bring that to about what the others earn in play: 1.0-1.1x
+// their average at levels 30, 99, 200 and 500. (Lingzhi, snow lotus and the peach
+// of immortality, grown for what they make, pay less than the crops before them,
 // as they always did.)
-export const FARM_XP_MULT = 71;
+export const FARM_XP_MULT = 49;
 export const CROP_XP_TUNE = {
   chilli: 0.22, kangkong: 0.23, pandan_leaves: 0.26, lemongrass: 0.3, sweet_potato: 0.39, sireh_leaf: 0.49,
   tongkat_ali: 0.56, misai_kucing: 0.64, hempedu_bumi: 1.06, butterfly_pea: 1.11, rambutan: 0.9, ginseng: 1.28,
