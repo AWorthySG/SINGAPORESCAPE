@@ -9,6 +9,10 @@ import { canWear } from '../data/classes.js';
 import { compareGear, isUpgrade, meetsReq } from '../game/gear.js';
 import { STONE as UP_STONE } from '../game/mastery.js';
 
+// How long a tip card stays up before it puts itself away (about two
+// readings of its one or two lines; a tap closes it sooner).
+export const TIP_MS = 6000;
+
 // The old per-device list of seen tips (before they were saved per character).
 export const TIPS_KEY = 'singaporescape:tips';
 

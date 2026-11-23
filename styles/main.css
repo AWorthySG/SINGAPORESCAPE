@@ -3898,7 +3898,6 @@ body.reduce-motion #boss-bar.warn { animation: none; }
 .cp-step { min-height: 40px; max-width: 48%; padding: 4px 12px; font-family: inherit; font-size: 12px; font-weight: 800; color: var(--aw-text);
   background: var(--aw-card); border: 2px solid var(--aw-ink); border-radius: 999px; cursor: var(--cur-pointer); touch-action: manipulation; }
 .cp-step.next { margin-left: auto; text-align: right; }
-.compendium-open { font-weight: 800; }
 @media (max-width: 540px) {
   .cp-title { font-size: 18px; }
   .cp-table { font-size: 12px; }

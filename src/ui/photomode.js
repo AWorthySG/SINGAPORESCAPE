@@ -112,6 +112,7 @@ export class PhotoMode {
 
   frame() {
     this.state = 'framing';
+    this.game.photoMode = true;   // your own name shows over your head for the picture (renderer.js)
     document.body.classList.add('photo-on');
     this.el.classList.remove('hidden', 'previewing');
     this.el.classList.add('framing');
@@ -119,6 +120,7 @@ export class PhotoMode {
 
   close() {
     this.state = 'off';
+    this.game.photoMode = false;
     document.body.classList.remove('photo-on');
     this.el.classList.add('hidden');
     this.el.classList.remove('framing', 'previewing');

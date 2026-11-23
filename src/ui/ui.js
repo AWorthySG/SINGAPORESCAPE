@@ -63,7 +63,7 @@ import { clearSave, suppressSaves, exportSaveCode, importSaveCode } from '../gam
 import { statSheet } from '../game/statsheet.js';
 import { statsPanelHTML } from './statspanel.js';
 import { gearWorthNotes, gearSwapWorth, fmtWorth, worthTable } from '../game/statworth.js';
-import { openCodex, monsterAtScreen, openCompendium, addCompendiumButton } from './codexui.js';
+import { openCodex, monsterAtScreen, openCompendium } from './codexui.js';
 import { setLinkedText, linkHTML } from './links.js';   // names that open their encyclopedia entry
 import { openEntry } from './encyclopediaui.js';
 import { openPestOfficer, contractTrackerRows, stewardLineHTML, cullingInvOptions } from './cullingui.js';
@@ -86,12 +86,13 @@ export const COLLAPSE_V = 2;   // the saved fold states' version (see _loadColla
 export const TIP_LINGER_MS = 1000;   // an item's hover description stays this long after the pointer leaves
 export const CHAT_LINES = 120;   // the chat keeps (and its log shows) this many lines
 import { NoticeLane, afterLayout } from './noticelane.js';
-import { QuickSlot, interactCaption, trackerHTML, loadTrackerFolded, saveTrackerFolded, sheetSnap } from './hudease.js';
+import { QuickSlot, interactCaption, trackerHTML, TRACKER_ROWS, TRACKER_ROWS_PHONE, sellSideSmall, loadTrackerFolded, saveTrackerFolded, sheetSnap } from './hudease.js';
 import { QuickBar } from './quickbar.js';
 import { CmdSearch } from './cmdsearch.js';
 import { addCollectionButton } from './collectionui.js';
-import { TIPS, TIPS_KEY, nextTip, markTipSeen, tipsSeen } from './tips.js';
-import { foeDetails, labelMode, nextLabelMode, LABEL_MODE_NAMES } from '../render/worldlabels.js';
+import { renderHpBar } from './hpbar.js';
+import { TIPS, TIPS_KEY, TIP_MS, nextTip, markTipSeen, tipsSeen } from './tips.js';
+import { labelMode, nextLabelMode, LABEL_MODE_NAMES } from '../render/worldlabels.js';
 import { applyAccessibility, countUp, playCloseGhost, inlineIcon } from './uifx.js';
 import { mechLabel } from '../game/bossmech.js';
 import { renderBossBar } from './bossbar.js';
@@ -640,15 +641,20 @@ export class UI {
     if (this._trkFolded === undefined) {
       this._trkFolded = loadTrackerFolded();
       el.addEventListener?.('click', (e) => {
+        // "+N more" shows every row (and "Show less" puts them away again).
+        if (e.target.closest?.('.trk-more')) { this._trkOpen = !this._trkOpen; this.renderTracker(); return; }
         if (!e.target.closest?.('.trk-fold')) return;
         this._trkFolded = !this._trkFolded;
         saveTrackerFolded(this._trkFolded);
         this.renderTracker();
       });
+      // Phones show two rows before "+N more", other screens three (hudease.js).
+      this._trkPhone = typeof matchMedia === 'function' ? matchMedia('(max-width: 540px) and (pointer: coarse)') : null;
     }
     // Redrawn every tick, but only rewritten when it reads differently (a
     // rewrite costs a style and layout pass even when nothing changed).
-    const html = trackerHTML(rows, this._trkFolded);
+    const max = this._trkPhone?.matches ? TRACKER_ROWS_PHONE : TRACKER_ROWS;
+    const html = trackerHTML(rows, this._trkFolded, { max, open: !!this._trkOpen });
     if (html !== this._trkHTML) { this._trkHTML = html; el.innerHTML = html; }
     el.classList.toggle('hidden', rows.length === 0);
     el.classList.toggle('folded', !!this._trkFolded);
@@ -1037,11 +1043,9 @@ export class UI {
 
   // ---------------- Hover text ----------------
   setHoverText(verb, target = '', extra = '') {
-    // A foe under the cursor also lists its weakness, armour and wounds (the
-    // overhead tag only has room for an icon or two).
-    const hn = this.game.hover?.npc;
-    // (Its race is already in the target text, so that part is left off.)
-    if (verb && !extra && hn?.attackable) extra = foeDetails(this.game, hn).split(' · ').slice(1).join(' · ');
+    // Kept to one short line ("Attack Sambar deer (Lv 25)"): a foe's race,
+    // weakness, armour and wounds are on the target card, and spelt out here
+    // they ran into the region name and the target card at the top.
     const str = verb ? `${verb}|${target}|${extra}` : '';
     if (str === this._lastHover) return;
     this._lastHover = str;
@@ -2163,24 +2167,31 @@ export class UI {
     this._skillsStale = false;
     grid.innerHTML = '';
     // One labelled row per skill (icon, name, what it's for, level), grouped
-    // into Combat / Gathering / Making / Other.
+    // into Combat / Gathering / Making / Other. The skills come first; the
+    // perk and Resources links follow as one row of small chips under them
+    // (as big cards on top they pushed the skills below the fold).
+    const links = document.createElement('div');
+    links.className = 'skill-links';
     const perkBtn = document.createElement('button');
     perkBtn.className = 'perks-open';
-    perkBtn.innerHTML = '<b>Passive perks</b><span>A new perk every 20 levels in a fighting skill</span>';
+    perkBtn.title = 'A new perk every 20 levels in a fighting skill';
+    perkBtn.innerHTML = '<b>Passive perks</b>';
     perkBtn.addEventListener('click', () => this.openPerks());
-    grid.appendChild(perkBtn);
+    links.appendChild(perkBtn);
     // Life skill perks: every life skill level adds a little to your fighting.
     const lifeBtn = document.createElement('button');
     lifeBtn.className = 'perks-open life-perks-open';
-    lifeBtn.innerHTML = '<b>Life skill perks</b><span>Every life skill level makes your fighter stronger</span>';
+    lifeBtn.title = 'Every life skill level makes your fighter stronger';
+    lifeBtn.innerHTML = '<b>Life skill perks</b>';
     lifeBtn.addEventListener('click', () => this.openLifePerks());
-    grid.appendChild(lifeBtn);
+    links.appendChild(lifeBtn);
     // Resources: where every material comes from and what it goes into.
     const resBtn = document.createElement('button');
     resBtn.className = 'perks-open resources-open';
-    resBtn.innerHTML = '<b>Resources</b><span>Where every material comes from, and what it makes</span>';
+    resBtn.title = 'Where every material comes from, and what it makes';
+    resBtn.innerHTML = '<b>Resources</b>';
     resBtn.addEventListener('click', () => this.openSkillGuide(null));
-    grid.appendChild(resBtn);
+    links.appendChild(resBtn);
     // Study: the Knowledge Codex, with Wisdom level and topic mastery (switched
     // off for now: see LEARNING_ENABLED in config.js).
     if (LEARNING_ENABLED) {
@@ -2191,7 +2202,7 @@ export class UI {
       codexBtn.classList.toggle('daily', dailyReady);
       codexBtn.innerHTML = `<b>${inlineIcon(itemIconSVG('arcane_tome', 18))} Knowledge Codex · Wisdom ${L.level}${dailyReady ? ' · ✨ daily revision ready' : ''}</b><span>Study topics to master them: ${L.masteredCount()}/${TOPICS.length} cards collected</span>`;
       codexBtn.addEventListener('click', () => this.openCodex());
-      grid.appendChild(codexBtn);
+      links.appendChild(codexBtn);
     }
     for (const grp of SKILL_GROUPS) {
       const head = document.createElement('div');
@@ -2225,6 +2236,7 @@ export class UI {
         grid.appendChild(cell);
       }
     }
+    grid.appendChild(links);
     this.el.skillsTotal.textContent = `Total level: ${this.game.skills.totalLevel()}`;
     this.renderAlignment();
   }
@@ -3000,8 +3012,9 @@ export class UI {
     markTipSeen(this.game, id);   // seen as soon as it shows: a reload can't repeat it
     const lane = (this.lane ||= new NoticeLane(this));
     lane.dismissKind('tip');
-    // The boss marker tip is urgent and brief; the others wait their turn and stay longer.
-    lane.push({ kind: 'tip', key: `tip:${id}`, html: TIPS[id], ttl: id === 'dodge' ? 6000 : 12000, priority: id === 'dodge' ? 2 : 0 });
+    // The boss marker tip is urgent; the others wait their turn. Each puts
+    // itself away after TIP_MS (tips.js), so none sits over the play area.
+    lane.push({ kind: 'tip', key: `tip:${id}`, html: TIPS[id], ttl: TIP_MS, priority: id === 'dodge' ? 2 : 0 });
   }
 
   /** "Don't show tips" on a tip card: the Settings switch, turned off. */
@@ -3080,6 +3093,13 @@ export class UI {
       else this.game.msg('Could not save: this browser\'s storage is full or blocked. Your progress is not being kept.', 'system');
     }); });
     mk('Compendium: how the game works', () => openCompendium(this));
+    // Phones keep the minimap's camera and day/night badges off the HUD
+    // (compact.css), so both are here too: postcard mode, and the time of day
+    // (updateDayNight keeps it current).
+    mk('Postcard mode: snap this view (O)', () => document.getElementById('photo-btn')?.click());
+    this._clockLine = p.appendChild(document.createElement('div'));
+    this._clockLine.className = 'set-clock';
+    this.updateDayNight();
     // Account and cloud save (accountui.js fills this in).
     const acct = p.appendChild(document.createElement('div'));
     import('./accountui.js').then((m) => m.accountSettings(acct)).catch(() => {});
@@ -3359,7 +3379,10 @@ export class UI {
     this.el.daynightBadge.classList.toggle('night', night);
     this.el.daynightSun.style.opacity = night ? 0 : 1;
     this.el.daynightMoon.style.opacity = night ? 1 : 0;
-    this.el.daynightBadge.title = `${night ? 'Night' : 'Day'} · ${g.clockLabel()}`;
+    const when = `${night ? 'Night' : 'Day'} · ${g.clockLabel()}`;
+    if (this.el.daynightBadge.title !== when) this.el.daynightBadge.title = when;
+    const cl = this._clockLine;
+    if (cl && cl._when !== when) { cl._when = when; cl.textContent = `${night ? '🌙' : '☀️'} Time of day: ${when}`; }
   }
 
   // ---------------- Orbs ----------------
@@ -3372,6 +3395,7 @@ export class UI {
     // sticker colour so it stays readable on the white disc at any level.
     this.el.hpOrb.style.setProperty('--fill', Math.max(0, Math.min(1, frac)).toFixed(3));
     this.el.hpOrb.classList.toggle('low', frac <= 0.25 && this.game.player.alive);
+    renderHpBar(this, hp, max, this.game.player.alive);   // the HUD's life bar (hpbar.js)
   }
 
   renderRun() {
@@ -3462,7 +3486,6 @@ export class UI {
     this.el.questPanel.querySelector('.q-auto')?.addEventListener('click', () => { game.toggleAutoQuest(); });
     wireEventsPanel(this, this.el.questPanel);
     wireWhatNext(this, this.el.questPanel, goals);
-    addCompendiumButton(this, this.el.questPanel);   // the game guide (compendiumui.js)
   }
 
   // ---------------- Achievements / collection log ----------------
@@ -3517,7 +3540,8 @@ export class UI {
     btn.addEventListener('click', () => this.openBestiary());
     panel.insertBefore(btn, panel.firstChild);
     addCollectionButton(this, panel);   // the Collection log and pets (collectionui.js)
-    addCompendiumButton(this, panel);   // the game guide, above them both
+    // (The Compendium is one tap away in the Codex and in Settings: a third
+    // copy at the top of the Journal only pushed the quests down.)
   }
 
   // ---------------- Bestiary / Monster Codex ----------------
@@ -4077,6 +4101,9 @@ export class UI {
         });
         buyCell.classList.add('hot');
         buyCell._hot = (n) => this.game.buyItem(shopId, entry.id, n === Infinity ? 100 : n);
+        // The price under each cell, so you needn't point at every item (or,
+        // on a phone, long-press it) to see what it costs.
+        buyCell.appendChild(shopPriceEl(price));
         shopGrid.appendChild(buyCell);
       }
       shopSide.appendChild(shopGrid);
@@ -4111,9 +4138,13 @@ export class UI {
         });
         sellCell.classList.add('hot');
         sellCell._hot = (n) => this.game.sellItem(shopId, s.id, n === Infinity ? this.game.inventory.count(s.id) : n);
+        sellCell.appendChild(shopPriceEl(sell));
         invGrid.appendChild(sellCell);
       });
       invSide.appendChild(invGrid);
+      // A short pack leaves the sell side mostly empty: give the stock the room.
+      cols.classList.add('shop-cols');
+      cols.classList.toggle('sell-small', sellSideSmall(invGrid.childElementCount, shop.stock.length));
       cols.appendChild(shopSide);
       cols.appendChild(invSide);
       body.insertAdjacentHTML('beforeend', '<div class="modal-hint hotkey-hint">Click: 1 · Shift-click: 10 · Point at an item and press <kbd>1</kbd> <kbd>5</kbd> <kbd>X</kbd> (10) or <kbd>A</kbd> (sell all / buy 100)</div>');
@@ -4768,4 +4799,12 @@ export class UI {
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+/** A shop cell's price tag ("1.2K"), drawn under the cell (compact.css .shop-price). */
+function shopPriceEl(coins) {
+  const el = document.createElement('span');
+  el.className = 'shop-price';
+  el.textContent = shortNumber(coins);
+  return el;
 }

@@ -319,16 +319,6 @@ export function openCompendium(ui, article = null) {
   openCodex(ui, null, { view: 'compendium', article });
 }
 
-/** A "Compendium" button at the top of a panel (the Journal's views). */
-export function addCompendiumButton(ui, panel) {
-  if (typeof document === 'undefined' || !panel) return;
-  const btn = document.createElement('button');
-  btn.className = 'bestiary-open compendium-open';
-  btn.textContent = '📖 Compendium: how the game works';
-  btn.addEventListener('click', () => openCompendium(ui));
-  panel.insertBefore(btn, panel.firstChild);
-}
-
 /** The monster drawn under a point on the game screen (CSS pixels), if any:
  *  its sticker stands on its tile and reaches up about a tile, more for big ones. */
 export function monsterAtScreen(game, sx, sy, tile = 32) {

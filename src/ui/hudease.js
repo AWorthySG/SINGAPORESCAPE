@@ -48,16 +48,31 @@ export function saveTrackerFolded(folded) {
   try { localStorage.setItem(TRACKER_KEY, folded ? '1' : '0'); } catch { /* private window: just this visit */ }
 }
 
+/** Rows the tracker shows before the rest fold into "+N more" (a tap shows
+ *  them all). Phones keep to two, so it stays clear of the minimap column. */
+export const TRACKER_ROWS = 3;
+export const TRACKER_ROWS_PHONE = 2;
+
 /** The tracker's markup: a tappable header, then the rows unless folded
  *  ("★ 2 objectives" on one line). `rows` are the row HTML strings; the XP
- *  multiplier row (.trk-xp) is not counted as an objective. */
-export function trackerHTML(rows, folded) {
+ *  multiplier row (.trk-xp) is not counted as an objective. Past `max` rows
+ *  the rest wait behind a "+N more" button, unless `open`. */
+export function trackerHTML(rows, folded, { max = TRACKER_ROWS, open = false } = {}) {
   if (!rows.length) return '';
   const n = rows.filter((r) => !r.includes('trk-xp')).length;
   const head = `<button type="button" class="trk-title trk-fold" aria-expanded="${folded ? 'false' : 'true'}" title="${folded ? 'Show' : 'Hide'} objectives">`
     + (folded ? `&#9733; ${n || rows.length} objective${(n || rows.length) === 1 ? '' : 's'}` : 'Objectives')
     + `<span class="trk-chev" aria-hidden="true">${folded ? '&#9656;' : '&#9662;'}</span></button>`;
-  return folded ? head : head + rows.join('');
+  if (folded) return head;
+  if (rows.length <= max) return head + rows.join('');
+  if (open) return head + rows.join('') + '<button type="button" class="trk-more">Show less</button>';
+  return head + rows.slice(0, max).join('') + `<button type="button" class="trk-more">+${rows.length - max} more</button>`;
+}
+
+/** True when the shop's sell side (your pack) is small beside its stock, so
+ *  the stock can take the wider column. */
+export function sellSideSmall(sellCount, stockCount) {
+  return sellCount * 2 <= stockCount;
 }
 
 // ---------------- Phone sheet snap ----------------

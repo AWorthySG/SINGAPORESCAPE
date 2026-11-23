@@ -49,9 +49,13 @@ import { dropArc, dropFx } from './combatfx.js';
 import { applySquash, splatMotion, drawCritBurst, drawMissPuff, drawLootGlow, drawCoinGlint } from './juice.js';
 import { drawGrave } from './grave.js';
 import { drawFishSchool } from './fishschoolfx.js';
+import { playerBarVisible, drawPlayerHp } from './playerhp.js';
 
 // Gathering actions that show a progress ring over the node, and its colour.
 const GATHER_RING = { woodcut: '#4fa04f', mine: '#8a8fa0', fish: '#3a8fd8', hunt: '#d08a3a' };
+// The pill over your head while a boss's signature move holds you: [words, colour].
+const PLAYER_DOT_STATUS = { poison: ['Poisoned', '#2f8a2a'], burn: ['Burning', '#c0501a'], bleed: ['Bleeding', '#a01a2a'], chill: ['Chilled', '#2a7a9a'] };
+const ROOTED_STATUS = ['Rooted', '#6a4a2a'], STUNNED_STATUS = ['Stunned', '#7a5a9a'];
 
 // Base terrain colours (RGB): a bright pastel world in the A-Worthy palette
 // (soft mint lawns, warm cream paths, cream paper paving). Water is procedural.
@@ -1745,20 +1749,86 @@ export class Renderer {
     }
   }
 
+  /** Note a label's spot (centre x, baseline y, half width) for this frame.
+   *  The list is kept between frames and reset by count, so placing labels
+   *  makes no garbage. */
+  _place(x, y, hw) {
+    const r = this._placed[this._nPlaced] || (this._placed[this._nPlaced] = { x: 0, y: 0, hw: 0 });
+    r.x = x; r.y = y; r.hw = hw;
+    this._nPlaced++;
+  }
+
+  /** True when a label at (x, y) this wide would print over one placed already. */
+  _placeHits(x, y, hw) {
+    for (let i = 0; i < this._nPlaced; i++) {
+      const r = this._placed[i];
+      if (Math.abs(r.x - x) < r.hw + hw && Math.abs(r.y - y) < 11) return true;
+    }
+    return false;
+  }
+
+  /** Your name over your head (the sticker style: white letters inside a navy
+   *  ink line), with your alignment and Codex titles above it. */
+  _drawOwnName(px, py, status) {
+    const { ctx, game } = this;
+    ctx.font = '800 11px Nunito,"Trebuchet MS",sans-serif';
+    ctx.textAlign = 'center';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#22304A'; ctx.lineWidth = 3.5;
+    ctx.strokeText(game.player.name, px, py - 53);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText(game.player.name, px, py - 53);
+    // Your alignment title ("the Paragon", "the Villain") sits just above the
+    // name in its tier's colour; nothing while you are Neutral.
+    const al = game.alignmentStyle ? game.alignmentStyle() : null;
+    let ty = py - 65;
+    if (al?.label && !status) {
+      ctx.font = '900 9px Nunito,"Trebuchet MS",sans-serif';
+      ctx.strokeStyle = '#22304A'; ctx.lineWidth = 3;
+      ctx.strokeText(al.label, px, py - 64);
+      ctx.fillStyle = al.color;
+      ctx.fillText(al.label, px, py - 64);
+      ty = py - 75;
+    }
+    // A Codex title (from a mastered topic) sits above the name, in gold.
+    const title = game.learning?.titleText() || game.collection?.titleText();   // or a Collection log title
+    if (title && !status) {   // a status badge takes that spot while it lasts
+      ctx.font = '900 9.5px Nunito,"Trebuchet MS",sans-serif';
+      ctx.strokeStyle = '#22304A'; ctx.lineWidth = 3;
+      ctx.strokeText(`« ${title} »`, px, ty);
+      ctx.fillStyle = '#FFD24A';
+      ctx.fillText(`« ${title} »`, px, ty);
+    }
+  }
+
   _drawOverheads(ox, oy, objs) {
     const { ctx, game } = this;
     this._drawNodeLabels(ox, oy, objs);
     const vw = game.camera.viewW, vh = game.camera.viewH;
     drawGateShrine(ctx, game, ox, oy, vw, vh);   // the Endless Gate's shrine: its bar and hit flash
     const mode = labelMode(game);
-    const placed = [];   // small names drawn so far this frame (to keep them apart)
-    // Your own name (drawn later, over everyone) holds its spot first, so a
-    // townsperson standing by you steps their name aside instead of printing
-    // it over yours.
+    // Labels drawn so far this frame (names, tags, your status), to keep them apart.
+    this._placed ||= [];
+    this._nPlaced = 0;
+    // Your own name: Smart labels leave it off (you know who you are, and it
+    // sat in the thick of every fight); All and Off keep it, and so does
+    // postcard mode, for the picture.
+    const ownName = game.player.alive && (mode !== 'smart' || !!game.photoMode);
+    // Status from a boss's signature move: poisoned, burning, rooted...
+    const status = !game.player.alive ? null : game.playerDot ? PLAYER_DOT_STATUS[game.playerDot.kind]
+      : game.playerRoot > 0 ? ROOTED_STATUS : game.playerStun > 0 ? STUNNED_STATUS : null;
+    // Your name and status pill (drawn later, over everyone) hold their spots
+    // first, so a name standing by you steps aside instead of printing over them.
     if (game.player.alive) {
       const pc = game.player.renderCenter();
-      ctx.font = '800 11px Nunito,"Trebuchet MS",sans-serif';
-      placed.push({ x: pc.x - ox, y: pc.y - oy - 53, hw: ctx.measureText(game.player.name).width / 2 + 3 });
+      if (ownName) {
+        ctx.font = '800 11px Nunito,"Trebuchet MS",sans-serif';
+        this._place(pc.x - ox, pc.y - oy - 53, ctx.measureText(game.player.name).width / 2 + 3);
+      }
+      if (status) {
+        ctx.font = '900 10px Nunito,"Trebuchet MS",sans-serif';
+        this._place(pc.x - ox, pc.y - oy - 66, ctx.measureText(status[0]).width / 2 + 5);
+      }
     }
     for (const n of (game.nearbyNpcs ? game.nearbyNpcs() : game.npcs)) {
       if (!n.alive) continue;
@@ -1795,13 +1865,18 @@ export class Renderer {
       }
       if (boss || n.combatLatch > 0 || targeted) this._healthBar(c.x - ox, c.y - oy + yo, n.hp / n.maxHp, boss);
       if (targeted) {
-        const px = c.x - ox, py = c.y - oy + yo + 12;
+        const px = c.x - ox;
+        let py = c.y - oy + yo + 12;
         ctx.font = '800 9px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
         // A compact tag: race icon, ▲ effective / ▼ resisted, and one status
         // count. The weakness, armour and every wound are spelt out in the
-        // battle bar and the hover text instead (worldlabels.js foeDetails).
+        // battle bar instead (worldlabels.js foeDetails).
         const m = game.raceMatchup(n);
         const tag = targetTag(game, n);
+        // Clear of a name already there: a line lower (twice at most). Always drawn.
+        const hw = ctx.measureText(tag).width / 2 + 2;
+        for (let k = 0; k < 2 && this._placeHits(px, py, hw); k++) py += 11;
+        this._place(px, py, hw);
         ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.lineWidth = 3; ctx.strokeText(tag, px, py);
         ctx.fillStyle = m === 'strong' ? '#ffd24a' : m === 'weak' ? '#c8ccd4' : '#9affd0'; ctx.fillText(tag, px, py);
       }
@@ -1819,9 +1894,15 @@ export class Renderer {
         ctx.fillStyle = '#ff5a5a'; ctx.fillText('!', px, py);
       }
       if (named && (boss || n.champion)) {
-        const px = c.x - ox, py = c.y - oy + yo - 6;
+        const px = c.x - ox;
+        let py = c.y - oy + yo - 6;
         const label = n.champion ? `★ ${n.name}` : n.name;
         ctx.font = '800 11px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+        // Bosses and champions always wear their name, but step up a line
+        // (twice at most) rather than print over a name already there.
+        const hw = ctx.measureText(label).width / 2 + 2;
+        for (let k = 0; k < 2 && this._placeHits(px, py, hw); k++) py -= 11;
+        this._place(px, py, hw);
         ctx.strokeStyle = n.champion ? '#22304A' : 'rgba(0,0,0,0.85)'; ctx.lineWidth = 3; ctx.strokeText(label, px, py);
         ctx.fillStyle = n.champion ? '#F5B82E' : '#ff7a5a'; ctx.fillText(label, px, py);
       } else if (named && !(n.chatTimer > 0)) {
@@ -1836,11 +1917,10 @@ export class Renderer {
         // Two foes side by side would print their names over each other: step
         // this one down a line (twice at most), or leave it off if still crowded.
         const hw = ctx.measureText(n.name).width / 2 + 2;
-        const hits = (y) => placed.some((r) => Math.abs(r.x - px) < r.hw + hw && Math.abs(r.y - y) < 11);
         let tries = 0;
-        while (hits(py) && tries < 2) { py += 11; tries++; }
-        if (hits(py) && !targeted) continue;   // (your target's name always shows)
-        placed.push({ x: px, y: py, hw });
+        while (this._placeHits(px, py, hw) && tries < 2) { py += 11; tries++; }
+        if (this._placeHits(px, py, hw) && !targeted) continue;   // (your target's name always shows)
+        this._place(px, py, hw);
         ctx.strokeStyle = '#22304A'; ctx.lineWidth = 3; ctx.strokeText(n.name, px, py);
         ctx.fillStyle = n.attackable ? '#ffb39a' : '#FFFFFF'; ctx.fillText(n.name, px, py);
       }
@@ -1848,10 +1928,9 @@ export class Renderer {
     if (game.player.alive) {
       const c = game.player.renderCenter();
       const px = c.x - ox, py = c.y - oy;
-      if (game.player.target) this._healthBar(px, py - 47, game.player.hp / game.maxHp());
-      // Status from a boss's signature move: poisoned, burning, rooted...
-      const status = game.playerDot ? { poison: ['Poisoned', '#2f8a2a'], burn: ['Burning', '#c0501a'], bleed: ['Bleeding', '#a01a2a'], chill: ['Chilled', '#2a7a9a'] }[game.playerDot.kind]
-        : game.playerRoot > 0 ? ['Rooted', '#6a4a2a'] : game.playerStun > 0 ? ['Stunned', '#7a5a9a'] : null;
+      // Your own bar, in a fight or while hurt (not only with a target), with
+      // a drain trail on each loss (playerhp.js).
+      if (playerBarVisible(game)) drawPlayerHp(ctx, px, py - 48, game.player.hp / game.maxHp(), this._hpTrail || (this._hpTrail = {}), this._now || 0, game.colourBlind);
       if (status) {
         ctx.font = '900 10px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center';
         const tw = ctx.measureText(status[0]).width + 10;
@@ -1859,35 +1938,7 @@ export class Renderer {
         ctx.beginPath(); ctx.roundRect ? ctx.roundRect(px - tw / 2, py - 76, tw, 14, 7) : ctx.rect(px - tw / 2, py - 76, tw, 14); ctx.fill(); ctx.stroke();
         ctx.fillStyle = '#fff'; ctx.fillText(status[0], px, py - 65.5);
       }
-      ctx.font = '800 11px Nunito,"Trebuchet MS",sans-serif';
-      ctx.textAlign = 'center';
-      ctx.lineJoin = 'round';
-      // Name tag in the sticker style: white letters inside a navy ink line.
-      ctx.strokeStyle = '#22304A'; ctx.lineWidth = 3.5;
-      ctx.strokeText(game.player.name, px, py - 53);
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillText(game.player.name, px, py - 53);
-      // Your alignment title ("the Paragon", "the Villain") sits just above the
-      // name in its tier's colour; nothing while you are Neutral.
-      const al = game.alignmentStyle ? game.alignmentStyle() : null;
-      let ty = py - 65;
-      if (al?.label && !status) {
-        ctx.font = '900 9px Nunito,"Trebuchet MS",sans-serif';
-        ctx.strokeStyle = '#22304A'; ctx.lineWidth = 3;
-        ctx.strokeText(al.label, px, py - 64);
-        ctx.fillStyle = al.color;
-        ctx.fillText(al.label, px, py - 64);
-        ty = py - 75;
-      }
-      // A Codex title (from a mastered topic) sits above the name, in gold.
-      const title = game.learning?.titleText() || game.collection?.titleText();   // or a Collection log title
-      if (title && !status) {   // a status badge takes that spot while it lasts
-        ctx.font = '900 9.5px Nunito,"Trebuchet MS",sans-serif';
-        ctx.strokeStyle = '#22304A'; ctx.lineWidth = 3;
-        ctx.strokeText(`« ${title} »`, px, ty);
-        ctx.fillStyle = '#FFD24A';
-        ctx.fillText(`« ${title} »`, px, ty);
-      }
+      if (ownName) this._drawOwnName(px, py, status);
     }
     this._drawGatherRing(ox, oy);
     for (const e of game.effects) {
@@ -1946,8 +1997,10 @@ export class Renderer {
         ctx.restore(); ctx.globalAlpha = 1;
         continue;
       }
-      if (e.weak && hit) {
-        // Hit the monster's weakness: a small green "weak!" tag over the number.
+      // Hit the monster's weakness: a small green "weak!" tag over the number,
+      // on the first such number on each foe only (on every hit it piled up
+      // into a column of "weak!"s; the arrow in the target tag says it too).
+      if (e.weak && hit && (e.entity._weakTag ||= e) === e) {
         ctx.font = '900 8px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
         ctx.lineWidth = 3; ctx.strokeStyle = '#ffffff'; ctx.strokeText('weak!', 0, -r - 4);
         ctx.fillStyle = '#1F7A3D'; ctx.fillText('weak!', 0, -r - 4);
