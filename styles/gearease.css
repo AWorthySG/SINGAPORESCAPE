@@ -44,7 +44,9 @@
 .smart-grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .smart-stepper { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; text-align: center; }
 .smart-lbl { font-size: 11px; font-weight: 800; color: var(--aw-text-sec); line-height: 1.2; }
-.smart-pmrow { display: grid; grid-template-columns: 32px minmax(0, 1fr) 32px; align-items: center; gap: 3px; width: 100%; }
+/* (At most 144 px: in a wide column the − and + stay beside their own number,
+   not beside the next stepper's, which read as one control on a desktop.) */
+.smart-pmrow { display: grid; grid-template-columns: 32px minmax(0, 1fr) 32px; align-items: center; gap: 3px; width: 100%; max-width: 144px; }
 .smart-pm {
   width: 32px; height: 32px; padding: 0; border-radius: 50%; border: 2px solid var(--aw-ink);
   background: var(--aw-card); color: var(--aw-ink); font-family: inherit; font-size: 18px; font-weight: 900; line-height: 1;
@@ -85,7 +87,15 @@
   background: var(--aw-card); border: 2px solid var(--aw-ink); border-radius: 10px;
 }
 .smart-best { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 0 0 5px; font-size: 12px; font-weight: 700; line-height: 1.35; }
-.smart-chip { flex: none; }
+/* "Best for me" rides on the "Aim for" line (a row of its own pushed the go
+   button out of a phone's window): small to look at, with a bigger invisible
+   tap area reaching up into the card's title row, never down onto a select. */
+.smart-aim-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.smart-chip { flex: none; position: relative; }
+.smart-chip::before { content: ""; position: absolute; inset: -10px -6px -2px; }
+@media (pointer: coarse) {
+  #modal-body .smart-aim-head .smart-chip { min-height: 28px; padding: 0 11px; font-size: 12px; }
+}
 
 /* ---- Improve worn gear ---- */
 .smart-step {

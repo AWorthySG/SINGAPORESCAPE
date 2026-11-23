@@ -14,7 +14,7 @@ import { xpForLevel } from '../src/data/xp.js';
 import { EQUIP_SLOTS } from '../src/game/equipment.js';
 import { enchantPool } from '../src/game/mastery.js';
 import { bestAim, improvePlan } from '../src/game/smartgear.js';
-import { mountRefineRun, mountEnchantRun, openImprove, refineForecastText, stopText } from '../src/ui/smartgearui.js';
+import { mountRefineRun, mountEnchantRun, openImprove, refineForecastText, stopText, enchantPill } from '../src/ui/smartgearui.js';
 import { openDismantle, openSacrifice, picksText } from '../src/ui/salvageui.js';
 import { watchUpgrades, equipBestNoteHTML } from '../src/ui/whatnextui.js';
 
@@ -360,4 +360,65 @@ test('Equip best says what went on, and puts away stale "Wear it" notes', async 
   assert.equal(equipBestNoteHTML([]), '&#10003; You already wear your best gear.');
   const four = ['weapon', 'head', 'body', 'legs'].map((slot, i) => ({ slot, from: null, to: ['jade_sword', 'jade_full_helm', 'jade_platebody', 'jade_platelegs'][i], q: null, carried: false }));
   assert.match(equipBestNoteHTML(four), /Jade sword, Jade full helm and 2 more$/);
+});
+
+// ---- On a phone (the window body is about 487 px tall) ----
+
+test('"Best for me" sits on the "Aim for" line, not a row of its own, and puts the best back', () => withDom(() => {
+  const g = lateGame();
+  const ui = { game: g, modal: {} };
+  let body = el();
+  const rerender = () => { body = el(); mountEnchantRun(ui, body, 'jade_platebody', 'main', rerender); };
+  rerender();
+  assert.equal(byClass(body, 'smart-chip').length, 0, 'no chip while the choices are the best');
+  const best = bestAim(g, 'jade_platebody');
+  const o = ui._smart.enchant['jade_platebody#main'];
+  o.aim = ['lifesteal', best[1] || null, best[2] || null];   // (never one of the best: it adds no damage)
+  rerender();
+  const head = byClass(body, 'smart-aim-head')[0];
+  assert.ok(head && html(head).includes('Aim for'), 'the "Aim for" line');
+  const chip = byClass(head, 'smart-chip')[0];
+  assert.ok(chip, 'the chip is on that line');
+  assert.equal(byClass(byClass(body, 'smart-best')[0], 'smart-chip').length, 0, 'not under the "Best for your damage" words');
+  tap(chip);
+  assert.deepEqual(o.aim.filter(Boolean).sort(), best.slice().sort(), 'the best again');
+}));
+
+test('the enchant pill says "likely" only when it nearly always gets there, as the forecast does', () => {
+  assert.equal(enchantPill({ done: 0.97, picks: { avg: 4.6 } }), 'likely 5 tries');
+  assert.equal(enchantPill({ done: 0.95, picks: { avg: 0.4 } }), 'likely 1 try');
+  assert.equal(enchantPill({ done: 0.7, picks: { avg: 2 } }), '7 in 10', 'not "likely 2 tries" when 3 runs in 10 stop short');
+  assert.equal(enchantPill({ done: 0.05, picks: { avg: 9 } }), '1 in 10');
+  assert.equal(enchantPill({ done: 0.02, picks: { avg: 9 } }), 'rarely');
+});
+
+test('Improve short of scrolls and stones: where more come from, in words, with one Dismantle button (the footer\'s)', () => withDom(() => {
+  const g = lateGame();
+  Object.assign(g.equipment.refines, { jade_full_helm: 3, jade_platebody: 5 });
+  g.inventory.remove('refine_scroll', g.inventory.count('refine_scroll') - 2);
+  g.inventory.remove('upgrade_stone', g.inventory.count('upgrade_stone'));
+  const ui = fakeUI(g);
+  openImprove(ui);
+  const hints = byClass(ui.body, 'smart-more');
+  assert.equal(hints.length, 2, 'short of scrolls, and of stones for the next line');
+  for (const h of hints) {
+    assert.match(html(h), /Dismantling spare gear gives stones and scrolls/);
+    assert.equal(all(h, (n) => n.tag === 'button').length, 0, 'no button of its own');
+  }
+  const dismantle = all(ui.body, (n) => n.tag === 'button' && /Dismantle spare gear…/.test(n.innerHTML));
+  assert.equal(dismantle.length, 1, 'just the footer\'s');
+  // The Refine card keeps its own: there it is the only way there.
+  const ui2 = { game: g, modal: {} };
+  const b2 = el();
+  mountRefineRun(ui2, b2, 'jade_full_helm', 'main', () => {});
+  assert.equal(all(b2, (n) => n.tag === 'button' && /Dismantle spare gear…/.test(n.innerHTML)).length, 1);
+}));
+
+test('gearease.css: each stepper\'s − and + stay beside its own number, and the chip\'s tap area never reaches a select', () => {
+  const css = readFileSync(new URL('../styles/gearease.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.match(css, /\.smart-pmrow \{[^}]*max-width: 144px/);
+  assert.match(css, /\.smart-aim-head \{ display: flex;/);
+  const m = css.match(/\.smart-chip::before \{[^}]*inset: (-?\d+)px (-?\d+)px (-?\d+)px/);
+  assert.ok(m, 'a bigger tap area');
+  assert.ok(Number(m[3]) >= -2, 'at most 2 px down: the first select is 2 px below the chip');
 });
