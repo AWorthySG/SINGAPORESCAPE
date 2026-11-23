@@ -20,7 +20,7 @@ import { getItem, ITEMS } from '../data/items.js';
 import { getNpc } from '../data/npcs.js';
 import { SKILLS } from '../data/skills.js';
 import { OBJECTS } from '../data/objects.js';
-import { formatNumber, AOrAn } from '../core/utils.js';
+import { formatNumber, shortNumber, AOrAn } from '../core/utils.js';
 import { XP_RATE } from '../config.js';
 import { itemIconSVG, skillIconSVG, playIconHTML } from '../render/icons.js';
 import { chanceText, codexHabitats } from '../game/codex.js';
@@ -78,7 +78,7 @@ export function realXp(game, skill, xp) {
 /** That XP as a badge beside a row's name. */
 export const xpBadge = (n, each = true) => `<span class="sgx-xp" title="Experience you get${each ? ' for each one' : ''}">+${formatNumber(Math.round(n))} xp${each ? ' each' : ''}</span>`;
 /** About how much XP an hour at a gathering source pays you now (xprate.js),
- *  as a second badge, with what it assumes on hover; '' where there's no
+ *  as a second badge, with what it counts on hover; '' where there's no
  *  honest figure (above your level, an Agility course). Per catch alone made a
  *  fast-rolling spot look worse than a slow one that pays more a fish.
  *  Gathering rows take their XP each from xprate.js too (actionXp), so the two
@@ -88,8 +88,22 @@ export function xpHourBadge(game, s) {
   const r = xpRate(game, s);
   if (!r) return '';
   // An hour at the top end runs to billions: "12.7B" reads better than "12690M".
-  const n = r.perHour >= 1e9 ? `${(r.perHour / 1e9).toFixed(1).replace(/\.0$/, '')}B` : formatNumber(Math.round(r.perHour));
-  return `<span class="sgx-xp sgx-xph" title="${esc(r.why)}">≈ ${n} xp/hr</span>`;
+  return `<span class="sgx-xp sgx-xph" title="${esc(r.why)}">≈ ${shortNumber(r.perHour)} xp/hr</span>`;
+}
+// What the badge counts, said once above a list that shows it: phones have no
+// hover, so its title alone left them guessing.
+const XPH_COUNTS = {
+  woodcutting: 'whole trees, bonus hauls, lucky finds and streaks, and the walk between trees and waiting for them to regrow',
+  mining: 'whole seams, gems, bonus hauls, lucky finds and streaks, and the walk between rocks and waiting for them to grow back',
+  fishing: 'big catches, trophies, whole schools and passing schools, bonus hauls, lucky finds and streaks',
+  hunter: 'bonus hauls, lucky finds and streaks, and the walk between traps and waiting for them to reset',
+  thieving: 'how often you get away with it, the stalls restocking and the stuns (pockets: one a tick)',
+  agility: 'a lone obstacle crossed every tick (a course shows none: a lap is mostly running between obstacles)',
+};
+export function xpHourNote(skill) {
+  const tooled = ['woodcutting', 'mining', 'fishing', 'hunter'].includes(skill);
+  return `<div class="modal-hint sgx-xph-note"><b>≈ xp/hr</b>: about what an hour there pays you now${tooled ? ', with auto gather and the best tool you carry' : ''}.`
+    + `${XPH_COUNTS[skill] ? ` It counts ${XPH_COUNTS[skill]}.` : ''} Golden hours${tooled ? `, rested XP${skill === 'fishing' || skill === 'hunter' ? ', bait' : ''} and night bonuses` : ' and rested XP'} come on top.</div>`;
 }
 
 function sourceRowHTML(game, s, st) {
@@ -229,7 +243,7 @@ export function skillListHTML(game, skill, st) {
   const shown = st.shown || PAGE;
   const html = rows.slice(0, shown).map((f) => f()).join('');
   return { total: rows.length, html: `<div class="cx-count">${formatNumber(rows.length)} ${rows.length === 1 ? 'entry' : 'entries'}${rows.length > shown ? `, showing ${formatNumber(shown)}` : ''}</div>`
-    + (html || '<div class="modal-hint">Nothing matches.</div>') + pagedMore(shown, rows.length) };
+    + (html.includes('sgx-xph"') ? xpHourNote(skill) : '') + (html || '<div class="modal-hint">Nothing matches.</div>') + pagedMore(shown, rows.length) };
 }
 
 /** A fighting skill's guide: perks, gear by level, its extra list, and where to train. */
@@ -293,7 +307,8 @@ export function itemPageHTML(game, id, st = {}) {
   let from = '';
   const nodes = by('node').sort((a, b) => a.source.level - b.source.level);
   if (nodes.length) {
-    from += `<h4>Gathered</h4>` + nodes.map((n) => {
+    const hours = nodes.some((n) => xpRate(game, n.source));
+    from += `<h4>Gathered</h4>` + (hours ? '<div class="modal-hint sgx-xph-note"><b>≈ xp/hr</b>: about what an hour there pays you now, with auto gather and the best tool you carry, as its skill guide counts it.</div>' : '') + nodes.map((n) => {
       const s = n.source, ok = game.skills.level(s.skill) >= s.level;
       const zs = s.objIds ? regionsOf(game, s.objIds) : s.npcId ? npcRegions(game, s.npcId) : [];
       return `<div class="sg-row sgx-row${ok ? '' : ' locked'}"><span class="sg-lvl">${s.level}</span><span class="sg-text sgx-text"><b>${esc(s.name)}${s.spot && s.spot !== s.name ? ` <small>(${esc(s.spot)})</small>` : ''} <small>${esc(skillName(s.skill))} · ${formatNumber(Math.round(actionXp(game, s)))} xp each${n.chance < 0.999 ? ` · ${chanceText(n.chance)}` : ''}${n.max > 1 ? ` · ${n.min}-${n.max} at a time` : ''}</small>${xpHourBadge(game, s)}</b>`

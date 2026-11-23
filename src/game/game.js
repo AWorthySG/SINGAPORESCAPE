@@ -421,6 +421,13 @@ const MAKE_FAST = new Set(['cook', 'cookdish', 'smith', 'craft', 'recipe']);
 // One item of each instant make (makeBatch in autoprocess.js runs the batch).
 const MAKE_RESOLVE = { cook: resolveCook, cookdish: resolveDish, smith: resolveSmith, craft: resolveCraft, recipe: resolveRecipe };
 const GATHER_FAST = new Set(['woodcut', 'mine', 'fish', 'hunt', ...MAKE_FAST]);
+// Thieving's numbers (Game.pickpocket, Game.stealFromStall), shared with the
+// skill guide's XP an hour (xprate.js) so the two can't drift apart.
+/** XP an ordinary pocket pays: it grows with level only up to 99 (past that the life-skill rate in addXp takes over). */
+export const pickpocketXp = (lvl) => 8 + Math.min(lvl, 99);
+/** A theft's chance at a stall: a half at its level (or the stall's own `sure`), more with each level over, at most 95%. */
+export const stallChance = (def, lvl) => Math.min(0.95, (def.sure || 0.5) + (lvl - (def.level || 1)) * 0.012);
+export const STALL_STUN_TICKS = 3;   // caught at a stall: stunned this long
 // Ticks you get to answer a Knowledge Strike before the boss's special lands (~7s).
 const KS_TICKS = 12;
 
@@ -4263,7 +4270,7 @@ export class Game {
       this.inventory.add('coins', coins);
       // XP grows with level only up to 99; past that the life-skill rate in
       // addXp takes over (it used to keep growing, on top of the steeper curve).
-      this.skills.addXp('thieving', 8 + Math.min(lvl, 99));
+      this.skills.addXp('thieving', pickpocketXp(lvl));
       this.addEvil(1); // theft tips you toward evil
       this.spawnSparkle(this.player, '#ffe24a', 6);
       this.msg(`You pick the ${npc.name}'s pocket and steal ${coins} coins.`, 'system');
@@ -4370,7 +4377,7 @@ export class Game {
     // Success scales with level over the stall's requirement, from a half at
     // that level (or the stall's own `sure`: the endgame chests are surer, so
     // a new tier doesn't start far behind the one before it).
-    const chance = Math.min(0.95, (d.sure || 0.5) + (lvl - (d.level || 1)) * 0.012);
+    const chance = stallChance(d, lvl);
     if (Math.random() < chance) {
       const pick = weightedPick(d.loot);
       const qty = pick.min ? randInt(pick.min, pick.max) : 1;
@@ -4386,7 +4393,7 @@ export class Game {
     } else {
       const dmg = randInt(1, 3);
       this.player.takeDamage(dmg); this.addHitsplat(this.player, dmg); this.bus.emit('hp');
-      this.playerStun = 3;
+      this.playerStun = STALL_STUN_TICKS;
       this.msg(`You're caught stealing from the ${d.name} and are stunned!`, 'combat');
       if (this.player.hp <= 0) this.playerDeath();
     }

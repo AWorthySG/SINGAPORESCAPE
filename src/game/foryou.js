@@ -2,10 +2,12 @@
 // you section (src/ui/foryouui.js). Kept free of the DOM for the tests.
 //
 //  - Training: for each life skill, the best node or recipe at your level and
-//    a rough XP an hour. Worked out from the node's or recipe's XP and the
+//    its XP an hour, best first. A node's is the skill guide's (xprate.js: an
+//    hour of auto gather there, with whole trees, seams and schools, walking
+//    and regrowth counted), so the two windows agree. A recipe's (and an
+//    Agility course's, which the guide gives none) is rough: its XP at the
 //    game's own pace (one action a tick, GATHER_SPEED, XP_RATE and the life
-//    skill boost), not simulated, so walking, banking and running dry are not
-//    counted: treat it as "up to".
+//    skill boost), with fetching and banking not counted: treat it as "up to".
 //  - Hunting: monsters near your fight level whose race your weapon is strong
 //    against (races.js), and the regions with the most monsters at your level.
 //  - Gear: for each slot, the best piece you could wear now that beats what you
@@ -22,6 +24,7 @@ import { EQUIP_SLOTS } from './equipment.js';
 import { gearBySlot, compareGear } from './gear.js';
 import { isObtainable } from './discovery.js';
 import { nearestSource } from './encyclopedia.js';
+import { xpRate } from './xprate.js';
 
 // The life skills For you suggests training spots for (Farming grows on its
 // own clock, so an hourly rate means little there).
@@ -34,25 +37,29 @@ export function xpPerHour(game, skill, xp) {
   return Math.round(xp * XP_RATE * boost * ACTIONS_PER_HOUR);
 }
 
-/** The best training spots for a skill at your level (two at most), highest XP first:
- *  [{ skill, name, level, xp, xph, objIds?, npcId?, regions, recipe? }]. */
+/** The best training spots for a skill at your level (two at most), most XP an
+ *  hour first: [{ skill, name, level, xp, xph, rough, objIds?, npcId?, regions, recipe? }]
+ *  (`rough`: xph is the rough "up to", not the skill guide's figure). */
 export function trainingFor(game, skill, n = 2) {
   const lvl = game?.skills?.level?.(skill) || 1;
   const out = [];
   const gather = gatherSources().filter((s) => s.skill === skill && s.level <= lvl && s.xp > 0);
   for (const s of gather) {
-    out.push({ skill, name: s.spot && s.spot !== s.name ? `${s.name} (${s.spot})` : s.name, level: s.level, xp: s.xp, xph: xpPerHour(game, skill, s.xp),
-      objIds: s.objIds, npcId: s.npcId, regions: s.objIds ? regionsOf(game, s.objIds) : [] });
+    // XP each alone put the rift eel (more a fish) above the dragon arowana,
+    // which pays more an hour: rank by the hour, as the guide shows it.
+    const r = xpRate(game, s);
+    out.push({ skill, name: s.spot && s.spot !== s.name ? `${s.name} (${s.spot})` : s.name, level: s.level, xp: s.xp,
+      xph: r ? Math.round(r.perHour) : xpPerHour(game, skill, s.xp), rough: !r, objIds: s.objIds, npcId: s.npcId, regions: s.objIds ? regionsOf(game, s.objIds) : [] });
   }
   if (!gather.length) {
     for (const r of recipesFor(skill)) {
       if (r.level > lvl || !(r.xp > 0)) continue;
-      out.push({ skill, name: recipeLabel(r), level: r.level, xp: r.xp, xph: xpPerHour(game, skill, r.xp), objIds: r.stations.length ? r.stations : null,
+      out.push({ skill, name: recipeLabel(r), level: r.level, xp: r.xp, xph: xpPerHour(game, skill, r.xp), rough: true, objIds: r.stations.length ? r.stations : null,
         regions: r.stations.length ? regionsOf(game, r.stations) : [], recipe: r, inputs: r.inputs });
     }
   }
-  // Highest XP first; among equals the higher level (usually the better reward).
-  out.sort((a, b) => b.xp - a.xp || b.level - a.level);
+  // Most XP an hour first; among equals the higher level (usually the better reward).
+  out.sort((a, b) => b.xph - a.xph || b.level - a.level);
   // One spot per node kind (a fishing spot lists each catch).
   const seen = new Set(), pick = [];
   for (const e of out) {

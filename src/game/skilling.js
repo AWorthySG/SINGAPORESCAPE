@@ -106,6 +106,20 @@ export const NIGHT_TREE_BONUS = 1.25;
 export const TREE_LOGS_MIN = 10, TREE_LOGS_MAX = 20;
 export const rollTreeLogs = (rand = Math.random) => TREE_LOGS_MIN + Math.floor(rand() * (TREE_LOGS_MAX - TREE_LOGS_MIN + 1));
 
+// The chances the resolvers below roll, shared with the skill guide's XP an
+// hour (xprate.js) so the two can't drift apart. `tb` is the tool tier's bonus
+// (toolBonus); Stewardship adds to the doubles and big catches (yieldBonus).
+/** A swing's chance of a double log or ore (the extra comes out of the tree's or rock's stock). */
+export const doubleChance = (game, lvl, tb) => 0.04 + lvl * 0.001 + yieldBonus(game) + tb.yield;
+/** A swing's chance of a lucky gem at an ordinary rock, and the XP the gem pays. */
+export const gemChance = (lvl, tb) => (0.012 + lvl * 0.0006) * (1 + tb.find);
+export const GEM_XP = 40;
+/** A cast's chance of a trophy fish (TROPHY_XP_MULT times its XP, and coins)... */
+export const trophyChance = (tb) => 0.02 * (1 + tb.find);
+export const TROPHY_XP_MULT = 3;
+/** ...and otherwise of a big catch: two fish, both paid. */
+export const bigCatchChance = (game, lvl, tb, baited = false) => 0.05 + lvl * 0.0015 + (baited ? 0.05 : 0) + yieldBonus(game) + tb.yield;
+
 export function resolveWoodcut(game, action) {
   const { obj } = action;
   const def = obj.def;
@@ -132,7 +146,7 @@ export function resolveWoodcut(game, action) {
     const logName = getItem(def.gives).name.toLowerCase();
     // Double logs: a sturdy bough sometimes drops an extra.
     // (Stewardship adds to the chance while you are Neutral, see culling.js.)
-    if ((!falls || obj.logsLeft > 1) && Math.random() < 0.04 + lvl * 0.001 + yieldBonus(game) + tb.yield && game.inventory.canAdd(def.gives, 1) > 0) {
+    if ((!falls || obj.logsLeft > 1) && Math.random() < doubleChance(game, lvl, tb) && game.inventory.canAdd(def.gives, 1) > 0) {
       game.inventory.add(def.gives, 1);
       if (falls) obj.logsLeft--;   // the extra log comes out of the tree's 10-20
       game.msg(`A second branch falls — double ${logName}!`);
@@ -193,7 +207,7 @@ export function resolveMine(game, action) {
     game.world.shake(obj, 280); game.bus.emit('sfx', 'gather'); // the rock judders as ore breaks free
     const oreName = getItem(yieldId).name.toLowerCase();
     // Rich seam: a chance at a second yield.
-    if (obj.oresLeft > 1 && Math.random() < 0.04 + lvl * 0.001 + yieldBonus(game) + tb.yield && game.inventory.canAdd(yieldId, 1) > 0) {
+    if (obj.oresLeft > 1 && Math.random() < doubleChance(game, lvl, tb) && game.inventory.canAdd(yieldId, 1) > 0) {
       game.inventory.add(yieldId, 1);
       obj.oresLeft--;   // the bonus ore comes out of the rock's 10-20
       game.msg(`A rich seam — double ${oreName}!`);
@@ -201,11 +215,11 @@ export function resolveMine(game, action) {
       game.msg(def.gemRock ? `You chip out ${aOrAn(oreName)}!` : `You manage to mine some ${oreName}.`);
     }
     // Lucky gem: unearth a precious stone now and then (ordinary rocks only).
-    if (!def.gemRock && Math.random() < (0.012 + lvl * 0.0006) * (1 + tb.find)) {
+    if (!def.gemRock && Math.random() < gemChance(lvl, tb)) {
       const gem = weightedPick(GEM_TABLE);
       if (game.inventory.canAdd(gem.id, 1) > 0) {
         game.inventory.add(gem.id, 1);
-        game.skills.addXp('mining', 40);
+        game.skills.addXp('mining', GEM_XP);
         game.spawnSparkle(game.player, '#9adcff', 8);
         game.msg(`You unearth ${aOrAn(getItem(gem.id).name.toLowerCase())}!`, 'level');
       }
@@ -249,9 +263,9 @@ export function resolveFish(game, action) {
     const fc = objCenter(obj);
     const nm = getItem(pick.id).name.replace(/^Raw /, '').toLowerCase();
     // Rare trophy catch: triple XP + a coin bonus.
-    if (Math.random() < 0.02 * (1 + tb.find)) {
+    if (Math.random() < trophyChance(tb)) {
       game.inventory.add(pick.id, 1);
-      game.skills.addXp('fishing', xpEach * 3);
+      game.skills.addXp('fishing', xpEach * TROPHY_XP_MULT);
       game.inventory.add('coins', 50 + Math.round(pick.xp));
       game.spawnSparkle(game.player, '#ffd24a', 14); game.spawnPoof(fc.x, fc.y, '#ffe79a');
       game.msg(`A TROPHY catch! A magnificent ${nm}!`, 'level');
@@ -259,7 +273,7 @@ export function resolveFish(game, action) {
       return true;
     }
     // A "big catch" reels in two at once — more likely at higher levels / with bait.
-    const big = Math.random() < 0.05 + lvl * 0.0015 + (baited ? 0.05 : 0) + yieldBonus(game) + tb.yield && game.inventory.canAdd(pick.id, 2) >= 2;
+    const big = Math.random() < bigCatchChance(game, lvl, tb, baited) && game.inventory.canAdd(pick.id, 2) >= 2;
     const n = big ? 2 : 1;
     game.inventory.add(pick.id, n);
     game.skills.addXp('fishing', xpEach * n);
