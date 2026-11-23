@@ -160,3 +160,40 @@ test('the splash keeps #splash-enter and the loading bar, and the picker keeps c
   assert.match(css, /\.class-spot \{\s*order: -1;/, 'but shown above them');
   assert.match(css, /#splash\.loading #splash-enter \{ display: none; \}/);
 });
+
+test('the splash shows the brand once: the mascot in the ribbon\'s sun, over the title', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const splash = html.slice(html.indexOf('<div id="splash"'), html.indexOf('<script type="module"'));
+  // One mascot, inside the crest with the title (title.css sets it in the sunburst's disc).
+  assert.equal((splash.match(/class="splash-mascot"/g) || []).length, 1);
+  assert.match(splash, /<div class="splash-crest">\s*<img src="assets\/mascot-login\.webp" alt="" class="splash-mascot" \/>\s*<h1 class="splash-title">A-Worthy Adventure<\/h1>\s*<\/div>/);
+  // No second logo and no "by A Worthy" line under the title.
+  assert.ok(!splash.includes('splash-logo') && !splash.includes('logo.svg'), 'no logo under the title');
+  assert.ok(!/by <b>A/.test(splash), 'no "by A Worthy" line');
+  assert.match(splash, /class="cosy-tag">Your cosy kampong adventure</);
+  const css = readFileSync(new URL('../styles/title.css', import.meta.url), 'utf8');
+  assert.match(css, /#splash\.title-banner \.splash-crest \.splash-mascot \{[^}]*position: absolute;/);
+});
+
+test('the class spotlight shows three chips for every class, the rest behind "+N more"', async () => {
+  const { classPerks, classKeyPerks } = await import('../src/game/classperks.js');
+  assert.equal(CLASSES.length, 24);
+  for (const id of ['monk', 'priest', 'zealot']) assert.ok(CLASSES.some((c) => c.id === id), id);
+  for (const c of CLASSES) {
+    const { key, rest } = classKeyPerks(c.id);
+    assert.deepEqual(key.map((p) => p.label).slice(0, 2), ['Speed', 'Reach'], c.id);
+    assert.equal(key.length, 3, `${c.id} has three chips`);
+    for (const p of key) assert.ok(typeof p.chip === 'string' && p.chip.length <= 24, `${c.id} ${p.label} chip "${p.chip}" is short`);
+    assert.ok(rest.length > 0, `${c.id} has more behind the button`);
+    // Every perk but the signature is a chip or behind the button, once.
+    assert.deepEqual([...key.map((p) => p.label), ...rest.map((p) => p.label)].sort(), classPerks(c.id).slice(1).map((p) => p.label).sort(), c.id);
+  }
+  // The trait that sets a class apart comes third.
+  assert.equal(classKeyPerks('rogue').key[2].label, 'Dual wield');
+  assert.equal(classKeyPerks('gladiator').key[2].label, 'Cleave');
+  assert.equal(classKeyPerks('gladiator').key[2].chip, '70% to 3 foes');
+  const ui = readFileSync(new URL('../src/ui/ui.js', import.meta.url), 'utf8');
+  const spot = ui.slice(ui.indexOf('  _classSpotlight(parent'), ui.indexOf('  closeModal() {'));
+  assert.match(spot, /classKeyPerks\(id\)/);
+  assert.match(spot, /class="class-spot-more" type="button" aria-expanded="false"/);
+});

@@ -96,4 +96,26 @@ export function classPerkSummary(classId) {
     .join(' · ');
 }
 
+// The class picker's spotlight shows three chips (a row of seven wrapped on a
+// desktop and ran off the side of a phone): the swing speed, the reach, and
+// the first of these the class has, the trait that sets it apart most.
+const KEY_TRAIT = ['Dual wield', 'Cleave', 'Critical', 'Second weapon', 'No cleave', 'Strong against', 'Armour', 'Passive perks'];
+
+/** The spotlight's chips and the perks kept behind its "more" button:
+ *  { key: [{ icon, label, text, chip }] x3, rest: [{ icon, label, text }] }.
+ *  `chip` is the short text for the chip (the full text is in `text`). */
+export function classKeyPerks(classId) {
+  const perks = classPerks(classId).slice(1);
+  const find = (label) => perks.find((p) => p.label === label);
+  const third = KEY_TRAIT.map(find).find(Boolean);
+  const chipText = (p) => (p.label === 'Speed' ? p.text.replace('Quick weapon: ', '').replace('attacks ', '')
+    : p.label === 'Cleave' ? `${p.text.split('%')[0]}% to 3 foes`
+      : p.label === 'Critical' ? p.text.split(' chance')[0]
+        : p.label === 'Second weapon' ? p.text.replace('can also wield ', '')
+          : p.label === 'Dual wield' || p.label === 'No cleave' ? ''
+            : p.label === 'Armour' ? p.text.split('.')[0] : p.text);
+  const key = [find('Speed'), find('Reach'), third].filter(Boolean);
+  return { key: key.map((p) => ({ ...p, chip: chipText(p) })), rest: perks.filter((p) => !key.includes(p)) };
+}
+
 export { WEAPON_TYPE_NAMES };
