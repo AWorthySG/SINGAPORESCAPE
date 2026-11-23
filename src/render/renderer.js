@@ -1737,19 +1737,23 @@ export class Renderer {
       ctx.fillText(label, cx, yy);
       ctx.globalAlpha = 1;
     }
-    // Directional signposts (which way to each area).
+    // Directional signposts (which way to each area): the HUD's sticker card
+    // (paper, a navy line, a white die-cut rim and a small drop shadow), so a
+    // signpost reads as one family with the banners and toasts.
     ctx.font = '800 11px Nunito,"Trebuchet MS",sans-serif';
     for (const o of objs) {
       if (!o.sign) continue;
       const cx = o.x * TILE + TILE / 2 - ox, cy = o.y * TILE + TILE / 2 - oy;
       if (cx < -40 || cx > vw + 40 || cy < -20 || cy > vh + 20) continue;
       const yy = cy - 16;
-      const wpx = ctx.measureText(o.sign).width + 10;
-      ctx.fillStyle = 'rgba(40,26,12,0.78)';
-      if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(cx - wpx / 2, yy - 11, wpx, 15, 4); ctx.fill(); }
-      else ctx.fillRect(cx - wpx / 2, yy - 11, wpx, 15);
-      ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillText(o.sign, cx + 0.6, yy + 0.6);
-      ctx.fillStyle = o.sign.includes('Wilderness') ? '#ff9a7a' : '#ffe6a8'; ctx.fillText(o.sign, cx, yy);
+      const wpx = ctx.measureText(o.sign).width + 14, x0 = cx - wpx / 2, y0 = yy - 12;
+      const plate = (dx, dy) => { ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x0 + dx, y0 + dy, wpx, 17, 8.5); else ctx.rect(x0 + dx, y0 + dy, wpx, 17); };
+      ctx.fillStyle = 'rgba(34,48,74,0.2)'; plate(0, 2.5); ctx.fill();
+      plate(0, 0);
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 5; ctx.stroke();
+      ctx.fillStyle = '#FFFCF5'; ctx.fill();
+      ctx.strokeStyle = '#22304A'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = o.sign.includes('Wilderness') ? '#C0392B' : '#22304A'; ctx.fillText(o.sign, cx, yy);
     }
   }
 

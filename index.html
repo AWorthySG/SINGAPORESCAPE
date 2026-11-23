@@ -307,7 +307,7 @@
 
     <!-- Minimap (top-right) -->
     <div id="minimap-panel">
-      <button id="minimap-collapse" title="Collapse minimap" aria-label="Collapse minimap">&#9662;</button>
+      <button id="minimap-collapse" class="close-x" title="Collapse minimap" aria-label="Collapse minimap">&#9662;</button>
       <canvas id="minimap-canvas" width="160" height="160"></canvas>
       <div id="minimap-compass">N</div>
       <div id="daynight-badge" title="">
@@ -323,7 +323,7 @@
 
     <!-- Chat box (bottom-left) -->
     <div id="chatbox">
-      <div id="chat-head"><span id="chat-title">Chat</span><button id="chat-collapse" title="Collapse chat" aria-label="Collapse chat">&#9662;</button></div>
+      <div id="chat-head"><span id="chat-title">Chat</span><button id="chat-collapse" class="close-x" title="Collapse chat" aria-label="Collapse chat">&#9662;</button></div>
       <div id="chat-log"></div>
       <div id="chat-tabs">
         <span class="chat-tab active" data-filter="all">All</span>
@@ -336,7 +336,7 @@
     <div id="sidepanel">
       <!-- Phones: drag handle of the bottom sheet (swipe down or tap to fold) -->
       <div class="sheet-handle" aria-hidden="true"></div>
-      <div id="panel-head"><span id="panel-title">Inventory</span><button id="panel-collapse" title="Collapse panel" aria-label="Collapse panel">&#9662;</button></div>
+      <div id="panel-head"><span id="panel-title">Inventory</span><button id="panel-collapse" class="close-x" title="Collapse panel" aria-label="Collapse panel">&#9662;</button></div>
       <div id="panel-body">
         <div id="panel-subtabs" class="hidden" role="tablist"></div>
         <section class="panel-view" data-view="inventory">
@@ -437,7 +437,7 @@
       <div id="modal-window">
         <div class="sheet-handle" aria-hidden="true"></div>
         <div id="modal-title"></div>
-        <button id="modal-close" title="Close">✕</button>
+        <button id="modal-close" class="close-x" title="Close" aria-label="Close">✕</button>
         <div id="modal-body"></div>
       </div>
     </div>

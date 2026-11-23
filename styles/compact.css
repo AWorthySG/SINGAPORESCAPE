@@ -511,3 +511,58 @@ body.reduce-motion #quickbar.open .qb-pop { animation: none; }
 .dlg-bye:focus-visible { outline: 3px solid var(--aw-sun, #F5B82E); outline-offset: 2px; }
 @media (max-width: 540px) { .dlg-portrait { width: 56px; height: 56px; } }
 @media (pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px) { .dlg-bye { min-height: 44px; } }
+
+/* ---------- Bank: the kept-item pin (src/ui/bankkeepui.js) ----------
+   A small navy pin on a white sticker dot, worn by the items you chose to
+   keep; tools and coins (kept anyway) show theirs only on hover or focus. */
+.item-cell.bank-kept::after {
+  content: ""; top: -4px; right: -4px; width: 14px; height: 14px; border-radius: 50%; font-size: 0;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6 2h4l-.6 4.2L12 8.4V10H8.8v4L8 15l-.8-1v-4H4V8.4l2.6-2.2z' fill='%2322304A'/%3E%3C/svg%3E") center / 10px no-repeat;
+  border: 1.5px solid var(--aw-ink, #22304A); filter: none; box-shadow: 0 1px 0 rgba(34,48,74,.25); transition: opacity .12s ease;
+}
+.item-cell.bank-kept-auto::after { opacity: 0; }
+.item-cell.bank-kept-auto:hover::after, .item-cell.bank-kept-auto:focus-visible::after { opacity: 1; }
+
+/* ---------- One family for banners and toasts ----------
+   The area name, the hover line, the notice lane's cards, the standing
+   pill and the cloud toast: one sticker card (paper, a 2px navy line, the
+   white die-cut rim and a small shadow) and one entry, stickerIn (a small
+   drop and settle). Their places and timing are as they were. The world's
+   signposts are drawn to match (renderer.js). */
+#hover-text, #region-label, #notice-lane .nl-card, #rep-pill, #cloud-toast {
+  background-color: var(--paper, #FFFCF5); background-image: var(--paper-grain, none);
+  color: var(--aw-text, #1C1B19); border: 2px solid var(--aw-ink, #22304A);
+  box-shadow: var(--shadow-float-sm, 0 0 0 2px #fff, 0 4px 0 2px rgba(34,48,74,.14));
+}
+#notice-lane .nl-card { border-left-width: 2px; }
+#rep-pill { border-color: var(--rk, var(--aw-ink, #22304A)); }   /* the rank's colour stays its line */
+#region-label.wild { color: var(--aw-accent, #C0392B); background-color: var(--aw-accent-bg, #FFF0EE); }
+#hover-text:not(:empty), #region-label.fresh, #notice-lane .nl-card, #rep-pill { animation: stickerIn .22s var(--ease-out, ease-out) backwards; }
+#notice-lane .nl-mini { animation: none; }
+body.reduce-motion :is(#hover-text, #region-label, #notice-lane .nl-card, #rep-pill) { animation: none; }
+@media (prefers-reduced-motion: reduce) { :is(#hover-text, #region-label, #notice-lane .nl-card, #rep-pill) { animation: none; } }
+
+/* ---------- One close control (.close-x) ----------
+   Every close or dismiss (windows, tips, the account and postcard windows)
+   and the panels' fold toggles: a navy mark in a white sticker circle (the
+   folds keep their ▾ / ▸). Each keeps its own size and place. The ids are
+   listed so this outranks their older looks (the painted red close among
+   them); when the owner's ui-close art arrives it goes on as this rule's
+   background image. */
+.close-x, #modal-close.close-x, #panel-collapse.close-x, #chat-collapse.close-x, #minimap-collapse.close-x, #photo-mode .pm-x.close-x, #notice-lane .nl-x.close-x {
+  padding: 0; text-align: center; line-height: 1; font-family: inherit; font-weight: 900; text-shadow: none; filter: none;
+  color: var(--aw-ink, #22304A); background: #fff none; border: 2px solid var(--aw-ink, #22304A); border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--rim, #fff), 0 3px 0 2px rgba(34,48,74,.16); cursor: var(--cur-pointer, pointer);
+  translate: none; transition: translate .12s var(--ease-pop, ease-out), background-color .12s ease;
+}
+#modal-close.close-x { font-size: 16px; }
+@media (hover: hover) {
+  .close-x:hover, #modal-close.close-x:hover, #panel-collapse.close-x:hover, #chat-collapse.close-x:hover, #minimap-collapse.close-x:hover {
+    color: var(--aw-ink, #22304A); background: var(--aw-sun-bg, #FDF3DE) none; filter: none; translate: 0 -1px;
+    box-shadow: 0 0 0 2px var(--rim, #fff), 0 4px 0 2px rgba(34,48,74,.16);
+  }
+}
+.close-x:active, #modal-close.close-x:active, #panel-collapse.close-x:active, #chat-collapse.close-x:active, #minimap-collapse.close-x:active {
+  background-image: none; translate: 0 1px; box-shadow: 0 0 0 2px var(--rim, #fff), 0 1px 0 2px rgba(34,48,74,.16);
+}
+.close-x:focus-visible { outline: 3px solid var(--aw-sun, #F5B82E); outline-offset: 2px; }

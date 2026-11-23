@@ -47,7 +47,7 @@ export function openAccount(view) {
     overlay.setAttribute('role', 'dialog');
     overlay.setAttribute('aria-modal', 'true');
     overlay.setAttribute('aria-labelledby', 'acct-title');
-    overlay.innerHTML = '<div class="acct-card"><button class="acct-x" aria-label="Close" type="button">&#10005;</button><div class="acct-body"></div></div>';
+    overlay.innerHTML = '<div class="acct-card"><button class="acct-x close-x" aria-label="Close" type="button">&#10005;</button><div class="acct-body"></div></div>';
     // Keys typed here belong here: the title screen and the game listen on window.
     overlay.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Escape' && !c.choice) closeAccount(); });
     overlay.addEventListener('keyup', (e) => e.stopPropagation());
