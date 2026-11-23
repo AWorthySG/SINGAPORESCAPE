@@ -120,6 +120,8 @@ function visitPace(S, extra) {
 }
 
 const PACE = new Map();
+/** How many paces are remembered (the tests check a second pass adds none). */
+export const xpRatePaces = () => PACE.size;
 function cached(key, fn) {
   if (PACE.has(key)) return PACE.get(key);
   if (PACE.size > 500) PACE.clear();   // levels and tools change now and then: keep it small

@@ -25,7 +25,7 @@ import { LEVEL_HAUL, setHaulRand } from '../src/game/levelhaul.js';
 import { GATHER_FUN } from '../src/game/gathering.js';
 import { mulberry32 } from '../src/game/pets.js';
 import { FOCUS_MAX_MS } from '../src/game/playbalance.js';
-import { xpRate, TICKS_AN_HOUR } from '../src/game/xprate.js';
+import { xpRate, TICKS_AN_HOUR, xpRatePaces } from '../src/game/xprate.js';
 import { skillListHTML, itemPageHTML } from '../src/ui/skillguideui.js';
 
 function fakeStorage() {
@@ -283,13 +283,17 @@ test('the Fishing guide shows XP an hour beside XP each, and says what it counts
   assert.doesNotMatch(skillListHTML(g, 'fishing', { filter: 'next', search: '', shown: 30 }).html, /sgx-xph-note/);
 });
 
-test('the estimate is cheap: every gathering row at once in a few milliseconds', () => {
+test('the estimate is cheap: the paces are worked out once, then every row reads them', () => {
   const g = topFisher();
   for (const [skill, lvl] of [['woodcutting', 300], ['mining', 300], ['hunter', 300], ['thieving', 300], ['agility', 300]]) g.skills.xp[skill] = xpForLevel(lvl);
   const all = gatherSources();
   all.forEach((s) => xpRate(g, s));   // warm: the node and trap paces and the grounds are worked out once a level
+  const paces = xpRatePaces();
   const t0 = performance.now();
   for (const s of all) xpRate(g, s);
   const ms = performance.now() - t0;
-  assert.ok(ms < 50, `${all.length} rows took ${ms.toFixed(1)}ms`);
+  // A second pass works nothing out again (a clock alone can't tell, on a busy machine)...
+  assert.equal(xpRatePaces(), paces, 'no new paces on the second pass');
+  // ...and stays far from slow even then.
+  assert.ok(ms < 2000, `${all.length} rows took ${ms.toFixed(1)}ms`);
 });
