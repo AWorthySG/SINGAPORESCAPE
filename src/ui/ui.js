@@ -58,7 +58,8 @@ import { goodsKind } from '../game/offerings.js';
 import { ATTRS, ATTR_NAMES, attrSummary, attrForMode, MAX_STAT_POINTS, RESET_COST_PER_POINT, holdRepeatDelay } from '../game/attributes.js';
 import { STAT_LABELS, STAT_HELP, compareGear, deltaText, effectiveRating, gearBySlot, gearRating, meetsReq, swingBeats, tierOf, weaponStyle } from '../game/gear.js';
 import { TILE, LEARNING_ENABLED, TICK_MS } from '../config.js';
-import { TERRAIN, zoneLevel } from '../data/world.js';
+import { zoneLevel } from '../data/world.js';
+import { paintMinimapTerrain, minimapNpcKind, MINIMAP_DOT } from '../render/minimapart.js';
 import { clearSave, suppressSaves, exportSaveCode, importSaveCode } from '../game/save.js';
 import { statSheet } from '../game/statsheet.js';
 import { statsPanelHTML } from './statspanel.js';
@@ -4686,17 +4687,9 @@ export class UI {
     if (typeof document === 'undefined') return (this._miniTerr = null);
     const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
     const c = cv.getContext('2d'); if (!c) return (this._miniTerr = null);
-    const hex = {
-      [TERRAIN.GRASS]: '#3f6e2c', [TERRAIN.DARKGRASS]: '#365f25', [TERRAIN.PATH]: '#9c8456',
-      [TERRAIN.WATER]: '#2f6f9e', [TERRAIN.SAND]: '#c8b27a', [TERRAIN.STONE]: '#8a8378', [TERRAIN.WOOD]: '#7a5a36',
-    };
-    const rgb = {}; const toRgb = (x) => [parseInt(x.slice(1, 3), 16), parseInt(x.slice(3, 5), 16), parseInt(x.slice(5, 7), 16)];
-    const img = c.createImageData(w, h), d = img.data;
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-      const t = world.terrainAt(x, y);
-      const col = rgb[t] || (rgb[t] = toRgb(hex[t] || '#3f6e2c'));
-      const i = (y * w + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255;
-    }
+    // The painted ground's own colours, soft edges where ground kinds meet (minimapart.js).
+    const img = c.createImageData(w, h);
+    paintMinimapTerrain(world, img.data);
     c.putImageData(img, 0, 0);
     return (this._miniTerr = cv);
   }
@@ -4755,21 +4748,31 @@ export class UI {
       if (Math.abs(dx) > radius || Math.abs(dy) > radius) continue;
       ctx.fillRect(W / 2 + dx * scale, H / 2 + dy * scale, 2, 2);
     }
-    // NPCs (only nearby ones can be on the minimap).
+    // NPCs (only nearby ones can be on the minimap): two kinds of dot, red
+    // for anything you can fight and cream for everyone else, each on a navy
+    // ink edge; people a quest sends you to are kept back and drawn last,
+    // bigger, as gold markers on top of the crowd (minimapart.js).
+    const quest = this._mmQuest || (this._mmQuest = []);
+    quest.length = 0;
+    ctx.fillStyle = MINIMAP_DOT.ink;
+    const dots = this._mmDots || (this._mmDots = []);
+    dots.length = 0;
     for (const n of (game.nearbyNpcs ? game.nearbyNpcs() : game.npcs)) {
       if (!n.alive) continue;
       const dx = n.x - px, dy = n.y - py;
       if (Math.abs(dx) > radius || Math.abs(dy) > radius) continue;
-      let col, r = 2.5;
-      if (n.attackable) { col = '#ffe24a'; r = 2; }
-      else if (n.def.role === 'bank') col = '#ffd24a';
-      else if (n.def.role === 'shop') col = '#ff9a3a';
-      else if (n.def.dialogue === 'slayer') col = '#ff5a5a';
-      else if (game.moralPending(n)) { col = '#ff9ae0'; r = 3; }      // a moral choice waiting for you
-      else if (n.def.role === 'dialogue') { col = '#7CFC00'; r = 3; } // quest-givers stand out
-      else col = '#5ad1ff';
-      ctx.fillStyle = col;
-      ctx.beginPath(); ctx.arc(W / 2 + dx * scale, H / 2 + dy * scale, r, 0, Math.PI * 2); ctx.fill();
+      const kind = minimapNpcKind(game, n);
+      if (kind === 'quest') { quest.push(n); continue; }
+      const x = W / 2 + dx * scale, y = H / 2 + dy * scale;
+      dots.push(x, y, kind === 'foe' ? 1 : 0);
+      ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();   // the ink edges first, in one colour
+    }
+    for (const kind of [0, 1]) {
+      ctx.fillStyle = kind ? MINIMAP_DOT.foe : MINIMAP_DOT.friend;
+      for (let i = 0; i < dots.length; i += 3) {
+        if (dots[i + 2] !== kind) continue;
+        ctx.beginPath(); ctx.arc(dots[i], dots[i + 1], 2, 0, Math.PI * 2); ctx.fill();
+      }
     }
     // Treasure-trail dig spot (pulsing gold).
     if (game.clue) {
@@ -4784,9 +4787,18 @@ export class UI {
       }
     }
     drawEventMarker(ctx, game, W, H, px, py, radius, scale);   // a world event: here, or which way
-    // Player.
-    ctx.fillStyle = '#fff';
-    ctx.beginPath(); ctx.arc(W / 2, H / 2, 3, 0, Math.PI * 2); ctx.fill();
+    // Quest markers on top: a gold diamond with a navy edge.
+    ctx.fillStyle = MINIMAP_DOT.quest; ctx.strokeStyle = MINIMAP_DOT.ink; ctx.lineWidth = 1.5;
+    for (const n of quest) {
+      const x = W / 2 + (n.x - px) * scale, y = H / 2 + (n.y - py) * scale;
+      ctx.beginPath(); ctx.moveTo(x, y - 5); ctx.lineTo(x + 4, y); ctx.lineTo(x, y + 5); ctx.lineTo(x - 4, y); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+    }
+    // You: a white sticker dot with a navy edge in a soft halo, in the middle.
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.beginPath(); ctx.arc(W / 2, H / 2, 6.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.strokeStyle = MINIMAP_DOT.ink; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(W / 2, H / 2, 3.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     // A faint navy wash after dark keeps the minimap in step with the world.
     const night = 1 - game.daylightFactor();
     if (night > 0.05) {

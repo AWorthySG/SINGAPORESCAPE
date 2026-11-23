@@ -266,7 +266,7 @@ const NEAR_SLACK = 8;
 // ...and that list is made afresh at least this often (ticks), whatever happens.
 const AROUND_REFRESH_TICKS = 10;
 const SPLAT_MERGE_MS = 200;   // hits on one foe this close together share one damage number (crits merge with crits)
-const SPLAT_MAX_PER = 5;      // damage numbers shown at once over one foe
+const SPLAT_MAX_PER = 3;      // damage numbers shown at once over one foe (more fold into the newest)
 // Tiny hits (a sliver of the target's life, like poison and burn ticks or a
 // flurry of chip damage) from the same source fold together over a longer
 // window, so a stream of 1s and 2s reads as one growing number.
@@ -1006,13 +1006,25 @@ export class Game {
       last.bumps = (last.bumps || 0) + 1;   // the number pops again, so every blow shows landing (renderer.js)
       return;
     }
-    // Five fan positions, so quick hits sit side by side instead of in a column,
-    // and at most SPLAT_MAX_PER numbers per foe: the oldest fades out early.
+    // At most SPLAT_MAX_PER numbers per foe. In a heavy fight a further plain
+    // hit adds into the newest number of its kind (which pops again) rather
+    // than stacking another over the foe's name and bar; anything else (a
+    // word, a crit, a shortbow's own arrow) shows, and the oldest fades early.
+    const mine = this.effects.filter((e) => e.type === 'hitsplat' && e.entity === entity && e.life > 120);
+    if (mine.length >= SPLAT_MAX_PER && !opts.noMerge && !opts.text && !opts.critX && dmg > 0) {
+      for (let i = mine.length - 1; i >= 0; i--) {
+        const e = mine[i];
+        if (e.text || e.critX || !(e.dmg > 0) || e.aoe !== !!opts.aoe || e.crit !== !!opts.crit || e.tint !== opts.tint) continue;
+        e.dmg += dmg;
+        e.bumps = (e.bumps || 0) + 1;
+        return;
+      }
+    }
+    // Five fan positions, so quick hits sit side by side instead of in a column.
     entity._splatN = ((entity._splatN || 0) + 1) % 5;
     // ...and each new number takes the other of two rows, so back-to-back
     // numbers never overlap even where the fan wraps round.
     entity._splatRow = entity._splatRow ? 0 : 1;
-    const mine = this.effects.filter((e) => e.type === 'hitsplat' && e.entity === entity);
     if (mine.length >= SPLAT_MAX_PER) for (const e of mine.slice(0, mine.length - SPLAT_MAX_PER + 1)) e.life = Math.min(e.life, 120);
     const fx = { type: 'hitsplat', entity, dmg, crit: !!opts.crit, critX: opts.critX || 0, text: opts.text, tint: opts.tint, aoe: !!opts.aoe, weak: !!opts.weak, life: opts.critX ? 1000 : 800, fan: (entity._splatN - 2) * 0.8, row: entity._splatRow };
     fx.maxLife = fx.life;

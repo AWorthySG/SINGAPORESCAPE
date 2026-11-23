@@ -11,6 +11,8 @@ import { getItem } from '../data/items.js';
 // Hit numbers are drawn at this size (they were crowding the fight), and big
 // ones are shortened: 12,345 -> 12.3k, 1,234,567 -> 1.23M.
 const SPLAT_SCALE = 0.72;
+// How far over your head your own name pill sits (its middle, in px).
+const OWN_NAME_Y = 56;
 const ARROW_LOOK = {
   default: { head: '#d9c45a', fletch: '#ffffff', shaft: '#b8874a', trail: '#ffffff', size: 1 },
   bronze: { head: '#c9874a', fletch: '#ffffff', shaft: '#b8874a', trail: '#ffffff', size: 1 },
@@ -50,6 +52,8 @@ import { applySquash, splatMotion, drawCritBurst, drawMissPuff, drawLootGlow, dr
 import { drawGrave } from './grave.js';
 import { drawFishSchool } from './fishschoolfx.js';
 import { playerBarVisible, drawPlayerHp } from './playerhp.js';
+import { namePill, drawPill, pillRes, PILL_ROW } from './namepill.js';
+import { foeThreat } from '../ui/bossbar.js';
 
 // Gathering actions that show a progress ring over the node, and its colour.
 const GATHER_RING = { woodcut: '#4fa04f', mine: '#8a8fa0', fish: '#3a8fd8', hunt: '#d08a3a' };
@@ -1758,37 +1762,34 @@ export class Renderer {
     this._nPlaced++;
   }
 
-  /** True when a label at (x, y) this wide would print over one placed already. */
+  /** True when a label at (x, y) this wide would print over one placed already
+   *  (labels are name pills a PILL_ROW tall, centred on y). */
   _placeHits(x, y, hw) {
     for (let i = 0; i < this._nPlaced; i++) {
       const r = this._placed[i];
-      if (Math.abs(r.x - x) < r.hw + hw && Math.abs(r.y - y) < 11) return true;
+      if (Math.abs(r.x - x) < r.hw + hw && Math.abs(r.y - y) < PILL_ROW) return true;
     }
     return false;
   }
 
-  /** Your name over your head (the sticker style: white letters inside a navy
-   *  ink line), with your alignment and Codex titles above it. */
+  /** Your name over your head (a white sticker pill, namepill.js), with your
+   *  alignment and Codex titles above it. */
   _drawOwnName(px, py, status) {
     const { ctx, game } = this;
-    ctx.font = '800 11px Nunito,"Trebuchet MS",sans-serif';
+    drawPill(ctx, namePill(ctx, game.player.name, 'own', this._pillRes), px, py - OWN_NAME_Y);
     ctx.textAlign = 'center';
     ctx.lineJoin = 'round';
-    ctx.strokeStyle = '#22304A'; ctx.lineWidth = 3.5;
-    ctx.strokeText(game.player.name, px, py - 53);
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillText(game.player.name, px, py - 53);
     // Your alignment title ("the Paragon", "the Villain") sits just above the
     // name in its tier's colour; nothing while you are Neutral.
     const al = game.alignmentStyle ? game.alignmentStyle() : null;
-    let ty = py - 65;
+    let ty = py - 69;
     if (al?.label && !status) {
       ctx.font = '900 9px Nunito,"Trebuchet MS",sans-serif';
       ctx.strokeStyle = '#22304A'; ctx.lineWidth = 3;
-      ctx.strokeText(al.label, px, py - 64);
+      ctx.strokeText(al.label, px, py - 67);
       ctx.fillStyle = al.color;
-      ctx.fillText(al.label, px, py - 64);
-      ty = py - 75;
+      ctx.fillText(al.label, px, py - 67);
+      ty = py - 78;
     }
     // A Codex title (from a mastered topic) sits above the name, in gold.
     const title = game.learning?.titleText() || game.collection?.titleText();   // or a Collection log title
@@ -1810,6 +1811,10 @@ export class Renderer {
     // Labels drawn so far this frame (names, tags, your status), to keep them apart.
     this._placed ||= [];
     this._nPlaced = 0;
+    this._pillRes = pillRes(game.camera);   // the scale name pills are painted at
+    // Hit numbers go down first, so the names, bars and tags drawn after them
+    // always sit on top and stay readable in a crowded fight.
+    this._drawSplats(ox, oy);
     // Your own name: Smart labels leave it off (you know who you are, and it
     // sat in the thick of every fight); All and Off keep it, and so does
     // postcard mode, for the picture.
@@ -1821,13 +1826,10 @@ export class Renderer {
     // first, so a name standing by you steps aside instead of printing over them.
     if (game.player.alive) {
       const pc = game.player.renderCenter();
-      if (ownName) {
-        ctx.font = '800 11px Nunito,"Trebuchet MS",sans-serif';
-        this._place(pc.x - ox, pc.y - oy - 53, ctx.measureText(game.player.name).width / 2 + 3);
-      }
+      if (ownName) this._place(pc.x - ox, pc.y - oy - OWN_NAME_Y, namePill(ctx, game.player.name, 'own', this._pillRes).w / 2 + 1);
       if (status) {
         ctx.font = '900 10px Nunito,"Trebuchet MS",sans-serif';
-        this._place(pc.x - ox, pc.y - oy - 66, ctx.measureText(status[0]).width / 2 + 5);
+        this._place(pc.x - ox, pc.y - oy - 71, ctx.measureText(status[0]).width / 2 + 5);
       }
     }
     for (const n of (game.nearbyNpcs ? game.nearbyNpcs() : game.npcs)) {
@@ -1855,6 +1857,7 @@ export class Renderer {
         const px = c.x - ox, py = c.y - oy + yo - 14;
         ctx.font = '800 10px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
         const wpx = ctx.measureText(n.chatText).width + 10;
+        this._place(px, py - 4.5, wpx / 2);   // names drawn after this step clear of it
         // A-Worthy speech-bubble sticker: white card, navy ink outline.
         ctx.fillStyle = '#FFFFFF';
         if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(px - wpx / 2, py - 12, wpx, 15, 7.5); ctx.fill(); }
@@ -1866,19 +1869,18 @@ export class Renderer {
       if (boss || n.combatLatch > 0 || targeted) this._healthBar(c.x - ox, c.y - oy + yo, n.hp / n.maxHp, boss);
       if (targeted) {
         const px = c.x - ox;
-        let py = c.y - oy + yo + 12;
-        ctx.font = '800 9px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+        let py = c.y - oy + yo + 13;
         // A compact tag: race icon, ▲ effective / ▼ resisted, and one status
         // count. The weakness, armour and every wound are spelt out in the
-        // battle bar instead (worldlabels.js foeDetails).
+        // battle bar instead (worldlabels.js foeDetails). A navy pill just
+        // under the health bar, its words coloured by the matchup.
         const m = game.raceMatchup(n);
-        const tag = targetTag(game, n);
+        const pill = namePill(ctx, targetTag(game, n), m === 'strong' ? 'tagStrong' : m === 'weak' ? 'tagWeak' : 'tagEven', this._pillRes);
         // Clear of a name already there: a line lower (twice at most). Always drawn.
-        const hw = ctx.measureText(tag).width / 2 + 2;
-        for (let k = 0; k < 2 && this._placeHits(px, py, hw); k++) py += 11;
+        const hw = pill.w / 2;
+        for (let k = 0; k < 2 && this._placeHits(px, py, hw); k++) py += PILL_ROW;
         this._place(px, py, hw);
-        ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.lineWidth = 3; ctx.strokeText(tag, px, py);
-        ctx.fillStyle = m === 'strong' ? '#ffd24a' : m === 'weak' ? '#c8ccd4' : '#9affd0'; ctx.fillText(tag, px, py);
+        drawPill(ctx, pill, px, py);
       }
       if (moral && !(n.chatTimer > 0)) {
         // A small gold "!" bobbing over their head until you have chosen.
@@ -1895,34 +1897,35 @@ export class Renderer {
       }
       if (named && (boss || n.champion)) {
         const px = c.x - ox;
-        let py = c.y - oy + yo - 6;
-        const label = n.champion ? `★ ${n.name}` : n.name;
-        ctx.font = '800 11px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+        let py = c.y - oy + yo - 9;   // a pill sitting on the health bar
+        // A gold pill for a champion, a red one for a boss.
+        const pill = namePill(ctx, n.champion ? `★ ${n.name}` : n.name, n.champion ? 'champion' : 'boss', this._pillRes);
         // Bosses and champions always wear their name, but step up a line
         // (twice at most) rather than print over a name already there.
-        const hw = ctx.measureText(label).width / 2 + 2;
-        for (let k = 0; k < 2 && this._placeHits(px, py, hw); k++) py -= 11;
+        const hw = pill.w / 2;
+        for (let k = 0; k < 2 && this._placeHits(px, py, hw); k++) py -= PILL_ROW;
         this._place(px, py, hw);
-        ctx.strokeStyle = n.champion ? '#22304A' : 'rgba(0,0,0,0.85)'; ctx.lineWidth = 3; ctx.strokeText(label, px, py);
-        ctx.fillStyle = n.champion ? '#F5B82E' : '#ff7a5a'; ctx.fillText(label, px, py);
+        drawPill(ctx, pill, px, py);
       } else if (named && !(n.chatTimer > 0)) {
-        // Everyone else: a smaller name, coral for a foe and white for townsfolk.
+        // Everyone else: a smaller pill, cream for townsfolk and, for a foe,
+        // green, gold or red words by how dangerous it is to you (foeThreat).
         // A foe wears it under its feet, leaving the space over its head (and
         // over yours, when it stands beside you) to health bars, the tag and
         // damage numbers.
         const feet = n.attackable || n.combatLatch > 0 || targeted;
         const px = c.x - ox;
-        let py = feet ? c.y - oy + 16 * sc + 12 : c.y - oy + yo + 2 - (moral ? 14 : 0);
-        ctx.font = '800 10px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+        let py = feet ? c.y - oy + 16 * sc + 9 : c.y - oy + yo - 2 - (moral ? 14 : 0);
+        // (how dangerous a foe is only changes with your levels: worked out once a tick)
+        if (n.attackable && n._threatTick !== game.tickCount) { n._threatTick = game.tickCount; n._threat = foeThreat(game, n); }
+        const pill = namePill(ctx, n.name, n.attackable ? n._threat : 'town', this._pillRes);
         // Two foes side by side would print their names over each other: step
         // this one down a line (twice at most), or leave it off if still crowded.
-        const hw = ctx.measureText(n.name).width / 2 + 2;
+        const hw = pill.w / 2;
         let tries = 0;
-        while (this._placeHits(px, py, hw) && tries < 2) { py += 11; tries++; }
+        while (this._placeHits(px, py, hw) && tries < 2) { py += PILL_ROW; tries++; }
         if (this._placeHits(px, py, hw) && !targeted) continue;   // (your target's name always shows)
         this._place(px, py, hw);
-        ctx.strokeStyle = '#22304A'; ctx.lineWidth = 3; ctx.strokeText(n.name, px, py);
-        ctx.fillStyle = n.attackable ? '#ffb39a' : '#FFFFFF'; ctx.fillText(n.name, px, py);
+        drawPill(ctx, pill, px, py);
       }
     }
     if (game.player.alive) {
@@ -1935,12 +1938,17 @@ export class Renderer {
         ctx.font = '900 10px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center';
         const tw = ctx.measureText(status[0]).width + 10;
         ctx.fillStyle = status[1]; ctx.strokeStyle = '#22304A'; ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.roundRect ? ctx.roundRect(px - tw / 2, py - 76, tw, 14, 7) : ctx.rect(px - tw / 2, py - 76, tw, 14); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = '#fff'; ctx.fillText(status[0], px, py - 65.5);
+        ctx.beginPath(); ctx.roundRect ? ctx.roundRect(px - tw / 2, py - 78, tw, 14, 7) : ctx.rect(px - tw / 2, py - 78, tw, 14); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#fff'; ctx.fillText(status[0], px, py - 67.5);
       }
       if (ownName) this._drawOwnName(px, py, status);
     }
     this._drawGatherRing(ox, oy);
+  }
+
+  /** Hit numbers (drawn before the names and bars, which sit over them). */
+  _drawSplats(ox, oy) {
+    const { ctx, game } = this;
     for (const e of game.effects) {
       if (e.type !== 'hitsplat' || e._showAt > this._now) continue;
       const c = e.entity.renderCenter ? e.entity.renderCenter() : { x: e.entity.x * TILE, y: e.entity.y * TILE };
@@ -1950,7 +1958,7 @@ export class Renderer {
       // between two rows (e.row), so they never overlap before rising apart.
       // Each number springs in, hops sideways in a little arc and fades as it rises (juice.js).
       const m = splatMotion(e, age, this._splatM || (this._splatM = {}));
-      const px = c.x - ox + (e.fan || 0) * 13 + m.dx, py = c.y - oy - 26 - (e.row || 0) * 11 + m.dy;
+      const px = c.x - ox + splatSide(e) * 13 + m.dx, py = c.y - oy - 26 - (e.row || 0) * 11 + m.dy;
       const hit = e.dmg > 0;
       const pop = m.scale * splatBump(e, this._now);
       const r = e.crit ? 10 : 8;
@@ -2092,6 +2100,18 @@ export function swellFill(dark, a) {
   let s = m.get(k);
   if (s === undefined) { s = `rgba(${SWELL_RGB[dark]},${(k / 1000).toFixed(3)})`; m.set(k, s); }
   return s;
+}
+
+/** Where a hit number sits across (in steps of 13px from the middle). The
+ *  middle column over a head belongs to its health bar, target tag and name,
+ *  so numbers keep at least SPLAT_SIDE steps to the left or right of it (the
+ *  same side their hop drifts to, juice.js), rather than covering them. */
+export const SPLAT_SIDE = 1.25;
+export function splatSide(e) {
+  const fan = e.fan || 0;
+  if (Math.abs(fan) >= SPLAT_SIDE) return fan;
+  const dir = fan > 0 ? 1 : fan < 0 ? -1 : (e.row ? -1 : 1);
+  return dir * SPLAT_SIDE;
 }
 
 /** A merged hitsplat's quick re-pop (1 when not bumping): up by a third and back over 160ms. */
