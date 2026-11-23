@@ -154,29 +154,30 @@ body { -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
 /* ---------- Hover / action text (top-left) ---------- */
 #hover-text {
   position: absolute; top: 8px; left: 10px;
-  font-size: 16px; font-weight: 700;
-  pointer-events: none; z-index: 30; max-width: 60vw;
-  background: linear-gradient(180deg, rgba(14,42,39,0.66), rgba(14,42,39,0));
-  padding: 3px 10px 8px; border-radius: 7px;
+  pointer-events: none; z-index: 30;
   letter-spacing: 0.2px;
+  background: var(--aw-card); border-radius: 999px;
+  padding: 3px 12px; font-weight: 800;
+  font-size: 15px;
 }
-#hover-text .target { color: var(--gold-hi); }
 
 /* ---------- Objective tracker (top-left) ---------- */
 #quest-tracker {
   position: absolute; top: 44px; left: 10px; z-index: 22; pointer-events: none;
-  background: rgba(10,20,16,0.55); border: 1px solid rgba(0,0,0,0.4); border-left: 3px solid var(--gold);
-  border-radius: 6px; padding: 5px 9px; font-size: 12px; max-width: 44vw;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  padding: 5px 9px; font-size: 12px; max-width: 44vw;
   animation: viewIn .2s ease;
+  background: var(--aw-card); border: 2px solid var(--aw-ink); border-radius: var(--r2);
+  color: var(--aw-text);
 }
-#quest-tracker .trk-title { font-size: 10px; letter-spacing: .5px; text-transform: uppercase; color: var(--gold-hi); opacity: .85; margin-bottom: 2px; }
-#quest-tracker .trk-row { display: flex; align-items: center; gap: 6px; line-height: 1.5; }
+#quest-tracker .trk-title { font-size: 10px; letter-spacing: .5px; text-transform: uppercase; margin-bottom: 2px; color: var(--aw-text-sec); font-weight: 800; opacity: 1; }
+#quest-tracker .trk-row { display: flex; align-items: center; gap: 6px; }
 #quest-tracker .trk-ic { width: 14px; text-align: center; font-weight: bold; }
-#quest-tracker .trk-quest { color: #ffd24a; }
-#quest-tracker .trk-slayer { color: #ff7a7a; }
-#quest-tracker .trk-prog { color: var(--gold-hi); opacity: .9; }
-#hover-text .extra  { color: var(--teal); font-weight: 400; }
+#quest-tracker .trk-prog { opacity: .9; color: var(--aw-text-sec); }
+#quest-tracker .trk-quest { color: var(--aw-sun-deep); }
+#quest-tracker .trk-slayer { color: var(--aw-accent); }
+#hover-text .extra  { font-weight: 400; color: var(--aw-text-sec); }
+#hover-text:empty { display: none; }
+#hover-text .target { color: var(--aw-accent); }
 
 /* ---------- XP drops ---------- */
 #xp-drops {
@@ -185,11 +186,14 @@ body { -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
   display: flex; flex-direction: column; align-items: center;
 }
 .xp-drop {
-  font-weight: 800; font-size: 15px; color: #fff;
+  font-weight: 800;
   animation: xpfloat 2.2s ease-out forwards;
   display: flex; align-items: center; gap: 5px;
+  color: var(--aw-text); background: var(--aw-card); border: 2px solid var(--aw-ink);
+  border-radius: 999px; padding: 1px 10px; margin-bottom: 3px; box-shadow: var(--shadow-sticker-sm);
+  font-size: 13px;
 }
-.xp-drop .xp-ic { display: flex;  }
+.xp-drop .xp-ic { display: flex; }
 @keyframes xpfloat {
   0% { opacity: 0; transform: translateY(20px); }
   10% { opacity: 1; }
@@ -200,21 +204,18 @@ body { -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
 #minimap-panel {
   position: absolute; top: 10px; right: 10px;
   width: 178px; height: 178px;
-  border-radius: 6px;
   z-index: 20;
+  border-radius: var(--r3);
 }
 #minimap-canvas {
-  position: absolute; top: 9px; left: 9px;
-  width: 160px; height: 160px;
+  position: absolute;
   border-radius: 50%;
-  background: #2c4a1e;
-  box-shadow: 0 0 0 3px var(--gold), 0 0 0 5px var(--ink), inset 0 0 14px rgba(0,0,0,0.6);
 }
 /* Minimap collapse toggle: tucked top-right; centres itself when collapsed. */
 #minimap-collapse { position: absolute; top: 0; right: 0; z-index: 23; }
 #minimap-panel.collapsed {
   width: 30px; height: 30px;
-  background: linear-gradient(180deg, var(--panel-1), var(--panel-2));
+  background: var(--aw-card);
 }
 #minimap-panel.collapsed #minimap-canvas,
 #minimap-panel.collapsed #minimap-compass,
@@ -227,23 +228,20 @@ body { -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
 #minimap-compass {
   position: absolute; top: -2px; left: -2px;
   width: 26px; height: 26px; border-radius: 50%;
-  background: var(--coral); color: #fff7e0;
   font-size: 12px; font-weight: 800; text-align: center; line-height: 26px;
-  z-index: 21; box-shadow: 0 0 0 2px var(--gold-hi), 0 2px 5px rgba(0,0,0,.5);
+  z-index: 21;
+  background: var(--aw-accent); color: #fff;
+  box-shadow: 0 0 0 2px var(--aw-ink), var(--shadow-sticker-sm);
 }
 /* Day/night badge — a small sun/moon dial mirroring the compass, top-right. */
 #daynight-badge {
-  position: absolute; top: -2px; right: -2px;
-  width: 26px; height: 26px; border-radius: 50%;
-  background: linear-gradient(160deg, #8ecdf0, #4a8fce);
-  box-shadow: 0 0 0 2px var(--gold-hi), 0 2px 5px rgba(0,0,0,.5);
+  position: absolute;
+  border-radius: 50%;
   z-index: 21; pointer-events: none;
   transition: background .8s ease, box-shadow .8s ease;
+  background: var(--aw-sky); box-shadow: 0 0 0 2px var(--aw-ink), var(--shadow-sticker-sm);
 }
-#daynight-badge.night {
-  background: linear-gradient(160deg, #2c3868, #12172c);
-  box-shadow: 0 0 0 2px #6c7fd0, 0 0 9px rgba(108,127,208,.6), 0 2px 5px rgba(0,0,0,.5);
-}
+#daynight-badge.night { background: var(--aw-charcoal); box-shadow: 0 0 0 2px var(--aw-ink), var(--shadow-sticker-sm); }
 .dn-icon {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
   opacity: 0; transition: opacity .8s ease;
@@ -252,22 +250,14 @@ body { -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
 #daynight-sun { opacity: 1; }
 .orb {
   position: absolute; width: 36px; height: 36px; border-radius: 50%;
-  font-size: 11px; font-weight: 800; text-align: center; line-height: 33px;
-  z-index: 21; color: #fff;
-  background: radial-gradient(circle at 36% 28%, rgba(255,255,255,0.42), rgba(0,0,0,0.12) 48%, #06201c 100%);
-  box-shadow: 0 2px 6px rgba(0,0,0,0.5), inset 0 0 0 2px rgba(230,179,74,0.7), inset 0 -3px 6px rgba(0,0,0,0.45);
+  font-size: 11px; text-align: center;
+  z-index: 21;
   transition: transform .12s ease, box-shadow .12s ease;
-}
-/* glassy top reflection */
-.orb::after {
-  content: ""; position: absolute; left: 22%; top: 12%; width: 46%; height: 32%;
-  border-radius: 50%; pointer-events: none;
-  background: radial-gradient(circle at 50% 40%, rgba(255,255,255,0.55), rgba(255,255,255,0));
+  background: var(--aw-card); color: var(--aw-text); border: 2px solid var(--aw-ink);
+  box-shadow: var(--shadow-sticker-sm); font-weight: 900;
+  line-height: 32px;
 }
 .orb:hover { transform: scale(1.08); }
-#hp-orb  { bottom: -2px; left: -12px; color: #ff9fb0; }
-#run-orb { bottom: 34px; left: -16px; font-size: 10px; cursor: var(--cur-pointer); color: var(--gold-hi); }
-#run-orb.active { box-shadow: 0 0 12px rgba(43,179,163,0.8), inset 0 0 0 2px var(--teal); }
 
 /* ---------- Chat box ---------- */
 #chatbox {
@@ -347,7 +337,7 @@ body { -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
   display: flex; align-items: center; justify-content: center;
   transition: filter .12s ease, background .12s ease;
 }
-.tab-btn svg { width: 24px; height: 24px;  }
+.tab-btn svg { width: 24px; height: 24px; }
 .tab-btn:last-child { border-bottom: none; }
 .tab-btn:hover { filter: brightness(1.25); }
 .tab-btn.active {
@@ -379,7 +369,6 @@ body { -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
 /* Let a long press on shop/bank item art reach the cell (amount card),
    not iOS's own image menu, as the inventory icons above already do. */
 .item-cell img { pointer-events: none; -webkit-user-drag: none; -webkit-touch-callout: none; }
-.inv-slot .icon svg, .item-cell svg, .equip-slot svg {  }
 
 /* ---------- Equipment ---------- */
 #equipment-layout {
@@ -486,47 +475,37 @@ body { -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
 }
 #adrenaline {
   position: relative; width: 232px; height: 16px; border-radius: 9px; overflow: hidden;
-  background: rgba(8,18,16,0.78); border: 1px solid var(--ink);
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.6), 0 2px 6px rgba(0,0,0,0.4);
   pointer-events: auto;
+  background: var(--aw-card); border: 2px solid var(--aw-ink); box-shadow: var(--shadow-sticker-sm);
 }
 #adrenaline-fill {
   position: absolute; inset: 0 100% 0 0; width: 0%;
-  background: linear-gradient(90deg, #d8566f, #e6b34a);
-  box-shadow: 0 0 10px rgba(230,179,74,0.6); transition: width .18s ease;
+  background: var(--aw-sun); box-shadow: none;
 }
 #adrenaline-label {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  font-size: 9px; font-weight: 800; letter-spacing: .8px; color: #fff; pointer-events: none;
+  font-size: 9px; letter-spacing: .8px; pointer-events: none;
+  color: var(--aw-text); font-weight: 900;
 }
-#adrenaline-label b { color: var(--gold-hi); margin-left: 4px; }
+#adrenaline-label b { margin-left: 4px; }
 #ability-buttons { display: flex; gap: 6px; pointer-events: auto; }
 .ability-btn {
-  position: relative; width: 52px; height: 52px; border-radius: 8px; cursor: var(--cur-pointer); overflow: hidden;
-  background: linear-gradient(180deg, #16403b, #0e2a27);
-  border: 2px solid var(--teal-dk); color: var(--text);
+  position: relative; width: 52px; height: 52px; cursor: var(--cur-pointer); overflow: hidden;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
-  box-shadow: 0 3px 8px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(0,0,0,0.4);
-  transition: filter .12s ease, transform .06s ease, box-shadow .12s ease;
+  border-radius: var(--r2);
 }
-.ability-btn:hover { filter: brightness(1.2); }
-.ability-btn:active { transform: translateY(1px); }
-.ability-btn .ab-icon { font-size: 19px; line-height: 1;  }
-.ability-btn .ab-cost { font-size: 9px; font-weight: 800; color: var(--gold-hi); }
-.ability-btn .ab-key {
-  position: absolute; top: 1px; left: 3px; font-size: 9px; font-weight: 800;
-  color: #cfe0d8; opacity: .8;
-}
+.ability-btn .ab-icon { font-size: 19px; line-height: 1; }
 .ability-btn .ab-cd {
   position: absolute; inset: auto 0 0 0; height: 0%;
-  background: rgba(6,16,14,0.72); display: flex; align-items: center; justify-content: center;
-  font-size: 15px; font-weight: 800; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 800;
+  background: rgba(28,27,25,0.72); color: #fff;
 }
-.ability-btn.armed { border-color: var(--gold-hi); box-shadow: 0 0 12px rgba(230,179,74,0.9), inset 0 0 0 1px var(--gold-hi); }
-.ability-btn.ready { border-color: var(--gold); }
-.ability-btn.disabled { filter: grayscale(0.6) brightness(0.7); cursor: var(--cur-default); }
-.ability-btn.locked { filter: grayscale(0.85) brightness(0.5); cursor: not-allowed; }
+.ability-btn.disabled { cursor: var(--cur-default); opacity: 0.7; }
+.ability-btn.locked { cursor: not-allowed; opacity: 0.5; }
 .ability-btn.locked .ab-cd { font-size: 10px; }
+.ability-btn .ab-cost { color: var(--aw-sun-deep); }
+.ability-btn .ab-key { color: var(--aw-text-sec); opacity: 1; }
 @media (max-width: 760px) {
   /* On touch/small screens the ability bar becomes its own full-width strip
      pinned to the very bottom, and the Chat & Inventory panels are lifted to
@@ -534,15 +513,14 @@ body { -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
   #ability-bar {
     left: 0; right: 0; width: 100%; transform: none;
     bottom: 0; padding: 5px 8px 9px; gap: 4px; border-radius: 0;
-    background: linear-gradient(180deg, rgba(8,18,16,0), rgba(8,18,16,0.74) 38%);
+    background: linear-gradient(180deg, rgba(250,246,238,0), rgba(250,246,238,0.92) 38%);
   }
   #adrenaline { width: 170px; height: 13px; }
   #adrenaline-label { font-size: 8px; letter-spacing: .5px; }
   #ability-buttons { gap: 6px; }
-  .ability-btn { width: 38px; height: 38px; border-width: 1.5px; }
+  .ability-btn { width: 38px; height: 38px; }
   .ability-btn .ab-icon { font-size: 14px; }
   .ability-btn .ab-cd { font-size: 13px; }
-  #chatbox { bottom: 74px; }
   #sidepanel { bottom: 74px; }
 }
 
@@ -639,11 +617,12 @@ body { -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
 #banner {
   position: absolute; top: 92px; left: 50%; transform: translateX(-50%);
   z-index: 50; padding: 16px 30px; text-align: center; border-width: 6px;
-  font-size: 18px; color: var(--text); border-radius: 8px;
-  box-shadow: 0 10px 28px rgba(0,0,0,0.6), 0 0 26px rgba(230,179,74,0.28);
+  font-size: 18px;
   animation: bannerpop 0.3s ease-out;
+  background: var(--aw-charcoal); color: #F0EEE8; border-color: var(--aw-charcoal);
+  border-radius: var(--r3);
 }
-#banner .big { font-size: 23px; color: var(--gold-hi); font-weight: 800; display: block; margin-bottom: 5px; }
+#banner .big { font-size: 23px; display: block; margin-bottom: 5px; color: #fff; font-weight: 900; }
 @keyframes bannerpop { from { transform: translateX(-50%) scale(0.8); opacity: 0; } to { transform: translateX(-50%) scale(1); opacity: 1; } }
 
 /* Scrollbars */
@@ -660,30 +639,22 @@ body { -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
 
 /* Phones (portrait): keep every panel inside the visible, toolbar-safe area. */
 @media (max-width: 540px) {
-  :root { --panel-w: 176px; --rail-w: 38px; }
+  :root { --panel-w: 176px; }
 
   /* Minimap + orbs: smaller and tucked into the corner so nothing clips. */
   #minimap-panel { width: 122px; height: 122px; top: 6px; right: 6px; }
-  #minimap-canvas { width: 104px; height: 104px; }
-  .orb { width: 30px; height: 30px; line-height: 30px; font-size: 10px; }
-  #hp-orb { bottom: -2px; left: -10px; }
-  #prayer-orb { bottom: 28px; left: -13px; }
-  #spec-orb { bottom: 58px; left: -13px; }
-  #run-orb { bottom: 88px; left: -10px; }
 
   /* Side panel: height follows the dynamic viewport so it never hides behind
      the browser bar; tighter inventory cells fit the narrower rail. Lifted to
      sit above the bottom action bar. */
   #sidepanel { right: 6px; bottom: 66px; }
-  #panel-head { font-size: 13px; padding: 5px 9px; }
-  #panel-body { height: 42dvh; max-height: 320px; min-height: 180px; padding: 7px; }
-  .tab-btn svg { width: 20px; height: 20px; }
+  #panel-head { padding: 5px 9px; }
+  #panel-body { padding: 7px; }
   #inventory-grid { gap: 4px; }
-  .inv-slot { border-radius: 5px; }
   .inv-slot .icon svg { width: 28px; height: 28px; }
 
   /* Chat: compact, lifted above the bottom action bar. */
-  #chatbox { width: 47vw; height: 92px; bottom: 66px; left: 6px; font-size: 12px; }
+  #chatbox { width: 47vw; left: 6px; font-size: 12px; }
   #chat-log { font-size: 12px; }
 
   /* Bottom action bar: compact so it doesn't dominate a small screen. */
@@ -691,15 +662,12 @@ body { -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
   #ability-buttons { gap: 4px; }
   .ability-btn { width: 34px; height: 34px; }
   .ability-btn .ab-icon { font-size: 13px; }
-  .ability-btn .ab-cost { font-size: 8px; }
-  .ability-btn .ab-key { font-size: 8px; }
   .ability-btn .ab-cd { font-size: 12px; }
   #adrenaline { width: 150px; height: 12px; }
 
   /* Trim the big top-left overlays so they don't dominate a small screen. */
-  #hover-text { font-size: 13px; top: 6px; left: 6px; }
-  #quest-tracker { top: 34px; left: 6px; font-size: 11px; max-width: 52vw; }
-  #region-label { font-size: 13px; }
+  #hover-text { top: 6px; left: 6px; }
+  #quest-tracker { top: 34px; left: 6px; font-size: 11px; }
   #modal-window { max-height: 82dvh; }
 }
 
@@ -761,38 +729,39 @@ body { -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
 #region-label {
   position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
   z-index: 24; pointer-events: none;
-  font-size: 17px; font-weight: 800; letter-spacing: 1px;
-  color: var(--rs-gold);
-  padding: 2px 14px;
+  font-size: 17px;
+  background: var(--aw-card);
+  border-radius: 999px; padding: 3px 16px; letter-spacing: 0;
+  font-weight: 900;
 }
-#region-label.wild { color: #ff6a52; }
 #region-label .wild-lvl { font-size: 13px; opacity: 0.9; }
 #region-label .loc-pin { font-size: 14px; }
+#region-label:empty { display: none; }
+#region-label.wild { color: var(--aw-accent); background: var(--aw-accent-bg); }
 
 /* current-area caption + map button on the minimap */
 #minimap-region {
   position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 5px;
-  white-space: nowrap; font-size: 12px; font-weight: 800; color: var(--gold-hi);
-  background: rgba(10,20,16,0.7); border: 1px solid rgba(0,0,0,0.5); border-radius: 10px;
+  white-space: nowrap; font-size: 12px; font-weight: 800;
   padding: 2px 10px; pointer-events: none; z-index: 22;
+  color: var(--aw-text); background: var(--aw-card); border: 2px solid var(--aw-ink);
+  border-radius: 999px; box-shadow: var(--shadow-sticker-sm);
 }
-#minimap-region.wild { color: #ff8a6a; }
+#minimap-region.wild { color: var(--aw-accent); }
 #map-btn {
-  position: absolute; bottom: 1px; right: 1px; z-index: 22; cursor: var(--cur-pointer);
-  font-size: 9px; font-weight: 800; letter-spacing: .5px; color: #06201c;
-  background: linear-gradient(180deg, var(--gold-hi), var(--gold)); border: 1px solid var(--ink);
-  border-radius: 5px; padding: 2px 6px;
+  position: absolute; z-index: 22; cursor: var(--cur-pointer);
+  font-size: 9px; letter-spacing: .5px;
+  color: #fff; background: var(--aw-accent); border: 2px solid var(--aw-ink); border-radius: 999px;
+  box-shadow: 0 2px 0 var(--aw-accent-dk); padding: 1px 7px; font-weight: 900;
 }
 #map-btn:hover { filter: brightness(1.12); }
 
 /* ---------- Orbs (stacked on the minimap) ---------- */
-#hp-orb { bottom: -4px; left: -12px; }
-#prayer-orb { bottom: 32px; left: -16px; color: #ffd24a; }
-#spec-orb { bottom: 68px; left: -16px; font-size: 10px; cursor: var(--cur-pointer); color: #5ad1ff; }
-#run-orb { bottom: 104px; left: -12px; }
-#prayer-orb.active { box-shadow: 0 0 10px rgba(255,210,74,0.8), inset 0 0 6px rgba(0,0,0,0.5); }
-#spec-orb.armed { box-shadow: 0 0 12px rgba(255,210,74,0.95), inset 0 0 0 2px var(--gold-hi); }
-.set-bonus span:last-child { color: var(--gold-hi); font-weight: bold; }
+#hp-orb { bottom: -4px; left: -12px; color: var(--aw-bloom-deep); }
+#prayer-orb { bottom: 32px; left: -16px; color: var(--aw-sun-deep); }
+#prayer-orb.active { background: var(--aw-sun); color: var(--aw-text); box-shadow: 0 0 0 3px var(--aw-sun-bg), var(--shadow-sticker-sm); }
+#spec-orb { bottom: 68px; left: -16px; font-size: 10px; cursor: var(--cur-pointer); color: var(--aw-sky-deep); }
+#spec-orb.armed { background: var(--aw-sky); color: var(--aw-text); box-shadow: 0 0 0 3px var(--aw-sky-bg), var(--shadow-sticker-sm); }
 
 /* ---------- Prayer panel ---------- */
 #prayer-panel .prayer-pts { text-align: center; font-weight: bold; color: var(--rs-gold); margin-bottom: 6px; }
@@ -932,7 +901,6 @@ body { -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
 /* ---------- Extra visual polish (interactive sheen) ---------- */
 .item-cell { transition: transform .08s ease, box-shadow .1s ease, background .1s ease; }
 .item-cell:hover { transform: translateY(-1px); box-shadow: 0 3px 9px rgba(0,0,0,0.45), inset 0 0 0 1px var(--gold-hi); z-index: 2; }
-#modal-title { }
 .tab-btn { transition: filter .12s ease, background .12s ease, box-shadow .12s ease; }
 .tab-btn.active { box-shadow: inset 0 0 0 2px var(--gold-hi), 0 0 10px rgba(230,179,74,0.35); }
 .dialogue-option { transition: background .08s ease, transform .06s ease; }
@@ -990,34 +958,27 @@ button:focus:not(:focus-visible) { outline: none; }
 /* ---------- Boss battle bar (top-centre while engaged) ---------- */
 #boss-bar {
   position: absolute; top: 44px; left: 50%; transform: translateX(-50%);
-  z-index: 22; width: min(430px, 66vw); padding: 6px 10px 8px;
-  background: linear-gradient(180deg, var(--panel-1), var(--panel-2));
-  border: 4px solid transparent; border-image: var(--tile-trim) 6 round;
-  border-radius: 6px; box-shadow: 0 8px 20px rgba(0,0,0,0.5), inset 0 0 0 2px rgba(0,0,0,0.35);
+  z-index: 22; width: min(430px, 66vw);
   animation: bossIn .25s ease-out;
   pointer-events: none;
 }
 @keyframes bossIn { from { opacity: 0; transform: translateX(-50%) translateY(-8px); } to { opacity: 1; transform: translateX(-50%); } }
 #boss-bar-name {
-  text-align: center; font-weight: 800; font-size: 13px; letter-spacing: .8px;
-  color: var(--gold-hi); margin-bottom: 4px;
+  text-align: center; font-size: 13px;
+  margin-bottom: 4px;
 }
-#boss-bar.enraged #boss-bar-name { color: #ff7a6a; animation: hpLow 0.8s ease-in-out infinite; }
+#boss-bar.enraged #boss-bar-name { animation: hpLow 0.8s ease-in-out infinite; }
 #boss-bar-track {
-  position: relative; height: 11px; border-radius: 6px; overflow: hidden;
-  background: #3a0e0e; box-shadow: inset 0 1px 3px rgba(0,0,0,0.7);
+  position: relative; border-radius: 6px; overflow: hidden;
 }
 #boss-bar-fill {
   position: absolute; inset: 0 auto 0 0; width: 100%;
-  background: linear-gradient(90deg, #b83a52, #d8566f 55%, #e6b34a);
-  box-shadow: 0 0 8px rgba(216,86,111,0.6);
-  transition: width .25s ease;
 }
 #boss-bar-ticks {
   position: absolute; inset: 0;
-  background: repeating-linear-gradient(90deg, transparent 0 calc(10% - 1px), rgba(0,0,0,0.45) calc(10% - 1px) 10%);
+  background: repeating-linear-gradient(90deg, transparent 0 calc(10% - 2px), rgba(34,48,74,0.35) calc(10% - 2px) 10%);
 }
-@media (max-width: 540px) { #boss-bar { top: 36px; width: min(320px, 72vw); } #boss-bar-name { font-size: 11px; } }
+@media (max-width: 540px) { #boss-bar-name { font-size: 11px; } }
 
 /* Low-health warning: the HP orb pulses red so danger reads at a glance. */
 #hp-orb.low { animation: hpLow 0.9s ease-in-out infinite; }
@@ -1027,9 +988,8 @@ button:focus:not(:focus-visible) { outline: none; }
 }
 
 /* Panel views fade-slide in when switching tabs; modals & menus pop in. */
-.panel-view { animation: viewIn .16s ease; }
 @keyframes viewIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-#modal-window { animation: modalIn .2s cubic-bezier(.2, .9, .35, 1.12); }
+#modal-window { animation: modalIn .2s cubic-bezier(.2, .9, .35, 1.12); overflow: hidden; background: var(--aw-bg); }
 @keyframes modalIn { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: none; } }
 #context-menu:not(.hidden) { animation: ctxIn .09s ease-out; }
 @keyframes ctxIn { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
@@ -1049,62 +1009,6 @@ button:focus:not(:focus-visible) { outline: none; }
    Wells and slots sit on bg-muted; selected states use the rust accent with
    white 800-weight text; marker pops carry fills and dots, never text.
    ============================================================================ */
-
-/* Floating world labels become small stickers so they read over any terrain */
-#hover-text {
-  background: var(--aw-card); border: 2px solid var(--aw-ink); border-radius: 999px;
-  box-shadow: var(--shadow-sticker-sm); padding: 3px 12px; font-size: 15px; font-weight: 800; color: var(--aw-text);
-}
-#hover-text:empty { display: none; }
-#hover-text .target { color: var(--aw-accent); }
-#hover-text .extra { color: var(--aw-text-sec); }
-#quest-tracker {
-  background: var(--aw-card); border: 2px solid var(--aw-ink); border-radius: var(--r2);
-  box-shadow: var(--shadow-sticker-sm); color: var(--aw-text);
-}
-#quest-tracker .trk-title { color: var(--aw-text-sec); font-weight: 800; opacity: 1; }
-#quest-tracker .trk-quest { color: var(--aw-sun-deep); }
-#quest-tracker .trk-slayer { color: var(--aw-accent); }
-#quest-tracker .trk-prog { color: var(--aw-text-sec); }
-#region-label {
-  color: var(--aw-text); background: var(--aw-card); border: 2px solid var(--aw-ink); border-radius: 999px;
-  box-shadow: var(--shadow-sticker-sm); padding: 3px 16px; letter-spacing: 0; font-weight: 900;
-}
-#region-label:empty { display: none; }
-#region-label.wild { color: var(--aw-accent); background: var(--aw-accent-bg); }
-.xp-drop {
-  color: var(--aw-text); background: var(--aw-card); border: 2px solid var(--aw-ink); border-radius: 999px;
-  padding: 1px 10px; margin-bottom: 3px; box-shadow: var(--shadow-sticker-sm); font-size: 13px;
-}
-
-/* Minimap */
-#minimap-panel { border-radius: var(--r3); }
-#minimap-canvas { box-shadow: 0 0 0 2px var(--aw-ink), 0 0 0 5px var(--aw-card), 0 0 0 7px var(--aw-ink); }
-#minimap-panel.collapsed { background: var(--aw-card); }
-#minimap-compass { background: var(--aw-accent); color: #fff; box-shadow: 0 0 0 2px var(--aw-ink), var(--shadow-sticker-sm); }
-#daynight-badge { background: var(--aw-sky); box-shadow: 0 0 0 2px var(--aw-ink), var(--shadow-sticker-sm); }
-#daynight-badge.night { background: var(--aw-charcoal); box-shadow: 0 0 0 2px var(--aw-ink), var(--shadow-sticker-sm); }
-.orb {
-  background: var(--aw-card); color: var(--aw-text); border: 2px solid var(--aw-ink);
-  box-shadow: var(--shadow-sticker-sm); line-height: 32px; font-weight: 900;
-}
-.orb::after { display: none; }
-#hp-orb { color: var(--aw-bloom-deep); box-shadow: inset 0 -4px 0 var(--aw-bloom-bg), var(--shadow-sticker-sm); }
-#prayer-orb { color: var(--aw-sun-deep); box-shadow: inset 0 -4px 0 var(--aw-sun-bg), var(--shadow-sticker-sm); }
-#spec-orb { color: var(--aw-sky-deep); box-shadow: inset 0 -4px 0 var(--aw-sky-bg), var(--shadow-sticker-sm); }
-#run-orb { color: var(--aw-grass-deep); box-shadow: inset 0 -4px 0 var(--aw-grass-bg), var(--shadow-sticker-sm); }
-#run-orb.active { background: var(--aw-grass); color: #fff; box-shadow: 0 0 0 3px var(--aw-grass-bg), var(--shadow-sticker-sm); }
-#prayer-orb.active { background: var(--aw-sun); color: var(--aw-text); box-shadow: 0 0 0 3px var(--aw-sun-bg), var(--shadow-sticker-sm); }
-#spec-orb.armed { background: var(--aw-sky); color: var(--aw-text); box-shadow: 0 0 0 3px var(--aw-sky-bg), var(--shadow-sticker-sm); }
-#minimap-region {
-  color: var(--aw-text); background: var(--aw-card); border: 2px solid var(--aw-ink); border-radius: 999px;
-  box-shadow: var(--shadow-sticker-sm);
-}
-#minimap-region.wild { color: var(--aw-accent); }
-#map-btn {
-  color: #fff; background: var(--aw-accent); border: 2px solid var(--aw-ink); border-radius: 999px;
-  box-shadow: 0 2px 0 var(--aw-accent-dk); padding: 1px 7px; font-weight: 900;
-}
 
 /* Chat */
 #chatbox { border-radius: var(--r3); overflow: hidden; }
@@ -1201,21 +1105,11 @@ button:focus:not(:focus-visible) { outline: none; }
 #combat-panel .auto-retal input { accent-color: var(--aw-accent); }
 
 /* Ability bar */
-#adrenaline { background: var(--aw-card); border: 2px solid var(--aw-ink); box-shadow: var(--shadow-sticker-sm); }
-#adrenaline-fill { background: var(--aw-sun); box-shadow: none; }
-#adrenaline-label { color: var(--aw-text); font-weight: 900; }
 #adrenaline-label b { color: var(--aw-text); }
-.ability-btn { border-radius: var(--r2); }
-.ability-btn .ab-cost { color: var(--aw-sun-deep); }
-.ability-btn .ab-key { color: var(--aw-text-sec); opacity: 1; }
-.ability-btn .ab-cd { background: rgba(28,27,25,0.72); color: #fff; }
 .ability-btn.armed { border-color: var(--aw-ink); box-shadow: 0 0 0 3px var(--aw-sun), var(--shadow-sticker); }
 .ability-btn.ready { border-color: var(--aw-ink); background: var(--aw-sun-bg); }
-.ability-btn.disabled { filter: grayscale(0.6); opacity: 0.7; }
-.ability-btn.locked { filter: grayscale(1); opacity: 0.5; }
-@media (max-width: 760px) {
-  #ability-bar { background: linear-gradient(180deg, rgba(250,246,238,0), rgba(250,246,238,0.92) 38%); }
-}
+.ability-btn.disabled { filter: grayscale(0.6); }
+.ability-btn.locked { filter: grayscale(1); }
 
 /* Context menu, tooltip */
 #context-menu { border-radius: var(--r2); }
@@ -1228,7 +1122,6 @@ button:focus:not(:focus-visible) { outline: none; }
 
 /* Modal */
 #modal-overlay { background: rgba(28,27,25,0.35); }
-#modal-window { border-radius: var(--r4); overflow: hidden; background: var(--aw-bg); }
 #modal-title {
   color: var(--aw-text); font-size: 22px; font-weight: 900; letter-spacing: -0.02em; text-transform: none;
   background: var(--aw-card); border-bottom: 2px solid var(--aw-ink);
@@ -1255,20 +1148,12 @@ button:focus:not(:focus-visible) { outline: none; }
 
 /* Banner and boss bar: the one dark surface is charcoal */
 #banner {
-  background: var(--aw-charcoal); color: #F0EEE8; border-color: var(--aw-charcoal);
-  border-radius: var(--r3); box-shadow: var(--shadow-sticker-lg);
+  box-shadow: var(--shadow-sticker-lg);
 }
-#banner .big { color: #fff; font-weight: 900; }
 #banner .big::after {
   content: ""; display: block; width: 64px; height: 6px; margin: 6px auto 0;
   background: radial-gradient(circle at 3px 3px, var(--aw-sun) 2.5px, transparent 3px) 0 0 / 10px 6px;
 }
-#boss-bar { background: var(--aw-card); border: 2px solid var(--aw-ink); border-radius: var(--r2); box-shadow: var(--shadow-sticker); }
-#boss-bar-name { color: var(--aw-text); font-weight: 900; }
-#boss-bar.enraged #boss-bar-name { color: var(--aw-accent); }
-#boss-bar-track { background: var(--aw-muted); box-shadow: inset 0 0 0 2px var(--aw-ink); }
-#boss-bar-fill { background: var(--aw-accent); box-shadow: none; }
-#boss-bar-ticks { background: repeating-linear-gradient(90deg, transparent 0 calc(10% - 2px), rgba(34,48,74,0.35) calc(10% - 2px) 10%); }
 
 
 /* Scrollbars, focus */
@@ -1787,11 +1672,10 @@ body.boss-on #tip-toast { top: 132px; }
   .tab-btn .tab-label { font-size: 8.5px; }
   #panel-body { height: 46dvh; max-height: 380px; }
   .orb { width: 34px; height: 34px; line-height: 34px; font-size: 10px; }
-  #run-orb, #spec-orb, #prayer-orb, #hp-orb { top: auto; left: auto; bottom: -72px; }
+  #spec-orb, #prayer-orb, #hp-orb { top: auto; left: auto; bottom: -72px; }
   #hp-orb { right: 0; }
   #prayer-orb { right: 40px; }
   #spec-orb { right: 80px; }
-  #run-orb { right: 120px; }
   .orb .orb-cap { right: auto; left: 50%; top: calc(100% + 2px); transform: translateX(-50%); font-size: 7.5px; padding: 2px 4px; }
   #minimap-region { margin-top: 4px; }
 }

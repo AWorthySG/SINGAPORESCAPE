@@ -126,7 +126,7 @@
     margin-top: 2px; font-size: 10.5px; padding: 1px 8px; max-width: 128px;
     overflow: hidden; text-overflow: ellipsis; box-sizing: border-box;
   }
-  #run-orb, #spec-orb, #prayer-orb, #hp-orb { bottom: -58px; }
+  #spec-orb, #prayer-orb, #hp-orb { bottom: -58px; }
   #sidepanel.collapsed { top: calc(202px + var(--sa-t)); }   /* clear of the orbs' labels (192 hid the HP one) */
   body #xp-hud { top: calc(100% + 66px); }
   /* No pill under the orbs now, so their tap areas reach down a little. */
