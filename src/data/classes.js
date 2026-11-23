@@ -100,6 +100,14 @@ export function equivalentArmour(id, family) {
   if (v === undefined) _equivArmour.set(key, (v = findEquivalentArmour(id, family)));
   return v;
 }
+// Each family's pieces, in item order, gathered in one pass over every item the
+// first time the family is asked about (each new drop used to make that pass).
+const _familyPieces = new Map();
+const familyPieces = (family) => {
+  let list = _familyPieces.get(family);
+  if (!list) _familyPieces.set(family, (list = Object.keys(ITEMS).filter((x) => ITEMS[x].equip?.family === family)));
+  return list;
+};
 function findEquivalentArmour(id, family) {
   const eq = ITEMS[id]?.equip;
   if (!eq) return id;
@@ -107,8 +115,8 @@ function findEquivalentArmour(id, family) {
   const lvl = req(id);
   const metal = id.split('_')[0];
   let best = null;
-  for (const [x, it] of Object.entries(ITEMS)) {
-    if (it.equip?.family !== family || it.equip.slot !== eq.slot || req(x) > lvl) continue;
+  for (const x of familyPieces(family)) {
+    if (ITEMS[x].equip.slot !== eq.slot || req(x) > lvl) continue;
     // Highest level that fits; on a tie, the same metal tier (rune plate -> rune scout).
     if (!best || req(x) > req(best) || (req(x) === req(best) && x.startsWith(metal + '_'))) best = x;
   }
