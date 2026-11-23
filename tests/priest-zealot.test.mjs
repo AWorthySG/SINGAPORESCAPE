@@ -270,3 +270,24 @@ test('the class perks explain each class, and a Priest and a Zealot save and loa
     assert.deepEqual(g2.currentAbilities().map((a) => a.cls || a.id), [cls, cls, cls, 'second_wind', cls]);
   }
 });
+
+test('a signature orb or censer is made for one class: the others who share its type can\'t wield it', async () => {
+  const { pickGain } = await import('../src/game/bestpick.js');
+  const { sigBarred } = await import('../src/data/classes.js');
+  const { xpForLevel } = await import('../src/data/xp.js');
+  for (const [cls, sig, mine] of [['sorcerer', 'sig_jade_moon_hare_priest', false], ['wizard', 'sig_jade_moon_hare_priest', false],
+    ['zealot', 'sig_jade_moon_hare_priest', false], ['priest', 'sig_eternal_wyrm_zealot', false],
+    ['priest', 'sig_jade_moon_hare_priest', true], ['zealot', 'sig_eternal_wyrm_zealot', true]]) {
+    const { g } = mk(cls);
+    for (const s of Object.keys(g.skills.xp)) g.skills.xp[s] = xpForLevel(400);
+    const before = g.equipment.get('weapon');
+    g.inventory.add(sig, 1);
+    const i = g.inventory.slots.findIndex((s) => s?.id === sig);
+    assert.equal(sigBarred(cls, sig), !mine);
+    assert.equal(g._canEquipNow(sig), mine, `${cls}: ${sig}`);
+    if (!mine) assert.equal(pickGain(g, g.inventory.slots[i]), null, `${cls}: Equip best leaves it`);
+    g.equipItem(i);
+    assert.equal(g.equipment.get('weapon'), mine ? sig : before, `${cls}: ${mine ? 'wields' : 'can\'t wield'} ${sig}`);
+    if (!mine) assert.match(g.said.at(-1), /made for a (Priest|Zealot)'s hand/);
+  }
+});

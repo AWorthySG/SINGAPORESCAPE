@@ -161,6 +161,11 @@ export const WEAPON_TYPE_NAMES = {
 
 /** Weapon type of an item (null for non-weapons and tools). */
 export const weaponTypeOf = (id) => ITEMS[id]?.equip?.weaponType || null;
+/** A boss's signature weapon is made for one class: since orbs and censers are
+ *  more than one class's weapon (the Priest's orbs are the Wizard's second, and so
+ *  on), another class can't wield it, though its type is theirs. For the rest it
+ *  stays a trophy or something to trade (Game.dropLoot). */
+export const sigBarred = (classId, id) => { const c = ITEMS[id]?.signature?.classId; return !!classId && !!c && c !== classId; };
 
 /** The class's own first weapon (the lowest-level weapon of its type). */
 export function starterWeapon(classId) {

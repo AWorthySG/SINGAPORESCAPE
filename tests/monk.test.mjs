@@ -14,6 +14,7 @@ import { CLASS_BY_ID, noShieldMsg, NO_SHIELD_MSG, SECONDARY_WEAPON } from '../sr
 import { LATE_SIGS, SIGNATURE_CLASS } from '../src/data/bossWeapons.js';
 import { canDualPair, dualType } from '../src/game/equipment.js';
 import { CHI, MONK_DODGE, chiStacks } from '../src/game/monk.js';
+import { RACE_BONUS } from '../src/data/races.js';
 import { classPerks } from '../src/game/classperks.js';
 import { codexEntry } from '../src/game/codex.js';
 import { saveGame, loadGame } from '../src/game/save.js';
@@ -221,4 +222,78 @@ test('the upgrade signal agrees with Equip best on monk gloves: weighed against 
   assert.equal(g.equipment.get('weapon'), 'bronze_knuckles');
   assert.equal(g.equipment.get('shield'), 'rune_monk_gloves', 'and Equip best wears them there');
   assert.ok(!wouldWear(g, slot('iron_monk_gloves')) && !wouldWear(g, slot('bronze_monk_gloves')), 'weaker gloves are no upgrade');
+});
+
+test('gloves first never sticks: knuckles take the main hand back, by a click or by Equip best', () => {
+  const { g } = mk();
+  for (const s of ['attack', 'strength', 'defence']) g.skills.xp[s] = xpForLevel(60);
+  const at = (id) => g.inventory.slots.findIndex((s) => s?.id === id);
+  // Both hands emptied, the gloves clicked first: they land in the main hand.
+  g.equipment.clearSlot('weapon'); g.equipment.clearSlot('shield');
+  g.inventory.slots = g.inventory.slots.map(() => null);
+  g.inventory.add('bronze_monk_gloves', 1); g.equipItem(at('bronze_monk_gloves'));
+  assert.equal(g.equipment.get('weapon'), 'bronze_monk_gloves');
+  // Knuckles clicked next go to the main hand, not behind the gloves.
+  g.inventory.add('bronze_knuckles', 1);
+  assert.ok(!g.goesOffhand('bronze_knuckles'));
+  g.equipItem(at('bronze_knuckles'));
+  assert.equal(g.equipment.get('weapon'), 'bronze_knuckles');
+  // Equip best from the stuck pair (gloves main, knuckles off) puts it the right way round.
+  g.equipment.clearSlot('weapon'); g.equipment.clearSlot('shield');
+  g.inventory.slots = g.inventory.slots.map(() => null);
+  g.equipment.set('weapon', 'rune_monk_gloves'); g.equipment.set('shield', 'rune_knuckles');
+  g.inventory.add('dragon_knuckles', 1); g.inventory.add('dragon_monk_gloves', 1);
+  g.equipBest();
+  assert.equal(g.equipment.get('weapon'), 'dragon_knuckles', 'knuckles first');
+  assert.equal(g.equipment.get('shield'), 'dragon_monk_gloves', 'gloves second');
+  assert.equal(g.equipBest(), 0, 'and it stays that way');
+  // From empty hands with gloves a tier above the knuckles, the same.
+  g.equipment.clearSlot('weapon'); g.equipment.clearSlot('shield');
+  g.inventory.slots = g.inventory.slots.map(() => null);
+  g.inventory.add('rune_knuckles', 1); g.inventory.add('dragon_monk_gloves', 1);
+  g.equipBest();
+  assert.deepEqual([g.equipment.get('weapon'), g.equipment.get('shield')], ['rune_knuckles', 'dragon_monk_gloves']);
+});
+
+test('the bag tooltip and the equip message weigh monk gloves against the off-hand, on the knuckles\' beat', async () => {
+  const { UI } = await import('../src/ui/ui.js');
+  const { compareGear } = await import('../src/game/gear.js');
+  const { g } = mk();
+  for (const s of ['attack', 'strength', 'defence']) g.skills.xp[s] = xpForLevel(60);
+  const ui = Object.assign(Object.create(UI.prototype), { game: g });
+  const text = (id) => ui._gearTip(id, 'main', null).replace(/<[^>]+>/g, ' ');
+  // Gloves a tier up, the knuckles refined: an upgrade on the off-hand, and no ★ promised.
+  g.equipment.set('weapon', 'rune_knuckles'); g.equipment.set('shield', 'adamant_monk_gloves');
+  g.equipment.refines.rune_knuckles = 5;
+  g.inventory.add('dragon_monk_gloves', 1);
+  let tip = text('dragon_monk_gloves');
+  assert.match(tip, /▲ Upgrade vs Adamant monk gloves/);
+  assert.doesNotMatch(tip, /Rune monk knuckles|Downgrade|carries over|Speed/);
+  // Same-tier gloves beside dragon knuckles: an upgrade, not a "Downgrade vs" the knuckles.
+  g.equipment.set('weapon', 'dragon_knuckles'); g.equipment.set('shield', 'rune_monk_gloves');
+  tip = text('dragon_monk_gloves');
+  assert.match(tip, /▲ Upgrade vs Rune monk gloves/);
+  assert.doesNotMatch(tip, /Downgrade/);
+  // Spare knuckles in the off-hand: gloves going in are called an upgrade.
+  g.equipment.set('shield', 'rune_knuckles'); g.inventory.add('rune_monk_gloves', 1);
+  g.equipItem(g.inventory.slots.findIndex((s) => s?.id === 'rune_monk_gloves'));
+  assert.equal(g.equipment.get('shield'), 'rune_monk_gloves');
+  assert.match(g.said.at(-1), /^Upgrade! /);
+  assert.doesNotMatch(g.said.at(-1), /Speed/, 'an off-hand strikes on the main hand\'s beat');
+  // Knuckles weighed for the off-hand at the knuckles' beat lose to the gloves, as Equip best says.
+  g.equipment.set('weapon', 'rune_knuckles'); g.equipment.set('shield', 'dragon_monk_gloves');
+  assert.equal(compareGear('dragon_knuckles', g.equipment, 'shield', null, 'melee').verdict, 'downgrade');
+});
+
+test('each hand takes its own weapon\'s race match-up: the gloves\' palm drives out spirits', () => {
+  const { g } = mk();
+  const t = new NPC('wraith', g.player.x + 1, g.player.y, 0, {});
+  t.hp = t.maxHp = 1e9;
+  const m = g._offensiveMods(t, 'melee');
+  assert.equal(m.race, null, 'knuckles: no match-up with a spirit');
+  // The same foe as a plain beast (neither hand's match-up): only the race part changes.
+  t.def = { ...t.def, family: '-', sprite: '-' };
+  const b = g._offensiveMods(t, 'melee');
+  const ratio = (m.off.dmgM / m.dmgM) / (b.off.dmgM / b.dmgM);
+  assert.ok(Math.abs(ratio - RACE_BONUS.dmg) < 1e-9, `off-hand x${ratio.toFixed(3)} against a spiritagainst a spirit`);
 });

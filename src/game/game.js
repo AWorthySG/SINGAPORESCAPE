@@ -22,7 +22,7 @@ import {
 import { World } from './world.js';
 import { Skills, xpText } from './skillset.js';
 import { Inventory } from './inventory.js';
-import { Equipment, canDualWield, canDualPair, EQUIP_SLOTS, isTwoHanded, offhandBlocked, takesQuiver, starterOffhand } from './equipment.js';
+import { Equipment, canDualWield, canDualPair, takesMainHand, EQUIP_SLOTS, isTwoHanded, offhandBlocked, takesQuiver, starterOffhand } from './equipment.js';
 import { Bank } from './bank.js';
 import { Player, STICK_DEAD } from './player.js';
 import { NPC } from './npc.js';
@@ -43,7 +43,7 @@ import { ABILITY_BY_ID, abilitiesFor, ADREN_PER_HIT, ADREN_PER_HURT, CLASS_ADREN
 import { classPassiveMods, CLASS_SKILL } from '../data/classPassives.js';
 import { RACES, raceOf, matchup, RACE_BONUS, RACE_PENALTY } from '../data/races.js';
 import { DOT_KINDS } from '../data/bossAbilities.js';
-import { CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, equivalentWeapon, CLEAVE_SHARE, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWear, equivalentArmour, classGearFor, canWield, classesForType, SECONDARY_WEAPON, shieldBarred, noShieldMsg, weaponTypeOf } from '../data/classes.js';
+import { CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, equivalentWeapon, CLEAVE_SHARE, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWear, equivalentArmour, classGearFor, canWield, classesForType, SECONDARY_WEAPON, shieldBarred, noShieldMsg, weaponTypeOf, sigBarred } from '../data/classes.js';
 import { STYLE_TRACKS, sumPerks, perkAtLevel, rankName, PERK_SKILLS, PERK_CAPS } from '../data/perks.js';
 import { getSpell, SPELLS, ELEMENTS, AOE_RADIUS, elementMatchup, elementMult } from '../data/magic.js';
 import { xpForLevel, pastCapXpMult } from '../data/xp.js';
@@ -2415,9 +2415,9 @@ export class Game {
     if (ab?.unholy && UNHOLY_RACES.has(raceOf(npc.def, npc.npcId))) abM *= 1 + ab.unholy;
     // Race: the weapon in hand bites harder into some races and is shrugged off by others.
     const race = this.raceMatchup(npc);
+    const raceM = (r) => (r === 'strong' ? RACE_BONUS.dmg : r === 'weak' ? RACE_PENALTY.dmg : 1);
     if (this._castElement) dmgM *= elementMult(race);   // a spell's element: x1.5 strong, x0.7 resisted
-    else if (race === 'strong') dmgM *= RACE_BONUS.dmg;
-    else if (race === 'weak') dmgM *= RACE_PENALTY.dmg;
+    else dmgM *= raceM(race);
     // The Holy path (good alignment) smites the unholy: undead, spirits and demons.
     { const kc = this.karmaCombat(); if (kc.side === 'holy' && UNHOLY_RACES.has(raceOf(npc.def, npc.npcId))) dmgM *= 1 + kc.holyDmg; }
     // Magic casts once (rune cost), so its extra hits are ignored.
@@ -2490,7 +2490,9 @@ export class Game {
     let off = null;
     if ((mode === 'melee' || mode === 'ranged') && this.equipment.isDualWielding()) {
       const go = this.equipment.bonuses('off');
-      off = { dmgM: sharedM * gearM(go), critCh: critChance(lvl, go.crit) + critRest };
+      // ...and its own weapon's race match-up (a Monk's gloves drive out spirits and demons).
+      const offRace = this._castElement ? race : matchup(weaponTypeOf(this.equipment.get('shield')), raceOf(npc.def, npc.npcId));
+      off = { dmgM: sharedM * (raceM(offRace) / raceM(race)) * gearM(go), critCh: critChance(lvl, go.crit) + critRest };
     }
     return { dmgM, hits, guaranteed, heal, spec, ability: ab, weak, race, critCh, off };
   }
@@ -6285,6 +6287,7 @@ export class Game {
     for (const [sk, lvl] of Object.entries(eq.req || {})) if (reqLevel(id, sk, this.skills) < lvl) return false;   // a Dancer's gear: its pooled dance level
     const cls = this.jobClass && CLASS_BY_ID[this.jobClass];
     if (cls && eq.weaponType && !canWield(cls.id, eq.weaponType)) return false;
+    if (cls && sigBarred(cls.id, id)) return false;   // another class's signature weapon
     return !cls || canWear(cls.id, id);
   }
 
@@ -6360,9 +6363,11 @@ export class Game {
   /** Does `id` go in the off-hand when no hand is asked for? A weapon that pairs with
    *  the one in hand fills an off-hand not yet holding its pair; a different type of the
    *  same kind always goes on the other hand (a Monk's monk gloves beside its knuckles),
-   *  while one of the type in hand replaces the main hand's. */
+   *  while one of the type in hand replaces the main hand's. A Monk's knuckles take the
+   *  main hand back from its gloves (takesMainHand), so the pair never sticks the wrong way round. */
   goesOffhand(id) {
     const main = this.equipment.get('weapon');
+    if (takesMainHand(this.jobClass, id, main)) return false;
     return canDualPair(id, main) && (!canDualPair(main, this.equipment.get('shield')) || weaponTypeOf(id) !== weaponTypeOf(main));
   }
 
@@ -6384,6 +6389,8 @@ export class Game {
       this.msg(`Only ${aOrAn(CLASS_FOR_TYPE(eq.weaponType))} can wield ${WEAPON_TYPE_NAMES[eq.weaponType]}. You are ${aOrAn(cls.name)}: you fight with ${WEAPON_TYPE_NAMES[cls.weapon]} and ${WEAPON_TYPE_NAMES[SECONDARY_WEAPON[cls.id]]}.`);
       return;
     }
+    // A signature weapon is made for one class, even when its type is yours too.
+    if (cls && sigBarred(cls.id, s.id)) { this.msg(`The ${item.name} was made for ${aOrAn(CLASS_BY_ID[item.signature.classId].name)}'s hand: it's a trophy for you, or something to trade.`); return; }
     // Ninjas hold a shuriken in each hand, never a shield.
     if (cls && shieldBarred(cls.id, s.id)) { this.msg(noShieldMsg(cls.id)); return; }
     // ...and only your class's kind of helm, body and legs armour.

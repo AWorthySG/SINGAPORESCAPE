@@ -39,6 +39,12 @@ export const dualType = (id) => {
 export const canDualWield = (id) => !!dualType(id);
 /** Can these two be held together (main hand and off-hand)? */
 export const canDualPair = (a, b) => !!dualType(a) && dualType(a) === dualType(b);
+/** A mixed pair (a Monk's knuckles and gloves): does `id` belong in the main hand,
+ *  where `main` now is? Only when the main hand holds the class's second type (its
+ *  gloves) and `id` is the other type of the kind: the class's own type goes first,
+ *  its second type on the other hand, the stronger way round. */
+export const takesMainHand = (classId, id, main) => canDualPair(id, main) && !!classId
+  && getItem(id).equip.weaponType !== getItem(main).equip.weaponType && getItem(main).equip.weaponType === SECONDARY_WEAPON[classId];
 /** What a class that starts dual wielding holds in its off-hand: its second weapon
  *  when that pairs with its first (a Monk's monk gloves), else a second of its first. */
 export function starterOffhand(classId) {

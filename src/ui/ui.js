@@ -1,4 +1,4 @@
-import { CLASSES, CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, canWear, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWield, SECONDARY_WEAPON, shieldBarred, noShieldMsg, weaponTypeOf } from '../data/classes.js';
+import { CLASSES, CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, canWear, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWield, SECONDARY_WEAPON, shieldBarred, noShieldMsg, weaponTypeOf, sigBarred } from '../data/classes.js';
 import { SKILL_HOURS, windowLabel } from '../data/skillhours.js';
 import { classPerks, classPerkSummary } from '../game/classperks.js';
 import { LIFE_PERKS, LIFE_PERK_SKILLS, LIFE_PERK_FULL_LEVEL, LIFE_PERK_MAX_LEVEL, LIFE_PERK_TOP_LEVEL, lifePerkText, lifePerkNext } from '../game/lifeperks.js';
@@ -1298,7 +1298,7 @@ export class UI {
         const inMain = { label: 'Wield in main hand', target: item.name, fn: () => this.game.equipItem(i, { offhand: false }) };
         const shield = this.game.equipment.get('shield');
         const mixed = canDualPair(main, shield) && weaponTypeOf(main) !== weaponTypeOf(shield);
-        opts.push(...(mixed && weaponTypeOf(s.id) === weaponTypeOf(main) ? [inMain, off] : [off, inMain]));
+        opts.push(...(mixed && !this.game.goesOffhand(s.id) ? [inMain, off] : [off, inMain]));
       } else opts.push({ label: item.equip.slot === 'weapon' ? 'Wield' : 'Wear', target: item.name, fn: () => this.game.equipItem(i) });
       // Straight to its Refine or Enchant window (the runs are there), without the Gear Mastery list on the way.
       if (item.equip.bonuses && !item.tool) {
@@ -1557,6 +1557,7 @@ export class UI {
       + `<div class="gt-stats">${this._gearStats(id, false, copy, q, gearWorthNotes(this.game, id, copy, q))}</div>`
       + `<div class="gt-tier">#${t.rank} of ${t.of} ${eq.slot === 'weapon' ? weaponStyle(id) + ' weapons' : eq.slot + ' items'}</div>`;
     if (reqTxt) html += `<div class="gt-req ${req.ok ? 'ok' : 'no'}">Needs ${reqTxt}${req.ok ? ' ✓' : ''}</div>`;
+    if (sig && sigBarred(this.game.jobClass, id)) return html + `<div class="gt-req no">Made for ${escapeHtml(CLASS_BY_ID[sig.classId].name)}s only: a trophy for you</div>`;
     if (isTwoHanded(id)) {
       html += `<div class="gt-req">Two-handed: no shield${takesQuiver(id) ? ' (a quiver fits)' : ''}</div>`;
       // The grip bonus that stands in for the off-hand (already counted in the stats above).
@@ -1578,14 +1579,18 @@ export class UI {
       if (!ok) return html;
     }
     const eqp = this.game.equipment;
+    // A different type of the dual kind always goes on the other hand (a Monk's gloves
+    // beside its knuckles, Game.goesOffhand), so it is weighed there alone.
+    const main = eqp.get('weapon');
+    const mixedOff = canDualPair(id, main) && weaponTypeOf(id) !== weaponTypeOf(main) && this.game.goesOffhand(id);
     // A dual wielder's spare weapon is weighed against the off-hand too (each hand hits with its own weapon).
-    const dualOff = eqp.isDualWielding() && canDualPair(id, eqp.get('weapon'));
-    if (copy === 'off' || (dualOff && eqp.get('shield') === id && eqp.get('weapon') !== id)) return html + '<div class="gt-verdict same">Currently worn (off-hand)</div>';
-    const cmp = compareGear(id, eqp, null, q, this.game.combatMode());
+    const dualOff = !mixedOff && eqp.isDualWielding() && canDualPair(id, main);
+    if (copy === 'off' || ((dualOff || mixedOff) && eqp.get('shield') === id && main !== id)) return html + '<div class="gt-verdict same">Currently worn (off-hand)</div>';
+    const cmp = compareGear(id, eqp, mixedOff ? 'shield' : null, q, this.game.combatMode());
     if (cmp.verdict === 'worn') return html + '<div class="gt-verdict same">Currently worn</div>';
     const offCmp = dualOff && eqp.get('shield') !== id ? compareGear(id, eqp, 'shield', q, this.game.combatMode()) : null;
     // A matching weapon goes in a free off-hand first, as equipItem does.
-    const slot = canDualPair(id, eqp.get('weapon')) && !dualOff ? 'shield' : eq.slot;
+    const slot = mixedOff || (canDualPair(id, main) && !dualOff) ? 'shield' : eq.slot;
     // A piece in the pack bound for its own slot is weighed as it will be
     // worn: with the ★ and lines that carry over to it, as Equip best weighs
     // it (bestpick.js). A plain higher tier read "Downgrade" here, then went on.
@@ -1600,7 +1605,7 @@ export class UI {
       return `<span class="${good ? 'pos' : 'neg'}">${deltaText([d])}</span>`;
     }).join(' ')}</div>`;
     // The offensive stats summed up in plain damage terms (statworth.js).
-    const sw = pv ? pv.worth : cmp.worn && cmp.verdict !== 'style' ? gearSwapWorth(this.game, id, eq.slot, q) : null;
+    const sw = pv ? pv.worth : cmp.worn && cmp.verdict !== 'style' && !mixedOff ? gearSwapWorth(this.game, id, eq.slot, q) : null;
     if (sw != null && Math.abs(sw) >= 0.05) {
       html += `<div class="gt-worth-all ${sw > 0 ? 'pos' : 'neg'}">Overall: ≈ ${fmtWorth(sw)} damage vs equipped${pv ? ', once the carry is done' : ' <span class="gt-worth">(offensive stats)</span>'}</div>`;
     }
@@ -2093,7 +2098,7 @@ export class UI {
         note.className = 'modal-hint';
         note.innerHTML = `As a <b>${myCls.name}</b> you can wield <b>${WEAPON_TYPE_NAMES[myCls.weapon]}</b> and <b>${WEAPON_TYPE_NAMES[SECONDARY_WEAPON[myCls.id]]}</b>. Other weapons you find are worth selling.`;
         body.appendChild(note);
-        ids = ids.filter((id) => { const t = getItem(id).equip?.weaponType; return t && canWield(myCls.id, t); });
+        ids = ids.filter((id) => { const t = getItem(id).equip?.weaponType; return t && canWield(myCls.id, t) && !sigBarred(myCls.id, id); });
       } else {
         // The style the list is ranked for: weapons only compare fairly within one,
         // and jewellery, capes and the like are worth most to the style they suit.
