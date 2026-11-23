@@ -93,7 +93,7 @@ import { FishSchools } from './fishschool.js';   // schools of fish visiting the
 import { bossToolDrop } from './bosstools.js';   // world bosses drop gathering tools of their level
 import { levelHaul } from './levelhaul.js';   // a bigger haul as your gathering level rises
 import { tickWarmth, warmthBonus } from './bonfire.js';   // bonfires and their warmth
-import { bestGatherNode, topGatherSource } from './whatnext.js';   // auto gather's "the best you can" (Life skills)
+import { bestGatherNode, topGatherSource, safeRouteCfg, sourceRegion, specialNode } from './whatnext.js';   // auto gather's "the best you can" (Life skills)
 import { Teleports } from './teleports.js';   // the Town and Grave teleports
 import { Discovery } from './discovery.js';   // encyclopedia discoveries and their rewards
 import * as Rounds from './rounds.js';   // gun rounds and the ammo slot
@@ -597,8 +597,11 @@ export class Game {
     this._danceHitTick = 0;
 
     // "The best you can" auto gather: a level that opens a better source moves you up
-    // to it, once the tick's gathering is done (see _tickContinuous).
-    this.bus.on('levelup', (p) => { if (p?.skill && p.skill === this.autoGatherBest) this._gatherUpgradeDue = p.skill; });
+    // to it, once the tick's gathering is done (see _tickContinuous). The level it
+    // came from is kept, as a big haul can bring several levels at once.
+    this.bus.on('levelup', (p) => {
+      if (p?.skill && p.skill === this.autoGatherBest && this._gatherUpgradeDue?.skill !== p.skill) this._gatherUpgradeDue = { skill: p.skill, from: p.level - 1 };
+    });
     // Celebratory sparkle on level up; new milestones may unlock on level/quest changes.
     this.bus.on('levelup', (p) => {
       // A big hit can jump many levels at once: the celebration and the
@@ -809,7 +812,8 @@ export class Game {
   // ---------------- Helpers ----------------
   pathCfg() {
     // Built once: every path search (hundreds a tick with many monsters) shares it.
-    return this._pathCfg || (this._pathCfg = { width: this.world.width, height: this.world.height, isBlocked: (x, y) => this.world.isBlocked(x, y) });
+    // (A trip that keeps out of danger, whatnext.js safeRouteCfg, has its own while it starts.)
+    return this._routeCfg || this._pathCfg || (this._pathCfg = { width: this.world.width, height: this.world.height, isBlocked: (x, y) => this.world.isBlocked(x, y) });
   }
 
   // There is no walking or run energy any more: everyone always moves at full
@@ -1540,6 +1544,10 @@ export class Game {
     // Remember what we're gathering, so auto gather can pick it up again after
     // a fight, or once the mined-out rocks and felled trees grow back.
     if (gather && this.autoGather && obj?.objId) {
+      // A node you chose yourself (Interact, a Go), not one the Life skills
+      // shortcut or auto gather took you to (a.best), ends "the best you can":
+      // plain auto gather carries on from it.
+      if (this.autoGatherBest && !a.best) this.autoGatherBest = null;
       this._autoLife = { kind: 'gather', objId: obj.objId };
       this._addAutoGatherKind(obj);
     }
@@ -1555,7 +1563,7 @@ export class Game {
       this.player.clearAction();
       if (gather && this.autoGather) this._autoGatherNext(a, obj);
     }
-    if (this._gatherUpgradeDue) { const skill = this._gatherUpgradeDue; this._gatherUpgradeDue = null; this._autoGatherUpgrade(skill); }
+    if (this._gatherUpgradeDue) { const due = this._gatherUpgradeDue; this._gatherUpgradeDue = null; this._autoGatherUpgrade(due); }
   }
 
   _bagCounts() {
@@ -1577,35 +1585,46 @@ export class Game {
     return true;
   }
 
-  /** Start on a node auto gather chose: one far off (the best you can gather
-   *  may be in another region) is the long trip, MRT and all, like a Go. */
+  /** Start on a node auto gather chose: a short walk, never an MRT ride. In
+   *  "the best you can" mode the walk keeps out of regions too strong for you
+   *  (bestGatherNode only offers nodes it can reach that way), and none starts
+   *  while auto quest is on: it decides where you go (the two undid each other's trips). */
   _gatherAt(node) {
-    const here = this.playerTile();
-    if (chebyshev(here.x, here.y, node.x, node.y) > 30) return this._autoRun(() => this.goToObject(node));
-    return this.defaultObjectAction(node);
+    if (!this.autoGatherBest) return this.defaultObjectAction(node);
+    if (this.autoQuest) return false;
+    this._routeCfg = safeRouteCfg(this);
+    try { this.defaultObjectAction(node); } finally { this._routeCfg = null; }
+    const a = this.player.action;
+    if (a?.obj !== node) return false;
+    a.best = true;   // the mode's own pick (see _tickContinuous)
+    return true;
   }
 
   /** Auto gather in "the best you can" mode (the Life skills shortcuts): a level
-   *  that opens a better source in the skill moves you on to it at once (a
-   *  fishing spot never runs out, so this is how fishing moves up). */
-  _autoGatherUpgrade(skill) {
-    if (!skill || skill !== this.autoGatherBest || !this.autoGather || this.autoBattle) return;
-    const cur = this.player.action?.obj;
-    if (!cur || cur.def?.skill !== skill) return;
+   *  that opens a better source than the one you're on moves you on to it when
+   *  one of its nodes is close (a fishing spot never runs out, so this is how
+   *  fishing moves up); otherwise you carry on where you are, told once where it
+   *  is. Never off a node you chose yourself (that ends the mode: _tickContinuous)
+   *  or a world event's, such as a rare shoal a school of fish led you to. */
+  _autoGatherUpgrade({ skill, from }) {
+    const a = this.player.action, cur = a?.obj;
+    if (skill !== this.autoGatherBest || !this.autoGather || this.autoBattle || !a?.best || !cur || specialNode(cur)) return;
     const top = topGatherSource(this, skill);
-    if (!top || top.objIds.includes(cur.objId)) return;
+    if (!top || top === topGatherSource(this, skill, from) || top.objIds.includes(cur.objId)) return;   // nothing better opened (or it's here)
     const next = bestGatherNode(this, skill);
-    if (!next || next.objId === cur.objId) return;
-    this.msg(`Auto gather moves up to the ${next.def.name.toLowerCase()}: the best you can gather now.`, 'system');
-    this._gatherAt(next);
+    if (next && top.objIds.includes(next.objId) && this._gatherAt(next)) {
+      this.msg(`Auto gather moves up to the ${next.def.name.toLowerCase()}: the best you can gather now.`, 'system');
+      return;
+    }
+    const name = SKILL_BY_ID[skill]?.name || skill, where = sourceRegion(this, top);
+    this.msg(`${top.name} (${name} ${top.level}) is open now${where ? `, in ${where}` : ''}: tap Life skills > ${name} to go.`, 'system');
   }
 
   /** Auto gather does several kinds of node at once: every kind you gather
    *  while it's on joins the round (copper and tin for bronze, or rocks and
    *  trees together), up to AUTO_GATHER_KINDS of them, oldest dropped first. */
   _addAutoGatherKind(obj) {
-    if (this.autoGatherBest && obj.def?.skill && obj.def.skill !== this.autoGatherBest) this.autoGatherBest = null;   // you moved on to another skill
-    if (this.gatherPicks.size) return;   // a ticked list decides the round instead
+    if (this.gatherPicks.size || this.autoGatherBest) return;   // a ticked list (or "the best you can") decides the round instead
     let list = this.autoGatherKinds;
     if (list.includes(obj.objId)) return;
     // Moving on to another skill (fishing, then off to chop trees) starts a new
@@ -1683,8 +1702,8 @@ export class Game {
    *  anywhere in your current region (or within 30 tiles outside one). With
    *  kinds ticked in a skill guide, only those. */
   _nextGatherNode(objId, exclude = null) {
-    // The Life skills shortcuts: always the best the skill offers you, waiting
-    // for its nodes to grow back rather than dropping to a lesser one.
+    // The Life skills shortcuts: always the best the skill offers you close by,
+    // waiting for its nodes to grow back rather than dropping to a lesser one.
     if (this.autoGatherBest) return bestGatherNode(this, this.autoGatherBest, { exclude });
     const here = this.playerTile();
     const def = this.world.objects.find((o) => o.objId === objId)?.def;
@@ -1801,13 +1820,17 @@ export class Game {
   }
 
   /** Walk to one object, however far away, and start on it when you arrive
-   *  (or do `start()` instead of what tapping it does). */
-  goToObject(obj, start = null) {
+   *  (or do `start()` instead of what tapping it does). A `trip` planned to keep
+   *  out of danger (the Life skills shortcut's, whatnext.js) rides the MRT only
+   *  if it planned to, and walks the safe way. */
+  goToObject(obj, start = null, trip = null) {
     if (!this.player.alive) return false;
-    this._mrtHopToward(obj);
+    if (!trip) this._mrtHopToward(obj);
+    else if (trip.st) this.travelTo(trip.st.id, true);
     this._pathBudget = 150000;       // like quest trips, these can cross the whole map
+    this._routeCfg = trip?.cfg || null;
     let r;
-    try { r = start ? start() : this.defaultObjectAction(obj); } finally { this._pathBudget = 0; }
+    try { r = start ? start() : this.defaultObjectAction(obj); } finally { this._pathBudget = 0; this._routeCfg = null; }
     // (Making at a station is instant, so a "do all" beside one is already done.)
     const ok = !!this.player.action || this.player.isMoving || (!!start && r === true);
     this.msg(ok ? `You head for the ${obj.def.name.toLowerCase()}.` : "I can't find the way there.", 'system');
@@ -1849,15 +1872,23 @@ export class Game {
    *  ride the MRT there first (one fare) so you only walk the last stretch.
    *  Returns true if it rode. Used by the world map's Travel, quest Go and auto quest. */
   _mrtHopToward(tile) {
+    const st = this._mrtHopStation(tile);
+    return !!st && this.travelTo(st.id, true);
+  }
+
+  /** The station _mrtHopToward would ride to, or null. `any`: whenever one lies
+   *  nearer the destination than you do (the Life skills shortcut, when walking
+   *  would cross a region too strong for you: whatnext.js). */
+  _mrtHopStation(tile, any = false) {
     const p = this.player, here = this.playerTile();
     const walk = chebyshev(here.x, here.y, tile.x, tile.y);
-    if (!p.alive || walk < MRT_HOP_MIN || this.inventory.count('coins') < MRT_FARE) return false;
-    if (this.world.zoneAt(here.x, here.y)?.wilderness) return false;   // no MRT out of the Wilderness
-    if (this.npcs.some((n) => n.alive && n.target === p)) return false;
+    if (!p.alive || (!any && walk < MRT_HOP_MIN) || this.inventory.count('coins') < MRT_FARE) return null;
+    if (this.world.zoneAt(here.x, here.y)?.wilderness) return null;   // no MRT out of the Wilderness
+    if (this.npcs.some((n) => n.alive && n.target === p)) return null;
     let best = null, bd = Infinity;
     for (const st of STATIONS) { const d = chebyshev(st.x, st.y, tile.x, tile.y); if (d < bd) { bd = d; best = st; } }
-    if (!best || walk - bd < MRT_HOP_MIN / 2 || bd > walk * 0.6) return false;
-    return this.travelTo(best.id);
+    if (!best || (any ? bd >= walk : walk - bd < MRT_HOP_MIN / 2 || bd > walk * 0.6)) return null;
+    return best;
   }
 
   /** World map: get to any tile, by MRT and on foot. */
@@ -5015,6 +5046,9 @@ export class Game {
     if (this.autoBattle && !gate) this.toggleAutoBattle(false);
     this._autoBossTrip = null;
     if (this.autoQuest) this.toggleAutoQuest(false, 'you died.');
+    // Auto gather forgets what it was at: "the best you can" sent you straight
+    // back (by MRT) to the node where you fell, over and over.
+    this._autoLife = null; this.autoGatherBest = null;
     this.banner(`<span class="big">Oh dear, you are dead!</span>${gate ? 'Rising at the shrine...' : 'Respawning in town...'}`);
     const p = this.player;
     p.alive = false;
@@ -5941,6 +5975,7 @@ export class Game {
       this._driving = true;
       this._stopOnAttackRelease = false;
       this._autoLife = null;   // steering away ends any auto gather loop
+      this.autoGatherBest = null;   // ...and "the best you can" (a Life skills shortcut)
       // Bows and spells keep firing while you steer (handy for dodging); other actions stop.
       const shooting = p.action?.type === 'attack' && this.attackRange() > 1;
       if (p.action && !shooting) p.clearAction();
@@ -7612,13 +7647,17 @@ export class Game {
     return null;
   }
 
-  travelTo(stationId) {
+  travelTo(stationId, hop = false) {
     const st = STATION_BY_ID[stationId];
     if (!st) return false;
     if (this.inventory.count('coins') < MRT_FARE) { this.msg(`You need ${MRT_FARE} coins for the MRT fare.`); return false; }
     const tile = this._nearestFree(st.x, st.y);
     if (!tile) { this.msg('That station is unreachable.'); return false; }
     this.inventory.remove('coins', MRT_FARE);
+    // A ride you choose (the world map, a station's gates) ends any auto gather
+    // loop, as walking off does: it used to ride you straight back. A long trip's
+    // own hop (`hop`: _mrtHopToward, the Life skills shortcut's) is part of that trip.
+    if (!hop) { this._autoLife = null; this.autoGatherBest = null; }
     const p = this.player;
     p.stopNow(); p.clearAction();
     p.x = p.tx = tile.x; p.y = p.ty = tile.y; p.progress = 0; p.moving = false; p.path = [];

@@ -22,6 +22,8 @@ import { SKILL_BY_ID } from '../data/skills.js';
 import { compareGear, isUpgrade, meetsReq } from './gear.js';
 import { gatherSources } from './skillguide.js';
 import { zoneLevel } from '../data/world.js';
+import { OBJECTS } from '../data/objects.js';
+import { findPath } from '../engine/pathfinding.js';
 
 export const MAX_GOALS = 3;
 // A gathering skill this close to its next new source gets a nudge.
@@ -101,59 +103,153 @@ export function bestSource(game, skill) {
 
 // Auto gather's "the best you can" mode (the Life skills shortcuts, the owner's
 // ask): it keeps to the highest-level source of a skill your level and tools
-// allow, never a lesser rock or tree that happens to be nearer. It never takes
-// you off by itself into danger: not into the Wilderness, nor a region whose
-// monsters are more than 10 levels above your fighting level (as world events
-// pick their regions), unless you are there already.
-const workable = (game, skill) => {
-  const lvl = game.skills.level(skill);
-  return gatherSources().filter((s) => s.skill === skill && s.objIds?.length && s.level <= lvl && (!s.tool || game.hasTool(s.tool)))
+// allow, never a lesser rock or tree that happens to be nearer. It keeps you out
+// of danger, there and on the way: no trip into or through the Wilderness or a
+// region whose monsters are more than 10 levels above your fighting level (as
+// world events pick their regions), bar the region you are in already. Routes
+// are checked tile by tile with those regions as walls (safeRouteCfg), and then
+// walked that way: marking whole regions "reachable" would miss a route that
+// clips a dangerous corner, or spots cut off inside a region (Changi's pomfret).
+// The tap itself may go anywhere safe (riding the MRT where that helps, or is
+// the only safe way); what the mode then does by itself stays close and on foot.
+const AUTO_NEAR = 30;      // auto gather's own trips: no further than it ever walked by itself (or across your region)
+const WALK_NODES = 6000;   // ...each checked with the search a walk makes (Game.beginAction)
+const AUTO_TRIES = 3;      // ...for the nearest few ready nodes at most
+const workable = (game, skill, lvl = game.skills.level(skill)) =>
+  gatherSources().filter((s) => s.skill === skill && s.objIds?.length && s.level <= lvl && (!s.tool || game.hasTool(s.tool)))
     .sort((a, b) => b.level - a.level);
-};
-/** The highest-level source of `skill` you can work that is placed anywhere
- *  (ready or not), or null. */
-export function topGatherSource(game, skill) {
-  for (const src of workable(game, skill)) {
-    const ids = new Set(src.objIds);
-    if (game.world.objects.some((o) => ids.has(o.objId))) return src;
-  }
-  return null;
-}
-function bestGather(game, skill, { exclude = null, near = 30 } = {}) {
-  const p = game.playerTile(), W = game.world;
-  const here = W.zoneAt?.(p.x, p.y), fight = game.fightLevel?.() || 1;
-  const safe = (o) => {
-    const z = W.zoneAt?.(o.x, o.y);
-    return !z || z === here || (!z.wilderness && !z.instance && zoneLevel(z) <= fight + 10);
+/** Whether a region is safe for you to gather in or walk through (above). */
+function safeZones(game) {
+  const p = game.playerTile(), here = game.world.zoneAt?.(p.x, p.y), fight = game.fightLevel?.() || 1;
+  const seen = new Map();
+  return (z) => {
+    if (!z || z === here) return true;
+    let ok = seen.get(z);
+    if (ok === undefined) seen.set(z, (ok = !z.wilderness && !z.instance && zoneLevel(z) <= fight + 10));
+    return ok;
   };
-  for (const src of workable(game, skill)) {
-    const ids = new Set(src.objIds);
-    let close = null, cd = Infinity, any = false, far = null, fd = Infinity;
-    for (const o of W.objects) {
-      if (!ids.has(o.objId) || !safe(o)) continue;
-      const d = dist(o, p);
-      if (d <= near) any = true;
-      if (o === exclude || o.depleted) continue;
-      if (d <= near && d < cd) { cd = d; close = o; }
-      if (d < fd) { fd = d; far = o; }
+}
+/** Path-search settings for a trip that keeps out of danger: regions that aren't
+ *  safe for you are walls (Game.pathCfg takes these while such a trip starts). */
+export function safeRouteCfg(game) {
+  const W = game.world, ok = safeZones(game);
+  return { width: W.width, height: W.height, isBlocked: (x, y) => W.isBlocked(x, y) || !ok(W.zoneAt(x, y)) };
+}
+/** walk(t, node): whether you can walk from tile t to stand beside node within
+ *  cfg's walls. Each stretch of land is flooded once, when first asked about,
+ *  and labelled, so every node after that is a look-up: a path search per node
+ *  can't say "no way" until it has looked everywhere, and the tap asks of many. */
+function safeLand(cfg) {
+  const { width: w, height: h, isBlocked } = cfg;
+  let label = null, q = null, n = 0;
+  const flood = (i0) => {
+    let head = 0, tail = 0;
+    label[i0] = ++n; q[tail++] = i0;
+    while (head < tail) {
+      const i = q[head++], x = i % w, y = (i - x) / w;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const nx = x + dx, ny = y + dy, j = ny * w + nx;
+        if ((!dx && !dy) || nx < 0 || ny < 0 || nx >= w || ny >= h || label[j] || isBlocked(nx, ny)) continue;
+        if (dx && dy && (isBlocked(x + dx, y) || isBlocked(x, y + dy))) continue;   // no cutting corners, as findPath
+        label[j] = n; q[tail++] = j;
+      }
     }
-    if (close) return { obj: close, src };
-    if (any) return { obj: null, src };   // its nodes nearby are spent for now: they grow back in seconds
-    if (far) return { obj: far, src };
+  };
+  return (t, node) => {
+    if (!t) return false;
+    if (dist(t, node) <= 1) return true;
+    label ||= new Int32Array(w * h); q ||= new Int32Array(w * h);
+    const i = t.y * w + t.x;
+    if (!label[i]) { if (isBlocked(t.x, t.y)) return false; flood(i); }
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const x = node.x + dx, y = node.y + dy;
+      if (x >= 0 && y >= 0 && x < w && y < h && label[y * w + x] === label[i]) return true;
+    }
+    return false;
+  };
+}
+// World-event nodes (a meteorite, a rare shoal, an ancient tree) and any node
+// with a def of its own come and go: the mode never picks one (nor moves you off one).
+export const specialNode = (o) => !!o.worldEvent || o.def !== OBJECTS[o.objId];
+/** The highest-level source of `skill` you can work (at level `lvl`) that has a
+ *  node somewhere safe for you, ready or not: what the mode is after. */
+export function topGatherSource(game, skill, lvl) {
+  const W = game.world, ok = safeZones(game);
+  for (const src of workable(game, skill, lvl)) {
+    const ids = new Set(src.objIds);
+    if (W.objects.some((o) => ids.has(o.objId) && !specialNode(o) && ok(W.zoneAt?.(o.x, o.y)))) return src;
   }
   return null;
 }
-/** Where "the best you can" auto gather goes next: the nearest ready node of
- *  the highest-level source you can work within `near` tiles; if that source's
- *  nodes nearby are all spent, null (wait for them to grow back); with none of
- *  them nearby, the nearest ready one anywhere safe. A source with no ready
- *  node left gives way to the next best. */
-export const bestGatherNode = (game, skill, opts) => bestGather(game, skill, opts)?.obj || null;
+/** The region of the nearest node of `src` that is safe for you, for a chat line ('' for none). */
+export function sourceRegion(game, src) {
+  const p = game.playerTile(), W = game.world, ok = safeZones(game), ids = new Set(src.objIds);
+  let best = null;
+  for (const o of W.objects) if (ids.has(o.objId) && !specialNode(o) && ok(W.zoneAt?.(o.x, o.y)) && (!best || dist(o, p) < dist(best, p))) best = o;
+  return (best && W.zoneAt?.(best.x, best.y)?.name) || '';
+}
+// The search behind both: sources best first; for each, its safe nodes within
+// `near` tiles or in your region, nearest first, until `reach` finds a way to
+// one (`tries` of them at most). With `wait`, a source whose nodes within `near`
+// are spent for now (they grow back in seconds) is waited for, rather than
+// walked across the region for or dropped for a lesser one.
+function bestGather(game, skill, { exclude = null, near = Infinity, wait = false, tries = Infinity, reach }) {
+  const p = game.playerTile(), W = game.world, ok = safeZones(game), here = W.zoneAt?.(p.x, p.y);
+  for (const src of workable(game, skill)) {
+    const ids = new Set(src.objIds), ready = [];
+    let spent = false;
+    for (const o of W.objects) {
+      if (!ids.has(o.objId) || specialNode(o)) continue;
+      const z = W.zoneAt?.(o.x, o.y), d = dist(o, p);
+      if (!ok(z) || (d > near && z !== here)) continue;
+      if (o === exclude || o.depleted) { if (d <= near) spent = true; } else ready.push({ o, d });
+    }
+    ready.sort((a, b) => a.d - b.d);
+    for (const { o, d } of ready) {
+      if (wait && spent && d > near) break;
+      if (tries-- <= 0) return null;
+      const trip = reach(o);
+      if (trip) return { obj: o, src, trip };
+    }
+    if (wait && spent) return { obj: null, src };
+  }
+  return null;
+}
+/** Where "the best you can" auto gather goes next by itself: the nearest ready
+ *  node of the best source with nodes close by (within AUTO_NEAR tiles, or in your
+ *  region) that a short walk reaches without crossing danger; null while that
+ *  source's nodes close by are spent (wait for them to grow back), or when nothing
+ *  is close. Never a long trip, never the MRT. */
+export function bestGatherNode(game, skill, { exclude = null } = {}) {
+  const cfg = safeRouteCfg(game), p = game.playerTile();
+  const reach = (o) => dist(o, p) <= 1 || findPath(cfg, p, o, { reachAdjacent: true, maxNodes: WALK_NODES }).length > 0;
+  return bestGather(game, skill, { exclude, near: AUTO_NEAR, wait: true, tries: AUTO_TRIES, reach })?.obj || null;
+}
+/** How the Life skills shortcut gets to `node` keeping out of danger, or null:
+ *  { cfg, st } rides the MRT to station st first (null: walks all the way). The
+ *  ride a Go would take comes first, then walking, then any ride that lands
+ *  nearer (a region only the MRT reaches safely). */
+function safeTrip(game, node, cfg, walk) {
+  const hop = game._mrtHopStation?.(node);
+  if (hop && walk(game._nearestFree(hop.x, hop.y), node)) return { cfg, st: hop };
+  if (walk(game.playerTile(), node)) return { cfg, st: null };
+  const any = !hop && game._mrtHopStation?.(node, true);
+  return any && walk(game._nearestFree(any.x, any.y), node) ? { cfg, st: any } : null;
+}
+// The Life skills grid asks for every gathering skill at once: one flood serves
+// them all while nothing has changed (the same tick, tile, fighting level and objects).
+let land = null;
+function safeLandNow(game) {
+  const p = game.playerTile(), key = `${game.tickCount}:${p.x},${p.y}:${game.fightLevel?.()}:${game.world._objRev}`;
+  if (land?.game !== game || land.key !== key) { const cfg = safeRouteCfg(game); land = { game, key, cfg, walk: safeLand(cfg) }; }
+  return land;
+}
 /** The first pick for a Life skills shortcut: the nearest ready node of the
- *  best source anywhere safe, and that source: { obj, src } or null. */
+ *  best source you can get to safely, anywhere, with that source and the trip
+ *  there: { obj, src, trip } or null. A spent node beside you doesn't stop it. */
 export function bestGatherPick(game, skill) {
-  const r = bestGather(game, skill, { near: 0 });
-  return r?.obj ? r : null;
+  const { cfg, walk } = safeLandNow(game);
+  return bestGather(game, skill, { reach: (o) => safeTrip(game, o, cfg, walk) });
 }
 
 /** The next new source a skill opens, if it is within NEAR_UNLOCK levels: { src, gap } or null. */

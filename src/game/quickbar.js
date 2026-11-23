@@ -130,15 +130,19 @@ export function startLifeSkill(game, skill, ui = game.ui) {
   // Skilling, not fighting: auto battle would only pull you away again.
   if (game.autoBattle) game.toggleAutoBattle(false);
   if (GATHERING.has(skill)) {
-    const src = bestGatherPick(game, skill);   // the best source anywhere safe (whatnext.js)
-    if (!src) { game.msg(`There's nothing for ${skillName(skill)} I can take you to right now.`, 'system'); return false; }
+    // The best source you can get to without crossing a region too strong for
+    // you, riding the MRT where that helps or is the only safe way (whatnext.js).
+    const pick = bestGatherPick(game, skill);
+    if (!pick) { game.msg(`There's nothing for ${skillName(skill)} I can take you to right now.`, 'system'); return false; }
     // Auto gather keeps you at it, always on the best the skill offers you (the
     // owner's ask): the highest-level source your level and tools allow, waiting
     // for its nodes to grow back rather than dropping to a lesser one, and moving
-    // up when a level opens a better one (game.js autoGatherBest).
+    // up when a level opens a better one close by (game.js autoGatherBest).
     if (!game.autoGather) game.toggleAutoGather(true);
+    if (!game.goToObject(pick.obj, null, pick.trip)) return false;
     game.autoGatherBest = skill;
-    return game.goToObject(src.obj);
+    if (game.player.action?.obj === pick.obj) game.player.action.best = true;   // the mode's own pick: one you choose yourself ends it
+    return true;
   }
   if (MAKING[skill]) {
     const job = makingJob(game, skill);

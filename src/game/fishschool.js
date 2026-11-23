@@ -146,6 +146,7 @@ export class FishSchools {
     if (chebyshev(p.x, p.y, s.obj.x, s.obj.y) > SCHOOL_AUTO) return;
     g.msg('Auto gather follows the school.', 'system');
     g.defaultObjectAction(s.obj);
+    if (a.best && g.player.action) g.player.action.best = true;   // still "the best you can"'s own pick (game.js _tickContinuous)
   }
 
   /** The school swims off (its time is up, or it was netted). */
