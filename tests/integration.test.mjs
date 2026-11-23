@@ -5037,11 +5037,13 @@ test('Agility speeds up attacks and movement for every class, both tapering to a
     const g = new Game(); g.start(); g.chooseClass(cls);
     g.skills.xp.agility = 0;
     const iv = g.attackInterval(), step = g.playerStepMul();
-    g.skills.xp.agility = xpForLevel(99);   // about +3% attacks, +12% movement
-    assert.ok(g.attackInterval() < iv / 1.02 && g.attackInterval() > iv / 1.04, `${cls}: a little quicker at Agility 99`);
+    g.skills.xp.agility = xpForLevel(99);   // about +7% attacks, +12% movement
+    assert.ok(g.attackInterval() < iv / 1.06 && g.attackInterval() > iv / 1.075, `${cls}: a little quicker at Agility 99`);
     assert.ok(g.playerStepMul() < step / 1.1 && g.playerStepMul() > step / 1.14, `${cls}: and walks a bit faster`);
-    g.skills.xp.agility = xpForLevel(1000);   // about +15% attacks, +38% movement
-    assert.ok(g.attackInterval() < iv / 1.13 && g.attackInterval() > iv / 1.17, `${cls}: about +15% attack speed at 1000`);
+    g.skills.xp.agility = xpForLevel(1000);   // about +38% attacks, +38% movement
+    assert.ok(g.attackInterval() < iv / 1.36 && g.attackInterval() > iv / 1.39, `${cls}: about +38% attack speed at 1000`);
+    g.skills.xp.agility = xpForLevel(5000);
+    assert.ok(g.attackInterval() < iv / 1.6, `${cls}: past +60% at 5000 (the cap went from 30% to 75%)`);
     g.skills.xp.agility = xpForLevel(9999);
     assert.ok(g.attackInterval() > iv / (1 + AGILITY_ATK_MAX / 100), 'attack speed never passes its cap');
     assert.ok(g.playerStepMul() > step / (1 + AGILITY_MOVE_MAX / 100), 'nor does movement');

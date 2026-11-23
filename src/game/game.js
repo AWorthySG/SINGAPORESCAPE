@@ -184,9 +184,10 @@ const GREET_EVERY = 8, GREET_RANGE = 6;
 // perks: movement used to grow without limit (+1000% at 9999, crossing the map
 // in seconds) and attack speed tapered to +100%, ten times Fletching's full perk.
 // Movement: about +12% at 99, +38% at 1000, +49% at 9999.
-// Attacks:  about +3% at 99, +15% at 1000, +27% at 9999.
+// Attacks:  about +7% at 99, +38% at 1000, +68% at 9999 (the owner raised the
+// cap from 30% to 75%).
 export const AGILITY_MOVE_MAX = 50, AGILITY_MOVE_HALF = 300;
-export const AGILITY_ATK_MAX = 30, AGILITY_ATK_HALF = 1000;
+export const AGILITY_ATK_MAX = 75, AGILITY_ATK_HALF = 1000;
 // Merchant: every coin throw costs 1 coin + 1 per 10 Ranged levels, and skills
 // cost coins instead of adrenaline (the adrenaline cost x this, x2 per 100 Ranged).
 const COIN_SKILL_MULT = 20;
