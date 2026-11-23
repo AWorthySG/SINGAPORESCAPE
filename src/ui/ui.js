@@ -3111,6 +3111,13 @@ export class UI {
       tipsBtn.textContent = 'Tips: On';
       this.game.msg('Tips will show again as you play.', 'system');
     });
+    // A small readout of frame times and what fills each frame, for a screenshot
+    // of what is slow (perfhud.js; main.js keeps the choice on this device).
+    const perfBtn = mk('', () => {
+      this.setPerf?.(!this.perfOn);
+      perfBtn.textContent = `Show performance: ${this.perfOn ? 'On' : 'Off'}`;
+    });
+    perfBtn.textContent = `Show performance: ${this.perfOn ? 'On' : 'Off'}`;
     // Accessibility: saved with the other settings; uifx.js puts them on <body>.
     sec('Accessibility');
     const access = () => { this._accessSig = applyAccessibility(this.game); this.game.saveSoon = true; };
