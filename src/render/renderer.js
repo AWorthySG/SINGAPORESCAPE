@@ -60,7 +60,7 @@ const TERRAIN_RGB = {
   [TERRAIN.DARKGRASS]: [162, 210, 140],
   [TERRAIN.PATH]: [238, 216, 178],
   [TERRAIN.SAND]: [248, 232, 196],
-  [TERRAIN.STONE]: [246, 238, 226],
+  [TERRAIN.STONE]: [232, 218, 198],
   [TERRAIN.WOOD]: [222, 186, 142],
 };
 // Pastel tile accents for the paved plazas (design-system chip pastels with
@@ -98,6 +98,24 @@ const GROUND_TEX = {
   [TERRAIN.STONE]: 'stone', [TERRAIN.WOOD]: 'wood', [TERRAIN.WATER]: 'water',
 };
 export const groundTextures = () => new Set(Object.values(GROUND_TEX));
+
+// The town paving's painted texture is graded warmer and a little darker as it
+// loads (a multiply), so cream townsfolk and the cream kerbs stand out from the
+// plazas: the ground sits about a fifth below the sticker cream in value
+// (about 195 against 247; the texture alone is a greyer 206). (Until new
+// paving art arrives; then this can go.)
+const STONE_GRADE = 'rgb(252,240,222)';
+function gradeGround(img, tint) {
+  try {
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth || GROUND_TEX_PX; c.height = img.naturalHeight || GROUND_TEX_PX;
+    const g = c.getContext('2d');
+    g.drawImage(img, 0, 0);
+    g.globalCompositeOperation = 'multiply';
+    g.fillStyle = tint; g.fillRect(0, 0, c.width, c.height);
+    return c;
+  } catch { return img; }
+}
 
 const LIT_RGB = [255, 190, 110];   // the warm pool round lamps and fires drawn with them
 
@@ -143,6 +161,7 @@ export class Renderer {
       const img = new Image();
       img.onload = () => {
         if (--left > 0) return;
+        tex[TERRAIN.STONE] = gradeGround(tex[TERRAIN.STONE], STONE_GRADE);
         tex.ready = true;
         this.terrainCanvas.chunks.clear(); this.terrainCanvas.order.length = 0;
       };
