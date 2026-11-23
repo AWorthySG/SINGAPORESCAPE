@@ -197,7 +197,7 @@ export function laneMode() {
   return flat ? 'flat' : 'desk';
 }
 
-const IDS = ['region-label', 'quest-tracker', 'boss-bar', 'wave-hud', 'minimap-panel', 'hp-orb', 'spec-orb', 'prayer-orb', 'sidepanel'];
+const IDS = ['region-label', 'quest-tracker', 'boss-bar', 'wave-hud', 'minimap-panel', 'hp-orb', 'hp-bar', 'spec-orb', 'prayer-orb', 'sidepanel'];
 
 /** The on-screen boxes the lane steers round, by id (missing when hidden). */
 function liveBoxes() {
@@ -216,8 +216,9 @@ function liveBoxes() {
  *  `b` maps element ids to their boxes ({ left, top, right, bottom, width, height }). */
 export function placeLane(b, vw, mode) {
   const below = (top, left, width) => {
-    // The boss bar and the Endless Gate panel can share the column: go under them.
-    for (const id of ['boss-bar', 'wave-hud', 'quest-tracker']) {
+    // The boss bar and the Endless Gate panel can share the column (and on a
+    // phone your life bar tops it): go under them.
+    for (const id of ['hp-bar', 'boss-bar', 'wave-hud', 'quest-tracker']) {
       const r = b[id];
       if (r && r.left < left + width && r.right > left && r.top < top + 40) top = Math.max(top, r.bottom + 6);
     }

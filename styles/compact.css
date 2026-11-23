@@ -286,3 +286,47 @@ body.boss-on #rep-pill { display: none; }
   #sidepanel.collapsed .tab-btn.active .tab-label { font-size: 0; }
   #sidepanel.collapsed .tab-btn.active .tab-label::after { content: "Menu"; font-size: 10.5px; }
 }
+
+/* ---------- Your life bar (src/ui/hpbar.js) ----------
+   A clear bar with the number: bottom centre over the quick bar on a desktop
+   or tablet; top-left on a phone, above the info strip (which moves down a
+   row for it), where it stands in for the HP orb. */
+#hp-bar {
+  position: absolute; left: 50%; bottom: 180px; transform: translateX(-50%); z-index: 22; pointer-events: none;
+  width: 240px; height: 24px; box-sizing: border-box; padding: 0 10px 0 7px;
+  display: flex; align-items: center; gap: 5px;
+  background: var(--aw-card, #fff); border: 2px solid var(--aw-ink, #22304A); border-radius: 999px;
+  box-shadow: var(--shadow-sticker-sm, 0 2px 0 rgba(34,48,74,.3));
+}
+#hp-bar .hpb-track { position: absolute; inset: 3px; border-radius: 999px; overflow: hidden; background: #EFE3DF; }
+#hp-bar .hpb-fill, #hp-bar .hpb-trail { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; border-radius: 999px; }
+/* The chunk just lost: pale, easing away after the fill drops. */
+#hp-bar .hpb-trail { background: #FFD9B0; transition: width .4s ease .12s; }
+#hp-bar.heal .hpb-trail { transition: none; }
+#hp-bar .hpb-fill { background: var(--aw-grass, #3F9E5A); box-shadow: inset 0 2px 0 rgba(255,255,255,0.35); }
+#hp-bar.mid .hpb-fill { background: var(--aw-sun, #F2B33D); }
+#hp-bar.low .hpb-fill { background: var(--danger, #D8433C); }
+#hp-bar .hpb-ic, #hp-bar .hpb-num { position: relative; line-height: 1; color: var(--aw-ink, #22304A); text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 3px #fff; }
+#hp-bar .hpb-ic { font-size: 13px; color: var(--aw-bloom-deep, #B32048); }
+#hp-bar .hpb-num { font-size: 12.5px; font-weight: 900; letter-spacing: .01em; font-variant-numeric: tabular-nums; }
+/* Low: the same pulse the orb had; with colour-blind colours, a "!" too. */
+#hp-bar.low { animation: hpBarLow .9s ease-in-out infinite; }
+@keyframes hpBarLow {
+  0%, 100% { box-shadow: var(--shadow-sticker-sm, 0 2px 0 rgba(34,48,74,.3)); }
+  50% { box-shadow: 0 0 0 3px var(--danger-bg, #FBE3E0), 0 0 12px 2px rgba(216,60,60,0.55); }
+}
+body.reduce-motion #hp-bar.low { animation: none; }
+@media (prefers-reduced-motion: reduce) { #hp-bar.low { animation: none; } }
+body.cb-safe #hp-bar.low::after {
+  content: "!"; position: absolute; top: -7px; right: -5px; width: 16px; height: 16px; line-height: 14px;
+  font-size: 11px; font-weight: 900; text-align: center; color: #fff; background: var(--st-bad-fill, #D55E00);
+  border: 1.5px solid var(--aw-ink, #22304A); border-radius: 50%; box-sizing: border-box;
+}
+@media (pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px) {
+  :root { --strip-t: calc(36px + var(--sa-t, 0px)); }
+  #hp-bar {
+    left: calc(6px + var(--sa-l, 0px)); top: calc(6px + var(--sa-t, 0px)); bottom: auto; transform: none;
+    width: var(--strip-w, 240px); height: 26px;
+  }
+  #hp-orb { display: none; }
+}

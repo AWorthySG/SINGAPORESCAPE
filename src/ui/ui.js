@@ -90,6 +90,7 @@ import { QuickSlot, interactCaption, trackerHTML, TRACKER_ROWS, TRACKER_ROWS_PHO
 import { QuickBar } from './quickbar.js';
 import { CmdSearch } from './cmdsearch.js';
 import { addCollectionButton } from './collectionui.js';
+import { renderHpBar } from './hpbar.js';
 import { TIPS, TIPS_KEY, TIP_MS, nextTip, markTipSeen, tipsSeen } from './tips.js';
 import { labelMode, nextLabelMode, LABEL_MODE_NAMES } from '../render/worldlabels.js';
 import { applyAccessibility, countUp, playCloseGhost, inlineIcon } from './uifx.js';
@@ -3394,6 +3395,7 @@ export class UI {
     // sticker colour so it stays readable on the white disc at any level.
     this.el.hpOrb.style.setProperty('--fill', Math.max(0, Math.min(1, frac)).toFixed(3));
     this.el.hpOrb.classList.toggle('low', frac <= 0.25 && this.game.player.alive);
+    renderHpBar(this, hp, max, this.game.player.alive);   // the HUD's life bar (hpbar.js)
   }
 
   renderRun() {

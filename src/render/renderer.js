@@ -49,6 +49,7 @@ import { dropArc, dropFx } from './combatfx.js';
 import { applySquash, splatMotion, drawCritBurst, drawMissPuff, drawLootGlow, drawCoinGlint } from './juice.js';
 import { drawGrave } from './grave.js';
 import { drawFishSchool } from './fishschoolfx.js';
+import { playerBarVisible, drawPlayerHp } from './playerhp.js';
 
 // Gathering actions that show a progress ring over the node, and its colour.
 const GATHER_RING = { woodcut: '#4fa04f', mine: '#8a8fa0', fish: '#3a8fd8', hunt: '#d08a3a' };
@@ -1927,7 +1928,9 @@ export class Renderer {
     if (game.player.alive) {
       const c = game.player.renderCenter();
       const px = c.x - ox, py = c.y - oy;
-      if (game.player.target) this._healthBar(px, py - 47, game.player.hp / game.maxHp());
+      // Your own bar, in a fight or while hurt (not only with a target), with
+      // a drain trail on each loss (playerhp.js).
+      if (playerBarVisible(game)) drawPlayerHp(ctx, px, py - 48, game.player.hp / game.maxHp(), this._hpTrail || (this._hpTrail = {}), this._now || 0, game.colourBlind);
       if (status) {
         ctx.font = '900 10px Nunito,"Trebuchet MS",sans-serif'; ctx.textAlign = 'center';
         const tw = ctx.measureText(status[0]).width + 10;
