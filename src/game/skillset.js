@@ -2,6 +2,9 @@ import { SKILL_IDS, SKILL_BY_ID, startLevel } from '../data/skills.js';
 import { levelForXp, xpForLevel, maxLevelFor, maxXpFor, pastCapXpMult } from '../data/xp.js';
 import { XP_RATE, LIFE_XP_BOOST } from '../config.js';
 
+/** An XP amount as a chat line prints it: whole, with thousands commas. */
+export const xpText = (n) => Math.round(n).toLocaleString('en-GB');
+
 // Tracks XP per skill and derives levels. Emits 'xp' and 'levelup' on the bus.
 export class Skills {
   constructor(bus) {
@@ -44,17 +47,32 @@ export class Skills {
     return SKILL_BY_ID[id]?.group !== 'combat' && id !== 'agility' ? pastCapXpMult(this.level(id)) * LIFE_XP_BOOST : 1;
   }
 
-  /** Add experience; fires events; returns number of levels gained. */
+  /** What `amount` of XP, as the game's data lists it, is worth in `id` at your
+   *  level: times the XP rate and the life-skill boost (lifeXpMult). addXp adds
+   *  this times the bonus of the moment (timeMult). A text that shows a reward
+   *  before it is earned uses this (the passing bonuses come on top, as in the
+   *  skill guide); one that reports a gain prints what addXp returns. Either
+   *  way the number can't drift from the XP really added. */
+  xpAtLevel(id, amount) {
+    if (id === 'strength') id = 'attack';
+    if (!(id in this.xp)) return 0;   // as addXp: no such skill, nothing gained
+    return amount * XP_RATE * this.lifeXpMult(id);
+  }
+
+  /** Add experience; fires events; returns the XP really added (after the
+   *  rates, and only what fits under the cap), for a line that names the gain.
+   *  (The 'xp' event keeps the whole amount: pets roll on it, at the cap too.) */
   addXp(id, amount) {
     if (id === 'strength') id = 'attack';
     if (!(id in this.xp) || amount <= 0) return 0;
-    amount *= XP_RATE;
     const before = this.level(id);
-    amount *= this.lifeXpMult(id);
     // Golden hours (skillhours.js): the game sets timeMult, so each life skill
     // earns more at its own time of day. Absent (tests, headless helpers), it's 1.
-    amount *= this.timeMult ? this.timeMult(id) : 1;
-    this.xp[id] = Math.min(maxXpFor(id), this.xp[id] + amount);
+    // Only a real gain asks for it: asking counts as earning XP this tick, which
+    // spends rested time (playbalance.js xpMult).
+    amount = this.xpAtLevel(id, amount) * (this.timeMult ? this.timeMult(id) : 1);
+    const x0 = this.xp[id];
+    this.xp[id] = Math.min(maxXpFor(id), x0 + amount);
     if (id === 'attack' && 'strength' in this.xp) this.xp.strength = this.xp.attack;
     const after = this.level(id);
     const h = this._held;
@@ -65,7 +83,7 @@ export class Skills {
         this.bus.emit('levelup', { skill: id, level: lvl });
       }
     }
-    return after - before;
+    return Math.max(0, this.xp[id] - x0);
   }
 
   /** An instant batch holds the 'xp' event: thousands of gains in one tick would

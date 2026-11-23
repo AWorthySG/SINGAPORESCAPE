@@ -4026,7 +4026,7 @@ export class UI {
         for (const rawId of raws) {
           const cook = COOKING[rawId];
           grid.appendChild(this._cell(rawId, this.game.inventory.count(rawId), {
-            tooltip: `<b>${getItem(cook.result).name}</b><br>Cooking lvl ${cook.level}, ${cook.xp} xp`,
+            tooltip: `<b>${getItem(cook.result).name}</b><br>Cooking lvl ${cook.level}, ${formatNumber(Math.round(this.game.skills.xpAtLevel('cooking', cook.xp)))} xp`,
             onClick: () => { this.game.startCooking(obj, rawId); this.closeModal(); },
           }));
         }

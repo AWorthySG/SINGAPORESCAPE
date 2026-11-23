@@ -26,6 +26,7 @@ import { GEM_TABLE } from './skilling.js';
 import { mulberry32 } from './pets.js';
 import { seeded, prevDayKey } from './bounty.js';
 import { ZoneWatch } from './resourcezones.js';
+import { xpText } from './skillset.js';
 
 // A switch for the test suite (tests/seed.mjs turns it off, so tests that pin
 // exact XP or bag contents aren't moved by a streak or a lucky find).
@@ -180,14 +181,15 @@ export class Gathering {
     const xp = Math.round(nodeXp(def, g.skills.level(skill)) * 5);
     g.inventory.add('coins', coins);
     if (item) g.inventory.add(item, qty);
-    if (xp > 0) g.skills.addXp(skill, xp);
-    const what = `${coins} coins${item ? `, ${qty > 1 ? qty + ' x ' : ''}${getItem(item).name}` : ''} and ${xp} bonus ${skillName(skill)} XP`;
+    // The XP as it really lands (the rates, golden hours, this streak), not the listed amount.
+    const got = xp > 0 ? g.skills.addXp(skill, xp) : 0;
+    const what = `${coins} coins${item ? `, ${qty > 1 ? qty + ' x ' : ''}${getItem(item).name}` : ''} and ${xpText(got)} bonus ${skillName(skill)} XP`;
     g.msg(`Lucky find! Tucked away by the ${def.name.toLowerCase()} you find ${what}.`, 'level');
     g.banner?.(`<span class="big">Lucky find!</span>${what}`);
     g.spawnSparkle?.(g.player, '#ffd24a', 18);
     g.bus.emit('sfx', 'dropepic');
     this.finds = (this.finds || 0) + 1;
-    return { coins, item, qty, xp };
+    return { coins, item, qty, xp: got };
   }
 
   // ---------------- Daily contracts ----------------
@@ -222,9 +224,9 @@ export class Gathering {
     const mult = contractStreakMult(c.streak);
     const coins = Math.round(k.coins * mult);
     g.inventory.add('coins', coins);
-    g.skills.addXp(k.skill, k.xp);
-    g.msg(`Skilling contract done: ${k.need} at ${k.name.toLowerCase()}s! +${coins} coins and ${k.xp} ${skillName(k.skill)} XP.`, 'level');
-    g.banner?.(`<span class="big">Contract complete!</span>+${coins} coins · +${k.xp} ${skillName(k.skill)} XP`);
+    const xp = xpText(g.skills.addXp(k.skill, k.xp));   // k.xp is listed XP: say what really landed
+    g.msg(`Skilling contract done: ${k.need} at ${k.name.toLowerCase()}s! +${coins} coins and ${xp} ${skillName(k.skill)} XP.`, 'level');
+    g.banner?.(`<span class="big">Contract complete!</span>+${coins} coins · +${xp} ${skillName(k.skill)} XP`);
     g.spawnSparkle?.(g.player, '#ffd24a', 14);
     if (c.list.length && c.list.every((x) => x.done)) {
       // A full board: a bonus, and a streak if yesterday's was full too.
