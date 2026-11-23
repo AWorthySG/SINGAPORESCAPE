@@ -22,7 +22,7 @@ import { chebyshev } from '../core/utils.js';
 import { TILE } from '../config.js';
 import { mulberry32 } from './pets.js';
 import { toolBonus } from './tools.js';
-import { schoolJackpot, SEAM_MULT } from './jackpot.js';
+import { schoolJackpot, SEAM_MULT, tallyWhole } from './jackpot.js';
 import { towardTop } from '../data/xp.js';
 
 // A switch for the test suite (tests/seed.mjs turns it off, so tests that pin
@@ -203,6 +203,7 @@ export class FishSchools {
     const n = Math.min(want, g.inventory.canAdd(fishId, want));
     if (n <= 0) return 0;
     g.inventory.add(fishId, n);
+    tallyWhole(fishId, n);   // never copied by an unlock double (skillunlocks.js)
     const xpEach = (obj.def.catches.find((c) => c.id === fishId)?.xp || 0) * xpMult;
     g.skills.addXp('fishing', xpEach * n);
     this.netted++;
