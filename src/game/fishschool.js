@@ -51,6 +51,7 @@ export const SCHOOL_HAUL_MAX = SCHOOL_HAUL[1] + SCHOOL_LEVEL_TOP + SCHOOL_SCALE;
 // gathering skills.
 export const WILD_STOCK = [1, 14];
 export const SCHOOL_AUTO = 10;          // auto gather moves to a school this close at a spot of the same kind
+export const SCHOOL_SAME_KIND = 0.6;    // fishing already: this share of schools come to your kind of spot
 const RETRY = 50;                       // no spot nearby: look again in 30 seconds
 
 const fishName = (id) => getItem(id).name.replace(/^Raw /, '').toLowerCase();
@@ -64,6 +65,9 @@ export function haulBonus(lvl, tb) {
     + Math.floor((SCHOOL_LEVEL_TOP - 2 * SCHOOL_SCALE) * towardTop(L, 2 * SCHOOL_LEVEL_STEP))
     + ((tb?.speed || 0) >= SCHOOL_TOOL_SPEED ? SCHOOL_SCALE : 0);
 }
+/** How many fish a passing school rolled at `rolled` (SCHOOL_HAUL) holds for
+ *  that player: grown by haulBonus, up to SCHOOL_HAUL_MAX. */
+export const passingSchoolSize = (rolled, lvl, tb) => Math.min(SCHOOL_HAUL_MAX, rolled + haulBonus(lvl, tb));
 
 export class FishSchools {
   constructor(game) {
@@ -119,7 +123,7 @@ export class FishSchools {
       if (!spots.length) return null;
       // Fishing already? Most schools come to your kind of spot, so they're worth the walk.
       const a = g.player.action;
-      if (a?.type === 'fish' && a.obj && this.rand() < 0.6) {
+      if (a?.type === 'fish' && a.obj && this.rand() < SCHOOL_SAME_KIND) {
         const same = spots.filter((o) => o.objId === a.obj.objId);
         if (same.length) spots = same;
       }
@@ -194,7 +198,7 @@ export class FishSchools {
   _net(obj, fishId, size, xpMult, tb, wild) {
     const g = this.game;
     // (A passing school grows with your level and tool; one at any spot is its own size.)
-    const want = wild ? size : Math.min(SCHOOL_HAUL_MAX, size + haulBonus(g.skills.level('fishing'), tb));
+    const want = wild ? size : passingSchoolSize(size, g.skills.level('fishing'), tb);
     // A full bag takes what fits; with no room at all, a passing school stays for later.
     const n = Math.min(want, g.inventory.canAdd(fishId, want));
     if (n <= 0) return 0;

@@ -165,6 +165,7 @@ test('wear it: loot that beats your gear gets one note, and its button wears it'
   assert.equal(pushed.length, 1, 'one note');
   assert.match(pushed[0].html, /Iron dagger/);
   assert.match(pushed[0].html, /data-act="wearbest"/);
+  assert.equal(pushed[0].tag, 'wear', 'tagged, so Equip best can put it away');
   g.bus.emit('inventory');
   await wait(5);
   assert.equal(pushed.length, 1, 'never twice for the same piece');

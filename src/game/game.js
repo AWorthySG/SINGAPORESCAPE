@@ -4,6 +4,7 @@ import { goldenMult, goldenSkills, GOLDEN_HOUR_XP, SKILL_HOURS } from '../data/s
 import { buildWorld, TERRAIN, zoneLevel } from '../data/world.js';
 import { compareGear, deltaText, gearRating, effectiveRating, offenceFirstScore, weaponStyle, reqLevel } from './gear.js';
 import { planCarry, applyCarry, carryMessages, scoreAfterCarry } from './carry.js';
+import { pickGain, wornSnapshot, wornChanges } from './bestpick.js';   // Equip best's rule, shared with every "upgrade" signal
 import { RARITY, dropRarity, lootDelay, rollQuality, QUALITY, NORMAL_GEAR_SKIP, qualityName } from './loot.js';
 import { dayKey, prevDayKey, makeBounties, streakMult } from './bounty.js';
 import { ATTRS, ATTR_NAMES, statPointsAt, attrForMode, DMG_PER_POINT, LIFE_PER_STR, CRIT_PER_INT, SPEED_PER_DEX, RESET_COST_PER_POINT } from './attributes.js';
@@ -92,6 +93,7 @@ import { Gathering } from './gathering.js';   // gathering streaks, lucky finds,
 import { FishSchools } from './fishschool.js';   // schools of fish visiting the spots
 import { bossToolDrop } from './bosstools.js';   // world bosses drop gathering tools of their level
 import { levelHaul } from './levelhaul.js';   // a bigger haul as your gathering level rises
+import { recordHarvest } from './jackpot.js';   // now and then a record harvest
 import { tickWarmth, warmthBonus } from './bonfire.js';   // bonfires and their warmth
 import { bestGatherNode, bestGatherPick, topGatherSource, gatherLevel, safeRouteCfg, safeToGather, specialNode } from './whatnext.js';   // auto gather's "the best you can" (Life skills)
 import { Teleports } from './teleports.js';   // the Town and Grave teleports
@@ -422,6 +424,13 @@ const MAKE_FAST = new Set(['cook', 'cookdish', 'smith', 'craft', 'recipe']);
 // One item of each instant make (makeBatch in autoprocess.js runs the batch).
 const MAKE_RESOLVE = { cook: resolveCook, cookdish: resolveDish, smith: resolveSmith, craft: resolveCraft, recipe: resolveRecipe };
 const GATHER_FAST = new Set(['woodcut', 'mine', 'fish', 'hunt', ...MAKE_FAST]);
+// Thieving's numbers (Game.pickpocket, Game.stealFromStall), shared with the
+// skill guide's XP an hour (xprate.js) so the two can't drift apart.
+/** XP an ordinary pocket pays: it grows with level only up to 99 (past that the life-skill rate in addXp takes over). */
+export const pickpocketXp = (lvl) => 8 + Math.min(lvl, 99);
+/** A theft's chance at a stall: a half at its level (or the stall's own `sure`), more with each level over, at most 95%. */
+export const stallChance = (def, lvl) => Math.min(0.95, (def.sure || 0.5) + (lvl - (def.level || 1)) * 0.012);
+export const STALL_STUN_TICKS = 3;   // caught at a stall: stunned this long
 // Ticks you get to answer a Knowledge Strike before the boss's special lands (~7s).
 const KS_TICKS = 12;
 
@@ -4366,7 +4375,7 @@ export class Game {
       this.inventory.add('coins', coins);
       // XP grows with level only up to 99; past that the life-skill rate in
       // addXp takes over (it used to keep growing, on top of the steeper curve).
-      this.skills.addXp('thieving', 8 + Math.min(lvl, 99));
+      this.skills.addXp('thieving', pickpocketXp(lvl));
       this.addEvil(1); // theft tips you toward evil
       this.spawnSparkle(this.player, '#ffe24a', 6);
       this.msg(`You pick the ${npc.name}'s pocket and steal ${coins} coins.`, 'system');
@@ -4473,7 +4482,7 @@ export class Game {
     // Success scales with level over the stall's requirement, from a half at
     // that level (or the stall's own `sure`: the endgame chests are surer, so
     // a new tier doesn't start far behind the one before it).
-    const chance = Math.min(0.95, (d.sure || 0.5) + (lvl - (d.level || 1)) * 0.012);
+    const chance = stallChance(d, lvl);
     if (Math.random() < chance) {
       const pick = weightedPick(d.loot);
       const qty = pick.min ? randInt(pick.min, pick.max) : 1;
@@ -4489,7 +4498,7 @@ export class Game {
     } else {
       const dmg = randInt(1, 3);
       this.player.takeDamage(dmg); this.addHitsplat(this.player, dmg); this.bus.emit('hp');
-      this.playerStun = 3;
+      this.playerStun = STALL_STUN_TICKS;
       this.msg(`You're caught stealing from the ${d.name} and are stunned!`, 'combat');
       if (this.player.hp <= 0) this.playerDeath();
     }
@@ -6222,49 +6231,17 @@ export class Game {
    *  a dual-wield off-hand. Returns how many pieces were changed. */
   equipBest() {
     let changed = 0;
+    const before = wornSnapshot(this.equipment);   // what changed is told to the UI at the end
     // Scores include each piece's mastery and enchant lines and count only the
     // stats your fighting style uses, so a Legendary iron sword can beat a plain mithril one.
     const mode = this.combatMode();
-    // Offensive stats first: damage decides, Defence and HP only break a tie.
-    // Each copy is weighed with its own quality (`q`), the worn piece with its own.
-    const score = (id, q = null) => offenceFirstScore(id, this.equipment, mode, 'main', q);
     for (let guard = 0; guard < 30; guard++) {
       let best = null;
+      // Each copy's test lives in bestpick.js (pickGain), so the green arrow,
+      // the bar's count and the "Wear it" note ask the very same question.
       this.inventory.slots.forEach((s, i) => {
-        if (!s || !this._canEquipNow(s.id)) return;
-        const eq = getItem(s.id).equip;
-        // Dual wielders keep their off-hand for a second weapon, not a shield.
-        if (eq.slot === 'shield' && canDualWield(this.equipment.get('weapon'))) return;
-        // ...and a two-handed weapon leaves no hand for a shield at all (a bow still takes a quiver).
-        if (eq.slot === 'shield' && offhandBlocked(this.equipment.get('weapon'), s.id)) return;
-        const worn = this.equipment.get(eq.slot);
-        // Keep to the weapon style you fight with (a staff won't replace a sword).
-        if (eq.slot === 'weapon' && worn && weaponStyle(s.id) !== weaponStyle(worn)) return;
-        // Keep to the weapon type in hand: ratings can't compare a main and a secondary type fairly.
-        // (A tool in hand, such as an axe, has no type and is always swapped for a weapon.)
-        const wornType = worn && getItem(worn).equip.weaponType;
-        if (eq.slot === 'weapon' && wornType && this.jobClass && getItem(s.id).equip.weaponType !== wornType) return;
-        // Refine and enchantments carry over to a better piece (carry.js), and
-        // mastery belongs to the gear type, so a higher tier of the same line
-        // (the same weapon type, or the same armour family) goes on first, the
-        // highest tier first, as long as it is at least as strong as the worn
-        // piece once the carry is done (a plain higher tier won't replace a
-        // Mythic copy that is still stronger). Anything else is weighed as it
-        // will be worn, after the carry, and must be stronger.
-        const wornQ = worn ? this.equipment.qualityIn(eq.slot) : null;
-        const after = () => (worn ? scoreAfterCarry(this.equipment, s.id, eq.slot, (id) => score(id, s.q || null), s.q || null) : score(s.id, s.q || null)) - (worn ? score(worn, wornQ) : 0);
-        const sameLine = worn && (eq.slot === 'weapon' ? !!wornType : !!eq.family && eq.family === getItem(worn).equip.family);
-        if (sameLine) {
-          const base = gearRating(s.id), wornBase = gearRating(worn);
-          if (base > wornBase) {
-            if (after() < 0) return;
-            const rank = 1e15 + base;
-            if (!best || rank > best.gain) best = { i, gain: rank };
-            return;
-          }
-        }
-        const gain = after();
-        if (gain > 0 && (!best || gain > best.gain)) best = { i, gain };
+        const p = pickGain(this, s, mode);
+        if (p && p.rank > 0 && (!best || p.rank > best.gain)) best = { i, gain: p.rank };
       });
       if (!best) break;
       this.equipItem(best.i);
@@ -6284,6 +6261,8 @@ export class Game {
     }
     // Guns: load the strongest rounds in the pack (rounds.js).
     if (Rounds.isGunId(this.equipment.get('weapon')) && Rounds.loadBestRounds(this)) changed++;
+    // What went on, for the note on screen (whatnextui.js): the chat line below is out of sight on a phone.
+    this.bus.emit('equipBest', wornChanges(before, wornSnapshot(this.equipment)));
     this.msg(changed ? `Best in slot: you put on ${changed} better piece${changed > 1 ? 's' : ''} of gear.` : 'You are already wearing your best gear.', changed ? 'level' : 'system');
     return changed;
   }
@@ -6355,8 +6334,9 @@ export class Game {
     // An off-hand weapon is weighed against the one already in the off-hand (each
     // hand hits with its own weapon's stats), not against a shield.
     const q = s.q || null;   // this copy's quality goes on with it
-    const cmp = !offhand ? compareGear(s.id, this.equipment, null, q)
-      : canDualPair(this.equipment.get('shield'), main) ? compareGear(s.id, this.equipment, 'shield', q) : null;
+    const mode = this.combatMode();   // weighed by Equip best's rule, as the tooltip and the arrow are
+    const cmp = !offhand ? compareGear(s.id, this.equipment, null, q, mode)
+      : canDualPair(this.equipment.get('shield'), main) ? compareGear(s.id, this.equipment, 'shield', q, mode) : null;
     // A better piece takes over the old one's refine and enchantments (carry.js),
     // worked out before the swap while the old piece is still the one worn.
     const carry = planCarry(this.equipment, s.id, slot, q);
@@ -6366,8 +6346,10 @@ export class Game {
     if (prev) this.inventory.add(prev, 1, prevQ);
     if (carry) applyCarry(this.equipment, carry);
     // Say plainly whether that was a step up, so players learn which gear is better.
+    // (Not when ★ or lines came across: the carry lines below say what happened,
+    // and the bare piece's numbers called a better sword a "Downgrade".)
     const verdict = () => {
-      if (cmp && prev && cmp.verdict !== 'same' && cmp.verdict !== 'worn' && cmp.deltas.length) {
+      if (cmp && prev && !carry && cmp.verdict !== 'same' && cmp.verdict !== 'worn' && cmp.deltas.length) {
         const head = { upgrade: 'Upgrade!', downgrade: 'Downgrade:', style: 'New style:' }[cmp.verdict];
         this.msg(`${head} ${deltaText(cmp.deltas)} vs your ${offhand ? 'off-hand ' : ''}${getItem(prev).name.toLowerCase()}.`, cmp.verdict === 'upgrade' ? 'level' : 'system');
       }
@@ -6789,13 +6771,15 @@ export class Game {
     const lvl = this.skills.level('farming');
     // Green fingers: higher levels coax a little more from each patch (50% at
     // the crop's level + 50, then on to 75% at level 9999: trades.js).
-    const n = randInt(c.yield[0], c.yield[1]) + (Math.random() < greenFingersChance(lvl, c.level) ? 1 : 0) + extraCrop(this);
+    const rolled = randInt(c.yield[0], c.yield[1]);
+    const n = rolled + (Math.random() < greenFingersChance(lvl, c.level) ? 1 : 0) + extraCrop(this);
     if (this.inventory.canAdd(c.id, n) <= 0) { this.msg('Your inventory is too full to harvest.'); return false; }
     this.inventory.add(c.id, n);
     this.skills.addXp('farming', c.harvestXp * n);
     obj.crop = null; obj.growLeft = 0;
     this.spawnSparkle({ x: obj.x, y: obj.y }, c.color, 10);
     this.msg(`You harvest ${n} ${c.name.toLowerCase()}.`);
+    recordHarvest(this, obj, c, rolled);   // now and then the patch gives its yield many times over (jackpot.js)
     if (Math.random() < 0.25) { this.inventory.add(c.seed, 1); this.msg(`You save ${aOrAn(c.name.toLowerCase())} seed for next time.`); }
     this.bus.emit('sfx', 'pickup');
     return true;

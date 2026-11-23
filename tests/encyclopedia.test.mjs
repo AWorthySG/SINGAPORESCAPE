@@ -21,6 +21,8 @@ import { regionList, regionInfo } from '../src/game/regioninfo.js';
 import { regionPageHTML, regionListHTML } from '../src/ui/regionui.js';
 import { addRep } from '../src/game/reputation.js';
 import { TRAIN_SKILLS, trainingFor, xpPerHour, ACTIONS_PER_HOUR, preyFor, myWeaponType, gearUpgrades } from '../src/game/foryou.js';
+import { xpRate } from '../src/game/xprate.js';
+import { gatherSources } from '../src/game/skillguide.js';
 import { forYouHTML } from '../src/ui/foryouui.js';
 import { getNpc, ALL_MONSTER_IDS, ALL_BOSS_IDS } from '../src/data/npcs.js';
 import { REGION_FLAVOUR, CREATURE_FLAVOUR, creatureFlavour } from '../src/data/flavour.js';
@@ -302,22 +304,31 @@ test('the Compendium covers the newer systems, and each boss mechanic has its ow
 });
 
 // ---------------- For you ----------------
-test('For you suggests a training spot for each life skill at your level, with a rough XP an hour', () => {
+test('For you suggests a training spot for each life skill at your level, with its XP an hour', () => {
   const g = newGame();
   for (const skill of TRAIN_SKILLS) {
     const [s] = trainingFor(g, skill, 1);
     assert.ok(s, `${skill} has somewhere to train at level 1`);
     assert.ok(s.level <= g.skills.level(skill), `${skill}: nothing above your level`);
-    assert.equal(s.xph, xpPerHour(g, skill, s.xp));
+    // A node's hour is the skill guide's (xprate.js); a recipe's the rough "up to".
+    const src = gatherSources().find((x) => x.skill === skill && x.level === s.level && x.name === s.name.replace(/ \(.*\)$/, ''));
+    if (s.rough) assert.equal(s.xph, xpPerHour(g, skill, s.xp), `${skill}: a rough figure`);
+    else assert.equal(s.xph, Math.round(xpRate(g, src).perHour), `${skill}: the guide's figure`);
     assert.ok(s.xph > 0);
   }
-  // XP an hour follows the game's pace: XP_RATE, the life skill boost and one action a tick (sped up).
+  assert.equal(trainingFor(g, 'woodcutting', 1)[0].rough, false, 'a tree: the guide\'s figure');
+  assert.equal(trainingFor(g, 'smithing', 1)[0].rough, true, 'a recipe: rough');
+  // The rough figure follows the game's pace: XP_RATE, the life skill boost and one action a tick (sped up).
   assert.equal(xpPerHour(g, 'mining', 10), Math.round(10 * XP_RATE * g.skills.lifeXpMult('mining') * ACTIONS_PER_HOUR));
   // A higher level unlocks better spots.
   const low = trainingFor(g, 'mining', 1)[0];
   g.skills.xp.mining = xpForLevel(60);
   const high = trainingFor(g, 'mining', 1)[0];
-  assert.ok(high.xp >= low.xp && high.level >= low.level);
+  assert.ok(high.xph > low.xph && high.level >= low.level);
+  // Its line says which kind of figure it is.
+  const html = forYouHTML(g);
+  assert.match(html, /≈ [\d.,]+[KMB]? xp\/h/);
+  assert.match(html, /up to ~[\d.,]+[KMB]? xp\/h/);
 });
 
 test('For you finds prey your weapon is strong against near your level, and gear upgrades you can get', () => {

@@ -37,7 +37,8 @@ export const STREAK_TIERS = 5;          // at most five steps...
 export const STREAK_XP_STEP = 0.02;     // ...of +2% XP each (+10% in all)
 export const STREAK_GAP_TICKS = 50;     // 30s without a catch ends it (time to walk to the next tree)
 export const LUCKY_RATE = 300;          // 1 in this many gathers is a lucky find...
-export const LUCKY_STREAK_BONUS = 0.2;  // ...+20% likelier per streak step
+export const LUCKY_STREAK_BONUS = 0.2;  // ...+20% likelier per streak step...
+export const LUCKY_XP_MULT = 5;         // ...and its burst of XP is this many gathers' worth
 export const CONTRACT_COUNT = 3;
 export const CONTRACT_STREAK_STEP = 0.1;   // each full day in a row: +10% contract pay, up to +100%
 
@@ -178,7 +179,7 @@ export class Gathering {
       item = GEM_TABLE.find((e) => (r -= e.weight) < 0)?.id || GEM_TABLE[0].id;
     } else if (skill === 'fishing') item = 'pearl';
     else if (skill === 'hunter') { item = 'feather'; qty = 10 + Math.floor(this.rand() * 21); }
-    const xp = Math.round(nodeXp(def, g.skills.level(skill)) * 5);
+    const xp = Math.round(nodeXp(def, g.skills.level(skill)) * LUCKY_XP_MULT);
     g.inventory.add('coins', coins);
     if (item) g.inventory.add(item, qty);
     // The XP as it really lands (the rates, golden hours, this streak), not the listed amount.

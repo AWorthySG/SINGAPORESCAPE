@@ -4173,12 +4173,16 @@ input[type="range"]:focus-visible { outline: 3px solid var(--aw-sun); outline-of
    label names the area. */
 #region-label:not(.fresh) { opacity: 0; pointer-events: none; }
 
-/* Skill guides: the XP each log, fish, ore or make really gives, as a badge. */
-.sgx-xp {
+/* Skill guides: the XP each log, fish, ore or make really gives, as a badge.
+   (Under .sg-text, so its colour beats .sg-text span's grey.) */
+.sg-text .sgx-xp {
   display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; vertical-align: 1px;
   background: #e6f5dc; color: #2f6a1f; border: 1.5px solid #22304A; font-size: 11.5px; font-weight: 800; white-space: nowrap;
 }
 .sgx-row.locked .sgx-xp { opacity: .75; }
+/* ...and beside it, about what an hour there pays at your level (xprate.js), in blue. */
+.sg-text .sgx-xph { background: #e3eefb; color: #24508a; }
+.sgx-xph-note { margin: 2px 0 6px; font-size: 11.5px; }
 
 /* Gear Mastery on wider screens: a piece's four buttons in one row under it
    (they stood in a tall column, making each card twice the height). */
