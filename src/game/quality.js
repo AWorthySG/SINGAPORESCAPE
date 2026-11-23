@@ -26,7 +26,7 @@ export function assignLegacyQuality(game) {
     // and put back with its quality.
     for (const store of [game.inventory, game.bank]) {
       if (!store || !best.length) continue;
-      const plain = store === game.inventory ? store.qualities(id).filter((q) => !q).length
+      const plain = store === game.inventory ? store.countQ(id, null)
         : store.items.filter((e) => e.id === id && !e.q).reduce((n, e) => n + e.qty, 0);
       const n = Math.min(plain, best.length);
       if (!n) continue;

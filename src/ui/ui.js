@@ -1290,7 +1290,8 @@ export class UI {
     if ((isSalvageable(s.id) || goodsKind(s.id) || materialKind(s.id)) && nearOfferingShrine(this.game)) {
       opts.push({ label: 'Offer at shrine', target: item.name, fn: () => this.openOfferingShrine(s.id) });
     }
-    opts.push({ label: 'Drop', target: item.name, fn: () => this.game.dropItem(i) });
+    opts.push({ label: 'Drop', target: item.name, fn: () => this.game.dropItem(i, (n) => typeof confirm !== 'function'
+      || confirm(`Drop all ${n.toLocaleString()} ${item.name}? Things left on the ground vanish after about 3 minutes.`)) });
     opts.push({ label: 'Info', target: item.name, fn: () => openEntry(this, 'item', s.id) });   // its encyclopedia page
     opts.push({ label: 'Examine', target: item.name, fn: () => this.game.msg(item.examine, 'system') });
     return opts;

@@ -396,6 +396,8 @@ export const AGILITY_SLOWDOWN = 16;
 export const AGILITY_XP_MULT = 5 / AGILITY_SLOWDOWN;
 export const AGILITY_XP_DIV = 10;
 export const AGILITY_XP_LEVEL_CAP = 99;
+// Dropping more than this many of one thing asks first (see dropItem).
+export const DROP_ASK_OVER = 999;
 // A Mark of grace trades for this many zip-line crossings' worth of Agility XP,
 // at the zip-line's listed XP: a fixed amount, not scaled to your level (it used
 // to scale, which roughly doubled course XP).
@@ -6553,10 +6555,14 @@ export class Game {
     this.msg(`You remove the ${getItem(id).name.toLowerCase()}.`);
   }
 
-  dropItem(index) {
+  // Drop lets go of the whole stack, and a stack can now be millions (a slot
+  // held 999 at most before): past that many, `ask(qty)` (the bag menu's
+  // confirm) is asked first, and a no keeps it in the bag.
+  dropItem(index, ask = null) {
     const s = this.inventory.slotAt(index);
     if (!s) return;
     const { id, qty } = s;
+    if (qty > DROP_ASK_OVER && ask && !ask(qty)) return;
     this.inventory.removeAt(index, qty);
     const gi = this.world.addGroundItem(id, qty, this.player.x, this.player.y);
     if (s.q) gi.q = s.q;   // the copy keeps its quality on the ground
@@ -7533,7 +7539,7 @@ export class Game {
   // Gear copies keep their quality both ways: `q` (null for plain) picks the
   // copies of one quality, and without it the plainest go first.
   deposit(itemId, qty, q) {
-    const have = q === undefined ? this.inventory.count(itemId) : this.inventory.qualities(itemId).filter((x) => x === q).length;
+    const have = q === undefined ? this.inventory.count(itemId) : this.inventory.countQ(itemId, q);
     const amount = Math.min(qty, have);
     if (amount <= 0) return;
     for (const p of this.inventory.take(itemId, amount, q)) this.bank.deposit(itemId, p.n, p.q);

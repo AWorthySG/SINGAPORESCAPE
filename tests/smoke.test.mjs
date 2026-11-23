@@ -89,6 +89,24 @@ test('every item stacks without limit in one slot (it was 999 a slot); old saves
   assert.deepEqual(old.slots.filter(Boolean), [{ id: 'logs', qty: 2500 }, { id: 'coins', qty: 7 },
     { id: 'bronze_sword', qty: 2, q: 'fine' }, { id: 'bronze_sword', qty: 2 }]);
   assert.equal(old.slots[0].qty, 2500, 'in the first slot it held');
+  assert.equal(old.slots[2], null, "the slots the joins empty go, the player's own gap stays");
+  assert.deepEqual(old.slots[3], { id: 'bronze_sword', qty: 2, q: 'fine' });
+  // A long old bag (3,000 slots of split stacks, a sword saved last) loads
+  // short: not 3,000 cells of mostly holes with the sword at the bottom.
+  const long = [];
+  for (let i = 0; i < 999; i++) long.push({ id: 'logs', qty: 999 }, { id: 'iron_ore', qty: 999 }, { id: 'bones', qty: 999 });
+  long.push({ id: 'bronze_sword', qty: 1 });
+  const big = new Inventory(new EventBus());
+  big.load(long);
+  assert.equal(big.count('logs'), 999 * 999);
+  assert.equal(big.count('bones'), 999 * 999);
+  assert.equal(big.size, 28, 'one slot a kind: back to the 28 slots of a fresh bag');
+  assert.deepEqual(big.slots.filter(Boolean).map((x) => x.id), ['logs', 'iron_ore', 'bones', 'bronze_sword']);
+  // Counting the copies of one quality goes by slot, however big the stack.
+  big.add('bronze_sword', 3, 'fine');
+  assert.equal(big.countQ('bronze_sword', null), 1);
+  assert.equal(big.countQ('bronze_sword', 'fine'), 3);
+  assert.equal(big.countQ('logs', null), 999 * 999);
 });
 
 test('the inventory is unlimited: it grows past 28 slots and always keeps a spare row', () => {
