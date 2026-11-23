@@ -3,9 +3,9 @@
    The chips are the skill guide's (.sgx-chip); only the extras live here. */
 .mq-wrap { margin: 8px 0 6px; }
 .mq-chips { align-items: center; margin: 0; }
-.mq-label { font-size: 12px; font-weight: 800; color: var(--aw-text-sec); margin-right: 2px; }
+.mq-label { font-size: var(--fs-sm); font-weight: 800; color: var(--aw-text-sec); margin-right: 2px; }
 .mq-chip { min-width: 34px; }
-.mq-ask { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 13px; font-weight: 700; color: var(--aw-text); }
+.mq-ask { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: var(--fs-sm); font-weight: 700; color: var(--aw-text); }
 .mq-ask input {
   width: 88px; margin-left: 4px; font: inherit; font-weight: 800; color: var(--aw-text); background: var(--aw-card);
   border: 2px solid var(--aw-ink); border-radius: 999px; padding: 3px 10px;
@@ -14,7 +14,7 @@
 .mq-ask .mq-ok { padding: 4px 14px; }
 /* The row's button: pushed to the right edge, never wrapping mid-label. */
 .mq-go {
-  margin-left: auto; flex: none; white-space: nowrap; font-size: 12px; font-weight: 800;
+  margin-left: auto; flex: none; white-space: nowrap; font-size: var(--fs-sm); font-weight: 800;
   color: var(--aw-ink); background: var(--aw-sun-bg); border: 2px solid var(--aw-ink); border-radius: 999px; padding: 2px 9px;
 }
 .mq-go.none { background: none; color: var(--aw-text-sec); border-color: transparent; font-weight: 700; }
@@ -22,5 +22,5 @@
 #tooltip .mq-go { display: inline-block; margin: 4px 0 0; }
 @media (pointer: coarse) and (hover: none) {
   .mq-chip { min-height: 34px; }
-  .mq-ask input { font-size: 16px; }   /* 16px stops iOS zooming into the box */
+  .mq-ask input { font-size: var(--fs-lg); }   /* 16px stops iOS zooming into the box */
 }

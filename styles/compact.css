@@ -50,7 +50,7 @@
   position: absolute; top: 3px; right: 3px; width: 18px; height: 16px; margin: 0;
   font-size: 0; justify-content: center;
 }
-#quest-tracker:not(.folded) .trk-chev { margin: 0; padding: 0; font-size: 11px; }
+#quest-tracker:not(.folded) .trk-chev { margin: 0; padding: 0; font-size: var(--fs-xs); }
 #quest-tracker .trk-row { line-height: 1.35; }
 
 /* Interact with nothing in reach has nothing to do: it waits out of sight. */
@@ -76,7 +76,7 @@
   }
   #auto-menu-btn {
     grid-area: auto; display: flex; align-items: center; gap: 5px; height: 24px; padding: 0 10px 0 7px;
-    pointer-events: auto; cursor: var(--cur-pointer); font-family: inherit; font-size: 11.5px; font-weight: 900;
+    pointer-events: auto; cursor: var(--cur-pointer); font-family: inherit; font-size: var(--fs-xs); font-weight: 900;
     background: var(--aw-card); color: var(--aw-text); border: 2px solid var(--aw-ink);
     border-radius: 999px; box-shadow: var(--shadow-sticker-sm);
   }
@@ -102,20 +102,20 @@
   #chatbox.quiet #chat-head, #chatbox.collapsed #chat-head { border-bottom: 0; }
   #chatbox.quiet #chat-peek, #chatbox.collapsed #chat-peek {
     display: block; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    font-size: 12px; font-weight: 700; letter-spacing: 0; color: var(--aw-text-sec);
+    font-size: var(--fs-sm); font-weight: 700; letter-spacing: 0; color: var(--aw-text-sec);
   }
 
   /* Interact: a size smaller (click and E / Space do the same). */
-  #interact-btn { width: 68px; height: 68px; font-size: 11px; }
+  #interact-btn { width: 68px; height: 68px; font-size: var(--fs-xs); }
 
   /* Side panel: a slimmer header and tab rail. */
-  #panel-head { padding: 4px 10px; font-size: 13px; }
+  #panel-head { padding: 4px 10px; font-size: var(--fs-sm); }
   :root { --rail-w: 52px; }
   .tab-btn { min-height: 40px; padding: 3px 1px; }
   .tab-btn img, .tab-btn svg { width: 24px !important; height: 24px !important; }
 
   /* Objectives: a lighter card. */
-  #quest-tracker { padding: 4px 8px; font-size: 11.5px; }
+  #quest-tracker { padding: 4px 8px; font-size: var(--fs-xs); }
 }
 
 /* ---------- Phone portrait ---------- */
@@ -123,7 +123,7 @@
   /* The minimap column packs tighter: a smaller caption close under the
      map, the orbs straight under it, the panel launcher under them. */
   #minimap-region {
-    margin-top: 2px; font-size: 10.5px; padding: 1px 8px; max-width: 128px;
+    margin-top: 2px; font-size: var(--fs-xs); padding: 1px 8px; max-width: 128px;
     overflow: hidden; text-overflow: ellipsis; box-sizing: border-box;
   }
   #spec-orb, #prayer-orb, #hp-orb { bottom: -58px; }
@@ -146,7 +146,7 @@
   #ability-buttons .ability-btn:nth-child(5) { --ax: -95px; --ay: -113px; --sk: 56px; }
   #ability-buttons .ability-btn .ab-icon img, #ability-buttons .ability-btn .ab-icon svg { width: 30px; height: 30px; }
   /* Objectives: smaller, tighter type. */
-  #quest-tracker { font-size: 10.5px; padding: 3px 7px; }
+  #quest-tracker { font-size: var(--fs-xs); padding: 3px 7px; }
   #quest-tracker .trk-row { line-height: 1.25; }
 }
 
@@ -156,7 +156,7 @@
   #quest-tracker.dozing .trk-row { display: none; }
   #quest-tracker.dozing:not(.folded) .trk-fold {
     display: flex; position: relative; top: auto; right: auto; width: auto; height: 28px; padding: 0 10px;
-    font-size: 11px; font-weight: 900; color: var(--aw-sun-deep); text-transform: none; letter-spacing: 0;
+    font-size: var(--fs-xs); font-weight: 900; color: var(--aw-sun-deep); text-transform: none; letter-spacing: 0;
   }
   #quest-tracker.dozing .trk-chev { font-size: 0; padding-left: 4px; }
   #quest-tracker.dozing .trk-chev::after { content: "\25B8"; font-size: 11px; }
@@ -168,7 +168,7 @@
    its line opens the waiting ones as a short list. A note is one line; a mouse
    resting on it shows the rest. */
 #notice-lane { gap: 3px; }
-#notice-lane .nl-card { padding: 3px 8px; font-size: 12px; line-height: 1.25; }
+#notice-lane .nl-card { padding: 3px 8px; font-size: var(--fs-sm); line-height: 1.25; }
 #notice-lane .nl-card:not(.nl-tip) .nl-text { -webkit-line-clamp: 1; line-clamp: 1; }
 #notice-lane .nl-card .lvl-news { display: inline; margin-left: 4px; }
 @media (hover: hover) {
@@ -176,14 +176,14 @@
 }
 #notice-lane .nl-more {
   flex: none; position: relative; align-self: center; margin: 0; padding: 0 7px; font: inherit;
-  font-size: 11px; font-weight: 900; line-height: 18px; color: var(--aw-white); background: var(--aw-ink);
+  font-size: var(--fs-xs); font-weight: 900; line-height: 18px; color: var(--aw-white); background: var(--aw-ink);
   border: 0; border-radius: 999px; cursor: var(--cur-pointer);
 }
 #notice-lane .nl-more::before { content: ""; position: absolute; inset: -12px -8px; }
 #notice-lane .nl-tip .nl-more { grid-column: 3; grid-row: 2; justify-self: center; }
 #notice-lane .nl-list { display: flex; flex-direction: column; gap: 3px; }
 #notice-lane .nl-mini {
-  border-left-width: 4px; padding: 2px 8px; font-size: 11.5px; box-shadow: none; animation: none;
+  border-left-width: 4px; padding: 2px 8px; font-size: var(--fs-xs); box-shadow: none; animation: none;
 }
 #notice-lane .nl-mini.nl-tip { display: flex; }
 
@@ -218,7 +218,7 @@
   width: auto; margin: 0; padding: 4px 10px; min-height: 30px; flex-direction: row; align-items: center;
   border-radius: var(--r-pill);
 }
-#skills-grid .skill-links .perks-open b { font-size: 12px; }
+#skills-grid .skill-links .perks-open b { font-size: var(--fs-sm); }
 @media (pointer: coarse) and (hover: none) { #skills-grid .skill-links .perks-open { min-height: 40px; } }
 
 /* Mouse screens: no Interact button (E or Space does it, and the hover text
@@ -238,7 +238,7 @@
 /* Objectives: past three rows (two on a phone) the rest wait behind "+N more". */
 #quest-tracker .trk-more {
   pointer-events: auto; cursor: var(--cur-pointer); position: relative; display: block;
-  margin: 2px 0 0 20px; padding: 0; background: none; border: 0; font: inherit; font-size: 10.5px; font-weight: 900;
+  margin: 2px 0 0 20px; padding: 0; background: none; border: 0; font: inherit; font-size: var(--fs-xs); font-weight: 900;
   color: var(--aw-accent);
 }
 #quest-tracker .trk-more::before { content: ""; position: absolute; inset: -8px -10px; }
@@ -260,7 +260,7 @@ body.boss-on #rep-pill { display: none; }
 #modal-body .item-grid.shop { row-gap: 18px; padding-bottom: 14px; }
 .item-cell .shop-price {
   position: absolute; left: 50%; top: calc(100% + 1px); transform: translateX(-50%); pointer-events: none;
-  font-size: 10.5px; font-weight: 900; line-height: 1.2; white-space: nowrap; color: var(--aw-sun-deep);
+  font-size: var(--fs-xs); font-weight: 900; line-height: 1.2; white-space: nowrap; color: var(--aw-sun-deep);
 }
 @media (min-width: 541px) {
   #modal-body .modal-cols.shop-cols.sell-small { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
@@ -308,7 +308,7 @@ body.boss-on #rep-pill { display: none; }
 #hp-bar.low .hpb-fill { background: var(--danger); }
 #hp-bar .hpb-ic, #hp-bar .hpb-num { position: relative; line-height: 1; color: var(--aw-ink); text-shadow: 0 0 2px var(--aw-white), 0 0 2px var(--aw-white), 0 0 3px var(--aw-white); }
 #hp-bar .hpb-ic { font-size: 13px; color: var(--aw-bloom-deep); }
-#hp-bar .hpb-num { font-size: 12.5px; font-weight: 900; letter-spacing: .01em; font-variant-numeric: tabular-nums; }
+#hp-bar .hpb-num { font-size: var(--fs-sm); font-weight: 900; letter-spacing: .01em; font-variant-numeric: tabular-nums; }
 /* Low: the same pulse the orb had; with colour-blind colours, a "!" too. */
 #hp-bar.low { animation: hpBarLow .9s ease-in-out infinite; }
 @keyframes hpBarLow {
@@ -359,7 +359,7 @@ body.cb-safe #hp-bar.low::after {
 #settings-panel .set-row.on .ab-switch { background: var(--aw-accent); }
 #settings-panel .set-row.on .ab-switch i { transform: translateX(14px); }
 #settings-panel .set-val {
-  flex: none; padding: 2px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 900;
+  flex: none; padding: 2px 10px; border-radius: 999px; font-size: var(--fs-xs); font-weight: 900;
   background: var(--aw-sun-bg); border: 1.5px solid var(--aw-ink);
 }
 /* Actions (Save, Export, Compendium...): smaller pills inside their card. */
@@ -404,8 +404,8 @@ body.cb-safe #hp-bar.low::after {
   .panel-view[data-view="equipment"] > :not(#equipment-layout):not(#equipment-bonuses) { grid-column: 1 / -1; }
   .panel-view[data-view="equipment"] #equipment-layout { grid-template-columns: repeat(3, 46px); gap: 5px; margin: 2px 0 8px; }
   .panel-view[data-view="equipment"] .equip-slot { width: 46px; height: 46px; }
-  .panel-view[data-view="equipment"] .equip-slot.empty { font-size: 9.5px; opacity: .7; }
-  .panel-view[data-view="equipment"] #equipment-bonuses { min-width: 0; margin: 2px 0 8px; padding: 6px 8px; font-size: 11.5px; line-height: 1.45; }
+  .panel-view[data-view="equipment"] .equip-slot.empty { font-size: var(--fs-cap); opacity: .7; }
+  .panel-view[data-view="equipment"] #equipment-bonuses { min-width: 0; margin: 2px 0 8px; padding: 6px 8px; font-size: var(--fs-xs); line-height: 1.45; }
 }
 
 /* ---------- Quick actions (src/ui/quickbar.js) ----------
@@ -428,11 +428,11 @@ body.cb-safe #hp-bar.low::after {
   }
   #quickbar.open .qb-pop .qb-btn, #quickbar.open .qb-pop .qb-edit, #quickbar.open .qb-pop #qb-life {
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-    width: 60px; height: 60px; margin: 0; padding: 4px 2px; opacity: 1; border-radius: 12px; font-size: 18px;
+    width: 60px; height: 60px; margin: 0; padding: 4px 2px; opacity: 1; border-radius: 12px; font-size: var(--fs-title);
   }
   #quickbar.open .qb-pop .qb-lbl {
     display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
-    max-width: 100%; font-size: 9.5px; font-weight: 800; line-height: 1.1; text-align: center; color: var(--aw-text);
+    max-width: 100%; font-size: var(--fs-cap); font-weight: 800; line-height: 1.1; text-align: center; color: var(--aw-text);
   }
   #quickbar.open .qb-pop .qb-slot.on .qb-lbl { color: var(--aw-white); }
   #quickbar.open .qb-pop .qb-edit::before { display: none; }
@@ -449,15 +449,15 @@ body.reduce-motion #quickbar.open .qb-pop { animation: none; }
    The search on its own full-width row; under it a Filters chip (the count
    of those set) beside the sort; the chip unfolds the rest. It opens on the
    creatures you have met, with a friendly word while there are none. */
-#modal-body .cx-search:not(.ency-search):not(.cp-search) { display: block; width: 100%; max-width: none; box-sizing: border-box; min-height: 40px; margin: 8px 0 6px; font-size: 15px; }
+#modal-body .cx-search:not(.ency-search):not(.cp-search) { display: block; width: 100%; max-width: none; box-sizing: border-box; min-height: 40px; margin: 8px 0 6px; font-size: var(--fs-lead); }
 .cx-tools { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; }
 .cx-filter-chip {
   display: inline-flex; align-items: center; gap: 5px; min-height: 32px; padding: 3px 12px; cursor: var(--cur-pointer);
-  font: inherit; font-size: 12px; font-weight: 900; color: var(--aw-text); background: var(--aw-card);
+  font: inherit; font-size: var(--fs-sm); font-weight: 900; color: var(--aw-text); background: var(--aw-card);
   border: 2px solid var(--aw-ink); border-radius: 999px; box-shadow: var(--shadow-btn);
 }
-.cx-filter-chip b { min-width: 16px; padding: 0 4px; border-radius: 999px; font-size: 10.5px; line-height: 16px; text-align: center; color: var(--aw-white); background: var(--aw-accent); }
-.cx-filter-chip i { font-style: normal; font-size: 10px; transition: transform .15s ease; }
+.cx-filter-chip b { min-width: 16px; padding: 0 4px; border-radius: 999px; font-size: var(--fs-xs); line-height: 16px; text-align: center; color: var(--aw-white); background: var(--aw-accent); }
+.cx-filter-chip i { font-style: normal; font-size: var(--fs-cap); transition: transform .15s ease; }
 .cx-filter-chip.open i { transform: rotate(180deg); }
 .cx-filter-chip.set { background: var(--aw-sun-bg); }
 .cx-tools .cx-select { margin-left: auto; }
@@ -467,8 +467,8 @@ body.reduce-motion #quickbar.open .qb-pop { animation: none; }
   display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 18px auto 10px; max-width: 340px; padding: 18px 16px;
   text-align: center; background: var(--paper); border: 2px dashed var(--aw-ink-faint); border-radius: var(--r-card);
 }
-.cx-empty b { font-size: 15px; font-weight: 900; }
-.cx-empty span { font-size: 12.5px; color: var(--aw-text-sec); line-height: 1.4; }
+.cx-empty b { font-size: var(--fs-lead); font-weight: 900; }
+.cx-empty span { font-size: var(--fs-sm); color: var(--aw-text-sec); line-height: 1.4; }
 .cx-empty .cx-show-unseen { margin-top: 4px; min-height: 34px; }
 @media (pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px) {
   .cx-filter-chip, .cx-empty .cx-show-unseen, .cx-tools .cx-select { min-height: 44px; }
@@ -502,7 +502,7 @@ body.reduce-motion #quickbar.open .qb-pop { animation: none; }
   background: linear-gradient(to bottom, transparent, var(--paper-deep) 40%);
 }
 .dlg-bye {
-  min-height: 32px; padding: 4px 16px; cursor: var(--cur-pointer); font: inherit; font-size: 12.5px; font-weight: 800;
+  min-height: 32px; padding: 4px 16px; cursor: var(--cur-pointer); font: inherit; font-size: var(--fs-sm); font-weight: 800;
   color: var(--aw-text-sec); background: var(--aw-card); border: 2px solid var(--aw-ink); border-radius: 999px;
   box-shadow: var(--shadow-btn);
 }
@@ -555,7 +555,7 @@ body.reduce-motion :is(#hover-text, #region-label, #notice-lane .nl-card, #rep-p
   box-shadow: 0 0 0 2px var(--rim), 0 3px 0 2px rgba(34,48,74,.16); cursor: var(--cur-pointer);
   translate: none; transition: translate .12s var(--ease-pop), background-color .12s ease;
 }
-#modal-close.close-x { font-size: 16px; }
+#modal-close.close-x { font-size: var(--fs-lg); }
 @media (hover: hover) {
   .close-x:hover, #modal-close.close-x:hover, #panel-collapse.close-x:hover, #chat-collapse.close-x:hover, #minimap-collapse.close-x:hover {
     color: var(--aw-ink); background: var(--aw-sun-bg) none; filter: none; translate: 0 -1px;
@@ -604,7 +604,7 @@ body.reduce-motion :is(#hover-text, #region-label, #notice-lane .nl-card, #rep-p
 }
 #panel-head .ps-btn {
   min-width: 26px; height: 22px; padding: 0 5px; cursor: var(--cur-pointer);
-  font: inherit; font-size: 11.5px; font-weight: 900; line-height: 1; color: var(--aw-ink);
+  font: inherit; font-size: var(--fs-xs); font-weight: 900; line-height: 1; color: var(--aw-ink);
   background: var(--aw-white); border: 2px solid var(--aw-ink); border-radius: 999px;
   box-shadow: 0 2px 0 rgba(34,48,74,.16);
 }
@@ -625,10 +625,10 @@ body.reduce-motion :is(#hover-text, #region-label, #notice-lane .nl-card, #rep-p
      tablet): the text people read one or two px up, and bigger bag cells.
      Only sizes change, so the sheet's snaps and drag are as they were. */
   #sidepanel.menu-big:not(.collapsed) #inventory-grid { grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); }
-  #sidepanel.menu-big :is(.inv-slot .qty, .inv-tab, .subtab-btn, .q-chip, .set-section) { font-size: 12.5px; }
-  #sidepanel.menu-big :is(.skill-desc, .skill-perks, .skill-group, .st-eff, .cb-perkline, .q-desc, .q-desc .ency-link, .q-next, .set-val, .hint) { font-size: 13px; }
-  #sidepanel.menu-big :is(.st-name, .st-val, .style-note, .race-hint, .q-go, .set-slider span) { font-size: 14px; }
-  #sidepanel.menu-big :is(.skill-name, .cb-class, .q-top b, .quest-head, .set-lbl, .set-act, .acct-open) { font-size: 15px; }
-  #sidepanel.menu-big .skill-lvl .cur { font-size: 18px; }
-  #sidepanel.menu-big .tab-btn .tab-label { font-size: 12px; }
+  #sidepanel.menu-big :is(.inv-slot .qty, .inv-tab, .subtab-btn, .q-chip, .set-section) { font-size: var(--fs-sm); }
+  #sidepanel.menu-big :is(.skill-desc, .skill-perks, .skill-group, .st-eff, .cb-perkline, .q-desc, .q-desc .ency-link, .q-next, .set-val, .hint) { font-size: var(--fs-sm); }
+  #sidepanel.menu-big :is(.st-name, .st-val, .style-note, .race-hint, .q-go, .set-slider span) { font-size: var(--fs-md); }
+  #sidepanel.menu-big :is(.skill-name, .cb-class, .q-top b, .quest-head, .set-lbl, .set-act, .acct-open) { font-size: var(--fs-lead); }
+  #sidepanel.menu-big .skill-lvl .cur { font-size: var(--fs-title); }
+  #sidepanel.menu-big .tab-btn .tab-label { font-size: var(--fs-sm); }
 }
