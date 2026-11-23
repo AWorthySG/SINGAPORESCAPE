@@ -26,12 +26,14 @@ jobs:
       - name: Run tests
         run: npm test
 
-  deploy:
+  # The site is packed in its own job and deployed in the next (GitHub's own
+  # layout for Pages). Packing and deploying back to back in one job failed
+  # three times in a row: the deploy asked for the artifact a moment after its
+  # upload, before GitHub's artifact list had caught up ("No artifacts named
+  # github-pages were found").
+  build:
     needs: test
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - name: Assemble static site
@@ -44,6 +46,23 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url || steps.retry.outputs.page_url }}
+    steps:
       - name: Deploy
         id: deployment
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+      # If the artifact list still lags, wait and try once more.
+      - name: Wait for the artifact list
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 45
+      - name: Deploy (second try)
+        id: retry
+        if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@v4
