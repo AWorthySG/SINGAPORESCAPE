@@ -2,12 +2,15 @@ import { getItem } from '../data/items.js';
 import { validQuality, qualityRank } from './loot.js';
 
 export const INV_SIZE = 28;
-export const STACK_LIMIT = 999; // max quantity of one item per inventory slot
+// No limit to a stack (the owner's ask): every kind of item sits in one slot
+// however many you hold. It used to be 999 a slot, so a late game's hauls
+// (whole seams, whole schools) filled thousands of slots that every pickup,
+// gather and redraw of the bag had to walk through. An item's own `maxStack`
+// still caps it.
+export const STACK_LIMIT = Infinity;
 
 // An unlimited inventory: it starts with 28 slots and grows as it fills,
-// always keeping a row of empty slots open. Every item stacks up to
-// STACK_LIMIT per slot; items with an explicit `maxStack` (e.g. coins =
-// Infinity) override that limit.
+// always keeping a row of empty slots open.
 // A slot is { id, qty } plus `q` for gear copies of a quality ('fine' ..
 // 'mythic', see loot.js). Copies only stack with copies of the same quality,
 // and when no quality is asked for, the plainest copies go first.
@@ -213,10 +216,16 @@ export class Inventory {
   load(data) {
     if (!Array.isArray(data)) return;
     this.slots = new Array(Math.max(this.minSize, data.length)).fill(null);
+    // A save from the days of 999 a slot has an item split over several slots:
+    // they join its first one (the others empty), copies of each quality apart.
+    const first = new Map();
     for (let i = 0; i < data.length; i++) {
       const s = data[i];
       if (!s || !s.id || !getItemSafe(s.id)) continue;
       const q = validQuality(s.q);   // a copy's quality came later: optional
+      const k = `${s.id}|${q || ''}`, at = first.get(k);
+      if (at !== undefined && this.slots[at].qty + s.qty <= this.maxStackOf(s.id)) { this.slots[at].qty += s.qty; continue; }
+      first.set(k, i);
       this.slots[i] = q ? { id: s.id, qty: s.qty, q } : { id: s.id, qty: s.qty };
     }
     this._changed();

@@ -69,34 +69,42 @@ test('level progress and xp-to-next are sane', () => {
   assert.ok(Number.isSafeInteger(XP_TABLE[9999]), 'the top of the table stays an exact number');
 });
 
-test('items stack to 999 per slot; coins are uncapped', () => {
+test('every item stacks without limit in one slot (it was 999 a slot); old saves\' split stacks join up', () => {
   const inv = new Inventory(new EventBus());
-  // Coins are exempt from the cap -> a single slot.
   assert.equal(inv.add('coins', 5000), 5000);
   assert.equal(inv.count('coins'), 5000);
   assert.equal(inv.slots.filter(Boolean).length, 1);
-  // 2500 logs span 3 slots (999 + 999 + 502).
-  assert.equal(inv.add('logs', 2500), 2500);
-  assert.equal(inv.count('logs'), 2500);
-  assert.equal(inv.slots.filter(Boolean).length, 4);
-  assert.equal(inv.slots.find((x) => x?.id === 'logs').qty, 999);
+  // 250,000 logs: one slot (it took 251).
+  assert.equal(inv.add('logs', 250000), 250000);
+  assert.equal(inv.count('logs'), 250000);
+  assert.equal(inv.slots.filter(Boolean).length, 2);
+  assert.equal(inv.slots.find((x) => x?.id === 'logs').qty, 250000);
   assert.equal(inv.remove('logs', 1200), 1200);
-  assert.equal(inv.count('logs'), 1300);
+  assert.equal(inv.count('logs'), 248800);
+  // A save from the days of 999 a slot: its split stacks join the first slot,
+  // copies of each quality apart.
+  const old = new Inventory(new EventBus());
+  old.load([{ id: 'logs', qty: 999 }, { id: 'coins', qty: 7 }, { id: 'logs', qty: 999 }, null, { id: 'logs', qty: 502 },
+    { id: 'bronze_sword', qty: 1, q: 'fine' }, { id: 'bronze_sword', qty: 2 }, { id: 'bronze_sword', qty: 1, q: 'fine' }]);
+  assert.deepEqual(old.slots.filter(Boolean), [{ id: 'logs', qty: 2500 }, { id: 'coins', qty: 7 },
+    { id: 'bronze_sword', qty: 2, q: 'fine' }, { id: 'bronze_sword', qty: 2 }]);
+  assert.equal(old.slots[0].qty, 2500, 'in the first slot it held');
 });
 
 test('the inventory is unlimited: it grows past 28 slots and always keeps a spare row', () => {
   const inv = new Inventory(new EventBus());
   assert.equal(inv.size, 28);
-  // 50,000 bones need 51 slots of 999: everything fits.
-  assert.equal(inv.canAdd('bones', 50000), 50000);
-  assert.equal(inv.add('bones', 50000), 50000);
-  assert.equal(inv.count('bones'), 50000);
+  // Fifty kinds of item need fifty slots (each stacks without limit in its own): everything fits.
+  const kinds = Object.keys(ITEMS).filter((id) => id !== 'coins').slice(0, 50);
+  for (const id of kinds) { assert.equal(inv.canAdd(id, 50000), 50000); assert.equal(inv.add(id, 50000), 50000); }
+  assert.equal(inv.count(kinds[0]), 50000);
   assert.ok(!inv.isFull());
   assert.ok(inv.size >= 54, `grew to hold them with a spare row (size ${inv.size})`);
   assert.equal(inv.slots.slice(-4).filter((x) => x === null).length, 4, 'four empty slots stay open');
   assert.equal(inv.add('coins', 7), 7, 'a brand-new item still fits');
   // Clearing out shrinks back down to the normal 28.
-  inv.remove('bones', 50000); inv.remove('coins', 7);
+  for (const id of kinds) inv.remove(id, 50000);
+  inv.remove('coins', 7);
   assert.equal(inv.size, 28);
 });
 
