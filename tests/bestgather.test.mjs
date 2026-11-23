@@ -75,6 +75,21 @@ function goHome(g, at) {
   p.x = p.tx = at.x; p.y = p.ty = at.y; p.progress = 0; p.moving = false; p.path = [];
   g.autoGather = false; g.autoGatherBest = null; g._autoLife = null;
 }
+/** The middle of a stretch of open land in one region, `hw` tiles either side and
+ *  `hh` above and below: room to set out monsters and trees of a test's own. */
+function openLand(g, hw, hh) {
+  const W = g.world;
+  for (let y = hh; y < W.height - hh; y += 3) for (let x = hw; x < W.width - hw; x += 3) {
+    const z = W.zoneAt(x, y);
+    let ok = !!z && !z.wilderness && !z.instance;
+    for (let j = y - hh; ok && j <= y + hh; j++) for (let i = x - hw; ok && i <= x + hw; i++) ok = !W.isBlocked(i, j) && W.zoneAt(i, j) === z;
+    if (ok) return { x, y };
+  }
+  return assert.fail('no open land');
+}
+/** Every tree in the world felled for good (no timer: it never grows back), so a
+ *  test's own trees are the only ones standing. */
+const fellAll = (g) => { for (const o of g.world.objects) if (o.objId === 'tree') { o.depleted = true; o.respawnTimer = 0; } };
 
 test('the tap keeps out of danger: regions far above you, and the reach of any monster that would set on you', () => {
   // The regions alone (no monsters about): Fishing 46's best catch a safe walk
@@ -155,6 +170,56 @@ test('a monster that would set on you walls off its reach; one too weak to bothe
   assert.equal(bestGatherPick(g, 'woodcutting').obj, tree);
 });
 
+test("in a monster's reach already (or on its edge, beside a node), the way on goes no nearer its home, and into no other's reach", () => {
+  // The real world: Woodcutting 8 at the bamboo by 37,33 in Bukit Timah, worked
+  // from 36,32, out of every monster's aggro reach but on the edge of a feral
+  // fruit bat's (the danger grid's extra tile). Standing there let the next walk
+  // through every reach close by: when the bamboo was cut down, the walk to the
+  // next one went 14 steps through the bat's reach, 3 tiles from its roost.
+  const g = fresh({ calm: false });
+  g.inventory.add('bronze_axe', 1);
+  g.skills.xp.woodcutting = xpForLevel(8);
+  const reach = reachOf(g), bamboo = g.world.objectAt(37, 33);
+  assert.equal(bamboo?.objId, 'bamboo');
+  goHome(g, { x: 36, y: 32 });
+  assert.ok(!reach(g.playerTile()) && reach(g.playerTile(), 1), 'out of reach, on the edge of one');
+  g.autoGather = true; g.autoGatherBest = 'woodcutting'; g._autoLife = { kind: 'gather', objId: 'bamboo' };
+  bamboo.depleted = true;
+  g._autoGatherNext({}, bamboo);
+  assert.ok(g.player.path.every((t) => !reach(t)), `no step within reach (${g.player.path.filter((t) => reach(t)).length} were)`);
+
+  // A goblin's home 3 tiles off (you walked in yourself): the tap walks you round
+  // it to the tree beyond, never nearer. It used to walk you over its home.
+  const h = fresh();
+  h.inventory.add('bronze_axe', 1);
+  const c = openLand(h, 20, 8);
+  fellAll(h);
+  const gob = new NPC('dire_goblin', c.x, c.y, 1);   // reach: wander 1 + aggro 4 (and the grid's extra tile)
+  h.npcs.push(gob);
+  const tree = h.world.addObject('tree', c.x + 9, c.y);
+  goHome(h, { x: c.x - 3, y: c.y });
+  assert.ok(startLifeSkill(h, 'woodcutting'));
+  assert.equal(h.player.action.obj, tree);
+  assert.ok(h.player.path.every((t) => near(t, gob) >= 3), `${Math.min(...h.player.path.map((t) => near(t, gob)))} tiles from its home at the nearest`);
+
+  // On the edge of one goblin's reach beside a tree, with a second goblin between
+  // you and the next tree: the walk goes round the second, never into its reach.
+  const k = fresh();
+  k.inventory.add('bronze_axe', 1);
+  const o = openLand(k, 20, 8), at = { x: o.x + 6, y: o.y };
+  fellAll(k);
+  const a = new NPC('dire_goblin', at.x + 6, at.y, 1), b = new NPC('dire_goblin', at.x - 9, at.y, 1);
+  k.npcs.push(a, b);
+  const felled = k.world.addObject('tree', at.x - 1, at.y), next = k.world.addObject('tree', at.x - 18, at.y);
+  goHome(k, at);
+  k.autoGather = true; k.autoGatherBest = 'woodcutting'; k._autoLife = { kind: 'gather', objId: 'tree' };
+  felled.depleted = true;
+  k._autoGatherNext({}, felled);
+  assert.equal(k.player.action?.obj, next);
+  const into = (t) => near(t, b) <= b.wander + b.def.aggroRange;
+  assert.ok(k.player.path.every((t) => !into(t) && near(t, a) >= near(at, a)), `${k.player.path.filter(into).length} steps within the second goblin's reach`);
+});
+
 test("the mode's own move up keeps out of every monster's reach too", () => {
   const g = fresh({ calm: false });
   g.inventory.add('fishing_rod', 1);
@@ -187,6 +252,30 @@ test("standing on a spent trap doesn't stop the Hunter shortcut: it takes you to
   assert.notEqual(lifeShortcutHint(g, 'hunter'), 'Nothing at your level yet');
   assert.ok(startLifeSkill(g, 'hunter'));
   assert.equal(g.player.action.obj, pick.obj);
+});
+
+test("walled in by monsters' reach, the shortcut says so and what would help, not that there's nothing at your level", () => {
+  // Four goblins about you, each home 3 tiles off: every step from here goes
+  // nearer one of them. The grid said "Nothing at your level yet", and the tap
+  // "There's nothing for Woodcutting I can take you to", with trees all round.
+  const g = fresh();
+  g.inventory.add('bronze_axe', 1);
+  const c = openLand(g, 20, 8);
+  for (const [dx, dy] of [[3, 0], [-3, 0], [0, 3], [0, -3]]) g.npcs.push(new NPC('dire_goblin', c.x + dx, c.y + dy, 1));
+  goHome(g, c);
+  assert.equal(lifeShortcutHint(g, 'woodcutting'), 'None safe to reach from here');
+  assert.equal(startLifeSkill(g, 'woodcutting'), false);
+  assert.equal(g.said.at(-1), "There's no safe way from here to anywhere you can train Woodcutting: move away from the monsters about you, or carry 30 coins for the MRT.");
+  // With the fare, the MRT takes you clear of them.
+  g.inventory.add('coins', 100);
+  assert.match(lifeShortcutHint(g, 'woodcutting'), /^Tree \(lvl 1\)$/);
+  assert.ok(startLifeSkill(g, 'woodcutting'));
+  assert.equal(rides(g), 1);
+  // With nothing you can work at all (no axe), it's still "nothing".
+  const h = fresh();
+  assert.equal(lifeShortcutHint(h, 'woodcutting'), 'Nothing at your level yet');
+  assert.equal(startLifeSkill(h, 'woodcutting'), false);
+  assert.equal(h.said.at(-1), "There's nothing for Woodcutting I can take you to right now.");
 });
 
 test('by itself the mode stays close and on foot: a better source far away is only told about, once; a ride you choose ends it', () => {
@@ -263,8 +352,10 @@ test('a level-up on a world event node (the meteorite, a rare shoal) keeps you t
   assert.ok(!g.said.some((m) => /moves up/.test(m)));
   g.worldEvents.end(false);
 
-  // A rare shoal by MacRitchie Reservoir: the level that opens its perch pools
-  // (Fishing 15) leaves you at the shoal.
+  // A rare shoal by MacRitchie Reservoir with the mode itself on it, as following
+  // a school there leaves it (your own tap, as above, would end the mode before
+  // its level-up came): the level that opens the perch pools a few steps off
+  // (Fishing 15) leaves it at the shoal.
   const h = fresh();
   h.inventory.add('fishing_rod', 1); h.inventory.add('small_net', 1);
   h.skills.xp.fishing = xpForLevel(14);
@@ -272,12 +363,15 @@ test('a level-up on a world event node (the meteorite, a rare shoal) keeps you t
   assert.ok(startLifeSkill(h, 'fishing'));
   const shoal = h.worldEvents.start('shoal', { region: 'MacRitchie Reservoir' }).objs[0];
   placeBeside(h, shoal);
-  h.defaultObjectAction(shoal);
+  assert.ok(h._gatherAt(shoal), "the mode's own pick");
   h.skills.xp.fishing = xpForLevel(15) - 1;
   playUntil(h, () => h.skills.level('fishing') >= 15, 60);
   assert.equal(h.skills.level('fishing'), 15);
+  h.skills.timeMult = () => 0;   // no more levels: the shoal's double XP brings one every few ticks, and a move up waits for them to settle
   playUntil(h, () => false, 10);
   assert.equal(h.player.action?.obj, shoal, 'still fishing the shoal');
+  assert.equal(h.autoGatherBest, 'fishing', 'in the mode');
+  assert.equal(bestGatherNode(h, 'fishing')?.objId, 'perch_spot', 'though a perch pool is close by');
   assert.ok(!h.said.some((m) => /moves up/.test(m)));
 });
 
@@ -300,6 +394,72 @@ test('a level-up never moves the mode itself off a world event node, though a be
   assert.equal(g.player.action?.obj, pool, 'still at the event node');
   assert.equal(g.autoGatherBest, 'fishing');
   assert.equal(bestGatherNode(g, 'fishing')?.objId, 'perch_spot', 'the pool it would have walked you to');
+});
+
+test('a world event that ends leaves auto gather at work unless you were at its node, and the HUD never shows a mode that has stopped', () => {
+  // Waiting for the trees about you to grow back when a grove of their kind ends
+  // far off: the job went with it (it was dropped by kind), and neither the mode
+  // nor plain auto gather ever started again, the HUD still saying "Best Woodcutting".
+  for (const best of [true, false]) {
+    const g = fresh();
+    g.inventory.add('bronze_axe', 1);
+    g.skills.timeMult = () => 0;   // Woodcutting 1 throughout: ordinary trees are your best, and the grove's
+    if (best) assert.ok(startLifeSkill(g, 'woodcutting'));
+    else { g.toggleAutoGather(true); assert.ok(g.goToObject(nearestOf(g, 'tree'))); }
+    arrive(g);
+    const p = g.playerTile(), about = g.world.objects.filter((o) => o.objId === 'tree' && near(o, p) <= 60);
+    for (const o of about) { o.depleted = true; o.respawnTimer = 0; }
+    g.player.clearAction();
+    playUntil(g, () => false, 3);
+    const grove = g.worldEvents.start('grove', { region: 'Bukit Timah' }).objs[0];
+    assert.ok(grove.objId === 'tree' && near(grove, p) > 1);
+    g.worldEvents.end(false, 'time');
+    for (const o of about) o.depleted = false;   // they grow back
+    playUntil(g, () => g.player.action, 30);
+    assert.equal(g.player.action?.obj?.objId, 'tree', best ? 'the mode chops on' : 'plain auto gather chops on');
+    assert.equal(g.autoGatherStatus(), best ? 'Best Woodcutting: Tree' : 'Tree');
+  }
+  // The mode on a rare shoal (as a school leads it there) when the event ends: it
+  // fishes on at a pool of its own. It used to stop there for good.
+  const h = fresh();
+  h.inventory.add('fishing_rod', 1); h.inventory.add('small_net', 1);
+  h.skills.xp.fishing = xpForLevel(14);
+  h.skills.timeMult = () => 0;
+  assert.ok(startLifeSkill(h, 'fishing'));
+  const spot = arrive(h);
+  const shoal = h.worldEvents.start('shoal', { region: h.world.zoneAt(spot.x, spot.y).name }).objs[0];
+  assert.equal(shoal.objId, spot.objId, 'a shoal of the kind the mode is on');
+  placeBeside(h, shoal);
+  assert.ok(h._gatherAt(shoal));
+  playUntil(h, () => false, 3);
+  h.worldEvents.end(false, 'time');
+  playUntil(h, () => h.player.action, 30);
+  assert.equal(h.player.action?.obj?.objId, spot.objId);
+  assert.equal(h.autoGatherBest, 'fishing');
+  // Plain auto gather beside the meteorite between swings, when it crumbles away:
+  // it stops there, as it always has.
+  const k = fresh();
+  k.inventory.add('bronze_pickaxe', 1);
+  const met = k.worldEvents.start('meteor', { region: 'Bukit Timah' }).objs[0];
+  placeBeside(k, met);
+  k.toggleAutoGather(true);
+  k.defaultObjectAction(met);
+  playUntil(k, () => k._autoLife, 30);
+  k.player.clearAction();
+  k.worldEvents.end(false, 'time');
+  assert.equal(k._autoLife, null);
+  assert.equal(k.autoGatherStatus(), 'Start gathering');
+  // Clearing your own ticked kinds (the Auto menu) leaves the mode at work, though
+  // it is on one of them; and a mode with no node in hand and none to go back to
+  // isn't shown as at work.
+  const m = fresh();
+  m.inventory.add('bronze_axe', 1);
+  m.gatherPicks.add('tree');
+  assert.ok(startLifeSkill(m, 'woodcutting'));
+  m.clearGatherPicks();
+  assert.deepEqual(m._autoLife, { kind: 'gather', objId: 'tree' });
+  m.player.clearAction(); m._autoLife = null;
+  assert.equal(m.autoGatherStatus(), 'Start gathering');
 });
 
 test('a node you choose yourself ends the mode (Interact, a Go, steering, a ride, the map, a teleport, auto gather off); your own tap on its kind does not', () => {
@@ -531,4 +691,35 @@ test('a school is followed only somewhere safe', () => {
   assert.equal(g.player.action?.obj, other);
   assert.ok(g.player.action.best);
   assert.ok(g.said.includes('Auto gather follows the school.'));
+});
+
+test('back over a border you crossed a moment ago is no news, but stepping out of the Wilderness always is', () => {
+  const g = fresh(), W = g.world;
+  /** Two walkable tiles side by side in two regions, the second the Wilderness or not. */
+  const border = (wild) => {
+    for (let y = 1; y < W.height; y++) for (let x = 1; x < W.width - 1; x++) {
+      const a = W.zoneAt(x, y), b = W.zoneAt(x + 1, y);
+      if (a && b && a !== b && !a.wilderness && !a.instance && !b.instance && !!b.wilderness === wild
+        && !W.isBlocked(x, y) && !W.isBlocked(x + 1, y)) return [{ x, y, name: a.name }, { x: x + 1, y, name: b.name }];
+    }
+    return assert.fail('no border');
+  };
+  const step = (t) => { goHome(g, t); for (let i = 0; i < 3; i++) g.update(600); };
+  const told = (name) => g.said.filter((m) => m.startsWith(`You enter ${name}`)).length;
+  // Auto gather's traps either side of a border told you both regions' names
+  // hundreds of times an hour: each is said once a minute at most.
+  const [a, b] = border(false);
+  step(a);
+  g.said.length = 0;
+  step(b); step(a); step(b); step(a);
+  assert.deepEqual([told(a.name), told(b.name)], [0, 1]);
+  // Into the Wilderness and straight back out: the way out was kept quiet too,
+  // and that line is all that tells you you've left it (no safe healing there).
+  const [c, d] = border(true);
+  step(c);
+  g.said.length = 0;
+  step(d);
+  assert.ok(g.said.some((m) => m.startsWith('You enter the Wilderness')));
+  step(c);
+  assert.equal(told(c.name), 1, `"You enter ${c.name}" on the way out`);
 });

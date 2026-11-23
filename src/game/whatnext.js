@@ -117,7 +117,7 @@ export function bestSource(game, skill) {
 // The tap itself may go anywhere safe (riding the MRT where that helps, or is
 // the only safe way); what the mode then does by itself stays close and on foot.
 const AUTO_NEAR = 30;   // auto gather's own trips: no further than it ever walked by itself (or across your region)
-const LEAVE = 16;       // standing in a monster's reach already, you may walk this far through it on the way out
+const LEAVE = 16;       // standing in a monster's reach already, you may walk this far through it on the way out (safeRouteCfg)
 const workable = (game, skill, lvl = game.skills.level(skill)) =>
   gatherSources().filter((s) => s.skill === skill && s.objIds?.length && s.level <= lvl && (!s.tool || game.hasTool(s.tool)))
     .sort((a, b) => b.level - a.level);
@@ -148,14 +148,21 @@ function safeZones(game) {
 // your fighting level or the monsters change; summed up from each reach's
 // corners, the world's thousands of monsters cost a millisecond or two.
 let threat = null;
+/** How far round its home a monster's reach goes (above), or 0 for one that wouldn't set on you. */
+function reachOf(n, fight) {
+  const d = n.def;
+  return !d?.attackable || !d.aggressive || (!d.ignoreLevelGate && fight > d.level * 2 + 1) ? 0 : (n.wander || 0) + (d.aggroRange || 4) + 1;
+}
 function dangerGrid(game) {
   const W = game.world, npcs = game.npcs || [], fight = game.fightLevel?.() || 1;
   if (threat?.game === game && threat.world === W && threat.npcs === npcs && threat.n === npcs.length && threat.fight === fight) return threat.grid;
   const w = W.width, h = W.height, row = w + 1, sum = new Int32Array(row * (h + 1));
+  let far = 0;   // the widest reach (safeRouteCfg looks no further for the ones about you)
   for (const n of npcs) {
-    const d = n.def;
-    if (!d?.attackable || !d.aggressive || (!d.ignoreLevelGate && fight > d.level * 2 + 1)) continue;
-    const r = (n.wander || 0) + (d.aggroRange || 4) + 1, x = Math.round(n.spawnX), y = Math.round(n.spawnY);
+    const r = reachOf(n, fight);
+    if (!r) continue;
+    if (r > far) far = r;
+    const x = Math.round(n.spawnX), y = Math.round(n.spawnY);
     const x0 = Math.max(0, x - r), y0 = Math.max(0, y - r), x1 = Math.min(w, x + r + 1), y1 = Math.min(h, y + r + 1);
     if (!(x0 < x1 && y0 < y1)) continue;
     sum[y0 * row + x0]++; sum[y0 * row + x1]--; sum[y1 * row + x0]--; sum[y1 * row + x1]++;
@@ -165,17 +172,35 @@ function dangerGrid(game) {
     let run = 0;
     for (let x = 0; x < w; x++) { col[x] += sum[y * row + x]; run += col[x]; if (run > 0) grid[y * w + x] = 1; }
   }
-  threat = { game, world: W, npcs, n: npcs.length, fight, grid };
+  threat = { game, world: W, npcs, n: npcs.length, fight, grid, far };
   return grid;
 }
 /** Path-search settings for a trip that keeps out of danger: regions that aren't
  *  safe for you, and monsters' reach, are walls (Game.pathCfg takes these while
- *  such a trip starts). In a monster's reach already, you may walk out through it. */
+ *  such a trip starts). In a monster's reach already (or on its edge, beside a
+ *  node), you may walk on through it, up to LEAVE tiles, but never nearer its
+ *  home than you stand, nor into the reach of another: a pass through every reach
+ *  close by walked a woodcutter past a fruit bat's roost, and over a goblin's home. */
 export function safeRouteCfg(game) {
   const W = game.world, ok = safeZones(game), danger = dangerGrid(game), w = W.width, p = game.playerTile();
-  const leave = danger[p.y * w + p.x] ? LEAVE : -1;
+  const S = 2 * LEAVE + 1;
+  let pass = null;   // the tiles within LEAVE of you that you may cross (only asked of where there's danger)
+  if (danger[p.y * w + p.x] === 1) {
+    const fight = game.fightLevel?.() || 1, near = [], far = LEAVE + threat.far + 1;   // every reach that comes within LEAVE of you
+    for (const n of game.npcs || []) {
+      if (Math.abs(n.spawnX - p.x) > far || Math.abs(n.spawnY - p.y) > far) continue;   // (the world's thousands, cheaply)
+      const r = reachOf(n, fight), x = Math.round(n.spawnX), y = Math.round(n.spawnY), d = Math.max(Math.abs(x - p.x), Math.abs(y - p.y));
+      if (r && d <= LEAVE + r) near.push({ x, y, r, d });
+    }
+    pass = new Uint8Array(S * S);
+    for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) {
+      const x = p.x - LEAVE + i, y = p.y - LEAVE + j;
+      pass[j * S + i] = near.every((m) => { const d = Math.max(Math.abs(x - m.x), Math.abs(y - m.y)); return d > m.r || (m.d <= m.r && d >= m.d); }) ? 1 : 0;
+    }
+  }
+  const crossable = (x, y) => { const i = x - p.x + LEAVE, j = y - p.y + LEAVE; return i >= 0 && j >= 0 && i < S && j < S && pass[j * S + i] === 1; };
   return { width: W.width, height: W.height, isBlocked: (x, y) => W.isBlocked(x, y) || !ok(W.zoneAt(x, y))
-    || (danger[y * w + x] === 1 && Math.max(Math.abs(x - p.x), Math.abs(y - p.y)) > leave) };
+    || (danger[y * w + x] === 1 && !(pass && crossable(x, y))) };
 }
 /** Whether a node stands somewhere safe for you to gather (above). */
 function safeNodes(game) {

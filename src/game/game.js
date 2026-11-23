@@ -1693,7 +1693,8 @@ export class Game {
    *  fishing used to leave it walking back to a fishing spot). */
   _forgetGatherKinds(objIds) {
     this.autoGatherKinds = (this.autoGatherKinds || []).filter((id) => !objIds.includes(id));
-    if (this._autoLife?.kind === 'gather' && objIds.includes(this._autoLife.objId)) this._autoLife = null;
+    // ("The best you can" isn't your list: clearing the ticks leaves it at work.)
+    if (!this.autoGatherBest && this._autoLife?.kind === 'gather' && objIds.includes(this._autoLife.objId)) this._autoLife = null;
   }
 
   /** Auto gather with a ticked list and nothing to do: head for the nearest ticked node. */
@@ -1814,8 +1815,9 @@ export class Game {
   /** One-line description of what auto gather is doing, for the HUD. */
   autoGatherStatus() {
     if (!this.autoGather) return 'Off';
-    const a = this.player.action;
-    if (this.autoGatherBest) return `Best ${SKILL_BY_ID[this.autoGatherBest]?.name || this.autoGatherBest}` + (a && GATHER_ACTIONS.has(a.type) && a.obj?.def ? `: ${a.obj.def.name}` : '');
+    const a = this.player.action, held = a && GATHER_ACTIONS.has(a.type) && a.obj?.def;
+    // (Only while it has a node in hand, or a kind to go back to: never a mode that has stopped.)
+    if (this.autoGatherBest && (held || this._autoLife?.kind === 'gather')) return `Best ${SKILL_BY_ID[this.autoGatherBest]?.name || this.autoGatherBest}` + (held ? `: ${a.obj.def.name}` : '');
     const round = this._gatherRound();
     if (round.length > 1) return round.map((id) => capitalize(this._gatherKindName(id))).join(' + ');
     if (a && GATHER_ACTIONS.has(a.type) && a.obj?.def) return a.obj.def.name;
@@ -4047,8 +4049,10 @@ export class Game {
     if (name !== this.currentZoneName) {
       // Back over a border you crossed a moment ago isn't news: auto gather's
       // traps either side of one told you the two regions' names 260 times in
-      // half an hour. A region left under a minute ago isn't announced again.
-      const back = this._zoneLeft?.name === name && this.tickCount - this._zoneLeft.tick < 100;
+      // half an hour. A region left under a minute ago isn't announced again,
+      // unless you step back into it out of the Wilderness (wildLevel is still
+      // the last tick's here): that line is all that tells you you're out.
+      const back = !this.wildLevel && this._zoneLeft?.name === name && this.tickCount - this._zoneLeft.tick < 100;
       this._zoneLeft = { name: this.currentZoneName, tick: this.tickCount };
       this.currentZoneName = name;
       if (wild) {

@@ -12,6 +12,7 @@ import { SKILL_BY_ID } from '../data/skills.js';
 import { SKILL_GUIDES } from './skillguide.js';
 import { quickUse, quickUseChoice } from './quickuse.js';
 import { nextQuest, bestSource, bestGatherPick, bestWorkable } from './whatnext.js';
+import { MRT_FARE } from '../data/transport.js';
 import { nearOfferingShrine } from './salvage.js';
 import { nextJob } from './autoprocess.js';
 
@@ -110,7 +111,8 @@ function patchToTend(game) {
 export function lifeShortcutHint(game, skill) {
   if (GATHERING.has(skill)) {
     const pick = bestGatherPick(game, skill);
-    return pick ? `${pick.src.name} (lvl ${pick.src.level})` : 'Nothing at your level yet';
+    // (Sources your level allows, all of them past monsters' reach from here, aren't "nothing".)
+    return pick ? `${pick.src.name} (lvl ${pick.src.level})` : bestWorkable(game, skill) ? 'None safe to reach from here' : 'Nothing at your level yet';
   }
   if (skill === 'thieving' || skill === 'agility') {
     const src = bestSource(game, skill);
@@ -137,6 +139,14 @@ export function startLifeSkill(game, skill, ui = game.ui) {
     // you or coming within reach of a monster that would set on you, riding the
     // MRT where that helps or is the only safe way (whatnext.js).
     const pick = bestGatherPick(game, skill);
+    if (!pick && bestWorkable(game, skill)) {
+      // There's plenty at your level, but monsters about you (or on every way from
+      // here) bar the way: say what would help, not that there's nothing. (The MRT
+      // takes no one out of the Wilderness, fare or not.)
+      const fare = game.inventory.count('coins') < MRT_FARE && !game.inWilderness?.() ? `, or carry ${MRT_FARE} coins for the MRT` : '';
+      game.msg(`There's no safe way from here to anywhere you can train ${skillName(skill)}: move away from the monsters about you${fare}.`, 'system');
+      return false;
+    }
     if (!pick) { game.msg(`There's nothing for ${skillName(skill)} I can take you to right now.`, 'system'); return false; }
     // Auto gather keeps you at it, always on the best the skill offers you (the
     // owner's ask): the highest-level source your level and tools allow, waiting

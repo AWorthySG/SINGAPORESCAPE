@@ -530,8 +530,14 @@ export class WorldEvents {
     }
     for (const o of ev.objs) {
       g.world.removeObject(o);
-      if (p.action?.obj === o) p.clearAction();
-      if (g._autoLife?.objId === o.objId) g._autoLife = null;
+      // Auto gather goes back to a kind of node, so it stops with this one only if
+      // you were at it (on it, on your way, or beside it between swings): one of its
+      // kind gone anywhere in the world used to stop it for good, while the HUD
+      // still read "Best Woodcutting". "The best you can" never picks an event's
+      // node (a school can lead it onto a shoal): it carries on to one of its own.
+      const on = p.action?.obj === o, mode = g.autoGatherBest && (!on || p.action.best);
+      if (on) p.clearAction();
+      if (!mode && g._autoLife?.objId === o.objId && (on || chebyshev(o.x, o.y, p.x, p.y) <= 1)) { g._autoLife = null; g.autoGatherBest = null; }
     }
     ev.mobs = []; ev.objs = []; ev.npc = null;
   }
