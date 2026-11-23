@@ -19,7 +19,8 @@ import { getNpc } from '../data/npcs.js';
 import { QUESTS } from '../data/quests.js';
 import { canWear } from '../data/classes.js';
 import { SKILL_BY_ID } from '../data/skills.js';
-import { compareGear, isUpgrade, meetsReq } from './gear.js';
+import { meetsReq } from './gear.js';
+import { wouldWear } from './bestpick.js';
 import { gatherSources } from './skillguide.js';
 
 export const MAX_GOALS = 3;
@@ -41,7 +42,8 @@ function beatsWorn(game, s) {
   if (game.jobClass && !canWear(game.jobClass, s.id)) return false;
   if (!meetsReq(s.id, game.skills).ok) return false;
   if (game._canEquipNow && !game._canEquipNow(s.id)) return false;
-  return isUpgrade(compareGear(s.id, game.equipment, null, s.q || null, game.combatMode?.()));
+  // Equip best's own test (bestpick.js): it weighs a piece once its ★ and lines carry over.
+  return wouldWear(game, s);
 }
 
 /** The pieces in the pack that beat what you wear (and that you can wear now). */

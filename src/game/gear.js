@@ -112,6 +112,24 @@ export function meetsReq(id, skills) {
   return { ok: missing.length === 0, missing };
 }
 
+/** The stat changes from the worn piece's bonuses (`theirs`, worn id `worn`)
+ *  to a new piece's (`mine`, id `id`): [{ key, label, delta }], each rounded
+ *  to one decimal and only the ones that change. Refine and quality shares
+ *  leave float dust behind, which the chat and tooltips showed as
+ *  "−2.4000000000000004 Attack speed %". Weapons add their swing time. */
+export function statDeltas(mine, theirs, id, worn) {
+  const deltas = [];
+  for (const k of STAT_KEYS) {
+    const d = Math.round(((mine?.[k] || 0) - (theirs?.[k] || 0)) * 10) / 10;
+    if (d) deltas.push({ key: k, label: STAT_LABELS[k], delta: d });
+  }
+  if (getItem(id).equip?.slot === 'weapon') {
+    const d = swingBeats(id) - (worn ? swingBeats(worn) : 2);
+    if (d) deltas.push({ key: 'speed', label: 'Speed', delta: +(d * 0.3).toFixed(1), lowerIsBetter: true });
+  }
+  return deltas;
+}
+
 /** Compare a piece (a copy of quality `q`, null for plain) against whatever
  *  is worn in its slot (or in `slot`: a dual wielder's off-hand weapon is
  *  weighed against the off-hand, 'shield'). The worn piece counts its own quality.
@@ -134,15 +152,7 @@ export function compareGear(id, equipment, slot = null, q = null, mode = null) {
   const myCopy = equipment.copyFor?.(id, slot || eq.slot) || 'main', theirCopy = equipment.copyIn?.(slot || eq.slot) || 'main';
   const mine = equipment.itemBonuses ? equipment.itemBonuses(id, myCopy, q) : (eq.bonuses || {});
   const theirs = worn ? (equipment.itemBonuses ? equipment.itemBonuses(worn, theirCopy, wornQ) : getItem(worn).equip?.bonuses || {}) : {};
-  const deltas = [];
-  for (const k of STAT_KEYS) {
-    const d = (mine[k] || 0) - (theirs[k] || 0);
-    if (d) deltas.push({ key: k, label: STAT_LABELS[k], delta: d });
-  }
-  if (eq.slot === 'weapon') {
-    const d = swingBeats(id) - (worn ? swingBeats(worn) : 2);
-    if (d) deltas.push({ key: 'speed', label: 'Speed', delta: +(d * 0.3).toFixed(1), lowerIsBetter: true });
-  }
+  const deltas = statDeltas(mine, theirs, id, worn);
   if (!worn) return { worn, verdict: 'empty', deltas, ratingDelta: gearRating(id) };
   if (eq.slot === 'weapon' && weaponStyle(id) !== weaponStyle(worn)) {
     return { worn, verdict: 'style', deltas, ratingDelta: gearRating(id) - gearRating(worn) };

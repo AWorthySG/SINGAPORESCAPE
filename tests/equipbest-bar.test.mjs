@@ -12,7 +12,7 @@ const css = readFileSync(new URL('../styles/main.css', import.meta.url), 'utf8')
 test('the Equip best bar is built above the worn slots and counts the upgrades', () => {
   assert.match(ui, /this\._equipBestBar\(layout\);\n    layout\.innerHTML = '';/);
   assert.match(ui, /layout\.parentNode\?\.insertBefore\(bar, layout\)/);
-  assert.match(ui, /const n = packUpgrades\(this\.game\)\.length;/);
+  assert.match(ui, /const n = upgradeSlots\(this\.game\)\.size;/);
   assert.doesNotMatch(ui, /this\.el\.equipBonuses\.prepend\(bis\)/, 'no second Equip best button further down');
 });
 

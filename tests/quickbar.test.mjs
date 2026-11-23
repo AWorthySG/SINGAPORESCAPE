@@ -60,7 +60,7 @@ test('each action calls the game method its own button uses', () => {
   });
   g.teleports = { start: spy('teleport') };
   const ui = { showPanelView: spy('showPanelView'), openWorldMap: spy('openWorldMap'), openBestiary: spy('openBestiary'),
-    openMastery: spy('openMastery'), openOfferingShrine: spy('openOfferingShrine'), openCompendium: spy('openCompendium') };
+    openMastery: spy('openMastery'), openOfferingShrine: spy('openOfferingShrine'), openCompendium: spy('openCompendium'), openImproveGear: spy('openImproveGear') };
   const last = () => calls.at(-1);
 
   runQuickAction(g, 'bank', ui); assert.deepEqual(last(), ['goToNearest', ['bank_booth']]);
@@ -90,6 +90,7 @@ test('each action calls the game method its own button uses', () => {
   runQuickAction(g, 'win:map', ui); assert.equal(last()[0], 'openWorldMap');
   runQuickAction(g, 'win:codex', ui); assert.equal(last()[0], 'openBestiary');
   runQuickAction(g, 'win:mastery', ui); assert.equal(last()[0], 'openMastery');
+  runQuickAction(g, 'win:improve', ui); assert.equal(last()[0], 'openImproveGear', 'every safe upgrade on worn gear (smartgearui.js)');
   runQuickAction(g, 'win:compendium', ui); assert.equal(last()[0], 'openCompendium');
   runQuickAction(g, 'win:shrine', ui); assert.deepEqual(last(), ['goToNearest', ['offering_shrine']], 'away from the shrine: walk there');
 

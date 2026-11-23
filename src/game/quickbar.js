@@ -182,6 +182,7 @@ const WINDOWS = [
   ['codex', 'Monster Codex', { skill: 'slayer' }, (ui) => ui.openBestiary()],
   ['compendium', 'Compendium', { play: 'ui-report' }, (ui) => ui.openCompendium?.()],   // (added by src/ui/quickbar.js)
   ['mastery', 'Gear Mastery', { play: 'ui-mastery' }, (ui) => ui.openMastery()],
+  ['improve', 'Improve worn gear', { play: 'ui-mastery' }, (ui) => ui.openImproveGear?.()],   // every safe upgrade at once (src/ui/smartgearui.js)
   // The shrine window works only beside an Offering Shrine: away from one, walk there.
   ['shrine', 'Offering Shrine', { ui: 'blessing-slot' }, (ui, g) => (nearOfferingShrine(g) ? ui.openOfferingShrine() : g.goToNearest(['offering_shrine']))],
   ['life', 'Life skills', { tab: 'skills' }, (ui) => ui.openLifeSkills?.()],   // (added by src/ui/quickbar.js)
