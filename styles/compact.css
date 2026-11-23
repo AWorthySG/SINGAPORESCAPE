@@ -376,3 +376,71 @@ body.cb-safe #hp-bar.low::after {
   #settings-panel .set-row { min-height: 44px; }
   #settings-panel .set-act, #settings-panel .acct-open { min-height: 44px; }
 }
+
+/* ---------- Phone sheet chrome (ui.js _renderSubtabs, _fullForBag) ----------
+   The open sheet loses its title row (the lit tab names the view), Bag |
+   Gear and the bag's filters share one sideways-scrolling strip of chips,
+   the Bag and Gear open at the full snap, and the Gear view puts the worn
+   slots beside their totals instead of over a column of mostly empty room. */
+@media (pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px) {
+  #sidepanel:not(.collapsed) #panel-head { display: none; }
+  #panel-subtabs.with-bag {
+    gap: 6px; align-items: center; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
+  }
+  #panel-subtabs.with-bag::-webkit-scrollbar { display: none; }
+  #panel-subtabs[data-tab="inventory"] { justify-content: flex-start; }
+  #panel-subtabs[data-tab="inventory"] .subtab-btn { flex: none; padding: 6px 14px; }   /* the same small pair under Gear */
+  #panel-subtabs.with-bag .subtab-btn:first-child { margin-right: -6px; }   /* Bag | Gear stay one joined pair */
+  #panel-subtabs.with-bag #inventory-bar {
+    flex: none; display: flex; align-items: center; gap: 6px; margin: 0; padding-left: 8px;
+    border-left: 2px dashed var(--aw-ink-faint, rgba(34,48,74,.28));
+  }
+  #panel-subtabs.with-bag #inv-tabs { flex: none; flex-wrap: nowrap; overflow: visible; }
+  #panel-subtabs.with-bag .inv-tab, #panel-subtabs.with-bag #inv-sort { flex: none; }
+  /* Gear: the worn slots (smaller, the empty ones quiet) beside their totals. */
+  #sidepanel:not(.collapsed) .panel-view[data-view="equipment"]:not(.hidden) {
+    display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 10px; align-items: start;
+  }
+  .panel-view[data-view="equipment"] > :not(#equipment-layout):not(#equipment-bonuses) { grid-column: 1 / -1; }
+  .panel-view[data-view="equipment"] #equipment-layout { grid-template-columns: repeat(3, 46px); gap: 5px; margin: 2px 0 8px; }
+  .panel-view[data-view="equipment"] .equip-slot { width: 46px; height: 46px; }
+  .panel-view[data-view="equipment"] .equip-slot.empty { font-size: 9.5px; opacity: .7; }
+  .panel-view[data-view="equipment"] #equipment-bonuses { min-width: 0; margin: 2px 0 8px; padding: 6px 8px; font-size: 11.5px; line-height: 1.45; }
+}
+
+/* ---------- Quick actions (src/ui/quickbar.js) ----------
+   Desktop: the box around the actions is no box (the row is as it was).
+   Phones: the "⋯" button opens them as a two-column sticker grid hanging
+   under it at the right edge (clear of your hero in the middle), each with
+   its name; a tap anywhere else folds it. */
+#quickbar .qb-pop { display: contents; }
+#quickbar .qb-lbl { display: none; }
+@media (pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px) {
+  #quickbar .qb-pop { display: none; }
+  #quickbar.open { z-index: 66; }   /* over the action buttons and the open Auto card (65), under the sheets (70) */
+  #quickbar.open .qb-pop {
+    position: absolute; top: calc(100% + 8px); right: -4px; z-index: 66; pointer-events: auto;
+    display: grid; grid-template-columns: repeat(2, 60px); gap: 6px; padding: 7px;
+    max-height: calc(100dvh - 272px - 110px - 16px); overflow-y: auto; overscroll-behavior: contain;
+    background: var(--paper, #FFFCF5); border: 2px solid var(--aw-ink, #22304A); border-radius: 16px;
+    box-shadow: var(--shadow-float-sm, 0 0 0 2px #fff, 0 4px 0 2px rgba(34,48,74,.14));
+    animation: stickerIn .18s var(--ease-out, ease-out) backwards;
+  }
+  #quickbar.open .qb-pop .qb-btn, #quickbar.open .qb-pop .qb-edit, #quickbar.open .qb-pop #qb-life {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    width: 60px; height: 60px; margin: 0; padding: 4px 2px; opacity: 1; border-radius: 12px; font-size: 18px;
+  }
+  #quickbar.open .qb-pop .qb-lbl {
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+    max-width: 100%; font-size: 9.5px; font-weight: 800; line-height: 1.1; text-align: center; color: var(--aw-text, #1C1B19);
+  }
+  #quickbar.open .qb-pop .qb-slot.on .qb-lbl { color: #fff; }
+  #quickbar.open .qb-pop .qb-edit::before { display: none; }
+  #quickbar.open .qb-more { box-shadow: 0 0 0 3px var(--aw-sun, #F5B82E), var(--shadow-sticker-sm); }
+}
+/* One entry for floating stickers (banners, toasts, pills, this grid): a
+   small drop and settle. It moves with translate and scale, never
+   transform, so it adds to whatever centres the sticker. */
+@keyframes stickerIn { from { opacity: 0; translate: 0 -6px; scale: .96; } to { opacity: 1; translate: 0 0; scale: 1; } }
+@media (prefers-reduced-motion: reduce) { #quickbar.open .qb-pop { animation: none; } }
+body.reduce-motion #quickbar.open .qb-pop { animation: none; }

@@ -727,6 +727,7 @@ export class UI {
     const apply = (collapsed) => {
       panel.classList.toggle('collapsed', collapsed);
       if (collapsed) panel.classList.remove('sheet-full');   // a phone sheet always reopens at half height
+      if (key === 'panel' && !collapsed) this._fullForBag();   // (but the Bag and Gear open full)
       if (key === 'panel' && !collapsed && this._invStale) this.renderInventory();   // the bag skipped redraws while folded
       if (key === 'panel' && !collapsed) this._catchUpPanels();   // and so did the Gear, Combat, Journal and Awards views
       if (key === 'chat' && !collapsed) this._drawChat(false);   // the folded chat drew none of its new lines
@@ -941,6 +942,8 @@ export class UI {
    *  which tab button is lit or folding anything. */
   _showPanelView(view) {
     const tab = tabOfView(view) || view;
+    this._panelView = view;
+    this._fullForBag();
     this._setPanelTitle(view);
     document.querySelectorAll('#panel-body .panel-view').forEach((v) => v.classList.toggle('hidden', v.dataset.view !== view));
     if (this._subView) {
@@ -956,6 +959,15 @@ export class UI {
     if (view === 'story') this.renderStoryPanel?.();  // (storyui.js) likewise
     // The skills list carries a name + description per row, so it gets more room.
     document.getElementById('sidepanel')?.classList.toggle('wide', view === 'skills');
+  }
+
+  /** Phones: the Bag and Gear open at the sheet's full height. At half, the
+   *  handle, tabs and filters left room for two rows of the bag. (Dragging
+   *  the handle down still settles it at half: hudease.js sheetSnap.) */
+  _fullForBag() {
+    const p = this.el?.sidepanel;
+    if (!p || p.classList.contains('collapsed') || !p.classList.contains('compact-ui')) return;
+    if (tabOfView(this._panelView) === 'inventory') p.classList.add('sheet-full');
   }
 
   /** True while `el`, inside a side-panel view, can't be seen: the panel is
@@ -983,6 +995,10 @@ export class UI {
   _renderSubtabs(tab, view) {
     const row = document.getElementById('panel-subtabs');
     if (!row) return;
+    // Phones: the bag's filters ride in this row (moved back first: the
+    // row's buttons are redrawn below).
+    const bag = document.getElementById('inventory-bar');
+    if (bag && bag.parentNode === row) document.getElementById('inventory-grid')?.before(bag);
     const views = PANEL_TABS[tab] || [];
     row.classList.toggle('hidden', views.length < 2);
     if (row.dataset.tab !== tab) {
@@ -999,6 +1015,13 @@ export class UI {
       b.classList.toggle('active', on);
       b.setAttribute('aria-selected', on ? 'true' : 'false');
     });
+    // On a touch phone, Bag | Gear and the bag's filters are one strip of
+    // chips that scrolls sideways (two stacked rows of pills, under the tabs,
+    // ate a third of the short sheet before the first item).
+    const merge = bag && tab === 'inventory' && view === 'inventory' && this.el?.sidepanel?.classList.contains('compact-ui')
+      && typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+    if (merge) row.appendChild(bag);
+    row.classList.toggle('with-bag', !!merge);
   }
 
   /** Open the side panel on a view, wherever it lives: lights its tab, picks
