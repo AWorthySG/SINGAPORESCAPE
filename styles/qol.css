@@ -42,8 +42,8 @@
 .bank-head .bank-deposit-loot:hover { background: linear-gradient(#4a8c44, #336a2e); }
 .item-cell.bank-kept { position: relative; }
 .item-cell.bank-kept::after {
-  content: "\1F4CC"; position: absolute; top: -3px; right: -3px; font-size: 11px; line-height: 1;
-  filter: drop-shadow(0 1px 0 rgba(0,0,0,0.35)); pointer-events: none;
+  position: absolute; line-height: 1;
+  pointer-events: none;
 }
 
 /* ---- What a level-up opened, in its banner ---- */
@@ -66,7 +66,7 @@
 #quickbar .qb-btn .ui-ic, #quickbar .qb-btn svg { width: 26px; height: 26px; pointer-events: none; }
 #quickbar .qb-slot.on { background: var(--aw-accent, #C0392B); box-shadow: 0 0 0 2px var(--aw-sun, #F5B82E), var(--shadow-sticker-sm); }
 #quickbar .qb-key {
-  position: absolute; right: -4px; bottom: -5px; min-width: 14px; padding: 0 3px; border-radius: 6px; font-size: 9px; line-height: 13px;
+  position: absolute; bottom: -5px; padding: 0 3px; border-radius: 6px; font-size: 9px; line-height: 13px;
   font-weight: 900; background: var(--aw-ink, #22304A); color: #fff; font-family: inherit; pointer-events: none;
 }
 #quickbar #qb-search { border-radius: 50%; }

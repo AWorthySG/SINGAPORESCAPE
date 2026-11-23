@@ -37,12 +37,12 @@
 #rep-pill {
   position: absolute; top: 38px; left: 50%; transform: translateX(-50%); z-index: 24; pointer-events: none;
   display: flex; align-items: center; gap: 6px; padding: 3px 12px 3px 4px; white-space: nowrap;
-  background: rgba(255,255,255,0.94); color: #1C1B19; font-size: 12px;
-  border: 2px solid var(--rk, #22304A); border-radius: 999px; box-shadow: 0 2px 6px rgba(0,0,0,0.25);
-  animation: rep-pill-in .25s ease-out; transition: opacity .4s;
+  background: rgba(255,255,255,0.94); font-size: 12px;
+  border-radius: 999px;
+  transition: opacity .4s;
 }
 #rep-pill img { width: 24px; height: 24px; object-fit: contain; }
 #rep-pill.out { opacity: 0; }
 @keyframes rep-pill-in { from { opacity: 0; transform: translate(-50%, -6px); } to { opacity: 1; transform: translate(-50%, 0); } }
-@media (prefers-reduced-motion: reduce) { #rep-pill { animation: none; transition: none; } }
-@media (max-width: 540px) { #rep-pill { top: 34px; font-size: 11px; } }
+@media (prefers-reduced-motion: reduce) { #rep-pill { transition: none; } }
+@media (max-width: 540px) { #rep-pill { font-size: 11px; } }

@@ -96,8 +96,8 @@ html body.title-on > #acct-overlay:not(#splash):not(#game-root) { visibility: vi
 #cloud-toast {
   position: fixed; top: calc(8px + env(safe-area-inset-top, 0px)); left: 50%; z-index: 90;
   transform: translate(-50%, -12px); opacity: 0; pointer-events: none;
-  padding: 5px 12px; border-radius: var(--r-pill); border: 2px solid var(--aw-ink);
-  background: var(--aw-card); color: var(--aw-ink); box-shadow: var(--shadow-sticker-sm);
+  padding: 5px 12px; border-radius: var(--r-pill);
+  background: var(--aw-card);
   font: 800 var(--fs-sm) var(--font); white-space: nowrap; max-width: calc(100vw - 32px); overflow: hidden; text-overflow: ellipsis;
   transition: opacity .25s ease, transform .25s ease;
 }

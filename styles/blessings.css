@@ -51,7 +51,7 @@
 #prayer-panel .bl-slot.filled .bl-slot-ic { width: 30px; height: 30px; align-items: center; justify-content: center; }
 #prayer-panel .bl-slot.empty { background-origin: content-box; }
 #prayer-panel .bl-slot-ic img { width: 22px; height: 22px; }
-#prayer-panel .bl-slot-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#prayer-panel .bl-slot-name { max-width: 100%; text-overflow: ellipsis; }
 #prayer-panel .bl-slot.empty { border: 2px dashed var(--aw-sun, #f5b82e); color: var(--aw-text-sec, #5b6577); }
 #prayer-panel .bl-slot.locked { border: 2px dashed rgba(36, 50, 74, .25); color: var(--aw-text-sec, #5b6577); opacity: .6; }
 
