@@ -1,9 +1,9 @@
 /* ---- Living world: region reputation (reputationui.js) ---- */
-.rep-intro { font-size: 12px; color: var(--aw-text-sec, #6B6760); margin: 2px 2px 8px; line-height: 1.35; }
+.rep-intro { font-size: var(--fs-sm); color: var(--aw-text-sec); margin: 2px 2px 8px; line-height: 1.35; }
 .rep-list { display: flex; flex-direction: column; gap: 7px; }
 .rep-row {
   display: grid; grid-template-columns: 46px 1fr; gap: 8px; align-items: start;
-  background: var(--aw-card, #fff); border: 2px solid var(--aw-ink, #22304A); border-left: 6px solid var(--rk);
+  background: var(--aw-card); border: 2px solid var(--aw-ink); border-left: 6px solid var(--rk);
   border-radius: 12px; padding: 7px 8px;
 }
 .rep-row.here { box-shadow: 0 0 0 2px var(--rk); }
@@ -15,34 +15,34 @@
 .rep-badge-wrap .rep-ribbon { position: absolute; left: -5px; bottom: -24px; width: 56px; height: 56px; object-fit: contain; pointer-events: none; }
 .rep-main { min-width: 0; }
 .rep-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.rep-top b { flex: 1; min-width: 0; font-size: 13px; }
-.rep-here { font-size: 10px; font-weight: 800; color: var(--aw-sky-deep, #1F6FA8); margin-top: 1px; }
+.rep-top b { flex: 1; min-width: 0; font-size: var(--fs-sm); }
+.rep-here { font-size: var(--fs-cap); font-weight: 800; color: var(--aw-sky-deep); margin-top: 1px; }
 .rep-chip {
-  font-size: 11px; font-weight: 900; color: #fff; background: var(--rk);
+  font-size: var(--fs-xs); font-weight: 900; color: var(--aw-white); background: var(--rk);
   border-radius: 999px; padding: 1px 8px; white-space: nowrap;
 }
-.rep-bar { height: 7px; border-radius: 999px; background: var(--aw-muted, #F5F0E6); border: 1px solid var(--aw-ink-faint, rgba(34,48,74,.28)); margin: 5px 0 3px; overflow: hidden; }
+.rep-bar { height: 7px; border-radius: 999px; background: var(--aw-muted); border: 1px solid var(--aw-ink-faint); margin: 5px 0 3px; overflow: hidden; }
 .rep-bar i { display: block; height: 100%; background: var(--rk); border-radius: 999px; }
-.rep-next { font-size: 11px; color: var(--aw-text-sec, #6B6760); line-height: 1.35; }
-.rep-changes { margin: 5px 0 0; padding-left: 16px; font-size: 11px; line-height: 1.35; }
-.rep-changes li.good { color: var(--aw-grass-deep, #1F7A3D); }
-.rep-changes li.bad { color: var(--aw-bloom-deep, #B32048); }
+.rep-next { font-size: var(--fs-xs); color: var(--aw-text-sec); line-height: 1.35; }
+.rep-changes { margin: 5px 0 0; padding-left: 16px; font-size: var(--fs-xs); line-height: 1.35; }
+.rep-changes li.good { color: var(--aw-grass-deep); }
+.rep-changes li.bad { color: var(--aw-bloom-deep); }
 .rep-title-btn {
-  margin-top: 6px; min-height: 40px; padding: 6px 12px; border-radius: 999px; font-weight: 800; font-size: 12px;
-  border: 2px solid var(--aw-ink, #22304A); background: var(--aw-sun-bg, #FDF3DE); color: var(--aw-text, #1C1B19); cursor: pointer;
+  margin-top: 6px; min-height: 40px; padding: 6px 12px; border-radius: 999px; font-weight: 800; font-size: var(--fs-sm);
+  border: 2px solid var(--aw-ink); background: var(--aw-sun-bg); color: var(--aw-text); cursor: pointer;
 }
-.rep-title-btn.on { background: var(--aw-muted, #F5F0E6); }
+.rep-title-btn.on { background: var(--aw-muted); }
 
 /* The pill as you walk into a region: your standing there, for a few seconds. */
 #rep-pill {
   position: absolute; top: 38px; left: 50%; transform: translateX(-50%); z-index: 24; pointer-events: none;
   display: flex; align-items: center; gap: 6px; padding: 3px 12px 3px 4px; white-space: nowrap;
-  background: rgba(255,255,255,0.94); color: #1C1B19; font-size: 12px;
-  border: 2px solid var(--rk, #22304A); border-radius: 999px; box-shadow: 0 2px 6px rgba(0,0,0,0.25);
-  animation: rep-pill-in .25s ease-out; transition: opacity .4s;
+  background: rgba(255,255,255,0.94); font-size: var(--fs-sm);
+  border-radius: 999px;
+  transition: opacity .4s;
 }
 #rep-pill img { width: 24px; height: 24px; object-fit: contain; }
 #rep-pill.out { opacity: 0; }
 @keyframes rep-pill-in { from { opacity: 0; transform: translate(-50%, -6px); } to { opacity: 1; transform: translate(-50%, 0); } }
-@media (prefers-reduced-motion: reduce) { #rep-pill { animation: none; transition: none; } }
-@media (max-width: 540px) { #rep-pill { top: 34px; font-size: 11px; } }
+@media (prefers-reduced-motion: reduce) { #rep-pill { transition: none; } }
+@media (max-width: 540px) { #rep-pill { font-size: var(--fs-xs); } }

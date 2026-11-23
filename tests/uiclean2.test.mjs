@@ -271,7 +271,7 @@ test('banners and toasts are one sticker family; every close is one .close-x', (
   assert.match(cardHTML({ id: 1, kind: 'tip', html: 'hi', count: 1 }), /class="nl-x close-x"/);
   assert.match(read('src/ui/accountui.js'), /class="acct-x close-x"/);
   assert.match(read('src/ui/photomode.js'), /class="pm-x close-x"/);
-  assert.match(css, /\.close-x, #modal-close\.close-x, [^{]*\{[^}]*background: #fff none; border: 2px solid var\(--aw-ink/);
+  assert.match(css, /\.close-x, #modal-close\.close-x, [^{]*\{[^}]*background: var\(--aw-white\) none; border: 2px solid var\(--aw-ink/);
   // The world's signposts are drawn as the same card.
   const r = read('src/render/renderer.js');
   const sign = r.slice(r.indexOf('// Directional signposts'), r.indexOf('_place(x, y, hw)'));

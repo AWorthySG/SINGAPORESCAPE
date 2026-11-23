@@ -61,29 +61,27 @@
 
 /* ---------------- Title: the card ---------------- */
 #splash.cosy .splash-inner {
-  background: var(--paper-grain, none), linear-gradient(180deg, #FFFDF7, #FFF6E6);
-  box-shadow: var(--shadow-float, 0 5px 0 rgba(34,48,74,0.14));
+  background: var(--paper-grain), linear-gradient(180deg, #FFFDF7, #FFF6E6);
+  box-shadow: var(--shadow-float);
 }
 /* "Steady lah, adventurer!": a tilted sticker on the card's corner. */
 .splash-lah {
   position: absolute; top: 14px; right: -14px; margin: 0; z-index: 1;
   padding: 6px 12px; border-radius: 999px; transform: rotate(8deg);
-  font-size: 13px; font-weight: 900; color: #22304A; white-space: nowrap;
-  background: #F5B82E; border: 2px solid #22304A; box-shadow: 0 0 0 3px #fff, 0 4px 0 3px rgba(34,48,74,0.18);
+  font-size: var(--fs-sm); font-weight: 900; color: var(--aw-ink); white-space: nowrap;
+  background: var(--aw-sun); border: 2px solid var(--aw-ink); box-shadow: 0 0 0 3px var(--aw-white), 0 4px 0 3px rgba(34,48,74,0.18);
   animation: ctLah 4s ease-in-out infinite;
 }
 @keyframes ctLah { 0%, 100% { transform: rotate(8deg); } 50% { transform: rotate(4deg) translateY(-2px); } }
 .splash-sub .cosy-tag { font-style: italic; font-weight: 800; color: #8A5A1E; }
-#splash.cosy .splash-logo { height: 44px; margin: 0 auto 12px; }
 /* A big, friendly Play button. */
 #splash.cosy #splash-enter {
-  font-size: 20px; font-weight: 900; padding: 15px 34px; min-width: min(300px, 100%);
+  font-size: var(--fs-xl); font-weight: 900; padding: 15px 34px; min-width: min(300px, 100%);
 }
 @media (max-width: 540px), (max-height: 700px) {
-  .splash-lah { top: -10px; right: 6px; font-size: 12px; }
-  #splash.cosy .splash-logo { height: 34px; margin-bottom: 8px; }
+  .splash-lah { top: -10px; right: 6px; font-size: var(--fs-sm); }
   #splash.cosy .splash-mascot { width: clamp(80px, 13vh, 112px); }
-  #splash.cosy #splash-enter { font-size: 18px; padding: 13px 22px; white-space: nowrap; }
+  #splash.cosy #splash-enter { font-size: var(--fs-title); padding: 13px 22px; white-space: nowrap; }
   /* Phones are played by touch: the keyboard hints make way for the skyline. */
   #splash.cosy .splash-controls { display: none; }
 }
@@ -100,10 +98,10 @@
 
 /* ---------------- Postcard mode ---------------- */
 #photo-btn {
-  position: absolute; left: -12px; top: 34px; z-index: 22; cursor: var(--cur-pointer, pointer);
+  position: absolute; left: -12px; top: 34px; z-index: 22; cursor: var(--cur-pointer);
   width: 32px; height: 32px; padding: 0; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  background: #F5B82E; border: 2px solid #22304A; box-shadow: 0 2px 0 rgba(34,48,74,0.3);
+  background: var(--aw-sun); border: 2px solid var(--aw-ink); box-shadow: 0 2px 0 rgba(34,48,74,0.3);
 }
 #photo-btn:hover { filter: brightness(1.08); }
 #photo-btn:active { transform: translateY(1px); }
@@ -116,7 +114,7 @@ body.photo-on #game-root > :not(#game-canvas) { visibility: hidden !important; }
 #photo-mode { position: fixed; inset: 0; z-index: 400; pointer-events: none; }
 #photo-mode .pm-btn, #photo-mode .pm-x, #photo-mode .pm-preview { pointer-events: auto; }
 .pm-frame { position: absolute; inset: max(16px, env(safe-area-inset-top)) 16px 120px; }
-.pm-frame i { position: absolute; width: 34px; height: 34px; border: 0 solid #fff; filter: drop-shadow(0 0 1.5px #22304A) drop-shadow(0 0 1px #22304A); }
+.pm-frame i { position: absolute; width: 34px; height: 34px; border: 0 solid var(--aw-white); filter: drop-shadow(0 0 1.5px var(--aw-ink)) drop-shadow(0 0 1px var(--aw-ink)); }
 .pm-frame i:nth-child(1) { top: 0; left: 0; border-top-width: 5px; border-left-width: 5px; border-top-left-radius: 12px; }
 .pm-frame i:nth-child(2) { top: 0; right: 0; border-top-width: 5px; border-right-width: 5px; border-top-right-radius: 12px; }
 .pm-frame i:nth-child(3) { bottom: 0; left: 0; border-bottom-width: 5px; border-left-width: 5px; border-bottom-left-radius: 12px; }
@@ -128,19 +126,19 @@ body.photo-on #game-root > :not(#game-canvas) { visibility: hidden !important; }
 }
 .pm-hint {
   margin: 0 auto 10px; display: inline-block; padding: 6px 14px; border-radius: 999px;
-  font-size: 13px; font-weight: 800; color: #22304A; background: #FFF8EA; border: 2px solid #22304A;
+  font-size: var(--fs-sm); font-weight: 800; color: var(--aw-ink); background: #FFF8EA; border: 2px solid var(--aw-ink);
 }
 .pm-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 .pm-btn {
-  cursor: var(--cur-pointer, pointer); min-height: 44px; padding: 10px 18px; border-radius: 999px;
-  font: 900 15px Nunito, "Trebuchet MS", sans-serif; color: #22304A;
-  background: #fff; border: 2px solid #22304A; box-shadow: 0 3px 0 rgba(34,48,74,0.25);
+  cursor: var(--cur-pointer); min-height: 44px; padding: 10px 18px; border-radius: 999px;
+  font: 900 var(--fs-lead) Nunito, "Trebuchet MS", sans-serif; color: var(--aw-ink);
+  background: var(--aw-white); border: 2px solid var(--aw-ink); box-shadow: 0 3px 0 rgba(34,48,74,0.25);
   display: inline-flex; align-items: center; gap: 8px;
 }
 .pm-btn:active { transform: translateY(1px); }
-.pm-shutter, .pm-save { color: #fff; background: #E0533D; }
-.pm-share { background: #F5B82E; }
-.pm-flash { position: absolute; inset: 0; background: #fff; opacity: 0; }
+.pm-shutter, .pm-save { color: var(--aw-white); background: #E0533D; }
+.pm-share { background: var(--aw-sun); }
+.pm-flash { position: absolute; inset: 0; background: var(--aw-white); opacity: 0; }
 #photo-mode.flashing .pm-flash { animation: pmFlash .5s ease-out; }
 @keyframes pmFlash { from { opacity: .9; } to { opacity: 0; } }
 .pm-preview {
@@ -151,12 +149,12 @@ body.photo-on #game-root > :not(#game-canvas) { visibility: hidden !important; }
 #photo-mode.previewing .pm-preview { display: flex; }
 .pm-img {
   display: block; max-width: min(100%, 980px); max-height: calc(100% - 90px); width: auto; height: auto;
-  border-radius: 14px; box-shadow: 0 0 0 3px #fff, 0 12px 30px rgba(0,0,0,0.35);
+  border-radius: 14px; box-shadow: 0 0 0 3px var(--aw-white), 0 12px 30px rgba(0,0,0,0.35);
   transform: rotate(-1.5deg); animation: pmIn .45s cubic-bezier(.2,.9,.3,1.2) both;
 }
 @keyframes pmIn { from { opacity: 0; transform: rotate(-6deg) scale(.9) translateY(18px); } to { opacity: 1; transform: rotate(-1.5deg); } }
 .pm-x {
-  position: absolute; top: max(12px, env(safe-area-inset-top)); right: 12px; width: 44px; height: 44px; cursor: var(--cur-pointer, pointer);
-  border-radius: 50%; font-size: 26px; line-height: 1; color: #22304A; background: #fff; border: 2px solid #22304A;
+  position: absolute; top: max(12px, env(safe-area-inset-top)); right: 12px; width: 44px; height: 44px; cursor: var(--cur-pointer);
+  border-radius: 50%; font-size: 26px; line-height: 1; color: var(--aw-ink); background: var(--aw-white); border: 2px solid var(--aw-ink);
 }
 @media (prefers-reduced-motion: reduce) { .pm-img { animation: none; } #photo-mode.flashing .pm-flash { animation: none; } }

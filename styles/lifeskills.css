@@ -35,7 +35,7 @@
 }
 .lsx-row.done { opacity: .65; }
 .lsx-ic { grid-row: 1 / span 2; display: inline-flex; }
-.lsx-text b { display: block; font-size: 13px; }
-.lsx-text small { display: block; font-size: 11px; color: var(--aw-text-sec); }
+.lsx-text b { display: block; font-size: var(--fs-sm); }
+.lsx-text small { display: block; font-size: var(--fs-xs); color: var(--aw-text-sec); }
 .lsx-bar { height: 7px; border-radius: 999px; background: var(--aw-muted); border: 1.5px solid var(--aw-ink); overflow: hidden; }
 .lsx-bar i { display: block; height: 100%; background: #9be37a; }
