@@ -84,6 +84,9 @@ export const WEAPON_VS_RACE = {
   // The Monk's: iron fists crack stone and quick jabs swat flyers; open palms drive out spirits and demons.
   knuckles:  { strong: ['construct', 'avian'],           weak: [] },
   monk_gloves: { strong: ['spirit', 'demon'],            weak: [] },
+  // The Zealot's: holy fire sears the undead and demons and catches in anything green.
+  // (Spells are judged by their element, so for casters this shows in the class perks.)
+  censer:    { strong: ['undead', 'demon', 'flora'],     weak: [] },
 };
 
 // Effective: harder hitting. A weapon is never WEAKER against a race (the

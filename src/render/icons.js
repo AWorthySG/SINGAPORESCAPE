@@ -414,7 +414,7 @@ import { BESTIARY_BOSSES } from '../data/bestiary.js';
     pistol, shuriken, cane, rifle,
     // Secondary weapon types: vector fallbacks borrowed from their nearest kin.
     parang: scim, kerambit: blade, toya: spear, crossbow: rifle, chakram: shuriken, orb: (c, hi) => ringIcon(hi, c), fan: capeIcon,
-    knuckles: gloves, monk_gloves: gloves };
+    knuckles: gloves, monk_gloves: gloves, censer: (c, hi) => ringIcon(hi, c) };
   const ABUILD = { med_helm: helm, full_helm: helm, chainbody: plate, platebody: plate, platelegs: legs, sq_shield: shield, kiteshield: shield, gauntlets: gloves, boots, plateskirt, buckler,
     scout_hood: helm, scout_jerkin: plate, scout_breeches: legs,
     scout_boots: boots, scout_gloves: gloves, hide_boots: boots, hide_vambraces: gloves, mage_boots: boots, mage_gloves: gloves, quiver: shield };
@@ -811,8 +811,8 @@ import { BESTIARY_BOSSES } from '../data/bestiary.js';
     // Art batch 1: the secondary weapon types, quivers and the scout, hide and mage gloves and boots.
     for (const w of ['parang', 'kerambit', 'toya', 'crossbow', 'chakram', 'orb', 'fan', 'rifle', 'quiver',
       'scout_gloves', 'scout_boots', 'hide_vambraces', 'hide_boots', 'mage_gloves', 'mage_boots']) ITEM_ART.add(`${t}_${w}`);
-    // The Monk's monk knuckles and monk gloves (stand-in stickers until their own art arrives).
-    for (const w of ['knuckles', 'monk_gloves']) ITEM_ART.add(`${t}_${w}`);
+    // The Monk's monk knuckles and monk gloves and the Zealot's censers (stand-in stickers until their own art arrives).
+    for (const w of ['knuckles', 'monk_gloves', 'censer']) ITEM_ART.add(`${t}_${w}`);
   }
   // Art batch 1: endgame ores, bars, logs and ashes, the bone kinds, the refine
   // scroll, prayer trinkets and capes, and every boss signature weapon.

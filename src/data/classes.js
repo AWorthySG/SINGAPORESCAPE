@@ -29,6 +29,9 @@ export const CLASSES = [
   // Magic
   { id: 'wizard', name: 'Wizard', weapon: 'staff', style: 'magic', desc: 'Powerful staves; elemental staves give free runes.' },
   { id: 'sorcerer', name: 'Sorcerer', weapon: 'wand', style: 'magic', desc: 'Quick-casting wands, lighter but faster than staves.' },
+  // Added after the boss signature weapons were dealt (see LATE_CLASSES in bossWeapons.js).
+  { id: 'priest', name: 'Priest', weapon: 'orb', style: 'magic', desc: 'Holy orbs: every spell heals you a little and smites undead, spirits and demons, and your skills lift your blessings.' },
+  { id: 'zealot', name: 'Zealot', weapon: 'censer', style: 'magic', desc: 'A burning censer on a chain: holy fire that stacks on foes, more damage the more hurt you are, and skills paid for in life.' },
   // Dance
   { id: 'dancer', name: 'Dancer', weapon: 'whip', style: 'dance', desc: 'Whips that lash from 3 tiles, building Rhythm and dodging blows.' },
 ];
@@ -48,7 +51,7 @@ export const ARMOUR_FAMILY = {
   rogue: 'leather', corsair: 'leather', brawler: 'leather', samurai: 'leather',
   archer: 'hide', ranger: 'hide', wizard: 'robes', sorcerer: 'robes', dancer: 'dancewear',
   pistoler: 'hide', ninja: 'leather', merchant: 'hide', sniper: 'hide',
-  monk: 'leather',
+  monk: 'leather', priest: 'robes', zealot: 'robes',
 };
 // Ninjas throw a shuriken from each hand (the off-hand one goes where a shield
 // would), so no shield-slot piece (shield, buckler, quiver or tome) is for them.
@@ -83,6 +86,9 @@ export const SECONDARY_WEAPON = {
   // The Monk's monk gloves are worn on the other hand from its knuckles (one dual-wield
   // kind, see dualType in equipment.js): a palm strike after every punch.
   monk: 'monk_gloves',
+  // The Priest's orbs and the Zealot's censers: each is the other's second weapon
+  // (the orb stays the Wizard's and Sorcerer's second too).
+  priest: 'censer', zealot: 'orb',
 };
 /** Can this class wield this weapon type? (Its own type or its secondary; no class = anything.) */
 export function canWield(classId, type) { const c = CLASS_BY_ID[classId]; return !c || !type || c.weapon === type || SECONDARY_WEAPON[classId] === type; }
@@ -150,7 +156,7 @@ export const WEAPON_TYPE_NAMES = {
   shortbow: 'shortbows', longbow: 'longbows', staff: 'staves', wand: 'wands', whip: 'whips',
   pistol: 'pistols', shuriken: 'shurikens', cane: 'canes', rifle: 'sniper rifles',
   parang: 'parangs', kerambit: 'kerambits', toya: 'toya staves', crossbow: 'crossbows', chakram: 'chakrams', orb: 'orbs', fan: 'war fans',
-  knuckles: 'monk knuckles', monk_gloves: 'monk gloves',
+  knuckles: 'monk knuckles', monk_gloves: 'monk gloves', censer: 'censers',
 };
 
 /** Weapon type of an item (null for non-weapons and tools). */

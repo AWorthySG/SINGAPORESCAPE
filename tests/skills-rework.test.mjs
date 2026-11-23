@@ -32,9 +32,10 @@ const OLD_CD = {
   elemental_bolt: 3, arcane_power: 20, mana_shield: 25, wizard_meteor: 30, hex: 4, dark_pact: 20, soul_siphon: 15, chaos_storm: 30,
 };
 
-// Skills of classes added after the rework (the Monk's) had no old cooldown: each
-// takes one that a reworked skill in its slot already has.
-const AFTER_REWORK = new Set(['twin_fists', 'inner_focus', 'deflecting_palms', 'hundred_fists']);
+// Skills of classes added after the rework (the Monk's, the Priest's and the Zealot's)
+// had no old cooldown: each takes one that a reworked skill in its slot already has.
+const AFTER_REWORK = new Set(['twin_fists', 'inner_focus', 'deflecting_palms', 'hundred_fists',
+  'holy_light', 'uplift', 'sanctuary', 'judgement', 'searing_swing', 'burning_oath', 'rekindle', 'pillar_of_flame']);
 
 test('every class skill (Z, X, C, B) is 20-35% quicker to come back; ultimates still need a full bar', () => {
   for (const a of ABILITIES) {

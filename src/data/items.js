@@ -933,6 +933,17 @@ for (const M of _METALS) {
     equip: { slot: 'weapon', req: { attack: r }, bonuses: { attack: R(6 * m), strength: R(9 * m), defence: R(2 * m), speed: 4 }, range: MELEE_REACH } });
 }
 
+// ---- The Zealot's censers, one per metal tier ----
+// A censer swung on a chain (the Zealot's own type, and the Priest's second): every
+// spell cast through it leaves the foe it strikes burning with holy fire, and the
+// fires stack (game.js WOUND_BY_WEAPON). Cast at an orb's pace, which suits the fire
+// (more casts, more burns), with a little less Magic and a little more magic damage.
+for (const M of _METALS) {
+  const { k, n, m, v } = M, r = M.ra, tag = n.toLowerCase(), R = Math.round;
+  if (!RAW[`${k}_censer`]) RAW[`${k}_censer`] = { name: `${n} censer`, icon: '🏮', value: R(38 * v), examine: `${AOrAn(tag)} censer swung on a chain: every spell cast through its holy fire leaves the foe burning.`,
+    equip: { slot: 'weapon', combatType: 'magic', req: { magic: r }, bonuses: { magic: R(3.5 * m + 2), ...(r >= 15 ? { magicStr: R(r / 12) } : {}), speed: r >= 60 ? 4 : 5 } } };
+}
+
 // A first hide body for archers (the studded body needs Ranged 20).
 RAW.hide_vest = { name: 'Hide vest', icon: '🦺', value: 30, examine: 'A soft hide vest that leaves the arms free to draw a bow.',
   equip: { slot: 'body', req: { ranged: 1 }, bonuses: { ranged: 4, defence: 3 } } };
@@ -1030,18 +1041,20 @@ for (const [id, it] of Object.entries(RAW)) {
 // Every weapon belongs to exactly one type; a job class can only wield its own.
 export const WEAPON_TYPES = ['dagger', 'sword', 'scimitar', 'mace', 'longsword', 'battleaxe', 'warhammer', '2h_sword', 'spear', 'claws', 'katana', 'halberd',
   'shortbow', 'longbow', 'staff', 'wand', 'whip', 'pistol', 'shuriken', 'cane', 'rifle',
-  'knuckles'];   // (newer classes' types go on the end: MELEE_FAMILIES takes the first 12)
+  'knuckles', 'orb', 'censer'];   // (newer classes' types go on the end: MELEE_FAMILIES takes the first 12)
 const UNIQUE_TYPE = { tiger_kris: 'dagger', merlion_blade: 'sword', cursed_cutlass: 'scimitar', seraph_blade: 'longsword', megalodon_jaw: 'battleaxe',
   granite_maul: 'warhammer', void_blade: 'katana', leviathan_trident: 'spear', tiger_fang: 'claws' };
-// Secondary weapon types: no class of their own; each class wields one (SECONDARY_WEAPON in classes.js).
-export const SECONDARY_WEAPON_TYPES = ['parang', 'kerambit', 'toya', 'crossbow', 'chakram', 'orb', 'fan', 'monk_gloves'];
+// Secondary weapon types: each class wields one (SECONDARY_WEAPON in classes.js). Most have
+// no class of their own; orbs and censers are also the Priest's and the Zealot's own types,
+// each the other's second weapon.
+export const SECONDARY_WEAPON_TYPES = ['parang', 'kerambit', 'toya', 'crossbow', 'chakram', 'orb', 'fan', 'monk_gloves', 'censer'];
 // Each type once, though a type may be one class's own and another's second (a Set keeps the order).
 export const ALL_WEAPON_TYPES = [...new Set([...WEAPON_TYPES, ...SECONDARY_WEAPON_TYPES])];
 const MELEE_FAMILIES = [...WEAPON_TYPES.slice(0, 12), 'parang', 'kerambit', 'toya', 'knuckles', 'monk_gloves'].sort((a, b) => b.length - a.length);   // '2h_sword' before 'sword'
 function classifyWeapon(id, eq) {
   if (UNIQUE_TYPE[id]) return UNIQUE_TYPE[id];
   if (eq.combatType === 'dance') return /_fan$/.test(id) ? 'fan' : 'whip';
-  if (eq.combatType === 'magic') return /_orb$/.test(id) ? 'orb' : /wand$/.test(id) ? 'wand' : 'staff';
+  if (eq.combatType === 'magic') return /_orb$/.test(id) ? 'orb' : /_censer$/.test(id) ? 'censer' : /wand$/.test(id) ? 'wand' : 'staff';
   if (eq.combatType === 'ranged' && /_cane$/.test(id)) return 'cane';
   if (eq.combatType === 'ranged' && /_rifle$/.test(id)) return 'rifle';
   if (eq.combatType === 'ranged' && /_crossbow$/.test(id)) return 'crossbow';
@@ -1088,7 +1101,7 @@ const WEAPON_STAT = {
   '2h_sword': 'bossDmg', halberd: 'bossDmg', battleaxe: 'atkPct', staff: 'magPct', wand: 'magPct', sword: 'atkPct',
   scimitar: 'lifesteal', whip: 'lifesteal', cane: 'lifesteal',
   parang: 'bossDmg', kerambit: 'critDmg', toya: 'pierce', crossbow: 'pierce', chakram: 'atkPct', orb: 'bossDmg', fan: 'critDmg',
-  knuckles: 'critDmg', monk_gloves: 'pierce',
+  knuckles: 'critDmg', monk_gloves: 'pierce', censer: 'magPct',
 };
 // Size of one "step" of each stat (critDmg and bossDmg run bigger numbers).
 const STAT_STEP = { critDmg: 3, bossDmg: 2, pierce: 1, haste: 1, lifesteal: 1, atkPct: 2, magPct: 2 };

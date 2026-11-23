@@ -78,6 +78,8 @@ import { Pets } from './pets.js';
 import { WorldEvents } from './worldevents.js';
 import * as Mercs from './mercenary.js';
 import * as Monk from './monk.js';   // the Monk's Chi and light feet
+import * as Priest from './priest.js';   // the Priest's healing spells and smiting
+import * as Zealot from './zealot.js';   // the Zealot's Fervour
 import * as Culling from './culling.js';
 import { classPerks } from './classperks.js';
 import { LIFE_PERKS, LIFE_PERK_SKILLS, LIFE_PERK_TOP_LEVEL, lifePerkNoteAt, lifePerkTotals, lifePerkText } from './lifeperks.js';
@@ -220,16 +222,17 @@ export const DODGE_AGILITY_XP = 2;
 // Shortbows fire this many arrows a shot, each at this share of a full arrow's
 // damage: about half as much again as one arrow, for half the old reach.
 export const SHORTBOW_ARROWS = 3;
-// Wounds from blades: daggers poison, claws open bleeding wounds. On a blow,
-// `chance` to add a stack dealing `share` of that hit every second for `secs`
-// seconds, up to `stacks` at once. Holy fire is set by a skill's `holyfire`
-// rider (abilities.js); it is a spell's burn, so it pays Magic XP (`magic`).
+// Wounds from blades: daggers poison, claws open bleeding wounds, and a censer's
+// spells set the foe they strike alight with holy fire. On a blow, `chance` to
+// add a stack dealing `share` of that hit every second for `secs` seconds, up to
+// `stacks` at once. A skill's `holyfire` rider (abilities.js) sets a fiercer one.
+// Holy fire is a spell's burn, so it pays Magic XP (`magic`).
 export const WOUNDS = {
   poison: { chance: 0.35, share: 0.06, secs: 8, stacks: 5, color: '#6cc24a', label: 'Poisoned' },
   bleed: { chance: 0.4, share: 0.1, secs: 4, stacks: 3, color: '#d23a3a', label: 'Bleeding' },
-  holyfire: { chance: 1, share: 0.03, secs: 5, stacks: 50, color: '#ffc93a', label: 'Holy fire', magic: true },
+  holyfire: { chance: 1, ...Zealot.HOLY_FIRE, color: '#ffc93a', label: 'Holy fire', magic: true },   // (zealot.js)
 };
-export const WOUND_BY_WEAPON = { dagger: 'poison', claws: 'bleed' };
+export const WOUND_BY_WEAPON = { dagger: 'poison', claws: 'bleed', censer: 'holyfire' };
 export const SHORTBOW_ARROW_DMG = 0.5;
 // Each spread also flings an extra arrow into up to SHORTBOW_FAN_FOES other foes
 // within SHORTBOW_FAN_TILES of the target, each at SHORTBOW_FAN_SHARE of a full
@@ -2238,8 +2241,10 @@ export class Game {
     }
     if (ab.cls && ab.cls !== this.jobClass) { this.msg(`${ab.name} is ${aOrAn(CLASS_BY_ID[ab.cls]?.name || ab.cls)} ability.`, 'system'); return; }
     if (ab.mode && ab.mode !== this.combatMode()) {
-      const need = { melee: 'a melee weapon', ranged: 'a bow', magic: 'a staff' }[ab.mode];
-      this.msg(`${ab.name} needs ${need} equipped.`, 'system');
+      // A class's magic skills name its own weapons (a Priest casts through an orb or a censer, not a staff).
+      const own = ab.mode === 'magic' && SECONDARY_WEAPON[ab.cls] ? ` (${WEAPON_TYPE_NAMES[CLASS_BY_ID[ab.cls].weapon]} or ${WEAPON_TYPE_NAMES[SECONDARY_WEAPON[ab.cls]]})` : '';
+      const need = { melee: 'a melee weapon', ranged: 'a bow', magic: own ? 'a magic weapon' : 'a staff' }[ab.mode];
+      this.msg(`${ab.name} needs ${need} equipped${own}.`, 'system');
       return;
     }
     if (ab.kind === 'attack' && ab.instant) {
@@ -2442,6 +2447,7 @@ export class Game {
     dmgM *= Mercs.merchantPower(this);   // the strongest class (see mercenary.js)
     dmgM *= 1 + openWoundStacks(npc, this.tickCount) * OPEN_WOUNDS.per;   // a Brawler's Open Wounds on the foe
     dmgM *= Monk.chiPower(this);   // a Monk's Chi (both hands)
+    dmgM *= Zealot.fervour(this) * Priest.smite(this, npc);   // a Zealot's Fervour, a Priest smiting the unholy
     dmgM *= 1 + hexStacks(npc, this.tickCount) * ELEMENTS.dark.hex.per / 100;   // Dark's Hex on the foe (every style)
     if (npc.sunderUntil > this.tickCount) dmgM *= 1 + (npc.sunder || 0) * bossBreakMult(npc.def);   // armour broken by a skill
     // A boss's armour type: blunt weapons crack plate, wards soak spells, light blows glance off a thick hide.
@@ -2660,7 +2666,8 @@ export class Game {
     // Lifesteal from gear: heal a share of the damage dealt.
     // Lifesteal heals in your own life's units: a hit on a big monster counts at its real size.
     const realDmg = dmg * (npc.def?.hpScale || 1);
-    const ls = dmg > 0 ? this.equipment.bonuses(this._hand).lifesteal + this.buffMod('lifesteal') * 100 : 0;   // the striking hand's weapon's own
+    const ls = dmg > 0 ? this.equipment.bonuses(this._hand).lifesteal + this.buffMod('lifesteal') * 100   // the striking hand's weapon's own
+      + Priest.spellLifesteal(this) : 0;   // and a Priest's spells heal a little
     if (ls && this.player.alive && this.player.hp < this.maxHp()) {
       this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.max(1, Math.round(realDmg * ls / 100)));
       this.bus.emit('hp');

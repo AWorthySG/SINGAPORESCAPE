@@ -8,6 +8,9 @@ import { WEAPON_VS_RACE, RACES, weaponTypeName } from '../data/races.js';
 import { swingBeats } from './gear.js';
 import { canDualWield } from './equipment.js';
 import { CHI, MONK_DODGE } from './monk.js';
+import { PRIEST } from './priest.js';
+import { ZEALOT, HOLY_FIRE } from './zealot.js';
+import { LIFE_COST_FLOOR } from '../data/abilities.js';
 const pct = (f) => Math.round(f * 100);
 
 // One signature line per class: the thing to remember it by.
@@ -28,6 +31,11 @@ const SIGNATURE = {
   ranger: 'Longbows: each arrow hits 60% harder, from a little further than a shortbow, and pierces on into a monster lined up behind your target (30% of the hit; 2 monsters from Ranged 40, 3 from Ranged 70).',
   wizard: 'Staves cast powerful spells; elemental staves supply unlimited runes of their element.',
   sorcerer: 'Wands cast quickly: lighter spells, but more of them.',
+  priest: `Holy orbs: every spell that lands heals you ${pct(PRIEST.heal)}% of its hit, and your spells hit undead, spirits and demons ${pct(PRIEST.smite)}% harder. `
+    + 'Your skills heal and shield you, and Uplift makes every blessing count 50% more for 9s and fills a quarter of your Faith at once.',
+  zealot: `A censer swung on a chain: every spell leaves the foe burning with holy fire (${pct(HOLY_FIRE.share * HOLY_FIRE.secs)}% of the hit over ${HOLY_FIRE.secs}s), and the fires stack. `
+    + `Fervour: up to +${pct(ZEALOT.fervour)}% damage the more hurt you are (+${pct(ZEALOT.fervour / 2)}% at half life). `
+    + `Burning Oath and Pillar of Flame are paid for in life as well as adrenaline, never at ${pct(LIFE_COST_FLOOR)}% of your life or less.`,
   dancer: 'Whips lash from 3 tiles and ricochet into 2 more monsters (3 at full Rhythm), build Rhythm for bigger hits, and help you dodge blows.',
   sniper: 'Sniper rifles: the furthest reach in the game (32+ tiles) and each round hits about 5.5x as hard and pierces every monster within 1 tile of its path, up to 10 tiles past the target, but fires only every 1.5s. No ammo to buy.',
   pistoler: 'Dual pistols: by far the fastest attacks in the game, each hand firing, and no ammo to buy.',

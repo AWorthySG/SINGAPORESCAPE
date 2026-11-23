@@ -33,7 +33,7 @@ const IMPACT_BY_WEAPON = {
   mace: 'blunt', warhammer: 'blunt', toya: 'blunt', knuckles: 'blunt', monk_gloves: 'blunt',
   spear: 'pierce', shortbow: 'pierce', longbow: 'pierce', crossbow: 'pierce', shuriken: 'pierce', chakram: 'pierce',
   pistol: 'bullet', rifle: 'bullet',
-  staff: 'magic', wand: 'magic', orb: 'magic',
+  staff: 'magic', wand: 'magic', orb: 'magic', censer: 'magic',
   whip: 'whip',
   cane: 'coin',   // a Merchant throws money
 };

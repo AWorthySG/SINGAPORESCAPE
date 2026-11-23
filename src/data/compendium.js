@@ -36,7 +36,7 @@ import { BOSS_MECHANICS, MECH_KINDS } from './bossMechanics.js';
 import { BOSS_TYPES } from './bossTypes.js';
 import { SIGNATURE_DROP_CHANCE, ASCENDED, ASCENDED_LEVEL, LATE_SIGS } from './bossWeapons.js';
 import { ALTAR_XP_MULT } from './bones.js';
-import { ADREN_PER_HIT, ADREN_PER_HURT, THRESHOLD_COST, ULTIMATE_COST } from './abilities.js';
+import { ADREN_PER_HIT, ADREN_PER_HURT, THRESHOLD_COST, ULTIMATE_COST, LIFE_COST_FLOOR } from './abilities.js';
 import { MASTERY_RANKS, MAX_ENCHANTS, ENCHANT_LABELS, enchantCost, BATTLE_CAP_RANK, KILL_XP, KILL_MULT } from '../game/mastery.js';
 import { QUALITY, QUALITY_ORDER, QUALITY_RULES, RARITY, NORMAL_GEAR_SKIP } from '../game/loot.js';
 import { MAX_REFINE, refineGain } from '../game/refine.js';
@@ -51,6 +51,8 @@ import {
 import { GATE_MODS, BOSS_EVERY, MILESTONE_EVERY } from '../game/waves.js';
 import { HOME_PRICE, HOME_UPGRADES } from '../game/home.js';
 import { CHI, MONK_DODGE } from '../game/monk.js';
+import { PRIEST } from '../game/priest.js';
+import { ZEALOT, HOLY_FIRE } from '../game/zealot.js';
 import { BOSS_PET_RATE, BOSS_PET_FLOOR, SKILL_PET_RATE } from '../game/pets.js';
 import { MASTERY_TIERS, CONTRACT_COUNT } from '../game/culling.js';
 import { CHAMPION_CHANCE, CHAMPION_HP_MULT } from '../game/npc.js';
@@ -442,7 +444,7 @@ export const CHAPTERS = [
           () => ({ table: { head: ['Class', 'Style', 'Main weapon', 'Secondary', 'Armour'], rows: classRows() } }),
           'Weapon and armour drops mostly turn into your own class\'s kind, so loot stays useful (see [[drops]]).',
         ],
-        see: ['weapon-grips', 'armour-families', 'merchant-dancer', 'the-monk'],
+        see: ['weapon-grips', 'armour-families', 'merchant-dancer', 'the-monk', 'priest-zealot'],
       },
       {
         id: 'weapon-grips', title: 'Two hands, two weapons and quivers',
@@ -506,6 +508,17 @@ export const CHAPTERS = [
           `Monks are **light on their feet**: ${pct(MONK_DODGE)} of blows miss them altogether (half as many heavy, telegraphed ones).`,
         ],
         see: ['classes', 'weapon-grips', 'abilities'],
+      },
+      {
+        id: 'priest-zealot', title: 'The Priest and the Zealot',
+        summary: 'Two casters of holy light and fire: spells that heal, and fires paid for in life.',
+        body: [
+          `The **Priest** casts through **orbs** (or censers). Every spell that lands heals it ${pct(PRIEST.heal)} of the hit (splashes and burns heal nothing), and its spells hit undead, spirits and demons ${pct(PRIEST.smite)} harder. Its skills heal it more (Holy Light, Judgement), shield it (Sanctuary) and lift its [[prayers|blessings]]: Uplift makes every blessing count 50% more for 9 seconds and fills a quarter of its Faith at once.`,
+          `The **Zealot** swings a **censer** on a chain (or casts through an orb). Every spell cast through a censer leaves the foe burning with **holy fire**: ${pct(HOLY_FIRE.share)} of the hit every second for ${HOLY_FIRE.secs} seconds, past its armour, and the fires stack (up to ${HOLY_FIRE.stacks}). Holy fire pays Magic XP like any spell, and a Priest holding a censer sets it too.`,
+          `**Fervour**: a Zealot hits harder the more hurt it is, up to +${pct(ZEALOT.fervour)} with no life left (+${pct(ZEALOT.fervour / 2)} at half life). Burning Oath and Pillar of Flame are paid for in life as well as adrenaline (a share of the life you have, never the last of it), and neither can be used at ${pct(LIFE_COST_FLOOR)} of your life or less, so auto battle never spends you to nothing.`,
+          'Both wear robes and can hold a shield or a tome.',
+        ],
+        see: ['classes', 'abilities', 'prayers'],
       },
     ],
   },

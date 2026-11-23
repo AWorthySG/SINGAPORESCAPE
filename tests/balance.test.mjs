@@ -32,8 +32,10 @@ const rows = (() => {
 const med = Object.fromEntries(['kill', 'single', 'boss', 'crowd'].map((m) => [m, median(rows.map((r) => r[m]))]));
 const rel = (r, m) => r[m] / med[m];
 // Since the owner made Fire's Ignite much stronger, Wizards and Sorcerers hit one
-// target at 2-4 times the median class: they are held to a band of their own.
-const FIRE_CASTERS = ['wizard', 'sorcerer'];
+// target at 2-4 times the median class: they are held to a band of their own. So
+// are the Priest and the Zealot, who cast Fire as well (the owner chose a strong
+// Fire for every caster): the Priest at 85-100% of the Wizard, the Zealot 95-115%.
+const FIRE_CASTERS = ['wizard', 'sorcerer', 'priest', 'zealot'];
 // The Merchant is the strongest class by design (MERCHANT_POWER, mercenary.js), so
 // the other classes are also held against the median of the rest, which neither
 // the Merchant nor the Fire casters can pull about. (With the casters in it, the
@@ -83,6 +85,21 @@ test('the Merchant is the strongest class but the Fire casters: 200-330% of the 
   }
 });
 
+// The Priest and the Zealot cast Fire like the Wizard, so they are held beside it:
+// the Priest a little under it (85-100% of the Wizard's damage at levels 100 and
+// 300 in tools/balance/classes.mjs), the Zealot level with it or a little over
+// (95-115%). These 60 s fights on one character are noisier, hence wider bands.
+test('the Priest and the Zealot hit about as hard as the Wizard: the Priest a little less', () => {
+  const wiz = rows.find((r) => r.cls === 'wizard');
+  for (const [cls, lo, hi] of [['priest', 0.75, 1.1], ['zealot', 0.85, 1.25]]) {
+    const r = rows.find((x) => x.cls === cls);
+    for (const m of ['single', 'boss']) {
+      const x = r[m] / wiz[m];
+      assert.ok(x >= lo && x <= hi, `${cls}: ${Math.round(x * 100)}% of the Wizard's ${m} damage`);
+    }
+  }
+});
+
 // The Brawler's Open Wounds stack up in a long fight: it ends up above the median
 // single-target class (the owner chose this over trimming Open Wounds), but stays sane.
 // (It was held at 140-320%; when scout leather took up armour pierce, Brawlers ran at
@@ -103,7 +120,7 @@ test('every class kills a level-matched monster at 25-400% of the median class',
 });
 
 test('Merchants (A-Worthlings, mercenaries) and casters (Fire burns, splash) do not explode in a 60 s fight', () => {
-  for (const cls of ['merchant', 'wizard', 'sorcerer']) {
+  for (const cls of ['merchant', ...FIRE_CASTERS]) {
     const r = rows.find((x) => x.cls === cls);
     assert.ok(rel(r, 'boss') <= 5, `${cls}: ${Math.round(rel(r, 'boss') * 100)}% of the median boss damage`);
     assert.ok(rel(r, 'crowd') <= 5, `${cls}: ${Math.round(rel(r, 'crowd') * 100)}% of the median crowd damage`);

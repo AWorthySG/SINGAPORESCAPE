@@ -221,6 +221,7 @@ export class Sfx {
       case 'staff': T(660, 0.14, 'sine', 0, 0.12, 990); T(1320, 0.1, 'triangle', 0.04, 0.05); break;
       case 'wand': T(1200, 0.08, 'triangle', 0, 0.1, 1800); T(2400, 0.06, 'sine', 0.03, 0.04); break;
       case 'orb': T(330, 0.18, 'sine', 0, 0.14, 440); T(660, 0.14, 'sine', 0.04, 0.05); break;
+      case 'censer': T(2600, 0.03, 'triangle', 0, 0.06); T(3100, 0.03, 'triangle', 0.04, 0.05); N(0.12, 0.1, 0.05); T(180, 0.16, 'sine', 0.05, 0.12, 320); break;   // the chain clinks, the fire whooms
       case 'unarmed': N(0.04, 0.18); T(200, 0.05, 'square', 0, 0.1, 100); break;
       default: N(0.08, 0.16); T(900, 0.08, 'sine', 0, 0.12, 300);   // the old swish
     }

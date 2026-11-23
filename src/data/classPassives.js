@@ -117,6 +117,16 @@ export const CLASS_PASSIVES = {
     { name: 'Hexcraft', desc: '4% chance a spell leaps to another foe, +3% damage', mods: { splash: 0.04, dmg: 0.03 } },
     { name: 'Void Lord', desc: '+4% crit chance, +5% damage to bosses', mods: { crit: 0.04, boss: 0.05 } },
   ],
+  priest: [
+    { name: 'Bright Mind', desc: '+3% spell damage, +2% crit chance', mods: { dmg: 0.03, crit: 0.02 } },
+    { name: 'Radiance', desc: '4% chance a spell leaps to another foe, +3% damage', mods: { splash: 0.04, dmg: 0.03 } },
+    { name: 'Dawnbringer', desc: '+5% damage to bosses, +3% crit chance', mods: { boss: 0.05, crit: 0.03 } },
+  ],
+  zealot: [
+    { name: 'Burning Zeal', desc: '+5% spell damage', mods: { dmg: 0.05 } },
+    { name: 'Firebrand', desc: '+4% spell damage, +2% crit chance', mods: { dmg: 0.04, crit: 0.02 } },
+    { name: 'Inferno', desc: '+6% damage to bosses, +3% damage', mods: { boss: 0.06, dmg: 0.03 } },
+  ],
   dancer: [
     { name: 'Grace', desc: '+3% crit chance, +2% damage', mods: { crit: 0.03, dmg: 0.02 } },
     { name: 'Tempo', desc: '3% chance of an extra lash, +3% damage', mods: { extra: 0.03, dmg: 0.03 } },
