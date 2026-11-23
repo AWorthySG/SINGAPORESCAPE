@@ -15,7 +15,7 @@ import { TILE } from '../config.js';
 import { mulberry32 } from './pets.js';
 
 export const NODE_JACKPOT = { on: true };
-export const JACKPOT_CHANCE = 0.025;       // a swing's chance (about 1 in 40) to take everything left
+export const JACKPOT_CHANCE = 0.05;        // a swing's chance (about 1 in 20, the owner doubled it from 1 in 40) to take everything left
 export const JACKPOT_TOOL_BONUS = 0.5;     // ...up to half as likely again with the best tools (their `find` share)
 export const SEAM_MULT = 10;               // the whole seam or tree gives ten times what was left in it (the owner's ask)
 

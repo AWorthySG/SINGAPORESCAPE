@@ -72,7 +72,7 @@ test('a lucky swing breaks the whole seam free: ten times every ore left, and th
   }
 });
 
-test('an unlucky swing changes nothing, and it is about 1 in 40', () => {
+test('an unlucky swing changes nothing, and it is about 1 in 20 (the owner doubled it from 1 in 40)', () => {
   const g = newGame();
   const tree = find(g, 'tree');
   tree.logsLeft = 15;
@@ -86,7 +86,7 @@ test('an unlucky swing changes nothing, and it is about 1 in 40', () => {
   const obj = { x: 0, y: 0, def: {} };
   for (let i = 0; i < 20000; i++) if (nodeJackpot(fake, obj, { kind: 'mining', left: 1, xpEach: 1, pick: () => 'copper_ore' })) hits++;
   assert.ok(Math.abs(hits / 20000 - JACKPOT_CHANCE) < 0.006, `about ${JACKPOT_CHANCE} (${hits / 20000})`);
-  assert.equal(JACKPOT_CHANCE, 0.025);
+  assert.equal(JACKPOT_CHANCE, 0.05);
 });
 
 test('the last log or ore is never a jackpot, and the switch turns it all off', () => {
@@ -128,8 +128,22 @@ test('every fishing spot can net a whole school of the fish you hooked, as often
   assert.ok(catchOnce() <= 2);
 });
 
+test('at a spot a school is passing, a missed school roll still has the any-spot chance', () => {
+  const g = newGame();
+  g.skills.xp.fishing = xpForLevel(40);
+  if (!g.inventory.has('harpoon')) g.inventory.add('harpoon', 1);
+  FISH_SCHOOL.on = true;
+  const spot = find(g, 'harpoon_spot');
+  const s = g.fishSchools.spawn(spot); s.until = Infinity;
+  g.fishSchools.rand = () => 0.99;   // the passing school's roll misses...
+  setJackpotRand(() => 0);           // ...and the any-spot roll hits
+  const n = g.fishSchools.onCatch(spot, 1, 'raw_tuna');
+  assert.ok(n >= SCHOOL_HAUL[0], `a whole school of the fish you hooked (${n})`);
+  assert.equal(g.fishSchools.at(spot), s, 'the passing school is still there for later');
+});
+
 test('the skill guides mention it', () => {
   assert.match(SKILL_GUIDES.woodcutting.use, /whole tree down at once/);
   assert.match(SKILL_GUIDES.mining.use, /whole seam free at once/);
-  assert.match(SKILL_GUIDES.fishing.use, /at any spot, about one catch in 40 turns out to be a whole school/);
+  assert.match(SKILL_GUIDES.fishing.use, /at any spot, about one catch in 20 turns out to be a whole school/);
 });

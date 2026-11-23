@@ -1,9 +1,9 @@
 // Schools of fish: every few minutes a school of one kind of fish swims up to a
 // fishing spot near you, stays for half a minute or so, then swims off. While
-// it's there, each catch at that spot has a 1 in 4 chance to net the whole
+// it's there, each catch at that spot has a 1 in 2 chance (the owner doubled it from 1 in 4) to net the whole
 // school at once: 250-600 fish (more at higher Fishing levels and with a
 // rune-or-better rod or harpoon), with XP for each. That uses the school up.
-// And at any spot, school or no school, about one catch in 40 (as often as a
+// And at any spot, school or no school, about one catch in 20 (as often as a
 // rock's whole seam, jackpot.js) nets a whole school of the fish you hooked.
 //
 // Built alongside the other fishing extras rather than over them: the tool
@@ -32,7 +32,7 @@ export const SCHOOL_STAY = [34, 66];    // ticks a school stays at its spot (20-
 export const SCHOOL_NEAR = 14;          // a school only visits spots this close to you (on screen)
 export const SCHOOL_SEEN = 16;          // ...and is announced in the chat this close
 export const SCHOOL_MAX = 2;            // at most this many at once
-export const SCHOOL_NET = 0.25;         // chance each catch at the spot nets the whole school
+export const SCHOOL_NET = 0.5;          // chance each catch at the spot nets the whole school (doubled from 1 in 4)
 // A school is a real haul: fifty times the handful it used to be (the owner
 // wanted netting one to feel huge). The bag has no slot limit, so it all fits.
 export const SCHOOL_SCALE = 50;
@@ -158,14 +158,12 @@ export class FishSchools {
   onCatch(obj, xpMult = 1, caughtId = null) {
     const g = this.game;
     const s = FISH_SCHOOL.on ? this.at(obj) : null;
-    if (s) {
-      if (this.rand() >= SCHOOL_NET) return 0;
+    if (s && this.rand() < SCHOOL_NET) {
       const n = this._net(obj, s.fishId, s.size, xpMult, toolBonus(g, obj.def.tool || 'net'), false);
-      if (n) this.leave(s);
-      return n;
+      if (n) { this.leave(s); return n; }
     }
-    // No school passing: every spot still turns up a whole school now and then,
-    // as often as a whole seam or tree (the owner's ask), of the fish you hooked.
+    // And at any spot (a school passing or not): now and then a whole school, as
+    // often as a whole seam or tree (the owner's ask), of the fish you hooked.
     if (!caughtId) return 0;
     const tb = toolBonus(g, obj.def.tool || 'net');
     if (!schoolJackpot(tb.find)) return 0;
