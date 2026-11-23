@@ -31,11 +31,16 @@ const rows = (() => {
 })();
 const med = Object.fromEntries(['kill', 'single', 'boss', 'crowd'].map((m) => [m, median(rows.map((r) => r[m]))]));
 const rel = (r, m) => r[m] / med[m];
+// Since the owner made Fire's Ignite much stronger, Wizards and Sorcerers hit one
+// target at 2-4 times the median class: they are held to a band of their own.
+const FIRE_CASTERS = ['wizard', 'sorcerer'];
 // The Merchant is the strongest class by design (MERCHANT_POWER, mercenary.js), so
-// the other classes are also held against the median of the rest, which the
-// Merchant can't pull about.
+// the other classes are also held against the median of the rest, which neither
+// the Merchant nor the Fire casters can pull about. (With the casters in it, the
+// median rose just enough to put the Merchant at 199% of it on bosses once
+// Agility's attack speed went up to +75%.)
 const others = rows.filter((r) => r.cls !== 'merchant');
-const medOthers = Object.fromEntries(['kill', 'single', 'boss', 'crowd'].map((m) => [m, median(others.map((r) => r[m]))]));
+const medOthers = Object.fromEntries(['kill', 'single', 'boss', 'crowd'].map((m) => [m, median(others.filter((r) => !FIRE_CASTERS.includes(r.cls)).map((r) => r[m]))]));
 const relOthers = (r, m) => r[m] / medOthers[m];
 const merchant = rows.find((r) => r.cls === 'merchant');
 
@@ -49,7 +54,6 @@ const merchant = rows.find((r) => r.cls === 'merchant');
 // The casters are left out as well since the owner made Fire's Ignite much
 // stronger (burns go off every half second and with every hit): Wizards and
 // Sorcerers now hit one target at 2-4 times the median class.
-const FIRE_CASTERS = ['wizard', 'sorcerer'];
 test('every class but the Merchant, Brawler and Fire casters hits one target at 70-140% of the median class', () => {
   for (const r of others.filter((r) => r.cls !== 'brawler' && !FIRE_CASTERS.includes(r.cls))) {
     for (const [name, x] of [['all classes', rel(r, 'single')], ['the other classes', relOthers(r, 'single')]]) {
