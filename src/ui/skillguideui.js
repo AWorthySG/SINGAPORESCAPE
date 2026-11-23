@@ -28,6 +28,7 @@ import { unlockLadder, skillTeleportOf, skillTeleportWait, skillTeleport } from 
 import { STATION_BY_ID } from '../data/transport.js';
 import { toolLadder } from '../game/tools.js';
 import { levelHaulPct, LEVEL_HAUL_PER, LEVEL_HAUL_CAP } from '../game/levelhaul.js';
+import { xpRate, actionXp } from '../game/xprate.js';
 import {
   SKILL_GUIDES, GATHER_SKILLS, COMBAT_SKILLS, TOOL_NAMES, gatherSources, recipesFor, recipeLabel, recipeKindTitle, canMake,
   regionsOf, nearestObject, groveList, fishSpotList, itemEntry, searchResources, RESOURCE_CATS, resourceIndex, perkLadder, gearTiers, trainingSpots, bestSpotsFor, combatExtras,
@@ -76,6 +77,20 @@ export function realXp(game, skill, xp) {
 }
 /** That XP as a badge beside a row's name. */
 export const xpBadge = (n, each = true) => `<span class="sgx-xp" title="Experience you get${each ? ' for each one' : ''}">+${formatNumber(Math.round(n))} xp${each ? ' each' : ''}</span>`;
+/** About how much XP an hour at a gathering source pays you now (xprate.js),
+ *  as a second badge, with what it assumes on hover; '' where there's no
+ *  honest figure (above your level, an Agility course). Per catch alone made a
+ *  fast-rolling spot look worse than a slow one that pays more a fish.
+ *  Gathering rows take their XP each from xprate.js too (actionXp), so the two
+ *  badges agree: it also counts Agility's level scale, a pocket's level and
+ *  Hunter's cape, which the listed XP leaves out. */
+export function xpHourBadge(game, s) {
+  const r = xpRate(game, s);
+  if (!r) return '';
+  // An hour at the top end runs to billions: "12.7B" reads better than "12690M".
+  const n = r.perHour >= 1e9 ? `${(r.perHour / 1e9).toFixed(1).replace(/\.0$/, '')}B` : formatNumber(Math.round(r.perHour));
+  return `<span class="sgx-xp sgx-xph" title="${esc(r.why)}">≈ ${n} xp/hr</span>`;
+}
 
 function sourceRowHTML(game, s, st) {
   const lvl = game.skills.level(s.skill);
@@ -90,7 +105,7 @@ function sourceRowHTML(game, s, st) {
   const spot = s.spot && s.spot !== s.name ? ` <small>at ${esc(aOrAn(s.spot.toLowerCase()))}</small>` : '';
   return `<div class="sg-row sgx-row${ok ? '' : ' locked'}">`
     + (picking ? `<label class="sg-pick" title="Auto gather this"><input type="checkbox" data-pick="${esc(s.objIds.join(','))}"${ticked ? ' checked' : ''}></label>` : '')
-    + `<span class="sg-lvl">${s.level}</span><span class="sg-text sgx-text"><b>${esc(s.name)}${spot} ${xpBadge(realXp(game, s.skill, s.xp))}</b><span>${facts}${s.note && !s.spot ? ` · ${esc(s.note)}` : ''}</span>`
+    + `<span class="sg-lvl">${s.level}</span><span class="sg-text sgx-text"><b>${esc(s.name)}${spot} ${xpBadge(actionXp(game, s))}${xpHourBadge(game, s)}</b><span>${facts}${s.note && !s.spot ? ` · ${esc(s.note)}` : ''}</span>`
     + (gives ? `<span class="sgx-gives">${gives}</span>` : '')
     + (where ? `<span class="sgx-where">&#128205; ${regionsText(where)}</span>` : '') + '</span>'
     + `<span class="sgx-btns">${s.objIds ? `<button type="button" class="wm-go" data-go="${esc(s.objIds.join(','))}"${ok ? '' : ' disabled'}>Go</button><button type="button" class="wm-go cx-map" data-map="${esc(s.objIds.join(','))}" data-label="${esc(s.name)}">Map</button>`
@@ -281,7 +296,7 @@ export function itemPageHTML(game, id, st = {}) {
     from += `<h4>Gathered</h4>` + nodes.map((n) => {
       const s = n.source, ok = game.skills.level(s.skill) >= s.level;
       const zs = s.objIds ? regionsOf(game, s.objIds) : s.npcId ? npcRegions(game, s.npcId) : [];
-      return `<div class="sg-row sgx-row${ok ? '' : ' locked'}"><span class="sg-lvl">${s.level}</span><span class="sg-text sgx-text"><b>${esc(s.name)}${s.spot && s.spot !== s.name ? ` <small>(${esc(s.spot)})</small>` : ''} <small>${esc(skillName(s.skill))} · ${formatNumber(Math.round(realXp(game, s.skill, s.xp)))} xp each${n.chance < 0.999 ? ` · ${chanceText(n.chance)}` : ''}${n.max > 1 ? ` · ${n.min}-${n.max} at a time` : ''}</small></b>`
+      return `<div class="sg-row sgx-row${ok ? '' : ' locked'}"><span class="sg-lvl">${s.level}</span><span class="sg-text sgx-text"><b>${esc(s.name)}${s.spot && s.spot !== s.name ? ` <small>(${esc(s.spot)})</small>` : ''} <small>${esc(skillName(s.skill))} · ${formatNumber(Math.round(actionXp(game, s)))} xp each${n.chance < 0.999 ? ` · ${chanceText(n.chance)}` : ''}${n.max > 1 ? ` · ${n.min}-${n.max} at a time` : ''}</small>${xpHourBadge(game, s)}</b>`
         + `<span>${s.tool ? `Needs ${esc(TOOL_NAMES[s.tool] || s.tool)} · ` : ''}&#128205; ${regionsText(zs)}</span></span>`
         + `<span class="sgx-btns">${s.objIds ? `<button type="button" class="wm-go" data-go="${esc(s.objIds.join(','))}"${ok ? '' : ' disabled'}>Go</button><button type="button" class="wm-go cx-map" data-map="${esc(s.objIds.join(','))}" data-label="${esc(s.name)}">Map</button>` : s.npcId ? `<button type="button" class="wm-go" data-npc="${esc(s.npcId)}">Go</button>` : ''}</span></div>`;
     }).join('');

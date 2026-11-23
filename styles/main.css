@@ -4179,6 +4179,8 @@ input[type="range"]:focus-visible { outline: 3px solid var(--aw-sun); outline-of
   background: #e6f5dc; color: #2f6a1f; border: 1.5px solid #22304A; font-size: 11.5px; font-weight: 800; white-space: nowrap;
 }
 .sgx-row.locked .sgx-xp { opacity: .75; }
+/* ...and beside it, about what an hour there pays at your level (xprate.js), in blue. */
+.sgx-xph { background: #e3eefb; color: #24508a; }
 
 /* Gear Mastery on wider screens: a piece's four buttons in one row under it
    (they stood in a tall column, making each card twice the height). */
