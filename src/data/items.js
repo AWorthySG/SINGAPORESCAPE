@@ -1019,7 +1019,8 @@ const UNIQUE_TYPE = { tiger_kris: 'dagger', merlion_blade: 'sword', cursed_cutla
   granite_maul: 'warhammer', void_blade: 'katana', leviathan_trident: 'spear', tiger_fang: 'claws' };
 // Secondary weapon types: no class of their own; each class wields one (SECONDARY_WEAPON in classes.js).
 export const SECONDARY_WEAPON_TYPES = ['parang', 'kerambit', 'toya', 'crossbow', 'chakram', 'orb', 'fan'];
-export const ALL_WEAPON_TYPES = [...WEAPON_TYPES, ...SECONDARY_WEAPON_TYPES];
+// Each type once, though a type may be one class's own and another's second (a Set keeps the order).
+export const ALL_WEAPON_TYPES = [...new Set([...WEAPON_TYPES, ...SECONDARY_WEAPON_TYPES])];
 const MELEE_FAMILIES = [...WEAPON_TYPES.slice(0, 12), 'parang', 'kerambit', 'toya'].sort((a, b) => b.length - a.length);   // '2h_sword' before 'sword'
 function classifyWeapon(id, eq) {
   if (UNIQUE_TYPE[id]) return UNIQUE_TYPE[id];

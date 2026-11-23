@@ -73,6 +73,19 @@ export const EXECUTE_BELOW = 0.35;
 //   thorns  (in a buff) and counter (on a guard): that share of each blow struck
 //           at you, before your guard softens it, is dealt straight back.
 export const SUNDER_TICKS = 10;
+// More fields for the classes that came later (Game.activateAbility and friends):
+//   chi       a Monk's Chi gained when the skill is used (monk.js; 10 makes it overflow)
+//   faith     that share of the Faith bar at once (a full bar fires the Prayer Burst by itself)
+//   bless     (in a buff) every blessing's bonus counts that share more: Strength, Magic,
+//             crit, Protect... (Game.prayerMult, prayerCrit, protectFactor)
+//   unholy    that much more damage against undead, spirits and demons
+//   holyfire  a rider like bleed: the blow sets a holy fire burning that share of it
+//             every second for 5s (WOUNDS.holyfire in game.js; it pays Magic XP)
+//   healFrac  on a guard or a buff too: restores that share of your life when used
+//   lifeCost  paid on top of the adrenaline: that share of your life as it is now (you
+//             always keep 1), and never at or under LIFE_COST_FLOOR of your life (auto
+//             battle included, since it only uses what you can pay for)
+export const LIFE_COST_FLOOR = 0.2;
 // The Ranger's skills are all damage buffs (see the Ranger's entries below):
 // Focused Draw's and Steady Aim's +damage, Camouflage's armour pierce (in %)
 // and Deadeye's +damage on top of sure crits. Tuned so a Ranger's damage over

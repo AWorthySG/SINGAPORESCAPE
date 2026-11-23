@@ -51,6 +51,9 @@ export const ARMOUR_FAMILY = {
 // would), so no shield-slot piece (shield, buckler, quiver or tome) is for them.
 export const NO_SHIELD_CLASSES = new Set(['ninja']);
 export const NO_SHIELD_MSG = 'Ninjas fight with a shuriken in each hand: no shields.';
+const NO_SHIELD_MSGS = {};   // other shieldless classes' own reasons
+/** Why this class holds no shield (NO_SHIELD_MSG is the Ninja's). */
+export const noShieldMsg = (classId) => NO_SHIELD_MSGS[classId] || NO_SHIELD_MSG;
 /** Is this a shield-slot piece (not an off-hand weapon) this class can't hold? */
 export function shieldBarred(classId, id) {
   const eq = ITEMS[id]?.equip;

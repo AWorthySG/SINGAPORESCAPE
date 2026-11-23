@@ -149,7 +149,7 @@ export function targetTag(game, n) {
   const m = game.raceMatchup ? game.raceMatchup(n) : null;
   const arrow = m === 'strong' ? '▲' : m === 'weak' ? '▼' : '';
   const poison = n.wounds?.poison?.length || 0, bleed = n.wounds?.bleed?.length || 0;
-  const burns = n.ignite?.burns?.length || 0;
+  const burns = (n.ignite?.burns?.length || 0) + (n.wounds?.holyfire?.length || 0);   // Fire's burns and holy fire
   let status = '';
   const top = Math.max(poison, bleed, burns);
   if (top > 0) status = (top === poison ? '☠' : top === bleed ? '🩸' : '🔥') + (top > 1 ? top : '');
@@ -176,6 +176,7 @@ export function foeDetails(game, n) {
   if (n.wounds?.poison?.length) parts.push(`poisoned ×${n.wounds.poison.length}`);
   if (n.wounds?.bleed?.length) parts.push(`bleeding ×${n.wounds.bleed.length}`);
   if (n.ignite?.burns?.length) parts.push(`burning ×${n.ignite.burns.length}`);
+  if (n.wounds?.holyfire?.length) parts.push(`holy fire ×${n.wounds.holyfire.length}`);
   if (n.slowTicks > 0) parts.push('chilled (slower, hits softer)');
   const pierce = shatterPierce(n, game.tickCount);
   if (pierce) parts.push(`armour cracked ×${n.shatter.n} (+${pierce}% pierce)`);

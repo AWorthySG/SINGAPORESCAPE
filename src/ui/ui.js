@@ -1,4 +1,4 @@
-import { CLASSES, CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, canWear, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWield, SECONDARY_WEAPON, shieldBarred, NO_SHIELD_MSG } from '../data/classes.js';
+import { CLASSES, CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, canWear, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWield, SECONDARY_WEAPON, shieldBarred, noShieldMsg } from '../data/classes.js';
 import { SKILL_HOURS, windowLabel } from '../data/skillhours.js';
 import { classPerks, classPerkSummary } from '../game/classperks.js';
 import { LIFE_PERKS, LIFE_PERK_SKILLS, LIFE_PERK_FULL_LEVEL, LIFE_PERK_MAX_LEVEL, LIFE_PERK_TOP_LEVEL, lifePerkText, lifePerkNext } from '../game/lifeperks.js';
@@ -1558,7 +1558,7 @@ export class UI {
       if (g) html += `<div class="gt-grip">Two-handed grip: +${g.defence} Defence, +${g.hp} life${g.ranged ? `, +${g.ranged} Ranged` : ''}${g.atkPct != null ? `, +${g.atkPct}% damage, +${g.haste}% attack speed` : ''} (makes up for having no ${takesQuiver(id) ? 'shield' : 'off-hand'})</div>`;
     }
     else if (eq.slot === 'shield' && offhandBlocked(this.game.equipment.get('weapon'), id)) html += `<div class="gt-req no">Your weapon is two-handed: no shield</div>`;
-    else if (shieldBarred(this.game.jobClass, id)) { html += `<div class="gt-req no">${NO_SHIELD_MSG}</div>`; return html; }
+    else if (shieldBarred(this.game.jobClass, id)) { html += `<div class="gt-req no">${noShieldMsg(this.game.jobClass)}</div>`; return html; }
     // Accessories suit one fighting style: say which, and whether it's yours.
     if (eq.style) {
       const mine = this.game.combatMode() === 'dance' ? 'melee' : this.game.combatMode();
@@ -2962,7 +2962,7 @@ export class UI {
   _skillTipHTML(ab) {
     const g = this.game, cd = g.abilityCd[ab.id] || 0;
     const state = !g.abilityUnlocked(ab) ? `🔒 Unlocks at combat level ${ab.unlock}`
-      : cd > 0 ? `Ready in ${+(cd * TICK_MS / 1000).toFixed(1)}s` : !g.canAffordAbility(ab) ? 'Not enough adrenaline yet' : 'Ready';
+      : cd > 0 ? `Ready in ${+(cd * TICK_MS / 1000).toFixed(1)}s` : g.lifeCostBlocked(ab) ? 'Too hurt to pay for it in life' : !g.canAffordAbility(ab) ? 'Not enough adrenaline yet' : 'Ready';
     return `<b>${escapeHtml(ab.name)}</b> (${ab.key})<br><span style="opacity:.8">${escapeHtml(g.abilityCostText(ab))} · ${+(ab.cd * TICK_MS / 1000).toFixed(1)}s cooldown</span><br>${escapeHtml(ab.desc)}<br><i>${state}</i>`;
   }
 
