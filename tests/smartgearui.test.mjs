@@ -283,13 +283,25 @@ test('Dismantle all and Sacrifice all sit above their lists, and their confirms 
   assert.equal(picksText([{ id: 'rune_sword', n: 1 }, { id: 'iron_sword', n: 5 }]), 'Iron sword ×5 and Rune sword ×1');
 }));
 
-test('the hint when the ticks leave nothing to take', () => withDom(() => {
+test('the hint when the ticks leave nothing to take names what would let something in', () => withDom(() => {
   const g = lateGame();
-  g.inventory.add('jade_sq_shield', 1);   // as high as what you wear: not "below my worn tier"
+  g.inventory.remove('starmetal_sword', 1);
+  g.inventory.add('jade_platebody', 1);   // a spare copy of what you wear: not "below my worn tier"
   const ui = fakeUI(g);
   ui._salvageFilters = { offClass: false, belowTier: true, below: 'epic' };
   openDismantle(ui);
-  assert.match(html(ui.body), /Nothing matches the ticked boxes: untick 'Below my worn tier'/);
+  assert.match(html(ui.body), /Nothing matches the ticked boxes: untick 'Below my worn tier' to include pieces as high as yours/);
+  // An Epic copy as well: the quality is what keeps it out.
+  g.inventory.remove('jade_platebody', 1);
+  g.inventory.add('rune_platebody', 1, 'epic');
+  openDismantle(ui);
+  assert.match(html(ui.body), /raise 'Quality below'/);
+  // Only a piece Equip best would wear (its ★ and lines carried over): no tick lets it in, so none is named.
+  g.inventory.remove('rune_platebody', 1);
+  g.inventory.add('starmetal_sword', 1);
+  openDismantle(ui);
+  assert.match(html(ui.body), /Nothing to take: every piece listed is better than what you wear/);
+  assert.ok(!/untick|raise/.test(html(ui.body).match(/salvage-nomatch[^<]*</)?.[0] || ''), 'no tick named');
 }));
 
 test('ui.js hooks', () => {

@@ -133,12 +133,21 @@ export function picksText(list, max = 3) {
   return named.length > 1 ? `${named.slice(0, -1).join(', ')} and ${named[named.length - 1]}` : named[0] || '';
 }
 
-/** Why "… all" matches nothing while spare gear is listed: which tick to undo. */
-function noMatchHint(f) {
-  const why = f.belowTier ? 'Nothing matches the ticked boxes: untick \'Below my worn tier\' to include pieces as high as yours.'
-    : f.offClass ? 'Nothing matches the ticked boxes: untick \'Not for my class\' to include your own class\'s gear.'
-      : f.below !== 'any' ? 'Nothing matches: raise \'Quality below\' to include better copies.'
-        : 'Nothing to take: every piece listed is better than what you wear, or a boss unique.';
+/** Why "… all" matches nothing while spare gear is listed: the ticks (or the
+ *  quality) that, undone, would let something in, found by trying them; else
+ *  that every piece listed is kept for a reason. (Going by which box was ticked
+ *  told you to untick one that let nothing in: a spare piece Equip best would
+ *  wear stays out whatever the ticks.) `exclude`: a sacrifice's own piece. */
+function noMatchHint(g, f, exclude = null) {
+  const lets = (x) => bulkPicks(g, { ...f, ...x }, exclude).length > 0;
+  const boxes = f.offClass || f.belowTier, quality = f.below !== 'any';
+  // (A piece goes when it fits either ticked box, so only unticking both lets in more.)
+  const box = f.offClass && f.belowTier ? 'untick both boxes' : f.belowTier ? 'untick \'Below my worn tier\'' : 'untick \'Not for my class\'';
+  const gets = f.offClass && f.belowTier ? 'any spare gear' : f.belowTier ? 'pieces as high as yours' : 'your own class\'s gear';
+  const why = boxes && lets({ offClass: false, belowTier: false }) ? `Nothing matches the ticked boxes: ${box} to include ${gets}.`
+    : quality && lets({ below: 'any' }) ? 'Nothing matches: raise \'Quality below\' to include better copies.'
+      : boxes && quality && lets({ offClass: false, belowTier: false, below: 'any' }) ? `Nothing matches: ${box} and raise 'Quality below' to include them.`
+        : `Nothing to take: every piece listed is better than what you wear, ${exclude ? 'a boss unique, or this very piece' : 'or a boss unique'}.`;
   return `<div class="modal-hint salvage-nomatch">${why}</div>`;
 }
 
@@ -198,7 +207,7 @@ export function openSacrifice(ui, targetId, { src = null } = {}) {
       }, 'salvage-bulk');
       go.disabled = !pv.pieces;
       body.appendChild(go);
-      if (!pv.pieces && opts.length) body.insertAdjacentHTML('beforeend', noMatchHint(f));
+      if (!pv.pieces && opts.length) body.insertAdjacentHTML('beforeend', noMatchHint(g, f, targetId));
       body.insertAdjacentHTML('beforeend', '<div class="ench-head salvage-head">One kind at a time</div>');
     }
     const list = document.createElement('div');
@@ -303,7 +312,7 @@ export function openDismantle(ui, focus = null) {
     }, 'salvage-bulk');
     go.disabled = !n;
     body.appendChild(go);
-    if (!n && ids.length) body.insertAdjacentHTML('beforeend', noMatchHint(f));
+    if (!n && ids.length) body.insertAdjacentHTML('beforeend', noMatchHint(g, f));
     body.insertAdjacentHTML('beforeend', '<div class="ench-head salvage-head">One kind at a time</div>');
     const list = document.createElement('div');
     list.className = 'gear-list feed-list salvage-list';
