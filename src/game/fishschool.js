@@ -4,7 +4,8 @@
 // school at once: 250-600 fish (more at higher Fishing levels and with a
 // rune-or-better rod or harpoon), with XP for each. That uses the school up.
 // And at any spot, school or no school, about one catch in 20 (as often as a
-// rock's whole seam, jackpot.js) nets a whole school of the fish you hooked.
+// rock's whole seam, jackpot.js) nets a smaller whole school of the fish you
+// hooked: 10-140 of them (WILD_STOCK).
 //
 // Built alongside the other fishing extras rather than over them: the tool
 // tiers' "big catch" (two at once), the world event's rare shoal (worldevents.js)
@@ -21,7 +22,7 @@ import { chebyshev } from '../core/utils.js';
 import { TILE } from '../config.js';
 import { mulberry32 } from './pets.js';
 import { toolBonus } from './tools.js';
-import { schoolJackpot } from './jackpot.js';
+import { schoolJackpot, SEAM_MULT } from './jackpot.js';
 
 // A switch for the test suite (tests/seed.mjs turns it off, so tests that pin
 // exact catches aren't moved by a school; fish-school.test.mjs turns it on).
@@ -40,6 +41,13 @@ export const SCHOOL_HAUL = [5 * SCHOOL_SCALE, 9 * SCHOOL_SCALE];   // 250-450 fi
 export const SCHOOL_LEVEL_STEP = 50;    // +50 fish per 50 Fishing levels (up to +100)...
 export const SCHOOL_TOOL_SPEED = 40;    // ...and +50 with a rune-or-better rod or harpoon
 export const SCHOOL_HAUL_MAX = 12 * SCHOOL_SCALE;   // 600 at most
+// The whole school a spot turns up with no school passing (1 catch in 20) is
+// smaller, sized like a whole seam: ten times a stock of 1-14 fish (10-140,
+// about 75 on average), as a whole seam pays ten times the ore left in a rock.
+// The owner chose this over full-size schools at every spot, which made
+// Fishing earn about ten times its XP an hour and far outpace the other
+// gathering skills.
+export const WILD_STOCK = [1, 14];
 export const SCHOOL_AUTO = 10;          // auto gather moves to a school this close at a spot of the same kind
 const RETRY = 50;                       // no spot nearby: look again in 30 seconds
 
@@ -167,7 +175,7 @@ export class FishSchools {
     if (!caughtId) return 0;
     const tb = toolBonus(g, obj.def.tool || 'net');
     if (!schoolJackpot(tb.find)) return 0;
-    return this._net(obj, caughtId, this._between(SCHOOL_HAUL), xpMult, tb, true);
+    return this._net(obj, caughtId, SEAM_MULT * this._between(WILD_STOCK), xpMult, tb, true);
   }
 
   /** Net a whole school of `fishId` at `obj` (`size` fish before the level and
@@ -175,7 +183,8 @@ export class FishSchools {
    *  was seen passing, it came up with the fish you hooked. Returns how many. */
   _net(obj, fishId, size, xpMult, tb, wild) {
     const g = this.game;
-    const want = Math.min(SCHOOL_HAUL_MAX, size + haulBonus(g.skills.level('fishing'), tb));
+    // (A passing school grows with your level and tool; one at any spot is its own size.)
+    const want = wild ? size : Math.min(SCHOOL_HAUL_MAX, size + haulBonus(g.skills.level('fishing'), tb));
     // A full bag takes what fits; with no room at all, a passing school stays for later.
     const n = Math.min(want, g.inventory.canAdd(fishId, want));
     if (n <= 0) return 0;

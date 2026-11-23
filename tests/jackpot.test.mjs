@@ -8,7 +8,7 @@ import { Game } from '../src/game/game.js';
 import { clearSave } from '../src/game/save.js';
 import { xpForLevel } from '../src/data/xp.js';
 import { resolveWoodcut, resolveMine, resolveFish } from '../src/game/skilling.js';
-import { FISH_SCHOOL, SCHOOL_HAUL, SCHOOL_HAUL_MAX } from '../src/game/fishschool.js';
+import { FISH_SCHOOL, WILD_STOCK } from '../src/game/fishschool.js';
 import { NODE_JACKPOT, JACKPOT_CHANCE, setJackpotRand, nodeJackpot, SEAM_MULT } from '../src/game/jackpot.js';
 import { mulberry32 } from '../src/game/pets.js';
 import { SKILL_GUIDES } from '../src/game/skillguide.js';
@@ -115,7 +115,8 @@ test('every fishing spot can net a whole school of the fish you hooked, as often
   const xp0 = g.skills.xp.fishing;
   setJackpotRand(() => 0);
   const got = catchOnce();
-  assert.ok(got >= 1 + SCHOOL_HAUL[0] && got <= 2 + SCHOOL_HAUL_MAX, `the catch and a whole school: ${got}`);
+  // A school at any spot is sized like a whole seam: ten times a stock of 1-14 fish.
+  assert.ok(got >= 1 + SEAM_MULT * WILD_STOCK[0] && got <= 2 + SEAM_MULT * WILD_STOCK[1], `the catch and a whole school: ${got}`);
   assert.ok(g.skills.xp.fishing - xp0 >= spot.def.catches[0].xp * (got - 2) - 1e-6, 'XP for every fish');
   assert.ok(said.some((m) => /^It was a whole school of tuna: you net \d+ at once!/.test(m)), said.slice(-3).join(' | '));
   assert.equal(g.fishSchools.netted, 1);
@@ -138,12 +139,12 @@ test('at a spot a school is passing, a missed school roll still has the any-spot
   g.fishSchools.rand = () => 0.99;   // the passing school's roll misses...
   setJackpotRand(() => 0);           // ...and the any-spot roll hits
   const n = g.fishSchools.onCatch(spot, 1, 'raw_tuna');
-  assert.ok(n >= SCHOOL_HAUL[0], `a whole school of the fish you hooked (${n})`);
+  assert.ok(n >= SEAM_MULT * WILD_STOCK[0] && n <= SEAM_MULT * WILD_STOCK[1], `a whole school of the fish you hooked (${n})`);
   assert.equal(g.fishSchools.at(spot), s, 'the passing school is still there for later');
 });
 
 test('the skill guides mention it', () => {
   assert.match(SKILL_GUIDES.woodcutting.use, /whole tree down at once/);
   assert.match(SKILL_GUIDES.mining.use, /whole seam free at once/);
-  assert.match(SKILL_GUIDES.fishing.use, /at any spot, about one catch in 20 turns out to be a whole school/);
+  assert.match(SKILL_GUIDES.fishing.use, /at any spot, about one catch in 20 turns out to be a smaller school of the fish you hooked: 10 to 140/);
 });
