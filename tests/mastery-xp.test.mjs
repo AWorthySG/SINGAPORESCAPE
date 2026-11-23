@@ -64,10 +64,12 @@ test('kill XP grows with the monster\'s level; champions and bosses are worth mo
   const kill = (level, extra = {}) => killMastery({ def: { level, ...extra.def }, ...extra.npc });
   assert.equal(kill(1), 10);
   assert.ok(kill(100) > kill(1) && kill(1000) > kill(100) && kill(5000) > kill(1000), 'not flat per kill');
-  assert.ok(kill(1000) < kill(1) * 3, 'but with diminishing returns');
+  // In step with the level: a stronger monster counts for more (the owner's ask).
+  assert.equal(kill(100), 20); assert.equal(kill(300), 40); assert.equal(kill(1000), 110);
+  assert.ok(kill(1000) >= kill(1) * 10, 'a level 1,000 monster trains gear ten times a level 1 one');
   assert.equal(kill(1, { npc: { champion: true } }), 10 * KILL_MULT.champion);
-  assert.equal(kill(300, { def: { boss: true } }), Math.round(10 * Math.sqrt(1 + 300 / 200) * KILL_MULT.worldBoss));
-  assert.equal(kill(300, { def: { boss: true }, npc: { wave: true } }), Math.round(10 * Math.sqrt(1 + 300 / 200) * KILL_MULT.boss), 'an Endless Gate boss');
+  assert.equal(kill(300, { def: { boss: true } }), Math.round(10 * (1 + 299 / 100) * KILL_MULT.worldBoss));
+  assert.equal(kill(300, { def: { boss: true }, npc: { wave: true } }), Math.round(10 * (1 + 299 / 100) * KILL_MULT.boss), 'an Endless Gate boss');
   // A boss grown to your level counts at that level.
   assert.equal(killMastery({ def: { boss: true, level: 50, scaledTo: 300 } }), kill(300, { def: { boss: true } }));
 });
