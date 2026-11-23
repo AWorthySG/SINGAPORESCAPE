@@ -28,6 +28,7 @@ test("a townsperson's name beside you steps aside rather than printing over your
   globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
   const g = new Game(); g.start();
   g.ui = new Proxy({}, { get: () => () => {} });
+  g.worldLabels = 'all';   // (Smart labels leave your own name off altogether)
   g.camera.resize(800, 600);
   const n = g.npcs.find((x) => !x.attackable && x.alive && x.name);
   assert.ok(n, 'a townsperson to stand by');

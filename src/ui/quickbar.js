@@ -32,6 +32,10 @@ export const slotOfKey = (e) => {
   return i < QB_SLOTS ? i : -1;
 };
 
+/** A slot's key badge: "⇧1" (a bare "1" read as the digit, which picks a
+ *  panel tab instead). */
+export const slotKeyLabel = (i) => `⇧${i + 1}`;
+
 /** True when a key press belongs to a text box, not the game. */
 export const typing = (t) => !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
 
@@ -110,7 +114,7 @@ export class QuickBar {
       const icon = key === 'eat' && food ? { item: food } : a.icon;
       html += `<button type="button" class="qb-btn qb-slot${on ? ' on' : ''}" data-slot="${i}" data-action="${esc(key)}"`
         + `${on !== null ? ` aria-pressed="${on}"` : ''} title="${esc(a.label)}${on !== null ? (on ? ' (on)' : ' (off)') : ''} (Shift+${i + 1})" aria-label="${esc(a.label)}">`
-        + `${qbIconHTML(icon)}<kbd class="qb-key" aria-hidden="true">${i + 1}</kbd></button>`;
+        + `${qbIconHTML(icon)}<kbd class="qb-key" aria-hidden="true">${slotKeyLabel(i)}</kbd></button>`;
     });
     html += '<button type="button" class="qb-btn qb-edit" title="Choose the quick bar\'s actions" aria-label="Edit quick bar">&#9998;</button>';
     el.innerHTML = html;

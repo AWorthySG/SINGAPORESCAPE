@@ -41,7 +41,7 @@ import {
   bossTypeDmgMult, bossGrazeMult, bossBreakMult } from './combat.js';
 import { ABILITY_BY_ID, abilitiesFor, ADREN_PER_HIT, ADREN_PER_HURT, CLASS_ADRENALINE, EXECUTE_BELOW, SUNDER_TICKS, LIFE_COST_FLOOR } from '../data/abilities.js';
 import { classPassiveMods, CLASS_SKILL } from '../data/classPassives.js';
-import { RACES, raceOf, matchup, RACE_BONUS, RACE_PENALTY } from '../data/races.js';
+import { raceOf, matchup, RACE_BONUS, RACE_PENALTY } from '../data/races.js';
 import { DOT_KINDS } from '../data/bossAbilities.js';
 import { CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, equivalentWeapon, CLEAVE_SHARE, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWear, equivalentArmour, classGearFor, canWield, classesForType, SECONDARY_WEAPON, shieldBarred, noShieldMsg, weaponTypeOf, sigBarred } from '../data/classes.js';
 import { STYLE_TRACKS, sumPerks, perkAtLevel, rankName, PERK_SKILLS, PERK_CAPS } from '../data/perks.js';
@@ -7827,14 +7827,15 @@ export class Game {
     if (t.kind === 'npc') {
       const n = t.ref;
       if (n.attackable) {
-        const m = this.raceMatchup(n);
-        const tip = m === 'strong' ? ', weak to your weapon' : m === 'weak' ? ', resists your weapon' : '';
+        // Just the name and level ("Sambar deer (Lv 25)"): the race, weakness
+        // and armour are on the target card, and the long version ran the
+        // hover text into the region name and the target card.
         // On touch screens this button steps aside for the big Attack button,
         // but that one keeps to your current foe and leaves story bosses (the
         // Lion of Light) alone: when it would go for something else, the fifth
         // entry keeps this one up, or the monster beside you can't be attacked.
         const a = this.player.action, cur = a?.type === 'attack' && a.npc?.alive ? a.npc : null;
-        return ['Attack', `${n.name} (level ${n.def.level}, ${RACES[raceOf(n.def, n.npcId)].name}${tip})`, null, false, (cur || this.nearestFoe()) !== n];
+        return ['Attack', `${n.name} (Lv ${n.def.level})`, null, false, (cur || this.nearestFoe()) !== n];
       }
       if (n.def.role === 'shop') return ['Trade with', n.name];
       if (n.def.role === 'bank') return ['Bank', n.name];

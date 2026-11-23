@@ -96,6 +96,7 @@ export class NPC extends Character {
     this.ignite = null;           // Fire's burns on it (game.js _igniteFoe)
     this.hex = null;              // Dark's hexes on it (game.js _hexFoe)
     this._lastSplat = undefined; this._splatN = undefined; this._splatRow = undefined; this._raceSaid = undefined;
+    this._weakTag = undefined;    // the one hit number on it that wears "weak!" (renderer.js)
     this.stopFrom = undefined; this.stopUntil = undefined; this.squashK = undefined; this.squashDir = undefined;
     this.deathT = undefined; this.spawnT = undefined; this.castT = undefined; this.castCol = undefined;
     this.maybeChampion(false);
@@ -312,6 +313,7 @@ export class NPC extends Character {
     this.alive = true;
     this.deathT = 0;
     this.spawnT = 350; // ms of fade-in, so a respawn doesn't pop into view
+    this._weakTag = undefined;   // a new foe: its first weak hit says so again
     // Restore any enrage-mutated stats, re-applying this spawn's overrides so
     // tamed/weakened monsters stay tamed after they come back.
     this.def = this._spawnOpts ? applySpawnOpts(getNpc(this.npcId), this._spawnOpts) : getNpc(this.npcId);

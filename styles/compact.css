@@ -186,3 +186,103 @@
   border-left-width: 4px; padding: 2px 8px; font-size: 11.5px; box-shadow: none; animation: none;
 }
 #notice-lane .nl-mini.nl-tip { display: flex; }
+
+/* ==========================================================================
+   UI clean-up (later rules, settling the ones above and in main.css):
+   - Desktop: a taller side panel, tab labels that fit, no Interact button
+     for a mouse (E or Space), a hover line cut short.
+   - Phones: the minimap's badges off the HUD, the panel launcher says "Menu",
+     the region standing pill clear of the target card.
+   - Objectives capped with "+N more"; shop prices under the cells; the
+     quick bar's "⇧1" key badges; the Skills tab's link chips.
+   ========================================================================== */
+/* Desktop windows of 760px and taller: the side panel's body gets real room
+   (it used to end with the tab rail at ~245px: two rows of the bag, Skills
+   below the fold). It stops 420px under the top of the window, clear of the
+   minimap, orbs and XP counter, and never grows past 520px. The tabs keep
+   their own height instead of stretching down the taller rail. */
+@media (min-width: 900px) and (min-height: 760px) and (hover: hover) {
+  #sidepanel:not(.collapsed) #panel-body { height: min(520px, calc(100dvh - 420px)); }
+  #panel-tabs .tab-btn { flex: 0 0 auto; min-height: 52px; }
+}
+/* "Settings" was cut off on its tile in the 52px rail: no letter spacing,
+   and the tiles' side padding goes to the label. */
+#panel-tabs .tab-btn .tab-label { letter-spacing: 0; }
+@media (hover: hover) and (pointer: fine) {
+  #panel-tabs .tab-btn { padding-left: 0; padding-right: 0; }
+}
+
+/* Skills tab: the perk and Resources links, one row of chips under the skills. */
+#skills-grid .skill-links { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+#skills-grid .skill-links .perks-open {
+  width: auto; margin: 0; padding: 4px 10px; min-height: 30px; flex-direction: row; align-items: center;
+  border-radius: var(--r-pill, 999px);
+}
+#skills-grid .skill-links .perks-open b { font-size: 12px; }
+@media (pointer: coarse) and (hover: none) { #skills-grid .skill-links .perks-open { min-height: 40px; } }
+
+/* Mouse screens: no Interact button (E or Space does it, and the hover text
+   names what it will do). Touch screens keep it, and its "keep" rule: a
+   monster beside you keeps its own Attack there (ui.js setInteractLabel). */
+@media (hover: hover) and (pointer: fine) {
+  #interact-btn { display: none; }
+}
+
+/* Touch screens: the minimap's compass, camera and day/night badges leave
+   the always-on HUD (postcard mode and the time of day are in Settings). */
+@media (pointer: coarse) and (hover: none) {
+  #minimap-compass, #minimap-panel #photo-btn, #daynight-badge { display: none; }
+}
+#settings-panel .set-clock { margin: 6px 2px 2px; font-size: var(--fs-sm, 12.5px); font-weight: 700; color: var(--aw-text-sec, #5a6478); }
+
+/* Objectives: past three rows (two on a phone) the rest wait behind "+N more". */
+#quest-tracker .trk-more {
+  pointer-events: auto; cursor: var(--cur-pointer, pointer); position: relative; display: block;
+  margin: 2px 0 0 20px; padding: 0; background: none; border: 0; font: inherit; font-size: 10.5px; font-weight: 900;
+  color: var(--aw-accent, #C0392B);
+}
+#quest-tracker .trk-more::before { content: ""; position: absolute; inset: -8px -10px; }
+#quest-tracker.dozing .trk-more { display: none; }
+
+/* Hover text: one short line ("Attack Sambar deer (Lv 25)"), cut short
+   before it can reach the area name at the top centre. */
+#hover-text { max-width: min(420px, calc(50vw - 200px)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The standing pill on entering a region sat over the target card (and on a
+   phone over the objectives and notes too): while a foe's card shows, it
+   waits; on a phone it shows low in the middle, over the Battle and Chat row. */
+body.boss-on #rep-pill { display: none; }
+@media (max-width: 540px) {
+  #rep-pill { top: auto; bottom: calc(var(--auto-b, 154px) + 58px); }
+}
+
+/* Shops: each item's price under its cell, and the stock takes the wider
+   column while your pack (the sell side) is small. */
+#modal-body .item-grid.shop { row-gap: 18px; padding-bottom: 14px; }
+.item-cell .shop-price {
+  position: absolute; left: 50%; top: calc(100% + 1px); transform: translateX(-50%); pointer-events: none;
+  font-size: 10.5px; font-weight: 900; line-height: 1.2; white-space: nowrap; color: var(--aw-sun-deep, #8A6205);
+}
+@media (min-width: 541px) {
+  #modal-body .modal-cols.shop-cols.sell-small { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+}
+@media (pointer: coarse), (hover: none) { .hotkey-hint { display: none; } }
+
+/* Quick bar: the key badges read "⇧1" (Shift and the digit); none on touch. */
+#quickbar .qb-key { right: -6px; min-width: 18px; white-space: nowrap; }
+@media (pointer: coarse), (hover: none) { #quickbar .qb-key { display: none; } }
+
+/* Phones: the folded panel launcher always says "Menu" under a fixed icon
+   (it showed the last tab used: "Settings" read as a settings button). */
+@media (pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px) {
+  #sidepanel.collapsed .tab-btn.active > :not(.tab-label) { display: none !important; }   /* (the icon <img> sets display inline) */
+  #sidepanel.collapsed .tab-btn.active::before {
+    content: ""; display: block; width: 24px; height: 18px; margin: 3px 0 2px;
+    background:
+      linear-gradient(#fff, #fff) top / 100% 4px no-repeat,
+      linear-gradient(#fff, #fff) center / 100% 4px no-repeat,
+      linear-gradient(#fff, #fff) bottom / 100% 4px no-repeat;
+    border-radius: 2px; filter: drop-shadow(0 1px 0 rgba(34,48,74,0.6));
+  }
+  #sidepanel.collapsed .tab-btn.active .tab-label { font-size: 0; }
+  #sidepanel.collapsed .tab-btn.active .tab-label::after { content: "Menu"; font-size: 10.5px; }
+}
