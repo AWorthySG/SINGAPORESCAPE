@@ -3192,6 +3192,12 @@ export class Game {
     this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax), tint });
     this.skills.addXp('magic', spell.xp * this.combatXpMult());
     if (dmg > 0) { const m = this.combatXpMult(); this.spawnHitSparks(npc, spell.tint); for (const x of magicXp(dmg)) this.skills.addXp(x.skill, x.xp * m); }
+    // A skill's lifesteal (Soul Siphon, Dark Pact's bolt) heals a share of the
+    // spell's hit, as it does for blows and arrows (spells used to skip this).
+    if (mods.heal && dmg > 0 && this.player.alive) {
+      this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.round(dmg * mods.heal * (npc.def?.hpScale || 1)));
+      this.bus.emit('hp');
+    }
     const splashed = dmg > 0 ? this._spellSplash(npc, raw, spell) : 0;
     this._abilityAoe(npc, raw, 'magic');
     if (dmg > 0 && el.slowTicks) this._slowFoe(npc, el.slowTicks);   // Water's Tide
