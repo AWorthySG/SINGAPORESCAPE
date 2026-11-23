@@ -16,6 +16,7 @@ import { canDualPair, dualType } from '../src/game/equipment.js';
 import { CHI, MONK_DODGE, chiStacks } from '../src/game/monk.js';
 import { classPerks } from '../src/game/classperks.js';
 import { codexEntry } from '../src/game/codex.js';
+import { saveGame, loadGame } from '../src/game/save.js';
 import { damageMult, maxHitNow } from '../src/game/statsheet.js';
 import { fakeStorage } from '../tools/balance/common.mjs';
 import { xpForLevel } from '../src/data/xp.js';
@@ -189,4 +190,18 @@ test('the Monk came after the signature deal: three extra weapons of its own, an
     assert.notEqual(e.signature.classId, 'monk', `${a.boss}'s own weapon is still another class's`);
     assert.ok(e.ascended?.some((x) => x.item === a.id && x.className === 'Monk'), `the Codex shows ${a.id}`);
   }
+});
+
+test('a Monk saves and loads: its class, knuckles and gloves come back; Chi starts afresh', () => {
+  const { g, t } = mk();
+  for (let i = 0; i < 3; i++) { g.playMs += CHI.everyMs; g._applyPlayerHit(t, 5); }
+  assert.equal(chiStacks(g), 3);
+  assert.ok(saveGame(g));
+  const g2 = new Game(); g2.start();
+  assert.ok(loadGame(g2));
+  assert.equal(g2.jobClass, 'monk');
+  assert.equal(g2.equipment.get('weapon'), 'bronze_knuckles');
+  assert.equal(g2.equipment.get('shield'), 'bronze_monk_gloves');
+  assert.ok(g2.equipment.isDualWielding());
+  assert.equal(chiStacks(g2), 0, 'Chi is not saved (it fades in seconds anyway)');
 });
