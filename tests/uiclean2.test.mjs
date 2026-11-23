@@ -17,6 +17,7 @@ import { markKept } from '../src/ui/bankkeepui.js';
 import { toggleKeep } from '../src/game/bankkeep.js';
 import { qbLabel } from '../src/ui/quickbar.js';
 import { cardHTML } from '../src/ui/noticelane.js';
+import { PanelSizer } from '../src/ui/panelsize.js';
 
 const read = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 const strip = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -77,7 +78,7 @@ test('Settings: grouped cards of label + switch rows; every switch still works',
   globalThis.document = { createElement: el };
   try {
     const panel = el();
-    const ui = uiFor(g, { settings: panel }, { updateDayNight() {}, _minimalHudTick() {}, _now: () => 0, lane: { dismissKind() {} }, perfOn: false, setPerf(on) { this.perfOn = on; } });
+    const ui = uiFor(g, { settings: panel }, { updateDayNight() {}, _minimalHudTick() {}, _now: () => 0, lane: { dismissKind() {} }, perfOn: false, setPerf(on) { this.perfOn = on; }, panelSize: new PanelSizer(null, null) });
     UI.prototype._buildSettingsPanel.call(ui);
     const groups = panel.children.filter((c) => c.classList.contains('set-group'));
     assert.deepEqual(groups.map((x) => x.children[0].textContent), ['Account', 'Sound', 'Display', 'Gameplay', 'Help']);
@@ -111,6 +112,19 @@ test('Settings: grouped cards of label + switch rows; every switch still works',
     const before = labels.querySelector('.set-val').textContent;
     labels.click();
     assert.notEqual(labels.querySelector('.set-val').textContent, before);
+    // The side panel's size: a chip that steps Normal → Large → Extra large
+    // (mouse screens), and the touch screens' Larger text switch.
+    const size = row('Side panel size');
+    assert.ok(size.classList.contains('set-cycle') && size.classList.contains('set-ps-desk'));
+    assert.equal(size.querySelector('.set-val').textContent, 'Normal');
+    size.click();
+    assert.equal(size.querySelector('.set-val').textContent, 'Large');
+    assert.equal(ui.panelSize.chosen, 1.25);
+    const bigText = row('Larger text in menus');
+    assert.ok(bigText.classList.contains('set-ps-touch'));
+    bigText.click();
+    assert.equal(ui.panelSize.bigText, true);
+    assert.equal(bigText.attrs['aria-checked'], 'true');
     // Round 1's entries are kept: postcard mode and the time of day, in Display.
     const display = groups[2];
     assert.ok(display.children.some((c) => /^Postcard mode/.test(c.textContent)));

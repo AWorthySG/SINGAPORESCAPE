@@ -93,6 +93,7 @@ import { makeQtyRow, makePill, maxMakes, makeQtyOf } from './makeqty.js';
 import { CmdSearch } from './cmdsearch.js';
 import { addCollectionButton } from './collectionui.js';
 import { renderHpBar } from './hpbar.js';
+import { PanelSizer } from './panelsize.js';
 import { TIPS, TIPS_KEY, TIP_MS, nextTip, markTipSeen, tipsSeen } from './tips.js';
 import { labelMode, nextLabelMode, LABEL_MODE_NAMES, questNpcIds } from '../render/worldlabels.js';
 import { applyAccessibility, countUp, playCloseGhost, inlineIcon } from './uifx.js';
@@ -240,6 +241,8 @@ export class UI {
     this.el.panelTitle = document.getElementById('panel-title');
     this.el.panelCollapse = document.getElementById('panel-collapse');
     this.el.sidepanel = document.getElementById('sidepanel');
+    // Its size: Normal / Large / Extra large, the A− / A+ buttons and the grip (panelsize.js).
+    this.panelSize = new PanelSizer(this.el.sidepanel, this.el.panelHead);
     this._setPanelTitle('inventory');
     // Phones (portrait or landscape): enables the fold-on-retap tab behaviour.
     if (typeof matchMedia === 'function') {
@@ -1551,7 +1554,8 @@ export class UI {
       if (!pb || !bar.isConnected) return;
       const pad = parseFloat(getComputedStyle(pb).paddingTop) || 0;
       const under = st && st.offsetParent && getComputedStyle(st).position === 'sticky' ? st.getBoundingClientRect().bottom - pb.getBoundingClientRect().top : 0;
-      bar.style.top = `${Math.round(under - pad)}px`;
+      // (Measured on screen; a bigger side panel is zoomed, so back to its own px.)
+      bar.style.top = `${Math.round(under / (pb.currentCSSZoom || 1) - pad)}px`;
     });
   }
 
@@ -3237,6 +3241,19 @@ export class UI {
       this.game.worldLabels = nextLabelMode(labelMode(this.game));
       this.game.saveSoon = true;
     });
+    // The side panel's size (panelsize.js): with a mouse, the whole panel
+    // (A− / A+ in its header do the same); on a touch screen, larger text in
+    // the menu sheet. compact.css shows whichever row fits the screen.
+    const ps = this.panelSize;
+    if (ps instanceof PanelSizer) {
+      const size = cycle('Side panel size', () => ps.label(), () => ps.step(1, true));
+      size.classList.add('set-ps-desk');
+      ps.onChange = () => {
+        const v = ps.label(), val = size.querySelector('.set-val');
+        if (val && val.textContent !== v) { val.textContent = v; size.title = `Side panel size: ${v}`; }
+      };
+      row('Larger text in menus', () => ps.bigText, () => ps.setBigText(!ps.bigText)).classList.add('set-ps-touch');
+    }
     // Accessibility: saved with the other settings; uifx.js puts them on <body>.
     // (No Text size setting any more: it enlarged panels with CSS zoom, which
     // iPhone Safari hit-tests a few pixels off, so taps missed their buttons.)
