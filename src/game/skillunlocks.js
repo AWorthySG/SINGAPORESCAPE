@@ -14,6 +14,7 @@ import { STATION_BY_ID } from '../data/transport.js';
 import { SKILL_BY_ID } from '../data/skills.js';
 import { getItem } from '../data/items.js';
 import { playIconHTML } from '../render/icons.js';
+import { WHOLE_HAUL } from './jackpot.js';
 
 import { aOrAn } from '../core/utils.js';
 const skillName = (s) => SKILL_BY_ID[s]?.name || s;
@@ -121,6 +122,26 @@ function bagCounts(game) {
   return m;
 }
 
+/** A node's own product, by id: a tree's log, a rock's ore, a fishing spot's
+ *  fish, a trap's main catch and anything that always comes with it (a hornbill
+ *  nest's feathers), not a bonus with a chance of its own (a boar's tusk). */
+function ownProduct(def) {
+  if (Array.isArray(def?.gives)) return new Set(def.gives.filter((g, i) => !i || g.chance === undefined).map((g) => g.id));
+  return new Set([def?.gives, ...(def?.catches || []).map((c) => c.id)].filter(Boolean));
+}
+/** What a gather's double copies, [id, n], from what the gather itself gave
+ *  (`plain`, in bag order): the most of the node's own product it gave (a
+ *  double or triple log, a big catch, a handful of feathers), else the biggest
+ *  gain, never coins unless that's all there was. A stall's theft: its loot. */
+function doubleOf(a, plain) {
+  const loot = plain.filter(([id]) => id !== 'coins');
+  if (a.type !== 'stall' && loot.length) {
+    const mine = ownProduct(a.obj?.def), hit = loot.filter(([id]) => mine.has(id));
+    if (hit.length) return hit.sort((x, y) => y[1] - x[1])[0];
+  }
+  return loot.sort((x, y) => y[1] - x[1])[0] || plain[0];
+}
+
 /** Run one continuous action with the skill's unlocks: a double yield (and a
  *  lure or decoy spent) after a gather, inputs kept after a make, a node kept
  *  from running dry, and a second action in the same tick. Returns whether the
@@ -133,7 +154,7 @@ export function runSkillAction(game, a, resolver) {
   // A station can lend bonuses of its own (the kampong home's upgraded range, home.js).
   if (obj?.homeFx) for (const [k, v] of Object.entries(obj.homeFx)) fx[k] = (fx[k] || 0) + v;
   const wasDepleted = !!obj?.depleted;
-  const gained = [], spent = [];
+  const gained = [], spent = [], haul = new Map();
   let going;
   if (MAKE_KINDS.has(a.type) && game.inventory.journal) {
     // Making runs thousands at a time in a batch: the inventory notes what each
@@ -147,7 +168,8 @@ export function runSkillAction(game, a, resolver) {
     }
   } else {
     const before = bagCounts(game);
-    going = resolver();
+    WHOLE_HAUL.got = haul;   // a whole tree, seam, school or flock in it (jackpot.js)
+    try { going = resolver(); } finally { WHOLE_HAUL.got = null; }
     const after = bagCounts(game);
     for (const [id, n] of after) if (n > (before.get(id) || 0)) gained.push([id, n - (before.get(id) || 0)]);
     for (const [id, n] of before) if ((after.get(id) || 0) < n) spent.push([id, n - (after.get(id) || 0)]);
@@ -157,9 +179,12 @@ export function runSkillAction(game, a, resolver) {
     const c = GATHER_CONSUMABLES[skill];
     let double = fx.double || 0;
     if (c && game.inventory.count(c.id) > 0) { game.inventory.remove(c.id, 1); double += c.double; }
-    // The main yield: the biggest non-coin gain (coins only if that's all there was).
-    const main = gained.filter(([id]) => id !== 'coins').sort((x, y) => y[1] - x[1])[0] || gained[0];
-    if (main && roll(game, double) && game.inventory.canAdd(main[0], main[1]) >= main[1]) {
+    // Copy what the gather itself gave, never a whole tree, seam, school or
+    // flock that came with it (jackpot.js): copying those once turned a double
+    // tuna into hundreds.
+    const plain = gained.map(([id, n]) => [id, n - (haul.get(id) || 0)]).filter(([, n]) => n > 0);
+    const main = doubleOf(a, plain);
+    if (roll(game, double) && main && game.inventory.canAdd(main[0], main[1]) >= main[1]) {
       game.inventory.add(main[0], main[1]);
       game.msg(`Skill unlock: a double ${getItem(main[0]).name.toLowerCase()}!`);
     }
