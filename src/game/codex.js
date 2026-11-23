@@ -204,7 +204,8 @@ export function codexEntry(game, id) {
   });
   const sigCls = SIGNATURE_CLASS[id] && CLASS_BY_ID[SIGNATURE_CLASS[id]];
   if (sigCls) e.signature = { item: sigIdFor(id), className: sigCls.name, classId: sigCls.id, chance: SIGNATURE_DROP_CHANCE };
-  // The strongest bosses' ascended weapons for other classes (bossWeapons.js ASCENDED).
+  // Its extra weapons for other classes: the strongest bosses' ascended ones (bossWeapons.js
+  // ASCENDED) and the late classes' (LATE_SIGS; ascended too when the boss is of the eternal tier).
   const asc = sigDropsFor(id).slice(1);
   if (asc.length) e.ascended = asc.map((s) => ({ item: s.id, className: CLASS_BY_ID[s.classId].name, classId: s.classId, chance: SIGNATURE_DROP_CHANCE }));
   if (d.ability) {

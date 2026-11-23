@@ -156,9 +156,10 @@ export function codexEntryHTML(game, id) {
       `<span><b>${esc(getItem(e.signature.item).name)}</b> for ${esc(e.signature.className)}${mine ? ' (your class!)' : ''} · drops 1 kill in ${Math.round(1 / e.signature.chance)}</span></div>`;
   }
   for (const a of e.ascended || []) {
-    const mine = a.classId === game?.jobClass;
-    boss += `<div class="cx-sec cx-sig${mine ? ' mine' : ''}"><h4>Ascended signature weapon</h4>${itemIconSVG(a.item, 28)}` +
-      `<span><b>${esc(getItem(a.item).name)}</b> for ${esc(a.className)}${mine ? ' (your class!)' : ''}, stronger than eternal · drops 1 kill in ${Math.round(1 / a.chance)}</span></div>`;
+    // Its extra weapons: ascended ones (stronger than eternal), and the late classes' plain ones (bossWeapons.js LATE_SIGS).
+    const mine = a.classId === game?.jobClass, asc = getItem(a.item).signature?.ascended;
+    boss += `<div class="cx-sec cx-sig${mine ? ' mine' : ''}"><h4>${asc ? 'Ascended signature weapon' : 'Signature weapon'}</h4>${itemIconSVG(a.item, 28)}` +
+      `<span><b>${esc(getItem(a.item).name)}</b> for ${esc(a.className)}${mine ? ' (your class!)' : ''}${asc ? ', stronger than eternal' : ''} · drops 1 kill in ${Math.round(1 / a.chance)}</span></div>`;
   }
   if (e.ability) {
     boss += `<div class="cx-sec"><h4>Signature move</h4><div class="cx-ability"><b>${esc(e.ability.name)}:</b> ${esc(e.ability.desc)}</div>` +

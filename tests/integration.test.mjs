@@ -6668,10 +6668,11 @@ test('boss signature weapons: one per boss, for one class, dealt fairly and fixe
     assert.equal(full, NPCS[id].name, `${id}'s name matches npcs.js`);
   }
   assert.deepEqual(SIG_CLASSES, CLASSES.map((c) => [c.id, c.name, c.weapon]), 'the class list matches classes.js');
-  // One weapon per boss (plus the strongest bosses' ascended ones), each id unique, for a real class.
-  const { ASCENDED } = await import('../src/data/bossWeapons.js');
+  // One weapon per boss (plus the strongest bosses' ascended ones and the late classes' extra
+  // ones), each id unique, for a real class.
+  const { ASCENDED, LATE_SIGS, LATE_CLASSES } = await import('../src/data/bossWeapons.js');
   const sigs = Object.values(ITEMS).filter((it) => it.signature);
-  assert.equal(sigs.length, ALL_BOSS_IDS.length + ASCENDED.length);
+  assert.equal(sigs.length, ALL_BOSS_IDS.length + ASCENDED.length + LATE_SIGS.length);
   assert.equal(new Set(sigs.map((it) => it.id)).size, sigs.length);
   for (const boss of ALL_BOSS_IDS) {
     const it = ITEMS[sigIdFor(boss)], cls = CLASS_BY_ID[SIGNATURE_CLASS[boss]];
@@ -6683,15 +6684,22 @@ test('boss signature weapons: one per boss, for one class, dealt fairly and fixe
     assert.ok(canWield(cls.id, it.equip.weaponType), `${cls.name} can wield ${it.name}`);
     assert.ok(it.examine.startsWith('Signature weapon of') && it.examine.includes(cls.name), it.examine);
   }
-  // Every class gets two to five, spread across early and late bosses.
+  // Every class gets two to five, spread across early and late bosses (a class added
+  // after the deal, LATE_CLASSES, counts its extra weapons, LATE_SIGS).
+  const level = (boss) => SIG_BOSSES.find((b) => b[0] === boss)[1];
   for (const c of CLASSES) {
-    const mine = SIG_BOSSES.filter(([id]) => SIGNATURE_CLASS[id] === c.id).map((b) => b[1]);
+    const mine = LATE_CLASSES.includes(c.id) ? LATE_SIGS.filter((a) => a.classId === c.id).map((a) => level(a.boss))
+      : SIG_BOSSES.filter(([id]) => SIGNATURE_CLASS[id] === c.id).map((b) => b[1]);
     assert.ok(mine.length >= 2 && mine.length <= 5, `${c.name} has ${mine.length} signature weapons`);
     assert.ok(Math.max(...mine) - Math.min(...mine) >= 50, `${c.name}'s are spread out (${mine.join(', ')})`);
   }
-  // The classes are dealt from the strongest boss down: each class has one of the top 21.
-  const top = [...SIG_BOSSES].sort((a, b) => b[1] - a[1]).slice(0, CLASSES.length).map(([id]) => SIGNATURE_CLASS[id]);
-  assert.equal(new Set(top).size, CLASSES.length, 'every class has an endgame signature weapon');
+  // The classes are dealt from the strongest boss down: each dealt class has one of the
+  // top 21, and each late class has an extra one from a boss of the eternal tier.
+  const dealt = CLASSES.filter((c) => !LATE_CLASSES.includes(c.id));
+  const top = [...SIG_BOSSES].sort((a, b) => b[1] - a[1]).slice(0, dealt.length).map(([id]) => SIGNATURE_CLASS[id]);
+  assert.equal(new Set(top).size, dealt.length, 'every class has an endgame signature weapon');
+  for (const c of LATE_CLASSES) assert.ok(LATE_SIGS.some((a) => a.classId === c && level(a.boss) >= 300), `${c} has an endgame signature weapon`);
+  assert.ok(Object.values(SIGNATURE_CLASS).every((c) => !LATE_CLASSES.includes(c)), 'no boss\'s own weapon goes to a late class');
   // Deterministic: a second, fresh import deals the same, and known picks never move.
   const again = await import('../src/data/bossWeapons.js?again');
   assert.deepEqual(again.SIGNATURE_CLASS, SIGNATURE_CLASS);

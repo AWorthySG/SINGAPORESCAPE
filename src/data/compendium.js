@@ -34,7 +34,7 @@ import { SLAYER_REWARDS, SLAYER_DMG, SLAYER_LOOT, SLAYER_HELM_DMG, SLAYER_FULL_L
 import { EVENT_KINDS, EVENT_GAP, WEEKLY_TASKS } from './worldevents.js';
 import { BOSS_MECHANICS, MECH_KINDS } from './bossMechanics.js';
 import { BOSS_TYPES } from './bossTypes.js';
-import { SIGNATURE_DROP_CHANCE, ASCENDED, ASCENDED_LEVEL } from './bossWeapons.js';
+import { SIGNATURE_DROP_CHANCE, ASCENDED, ASCENDED_LEVEL, LATE_SIGS } from './bossWeapons.js';
 import { ALTAR_XP_MULT } from './bones.js';
 import { ADREN_PER_HIT, ADREN_PER_HURT, THRESHOLD_COST, ULTIMATE_COST } from './abilities.js';
 import { MASTERY_RANKS, MAX_ENCHANTS, ENCHANT_LABELS, enchantCost, BATTLE_CAP_RANK, KILL_XP, KILL_MULT } from '../game/mastery.js';
@@ -626,6 +626,8 @@ export const CHAPTERS = [
             'A boss rolls its drop table ten times and never comes up empty, hits the rare drop table five times, and always drops an accessory and three pieces of gear for your class, Superior quality or better.',
             `Each boss has a **signature weapon** for one class, which drops ${oneIn(SIGNATURE_DROP_CHANCE)} kills. It is a third stronger than the plain weapon of the boss's level.`,
             `So every class has one stronger than its eternal weapon, the bosses of level ${ASCENDED_LEVEL} and up also carry an **ascended** signature weapon for a class none of them serve (${ASCENDED.map((a) => `${getNpc(a.boss).name}: ${CLASS_BY_ID[a.classId].name}`).join(', ')}), which drops just as often.`,
+            // Classes added after the weapons were dealt keep the deal as it was and carry extra weapons of their own.
+            ...(LATE_SIGS.length ? [`The newer classes have three signature weapons each, carried by bosses on top of their own and dropping just as often (${LATE_SIGS.map((a) => `${getNpc(a.boss).name}: ${CLASS_BY_ID[a.classId].name}`).join(', ')}). The one from a boss of level ${ASCENDED_LEVEL} or more is ascended.`] : []),
             'It also leaves 20 to 50 upgrade stones and 1 to 3 upgrade wards.',
             'A boss kill is worth 25 gear mastery points to every piece you wear.',
           ] },

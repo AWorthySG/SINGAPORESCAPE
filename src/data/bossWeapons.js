@@ -95,9 +95,14 @@ function hash(s) {
 
 // Shuffle the classes once, then deal them round-robin down the boss list:
 // every class gets two or three bosses, spread from the strongest downwards.
+// The deal is frozen: players own these weapons, so no boss's first weapon may
+// ever move to another class or weapon type. Classes added after it (LATE_CLASSES)
+// stay out of the shuffle, which leaves the first 21 in their order and every
+// boss with its class; they get extra drops of their own instead (LATE_SIGS).
 const SIG_SEED = 20261114;
+export const LATE_CLASSES = [];
 const DEAL_ORDER = (() => {
-  const order = SIG_CLASSES.map((c) => c[0]), rand = seeded(SIG_SEED);
+  const order = SIG_CLASSES.map((c) => c[0]).filter((id) => !LATE_CLASSES.includes(id)), rand = seeded(SIG_SEED);
   for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
   return order;
 })();
@@ -119,11 +124,17 @@ export const ASCENDED = (() => {
   const need = DEAL_ORDER.filter((c) => !served.has(c));
   return need.map((classId, i) => { const boss = TOP_BOSSES[i % TOP_BOSSES.length][0]; return { boss, classId, id: `sig_${boss}_${classId}` }; });
 })();
-/** Every signature weapon a boss drops: [{ id, classId }], its own first, then any ascended ones. */
+// The late classes' signature weapons: three a class, hand-picked, each an extra
+// drop rolled on its own like an ascended one. One comes from a boss of the
+// eternal tier (so it is ascended, stronger than eternal) and two from earlier
+// bosses. Append only: never move or remove one (players own them).
+// [{ boss, classId, id }], like ASCENDED.
+export const LATE_SIGS = [].map(([classId, boss]) => ({ boss, classId, id: `sig_${boss}_${classId}` }));
+/** Every signature weapon a boss drops: [{ id, classId }], its own first, then any ascended and late ones. */
 export function sigDropsFor(bossId) {
   if (!SIGNATURE_CLASS[bossId]) return [];
   return [{ id: sigIdFor(bossId), classId: SIGNATURE_CLASS[bossId] },
-    ...ASCENDED.filter((a) => a.boss === bossId).map(({ id, classId }) => ({ id, classId }))];
+    ...[...ASCENDED, ...LATE_SIGS].filter((a) => a.boss === bossId).map(({ id, classId }) => ({ id, classId }))];
 }
 
 // A noun for each weapon type: "Nian's Fang", "Kelong King's Longbow".
@@ -162,7 +173,7 @@ export function signatureWeapons(RAW, classify, skip = new Set()) {
     if (t) (byType[t] = byType[t] || []).push(id);
   }
   const jobs = [...SIG_BOSSES.map(([bossId, level, short, full]) => [bossId, level, short, full, SIGNATURE_CLASS[bossId], sigIdFor(bossId)]),
-    ...ASCENDED.map(({ boss, classId, id }) => { const [, level, short, full] = SIG_BOSSES.find((b) => b[0] === boss); return [boss, level, short, full, classId, id]; })];
+    ...[...ASCENDED, ...LATE_SIGS].map(({ boss, classId, id }) => { const [, level, short, full] = SIG_BOSSES.find((b) => b[0] === boss); return [boss, level, short, full, classId, id]; })];
   for (const [bossId, level, short, full, sigClass, id] of jobs) {
     const cls = SIG_CLASSES.find((c) => c[0] === sigClass);
     const [classId, className, type] = cls;
@@ -173,7 +184,7 @@ export function signatureWeapons(RAW, classify, skip = new Set()) {
     const base = RAW[baseId], h = hash(id === sigIdFor(bossId) ? bossId : id);   // a boss's first weapon keeps its old hash
     const bonuses = { ...(base.equip.bonuses || {}) };
     for (const k of SCALED) if (bonuses[k]) bonuses[k] = Math.round(bonuses[k] * SIGNATURE_MULT);
-    const ascended = id !== sigIdFor(bossId);
+    const ascended = id !== sigIdFor(bossId) && level >= ASCENDED_LEVEL;   // an extra one from a boss of the eternal tier
     const nouns = NOUNS[type];
     const article = /^[AEIOU]/.test(className) ? 'an' : 'a';
     const boss = full.replace(/^The /, 'the ');
