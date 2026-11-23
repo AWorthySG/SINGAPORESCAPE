@@ -34,6 +34,7 @@ const ACTION_WORDS = {
   equip: 'wear upgrade', 'win:bag': 'inventory pack', 'win:gear': 'equipment worn', 'win:prayer': 'blessings faith',
   'win:journal': 'quests', 'win:awards': 'achievements', 'win:map': 'travel mrt', 'win:codex': 'bestiary monsters',
   'win:compendium': 'guide help how', 'win:mastery': 'enchant refine upgrade dismantle', 'win:shrine': 'offer offering points blessings',
+  'win:improve': 'all worn gear safe stars lines feed boost',
   'win:settings': 'options sound graphics',
 };
 

@@ -55,7 +55,7 @@ import { openSacrifice, openSacrificeFrom, openDismantle, shrineGearSection, ask
 import { shrineGoodsSection, askGoods, shrineMaxButton } from './shrineui.js';
 import { goodsKind } from '../game/offerings.js';
 import { ATTRS, ATTR_NAMES, attrSummary, attrForMode, MAX_STAT_POINTS, RESET_COST_PER_POINT, holdRepeatDelay } from '../game/attributes.js';
-import { STAT_LABELS, STAT_HELP, compareGear, deltaText, effectiveRating, isUpgrade, gearBySlot, gearRating, meetsReq, swingBeats, tierOf, weaponStyle } from '../game/gear.js';
+import { STAT_LABELS, STAT_HELP, compareGear, deltaText, effectiveRating, gearBySlot, gearRating, meetsReq, swingBeats, tierOf, weaponStyle } from '../game/gear.js';
 import { TILE, LEARNING_ENABLED, TICK_MS } from '../config.js';
 import { TERRAIN, zoneLevel } from '../data/world.js';
 import { clearSave, suppressSaves, exportSaveCode, importSaveCode } from '../game/save.js';
@@ -78,6 +78,9 @@ import { WaveHud } from './wavehud.js';
 import { PlayHud } from './playhud.js';
 import { CompactHud } from './compacthud.js';
 import { feedAllPlan, feedAll } from '../game/feedall.js';   // "Feed materials to worn gear" in one go
+import { upgradeSlots, wouldWear, carryPreview } from '../game/bestpick.js';   // Equip best's own rule, for every upgrade signal
+import { improveCount } from '../game/smartgear.js';
+import { mountRefineRun, mountEnchantRun, openImprove } from './smartgearui.js';   // refine and enchant runs, "Improve worn gear"
 export const COLLAPSE_V = 2;   // the saved fold states' version (see _loadCollapse)
 export const TIP_LINGER_MS = 1000;   // an item's hover description stays this long after the pointer leaves
 export const CHAT_LINES = 120;   // the chat keeps (and its log shows) this many lines
@@ -94,7 +97,7 @@ import { renderBossBar } from './bossbar.js';
 import { whatNextHTML, wireWhatNext, whatNextTrackerRows, watchUpgrades, watchGoals } from './whatnextui.js';
 import { depositLootButton, keepMenuItem, markKept } from './bankkeepui.js';
 import { levelNews, levelNewsText } from '../game/levelnews.js';
-import { whatNext, packUpgrades } from '../game/whatnext.js';
+import { whatNext } from '../game/whatnext.js';
 import { XpDisplay } from './xpdisplay.js';
 import { crossesMilestone, xpDisplayMode, nextXpDisplay, XP_DISPLAY_NAMES } from '../game/xptrack.js';
 import { regionDialogue, canRegionTeleport, regionTeleport } from '../game/regionquests.js';
@@ -1205,8 +1208,9 @@ export class UI {
     // style, so it is worked out once per piece until one of those changes (the
     // endless pack holds hundreds of pieces late on, and every pickup redraws it).
     const eqp = this.game.equipment, sk = this.game.skills;
+    // (Each worn piece's lines by stat and size: a replaced line changes what carries over.)
     const gearKey = this.game.combatMode() + '|' + ['attack', 'strength', 'defence', 'ranged', 'magic', 'agility', 'prayer'].map((k) => sk.level(k)).join(',')
-      + '|' + EQUIP_SLOTS.map((sl) => { const w = eqp.get(sl); return w ? `${w}:${eqp.qualityIn?.(sl) || ''}:${eqp.refineLevel(w)}:${eqp.masteryRank(w)}:${eqp.enchantLines?.(w)?.length || 0}` : ''; }).join(',');
+      + '|' + EQUIP_SLOTS.map((sl) => { const w = eqp.get(sl); return w ? `${w}:${eqp.qualityIn?.(sl) || ''}:${eqp.refineLevel(w)}:${eqp.masteryRank(w)}:${(eqp.enchantLines?.(w) || []).map((l) => l.stat + l.value).join('+')}` : ''; }).join(',');
     if (this._betterKey !== gearKey) { this._betterKey = gearKey; this._betterOf = new Map(); }
     const betterOf = this._betterOf;
     for (let i = 0; i < slots.length; i++) {
@@ -1222,10 +1226,11 @@ export class UI {
         if (item.equip) {
           up = this.game.equipment.masteryRank(s.id);
           rl = this.game.equipment.refineLevel(s.id);
-          const bk = `${s.id}|${s.q || ''}|${up}|${rl}`;
+          const ln = eqp.enchantLines(s.id);
+          const bk = `${s.id}|${s.q || ''}|${up}|${rl}${ln.length ? `|${ln.map((l) => l.stat + l.value).join('+')}` : ''}`;
           better = betterOf.get(bk);
           if (better === undefined) {
-            better = isUpgrade(compareGear(s.id, eqp, null, s.q || null, this.game.combatMode())) && meetsReq(s.id, sk).ok;
+            better = wouldWear(this.game, s);   // what Equip best would put on, ★ and lines carried over (bestpick.js)
             betterOf.set(bk, better);
           }
         }
@@ -1286,6 +1291,11 @@ export class UI {
         opts.push({ label: 'Wield in off-hand', target: item.name, fn: () => this.game.equipOffhand(i) });
         opts.push({ label: 'Wield in main hand', target: item.name, fn: () => this.game.equipItem(i, { offhand: false }) });
       } else opts.push({ label: item.equip.slot === 'weapon' ? 'Wield' : 'Wear', target: item.name, fn: () => this.game.equipItem(i) });
+      // Straight to its Refine or Enchant window (the runs are there), without the Gear Mastery list on the way.
+      if (item.equip.bonuses && !item.tool) {
+        opts.push({ label: 'Refine…', target: item.name, fn: () => this.openRefine(s.id) });
+        opts.push({ label: 'Enchant…', target: item.name, fn: () => this.openEnchant(s.id) });
+      }
     }
     if (isRound(s.id)) opts.push({ label: 'Load', target: item.name, fn: () => this.game.loadRounds(i) });
     if (item.tags?.includes('log')) opts.push({ label: 'Light', target: item.name, fn: () => this.askFireLogs(item.id) });
@@ -1366,8 +1376,12 @@ export class UI {
         if (this.game.equipment.masteryRank(id) || this.game.equipment.refineLevel(id, copy)) cell.insertAdjacentHTML('beforeend', this._gearBadge(id, copy));
         if (q) cell.insertAdjacentHTML('beforeend', this._qualityPip(q));
         cell.addEventListener('click', () => this.game.unequip(slot));
-        this._tip(cell, () => `<b>${qualityNameHTML(id, q)}</b>${this._gearTip(id, copy, q)}<br><span style="opacity:.8">Tap to remove</span>`,
-          () => [{ label: 'Remove', target: item.name, fn: () => this.game.unequip(slot) }]);
+        // Hold (or right-click): Remove, as a tap does, then this piece's Refine and Enchant windows.
+        const gear = !!item.equip?.bonuses && !item.tool;
+        const acts = () => [{ label: 'Remove', target: item.name, fn: () => this.game.unequip(slot) },
+          ...(gear ? [{ label: 'Refine…', target: item.name, fn: () => this.openRefine(id, copy) }, { label: 'Enchant…', target: item.name, fn: () => this.openEnchant(id, null, copy) }] : [])];
+        cell.addEventListener('contextmenu', (e) => { e.preventDefault(); this.showContextMenu(e.clientX, e.clientY, acts()); });
+        this._tip(cell, () => `<b>${qualityNameHTML(id, q)}</b>${this._gearTip(id, copy, q)}<br><span style="opacity:.8">${gear ? 'Tap to remove · hold or right-click to refine or enchant' : 'Tap to remove'}</span>`, acts);
       } else {
         cell.className = 'equip-slot empty';
         cell.textContent = capitalize(slot);
@@ -1461,14 +1475,22 @@ export class UI {
     if (!bar) {
       bar = this._eqBestBar = document.createElement('div');
       bar.className = 'eq-bestbar';
-      bar.innerHTML = '<button type="button" class="bestiary-open gear-guide-open eq-best"></button>';
+      // Beside it, every safe upgrade on what you wear in one go (smartgearui.js).
+      bar.innerHTML = '<button type="button" class="bestiary-open gear-guide-open eq-best"></button><button type="button" class="bestiary-open gear-guide-open eq-improve"></button>';
       bar.firstChild.addEventListener('click', () => this.game.equipBest());
+      bar.lastChild.addEventListener('click', () => openImprove(this));
       layout.parentNode?.insertBefore(bar, layout);
     }
-    const n = packUpgrades(this.game).length;
-    const html = `${inlineIcon(tabIconSVG('equipment', 18))} Equip best in slot${n ? ` <span class="eq-best-n">${n} upgrade${n > 1 ? 's' : ''} in your bag</span>` : ''}`;
+    // Slots, not pieces: three better shields are one upgrade (bestpick.js).
+    const n = upgradeSlots(this.game).size;
+    const html = `${inlineIcon(tabIconSVG('equipment', 18))} Equip best in slot${n ? ` <span class="eq-best-n">${n} upgrade${n > 1 ? 's' : ''}</span>` : ''}`;
     if (bar.firstChild.innerHTML !== html) bar.firstChild.innerHTML = html;
     bar.firstChild.classList.toggle('has-up', n > 0);
+    const k = improveCount(this.game), imp = bar.lastChild;
+    const ih = `&#10022; Improve${k ? ` <span class="eq-best-n">${k}</span>` : ''}`;
+    if (imp._html !== ih) { imp._html = ih; imp.innerHTML = ih; }
+    imp.classList.toggle('none', !k);
+    imp.title = k ? `${k} worn piece${k > 1 ? 's' : ''} can be improved safely` : 'Nothing safe to improve right now';
     // It pins just under the Bag / Gear switch, which is pinned too: measured
     // after the browser's own layout (next frame), so this forces none.
     if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => {
@@ -1553,20 +1575,28 @@ export class UI {
     const cmp = compareGear(id, eqp, null, q, this.game.combatMode());
     if (cmp.verdict === 'worn') return html + '<div class="gt-verdict same">Currently worn</div>';
     const offCmp = dualOff && eqp.get('shield') !== id ? compareGear(id, eqp, 'shield', q, this.game.combatMode()) : null;
+    // A matching weapon goes in a free off-hand first, as equipItem does.
+    const slot = canDualPair(id, eqp.get('weapon')) && !dualOff ? 'shield' : eq.slot;
+    // A piece in the pack bound for its own slot is weighed as it will be
+    // worn: with the ★ and lines that carry over to it, as Equip best weighs
+    // it (bestpick.js). A plain higher tier read "Downgrade" here, then went on.
+    const pv = slot === eq.slot && this.game.inventory.count(id) > 0 ? carryPreview(this.game, id, q) : null;
     const vs = cmp.worn ? ` vs ${escapeHtml(getItem(cmp.worn).name)}` : '';
-    const label = { upgrade: '▲ Upgrade', downgrade: '▼ Downgrade', same: '= Same strength', empty: '▲ Fills an empty slot', style: '⇄ Different fighting style' }[cmp.verdict];
-    html += `<div class="gt-verdict ${cmp.verdict}">${label}${vs}</div>`;
-    if (cmp.deltas.length && cmp.worn) html += `<div class="gt-deltas">${cmp.deltas.map((d) => {
+    const label = pv ? { upgrade: cmp.verdict !== 'upgrade' ? '▲ Upgrade once your ★ and lines carry over' : '▲ Upgrade', downgrade: '▼ Downgrade, even with your ★ and lines carried over', same: '= Same strength' }[pv.verdict]
+      : { upgrade: '▲ Upgrade', downgrade: '▼ Downgrade', same: '= Same strength', empty: '▲ Fills an empty slot', style: '⇄ Different fighting style' }[cmp.verdict];
+    html += `<div class="gt-verdict ${pv ? pv.verdict : cmp.verdict}">${label}${vs}</div>`;
+    const deltas = pv ? pv.deltas : cmp.deltas;
+    if (deltas.length && cmp.worn) html += `<div class="gt-deltas">${deltas.map((d) => {
       const good = d.lowerIsBetter ? d.delta < 0 : d.delta > 0;
       return `<span class="${good ? 'pos' : 'neg'}">${deltaText([d])}</span>`;
     }).join(' ')}</div>`;
     // The offensive stats summed up in plain damage terms (statworth.js).
-    const sw = cmp.worn && cmp.verdict !== 'style' ? gearSwapWorth(this.game, id, eq.slot, q) : null;
-    if (sw != null && Math.abs(sw) >= 0.05) html += `<div class="gt-worth-all ${sw > 0 ? 'pos' : 'neg'}">Overall: ≈ ${fmtWorth(sw)} damage vs equipped <span class="gt-worth">(offensive stats)</span></div>`;
+    const sw = pv ? pv.worth : cmp.worn && cmp.verdict !== 'style' ? gearSwapWorth(this.game, id, eq.slot, q) : null;
+    if (sw != null && Math.abs(sw) >= 0.05) {
+      html += `<div class="gt-worth-all ${sw > 0 ? 'pos' : 'neg'}">Overall: ≈ ${fmtWorth(sw)} damage vs equipped${pv ? ', once the carry is done' : ' <span class="gt-worth">(offensive stats)</span>'}</div>`;
+    }
     if (offCmp?.worn) html += `<div class="gt-verdict ${offCmp.verdict}">Off-hand: ${{ upgrade: '▲ Upgrade', downgrade: '▼ Downgrade', same: '= Same strength' }[offCmp.verdict] || ''} vs ${escapeHtml(getItem(offCmp.worn).name)}</div>`;
-    // Say what a better piece would take over from the worn one (carry.js). A
-    // matching weapon goes in a free off-hand first, as equipItem does.
-    const slot = canDualPair(id, eqp.get('weapon')) && !dualOff ? 'shield' : eq.slot;
+    // Say what a better piece would take over from the worn one (carry.js).
     for (const [s, pre] of [[slot, ''], ...(dualOff ? [['shield', 'Off-hand: ']] : [])]) {
       const plan = planCarry(eqp, id, s, q);
       if (plan) html += `<div class="gt-carry">${pre}Equipping carries over ${escapeHtml(carrySummary(plan))}</div>`;
@@ -1595,6 +1625,13 @@ export class UI {
       // after a look at what it would use. Then the spare-gear dismantler.
       const top = document.createElement('div');
       top.className = 'gear-view';
+      // First: every safe upgrade on everything worn, in one go (smartgearui.js).
+      const imp = document.createElement('button');
+      imp.type = 'button';
+      imp.className = 'gear-tab improve-open' + (improveCount(g) > 0 ? ' active' : '');
+      imp.innerHTML = '&#10022; Improve all worn gear…';
+      imp.addEventListener('click', () => openImprove(this));
+      top.appendChild(imp);
       const plan = feedAllPlan(g);
       if (plan.length) {
         const fa = document.createElement('button');
@@ -1707,6 +1744,9 @@ export class UI {
     }
   }
 
+  /** "Improve worn gear" (smartgearui.js), for the quick bar and search. */
+  openImproveGear() { openImprove(this); }
+
   /** "Feed materials to worn gear": what it would use and add, then Feed or Back. */
   _openFeedAll() {
     const g = this.game;
@@ -1783,11 +1823,17 @@ export class UI {
         + (can ? '' : ' <span class="short">You can\'t afford it yet.</span>') + '</p></div>';
       const hands = this._handPicker(id, copy, (c2) => { copy = c2; replace = null; redraw(body, render); });
       if (hands) body.prepend(hands);
+      mountEnchantRun(this, body, id, copy, () => redraw(body, render));   // "Keep enchanting until…"
       const box = document.createElement('div');
       box.className = 'ench-choices';
+      const wards = g.inventory.count(UP_WARD);
+      const reroll = () => button(`Reroll the offer (uses a ward, ${wards} left; wards also save ★10+ refines)`, () => { g.rerollEnchant(id, copy); redraw(body, render); });
       if (full && replace == null) {
-        box.insertAdjacentHTML('beforeend', '<div class="ench-head">All three lines are full. Which one should go?</div>');
+        // What is on offer, so you can choose which line goes knowing what comes in.
+        box.insertAdjacentHTML('beforeend', `<div class="ench-preview">On offer now: ${g.enchantOffers(id, copy).map(enchantLabel).join(' · ')}</div>`
+          + '<div class="ench-head">All three lines are full. Which one should go?</div>');
         lines.forEach((l, i) => box.appendChild(button(`Replace ${enchantLabel(l)}`, () => { replace = i; redraw(body, render); })));
+        if (wards > 0) box.appendChild(reroll());
       } else {
         box.insertAdjacentHTML('beforeend', `<div class="ench-head">${full ? `Replacing ${enchantLabel(lines[replace])}. ` : ''}Choose one:</div>`);
         g.enchantOffers(id, copy).forEach((o, i) => {
@@ -1798,8 +1844,7 @@ export class UI {
           b.disabled = !can;
           box.appendChild(b);
         });
-        const wards = g.inventory.count(UP_WARD);
-        if (wards > 0) box.appendChild(button(`Reroll (uses a ward, ${wards} left)`, () => { g.rerollEnchant(id, copy); redraw(body, render); }));
+        if (wards > 0) box.appendChild(reroll());
       }
       box.appendChild(button('Refine this piece', () => this.openRefine(id, copy), 'ench-switch'));
       box.appendChild(button('Back to all gear', () => this.openMastery(id), 'ench-cancel'));
@@ -1850,6 +1895,7 @@ export class UI {
       body.innerHTML = html;
       const hands = this._handPicker(id, copy, (c2) => { copy = c2; last = null; redraw(body, render); });
       if (hands) body.prepend(hands);
+      mountRefineRun(this, body, id, copy, () => redraw(body, render));   // "Keep refining until…"
       const box = document.createElement('div');
       box.className = 'ench-choices refine-box';
       if (lv < MAX_REFINE) {

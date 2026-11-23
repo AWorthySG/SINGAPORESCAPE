@@ -6,6 +6,7 @@ import { FEED_CAP, FEED_CAP_RANK } from './materials.js';
 import { QUALITY } from './loot.js';
 import { EQUIP_SLOTS } from './equipment.js';
 import { tierOf, compareGear } from './gear.js';
+import { wouldWear } from './bestpick.js';
 
 // Spare gear as a road to progression. Two things to do with a piece you won't
 // wear (any class's, any slot), both in the Gear Mastery window and on the
@@ -157,7 +158,9 @@ export function packQualities(game, id) {
 export function salvageWarning(game, id, q = 'plain') {
   const out = [];
   const cmp = compareGear(id, game.equipment, null, q === 'plain' ? null : q);
-  if (cmp && (cmp.verdict === 'upgrade' || cmp.verdict === 'empty') && game._canEquipNow?.(id)) out.push('it is better than what you wear');
+  // ...or Equip best would wear it, its worn piece's ★ and lines carried over (bestpick.js).
+  if ((cmp && (cmp.verdict === 'upgrade' || cmp.verdict === 'empty') && game._canEquipNow?.(id))
+    || wouldWear(game, { id, q: q === 'plain' ? null : q })) out.push('it is better than what you wear');
   if (isUniqueGear(id)) out.push(getItem(id).signature ? 'it is a boss\'s signature weapon' : 'it is a boss unique');
   if (QUALITY_KEYS.indexOf(q) >= QUALITY_KEYS.indexOf('epic')) out.push(`it is ${QUALITY[q].label} quality`);
   return out.join(', ');
@@ -309,12 +312,19 @@ export function bulkPicks(game, filters = {}, exclude = null) {
     if ((oc || bt) && !((oc && offClass(game, s.id)) || (bt && belowWornTier(game, s.id)))) continue;
     // Never a copy better than what you wear: each copy is weighed with its
     // own quality, and only the plainest copies up to the first such one are
-    // picked (copies always go plainest first).
+    // picked (copies always go plainest first). Nor one Equip best would wear
+    // once the worn piece's ★ and lines carried over to it (bestpick.js).
+    // (Copies of one quality weigh the same, so each quality is weighed once.)
     const qs = [];
+    let seenQ = null;
     for (const q of packQualities(game, s.id)) {
       if (QUALITY_KEYS.indexOf(q) >= cut) break;
-      const cmp = game._canEquipNow?.(s.id) && compareGear(s.id, game.equipment, null, q === 'plain' ? null : q);
-      if (cmp && (cmp.verdict === 'upgrade' || cmp.verdict === 'empty')) break;
+      if (q !== seenQ) {
+        seenQ = q;
+        const cmp = game._canEquipNow?.(s.id) && compareGear(s.id, game.equipment, null, q === 'plain' ? null : q);
+        if (cmp && (cmp.verdict === 'upgrade' || cmp.verdict === 'empty')) break;
+        if (wouldWear(game, { id: s.id, q: q === 'plain' ? null : q })) break;
+      }
       qs.push(q);
     }
     if (qs.length) out.push({ id: s.id, qualities: qs });
@@ -334,17 +344,21 @@ export function dismantleAll(game, filters = {}, { rand = Math.random } = {}) {
   return sum;
 }
 
-/** What "Sacrifice all" would give `targetId`: { pieces, points (mastery XP) } (stops at Master). */
+/** What "Sacrifice all" would give `targetId`: { pieces, points (mastery XP),
+ *  kinds: [{ id, n }] (the copies counted, so the confirm can name them) } (stops at Master). */
 export function previewSacrificeAll(game, targetId, filters = {}) {
   let pts = game.equipment.masteryXp(targetId), pieces = 0, points = 0;
+  const kinds = [];
   for (const p of bulkPicks(game, filters, targetId)) {
     for (const q of p.qualities) {
-      if (pts >= FEED_CAP) return { pieces, points };
+      if (pts >= FEED_CAP) return { pieces, points, kinds };
       const v = sacrificeXpIn(game, targetId, p.id, q, pts);
       pieces++; points += v; pts += v;
+      const k = kinds[kinds.length - 1];
+      if (k && k.id === p.id) k.n++; else kinds.push({ id: p.id, n: 1 });
     }
   }
-  return { pieces, points };
+  return { pieces, points, kinds };
 }
 
 /** Sacrifice everything the filters pick to `targetId`, until it reaches
