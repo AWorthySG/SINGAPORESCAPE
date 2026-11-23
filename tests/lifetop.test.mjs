@@ -14,7 +14,7 @@ import { clearSave } from '../src/game/save.js';
 import { xpForLevel, MAX_LEVEL, towardTop, pastSure } from '../src/data/xp.js';
 import { CROPS, greenFingersChance, GREEN_FINGERS_CAP, GREEN_FINGERS_TOP } from '../src/data/trades.js';
 import { SMELT, SMITH } from '../src/data/smithing.js';
-import { resolveWoodcut, resolveMine, resolveFish, resolveSmith, smeltBatch, GEM_TABLE, EXTRA_AT_TOP } from '../src/game/skilling.js';
+import { resolveWoodcut, resolveMine, resolveFish, resolveSmelt, resolveSmith, smeltBatch, GEM_TABLE, EXTRA_AT_TOP } from '../src/game/skilling.js';
 import { runSkillAction } from '../src/game/skillunlocks.js';
 import { makeBatch } from '../src/game/autoprocess.js';
 
@@ -58,6 +58,12 @@ test('towardTop and pastSure: nothing up to the old stopping level, then a strai
   assert.ok(pastSure(double, 961) > 0);
   assert.equal(pastSure(double, MAX_LEVEL), 1);
   for (const l of [1, 99, 5000, MAX_LEVEL]) assert.equal(pastSure((x) => 0.0001 * x, l), 0, 'a chance that never gets to 100% has nothing past it');
+  // A sum that is exactly 1 can come out a hair over it in floating point (rank 2
+  // Stewardship and an eternal axe at level 820): that is certain, not past it.
+  const hair = (l) => 0.04 + l * 0.001 + 0.04 + 0.1;
+  assert.ok(hair(820) > 1, `the sum is a hair over 1 (${hair(820)})`);
+  assert.equal(pastSure(hair, 820), 0);
+  assert.ok(pastSure(hair, 821) > 0);
   assert.equal(EXTRA_AT_TOP, 0.5, 'the chance of one more is at most a half');
 });
 
@@ -111,6 +117,17 @@ test('woodcutting and mining: once a double is certain, a third can come, on top
   const swings = (lvl) => { setLevel(g, 'mining', lvl); rock.oresLeft = 15; return withRandom(0.5, () => resolveMine(g, { obj: rock })); };
   assert.equal(swings(960), swings(959));
   assert.equal(swings(961), swings(960) + 1);
+  // A gem is certain from level 1647 with a plain pickaxe: the roll for a second starts there.
+  assert.equal(swings(1646), swings(1645));
+  assert.equal(swings(1647), swings(1646) + 1);
+
+  // With rank 2 Stewardship (+4%) and an eternal axe (+10%) the double is certain
+  // from level 820, where the sum comes out a hair over 1 in floating point:
+  // still no roll for a third there, only from 821.
+  g.culling.steward = 400;
+  g.inventory.add('eternal_axe', 1);
+  assert.equal(chops(820), chops(819));
+  assert.equal(chops(821), chops(820) + 1);
 });
 
 test('fishing: once a big catch is certain, a third fish can come, with no XP of its own', () => {
@@ -118,14 +135,19 @@ test('fishing: once a big catch is certain, a third fish can come, with no XP of
   const { said, xp } = watch(g);
   const spot = g.world.objects.find((o) => o.objId === 'fishing_spot');
   const fish = spot.def.catches[0];
+  // One cast with Math.random at 0.3 (past the trophy and oddity rolls, under
+  // the third's 50%): the fish it lands, and how many rolls it made.
   const cast = (lvl) => {
     setLevel(g, 'fishing', lvl); xp.length = 0;
     const n0 = g.inventory.count(fish.id);
-    withRandom(0.3, () => resolveFish(g, { obj: spot }));   // past the trophy and oddity rolls, under the third's 50%
-    return g.inventory.count(fish.id) - n0;
+    const rolls = withRandom(0.3, () => resolveFish(g, { obj: spot }));
+    return { fish: g.inventory.count(fish.id) - n0, rolls };
   };
-  assert.equal(cast(633), 2, 'a big catch, and no third until it is certain (level 634)');
-  assert.equal(cast(MAX_LEVEL), 3, 'three fish from one cast at 9999');
+  // No new roll until a big catch is certain (level 634), so seeded runs below it are unchanged.
+  assert.equal(cast(633).rolls, cast(632).rolls);
+  assert.equal(cast(634).rolls, cast(633).rolls + 1, 'the roll for a third starts there');
+  assert.equal(cast(633).fish, 2, 'a big catch, and no third below it');
+  assert.equal(cast(MAX_LEVEL).fish, 3, 'three fish from one cast at 9999');
   assert.deepEqual(xp, [['fishing', fish.xp * 2]], 'XP for two');
   assert.ok(said.some((t) => /^A huge catch! You haul in three /.test(t)), said.join(' | '));
 });
@@ -155,4 +177,12 @@ test('smithing: once a hot crucible and flawless work are certain, a second extr
   withRandom(0, () => resolveSmith(g, { recipe: r }));
   assert.equal(g.inventory.count('bronze_dagger'), 6);
   assert.ok(said.includes('Flawless work — you forge two extra bronze daggers!'), said.join(' | '));
+
+  // No new roll until the first extra is certain (level 970), so seeded runs below it are unchanged.
+  const smelts = (lvl) => { setLevel(g, 'smithing', lvl); for (const i of smelt.inputs) g.inventory.add(i.id, i.qty); return withRandom(0.5, () => resolveSmelt(g, { recipe: smelt })); };
+  const smiths = (lvl) => { setLevel(g, 'smithing', lvl); g.inventory.add(r.bar, r.barCount); return withRandom(0.5, () => resolveSmith(g, { recipe: r, tally: { bonus: 0 } })); };
+  assert.equal(smelts(970), smelts(969));
+  assert.equal(smelts(971), smelts(970) + 1, 'a hot crucible: the roll for a second extra starts just past it');
+  assert.equal(smiths(970), smiths(969));
+  assert.equal(smiths(971), smiths(970) + 1, 'flawless work: the same');
 });

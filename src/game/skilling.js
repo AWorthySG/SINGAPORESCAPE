@@ -147,7 +147,8 @@ export function resolveWoodcut(game, action) {
     // Double logs: a sturdy bough sometimes drops an extra.
     // (Stewardship adds to the chance while you are Neutral, see culling.js.)
     // Once a double is certain, a third log can fall too (EXTRA_AT_TOP).
-    const pDouble = (l) => 0.04 + l * 0.001 + yieldBonus(game) + tb.yield;
+    const sb = yieldBonus(game);   // read once: pastSure asks pDouble twice more
+    const pDouble = (l) => 0.04 + l * 0.001 + sb + tb.yield;
     if ((!falls || obj.logsLeft > 1) && Math.random() < pDouble(lvl) && game.inventory.canAdd(def.gives, 1) > 0) {
       game.inventory.add(def.gives, 1);
       if (falls) obj.logsLeft--;   // the extra log comes out of the tree's 10-20
@@ -214,7 +215,8 @@ export function resolveMine(game, action) {
     const oreName = getItem(yieldId).name.toLowerCase();
     // Rich seam: a chance at a second yield, and once that is certain a chance
     // at a third (EXTRA_AT_TOP).
-    const pDouble = (l) => 0.04 + l * 0.001 + yieldBonus(game) + tb.yield;
+    const sb = yieldBonus(game);   // read once: pastSure asks pDouble twice more
+    const pDouble = (l) => 0.04 + l * 0.001 + sb + tb.yield;
     if (obj.oresLeft > 1 && Math.random() < pDouble(lvl) && game.inventory.canAdd(yieldId, 1) > 0) {
       game.inventory.add(yieldId, 1);
       obj.oresLeft--;   // the bonus ore comes out of the rock's 10-20
@@ -295,7 +297,8 @@ export function resolveFish(game, action) {
     // Once it is certain, a third fish can come too (EXTRA_AT_TOP), with no XP:
     // spots never run dry, so XP for it would lift Fishing's XP an hour past the
     // other gathering skills (tests/fishing-balance.test.mjs).
-    const pBig = (l) => 0.05 + l * 0.0015 + (baited ? 0.05 : 0) + yieldBonus(game) + tb.yield;
+    const sb = yieldBonus(game);   // read once: pastSure asks pBig twice more
+    const pBig = (l) => 0.05 + l * 0.0015 + (baited ? 0.05 : 0) + sb + tb.yield;
     const big = Math.random() < pBig(lvl) && game.inventory.canAdd(pick.id, 2) >= 2;
     const third = big ? EXTRA_AT_TOP * pastSure(pBig, lvl) : 0;   // 0 until a big catch is certain
     const three = third > 0 && Math.random() < third && game.inventory.canAdd(pick.id, 3) >= 3;
@@ -377,6 +380,11 @@ export function resolveCook(game, action) {
   return game.inventory.has(action.rawId);
 }
 
+// A hot crucible's extra bar and flawless work's extra piece: the same chance
+// at a Smithing level, certain from level 970. Kept out here, not made in the
+// resolvers, as a batch runs them thousands of times in one tick.
+const smithExtraChance = (lvl) => 0.03 + lvl * 0.001;
+
 export function resolveSmelt(game, action) {
   const r = action.recipe;
   for (const inp of r.inputs) {
@@ -398,11 +406,10 @@ export function resolveSmelt(game, action) {
     const lvl = game.skills.level('smithing');
     // A hot crucible occasionally yields an extra bar, and once that is
     // certain (level 970) now and then a second extra (EXTRA_AT_TOP).
-    const pHot = (l) => 0.03 + l * 0.001;
-    if (Math.random() < pHot(lvl) && game.inventory.canAdd(r.result, 1) > 0) {
+    if (Math.random() < smithExtraChance(lvl) && game.inventory.canAdd(r.result, 1) > 0) {
       game.inventory.add(r.result, 1);
       tally.extra++;
-      const more = EXTRA_AT_TOP * pastSure(pHot, lvl);   // 0 until it is certain (level 970)
+      const more = EXTRA_AT_TOP * pastSure(smithExtraChance, lvl);   // 0 until it is certain (level 970)
       if (more > 0 && Math.random() < more && game.inventory.canAdd(r.result, 1) > 0) {
         game.inventory.add(r.result, 1);
         tally.extra++;
@@ -486,10 +493,9 @@ export function resolveSmith(game, action) {
   const itemName = getItem(r.result).name.toLowerCase();
   // Flawless work: a chance to forge an extra piece for free, and once that is
   // certain (level 970) now and then a second one (EXTRA_AT_TOP).
-  const pFlawless = (l) => 0.03 + l * 0.001;
-  if (Math.random() < pFlawless(lvl) && game.inventory.canAdd(r.result, 1) > 0) {
+  if (Math.random() < smithExtraChance(lvl) && game.inventory.canAdd(r.result, 1) > 0) {
     game.inventory.add(r.result, 1);
-    const more = EXTRA_AT_TOP * pastSure(pFlawless, lvl);   // 0 until it is certain (level 970)
+    const more = EXTRA_AT_TOP * pastSure(smithExtraChance, lvl);   // 0 until it is certain (level 970)
     const two = more > 0 && Math.random() < more && game.inventory.canAdd(r.result, 1) > 0;
     if (two) game.inventory.add(r.result, 1);
     if (t) t.bonus += two ? 2 : 1;

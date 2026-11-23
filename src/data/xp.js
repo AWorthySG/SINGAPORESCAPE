@@ -48,8 +48,12 @@ export const towardTop = (level, from) => Math.max(0, Math.min(1, ((level || 1) 
  *  certain, so it follows the player's tool, bait and Stewardship as p does.
  *  0 for a chance that never reaches 100%. */
 export const pastSure = (p, level) => {
-  const span = p(MAX_LEVEL) - 1;
-  return span > 0 ? Math.max(0, Math.min(1, (p(level) - 1) / span)) : 0;
+  const span = p(MAX_LEVEL) - 1, over = p(level) - 1;
+  // A sum that is exactly 1 can come out a hair over it in floating point
+  // (0.04 + 0.82 + 0.04 + 0.1 is 1.0000000000000002): that is only certain,
+  // not past it, so it gives nothing (and rolls nothing). A real step past 1
+  // at a whole level is at least 0.00008.
+  return span > 0 && over > 1e-9 ? Math.min(1, over / span) : 0;
 };
 
 /** Level (1..cap) for a given total xp (binary search: skills ask this a lot). */
