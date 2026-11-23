@@ -16,7 +16,7 @@ import { CLASS_BY_ID, SECONDARY_WEAPON, ARMOUR_FAMILY, canWield, canWear } from 
 import { LATE_SIGS, SIGNATURE_CLASS } from '../src/data/bossWeapons.js';
 import { LIFE_COST_FLOOR } from '../src/data/abilities.js';
 import { PRIEST, smite, spellLifesteal } from '../src/game/priest.js';
-import { ZEALOT, HOLY_FIRE, fervour } from '../src/game/zealot.js';
+import { ZEALOT, HOLY_FIRE, fervour, orbShare } from '../src/game/zealot.js';
 import { classPerks } from '../src/game/classperks.js';
 import { codexEntry } from '../src/game/codex.js';
 import { fakeStorage } from '../tools/balance/common.mjs';
@@ -150,6 +150,12 @@ test('Fervour: x1 at full life, x1.15 at half, x1.3 with none left; the Zealot\'
   const w = mk('wizard');
   w.g.player.hp = 1;
   assert.equal(fervour(w.g), 1, 'a hurt Wizard gets none');
+  // Only through a censer: with an orb, its second weapon, no Fervour and a lesser share.
+  const z = mk('zealot');
+  z.g.player.hp = 1; z.g.equipment.set('weapon', 'bronze_orb');
+  assert.equal(fervour(z.g), 1, 'no Fervour through an orb');
+  assert.equal(orbShare(z.g), ZEALOT.orb);
+  assert.equal(orbShare(w.g), 1, 'a Wizard\'s orb is its own');
 });
 
 test('holy fire: a censer\'s every spell sets a burn that ticks once a second and pays Magic XP; a Priest with a censer burns too', () => {

@@ -109,7 +109,9 @@ export function damageMult(game, mode = game.combatMode(), { npc = null, boss = 
   mul(weak ? WEAKNESS_BONUS.dmg : 1, 'Weakness');
   if (def) {
     const race = raceOf(def, npc.npcId);
-    const mu = mode === 'magic' ? elementMatchup((spell || currentSpell(game)).element, race) : matchup(game.weaponType(), race);
+    // (A dual wielder's off-hand blow takes its own weapon's match-up, as in Game._offensiveMods.)
+    const wt = hand === 'off' && game.equipment.isDualWielding() ? getItem(game.equipment.get('shield')).equip.weaponType : game.weaponType();
+    const mu = mode === 'magic' ? elementMatchup((spell || currentSpell(game)).element, race) : matchup(wt, race);
     if (mode === 'magic') mul(elementMult(mu), mu === 'strong' ? 'Element effective vs race' : 'Element resisted by race');
     else if (mu === 'strong') mul(RACE_BONUS.dmg, 'Effective vs race');
     else if (mu === 'weak') mul(RACE_PENALTY.dmg, 'Resisted by race');
@@ -133,6 +135,7 @@ export function damageMult(game, mode = game.combatMode(), { npc = null, boss = 
   if (npc?.openWounds) mul(1 + openWoundStacks(npc, game.tickCount) * OPEN_WOUNDS.per, 'Open wounds (Brawler)');
   mul(Monk.chiPower(game), `Chi ${Monk.chiStacks(game)}/${Monk.CHI.max} (Monk)`);
   mul(Zealot.fervour(game), 'Fervour: life missing (Zealot)');
+  mul(Zealot.orbShare(game), 'An orb, not a censer (Zealot)');
   mul(Priest.smite(game, npc), Priest.unholy(npc) ? 'Smiting the unholy (Priest)' : 'Priest');
   return { m, parts };
 }

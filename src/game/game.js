@@ -2452,7 +2452,7 @@ export class Game {
     dmgM *= Mercs.merchantPower(this);   // the strongest class (see mercenary.js)
     dmgM *= 1 + openWoundStacks(npc, this.tickCount) * OPEN_WOUNDS.per;   // a Brawler's Open Wounds on the foe
     dmgM *= Monk.chiPower(this);   // a Monk's Chi (both hands)
-    dmgM *= Zealot.fervour(this) * Priest.smite(this, npc);   // a Zealot's Fervour, a Priest smiting the unholy
+    dmgM *= Zealot.fervour(this) * Zealot.orbShare(this) * Priest.smite(this, npc);   // a Zealot's Fervour (and an orb's lesser share), a Priest smiting the unholy
     dmgM *= 1 + hexStacks(npc, this.tickCount) * ELEMENTS.dark.hex.per / 100;   // Dark's Hex on the foe (every style)
     if (npc.sunderUntil > this.tickCount) dmgM *= 1 + (npc.sunder || 0) * bossBreakMult(npc.def);   // armour broken by a skill
     // A boss's armour type: blunt weapons crack plate, wards soak spells, light blows glance off a thick hide.

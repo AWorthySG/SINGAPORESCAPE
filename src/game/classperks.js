@@ -34,7 +34,7 @@ const SIGNATURE = {
   priest: `Holy orbs: every spell that lands heals you ${pct(PRIEST.heal)}% of its hit, and your spells hit undead, spirits and demons ${pct(PRIEST.smite)}% harder. `
     + 'Your skills heal and shield you, and Uplift makes every blessing count 50% more for 9s and fills a quarter of your Faith at once.',
   zealot: `A censer swung on a chain: every spell leaves the foe burning with holy fire (${pct(HOLY_FIRE.share * HOLY_FIRE.secs)}% of the hit over ${HOLY_FIRE.secs}s), and the fires stack. `
-    + `Fervour: up to +${pct(ZEALOT.fervour)}% damage the more hurt you are (+${pct(ZEALOT.fervour / 2)}% at half life). `
+    + `Fervour: up to +${pct(ZEALOT.fervour)}% damage the more hurt you are (+${pct(ZEALOT.fervour / 2)}% at half life), with a censer in hand: an orb, your second weapon, has no Fervour and hits ${pct(1 - ZEALOT.orb)}% softer. `
     + `Burning Oath and Pillar of Flame are paid for in life as well as adrenaline, never at ${pct(LIFE_COST_FLOOR)}% of your life or less.`,
   dancer: 'Whips lash from 3 tiles and ricochet into 2 more monsters (3 at full Rhythm), build Rhythm for bigger hits, and help you dodge blows.',
   sniper: 'Sniper rifles: the furthest reach in the game (32+ tiles) and each round hits about 5.5x as hard and pierces every monster within 1 tile of its path, up to 10 tiles past the target, but fires only every 1.5s. No ammo to buy.',

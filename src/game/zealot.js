@@ -17,7 +17,12 @@
 // costs keep it at about two thirds of its life on a long fight, so up to level
 // 100 or so (before Magic's Siphon perk heals the costs straight back) it hit
 // a quarter harder than the Wizard on tools/balance/classes.mjs's dummies.
-export const ZEALOT = { fervour: 0.3 };
+// orb: the share of its damage a Zealot deals through an orb, its second weapon;
+// Fervour too burns only through a censer. Without them the orb hit 5-17% harder
+// than the censer (the orb's scale is the Wizard's and Sorcerer's, set for them;
+// holy fire adds little once Fire's Ignite is running), breaking the rule that a
+// class's own type is its best weapon (combat.js WEAPON_DMG_MULT).
+export const ZEALOT = { fervour: 0.3, orb: 0.85 };
 // Holy fire (WOUNDS.holyfire in game.js): each spell through a censer adds a burn
 // of `share` of its hit every second for `secs` seconds (15% of the hit in all,
 // past armour), up to `stacks` at once. Unlike Fire's Ignite it never flares up
@@ -26,10 +31,14 @@ export const ZEALOT = { fervour: 0.3 };
 export const HOLY_FIRE = { share: 0.03, secs: 5, stacks: 50 };
 
 const isZealot = (game) => game.jobClass === 'zealot';
+const withCenser = (game) => isZealot(game) && game.weaponType?.() === 'censer';
 
-/** The Zealot's damage multiplier from Fervour (1 at full life, and for anyone else). */
+/** The Zealot's damage multiplier from Fervour (1 at full life, with an orb, and for anyone else). */
 export function fervour(game) {
-  if (!isZealot(game)) return 1;
+  if (!withCenser(game)) return 1;
   const missing = 1 - game.player.hp / Math.max(1, game.maxHp());
   return 1 + ZEALOT.fervour * Math.max(0, Math.min(1, missing));
 }
+
+/** A Zealot casting through an orb, its second weapon: ZEALOT.orb (1 with a censer, and for anyone else). */
+export const orbShare = (game) => (isZealot(game) && game.weaponType?.() === 'orb' ? ZEALOT.orb : 1);

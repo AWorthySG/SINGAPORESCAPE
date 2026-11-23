@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 
 import { setupClass, killDps, dummyDps, pickTargets, CLASS_IDS, CROWD } from '../tools/balance/classlab.mjs';
 import { freshGame } from '../tools/balance/common.mjs';
+import { equivalentWeapon } from '../src/data/classes.js';
 
 const median = (xs) => { const s = [...xs].sort((a, b) => a - b), n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; };
 
@@ -99,6 +100,22 @@ test('the Priest and the Zealot hit about as hard as the Wizard: the Priest a li
       const x = r[m] / wiz[m];
       assert.ok(x >= lo && x <= hi, `${cls}: ${Math.round(x * 100)}% of the Wizard's ${m} damage`);
     }
+  }
+});
+
+// A class's own weapon type is its best weapon (combat.js WEAPON_DMG_MULT): the
+// Priest's orb beats its censer and the Zealot's censer its orb, tier for tier.
+// (The Zealot's orb hit 5-17% harder than its censer until zealot.js gave the orb
+// a lesser share and kept Fervour to the censer.)
+test('the Priest and the Zealot hit harder with their own type than with the other\'s', () => {
+  const all = pickTargets(LEVEL);
+  for (const [cls, other] of [['priest', 'censer'], ['zealot', 'orb']]) {
+    const dmg = (game) => all.reduce((s, id) => s + dummyDps(cls, LEVEL, [id], [[1, 0]], TICKS, { game })
+      + dummyDps(cls, LEVEL, [id], [[1, 0]], TICKS, { game, boss: true }), 0);
+    const own = setupClass(cls, LEVEL), swap = setupClass(cls, LEVEL);
+    swap.equipment.set('weapon', equivalentWeapon(own.equipment.get('weapon'), other));
+    const x = dmg(swap) / dmg(own);
+    assert.ok(x < 1, `${cls}: ${swap.equipment.get('weapon')} deals ${Math.round(x * 100)}% of ${own.equipment.get('weapon')}`);
   }
 });
 
