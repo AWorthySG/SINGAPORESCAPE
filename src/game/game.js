@@ -5410,6 +5410,11 @@ export class Game {
    *  hits to empty yours (see _autoCanBeat), plus about how many attacks that
    *  takes; or null when you can't attack it at all (a caster out of runes). */
   _autoFightTimes(n) {
+    // A pick weighs every champion against everything already hitting you, so
+    // it asked this of each attacker once per champion: nothing it reads
+    // changes mid-pick, so each foe's answer is kept for the pick (_autoPickTarget).
+    const memo = this._fightMemo;
+    if (memo?.has(n)) return memo.get(n);
     const cl = this.fightLevel(), def = n.def;
     const mode = this.combatMode(), pm = this.prayerMult();
     let max, sp = null;
@@ -5460,7 +5465,9 @@ export class Game {
     const theirTime = this.maxHp() / Math.max(0.01, theirDps);
     // Spells come off quicker than the weapon's swing (see _magicAttack).
     const castSecs = sp ? Math.max(0.1, this.attackInterval(sp)) * COMBAT_BEAT_MS / 1000 : swingSecs;
-    return { myTime, theirTime, theirDps, attacks: myTime / castSecs, spell: sp };
+    const t = { myTime, theirTime, theirDps, attacks: myTime / castSecs, spell: sp };
+    memo?.set(n, t);
+    return t;
   }
 
   /** Auto battle with Bosses on and "Bosses & champions first": head for the
@@ -5752,6 +5759,14 @@ export class Game {
   // 40 tiles for a monster near your level, never straying into the Wilderness
   // from safe ground.
   _autoPickTarget() {
+    // Each foe's fight is estimated once a pick (see _autoFightTimes).
+    const outer = this._fightMemo;
+    this._fightMemo = new Map();
+    try { return this._autoPick(); } finally { this._fightMemo = outer; }
+  }
+
+  /** The pick itself (see _autoPickTarget). */
+  _autoPick() {
     // Archers and casters clear everything already in reach before moving:
     // in-range targets outrank everything out of range (bosses included).
     const range = this.attackRange();
