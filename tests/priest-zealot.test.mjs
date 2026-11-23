@@ -99,8 +99,9 @@ test('Holy Light heals a quarter of its damage on top of the 8%', () => {
   assert.equal(g.player.hp, 1 + Math.max(1, Math.round(dmg * PRIEST.heal)) + Math.round(dmg * 0.25), `healed from a ${dmg} bolt`);
 });
 
-test('a Priest smites undead, spirits and demons: x1.3 next to a Wizard in the same gear, x1 on a goblin', () => {
-  for (const [foe, want] of [['skeleton', 1 + PRIEST.smite], ['wraith', 1 + PRIEST.smite], ['imp', 1 + PRIEST.smite], ['goblin', 1]]) {
+test('a Priest smites undead, spirits and demons: x1.3 next to a Wizard in the same gear, x1 on a goblin (times its power)', () => {
+  for (const [foe, s] of [['skeleton', 1 + PRIEST.smite], ['wraith', 1 + PRIEST.smite], ['imp', 1 + PRIEST.smite], ['goblin', 1]]) {
+    const want = PRIEST.power * s;   // (the Priest's own damage knob, for balance)
     const { g, t } = mk('priest', foe);
     assert.ok(near(smite(g, t), want), `${foe}: x${smite(g, t)}`);
     const priest = g._offensiveMods(t, 'magic').dmgM;

@@ -88,17 +88,28 @@ test('the Merchant is the strongest class but the Fire casters: 200-330% of the 
 
 // The Priest and the Zealot cast Fire like the Wizard, so they are held beside it:
 // the Priest a little under it, the Zealot level with it or a little over
-// (tools/balance/classes.mjs: the Priest at 88% of the Wizard's single-target
-// damage at level 100, 80% at 300, where its Uplift has no blessings to lift here;
-// the Zealot at 112% and 99%; in real boss fights 95-98% and 97-108%). These 60 s
-// fights on one character are noisier, hence wider bands.
+// (tools/balance/classes.mjs: the Priest at 93% of the Wizard's single-target
+// damage at level 100, 88% at 200 and 85% at 300, where its Uplift has no
+// blessings to lift here; the Zealot at 112%, 102% and 99%). Level 50 is the
+// exception the owner should know of: from Magic 50 to 59 the Wizard holds the
+// speed-4 ancient staff and the Priest's orbs still cast at speed 5, so the Priest
+// deals only 71-74% of the Wizard there (accepted: no speed-4 orb before the
+// dragon tier). These 60 s fights on one character are noisier, hence wider bands.
 test('the Priest and the Zealot hit about as hard as the Wizard: the Priest a little less', () => {
-  const wiz = rows.find((r) => r.cls === 'wizard');
-  for (const [cls, lo, hi] of [['priest', 0.75, 1.1], ['zealot', 0.85, 1.25]]) {
-    const r = rows.find((x) => x.cls === cls);
-    for (const m of ['single', 'boss']) {
-      const x = r[m] / wiz[m];
-      assert.ok(x >= lo && x <= hi, `${cls}: ${Math.round(x * 100)}% of the Wizard's ${m} damage`);
+  const at = (cls, L) => {
+    if (L === LEVEL) return rows.find((x) => x.cls === cls);
+    const game = setupClass(cls, L), ts = pickTargets(L);
+    const avg = (boss) => ts.reduce((s, id) => s + dummyDps(cls, L, [id], [[1, 0]], TICKS, { game, boss }), 0) / ts.length;
+    return { single: avg(false), boss: avg(true) };
+  };
+  for (const [L, bands] of [[50, [['priest', 0.6, 0.9], ['zealot', 0.85, 1.3]]], [LEVEL, [['priest', 0.75, 1.1], ['zealot', 0.85, 1.25]]], [200, [['priest', 0.75, 1.1], ['zealot', 0.85, 1.25]]]]) {
+    const wiz = at('wizard', L);
+    for (const [cls, lo, hi] of bands) {
+      const r = at(cls, L);
+      for (const m of ['single', 'boss']) {
+        const x = r[m] / wiz[m];
+        assert.ok(x >= lo && x <= hi, `${cls} at level ${L}: ${Math.round(x * 100)}% of the Wizard's ${m} damage`);
+      }
     }
   }
 });
