@@ -1,4 +1,4 @@
-import { CLASSES, CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, canWear, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWield, SECONDARY_WEAPON, shieldBarred, NO_SHIELD_MSG } from '../data/classes.js';
+import { CLASSES, CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, canWear, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWield, SECONDARY_WEAPON, shieldBarred, noShieldMsg, weaponTypeOf, sigBarred } from '../data/classes.js';
 import { SKILL_HOURS, windowLabel } from '../data/skillhours.js';
 import { classPerks, classPerkSummary } from '../game/classperks.js';
 import { LIFE_PERKS, LIFE_PERK_SKILLS, LIFE_PERK_FULL_LEVEL, LIFE_PERK_MAX_LEVEL, LIFE_PERK_TOP_LEVEL, lifePerkText, lifePerkNext } from '../game/lifeperks.js';
@@ -33,6 +33,7 @@ import { SIGNATURE_CLASS, SIGNATURE_DROP_CHANCE, sigIdFor } from '../data/bossWe
 import { levelProgress, xpToNext, MAX_LEVEL, maxLevelFor } from '../data/xp.js';
 import { stackLabel, capitalize, formatNumber, shortNumber, aOrAn } from '../core/utils.js';
 import { RHYTHM_MAX, levelBonuses, playerMagicVsNpc } from '../game/combat.js';
+import { CHI, chiStacks } from '../game/monk.js';
 import { classPassives, CLASS_SKILL } from '../data/classPassives.js';
 import { ELEMENTS, SPELLS, getSpell } from '../data/magic.js';
 import { buildBlessingsPanel, renderBlessingsPanel, renderFaithOrb } from './blessingsui.js';
@@ -315,6 +316,7 @@ export class UI {
     // redraw; _soon redraws it once on the next frame (the Skills list at most
     // ~3 times a second), instead of rebuilding it for every single hit.
     this.bus.on('rhythm', () => { if (this.game.combatMode() === 'dance') this._soon('combat', () => this.renderCombatPanel(), 150); });
+    this.bus.on('chi', () => this._soon('combat', () => this.renderCombatPanel(), 150));   // a Monk's Chi
     this.bus.on('skills', () => { this._soon('skills', () => this.renderSkills()); this._soon('combat', () => this.renderCombatPanel()); });
     this.bus.on('xp', (p) => { this._soon('skills', () => this.renderSkills(), 350); this.showXpDrop(p); });
     this.bus.on('learning', () => this._soon('skills', () => this.renderSkills()));   // Codex button shows Wisdom and cards
@@ -347,7 +349,7 @@ export class UI {
     this.bus.on('achievement', () => this._soon('achievements', () => this.renderAchievementPanel()));
     // The Stats tab: anything that changes a final stat redraws it (a few times a second at most),
     // and the tick keeps its potion and buff timers counting down.
-    for (const ev of ['equipment', 'skills', 'stats', 'potions', 'prayer', 'ability', 'karma', 'slayer', 'spell', 'xpbonus', 'hp', 'tick', 'rhythm', 'culling']) {
+    for (const ev of ['equipment', 'skills', 'stats', 'potions', 'prayer', 'ability', 'karma', 'slayer', 'spell', 'xpbonus', 'hp', 'tick', 'rhythm', 'chi', 'culling']) {
       this.bus.on(ev, () => this._soon('statsTab', () => this.renderStatsPanel(), 300));
     }
     this.bus.on('slayer', () => { this._refreshModalIfOpen(['slayer', 'slayerRewards']); this._trackerSoon(); });
@@ -1288,11 +1290,15 @@ export class UI {
     if (item.heal) opts.push({ label: 'Eat', target: item.name, fn: () => this.game.eatItem(i) });
     if (item.potion) opts.push({ label: 'Drink', target: item.name, fn: () => this.game.drinkPotion(i) });
     if (item.equip) {
-      const dual = canDualPair(s.id, this.game.equipment.get('weapon'));
+      const main = this.game.equipment.get('weapon'), dual = canDualPair(s.id, main);
       if (dual) {
-        // Holding a dagger already: choose which hand the new one goes in.
-        opts.push({ label: 'Wield in off-hand', target: item.name, fn: () => this.game.equipOffhand(i) });
-        opts.push({ label: 'Wield in main hand', target: item.name, fn: () => this.game.equipItem(i, { offhand: false }) });
+        // Holding a dagger already: choose which hand the new one goes in. A Monk's
+        // knuckles (its gloves in the off-hand) offer the main hand first.
+        const off = { label: 'Wield in off-hand', target: item.name, fn: () => this.game.equipOffhand(i) };
+        const inMain = { label: 'Wield in main hand', target: item.name, fn: () => this.game.equipItem(i, { offhand: false }) };
+        const shield = this.game.equipment.get('shield');
+        const mixed = canDualPair(main, shield) && weaponTypeOf(main) !== weaponTypeOf(shield);
+        opts.push(...(mixed && !this.game.goesOffhand(s.id) ? [inMain, off] : [off, inMain]));
       } else opts.push({ label: item.equip.slot === 'weapon' ? 'Wield' : 'Wear', target: item.name, fn: () => this.game.equipItem(i) });
       // Straight to its Refine or Enchant window (the runs are there), without the Gear Mastery list on the way.
       if (item.equip.bonuses && !item.tool) {
@@ -1551,6 +1557,7 @@ export class UI {
       + `<div class="gt-stats">${this._gearStats(id, false, copy, q, gearWorthNotes(this.game, id, copy, q))}</div>`
       + `<div class="gt-tier">#${t.rank} of ${t.of} ${eq.slot === 'weapon' ? weaponStyle(id) + ' weapons' : eq.slot + ' items'}</div>`;
     if (reqTxt) html += `<div class="gt-req ${req.ok ? 'ok' : 'no'}">Needs ${reqTxt}${req.ok ? ' ✓' : ''}</div>`;
+    if (sig && sigBarred(this.game.jobClass, id)) return html + `<div class="gt-req no">Made for ${escapeHtml(CLASS_BY_ID[sig.classId].name)}s only: a trophy for you</div>`;
     if (isTwoHanded(id)) {
       html += `<div class="gt-req">Two-handed: no shield${takesQuiver(id) ? ' (a quiver fits)' : ''}</div>`;
       // The grip bonus that stands in for the off-hand (already counted in the stats above).
@@ -1558,7 +1565,7 @@ export class UI {
       if (g) html += `<div class="gt-grip">Two-handed grip: +${g.defence} Defence, +${g.hp} life${g.ranged ? `, +${g.ranged} Ranged` : ''}${g.atkPct != null ? `, +${g.atkPct}% damage, +${g.haste}% attack speed` : ''} (makes up for having no ${takesQuiver(id) ? 'shield' : 'off-hand'})</div>`;
     }
     else if (eq.slot === 'shield' && offhandBlocked(this.game.equipment.get('weapon'), id)) html += `<div class="gt-req no">Your weapon is two-handed: no shield</div>`;
-    else if (shieldBarred(this.game.jobClass, id)) { html += `<div class="gt-req no">${NO_SHIELD_MSG}</div>`; return html; }
+    else if (shieldBarred(this.game.jobClass, id)) { html += `<div class="gt-req no">${noShieldMsg(this.game.jobClass)}</div>`; return html; }
     // Accessories suit one fighting style: say which, and whether it's yours.
     if (eq.style) {
       const mine = this.game.combatMode() === 'dance' ? 'melee' : this.game.combatMode();
@@ -1572,14 +1579,18 @@ export class UI {
       if (!ok) return html;
     }
     const eqp = this.game.equipment;
+    // A different type of the dual kind always goes on the other hand (a Monk's gloves
+    // beside its knuckles, Game.goesOffhand), so it is weighed there alone.
+    const main = eqp.get('weapon');
+    const mixedOff = canDualPair(id, main) && weaponTypeOf(id) !== weaponTypeOf(main) && this.game.goesOffhand(id);
     // A dual wielder's spare weapon is weighed against the off-hand too (each hand hits with its own weapon).
-    const dualOff = eqp.isDualWielding() && canDualPair(id, eqp.get('weapon'));
-    if (copy === 'off' || (dualOff && eqp.get('shield') === id && eqp.get('weapon') !== id)) return html + '<div class="gt-verdict same">Currently worn (off-hand)</div>';
-    const cmp = compareGear(id, eqp, null, q, this.game.combatMode());
+    const dualOff = !mixedOff && eqp.isDualWielding() && canDualPair(id, main);
+    if (copy === 'off' || ((dualOff || mixedOff) && eqp.get('shield') === id && main !== id)) return html + '<div class="gt-verdict same">Currently worn (off-hand)</div>';
+    const cmp = compareGear(id, eqp, mixedOff ? 'shield' : null, q, this.game.combatMode());
     if (cmp.verdict === 'worn') return html + '<div class="gt-verdict same">Currently worn</div>';
     const offCmp = dualOff && eqp.get('shield') !== id ? compareGear(id, eqp, 'shield', q, this.game.combatMode()) : null;
     // A matching weapon goes in a free off-hand first, as equipItem does.
-    const slot = canDualPair(id, eqp.get('weapon')) && !dualOff ? 'shield' : eq.slot;
+    const slot = mixedOff || (canDualPair(id, main) && !dualOff) ? 'shield' : eq.slot;
     // A piece in the pack bound for its own slot is weighed as it will be
     // worn: with the ★ and lines that carry over to it, as Equip best weighs
     // it (bestpick.js). A plain higher tier read "Downgrade" here, then went on.
@@ -1594,7 +1605,7 @@ export class UI {
       return `<span class="${good ? 'pos' : 'neg'}">${deltaText([d])}</span>`;
     }).join(' ')}</div>`;
     // The offensive stats summed up in plain damage terms (statworth.js).
-    const sw = pv ? pv.worth : cmp.worn && cmp.verdict !== 'style' ? gearSwapWorth(this.game, id, eq.slot, q) : null;
+    const sw = pv ? pv.worth : cmp.worn && cmp.verdict !== 'style' && !mixedOff ? gearSwapWorth(this.game, id, eq.slot, q) : null;
     if (sw != null && Math.abs(sw) >= 0.05) {
       html += `<div class="gt-worth-all ${sw > 0 ? 'pos' : 'neg'}">Overall: ≈ ${fmtWorth(sw)} damage vs equipped${pv ? ', once the carry is done' : ' <span class="gt-worth">(offensive stats)</span>'}</div>`;
     }
@@ -2087,7 +2098,7 @@ export class UI {
         note.className = 'modal-hint';
         note.innerHTML = `As a <b>${myCls.name}</b> you can wield <b>${WEAPON_TYPE_NAMES[myCls.weapon]}</b> and <b>${WEAPON_TYPE_NAMES[SECONDARY_WEAPON[myCls.id]]}</b>. Other weapons you find are worth selling.`;
         body.appendChild(note);
-        ids = ids.filter((id) => { const t = getItem(id).equip?.weaponType; return t && canWield(myCls.id, t); });
+        ids = ids.filter((id) => { const t = getItem(id).equip?.weaponType; return t && canWield(myCls.id, t) && !sigBarred(myCls.id, id); });
       } else {
         // The style the list is ranked for: weapons only compare fairly within one,
         // and jewellery, capes and the like are worth most to the style they suit.
@@ -2871,7 +2882,8 @@ export class UI {
       note.textContent = `Every hit trains ${skill}, Defence and Hitpoints.`;
       row.appendChild(note);
     }
-    const modeLabel = mode === 'ranged' ? 'Ranged' : mode === 'magic' ? 'Magic' : mode === 'dance' ? `Dancer &middot; Rhythm ${this.game.danceRhythm}/${RHYTHM_MAX}` : 'Melee';
+    const modeLabel = mode === 'ranged' ? 'Ranged' : mode === 'magic' ? 'Magic' : mode === 'dance' ? `Dancer &middot; Rhythm ${this.game.danceRhythm}/${RHYTHM_MAX}`
+      : this.game.jobClass === 'monk' ? `Monk &middot; Chi ${chiStacks(this.game)}/${CHI.max}` : 'Melee';
     const cls = CLASS_BY_ID[this.game.jobClass];
     const clsLabel = cls ? `<div class="cb-class">Class: <b>${cls.name}</b> &middot; ${WEAPON_TYPE_NAMES[cls.weapon]} <button class="cb-perks" type="button">Skills &amp; perks</button></div>`
       + `<div class="cb-perkline">${classPerkSummary(cls.id)}</div>` : '';
@@ -2962,7 +2974,7 @@ export class UI {
   _skillTipHTML(ab) {
     const g = this.game, cd = g.abilityCd[ab.id] || 0;
     const state = !g.abilityUnlocked(ab) ? `🔒 Unlocks at combat level ${ab.unlock}`
-      : cd > 0 ? `Ready in ${+(cd * TICK_MS / 1000).toFixed(1)}s` : !g.canAffordAbility(ab) ? 'Not enough adrenaline yet' : 'Ready';
+      : cd > 0 ? `Ready in ${+(cd * TICK_MS / 1000).toFixed(1)}s` : g.lifeCostBlocked(ab) ? 'Too hurt to pay for it in life' : !g.canAffordAbility(ab) ? 'Not enough adrenaline yet' : 'Ready';
     return `<b>${escapeHtml(ab.name)}</b> (${ab.key})<br><span style="opacity:.8">${escapeHtml(g.abilityCostText(ab))} · ${+(ab.cd * TICK_MS / 1000).toFixed(1)}s cooldown</span><br>${escapeHtml(ab.desc)}<br><i>${state}</i>`;
   }
 

@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 
 import { setupClass, killDps, dummyDps, pickTargets, CLASS_IDS, CROWD } from '../tools/balance/classlab.mjs';
 import { freshGame } from '../tools/balance/common.mjs';
+import { equivalentWeapon } from '../src/data/classes.js';
 
 const median = (xs) => { const s = [...xs].sort((a, b) => a - b), n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; };
 
@@ -32,8 +33,10 @@ const rows = (() => {
 const med = Object.fromEntries(['kill', 'single', 'boss', 'crowd'].map((m) => [m, median(rows.map((r) => r[m]))]));
 const rel = (r, m) => r[m] / med[m];
 // Since the owner made Fire's Ignite much stronger, Wizards and Sorcerers hit one
-// target at 2-4 times the median class: they are held to a band of their own.
-const FIRE_CASTERS = ['wizard', 'sorcerer'];
+// target at 2-4 times the median class: they are held to a band of their own. So
+// are the Priest and the Zealot, who cast Fire as well (the owner chose a strong
+// Fire for every caster): the Priest at 85-100% of the Wizard, the Zealot 95-115%.
+const FIRE_CASTERS = ['wizard', 'sorcerer', 'priest', 'zealot'];
 // The Merchant is the strongest class by design (MERCHANT_POWER, mercenary.js), so
 // the other classes are also held against the median of the rest, which neither
 // the Merchant nor the Fire casters can pull about. (With the casters in it, the
@@ -83,6 +86,50 @@ test('the Merchant is the strongest class but the Fire casters: 200-330% of the 
   }
 });
 
+// The Priest and the Zealot cast Fire like the Wizard, so they are held beside it:
+// the Priest a little under it, the Zealot level with it or a little over
+// (tools/balance/classes.mjs: the Priest at 93% of the Wizard's single-target
+// damage at level 100, 88% at 200 and 85% at 300, where its Uplift has no
+// blessings to lift here; the Zealot at 112%, 102% and 99%). Level 50 is the
+// exception the owner should know of: from Magic 50 to 59 the Wizard holds the
+// speed-4 ancient staff and the Priest's orbs still cast at speed 5, so the Priest
+// deals only 71-74% of the Wizard there (accepted: no speed-4 orb before the
+// dragon tier). These 60 s fights on one character are noisier, hence wider bands.
+test('the Priest and the Zealot hit about as hard as the Wizard: the Priest a little less', () => {
+  const at = (cls, L) => {
+    if (L === LEVEL) return rows.find((x) => x.cls === cls);
+    const game = setupClass(cls, L), ts = pickTargets(L);
+    const avg = (boss) => ts.reduce((s, id) => s + dummyDps(cls, L, [id], [[1, 0]], TICKS, { game, boss }), 0) / ts.length;
+    return { single: avg(false), boss: avg(true) };
+  };
+  for (const [L, bands] of [[50, [['priest', 0.6, 0.9], ['zealot', 0.85, 1.3]]], [LEVEL, [['priest', 0.75, 1.1], ['zealot', 0.85, 1.25]]], [200, [['priest', 0.75, 1.1], ['zealot', 0.85, 1.25]]]]) {
+    const wiz = at('wizard', L);
+    for (const [cls, lo, hi] of bands) {
+      const r = at(cls, L);
+      for (const m of ['single', 'boss']) {
+        const x = r[m] / wiz[m];
+        assert.ok(x >= lo && x <= hi, `${cls} at level ${L}: ${Math.round(x * 100)}% of the Wizard's ${m} damage`);
+      }
+    }
+  }
+});
+
+// A class's own weapon type is its best weapon (combat.js WEAPON_DMG_MULT): the
+// Priest's orb beats its censer and the Zealot's censer its orb, tier for tier.
+// (The Zealot's orb hit 5-17% harder than its censer until zealot.js gave the orb
+// a lesser share and kept Fervour to the censer.)
+test('the Priest and the Zealot hit harder with their own type than with the other\'s', () => {
+  const all = pickTargets(LEVEL);
+  for (const [cls, other] of [['priest', 'censer'], ['zealot', 'orb']]) {
+    const dmg = (game) => all.reduce((s, id) => s + dummyDps(cls, LEVEL, [id], [[1, 0]], TICKS, { game })
+      + dummyDps(cls, LEVEL, [id], [[1, 0]], TICKS, { game, boss: true }), 0);
+    const own = setupClass(cls, LEVEL), swap = setupClass(cls, LEVEL);
+    swap.equipment.set('weapon', equivalentWeapon(own.equipment.get('weapon'), other));
+    const x = dmg(swap) / dmg(own);
+    assert.ok(x < 1, `${cls}: ${swap.equipment.get('weapon')} deals ${Math.round(x * 100)}% of ${own.equipment.get('weapon')}`);
+  }
+});
+
 // The Brawler's Open Wounds stack up in a long fight: it ends up above the median
 // single-target class (the owner chose this over trimming Open Wounds), but stays sane.
 // (It was held at 140-320%; when scout leather took up armour pierce, Brawlers ran at
@@ -103,7 +150,7 @@ test('every class kills a level-matched monster at 25-400% of the median class',
 });
 
 test('Merchants (A-Worthlings, mercenaries) and casters (Fire burns, splash) do not explode in a 60 s fight', () => {
-  for (const cls of ['merchant', 'wizard', 'sorcerer']) {
+  for (const cls of ['merchant', ...FIRE_CASTERS]) {
     const r = rows.find((x) => x.cls === cls);
     assert.ok(rel(r, 'boss') <= 5, `${cls}: ${Math.round(rel(r, 'boss') * 100)}% of the median boss damage`);
     assert.ok(rel(r, 'crowd') <= 5, `${cls}: ${Math.round(rel(r, 'crowd') * 100)}% of the median crowd damage`);

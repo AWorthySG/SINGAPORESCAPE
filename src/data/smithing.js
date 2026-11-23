@@ -59,6 +59,8 @@ const _PIECES = [
   ['scimitar', 2, 4], ['sq_shield', 2, 5], ['longsword', 2, 6], ['full_helm', 2, 7], ['warhammer', 3, 8],
   ['kiteshield', 3, 9], ['battleaxe', 3, 10], ['chainbody', 3, 11], ['platelegs', 3, 12], ['2h_sword', 3, 13], ['platebody', 5, 14],
   ['kerambit', 1, 1], ['chakram', 1, 3], ['parang', 2, 4], ['toya', 2, 6],   // secondary weapon types
+  ['knuckles', 1, 2], ['monk_gloves', 1, 3],   // the Monk's
+  ['censer', 2, 5],   // the Zealot's (the Priest's second): a metal censer on a chain
 ];
 const _existing = new Set(SMITH.map((r) => r.result));
 for (const M of _SMETALS) {

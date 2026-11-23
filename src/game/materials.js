@@ -92,7 +92,7 @@ export function feedKind(id) {
   if (eq.slot === 'weapon') {
     const t = eq.weaponType;
     if (LOG_WEAPONS.has(t)) return 'log';
-    if (t === 'whip') return 'hide';
+    if (t === 'whip' || t === 'monk_gloves') return 'hide';   // leather lashes and wrapped gloves
     if (t === 'orb') return 'gem';
     return 'bar';
   }

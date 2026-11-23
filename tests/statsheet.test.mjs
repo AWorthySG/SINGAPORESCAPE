@@ -93,6 +93,37 @@ test('stat sheet: dual wielding shows the off-hand blow the attack makes', () =>
   assert.ok(statSheet(g).sections[0].rows.some((r) => r.id === 'offhand' && r.text === String(maxHitNow(g).off)));
 });
 
+test('stat sheet: a Monk\'s punch and palm strike, Chi included, match real blows', () => {
+  const g = newGame(null, 'monk');
+  assert.equal(g.equipment.get('shield'), 'bronze_monk_gloves', 'monk gloves in the off-hand');
+  buffUp(g);
+  const npc = dummy(g);
+  g.chi = 6; g.chiAt = g.tickCount;   // some Chi built up
+  const want = maxHitNow(g, { npc });
+  assert.ok(want.parts.some(([label]) => /^Chi 6\/10/.test(label)), 'the sheet counts the Chi');
+  const { landed } = attackOnce(g, npc);
+  assert.deepEqual(landed, [want.max, want.off], 'the punch, then the palm strike');
+  assert.ok(statSheet(g).sections[1].rows.some((r) => r.id === 'dodge'), 'a Monk sees its dodge chance');
+});
+
+test('stat sheet: a Zealot\'s Fervour and a Priest smiting the undead match real spells', async () => {
+  const { raceOf } = await import('../src/data/races.js');
+  const z = newGame(null, 'zealot');
+  buffUp(z);
+  z.player.hp = Math.round(z.maxHp() / 2);   // half its life gone: Fervour adds about 15%
+  const zn = dummy(z);
+  const zw = maxHitNow(z, { npc: zn });
+  assert.ok(zw.parts.some(([label]) => /^Fervour/.test(label)), 'the sheet counts the Fervour');
+  assert.equal(attackOnce(z, zn).pre[0].dmg, zw.max, 'the Zealot\'s spell');
+  const p = newGame(null, 'priest');
+  buffUp(p);
+  const undead = dummy(p, (n) => !n.def.boss && !n.champion && raceOf(n.def, n.npcId) === 'undead');
+  const pw = maxHitNow(p, { npc: undead });
+  assert.ok(pw.parts.some(([label]) => /Smiting the unholy/.test(label)), 'the sheet counts the smiting');
+  assert.equal(attackOnce(p, undead).pre[0].dmg, pw.max, 'the Priest\'s spell on the undead');
+  assert.ok(statSheet(p).sections[0].rows.some((r) => r.id === 'lifesteal' && r.parts.some(([label]) => /Priest/.test(label))), 'its healing spells show as lifesteal');
+});
+
 test('stat sheet: Dancer whip max hit matches a real lash', () => {
   const g = newGame(null, 'dancer');
   assert.equal(g.combatMode(), 'dance');

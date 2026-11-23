@@ -32,9 +32,19 @@ const OLD_CD = {
   elemental_bolt: 3, arcane_power: 20, mana_shield: 25, wizard_meteor: 30, hex: 4, dark_pact: 20, soul_siphon: 15, chaos_storm: 30,
 };
 
+// Skills of classes added after the rework (the Monk's, the Priest's and the Zealot's)
+// had no old cooldown: each takes one that a reworked skill in its slot already has.
+const AFTER_REWORK = new Set(['twin_fists', 'inner_focus', 'deflecting_palms', 'hundred_fists',
+  'holy_light', 'uplift', 'sanctuary', 'judgement', 'searing_swing', 'burning_oath', 'rekindle', 'pillar_of_flame']);
+
 test('every class skill (Z, X, C, B) is 20-35% quicker to come back; ultimates still need a full bar', () => {
   for (const a of ABILITIES) {
     if (a.key === 'V') continue;   // Second Wind, the shared heal, is unchanged
+    if (AFTER_REWORK.has(a.id)) {
+      assert.ok(ABILITIES.some((b) => OLD_CD[b.id] && b.key === a.key && b.cd === a.cd), `${a.id}: a reworked ${a.key} cooldown (${a.cd})`);
+      if (a.key === 'B') assert.equal(a.cost, 100, `${a.id} spends the whole bar`);
+      continue;
+    }
     assert.ok(OLD_CD[a.id], `${a.id} has an old cooldown on record`);
     const r = a.cd / OLD_CD[a.id];
     assert.ok(r >= 0.65 && r <= 0.8, `${a.id}: cooldown ${OLD_CD[a.id]} -> ${a.cd} (${Math.round((1 - r) * 100)}% shorter)`);

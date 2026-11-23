@@ -37,6 +37,7 @@ export const CLASS_ADRENALINE = {
   lancer: { hit: 1, hurt: 3 }, brawler: { crit: 5 }, samurai: { crit: 6 }, halberdier: { hit: 1, hurt: 4 },
   merchant: { hit: 2 }, archer: { hit: 2 }, ranger: { hit: 1, crit: 5 }, pistoler: { hit: 2 }, sniper: { hit: 8 },
   ninja: { hit: 1, crit: 4 }, wizard: { hit: 3 }, sorcerer: { hit: 2, kill: 8 }, dancer: { hit: 2 },
+  monk: { hit: 2 }, priest: { hit: 2, hurt: 3 }, zealot: { hurt: 4, lowHp: 5 },
 };
 
 // Active combat abilities, fuelled by adrenaline (see above). Each has an
@@ -73,6 +74,19 @@ export const EXECUTE_BELOW = 0.35;
 //   thorns  (in a buff) and counter (on a guard): that share of each blow struck
 //           at you, before your guard softens it, is dealt straight back.
 export const SUNDER_TICKS = 10;
+// More fields for the classes that came later (Game.activateAbility and friends):
+//   chi       a Monk's Chi gained when the skill is used (monk.js; 10 makes it overflow)
+//   faith     that share of the Faith bar at once (a full bar fires the Prayer Burst by itself)
+//   bless     (in a buff) every blessing's bonus counts that share more: Strength, Magic,
+//             crit, Protect... (Game.prayerMult, prayerCrit, protectFactor)
+//   unholy    that much more damage against undead, spirits and demons
+//   holyfire  a rider like bleed: the blow sets a holy fire burning that share of it
+//             every second for 5s (WOUNDS.holyfire in game.js; it pays Magic XP)
+//   healFrac  on a guard or a buff too: restores that share of your life when used
+//   lifeCost  paid on top of the adrenaline: that share of your life as it is now (you
+//             always keep 1), and never at or under LIFE_COST_FLOOR of your life (auto
+//             battle included, since it only uses what you can pay for)
+export const LIFE_COST_FLOOR = 0.2;
 // The Ranger's skills are all damage buffs (see the Ranger's entries below):
 // Focused Draw's and Steady Aim's +damage, Camouflage's armour pierce (in %)
 // and Deadeye's +damage on top of sure crits. Tuned so a Ranger's damage over
@@ -191,6 +205,11 @@ const CLASS_ABILITIES = [
   { ...BF, id: 'hold_the_line', cls: 'halberdier', mode: 'melee', name: 'Hold the Line', icon: '🚩', buff: { reduce: 0.3, dmg: 0.25, thorns: 0.3 }, strike: { dmgMul: 1.4, guaranteed: true, cleave: 2, stun: 1 }, desc: 'Sweep the front rank back (~1.4x, cleaving, stuns) and stand firm: take 30% less damage, deal 25% more and strike back 30% of every blow for 9s.' },
   { ...C, id: 'stand_firm', cls: 'halberdier', mode: 'melee', name: 'Stand Firm', icon: '⚓', cd: 11, kind: 'guard', guardTicks: 5, build: 5, counter: 0.3, desc: 'Brace the halberd: halve damage for 5 ticks and strike back 30% of every blow.' },
   { ...B, id: 'iron_tempest', cls: 'halberdier', mode: 'melee', name: 'Iron Tempest', icon: '🌪️', hits: 3, dmgMul: 1.15, guaranteed: true, cleave: 2, stun: 1, desc: 'Ultimate: three heavy sweeps (~1.15x each), cleaving twice as hard, that leave the foe reeling.' },
+  // Monk: monk knuckles and gloves. Every blow builds Chi (monk.js); these stir it too.
+  { ...Z, id: 'twin_fists', cls: 'monk', mode: 'melee', name: 'Twin Fists', icon: '👊', build: 10, hits: 2, dmgMul: 0.7, chi: 1, desc: 'A quick one-two (~0.7x each) that stirs your Chi.' },
+  { ...BF, id: 'inner_focus', cls: 'monk', mode: 'melee', name: 'Inner Focus', icon: '🧘', chi: 10, buff: { haste: 50, dmg: 0.2 }, strike: { dmgMul: 1.5, guaranteed: true }, desc: 'Drive a palm home (~1.5x) and let your Chi overflow (a small heal) at once, then +50% attack speed and +20% damage for 9s.' },
+  { ...C, id: 'deflecting_palms', cls: 'monk', mode: 'melee', name: 'Deflecting Palms', icon: '🖐️', cd: 9, kind: 'guard', guardTicks: 4, build: 8, counter: 0.4, chi: 2, desc: 'Turn blows aside with open palms: halve damage for 4 ticks, strike back 40% of every blow and gain 2 Chi.' },
+  { ...B, id: 'hundred_fists', cls: 'monk', mode: 'melee', name: 'Hundred Fists', icon: '🤜', hits: 7, dmgMul: 0.52, guaranteed: true, stun: 2, chi: 10, desc: 'Ultimate: a blur of fists, seven heavy blows (~0.52x each) that leave the foe reeling, and your Chi overflows.' },
   // Merchant: canes and A-Worthlings. Pays for skills in coins, not adrenaline.
   { ...Z, id: 'golden_cane', cls: 'merchant', mode: 'ranged', name: 'Gold Rush', icon: '🪙', hits: 2, dmgMul: 0.75, lifesteal: 0.1, desc: 'Fling two fistfuls of gold at once (~0.75x each), healing a tenth of the damage.' },
   { ...BF, id: 'hire_bodyguards', cls: 'merchant', mode: 'ranged', name: 'Hire Bodyguards', icon: '🤝', summon: 2, buff: { dmg: 0.2 }, strike: { hits: 2, dmgMul: 0.8 }, desc: 'A signing bonus of coins in their face (two ~0.8x throws) at once, two A-Worthlings called in and +20% damage for 9s.' },
@@ -234,6 +253,16 @@ const CLASS_ABILITIES = [
   { ...BF, id: 'dark_pact', cls: 'sorcerer', mode: 'magic', name: 'Dark Pact', icon: '👻', buff: { haste: 60, lifesteal: 0.1 }, strike: { dmgMul: 1.5, guaranteed: true, lifesteal: 0.3 }, desc: 'A dark pact sealed with a soul bolt (~1.5x, heals 30% of it) at once: +60% cast speed and heal 10% of the damage you deal for 9s.' },
   { ...C, id: 'soul_siphon', cls: 'sorcerer', mode: 'magic', name: 'Soul Siphon', icon: '🌀', cd: 11, kind: 'attack', instant: true, dmgMul: 1.1, lifesteal: 0.5, build: 8, desc: 'Drain the foe\'s soul (~1.1x), healing half of the damage.' },
   { ...B, id: 'chaos_storm', cls: 'sorcerer', mode: 'magic', name: 'Chaos Storm', icon: '🌩️', dmgMul: 3.1, guaranteed: true, instant: true, crit: true, desc: 'Ultimate: an instant critical storm (~3.1x, then x2 or x4).' },
+  // Priest: holy orbs. Every spell heals a little (priest.js); these heal more, shield and lift its blessings.
+  { ...Z, id: 'holy_light', cls: 'priest', mode: 'magic', name: 'Holy Light', icon: '🌟', dmgMul: 1.4, guaranteed: true, lifesteal: 0.25, desc: 'A bolt of holy light (~1.4x) that heals you a quarter of its damage.' },
+  { ...BF, id: 'uplift', cls: 'priest', mode: 'magic', name: 'Uplift', icon: '✨', faith: 0.25, buff: { bless: 0.5, dmg: 0.3 }, strike: { dmgMul: 1.5, guaranteed: true, lifesteal: 0.3 }, desc: 'A radiant blast (~1.5x, heals 30% of it) and a quarter of your Faith at once, then every blessing counts 50% more and spells deal +30% damage for 9s.' },
+  { ...C, id: 'sanctuary', cls: 'priest', mode: 'magic', name: 'Sanctuary', icon: '🔆', cd: 11, kind: 'guard', guardTicks: 5, build: 5, counter: 0.2, healFrac: 0.12, desc: 'A dome of light: halve damage for 5 ticks, restore 12% of your life and burn back 20% of every blow.' },
+  { ...B, id: 'judgement', cls: 'priest', mode: 'magic', name: 'Judgement', icon: '☀️', dmgMul: 3.2, guaranteed: true, instant: true, lifesteal: 0.4, unholy: 0.5, desc: 'Ultimate: a pillar of light (~3.2x, +50% on undead, spirits and demons) that heals you 40% of it.' },
+  // Zealot: a burning censer. Holy fire on every spell (zealot.js); these burn hotter, and two are paid for in life.
+  { ...Z, id: 'searing_swing', cls: 'zealot', mode: 'magic', name: 'Searing Swing', icon: '⛓️', dmgMul: 1.3, guaranteed: true, holyfire: 0.05, desc: 'Swing the censer hard (~1.3x): the blow sets a fierce holy fire burning (5% of it a second for 5s).' },
+  { ...BF, id: 'burning_oath', cls: 'zealot', mode: 'magic', name: 'Burning Oath', icon: '❤️‍🔥', lifeCost: 0.15, buff: { dmg: 0.45, haste: 30 }, strike: { dmgMul: 1.6, guaranteed: true }, desc: 'Trade 15% of your life for a blazing swing (~1.6x) at once, then +45% spell damage and +30% cast speed for 9s.' },
+  { ...C, id: 'rekindle', cls: 'zealot', mode: 'magic', name: 'Rekindle', icon: '🕯️', cd: 22, kind: 'heal', healFrac: 0.2, build: 10, strike: { dmgMul: 1.3, guaranteed: true, holyfire: 0.05 }, desc: 'Breathe in the censer\'s smoke: restore 20% of your life, gain 10 adrenaline, and your next swing sears (~1.3x, a fresh holy fire).' },
+  { ...B, id: 'pillar_of_flame', cls: 'zealot', mode: 'magic', name: 'Pillar of Flame', icon: '🔥', lifeCost: 0.2, dmgMul: 3.8, guaranteed: true, instant: true, holyfire: 0.06, desc: 'Ultimate: trade a fifth of your life for a pillar of holy fire (~3.8x) that leaves the foe burning.' },
 ];
 ABILITIES.push(...CLASS_ABILITIES);
 

@@ -2,7 +2,7 @@ import { getObject } from '../data/objects.js';   // quest guides read node leve
 import { EventBus } from '../core/events.js';
 import { goldenMult, goldenSkills, GOLDEN_HOUR_XP, SKILL_HOURS } from '../data/skillhours.js';
 import { buildWorld, TERRAIN, zoneLevel } from '../data/world.js';
-import { compareGear, deltaText, gearRating, effectiveRating, offenceFirstScore, weaponStyle, reqLevel } from './gear.js';
+import { compareGear, deltaText, gearRating, effectiveRating, offenceFirstScore, weaponStyle, reqLevel, swingBeats } from './gear.js';
 import { planCarry, applyCarry, carryMessages, scoreAfterCarry } from './carry.js';
 import { pickGain, wornSnapshot, wornChanges } from './bestpick.js';   // Equip best's rule, shared with every "upgrade" signal
 import { RARITY, dropRarity, lootDelay, rollQuality, QUALITY, NORMAL_GEAR_SKIP, qualityName } from './loot.js';
@@ -22,7 +22,7 @@ import {
 import { World } from './world.js';
 import { Skills, xpText } from './skillset.js';
 import { Inventory } from './inventory.js';
-import { Equipment, canDualWield, canDualPair, EQUIP_SLOTS, isTwoHanded, offhandBlocked, takesQuiver } from './equipment.js';
+import { Equipment, canDualWield, canDualPair, takesMainHand, EQUIP_SLOTS, isTwoHanded, offhandBlocked, takesQuiver, starterOffhand } from './equipment.js';
 import { Bank } from './bank.js';
 import { Player, STICK_DEAD } from './player.js';
 import { NPC } from './npc.js';
@@ -39,11 +39,11 @@ import {
   weaknessOf, WEAKNESS_BONUS, armourOf, armourMult, critChance, hitChance, CRIT_MULT, MEGA_CRIT_MULT, MEGA_CRIT_CHANCE,
   playerDanceVsNpc, combatXpDance, danceEvade, RHYTHM_MAX, RANGED_TYPE_DMG, combatLevelXpMult, CLASS_POWER, OPEN_WOUNDS, openWoundStacks, shatterPierce, hexStacks,
   bossTypeDmgMult, bossGrazeMult, bossBreakMult } from './combat.js';
-import { ABILITY_BY_ID, abilitiesFor, ADREN_PER_HIT, ADREN_PER_HURT, CLASS_ADRENALINE, EXECUTE_BELOW, SUNDER_TICKS } from '../data/abilities.js';
+import { ABILITY_BY_ID, abilitiesFor, ADREN_PER_HIT, ADREN_PER_HURT, CLASS_ADRENALINE, EXECUTE_BELOW, SUNDER_TICKS, LIFE_COST_FLOOR } from '../data/abilities.js';
 import { classPassiveMods, CLASS_SKILL } from '../data/classPassives.js';
 import { RACES, raceOf, matchup, RACE_BONUS, RACE_PENALTY } from '../data/races.js';
 import { DOT_KINDS } from '../data/bossAbilities.js';
-import { CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, equivalentWeapon, CLEAVE_SHARE, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWear, equivalentArmour, classGearFor, canWield, classesForType, SECONDARY_WEAPON, shieldBarred, NO_SHIELD_MSG } from '../data/classes.js';
+import { CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, equivalentWeapon, CLEAVE_SHARE, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWear, equivalentArmour, classGearFor, canWield, classesForType, SECONDARY_WEAPON, shieldBarred, noShieldMsg, weaponTypeOf, sigBarred } from '../data/classes.js';
 import { STYLE_TRACKS, sumPerks, perkAtLevel, rankName, PERK_SKILLS, PERK_CAPS } from '../data/perks.js';
 import { getSpell, SPELLS, ELEMENTS, AOE_RADIUS, elementMatchup, elementMult } from '../data/magic.js';
 import { xpForLevel, pastCapXpMult } from '../data/xp.js';
@@ -77,6 +77,9 @@ import { Collection } from './collection.js';
 import { Pets } from './pets.js';
 import { WorldEvents } from './worldevents.js';
 import * as Mercs from './mercenary.js';
+import * as Monk from './monk.js';   // the Monk's Chi and light feet
+import * as Priest from './priest.js';   // the Priest's healing spells and smiting
+import * as Zealot from './zealot.js';   // the Zealot's Fervour
 import * as Culling from './culling.js';
 import { classPerks } from './classperks.js';
 import { LIFE_PERKS, LIFE_PERK_SKILLS, LIFE_PERK_TOP_LEVEL, lifePerkNoteAt, lifePerkTotals, lifePerkText } from './lifeperks.js';
@@ -219,14 +222,22 @@ export const DODGE_AGILITY_XP = 2;
 // Shortbows fire this many arrows a shot, each at this share of a full arrow's
 // damage: about half as much again as one arrow, for half the old reach.
 export const SHORTBOW_ARROWS = 3;
-// Wounds from blades: daggers poison, claws open bleeding wounds. On a blow,
-// `chance` to add a stack dealing `share` of that hit every second for `secs`
-// seconds, up to `stacks` at once.
+// Wounds from blades: daggers poison, claws open bleeding wounds, and a censer's
+// spells set the foe they strike alight with holy fire. On a blow, `chance` to
+// add a stack dealing `share` of that hit every second for `secs` seconds, up to
+// `stacks` at once. A skill's `holyfire` rider (abilities.js) sets a fiercer one.
+// Holy fire is a spell's burn, so it pays Magic XP (`magic`). It is also kept
+// exact (`exact`): every spell lights one, so rounding a weak spell's burn up to 1
+// a second made a new Zealot's fire worth most of its hit, not 15% of it.
 export const WOUNDS = {
   poison: { chance: 0.35, share: 0.06, secs: 8, stacks: 5, color: '#6cc24a', label: 'Poisoned' },
   bleed: { chance: 0.4, share: 0.1, secs: 4, stacks: 3, color: '#d23a3a', label: 'Bleeding' },
+  holyfire: { chance: 1, ...Zealot.HOLY_FIRE, color: '#ffc93a', label: 'Holy fire', magic: true, exact: true },   // (zealot.js)
 };
-export const WOUND_BY_WEAPON = { dagger: 'poison', claws: 'bleed' };
+/** One stack's damage a second: `share` of the hit, at least 1 and whole for a
+ *  poison or a bleed, exact for holy fire (WOUNDS.exact, carried over in _tickWounds). */
+const woundPerSec = (W, hit, share) => (W.exact ? hit * share : Math.max(1, Math.round(hit * share)));
+export const WOUND_BY_WEAPON = { dagger: 'poison', claws: 'bleed', censer: 'holyfire' };
 export const SHORTBOW_ARROW_DMG = 0.5;
 // Each spread also flings an extra arrow into up to SHORTBOW_FAN_FOES other foes
 // within SHORTBOW_FAN_TILES of the target, each at SHORTBOW_FAN_SHARE of a full
@@ -331,7 +342,7 @@ export const CLEAVE_STYLE = {
   spear: 'pierce',
   battleaxe: 'sweep', '2h_sword': 'sweep', halberd: 'sweep', parang: 'sweep', longsword: 'sweep',
   mace: 'slam', warhammer: 'slam', toya: 'slam', cane: 'slam',
-  dagger: 'flurry', claws: 'flurry', scimitar: 'flurry', kerambit: 'flurry',
+  dagger: 'flurry', claws: 'flurry', scimitar: 'flurry', kerambit: 'flurry', knuckles: 'flurry', monk_gloves: 'slam',
   sword: 'arc', katana: 'arc',
 };
 // Two-handed swords' great upward sweep reaches further than other cleaves:
@@ -600,6 +611,7 @@ export class Game {
     this.stackBuffs = {};         // stacking class buffs (the Ranger's skills): ability id -> { ...buff, until }
     this.braceTicks = 0;          // ticks of halved incoming damage left
     this.danceRhythm = 0;         // Dancer Rhythm stacks (more whip damage per landed lash)
+    this.chi = 0;                 // a Monk's Chi (monk.js): more damage per stack, a heal when it overflows
     this.playerDot = null;        // boss damage-over-time on the player: { kind, dmg, ticks, from }
     this.playerRoot = 0;          // ticks the player can't move (webs, roots, coils)
     this._buffedBosses = new Set(); // bosses with a reflect running
@@ -800,9 +812,9 @@ export class Game {
       this.skills.xp.magic = Math.max(this.skills.xp.magic, xpForLevel(15));
     } else {
       this.equipment.set('weapon', starter);
-      // Rogues and Corsairs start dual wielding; one-handed melee classes get a shield.
-      // (Two-handed weapons leave no hand free for a shield.)
-      if (canDualWield(starter)) this.equipment.set('shield', starter);
+      // Rogues and Corsairs start dual wielding (a Monk with monk gloves on the other hand);
+      // one-handed melee classes get a shield. (Two-handed weapons leave no hand free for a shield.)
+      if (canDualWield(starter)) this.equipment.set('shield', starterOffhand(classId));
       else if (!isTwoHanded(starter)) this.equipment.set('shield', 'wooden_shield');
       // Heavy melee starts in chainmail, agile melee in leather (each class has its own armour).
       this.equipment.set('body', ARMOUR_FAMILY[classId] === 'plate' ? 'bronze_chainbody' : 'leather_body');
@@ -1225,6 +1237,7 @@ export class Game {
     this._tickKnowledgeStrike();
     // Rhythm fades if the Dancer stops lashing for a few ticks.
     if (this.danceRhythm > 0 && this.tickCount - this._danceHitTick > 4) { this.danceRhythm = 0; this.bus.emit('rhythm'); }
+    Monk.tickChi(this);   // ...and so does a Monk's Chi
     if (!this.player.alive) {
       if (--this.player.respawnTimer <= 0) this.respawnPlayer();
     } else {
@@ -1338,8 +1351,9 @@ export class Game {
 
   prayerMult() {
     // Blessings of the same type stack, the weaker ones at a share (Bless.blessingBonus).
-    const b = Bless.blessingBonus(this.activePrayers);
-    const m = { att: 1 + b.att, str: 1 + b.str, def: 1 + b.def, ranged: 1 + b.ranged, magic: 1 + b.magic };
+    // A skill's `bless` buff makes every blessing's bonus count that much more.
+    const b = Bless.blessingBonus(this.activePrayers), amp = 1 + this.buffMod('bless');
+    const m = { att: 1 + b.att * amp, str: 1 + b.str * amp, def: 1 + b.def * amp, ranged: 1 + b.ranged * amp, magic: 1 + b.magic * amp };
     const zeal = Bless.burstZeal(this);   // a Prayer Burst's extra damage, for every style
     if (zeal) { m.str += zeal; m.ranged += zeal; m.magic += zeal; }
     return m;
@@ -1347,12 +1361,12 @@ export class Game {
 
   /** Extra crit chance (a fraction) from the Attack blessings, for every style. */
   prayerCrit() {
-    return Bless.blessingBonus(this.activePrayers).crit;
+    return Bless.blessingBonus(this.activePrayers).crit * (1 + this.buffMod('bless'));
   }
 
   protectFactor() {
     if (this.burstWard > 0) return 1;   // a Prayer Burst's ward stops every blow
-    for (const id of this.activePrayers) { const p = PRAYER_BY_ID[id]; if (p.protect) return p.protect; }
+    for (const id of this.activePrayers) { const p = PRAYER_BY_ID[id]; if (p.protect) return Math.min(0.9, p.protect * (1 + this.buffMod('bless'))); }
     return 0;
   }
 
@@ -2225,11 +2239,17 @@ export class Game {
     if (!ab) return;
     if (!this.abilityUnlocked(ab)) { this.msg(`${ab.name} unlocks at combat level ${ab.unlock}.`, 'system'); return; }
     if ((this.abilityCd[id] || 0) > 0) { this.msg(`${ab.name} is on cooldown.`, 'system'); return; }
-    if (!this.canAffordAbility(ab)) { this.msg(`You need ${this.abilityCostText(ab)} for ${ab.name}.`, 'system'); return; }
+    if (!this.canAffordAbility(ab)) {
+      this.msg(this.lifeCostBlocked(ab) ? `You are too hurt for ${ab.name}: it is paid in life, and needs more than ${Math.round(LIFE_COST_FLOOR * 100)}% of yours.`
+        : `You need ${this.abilityCostText(ab)} for ${ab.name}.`, 'system');
+      return;
+    }
     if (ab.cls && ab.cls !== this.jobClass) { this.msg(`${ab.name} is ${aOrAn(CLASS_BY_ID[ab.cls]?.name || ab.cls)} ability.`, 'system'); return; }
     if (ab.mode && ab.mode !== this.combatMode()) {
-      const need = { melee: 'a melee weapon', ranged: 'a bow', magic: 'a staff' }[ab.mode];
-      this.msg(`${ab.name} needs ${need} equipped.`, 'system');
+      // A class's magic skills name its own weapons (a Priest casts through an orb or a censer, not a staff).
+      const own = ab.mode === 'magic' && SECONDARY_WEAPON[ab.cls] ? ` (${WEAPON_TYPE_NAMES[CLASS_BY_ID[ab.cls].weapon]} or ${WEAPON_TYPE_NAMES[SECONDARY_WEAPON[ab.cls]]})` : '';
+      const need = { melee: 'a melee weapon', ranged: 'a bow', magic: own ? 'a magic weapon' : 'a staff' }[ab.mode];
+      this.msg(`${ab.name} needs ${need} equipped${own}.`, 'system');
       return;
     }
     if (ab.kind === 'attack' && ab.instant) {
@@ -2255,7 +2275,7 @@ export class Game {
     this._payAbility(ab);
     this.abilityCd[id] = ab.cd;
     mechAbilityUsed(this);
-    if (ab.build) this._gainAdrenaline(ab.build);
+    this._abilityGains(ab);
     if (ab.kind === 'guard') {
       this.braceTicks = ab.guardTicks;
       this.braceCounter = ab.counter || 0;   // a guard that strikes back (see resolveNpcAttack)
@@ -2283,6 +2303,13 @@ export class Game {
       this.spawnSparkle(this.player, '#7fff8f', 14);
       this.bus.emit('hp');
       this.bus.emit('sfx', 'eat');
+    }
+    // A guard or buff that also mends you (`healFrac`; a heal skill's own heal is just above).
+    if (ab.healFrac && ab.kind !== 'heal') {
+      const heal = Math.max(1, Math.round(this.maxHp() * ab.healFrac));
+      this.player.hp = Math.min(this.maxHp(), this.player.hp + heal);
+      this.spawnSparkle(this.player, '#7fff8f', 10);
+      this.bus.emit('hp');
     }
     // An offensive rider: a threshold skill strikes the foe you're fighting at
     // once; a free one rides on your next hit (never a free extra attack).
@@ -2324,17 +2351,36 @@ export class Game {
     return this.jobClass === 'merchant' ? Math.round(ab.cost * COIN_SKILL_MULT * (1 + Math.floor(this.skills.ranged / 100))) : 0;
   }
   canAffordAbility(ab) {
+    if (this.lifeCostBlocked(ab)) return false;
     const coins = this.abilityCoinCost(ab);
     return coins ? this.inventory.count('coins') >= coins : this.adrenaline >= ab.cost;
   }
+  /** A skill paid for in life (`lifeCost`) can't be used at or under LIFE_COST_FLOOR of your life. */
+  lifeCostBlocked(ab) { return !!ab.lifeCost && this.player.hp <= this.maxHp() * LIFE_COST_FLOOR; }
   abilityCostText(ab) {
     const coins = this.abilityCoinCost(ab);
-    if (coins) return `${coins} coins`;
-    return ab.cost ? `${ab.cost}% adrenaline` : ab.build ? `free, builds ${ab.build}% adrenaline` : 'free';
+    const life = ab.lifeCost ? ` and ${Math.round(ab.lifeCost * 100)}% of your life` : '';
+    if (coins) return `${coins} coins${life}`;
+    return (ab.cost ? `${ab.cost}% adrenaline` : ab.build ? `free, builds ${ab.build}% adrenaline` : 'free') + life;
   }
   _payAbility(ab) {
     const coins = this.abilityCoinCost(ab);
     if (coins) this.inventory.remove('coins', coins); else this.adrenaline -= ab.cost;
+    if (ab.lifeCost) this._payLife(ab.lifeCost);
+  }
+  /** Pay `share` of your life as it is now for a skill (you always keep 1). */
+  _payLife(share) {
+    const p = this.player, cost = Math.min(p.hp - 1, Math.floor(p.hp * share));
+    if (!(cost > 0)) return;
+    p.hp -= cost;
+    this.addHitsplat(p, cost, { tint: '#ff7a3a' });
+    this.bus.emit('hp');
+  }
+  /** What using a skill gives besides its effect: adrenaline (`build`), a Monk's Chi (`chi`) and Faith (`faith`). */
+  _abilityGains(ab) {
+    if (ab.build) this._gainAdrenaline(ab.build);
+    if (ab.chi) Monk.gainChi(this, ab.chi);
+    if (ab.faith) Bless.gainFaith(this, ab.faith);   // a full bar fires the Prayer Burst by itself
   }
 
   /** Consume an armed offensive ability for the current hit (spends adrenaline). */
@@ -2352,7 +2398,7 @@ export class Game {
     this._payAbility(ab);
     this.abilityCd[ab.id] = ab.cd;
     mechAbilityUsed(this);   // any skill interrupts a boss's cast
-    if (ab.build) this._gainAdrenaline(ab.build);   // a basic skill builds adrenaline
+    this._abilityGains(ab);   // a basic skill builds adrenaline
     this.bus.emit('adrenaline');
     this.bus.emit('ability');
     return ab;
@@ -2370,11 +2416,13 @@ export class Game {
     let dmgM = weak ? WEAKNESS_BONUS.dmg : 1;
     // Finishers: more damage against a foe already under EXECUTE_BELOW life.
     if (ab?.execute && npc.hp < npc.maxHp * EXECUTE_BELOW) abM *= 1 + ab.execute;
+    // A skill that smites the unholy hits undead, spirits and demons harder.
+    if (ab?.unholy && UNHOLY_RACES.has(raceOf(npc.def, npc.npcId))) abM *= 1 + ab.unholy;
     // Race: the weapon in hand bites harder into some races and is shrugged off by others.
     const race = this.raceMatchup(npc);
+    const raceM = (r) => (r === 'strong' ? RACE_BONUS.dmg : r === 'weak' ? RACE_PENALTY.dmg : 1);
     if (this._castElement) dmgM *= elementMult(race);   // a spell's element: x1.5 strong, x0.7 resisted
-    else if (race === 'strong') dmgM *= RACE_BONUS.dmg;
-    else if (race === 'weak') dmgM *= RACE_PENALTY.dmg;
+    else dmgM *= raceM(race);
     // The Holy path (good alignment) smites the unholy: undead, spirits and demons.
     { const kc = this.karmaCombat(); if (kc.side === 'holy' && UNHOLY_RACES.has(raceOf(npc.def, npc.npcId))) dmgM *= 1 + kc.holyDmg; }
     // Magic casts once (rune cost), so its extra hits are ignored.
@@ -2403,6 +2451,8 @@ export class Game {
     dmgM *= Culling.masteryDamage(this, npc).mult;   // codex mastery of its species and race
     dmgM *= Mercs.merchantPower(this);   // the strongest class (see mercenary.js)
     dmgM *= 1 + openWoundStacks(npc, this.tickCount) * OPEN_WOUNDS.per;   // a Brawler's Open Wounds on the foe
+    dmgM *= Monk.chiPower(this);   // a Monk's Chi (both hands)
+    dmgM *= Zealot.fervour(this) * Zealot.orbShare(this) * Priest.smite(this, npc);   // a Zealot's Fervour (and an orb's lesser share), a Priest smiting the unholy
     dmgM *= 1 + hexStacks(npc, this.tickCount) * ELEMENTS.dark.hex.per / 100;   // Dark's Hex on the foe (every style)
     if (npc.sunderUntil > this.tickCount) dmgM *= 1 + (npc.sunder || 0) * bossBreakMult(npc.def);   // armour broken by a skill
     // A boss's armour type: blunt weapons crack plate, wards soak spells, light blows glance off a thick hide.
@@ -2419,7 +2469,7 @@ export class Game {
     // lands, a brace afterwards, and (Merchant) A-Worthlings called up.
     this._abCleave = ab?.cleave || 1;
     this._abStun = ab?.stun && mode !== 'dance' ? ab.stun : 0;   // the Dancer's whip handles its own stun
-    this._abRider = ab && (ab.bleed || ab.sunder) ? ab : null;   // a bleed or armour break once the blow lands
+    this._abRider = ab && (ab.bleed || ab.sunder || ab.holyfire) ? ab : null;   // a bleed, armour break or holy fire once the blow lands
     if (ab?.guard) { if (!(this.braceTicks > 0)) this.braceCounter = 0; this.braceTicks = Math.max(this.braceTicks || 0, ab.guard); }
     if (ab?.summon && this.jobClass === 'merchant') for (let k = 0; k < ab.summon; k++) Mercs.spawnFollower(this);
     if (spec) { this.msg(`Special attack: ${spec.name}!`, 'combat'); this.spawnSparkle(this.player, '#ffd24a', 12); }
@@ -2445,7 +2495,10 @@ export class Game {
     let off = null;
     if ((mode === 'melee' || mode === 'ranged') && this.equipment.isDualWielding()) {
       const go = this.equipment.bonuses('off');
-      off = { dmgM: sharedM * gearM(go), critCh: critChance(lvl, go.crit) + critRest };
+      // ...and its own weapon's race match-up when it is another type (a Monk's gloves drive out spirits and demons).
+      const offType = weaponTypeOf(this.equipment.get('shield'));
+      const offRace = this._castElement || offType === this.weaponType() ? race : matchup(offType, raceOf(npc.def, npc.npcId));
+      off = { dmgM: sharedM * (raceM(offRace) / raceM(race)) * gearM(go), critCh: critChance(lvl, go.crit) + critRest };
     }
     return { dmgM, hits, guaranteed, heal, spec, ability: ab, weak, race, critCh, off };
   }
@@ -2590,6 +2643,7 @@ export class Game {
       npc.openWounds = n; npc.openWoundsAt = this.tickCount;   // any blow keeps the wounds open
       if (n % 10 === 0 && npc._openWoundsSaid !== n) { npc._openWoundsSaid = n; this.addHitsplat(npc, 0, { text: `Open wounds ×${n}` }); }
     }
+    if (dmg > 0 && !opts.aoe) Monk.onHit(this);   // a Monk's blows build Chi (monk.js)
     // A stunning class ability: the foe reels once the blow lands.
     if (this._abStun && dmg > 0) {
       const t = this._abStun; this._abStun = 0;
@@ -2620,7 +2674,8 @@ export class Game {
     // Lifesteal from gear: heal a share of the damage dealt.
     // Lifesteal heals in your own life's units: a hit on a big monster counts at its real size.
     const realDmg = dmg * (npc.def?.hpScale || 1);
-    const ls = dmg > 0 ? this.equipment.bonuses(this._hand).lifesteal + this.buffMod('lifesteal') * 100 : 0;   // the striking hand's weapon's own
+    const ls = dmg > 0 ? this.equipment.bonuses(this._hand).lifesteal + this.buffMod('lifesteal') * 100   // the striking hand's weapon's own
+      + Priest.spellLifesteal(this) : 0;   // and a Priest's spells heal a little
     if (ls && this.player.alive && this.player.hp < this.maxHp()) {
       this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.max(1, Math.round(realDmg * ls / 100)));
       this.bus.emit('hp');
@@ -3192,6 +3247,12 @@ export class Game {
     this._applyPlayerHit(npc, dmg, { crit: dmg > 0 && (c.crit || fancy || dmg >= effMax), tint });
     this.skills.addXp('magic', spell.xp * this.combatXpMult());
     if (dmg > 0) { const m = this.combatXpMult(); this.spawnHitSparks(npc, spell.tint); for (const x of magicXp(dmg)) this.skills.addXp(x.skill, x.xp * m); }
+    // A skill's lifesteal (Soul Siphon, Dark Pact's bolt) heals a share of the
+    // spell's hit, as it does for blows and arrows (spells used to skip this).
+    if (mods.heal && dmg > 0 && this.player.alive) {
+      this.player.hp = Math.min(this.maxHp(), this.player.hp + Math.round(dmg * mods.heal * (npc.def?.hpScale || 1)));
+      this.bus.emit('hp');
+    }
     const splashed = dmg > 0 ? this._spellSplash(npc, raw, spell) : 0;
     this._abilityAoe(npc, raw, 'magic');
     if (dmg > 0 && el.slowTicks) this._slowFoe(npc, el.slowTicks);   // Water's Tide
@@ -3277,8 +3338,9 @@ export class Game {
   }
 
   /** A skill's rider on the first blow that lands: a sure bleeding wound
-   *  (`bleed` of the blow a second, like a claw's) and/or broken armour (the
-   *  foe takes `sunder` more damage from you for SUNDER_TICKS ticks). */
+   *  (`bleed` of the blow a second, like a claw's), a holy fire (`holyfire` of
+   *  it a second, WOUNDS.holyfire) and/or broken armour (the foe takes `sunder`
+   *  more damage from you for SUNDER_TICKS ticks). */
   _applyRider(npc, hit) {
     const ab = this._abRider; this._abRider = null;
     if (!npc.alive) return;
@@ -3287,6 +3349,12 @@ export class Game {
       list.push({ perSec: Math.max(1, Math.round(hit * ab.bleed)), left: WOUNDS.bleed.secs });
       if (list.length > WOUNDS.bleed.stacks) list.sort((a, b) => b.perSec - a.perSec).length = WOUNDS.bleed.stacks;
       this.spawnSparkle(npc, WOUNDS.bleed.color, 5);
+    }
+    if (ab.holyfire) {
+      const W = WOUNDS.holyfire, w = npc.wounds || (npc.wounds = {}), list = w.holyfire || (w.holyfire = []);
+      list.push({ perSec: woundPerSec(W, hit, ab.holyfire), left: W.secs });
+      if (list.length > W.stacks) list.sort((a, b) => b.perSec - a.perSec).length = W.stacks;
+      this.spawnSparkle(npc, W.color, 5);
     }
     if (ab.sunder) {
       npc.sunder = Math.max(npc.sunderUntil > this.tickCount ? npc.sunder || 0 : 0, ab.sunder);
@@ -3306,16 +3374,17 @@ export class Game {
     if (Math.random() >= W.chance) return;
     const w = npc.wounds || (npc.wounds = {});
     const list = w[kind] || (w[kind] = []);
-    list.push({ perSec: Math.max(1, Math.round(hit * W.share)), left: W.secs });
+    list.push({ perSec: woundPerSec(W, hit, W.share), left: W.secs });
     if (list.length > W.stacks) list.sort((a, b) => b.perSec - a.perSec).length = W.stacks;   // keep the strongest
     if (list.length === 1) this.spawnSparkle(npc, W.color, 5);
   }
 
   /** Poisoned and bleeding foes near the player take their wounds' damage once
-   *  a second (melee XP, like the blow that caused it) until the wounds run out. */
+   *  a second (melee XP, like the blow that caused it; Magic XP for holy fire,
+   *  a spell's burn) until the wounds run out. */
   _tickWounds() {
     const p = this.player, m = this.combatXpMult();
-    let xp = 0;
+    let xp = 0, mxp = 0;
     for (const n of this.nearbyNpcs()) {
       const w = n.wounds;
       if (!w) continue;
@@ -3326,13 +3395,17 @@ export class Game {
         for (const kind of Object.keys(WOUNDS)) {
           const list = w[kind];
           if (!list?.length || n.hp <= 0) continue;
-          const d = Math.min(n.hp, list.reduce((t, s) => t + s.perSec, 0));
+          let d = list.reduce((t, s) => t + s.perSec, 0);
+          // An exact burn (holy fire) deals whole points and carries the fraction to the next second.
+          if (WOUNDS[kind].exact) { const r = d + (w[kind + 'Rest'] || 0); d = Math.floor(r); w[kind + 'Rest'] = r - d; }
+          d = Math.min(n.hp, d);
           for (const s of list) s.left--;
           w[kind] = list.filter((s) => s.left > 0);
+          if (d <= 0) continue;
           n.takeDamage(d);
           this.addHitsplat(n, d, { tint: WOUNDS[kind].color });
           this.spawnSparkle(n, WOUNDS[kind].color, 2);
-          xp += d;
+          if (WOUNDS[kind].magic) mxp += d; else xp += d;
           if (!n.target) n.target = p;
           if (n.hp <= 0) { this.killNpc(n); n.wounds = null; }
         }
@@ -3340,6 +3413,7 @@ export class Game {
       if (n.wounds && !Object.keys(WOUNDS).some((k) => n.wounds[k]?.length)) n.wounds = null;
     }
     if (xp) for (const x of combatXp(p.style, xp)) this.skills.addXp(x.skill, x.xp * m);
+    if (mxp) for (const x of magicXp(mxp)) this.skills.addXp(x.skill, x.xp * m);
   }
 
   /** Water's Chill: the foe moves and attacks slower for a few ticks (see
@@ -3520,7 +3594,7 @@ export class Game {
       return;
     }
     const perk = this.perkMods();
-    const dodge = (perk.dodge || 0) + this.buffMod('dodge');   // perks and a dodging class buff
+    const dodge = (perk.dodge || 0) + this.buffMod('dodge') + Monk.dodge(this);   // perks, a dodging class buff and a Monk's light feet
     if (dodge && Math.random() < dodge * (heavy ? 0.5 : 1)) {   // Evasion / Graceful perks
       this.addHitsplat(p, 0, { text: 'Dodged!' });
       this._dodgeXp(npc);
@@ -6213,8 +6287,8 @@ export class Game {
     const shQ = this.equipment.qualityIn('shield');
     this.equipment.clearSlot('shield');
     const name = getItem(sh).name.toLowerCase();
-    if (this.bank?.deposit) { this.bank.deposit(sh, 1, shQ); this.msg(`${NO_SHIELD_MSG} Your ${name} was put in your bank.`, 'system'); }
-    else { this.inventory.add(sh, 1, shQ); this.msg(`${NO_SHIELD_MSG} Your ${name} was put in your pack.`, 'system'); }
+    if (this.bank?.deposit) { this.bank.deposit(sh, 1, shQ); this.msg(`${noShieldMsg(this.jobClass)} Your ${name} was put in your bank.`, 'system'); }
+    else { this.inventory.add(sh, 1, shQ); this.msg(`${noShieldMsg(this.jobClass)} Your ${name} was put in your pack.`, 'system'); }
   }
 
   _canEquipNow(id) {
@@ -6223,6 +6297,7 @@ export class Game {
     for (const [sk, lvl] of Object.entries(eq.req || {})) if (reqLevel(id, sk, this.skills) < lvl) return false;   // a Dancer's gear: its pooled dance level
     const cls = this.jobClass && CLASS_BY_ID[this.jobClass];
     if (cls && eq.weaponType && !canWield(cls.id, eq.weaponType)) return false;
+    if (cls && sigBarred(cls.id, id)) return false;   // another class's signature weapon
     return !cls || canWear(cls.id, id);
   }
 
@@ -6251,8 +6326,10 @@ export class Game {
     const main = this.equipment.get('weapon');
     if (canDualWield(main)) {
       const off = this.equipment.get('shield');
-      // Each candidate as it would be worn there: a twin of the main weapon reads its off-hand copy's upgrades.
-      const offScore = (id, q = null) => offenceFirstScore(id, this.equipment, mode, this.equipment.copyFor(id, 'shield'), q);
+      // Each candidate as it would be worn there: a twin of the main weapon reads its off-hand copy's
+      // upgrades, and every one strikes on the main hand's beat (a Monk's gloves keep up with its knuckles).
+      const beats = swingBeats(main);
+      const offScore = (id, q = null) => offenceFirstScore(id, this.equipment, mode, this.equipment.copyFor(id, 'shield'), q, beats);
       let bi = -1, br = canDualPair(off, main) ? offScore(off, this.equipment.qualityIn('shield')) : -1;
       this.inventory.slots.forEach((s, i) => {
         if (s && canDualPair(s.id, main) && this._canEquipNow(s.id) && offScore(s.id, s.q || null) > br) { bi = i; br = offScore(s.id, s.q || null); }
@@ -6293,6 +6370,17 @@ export class Game {
   /** Wield a dagger in the off-hand (where a shield would go) for dual wielding. */
   equipOffhand(index) { return this.equipItem(index, { offhand: true }); }
 
+  /** Does `id` go in the off-hand when no hand is asked for? A weapon that pairs with
+   *  the one in hand fills an off-hand not yet holding its pair; a different type of the
+   *  same kind always goes on the other hand (a Monk's monk gloves beside its knuckles),
+   *  while one of the type in hand replaces the main hand's. A Monk's knuckles take the
+   *  main hand back from its gloves (takesMainHand), so the pair never sticks the wrong way round. */
+  goesOffhand(id) {
+    const main = this.equipment.get('weapon');
+    if (takesMainHand(this.jobClass, id, main)) return false;
+    return canDualPair(id, main) && (!canDualPair(main, this.equipment.get('shield')) || weaponTypeOf(id) !== weaponTypeOf(main));
+  }
+
   equipItem(index, opts = {}) {
     const s = this.inventory.slotAt(index);
     if (!s) return;
@@ -6311,8 +6399,10 @@ export class Game {
       this.msg(`Only ${aOrAn(CLASS_FOR_TYPE(eq.weaponType))} can wield ${WEAPON_TYPE_NAMES[eq.weaponType]}. You are ${aOrAn(cls.name)}: you fight with ${WEAPON_TYPE_NAMES[cls.weapon]} and ${WEAPON_TYPE_NAMES[SECONDARY_WEAPON[cls.id]]}.`);
       return;
     }
+    // A signature weapon is made for one class, even when its type is yours too.
+    if (cls && sigBarred(cls.id, s.id)) { this.msg(`The ${item.name} was made for ${aOrAn(CLASS_BY_ID[item.signature.classId].name)}'s hand: it's a trophy for you, or something to trade.`); return; }
     // Ninjas hold a shuriken in each hand, never a shield.
-    if (cls && shieldBarred(cls.id, s.id)) { this.msg(NO_SHIELD_MSG); return; }
+    if (cls && shieldBarred(cls.id, s.id)) { this.msg(noShieldMsg(cls.id)); return; }
     // ...and only your class's kind of helm, body and legs armour.
     if (cls && !canWear(cls.id, s.id)) {
       const mine = ARMOUR_FAMILIES[ARMOUR_FAMILY[cls.id]];
@@ -6320,11 +6410,10 @@ export class Game {
       return;
     }
     // A dagger goes in the off-hand when asked, or by default when you already
-    // hold a dagger and your off-hand isn't one yet.
+    // hold a dagger and your off-hand isn't one yet (see goesOffhand).
     const main = this.equipment.get('weapon');
-    const offhand = canDualPair(s.id, main)
-      && (opts.offhand ?? !canDualPair(main, this.equipment.get('shield')));
-    if (opts.offhand && !offhand) { this.msg('Only a second weapon of the same dual-wield kind (daggers, scimitars, kerambits, pistols or shurikens) can go in your off-hand.'); return; }
+    const offhand = canDualPair(s.id, main) && (opts.offhand ?? this.goesOffhand(s.id));
+    if (opts.offhand && !offhand) { this.msg('Only a second weapon of the same dual-wield kind (daggers, scimitars, kerambits, pistols, shurikens, or monk knuckles and gloves) can go in your off-hand.'); return; }
     const slot = offhand ? 'shield' : eq.slot;
     if (slot === 'shield' && offhandBlocked(main, s.id)) {
       this.msg(takesQuiver(main) ? `Your ${getItem(main).name.toLowerCase()} needs both hands: only a quiver can go with it.`

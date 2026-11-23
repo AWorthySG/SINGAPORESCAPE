@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 
 import { ITEMS } from '../src/data/items.js';
 import { CLASSES } from '../src/data/classes.js';
-import { ASCENDED, ASCENDED_LEVEL, SIG_BOSSES, SIGNATURE_CLASS, sigDropsFor, sigIdFor } from '../src/data/bossWeapons.js';
+import { ASCENDED, ASCENDED_LEVEL, LATE_SIGS, SIG_BOSSES, SIGNATURE_CLASS, sigDropsFor, sigIdFor } from '../src/data/bossWeapons.js';
 import { Game } from '../src/game/game.js';
 import { clearSave } from '../src/game/save.js';
 import { codexEntry } from '../src/game/codex.js';
@@ -28,7 +28,10 @@ test('every class has a signature weapon stronger than its eternal weapon', () =
 
 test('ascended weapons: only for classes without one, from bosses of the eternal tier, each boss its own first', () => {
   const served = new Set(SIG_BOSSES.filter((b) => b[1] >= ASCENDED_LEVEL).map(([id]) => SIGNATURE_CLASS[id]));
-  assert.equal(served.size + ASCENDED.length, CLASSES.length, 'every class exactly covered');
+  // Classes added after the deal (LATE_SIGS) bring exactly one ascended weapon each.
+  const lateAsc = LATE_SIGS.filter((a) => ITEMS[a.id].signature.ascended);
+  assert.equal(new Set(lateAsc.map((a) => a.classId)).size, lateAsc.length, 'one ascended weapon per late class');
+  assert.equal(served.size + ASCENDED.length + lateAsc.length, CLASSES.length, 'every class exactly covered');
   for (const a of ASCENDED) {
     assert.ok(!served.has(a.classId));
     assert.ok(SIG_BOSSES.find((b) => b[0] === a.boss)[1] >= ASCENDED_LEVEL);

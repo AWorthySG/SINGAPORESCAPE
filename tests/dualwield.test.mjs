@@ -124,3 +124,12 @@ test('a better off-hand says Upgrade, and Equip best fills the off-hand by its o
   assert.equal(g.equipment.get('weapon'), 'rune_scimitar');
   assert.equal(g.equipment.get('shield'), 'rune_scimitar');
 });
+
+test('Equip best weighs an off-hand weapon at the main hand\'s beat, the beat it strikes on', async () => {
+  const { effectiveParts, swingBeats } = await import('../src/game/gear.js');
+  const g = freshGame('corsair');
+  const id = 'rune_scimitar', beats = swingBeats(id);
+  const at = (b) => effectiveParts(id, g.equipment, 'melee', 'main', null, b).offence;
+  assert.equal(at(beats), effectiveParts(id, g.equipment, 'melee').offence, 'at its own beat, as before');
+  assert.ok(at(beats / 2) > at(beats) * 1.5, 'twice the swings, about twice the damage per beat');
+});

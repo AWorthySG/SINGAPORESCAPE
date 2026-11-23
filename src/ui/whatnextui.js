@@ -113,8 +113,9 @@ export function watchUpgrades(ui, { settleMs = 3000, debounceMs = 400 } = {}) {
     // only pieces that arrive while you play.
     if (!ui._wnUpReady) return;
     // A piece that wins only once the worn one's ★ and lines move across says so.
-    const slot = getItem(s.id).equip?.slot;
-    const viaCarry = !!slot && !isUpgrade(compareGear(s.id, game.equipment, null, s.q || null, game.combatMode?.()))
+    // (A Monk's gloves go on the other hand, Game.goesOffhand: weighed, and carried to, there.)
+    const slot = game.goesOffhand?.(s.id) ? 'shield' : getItem(s.id).equip?.slot;
+    const viaCarry = !!slot && !isUpgrade(compareGear(s.id, game.equipment, slot === 'shield' ? 'shield' : null, s.q || null, game.combatMode?.()))
       && !!planCarry(game.equipment, s.id, slot, s.q || null);
     ui.lane?.push({ kind: 'note', key: `wear:${key}`, tag: 'wear', ttl: 9000, priority: 1,
       html: `<b>&#9650; Upgrade:</b> ${esc(qualityName(s.id, s.q || null))} beats what you wear${viaCarry ? ' once your ★ and lines carry over' : ''}. <button type="button" class="nl-act" data-act="wearbest">Wear it</button>` });

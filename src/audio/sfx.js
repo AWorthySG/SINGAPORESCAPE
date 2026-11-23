@@ -206,6 +206,8 @@ export class Sfx {
       case 'mace': N(0.06, 0.22); T(140, 0.1, 'square', 0, 0.2, 60); break;
       case 'warhammer': N(0.1, 0.26); T(95, 0.16, 'sawtooth', 0, 0.22, 40); break;
       case 'toya': T(340, 0.06, 'triangle', 0, 0.2); T(260, 0.07, 'triangle', 0.05, 0.16); break;
+      case 'knuckles': N(0.03, 0.2); T(170, 0.05, 'square', 0, 0.14, 80); N(0.03, 0.14, 0.09); T(240, 0.04, 'triangle', 0.09, 0.1, 120); break;   // a quick one-two thump
+      case 'monk_gloves': N(0.05, 0.16); T(210, 0.07, 'triangle', 0, 0.14, 110); break;   // a soft, heavy slap
       case 'cane': T(760, 0.04, 'triangle', 0, 0.16); T(980, 0.05, 'triangle', 0.04, 0.12); break;
       case 'whip': N(0.025, 0.3); T(2600, 0.04, 'sine', 0.02, 0.12, 900); break;
       case 'fan': N(0.1, 0.08); T(600, 0.12, 'sine', 0, 0.1, 950); break;
@@ -219,6 +221,7 @@ export class Sfx {
       case 'staff': T(660, 0.14, 'sine', 0, 0.12, 990); T(1320, 0.1, 'triangle', 0.04, 0.05); break;
       case 'wand': T(1200, 0.08, 'triangle', 0, 0.1, 1800); T(2400, 0.06, 'sine', 0.03, 0.04); break;
       case 'orb': T(330, 0.18, 'sine', 0, 0.14, 440); T(660, 0.14, 'sine', 0.04, 0.05); break;
+      case 'censer': T(2600, 0.03, 'triangle', 0, 0.06); T(3100, 0.03, 'triangle', 0.04, 0.05); N(0.12, 0.1, 0.05); T(180, 0.16, 'sine', 0.05, 0.12, 320); break;   // the chain clinks, the fire whooms
       case 'unarmed': N(0.04, 0.18); T(200, 0.05, 'square', 0, 0.1, 100); break;
       default: N(0.08, 0.16); T(900, 0.08, 'sine', 0, 0.12, 300);   // the old swish
     }

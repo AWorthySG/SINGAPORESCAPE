@@ -72,6 +72,11 @@ export const CLASS_PASSIVES = {
     { name: 'Sweeping Blade', desc: '+5% damage', mods: { dmg: 0.05 } },
     { name: 'Reaper', desc: '+5% damage, 4% chance to strike another foe', mods: { dmg: 0.05, splash: 0.04 } },
   ],
+  monk: [
+    { name: 'Iron Fists', desc: '+4% damage, +1% crit chance', mods: { dmg: 0.04, crit: 0.01 } },
+    { name: 'Flowing Strikes', desc: '4% chance of an extra blow, +2% damage', mods: { extra: 0.04, dmg: 0.02 } },
+    { name: 'Inner Peace', desc: '+5% damage, +3% damage to bosses', mods: { dmg: 0.05, boss: 0.03 } },
+  ],
   merchant: [
     { name: 'Heavy Purse', desc: '+5% damage', mods: { dmg: 0.05 } },
     { name: 'Investor', desc: '+4% damage, +1% crit chance', mods: { dmg: 0.04, crit: 0.01 } },
@@ -111,6 +116,16 @@ export const CLASS_PASSIVES = {
     { name: 'Dark Pact', desc: '+5% spell damage', mods: { dmg: 0.05 } },
     { name: 'Hexcraft', desc: '4% chance a spell leaps to another foe, +3% damage', mods: { splash: 0.04, dmg: 0.03 } },
     { name: 'Void Lord', desc: '+4% crit chance, +5% damage to bosses', mods: { crit: 0.04, boss: 0.05 } },
+  ],
+  priest: [
+    { name: 'Bright Mind', desc: '+3% spell damage, +2% crit chance', mods: { dmg: 0.03, crit: 0.02 } },
+    { name: 'Radiance', desc: '4% chance a spell leaps to another foe, +3% damage', mods: { splash: 0.04, dmg: 0.03 } },
+    { name: 'Dawnbringer', desc: '+5% damage to bosses, +3% crit chance', mods: { boss: 0.05, crit: 0.03 } },
+  ],
+  zealot: [
+    { name: 'Burning Zeal', desc: '+5% spell damage', mods: { dmg: 0.05 } },
+    { name: 'Firebrand', desc: '+4% spell damage, +2% crit chance', mods: { dmg: 0.04, crit: 0.02 } },
+    { name: 'Inferno', desc: '+6% damage to bosses, +3% damage', mods: { boss: 0.06, dmg: 0.03 } },
   ],
   dancer: [
     { name: 'Grace', desc: '+3% crit chance, +2% damage', mods: { crit: 0.03, dmg: 0.02 } },

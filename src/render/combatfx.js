@@ -30,10 +30,10 @@ const GOLD = '#ffd24a';
 const IMPACT_BY_WEAPON = {
   dagger: 'blade', sword: 'blade', scimitar: 'blade', longsword: 'blade', battleaxe: 'blade', '2h_sword': 'blade',
   claws: 'blade', katana: 'blade', halberd: 'blade', parang: 'blade', kerambit: 'blade', fan: 'blade',
-  mace: 'blunt', warhammer: 'blunt', toya: 'blunt',
+  mace: 'blunt', warhammer: 'blunt', toya: 'blunt', knuckles: 'blunt', monk_gloves: 'blunt',
   spear: 'pierce', shortbow: 'pierce', longbow: 'pierce', crossbow: 'pierce', shuriken: 'pierce', chakram: 'pierce',
   pistol: 'bullet', rifle: 'bullet',
-  staff: 'magic', wand: 'magic', orb: 'magic',
+  staff: 'magic', wand: 'magic', orb: 'magic', censer: 'magic',
   whip: 'whip',
   cane: 'coin',   // a Merchant throws money
 };

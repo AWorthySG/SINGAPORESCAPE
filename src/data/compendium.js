@@ -34,9 +34,9 @@ import { SLAYER_REWARDS, SLAYER_DMG, SLAYER_LOOT, SLAYER_HELM_DMG, SLAYER_FULL_L
 import { EVENT_KINDS, EVENT_GAP, WEEKLY_TASKS } from './worldevents.js';
 import { BOSS_MECHANICS, MECH_KINDS } from './bossMechanics.js';
 import { BOSS_TYPES } from './bossTypes.js';
-import { SIGNATURE_DROP_CHANCE, ASCENDED, ASCENDED_LEVEL } from './bossWeapons.js';
+import { SIGNATURE_DROP_CHANCE, ASCENDED, ASCENDED_LEVEL, LATE_SIGS } from './bossWeapons.js';
 import { ALTAR_XP_MULT } from './bones.js';
-import { ADREN_PER_HIT, ADREN_PER_HURT, THRESHOLD_COST, ULTIMATE_COST } from './abilities.js';
+import { ADREN_PER_HIT, ADREN_PER_HURT, THRESHOLD_COST, ULTIMATE_COST, LIFE_COST_FLOOR } from './abilities.js';
 import { MASTERY_RANKS, MAX_ENCHANTS, ENCHANT_LABELS, enchantCost, BATTLE_CAP_RANK, KILL_XP, KILL_MULT } from '../game/mastery.js';
 import { QUALITY, QUALITY_ORDER, QUALITY_RULES, RARITY, NORMAL_GEAR_SKIP } from '../game/loot.js';
 import { MAX_REFINE, refineGain } from '../game/refine.js';
@@ -50,6 +50,9 @@ import {
 } from '../game/playbalance.js';
 import { GATE_MODS, BOSS_EVERY, MILESTONE_EVERY } from '../game/waves.js';
 import { HOME_PRICE, HOME_UPGRADES } from '../game/home.js';
+import { CHI, MONK_DODGE } from '../game/monk.js';
+import { PRIEST } from '../game/priest.js';
+import { ZEALOT, HOLY_FIRE } from '../game/zealot.js';
 import { BOSS_PET_RATE, BOSS_PET_FLOOR, SKILL_PET_RATE } from '../game/pets.js';
 import { MASTERY_TIERS, CONTRACT_COUNT } from '../game/culling.js';
 import { CHAMPION_CHANCE, CHAMPION_HP_MULT } from '../game/npc.js';
@@ -437,11 +440,11 @@ export const CHAPTERS = [
         id: 'classes', title: 'The job classes',
         summary: `${CLASSES.length} classes, one weapon type each, chosen once for good.`,
         body: [
-          `There are **${CLASSES.length} job classes** in four fighting styles. Each masters one main weapon type and one secondary type of the same style; no other weapons can be wielded. Armour (helm, body, legs, gloves and boots) belongs to one family per class; capes, jewellery and tools are open to everyone, and shields to every class but the Ninja, who holds a shuriken in each hand.`,
+          `There are **${CLASSES.length} job classes** in four fighting styles. Each masters one main weapon type and one secondary type of the same style; no other weapons can be wielded. Armour (helm, body, legs, gloves and boots) belongs to one family per class; capes, jewellery and tools are open to everyone, and shields to every class but the Ninja, who holds a shuriken in each hand, and the [[the-monk|Monk]], who wears monk knuckles and monk gloves.`,
           () => ({ table: { head: ['Class', 'Style', 'Main weapon', 'Secondary', 'Armour'], rows: classRows() } }),
           'Weapon and armour drops mostly turn into your own class\'s kind, so loot stays useful (see [[drops]]).',
         ],
-        see: ['weapon-grips', 'armour-families', 'merchant-dancer'],
+        see: ['weapon-grips', 'armour-families', 'merchant-dancer', 'the-monk', 'priest-zealot'],
       },
       {
         id: 'weapon-grips', title: 'Two hands, two weapons and quivers',
@@ -449,7 +452,7 @@ export const CHAPTERS = [
         body: [
           () => `**Two-handed** weapons fill both hands, so no shield, buckler or tome goes with them: ${[...TWO_HANDED_TYPES].map((t) => WEAPON_TYPE_NAMES[t]).join(', ')}. To make up for it each has a **two-handed grip**: the Defence and life of a same-tier kiteshield, plus (for most) the extras of a buckler or quiver.`,
           () => `**Quivers**: ${[...QUIVER_BOW_TYPES].map((t) => WEAPON_TYPE_NAMES[t]).join(' and ')} are drawn from a quiver at the hip, so a quiver (and only a quiver) can sit in the off-hand with them. The Fletcher sells them.`,
-          `**Dual wielding**: daggers, scimitars, pistols, kerambits and shurikens pair with a second one of the same kind in the off-hand. Each hand strikes with its own weapon; the off-hand's blow lands at ${pct(OFFHAND_SHARE)} of what that weapon would do. Ninjas fight with a shuriken in each hand and hold no shield.`,
+          `**Dual wielding**: daggers, scimitars, pistols, kerambits and shurikens pair with a second one of the same kind in the off-hand, and a Monk's monk knuckles with its monk gloves (knuckles in the main hand, gloves in the off-hand). Each hand strikes with its own weapon; the off-hand's blow lands at ${pct(OFFHAND_SHARE)} of what that weapon would do. Ninjas fight with a shuriken in each hand and Monks with knuckles and gloves, so neither holds a shield.`,
           'A Knight\'s longsword and the toya staff are one-handed, so they keep a shield.',
           '**Reach**: most melee weapons strike from 2 tiles, longswords, halberds and two-handed swords from 3, spears from 4. Every melee weapon **cleaves** a share of each hit into foes next to the target, from a quarter for the quick blades to most of it for two-handed swords.',
         ],
@@ -496,6 +499,27 @@ export const CHAPTERS = [
         ],
         see: ['classes', 'abilities'],
       },
+      {
+        id: 'the-monk', title: 'The Monk',
+        summary: 'Bare knuckles and palms: a punch and a palm strike every swing, and Chi.',
+        body: [
+          `The **Monk** fights with his fists: **monk knuckles** in the main hand punch, quick and keen to crit, and **monk gloves** in the off-hand follow every punch with a heavier palm strike (at ${pct(OFFHAND_SHARE)} of the gloves' hit). Either can go in either hand, but knuckles first and gloves second hit hardest. Monks hold no shield.`,
+          `Every blow that lands builds **Chi** (one every ${CHI.everyMs / 1000}s, up to ${CHI.max}): each Chi adds ${pct(CHI.per)} damage. At ${CHI.max} it overflows, healing ${pct(CHI.heal)} of your life, and drops back to ${CHI.keep}. Stop fighting for ${(CHI.fadeTicks * 0.6).toFixed(0)} seconds and it fades. Inner Focus and Hundred Fists make it overflow at once.`,
+          `Monks are **light on their feet**: ${pct(MONK_DODGE)} of blows miss them altogether (half as many heavy, telegraphed ones).`,
+        ],
+        see: ['classes', 'weapon-grips', 'abilities'],
+      },
+      {
+        id: 'priest-zealot', title: 'The Priest and the Zealot',
+        summary: 'Two casters of holy light and fire: spells that heal, and fires paid for in life.',
+        body: [
+          `The **Priest** casts through **orbs** (or censers). Every spell that lands heals it ${pct(PRIEST.heal)} of the hit (splashes and burns heal nothing), and its spells hit undead, spirits and demons ${pct(PRIEST.smite)} harder. Its skills heal it more (Holy Light, Judgement), shield it (Sanctuary) and lift its [[prayers|blessings]]: Uplift makes every blessing count 50% more for 9 seconds and fills a quarter of its Faith at once.`,
+          `The **Zealot** swings a **censer** on a chain (or casts through an orb). Every spell cast through a censer leaves the foe burning with **holy fire**: ${pct(HOLY_FIRE.share)} of the hit every second for ${HOLY_FIRE.secs} seconds, past its armour, and the fires stack (up to ${HOLY_FIRE.stacks}). Holy fire pays Magic XP like any spell, and a Priest holding a censer sets it too.`,
+          `**Fervour**: a Zealot hits harder the more hurt it is, up to +${pct(ZEALOT.fervour)} with no life left (+${pct(ZEALOT.fervour / 2)} at half life), with a censer in hand: through an orb, its second weapon, it has no Fervour and hits ${pct(1 - ZEALOT.orb)} softer. Burning Oath and Pillar of Flame are paid for in life as well as adrenaline (a share of the life you have, never the last of it), and neither can be used at ${pct(LIFE_COST_FLOOR)} of your life or less, so auto battle never spends you to nothing.`,
+          'Both wear robes and can hold a shield or a tome.',
+        ],
+        see: ['classes', 'abilities', 'prayers'],
+      },
     ],
   },
   {
@@ -505,7 +529,7 @@ export const CHAPTERS = [
         id: 'combat-basics', title: 'How a fight works',
         summary: 'Hits always land; damage is what changes.',
         body: [
-          'Your hits always land: what changes is how hard they hit. A weapon\'s speed is the number of 0.3-second beats between attacks, so lower is faster. Melee weapons swing twice as fast as their number says, quick weapons (scimitars, claws, kerambits, war fans) faster still, and pistols, shurikens and shortbows are the quickest ranged weapons.',
+          'Your hits always land: what changes is how hard they hit. A weapon\'s speed is the number of 0.3-second beats between attacks, so lower is faster. Melee weapons swing twice as fast as their number says, quick weapons (scimitars, claws, kerambits, war fans, monk knuckles) faster still, and pistols, shurikens and shortbows are the quickest ranged weapons.',
           'Damage grows with your fighting skill, your gear and every bonus on top. The **Stats** view in the Combat tab adds everything up.',
           'Only aggressive monsters attack you on sight, and only one wandering monster at a time attacks you unprovoked. A monster you attack always fights back.',
           'Eat food to heal (F eats the first food in your bag); better food heals more. Your life also creeps back on its own.',
@@ -626,6 +650,8 @@ export const CHAPTERS = [
             'A boss rolls its drop table ten times and never comes up empty, hits the rare drop table five times, and always drops an accessory and three pieces of gear for your class, Superior quality or better.',
             `Each boss has a **signature weapon** for one class, which drops ${oneIn(SIGNATURE_DROP_CHANCE)} kills. It is a third stronger than the plain weapon of the boss's level.`,
             `So every class has one stronger than its eternal weapon, the bosses of level ${ASCENDED_LEVEL} and up also carry an **ascended** signature weapon for a class none of them serve (${ASCENDED.map((a) => `${getNpc(a.boss).name}: ${CLASS_BY_ID[a.classId].name}`).join(', ')}), which drops just as often.`,
+            // Classes added after the weapons were dealt keep the deal as it was and carry extra weapons of their own.
+            ...(LATE_SIGS.length ? [`The newer classes have three signature weapons each, carried by bosses on top of their own and dropping just as often (${LATE_SIGS.map((a) => `${getNpc(a.boss).name}: ${CLASS_BY_ID[a.classId].name}`).join(', ')}). The one from a boss of level ${ASCENDED_LEVEL} or more is ascended.`] : []),
             'It also leaves 20 to 50 upgrade stones and 1 to 3 upgrade wards.',
             'A boss kill is worth 25 gear mastery points to every piece you wear.',
           ] },

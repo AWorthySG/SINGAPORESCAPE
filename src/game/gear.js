@@ -1,5 +1,5 @@
 import { ITEMS, getItem } from '../data/items.js';
-import { EQUIP_SLOTS, QUICK_TYPES } from './equipment.js';
+import { EQUIP_SLOTS, QUICK_TYPES, canDualPair } from './equipment.js';
 
 // Gear guide: one comparable "rating" per piece of equipment, plus helpers to
 // compare a piece against what's worn and to rank everything in a slot.
@@ -55,8 +55,10 @@ export function effectiveRating(id, equipment, mode = 'melee', q = null) {
  *  bonuses; weapons per swing beat) and what it adds to staying alive
  *  (Defence, bonus HP). Equip best ranks by offence first (see offenceFirstScore). */
 // (`copy`: which record's upgrades to count, 'off' for a twin pair's off-hand
-// copy; see Equipment.copyIn. `q`: the copy's quality, null for plain.)
-export function effectiveParts(id, equipment, mode = 'melee', copy = 'main', q = null) {
+// copy; see Equipment.copyIn. `q`: the copy's quality, null for plain. `beats`:
+// the swing time to count a weapon at, when not its own: an off-hand weapon
+// strikes on the main hand's beat.)
+export function effectiveParts(id, equipment, mode = 'melee', copy = 'main', q = null, beats = null) {
   const eq = getItem(id).equip;
   if (!eq) return { offence: 0, support: 0 };
   const b = equipment.itemBonuses ? equipment.itemBonuses(id, copy, q) : (eq.bonuses || {});
@@ -65,14 +67,14 @@ export function effectiveParts(id, equipment, mode = 'melee', copy = 'main', q =
   const styleOk = !eq.style || eq.style === (mode === 'dance' ? 'melee' : mode);
   const extras = styleOk ? (b.crit || 0) * 2 + (b.pierce || 0) * 2 + (b.critDmg || 0) * 0.5 + (b.haste || 0) * 3 + (b.lifesteal || 0) * 3 + (b.bossDmg || 0) + (b.atkPct || 0) * 2 + (b.magPct || 0) * 2 : 0;
   const support = (b.defence || 0) + (b.hp || 0);
-  if (eq.slot === 'weapon') return { offence: Math.round((offence * 2) / swingBeats(id)) + extras, support };
+  if (eq.slot === 'weapon') return { offence: Math.round((offence * 2) / (beats || swingBeats(id))) + extras, support };
   return { offence: offence + extras, support };
 }
 
 /** Equip best's score: offence decides, and Defence and HP only break a tie,
  *  so a piece that hits harder always wins over a sturdier one. */
-export function offenceFirstScore(id, equipment, mode = 'melee', copy = 'main', q = null) {
-  const { offence, support } = effectiveParts(id, equipment, mode, copy, q);
+export function offenceFirstScore(id, equipment, mode = 'melee', copy = 'main', q = null, beats = null) {
+  const { offence, support } = effectiveParts(id, equipment, mode, copy, q, beats);
   return offence * 1e6 + support;
 }
 
@@ -152,7 +154,12 @@ export function compareGear(id, equipment, slot = null, q = null, mode = null) {
   const myCopy = equipment.copyFor?.(id, slot || eq.slot) || 'main', theirCopy = equipment.copyIn?.(slot || eq.slot) || 'main';
   const mine = equipment.itemBonuses ? equipment.itemBonuses(id, myCopy, q) : (eq.bonuses || {});
   const theirs = worn ? (equipment.itemBonuses ? equipment.itemBonuses(worn, theirCopy, wornQ) : getItem(worn).equip?.bonuses || {}) : {};
-  const deltas = statDeltas(mine, theirs, id, worn);
+  // A dual wielder's off-hand weapon strikes on the main hand's beat (as Equip best
+  // weighs it), so its own swing speed is neither weighed nor shown.
+  const main = slot === 'shield' && eq.slot === 'weapon' ? equipment.get('weapon') : null;
+  const beats = main && canDualPair(id, main) ? swingBeats(main) : null;
+  let deltas = statDeltas(mine, theirs, id, worn);
+  if (beats) deltas = deltas.filter((d) => d.key !== 'speed');
   if (!worn) return { worn, verdict: 'empty', deltas, ratingDelta: gearRating(id) };
   if (eq.slot === 'weapon' && weaponStyle(id) !== weaponStyle(worn)) {
     return { worn, verdict: 'style', deltas, ratingDelta: gearRating(id) - gearRating(worn) };
@@ -160,8 +167,8 @@ export function compareGear(id, equipment, slot = null, q = null, mode = null) {
   const ratingDelta = masteredRating(id, equipment, myCopy, q) - masteredRating(worn, equipment, theirCopy, wornQ);
   if (mode) {
     const wt = getItem(worn).equip?.weaponType;
-    const otherType = eq.slot === 'weapon' && !!wt && eq.weaponType !== wt;
-    const d = offenceFirstScore(id, equipment, mode, myCopy, q) - offenceFirstScore(worn, equipment, mode, theirCopy, wornQ);
+    const otherType = eq.slot === 'weapon' && !!wt && eq.weaponType !== wt && !beats;
+    const d = offenceFirstScore(id, equipment, mode, myCopy, q, beats) - offenceFirstScore(worn, equipment, mode, theirCopy, wornQ, beats);
     return { worn, verdict: d > 0 ? 'upgrade' : d < 0 ? 'downgrade' : 'same', deltas, ratingDelta, otherType };
   }
   return { worn, verdict: ratingDelta > 0 ? 'upgrade' : ratingDelta < 0 ? 'downgrade' : 'same', deltas, ratingDelta };

@@ -7,8 +7,8 @@
 // wears it and the ★ and lines carry over to it (carry.js), and bulk dismantle
 // could take it. No DOM, no Math.random.
 import { getItem } from '../data/items.js';
-import { EQUIP_SLOTS, canDualWield, offhandBlocked } from './equipment.js';
-import { offenceFirstScore, gearRating, weaponStyle, statDeltas } from './gear.js';
+import { EQUIP_SLOTS, canDualWield, canDualPair, offhandBlocked, takesMainHand } from './equipment.js';
+import { offenceFirstScore, gearRating, weaponStyle, statDeltas, swingBeats } from './gear.js';
 import { planCarry, scoreAfterCarry } from './carry.js';
 import { swapWorth } from './statworth.js';
 import { betterRoundsInPack } from './rounds.js';
@@ -23,6 +23,24 @@ export function pickGain(game, s, mode = game.combatMode()) {
   if (eq.slot === 'shield' && canDualWield(eqp.get('weapon'))) return null;
   // ...and a two-handed weapon leaves no hand for a shield at all (a bow still takes a quiver).
   if (eq.slot === 'shield' && offhandBlocked(eqp.get('weapon'), s.id)) return null;
+  // A weapon of another type that pairs with the one in hand goes on the other hand
+  // (a Monk's monk gloves beside its knuckles, Game.goesOffhand): it is weighed
+  // against the off-hand's, striking on the main hand's beat, as Equip best's
+  // off-hand pass weighs it.
+  const main = eqp.get('weapon');
+  // ...but a Monk's knuckles take the main hand back from its gloves (Game.goesOffhand), the
+  // strongest first: knuckles first and gloves second hit hardest, and the off-hand pass
+  // then puts the gloves beside them.
+  if (eq.slot === 'weapon' && takesMainHand(game.jobClass, s.id, main)) {
+    const gain = offenceFirstScore(s.id, eqp, mode, 'main', s.q || null) - offenceFirstScore(main, eqp, mode, eqp.copyIn('weapon'), eqp.qualityIn('weapon'));
+    return { slot: 'weapon', gain, rank: 1e15 + gearRating(s.id) };
+  }
+  if (eq.slot === 'weapon' && main && canDualPair(s.id, main) && eq.weaponType !== getItem(main).equip.weaponType) {
+    const beats = swingBeats(main), off = eqp.get('shield');
+    const offScore = (id, q = null) => offenceFirstScore(id, eqp, mode, eqp.copyFor(id, 'shield'), q, beats);
+    const gain = offScore(s.id, s.q || null) - (canDualPair(off, main) ? offScore(off, eqp.qualityIn('shield')) : 0);
+    return { slot: 'shield', gain, rank: gain > 0 ? gain : 0 };
+  }
   const worn = eqp.get(eq.slot);
   // Keep to the weapon style you fight with (a staff won't replace a sword).
   if (eq.slot === 'weapon' && worn && weaponStyle(s.id) !== weaponStyle(worn)) return null;

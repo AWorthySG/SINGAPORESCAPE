@@ -320,6 +320,24 @@ export const WEAPON_DMG_MULT = {
   // main types: each now lands at about 80-105% of its class's main weapon, the
   // chakram 60-105% as it serves three quite different classes.)
   parang: 1.75, kerambit: 0.18, toya: 2.35, crossbow: 2.92, chakram: 1.3, orb: 0.255, fan: 1.29,
+  // The Monk: monk knuckles in the main hand and monk gloves in the off-hand, both
+  // striking every swing (the off-hand at OFFHAND_SHARE) on the knuckles' quick beat,
+  // and both at the knuckles' scale (each hand's blow takes the main weapon's), with
+  // Chi adding about a fifth over a fight (monk.js). Gloves in the main hand swing
+  // slower, so theirs sits higher, leaving a gloves-first pair a little under the
+  // knuckles' (88-94% of it). Tuned with tools/balance/classes.mjs: the Monk deals
+  // 100% of the median class's single-target damage at levels 100 and 300, and
+  // 103-105% on bosses (between the Corsair and the Brawler in real boss fights).
+  knuckles: 0.24, monk_gloves: 0.32,
+  // The Zealot's censer: an orb's pace, with its holy fire (game.js WOUNDS) adding a
+  // share of every hit and Fervour more as the Zealot's life runs low (zealot.js).
+  // Tuned with tools/balance/classes.mjs: the Zealot deals 112% of the Wizard's
+  // single-target damage at level 100 (its life costs keep it hurt, so Fervour
+  // counts) and 99% at level 300 (where Magic's Siphon perk heals them straight
+  // back), and kills at 97-108% of its pace in real boss fights (bossfight.mjs).
+  // (The Priest's orb keeps the scale above, as the Wizard's and Sorcerer's second
+  // weapon: see priest.js.)
+  censer: 0.2,
 };
 /** The target's number scale (see hpScaleFor in npcs.js): hits on a big monster are divided by it. */
 const numScale = (npc) => npc?.hpScale || 1;

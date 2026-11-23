@@ -25,6 +25,9 @@ import { rivals } from './blessings.js';
 import { CLASS_BY_ID } from '../data/classes.js';
 import { classPassiveMods, CLASS_SKILL } from '../data/classPassives.js';
 import { masteryDamage, stewardship, masterySummary, titleText, MASTERY_TIERS } from './culling.js';
+import * as Monk from './monk.js';
+import * as Priest from './priest.js';
+import * as Zealot from './zealot.js';
 
 // The same set as game.js (not exported there): the Holy path smites these races.
 const UNHOLY_RACES = new Set(['undead', 'spirit', 'demon']);
@@ -106,7 +109,9 @@ export function damageMult(game, mode = game.combatMode(), { npc = null, boss = 
   mul(weak ? WEAKNESS_BONUS.dmg : 1, 'Weakness');
   if (def) {
     const race = raceOf(def, npc.npcId);
-    const mu = mode === 'magic' ? elementMatchup((spell || currentSpell(game)).element, race) : matchup(game.weaponType(), race);
+    // (A dual wielder's off-hand blow takes its own weapon's match-up, as in Game._offensiveMods.)
+    const wt = hand === 'off' && game.equipment.isDualWielding() ? getItem(game.equipment.get('shield')).equip.weaponType : game.weaponType();
+    const mu = mode === 'magic' ? elementMatchup((spell || currentSpell(game)).element, race) : matchup(wt, race);
     if (mode === 'magic') mul(elementMult(mu), mu === 'strong' ? 'Element effective vs race' : 'Element resisted by race');
     else if (mu === 'strong') mul(RACE_BONUS.dmg, 'Effective vs race');
     else if (mu === 'weak') mul(RACE_PENALTY.dmg, 'Resisted by race');
@@ -128,6 +133,10 @@ export function damageMult(game, mode = game.combatMode(), { npc = null, boss = 
   if (npc && game.onSlayerTask(npc)) mul(1 + game.slayerBonus().dmg / 100, 'Slayer task');
   if (npc) { const cm = masteryDamage(game, npc); mul(1 + cm.species, 'Codex mastery (species)'); mul(1 + cm.race, 'Codex mastery (race)'); }
   if (npc?.openWounds) mul(1 + openWoundStacks(npc, game.tickCount) * OPEN_WOUNDS.per, 'Open wounds (Brawler)');
+  mul(Monk.chiPower(game), `Chi ${Monk.chiStacks(game)}/${Monk.CHI.max} (Monk)`);
+  mul(Zealot.fervour(game), 'Fervour: life missing (Zealot)');
+  mul(Zealot.orbShare(game), 'An orb, not a censer (Zealot)');
+  mul(Priest.smite(game, npc), Priest.unholy(npc) ? 'Smiting the unholy (Priest)' : 'Priest');
   return { m, parts };
 }
 
@@ -283,9 +292,10 @@ export function statSheet(game) {
     if (tot) offence.push(row('extra', mode === 'magic' ? 'Spell echo chance %' : 'Extra strike chance %', pct(tot, false), [...bonusParts(p), ...perkLines(pe)]));
   }
   {
-    const p = part('lifesteal'), pl = perks.get('lifesteal'), buff = game.buffMod('lifesteal') * 100;
-    const tot = p.total + pl.total * 100 + buff;
-    if (tot) offence.push(row('lifesteal', 'Lifesteal %', pct(tot, false), [...bonusParts(p), ...perkLines(pl), ...(buff ? [['Class buff', pct(buff)]] : [])],
+    const p = part('lifesteal'), pl = perks.get('lifesteal'), buff = game.buffMod('lifesteal') * 100, priest = Priest.spellLifesteal(game);
+    const tot = p.total + pl.total * 100 + buff + priest;
+    if (tot) offence.push(row('lifesteal', 'Lifesteal %', pct(tot, false), [...bonusParts(p), ...perkLines(pl), ...(buff ? [['Class buff', pct(buff)]] : []),
+      ...(priest ? [['Healing spells (Priest)', pct(priest)]] : [])],
       'Heals this share of the damage you deal.'));
   }
   const splash = perks.get('splash');
@@ -324,10 +334,11 @@ export function statSheet(game) {
   }
   {
     const dance = mode === 'dance' ? danceEvade(sk.agility, game.player.danceStyle) : 0;
-    const pd = defPerks.get('dodge'), buff = game.buffMod('dodge');
-    const tot = 1 - (1 - dance) * (1 - (pd.total + buff));
+    const pd = defPerks.get('dodge'), buff = game.buffMod('dodge'), monk = Monk.dodge(game);
+    const tot = 1 - (1 - dance) * (1 - (pd.total + buff + monk));
     if (tot > 0) defence.push(row('dodge', 'Dodge chance %', fracPct(tot, false),
-      [...(dance ? [["Dancer's evasion (Agility)", fracPct(dance)]] : []), ...perkLines(pd), ...(buff ? [['Class buff', fracPct(buff)]] : [])],
+      [...(dance ? [["Dancer's evasion (Agility)", fracPct(dance)]] : []), ...perkLines(pd), ...(buff ? [['Class buff', fracPct(buff)]] : []),
+        ...(monk ? [['Light on your feet (Monk)', fracPct(monk)]] : [])],
       'Halved against heavy, telegraphed blows.'));
   }
   {
