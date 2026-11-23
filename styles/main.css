@@ -1582,7 +1582,7 @@ body.boss-on #tip-toast { top: 132px; }
     position: fixed; z-index: 28; width: 40px; height: 40px; border-radius: 50%; padding: 0;
     right: calc(var(--pad-r) + var(--atk) / 2 - 20px - 30px); bottom: calc(var(--pad-b) + var(--atk) / 2 - 20px + 62px);
     background: var(--aw-card); color: var(--aw-ink); border: 2.5px solid var(--aw-ink);
-    box-shadow: 0 3px 0 rgba(34,48,74,.35); font: 900 var(--fs-xl)/1 inherit; touch-action: none; user-select: none; -webkit-user-select: none;
+    box-shadow: 0 3px 0 rgba(34,48,74,.35); font: 900 20px/1 inherit; touch-action: none; user-select: none; -webkit-user-select: none;
   }
   #target-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(34,48,74,.35); }
 
@@ -3849,7 +3849,7 @@ input[type="range"]:focus-visible { outline: 3px solid var(--aw-sun); outline-of
 
 
 /* Skills & perks window: each skill's key, cost and cooldown on its name line. */
-.sk-row kbd { display: inline-block; min-width: 1.4em; padding: 0 4px; border: 1px solid var(--aw-line, #c9bda3); border-radius: 4px; font: 800 var(--fs-xs)/1.4 inherit; text-align: center; }
+.sk-row kbd { display: inline-block; min-width: 1.4em; padding: 0 4px; border: 1px solid var(--aw-line, #c9bda3); border-radius: 4px; font: 800 11px/1.4 inherit; text-align: center; }
 .sk-row .sk-meta { font-style: normal; font-size: var(--fs-xs); opacity: .75; }
 .sk-row .cp-ic { flex: 0 0 auto; }
 .cp-list .cp-row { flex-direction: row; align-items: flex-start; justify-content: flex-start; gap: 8px; }
