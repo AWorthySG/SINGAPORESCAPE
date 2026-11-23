@@ -2,12 +2,15 @@
 // player can screenshot what is slow on their own phone (Safari on an iPhone
 // has no profiler to hand). It shows, over the last few seconds: frames per
 // second and the median and worst-5% time between frames; how much of a frame
-// the game's update, the drawing and the rest of the game's script take, and
-// the slowest update and drawing (what is left of the frame goes on the
-// browser's own painting, or waiting); the
-// canvas's resolution and how far it was scaled down; whether the slow-frame
-// trim and low graphics are on; how many creatures are drawn and how many
-// monsters are alive nearby; the bag's size; and the chat's lines per second.
+// the game's update, the drawing and the rest of the game loop's script take,
+// and the slowest update and drawing; the canvas's resolution and how far it
+// was scaled down; whether the slow-frame trim and low graphics are on; how
+// many creatures are drawn and how many monsters are alive nearby; the bag's
+// size; and the chat's lines per second. What is left of a frame goes on the
+// browser's own painting and waiting, and on the little script that runs
+// outside the game loop: HUD redraws put off to an animation frame of their
+// own (ui.js _soon, the bag, the notice lane) and timers, a few per cent of
+// the script in a test fight.
 //
 // main.js only loads this module once the setting is on, then calls frame()
 // once a frame. Off, it costs nothing; on, a few clock reads a frame, and the
