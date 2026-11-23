@@ -1,0 +1,47 @@
+/* ==========================================================================
+   The minimap as a sticker map (src/render/minimapart.js draws it).
+   The white rim, navy lines and compass are painted on the canvas itself,
+   so the old box-shadow rings and the separate "N" badge go; the canvas
+   grows a little to keep the map as big as it was, sits on a soft sticker
+   shadow, and the area name hangs off the bottom of the ring as a ribbon.
+   Linked before compact.css, which still has the last word on phones.
+   ========================================================================== */
+#minimap-canvas {
+  top: 4px; left: 4px; width: 170px; height: 170px;
+  background: #22304A;   /* behind the ring's anti-aliased outer edge */
+  box-shadow: 0 4px 0 rgba(34,48,74,0.2), 0 6px 14px rgba(34,48,74,0.18);
+}
+#minimap-compass { display: none; }
+
+/* The day/night dial takes the old compass spot, top-left of the ring
+   (the ring's own N tab is at the top). */
+#daynight-badge { top: -2px; left: -2px; right: auto; margin-left: 0; }
+
+/* The area name: a ribbon tucked over the bottom of the ring. */
+#minimap-panel #minimap-region {
+  margin-top: -14px; padding: 2px 12px; font-weight: 900; letter-spacing: .2px;
+  background: #FFF8EA; border: 2px solid var(--aw-ink, #22304A);
+  box-shadow: 0 3px 0 rgba(34,48,74,0.18); overflow: visible;
+}
+#minimap-panel #minimap-region::before,
+#minimap-panel #minimap-region::after {
+  content: ""; position: absolute; top: 5px; width: 10px; height: 12px; z-index: -1;
+  background: #F2C14E; border: 2px solid var(--aw-ink, #22304A);
+}
+#minimap-panel #minimap-region::before { left: -9px; border-right: 0; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 45% 50%); }
+#minimap-panel #minimap-region::after { right: -9px; border-left: 0; clip-path: polygon(0 0, 100% 0, 55% 50%, 100% 100%, 0 100%); }
+#minimap-panel #minimap-region.wild::before, #minimap-panel #minimap-region.wild::after { background: #F28C82; }
+#minimap-panel #minimap-region:empty { display: none; }
+
+/* MAP sits on the ring's lower right, like a tab stuck on the sticker. */
+#map-btn { bottom: 26px; right: -4px; }
+
+/* Phones: the canvas fills the smaller corner panel (the ring is inside it now). */
+@media (max-width: 540px) {
+  #minimap-canvas { top: 2px; left: 2px; width: 118px; height: 118px; }
+  #minimap-panel #minimap-region { margin-top: -10px; padding: 1px 9px; }
+  #minimap-panel #minimap-region::before, #minimap-panel #minimap-region::after { top: 3px; width: 8px; height: 10px; }
+  #minimap-panel #minimap-region::before { left: -7px; }
+  #minimap-panel #minimap-region::after { right: -7px; }
+  #map-btn { bottom: 18px; right: -4px; }
+}

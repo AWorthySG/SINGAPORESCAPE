@@ -63,8 +63,8 @@ export function eventTrackerRows(ui) {
 }
 
 /** The event's marker on the minimap: a pulsing ring where it is, or a small
- *  arrow on the rim pointing the way when it's off the edge. */
-export function drawEventMarker(ctx, game, W, H, px, py, radius, scale) {
+ *  arrow on the rim (`rim` from the middle) pointing the way when it's off the edge. */
+export function drawEventMarker(ctx, game, W, H, px, py, radius, scale, rim = W / 2 - 7) {
   const ev = game.worldEvents?.active;
   if (!ev) return;
   const col = EVENT_KINDS[ev.kind].colour;
@@ -78,7 +78,7 @@ export function drawEventMarker(ctx, game, W, H, px, py, radius, scale) {
     ctx.fillStyle = col; ctx.strokeStyle = '#22304a'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
   } else {
-    const a = Math.atan2(dy, dx), r = W / 2 - 7;
+    const a = Math.atan2(dy, dx), r = rim;
     ctx.translate(W / 2 + Math.cos(a) * r, H / 2 + Math.sin(a) * r);
     ctx.rotate(a);
     ctx.fillStyle = col; ctx.strokeStyle = '#22304a'; ctx.lineWidth = 1;

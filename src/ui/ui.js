@@ -59,7 +59,7 @@ import { ATTRS, ATTR_NAMES, attrSummary, attrForMode, MAX_STAT_POINTS, RESET_COS
 import { STAT_LABELS, STAT_HELP, compareGear, deltaText, effectiveRating, gearBySlot, gearRating, meetsReq, swingBeats, tierOf, weaponStyle } from '../game/gear.js';
 import { TILE, LEARNING_ENABLED, TICK_MS } from '../config.js';
 import { zoneLevel } from '../data/world.js';
-import { paintMinimapTerrain, minimapNpcKind, MINIMAP_DOT } from '../render/minimapart.js';
+import { paintMinimapTerrain, minimapNpcKind, MINIMAP_DOT, MinimapChunks, bakeMinimapPatch, minimapObjectBadge, minimapNpcBadge, BADGE_ESSENTIAL, badgeSprite, minimapRing, rimPoint } from '../render/minimapart.js';
 import { clearSave, suppressSaves, exportSaveCode, importSaveCode } from '../game/save.js';
 import { statSheet } from '../game/statsheet.js';
 import { statsPanelHTML } from './statspanel.js';
@@ -94,7 +94,7 @@ import { CmdSearch } from './cmdsearch.js';
 import { addCollectionButton } from './collectionui.js';
 import { renderHpBar } from './hpbar.js';
 import { TIPS, TIPS_KEY, TIP_MS, nextTip, markTipSeen, tipsSeen } from './tips.js';
-import { labelMode, nextLabelMode, LABEL_MODE_NAMES } from '../render/worldlabels.js';
+import { labelMode, nextLabelMode, LABEL_MODE_NAMES, questNpcIds } from '../render/worldlabels.js';
 import { applyAccessibility, countUp, playCloseGhost, inlineIcon } from './uifx.js';
 import { mechLabel } from '../game/bossmech.js';
 import { renderBossBar } from './bossbar.js';
@@ -222,6 +222,12 @@ export class UI {
       minimapRegion: id('minimap-region'),
       mapBtn: id('map-btn'),
     };
+    // The minimap draws in its own 160-unit square, backed by the screen's
+    // pixels (shown a little larger than 160px, minimap.css) so the badges,
+    // arrow and ring stay crisp; at most three pixels per unit.
+    this._mmSize = this.el.minimap.width;
+    this._mmDpr = Math.min(3, Math.max(1, (typeof window !== 'undefined' && window.devicePixelRatio) || 1) * 1.1);
+    this.el.minimap.width = this.el.minimap.height = this._mmSize * this._mmDpr;
     this.minimapCtx = this.el.minimap.getContext('2d');
 
     // Tab buttons: the mascot icon plus a short label, so each tab is easy to find.
@@ -4569,6 +4575,9 @@ export class UI {
     // `focus` ({ x, y, label }) opens with that spot picked (the Monster Codex's Show on map).
     let sel = focus && Number.isFinite(focus.x) ? focus : null;
     // The terrain never changes, so paint it once (one pixel per tile) and scale it up.
+    // It is the minimap's sticker map, at the two pixels per tile the map is
+    // drawn at (minimapart.js), painted on first open.
+    if (!this._mapBase) this._mapBase = bakeMinimapPatch(game.world, 0, 0, W, H, 2);
     if (!this._mapBase) {
       const b = document.createElement('canvas');
       b.width = W; b.height = H;
@@ -4768,18 +4777,25 @@ export class UI {
     this._lastMinimap = now;
     const ctx = this.minimapCtx;
     const game = this.game;
-    const W = this.el.minimap.width, H = this.el.minimap.height;
+    const dpr = this._mmDpr || 1;
+    const W = this._mmSize || this.el.minimap.width, H = W;
     const scale = 4;                 // px per tile
-    const radius = Math.ceil(W / scale / 2);
+    const MR = W / 2 - 8;            // the map's radius inside the sticker ring
+    const radius = Math.ceil(MR / scale);
     const px = game.player.x, py = game.player.y;
+    // A small minimap (phones) keeps only the badges you look for most.
+    const small = (this.el.minimap.clientWidth || W) < 130;
+    const pulse = game.reduceMotion ? 0.5 : (Math.sin(now / 260) + 1) / 2;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
     ctx.save();
-    ctx.beginPath(); ctx.arc(W / 2, H / 2, W / 2 - 1, 0, Math.PI * 2); ctx.clip();
+    ctx.beginPath(); ctx.arc(W / 2, H / 2, MR, 0, Math.PI * 2); ctx.clip();
 
-    // Terrain: the whole map is painted once into a one-pixel-per-tile image,
-    // and each update just draws the patch around the player, scaled up
-    // (was one small rectangle per tile, ~2400 a refresh).
-    const terr = this._minimapTerrain();
+    // Ground: the sticker map, baked in chunks as you walk into them and then
+    // just copied (minimapart.js). Until a chunk is ready the flat
+    // one-pixel-per-tile picture shows underneath, scaled up.
+    const chunks = this._mmChunks || (this._mmChunks = new MinimapChunks(game.world));
+    const terr = this._mmWhole ? null : this._minimapTerrain();
     if (terr) {
       const prev = ctx.imageSmoothingEnabled;
       ctx.imageSmoothingEnabled = false;
@@ -4788,88 +4804,151 @@ export class UI {
         W / 2 + (Math.round(px) - px - radius) * scale - scale / 2, H / 2 + (Math.round(py) - py - radius) * scale - scale / 2, side * scale, side * scale);
       ctx.imageSmoothingEnabled = prev;
     }
-    // Objects (notable ones): just those in the minimap's square (spatial index).
+    this._mmWhole = chunks.draw(ctx, px, py, W, H, scale);
+    const inView = (dx, dy) => dx * dx + dy * dy <= (radius + 0.5) * (radius + 0.5);
+    // Landmarks: sticker badges for the places you look for (bank, MRT,
+    // anvils and furnaces, shrines, stalls); trees, rocks and buildings are
+    // in the baked ground. Just those in the minimap's square (spatial index).
     const mmObjs = game.world.objectsIn ? game.world.objectsIn(Math.floor(px - radius), Math.floor(py - radius), Math.ceil(px + radius), Math.ceil(py + radius), this._mmObjs || (this._mmObjs = [])) : game.world.objects;
+    const BR = 5.5;   // badge radius
+    // One badge stands for a cluster of the same kind within five tiles (a
+    // town's anvils and furnaces show once), so the map never fills up with stickers.
+    const placed = this._mmPlaced || (this._mmPlaced = []);
+    placed.length = 0;
+    const badge = (kind, x, y) => {
+      if (small && !BADGE_ESSENTIAL.has(kind)) return;
+      for (let i = 0; i < placed.length; i += 3) if (placed[i] === kind && (placed[i + 1] - x) ** 2 + (placed[i + 2] - y) ** 2 < 400) return;
+      placed.push(kind, x, y);
+      const sp = badgeSprite(kind, BR, dpr);
+      if (sp) ctx.drawImage(sp, x - sp.width / dpr / 2, y - sp.height / dpr / 2, sp.width / dpr, sp.height / dpr);
+    };
     for (const o of mmObjs) {
+      const kind = minimapObjectBadge(o);
+      if (!kind) continue;
       const dx = o.x - px, dy = o.y - py;
-      if (Math.abs(dx) > radius || Math.abs(dy) > radius) continue;
-      let col = null;
-      if (o.def.type === 'tree' && !o.depleted) col = '#1f5a1f';
-      else if (o.def.type === 'rock' && !o.depleted) col = '#cfcfcf';
-      else if (o.def.type === 'bank') col = '#ffd24a';
-      else if (o.def.type === 'fishing') col = '#7fd8ff';
-      else if (o.def.type === 'transport') col = '#ffffff';
-      else if (o.def.type === 'gate') col = '#b58cff';
-      if (!col) continue;
-      const big = o.def.type === 'bank' || o.def.type === 'transport';
-      ctx.fillStyle = col;
-      ctx.fillRect(W / 2 + dx * scale - (big ? 1.5 : 1), H / 2 + dy * scale - (big ? 1.5 : 1), big ? 4 : 3, big ? 4 : 3);
+      if (inView(dx, dy)) badge(kind, W / 2 + dx * scale, H / 2 + dy * scale);
     }
-    // Ground items.
-    ctx.fillStyle = '#ff3b3b';
+    // Ground items: a small pink sparkle on a white edge.
     for (const g of game.world.groundItems) {
       const dx = g.x - px, dy = g.y - py;
-      if (Math.abs(dx) > radius || Math.abs(dy) > radius) continue;
-      ctx.fillRect(W / 2 + dx * scale, H / 2 + dy * scale, 2, 2);
+      if (!inView(dx, dy)) continue;
+      const x = W / 2 + dx * scale, y = H / 2 + dy * scale;
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x, y, 2.4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#E5484D'; ctx.beginPath(); ctx.arc(x, y, 1.4, 0, Math.PI * 2); ctx.fill();
     }
     // NPCs (only nearby ones can be on the minimap): two kinds of dot, red
     // for anything you can fight and cream for everyone else, each on a navy
-    // ink edge; people a quest sends you to are kept back and drawn last,
-    // bigger, as gold markers on top of the crowd (minimapart.js).
+    // ink edge; bosses and shopkeepers wear a badge instead; people a quest
+    // sends you to are kept back and drawn last, bigger, as gold markers on
+    // top of the crowd (minimapart.js). Colour-blind friendly: foes get a
+    // white ring as well, so they never rely on red against green.
     const quest = this._mmQuest || (this._mmQuest = []);
     quest.length = 0;
-    ctx.fillStyle = MINIMAP_DOT.ink;
     const dots = this._mmDots || (this._mmDots = []);
     dots.length = 0;
+    const cb = !!game.colourBlind;
+    ctx.fillStyle = MINIMAP_DOT.ink;
     for (const n of (game.nearbyNpcs ? game.nearbyNpcs() : game.npcs)) {
       if (!n.alive) continue;
       const dx = n.x - px, dy = n.y - py;
-      if (Math.abs(dx) > radius || Math.abs(dy) > radius) continue;
+      if (!inView(dx, dy)) continue;
       const kind = minimapNpcKind(game, n);
       if (kind === 'quest') { quest.push(n); continue; }
       const x = W / 2 + dx * scale, y = H / 2 + dy * scale;
+      const nb = minimapNpcBadge(n);
+      if (nb) { dots.push(x, y, 2 + (nb === 'boss' ? 0 : nb === 'shop' ? 1 : 2)); continue; }
       dots.push(x, y, kind === 'foe' ? 1 : 0);
-      ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();   // the ink edges first, in one colour
+      ctx.beginPath(); ctx.arc(x, y, cb && kind === 'foe' ? 3.6 : 3, 0, Math.PI * 2); ctx.fill();   // the ink edges first, in one colour
+    }
+    if (cb) {
+      ctx.fillStyle = '#fff';
+      for (let i = 0; i < dots.length; i += 3) if (dots[i + 2] === 1) { ctx.beginPath(); ctx.arc(dots[i], dots[i + 1], 2.6, 0, Math.PI * 2); ctx.fill(); }
     }
     for (const kind of [0, 1]) {
-      ctx.fillStyle = kind ? MINIMAP_DOT.foe : MINIMAP_DOT.friend;
+      ctx.fillStyle = kind ? (cb ? '#D6336C' : MINIMAP_DOT.foe) : MINIMAP_DOT.friend;
       for (let i = 0; i < dots.length; i += 3) {
         if (dots[i + 2] !== kind) continue;
-        ctx.beginPath(); ctx.arc(dots[i], dots[i + 1], 2, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(dots[i], dots[i + 1], kind && cb ? 1.7 : 2, 0, Math.PI * 2); ctx.fill();
       }
+    }
+    for (let i = 0; i < dots.length; i += 3) if (dots[i + 2] >= 2) badge(['boss', 'shop', 'bank'][dots[i + 2] - 2], dots[i], dots[i + 1]);
+    // Your pet, if one follows you: a small lilac dot.
+    const pet = game.pets?.follower;
+    if (pet && inView(pet.x - px, pet.y - py)) {
+      ctx.fillStyle = MINIMAP_DOT.ink; ctx.beginPath(); ctx.arc(W / 2 + (pet.x - px) * scale, H / 2 + (pet.y - py) * scale, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#C7B5F0'; ctx.beginPath(); ctx.arc(W / 2 + (pet.x - px) * scale, H / 2 + (pet.y - py) * scale, 2, 0, Math.PI * 2); ctx.fill();
     }
     // Treasure-trail dig spot (pulsing gold).
     if (game.clue) {
       const spot = game.clue.spots[game.clue.step];
       if (spot) {
         const dx = spot.x - px, dy = spot.y - py;
-        if (Math.abs(dx) <= radius && Math.abs(dy) <= radius) {
+        if (inView(dx, dy)) {
           ctx.fillStyle = '#ffd24a';
           ctx.beginPath(); ctx.arc(W / 2 + dx * scale, H / 2 + dy * scale, 3, 0, Math.PI * 2); ctx.fill();
           ctx.strokeStyle = '#3a2a00'; ctx.lineWidth = 1; ctx.stroke();
         }
       }
     }
-    drawEventMarker(ctx, game, W, H, px, py, radius, scale);   // a world event: here, or which way
-    // Quest markers on top: a gold diamond with a navy edge.
-    ctx.fillStyle = MINIMAP_DOT.quest; ctx.strokeStyle = MINIMAP_DOT.ink; ctx.lineWidth = 1.5;
+    drawEventMarker(ctx, game, W, H, px, py, radius, scale, MR - 6);   // a world event: here, or which way (inside the ring)
+    // Quest markers on top: a gold diamond with a navy edge in a gently
+    // pulsing glow.
     for (const n of quest) {
       const x = W / 2 + (n.x - px) * scale, y = H / 2 + (n.y - py) * scale;
-      ctx.beginPath(); ctx.moveTo(x, y - 5); ctx.lineTo(x + 4, y); ctx.lineTo(x, y + 5); ctx.lineTo(x - 4, y); ctx.closePath();
+      ctx.fillStyle = `rgba(255,210,74,${(0.25 + pulse * 0.3).toFixed(2)})`;
+      ctx.beginPath(); ctx.arc(x, y, 6.5 + pulse * 2, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = MINIMAP_DOT.quest; ctx.strokeStyle = MINIMAP_DOT.ink; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(x, y - 5.5); ctx.lineTo(x + 4.5, y); ctx.lineTo(x, y + 5.5); ctx.lineTo(x - 4.5, y); ctx.closePath();
       ctx.fill(); ctx.stroke();
     }
-    // You: a white sticker dot with a navy edge in a soft halo, in the middle.
-    ctx.fillStyle = 'rgba(255,255,255,0.45)';
-    ctx.beginPath(); ctx.arc(W / 2, H / 2, 6.5, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.strokeStyle = MINIMAP_DOT.ink; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.arc(W / 2, H / 2, 3.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    // A faint navy wash after dark keeps the minimap in step with the world.
+    // You: a white arrow pointing the way you face, in a soft halo.
+    const f = game.player.facing;
+    if (f && (f.dx || f.dy)) this._mmFace = Math.atan2(f.dy, f.dx);
+    const want = this._mmFace ?? Math.PI / 2;
+    let ang = this._mmAng ?? want;
+    ang += Math.atan2(Math.sin(want - ang), Math.cos(want - ang)) * (game.reduceMotion ? 1 : 0.6);   // turn the short way, smoothly
+    this._mmAng = ang;
+    ctx.fillStyle = 'rgba(34,48,74,0.16)';   // a halo that shows on pale paving and on grass
+    ctx.beginPath(); ctx.arc(W / 2, H / 2, 9.5, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.arc(W / 2, H / 2, 9.5, 0, Math.PI * 2); ctx.stroke();
+    ctx.save();
+    ctx.translate(W / 2, H / 2); ctx.rotate(ang + Math.PI / 2);
+    ctx.fillStyle = 'rgba(34,48,74,0.3)';
+    ctx.beginPath(); ctx.moveTo(0, -5.5 + 1.2); ctx.lineTo(4.6, 5.2 + 1.2); ctx.lineTo(0, 2.6 + 1.2); ctx.lineTo(-4.6, 5.2 + 1.2); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.strokeStyle = MINIMAP_DOT.ink; ctx.lineWidth = 1.6; ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(0, -5.5); ctx.lineTo(4.6, 5.2); ctx.lineTo(0, 2.6); ctx.lineTo(-4.6, 5.2); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.restore();
+    // After dark only a light navy veil: the map stays readable at night.
     const night = 1 - game.daylightFactor();
     if (night > 0.05) {
-      ctx.fillStyle = `rgba(8,16,40,${Math.min(0.45, night * night * 0.55).toFixed(3)})`;
+      ctx.fillStyle = `rgba(20,30,70,${Math.min(0.16, night * 0.2).toFixed(3)})`;
       ctx.fillRect(0, 0, W, H);
     }
     ctx.restore();
+    // The sticker ring and its compass, painted once.
+    if (this._mmRing === undefined) this._mmRing = minimapRing(W, MR, dpr);
+    if (this._mmRing) ctx.drawImage(this._mmRing, 0, 0, W, H);
+    // Quest people off the edge of the map: a small gold arrow on the rim
+    // pointing the way (the nearest of each, at most three).
+    let shown = 0;
+    for (const id of questNpcIds(game)) {
+      if (shown >= 3) break;
+      let best = null, bd = Infinity;
+      for (const n of this._trkCandidates('id:' + id, (m) => m.npcId === id)) {
+        if (!n.alive) continue;
+        const d = (n.x - px) ** 2 + (n.y - py) ** 2;
+        if (d < bd) { bd = d; best = n; }
+      }
+      if (!best || inView(best.x - px, best.y - py)) continue;
+      shown++;
+      const p = rimPoint(W, H, best.x - px, best.y - py, MR - 6 - pulse * 1.5);
+      ctx.save();
+      ctx.translate(p.x, p.y); ctx.rotate(p.a);
+      ctx.fillStyle = MINIMAP_DOT.quest; ctx.strokeStyle = MINIMAP_DOT.ink; ctx.lineWidth = 1.5; ctx.lineJoin = 'round';
+      ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(-4, -5.5); ctx.lineTo(-1.5, 0); ctx.lineTo(-4, 5.5); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.restore();
+    }
   }
 }
 
