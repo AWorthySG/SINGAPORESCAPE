@@ -85,7 +85,7 @@ test('netting the school: 250-600 fish at once, XP for each, and it is used up',
   fs.nextAt = Infinity;   // no other school wanders in
   const s = fs.spawn(spot);
   s.fishId = 'raw_tuna'; s.until = g.tickCount + 1000;
-  fs.rand = () => 0.1;   // under the 1 in 4: the next catch nets it
+  fs.rand = () => 0.1;   // under the 1 in 2: the next catch nets it
   const xpCalls = [];
   const addXp = g.skills.addXp.bind(g.skills);
   g.skills.addXp = (id, amt) => { xpCalls.push([id, amt]); return addXp(id, amt); };
@@ -120,7 +120,7 @@ test('the haul grows with Fishing level and a rune-or-better tool, to 600 at mos
   assert.equal(SCHOOL_HAUL_MAX, 600);
 });
 
-test('a catch only nets the school about 1 in 4 times; otherwise fishing goes on as normal', () => {
+test('a catch nets the school about 1 in 2 times (the owner doubled it from 1 in 4); otherwise fishing goes on as normal', () => {
   const g = newGame();
   const spot = harpoonSpot(g);
   standBy(g, spot);
@@ -133,7 +133,7 @@ test('a catch only nets the school about 1 in 4 times; otherwise fishing goes on
     if (fs.onCatch(spot, 1) > 0) netted++;
   }
   const r = netted / tries;
-  assert.ok(r > 0.18 && r < 0.32, `about a quarter (${r.toFixed(2)})`);
+  assert.ok(r > 0.42 && r < 0.58, `about a half (${r.toFixed(2)})`);
 });
 
 test('a full bag takes only what fits', () => {

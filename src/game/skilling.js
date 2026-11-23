@@ -255,7 +255,7 @@ export function resolveFish(game, action) {
       game.inventory.add('coins', 50 + Math.round(pick.xp));
       game.spawnSparkle(game.player, '#ffd24a', 14); game.spawnPoof(fc.x, fc.y, '#ffe79a');
       game.msg(`A TROPHY catch! A magnificent ${nm}!`, 'level');
-      game.fishSchools?.onCatch(obj, pick.xp ? xpEach / pick.xp : 1);   // a school at the spot: maybe the whole lot (fishschool.js)
+      game.fishSchools?.onCatch(obj, pick.xp ? xpEach / pick.xp : 1, pick.id);   // maybe a whole school (fishschool.js)
       return true;
     }
     // A "big catch" reels in two at once — more likely at higher levels / with bait.
@@ -266,7 +266,7 @@ export function resolveFish(game, action) {
     game.spawnPoof(fc.x, fc.y, '#bfe3ff');
     game.bus.emit('sfx', 'gather');
     game.msg(big ? `A big catch! You haul in two ${nm}.` : `You catch ${aOrAn(nm)}.`);
-    game.fishSchools?.onCatch(obj, pick.xp ? xpEach / pick.xp : 1);   // a school at the spot: maybe the whole lot (fishschool.js)
+    game.fishSchools?.onCatch(obj, pick.xp ? xpEach / pick.xp : 1, pick.id);   // maybe a whole school (fishschool.js)
   }
   return true; // fishing spots never deplete
 }

@@ -7,7 +7,8 @@ import assert from 'node:assert/strict';
 import { Game } from '../src/game/game.js';
 import { clearSave } from '../src/game/save.js';
 import { xpForLevel } from '../src/data/xp.js';
-import { resolveWoodcut, resolveMine } from '../src/game/skilling.js';
+import { resolveWoodcut, resolveMine, resolveFish } from '../src/game/skilling.js';
+import { FISH_SCHOOL, WILD_STOCK } from '../src/game/fishschool.js';
 import { NODE_JACKPOT, JACKPOT_CHANCE, setJackpotRand, nodeJackpot, SEAM_MULT } from '../src/game/jackpot.js';
 import { mulberry32 } from '../src/game/pets.js';
 import { SKILL_GUIDES } from '../src/game/skillguide.js';
@@ -71,7 +72,7 @@ test('a lucky swing breaks the whole seam free: ten times every ore left, and th
   }
 });
 
-test('an unlucky swing changes nothing, and it is about 1 in 40', () => {
+test('an unlucky swing changes nothing, and it is about 1 in 20 (the owner doubled it from 1 in 40)', () => {
   const g = newGame();
   const tree = find(g, 'tree');
   tree.logsLeft = 15;
@@ -85,7 +86,7 @@ test('an unlucky swing changes nothing, and it is about 1 in 40', () => {
   const obj = { x: 0, y: 0, def: {} };
   for (let i = 0; i < 20000; i++) if (nodeJackpot(fake, obj, { kind: 'mining', left: 1, xpEach: 1, pick: () => 'copper_ore' })) hits++;
   assert.ok(Math.abs(hits / 20000 - JACKPOT_CHANCE) < 0.006, `about ${JACKPOT_CHANCE} (${hits / 20000})`);
-  assert.equal(JACKPOT_CHANCE, 0.025);
+  assert.equal(JACKPOT_CHANCE, 0.05);
 });
 
 test('the last log or ore is never a jackpot, and the switch turns it all off', () => {
@@ -102,7 +103,48 @@ test('the last log or ore is never a jackpot, and the switch turns it all off', 
   assert.equal(resolveMine(g, { obj: rock }), true, 'off: an ordinary swing');
 });
 
+test('every fishing spot can net a whole school of the fish you hooked, as often as a whole seam', () => {
+  const g = newGame(); const said = listen(g);
+  g.skills.xp.fishing = xpForLevel(40);
+  if (!g.inventory.has('harpoon')) g.inventory.add('harpoon', 1);
+  FISH_SCHOOL.on = false;   // no school passing: just any spot
+  const spot = find(g, 'harpoon_spot');
+  const tuna = () => g.inventory.count('raw_tuna');
+  const catchOnce = () => { const t = tuna(); assert.equal(resolveFish(g, { obj: spot }), true, 'a spot never runs dry'); return tuna() - t; };
+  // A lucky catch: the fish, and a whole school of them with XP for each.
+  const xp0 = g.skills.xp.fishing;
+  setJackpotRand(() => 0);
+  const got = catchOnce();
+  // A school at any spot is sized like a whole seam: ten times a stock of 1-14 fish.
+  assert.ok(got >= 1 + SEAM_MULT * WILD_STOCK[0] && got <= 2 + SEAM_MULT * WILD_STOCK[1], `the catch and a whole school: ${got}`);
+  assert.ok(g.skills.xp.fishing - xp0 >= spot.def.catches[0].xp * (got - 2) - 1e-6, 'XP for every fish');
+  assert.ok(said.some((m) => /^It was a whole school of tuna: you net \d+ at once!/.test(m)), said.slice(-3).join(' | '));
+  assert.equal(g.fishSchools.netted, 1);
+  // An unlucky one: just the fish (one, or two on a big catch).
+  setJackpotRand(() => 0.99);
+  assert.ok(catchOnce() <= 2);
+  // And the switch turns it off with the seams and trees.
+  NODE_JACKPOT.on = false;
+  setJackpotRand(() => 0);
+  assert.ok(catchOnce() <= 2);
+});
+
+test('at a spot a school is passing, a missed school roll still has the any-spot chance', () => {
+  const g = newGame();
+  g.skills.xp.fishing = xpForLevel(40);
+  if (!g.inventory.has('harpoon')) g.inventory.add('harpoon', 1);
+  FISH_SCHOOL.on = true;
+  const spot = find(g, 'harpoon_spot');
+  const s = g.fishSchools.spawn(spot); s.until = Infinity;
+  g.fishSchools.rand = () => 0.99;   // the passing school's roll misses...
+  setJackpotRand(() => 0);           // ...and the any-spot roll hits
+  const n = g.fishSchools.onCatch(spot, 1, 'raw_tuna');
+  assert.ok(n >= SEAM_MULT * WILD_STOCK[0] && n <= SEAM_MULT * WILD_STOCK[1], `a whole school of the fish you hooked (${n})`);
+  assert.equal(g.fishSchools.at(spot), s, 'the passing school is still there for later');
+});
+
 test('the skill guides mention it', () => {
   assert.match(SKILL_GUIDES.woodcutting.use, /whole tree down at once/);
   assert.match(SKILL_GUIDES.mining.use, /whole seam free at once/);
+  assert.match(SKILL_GUIDES.fishing.use, /at any spot, about one catch in 20 turns out to be a smaller school of the fish you hooked: 10 to 140/);
 });
