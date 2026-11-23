@@ -4,7 +4,7 @@
 import './seed.mjs';   // seeded Math.random: no test fails on an unlucky roll
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 import { Game } from '../src/game/game.js';
 import { clearSave } from '../src/game/save.js';
@@ -15,7 +15,8 @@ import { TOOL_TIERS } from '../src/data/tooltiers.js';
 import { xpForLevel } from '../src/data/xp.js';
 import { FISH_SPOT_PLAN, MIXED_FISH_SPOTS } from '../src/data/fishspots.js';
 import { fishSpotList, guideEntries } from '../src/game/skillguide.js';
-import { worldArt } from '../src/render/sprites.js';
+import { worldArt, drawObjectSprite, fishLeap, CATCH_BADGE, CATCH_FISH, FISH_LEAP, FISH_LEAP_EVERY, FISH_FACING } from '../src/render/sprites.js';
+import { itemArtSrc } from '../src/render/icons.js';
 
 function fakeStorage() {
   const m = new Map();
@@ -176,10 +177,109 @@ test('quests that ask for fish send you to the one spot that has them', () => {
   assert.equal(g.questGuide('island_provisions').objId, 'salmon_spot', 'salmon are netted at a salmon run');
 });
 
-test('each fishing spot wears a little sticker of its fish, so spots sharing a picture tell apart', async () => {
-  const { CATCH_BADGE } = await import('../src/render/sprites.js');
-  assert.ok(CATCH_BADGE >= 12 && CATCH_BADGE <= 24, 'small');
+test('every spot kind\'s fish has a sticker of its own, so spots sharing a picture tell apart', () => {
+  for (const id of SPOTS) {
+    for (const { id: fish } of OBJECTS[id].catches) {
+      // Its own painted icon: never another fish's, recoloured (a borrowed sticker).
+      assert.equal(itemArtSrc(fish), `assets/icons/item-${fish}.webp`, `${id}: ${fish} has its own sticker`);
+      assert.ok(existsSync(new URL(`../assets/icons/item-${fish}.webp`, import.meta.url)), `${fish}'s sticker is on disk`);
+    }
+  }
+  // The way each sticker faces (so it leaps head first) names only fish caught at spots.
+  const caught = new Set(SPOTS.map((id) => OBJECTS[id].catches[0].id));
+  for (const [fish, face] of Object.entries(FISH_FACING)) {
+    assert.ok(caught.has(fish), `${fish} is caught at a spot`);
+    assert.ok(['left', 'up'].includes(face), `${fish}: ${face}`);
+  }
+});
+
+test('a spot\'s fish lies half-sunk, then every 5-7 s leaps a short arc, the other way each time, on its own beat', () => {
+  assert.ok(CATCH_FISH >= 20 && CATCH_FISH <= 24, 'about 22 px across');
+  assert.ok(FISH_LEAP > 0 && FISH_LEAP <= 14, 'a short leap: it stays off the tile above, which draws first');
+  assert.deepEqual(FISH_LEAP_EVERY, [5000, 7000]);
+  // A stretch of shore: eight spots side by side, watched for a minute.
+  const f = {}, xs = [120, 121, 122, 123, 124, 125, 126, 127], y = 64, firsts = [];
+  for (const x of xs) {
+    const leaps = [];
+    let was = 1, top = -Infinity, resting = 0, n = 0;   // (a leap already under way at 0 is not counted)
+    for (let t = 0; t < 60000; t += 10, n++) {
+      fishLeap(x, y, t, false, f);
+      if (f.dir && !was) leaps.push([t, f.dir]);
+      was = f.dir;
+      top = Math.max(top, f.lift);
+      if (!f.dir && Math.abs(f.lift) <= 1) resting++;   // at the water line, half of it showing
+    }
+    firsts.push(leaps[0][0]);
+    assert.ok(leaps.length >= 8 && leaps.length <= 12, `${x}: ${leaps.length} leaps a minute`);
+    for (let k = 1; k < leaps.length; k++) {
+      const gap = leaps[k][0] - leaps[k - 1][0];
+      assert.ok(gap >= FISH_LEAP_EVERY[0] - 10 && gap <= FISH_LEAP_EVERY[1] + 10, `${x}: ${gap} ms between leaps`);
+      assert.equal(leaps[k][1], -leaps[k - 1][1], `${x}: each leap heads the other way`);
+    }
+    assert.ok(top > FISH_LEAP * 0.95 && top <= FISH_LEAP, `${x}: it leaps ${top.toFixed(1)} px`);
+    assert.ok(resting / n > 0.5, `${x}: it mostly lies in the water (${Math.round(resting / n * 100)}%)`);
+  }
+  // Each keeps its own beat: they start apart, and two neighbours are in the air
+  // together about as often as chance has it, nowhere near in step.
+  assert.ok(Math.max(...firsts) - Math.min(...firsts) > 2000, `first leaps at ${firsts.join(', ')} ms`);
+  let both = 0, all = 0, samples = 0;
+  for (let t = 0; t < 60000; t += 10) {
+    const up = xs.map((x) => fishLeap(x, y, t, false, f).dir !== 0);
+    for (let i = 1; i < up.length; i++) both += up[i] && up[i - 1] ? 1 : 0;
+    all = Math.max(all, up.filter(Boolean).length);
+    samples += up.length - 1;
+  }
+  assert.ok(both / samples < 0.05, `neighbours in the air together ${(both / samples * 100).toFixed(1)}% of the time`);
+  assert.ok(all < xs.length, 'never the whole stretch at once');
+  // While a school swirls at the spot, its fish rests.
+  for (let t = 0; t < 30000; t += 10) {
+    fishLeap(120, y, t, true, f);
+    assert.ok(!f.dir && f.ring < 0 && Math.abs(f.lift) <= 1, `still at ${t} ms`);
+  }
+});
+
+test('the fish is drawn as one sticker over its spot; low graphics keeps the little badge', () => {
   const src = readFileSync(new URL('../src/render/sprites.js', import.meta.url), 'utf8');
-  assert.match(src, /drawWorldArt\(ctx, obj, art, key, cx, cy, time\); if \(t === 'fishing'\) drawCatchBadge\(/, 'drawn over each spot picture');
+  assert.match(src, /drawWorldArt\(ctx, obj, art, key, cx, cy, time\); if \(t === 'fishing'\) drawCatchBadge\(ctx, obj, cx, cy, time, low, still\)/, 'drawn over each spot picture');
   assert.match(src, /const id = !obj\.worldEvent && obj\.def\.catches\?\.\[0\]\?\.id;/, 'its one fish; not on a world event shoal');
+  // The renderer passes low graphics, and whether a school is at the spot.
+  const rsrc = readFileSync(new URL('../src/render/renderer.js', import.meta.url), 'utf8');
+  assert.match(rsrc, /const still = o\.def\.type === 'fishing' && !!game\.fishSchools\?\.at\(o\);/);
+  assert.equal(rsrc.match(/drawObjectSprite\(ctx, o, cx, cy, timeMs, !!game\.lowFx, still\)/g)?.length, 2);
+  // Draw it with every picture loaded, through a context that records its calls.
+  globalThis.Image = class { constructor() { this.complete = true; this.naturalWidth = 160; this.naturalHeight = 160; } };
+  try {
+    const calls = [];
+    const ctx = new Proxy({ globalAlpha: 1 }, { get: (o, k) => (k in o ? o[k] : (...a) => calls.push([k, ...a])), set: (o, k, v) => ((o[k] = v), true) });
+    const spot = { objId: 'golden_snapper_spot', def: OBJECTS.golden_snapper_spot, x: 120, y: 64 };
+    const sticker = 'assets/icons/item-raw_golden_snapper.webp';
+    const frame = (time, low, still) => {
+      calls.length = 0;
+      drawObjectSprite(ctx, spot, 100, 100, time, low, still);
+      const fish = calls.filter((c) => c[0] === 'drawImage' && c[1].src === sticker);
+      return { fish, ellipses: calls.filter((c) => c[0] === 'ellipse').length, arcs: calls.filter((c) => c[0] === 'arc').length };
+    };
+    // Low graphics: the 15 px badge on its white disc.
+    const low = frame(1000, true, false);
+    assert.equal(low.fish.length, 1);
+    assert.equal(low.fish[0][4], CATCH_BADGE, 'the badge');
+    assert.equal(low.arcs, 1, 'on its disc');
+    // Otherwise, a frame at a time for eight seconds: never more than one picture
+    // of the fish and two rings; cut at the water line resting, whole in the air.
+    let whole = 0, cut = 0;
+    for (let t = 0; t < 8000; t += 16) {
+      const fr = frame(t, false, false);
+      assert.ok(fr.fish.length <= 1 && fr.ellipses <= 2 && fr.arcs === 0, `at ${t} ms: ${fr.fish.length} fish, ${fr.ellipses} rings`);
+      const d = fr.fish[0];
+      if (!d) continue;
+      if (d.length === 6) { whole++; assert.equal(d[4], CATCH_FISH); }   // drawImage(img, x, y, w, h)
+      else { cut++; assert.equal(d[8], CATCH_FISH); assert.ok(d[5] < 160 && d[9] < CATCH_FISH, 'only its top shows'); }
+    }
+    assert.ok(whole > 10 && cut > whole, `in the air for ${whole} frames, resting for ${cut}`);
+    // While a school swirls there, it only rests; a world event's shoal shows no fish.
+    for (let t = 0; t < 8000; t += 16) assert.ok(frame(t, false, true).fish.every((d) => d.length === 10), `resting at ${t} ms`);
+    calls.length = 0;
+    drawObjectSprite(ctx, { ...spot, worldEvent: true }, 100, 100, 0);
+    assert.ok(!calls.some((c) => c[0] === 'drawImage' && c[1].src === sticker), 'no fish on an event shoal');
+  } finally { delete globalThis.Image; }
 });
