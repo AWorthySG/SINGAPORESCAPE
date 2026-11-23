@@ -1368,7 +1368,7 @@ body.boss-on #tip-toast { top: 132px; }
 @media (max-height: 500px) {
   #hover-text { display: none; }
   #sidepanel:not(.collapsed) { top: 6px; bottom: 6px; display: grid; }
-  #sidepanel:not(.collapsed) #panel-body { height: auto; max-height: none; min-height: 0; overflow-y: auto; }
+  #sidepanel:not(.collapsed) #panel-body { height: auto; max-height: none; overflow-y: auto; }
   #sidepanel.collapsed { bottom: auto; top: 50%; transform: translateY(-50%); }
   #sidepanel.collapsed .tab-btn { padding: 2px; }
   #sidepanel.collapsed .tab-btn img, #sidepanel.collapsed .tab-btn svg { width: 26px; height: 26px; }
@@ -1518,7 +1518,7 @@ body.boss-on #tip-toast { top: 132px; }
 /* The open side panel never grows past the screen; if its tab rail can't fit,
    the rail scrolls rather than pushing the panel off the top or bottom. */
 #sidepanel:not(.collapsed) { max-height: calc(100dvh - 12px); grid-template-rows: auto minmax(0, 1fr); }
-#panel-body { min-height: 0; max-height: calc(100dvh - 72px); }
+#panel-body { min-height: 0; max-height: calc(100dvh - 72px); }   /* the one min-height: every layout lets the body shrink */
 #panel-tabs { min-height: 0; overflow-y: auto; scrollbar-width: none; }
 #panel-tabs::-webkit-scrollbar { display: none; }
 /* Short screens (phones held sideways): icon-only tabs that share the height. */
@@ -2049,7 +2049,7 @@ body.boss-on #tip-toast { top: 132px; }
      The orb row ends at about 214px (orbs at 164-198 plus captions); the tip
      waits at 220px and is at most ~90px tall, so the panel starts at 316px. */
   #sidepanel:not(.collapsed) { top: 316px; bottom: 6px; }
-  #panel-body { height: auto; max-height: none; min-height: 0; }
+  #panel-body { height: auto; max-height: none; }
   body:has(#sidepanel:not(.collapsed)) #tip-toast { top: 220px; bottom: auto; }
   /* Objectives: the minimap column takes 142px (128px + margins), so the
      tracker can have the rest; names stop wrapping and the distances come back. */
@@ -2174,7 +2174,7 @@ body.boss-on #tip-toast { top: 132px; }
    long list from growing the panel; it scrolls inside instead. */
 @media (min-width: 900px) and (hover: hover) {
   #sidepanel:not(.collapsed) { grid-template-rows: auto minmax(0, 1fr); }
-  #panel-body { height: auto; min-height: 0; contain: size; }
+  #panel-body { height: auto; contain: size; }
   /* Always-visible labels reach the 10px floor. */
   .orb, #spec-orb { font-size: 12px; }
   .orb .orb-cap { font-size: var(--fs-cap); }
@@ -2615,7 +2615,7 @@ body #tip-toast.tip-strip { font-size: 11px; padding: 4px 6px 4px 7px; border-ra
      fixed height and the body sits in a minmax(0, 1fr) row, so it can't grow
      the sheet anyway, and size containment on a scroller inside a transformed,
      animated fixed sheet is the kind of thing iOS Safari has hit-tested wrongly. */
-  #sidepanel:not(.collapsed) #panel-body { height: auto; max-height: none; min-height: 0; contain: none; overflow-y: auto; }
+  #sidepanel:not(.collapsed) #panel-body { contain: none; overflow-y: auto; }
   /* Minimal HUD fades the panel while you explore, but not here: an open
      sheet is something you asked for, and the folded launcher is the only way
      to the Bag and Skills, like the action buttons it keeps. (Faded to
@@ -2770,7 +2770,7 @@ body #tip-toast.tip-strip { font-size: 11px; padding: 4px 6px 4px 7px; border-ra
   /* The docked panel's body fills the height of its tab rail, so the bag
      shows its full grid instead of ending in a blank strip. */
   #sidepanel:not(.collapsed) { grid-template-rows: auto minmax(0, 1fr); }
-  #panel-body { height: auto; min-height: 0; contain: size; font-size: 13px; }
+  #panel-body { height: auto; contain: size; font-size: 13px; }
   .tab-btn .tab-label { font-size: 11px; }
   /* The minimap's fold button: a full 44px tap area, out towards the edge. */
   #minimap-collapse::before { inset: -13px -12px -9px -10px; }
