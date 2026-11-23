@@ -205,3 +205,17 @@ test('a Monk saves and loads: its class, knuckles and gloves come back; Chi star
   assert.ok(g2.equipment.isDualWielding());
   assert.equal(chiStacks(g2), 0, 'Chi is not saved (it fades in seconds anyway)');
 });
+
+test('the upgrade signal agrees with Equip best on monk gloves: weighed against the off-hand', async () => {
+  const { wouldWear, pickGain } = await import('../src/game/bestpick.js');
+  const { g } = mk();
+  for (const s of ['attack', 'strength', 'defence']) g.skills.xp[s] = xpForLevel(60);
+  g.inventory.add('rune_monk_gloves', 1); g.inventory.add('iron_monk_gloves', 1);
+  const slot = (id) => g.inventory.slots.find((s) => s?.id === id);
+  assert.equal(pickGain(g, slot('rune_monk_gloves')).slot, 'shield', 'gloves are judged as the off-hand\'s');
+  assert.ok(wouldWear(g, slot('rune_monk_gloves')), 'better gloves show as an upgrade');
+  g.equipBest();
+  assert.equal(g.equipment.get('weapon'), 'bronze_knuckles');
+  assert.equal(g.equipment.get('shield'), 'rune_monk_gloves', 'and Equip best wears them there');
+  assert.ok(!wouldWear(g, slot('iron_monk_gloves')) && !wouldWear(g, slot('bronze_monk_gloves')), 'weaker gloves are no upgrade');
+});
