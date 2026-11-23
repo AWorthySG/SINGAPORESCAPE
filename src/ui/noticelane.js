@@ -275,6 +275,12 @@ export function placeLane(b, vw, mode) {
     left = (vw - width) / 2;
     const rl = b['region-label'];
     top = below(rl ? rl.bottom + 6 : 44, left, width);
+    // A side panel made bigger (panelsize.js) can reach in under the lane's
+    // right end: the lane stops short of it (a few cards run ~250px down).
+    const dock = b.sidepanel;
+    if (dock && dock.width >= 100 && dock.left < left + width + 8 && dock.top < top + 260) {
+      width = Math.max(200, Math.min(width, dock.left - 8 - left));
+    }
   }
   return { top: Math.round(top), left: Math.round(left), width: Math.round(width) };
 }
