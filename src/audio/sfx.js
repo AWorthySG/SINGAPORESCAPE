@@ -17,6 +17,32 @@ const MUSIC_VOL = 0.5; // relative to master
 // Gentle A-minor pentatonic — kampong evening kalimba.
 const SCALE = [220, 261.63, 293.66, 329.63, 392, 440, 523.25];
 
+// ---- Shaping the sounds of a fight ----
+// A busy auto battle asked for 10 to 50 sounds a second: a swing and a hit on
+// every beat, up to 18 hits in one instant from an Archer's arrows, an ability
+// whoop every second, all at one fixed pitch. So: the shortest gap (seconds)
+// between two starts of the same sound. Anything sooner would only pile on to
+// the one already ringing, so it is skipped.
+const GAP = { atk: 0.09, hit: 0.075, crit: 0.5, die: 0.07, hurt: 0.14, spec: 0.3, pickup: 0.15,
+  droprare: 0.3, dropepic: 0.4, swish: 0.09, gather: 0.06, clang: 0.06, eat: 0.1, click: 0.03 };
+// Roughly how long each sound rings (default 0.15s), to count the voices sounding at once.
+const RING = { die: 0.25, spec: 0.3, hurt: 0.18, droprare: 0.4, dropepic: 0.6, bossdie: 0.8, roar: 0.6,
+  level: 0.45, achievement: 0.5, travel: 0.3 };
+// The everyday sounds of a fight: the first dropped when the mix is full, and a
+// touch quieter while auto battle runs things. Kills, crits and drops never are.
+const ROUTINE = new Set(['atk', 'hit', 'swish', 'pickup', 'gather', 'clang']);
+const MAX_VOICES = 6;
+const AUTO_LEVEL = 0.8;
+const PITCH_JITTER = 0.045;   // ±4.5%: no two repeats alike, none out of tune
+// The sounds that repeat through a fight get the nudge; chimes and fanfares stay put.
+const JITTERED = new Set([...ROUTINE, 'crit', 'die', 'hurt', 'spec']);
+// Kills in quick succession lift the kill's pop up a major pentatonic (a combo),
+// back to the root after a pause.
+const COMBO_STEPS = [1, 9 / 8, 5 / 4, 3 / 2, 5 / 3, 2, 9 / 4, 5 / 2];
+const COMBO_WINDOW = 2.5;
+// Rounder stand-ins for the buzzy waves the weapon sounds were written with.
+const SOFT_WAVE = { square: 'triangle', sawtooth: 'triangle' };
+
 const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
 
 export class Sfx {
@@ -35,6 +61,8 @@ export class Sfx {
     this.ambienceOn = this._loadAmbience();
     this.amb = null;               // the region sound beds (ambience.js), made on unlock
     this.ambienceSource = null;    // set by main: () => ({ zone, night })
+    this.autoSource = null;        // set by main: () => is auto battle on?
+    this.combo = 0;                // kills in quick succession (see 'die')
     bus.on('sfx', (n) => this.play(n));
     // Many levels at once (a big batch, a boss) chime once, not once per level.
     bus.on('levelup', () => {
@@ -175,22 +203,26 @@ export class Sfx {
   }
   toggle() { this.setMuted(!this.muted); return this.muted; }
 
-  _tone(freq, dur, type = 'sine', t0 = 0, vol = 1, slideTo = null) {
+  // play() sets this._pf (a small random pitch nudge) and this._vf (a level) for
+  // the sound it is making; every tone and burst of that sound shares them.
+  _tone(freq, dur, type = 'sine', t0 = 0, vol = 1, slideTo = null, attack = 0.006) {
     if (!this.ctx) return;
     const t = this.ctx.currentTime + t0;
     const o = this.ctx.createOscillator();
     const g = this.ctx.createGain();
+    const pf = this._pf || 1;
     o.type = type;
-    o.frequency.setValueAtTime(freq, t);
-    if (slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(20, slideTo), t + dur);
+    o.frequency.setValueAtTime(freq * pf, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(20, slideTo * pf), t + dur);
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(vol, t + 0.006);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.0001, vol * (this._vf ?? 1)), t + attack);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g); g.connect(this.sfxGain || this.master);
     o.start(t); o.stop(t + dur + 0.03);
   }
 
-  _noise(dur, vol = 0.4, t0 = 0) {
+  /** A burst of noise; with `cutoff`, lowpassed there so it thuds rather than hisses. */
+  _noise(dur, vol = 0.4, t0 = 0, cutoff = 0) {
     if (!this.ctx) return;
     const sr = this.ctx.sampleRate;
     const n = Math.max(1, Math.floor(sr * dur));
@@ -209,17 +241,28 @@ export class Sfx {
     const g = this.ctx.createGain();
     // A straight fade from `vol` to silence over the burst: the same decaying
     // envelope the old per-burst buffers had baked in.
-    g.gain.setValueAtTime(vol, t);
+    g.gain.setValueAtTime(vol * (this._vf ?? 1), t);
     g.gain.linearRampToValueAtTime(0, t + n / sr);
-    s.connect(g); g.connect(this.sfxGain || this.master);
+    const out = this.sfxGain || this.master, f = cutoff ? this._lowpass(cutoff) : null;
+    s.connect(g);
+    if (f) { g.connect(f); f.connect(out); } else g.connect(out);
     s.start(t, Math.floor(Math.random() * Math.max(1, len - n)) / sr, n / sr);
+  }
+
+  _lowpass(freq) {
+    if (typeof this.ctx.createBiquadFilter !== 'function') return null;
+    const f = this.ctx.createBiquadFilter();
+    f.type = 'lowpass'; f.frequency.value = freq; f.Q.value = 0.5;
+    return f;
   }
 
   /** Each weapon kind's attack sound, made from a few short tones and bursts
    *  of noise (no sound files). Quick weapons are light and high, heavy ones low
    *  and thumping, bows twang, guns pop and spells shimmer. */
   _weapon(type) {
-    const T = (f, d, w, t0, v, s) => this._tone(f, d, w, t0, v, s), N = (d, v, t0) => this._noise(d, v, t0);
+    // Swung several times a second, so square and saw waves come out as rounder
+    // triangles and the noise is taken off its hissy top.
+    const T = (f, d, w, t0, v, s) => this._tone(f, d, SOFT_WAVE[w] || w, t0, v, s), N = (d, v, t0) => this._noise(d, v, t0, 4200);
     switch (type) {
       case 'dagger': N(0.03, 0.12); T(1500, 0.05, 'sine', 0, 0.1, 700); break;
       case 'kerambit': N(0.03, 0.12); T(1400, 0.04, 'sine', 0, 0.1, 700); T(1700, 0.04, 'sine', 0.05, 0.08, 800); break;
@@ -259,33 +302,95 @@ export class Sfx {
 
   play(name) {
     if (!this.ctx || this.muted) return;
-    if (name.startsWith('atk:')) {
-      // Very fast attackers would stack dozens of swings a second: one every 70ms is plenty.
-      const now = this.ctx.currentTime;
-      if (now - (this._lastAtk || 0) < 0.07) return;
-      this._lastAtk = now;
-      this._weapon(name.slice(4));
-      return;
-    }
+    const now = this.ctx.currentTime;
+    // An Archer's volley crits on most beats: the crunch at most every half
+    // second, so it stays special, and a plain hit in between.
+    if (name === 'crit' && now - (this._last?.crit ?? -Infinity) < GAP.crit) name = 'hit';
+    const kind = name.startsWith('atk:') ? 'atk' : name;
+    if (!this._admit(kind, now)) return;
+    this._pf = JITTERED.has(kind) ? 1 + (Math.random() * 2 - 1) * PITCH_JITTER : 1;
+    this._vf = ROUTINE.has(kind) && this.autoSource?.() ? AUTO_LEVEL : 1;
+    try {
+      if (kind === 'atk') this._weapon(name.slice(4));
+      else this._sound(name, now);
+    } finally { this._pf = 1; this._vf = 1; }
+  }
+
+  /** May this sound start now? Not if the same one started a moment ago, nor
+   *  (for an everyday sound) if the mix is already full. */
+  _admit(kind, now) {
+    const last = this._last || (this._last = {});
+    if (now - (last[kind] ?? -Infinity) < (GAP[kind] || 0)) return false;
+    const ringing = (this._ringing || []).filter((end) => end > now);
+    this._ringing = ringing;
+    if (ROUTINE.has(kind) && ringing.length >= MAX_VOICES) return false;
+    ringing.push(now + (RING[kind] || 0.15));
+    last[kind] = now;
+    return true;
+  }
+
+  /** The next of `n` takes of a sound, in turn. */
+  _rr(kind, n) {
+    const r = this._takes || (this._takes = {});
+    r[kind] = ((r[kind] ?? -1) + 1) % n;
+    return r[kind];
+  }
+
+  _sound(name, now) {
+    const last = this._last || {};
+    const sameBeat = (k) => now - (last[k] ?? -Infinity) < 0.03;
     switch (name) {
-      case 'hit': this._noise(0.05, 0.3); this._tone(190, 0.07, 'square', 0, 0.45, 90); break;
-      case 'swish': this._noise(0.08, 0.16); this._tone(900, 0.08, 'sine', 0, 0.12, 300); break;
-      case 'die': this._noise(0.09, 0.32); this._tone(130, 0.18, 'square', 0, 0.4, 45); break;
+      case 'hit': {
+        if (sameBeat('crit')) break;   // the crit already said it, louder
+        // Three takes in turn, so a run of blows doesn't machine-gun. A swing on
+        // this same beat already gave the whoosh, so the hit is just its thump.
+        const v = this._rr('hit', 3), body = [170, 150, 190][v];
+        this._tone(body, 0.09, 'triangle', 0, 0.5, body * 0.45, 0.004);
+        if (!sameBeat('atk')) this._noise(0.045, 0.2, 0, [2400, 2000, 2800][v]);
+        break;
+      }
+      case 'crit':   // the hit's thump, deeper, with a crunchy double crack and a glint on top
+        this._tone(130, 0.14, 'triangle', 0, 0.55, 50, 0.004);
+        this._noise(0.035, 0.3, 0, 5000); this._noise(0.03, 0.22, 0.035, 3000);
+        this._tone(2200, 0.08, 'triangle', 0.01, 0.07, 1300);
+        break;
+      case 'swish': this._noise(0.08, 0.16, 0, 4200); this._tone(900, 0.08, 'sine', 0, 0.12, 300); break;
+      case 'die': {
+        // A round, meaty thump and a short bright pop. Kills in quick succession
+        // lift the pop up the scale, back to the root after a pause.
+        this.combo = now - (this._lastKill ?? -Infinity) < COMBO_WINDOW ? Math.min((this.combo || 0) + 1, COMBO_STEPS.length - 1) : 0;
+        this._lastKill = now;
+        this._tone(118, 0.24, 'triangle', 0, 0.62, 42, 0.012);
+        this._noise(0.08, 0.24, 0, 1400);
+        const pop = 660 * COMBO_STEPS[this.combo];
+        this._tone(pop, 0.08, 'triangle', 0.025, 0.2, pop * 1.25);
+        break;
+      }
       case 'bossdie':
         this._noise(0.22, 0.4); this._tone(90, 0.5, 'sawtooth', 0, 0.5, 30);
         [392, 523, 659].forEach((f, i) => this._tone(f, 0.2, 'triangle', 0.18 + i * 0.11, 0.4));
         break;
-      case 'hurt': this._tone(210, 0.2, 'sawtooth', 0, 0.55, 70); break;
+      case 'hurt': this._tone(200, 0.16, 'triangle', 0, 0.42, 80, 0.008); this._noise(0.05, 0.16, 0, 900); break;   // a muffled thud, not a buzz
       case 'roar':   // a boss's entrance: a low growl rising into a bellow
         this._noise(0.5, 0.3); this._tone(70, 0.6, 'sawtooth', 0, 0.45, 150); this._tone(105, 0.5, 'square', 0.05, 0.2, 60);
         break;
       case 'eat': this._tone(300, 0.13, 'sine', 0, 0.5, 540); break;
-      case 'droprare': [880, 1175].forEach((f, i) => this._tone(f, 0.12, 'triangle', i * 0.07, 0.4)); break;
-      case 'dropepic': [784, 1047, 1319, 1568].forEach((f, i) => this._tone(f, 0.16, 'triangle', i * 0.07, 0.45)); this._tone(2093, 0.3, 'sine', 0.3, 0.2); break;
-      case 'pickup': this._tone(720, 0.07, 'triangle', 0, 0.5, 940); break;
+      // Rare drops only: a soft bell (a chime and its overtone), and a gentle run for epic ones.
+      case 'droprare': this._tone(1175, 0.4, 'sine', 0, 0.26, null, 0.01); this._tone(1760, 0.28, 'sine', 0.07, 0.12, null, 0.01); break;
+      case 'dropepic': [784, 1047, 1319, 1568].forEach((f, i) => this._tone(f, 0.22, 'sine', i * 0.07, 0.3, null, 0.01)); this._tone(2093, 0.4, 'sine', 0.3, 0.14, null, 0.01); break;
+      case 'pickup': {
+        // A soft blip, stepping through three notes; a long stream of pickups
+        // fades back a little, full again after a pause.
+        this._pickRun = now - (this._lastPick ?? -Infinity) < 2 ? (this._pickRun || 0) + 1 : 0;
+        this._lastPick = now;
+        const f = [660, 742, 825][this._rr('pickup', 3)];
+        this._tone(f, 0.07, 'sine', 0, 0.3 * Math.max(0.5, 1 - this._pickRun * 0.1), f * 1.3, 0.008);
+        break;
+      }
       case 'gather': this._tone(470, 0.09, 'triangle', 0, 0.35, 640); break;
       case 'clang': this._noise(0.03, 0.2); this._tone(840, 0.11, 'square', 0, 0.3, 620); this._tone(1260, 0.07, 'sine', 0, 0.18); break;
-      case 'spec': this._noise(0.18, 0.28); this._tone(140, 0.22, 'sawtooth', 0, 0.4, 540); break;
+      // Abilities and a monster's wind-up: a soft rising swell, still clear as a warning.
+      case 'spec': this._noise(0.16, 0.2, 0, 1800); this._tone(220, 0.2, 'triangle', 0, 0.32, 560, 0.02); break;
       case 'travel': this._tone(300, 0.28, 'sine', 0, 0.4, 760); break;
       case 'level': [523, 659, 784].forEach((f, i) => this._tone(f, 0.17, 'triangle', i * 0.1, 0.55)); break;
       case 'achievement': [523, 659, 784, 1047].forEach((f, i) => this._tone(f, 0.18, 'triangle', i * 0.09, 0.55)); break;
