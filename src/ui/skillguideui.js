@@ -72,7 +72,7 @@ export function gatherPicksHTML(game) {
  *  times the game's XP rate and the life-skill boost for your level, as
  *  Skills.addXp adds it (golden hours, worn as a bonus on top, left out). */
 export function realXp(game, skill, xp) {
-  return (xp || 0) * XP_RATE * (game?.skills?.lifeXpMult ? game.skills.lifeXpMult(skill) : 1);
+  return game?.skills?.xpAtLevel ? game.skills.xpAtLevel(skill, xp || 0) : (xp || 0) * XP_RATE;
 }
 /** That XP as a badge beside a row's name. */
 export const xpBadge = (n, each = true) => `<span class="sgx-xp" title="Experience you get${each ? ' for each one' : ''}">+${formatNumber(Math.round(n))} xp${each ? ' each' : ''}</span>`;
