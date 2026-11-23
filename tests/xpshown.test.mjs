@@ -91,6 +91,7 @@ test('Skills.addXp returns the XP it really added; xpAtLevel is that amount befo
 
 test('a lucky find names the XP it really adds (the rates, rested XP and the streak counted)', () => {
   const g = boot();
+  g.todayKey = () => '2026-11-12';   // one day's board, even if the run crosses midnight
   GATHER_FUN.on = true;
   g.gathering.rand = () => 0;   // every roll lucky
   g.skills.xp.woodcutting = xpForLevel(150);   // past 99 the life-skill rate climbs as well
@@ -112,6 +113,7 @@ test('a lucky find names the XP it really adds (the rates, rested XP and the str
 
 test('a skilling contract names the XP it really adds: Cikgu Surya\'s board, the chat line and the banner', () => {
   const g = boot();
+  g.todayKey = () => '2026-11-12';   // one day's board, even if the run crosses midnight
   GATHER_FUN.on = true;
   g.gathering.rand = () => 0.99;   // no lucky finds
   const list = g.gathering.ensureContracts();

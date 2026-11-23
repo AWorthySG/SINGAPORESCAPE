@@ -6959,7 +6959,7 @@ export class Game {
       if (grad.coins) this.inventory.add('coins', grad.coins);
       if (grad.item) this.inventory.add(grad.item, 1);
       const extra = grad.item ? ` and the ${getItem(grad.item).name}` : '';
-      this.msg(`Quest complete — ${name}! Cikgu Surya honours your mastery (${gains.join(', ')} XP, +${grad.coins} coins${extra}).`, 'level');
+      this.msg(`Quest complete — ${name}! Cikgu Surya honours your mastery (${gains.join(', ')} XP, +${grad.coins.toLocaleString('en-GB')} coins${extra}).`, 'level');
       this.banner(`<span class="big">Quest complete!</span>${name}`);
     } else {
       this._beginLifeStage(key);

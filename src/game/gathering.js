@@ -183,7 +183,7 @@ export class Gathering {
     if (item) g.inventory.add(item, qty);
     // The XP as it really lands (the rates, golden hours, this streak), not the listed amount.
     const got = xp > 0 ? g.skills.addXp(skill, xp) : 0;
-    const what = `${coins} coins${item ? `, ${qty > 1 ? qty + ' x ' : ''}${getItem(item).name}` : ''} and ${xpText(got)} bonus ${skillName(skill)} XP`;
+    const what = `${coins.toLocaleString('en-GB')} coins${item ? `, ${qty > 1 ? qty + ' x ' : ''}${getItem(item).name}` : ''} and ${xpText(got)} bonus ${skillName(skill)} XP`;
     g.msg(`Lucky find! Tucked away by the ${def.name.toLowerCase()} you find ${what}.`, 'level');
     g.banner?.(`<span class="big">Lucky find!</span>${what}`);
     g.spawnSparkle?.(g.player, '#ffd24a', 18);
@@ -225,8 +225,8 @@ export class Gathering {
     const coins = Math.round(k.coins * mult);
     g.inventory.add('coins', coins);
     const xp = xpText(g.skills.addXp(k.skill, k.xp));   // k.xp is listed XP: say what really landed
-    g.msg(`Skilling contract done: ${k.need} at ${k.name.toLowerCase()}s! +${coins} coins and ${xp} ${skillName(k.skill)} XP.`, 'level');
-    g.banner?.(`<span class="big">Contract complete!</span>+${coins} coins · +${xp} ${skillName(k.skill)} XP`);
+    g.msg(`Skilling contract done: ${k.need} at ${k.name.toLowerCase()}s! +${coins.toLocaleString('en-GB')} coins and ${xp} ${skillName(k.skill)} XP.`, 'level');
+    g.banner?.(`<span class="big">Contract complete!</span>+${coins.toLocaleString('en-GB')} coins · +${xp} ${skillName(k.skill)} XP`);
     g.spawnSparkle?.(g.player, '#ffd24a', 14);
     if (c.list.length && c.list.every((x) => x.done)) {
       // A full board: a bonus, and a streak if yesterday's was full too.
@@ -234,7 +234,7 @@ export class Gathering {
       c.lastFull = c.day;
       const bonus = 300 + 100 * Math.min(10, c.streak);
       g.inventory.add('coins', bonus);
-      g.msg(`All of today's skilling contracts are done: +${bonus} coins bonus. Contract streak: ${c.streak} day${c.streak === 1 ? '' : 's'} (+${Math.round((contractStreakMult(c.streak) - 1) * 100)}% pay tomorrow).`, 'level');
+      g.msg(`All of today's skilling contracts are done: +${bonus.toLocaleString('en-GB')} coins bonus. Contract streak: ${c.streak} day${c.streak === 1 ? '' : 's'} (+${Math.round((contractStreakMult(c.streak) - 1) * 100)}% pay tomorrow).`, 'level');
     }
     g.saveSoon = true;
   }
