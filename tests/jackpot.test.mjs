@@ -11,7 +11,7 @@ import { xpForLevel } from '../src/data/xp.js';
 import { resolveWoodcut, resolveMine, resolveFish, resolveHunt } from '../src/game/skilling.js';
 import { FISH_SCHOOL, WILD_STOCK } from '../src/game/fishschool.js';
 import {
-  NODE_JACKPOT, JACKPOT_CHANCE, setJackpotRand, nodeJackpot, SEAM_MULT, huntJackpot, HUNT_STOCK, HUNT_CROWD, RECORD_STOCK, recordHarvest, many,
+  NODE_JACKPOT, JACKPOT_CHANCE, JACKPOT_PER_100, jackpotBase, jackpotChance, schoolJackpot, setJackpotRand, nodeJackpot, SEAM_MULT, huntJackpot, HUNT_STOCK, HUNT_CROWD, RECORD_STOCK, recordHarvest, many,
 } from '../src/game/jackpot.js';
 import { CROPS, cropFor, HUNT } from '../src/data/trades.js';
 import { OBJECTS } from '../src/data/objects.js';
@@ -267,4 +267,30 @@ test('the skill guides mention it', () => {
   assert.match(SKILL_GUIDES.fishing.use, /at any spot, about one catch in 20 turns out to be a smaller school of the fish you hooked: 10 to 140/);
   assert.match(SKILL_GUIDES.hunter.use, /one catch in 20 springs the trap on a whole flock, nest or herd at once: 10 to 140/);
   assert.match(SKILL_GUIDES.farming.use, /one harvest in 20 is a record harvest: the patch gives 10 to 140 times its yield again/);
+});
+
+test('every 100 levels of Mining, Woodcutting, Fishing and Hunter make the whole seam, tree, school and flock more likely', () => {
+  // A quarter of a percentage point a hundred levels (the owner's ask), the tool's bonus on top.
+  assert.equal(JACKPOT_PER_100, 0.0025);
+  assert.equal(jackpotBase(1), JACKPOT_CHANCE);
+  assert.equal(jackpotBase(99), JACKPOT_CHANCE);
+  assert.ok(Math.abs(jackpotBase(100) - 0.0525) < 1e-12);
+  assert.ok(Math.abs(jackpotBase(1000) - 0.075) < 1e-12);
+  assert.ok(Math.abs(jackpotBase(9999) - 0.2975) < 1e-12);
+  assert.ok(Math.abs(jackpotChance(1, 1000) - 0.075 * 1.5) < 1e-12, 'the best tools still add half again');
+  // Each burst reads its own skill's level: a roll just above the base chance
+  // misses at level 99 and hits at level 1,000.
+  const at = (lvl) => ({ inventory: { canAdd: (id, k) => k, add: (id, k) => k }, skills: { addXp() {}, level: () => lvl }, msg() {}, bus: { emit() {} }, player: {} });
+  const obj = { x: 0, y: 0, def: { gives: [{ id: 'lizard_skin' }] } };
+  for (const f of [
+    (g) => nodeJackpot(g, obj, { kind: 'mining', left: 1, xpEach: 1, pick: () => 'copper_ore' }),
+    (g) => nodeJackpot(g, obj, { kind: 'woodcutting', left: 1, xpEach: 1, pick: () => 'logs' }),
+    (g) => huntJackpot(g, obj, { xpEach: 1 }),
+  ]) {
+    setJackpotRand(() => 0.06); assert.equal(f(at(99)), 0, 'level 99: 6% misses a 5% chance');
+    setJackpotRand(() => 0.06); assert.ok(f(at(1000)) > 0, 'level 1,000: 6% hits a 7.5% chance');
+  }
+  setJackpotRand(() => 0.06);
+  assert.equal(schoolJackpot(0, 99), false);
+  assert.equal(schoolJackpot(0, 1000), true);
 });

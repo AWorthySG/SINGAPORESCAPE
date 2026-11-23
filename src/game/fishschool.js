@@ -188,7 +188,7 @@ export class FishSchools {
     // often as a whole seam or tree (the owner's ask), of the fish you hooked.
     if (!caughtId) return 0;
     const tb = toolBonus(g, obj.def.tool || 'net');
-    if (!schoolJackpot(tb.find)) return 0;
+    if (!schoolJackpot(tb.find, g.skills.level('fishing'))) return 0;
     return this._net(obj, caughtId, SEAM_MULT * this._between(WILD_STOCK), xpMult, tb, true);
   }
 
