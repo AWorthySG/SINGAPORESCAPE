@@ -4818,7 +4818,7 @@ test('auto battle casters pick the element that suits the target', async () => {
   assert.equal(game._autoSpellFor(solo).element, 'fire', 'Fire on a long fight it is strong in');
   solo.maxHp = solo.hp = 50;
   assert.equal(game._autoSpellFor(solo).element, 'wind', 'Wind still on a quick kill');
-  solo.def = { ...solo.def, sprite: 'none', race: 'dragon', family: 'dragon_test' };
+  solo.def = { ...solo.def, sprite: 'drake', family: 'dragon_test' };
   solo.maxHp = solo.hp = 5e7;
   assert.equal(raceOf(solo.def, solo.npcId), 'dragon');
   assert.equal(game._autoSpellFor(solo).element, 'fire', 'and on a long fight against a dragon, which resists it');
