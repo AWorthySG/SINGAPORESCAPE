@@ -444,3 +444,70 @@ body.cb-safe #hp-bar.low::after {
 @keyframes stickerIn { from { opacity: 0; translate: 0 -6px; scale: .96; } to { opacity: 1; translate: 0 0; scale: 1; } }
 @media (prefers-reduced-motion: reduce) { #quickbar.open .qb-pop { animation: none; } }
 body.reduce-motion #quickbar.open .qb-pop { animation: none; }
+
+/* ---------- Monster Codex filters (src/ui/codexui.js) ----------
+   The search on its own full-width row; under it a Filters chip (the count
+   of those set) beside the sort; the chip unfolds the rest. It opens on the
+   creatures you have met, with a friendly word while there are none. */
+#modal-body .cx-search:not(.ency-search):not(.cp-search) { display: block; width: 100%; max-width: none; box-sizing: border-box; min-height: 40px; margin: 8px 0 6px; font-size: 15px; }
+.cx-tools { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; }
+.cx-filter-chip {
+  display: inline-flex; align-items: center; gap: 5px; min-height: 32px; padding: 3px 12px; cursor: var(--cur-pointer, pointer);
+  font: inherit; font-size: 12px; font-weight: 900; color: var(--aw-text, #1C1B19); background: var(--aw-card, #fff);
+  border: 2px solid var(--aw-ink, #22304A); border-radius: 999px; box-shadow: var(--shadow-btn, 0 3px 0 rgba(34,48,74,.24));
+}
+.cx-filter-chip b { min-width: 16px; padding: 0 4px; border-radius: 999px; font-size: 10.5px; line-height: 16px; text-align: center; color: #fff; background: var(--aw-accent, #C0392B); }
+.cx-filter-chip i { font-style: normal; font-size: 10px; transition: transform .15s ease; }
+.cx-filter-chip.open i { transform: rotate(180deg); }
+.cx-filter-chip.set { background: var(--aw-sun-bg, #FDF3DE); }
+.cx-tools .cx-select { margin-left: auto; }
+.cx-filters:not(.ency-filters) { margin: 0 0 8px; padding: 8px; border: 2px dashed var(--aw-ink-faint, rgba(34,48,74,.28)); border-radius: var(--r-card, 14px); }
+.cx-filters[hidden] { display: none; }
+.cx-empty {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 18px auto 10px; max-width: 340px; padding: 18px 16px;
+  text-align: center; background: var(--paper, #FFFCF5); border: 2px dashed var(--aw-ink-faint, rgba(34,48,74,.28)); border-radius: var(--r-card, 14px);
+}
+.cx-empty b { font-size: 15px; font-weight: 900; }
+.cx-empty span { font-size: 12.5px; color: var(--aw-text-sec, #6B6760); line-height: 1.4; }
+.cx-empty .cx-show-unseen { margin-top: 4px; min-height: 34px; }
+@media (pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px) {
+  .cx-filter-chip, .cx-empty .cx-show-unseen, .cx-tools .cx-select { min-height: 44px; }
+}
+
+/* ---------- One width and one row for the Codex-type windows ----------
+   The Knowledge Codex, the Monster Codex (every section) and the
+   Compendium share one width, so switching between them doesn't jump; list
+   rows share their padding and keep title and line centred in the row. */
+:root { --modal-w-codex: min(720px, 96vw); }
+@media (min-width: 600px) {
+  #modal-window:is(:has(.cx-switch), :has(.cx-head), :has(.cx-entry), :has(.cp-wrap), :has(.ency-wrap), :has(.codex-grid)) { width: var(--modal-w-codex); }
+}
+#modal-body .cx-row, #modal-body .cp-row { min-height: 52px; padding: 6px 12px 6px 8px; align-items: center; }
+#modal-body .cp-list .cp-row { align-items: center; padding-left: 12px; }
+#modal-body .cp-list .cp-row > b { flex: none; }
+
+/* ---------- Dialogue (ui.js openDialogue) ----------
+   The speaker's portrait (the story scenes' round sticker) beside their
+   words, and the farewell as a small secondary button under the choices. */
+.dialogue.has-portrait { display: flex; align-items: flex-start; gap: 12px; }
+.dialogue .dlg-words { flex: 1; min-width: 0; }
+.dlg-portrait {
+  flex: none; width: 72px; height: 72px; border-radius: 50%; overflow: hidden; background: var(--aw-sun-bg, #FDF3DE);
+  border: 2px solid var(--aw-ink, #22304A); box-shadow: 0 0 0 3px var(--rim, #fff), var(--shadow-sticker-sm);
+}
+.dlg-portrait img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 18%; }
+/* It stays in sight at the window's foot while a long list of choices scrolls. */
+.dlg-foot {
+  position: sticky; bottom: -12px; z-index: 1; display: flex; justify-content: flex-end; margin: 6px -4px -4px; padding: 8px 4px 6px;
+  background: linear-gradient(to bottom, transparent, var(--paper-deep, #F8F1E2) 40%);
+}
+.dlg-bye {
+  min-height: 32px; padding: 4px 16px; cursor: var(--cur-pointer, pointer); font: inherit; font-size: 12.5px; font-weight: 800;
+  color: var(--aw-text-sec, #6B6760); background: var(--aw-card, #fff); border: 2px solid var(--aw-ink, #22304A); border-radius: 999px;
+  box-shadow: var(--shadow-btn, 0 3px 0 rgba(34,48,74,.24));
+}
+@media (hover: hover) { .dlg-bye:hover { color: var(--aw-text, #1C1B19); background: var(--aw-hover, #EEE7D6); } }
+.dlg-bye:active { translate: 0 2px; box-shadow: var(--shadow-btn-down, 0 1px 0 rgba(34,48,74,.24)); }
+.dlg-bye:focus-visible { outline: 3px solid var(--aw-sun, #F5B82E); outline-offset: 2px; }
+@media (max-width: 540px) { .dlg-portrait { width: 56px; height: 56px; } }
+@media (pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px) { .dlg-bye { min-height: 44px; } }

@@ -4,7 +4,7 @@ import { classPerks, classPerkSummary, classKeyPerks } from '../game/classperks.
 import { LIFE_PERKS, LIFE_PERK_SKILLS, LIFE_PERK_FULL_LEVEL, LIFE_PERK_MAX_LEVEL, LIFE_PERK_TOP_LEVEL, lifePerkText, lifePerkNext } from '../game/lifeperks.js';
 import { unlockTipText } from '../game/skillunlocks.js';
 import { installHomeUI } from './homeui.js';
-import { installStoryUI } from './storyui.js';
+import { installStoryUI, speakerArt } from './storyui.js';
 import { installReputationUI } from './reputationui.js';
 import { personalise } from '../game/memory.js';
 import * as Mercs from '../game/mercenary.js';
@@ -114,6 +114,15 @@ const EQUIP_LAYOUT = [
   null, 'legs', null,
   'hands', 'feet', 'ring',
 ];
+
+/** A dialogue's choices, with its farewell apart: the last option when it
+ *  only ends the talk (no action, nowhere to go) and there are others to
+ *  pick. It shows as a small "Goodbye" button rather than a full-width choice. */
+export function farewellSplit(options = []) {
+  const last = options[options.length - 1];
+  const bye = options.length > 1 && last && !last.action && (!last.next || last.next === 'end') ? last : null;
+  return { main: bye ? options.slice(0, -1) : options, bye };
+}
 
 // A region recommends a level "well above" yours once it's past a quarter more
 // (plus a little, so the low levels aren't all flagged). Warns only; never blocks.
@@ -4472,20 +4481,37 @@ export class UI {
       const node = tree[nodeId];
       if (!node || nodeId === 'end') { this.closeModal(); return; }
       const render = (body) => {
-        body.innerHTML = `<div class="dialogue"><div class="speaker">${escapeHtml(node.speaker)}</div>${escapeHtml(node.text)}</div>`;
+        // The speaker's picture beside their words (the story scenes' portrait).
+        const art = speakerArt(npc.npcId);
+        const pic = art ? `<span class="dlg-portrait" aria-hidden="true"><img alt="" src="${escapeHtml(art.src)}"${art.filter ? ` style="filter:${escapeHtml(art.filter)}"` : ''}></span>` : '';
+        body.innerHTML = `<div class="dialogue${art ? ' has-portrait' : ''}">${pic}<div class="dlg-words"><div class="speaker">${escapeHtml(node.speaker)}</div>${escapeHtml(node.text)}</div></div>`;
         const opts = document.createElement('div');
         opts.className = 'dialogue-options';
-        for (const o of node.options) {
+        const { main, bye } = farewellSplit(node.options);
+        const pick = (o) => () => {
+          if (o.action) this.game.handleDialogueAction(o.action);
+          show(o.next || 'end');
+        };
+        for (const o of main) {
           const div = document.createElement('div');
           div.className = 'dialogue-option';
           div.textContent = o.label;
-          div.addEventListener('click', () => {
-            if (o.action) this.game.handleDialogueAction(o.action);
-            show(o.next || 'end');
-          });
+          div.addEventListener('click', pick(o));
           opts.appendChild(div);
         }
         body.appendChild(opts);
+        // "Goodbye." is a small button under the choices, not one of them.
+        if (bye) {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'dlg-bye';
+          b.textContent = bye.label;
+          b.addEventListener('click', pick(bye));
+          const foot = document.createElement('div');
+          foot.className = 'dlg-foot';
+          foot.appendChild(b);
+          body.appendChild(foot);
+        }
       };
       if (!this.modal) this.openModal(npc.name, render);
       else { this.modal.render = render; render(this.el.modalBody); }

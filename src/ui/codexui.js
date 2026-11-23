@@ -32,7 +32,15 @@ const pct = (a, b) => (b ? Math.floor((a / b) * 100) : 0);
 
 /** The filters the window opens with (remembered on the UI between openings). */
 export function defaultCodexState() {
-  return { search: '', region: 'all', race: 'all', type: 'all', disc: 'all', sort: 'level', minLevel: null, maxLevel: null, shown: PAGE_SIZE, id: null };
+  return { search: '', region: 'all', race: 'all', type: 'all', disc: 'seen', sort: 'level', minLevel: null, maxLevel: null, shown: PAGE_SIZE, id: null };
+}
+
+/** How many of the folded filters (region, race, type, seen, levels) are
+ *  set away from how the window opens: the count on the Filters chip. */
+export function activeFilterCount(st) {
+  const d = defaultCodexState();
+  return ['region', 'race', 'type', 'disc'].filter((k) => (st[k] ?? d[k]) !== d[k]).length
+    + (st.minLevel != null ? 1 : 0) + (st.maxLevel != null ? 1 : 0);
 }
 
 /** The creature's painted art (the same file the world draws), or null. */
@@ -103,6 +111,12 @@ export function codexRowHTML(game, id) {
 export function codexListHTML(game, st) {
   const ids = codexList(game, st);
   const shown = ids.slice(0, Math.max(PAGE_SIZE, st.shown || PAGE_SIZE));
+  // Seen only (how it opens) and nothing met yet: a friendly word and a way
+  // to the silhouettes, not "0 of 814" over an empty page.
+  if (!ids.length && st.disc === 'seen' && !st.search && activeFilterCount(st) === 0) {
+    return '<div class="cx-empty"><b>No creatures met yet.</b><span>Defeat a monster and it joins your Codex, with its picture, stats and drops.</span>'
+      + '<button type="button" class="cx-reset cx-show-unseen">Show the ones still to find</button></div>';
+  }
   let html = `<div class="cx-count">${ids.length === CODEX_IDS.length ? `All ${formatNumber(ids.length)} creatures` : `${formatNumber(ids.length)} of ${formatNumber(CODEX_IDS.length)} creatures`}</div>`;
   if (!ids.length) return html + '<div class="modal-hint">No creatures match these filters.</div>';
   html += `<div class="cx-list">${shown.map((id) => codexRowHTML(game, id)).join('')}</div>`;
@@ -208,11 +222,13 @@ export function openCodex(ui, id = null, { view, article } = {}) {
   // No section asked for: the one it was left on (remembered: windowease.js).
   st.view = st.id ? 'monsters' : view || st.view || 'monsters';
   if (article !== undefined) cst.id = article;
-  let listEl = null;
+  let listEl = null, listBody = null;
 
   const drawList = () => {
     if (!listEl) return;
     listEl.innerHTML = codexListHTML(game, st);
+    // The empty Seen list's button: every creature, silhouettes and all.
+    listEl.querySelector('.cx-show-unseen')?.addEventListener('click', () => { st.disc = 'all'; st.shown = PAGE_SIZE; render(listBody); });
     listEl.querySelector('.cx-more')?.addEventListener('click', () => {
       // Keep the scroll where it is and just add the next page underneath.
       st.shown = (st.shown || PAGE_SIZE) + PAGE_SIZE; drawList();
@@ -236,15 +252,29 @@ export function openCodex(ui, id = null, { view, article } = {}) {
   const renderList = (body) => {
     body.innerHTML = codexProgressHTML(game);
     body.querySelectorAll('.cx-title-btn').forEach((b) => b.addEventListener('click', () => { setTitle(game, b.dataset.title || null); render(body); }));
+    // The search on a row of its own; under it a Filters chip (with how many
+    // are set) and the sort. The chip unfolds the rest (st.filtersOpen).
     const bar = control('div', 'cx-filters');
     const search = control('input', 'bank-search cx-search', { placeholder: 'Search creatures…', value: st.search || '', type: 'search' });
+    search.setAttribute('aria-label', 'Search creatures');
     search.addEventListener('input', () => { st.search = search.value; st.shown = PAGE_SIZE; drawList(); });
-    bar.appendChild(search);
+    body.appendChild(search);
+    const n = activeFilterCount(st);
+    const chip = control('button', `cx-filter-chip${st.filtersOpen ? ' open' : ''}${n ? ' set' : ''}`, { type: 'button', innerHTML: `Filters${n ? ` <b>${n}</b>` : ''} <i aria-hidden="true">&#9662;</i>` });
+    chip.setAttribute('aria-expanded', st.filtersOpen ? 'true' : 'false');
+    const showCount = () => { const k = activeFilterCount(st); chip.classList.toggle('set', k > 0); chip.innerHTML = `Filters${k ? ` <b>${k}</b>` : ''} <i aria-hidden="true">&#9662;</i>`; };
+    bar.addEventListener('change', showCount);
+    bar.addEventListener('input', showCount);
+    chip.addEventListener('click', () => { st.filtersOpen = !st.filtersOpen; chip.classList.toggle('open', st.filtersOpen); chip.setAttribute('aria-expanded', st.filtersOpen ? 'true' : 'false'); bar.hidden = !st.filtersOpen; });
+    const tools = control('div', 'cx-tools');
+    tools.appendChild(chip);
+    tools.appendChild(select('sort', SORTS.map((s) => ({ id: s.id, name: `Sort: ${s.name}` })), 'Sort'));
+    body.appendChild(tools);
+    bar.hidden = !st.filtersOpen;
     bar.appendChild(select('region', [{ id: 'all', name: 'All regions' }, ...codexRegions(game).map((n) => ({ id: n, name: n }))], 'Region'));
     bar.appendChild(select('race', [{ id: 'all', name: 'All races' }, ...Object.entries(RACES).map(([rid, r]) => ({ id: rid, name: `${r.icon} ${r.name}` }))], 'Race'));
     bar.appendChild(select('type', TYPE_FILTERS, 'Type'));
-    bar.appendChild(select('disc', [{ id: 'all', name: 'Seen and unseen' }, { id: 'seen', name: 'Discovered' }, { id: 'unseen', name: 'Undiscovered' }], 'Discovered'));
-    bar.appendChild(select('sort', SORTS.map((s) => ({ id: s.id, name: `Sort: ${s.name}` })), 'Sort'));
+    bar.appendChild(select('disc', [{ id: 'seen', name: 'Discovered' }, { id: 'all', name: 'Seen and unseen' }, { id: 'unseen', name: 'Undiscovered' }], 'Discovered'));
     const lv = control('span', 'cx-levels');
     lv.innerHTML = '<span>Lvl</span>';
     for (const key of ['minLevel', 'maxLevel']) {
@@ -256,9 +286,10 @@ export function openCodex(ui, id = null, { view, article } = {}) {
     }
     bar.appendChild(lv);
     const reset = control('button', 'cx-reset', { type: 'button', textContent: 'Clear' });
-    reset.addEventListener('click', () => { const keep = st.sort; Object.assign(st, defaultCodexState(), { sort: keep }); render(body); });
+    reset.addEventListener('click', () => { const keep = st.sort; Object.assign(st, defaultCodexState(), { sort: keep, filtersOpen: true }); render(body); });
     bar.appendChild(reset);
     body.appendChild(bar);
+    listBody = body;
     listEl = control('div', 'cx-results');
     // One listener for every row (rows come and go as the filters change).
     listEl.addEventListener('click', (ev) => {
