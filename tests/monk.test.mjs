@@ -99,14 +99,17 @@ test('Chi: one a tick from landed blows, +3% damage each, overflowing at 10 into
   const base = g._offensiveMods(t, 'melee').dmgM;
   g._applyPlayerHit(t, 5); g._applyPlayerHit(t, 5);
   assert.equal(chiStacks(g), 1, 'a flurry within one tick builds one');
-  for (let i = 0; i < 3; i++) { g.playMs += CHI.everyMs; g._applyPlayerHit(t, 5); }
+  // Play time alone builds none: the browser's frame loop runs it faster than the ticks.
+  g.playMs = (g.playMs || 0) + 60000; g._applyPlayerHit(t, 5);
+  assert.equal(chiStacks(g), 1, 'one a tick, however much play time passed');
+  for (let i = 0; i < 3; i++) { g.tickCount++; g._applyPlayerHit(t, 5); }
   assert.equal(chiStacks(g), 4);
   assert.ok(near(g._offensiveMods(t, 'melee').dmgM / base, 1 + 4 * CHI.per), 'x1.12 at 4 Chi');
   // The Stats tab agrees.
   assert.ok(damageMult(g, 'melee', { npc: t }).parts.some(([label]) => /^Chi 4\/10/.test(label)));
   // Overflow: a heal of 5% and back down to 5.
   g.player.hp = 10;
-  for (let i = 0; i < 6; i++) { g.playMs += CHI.everyMs; g._applyPlayerHit(t, 5); }
+  for (let i = 0; i < 6; i++) { g.tickCount++; g._applyPlayerHit(t, 5); }
   assert.equal(chiStacks(g), CHI.keep + 0, 'overflowed at 10, back to 5');
   assert.equal(g.player.hp, 10 + Math.max(1, Math.round(g.maxHp() * CHI.heal)), 'healed 5% of max life');
   // Left alone it fades, and the tick says so.
@@ -157,7 +160,7 @@ test('Inner Focus makes Chi overflow at once; Hundred Fists strikes everything w
   u.g.attackNpc(u.t); u.g.player.attackCooldown = 0;
   u.g.doPlayerAttack(u.t);
   assert.equal(other.hp, 1e9, 'a plain punch leaves it alone');
-  u.g.adrenaline = 100; u.g.player.hp = 10; u.g.playMs += CHI.everyMs;
+  u.g.adrenaline = 100; u.g.player.hp = 10; u.g.tickCount++;
   u.g.activateAbility('hundred_fists');
   u.g.player.attackCooldown = 0; u.g.doPlayerAttack(u.t);
   assert.ok(other.hp < 1e9, 'the foe 3 tiles from the target was struck too');
@@ -194,7 +197,7 @@ test('the Monk came after the signature deal: three extra weapons of its own, an
 
 test('a Monk saves and loads: its class, knuckles and gloves come back; Chi starts afresh', () => {
   const { g, t } = mk();
-  for (let i = 0; i < 3; i++) { g.playMs += CHI.everyMs; g._applyPlayerHit(t, 5); }
+  for (let i = 0; i < 3; i++) { g.tickCount++; g._applyPlayerHit(t, 5); }
   assert.equal(chiStacks(g), 3);
   assert.ok(saveGame(g));
   const g2 = new Game(); g2.start();
