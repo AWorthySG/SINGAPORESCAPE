@@ -6,6 +6,7 @@
 //   Hunter     work traps and trails out in the wild for feathers, meat and hides.
 
 import { TOOL_TIERS, TOOL_LOGS, TOOL_BAR_XP, toolId } from './tooltiers.js';
+import { towardTop } from './xp.js';
 
 // Crops: [id, name, Farming level, grow ticks (600ms each), plant xp, harvest xp per crop,
 //         [min, max] yield, heal if edible, value, colour]. The seed is `${id}_seed`.
@@ -45,6 +46,13 @@ export const cropFor = (id) => {
   const c = CROP_BY_ID[id];
   return c && { id: c[0], name: c[1], level: c[2], grow: c[3], plantXp: c[4], harvestXp: c[5], yield: c[6], heal: c[7], value: c[8], color: c[9], seed: `${c[0]}_seed` };
 };
+// Green fingers: the chance a harvest gives one more crop, from your Farming
+// levels above the crop's: +1% a level to GREEN_FINGERS_CAP at the crop's level
+// + 50, then a straight line on to GREEN_FINGERS_TOP at level 9999 (the owner
+// asked for life-skill bonuses all the way to 9999).
+export const GREEN_FINGERS_CAP = 0.5, GREEN_FINGERS_TOP = 0.75;
+export const greenFingersChance = (lvl, cropLevel) => Math.min(GREEN_FINGERS_CAP, (lvl - cropLevel) / 100)
+  + (GREEN_FINGERS_TOP - GREEN_FINGERS_CAP) * towardTop(lvl, cropLevel + 50);
 
 // Potion effects stack with combat perks (see Game.perkMods): acc / dmg / crit add to
 // hits, reduce cuts damage taken, heal restores a share of max life at once.

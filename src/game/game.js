@@ -19,7 +19,7 @@ import {
 } from '../config.js';
 
 import { World } from './world.js';
-import { Skills } from './skillset.js';
+import { Skills, xpText } from './skillset.js';
 import { Inventory } from './inventory.js';
 import { Equipment, canDualWield, canDualPair, EQUIP_SLOTS, isTwoHanded, offhandBlocked, takesQuiver } from './equipment.js';
 import { Bank } from './bank.js';
@@ -56,7 +56,7 @@ import {
 } from './skilling.js';
 import { installSkillUnlocks, runSkillAction, extraCrop, growTicks } from './skillunlocks.js';
 import { Home } from './home.js';
-import { CROP_BY_SEED, cropFor, POTIONS } from '../data/trades.js';
+import { CROP_BY_SEED, cropFor, POTIONS, greenFingersChance } from '../data/trades.js';
 import { saveGame, loadGame, hasSave } from './save.js';
 import * as Play from './playbalance.js';
 import { getShop } from '../data/shops.js';
@@ -78,7 +78,7 @@ import { WorldEvents } from './worldevents.js';
 import * as Mercs from './mercenary.js';
 import * as Culling from './culling.js';
 import { classPerks } from './classperks.js';
-import { LIFE_PERKS, LIFE_PERK_SKILLS, LIFE_PERK_FULL_LEVEL, LIFE_PERK_MAX_LEVEL, LIFE_PERK_NOTE_EVERY, lifePerkTotals, lifePerkText } from './lifeperks.js';
+import { LIFE_PERKS, LIFE_PERK_SKILLS, LIFE_PERK_TOP_LEVEL, lifePerkNoteAt, lifePerkTotals, lifePerkText } from './lifeperks.js';
 import { TOPIC_BY_ID } from '../data/questions.js';
 import { LIFE_STAGES, LIFE_GRAD, LIFE_STAGES_ADV, LIFE_GRAD_ADV, LIFE_STAGES_WILD, LIFE_GRAD_WILD } from '../data/lifeskills.js';
 import { QUESTS, CHAMPION_QP, REDEMPTION_GOAL, CORRUPTION_GOAL } from '../data/quests.js';
@@ -648,10 +648,11 @@ export class Game {
     // Every 10 life skill levels, say what that skill now adds in a fight, so
     // players notice their gathering and making makes them stronger.
     this._lifePerkNote = (p) => {
-      // (Past level 200, where it grows half as fast, every 50 levels, to LIFE_PERK_MAX_LEVEL.)
-      if (!LIFE_PERKS[p?.skill] || p.level % (p.level > LIFE_PERK_FULL_LEVEL ? 50 : LIFE_PERK_NOTE_EVERY) || p.level > LIFE_PERK_MAX_LEVEL) return;
+      // (Past level 200, where it grows half as fast, every 50 levels to 1000,
+      // then every 500 as it grows slowly on to 9999: lifePerkNoteAt.)
+      if (!LIFE_PERKS[p?.skill] || !lifePerkNoteAt(p.level)) return;
       const name = SKILL_BY_ID[p.skill]?.name || p.skill;
-      const text = `Life skill perk: your ${name} now gives ${lifePerkText(p.skill, p.level)} in combat${p.level === LIFE_PERK_MAX_LEVEL ? ' (its full strength)' : ''}.`;
+      const text = `Life skill perk: your ${name} now gives ${lifePerkText(p.skill, p.level)} in combat${p.level === LIFE_PERK_TOP_LEVEL ? ' (its full strength)' : ''}.`;
       if (this._batchNews) this._batchNews.notes.set(`lifeperk:${p.skill}`, [text, 'level']);   // a batch says only the last (autoprocess.js)
       else this.msg(text, 'level');
     };
@@ -3637,8 +3638,7 @@ export class Game {
       // A share of the XP to the skill's next level, so it matters at any level.
       const lvl = this.skills.level(c.skill), need = xpForLevel(lvl + 1) - xpForLevel(lvl);
       const xp = Math.max(1, Math.round(need * c.xp / XP_RATE / this.skills.lifeXpMult(c.skill)));
-      this.skills.addXp(c.skill, xp);
-      gains.push(`${xp * XP_RATE} ${SKILL_BY_ID[c.skill]?.name || c.skill} XP`);
+      gains.push(`${xpText(this.skills.addXp(c.skill, xp))} ${SKILL_BY_ID[c.skill]?.name || c.skill} XP`);
     }
     if (c.coins) { const n = moralCoins(c.coins, fl); this.inventory.add('coins', n); gains.push(`${n} coins`); }
     for (const [item, q] of c.items || []) { this.inventory.add(item, q); gains.push(`${q} ${getItem(item).name}`); }
@@ -3855,13 +3855,15 @@ export class Game {
       // A late boss's siege (npcs.js bossSiegeScale) lasts longer, so its bonus grows to match.
       const xp = Math.round((npc.def.level || 1) * BOSS_XP_PER_LEVEL * (npc.def.siege || 1) * this.combatXpMult());
       const mode = this.combatMode();
+      // The line names what each skill really gained (rested XP, golden hours and all).
+      const gain = (s, n) => `+${xpText(this.skills.addXp(s, n))} ${SKILL_BY_ID[s].name}`;
       if (mode === 'dance') {   // a Dancer's bonus is split between Agility and Ranged
-        this.skills.addXp('agility', xp / 2); this.skills.addXp('ranged', xp / 2); this.skills.addXp('hitpoints', Math.round(xp / 3));
-        this.msg(`Boss slain! +${xp * XP_RATE / 2} Agility and Ranged XP.`, 'level');
+        const a = gain('agility', xp / 2), r = gain('ranged', xp / 2), h = gain('hitpoints', Math.round(xp / 3));
+        this.msg(`Boss slain! ${a}, ${r} and ${h} XP.`, 'level');
       } else {
         const skill = mode === 'ranged' ? 'ranged' : mode === 'magic' ? 'magic' : 'attack';
-        this.skills.addXp(skill, xp); this.skills.addXp('hitpoints', Math.round(xp / 3));
-        this.msg(`Boss slain! +${xp * XP_RATE} ${skill} XP.`, 'level');
+        const a = gain(skill, xp), h = gain('hitpoints', Math.round(xp / 3));
+        this.msg(`Boss slain! ${a} and ${h} XP.`, 'level');
       }
     }
     if ((npc.def.boss && this.quests.island_defender.state === 'active') ||
@@ -6781,8 +6783,9 @@ export class Game {
   harvestPatch(obj) {
     const c = cropFor(obj.crop);
     const lvl = this.skills.level('farming');
-    // Green fingers: higher levels coax a little more from each patch.
-    const n = randInt(c.yield[0], c.yield[1]) + (Math.random() < Math.min(0.5, (lvl - c.level) / 100) ? 1 : 0) + extraCrop(this);
+    // Green fingers: higher levels coax a little more from each patch (50% at
+    // the crop's level + 50, then on to 75% at level 9999: trades.js).
+    const n = randInt(c.yield[0], c.yield[1]) + (Math.random() < greenFingersChance(lvl, c.level) ? 1 : 0) + extraCrop(this);
     if (this.inventory.canAdd(c.id, n) <= 0) { this.msg('Your inventory is too full to harvest.'); return false; }
     this.inventory.add(c.id, n);
     this.skills.addXp('farming', c.harvestXp * n);
@@ -7045,21 +7048,23 @@ export class Game {
         return;
       }
     }
-    // Pay out the lesson reward.
-    this.skills.addXp(st.skill, st.reward.xp);
+    // Pay out the lesson reward (reward.xp is listed XP: the line says what really landed).
+    const got = this.skills.addXp(st.skill, st.reward.xp);
     if (st.reward.coins) this.inventory.add('coins', st.reward.coins);
     if (st.reward.item) this.inventory.add(st.reward.item, 1);
-    this.msg(`Lesson complete — ${st.name}! +${st.reward.xp} ${st.name} XP${st.reward.coins ? ` and ${st.reward.coins} coins` : ''}.`, 'level');
+    this.msg(`Lesson complete — ${st.name}! +${xpText(got)} ${st.name} XP${st.reward.coins ? ` and ${st.reward.coins} coins` : ''}.`, 'level');
     this.spawnSparkle(this.player, '#ffe24a', 12);
     // Move on to the next lesson, or graduate.
     q.stage++;
     if (q.stage > stages.length) {
       q.state = 'done';
-      for (const s of grad.skills) this.skills.addXp(s, grad.xp);
+      // The course's own skills, each named with what it really gained (its own
+      // level and golden hours change the rate, so they can differ).
+      const gains = grad.skills.map((s) => `+${xpText(this.skills.addXp(s, grad.xp))} ${SKILL_BY_ID[s].name}`);
       if (grad.coins) this.inventory.add('coins', grad.coins);
       if (grad.item) this.inventory.add(grad.item, 1);
       const extra = grad.item ? ` and the ${getItem(grad.item).name}` : '';
-      this.msg(`Quest complete — ${name}! Cikgu Surya honours your mastery (+${grad.xp} XP in every life skill, +${grad.coins} coins${extra}).`, 'level');
+      this.msg(`Quest complete — ${name}! Cikgu Surya honours your mastery (${gains.join(', ')} XP, +${grad.coins.toLocaleString('en-GB')} coins${extra}).`, 'level');
       this.banner(`<span class="big">Quest complete!</span>${name}`);
     } else {
       this._beginLifeStage(key);

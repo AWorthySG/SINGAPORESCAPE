@@ -8,6 +8,7 @@
 import { Gathering, STREAK_XP_STEP, streakTier, contractStreakMult } from '../game/gathering.js';
 import { Teleports, TOWN_KEY, GRAVE_KEY, CAST_TICKS, TOWN_COOLDOWN_TICKS } from '../game/teleports.js';
 import { SKILL_BY_ID } from '../data/skills.js';
+import { xpText } from '../game/skillset.js';
 import { skillIconSVG, uiIconHTML } from '../render/icons.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -43,7 +44,7 @@ export function openSkillContracts(ui) {
       + 'coins and a good helping of XP. Clear all three for a bonus, and come back tomorrow to build a streak.</div>'
       + `<div class="lsx-list">${c.list.map((k) => `<div class="lsx-row${k.done ? ' done' : ''}">`
         + `<span class="lsx-ic">${skillIconSVG(k.skill, 26)}</span>`
-        + `<span class="lsx-text"><b>${esc(Gathering.contractText(k))}</b><small>${esc(skillName(k.skill))} · ${k.done ? 'done' : `${k.have}/${k.need}`} · ${uiIconHTML('contract-token', 14, 'lsx-token')}${Math.round(k.coins * contractStreakMult(c.streak))} coins, ${k.xp} XP</small></span>`
+        + `<span class="lsx-text"><b>${esc(Gathering.contractText(k))}</b><small>${esc(skillName(k.skill))} · ${k.done ? 'done' : `${k.have}/${k.need}`} · ${uiIconHTML('contract-token', 14, 'lsx-token')}${Math.round(k.coins * contractStreakMult(c.streak))} coins, ${xpText(g.skills.xpAtLevel(k.skill, k.xp))} XP</small></span>`
         + `<span class="lsx-bar"><i style="width:${Math.round((k.have / k.need) * 100)}%"></i></span></div>`).join('')
         || '<div class="lsx-row">No contracts today: train a gathering skill first.</div>'}</div>`
       + `<div class="modal-hint">Contract streak: <b>${c.streak}</b> day${c.streak === 1 ? '' : 's'}${mult ? ` (+${mult}% pay)` : ''}. `
