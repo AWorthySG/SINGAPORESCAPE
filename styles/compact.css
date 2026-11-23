@@ -330,3 +330,239 @@ body.cb-safe #hp-bar.low::after {
   }
   #hp-orb { display: none; }
 }
+
+/* ==========================================================================
+   UI clean-up, round 2: Settings in cards, a shorter phone sheet, the
+   quick actions grid, the Codex filters and rows, dialogue portraits, bank
+   pins, one sticker style for banners and toasts, and one close button.
+   ========================================================================== */
+
+/* ---------- Settings (ui.js _buildSettingsPanel) ----------
+   Grouped cards of label + switch rows, in place of a long column of
+   "X: On" pills. The switch is Auto battle's (.ab-switch). */
+#settings-panel .set-group {
+  margin: 0 0 10px; padding: 2px 10px 6px; background: var(--paper, #FFFCF5);
+  border: 2px solid var(--aw-ink, #22304A); border-radius: var(--r-card, 14px); box-shadow: var(--shadow-sticker-sm);
+}
+#settings-panel .set-group > .set-section { margin: 8px 2px 2px; }
+#settings-panel .set-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 38px;
+  margin: 0; padding: 6px 4px; text-align: left; font-size: var(--fs-sm, 12.5px); font-weight: 800; color: var(--aw-text, #1C1B19);
+  background: none; border: 0; border-top: 1.5px dashed var(--aw-ink-faint, rgba(34,48,74,.28)); border-radius: 0;
+  box-shadow: none; filter: none; translate: none;
+}
+#settings-panel .set-section + .set-row, #settings-panel .set-section + .set-account { border-top: 0; }
+#settings-panel .set-row:active { translate: none; box-shadow: none; background: var(--aw-hover, #EEE7D6); }
+@media (hover: hover) { #settings-panel .set-row:hover { translate: none; box-shadow: none; background: var(--aw-hover, #EEE7D6); } }
+#settings-panel .set-row:focus-visible { outline: 3px solid var(--aw-sun, #F5B82E); outline-offset: -2px; border-radius: 8px; }
+#settings-panel .set-lbl { flex: 1; min-width: 0; }
+#settings-panel .set-row.on .ab-switch { background: var(--aw-accent, #C0392B); }
+#settings-panel .set-row.on .ab-switch i { transform: translateX(14px); }
+#settings-panel .set-val {
+  flex: none; padding: 2px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 900;
+  background: var(--aw-sun-bg, #FDF3DE); border: 1.5px solid var(--aw-ink, #22304A);
+}
+/* Actions (Save, Export, Compendium...): smaller pills inside their card. */
+#settings-panel .set-act, #settings-panel .acct-open { min-height: 34px; margin: 5px 0; padding: 5px 12px; }
+#settings-panel .set-slider { margin: 6px 4px 8px; }
+/* Account: Export | Import side by side; the rest full width. */
+#settings-panel .set-pairs { display: grid; grid-template-columns: 1fr 1fr; column-gap: 6px; }
+#settings-panel .set-pairs > :is(.set-section, .set-account, .set-wide, .danger) { grid-column: 1 / -1; }
+#settings-panel button[hidden] { display: none; }   /* Install as an app, where the browser can't (it showed anyway) */
+#settings-panel .set-pairs > .set-act { padding-left: 6px; padding-right: 6px; }
+#settings-panel .set-group .set-account .set-section { display: none; }   /* the card's own heading says Account */
+#settings-panel .set-group .hint { margin-top: 6px; }
+@media (pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px) {
+  #settings-panel .set-row { min-height: 44px; }
+  #settings-panel .set-act, #settings-panel .acct-open { min-height: 44px; }
+}
+
+/* ---------- Phone sheet chrome (ui.js _renderSubtabs, _fullForBag) ----------
+   The open sheet loses its title row (the lit tab names the view), Bag |
+   Gear and the bag's filters share one sideways-scrolling strip of chips,
+   the Bag and Gear open at the full snap, and the Gear view puts the worn
+   slots beside their totals instead of over a column of mostly empty room. */
+@media (pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px) {
+  #sidepanel:not(.collapsed) #panel-head { display: none; }
+  #panel-subtabs.with-bag {
+    gap: 6px; align-items: center; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
+  }
+  #panel-subtabs.with-bag::-webkit-scrollbar { display: none; }
+  #panel-subtabs[data-tab="inventory"] { justify-content: flex-start; }
+  #panel-subtabs[data-tab="inventory"] .subtab-btn { flex: none; padding: 6px 14px; }   /* the same small pair under Gear */
+  #panel-subtabs.with-bag .subtab-btn:first-child { margin-right: -6px; }   /* Bag | Gear stay one joined pair */
+  #panel-subtabs.with-bag #inventory-bar {
+    flex: none; display: flex; align-items: center; gap: 6px; margin: 0; padding-left: 8px;
+    border-left: 2px dashed var(--aw-ink-faint, rgba(34,48,74,.28));
+  }
+  #panel-subtabs.with-bag #inv-tabs { flex: none; flex-wrap: nowrap; overflow: visible; }
+  #panel-subtabs.with-bag .inv-tab, #panel-subtabs.with-bag #inv-sort { flex: none; }
+  /* Gear: the worn slots (smaller, the empty ones quiet) beside their totals. */
+  #sidepanel:not(.collapsed) .panel-view[data-view="equipment"]:not(.hidden) {
+    display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 10px; align-items: start;
+  }
+  .panel-view[data-view="equipment"] > :not(#equipment-layout):not(#equipment-bonuses) { grid-column: 1 / -1; }
+  .panel-view[data-view="equipment"] #equipment-layout { grid-template-columns: repeat(3, 46px); gap: 5px; margin: 2px 0 8px; }
+  .panel-view[data-view="equipment"] .equip-slot { width: 46px; height: 46px; }
+  .panel-view[data-view="equipment"] .equip-slot.empty { font-size: 9.5px; opacity: .7; }
+  .panel-view[data-view="equipment"] #equipment-bonuses { min-width: 0; margin: 2px 0 8px; padding: 6px 8px; font-size: 11.5px; line-height: 1.45; }
+}
+
+/* ---------- Quick actions (src/ui/quickbar.js) ----------
+   Desktop: the box around the actions is no box (the row is as it was).
+   Phones: the "⋯" button opens them as a two-column sticker grid hanging
+   under it at the right edge (clear of your hero in the middle), each with
+   its name; a tap anywhere else folds it. */
+#quickbar .qb-pop { display: contents; }
+#quickbar .qb-lbl { display: none; }
+@media (pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px) {
+  #quickbar .qb-pop { display: none; }
+  #quickbar.open { z-index: 66; }   /* over the action buttons and the open Auto card (65), under the sheets (70) */
+  #quickbar.open .qb-pop {
+    position: absolute; top: calc(100% + 8px); right: -4px; z-index: 66; pointer-events: auto;
+    display: grid; grid-template-columns: repeat(2, 60px); gap: 6px; padding: 7px;
+    max-height: calc(100dvh - 272px - 110px - 16px); overflow-y: auto; overscroll-behavior: contain;
+    background: var(--paper, #FFFCF5); border: 2px solid var(--aw-ink, #22304A); border-radius: 16px;
+    box-shadow: var(--shadow-float-sm, 0 0 0 2px #fff, 0 4px 0 2px rgba(34,48,74,.14));
+    animation: stickerIn .18s var(--ease-out, ease-out) backwards;
+  }
+  #quickbar.open .qb-pop .qb-btn, #quickbar.open .qb-pop .qb-edit, #quickbar.open .qb-pop #qb-life {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    width: 60px; height: 60px; margin: 0; padding: 4px 2px; opacity: 1; border-radius: 12px; font-size: 18px;
+  }
+  #quickbar.open .qb-pop .qb-lbl {
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+    max-width: 100%; font-size: 9.5px; font-weight: 800; line-height: 1.1; text-align: center; color: var(--aw-text, #1C1B19);
+  }
+  #quickbar.open .qb-pop .qb-slot.on .qb-lbl { color: #fff; }
+  #quickbar.open .qb-pop .qb-edit::before { display: none; }
+  #quickbar.open .qb-more { box-shadow: 0 0 0 3px var(--aw-sun, #F5B82E), var(--shadow-sticker-sm); }
+}
+/* One entry for floating stickers (banners, toasts, pills, this grid): a
+   small drop and settle. It moves with translate and scale, never
+   transform, so it adds to whatever centres the sticker. */
+@keyframes stickerIn { from { opacity: 0; translate: 0 -6px; scale: .96; } to { opacity: 1; translate: 0 0; scale: 1; } }
+@media (prefers-reduced-motion: reduce) { #quickbar.open .qb-pop { animation: none; } }
+body.reduce-motion #quickbar.open .qb-pop { animation: none; }
+
+/* ---------- Monster Codex filters (src/ui/codexui.js) ----------
+   The search on its own full-width row; under it a Filters chip (the count
+   of those set) beside the sort; the chip unfolds the rest. It opens on the
+   creatures you have met, with a friendly word while there are none. */
+#modal-body .cx-search:not(.ency-search):not(.cp-search) { display: block; width: 100%; max-width: none; box-sizing: border-box; min-height: 40px; margin: 8px 0 6px; font-size: 15px; }
+.cx-tools { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; }
+.cx-filter-chip {
+  display: inline-flex; align-items: center; gap: 5px; min-height: 32px; padding: 3px 12px; cursor: var(--cur-pointer, pointer);
+  font: inherit; font-size: 12px; font-weight: 900; color: var(--aw-text, #1C1B19); background: var(--aw-card, #fff);
+  border: 2px solid var(--aw-ink, #22304A); border-radius: 999px; box-shadow: var(--shadow-btn, 0 3px 0 rgba(34,48,74,.24));
+}
+.cx-filter-chip b { min-width: 16px; padding: 0 4px; border-radius: 999px; font-size: 10.5px; line-height: 16px; text-align: center; color: #fff; background: var(--aw-accent, #C0392B); }
+.cx-filter-chip i { font-style: normal; font-size: 10px; transition: transform .15s ease; }
+.cx-filter-chip.open i { transform: rotate(180deg); }
+.cx-filter-chip.set { background: var(--aw-sun-bg, #FDF3DE); }
+.cx-tools .cx-select { margin-left: auto; }
+.cx-filters:not(.ency-filters) { margin: 0 0 8px; padding: 8px; border: 2px dashed var(--aw-ink-faint, rgba(34,48,74,.28)); border-radius: var(--r-card, 14px); }
+.cx-filters[hidden] { display: none; }
+.cx-empty {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 18px auto 10px; max-width: 340px; padding: 18px 16px;
+  text-align: center; background: var(--paper, #FFFCF5); border: 2px dashed var(--aw-ink-faint, rgba(34,48,74,.28)); border-radius: var(--r-card, 14px);
+}
+.cx-empty b { font-size: 15px; font-weight: 900; }
+.cx-empty span { font-size: 12.5px; color: var(--aw-text-sec, #6B6760); line-height: 1.4; }
+.cx-empty .cx-show-unseen { margin-top: 4px; min-height: 34px; }
+@media (pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px) {
+  .cx-filter-chip, .cx-empty .cx-show-unseen, .cx-tools .cx-select { min-height: 44px; }
+}
+
+/* ---------- One width and one row for the Codex-type windows ----------
+   The Knowledge Codex, the Monster Codex (every section) and the
+   Compendium share one width, so switching between them doesn't jump; list
+   rows share their padding and keep title and line centred in the row. */
+:root { --modal-w-codex: min(720px, 96vw); }
+@media (min-width: 600px) {
+  #modal-window:is(:has(.cx-switch), :has(.cx-head), :has(.cx-entry), :has(.cp-wrap), :has(.ency-wrap), :has(.codex-grid)) { width: var(--modal-w-codex); }
+}
+#modal-body .cx-row, #modal-body .cp-row { min-height: 52px; padding: 6px 12px 6px 8px; align-items: center; }
+#modal-body .cp-list .cp-row { align-items: center; padding-left: 12px; }
+#modal-body .cp-list .cp-row > b { flex: none; }
+
+/* ---------- Dialogue (ui.js openDialogue) ----------
+   The speaker's portrait (the story scenes' round sticker) beside their
+   words, and the farewell as a small secondary button under the choices. */
+.dialogue.has-portrait { display: flex; align-items: flex-start; gap: 12px; }
+.dialogue .dlg-words { flex: 1; min-width: 0; }
+.dlg-portrait {
+  flex: none; width: 72px; height: 72px; border-radius: 50%; overflow: hidden; background: var(--aw-sun-bg, #FDF3DE);
+  border: 2px solid var(--aw-ink, #22304A); box-shadow: 0 0 0 3px var(--rim, #fff), var(--shadow-sticker-sm);
+}
+.dlg-portrait img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 18%; }
+/* It stays in sight at the window's foot while a long list of choices scrolls. */
+.dlg-foot {
+  position: sticky; bottom: -12px; z-index: 1; display: flex; justify-content: flex-end; margin: 6px -4px -4px; padding: 8px 4px 6px;
+  background: linear-gradient(to bottom, transparent, var(--paper-deep, #F8F1E2) 40%);
+}
+.dlg-bye {
+  min-height: 32px; padding: 4px 16px; cursor: var(--cur-pointer, pointer); font: inherit; font-size: 12.5px; font-weight: 800;
+  color: var(--aw-text-sec, #6B6760); background: var(--aw-card, #fff); border: 2px solid var(--aw-ink, #22304A); border-radius: 999px;
+  box-shadow: var(--shadow-btn, 0 3px 0 rgba(34,48,74,.24));
+}
+@media (hover: hover) { .dlg-bye:hover { color: var(--aw-text, #1C1B19); background: var(--aw-hover, #EEE7D6); } }
+.dlg-bye:active { translate: 0 2px; box-shadow: var(--shadow-btn-down, 0 1px 0 rgba(34,48,74,.24)); }
+.dlg-bye:focus-visible { outline: 3px solid var(--aw-sun, #F5B82E); outline-offset: 2px; }
+@media (max-width: 540px) { .dlg-portrait { width: 56px; height: 56px; } }
+@media (pointer: coarse) and (max-width: 540px), (pointer: coarse) and (max-height: 500px) { .dlg-bye { min-height: 44px; } }
+
+/* ---------- Bank: the kept-item pin (src/ui/bankkeepui.js) ----------
+   A small navy pin on a white sticker dot, worn by the items you chose to
+   keep; tools and coins (kept anyway) show theirs only on hover or focus. */
+.item-cell.bank-kept::after {
+  content: ""; top: -4px; right: -4px; width: 14px; height: 14px; border-radius: 50%; font-size: 0;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6 2h4l-.6 4.2L12 8.4V10H8.8v4L8 15l-.8-1v-4H4V8.4l2.6-2.2z' fill='%2322304A'/%3E%3C/svg%3E") center / 10px no-repeat;
+  border: 1.5px solid var(--aw-ink, #22304A); filter: none; box-shadow: 0 1px 0 rgba(34,48,74,.25); transition: opacity .12s ease;
+}
+.item-cell.bank-kept-auto::after { opacity: 0; }
+.item-cell.bank-kept-auto:hover::after, .item-cell.bank-kept-auto:focus-visible::after { opacity: 1; }
+
+/* ---------- One family for banners and toasts ----------
+   The area name, the hover line, the notice lane's cards, the standing
+   pill and the cloud toast: one sticker card (paper, a 2px navy line, the
+   white die-cut rim and a small shadow) and one entry, stickerIn (a small
+   drop and settle). Their places and timing are as they were. The world's
+   signposts are drawn to match (renderer.js). */
+#hover-text, #region-label, #notice-lane .nl-card, #rep-pill, #cloud-toast {
+  background-color: var(--paper, #FFFCF5); background-image: var(--paper-grain, none);
+  color: var(--aw-text, #1C1B19); border: 2px solid var(--aw-ink, #22304A);
+  box-shadow: var(--shadow-float-sm, 0 0 0 2px #fff, 0 4px 0 2px rgba(34,48,74,.14));
+}
+#notice-lane .nl-card { border-left-width: 2px; }
+#rep-pill { border-color: var(--rk, var(--aw-ink, #22304A)); }   /* the rank's colour stays its line */
+#region-label.wild { color: var(--aw-accent, #C0392B); background-color: var(--aw-accent-bg, #FFF0EE); }
+#hover-text:not(:empty), #region-label.fresh, #notice-lane .nl-card, #rep-pill { animation: stickerIn .22s var(--ease-out, ease-out) backwards; }
+#notice-lane .nl-mini { animation: none; }
+body.reduce-motion :is(#hover-text, #region-label, #notice-lane .nl-card, #rep-pill) { animation: none; }
+@media (prefers-reduced-motion: reduce) { :is(#hover-text, #region-label, #notice-lane .nl-card, #rep-pill) { animation: none; } }
+
+/* ---------- One close control (.close-x) ----------
+   Every close or dismiss (windows, tips, the account and postcard windows)
+   and the panels' fold toggles: a navy mark in a white sticker circle (the
+   folds keep their ▾ / ▸). Each keeps its own size and place. The ids are
+   listed so this outranks their older looks (the painted red close among
+   them); when the owner's ui-close art arrives it goes on as this rule's
+   background image. */
+.close-x, #modal-close.close-x, #panel-collapse.close-x, #chat-collapse.close-x, #minimap-collapse.close-x, #photo-mode .pm-x.close-x, #notice-lane .nl-x.close-x {
+  padding: 0; text-align: center; line-height: 1; font-family: inherit; font-weight: 900; text-shadow: none; filter: none;
+  color: var(--aw-ink, #22304A); background: #fff none; border: 2px solid var(--aw-ink, #22304A); border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--rim, #fff), 0 3px 0 2px rgba(34,48,74,.16); cursor: var(--cur-pointer, pointer);
+  translate: none; transition: translate .12s var(--ease-pop, ease-out), background-color .12s ease;
+}
+#modal-close.close-x { font-size: 16px; }
+@media (hover: hover) {
+  .close-x:hover, #modal-close.close-x:hover, #panel-collapse.close-x:hover, #chat-collapse.close-x:hover, #minimap-collapse.close-x:hover {
+    color: var(--aw-ink, #22304A); background: var(--aw-sun-bg, #FDF3DE) none; filter: none; translate: 0 -1px;
+    box-shadow: 0 0 0 2px var(--rim, #fff), 0 4px 0 2px rgba(34,48,74,.16);
+  }
+}
+.close-x:active, #modal-close.close-x:active, #panel-collapse.close-x:active, #chat-collapse.close-x:active, #minimap-collapse.close-x:active {
+  background-image: none; translate: 0 1px; box-shadow: 0 0 0 2px var(--rim, #fff), 0 1px 0 2px rgba(34,48,74,.16);
+}
+.close-x:focus-visible { outline: 3px solid var(--aw-sun, #F5B82E); outline-offset: 2px; }

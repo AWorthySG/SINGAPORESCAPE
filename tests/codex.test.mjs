@@ -37,8 +37,8 @@ test('the codex lists every monster and boss, each once', () => {
   const all = new Set([...ALL_MONSTER_IDS, ...ALL_BOSS_IDS]);
   assert.equal(CODEX_IDS.length, all.size);
   for (const id of all) assert.ok(CODEX_IDS.includes(id), `${id} is in the codex`);
-  // With no filters the list holds them all, sorted by level.
-  const ids = codexList(game, defaultCodexState());
+  // With no filters (Seen and unseen) the list holds them all, sorted by level.
+  const ids = codexList(game, { ...defaultCodexState(), disc: 'all' });
   assert.equal(ids.length, all.size);
   for (let i = 1; i < ids.length; i++) assert.ok(getNpc(ids[i - 1]).level <= getNpc(ids[i]).level, 'sorted by level');
   // Every creature has somewhere it lives, and every region it names is listed.
@@ -81,7 +81,7 @@ test('undiscovered entries hide drops and stats; a kill discovers them', () => {
   assert.ok(html.includes('???'), 'the name is hidden');
   assert.ok(!html.includes('cx-drops'), 'no drop list');
   assert.ok(html.includes('cx-silhouette') || html.includes('cx-noart'), 'shown as a silhouette');
-  assert.ok(!codexListHTML(game, { ...defaultCodexState(), search: 'goblin' }).includes('>Goblin<'), 'the list hides the name too');
+  assert.ok(!codexListHTML(game, { ...defaultCodexState(), disc: 'all', search: 'goblin' }).includes('>Goblin<'), 'the list hides the name too');
 
   // Kill one the game's own way.
   const npc = game.npcs.find((n) => n.npcId === 'goblin' && n.alive);
@@ -130,7 +130,7 @@ test('stats shown match the definition, in the scaled numbers the game uses', ()
 test('the codex pages render headlessly, a page of rows at a time', () => {
   const game = freshGame();
   game.kills = { chicken: 2 };
-  const st = defaultCodexState();
+  const st = { ...defaultCodexState(), disc: 'all' };   // the silhouettes too (it opens on the Seen ones)
   const list = codexListHTML(game, st);
   assert.equal((list.match(/class="cx-row[ "]/g) || []).length, PAGE_SIZE, 'only one page of rows');
   assert.ok(list.includes('cx-more'), 'with a Show more button');

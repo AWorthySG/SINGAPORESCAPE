@@ -165,6 +165,6 @@ test('off, it costs nothing: main.js loads the module only when on, and reads no
   // Off by default, kept on this device, and the Settings button flips it.
   assert.match(main, /localStorage\.getItem\(PERF_KEY\) === '1'/);
   const ui = readFileSync(new URL('../src/ui/ui.js', import.meta.url), 'utf8');
-  assert.match(ui, /Show performance: \$\{this\.perfOn \? 'On' : 'Off'\}/);
+  assert.match(ui, /row\('Show performance', \(\) => !!this\.perfOn,/);
   assert.match(ui, /this\.setPerf\?\.\(!this\.perfOn\)/);
 });

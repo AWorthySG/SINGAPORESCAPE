@@ -179,7 +179,7 @@ export function cardHTML(x, waiting = 0, mini = false) {
     return `<div class="nl-card nl-tip" data-id="${x.id}" role="status"><span class="nl-ic" aria-hidden="true">&#128161;</span>`
       + `<div class="nl-text">${x.html}</div>`
       + '<button type="button" class="nl-notips" data-act="notips">Don\'t show tips</button>'
-      + `${more}<button type="button" class="nl-x" aria-label="Dismiss">&#10005;</button></div>`;
+      + `${more}<button type="button" class="nl-x close-x" aria-label="Dismiss">&#10005;</button></div>`;
   }
   // A note's own button ("Wear it") sits outside the words, so it stays in
   // view when the words are cut to one line.

@@ -19,9 +19,13 @@ export function keepMenuItem(ui, id) {
   return { label: kept ? 'Stop keeping' : 'Always keep', fn: () => { toggleKeep(ui.game, id); ui._refreshModalIfOpen?.(['bank']); } };
 }
 
-/** Pin an inventory cell that Deposit loot leaves in the pack (tools, coins, kept items). */
+/** Pin an inventory cell that Deposit loot leaves in the pack (tools, coins,
+ *  kept items). Only the items you chose to keep wear the pin all the time;
+ *  tools and coins (kept anyway) show it on hover or focus, so a pack of
+ *  tools isn't a row of red pins. On a touch screen their menu says so. */
 export function markKept(ui, cell, id) {
   if (!staysInPack(ui.game, id)) return cell;
   cell.classList.add('bank-kept');
+  if (!isKept(ui.game, id)) cell.classList.add('bank-kept-auto');
   return cell;
 }

@@ -88,7 +88,7 @@ export class PhotoMode {
           <button type="button" class="pm-btn pm-save">Save postcard</button>
           <button type="button" class="pm-btn pm-share hidden">Share</button>
         </div>
-        <button type="button" class="pm-x" aria-label="Close">&times;</button>
+        <button type="button" class="pm-x close-x" aria-label="Close">&times;</button>
       </div>`;
     document.body.appendChild(el);
     this.el = el;

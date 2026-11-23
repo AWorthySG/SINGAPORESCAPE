@@ -24,6 +24,9 @@ export function qbIconHTML(icon, size = 26) {
   return '';
 }
 
+/** A button's name under its icon (shown only in the phone's grid). */
+export const qbLabel = (label) => `<span class="qb-lbl" aria-hidden="true">${esc(label)}</span>`;
+
 /** The slot keys: Shift and the digit (the plain digits pick the panel tabs). */
 export const slotOfKey = (e) => {
   if (!e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return -1;
@@ -86,6 +89,11 @@ export class QuickBar {
       else if (b.classList.contains('qb-edit')) { el.classList.remove('open'); this.openEdit(); }
       else if (b.dataset.slot) { this.tap(Number(b.dataset.slot)); el.classList.remove('open'); }
     });
+    // A tap anywhere else folds the phone's quick actions grid (the tap still
+    // does its own thing: walking, a button).
+    document.addEventListener('pointerdown', (e) => {
+      if (el.classList.contains('open') && !el.contains(e.target)) el.classList.remove('open');
+    }, true);
     root.appendChild(el);
     this.el = el;
     return el;
@@ -101,12 +109,16 @@ export class QuickBar {
     if (sig === this._sig) return;
     this._sig = sig;
     let html = `<button type="button" id="qb-search" class="qb-btn" title="Search windows, skills, places, quests, monsters and items (/ or Ctrl+K)" aria-label="Search">${playIconHTML('ui-search', 24)}</button>`;
-    html += `<button type="button" id="qb-life" class="qb-btn" title="Life skills: go and start any of them in one tap" aria-label="Life skills">${tabIconSVG('skills', 24)}</button>`;
     // Phones fold the favourites behind this (styles/qol.css): a 2 x 3 block of
     // buttons sat beside your hero in the middle of the screen. A dot shows while
     // one of them (auto battle, say) is on.
     const anyOn = bar.some((k) => QB_ACTIONS[k]?.on?.(g));
-    html += `<button type="button" class="qb-btn qb-more${anyOn ? ' has-on' : ''}" title="Your quick actions" aria-label="Quick actions">&#8943;</button>`;
+    html += `<button type="button" class="qb-btn qb-more${anyOn ? ' has-on' : ''}" title="Your quick actions" aria-label="Quick actions" aria-haspopup="true">&#8943;</button>`;
+    // The rest sit in one box: on a desktop it is no box at all (display:
+    // contents, the same row as before); on a phone it is the grid the more
+    // button opens, under it and clear of your hero, each with its name.
+    html += '<div class="qb-pop">';
+    html += `<button type="button" id="qb-life" class="qb-btn" title="Life skills: go and start any of them in one tap" aria-label="Life skills">${tabIconSVG('skills', 24)}${qbLabel('Life skills')}</button>`;
     bar.forEach((key, i) => {
       const a = QB_ACTIONS[key];
       if (!a) return;
@@ -114,9 +126,10 @@ export class QuickBar {
       const icon = key === 'eat' && food ? { item: food } : a.icon;
       html += `<button type="button" class="qb-btn qb-slot${on ? ' on' : ''}" data-slot="${i}" data-action="${esc(key)}"`
         + `${on !== null ? ` aria-pressed="${on}"` : ''} title="${esc(a.label)}${on !== null ? (on ? ' (on)' : ' (off)') : ''} (Shift+${i + 1})" aria-label="${esc(a.label)}">`
-        + `${qbIconHTML(icon)}<kbd class="qb-key" aria-hidden="true">${slotKeyLabel(i)}</kbd></button>`;
+        + `${qbIconHTML(icon)}${qbLabel(a.label)}<kbd class="qb-key" aria-hidden="true">${slotKeyLabel(i)}</kbd></button>`;
     });
-    html += '<button type="button" class="qb-btn qb-edit" title="Choose the quick bar\'s actions" aria-label="Edit quick bar">&#9998;</button>';
+    html += `<button type="button" class="qb-btn qb-edit" title="Choose the quick bar's actions" aria-label="Edit quick bar">&#9998;${qbLabel('Edit')}</button>`;
+    html += '</div>';
     el.innerHTML = html;
   }
 

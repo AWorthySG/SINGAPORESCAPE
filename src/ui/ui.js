@@ -4,7 +4,7 @@ import { classPerks, classPerkSummary, classKeyPerks } from '../game/classperks.
 import { LIFE_PERKS, LIFE_PERK_SKILLS, LIFE_PERK_FULL_LEVEL, LIFE_PERK_MAX_LEVEL, LIFE_PERK_TOP_LEVEL, lifePerkText, lifePerkNext } from '../game/lifeperks.js';
 import { unlockTipText } from '../game/skillunlocks.js';
 import { installHomeUI } from './homeui.js';
-import { installStoryUI } from './storyui.js';
+import { installStoryUI, speakerArt } from './storyui.js';
 import { installReputationUI } from './reputationui.js';
 import { personalise } from '../game/memory.js';
 import * as Mercs from '../game/mercenary.js';
@@ -70,7 +70,7 @@ import { openEntry } from './encyclopediaui.js';
 import { openPestOfficer, contractTrackerRows, stewardLineHTML, cullingInvOptions } from './cullingui.js';
 import { eventsPanelHTML, wireEventsPanel, eventTrackerRows, drawEventMarker } from './worldeventsui.js';
 import { keyedSlots, placeSlots } from './slotgrid.js';
-import { WindowMemory, initWindowEase, toggleTapClose, tapCloseLabel } from './windowease.js';   // windows remember where you were; tap outside to close
+import { WindowMemory, initWindowEase, toggleTapClose } from './windowease.js';   // windows remember where you were; tap outside to close
 import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG, abilityIconHTML, spellIconHTML, playIconHTML, lazyIcon } from '../render/icons.js';
 import { abilitiesFor } from '../data/abilities.js';   // a class's skills, for its Skills & perks window
 import { weaknessOf, armourTierOf, ARMOUR_TIERS, levelFlatDmg } from '../game/combat.js';
@@ -114,6 +114,15 @@ const EQUIP_LAYOUT = [
   null, 'legs', null,
   'hands', 'feet', 'ring',
 ];
+
+/** A dialogue's choices, with its farewell apart: the last option when it
+ *  only ends the talk (no action, nowhere to go) and there are others to
+ *  pick. It shows as a small "Goodbye" button rather than a full-width choice. */
+export function farewellSplit(options = []) {
+  const last = options[options.length - 1];
+  const bye = options.length > 1 && last && !last.action && (!last.next || last.next === 'end') ? last : null;
+  return { main: bye ? options.slice(0, -1) : options, bye };
+}
 
 // A region recommends a level "well above" yours once it's past a quarter more
 // (plus a little, so the low levels aren't all flagged). Warns only; never blocks.
@@ -727,6 +736,7 @@ export class UI {
     const apply = (collapsed) => {
       panel.classList.toggle('collapsed', collapsed);
       if (collapsed) panel.classList.remove('sheet-full');   // a phone sheet always reopens at half height
+      if (key === 'panel' && !collapsed) this._fullForBag();   // (but the Bag and Gear open full)
       if (key === 'panel' && !collapsed && this._invStale) this.renderInventory();   // the bag skipped redraws while folded
       if (key === 'panel' && !collapsed) this._catchUpPanels();   // and so did the Gear, Combat, Journal and Awards views
       if (key === 'chat' && !collapsed) this._drawChat(false);   // the folded chat drew none of its new lines
@@ -941,6 +951,8 @@ export class UI {
    *  which tab button is lit or folding anything. */
   _showPanelView(view) {
     const tab = tabOfView(view) || view;
+    this._panelView = view;
+    this._fullForBag();
     this._setPanelTitle(view);
     document.querySelectorAll('#panel-body .panel-view').forEach((v) => v.classList.toggle('hidden', v.dataset.view !== view));
     if (this._subView) {
@@ -956,6 +968,15 @@ export class UI {
     if (view === 'story') this.renderStoryPanel?.();  // (storyui.js) likewise
     // The skills list carries a name + description per row, so it gets more room.
     document.getElementById('sidepanel')?.classList.toggle('wide', view === 'skills');
+  }
+
+  /** Phones: the Bag and Gear open at the sheet's full height. At half, the
+   *  handle, tabs and filters left room for two rows of the bag. (Dragging
+   *  the handle down still settles it at half: hudease.js sheetSnap.) */
+  _fullForBag() {
+    const p = this.el?.sidepanel;
+    if (!p || p.classList.contains('collapsed') || !p.classList.contains('compact-ui')) return;
+    if (tabOfView(this._panelView) === 'inventory') p.classList.add('sheet-full');
   }
 
   /** True while `el`, inside a side-panel view, can't be seen: the panel is
@@ -983,6 +1004,10 @@ export class UI {
   _renderSubtabs(tab, view) {
     const row = document.getElementById('panel-subtabs');
     if (!row) return;
+    // Phones: the bag's filters ride in this row (moved back first: the
+    // row's buttons are redrawn below).
+    const bag = document.getElementById('inventory-bar');
+    if (bag && bag.parentNode === row) document.getElementById('inventory-grid')?.before(bag);
     const views = PANEL_TABS[tab] || [];
     row.classList.toggle('hidden', views.length < 2);
     if (row.dataset.tab !== tab) {
@@ -999,6 +1024,13 @@ export class UI {
       b.classList.toggle('active', on);
       b.setAttribute('aria-selected', on ? 'true' : 'false');
     });
+    // On a touch phone, Bag | Gear and the bag's filters are one strip of
+    // chips that scrolls sideways (two stacked rows of pills, under the tabs,
+    // ate a third of the short sheet before the first item).
+    const merge = bag && tab === 'inventory' && view === 'inventory' && this.el?.sidepanel?.classList.contains('compact-ui')
+      && typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+    if (merge) row.appendChild(bag);
+    row.classList.toggle('with-bag', !!merge);
   }
 
   /** Open the side panel on a view, wherever it lives: lights its tab, picks
@@ -3023,7 +3055,7 @@ export class UI {
     this.game.tipsOn = false;
     this.game.saveSoon = true;
     this.lane?.dismissKind('tip');
-    if (this._tipsBtn) this._tipsBtn.textContent = 'Tips: Off';
+    this._tipsBtn?.refresh?.();
     this.game.msg('Tips are off. Settings > Tips turns them back on.', 'system');
   }
 
@@ -3053,30 +3085,84 @@ export class UI {
   }
 
   // ---------------- Settings ----------------
+  // Grouped cards (Account, Sound, Display, Gameplay, Help) of label + switch
+  // rows, the same switch as Auto battle (.ab-switch). A row's title still
+  // reads "Sound: On", the words the old pill buttons showed.
   _buildSettingsPanel() {
     const p = this.el.settings;
     p.innerHTML = '';
+    let group = p;
+    // A card of settings under a small heading; what follows goes in it.
+    const sec = (label) => {
+      group = p.appendChild(document.createElement('div'));
+      group.className = 'set-group';
+      const h = group.appendChild(document.createElement('div'));
+      h.className = 'set-section';
+      h.textContent = label;
+      return group;
+    };
     const mk = (label, fn, danger) => {
       const b = document.createElement('button');
       b.textContent = label;
-      if (danger) b.className = 'danger';
+      b.className = danger ? 'set-act danger' : 'set-act';
       b.addEventListener('click', fn);
-      p.appendChild(b);
+      group.appendChild(b);
       return b;
     };
-    // A small heading over each group of settings.
-    const sec = (label) => {
-      const h = document.createElement('div');
-      h.className = 'set-section';
-      h.textContent = label;
-      p.appendChild(h);
+    // A label + switch row. `isOn` reads the setting, `flip` changes it; the
+    // row redraws itself after (and on `.refresh()`, for changes made elsewhere).
+    const row = (label, isOn, flip) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'set-row';
+      b.setAttribute('role', 'switch');
+      b.innerHTML = '<span class="set-lbl"></span><span class="ab-switch" aria-hidden="true"><i></i></span>';
+      b.querySelector('.set-lbl').textContent = label;
+      b.refresh = () => {
+        const on = !!isOn();
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-checked', on ? 'true' : 'false');
+        b.title = `${label}: ${on ? 'On' : 'Off'}`;
+      };
+      b.addEventListener('click', () => { flip(); b.refresh(); });
+      b.refresh();
+      group.appendChild(b);
+      return b;
     };
+    // A row with a few choices (World labels: Smart / All / Off): its value on a chip, a tap moves to the next.
+    const cycle = (label, value, next) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'set-row set-cycle';
+      b.innerHTML = '<span class="set-lbl"></span><span class="set-val"></span>';
+      b.querySelector('.set-lbl').textContent = label;
+      const show = () => { const v = value(); b.querySelector('.set-val').textContent = v; b.title = `${label}: ${v}`; };
+      b.addEventListener('click', () => { next(); show(); });
+      show();
+      group.appendChild(b);
+      return b;
+    };
+    const au = () => this.game.audio;
+
+    // ---- Account: who you are, and your save ----
+    const account = sec('Account');
+    account.classList.add('set-pairs');   // its actions two to a row
+    // Account and cloud save (accountui.js fills this in; its own heading is
+    // hidden here, under this card's).
+    const acct = account.appendChild(document.createElement('div'));
+    import('./accountui.js').then((m) => m.accountSettings(acct)).catch(() => {});
+    mk('Save game now', () => { import('../game/save.js').then((m) => {
+      const saved = m.saveGame(this.game);
+      if (saved) this.game.msg('Game saved.', 'system');
+      else if (saved === null) this.game.msg('Saving is paused: reload the page to carry on.', 'system');
+      else this.game.msg('Could not save: this browser\'s storage is full or blocked. Your progress is not being kept.', 'system');
+    }); }).classList.add('set-wide');
     // Install as an app: the browser's own install dialog where it offers one,
     // or the Add to Home Screen steps on iPhone and iPad.
     import('../pwa.js').then((pwa) => {
       if (pwa.isInstalled() || p.querySelector('.install-app')) return;   // the panel can be rebuilt before this resolves
       const btn = document.createElement('button');
-      btn.className = 'install-app';
+      btn.className = 'set-act set-wide install-app';
       const show = () => { btn.hidden = !pwa.canInstall() && !pwa.isIos(); btn.textContent = 'Install as an app'; };
       btn.addEventListener('click', async () => {
         if (pwa.canInstall()) { if (await pwa.promptInstall()) this.game.msg('A-Worthy Adventure is installed: open it from your home screen or app list.', 'level'); }
@@ -3085,50 +3171,21 @@ export class UI {
       });
       pwa.onInstallChange(show);
       show();
-      p.prepend(btn);
+      account.insertBefore(btn, acct.nextSibling);
     }).catch(() => {});
-    mk('Save game now', () => { import('../game/save.js').then((m) => {
-      const saved = m.saveGame(this.game);
-      if (saved) this.game.msg('Game saved.', 'system');
-      else if (saved === null) this.game.msg('Saving is paused: reload the page to carry on.', 'system');
-      else this.game.msg('Could not save: this browser\'s storage is full or blocked. Your progress is not being kept.', 'system');
-    }); });
-    mk('Compendium: how the game works', () => openCompendium(this));
-    // Phones keep the minimap's camera and day/night badges off the HUD
-    // (compact.css), so both are here too: postcard mode, and the time of day
-    // (updateDayNight keeps it current).
-    mk('Postcard mode: snap this view (O)', () => document.getElementById('photo-btn')?.click());
-    this._clockLine = p.appendChild(document.createElement('div'));
-    this._clockLine.className = 'set-clock';
-    this.updateDayNight();
-    // Account and cloud save (accountui.js fills this in).
-    const acct = p.appendChild(document.createElement('div'));
-    import('./accountui.js').then((m) => m.accountSettings(acct)).catch(() => {});
+    // Carry a character to another browser, device or web address (saves live
+    // in one site's storage, so they don't follow the player on their own).
+    mk('Export save', () => this.openExportSave());
+    mk('Import save', () => this.openImportSave());
+    mk('Delete save & restart', () => {
+      if (confirm('Delete your saved character and start over?')) { suppressSaves(); clearSave(); location.reload(); }
+    }, true);
+
+    // ---- Sound: the three switches, then the three volume sliders together ----
     sec('Sound');
-    const soundBtn = mk('', () => {
-      const a = this.game.audio;
-      if (!a) return;
-      a.unlock();
-      const muted = a.toggle();
-      soundBtn.textContent = `Sound: ${muted ? 'Off' : 'On'}`;
-    });
-    soundBtn.textContent = `Sound: ${this.game.audio && this.game.audio.muted ? 'Off' : 'On'}`;
-    const musicBtn = mk('', () => {
-      const a = this.game.audio;
-      if (!a) return;
-      a.unlock();
-      const on = a.toggleMusic();
-      musicBtn.textContent = `Music: ${on ? 'On' : 'Off'}`;
-    });
-    musicBtn.textContent = `Music: ${this.game.audio && this.game.audio.musicOn ? 'On' : 'Off'}`;
-    const ambBtn = mk('', () => {
-      const a = this.game.audio;
-      if (!a) return;
-      a.unlock();
-      const on = a.toggleAmbience();
-      ambBtn.textContent = `Ambience: ${on ? 'On' : 'Off'}`;
-    });
-    ambBtn.textContent = `Ambience: ${this.game.audio && this.game.audio.ambienceOn === false ? 'Off' : 'On'}`;
+    row('Sound', () => !(au() && au().muted), () => { const a = au(); if (a) { a.unlock(); a.toggle(); } });
+    row('Music', () => !!au()?.musicOn, () => { const a = au(); if (a) { a.unlock(); a.toggleMusic(); } });
+    row('Ambience', () => au()?.ambienceOn !== false, () => { const a = au(); if (a) { a.unlock(); a.toggleAmbience(); } });
     // Volume sliders: everything, then the sound effects and the music on their own.
     const slider = (label, level, set, sample) => {
       const vol = document.createElement('label');
@@ -3142,102 +3199,80 @@ export class UI {
         if (a) { a.unlock(); set(a, v / 100); }
       });
       if (sample) vol.querySelector('input').addEventListener('change', () => this.game.audio?.play('pickup'));
-      p.appendChild(vol);
+      group.appendChild(vol);
     };
-    const au = this.game.audio;
-    slider('Volume', au?.volume, (a, v) => a.setVolume(v), true);
-    slider('Sound effects', au?.sfxVolume, (a, v) => a.setSfxVolume(v), true);
-    slider('Music', au?.musicVolume, (a, v) => a.setMusicVolume(v), false);
+    slider('Volume', au()?.volume, (a, v) => a.setVolume(v), true);
+    slider('Sound effects', au()?.sfxVolume, (a, v) => a.setSfxVolume(v), true);
+    slider('Music', au()?.musicVolume, (a, v) => a.setMusicVolume(v), false);
+
+    // ---- Display: what is drawn, and how (accessibility included) ----
     sec('Display');
-    const gfxBtn = mk('', () => {
+    cycle('Graphics', () => (this.game.lowFx ? 'Low (faster)' : 'High'), () => {
       this.game.lowFx = !this.game.lowFx;
       try { localStorage.setItem('singaporescape:gfx', this.game.lowFx ? 'low' : 'high'); } catch {}
-      gfxBtn.textContent = `Graphics: ${this.game.lowFx ? 'Low (faster)' : 'High'}`;
       window.dispatchEvent(new Event('resize'));   // re-size the canvas for the new quality
     });
-    gfxBtn.textContent = `Graphics: ${this.game.lowFx ? 'Low (faster)' : 'High'}`;
-    const hudBtn = mk('', () => {
+    row('Minimal HUD', () => !!this.game.minimalHud, () => {
       this.game.minimalHud = !this.game.minimalHud;
       this.game.saveSoon = true;
-      hudBtn.textContent = `Minimal HUD: ${this.game.minimalHud ? 'On' : 'Off'}`;
       if (this.game.minimalHud) this.game.msg('Minimal HUD: panels tuck away while you explore. Hover or tap where they were to bring them back.', 'system');
       this._hudPeekUntil = this._now() + 4000;   // don't vanish the button you just pressed
       this._minimalHudTick();
     });
-    hudBtn.textContent = `Minimal HUD: ${this.game.minimalHud ? 'On' : 'Off'}`;
-    // Tapping the dim space around a window closes it (windowease.js); some prefer the ✕ alone.
-    const tapBtn = mk('', () => { tapBtn.textContent = toggleTapClose(this.game); });
-    tapBtn.textContent = tapCloseLabel(this.game);
     // XP display: Combined / Per skill / Off (xpdisplay.js).
-    const xpBtn = mk('', () => {
+    cycle('XP display', () => XP_DISPLAY_NAMES[xpDisplayMode(this.game)], () => {
       this.game.xpDisplay = nextXpDisplay(xpDisplayMode(this.game));
       this.game.saveSoon = true;
       this.xpHud?.refresh();
-      xpBtn.textContent = `XP display: ${XP_DISPLAY_NAMES[xpDisplayMode(this.game)]}`;
     });
-    xpBtn.textContent = `XP display: ${XP_DISPLAY_NAMES[xpDisplayMode(this.game)]}`;
     // World labels: Smart (only what matters now), All, or Off. See render/worldlabels.js.
-    const lblBtn = mk('', () => {
+    cycle('World labels', () => LABEL_MODE_NAMES[labelMode(this.game)], () => {
       this.game.worldLabels = nextLabelMode(labelMode(this.game));
       this.game.saveSoon = true;
-      lblBtn.textContent = `World labels: ${LABEL_MODE_NAMES[labelMode(this.game)]}`;
     });
-    lblBtn.textContent = `World labels: ${LABEL_MODE_NAMES[labelMode(this.game)]}`;
-    const tipsBtn = mk('', () => {
+    // Accessibility: saved with the other settings; uifx.js puts them on <body>.
+    // (No Text size setting any more: it enlarged panels with CSS zoom, which
+    // iPhone Safari hit-tests a few pixels off, so taps missed their buttons.)
+    const access = () => { this._accessSig = applyAccessibility(this.game); this.game.saveSoon = true; };
+    row('Colour-blind friendly', () => !!this.game.colourBlind, () => { this.game.colourBlind = !this.game.colourBlind; access(); });
+    row('Reduce motion', () => !!this.game.reduceMotion, () => { this.game.reduceMotion = !this.game.reduceMotion; access(); });
+    // Screen shake on big hits and crits (render/juice.js); Reduce motion turns it off too.
+    row('Screen shake', () => this.game.screenShake !== false, () => {
+      this.game.screenShake = this.game.screenShake === false;
+      this.game.saveSoon = true;
+    });
+    // A small readout of frame times and what fills each frame, for a screenshot
+    // of what is slow (perfhud.js; main.js keeps the choice on this device).
+    row('Show performance', () => !!this.perfOn, () => this.setPerf?.(!this.perfOn));
+    // Phones keep the minimap's camera and day/night badges off the HUD
+    // (compact.css), so both are here too: postcard mode, and the time of day
+    // (updateDayNight keeps it current).
+    this._clockLine = group.appendChild(document.createElement('div'));
+    this._clockLine.className = 'set-clock';
+    this.updateDayNight();
+    mk('Postcard mode: snap this view (O)', () => document.getElementById('photo-btn')?.click());
+
+    // ---- Gameplay ----
+    sec('Gameplay');
+    // Tapping the dim space around a window closes it (windowease.js); some prefer the ✕ alone.
+    row('Tap outside a window to close it', () => this.game.tapClose !== false, () => toggleTapClose(this.game));
+    this._tipsBtn = row('Tips', () => this.game.tipsOn !== false, () => {
       this.game.tipsOn = this.game.tipsOn === false;
       this.game.saveSoon = true;
-      tipsBtn.textContent = `Tips: ${this.game.tipsOn ? 'On' : 'Off'}`;
       if (!this.game.tipsOn) this.lane?.dismissKind('tip');
     });
-    this._tipsBtn = tipsBtn;
-    tipsBtn.textContent = `Tips: ${this.game.tipsOn === false ? 'Off' : 'On'}`;
     mk('Show tips again', () => {
       try { localStorage.removeItem(TIPS_KEY); } catch {}
       this.game.tipsSeen = new Set();
       this.game.tipsOn = true;
       this.game.saveSoon = true;
-      tipsBtn.textContent = 'Tips: On';
+      this._tipsBtn.refresh();
       this.game.msg('Tips will show again as you play.', 'system');
     });
-    // A small readout of frame times and what fills each frame, for a screenshot
-    // of what is slow (perfhud.js; main.js keeps the choice on this device).
-    const perfBtn = mk('', () => {
-      this.setPerf?.(!this.perfOn);
-      perfBtn.textContent = `Show performance: ${this.perfOn ? 'On' : 'Off'}`;
-    });
-    perfBtn.textContent = `Show performance: ${this.perfOn ? 'On' : 'Off'}`;
-    // Accessibility: saved with the other settings; uifx.js puts them on <body>.
-    sec('Accessibility');
-    const access = () => { this._accessSig = applyAccessibility(this.game); this.game.saveSoon = true; };
-    // (No Text size setting any more: it enlarged panels with CSS zoom, which
-    // iPhone Safari hit-tests a few pixels off, so taps missed their buttons.)
-    const cbBtn = mk('', () => {
-      this.game.colourBlind = !this.game.colourBlind;
-      access();
-      cbBtn.textContent = `Colour-blind friendly: ${this.game.colourBlind ? 'On' : 'Off'}`;
-    });
-    cbBtn.textContent = `Colour-blind friendly: ${this.game.colourBlind ? 'On' : 'Off'}`;
-    const motionBtn = mk('', () => {
-      this.game.reduceMotion = !this.game.reduceMotion;
-      access();
-      motionBtn.textContent = `Reduce motion: ${this.game.reduceMotion ? 'On' : 'Off'}`;
-    });
-    motionBtn.textContent = `Reduce motion: ${this.game.reduceMotion ? 'On' : 'Off'}`;
-    // Screen shake on big hits and crits (render/juice.js); Reduce motion turns it off too.
-    const shakeBtn = mk('', () => {
-      this.game.screenShake = this.game.screenShake === false;
-      this.game.saveSoon = true;
-      shakeBtn.textContent = `Screen shake: ${this.game.screenShake !== false ? 'On' : 'Off'}`;
-    });
-    shakeBtn.textContent = `Screen shake: ${this.game.screenShake !== false ? 'On' : 'Off'}`;
-    sec('Your save');
-    // Carry a character to another browser, device or web address (saves live
-    // in one site's storage, so they don't follow the player on their own).
-    mk('Export save', () => this.openExportSave());
-    mk('Import save', () => this.openImportSave());
-    mk('Delete save & restart', () => {
-      if (confirm('Delete your saved character and start over?')) { suppressSaves(); clearSave(); location.reload(); }
-    }, true);
+
+    // ---- Help ----
+    sec('Help');
+    mk('Compendium: how the game works', () => openCompendium(this));
     const hint = document.createElement('div');
     hint.className = 'hint';
     hint.innerHTML = 'Move: joystick or W A S D / arrow keys. Interact with the nearest thing: the Interact button, E or Space. P pickpockets, T toggles auto battle.<br>' +
@@ -3246,7 +3281,7 @@ export class UI {
       'Power Strike, Flurry, Brace and Second Wind. Hit each foe\'s <b>weakness</b> ' +
       '(melee/ranged/magic) for +25% damage and <b>Brace</b> when a monster winds up a heavy blow (!).<br>' +
       'Eat food to heal. Bank your loot. Your progress auto-saves.';
-    p.appendChild(hint);
+    group.appendChild(hint);
   }
 
   /** The save as a code to copy out. Buttons and a plain textarea, so it works
@@ -4446,20 +4481,37 @@ export class UI {
       const node = tree[nodeId];
       if (!node || nodeId === 'end') { this.closeModal(); return; }
       const render = (body) => {
-        body.innerHTML = `<div class="dialogue"><div class="speaker">${escapeHtml(node.speaker)}</div>${escapeHtml(node.text)}</div>`;
+        // The speaker's picture beside their words (the story scenes' portrait).
+        const art = speakerArt(npc.npcId);
+        const pic = art ? `<span class="dlg-portrait" aria-hidden="true"><img alt="" src="${escapeHtml(art.src)}"${art.filter ? ` style="filter:${escapeHtml(art.filter)}"` : ''}></span>` : '';
+        body.innerHTML = `<div class="dialogue${art ? ' has-portrait' : ''}">${pic}<div class="dlg-words"><div class="speaker">${escapeHtml(node.speaker)}</div>${escapeHtml(node.text)}</div></div>`;
         const opts = document.createElement('div');
         opts.className = 'dialogue-options';
-        for (const o of node.options) {
+        const { main, bye } = farewellSplit(node.options);
+        const pick = (o) => () => {
+          if (o.action) this.game.handleDialogueAction(o.action);
+          show(o.next || 'end');
+        };
+        for (const o of main) {
           const div = document.createElement('div');
           div.className = 'dialogue-option';
           div.textContent = o.label;
-          div.addEventListener('click', () => {
-            if (o.action) this.game.handleDialogueAction(o.action);
-            show(o.next || 'end');
-          });
+          div.addEventListener('click', pick(o));
           opts.appendChild(div);
         }
         body.appendChild(opts);
+        // "Goodbye." is a small button under the choices, not one of them.
+        if (bye) {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'dlg-bye';
+          b.textContent = bye.label;
+          b.addEventListener('click', pick(bye));
+          const foot = document.createElement('div');
+          foot.className = 'dlg-foot';
+          foot.appendChild(b);
+          body.appendChild(foot);
+        }
       };
       if (!this.modal) this.openModal(npc.name, render);
       else { this.modal.render = render; render(this.el.modalBody); }
