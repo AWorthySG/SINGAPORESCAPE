@@ -86,9 +86,11 @@ test('the Merchant is the strongest class but the Fire casters: 200-330% of the 
 });
 
 // The Priest and the Zealot cast Fire like the Wizard, so they are held beside it:
-// the Priest a little under it (85-100% of the Wizard's damage at levels 100 and
-// 300 in tools/balance/classes.mjs), the Zealot level with it or a little over
-// (95-115%). These 60 s fights on one character are noisier, hence wider bands.
+// the Priest a little under it, the Zealot level with it or a little over
+// (tools/balance/classes.mjs: the Priest at 88% of the Wizard's single-target
+// damage at level 100, 80% at 300, where its Uplift has no blessings to lift here;
+// the Zealot at 112% and 99%; in real boss fights 95-98% and 97-108%). These 60 s
+// fights on one character are noisier, hence wider bands.
 test('the Priest and the Zealot hit about as hard as the Wizard: the Priest a little less', () => {
   const wiz = rows.find((r) => r.cls === 'wizard');
   for (const [cls, lo, hi] of [['priest', 0.75, 1.1], ['zealot', 0.85, 1.25]]) {

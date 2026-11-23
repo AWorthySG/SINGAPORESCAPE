@@ -13,12 +13,16 @@
 // (statsheet.js) shows Fervour too.
 
 // fervour: the extra damage with no life left, in step with the life you are
-// missing (+30% at half life, +60% at none).
-export const ZEALOT = { fervour: 0.6 };
+// missing (+15% at half life, +30% at none). It was +60%: the Zealot's own life
+// costs keep it at about two thirds of its life on a long fight, so up to level
+// 100 or so (before Magic's Siphon perk heals the costs straight back) it hit
+// a quarter harder than the Wizard on tools/balance/classes.mjs's dummies.
+export const ZEALOT = { fervour: 0.3 };
 // Holy fire (WOUNDS.holyfire in game.js): each spell through a censer adds a burn
 // of `share` of its hit every second for `secs` seconds (15% of the hit in all,
 // past armour), up to `stacks` at once. Unlike Fire's Ignite it never flares up
-// on other hits, so it stays the same share of the damage at any cast speed.
+// on other hits, so it stays the same share of the damage at any cast speed (until
+// the quickest casters reach the cap).
 export const HOLY_FIRE = { share: 0.03, secs: 5, stacks: 50 };
 
 const isZealot = (game) => game.jobClass === 'zealot';

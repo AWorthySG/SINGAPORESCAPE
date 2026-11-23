@@ -10,6 +10,10 @@ import { raceOf } from '../data/races.js';
 // burns heal nothing); smite: extra damage against the unholy; power: the
 // Priest's own damage knob, for balance (its orbs are the Wizard's and the
 // Sorcerer's second weapon too, so their damage scale in combat.js is theirs).
+// At 1, with Uplift's +30%, the Priest deals 88% of the Wizard's single-target
+// damage at level 100 and 80% at level 300 on tools/balance/classes.mjs's dummies
+// (96% and 91% on bosses), which have no blessings for Uplift to lift; in real
+// boss fights, blessings on, it kills at 95-98% of the Wizard's pace (bossfight.mjs).
 export const PRIEST = { heal: 0.08, smite: 0.3, power: 1 };
 // The races the Holy path smites too (UNHOLY_RACES in game.js).
 const UNHOLY = new Set(['undead', 'spirit', 'demon']);

@@ -113,7 +113,7 @@ test('a Priest smites undead, spirits and demons: x1.3 next to a Wizard in the s
   assert.equal(smite(s.g, s.t), 1, 'nobody else smites');
 });
 
-test('Uplift: every blessing counts half as much again, a quarter of the Faith bar at once, and +25% spell damage', () => {
+test('Uplift: every blessing counts half as much again, a quarter of the Faith bar at once, and +30% spell damage', () => {
   const { g } = mk('priest');
   g.activePrayers = new Set(['mystic_lore']);
   assert.ok(near(g.prayerMult().magic, 1.35));
@@ -121,7 +121,7 @@ test('Uplift: every blessing counts half as much again, a quarter of the Faith b
   g.activateAbility('uplift');
   assert.ok(near(g.prayerMult().magic, 1.525), `Mystic Lore lifted to ${g.prayerMult().magic}`);
   assert.ok(near(g.prayerPoints, g.maxPrayer() * 0.25), `Faith ${g.prayerPoints} of ${g.maxPrayer()}`);
-  assert.equal(g.buffMod('dmg'), 0.25);
+  assert.equal(g.buffMod('dmg'), 0.3);
   assert.equal(g.adrenaline, 50);
 });
 
@@ -135,7 +135,7 @@ test('Sanctuary: halves blows for 5 ticks, restores 12% of your life and burns b
   assert.equal(g.player.hp, Math.min(g.maxHp(), hp0 + Math.max(1, Math.round(g.maxHp() * 0.12))));
 });
 
-test('Fervour: x1 at full life, x1.3 at half, x1.6 with none left; the Zealot\'s alone', () => {
+test('Fervour: x1 at full life, x1.15 at half, x1.3 with none left; the Zealot\'s alone', () => {
   const { g, t } = mk('zealot');
   g.skills.xp.hitpoints = 5e6;
   const max = g.maxHp();
@@ -144,9 +144,9 @@ test('Fervour: x1 at full life, x1.3 at half, x1.6 with none left; the Zealot\'s
   const full = g._offensiveMods(t, 'magic').dmgM;
   g.player.hp = max / 2;
   assert.ok(near(fervour(g), 1 + ZEALOT.fervour / 2));
-  assert.ok(near(g._offensiveMods(t, 'magic').dmgM / full, 1.3), 'half life: +30% damage');
+  assert.ok(near(g._offensiveMods(t, 'magic').dmgM / full, 1.15), 'half life: +15% damage');
   g.player.hp = 0;
-  assert.ok(near(fervour(g), 1.6));
+  assert.ok(near(fervour(g), 1.3));
   const w = mk('wizard');
   w.g.player.hp = 1;
   assert.equal(fervour(w.g), 1, 'a hurt Wizard gets none');

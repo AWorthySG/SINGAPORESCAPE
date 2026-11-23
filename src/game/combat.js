@@ -329,11 +329,14 @@ export const WEAPON_DMG_MULT = {
   // 100% of the median class's single-target damage at levels 100 and 300, and
   // 103-105% on bosses (between the Corsair and the Brawler in real boss fights).
   knuckles: 0.24, monk_gloves: 0.32,
-  // The Zealot's censer: an orb's pace, but its holy fire (game.js WOUNDS) adds a
-  // share of every hit, Fervour adds more the more hurt the Zealot is, and Burning
-  // Oath hits harder than Arcane Power, so it scales well under a staff. (The
-  // Priest's orb keeps the scale above: it is the Wizard's and Sorcerer's second
-  // weapon too, so the Priest's own knob is PRIEST.power in priest.js.)
+  // The Zealot's censer: an orb's pace, with its holy fire (game.js WOUNDS) adding a
+  // share of every hit and Fervour more as the Zealot's life runs low (zealot.js).
+  // Tuned with tools/balance/classes.mjs: the Zealot deals 112% of the Wizard's
+  // single-target damage at level 100 (its life costs keep it hurt, so Fervour
+  // counts) and 99% at level 300 (where Magic's Siphon perk heals them straight
+  // back), and kills at 97-108% of its pace in real boss fights (bossfight.mjs).
+  // (The Priest's orb keeps the scale above, as the Wizard's and Sorcerer's second
+  // weapon: see priest.js.)
   censer: 0.2,
 };
 /** The target's number scale (see hpScaleFor in npcs.js): hits on a big monster are divided by it. */

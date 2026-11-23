@@ -110,7 +110,7 @@ test('stat sheet: a Zealot\'s Fervour and a Priest smiting the undead match real
   const { raceOf } = await import('../src/data/races.js');
   const z = newGame(null, 'zealot');
   buffUp(z);
-  z.player.hp = Math.round(z.maxHp() / 2);   // half its life gone: Fervour adds about 30%
+  z.player.hp = Math.round(z.maxHp() / 2);   // half its life gone: Fervour adds about 15%
   const zn = dummy(z);
   const zw = maxHitNow(z, { npc: zn });
   assert.ok(zw.parts.some(([label]) => /^Fervour/.test(label)), 'the sheet counts the Fervour');
