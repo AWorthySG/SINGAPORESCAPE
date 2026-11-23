@@ -15,6 +15,7 @@ import { LATE_SIGS, SIGNATURE_CLASS } from '../src/data/bossWeapons.js';
 import { canDualPair, dualType } from '../src/game/equipment.js';
 import { CHI, MONK_DODGE, chiStacks } from '../src/game/monk.js';
 import { classPerks } from '../src/game/classperks.js';
+import { codexEntry } from '../src/game/codex.js';
 import { damageMult, maxHitNow } from '../src/game/statsheet.js';
 import { fakeStorage } from '../tools/balance/common.mjs';
 import { xpForLevel } from '../src/data/xp.js';
@@ -180,4 +181,12 @@ test('the Monk came after the signature deal: three extra weapons of its own, an
   }
   assert.ok(mine.some((a) => ITEMS[a.id].signature.ascended), 'one is ascended, stronger than eternal');
   assert.ok(!Object.values(SIGNATURE_CLASS).includes('monk'), 'no boss\'s own weapon became a Monk\'s');
+  // The Codex lists each with its boss, after the boss's own weapon.
+  const { g } = mk();
+  for (const a of mine) {
+    g.kills = { ...(g.kills || {}), [a.boss]: 1 };
+    const e = codexEntry(g, a.boss);
+    assert.notEqual(e.signature.classId, 'monk', `${a.boss}'s own weapon is still another class's`);
+    assert.ok(e.ascended?.some((x) => x.item === a.id && x.className === 'Monk'), `the Codex shows ${a.id}`);
+  }
 });
