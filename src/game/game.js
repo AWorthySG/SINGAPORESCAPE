@@ -2693,7 +2693,7 @@ export class Game {
     if (dmg > 0 && !opts.aoe && this._hitMode && weaknessOf(npc.def) === this._hitMode) opts = { ...opts, weak: true };   // a "weak!" tag on the number
     this.addHitsplat(npc, dmg, opts);
     if (dmg > 0) {
-      this.bus.emit('sfx', 'hit'); this._hitAdrenaline(wasCrit);
+      this.bus.emit('sfx', wasCrit ? 'crit' : 'hit'); this._hitAdrenaline(wasCrit);   // a crit lands with its own crunch
       // A running average of your landed hits, so auto battle can tell when a
       // foe is about to drop and hold its big skills back.
       this._autoHitAvg = this._autoHitAvg ? this._autoHitAvg * 0.8 + dmg * 0.2 : dmg;

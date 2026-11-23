@@ -136,8 +136,8 @@ test('noise bursts share one pre-made buffer and still fade from their volume to
   const sfx = new Sfx(new EventBus());
   const { ctx, made } = fakeAudio(1000);
   sfx.ctx = ctx; sfx.master = { connect() {} }; sfx.muted = false;
-  sfx.play('hit');    // a 0.05s burst at 0.3
-  sfx.play('die');    // 0.09s at 0.32
+  sfx.play('hit');    // a 0.045s burst at 0.2
+  sfx.play('die');    // 0.08s at 0.24
   sfx.play('roar');   // 0.5s at 0.3
   assert.equal(made.buffers.length, 1, 'one buffer of noise for every burst');
   const buf = made.buffers[0], d = buf.getChannelData(0);
@@ -145,7 +145,7 @@ test('noise bursts share one pre-made buffer and still fade from their volume to
   assert.ok(d.every((x) => x >= -1 && x <= 1) && d.some((x) => x > 0.5) && d.some((x) => x < -0.5), 'white noise');
   const bursts = made.sources.filter((s) => s.buffer === buf);
   assert.equal(bursts.length, 3);
-  for (const [s, [dur, vol]] of bursts.map((s, i) => [s, [[0.05, 0.3], [0.09, 0.32], [0.5, 0.3]][i]])) {
+  for (const [s, [dur, vol]] of bursts.map((s, i) => [s, [[0.045, 0.2], [0.08, 0.24], [0.5, 0.3]][i]])) {
     const [when, offset, len] = s.started;
     assert.equal(when, 2);
     assert.ok(Math.abs(len - dur) < 1e-9, `plays ${dur}s of it`);
