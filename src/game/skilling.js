@@ -356,6 +356,42 @@ function fishOddity(game, obj) {
   return true;
 }
 
+// Making XP (the owner's ask): Smithing, Cooking, Crafting and Fletching pay
+// a multiple of their recipes' listed XP for every make, so that making what
+// an hour of gathering brings in pays about what that hour of gathering did
+// (gathering earns many times its listed XP from whole trees, seams and
+// schools, and more of it the higher you go, so the multiple climbs with your
+// level). Each skill lists [your level, multiple] pairs: between two listed
+// levels it eases from one to the next (on a log scale of level, as the gaps
+// are), and past the last it holds. Worked out with
+// `node tools/balance/productionxp.mjs --fit`, which measures both sides.
+// Only a make pays it: quest rewards, lamps and other one-off grants of these
+// skills are as listed.
+export const PRODUCTION_XP_MULT = {
+  smithing: [[1, 8.6], [10, 12], [30, 4.7], [60, 12], [99, 13], [150, 21], [200, 36], [300, 46]],
+  cooking: [[1, 2.2], [10, 2.3], [30, 1.6], [60, 2.6], [99, 1.7], [150, 1.4], [200, 1.9], [300, 1.4]],
+  crafting: [[1, 13], [10, 8], [30, 8.1], [60, 5.9], [99, 6.1], [150, 3.3], [200, 2.5], [300, 2.6]],
+  fletching: [[1, 16], [10, 14], [30, 7.7], [60, 7.3], [99, 7], [150, 4.7], [200, 4.8], [300, 4.9]],
+};
+/** The making multiple for `skill` at level `lvl` (1 for any other skill). */
+export function makeXpMult(skill, lvl) {
+  const t = PRODUCTION_XP_MULT[skill];
+  if (!t) return 1;
+  if (lvl <= t[0][0]) return t[0][1];
+  for (let i = 1; i < t.length; i++) {
+    const [l1, m1] = t[i];
+    if (lvl > l1) continue;
+    const [l0, m0] = t[i - 1];
+    const f = Math.log(lvl / l0) / Math.log(l1 / l0);
+    return m0 * (m1 / m0) ** f;
+  }
+  return t[t.length - 1][1];
+}
+/** The XP one make of a recipe listed at `xp` in `skill` pays you now, before
+ *  the rates Skills.addXp adds. Every make, and every recipe's shown XP, goes
+ *  through this, so what a menu or the skill guide shows is what lands. */
+export const makeXp = (game, skill, xp) => xp * makeXpMult(skill, game?.skills?.level?.(skill) || 1);
+
 export function resolveCook(game, action) {
   const cook = COOKING[action.rawId];
   if (!cook) return false;
@@ -381,14 +417,14 @@ export function resolveCook(game, action) {
     game.inventory.add(cook.result, 1);
     // Perfectly cooked: an occasional flawless dish grants bonus XP.
     if (Math.random() < 0.08) {
-      game.skills.addXp('cooking', Math.round(cook.xp * 1.5));
+      game.skills.addXp('cooking', makeXp(game, 'cooking', Math.round(cook.xp * 1.5)));
       if (t) t.bonus++;
       else {
         game.spawnSparkle(game.player, '#ffd24a', 6);
         game.msg(`Perfectly cooked! A flawless ${getItem(cook.result).name.toLowerCase()}.`, 'level');
       }
     } else {
-      game.skills.addXp('cooking', cook.xp);
+      game.skills.addXp('cooking', makeXp(game, 'cooking', cook.xp));
       if (!t) game.msg(`You cook the ${getItem(cook.result).name.toLowerCase()}.`);
     }
   }
@@ -416,7 +452,7 @@ export function resolveSmelt(game, action) {
   // successChance is ignored, so every lot of ore makes a bar.
   {
     game.inventory.add(r.result, 1);
-    game.skills.addXp('smithing', r.xp);
+    game.skills.addXp('smithing', makeXp(game, 'smithing', r.xp));
     tally.made++;
     const lvl = game.skills.level('smithing');
     // A hot crucible occasionally yields an extra bar, and once that is
@@ -464,7 +500,7 @@ export function resolveDish(game, action) {
   if (game.inventory.canAdd(r.result, 1) <= 0) { game.msg('Your inventory is too full.'); return false; }
   for (const inp of r.inputs) game.inventory.remove(inp.id, inp.qty);
   game.inventory.add(r.result, 1);
-  game.skills.addXp('cooking', r.xp);
+  game.skills.addXp('cooking', makeXp(game, 'cooking', r.xp));
   if (action.tally) return r.inputs.every((inp) => game.inventory.has(inp.id, inp.qty));   // a batch says it once (makeBatch)
   const fc = { x: action.obj.x * 32 + 16, y: action.obj.y * 32 + 10 };
   game.spawnPoof(fc.x, fc.y, '#ffd9a0');
@@ -485,7 +521,7 @@ export function resolveCraft(game, action) {
   if (game.inventory.canAdd(r.result, n) <= 0) { game.msg('Your inventory is too full.'); return false; }
   for (const inp of r.inputs) game.inventory.remove(inp.id, inp.qty);
   game.inventory.add(r.result, n);
-  game.skills.addXp('crafting', r.xp);
+  game.skills.addXp('crafting', makeXp(game, 'crafting', r.xp));
   if (action.tally) return r.inputs.every((inp) => game.inventory.has(inp.id, inp.qty));   // a batch says it once (makeBatch)
   game.spawnSparkle(game.player, '#caa15a', 6);
   game.msg(n > 1 ? `You craft ${n} ${getItem(r.result).name.toLowerCase()}s.` : `You craft ${aOrAn(getItem(r.result).name.toLowerCase())}.`);
@@ -501,7 +537,7 @@ export function resolveSmith(game, action) {
   }
   game.inventory.remove(r.bar, r.barCount);
   game.inventory.add(r.result, r.qty || 1);   // upgrade stones come several to a bar
-  game.skills.addXp('smithing', r.xp);
+  game.skills.addXp('smithing', makeXp(game, 'smithing', r.xp));
   const t = action.tally;   // a batch (makeBatch) counts the extras and says it once
   if (!t) game.bus.emit('sfx', 'clang');
   const lvl = game.skills.level('smithing');
@@ -613,7 +649,7 @@ export function resolveRecipe(game, action) {
   if (game.inventory.canAdd(r.result, r.qty || 1) <= 0) { game.msg('Your inventory is too full.'); return false; }
   for (const [id, n] of r.inputs) game.inventory.remove(id, n);
   game.inventory.add(r.result, r.qty || 1);
-  game.skills.addXp(skill, r.xp);
+  game.skills.addXp(skill, makeXp(game, skill, r.xp));   // (Herblore: as listed)
   if (action.tally) return r.inputs.every(([id, n]) => game.inventory.has(id, n));   // a batch says it once (makeBatch)
   game.spawnSparkle(game.player, skill === 'herblore' ? '#7ad08a' : '#caa15a', 6);
   const name = getItem(r.result).name.toLowerCase();

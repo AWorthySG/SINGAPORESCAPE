@@ -30,6 +30,7 @@ import { toolLadder } from '../game/tools.js';
 import { levelHaulPct, LEVEL_HAUL_PER, LEVEL_HAUL_CAP, LEVEL_HAUL_CAP_LEVEL, LEVEL_HAUL_TOP } from '../game/levelhaul.js';
 import { MAX_LEVEL } from '../data/xp.js';
 import { xpRate, actionXp } from '../game/xprate.js';
+import { makeXp } from '../game/skilling.js';
 import {
   SKILL_GUIDES, GATHER_SKILLS, COMBAT_SKILLS, TOOL_NAMES, gatherSources, recipesFor, recipeLabel, recipeKindTitle, canMake,
   regionsOf, nearestObject, groveList, fishSpotList, itemEntry, searchResources, RESOURCE_CATS, resourceIndex, perkLadder, gearTiers, trainingSpots, bestSpotsFor, combatExtras,
@@ -72,9 +73,11 @@ export function gatherPicksHTML(game) {
 
 /** The XP you really get for one log, fish, ore or make: the listed amount
  *  times the game's XP rate and the life-skill boost for your level, as
- *  Skills.addXp adds it (golden hours, worn as a bonus on top, left out). */
+ *  Skills.addXp adds it (golden hours, worn as a bonus on top, left out), and
+ *  a make's multiple at your level (makeXp, skilling.js) as the make pays it. */
 export function realXp(game, skill, xp) {
-  return game?.skills?.xpAtLevel ? game.skills.xpAtLevel(skill, xp || 0) : (xp || 0) * XP_RATE;
+  xp = makeXp(game, skill, xp || 0);
+  return game?.skills?.xpAtLevel ? game.skills.xpAtLevel(skill, xp) : xp * XP_RATE;
 }
 /** That XP as a badge beside a row's name. */
 export const xpBadge = (n, each = true) => `<span class="sgx-xp" title="Experience you get${each ? ' for each one' : ''}">+${formatNumber(Math.round(n))} xp${each ? ' each' : ''}</span>`;

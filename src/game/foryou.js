@@ -20,6 +20,7 @@ import { XP_RATE, TICK_MS, LIFE_XP_BOOST } from '../config.js';
 import { GATHER_SPEED } from './game.js';
 import { CODEX_IDS, codexHabitats } from './codex.js';
 import { gatherSources, recipesFor, recipeLabel, regionsOf, itemSources } from './skillguide.js';
+import { makeXp } from './skilling.js';
 import { EQUIP_SLOTS } from './equipment.js';
 import { gearBySlot, compareGear } from './gear.js';
 import { isObtainable } from './discovery.js';
@@ -54,7 +55,7 @@ export function trainingFor(game, skill, n = 2) {
   if (!gather.length) {
     for (const r of recipesFor(skill)) {
       if (r.level > lvl || !(r.xp > 0)) continue;
-      out.push({ skill, name: recipeLabel(r), level: r.level, xp: r.xp, xph: xpPerHour(game, skill, r.xp), rough: true, objIds: r.stations.length ? r.stations : null,
+      out.push({ skill, name: recipeLabel(r), level: r.level, xp: r.xp, xph: xpPerHour(game, skill, makeXp(game, skill, r.xp)), rough: true, objIds: r.stations.length ? r.stations : null,
         regions: r.stations.length ? regionsOf(game, r.stations) : [], recipe: r, inputs: r.inputs });
     }
   }
