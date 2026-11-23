@@ -4659,42 +4659,55 @@ test('one spell per element: wind casts 1/0.6 as fast, water slows and casts 40%
   const earthCd = cast('earth_strike', t), windCd = cast('wind_strike', t), waterCd = cast('water_strike', t);
   assert.ok(Math.abs(windCd - earthCd * 0.6) < 0.01, `wind ${windCd} vs earth ${earthCd}`);
   assert.ok(Math.abs(waterCd - earthCd / 1.4) < 0.01, `water ${waterCd} vs earth ${earthCd}`);
-  // Fire hits like the others, and ignites: 15% of the hit every second for 5 seconds.
+  // Fire hits like the others, and ignites: a burn of 15% of the hit for 5 seconds,
+  // going off every half second and again whenever the foe takes damage.
   const max = (id) => playerMagicVsNpc(g.skills, g.equipment, getSpell(id), { defence: 1 }).max;
   assert.equal(max('fire_strike'), max('wind_strike'), 'no flat fire bonus any more');
   const IG = ELEMENTS.fire.ignite;
-  assert.deepEqual([IG.share, IG.secs], [0.15, 5]);
+  assert.deepEqual([IG.share, IG.secs, IG.tickMs, IG.max], [0.15, 5, 500, 20]);
   const f = foe(2); g.npcs = [f];
   g._critHit = (d) => ({ dmg: d, crit: false }); g._aoeCrit = (d) => ({ dmg: d, critX: 0 });
   cast('fire_strike', f);
   const hit = 1e7 - f.hp, per = Math.max(1, Math.round(hit * 0.15));
   assert.equal(f.ignite.burns.length, 1, 'set alight');
-  assert.equal(f.ignite.burns[0].perSec, per);
+  assert.equal(f.ignite.burns[0].dmg, per);
+  assert.equal(f.ignite.owedN, 0, 'the hit that lit it doesn\'t set it off');
   const burning = f.hp; f.ignite.acc = 0;
-  for (let i = 0; i < 51; i++) g._tickIgnites();   // 30.6 seconds of ticks
-  assert.equal(burning - f.hp, per * 5, 'burns for 5 seconds at 15% of the hit, then stops');
+  for (let i = 0; i < 100; i++) g._tickIgnites();   // 30 seconds of combat beats
+  // Ten half-second ticks in its 5 seconds, each going off twice (a tick counts as a hit).
+  assert.equal(burning - f.hp, per * 20, 'goes off twice every half second for 5 seconds, then stops');
   assert.equal(f.ignite, null, 'and goes out on its own');
-  // Burns stack while they last: three hits burn together, each for its own 5 seconds.
-  for (let k = 0; k < 3; k++) g._igniteFoe(f, 100, IG);
+  // Every blow on a burning foe, from anyone, sets all its burns off again (paid on the next beat).
+  for (let k = 0; k < 3; k++) g._igniteFoe(f, 100, IG);   // three burns of 15
   const h2 = f.hp;
-  g._tickIgnites(); g._tickIgnites();
-  assert.equal(h2 - f.hp, 45, 'all the stacks burn together');
-  for (let i = 0; i < 20; i++) g._tickIgnites();
-  assert.equal(h2 - f.hp, 45 * 5, 'a burn adds 75% of its hit in all, however many are stacked');
+  f.takeDamage(1); f.takeDamage(1);
+  g._tickIgnites();   // 300 ms: no half-second tick yet
+  assert.equal(h2 - f.hp, 2 + 45 * 2, 'each blow set all three burns off');
+  const h3 = f.hp;
+  g._tickIgnites();   // 600 ms: the tick, and the flare-up it sets off
+  assert.equal(h3 - f.hp, 45 * 2, 'the tick goes off, and as a hit sets the burns off once more');
+  const h4 = f.hp;
+  g._tickIgnites();   // 900 ms: nothing due
+  assert.equal(h4 - f.hp, 0, 'a flare-up doesn\'t set itself off again');
+  // Twenty burns at most: the oldest goes out first.
+  for (let k = 0; k < 30; k++) g._igniteFoe(f, 1000 + k * 100, IG);
+  assert.equal(f.ignite.burns.length, 20);
+  assert.equal(f.ignite.sum, f.ignite.burns.reduce((t, b) => t + b.dmg, 0));
+  assert.equal(f.ignite.burns[0].dmg, Math.round((1000 + 10 * 100) * 0.15), 'the newest twenty');
   // Out when the foe dies.
   const small = foe(3); small.maxHp = small.hp = 100; g.npcs = [f, small];
   for (let k = 0; k < 3; k++) g._igniteFoe(small, 400, IG);
   for (let i = 0; i < 4; i++) g._tickIgnites();
   assert.ok(!small.alive || small.hp <= 0, 'burned to death');
   assert.equal(small.ignite, null, 'and the burn ends with it');
-  // Every burn tick can crit, at the crit chance of the cast that lit it.
+  // Every burn can crit, at the crit chance of the cast that lit it.
   const c1 = foe(4); g.npcs = [c1];
-  g._aoeCritCh = 1; g._igniteFoe(c1, 400, { share: 0.25, secs: 5 }); g._aoeCritCh = 0;
+  g._aoeCritCh = 1; g._igniteFoe(c1, 400, { share: 0.25, secs: 5, tickMs: 500 }); g._aoeCritCh = 0;
   assert.equal(c1.ignite.critCh, 1);
   delete g._aoeCrit;   // the real crit roll from here on
   const hc = c1.hp; g.effects = [];
   g._tickIgnites(); g._tickIgnites();
-  assert.ok(hc - c1.hp >= 200, `a certain crit at least doubles the 100 burn (${hc - c1.hp})`);
+  assert.ok(hc - c1.hp >= 400, `a certain crit at least doubles both 100s (${hc - c1.hp})`);
   assert.ok(g.effects.some((e) => e.type === 'hitsplat' && e.entity === c1 && e.critX >= 2), 'shown as a crit');
   delete g._critHit; delete g._aoeCrit;
   // Earth reaches 5 tiles from the target; others 2.

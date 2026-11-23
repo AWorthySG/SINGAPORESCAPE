@@ -46,11 +46,18 @@ const merchant = rows.find((r) => r.cls === 'merchant');
 // The Brawler is left out too: its Open Wounds (+5% damage taken a stack, one a
 // second, up to 30) lift it above the other classes on one target and bosses in a long
 // fight, which the owner chose to keep (see the Brawler test below).
-test('every class but the Merchant and Brawler hits one target at 70-140% of the median class', () => {
-  for (const r of others.filter((r) => r.cls !== 'brawler')) {
+// The casters are left out as well since the owner made Fire's Ignite much
+// stronger (burns go off every half second and with every hit): Wizards and
+// Sorcerers now hit one target at 2-4 times the median class.
+const FIRE_CASTERS = ['wizard', 'sorcerer'];
+test('every class but the Merchant, Brawler and Fire casters hits one target at 70-140% of the median class', () => {
+  for (const r of others.filter((r) => r.cls !== 'brawler' && !FIRE_CASTERS.includes(r.cls))) {
     for (const [name, x] of [['all classes', rel(r, 'single')], ['the other classes', relOthers(r, 'single')]]) {
       assert.ok(x >= 0.7 && x <= 1.4, `${r.cls}: ${Math.round(x * 100)}% of the median single-target damage of ${name}`);
     }
+  }
+  for (const r of rows.filter((r) => FIRE_CASTERS.includes(r.cls))) {
+    assert.ok(rel(r, 'single') >= 2 && rel(r, 'single') <= 4, `${r.cls}: ${Math.round(rel(r, 'single') * 100)}% of the median single-target damage`);
   }
 });
 
@@ -59,13 +66,15 @@ test('every class but the Merchant and Brawler hits one target at 70-140% of the
 // and ~185-230% boss at levels 50-300), top of the table, crowds included.
 // (Raised to about 250% when the Brawler's Open Wounds made it a stronger boss
 // killer: the owner wants the Merchant on top of every class, the Brawler included.)
-test('the Merchant is the strongest class: 200-330% of the median of the other classes, and top', () => {
+// Since the owner made Fire's Ignite much stronger, the Fire casters out-damage it
+// too; it stays on top of every other class.
+test('the Merchant is the strongest class but the Fire casters: 200-330% of the median of the other classes, and top', () => {
   for (const m of ['single', 'boss']) {
     const x = relOthers(merchant, m);
     assert.ok(x >= 2 && x <= 3.3, `merchant: ${Math.round(x * 100)}% of the other classes' median ${m} damage`);
   }
   for (const m of ['single', 'boss', 'crowd']) {
-    const best = others.reduce((a, b) => (b[m] > a[m] ? b : a));
+    const best = others.filter((r) => !FIRE_CASTERS.includes(r.cls)).reduce((a, b) => (b[m] > a[m] ? b : a));
     assert.ok(merchant[m] > best[m], `merchant ${m} ${merchant[m].toFixed(0)} beats the best other class (${best.cls}, ${best[m].toFixed(0)})`);
   }
 });

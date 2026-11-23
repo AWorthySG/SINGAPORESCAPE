@@ -1060,6 +1060,7 @@ export class Game {
     while (this.beatAcc >= COMBAT_BEAT_MS && guard++ < 10) {
       this.beatAcc -= COMBAT_BEAT_MS;
       this._combatBeat();
+      this._tickIgnites();   // Fire's burns go off on the beat (every half second, and after hits)
     }
     if (this._autoRetarget) { this._autoRetarget = false; if (this.autoBattle && this.player.alive) this._autoRun(() => this._autoBattleTick()); }
 
@@ -1215,7 +1216,6 @@ export class Game {
     this._tickGreetings();
     Life.tickLife(this);   // routines, chats, remarks, reputation (npclife.js)
     this.cine.tick(this);   // fight push-in, and a boss's entrance the first time it engages
-    this._tickIgnites();
     this._tickWounds();
     if (this.killStreak && this.tickCount - this._lastKillTick > STREAK_WINDOW_TICKS) {
       this.msg(`Your kill streak of ${this.killStreak} ends.`, 'system');
@@ -3054,7 +3054,7 @@ export class Game {
     const raw = dmg;   // the splash rolls its own crits
     const c = this._critHit(dmg, mods.critCh); dmg = c.dmg;
     this._swingToward(this.player, npc.x, npc.y);
-    this._projectile(npc, (c.crit || fancy) ? '#e0a0ff' : spell.tint, 'bolt');
+    this._projectile(npc, (c.crit || fancy) ? spell.critTint || spell.tint : spell.tint, 'bolt', 0, !!(c.crit || fancy));   // the element's colour, brighter and bigger for a crit
     this.bus.emit('sfx', `atk:${this.weaponType() || 'staff'}`);   // staves shimmer, wands sparkle, orbs hum
     // The number shows the element: gold where it bites, grey where it's resisted, else its own colour.
     const tint = mods.race === 'strong' ? '#f5b82e' : mods.race === 'weak' ? '#9aa3b2' : ELEMENTS[spell.element]?.splat;
@@ -3075,21 +3075,31 @@ export class Game {
     this._postAttack(npc);
   }
 
-  /** Fire's Ignite: every hit adds its own burn, `share` of that hit every
-   *  second for `secs` seconds (like the blades' WOUNDS). Burns used to last
-   *  until the foe died and stacked without limit, which let Fire's damage
-   *  climb for ever in a long fight; now a burn adds a fixed share of its hit. */
-  _igniteFoe(npc, hit, { share, secs = 5 }) {
+  /** Fire's Ignite: every hit adds its own burn, worth `share` of the hit, for
+   *  `secs` seconds (at most `max` at once: the oldest goes out first). A
+   *  burning foe's burns all go off together every `tickMs` (half a second), and
+   *  again every time it takes damage from anyone: your hits and splashes,
+   *  allies, and the half-second burn ticks too (the owner's rules). The burns
+   *  set off by damage don't set themselves off again, or one burn would never
+   *  stop. Burns used to tick once a second and nothing else; before that they
+   *  lasted until the foe died, which let Fire's damage climb for ever. */
+  _igniteFoe(npc, hit, { share, secs = 5, tickMs = 1000, max = Infinity }) {
     if (!npc.alive || npc.hp <= 0) return;
-    const ig = npc.ignite || (npc.ignite = { acc: 0, burns: [], critCh: 0 });
-    ig.burns.push({ perSec: Math.max(1, Math.round(hit * share)), left: secs });
-    ig.critCh = this._aoeCritCh || 0;   // every burn tick can crit, at the casting spell's crit chance
+    const ig = npc.ignite || (npc.ignite = { burns: [], sum: 0, owed: 0, owedN: 0, acc: 0, tickMs, critCh: 0 });
+    const dmg = Math.max(1, Math.round(hit * share));
+    ig.burns.push({ dmg, left: secs * 1000 });
+    ig.sum += dmg;
+    if (ig.burns.length > max) ig.sum -= ig.burns.shift().dmg;
+    ig.tickMs = tickMs;
+    ig.critCh = this._aoeCritCh || 0;   // every burn can crit, at the casting spell's crit chance
   }
 
-  /** Burning foes near the player take all their burns' damage once a second
-   *  (with Magic XP, like any spell damage) until the burns run out. Called every tick. */
-  _tickIgnites() {
-    const p = this.player, m = this.combatXpMult();
+  /** Every combat beat: burning foes near the player take what their burns owe
+   *  (the half-second ticks, and the hits they took since the last beat; see
+   *  NPC.takeDamage), in one number a beat however many hits there were, with
+   *  Magic XP like any spell damage, and their burns run down. */
+  _tickIgnites(stepMs = COMBAT_BEAT_MS) {
+    const p = this.player;
     let xp = 0;
     for (const n of this.nearbyNpcs()) {
       const ig = n.ignite;
@@ -3097,26 +3107,34 @@ export class Game {
       if (!n.alive || n.hp <= 0) { n.ignite = null; continue; }
       // Like the rest of the world, foes far from the player wait (still alight) until you return.
       if (Math.abs(n.x - p.x) > 46 || Math.abs(n.y - p.y) > 46) continue;
-      ig.acc += TICK_MS / 1000;
-      while (ig.acc >= 1 && n.hp > 0) {
-        ig.acc -= 1;
-        // Each tick rolls its own crit (x2, or x4 on a mega crit, plus gear crit damage).
+      // The half-second tick, which counts as a hit too, so it sets the burns off a second time.
+      ig.acc += stepMs;
+      while (ig.acc >= ig.tickMs) { ig.acc -= ig.tickMs; ig.owed += 2 * ig.sum; ig.owedN += 2; }
+      if (ig.owedN > 0 && ig.owed > 0) {
+        // Each burn going off rolls its own crit (x2, or x4 on a mega crit, plus gear crit damage).
         const saved = this._aoeCritCh; this._aoeCritCh = ig.critCh || 0;
-        const c = this._aoeCrit(ig.burns.reduce((t, b) => t + b.perSec, 0), false);
+        const each = ig.owed / ig.owedN;
+        let dmg = 0, critX = 0;
+        for (let i = 0; i < ig.owedN; i++) { const c = this._aoeCrit(each, false); dmg += c.dmg; if (c.critX > critX) critX = c.critX; }
         this._aoeCritCh = saved;
-        for (const b of ig.burns) b.left--;
-        ig.burns = ig.burns.filter((b) => b.left > 0);
-        const d = Math.min(n.hp, c.dmg);
-        n.takeDamage(d);
-        this.addHitsplat(n, d, { tint: '#ff8a3d', critX: c.critX });
-        this.spawnSparkle(n, '#ff9a4a', 3);
+        ig.owed = 0; ig.owedN = 0;
+        const d = Math.min(n.hp, Math.max(1, Math.round(dmg)));
+        n.ignite = null; n.takeDamage(d); n.ignite = ig;   // a flare-up doesn't set the burns off again
+        // Drawn apart from your blows like splash damage (an orange tag), and with no
+        // shake or hit-stop: burns go off several times a second.
+        this.addHitsplat(n, d, { tint: '#ff8a3d', critX, aoe: true });
+        this.spawnSparkle(n, '#ff9a4a', 2);
         xp += d;
         if (!n.target) n.target = p;
-        if (n.hp <= 0) { this.killNpc(n); n.ignite = null; }
-        else if (!ig.burns.length) { n.ignite = null; break; }   // burnt out
+        if (n.hp <= 0) { this.killNpc(n); n.ignite = null; continue; }
       }
+      // The burns run down, and go out after their `secs`.
+      let k = 0, sum = 0;
+      for (const b of ig.burns) { b.left -= stepMs; if (b.left > 0) { ig.burns[k++] = b; sum += b.dmg; } }
+      ig.burns.length = k; ig.sum = sum;
+      if (!k) n.ignite = null;   // burnt out
     }
-    if (xp) for (const x of magicXp(xp)) this.skills.addXp(x.skill, x.xp * m);
+    if (xp) { const m = this.combatXpMult(); for (const x of magicXp(xp)) this.skills.addXp(x.skill, x.xp * m); }
   }
 
   /** A skill's rider on the first blow that lands: a sure bleeding wound
@@ -3284,7 +3302,7 @@ export class Game {
     return wpn?.coins ? 'coin' : wpn?.weaponType === 'pistol' || wpn?.weaponType === 'rifle' ? 'bullet' : wpn?.weaponType === 'shuriken' || wpn?.weaponType === 'chakram' ? 'shuriken' : 'arrow';
   }
 
-  _projectile(npc, color, kind = 'bolt', spread = 0) {
+  _projectile(npc, color, kind = 'bolt', spread = 0, crit = color === '#ffd24a') {
     const from = this.player.renderCenter();
     const to = npc.renderCenter();
     // `spread` fans a volley (Snapshot, Arrow Storm) so each arrow is visible.
@@ -3301,7 +3319,7 @@ export class Game {
     this.effects.push({ type: 'projectile', kind, x: fx, y: from.y - 6 + off, ex: to.x, ey: to.y - 8 + off * 0.6, color, life, maxLife: life,
       arc: kind === 'arrow' ? Math.min(22, dist * 0.09) : 0,
       // Which arrows were loosed (bronze ... eternal): the renderer draws each kind its own way.
-      ammo: kind === 'arrow' ? this._shotAmmo || null : null, crit: color === '#ffd24a',
+      ammo: kind === 'arrow' ? this._shotAmmo || null : null, crit,
       // Which gun fired a bullet: the Pistoler's rounds are tiny, the Sniper's a long tracer (renderer.js).
       gun: kind === 'bullet' ? (this.weaponType() === 'rifle' ? 'rifle' : 'pistol') : null });
   }
@@ -5518,19 +5536,21 @@ export class Game {
       const m = elementMatchup(sp.element, race);
       // Damage per second from the casts alone (an average hit, the race matchup, the cast speed).
       const hit = playerMagicVsNpc(this.skills, this.equipment, sp, tgt.def).max * 0.625;
-      const d = Math.max(1, hit * elementMult(m)
-        / (this.attackInterval(sp) * COMBAT_BEAT_MS / 1000));
-      // Fire's Ignite: every cast adds a burn of share x its hit every second for
-      // `secs` seconds, so once the first burns are going Fire deals share x secs
-      // more per second. Burns still running when the foe dies are wasted, so by
-      // time T the burns have added share x (T^2/2) x d inside the first `secs`
-      // seconds, and share x secs x (T - secs/2) x d after (T worked out on the
-      // casts alone, hp/d): a quick kill favours Wind's quick casts, a
-      // longer fight Fire's burns.
+      const casts = 1000 / (this.attackInterval(sp) * COMBAT_BEAT_MS);   // a second
+      const d = Math.max(1, hit * elementMult(m) * casts);
+      // Fire's Ignite: every cast adds a burn of share x its hit for `secs`
+      // seconds (at most `max` at once), and a burning foe's burns all go off
+      // twice every tick (the tick, and the flare-up it sets off) and once more
+      // for every hit. So up to min(max, casts x secs) burns are going, each
+      // going off 2/tick + casts times a second. They build up over the first
+      // `secs` seconds, and those still going when the foe dies are wasted (T,
+      // the fight's length on the casts alone, hp/d): a quick kill favours
+      // Wind's quick casts, a longer fight Fire's burns.
       let v = d;
       if (el.ignite) {
-        const s = el.ignite.share, secs = el.ignite.secs || 5, T = Math.max(1, tgt.hp) / d;
-        v = d * (1 + s * (T <= secs ? T / 2 : secs * (1 - secs / (2 * T))));
+        const { share, secs = 5, tickMs = 1000, max = Infinity } = el.ignite, T = Math.max(1, tgt.hp) / d;
+        const ramp = T <= secs ? T / (2 * secs) : 1 - secs / (2 * T);
+        v = d * (1 + share * Math.min(max, casts * secs) * ramp * (2000 / tickMs + casts) / casts);
       }
       // A crit lands x2 (x4 one time in four): +1% crit chance is about +1.5% damage.
       if (el.crit) v *= 1 + 1.5 * Math.min(el.crit, Math.max(0, 1 - critNow));

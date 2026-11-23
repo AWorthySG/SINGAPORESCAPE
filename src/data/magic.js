@@ -1,13 +1,15 @@
 // Combat spells. Each needs a magic level, runes (item ids -> qty), gives a
-// base max hit + magic xp per cast. Elemental tint drives the projectile colour.
+// base max hit + magic xp per cast. Elemental tint drives the projectile colour
+// (`critTint`, brighter, for a crit or a special: bolts used to turn purple on a
+// crit, which late in the game was nearly every cast, so they hid their element).
 // One spell per element. Its damage grows with Magic level instead of
 // unlocking stronger tiers: base max hit = 2 + Magic/4, up to 20 (the old Wave
 // spells' hit at Magic 72), then the Magic multiplier in combat.js on top.
 export const SPELLS = [
-  { id: 'wind_strike', name: 'Wind', level: 1, maxHit: 2, xp: 5.5, tint: '#bfe8d0', runes: { air_rune: 1, mind_rune: 1 } },
-  { id: 'water_strike', name: 'Water', level: 5, maxHit: 2, xp: 7.5, tint: '#6fb6e0', runes: { water_rune: 1, air_rune: 1, mind_rune: 1 } },
-  { id: 'earth_strike', name: 'Earth', level: 9, maxHit: 2, xp: 9.5, tint: '#8a6a3a', runes: { earth_rune: 2, air_rune: 1, mind_rune: 1 } },
-  { id: 'fire_strike', name: 'Fire', level: 13, maxHit: 2, xp: 11.5, tint: '#ef7a23', runes: { fire_rune: 3, air_rune: 2, mind_rune: 1 } },
+  { id: 'wind_strike', name: 'Wind', level: 1, maxHit: 2, xp: 5.5, tint: '#bfe8d0', critTint: '#effff6', runes: { air_rune: 1, mind_rune: 1 } },
+  { id: 'water_strike', name: 'Water', level: 5, maxHit: 2, xp: 7.5, tint: '#6fb6e0', critTint: '#b8e4ff', runes: { water_rune: 1, air_rune: 1, mind_rune: 1 } },
+  { id: 'earth_strike', name: 'Earth', level: 9, maxHit: 2, xp: 9.5, tint: '#8a6a3a', critTint: '#e0b46a', runes: { earth_rune: 2, air_rune: 1, mind_rune: 1 } },
+  { id: 'fire_strike', name: 'Fire', level: 13, maxHit: 2, xp: 11.5, tint: '#ef7a23', critTint: '#ffc04a', runes: { fire_rune: 3, air_rune: 2, mind_rune: 1 } },
 ];
 export const SPELL_HIT_CAP = 20;
 /** A spell's base max hit at a Magic level (before the Magic multiplier and the element's damage). */
@@ -22,7 +24,8 @@ export function spellBaseHit(spell, magic) {
 //   wind  (Gale)    the quickest casts and a keen edge: +15% crit chance;
 //   water (Chill)   slows the foes it hits, and a chilled foe's blows land softer;
 //   earth (Shatter) blasts a wide area and cracks armour, so every hit on it lands harder;
-//   fire  (Ignite)  sets foes alight: stacking burns that tick every second.
+//   fire  (Ignite)  sets foes alight: stacking burns that go off every half
+//                   second, and again whenever the burning foe takes damage.
 // The matchups used to only ever help (x1.3, never resisted), so a mage could
 // cast one element at everything; the owner asked for strong and weak matchups to
 // hit noticeably harder and softer, and for the effects to read clearly in a fight.
@@ -37,7 +40,7 @@ export const ELEMENTS = {
   earth: { name: 'Earth', icon: '🪨', splat: '#8a6a3a', strong: ['beast', 'reptile', 'humanoid', 'aquatic'], weak: ['avian', 'spirit'],
     effect: 'Quake: blasts everything within 5 tiles. Shatter: each hit cracks the foe\'s armour, +6% armour pierce against it (up to 5 cracks, 6s) for every hit you land on it', aoeRadius: 5, shatter: { per: 6, max: 5, ticks: 10 } },
   fire:  { name: 'Fire',  icon: '🔥', splat: '#e0602a', strong: ['flora', 'undead', 'bug'], weak: ['aquatic', 'dragon', 'demon'],
-    effect: 'Ignite: every hit adds a burn of 15% of the hit every second for 5s; burns stack while they last and every burn tick can crit', ignite: { share: 0.15, secs: 5 } },
+    effect: 'Ignite: every hit adds a burn of 15% of the hit for 5s (up to 20 at once). A burning foe\'s burns all go off every 0.5s, and again every time it takes damage, burn ticks included; every burn can crit', ignite: { share: 0.15, secs: 5, tickMs: 500, max: 20 } },
 };
 for (const s of SPELLS) s.element = s.id.split('_')[0];
 export const AOE_RADIUS = 2;   // tiles around the target that every spell also hits
