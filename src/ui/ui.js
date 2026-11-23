@@ -1,6 +1,6 @@
 import { CLASSES, CLASS_BY_ID, WEAPON_TYPE_NAMES, starterWeapon, canWear, ARMOUR_FAMILY, ARMOUR_FAMILIES, canWield, SECONDARY_WEAPON, shieldBarred, noShieldMsg, weaponTypeOf, sigBarred } from '../data/classes.js';
 import { SKILL_HOURS, windowLabel } from '../data/skillhours.js';
-import { classPerks, classPerkSummary } from '../game/classperks.js';
+import { classPerks, classPerkSummary, classKeyPerks } from '../game/classperks.js';
 import { LIFE_PERKS, LIFE_PERK_SKILLS, LIFE_PERK_FULL_LEVEL, LIFE_PERK_MAX_LEVEL, LIFE_PERK_TOP_LEVEL, lifePerkText, lifePerkNext } from '../game/lifeperks.js';
 import { unlockTipText } from '../game/skillunlocks.js';
 import { installHomeUI } from './homeui.js';
@@ -3862,8 +3862,16 @@ export class UI {
     const el = document.createElement('div');
     el.className = 'class-spot';
     el.innerHTML = '<canvas class="class-spot-stage"></canvas><div class="class-spot-info"><div class="class-spot-name"><b></b><span></span></div>'
-      + '<p class="class-spot-sig"></p><ul class="class-spot-perks"></ul></div><button class="class-spot-go" type="button"></button>';
+      + '<p class="class-spot-sig"></p><ul class="class-spot-perks"></ul><button class="class-spot-more" type="button" aria-expanded="false"></button><ul class="class-spot-all"></ul></div><button class="class-spot-go" type="button"></button>';
     parent.appendChild(el);
+    // Three chips show; "+N more" opens every perk in full, and stays open while
+    // other classes are previewed, so they can be compared.
+    const more = el.querySelector('.class-spot-more');
+    more.addEventListener('click', () => {
+      const open = el.classList.toggle('open');
+      more.setAttribute('aria-expanded', String(open));
+      more.textContent = open ? 'Less' : more.dataset.more;
+    });
     const actor = { classId: null };
     let next = 0;
     new HeroStage(el.querySelector('canvas'), (w, h, now) => {
@@ -3879,8 +3887,13 @@ export class UI {
         el.querySelector('.class-spot-name span').textContent = WEAPON_TYPE_NAMES[c.weapon];
         const perks = classPerks(id);
         el.querySelector('.class-spot-sig').textContent = perks[0]?.text || c.desc;
-        el.querySelector('.class-spot-perks').innerHTML = perks.slice(1)
-          .map((p) => `<li><b>${p.icon} ${p.label}</b> ${p.label === 'Armour' ? p.text.split('.')[0] : p.text}</li>`).join('');
+        const { key, rest } = classKeyPerks(id);
+        el.querySelector('.class-spot-perks').innerHTML = key.map((p) => `<li title="${escapeHtml(p.text)}"${p.label === 'Speed' || p.label === 'Reach' ? ' class="terse"' : ''}><b>${p.icon} <span>${p.label}</span></b> ${p.chip}</li>`).join('');
+        more.dataset.more = `+${rest.length} more`;
+        if (!el.classList.contains('open')) more.textContent = more.dataset.more;
+        // Opened, every perk shows in full (the chips' short forms included), and
+        // on a phone, where the signature above is cut to two lines, that too.
+        el.querySelector('.class-spot-all').innerHTML = perks.map((p, i) => `<li${i ? '' : ' class="sig"'}><b>${p.icon} ${p.label}</b> ${p.text}</li>`).join('');
         el.querySelector('.class-spot-go').textContent = `Choose ${c.name} \u25B6`;
         parent.querySelectorAll('.class-card.previewing').forEach((d) => d.classList.remove('previewing'));
         parent.querySelector(`.class-card[data-cls="${id}"]`)?.classList.add('previewing');

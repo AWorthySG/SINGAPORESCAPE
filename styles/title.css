@@ -176,19 +176,38 @@ body.title-on > :not(#splash):not(#game-root):not(script) { visibility: hidden !
 #splash.leaving { opacity: 0; transition: opacity .55s ease; }
 
 /* ---- The title on its painted ribbon (art slot "logo-banner") ----
-   One line on the ribbon's cream band; the sunburst and medallion rise
-   behind the mascot above it. The ribbon may run past the card's sides. */
-#splash.title-banner .splash-title {
+   The crest is the ribbon picture at its own shape, a little wider than the
+   card. The mascot rises in the sunburst's disc (an empty disc read as a
+   missing picture) and tucks in behind the ribbon, so the title on the
+   ribbon's cream band is the one wordmark. Back to front: the whole picture
+   (.splash-crest::before), the mascot, then the ribbon again (the title's
+   ::before, masked to the part below the disc's middle) under the title text. */
+#splash.title-banner .splash-crest {
   --bw: min(540px, calc(100vw - 12px));
-  position: relative; white-space: nowrap; font-size: clamp(18px, 5.2vw, 31px); line-height: 1.2;
-  margin: calc(var(--bw) * 0.2) 0 calc(var(--bw) * 0.07);
+  position: relative; isolation: isolate; width: var(--bw); aspect-ratio: 878 / 330;
+  margin: 12px calc((100% - var(--bw)) / 2) 2px;
+}
+#splash.title-banner .splash-crest::before,
+#splash.title-banner .splash-title::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: var(--title-banner) center / 100% 100% no-repeat;
+}
+#splash.title-banner .splash-crest .splash-mascot {
+  position: absolute; z-index: 1; left: 50%; top: 34%; width: 24%; height: auto; margin: 0;
+  translate: -50% -50%; filter: drop-shadow(0 2px 0 rgba(34,48,74,0.12));
+}
+#splash.title-banner .splash-title {
+  /* Fills the crest so its ribbon lines up with the one behind; the text sits
+     on the cream band (its middle 62% of the way down: 9% of the width). */
+  position: absolute; z-index: 2; inset: 0; margin: 0; padding: 9% 0 0; box-sizing: border-box;
+  display: flex; align-items: center; justify-content: center;
+  white-space: nowrap; font-size: clamp(18px, 5.2vw, 31px); line-height: 1.2;
 }
 #splash.title-banner .splash-title::before {
-  content: ""; position: absolute; z-index: -1; left: 50%; top: 50%; width: var(--bw); aspect-ratio: 878 / 330;
-  transform: translate(-50%, -67%); background: var(--title-banner) center / 100% 100% no-repeat; pointer-events: none;
+  z-index: -1;
+  -webkit-mask: linear-gradient(transparent 46%, #000 46%); mask: linear-gradient(transparent 46%, #000 46%);
 }
 #splash.title-banner .splash-title::after { display: none; }
-#splash.title-banner .splash-mascot { position: relative; margin-bottom: 0; }
 
 /* ---- Loading bar and tips (shown in place of the Enter button) ---- */
 #splash-loader { width: min(300px, 100%); margin: 2px auto 0; }
@@ -244,6 +263,20 @@ body.title-on > :not(#splash):not(#game-root):not(script) { visibility: hidden !
   padding: 3px 8px; border-radius: 999px; background: var(--aw-muted); border: 1.5px solid var(--aw-ink-faint);
 }
 .class-spot-perks li b { color: var(--aw-text); font-weight: 900; }
+/* Three chips, then "+N more", which opens every perk in full below them. */
+.class-spot-perks { display: inline-flex; vertical-align: middle; }
+.class-spot-perks li { max-width: 100%; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#modal-body .class-spot-more {
+  vertical-align: middle; min-width: 0; min-height: 0; margin: 0 0 0 5px; padding: 3px 10px; border-radius: 999px; cursor: var(--cur-pointer, pointer);
+  font: inherit; font-size: 11px; font-weight: 900; line-height: 1.25; color: var(--aw-accent);
+  background: var(--aw-card); border: 1.5px dashed var(--aw-accent); box-shadow: none;
+}
+#modal-body .class-spot-more:hover, #modal-body .class-spot-more:focus-visible { background: var(--aw-accent-bg); }
+.class-spot-all { display: none; margin: 8px 0 0; padding: 0; list-style: none; max-height: 34vh; overflow-y: auto; }
+.class-spot.open .class-spot-all { display: block; }
+.class-spot-all li { font-size: 12px; line-height: 1.35; color: var(--aw-text-sec); padding: 4px 0; border-top: 1px dashed var(--aw-ink-faint); }
+.class-spot-all li b { color: var(--aw-text); font-weight: 900; }
+.class-spot-all li.sig { display: none; }
 .class-spot-go {
   flex: none; align-self: center; font-size: 14px; font-weight: 800; color: #fff; cursor: var(--cur-pointer, pointer);
   padding: 10px 16px; border-radius: 999px; background: var(--aw-accent); border: 2px solid var(--aw-ink); box-shadow: var(--shadow-primary);
@@ -280,10 +313,22 @@ body.title-on > :not(#splash):not(#game-root):not(script) { visibility: hidden !
   .class-spot-stage { width: 92px; height: 88px; }
   .class-spot-name b { font-size: 16px; }
   .class-spot-sig { font-size: 11.5px; margin-bottom: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .class-spot-perks { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
-  .class-spot-perks li { white-space: nowrap; }
+  .class-spot-all li.sig { display: block; }
+  /* The icons say Speed and Reach well enough here, which keeps the chips on one line. */
+  .class-spot-perks li { font-size: 10.5px; padding: 2px 7px; }
+  .class-spot-perks li.terse b span { display: none; }
+  .class-spot-all { max-height: 30vh; }
   .class-spot-go { padding: 8px 12px; font-size: 13px; }
-  .class-spot { flex-wrap: wrap; }
-  .class-spot-info { flex-basis: calc(100% - 110px); }
-  .class-spot-go { width: 100%; margin-top: 2px; }
+  /* The hero beside its name and signature; the chips, the opened perks and
+     the button each take the card's full width below, so the chips fit on one line. */
+  .class-spot { display: grid; grid-template-columns: 92px minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr); column-gap: 9px; row-gap: 0; align-items: start; }
+  .class-spot-info { display: contents; }
+  .class-spot.swap .class-spot-info > * { animation: spotIn .28s ease both; }
+  .class-spot-stage { grid-row: 1 / span 3; }
+  #modal-body .class-spot-more { grid-area: 3 / 2; align-self: end; justify-self: start; margin: 2px 0 0; }
+  .class-spot-name { grid-area: 1 / 2; margin-top: 4px; }
+  .class-spot-sig { grid-area: 2 / 2; }
+  .class-spot-perks, .class-spot-all, .class-spot-go { grid-column: 1 / -1; }
+  .class-spot-perks { display: flex; margin: 6px 0 0 4px; }
+  .class-spot-go { width: 100%; margin-top: 6px; }
 }
