@@ -62,9 +62,8 @@ export function mechBadge(game, boss) {
   }
 }
 
-/** Everything the bar shows for `boss`, as plain data. `threat`: one the
- *  caller already has (worked out every few ticks, see renderBossBar). */
-export function bossBarModel(game, boss, threat = foeThreat(game, boss)) {
+/** Everything the bar shows for `boss`, as plain data. */
+export function bossBarModel(game, boss) {
   const def = boss.def || {};
   return {
     kind: boss.champion ? 'champion' : def.boss ? 'boss' : 'normal',
@@ -72,7 +71,7 @@ export function bossBarModel(game, boss, threat = foeThreat(game, boss)) {
     level: `Lv ${def.level || 1}`,
     life: lifeText(boss.hp, boss.maxHp),
     pct: Math.max(0, Math.min(100, (boss.hp / boss.maxHp) * 100)),
-    threat,
+    threat: foeThreat(game, boss),
     mech: mechBadge(game, boss),
     enraged: !!boss.enraged,
     // Its armour type and the one-line hint on how to beat it (bossTypes.js).
@@ -116,7 +115,8 @@ export function renderBossBar(ui, boss) {
     b.threatFor = boss; b.threatAt = g.tickCount;
     b.threat = foeThreat(g, boss);
   }
-  const m = bossBarModel(g, boss, b.threat);
+  const m = bossBarModel(g, boss);
+  m.threat = b.threat;
   bar.classList.toggle('champion', m.kind === 'champion');
   bar.classList.toggle('normal', m.kind === 'normal');
   for (const t of THREATS) bar.classList.toggle(`threat-${t}`, m.threat === t);

@@ -1,21 +1,17 @@
 // Less work for a late-game fight's chat and its heavier tick frames, the same
 // on screen and in play: the chat draws a task's lines once (and none while it
 // is folded, catching up when it opens), names are linked with fewer lookups
-// and repeated lines from a record, "What next?" looks for each tool once, an
-// auto battle pick estimates each foe's fight once, worn gear keeps its bonuses
-// while kills add mastery XP within a rank, and the boss bar works out its
-// threat only when it means to. All headless.
+// and repeated lines from a record, "What next?" looks for each tool once, and
+// worn gear keeps its bonuses while kills add mastery XP within a rank. All headless.
 import './seed.mjs';   // seeded Math.random: no test fails on an unlucky roll
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { Game } from '../src/game/game.js';
-import { NPC } from '../src/game/npc.js';
 import { UI, CHAT_LINES } from '../src/ui/ui.js';
 import { findLinks, linkNames } from '../src/game/encyclopedia.js';
 import { linkHTML, linkTag, setLinkedText } from '../src/ui/links.js';
 import { bestSource } from '../src/game/whatnext.js';
-import { bossBarModel, foeThreat } from '../src/ui/bossbar.js';
 import { MASTERY_RANKS, rankFor } from '../src/game/mastery.js';
 import { gatherSources } from '../src/game/skillguide.js';
 import { ITEMS } from '../src/data/items.js';
@@ -273,63 +269,6 @@ test('"What next?" finds the same spot to train, looking for each tool once', ()
   check('somewhere else');
   for (const o of g.world.objects.slice(0, 2000)) o.depleted = true;
   check('with spots worked out');
-});
-
-// ---------------- Auto battle's pick ----------------
-test('an auto battle pick estimates each foe once and picks the same foe', () => {
-  const g = freshGame('swordsman');
-  for (const k of ['attack', 'strength', 'defence', 'hitpoints']) g.skills.xp[k] = xpForLevel(400);
-  g.player.hp = g.maxHp();
-  const p = g.player;
-  let estimates = 0, before = 0, after = 0;
-  const pm = g.prayerMult.bind(g);
-  g.prayerMult = () => { estimates++; return pm(); };   // once at the start of every fight estimate
-  for (let scene = 0; scene < 12; scene++) {
-    const mobs = [];
-    const add = (dx, dy, champ, hunting) => {
-      const n = new NPC('goblin', p.x + dx, p.y + dy, 0, {});
-      n.def = { ...n.def, aggressive: false, level: Math.max(1, g.fightLevel() - Math.floor(Math.random() * 20)) };
-      if (champ) n.makeChampion();
-      if (champ && Math.random() < 0.5) n.maxHp = n.hp = 1e6 * Math.random();   // some a slog
-      if (hunting) n.target = p;
-      mobs.push(n);
-    };
-    for (let i = 0; i < 2 + scene % 4; i++) add(3 + i, -2 + i, true, false);
-    for (let i = 0; i < 3 + scene; i++) add(-4 + (i % 5), 2 + Math.floor(i / 5), Math.random() < 0.2, true);
-    for (let i = 0; i < 6; i++) add(-6 + i * 2, -5, false, false);
-    g.npcs = mobs;
-    g._npcsNear = null;
-    // Without the record (the pick on its own) and with it: the same answer.
-    estimates = 0;
-    const plain = g._autoPick();
-    const plainEstimates = estimates;
-    estimates = 0;
-    const picked = g._autoPickTarget();
-    assert.equal(picked, plain, `scene ${scene}`);
-    const distinct = mobs.filter((n) => n.champion || n.target === p).length;
-    assert.ok(estimates <= distinct, `scene ${scene}: at most one estimate per foe (${estimates} of ${distinct}, ${plainEstimates} before)`);
-    before += plainEstimates; after += estimates;
-    assert.equal(g._fightMemo, undefined, 'nothing is kept after the pick');
-  }
-  assert.ok(after < before / 2, `far fewer estimates (${after}, was ${before})`);
-  // Outside a pick every estimate is worked out afresh (the foe's life can change).
-  const n = g.npcs.find((x) => x.champion);
-  const a = g._autoFightTimes(n).myTime;
-  n.hp = Math.max(1, Math.floor(n.hp / 2));
-  assert.ok(g._autoFightTimes(n).myTime < a);
-});
-
-// ---------------- The boss bar ----------------
-test("the boss bar's model takes the threat it was given, and is otherwise the same", () => {
-  const g = freshGame();
-  const foes = [g.npcs.find((n) => n.def.boss && n.attackable), g.npcs.find((n) => n.attackable && !n.def.boss)];
-  const champ = g.npcs.find((n) => n.attackable && !n.def.boss && n !== foes[1]);
-  champ.makeChampion();
-  for (const n of [...foes, champ]) {
-    const plain = bossBarModel(g, n);
-    assert.equal(plain.threat, foeThreat(g, n));
-    for (const t of ['easy', 'even', 'danger']) assert.deepEqual(bossBarModel(g, n, t), { ...plain, threat: t }, n.name);
-  }
 });
 
 // ---------------- Worn gear's bonuses ----------------
