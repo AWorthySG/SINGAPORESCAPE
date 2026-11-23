@@ -103,12 +103,14 @@ function runCard(ui, kind, title, pill) {
   return d;
 }
 
-/** "Short of X": where more comes from, with a way there. */
-function getMore(ui, item) {
+/** "Short of X": where more comes from, with a way there. `go: false` leaves
+ *  the button out where the window already has one (Improve's footer): two or
+ *  three of the same button pushed Improve down out of a phone's window. */
+function getMore(ui, item, { go = true } = {}) {
   const box = el('div', 'smart-more');
   const bank = ui.game.bank?.count?.(item) || 0;
   box.appendChild(el('span', '', `Dismantling spare gear gives stones and scrolls; champions and bosses drop wards.${bank ? ` (+${num(bank)} in your bank: take them out at a bank)` : ''}`));
-  box.appendChild(button('Dismantle spare gear…', () => openDismantle(ui), 'small smart-more-go'));
+  if (go) box.appendChild(button('Dismantle spare gear…', () => openDismantle(ui), 'small smart-more-go'));
   return box;
 }
 
@@ -280,6 +282,15 @@ export function enchantForecastText(f, o, id, lineCount) {
   return `${enchantCostText(id, lineCount)} ${likely}<br><span class="smart-sub">It keeps every line you aim for and never makes a line weaker.</span>`;
 }
 
+/** The enchant card's pill, in the forecast's own terms: "likely 5 tries" only
+ *  when 95 runs in 100 get there, otherwise how often ("7 in 10", "rarely"),
+ *  as the refine card's pill says it. ("likely 2 tries" beside "Done about 7
+ *  times in 10 within 3 tries" read as a promise.) */
+export function enchantPill(f) {
+  if (f.done >= 0.95) return `likely ${plural(Math.max(1, Math.round(f.picks.avg)), 'try', 'tries')}`;
+  return f.done < 0.05 ? 'rarely' : `${Math.round(f.done * 10)} in 10`;
+}
+
 /** The enchant run's confirm (HTML). */
 export function enchantConfirmHTML(game, id, copy, o) {
   const lines = game.equipment.enchantLines(id, copy);
@@ -343,11 +354,16 @@ function enchantCard(ui, id, copy, rerender, st) {
   const cant = !aimed.length ? 'Choose at least one line to aim for.' : met ? 'It already has these lines.'
     : !afford ? `One try costs ${num(c.stones)} stones and ${num(c.coins)} coins; you carry ${stones < c.stones ? `${num(stones)} stones` : `${num(coins)} coins`}.` : null;
   const f = cant ? null : forecast(o.aim, o.maxPicks, o.maxWards);
-  const pill = met ? 'done' : cant ? 'can\'t start' : f.done >= 0.5 ? `likely ${plural(Math.max(1, Math.round(f.picks.avg)), 'try', 'tries')}` : f.done < 0.05 ? 'rarely' : `${Math.round(f.done * 10)} in 10`;
+  const pill = met ? 'done' : cant ? 'can\'t start' : enchantPill(f);
   const card = runCard(ui, 'enchant', 'Keep enchanting until…', pill);
   // What to aim for: three choices, "Anything" or a line, each with its worth to you.
   const aimBox = el('div', 'smart-aim');
-  aimBox.appendChild(el('div', 'smart-lbl', 'Aim for'));
+  // "Best for me" (while the choices differ from the best) rides on the label's
+  // line: on a row of its own it pushed Enchant until done out of a phone's window.
+  const head = el('div', 'smart-lbl smart-aim-head', '<span>Aim for</span>');
+  const same = (a, b) => a.filter(Boolean).sort().join() === b.filter(Boolean).sort().join();
+  if (best.length && !same(o.aim, best)) head.appendChild(button('Best for me', () => { o.aim = [best[0] || null, best[1] || null, best[2] || null]; st.pending = null; rerender(); }, 'small smart-chip'));
+  aimBox.appendChild(head);
   const opts = `<option value="">Anything</option>${pool.map((stat) => `<option value="${stat}">${esc(aimOption(g, id, stat))}</option>`).join('')}`;
   o.aim.forEach((cur, i) => {
     const sel = el('select', 'smart-select');
@@ -358,10 +374,7 @@ function enchantCard(ui, id, copy, rerender, st) {
     aimBox.appendChild(sel);
   });
   card.appendChild(aimBox);
-  const bestRow = el('div', 'smart-best', best.length ? `Best for your damage: ${esc(SG.aimText(id, best))}` : 'Best for your damage: nothing (this piece doesn\'t suit your fighting style)');
-  const same = (a, b) => a.filter(Boolean).sort().join() === b.filter(Boolean).sort().join();
-  if (best.length && !same(o.aim, best)) bestRow.appendChild(button('Best for me', () => { o.aim = [best[0] || null, best[1] || null, best[2] || null]; st.pending = null; rerender(); }, 'small smart-chip'));
-  card.appendChild(bestRow);
+  card.appendChild(el('div', 'smart-best', best.length ? `Best for your damage: ${esc(SG.aimText(id, best))}` : 'Best for your damage: nothing (this piece doesn\'t suit your fighting style)'));
   const grid = el('div', 'smart-grid two');
   const m = SG.enchantMaxSpend(id, lines.length, o.maxPicks);
   grid.appendChild(stepper('Tries, at most', o.maxPicks, Math.min(1, afford), afford, (v) => { o.maxPicks = v; st.pending = null; rerender(); }, { under: `${num(m.stones)} stones · ${num(m.coins)} coins` }));
@@ -493,7 +506,8 @@ export function openImprove(ui) {
       r.appendChild(grid);
     }
     // Short of scrolls (none at all, or not enough to lift every piece): where more come from.
-    if (below.length && (scrolls < 1 || (opts.refine && !plan.refine.reachAll && plan.refine.max >= scrolls))) r.appendChild(getMore(ui, SCROLL));
+    // (Words only here: the footer's Dismantle spare gear… is the way there.)
+    if (below.length && (scrolls < 1 || (opts.refine && !plan.refine.reachAll && plan.refine.max >= scrolls))) r.appendChild(getMore(ui, SCROLL, { go: false }));
     // 2. Fill empty enchant lines.
     const empty = plan.pieces.filter((p) => g.equipment.enchantLines(p.id, p.copy).length < MAX_ENCHANTS);
     let fDead = '';
@@ -501,7 +515,7 @@ export function openImprove(ui) {
     else if (!plan.fill.lines) { const p = empty[0], c = enchantCost(p.id, g.equipment.enchantLines(p.id, p.copy).length); fDead = `Can't pay for the next line (${num(c.stones)} stones, ${num(c.coins)} coins)`; }
     const fs = step('fill', 'Fill empty enchant lines', `${num(plan.fill.stones)} stones · ${num(plan.fill.coins)} coins`,
       fDead || `${plural(plan.fill.lines, 'line')} on ${plural(plan.fill.pieces, 'piece')} · each takes the best of its three offers for your damage`, fDead);
-    if (fDead && empty.length) fs.appendChild(getMore(ui, STONE));
+    if (fDead && empty.length) fs.appendChild(getMore(ui, STONE, { go: false }));
     // 3. Feed materials up to Master.
     const fed = plan.pieces.filter((p) => p.feedXp > 0);
     const capped = plan.pieces.filter((p) => p.copy === 'main').every((p) => g.equipment.masteryXp(p.id) >= FEED_CAP);
