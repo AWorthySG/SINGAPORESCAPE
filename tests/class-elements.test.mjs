@@ -1,6 +1,6 @@
 // The Priest's and the Zealot's own elements. The Priest casts only the Light
 // path (Radiance, Grace, Judgement, Sanctuary), the Zealot only the Flame path
-// (Holy Fire, Wrath, Ash, Martyrdom); the Wizard and the Sorcerer keep the seven
+// (Holy Fire, Wrath, Ash, Blood); the Wizard and the Sorcerer keep the seven
 // elements. Each element's effect (game/classelements.js) is checked here, and a
 // save from before the classes had their own elements loads onto them.
 import './seed.mjs';   // seeded Math.random: no test fails on an unlucky roll
@@ -23,7 +23,7 @@ import { SPELL_SVG } from '../src/render/icons.js';
 import { fakeStorage } from '../tools/balance/common.mjs';
 
 const LIGHT = ['radiance', 'grace', 'judgement', 'sanctuary'];
-const FLAME = ['holyfire', 'wrath', 'ash', 'martyrdom'];
+const FLAME = ['holyfire', 'wrath', 'ash', 'bloodprice'];
 const SEVEN = ['wind', 'water', 'earth', 'fire', 'chaos', 'dark', 'blood'];
 
 const foe = (g, id, x, y, hp = 1e9) => {
@@ -74,7 +74,8 @@ test('each class casts only its own elements: the Priest the Light path, the Zea
     cast(g, t, g.player.spell);
     assert.ok(g.effects.some((e) => e.type === 'projectile' && e.el === own[0]), `${cls} cast ${own[0]}`);
     // The skill guide and the codex list only the class's own elements.
-    assert.deepEqual(combatExtras('magic', cls).rows.map((r) => getSpell(SPELLS.find((s) => s.name === r.name).id).element), own);
+    // (By name among the class's own: the Zealot's Blood and the Wizard's share one.)
+    assert.deepEqual(combatExtras('magic', cls).rows.map((r) => spellsFor(cls).find((s) => s.name === r.name).element), own);
     g.kills = { skeleton: 1 };
     const e = codexEntry(g, 'skeleton');
     assert.ok(e.elements?.length, 'the codex lists elements');
@@ -276,30 +277,72 @@ test('Ash (Cinders): a foe struck by Ash that dies branded or burning bursts for
   assert.equal(AOE_RADIUS, 2, 'the cinders reach 2 tiles (the spell splash)');
 });
 
-test('Martyrdom (Sacrifice): costs 2% of your life a cast, never under the life-cost floor, and hits 60% harder', () => {
+test('Blood (Blood Price): pays 5% of your life a cast for a hit 120% harder; at the life-cost floor it costs nothing and hits as usual', () => {
   const { g, t } = mk('zealot');
-  g.skills.xp.hitpoints = 1e9;   // enough life for 2% of it to be a few points
-  const p = g.player, max = g.maxHp();
-  assert.ok(near(ClassEl.castMult(g, t, 'martyrdom'), ELEMENTS.martyrdom.power * 1.6));
+  g.skills.xp.hitpoints = 1e9;   // enough life for 5% of it to be a fair few points
+  const p = g.player, max = g.maxHp(), B = ELEMENTS.bloodprice;
+  assert.equal(B.name, 'Blood');
+  assert.deepEqual(B.sacrifice, { life: 0.05, dmg: 1.2 });
+  assert.ok(B.effect.startsWith('Blood Price'));
   p.hp = max;
-  cast(g, t, 'martyrdom_strike');
-  assert.equal(p.hp, max - Math.floor(max * 0.02));
-  // Just over the floor: only down to it.
+  assert.ok(near(ClassEl.castMult(g, t, 'bloodprice'), B.power * 2.2));
+  assert.equal(ClassEl.lifeCost(g, 0.05), Math.floor(max * 0.05));
+  cast(g, t, 'bloodprice_strike');
+  assert.equal(p.hp, max - Math.floor(max * 0.05));
+  assert.ok(g.effects.some((e) => e.type === 'classfx' && e.kind === 'bloodprice'), 'the price paid shows over you');
+  assert.ok(g.effects.some((e) => e.type === 'hitsplat' && e.entity === p), 'and the life it cost');
+  // Just over the floor: only down to it, and that cast still pays, so still hits harder.
   const floor = Math.ceil(max * LIFE_COST_FLOOR);
-  p.hp = floor + 1;   // 2% of it is 1 point: down to the floor, not past it
-  cast(g, t, 'martyrdom_strike');
+  p.hp = floor + 1;
+  assert.ok(near(ClassEl.castMult(g, t, 'bloodprice'), B.power * 2.2));
+  cast(g, t, 'bloodprice_strike');
   assert.equal(p.hp, floor);
-  cast(g, t, 'martyrdom_strike');
+  // At the floor: no price, so no bonus (and no droplets over you).
+  assert.equal(ClassEl.lifeCost(g, 0.05), 0);
+  assert.ok(near(ClassEl.castMult(g, t, 'bloodprice'), B.power));
+  g.effects = [];
+  cast(g, t, 'bloodprice_strike');
   assert.equal(p.hp, floor, 'at the floor it costs nothing');
-  // Its bolt and its hit next to Holy Fire's in the same fight.
-  assert.ok(g.effects.some((e) => e.type === 'projectile' && e.el === 'martyrdom'));
-  // (Each race matchup divided out: a goblin is a humanoid, which resists Martyrdom.)
+  assert.ok(!g.effects.some((e) => e.type === 'classfx' && e.kind === 'bloodprice'));
+  assert.ok(g.effects.some((e) => e.type === 'projectile' && e.el === 'bloodprice'), 'it still casts');
+  // Its hit next to Holy Fire's: x2.2 when paid, its own power alone when not.
+  // (Each race matchup divided out: a goblin is a humanoid, which resists Blood.)
   const mod = (el) => { g._castElement = el; const m = g._offensiveMods(t, 'magic').dmgM / elementMult(g.raceMatchup(t)); g._castElement = null; return m; };
-  assert.ok(near(mod('martyrdom') / mod('holyfire'), 1.6 * ELEMENTS.martyrdom.power / ELEMENTS.holyfire.power, 1e-9));
+  assert.ok(near(mod('bloodprice') / mod('holyfire'), B.power / ELEMENTS.holyfire.power, 1e-9));
+  p.hp = max;
+  assert.ok(near(mod('bloodprice') / mod('holyfire'), 2.2 * B.power / ELEMENTS.holyfire.power, 1e-9));
+  // The landed hit itself, with the dice fixed: paid vs unpaid (the goblin's
+  // armour and the level's flat damage keep it a little short of x2.2).
+  const hitAt = (hp) => { p.hp = hp; return withRandom(0.5, () => cast(g, t, 'bloodprice_strike')); };
+  const paid = hitAt(max), free = hitAt(floor);
+  assert.ok(paid > free * 1.6, `paid ${paid} vs free ${free}`);
+  // Auto battle weighs it less the more hurt you are, and as a plain cast at the
+  // floor: against a spirit (which Blood bites into) it is the pick unhurt, but
+  // not once the price can't be paid (Holy Fire's brands do more then).
+  const sp = foe(g, 'hantu_laut', t.x, t.y + 1, 1e6);
+  g.npcs = [sp];
+  const val = (hp) => { p.hp = hp; return g._autoSpellFor(sp).id; };
+  assert.equal(val(max), 'bloodprice_strike', 'unhurt, Blood is worth its price');
+  assert.notEqual(val(floor), 'bloodprice_strike', 'at the floor, without its bonus, another element does more');
+});
+
+test('the Wizard\'s Blood (Siphon) is unchanged and stays the Wizard\'s', () => {
+  const b = getSpell('blood_strike');
+  assert.equal(b.element, 'blood'); assert.equal(b.cls, undefined); assert.equal(b.level, 40);
+  assert.equal(ELEMENTS.blood.siphon, 0.12);
+  assert.ok(!ELEMENTS.blood.sacrifice && !ELEMENTS.blood.power);
+  assert.ok(spellsFor('wizard').includes(b) && !spellsFor('zealot').includes(b));
+  assert.ok(!spellsFor('wizard').some((s) => s.element === 'bloodprice'));
+  const { g, t } = mk('wizard');
+  g.skills.xp.hitpoints = 1e9; g.player.hp = g.maxHp();
+  assert.equal(ClassEl.castMult(g, t, 'blood'), 1);
+  cast(g, t, 'blood_strike');
+  assert.equal(g.player.hp, g.maxHp(), 'no life paid');
 });
 
 test('an old Priest or Zealot save with a Wizard element loads onto the class\'s own; a Wizard\'s is kept', () => {
   for (const [cls, saved, want] of [['priest', 'fire_strike', 'radiance_strike'], ['zealot', 'blood_wave', 'holyfire_strike'],
+    ['zealot', 'martyrdom_strike', 'bloodprice_strike'], ['wizard', 'martyrdom_strike', 'wind_strike'], ['wizard', 'blood_strike', 'blood_strike'],
     ['priest', 'judgement_strike', 'judgement_strike'], ['wizard', 'fire_strike', 'fire_strike'], ['sorcerer', 'radiance_strike', 'wind_strike']]) {
     const { g } = mk(cls);
     g.player.spell = saved; g.player.spellAuto = true;
@@ -339,7 +382,7 @@ test('the bolts and effects draw on a canvas without throwing, low graphics and 
       assert.equal(drawClassShot(ctx, { el, x: 0, y: 0, ex: 100, ey: 40, color: '#fff', crit: tt > 0.5, power: 0.3 }, tt, 0, 0, g), true, el);
     }
     assert.equal(drawClassShot(ctx, { el: 'fire', x: 0, y: 0, ex: 1, ey: 1 }, 0.5, 0, 0, g), false, 'the seven draw as before');
-    for (const kind of ['flare', 'ash', 'ward']) drawClassEffect(ctx, { kind, x: 5, y: 5, life: 100, maxLife: 200 }, 0, 0);
+    for (const kind of ['flare', 'ash', 'ward', 'bloodprice']) drawClassEffect(ctx, { kind, x: 5, y: 5, life: 100, maxLife: 200, low: lowFx, calm: reduceMotion }, 0, 0);
     g.player.ward = 10; g.player.wrath = 1e3; t.brand = { n: 3, until: g.tickCount + 5 };
     g.camera = { viewW: 800, viewH: 600 };
     drawClassAuras(ctx, g, 0, 0, 1000);

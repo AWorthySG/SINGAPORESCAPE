@@ -177,7 +177,7 @@ export function drawClassShot(ctx, e, t, ox, oy, game) {
           const wob = calm ? 0 : Math.sin(i * 2.1 + t * 20) * 2;
           const dx = sx + (x - sx) * u + wob, dy = sy - 6 * Math.sin(u * Math.PI) + (y - sy) * u;
           ctx.globalAlpha = 0.95 * (1 - u * 0.4);
-          ctx.beginPath(); ctx.arc(dx, dy, 1.7, 0, TAU); ctx.fill(); ctx.stroke();
+          ctx.beginPath(); ctx.arc(dx, dy, 2.2, 0, TAU); ctx.fill(); ctx.stroke();
         }
       }
       ctx.translate(x, y); ctx.rotate(ang); ctx.scale(k, k);
@@ -233,7 +233,7 @@ export function drawClassEffect(ctx, e, ox, oy) {
       for (let i = 0; i < 6; i++) {
         const ang = i * 1.05 + 0.4, r = 16 * (1 - t), rise = 18 * t + (e.calm ? 0 : Math.sin(i * 1.7) * 2);
         ctx.globalAlpha = a;
-        ctx.beginPath(); ctx.arc(x + Math.cos(ang) * r, y + 4 + Math.sin(ang) * r * 0.4 - rise, 1.8, 0, TAU); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.arc(x + Math.cos(ang) * r, y + 4 + Math.sin(ang) * r * 0.4 - rise, 2.3, 0, TAU); ctx.fill(); ctx.stroke();
       }
     }
   } else if (e.kind === 'ward') {
