@@ -9,6 +9,7 @@
 // hero or enters the game. Browser only: main.js and ui.js load it, tests don't.
 import { cloud, STATUS_TEXT } from '../game/cloud.js';
 import { CLASS_BY_ID } from '../data/classes.js';
+import { glyphArtHTML } from '../render/icons.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -47,7 +48,7 @@ export function openAccount(view) {
     overlay.setAttribute('role', 'dialog');
     overlay.setAttribute('aria-modal', 'true');
     overlay.setAttribute('aria-labelledby', 'acct-title');
-    overlay.innerHTML = '<div class="acct-card"><button class="acct-x close-x" aria-label="Close" type="button">&#10005;</button><div class="acct-body"></div></div>';
+    overlay.innerHTML = `<div class="acct-card"><button class="acct-x close-x" aria-label="Close" type="button">${glyphArtHTML('ui-close', '&#10005;', 40, 'x-art')}</button><div class="acct-body"></div></div>`;
     // Keys typed here belong here: the title screen and the game listen on window.
     overlay.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Escape' && !c.choice) closeAccount(); });
     overlay.addEventListener('keyup', (e) => e.stopPropagation());

@@ -71,7 +71,7 @@ import { openPestOfficer, contractTrackerRows, stewardLineHTML, cullingInvOption
 import { eventsPanelHTML, wireEventsPanel, eventTrackerRows, drawEventMarker } from './worldeventsui.js';
 import { keyedSlots, placeSlots } from './slotgrid.js';
 import { WindowMemory, initWindowEase, toggleTapClose } from './windowease.js';   // windows remember where you were; tap outside to close
-import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG, abilityIconHTML, spellIconHTML, playIconHTML, lazyIcon } from '../render/icons.js';
+import { itemIconSVG, skillIconSVG, tabIconSVG, sunIconSVG, moonIconSVG, abilityIconHTML, spellIconHTML, playIconHTML, lazyIcon, glyphArtHTML } from '../render/icons.js';
 import { abilitiesFor } from '../data/abilities.js';   // a class's skills, for its Skills & perks window
 import { weaknessOf, armourTierOf, ARMOUR_TIERS, levelFlatDmg } from '../game/combat.js';
 import { isBone } from '../data/bones.js';
@@ -750,7 +750,7 @@ export class UI {
       if (key === 'panel' && !collapsed && this._invStale) this.renderInventory();   // the bag skipped redraws while folded
       if (key === 'panel' && !collapsed) this._catchUpPanels();   // and so did the Gear, Combat, Journal and Awards views
       if (key === 'chat' && !collapsed) this._drawChat(false);   // the folded chat drew none of its new lines
-      btn.innerHTML = collapsed ? '&#9656;' : '&#9662;'; // ▸ collapsed / ▾ expanded
+      btn.innerHTML = glyphArtHTML('ui-collapse', collapsed ? '&#9656;' : '&#9662;', 16); // ▸ collapsed / ▾ expanded (the painted chevron turns, styles/compact.css)
       btn.title = `${collapsed ? 'Expand' : 'Collapse'} ${label}${key === 'panel' ? ' (I)' : ''}`;
     };
     // Small screens start with the big panels folded (the game needs the room);

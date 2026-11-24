@@ -634,8 +634,8 @@ import { BESTIARY_BOSSES } from '../data/bestiary.js';
 
 
   // ---- Day/night HUD badge: illustrated sun and moon artwork ----
-  export const sunIconSVG = (size = 20, cls) => artImg('hud-sun', size, cls);
-  export const moonIconSVG = (size = 20, cls) => artImg('hud-moon', size, cls);
+  export const sunIconSVG = (size = 20, cls) => artImg('ui-day', size, cls);
+  export const moonIconSVG = (size = 20, cls) => artImg('ui-night', size, cls);
 
   // ---- Painted UI badges (assets/icons/icon-<name>.webp) ----
   // Decoration on buttons, slots and badges. If a picture can't load it takes
@@ -652,9 +652,14 @@ import { BESTIARY_BOSSES } from '../data/bestiary.js';
     'event-invasion', 'event-shoal', 'event-meteor', 'event-escort', 'event-champion', 'event-ancient_tree', 'event-weekly_crate',
     'ui-collection_log', 'ui-pets', 'ui-home', 'ui-focus', 'ui-rested', 'ui-grave', 'ui-skill_unlock', 'ui-mastery',
     'ui-places', 'ui-search', 'ui-daily', 'ui-report',   // the Codex's Places and Search, Daily revision, Report card (FX-1)
+    // The small controls, one family (UI-5): close, more, edit, settings, postcard, compass, day, night, fold, sort, next target.
+    'ui-close', 'ui-more', 'ui-edit', 'ui-settings', 'ui-photo', 'ui-compass', 'ui-day', 'ui-night', 'ui-collapse', 'ui-sort', 'ui-target',
     ...['fine', 'superior', 'epic', 'legendary', 'mythic'].map((q) => `quality-${q}`),
   ];
   export const playIconHTML = (name, size, cls = '') => `<img class="ui-ic ${cls}" src="assets/icons/${name}.webp" width="${size}" height="${size}" alt="" draggable="false" onerror="this.remove()" />`;
+  /** A small control's painted icon with its old text glyph behind it: the
+   *  glyph shows only if the picture fails to load (styles/compact.css, .gl-art). */
+  export const glyphArtHTML = (name, glyph, size, cls = '') => `${playIconHTML(name, size, `gl-art ${cls}`)}<span class="gl" aria-hidden="true">${glyph}</span>`;
   /** Each world event kind's icon (data/worldevents.js EVENT_KINDS). */
   export const EVENT_ICON = { invasion: 'event-invasion', shoal: 'event-shoal', meteor: 'event-meteor', escort: 'event-escort',
     rampage: 'event-champion', grove: 'event-ancient_tree' };

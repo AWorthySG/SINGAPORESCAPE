@@ -14,6 +14,7 @@
 import { composePostcard, photoPostcardSize } from '../render/postcard.js';
 import { fxImage, badgeKey } from '../render/fxart.js';
 import { postcardLine, SITE_URL, TAGLINE } from '../data/postcards.js';
+import { glyphArtHTML } from '../render/icons.js';
 
 /** "a-worthy-postcard-kampong-glam.png" */
 export const postcardFileName = (region) =>
@@ -63,7 +64,7 @@ export class PhotoMode {
     btn.type = 'button';
     btn.title = 'Postcard mode: snap and share this view (O)';
     btn.setAttribute('aria-label', 'Postcard mode');
-    btn.innerHTML = CAMERA_SVG;
+    btn.innerHTML = glyphArtHTML('ui-photo', CAMERA_SVG, 22);
     btn.addEventListener('click', () => this.open());
     (document.getElementById('minimap-panel') || document.getElementById('game-root') || document.body).appendChild(btn);
     this.btn = btn;
@@ -78,7 +79,7 @@ export class PhotoMode {
         <p class="pm-hint">Find a nice spot, then snap your postcard!</p>
         <div class="pm-row">
           <button type="button" class="pm-btn pm-close">Back to game</button>
-          <button type="button" class="pm-btn pm-shutter" aria-label="Take postcard">${CAMERA_SVG} Snap!</button>
+          <button type="button" class="pm-btn pm-shutter" aria-label="Take postcard">${glyphArtHTML('ui-photo', CAMERA_SVG, 22)} Snap!</button>
         </div>
       </div>
       <div class="pm-preview" role="dialog" aria-label="Your postcard">
@@ -88,7 +89,7 @@ export class PhotoMode {
           <button type="button" class="pm-btn pm-save">Save postcard</button>
           <button type="button" class="pm-btn pm-share hidden">Share</button>
         </div>
-        <button type="button" class="pm-x close-x" aria-label="Close">&times;</button>
+        <button type="button" class="pm-x close-x" aria-label="Close">${glyphArtHTML('ui-close', '&times;', 40, 'x-art')}</button>
       </div>`;
     document.body.appendChild(el);
     this.el = el;
