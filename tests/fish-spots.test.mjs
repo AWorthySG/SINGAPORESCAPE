@@ -333,10 +333,10 @@ test('the fish is drawn as one sticker over its spot; low graphics keeps the lit
   } finally { delete globalThis.Image; }
 });
 
-test('every fishing spot has a picture of its own (FS4, FS5), and the mud crab shows its CR-1 repaint', async () => {
-  // The Asian arowana pool's picture came back as a copy of the endgame Arowana
-  // pool, so it alone still borrows the freshwater rod (objects.js FISH_SPOT_BORROW).
-  const WAITING = { asian_arowana_spot: 'obj-rod_spot' };
+test('every fishing spot has a picture of its own (FS4, FS5), and the crabs move their CR-1 repaints', async () => {
+  // The Asian arowana pool was the last to borrow one (the freshwater rod's) until
+  // it was redrawn as a wild jungle pool; any spot listed here may still borrow.
+  const WAITING = {};
   const pics = new Map();
   for (const id of SPOTS) {
     const d = OBJECTS[id], key = d.art || `obj-${id}`;
@@ -352,9 +352,15 @@ test('every fishing spot has a picture of its own (FS4, FS5), and the mud crab s
     if (key !== `obj-${id}`) assert.ok(!worldArt().has(`obj-${id}`), `${id} has no unused picture of its own`);
   }
   assert.ok(pics.size >= 45, `${pics.size} spots with pictures of their own`);
-  // The mud crab's animation parts were cut from the old green crab, so it is
-  // drawn from its new still picture until a parts sheet of the repaint comes back.
+  assert.equal(OBJECTS.asian_arowana_spot.art, undefined, 'the Asian arowana pool has its own picture');
+  assert.notEqual(readFileSync(new URL('../assets/world/obj-asian_arowana_spot.webp', import.meta.url)).toString('base64'),
+    readFileSync(new URL('../assets/world/obj-arowana_pool.webp', import.meta.url)).toString('base64'), 'not the endgame Arowana pool\'s');
+  // The mud crab's old parts were cut from the old green crab and retired; CRR-1 and
+  // CRR-2 cut the repaints themselves into parts, so both crabs walk and snap again.
   const { CREATURE_RIGS } = await import('../src/render/creatureRigs.js');
-  assert.ok(!CREATURE_RIGS.mud_crab, 'the mud crab is not drawn from the old crab\'s parts');
-  for (const c of ['mud_crab', 'kelong_crab']) assert.ok(existsSync(new URL(`../assets/creatures/species/${c}.webp`, import.meta.url)), c);
+  for (const c of ['mud_crab', 'kelong_crab']) {
+    assert.ok(existsSync(new URL(`../assets/creatures/species/${c}.webp`, import.meta.url)), c);
+    assert.ok(CREATURE_RIGS[c]?.parts.claw.swap && CREATURE_RIGS[c].parts.legs_near.swing, `${c} scuttles and snaps on its own parts`);
+    for (const n of CREATURE_RIGS[c].files) assert.ok(existsSync(new URL(`../assets/creatures/species/rig/${c}_${n}.webp`, import.meta.url)), `${c}_${n}`);
+  }
 });

@@ -385,8 +385,17 @@ const RIG_DATA = {
   sambar_deer: { plan: 'quad', kind: 'species', fit: 0.926,
     order: ['tail', 'back_far', 'front_far', 'back_near', 'front_near', 'body', 'head'],
     piv: { tail: [0.1595, 0.6177], back_far: [0.3333, 0.8734], front_far: [0.6358, 0.8439], back_near: [0.2631, 0.6886], front_near: [0.5298, 0.7951], body: [0.4597, 0.6951], head: [0.5907, 0.5639], head_open: [0.5907, 0.5639] } },
-  // (The mud crab's parts were cut from the old green crab; its CR-1 repaint is a
-  // still picture until a parts sheet of the new drawing comes back.)
+  // CRR-1 and CRR-2: parts of the CR-1 mud crab and kelong crab, drawn in place on
+  // the sheet, so they stack straight onto the assembled picture (no fitting). The
+  // mud crab's small claw is in front of its shell, as the drawing has it. Their
+  // assembled crabs are drawn more compact than the stills (narrower for their
+  // height), so `fit` matches the still's area rather than its height.
+  mud_crab: { plan: 'crawl', kind: 'species', fit: 0.780,
+    order: ['legs_far', 'legs_near', 'body', 'claw_far', 'claw'],
+    piv: { legs_far: [0.2198, 0.6976], claw_far: [0.3539, 0.7354], legs_near: [0.6483, 0.7362], body: [0.4522, 0.5623], claw: [0.7258, 0.5239], claw_open: [0.7258, 0.5239] } },
+  kelong_crab: { plan: 'crawl', kind: 'species', fit: 0.703,
+    order: ['legs_far', 'claw_far', 'legs_near', 'body', 'claw'],
+    piv: { legs_far: [0.2073, 0.6242], claw_far: [0.7314, 0.5595], legs_near: [0.5943, 0.6513], body: [0.4503, 0.3935], claw: [0.384, 0.6591], claw_open: [0.384, 0.6591] } },
 };
 const TOWN_DATA = {
   farmer: { W: 229, H: 300, ref: [9, 9, 218, 296], piv: { body: [0.4694, 0.506], arm: [0.5775, 0.6075], body_blink: [0.4694, 0.506], arm_wave: [0.6228, 0.552] } },

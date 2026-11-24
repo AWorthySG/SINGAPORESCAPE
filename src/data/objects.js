@@ -828,10 +828,9 @@ for (const [id, h] of Object.entries(HUNT)) {
 // Fishing spots with one species each (see the Fishing block above). Each spot
 // has a picture of its own (assets/world/obj-<id>.webp: its fish's tell-tale
 // back, fin or leap) rather than the net, rod, coastal rod or harpoon spot it was
-// carved from. FISH_SPOT_BORROW lists any still waiting for theirs: the Asian
-// arowana pool's came back as a copy of the endgame Arowana pool's walled pond,
-// so it keeps the freshwater rod's picture until it is redrawn.
-const FISH_SPOT_BORROW = { asian_arowana_spot: 'obj-rod_spot' };
+// carved from. FISH_SPOT_BORROW lists any still waiting for theirs (none since
+// the Asian arowana pool was redrawn as a wild jungle pool), as { spotId: art }.
+const FISH_SPOT_BORROW = {};
 // [id, name, label, fish, level, xp, examine]
 const FISH_SPOT_KINDS = {
   net: { verb: 'Net', emoji: '🎣', tool: 'net' },
