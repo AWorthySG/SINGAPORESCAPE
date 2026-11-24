@@ -385,9 +385,8 @@ const RIG_DATA = {
   sambar_deer: { plan: 'quad', kind: 'species', fit: 0.926,
     order: ['tail', 'back_far', 'front_far', 'back_near', 'front_near', 'body', 'head'],
     piv: { tail: [0.1595, 0.6177], back_far: [0.3333, 0.8734], front_far: [0.6358, 0.8439], back_near: [0.2631, 0.6886], front_near: [0.5298, 0.7951], body: [0.4597, 0.6951], head: [0.5907, 0.5639], head_open: [0.5907, 0.5639] } },
-  mud_crab: { plan: 'crawl', kind: 'species', fit: 0.745,
-    order: ['legs_far', 'claw_far', 'legs_near', 'body', 'claw'],
-    piv: { legs_far: [0.1739, 0.6259], claw_far: [0.7129, 0.3469], legs_near: [0.3994, 0.6988], body: [0.4444, 0.4787], claw: [0.6839, 0.619], claw_open: [0.6839, 0.619] } },
+  // (The mud crab's parts were cut from the old green crab; its CR-1 repaint is a
+  // still picture until a parts sheet of the new drawing comes back.)
 };
 const TOWN_DATA = {
   farmer: { W: 229, H: 300, ref: [9, 9, 218, 296], piv: { body: [0.4694, 0.506], arm: [0.5775, 0.6075], body_blink: [0.4694, 0.506], arm_wave: [0.6228, 0.552] } },

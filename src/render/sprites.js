@@ -2550,7 +2550,12 @@ const WORLD_ART = {
   'obj-flower': [28, 26, 13], ...Object.fromEntries([1, 2, 3].flatMap((n) => [[`obj-flower-${n}`, [28, 26, 13]], [`obj-bush-${n}`, [34, 30, 14]]])),
   'obj-palm': [50, 66, 15], 'obj-lamp': [24, 54, 15], 'obj-sign': [28, 38, 15],
   'obj-fishing_spot': [42, 30, 12], 'obj-rod_spot': [42, 34, 12], 'obj-sea_rod_spot': [42, 34, 12],
-  'obj-fishing_cage': [42, 32, 12], 'obj-grouper_spot': [42, 32, 12], 'obj-harpoon_spot': [42, 34, 12],
+  'obj-fishing_cage': [42, 36, 12], 'obj-grouper_spot': [42, 32, 12], 'obj-harpoon_spot': [42, 34, 12],
+  // The one-fish spots' own pictures (FISH_SPOTS in objects.js), so they stop borrowing a tool spot's.
+  ...Object.fromEntries(['sardine', 'mackerel', 'salmon', 'tilapia', 'perch', 'keli', 'goby', 'pike', 'peacock_bass', 'belida', 'eel',
+    'temensis', 'snakehead', 'arapaima', 'milkfish', 'barramundi', 'mangrove_jack', 'queenfish', 'red_drum',
+    'golden_snapper', 'threadfin', 'pomfret', 'tenggiri', 'longfin', 'coral_trout', 'diamond_trevally', 'cobia', 'hybrid_grouper',
+    'giant_trevally', 'swordfish', 'stingray', 'shark', 'manta'].map((k) => [`obj-${k}_spot`, [42, 34, 12]])),
   'obj-bird_snare': [40, 34, 14], 'obj-squirrel_trap': [40, 34, 14], 'obj-lizard_snare': [40, 34, 14],
   'obj-mousedeer_trail': [40, 34, 14], 'obj-boar_pit': [42, 34, 14], 'obj-python_trap': [44, 34, 14],
   'obj-crocodile_trap': [44, 32, 14], 'obj-hornbill_nest': [40, 40, 14], 'obj-qilin_trail': [40, 34, 14],

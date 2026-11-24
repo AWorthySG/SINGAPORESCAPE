@@ -720,8 +720,9 @@ test('Part E batch 3 species rigs ship every layer on one canvas, with joints in
   const { CREATURE_RIGS } = await import('../src/render/creatureRigs.js');
   const { readFileSync } = await import('node:fs');
   const { fileURLToPath } = await import('node:url');
-  // RS21-RS30 (the sun bear's sheet didn't line up, so it keeps its still picture).
-  const PLAN = { sea_turtle: 'quad', vampire_bat: 'flier', kingfisher: 'flier', carnivorous_plant: 'plant', banded_leaf_monkey: 'quad', bunian: 'float', clouded_leopard: 'quad', sambar_deer: 'quad', mud_crab: 'crawl' };
+  // RS21-RS30 (the sun bear's sheet didn't line up, so it keeps its still picture; the mud
+  // crab's parts were the old drawing, retired when CR-1 repainted it).
+  const PLAN = { sea_turtle: 'quad', vampire_bat: 'flier', kingfisher: 'flier', carnivorous_plant: 'plant', banded_leaf_monkey: 'quad', bunian: 'float', clouded_leopard: 'quad', sambar_deer: 'quad' };
   // Each layer's opaque box on the shared canvas (fractions), measured when the layers were cut.
   const BOX = {
     sea_turtle: { front_far: [0.688, 0.422, 0.959, 0.902], back_near: [0.069, 0.484, 0.319, 0.709], front_near: [0.266, 0.447, 0.603, 0.939], body: [0.075, 0.135, 0.753, 0.73], head: [0.531, 0.033, 0.975, 0.594], head_open: [0.531, 0.033, 0.972, 0.594] },
@@ -732,7 +733,6 @@ test('Part E batch 3 species rigs ship every layer on one canvas, with joints in
     bunian: { arm_far: [0.622, 0.457, 0.838, 0.642], lower: [0.034, 0.438, 0.912, 0.974], body: [0.028, 0.026, 0.972, 0.895], face: [0.7, 0.272, 0.856, 0.454], arm_near: [0.478, 0.505, 0.716, 0.748], face_attack: [0.716, 0.294, 0.859, 0.45] },
     clouded_leopard: { tail: [0.028, 0.135, 0.347, 0.661], back_far: [0.078, 0.72, 0.294, 0.927], front_far: [0.547, 0.637, 0.756, 0.969], back_near: [0.078, 0.505, 0.369, 0.927], front_near: [0.422, 0.567, 0.65, 0.924], body: [0.088, 0.405, 0.803, 0.893], head: [0.381, 0.028, 0.972, 0.599], head_open: [0.384, 0.031, 0.969, 0.606] },
     sambar_deer: { tail: [0.032, 0.481, 0.208, 0.688], back_far: [0.272, 0.85, 0.391, 0.962], front_far: [0.573, 0.8, 0.71, 0.975], back_near: [0.093, 0.522, 0.419, 0.95], front_near: [0.444, 0.684, 0.62, 0.969], body: [0.122, 0.494, 0.81, 0.897], head: [0.24, 0.028, 0.964, 0.634], head_open: [0.247, 0.031, 0.957, 0.634] },
-    mud_crab: { legs_far: [0.025, 0.515, 0.259, 0.9], claw_far: [0.641, 0.03, 0.969, 0.47], legs_near: [0.047, 0.559, 0.784, 0.967], body: [0.1, 0.13, 0.791, 0.815], claw: [0.55, 0.433, 0.972, 0.796], claw_open: [0.566, 0.433, 0.953, 0.796] },
   };
   for (const [id, plan] of Object.entries(PLAN)) {
     const rig = CREATURE_RIGS[id];
