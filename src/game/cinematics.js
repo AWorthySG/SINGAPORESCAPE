@@ -130,13 +130,15 @@ export class Cinematics {
     }
     this._last = this._last || { x: 0, y: 0 };
     this._last.x = c.x; this._last.y = c.y;
-    let tx = vx * LEAD_MS, ty = vy * LEAD_MS;
+    // Reduce motion: the camera stays on you (no lead ahead, no push-in).
+    const calm = !!game.reduceMotion;
+    let tx = calm ? 0 : vx * LEAD_MS, ty = calm ? 0 : vy * LEAD_MS;
     const len = Math.hypot(tx, ty);
     if (len > LEAD_MAX) { tx = tx / len * LEAD_MAX; ty = ty / len * LEAD_MAX; }
     this.lead.x = smoothDamp(this.lead.x, tx, this._leadSt.x, 420, dt);
     this.lead.y = smoothDamp(this.lead.y, ty, this._leadSt.y, 420, dt);
     let fx = c.x + this.lead.x, fy = c.y + this.lead.y;
-    let zoom = this.inFight || this.now < this._fightUntil ? FIGHT_ZOOM : 1;
+    let zoom = !calm && (this.inFight || this.now < this._fightUntil) ? FIGHT_ZOOM : 1;
     const it = this.intro;
     if (it) {
       it.t += dt;
@@ -151,7 +153,7 @@ export class Cinematics {
         const b = it.npc.renderCenter();
         // Halfway to the boss keeps you in shot while it takes the stage.
         fx += (b.x - fx) * 0.5 * pan; fy += (b.y - fy) * 0.5 * pan;
-        zoom = Math.max(zoom, 1 + (INTRO_ZOOM - 1) * pan);
+        if (!calm) zoom = Math.max(zoom, 1 + (INTRO_ZOOM - 1) * pan);
       }
     }
     this.zoomK = smoothDamp(this.zoomK, zoom, this._zoomSt, zoom > this.zoomK ? 450 : 900, dt);

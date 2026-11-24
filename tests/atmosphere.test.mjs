@@ -179,15 +179,15 @@ test('the breeze: gusting, stronger in storms, and only plants lean', () => {
     assert.ok(windAt(t, 1, 1) >= w, 'a storm blows harder');
   }
   const obj = (objId, type, depleted = false) => ({ objId, x: 3, y: 4, depleted, def: { type } });
-  for (const [id, type] of [['palm', 'scenery'], ['bamboo', 'tree'], ['oak', 'tree']]) {
+  for (const [id, type] of [['palm', 'scenery'], ['bamboo', 'tree'], ['oak', 'tree'], ['bush', 'scenery'], ['flower', 'scenery']]) {
     assert.ok(swayKind(obj(id, type)), `${id} sways`);
     let moved = 0;
     for (let t = 0; t < 5000; t += 100) moved = Math.max(moved, Math.abs(swayLean(obj(id, type), t, 0.8)));
     assert.ok(moved > 0.005 && moved < 0.2, `${id} leans a little, never far`);
   }
   assert.equal(swayKind(obj('oak', 'tree', true)), null, 'a stump stays put');
-  // Low plants only sway when brushed (ambience.js): a sheared picture costs more to draw.
-  for (const [id, type] of [['flower', 'scenery'], ['bush', 'scenery'], ['lamp', 'scenery'], ['bank_booth', 'bank'], ['copper_rock', 'rock']]) assert.equal(swayLean(obj(id, type), 1234, 1), 0, `${id} doesn't sway`);
+  // Plants only: lamps, booths and rocks stand still (the low plants sway only near you: windmotes.test.mjs).
+  for (const [id, type] of [['lamp', 'scenery'], ['bank_booth', 'bank'], ['copper_rock', 'rock']]) assert.equal(swayLean(obj(id, type), 1234, 1), 0, `${id} doesn't sway`);
 });
 
 // Run a stretch of frames of ambient life in a place, returning it.
