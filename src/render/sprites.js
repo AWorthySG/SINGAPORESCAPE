@@ -2572,7 +2572,7 @@ const WORLD_ART = {
   ...Object.fromEntries(['sardine', 'mackerel', 'salmon', 'tilapia', 'perch', 'keli', 'goby', 'pike', 'peacock_bass', 'belida', 'eel',
     'temensis', 'snakehead', 'arapaima', 'milkfish', 'barramundi', 'mangrove_jack', 'queenfish', 'red_drum',
     'golden_snapper', 'threadfin', 'pomfret', 'tenggiri', 'longfin', 'coral_trout', 'diamond_trevally', 'cobia', 'hybrid_grouper',
-    'giant_trevally', 'swordfish', 'stingray', 'shark', 'manta'].map((k) => [`obj-${k}_spot`, [42, 34, 12]])),
+    'giant_trevally', 'swordfish', 'stingray', 'shark', 'manta', 'asian_arowana'].map((k) => [`obj-${k}_spot`, [42, 34, 12]])),
   'obj-bird_snare': [40, 34, 14], 'obj-squirrel_trap': [40, 34, 14], 'obj-lizard_snare': [40, 34, 14],
   'obj-mousedeer_trail': [40, 34, 14], 'obj-boar_pit': [42, 34, 14], 'obj-python_trap': [44, 34, 14],
   'obj-crocodile_trap': [44, 32, 14], 'obj-hornbill_nest': [40, 40, 14], 'obj-qilin_trail': [40, 34, 14],
@@ -2800,7 +2800,7 @@ const RISE_MS = 500, DIP_MS = 260, UNDER_MS = 600, SPLASH_MS = 450;
 export const FISH_FACING = {
   ...Object.fromEntries(['anchovy', 'arapaima', 'bluefin_tuna', 'climbing_perch', 'coral_trout', 'diamond_trevally', 'dragon_arowana',
     'giant_snakehead', 'grouper', 'lobster', 'longfin_trevally', 'mackerel', 'marble_goby', 'moonfish', 'peacock_bass', 'pike', 'rift_eel',
-    'sailfish', 'sardine', 'shark', 'speckled_temensis', 'stingray', 'swordfish', 'tenggiri', 'tilapia', 'trout', 'tuna'].map((f) => [`raw_${f}`, 'left'])),
+    'sailfish', 'salmon', 'sardine', 'shark', 'speckled_temensis', 'stingray', 'swordfish', 'tenggiri', 'tilapia', 'trout', 'tuna'].map((f) => [`raw_${f}`, 'left'])),
   raw_red_snapper: 'up', raw_manta_ray: 'up',
 };
 // A steady 0..1 for a tile and a salt: each spot's own beat.
