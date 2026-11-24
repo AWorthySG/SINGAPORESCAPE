@@ -195,8 +195,11 @@ export class LightPass {
     for (const e of game.effects || []) {
       if (e._showAt > t) continue;
       if (e.type === 'projectile' && !DULL_SHOTS.has(e.kind)) {
-        const f = 1 - e.life / e.maxLife;
-        const x = e.x + (e.ex - e.x) * f - ox, y = e.y + (e.ey - e.y) * f - oy;
+        // A Zealot's bolt is lit from the censer that flings it, not before (censerSwing.js).
+        if (e._cz && e._czT === undefined) continue;
+        const fl = e._cz ? e._czT : 0, sx = e._cz ? e._czX : e.x, sy = e._cz ? e._czY : e.y;
+        const f = Math.max(0, (1 - e.life / e.maxLife - fl) / (1 - fl));
+        const x = sx + (e.ex - sx) * f - ox, y = sy + (e.ey - sy) * f - oy;
         if (inView(x, y, SPELL_LIGHT_R)) add(x, y, SPELL_LIGHT_R, hexRgb(e.color, [190, 200, 255]), 1);
       } else if (e.type === 'blast') {
         const x = e.x - ox, y = e.y - oy;
