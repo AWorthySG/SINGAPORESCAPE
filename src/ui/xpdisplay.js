@@ -20,6 +20,7 @@ import { SKILLS } from '../data/skills.js';
 import { skillIconSVG } from '../render/icons.js';
 import { hudNumber } from '../core/utils.js';
 import { countUp } from './uifx.js';
+import { bump } from './motion.js';
 
 const RING_C = 2 * Math.PI * 15;       // the ring's circumference (r = 15 in a 36 box)
 const RING_LINGER_MS = 60 * 1000;      // the ring stays (dimmed) this long after the last gain
@@ -119,6 +120,7 @@ export class XpDisplay {
       }
       const to = Math.round(run.total);
       countUp(P.amt, 'xp-hud', to, (n) => `+${fmtXp(n)} XP`, this._shown);
+      if (to > this._shown) bump(P.amt.parentNode, 'ui-bump', this.game);   // each new gain gives the counter a small hop
       this._shown = to;
     }
     this._renderRing();

@@ -6,6 +6,7 @@
 // queue and draws nothing.
 import { NoticeQueue } from './notices.js';
 import { glyphArtHTML } from '../render/icons.js';
+import { motionOff, bump } from './motion.js';
 
 // Compact lane: one line on screen at a time. While others wait behind it the
 // one showing moves on after LANE_CYCLE_MS, so they take turns; the "+N"
@@ -129,8 +130,10 @@ export class NoticeLane {
     const sig = shown.map((x) => `${x.id}:${x.count}:${x.html.length}`).join('|') + `#${queued.map((x) => x.id).join(',')}${this.listOpen ? '+' : ''}`;
     if (sig !== this._sig) {
       this._sig = sig;
+      const was = new Map([...el.querySelectorAll(':scope > .nl-card:not(.nl-leaving)')].map((c) => [c.dataset.id, c]));
       el.innerHTML = shown.map((x) => cardHTML(x, waiting)).join('')
         + (this.listOpen ? `<div class="nl-list">${queued.map((x) => cardHTML(x, 0, true)).join('')}</div>` : '');
+      this._settle(el, was);
     }
     el.classList.toggle('listing', this.listOpen);
     el.classList.toggle('empty', !shown.length);
@@ -139,6 +142,29 @@ export class NoticeLane {
     if (this.listOpen) next = Math.min(next ?? Infinity, this._listAt + LANE_LIST_MS + 10);
     if (next === Infinity) next = null;
     if (next != null && typeof setTimeout === 'function') this._timer = setTimeout(() => this.render(), Math.max(50, next - t + 20));
+  }
+
+  /** After a redraw: a card that was already up stays still (only a new
+   *  count gives a hop) rather than dropping in again, and one that went
+   *  fades up and away where it stood while the next settles in. */
+  _settle(el, was) {
+    if (motionOff(this.ui?.game)) return;
+    for (const c of el.querySelectorAll(':scope > .nl-card')) {
+      const old = was.get(c.dataset.id);
+      if (!old) continue;
+      was.delete(c.dataset.id);
+      c.classList.add('nl-kept');
+      const n = c.querySelector('.nl-count');
+      if (n && n.textContent !== old.querySelector('.nl-count')?.textContent) bump(n, 'ui-bump-big', this.ui?.game);
+    }
+    for (const old of was.values()) {
+      old.classList.add('nl-leaving');
+      old.setAttribute('aria-hidden', 'true');
+      el.appendChild(old);
+      const done = () => old.remove();
+      old.addEventListener('animationend', done, { once: true });
+      setTimeout(done, 400);
+    }
   }
 
   /** Each tick: place() once the browser has laid the page out, not mid-tick.

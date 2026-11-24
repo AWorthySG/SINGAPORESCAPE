@@ -651,3 +651,137 @@ body.reduce-motion :is(#hover-text, #region-label, #notice-lane .nl-card, #rep-p
   #sidepanel.menu-big .skill-lvl .cur { font-size: var(--fs-title); }
   #sidepanel.menu-big .tab-btn .tab-label { font-size: var(--fs-sm); }
 }
+
+/* ---------- Motion: one set of timings for the whole interface ----------
+   Three durations and three curves (src/ui/motion.js uses the same numbers):
+   --dur-1 for presses and small fades, --dur-2 for exits and swaps, --dur-3
+   for things arriving (windows, sheets, rows); --ease-std settles, --ease-pop
+   overshoots a touch (stickers landing), --ease-exit speeds up as it leaves.
+   The older names point at the set, so every rule above shares it. Only
+   transform and opacity move; reduced motion (the system's or Settings') and
+   low graphics still everything that costs. */
+:root {
+  --dur-1: 120ms; --dur-2: 180ms; --dur-3: 260ms;
+  --ease-std: cubic-bezier(.2, .8, .3, 1);
+  --ease-pop: cubic-bezier(.2, .9, .3, 1.25);
+  --ease-exit: cubic-bezier(.4, 0, 1, 1);
+  --ease-out: var(--ease-std);
+  --ui-ease: var(--ease-pop); --ui-ease-out: var(--ease-std);
+  --ui-fast: var(--dur-1); --ui-med: var(--dur-2);
+}
+/* Copies left behind to play an exit (motion.js exitGhost) never take a tap. */
+.ui-ghost, .ui-ghost * { pointer-events: none !important; }
+
+/* Phones: the sheets rise on the set's timing, and the side panel's sheet
+   slides back down (out to the right on its side) when folded, as the
+   windows' sheets already did. */
+@media (max-width: 540px) and (pointer: coarse) {
+  #sidepanel:not(.collapsed), #sidepanel.wide:not(.collapsed),
+  #modal-window, #modal-window:has(.worldmap-canvas), #modal-window:has(.cx-head), #modal-window:has(.cx-entry) {
+    animation-duration: var(--dur-3); animation-timing-function: var(--ease-std);
+  }
+  .modal-ghost #modal-window { animation-duration: var(--dur-2); animation-timing-function: var(--ease-exit); }
+}
+#sidepanel.ui-ghost.sheet-ghost { z-index: 69; animation: uiSheetDown var(--dur-2) var(--ease-exit) forwards; }
+@media (pointer: coarse) and (max-height: 500px) {
+  #sidepanel.ui-ghost.sheet-ghost { animation-name: uiSheetOut; }
+}
+@keyframes uiSheetOut { to { transform: translateX(100%); } }
+
+/* Dialogue: each line of talk eases in, the speaker's picture pops, and the
+   answers follow one after another (each answer draws a new line, so this
+   plays per line; motion.js glides the sheet's height to fit). */
+#modal-body .dialogue .dlg-words { animation: uiRise var(--dur-3) var(--ease-std) backwards; }
+#modal-body .dialogue .dlg-portrait { animation: uiPop var(--dur-3) var(--ease-pop) backwards; }
+#modal-body .dialogue-options .dialogue-option { animation: uiRise var(--dur-3) var(--ease-std) 60ms backwards; }
+#modal-body .dialogue-options .dialogue-option:nth-child(2) { animation-delay: 85ms; }
+#modal-body .dialogue-options .dialogue-option:nth-child(3) { animation-delay: 110ms; }
+#modal-body .dialogue-options .dialogue-option:nth-child(4) { animation-delay: 135ms; }
+#modal-body .dialogue-options .dialogue-option:nth-child(n+5) { animation-delay: 160ms; }
+#modal-body .dlg-foot { animation: uiFadeIn var(--dur-3) ease-out 160ms backwards; }
+@keyframes uiRise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes uiPop { from { opacity: 0; transform: scale(.7) rotate(-6deg); } to { opacity: 1; transform: none; } }
+@keyframes uiFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* The search box drops in like the windows. */
+#cmd-search:not(.hidden) { animation: uiFadeIn var(--dur-2) ease-out both; }
+#cmd-search:not(.hidden) .cs-box { animation: uiRise var(--dur-3) var(--ease-pop) both; }
+
+/* A press: the HUD's touch buttons give under the thumb (scale composes with
+   each button's own translate, so their existing pressed looks still show). */
+:is(#quickbar .qb-btn, #sidepanel.collapsed .tab-btn, #auto-menu-btn, #chatbox.collapsed #chat-head, #quick-slot, #notice-lane .nl-card):active { scale: .96; }
+#panel-tabs .tab-btn:active, .subtab-btn:active, .inv-tab:active { scale: .96; }
+
+/* A hop: the Bag tab as loot lands, the XP counter on each gain, a notice's
+   count going up (motion.js bump). */
+.ui-bump { animation: uiBump var(--dur-3) var(--ease-pop); }
+.ui-bump-big { animation: uiBumpBig var(--dur-3) var(--ease-pop); }
+@keyframes uiBump { 40% { transform: translateY(-2px) scale(1.1); } }
+@keyframes uiBumpBig { 40% { transform: scale(1.35); } }
+.xph-count { transform-origin: right center; }
+
+/* The notice lane: a card already up stays put on a redraw (only its count
+   hops); one that goes fades up and away where it stood while the next lands. */
+#notice-lane .nl-card.nl-kept { animation: none; }
+#notice-lane .nl-card.nl-leaving { position: absolute; top: 0; left: 0; max-width: 100%; animation: uiNoticeOut var(--dur-2) var(--ease-exit) forwards; }
+@keyframes uiNoticeOut { to { opacity: 0; transform: translateY(-8px) scale(.97); } }
+
+/* A milestone level (motion.js celebrateLevel): a gold badge with a burst of
+   rays and confetti near the top of the screen, then it floats off. It sits
+   over the world and sheets, under windows, takes no taps and moves nothing. */
+#lvl-burst { position: absolute; left: 50%; top: 24%; z-index: 76; width: 0; height: 0; pointer-events: none; display: none; }
+#lvl-burst.show { display: block; }
+#lvl-burst .lb-card {
+  position: absolute; left: 0; top: 0; translate: -50% -50%;
+  display: flex; align-items: center; gap: 10px; padding: 6px 20px 6px 6px; white-space: nowrap;
+  background-color: var(--paper); background-image: var(--paper-grain); color: var(--aw-text);
+  border: var(--stroke-bold) solid var(--aw-ink); border-radius: var(--r-pill); box-shadow: var(--shadow-float);
+  animation: lbIn var(--dur-3) var(--ease-pop) both;
+}
+#lvl-burst .lb-ic {
+  display: grid; place-items: center; flex: none; width: 46px; height: 46px; border-radius: 50%;
+  background: var(--aw-sun) var(--gloss); border: var(--stroke) solid var(--aw-ink);
+}
+#lvl-burst .lb-ic img, #lvl-burst .lb-ic svg { width: 34px; height: 34px; display: block; }
+#lvl-burst .lb-words { display: flex; flex-direction: column; line-height: 1.1; }
+#lvl-burst .lb-lvl { font-family: var(--font-display); font-weight: var(--fw-display); font-size: var(--fs-xl); color: var(--aw-gold-text); text-shadow: 0 2px 0 var(--rim); }
+#lvl-burst .lb-name { font-size: var(--fs-sm); font-weight: var(--fw-label); color: var(--aw-text-sec); }
+#lvl-burst .lb-name i { font-style: normal; color: var(--aw-sun-deep); }
+#lvl-burst .lb-rays {
+  position: absolute; left: 0; top: 0; width: 240px; height: 240px; translate: -50% -50%; border-radius: 50%;
+  background: repeating-conic-gradient(rgba(245,184,46,.65) 0 9deg, transparent 9deg 30deg);
+  -webkit-mask: radial-gradient(circle, #000 18%, transparent 68%); mask: radial-gradient(circle, #000 18%, transparent 68%);
+  animation: lbRays 1.6s var(--ease-std) both;
+}
+#lvl-burst .lb-bits i {
+  position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; border-radius: 2px; background: var(--aw-sun);
+  border: 1.5px solid var(--aw-ink); opacity: 0; animation: lbBit 700ms var(--ease-std) 60ms both;
+}
+#lvl-burst .lb-bits i:nth-child(3n+1) { background: var(--aw-bloom); border-radius: 50%; }
+#lvl-burst .lb-bits i:nth-child(3n+2) { background: var(--aw-sky); }
+#lvl-burst.out .lb-card { animation: lbOut var(--dur-3) var(--ease-exit) forwards; }
+#lvl-burst.out .lb-rays { animation: uiFadeOut var(--dur-2) ease-in forwards; }
+@keyframes lbIn { from { opacity: 0; transform: translateY(10px) scale(.6); } to { opacity: 1; transform: none; } }
+@keyframes lbOut { to { opacity: 0; transform: translateY(-14px) scale(.96); } }
+@keyframes lbRays { 0% { opacity: 0; transform: scale(.4) rotate(0deg); } 25% { opacity: 1; } 100% { opacity: 0; transform: scale(1.1) rotate(40deg); } }
+@keyframes lbBit {
+  0% { opacity: 1; transform: rotate(var(--a)) translateY(-26px) scale(1); }
+  100% { opacity: 0; transform: rotate(var(--a)) translateY(calc(-1 * var(--d) - 34px)) rotate(120deg) scale(.5); }
+}
+/* Phones: in the clear band between the XP counter and the player's head,
+   right of the level-up toasts and left of the menu button. */
+@media (max-width: 540px) {
+  #lvl-burst { top: 269px; left: calc(50% + 34px); }
+  #lvl-burst .lb-rays { width: 200px; height: 200px; }
+}
+
+/* Stillness: the system's reduced motion and Settings > Reduce motion (the
+   blanket rules in main.css cut durations; these drop the extras outright). */
+@media (prefers-reduced-motion: reduce) {
+  :is(#modal-body .dialogue .dlg-words, #modal-body .dialogue .dlg-portrait, #modal-body .dialogue-option, #modal-body .dlg-foot,
+    #cmd-search, #cmd-search .cs-box, .ui-bump, .ui-bump-big) { animation: none; }
+  #lvl-burst, .ui-ghost { display: none !important; }
+}
+body.reduce-motion :is(#modal-body .dialogue .dlg-words, #modal-body .dialogue .dlg-portrait, #modal-body .dialogue-option, #modal-body .dlg-foot,
+  #cmd-search, #cmd-search .cs-box, .ui-bump, .ui-bump-big) { animation: none; }
+body.reduce-motion :is(#lvl-burst, .ui-ghost) { display: none !important; }
