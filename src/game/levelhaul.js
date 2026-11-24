@@ -3,7 +3,8 @@
 // chance of a bonus one, with its XP: +0.2% a level in the skill, so 10% at
 // level 50, about 20% at 99, 40% at 200 and 50% at level 251. Past that it
 // grows more slowly, in a straight line to 75% at level 9999 (the owner asked
-// for life-skill bonuses all the way to 9999).
+// for life-skill bonuses all the way to 9999), and on at that pace as life
+// skills go on to 30,000, until it is certain (100%, at level 19,747).
 //
 // The bonus comes on top of the node: it never uses up a tree's logs or a
 // rock's ore. (A speed-up was tried first, but trees and rocks run dry and
@@ -16,21 +17,23 @@
 // tests (it scales every skill alike, so it doesn't change how they compare).
 
 import { mulberry32 } from './pets.js';
-import { towardTop } from '../data/xp.js';
+import { towardTop, MAX_LEVEL } from '../data/xp.js';
 
 export const LEVEL_HAUL = { on: true };
 export const LEVEL_HAUL_PER = 0.2;   // % chance per level...
 export const LEVEL_HAUL_CAP = 50;    // ...to this % at LEVEL_HAUL_CAP_LEVEL (251)...
 export const LEVEL_HAUL_CAP_LEVEL = 1 + LEVEL_HAUL_CAP / LEVEL_HAUL_PER;
-export const LEVEL_HAUL_TOP = 75;    // ...then a straight line on to this % at level 9999
+export const LEVEL_HAUL_TOP = 75;    // ...then a straight line on to this % at level 9999...
+// ...and on at the same pace until it is certain, at this level (19,747).
+export const LEVEL_HAUL_SURE = Math.ceil(LEVEL_HAUL_CAP_LEVEL + (100 - LEVEL_HAUL_CAP) / (LEVEL_HAUL_TOP - LEVEL_HAUL_CAP) * (MAX_LEVEL - LEVEL_HAUL_CAP_LEVEL));
 export const HAUL_SKILL = { woodcut: 'woodcutting', mine: 'mining', fish: 'fishing', hunt: 'hunter' };
 let roll = mulberry32((Date.now() ^ 0x27d4eb2f) >>> 0);
 /** Swap the generator (tests). */
 export function setHaulRand(fn) { roll = fn; }
 
-/** The % chance of a bonus haul at `level`. */
-export const levelHaulPct = (level) => Math.min(LEVEL_HAUL_CAP, Math.max(0, (level || 1) - 1) * LEVEL_HAUL_PER)
-  + (LEVEL_HAUL_TOP - LEVEL_HAUL_CAP) * towardTop(level, LEVEL_HAUL_CAP_LEVEL);
+/** The % chance of a bonus haul at `level` (at most 100). */
+export const levelHaulPct = (level) => Math.min(100, Math.min(LEVEL_HAUL_CAP, Math.max(0, (level || 1) - 1) * LEVEL_HAUL_PER)
+  + (LEVEL_HAUL_TOP - LEVEL_HAUL_CAP) * towardTop(level, LEVEL_HAUL_CAP_LEVEL));
 
 /**
  * After a gather (`a` the action, `obj` the node, `before` the bag's counts

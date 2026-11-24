@@ -1,14 +1,22 @@
 // Experience curve. Levels 1-99 follow Old School RuneScape's formula exactly:
 //   points accumulates floor(l + 300 * 2^(l/7)) for l = 1..L-1, then xp = floor(points/4).
-// Past 99 the cap rises to 9999 (99999 for the fighting skills, Melee, Ranged
+// Past 99 the cap rises to 9999 (Defence, Hitpoints, Prayer and Slayer),
+// 30,000 for the life skills and 99999 for the fighting skills (Melee, Ranged
 // and Magic): each further level costs what 98->99 did, growing gently
 // (+1/150 per level), instead of RS's runaway doubling.
+import { SKILLS } from './skills.js';
+
 export const MAX_LEVEL = 9999;
 export const COMBAT_MAX_LEVEL = 99999;
+// The life skills (every skill outside the Combat group) go on to 30,000 (the
+// owner's ask). MAX_LEVEL stays where their bonuses' slopes are measured from:
+// each grows to its old top at 9999 as before, then on at the same pace.
+export const LIFE_MAX_LEVEL = 30000;
 // The skills that go all the way to COMBAT_MAX_LEVEL (Strength mirrors Melee).
 export const COMBAT_SKILLS = new Set(['attack', 'strength', 'ranged', 'magic']);
+export const LIFE_SKILLS = new Set(SKILLS.filter((s) => s.group !== 'combat').map((s) => s.id));
 /** The level cap for a skill. */
-export const maxLevelFor = (id) => (COMBAT_SKILLS.has(id) ? COMBAT_MAX_LEVEL : MAX_LEVEL);
+export const maxLevelFor = (id) => (COMBAT_SKILLS.has(id) ? COMBAT_MAX_LEVEL : LIFE_SKILLS.has(id) ? LIFE_MAX_LEVEL : MAX_LEVEL);
 const RS_MAX = 99;
 
 export const XP_TABLE = (() => {
@@ -37,23 +45,26 @@ export const pastCapXpMult = (level) => 1 + Math.max(0, level - RS_MAX) / 150;
 /** How far `level` has come from `from` (where a life-skill bonus used to stop)
  *  to MAX_LEVEL: 0 at or below `from`, 1 at MAX_LEVEL, a straight line between.
  *  A bonus adds its further growth times this, so it keeps growing a little
- *  with every level to its top at 9999 (the owner's ask) and nothing changes up
- *  to its old stopping level. */
-export const towardTop = (level, from) => Math.max(0, Math.min(1, ((level || 1) - from) / (MAX_LEVEL - from)));
+ *  with every level to its old top at 9999 (the owner's ask) and nothing
+ *  changes up to its old stopping level. Past 9999 the line carries on at the
+ *  same slope to LIFE_MAX_LEVEL (over 1 there: about 3 for a bonus that started
+ *  growing near 99), so a life skill's bonuses keep growing to 30,000. */
+export const towardTop = (level, from) => Math.max(0, (Math.min(LIFE_MAX_LEVEL, level || 1) - from) / (MAX_LEVEL - from));
 
 /** For a chance `p(level)` that reaches 100% before MAX_LEVEL (double logs at
  *  level 960, say): 0 until it is certain, then a straight line to 1 at
- *  MAX_LEVEL. A certain chance can't grow, so it grows sideways into a chance
- *  of one more (skilling.js). This is towardTop from the level where p became
- *  certain, so it follows the player's tool, bait and Stewardship as p does.
- *  0 for a chance that never reaches 100%. */
+ *  MAX_LEVEL, and on at the same slope past it to LIFE_MAX_LEVEL (as
+ *  towardTop). A certain chance can't grow, so it grows sideways into a chance
+ *  of one more (skilling.js), which in turn stops once it is certain. This is
+ *  towardTop from the level where p became certain, so it follows the player's
+ *  tool, bait and Stewardship as p does. 0 for a chance that never reaches 100%. */
 export const pastSure = (p, level) => {
-  const span = p(MAX_LEVEL) - 1, over = p(level) - 1;
+  const span = p(MAX_LEVEL) - 1, over = p(Math.min(LIFE_MAX_LEVEL, level)) - 1;
   // A sum that is exactly 1 can come out a hair over it in floating point
   // (0.04 + 0.82 + 0.04 + 0.1 is 1.0000000000000002): that is only certain,
   // not past it, so it gives nothing (and rolls nothing). A real step past 1
   // at a whole level is at least 0.00008.
-  return span > 0 && over > 1e-9 ? Math.min(1, over / span) : 0;
+  return span > 0 && over > 1e-9 ? over / span : 0;
 };
 
 /** Level (1..cap) for a given total xp (binary search: skills ask this a lot). */

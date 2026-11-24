@@ -15,7 +15,8 @@ export const UNLOCK_LEVELS = [10, 25, 50, 75, 99];
 // Past the last rung every effect above grows, in a straight line, to this
 // many times its level-99 strength at level 9999 (unlockGrowth in
 // skillunlocks.js; the owner asked for life-skill bonuses all the way to
-// 9999). The rungs' `desc` strings give their level-99 strength.
+// 9999), and on at the same pace to about x2.51 at 30,000, the life skills'
+// top level. The rungs' `desc` strings give their level-99 strength.
 export const UNLOCK_TOP_MULT = 1.5;
 // The tests switch the level-based effects off (tests/seed.mjs), as they do
 // golden hours, so the XP-an-hour balance checks measure the base rates;

@@ -189,9 +189,10 @@ const GREET_EVERY = 8, GREET_RANGE = 6;
 // towards a cap (half of it at the _HALF level), in line with the life-skill
 // perks: movement used to grow without limit (+1000% at 9999, crossing the map
 // in seconds) and attack speed tapered to +100%, ten times Fletching's full perk.
-// Movement: about +12% at 99, +38% at 1000, +49% at 9999.
-// Attacks:  about +7% at 99, +38% at 1000, +68% at 9999 (the owner raised the
-// cap from 30% to 75%).
+// Movement: about +12% at 99, +38% at 1000, +49% at 9999, +49.5% at 30,000.
+// Attacks:  about +7% at 99, +38% at 1000, +68% at 9999, +73% at 30,000 (the
+// owner raised the cap from 30% to 75%). Agility goes on to 30,000 with the
+// other life skills, but these keep their caps, so walking and auto-travel stay sane.
 export const AGILITY_MOVE_MAX = 50, AGILITY_MOVE_HALF = 300;
 export const AGILITY_ATK_MAX = 75, AGILITY_ATK_HALF = 1000;
 // Merchant: every coin throw costs 1 coin + 1 per 10 Ranged levels, and skills
@@ -670,7 +671,7 @@ export class Game {
     // players notice their gathering and making makes them stronger.
     this._lifePerkNote = (p) => {
       // (Past level 200, where it grows half as fast, every 50 levels to 1000,
-      // then every 500 as it grows slowly on to 9999: lifePerkNoteAt.)
+      // then every 500 as it grows slowly on to 30,000: lifePerkNoteAt.)
       if (!LIFE_PERKS[p?.skill] || !lifePerkNoteAt(p.level)) return;
       const name = SKILL_BY_ID[p.skill]?.name || p.skill;
       const text = `Life skill perk: your ${name} now gives ${lifePerkText(p.skill, p.level)} in combat${p.level === LIFE_PERK_TOP_LEVEL ? ' (its full strength)' : ''}.`;
@@ -6874,7 +6875,7 @@ export class Game {
     const c = cropFor(obj.crop);
     const lvl = this.skills.level('farming');
     // Green fingers: higher levels coax a little more from each patch (50% at
-    // the crop's level + 50, then on to 75% at level 9999: trades.js).
+    // the crop's level + 50, then on to 75% at level 9999 and 100%: trades.js).
     const rolled = randInt(c.yield[0], c.yield[1]);
     const n = rolled + (Math.random() < greenFingersChance(lvl, c.level) ? 1 : 0) + extraCrop(this);
     if (this.inventory.canAdd(c.id, n) <= 0) { this.msg('Your inventory is too full to harvest.'); return false; }

@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 
 import { Game } from '../src/game/game.js';
 import { clearSave } from '../src/game/save.js';
-import { xpForLevel, MAX_LEVEL } from '../src/data/xp.js';
+import { xpForLevel, MAX_LEVEL, LIFE_MAX_LEVEL } from '../src/data/xp.js';
 import { armourMult, armourOf, weaknessOf } from '../src/game/combat.js';
 import { LIFE_PERKS, LIFE_PERK_SKILLS, LIFE_PERK_FULL_LEVEL, LIFE_PERK_MAX_LEVEL, LIFE_PERK_OVER, LIFE_PERK_TOP_OVER, lifePerkValue, lifePerkTotals,
   lifePerkNext, lifePerkNoteAt, lifePerkText } from '../src/game/lifeperks.js';
@@ -31,17 +31,21 @@ const mob = (game) => game.npcs.find((n) => n.attackable && !n.def.boss && !n.ch
 const bossOf = (n) => ({ ...n, def: { ...n.def, boss: true }, npcId: n.npcId, champion: false });
 const dmgM = (game, npc, mode = 'melee') => game._offensiveMods(npc, mode).dmgM;
 
-test('life perks: nothing at level 1, the table value at level 200, rising in between and on to 9999', () => {
+test('life perks: nothing at level 1, the table value at level 200, rising in between and on to 30,000', () => {
   for (const s of LIFE_PERK_SKILLS) {
     assert.equal(lifePerkValue(s, 1), 0, `${s} gives nothing at level 1`);
     assert.equal(lifePerkValue(s, LIFE_PERK_FULL_LEVEL), LIFE_PERKS[s].max, `${s} is its table value at ${LIFE_PERK_FULL_LEVEL}`);
     // Past 200 it keeps growing, half as fast, to 1.5x at LIFE_PERK_MAX_LEVEL,
-    // then slowly on to its full strength, 2x, at level 9999.
+    // then slowly on to 2x at level 9999, and on at that pace to its full
+    // strength, about 3.1x, at 30,000.
     const top = Math.round(LIFE_PERKS[s].max * (1 + LIFE_PERK_OVER) * 10) / 10;
     assert.equal(lifePerkValue(s, LIFE_PERK_MAX_LEVEL), top, `${s} is ${top} at ${LIFE_PERK_MAX_LEVEL}`);
     const v5000 = lifePerkValue(s, 5000);
     assert.ok(v5000 > top && v5000 < 2 * LIFE_PERKS[s].max, `${s} still grows past ${LIFE_PERK_MAX_LEVEL} (${v5000} at 5000)`);
-    assert.equal(lifePerkValue(s, MAX_LEVEL), Math.round(LIFE_PERKS[s].max * (1 + LIFE_PERK_OVER + LIFE_PERK_TOP_OVER) * 10) / 10, `${s} at full strength`);
+    assert.equal(lifePerkValue(s, MAX_LEVEL), Math.round(LIFE_PERKS[s].max * (1 + LIFE_PERK_OVER + LIFE_PERK_TOP_OVER) * 10) / 10, `${s} at 9999`);
+    const full = Math.round(LIFE_PERKS[s].max * (1 + LIFE_PERK_OVER + LIFE_PERK_TOP_OVER * (LIFE_MAX_LEVEL - LIFE_PERK_MAX_LEVEL) / (MAX_LEVEL - LIFE_PERK_MAX_LEVEL)) * 10) / 10;
+    assert.equal(lifePerkValue(s, LIFE_MAX_LEVEL), full, `${s} at full strength`);
+    assert.equal(lifePerkValue(s, LIFE_MAX_LEVEL + 5000), full, `${s} stops at 30,000`);
     const v600 = lifePerkValue(s, 600);
     assert.ok(v600 > LIFE_PERKS[s].max && v600 < top, `${s} grows past ${LIFE_PERK_FULL_LEVEL} (${v600})`);
     const v50 = lifePerkValue(s, 50), v99 = lifePerkValue(s, 99);
@@ -53,13 +57,14 @@ test('life perks: nothing at level 1, the table value at level 200, rising in be
   for (const v of Object.values(t)) assert.equal(v, 0);
 });
 
-test('life perks: the next milestone and the chat notes go on past 1000, every 500 levels to 9999', () => {
+test('life perks: the next milestone and the chat notes go on past 1000, every 500 levels to 30,000', () => {
   assert.equal(lifePerkNext('mining', 999).level, LIFE_PERK_MAX_LEVEL);
   assert.equal(lifePerkNext('mining', LIFE_PERK_MAX_LEVEL).level, 1500);
-  assert.equal(lifePerkNext('mining', 9500).level, MAX_LEVEL);
-  for (const s of LIFE_PERK_SKILLS) assert.equal(lifePerkNext(s, MAX_LEVEL), null, `${s}: nothing past full strength`);
-  for (const l of [10, 200, 250, 1000, 1500, 9500, MAX_LEVEL]) assert.ok(lifePerkNoteAt(l), `a note at ${l}`);
-  for (const l of [15, 210, 1050, 1510, 9998]) assert.ok(!lifePerkNoteAt(l), `no note at ${l}`);
+  assert.equal(lifePerkNext('mining', 9500).level, 10000);
+  assert.equal(lifePerkNext('mining', 29600).level, LIFE_MAX_LEVEL);
+  for (const s of LIFE_PERK_SKILLS) assert.equal(lifePerkNext(s, LIFE_MAX_LEVEL), null, `${s}: nothing past full strength`);
+  for (const l of [10, 200, 250, 1000, 1500, 9500, 10000, 20000, LIFE_MAX_LEVEL]) assert.ok(lifePerkNoteAt(l), `a note at ${l}`);
+  for (const l of [15, 210, 1050, 1510, 9998, MAX_LEVEL, 20010]) assert.ok(!lifePerkNoteAt(l), `no note at ${l}`);
 });
 
 test('life perks: a fresh character gains nothing, and gear bonuses are unchanged', () => {
@@ -208,7 +213,7 @@ test('life perks: totals refresh when a life skill levels, and every 10 levels s
   assert.ok(said.some((t) => /Life skill perk: your Mining now gives \+[\d.]+% crit damage/.test(t)), 'level 10 mentions the perk');
 });
 
-test('life perks: past level 1000 the chat note comes every 500 levels, and "its full strength" only at 9999', () => {
+test('life perks: past level 1000 the chat note comes every 500 levels, and "its full strength" only at 30,000', () => {
   const game = newGame();
   const said = [];
   game.bus.on('chat', (p) => said.push(p.text));
@@ -217,5 +222,6 @@ test('life perks: past level 1000 the chat note comes every 500 levels, and "its
   assert.ok(at1000 && !at1000.includes('(its full strength)'), `1000 still grows: ${at1000}`);
   assert.match(note(1500) || '', /^Life skill perk: your Mining now gives \+[\d.]+% crit damage in combat\.$/);
   assert.equal(note(1510), undefined, 'no note between the 500s');
-  assert.ok(note(MAX_LEVEL)?.endsWith(`gives ${lifePerkText('mining', MAX_LEVEL)} in combat (its full strength).`), said.join(' | '));
+  assert.ok(!note(10000)?.includes('(its full strength)'), 'still growing past 9999');
+  assert.ok(note(LIFE_MAX_LEVEL)?.endsWith(`gives ${lifePerkText('mining', LIFE_MAX_LEVEL)} in combat (its full strength).`), said.join(' | '));
 });

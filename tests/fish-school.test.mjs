@@ -111,16 +111,18 @@ test('netting the school: 250-650 fish at once, XP for each, and it is used up',
   assert.equal(fs.at(spot), null);
 });
 
-test('the haul grows with Fishing level and a rune-or-better tool, to 650 at most', () => {
+test('the haul grows with Fishing level and a rune-or-better tool, to 751 at most', () => {
   assert.deepEqual(SCHOOL_HAUL, [250, 450], 'fifty times the old 5-9');
   assert.equal(haulBonus(1, null), 0);
   assert.equal(haulBonus(60, { speed: 0 }), 50);
   assert.equal(haulBonus(250, { speed: 40 }), 150);
-  // Past level 100 the level part grows slowly on, to +150 at level 9999.
+  // Past level 100 the level part grows slowly on, to +150 at level 9999, and
+  // on at the same pace to +251 at 30,000 (the life skills' top level).
   assert.equal(haulBonus(999, null), 104);
   assert.equal(haulBonus(9999, null), 150);
-  assert.ok(SCHOOL_HAUL[1] + haulBonus(9999, { speed: 99 }) === SCHOOL_HAUL_MAX, 'the biggest school is the most there can be');
-  assert.equal(SCHOOL_HAUL_MAX, 650);
+  assert.equal(haulBonus(30000, null), 251);
+  assert.ok(SCHOOL_HAUL[1] + haulBonus(30000, { speed: 99 }) === SCHOOL_HAUL_MAX, 'the biggest school is the most there can be');
+  assert.equal(SCHOOL_HAUL_MAX, 751);
 });
 
 test('a catch nets the school about 1 in 2 times (the owner doubled it from 1 in 4); otherwise fishing goes on as normal', () => {

@@ -24,10 +24,10 @@ import { formatNumber, shortNumber, AOrAn } from '../core/utils.js';
 import { XP_RATE } from '../config.js';
 import { itemIconSVG, skillIconSVG, playIconHTML } from '../render/icons.js';
 import { chanceText, codexHabitats } from '../game/codex.js';
-import { unlockLadder, unlockGrowth, unlockGrowthText, skillTeleportOf, skillTeleportWait, skillTeleport } from '../game/skillunlocks.js';
+import { unlockLadder, unlockGrowth, unlockGrowthText, unlockTopText, skillTeleportOf, skillTeleportWait, skillTeleport } from '../game/skillunlocks.js';
 import { STATION_BY_ID } from '../data/transport.js';
 import { toolLadder } from '../game/tools.js';
-import { levelHaulPct, LEVEL_HAUL_PER, LEVEL_HAUL_CAP, LEVEL_HAUL_CAP_LEVEL, LEVEL_HAUL_TOP } from '../game/levelhaul.js';
+import { levelHaulPct, LEVEL_HAUL_PER, LEVEL_HAUL_CAP, LEVEL_HAUL_CAP_LEVEL, LEVEL_HAUL_TOP, LEVEL_HAUL_SURE } from '../game/levelhaul.js';
 import { MAX_LEVEL } from '../data/xp.js';
 import { xpRate, actionXp } from '../game/xprate.js';
 import { makeXp } from '../game/skilling.js';
@@ -174,7 +174,7 @@ function headHTML(game, skill) {
 
 /** A life skill's unlock ladder (10/25/50/75/99), each rung locked or unlocked,
  *  then past 99 a row saying how much more strongly their bonuses work now
- *  (they keep growing to level 9999), with the skill's teleport button once
+ *  (they keep growing to level 30,000), with the skill's teleport button once
  *  it's open. '' for other skills. */
 export function unlockLadderHTML(game, skill) {
   const lvl = game.skills.level(skill);
@@ -182,7 +182,7 @@ export function unlockLadderHTML(game, skill) {
   if (!ladder.length) return '';
   const tp = skillTeleportOf(game, skill), wait = skillTeleportWait(game), m = unlockGrowth(lvl), shown = unlockGrowthText(lvl);
   const growRow = m > 1 ? `<div class="sgx-unlock on"><span class="sg-lvl">${ladder[ladder.length - 1].level}+</span><span><b>&#10003; Still growing</b>`
-    + `<small>Every bonus above ${shown ? `now works ${shown} as strongly` : 'grows a little with every level'}${lvl >= MAX_LEVEL ? ' (as strong as it gets)' : ` (x${unlockGrowth(MAX_LEVEL)} at level ${MAX_LEVEL})`}</small></span></div>` : '';
+    + `<small>Every bonus above ${shown ? `now works ${shown} as strongly` : 'grows a little with every level'}${unlockTopText(lvl, 'it')}</small></span></div>` : '';
   return `<div class="sgx-unlocks"><b>${playIconHTML('ui-skill_unlock', 18)} Unlocks</b>${ladder.map((u) => `<div class="sgx-unlock${u.unlocked ? ' on' : ''}">`
     + `<span class="sg-lvl">${u.level}</span><span><b>${u.unlocked ? '&#10003; ' : '&#128274; '}${esc(u.name)}</b><small>${esc(u.desc)}</small></span></div>`).join('')}`
     + growRow
@@ -198,7 +198,7 @@ export function toolLadderHTML(game, skill) {
   const tiers = [...new Set(rows.map((r) => r.tier))];
   // Your level's own steady bonus (levelhaul.js): a chance of one more of each haul.
   const lv = game.skills.level(skill), lp = levelHaulPct(lv);
-  const lvLine = `<div class="sgx-unlock on"><span class="sg-lvl">${lv}</span><span><b>Your level</b> <small>${Math.round(lp * 10) / 10}% chance of a bonus one with each haul (+${LEVEL_HAUL_PER}% a level to ${LEVEL_HAUL_CAP}% at level ${LEVEL_HAUL_CAP_LEVEL}, then slowly on to ${LEVEL_HAUL_TOP}% at level ${MAX_LEVEL}); it never uses up the tree or rock</small></span></div>`;
+  const lvLine = `<div class="sgx-unlock on"><span class="sg-lvl">${lv}</span><span><b>Your level</b> <small>${Math.round(lp * 10) / 10}% chance of a bonus one with each haul (+${LEVEL_HAUL_PER}% a level to ${LEVEL_HAUL_CAP}% at level ${LEVEL_HAUL_CAP_LEVEL}, then slowly on to ${LEVEL_HAUL_TOP}% at level ${formatNumber(MAX_LEVEL)} and 100% at ${formatNumber(LEVEL_HAUL_SURE)}); it never uses up the tree or rock</small></span></div>`;
   return `<div class="sgx-unlocks sgx-tools"><b>Tools <small>(the best one you carry and can use is picked for you)</small></b>${lvLine}${tiers.map((t) => {
     const rs = rows.filter((r) => r.tier === t), use = rs.some((r) => r.inUse);
     return `<div class="sgx-unlock${rs[0].usable ? ' on' : ''}"><span class="sg-lvl">${rs[0].level}</span><span><span class="sgx-gives">${rs.map((r) => itemBtn(r.id, r.inUse ? '&#10003; ' : '', 18)).join('')}</span>`

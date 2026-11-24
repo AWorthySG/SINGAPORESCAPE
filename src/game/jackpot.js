@@ -25,13 +25,15 @@ export const SEAM_MULT = 10;               // the whole seam or tree gives ten t
 // Each 100 levels of the skill add a quarter of a percentage point to the base
 // chance (the owner's ask: higher Mining, Fishing, Hunter and Woodcutting levels
 // trigger the whole seam, school, flock and tree more often). 5% at level 1-99,
-// 7.5% at 1,000, about 30% at 9,999, and the best tools' bonus on top of that.
+// 7.5% at 1,000, about 30% at 9,999, 55% at 20,000 and 80% at 30,000 (life
+// skills go on to 30,000 at the same pace), and the best tools' bonus on top of
+// that, which makes it certain from level 24,700 or so: it stops at 100%.
 export const JACKPOT_PER_100 = 0.0025;
 /** The base chance at skill level `lvl`, before the tool's bonus. */
 export const jackpotBase = (lvl = 1) => JACKPOT_CHANCE + JACKPOT_PER_100 * Math.floor(Math.max(0, lvl || 0) / 100);
 /** A swing's or catch's chance of the whole tree, seam or school with a tool of
  *  find share `find`, at skill level `lvl` (also the skill guide's XP an hour, xprate.js). */
-export const jackpotChance = (find = 0, lvl = 1) => jackpotBase(lvl) * (1 + Math.min(1, find) * JACKPOT_TOOL_BONUS);
+export const jackpotChance = (find = 0, lvl = 1) => Math.min(1, jackpotBase(lvl) * (1 + Math.min(1, find) * JACKPOT_TOOL_BONUS));
 
 const rand = mulberry32((Date.now() ^ 0x5bd1e995) >>> 0);
 /** Swap the generator (tests). */

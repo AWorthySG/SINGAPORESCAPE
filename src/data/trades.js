@@ -79,10 +79,11 @@ export const cropFor = (id) => {
 // Green fingers: the chance a harvest gives one more crop, from your Farming
 // levels above the crop's: +1% a level to GREEN_FINGERS_CAP at the crop's level
 // + 50, then a straight line on to GREEN_FINGERS_TOP at level 9999 (the owner
-// asked for life-skill bonuses all the way to 9999).
+// asked for life-skill bonuses all the way to 9999), and on at that pace as
+// Farming goes on to 30,000, until it is certain (about level 20,000).
 export const GREEN_FINGERS_CAP = 0.5, GREEN_FINGERS_TOP = 0.75;
-export const greenFingersChance = (lvl, cropLevel) => Math.min(GREEN_FINGERS_CAP, (lvl - cropLevel) / 100)
-  + (GREEN_FINGERS_TOP - GREEN_FINGERS_CAP) * towardTop(lvl, cropLevel + 50);
+export const greenFingersChance = (lvl, cropLevel) => Math.min(1, Math.min(GREEN_FINGERS_CAP, (lvl - cropLevel) / 100)
+  + (GREEN_FINGERS_TOP - GREEN_FINGERS_CAP) * towardTop(lvl, cropLevel + 50));
 
 // Potion effects stack with combat perks (see Game.perkMods): acc / dmg / crit add to
 // hits, reduce cuts damage taken, heal restores a share of max life at once.

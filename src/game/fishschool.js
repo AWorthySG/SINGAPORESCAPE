@@ -1,7 +1,7 @@
 // Schools of fish: every few minutes a school of one kind of fish swims up to a
 // fishing spot near you, stays for half a minute or so, then swims off. While
 // it's there, each catch at that spot has a 1 in 2 chance (the owner doubled it from 1 in 4) to net the whole
-// school at once: 250-650 fish (more at higher Fishing levels and with a
+// school at once: 250-751 fish (more at higher Fishing levels and with a
 // rune-or-better rod or harpoon), with XP for each. That uses the school up.
 // And at any spot, school or no school, about one catch in 20 (as often as a
 // rock's whole seam, jackpot.js) nets a smaller whole school of the fish you
@@ -23,7 +23,7 @@ import { TILE } from '../config.js';
 import { mulberry32 } from './pets.js';
 import { toolBonus } from './tools.js';
 import { schoolJackpot, SEAM_MULT, tallyWhole } from './jackpot.js';
-import { towardTop } from '../data/xp.js';
+import { towardTop, LIFE_MAX_LEVEL } from '../data/xp.js';
 
 // A switch for the test suite (tests/seed.mjs turns it off, so tests that pin
 // exact catches aren't moved by a school; fish-school.test.mjs turns it on).
@@ -40,9 +40,9 @@ export const SCHOOL_NET = 0.5;          // chance each catch at the spot nets th
 export const SCHOOL_SCALE = 50;
 export const SCHOOL_HAUL = [5 * SCHOOL_SCALE, 9 * SCHOOL_SCALE];   // 250-450 fish, before the bonuses below
 export const SCHOOL_LEVEL_STEP = 50;    // +50 fish per 50 Fishing levels to +100 at level 100...
-export const SCHOOL_LEVEL_TOP = 150;    // ...then a straight line on to +150 at level 9999...
+export const SCHOOL_LEVEL_TOP = 150;    // ...then a straight line on to +150 at level 9999 (+251 at 30,000)...
 export const SCHOOL_TOOL_SPEED = 40;    // ...and +50 with a rune-or-better rod or harpoon
-export const SCHOOL_HAUL_MAX = SCHOOL_HAUL[1] + SCHOOL_LEVEL_TOP + SCHOOL_SCALE;   // 650 at most
+export const SCHOOL_HAUL_MAX = SCHOOL_HAUL[1] + haulBonus(LIFE_MAX_LEVEL, { speed: SCHOOL_TOOL_SPEED });   // 751 at most (650 at level 9999)
 // The whole school a spot turns up with no school passing (1 catch in 20) is
 // smaller, sized like a whole seam: ten times a stock of 1-14 fish (10-140,
 // about 75 on average), as a whole seam pays ten times the ore left in a rock.
@@ -60,7 +60,8 @@ const fishName = (id) => getItem(id).name.replace(/^Raw /, '').toLowerCase();
 export function haulBonus(lvl, tb) {
   const L = Math.max(0, lvl);
   // Past level 100 the level part grows slowly on, a whole fish at a time (the
-  // owner asked for life-skill bonuses all the way to 9999).
+  // owner asked for life-skill bonuses all the way to 9999, and then on at the
+  // same pace to 30,000).
   return SCHOOL_SCALE * Math.min(2, Math.floor(L / SCHOOL_LEVEL_STEP))
     + Math.floor((SCHOOL_LEVEL_TOP - 2 * SCHOOL_SCALE) * towardTop(L, 2 * SCHOOL_LEVEL_STEP))
     + ((tb?.speed || 0) >= SCHOOL_TOOL_SPEED ? SCHOOL_SCALE : 0);
