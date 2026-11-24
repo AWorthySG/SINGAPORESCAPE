@@ -10,6 +10,7 @@ import { drawPictureTool, drawWeaponTrail } from './heroanim.js';
 import { drawHeroBack } from './heroAnimArt.js';
 import { heroLit, bakeRim } from './herolight.js';
 import { poseBlender } from './poseBlend.js';
+import { animSeed, animTempo, stepLift, stepRock, fidget, hitFlash, flinch, telegraphGlow, telegraphShake } from './creatureanim.js';
 import { CREATURE_RIGS, TOWN_IDLE, bossRig } from './creatureRigs.js';
 import { REGION_GIVERS } from '../data/regionQuests.js';
 import { RESIDENTS } from '../data/consequences.js';
@@ -64,8 +65,13 @@ function staged(ctx, cx, cy, opts, draw) {
   // so the hop, bob and rock fade rather than switching on and off as it
   // starts and stops. Callers without one fall back to the moving flag.
   const m = opts.move ?? (opts.moving ? 1 : 0);
-  let bob = Math.abs(Math.sin(t * 0.018 + cx)) * 1.8 * m + Math.sin(t * 0.004 + cx) * 0.6 * (1 - m);
-  _anim.stride = opts.moving ? Math.sin(t * 0.018 + cx) : 0;
+  // Its own phase (creatureanim.js), not its place on screen: that made idle
+  // bodies flicker while the camera panned. A walker with a walk phase lifts
+  // as a foot swings through and drops as it plants, in step with its feet.
+  const sd = animSeed(opts.entity, cx), w = typeof opts.walk === 'number' ? opts.walk : null;
+  const stride = w !== null ? stepRock(w) : Math.sin(t * 0.018 + sd);
+  let bob = (w !== null ? -stepLift(w) * 1.8 : Math.abs(stride) * 1.8) * m + Math.sin(t * 0.004 + sd) * 0.6 * (1 - m);
+  _anim.stride = opts.moving ? stride : 0;
   const s = opts.scale || 1;
   // Moving straight up or down keeps the last left/right facing (opts.fx)
   // rather than flipping to face right for the length of the climb.
@@ -84,7 +90,7 @@ function staged(ctx, cx, cy, opts, draw) {
   ctx.save();
   ctx.translate(cx, cy + bob);
   ctx.scale(fx * s, s);
-  if (opts.rock && m > 0.001) ctx.rotate(Math.sin(t * 0.018 + cx) * 0.055 * m);
+  if (opts.rock && m > 0.001) ctx.rotate(stride * 0.055 * m);
   draw(ctx);
   ctx.restore();
 }
@@ -274,17 +280,23 @@ const blendCreature = poseBlender();
 const CREATURE_BLEND = ['dx', 'rot', 'sx', 'sy'];
 const _lunge = { dx: 0, rot: 0, sx: 0, sy: 0 };
 function creaturePose(c, opts, t, seed) {
-  const ph = seed * 0.37;                       // every creature on its own rhythm
+  const ph = seed * 0.37;                       // every creature on its own rhythm (and tempo)
   const ak = opts.attackK ?? -1;
   let dx = 0, dy = 0, rot = 0, sx = 1, sy = 1;
-  if (FLOATERS.has(opts.sprite)) dy -= 2 + Math.sin(t * 0.0032 + ph) * 2.2;   // ghosts and fliers hover
+  const floats = FLOATERS.has(opts.sprite);
+  if (floats) dy -= 2 + Math.sin(t * 0.0032 + ph) * 2.2;   // ghosts and fliers hover
   // A springy hop while walking (squash as the feet land, stretch at the top
   // of the stride) and breathing at rest, crossfaded by the eased walk weight
   // so starting and stopping never jolt. An attack plays on top of either.
   const m = opts.move ?? (opts.moving ? 1 : 0);
-  const hop = Math.abs(Math.sin(t * 0.018 + seed)) * 0.06 - 0.03;
-  const br = Math.sin(t * 0.0028 + ph);
+  // In step with its feet when it has a walk phase: squashed as a foot plants,
+  // stretched mid-stride.
+  const hop = (typeof opts.walk === 'number' ? stepLift(opts.walk) : Math.abs(Math.sin(t * 0.018 + seed))) * 0.06 - 0.03;
+  const br = Math.sin(t * 0.0028 * animTempo(seed) + ph);
   sy = 1 + hop * m + br * 0.035 * (1 - m); sx = 1 - hop * m - br * 0.018 * (1 - m);
+  // Standing about, now and then a little hop of its own (fliers already bob).
+  const fg = !floats && ak < 0 && !opts.calm ? fidget(t, seed) * (1 - m) : 0;
+  if (fg > 0) { dy -= fg * 1.8; sy += fg * 0.045; sx -= fg * 0.03; }
   const a = _lunge;
   a.dx = 0; a.rot = 0; a.sx = 0; a.sy = 0;
   if (ak >= 0) {
@@ -296,10 +308,11 @@ function creaturePose(c, opts, t, seed) {
   }
   blendCreature(opts.entity, a, t, ak, CREATURE_BLEND);
   dx += a.dx; rot += a.rot; sx += a.sx; sy += a.sy;
-  if (opts.windup) dx += Math.sin(t * 0.09) * 0.9;                 // trembling as a heavy blow charges
-  if (opts.hurt > 0) {   // flinch when struck: a shudder and a stagger back
-    const hk = Math.min(1, opts.hurt / 200);
-    dx += Math.sin(t * 0.11) * hk * 2.6 - hk * 1.5; rot -= hk * 0.08;
+  // Trembling as a heavy blow charges, harder as it nears.
+  if (opts.windup) dx += Math.sin(t * 0.09) * 0.9 * (opts.windAge >= 0 ? telegraphShake(opts.windAge) : 1);
+  if (opts.hurt > 0) {   // flinch when struck: a shudder and a stagger back, easing out
+    const hk = flinch(opts.hurt);
+    dx += Math.sin(t * 0.11) * hk * (opts.calm ? 0 : 2.6) - hk * 1.5; rot -= hk * 0.08;
   }
   if (opts.castK > 0) { const k = Math.sin(opts.castK * Math.PI); sy *= 1 + k * 0.12; sx *= 1 + k * 0.08; }
   c.translate(dx, dy + FEET); c.rotate(rot); c.scale(sx, sy); c.translate(0, -FEET);
@@ -978,8 +991,10 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
       if (opts.boss && !opts.pet) bossAura(c, opts.time || 0, col);   // a pet (pets.js) is a boss in miniature, without the menace
       const t = opts.time || 0;
       if (opts.castK > 0) castBurst(c, opts.castK, opts.castCol || col);
-      creaturePose(c, opts, t, cx);
-      let flash = Math.max(Math.min(1, (opts.hurt || 0) / 200) * 0.55, opts.windup ? 0.18 + Math.sin(t * 0.03) * 0.12 : 0);
+      const sd = animSeed(opts.entity, cx);
+      creaturePose(c, opts, t, sd);
+      // A crisp white flash as a blow lands; a slow red pulse building while a heavy blow charges.
+      let flash = Math.max(hitFlash(opts.hurt), opts.windup ? (opts.windAge >= 0 ? telegraphGlow(opts.windAge) : 0.18 + Math.sin(t * 0.03) * 0.12) : 0);
       let flashCol = opts.windup && !(opts.hurt > 0) ? '#ff5040' : '#ffffff';
       // An element's effect (opts.status: burning, chilled...) washes the body in its colour between flashes.
       if (opts.status && flash < opts.status.a) { flash = opts.status.a; flashCol = opts.status.col; }
@@ -988,7 +1003,9 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
       // so do slow frames (each pack member's parts are composed afresh every frame).
       const rigId = opts.boss ? (RIGS[npcId] ? npcId : null) : (!opts.low && !opts.trim && RIGS[opts.family]?.kind === 'species' ? opts.family : null);
       const rig = rigId ? rigLayers(rigId) : null;
-      if (rig) { drawRig(c, rigId, rig, opts, t, flash, flashCol); return; }
+      // A species rig's parts run on the clock, so each member of a pack runs a few
+      // seconds apart from the next and they never swing in lock-step.
+      if (rig) { drawRig(c, rigId, rig, opts, opts.boss ? t : t + sd * 7, flash, flashCol); return; }
       const drawBody = (g) => {
         if (pimg && pimg.complete && pimg.naturalWidth) {
           const tint = simg ? artTint(npcId, { boss: !!bimg, family: opts.family }) : null;
@@ -1016,7 +1033,7 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
         // Painted monsters animate in pieces (see drawPuppet); the rest draw whole.
         const kind = (bimg || simg) && !opts.still ? PUPPET_KIND[opts.sprite] : null;
         const inf = kind ? puppetInfo(`${look}|${pose}`, sticker) : null;
-        const put = (img) => (inf ? drawPuppet(c, img, kind, inf, opts, t, cx) : c.drawImage(img, ST_X0, ST_Y0, ST_W, ST_H));
+        const put = (img) => (inf ? drawPuppet(c, img, kind, inf, opts, t, sd) : c.drawImage(img, ST_X0, ST_Y0, ST_W, ST_H));
         put(sticker);
         // A white flash over the body when struck, a red pulse while a heavy blow charges.
         if (flash > 0.01) {
@@ -1052,7 +1069,7 @@ export function drawCreature(ctx, npcId, cx, cy, opts = {}) {
       // Same footprint as the drawn mascot: feet on the tile, about mascot height.
       const s = Math.min(TOWN_ART_H / timg.naturalHeight, MASCOT_BOX.w / timg.naturalWidth);
       const w = timg.naturalWidth * s, h = timg.naturalHeight * s;
-      if (idle && drawTownIdle(c, npcId, idle, h, opts.time || 0, cx)) return;
+      if (idle && drawTownIdle(c, npcId, idle, h, opts.time || 0, animSeed(opts.entity, cx))) return;
       // An A-Worthling is a mirror image of the Merchant, a little see-through.
       if (npcId === 'aworthling') c.globalAlpha *= 0.8;
       // A borrowed picture, recoloured (baked once, see tintedArt).
