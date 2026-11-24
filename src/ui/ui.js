@@ -241,7 +241,7 @@ export class UI {
     this.el.panelTitle = document.getElementById('panel-title');
     this.el.panelCollapse = document.getElementById('panel-collapse');
     this.el.sidepanel = document.getElementById('sidepanel');
-    // Its size: Normal / Large / Extra large, the A− / A+ buttons and the grip (panelsize.js).
+    // Its window size: Normal / Large / Extra large / Full height, the − / + buttons and the grips (panelsize.js).
     this.panelSize = new PanelSizer(this.el.sidepanel, this.el.panelHead);
     this._setPanelTitle('inventory');
     // Phones (portrait or landscape): enables the fold-on-retap tab behaviour.
@@ -746,7 +746,7 @@ export class UI {
     const apply = (collapsed) => {
       panel.classList.toggle('collapsed', collapsed);
       if (collapsed) panel.classList.remove('sheet-full');   // a phone sheet always reopens at half height
-      if (key === 'panel' && !collapsed) this._fullForBag();   // (but the Bag and Gear open full)
+      if (key === 'panel' && !collapsed) this._fullForBag();   // (but the Bag, Gear and Skills open full)
       if (key === 'panel' && !collapsed && this._invStale) this.renderInventory();   // the bag skipped redraws while folded
       if (key === 'panel' && !collapsed) this._catchUpPanels();   // and so did the Gear, Combat, Journal and Awards views
       if (key === 'chat' && !collapsed) this._drawChat(false);   // the folded chat drew none of its new lines
@@ -980,13 +980,14 @@ export class UI {
     document.getElementById('sidepanel')?.classList.toggle('wide', view === 'skills');
   }
 
-  /** Phones: the Bag and Gear open at the sheet's full height. At half, the
-   *  handle, tabs and filters left room for two rows of the bag. (Dragging
-   *  the handle down still settles it at half: hudease.js sheetSnap.) */
+  /** Phones: the Bag, Gear and Skills open at the sheet's full height. At
+   *  half, the handle, tabs and filters left room for two rows of the bag (and
+   *  about three skills). (Dragging the handle down still settles it at half:
+   *  hudease.js sheetSnap.) */
   _fullForBag() {
     const p = this.el?.sidepanel;
     if (!p || p.classList.contains('collapsed') || !p.classList.contains('compact-ui')) return;
-    if (tabOfView(this._panelView) === 'inventory') p.classList.add('sheet-full');
+    if (['inventory', 'skills'].includes(tabOfView(this._panelView))) p.classList.add('sheet-full');
   }
 
   /** True while `el`, inside a side-panel view, can't be seen: the panel is
@@ -1554,8 +1555,7 @@ export class UI {
       if (!pb || !bar.isConnected) return;
       const pad = parseFloat(getComputedStyle(pb).paddingTop) || 0;
       const under = st && st.offsetParent && getComputedStyle(st).position === 'sticky' ? st.getBoundingClientRect().bottom - pb.getBoundingClientRect().top : 0;
-      // (Measured on screen; a bigger side panel is zoomed, so back to its own px.)
-      bar.style.top = `${Math.round(under / (pb.currentCSSZoom || 1) - pad)}px`;
+      bar.style.top = `${Math.round(under - pad)}px`;
     });
   }
 
@@ -3241,9 +3241,10 @@ export class UI {
       this.game.worldLabels = nextLabelMode(labelMode(this.game));
       this.game.saveSoon = true;
     });
-    // The side panel's size (panelsize.js): with a mouse, the whole panel
-    // (A− / A+ in its header do the same); on a touch screen, larger text in
-    // the menu sheet. compact.css shows whichever row fits the screen.
+    // The side panel's size (panelsize.js): with a mouse, how big its window
+    // is (− / + in its header do the same; the text stays its size); on a
+    // touch screen, bigger menu text if wanted. compact.css shows whichever
+    // row fits the screen.
     const ps = this.panelSize;
     if (ps instanceof PanelSizer) {
       const size = cycle('Side panel size', () => ps.label(), () => ps.step(1, true));
@@ -3252,7 +3253,7 @@ export class UI {
         const v = ps.label(), val = size.querySelector('.set-val');
         if (val && val.textContent !== v) { val.textContent = v; size.title = `Side panel size: ${v}`; }
       };
-      row('Larger text in menus', () => ps.bigText, () => ps.setBigText(!ps.bigText)).classList.add('set-ps-touch');
+      row('Bigger menu text', () => ps.bigText, () => ps.setBigText(!ps.bigText)).classList.add('set-ps-touch');
     }
     // Accessibility: saved with the other settings; uifx.js puts them on <body>.
     // (No Text size setting any more: it enlarged panels with CSS zoom, which

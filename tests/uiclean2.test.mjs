@@ -112,16 +112,19 @@ test('Settings: grouped cards of label + switch rows; every switch still works',
     const before = labels.querySelector('.set-val').textContent;
     labels.click();
     assert.notEqual(labels.querySelector('.set-val').textContent, before);
-    // The side panel's size: a chip that steps Normal → Large → Extra large
-    // (mouse screens), and the touch screens' Larger text switch.
+    // The side panel's window size: a chip that steps Normal → Large → Extra
+    // large → Full height (mouse screens), and the touch screens' Bigger menu
+    // text switch (off unless chosen).
     const size = row('Side panel size');
     assert.ok(size.classList.contains('set-cycle') && size.classList.contains('set-ps-desk'));
     assert.equal(size.querySelector('.set-val').textContent, 'Normal');
     size.click();
     assert.equal(size.querySelector('.set-val').textContent, 'Large');
-    assert.equal(ui.panelSize.chosen, 1.25);
-    const bigText = row('Larger text in menus');
+    assert.deepEqual(ui.panelSize.chosen, { w: 400, h: 640 });
+    assert.ok(!rows.some((r) => r.querySelector('.set-lbl').textContent === 'Larger text in menus'), 'renamed');
+    const bigText = row('Bigger menu text');
     assert.ok(bigText.classList.contains('set-ps-touch'));
+    assert.equal(bigText.attrs['aria-checked'], 'false', 'off by default');
     bigText.click();
     assert.equal(ui.panelSize.bigText, true);
     assert.equal(bigText.attrs['aria-checked'], 'true');
@@ -139,7 +142,7 @@ test('Settings: grouped cards of label + switch rows; every switch still works',
 });
 
 // ---------------- Phone sheet ----------------
-test('the phone sheet: the Bag and Gear open full; the bag filters join the Bag | Gear row on a touch phone', () => {
+test('the phone sheet: the Bag, Gear and Skills open full; the bag filters join the Bag | Gear row on a touch phone', () => {
   const g = newGame();
   const panel = el();
   panel.classList.add('compact-ui');
@@ -154,7 +157,11 @@ test('the phone sheet: the Bag and Gear open full; the bag filters join the Bag 
   panel.classList.remove('sheet-full');
   ui._panelView = 'skills';
   UI.prototype._fullForBag.call(ui);
-  assert.ok(!panel.classList.contains('sheet-full'), 'Skills: half, as before');
+  assert.ok(panel.classList.contains('sheet-full'), 'Skills: full (at half it showed about three skills)');
+  panel.classList.remove('sheet-full');
+  ui._panelView = 'combat';
+  UI.prototype._fullForBag.call(ui);
+  assert.ok(!panel.classList.contains('sheet-full'), 'Combat: half, as before');
   ui._panelView = 'inventory';
   panel.classList.add('collapsed');
   UI.prototype._fullForBag.call(ui);

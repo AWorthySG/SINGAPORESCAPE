@@ -18,7 +18,8 @@ test('the Equip best bar is built above the worn slots and counts the upgrades',
 
 test('it stays pinned while the Gear view scrolls, just under the Bag / Gear switch', () => {
   assert.match(css, /\.eq-bestbar \{ position: sticky;/);
-  // Measured in the panel's own px: a bigger side panel is zoomed (panelsize.js), so
-  // the gap under the switch is divided by the zoom before the padding comes off.
-  assert.match(ui, /bar\.style\.top = `\$\{Math\.round\(under \/ \(pb\.currentCSSZoom \|\| 1\) - pad\)\}px`/);
+  // Measured on screen: a bigger side panel is a bigger window, not a zoomed
+  // one (panelsize.js), so the gap under the switch is already in the panel's px.
+  assert.match(ui, /bar\.style\.top = `\$\{Math\.round\(under - pad\)\}px`/);
+  assert.doesNotMatch(ui, /currentCSSZoom/);
 });
