@@ -1185,8 +1185,8 @@ const SLEEVE = {
   swordsman: '#b8c4d0', rogue: '#2f4a4a', samurai: '#c0392b', corsair: '#3a3340', paladin: '#e8dfc8', knight: '#aab6c2',
   berserker: '#e9d6b0', juggernaut: '#6f7884', gladiator: '#c08a3a', lancer: '#2f5fb3', brawler: '#f2efe6', halberdier: '#c7cfd8',
   dancer: '#f4a7c4', merchant: '#7a2f4a', ninja: '#2b3a5a', archer: '#4f7a3a', ranger: '#4f7a3a', wizard: '#4b2a7a',
-  sorcerer: '#5b3a8c', pistoler: '#2f5a5a', sniper: '#2f5a5a', monk: '#f2efe6',   // (the Monk's: the Brawler's rig parts for now)
-  priest: '#cfc7b4', zealot: '#af4139',   // (their stand-in parts: the Sorcerer's, recoloured)
+  sorcerer: '#5b3a8c', pistoler: '#2f5a5a', sniper: '#2f5a5a', monk: '#8cc7a1',
+  priest: '#fbf6ea', zealot: '#d9482b',
 };
 // Where the hand grips each tool's sticker (0..1 across the picture), which
 // way its head points from there, and how big it is drawn. `edge: -1` mirrors
