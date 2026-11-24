@@ -35,7 +35,7 @@ import { stackLabel, capitalize, formatNumber, shortNumber, aOrAn } from '../cor
 import { RHYTHM_MAX, levelBonuses, playerMagicVsNpc } from '../game/combat.js';
 import { CHI, chiStacks } from '../game/monk.js';
 import { classPassives, CLASS_SKILL } from '../data/classPassives.js';
-import { ELEMENTS, SPELLS, getSpell } from '../data/magic.js';
+import { ELEMENTS, spellsFor, classSpell } from '../data/magic.js';
 import { buildBlessingsPanel, renderBlessingsPanel, renderFaithOrb } from './blessingsui.js';
 import { ACHIEVEMENTS, rewardFor } from '../data/achievements.js';
 import { QUESTS } from '../data/quests.js';
@@ -2944,10 +2944,10 @@ export class UI {
     row.innerHTML = '';
     row.classList.toggle('spells', mode === 'magic');
     if (mode === 'magic') {
-      for (const sp of SPELLS) {
+      for (const sp of spellsFor(this.game.jobClass)) {   // a Priest or a Zealot sees only its own
         const known = this.game.skills.magic >= sp.level;
         const btn = document.createElement('div');
-        btn.className = 'style-btn spell' + (p.spell === sp.id ? ' active' : '');
+        btn.className = 'style-btn spell' + (classSpell(this.game.jobClass, p.spell) === sp ? ' active' : '');
         const cost = Object.entries(sp.runes).map(([id, q]) => `${q}${id.replace('_rune', '').slice(0, 3)}`).join(' ');
         btn.innerHTML = `<span class="sp-ic">${spellIconHTML(sp.id, 26)}</span><span class="sp-text">${sp.name}<span class="style-skill">L${sp.level} · max ${playerMagicVsNpc(this.game.skills, this.game.equipment, sp, { defence: 1 }).max} · ${ELEMENTS[sp.element].icon} area · ${escapeHtml(cost)}<br>${escapeHtml(ELEMENTS[sp.element].effect)}</span></span>`;
         btn.style.opacity = known ? (this.game._hasRunes(sp) ? '1' : '0.65') : '0.35';
@@ -2958,7 +2958,7 @@ export class UI {
       // Auto: auto battle chooses the element that suits each target.
       const auto = document.createElement('div');
       auto.className = 'style-btn spell spell-auto' + (p.spellAuto ? ' active' : '');
-      auto.innerHTML = `<span class="sp-ic">${skillIconSVG('magic', 28)}</span><span class="sp-text">Auto element<span class="style-skill">Auto battle picks the best element for each monster${p.spellAuto ? ` (now: ${escapeHtml(getSpell(p.spell).name)})` : ''}</span></span>`;
+      auto.innerHTML = `<span class="sp-ic">${skillIconSVG('magic', 28)}</span><span class="sp-text">Auto element<span class="style-skill">Auto battle picks the best element for each monster${p.spellAuto ? ` (now: ${escapeHtml(classSpell(this.game.jobClass, p.spell).name)})` : ''}</span></span>`;
       auto.addEventListener('click', () => { p.spellAuto = true; this.renderCombatPanel(); });
       row.appendChild(auto);
     } else {
@@ -3487,7 +3487,7 @@ export class UI {
     // sticker colour so it stays readable on the white disc at any level.
     this.el.hpOrb.style.setProperty('--fill', Math.max(0, Math.min(1, frac)).toFixed(3));
     this.el.hpOrb.classList.toggle('low', frac <= 0.25 && this.game.player.alive);
-    renderHpBar(this, hp, max, this.game.player.alive);   // the HUD's life bar (hpbar.js)
+    renderHpBar(this, hp, max, this.game.player.alive, this.game.player.ward);   // the HUD's life bar (hpbar.js), and a Grace ward
   }
 
   renderRun() {

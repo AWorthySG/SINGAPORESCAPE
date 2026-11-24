@@ -132,6 +132,7 @@ export class NPC extends Character {
   takeDamage(dmg) {
     const before = this.hp;
     this.hp = Math.max(0, this.hp - dmg);
+    this.lastHit = before - this.hp;   // the blow that fells it: Ash's Cinders (classelements.js)
     this.combatLatch = 12;
     // Damage taken lately (fades each tick): a boss's heal is capped by it.
     this.recentDmg = (this.recentDmg || 0) + (before - this.hp);

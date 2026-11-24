@@ -64,6 +64,45 @@ export const ELEMENT_FX = {
     { kind: 'dot', n: 8, speed: 0.1, life: 520, col: '#d0243e', g: 0.0007, up: -0.1, size: 1.9 },
     { ring: true, r0: 3, r1: 16, life: 280, col: '#ff6a7a', w: 2 },
   ] },
+  // The Priest's Light path and the Zealot's Flame path (magic.js): their
+  // bolts have their own shapes too (render/classfx.js).
+  radiance: { col: '#fff3b0', art: 'fx-hit-holy', pieces: [   // white-gold rays bursting where the beam lands
+    { kind: 'ray', n: 8, life: 380, col: '#fff6c8', size: 28 },
+    { kind: 'spark', n: 5, speed: 0.16, life: 240, col: '#ffffff', add: true, size: 1.4 },
+  ] },
+  grace: { col: '#ffd98a', pieces: [   // soft motes drifting down like feathers, and chime-like glints
+    { kind: 'chip', n: 5, speed: 0.06, life: 760, col: '#fff6dc', g: 0.00012, up: -0.06, spin: 0.03, size: 2.6 },
+    { kind: 'twinkle', n: 4, speed: 0.05, life: 520, col: '#fffbe0', size: 2.8 },
+    { ring: true, r0: 3, r1: 15, life: 360, col: '#ffe6a0', w: 1.8 },
+  ] },
+  judgement: { col: '#d8e8ff', pieces: [   // the blade's flash and a ring of light on the ground
+    { kind: 'spark', n: 7, speed: 0.2, life: 240, col: '#eef4ff', add: true, size: 1.5 },
+    { kind: 'twinkle', n: 2, speed: 0.03, life: 380, col: '#ffffff', size: 3.2 },
+    { ring: true, r0: 4, r1: 24, life: 340, col: '#cfe0ff', w: 2.6, sq: 0.4, dy: 9 },
+  ] },
+  sanctuary: { col: '#f6e7a8', pieces: [   // motes rising off a glowing circle
+    { kind: 'dot', n: 8, speed: 0.03, life: 700, col: '#fff3c0', g: -0.00016, up: -0.04, add: true, size: 1.8 },
+    { ring: true, r0: 6, r1: 26, life: 420, col: '#f0d880', w: 2.4, sq: 0.4, dy: 9 },
+  ] },
+  holyfire: { col: '#ffe9a0', pieces: [   // white-gold embers
+    { kind: 'dot', n: 8, speed: 0.08, life: 520, col: '#ffe08a', g: -0.00012, up: -0.03, add: true, size: 1.8 },
+    { kind: 'dot', n: 4, speed: 0.05, life: 380, col: '#ffffff', g: -0.0002, up: -0.04, add: true, size: 1.2 },
+    { ring: true, r0: 4, r1: 17, life: 240, col: '#fff0b0', w: 2.6 },
+  ] },
+  wrath: { col: '#ff6a4a', pieces: [   // a red-gold shockwave
+    { ring: true, r0: 4, r1: 24, life: 280, col: '#ffb060', w: 3.2 },
+    { ring: true, r0: 2, r1: 15, life: 220, col: '#ff5a3a', w: 2.2 },
+    { kind: 'spark', n: 6, speed: 0.22, life: 200, col: '#ffd08a', add: true, size: 1.5 },
+  ] },
+  ash: { col: '#c8a080', pieces: [   // grey ash puffing out, orange cinders winking
+    { kind: 'cloud', n: 3, speed: 0.035, life: 520, col: '#b8aca6', size: 4 },
+    { kind: 'dot', n: 6, speed: 0.09, life: 480, col: '#ff9a40', g: -0.0001, up: -0.03, add: true, size: 1.5 },
+  ] },
+  martyrdom: { col: '#e04a5a', pieces: [   // a heavy crimson-gold blow
+    { kind: 'dot', n: 8, speed: 0.12, life: 460, col: '#d8304a', g: 0.0006, up: -0.1, size: 2 },
+    { kind: 'spark', n: 6, speed: 0.2, life: 240, col: '#ffd27a', add: true, size: 1.6 },
+    { ring: true, r0: 4, r1: 22, life: 300, col: '#ffcf70', w: 3 },
+  ] },
   // Anything else (a new element nobody has drawn yet, or plain magic).
   arcane: { col: '#c890f0', pieces: [
     { ring: true, r0: 4, r1: 18, life: 260, col: '#c890f0', w: 2.5 },

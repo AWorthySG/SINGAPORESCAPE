@@ -162,6 +162,9 @@ export function targetTag(game, n) {
   if (cracks) status = (status ? status + ' ' : '') + '🪨' + cracks;
   const hexes = hexStacks(n, game.tickCount);   // Dark's Hex
   if (hexes) status = (status ? status + ' ' : '') + '🌑' + hexes;
+  // The Light and Flame paths: dazzled (Radiance) and Holy Fire's brands.
+  if (n.dazzleUntil > game.tickCount) status = (status ? status + ' ' : '') + '☀️';
+  if (n.brand?.until > game.tickCount) status = (status ? status + ' ' : '') + '🔆' + n.brand.n;
   return `${r.icon}${arrow}${status ? ' ' + status : ''}`;
 }
 
@@ -183,6 +186,8 @@ export function foeDetails(game, n) {
   const hexes = hexStacks(n, game.tickCount);
   if (hexes) parts.push(`hexed ×${hexes} (+${hexes * 5}% damage taken)`);
   if (n.openWounds && game.tickCount - (n.openWoundsAt || 0) <= 14) parts.push(`open wounds ×${n.openWounds} (+${n.openWounds * 5}% damage taken)`);
+  if (n.dazzleUntil > game.tickCount) parts.push('dazzled (misses more)');
+  if (n.brand?.until > game.tickCount) parts.push(`branded ×${n.brand.n} (bursts at 5)`);
   return parts.join(' · ');
 }
 

@@ -309,6 +309,9 @@ body.boss-on #rep-pill { display: none; }
 #hp-bar .hpb-ic, #hp-bar .hpb-num { position: relative; line-height: 1; color: var(--aw-ink); text-shadow: 0 0 2px var(--aw-white), 0 0 2px var(--aw-white), 0 0 3px var(--aw-white); }
 #hp-bar .hpb-ic { font-size: 13px; color: var(--aw-bloom-deep); }
 #hp-bar .hpb-num { font-size: var(--fs-sm); font-weight: 900; letter-spacing: .01em; font-variant-numeric: tabular-nums; }
+/* A Priest's Grace ward: "+N" in gold beside the number, and a golden rim. */
+#hp-bar .hpb-ward { position: relative; line-height: 1; font-size: var(--fs-xs, 11px); font-weight: 900; color: #A86A00; font-variant-numeric: tabular-nums; text-shadow: 0 0 2px var(--aw-white), 0 0 2px var(--aw-white); }
+#hp-bar.warded { border-color: #D9A21E; box-shadow: var(--shadow-sticker-sm), 0 0 0 2px rgba(255, 217, 138, 0.7); }
 /* Low: the same pulse the orb had; with colour-blind colours, a "!" too. */
 #hp-bar.low { animation: hpBarLow .9s ease-in-out infinite; }
 @keyframes hpBarLow {

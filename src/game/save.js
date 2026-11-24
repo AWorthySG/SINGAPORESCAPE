@@ -9,6 +9,7 @@ import { ensureHunterSnare } from './onboarding.js';
 import { serializeLiving, loadLiving } from './living.js';
 import { serializeKeep, loadKeep } from './bankkeep.js';
 import { trimBlessings, starterBlessings } from './blessings.js';
+import { classSpell } from '../data/magic.js';
 
 const VERSION = 1;
 // An unreadable save is copied here before a new game replaces it, so a bug or
@@ -383,6 +384,9 @@ function loadFields(game, data) {
   game.running = data.settings?.running ?? game.running;
   // Job class: older saves pick one on their next visit.
   game.jobClass = typeof data.jobClass === 'string' ? data.jobClass : null;
+  // A Priest or a Zealot casts only its own elements: a save from before they had
+  // them (or any other spell not its class's) loads onto the class's first.
+  game.player.spell = classSpell(game.jobClass, game.player.spell).id;
   game.pendingClassChoice = !game.jobClass && !game.pendingStyleChoice;
   // Herblore boosts still running, and crops still growing in their patches.
   game.potions = {};

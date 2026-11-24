@@ -198,7 +198,11 @@ test('prayer and spell icons exist for every prayer and spell', async () => {
   const onDisk = new Set(readdirSync(fileURLToPath(new URL('../assets/icons/', import.meta.url))));
   // Every blessing has its own icon (none borrow another's with `art` any more).
   for (const p of PRAYERS) assert.ok(!p.art && !p.tint && onDisk.has(`prayer-${p.id}.webp`), `prayer-${p.id}.webp`);
-  for (const s of SPELLS) assert.ok(onDisk.has(`spell-${s.id}.webp`), `spell-${s.id}.webp`);
+  // A spell still waiting on its painted icon (the Priest's and the Zealot's own)
+  // has a vector in SPELL_SVG until the file arrives; never both, never neither.
+  const { SPELL_SVG } = await import('../src/render/icons.js');
+  for (const s of SPELLS) assert.ok(onDisk.has(`spell-${s.id}.webp`) !== !!SPELL_SVG[s.id], `spell-${s.id}.webp or a vector, not both`);
+  for (const id of Object.keys(SPELL_SVG)) assert.ok(SPELLS.some((s) => s.id === id), `${id} is a spell`);
 });
 
 test('boss art stays in lock-step with assets/creatures/bosses/ and names real bosses', async () => {

@@ -270,7 +270,7 @@ export function combatGuideHTML(game, skill) {
     html += `<div class="skill-group">Gear your level unlocks</div>` + tiers.map((tr) => `<div class="sg-row${lvl >= tr.level ? ' sgx-got' : ' locked'}"><span class="sg-lvl">${tr.level}</span><span class="sg-text sgx-text"><span class="sgx-gives">`
       + tr.ids.slice(0, 6).map((id) => itemBtn(id)).join('') + (tr.ids.length > 6 ? `<small>and ${tr.ids.length - 6} more</small>` : '') + '</span></span></div>').join('');
   }
-  const ex = combatExtras(skill);
+  const ex = combatExtras(skill, game.jobClass);   // a Priest or a Zealot sees only its own spells
   if (ex) {
     html += `<div class="skill-group">${esc(ex.title)}</div>` + ex.rows.map((r) => `<div class="sg-row${!r.level || lvl >= r.level ? '' : ' locked'}">${r.level ? `<span class="sg-lvl">${r.level}</span>` : ''}<span class="sg-text sgx-text"><b>${r.items?.length === 1 && r.items[0] && ITEMS[r.items[0]] && !r.level ? itemBtn(r.items[0]) : esc(r.name)}</b><span>${esc(r.text)}</span>`
       + (r.items && r.level ? `<span class="sgx-gives">${r.items.map((id) => itemBtn(id)).join('')}</span>` : '') + '</span></div>').join('');
