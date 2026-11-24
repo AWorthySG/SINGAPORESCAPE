@@ -405,6 +405,13 @@ export function buildWorld({ groves: withGroves = true } = {}) {
   placeObj('agility_zip', 47, 63);
   // A hawker stall to practise Thieving in the kampung.
   placeObj('stall_food', 64, 62);
+  // Set dressing on the plaza itself: a fountain, shade, lanterns, flowers, a
+  // mural and the songbirds, on free tiles clear of the four entrances, the
+  // stations, the townsfolk and the dig spots. A trishaw waits by the MRT.
+  placeObj('peranakan_fountain', 62, 52); placeObj('kopitiam_parasol', 65, 60);
+  placeObj('lantern_tree', 54, 53); placeObj('tiled_planter', 50, 53);
+  placeObj('mural_board', 64, 47); placeObj('birdcage_pole', 50, 56);
+  placeObj('trishaw', 66, 53); placeObj('lantern_post', 55, 47); placeObj('lantern_post', 60, 47);
   // A garden border round the plaza: flower beds with a bush every third tile,
   // leaving the four path entrances open, and palms framing the corners.
   for (const [px, py] of [[48, 48], [68, 48], [68, 63], [52, 63]]) placeObj('palm', px, py);

@@ -804,6 +804,13 @@ const PROPS = {
   offering_table: ['Offering table', 'Oranges, rice and incense, left for the island\'s spirits.'],
   sandbag_wall: ['Sandbags', 'A low wall of sandbags from some old drill.'],
   rusty_tank: ['Water tank', 'A rusty water tank on stilts.'],
+  // Kampong Glam's plaza (placed by hand in world.js: the landmark planner keeps props off it).
+  peranakan_fountain: ['Peranakan tiled fountain', 'A tiled fountain. The water is cool on a hot afternoon.'],
+  kopitiam_parasol: ['Kopitiam parasol table', 'A shady table for kopi and kueh.'],
+  lantern_tree: ['Lantern tree lamp post', 'A heritage lamp post hung with paper lanterns.'],
+  tiled_planter: ['Tiled bougainvillea planter', 'Bougainvillea spilling over a tiled planter. You could sit on the edge.'],
+  mural_board: ['Kampong mural board', 'A cheerful mural of the old kampong street.'],
+  birdcage_pole: ['Songbird cage pole', 'Songbirds in their cages, singing to each other.'],
 };
 for (const [id, [footprint, name, examine, artScale]] of Object.entries(LANDMARKS)) {
   OBJECTS[id] = { name, type: 'scenery', emoji: '🏛️', blocking: true, footprint, ...(artScale ? { artScale } : {}), examine };

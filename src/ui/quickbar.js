@@ -9,7 +9,7 @@ import { QB_ACTIONS, QB_SLOTS, QB_DEFAULT, quickbarOf, setQuickSlot, runQuickAct
 import { SKILL_BY_ID } from '../data/skills.js';
 import { quickUseChoice } from '../game/quickuse.js';
 import { openCompendium } from './codexui.js';
-import { itemIconSVG, skillIconSVG, tabIconSVG, uiIconHTML, playIconHTML } from '../render/icons.js';
+import { itemIconSVG, skillIconSVG, tabIconSVG, uiIconHTML, playIconHTML, glyphArtHTML } from '../render/icons.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -113,7 +113,7 @@ export class QuickBar {
     // buttons sat beside your hero in the middle of the screen. A dot shows while
     // one of them (auto battle, say) is on.
     const anyOn = bar.some((k) => QB_ACTIONS[k]?.on?.(g));
-    html += `<button type="button" class="qb-btn qb-more${anyOn ? ' has-on' : ''}" title="Your quick actions" aria-label="Quick actions" aria-haspopup="true">&#8943;</button>`;
+    html += `<button type="button" class="qb-btn qb-more${anyOn ? ' has-on' : ''}" title="Your quick actions" aria-label="Quick actions" aria-haspopup="true">${glyphArtHTML('ui-more', '&#8943;', 24)}</button>`;
     // The rest sit in one box: on a desktop it is no box at all (display:
     // contents, the same row as before); on a phone it is the grid the more
     // button opens, under it and clear of your hero, each with its name.
@@ -128,7 +128,7 @@ export class QuickBar {
         + `${on !== null ? ` aria-pressed="${on}"` : ''} title="${esc(a.label)}${on !== null ? (on ? ' (on)' : ' (off)') : ''} (Shift+${i + 1})" aria-label="${esc(a.label)}">`
         + `${qbIconHTML(icon)}${qbLabel(a.label)}<kbd class="qb-key" aria-hidden="true">${slotKeyLabel(i)}</kbd></button>`;
     });
-    html += `<button type="button" class="qb-btn qb-edit" title="Choose the quick bar's actions" aria-label="Edit quick bar">&#9998;${qbLabel('Edit')}</button>`;
+    html += `<button type="button" class="qb-btn qb-edit" title="Choose the quick bar's actions" aria-label="Edit quick bar">${glyphArtHTML('ui-edit', '&#9998;', 24)}${qbLabel('Edit')}</button>`;
     html += '</div>';
     el.innerHTML = html;
   }

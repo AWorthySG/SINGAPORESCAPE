@@ -45,7 +45,7 @@ import { RegionPostcards } from './postcard.js';
 import { Weather } from './weather.js';
 import { fxImage, fxTinted, drawFx, drawStrip, badgeKey, DARK_REGIONS } from './fxart.js';
 import { introCurve, titleAlpha, DEATH_FLASH_MS } from '../game/cinematics.js';
-import { TerrainFx, growBox } from './terrainfx.js';
+import { TerrainFx, growBox, tileHash } from './terrainfx.js';
 import { sunShadow, drawSunShadow, footfall } from './shadows.js';
 import { dropArc, dropFx } from './combatfx.js';
 import { applySquash, splatMotion, drawCritBurst, drawMissPuff, drawLootGlow, drawCoinGlint } from './juice.js';
@@ -105,25 +105,12 @@ const GROUND_TEX = {
   [TERRAIN.GRASS]: 'grass', [TERRAIN.DARKGRASS]: 'darkgrass', [TERRAIN.PATH]: 'path', [TERRAIN.SAND]: 'sand',
   [TERRAIN.STONE]: 'stone', [TERRAIN.WOOD]: 'wood', [TERRAIN.WATER]: 'water',
 };
-export const groundTextures = () => new Set(Object.values(GROUND_TEX));
-
-// The town paving's painted texture is graded warmer and a little darker as it
-// loads (a multiply), so cream townsfolk and the cream kerbs stand out from the
-// plazas: the ground sits about a fifth below the sticker cream in value
-// (about 195 against 247; the texture alone is a greyer 206). (Until new
-// paving art arrives; then this can go.)
-const STONE_GRADE = 'rgb(252,240,222)';
-function gradeGround(img, tint) {
-  try {
-    const c = document.createElement('canvas');
-    c.width = img.naturalWidth || GROUND_TEX_PX; c.height = img.naturalHeight || GROUND_TEX_PX;
-    const g = c.getContext('2d');
-    g.drawImage(img, 0, 0);
-    g.globalCompositeOperation = 'multiply';
-    g.fillStyle = tint; g.fillRect(0, 0, c.width, c.height);
-    return c;
-  } catch { return img; }
-}
+// A big square shows the same 4 x 4 tile block over and over, so the paving
+// has variants (an inset Peranakan tile, a worn patch): each 4 x 4 block picks
+// one by a stable hash, the plain paving most of the time.
+const GROUND_VARIANTS = { [TERRAIN.STONE]: [['stone-2', 0.2], ['stone-3', 0.2]] };
+export const groundTextures = () => new Set([...Object.values(GROUND_TEX),
+  ...Object.values(GROUND_VARIANTS).flatMap((v) => v.map(([n]) => n))]);
 
 const LIT_RGB = [255, 190, 110];   // the warm pool round lamps and fires drawn with them
 
@@ -162,20 +149,21 @@ export class Renderer {
    *  terrain so the painted ground replaces the drawn one. */
   _loadGroundTextures() {
     if (typeof Image === 'undefined' || !this.terrainCanvas) return null;
-    const tex = {}, ids = Object.keys(GROUND_TEX);
-    let left = ids.length;
+    const tex = { variants: {} }, ids = Object.keys(GROUND_TEX);
+    let left = ids.length + Object.values(GROUND_VARIANTS).reduce((n, v) => n + v.length, 0);
     tex.ready = false;
-    for (const t of ids) {
+    const load = (name) => {
       const img = new Image();
       img.onload = () => {
         if (--left > 0) return;
-        tex[TERRAIN.STONE] = gradeGround(tex[TERRAIN.STONE], STONE_GRADE);
         tex.ready = true;
         this.terrainCanvas.chunks.clear(); this.terrainCanvas.order.length = 0;
       };
-      img.src = `assets/world/ground-${GROUND_TEX[t]}.webp`;
-      tex[t] = img;
-    }
+      img.src = `assets/world/ground-${name}.webp`;
+      return img;
+    };
+    for (const t of ids) tex[t] = load(GROUND_TEX[t]);
+    for (const [t, v] of Object.entries(GROUND_VARIANTS)) tex.variants[t] = v.map(([n, w]) => [load(n), w]);
     return tex;
   }
 
@@ -184,7 +172,13 @@ export class Renderer {
     const tex = this.groundTex;
     if (!tex || !tex.ready || !tex[t]) return false;
     const k = GROUND_TEX_PX / TILE;
-    g.drawImage(tex[t], (x % k) * TILE, (y % k) * TILE, TILE, TILE, sx, sy, TILE + 0.5, TILE + 0.5);
+    let img = tex[t];
+    const vs = tex.variants[t];
+    if (vs) {   // the block's variant: the same every bake (the variants share the plain one's outer ring of stones)
+      let r = tileHash(Math.floor(x / k), Math.floor(y / k), 41);
+      for (const [v, w] of vs) { if ((r -= w) < 0) { img = v; break; } }
+    }
+    g.drawImage(img, (x % k) * TILE, (y % k) * TILE, TILE, TILE, sx, sy, TILE + 0.5, TILE + 0.5);
     return true;
   }
 

@@ -2,7 +2,7 @@
 // button's short caption, the foldable Objectives tracker, the phone sheet's
 // half / full snap, and the quick-use slot's button. ui.js calls in here.
 import { quickUseChoice, quickUse } from '../game/quickuse.js';
-import { itemIconSVG } from '../render/icons.js';
+import { itemIconSVG, glyphArtHTML } from '../render/icons.js';
 import { shortNumber } from '../core/utils.js';
 import { getItem } from '../data/items.js';
 
@@ -62,7 +62,7 @@ export function trackerHTML(rows, folded, { max = TRACKER_ROWS, open = false } =
   const n = rows.filter((r) => !r.includes('trk-xp')).length;
   const head = `<button type="button" class="trk-title trk-fold" aria-expanded="${folded ? 'false' : 'true'}" title="${folded ? 'Show' : 'Hide'} objectives">`
     + (folded ? `&#9733; ${n || rows.length} objective${(n || rows.length) === 1 ? '' : 's'}` : 'Objectives')
-    + `<span class="trk-chev" aria-hidden="true">${folded ? '&#9656;' : '&#9662;'}</span></button>`;
+    + `<span class="trk-chev" aria-hidden="true">${glyphArtHTML('ui-collapse', folded ? '&#9656;' : '&#9662;', 14)}</span></button>`;
   if (folded) return head;
   if (rows.length <= max) return head + rows.join('');
   if (open) return head + rows.join('') + '<button type="button" class="trk-more">Show less</button>';

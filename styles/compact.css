@@ -547,8 +547,8 @@ body.reduce-motion :is(#hover-text, #region-label, #notice-lane .nl-card, #rep-p
    and the panels' fold toggles: a navy mark in a white sticker circle (the
    folds keep their ▾ / ▸). Each keeps its own size and place. The ids are
    listed so this outranks their older looks (the painted red close among
-   them); when the owner's ui-close art arrives it goes on as this rule's
-   background image. */
+   them). The painted close (ui-close) and fold chevron (ui-collapse) sit on
+   top, below. */
 .close-x, #modal-close.close-x, #panel-collapse.close-x, #chat-collapse.close-x, #minimap-collapse.close-x, #photo-mode .pm-x.close-x, #notice-lane .nl-x.close-x {
   padding: 0; text-align: center; line-height: 1; font-family: inherit; font-weight: 900; text-shadow: none; filter: none;
   color: var(--aw-ink); background: var(--aw-white) none; border: 2px solid var(--aw-ink); border-radius: 50%;
@@ -566,6 +566,20 @@ body.reduce-motion :is(#hover-text, #region-label, #notice-lane .nl-card, #rep-p
   background-image: none; translate: 0 1px; box-shadow: 0 0 0 2px var(--rim), 0 1px 0 2px rgba(34,48,74,.16);
 }
 .close-x:focus-visible { outline: 3px solid var(--aw-sun); outline-offset: 2px; }
+
+/* ---------- Painted small controls (UI-5, icons.js glyphArtHTML) ----------
+   Each control's picture comes first and its old text glyph after it; the
+   glyph shows only when the picture is gone (it removes itself if it can't
+   load). The close is a whole badge laid over its button's circle; the fold
+   chevron turns to point right while its panel is folded. */
+.ui-ic.gl-art { display: inline-block; vertical-align: middle; width: 1.25em; height: 1.25em; margin: 0; pointer-events: none; }
+.ui-ic.gl-art + .gl { display: none; }
+.close-x > .gl-art { display: block; margin: auto; width: 76%; height: 76%; transition: rotate .15s ease; }
+.close-x > .gl-art.x-art { position: absolute; inset: -2px; width: calc(100% + 4px); height: calc(100% + 4px); }
+#sidepanel.collapsed #panel-collapse .gl-art, #chatbox.collapsed #chat-collapse .gl-art,
+#minimap-panel.collapsed #minimap-collapse .gl-art, .trk-fold[aria-expanded="false"] .gl-art { rotate: -90deg; }
+#photo-btn .gl-art { width: 24px; height: 24px; }
+#target-btn .gl-art { width: 28px; height: 28px; }
 
 /* ---------- Side panel size (src/ui/panelsize.js) ----------
    With a mouse: Normal / Large / Extra large (Settings, or A− / A+ in the

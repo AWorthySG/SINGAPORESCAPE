@@ -45,9 +45,11 @@ export const TITLE_ART_SLOTS = {
   'skyline-mid': { size: '3200x400, transparent, seamless left-right', use: 'a row of HDB blocks with lit windows and rain trees (middle parallax)', placeholder: 'an inline SVG (titleMidLayer)' },
   foreground: { size: '2400x400, transparent, seamless left-right, low in the middle', use: 'dark bushes and a palm along the foot of the screen, the nearest layer', placeholder: 'nothing (the layer is left empty)' },
   'logo-banner': { size: '1600x600, transparent, no text', use: 'the ribbon the game title sits on, its sunburst behind the mascot', placeholder: 'the plain title text' },
+  'mascot-sit': { size: '512x512, transparent', use: 'the mascot sitting in the ribbon\'s sun disc, waving, a map in hand (MD-1)', placeholder: 'assets/mascot-login.webp' },
+  medallion: { size: '256x256, round, transparent outside', use: 'the mascot\'s portrait filling the ribbon\'s sun disc on small screens (MD-1)', placeholder: 'the sitting mascot' },
 };
 /** The slots that have a painted file in assets/title/. */
-export const TITLE_ART = new Set(['sky', 'clouds', 'skyline-far', 'skyline-mid', 'skyline', 'foreground', 'logo-banner']);
+export const TITLE_ART = new Set(['sky', 'clouds', 'skyline-far', 'skyline-mid', 'skyline', 'foreground', 'logo-banner', 'mascot-sit', 'medallion']);
 export const titleArtSrc = (slot) => (TITLE_ART.has(slot) ? `assets/title/${slot}.webp` : null);
 /** The painted slots the title shows at once: asked for while the loading bar
  *  runs (and counted by it), so the city fades in whole. */
@@ -602,6 +604,8 @@ export class TitleScreen {
     this._buildLayers();
     // The other painted slots, where they have arrived (title.css picks them up).
     for (const slot of ['backdrop', 'backdrop-portrait', 'ground']) if (titleArtSrc(slot)) this.splash.style.setProperty(`--title-${slot}`, `url("${titleArtSrc(slot)}")`);
+    // The mascot's portrait for the sun disc on small screens (title.css); absolute, like the ribbon's.
+    if (titleArtSrc('medallion')) this.splash.style.setProperty('--title-medallion', `url("${new URL(titleArtSrc('medallion'), document.baseURI).href}")`);
     const mascot = this.splash.querySelector('.splash-mascot');
     if (mascot && titleArtSrc('loading-hero')) mascot.src = titleArtSrc('loading-hero');
   }

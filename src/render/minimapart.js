@@ -399,8 +399,22 @@ export function minimapRing(W, mr, dpr = 1) {
   c.fillStyle = '#FFFFFF';
   c.font = '900 9px Nunito, "Baloo 2", system-ui, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
   c.fillText('N', m, ny + 0.8);
+  // The painted compass (UI-5) goes over the tab once it has loaded; the ring
+  // is kept and redrawn every frame, so a late picture still shows.
+  const art = compassArt();
+  const north = () => { if (art.naturalWidth) c.drawImage(art, m - 10, ny - 11, 20, 20); };
+  if (art?.complete) north(); else art?.addEventListener('load', north, { once: true });
   return cv;
 }
+const COMPASS_ICON = 'ui-compass';   // assets/icons/, one of icons.js's PLAY_ICONS
+let _compass;
+const compassArt = () => {
+  if (_compass === undefined) {
+    _compass = typeof Image === 'function' ? new Image() : null;
+    if (_compass) _compass.src = `assets/icons/${COMPASS_ICON}.webp`;
+  }
+  return _compass;
+};
 
 /** The point on a circle of radius `r` round the middle of a W x H map in
  *  the direction of (dx, dy): where a rim arrow for something off the map goes. */

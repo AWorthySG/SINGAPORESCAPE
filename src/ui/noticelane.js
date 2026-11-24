@@ -5,6 +5,7 @@
 // itself is in notices.js; this draws it. Headless (the tests) it keeps the
 // queue and draws nothing.
 import { NoticeQueue } from './notices.js';
+import { glyphArtHTML } from '../render/icons.js';
 
 // Compact lane: one line on screen at a time. While others wait behind it the
 // one showing moves on after LANE_CYCLE_MS, so they take turns; the "+N"
@@ -179,7 +180,7 @@ export function cardHTML(x, waiting = 0, mini = false) {
     return `<div class="nl-card nl-tip" data-id="${x.id}" role="status"><span class="nl-ic" aria-hidden="true">&#128161;</span>`
       + `<div class="nl-text">${x.html}</div>`
       + '<button type="button" class="nl-notips" data-act="notips">Don\'t show tips</button>'
-      + `${more}<button type="button" class="nl-x close-x" aria-label="Dismiss">&#10005;</button></div>`;
+      + `${more}<button type="button" class="nl-x close-x" aria-label="Dismiss">${glyphArtHTML('ui-close', '&#10005;', 26, 'x-art')}</button></div>`;
   }
   // A note's own button ("Wear it") sits outside the words, so it stays in
   // view when the words are cut to one line.

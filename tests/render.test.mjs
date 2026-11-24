@@ -231,6 +231,24 @@ test('townsfolk art stays in lock-step with assets/creatures/townsfolk/ and name
   }
 });
 
+test('the plaza paving mixes in its variants by 4 x 4 block, the same every bake', async () => {
+  const { TERRAIN } = await import('../src/data/world.js');
+  const { groundTextures } = await import('../src/render/renderer.js');
+  assert.ok(['stone', 'stone-2', 'stone-3'].every((n) => groundTextures().has(n)));
+  // Stand-in textures, so _groundTile runs headless; record which one each tile draws.
+  const plain = { id: 'stone' }, v2 = { id: 'stone-2' }, v3 = { id: 'stone-3' };
+  const fake = { groundTex: { ready: true, [TERRAIN.STONE]: plain, variants: { [TERRAIN.STONE]: [[v2, 0.2], [v3, 0.2]] } } };
+  const pick = (x, y) => { let id; Renderer.prototype._groundTile.call(fake, { drawImage: (img) => { id = img.id; } }, TERRAIN.STONE, x, y, 0, 0); return id; };
+  const n = { stone: 0, 'stone-2': 0, 'stone-3': 0 };
+  for (let by = 0; by < 30; by++) for (let bx = 0; bx < 30; bx++) {
+    const id = pick(bx * 4, by * 4);
+    n[id]++;
+    assert.equal(pick(bx * 4 + 3, by * 4 + 2), id, 'one texture across the block');
+    assert.equal(pick(bx * 4, by * 4), id, 'the same every time');
+  }
+  assert.ok(n.stone > 900 * 0.5 && n['stone-2'] > 900 * 0.1 && n['stone-3'] > 900 * 0.1, JSON.stringify(n));
+});
+
 test('world art stays in lock-step with assets/world/ and names real objects', async () => {
   const { readdirSync } = await import('node:fs');
   const { fileURLToPath } = await import('node:url');
@@ -665,10 +683,13 @@ test('gameplay art pack: items, world objects, quest givers, pets and gameplay i
   for (const k of Object.keys(EVENT_KINDS)) assert.ok(PLAY_ICONS.includes(EVENT_ICON[k]), `${k} has an event icon`);
   for (const t of Object.keys(MECH_KINDS)) assert.ok(PLAY_ICONS.includes(mechIcon(t)), `${t} has a mechanic icon`);
   const src = ['src/ui/playhud.js', 'src/ui/homeui.js', 'src/ui/collectionui.js', 'src/ui/worldeventsui.js', 'src/ui/ranksui.js', 'src/ui/ui.js',
-    'src/ui/skillguideui.js', 'src/game/skillunlocks.js', 'src/render/icons.js'].map((f) => readFileSync(fileURLToPath(new URL(`../${f}`, import.meta.url)), 'utf8')).join('\n');
+    'src/ui/skillguideui.js', 'src/game/skillunlocks.js', 'src/render/icons.js',
+    // The small controls (UI-5): drawn by these, or written into the page itself.
+    'src/ui/quickbar.js', 'src/ui/photomode.js', 'src/ui/noticelane.js', 'src/ui/accountui.js', 'src/ui/hudease.js', 'src/render/minimapart.js', 'index.html',
+  ].map((f) => readFileSync(fileURLToPath(new URL(`../${f}`, import.meta.url)), 'utf8')).join('\n');
   for (const n of PLAY_ICONS) {
     if (/^(event|mech|quality)-/.test(n) && n !== 'event-weekly_crate') continue;   // reached by EVENT_ICON, mechIcon and `quality-${q}`
-    assert.ok(src.includes(`'${n}'`), `${n} is used`);
+    assert.ok(src.includes(`'${n}'`) || src.includes(`assets/icons/${n}.webp`), `${n} is used`);
   }
 });
 
