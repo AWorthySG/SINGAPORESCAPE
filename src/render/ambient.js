@@ -2,9 +2,11 @@
 // purely for looks (nothing here is an entity, saved, or touches the game's
 // rules, and it never rolls the game's Math.random).
 //
-// - Wind: one gusting breeze for the whole island; palms, bamboo and trees
-//   lean with it in a wave that rolls across the map (the renderer shears
-//   each object's cached picture, so the cache is untouched).
+// - Wind: one gusting breeze for the whole island, with gust fronts rolling
+//   across the map (wind.js); palms, bamboo, trees, bushes and flowers lean
+//   as a front passes and flutter on their own beat, and the leaves speed up
+//   in it (the renderer shears each object's cached picture, so the cache is
+//   untouched).
 // - Water glints: sparkles of sun (or moon) winking on the water in view.
 // - Bird flocks: now and then a little flock crosses the sky by day, its
 //   shadows sliding over the ground below.
@@ -25,6 +27,7 @@ import { TILE } from '../config.js';
 import { TERRAIN } from '../data/world.js';
 import { tileHash } from './terrainfx.js';
 import { fxImage, fxLoop, drawFx } from './fxart.js';
+import { plantLean, localWind } from './wind.js';
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
@@ -50,10 +53,14 @@ const TUMBLE = { leaf_green: 'leaf_tumble', leaf_lime: 'leaf_tumble', frangipani
 export const RIPPLE_CAP = 3;
 const LEAF_COL = { leaf_green: '#7cc46a', leaf_lime: '#b8d860', leaf_dry: '#d9a066', petal_pink: '#f6a6c8', frangipani: '#fff4dc', petal_red: '#e8505a' };
 
-// How far each kind of plant leans in a full gust (a shear factor).
-// Only the tall plants: a sheared picture costs more to draw than a straight
-// one, and the low bushes and flowers already sway when you brush past them.
-export const SWAY = { palm: 0.075, bamboo: 0.06, tree: 0.03 };
+// How far each kind of plant leans in a full gust (a shear factor), and how
+// fast it flutters (radians per ms): the big trees slowly, flowers quickly.
+// The low bushes and flowers sway only near you (SWAY_NEAR tiles), where the
+// eye is: a sheared picture costs a little more to draw than a straight one.
+export const SWAY = { palm: 0.075, bamboo: 0.06, tree: 0.03, bush: 0.05, flower: 0.08 };
+const SWAY_FREQ = { palm: 0.0019, bamboo: 0.0026, tree: 0.0015, bush: 0.0034, flower: 0.0043 };
+const LOW_PLANTS = new Set(['bush', 'flower']);
+export const SWAY_NEAR = 12;
 export const LEAF_CAP = 10;
 export const GLINT_CAP = 16;
 export const BIRD_CAP = 5;       // town birds in a group
@@ -79,12 +86,12 @@ export function swayKind(o) {
   return null;
 }
 
-/** An object's lean in the breeze at time t: a wave rolling west to east. */
+/** An object's lean in the breeze at time t: pushed over as a gust front
+ *  rolls through its tile (wind.js), fluttering on a beat of its own. */
 export function swayLean(o, t, wind) {
   const k = swayKind(o);
   if (!k) return 0;
-  const w = Math.sin(t * 0.0019 - o.x * 0.42 - o.y * 0.17) * 0.65 + Math.sin(t * 0.0047 + o.x * 1.3 + o.y) * 0.35;
-  return SWAY[k] * (0.25 + wind) * w;
+  return plantLean(SWAY[k], o.x * TILE + TILE / 2, o.y * TILE, t, wind, SWAY_FREQ[k], tileHash(o.x, o.y, 61) * 6.283);
 }
 
 export class AmbientLife {
@@ -93,6 +100,7 @@ export class AmbientLife {
     this.wind = 0.4;
     this._seed = 0x6d2b79f5;  // its own random source
     this._gloom = 0; this._day = 1; this._night = 0; this._zone = '';
+    this._px = 0; this._py = 0; this._t = 0;
     // Water tiles in view (flat [x, y, x, y, ...]), refreshed when the view moves a tile.
     this._water = []; this._waterKey = '';
     this.leaves = [];
@@ -134,6 +142,8 @@ export class AmbientLife {
     this._gloom = wx ? wx.gloom || 0 : 0;
     this._night = night; this._day = clamp01(1 - (night - 0.3) / 0.35);
     const zone = (this._zone = game.currentZoneName || '');
+    this._px = game.player ? game.player.x : 0; this._py = game.player ? game.player.y : 0;
+    this._t = t;
     this._world = game.world;
     this._scanWater(game.world, ox, oy, vw, vh);
     this._updateLeaves(dt, zone, rain, ox, oy, vw, vh);
@@ -164,8 +174,10 @@ export class AmbientLife {
     for (const l of this.leaves) {
       if (!l.on) continue;
       l.life -= dt; l.p += dt;
-      // Blown along by the breeze, fluttering down and side to side.
-      l.x += (l.vx + wind * 0.035) * dt + Math.sin(l.p * 0.003 + l.spin) * 0.02 * dt;
+      // Blown along by the breeze (faster as a gust front catches it up),
+      // fluttering down and side to side.
+      const lw = localWind(l.x, l.y, this._t, wind);
+      l.x += (l.vx + lw * 0.035) * dt + Math.sin(l.p * 0.003 + l.spin) * 0.02 * dt;
       l.y += l.vy * dt + Math.cos(l.p * 0.0023 + l.spin) * 0.012 * dt;
       if (l.life <= 0 || l.x > ox + vw + 40 || l.y > oy + vh + 40 || l.x < ox - 80) l.on = false;
     }
@@ -260,8 +272,13 @@ export class AmbientLife {
     }
   }
 
-  /** How far a plant leans in the breeze right now (0 when switched off). */
-  lean(o, t) { return this.on ? swayLean(o, t, this.wind) : 0; }
+  /** How far a plant leans in the breeze right now (0 when switched off; the
+   *  low plants only within SWAY_NEAR tiles of you). */
+  lean(o, t) {
+    if (!this.on) return 0;
+    if (LOW_PLANTS.has(o.objId) && (Math.abs(o.x - this._px) > SWAY_NEAR || Math.abs(o.y - this._py) > SWAY_NEAR)) return 0;
+    return swayLean(o, t, this.wind);
+  }
 
   // ---------------- Baked sprites ----------------
   _sprite(name) {

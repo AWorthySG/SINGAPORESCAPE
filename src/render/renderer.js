@@ -41,6 +41,7 @@ import { LightPass } from './lighting.js';
 import { CosyLight } from './cosylight.js';
 import { Atmosphere } from './atmosphere.js';
 import { AmbientLife } from './ambient.js';
+import { AirMotes } from './airmotes.js';
 import { RegionPostcards } from './postcard.js';
 import { Weather } from './weather.js';
 import { fxImage, fxTinted, drawFx, drawStrip, badgeKey, DARK_REGIONS } from './fxart.js';
@@ -137,6 +138,7 @@ export class Renderer {
     this.cosy = new CosyLight();     // golden hour and lantern bloom over it (cosylight.js)
     this.atmos = new Atmosphere();   // region grade across borders, crisp at midday (atmosphere.js)
     this.amb = new AmbientLife();    // breeze, glints, flocks, town birds, cats, steam, leaves (ambient.js)
+    this.motes = new AirMotes();     // motes, glow-flies, sea spray and blown sand on the wind (airmotes.js)
     this._moodOf = (z) => worldMood(this.game, z);
     this.postcards = new RegionPostcards();   // the arrival postcards (postcard.js)
     this.weather = new Weather();    // rain, snow, mist, embers (weather.js)
@@ -251,6 +253,9 @@ export class Renderer {
       this.critters.update(fdt, env, ox, oy, vw, vh);
       this.critters.drawGround(ctx, ox, oy);
       this.amb.update(game, fdt, timeMs, ox, oy, vw, vh, night, this.weather.state, trim);
+      const mo = this._moteOpts || (this._moteOpts = {});
+      mo.low = !!game.lowFx; mo.trim = !!game.fxTrim; mo.calm = !!game.reduceMotion;
+      this.motes.update(game, fdt, timeMs, ox, oy, vw, vh, night, this.weather.state, this.amb.wind, mo);
     }
 
     // Depth-sorted drawables.
@@ -481,6 +486,7 @@ export class Renderer {
 
     this._drawClueMarker(ox, oy, vw, vh, timeMs);
     this.amb.drawAir(ctx, ox, oy, timeMs);   // leaves, petals and birds, under the grade
+    this.motes.drawLow(ctx, ox, oy);          // blown sand and sea spray, under it too
     // The light pass (lighting.js) paints the grade and the night's darkness
     // with lamps, fires and spells cut out of it, then the weather in the air;
     // low graphics (and headless runs) keep the old flat fill.
@@ -492,6 +498,7 @@ export class Renderer {
     // things left to paint on a phone that can't keep up.
     if (!game.fxTrim) this._drawVignette(vw, vh, night);
     this.critters.drawAir(ctx, ox, oy, timeMs);
+    this.motes.drawGlow(ctx, ox, oy, timeMs);   // sunlit motes and glow-flies, over the night
     this._drawParticles(ox, oy);
     this._drawProjectiles(ox, oy);
     // Impacts, crit stars, death poofs, coin sparkles, level-up light (combatfx.js).
