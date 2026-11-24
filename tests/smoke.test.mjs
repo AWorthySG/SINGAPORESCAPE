@@ -213,7 +213,8 @@ test('Ranged & Magic skills + the spellbook exist', () => {
   const ids = SKILLS.map((s) => s.id);
   assert.ok(ids.includes('ranged') && ids.includes('magic'));
   assert.ok(skillIconSVG('ranged', 20).includes('assets/icons/skill-ranged.webp') && skillIconSVG('magic', 20).includes('assets/icons/skill-magic.webp'));
-  assert.equal(SPELLS.length, 7, "one spell per element: Wind, Water, Earth, Fire, Chaos, Dark and Blood");
+  assert.equal(SPELLS.filter((s) => !s.cls).length, 7, "one spell per element: Wind, Water, Earth, Fire, Chaos, Dark and Blood");
+  assert.equal(SPELLS.filter((s) => s.cls).length, 8, 'and four each for the Priest and the Zealot');
   for (const sp of SPELLS) assert.ok(sp.maxHit > 0 && sp.runes && sp.level >= 1, `spell ${sp.id} well-formed`);
   // Every rune referenced by a spell must be a real item.
   for (const sp of SPELLS) for (const r of Object.keys(sp.runes)) assert.ok(ITEMS[r], `spell ${sp.id} uses real rune ${r}`);
