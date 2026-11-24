@@ -25,6 +25,27 @@ export function tileHash(x, y, s = 0) {
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
 
+// ---------------- Region ground ----------------
+
+/**
+ * Recolour a ground texture's pixels (RGBA `data`, changed in place) onto a
+ * ramp from `lo` to `hi` by each pixel's brightness: `mid` is where the
+ * texture's average lands on the ramp and `gain` stretches the differences
+ * about it, so the slabs and cracks still read. Done once per texture when a
+ * chunk first needs it (renderer.js REGION_GROUND), never per frame.
+ */
+export function recolourGround(data, { lo, hi, mid = 0.5, gain = 1 }) {
+  const lum = (i) => (0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]) / 255;
+  let sum = 0, n = 0;
+  for (let i = 0; i < data.length; i += 4) if (data[i + 3] > 0) { sum += lum(i); n++; }
+  const mean = n ? sum / n : 0.5;
+  for (let i = 0; i < data.length; i += 4) {
+    const v = Math.max(0, Math.min(1, mid + (lum(i) - mean) * gain));
+    for (let c = 0; c < 3; c++) data[i + c] = Math.round(lo[c] + (hi[c] - lo[c]) * v);
+  }
+  return data;
+}
+
 // ---------------- Soft edges ----------------
 
 // Which ground spills over which where two meet: a higher rank bleeds its

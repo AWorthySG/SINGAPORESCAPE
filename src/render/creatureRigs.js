@@ -5,6 +5,7 @@
 // sheet's assembled picture, so drawing them all unrotated rebuilds it.
 // `piv` is each part's joint as a fraction of that canvas. The tables below
 // are measured from the sheets; the motions are shared by body plan.
+import { TICK_MS } from '../config.js';
 
 const ease = (x) => 1 - (1 - x) * (1 - x);
 // Wind-up, strike and recovery of an attack swing (attackK runs 0..1).
@@ -13,10 +14,21 @@ const walking = (o) => o.move ?? (o.moving ? 1 : 0);
 const cast = (o) => (o.castK > 0 ? Math.sin(o.castK * Math.PI) : 0);
 // Snarling, roaring or angry faces show while a blow lands or a signature move plays.
 const fierce = (o) => { const a = atkPhase(o.attackK ?? -1); return (a && (a.hit > 0.15 || a.wind > 0.6)) || o.castK > 0; };
+// How far through its stride a walker is, in radians. It follows the ground
+// covered (o.walk counts tiles walked, as for the hero), not the clock, so the
+// legs never pace on the spot or slide along: `spd` is the swing's speed at an
+// ordinary walk (radians per ms), so a tile walked is TICK_MS of it. Standing
+// still it holds, and the eased walk weight brings the legs back to rest.
+// Without a walk phase (a preview), the clock stands in.
+export const gaitPhase = (t, o, spd) => (typeof o.walk === 'number' ? o.walk * spd * TICK_MS : t * spd);
+// How much the legs swing: the eased walk weight, but once it has stopped the
+// legs come down more gently than the body settles (the square root halves
+// the ease's pace), so a stride lands over a third of a second, not snapping shut.
+const legWeight = (o) => { const m = walking(o); return o.moving || o.move === undefined ? m : Math.sqrt(m); };
 // A limb swinging with the walk (opposite pairs on opposite beats), barely stirring at rest.
-const stride = (pair, amp, spd = 0.022) => (t, o) => {
-  const m = walking(o);
-  return Math.sin(t * spd + (pair ? Math.PI : 0)) * amp * m + Math.sin(t * 0.003 + pair) * 0.03 * (1 - m);
+export const stride = (pair, amp, spd = 0.022) => (t, o) => {
+  const m = legWeight(o);
+  return Math.sin(gaitPhase(t, o, spd) + (pair ? Math.PI : 0)) * amp * m + Math.sin(t * 0.003 + pair) * 0.03 * (1 - m);
 };
 const sway = (amp, spd, ph = 0) => (t, o) => Math.sin(t * spd * (walking(o) > 0.3 ? 1.8 : 1) + ph) * amp;
 // The striking limb: drawn back on the wind-up, thrown forward on the blow.
@@ -32,7 +44,7 @@ const PLANS = {
     back_far: { swing: stride(1, 0.38) }, front_far: { swing: stride(0, 0.38) },
     back_near: { swing: stride(0, 0.38) }, front_near: { swing: stride(1, 0.38) },
     tail: { swing: sway(0.14, 0.006) },
-    head: { swing: (t, o) => { const a = atkPhase(o.attackK ?? -1); return a ? 0.1 * a.wind - 0.14 * a.hit : Math.sin(t * (o.moving ? 0.022 : 0.004)) * (o.moving ? 0.045 : 0.03); }, swap: ['head_open', fierce] },
+    head: { swing: (t, o) => { const a = atkPhase(o.attackK ?? -1), m = walking(o); return a ? 0.1 * a.wind - 0.14 * a.hit : Math.sin(gaitPhase(t, o, 0.022)) * 0.045 * m + Math.sin(t * 0.004) * 0.03 * (1 - m); }, swap: ['head_open', fierce] },
   },
   // Spiders, scorpions and crabs: the leg rows scuttle, the near claw opens on the wind-up and snaps shut.
   crawl: {
@@ -57,11 +69,12 @@ const PLANS = {
     arm_near: { swing: (t, o) => strike(0.45, 0.5, 0.14)(t, o) - cast(o) * 0.4 },
     face: { swap: ['face_attack', fierce] },
   },
-  // Fliers: the wings beat about the shoulder (fast for insects and bats).
+  // Fliers: the wings beat about the shoulder (fast for insects and bats); the
+  // dangling feet swing with the distance flown, and drift on the clock while it hovers.
   flier: {
     wing_far: { swing: (t, o) => Math.sin(t * (o.flap || 0.02) + 0.4) * 0.38 },
     wing_near: { swing: (t, o) => Math.sin(t * (o.flap || 0.02)) * 0.45 },
-    feet: { swing: sway(0.08, 0.004) },
+    feet: { swing: (t, o) => { const m = legWeight(o); return Math.sin(gaitPhase(t, o, 0.0072)) * 0.08 * m + Math.sin(t * 0.004) * 0.08 * (1 - m); } },
   },
   // Bosses: idle sway, a lunge with the main limb, and a roar with the crown or gem flaring on a signature move.
   boss: {

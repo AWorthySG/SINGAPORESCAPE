@@ -11,7 +11,7 @@ import { drawHeroBack } from './heroAnimArt.js';
 import { heroLit, bakeRim } from './herolight.js';
 import { poseBlender } from './poseBlend.js';
 import { animSeed, animTempo, stepLift, stepRock, fidget, hitFlash, flinch, telegraphGlow, telegraphShake } from './creatureanim.js';
-import { CREATURE_RIGS, TOWN_IDLE, bossRig } from './creatureRigs.js';
+import { CREATURE_RIGS, TOWN_IDLE, bossRig, stride, gaitPhase } from './creatureRigs.js';
 import { REGION_GIVERS } from '../data/regionQuests.js';
 import { RESIDENTS } from '../data/consequences.js';
 import { PORTRAIT_CROPS } from '../data/portraitcrops.js';
@@ -352,8 +352,8 @@ function monsterTint(sticker, col) {
 const ease = (x) => 1 - (1 - x) * (1 - x);
 const atkPhase = (ak) => (ak < 0 ? null : ak < 0.35 ? { wind: ease(ak / 0.35), hit: 0 } : ak < 0.6 ? { wind: 1 - (ak - 0.35) / 0.25, hit: Math.sin(((ak - 0.35) / 0.25) * Math.PI / 2) } : { wind: 0, hit: 1 - ease((ak - 0.6) / 0.4) });
 // Walking legs for four-legged species rigs: diagonal pairs swing together
-// (near-front with far-back), still when standing.
-const leg = (pair, amp = 0.42) => (t, o) => (o.moving ? Math.sin(t * 0.022 + (pair ? Math.PI : 0)) * amp : Math.sin(t * 0.003 + pair) * 0.03);
+// (near-front with far-back), in step with the ground covered, settling as it stops (creatureRigs.js).
+const leg = (pair, amp = 0.42) => stride(pair, amp);
 const RIGS = {
   // Monster species with moving parts (assets/creatures/species/rig/<family>_<part>.webp).
   rat: {
@@ -367,7 +367,8 @@ const RIGS = {
       front_near: { piv: [0.6378, 0.6166], swing: leg(1) },
       head: { piv: [0.6436, 0.5538], swing: (t, o) => {
         const a = atkPhase(o.attackK ?? -1);
-        return a ? 0.12 * a.wind - 0.16 * a.hit : Math.sin(t * (o.moving ? 0.022 : 0.004)) * (o.moving ? 0.05 : 0.035);   // a sniffing nod; a snap forward to bite
+        const m = o.move ?? (o.moving ? 1 : 0);   // a sniffing nod, in step when walking; a snap forward to bite
+        return a ? 0.12 * a.wind - 0.16 * a.hit : Math.sin(gaitPhase(t, o, 0.022)) * 0.05 * m + Math.sin(t * 0.004) * 0.035 * (1 - m);
       } },
     },
   },
