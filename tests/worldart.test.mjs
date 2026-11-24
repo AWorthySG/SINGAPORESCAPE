@@ -208,6 +208,9 @@ test('flowerbeds round the plaza vary their look by tile, but stay the same obje
   assert.ok(kinds.size >= 5, `a mix of plants and colours (${kinds.size})`);
   assert.ok(looks.some((l) => l.flip) && looks.some((l) => !l.flip), 'some mirrored');
   assert.ok(beds.some((o, i) => looks[i].key !== `obj-${o.objId}`), 'now and then the other plant');
+  // All four pictures of each kind turn up round the border; only the first is ever recoloured.
+  for (const k of ['obj-flower', 'obj-bush']) for (const n of ['', '-1', '-2', '-3']) assert.ok(looks.some((l) => l.key === k + n), k + n);
+  assert.ok(looks.every((l) => !/-\d$/.test(l.key) || !l.tint), 'the new pictures keep their own colours');
   // Two neighbours in a row rarely match exactly.
   let same = 0;
   for (let i = 1; i < looks.length; i++) if (JSON.stringify(looks[i]) === JSON.stringify(looks[i - 1])) same++;

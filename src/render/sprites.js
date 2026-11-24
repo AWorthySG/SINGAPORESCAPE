@@ -2547,7 +2547,8 @@ const WORLD_ART = {
   'obj-agility_course': [60, 48, 16], 'obj-agility_balance': [50, 34, 15], 'obj-agility_net': [46, 46, 16],
   'obj-agility_rope': [44, 46, 16], 'obj-agility_ledge': [44, 42, 16], 'obj-agility_zip': [48, 46, 16],
   'obj-wall': [40, 36, 15], 'obj-ruin': [44, 44, 15], 'obj-fence': [40, 34, 15], 'obj-bush': [34, 30, 14],
-  'obj-flower': [28, 26, 13], 'obj-palm': [50, 66, 15], 'obj-lamp': [24, 54, 15], 'obj-sign': [28, 38, 15],
+  'obj-flower': [28, 26, 13], ...Object.fromEntries([1, 2, 3].flatMap((n) => [[`obj-flower-${n}`, [28, 26, 13]], [`obj-bush-${n}`, [34, 30, 14]]])),
+  'obj-palm': [50, 66, 15], 'obj-lamp': [24, 54, 15], 'obj-sign': [28, 38, 15],
   'obj-fishing_spot': [42, 30, 12], 'obj-rod_spot': [42, 34, 12], 'obj-sea_rod_spot': [42, 34, 12],
   'obj-fishing_cage': [42, 32, 12], 'obj-grouper_spot': [42, 32, 12], 'obj-harpoon_spot': [42, 34, 12],
   'obj-bird_snare': [40, 34, 14], 'obj-squirrel_trap': [40, 34, 14], 'obj-lizard_snare': [40, 34, 14],
@@ -2620,10 +2621,12 @@ function worldArtKey(obj, time = 0) {
 }
 // Flowerbeds and shrubs line the town plazas tile after tile, and one sticker
 // repeated forty times reads as wallpaper. So each takes its look from its
-// tile: now and then the other plant, its orchids in another colour, a touch
-// bigger or smaller (within 8%), mirrored or not. Only the drawing changes:
-// the object, and what it says when examined, stay as they are. Each tint is
-// baked once (tintedArt), so a look costs nothing more per frame.
+// tile: now and then the other plant, one of four pictures of its kind (the
+// first now and then in another colour), a touch bigger or smaller (within
+// 8%), mirrored or not. Only the drawing changes: the object, and what it says
+// when examined, stay as they are. Each tint is baked once (tintedArt), so a
+// look costs nothing more per frame.
+const BED_VARIANTS = 4;   // obj-flower, obj-flower-1 ... obj-flower-3 (and the same for bush)
 const BED_LOOKS = {
   flower: { swap: 0.14, other: 'obj-bush' },
   bush: { swap: 0.18, other: 'obj-flower' },
@@ -2635,9 +2638,11 @@ const BED_TINTS = {
 /** The look of the flowerbed or shrub `obj`: { key, tint, s, flip }, the same every time for its tile. */
 export function bedLook(obj) {
   const b = BED_LOOKS[obj.objId];
-  const key = tileHash(obj.x, obj.y, 61) < b.swap ? b.other : `obj-${obj.objId}`;
+  const kind = tileHash(obj.x, obj.y, 61) < b.swap ? b.other : `obj-${obj.objId}`;
+  const v = Math.floor(tileHash(obj.x, obj.y, 65) * BED_VARIANTS);
+  const key = v ? `${kind}-${v}` : kind;
   let r = tileHash(obj.x, obj.y, 62), tint = null;
-  for (const [f, n] of BED_TINTS[key]) { r -= n; if (r <= 0) { tint = f; break; } }
+  if (!v) for (const [f, n] of BED_TINTS[kind]) { r -= n; if (r <= 0) { tint = f; break; } }   // the new pictures keep their own colours
   return { key, tint, s: 0.92 + tileHash(obj.x, obj.y, 63) * 0.16, flip: tileHash(obj.x, obj.y, 64) < 0.5 };
 }
 const _worldImg = {};
