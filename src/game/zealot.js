@@ -23,9 +23,10 @@
 // holy fire adds little once Fire's Ignite is running), breaking the rule that a
 // class's own type is its best weapon (combat.js WEAPON_DMG_MULT).
 // Since the Zealot casts its own Flame path (magic.js; game/classelements.js)
-// rather than Fire, its damage beside the Wizard's is set by FLAME_POWER there:
-// 103-119% of the Wizard's single-target damage at levels 50-200 and 86% at 300.
-// Martyrdom's life cost keeps it hurt, so Fervour keeps counting.
+// rather than Fire, its damage beside the Wizard's is set by FLAME_POWER (and
+// BLOOD_POWER) there: 103-117% of the Wizard's single-target damage at levels
+// 50-200 and 86% at 300.
+// Blood's life price keeps it hurt, so Fervour keeps counting.
 export const ZEALOT = { fervour: 0.3, orb: 0.85 };
 // Holy fire (WOUNDS.holyfire in game.js): each spell through a censer adds a burn
 // of `share` of its hit every second for `secs` seconds (15% of the hit in all,

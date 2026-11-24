@@ -31,7 +31,7 @@ export const CLASSES = [
   { id: 'sorcerer', name: 'Sorcerer', weapon: 'wand', style: 'magic', desc: 'Quick-casting wands, lighter but faster than staves.' },
   // Added after the boss signature weapons were dealt (see LATE_CLASSES in bossWeapons.js).
   { id: 'priest', name: 'Priest', weapon: 'orb', style: 'magic', desc: 'Holy orbs and the Light path, elements of your own: every spell heals you a little and smites undead, spirits and demons, and your skills lift your blessings.' },
-  { id: 'zealot', name: 'Zealot', weapon: 'censer', style: 'magic', desc: 'A burning censer on a chain and the Flame path, elements of your own: holy fire that stacks on foes, more damage the more hurt you are, and skills paid for in life.' },
+  { id: 'zealot', name: 'Zealot', weapon: 'censer', style: 'magic', desc: 'A burning censer on a chain and the Flame path, elements of your own: holy fire that stacks on foes, blood that trades your life for far harder hits, more damage the more hurt you are, and skills paid for in life.' },
   // Dance
   { id: 'dancer', name: 'Dancer', weapon: 'whip', style: 'dance', desc: 'Whips that lash from 3 tiles, building Rhythm and dodging blows.' },
 ];

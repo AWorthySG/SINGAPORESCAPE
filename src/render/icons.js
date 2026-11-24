@@ -959,9 +959,10 @@ import { BESTIARY_BOSSES } from '../data/bestiary.js';
       <path d="M13.5 3.5 L7.5 13 L11.5 13 L10 20.5 L16.5 10.5 L12.5 10.5 Z" fill="#ff6a4a" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/>`,
     ash_strike: `<path d="M12 20 C6 20 4 15 7 11 C9 8 13 9 13 12 C13 14 10.5 14.5 10 13 C12 13 11.5 10.5 9.5 11.5 C7 13 8.5 18 13 18 C17 18 19 14 18 10 C20.5 13 20 20 12 20 Z" fill="#b8a8a0" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/>
       <circle cx="16" cy="5" r="1.4" fill="#ff9a40" stroke="${OL}" stroke-width="0.6"/><circle cx="19.5" cy="7.5" r="1" fill="#ffb070"/><circle cx="6" cy="6" r="1.1" fill="#ff9a40" stroke="${OL}" stroke-width="0.6"/>`,
-    martyrdom_strike: `<path d="M12 21 C7 21 5 17.5 6.5 14 C8 10.5 11 8 12 3 C13 8 16 10.5 17.5 14 C19 17.5 17 21 12 21 Z" fill="#e04a5a" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/>
-      <path d="M12 19 C10 19 9.2 17.4 10 15.8 C10.8 14.4 11.6 13.6 12 12 C12.4 13.6 13.2 14.4 14 15.8 C14.8 17.4 14 19 12 19 Z" fill="#ffd27a"/>
-      <circle cx="4.5" cy="8" r="1" fill="#ffd27a" stroke="${OL}" stroke-width="0.5"/><circle cx="19.5" cy="7" r="1.2" fill="#ffd27a" stroke="${OL}" stroke-width="0.5"/>`,
+    bloodprice_strike: `<path d="M12 21.5 C7.2 21.5 5 18 6.4 14.4 C7.8 10.8 11 8 12 2.5 C13 8 16.2 10.8 17.6 14.4 C19 18 16.8 21.5 12 21.5 Z" fill="#a8102a" stroke="${OL}" stroke-width="1.1" stroke-linejoin="round"/>
+      <path d="M9.2 16.5 C9 14.6 10.2 13 11 12" fill="none" stroke="#ff7a88" stroke-width="1.3" stroke-linecap="round"/>
+      <path d="M19 4.5 C17.8 6 17.6 7 18.6 7.6 C19.6 8.1 20.4 7.1 19 4.5 Z" fill="#c8142e" stroke="${OL}" stroke-width="0.6" stroke-linejoin="round"/>
+      <path d="M5 6 C4.1 7.1 4 7.9 4.7 8.3 C5.5 8.7 6.1 7.9 5 6 Z" fill="#c8142e" stroke="${OL}" stroke-width="0.6" stroke-linejoin="round"/>`,
   };
   /** Combat-skill (action bar) icon: mascot artwork, or a stickered vector for
    *  any ability still waiting on artwork (listed in ABILITY_SVG). */
