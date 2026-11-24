@@ -11,7 +11,7 @@
 // rather than replace it. Offensive stats have no caps, so they simply add to
 // gear; crit chance joins gear crit inside critChance, which stops at 100%.
 
-import { MAX_LEVEL, towardTop } from '../data/xp.js';
+import { LIFE_MAX_LEVEL, towardTop } from '../data/xp.js';
 
 export const LIFE_PERK_FULL_LEVEL = 200;
 // Life skills go far past 200, so a perk keeps growing after it, at half the
@@ -21,9 +21,11 @@ export const LIFE_PERK_FULL_LEVEL = 200;
 export const LIFE_PERK_MAX_LEVEL = 1000;
 export const LIFE_PERK_OVER = 0.5;
 // ...then slowly on, in a straight line, another LIFE_PERK_TOP_OVER of it by
-// LIFE_PERK_TOP_LEVEL (9999), where it is at its full strength, twice its
-// level-200 value (the owner asked for life-skill bonuses all the way to 9999).
-export const LIFE_PERK_TOP_LEVEL = MAX_LEVEL;
+// level 9999, twice its level-200 value (the owner asked for life-skill bonuses
+// all the way to 9999), and on at the same pace to LIFE_PERK_TOP_LEVEL (30,000,
+// the life skills' top level), where it is at its full strength, about 3.1
+// times its level-200 value.
+export const LIFE_PERK_TOP_LEVEL = LIFE_MAX_LEVEL;
 export const LIFE_PERK_TOP_OVER = 0.5;
 
 // skill -> { stat, max (the value at LIFE_PERK_FULL_LEVEL), label, unit }.
@@ -57,7 +59,8 @@ export const LIFE_PERK_TOP_NOTE_EVERY = 500;
 /** A life skill's perk value at `level`: 0 at level 1, its `max` at
  *  LIFE_PERK_FULL_LEVEL, then half as fast to (1 + LIFE_PERK_OVER) x at
  *  LIFE_PERK_MAX_LEVEL, then slowly to (1 + LIFE_PERK_OVER + LIFE_PERK_TOP_OVER) x
- *  at LIFE_PERK_TOP_LEVEL. Percentages keep a decimal (a unit-less perk would be whole points). */
+ *  at level 9999 and on at that pace to LIFE_PERK_TOP_LEVEL (towardTop). Percentages
+ *  keep a decimal (a unit-less perk would be whole points). */
 export function lifePerkValue(skill, level) {
   const p = LIFE_PERKS[skill];
   if (!p) return 0;
@@ -89,8 +92,8 @@ export function lifePerkText(skill, level) {
 }
 
 /** The next milestone above `level` (a multiple of LIFE_PERK_NOTE_EVERY, of
- *  LIFE_PERK_TOP_NOTE_EVERY from level 1000, or 9999 itself), and the perk
- *  there, or null at full strength. */
+ *  LIFE_PERK_TOP_NOTE_EVERY from level 1000, or LIFE_PERK_TOP_LEVEL itself), and
+ *  the perk there, or null at full strength. */
 export function lifePerkNext(skill, level) {
   if (!LIFE_PERKS[skill] || level >= LIFE_PERK_TOP_LEVEL) return null;
   const step = level < LIFE_PERK_MAX_LEVEL ? LIFE_PERK_NOTE_EVERY : LIFE_PERK_TOP_NOTE_EVERY;
@@ -100,6 +103,6 @@ export function lifePerkNext(skill, level) {
 
 /** Whether reaching `level` in a life skill is worth a chat note about its
  *  perk: every LIFE_PERK_NOTE_EVERY levels to 200, every 50 to 1000, every
- *  LIFE_PERK_TOP_NOTE_EVERY after (where it grows slowly) and at 9999 itself. */
+ *  LIFE_PERK_TOP_NOTE_EVERY after (where it grows slowly) and at LIFE_PERK_TOP_LEVEL itself. */
 export const lifePerkNoteAt = (level) => level <= LIFE_PERK_TOP_LEVEL && (level === LIFE_PERK_TOP_LEVEL
   || level % (level > LIFE_PERK_MAX_LEVEL ? LIFE_PERK_TOP_NOTE_EVERY : level > LIFE_PERK_FULL_LEVEL ? 50 : LIFE_PERK_NOTE_EVERY) === 0);

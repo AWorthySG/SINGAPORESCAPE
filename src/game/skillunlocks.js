@@ -8,7 +8,7 @@
 // unlock never shifts the game's Math.random sequence that seeded tests replay.
 import { SKILL_UNLOCKS, UNLOCKS, UNLOCK_LEVELS, UNLOCK_TOP_MULT, SKILL_TELEPORT_TICKS, ACTION_SKILL, GATHER_KINDS, MAKE_KINDS,
   GATHER_CONSUMABLES, GATHER_BREW_KEYS } from '../data/unlocks.js';
-import { MAX_LEVEL, towardTop } from '../data/xp.js';
+import { LIFE_MAX_LEVEL, towardTop } from '../data/xp.js';
 import { POTIONS } from '../data/trades.js';
 import { STATION_BY_ID } from '../data/transport.js';
 import { SKILL_BY_ID } from '../data/skills.js';
@@ -16,7 +16,7 @@ import { getItem } from '../data/items.js';
 import { playIconHTML } from '../render/icons.js';
 import { WHOLE_HAUL } from './jackpot.js';
 
-import { aOrAn } from '../core/utils.js';
+import { aOrAn, formatNumber } from '../core/utils.js';
 const skillName = (s) => SKILL_BY_ID[s]?.name || s;
 
 /** Unlock dice: xorshift on a seed kept on the game. */
@@ -43,8 +43,14 @@ export function nextUnlock(skill, level) {
 }
 
 /** How much stronger every unlock is at `level` than at the last rung (99):
- *  1 up to 99, then a straight line to UNLOCK_TOP_MULT at level 9999. */
+ *  1 up to 99, then a straight line to UNLOCK_TOP_MULT at level 9999, and on at
+ *  the same pace to UNLOCK_FULL_MULT at level 30,000 (LIFE_MAX_LEVEL). */
 export const unlockGrowth = (level) => 1 + (UNLOCK_TOP_MULT - 1) * towardTop(level, UNLOCK_LEVELS[UNLOCK_LEVELS.length - 1]);
+/** The most an unlock grows, at the life skills' top level (about x2.51). */
+export const UNLOCK_FULL_MULT = unlockGrowth(LIFE_MAX_LEVEL);
+/** " (x2.51 at level 30,000)", or " (as strong as they get)" there: the end of the tooltip's and guide's growth line. */
+export const unlockTopText = (level, they = 'they') => (level >= LIFE_MAX_LEVEL ? ` (as strong as ${they} get${they === 'it' ? 's' : ''})`
+  : ` (x${UNLOCK_FULL_MULT.toFixed(2)} at level ${formatNumber(LIFE_MAX_LEVEL)})`);
 /** unlockGrowth as the tooltip and the skill guide quote it ('x1.05'), or ''
  *  while it would still read x1.00 (levels 100 to 198 grow it by under 0.5%). */
 export const unlockGrowthText = (level) => { const s = unlockGrowth(level).toFixed(2); return s === '1.00' ? '' : `x${s}`; };
@@ -226,7 +232,7 @@ export function unlockTipText(skill, level) {
   const open = all.filter((u) => level >= u.level).length, next = nextUnlock(skill, level), m = unlockGrowth(level), shown = unlockGrowthText(level);
   // Past 99 the bonuses (not the teleport or a recipe) keep growing.
   return `<br>Unlocks: <b>${open} of ${all.length}</b>` + (next ? `<br>At level ${next.level}: ${next.name} (${next.desc})` : '<br>Every unlock open')
-    + (m > 1 ? `${shown ? `, each bonus now ${shown} as strong` : ', and their bonuses keep growing'}${level >= MAX_LEVEL ? ' (as strong as they get)' : ` (x${UNLOCK_TOP_MULT} at level ${MAX_LEVEL})`}` : '');
+    + (m > 1 ? `${shown ? `, each bonus now ${shown} as strong` : ', and their bonuses keep growing'}${unlockTopText(level)}` : '');
 }
 
 /** The level-up banner for a new unlock (and its chat line). */

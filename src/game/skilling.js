@@ -102,12 +102,15 @@ export const GEM_TABLE = [
 // Stewardship) can't grow any more, so it grows sideways: once it is certain,
 // a chance of one more on top, from nothing there to EXTRA_AT_TOP at level 9999
 // (pastSure in xp.js; the owner asked for life-skill bonuses all the way to
-// 9999). The one more pays no XP and never comes out of a tree's or rock's
-// stock, so XP an hour, the balance between the gathering skills and the
-// whole-tree and whole-seam jackpots stay as they were. It is rolled only once
-// the first chance is certain, so below that every Math.random roll is as it
-// was (the seeded tests replay them).
+// 9999), then on at the same pace towards 30,000 until the one more is certain
+// too (about level 19,000 for a double log). The one more pays no XP and never
+// comes out of a tree's or rock's stock, so XP an hour, the balance between the
+// gathering skills and the whole-tree and whole-seam jackpots stay as they
+// were. It is rolled only once the first chance is certain, so below that
+// every Math.random roll is as it was (the seeded tests replay them).
 export const EXTRA_AT_TOP = 0.5;
+/** The chance of one more once `p` is certain at `lvl` (0 before), at most 100%. */
+export const extraChance = (p, lvl) => Math.min(1, EXTRA_AT_TOP * pastSure(p, lvl));
 
 // The moonlit kapok's Woodcutting XP at night (it can be chopped any time),
 // the moonfish spot's Fishing XP, and the tiger trail's Hunter XP.
@@ -167,7 +170,7 @@ export function resolveWoodcut(game, action) {
     if ((!falls || obj.logsLeft > 1) && Math.random() < pDouble(lvl) && game.inventory.canAdd(def.gives, 1) > 0) {
       game.inventory.add(def.gives, 1);
       if (falls) obj.logsLeft--;   // the extra log comes out of the tree's 10-20
-      const third = EXTRA_AT_TOP * pastSure(pDouble, lvl);   // 0 until the double is certain
+      const third = extraChance(pDouble, lvl);   // 0 until the double is certain
       if (third > 0 && Math.random() < third && game.inventory.canAdd(def.gives, 1) > 0) {
         game.inventory.add(def.gives, 1);   // on top of the tree's 10-20
         game.msg(`Two more branches fall — triple ${logName}!`);
@@ -235,7 +238,7 @@ export function resolveMine(game, action) {
     if (obj.oresLeft > 1 && Math.random() < pDouble(lvl) && game.inventory.canAdd(yieldId, 1) > 0) {
       game.inventory.add(yieldId, 1);
       obj.oresLeft--;   // the bonus ore comes out of the rock's 10-20
-      const third = EXTRA_AT_TOP * pastSure(pDouble, lvl);   // 0 until the double is certain
+      const third = extraChance(pDouble, lvl);   // 0 until the double is certain
       if (third > 0 && Math.random() < third && game.inventory.canAdd(yieldId, 1) > 0) {
         game.inventory.add(yieldId, 1);   // on top of the rock's 10-20
         game.msg(`A rich seam — triple ${oreName}!`);
@@ -251,7 +254,7 @@ export function resolveMine(game, action) {
       if (game.inventory.canAdd(gem.id, 1) > 0) {
         game.inventory.add(gem.id, 1);
         game.skills.addXp('mining', GEM_XP);
-        const more = EXTRA_AT_TOP * pastSure(pGem, lvl);   // 0 until a gem is certain
+        const more = extraChance(pGem, lvl);   // 0 until a gem is certain
         const gem2 = more > 0 && Math.random() < more ? weightedPick(GEM_TABLE) : null;
         const two = !!gem2 && game.inventory.canAdd(gem2.id, 1) > 0;
         if (two) game.inventory.add(gem2.id, 1);
@@ -315,7 +318,7 @@ export function resolveFish(game, action) {
     const sb = yieldBonus(game);   // read once: pastSure asks pBig twice more
     const pBig = (l) => bigCatchChance(game, l, tb, baited, sb);
     const big = Math.random() < pBig(lvl) && game.inventory.canAdd(pick.id, 2) >= 2;
-    const third = big ? EXTRA_AT_TOP * pastSure(pBig, lvl) : 0;   // 0 until a big catch is certain
+    const third = big ? extraChance(pBig, lvl) : 0;   // 0 until a big catch is certain
     const three = third > 0 && Math.random() < third && game.inventory.canAdd(pick.id, 3) >= 3;
     const n = big ? 2 : 1;
     game.inventory.add(pick.id, n + (three ? 1 : 0));
@@ -460,7 +463,7 @@ export function resolveSmelt(game, action) {
     if (Math.random() < smithExtraChance(lvl) && game.inventory.canAdd(r.result, 1) > 0) {
       game.inventory.add(r.result, 1);
       tally.extra++;
-      const more = EXTRA_AT_TOP * pastSure(smithExtraChance, lvl);   // 0 until it is certain (level 970)
+      const more = extraChance(smithExtraChance, lvl);   // 0 until it is certain (level 970)
       if (more > 0 && Math.random() < more && game.inventory.canAdd(r.result, 1) > 0) {
         game.inventory.add(r.result, 1);
         tally.extra++;
@@ -546,7 +549,7 @@ export function resolveSmith(game, action) {
   // certain (level 970) now and then a second one (EXTRA_AT_TOP).
   if (Math.random() < smithExtraChance(lvl) && game.inventory.canAdd(r.result, 1) > 0) {
     game.inventory.add(r.result, 1);
-    const more = EXTRA_AT_TOP * pastSure(smithExtraChance, lvl);   // 0 until it is certain (level 970)
+    const more = extraChance(smithExtraChance, lvl);   // 0 until it is certain (level 970)
     const two = more > 0 && Math.random() < more && game.inventory.canAdd(r.result, 1) > 0;
     if (two) game.inventory.add(r.result, 1);
     if (t) t.bonus += two ? 2 : 1;

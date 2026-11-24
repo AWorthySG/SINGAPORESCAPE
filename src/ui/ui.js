@@ -30,7 +30,7 @@ import { getDialogue } from '../data/dialogue.js';
 import { moralDialogue, MORAL_BY_ID, MORAL_EVENTS, moralCoins } from '../data/moralEvents.js';
 import { ALL_MONSTER_IDS as MONSTER_IDS, ALL_BOSS_IDS as BOSS_IDS, getNpc } from '../data/npcs.js';
 import { SIGNATURE_CLASS, SIGNATURE_DROP_CHANCE, sigIdFor } from '../data/bossWeapons.js';
-import { levelProgress, xpToNext, MAX_LEVEL, maxLevelFor } from '../data/xp.js';
+import { levelProgress, xpToNext, maxLevelFor } from '../data/xp.js';
 import { stackLabel, capitalize, formatNumber, shortNumber, aOrAn } from '../core/utils.js';
 import { RHYTHM_MAX, levelBonuses, playerMagicVsNpc } from '../game/combat.js';
 import { CHI, chiStacks } from '../game/monk.js';
@@ -2690,7 +2690,7 @@ export class UI {
     const NAMES = { attack: 'Melee', strength: 'Melee power', defence: 'Defence', ranged: 'Ranged', magic: 'Magic', agility: 'Agility (Dancer)' };
     let tab = PERK_SKILLS.includes(this._perksTab) ? this._perksTab : PERK_SKILLS.find((s) => g.skills.level(s) >= PERK_EVERY) || 'attack';
     const render = (body) => {
-      body.innerHTML = '<div class="modal-hint">Every 20 levels in a fighting skill unlocks that skill\'s next passive perk. After level 200 the perks rank up again (Rank II at 220, III at 420...) until level 9999. Defence perks help in every style.</div>';
+      body.innerHTML = '<div class="modal-hint">Every 20 levels in a fighting skill unlocks that skill\'s next passive perk. After level 200 the perks rank up again (Rank II at 220, III at 420...) until the skill\'s top level (9,999 for Defence, 30,000 for Agility, 99,999 for Melee, Ranged and Magic). Defence perks help in every style.</div>';
       const tabs = document.createElement('div'); tabs.className = 'gear-tabs';
       for (const s of PERK_SKILLS) {
         const b = document.createElement('button');
@@ -2709,7 +2709,7 @@ export class UI {
         row.className = 'perk-row' + (p.rank ? ' owned' : '');
         row.innerHTML = `<span class="perk-rank">${p.rank ? rankName(p.rank) : '–'}</span>`
           + `<span class="perk-text"><b>${escapeHtml(p.name)}</b><span>${escapeHtml(p.desc)}${p.rank > 1 ? ` (x${p.rank})` : ''}</span></span>`
-          + `<span class="perk-next">${next <= MAX_LEVEL ? `${p.rank ? 'Rank up' : 'Unlocks'} at ${next}` : 'Max rank'}</span>`;
+          + `<span class="perk-next">${next <= maxLevelFor(tab) ? `${p.rank ? 'Rank up' : 'Unlocks'} at ${next}` : 'Max rank'}</span>`;
         list.appendChild(row);
       }
       body.appendChild(list);
@@ -2740,7 +2740,7 @@ export class UI {
   openLifePerks() {
     const g = this.game;
     const render = (body) => {
-      body.innerHTML = `<div class="modal-hint">Each life skill adds one combat stat that grows with every level to level ${LIFE_PERK_FULL_LEVEL}, then half as fast to level ${LIFE_PERK_MAX_LEVEL}, then slowly on to its full strength at level ${LIFE_PERK_TOP_LEVEL}. They work in every style and stack on top of your gear (they are counted in the Equipment panel's totals).</div>`;
+      body.innerHTML = `<div class="modal-hint">Each life skill adds one combat stat that grows with every level to level ${LIFE_PERK_FULL_LEVEL}, then half as fast to level ${LIFE_PERK_MAX_LEVEL}, then slowly on to its full strength at level ${formatNumber(LIFE_PERK_TOP_LEVEL)}. They work in every style and stack on top of your gear (they are counted in the Equipment panel's totals).</div>`;
       const list = document.createElement('div'); list.className = 'perk-list';
       for (const s of LIFE_PERK_SKILLS) {
         const lvl = g.skills.level(s), next = lifePerkNext(s, lvl);
@@ -2748,7 +2748,7 @@ export class UI {
         row.className = 'perk-row' + (lvl > 1 ? ' owned' : '');
         row.innerHTML = `<span class="perk-rank">${lvl}</span>`
           + `<span class="perk-text"><b>${escapeHtml(SKILLS.find((x) => x.id === s).name)}: ${escapeHtml(lifePerkText(s, lvl))}</b>`
-          + `<span>At level ${LIFE_PERK_FULL_LEVEL}: ${escapeHtml(lifePerkText(s, LIFE_PERK_FULL_LEVEL))} · at ${LIFE_PERK_MAX_LEVEL}: ${escapeHtml(lifePerkText(s, LIFE_PERK_MAX_LEVEL))} · full, at ${LIFE_PERK_TOP_LEVEL}: ${escapeHtml(lifePerkText(s, LIFE_PERK_TOP_LEVEL))}</span></span>`
+          + `<span>At level ${LIFE_PERK_FULL_LEVEL}: ${escapeHtml(lifePerkText(s, LIFE_PERK_FULL_LEVEL))} · at ${LIFE_PERK_MAX_LEVEL}: ${escapeHtml(lifePerkText(s, LIFE_PERK_MAX_LEVEL))} · full, at ${formatNumber(LIFE_PERK_TOP_LEVEL)}: ${escapeHtml(lifePerkText(s, LIFE_PERK_TOP_LEVEL))}</span></span>`
           + `<span class="perk-next">${next ? `${escapeHtml(next.text.split(' ')[0])} at ${next.level}` : 'Full'}</span>`;
         list.appendChild(row);
       }
