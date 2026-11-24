@@ -695,24 +695,29 @@ export class Renderer {
         ctx.globalAlpha = entering ? 1 : banner;
         ctx.translate(slide, 0);
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
-        ctx.font = `900 ${size.toFixed(1)}px Nunito,"Trebuchet MS",sans-serif`;
+        // Like the title cards, kept left of a phone's HUD column (titleRoom),
+        // the name set smaller where it would not fit the banner there.
+        const room = titleRoom(vw, vh, this.game.camera?.zoom || 1), cx = room.cx;
         const name = cine.intro.name.toUpperCase();
+        const bh = h * 1.4, tone = DARK_REGIONS.has(this.game.currentZoneName) ? 'dark' : 'normal';
+        ctx.font = `900 ${size.toFixed(1)}px Nunito,"Trebuchet MS",sans-serif`;
+        const fit = Math.min(1, (room.w * 0.98 - bh * 2.4) / Math.max(1, ctx.measureText(name).width));
+        if (fit < 1) ctx.font = `900 ${(size * Math.max(0.6, fit)).toFixed(1)}px Nunito,"Trebuchet MS",sans-serif`;
         // The painted banner (dark in the grim lands) with its crest on top,
         // sized to the name; a plain navy ribbon with gold rules until it loads.
-        const bh = h * 1.4, tone = DARK_REGIONS.has(this.game.currentZoneName) ? 'dark' : 'normal';
-        if (drawStrip(ctx, 'banner', tone, vw / 2, y, Math.min(vw * 0.98, ctx.measureText(name).width + bh * 2.4), bh)) {
+        if (drawStrip(ctx, 'banner', tone, cx, y, Math.min(room.w * 0.98, ctx.measureText(name).width + bh * 2.4), bh)) {
           const crest = fxImage('banner-crest');
-          if (crest) drawFx(ctx, crest, vw / 2, y - bh * 0.5 - size * 0.25, size * 1.5);
+          if (crest) drawFx(ctx, crest, cx, y - bh * 0.5 - size * 0.25, size * 1.5);
         } else {
           ctx.fillStyle = 'rgba(34,48,74,0.86)';
           ctx.fillRect(0, y - h / 2, vw, h);
           ctx.fillStyle = '#F5B82E';
           ctx.fillRect(0, y - h / 2, vw, 2.5); ctx.fillRect(0, y + h / 2 - 2.5, vw, 2.5);
         }
-        ctx.strokeStyle = '#22304A'; ctx.lineWidth = size * 0.22; ctx.strokeText(name, vw / 2, y - size * 0.22);
-        ctx.fillStyle = '#FFE38A'; ctx.fillText(name, vw / 2, y - size * 0.22);
+        ctx.strokeStyle = '#22304A'; ctx.lineWidth = size * 0.22; ctx.strokeText(name, cx, y - size * 0.22);
+        ctx.fillStyle = '#FFE38A'; ctx.fillText(name, cx, y - size * 0.22);
         ctx.font = `800 ${(size * 0.48).toFixed(1)}px Nunito,"Trebuchet MS",sans-serif`;
-        ctx.fillStyle = '#FAF6EE'; ctx.fillText(`Level ${cine.intro.level}`, vw / 2, y + size * 0.62);
+        ctx.fillStyle = '#FAF6EE'; ctx.fillText(`Level ${cine.intro.level}`, cx, y + size * 0.62);
         ctx.restore();
       }
     }

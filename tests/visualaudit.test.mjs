@@ -30,9 +30,10 @@ test('a title card keeps left of a portrait phone\'s HUD column, and has the who
   }
 });
 
-test('the renderer draws its title cards in that room', () => {
+test('the renderer draws its title cards and the boss banner in that room', () => {
   const src = read('src/render/renderer.js');
-  assert.match(src, /titleRoom\(vw, vh, this\.game\.camera\?\.zoom \|\| 1\)/);
+  assert.equal(src.match(/titleRoom\(vw, vh, this\.game\.camera\?\.zoom \|\| 1\)/g)?.length, 2, 'the region card and the boss entrance banner');
+  assert.match(src, /drawStrip\(ctx, 'banner', tone, cx, y, Math\.min\(room\.w \* 0\.98,/);
   assert.match(src, /this\.postcards\.draw\(ctx, tc, vw, vh, a, room\) \|\| this\._titlePlaque\(tc, room, y, size\)/);
 });
 
