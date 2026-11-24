@@ -177,11 +177,14 @@ body.title-on > :not(#splash):not(#game-root):not(script) { visibility: hidden !
 
 /* ---- The title on its painted ribbon (art slot "logo-banner") ----
    The crest is the ribbon picture at its own shape, a little wider than the
-   card. The mascot rises in the sunburst's disc (an empty disc read as a
-   missing picture) and tucks in behind the ribbon, so the title on the
-   ribbon's cream band is the one wordmark. Back to front: the whole picture
-   (.splash-crest::before), the mascot, then the ribbon again (the title's
-   ::before, masked to the part below the disc's middle) under the title text. */
+   card. The mascot sits in the sunburst's disc (mascot-sit: in a disc of its
+   own, waving over the rim, its middle on the banner's disc at 49.8% / 38.8%)
+   and tucks in behind the ribbon, so the title on the ribbon's cream band is
+   the one wordmark. On small screens, where the disc is about 43px, its
+   round portrait (medallion) fills the disc instead. Back to front: the whole
+   picture (.splash-crest::before), the mascot, then the ribbon again (the
+   title's ::before, masked to the part below the disc's middle) under the
+   title text. */
 #splash.title-banner .splash-crest {
   --bw: min(540px, calc(100vw - 12px));
   position: relative; isolation: isolate; width: var(--bw); aspect-ratio: 878 / 330;
@@ -193,8 +196,16 @@ body.title-on > :not(#splash):not(#game-root):not(script) { visibility: hidden !
   background: var(--title-banner) center / 100% 100% no-repeat;
 }
 #splash.title-banner .splash-crest .splash-mascot {
-  position: absolute; z-index: 1; left: 50%; top: 34%; width: 24%; height: auto; margin: 0;
-  translate: -50% -50%; filter: drop-shadow(0 2px 0 rgba(34,48,74,0.12));
+  position: absolute; z-index: 1; left: 49.8%; top: 36%; width: 20%; height: auto; margin: 0;
+  translate: -47.2% -52.7%; filter: drop-shadow(0 2px 0 rgba(34,48,74,0.12));   /* the picture's disc centre */
+}
+#splash.title-banner .splash-crest::after {
+  content: none; position: absolute; z-index: 3; left: 49.8%; top: 38.8%; width: 11.8%; aspect-ratio: 1;   /* over the ribbon: it fills the disc */
+  translate: -50% -50%; pointer-events: none; background: var(--title-medallion) center / contain no-repeat;
+}
+@media (max-width: 480px) {
+  #splash.title-banner .splash-crest::after { content: ""; }
+  #splash.title-banner .splash-crest .splash-mascot { display: none; }
 }
 #splash.title-banner .splash-title {
   /* Fills the crest so its ribbon lines up with the one behind; the text sits

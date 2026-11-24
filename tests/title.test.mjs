@@ -166,13 +166,16 @@ test('the splash shows the brand once: the mascot in the ribbon\'s sun, over the
   const splash = html.slice(html.indexOf('<div id="splash"'), html.indexOf('<script type="module"'));
   // One mascot, inside the crest with the title (title.css sets it in the sunburst's disc).
   assert.equal((splash.match(/class="splash-mascot"/g) || []).length, 1);
-  assert.match(splash, /<div class="splash-crest">\s*<img src="assets\/mascot-login\.webp" alt="" class="splash-mascot" \/>\s*<h1 class="splash-title">A-Worthy Adventure<\/h1>\s*<\/div>/);
+  assert.match(splash, /<div class="splash-crest">\s*<img src="assets\/title\/mascot-sit\.webp" alt="" class="splash-mascot" \/>\s*<h1 class="splash-title">A-Worthy Adventure<\/h1>\s*<\/div>/);
   // No second logo and no "by A Worthy" line under the title.
   assert.ok(!splash.includes('splash-logo') && !splash.includes('logo.svg'), 'no logo under the title');
   assert.ok(!/by <b>A/.test(splash), 'no "by A Worthy" line');
   assert.match(splash, /class="cosy-tag">Your cosy kampong adventure</);
   const css = readFileSync(new URL('../styles/title.css', import.meta.url), 'utf8');
   assert.match(css, /#splash\.title-banner \.splash-crest \.splash-mascot \{[^}]*position: absolute;/);
+  // Small screens: the mascot's round portrait fills the disc instead (MD-1).
+  assert.match(css, /#splash\.title-banner \.splash-crest::after \{[^}]*var\(--title-medallion\)/);
+  assert.match(css, /@media \(max-width: 480px\) \{[^@]*\.splash-crest::after \{ content: ""; \}[^@]*\.splash-mascot \{ display: none; \}/);
 });
 
 test('the class spotlight shows three chips for every class, the rest behind "+N more"', async () => {
