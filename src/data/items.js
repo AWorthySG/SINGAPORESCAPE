@@ -335,7 +335,7 @@ const RAW = {
     examine: 'Sailfish grilled in fiery sambal. Heals 50% of your life and fires you up: +5% damage for 60 seconds.' },
   raw_moonfish: { name: 'Raw moonfish', icon: '🐟', value: 1500, tags: ['raw'], examine: 'A round, silver moonfish that glows faintly. Cook it first.' },
   moonfish_curry: { name: 'Moonfish curry', icon: '🍛', value: 2500, heal: 60, healPct: 0.3, meal: { ms: 12000, regenPct: 0.25 },
-    examine: 'A slow-cooked fish head curry. Heals 30% of your life at once and 25% more over 12 seconds.' },
+    examine: 'Thick moonfish steaks in a golden coconut curry, with lime and chilli. Heals 30% of your life at once and 25% more over 12 seconds.' },
   raw_rift_eel: { name: 'Raw rift eel', icon: '🐍', value: 2200, tags: ['raw'], examine: 'A long eel that glows violet from within. Cook it first.' },
   rift_eel_claypot: { name: 'Rift eel claypot', icon: '🍲', value: 3600, heal: 150, healPct: 0.6, examine: 'Eel braised in a sizzling claypot. Heals 60% of your life.' },
   raw_dragon_arowana: { name: 'Raw dragon arowana', icon: '🐉', value: 3500, tags: ['raw'], examine: 'A golden dragonfish from the Shadow Rift. Cook it first.' },
