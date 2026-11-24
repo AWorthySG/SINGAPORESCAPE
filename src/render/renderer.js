@@ -48,8 +48,9 @@ import { fxImage, fxTinted, drawFx, drawStrip, badgeKey, DARK_REGIONS } from './
 import { introCurve, titleAlpha, DEATH_FLASH_MS } from '../game/cinematics.js';
 import { TerrainFx, growBox, tileHash } from './terrainfx.js';
 import { sunShadow, drawSunShadow, footfall } from './shadows.js';
-import { dropArc, dropFx } from './combatfx.js';
-import { applySquash, splatMotion, drawCritBurst, drawMissPuff, drawLootGlow, drawCoinGlint } from './juice.js';
+import { dropArc, dropFx, spawnFx } from './combatfx.js';
+import { applySquash, splatMotion, drawCritBurst, drawMissPuff, drawLootGlow, drawCoinGlint, motionOK } from './juice.js';
+import { spawnPose, deathPose, windupAge, hazardPulse, hazardIn } from './creatureanim.js';
 import { drawGrave } from './grave.js';
 import { drawFishSchool } from './fishschoolfx.js';
 import { playerBarVisible, drawPlayerHp } from './playerhp.js';
@@ -361,6 +362,8 @@ export class Renderer {
         || Math.max(n.y, n.ty) * TILE + TILE / 2 - oy < -m || Math.min(n.y, n.ty) * TILE + TILE / 2 - oy > vh + m) continue;
       near.push(n);
     }
+    // Reduce motion (the setting or the browser's): struck monsters don't shudder or fidget.
+    const calm = !motionOK(game);
     for (const n of near) {
       if (!n.alive && !(n.deathT > 0)) continue;
       const c = n.renderCenter();
@@ -371,13 +374,16 @@ export class Renderer {
         if (cx < -40 || cy < -40 || cx > vw + 40 || cy > vh + 40) continue;
         const k = 1 - n.deathT / 420; // 0 -> 1 over the fall
         const dir = (n.faceX ?? ((n.facing && n.facing.dx < 0) ? -1 : 1)) < 0 ? -1 : 1;
-        // Topple like a falling body: slow to tip, quick to land, then fade.
-        const fall = k * k * (3 - 2 * k), fade = Math.max(0, Math.min(1, (k - 0.35) / 0.65));
+        // Topple like a falling body: a jolt as the blow lands, tipping faster
+        // and faster, a bump on the ground, then fade (creatureanim.js).
+        const d = deathPose(k, this._deathPose || (this._deathPose = {}));
+        const rot = d.rot, dsx = d.sx, dsy = d.sy, da = d.a;
         drawables.push({ sortY: c.y / TILE - 0.01, z: 1, draw: () => {
           ctx.save();
-          ctx.globalAlpha = 1 - fade * fade;
+          ctx.globalAlpha = da;
           ctx.translate(cx, cy + 11 * sc);
-          ctx.rotate(dir * fall * Math.PI * 0.5);
+          ctx.rotate(dir * rot * Math.PI * 0.5);
+          ctx.scale(dsx, dsy);
           ctx.translate(-cx, -(cy + 11 * sc));
           drawCreature(ctx, n.artId || n.npcId, cx, cy - 2, {
             time: timeMs, facing: n.facing, fx: n.faceX, moving: false, hurt: n.hurt,
@@ -397,13 +403,22 @@ export class Renderer {
       const pad = 48 * sc;
       if (cx < -pad || cy < -pad || cx > vw + pad || cy > vh + pad) continue;
       const off = n.renderOffset ? n.renderOffset() : { x: 0, y: 0 };
-      // A fresh respawn fades in and settles down from a small hop.
+      // A fresh respawn pops up out of the ground in a puff of dust, overshooting
+      // a little and settling, as it fades in (creatureanim.js).
       const spawn = n.spawnT > 0 ? n.spawnT / 350 : 0;
+      // (Once per respawn: a spawn lasts 350ms, so one seen well after the last puff is a new one.)
+      if (spawn > 0 && !(timeMs - n._puffT < 400)) { n._puffT = timeMs; spawnFx(game, n); }
+      const sp = spawn > 0 ? spawnPose(1 - spawn, n._spawnPose || (n._spawnPose = {})) : null;
+      const windAge = windupAge(n, timeMs);
       drawables.push({ sortY: c.y / TILE, z: 2, draw: () => {
-        if (spawn > 0) { ctx.save(); ctx.globalAlpha = 1 - spawn; }
-        // A footfall or the end of a respawn's hop squashes the shadow a touch.
+        // A footfall or the end of a respawn's pop squashes the shadow a touch.
         const land = spawn > 0 && spawn < 0.3 ? Math.sin(spawn / 0.3 * Math.PI) : 0;
-        drawSunShadow(ctx, cx, cy + 12 * sc, 10 * sc, 4.5 * sc, sun, Math.max(footfall(n.walkPhase, n.isMoving) * 0.6, land), spawn * spawn * 6 * sc);
+        drawSunShadow(ctx, cx, cy + 12 * sc, 10 * sc * (sp ? sp.sx : 1), 4.5 * sc * (sp ? sp.sx : 1), sun, Math.max(footfall(n.walkPhase, n.isMoving) * 0.6, land));
+        if (sp) {
+          const fy = cy + 12 * sc + off.y;
+          ctx.save(); ctx.globalAlpha = sp.a;
+          ctx.translate(cx + off.x, fy); ctx.scale(sp.sx, sp.sy); ctx.translate(-(cx + off.x), -fy);
+        }
         if (n === game.player.target) this._lockOn(cx, cy + 12 * sc, sc, timeMs);
         if (n.reflectTicks > 0) {
           // Boss buff: a spiky gold ring while reflecting.
@@ -427,19 +442,20 @@ export class Renderer {
         const hurt = this._heldHurt(n, timeMs);
         // Struck: squash, stretch and wobble about its feet as the blow lands (juice.js).
         const sq = applySquash(ctx, n, hurt, cx + off.x, cy + 12 * sc + off.y);
-        drawCreature(ctx, n.artId || n.npcId, cx + off.x, cy - 2 + off.y - spawn * spawn * 6 * sc, {
+        drawCreature(ctx, n.artId || n.npcId, cx + off.x, cy - 2 + off.y, {
           time: timeMs, facing: n.facing, fx: n.faceX, turn: (n.turnT || 0) / TURN_MS, entity: n,
           moving: n.isMoving, walk: n.walkPhase, move: n.animMove,
           scale: sc, sprite: n.def.sprite, color: n.def.color, boss: n.def.boss, family: n.def.family,
           attackK: n.swingProgress ? n.swingProgress() : -1,
-          hurt, windup: n.windup > 0, castK: n.castT > 0 ? 1 - n.castT / 700 : 0, castCol: n.castCol,
+          hurt, windup: n.windup > 0, windAge, castK: n.castT > 0 ? 1 - n.castT / 700 : 0, castCol: n.castCol,
           status: elementTint(game, n, timeMs),   // burning, chilled or cracked: a wash of the element's colour
           low: game.lowFx,   // low graphics: monsters and townsfolk skip their moving parts
           trim: game.fxTrim,   // frames running slow: monster packs skip theirs too (governor.js)
+          calm,
         });
         if (sq) ctx.restore();
+        if (sp) ctx.restore();
         if (n.mech || n.mechHealer) drawBossMech(ctx, n, cx, cy, sc, timeMs, ox, oy);   // boss mechanics (bossmech.js)
-        if (spawn > 0) ctx.restore();
       } });
     }
     if (game.player.alive) {
@@ -1580,8 +1596,10 @@ export class Renderer {
     for (const h of game.hazards) {
       const k = Math.max(0, Math.min(1, (now - h.start) / h.dur));
       const x = (h.cx - h.r) * TILE - ox, y = (h.cy - h.r) * TILE - oy, w = (h.r * 2 + 1) * TILE;
-      const pulse = 0.5 + Math.sin(timeMs * 0.02) * 0.5;
+      // A smooth throb that quickens as the blow nears, fading in as it's marked (creatureanim.js).
+      const pulse = hazardPulse(now - h.start, h.dur);
       ctx.save();
+      ctx.globalAlpha = hazardIn(now - h.start);
       ctx.fillStyle = `rgba(239,71,111,${(0.16 + pulse * 0.1).toFixed(3)})`;
       ctx.fillRect(x, y, w, w);
       // The inner square fills outward from the centre: when it reaches the edge, it hits.

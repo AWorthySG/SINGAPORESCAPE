@@ -354,6 +354,16 @@ export class CombatFx {
     this._end(delay);
   }
 
+  /** A monster coming back: a flat ring of dust spreading from its feet, a few
+   *  specks of earth kicked out sideways and (not on low graphics) two small glints. */
+  spawnPuff(x, y, scale = 1) {
+    this._begin();
+    this.ring(x, y, 3 * scale, 15 * scale, 320, '#fffaf0', 2, 0.4);
+    this._burst(DOT, x, y - 1, this._n(6), 0.07 * scale, 300, '#e9dcc0', { up: -0.03, g: 0.0003, size: 1.3 * scale });
+    if (!this.low) this._burst(TWINKLE, x, y - 12 * scale, 2, 0.04, 420, '#fff6c8', { up: -0.03, size: 1.5 });
+    this._end(0);
+  }
+
   /** Coins landing burst in a twinkling sparkle. */
   coinSparkle(x, y, delay = 0) {
     this._begin();
@@ -788,4 +798,14 @@ export function dropFx(game, gi, x, y, wait = 0) {
   if (!fx || gi.id !== 'coins') return;
   fx.low = lowOf(game);
   fx.coinSparkle(x, y, Math.max(0, wait) + DROP_ARC_MS);
+}
+
+/** A monster has just come back (from the renderer, the first frame it is seen
+ *  respawning): a puff of dust at its feet. */
+export function spawnFx(game, npc) {
+  const fx = game.cfx;
+  if (!fx || !npc?.renderCenter) return;
+  fx.low = lowOf(game);
+  const c = npc.renderCenter(), sc = npc.def?.scale || 1;
+  fx.spawnPuff(c.x, c.y + 11 * sc, Math.min(2, 0.8 + sc * 0.2));
 }
