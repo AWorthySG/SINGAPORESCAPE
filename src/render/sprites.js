@@ -2586,6 +2586,7 @@ const WORLD_ART = {
     beach_umbrella_teal: [46, 50], rusty_tank: [42, 54], hawker_stall_noodle: [50, 52], hawker_stall_satay: [50, 52], hawker_stall_drinks: [50, 52],
     hawker_stall_fruit: [50, 50], fish_stall: [50, 48], bird_hide: [46, 46], kelong_stilts: [40, 46], stone_lion: [36, 44], roadside_shrine: [34, 46],
     signboard: [32, 44], incense_urn: [32, 40], kopitiam_stool: [34, 28], sampan: [46, 38], boardwalk: [42, 36], boardwalk_corner: [42, 36],
+    peranakan_fountain: [64, 56], kopitiam_parasol: [52, 60], lantern_tree: [40, 64], tiled_planter: [62, 44], mural_board: [60, 52], birdcage_pole: [44, 64],
   }).map(([k, [w, h]]) => [`obj-${k}`, [w, h, 15]])),
   // Animated set dressing: washing on a laundry pole, and a lantern swaying overhead.
   ...Object.fromEntries([0, 1, 2, 3].map((i) => [`obj-laundry_pole-${i}`, [52, 40, 15]])),

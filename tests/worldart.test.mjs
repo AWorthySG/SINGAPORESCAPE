@@ -158,6 +158,41 @@ test('every set piece has its picture; landmarks span their footprint and loops 
   assert.equal(frames.size, 4, [...frames].join(' '));
 });
 
+test("Kampong Glam's plaza props stand clear of its paths, townsfolk and dig spots, and every tile stays reachable", async () => {
+  const { CLUE_SPOTS } = await import('../src/data/clues.js');
+  const { REGION_GIVERS } = await import('../src/data/regionQuests.js');
+  const { GATE } = await import('../src/game/waves.js');
+  const { RESIDENTS } = await import('../src/data/consequences.js');
+  const NEW = ['peranakan_fountain', 'kopitiam_parasol', 'lantern_tree', 'tiled_planter', 'mural_board', 'birdcage_pole'];
+  const inPlaza = (o) => o.x > 46 && o.x < 70 && o.y > 46 && o.y < 64;
+  const props = data.objects.filter((o) => inPlaza(o) && [...NEW, 'trishaw', 'lantern_post'].includes(o.objId));
+  for (const id of NEW) assert.ok(props.some((o) => o.objId === id), `${id} on the plaza`);
+  assert.equal(props.length, NEW.length + 3, 'with a trishaw and two lantern posts');
+  for (const id of NEW) assert.ok(worldArt().has(`obj-${id}`), `${id} has its picture`);
+  // Nothing on, or next to, a tile somebody needs.
+  const keep = [...data.npcSpawns.map((n) => [n.x, n.y]), ...CLUE_SPOTS.map((c) => [c.x, c.y]), [GATE.x, GATE.y],
+    ...Object.values(REGION_GIVERS).map((g) => g.at), ...Object.values(RESIDENTS).map((r) => r.at), [data.spawnPoint.x, data.spawnPoint.y]];
+  for (const o of props) {
+    for (const [x, y] of keep) assert.ok(Math.max(Math.abs(o.x - x), Math.abs(o.y - y)) > 1, `${o.objId} at ${o.x},${o.y} crowds ${x},${y}`);
+    assert.ok(o.x !== 57 && o.x !== 58 && o.y !== 54 && o.y !== 55, `${o.objId} at ${o.x},${o.y} stands on an entrance line`);
+  }
+  // Every open tile of the plaza can still be walked to from where you start.
+  const world = new World();
+  world.build(data);
+  const seen = new Set([`${data.spawnPoint.x},${data.spawnPoint.y}`]), q = [[data.spawnPoint.x, data.spawnPoint.y]];
+  while (q.length) {
+    const [x, y] = q.pop();
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, ny = y + dy, k = `${nx},${ny}`;
+      if (nx < 44 || nx > 72 || ny < 44 || ny > 66 || seen.has(k) || world.isBlocked(nx, ny)) continue;
+      seen.add(k); q.push([nx, ny]);
+    }
+  }
+  for (let y = 47; y <= 63; y++) for (let x = 47; x <= 69; x++) {
+    if (!world.isBlocked(x, y)) assert.ok(seen.has(`${x},${y}`), `${x},${y} cut off`);
+  }
+});
+
 test('flowerbeds round the plaza vary their look by tile, but stay the same objects', () => {
   const world = new World();
   world.build(data);
