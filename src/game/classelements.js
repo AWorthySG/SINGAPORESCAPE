@@ -95,10 +95,11 @@ export function addWard(game, amt) {
 
 /** Blood's price for a cast now: `share` of your life as it is, never taking you
  *  under LIFE_COST_FLOOR of your life (as the Zealot's life-paid skills); 0 at
- *  or under the floor. */
+ *  or under the floor. At least 1 life above it: with the floor at 1%, a share of
+ *  a little life rounds down to nothing, and Blood would hit hard for free. */
 export function lifeCost(game, share) {
   const p = game.player, floor = Math.ceil(game.maxHp() * LIFE_COST_FLOOR);
-  return Math.max(0, Math.min(Math.floor(p.hp * share), p.hp - floor));
+  return Math.max(0, Math.min(Math.max(1, Math.floor(p.hp * share)), p.hp - floor));
 }
 
 /** Pay Blood's price: the life comes off with a deep-red number over you, and

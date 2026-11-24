@@ -389,3 +389,19 @@ test('the bolts and effects draw on a canvas without throwing, low graphics and 
   }
   assert.ok(calls.n > 100);
 });
+
+test('the life-cost floor is 1%, and Blood pays at least 1 life all the way down to it', () => {
+  assert.equal(LIFE_COST_FLOOR, 0.01);
+  const { g } = mk('zealot');
+  g.skills.xp.hitpoints = 1e9;
+  const p = g.player, floor = Math.ceil(g.maxHp() * LIFE_COST_FLOOR);
+  p.hp = floor + 5;   // 5% of so little rounds to nothing, but the price is still 1
+  assert.equal(ClassEl.lifeCost(g, 0.05), 1);
+  p.hp = floor;
+  assert.equal(ClassEl.lifeCost(g, 0.05), 0, 'at the floor it is free');
+  // The life-paid skills wait at or under 1% of your life too.
+  p.hp = Math.floor(g.maxHp() * LIFE_COST_FLOOR);
+  assert.equal(g.lifeCostBlocked({ lifeCost: 0.15 }), true);
+  p.hp = floor + 1;
+  assert.equal(g.lifeCostBlocked({ lifeCost: 0.15 }), false);
+});

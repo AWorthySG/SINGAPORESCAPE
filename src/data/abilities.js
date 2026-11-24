@@ -86,7 +86,10 @@ export const SUNDER_TICKS = 10;
 //   lifeCost  paid on top of the adrenaline: that share of your life as it is now (you
 //             always keep 1), and never at or under LIFE_COST_FLOOR of your life (auto
 //             battle included, since it only uses what you can pay for)
-export const LIFE_COST_FLOOR = 0.2;
+// The owner asked for the floor to be just 1% (it was 20%): a Zealot can spend
+// itself almost to nothing, so Blood and the life-paid skills stay strong deep
+// into a fight. Auto battle still never pays at or under it.
+export const LIFE_COST_FLOOR = 0.01;
 // The Ranger's skills are all damage buffs (see the Ranger's entries below):
 // Focused Draw's and Steady Aim's +damage, Camouflage's armour pierce (in %)
 // and Deadeye's +damage on top of sure crits. Tuned so a Ranger's damage over
