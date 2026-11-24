@@ -55,6 +55,7 @@ import { drawGrave } from './grave.js';
 import { drawFishSchool } from './fishschoolfx.js';
 import { playerBarVisible, drawPlayerHp } from './playerhp.js';
 import { drawClassShot, drawClassEffect, drawClassAuras } from './classfx.js';   // the Priest's and the Zealot's own elements
+import { censerBolt } from './censerSwing.js';   // a Zealot's bolt leaves the swinging censer
 import { namePill, drawPill, pillRes, PILL_ROW } from './namepill.js';
 import { foeThreat } from '../ui/bossbar.js';
 
@@ -1188,8 +1189,11 @@ export class Renderer {
         ctx.restore();
         continue;
       }
+      // A Zealot's bolt waits in the censer until it's flung, then flies from it (censerSwing.js).
+      const cz = censerBolt(e, t, game, this._now, ox, oy);
+      if (cz && cz.t < 0) continue;
       // A Priest's or Zealot's own element: a beam, a falling blade, a ground circle... (classfx.js).
-      if (drawClassShot(ctx, e, t, ox, oy, game)) continue;
+      if (drawClassShot(ctx, cz ? cz.e : e, cz ? cz.t : t, ox, oy, game)) continue;
       // Magic bolt: a glowing orb in its element's colour with a fading trail of
       // embers behind it; a crit's is half as big again (and brighter, game.js).
       const k = e.crit ? 1.5 : 1;

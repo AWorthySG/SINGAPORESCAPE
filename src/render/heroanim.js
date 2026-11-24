@@ -603,6 +603,9 @@ Object.assign(CLIPS, {
   cast: castClip({ gather: 0.4, fling: 0.48 }),
   flick: castClip({ gather: 0.34, fling: 0.41, rise: 3, settle: 1.4 }),
   orb: castClip({ gather: 0.4, fling: 0.48, rise: 10 }),
+  // A censer: an earlier, lower wind-up as it's swung back on its chain, and
+  // only a small lift (the chain's own swing is censerSwing.js's).
+  censer: castClip({ gather: 0.36, fling: 0.48, rise: 3 }),
 });
 
 // ---------------- Dual wielding: both hands strike ----------------
@@ -779,7 +782,7 @@ export const WEAPON_CLIP = {
   shortbow: 'bow_quick', longbow: 'bow', crossbow: 'crossbow', pistol: 'pistol_one', rifle: 'rifle',
   staff: 'cast', wand: 'flick', orb: 'orb',
   knuckles: 'punch', monk_gloves: 'punch',   // a Monk's fists: one hand at a time unless paired (DUAL_CLIPS)
-  censer: 'cast',   // a Zealot's censer is swung out on its chain like a staff's cast
+  censer: 'censer',   // a censer is swung back and flung out on its chain
 };
 // Dual-wield kinds (equipment.js dualType) -> their two clips, played in turn.
 export const DUAL_CLIPS = {
@@ -887,7 +890,7 @@ export function sampleHeroClip(id, u, info = {}) {
   ch.paint = clip.tracks.arc || clip.tracks.arc2 ? 1 : 0;
   return { id, u, kind: info.kind || (clip.hands ? 'skill' : 'combat'), ch, tool: info.tool || null,
     upright: !!clip.upright, trail: clip.trail || null, trail2: clip.trail2 || null, dust: !!clip.dust, tween: clip.tween ?? 1, guardIn: !!clip.guardIn,
-    jobClass: info.jobClass, low: !!info.low, weapon: info.weapon || null, offhand: info.offhand || null };
+    jobClass: info.jobClass, low: !!info.low, calm: !!info.calm, weapon: info.weapon || null, offhand: info.offhand || null };
 }
 
 // ---------------- Per-hero state and blending ----------------
@@ -996,7 +999,7 @@ export function heroAnimFrame(game, now) {
   const w = game.equipment?.get?.('weapon');
   const type = w ? ITEMS[w]?.equip?.weaponType || null : null;
   const dual = !!game.equipment?.isDualWielding?.();
-  const held = { jobClass, low, weapon: type, offhand: dual ? game.equipment.get('shield') : null };
+  const held = { jobClass, low, calm: !!game.reduceMotion, weapon: type, offhand: dual ? game.equipment.get('shield') : null };
   // Count attacks (a new swing starts over from 0), so dual wielders alternate
   // clips; each attack's clip then runs on its own clock (blowU).
   if (sk >= 0 && (st.lastSk < 0 || sk < st.lastSk - 0.05)) {
