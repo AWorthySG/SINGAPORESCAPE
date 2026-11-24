@@ -108,8 +108,14 @@ test('the tap keeps out of danger: regions far above you, and the reach of any m
   assert.equal(c.world.zoneAt(spot.x, spot.y).name, 'Changi Coast');
   assert.ok(c.player.path.length > 200, `a long walk (${c.player.path.length} steps)`);
   assert.ok(c.player.path.every(safe), 'every step of it keeps out of danger');
+  // The danger the walk keeps out of is real: Gardens by the Bay and Tekong
+  // Badlands count as unsafe. (A plain shortest walk used to cut through them,
+  // but which of several equally short walks A* picks shifts whenever something
+  // on the way moves, such as Kampong Glam's plaza props, so that is no test.)
+  const unsafeIn = (name) => { const W = c.world; for (let y = 0; y < W.height; y += 2) for (let x = 0; x < W.width; x += 2) if (W.zoneAt(x, y)?.name === name && !W.isBlocked(x, y) && !safe({ x, y })) return true; return false; };
+  assert.ok(unsafeIn('Gardens by the Bay') && unsafeIn('Tekong Badlands'), 'the regions on the way are danger to a level 19');
   const plain = findPath(c.pathCfg(), start, spot, { reachAdjacent: true, maxNodes: 150000 });
-  assert.ok(plain.length && !plain.every(safe), 'where a plain walk there cuts through danger');
+  assert.ok(plain.length && c.player.path.length <= plain.length * 1.6, 'and keeping out of it costs a sensible detour at most');
   // With the monsters about, a region's level says little: Sentosa Beach counts
   // as level 0, yet its sea snakes (level 81) set on a new fighter, who never
   // fights back while fishing, and an AFK fisher there died within a minute. The
