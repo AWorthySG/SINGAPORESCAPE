@@ -26,8 +26,9 @@ export function askGoods(ui, st, id, qty) {
   };
 }
 
-/** Draw the goods list and the "Offer all…" buttons into `body`. `st`: this part's { pending, result }. */
-export function shrineGoodsSection(ui, body, st, rerender) {
+/** Draw the goods list and the "Offer all…" buttons into `body`. `st`: this part's { pending, result }.
+ *  `hot(id, n)`: what a hotkey on a row does (shrinehot.js). */
+export function shrineGoodsSection(ui, body, st, rerender, hot = null) {
   const g = ui.game;
   body.insertAdjacentHTML('beforeend', '<div class="ench-head shrine-head">Offer other items</div>'
     + '<div class="modal-hint">Anything else from your pack: food, potions, runes, arrows, bones, seeds and the rest, '
@@ -39,7 +40,8 @@ export function shrineGoodsSection(ui, body, st, rerender) {
   if (!opts.length) list.innerHTML = '<div class="modal-hint">You carry nothing else the shrine would take.</div>';
   for (const o of opts) {
     const row = document.createElement('div');
-    row.className = 'gear-row feed-row salvage-row';
+    row.className = 'gear-row feed-row salvage-row' + (hot ? ' hot' : '');
+    if (hot) row._hot = (n) => hot(o.id, n);
     row.innerHTML = `<span class="gear-ic">${itemIconSVG(o.id, 28)}</span>`
       + `<div class="gear-info"><div class="gear-name"><b>${name(o.id)}</b><span class="gear-tag">x${formatNumber(o.count)}</span><span class="gear-tag">${esc(GOODS_KINDS[o.kind].name)}</span></div>`
       + `<div class="gear-stats">${pointsText(o.per)} points each (${pointsText(o.per * o.count)} for all)</div></div>`;
